@@ -1,7 +1,21 @@
-{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "alerts.* 方法族入表与协议 v6→v7 bump 的对账面(方法注册表镜像与错误码纪律)"}
-{"file": ".trellis/spec/domain/yaml-schema.md", "reason": "品类 YAML 12 节公开契约边界(规则存储推荐 SQLite 不动 YAML 的依据);watchlist keywords/mute 语义"}
+{"file": ".trellis/tasks/10-04-alert-rules/design.md", "reason": "契约权威:表结构/Store 方法族/sidecar 四方法/引擎挂点/动作/错误码/UI 布局的实现对照面(决议 Q1-Q8 展开)"}
+{"file": ".trellis/tasks/10-04-alert-rules/implement.md", "reason": "阶段与门禁:Stage 0-E + G1-G5 逐项推进清单;开工先做 0.2 协议版本占位定案(v7/v8)"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "alerts.* 方法族入表与协议 v6→v7 bump 的对账面(方法注册表镜像与错误码纪律;分段追加可并存)"}
+{"file": ".trellis/spec/domain/yaml-schema.md", "reason": "品类 YAML 12 节公开契约边界(规则存储 SQLite 不动 YAML 的依据);watchlist keywords/mute 语义"}
 {"file": ".trellis/spec/python/error-handling.md", "reason": "坏 when 表达式装载期结构化拒、求值错隔离不上抛的错误模型纪律"}
 {"file": ".trellis/spec/python/logging.md", "reason": "求值错单条 WARNING + 视为未命中的自动恢复语义(classify 先例对齐)"}
+{"file": "src/shishi/store/sqlite.py", "reason": "迁移先例实读:_SCHEMA 基线/_MIGRATIONS 链(:320-326)/_migrate_v4_add_feedback 幂等同构(:232-267);SCHEMA_VERSION 6→7 与 _migrate_v7 落点"}
+{"file": "src/shishi/store/base.py", "reason": "Store Protocol 扩面落点:九方法族(save/list/delete_alert_rule + record_fired/mark_status/has_fired/list_fired/fired_counts + update_item_tags)契约 docstring 同步"}
+{"file": "src/shishi/pipeline.py", "reason": "挂点实读:run() 阶段循环(:966 run_store/:1118 broken 空集)、_stage_push 直退(:2115-2119)、Item.view(:465-478)/from_extracted(:453-461)、add_tags(:480-486)、_effective_watchlist(:2018-2028)、_stage_analyze 直通(:1859-1863)"}
+{"file": "src/shishi/push/digest.py", "reason": "send_immediate 同门(:290-351 签名与 registry 拦截 :329-343)+ digest flush 被同注册表拦(:280-288)+ dedup_key None 兜底 url(:327-328)"}
+{"file": "desktop/entry.py", "reason": "sidecar 落点:_HANDLERS(:3571 现 43 条)/PROTOCOL_VERSION(:336)/push.write 全量先例(:3359)/push.test 真发先例(:3503)/_emit_progress 备选路线(:2292);alerts.fired 回放收口在 run 终态发 completed 事件处"}
+{"file": "myia-classifier/myia_classifier/custom.py", "reason": "白名单 AST 求值器复用面:_ALLOWED_NODES 与资源护栏(:74-143)、Rule.evaluate 求值错 WARNING+未命中隔离(:353-362)"}
+{"file": "src/shishi/push/route.py", "reason": "RouteRule.__post_init__ 构造期拒先例(:100-109):AlertRule 构造期拒的同构模板(RuleSyntaxError→结构化错)"}
+{"file": "src/shishi/enrich/scoring.py", "reason": "mute_hit(:76)title 子串语义——mute 硬规则的判定函数,Q5 决议钉引擎自跑不读 metadata['muted']"}
+{"file": "desktop/ui-src/src/screens/messaging/messaging-screen.tsx", "reason": "UI 挂点:推送规则面板(:451-489)之后追加「告警规则」子面板(design §9 布局);并行流核查已过(在途改动仅注释更名)"}
+{"file": "src/shishi/cli.py", "reason": "CLI 只读 shishi alerts list 的先例对齐:_add_feedback_parser(:487-502)子命令形态与 --json 输出口径"}
 {"file": ".trellis/tasks/10-03-v12-backlog/prd.md", "reason": "父池档第 5 项 G5 主体边界与拆任务引用闭环要求"}
+{"file": ".trellis/tasks/10-04-hermes-cron/prd.md", "reason": "协议在途并存档:cron.* 9 方法族(prd:27)与 alerts.* 不相交、不做 UI 屏(prd:45);PROTOCOL_VERSION v7 归属按合入顺序定(决议 Q1-③)"}
 {"file": ".trellis/tasks/archive/2026-10/10-03-ui-feature-census/prd.md", "reason": "G5 缺口矩阵行(业界证据/MYIA 现状/优先级)与 F 类刻意不做边界"}
 {"file": ".trellis/tasks/archive/2026-10/10-03-ui-feature-census/research/feed-monitors.md", "reason": "Inoreader Rules 条件→动作语义原始出处(官方 URL),模仿对象语义依据"}
+{"file": "tests/test_alert_rules.py", "reason": "实现产出主测试面(ask 指定单文件合并 design §11 store/引擎/管线三行,34 函数参数化 49 用例):v6→v7 迁移双路径幂等/两表 CRUD+UNIQUE 占坑+fired_counts 派生/构造期拒 16 形态+9**9**9 护栏/content 补丁+Item.view 零波及/score=None 隔离/mute 全链/scope 钉品类/push sent-failed-degraded 三态/tag 两步+行剪枝 WARNING/at-most-once 二轮/双向压制引擎级+管线级/零规则-dry-broken 三短路/附加步故障不改终态;实现面=src/shishi/{store,alerts,pipeline.py}+desktop/entry.py(协议 v7 四处理器+alerts.fired 回放)+cli.py(alerts list 只读)+消息屏四件;AC 勾选实况与 leftovers 见 task.json 2026-10-04 收口段"}

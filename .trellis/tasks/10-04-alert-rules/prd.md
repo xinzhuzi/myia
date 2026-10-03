@@ -8,8 +8,10 @@
   (池档 `10-03-v12-backlog/prd.md` 第 5 项)。
 - **G5 前半已落地**:设置屏推送测试按钮(`push.test`,`desktop/entry.py:3613`,
   feed-ux 批);本档只做**主体:告警规则引擎**。
-- 本档为 planning 档:收现状、Requirements/AC 草案与 grill 待决;**不实现**。
-  开工前按 grill 决议拆 design/implement。
+- 本档 planning 期的「收现状 + 草案 + grill 待决」已于 **2026-10-04 自律 grill(经主人
+  /workflow 授权)闭环**:Q1-Q8 决议见下方「Grill 决议」节,Requirements/AC 已按决议
+  改定;契约展开 = `design.md`(表结构/方法契约/引擎挂点/错误码/UI 布局),阶段与门禁
+  = `implement.md`。
 
 ## 模仿对象:Inoreader Rules 语义
 
@@ -73,35 +75,145 @@ sidecar 面:`run.start` 单飞(`run_busy`),终态走 `completed` 事件;
 - watchlist mute(品类 YAML `WatchlistConfig.mute`,`src/myia/schema.py:858-862`)
   = 「不感兴趣」语义,与告警触发是压制关系候选(Grill Q5)。
 
-## Requirements 草案(grill 后定稿)
+## Requirements(2026-10-04 grill 定稿)
 
 1. **规则模型**:一条规则 = `{名称, 启停, when 表达式(复用 route 同款白名单
-   AST 文法,零新语法), 动作, 作用域(全局/单品类)}`;坏表达式装载期拒(fail fast),
-   运行期求值错按 classify 先例隔离(单条 WARNING + 视为未命中,不 break 批)。
-2. **求值**:情报入流时对每条新条目求值(挂点与时机见 Grill Q3);同条目同规则
-   只触发一次(fired 记录去重,见 Grill Q5)。
-3. **动作(v1 候选集,裁剪见 Grill Q4/Q7)**:推送指定通道(含 targets 定向、
-   可选 template)、加标签;每动作复用既有同门实现,不自建第二套发送路径。
-4. **sidecar 协议扩展**:`alerts.*` 方法族(清单/保存/删除/试跑,形状见 Grill Q1)+
-   `alerts.fired` 事件;`PROTOCOL_VERSION` 6→7;spec 镜像表同步。
-5. **规则管理 UI**:入口见 Grill Q6;规则列表(启停开关、命中计数)+ 新建/编辑表单
-   (when 表达式 + 动作选择)+ 即时测试(合成条目或取最近一条实跑)。
-6. **可观测**:fired 历史可查(时间/规则/条目);规则求值错误进 logs.tail 可见。
-7. **零惊扰默认**:不配规则 = 现行为逐字节不变;告警与既有 push.route 并行不扰
-   (route 照旧决定 immediate/digest,告警是叠加通道)。
+   AST 文法,零新语法), 动作(push|tag 二选一), 作用域(全局/单品类)}`;坏表达式
+   装载期拒(fail fast,RouteRule 构造期先例),运行期求值错按 classify 先例隔离
+   (单条 WARNING + 视为未命中,不 break 批)。
+2. **求值**:ingest 时求值——`Pipeline.run()` 阶段循环后、maintenance 前的**独立
+   轻量附加步**(不并入 `_stage_push` 收尾:其开头 `if not self.config.push` 直接
+   return,品类未配 push 时并入收尾的告警全哑);同条目同规则只触发一次
+   (alert_fired UNIQUE(rule_id, dedup_key) 占坑,见 Grill Q3/Q5)。
+3. **动作(v1 = push + tag)**:push = 当前品类 `push[]` 内解析该类型第一条通道
+   实例走 `send_immediate` 同门(槽位注册表防重发免费获得,双向压制;品类未配该
+   类型 = 降级 WARNING+fired 记录不发,禁止跨品类借凭据);tag = `Item.add_tags`
+   + `items.tags` 列回写(store 新增 `update_item_tags`)。沉淀为关键词/digest 汇总
+   留 v2。
+4. **sidecar 协议扩展(四方法定死)**:`alerts.list / alerts.save / alerts.delete /
+   alerts.test` + `alerts.fired` 事件——启停不设独立方法(save 全量替换承建/改/启停,
+   push.write 先例;命中计数不落 rules 行,由 alert_fired COUNT 派生);test 必须
+   带参数 `{rule|rule_id, item?(合成字段|item_id,缺省取最近一条)}` 做 dry 求值
+   展示将触发动作(不真发不落 fired),真发借既有 `push.test`;`PROTOCOL_VERSION`
+   6→7(占位:若 10-04-hermes-cron 先合入占 v7 则顺延 v8);spec 镜像表分段追加。
+   fired 事件通路 = run 完成时父进程查新 fired 回放(不依赖子进程 stderr 日志格式)。
+5. **规则管理 UI(入口定死)**:消息屏下区「告警规则」子面板(顺延推送规则面板,
+   同属消息心智);规则列表(启停开关、命中计数派生)+ 新建/编辑表单(when 表达式 +
+   动作选择)+ 即时测试;feed 卡就地建规则留 v2。
+6. **可观测**:fired 历史可查(时间/规则/条目,CLI `shishi alerts list` 只读对齐
+   feedback 先例);规则求值错误进 logs.tail 可见。
+7. **零惊扰默认**:不配规则 = 现行为逐字节不变(附加步唯一开销 = 每 run 一次空表
+   SELECT);dry-run 零告警(fired 不落真库不真发);mute 命中不触发(硬规则,引擎
+   自跑 mute_hit + effective watchlist,不读 metadata['muted']);告警与既有
+   push.route 并行不扰(route 照旧决定 immediate/digest,告警是叠加通道)。
 
-## Acceptance Criteria 草案(开工时按 grill 决议改定)
+## Acceptance Criteria(2026-10-04 按 grill 决议改定)
 
-- [ ] 规则 CRUD 全走 sidecar `alerts.*`,协议版本 bump 至 v7 且 spec 镜像表对账一致
-- [ ] when 表达式复用 classify 白名单 AST:越权构造(属性访问/下标/lambda/超长)装载期结构化拒;`9**9**9` 类资源炸弹不出进程
-- [ ] 命中即触发且同条目同规则不重复触发(重启 sidecar 后仍不重发)
-- [ ] 推送动作经 `send_immediate` 同门:同槽位防重发注册表生效;通道失败结构化上报不拦其余条目
-- [ ] 不配规则时全链路行为与现状逐字节一致(既有 route/digest 测试全绿)
-- [ ] mute 命中条目的告警行为符合 grill Q5 决议(触发/压制,测试钉死)
-- [ ] 规则管理 UI:建/改/删/启停/即时测试五操作落地,坏表达式 UI 内可见结构化错误
-- [ ] fired 历史可查且 logs.tail 可见求值错误
+- [ ] 规则 CRUD+启停全走 sidecar `alerts.*` 四方法(启停并入 save 全量替换,无独立
+      启停方法);协议版本 bump(本批预定 v7,若 hermes-cron 先占 v7 则 v8)且 spec
+      镜像表对账一致(方法注册表分段追加)
+- [ ] when 表达式复用 classify 白名单 AST:越权构造(属性访问/下标/lambda/超长)装载
+      期结构化拒;`9**9**9` 类资源炸弹不出进程
+- [ ] 命中即触发且同条目同规则不重复触发:alert_fired UNIQUE(rule_id,dedup_key)
+      占坑先行、占坑成功才执行动作——崩溃/失败重跑不重发(至多一次,测试钉死)
+- [ ] 推送动作经 `send_immediate` 同门:同槽位防重发注册表**双向压制**生效(route
+      immediate 先发→告警被拦;告警先发→digest flush 被拦,两方向测试钉死);通道
+      失败结构化上报不拦其余条目;品类未配该类型通道时降级(WARNING+fired 记录不发,
+      禁止跨品类借凭据)
+- [ ] 不配规则时全链路行为与现状逐字节一致(既有 route/digest 测试全绿);dry-run
+      零告警(fired 不落真库、不真发);push 阶段 broken 时告警同步跳过
+- [ ] mute 命中条目**不触发**(硬规则,测试钉死):判定 = 引擎自跑 mute_hit +
+      effective watchlist(反馈 0.0 权重词并入),不读 metadata['muted'](与品类
+      enrich 开关解耦)
+- [ ] tag 动作两步落地:`Item.add_tags` + `items.tags` 列回写(store 新增
+      update_item_tags)
+- [ ] 规则管理 UI(消息屏下区子面板):建/改/删/启停/即时测试五操作落地,坏表达式
+      UI 内可见结构化错误;alerts.test 三取材(草稿 rule/已存 rule_id/合成 item|
+      item_id|缺省最近一条)dry 展示将触发动作
+- [ ] `alerts.fired` 事件在 run 终态由父进程查新 fired 回放到达 webview(不依赖
+      子进程 stderr 日志格式);fired 历史可查(sidecar + CLI `shishi alerts list`
+      只读)且 logs.tail 可见求值错误
+- [ ] 旧库(v6)打开自动升级 v7 零数据迁移(双路径:新库 _SCHEMA 基线 + 旧库幂等
+      迁移);不 seed(零惊扰默认)
 
-## Grill 待决(8 问,每问带推荐)
+## Grill 决议(2026-10-04,自律 grill,经主人 /workflow 授权)
+
+> 8 问全部按推荐成立;以下为决议原文转录,与上文推荐段冲突处以本节为准。
+> 行号口径 = 2026-10-04 工作区实读(`src/myia/` 已随 10-03-shishi-everywhere 更名为
+> `src/shishi/`;`desktop/entry.py` 在途修改使 push.test 由 3613 漂移至 3503——
+> 上文「现状实读」段保留 main@1d4ad62 历史口径不动)。契约展开见 design.md。
+
+**Q1(协议面)按推荐四方法** `alerts.list/save/delete/test` + `alerts.fired` 事件,
+三处钉死:①**启停不设独立方法**——alerts.save 全量替换承建/改/启停(push.write
+全量先例 `desktop/entry.py:3359-3366`),命中计数不落 rules 行(save 全量会清计数),
+由 alert_fired COUNT 派生;②**alerts.test 必须带参数** `{rule|rule_id, item?(合成
+字段|item_id,缺省取最近一条走 store.items)}` 做 dry 求值展示将触发动作,真发借
+push.test(`entry.py:3503` 先例);③**v7 不撞在途根本**——唯一协议占用方
+10-04-hermes-cron 加 cron.* 9 方法(其 prd:27)与本族不相交且其明确不做 UI 屏,
+版本号按合入顺序定(本批预定 v7,若 hermes-cron 先合入占 v7 则本批顺延 v8),spec
+镜像表分段追加可并存;事件通路推荐 **run 完成时父进程查新 fired 回放**(不依赖子
+进程 stderr 日志格式,_emit_progress 正则路线 `entry.py:2292` 备选),design 钉一条。
+
+**Q2(规则存储)按推荐 SQLite 两表**(`alert_rules` + `alert_fired`)。迁移走
+`_MIGRATIONS` 链追加 `_migrate_v7`(`sqlite.py:320-324` v2→v6 先例),双路径 = 新库
+`_SCHEMA` 基线 + 旧库 `CREATE TABLE IF NOT EXISTS` 幂等迁移(`_migrate_v4_add_feedback`
+`:232-267` 完整同构先例),现有库打开自动升级零数据迁移;**不 seed**(零惊扰默认,
+AC 已钉);alert_fired 带 **title snapshot**(FeedbackRecord 先例
+`store/models.py:148-159`,items 被 retention 剪枝后 fired 历史仍可读)。工作量项进
+design:Store Protocol(base.py)扩 save/list/delete_alert_rule +
+record_fired/has_fired/list_fired 方法族并同步契约 docstring。
+
+**Q3(求值时机)按推荐 ingest 时挂 push 后**,但钉死形态为 **run() 阶段循环后的
+独立轻量附加步**、明确不取「并入 _stage_push 收尾」——_stage_push 开头
+`if not self.config.push` 直接 return(`pipeline.py:2115-2119`),品类未配 push 通道
+时并入收尾的告警(含 tag-only 规则)全哑;独立步用 run_store(dry-run=内存库
+`:966`,fired 不落真库,零告警承诺自动成立),且 push 阶段 broken 时
+(result.items=[] `:1118`)告警同步跳过。失败重跑推演:重跑接管 fetch/classify/dedup
+检查点(RESUME_CHECKPOINT_STAGES `:240`)后 analyze/push 对同批条目重跑、告警确会
+再求值,防线 = **先 INSERT alert_fired 占坑(UNIQUE(rule_id,dedup_key) 冲突即跳过
+动作)成功才推送**——至多一次语义与 send_immediate 的 registry 同哲学
+(`digest.py:329-343`),崩溃/重跑不重发,唯一约束够;dedup_key 为 None 兜底
+url(`:328` 同款)。
+
+**Q4(动作集)按推荐 push+tag、沉淀/digest 留 v2**,叠加语义成立并补两处实现缺口:
+①**同 key 同槽位自然压制双向收敛**——route immediate 先发则告警 send_immediate 被
+registry.should_send 拦(`digest.py:329-331`),告警先发则 digest flush 被同注册表拦
+(`:280-284`),两个方向测试钉死;②**通道凭据来源钉死**——send_immediate 需要
+Channel 实例、凭据来自当前品类 push[],规则动作的 channel 引用在当前品类 push[] 内
+解析该类型第一条,品类未配该类型 = 该动作降级(WARNING+fired 记录不发),禁止跨
+品类借凭据;③**tag 动作补回写**——条目在 dedup 阶段已入库(`pipeline.py:1807`),
+push 后 tag = Item.add_tags(`:480-486`)+ 新增 store.update_item_tags 回写 items 表
+(base.py 现无此方法),进 design。
+
+**Q5(去重/mute/route)按推荐全部成立**:fired 去重 = alert_fired(rule_id,
+dedup_key) 唯一约束独立表,dedup_registry 是槽位防重发语义(last_pushed_at 可覆盖)
+不复用正确;**mute 命中不触发**(硬规则测试钉死),判定源钉为引擎复用 mute_hit
+(`scoring.py:76`)+ `_effective_watchlist`(`pipeline.py:2018-2028`,反馈 0.0 权重词
+已并入)自跑——**不读 metadata['muted'] 标记**,因 enrich 未启用品类无该标记
+(_stage_analyze 直通 `:1859-1863`),自跑判定与品类 enrich 开关解耦;route 照旧
+并行、告警为叠加通道。
+
+**Q6(UI 入口)按推荐消息屏下区子面板**,并行流核查通过:推送规则面板在
+`messaging-screen.tsx:451-489`,「告警规则」子面板顺延其后同属消息心智;hermes-cron
+明确不做 UI 屏(其 prd:45),crawl4ai-l3 为引擎层不动此屏;messaging/api.ts 在途
+改动经 git diff 实证仅一行注释更名(myia.push→shishi.push)无功能占用。feed 卡就地
+建规则留 v2。
+
+**Q7(范围裁剪)按推荐 when 复用白名单 AST、不做表单构建器**,语法/资源护栏/隔离
+全现成(`custom.py:74-143` 白名单+护栏,Rule.evaluate 求值错 WARNING+未命中
+`:353-362`,RouteRule 构造期拒先例 `route.py:100-109`);补一处求值上下文缺口——
+Item.view() 不含 content(`pipeline.py:465-478`;from_extracted 将 content 摘出
+metadata `:453-461`),PRD 条件候选「关键词:标题/正文/来源」中正文条件在原生 view
+写不了,修法 = 告警引擎构造 ctx=item.view() 后补 ctx['content']=item.content,route
+共享的 view() 零波及;score 阈值用 metadata['score'] 标量(enrich 回填
+`:1846-1847`,route 同读法),scores dict 禁下标不构成障碍、enrich 未启用时
+score=None 走既有隔离;其余候选字段 category/title/source/url/dedup_key/tags 全在
+view。
+
+**Q8(CLI 面)按推荐桌面独占写路径 + CLI 只读 `myia alerts list`**(查 fired
+历史),对齐 feedback 子命令先例(`cli.py:488-499`);CLI 写路径留 v2。
+
+## Grill 待决(8 问,每问带推荐;已决,见上节)
 
 **Q1 协议面形状**:`alerts.*` 方法族怎么切?五方法(list/save/delete/test/dryrun)
 还是三方法(list/save/delete)+ 既有 `push.test` 借用?
@@ -169,8 +281,10 @@ desktop 通道同哲学)。CLI 写路径留 v2 视需求。
 
 - 不做云端索引式告警(Brand24/Google Alerts 全网监听,F 类延伸,census 拍板不追)。
 - 不做 70+ 渠道矩阵(changedetection 式);通道面 = 既有 `myia.push` 通道集。
-- 不做表单化条件构建器、趋势/提及量条件、digest 汇总、规则级翻译/摘要动作(v2 候选)。
-- 本档不改任何代码;实现前须按 grill 决议补 design.md(协议契约钉死)与 implement.md。
+- 不做表单化条件构建器、趋势/提及量条件、digest 汇总、规则级翻译/摘要动作、
+  CLI 写路径、feed 卡就地建规则(v2 候选)。
+- 本档(planning/design 期)不改任何代码;design.md 与 implement.md 已按 grill
+  决议立档(2026-10-04),实现按 implement.md 阶段推进。
 
 ## 关系档
 
@@ -178,5 +292,7 @@ desktop 通道同哲学)。CLI 写路径留 v2 视需求。
 - 证据档:`archive/2026-10/10-03-ui-feature-census/prd.md` G 矩阵 G5 行 +
   `research/feed-monitors.md`(Inoreader Rules 语义与官方 URL)。
 - 前半搭车档:`10-03-feed-ux`(push.test)。
+- 协议在途并存档:`10-04-hermes-cron`(唯一协议占用方,cron.* 9 方法族与本档
+  alerts.* 不相交;PROTOCOL_VERSION v7 归属按合入顺序定,见 Grill 决议 Q1-③)。
 - 相邻入池项:G6 趋势折线(与 store.trend/metric_history 同族)、G12 沉淀入口
   (本档 v2 动作的 UI 依托)。

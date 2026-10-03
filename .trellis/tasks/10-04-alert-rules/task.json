@@ -3,7 +3,7 @@
   "name": "alert-rules",
   "title": "情报流告警规则引擎(v12-backlog G5 主体)",
   "description": "v12-backlog G5 主体:情报流告警规则引擎(Inoreader Rules 式条件→动作),条件候选=品类/关键词/score 阈值/免费信号,动作候选=推送/标记/沉淀,涉 sidecar 协议扩展;planning 档,只立档不实现",
-  "status": "planning",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": "10-03-v12-backlog",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "2026-10-04 收口转 review(G5 主体告警规则引擎;实现流四批 Stage 0/A-E 全落地,代码在途未提交,守则直改不经 task.py)。【AC 勾选实况(代码面,prd:112-137)】AC1✅ alerts.list/save/delete/test 四方法,启停并入 save 全量替换保 id,PROTOCOL_VERSION 6→7(desktop/entry.py:371),_HANDLERS 43→47,spec 镜像表对账 47 行;AC2✅ when 复用 classify 白名单 AST,alerts/rule.py compile_rule 统一构造门 16 形态参数化拒+9**9**9 资源护栏(落点非 design §5.1 字面 AlertRule.__post_init__:models.py 为零 shishi 依赖纯存储层,语义不变,质检备案维持);AC3✅ alert_fired UNIQUE(rule_id,dedup_key) 占坑先行,record_fired ON CONFLICT DO NOTHING+rowcount 判冲突返 None,at-most-once 二轮用例钉死;AC4✅ push 走 send_immediate 共享 run registry,双向压制两方向均有测试(引擎级+管线级),通道失败结构化 send_failed,品类未配通道 degraded_no_channel 不发、禁跨品类借凭据;AC5✅ 零惊扰(不配规则零开销短路)+dry-run 零落库零发送+broken 空集同步跳过(EngineSpy 钉死);AC6✅ mute 硬规则=品类 watchlist+反馈 0.0 权重词并入全链,不读 metadata['muted'](用例需种 2 条 bad 反馈防调参器 run 起点幂等重算归零,docstring 已记);AC7✅ tag=Item.add_tags 内存合并+update_item_tags 回写两步;AC8✅ 消息屏 AlertRulesPanel(messaging-screen.tsx:759)建/改/删/启停/测试五操作,坏 when 结构化错直显+三取材 dry 展开含通道解析与降级原因,alerts.fired 经 onSidecarEvent toast+命中数本地增量刷新;AC9✅ _replay_alerts_fired(entry.py:2364)run 终态 completed 前查库回放九键事件(dry 零回放,失败不拦终态)+CLI shishi alerts list 只读(--rule/--limit/--json;质检硬伤1 补齐,cli.py:536/:2490)。AlertsFiredEvent 暂未入 SidecarEvent 联合(logs 屏 unknownEvent 穷尽守卫在非白名单文件,注释注明,归协议批适配)。【store】SCHEMA_VERSION 6→7(sqlite.py:83)_SCHEMA 基线+_migrate_v7_add_alerts 双路径幂等(v4 同构);Protocol 九方法族 base.py 签约/sqlite.py 实装(list_fired limit 钳 [1,200]);scope 词表=global∪CATEGORY_DEFAULT_ROUTES 八键(含 channel,与 items.category 同源,代码注明)。【质检处置】2 硬伤已修(①CLI D3 缺口补齐+test_cli.py 5 用例;②UI 动作字段对齐协议实发 resolved/resolved_target/degrade_reason,仓库级 grep channel_resolved|degraded_reason 源码零残留);2 低项按质检原文判 v2(suppressed 状态词表,design §7.1 字面 send_failed 有断言钉死)与汇报面(数字误差)不改;2 备案(构造门落点/scope 词表)维持。【自检(实现流申报)】pytest 协议 115(含新 10)/test_alert_rules 49 参数化(34 函数)/messaging vitest 48+build。【leftovers】①G5 dev 实机手验未做(协议后置落地,硬伤2 即该手验会抓的缺陷,已修,手验归协议批后);②收尾 C2 detect-changes/C4 分批提交/C5 回滚验证未做,全部代码在途未提交;③全量 pytest 与 ruff(未装 .venv)未在收口批重跑;④唯一越白名单改动 tests/test_baseline.py :463 '6'→'7' 字面量+docstring 计数(design §2.2 钦定机械连带,质检已核实);⑤被同槽位防重发拦截的 push 记 send_failed(INFO 注记),v2 增补 suppressed 区分。",
   "meta": {}
 }

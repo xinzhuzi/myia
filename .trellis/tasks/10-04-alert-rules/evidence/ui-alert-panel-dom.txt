@@ -1,0 +1,180 @@
+世事
+MYIA
+仪表盘
+情报流
+采集
+源管理
+配置编辑
+采集日志
+推送
+消息
+设置
+sidecar 未连接
+世事
+推送
+消息
+品类
+全部品类
+跑一次
+搜索或跳转…
+⌘K
+消息
+
+平台总览与接入态;通道目录浏览与别名命名;给推送规则挑选具体会话(保存写回品类 YAML)
+
+目录 2026-10-03 08:00
+刷新
+
+平台总览
+(左列点选平台,右栏看详情:状态说明 / 出站凭据指南 / 目录速览;灰卡平台按波次排期,尚未实装)
+
+全部(28)
+已连接(2)
+未启用(26)
+飞
+飞书
+Telegram
+ntfy
+钉
+钉钉
+企
+企业微信
+微
+微信
+Slack
+Discord
+WhatsApp
+Signal
+LINE
+Matrix
+Mattermost
+Google Chat
+Microsoft Teams
+邮件
+短信
+IRC
+SimpleX
+BlueBubbles
+QQ 机器人
+元宝
+A2A
+Photon
+Home Assistant
+MS Graph Webhook
+Buzz
+Raft
+飞
+飞书
+已连接
+
+飞书开放平台机器人(W1 已实装):tenant_access_token 出站卡片发送 + 群目录发现;凭据经环境变量注入 run。
+
+feishu
+
+状态说明
+
+已连接:目录非空(2 个会话)。可直接在下方「推送规则」勾选该平台目录里的会话为推送对象。
+
+出站凭据指南
+
+定向推送只需要这些;凭据只覆盖出站,入站项零出现。
+
+FEISHU_BOT_TOKEN — tenant_access_token(应用级令牌);出站卡片发送与群目录发现共用,run 时读环境变量
+
+打开飞书开放平台(open.feishu.cn)→ 开发者后台 → 「创建企业自建应用」,记下应用的 App ID 与 App Secret。
+在应用里添加「机器人」能力;「权限管理」开通 im:message:send_as_bot(以机器人身份发消息)和 im:chat:readonly(读机器人所在群列表,目录发现用)。
+「版本管理与发布」发布版本并让组织管理员审核通过;把机器人拉进要推送的群。
+手工换 tenant token:在终端执行下面这条(把 cli_xxx / xxx 换成你的 App ID / App Secret),应答里的 tenant_access_token 字段就是令牌;细节以开放平台文档「获取 tenant_access_token 内部接口」页为准。
+curl -X POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal \
+  -H "Content-Type: application/json" \
+  -d '{"app_id":"cli_xxx","app_secret":"xxx"}'
+把令牌写入环境变量 FEISHU_BOT_TOKEN(例如在 ~/.zshrc 加一行 export FEISHU_BOT_TOKEN=t-xxx,重开终端/应用后生效)。注意令牌有效期约 2 小时,过期后按上一步重换并更新环境变量。
+回到本屏点飞书分组里的「刷新」列出群目录,再到下区「推送规则」勾选推送对象。
+目录速览
+
+2 个会话;只读速览,改名 / 别名 / 死信处理在下方「通道目录」。
+
+group
+AI中转站合伙人群
+oc_1
+dm
+羊毛反馈群
+死信
+oc_2
+
+通道目录
+(目录 = 可寻址的推送对象;别名是手工命名,重建后仍生效)
+
+feishu
+
+刷新
+group
+AI中转站合伙人群
+oc_1
+最后发现 10/09/2025, 04:53 PM
+改名
+dm
+羊毛反馈群
+死信
+oc_2
+最后发现 —
+改名
+
+telegram
+
+刷新
+dm
+测试私聊
+12345
+最后发现 —
+改名
+
+推送规则(给每条规则勾选具体推送对象;保存 = 全量写回该品类 YAML 的 push[])
+
+消息屏夹具
+/tmp/plugins/messaging-demo.yaml
+
+保存推送对象
+
+feishu_card
+规则 ×1
+feishu:AI中转站合伙人群
+
+AI中转站合伙人群
+oc_1
+羊毛反馈群
+oc_2
+死信
+
+stdout
+该通道不支持目录寻址(对象由 target 引用决定)
+
+告警规则
+(对每条新入流情报求值,命中即推送/打标;保存 = 全量写回规则表)
+
+新建规则
+竞对融资
+全局
+when '融资' in title
+测试
+编辑
+删除
+
+推送 → feishu_card
+命中 2
+最近触发 10/04/2026, 01:23 AM
+
+羊毛快讯打标
+freebie
+when '免费送' in content
+测试
+编辑
+删除
+
+打标:羊毛 / 值得看
+命中 7
+最近触发 10/04/2026, 02:40 AM
+已停用
+
+sidecar 正常
+已连接平台 2/28

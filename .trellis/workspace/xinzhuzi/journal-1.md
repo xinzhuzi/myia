@@ -388,3 +388,10 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 竞态实录:工作流三笔提交全被 index.lock 竞争打掉(「已推 origin」推的实为并行会话提交);并行线按「main 永保绿」纪律反向收编了改名版 test_crawl4ai.py 进 e811162——合并树门禁全绿(pytest 3044/19skip、vitest 262/262)后由主线统一提交
 - crawl4ai-l3「重复档」判断撤销:该线活跃且续有交付,superseded 注记已更正,档归还线主
 - PyPI 实发布(双包名额已核实)为纯主人门禁:注册 Repository 填 shishi,完成回话代跑 Re-run
+
+## 2026-10-04 alert-rules 收口(task 10-04-alert-rules,review;G5 主体告警规则引擎 Stage 0/A-E 四批全落,代码在途未提交)
+
+- 实现面:store SCHEMA_VERSION 6→7 双路径幂等迁移+九方法族(base 签约/sqlite 实装,UNIQUE(rule_id,dedup_key) 占坑);src/shishi/alerts/{rule,engine}.py 构造门(白名单 AST 16 形态拒+9**9**9 护栏;落点偏 design §5.1 已备案= models.py 零 shishi 依赖纯存储层);_alert_pass 挂 run() 阶段循环后 maintenance 前(dry/无规则/broken 三短路+异常 WARNING 隔离);协议 PROTOCOL_VERSION 6→7、_HANDLERS 43→47、alerts.fired 终态回放(_replay_alerts_fired entry.py:2364);CLI shishi alerts list 只读;消息屏 AlertRulesPanel 五操作+fired toast(AlertsFiredEvent 未入 SidecarEvent 联合:logs 屏穷尽守卫在非白名单文件,归协议批)
+- 质检 6 项处置:2 硬伤修复(CLI D3 缺口补齐+5 用例;UI 动作字段对齐协议 resolved/resolved_target/degrade_reason,源码 grep 零残留)+2 低判 v2(suppressed 词表)/汇报面不改+2 备案维持;自检申报=协议 pytest 115(含新 10)/告警 49 参数化(34 函数)/messaging vitest 48+build
+- 如实申报:G5 dev 实机手验未做(协议后置落地,硬伤2 即该手验会抓的缺陷、已修);全量 pytest+ruff(未装 .venv)未在收口批重跑;收尾 C2 detect-changes/C4 分批提交/C5 回滚验证未做归实现流主线;唯一越白名单 tests/test_baseline.py :463 '6'→'7' 机械连带(design §2.2 钦定,质检核实)
+- 收口动作:task.json 直改 review+notes 执行摘要(不经 task.py);implement/check.jsonl 各补一行引用;evidence 清点齐(3 PNG+1 DOM 快照,PNG 像素未目验=会话模型无图像输入);不 push、不跑 task.py

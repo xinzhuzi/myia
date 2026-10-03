@@ -1,5 +1,11 @@
-{"file": ".trellis/tasks/10-04-alert-rules/prd.md", "reason": "本档 AC 草案与 Grill Q1-Q8 决议落点;验收口径=决议后改定版逐条核对"}
-{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "协议版本 bump 与方法表镜像对账一致性(alerts.* 入表后 43→47 行)"}
+{"file": ".trellis/tasks/10-04-alert-rules/prd.md", "reason": "验收口径=Grill 决议节(2026-10-04)与改定版 AC 逐条核对;Q1-Q8 决议是设计/实现的裁决基准"}
+{"file": ".trellis/tasks/10-04-alert-rules/design.md", "reason": "对账面:表结构/Store 九方法契约/sidecar 四方法+事件/错误码表/UI 布局与实现逐节核对;决议三处钉死(启停并入 save/test 必带参/v7 占位)是否如实落地"}
+{"file": ".trellis/tasks/10-04-alert-rules/implement.md", "reason": "门禁核对:G1-G5 与收尾 C1-C5 逐项勾验;Stage 0.2 协议版本占位定案记录(v7/v8)"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "协议版本 bump 与方法表镜像对账一致性(alerts.* 入表后 43→47;v8 则注明顺延);错误码入表"}
 {"file": ".trellis/spec/python/quality.md", "reason": "测试纪律:零惊扰默认(不配规则逐字节不变)与资源护栏用例的覆盖口径"}
+{"file": "src/shishi/store/base.py", "reason": "Store Protocol 九方法契约 docstring 与实装对账(决议 Q2 工作量项:扩方法族并同步契约)"}
+{"file": "tests/test_desktop_sidecar_protocol.py", "reason": "协议测试扩面核对:四方法载荷/全量替换保 id/错误码/版本断言/alerts.fired 回放用例"}
+{"file": "desktop/ui-src/src/screens/messaging/messaging-screen.test.tsx", "reason": "vitest 扩面核对:子面板渲染/启停=全量提交/坏 when 结构化错直显/测试结果面板/删除二次确认"}
 {"file": ".trellis/tasks/10-03-v12-backlog/prd.md", "reason": "父池档 AC:拆正式任务须引用本池;本档是否吸收 G5 主体全部边界的回查锚点"}
 {"file": ".trellis/tasks/archive/2026-10/10-03-ui-feature-census/prd.md", "reason": "G5 验收口径回指:测试按钮(已落)+ 告警规则(Rules 式衔接关键词漏斗)两半齐"}
+{"file": ".trellis/tasks/10-04-alert-rules/evidence/ui-alert-panel-dom.txt", "reason": "质检依据:独立质检 6 项处置实录——硬伤1 CLI 缺口已补(cli.py _add_alerts_parser:536/_cmd_alerts:2490,test_cli.py +5 用例);硬伤2 UI 动作字段漂移已对齐协议实发 resolved/resolved_target/degrade_reason(messaging/api.ts+messaging-screen.tsx 消费+mock 同步,仓库级 grep channel_resolved|degraded_reason 源码零残留);低项 suppressed 判 v2(design §7.1 字面 send_failed 有断言钉死)、汇报数字误差属汇报面不改;备案两项(构造门落点 alerts/rule.py/scope 词表含 channel)维持;evidence 清点=3 PNG(panel-list/panel-form/fired-toast,像素未目验:收口会话模型无图像输入,以 DOM 快照子面板 :152-177 契约吻合+文件大小存档担保)+本 DOM 快照;未跑面如实:ruff 未装 .venv、G5 dev 实机手验、全量回归未在收口批重跑(协议 115/告警 49/vitest 48 为实现流申报自检)"}
