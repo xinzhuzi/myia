@@ -2188,17 +2188,19 @@ def test_method_registry_allowed_matches_handlers():
     weixin-bridge 批(bridge.status)+
     vision-v2 批(image.models.*×4 + image.server.*×2 + image.files.purge)+
     v1.1.2 批第二切片(feedback.mark/list/stats + store.trend)+
-    fe-small-batch 批(feed.enrich)后 = 43。"""
+    fe-small-batch 批(feed.enrich)+ alert-rules 批(alerts.* 四方法,
+    10-04-alert-rules)后 = 47。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 43
+    assert len(allowed) == 47
     for method in ("run.cancel", "runs.list", "secret.delete", "sources.test",
                    "feed.export", "push.test", "schedule.preview", "bridge.status",
                    "image.models.list", "image.models.download",
                    "image.models.delete", "image.models.activate",
                    "image.server.status", "image.server.ensure",
-                   "image.files.purge", "feed.enrich"):
+                   "image.files.purge", "feed.enrich",
+                   "alerts.list", "alerts.save", "alerts.delete", "alerts.test"):
         assert method in allowed
 
 
@@ -2206,9 +2208,10 @@ def test_protocol_version_bumped_for_feed_ux():
     """feed-ux 批新增三方法 → PROTOCOL_VERSION 3;weixin-bridge 批
     (bridge.status,10-03-messaging-weixin-bridge)→ v4;vision-v2 批
     (image.models.*/image.server.* + store.items 三新投影键)→ v5;
-    fe-small-batch 批(feed.enrich,10-03-fe-small-batch G8)→ v6。"""
+    fe-small-batch 批(feed.enrich,10-03-fe-small-batch G8)→ v6;
+    alert-rules 批(alerts.* 四方法 + alerts.fired 事件,10-04-alert-rules)→ v7。"""
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
-    assert responses[0]["result"]["protocol"] == 6
+    assert responses[0]["result"]["protocol"] == 7
 
 
 # ---------------------------------------------------------------------------
@@ -3271,3 +3274,366 @@ def test_version_app_version_passthrough(monkeypatch):
     monkeypatch.setenv("MYIA_APP_VERSION", "1.1.2")
     code, responses, _ = rpc({"id": 2, "method": "version", "params": {}})
     assert responses[0]["result"]["app_version"] == "1.1.2"
+
+
+# ---------------------------------------------------------------------------
+# alert-rules 批(10-04-alert-rules Stage D,协议 v7 #44-47):alerts.list /
+# save / delete / test 四方法 + alerts.fired 回放事件。契约钉死于任务档
+# design.md §4:save 全量替换两道门 + diff 保 id;test dry 求值不真发不落
+# fired;错误码 alert_rule_invalid / alert_not_found / item_not_found /
+# alert_test_no_item。
+# ---------------------------------------------------------------------------
+
+
+def _alert_rule_payload(name="融资告警", when="'融资' in title", action="tag", **extra):
+    """AlertRuleInput 载荷(tag 动作缺省;push 传 action_config)."""
+    payload = {"name": name, "when": when, "action": action}
+    if action == "tag":
+        payload["action_config"] = {"tags": ["重要"]}
+    else:
+        payload["action_config"] = {"channel": "stdout"}
+    payload.update(extra)
+    return payload
+
+
+def test_alerts_list_empty_is_legal_state(tmp_path):
+    """零惊扰默认:不配规则 = 空表合法态,alerts.list 返回空数组。"""
+    db = tmp_path / "alerts.db"
+    SQLiteStore(str(db)).close()
+    code, responses, _ = rpc({"id": 1, "method": "alerts.list", "params": {"db": str(db)}})
+    result = responses[0]["result"]
+    assert result["count"] == 0 and result["rules"] == []
+
+
+def test_alerts_save_full_replacement_keeps_ids(tmp_path):
+    """save 全量替换(diff 保 id):建两条 → 改一条(保 id 翻启停)+ 删一条 +
+    新增一条;fired_count/last_fired_at 自 alert_fired 派生(计数不落规则行)."""
+    from shishi.store.models import AlertFired
+
+    db = tmp_path / "alerts.db"
+    code, responses, _ = rpc({"id": 1, "method": "alerts.save", "params": {"db": str(db), "rules": [
+        _alert_rule_payload(name="规则甲"),
+        _alert_rule_payload(name="规则乙", when="'gpu' in title"),
+    ]}})
+    saved = responses[0]["result"]["rules"]
+    assert responses[0]["result"]["ok"] is True
+    assert [rule["id"] for rule in saved] == [1, 2]  # id 升序分配
+    assert all(rule["fired_count"] == 0 and rule["last_fired_at"] is None for rule in saved)
+
+    # 全量替换:只提交 id=2(停用)+ 新规则;id=1 被删,新规则拿新 id
+    code, responses, _ = rpc({"id": 2, "method": "alerts.save", "params": {"db": str(db), "rules": [
+        _alert_rule_payload(name="规则乙改", when="'gpu' in title", id=2, enabled=False),
+        _alert_rule_payload(name="规则丙", when="'涨价' in title"),
+    ]}})
+    saved = responses[0]["result"]["rules"]
+    assert [rule["id"] for rule in saved] == [2, 3]  # 保 id;删除的 id 不复用
+    by_id = {rule["id"]: rule for rule in saved}
+    assert by_id[2]["enabled"] is False and by_id[2]["name"] == "规则乙改"
+
+    # 命中计数派生:直接落一条 fired 历史(协议层不造命中,store 直种)
+    store = SQLiteStore(str(db))
+    store.record_fired(AlertFired(rule_id=2, rule_name="规则乙改", dedup_key="dk-1",
+                                  title="gpu 涨价", action="tag", action_status="tagged"))
+    store.close()
+    code, responses, _ = rpc({"id": 3, "method": "alerts.list", "params": {"db": str(db)}})
+    by_id = {rule["id"]: rule for rule in responses[0]["result"]["rules"]}
+    assert by_id[2]["fired_count"] == 1 and by_id[2]["last_fired_at"] is not None
+    assert by_id[3]["fired_count"] == 0 and by_id[3]["last_fired_at"] is None
+
+    # 空数组 = 清空规则表(回到零惊扰默认)
+    code, responses, _ = rpc({"id": 4, "method": "alerts.save",
+                              "params": {"db": str(db), "rules": []}})
+    assert responses[0]["result"]["rules"] == []
+    code, responses, _ = rpc({"id": 5, "method": "alerts.list", "params": {"db": str(db)}})
+    assert responses[0]["result"]["count"] == 0
+
+
+def test_alerts_save_invalid_rule_zero_write(tmp_path):
+    """构造期拒整批零写入:坏 when / 坏 action / 未知键 / 坏 push 通道 /
+    非对象元素 → alert_rule_invalid(data 三键 index/field/reason),库不动。"""
+    db = tmp_path / "alerts.db"
+    code, responses, _ = rpc({"id": 1, "method": "alerts.save",
+                              "params": {"db": str(db), "rules": [_alert_rule_payload()]}})
+    assert responses[0]["result"]["ok"] is True  # 先立一条好规则
+    cases = [
+        (_alert_rule_payload(when='__import__("os")'), "alert_rules.when_expr"),
+        (_alert_rule_payload(action="email"), "alert_rules.action"),
+        (_alert_rule_payload(when="'a' in title", foo="bar"), "foo"),
+        (_alert_rule_payload(action="push", action_config={"channel": "pigeon"}), "push 动作的 channel"),
+        ("不是对象", "rule"),
+        (_alert_rule_payload(name="  "), "name"),
+    ]
+    for index, (bad_rule, field) in enumerate(cases):
+        code, responses, _ = rpc({"id": 10 + index, "method": "alerts.save",
+                                  "params": {"db": str(db), "rules": [bad_rule]}})
+        error = responses[0]["error"]
+        assert error["code"] == "alert_rule_invalid", bad_rule
+        assert error["data"]["index"] == 0 and error["data"]["field"] == field
+        assert error["data"]["reason"]
+    # 第 2 条坏 → index=1,且第 1 条(好)也不落(整批零写入)
+    code, responses, _ = rpc({"id": 20, "method": "alerts.save", "params": {"db": str(db), "rules": [
+        _alert_rule_payload(name="好的"),
+        _alert_rule_payload(when="scores['x'] > 1"),  # 白名单禁下标
+    ]}})
+    error = responses[0]["error"]
+    assert error["code"] == "alert_rule_invalid" and error["data"]["index"] == 1
+    code, responses, _ = rpc({"id": 21, "method": "alerts.list", "params": {"db": str(db)}})
+    assert responses[0]["result"]["count"] == 1  # 仍是最初那一条
+    # rules 非数组 = invalid_params(载荷形状,非构造期拒)
+    code, responses, _ = rpc({"id": 22, "method": "alerts.save",
+                              "params": {"db": str(db), "rules": "全部"}})
+    assert responses[0]["error"]["code"] == "invalid_params"
+    # 载荷带未知 id 更新 → alert_not_found(store 值错结构化)
+    code, responses, _ = rpc({"id": 23, "method": "alerts.save", "params": {"db": str(db), "rules": [
+        _alert_rule_payload(id=99),
+    ]}})
+    assert responses[0]["error"]["code"] == "alert_not_found"
+    assert responses[0]["error"]["data"]["id"] == 99
+
+
+def test_alerts_delete_keeps_fired_history(tmp_path):
+    """delete:删定义行 fired 历史照留(命中历史是事实);未知 id 结构化拒。"""
+    from shishi.store.models import AlertFired
+
+    db = tmp_path / "alerts.db"
+    code, responses, _ = rpc({"id": 1, "method": "alerts.save",
+                              "params": {"db": str(db), "rules": [_alert_rule_payload()]}})
+    rule_id = responses[0]["result"]["rules"][0]["id"]
+    store = SQLiteStore(str(db))
+    store.record_fired(AlertFired(rule_id=rule_id, rule_name="融资告警", dedup_key="dk",
+                                  title="融资", action="tag", action_status="tagged"))
+    store.close()
+
+    code, responses, _ = rpc({"id": 2, "method": "alerts.delete",
+                              "params": {"db": str(db), "id": rule_id}})
+    assert responses[0]["result"] == {"ok": True, "id": rule_id}
+    code, responses, _ = rpc({"id": 3, "method": "alerts.delete",
+                              "params": {"db": str(db), "id": rule_id}})
+    error = responses[0]["error"]
+    assert error["code"] == "alert_not_found" and error["data"]["id"] == rule_id
+    store = SQLiteStore(str(db))  # fired 行仍在(悬挂 rule_id 即历史事实)
+    assert len(store.list_fired(rule_id=rule_id)) == 1
+    store.close()
+    code, responses, _ = rpc({"id": 4, "method": "alerts.delete",
+                              "params": {"db": str(db), "id": "1"}})
+    assert responses[0]["error"]["code"] == "invalid_params"
+
+
+def _seed_alert_items(db, rows):
+    """种库内条目(新→旧依序入库;返回 None,行 id 由调用方再查)."""
+    from datetime import datetime, timezone
+
+    from shishi.store.models import ItemRecord
+
+    store = SQLiteStore(str(db))
+    base = datetime(2026, 10, 4, tzinfo=timezone.utc)
+    for index, (title, category) in enumerate(rows):
+        store.save_item(ItemRecord(
+            url=f"https://example.com/a{index}", dedup_key=f"ak-{index}", title=title,
+            content=f"{title} 正文", source="api", category=category,
+            first_seen=base.replace(hour=index + 1),
+        ))
+    store.close()
+
+
+def test_alerts_test_synthetic_item_and_content_patch(tmp_path):
+    """test 草稿形态:合成 item 任意子集(url 缺省合成);content 补丁
+    ('融资' in content 原生 view 写不了,alert_view 补上);tag 动作展开。"""
+    db = tmp_path / "alerts.db"
+    SQLiteStore(str(db)).close()
+    code, responses, _ = rpc({"id": 1, "method": "alerts.test", "params": {"db": str(db), "rule": _alert_rule_payload(
+        when="'融资' in content",
+    ), "item": {"title": "某公司公告", "content": "宣布完成新一轮融资"}}})
+    result = responses[0]["result"]
+    assert result["matched"] is True and result["muted"] is False
+    assert result["actions"] == [{"action": "tag", "tags": ["重要"]}]
+    assert "already_fired" not in result  # 仅 rule_id 形态携带
+    # 不匹配路径 + metadata 平铺(metadata 子 dict 并进求值上下文)
+    code, responses, _ = rpc({"id": 2, "method": "alerts.test", "params": {"db": str(db), "rule": _alert_rule_payload(
+        when="'gpu' in title",
+    ), "item": {"title": "无关条目", "metadata": {"author": "张三"}}}})
+    assert responses[0]["result"]["matched"] is False
+
+
+def test_alerts_test_stored_rule_and_item_forms(tmp_path):
+    """test 取材形态:rule_id+item_id(库内条目)/ 缺省最近一条 / already_fired
+    预查;错误码 alert_not_found / item_not_found / alert_test_no_item /
+    invalid_params(互斥门)."""
+    from shishi.store.models import AlertFired
+
+    db = tmp_path / "alerts.db"
+    code, responses, _ = rpc({"id": 1, "method": "alerts.save", "params": {"db": str(db), "rules": [
+        _alert_rule_payload(name="标题匹配", when="'融资' in title")]}}
+    )
+    rule_id = responses[0]["result"]["rules"][0]["id"]
+    _seed_alert_items(db, [("旧条目无关", "news"), ("新条目谈融资", "news")])
+    store = SQLiteStore(str(db))
+    item_ids = [row.id for row in store.list_items(limit=2)]  # 新→旧
+    newest_id, older_id = item_ids[0], item_ids[1]
+    # 种一条 fired:新条目(ak-1,index=1 是最新行)已触发过 → already_fired 预查为真
+    store.record_fired(AlertFired(rule_id=rule_id, rule_name="标题匹配",
+                                  dedup_key="ak-1", title="新条目谈融资",
+                                  action="tag", action_status="tagged"))
+    store.close()
+
+    # rule_id + item_id:库内条目求值上下文(content 列还原,category 顶层)
+    code, responses, _ = rpc({"id": 2, "method": "alerts.test",
+                              "params": {"db": str(db), "rule_id": rule_id, "item_id": newest_id}})
+    result = responses[0]["result"]
+    assert result["matched"] is True and result["already_fired"] is True
+    # rule_id + 无 item:缺省取最近一条(新→旧首行)
+    code, responses, _ = rpc({"id": 3, "method": "alerts.test",
+                              "params": {"db": str(db), "rule_id": rule_id}})
+    assert responses[0]["result"]["matched"] is True  # 最近一条 = 谈融资的新条目
+    # 旧条目(item_id 显式):不匹配
+    code, responses, _ = rpc({"id": 4, "method": "alerts.test",
+                              "params": {"db": str(db), "rule_id": rule_id, "item_id": older_id}})
+    assert responses[0]["result"]["matched"] is False
+    # 错误码矩阵
+    code, responses, _ = rpc({"id": 5, "method": "alerts.test",
+                              "params": {"db": str(db), "rule_id": 99, "item_id": newest_id}})
+    assert responses[0]["error"]["code"] == "alert_not_found"
+    code, responses, _ = rpc({"id": 6, "method": "alerts.test",
+                              "params": {"db": str(db), "rule_id": rule_id, "item_id": 999}})
+    assert responses[0]["error"]["code"] == "item_not_found"
+    empty_db = tmp_path / "empty.db"
+    SQLiteStore(str(empty_db)).close()
+    code, responses, _ = rpc({"id": 7, "method": "alerts.test",
+                              "params": {"db": str(empty_db), "rule": _alert_rule_payload()}})
+    assert responses[0]["error"]["code"] == "alert_test_no_item"
+    code, responses, _ = rpc({"id": 8, "method": "alerts.test",
+                              "params": {"db": str(db), "rule": _alert_rule_payload(),
+                                       "rule_id": rule_id}})
+    assert responses[0]["error"]["code"] == "invalid_params"
+
+
+def test_alerts_test_mute_and_eval_error(tmp_path):
+    """test 语义:mute 压制(effective mute = 反馈 0.0 权重词,命中即未命中
+    不评估)与 eval_error 如实上报(引擎运行期 WARNING+未命中的同款事实)."""
+    from shishi.store.models import TuningRecord
+
+    db = tmp_path / "alerts.db"
+    _seed_alert_items(db, [("某公司完成融资", "news")])
+    store = SQLiteStore(str(db))
+    store.save_tuning(TuningRecord(kind="mute_weight",
+                                   payload={"word": "融资", "weight": 0.0}))
+    store.close()
+    # mute 命中:matched False(跳过评估,引擎硬规则),muted True
+    code, responses, _ = rpc({"id": 1, "method": "alerts.test", "params": {"db": str(db), "rule": _alert_rule_payload(
+        when="'融资' in title",
+    ), "item": {"title": "某公司完成融资", "url": "https://example.com/m"}}})
+    result = responses[0]["result"]
+    assert result["muted"] is True and result["matched"] is False
+    # eval_error:score 缺失(enrich 未回填)时阈值比较 TypeError → RuleEvalError
+    code, responses, _ = rpc({"id": 2, "method": "alerts.test", "params": {"db": str(db), "rule": _alert_rule_payload(
+        when="score >= 4",
+    ), "item": {"title": "无分数条目", "url": "https://example.com/n"}}})
+    result = responses[0]["result"]
+    assert result["matched"] is False and result["muted"] is False
+    assert result["eval_error"]
+
+
+def test_alerts_test_push_channel_resolution(tmp_path, monkeypatch):
+    """test push 动作展开:通道解析 = 当前品类 push[] 内该类型第一条
+    (resolved + resolved_target);品类未配该类型 / 条目无品类 → 降级原因."""
+    plugins = _editor_plugins(tmp_path, monkeypatch, ("demo.yaml", VALID_YAML))
+    db = tmp_path / "push-resolve.db"
+    SQLiteStore(str(db)).close()
+    # 品类 proto-demo 的 YAML 配了 stdout 通道 → resolved
+    code, responses, _ = rpc({"id": 1, "method": "alerts.test", "params": {"db": str(db), "rule": _alert_rule_payload(
+        action="push", when="'a' in title",
+    ), "item": {"title": "abc", "category": "proto-demo"}}})
+    action = responses[0]["result"]["actions"][0]
+    assert action["action"] == "push" and action["channel"] == "stdout"
+    assert action["resolved"] is True
+    # 品类配了 push 但无该类型(telegram)→ category_push_missing
+    code, responses, _ = rpc({"id": 2, "method": "alerts.test", "params": {"db": str(db), "rule": _alert_rule_payload(
+        action="push", when="'a' in title",
+        action_config={"channel": "telegram"},
+    ), "item": {"title": "abc", "category": "proto-demo"}}})
+    action = responses[0]["result"]["actions"][0]
+    assert action["resolved"] is False and action["degrade_reason"] == "category_push_missing"
+    # 条目无品类 → item_no_category
+    code, responses, _ = rpc({"id": 3, "method": "alerts.test", "params": {"db": str(db), "rule": _alert_rule_payload(
+        action="push", when="'a' in title",
+    ), "item": {"title": "abc"}}})
+    action = responses[0]["result"]["actions"][0]
+    assert action["resolved"] is False and action["degrade_reason"] == "item_no_category"
+
+
+def test_alerts_fired_replayed_after_run_completed(tmp_path, local_api):
+    """alerts.fired 事件流(design §4.3 主路线):真 run 子进程落 alert_fired,
+    父进程终态收口 list_fired(since=run.started_at) 逐条回放(completed 之前);
+    dry run 零落库零回放。"""
+    yaml_path = write_yaml(tmp_path, VALID_YAML.replace("{port}", str(local_api)))
+    db = tmp_path / "fired.db"
+    # 预存规则:tag 动作(零通道依赖),标题含「协议」即命中(两条夹具条目都命中)
+    code, responses, _ = rpc({"id": 1, "method": "alerts.save", "params": {"db": str(db), "rules": [
+        _alert_rule_payload(name="协议 watcher", when="'协议' in title")]}}
+    )
+    rule_id = responses[0]["result"]["rules"][0]["id"]
+
+    out = io.StringIO()
+    stdin = io.StringIO(json.dumps({"id": 2, "method": "run.start",
+                                    "params": {"yaml": yaml_path, "db": str(db)}}) + "\n")
+    entry.serve(stdin=stdin, stdout=out)
+    run_id = json.loads(out.getvalue().splitlines()[0])["result"]["run_id"]
+    completed = wait_completed(out, run_id)
+    assert completed["exit_code"] == 0 and completed["status"] == "success"
+
+    _, events = split_stream(out)
+    fired_events = [event for event in events if event["type"] == "alerts.fired"]
+    assert len(fired_events) == 2  # 协议条目一 / 协议条目二
+    for event in fired_events:
+        assert set(event) == {"type", "rule_id", "rule_name", "item_id", "dedup_key",
+                              "title", "action", "action_status", "ts"}
+        assert event["rule_id"] == rule_id and event["rule_name"] == "协议 watcher"
+        assert event["action"] == "tag" and event["action_status"] == "tagged"
+        assert event["item_id"] is not None and event["dedup_key"]
+    assert {event["title"] for event in fired_events} == {"协议条目一", "协议条目二"}
+    # 回放先于 completed(UI 角标先到,completed 触发的刷新带上新计数)
+    completed_index = events.index(completed)
+    assert all(events.index(event) < completed_index for event in fired_events)
+
+    # dry run:管线侧零落库(design §6.1-0 最强零告警),终态零回放
+    dry_db = tmp_path / "dry.db"
+    rpc({"id": 3, "method": "alerts.save",
+         "params": {"db": str(dry_db), "rules": [_alert_rule_payload(name="协议 watcher")]}})
+    out_dry = io.StringIO()
+    stdin = io.StringIO(json.dumps({"id": 4, "method": "run.start",
+                                    "params": {"yaml": yaml_path, "dry": True, "db": str(dry_db)}}) + "\n")
+    entry.serve(stdin=stdin, stdout=out_dry)
+    dry_run_id = json.loads(out_dry.getvalue().splitlines()[0])["result"]["run_id"]
+    wait_completed(out_dry, dry_run_id)
+    _, dry_events = split_stream(out_dry)
+    assert not [event for event in dry_events if event["type"] == "alerts.fired"]
+    store = SQLiteStore(str(dry_db))
+    assert store.list_fired() == []  # dry 零落库
+    store.close()
+
+
+def test_alerts_fired_replay_only_new_hits_in_window(tmp_path):
+    """回放窗口:since=run.started_at 只回放本 run 新命中,历史命中零重放
+    (崩窗/重跑防线是 UNIQUE 占坑,事件面不重复消费)."""
+    from datetime import datetime, timedelta, timezone
+
+    from shishi.store.models import AlertFired
+
+    db = tmp_path / "window.db"
+    store = SQLiteStore(str(db))
+    started = datetime.now(timezone.utc)
+    store.record_fired(AlertFired(rule_id=1, rule_name="新命中", dedup_key="new",
+                                  title="t", action="tag", action_status="tagged"))
+    store.record_fired(AlertFired(rule_id=1, rule_name="历史命中", dedup_key="old",
+                                  title="t", action="tag", action_status="tagged",
+                                  created_at=started - timedelta(hours=1)))
+    store.close()
+    out = io.StringIO()
+    entry._OUT = out
+    try:
+        count = entry._replay_alerts_fired(7, str(db), started.isoformat())
+    finally:
+        entry._OUT = io.StringIO()
+    assert count == 1
+    event = json.loads(out.getvalue().splitlines()[0])
+    assert event["type"] == "alerts.fired" and event["dedup_key"] == "new"

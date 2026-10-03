@@ -11,6 +11,37 @@ repeated here.
 
 ### Added
 
+- **Alert-rules protocol surface** (10-04-alert-rules, Stage D): four sidecar
+  methods for the desktop alert-rule manager — `alerts.list` (full rule list
+  with per-rule `fired_count` / `last_fired_at` derived from the `alert_fired`
+  history table, so counts survive the full-replacement save), `alerts.save`
+  (whole-array replacement covering create/edit/enable-toggle in one call,
+  following the `push.write` precedent: every entry passes the shared
+  construction gate — name / scope / whitelisted-AST `when` syntax / action /
+  action_config shape — and any failure is a structured `alert_rule_invalid`
+  with `{index, field, reason}` and zero writes for the whole batch; ids are
+  stable across replacement, rows missing from the payload are deleted while
+  their fired history stays), `alerts.delete` (definition row only — hit
+  history is a fact), and `alerts.test` (a **dry** evaluation that never sends
+  and never records a fired row: draft `rule` or stored `rule_id` × synthetic
+  `item` / stored `item_id` / latest-item default, answering `matched`,
+  `muted` (current effective mute = category watchlist + feedback-tuned 0.0
+  words), expanded `actions` (push channel resolution from the category's
+  `push[]` with degrade reasons, or tag labels), `eval_error` when the
+  runtime evaluation fails, and `already_fired` for the stored-rule form;
+  real sends keep going through the existing `push.test`). New `alerts.fired`
+  event: at each non-dry run's terminal state the sidecar parent replays rows
+  recorded by the subprocess's alert pass via `list_fired(since=run.started_at)`
+  — one event per new hit, emitted before `completed`, shape
+  `{rule_id, rule_name, item_id, dedup_key, title, action, action_status, ts}`
+  (querying the store rather than parsing subprocess logs keeps the replay
+  free of log-format coupling). Engine/storage groundwork: `shishi.alerts`
+  package + `alert_rules`/`alert_fired` tables (schema v7 migration) +
+  `Pipeline._alert_pass` attach point.
+- **Sidecar protocol version bumped to 7** (`PROTOCOL_VERSION`,
+  desktop/entry.py): covers the alert-rules batch's four methods and the
+  `alerts.fired` event above (43 → 47 methods).
+
 - **Messaging screen** (commit `4be1325`): a sixth desktop screen (「消息」) for the
   messaging platform — platform-grouped channel directory (name / type / last-seen /
   dead-letter badge), inline alias editing, per-platform directory refresh, and a

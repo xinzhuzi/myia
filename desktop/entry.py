@@ -30,6 +30,8 @@
     {"type": "image.models.progress",  "job_id": 1, "repo": "…", "done_bytes": 1, "total_bytes": 2, "ts": "…"}
     {"type": "image.models.completed", "job_id": 1, "ok": true, "ts": "…"}
     {"type": "image.server.completed", "job_id": 1, "ok": true, "status": {…}, "ts": "…"}
+    {"type": "alerts.fired", "rule_id": 3, "rule_name": "…", "item_id": 42, "dedup_key": "…",
+     "title": "…", "action": "push", "action_status": "sent", "ts": "…"}
 
 == 方法集(覆盖现有 CLI 能力) ==
 
@@ -131,6 +133,16 @@ push.test          (通道 send(items, context))    合成单条测试条目真�
                                                  (凭据沿用 env:/keychain: 引用
                                                  链;stdout 通道卡片入应答
                                                  preview,协议流零污染)
+alerts.list        (SQLiteStore.list_alert_rules)  告警规则全量(启用/停用同行;
+                                                 fired_count/last_fired_at 派生)
+alerts.save        (规则表全量替换)               建改启停一体:构造门整批过 →
+                                                 diff 落库保 id;任一条无效 =
+                                                 alert_rule_invalid 整批零写入
+alerts.delete      (delete_alert_rule)             删定义行,fired 历史照留;
+                                                 未知 id = alert_not_found
+alerts.test        (compile_rule + evaluate 同门)  dry 求值不真发不落 fired:
+                                                 {matched, muted, actions,
+                                                 eval_error?, already_fired?}
 ================= ============================== ============================
 
 - ``run.start`` params:``yaml``(必填)、``dry``(bool,缺省 false)、``db``、
@@ -234,6 +246,22 @@ push.test          (通道 send(items, context))    合成单条测试条目真�
   {days}`` → ``{deleted, bytes_freed}``。模型与 server 能力实现在
   ``shishi.vision.models`` / ``shishi.vision.server``(重依赖惰性,
   huggingface-hub 在 extras ``shishi[vision]``)。
+- ``alerts.*`` 四方法 + ``alerts.fired`` 事件(10-04-alert-rules,契约钉死于
+  任务档 design.md §4,引擎 = ``shishi.alerts``、挂点 = ``Pipeline._alert_pass``):
+  ``alerts.list {}`` → ``{rules:[AlertRuleView]}``(全字段 + ``fired_count``/
+  ``last_fired_at`` 自 alert_fired 派生);``alerts.save {rules:[AlertRuleInput]}``
+  → ``{ok, rules}``(**全量替换**承建/改/启停:构造门整批过,任一条无效 =
+  ``alert_rule_invalid``(data 三键 index/field/reason)整批零写入;带 id 更新
+  保 id、库中多余 id 删除,空数组 = 清空);``alerts.delete {id}`` → ``{ok}``
+  (未知 id = ``alert_not_found``;fired 历史照留);``alerts.test
+  {rule?|rule_id?, item?|item_id?}`` → ``{matched, muted, actions,
+  eval_error?, already_fired?}``(**dry 求值不真发不落 fired**;item 合成
+  dict / item_id 库内条目 / 缺省最近一条,空库 = ``alert_test_no_item``;
+  muted = effective mute 压制(品类 watchlist + 反馈 0.0 词);actions 展开
+  push 通道解析结果与降级原因 / tag 标签;真发测试借既有 ``push.test``)。
+  事件 ``alerts.fired {rule_id, rule_name, item_id, dedup_key, title, action,
+  action_status, ts}``:run 终态收口处以 ``list_fired(since=run.started_at)``
+  查库回放(completed 之前逐条发出;dry run 零落库零回放)。
 
 铁律:凭据只进系统钥匙链(``secret.set`` 薄包装 shishi.secrets,值不落日志/协议流);
 桌面零 Docker;任何插件装不上不拦核心(doctor/list 只产 findings)。
@@ -275,8 +303,11 @@ from typing import Any, Callable, Mapping, NamedTuple
 import shishi
 import yaml
 from shishi import push as shishi_push
+from shishi.alerts import AlertConfigError, CompiledAlertRule, alert_view, compile_rule
 from shishi.cli import DEFAULT_DB_PATH, DEFAULT_PLUGINS_DIR, main as cli_main
+from shishi.classify.custom import RuleEvalError, evaluate_expression
 from shishi.enrich import EnrichConfigError, EnrichSettings, LLMEnricher
+from shishi.enrich.scoring import mute_hit
 from shishi.feedback import (
     FeedbackTuner,
     TuningPolicy,
@@ -284,6 +315,7 @@ from shishi.feedback import (
     record_feedback,
     resolve_item_ref,
 )
+from shishi.pipeline import Item
 from shishi.plugins.installed import INSTALL_ROOT_ENV, default_install_root
 from shishi.push import ChannelDirectory, DeliveryLedger, DirectoryDiscoverUnsupported, PushSendError
 from shishi.push.weixin import probe_bridge
@@ -301,6 +333,7 @@ from shishi.schema import (
 )
 from shishi.secrets import SecretError, delete_secret, list_secrets, set_secret
 from shishi.store import FEEDBACK_CHANNEL_DESKTOP, SQLiteStore, StoreSchemaError
+from shishi.store.models import AlertRule
 from shishi.vision import (
     VISION_FILE_NAME,
     VisionConfig,
@@ -333,7 +366,9 @@ from shishi.vision.server import (
 #: v6 = fe-small-batch G8(feed.enrich 单条情报卡 AI 摘要/精评:骑 enrich
 #: 管线同门 LLMEnricher,品类 enrich 节端点 + enrich_cache 缓存语义复用,
 #: 10-03-fe-small-batch)。
-PROTOCOL_VERSION = 6
+#: v7 = alert-rules 批(alerts.list/save/delete/test 四方法 + alerts.fired
+#: 回放事件;规则引擎 shishi.alerts,10-04-alert-rules Stage D)。
+PROTOCOL_VERSION = 7
 #: 日志环形缓冲容量(行);logs.tail 的硬上限。
 LOG_RING_CAPACITY = 4000
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
@@ -2326,6 +2361,45 @@ def _run_record_dict(record: Any) -> dict[str, Any]:
     }
 
 
+def _replay_alerts_fired(run_id: int, db: str, started_at: str) -> int:
+    """run 终态回放:查本 run 新增的 fired 行,逐条发 ``alerts.fired`` 事件。
+
+    主路线(design §4.3):子进程 ``_alert_pass`` 把命中结构化落 ``alert_fired``
+    表,父进程在 run 终态(发 ``completed`` 的同一收口处)以
+    ``list_fired(since=run.started_at)`` 查新命中回放 —— 查库零格式耦合
+    (备选的 stderr 正则解析因依赖子进程日志格式而弃)。事件形状钉死
+    (design §4.2):``{type, rule_id, rule_name, item_id, dedup_key, title,
+    action, action_status, ts}``。回放尽力而为:查库/解析失败只 stderr 注记,
+    绝不拦 ``completed`` 事件。
+
+    Returns:
+        本次回放的事件条数(失败 = 0)。
+    """
+    store = None
+    try:
+        store = SQLiteStore(db)
+        rows = store.list_fired(since=datetime.fromisoformat(started_at), limit=200)
+        for fired in reversed(rows):  # list_fired 新→旧;回放按入库序(旧→新)
+            _write_line({
+                "type": "alerts.fired",
+                "rule_id": fired.rule_id,
+                "rule_name": fired.rule_name,
+                "item_id": fired.item_id,
+                "dedup_key": fired.dedup_key,
+                "title": fired.title,
+                "action": fired.action,
+                "action_status": fired.action_status,
+                "ts": fired.created_at.isoformat() if fired.created_at else _now_iso(),
+            })
+        return len(rows)
+    except Exception as exc:  # noqa: BLE001 — 回放失败不拦 completed(尽力而为)
+        print(f"sidecar: alerts.fired 回放失败 run_id={run_id}: {exc}", file=sys.stderr)
+        return 0
+    finally:
+        if store is not None:
+            store.close()
+
+
 def _run_worker(run_id: int, cmd: list[str], env: dict[str, str], *, dry: bool, db: str,
                 yaml_path: str, started_at: str, wall_start: float) -> None:
     """后台线程:跑 run 子进程 → 流式 log/progress 事件 → completed 事件。
@@ -2381,6 +2455,11 @@ def _run_worker(run_id: int, cmd: list[str], env: dict[str, str], *, dry: bool, 
         entry = _RUNS[run_id]
         entry.update(state="done", exit_code=exit_code, status=status,
                      finished_at=_now_iso(), duration_ms=duration_ms, record=record)
+        # 告警回放(design §4.3 主路线):子进程 _alert_pass 已把新命中结构化落
+        # alert_fired;终态收口处查库逐条发 alerts.fired(completed 之前,UI 角标
+        # 先到、completed 触发的刷新随即带上新计数)。dry run 管线侧零落库,跳过。
+        if not dry:
+            _replay_alerts_fired(run_id, db, started_at)
         _write_line({
             "type": "completed", "run_id": run_id, "exit_code": exit_code, "status": status,
             "dry": dry, "duration_ms": duration_ms, "record": record, "ts": _now_iso(),
@@ -3565,6 +3644,391 @@ def _m_push_test(params: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# 方法:alerts.list / alerts.save / alerts.delete / alerts.test
+# (10-04-alert-rules Stage D:告警规则桌面管理面;引擎 = src/shishi/alerts,
+# 管线挂点 = Pipeline._alert_pass,契约钉死于任务档 design.md §4)
+# ---------------------------------------------------------------------------
+
+#: AlertRuleInput 载荷的合法键(schema 铁律:未知字段不许静默忽略)。
+_ALERT_RULE_INPUT_KEYS = frozenset(
+    {"id", "name", "when", "action", "action_config", "scope", "enabled"}
+)
+
+#: AlertConfigError 消息里的字段名抽取(``字段校验失败: <字段> 必须是/无效/
+#: 不能为空/含未知键 …``,shishi.alerts.rule 文案族);抽不中兜底整表名。
+_ALERT_FIELD_RE = re.compile(r"字段校验失败:\s*(.+?)\s+(?:必须是|无效|不能为空|含未知键)")
+
+
+def _alert_rule_invalid(index: int | None, reason: str, *, path: str,
+                        field: str | None = None) -> ProtocolError:
+    """构造期拒 → 结构化 ``alert_rule_invalid``(design §10:data 三键)."""
+    match = _ALERT_FIELD_RE.match(reason)
+    return ProtocolError(
+        "alert_rule_invalid",
+        f"告警规则无效: {reason}" if index is None else f"告警规则第 {index} 条无效: {reason}",
+        path=path,
+        data={
+            "index": index,
+            "field": field or (match.group(1) if match else "alert_rules"),
+            "reason": reason,
+        },
+    )
+
+
+def _alert_rule_from_payload(raw: Any, index: int | None, *, path: str) -> AlertRule:
+    """AlertRuleInput 载荷 → :class:`AlertRule`(类型门 + 构造门,零落库).
+
+    类型形状错与语义错(``compile_rule``:scope/when 白名单语法/action/
+    action_config 形状)同报 ``alert_rule_invalid``——都是「这一条规则无效,
+    整批零写入」的构造期拒(写库门与读库门共用,shishi.alerts.rule)。
+    """
+    if not isinstance(raw, dict):
+        raise _alert_rule_invalid(
+            index, f"告警规则必须是对象,得到 {type(raw).__name__}", path=path, field="rule"
+        )
+    unknown = sorted(set(raw) - _ALERT_RULE_INPUT_KEYS)
+    if unknown:
+        raise _alert_rule_invalid(
+            index, f"告警规则含未知键 {unknown}(允许 {sorted(_ALERT_RULE_INPUT_KEYS)})",
+            path=path, field=unknown[0],
+        )
+    rule_id = raw.get("id")
+    if rule_id is not None and (isinstance(rule_id, bool) or not isinstance(rule_id, int)):
+        raise _alert_rule_invalid(index, f"id 必须为整数,得到 {rule_id!r}", path=path, field="id")
+    name = raw.get("name")
+    if not isinstance(name, str) or not name.strip():
+        raise _alert_rule_invalid(index, f"name 必须为非空字符串,得到 {name!r}", path=path, field="name")
+    when = raw.get("when")
+    if not isinstance(when, str) or not when.strip():
+        raise _alert_rule_invalid(index, f"when 必须为非空表达式字符串,得到 {when!r}",
+                                  path=path, field="when")
+    action = raw.get("action")
+    if not isinstance(action, str):
+        raise _alert_rule_invalid(index, f"action 必须为字符串,得到 {action!r}",
+                                  path=path, field="action")
+    action_config = raw.get("action_config")
+    if action_config is None:
+        action_config = {}
+    if not isinstance(action_config, dict):
+        raise _alert_rule_invalid(
+            index, f"action_config 必须是键值映射,得到 {type(action_config).__name__}",
+            path=path, field="action_config",
+        )
+    scope = raw.get("scope")
+    if scope is None:
+        scope = "global"
+    if not isinstance(scope, str):
+        raise _alert_rule_invalid(index, f"scope 必须为字符串,得到 {scope!r}", path=path, field="scope")
+    enabled = raw.get("enabled")
+    if enabled is None:
+        enabled = True
+    if not isinstance(enabled, bool):
+        raise _alert_rule_invalid(index, f"enabled 必须为布尔,得到 {enabled!r}",
+                                  path=path, field="enabled")
+    rule = AlertRule(
+        id=rule_id, name=name, when=when, action=action,
+        action_config=action_config, scope=scope, enabled=enabled,
+    )
+    try:
+        compile_rule(rule)
+    except AlertConfigError as exc:
+        raise _alert_rule_invalid(index, str(exc), path=path) from exc
+    return rule
+
+
+def _alert_rule_views(store: SQLiteStore, rules: list[Any]) -> list[dict[str, Any]]:
+    """AlertRule 行 → 视图(全字段 + fired_count/last_fired_at 派生,design §4.1)."""
+    counts = store.fired_counts()
+    views: list[dict[str, Any]] = []
+    for rule in rules:
+        latest = store.list_fired(rule_id=rule.id, limit=1) if rule.id else []
+        views.append({
+            "id": rule.id,
+            "name": rule.name,
+            "enabled": rule.enabled,
+            "scope": rule.scope,
+            "when": rule.when,
+            "action": rule.action,
+            "action_config": rule.action_config,
+            "created_at": rule.created_at.isoformat() if rule.created_at else None,
+            "updated_at": rule.updated_at.isoformat() if rule.updated_at else None,
+            "fired_count": counts.get(rule.id or -1, 0),
+            "last_fired_at": (
+                latest[0].created_at.isoformat() if latest and latest[0].created_at else None
+            ),
+        })
+    return views
+
+
+def _m_alerts_list(params: dict[str, Any]) -> dict[str, Any]:
+    """告警规则清单(全量,id 升序;启用/停用同行返回——启停 = save 全量提交)."""
+    db = params.get("db") or _serve_context().db
+    try:
+        store = SQLiteStore(db)
+    except StoreSchemaError as exc:
+        raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
+    try:
+        rules = store.list_alert_rules()
+        return {"db": str(db), "count": len(rules), "rules": _alert_rule_views(store, rules)}
+    finally:
+        store.close()
+
+
+def _m_alerts_save(params: dict[str, Any]) -> dict[str, Any]:
+    """``alerts.save``:规则**全量替换**(design §4.1 钉死①;push.write 先例).
+
+    ``{rules: [AlertRuleInput]}`` 的 rules 是规则表的完整数组——承建/改/
+    启停不设独立方法,编辑一条提交整个数组。两道门:①逐条过构造门
+    (:func:`_alert_rule_from_payload` 类型门 + ``compile_rule`` 语义门),
+    任一条失败 → ``alert_rule_invalid`` **整批零写入**;②全批构造成功后
+    diff 落库——带 id = 更新保 id(id 稳定是 fired_count 派生的前提),
+    不带 = 新建,库中多余 id = 删除(fired 历史照留,命中历史是事实)。
+    空数组 = 清空规则表(回到零惊扰默认)。
+    """
+    rules_raw = params.get("rules")
+    if not isinstance(rules_raw, list):
+        raise ProtocolError(
+            "invalid_params", "缺少完整规则数组 rules(list,空数组=清空规则表)", path="params.rules"
+        )
+    db = params.get("db") or _serve_context().db
+    try:
+        store = SQLiteStore(db)
+    except StoreSchemaError as exc:
+        raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
+    try:
+        # 门一:全批先构造(零写入)——任一条失败整批拒
+        incoming = [
+            _alert_rule_from_payload(raw, index, path="params.rules")
+            for index, raw in enumerate(rules_raw)
+        ]
+        # 门二:diff 落库(先删多余,再按载荷序更新/新建)
+        existing_ids = {rule.id for rule in store.list_alert_rules()}
+        incoming_ids = {rule.id for rule in incoming if rule.id is not None}
+        for stale_id in sorted(existing_ids - incoming_ids):
+            store.delete_alert_rule(stale_id)
+        saved = []
+        for rule in incoming:
+            try:
+                saved.append(store.save_alert_rule(rule))
+            except ValueError as exc:
+                if rule.id is not None and "不存在" in str(exc):
+                    raise ProtocolError(
+                        "alert_not_found", f"告警规则不存在: id={rule.id}",
+                        path="params.rules", data={"id": rule.id},
+                    ) from exc
+                raise _alert_rule_invalid(
+                    incoming.index(rule), str(exc), path="params.rules"
+                ) from exc
+        return {"db": str(db), "ok": True, "rules": _alert_rule_views(store, saved)}
+    finally:
+        store.close()
+
+
+def _m_alerts_delete(params: dict[str, Any]) -> dict[str, Any]:
+    """``alerts.delete {id}``:删定义行,fired 历史照留(命中历史是事实)."""
+    rule_id = params.get("id")
+    if isinstance(rule_id, bool) or not isinstance(rule_id, int):
+        raise ProtocolError("invalid_params", "缺少规则 id(整数)", path="params.id")
+    db = params.get("db") or _serve_context().db
+    try:
+        store = SQLiteStore(db)
+    except StoreSchemaError as exc:
+        raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
+    try:
+        if not store.delete_alert_rule(rule_id):
+            raise ProtocolError(
+                "alert_not_found", f"告警规则不存在: id={rule_id}",
+                path="params.id", data={"id": rule_id},
+            )
+        return {"ok": True, "id": rule_id}
+    finally:
+        store.close()
+
+
+def _alert_test_synthetic_item(raw: dict[str, Any]) -> Item:
+    """合成条目 dict → :class:`Item`(``Item.from_extracted`` 同门,design §4.1).
+
+    ``title/content/source/url/category/scores/metadata`` 任意子集;url 缺省
+    合成占位(from_extracted 的 url 门不因此拒——身份仅用于 already_fired
+    预查与展示)。``category``/``scores``/``metadata`` 落 Item 顶层/合并进
+    metadata(from_extracted 只认 url/title/source/content 四键)。
+    """
+    fields = dict(raw)
+    if not isinstance(fields.get("url"), str) or not fields["url"].strip():
+        fields["url"] = (
+            "https://example.com/shishi-alert-test/"
+            + datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+        )
+    item = Item.from_extracted(
+        {key: value for key, value in fields.items()
+         if key not in ("category", "scores", "metadata")},
+        source=fields.get("source") if isinstance(fields.get("source"), str) else None,
+    )
+    if "category" in fields:
+        item.category = fields["category"]
+    if "scores" in fields:
+        item.scores = fields["scores"]
+    if isinstance(fields.get("metadata"), dict):
+        item.metadata.update(fields["metadata"])
+    return item
+
+
+def _alert_item_from_record(record: Any) -> Item:
+    """库内条目(:class:`ItemRecord`)→ 求值同门 Item(design §5.2 上下文).
+
+    metadata 种自 ``items.raw``(pipeline 以 raw=item.metadata 入库)并回填
+    tags 行列;content/scores/category/dedup_key 按行列还原——与引擎
+    ``alert_view`` 的求值上下文同形。
+    """
+    metadata: dict[str, Any] = dict(record.raw) if isinstance(record.raw, Mapping) else {}
+    if record.tags:
+        metadata.setdefault("tags", list(record.tags))
+    return Item(
+        url=record.url,
+        title=record.title,
+        source=record.source,
+        category=record.category,
+        scores=record.scores,
+        dedup_key=record.dedup_key,
+        content=record.content,
+        metadata=metadata,
+    )
+
+
+def _alert_test_actions(compiled: CompiledAlertRule, config: Any, category: Any) -> list[dict[str, Any]]:
+    """将触发的动作展开(dry,不真发;design §4.1:push 通道解析结果 + 降级原因).
+
+    push 的通道解析与引擎 ``_resolve_alert_channel`` 同语义:当前品类
+    ``push[]`` 内该类型第一条(禁止跨品类借凭据)——dry 测试只展开解析结果,
+    不构建通道实例、不发送。真发测试借既有 ``push.test``。
+    """
+    rule = compiled
+    if rule.rule.action == "tag":
+        return [{"action": "tag", "tags": list(rule.tags)}]
+    entry: dict[str, Any] = {"action": "push", "channel": rule.channel}
+    if not isinstance(category, str) or not category:
+        return [{**entry, "resolved": False, "degrade_reason": "item_no_category"}]
+    if config is None:
+        return [{**entry, "resolved": False, "degrade_reason": "category_yaml_not_found"}]
+    for push in config.push:
+        if push.channel == rule.channel:
+            resolved = {**entry, "resolved": True, "resolved_target": push.target}
+            if push.template is not None:
+                resolved["resolved_template"] = push.template
+            if rule.targets:
+                resolved["targets"] = list(rule.targets)
+            if rule.template is not None:
+                resolved["template"] = rule.template
+            return [resolved]
+    return [{**entry, "resolved": False, "degrade_reason": "category_push_missing"}]
+
+
+def _m_alerts_test(params: dict[str, Any]) -> dict[str, Any]:
+    """``alerts.test``:**dry 求值,不真发不落 fired**(design §4.1 钉死②).
+
+    ``rule``(草稿,未保存即可测)与 ``rule_id``(已存规则)二选一;
+    ``item``(合成字段 dict)、``item_id``(库内条目,求值上下文与引擎同门)
+    二选一,两者都缺 = 取最近一条(空库 → ``alert_test_no_item``)。
+    应答 ``{matched, muted, actions, eval_error?, already_fired?}``:
+    ``muted`` = 该条目按当前 effective mute(品类 watchlist + 反馈 0.0
+    权重词,与 ``Pipeline._effective_watchlist`` 同门)是否被压制——命中
+    mute 即未命中(matched=false,不评估,引擎硬规则);``eval_error`` =
+    求值期错误如实上报(引擎运行期 WARNING+未命中的同款事实);``already_fired``
+    仅 rule_id 形态携带;``actions`` = 将触发的动作展开(push 通道解析 +
+    降级原因 / tag 标签)。真发测试借既有 ``push.test``。
+    """
+    rule_raw = params.get("rule")
+    rule_id = params.get("rule_id")
+    if rule_raw is not None and rule_id is not None:
+        raise ProtocolError("invalid_params", "rule(草稿)与 rule_id(已存规则)二选一", path="params.rule")
+    if rule_raw is None and rule_id is None:
+        raise ProtocolError("invalid_params", "缺少规则引用 rule(草稿)或 rule_id(已存规则)", path="params.rule")
+    item_raw = params.get("item")
+    item_id = params.get("item_id")
+    if item_raw is not None and item_id is not None:
+        raise ProtocolError("invalid_params", "item(合成条目)与 item_id(库内条目)二选一", path="params.item")
+    if item_raw is not None and not isinstance(item_raw, dict):
+        raise ProtocolError("invalid_params", "item 必须是合成字段对象(title/content/source/url/category/scores/metadata 任意子集)", path="params.item")
+    if item_raw is not None:
+        for key, value in item_raw.items():
+            if key == "category" and value is not None and not isinstance(value, str):
+                raise ProtocolError("invalid_params", "item.category 必须为字符串或 null", path="params.item.category")
+            if key == "scores" and value is not None and not isinstance(value, dict):
+                raise ProtocolError("invalid_params", "item.scores 必须为对象或 null", path="params.item.scores")
+            if key == "metadata" and value is not None and not isinstance(value, dict):
+                raise ProtocolError("invalid_params", "item.metadata 必须为对象", path="params.item.metadata")
+    if item_id is not None and (isinstance(item_id, bool) or not isinstance(item_id, int)):
+        raise ProtocolError("invalid_params", "item_id 必须为整数(items.id)", path="params.item_id")
+
+    ctx = _serve_context()
+    db = params.get("db") or ctx.db
+    try:
+        store = SQLiteStore(db)
+    except StoreSchemaError as exc:
+        raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
+    try:
+        # 规则取材:草稿过同一道构造门;rule_id 读库(未知 → alert_not_found)
+        if rule_raw is not None:
+            rule = _alert_rule_from_payload(rule_raw, None, path="params.rule")
+        else:
+            assert rule_id is not None  # 上方互斥门保证
+            stored = [r for r in store.list_alert_rules() if r.id == rule_id]
+            if not stored:
+                raise ProtocolError(
+                    "alert_not_found", f"告警规则不存在: id={rule_id}",
+                    path="params.rule_id", data={"id": rule_id},
+                )
+            rule = stored[0]
+        # 条目取材三分:合成 dict / items.id / 最近一条(空库 → alert_test_no_item)
+        if item_raw is not None:
+            item = _alert_test_synthetic_item(item_raw)
+        elif item_id is not None:
+            record = store.get_item(item_id)
+            if record is None:
+                raise ProtocolError(
+                    "item_not_found", f"条目不存在: item_id={item_id}",
+                    path="params.item_id", data={"item_id": item_id},
+                )
+            item = _alert_item_from_record(record)
+        else:
+            latest = store.list_items(limit=1)
+            if not latest:
+                raise ProtocolError(
+                    "alert_test_no_item",
+                    "库内无条目且未传 item/item_id,缺省取最近一条失败",
+                    path="params.item", data={},
+                )
+            item = _alert_item_from_record(latest[0])
+
+        # mute 词表:品类 watchlist + 反馈 0.0 权重词(_effective_watchlist 同门)
+        config = _category_config_for_item(item.category, ctx.plugins_dir)
+        tuning = load_active_tuning(store)
+        mute_words = list(config.watchlist.mute) if config is not None else []
+        for word in tuning.effective_mute_words():
+            if word not in mute_words:
+                mute_words.append(word)
+        muted = mute_hit(item.title, mute_words) is not None
+
+        try:
+            compiled = compile_rule(rule)
+        except AlertConfigError as exc:  # 读库坏行(草稿形态已在构造门拦下)
+            raise _alert_rule_invalid(None, str(exc), path="params.rule") from exc
+        view = alert_view(item)
+        result: dict[str, Any] = {"matched": False, "muted": muted, "actions": []}
+        if not muted and compiled.applies_to_scope(view.get("category")):
+            try:
+                result["matched"] = bool(evaluate_expression(rule.when, view))
+            except RuleEvalError as exc:
+                result["eval_error"] = str(exc)  # 求值错:引擎 WARNING+未命中,dry 如实上报
+        if rule_id is not None:
+            result["already_fired"] = store.has_fired(rule_id, item.dedup_key or item.url)
+        result["actions"] = _alert_test_actions(compiled, config, item.category)
+        return result
+    finally:
+        store.close()
+
+
+# ---------------------------------------------------------------------------
 # 分发与 serve 循环
 # ---------------------------------------------------------------------------
 
@@ -3612,6 +4076,10 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "push.write": _m_push_write,
     "push.test": _m_push_test,
     "bridge.status": _m_bridge_status,
+    "alerts.list": _m_alerts_list,
+    "alerts.save": _m_alerts_save,
+    "alerts.delete": _m_alerts_delete,
+    "alerts.test": _m_alerts_test,
 }
 
 

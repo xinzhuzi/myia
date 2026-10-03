@@ -9,12 +9,13 @@
   请求 `{"id","method","params"}`;应答 `{"id","result"}` 或
   `{"id","error":{code,path,message,data}}`;`id` 缺省 = 通知(只执行不应答);
   事件无 id,以 `type` 区分。
-- 事件 7 类:`log` / `progress` / `completed`(run 族)/ `test.completed`(试抓 job,C13)/
-  `image.models.progress` / `image.models.completed`(模型下载 job)/ `image.server.completed`(server 自启 job;vision-v2 批)。
+- 事件 8 类:`log` / `progress` / `completed`(run 族)/ `test.completed`(试抓 job,C13)/
+  `image.models.progress` / `image.models.completed`(模型下载 job)/ `image.server.completed`(server 自启 job;vision-v2 批)/
+  `alerts.fired`(run 终态告警命中回放;alert-rules 批)。
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 43 行;代码 `_HANDLERS` 现值 43,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 47 行;代码 `_HANDLERS` 现值 47,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -60,7 +61,11 @@
 | 40 | `image.server.status` | `_m_image_server_status` | 本地 mlx_vlm.server 快照 `{running, base_url, model, healthy}`(探 `base_url/models` 2s 帽,零副作用;vision-v2 批) |
 | 41 | `image.server.ensure` | `_m_image_server_ensure` | 快慢双路径:快路径已健康 → status+`{started:false}` 零后台;慢路径后台线程自起 `uvx --from mlx-vlm mlx_vlm.server` + 健康等待 ≤120s(同步等会冻死单线程 serve 循环全协议队头阻塞——复查修复拍板),应答立即返快照超集+`{ensuring:true, job_id}`,终态走 `image.server.completed` 事件;单飞 `ensure_busy`;日志 `<home>/vision-server.log`(>5MB 轮转;vision-v2 批) |
 | 42 | `image.files.purge` | `_m_image_files_purge` | 按 mtime 清 `<数据根>/images` 超龄落图 `{days}`(整数 ≥1)→ `{deleted, bytes_freed}`;只删文件不动目录(内容寻址平铺);CLI 面能力零 UI;目录不存在 = 合法零删(vision-v2 批复查) |
-| 43 | `feed.enrich` | `_m_feed_enrich` | 情报流卡单条「AI 摘要」:`{item}`(items.id 或 dedup_key/URL,`resolve_item_ref` 同 `feedback.mark` 口径)→ `{item_id, model, scores, score, cached}`;骑 `myia.enrich.LLMEnricher` 现跑(端点 = 条目所属品类 YAML `enrich:` 节 `env:`/`keychain:` 引用解析;enrich_cache 缓存语义复用,命中零 token;分数原路回填 items 表);async `enrich()` 在 handler 内 `asyncio.run` 同步应答,挂 `EnrichSettings.timeout_seconds` 超时;未启用/缺端点/品类 YAML 缺失 = `enrich_not_configured`(graceful;fe-small-batch 批 G8) |
+| 43 | `feed.enrich` | `_m_feed_enrich` | 情报流卡单条「AI 摘要」:`{item}`(items.id 或 dedup_key/URL,`resolve_item_ref` 同 `feedback.mark` 口径)→ `{item_id, model, scores, score, cached}`;骑 `shishi.enrich.LLMEnricher` 现跑(端点 = 条目所属品类 YAML `enrich:` 节 `env:`/`keychain:` 引用解析;enrich_cache 缓存语义复用,命中零 token;分数原路回填 items 表);async `enrich()` 在 handler 内 `asyncio.run` 同步应答,挂 `EnrichSettings.timeout_seconds` 超时;未启用/缺端点/品类 YAML 缺失 = `enrich_not_configured`(graceful;fe-small-batch 批 G8) |
+| 44 | `alerts.list` | `_m_alerts_list` | 告警规则清单(全量 id 升序,启用/停用同行——启停 = save 全量提交):`{}` → `{rules:[AlertRuleView]}`;AlertRuleView = 规则全字段 + `fired_count`/`last_fired_at` 自 alert_fired 表派生(计数不落规则行,save 全量替换不清计数;alert-rules 批) |
+| 45 | `alerts.save` | `_m_alerts_save` | 规则**全量替换**(承建/改/启停一体,不设独立启停方法;push.write 全量先例):`{rules:[AlertRuleInput]}` → `{ok, rules}`;两道门 = 逐条过构造门(shishi.alerts.compile_rule:name/scope/when 白名单语法/action/action_config 形状)任一失败 `alert_rule_invalid`(data 三键 index/field/reason)**整批零写入** + diff 落库(带 id 更新保 id/不带新建/库中多余 id 删除,fired 历史照留;空数组 = 清空回到零惊扰默认;alert-rules 批) |
+| 46 | `alerts.delete` | `_m_alerts_delete` | `{id}` → `{ok}`:删规则定义行,**fired 历史照留**(命中历史是事实);未知 id = `alert_not_found`(alert-rules 批) |
+| 47 | `alerts.test` | `_m_alerts_test` | **dry 求值,不真发不落 fired**:`{rule?\|rule_id?, item?\|item_id?}` → `{matched, muted, actions, eval_error?, already_fired?}`;rule = 草稿(未保存即可测)/rule_id = 已存规则;item = 合成字段 dict(`Item.from_extracted` 构造,content 补丁生效)/item_id = 库内条目(求值上下文与引擎同门)/都缺 = 最近一条(空库 `alert_test_no_item`);muted = effective mute 压制(品类 watchlist + 反馈 0.0 词,命中即不评估);actions 展开 push 通道解析结果+降级原因 / tag 标签;already_fired 仅 rule_id 形态;真发测试借既有 `push.test`(alert-rules 批) |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+
@@ -76,6 +81,9 @@ vision-v2 批(task 10-03-vision-v2)新增 7:36-39 `image.models.*` 四 +
 40-41 `image.server.*` 两 + 42 `image.files.purge`;协议 v5。
 fe-small-batch 批(task 10-03-fe-small-batch)新增 1:43 `feed.enrich`(G8,
 情报流卡 AI 摘要;前端门面接线归 G8 前端件);协议 v6。
+alert-rules 批(task 10-04-alert-rules)新增 4:44-47 `alerts.*` 四方法 +
+`alerts.fired` 回放事件(见下方契约段);协议 v7(hermes-cron 批未先合入,
+v7 归本批——按合入顺序定案,开工实读 `PROTOCOL_VERSION`=6)。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成
@@ -87,15 +95,16 @@ LIKE NOCASE,%/_ 按字面转义)。旧调用零感知。
 `{path, count, bytes}`(path = 前端 `dialog.save()` 选定,只写该一个文件);
 `schedule.preview {file: 围栏内品类 YAML, count?=5 钳制 [1,20]}` →
 `{file, schedule: string|null, timezone, runs[]}`(build_cron_trigger 纯计算);
-`push.test {channel: myia.push.CHANNELS 键, target?(env:/keychain: 引用), template?}`
+`push.test {channel: shishi.push.CHANNELS 键, target?(env:/keychain: 引用), template?}`
 → `{ok: true, channel, preview?}`(preview 仅 stdout 通道——serve stdout 是协议流,
 卡片行入内存缓冲随应答回显)。协议版本随批 bump:v3(feed-ux 三方法)、
 v4(weixin-bridge 批 `bridge.status`)、v5(vision-v2 批:`image.models.*` 四 +
 `image.server.*` 两 + `image.files.purge` + `store.items` 投影三键,见下段)、
-v6(fe-small-batch 批 `feed.enrich`,契约见下段)。
+v6(fe-small-batch 批 `feed.enrich`,契约见下段)、v7(alert-rules 批 `alerts.*`
+四方法 + `alerts.fired` 事件,契约见下段)。
 
-**vision-v2 批七方法契约(task 10-03-vision-v2;能力实现 `myia.vision.models` /
-`myia.vision.server`,重依赖惰性,huggingface-hub 在 extras `myia[vision]`)**:
+**vision-v2 批七方法契约(task 10-03-vision-v2;能力实现 `shishi.vision.models` /
+`shishi.vision.server`,重依赖惰性,huggingface-hub 在 extras `shishi[vision]`)**:
 `image.models.list` / `image.server.status` / `image.server.ensure` 零参;
 `image.models.download {repo: mlx-community/<name>, name?(缺省 = repo 名段)}` →
 `{job_id}` + **下载两事件** `image.models.progress {job_id, repo, done_bytes,
@@ -108,13 +117,13 @@ code 动态透传(`invalid_repo` / `hf_unavailable` / `repo_unreachable` /
 `disk_insufficient` / `model_exists` / `model_incomplete` /
 `model_active_refused` / `no_local_model` / `model_dir_missing` /
 `spawn_failed` / `server_died` / `server_start_failed` 等,源头
-`src/myia/vision/`):delete/activate 透传为应答错误,download/ensure 收口为
+`src/shishi/vision/`):delete/activate 透传为应答错误,download/ensure 收口为
 完成事件 `error` 字段。`store.items` 的 `_item_dict` 白名单投影补
 `image_caption` / `image_files` / `image_ocr_lines` **三键**(随落图开关
 产生;`image_ocr_lines` 逐行 `{text, conf}` 原样透传供详情逐行置信度渲染,
 形态不符整体置 None 不半投影——`image_ocr` 旧键 vision-pipeline 已有)。
 
-**feed.enrich 契约(task 10-03-fe-small-batch G8;能力实现 `myia.enrich`,
+**feed.enrich 契约(task 10-03-fe-small-batch G8;能力实现 `shishi.enrich`,
 与 `myia run` 第二层漏斗同门)**:`feed.enrich {item: int|str, db?}` →
 `{item_id, model, scores, score, cached}`。`item` 引用口径同 `feedback.mark`
 (`resolve_item_ref`:items.id(int/纯数字串)或 dedup_key/URL;条目不存在
@@ -131,8 +140,36 @@ code 动态透传(`invalid_repo` / `hf_unavailable` / `repo_unreachable` /
 `enrich_timeout` / `enrich_failed`(预算耗尽或批次失败条目未获分,
 `data` 带 `degrade_reason` + `failures`);`EnrichConfigError` code 原文透传
 (`credential_unresolved` / `invalid_base_url` 等,追源头去
-`src/myia/enrich/`)。mute 命中走管线零 token 降权路径,照常应答
+`src/shishi/enrich/`)。mute 命中走管线零 token 降权路径,照常应答
 (三维 0 分 + `cached:false`)。
+
+**alerts.* 契约(task 10-04-alert-rules;能力实现 `shishi.alerts` 包 + store
+`alert_rules`/`alert_fired` 两表,管线挂点 `Pipeline._alert_pass` 为 run 阶段
+循环后的独立轻量附加步)**:`alerts.list {}` → `{rules:[AlertRuleView]}`
+(全字段 + `fired_count`/`last_fired_at` 派生,计数不落规则行——save 全量替换
+不清计数);`alerts.save {rules:[AlertRuleInput]}` → `{ok, rules}`——**全量
+替换承建/改/启停,不设独立启停方法**(编辑一条提交整个数组,push.write 先例);
+两道门:①逐条构造期拒(`compile_rule`:name/scope('global'+七品类+channel)/
+when 白名单 AST 语法/action ∈ {push,tag}/action_config 形状,push 需
+channel ∈ `shishi.push.CHANNELS` + 可选 targets/template,tag 需非空 tags),
+任一条失败 = `alert_rule_invalid`(data `{index, field, reason}`)整批零写入;
+②diff 落库:带 id = 更新保 id(id 稳定是计数派生的前提),不带 = 新建,库中
+多余 id = 删除(fired 历史照留),空数组 = 清空。`alerts.delete {id}` → `{ok}`。
+`alerts.test {rule?|rule_id?, item?|item_id?}` → `{matched, muted, actions,
+eval_error?, already_fired?}`——**dry 求值不真发不落 fired**;`muted` = 条目按
+当前 effective mute(品类 watchlist + 反馈 0.0 权重词,`_effective_watchlist`
+同门)被压制即 matched=false 不评估(引擎硬规则);`actions` = 将触发动作展开
+(push:品类 `push[]` 同类型第一条解析结果 + targets/template + 降级原因
+`item_no_category`/`category_yaml_not_found`/`category_push_missing`;tag:tags);
+`already_fired` 仅 rule_id 形态;真发测试借既有 `push.test`。**事件
+`alerts.fired {rule_id, rule_name, item_id, dedup_key, title, action,
+action_status, ts}`**:run 终态收口处(发 `completed` 的同一监管线程)以
+`list_fired(since=run.started_at)` 查库逐条回放(completed 之前发出;dry run
+管线侧零落库零回放;查库回放零子进程日志格式耦合)。错误码:`alert_rule_invalid`
+/ `alert_not_found`(delete、test 的 rule_id 形态、save 载荷未知 id)/
+`alert_test_no_item`(缺省取材空库);`item_not_found` 复用 feedback 族
+(item_id 形态);运行期求值错/mute 压制/通道降级/发送失败 = 非协议错
+(WARNING 隔离,logs.tail 可见)。
 
 ## 错误码表
 
@@ -164,14 +201,15 @@ code 动态透传(`invalid_repo` / `hf_unavailable` / `repo_unreachable` /
 | 单条精评 | `enrich_not_configured` / `enrich_timeout` / `enrich_failed`(另复用 `invalid_params`/`item_not_found`/`store_corrupt`;`EnrichConfigError` code 动态透传) | `feed.enrich`:品类未启用 enrich/缺端点引用/品类 YAML 缺失(graceful,`data.reason` 三分)/ `asyncio.run` 整段超时 / 条目未获分(degrade_reason+failures 入 data);凭据解析失败透传 `credential_unresolved` 等(fe-small-batch 批 G8) |
 | 消息 | `unknown_platform` / `discover_not_supported` / `channel_refresh_failed` / `alias_write_failed` / `push_write_unsupported`(另复用 `category_invalid` / `file_not_found` / `path_outside_root` / `source_write_failed` / `invalid_params`) | channels.* / push.write 全链路(task 10-03-messaging-ui;数据面错误码透传 push 层如 `credential_not_found` 经 `channel_refresh_failed.data.code` 携带) |
 | 看图模型/服务 | `download_busy` / `ensure_busy`(另复用 `invalid_params`;activate 改写 vision.yaml 失败复用 `image_config_invalid`) | image.models.* / image.server.* 单飞拒绝与参数形状;`VisionModelError`/`VisionServerError` code 透传(delete/activate 走应答错误,download/ensure 走完成事件 error 字段,枚举见上方 vision-v2 契约段;task 10-03-vision-v2) |
+| 告警规则 | `alert_rule_invalid` / `alert_not_found` / `alert_test_no_item`(另复用 `invalid_params` 互斥门/载荷形状、`item_not_found` 的 item_id 形态) | `alerts.save` 某条构造期拒(data `{index, field, reason}`,整批零写入)/ `alerts.delete`·`alerts.test`(rule_id 形态)·`alerts.save`(载荷未知 id)未知 id / `alerts.test` 缺省取材空库(task 10-04-alert-rules;求值错/mute/降级/发送失败 = 非协议错,WARNING 隔离走 logs.tail) |
 
 ### 透传族(`exc.code` 动态透传,不在 entry.py 静态出现)
 
 `store.items` / `secret.*` / CLI 包装透传底层模块 code(例:`store_corrupt` /
 `invalid_secret_name` / `plugins_dir`,枚举见 entry.py 模块 docstring:19-21)——追源头去
-`src/myia/` 对应模块,entry.py 只加 `path`/`data` 不改 code。`push.test` 同款透传
+`src/shishi/` 对应模块,entry.py 只加 `path`/`data` 不改 code。`push.test` 同款透传
 push 层 `PushSendError.code`(`missing_target` / `env_var_missing` /
-`credential_resolve_failed` 等,追源头去 `src/myia/push/`;task 10-03-feed-ux G5)。
+`credential_resolve_failed` 等,追源头去 `src/shishi/push/`;task 10-03-feed-ux G5)。
 
 ## 变更纪律
 
