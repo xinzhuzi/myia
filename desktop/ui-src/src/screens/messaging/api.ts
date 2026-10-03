@@ -20,6 +20,17 @@
  *                      weixin_configured, gateway_alive, bin_path}
  *                      微信桥接探测(probe_bridge 全量;纯文件存在性检查,
  *                      零读取零出网;10-03-messaging-weixin-bridge D4,协议 v4 #31)
+ *   alerts.list      {} → {rules: [AlertRuleView]}
+ *                      告警规则全量(10-04-alert-rules;View = 规则全字段 +
+ *                      fired_count/last_fired_at 派生;空表 = 合法零惊扰态)
+ *   alerts.save      {rules: [AlertRuleInput]} → {ok, rules: [AlertRuleView]}
+ *                      **rules = 完整规则数组**(全量替换承建/改/启停;带 id
+ *                      = 更新保 id,不带 = 新建,库中多余 id 删;构造期拒 =
+ *                      alert_rule_invalid 整批零写入)
+ *   alerts.delete    {id} → {ok}(fired 命中历史照留)
+ *   alerts.test      {rule? | rule_id?, item? | item_id?} → {matched, muted,
+ *                      actions, eval_error?, already_fired?}(dry 求值不真发;
+ *                      真发测试借既有 push.test;事件 alerts.fired 见 types.ts)
  *
  * 惯例与 sources 屏一致:invoke 直连壳命令 `sidecar_request` +
  * asSidecarError 归一化(错误必得 code/path/message)。
@@ -237,6 +248,221 @@ export async function bridgeStatus(): Promise<BridgeStatusView> {
 }
 
 // ---------------------------------------------------------------------------
+// 告警规则方法族(task 10-04-alert-rules;契约权威 = 任务档 design.md §4
+// —— alerts.list/save/delete/test 四方法 + alerts.fired 事件。协议实现
+// 落地前按本契约编码,侧未实装时 method_not_found 由调用方降级呈现)
+// ---------------------------------------------------------------------------
+
+/** 动作二选一(v1;每规则单动作,存储/协议同形)。 */
+export type AlertAction = "push" | "tag";
+
+/** push:channel 必填 + 可选 targets/template;tag:tags 非空(design §5.1)。 */
+export interface AlertActionConfig {
+  channel?: string;
+  targets?: string[];
+  template?: string;
+  tags?: string[];
+}
+
+/**
+ * alerts.list 应答的规则视图 = 规则全字段 + 两个派生列(design §4.1):
+ * fired_count(alert_fired GROUP BY COUNT 派生,删规则不清零——历史是事实)、
+ * last_fired_at(无命中 null)。协议字段名 `when` 与 RouteRuleConfig.when
+ * 对齐(store 层 when_expr 列互转,design §2.3)。
+ */
+export interface AlertRuleView {
+  id: number;
+  name: string;
+  enabled: boolean;
+  /** 'global' | 品类 id(七品类之一) */
+  scope: string;
+  when: string;
+  action: AlertAction;
+  action_config: AlertActionConfig;
+  created_at: string;
+  updated_at: string;
+  fired_count: number;
+  last_fired_at: string | null;
+}
+
+/**
+ * alerts.save 载荷的规则输入:视图减派生列;id 缺省 = 新建,带 id = 更新
+ * 保 id(全量替换的 diff 语义:库中多余 id 由服务端删除,design §4.1)。
+ */
+export type AlertRuleInput = Omit<
+  AlertRuleView,
+  "fired_count" | "last_fired_at" | "created_at" | "updated_at" | "id"
+> & {
+  id?: number;
+};
+
+/** alerts.list 应答。 */
+export interface AlertsListView {
+  rules: AlertRuleView[];
+}
+
+/** alerts.save 应答(写回后全量规则视图,id 稳定 = 计数派生前提)。 */
+export interface AlertsSaveResult {
+  ok: true;
+  rules: AlertRuleView[];
+}
+
+/**
+ * alerts.test 应答(dry 求值,不真发不落 fired,design §4.1 钉死②):
+ * actions = 将触发的动作展开 —— push 携通道解析结果 + 降级原因,
+ * tag 携 tags;eval_error = 坏 when 的求值错文本;muted = mute 压制;
+ * already_fired 仅 rule_id 形态有值(草稿无从查历史)。
+ * 字段名与协议实发对齐(entry.py _alert_test_actions):
+ * resolved(bool) / resolved_target(解析描述) / degrade_reason(降级原因)。
+ */
+export interface AlertTestResult {
+  matched: boolean;
+  muted: boolean;
+  actions: Array<{
+    action: AlertAction;
+    /** push:通道名;tag 无 */
+    channel?: string;
+    targets?: string[] | null;
+    template?: string | null;
+    /** push:该品类 push[] 是否解析到同类型通道(false = 降级不发) */
+    resolved?: boolean;
+    /** push:解析到的通道描述(该品类 push[] 第一条同类型通道的 target) */
+    resolved_target?: string | null;
+    /** push:未解析到时的降级原因(category_push_missing/item_no_category/category_yaml_not_found) */
+    degrade_reason?: string | null;
+    /** tag:将打的标签 */
+    tags?: string[];
+  }>;
+  eval_error?: string;
+  already_fired?: boolean;
+}
+
+/** alerts.test 载荷:rule(草稿,未保存即可测)与 rule_id 二选一;item/item_id 缺省取最近一条。 */
+export interface AlertsTestParams {
+  rule?: AlertRuleInput;
+  rule_id?: number;
+  item?: Record<string, unknown>;
+  item_id?: number;
+}
+
+/** 规则全量拉齐(空表 = 合法零惊扰态)。 */
+export async function alertsList(): Promise<AlertsListView> {
+  try {
+    return await invoke<AlertsListView>("sidecar_request", { method: "alerts.list", params: {} });
+  } catch (raw) {
+    throw asSidecarError(raw);
+  }
+}
+
+/**
+ * 规则全量替换写回(design §4.1 钉死①:承建/改/启停,不设独立启停方法;
+ * push.write 全量先例「编辑一条提交整个数组」)。启停 = 整数组提交时该行
+ * enabled 翻转;构造期拒 = alert_rule_invalid 整批零写入(结构化错直显)。
+ */
+export async function alertsSave(rules: AlertRuleInput[]): Promise<AlertsSaveResult> {
+  try {
+    return await invoke<AlertsSaveResult>("sidecar_request", { method: "alerts.save", params: { rules } });
+  } catch (raw) {
+    throw asSidecarError(raw);
+  }
+}
+
+/** 删规则定义行(fired 命中历史照留;未知 id → alert_not_found)。 */
+export async function alertsDelete(id: number): Promise<{ ok: true }> {
+  try {
+    return await invoke<{ ok: true }>("sidecar_request", { method: "alerts.delete", params: { id } });
+  } catch (raw) {
+    throw asSidecarError(raw);
+  }
+}
+
+/** dry 求值测试(不真发不落 fired;真发测试借既有 push.test)。 */
+export async function alertsTest(params: AlertsTestParams): Promise<AlertTestResult> {
+  try {
+    return await invoke<AlertTestResult>("sidecar_request", { method: "alerts.test", params });
+  } catch (raw) {
+    throw asSidecarError(raw);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 告警表单辅助(纯函数:下拉选项 / 逗号分隔解析)
+// ---------------------------------------------------------------------------
+
+/**
+ * push 动作 channel 下拉名集 = `shishi.push.CHANNELS` 键集镜像(30 条:
+ * 8 核心 + W3 长尾 22;同步源 src/shishi/push/__init__.py:181-191)。
+ * UI 只做名集提示,凭据解析在执行期(品类 push[] 第一个此类型通道,
+ * 未配置则降级不发 —— design §7.1)。
+ */
+export const ALERT_CHANNELS: string[] = [
+  "feishu_card",
+  "telegram",
+  "ntfy",
+  "dingtalk",
+  "wecom",
+  "weixin",
+  "webhook",
+  "stdout",
+  "slack",
+  "discord",
+  "whatsapp_cloud",
+  "line",
+  "qqbot",
+  "google_chat",
+  "teams",
+  "msgraph_webhook",
+  "matrix",
+  "mattermost",
+  "irc",
+  "simplex",
+  "signal",
+  "bluebubbles",
+  "email",
+  "sms",
+  "homeassistant",
+  "a2a",
+  "yuanbao",
+  "buzz",
+  "photon",
+  "raft",
+];
+
+/** scope 下拉的品类选项(yaml.list 的 parse_ok 且有 category_id 项)。 */
+export interface AlertCategoryOption {
+  category_id: string;
+  category_name: string | null;
+}
+
+/**
+ * 品类下拉选项 = yaml.list 派生(design §9:scope 全局/品类下拉=yaml.list;
+ * 形状对照 entry.py `_m_yaml_list`,坏文件不入选项)。失败由调用方降级为
+ * 空名单(下拉只留「全局」,不挡子面板)。
+ */
+export async function listAlertCategories(): Promise<AlertCategoryOption[]> {
+  interface YamlFileEntry {
+    parse_ok: boolean;
+    category_id: string | null;
+    category_name: string | null;
+  }
+  const result = await invoke<{ plugins_dir: string; files: YamlFileEntry[] }>("sidecar_request", {
+    method: "yaml.list",
+    params: {},
+  });
+  return result.files
+    .filter((file) => file.parse_ok && file.category_id !== null)
+    .map((file) => ({ category_id: file.category_id as string, category_name: file.category_name }));
+}
+
+/** 逗号分隔输入 → 去空白的非空项列表(tags/targets 表单字段共用)。 */
+export function parseCsvList(text: string): string[] {
+  return text
+    .split(",")
+    .map((piece) => piece.trim())
+    .filter((piece) => piece.length > 0);
+}
+
+// ---------------------------------------------------------------------------
 // 视图装配纯函数(展示格式化,零协议往返)
 // ---------------------------------------------------------------------------
 
@@ -245,6 +471,21 @@ export function formatLastSeen(lastSeen: number | null): string {
   if (lastSeen === null || lastSeen === undefined) return "—";
   const date = new Date(lastSeen * 1000);
   if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** ISO-8601 时间戳(alerts 域:规则 updated_at / fired 的 last_fired_at)→ 本地
+ *  日期时间串;null → "—"(从未触发);解析失败原样返回(不吞数据)。 */
+export function formatIsoTimestamp(iso: string | null): string {
+  if (iso === null || iso === undefined || iso === "") return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleString(undefined, {
     year: "numeric",
     month: "2-digit",

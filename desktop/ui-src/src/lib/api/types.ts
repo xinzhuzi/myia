@@ -977,6 +977,26 @@ export interface ImageServerCompletedEvent {
   ts: string;
 }
 
+/** 告警命中事件(entry.py run 终态收口回放:run.started_at 之后的
+ *  alert_fired 逐条 _write_line;task 10-04-alert-rules design §4.2-§4.3)。
+ *  title/item_id 可空 = fired 快照对 retention 剪枝免疫(快照 at fire time)。
+ *  注:暂不入 SidecarEvent 联合 —— logs 屏的穷尽守卫(screens/logs/api.ts
+ *  `unknownEvent: never`)要求新事件类型随协议落地批同步适配其格式化
+ *  分支;协议侧 alerts.fired 实装(entry.py `_write_line`)时再加入联合。
+ *  消息屏(10-04 Stage E)按本接口窄化消费,字段契约由此钉住。 */
+export interface AlertsFiredEvent {
+  type: "alerts.fired";
+  rule_id: number;
+  rule_name: string;
+  item_id: number | null;
+  dedup_key: string;
+  title: string | null;
+  action: "push" | "tag";
+  /** pending|sent|send_failed|tagged|degraded_no_channel|skipped_dry_run */
+  action_status: string;
+  ts: string;
+}
+
 export type SidecarEvent =
   | LogEvent
   | ProgressEvent
@@ -991,4 +1011,4 @@ export type SidecarEvent =
 // (image.models.progress / completed)与 server ensure 终态事件
 // (image.server.completed,ensure 慢路径应答即返、终态走事件),
 // SidecarEvent = run 域三事件 + test.completed + 模型下载域两事件 +
-// server ensure 终态事件。
+// server ensure 终态事件。(alerts.fired 见上方接口注释:协议落地批入联合。)

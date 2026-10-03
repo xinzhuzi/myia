@@ -1,4 +1,4 @@
-import { MessageCircle, RefreshCw } from "lucide-react";
+import { Bell, MessageCircle, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -7,25 +7,47 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, type SidecarRequestError } from "@/lib/api";
+import { Switch } from "@/components/ui/switch";
+import {
+  api,
+  onSidecarEvent,
+  type AlertsFiredEvent,
+  type SidecarRequestError,
+  type UnlistenFn,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import { ErrorBox } from "../sources/error-box";
 import {
+  ALERT_CHANNELS,
+  alertsDelete,
+  alertsList,
+  alertsSave,
+  alertsTest,
   asSidecarError,
   bridgeStatus,
   channelsAliasDelete,
   channelsAliasSet,
   channelsList,
   channelsRefresh,
+  formatIsoTimestamp,
   formatLastSeen,
   hasAlias,
   isDeadEntry,
+  listAlertCategories,
   listSecretNames,
+  parseCsvList,
   pushWrite,
   targetSpec,
 } from "./api";
 import type {
+  AlertAction,
+  AlertActionConfig,
+  AlertCategoryOption,
+  AlertRuleInput,
+  AlertRuleView,
+  AlertTestResult,
+  AlertsTestParams,
   BridgeStatusView,
   ChannelEntry,
   ChannelsView,
@@ -67,6 +89,12 @@ interface Notice {
  * 下区·推送规则:按品类 YAML 分组列出 push 条目,每条目一个 targets 多选器
  * (选项 = 上区该平台目录条目,产出 `platform:名称`),保存走 push.write
  * 全量替换(服务端同门校验,失败零写入、界面如实报错)。
+ * 下区·告警规则(10-04-alert-rules):对每条新入流情报求值,命中即推送/打标。
+ * 列表行 = 启停 Switch(= 全量提交)/名称/scope/when 等宽摘要/动作徽章/命中
+ * N/最近触发;新建编辑内联表单(when 文本校验反馈 = alerts.save 构造期错直显
+ * + alerts.test dry 求值);删除二次确认;alerts.fired 事件 → toast + 命中数
+ * 刷新(事件流既有通道 onSidecarEvent)。协议未实装(method_not_found)时
+ * 子面板降级说明,不挡整屏。
  * 底部·状态条(R4;MYIA 版语义,不做 RAM/网关):sidecar 健康(health
  * 一来一回成功即存活证明)+ 已连接平台计数;常驻(sticky)于滚动底部。
  * 空态(目录为空)给「先配平台凭据」指引;断连态与现有屏同范式(ErrorBox+重试)。
@@ -488,6 +516,9 @@ export function MessagingScreen() {
         </Card>
       </div>
 
+      {/* ---------------- 下区:告警规则子面板(10-04-alert-rules;同属「消息怎么发」心智) ---------------- */}
+      <AlertRulesPanel />
+
       {/* ---------------- 底部:状态条(R4;常驻滚动底;MYIA 版语义,不做 RAM/网关) ---------------- */}
       <div
         className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t border-border bg-background/95 px-6 py-2 text-2xs text-muted-foreground backdrop-blur"
@@ -615,6 +646,673 @@ function RuleFileGroup({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 告警规则子面板(10-04-alert-rules Stage E;契约 = 任务档 design.md §4/§9)
+// ---------------------------------------------------------------------------
+
+/** 表单草稿(新建无 id;编辑带 id + 保留 enabled——启停在行上,表单不出)。 */
+interface AlertFormDraft {
+  id?: number;
+  enabled: boolean;
+  name: string;
+  scope: string;
+  when: string;
+  action: AlertAction;
+  channel: string;
+  targets: string;
+  template: string;
+  tags: string;
+}
+
+/** 测试面板态:key 定位触发源(行 = `rule-{id}`,草稿 = "draft")。 */
+interface AlertTestPanelState {
+  key: string;
+  running: boolean;
+  result: AlertTestResult | null;
+  error: SidecarRequestError | null;
+}
+
+function emptyAlertDraft(): AlertFormDraft {
+  return {
+    enabled: true,
+    name: "",
+    scope: "global",
+    when: "",
+    action: "push",
+    channel: "",
+    targets: "",
+    template: "",
+    tags: "",
+  };
+}
+
+function ruleToDraft(rule: AlertRuleView): AlertFormDraft {
+  return {
+    id: rule.id,
+    enabled: rule.enabled,
+    name: rule.name,
+    scope: rule.scope,
+    when: rule.when,
+    action: rule.action,
+    channel: rule.action_config.channel ?? "",
+    targets: (rule.action_config.targets ?? []).join(", "),
+    template: rule.action_config.template ?? "",
+    tags: (rule.action_config.tags ?? []).join(", "),
+  };
+}
+
+/** 视图 → save 载荷(全量替换的写回 base;启停翻转走这里保 id)。 */
+function ruleToInput(rule: AlertRuleView): AlertRuleInput {
+  return {
+    id: rule.id,
+    name: rule.name,
+    enabled: rule.enabled,
+    scope: rule.scope,
+    when: rule.when,
+    action: rule.action,
+    action_config: rule.action_config,
+  };
+}
+
+/** 草稿 → save/test 载荷(targets/tags 逗号分隔解析;可选项空则不携带)。 */
+function draftToInput(draft: AlertFormDraft): AlertRuleInput {
+  const targets = parseCsvList(draft.targets);
+  const tags = parseCsvList(draft.tags);
+  const action_config: AlertActionConfig =
+    draft.action === "push"
+      ? {
+          channel: draft.channel,
+          ...(targets.length > 0 ? { targets } : {}),
+          ...(draft.template.trim() ? { template: draft.template.trim() } : {}),
+        }
+      : { tags };
+  return {
+    ...(draft.id !== undefined ? { id: draft.id } : {}),
+    name: draft.name.trim(),
+    enabled: draft.enabled,
+    scope: draft.scope,
+    when: draft.when.trim(),
+    action: draft.action,
+    action_config,
+  };
+}
+
+/** 列表行的动作徽章文本:push → 通道名;tag → 标签清单(design §9)。 */
+function actionBadgeText(rule: AlertRuleView): string {
+  if (rule.action === "push") {
+    return `推送 → ${rule.action_config.channel ?? "?"}`;
+  }
+  return `打标:${(rule.action_config.tags ?? []).join(" / ") || "?"}`;
+}
+
+/**
+ * 告警规则子面板:列表(启停/名称/scope/when 摘要/动作/命中 N/最近触发)
+ * + 新建编辑内联表单 + dry 测试 + 删除二次确认 + alerts.fired 事件消费。
+ *
+ * 面板自管数据与错误:alerts.list 失败不拖挂整屏 —— 旧版 sidecar
+ * (method_not_found)降级为「协议未实装」说明;其余错误局部呈现 + 重试。
+ */
+function AlertRulesPanel() {
+  const [rules, setRules] = useState<AlertRuleView[] | null>(null);
+  const [loadError, setLoadError] = useState<SidecarRequestError | null>(null);
+  const [unsupported, setUnsupported] = useState(false);
+  const [categories, setCategories] = useState<AlertCategoryOption[]>([]);
+  const [form, setForm] = useState<AlertFormDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [testPanel, setTestPanel] = useState<AlertTestPanelState | null>(null);
+  const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+
+  const loadRules = useCallback(async () => {
+    setRules(null);
+    setLoadError(null);
+    setUnsupported(false);
+    try {
+      const view = await alertsList();
+      setRules(view.rules);
+    } catch (error) {
+      const structured = asSidecarError(error);
+      // 旧版 sidecar 无 alerts.* 方法:降级说明(bridge.status 失败降级同款
+      // 哲学),其余错误(库损坏/服务故障)局部呈现 + 重试
+      if (structured.code === "method_not_found") setUnsupported(true);
+      else setLoadError(structured);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRules();
+  }, [loadRules]);
+
+  // scope 品类下拉(yaml.list)是次要信号:失败降级空名单(下拉只剩「全局」)
+  useEffect(() => {
+    let cancelled = false;
+    listAlertCategories()
+      .catch(() => [] as AlertCategoryOption[])
+      .then((options) => {
+        if (!cancelled) setCategories(options);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // alerts.fired 事件(design §4.2/§9):toast(本面板 notice)+ 规则行命中数
+  // 刷新 —— 本地增量(fired_count+1 / last_fired_at=事件 ts),不整表重拉。
+  // 事件类型暂不在 SidecarEvent 联合(types.ts AlertsFiredEvent 注释:入联合
+  // 与 logs 屏穷尽守卫适配归协议落地批),此处按契约窄化消费
+  useEffect(() => {
+    let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
+    void onSidecarEvent((event) => {
+      const fired = event as unknown as AlertsFiredEvent;
+      if (fired.type !== "alerts.fired") return;
+      setNotice({
+        kind: "ok",
+        text: `告警命中:${fired.rule_name}${fired.title ? `「${fired.title}」` : ""}(${fired.action_status})`,
+      });
+      setRules((prev) =>
+        prev
+          ? prev.map((rule) =>
+              rule.id === fired.rule_id
+                ? { ...rule, fired_count: rule.fired_count + 1, last_fired_at: fired.ts }
+                : rule,
+            )
+          : prev,
+      );
+    }).then((un) => {
+      if (cancelled) un();
+      else unlisten = un;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
+  /** 启停 = 整数组提交时该行 enabled 翻转(design §4.1 钉死①,不设独立启停方法)。 */
+  const toggleRule = useCallback(
+    async (rule: AlertRuleView) => {
+      setNotice(null);
+      setTogglingId(rule.id);
+      try {
+        const next = (rules ?? []).map((candidate) =>
+          candidate.id === rule.id ? { ...candidate, enabled: !candidate.enabled } : candidate,
+        );
+        const result = await alertsSave(next.map(ruleToInput));
+        setRules(result.rules);
+      } catch (error) {
+        const structured = asSidecarError(error);
+        setNotice({ kind: "error", text: `启停失败:${structured.message}(code=${structured.code})` });
+      } finally {
+        setTogglingId(null);
+      }
+    },
+    [rules],
+  );
+
+  const submitForm = useCallback(async () => {
+    if (!form) return;
+    // 前端轻预检(完整门 = 服务端 alerts.save 构造期拒,alert_rule_invalid 直显)
+    if (!form.name.trim()) {
+      setNotice({ kind: "error", text: "规则名称不能为空" });
+      return;
+    }
+    if (!form.when.trim()) {
+      setNotice({ kind: "error", text: "when 表达式不能为空" });
+      return;
+    }
+    if (form.action === "push" && !form.channel) {
+      setNotice({ kind: "error", text: "推送动作需选择通道(channel)" });
+      return;
+    }
+    if (form.action === "tag" && parseCsvList(form.tags).length === 0) {
+      setNotice({ kind: "error", text: "打标动作需至少一个标签(逗号分隔)" });
+      return;
+    }
+    setNotice(null);
+    setSaving(true);
+    try {
+      // 全量替换:其余规则原样(id 保稳)+ 本草稿替换/追加
+      const base = (rules ?? []).filter((rule) => rule.id !== form.id);
+      const result = await alertsSave([...base.map(ruleToInput), draftToInput(form)]);
+      setRules(result.rules);
+      setForm(null);
+      setNotice({ kind: "ok", text: `告警规则已保存:${form.name.trim()}` });
+    } catch (error) {
+      const structured = asSidecarError(error);
+      setNotice({ kind: "error", text: `保存失败:${structured.message}(code=${structured.code})` });
+    } finally {
+      setSaving(false);
+    }
+  }, [form, rules]);
+
+  const confirmDelete = useCallback(async (ruleId: number) => {
+    setNotice(null);
+    setDeleting(true);
+    try {
+      await alertsDelete(ruleId);
+      setRules((prev) => (prev ? prev.filter((rule) => rule.id !== ruleId) : prev));
+      setPendingDelete(null);
+      setNotice({ kind: "ok", text: "规则已删除(命中历史照留,可在 CLI `shishi alerts list` 查看)" });
+    } catch (error) {
+      const structured = asSidecarError(error);
+      setNotice({ kind: "error", text: `删除失败:${structured.message}(code=${structured.code})` });
+    } finally {
+      setDeleting(false);
+    }
+  }, []);
+
+  /** dry 测试:行(rule_id)/草稿(rule)两形态;不真发不落 fired(design §4.1)。 */
+  const runTest = useCallback(async (key: string, params: AlertsTestParams) => {
+    setNotice(null);
+    setTestPanel({ key, running: true, result: null, error: null });
+    try {
+      const result = await alertsTest(params);
+      setTestPanel({ key, running: false, result, error: null });
+    } catch (error) {
+      setTestPanel({ key, running: false, result: null, error: asSidecarError(error) });
+    }
+  }, []);
+
+  return (
+    <div className="px-6">
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4" data-testid="alert-rules-panel">
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
+              <Bell className="size-4 text-muted-foreground" />
+              告警规则
+              <span className="text-xs font-normal text-muted-foreground">
+                (对每条新入流情报求值,命中即推送/打标;保存 = 全量写回规则表)
+              </span>
+            </p>
+            {unsupported ? null : (
+              <Button
+                size="sm"
+                disabled={form !== null || saving}
+                onClick={() => {
+                  setNotice(null);
+                  setTestPanel(null);
+                  setForm(emptyAlertDraft());
+                }}
+              >
+                新建规则
+              </Button>
+            )}
+          </div>
+
+          {notice ? (
+            <div
+              role={notice.kind === "error" ? "alert" : "status"}
+              className={
+                notice.kind === "error"
+                  ? "rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+                  : "rounded-md border border-ok/30 bg-ok/10 px-3 py-2 text-xs text-ok"
+              }
+              data-testid="alert-rules-notice"
+            >
+              {notice.text}
+            </div>
+          ) : null}
+
+          {unsupported ? (
+            <p className="text-xs text-muted-foreground" data-testid="alert-rules-unsupported">
+              当前 sidecar 版本还没有告警规则方法(需要协议 v7 的 alerts.* 方法族);升级后此处自动可用,其余面板功能不受影响。
+            </p>
+          ) : rules === null && loadError === null ? (
+            <div className="flex flex-col gap-2" aria-label="加载中">
+              {[0, 1].map((index) => (
+                <Skeleton key={index} className="h-9 w-full" />
+              ))}
+            </div>
+          ) : loadError ? (
+            <div
+              className="flex flex-col gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+              data-testid="alert-rules-error"
+            >
+              <span>
+                告警规则加载失败:{loadError.message}(code={loadError.code})
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="self-start"
+                onClick={() => void loadRules()}
+              >
+                重试
+              </Button>
+            </div>
+          ) : (rules ?? []).length === 0 && form === null ? (
+            <EmptyState
+              compact
+              title="还没有告警规则"
+              description="新建规则后,每条新入流的情报都会求值一次:命中即立即推送或打标;不配规则则一切照旧(零惊扰)。"
+            />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {(rules ?? []).map((rule) => (
+                <li
+                  key={rule.id}
+                  className="flex flex-col gap-1.5 rounded-md border border-border/60 px-3 py-2"
+                  data-testid={`alert-rule-${rule.id}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2 text-sm">
+                      <Switch
+                        checked={rule.enabled}
+                        disabled={togglingId === rule.id}
+                        onCheckedChange={() => void toggleRule(rule)}
+                        aria-label={`启停 ${rule.name}`}
+                      />
+                      <span className="truncate font-medium text-foreground">{rule.name}</span>
+                      <Badge variant="outline">{rule.scope === "global" ? "全局" : rule.scope}</Badge>
+                      <code className="truncate font-mono text-2xs text-muted-foreground" title={rule.when}>
+                        when {rule.when}
+                      </code>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1">
+                      {togglingId === rule.id ? <span className="text-2xs text-muted-foreground">提交中…</span> : null}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={testPanel?.running === true}
+                        onClick={() => {
+                          setForm(null);
+                          void runTest(`rule-${rule.id}`, { rule_id: rule.id });
+                        }}
+                      >
+                        测试
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setNotice(null);
+                          setTestPanel(null);
+                          setPendingDelete(null);
+                          setForm(ruleToDraft(rule));
+                        }}
+                      >
+                        编辑
+                      </Button>
+                      {pendingDelete === rule.id ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={deleting}
+                            onClick={() => void confirmDelete(rule.id)}
+                          >
+                            {deleting ? "删除中…" : "确认删除"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={deleting}
+                            onClick={() => setPendingDelete(null)}
+                          >
+                            取消
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setNotice(null);
+                            setPendingDelete(rule.id);
+                          }}
+                        >
+                          删除
+                        </Button>
+                      )}
+                    </span>
+                  </div>
+                  <p className="flex flex-wrap items-center gap-2 pl-9 text-2xs text-muted-foreground">
+                    <Badge variant={rule.action === "push" ? "default" : "secondary"}>
+                      {actionBadgeText(rule)}
+                    </Badge>
+                    <span>命中 {rule.fired_count}</span>
+                    <span>最近触发 {formatIsoTimestamp(rule.last_fired_at)}</span>
+                    {!rule.enabled ? <Badge variant="outline">已停用</Badge> : null}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {form ? (
+            <AlertRuleForm
+              draft={form}
+              categories={categories}
+              saving={saving}
+              testRunning={testPanel?.key === "draft" && testPanel.running}
+              onChange={setForm}
+              onCancel={() => setForm(null)}
+              onSubmit={() => void submitForm()}
+              onTest={() => void runTest("draft", { rule: draftToInput(form) })}
+            />
+          ) : null}
+
+          {testPanel ? <AlertTestResultPanel state={testPanel} /> : null}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/** 新建/编辑内联表单:when 文本 + 服务端校验反馈(alerts.save/test 构造期错直显)。 */
+function AlertRuleForm({
+  draft,
+  categories,
+  saving,
+  testRunning,
+  onChange,
+  onCancel,
+  onSubmit,
+  onTest,
+}: {
+  draft: AlertFormDraft;
+  categories: AlertCategoryOption[];
+  saving: boolean;
+  testRunning: boolean;
+  onChange: (draft: AlertFormDraft) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+  onTest: () => void;
+}) {
+  const inputClass = "h-7 w-full rounded-md border border-border bg-transparent px-2 text-xs";
+  return (
+    <form
+      className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted/30 p-3"
+      data-testid="alert-rule-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <p className="text-xs font-medium text-foreground">
+        {draft.id !== undefined ? `编辑规则(id=${draft.id})` : "新建规则"}
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex flex-col gap-1 text-xs">
+          名称
+          <input
+            aria-label="规则名称"
+            className={inputClass}
+            value={draft.name}
+            onChange={(event) => onChange({ ...draft, name: event.target.value })}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs">
+          作用域
+          <select
+            aria-label="规则作用域"
+            className={inputClass}
+            value={draft.scope}
+            onChange={(event) => onChange({ ...draft, scope: event.target.value })}
+          >
+            <option value="global">全局(所有品类)</option>
+            {categories.map((option) => (
+              <option key={option.category_id} value={option.category_id}>
+                {option.category_name ? `${option.category_name}(${option.category_id})` : option.category_id}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <label className="flex flex-col gap-1 text-xs">
+        when 表达式(白名单 AST;可用字段 title/content/source/url/category/score/tags 等,如
+        <code className="font-mono"> &apos;融资&apos; in title or score &gt;= 4</code>)
+        <textarea
+          aria-label="when 表达式"
+          rows={2}
+          className="w-full rounded-md border border-border bg-transparent px-2 py-1 font-mono text-xs"
+          value={draft.when}
+          onChange={(event) => onChange({ ...draft, when: event.target.value })}
+        />
+      </label>
+      <div className="flex items-center gap-4 text-xs">
+        动作
+        <label className="flex items-center gap-1">
+          <input
+            type="radio"
+            name="alert-action"
+            checked={draft.action === "push"}
+            onChange={() => onChange({ ...draft, action: "push" })}
+          />
+          推送
+        </label>
+        <label className="flex items-center gap-1">
+          <input
+            type="radio"
+            name="alert-action"
+            checked={draft.action === "tag"}
+            onChange={() => onChange({ ...draft, action: "tag" })}
+          />
+          打标
+        </label>
+      </div>
+      {draft.action === "push" ? (
+        <>
+          <label className="flex flex-col gap-1 text-xs">
+            通道(channel)
+            <select
+              aria-label="推送通道"
+              className={inputClass}
+              value={draft.channel}
+              onChange={(event) => onChange({ ...draft, channel: event.target.value })}
+            >
+              <option value="">选择通道…</option>
+              {ALERT_CHANNELS.map((channel) => (
+                <option key={channel} value={channel}>
+                  {channel}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="text-2xs text-muted-foreground">
+            执行时取该品类 push[] 第一个此类型通道;未配置则降级不发(命中照记,状态 degraded_no_channel)。
+          </p>
+          <label className="flex flex-col gap-1 text-xs">
+            推送对象(可选,逗号分隔;缺省走通道默认)
+            <input
+              aria-label="推送对象"
+              className={inputClass}
+              value={draft.targets}
+              onChange={(event) => onChange({ ...draft, targets: event.target.value })}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            消息模板(可选)
+            <input
+              aria-label="消息模板"
+              className={inputClass}
+              value={draft.template}
+              onChange={(event) => onChange({ ...draft, template: event.target.value })}
+            />
+          </label>
+        </>
+      ) : (
+        <label className="flex flex-col gap-1 text-xs">
+          标签(逗号分隔,至少一个)
+          <input
+            aria-label="标签列表"
+            className={inputClass}
+            value={draft.tags}
+            onChange={(event) => onChange({ ...draft, tags: event.target.value })}
+          />
+        </label>
+      )}
+      <div className="flex items-center gap-2">
+        <Button size="sm" type="submit" disabled={saving}>
+          {saving ? "保存中…" : "保存规则"}
+        </Button>
+        <Button size="sm" variant="outline" type="button" disabled={testRunning} onClick={onTest}>
+          {testRunning ? "求值中…" : "测试(dry)"}
+        </Button>
+        <Button size="sm" variant="ghost" type="button" onClick={onCancel}>
+          取消
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** 测试结果面板(design §9):matched / muted / actions 展开 / already_fired / 错误直显。 */
+function AlertTestResultPanel({ state }: { state: AlertTestPanelState }) {
+  return (
+    <div
+      className="flex flex-col gap-1 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs"
+      data-testid="alert-test-result"
+    >
+      <p className="font-medium text-foreground">
+        测试结果{state.key === "draft" ? "(草稿,dry 求值,不真发不落 fired)" : "(dry 求值,取最近一条条目)"}
+      </p>
+      {state.running ? <p className="text-muted-foreground">求值中…</p> : null}
+      {!state.running && state.error ? (
+        <p className="text-destructive">
+          测试失败:{state.error.message}(code={state.error.code})
+        </p>
+      ) : null}
+      {!state.running && state.result ? (
+        <>
+          <p className={state.result.matched ? "text-ok" : "text-muted-foreground"}>
+            {state.result.matched ? "✓ 命中" : "✗ 未命中"}
+          </p>
+          {state.result.muted ? (
+            <p className="text-warning">该条目被 mute 词表压制(跳过全部规则求值,不触发)。</p>
+          ) : null}
+          {state.result.eval_error ? (
+            <p className="text-destructive">when 求值错:{state.result.eval_error}</p>
+          ) : null}
+          {state.result.already_fired ? (
+            <p className="text-muted-foreground">该条目此规则已触发过(占坑去重,不会再发)。</p>
+          ) : null}
+          {state.result.actions.map((action, index) => (
+            <p key={index} className="font-mono text-2xs text-muted-foreground">
+              {action.action === "push"
+                ? `推送 → ${action.channel ?? "?"}${
+                    action.resolved
+                      ? `(解析:${action.resolved_target ?? "?"})`
+                      : "(该品类 push[] 无此类型通道,降级不发)"
+                  }${action.degrade_reason ? `:${action.degrade_reason}` : ""}${
+                    action.targets && action.targets.length > 0 ? ` 对象 ${action.targets.join(", ")}` : ""
+                  }${action.template ? ` 模板「${action.template}」` : ""}`
+                : `打标:${(action.tags ?? []).join(", ")}`}
+            </p>
+          ))}
+          {!state.result.matched && state.result.actions.length === 0 && !state.result.eval_error ? (
+            <p className="text-muted-foreground">无动作展开(未命中)。</p>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }

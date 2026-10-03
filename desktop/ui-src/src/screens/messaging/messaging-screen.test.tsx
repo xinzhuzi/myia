@@ -11,17 +11,25 @@
 // 28 平台头像芯片(见 platform-icons.test.tsx)、详情面板(描述/状态说明/
 // 出站凭据指南唯一入口/目录速览)、底部状态条(sidecar 健康 + 已连接平台
 // 计数)、入站项零出现(扫码/允许的用户 ID/webhook secret 不渲染)。
+// 告警规则子面板(10-04-alert-rules design §9/§11):列表行(启停 Switch =
+// 全量提交/when 摘要/动作徽章/命中 N/最近触发)、新建编辑表单(when 校验
+// 反馈 = alerts.save 构造期错直显 + 前端预检)、测试按钮(alerts.test 真调,
+// rule_id/草稿两形态)、删除二次确认、alerts.fired 事件(onSidecarEvent →
+// toast + 命中数刷新)、旧版 sidecar(method_not_found)降级不挡整屏。
 // 协议契约权威:desktop/entry.py `_m_channels_*` / `_m_push_write` +
-// 任务 10-03-messaging-ui design.md §D2。
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+// 任务 design.md §4(alerts 四方法契约;协议落地前按契约 mock)。
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
+// 事件通道:onSidecarEvent → listen("sidecar://event", handler);捕获 handler
+// 供测试注入 alerts.fired(dashboard/logs 屏同款 mock 形态)
+vi.mock("@tauri-apps/api/event", () => ({ listen: mocks.listen }));
 
 import { MessagingScreen } from "./messaging-screen";
-import type { BridgeStatusView, ChannelsView } from "./api";
+import type { AlertRuleInput, AlertRuleView, BridgeStatusView, ChannelsView } from "./api";
 import {
   buildPlatformCards,
   deriveImplementedStatus,
@@ -30,6 +38,18 @@ import {
 } from "./platform-overview";
 
 const FILE = "plugins/messaging-demo.yaml";
+
+/** 已注册的 sidecar 事件 handler(供 emitSidecarEvent 注入事件)。 */
+const eventHandlers: Array<(payload: unknown) => void> = [];
+
+/** 向所有已注册 handler 注入一条 sidecar 事件(alerts.fired 测试用)。
+ *  client.ts 的 listen 回调解包 event.payload 后才进屏内 handler ——
+ *  注入须按 Tauri 事件形态({event, id, payload})包装。 */
+function emitSidecarEvent(payload: unknown): void {
+  for (const handler of [...eventHandlers]) {
+    act(() => handler({ event: "sidecar://event", id: 1, payload }));
+  }
+}
 
 // ---------------------------------------------------------------------------
 // 协议夹具(形状逐字段对照 ./api.ts / desktop/entry.py 应答载荷)
@@ -100,8 +120,26 @@ function channelsViewFixture(): ChannelsView {
   };
 }
 
+/** 告警规则视图夹具(design §4.1 AlertRuleView = 规则全字段 + 派生两列)。 */
+function alertRuleViewFixture(): AlertRuleView {
+  return {
+    id: 1,
+    name: "竞对融资",
+    enabled: true,
+    scope: "global",
+    when: "'融资' in title",
+    action: "push",
+    action_config: { channel: "feishu_card" },
+    created_at: "2026-10-04T00:00:00",
+    updated_at: "2026-10-04T00:00:00",
+    fired_count: 2,
+    last_fired_at: "2026-10-04T01:23:45",
+  };
+}
+
 // ---------------------------------------------------------------------------
-// mock sidecar:内存态 = channels.list 四视图;写方法只记账(不真改状态)
+// mock sidecar:内存态 = channels.list 四视图 + alerts 规则表 + yaml.list;
+// 写方法只记账(不真改状态;alerts.save 按「全量替换保 id」语义维护内存态)
 // ---------------------------------------------------------------------------
 
 type Handler = (params: never) => unknown;
@@ -109,6 +147,8 @@ type SidecarMap = Record<string, Handler>;
 
 function okSidecar() {
   const view = channelsViewFixture();
+  // 告警规则内存态(10-04-alert-rules;服务端 = alert_rules/alert_fired 两表)
+  const alertRules = { rules: [alertRuleViewFixture()] as AlertRuleView[] };
   // secret.list 名单(平台总览凭据探测用;只有名字,值永不可读)
   const secrets = { names: [] as string[] };
   // health 是否应答失败(false = R4 状态条「sidecar 不可达」路径;缺省 true)
@@ -150,11 +190,88 @@ function okSidecar() {
       }
       return { healthy: true };
     },
+    // ---- 告警规则族(design §4.1 契约;协议落地前按契约 mock)----
+    "alerts.list": () => ({ rules: JSON.parse(JSON.stringify(alertRules.rules)) }),
+    "alerts.save": (params: never) => {
+      const { rules } = params as { rules: AlertRuleInput[] };
+      // 全量替换:带 id = 更新保 id(派生列保留),不带 = 新建分配 id
+      let nextId = Math.max(0, ...alertRules.rules.map((rule) => rule.id)) + 1;
+      const next = rules.map((input) => {
+        const existing = alertRules.rules.find((rule) => rule.id === input.id);
+        if (existing && input.id !== undefined) {
+          return { ...existing, ...input, updated_at: "2026-10-04T02:00:00" };
+        }
+        return {
+          ...input,
+          id: nextId++,
+          created_at: "2026-10-04T02:00:00",
+          updated_at: "2026-10-04T02:00:00",
+          fired_count: 0,
+          last_fired_at: null,
+        };
+      });
+      alertRules.rules = next as AlertRuleView[];
+      return { ok: true as const, rules: JSON.parse(JSON.stringify(alertRules.rules)) };
+    },
+    "alerts.delete": (params: never) => {
+      const { id } = params as { id: number };
+      if (!alertRules.rules.some((rule) => rule.id === id)) {
+        throw JSON.stringify({
+          code: "alert_not_found",
+          path: "params.id",
+          message: `告警规则不存在: ${id}`,
+          data: { id },
+        });
+      }
+      alertRules.rules = alertRules.rules.filter((rule) => rule.id !== id);
+      return { ok: true as const };
+    },
+    "alerts.test": (params: never) => {
+      const { rule_id: ruleId } = params as { rule_id?: number };
+      if (ruleId !== undefined && !alertRules.rules.some((rule) => rule.id === ruleId)) {
+        throw JSON.stringify({
+          code: "alert_not_found",
+          path: "params.rule_id",
+          message: `告警规则不存在: ${ruleId}`,
+          data: { id: ruleId },
+        });
+      }
+      return {
+        matched: true,
+        muted: false,
+        actions: [
+          {
+            action: "push" as const,
+            channel: "feishu_card",
+            resolved: true,
+            resolved_target: "messaging-demo push[0]",
+            targets: null,
+            template: null,
+            degrade_reason: null,
+          },
+        ],
+        already_fired: ruleId === 1,
+      };
+    },
+    "yaml.list": () => ({
+      plugins_dir: "/tmp/plugins",
+      files: [
+        {
+          file: FILE,
+          name: "messaging-demo.yaml",
+          parse_ok: true,
+          category_id: "messaging-demo",
+          category_name: "消息屏夹具",
+          sources: 1,
+          error: null,
+        },
+      ],
+    }),
   };
   const record = (method: string, params: unknown) => {
     calls.push({ method, params });
   };
-  return { map, view, secrets, health, calls, record };
+  return { map, view, alertRules, secrets, health, calls, record };
 }
 
 /** 安装 mock sidecar:所有 invoke("sidecar_request") 走此分派;未知方法=结构化 404 */
@@ -182,6 +299,16 @@ function lastParams(calls: { method: string; params: unknown }[], method: string
 
 beforeEach(() => {
   mocks.invoke.mockReset();
+  // 事件通道缺省实现:捕获 handler(emitSidecarEvent 注入用),unlisten 恒可用
+  // (sources.test.tsx 注释同款:undefined unlisten 会让屏内 .then 炸)
+  mocks.listen.mockReset();
+  eventHandlers.length = 0;
+  mocks.listen.mockImplementation(
+    async (_name: string, handler: (payload: unknown) => void) => {
+      eventHandlers.push(handler);
+      return () => undefined;
+    },
+  );
 });
 afterEach(() => {
   cleanup(); // vitest 非 globals 模式下 RTL 不自动清理,防 DOM 跨测试污染
@@ -392,7 +519,8 @@ describe("消息:空态与断连态", () => {
     await waitFor(() => {
       expect(screen.getByTestId("messaging-statusbar").textContent).toContain("sidecar 不可达");
     });
-    fireEvent.click(screen.getByRole("button", { name: "重试" }));
+    // 屏级重试(同屏还有告警子面板的局部重试,断言限定 ErrorBox 作用域)
+    fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "重试" }));
     await waitFor(() => {
       expect(mocks.invoke.mock.calls.length).toBeGreaterThanOrEqual(2);
     });
@@ -926,5 +1054,520 @@ describe("微信桥接:屏级灰卡披露(AC2 UI 侧)", () => {
     expect(within(feishu).getByText("AI中转站合伙人群")).toBeTruthy();
     const weixinCard = screen.getByTestId("platform-card-weixin");
     expect(weixinCard.className).toContain("border-border/60"); // 降级灰态
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 告警规则子面板(10-04-alert-rules design §9/§11;契约 = design §4)
+// ---------------------------------------------------------------------------
+
+describe("告警规则:列表渲染与空态", () => {
+  it("规则行:启停 Switch/名称/scope 徽章/when 等宽摘要/动作徽章(push→通道)/命中 N/最近触发", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    const row = await screen.findByTestId("alert-rule-1");
+    expect(within(row).getByText("竞对融资")).toBeTruthy();
+    expect(within(row).getByText("全局")).toBeTruthy();
+    expect(row.textContent).toContain("when '融资' in title"); // 等宽摘要含 when 前缀
+    expect(within(row).getByText("推送 → feishu_card")).toBeTruthy(); // 动作徽章
+    expect(row.textContent).toContain("命中 2");
+    // 最近触发已本地化(不为 "—";格式随宿主 locale,只锚定年份)
+    expect(row.textContent).toMatch(/最近触发 .*2026/);
+    const toggle = within(row).getByRole("switch", { name: "启停 竞对融资" });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    // 未停用:无「已停用」徽标
+    expect(within(row).queryByText("已停用")).toBeNull();
+  });
+
+  it("空表 = 合法零惊扰态:「还没有告警规则」空态 + 说明文案", async () => {
+    const sidecar = okSidecar();
+    sidecar.alertRules.rules = [];
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("还没有告警规则")).toBeTruthy();
+    expect(screen.getByText(/零惊扰/)).toBeTruthy();
+  });
+});
+
+describe("告警规则:启停 = 全量提交(design §4.1 钉死①)", () => {
+  it("点行内 Switch → alerts.save 提交完整数组(id 保稳,该行 enabled 翻转)", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    const row = await screen.findByTestId("alert-rule-1");
+    fireEvent.click(within(row).getByRole("switch", { name: "启停 竞对融资" }));
+
+    // 载荷 = 完整规则数组,唯一变化 = 该行 enabled: true→false(无独立启停方法)
+    expect(lastParams(sidecar.calls, "alerts.save")).toEqual({
+      rules: [
+        {
+          id: 1,
+          name: "竞对融资",
+          enabled: false,
+          scope: "global",
+          when: "'融资' in title",
+          action: "push",
+          action_config: { channel: "feishu_card" },
+        },
+      ],
+    });
+    // 应答回传后:Switch 翻转 + 「已停用」徽标
+    const toggled = await screen.findByTestId("alert-rule-1");
+    await waitFor(() => {
+      expect(within(toggled).getByRole("switch", { name: "启停 竞对融资" }).getAttribute("aria-checked")).toBe("false");
+    });
+    expect(within(toggled).getByText("已停用")).toBeTruthy();
+  });
+
+  it("启停失败(构造期错)→ 结构化错误如实呈现,不假装成功", async () => {
+    const sidecar = okSidecar();
+    sidecar.map["alerts.save"] = () => {
+      throw JSON.stringify({
+        code: "alert_rule_invalid",
+        path: "params.rules[0].when",
+        message: "字段校验失败: when 表达式不允许属性访问",
+        data: { index: 0, field: "when", reason: "attribute_access" },
+      });
+    };
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      within(await screen.findByTestId("alert-rule-1")).getByRole("switch", { name: "启停 竞对融资" }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("alert-rules-notice").textContent).toContain("alert_rule_invalid");
+    });
+    expect(screen.getByTestId("alert-rules-notice").textContent).toContain("字段校验失败");
+  });
+});
+
+describe("告警规则:新建/编辑表单", () => {
+  it("新建 push 规则:填表保存 → alerts.save 追加无 id 新条目;品类下拉 = yaml.list 派生", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    await screen.findByTestId("alert-rule-1");
+    fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+
+    const form = screen.getByTestId("alert-rule-form");
+    // scope 下拉:全局 + yaml.list 的品类(design §9:品类下拉 = yaml.list)
+    const scopeSelect = within(form).getByLabelText("规则作用域") as HTMLSelectElement;
+    const options = Array.from(scopeSelect.querySelectorAll("option")).map((option) => option.textContent);
+    expect(options).toContain("全局(所有品类)");
+    expect(options).toContain("消息屏夹具(messaging-demo)");
+
+    fireEvent.change(within(form).getByLabelText("规则名称"), { target: { value: "高分项目" } });
+    fireEvent.change(scopeSelect, { target: { value: "messaging-demo" } });
+    fireEvent.change(within(form).getByLabelText("when 表达式"), {
+      target: { value: "score >= 4" },
+    });
+    fireEvent.change(within(form).getByLabelText("推送通道"), { target: { value: "telegram" } });
+    fireEvent.change(within(form).getByLabelText("推送对象"), { target: { value: "telegram:测试私聊" } });
+    fireEvent.click(within(form).getByRole("button", { name: "保存规则" }));
+
+    // 载荷:既有规则原样(id=1 保稳)+ 新条目(无 id,可选 targets 携带)
+    expect(lastParams(sidecar.calls, "alerts.save")).toEqual({
+      rules: [
+        {
+          id: 1,
+          name: "竞对融资",
+          enabled: true,
+          scope: "global",
+          when: "'融资' in title",
+          action: "push",
+          action_config: { channel: "feishu_card" },
+        },
+        {
+          name: "高分项目",
+          enabled: true,
+          scope: "messaging-demo",
+          when: "score >= 4",
+          action: "push",
+          action_config: { channel: "telegram", targets: ["telegram:测试私聊"] },
+        },
+      ],
+    });
+    // 保存成功:表单收起 + 新行入列(mock 全量替换语义回传)
+    await waitFor(() => {
+      expect(screen.getByTestId("alert-rules-notice").textContent).toContain("已保存");
+    });
+    expect(screen.queryByTestId("alert-rule-form")).toBeNull();
+    expect(screen.getByTestId("alert-rule-2").textContent).toContain("高分项目");
+  });
+
+  it("新建 tag 规则:标签逗号分隔解析;targets/template 空则不携带", async () => {
+    const sidecar = okSidecar();
+    sidecar.alertRules.rules = [];
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("还没有告警规则");
+    fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+    const form = screen.getByTestId("alert-rule-form");
+    fireEvent.change(within(form).getByLabelText("规则名称"), { target: { value: "免费羊毛" } });
+    fireEvent.change(within(form).getByLabelText("when 表达式"), {
+      target: { value: "'免费' in content" },
+    });
+    fireEvent.click(within(form).getByLabelText("打标"));
+    fireEvent.change(within(form).getByLabelText("标签列表"), { target: { value: "羊毛, 限时, 白嫖" } });
+    fireEvent.click(within(form).getByRole("button", { name: "保存规则" }));
+
+    expect(lastParams(sidecar.calls, "alerts.save")).toEqual({
+      rules: [
+        {
+          name: "免费羊毛",
+          enabled: true,
+          scope: "global",
+          when: "'免费' in content",
+          action: "tag",
+          action_config: { tags: ["羊毛", "限时", "白嫖"] },
+        },
+      ],
+    });
+  });
+
+  it("编辑预填原值;改 when 保存 → 全量提交该行 id 保留", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      within(await screen.findByTestId("alert-rule-1")).getByRole("button", { name: "编辑" }),
+    );
+    const form = screen.getByTestId("alert-rule-form");
+    expect(within(form).getByText("编辑规则(id=1)")).toBeTruthy();
+    expect((within(form).getByLabelText("规则名称") as HTMLInputElement).value).toBe("竞对融资");
+    expect((within(form).getByLabelText("when 表达式") as HTMLTextAreaElement).value).toBe("'融资' in title");
+    expect((within(form).getByLabelText("推送通道") as HTMLSelectElement).value).toBe("feishu_card");
+
+    fireEvent.change(within(form).getByLabelText("when 表达式"), {
+      target: { value: "'融资' in title or 'financing' in content" },
+    });
+    fireEvent.click(within(form).getByRole("button", { name: "保存规则" }));
+
+    const saved = lastParams(sidecar.calls, "alerts.save") as { rules: AlertRuleInput[] };
+    expect(saved.rules).toHaveLength(1); // 编辑 = 替换该行,数组仍是全量
+    expect(saved.rules[0]).toMatchObject({ id: 1, when: "'融资' in title or 'financing' in content" });
+  });
+
+  it("前端预检:名称/when/通道/标签缺省零提交,提示就地呈现", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    await screen.findByTestId("alert-rule-1");
+    fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+    const form = screen.getByTestId("alert-rule-form");
+
+    // 全空直接保存 → 名称预检拦截,零 alerts.save 调用
+    fireEvent.click(within(form).getByRole("button", { name: "保存规则" }));
+    expect(screen.getByTestId("alert-rules-notice").textContent).toContain("规则名称不能为空");
+    expect(sidecar.calls.filter((call) => call.method === "alerts.save")).toHaveLength(0);
+
+    // 名称有、when 空 → when 预检
+    fireEvent.change(within(form).getByLabelText("规则名称"), { target: { value: "X" } });
+    fireEvent.click(within(form).getByRole("button", { name: "保存规则" }));
+    expect(screen.getByTestId("alert-rules-notice").textContent).toContain("when 表达式不能为空");
+
+    // push 无通道 → 通道预检
+    fireEvent.change(within(form).getByLabelText("when 表达式"), { target: { value: "score >= 4" } });
+    fireEvent.click(within(form).getByRole("button", { name: "保存规则" }));
+    expect(screen.getByTestId("alert-rules-notice").textContent).toContain("推送动作需选择通道");
+
+    // tag 无标签 → 标签预检
+    fireEvent.click(within(form).getByLabelText("打标"));
+    fireEvent.click(within(form).getByRole("button", { name: "保存规则" }));
+    expect(screen.getByTestId("alert-rules-notice").textContent).toContain("打标动作需至少一个标签");
+    expect(sidecar.calls.filter((call) => call.method === "alerts.save")).toHaveLength(0);
+  });
+
+  it("坏 when 构造期拒(alerts.save)→ 结构化错直显(code/message),表单不收起", async () => {
+    const sidecar = okSidecar();
+    sidecar.map["alerts.save"] = () => {
+      throw JSON.stringify({
+        code: "alert_rule_invalid",
+        path: "params.rules[1].when",
+        message: "字段校验失败: when 表达式语法错误(title. 不允许属性访问)",
+        data: { index: 1, field: "when", reason: "syntax" },
+      });
+    };
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    await screen.findByTestId("alert-rule-1");
+    fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+    const form = screen.getByTestId("alert-rule-form");
+    fireEvent.change(within(form).getByLabelText("规则名称"), { target: { value: "坏表达式" } });
+    fireEvent.change(within(form).getByLabelText("when 表达式"), {
+      target: { value: "title.startswith('x')" },
+    });
+    fireEvent.change(within(form).getByLabelText("推送通道"), { target: { value: "stdout" } });
+    fireEvent.click(within(form).getByRole("button", { name: "保存规则" }));
+
+    // 构造期错直显(design §9:坏 when 结构化错误直显),整批零写入由服务端保证
+    const notice = await screen.findByTestId("alert-rules-notice");
+    expect(notice.textContent).toContain("alert_rule_invalid");
+    expect(notice.textContent).toContain("属性访问");
+    // 表单保持展开(草稿不丢)
+    expect(screen.getByTestId("alert-rule-form")).toBeTruthy();
+  });
+});
+
+describe("告警规则:测试按钮(alerts.test 真调,dry 求值)", () => {
+  it("行内「测试」→ alerts.test({rule_id});结果面板:命中/actions 展开/already_fired", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      within(await screen.findByTestId("alert-rule-1")).getByRole("button", { name: "测试" }),
+    );
+    expect(lastParams(sidecar.calls, "alerts.test")).toEqual({ rule_id: 1 });
+
+    const panel = await screen.findByTestId("alert-test-result");
+    await waitFor(() => {
+      expect(panel.textContent).toContain("✓ 命中");
+    });
+    expect(panel.textContent).toContain("推送 → feishu_card");
+    expect(panel.textContent).toContain("解析:messaging-demo push[0]"); // 通道解析结果
+    expect(panel.textContent).toContain("已触发过"); // already_fired(该条已占坑去重)
+  });
+
+  it("表单草稿「测试(dry)」→ alerts.test({rule: 草稿});eval_error / muted 如实呈现", async () => {
+    const sidecar = okSidecar();
+    sidecar.map["alerts.test"] = () => ({
+      matched: false,
+      muted: true,
+      actions: [],
+      eval_error: "比较类型错: score 是 None(enrich 未启用)",
+    });
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    await screen.findByTestId("alert-rule-1");
+    fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+    const form = screen.getByTestId("alert-rule-form");
+    fireEvent.change(within(form).getByLabelText("规则名称"), { target: { value: "草稿" } });
+    fireEvent.change(within(form).getByLabelText("when 表达式"), {
+      target: { value: "score >= 4" },
+    });
+    fireEvent.change(within(form).getByLabelText("推送通道"), { target: { value: "stdout" } });
+    fireEvent.click(within(form).getByRole("button", { name: "测试(dry)" }));
+
+    // 草稿形态:rule 无 id,未保存即可测(design §4.1)
+    const saved = lastParams(sidecar.calls, "alerts.test") as { rule?: { name: string; when: string } };
+    expect(saved.rule).toMatchObject({ name: "草稿", when: "score >= 4" });
+
+    const panel = await screen.findByTestId("alert-test-result");
+    await waitFor(() => {
+      expect(panel.textContent).toContain("when 求值错"); // eval_error 直显
+    });
+    expect(panel.textContent).toContain("mute 词表压制"); // muted 提示
+    expect(panel.textContent).toContain("草稿"); // 面板标明草稿形态
+  });
+
+  it("测试失败(alert_test_no_item 空库)→ 结构化错误直显", async () => {
+    const sidecar = okSidecar();
+    sidecar.map["alerts.test"] = () => {
+      throw JSON.stringify({
+        code: "alert_test_no_item",
+        path: "$",
+        message: "没有可测条目:未提供 item/item_id 且条目库为空",
+        data: {},
+      });
+    };
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      within(await screen.findByTestId("alert-rule-1")).getByRole("button", { name: "测试" }),
+    );
+    const panel = await screen.findByTestId("alert-test-result");
+    await waitFor(() => {
+      expect(panel.textContent).toContain("alert_test_no_item");
+    });
+    expect(panel.textContent).toContain("条目库为空");
+  });
+});
+
+describe("告警规则:删除二次确认", () => {
+  it("点删除出「确认删除」;取消零调用;确认 → alerts.delete({id}) 行消失", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    const row = await screen.findByTestId("alert-rule-1");
+    // 第一步:点删除只出二次确认,零调用
+    fireEvent.click(within(row).getByRole("button", { name: "删除" }));
+    expect(within(row).getByRole("button", { name: "确认删除" })).toBeTruthy();
+    expect(sidecar.calls.filter((call) => call.method === "alerts.delete")).toHaveLength(0);
+
+    // 取消:回到常规按钮,仍零调用
+    fireEvent.click(within(row).getByRole("button", { name: "取消" }));
+    expect(within(row).queryByRole("button", { name: "确认删除" })).toBeNull();
+    expect(sidecar.calls.filter((call) => call.method === "alerts.delete")).toHaveLength(0);
+
+    // 确认:alerts.delete({id:1}),行消失,notice 说明命中历史照留
+    fireEvent.click(within(row).getByRole("button", { name: "删除" }));
+    fireEvent.click(within(row).getByRole("button", { name: "确认删除" }));
+    expect(lastParams(sidecar.calls, "alerts.delete")).toEqual({ id: 1 });
+    await waitFor(() => {
+      expect(screen.queryByTestId("alert-rule-1")).toBeNull();
+    });
+    expect(screen.getByTestId("alert-rules-notice").textContent).toContain("命中历史照留");
+  });
+});
+
+describe("告警规则:alerts.fired 事件(事件流既有通道)", () => {
+  it("fired 事件 → toast(notice)+ 规则行命中数 +1、最近触发刷新", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    const row = await screen.findByTestId("alert-rule-1");
+    expect(row.textContent).toContain("命中 2");
+
+    emitSidecarEvent({
+      type: "alerts.fired",
+      rule_id: 1,
+      rule_name: "竞对融资",
+      item_id: 42,
+      dedup_key: "https://example.com/a",
+      title: "某公司完成 B 轮融资",
+      action: "push",
+      action_status: "sent",
+      ts: "2026-10-04T03:00:00",
+    });
+
+    // toast:规则名 + 条目标题 + 动作终态(design §4.2 v1 消费)
+    const notice = screen.getByTestId("alert-rules-notice");
+    expect(notice.textContent).toContain("竞对融资");
+    expect(notice.textContent).toContain("某公司完成 B 轮融资");
+    expect(notice.textContent).toContain("sent");
+    // 命中数刷新(本地增量,不整表重拉)+ 最近触发更新到事件 ts
+    // (03:00 两种 12/24 小时制 locale 都含;原值 01:23 已被替换)
+    const updated = screen.getByTestId("alert-rule-1");
+    expect(updated.textContent).toContain("命中 3");
+    expect(updated.textContent).toContain("03:00");
+    // 零额外协议往返:命中刷新纯本地
+    expect(sidecar.calls.filter((call) => call.method === "alerts.list").length).toBe(1);
+  });
+
+  it("非 alerts.fired 事件(如 completed)零影响", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    const row = await screen.findByTestId("alert-rule-1");
+    emitSidecarEvent({ type: "completed", run_id: 9, exit_code: 0, status: "ok", dry: false, ts: "2026-10-04T03:00:00" });
+    expect(screen.queryByTestId("alert-rules-notice")).toBeNull();
+    expect(screen.getByTestId("alert-rule-1").textContent).toContain("命中 2");
+    expect(row).toBeTruthy();
+  });
+});
+
+describe("告警规则:协议未实装降级与错误态", () => {
+  it("旧版 sidecar(method_not_found)→ 子面板降级说明,不挡整屏目录视图", async () => {
+    const sidecar = okSidecar();
+    delete sidecar.map["alerts.list"]; // 旧版 sidecar 无 alerts.* → 结构化 404
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    // 目录视图照常(整屏未被拖挂)
+    expect(await screen.findByTestId("platform-feishu")).toBeTruthy();
+    const panel = await screen.findByTestId("alert-rules-unsupported");
+    expect(panel.textContent).toContain("还没有告警规则方法");
+    // 降级态不出新建按钮与列表
+    expect(screen.queryByRole("button", { name: "新建规则" })).toBeNull();
+    expect(screen.queryByTestId("alert-rule-1")).toBeNull();
+  });
+
+  it("alerts.list 真错误 → 局部错误 + 重试可用(不吞)", async () => {
+    const sidecar = okSidecar();
+    sidecar.map["alerts.list"] = () => {
+      throw JSON.stringify({ code: "sidecar_not_running", path: "$", message: "sidecar 进程未运行" });
+    };
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    const error = await screen.findByTestId("alert-rules-error");
+    expect(error.textContent).toContain("sidecar_not_running");
+    // 修好后再点重试 → 规则列表恢复
+    sidecar.map["alerts.list"] = () => ({ rules: JSON.parse(JSON.stringify(sidecar.alertRules.rules)) });
+    fireEvent.click(within(error).getByRole("button", { name: "重试" }));
+    expect(await screen.findByTestId("alert-rule-1")).toBeTruthy();
   });
 });
