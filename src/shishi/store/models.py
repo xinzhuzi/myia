@@ -70,6 +70,40 @@ STEP_STATUSES = frozenset(
     {STEP_STATUS_OK, STEP_STATUS_FAILED, STEP_STATUS_SKIPPED, STEP_STATUS_RESUMED}
 )
 
+# Alert actions (alert_rules.action, PRD 10-04-alert-rules grill Q4): one
+# rule = one action; push = send_immediate 同门 immediate push, tag =
+# Item.add_tags + items.tags 回写. 沉淀为关键词 / digest 汇总留 v2.
+ALERT_ACTION_PUSH = "push"
+ALERT_ACTION_TAG = "tag"
+ALERT_ACTIONS = frozenset({ALERT_ACTION_PUSH, ALERT_ACTION_TAG})
+
+# Alert rule scope (alert_rules.scope): ``global`` applies to every
+# category's ingest; any other value is a category id (七品类+channel 词表,
+# shishi.push.route.CATEGORY_DEFAULT_ROUTES) and the rule only evaluates
+# against that category's items.
+ALERT_SCOPE_GLOBAL = "global"
+
+# Fired-row action statuses (alert_fired.action_status): written ``pending``
+# at the 占坑 INSERT, backfilled with the terminal outcome once the action
+# executes (mark_alert_fired_status). ``skipped_dry_run`` is reserved for the
+# dry evaluation path (alerts.test, sidecar Stage D) which never sends.
+ALERT_STATUS_PENDING = "pending"
+ALERT_STATUS_SENT = "sent"
+ALERT_STATUS_SEND_FAILED = "send_failed"
+ALERT_STATUS_TAGGED = "tagged"
+ALERT_STATUS_DEGRADED_NO_CHANNEL = "degraded_no_channel"
+ALERT_STATUS_SKIPPED_DRY_RUN = "skipped_dry_run"
+ALERT_ACTION_STATUSES = frozenset(
+    {
+        ALERT_STATUS_PENDING,
+        ALERT_STATUS_SENT,
+        ALERT_STATUS_SEND_FAILED,
+        ALERT_STATUS_TAGGED,
+        ALERT_STATUS_DEGRADED_NO_CHANNEL,
+        ALERT_STATUS_SKIPPED_DRY_RUN,
+    }
+)
+
 
 @dataclass(slots=True)
 class ItemRecord:
@@ -197,4 +231,51 @@ class RunRecord:
     stats: dict | None = None
     error: str | None = None
     steps: dict | None = None
+    id: int | None = None
+
+
+@dataclass(slots=True)
+class AlertRule:
+    """One ``alert_rules`` row: 情报流告警规则(条件 → 动作).
+
+    纯存储记录(行 ↔ 对象互转,零校验):scope/when 白名单语法/action_config
+    形状的构造期拒由 ``shishi.alerts.rule.compile_rule`` 统一承担——读库坏行
+    WARNING 跳过(隔离)、写库(alerts.save)结构化拒整批,两路共用同一道门。
+    ``when`` 字段名与 ``RouteRuleConfig.when`` 对齐;存储列名为 ``when_expr``
+    (SQL 保留字规避)。``action_config`` 为 JSON 形态:push ``{channel,
+    targets?, template?}`` / tag ``{tags: [..]}``。
+    """
+
+    name: str
+    when: str
+    action: str  # push | tag (ALERT_ACTIONS)
+    action_config: dict = field(default_factory=dict)
+    scope: str = ALERT_SCOPE_GLOBAL  # 'global' | 品类 id
+    enabled: bool = True
+    created_at: datetime | None = None  # filled by the store on save when absent
+    updated_at: datetime | None = None  # 落库侧每次 save 刷新
+    id: int | None = None
+
+
+@dataclass(slots=True)
+class AlertFired:
+    """One ``alert_fired`` row: one rule hit on one item (命中历史).
+
+    ``rule_name`` / ``title`` / ``category`` / ``action`` are snapshots at
+    fire time so the history stays readable after the rule is deleted or the
+    item row is pruned by retention (FeedbackRecord 同款快照先例).
+    ``dedup_key`` 是引擎侧已兜底的非空身份(item.dedup_key or item.url,
+    digest.py 同款);``UNIQUE (rule_id, dedup_key)`` 是 fired 去重的
+    at-most-once 门闩(record_fired 冲突返回 None)。
+    """
+
+    rule_id: int
+    rule_name: str
+    dedup_key: str
+    action: str  # push | tag(命中时规则的动作快照)
+    action_status: str = ALERT_STATUS_PENDING
+    item_id: int | None = None
+    title: str | None = None  # snapshot at fire time
+    category: str | None = None  # snapshot at fire time
+    created_at: datetime | None = None  # filled by the store on save when absent
     id: int | None = None

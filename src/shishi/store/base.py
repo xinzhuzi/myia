@@ -13,11 +13,13 @@ All methods are synchronous and short — async callers run them directly
 
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
 from shishi.store.models import (
+    AlertFired,
+    AlertRule,
     ChangeBaseline,
     DedupEntry,
     FeedbackRecord,
@@ -32,8 +34,9 @@ from shishi.store.models import (
 class Store(Protocol):
     """Storage contract: items / dedup_registry / change_baseline /
     engine_hints / runs, feedback + feedback_tuning (反馈闭环),
-    metric_history (v0.4 趋势基线数值快照), plus run-step progress
-    (断点续跑) and the retention/vacuum lifecycle hooks (长期运行防膨胀)."""
+    metric_history (v0.4 趋势基线数值快照), alert_rules + alert_fired
+    (10-04 告警规则引擎), plus run-step progress (断点续跑) and the
+    retention/vacuum lifecycle hooks (长期运行防膨胀)."""
 
     # ------------------------------------------------------------------ items
 
@@ -327,6 +330,81 @@ class Store(Protocol):
 
         Raises:
             ValueError: empty key components, or ``since >= until``.
+        """
+        ...
+
+    # ------------------------------------------------------------------- alerts
+    # Consumed by the alert rules engine (PRD 10-04-alert-rules): the desktop
+    # sidecar owns the write path (alerts.save 全量替换 diff 编排), the
+    # pipeline's ingest 附加步 reads enabled rules and 占坑-inserts fired
+    # rows (at-most-once 门闩 = UNIQUE(rule_id, dedup_key)).
+
+    def save_alert_rule(self, rule: AlertRule) -> AlertRule:
+        """单条 upsert:带 id = UPDATE,无 id = INSERT;返回落库行.
+
+        ``updated_at`` 落库侧刷新(INSERT 时 ``created_at`` 缺省补 now)。
+        scope/when 语法/action_config 形状的构造期拒由
+        ``shishi.alerts.rule.compile_rule`` 承担(读库/写库共用同一道门)。
+
+        Raises:
+            ValueError: empty ``name`` / ``when``, ``action`` outside the
+                vocabulary, or an unknown ``rule.id`` on update.
+        """
+        ...
+
+    def list_alert_rules(self, *, enabled: bool | None = None) -> list[AlertRule]:
+        """List alert rules, id ascending; ``enabled=None`` applies no filter
+        (引擎取 ``enabled=True``)."""
+        ...
+
+    def delete_alert_rule(self, rule_id: int) -> bool:
+        """Drop one rule definition row; fired history stays(命中历史是事实).
+
+        Returns False when the id matches no row.
+        """
+        ...
+
+    def record_fired(self, fired: AlertFired) -> AlertFired | None:
+        """占坑门闩:INSERT one fired row; None on UNIQUE(rule_id, dedup_key)
+        conflict(调用方跳过动作,at-most-once);成功返回落库行(含 id)."""
+        ...
+
+    def mark_alert_fired_status(self, fired_id: int, status: str) -> None:
+        """Backfill one fired row's terminal ``action_status``(§枚举见 models).
+
+        Raises:
+            ValueError: unknown ``status``, or no fired row with ``fired_id``.
+        """
+        ...
+
+    def has_fired(self, rule_id: int, dedup_key: str) -> bool:
+        """Whether ``(rule_id, dedup_key)`` already fired(命中预查,alerts.test)."""
+        ...
+
+    def list_fired(
+        self,
+        *,
+        rule_id: int | None = None,
+        since: datetime | None = None,
+        limit: int = 100,
+    ) -> list[AlertFired]:
+        """List fired rows, newest first;``since`` 过滤 created_at(sidecar
+        run 终态回放);``limit`` 钳制 [1, 200](runs.list 先例)。"""
+        ...
+
+    def fired_counts(self) -> dict[int, int]:
+        """Per-rule hit counts derived from ``alert_fired``(GROUP BY COUNT,
+        计数不落 rules 行——save 全量替换会清计数)."""
+        ...
+
+    def update_item_tags(self, *, dedup_key: str, tags: Sequence[str]) -> bool:
+        """按 ``dedup_key`` 回写一条 item 的 ``tags`` JSON 列(tag 动作第 2 步).
+
+        Returns True when a row was updated, False when the key matches no
+        item(行已被 retention 剪枝——调用方 WARNING 说破,不视为错误)。
+
+        Raises:
+            ValueError: empty ``dedup_key``.
         """
         ...
 

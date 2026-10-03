@@ -104,6 +104,7 @@ import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from shishi.alerts import AlertEngine
 from shishi.classify import (
     ClassifyDataError,
     classify_item,
@@ -1116,6 +1117,11 @@ class Pipeline:
                 )
             # items 只统计走完全链的条目:链路中断(上游失败)不产出留存条目
             result.items = [] if broken else current
+
+            # 告警附加步(design §6.1):阶段循环后的独立轻量步,不进 stage
+            # 清单/检查点/runs.steps;dry-run 与无规则时零开销短路;自身失败
+            # WARNING 隔离,不影响 run 终态。
+            await self._alert_pass(result.items, run_store, registry, dry_run)
 
             result.finished_at = self._wall_clock()
             result.status = result.resolve_status()
@@ -2299,6 +2305,65 @@ class Pipeline:
             push.channel, out.immediate, out.digest, out.archive, out.ok,
         )
         return out
+
+    # ------------------------------------------------------------ alert 附加步
+    # 告警规则引擎挂点(design §6,PRD 10-04-alert-rules grill Q3):run() 阶段
+    # 循环后、maintenance 前的独立轻量附加步。明确不取「并入 _stage_push 收
+    # 尾」——_stage_push 开头 `if not self.config.push` 直接 return,品类未配
+    # push 通道时并入收尾的告警(含 tag-only 规则)全哑。
+
+    def _resolve_alert_channel(self, channel_name: str):
+        """push 动作通道解析:当前品类 ``push[]`` 内该类型第一条(``_build_channel``
+        同门凭 dict registry + 注入);未配置返回 None → 动作降级;只看本品类
+        push[],「禁止跨品类借凭据」由这里结构性保证。"""
+        for push in self.config.push:
+            if push.channel == channel_name:
+                return self._build_channel(push)
+        return None
+
+    async def _alert_pass(
+        self,
+        items: list[Item],
+        store: Store,
+        registry: DedupRegistry,
+        dry_run: bool,
+    ) -> None:
+        """告警附加步:mute 预筛 → when 求值 → fired 占坑 → 动作(design §6.1).
+
+        0. dry-run 直接 return(最强零告警:不评估、不占坑、不发);
+        1. 无启用规则直接 return(零惊扰:唯一开销 = 每 run 一次空表 SELECT,
+           外部行为不变);
+        2. mute 词表与 _stage_analyze 同门(effective watchlist,反馈 0.0
+           权重词已并入);
+        3-6. 引擎执行(求值隔离 / 占坑 at-most-once / 动作 + 状态回填)。
+        自身失败 = WARNING 隔离,不影响 run 终态(与 stage 隔离哲学一致)。
+        """
+        if dry_run:
+            return
+        try:
+            rules = store.list_alert_rules(enabled=True)
+            if not rules:
+                return
+            tuning = load_active_tuning(store)
+            mute_words = self._effective_watchlist(tuning)["mute"]
+            engine = AlertEngine(
+                store=store,
+                mute_words=mute_words,
+                channel_resolver=self._resolve_alert_channel,
+                registry=registry,
+                tz=self._tz,
+                now=self._wall_clock(),
+                category=self.config.name,
+            )
+            fired = await engine.run_pass(items, rules)
+            if fired:
+                logger.info(
+                    "告警附加步完成 category=%s fired=%s", self.config.id, len(fired)
+                )
+        except Exception as exc:  # noqa: BLE001 - 附加步失败只告警,不拖垮 run
+            logger.warning(
+                "告警附加步失败(已隔离,不影响 run 终态): %s", exc, exc_info=True
+            )
 
     # --------------------------------------------------------------- forever
 

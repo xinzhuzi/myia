@@ -14,6 +14,10 @@ Tables (v0.4, PRD 10-01-v01-store-dedup + 10-01-v02-storage-hardening
 - metric_history  — numeric snapshots per (category, metric_key, field) for
                     the v0.4 trend baseline (vs 昨日/上周, 关键词提及量周环比);
                     retention keeps it longer than items (基线期长于条目期)
+- alert_rules     — 情报流告警规则(条件→动作,10-04-alert-rules;桌面 sidecar
+                    全量写回,不 seed——零惊扰默认)
+- alert_fired     — 告警命中历史(UNIQUE(rule_id, dedup_key) 占坑门闩 =
+                    at-most-once;快照字段使规则删除/条目剪枝后历史仍可读)
 - store_meta      — key-value housekeeping (schema version, vacuum stamp)
 
 Storage hardening (v0.2): schema versioning with forward migrations and
@@ -30,6 +34,17 @@ protocol in v0.2+.
 from shishi.store.base import Store
 from shishi.store.errors import StoreSchemaError
 from shishi.store.models import (
+    ALERT_ACTION_PUSH,
+    ALERT_ACTION_STATUSES,
+    ALERT_ACTION_TAG,
+    ALERT_ACTIONS,
+    ALERT_SCOPE_GLOBAL,
+    ALERT_STATUS_DEGRADED_NO_CHANNEL,
+    ALERT_STATUS_PENDING,
+    ALERT_STATUS_SEND_FAILED,
+    ALERT_STATUS_SENT,
+    ALERT_STATUS_SKIPPED_DRY_RUN,
+    ALERT_STATUS_TAGGED,
     FEEDBACK_BAD,
     FEEDBACK_CHANNEL_CLI,
     FEEDBACK_CHANNEL_DESKTOP,
@@ -56,6 +71,8 @@ from shishi.store.models import (
     TUNING_CATEGORY_PENALTY,
     TUNING_MUTE_WEIGHT,
     TUNING_PROMPT_NOTE,
+    AlertFired,
+    AlertRule,
     ChangeBaseline,
     DedupEntry,
     EngineHint,
@@ -74,6 +91,19 @@ from shishi.store.sqlite import (
 )
 
 __all__ = [
+    "ALERT_ACTION_PUSH",
+    "ALERT_ACTION_STATUSES",
+    "ALERT_ACTION_TAG",
+    "ALERT_ACTIONS",
+    "ALERT_SCOPE_GLOBAL",
+    "ALERT_STATUS_DEGRADED_NO_CHANNEL",
+    "ALERT_STATUS_PENDING",
+    "ALERT_STATUS_SEND_FAILED",
+    "ALERT_STATUS_SENT",
+    "ALERT_STATUS_SKIPPED_DRY_RUN",
+    "ALERT_STATUS_TAGGED",
+    "AlertFired",
+    "AlertRule",
     "BASELINE_RETENTION_MULTIPLIER",
     "SCHEMA_VERSION",
     "ChangeBaseline",

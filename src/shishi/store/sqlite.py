@@ -26,6 +26,11 @@ not a usable SQLite database or was written by a *newer* MYIA. Versions:
   table (品类级数值快照:per-(category, metric_key, field) numeric history for
   the 「vs 昨日 / vs 上周」 comparison and keyword mention week-over-week) —
   additive, legacy databases migrate without touching existing rows.
+- 7 — alert rules (PRD 10-04-alert-rules): ``alert_rules`` (条件→动作规则,
+  桌面 sidecar 全量写回) + ``alert_fired`` (命中历史, ``UNIQUE (rule_id,
+  dedup_key)`` 是 at-most-once 占坑门闩) — additive, no seed rows (零惊扰:
+  不配规则 = 每 run 一次空表 SELECT 后短路), legacy databases migrate
+  without touching existing rows.
 
 Retention & vacuum: :meth:`SQLiteStore.cleanup_expired` deletes pushed items
 after ``retention`` days (anchored at ``pushed_at``), never-pushed items after
@@ -45,13 +50,15 @@ import logging
 import math
 import sqlite3
 import threading
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 
 from shishi.schema import VACUUM_CADENCES
 from shishi.store.errors import StoreSchemaError
 from shishi.store.models import (
+    ALERT_ACTIONS,
+    ALERT_ACTION_STATUSES,
     FEEDBACK_VERDICTS,
     METRIC_WINDOW_DAY,
     METRIC_WINDOWS,
@@ -59,6 +66,8 @@ from shishi.store.models import (
     RUN_STATUS_RUNNING,
     RUN_STATUSES,
     STEP_STATUSES,
+    AlertFired,
+    AlertRule,
     ChangeBaseline,
     DedupEntry,
     FeedbackRecord,
@@ -71,7 +80,7 @@ from shishi.store.models import (
 logger = logging.getLogger(__name__)
 
 #: Current layout version; bump + add a migration entry when the DDL changes.
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 # 同进程并发「首次打开同一数据库」的串行化锁(见 SQLiteStore.__init__)。
 _OPEN_LOCK = threading.Lock()
@@ -190,6 +199,33 @@ CREATE TABLE IF NOT EXISTS metric_history (
 );
 CREATE INDEX IF NOT EXISTS idx_metric_history_lookup
     ON metric_history(category, metric_key, field, recorded_at);
+
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,     -- 0 | 1
+    scope TEXT NOT NULL DEFAULT 'global',   -- 'global' | 品类 id(七品类之一)
+    when_expr TEXT NOT NULL,                -- 白名单 AST 表达式原文(SQL 保留字 when 故列名带 _expr)
+    action TEXT NOT NULL,                   -- 'push' | 'tag'
+    action_config TEXT NOT NULL,            -- JSON:push {channel, targets?, template?} / tag {tags: [..]}
+    created_at TEXT NOT NULL,               -- ISO-8601 UTC
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS alert_fired (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_id INTEGER NOT NULL,               -- 指向 alert_rules.id;规则删除后历史照留(悬挂即历史事实)
+    rule_name TEXT NOT NULL,                -- snapshot at fire time:规则删除后 fired 历史仍可读
+    item_id INTEGER,                        -- 可空:items 被 retention 剪枝后历史仍可读
+    dedup_key TEXT NOT NULL,                -- 去重身份(None 兜底 url,digest.py 同款在引擎侧先兜底)
+    title TEXT,                             -- snapshot at fire time(FeedbackRecord 先例)
+    category TEXT,                          -- snapshot at fire time
+    action TEXT NOT NULL,                   -- 命中时规则的动作快照 'push' | 'tag'
+    action_status TEXT NOT NULL DEFAULT 'pending',  -- pending|sent|send_failed|tagged|degraded_no_channel|skipped_dry_run
+    created_at TEXT NOT NULL,
+    UNIQUE (rule_id, dedup_key)             -- fired 去重 = 唯一约束(grill Q5);at-most-once 门闩(grill Q3)
+);
+CREATE INDEX IF NOT EXISTS idx_alert_fired_created ON alert_fired(created_at);
 """
 
 
@@ -313,6 +349,51 @@ def _migrate_v6_add_feedback_external_id(conn: sqlite3.Connection) -> None:
     logger.info("存储迁移完成: feedback.external_id 幂等去重列与唯一索引")
 
 
+def _migrate_v7_add_alerts(conn: sqlite3.Connection) -> None:
+    """v6 → v7: add ``alert_rules`` + ``alert_fired`` (告警规则引擎, PRD 10-04-alert-rules).
+
+    Idempotent and purely additive (``_migrate_v4_add_feedback`` 同构先例):
+    fresh v7 databases already have both tables via ``_SCHEMA``; existing
+    tables and rows are untouched, so a v6 database migrates with zero data
+    loss (零数据迁移:两表皆新表,无既有数据搬运)。不 seed——零惊扰默认,
+    无规则时空表即合法态(grill Q2)。
+    """
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS alert_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            scope TEXT NOT NULL DEFAULT 'global',
+            when_expr TEXT NOT NULL,
+            action TEXT NOT NULL,
+            action_config TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS alert_fired (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule_id INTEGER NOT NULL,
+            rule_name TEXT NOT NULL,
+            item_id INTEGER,
+            dedup_key TEXT NOT NULL,
+            title TEXT,
+            category TEXT,
+            action TEXT NOT NULL,
+            action_status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            UNIQUE (rule_id, dedup_key)
+        )
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_alert_fired_created ON alert_fired(created_at)")
+    logger.info("存储迁移完成: 新增 alert_rules / alert_fired 表(告警规则引擎)")
+
+
 #: target version → migration (runs with the connection inside the caller's
 #: transaction; every migration must be idempotent — fresh databases replay
 #: them after ``CREATE TABLE IF NOT EXISTS`` already produced the new shape).
@@ -322,6 +403,7 @@ _MIGRATIONS: dict[int, object] = {
     4: _migrate_v4_add_feedback,
     5: _migrate_v5_add_metric_history,
     6: _migrate_v6_add_feedback_external_id,
+    7: _migrate_v7_add_alerts,
 }
 
 
@@ -417,6 +499,36 @@ def _row_to_metric(row: sqlite3.Row) -> MetricRecord:
         field=row["field"],
         value=float(row["value"]),
         recorded_at=_from_iso(row["recorded_at"]),
+    )
+
+
+def _row_to_alert_rule(row: sqlite3.Row) -> AlertRule:
+    config = _json_loads(row["action_config"])
+    return AlertRule(
+        id=int(row["id"]),
+        name=row["name"],
+        enabled=bool(row["enabled"]),
+        scope=row["scope"],
+        when=row["when_expr"],
+        action=row["action"],
+        action_config=config if isinstance(config, dict) else {},
+        created_at=_from_iso(row["created_at"]),
+        updated_at=_from_iso(row["updated_at"]),
+    )
+
+
+def _row_to_alert_fired(row: sqlite3.Row) -> AlertFired:
+    return AlertFired(
+        id=int(row["id"]),
+        rule_id=int(row["rule_id"]),
+        rule_name=row["rule_name"],
+        item_id=row["item_id"] if row["item_id"] is not None else None,
+        dedup_key=row["dedup_key"],
+        title=row["title"],
+        category=row["category"],
+        action=row["action"],
+        action_status=row["action_status"],
+        created_at=_from_iso(row["created_at"]),
     )
 
 
@@ -1262,6 +1374,246 @@ class SQLiteStore:
             (category, metric_key, field, _to_iso(since), _to_iso(until)),
         )
         return float(row["total"]) if row is not None else 0.0
+
+    # ------------------------------------------------------------------ alerts
+    # Consumed by the alert rules engine (PRD 10-04-alert-rules): rules are
+    # written by the desktop sidecar (alerts.save 全量替换在此之上 diff 编排),
+    # fired rows are the 命中历史 — snapshots survive rule deletion and item
+    # retention. scope/when 语法/action_config 形状的构造期拒在
+    # shishi.alerts.rule.compile_rule(读库坏行 WARNING 跳过、写库拒整批共用)。
+
+    def save_alert_rule(self, rule: AlertRule) -> AlertRule:
+        """Insert or update one alert rule; return the persisted row.
+
+        带 ``id`` = UPDATE(未知 id 抛值错);无 ``id`` = INSERT。
+        ``updated_at`` 落库侧每次刷新;``created_at`` 仅 INSERT 时落(缺省 now)。
+
+        Raises:
+            ValueError: empty ``name`` / ``when``, ``action`` outside
+                :data:`shishi.store.models.ALERT_ACTIONS`, or an unknown
+                ``rule.id`` on update.
+        """
+        if not rule.name:
+            raise ValueError("字段校验失败: alert_rules.name 不能为空")
+        if not rule.when or not rule.when.strip():
+            raise ValueError("字段校验失败: alert_rules.when_expr 不能为空")
+        if rule.action not in ALERT_ACTIONS:
+            raise ValueError(
+                f"字段校验失败: alert_rules.action 必须是 {sorted(ALERT_ACTIONS)} 之一,"
+                f"得到 {rule.action!r}"
+            )
+        now = datetime.now(timezone.utc)
+        if rule.id is not None:
+            cursor = self._write(
+                "UPDATE alert_rules SET name = ?, enabled = ?, scope = ?, when_expr = ?, "
+                "action = ?, action_config = ?, updated_at = ? WHERE id = ?",
+                (
+                    rule.name,
+                    1 if rule.enabled else 0,
+                    rule.scope,
+                    rule.when,
+                    rule.action,
+                    _json_dumps(rule.action_config),
+                    _to_iso(now),
+                    rule.id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                raise ValueError(f"alert_rules 记录不存在: id={rule.id}")
+            row = self._query_one("SELECT * FROM alert_rules WHERE id = ?", (rule.id,))
+        else:
+            with self._lock:
+                cursor = self.conn.execute(
+                    "INSERT INTO alert_rules (name, enabled, scope, when_expr, action, "
+                    "action_config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        rule.name,
+                        1 if rule.enabled else 0,
+                        rule.scope,
+                        rule.when,
+                        rule.action,
+                        _json_dumps(rule.action_config),
+                        _to_iso(rule.created_at or now),
+                        _to_iso(now),
+                    ),
+                )
+                new_id = int(cursor.lastrowid)
+                self.conn.commit()
+            row = self._query_one("SELECT * FROM alert_rules WHERE id = ?", (new_id,))
+        persisted = _row_to_alert_rule(row)
+        logger.debug("告警规则落库 rule_id=%s name=%s action=%s", persisted.id, persisted.name, persisted.action)
+        return persisted
+
+    def list_alert_rules(self, *, enabled: bool | None = None) -> list[AlertRule]:
+        """List alert rules, id ascending; ``enabled=None`` applies no filter."""
+        if enabled is None:
+            rows = self._query_all("SELECT * FROM alert_rules ORDER BY id ASC")
+        else:
+            rows = self._query_all(
+                "SELECT * FROM alert_rules WHERE enabled = ? ORDER BY id ASC",
+                (1 if enabled else 0,),
+            )
+        return [_row_to_alert_rule(row) for row in rows]
+
+    def delete_alert_rule(self, rule_id: int) -> bool:
+        """Drop one rule definition row; fired history stays (命中历史是事实).
+
+        Returns True when a row was deleted, False when the id matches nothing.
+        """
+        cursor = self._write("DELETE FROM alert_rules WHERE id = ?", (rule_id,))
+        deleted = cursor.rowcount > 0
+        if deleted:
+            logger.info("告警规则删除 rule_id=%s(fired 历史照留)", rule_id)
+        return deleted
+
+    def record_fired(self, fired: AlertFired) -> AlertFired | None:
+        """Insert one fired row as the 占坑门闩; return it, or None on duplicate.
+
+        ``UNIQUE (rule_id, dedup_key)`` 冲突 → None(调用方跳过动作,
+        at-most-once;send_immediate 的 registry 槽位哲学同源)。成功返回落库行
+        (含 id,``action_status`` 起始为 ``pending``)。
+
+        Raises:
+            ValueError: empty ``dedup_key``, ``action`` outside
+                :data:`shishi.store.models.ALERT_ACTIONS`, or ``action_status``
+                outside :data:`shishi.store.models.ALERT_ACTION_STATUSES`.
+        """
+        if not fired.dedup_key:
+            raise ValueError("字段校验失败: alert_fired.dedup_key 不能为空")
+        if fired.action not in ALERT_ACTIONS:
+            raise ValueError(
+                f"字段校验失败: alert_fired.action 必须是 {sorted(ALERT_ACTIONS)} 之一,"
+                f"得到 {fired.action!r}"
+            )
+        if fired.action_status not in ALERT_ACTION_STATUSES:
+            raise ValueError(
+                f"字段校验失败: alert_fired.action_status 必须是 "
+                f"{sorted(ALERT_ACTION_STATUSES)} 之一,得到 {fired.action_status!r}"
+            )
+        with self._lock:
+            cursor = self.conn.execute(
+                "INSERT INTO alert_fired (rule_id, rule_name, item_id, dedup_key, title, "
+                "category, action, action_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(rule_id, dedup_key) DO NOTHING",
+                (
+                    fired.rule_id,
+                    fired.rule_name,
+                    fired.item_id,
+                    fired.dedup_key,
+                    fired.title,
+                    fired.category,
+                    fired.action,
+                    fired.action_status,
+                    _to_iso(fired.created_at or datetime.now(timezone.utc)),
+                ),
+            )
+            inserted = cursor.rowcount > 0
+            new_id = int(cursor.lastrowid) if inserted else None
+            self.conn.commit()
+        if not inserted:
+            logger.info(
+                "告警命中占坑冲突(UNIQUE 拦截,跳过动作) rule_id=%s dedup_key=%s",
+                fired.rule_id, fired.dedup_key,
+            )
+            return None
+        row = self._query_one("SELECT * FROM alert_fired WHERE id = ?", (new_id,))
+        persisted = _row_to_alert_fired(row)
+        logger.debug(
+            "告警命中入库 fired_id=%s rule_id=%s dedup_key=%s action=%s",
+            persisted.id, persisted.rule_id, persisted.dedup_key, persisted.action,
+        )
+        return persisted
+
+    def mark_alert_fired_status(self, fired_id: int, status: str) -> None:
+        """Backfill one fired row's terminal ``action_status`` (动作结果回填).
+
+        Raises:
+            ValueError: ``status`` outside
+                :data:`shishi.store.models.ALERT_ACTION_STATUSES`, or no fired
+                row with ``fired_id``.
+        """
+        if status not in ALERT_ACTION_STATUSES:
+            raise ValueError(
+                f"字段校验失败: alert_fired.action_status 必须是 "
+                f"{sorted(ALERT_ACTION_STATUSES)} 之一,得到 {status!r}"
+            )
+        cursor = self._write(
+            "UPDATE alert_fired SET action_status = ? WHERE id = ?", (status, fired_id)
+        )
+        if cursor.rowcount == 0:
+            raise ValueError(f"alert_fired 记录不存在: id={fired_id}")
+
+    def has_fired(self, rule_id: int, dedup_key: str) -> bool:
+        """Whether ``(rule_id, dedup_key)`` already fired(命中预查,alerts.test).
+
+        Raises:
+            ValueError: empty ``dedup_key``.
+        """
+        if not dedup_key:
+            raise ValueError("字段校验失败: alert_fired.dedup_key 不能为空")
+        return (
+            self._query_one(
+                "SELECT 1 FROM alert_fired WHERE rule_id = ? AND dedup_key = ? LIMIT 1",
+                (rule_id, dedup_key),
+            )
+            is not None
+        )
+
+    def list_fired(
+        self,
+        *,
+        rule_id: int | None = None,
+        since: datetime | None = None,
+        limit: int = 100,
+    ) -> list[AlertFired]:
+        """List fired rows, newest first(``limit`` 钳制 [1, 200]).
+
+        ``since`` filters on ``created_at``(sidecar run 终态回放取新命中);
+        ``rule_id`` 过滤(CLI ``alerts list --rule`` / alerts.list 载荷)。
+        """
+        clamped = max(1, min(200, int(limit)))
+        sql = "SELECT * FROM alert_fired"
+        conditions: list[str] = []
+        params: list[object] = []
+        if rule_id is not None:
+            conditions.append("rule_id = ?")
+            params.append(rule_id)
+        if since is not None:
+            conditions.append("created_at >= ?")
+            params.append(_to_iso(since))
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY id DESC LIMIT ?"
+        params.append(clamped)
+        return [_row_to_alert_fired(row) for row in self._query_all(sql, tuple(params))]
+
+    def fired_counts(self) -> dict[int, int]:
+        """Per-rule hit counts, derived from ``alert_fired`` (GROUP BY COUNT).
+
+        命中计数不落 rules 行(save 全量替换会清计数,grill Q1)——派生即真相。
+        """
+        rows = self._query_all(
+            "SELECT rule_id, COUNT(*) AS count FROM alert_fired GROUP BY rule_id"
+        )
+        return {int(row["rule_id"]): int(row["count"]) for row in rows}
+
+    def update_item_tags(self, *, dedup_key: str, tags: Sequence[str]) -> bool:
+        """Write back one item's ``tags`` JSON column by ``dedup_key``(tag 动作第 2 步).
+
+        定位语义与 :meth:`get_item_by_dedup_key` 同门(dedup_key 是 dedup 阶段
+        落的稳定身份);行不存在(如已被 retention 剪枝)返回 False,由调用方
+        WARNING 说破,不视为错误。
+
+        Raises:
+            ValueError: empty ``dedup_key``.
+        """
+        if not dedup_key:
+            raise ValueError("字段校验失败: items.dedup_key 不能为空")
+        cursor = self._write(
+            "UPDATE items SET tags = ? WHERE dedup_key = ?",
+            (_json_dumps(list(tags)), dedup_key),
+        )
+        return cursor.rowcount > 0
 
     # -------------------------------------------------------------------- runs
 
