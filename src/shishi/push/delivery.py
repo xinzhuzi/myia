@@ -31,6 +31,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import threading
 import time
 from dataclasses import replace
@@ -45,6 +46,7 @@ __all__ = [
     "LEDGER_FILENAME",
     "classify_dead_error",
     "is_chat_level_not_found",
+    "scrub_dead_markers",
     "DeliveryLedger",
     "send_batch_to_targets",
 ]
@@ -103,6 +105,16 @@ _CONFIG_ERROR_CODES = frozenset({
     "template_render_error",
 })
 
+#: token 端点级失败(qqbot/msgraph_webhook 的 token 文案家族:≥400 JSON
+#: 错误体的 ``token 获取失败`` 与非 JSON 应答的 ``token 响应不是 JSON``;
+#: 10-03-messaging-w3-longtail 复核修复):根因是应用级凭据/端点,不是该
+#: chat 不可达——死信对象是具体 chat 而修复在应用侧,且死信跳过后无成功
+#: 投递即永不自愈 → 一律 None。msgraph_webhook._post_token 的注释「token
+#: 级失败无死信语义,分类器判瞬态/None」由本表兑现:文案携带的
+#: ``HTTP 403/404`` 不再误判 forbidden/not_found(消息端点的状态码语义
+#: 不变,仍按 _FORBIDDEN_MARKERS/_CHAT_LEVEL_NOT_FOUND_MARKERS 归类)。
+_TOKEN_LEVEL_MARKERS = ("token 获取失败", "token 响应不是 json")
+
 #: chat 级 not_found:整个会话不可达(仅此可判 dead)。
 #: W2 平台增量:ntfy 发布 404(topic 不存在;403 由上方 403 marker 命中);
 #: 企微 touser 的 userid 失效族——官方全局错误码:40003(无效的 UserID)、
@@ -130,6 +142,29 @@ _SUBCHAT_NOT_FOUND_MARKERS = (
     "message to reply not found",
     "message_id_invalid",
 )
+
+
+def scrub_dead_markers(text: str) -> str:
+    """滤除文本里全部死信分类器 marker 子串(大小写不敏感,命中段→「…」)。
+
+    对端可控自由文本(如 a2a JSON-RPC error 对象的 message)进
+    :class:`~shishi.push.base.PushSendError` 文案前必须先过本函数:分类对
+    拼接文本块做子串匹配(:func:`classify_dead_error`),原样透传的对端
+    文案若恰含 ``forbidden`` / ``http 404`` 等字样,会把本应瞬态的错误
+    误判成死信(对端与对端 URL 同信任级,10-03-messaging-w3-longtail
+    复核残留暴露的收口)。三张 marker 表全量滤除、表增项自动跟进;仅用于
+    「错误语义应为瞬态」的通道文案——需要靠文案命中分类的路径(如 a2a
+    HTTP 层的 ``HTTP 403`` 锚定)不得过滤。
+    """
+    scrubbed = text
+    for marker in (
+        *_FORBIDDEN_MARKERS,
+        *_CHAT_LEVEL_NOT_FOUND_MARKERS,
+        *_SUBCHAT_NOT_FOUND_MARKERS,
+    ):
+        if marker in scrubbed.casefold():  # 快路径:不含则跳过正则
+            scrubbed = re.sub(re.escape(marker), "…", scrubbed, flags=re.IGNORECASE)
+    return scrubbed
 
 
 def _error_blob(error: BaseException | str) -> str:
@@ -160,12 +195,16 @@ def classify_dead_error(error: BaseException | str) -> str | None:
     Hermes ``classify_dead_error`` 同语义;通道子任务如有精确 API 错误码
     判定,可在 PushSendError 消息里保留原厂描述以命中本表。配置类错误码
     (:data:`_CONFIG_ERROR_CODES`)先短路返回 None——修配置才是出路,
-    死信语义(「会话确认不可达」)对它们不成立。
+    死信语义(「会话确认不可达」)对它们不成立;token 端点级失败
+    (:data:`_TOKEN_LEVEL_MARKERS`)同判 None——根因在应用级凭据,与
+    chat 可达性无关。
     """
     code = getattr(error, "code", None)
     if isinstance(code, str) and code in _CONFIG_ERROR_CODES:
         return None
     blob = _error_blob(error)
+    if any(m in blob for m in _TOKEN_LEVEL_MARKERS):
+        return None
     if any(m in blob for m in _FORBIDDEN_MARKERS):
         return "forbidden"
     if any(m in blob for m in _CHAT_LEVEL_NOT_FOUND_MARKERS):

@@ -25,8 +25,9 @@
   :func:`shishi.push.delivery.classify_dead_error` 判定——HTTP 403 →
   ``forbidden``、HTTP 404 → ``not_found``、429/5xx/传输失败 → 瞬态不标。
   JSON-RPC 层 ``error`` 对象(如 ``code=-32600`` 请求非法/``-32000`` 服务端
-  错误)如实入 ``a2a_api_error`` 文案;与 core 分类器 marker 表无码点交集 →
-  瞬态(对端 agent 的语义错误重试无害)。
+  错误)如实入 ``a2a_api_error`` 文案;code/message 是对端可控自由文本,
+  入文案前先经 :func:`shishi.push.delivery.scrub_dead_markers` 滤除分类器
+  marker 子串 → 恒瞬态(对端 agent 的语义错误重试无害)。
 - **鉴权可选**:对端要求 Bearer 时配 :data:`DEFAULT_TOKEN_ENV_REF`
   (蓝本 ``_auth_header`` 同款 ``Authorization: Bearer``);缺省 env 缺席 =
   无鉴权(局域对端合法态,ntfy 可选 token 同款取舍)。
@@ -62,6 +63,7 @@ from shishi.push.base import (
     SendContext,
     TrendAwareChannel,
 )
+from shishi.push.delivery import scrub_dead_markers
 from shishi.push.directory import DirectoryDiscoverUnsupported
 from shishi.push.ntfy import build_message
 from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
@@ -283,13 +285,15 @@ class A2aChannel(TrendAwareChannel):
             )
         error = payload.get("error")
         if error is not None:
-            # JSON-RPC error 对象(code/message)如实入文案;与 core 分类器
-            # marker 表无码点交集 → 瞬态(模块 docstring 注记)。
+            # JSON-RPC error 对象(code/message)如实入文案;二者皆对端可控
+            # 自由文本,先滤除分类器 marker 子串(「http 404」「forbidden」
+            # 等字样不得把瞬态错误误标死信)→ 恒瞬态(模块 docstring 注记)。
             code = error.get("code") if isinstance(error, Mapping) else None
             message = error.get("message") if isinstance(error, Mapping) else str(error)
             raise PushSendError(
                 "a2a_api_error",
-                f"a2a 对端返回 JSON-RPC 错误: code={code} message={message}",
+                f"a2a 对端返回 JSON-RPC 错误: code={scrub_dead_markers(str(code))}"
+                f" message={scrub_dead_markers(str(message))}",
             )
 
     # --------------------------------------------- 目录(无自动发现)+ 直达

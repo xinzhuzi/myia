@@ -177,6 +177,34 @@ class TestTokenAndShape:
         assert "invalid_client" in str(excinfo.value)
         assert "AADSTS7000215" in str(excinfo.value)
 
+    @pytest.mark.parametrize("status", [403, 404])
+    def test_token_403_404_do_not_mark_dead(self, target_env, status):
+        """核验修复回归:token 端点 403/404 不判 forbidden/not_found。
+
+        _post_token 注释「token 级失败无死信语义,分类器判瞬态/None」的
+        兑现用例:根因是应用级凭据/端点而非该 chat 不可达,误标死信即
+        永不自愈(delivery._TOKEN_LEVEL_MARKERS 兜住文案里的
+        ``HTTP <status>``;此前仅 400/401 恰好不在分类表,403/404 会误标)。
+        """
+        def handler(request: httpx.Request) -> httpx.Response:
+            if str(request.url).startswith("https://login.microsoftonline.com/"):
+                return httpx.Response(
+                    status, json={"error": "invalid_request", "error_description": "smoke"}
+                )
+            raise AssertionError("消息端点不应被触达")  # pragma: no cover
+
+        channel = MSGraphWebhookChannel(
+            target="env:MYIA_TEST_MSGRAPH_CHAT",
+            tenant_ref="env:MYIA_TEST_MSGRAPH_TENANT",
+            client_id_ref="env:MYIA_TEST_MSGRAPH_CLIENT_ID",
+            client_secret_ref="env:MYIA_TEST_MSGRAPH_SECRET",
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send([{"title": "t"}], CONTEXT))
+        assert f"HTTP {status}" in str(excinfo.value)  # 状态码如实保留
+        assert classify_dead_error(excinfo.value) is None  # 不标死信(修复点)
+
     def test_token_response_without_token_is_invalid(self, target_env):
         def handler(request: httpx.Request) -> httpx.Response:
             if str(request.url).startswith("https://login.microsoftonline.com/"):

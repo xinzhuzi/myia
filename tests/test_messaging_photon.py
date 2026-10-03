@@ -3,8 +3,9 @@
 事实(蓝本 Hermes ``plugins/platforms/photon/adapter.py`` + README):收发
 均走 ``spectrum-ts`` SDK 的 gRPC 长流(经 Node sidecar),无 one-shot HTTP
 API → 结构化 ``dependency_missing`` 壳,不硬造出站。覆盖:发送恒报依赖
-缺失(附 sidecar 修复指引)、classify_dead_error 恒瞬态、直达三形态
-(UUID space/GUID + E.164,蓝本 PHOTON_HOME_CHANNEL 文档)、别名/前缀寻址、
+缺失(附 sidecar 修复指引)、classify_dead_error 恒瞬态、直达双形态
+(UUID = space id 保守接受面 + E.164 号码;蓝本 README PHOTON_HOME_CHANNEL
+只文档 space id/E.164 两形态)、别名/前缀寻址、
 DirectoryDiscoverUnsupported、协议契约。
 
 No pytest-asyncio: async calls run through ``asyncio.run``;零网络 I/O。
@@ -63,7 +64,7 @@ class TestShell:
 
 class TestAddressing:
     def test_direct_ref_parse(self):
-        """直达:UUID(space id/DM GUID,大小写归一)与 E.164 号码双形态。"""
+        """直达:UUID(space id 保守接受面,大小写归一)与 E.164 号码双形态。"""
         uuid_target = PhotonChannel.parse_direct_ref(_GUID.upper())
         assert uuid_target is not None
         assert (uuid_target.platform, uuid_target.chat_id, uuid_target.resolved_from) == (

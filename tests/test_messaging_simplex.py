@@ -77,6 +77,25 @@ class HangingWS:
         return None
 
 
+class _DisconnectingMidSendWS:
+    """首帧写入成功、第二帧起 send 裸抛(守护进程发送中途断连形态)。"""
+
+    def __init__(self) -> None:
+        self.sent: list[str] = []
+        self.closed = False
+
+    async def send(self, text: str) -> None:
+        if self.sent:
+            raise RuntimeError("connection closed")
+        self.sent.append(text)
+
+    async def recv(self) -> str | None:
+        return None
+
+    async def close(self) -> None:
+        self.closed = True
+
+
 class SimplexHarness:
     def __init__(self, ws: Any) -> None:
         self.ws = ws
@@ -154,6 +173,21 @@ class TestSendShape:
             frame = json.loads(raw)
             payload = json.loads(frame["cmd"].rsplit(" json ", 1)[1])
             assert len(payload[0]["msgContent"]["text"]) <= 8000
+
+    def test_mid_send_disconnect_is_structured_and_still_closes(self, simplex_env):
+        """发送中途断连 → ``simplex_api_error`` 结构化错误(契约:send 只抛
+        PushSendError;核验修正:ws.send 原先裸抛非结构化异常);finally 仍关连接。"""
+        ws = _DisconnectingMidSendWS()
+        harness = SimplexHarness(ws)
+        channel = harness.channel()
+        items = [{"title": "长" * 6000, "url": "https://x/1"} for _ in range(4)]  # 必多帧
+
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send(items, CONTEXT))
+        assert excinfo.value.code == "simplex_api_error"
+        assert classify_dead_error(excinfo.value) is None
+        assert len(ws.sent) == 1  # 第 2 帧写入前断连
+        assert ws.closed  # finally 关连接仍执行
 
     def test_context_target_overrides_legacy(self, simplex_env):
         harness = SimplexHarness(FakeWS())

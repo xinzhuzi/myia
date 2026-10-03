@@ -126,6 +126,45 @@ class TestTokenAndShape:
         assert "content" in calls[1]["body"]
         assert "msg_seq" not in calls[1]["body"]
 
+    def test_long_content_splits_at_message_limit(self, target_env):
+        """核验修复回归:超 :data:`MESSAGE_LIMIT`(2000)按行边界拆多条。
+
+        注释宣称的「超长按行边界拆多条」此前无实现(MESSAGE_LIMIT 是死
+        常量);现走 telegram ``split_message`` 同款——逐条独立 POST,每条
+        c2c/group 消息各自随机 msg_seq,token 只取一次。
+        """
+        from shishi.push.qqbot import MESSAGE_LIMIT
+
+        calls: list[dict] = []
+        channel = _channel(calls)
+
+        _run(channel.send([{"title": "长" * 1500}, {"title": "另" * 1500}], CONTEXT))
+
+        message_calls = [c for c in calls if c["url"].startswith("https://api.sgroup.qq.com/")]
+        token_calls = [c for c in calls if c["url"].startswith("https://bots.qq.com/")]
+        assert len(token_calls) == 1  # 拆条不重取 token
+        assert len(message_calls) == 2  # 3000 字 → 2 条(行边界切,版式行不硬切)
+        assert all(len(call["body"]["content"]) <= MESSAGE_LIMIT for call in message_calls)
+        # 每条消息各自携带 msg_seq(主动消息必填字段;拆条逐条独立 POST)
+        assert all("msg_seq" in call["body"] for call in message_calls)
+
+    def test_single_overlong_line_hard_splits(self, target_env):
+        """单行超限(无行边界可用)按 :data:`MESSAGE_LIMIT` 硬切,不丢不发。"""
+        from shishi.push.qqbot import MESSAGE_LIMIT
+
+        calls: list[dict] = []
+        channel = _channel(calls)
+
+        _run(channel.send([{"title": "x" * (MESSAGE_LIMIT + 5)}], CONTEXT))
+
+        message_calls = [c for c in calls if c["url"].startswith("https://api.sgroup.qq.com/")]
+        # 版式:头行(19 字符)独立成条 → 超长条目行(▸ + 2005 字)硬切 2000 + 余 7
+        assert [len(call["body"]["content"]) for call in message_calls] == [
+            19,
+            MESSAGE_LIMIT,
+            7,
+        ]
+
     def test_token_cached_across_sends(self, target_env):
         """60s 余量缓存:第二次发送复用 token(零 token 端点往返)。"""
         calls: list[dict] = []
@@ -180,6 +219,37 @@ class TestTokenAndShape:
         assert "HTTP 400" in str(excinfo.value)
         assert "invalid client secret" in str(excinfo.value)
         assert classify_dead_error(excinfo.value) is None  # token 级失败无死信语义
+
+    @pytest.mark.parametrize("status", [403, 404])
+    def test_token_403_404_do_not_mark_dead(self, target_env, status):
+        """核验修复回归:token 端点 403/404 不判 forbidden/not_found。
+
+        根因是应用级凭据/端点,不是该 chat 不可达——死信键是具体 chat,
+        标死即永不自愈(delivery._TOKEN_LEVEL_MARKERS 兜住 ``token 获取失败``
+        文案里的 ``HTTP <status>``;此前仅 400/401 恰好不在分类表,403/404
+        会误标)。
+        """
+        from shishi.push.delivery import classify_dead_error
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if str(request.url).startswith("https://bots.qq.com/"):
+                return httpx.Response(
+                    status, json={"code": 11253, "message": "gateway layer rejected"}
+                )
+            raise AssertionError("消息端点不应被触达")  # pragma: no cover
+
+        channel = QQBotChannel(
+            target="env:MYIA_TEST_QQBOT_TARGET",
+            appid_ref="env:MYIA_TEST_QQBOT_APPID",
+            secret_ref="env:MYIA_TEST_QQBOT_SECRET",
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send([{"title": "t"}], CONTEXT))
+        assert excinfo.value.code == "qqbot_api_error"  # B2 口径不变
+        assert f"HTTP {status}" in str(excinfo.value)  # 状态码如实保留
+        assert "gateway layer rejected" in str(excinfo.value)  # 原厂片段保留
+        assert classify_dead_error(excinfo.value) is None  # 不标死信(修复点)
 
     def test_msg_seq_range(self):
         for _ in range(50):

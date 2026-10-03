@@ -1,7 +1,8 @@
 """Tests for 10-03-messaging-w3-longtail 组二 — irc 适配器(纯 stdlib 最小客户端)。
 
 覆盖:一次性会话时序(PASS?/NICK/USER → 001 → NickServ? → JOIN →
-PRIVMSG → QUIT)、433 昵称碰撞重试、JOIN 显式拒绝(403 → 死信 forbidden)、
+PRIVMSG → QUIT)、433 昵称碰撞重试、JOIN 显式拒绝(IRC 403
+ERR_NOSUCHCHANNEL → 死信 not_found,复核 D1 家族标签校正)、
 注册超时/服务器断连、CRLF 注入防护(target 与正文)、字节预算分段与步进、
 定向(context.target)优先、missing_target fail-fast、直达 ``#频道`` 与目录
 名寻址、无自动发现语义、纯函数面(parse_irc_line/privmsg_budget/

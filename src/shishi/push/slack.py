@@ -17,7 +17,10 @@ MYIA 按本档语义重写,不整块复制:
 - **U/W 用户直达**::func:`parse_direct_ref` 收 ``U…``/``W…``(bot 不能直发
   裸用户 id,蓝本 ``channel_not_found`` 事实注释),发送期先
   ``conversations.open``(需 ``im:write`` scope)换 DM 会话 id ``D…`` 再投递;
-  解析失败如实报 ``slack_api_error``(原厂 error 进文案)。
+  解析失败如实报 ``slack_api_error``(原厂 error 进文案)。**与蓝本的偏离**:
+  Hermes ``_resolve_slack_user_dm`` 按 ``(token, user)`` 缓存会话 id(进程级
+  ``_slack_dm_cache``);MYIA 每次发送重新 ``conversations.open``——多一次
+  API 往返与限频暴露面,换取零跨 run 缓存态(通道实例不长寿,缓存收益小)。
 
 寻址(design D1/D4):``supports_targeting=True``;``context.target.chat_id``
 优先,退回 legacy ``target`` 引用(**须显式配置,无运行期 env 缺省回退**;
@@ -171,7 +174,11 @@ class SlackChannel(TrendAwareChannel):
 
         ``U…``/``W…`` 裸用户 id 不可直发(蓝本 #17444:chat.postMessage 报
         ``channel_not_found``),先 ``conversations.open`` 换 DM 会话 id;
-        其余 id(C/G/D)原样投递。两条寻址路径全缺 → ``missing_target``。
+        其余 id(C/G/D)原样投递。解析值先过 :data:`CHANNEL_ID_RE` 形态校验
+        (discord/line/mattermost 同位置同款:目录别名登记错/引用配置笔误
+        → ``invalid_credential_ref`` 配置类错误,绝不原样打到 Slack API——
+        那会以 200+``ok=false`` ``channel_not_found`` 回来,被死信分类按
+        瞬态每轮重试)。两条寻址路径全缺 → ``missing_target``。
         """
         if context.target is not None:
             channel = context.target.chat_id.strip()
@@ -182,6 +189,14 @@ class SlackChannel(TrendAwareChannel):
                 "missing_target",
                 "slack 两条寻址路径均缺席:未配置 legacy target(频道 id 引用),"
                 "本次发送也未携带 context.target",
+            )
+        if not CHANNEL_ID_RE.fullmatch(channel):
+            # 解析值不回显(死信分类误判暴露面收敛,discord/line/mattermost 同款)。
+            raise PushSendError(
+                "invalid_credential_ref",
+                f"slack 频道/用户 id 形态非法(须为 C/G/D/U/W 前缀 + 8-20 位"
+                f"大写字母数字):得到 {len(channel)} 字符的值,不匹配该形态"
+                "(解析值不回显)",
             )
         if channel[:1] in ("U", "W"):
             return await self._open_dm(token, channel)
@@ -203,7 +218,8 @@ class SlackChannel(TrendAwareChannel):
         """``conversations.open`` 换 DM 会话 id(蓝本 ``_resolve_slack_user_dm`` 同形态)。
 
         需应用具备 ``im:write`` scope;``ok=false``(如 ``user_not_found`` /
-        ``not_authed``)原厂 error 进文案如实上抛。
+        ``not_authed``)原厂 error 进文案如实上抛。蓝本按 ``(token, user)``
+        缓存会话 id,MYIA 每次发送重开(模块 docstring 偏离注记)。
         """
         body = {"users": user_id}
         data = await self._api_call(token, "conversations.open", body)

@@ -2,7 +2,7 @@
 
 PRD R3 硬约束:出站依赖 BlueBubbles 服务端(自建 iMessage 桥,常驻
 macOS),通道只进 extras 并结构化报错,不进核心。覆盖:``send()`` 恒抛
-``dependency_missing``(附安装命令 + 服务端指引;依赖门先于凭据解析)、
+``dependency_missing``(附修复指引 + 服务端指引;依赖门先于凭据解析)、
 依赖错误不标死信、直达 chat GUID(``iMessage;…``/``SMS;…``)与 ``+``
 手机号、目录名寻址、无自动发现语义、Channel 协议面
 (TrendAwareChannel 子类 / name / supports_targeting)。
@@ -62,14 +62,18 @@ class TestExtrasShell:
             _run(channel.send([{"title": "t"}], CONTEXT))
         assert excinfo.value.code == "dependency_missing"
 
-    def test_error_carries_install_command_and_server_hint(self):
+    def test_error_carries_repair_hint_and_server_guide(self):
+        """核验修复回归钉:pyproject 尚无 ``bluebubbles`` extras 组——文案
+        不虚指 pip 命令(yuanbao INSTALL_HINT 同款如实口径),只给服务端
+        部署 + extras 实装批次指引。"""
         channel = BlueBubblesChannel()
 
         with pytest.raises(PushSendError) as excinfo:
             _run(channel.send([{"title": "t"}], CONTEXT))
         message = str(excinfo.value)
-        assert "pip install 'shishi[bluebubbles]'" in message  # 安装命令(ocr.py 范式)
-        assert "bluebubbles.app" in message  # 服务端指引
+        assert "bluebubbles.app" in message  # 服务端部署指引
+        assert "extras 实装批次" in message  # 发送路去向(如实披露)
+        assert "shishi[bluebubbles]" not in message  # extras 组不存在,不虚指 pip 命令
 
     def test_dependency_error_is_not_dead_letter(self):
         """依赖缺装是环境问题,不是对象级死信 → 不标。"""

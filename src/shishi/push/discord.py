@@ -25,7 +25,9 @@ Discord snowflake 官方形态)。目录无自动发现(蓝本事实:出站无�
 
 错误文案保留 ``HTTP <status>`` 与原厂响应片段(Discord 错误体
 ``{"message": "Unknown Channel", "code": 10003}``)供死信分类:
-401/403 → forbidden、404 → not_found、429(``retry_after`` 限频)/5xx → 瞬态。
+403 → forbidden、404 → not_found、429(``retry_after`` 限频)/5xx → 瞬态;
+401 是 token 级配置错(非会话级不可达),分类器不标死信、按瞬态透传
+(:func:`shishi.push.delivery.classify_dead_error` 无 ``http 401`` 锚点)。
 
 凭据安全基线同其余通道;全部 HTTP 经注入的 ``httpx.AsyncClient``。
 """
@@ -219,8 +221,9 @@ class DiscordChannel(TrendAwareChannel):
                 "http_error", f"discord 请求失败: {type(exc).__name__}: {exc}"
             ) from exc
         if not response.is_success:
-            # HTTP <status> + 原厂 body 片段进文案:401/403 → forbidden、
-            # 404(Unknown Channel)→ not_found、429(限频)/5xx → 瞬态。
+            # HTTP <status> + 原厂 body 片段进文案:403 → forbidden、
+            # 404(Unknown Channel)→ not_found、429(限频)/5xx → 瞬态;
+            # 401(token 级配置错)不标死信,按瞬态透传(模块 docstring 注记)。
             raise PushSendError(
                 "discord_api_error",
                 f"discord HTTP {response.status_code}: {response.text[:200]!r}",

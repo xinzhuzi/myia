@@ -14,9 +14,13 @@ Node sidecar(loopback 端口 + 共享 token)收发;凭据是
 ``npm ci`` 安装;蓝本 ``hermes photon setup`` 的等价物)随后续 extras
 评估;凭据 PHOTON_PROJECT_ID/PHOTON_PROJECT_SECRET。
 
-寻址:``supports_targeting=True``;直达 = 蓝本 PHOTON_HOME_CHANNEL 文档
-三形态——Spectrum space id / DM GUID(统一 UUID 形态)或裸 E.164 号码;
-无目录发现(:class:`DirectoryDiscoverUnsupported`)。
+寻址:``supports_targeting=True``;蓝本 README 的 PHOTON_HOME_CHANNEL 只文档
+两形态——space id 或裸 E.164 号码(DM 由号码解析)。MYIA 直达正则 =
+UUID 或 E.164:E.164 是蓝本确证形态;UUID 是对「space id」的保守接受面
+(蓝本未给 space id 成文样例,不作蓝本归属声明)。蓝本 DM 侧唯一的
+具体 GUID 形态是入站 chat GUID ``any;-;+号码``(adapter.py 归一为裸
+号码,非 UUID,MYIA 不单独接受该前缀形态)。无目录发现
+(:class:`DirectoryDiscoverUnsupported`)。
 """
 
 from __future__ import annotations
@@ -43,8 +47,9 @@ INSTALL_HINT = (
     "package.json 精确锁版 + npm ci)并配置 PHOTON_PROJECT_ID/PHOTON_PROJECT_SECRET"
 )
 
-#: 直达目标形态:UUID(space id/DM GUID)或 E.164 号码(蓝本
-#: PHOTON_HOME_CHANNEL 文档三形态;中文别名不匹配 → 回落目录四路径)。
+#: 直达目标形态:UUID(space id 的保守接受面,蓝本无成文样例)或 E.164
+#: 号码(蓝本 README PHOTON_HOME_CHANNEL 确证形态);中文别名不匹配 →
+#: 回落目录四路径。
 PHOTON_TARGET_RE = re.compile(
     r"^(?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
     r"|\+[1-9]\d{6,14})$"
@@ -83,13 +88,13 @@ class PhotonChannel(TrendAwareChannel):
         """photon 无目录发现:会话列表只在 Spectrum SDK 流上可见,MYIA 无 sidecar。"""
         raise DirectoryDiscoverUnsupported(
             "photon 无自动发现:会话列表依赖 Spectrum SDK 长流(蓝本事实),"
-            "MYIA 无 sidecar;直达写 photon:<space id/DM GUID/E.164>,"
+            "MYIA 无 sidecar;直达写 photon:<UUID(space id)或 E.164 号码>,"
             "常用会话可用别名文件登记"
         )
 
     @classmethod
     def parse_direct_ref(cls, ref: str) -> ChannelTarget | None:
-        """直达:``photon:<UUID space/GUID 或 E.164 号码>`` 不经目录。"""
+        """直达:``photon:<UUID 或 E.164 号码>`` 不经目录。"""
         value = ref.strip()
         if PHOTON_TARGET_RE.fullmatch(value):
             chat_id = value if value.startswith("+") else value.lower()

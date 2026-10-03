@@ -293,6 +293,39 @@ class TestErrorClassification:
         assert "-32600" in str(excinfo.value)
         assert classify_dead_error(excinfo.value) is None
 
+    def test_jsonrpc_error_peer_text_with_markers_stays_transient(self, peer_env):
+        """对端可控 message 文案恰含 forbidden/http 404 字样也不得误标死信。
+
+        残留暴露收口(10-03-messaging-w3-longtail 复核):message 是对端自由
+        文本,原样入文案会经子串命中把瞬态错误误判 forbidden/not_found →
+        误标死信且永不自愈;入文案前先 scrub_dead_markers 滤除 marker 子串。
+        """
+        calls: list[dict] = []
+        channel = _channel(
+            calls,
+            response=httpx.Response(
+                200,
+                json={
+                    "jsonrpc": "2.0",
+                    "id": "t1",
+                    "error": {
+                        "code": -32000,
+                        "message": "task Forbidden by policy; peer said HTTP 404 and chat not found",
+                    },
+                },
+            ),
+        )
+
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send([{"title": "t"}], CONTEXT))
+        assert excinfo.value.code == "a2a_api_error"
+        assert "-32000" in str(excinfo.value)
+        # marker 段被滤除(「…」占位),分类 blob 不再含任何 marker 子串
+        blob = str(excinfo.value).lower()
+        for marker in ("forbidden", "http 404", "chat not found"):
+            assert marker not in blob
+        assert classify_dead_error(excinfo.value) is None
+
     def test_non_json_response_is_invalid_response(self, peer_env):
         calls: list[dict] = []
         channel = _channel(calls, response=httpx.Response(200, text="<html>"))

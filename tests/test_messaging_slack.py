@@ -209,6 +209,30 @@ class TestAddressing:
         assert excinfo.value.code == "missing_target"
         assert calls == []
 
+    def test_malformed_channel_id_rejected(self, channel_env, monkeypatch):
+        """畸形 chat_id(目录别名登记错/引用配置笔误)→ invalid_credential_ref。
+
+        与 discord/line/mattermost 同位置同款:形态校验先于任何 API 调用,
+        绝不原样打到 Slack API——那会以 200+ok=false channel_not_found 回来,
+        被死信分类按瞬态每轮重试(复核 D1)。两条寻址路(context.target /
+        legacy target 引用)都过同一校验。
+        """
+        calls: list[dict] = []
+        channel = _channel(calls, token="xoxb-t")
+
+        # 定向路:别名名当 id 用(非 C/G/D/U/W 形态)
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send([{"title": "t"}], replace(CONTEXT, target=_target("羊毛群"))))
+        assert excinfo.value.code == "invalid_credential_ref"
+        assert "形态非法" in str(excinfo.value)
+
+        # legacy 引用路:env 解析值非 id 形态(值不回显,只有长度与形态描述)
+        monkeypatch.setenv("MYIA_TEST_SLACK_CHANNEL", "#general")
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send([{"title": "t"}], CONTEXT))
+        assert excinfo.value.code == "invalid_credential_ref"
+        assert calls == []
+
     def test_direct_ref_parse(self):
         for ref in ["C0123ABCDEF", "G0123456AB", "D0123456AB", "U0456USERID", "W0123ENTUSER"]:
             target = SlackChannel.parse_direct_ref(ref)

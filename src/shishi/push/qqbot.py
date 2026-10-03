@@ -21,6 +21,9 @@
 - **msg_seq 防重**:body 携带随机 ``msg_seq``(0..65535,蓝本
   ``_next_msg_seq`` 同算法;官方语义:相同 msg_id+msg_seq 组合重复发送失败,
   主动消息也要求该字段)。
+- **超长拆条**:content 超 :data:`MESSAGE_LIMIT` 按行边界拆多条、逐条
+  独立 POST(:func:`shishi.push.telegram.split_message` 复用,discord/slack
+  同范式;c2c/group 每条各自随机 msg_seq)。
 - **三种寻址形态**(蓝本 ``_messages_path``/``_send_guild_text`` 同端点集):
   ``c2c:<openid>`` → ``POST /v2/users/{openid}/messages``(body 带
   msg_type/msg_seq);``group:<group_openid>`` → ``POST /v2/groups/{id}/messages``
@@ -62,6 +65,7 @@ from shishi.push.base import (
 from shishi.push.directory import DirectoryDiscoverUnsupported
 from shishi.push.ntfy import build_message
 from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
+from shishi.push.telegram import split_message
 from shishi.push.templates import TemplateRenderError, TemplateRenderer
 from shishi.schema import CredentialResolveError, resolve_credential
 
@@ -95,8 +99,12 @@ DEFAULT_SECRET_REF = "env:QQBOT_CLIENT_SECRET"
 #: legacy 目标的推荐引用名(显式配置 ``target`` 用;运行期不自动回退。
 #: 值如 ``group:ABCDEF`` / ``c2c:XXX`` / ``guild:999``)。
 DEFAULT_TARGET_ENV_REF = "env:QQBOT_TARGET"
-#: 单条 content 上限(官方主动消息文本上限,蓝本 guild 分支的
-#: ``content[:MAX_MESSAGE_LENGTH]`` 截断同判据);超长按行边界拆多条。
+#: 单条 content 上限(官方主动消息文本上限);超长按行边界拆多条、逐条
+#: 独立 POST(telegram ``split_message`` 同款,discord/slack 同范式)。
+#: 偏离注记:蓝本 ``constants.py`` 的 ``MAX_MESSAGE_LENGTH = 4000`` 是
+#: guild 频道消息路径的截断上限(蓝本 guild 分支 ``content[:4000]`` 硬截
+#: 不拆条);MYIA 取 2000 系主动消息路径的取值,与蓝本 guild 常量有意
+#: 不同,未按其对齐。
 MESSAGE_LIMIT = 2000
 #: 直达形态:``c2c:<openid>`` / ``group:<group_openid>`` / ``guild:<channel_id>``。
 #: openid 系大小写字母数字下划线连字符串(官方形态);guild channel id 数字串
@@ -166,7 +174,10 @@ class QQBotChannel(TrendAwareChannel):
         self._token_expires_at = 0.0
 
     async def send(self, items: Sequence[Any], context: SendContext) -> None:
-        """Render + one-shot 主动消息 POST;定向优先(``context.target.chat_id``)。
+        """Render + 按 :data:`MESSAGE_LIMIT` 拆条逐发;定向优先。
+
+        行边界拆条(telegram ``split_message`` 同款),块序发送、中途失败
+        整通道报错(discord 同款取舍——已发块不撤回,失败块起如实上抛)。
 
         Raises:
             PushSendError: on any credential/transport/API failure (callers
@@ -174,7 +185,9 @@ class QQBotChannel(TrendAwareChannel):
         """
         kind, target_id = self._resolve_target(context)
         token = await self._ensure_token()
-        await self._post_active_message(token, kind, target_id, self._compose(items, context))
+        content = self._compose(items, context)
+        for chunk in split_message(content, limit=MESSAGE_LIMIT):
+            await self._post_active_message(token, kind, target_id, chunk)
         logger.debug(
             "qqbot 已提交主动消息: slot=%s kind=%s count=%d target_kind=%s",
             context.slot,

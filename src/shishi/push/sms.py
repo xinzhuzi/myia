@@ -15,12 +15,14 @@
 - **1600 截断**:Twilio 单条 Messages.json body 上限 1600 字符(蓝本
   ``MAX_SMS_LENGTH``,约 10 个 SMS 分段);超长截到 :data:`MESSAGE_LIMIT`
   并告警,不拆多条——通知场景一条即达(ntfy 同款取舍)。
-- **错误码 → 死信映射(W2 模板探查,已对照官方错误码表)**:错误文案保留
-  ``HTTP <status>`` 与 Twilio ``code=<n>``/``message`` 片段,经
-  :func:`shishi.push.delivery.classify_dead_error` 判定——HTTP 403 →
-  ``forbidden``、HTTP 404 → ``not_found``(账号/端点级,蓝本 ``_HTTP_CALL_ERRORS``
-  同族)、429/5xx/传输失败 → 瞬态不标。HTTP 400 + ``code=21211``(To 号码
-  无效)是 Twilio 语义上的硬失败,但与 core 分类器 ASCII marker 表无码点
+- **错误码 → 死信映射(W2 模板探查,已对照官方错误码表;核验修正:账号级
+  4xx 不标死信)**:错误文案保留 Twilio ``code=<n>``/``message`` 片段与
+  ``HTTP 状态 <n>``(注意:状态写法刻意不带锚定形态 ``HTTP <status>``)供
+  诊断——Twilio 的 403(鉴权失败)/404(AccountSID 或端点错)是**账号/
+  端点级**错误,不是单个 To 号码不可达;死信无 TTL 且 dead 跳过先于发送,
+  账号修好后目标会永久静默,故按瞬态处理(email 整族同款取舍;irc 的
+  464/465 账号级同判瞬态)。HTTP 400 + ``code=21211``(To 号码无效)是
+  Twilio 语义上真正的会话级硬失败,但与 core 分类器 ASCII marker 表无码点
   交集 → 按瞬态处理(误标死信的代价——好号码被跳过——高于多试一轮;
   core 分类器将来扩表 ``code=21211`` 即可直接命中)。
 
@@ -119,7 +121,8 @@ class SmsChannel(TrendAwareChannel):
         PushSendError: 凭据解析失败、两条寻址路径全缺(``missing_target``)、
             号码形态非法(``invalid_credential_ref``)、HTTP 传输失败
             (``http_error``)、非 2xx 响应(``sms_api_error``,文案保留
-            ``HTTP <status>`` 与 Twilio ``code``/``message`` 片段供死信分类)
+            ``HTTP 状态 <n>`` 与 Twilio ``code``/``message`` 片段供诊断;
+            账号级 403/404 不带 core 分类器锚定形态,一律瞬态不标死信)
             或模板渲染失败。
     """
 
@@ -160,9 +163,11 @@ class SmsChannel(TrendAwareChannel):
         token = self._resolve(self._token_ref, "sms AuthToken")
         from_number = self._resolve(self._from_ref, "sms 发信号码")
         if not E164_RE.fullmatch(from_number):
+            # 解析值不回显(凭据安全基线「错误只带引用名」;收件人路径 D1 同款)。
             raise PushSendError(
                 "invalid_credential_ref",
-                f"sms 发信号码不是 E.164 形态(引用 {self._from_ref!r}): {from_number[:32]!r}",
+                f"sms 发信号码不是 E.164 形态(引用 {self._from_ref!r}):"
+                f"得到 {len(from_number)} 字符的值,不匹配该形态(解析值不回显)",
             )
         body = self._compose(items, context)
         await self._post(sid, token, from_number, to_number, body)
@@ -251,9 +256,10 @@ class SmsChannel(TrendAwareChannel):
                 "http_error", f"sms 请求失败: {type(exc).__name__}: {exc}"
             ) from exc
         if response.status_code >= 300:
-            # 原厂片段进文案:HTTP 状态供死信分类(403/404),Twilio code/
-            # message(如 code=21211 To 号码无效)供诊断;HTTP 400 + 21211
-            # 不与 core 分类器 marker 表相交 → 瞬态(模块 docstring 注记)。
+            # 原厂片段进文案:Twilio code/message(如 code=21211 To 号码无效)
+            # 供诊断;HTTP 状态写成「HTTP 状态 <n>」——刻意不带 core 分类器的
+            # 锚定形态 ``HTTP <n>``(403/404 是账号/端点级错误,非单个 To 号码
+            # 不可达,标死信会造成账号修好后目标永久静默;模块 docstring 注记)。
             try:
                 payload = response.json()
             except ValueError:
@@ -265,7 +271,7 @@ class SmsChannel(TrendAwareChannel):
                 detail = f" code={code} message={message!r}" if message else ""
             raise PushSendError(
                 "sms_api_error",
-                f"sms HTTP {response.status_code}:{detail} {response.text[:200]!r}",
+                f"sms HTTP 状态 {response.status_code}:{detail} {response.text[:200]!r}",
             )
 
     # --------------------------------------------- 目录(无自动发现)+ 直达

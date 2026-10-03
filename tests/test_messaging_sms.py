@@ -3,8 +3,9 @@
 覆盖:one-shot form POST 形态(``{base}/{sid}/Messages.json`` + Basic 鉴权 +
 From/To/Body 表单)、1600 截断、模板渲染、寻址两条路(定向优先/legacy
 引用/全缺 missing_target/E.164 形态校验)、直达 ``sms:<E.164>`` 与别名/
-前缀寻址、错误分类(HTTP 403 → forbidden、404 → not_found、429/5xx → 瞬态、
-400+code=21211 → 瞬态不标)、DirectoryDiscoverUnsupported。
+前缀寻址、错误分类(账号级 403/404 与 429/5xx/400+code=21211 一律瞬态
+不标死信——核验修正:403/404 是账号/端点级错误,非单个 To 号码不可达)、
+DirectoryDiscoverUnsupported。
 
 蓝本对照:Hermes ``plugins/platforms/sms/adapter.py`` 的
 ``_standalone_send``/``_messages_endpoint``/``_twilio_form``
@@ -218,12 +219,14 @@ class TestAddressing:
 
 
 # ---------------------------------------------------------------------------
-# 错误分类(死信映射:403/404 硬失败,429/5xx/21211 瞬态)
+# 错误分类(死信映射:账号级 403/404 不标——核验修正;429/5xx/21211 瞬态)
 # ---------------------------------------------------------------------------
 
 
 class TestErrorClassification:
-    def test_403_classifies_forbidden(self, creds):
+    def test_403_account_level_stays_transient(self, creds):
+        """403(鉴权失败)是账号级错误:文案带状态供诊断,但不带 core 分类器
+        锚定形态 ``HTTP 403`` → 不标死信(死信无自愈路径,账号修好即恢复)。"""
         calls: list[dict] = []
         channel = _channel(
             calls, response=httpx.Response(403, json={"code": 20003, "message": "Authenticate"})
@@ -231,10 +234,11 @@ class TestErrorClassification:
 
         with pytest.raises(PushSendError) as excinfo:
             _run(channel.send([{"title": "t"}], CONTEXT))
-        assert "HTTP 403" in str(excinfo.value)
-        assert classify_dead_error(excinfo.value) == "forbidden"
+        assert "403" in str(excinfo.value)
+        assert classify_dead_error(excinfo.value) is None
 
-    def test_404_classifies_not_found(self, creds):
+    def test_404_account_level_stays_transient(self, creds):
+        """404(AccountSID/端点错)同 403:账号级,不按 chat 级 not_found 标死。"""
         calls: list[dict] = []
         channel = _channel(
             calls, response=httpx.Response(404, text="not found")
@@ -242,8 +246,8 @@ class TestErrorClassification:
 
         with pytest.raises(PushSendError) as excinfo:
             _run(channel.send([{"title": "t"}], CONTEXT))
-        assert "HTTP 404" in str(excinfo.value)
-        assert classify_dead_error(excinfo.value) == "not_found"
+        assert "404" in str(excinfo.value)
+        assert classify_dead_error(excinfo.value) is None
 
     @pytest.mark.parametrize("status", [429, 500, 503])
     def test_transient_statuses_do_not_mark_dead(self, creds, status):

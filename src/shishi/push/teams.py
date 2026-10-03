@@ -219,8 +219,9 @@ class TeamsChannel(TrendAwareChannel):
                 "http_error", f"teams 请求失败: {type(exc).__name__}: {exc}"
             ) from exc
         if not response.is_success:
-            # HTTP <status> + 原厂 body 片段进文案:402/403(流程停用/未授权)
-            # → forbidden、404(webhook 失效)→ not_found、429/5xx → 瞬态。
+            # HTTP <status> + 原厂 body 片段进文案:403(未授权)→ forbidden、
+            # 404(webhook 失效)→ not_found、402/429/5xx → 瞬态(分类表仅
+            # 锚定 http 403,402 单独出现不标死信,漏标只会持续重试)。
             raise PushSendError(
                 "teams_api_error",
                 f"teams HTTP {response.status_code}: {response.text[:200]!r}",

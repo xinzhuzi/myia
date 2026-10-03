@@ -8,10 +8,12 @@ iMessage 桥,常驻 macOS 并接管 Messages.app;蓝本 Hermes
 GUID)。服务端是外部系统级依赖,不是 pip 包——按 PRD R3「需要服务端的进
 extras 并结构化报错,不进核心」,本模块是**extras 壳**:
 
-- ``send()`` 立即抛 ``PushSendError("dependency_missing", …)`` 并附安装
-  命令(vision/ocr.py ``dependency_missing`` 同款范式):装 extras
-  (``shishi[bluebubbles]``,集成步在 pyproject 定义)+ 部署 BlueBubbles
-  服务端;依赖门先于凭据解析(装不出的通道没有解析凭据的意义);
+- ``send()`` 立即抛 ``PushSendError("dependency_missing", …)`` 并附修复
+  指引(vision/ocr.py ``dependency_missing`` 同款范式;yuanbao ``INSTALL_HINT``
+  同款如实口径——pyproject 尚无 ``bluebubbles`` extras 组,不虚指 pip
+  命令):部署 BlueBubbles 服务端 + 等发送路随 extras 实装批次落地
+  (纯 ``httpx`` 可达,无额外 pip 依赖);依赖门先于凭据解析(装不出的
+  通道没有解析凭据的意义);
 - 寻址面照常接线,extras 落地即可用:``supports_targeting=True``、
   ``context.target`` 优先 / legacy ``target`` 引用、直达解析
   ``iMessage;…``/``SMS;…`` chat GUID 形态与 ``+`` 手机号(蓝本
@@ -44,11 +46,14 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-#: extras 安装命令(集成步在 pyproject 定义 ``bluebubbles`` extras 组)+
-#: 服务端指引。
+#: 修复指引 + 服务端部署指引(如实口径,同 yuanbao ``INSTALL_HINT``:
+#: pyproject 尚无 ``bluebubbles`` extras 组,不虚指
+#: ``pip install 'shishi[bluebubbles]'``——发送路纯 ``httpx`` 无额外 pip
+#: 依赖,extras 组待实装批次定义)。
 INSTALL_COMMAND = (
-    "pip install 'shishi[bluebubbles]'  # 或 uv add 'shishi[bluebubbles]';"
-    "并需部署 BlueBubbles 服务端(https://bluebubbles.app,常驻 macOS)"
+    "部署 BlueBubbles 服务端(https://bluebubbles.app,常驻 macOS 的"
+    " iMessage 桥);发送路实现随 extras 实装批次提供(纯 httpx,无额外"
+    " pip 依赖)"
 )
 #: legacy target 引用(chat GUID 或手机号;群/邮箱走目录别名登记)。
 DEFAULT_TARGET_ENV_REF = "env:BLUEBUBBLES_CHAT"
@@ -89,7 +94,7 @@ class BlueBubblesChannel(TrendAwareChannel):
         raise PushSendError(
             "dependency_missing",
             f"bluebubbles 通道需 extras 未装(PRD R3:出站依赖 BlueBubbles "
-            f"服务端,不进核心依赖):请先执行 {INSTALL_COMMAND}",
+            f"服务端,不进核心依赖):修复见 {INSTALL_COMMAND}",
         )
 
     async def discover_directory(self) -> list[Any]:

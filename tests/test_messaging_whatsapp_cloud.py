@@ -286,6 +286,21 @@ class TestErrorClassification:
             _run(channel.send([{"title": "t"}], CONTEXT))
         assert classify_dead_error(excinfo.value) == "forbidden"
 
+    def test_404_classifies_not_found(self, target_env):
+        calls: list[dict] = []
+        channel = _channel(
+            calls,
+            response=httpx.Response(
+                404,
+                json={"error": {"message": "Unsupported request: object does not exist", "code": 100}},
+            ),
+        )
+
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send([{"title": "t"}], CONTEXT))
+        assert "HTTP 404" in str(excinfo.value)
+        assert classify_dead_error(excinfo.value) == "not_found"
+
     def test_non_json_error_body_still_api_error(self, target_env):
         """非 JSON 错误体(网关 HTML):HTTP 状态先报 whatsapp_cloud_api_error。"""
         calls: list[dict] = []

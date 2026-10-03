@@ -13,7 +13,10 @@ Mattermost 官方「Incoming Webhooks」契约(``POST {url}`` body
   ``{"id": "app.channel.not_found.app_error", "message": …, "status_code": …}``,
   文案保留 ``HTTP <status>`` + 原厂 id/message 供死信分类
   (:func:`shishi.push.delivery.classify_dead_error`:403 → forbidden、
-  404(channel 不存在)→ not_found、429/5xx → 瞬态)。
+  404(channel 不存在)→ not_found、429/5xx → 瞬态)。**与蓝本的偏离**:
+  Hermes ``_post_message`` 携 ``root_id`` 做话题内回复,断根时以
+  ``_post_preserving_thread`` 回退平铺;MYIA 出站通知一律平铺发频道
+  (无 root_id/话题回复)——通知卡不续聊,``channel_id`` 寻址已完整。
 - **webhook 路(legacy 单 target 退路,ntfy 范式)**:legacy target 引用解析
   出整条 webhook URL(``https://mm.example.com/hooks/xxx``)时走一-shot
   POST ``{"text": …}``(无 Bearer,webhook 自带鉴权);定向

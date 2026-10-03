@@ -196,7 +196,7 @@ class SimplexChannel(TrendAwareChannel):
                 command = send_command_text(
                     chat_id, [{"msgContent": {"type": "text", "text": text}}]
                 )
-                await ws.send(json.dumps({"corrId": self._next_corr_id(), "cmd": command}))
+                await self._send_frame(ws, {"corrId": self._next_corr_id(), "cmd": command})
         finally:
             await ws.close()
         logger.debug(
@@ -284,11 +284,25 @@ class SimplexChannel(TrendAwareChannel):
                 "(确认本机 simplex-chat 服务模式在跑、WS 端口正确)",
             ) from exc
 
+    async def _send_frame(self, ws: SimplexWS, frame: Mapping[str, Any]) -> None:
+        """写一帧;守护进程中途断连等异常 → 结构化错误(契约:send 只抛
+        ``PushSendError``,send/_command 共用;文案不带帧内容——正文属
+        用户内容,corrId 无诊断价值)。"""
+        try:
+            await ws.send(json.dumps(frame))
+        except PushSendError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - websockets/注入桩各类断连异常
+            raise PushSendError(
+                "simplex_api_error",
+                f"simplex 守护进程发送帧失败(连接中断): {type(exc).__name__}: {exc}",
+            ) from exc
+
     async def _command(self, ws: SimplexWS, command: str) -> Mapping[str, Any]:
         """发命令并按 corrId 等应答(跳过无关聊天事件;蓝本 ``_send_command``
-        的短会话版)。超时/EOF/坏帧 → 结构化错误。"""
+        的短会话版)。超时/断连/坏帧 → 结构化错误。"""
         corr_id = self._next_corr_id()
-        await ws.send(json.dumps({"corrId": corr_id, "cmd": command}))
+        await self._send_frame(ws, {"corrId": corr_id, "cmd": command})
         deadline = time.monotonic() + COMMAND_TIMEOUT_SECONDS
         while True:
             remaining = deadline - time.monotonic()
