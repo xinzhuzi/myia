@@ -22,7 +22,7 @@
 
    **回标(2026-10-04 收口)**:装机取证材料已备——七屏实拍入库 `docs/screenshots/install-cronline-1004/`(01-dashboard / 02-feed / 03-sources / 04-logs / 05-settings / 06-messaging / 07-cmdk-palette,随 86117c3);像素级目验留主人;(3) keychain 跨进程验收无屏证,仍须主人实收。
 
-   **追记(2026-10-04 cron-ui 落地后)**:上述七屏系 cron-ui **之前**的构建所拍——**第八屏「定时任务」(10-04-cron-ui,commit 5b3fae3)尚未进任何装机截图**;下次装机目验须重打包(含 cron-ui+Stage 6 缺口修复批)并补拍 08-cron 屏;本机尚有 5 笔提交未推(5b3fae3/42509bd/12a1719/50dc8fd/873a748,推送留主人;后续再落提交时顺更此数)。
+   **追记(2026-10-04 cron-ui 落地后)**:上述七屏系 cron-ui **之前**的构建所拍——**第八屏「定时任务」(10-04-cron-ui,commit 5b3fae3)尚未进任何装机截图**;~~下次装机目验须重打包~~ **已换装(2026-10-04 23:20)**:本机重打包链(UI→sidecar→tauri build)静默换装完成,新包含第八屏+Stage 6(sidecar 二进制含 cron.* 符号实证;旧包备份 /tmp/世事.app.bak-pre-cronui-2320);像素目验留主人——**建议目验脚本含「桌面 ticker 首验」:app 开着建 every 1m job 放 2-3 分钟,这是「桌面=定时宿主」第一次在真实冻结包里点亮(此前冒烟全是 CLI serve)**;补拍 08-cron 屏随目验做。未推提交以 git 实况为准。
 
 ### 三、长期挂账
 
