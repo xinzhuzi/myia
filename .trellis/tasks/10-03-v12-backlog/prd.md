@@ -109,6 +109,11 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
      出处 matrix §3.2/路由 R7)
    - P3 消息标题跳级(fe-small-batch prd 判「不入本批」;当前消息屏仅
      PageHeader h1、未见跳级复现;维持登记、勿扩大;出处 matrix §3.1/路由 R7)
+     → **已消号(2026-10-05)**:归属 `10-05-messaging-heading-levels`——登记
+     口径已过时(PageHeader 无头化后「仅 PageHeader h1」不复存;真实形态=
+     消息屏首标题即 platform-overview 的悬空 h3),修法=CardTitle 加 `as`
+     prop + 消息屏四分区卡头 `as="h2"`、详情面板 h3/h4 归位,视觉零变化;
+     勿扩大纪律延续:其余屏的 CardTitle 用法与无标题现状未动
 
 ## 主人侧前置(2026-10-03 grill Q4 已答)
 

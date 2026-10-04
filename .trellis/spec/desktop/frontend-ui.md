@@ -67,7 +67,10 @@
 - 状态不得仅靠颜色传达:配文字/图形(健康度 = 点 + 文字)。
 - 开关用 `button[role=switch]`(自研规范,勿换 checkbox);表格列表头 `aria-sort`;可切换项 `aria-pressed`;折叠组原生 button + `aria-expanded/controls`;hover 浮现的操作簇容器须 `focus-within` 键盘可达。
 - 不手加正 `tabIndex` 抢 Tab 序;用原生可聚焦元素(NavLink/button/input)。
-- heading 层级不跳级(已知残留:消息屏 h1→h3,登记在案勿扩大)。
+- heading 层级不跳级;屏内分区标题走 `CardTitle as="h2"`(共享组件可选
+  `as` prop,缺省 `div` 行为零变化,类名/`data-slot` 原样透传),层级
+  h2→h3→h4(消息屏为范式,10-05-messaging-heading-levels;原「消息屏
+  h1→h3 残留」已消,PageHeader 无头化后全应用无 h1,首标题即分区 h2)。
 - null 数据如实显「—」,不虚构;各屏空/载/错三态齐备(feed 为范式:骨架/空态/错误卡互斥)。
 
 ## 已知残留(改 UI 时勿扩大,修缮归口待定)
