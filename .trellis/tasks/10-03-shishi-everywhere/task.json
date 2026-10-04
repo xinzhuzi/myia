@@ -3,7 +3,7 @@
   "name": "shishi-everywhere",
   "title": "定名跟改:repo/PyPI/CLI 随世事更名 + 驱动 v1.1.1 发布",
   "description": "主人令(2026-10-03「跟,发布」):①repo 名 MYIA→shishi(GitHub 重命名,旧 URL 自动重定向);②PyPI 发行名 myia→shishi、myia-classifier→shishi-classifier(名额已核实全空,均未发布过,零迁移);③CLI 脚本 myia→shishi;④README 31 处/docs 双语/发布帖模板/CHANGELOG/docker 镜像/updater endpoint 跟改;⑤tag v1.1.1 推送驱动 desktop-release 流水线。Python 模块目录 src/myia 改名刻意推迟(并行工作流在途,今晚树静后做,再做 PyPI 实发布——发行名 shishi 模块名 myia 的过渡态不进任何已发布版本)",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "v1.1.1 已发布(Release 四资产齐,run 37095582342 success)。剩余:①模块改名等树静(脚本 dwfrun-18df6728 已验证,树静即跑)②PyPI 等主人前置(trusted publisher 或 token+test 开关)③随后 v1.1.2 tag。",
+  "notes": "收尾链被大部队 tag-release 线吸收超越:版本纪元重定 0.0.1 并已发布(2026-10-03 18:40,v1.1.1 被有意取代删除);模块改名由 58cb40b 落地(src/shishi+CLI+packaging);PyPI 唯一余项=主人 pypi.org 注册双包 trusted publisher(pending,Repository 填 shishi)。本任务目的全部达成,转 review",
   "meta": {}
 }
