@@ -243,7 +243,7 @@ describe("CronScreen 基线(Stage 1)", () => {
 });
 
 describe("路由接线(App.tsx /cron)", () => {
-  it.skip("/cron 路由可达(页头已删——无头布局,保留跳过占位)"), async () => {
+  it.skip("/cron 路由可达(页头已删——无头布局)", async () => {
     mockSidecar({ "cron.list": () => listResult([]), "cron.status": () => STATUS_OK });
     render(
       <MemoryRouter initialEntries={["/cron"]}>

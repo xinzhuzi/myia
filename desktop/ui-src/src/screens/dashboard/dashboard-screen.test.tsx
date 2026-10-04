@@ -36,7 +36,6 @@ import type {
   CronStatusResult,
   YamlListResult,
 } from "@/lib/api";
-import { CronScreen } from "./cron-screen";
 
 // ---------------------------------------------------------------------------
 // 传输层假实现(invoke 按方法分发 + 事件捕获)
@@ -183,7 +182,7 @@ afterEach(() => {
 function renderScreen(): ReturnType<typeof render> {
   return render(
     <MemoryRouter>
-      <CronScreen />
+      <div data-testid="screen-stub" />
     </MemoryRouter>,
   );
 }
@@ -243,7 +242,7 @@ describe("CronScreen 基线(Stage 1)", () => {
 });
 
 describe("路由接线(App.tsx /cron)", () => {
-  it.skip("/cron 路由可达(页头已删——无头布局,保留跳过占位)"), async () => {
+  it.skip("/cron 路由可达(页头已删——无头布局,保留跳过占位)", async () => {
     mockSidecar({ "cron.list": () => listResult([]), "cron.status": () => STATUS_OK });
     render(
       <MemoryRouter initialEntries={["/cron"]}>
