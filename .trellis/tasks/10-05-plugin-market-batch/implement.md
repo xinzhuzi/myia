@@ -41,3 +41,61 @@
 14. [ ] **分析件二批**(AC9):myssia-webcheck+myssia-socialanalyzer(remote 桩)+trafilatura extract 增评估结案(独立任务或并入,答增量问);
 15. [ ] 许可核验批:MediaCrawler/yake/weibo-search/SpiderKeeper 许可原文核验(仓库 LICENSE 一手),可进则进、不可进如实挂起;
 16. [ ] 门禁与提交纪律同首批(单件单提交、tests/plugins 组绿+批末全量、快照外科防并行混线)。
+
+## 批一终局快照(2026-10-05 深夜回填;「之前做好的」全量对账)
+
+**实际落地 6 件**(两路会话合奏,单件单提交):
+
+| 件 | 提交 | 形态 | 验证 |
+|---|---|---|---|
+| myssia-media | `0f491fb` | desktop adapter+`myssia media` | 真网 E2E 8.3s |
+| myssia-maigret | `09abb67` | desktop adapter+`myssia maigret` | 真网 E2E 6 站 18s |
+| myssia-theharvester | `6ba242e` | desktop submodule 钉 4.9.2+`myssia harvester` | 真网 E2E exit 0;提交收编事故(b26af14→amend 退回→净版重提交)已记 |
+| myssia-rsshub+myssia-spiderfoot | `85bfdab` | remote 桩对+compose 集齐 7 | manifest 契约+compose 验证 |
+| myssia-urlwatch(并行线) | `f2d08dc` | desktop adapter(上游 Python API 面非 CLI,2.29 源码亲核) | file:// 零网络双跑+25 例契约 |
+| README 品类数 6→7(AC4) | `265b7a9` | 双语两处 | — |
+
+**终态数字**:官方场景件 **13**(desktop 7:proxy/osint/credhunter/media/maigret/theharvester/urlwatch;remote 4:credentials/monitor/rsshub/spiderfoot;server-only 2:douyin/maxun);CLI 侦察/采集面新增 media/maigret/harvester 三命令;tests/plugins 组 518 绿,全量 3766 passed/0 failed(88s);docker/plugins compose 7 件;submodule 2 个(Photon+theHarvester)。
+
+**任务状态**:批一交付、task.json 曾置 review(ce9878d);D4 裁决+批二立档后回 in_progress。
+
+## 批二执行卡(2026-10-05 深夜深化:精确文件/命令/期望输出)
+
+### 10. 门槛机制地基(R5)
+
+- 新建 `src/myssia/gates.py`:照 `src/myssia/vision/settings.py` 同款(GATES_FILE_NAME="gates.yaml";`GatesConfig` 构造即校验非法拒构造;`load_gates_config(path)`;坏文件=LoadError 结构化+调用侧全关);路径解析挂 `desktop/entry.py` `_serve_context()` 优先级链(显式 params>MYIA_HOME env>bundle 探测>dev cwd,与 vision.yaml 同位)
+- `src/myssia/plugins/manifest.py`:`TIER_TOKENS` += `"gated"`;`src/myssia/cli.py` `_plugin_list` payload 加 `gated` 分组与 `enabled` 派生(gates.yaml 状态);doctor:未启用门槛件=info finding(词表区分 warning/info)
+- 测试:`tests/test_gates.py`(根级,`test_secrets.py` 先例——根模块映根文件):装载/坏文件全关/未知字段拒/每开关往返
+- 命令:`uv run --no-sync python -m pytest tests/test_gates.py tests/plugins -q` 期望全绿
+
+### 11. 设置屏门槛件分区(R5 尾)
+
+- `desktop/entry.py` `_HANDLERS` 注册 `gates.get`/`gates.save`(**main.rs 无方法级白名单,rust 侧零改动**——协议权威在 entry.py,通用路由);gates.save 走 tmp+rename 原子写
+- `desktop/ui-src/src/screens/settings/settings-screen.tsx`:`SECTIONS` +`{id:"gates", label:"门槛件"}`;三卡表单(付费/自有实例/分析件)每开关挂知情警示;`desktop/ui-src/src/lib/api/types.ts`+`client.ts` 加 GatesView/gatesGet/gatesSave
+- 文档同步:`.trellis/spec/desktop/sidecar-protocol.md` 方法表 +2 行(zh/en docs 若提及设置分区同步)
+- 测试:`desktop/ui-src` settings 测试扩展 + `tests/desktop/test_desktop_sidecar_protocol.py` gates 两方法用例;命令 `npm --prefix desktop/ui-src test -- settings` + `uv run --no-sync python -m pytest tests/desktop -q`
+
+### 12. 付费 SaaS gated 引擎(R6)
+
+- `src/myssia/schema.py` EngineName 词表(~L153)+=`zenrows`/`scraperapi`(显式选用语义,AUTO_CHAIN 不动);`src/myssia/engines/zenrows.py`+`scraperapi.py`:fetch 前置查 gates(总开关+件开关),关闭→`FetchError(class="gate_closed")`(新失败类,doctor 文案与 dependency_missing 分开);开启→keychain 解 api_key→httpx 调上游 REST(Zenrows/ScraperAPI 均为 GET ?url=…&apikey=… 形态,实施时核上游 API 文档○)
+- `src/myssia/engines/registry.py` ENGINE_REGISTRY +2(链外,credhunter 先例位)
+- 测试:`tests/engines/test_saas_gated_engines.py`:三态=关闭态 gate_closed/开启态 MockTransport 往返/注册表断言不在 AUTO_CHAIN
+- 品类示例:`plugins/` 不加新品类 yaml(gated 引擎属用户显式 engine 选择,README 文档指路)
+
+### 13. 同物种门槛桩(R7)
+
+- 新建 `plugins/myssia-crawlab/`+`plugins/myssia-worldmonitor/`(plugin.yaml tier=gated+modes.remote.endpoint 占位+README 门槛说明「自有实例例外通道」);`docker/plugins/<id>/compose.yml` ×2(compose 集合断言 7→9)
+- `tests/plugins/test_plugin_packages.py`:OFFICIAL_PACKAGES+EXPECTED_TIERS(gated 档)+compose 期望集;EasySpider 形态核验结论写 research.md(预期:本地 GUI 无 API→门槛条件不成立维持不收)
+
+### 14. 分析件二批(AC9)
+
+- `plugins/myssia-webcheck/`+`plugins/myssia-socialanalyzer/`(remote 普通桩,无门槛;web-check MIT 自部署 compose;social-analyzer AGPL 只桩)
+- trafilatura extract 增强结案:research.md 写评估结论(回答「比手写 extract 规则强在哪:零配置正文自动抽取 vs 逐源手写 json_path/css」;若立项→独立引擎任务引用本档)
+
+### 15. 许可核验批(AC8 尾)
+
+- `gh api repos/<o>/<r>/contents/LICENSE` 逐件核:MediaCrawler/yake/weibo-search/SpiderKeeper;结论写 research.md(可进→按 13 同循环收录;不可进→挂起记理由)
+
+### 16. 纪律(同批一)
+
+单件单提交;tests/plugins 组绿+批末全量;并行会话在场→快照外科暂存+状态直改 task.json;提交前 gitnexus detect-changes(索引已刷新,`-r shishi`)。

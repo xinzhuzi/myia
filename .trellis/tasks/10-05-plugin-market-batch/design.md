@@ -120,7 +120,7 @@ analysis:                      # 停更/许可核验后启用的分析件
 ### 6.4 桌面设置屏「门槛件」分区
 
 - `SECTIONS` 增第 5 分区 `{id: "gates", label: "门槛件"}`(照现有 4 分区与 `?section=` 深链模式);
-- 区内三卡:付费通道(总开关+逐件开关+钥匙串键录入)/自有实例(endpoint+token 表单)/分析件(停更知情开关);保存走 sidecar 新方法 `gates.get`/`gates.save`(照 yaml.save 先例,main.rs 白名单同步);
+- 区内三卡:付费通道(总开关+逐件开关+钥匙串键录入)/自有实例(endpoint+token 表单)/分析件(停更知情开关);保存走 sidecar 新方法 `gates.get`/`gates.save`(照 yaml.save 先例;**协议权威=entry.py `_HANDLERS` 注册表,main.rs 通用路由无方法级白名单,rust 侧零改动**——2026-10-05 深夜实读 main.rs 核实,修正早稿「白名单同步」错述);
 - 文案铁律:每开关旁挂知情警示(「按页计费,你的采集目标清单将经对方服务器」等)。
 
 ### 6.5 e 路逐件门槛表(盘点表回写索引)
@@ -140,3 +140,33 @@ analysis:                      # 停更/许可核验后启用的分析件
 - D2「永不缺省」存活且加强:门槛件=显式知情后的选择,缺省关闭进 gates.yaml fail-closed;
 - 铁律不变:门槛件任何失败(含 gate_closed)不拦核心品类;
 - connector-selection spec 的免费路径门禁不放宽——付费 SaaS 收录的是「用户自带钥匙的通道」,不进官方文档推荐路径(zero-cost.md 不列)。
+
+### 6.7 接口契约与测试矩阵(2026-10-05 深夜深化)
+
+**gates.py 公开面**(照 vision/settings.py 形状):
+
+```
+GATES_FILE_NAME = "gates.yaml"
+class GatesConfig:        # 构造即校验,未知字段拒(LoadError 结构化明细)
+    paid_engines: bool    # 缺省 False;任何缺失/坏文件路径→全 False(fail-closed)
+    third_party_trace: bool
+    saas: dict[str, SaaSGate]        # {enabled: bool, api_key: keychain 引用|None}
+    platforms: dict[str, PlatformGate]  # {enabled, endpoint(https 占位校验), token(钥匙串引用|None)}
+    analysis: dict[str, bool]
+def load_gates_config(path) -> GatesConfig   # 坏文件→LoadError;调用侧(CLI/sidecar)捕获后以全关态继续+doctor warning
+def gate_open(config, kind, name) -> bool    # 引擎/插件侧唯一查询口
+```
+
+**sidecar 协议**:`gates.get {params:{}} → {config: {...}, path}`;`gates.save {params:{config}} → {ok:true, path}`(tmp+rename 原子写;校验失败→结构化 error 不落盘)。
+
+**测试矩阵**(批二新增件一览):
+
+| 层 | 文件 | 钉什么 |
+|---|---|---|
+| gates 装载 | tests/test_gates.py | 缺失/坏文件=全关;未知字段拒;每开关往返;keychain 引用形态校验 |
+| manifest | tests/plugins/test_plugin_packages.py | gated 档清单/分级/README 门槛文案必含 |
+| 市场/doctor | tests/plugins+tests/cli | plugin list 分组与 enabled 派生;未启用=info 非 warning |
+| 引擎 | tests/engines/test_saas_gated_engines.py | 关闭态 gate_closed;开启态 MockTransport 往返;AUTO_CHAIN 不含断言 |
+| 桩件 | tests/plugins/test_plugin_packages.py | crawlab/worldmonitor tier=gated;compose 集 9 件 |
+| 设置屏 | desktop ui settings 测试+tests/desktop | gates.get/save 协议往返;分区渲染;知情文案在位 |
+| 铁律 | 各新件 | gate_closed/桩不可达/坏 gates.yaml 三态下核心品类与 Pipeline 构造无感 |
