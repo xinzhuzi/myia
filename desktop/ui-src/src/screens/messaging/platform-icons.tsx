@@ -215,8 +215,10 @@ export const PLATFORM_ICON_SPECS: Record<string, PlatformIconSpec> = {
   msgraph_webhook: { Icon: Webhook, kind: "generic" },
   bluebubbles: { Icon: MessageSquareText, kind: "generic" },
   yuanbao: { Icon: MessageSquareText, kind: "generic" },
-  // —— 未实装 W3(远期)通用标(按形态分组;未知形态用默认消息标) ——
-  signal: { Icon: MessageSquareText, kind: "generic", wave: "W3" },
+  // signal 出壳(10-05-push-reliability-batch R3):从 UPCOMING 转实装,
+  // 图标规格随出壳同步——未实装弱档的 wave 字段退役,与上四家同走
+  // generic 全灰档(signal 品牌蓝 #3A76F0 未核订官方数据源,不虚构)。
+  signal: { Icon: MessageSquareText, kind: "generic" },
   // 组三收尾转实装(本片):photon = 蓝本自带官方 logo mark(三斜杆
   // PhotonGlyph)+ 品牌色 #6366F1(蓝本 platform-icon.tsx 同源)→ brand;
   // a2a/buzz/raft 品牌色/字形无可核订官方数据源(a2a 是 LF 协议标准无单一

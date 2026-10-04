@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 describe("平台头像:规格表全覆盖", () => {
-  it("28 平台全部有规格;已实装 27 家(16 brand 精确标 + 11 无标全灰档),1 家 W3 通用标弱一档", () => {
+  it("28 平台全部有规格;已实装 28 家(16 brand 精确标 + 12 无标全灰档),未实装清零(signal 10-05 出壳)", () => {
     const expected = [
       ...IMPLEMENTED_PLATFORMS.map((p) => p.id),
       ...UPCOMING_PLATFORMS.map((p) => p.id),
@@ -53,21 +53,29 @@ describe("平台头像:规格表全覆盖", () => {
     expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("photon");
     expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("buzz");
     expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("raft");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("weixin");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("email");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("whatsapp_cloud");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("teams");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("homeassistant");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("slack");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("mattermost");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("qqbot");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("msgraph_webhook");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("bluebubbles");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("yuanbao");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("a2a");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("photon");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("buzz");
-    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("raft");
+    // signal 出壳转实装(10-05-push-reliability-batch R3):UPCOMING 至此清零
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("signal");
+    expect(UPCOMING_PLATFORMS).toEqual([]);
+    for (const id of [
+      "weixin",
+      "email",
+      "whatsapp_cloud",
+      "teams",
+      "homeassistant",
+      "slack",
+      "mattermost",
+      "qqbot",
+      "msgraph_webhook",
+      "bluebubbles",
+      "yuanbao",
+      "a2a",
+      "photon",
+      "buzz",
+      "raft",
+      "signal",
+    ]) {
+      expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain(id);
+    }
 
     for (const id of IMPLEMENTED_PLATFORMS.map((p) => p.id)) {
       const spec = PLATFORM_ICON_SPECS[id];
@@ -87,7 +95,7 @@ describe("平台头像:规格表全覆盖", () => {
       expect(spec.wave).toBe(platform.wave);
       waves.add(spec.wave ?? "");
     }
-    expect(waves).toEqual(new Set(["W3"])); // W2 未实装已清零(微信转实装)
+    expect(waves).toEqual(new Set()); // 未实装清零(signal 10-05 出壳后)
   });
 });
 
@@ -118,22 +126,24 @@ describe("平台头像:芯片画法", () => {
     expect(chip.style.color).toContain("rgb(51, 112, 255)");
   });
 
-  it("未实装平台通用标灰态随波次:W3 底与字形各再弱一档(W2 未实装已清零)", () => {
-    // 微信随 10-03-messaging-weixin-bridge 转实装后,UPCOMING 只余 W3 波次;
-    // 代表取仍是未实装的 signal(slack 等已随 W3 各片转实装换 brand 标)。
+  it("signal 出壳(10-05 R3)后不再走未实装弱灰档:UPCOMING 清零,generic 全灰档", () => {
+    // 未实装名单清零(signal 是最后一家,10-05-push-reliability-batch R3 出壳)
+    // ——「未实装 W3 弱一档」渲染分支(spec.wave==="W3")已无规格引用;
+    // signal 图标规格的 wave 字段随出壳退役,与已实装无标平台同走全灰档。
+    expect(UPCOMING_PLATFORMS).toEqual([]);
     expect(UPCOMING_PLATFORMS.filter((p) => p.wave === "W2")).toEqual([]);
     const { getByTestId } = render(<PlatformAvatar platformId="signal" platformName="Signal" />);
-    const w3 = getByTestId("platform-avatar-signal");
-    expect(w3.querySelector("svg")).toBeTruthy(); // lucide 通用标也是 SVG
-    expect(w3.className).toContain("bg-muted/50");
-    expect(w3.className).toContain("text-muted-foreground/60");
-    expect(w3.className.split(/\s+/)).not.toContain("bg-muted"); // 不用全灰档
+    const chip = getByTestId("platform-avatar-signal");
+    expect(chip.querySelector("svg")).toBeTruthy(); // lucide 通用标也是 SVG
+    expect(chip.className.split(/\s+/)).toContain("bg-muted"); // 全灰档
+    expect(chip.className.split(/\s+/)).toContain("text-muted-foreground");
+    expect(chip.className.split(/\s+/)).not.toContain("bg-muted/50"); // 不用未实装弱档
   });
 
-  it("W3 转实装十一家无官方品牌标(email/sms/irc/simplex + qqbot/msgraph_webhook/bluebubbles/yuanbao + 本片 a2a/buzz/raft)→ generic 全灰档(不带波次)", () => {
-    // 10-03-messaging-w3-longtail:十一家无可核订官方标,不虚构品牌色;已实装
-    // 全灰,与未实装 W3 的弱一档区分(末三家 = 组三收尾本片转实装:a2a 是
-    // LF 协议标准无单一品牌方,buzz/raft 蓝本未给标)。
+  it("W3 转实装十二家无官方品牌标(email/sms/irc/simplex + qqbot/msgraph_webhook/bluebubbles/yuanbao + a2a/buzz/raft + signal 10-05 出壳)→ generic 全灰档(不带波次)", () => {
+    // 10-03-messaging-w3-longtail + 10-05-push-reliability-batch R3:十二家
+    // 无可核订官方标,不虚构品牌色;已实装全灰(a2a 是 LF 协议标准无单一
+    // 品牌方,buzz/raft 蓝本未给标,signal 品牌蓝未核订)。
     for (const id of [
       "email",
       "sms",
@@ -146,6 +156,7 @@ describe("平台头像:芯片画法", () => {
       "a2a",
       "buzz",
       "raft",
+      "signal",
     ]) {
       const { getByTestId } = render(<PlatformAvatar platformId={id} platformName={id} />);
       const chip = getByTestId(`platform-avatar-${id}`);

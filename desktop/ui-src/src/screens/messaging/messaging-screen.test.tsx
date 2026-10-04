@@ -650,10 +650,11 @@ describe("消息:平台总览三态与头像卡", () => {
     );
   });
 
-  it("灰卡(signal,未实装代表)点击选中 → 详情即将支持 + W3 排期说明;无凭据指南、无目录速览", async () => {
-    // 微信已随 10-03-messaging-weixin-bridge 转实装(桥接灰卡另测),
-    // W3 长尾也已转实装——coming_soon 行为以剩余未实装平台代表覆盖
-    // (signal 为壳通道:需 signal-cli 守护进程,extras 结构化报错)。
+  it("signal 已出壳转实装(10-05 R3):详情需要设置 + 出站凭据指南(SIGNAL_*);不再是灰卡排期文案", async () => {
+    // 后端真发送路已入库(src/myssia/push/signal.py:signal-cli 守护进程
+    // JSON-RPC),UI 卡从 UPCOMING 灰卡转实装 + 凭据指南;fixture 无凭据无
+    // 目录 → 需要设置(黄)。UPCOMING 至此清零,coming_soon 灰卡行为由
+    // 派生纯函数用例兜(注册表锚 UPCOMING_PLATFORMS.length)。
     const sidecar = okSidecar();
     installSidecar(sidecar.map, sidecar.record);
     render(
@@ -666,11 +667,13 @@ describe("消息:平台总览三态与头像卡", () => {
 
     const detail = within(overview).getByTestId("platform-detail");
     expect(within(detail).getByText("Signal")).toBeTruthy();
-    expect(within(detail).getByText("即将支持")).toBeTruthy();
-    expect(detail.textContent).toContain("W3");
-    expect(detail.textContent).toContain("尚未实装");
-    expect(within(detail).queryByTestId("platform-guide-signal")).toBeNull();
-    expect(within(detail).queryByText("目录速览")).toBeNull();
+    expect(within(detail).getByText("需要设置")).toBeTruthy();
+    expect(detail.textContent).not.toContain("尚未实装");
+    const guide = within(detail).getByTestId("platform-guide-signal");
+    expect(guide.textContent).toContain("SIGNAL_HTTP_URL");
+    expect(guide.textContent).toContain("SIGNAL_ACCOUNT");
+    expect(guide.textContent).toContain("设置→推送");
+    expect(guide.textContent).toContain("signal-cli");
   });
 
   it("homeassistant 已转实装(W3 组三):详情需要设置 + 出站凭据指南(HASS_*);不再是灰卡排期文案", async () => {
@@ -696,10 +699,12 @@ describe("消息:平台总览三态与头像卡", () => {
     expect(guide.textContent).toContain("HASS_TOKEN");
   });
 
-  it("W3 本片四家已转实装:qqbot/msgraph 出站指南 + bluebubbles/yuanbao 壳披露(不再灰卡)", async () => {
+  it("W3 本片四家已转实装:qqbot/msgraph + bluebubbles 出站指南(10-05 出壳)+ yuanbao 壳披露(不再灰卡)", async () => {
     // 适配器已入库(push/__init__.py 的 CHANNELS/PLATFORMS 注册),UI 卡随转
-    // (伞任务验收项「UI 卡转实装+凭据指南落地」);bluebubbles/yuanbao 是
-    // extras 壳——需要设置 + 说明如实披露 dependency_missing(不假装可用)。
+    // (伞任务验收项「UI 卡转实装+凭据指南落地」);bluebubbles 已于
+    // 10-05-push-reliability-batch R3 出壳(服务端 REST 真发送)——凭据指南
+    // 补 server_url/password,不再披露 dependency_missing;yuanbao 仍是
+    // extras 壳(需要设置 + 说明如实披露,不假装可用)。
     const sidecar = okSidecar();
     installSidecar(sidecar.map, sidecar.record);
     render(
@@ -730,16 +735,18 @@ describe("消息:平台总览三态与头像卡", () => {
     expect(guide.textContent).toContain("MSGRAPH_WEBHOOK_CLIENT_SECRET");
     expect(guide.textContent).toContain("Chat.ReadWrite");
 
-    // bluebubbles(extras 壳):需要设置 + 说明披露 dependency_missing,
-    // 指南给服务端部署指引(不虚指 pip 命令)
+    // bluebubbles(10-05 出壳):需要设置 + 服务端部署 + password 凭据指南;
+    // 真发送通道不再披露 dependency_missing
     fireEvent.click(within(overview).getByTestId("platform-card-bluebubbles"));
     detail = within(overview).getByTestId("platform-detail");
     expect(within(detail).getByText("需要设置")).toBeTruthy();
-    expect(detail.textContent).toContain("dependency_missing");
+    expect(detail.textContent).not.toContain("dependency_missing");
     expect(detail.textContent).not.toContain("尚未实装");
     guide = within(detail).getByTestId("platform-guide-bluebubbles");
+    expect(guide.textContent).toContain("BLUEBUBBLES_SERVER_URL");
+    expect(guide.textContent).toContain("BLUEBUBBLES_PASSWORD");
     expect(guide.textContent).toContain("bluebubbles.app");
-    expect(guide.textContent).not.toContain("myssia[bluebubbles]");
+    expect(guide.textContent).toContain("设置→推送");
 
     // yuanbao(extras 壳):无 one-shot 出站的蓝本事实 + uv add websockets
     fireEvent.click(within(overview).getByTestId("platform-card-yuanbao"));
@@ -1175,13 +1182,28 @@ describe("消息:平台总览派生纯函数", () => {
       expect(card.wave).toBe("W3");
       expect(card.discovery).toBe("manual");
     }
-    // a2a 是可真实发送通道:走通用派生(缺凭据 = 需要设置,与 feishu 同款;
-    // 钥匙链命中 A2A_PEER 时转绿,由上方 deriveImplementedStatus 用例覆盖)
+    // signal 出壳转实装(10-05-push-reliability-batch R3:signal-cli 守护进程
+    // JSON-RPC 真发送):有指南(SIGNAL_HTTP_URL/SIGNAL_ACCOUNT/SIGNAL_CHAT)、
+    // wave=W3、discovery=manual(无自动发现,蓝本 listContacts 仅作号码→UUID
+    // 升级非常驻目录)
+    const signalCard = cards.find((c) => c.id === "signal")!;
+    expect(signalCard.guide).not.toBeNull();
+    expect(signalCard.wave).toBe("W3");
+    expect(signalCard.discovery).toBe("manual");
+    expect(signalCard.guide!.keys.map((k) => k.key)).toEqual([
+      "SIGNAL_HTTP_URL",
+      "SIGNAL_ACCOUNT",
+      "SIGNAL_CHAT",
+    ]);
+    // a2a/bluebubbles/signal 是可真实发送通道:走通用派生(缺凭据 = 需要
+    // 设置,与 feishu 同款;钥匙链命中时转绿,由上方 deriveImplementedStatus
+    // 用例覆盖)——bluebubbles 已出壳(10-05 R3),目录条目非空即证据转绿。
     // 壳通道恒 needs_setup:不走通用 deriveImplementedStatus——目录别名条目/
     // 钥匙链证据都不构成「可发送」(别名进目录 ≠ 可发,绿态「已连接」是误导)
     const withAlias = buildPlatformCards(
       {
         bluebubbles: [channelEntry("bluebubbles", "iMessage;-;+15551234567", "家人群")],
+        signal: [channelEntry("signal", "+8613800138000", "张三", { type: "dm" })],
         yuanbao: [channelEntry("yuanbao", "direct:abc123", "对象")],
         buzz: [channelEntry("buzz", "0f0e0d0c-0b0a-4909-8807-060504030201", "频道甲")],
         photon: [channelEntry("photon", "+15551234567", "家人")],
@@ -1189,14 +1211,20 @@ describe("消息:平台总览派生纯函数", () => {
       },
       [],
     );
-    expect(withAlias.find((c) => c.id === "bluebubbles")!.status).toBe("needs_setup");
+    expect(withAlias.find((c) => c.id === "bluebubbles")!.status).toBe("connected");
+    expect(withAlias.find((c) => c.id === "signal")!.status).toBe("connected");
     expect(withAlias.find((c) => c.id === "yuanbao")!.status).toBe("needs_setup");
     expect(withAlias.find((c) => c.id === "buzz")!.status).toBe("needs_setup");
     expect(withAlias.find((c) => c.id === "photon")!.status).toBe("needs_setup");
     expect(withAlias.find((c) => c.id === "raft")!.status).toBe("needs_setup");
+    // bluebubbles 出壳后指南凭据项如实非空(server_url/password/chat);
     // 壳通道指南 keys 为空是刻意事实:MYIA 侧零凭据可录(R2「不装可用」
     // 如实披露;服务端/WS 网关凭据待 extras 实装后补)
-    expect(cards.find((c) => c.id === "bluebubbles")!.guide!.keys).toEqual([]);
+    expect(cards.find((c) => c.id === "bluebubbles")!.guide!.keys.map((k) => k.key)).toEqual([
+      "BLUEBUBBLES_SERVER_URL",
+      "BLUEBUBBLES_PASSWORD",
+      "BLUEBUBBLES_CHAT",
+    ]);
     expect(cards.find((c) => c.id === "yuanbao")!.guide!.keys).toEqual([]);
     expect(cards.find((c) => c.id === "buzz")!.guide!.keys).toEqual([]);
     expect(cards.find((c) => c.id === "photon")!.guide!.keys).toEqual([]);

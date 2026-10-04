@@ -659,8 +659,9 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
   },
   // W3 长尾转实装·组一/组三(task 10-03-messaging-w3-longtail,伞验收项
   // 「UI 卡转实装+凭据指南落地」):qqbot/msgraph_webhook 有 one-shot 出站;
-  // bluebubbles/yuanbao 是 PRD R3 的 extras 壳——寻址已接线,发送路待
-  // extras 实装(状态/说明走 EXTRAS_SHELL_PLATFORM_IDS 分支如实披露)。
+  // yuanbao 是 PRD R3 的 extras 壳——寻址已接线,发送路待 extras 实装
+  // (状态/说明走 EXTRAS_SHELL_PLATFORM_IDS 分支如实披露)。bluebubbles 已于
+  // 10-05-push-reliability-batch R3 出壳(服务端 REST 真发送,见下一条目)。
   {
     id: "qqbot",
     name: "QQ 机器人",
@@ -727,23 +728,41 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
       ],
     },
   },
+  // bluebubbles 出壳(10-05-push-reliability-batch R3):壳期「发送待 extras」
+  // 语义退役——服务端 REST 真发送落地,凭据指南补 server_url/password;
+  // 服务端仍是外部系统级部署前提(如实披露,蓝本 Hermes
+  // gateway/platforms/bluebubbles.py,MIT)。
   {
     id: "bluebubbles",
     name: "BlueBubbles",
     wave: "W3",
     discovery: "manual",
     description:
-      "BlueBubbles iMessage 桥(W3 壳通道):寻址面已接线(chat GUID/手机号直达),发送路待 extras 实装——出站依赖自建 BlueBubbles 服务端(常驻 macOS),当前发送如实报 dependency_missing,不假装可用。",
+      "BlueBubbles iMessage 桥(10-05 出壳):自建服务端 REST 发 message/text(password 查询串鉴权,4000 上限分段);手机号发送期经 chat/query 解析成 chat GUID,邮箱/+手机号可直开新会话;服务端是外部系统级部署前提,无自动发现。",
     guide: {
-      // keys 段为空是刻意事实(同微信桥接的零凭据面):壳通道当前不读
-      // 任何环境变量——发送门在 extras 实装 + 服务端部署;服务端
-      // password 凭据项待发送路实装后补录。
-      keys: [],
+      keys: [
+        {
+          key: "BLUEBUBBLES_SERVER_URL",
+          purpose: "服务端地址(如 http://127.0.0.1:1234;缺 scheme 自动补 http://);到 设置→推送 填一次,run 时读环境变量",
+        },
+        {
+          key: "BLUEBUBBLES_PASSWORD",
+          purpose: "服务端 API 密码(BlueBubbles 设置页的 password;查询串鉴权,等同密钥保管)",
+        },
+        {
+          key: "BLUEBUBBLES_CHAT",
+          purpose: "可选缺省推送对象(chat GUID / +手机号 / 邮箱);规则写 targets 时可省",
+        },
+      ],
       steps: [
-        "现状如实:本平台是 W3 实装的 extras 壳——寻址已可用,发送路待 extras 实装批次;当前推送会报 dependency_missing(依赖未提供),不是配置错误。",
-        "部署 BlueBubbles 服务端(https://bluebubbles.app,常驻 macOS 并接管 Messages.app 的 iMessage 桥):这是外部系统级依赖,不是 pip 包。",
-        "推送对象先行接线:直达写 bluebubbles:iMessage;… / SMS;… chat GUID 或 +手机号(新会话按地址直开);常用对象在数据根 channel_aliases.json 登记别名(无自动发现——chat 列表 API 需常驻服务端)。",
-        "等 extras 实装批次提供发送路(纯 httpx,无额外 pip 依赖;届时本指南补服务端 password 凭据项)。",
+        "部署 BlueBubbles 服务端(https://bluebubbles.app,常驻 macOS 并接管 Messages.app 的 iMessage 桥):这是外部系统级依赖,不是 pip 包;发送路纯 httpx 已实装,无需装任何 extras。",
+        "在 BlueBubbles 设置里开启 API 服务并记下服务端密码(password)与监听地址/端口。",
+        "到 设置→推送 填 BLUEBUBBLES_SERVER_URL(如 http://127.0.0.1:1234)与 BLUEBUBBLES_PASSWORD → 保存;凭据也会存进钥匙链规范名,GUI 桌面不读 shell 环境也能发。",
+        {
+          text: "冒烟一发确认链路(把地址/密码/目标换成你的;应答 status 200 即成功):",
+          code: 'curl -s -X POST "http://127.0.0.1:1234/api/v1/message/text?password=<密码>" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"chatGuid":"iMessage;-;+15551234567","tempGuid":"smoke-1","message":"hello from MYIA"}\'',
+        },
+        "推送规则 targets 直达写 bluebubbles:iMessage;… / SMS;… chat GUID 或 +手机号(手机号/邮箱发送期自动解析 GUID 或直开新会话);常用对象在数据根 channel_aliases.json 登记别名(无自动发现)。",
       ],
     },
   },
@@ -856,6 +875,44 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
       ],
     },
   },
+  // signal 出壳(10-05-push-reliability-batch R3):壳期「发送待 extras」语义
+  // 退役——signal-cli 守护进程 JSON-RPC 真发送落地,UI 卡从 UPCOMING 灰卡
+  // 转实装 + 凭据指南(蓝本 Hermes gateway/platforms/signal.py,MIT;env 名
+  // SIGNAL_HTTP_URL/SIGNAL_ACCOUNT 对齐蓝本)。
+  {
+    id: "signal",
+    name: "Signal",
+    wave: "W3",
+    discovery: "manual",
+    description:
+      "Signal 出站(10-05 出壳):signal-cli 守护进程 HTTP 模式的 JSON-RPC send(手机号 recipient/群 groupId 寻址,8000 上限分段);守护进程是外部系统级部署前提,无自动发现,直达/别名两条寻址路。",
+    guide: {
+      keys: [
+        {
+          key: "SIGNAL_HTTP_URL",
+          purpose: "signal-cli 守护进程地址(HTTP 模式,如 http://127.0.0.1:8080);到 设置→推送 填一次,run 时读环境变量",
+        },
+        {
+          key: "SIGNAL_ACCOUNT",
+          purpose: "发送账号(E.164 手机号,注册/链接进 signal-cli 的那个);JSON-RPC send 的 account 参数",
+        },
+        {
+          key: "SIGNAL_CHAT",
+          purpose: "可选缺省推送对象(+手机号);规则写 targets 时可省",
+        },
+      ],
+      steps: [
+        "部署 signal-cli 守护进程(外部系统级依赖,不是 pip 包):安装 signal-cli(https://github.com/AsamK/signal-cli)并注册/链接账号,再以 HTTP 服务模式启动(如 signal-cli daemon --http 127.0.0.1:8080);发送路纯 httpx 已实装,无需装任何 extras。",
+        "记下守护进程地址与账号手机号(E.164,如 +8613800138000)。",
+        "到 设置→推送 填 SIGNAL_HTTP_URL(如 http://127.0.0.1:8080)与 SIGNAL_ACCOUNT(+手机号)→ 保存;凭据也会存进钥匙链规范名,GUI 桌面不读 shell 环境也能发。",
+        {
+          text: "冒烟一发确认链路(把地址/账号/收件人换成你的;应答 result.results[].type 为 SUCCESS 即成功):",
+          code: 'curl -s -X POST http://127.0.0.1:8080/api/v1/rpc \\\n  -H "Content-Type: application/json" \\\n  -d \'{"jsonrpc":"2.0","method":"send","params":{"account":"+8613800138000","recipient":["+8613900139000"],"message":"hello from MYIA"},"id":"smoke-1"}\'',
+        },
+        "推送规则 targets 直达写 signal:+8613…(E.164 手机号;Signal 无 @username 寻址,蓝本事实);群 id(base64)在数据根 channel_aliases.json 登记别名(无自动发现)。",
+      ],
+    },
+  },
 ];
 
 /** W3 未实装平台(父任务 PRD 波次表登记锚点;灰卡,零交互)。微信已于
@@ -865,11 +922,10 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
  * matrix(组二)与 email/sms/irc/simplex/homeassistant(组三)已于
  * 10-03-messaging-w3-longtail 转实装;qqbot/msgraph_webhook(组一)与
  * bluebubbles/yuanbao、a2a(组三出站)与 buzz/photon/raft(组三 extras
- * 壳)亦已转实装(见 IMPLEMENTED_PLATFORMS);余下 signal(需 signal-cli
- * 守护进程,蓝本事实见伞任务 PRD 波次表)。 */
-export const UPCOMING_PLATFORMS: readonly UpcomingPlatform[] = [
-  { id: "signal", name: "Signal", wave: "W3" },
-];
+ * 壳)亦已转实装(见 IMPLEMENTED_PLATFORMS);signal(组二)已于
+ * 10-05-push-reliability-batch R3 出壳转实装(signal-cli 守护进程
+ * JSON-RPC 真发送)——名单至此清零,后续新平台从此处入册。 */
+export const UPCOMING_PLATFORMS: readonly UpcomingPlatform[] = [];
 
 /** 未实装平台的详情描述(按波次;不虚构平台功能,只说排期与实装后的去处)。 */
 const UPCOMING_DESCRIPTION: Record<"W2" | "W3", string> = {
@@ -947,14 +1003,14 @@ export function deriveImplementedStatus(
   return credentialsFound || refreshSucceeded ? "connected" : "needs_setup";
 }
 
-/** W3 extras 壳通道(10-03-messaging-w3-longtail PRD R3:bluebubbles 需
- * 自建服务端、yuanbao 需常驻 WS 网关、buzz/photon/raft 需 CLI/Node
- * sidecar 桥——蓝本均无 one-shot HTTP 出站):寻址已实装,发送路待
- * extras——状态不随钥匙链/目录证据派生(别名目录条目 ≠ 可发送,绿态
- * 「已连接」是误导),恒 needs_setup;说明走壳分支如实披露(R2「不装
- * 可用」)。 */
+/** W3 extras 壳通道(10-03-messaging-w3-longtail PRD R3:yuanbao 需常驻
+ * WS 网关、buzz/photon/raft 需 CLI/Node sidecar 桥——蓝本均无 one-shot
+ * HTTP 出站):寻址已实装,发送路待 extras——状态不随钥匙链/目录证据派生
+ * (别名目录条目 ≠ 可发送,绿态「已连接」是误导),恒 needs_setup;说明走
+ * 壳分支如实披露(R2「不装可用」)。bluebubbles 已于
+ * 10-05-push-reliability-batch R3 出壳(服务端 REST 真发送)——离开本表,
+ * 回通用三态派生。 */
 const EXTRAS_SHELL_PLATFORM_IDS: ReadonlySet<string> = new Set([
-  "bluebubbles",
   "yuanbao",
   "buzz",
   "photon",
@@ -1288,7 +1344,7 @@ function statusExplanation(card: PlatformCard): string {
     }。修复后回本屏刷新即转绿;无 Hermes 的环境此平台不可用——这是如实披露的边界,不是故障。`;
   }
   if (EXTRAS_SHELL_PLATFORM_IDS.has(card.id)) {
-    return "需要设置:该平台是 W3 实装的 extras 壳——寻址已接线,发送路依赖外部服务/CLI(BlueBubbles 服务端、元宝常驻 WS 网关、buzz CLI、photon Node sidecar、Raft CLI),待 extras 实装批次,当前发送会如实报 dependency_missing。MYIA 侧暂无凭据可录(钥匙链恒空是预期,不是缺配置);推送规则可先写直达 id 或别名登记,部署与实装指引见下方「出站凭据指南」。";
+    return "需要设置:该平台是 W3 实装的 extras 壳——寻址已接线,发送路依赖外部服务/CLI(元宝常驻 WS 网关、buzz CLI、photon Node sidecar、Raft CLI),待 extras 实装批次,当前发送会如实报 dependency_missing。MYIA 侧暂无凭据可录(钥匙链恒空是预期,不是缺配置);推送规则可先写直达 id 或别名登记,部署与实装指引见下方「出站凭据指南」。";
   }
   if (card.status === "connected") {
     const signals = [

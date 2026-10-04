@@ -34,10 +34,12 @@ default off, token 鉴权 + 仅内网).
  10-03-messaging-feishu 登记,telegram 于 10-03-messaging-telegram 登记
  ——直达解析 + 定向发送,目录为被动积累)。W3 长尾伞
  (10-03-messaging-w3-longtail)一次性登记 22 家:CHANNELS 30 条、
- PLATFORMS 28 条(仅 simplex 有目录发现;**6 家 extras/结构化壳**——
- yuanbao/buzz/photon/raft 无 one-shot HTTP 出站,signal 需 signal-cli
- 守护进程、bluebubbles 需服务端——发送期如实 ``dependency_missing``,
- 其余 16 家均有 one-shot HTTP 出站)。蓝本对照表见任务档 prd。
+ PLATFORMS 28 条(仅 simplex 有目录发现;**4 家 extras/结构化壳**——
+ yuanbao/buzz/photon/raft 无 one-shot HTTP 出站,发送期如实
+ ``dependency_missing``;signal/bluebubbles 已于
+ 10-05-push-reliability-batch R3 出壳——signal 走 signal-cli 守护进程
+ JSON-RPC、bluebubbles 走服务端 REST,one-shot HTTP 出站落地,守护进程/
+ 服务端仍是外部系统级部署前提)。蓝本对照表见任务档 prd。
 """
 
 from __future__ import annotations
@@ -142,10 +144,12 @@ from myssia.push.webhook import WebhookChannel
 #: with 10-03-messaging-w2-platforms(蓝本形态:one-shot POST / 静态 webhook /
 #: 自建应用 token)。
 #: W3 长尾 22 家(10-03-messaging-w3-longtail):组一 Slack 系 8 家 + 组二
-#: Matrix 系 8 家 + 组三长尾 6 家。其中 **6 家为壳通道**(配置可加载、
+#: Matrix 系 8 家 + 组三长尾 6 家。其中 **4 家为壳通道**(配置可加载、
 #: 寻址可解析,发送期如实 ``dependency_missing``,不硬造出站):
-#: yuanbao/buzz/photon/raft 无 one-shot HTTP 出站;signal 依赖 signal-cli
-#: 守护进程、bluebubbles 依赖 BlueBubbles 服务端(PRD R3 extras 门)。
+#: yuanbao/buzz/photon/raft 无 one-shot HTTP 出站。signal 与 bluebubbles
+#: 已于 10-05-push-reliability-batch R3 出壳(signal 走 signal-cli 守护进程
+#: JSON-RPC、bluebubbles 走服务端 REST,真发送;守护进程/服务端是外部
+#: 系统级部署前提,如实写进凭据指南而非结构化报错)。
 #: 其余 16 家均有 one-shot HTTP 出站(逐家专测见
 #: tests/push/test_messaging_<平台>.py)。
 _W3_LONGTAIL_CHANNELS: dict[str, type] = {
