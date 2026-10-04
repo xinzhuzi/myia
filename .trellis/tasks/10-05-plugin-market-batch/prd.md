@@ -84,7 +84,7 @@
 ## Acceptance Criteria
 
 - [x] AC1:Phase 1 分层定案回写本档(判定框 a-e 主人过目);裁决前不开任何收录工。**(2026-10-05 回标:D1-D3 主人按建议全批,见上决议表;Phase 2 盘点解锁)**
-- [x] AC2:盘点表覆盖 ≥4 形态类、≥15 个有名工具,每行有核实标记。**(2026-10-05 回标:`research.md` 27 行/6 形态类,gh api 快照逐行 ●/○;首批 4 件建议已列,主人过目=当轮汇报,翻案即改;2026-10-05 收录开工令已按档下发执行=b 路首批 maigret+urlwatch,design §1/§3 与 inventory §三)**
+- [x] AC2:盘点表覆盖 ≥4 形态类、≥15 个有名工具,每行有核实标记。**(2026-10-05 回标:`research.md` 27 行/6 形态类,gh api 快照逐行 ●/○;首批 4 件建议已列,主人过目=当轮汇报,翻案即改;2026-10-05 收录开工令=主人令按档执行:b 路首批 maigret+urlwatch,design §1/§3 与 inventory §三)**
 - [x] AC3:首批收录全绿(2026-10-05 首批 5 件:media/maigret/theharvester/rsshub/spiderfoot;tests/plugins 518 绿、`plugin install+list` 沙箱冒烟可见、doctor 降级 warning=包契约既有钉;官方件 golden 无涉——首批零品类 YAML 变更,OFFICIAL_PLUGINS 品类清单不动;**全量 pytest 门禁:批末跑毕,红项归因见下注**)。注:首批期间并行会话同树在做 secrets 修复与 urlwatch 件,全量若有红先归因并行域再回本档。
 - [x] AC4:README「6 official categories」→7(并行会话顺手完成,265b7a9 双语两处)。
 - [ ] AC5(挂账,另任务):装机包 tauri resources 只捆 4/7 官方品类(games/news/exposure 缺)与 `.seeded` 全有或全无补种语义——本任务不动,已单独记录。**首批追加注记:官方场景件已达 12 件(7 桌面+3 remote+2 server-only),装机包市场面是否随包分发 plugins/<pkg> 是 AC5 任务一并裁。**
