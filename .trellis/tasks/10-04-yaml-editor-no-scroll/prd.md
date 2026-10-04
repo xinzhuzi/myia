@@ -69,7 +69,7 @@ EditorPane 根 div(min-h-0 overflow-hidden …;弹窗/屏都给了定高 h-full 
 - [x] **回归防护**:`editor-pane.test.tsx` 加断言(CodeMirror 收到 h-full/等价类),防高度链再丢。(回标 2026-10-05:`editor-pane.test.tsx` 新增「高度链」用例,真渲染断言 `.cm-theme` classList 含 `h-full`;本会话局部自检 2 文件 12 用例全过)
 - [x] **ESC 不误关**:CodeMirror 子面板(⌘F 搜索面板)开着按 ESC 只关子面板,编辑弹窗保留、dirty 状态不变(缺陷 2,`defaultPrevented` 守卫,见补二)。(回标 2026-10-05:`yaml-editor-dialog.tsx:67` keydown 首行守卫;前提已核实 `@codemirror/search` dist:1055 Escape 绑 search-panel scope + dist:1145-1148 面板命中即 preventDefault;`yaml-editor-dialog.test.tsx` 新用例:已 preventDefault 的合成 ESC 不触发 onClose/confirm,弹窗仍在)
 - [x] **补全开关关闭**:`editor-pane.tsx` basicSetup 移除 `autocompletion`;`closeBrackets`/折叠/括号匹配等其余项保留(grill 决议 Q1)。(回标 2026-10-05:`editor-pane.tsx:62` 已删该行,lineNumbers/foldGutter/highlightActiveLine/bracketMatching/closeBrackets 五项原样)
-- [ ] **中文输入(IME)**:修复后人工在编辑器敲一段中文确认组合输入正常(无头测不了 IME,CodeMirror 6 理论支持,主人日常中文场景须实证)。
+- [ ] **中文输入(IME)**:修复后人工在编辑器敲一段中文确认组合输入正常(无头测不了 IME,CodeMirror 6 理论支持,主人日常中文场景须实证)。**(2026-10-05 03:00 自测回标:文本插入已自动 PASS(B4);真实 IME 组字自动化实测已尽力——搜狗拼音在位+辅助功能已授权,但 osascript 合成键盘不达 WKWebView、面板经顶栏清理(7152ff9)后无按钮入口纯 ⌘K(设计态,自测代理误判陈旧构建已由主会话更正)、且启动即弹钥匙串授权框需主人亲自「始终允许」——此条终态=主人亲手敲一段,自动化通道已探明边界)**
 - [x] **门禁**:vitest + tsc + build 全绿。(回标 2026-10-05:工作流脚本统一执行前端构建/前端单测/全量 pytest 全绿;实现会话局部自检 `npx tsc -b` 0 错 + vitest 两改动文件 12 用例过)
 - [x] **装机包刷新**:入库后重打包静默换装(「完成=入库+门禁绿+装机包已刷新」纪律),主人只做目验:开弹窗滚到文件尾 / 敲一段中文 / ⌘F 开面板按 ESC 弹窗仍在。(回标 2026-10-05:三段链终包 ce9878d 换装留痕 `evidence/install-log-final.md`(01:33,含与旧产物尺寸差异证新码进包);其后并行线 02:09 再换装更新尖;**装机包自动冒烟对当前 /Applications 包全 PASS(A 六项+B 全组,含滚动/ESC/中文插入/保存回路),实跑日志与截图 `desktop/ui-src/e2e/artifacts/`;目验三步已被冒烟代码覆盖,主人仅需真实 IME 组合输入手感一条)**
 

@@ -19,8 +19,15 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# 自管 Python 环境(10-05 第 2 步):依赖清单指纹;第 3 步安装链的运行时
+# sha256 校验共用同 crate(design §3「下载:HTTPS + sha256 校验」)。
+sha2 = "0.10"
 # 仅用 time(请求超时);运行时由 tauri 提供,不另起 tokio 特性树。
 tokio = { version = "1", features = ["time"] }
+
+[dev-dependencies]
+# pyenv 探测单测的临时数据根(三态/指纹/镜像回环)。
+tempfile = "3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # 静默启动让回激活用(10-03-quiet-launch):NSApp.deactivate() 抵消 tao

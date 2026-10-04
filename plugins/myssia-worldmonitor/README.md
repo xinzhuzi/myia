@@ -16,11 +16,12 @@
    镜像,四服务 app+ais-relay+redis+redis-rest 照上游 quickstart 从上游
    git 构建,钉 tag v2.10.0;必设密钥经 `${VAR}` 注入,`openssl rand -hex 32`
    生成;127.0.0.1:3001 回环绑定);
-2. 实例地址填进 endpoint(`plugin.modes.remote.endpoint`);启用 API 操作键
-   (上游 `WORLDMONITOR_VALID_KEYS` / X-WorldMonitor-Key 语义)时,把键写入
-   钥匙串:`myssia secret set myia/worldmonitor/api-key`;
-3. 知情开启门槛开关(不落品类 YAML):
-   `myssia gates set platforms.worldmonitor on`,或桌面 设置→门槛件 分区。
+2. **实例地址填进桌面 设置→门槛件→自有实例 表单**——落点不是品类 YAML,
+   是全局 gates.yaml 的 `platforms.worldmonitor.endpoint`(部署栈自身密钥
+   按上游 compose 的 `${VAR}` 注入自配;上游 REST 操作键体系
+   X-WorldMonitor-Key 属实例侧鉴权,设置面本件不设凭据位、MYIA 不代管);
+3. 知情开启门槛开关(同表单开关,或
+   `myssia gates set platforms.worldmonitor on`;组织性不执法)。
 
 ## 门槛的运行时语义(组织性不执法,D6)
 

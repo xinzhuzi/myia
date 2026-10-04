@@ -159,6 +159,10 @@ class GatesConfig:
                 errors.append(
                     _detail(f"saas.{key}", "invalid_field", f"saas.{key} 必须是 SaaSGate,当前为 {type(gate).__name__}")
                 )
+                continue
+            # 凭据引用形态构造期同门(复审补):直接构造/replace_saas_gate 裸
+            # SaaSGate 也不许绕过 —— save 永远写不出 load 拒收的文件。
+            errors.extend(_gate_ref_errors(gate.api_key_ref, f"saas.{key}.api_key"))
         for key in self.platforms:
             if not _GATE_KEY_RE.match(key):
                 errors.append(
@@ -173,7 +177,8 @@ class GatesConfig:
                 errors.append(
                     _detail(f"platforms.{key}", "invalid_field", f"platforms.{key} 必须是 PlatformGate,当前为 {type(gate).__name__}")
                 )
-            elif not isinstance(gate.endpoint, str):
+                continue
+            if not isinstance(gate.endpoint, str):
                 errors.append(
                     _detail(
                         f"platforms.{key}.endpoint",
@@ -189,6 +194,8 @@ class GatesConfig:
                         f"platforms.{key}.endpoint 必须是 http(s) 地址(自有实例占位),当前为 {gate.endpoint!r}",
                     )
                 )
+            # token 引用形态构造期同门(复审补,与 saas.api_key 对称)
+            errors.extend(_gate_ref_errors(gate.token_ref, f"platforms.{key}.token"))
         for key, value in self.analysis.items():
             if not _GATE_KEY_RE.match(key):
                 errors.append(
@@ -379,6 +386,20 @@ def _require_keychain_ref(value: Any, field_name: str) -> str | None:
             ]
         )
     return value
+
+
+def _gate_ref_errors(value: Any, field_name: str) -> list[LoadErrorDetail]:
+    """构造期凭据引用校验(同门 :func:`_require_keychain_ref`,错误收集不抛)。
+
+    :meth:`GatesConfig.__post_init__` 的批量收集风格适配:直接构造 /
+    :func:`replace_saas_gate` 裸 :class:`SaaSGate` 与 ``from_payload`` 走
+    同一道门 —— docstring「直接构造也不许绕过」的兑现点。
+    """
+    try:
+        _require_keychain_ref(value, field_name)
+    except GatesLoadError as exc:
+        return exc.errors
+    return []
 
 
 def load_gates_config(path: Path | str) -> GatesConfig:

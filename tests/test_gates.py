@@ -331,6 +331,56 @@ class TestValidation:
             GatesConfig(platforms={"crawlab": PlatformGate(enabled=True, endpoint="not-a-url")})
         assert excinfo.value.errors[0].error_type == "invalid_endpoint"
 
+    def test_direct_construction_plaintext_api_key_rejected(self):
+        """复审补:直接构造的明文 saas 引用同门拒 —— save 永写不出 load 拒收的文件。"""
+        with pytest.raises(LoadError) as excinfo:
+            GatesConfig(saas={"zenrows": SaaSGate(enabled=True, api_key_ref="PLAINTEXT-KEY-123")})
+        assert excinfo.value.errors[0].error_type == "credential_plaintext"
+        assert excinfo.value.errors[0].path == "saas.zenrows.api_key"
+
+    def test_direct_construction_env_ref_rejected_both_kinds(self):
+        """复审补:env: 引用在 saas.api_key 与 platforms.token 两侧都拒。"""
+        with pytest.raises(LoadError) as excinfo:
+            GatesConfig(saas={"zenrows": SaaSGate(enabled=True, api_key_ref="env:ZENROWS_KEY")})
+        assert excinfo.value.errors[0].error_type == "invalid_credential_ref"
+        with pytest.raises(LoadError) as excinfo:
+            GatesConfig(
+                platforms={
+                    "crawlab": PlatformGate(
+                        enabled=True, endpoint="https://crawlab.example.com", token_ref="env:CRAWLAB_TOKEN"
+                    )
+                }
+            )
+        assert excinfo.value.errors[0].error_type == "invalid_credential_ref"
+        assert excinfo.value.errors[0].path == "platforms.crawlab.token"
+
+    def test_direct_construction_keychain_refs_and_none_accepted_round_trip(self, tmp_path):
+        """复审补:合法形态(None / keychain: 引用)直接构造可通过,save→load 同门往返。"""
+        config = GatesConfig(
+            saas={"zenrows": SaaSGate(enabled=True, api_key_ref="keychain:myia/saas/zenrows-key")},
+            platforms={
+                "crawlab": PlatformGate(
+                    enabled=True,
+                    endpoint="https://crawlab.example.com",
+                    token_ref="keychain:myia/platforms/crawlab-token",
+                ),
+                "worldmonitor": PlatformGate(enabled=False, endpoint="", token_ref=None),
+            },
+        )
+        path = save_gates_config(tmp_path / "gates.yaml", config)
+        assert load_gates_config(path) == config  # 写读同门:往返逐字段等价
+
+    def test_replace_gate_with_plaintext_ref_rejected(self):
+        """复审补:replace_saas_gate/replace_platform_gate 携裸明文引用也过不了构造门。"""
+        base = GatesConfig()
+        with pytest.raises(LoadError) as excinfo:
+            replace_saas_gate(base, "zenrows", SaaSGate(enabled=True, api_key_ref="plaintext"))
+        assert excinfo.value.errors[0].error_type == "credential_plaintext"
+        with pytest.raises(LoadError):
+            replace_platform_gate(
+                base, "crawlab", PlatformGate(enabled=True, endpoint="https://x.example.com", token_ref="plaintext")
+            )
+
 
 # ---------------------------------------------------------------------------
 # gate_open 唯一查询口 + 每开关往返

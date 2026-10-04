@@ -6,9 +6,11 @@
 # ${VAR} 注入(REDIS_TOKEN/WM_SESSION_SECRET/RELAY_SHARED_SECRET/REDIS_
 # PASSWORD,生成:openssl rand -hex 32),可选数据源/LLM 键同经注入。
 # 用法:docker compose up -d --build 后,实例地址 http://127.0.0.1:3001 填进
-# plugin.modes.remote.endpoint(容器内口=上游 8080),并知情开启门槛开关:
-# myssia gates set platforms.worldmonitor on;API 操作键(WORLDMONITOR_VALID_
-# KEYS / X-WorldMonitor-Key)写入钥匙串 myia/worldmonitor/api-key。
+# 桌面 设置→门槛件→自有实例 表单(落 gates.yaml platforms.worldmonitor.
+# endpoint,容器内口=上游 8080),并知情开启门槛开关:
+# myssia gates set platforms.worldmonitor on;实例侧操作键(WORLDMONITOR_
+# VALID_KEYS / X-WorldMonitor-Key)经 ${WORLDMONITOR_VALID_KEYS} 注入自配,
+# MYIA 门槛面不设凭据位(设置面 hasToken=false)。
 services:
   worldmonitor:
     build:

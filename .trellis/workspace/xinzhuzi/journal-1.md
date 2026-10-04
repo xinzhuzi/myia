@@ -599,3 +599,22 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - Q5 收口(02:16 换装毕):构建 exit 0(世事.app 132.17MiB+dmg)。换装前谱系判定——当时 /Applications 里的 132M 包系并行装机冒烟线(020311f/e229752 线)02:08 换上的 pre-8bbc383 构建(UI 二进制链接 02:07:01,任何干净检出从 8bbc383(02:07:00)起构建不可能分钟内出包;且 020311f/58941a3/a152024/c0c63e8 均 ⊆ 7502a0c,覆写零损失)→mv 保 inode 备份(/tmp/世事.app.bak-trd-021650)+ditto 换装;运行中实例(02:12 起,launchd 直属)不打扰,下次启动生效。四断言过:UI/sidecar 校验和与源 bundle 精确匹配、0.0.1、132M;codesign「no resources」告警源 bundle/备份/装机三份同报=构建固有非换装引入。R3(7502a0c)随包上机,R4(f143000/d556bb7)未含——推送线收口时自刷,如实注记。worktree myia-testbuild 已移除。
 - 教训:grep 内容标记法在打包件上失效——Tauri 内嵌前端资产与 sidecar(PyInstaller 类)均压缩,grep 恒零命中(连已知含目标串的新构建也是 0);谱系判定改走提交时间线+构建时长下限推理(mtime=链接时刻,commit→link 的最小物理时长卡死可能性空间)。
 - Q5 装机收线(含竞态事故,如实):我方 worktree 构建(7502a0c,世事.app 132.17MiB)完成后,并行会话于 02:16:50 亦做换装并清掉我的 build worktree(myia-testbuild 消失,worktree list 已无);我的换装链备份→rm→源蒸发,装机目录一度缺 app——从我方备份 021829(恰=对方刚装的新包字节)原样恢复,零损失。恢复后走 e2e 同款 Mach-O 胖指针+brotli 解压验证(e2e/package_smoke.py 借调):试抓弹窗(test-result-dialog)与跑一次弹窗(run-once-dialog)两任务均在、旧文案「异步 run #」已清——装机版=最新态,可目验。回执 /tmp/trd-swap.exit。教训:并行会话在场换装先对表(本轮双换装竞速+worktree 被清双撞);换装链改序:先验源存在再删旧包。
+
+## 2026-10-05 工作流:执行 trellis 任务(dwfrun-ba60c72e;主人令「并发并行执行,开满子代理」+新 apikey)
+
+- 拓扑:侦察员全任务分类 → 实施员+独立复核员(修复≤2 轮) → 全局门禁 → 独立读者通读 → 报告+看板双产物;纪律内嵌(pathspec 提交/禁 -A/stash/不碰 journal/状态直改 task.json)。
+- 盘点结果:可执行仅 1 项——10-04-wrapup-checklist(收尾型 docs 档,c9018d7:AC 三条实证勾验+转 review,复核员重跑 task.py validate exit 0 通过);受阻 3 项(desktop-managed-py-env/plugin-market-batch/push-reliability-batch,域内并行在途脏文件);跳过 8 项(review 等主人×7+池档 v12-backlog)。零代码任务→全局门禁未触发,装机包无需刷新(仍为 02:16 最新态)。
+- 地面核验:c9018d7 --stat 纯两档文件;task.json=review;desktop 脏件(entry.py/Cargo.*/main.rs)确系并行 py-env 线在途,与受阻判定自洽。
+- 复盘:开满子代理≠有活可干——12 项任务里 8 项在等主人过目、3 项被并行线占域,真正可动的只有 1 项;侦察员从严分类避免了踩踏(判例价值)。
+
+## 2026-10-05 推送可靠性与平台升级批(10-05-push-reliability-batch,主人『都弄上』)
+
+- R1 投递重试账本:retry_ledger.py 状态机(pending→attempting→delivered/failed→abandoned,30s/120s 退避+3 次耗尽+24h 过期+run 推送段 flush 到期条目,fake clock 全测)落地;载体=d613310 收编(源头会话 3h 无活动)+换眼复审 R1-high 修复 9b9b540(冲账侧 item_specs 单字符串被 list() 逐字符炸开→定向重投全 skipped,改 [[entry.target_spec]] 并补走真 _flush 路径回归用例);门禁=tests/push 30 用例账本域全绿。
+- R2 飞书/TG 发送护栏:飞书瞬态指数退避(可注入 sleeper)+reply 失效码降级新消息+卡片 8000/4000 拆分、TG retry_after 优先退避;载体=d613310+两修复 a371526/4863430(末次槽降级 continue 烧光 for 槽位坠「不可达」AssertionError,改仅瞬态计数递增的 while 对齐蓝本)+复审修正 f64c0ef(「话题内不降级」偏离归属如实化:docstring 伪托 PRD 裁定改实现期裁量+偏离理由,行为零改动);门禁=test_feishu_retry 27 用例+tests/push 1088 全过+ruff 绿。
+- R3 signal+bluebubbles 出壳:7502a0c(九文件恰白名单)——signal 走 signal-cli JSON-RPC 2.0(send/recipient/groupId 双分支+_validate_send_result 移植)、bluebubbles 走 REST(?password= 鉴权/GUID 严格解析);凭据 resolve_channel_credential env→钥匙链 myia/push/<ENV_KEY> 回退;消息屏 signal 入 IMPLEMENTED(UPCOMING 清零)+bluebubbles 出 EXTRAS_SHELL;门禁=tests/push 1060+messaging 66+tsc+build 绿。
+- R4 discord/slack 目录发现:f143000(四文件恰白名单)——guild 两跳 REST(text+forum)与 users.conversations 20×200+info 补名;cli refresh 帮助文案同步 d556bb7(仅 cli.py 6+/3-,channels.refresh 链路零协议变更);门禁=discord 30+slack 32 用例。
+- 全量门禁注记(收口在干净 worktree f64c0ef 重跑):pytest 全量 3964 passed/32 skipped/2 failed——两红均外来域如实分类不拦本批:①docker composes「恰好七件」断言红=plugin-market 批二 0195806/7df322b/66ace59 增三 compose 未随测试(该线修复正以未提交形态在主树,预期集恰增 crawlab/worldmonitor/webcheck);②SKILL.md 枚举表红=60e2f52 schema.ENGINES 增 zenrows/scraperapi 未随文档(该提交 stat 无 skill 文件)。白名单域全绿:tests/push 1088(15.12s exit 0)、ruff All checks passed、vitest 全量 23 文件 433 全过、npm run build(tsc+vite)exit 0。批内锚:d613310 收编时全量 3935 过。
+- 复审发现与处置(AC8):换眼复审三笔全落——9b9b540(R1-high 定向重投炸开,修+回归)、4863430(R2 降级烧槽位,逐错序列复现+修)、f64c0ef(R2 蓝本偏离归属伪托如实化 docs)。
+- 装机回执(AC7):worktree HEAD f64c0ef 干净构建静默换装(链后台跑,exit 文件自写)——/tmp/wf-batch-install.exit=「ok installed f64c0ef225c7942f486a44eef691dc9ce736e14f bak=/tmp/世事.app.bak-wf-025213」,世事.app 132.24 MiB;装机版 myssia-core secret list=两条凭据名 exit=0 零授权框、cron list --json=exit 0。外部平台真凭据冒烟(signal/bluebubbles/discord/slack)留主人(PRD Constraints notCovered 口径)。
+- 收口:prd AC1-AC8 全勾(证据行在档)+task.json review=12fa28d;journal 本段外科提交(HEAD+追加块拼装,并行 hunks 分毫不动)。未 push。
+- 补记(收口进行中批内复审二轮两笔落库,如实并档):338faa4(02:54:44,R1 防重发闸门拦到期重投+零报告被误判 mark_delivered 永久丢,/tmp/r1_repro.py 实测复现;slot_dedup 开关+冲账侧 False+零报告按失败结转+三形回归,tests/push 1091 批注)、adcdbc5(02:57:05,R3 signal 应答校验 fail-closed——200+JSON 缺 result 的反代/健康端点形态不再放行,测试+2,tests/push 1093 批注);收口在代码尖(adcdbc5)复跑门禁:tests/push 1093 全过(15.32s)+全量 pytest 3969 过/32 跳/同两外来红(90.95s)+push 域 ruff 绿,与批注数字精确一致。装机钉版 f64c0ef(换装毕 02:52)未含这两笔,下次装机自刷(循 0355528 判例);task 档指纹/AC8/装机谱系已随 b72fee4 补档,AC8 终态=复审五笔全落。

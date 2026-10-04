@@ -14,11 +14,13 @@ Crawlab 本身就是采集编排平台,与 MYIA 同生态位(盘点表 d 路判�
 1. 自部署:`docker/plugins/myssia-crawlab/compose.yml`(官方镜像
    `crawlabteam/crawlab` 官方 quickstart 等价:master+mongo 两服务,
    127.0.0.1:8080 回环绑定);
-2. 实例地址填进 endpoint(`plugin.modes.remote.endpoint`);部署侧启用
-   API token/反代鉴权时,凭据写入钥匙串:
-   `myssia secret set myia/crawlab/api-token`;
-3. 知情开启门槛开关(不落品类 YAML):
-   `myssia gates set platforms.crawlab on`,或桌面 设置→门槛件 分区。
+2. **实例地址与凭据都填进桌面 设置→门槛件→自有实例 表单**——落点不是
+   品类 YAML,是全局 gates.yaml 的 `platforms.crawlab.endpoint` / `token`
+   (部署侧启用 API token/反代鉴权才需要凭据;键走设置面规范名
+   `myia/platforms/crawlab-token`,CLI 等价
+   `myssia secret set myia/platforms/crawlab-token`);
+3. 知情开启门槛开关(同表单开关,或
+   `myssia gates set platforms.crawlab on`;组织性不执法)。
 
 ## 门槛的运行时语义(组织性不执法,D6)
 

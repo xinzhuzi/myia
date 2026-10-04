@@ -1,8 +1,9 @@
 """官方场景件(plugin packages)的封装契约测试(PRD 10-01-v03-plugin-market
 及其 v1.1 架构转向,PRD 10-02-v11-plugins-source-arch;10-03-aipocket-fusion
-接入线增 myssia-credhunter;10-05-plugin-market-batch 首批增 media/maigret/urlwatch).
+接入线增 myssia-credhunter;10-05-plugin-market-batch 首批增 media/maigret/
+urlwatch/rsshub/spiderfoot,批二增 crawlab/worldmonitor/webcheck/socialanalyzer).
 
-七个 ``plugins/<id>/`` 目录是市场插件包:每包含 ``plugin.yaml``(manifest,
+十七个 ``plugins/<id>/`` 目录是市场插件包:每包含 ``plugin.yaml``(manifest,
 规范见 :mod:`myssia.plugins.manifest`)+ README + 桌面路径声明。三条被钉住的
 契约:
 
@@ -52,7 +53,11 @@ DOCKER_PLUGINS_DIR = REPO_ROOT / "docker" / "plugins"
 #: 10-03-aipocket-fusion 接线段加入:进程内三 lane 凭证猎手(desktop);
 #: myssia-media 于 10-05-plugin-market-batch 首批加入:yt-dlp 扁平快扫
 #: (desktop,公域上游 uv 隔离子进程,裁定 R-1 不钉版);myssia-urlwatch
-#: 同批加入:轻量变更监控(BSD-3-Clause 上游 uv 隔离子进程,b 路同构)。
+#: 同批加入:轻量变更监控(BSD-3-Clause 上游 uv 隔离子进程,b 路同构);
+#: 批二(步骤 13+14)加入:同物种门槛桩 ×2(crawlab/worldmonitor,
+#: ``tier: remote`` + ``gate: platform``,D5 正交组合)+ 分析件 ×2
+#: (webcheck/socialanalyzer,remote 普通桩,不声明 gate;social-analyzer
+#: AGPL 只桩不携 compose)。
 OFFICIAL_PACKAGES = (
     "myssia-proxy",
     "myssia-osint",
@@ -67,6 +72,10 @@ OFFICIAL_PACKAGES = (
     "myssia-urlwatch",
     "myssia-rsshub",
     "myssia-spiderfoot",
+    "myssia-crawlab",
+    "myssia-worldmonitor",
+    "myssia-webcheck",
+    "myssia-socialanalyzer",
 )
 
 #: v1.1 定级建议(PRD 10-02-v11-plugins-source-arch 复核表)钉死的期望分级。
@@ -84,6 +93,21 @@ EXPECTED_TIERS = {
     "myssia-urlwatch": "desktop",
     "myssia-rsshub": "remote",
     "myssia-spiderfoot": "remote",
+    # 批二(R7/AC9):同物种门槛桩+分析件,全部 remote 传输形态(gate 字段
+    # 是与 tier 正交的激活策略,crawlab/worldmonitor 声明 platform)。
+    "myssia-crawlab": "remote",
+    "myssia-worldmonitor": "remote",
+    "myssia-webcheck": "remote",
+    "myssia-socialanalyzer": "remote",
+}
+
+#: 批二(D5,10-05-plugin-market-batch)门槛声明期望表:``gate`` 与 ``tier``
+#: 正交(缺省不声明 = 无门槛件)。首批 gated 官方件 = 同物种门槛桩两件
+#: (crawlab/worldmonitor,自有实例例外通道);webcheck/socialanalyzer 等
+#: 普通件必须不声明——plugin.yaml 删 gate 行本表即红,声明面不裸奔。
+EXPECTED_GATES = {
+    "myssia-crawlab": "platform",
+    "myssia-worldmonitor": "platform",
 }
 
 
@@ -142,6 +166,14 @@ class TestPackageManifests:
         assert manifest.tier in ("desktop", "remote", "server-only")
 
     @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)
+    def test_gate_declaration_matches_expected_table(self, package: str):
+        """D5 门槛声明钉子(design §6.7 测试矩阵桩件行):manifest ``gate``
+        (激活策略)与期望表一字不差;未列出的件必须不声明(缺省 = 无门槛件)。
+        """
+        manifest = load_package(package)
+        assert manifest.gate == EXPECTED_GATES.get(package)
+
+    @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)
     def test_no_manifest_declares_local_compose_anymore(self, package: str):
         """桌面优先(v1.1):manifest 不再声明 local compose 模式。
 
@@ -175,9 +207,10 @@ class TestPackageManifests:
                 f"{path}: 文档提及 docker-compose(部署文件应指向 docker/plugins/)"
             )
 
-    def test_docker_plugins_dir_holds_exactly_the_seven_composes(self):
-        """迁出的部署文件落在 docker/plugins/<id>/compose.yml,七件不多不少
-        (10-05-plugin-market-batch 首批 +rsshub/+spiderfoot 两 remote 桩)。"""
+    def test_docker_plugins_dir_holds_exactly_the_official_compose_set(self):
+        """迁出的部署文件落在 docker/plugins/<id>/compose.yml,十件不多不少
+        (首批 +rsshub/+spiderfoot 两 remote 桩;批二 +crawlab/+worldmonitor
+        门槛桩 +webcheck 分析件——social-analyzer AGPL 只桩不携 compose)。"""
         expected = {
             "myssia-proxy",
             "myssia-osint",
@@ -186,6 +219,9 @@ class TestPackageManifests:
             "myssia-maxun",
             "myssia-rsshub",
             "myssia-spiderfoot",
+            "myssia-crawlab",
+            "myssia-worldmonitor",
+            "myssia-webcheck",
         }
         found = {path.parent.name for path in DOCKER_PLUGINS_DIR.glob("*/compose.yml")}
         assert found == expected
@@ -201,6 +237,38 @@ class TestPackageManifests:
         if manifest.tier == "server-only":
             assert "server-only" in readme and "移出" in readme, (
                 f"{package}: server-only 分级 README 须说明桌面默认集移出原因"
+            )
+
+    @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)
+    def test_gated_readme_documents_gate_type_and_informed_consent(
+        self, package: str
+    ):
+        """design §6.2:带 gate 的插件包 README 必含门槛类型+知情文案。
+
+        platform 件(D6)钉三件套:门槛类型(自有实例例外通道)、执法语义
+        (组织性不执法)、激活通道(gates set / 设置门槛件分区);未来出现
+        paid/trace/stale 门类的官方件时须同步补词表映射,不允许无文案裸进
+        市场。不声明 gate 的普通件无文案要求(负断言对「无门槛件」自述词
+        过脆,声明面已由 EXPECTED_GATES 钉死)。
+        """
+        manifest = load_package(package)
+        if manifest.gate is None:
+            return
+        readme = (package_dir(package) / "README.md").read_text(encoding="utf-8")
+        if manifest.gate == "platform":
+            assert "自有实例" in readme, (
+                f"{package}: platform 门槛 README 缺门槛类型说明(自有实例例外通道)"
+            )
+            assert "组织性不执法" in readme, (
+                f"{package}: platform 门槛 README 缺 D6 知情文案(组织性不执法)"
+            )
+            assert "gates" in readme, (
+                f"{package}: 门槛 README 缺激活通道指路(gates set / 设置门槛件)"
+            )
+        else:
+            pytest.fail(
+                f"{package}: gate={manifest.gate!r} 尚无 README 文案契约映射"
+                "(paid/trace/stale 官方件出现时补本测试词表)"
             )
 
     @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)

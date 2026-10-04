@@ -1984,12 +1984,14 @@ dependencies = [
  "objc2-app-kit",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-process",
  "tauri-plugin-shell",
  "tauri-plugin-updater",
+ "tempfile",
  "tokio",
 ]
 

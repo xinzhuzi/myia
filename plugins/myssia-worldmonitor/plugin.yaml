@@ -22,9 +22,10 @@ requires: []
 provides: [global_monitoring]
 modes:
   remote:
-    endpoint: https://worldmonitor.example.com   # your World Monitor deployment
-    # 上游 REST/MCP 操作键(WORLDMONITOR_VALID_KEYS,经 X-WorldMonitor-Key 头
-    # 透传);纯内网自部署可不配。凭据只走钥匙串引用,零明文。
-    token: keychain:myia/worldmonitor/api-key   # myssia secret set myia/worldmonitor/api-key
+    endpoint: https://worldmonitor.example.com   # your World Monitor deployment(占位)
+    # 凭据不在 manifest 声明(本件无品类 YAML 消费,manifest endpoint 只是
+    # 公开仓库占位):实际配置统一落全局 gates.yaml 的 platforms.worldmonitor
+    # (endpoint;设置面本件不设凭据位——hasToken=false,部署栈自身密钥按
+    # 上游 compose 的 ${VAR} 注入自配)。
 install:
   source: https://github.com/xinzhuzi/myia.git

@@ -1,10 +1,11 @@
 # 上游 crawlab-team/crawlab(BSD-3-Clause)官方镜像官方 quickstart 的等价薄
 # 封装:master+mongo 两服务(CRAWLAB_NODE_MASTER/CRAWLAB_MONGO_HOST 与上游
-# docker-compose.yml 同参)。本文件零明文凭据——Crawlab 鉴权在实例侧(登录
-# JWT;部署侧启用 API token/反代鉴权时,凭据走钥匙串 myia/crawlab/api-token)。
-# 用法:docker compose up -d 后,实例地址 http://127.0.0.1:8080 填进品类
-# plugin.modes.remote.endpoint,并知情开启门槛开关:
-# myssia gates set platforms.crawlab on(自有实例例外通道,组织性不执法)。
+# 部署 compose 同参)。本文件零明文凭据——Crawlab 鉴权在实例侧(登录 JWT;
+# 部署侧启用 API token/反代鉴权时,凭据走门槛规范键 myia/platforms/crawlab-token)。
+# 用法:docker compose up -d 后,实例地址 http://127.0.0.1:8080 填进桌面
+# 设置→门槛件→自有实例 表单(落 gates.yaml platforms.crawlab.endpoint),
+# 并知情开启门槛开关:myssia gates set platforms.crawlab on(自有实例例外
+# 通道,组织性不执法)。
 services:
   master:
     image: crawlabteam/crawlab
