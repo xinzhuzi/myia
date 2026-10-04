@@ -75,7 +75,7 @@ export function flattenHealthPlugins(plugins: PluginReport[]): SourceRow[] {
   for (const plugin of plugins) {
     for (const source of plugin.sources) {
       rows.push({
-        pluginFile: plugin.file,
+        pluginFile: plugin.file.split("/").pop() ?? plugin.file,
         pluginId: plugin.id,
         pluginName: plugin.name,
         pluginLoaded: plugin.loaded,
@@ -327,7 +327,7 @@ export async function verifySourceRoundTrip(
     consistent,
     expected,
     actual,
-    pluginFile: file,
+    pluginFile: file.split("/").pop() ?? file,
     message: consistent
       ? "doctor 复核与写回结果一致"
       : plugin === undefined
