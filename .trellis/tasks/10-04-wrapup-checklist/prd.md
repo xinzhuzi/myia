@@ -27,13 +27,13 @@
 ### 四、待主人确认的处置
 
 1. 疑死工作流处置(确认后停,防双跑):`dwfrun-202c9176` / `dwfrun-f1a9a0b9` / `dwfrun-c72abec5` / `dwfrun-2f494cf4` / `dwfrun-39d071be` / `dwfrun-2dc0d9a3`。
-2. 归档会话收走 10 个 review 态任务档(grill 决议:独立会话)。
+2. ~~归档会话收走 10 个 review 态任务档(grill 决议:独立会话)~~。**✅ 已完成(2026-10-04,主人令「归档」当场收走)**:messaging-w3-longtail / shishi-everywhere / alert-rules / crawl4ai-l3 / desktop-b234 / feishu-thread-send / hermes-cron / proxy-pool / wecom-group-webhook / windows-build 十档入 archive/2026-10/,每档独立 pathspec 提交,review 态清零,活目录余 5(v12-backlog 池 2/2 / fe-gap-census / wrapup-checklist 两 planning + interaction-batch / read-state-server 两 in_progress 在途)。
 
 ### 五、在途知悉(并行会话自收,勿重复立项)
 
-- `messaging-w3-longtail`(残余红测 `test_join_403` 归它)。
-- `shishi-everywhere`。
-- `10-04-alert-rules`(G5 告警规则已立档)。
+- `messaging-w3-longtail`(残余红测 `test_join_403` 归它)——已归档,红测若仍在树=移交 read-state-server 收口批或独立小修。
+- ~~`shishi-everywhere`~~(已归档;PyPI 注册动作仍在第一节挂账,注意发行名已漂移 myssia)。
+- ~~`10-04-alert-rules`~~(已归档)。
 - `v12-backlog` 池。
 
 ## Acceptance Criteria
