@@ -1,0 +1,23 @@
+# myssia-webcheck — 官方场景件:网站全息体检台(封装 Lissy93/web-check)。
+#
+# 分析件二批(AC9,task 10-05-plugin-market-batch 批二):对任意网站做技术
+# 栈/DNS/SSL/响应头/端口/SEO 一站式曝面分析,与 exposure lane 互补
+# (credhunter 查凭证泄露,web-check 查站点本身的曝面)。上游 MIT(gh api
+# 核,2026-10-05;35k 星,极活跃),官方镜像自部署 = 零成本零第三方
+# (P0 本地执行硬规则的「自有实例」形态),**无门槛件**(普通 remote 桩,
+# 不声明 gate)。本插件只以 manifest 声明依赖与文档引用接入;服务端部署
+# compose 在仓库 docker/plugins/myssia-webcheck/。
+id: myssia-webcheck
+name: 网站全息体检台(web-check)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: remote
+requires: []
+provides: [site_recon]
+modes:
+  remote:
+    endpoint: https://webcheck.example.com   # your web-check deployment
+    # 上游自部署形态无内建鉴权(内网/回环部署自担边界,经反代加鉴权时凭据
+    # 自管);故本件不带 token 声明。
+install:
+  source: https://github.com/xinzhuzi/myia.git

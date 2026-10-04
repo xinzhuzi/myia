@@ -1,0 +1,13 @@
+# 上游 Lissy93/web-check(MIT)官方镜像的等价薄封装;单服务零凭据(自部署
+# 形态无内建鉴权,站点探测在实例侧执行——回环/内网部署自担边界,要暴露到
+# 不受信网络请自行加反代鉴权)。用法:docker compose up -d 后,实例地址
+# http://127.0.0.1:3000 填进 plugin.modes.remote.endpoint(web-check 无门槛
+# 件,无需 gates.yaml)。
+services:
+  web-check:
+    image: lissy93/web-check
+    container_name: myssia-webcheck
+    ports:
+      # 默认只绑回环;要远程访问走自有反代/TLS,不开公网裸端口。
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
