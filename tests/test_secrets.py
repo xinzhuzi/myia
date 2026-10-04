@@ -715,3 +715,21 @@ class TestListSecretsMacosEnumeration:
         set_secret("myia/push/a", "v", backend=backend)
         assert list_secrets(backend=backend) == ["myia/push/a"]
         assert calls == []
+
+    def test_dump_never_consulted_when_set_backend_injected(self, monkeypatch, default_backend):
+        """set_backend() 全局注入(桌面/CLI 测试的实际通道)同样不走枚举。
+
+        r2 回归修复:此前 macOS 枚举先于注入检查,真钥匙串名单漏进
+        list_secrets() 的无参调用——钥匙串有真实 myia/* 凭据的开发机
+        上全量必红,CI(Linux 无枚举路径)绿掩蔽(10-05-keychain-silent-listing R4)。
+        """
+        calls: list[str] = []
+
+        def _dump(service: str):
+            calls.append(service)
+            return ["myia/probe/should-not-appear"]
+
+        monkeypatch.setattr(secrets_store, "_dump_macos_service_accounts", _dump)
+        set_secret("myia/push/a", "v", backend=default_backend)
+        assert list_secrets() == ["myia/push/a"]
+        assert calls == []

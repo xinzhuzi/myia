@@ -146,6 +146,10 @@ class InMemoryKeychainBackend:
 
 
 _default_backend: KeychainBackend | None = None
+#: ``_default_backend`` 是否由 :func:`set_backend` 主动注入(区别于懒发现的
+#: 系统后端缓存)。``list_secrets`` 的枚举路径只看它:注入在场 = 永不枚举
+#: (R4 契约,10-05-keychain-silent-listing r2 回归修复),懒缓存不算注入。
+_backend_injected: bool = False
 
 
 def set_backend(backend: KeychainBackend) -> None:
@@ -153,14 +157,16 @@ def set_backend(backend: KeychainBackend) -> None:
 
     The override stays until :func:`reset_backend`.
     """
-    global _default_backend
+    global _default_backend, _backend_injected
     _default_backend = backend
+    _backend_injected = True
 
 
 def reset_backend() -> None:
     """Drop the injected backend; the next use re-discovers the keyring default."""
-    global _default_backend
+    global _default_backend, _backend_injected
     _default_backend = None
+    _backend_injected = False
 
 
 def get_backend() -> KeychainBackend:
@@ -411,13 +417,13 @@ def list_secrets(*, backend: KeychainBackend | None = None) -> list[str]:
     如实降级),entries whose keychain item vanished out-of-band
     (Keychain Access / 凭据管理器手删) are dropped and the index self-heals.
 
-    注入 backend(测试/显式选择)时**永不**走枚举路径,行为与既往逐字节
-    一致。
+    注入 backend(显式传参**或** :func:`set_backend` 全局注入)时**永不**走
+    枚举路径,行为与既往逐字节一致。
 
     Raises:
         SecretError: backend unavailable or a backend read failed.
     """
-    if backend is None:
+    if backend is None and not _backend_injected:
         dumped = _dump_macos_service_accounts(SECRET_SERVICE)
         if dumped is not None:
             names = [

@@ -79,3 +79,9 @@
   行为,不在本任务消扰范围;若主人希望装机版对 vision 线两条凭据静默,
   授权一次「始终允许」即可,不改代码。
 - 技术方案与取舍见 design.md。
+
+## r2 回归修复补记(2026-10-05,主人令「修」)
+
+- **缺陷**:R4 承诺「注入 backend 时永不走枚举路径」在 macOS 上被违背——`list_secrets()` 的枚举短路(`secrets.py` `_dump_macos_service_accounts`)发生在注入检查之前,`set_backend()` 全局注入(桌面/CLI 测试的实际通道)被整体绕过,真钥匙串名单漏进无参调用。AC3 的「注入行为逐字节一致」验证在 Linux CI 完成,darwin 枚举分支为零覆盖;暴露条件 = macOS + 钥匙串存有真实 `myia/*` 凭据(本机 2026-10-05 新增 image/llm 两条后全量 2 红:`test_set_list_delete_roundtrip` / `test_human_mode_secret_list`)。既有测试 `test_dump_never_consulted_when_backend_injected` 只测显式传参通道,注入通道无测试——两者一并补齐。
+- **修法**:`_backend_injected` 标记区分「主动注入」与「懒发现缓存」,枚举前置条件改为 `backend is None and not _backend_injected`;懒缓存不算注入,系统缺省路径(枚举+自愈)行为不变。新增回归 `test_dump_never_consulted_when_set_backend_injected`。影响面 gitnexus impact LOW(单调用方 `cli.py:_cmd_secret`)。
+- **验证**:定向 `tests/test_secrets.py + tests/cli/test_cli_full.py` 98 passed(含原两红转绿);全量因并行会话在途半成品(cli.py `_add_harvester_parser` 未定义)暂不可跑,以提交后净室 worktree 全量为准——结果见下行补记。
