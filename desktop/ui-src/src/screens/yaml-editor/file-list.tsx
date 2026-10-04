@@ -4,6 +4,7 @@ import { useState } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 import { isValidFileStem } from "./api";
@@ -32,8 +33,11 @@ export function FileList({ files, selectedFile, draftName, onSelect, onDelete, o
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2" data-testid="yaml-file-list">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-foreground">品类文件({files.length})</p>
+      {/* 终审修整:列头固定 h-9 + 标题紧行高——「品名文件(N)」标题与
+          「新建」按钮中线对齐(VL 指认未对齐:19px 行高文本 vs 28px 按钮
+          的 items-center 视觉偏移,固定行高钉死) */}
+      <div className="flex h-9 items-center justify-between gap-2">
+        <p className="text-sm leading-none font-medium text-foreground">品类文件({files.length})</p>
         <Button
           size="sm"
           variant="outline"
@@ -157,16 +161,14 @@ function CreateFileForm({ onSubmit, onCancel }: CreateFileFormProps) {
         onSubmit(trimmed);
       }}
     >
-      <input
+      {/* R2 刀4:新建输入走共享 Input 基件(微填充+低可见描边,与全屏输入族一致) */}
+      <Input
         autoFocus
         value={stem}
         aria-label="新建文件名"
         placeholder="小写字母/数字/-/_,1-64 字符(如 ai-news)"
         onChange={(event) => setStem(event.target.value)}
-        className={cn(
-          "h-8 rounded-md border border-input bg-transparent px-2.5 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40",
-          invalid && "border-destructive",
-        )}
+        className={cn(invalid && "border-destructive")}
       />
       {invalid ? (
         <p role="alert" className="text-2xs text-destructive">

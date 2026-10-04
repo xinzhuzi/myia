@@ -26,7 +26,10 @@ export function AppLayout() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar category={category} onCategoryChange={handleCategoryChange} />
-        <main className="min-h-0 flex-1 overflow-y-auto">
+        {/* R2 刀1 呼吸感:内容列 1200px 收束(max-w-content/--content-max),
+            超宽屏不摊满;main 仍为唯一滚动容器,屏根保持 main 直接子,
+            index.css 基调层的区块 gap 升档选择器依赖此结构 */}
+        <main className="mx-auto min-h-0 w-full max-w-content flex-1 overflow-y-auto">
           <Outlet context={{ category } satisfies CategoryFilterContext} />
         </main>
       </div>

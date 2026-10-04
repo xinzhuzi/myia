@@ -18,6 +18,7 @@ import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -288,7 +289,7 @@ function EnrichFeedbackCard({
               <div
                 key={pluginFile}
                 data-testid={`enrich-row-${pluginFile}`}
-                className="flex flex-col gap-2.5 rounded-md border border-border/60 bg-muted/40 px-3 py-2.5"
+                className="flex flex-col gap-3 rounded-md border border-border/60 bg-muted/40 p-4"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 flex-col">
@@ -331,9 +332,10 @@ function EnrichFeedbackCard({
                       onChange={(event) => setRowState(pluginFile, { modelDraft: event.target.value })}
                     />
                   </div>
+                  {/* 终审修整:保存钮 variant 与「保存 LLM 凭据」统一 default
+                      (VL 指认两类保存按钮位/质感不统一;同为主操作,同一视觉) */}
                   <Button
                     size="sm"
-                    variant="outline"
                     disabled={!modelDirty || row.saving}
                     title={modelDirty ? "写回 enrich.model" : "与现值一致,无需保存"}
                     onClick={() =>
@@ -581,7 +583,8 @@ export function SettingsScreen() {
   }, [push.channel, push.scope, push.secretName]);
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    /* R2 重排:区块节奏消费具名令牌 gap-block(24px)+ pb-block */
+    <div className="flex flex-col gap-block pb-block">
       <PageHeader
         title="设置"
         description="通用 / 视觉 / 推送 / 更新 / 高级 五分区 —— 凭据只入系统钥匙链,doctor 验证回显,软件更新检查"
@@ -600,17 +603,20 @@ export function SettingsScreen() {
       ) : null}
 
       {/* 左列 = 分区过滤框(导航上方,census #7)+ 分区导航;右列 = 分区内容
-          (拆解表第 1/2 条:当前项高亮左竖条,每子区一屏) */}
-      <div className="flex flex-col gap-5 px-6 md:flex-row md:gap-6">
+          (拆解表第 1/2 条:当前项高亮左竖条,每子区一屏)。
+          R2 重排:双列间距消费 gap-block(24px);右列卡堆叠走 gap-grid(12px) */}
+      <div className="flex flex-col gap-card px-6 md:flex-row md:gap-block">
         <div className="flex shrink-0 flex-col gap-2 md:w-44">
-          <input
+          {/* 终审修整:过滤框转共享 Input 基件(带 data-slot=input,与全屏输入
+              同享微填充+低可见描边+统一圆角;原裸 input 描边/填充自成一家,
+              VL 指认「输入框描边粗细不一」) */}
+          <Input
             type="search"
             value={sectionFilter}
             aria-label="过滤分区"
             placeholder="过滤分区"
             data-testid="settings-section-filter"
             onChange={(event) => setSectionFilter(event.target.value)}
-            className="h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
           />
           <nav
             aria-label="设置分区"
@@ -653,15 +659,19 @@ export function SettingsScreen() {
           ) : null}
         </div>
 
-        {/* 右列:区标题+描述,下堆叠多个 Card(每 Card 一个设置主题) */}
+        {/* 右列:区标题+描述,下堆叠多个 Card(每 Card 一个设置主题)。
+            R2 刀3:区标题升 text-lg(16px semibold,字号阶梯档)——级差链
+            页标题 20 → 区标题 16 → 卡标题 13。
+            终审修整:卡间 gap-grid(12px)→gap-4(16px),VL 指认「顶部 YAML
+            区块密集堆叠无呼吸」 */}
         <section
           key={activeSection.id}
           aria-labelledby={`settings-section-title-${activeSection.id}`}
           data-testid={`settings-section-${activeSection.id}`}
-          className="flex w-full min-w-0 max-w-3xl animate-fade-in flex-col gap-3"
+          className="flex w-full min-w-0 max-w-3xl animate-fade-in flex-col gap-4"
         >
           <header className="flex flex-col gap-1 pb-1">
-            <h2 id={`settings-section-title-${activeSection.id}`} className="text-base font-semibold text-foreground">
+            <h2 id={`settings-section-title-${activeSection.id}`} className="text-lg font-semibold text-foreground">
               {activeSection.title}
             </h2>
             <p className="text-xs text-muted-foreground">{activeSection.description}</p>

@@ -5,7 +5,8 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -301,7 +302,9 @@ export function MessagingScreen() {
   );
 
   return (
-    <div className="flex flex-col gap-4">
+    /* R2 重排:区块节奏消费具名令牌 gap-block(24px)+ pb-block(消息屏
+        原本无底距,基调层补过,这里显式落字) */
+    <div className="flex flex-col gap-block pb-block">
       <PageHeader
         title="消息"
         description="平台总览与接入态;通道目录浏览与别名命名;给推送规则挑选具体会话(保存写回品类 YAML)"
@@ -350,14 +353,16 @@ export function MessagingScreen() {
       {/* ---------------- 上区:通道目录(按平台分组) ---------------- */}
       <div className="px-6">
         <Card>
-          <CardContent className="flex flex-col gap-3 p-4">
-            <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          {/* R2 刀3:卡头层级化(CardTitle 13 semibold + CardDescription),
+              说明文字不再挤在标题行括号里 */}
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
               <MessageCircle className="size-4 text-muted-foreground" />
               通道目录
-              <span className="text-xs font-normal text-muted-foreground">
-                (目录 = 可寻址的推送对象;别名是手工命名,重建后仍生效)
-              </span>
-            </p>
+            </CardTitle>
+            <CardDescription>目录 = 可寻址的推送对象;别名是手工命名,重建后仍生效</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
 
             {state.status === "loading" ? (
               <div className="flex flex-col gap-2" aria-label="加载中">
@@ -412,12 +417,15 @@ export function MessagingScreen() {
                                 {entry.chat_id}
                               </span>
                             </span>
-                            <span className="flex shrink-0 items-center gap-2">
-                              <span className="text-2xs text-muted-foreground">
+                            {/* 终审修整:辅助文字(最后发现)mono 弱化与主信息分层;
+                                「改名/取消别名」钮距统一 gap-1.5(VL 指认辅助文字
+                                未与主信息对齐、按钮间距不一致) */}
+                            <span className="flex shrink-0 items-center gap-2.5">
+                              <span className="font-mono text-2xs text-muted-foreground">
                                 最后发现 {formatLastSeen(entry.last_seen)}
                               </span>
                               {editing ? null : (
-                                <>
+                                <span className="flex items-center gap-1.5">
                                   <Button
                                     size="sm"
                                     variant="ghost"
@@ -436,15 +444,15 @@ export function MessagingScreen() {
                                       取消别名
                                     </Button>
                                   ) : null}
-                                </>
+                                </span>
                               )}
                             </span>
                           </div>
                           {editing && aliasDraft ? (
                             <div className="flex items-center gap-2 pl-1" role="group" aria-label="别名编辑">
-                              <input
+                              <Input
                                 aria-label={`别名 ${entry.chat_id}`}
-                                className="h-7 w-56 rounded-md border border-border bg-transparent px-2 text-xs"
+                                className="w-56 text-xs"
                                 value={aliasDraft.value}
                                 autoFocus
                                 disabled={aliasBusy}
@@ -478,13 +486,11 @@ export function MessagingScreen() {
       {/* ---------------- 下区:推送规则面板(按品类文件分组) ---------------- */}
       <div className="px-6">
         <Card>
-          <CardContent className="flex flex-col gap-3 p-4">
-            <p className="text-sm font-medium text-foreground">
-              推送规则
-              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                (给每条规则勾选具体推送对象;保存 = 全量写回该品类 YAML 的 push[])
-              </span>
-            </p>
+          <CardHeader>
+            <CardTitle>推送规则</CardTitle>
+            <CardDescription>给每条规则勾选具体推送对象;保存 = 全量写回该品类 YAML 的 push[]</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
 
             {state.status === "loading" ? (
               <div className="flex flex-col gap-2" aria-label="加载中">
@@ -624,9 +630,10 @@ function RuleFileGroup({
                     const spec = targetSpec(option);
                     const dead = data ? isDeadEntry(option, data.dead) : false;
                     return (
-                      <label key={option.chat_id} className="flex items-center gap-2 text-xs">
+                      <label key={option.chat_id} className="flex min-h-7 items-center gap-2 text-xs">
                         <input
                           type="checkbox"
+                          className="accent-primary"
                           checked={selected.includes(spec)}
                           onChange={() => onToggle(entry, spec)}
                           aria-label={`对象 ${option.name}`}
@@ -920,29 +927,30 @@ function AlertRulesPanel() {
   return (
     <div className="px-6">
       <Card>
-        <CardContent className="flex flex-col gap-3 p-4" data-testid="alert-rules-panel">
-          <div className="flex items-center justify-between gap-2">
-            <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-foreground">
+        <CardHeader className="flex-row items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <CardTitle className="flex items-center gap-2">
               <Bell className="size-4 text-muted-foreground" />
               告警规则
-              <span className="text-xs font-normal text-muted-foreground">
-                (对每条新入流情报求值,命中即推送/打标;保存 = 全量写回规则表)
-              </span>
-            </p>
-            {unsupported ? null : (
-              <Button
-                size="sm"
-                disabled={form !== null || saving}
-                onClick={() => {
-                  setNotice(null);
-                  setTestPanel(null);
-                  setForm(emptyAlertDraft());
-                }}
-              >
-                新建规则
-              </Button>
-            )}
+            </CardTitle>
+            <CardDescription>对每条新入流情报求值,命中即推送/打标;保存 = 全量写回规则表</CardDescription>
           </div>
+          {unsupported ? null : (
+            <Button
+              size="sm"
+              className="shrink-0"
+              disabled={form !== null || saving}
+              onClick={() => {
+                setNotice(null);
+                setTestPanel(null);
+                setForm(emptyAlertDraft());
+              }}
+            >
+              新建规则
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4" data-testid="alert-rules-panel">
 
           {notice ? (
             <div
@@ -1124,7 +1132,7 @@ function AlertRuleForm({
   onSubmit: () => void;
   onTest: () => void;
 }) {
-  const inputClass = "h-7 w-full rounded-md border border-border bg-transparent px-2 text-xs";
+  const inputClass = "h-8 w-full text-xs";
   return (
     <form
       className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted/30 p-3"
@@ -1140,7 +1148,7 @@ function AlertRuleForm({
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1 text-xs">
           名称
-          <input
+          <Input
             aria-label="规则名称"
             className={inputClass}
             value={draft.name}
@@ -1149,9 +1157,12 @@ function AlertRuleForm({
         </label>
         <label className="flex flex-col gap-1 text-xs">
           作用域
+          {/* 原生 select 带 data-slot=select-trigger 样式钩子:与 Radix
+              SelectTrigger 同享基调层微填充/低可见描边,暗色族感一致 */}
           <select
             aria-label="规则作用域"
-            className={inputClass}
+            data-slot="select-trigger"
+            className={cn("cursor-pointer px-2.5", inputClass)}
             value={draft.scope}
             onChange={(event) => onChange({ ...draft, scope: event.target.value })}
           >
@@ -1170,7 +1181,7 @@ function AlertRuleForm({
         <textarea
           aria-label="when 表达式"
           rows={2}
-          className="w-full rounded-md border border-border bg-transparent px-2 py-1 font-mono text-xs"
+          className="w-full rounded-md border border-(--control-border) bg-(--control-bg) px-2 py-1 font-mono text-xs outline-none transition-[color,border-color,box-shadow] duration-(--duration-fast) ease-out-expo placeholder:text-muted-foreground/70 focus-visible:ring-[3px] focus-visible:ring-ring/40"
           value={draft.when}
           onChange={(event) => onChange({ ...draft, when: event.target.value })}
         />
@@ -1181,6 +1192,7 @@ function AlertRuleForm({
           <input
             type="radio"
             name="alert-action"
+            className="accent-primary"
             checked={draft.action === "push"}
             onChange={() => onChange({ ...draft, action: "push" })}
           />
@@ -1190,6 +1202,7 @@ function AlertRuleForm({
           <input
             type="radio"
             name="alert-action"
+            className="accent-primary"
             checked={draft.action === "tag"}
             onChange={() => onChange({ ...draft, action: "tag" })}
           />
@@ -1202,7 +1215,8 @@ function AlertRuleForm({
             通道(channel)
             <select
               aria-label="推送通道"
-              className={inputClass}
+              data-slot="select-trigger"
+              className={cn("cursor-pointer px-2.5", inputClass)}
               value={draft.channel}
               onChange={(event) => onChange({ ...draft, channel: event.target.value })}
             >
@@ -1219,7 +1233,7 @@ function AlertRuleForm({
           </p>
           <label className="flex flex-col gap-1 text-xs">
             推送对象(可选,逗号分隔;缺省走通道默认)
-            <input
+            <Input
               aria-label="推送对象"
               className={inputClass}
               value={draft.targets}
@@ -1228,7 +1242,7 @@ function AlertRuleForm({
           </label>
           <label className="flex flex-col gap-1 text-xs">
             消息模板(可选)
-            <input
+            <Input
               aria-label="消息模板"
               className={inputClass}
               value={draft.template}
@@ -1239,7 +1253,7 @@ function AlertRuleForm({
       ) : (
         <label className="flex flex-col gap-1 text-xs">
           标签(逗号分隔,至少一个)
-          <input
+          <Input
             aria-label="标签列表"
             className={inputClass}
             value={draft.tags}

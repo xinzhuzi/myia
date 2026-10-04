@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, CircleDot, HeartPulse, Loader2, Play, RefreshCw, TrendingUp } from "lucide-react";
+import { Activity, CircleDot, Gauge, HeartPulse, Loader2, Play, RefreshCw, TrendingUp, TriangleAlert } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -164,7 +164,7 @@ function CategoryCard({
   return (
     <div
       data-testid={`category-${category.file}`}
-      className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/40 px-2.5 py-2"
+      className="flex h-full items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2.5"
     >
       <div className="flex min-w-0 flex-col gap-0.5">
         <p className="truncate text-xs font-medium text-foreground">{category.name}</p>
@@ -244,8 +244,11 @@ const SECTION_LABELS: Record<"doctor" | "runs" | "registry", string> = {
 };
 
 /**
- * 概览条格(teardown-vercel-dashboard #2:小标签 = 大写+弱色,大数字 = tnum
- * 全局已开;value=null 显 — 不虚构)。note = 弱注记(口径说明)。
+ * 概览格卡(终审修整:单卡内 divide-x 四格 → 四张独立等宽等高 Card;
+ * VL 指认「四卡紧密堆叠、卡高不一/宽度不一、右侧告警卡错位」——
+ * grid gap-grid + 基调层 [data-slot=card] height:100% 天然等高等宽)。
+ * teardown-vercel-dashboard #2 血统保留:小标签 = 大写+弱色,大数字 = tnum
+ * 全局已开;value=null 显 — 不虚构。note = 弱注记(口径说明)。
  */
 function StatCell({
   label,
@@ -261,17 +264,138 @@ function StatCell({
   testid: string;
 }) {
   return (
-    <div data-testid={testid} className="flex flex-col gap-1 md:px-6 md:first:pl-0">
-      <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p
-        className={cn(
-          "text-2xl font-semibold tabular-nums",
-          destructive ? "text-destructive" : "text-foreground",
-        )}
-      >
-        {value === null ? "—" : value}
+    <Card data-testid={testid} className="gap-2">
+      <div className="flex h-full min-h-24 flex-col gap-1.5 px-card py-4">
+        <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p
+          className={cn(
+            "text-2xl font-semibold tabular-nums",
+            destructive ? "text-destructive" : "text-foreground",
+          )}
+        >
+          {value === null ? "—" : value}
+        </p>
+        <p className="mt-auto text-2xs leading-snug text-muted-foreground">{note}</p>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * 趋势图包装(终审修整,VL 指认「纯色折线无数据点无坐标轴刻度」):
+ * Sparkline 画布参数同源(viewBox 260×48 / pad 3,preserveAspectRatio=none
+ * 线性拉伸)→ 归一坐标按容器百分比叠加层即可与折线逐点贴合:
+ * ① y 轴刻度列(顶/中/底三档,HTML 免 SVG 拉伸变形)+ 图域上下留白;
+ * ② 网格层:三条水平细线(0%/50%/100% 刻度线);
+ * ③ 数据点层:每值一枚 6px 圆点(card 色描环,与线交叠清晰);
+ * ④ 轴刻度行由调用侧渲染(x 轴起/中/止 + 峰值单位标注)。
+ * sparkline.tsx 零改动(可选层全在屏内)。
+ */
+function TrendChart({
+  values,
+  max,
+  pulse = false,
+  area = true,
+  yLabels,
+  className,
+  "aria-label": ariaLabel,
+  "data-testid": dataTestId,
+}: {
+  values: number[];
+  max?: number;
+  pulse?: boolean;
+  area?: boolean;
+  /** y 轴三档刻度文案(顶/中/底;缺省不渲染刻度列) */
+  yLabels?: [string, string, string];
+  className?: string;
+  "aria-label": string;
+  "data-testid"?: string;
+}) {
+  const W = 260;
+  const H = 48;
+  const PAD = 3;
+  const domainMax = max !== undefined && max > 0 ? max : Math.max(...values, 0);
+  const points =
+    values.length === 0
+      ? []
+      : values.map((value, index) => ({
+          x: values.length === 1 ? W / 2 : PAD + ((W - PAD * 2) * index) / (values.length - 1),
+          y: domainMax === 0 ? H / 2 : PAD + (H - PAD * 2) * (1 - value / domainMax),
+        }));
+  return (
+    <div className={cn("flex items-stretch gap-2 py-1.5", className)}>
+      {/* y 轴刻度列:与网格三线同高对齐(justify-between 同步 0%/50%/100%) */}
+      {yLabels ? (
+        <div
+          aria-hidden
+          className="flex w-9 shrink-0 flex-col justify-between py-px text-right font-mono text-2xs leading-none text-muted-foreground/80"
+        >
+          <span>{yLabels[0]}</span>
+          <span>{yLabels[1]}</span>
+          <span>{yLabels[2]}</span>
+        </div>
+      ) : null}
+      <div className="relative min-w-0 flex-1">
+        {/* 网格层:0%/50%/100% 三条刻度线(border 族,弱于折线) */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+          <span className="h-px w-full bg-border/60" />
+          <span className="h-px w-full bg-border/40" />
+          <span className="h-px w-full bg-border/60" />
+        </div>
+        <Sparkline
+          values={values}
+          max={max}
+          pulse={pulse}
+          area={area}
+          className="relative z-10"
+          aria-label={ariaLabel}
+          data-testid={dataTestId}
+        />
+        {/* 数据点层:与折线逐点贴合(同参归一 → 百分比定位) */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 z-20">
+          {points.map((point, index) => (
+            <span
+              key={index}
+              className="absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary ring-2 ring-card"
+              style={{ left: `${(point.x / W) * 100}%`, top: `${(point.y / H) * 100}%` }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 趋势分区错误条(终审修整,VL 指认「method_not_found 错误信息未有效视觉
+ * 隔离」):行内 <p> 升级为独立警示块——图标 + 左侧文案 + 等宽错误码胶囊,
+ * 与图表以垂直间距分明隔离(role=alert 可达性同步升格)。
+ */
+function TrendErrorAlert({
+  title,
+  code,
+  message,
+  testid,
+}: {
+  title: string;
+  code: string;
+  message: string;
+  testid: string;
+}) {
+  return (
+    <div
+      role="alert"
+      data-testid={testid}
+      className="flex items-start gap-2.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2.5"
+    >
+      <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+      <p className="min-w-0 flex-1 text-xs text-destructive">
+        <span className="font-medium">{title}</span>
+        <span className="ml-1">{humanizeSidecarError(code, message)}</span>
+        <code className="ml-1.5 rounded-sm border border-destructive/25 bg-destructive/15 px-1 py-px font-mono text-2xs">
+          [{code}]
+        </code>
       </p>
-      <p className="text-2xs text-muted-foreground">{note}</p>
     </div>
   );
 }
@@ -282,25 +406,25 @@ function StatCell({
  * → 相对时间」层级)。
  */
 function SourceCard({ card }: { card: SourceHealthCardModel }) {
+  // R2 刀2:走 Card 槽位(基调层等高/统一内边距;旧 raw div 不吃等高,列高不一)
   return (
-    <div
-      data-testid={`source-card-${card.key}`}
-      className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-4"
-    >
-      <div className="flex items-start justify-between gap-2">
+    <Card data-testid={`source-card-${card.key}`} className="gap-2">
+      <div className="flex items-start justify-between gap-2 px-card">
         <StatusDot state={card.state} reason={card.reason} />
         <span className="font-mono text-xs text-muted-foreground">
           {formatRelativeTime(card.lastObservedAt)}
         </span>
       </div>
-      <p className="truncate text-base font-medium text-foreground" title={`${card.name} · ${card.engine}`}>
-        {card.name}
-      </p>
-      <p className="truncate text-xs text-muted-foreground">
-        {card.pluginName}
-        {card.latestItemCount !== null ? ` · 最近 ${card.latestItemCount} 条` : ""}
-      </p>
-    </div>
+      <div className="flex flex-col gap-1 px-card">
+        <p className="truncate text-base font-medium text-foreground" title={`${card.name} · ${card.engine}`}>
+          {card.name}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {card.pluginName}
+          {card.latestItemCount !== null ? ` · 最近 ${card.latestItemCount} 条` : ""}
+        </p>
+      </div>
+    </Card>
   );
 }
 
@@ -414,7 +538,7 @@ export function DashboardScreen() {
   const outcomeSummary = outcomes !== null ? cumulativeOutcomeSummary(outcomes) : null;
 
   return (
-    <div data-testid="dashboard-screen-root" className="flex flex-col gap-6 pb-6">
+    <div data-testid="dashboard-screen-root" className="flex flex-col gap-block pb-6">
       <PageHeader
         title="仪表盘"
         description="概览条 / 采集量趋势 / 源健康度 / 品类与近期 run"
@@ -465,48 +589,47 @@ export function DashboardScreen() {
         </div>
       ) : null}
 
-      {/* 概览条(D4;teardown #2:一行四格,大写小标签 + 大数字 tnum)。
+      {/* 概览条(D4;teardown #2 血统:大写小标签 + 大数字 tnum)。
+          终审修整:单卡 divide-x 四格 → 节头 + 四张独立等宽等高卡(VL 指认
+          「四卡紧密堆叠/卡高不一/告警卡错位」);节头与源健康度/品类状态
+          同款家族(图标+标题+右侧窗口 Select)。
           A-dash:独立窗口 Select(今日(UTC)/7/14/30 天,趋势卡同款形态)——
           采集/推送两格随窗;活跃源/告警 = doctor 点快照不随窗,窗口档注记口径 */}
       <section
         data-testid="dashboard-overview"
         aria-label={overviewWindow === "today" ? "今日概览" : `近 ${overviewWindow} 天概览`}
-        className="px-6"
+        className="flex flex-col gap-4 px-6"
       >
-        <Card>
-          <CardContent className="flex flex-col gap-4 py-5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-                {overviewWindow === "today" ? "今日概览(UTC)" : `近 ${overviewWindow} 天概览(UTC)`}
-              </p>
-              <Select
-                value={overviewWindow === "today" ? "today" : String(overviewWindow)}
-                onValueChange={(value) =>
-                  setOverviewWindow(value === "today" ? "today" : (Number(value) as TrendWindowDays))
-                }
-              >
-                <SelectTrigger size="sm" className="h-6 text-xs" aria-label="概览时间范围">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">今日(UTC)</SelectItem>
-                  {TREND_WINDOW_DAYS.map((option) => (
-                    <SelectItem key={option} value={String(option)}>
-                      {option} 天
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4 md:gap-x-0 md:divide-x md:divide-border/60">
-              {loading && overview === null ? (
-                [0, 1, 2, 3].map((index) => (
-                  <div key={index} className="flex flex-col gap-2 md:px-6 md:first:pl-0">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="h-8 w-12" />
-                  </div>
-                ))
-              ) : overview === null ? null : (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Gauge className="size-3.5 text-muted-foreground" aria-hidden />
+            <h2 className="text-base font-semibold text-foreground">
+              {overviewWindow === "today" ? "今日概览(UTC)" : `近 ${overviewWindow} 天概览(UTC)`}
+            </h2>
+          </div>
+          <Select
+            value={overviewWindow === "today" ? "today" : String(overviewWindow)}
+            onValueChange={(value) =>
+              setOverviewWindow(value === "today" ? "today" : (Number(value) as TrendWindowDays))
+            }
+          >
+            <SelectTrigger size="sm" className="w-28" aria-label="概览时间范围">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">今日(UTC)</SelectItem>
+              {TREND_WINDOW_DAYS.map((option) => (
+                <SelectItem key={option} value={String(option)}>
+                  {option} 天
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {loading && overview === null ? (
+            [0, 1, 2, 3].map((index) => <Skeleton key={index} className="h-28 w-full rounded-lg" />)
+          ) : overview === null ? null : (
                 <>
                   <StatCell
                     testid="stat-window-items"
@@ -555,14 +678,15 @@ export function DashboardScreen() {
                   />
                 </>
               )}
-            </div>
-          </CardContent>
-        </Card>
+        </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 px-6 md:grid-cols-3">
+      {/* R2 刀2 重排:趋势卡升全宽 hero(与品类卡的配对等高拉伸会把短卡
+          拉成空壳——实测 679px 等高中趋势卡近半是死区;Linear 参考亦为
+          全宽区块纵向节奏),品类状态独立成节移至源健康度之下 */}
+      <section aria-label="采集量趋势" className="px-6">
         {/* 采集量趋势(teardown #6:Select 时间范围 + 自绘 sparkline;building 态末点呼吸) */}
-        <Card className="md:col-span-2">
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2">
@@ -578,7 +702,7 @@ export function DashboardScreen() {
                 value={String(windowDays)}
                 onValueChange={(value) => setWindowDays(Number(value) as TrendWindowDays)}
               >
-                <SelectTrigger size="sm" className="h-6 text-xs" aria-label="趋势时间范围">
+                <SelectTrigger size="sm" className="w-28" aria-label="趋势时间范围">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -592,24 +716,39 @@ export function DashboardScreen() {
             </div>
             <CardDescription>每日入库条目数(UTC 逐日;时间范围切换即时重查)</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2">
+          <CardContent className="flex flex-col gap-3">
             {trendLoading && trend === null ? (
               <>
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-3 w-2/3" />
               </>
             ) : trendError ? (
-              <p className="text-xs text-destructive" data-testid="dashboard-trend-error">
-                趋势不可用({trendError.code}):{trendError.message}
-              </p>
+              <TrendErrorAlert
+                title="趋势不可用"
+                code={trendError.code}
+                message={trendError.message}
+                testid="dashboard-trend-error"
+              />
             ) : (
               <>
-                <Sparkline
+                <TrendChart
                   values={counts}
+                  className="h-20"
+                  yLabels={[`${trendPeak}`, `${Math.round(trendPeak / 2)}`, "0"]}
                   data-testid="dashboard-sparkline"
                   pulse={collecting}
-                  aria-label={`近 ${windowDays} 天采集量 sparkline,共 ${trendTotal} 条,峰值 ${trendPeak} 条`}
+                  aria-label={`近 ${windowDays} 天采集量趋势,共 ${trendTotal} 条,峰值 ${trendPeak} 条`}
                 />
+                {trend !== null && trend.length > 0 ? (
+                  <p
+                    className="flex items-center justify-between pl-11 font-mono text-2xs text-muted-foreground"
+                    data-testid="trend-axis"
+                  >
+                    <span>{trend[0].date}</span>
+                    <span className="text-muted-foreground/80">峰值 {trendPeak} 条/日</span>
+                    <span>{trend[trend.length - 1].date}</span>
+                  </p>
+                ) : null}
                 <p className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
                   <span data-testid="trend-total">
                     近 {windowDays} 天共 {trendTotal} 条 · 峰值 {trendPeak} 条/日
@@ -621,9 +760,12 @@ export function DashboardScreen() {
 
             {/* 成功率第二序列(G6,10-04-desktop-b234):同块同行共享窗口 Select;
                 口径 = 每日 success/(total−running),与「近期 run 成功率」卡
-                (内存合并 active)不同源,卡面如实注记不冒充同源 */}
-            <div className="mt-2 flex flex-col gap-2 border-t border-border/60 pt-3" data-testid="dashboard-rate-section">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                (内存合并 active)不同源,卡面如实注记不冒充同源。
+                终审修整:标题升 text-sm/medium(VL 指认与「不含进行中」辅注
+                字号无级差);错误走独立警示条(视觉隔离);图加网格+数据点
+                + y 满刻度标注 */}
+            <div className="mt-5 flex flex-col gap-2.5 border-t border-border/60 pt-5" data-testid="dashboard-rate-section">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 成功率
                 <Badge variant="outline">不含进行中</Badge>
               </p>
@@ -633,28 +775,36 @@ export function DashboardScreen() {
                   <Skeleton className="h-3 w-2/3" />
                 </>
               ) : outcomeError ? (
-                <p className="text-xs text-destructive" data-testid="dashboard-rate-error">
-                  成功率趋势不可用:{humanizeSidecarError(outcomeError.code, outcomeError.message)}
-                  <span className="ml-1 font-mono">[{outcomeError.code}]</span>
-                </p>
+                <TrendErrorAlert
+                  title="成功率趋势不可用"
+                  code={outcomeError.code}
+                  message={outcomeError.message}
+                  testid="dashboard-rate-error"
+                />
               ) : rateSeries.length === 0 ? (
                 <p className="text-xs text-muted-foreground" data-testid="dashboard-rate-empty">
                   近 {windowDays} 天无已完结 run——成功率无从谈起,先跑一轮再说
                 </p>
               ) : (
                 <>
-                  <Sparkline
+                  <TrendChart
                     values={rateSeries.map((point) => point.rate)}
                     max={1}
                     area={false}
+                    yLabels={["100%", "50%", "0"]}
                     data-testid="dashboard-rate-sparkline"
                     aria-label={
                       outcomeSummary && outcomeSummary.rate !== null
                         ? `近 ${windowDays} 天累计成功率 ${formatSuccessRate(outcomeSummary.rate)}` +
                           `(${outcomeSummary.success}/${outcomeSummary.finished} 次成功),无完结 run 的日子不入线`
-                        : `近 ${windowDays} 天成功率 sparkline,无完结 run 的日子不入线`
+                        : `近 ${windowDays} 天成功率趋势,无完结 run 的日子不入线`
                     }
                   />
+                  <p className="flex items-center justify-between pl-11 font-mono text-2xs text-muted-foreground">
+                    <span>{rateSeries[0]?.date}</span>
+                    <span className="text-muted-foreground/80">刻度 0–100%</span>
+                    <span>{rateSeries[rateSeries.length - 1]?.date}</span>
+                  </p>
                   {outcomeSummary && outcomeSummary.rate !== null ? (
                     <p className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
                       <span data-testid="rate-summary">
@@ -669,43 +819,14 @@ export function DashboardScreen() {
             </div>
           </CardContent>
         </Card>
-
-        {/* 品类状态 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CircleDot className="size-3.5 text-muted-foreground" />
-              品类状态
-            </CardTitle>
-            <CardDescription>已载品类、调度与诊断评级(0 error / N warning)</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1.5">
-            {loading && !data ? (
-              <>
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </>
-            ) : categories.length === 0 ? (
-              <EmptyState
-                compact
-                title="暂无品类"
-                description="首次启动会自动装载随包官方品类;若仍未出现,重启应用重试初始化,或到「源管理」查看插件目录"
-              />
-            ) : (
-              categories.map((category) => (
-                <CategoryCard key={category.file} category={category} onRunFinished={() => void refresh()} />
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      </section>
 
       {/* 源健康度卡网格(D4;teardown #3/#4:四态点 + 14 medium 名称 + muted 次行 + 相对时间;gap-6) */}
       <section aria-label="源健康度" className="flex flex-col gap-3 px-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <HeartPulse className="size-3.5 text-muted-foreground" />
-            <h2 className="text-sm font-medium text-foreground">源健康度</h2>
+            <h2 className="text-base font-semibold text-foreground">源健康度</h2>
             <span className="text-xs text-muted-foreground">
               {sourceCards.length} 个源 · 坏者(dead → degraded → unknown)靠前
             </span>
@@ -728,7 +849,7 @@ export function DashboardScreen() {
         </div>
         <div
           data-testid="source-health-grid"
-          className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          className="grid grid-cols-1 gap-grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         >
           {loading && !data ? (
             [0, 1, 2, 3].map((index) => (
@@ -748,7 +869,38 @@ export function DashboardScreen() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 px-6 md:grid-cols-3">
+      {/* 品类状态(R2 重排:自趋势配对中独立;节头与源健康度同款 = 小卡栅格节
+          统一「图标+标题+口径注记 → 栅格」家族,与概览/趋势大卡家族分层) */}
+      <section aria-label="品类状态" className="flex flex-col gap-3 px-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <CircleDot className="size-3.5 text-muted-foreground" />
+          <h2 className="text-base font-semibold text-foreground">品类状态</h2>
+          <span className="text-xs text-muted-foreground">
+            已载品类、调度与诊断评级(0 error / N warning)
+          </span>
+        </div>
+        {loading && !data ? (
+          <div className="grid grid-cols-1 gap-grid sm:grid-cols-2">
+            {[0, 1, 2, 3].map((index) => (
+              <Skeleton key={index} className="h-14 w-full" />
+            ))}
+          </div>
+        ) : categories.length === 0 ? (
+          <EmptyState
+            compact
+            title="暂无品类"
+            description="首次启动会自动装载随包官方品类;若仍未出现,重启应用重试初始化,或到「源管理」查看插件目录"
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-grid sm:grid-cols-2">
+            {categories.map((category) => (
+              <CategoryCard key={category.file} category={category} onRunFinished={() => void refresh()} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="grid grid-cols-1 gap-grid px-6 md:grid-cols-2">
         {/* 近期 run 成功率 */}
         <Card>
           <CardHeader>

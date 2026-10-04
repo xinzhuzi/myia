@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, onSidecarEvent, SidecarRequestError } from "@/lib/api";
 import type { TestCompletedEvent } from "@/lib/api";
@@ -184,18 +184,24 @@ export function SourcesScreen() {
   const summary = state.data?.summary;
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    /* R2 重排:区块节奏直接消费具名令牌 gap-block(24px)+ pb-block 底部呼吸,
+       index.css 基调层兜底自然让位(值相同) */
+    <div className="flex flex-col gap-block pb-block">
       <PageHeader
         title="源管理"
         description="品类源的启停写回品类 YAML;改动被 myssia run 识别(doctor 复核往返一致)"
         actions={
           <>
             {summary ? (
-              <div className="flex items-center gap-1">
-                <Badge variant="ok">正常 {summary.ok}</Badge>
-                <Badge variant="warning">退化 {summary.degraded}</Badge>
-                <Badge variant="destructive">失效 {summary.dead}</Badge>
-                {summary.unknown > 0 ? <Badge variant="unknown">未知 {summary.unknown}</Badge> : null}
+              /* R2 刀5:页头统计与表格健康徽章统一「圆点+文字」视觉语言
+                 (毒评④⑤「徽章族感不一致/空框感」),数字 semibold 前置扫读 */
+              <div className="flex items-center gap-1.5">
+                <SummaryDot tone="ok" label="正常" value={summary.ok} />
+                <SummaryDot tone="warning" label="退化" value={summary.degraded} />
+                <SummaryDot tone="dead" label="失效" value={summary.dead} />
+                {summary.unknown > 0 ? (
+                  <SummaryDot tone="unknown" label="未知" value={summary.unknown} />
+                ) : null}
               </div>
             ) : null}
             <Button size="sm" variant="outline" onClick={() => void reload()} disabled={state.status === "loading"}>
@@ -267,7 +273,10 @@ export function SourcesScreen() {
 
       <div className="px-6">
         <Card>
-          <CardContent className="flex flex-col gap-3 p-4">
+          {/* R2 重排:CardContent 不再写 p-4 —— 纵向呼吸由基调层 [data-slot=card]
+              padding-block 20px 统一供给,横向由 card-content padding-inline 20px
+              供给;原先 p-4 与基调层叠成 36/20 不对称(毒评②边距不均) */}
+          <CardContent className="flex flex-col gap-4">
             {state.status === "loading" ? (
               <div className="flex flex-col gap-2" aria-label="加载中">
                 {[0, 1, 2].map((index) => (
@@ -301,8 +310,16 @@ export function SourcesScreen() {
       {disabledEntries.length > 0 ? (
         <div className="px-6">
           <Card>
-            <CardContent className="flex flex-col gap-2 p-4">
-              <p className="text-sm font-medium text-foreground">本次会话已停用({disabledEntries.length})</p>
+            {/* R2 刀3 层级:卡标题走 CardTitle(13px semibold 阶梯),说明文字
+                升为 CardDescription(卡头区),不再垫在卡底当脚注 */}
+            <CardHeader>
+              <CardTitle>本次会话已停用({disabledEntries.length})</CardTitle>
+              <CardDescription>
+                停用名单以品类 YAML 为准(写回应答为准出);会话前已停用的源不在
+                health 协议面,读取待协议扩展。
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
               <ul className="flex flex-col gap-1.5">
                 {disabledEntries.map((entry) => (
                   <li key={entry.key} className="flex items-center justify-between gap-2 text-xs">
@@ -340,21 +357,25 @@ export function SourcesScreen() {
                   </li>
                 ))}
               </ul>
-              <p className="text-2xs text-muted-foreground">
-                停用名单以品类 YAML 为准(写回应答为准出);会话前已停用的源不在 health 协议面,读取待协议扩展。
-              </p>
             </CardContent>
           </Card>
         </div>
       ) : null}
 
       {/* 排程一览(G4,10-03-feed-ux):每品类 schedule/timezone 原文 + 未来 5 次
-          (Apify 式 Next runs 预览,防 cron 写错);单品类失败只塌该行 */}
+          (Apify 式 Next runs 预览,防 cron 写错);单品类失败只塌该行。
+          R2 重排:卡头 CardTitle+CardDescription 层级化,卡体只留数据行 */}
       {scheduleRows !== null ? (
         <div className="px-6" data-testid="schedule-overview">
           <Card>
-            <CardContent className="flex flex-col gap-2 p-4">
-              <p className="text-sm font-medium text-foreground">排程一览(未来 5 次)</p>
+            <CardHeader>
+              <CardTitle>排程一览</CardTitle>
+              <CardDescription>
+                每品类未来 5 次运行(schedule.preview 纯计算,排程执行属 CLI/常驻
+                形态);改 schedule 节到「配置编辑」。
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
               {scheduleRows.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   插件目录下没有品类 YAML;先装品类再看排程。
@@ -365,7 +386,7 @@ export function SourcesScreen() {
                     <li
                       key={row.file}
                       data-testid={`schedule-row-${row.file}`}
-                      className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 py-1.5 text-xs last:border-b-0"
+                      className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-border/40 py-1.5 text-xs last:border-b-0"
                     >
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="truncate font-medium text-foreground">{row.name}</span>
@@ -381,20 +402,27 @@ export function SourcesScreen() {
                           <Badge variant="unknown">无排程</Badge>
                         )}
                         {row.timezone ? (
-                          <span className="font-mono text-muted-foreground">{row.timezone}</span>
+                          <span className="font-mono text-2xs text-muted-foreground">{row.timezone}</span>
                         ) : null}
                       </span>
-                      <span className="flex items-center gap-1 font-mono text-muted-foreground">
+                      <span className="flex flex-wrap items-center justify-end gap-1 font-mono text-muted-foreground">
                         {row.error ? (
                           <span className="truncate text-destructive" title={row.error}>
                             {row.error}
                           </span>
                         ) : row.runs.length > 0 ? (
-                          row.runs.map((run) => (
+                          row.runs.map((run, index) => (
+                            /* 终审修整:时间数据可视化——最近一次运行用品牌青高亮
+                               (下一跳最值得关注),其余保持中性;行 min-h 统一
+                               (VL 指认「各行高不统一、时间纯文本堆砌无可视化」) */
                             <span
                               key={run}
-                              className="rounded border border-border/60 bg-muted/30 px-1 py-0.5"
-                              title={run}
+                              className={
+                                index === 0
+                                  ? "inline-flex h-5 items-center rounded-sm border border-primary/40 bg-primary/10 px-1.5 font-mono text-2xs font-medium text-primary"
+                                  : "inline-flex h-5 items-center rounded-sm border border-border/50 bg-muted/50 px-1.5 font-mono text-2xs"
+                              }
+                              title={index === 0 ? `最近一次即将运行:${run}` : run}
                             >
                               {formatScheduleRun(run)}
                             </span>
@@ -407,9 +435,6 @@ export function SourcesScreen() {
                   ))}
                 </ul>
               )}
-              <p className="text-2xs text-muted-foreground">
-                预览为纯计算(schedule.preview);排程执行属 CLI/常驻形态,改 schedule 节到「配置编辑」。
-              </p>
             </CardContent>
           </Card>
         </div>
@@ -444,3 +469,29 @@ const sourceRowShell: SourceRow = {
   },
   fingerprintSkips: { observed: 0, skipped: 0 },
 };
+
+/** 页头健康统计 chip:圆点 + 标签 + 数字(与表格 HealthBadge 同视觉语言) */
+const SUMMARY_TONE = {
+  ok: "bg-ok",
+  warning: "bg-warning",
+  dead: "bg-dead",
+  unknown: "bg-unknown",
+} as const;
+
+function SummaryDot({
+  tone,
+  label,
+  value,
+}: {
+  tone: keyof typeof SUMMARY_TONE;
+  label: string;
+  value: number;
+}) {
+  return (
+    <span className="inline-flex h-6 items-center gap-1.5 rounded-sm border border-border/50 bg-muted/30 px-2 text-xs text-muted-foreground">
+      <span aria-hidden className={`size-1.5 rounded-full ${SUMMARY_TONE[tone]}`} />
+      {label}
+      <span className="font-semibold text-foreground">{value}</span>
+    </span>
+  );
+}

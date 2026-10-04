@@ -154,14 +154,14 @@ function RunGroupHeader({
 }) {
   const starting = rerun?.phase === "starting";
   return (
-    <div className="flex items-center gap-1 pr-2 transition-colors duration-(--duration-fast) hover:bg-accent/60">
+    <div className="flex min-h-11 items-center gap-1 pr-2 transition-colors duration-(--duration-fast) hover:bg-accent/60">
       <button
         type="button"
         data-testid={`run-group-header-${run.runId}`}
         aria-expanded={expanded}
         aria-controls={`run-group-body-${run.runId}`}
         onClick={() => onToggle(run.runId)}
-        className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5 text-left"
+        className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5 text-left"
       >
         <ChevronDown
           aria-hidden
@@ -261,10 +261,10 @@ function RunLogBody({
     <div id={`run-group-body-${runId}`} data-testid={`run-log-${runId}`} className="border-t border-border bg-sidebar">
       <div
         data-testid={`run-log-meta-${runId}`}
-        className="flex items-center justify-between gap-2 px-3 py-1.5 text-2xs text-muted-foreground"
+        className="flex items-center justify-between gap-2 px-4 py-2 text-2xs text-muted-foreground"
       >
         <span className="truncate font-mono">logs.tail run_id={runId}</span>
-        <span className="flex shrink-0 items-center gap-2">
+        <span className="flex shrink-0 items-center gap-2.5">
           {truncated ? <Badge variant="outline">缓冲截断</Badge> : null}
           {errorCount > 0 ? <Badge variant="destructive">{errorCount} 错误行</Badge> : null}
           {shownRows !== undefined ? (
@@ -279,9 +279,11 @@ function RunLogBody({
           {running ? <Badge variant={live ? "ok" : "unknown"}>{live ? "实时跟踪中" : "未跟踪"}</Badge> : null}
         </span>
       </div>
+      {/* 终审修整:日志体四周呼吸(px-3→px-4 + 顶部 pt)+ 行间 gap
+          (VL 指认「行距过密、状态标签与时间戳贴边」) */}
       <div
         ref={scrollRef}
-        className="max-h-[26rem] overflow-y-auto px-3 pb-3 font-mono text-xs leading-relaxed"
+        className="flex max-h-[26rem] flex-col gap-1 overflow-y-auto px-4 pt-2 pb-3 font-mono text-xs leading-relaxed"
       >
         {loadError !== null ? (
           <p className="text-dead">
@@ -512,8 +514,30 @@ export function LogsScreen() {
     setQuery("");
   }, []);
 
+  /** 终审修整:run 状态分布(状态条可视化,VL 指认「全屏无任何图表/进度
+   * 可视化」)——与 runBadge 同一词表聚档,零新协议,纯视图层派生 */
+  const statusDist = useMemo(() => {
+    const dist = { running: 0, success: 0, partial: 0, failed: 0, other: 0 } as Record<string, number>;
+    for (const run of visibleRunRows) {
+      if (run.state === "running" || run.status === null) dist.running += 1;
+      else if (run.status === "success") dist.success += 1;
+      else if (run.status === "partial" || run.status === "config_error") dist.partial += 1;
+      else if (run.status === "failed") dist.failed += 1;
+      else dist.other += 1;
+    }
+    return dist;
+  }, [visibleRunRows]);
+  const distSegments = [
+    { key: "success", label: "成功", tone: "bg-ok", count: statusDist.success },
+    { key: "running", label: "运行中", tone: "bg-primary", count: statusDist.running },
+    { key: "partial", label: "部分/配置", tone: "bg-warning", count: statusDist.partial },
+    { key: "failed", label: "失败", tone: "bg-dead", count: statusDist.failed },
+    { key: "other", label: "其他", tone: "bg-unknown", count: statusDist.other },
+  ].filter((segment) => segment.count > 0);
+
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    /* R2 重排:区块节奏消费具名令牌 gap-block(24px)+ pb-block */
+    <div className="flex flex-col gap-block pb-block">
       <PageHeader
         title="采集日志"
         description="run 瀑布(新→旧)· 逐 run 耗时/条数统计 · 错误行高亮 · 展开组流式续播自动滚底"
@@ -525,12 +549,12 @@ export function LogsScreen() {
         }
       />
 
-      {/* 过滤条(G7②③):品类/状态 select + 日志搜索;密度对齐源管理工具行(compact) */}
+      {/* 过滤条(G7②③):品类/状态 select + 日志搜索。
+          R2 刀4:一行控件统一 32px 档(default size),与源管理工具行同族 */}
       <div className="flex flex-wrap items-center gap-2 px-6" data-testid="logs-filter-bar">
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger
-            size="sm"
-            className="max-w-48 text-xs text-muted-foreground"
+            className="max-w-48 text-muted-foreground"
             aria-label="品类过滤"
             data-testid="filter-category"
           >
@@ -547,8 +571,7 @@ export function LogsScreen() {
         </Select>
         <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as RunFilterStatus | "all")}>
           <SelectTrigger
-            size="sm"
-            className="text-xs text-muted-foreground"
+            className="text-muted-foreground"
             aria-label="状态过滤"
             data-testid="filter-status"
           >
@@ -564,7 +587,7 @@ export function LogsScreen() {
           </SelectContent>
         </Select>
         {filtering ? (
-          <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs text-muted-foreground" onClick={resetFilters}>
+          <Button variant="ghost" className="gap-1 px-2 text-muted-foreground" onClick={resetFilters}>
             <X aria-hidden className="size-3.5" />
             清除过滤
           </Button>
@@ -573,7 +596,7 @@ export function LogsScreen() {
           {visibleRunRows.length} / {runRows.length} run
         </span>
         <div className="relative ml-auto">
-          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
+          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
           <Input
             type="search"
             value={query}
@@ -581,7 +604,7 @@ export function LogsScreen() {
             placeholder="搜索日志(输入即过滤,命中高亮)"
             aria-label="搜索日志"
             data-testid="log-search-input"
-            className="h-7 w-60 pl-7 font-mono text-xs"
+            className="w-64 pl-8 font-mono"
           />
         </div>
       </div>
@@ -589,7 +612,7 @@ export function LogsScreen() {
       {error ? (
         <div className="px-6">
           <Card data-testid="logs-error">
-            <CardContent className="pt-1">
+            <CardContent>
               <p className="text-sm font-medium text-destructive">
                 采集日志不可用(sidecar 错误码 {error.code})
               </p>
@@ -599,9 +622,43 @@ export function LogsScreen() {
         </div>
       ) : null}
 
-      <div className="px-6">
-        {/* run 瀑布:每 run 一段折叠组(Crawlab 运行瀑布 + Kestra 步骤折叠) */}
-        <div className="flex flex-col gap-2" data-testid="run-waterfall">
+      <div className="flex flex-col gap-3 px-6">
+        {/* 终审修整:节头 + run 状态分布条——VL 指认「页面标题与区块标题字号无
+            级差、全屏无图表/进度可视化」;分布条与图例同 render,纯视图派生 */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold text-foreground">运行历史</h2>
+            <span className="text-2xs text-muted-foreground">
+              {visibleRunRows.length} / {runRows.length} run · 新→旧
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {distSegments.map((segment) => (
+              <span key={segment.key} className="inline-flex items-center gap-1.5 text-2xs text-muted-foreground">
+                <span aria-hidden className={`size-1.5 rounded-full ${segment.tone}`} />
+                {segment.label} {segment.count}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div
+          className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted/60"
+          data-testid="run-status-distribution"
+          role="img"
+          aria-label={`run 状态分布:${distSegments.map((s) => `${s.label} ${s.count}`).join("、") || "无 run"}`}
+        >
+          {distSegments.map((segment) => (
+            <span
+              key={segment.key}
+              className={segment.tone}
+              style={{ width: `${(segment.count / Math.max(visibleRunRows.length, 1)) * 100}%` }}
+              title={`${segment.label} ${segment.count}`}
+            />
+          ))}
+        </div>
+        {/* run 瀑布:每 run 一段折叠组(Crawlab 运行瀑布 + Kestra 步骤折叠);
+            R2 刀2:组间节奏消费 gap-grid 令牌(12px 栅格卡间距) */}
+        <div className="flex flex-col gap-grid" data-testid="run-waterfall">
           {loading && runs.length === 0 ? (
             <>
               <Skeleton className="h-12 w-full rounded-lg" />

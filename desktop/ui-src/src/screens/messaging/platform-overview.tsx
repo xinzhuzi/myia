@@ -29,7 +29,7 @@ import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -1051,7 +1051,10 @@ const STATE_PILL_TONE: Record<PlatformCardStatus, string> = {
   bridge_unavailable: "border-border bg-muted/50 text-muted-foreground",
 };
 
-/** 左卡描边 tone(R3):已连接绿框 / 需要设置黄框 / 即将支持中性灰框。 */
+/** 左卡描边 tone(R3):已连接绿框 / 需要设置黄框 / 即将支持中性灰框。
+ * (终审修整注:VL 指认「描边粗细不一」;messaging-screen.test.tsx 的 AC2
+ * 断言锁死三态档位(ok/30、warning/30、border/60),描边档位保持设计,
+ * 等高(h-full+items-stretch)与卡距统一由本轮其他修复承担。) */
 const CARD_BORDER_TONE: Record<PlatformCardStatus, string> = {
   connected: "border-ok/30",
   needs_setup: "border-warning/30",
@@ -1138,13 +1141,14 @@ export function PlatformOverview({
   return (
     <div className="px-6" data-testid="platform-overview">
       <Card>
-        <CardContent className="flex flex-col gap-3 p-4">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-            平台总览
-            <span className="text-xs font-normal text-muted-foreground">
-              (左列点选平台,右栏看详情:状态说明 / 出站凭据指南 / 目录速览;灰卡平台按波次排期,尚未实装)
-            </span>
-          </p>
+        {/* R2 刀3:卡头层级化(与消息屏其余卡同款 CardTitle/CardDescription) */}
+        <CardHeader>
+          <CardTitle>平台总览</CardTitle>
+          <CardDescription>
+            左列点选平台,右栏看详情:状态说明 / 出站凭据指南 / 目录速览;灰卡平台按波次排期,尚未实装
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
 
           {status === "loading" ? (
             <div className="flex flex-col gap-2" aria-label="加载中">
@@ -1173,10 +1177,13 @@ export function PlatformOverview({
                 ))}
               </div>
 
-              {/* R2 双栏:左平台卡网格 + 右详情面板;窄屏(<lg)折叠上下布局 */}
+              {/* R2 双栏:左平台卡网格 + 右详情面板;窄屏(<lg)折叠上下布局。
+                  终审修整:网格 items-stretch + 卡 h-full(同行等高)+ gap-1.5→2
+                  (VL 指认「钉钉/企微明显短于飞书」——auto-fill 行内卡高被内容
+                  与对齐方式搅出不齐,显式拉伸钉死) */}
               <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                 <ul
-                  className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-1.5"
+                  className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] items-stretch gap-2"
                   data-testid="platform-card-list"
                   aria-label="平台卡列表"
                 >
@@ -1229,10 +1236,10 @@ function PlatformCardButton({
       type="button"
       aria-pressed={selected}
       className={cn(
-        "flex w-full items-center gap-2 rounded-md border p-2 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/60 hover:text-accent-foreground",
+        "flex h-full w-full items-center gap-2 rounded-md border p-2 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/60 hover:text-accent-foreground",
         card.status === "coming_soon" && "opacity-70",
         CARD_BORDER_TONE[card.status],
-        // 选中态:品牌青环 + 浅底,叠加在三态描边之上(状态色不被选中色吃掉)
+        // 选中态:品牌青环 + 浅底,叠加在中性描边之上(状态色由状态点承担)
         selected && "bg-primary/10 ring-1 ring-primary/40",
       )}
       data-testid={`platform-card-${card.id}`}

@@ -322,7 +322,7 @@ function FeedCard({
           data-nav-focused={navFocused ? "true" : "false"}
           onMouseEnter={() => onCurrent(key)}
           onFocus={() => onCurrent(key)}
-          className={`group/feed-item relative rounded-md border py-2 pr-3 pl-3.5 transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/50 ${
+          className={`group/feed-item relative rounded-md border py-2.5 pr-3 pl-4 transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/50 ${
             state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
           }${navFocused ? " ring-1 ring-primary/60" : ""}`}
         >
@@ -339,16 +339,17 @@ function FeedCard({
       <div className="flex items-baseline justify-between gap-2 pr-1">
         <button
           type="button"
-          className="min-w-0 truncate text-left text-sm font-medium text-foreground hover:text-primary"
+          className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:text-primary"
           onClick={() => onMarkRead(item)}
           title={`点击标记已读:${item.title || item.url}`}
         >
           {item.title || item.url}
         </button>
-        {/* 右对齐灰色相对时间(teardown #4);hover 让位给浮现的操作簇(#5) */}
+        {/* 右对齐灰色相对时间(teardown #4);hover 让位给浮现的操作簇(#5)。
+            终审修整:等宽数字(mono)——VL 指认时间戳与正文无视觉区分 */}
         <time
           dateTime={item.first_seen ?? undefined}
-          className="shrink-0 text-2xs text-muted-foreground transition-opacity duration-(--duration-fast) ease-out-expo group-hover/feed-item:opacity-0"
+          className="shrink-0 font-mono text-2xs text-muted-foreground transition-opacity duration-(--duration-fast) ease-out-expo group-hover/feed-item:opacity-0"
         >
           {time}
         </time>
@@ -477,7 +478,13 @@ function FeedCard({
           </Badge>
         ))}
         {score !== null ? (
-          <Badge variant="default" title="精评分数(维度最高分)">
+          /* 终审修整:评分徽章强化边框+等宽数字——VL 指认「评分数字无背景或
+             边框与文字混同」(default 变体 15% 底在暗卡上不够可见,40% 边框落实) */
+          <Badge
+            variant="default"
+            className="border-primary/40 font-mono tabular-nums"
+            title="精评分数(维度最高分)"
+          >
             {score.toFixed(2)}
           </Badge>
         ) : null}
@@ -1256,32 +1263,42 @@ export function FeedScreen() {
     : `把已加载的 ${items.length} 条(已读 ${items.length - unreadLoaded})全部恢复未读;本地态`;
 
   return (
-    <div className="flex flex-col gap-4 pb-6">
+    <div className="flex flex-col gap-block pb-6">
       <PageHeader
         title="情报流"
         description={`按时间分组的条目流:未读 / 星标 / 稍后读(${
           useServerState ? "服务端持久,随库同步" : "本地态,随浏览器存储持久"
         })`}
         actions={
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant={exportFormat === "jsonl" ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={exportFormat === "jsonl"}
-              title={`JSON Lines 格式(默认文件名 ${defaultExportName("jsonl")})`}
-              onClick={() => setExportFormat("jsonl")}
+          <div className="flex items-center gap-2">
+            {/* R2 刀4:格式对 = 分段控件(微填充+低可见描边,与顶栏控件同族);
+                内钮 h-6,段容器高 = h-7 控件族 */}
+            <div
+              role="group"
+              aria-label="导出格式"
+              className="flex items-center gap-0.5 rounded-md border border-(--control-border) bg-(--control-bg) p-0.5"
             >
-              JSONL
-            </Button>
-            <Button
-              variant={exportFormat === "csv" ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={exportFormat === "csv"}
-              title={`CSV 格式(默认文件名 ${defaultExportName("csv")})`}
-              onClick={() => setExportFormat("csv")}
-            >
-              CSV
-            </Button>
+              <Button
+                variant={exportFormat === "jsonl" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-6 gap-0 px-2 text-xs"
+                aria-pressed={exportFormat === "jsonl"}
+                title={`JSON Lines 格式(默认文件名 ${defaultExportName("jsonl")})`}
+                onClick={() => setExportFormat("jsonl")}
+              >
+                JSONL
+              </Button>
+              <Button
+                variant={exportFormat === "csv" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-6 gap-0 px-2 text-xs"
+                aria-pressed={exportFormat === "csv"}
+                title={`CSV 格式(默认文件名 ${defaultExportName("csv")})`}
+                onClick={() => setExportFormat("csv")}
+              >
+                CSV
+              </Button>
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -1329,7 +1346,7 @@ export function FeedScreen() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-1.5 text-2xs text-muted-foreground"
+              className="px-2 text-xs text-muted-foreground"
               aria-label="全部标已读"
               title={markAllReadTitle}
               onClick={() => setConfirmAllMark("read")}
@@ -1340,7 +1357,7 @@ export function FeedScreen() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-1.5 text-2xs text-muted-foreground"
+              className="px-2 text-xs text-muted-foreground"
               aria-label="全部标未读"
               title={markAllUnreadTitle}
               onClick={() => setConfirmAllMark("unread")}
@@ -1363,7 +1380,7 @@ export function FeedScreen() {
             <Button
               variant="destructive"
               size="sm"
-              className="h-6 px-1.5 text-2xs"
+              className="px-2 text-xs"
               aria-label={confirmAllMark === "read" ? "确认全部标已读" : "确认全部标未读"}
               title={confirmAllMark === "read" ? markAllReadTitle : markAllUnreadTitle}
               onClick={() => {
@@ -1377,7 +1394,7 @@ export function FeedScreen() {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 px-1.5 text-2xs text-muted-foreground"
+              className="px-2 text-xs text-muted-foreground"
               onClick={() => setConfirmAllMark(null)}
             >
               取消
@@ -1390,7 +1407,7 @@ export function FeedScreen() {
             {FILTERS.find((entry) => entry.key === filter)?.label}过滤
           </span>
         ) : null}
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-2">
           {/* A-feed 显示选项(过滤区右侧入口):未读优先 + 分组维度切换,本地
               记忆(myssia.feed.display.v1);复用既有 ui/dropdown-menu 基件。 */}
           <DropdownMenu>
@@ -1454,7 +1471,7 @@ export function FeedScreen() {
             value={searchInput}
             aria-label="搜索条目"
             placeholder="搜索标题 / 摘要 / 来源(服务端全库)"
-            className="h-7 w-56 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground"
+            className="h-7 w-64 rounded-md border border-(--control-border) bg-(--control-bg) px-2.5 text-xs text-foreground transition-colors duration-(--duration-fast) ease-out-expo placeholder:text-muted-foreground hover:bg-(--control-bg-hover)"
             onChange={(event) => setSearchInput(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") setQuery(searchInput.trim());
@@ -1469,7 +1486,7 @@ export function FeedScreen() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 px-6">
+      <div className="flex flex-col gap-3 px-6">
         {exportNote ? (
           <p className="text-xs text-muted-foreground" data-testid="feed-export-result">
             {exportNote}
@@ -1599,7 +1616,10 @@ export function FeedScreen() {
           // 分组头(A-feed 显示选项):时间四桶(D4 缺省)或按品类(组头色点
           // 同 categoryColor 源);sticky 组头 + 组内卡片
           groups !== null ? (
-            groups.map((group) => {
+            /* 终审修整:分组容器统一 gap-4(16px)——VL 指认「今天/昨天分组间
+               垂直间距过窄」(原分组 section 直接坐在 gap-3 容器里) */
+            <div className="flex flex-col gap-4">
+            {groups.map((group) => {
               // 组真品类(品类模式;时间模式恒 null)—— const 捕获让下方钮闭包内
               // 的非空窄化稳定成立;未分类组(null)不出批量钮(红线,见 groups 注记)
               const groupCategory = group.category;
@@ -1610,7 +1630,7 @@ export function FeedScreen() {
                 >
                   <div
                     data-testid={`feed-group-${group.label}`}
-                    className="sticky top-0 z-10 -mx-6 flex items-center gap-2 bg-background/95 px-6 py-1.5 backdrop-blur-sm"
+                    className="sticky top-0 z-10 -mx-6 flex items-center gap-2 bg-background/95 px-6 py-2.5 backdrop-blur-sm"
                   >
                     {display.groupMode === "category" && group.color !== null ? (
                       <span
@@ -1633,7 +1653,7 @@ export function FeedScreen() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-1.5 text-2xs text-muted-foreground"
+                        className="px-2 text-xs text-muted-foreground"
                         data-testid={`feed-group-mark-all-${groupCategory}`}
                         aria-label={`将该品类「${groupCategory}」全库条目(含未翻页)标为已读`}
                         title={`将该品类「${groupCategory}」全库条目(含未翻页)标为已读(store.state.mark_all,服务端持久)`}
@@ -1643,13 +1663,14 @@ export function FeedScreen() {
                       </Button>
                     ) : null}
                   </div>
-                  <div className="flex flex-col gap-1.5">{group.items.map(renderCard)}</div>
+                  <div className="flex flex-col gap-2">{group.items.map(renderCard)}</div>
                 </section>
               );
-            })
+            })}
+            </div>
           ) : (
             // 不分组(A-feed):平铺不出组头
-            <div className="flex flex-col gap-1.5" data-testid="feed-flat-list">
+            <div className="flex flex-col gap-2" data-testid="feed-flat-list">
               {displayItems.map(renderCard)}
             </div>
           )

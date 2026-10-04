@@ -45,7 +45,9 @@
   --brand-from: #22d3ee;
   --brand-to: #8b5cf6;
 
-  --radius: 0.5rem;
+  /* 圆角基线 8→10px(R2 刀2:VL 读 Linear 卡圆角 8~12px,升一档更柔;
+     控件圆角走 --control-radius=8px 不受影响) */
+  --radius: 0.625rem;
 
   /* ---- D2 token 深化(10-03-ui-deep-imitation design.md)---- */
 
@@ -65,6 +67,30 @@
   /* 密度梯度:表格/日志 compact 节奏基数 4px(→ p-table/py-table/gap-table);
      默认 spacing 节奏不变 */
   --spacing-table: 0.25rem;
+
+  /* ---- R2 全局基调令牌(10-04-ui-reskin-r2;数值 = 本机 VL 读 Linear
+     参考图 research/reference/linear-1~4.png 的实测档位,毒评四刀对症)----
+
+     刀1 呼吸感(VL 读数:分区间 24px / 卡内边距 16~24px / 内容列收束 ~1200px):
+     区块 gap 由 16 升 24,卡 padding 由 16 升 20,超宽屏内容列不摊满 */
+  --content-max: 75rem; /* 1200px:内容列最大宽(linear-1 实测 ~1200px 收束) */
+  --gap-block: 1.5rem; /* 24px:屏内区块间垂直间距(linear-1/3 分区间 24px) */
+  --pad-card: 1.25rem; /* 20px:卡内边距基线(linear-1 24 / linear-2 16,取中) */
+  --gap-card: 1.25rem; /* 20px:卡内 CardHeader↔Content 垂直 gap(随 padding 升档) */
+
+  /* 刀2 统一栅格(VL 读数:栅格内卡间 gap 12px / 同行卡等高 / 边距统一):
+     12 列栅格由各屏 R2 重排落地,本层给卡间 gap 与等高约定 */
+  --gap-grid: 0.75rem; /* 12px:同一栅格内卡片间距(linear-2 实测 12px) */
+
+  /* 刀4 控件规格(VL 读数:控件高 32px 一致 / 圆角 ~8px / 暗色描边低可见
+     「几乎隐形」+ 微填充):Select/Button/Input 一套尺寸与描边 */
+  --control-h: 2rem; /* 32px:控件默认高(button/select-trigger/input 同族) */
+  --control-h-sm: 1.75rem; /* 28px:紧凑档(size=sm) */
+  --control-radius: 8px; /* 控件圆角(radius-md 同值) */
+  --control-px: 0.625rem; /* 10px:控件横向内边距 */
+  --control-border: rgb(255 255 255 / 0.11); /* 低可见描边:白 11%,随底色自适应 */
+  --control-bg: rgb(255 255 255 / 0.04); /* 静息微填充:Linear 输入类惯例 */
+  --control-bg-hover: rgb(255 255 255 / 0.07);
 }
 
 @theme inline {
@@ -119,10 +145,25 @@
   /* 密度梯度:p-table / py-table / gap-table 等紧凑节奏工具类 */
   --spacing-table: var(--spacing-table);
 
+  /* ---- R2 基调令牌暴露:各屏重排直接写具名工具类,不再散落 magic number ----
+     gap-block/p-block=24px 区块节奏 · gap-grid/p-grid=12px 卡栅格节奏
+     · p-card/px-card=20px 卡内边距 · max-w-content=1200px 内容列收束 */
+  --spacing-block: var(--gap-block);
+  --spacing-grid: var(--gap-grid);
+  --spacing-card: var(--pad-card);
+  --container-content: var(--content-max);
+
   /* 字号阶梯(Linear 密度,覆盖 Tailwind 默认 14/16/18/20,全屏即刻生效):
      正文 13/14、辅文 11/12、标题 16/18;行高按 1.4~1.5 档配;
      2xs 默认 medium(微标签/表头惯例)。数字一律走全局 tnum。
      展示级大数字(24-48px)不进阶梯,按屏局部 arbitrary */
+  /* 刀3 层级令牌(R2):页标题独立一档 20px/600/紧字距——级差链
+     页标题 20 semibold → 卡标题 13(text-sm)semibold → 正文 13/14 →
+     辅文 12/11;VL 读 Linear 页标题 20~24px·字重 500~600,大字号收字距 */
+  --text-2xl: 20px;
+  --text-2xl--line-height: 28px;
+  --text-2xl--font-weight: 600;
+  --text-2xl--letter-spacing: -0.011em;
   --text-2xs: 11px;
   --text-2xs--line-height: 16px;
   --text-2xs--font-weight: 500;
@@ -265,4 +306,88 @@
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+}
+
+/* =====================================================================
+ * R2 全局基调层(10-04-ui-reskin-r2)—— 对症 VL 毒评四刀①②③④。
+ * 本节为非分层(unlayered)规则:按 CSS 级联,非分层样式优先于
+ * Tailwind v4 全部 @layer(theme/base/components/utilities),故能不改
+ * 七屏源码而全局升档;各屏 R2 重排时应改为直接消费上方令牌
+ * (gap-block / gap-grid / p-card / max-w-content / text-2xl),
+ * 屏内一旦写用具名令牌工具类,此处的兜底覆盖自然让位(值相同)。
+ * ===================================================================== */
+
+/* 刀1 呼吸感:常规内容屏(仪表盘/情报流/源管理/采集日志/设置/消息)的
+   屏根区块 gap 16→24px 升档 + 统一补 24px 底部呼吸(消息屏原本无底距);
+   满高编辑器屏(YAML,根带 h-full)不适用一刀切的区块节奏,显式排除。
+   依据:VL 读 linear-1/3 分区间距 24px。 */
+main > div.flex.flex-col:not(.h-full) {
+  gap: var(--gap-block);
+  padding-bottom: var(--gap-block);
+}
+
+/* 刀1+刀2 卡片统一规格:内边距 16→20px 升档、卡内垂直 gap 同步升档、
+   圆角随 --radius(10px);横向内边距三件套(CardHeader/Content/Footer)
+   统一走 --pad-card,消灭 px-4/p-4/p-3 混档(毒评①「贴着走」②「边距不均」)。
+   height:100% 使卡在 grid/flex 栅格内天然等高(毒评②「卡片高度不一」)。 */
+[data-slot="card"] {
+  gap: var(--gap-card);
+  padding-block: var(--pad-card);
+  height: 100%;
+}
+
+[data-slot="card-header"],
+[data-slot="card-content"],
+[data-slot="card-footer"] {
+  padding-inline: var(--pad-card);
+}
+
+/* 刀4 控件统一规格:输入类(Input/SelectTrigger)统一「微填充 + 低可见
+   描边」的 Linear 质感(毒评④「像草稿」:裸透明底+独描边显毛坯);
+   描边统一 --control-border(白 11%),Button 的 outline 变体同款描边
+   (无边框变体不受影响)。hover/open 态在此一并声明,避免非分层
+   静息底色盖住组件内 utilities 的状态反馈。 */
+[data-slot="input"],
+[data-slot="select-trigger"] {
+  border-color: var(--control-border);
+  background-color: var(--control-bg);
+}
+
+[data-slot="input"]:hover,
+[data-slot="select-trigger"]:hover {
+  background-color: var(--control-bg-hover);
+}
+
+[data-slot="select-trigger"][data-state="open"] {
+  background-color: var(--accent);
+}
+
+[data-slot="button"] {
+  border-color: var(--control-border);
+}
+
+/* 终审修整:控件圆角统一 --control-radius(8px)——Button/Input/SelectTrigger
+   基件默认 rounded-md(6px),跨控件混档是 VL 终审「按钮圆角不一致/描边粗细
+   不一」的实测病灶;全族一次拉齐到刀4 令牌(--control-radius),ghost 等
+   无边框变体同享圆角,视觉粗细感随圆角统一而一致 */
+[data-slot="button"],
+[data-slot="input"],
+[data-slot="select-trigger"] {
+  border-radius: var(--control-radius);
+}
+
+/* 终审修整:设置屏 doctor 回显错误项视觉隔离(VL 指认「缺失(需写入)」
+   错误项与正常项混排)。doctor-verify.tsx 的凭据行/发现行是纯列表行,
+   错误态只靠文字色区分;基调层按内容语义钩子补「浅红底 + 左侧红条」
+   (inset shadow 不动布局),正常项保持 muted 底 → 一眼分拣。
+   :has() 匹配 Chromium 105+/WKWebView(Safari 15.4+),无头截图与桌面壳均覆盖 */
+[data-testid="doctor-verify"] li:has(.text-destructive),
+[data-testid="doctor-verify"] li:has([data-slot="badge"][class*="destructive"]) {
+  background-color: rgb(229 72 77 / 0.07);
+  box-shadow: inset 2px 0 0 var(--destructive);
+}
+
+/* 终审修整:doctor 回显发现区行距(密集堆砌指认)——列表行统一加呼吸 */
+[data-testid="doctor-verify"] li {
+  padding-block: 0.25rem;
 }

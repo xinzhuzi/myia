@@ -6,7 +6,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronUp, ChevronsUpDown, Loader2, FlaskConical } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Loader2, FlaskConical, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -279,20 +279,27 @@ export function SourcesTable({
   const headers = table.getHeaderGroups()[0]?.headers ?? [];
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      {/* R2 刀4 控件质感:工具栏一行内控件高度统一 32px(筛选 chips 弃 sm 档,
+          与 Input h-8 同族);搜索框带 Linear 式前置放大镜 */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Input
-          value={globalFilter}
-          onChange={(event) => setGlobalFilter(event.target.value)}
-          placeholder="筛选:源名 / URL / 品类…"
-          aria-label="全局筛选"
-          className="w-64"
-        />
+        <div className="relative w-64">
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
+          />
+          <Input
+            value={globalFilter}
+            onChange={(event) => setGlobalFilter(event.target.value)}
+            placeholder="筛选:源名 / URL / 品类…"
+            aria-label="全局筛选"
+            className="pl-8"
+          />
+        </div>
         <div className="flex items-center gap-1" role="group" aria-label="健康度筛选">
           {HEALTH_FILTERS.map(({ value, label }) => (
             <Button
               key={value}
-              size="sm"
               variant={healthFilter === value ? "secondary" : "ghost"}
               onClick={() => setHealthFilter(value)}
             >
@@ -377,7 +384,9 @@ export function SourcesTable({
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
+            /* 终审修整:行高 36→44px——VL 指认「行距过密、开关与最近产出列拥挤」
+               (compact 密度档对表格正文过紧,升一档呼吸) */
+            <TableRow key={row.id} className="h-11">
               {row.getVisibleCells().map((cell) => (
                 <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
               ))}
@@ -386,7 +395,7 @@ export function SourcesTable({
         </TableBody>
       </Table>
 
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
+      <div className="flex items-center justify-between text-2xs text-muted-foreground">
         <span>
           共 {table.getFilteredRowModel().rows.length} 行
           {table.getFilteredRowModel().rows.length !== rows.length ? `(全部 ${rows.length} 行)` : ""}

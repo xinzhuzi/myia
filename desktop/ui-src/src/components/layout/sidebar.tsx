@@ -121,7 +121,8 @@ export function saveSidebarPrefs(
 }
 
 /** 导航行:图标 16px 与文字对齐(可抄 #14);激活 = accent 行背景 + 左缘 2px
- *  品牌竖条(可抄 #1/#6 的竖条语言),不加粗;hover 半透明 accent。
+ *  品牌竖条(可抄 #1/#6 的竖条语言)+ font-medium 提对比(R2 校准轮②);
+ *  hover 半透明 accent。
  *  折叠态:行仍占满导航内容宽、图标居中、文字隐去(title 补可达性)——
  *  行宽不变是刻意的:竖条 -left-2 在两态都钉在侧栏左缘同一位置,
  *  不会因图标居中而飘到行中间(激活竖条在图标态的位置适配)。 */
@@ -137,7 +138,9 @@ function NavRow({ entry, collapsed }: { entry: NavEntry; collapsed: boolean }) {
           "relative flex h-8 items-center rounded-md text-sm text-muted-foreground",
           "transition-colors duration-(--duration-fast) ease-out-expo",
           collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
-          isActive ? "bg-accent text-foreground" : "hover:bg-accent/60 hover:text-foreground",
+          isActive
+            ? "bg-accent font-medium text-foreground"
+            : "hover:bg-accent/60 hover:text-foreground",
         )
       }
     >
@@ -202,7 +205,9 @@ export function Sidebar() {
           </>
         )}
       </div>
-      <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 pt-3 pb-2" aria-label="主导航">
+      {/* R2 刀1 呼吸感:分组间距 16→24(gap-block 令牌,VL 读 Linear 分组间距
+          24px);组内行距 2px 不动(导航密度与 Linear 同档) */}
+      <nav className="flex flex-1 flex-col gap-block overflow-y-auto px-2 pt-3 pb-2" aria-label="主导航">
         {NAV_GROUPS.map((group, index) => (
           <div key={group.label ?? `main-${index}`} className="flex flex-col gap-0.5">
             {group.label && !collapsed ? (
@@ -214,7 +219,7 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
-      <div className="flex shrink-0 flex-col gap-0.5 border-t border-border/60 px-2 pt-1.5 pb-2">
+      <div className="flex shrink-0 flex-col gap-0.5 border-t border-border/60 px-2 pt-2 pb-2.5">
         <NavRow entry={SETTINGS_ENTRY} collapsed={collapsed} />
         <SidecarStatusBar collapsed={collapsed} />
         <Button
@@ -256,7 +261,7 @@ function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
       );
     }
     return (
-      <div className="flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-muted-foreground" title={title}>
+      <div className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-xs text-muted-foreground" title={title}>
         <span className="relative flex size-2 shrink-0">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" />
           <span className="relative inline-flex size-2 rounded-full bg-ok" />
@@ -275,7 +280,7 @@ function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
       );
     }
     return (
-      <div className="flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-muted-foreground">
+      <div className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-xs text-muted-foreground">
         <Loader2 className="size-3 shrink-0 animate-spin" />
         连接 sidecar…
       </div>
@@ -292,7 +297,7 @@ function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
       );
     }
     return (
-      <div className="flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-warning" title="sidecar 已退出,壳层按退避自动重拉">
+      <div className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-xs text-warning" title="sidecar 已退出,壳层按退避自动重拉">
         <Loader2 className="size-3 shrink-0 animate-spin" />
         重拉 sidecar…
       </div>
