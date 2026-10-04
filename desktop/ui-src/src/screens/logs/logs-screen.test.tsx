@@ -15,7 +15,13 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { SidecarRequestError } from "@/lib/api";
-import type { AlertsFiredEvent, RunEntry, SidecarEvent } from "@/lib/api";
+import type {
+  AlertsFiredEvent,
+  CronCompletedEvent,
+  CronSkippedEvent,
+  RunEntry,
+  SidecarEvent,
+} from "@/lib/api";
 
 const harness = vi.hoisted(() => ({
   handler: null as null | ((event: SidecarEvent) => void),
@@ -123,6 +129,27 @@ const alertsFiredFixture: AlertsFiredEvent = {
   action: "push",
   action_status: "sent",
   ts: "t9",
+};
+
+// cron 域两事件夹具(10-04-cron-ui 涟漪;形状对齐 types.ts,协议 v9 实装)
+const cronSkippedFixture: CronSkippedEvent = {
+  type: "cron.skipped",
+  job_id: "a1b2c3d4e5f6",
+  name: "早晚情报流",
+  reason: "run_busy",
+  active_run_id: 7,
+  ts: "t10",
+};
+
+const cronCompletedFixture: CronCompletedEvent = {
+  type: "cron.completed",
+  job_id: "a1b2c3d4e5f6",
+  name: "早晚情报流",
+  ok: true,
+  status: "ok",
+  delivery_error: null,
+  summary: null,
+  ts: "t11",
 };
 
 afterEach(() => {
@@ -461,5 +488,39 @@ describe("eventToRow(alerts.fired)—— fe-gap-census R2 穷尽守卫适配", (
     expect(row.text).toContain("tag:tagged");
     expect(row.text).not.toContain("「」");
     expect(row.text).not.toContain("GLM-5 发布");
+  });
+});
+
+describe("eventToRow(cron.*)—— 10-04-cron-ui 涟漪(穷尽守卫适配,协议 v9)", () => {
+  it("cron.skipped → 系统行 runId=null:job 名/reason/占用 run id 入文案;ts 透传", () => {
+    const row = eventToRow(cronSkippedFixture, 11);
+    expect(row.key).toBe("event:11");
+    expect(row.runId).toBeNull();
+    expect(row.stream).toBe("system");
+    expect(row.ts).toBe("t10");
+    expect(row.text).toContain("定时任务跳过");
+    expect(row.text).toContain("早晚情报流");
+    expect(row.text).toContain("run_busy");
+    expect(row.text).toContain("#7");
+  });
+
+  it("cron.completed → 系统行 runId=null:job 名/status;失败+投递错误附注", () => {
+    const ok = eventToRow(cronCompletedFixture, 12);
+    expect(ok.key).toBe("event:12");
+    expect(ok.runId).toBeNull();
+    expect(ok.stream).toBe("system");
+    expect(ok.ts).toBe("t11");
+    expect(ok.text).toContain("定时任务完成");
+    expect(ok.text).toContain("早晚情报流");
+    expect(ok.text).toContain("status=ok");
+    expect(ok.text).not.toContain("投递失败");
+
+    const failed = eventToRow(
+      { ...cronCompletedFixture, ok: false, status: "failed", delivery_error: "feishu 429 限流" },
+      13,
+    );
+    expect(failed.text).toContain("status=failed");
+    expect(failed.text).toContain("投递失败");
+    expect(failed.text).toContain("feishu 429 限流");
   });
 });

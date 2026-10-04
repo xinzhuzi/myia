@@ -259,10 +259,35 @@ export function eventToRow(event: SidecarEvent, seq: number): LogRow {
       ts: event.ts,
     };
   }
+  if (event.type === "cron.skipped") {
+    // cron fire 撞桌面 run 单飞锁跳过(10-04-hermes-cron,协议 v9):一行系统
+    // 摘要(runId=null 同 alerts.fired 先例口径;采集日志屏订阅处按 run 域过滤
+    // 不续播本事件,跳过详情与列表刷新在定时任务屏 —— 10-04-cron-ui 涟漪适配)
+    return {
+      key: `event:${seq}`,
+      runId: null,
+      stream: "system",
+      text: `▸ 定时任务跳过(「${event.name}」· ${event.reason}:桌面 run #${event.active_run_id} 进行中)`,
+      ts: event.ts,
+    };
+  }
+  if (event.type === "cron.completed") {
+    // cron fire 完成(带运行摘要,协议 v9):一行系统摘要;活性与 notice 横幅
+    // 在定时任务屏(10-04-cron-ui 涟漪适配,同 alerts.fired 口径)
+    const detail = event.delivery_error ? ` · 投递失败:${event.delivery_error}` : "";
+    return {
+      key: `event:${seq}`,
+      runId: null,
+      stream: "system",
+      text: `▸ 定时任务完成(「${event.name}」status=${event.status}${detail})`,
+      ts: event.ts,
+    };
+  }
   // 穷尽防御:SidecarEvent = log/progress/completed/test.completed +
-  // image.models.progress/completed + image.server.completed + alerts.fired
-  // 八种(10-03-vision-v2 增模型下载域/server ensure 事件;10-04 fe-gap-census
-  // R2 增 alerts.fired);协议再添类型时此处编译期即报错
+  // image.models.progress/completed + image.server.completed + alerts.fired +
+  // cron.skipped/cron.completed 十种(10-03-vision-v2 增模型下载域/server
+  // ensure 事件;10-04 fe-gap-census R2 增 alerts.fired;10-04-cron-ui 增
+  // cron 域两事件);协议再添类型时此处编译期即报错
   const unknownEvent: never = event;
   return { key: `event:${seq}`, runId: null, stream: "system", text: `▸ 未识别事件(${String(unknownEvent)})`, ts: "" };
 }

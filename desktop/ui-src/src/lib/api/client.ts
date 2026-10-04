@@ -1,10 +1,11 @@
 /**
  * MYIA 桌面 sidecar API client —— sidecar 协议(`desktop/entry.py` `_HANDLERS`,
  * 方法数随批滚动,单一事实源 = spec 注册表)的共享封装:
- * 类型面 `SidecarProtocol` 盖 35 方法(核心 + image.config.* + v1.1.2 批八方法 +
+ * 类型面 `SidecarProtocol` 盖 45 方法(核心 + image.config.* + v1.1.2 批八方法 +
  * feed-ux 批三方法 + vision-v2 批七方法 + fe-small-batch 批 feed.enrich +
- * read-state-server 批三方法 store.state.*),
- * `api` 门面封装核心 26 方法
+ * read-state-server 批三方法 store.state.* + cron-ui 批 cron.* 九方法与
+ * yaml.list 复用),
+ * `api` 门面封装核心 36 方法
  * ——封装面 ≠ 协议面,分工见下方 api 对象头注释。
  *
  * 传输:壳命令 `sidecar_request`(src-tauri/src/main.rs);Rust 侧
@@ -16,6 +17,21 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import type {
+  CronCreateParams,
+  CronEditParams,
+  CronJobResult,
+  CronListParams,
+  CronListResult,
+  CronPauseAllResult,
+  CronPauseParams,
+  CronRemoveParams,
+  CronRemoveResult,
+  CronResumeAllResult,
+  CronResumeParams,
+  CronRunParams,
+  CronRunsParams,
+  CronRunsResult,
+  CronStatusResult,
   DoctorParams,
   DoctorResult,
   EmptyParams,
@@ -72,6 +88,7 @@ import type {
   StoreTrendResult,
   VersionParams,
   VersionResult,
+  YamlListResult,
 } from "./types";
 
 /** 壳侧流式事件名(与 main.rs `SIDECAR_EVENT` 常量一致) */
@@ -149,7 +166,10 @@ async function request<M extends SidecarMethod>(
  * + feed-ux 批 3 方法(feedExport/schedulePreview/pushTest,10-03-feed-ux)
  * + fe-small-batch 批 1 方法(feedEnrich,10-03-fe-small-batch G8)
  * + read-state-server 批 3 方法(storeStateMark/storeStateMarkAll/
- * storeStateImport,10-04-read-state-server G9),
+ * storeStateImport,10-04-read-state-server G9)
+ * + cron-ui 批 10 方法(cronList…cronRuns 九方法 + yamlList 复用,
+ * 10-04-cron-ui:定时任务屏走共享门面——yaml.list 虽属 yaml-editor 批,
+ * 但第二消费方按同源对账入面,yaml.* 其余仍屏私有),
  * 非协议全量。协议面(单一事实源 = entry.py `_HANDLERS`,注册表见
  * .trellis/spec/desktop/sidecar-protocol.md)的其余方法走屏私有封装:
  * sources.write → screens/sources/api.ts、yaml.* → screens/yaml-editor/api.ts、
@@ -231,6 +251,35 @@ export const api = {
   /** 采集量趋势(items 按 first_seen UTC 逐日计数,B4) */
   storeTrend: (params: StoreTrendParams = {}): Promise<StoreTrendResult> =>
     request("store.trend", params),
+  // ---- cron-ui 批(10-04-cron-ui;cron.* 协议方法 = hermes-cron 批 v9) ----
+  /** 定时 job 清单(缺省仅活跃;all:true 含暂停/终态) */
+  cronList: (params: CronListParams = {}): Promise<CronListResult> =>
+    request("cron.list", params),
+  /** 建定时 job(schedule 五形态;品类 YAML 装不上 = cron_category_invalid) */
+  cronCreate: (params: CronCreateParams): Promise<CronJobResult> =>
+    request("cron.create", params),
+  /** 部分更新(schedule 变更后端重算 next_run_at;空更新集 = cron_edit_no_changes) */
+  cronEdit: (params: CronEditParams): Promise<CronJobResult> => request("cron.edit", params),
+  /** 暂停单 job(reason 可选);all:true = 全局急停 estop(与 job 互斥) */
+  cronPause: (
+    params: CronPauseParams,
+  ): Promise<CronJobResult | CronPauseAllResult> => request("cron.pause", params),
+  /** 恢复单 job(at = ISO 一次性重挂);all:true = 解除全局急停 */
+  cronResume: (
+    params: CronResumeParams,
+  ): Promise<CronJobResult | CronResumeAllResult> => request("cron.resume", params),
+  /** 下次 tick 立即跑(排队语义;复活 paused + 计入 repeat;终态拒绝) */
+  cronRun: (params: CronRunParams): Promise<CronJobResult> => request("cron.run", params),
+  /** 删 job 记录(output 目录与账本行保留) */
+  cronRemove: (params: CronRemoveParams): Promise<CronRemoveResult> =>
+    request("cron.remove", params),
+  /** ticker 活性快照(心跳龄/最后错误/急停态/下次到期) */
+  cronStatus: (): Promise<CronStatusResult> => request("cron.status", {} as EmptyParams),
+  /** 执行账本尾查(新→旧;run_summary 随行解析) */
+  cronRuns: (params: CronRunsParams = {}): Promise<CronRunsResult> =>
+    request("cron.runs", params),
+  /** 品类 YAML 清单(category 选择器数据源;坏文件入列 parse_ok:false) */
+  yamlList: (): Promise<YamlListResult> => request("yaml.list", {} as EmptyParams),
 } as const;
 
 /** 订阅 sidecar 流式事件(log/progress/completed);返回取消订阅函数。 */

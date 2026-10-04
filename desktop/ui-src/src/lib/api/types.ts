@@ -793,6 +793,273 @@ export interface RunsTrendResult {
   days: RunOutcomeDay[];
 }
 
+// ---------------------------------------------------------------------------
+// cron.*(10-04-cron-ui 定时任务管理屏;协议方法 = 10-04-hermes-cron 批
+// (协议 v9),能力实现 src/myssia/cron 包与 CLI `myssia cron` 同一 API 层;
+// 契约与 entry.py `_m_cron_*`(4521-4790)互指,job dict 透传
+// src/myssia/cron/jobs.py `create_job`(750-796)——可选键「显式才有」)
+// ---------------------------------------------------------------------------
+
+/** 定时 job 记录(cron.list/create/edit/pause/resume/run 应答的 job 行;
+ *  `job` 引用 = id 或名字(重名 cron_ambiguous_job 带 candidates、未找到
+ *  cron_job_not_found,entry.py `_cron_resolve_job`)。 */
+export interface CronJobRecord {
+  /** 12 位 hex(jobs.py `uuid4().hex[:12]`) */
+  id: string;
+  name: string;
+  /** 品类 YAML 绝对路径(Q5) */
+  category: string;
+  /** 解析后的排程(schedule.py `parse_schedule`;kind 决定携带键) */
+  schedule: {
+    kind: "once" | "interval" | "cron";
+    display: string;
+    run_at?: string;
+    minutes?: number;
+    expr?: string;
+  };
+  /** 人话直读(schedule.display 或原串) */
+  schedule_display: string;
+  /** times null = forever(∞);completed = 已完成次数 */
+  repeat: { times: number | null; completed: number };
+  enabled: boolean;
+  /** scheduled | paused | completed(终态留存)| error(recurring 算不出 next 绝不静默停摆) */
+  state: "scheduled" | "paused" | "completed" | "error";
+  paused_at: string | null;
+  paused_reason: string | null;
+  /** trigger 的单发手动标记(§8.1;mark 后 run 完成即 pop —— 显式才有) */
+  manual_run_at?: string | null;
+  created_at: string;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  /** 四态(§2.1);显式 skipped_busy 覆写推导值(jobs.py `_mark_job_run`) */
+  last_status: "ok" | "failed" | "delivery_failed" | "skipped_busy" | null;
+  last_error: string | null;
+  last_delivery_error: string | null;
+  /** 连续**运行**失败连击;投递失败不计(F1.7) */
+  failure_streak: number;
+  /** "local" | "platform:ref" 投递 spec */
+  deliver: string;
+  /** 创建来源记录(cli|desktop);不参与投递(D4) */
+  origin: { source?: string } | null;
+  timezone: string | null;
+  /** 以下可选键后端「显式才有」(jobs.py create_job 尾部落键循环) */
+  failure_deliver?: string | null;
+  db_path?: string | null;
+  config_path?: string | null;
+  run_timeout?: number | null;
+  dry_run?: boolean;
+}
+
+/** cron.list:`all:true` 含暂停/终态(缺省仅活跃);db 公共参数屏缺省不传 */
+export interface CronListParams {
+  all?: boolean;
+}
+
+export interface CronListResult {
+  db: string;
+  data_root: string;
+  count: number;
+  jobs: CronJobRecord[];
+}
+
+/** cron.create:schedule/category 必填,余可选(entry.py `_m_cron_create`) */
+export interface CronCreateParams {
+  /** 五形态:30m / every 2h / every monday 9am / 0 9 * * * / in 30m 或 ISO 时刻 */
+  schedule: string;
+  /** 品类 YAML 路径(Q6 完整 load_category_file 早失败) */
+  category: string;
+  name?: string;
+  deliver?: string;
+  failure_deliver?: string;
+  timezone?: string;
+  /** 全局 pools YAML;后端存 config_path 绝对路径 */
+  config?: string;
+  paused_reason?: string;
+  /** 次数(int;null = ∞) */
+  repeat?: number;
+  /** 正数秒 */
+  run_timeout?: number;
+  dry_run?: boolean;
+  paused?: boolean;
+}
+
+/** cron.edit:job + 任意部分更新(空更新集 = cron_edit_no_changes;
+ *  schedule 变更后端重算 next_run_at 并重推导 repeat 缺省) */
+export interface CronEditParams {
+  job: string;
+  schedule?: string;
+  name?: string;
+  category?: string;
+  deliver?: string;
+  failure_deliver?: string;
+  timezone?: string;
+  config?: string;
+  repeat?: number;
+  run_timeout?: number;
+}
+
+/** cron.pause:`{job, reason?}` 暂停单 job;`{all:true}` 全局急停 estop
+ *  标记(tick 跳过派发、在途 run 不受影响;与 job 互斥) */
+export interface CronPauseParams {
+  job?: string;
+  reason?: string;
+  all?: boolean;
+}
+
+/** cron.resume:`{job, at?}` 恢复/一次性重挂(at = ISO 时刻,recurring 拒 at);
+ *  `{all:true}` 解除全局急停(与 job/at 互斥) */
+export interface CronResumeParams {
+  job?: string;
+  at?: string;
+  all?: boolean;
+}
+
+export interface CronRunParams {
+  job: string;
+}
+
+export interface CronRemoveParams {
+  job: string;
+}
+
+/** create/edit/run 与 pause/resume 单 job 形态的公共应答 */
+export interface CronJobResult {
+  job: CronJobRecord;
+}
+
+export interface CronPauseAllResult {
+  estopped: boolean;
+  /** estop 标记落点时刻(ISO) */
+  marker: string;
+}
+
+export interface CronResumeAllResult {
+  estopped: boolean;
+  cleared: boolean;
+}
+
+export interface CronRemoveResult {
+  removed: boolean;
+  job_id: string;
+  name: string;
+}
+
+/** cron.status:ticker 活性快照(F1.6);ticker_alive = 心跳新鲜
+ *  (≤ tick×3+20s,entry.py `_CRON_TICKER_FRESH_SECONDS`)&& 写者存活 */
+export interface CronStatusResult {
+  db: string;
+  data_root: string;
+  ticker_alive: boolean;
+  heartbeat_age_seconds: number | null;
+  last_success_age_seconds: number | null;
+  last_error: string | null;
+  estopped: boolean;
+  jobs_total: number;
+  jobs_enabled: number;
+  next_due_at: string | null;
+}
+
+/** cron 运行摘要(runner 随执行行落账的 run_summary_json;cron.runs 随行
+ *  解析为 run_summary、cron.completed 事件同源携带;形状 =
+ *  src/myssia/cron/summary.py `summarize_run` 八字段,零新统计只做归约) */
+export interface CronRunSummaryJob {
+  id: string;
+  name: string;
+  category: string;
+}
+
+export interface CronRunSummaryRun {
+  /** ok | partial(退出码 3)| failed */
+  status: string;
+  exit_code: number | null;
+  timed_out: boolean;
+  run_id: number | null;
+  dry_run: boolean;
+  duration_seconds: number | null;
+  error: string | null;
+}
+
+export interface CronRunSummarySources {
+  total: number;
+  ok: number;
+  failed: number;
+  items: number;
+}
+
+export interface CronRunSummaryPush {
+  channel: string;
+  ok: boolean;
+  immediate: number;
+  digest: number;
+  archive: number;
+}
+
+export interface CronRunSummary {
+  job: CronRunSummaryJob;
+  run: CronRunSummaryRun;
+  sources: CronRunSummarySources;
+  items_retained: number;
+  push: CronRunSummaryPush[];
+  /** 失败源一行式摘要(≤5 条,单条截断 120 字符) */
+  failures: string[];
+  failure_count: number;
+  /** cron.runs 撞损坏串时的原样回带(entry.py `_m_cron_runs`:`{raw}`) */
+  raw?: string;
+}
+
+/** cron.runs:执行账本行(ExecutionLedger list_executions 新→旧;
+ *  DDL NOT NULL:pid/claimed_at 恒有值) */
+export interface CronExecutionRow {
+  id: string;
+  job_id: string;
+  source: "tick" | "manual";
+  status: "claimed" | "running" | "completed" | "failed" | "unknown";
+  scheduled_instant: string | null;
+  pid: number;
+  process_start_time: number | null;
+  claimed_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  error: string | null;
+  /** run_summary_json 随行解析;无摘要/损坏见 CronRunSummary.raw */
+  run_summary: CronRunSummary | null;
+}
+
+/** cron.runs:limit 缺省 20,服务端钳制 [1,500] */
+export interface CronRunsParams {
+  job?: string;
+  limit?: number;
+}
+
+export interface CronRunsResult {
+  db: string;
+  count: number;
+  executions: CronExecutionRow[];
+}
+
+// ---------------------------------------------------------------------------
+// yaml.list 复用(创建/编辑 Dialog 的 category 选择器数据源;协议方法属
+// 10-03-yaml-editor 批,契约与 entry.py `_m_yaml_list`(2107-2118)+
+// `_yaml_file_entry`(1995-2017)互指——本屏只读,坏文件照样入列即禁选判据)
+// ---------------------------------------------------------------------------
+
+/** plugins 目录品类 YAML 清单项;坏文件 parse_ok=false + error(禁选带标的判据) */
+export interface YamlFileEntry {
+  /** 绝对路径 */
+  file: string;
+  name: string;
+  parse_ok: boolean;
+  category_id: string | null;
+  category_name: string | null;
+  sources: number | null;
+  error: { path: string; code: string; message: string } | null;
+}
+
+export interface YamlListResult {
+  plugins_dir: string;
+  files: YamlFileEntry[];
+}
+
 /** 无参方法(secret.list)的空参数 */
 export interface EmptyParams {}
 
@@ -981,6 +1248,19 @@ export interface SidecarProtocol {
   "image.server.status": { params: EmptyParams; result: ImageServerStatusResult };
   "image.server.ensure": { params: EmptyParams; result: ImageServerEnsureResult };
   "image.files.purge": { params: ImageFilesPurgeParams; result: ImageFilesPurgeResult };
+  // cron.* 九方法(10-04-cron-ui 消费,hermes-cron 批协议 v9;mirror 对账
+  // 非协议变更)——pause/resume 单 job 形态应答 {job},all 形态见各自接口
+  "cron.list": { params: CronListParams; result: CronListResult };
+  "cron.create": { params: CronCreateParams; result: CronJobResult };
+  "cron.edit": { params: CronEditParams; result: CronJobResult };
+  "cron.pause": { params: CronPauseParams; result: CronJobResult | CronPauseAllResult };
+  "cron.resume": { params: CronResumeParams; result: CronJobResult | CronResumeAllResult };
+  "cron.run": { params: CronRunParams; result: CronJobResult };
+  "cron.remove": { params: CronRemoveParams; result: CronRemoveResult };
+  "cron.status": { params: EmptyParams; result: CronStatusResult };
+  "cron.runs": { params: CronRunsParams; result: CronRunsResult };
+  // yaml.list 复用(10-04-cron-ui category 选择器;第二消费方,非协议变更)
+  "yaml.list": { params: EmptyParams; result: YamlListResult };
 }
 
 export type SidecarMethod = keyof SidecarProtocol;
@@ -1083,6 +1363,37 @@ export interface AlertsFiredEvent {
   ts: string;
 }
 
+/** cron fire 撞桌面 run 单飞锁跳过事件(entry.py `_cron_dispatch_gate`,
+ * 协议 v9 hermes-cron 批;advance 已消耗不排队不回滚,用户手点优先,
+ * `last_status="skipped_busy"` 由 tick 层落库)。cron-ui 屏(10-04-cron-ui)
+ * 订阅消费;logs 屏 eventToRow 穷尽守卫已适配(runId=null 系统行)。 */
+export interface CronSkippedEvent {
+  type: "cron.skipped";
+  job_id: string;
+  name: string;
+  /** 固定 "run_busy"(发射点仅此一因) */
+  reason: string;
+  /** 占用单飞锁的桌面 run id(发射前已核非空) */
+  active_run_id: number;
+  ts: string;
+}
+
+/** cron fire 完成事件(entry.py `_cron_execute_job`,协议 v9):摘要直接取
+ *  runner 随执行行落账的 run_summary_json(D10 零二次解析);账本取不到时
+ *  summary=null 如实不虚构,status 回落成功布尔。cron-ui 屏订阅 → notice
+ *  横幅 + 重拉列表。 */
+export interface CronCompletedEvent {
+  type: "cron.completed";
+  job_id: string;
+  name: string;
+  ok: boolean;
+  /** 摘要 run 块 status;取不到时 "ok"/"failed" 回落 */
+  status: string;
+  delivery_error: string | null;
+  summary: CronRunSummary | null;
+  ts: string;
+}
+
 export type SidecarEvent =
   | LogEvent
   | ProgressEvent
@@ -1091,12 +1402,16 @@ export type SidecarEvent =
   | ImageModelsProgressEvent
   | ImageModelsCompletedEvent
   | ImageServerCompletedEvent
-  | AlertsFiredEvent;
+  | AlertsFiredEvent
+  | CronSkippedEvent
+  | CronCompletedEvent;
 
 // 看图事件流:image.progress / image.completed 已随看图屏拆除
 // (10-03-vision-pipeline 拍板①);10-03-vision-v2 起新增模型下载域两事件
 // (image.models.progress / completed)与 server ensure 终态事件
 // (image.server.completed,ensure 慢路径应答即返、终态走事件);
-// 10-04 fe-gap-census R2 起 alerts.fired(告警命中回放,协议 v7 实装即入)。
+// 10-04 fe-gap-census R2 起 alerts.fired(告警命中回放,协议 v7 实装即入);
+// 10-04-cron-ui 起 cron.skipped/cron.completed(定时任务域,协议 v9 实装
+// 即入,蓝本任务 PRD 非目标补接线)。
 // SidecarEvent = run 域三事件 + test.completed + 模型下载域两事件 +
-// server ensure 终态事件 + alerts.fired。
+// server ensure 终态事件 + alerts.fired + cron 域两事件。

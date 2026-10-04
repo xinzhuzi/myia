@@ -289,8 +289,10 @@ push 层 `PushSendError.code`(`missing_target` / `env_var_missing` /
 1. 新增/改名方法:**只改 `_HANDLERS` 一处** + `tests/test_desktop_sidecar_protocol.py` 契约用例;
    本文注册表随同更新(行号注解允许漂移,方法名集合不许漂)。
 2. 对账手法:发未知方法名,拿 `data.allowed` 与本文注册表比对;前端共享类型映射
-   `SidecarProtocol`(types.ts)现盖 23 方法(核心 + image.config.* + v1.1.2 批八方法 +
-   feed-ux 批三方法),`sources.write`/`yaml.*` 刻意未入共享映射——对账时按上表分组核对,勿以映射数当全量。
+   `SidecarProtocol`(types.ts)现盖 45 方法(核心 + image.config.* + v1.1.2 批八方法 +
+   feed-ux 批三方法 + vision-v2/fe-small-batch/read-state-server 批 + cron-ui 批
+   `cron.*` 九方法与 `yaml.list` 复用,10-04-cron-ui),`sources.write`/`yaml.*`(除
+   `yaml.list`)刻意未入共享映射——对账时按上表分组核对,勿以映射数当全量。
 3. 封装面 ≠ 协议面:`ui-src/src/lib/api/client.ts` 的 `api` 门面盖核心 10 方法 +
    v1.1.2 桌面对齐批 8 方法(`runCancel`/`runsList`/`secretDelete`/`sourcesTest` +
    `feedbackMark`/`feedbackList`/`feedbackStats`/`storeTrend`,
@@ -299,9 +301,13 @@ push 层 `PushSendError.code`(`missing_target` / `env_var_missing` /
    同源对账,屏私名单不扩);
   `sources.write` 在 `screens/sources/api.ts`、`yaml.*` 在 `screens/yaml-editor/api.ts`、
   `image.config.*` 在 `screens/settings/vision-api.ts`、`channels.*`/`push.write`/
-  `bridge.status` 在 `screens/messaging/api.ts` 屏私有封装(invoke 直连,不走共享门面);
- `cron.*` 九方法暂无任何前端接线(桌面定时任务 UI 屏是 hermes-cron 的 PRD 非目标,
- 另立档;接线时按上表对账)。
+  `bridge.status` 在 `screens/messaging/api.ts` 屏私有封装(invoke 直连,不走共享门面)。
+ `cron.*` 九方法 + `yaml.list` 已由 10-04-cron-ui 接线(定时任务屏):十方法全入
+  共享门面(`cronList`/`cronCreate`/`cronEdit`/`cronPause`/`cronResume`/`cronRun`/
+  `cronRemove`/`cronStatus`/`cronRuns`/`yamlList`)——`yaml.list` 属第二消费方复用,
+  按同源对账入面,yaml.* 其余仍屏私有;消费方 = `screens/cron/`(list/status/runs
+  + 动作四件 + estop 双向;事件 cron.completed/cron.skipped 已入 `SidecarEvent`
+  联合与 logs 屏 eventToRow)。
  `store.state.*` 三方法的前端接线归 10-04-read-state-server 前端件(feed 屏
  能力门:`api.version().protocol >= 10` 走服务端态通路,否则原样走旧
  localStorage 通路——旧 sidecar + 新 UI 组合可用;接线落成后按上表 58-60 行对账)。

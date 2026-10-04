@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { FileCode2, Inbox, LayoutDashboard, Loader2, MessageCircle, PanelLeftClose, PanelLeftOpen, PlugZap, Rss, Settings, Terminal, Unplug } from "lucide-react";
+import { Clock, FileCode2, Inbox, LayoutDashboard, Loader2, MessageCircle, PanelLeftClose, PanelLeftOpen, PlugZap, Rss, Settings, Terminal, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -42,6 +42,9 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "采集",
     entries: [
       { to: "/sources", label: "源管理", icon: Rss, end: false },
+      // 定时任务(10-04-cron-ui):cron.* 管理屏,位次=源管理之后
+      // (与 App.tsx 路由一致;Clock 图标=排程语义)
+      { to: "/cron", label: "定时任务", icon: Clock, end: false },
       { to: "/yaml-editor", label: "配置编辑", icon: FileCode2, end: false },
       { to: "/logs", label: "采集日志", icon: Terminal, end: false },
     ],

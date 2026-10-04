@@ -30,6 +30,21 @@ repeated here.
 
 ### Added
 
+- **定时任务管理屏**(10-04-cron-ui):桌面侧栏「采集」组新增「定时任务」屏
+  (`/cron`,Clock 图标,源管理之后),照 Hermes web 控制台 CronPage 抄的
+  可视化管理皮——ticker 活性条(正常灰字含数据根/僵死黄条/急停红条,
+  急停全部=红钮+确认 Dialog、恢复全部=红条入口的双向操作)、job 列表
+  (排程人话 `schedule_display` 直读、逾期红标 15min 宽限、上次状态四态
+  badge、`all` 切换含暂停/终态、行内展开运行历史带 `run_summary_json`
+  摘要)、创建/编辑双 Dialog(schedule 五种模板 chips 仍可改、category 走
+  `yaml.list` 下拉选择器且坏文件行禁选带标+手输兜底、parse 错误原文回显)、
+  行内动作四件(立即运行=排队语义 notice「≤60 秒内开始」、暂停可填
+  reason、恢复、删除确认);刷新为事件驱动(`cron.completed`/
+  `cron.skipped` 入 `SidecarEvent` 联合→notice 横幅+重拉,logs 屏
+  `eventToRow` 穷尽守卫同步适配为 runId=null 系统行)+手动刷新+本地
+  1min 时钟 tick 驱动逾期标走时,零 interval 轮询。零协议变更:cron.*
+  九方法与两事件系 10-04-hermes-cron 已交付底座,本批纯前端薄壳
+  (types.ts 镜像对账 35→45 方法,门面十方法入共享 `api`)。
 - **Feed inline search takes over the browser find shortcut** (10-04
   fe-gap-census R1): Mod+F (⌘F / Ctrl+F) in the feed screen now focuses the
   inline search box and selects its text instead of the webview find bar, and

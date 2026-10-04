@@ -7,7 +7,7 @@
 
 1. **先查 token 再写值**:颜色/字号/时长/缓动/阴影/紧凑间距一律用 token 工具类;index.css 没有的 → 评估加 token(说明对标依据),而不是在屏内写 arbitrary 值。
 2. **单源原则**:源健康度四色(`ok/warning/dead/unknown`)三屏共用(仪表盘/源管理/日志),改色只改 `:root`,不动屏。
-3. **布局骨架统一**:七屏 PageHeader 惯例 = `h1 text-base font-semibold` + 内容区 `px-6 pb-6`;新屏照抄,不自创页头。
+3. **布局骨架统一**:八屏 PageHeader 惯例 = `h1 text-base font-semibold` + 内容区 `px-6 pb-6`;新屏照抄,不自创页头。
 4. **出处注释**:对标 Linear/Vercel 的模仿点须带 teardown 出处注释(例:`feed-screen.tsx` 三级密度卡注 `teardown-linear-activity #5`;`dashboard-screen.tsx:385` 概览条注 `teardown #2`)。无出处的新样式默认是 AI 默认态,review 会打回。
 5. **测试同步**:屏结构变化牵动 `*.test.tsx` 断言,同笔更新;scoped vitest 自跑(`npx vitest run <files>`)、`npx tsc --noEmit -p tsconfig.app.json` 过;vite build 归统一门禁,不在任务内跑。
 6. **协议红线**:UI 层不得触发 sidecar 协议变更(见 [sidecar-protocol.md](./sidecar-protocol.md));要新方法 = 停止回 PRD 重新裁定。
