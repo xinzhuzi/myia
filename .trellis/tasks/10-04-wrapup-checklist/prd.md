@@ -45,7 +45,9 @@
 
 > 主人令「全部做完」后收官流逐条处置完毕。出处=`.trellis/tasks/10-04-fe-gap-census/
 > research/matrix.md` §处置路由汇总(R1-R9)+§3.2 真机手验一行;执行细目见该档文首
-> 「路由执行记录」节。10 条全部终态,无一悬置。
+> 「路由执行记录」节。10 条全部终态,无一悬置。另:10-04 收官归档波再归
+> 档三线(590c4ea interaction-batch / e0ece43 read-state-server / 108b46b
+> fe-gap-census),活目录余 v12-backlog 池与本档。
 
 - **直接小修 4 条(R1-R4)→ 3 落地 + 1 核毕销项**:R1 feed Mod+F 聚焦内联搜索框
   +Esc 即时清空(落地:`feed-screen.tsx`,+2 用例)/ R2 AlertsFiredEvent 入
@@ -59,17 +61,22 @@
   package.json 的 0.1.0 为 v1.0 期 npm 脚手架占位,从来不在版本对齐面(v1.1.1
   期对齐叙事即仅四处:pyproject/classifier/Cargo.toml/tauri.conf.json,workspace
   journal 在案),维持不动。
-- **G9 立档(R5)→ 已立档 `.trellis/tasks/10-04-g9-read-all/`**(planning):
-  store/协议本体已由 10-04-read-state-server 交付(status=review,afa7339
-  `store.state.mark_all` 全库语义),余量=按品类批量入口+全库确认交互增量,
-  grill 未批不开工;两档承接关系已在该档 task.json 注明,非双档悬空。
+- **G9 立档(R5)→ 立档后同日撤并(终审收口 commit 2237bf9)**:全库批量已读
+  store/协议本体由 `10-04-read-state-server` 交付(已归档;afa7339
+  `store.state.mark_all` 全库语义三端+能力门+按钮真话),快捷键/右键批量件随
+  `10-04-interaction-batch`(已归档);余量曾立档 `.trellis/tasks/10-04-g9-read-all/`
+  (按品类批量入口+全库确认交互,grill 未批不开工),终审裁定**撤并不另立项**——
+  档自工作树移除(未跟踪件,零 git 痕迹),G9 终态=`10-03-v12-backlog/prd.md`
+  第 5 项已消号标注(在库)。
 - **入池 2 条(R6/R7)→ 已入池**:G10 代理池连通性测试按钮(后端依赖解锁)
   +七件小件(侧栏分组折叠/源管理多选点簇/设置 tooltip/snooze 到期重现/设置搜索/
   suppressed 词表 v2/P3 标题跳级),增补回执 `10-03-v12-backlog/prd.md` 第 5 项
-  G10 行+第 8 项新增块。
+  G10 行+第 8 项新增块——其中**设置搜索(#7)后由终审收口先行落地**
+  (settings-screen.tsx+settings.test.tsx,commit 2237bf9),余六件仍留池。
 - **关闭 3 条(R8/R9/§3.2)→ 维持关闭,不再立项**:R8 语义不匹配/过度 4 项、
-  R9 在途归 interaction-batch+已实装 24 项(#7 设置搜索仍悬置留池,matrix
-  定稿注记在案)、§3.2 真机手验归本档第二节。
+  R9 在途归 interaction-batch+已实装 24 项(#7 设置搜索 census 定稿时悬置
+  留池、matrix 定稿注记在案,后由终审收口落地见 R7 行注)、§3.2 真机手验归
+  本档第二节。
 
 ## Acceptance Criteria
 
