@@ -156,16 +156,12 @@ export async function loadScheduleRows(plugins: PluginReport[], count = 5): Prom
   });
 }
 
-/** ISO 时刻 → 本地「MM-DD HH:mm」短行(排程预览的紧凑呈现) */
+/** ISO 时刻 → 其自带偏移的墙钟「MM-DD HH:mm」短行(排程预览按品类时区计算,展示墙钟不换算本机时区,跨时区机器渲染一致) */
 export function formatScheduleRun(iso: string, now: Date = new Date()): string {
-  const then = new Date(iso);
-  if (Number.isNaN(then.getTime())) return iso;
-  const pad = (value: number) => String(value).padStart(2, "0");
-  const sameYear = then.getFullYear() === now.getFullYear();
-  const date = sameYear
-    ? `${pad(then.getMonth() + 1)}-${pad(then.getDate())}`
-    : `${then.getFullYear()}-${pad(then.getMonth() + 1)}-${pad(then.getDate())}`;
-  return `${date} ${pad(then.getHours())}:${pad(then.getMinutes())}`;
+  const wall = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  if (wall === null) return iso; // 非预期形态原样展示,不做本地时区换算
+  const [, year, month, day, hour, minute] = wall;
+  return `${Number(year) === now.getFullYear() ? "" : `${year}-`}${month}-${day} ${hour}:${minute}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -233,8 +233,16 @@ class _ProgressTracker:
         self._on_progress(done, self._total)
 
     def finish(self) -> None:
-        """终态强制上报(节流可能吞掉最后一次 chunk 更新)。"""
+        """终态强制上报(节流可能吞掉最后一次 chunk 更新;tqdm 缺装降级时累计可能为 0,成功终态钳到 total)。"""
         with self._lock:
+            if self._on_progress is not None and self._total is not None:
+                done = self._closed_base + sum(self._bars.values())
+                if done < self._total:
+                    done = self._total
+                self._last_emit = time.monotonic()
+                self._last_done = done
+                self._on_progress(done, self._total)
+                return
             self._emit_locked(force=True)
 
     def tqdm_class(self) -> Any:
