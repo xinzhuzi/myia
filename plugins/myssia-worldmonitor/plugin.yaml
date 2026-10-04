@@ -1,0 +1,30 @@
+# myssia-worldmonitor — 官方场景件:全球情报监控台(封装 koala73/worldmonitor)。
+#
+# 同物种例外通道(D4/D6,task 10-05-plugin-market-batch 批二):上游描述即
+# 「Real-time global intelligence dashboard」(新闻聚合/地缘监控/基础设施
+# 追踪的态势感知台)= 另一个 MYIA —— 盘点表原判 d 路默认不收;例外通道 =
+# 用户已有自部署实例要接。gate: platform 表「自有实例门槛」:激活开关落
+# 全局 gates.yaml(platforms.worldmonitor,经 myssia gates set 或桌面设置
+# 「门槛件」分区),**组织性不执法**(不拦用户 direct_api 源;开关=知情确认
+# +plugin list 启用徽标+doctor info→ok),不落品类 YAML。
+#
+# 许可注意:上游 AGPL-3.0(gh api LICENSE 原文核,2026-10-05)—— 本插件
+# **只桩不抄**:仅以 manifest 声明依赖与文档引用接入,不复制其任何源码进
+# 本仓库;部署 compose 的构建上下文直指上游 git(AGPL 义务留在上游构建产物
+# 侧),见仓库 docker/plugins/myssia-worldmonitor/。
+id: myssia-worldmonitor
+name: 全球情报监控台(World Monitor)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: remote
+gate: platform
+requires: []
+provides: [global_monitoring]
+modes:
+  remote:
+    endpoint: https://worldmonitor.example.com   # your World Monitor deployment
+    # 上游 REST/MCP 操作键(WORLDMONITOR_VALID_KEYS,经 X-WorldMonitor-Key 头
+    # 透传);纯内网自部署可不配。凭据只走钥匙串引用,零明文。
+    token: keychain:myia/worldmonitor/api-key   # myssia secret set myia/worldmonitor/api-key
+install:
+  source: https://github.com/xinzhuzi/myia.git
