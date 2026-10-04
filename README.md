@@ -264,7 +264,7 @@ myssia doctor --json                        # 拿 findings;agent 自修后复查
 编排层          流水线:fetch → classify → dedup → analyze → enrich → push
                 (进程内 APScheduler + asyncio;无外部编排器、无守护进程)
                      │
-插件层          一个品类一份 YAML · 6 个官方品类 · 市场插件
+插件层          一个品类一份 YAML · 7 个官方品类 · 市场插件
                 desktop 级 = 进程内 adapter(零 docker)· remote/server 级走端点
                 (代理池 · 变更监控 · OSINT · 抖音 · maxun · …)
                      │
@@ -588,7 +588,7 @@ User layer      myssia CLI · Agent Skill · desktop app (Tauri, v1.1) · Web UI
 Orchestration   Pipeline: fetch → classify → dedup → analyze → enrich → push
                 (in-process APScheduler + asyncio; no external orchestrator, no daemon)
                      │
-Plugin layer     One YAML per category · 6 official categories · market plugins
+Plugin layer     One YAML per category · 7 official categories · market plugins
                 desktop tier = in-process adapter (zero docker) · remote/server tier
                 (proxy pool · changedetection · OSINT · douyin · maxun · …)
                      │
