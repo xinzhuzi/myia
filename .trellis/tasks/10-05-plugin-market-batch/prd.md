@@ -77,11 +77,21 @@
 - **fail-closed**:gates.yaml 缺失/损坏 = 全部门槛件关闭 + doctor 结构化提示;铁律不变(门槛件永不拦核心)。
 - D2 硬规则的存活部分:门槛件**永不缺省**——本地/自托管优先序不变,门槛只是让「用户知情后的选择」有正规的落地通道。
 
+## 2026-10-05 深夜 grill 决议 D5-D9(主人「按推荐」全批;批二动工前最后钉口)
+
+| # | 决议点 | 定案 |
+| --- | --- | --- |
+| D5 | gated 的 manifest 形态 | **独立字段** `gate: paid \| trace \| platform \| stale`(缺省不声明=无门槛);`TIER_TOKENS` 三元组不动——tier=传输形态、gate=激活策略,正交组合(crawlab=`tier: remote`+`gate: platform`;zenrows 引擎配置=`gate: paid`)。修正 §6.2 早稿「tier 加 gated 词表」(单值枚举装不下组合) |
+| D6 | 平台门槛运行时语义 | **组织性不执法**:platforms 开关=设置面知情确认+plugin list「已启用」徽标+doctor info→ok;真执法只属付费引擎(gate_closed)与未来 analysis lane;**不拦用户 direct_api 源**(用户自有 endpoint 自主) |
+| D7 | 门槛 CLI 通道 | `myssia gates show --json` / `myssia gates set <kind>.<name> <on|off>`(照 secret 命令族形状;键值经既有 secret 通道);BYO-agent 无桌面可配;技能清单同步一行 |
+| D8 | 批二分析件裁剪 | gates.analysis **只立 schema+设置面占位,零分析件落地**(snownlp/recon-ng 留批三,且须先独立质询「分析 lane 挂点:classify 后处理还是 enrich 平行」);AC9 缩为 web-check/social-analyzer 两桩+trafilatura 结案 |
+| D9 | 公共实例检测 | 本轮不做,记 backlog;third_party_trace **当前无执法点**,留痕保护=README 知情文案(如实注记,不装作有执法) |
+
 ## Requirements(增补)
 
-- R5(门槛机制):gates.yaml 全局配置装载/校验(照 vision/settings.py 同款 fail-closed)+ manifest tier 词表新增 `gated` + `myssia plugin list` 门槛件分组 + 未启用=doctor info finding;桌面设置屏新增「门槛件」分区(sidecar 协议 gates.save/load 两方法,照 yaml.save 先例)。
+- R5(门槛机制,D5/D7 修订):gates.yaml 全局配置装载/校验(照 vision/settings.py 同款 fail-closed)+ manifest **独立字段 `gate`**(paid/trace/platform/stale,非 tier 词表)+ `myssia plugin list` 门槛件分组与启用徽标 + 未启用=doctor info finding + **CLI `myssia gates show/set`**;桌面设置屏新增「门槛件」分区(sidecar 协议 gates.get/save 两方法,照 yaml.save 先例)。
 - R6(付费 SaaS 引擎化):Zenrows/ScraperAPI 收录为显式引擎词表新档(永不进 AUTO_CHAIN),fetch 前查 gates 总开关,关闭态=结构化失败 `gate_closed`(与 dependency_missing 语义区分);API key 走 keychain 引用。
-- R7(同物种例外通道):Crawlab(BSD,可直借)/worldmonitor(AGPL 只桩)收录为 remote 桩件,门槛=自有实例 endpoint;EasySpider 形态核验(本地 GUI 无 API)如实记档——无服务形态则门槛条件不成立,维持不收并注记理由。
+- R7(同物种例外通道,D6 修订):Crawlab(BSD,可直借)/worldmonitor(AGPL 只桩)收录为 remote 桩件(`tier: remote`+`gate: platform`),门槛=自有实例 endpoint,**运行时组织性不执法**(list 徽标/doctor 状态面);EasySpider 形态核验(本地 GUI 无 API)如实记档——无服务形态则门槛条件不成立,维持不收并注记理由。
 
 ## Phase 2 盘点表骨架(D1 定案后填充;○=待核实,照 supplier-map 惯例)
 
@@ -110,10 +120,10 @@
 - [x] AC3:首批收录全绿(2026-10-05 首批 5 件:media/maigret/theharvester/rsshub/spiderfoot;tests/plugins 518 绿、`plugin install+list` 沙箱冒烟可见、doctor 降级 warning=包契约既有钉;官方件 golden 无涉——首批零品类 YAML 变更,OFFICIAL_PLUGINS 品类清单不动;**全量 pytest 门禁:批末跑毕,红项归因见下注**)。注:首批期间并行会话同树在做 secrets 修复与 urlwatch 件,全量若有红先归因并行域再回本档。
 - [x] AC4:README「6 official categories」→7(并行会话顺手完成,265b7a9 双语两处)。
 - [ ] AC5(挂账,另任务):装机包 tauri resources 只捆 4/7 官方品类(games/news/exposure 缺)与 `.seeded` 全有或全无补种语义——本任务不动,已单独记录。**首批追加注记:官方场景件已达 12 件(7 桌面+3 remote+2 server-only),装机包市场面是否随包分发 plugins/<pkg> 是 AC5 任务一并裁。**
-- [ ] AC6(D4 门槛机制):gates.yaml fail-closed 装载+桌面设置屏门槛件分区+plugin list 门槛件分组全绿;未启用门槛件 doctor=info(非 warning)且核心无感(铁律测试)。
+- [ ] AC6(D4/D5/D7 门槛机制):gates.yaml fail-closed 装载+manifest `gate` 字段校验+`myssia gates show/set` CLI+桌面设置屏门槛件分区+plugin list 门槛件分组全绿;未启用门槛件 doctor=info(非 warning)且核心无感(铁律测试)。
 - [ ] AC7(D4 付费 SaaS):Zenrows/ScraperAPI gated 引擎收录——gate_closed 语义测试(总开关关=结构化失败不降级不烧钱)+ 开启后 MockTransport 往返;永不进 AUTO_CHAIN 的注册表断言。
 - [ ] AC8(D4 同物种/门槛桩):Crawlab+worldmonitor remote 桩收录(compose/README 门槛说明);EasySpider 形态核验结论记档(可接/不可接+理由);MediaCrawler/yake 许可核验动作完成或如实挂起。
-- [ ] AC9(分析件二批):web-check+social-analyzer 桩收录;trafilatura extract 增强评估结案(独立引擎任务或并入,须回答「比手写 extract 规则强在哪」)。
+- [ ] AC9(分析件二批,D8 裁剪):web-check+social-analyzer 桩收录;trafilatura extract 增强评估结案(独立引擎任务或并入,须回答「比手写 extract 规则强在哪」);**gates.analysis 仅 schema+设置面占位,零分析件**(分析 lane 挂点=批三独立质询)。
 
 ## Constraints
 

@@ -105,11 +105,13 @@ analysis:                      # 停更/许可核验后启用的分析件
 - 装载:新模块 `src/myssia/gates.py`(照 vision/settings.py 的「构造即校验+非法拒构造+LoadError 结构化」);坏文件=**全关+doctor warning**(fail-closed,不是 fail-open);
 - **刻意不落品类 YAML**:门槛开关只在这里——AI/模板生成品类配置时不可能无意开启付费通道(主人裁决的「设置里加配置」落地位置)。
 
-### 6.2 manifest 词表与市场面
+### 6.2 manifest `gate` 字段与市场面(D5 定案:独立字段,非 tier 词表)
 
-- `TIER_TOKENS` 增 `gated`:声明即「可装但激活需 gates.yaml 对应开关」;`plugin list` 按 tier 展示时门槛件独立分组+「未启用」徽标;
-- 未启用门槛件 = doctor **info** finding(不是 warning:用户没开是正常态,不是故障);
-- 新 gated 插件包的 README 必须含门槛类型+知情文案(成本/留痕/停更三态文案模板)。
+- manifest 新增可选字段 **`gate: paid | trace | platform | stale`**(缺省不声明=无门槛件);`TIER_TOKENS` 三元组(desktop/remote/server-only)不动——tier 表传输形态、gate 表激活策略,正交组合(crawlab=`tier: remote`+`gate: platform`);
+- `plugin list` 对声明 gate 的件独立分组+「未启用/已启用」徽标(状态派生自 gates.yaml);**platform 类门槛组织性不执法**(D6:不拦用户 direct_api 源,开关=知情确认+状态面);
+- 未启用门槛件 = doctor **info** finding(不是 warning:用户没开是正常态,不是故障);启用后 doctor 转 ok;
+- 带 gate 的插件包 README 必须含门槛类型+知情文案(成本/留痕/停更三态文案模板);
+- `third_party_trace` 开关当前无执法点(D9):公共实例(rsshub.app 等)检测提示记 backlog,留痕保护现阶段=README 知情文案。
 
 ### 6.3 付费 SaaS 引擎化(Zenrows/ScraperAPI,R6)
 
@@ -120,7 +122,7 @@ analysis:                      # 停更/许可核验后启用的分析件
 ### 6.4 桌面设置屏「门槛件」分区
 
 - `SECTIONS` 增第 5 分区 `{id: "gates", label: "门槛件"}`(照现有 4 分区与 `?section=` 深链模式);
-- 区内三卡:付费通道(总开关+逐件开关+钥匙串键录入)/自有实例(endpoint+token 表单)/分析件(停更知情开关);保存走 sidecar 新方法 `gates.get`/`gates.save`(照 yaml.save 先例;**协议权威=entry.py `_HANDLERS` 注册表,main.rs 通用路由无方法级白名单,rust 侧零改动**——2026-10-05 深夜实读 main.rs 核实,修正早稿「白名单同步」错述);
+- 区内三卡:付费通道(总开关+逐件开关+钥匙串键录入)/自有实例(endpoint+token 表单)/分析件(**D8:仅占位**——显示「批三解锁」禁用态,不发分析件);保存走 sidecar 新方法 `gates.get`/`gates.save`(照 yaml.save 先例;**协议权威=entry.py `_HANDLERS` 注册表,main.rs 通用路由无方法级白名单,rust 侧零改动**——2026-10-05 深夜实读 main.rs 核实,修正早稿「白名单同步」错述);
 - 文案铁律:每开关旁挂知情警示(「按页计费,你的采集目标清单将经对方服务器」等)。
 
 ### 6.5 e 路逐件门槛表(盘点表回写索引)
@@ -158,6 +160,8 @@ def gate_open(config, kind, name) -> bool    # 引擎/插件侧唯一查询口
 ```
 
 **sidecar 协议**:`gates.get {params:{}} → {config: {...}, path}`;`gates.save {params:{config}} → {ok:true, path}`(tmp+rename 原子写;校验失败→结构化 error 不落盘)。
+
+**CLI 面**(D7,照 secret 命令族):`myssia gates show --json`(整份配置+路径)/ `myssia gates set <kind>.<name> <on|off>`(kind∈{paid_engines,third_party_trace,saas,platforms,analysis};saas/platforms 逐件 on 需要 keychain 键在位,缺键=结构化拒);`myssia gates` 退出码族与全家桶对齐(0/1)。
 
 **测试矩阵**(批二新增件一览):
 

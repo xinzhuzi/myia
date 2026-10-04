@@ -64,8 +64,9 @@
 ### 10. 门槛机制地基(R5)
 
 - 新建 `src/myssia/gates.py`:照 `src/myssia/vision/settings.py` 同款(GATES_FILE_NAME="gates.yaml";`GatesConfig` 构造即校验非法拒构造;`load_gates_config(path)`;坏文件=LoadError 结构化+调用侧全关);路径解析挂 `desktop/entry.py` `_serve_context()` 优先级链(显式 params>MYIA_HOME env>bundle 探测>dev cwd,与 vision.yaml 同位)
-- `src/myssia/plugins/manifest.py`:`TIER_TOKENS` += `"gated"`;`src/myssia/cli.py` `_plugin_list` payload 加 `gated` 分组与 `enabled` 派生(gates.yaml 状态);doctor:未启用门槛件=info finding(词表区分 warning/info)
-- 测试:`tests/test_gates.py`(根级,`test_secrets.py` 先例——根模块映根文件):装载/坏文件全关/未知字段拒/每开关往返
+- `src/myssia/plugins/manifest.py`:新增可选字段 `gate: paid|trace|platform|stale`(D5:独立字段,TIER_TOKENS 不动;校验=词表+未知字段拒);`src/myssia/cli.py` `_plugin_list` payload 加门槛件分组与 `enabled` 徽标(gates.yaml 状态派生);doctor:未启用门槛件=info finding(词表区分 warning/info)
+- `src/myssia/cli.py` 新命令族 `myssia gates show --json` / `gates set <kind>.<name> <on|off>`(D7;saas/platforms 逐件 on 缺 keychain 键=结构化拒);`skill/SKILL.md` 清单同步一行
+- 测试:`tests/test_gates.py`(根级,`test_secrets.py` 先例——根模块映根文件):装载/坏文件全关/未知字段拒/每开关往返/gates CLI show-set 往返/逐件 on 缺键拒
 - 命令:`uv run --no-sync python -m pytest tests/test_gates.py tests/plugins -q` 期望全绿
 
 ### 11. 设置屏门槛件分区(R5 尾)
@@ -84,13 +85,15 @@
 
 ### 13. 同物种门槛桩(R7)
 
-- 新建 `plugins/myssia-crawlab/`+`plugins/myssia-worldmonitor/`(plugin.yaml tier=gated+modes.remote.endpoint 占位+README 门槛说明「自有实例例外通道」);`docker/plugins/<id>/compose.yml` ×2(compose 集合断言 7→9)
+- 新建 `plugins/myssia-crawlab/`+`plugins/myssia-worldmonitor/`(plugin.yaml **`tier: remote`+`gate: platform`**(D5 组合)+modes.remote.endpoint 占位+README 门槛说明「自有实例例外通道,组织性不执法」);`docker/plugins/<id>/compose.yml` ×2(compose 集合断言 7→9)
 - `tests/plugins/test_plugin_packages.py`:OFFICIAL_PACKAGES+EXPECTED_TIERS(gated 档)+compose 期望集;EasySpider 形态核验结论写 research.md(预期:本地 GUI 无 API→门槛条件不成立维持不收)
 
 ### 14. 分析件二批(AC9)
 
 - `plugins/myssia-webcheck/`+`plugins/myssia-socialanalyzer/`(remote 普通桩,无门槛;web-check MIT 自部署 compose;social-analyzer AGPL 只桩)
 - trafilatura extract 增强结案:research.md 写评估结论(回答「比手写 extract 规则强在哪:零配置正文自动抽取 vs 逐源手写 json_path/css」;若立项→独立引擎任务引用本档)
+- **D8 裁剪**:gates.analysis 仅 schema+设置面占位(禁用态「批三解锁」),零分析件;批三前置质询题记档:「分析 lane 挂点=classify 后处理还是 enrich 平行?」
+- **D9 backlog**:公共实例 endpoint 检测(rsshub.app 清单→doctor info)留批三随 analysis lane 一起议
 
 ### 15. 许可核验批(AC8 尾)
 
