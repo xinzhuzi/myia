@@ -762,6 +762,12 @@ function FeedCard({
  *  搬迁(importLocalFeedStates,旧键保留不删);未过门(旧 sidecar 配新 UI)
  *  旧 localStorage 通路原样保留,零行为变化。
  *
+ * g9-read-all(10-04,R1/R2/R4):品类分组组头「本组全部已读」(mark_all 带
+ *  category 精确等值 = 该品类全库含未翻页;未分类组不出钮 —— null 传
+ *  category 等于全库置位,红线;时间/不分组无组头入口)+ 全库两按钮 inline
+ *  二次确认(一次点击进确认态,再点执行;Esc/失焦/「取消」退出;品类组头
+ *  钮豁免确认 —— 作用域小一级,title 如实)。
+ *
  * fe-gap-census R1(10-04):Mod+F 聚焦内联搜索框(拦截浏览器查找并全选
  *  词面)+ Esc 即时清空(词面与已提交 query 同步归零,不等 300ms 防抖)。
  */
@@ -798,6 +804,11 @@ export function FeedScreen() {
   const [openError, setOpenError] = useState<string | null>(null);
   /** G9 读态置位失败回显(服务端通路;失败即回滚,本行如实告知,惯例同 openError) */
   const [markError, setMarkError] = useState<string | null>(null);
+  /** G9·R2 全库批量二次确认:inline confirm(settings 先例)—— null = 无;
+   *  "read" / "unread" = 对应方向待确认(一次点击进入确认态,再点「确认」
+   *  才执行;Esc / 失焦 / 「取消」退出)。品类组头钮豁免(作用域小一级,
+   *  即时执行 + title 如实)。 */
+  const [confirmAllMark, setConfirmAllMark] = useState<"read" | "unread" | null>(null);
 
   /** G9 能力门:null = 探测中(按未过门处理,走旧通路);true = sidecar
    *  protocol ≥ READ_STATE_PROTOCOL → 服务端读态通路。直调 api.version,
@@ -992,28 +1003,38 @@ export function FeedScreen() {
     );
   }, []);
 
-  /** G9 批量:全部标已读/未读 —— 过门后 store.state.mark_all 全库单 UPDATE
-   *  (含未翻页/未加载条目;就地翻转已加载行即时反馈,不整页重拉,失败按
-   *  调用前快照回滚);未过门 = 旧本地批量(作用域 = 已加载条目,本地态按
-   *  itemKey 置位,未翻页条目不在内——按钮 title 如实注明)。 */
+  /** G9 批量:全部标已读/未读(可选 category = 品类分组组头入口)—— 过门后
+   *  store.state.mark_all 单 UPDATE:category 缺省 = 全库(含未翻页/未加载
+   *  条目),传 category = 该品类全库精确等值(协议不收 query,决议 Q3.2);
+   *  就地翻转已加载行内作用域条目即时反馈,不整页重拉,失败按调用前快照回滚
+   *  (只回滚作用域内行,域外行不动);未过门 = 旧本地批量(作用域 = 已加载
+   *  条目,无品类入口 —— 品类组头钮只在过门时出现,title 如实注明)。 */
   const markAllRead = useCallback(
-    (value: boolean) => {
+    (value: boolean, category?: string) => {
       if (useServerState) {
-        const snapshot = new Map(items.map((candidate) => [itemKey(candidate), candidate.read === true]));
-        setItems((current) => current.map((candidate) => ({ ...candidate, read: value })));
+        // 作用域谓词:全库 = 全部已加载行;品类 = 该 category 精确等值行
+        const inScope = (candidate: FeedItem) =>
+          category === undefined || candidate.category === category;
+        const snapshot = new Map(
+          items.filter(inScope).map((candidate) => [itemKey(candidate), candidate.read === true]),
+        );
+        setItems((current) =>
+          current.map((candidate) => (inScope(candidate) ? { ...candidate, read: value } : candidate)),
+        );
         void api
-          .storeStateMarkAll({ marker: "read", value })
+          .storeStateMarkAll(
+            category === undefined ? { marker: "read", value } : { marker: "read", value, category },
+          )
           .then(() => setMarkError(null))
           .catch((err) => {
             setItems((current) =>
-              current.map((candidate) => ({
-                ...candidate,
-                read: snapshot.get(itemKey(candidate)) ?? false,
-              })),
+              current.map((candidate) =>
+                inScope(candidate)
+                  ? { ...candidate, read: snapshot.get(itemKey(candidate)) ?? false }
+                  : candidate,
+              ),
             );
-            setMarkError(
-              err instanceof SidecarRequestError ? `${err.code}: ${err.message}` : String(err),
-            );
+            setMarkError(err instanceof SidecarRequestError ? `${err.code}: ${err.message}` : String(err));
           });
         return;
       }
@@ -1035,9 +1056,17 @@ export function FeedScreen() {
   );
 
   /** 分组(A-feed 显示选项):时间四桶(D4 缺省)/ 按品类(组头色点同
-   *  categoryColor 源)/ 不分组(null = 平铺不出组头);displayItems 变化即重算 */
+   *  categoryColor 源)/ 不分组(null = 平铺不出组头);displayItems 变化即重算。
+   *  category 字段(G9·R1 品类批量入口):品类模式 = 组真品类值(null = 未分类,
+   *  组头不出批量钮 —— null 传 category 等于全库置位,红线);时间模式恒 null。 */
   const groups = useMemo<
-    { key: string; label: string; items: FeedItem[]; color: string | null }[] | null
+    {
+      key: string;
+      label: string;
+      items: FeedItem[];
+      color: string | null;
+      category: string | null;
+    }[] | null
   >(() => {
     if (display.groupMode === "none") return null;
     if (display.groupMode === "category") {
@@ -1046,6 +1075,7 @@ export function FeedScreen() {
         label: group.label,
         items: group.items,
         color: group.color,
+        category: group.key,
       }));
     }
     return groupFeedItems(displayItems).map((group) => ({
@@ -1053,6 +1083,7 @@ export function FeedScreen() {
       label: group.label,
       items: group.items,
       color: null,
+      category: null,
     }));
   }, [display.groupMode, displayItems]);
 
@@ -1115,6 +1146,26 @@ export function FeedScreen() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [currentKey, items, toggle, displayItems]);
+
+  // R2:全库批量确认态在屏期间 Esc 全局收口(焦点在确认钮簇内/外都退出确认);
+  //  输入框/可编辑目标内按 Esc 归其自身语义(如搜索框 R1 即时清空),不抢确认
+  //  退出 —— 守卫与上方 u/j/k 键 effect 同源(feed 本地惯例,不引外部 hook)。
+  useEffect(() => {
+    if (confirmAllMark === null) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+      ) {
+        return;
+      }
+      setConfirmAllMark(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [confirmAllMark]);
 
   /** 单卡渲染(分组/平铺两路共用;右键菜单随卡在 FeedCard 内) */
   const renderCard = (entry: FeedItem) => (
@@ -1195,6 +1246,15 @@ export function FeedScreen() {
 
   const searchActive = query !== "";
 
+  /** G9 批量两钮 title(双路真话;R2 确认态确认钮沿用同一支 —— 进确认态不掉
+   *  如实度,过门文案不出现「已加载/本地态」字样,R4)。 */
+  const markAllReadTitle = useServerState
+    ? "把全库所有条目(含未翻页)标记为已读(store.state.mark_all,服务端持久)"
+    : `把已加载的 ${items.length} 条(未读 ${unreadLoaded})全部标记为已读;本地态,未翻页条目不含`;
+  const markAllUnreadTitle = useServerState
+    ? "把全库所有条目(含未翻页)恢复为未读(store.state.mark_all,服务端持久)"
+    : `把已加载的 ${items.length} 条(已读 ${items.length - unreadLoaded})全部恢复未读;本地态`;
+
   return (
     <div className="flex flex-col gap-4 pb-6">
       <PageHeader
@@ -1259,37 +1319,71 @@ export function FeedScreen() {
         {/* G9 批量操作(入口在过滤区):过门 = store.state.mark_all 全库语义
             (title 真话:全库所有条目含未翻页);未过门 = 旧本地批量(作用域 =
             已加载条目,title 如实注明)。禁用口径两路同按已加载视图 —— 全库
-            未读计数不在本批(PRD Q3.4),可见反馈以已加载行为准。 */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-1.5 text-2xs text-muted-foreground"
-          aria-label="全部标已读"
-          title={
-            useServerState
-              ? "把全库所有条目(含未翻页)标记为已读(store.state.mark_all,服务端持久)"
-              : `把已加载的 ${items.length} 条(未读 ${unreadLoaded})全部标记为已读;本地态,未翻页条目不含`
-          }
-          onClick={() => markAllRead(true)}
-          disabled={items.length === 0 || unreadLoaded === 0}
-        >
-          全部标已读
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-1.5 text-2xs text-muted-foreground"
-          aria-label="全部标未读"
-          title={
-            useServerState
-              ? "把全库所有条目(含未翻页)恢复为未读(store.state.mark_all,服务端持久)"
-              : `把已加载的 ${items.length} 条(已读 ${items.length - unreadLoaded})全部恢复未读;本地态`
-          }
-          onClick={() => markAllRead(false)}
-          disabled={items.length - unreadLoaded === 0}
-        >
-          全部标未读
-        </Button>
+            未读计数不在本批(PRD Q3.4),可见反馈以已加载行为准。
+            R2 inline 二次确认(过门与否同门):一次点击只进确认态(文案/样式
+            切换,常规两钮让位给「确认/取消」),再点「确认」才执行;Esc / 失焦
+            (焦点移出确认钮簇)/「取消」退出;不做 Undo toast(全库改前快照
+            不可行,且「全部恢复未读」非无损对冲)。 */}
+        {confirmAllMark === null ? (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-1.5 text-2xs text-muted-foreground"
+              aria-label="全部标已读"
+              title={markAllReadTitle}
+              onClick={() => setConfirmAllMark("read")}
+              disabled={items.length === 0 || unreadLoaded === 0}
+            >
+              全部标已读
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-1.5 text-2xs text-muted-foreground"
+              aria-label="全部标未读"
+              title={markAllUnreadTitle}
+              onClick={() => setConfirmAllMark("unread")}
+              disabled={items.length - unreadLoaded === 0}
+            >
+              全部标未读
+            </Button>
+          </>
+        ) : (
+          <span
+            data-testid="feed-confirm-all-group"
+            className="flex items-center gap-0.5"
+            onBlur={(event) => {
+              // 失焦退出:焦点移出「确认/取消」簇才退(簇内两钮互移不打断)
+              const next = event.relatedTarget;
+              if (next instanceof Node && event.currentTarget.contains(next)) return;
+              setConfirmAllMark(null);
+            }}
+          >
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-6 px-1.5 text-2xs"
+              aria-label={confirmAllMark === "read" ? "确认全部标已读" : "确认全部标未读"}
+              title={confirmAllMark === "read" ? markAllReadTitle : markAllUnreadTitle}
+              onClick={() => {
+                const value = confirmAllMark === "read";
+                setConfirmAllMark(null);
+                markAllRead(value);
+              }}
+            >
+              {confirmAllMark === "read" ? "确认全部标已读" : "确认全部标未读"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-1.5 text-2xs text-muted-foreground"
+              onClick={() => setConfirmAllMark(null)}
+            >
+              取消
+            </Button>
+          </span>
+        )}
         {searchActive ? (
           <span className="text-2xs text-muted-foreground" data-testid="feed-search-scope">
             服务端搜索「{query}」{category ? ` × 品类 ${category}` : ""} × 本地
@@ -1505,32 +1599,54 @@ export function FeedScreen() {
           // 分组头(A-feed 显示选项):时间四桶(D4 缺省)或按品类(组头色点
           // 同 categoryColor 源);sticky 组头 + 组内卡片
           groups !== null ? (
-            groups.map((group) => (
-              <section
-                key={group.key}
-                aria-label={display.groupMode === "category" ? `品类分组:${group.label}` : `时间分组:${group.label}`}
-              >
-                <div
-                  data-testid={`feed-group-${group.label}`}
-                  className="sticky top-0 z-10 -mx-6 flex items-center gap-2 bg-background/95 px-6 py-1.5 backdrop-blur-sm"
+            groups.map((group) => {
+              // 组真品类(品类模式;时间模式恒 null)—— const 捕获让下方钮闭包内
+              // 的非空窄化稳定成立;未分类组(null)不出批量钮(红线,见 groups 注记)
+              const groupCategory = group.category;
+              return (
+                <section
+                  key={group.key}
+                  aria-label={display.groupMode === "category" ? `品类分组:${group.label}` : `时间分组:${group.label}`}
                 >
-                  {display.groupMode === "category" && group.color !== null ? (
-                    <span
-                      aria-hidden
-                      data-group-color
-                      className="size-1.5 rounded-full"
-                      style={{ backgroundColor: group.color }}
-                    />
-                  ) : null}
-                  <span className="text-2xs font-medium text-muted-foreground">{group.label}</span>
-                  {/* 计数用全强度 muted-foreground(质检修:/70 在 #0a0d16 上实测 3.68:1,
-                      /80 亦仅 4.44:1,均低于 WCAG AA 小字 4.5:1;全强度 6.37:1 达标) */}
-                  <span className="text-2xs text-muted-foreground">{group.items.length} 条</span>
-                  <span aria-hidden className="h-px flex-1 bg-border/70" />
-                </div>
-                <div className="flex flex-col gap-1.5">{group.items.map(renderCard)}</div>
-              </section>
-            ))
+                  <div
+                    data-testid={`feed-group-${group.label}`}
+                    className="sticky top-0 z-10 -mx-6 flex items-center gap-2 bg-background/95 px-6 py-1.5 backdrop-blur-sm"
+                  >
+                    {display.groupMode === "category" && group.color !== null ? (
+                      <span
+                        aria-hidden
+                        data-group-color
+                        className="size-1.5 rounded-full"
+                        style={{ backgroundColor: group.color }}
+                      />
+                    ) : null}
+                    <span className="text-2xs font-medium text-muted-foreground">{group.label}</span>
+                    {/* 计数用全强度 muted-foreground(质检修:/70 在 #0a0d16 上实测 3.68:1,
+                        /80 亦仅 4.44:1,均低于 WCAG AA 小字 4.5:1;全强度 6.37:1 达标) */}
+                    <span className="text-2xs text-muted-foreground">{group.items.length} 条</span>
+                    <span aria-hidden className="h-px flex-1 bg-border/70" />
+                    {/* R1 品类组头「本组全部已读」(行尾):store.state.mark_all 带
+                        category 精确等值 = 该品类全库(含未翻页)置位;豁免二次确认
+                        (作用域小一级,title 如实);只在过门时出现 —— 未过门旧通路
+                        无品类作用域,组头零入口。 */}
+                    {useServerState && groupCategory !== null ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1.5 text-2xs text-muted-foreground"
+                        data-testid={`feed-group-mark-all-${groupCategory}`}
+                        aria-label={`将该品类「${groupCategory}」全库条目(含未翻页)标为已读`}
+                        title={`将该品类「${groupCategory}」全库条目(含未翻页)标为已读(store.state.mark_all,服务端持久)`}
+                        onClick={() => markAllRead(true, groupCategory)}
+                      >
+                        本组全部已读
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col gap-1.5">{group.items.map(renderCard)}</div>
+                </section>
+              );
+            })
           ) : (
             // 不分组(A-feed):平铺不出组头
             <div className="flex flex-col gap-1.5" data-testid="feed-flat-list">

@@ -19,6 +19,10 @@
  * READ_STATE_PROTOCOL 过门走 store.state.*,低版/失败走旧 localStorage 通路)/
  * toggle 乐观 + 失败回滚 / mark_all 全库语义与 title 真话 / 一次性导入
  * (整 map 单请求,双挂载只一发,旧键不删);纯函数 statesFromItems。
+ * g9-read-all 批(10-04 R1/R2/R4):品类分组组头「本组全部已读」(mark_all 带
+ * category 精确等值;未分类组不出钮、时间/不分组无入口、未过门零入口)/
+ * 全库两按钮 inline 二次确认(一次点击进确认态,再点执行;取消/Esc/失焦
+ * 退出零执行);品类批量失败按快照只回滚作用域内行(域外组不动)。
  */
 import { cleanup, fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
@@ -968,14 +972,16 @@ describe("FeedScreen", () => {
     await waitFor(() => expect(button.getAttribute("disabled")).toBeNull());
   });
 
-  it("G9 全部标已读:一键生效 → 计数同步 0/3 + 本地持久;全部标未读可还原", async () => {
+  it("G9 全部标已读:二次确认后生效 → 计数同步 0/3 + 本地持久;全部标未读可还原", async () => {
     const items = [fixtureItem(), fixtureItem(), fixtureItem()];
     storeItemsMock.mockResolvedValue(result(items));
     renderScreen();
     await screen.findByText("条目 1");
     expect(screen.getByText("3 / 3 条")).toBeTruthy();
 
+    // R2:一次点击只进确认态,再点「确认」才生效(两路同门,未过门不豁免)
     fireEvent.click(screen.getByRole("button", { name: "全部标已读" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认全部标已读" }));
 
     // 默认「未读」过滤:计数 0/3、卡片全部离场、空态如实
     await waitFor(() => expect(screen.getByText("0 / 3 条")).toBeTruthy());
@@ -987,6 +993,7 @@ describe("FeedScreen", () => {
     }
 
     fireEvent.click(screen.getByRole("button", { name: "全部标未读" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认全部标未读" }));
     await waitFor(() => expect(screen.getByText("3 / 3 条")).toBeTruthy());
     expect(screen.getAllByTestId(/^feed-item-/)).toHaveLength(3);
   });
@@ -1415,6 +1422,11 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
     expect(title).not.toContain("本地态");
     expect(title).not.toContain("已加载");
     fireEvent.click(readAll);
+    // R2:一次点击只进确认态;确认态 title 延续全库真话(进确认态不掉如实度)
+    const confirm = screen.getByRole("button", { name: "确认全部标已读" });
+    expect(confirm.getAttribute("title") ?? "").toContain("全库");
+    expect(confirm.getAttribute("title") ?? "").not.toContain("已加载");
+    fireEvent.click(confirm);
     await waitFor(() => expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: true }));
     expect(fresh.markMock).not.toHaveBeenCalled(); // 全库单 UPDATE,不逐键置位
     // 就地翻转已加载行:默认「未读」过滤 0/2、卡片离场;不整页重拉
@@ -1445,6 +1457,7 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
     fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
     await screen.findByText("已读甲");
     fireEvent.click(screen.getByRole("button", { name: "全部标未读" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认全部标未读" }));
     await waitFor(() => expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: false }));
     // 乐观:两卡都翻未读
     await waitFor(() => expect(screen.getByTestId("feed-item-1").getAttribute("data-unread")).toBe("true"));
@@ -1544,6 +1557,210 @@ describe("FeedScreen · read-state-server 能力门分流(未过门 = 旧通路�
     expect((persisted as Record<string, { read?: boolean }>)["dk-1"]?.read).toBe(true);
     expect(markMock).not.toHaveBeenCalled();
     expect(importMock).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// g9-read-all 批(10-04 R1/R2/R4):品类分组组头「本组全部已读」(mark_all 带
+// category 精确等值 = 该品类全库含未翻页;未分类组不出钮、时间/不分组无入口、
+// 未过门零入口)+ 全库两按钮 inline 二次确认(确认/取消/Esc/失焦四态)
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", () => {
+  it("R1 品类组头「本组全部已读」:以该组 category 调 mark_all(精确等值)+ 就地翻转只落该组已加载行;未分类组不出钮(红线)", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    fresh.markAllMock.mockResolvedValue({ updated: 5 });
+    const techA = fixtureItem({ category: "tech", title: "技甲" });
+    const techB = fixtureItem({ category: "tech", title: "技乙" });
+    const news = fixtureItem({ category: "news", title: "闻丙" });
+    const bare = fixtureItem({ category: null, title: "无类丁" });
+    fresh.storeItemsMock.mockResolvedValue(result([techA, techB, news, bare]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    await screen.findByText("技甲");
+    // 就地翻转可观察性:切「全部」过滤(默认未读过滤下翻已读即离场)
+    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
+    await screen.findByText("无类丁");
+    // 过门生效(title 全库)后切品类分组
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
+    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "按品类分组" }));
+    await screen.findByTestId("feed-group-tech");
+
+    // 组头钮文案(R4):该品类全库(含未翻页)真话,品类名如实入文案
+    const groupButton = screen.getByTestId("feed-group-mark-all-tech");
+    expect(groupButton.getAttribute("title")).toContain("全库");
+    expect(groupButton.getAttribute("title")).toContain("未翻页");
+    expect(groupButton.getAttribute("title")).toContain("tech");
+    expect(groupButton.getAttribute("aria-label")).toContain("全库");
+    expect(groupButton.getAttribute("aria-label")).toContain("未翻页");
+    // 未分类组不出钮(红线:null 传 category 等于全库置位)—— 组头零按钮
+    expect(within(screen.getByTestId("feed-group-未分类")).queryByRole("button")).toBeNull();
+    // 全场只有品类组出钮:tech/news 各一枚,共 2(未分类不计)
+    expect(screen.getAllByTestId(/^feed-group-mark-all-/)).toHaveLength(2);
+
+    // 豁免二次确认:一次点击即执行(确认钮簇不出场)
+    fireEvent.click(groupButton);
+    await waitFor(() =>
+      expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: true, category: "tech" }),
+    );
+    expect(screen.queryByTestId("feed-confirm-all-group")).toBeNull();
+    // 就地翻转只落 tech 组:技甲/技乙已读,闻丙/无类丁不受牵连;不整页重拉
+    await waitFor(() =>
+      expect(screen.getByTestId(`feed-item-${techA.id}`).getAttribute("data-unread")).toBe("false"),
+    );
+    expect(screen.getByTestId(`feed-item-${techB.id}`).getAttribute("data-unread")).toBe("false");
+    expect(screen.getByTestId(`feed-item-${news.id}`).getAttribute("data-unread")).toBe("true");
+    expect(screen.getByTestId(`feed-item-${bare.id}`).getAttribute("data-unread")).toBe("true");
+    expect(fresh.storeItemsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("R1 品类组头批量失败:按调用前快照回滚(只回滚该组已加载行,域外组不动)+ feed-mark-error 明示", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    let rejectAll: ((err: unknown) => void) | undefined;
+    fresh.markAllMock.mockImplementation(
+      () => new Promise((_resolve, reject) => {
+        rejectAll = reject;
+      }),
+    );
+    const techRead = fixtureItem({ category: "tech", read: true, title: "技已读甲" });
+    const techUnread = fixtureItem({ category: "tech", title: "技未读乙" });
+    const newsUnread = fixtureItem({ category: "news", title: "闻未读丙" });
+    fresh.storeItemsMock.mockResolvedValue(result([techRead, techUnread, newsUnread]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    await screen.findByText("技未读乙");
+    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
+    await screen.findByText("技已读甲");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
+    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "按品类分组" }));
+    fireEvent.click(await screen.findByTestId("feed-group-mark-all-tech"));
+    await waitFor(() =>
+      expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: true, category: "tech" }),
+    );
+    // 乐观:tech 组两行都翻已读(乙是真翻转);news 组不动
+    await waitFor(() =>
+      expect(screen.getByTestId(`feed-item-${techUnread.id}`).getAttribute("data-unread")).toBe("false"),
+    );
+    expect(screen.getByTestId(`feed-item-${techRead.id}`).getAttribute("data-unread")).toBe("false");
+    act(() =>
+      rejectAll?.(new SidecarRequestError({ code: "store_corrupt", path: "$", message: "库损坏" })),
+    );
+    // 快照回滚:甲本就已读(回 true)、乙回未读;域外 news 丙全程未读不受牵连
+    await waitFor(() =>
+      expect(screen.getByTestId(`feed-item-${techUnread.id}`).getAttribute("data-unread")).toBe("true"),
+    );
+    expect(screen.getByTestId(`feed-item-${techRead.id}`).getAttribute("data-unread")).toBe("false");
+    expect(screen.getByTestId(`feed-item-${newsUnread.id}`).getAttribute("data-unread")).toBe("true");
+    const error = await screen.findByTestId("feed-mark-error");
+    expect(error.textContent).toContain("store_corrupt");
+  });
+
+  it("R1 组头入口只属品类分组模式:时间分组组头零批量钮;不分组无组头可挂", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    fresh.markAllMock.mockResolvedValue({ updated: 1 });
+    fresh.storeItemsMock.mockResolvedValue(result([fixtureItem({ category: "tech" })]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    await screen.findByText("条目 1");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
+    );
+
+    // 缺省时间分组:组头只有文案/计数/分隔线,零批量钮(入口不属此模式)
+    const timeHeader = screen.getByTestId("feed-group-今天");
+    expect(within(timeHeader).queryByRole("button")).toBeNull();
+    expect(screen.queryByTestId(/^feed-group-mark-all-/)).toBeNull();
+
+    // 不分组:组头全消,无组头可挂批量钮
+    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
+    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "不分组(平铺)" }));
+    await waitFor(() => expect(screen.queryByTestId(/^feed-group-/)).toBeNull());
+    expect(screen.queryByTestId(/^feed-group-mark-all-/)).toBeNull();
+    expect(fresh.markAllMock).not.toHaveBeenCalled();
+  });
+
+  it("R2 全库两按钮二次确认:一次点击只进确认态(零 RPC),再点「确认」才执行;取消 / Esc / 失焦三路退出且零执行", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    fresh.markAllMock.mockResolvedValue({ updated: 99 });
+    fresh.storeItemsMock.mockResolvedValue(result([fixtureItem(), fixtureItem()]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    await screen.findByText("条目 1");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
+    );
+
+    // 一次点击:进确认态 —— 常规两钮让位给「确认/取消」,mark_all 未发;
+    // 确认态文案延续全库真话(过门不出现「已加载/本地态」字样,R4)
+    fireEvent.click(screen.getByRole("button", { name: "全部标已读" }));
+    const confirm = screen.getByRole("button", { name: "确认全部标已读" });
+    expect(confirm.getAttribute("title") ?? "").toContain("全库");
+    expect(confirm.getAttribute("title") ?? "").not.toContain("已加载");
+    expect(confirm.getAttribute("title") ?? "").not.toContain("本地态");
+    expect(screen.queryByRole("button", { name: "全部标已读" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "全部标未读" })).toBeNull();
+    expect(fresh.markAllMock).not.toHaveBeenCalled();
+
+    // Esc 退出:回到常规两钮,零执行
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "确认全部标已读" })).toBeNull());
+    expect(screen.getByRole("button", { name: "全部标已读" })).toBeTruthy();
+    expect(fresh.markAllMock).not.toHaveBeenCalled();
+
+    // 「取消」退出:零执行
+    fireEvent.click(screen.getByRole("button", { name: "全部标已读" }));
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "确认全部标已读" })).toBeNull());
+    expect(fresh.markAllMock).not.toHaveBeenCalled();
+
+    // 失焦退出:blur 出确认钮簇即退
+    fireEvent.click(screen.getByRole("button", { name: "全部标已读" }));
+    fireEvent.blur(screen.getByTestId("feed-confirm-all-group"));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "确认全部标已读" })).toBeNull());
+    expect(fresh.markAllMock).not.toHaveBeenCalled();
+
+    // 再点执行:确认后 mark_all({marker:"read", value:true})发出;就地翻转已加载行
+    fireEvent.click(screen.getByRole("button", { name: "全部标已读" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认全部标已读" }));
+    await waitFor(() => expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: true }));
+    await waitFor(() => expect(screen.getByText("0 / 2 条")).toBeTruthy());
+  });
+
+  it("未过门:品类分组组头无批量入口(旧通路无品类作用域,store.state.* 零调用)", async () => {
+    versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL - 1));
+    storeItemsMock.mockResolvedValue(result([fixtureItem({ category: "tech" }), fixtureItem({ category: null })]));
+    renderScreen();
+    await screen.findByText("条目 1");
+    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
+    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
+    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "按品类分组" }));
+    await screen.findByTestId("feed-group-tech");
+    // 未过门:全屏无品类组头批量钮;store.state.* 全家零调用
+    expect(screen.queryByTestId(/^feed-group-mark-all-/)).toBeNull();
+    expect(within(screen.getByTestId("feed-group-tech")).queryByRole("button")).toBeNull();
+    expect(markAllMock).not.toHaveBeenCalled();
   });
 });
 
