@@ -612,25 +612,25 @@ export function DashboardScreen() {
 
   return (
     <div data-testid="dashboard-screen-root" className="flex flex-col gap-block pb-6">
-      <PageHeader
-        title="仪表盘"
-        description="概览条 / 采集量趋势 / 源健康度 / 品类与近期 run"
-        actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              void refresh();
-              void refreshTrend(windowDays);
-              void refreshOverview(overviewWindow);
-            }}
-            disabled={loading}
-          >
-            <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
-            刷新
-          </Button>
-        }
-      />
+      <PageHeader title="仪表盘" description="概览条 / 采集量趋势 / 源健康度 / 品类与近期 run" />
+
+      {/* 刷新行(10-05 自 PageHeader.actions 迁入:无头化后 PageHeader 不渲染,
+          动作归内容区,防功能不可达) */}
+      <div className="flex justify-end px-6" data-testid="dashboard-toolbar">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            void refresh();
+            void refreshTrend(windowDays);
+            void refreshOverview(overviewWindow);
+          }}
+          disabled={loading}
+        >
+          <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
+          刷新
+        </Button>
+      </div>
 
       {error ? (
         <div className="px-6">
@@ -640,7 +640,7 @@ export function DashboardScreen() {
               <p className="mt-1 text-xs text-muted-foreground">
                 {humanizeSidecarError(error.code, error.message)}
                 <span className="ml-1 font-mono">[{error.code}]</span>
-                ——点右上「刷新」重试
+                ——点上方「刷新」重试
               </p>
             </CardContent>
           </Card>
