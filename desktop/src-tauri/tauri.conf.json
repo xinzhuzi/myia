@@ -14,8 +14,8 @@
     "windows": [
       {
         "title": "世事",
-        "width": 880,
-        "height": 640,
+        "width": 1920,
+        "height": 1080,
         "visible": false,
         "focus": false
       }
@@ -26,9 +26,18 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg"],
-    "icon": ["icons/icon.icns", "icons/icon.png", "icons/icon.ico"],
-    "externalBin": ["binaries/myssia-core"],
+    "targets": [
+      "app",
+      "dmg"
+    ],
+    "icon": [
+      "icons/icon.icns",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
+    "externalBin": [
+      "binaries/myssia-core"
+    ],
     "resources": {
       "../fixture/plugin.yaml": "plugin.yaml",
       "../../plugins/ai-news.yaml": "plugins/ai-news.yaml",
