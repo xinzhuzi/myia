@@ -244,6 +244,22 @@ MAIGRET_FETCH_FAILURE_CODES = frozenset(
         "maigret_report_invalid",
     }
 )
+#: 域名侦察插件(myssia-theharvester,GPL-2.0 上游 submodule 钉 4.9.2;10-05
+#: plugin-market-batch 首批)。依赖与 vendor pyproject 钉版清单同源,经 uv
+#: 临时环境注入,绝不进根依赖;master 49a38f8d 含 Python2 语法残留不可运行
+#: (2026-10-05 实测),故钉 release tag。
+HARVESTER_PLUGIN_ID = "myssia-theharvester"
+#: harvester 子进程 wall-clock 预算缺省(整个侦察过程)。
+DEFAULT_HARVESTER_TIMEOUT_SECONDS = 600.0
+#: 采集类失败码 → 退出码 2;零命中=合法空态不是错误;其余退 1。
+HARVESTER_FETCH_FAILURE_CODES = frozenset(
+    {
+        "harvester_failed",
+        "harvester_timeout",
+        "harvester_report_missing",
+        "harvester_report_invalid",
+    }
+)
 #: 凭证猎手插件(myssia-credhunter,进程内三 lane:credhunt/credcheck/exposure;
 #: 10-03-aipocket-fusion;正式取数走 engine: credhunter 进管线,CLI 面是
 #: 调试/冒烟口,credcheck 双入口=--apikey 显式传键 / --from-keystore 读
@@ -351,6 +367,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_proxy_parser(sub)
     _add_media_parser(sub)
     _add_maigret_parser(sub)
+    _add_harvester_parser(sub)
     _add_credhunt_parser(sub)
     _add_credcheck_parser(sub)
     _add_exposure_parser(sub)
@@ -4510,6 +4527,125 @@ def _add_maigret_parser(sub: argparse._SubParsersAction) -> None:
 
 
 # ---------------------------------------------------------------------------
+# myssia harvester(myssia-theharvester 插件;10-05-plugin-market-batch 首批:
+# theHarvester(GPL-2.0)上游 submodule 钉 4.9.2,经 uv 临时环境(--no-config
+# --no-project --with 钉版依赖)隔离子进程,-c 唤起上游入口(上游无 __main__
+# 直跑守卫,4.9.2 实测),-f 落 JSON+XML 双件,适配器读 JSON 分桶装配。
+# 退出码族:0 成功(含零命中合法空态)/ 1 配置或环境错误 / 2 采集失败;
+# --json 下 stdout 恒单份 JSON)
+# ---------------------------------------------------------------------------
+
+
+def _print_harvester_human(payload: dict[str, Any]) -> None:
+    """人类可读摘要(与 --json 同一信息,另一种皮)."""
+    vendor = payload.get("vendor") or {}
+    print(
+        f"世事 harvester:{payload.get('target')} 源 {payload.get('source_list')}"
+        f"(插件 {payload.get('plugin')})"
+    )
+    if vendor.get("commit"):
+        print(f"  vendor pin:{vendor['commit']}")
+    for bucket, count in sorted((payload.get("result_totals") or {}).items()):
+        print(f"  {bucket}:{count} 条")
+    print(f"  耗时:{payload.get('duration_seconds')}s")
+
+
+def _cmd_harvester(args: argparse.Namespace) -> int:
+    """``myssia harvester``:跑一次上游 theHarvester 域名侦察,结构化输出.
+
+    退出码:0 成功(含零命中合法空态);1 适配器缺失/vendor 未初始化/uv
+    缺失/目标或源清单非法(配置或环境错误);2 采集失败(上游非零退出/超时/
+    报告缺失或损坏)。失败码到退出码的映射用 :data:`HARVESTER_FETCH_FAILURE_CODES`
+    (CLI 所有)。任何失败都只影响本命令,核心品类流水线照常(铁律)。
+    """
+    try:
+        adapter = _import_plugin_adapter(args.plugins_dir, HARVESTER_PLUGIN_ID)
+    except (OSError, ImportError, SyntaxError) as exc:
+        _emit_generic_error(
+            "harvester_adapter_missing",
+            str(exc),
+            as_json=args.as_json,
+            plugins_dir=str(args.plugins_dir),
+        )
+        return EXIT_CONFIG_ERROR
+    try:
+        payload = adapter.run(
+            args.domain,
+            sources=args.sources,
+            timeout=args.timeout,
+        )
+    except Exception as exc:  # noqa: BLE001 — 适配器一切失败都结构化降级,绝不拦核心
+        details = (
+            exc.to_dict()
+            if hasattr(exc, "to_dict")
+            else {"code": "harvester_failed", "message": str(exc)}
+        )
+        code = str(details.get("code", "harvester_failed"))
+        exit_code = (
+            EXIT_FETCH_ALL_FAILED
+            if code in HARVESTER_FETCH_FAILURE_CODES
+            else EXIT_CONFIG_ERROR
+        )
+        extra = {
+            key: value
+            for key, value in details.items()
+            if key not in ("code", "message")
+        }
+        _emit_generic_error(
+            code, str(details.get("message", exc)), as_json=args.as_json, **extra
+        )
+        return exit_code
+    if args.as_json:
+        _print_json(payload)
+    else:
+        _print_harvester_human(payload)
+    return EXIT_OK
+
+
+def _add_harvester_parser(sub: argparse._SubParsersAction) -> None:
+    """``myssia harvester``:域名聚合侦察(10-05-plugin-market-batch myssia-theharvester)."""
+    harvester = sub.add_parser(
+        "harvester",
+        help="域名/组织聚合侦察(myssia-theharvester 插件,GPL 上游 submodule+uv 隔离子进程;失败绝不拦核心)",
+        description=(
+            "定位 <plugins-dir>/myssia-theharvester(适配器 adapter.py + "
+            "vendor/theHarvester submodule,首次须 git submodule update --init),"
+            "以 uv 临时环境(--no-config --no-project --with 钉版依赖,不进根依赖)"
+            "隔离子进程跑上游 CLI:邮箱/子域/IP 开源聚合侦察,缺省凭据免费源 "
+            "crtsh+dnsdumpster。零命中=合法空态;仅用于已授权安全研究与自有/"
+            "已授权资产;本机直连零第三方聚合服务器。适配器缺失/vendor 未初始化/"
+            "目标非法退 1;采集失败退 2;任何失败不影响核心品类流水线(铁律)。"
+        ),
+    )
+    harvester.add_argument(
+        "domain",
+        help="侦察目标域名/组织名(字母数字开头,仅字母/数字/./_/-;授权侦察目标)",
+    )
+    harvester.add_argument(
+        "--sources",
+        default="crtsh,dnsdumpster",
+        help="逗号分隔的源清单(缺省 crtsh,dnsdumpster 两凭据免费源;全量见上游 --source-list)",
+    )
+    harvester.add_argument(
+        "--timeout",
+        type=float,
+        default=DEFAULT_HARVESTER_TIMEOUT_SECONDS,
+        help=f"子进程 wall-clock 预算秒数(默认 {DEFAULT_HARVESTER_TIMEOUT_SECONDS:g})",
+    )
+    harvester.add_argument(
+        "--plugins-dir",
+        default=DEFAULT_PLUGINS_DIR,
+        help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR},样板位于 myssia-theharvester/ 子目录)",
+    )
+    harvester.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+
+# ---------------------------------------------------------------------------
 # myssia credhunt / credcheck / exposure(myssia-credhunter 插件三 lane;
 # 10-03-aipocket-fusion:正式取数走 engine: credhunter 进管线,本三命令是
 # 调试/冒烟/后处理口 —— credhunt/exposure 单次取数 stdout JSON,credcheck
@@ -4970,6 +5106,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "proxy": _cmd_proxy,
         "media": _cmd_media,
         "maigret": _cmd_maigret,
+        "harvester": _cmd_harvester,
         "credhunt": _cmd_credhunt,
         "credcheck": _cmd_credcheck,
         "exposure": _cmd_exposure,

@@ -1,3 +1,6 @@
 [submodule "plugins/myssia-osint/vendor/Photon"]
 	path = plugins/myssia-osint/vendor/Photon
 	url = https://github.com/s0md3v/Photon
+[submodule "plugins/myssia-theharvester/vendor/theHarvester"]
+	path = plugins/myssia-theharvester/vendor/theHarvester
+	url = https://github.com/laramies/theHarvester

@@ -1,0 +1,36 @@
+# myssia-theharvester — 官方场景件:邮箱/子域/IP 侦察(封装 laramies/theHarvester)。
+#
+# 许可注意:上游 theHarvester 为 GPL-2.0 —— 本插件只以 git submodule 引用
+# 方式接入(照 myssia-osint/Photon 样板),不复制、不修改、不分发其任何
+# 源码;manifest/adapter 均为 MYIA 侧代码。上游 pip 包为空壳不可用
+# (2026-10-05 实测),故走源码 submodule + uv 临时环境(--no-config
+# --no-project --with <pyproject 钉版依赖>)隔离子进程。
+#
+# pin 说明:钉 release tag 4.9.2(2026-10-05 选型)——上游 master 49a38f8d
+# 当日实跑含 Python2 语法残留(except A, B,__main__.py:1394)不可运行,
+# 退到最新稳定 release;依赖清单与 4.9.2 的 pyproject.toml 逐条同源。
+#
+# 桌面路径(desktop 分级):`myssia harvester <domain> --json` —— 邮箱/
+# 子域/IP/ASN 开源聚合侦察,缺省凭据免费源(crtsh+dnsdumpster),范围
+# 可调;本机直连,零第三方聚合服务器。
+id: myssia-theharvester
+name: 域名侦察(theHarvester)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: desktop
+requires: []
+provides: [domain_recon]
+vendor:
+  source: https://github.com/laramies/theHarvester
+  path: vendor/theHarvester
+  pin: ba85366644131d5f170cc7016d4ed99b9817889a
+  license: GPL-2.0
+adapter:
+  entry: adapter.py
+  mode: subprocess
+modes:
+  local:
+    # 纯 CLI 侦察件,进程内无服务形态;上游是 CLI 库,无 remote endpoint。
+    install: myssia plugin install plugins/myssia-theharvester
+install:
+  source: https://github.com/xinzhuzi/myia.git

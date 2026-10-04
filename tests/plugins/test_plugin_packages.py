@@ -62,6 +62,7 @@ OFFICIAL_PACKAGES = (
     "myssia-credhunter",
     "myssia-media",
     "myssia-maigret",
+    "myssia-theharvester",
 )
 
 #: v1.1 定级建议(PRD 10-02-v11-plugins-source-arch 复核表)钉死的期望分级。
@@ -75,6 +76,7 @@ EXPECTED_TIERS = {
     "myssia-credhunter": "desktop",
     "myssia-media": "desktop",
     "myssia-maigret": "desktop",
+    "myssia-theharvester": "desktop",
 }
 
 
@@ -500,6 +502,9 @@ SOURCE_TYPE_PACKAGES = {
     "myssia-media": {"adapter.py"},
     # 10-05-plugin-market-batch 首批:MYIA 侧适配器(MIT 上游同零 vendored)。
     "myssia-maigret": {"adapter.py"},
+    # 10-05-plugin-market-batch 首批:MYIA 侧适配器 + GPL-2.0 上游 submodule
+    # 指针目录 vendor/(gitlink,上游代码零入库、零复制;照 myssia-osint 样板)。
+    "myssia-theharvester": {"adapter.py", "vendor"},
 }
 
 
