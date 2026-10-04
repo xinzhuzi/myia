@@ -484,3 +484,11 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 前后对照口径(主人目验导航):`evidence/*-after.png` 为修整前态、`evidence/final-r2/*.png` 方为终态(修整轮自述同口径);判定链=终审 VL 8/8 FAIL→八屏全修(白名单 17 文件)→VL 复评 dash 四轮+全景 12 图仍全 FAIL(理由漂移/幻觉/DOM 证伪在档)→主人裁决 A+C:实测收口、主人目验终裁(PRD ③环节)
 - 门禁口径:门禁=绿系修整轮记录(scoped vitest 245+41、tsc -b 0 错),本收口纯档操作零代码改动未复跑测试(循 fe-gap-census 纯档收口先例);端口核验实跑:lsof 5311/39931/39881/39882/39885/39874 零监听(「vite/bridge/watchdog 杀净」主张成立),唯 VL 服务 qwen3-vl-8b-mlx@8080(PID 7857/7860)仍驻——各轮「清净」主张本只及 vite/bridge,如实记档不代杀(主人目验环节或仍需该服务)
 - 遗留:①implement.jsonl/check.jsonl 均空档(各 0 行,workflow 各阶段未落行;本收口职责面=task.json+evidence+journal,循白名单纪律未代补);②主人目验终裁未做(权限外,材料已备);③归档(task.py archive→completed)按纪律留主人;journal 本段循 hermes-cron 收口先例留树未随批提交、不 push 未跑 task.py
+
+## 2026-10-04 G9 质检两低危补遗收口(收口员会话,task 10-04-g9-read-all 补遗轮;推送归下一阶段)
+
+- 两 finding 原文摘录(prd Notes「质检两低危处置」,:94):①「确认态触发钮卸载后焦点回落 body,确认钮簇无 autoFocus 补位(键盘/读屏需重 Tab 定位『确认』;AC3 字面已满足且无错误行为,可访问性改进点备案)」②「品类组头入口随 displayItems(过滤后集合)渲染——默认『未读』过滤下某品类已加载行全已读时该组不出场、组头入口暂不可达,切『过滤:全部』恢复(该品类仍可被全库两钮覆盖,语义无错)」;主人令修,白名单=feed-screen.tsx / feed-screen.test.tsx 两件
+- 修法(最小面,全 diff 实读核验):件一=确认主钮补 `autoFocus` 一 prop(`feed-screen.tsx:1395`)——进确认态焦点落确认主钮,触发钮卸载不回落 body(键盘/读屏无需重 Tab);既有簇级 onBlur 实读本就是「焦点离开整个确认/取消簇才取消」口径(relatedTarget containment 判定,fe9f1ed 已落),程序化初始焦点在簇内不构成簇级退出,失焦取消逻辑零改动(ask 预设「若打架则改 focus-within 口径」分支未触发,最小面只补一 prop);件二=「过滤:未读」钮加 title 知会(`feed-screen.tsx:1328-1335`)「未读过滤会隐藏已加载行全已读的分组(含其批量入口);切『全部』可恢复」,行为级事实不变(客户端拿不到未翻页计数,行为级修复必破协议零新增铁律故不为),其余页签 title=null;测试 +2 条(`feed-screen.test.tsx:1766` 件一 document.activeElement=确认主钮+Esc 仍取消零执行/`:1794` 件二 title 断言+其余页签零附加文案)
+- 门禁:本轮工作流脚本统一实跑(尾输出转录;红线「脚本统一,不自跑」,收口会话未自跑)——vitest 全量 22 文件/376 用例 4.98s 全绿(上轮 374→376 恰合 +2)+tsc+vite 绿;复验发现与处置=[];两笔提交前各实跑 `gitnexus detect-changes -r shishi --scope staged`:feat 批="No changes detected"(纯增量 60 行零删,JSX 属性+新测试块零符号级行为变更;上轮 feat 批曾报 4 symbols/6 流程,本轮缩至零报与改动面收窄吻合,如实记)
+- 提交与分诊:dcaa2d9 fix(desktop) 两代码文件(逐路径 add,60+/0-);docs 批=g9 档补遗(prd Notes 补遗行+质检登记「已修」标注/check.jsonl +1 行)+journal 本段随批入库;分诊实况=树内脏件恰三路径(feed 两件+本档 prd)全归本批,ui-reskin-r2/cron-ui 零在途件在场、零吸收;task.json 维持 review 未动(档纪律;其 notes「备案不改」为上轮历史原文不改写,补修正态以 prd Notes 补遗行为准);未跑 task.py、不 push(推送归下一阶段)
+- 遗留:件二行为级边界(未读过滤下已读尽组不可达)按质检原判维持行为不变、仅 title 知会——行为级修复需破协议零新增铁律,留主人另议;归档(task.py archive→completed)+终勾留主人;推送归下一阶段
