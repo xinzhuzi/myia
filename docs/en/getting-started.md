@@ -10,6 +10,65 @@
 
 ## 1. Install
 
+### 1.1 Desktop app (recommended)
+
+Grab the desktop installer (macOS dmg / Windows msi) from
+[Releases](https://github.com/xinzhuzi/myia/releases). **The Python runtime
+and third-party dependencies do not ship inside the installer** (which keeps
+it much smaller): on first launch open **Settings → Python environment** and
+click "Start setup" — the app then installs a self-managed environment
+online, with every step visible and retryable:
+
+- The install chain has five steps: **download → sha256 verify → extract into
+  the data root → pip install the locked dependency list → self-check
+  handshake**, each lit up on the settings page. If it fails mid-way (offline,
+  corrupt archive) a retry skips the steps already completed (idempotent
+  resume) — you never start from scratch.
+- The runtime is **pinned** to
+  [indygreg/python-build-standalone](https://github.com/indygreg/python-build-standalone)
+  `cpython-3.12.7+20241016` (install_only build, sha256 pinned by the bundled
+  manifest — a mirror cannot bypass the check). It lands in `python/` under
+  the data root (macOS `~/Library/Application Support/MYIA/python/`, Windows
+  `%APPDATA%\MYIA\python\`), never in the install directory.
+- **Both mirrors are overridable** (friendly for slow or restricted networks):
+  the settings page can replace the runtime download URL and the PyPI index
+  (e.g. `https://pypi.tuna.tsinghua.edu.cn/simple`) at the same time. A mirror
+  only changes where bytes come from — the pinned version and the sha256
+  check stay in force.
+- The first setup needs network and ~500 MB of free disk. Until the
+  environment is ready every screen shows a "Python runtime not configured"
+  guide — **nothing downloads in the background**; once setup completes the
+  core process starts automatically.
+- Upgrading from an older version: your database / plugins / models / keychain
+  credentials carry over untouched (zero migration); a one-time banner on
+  first launch walks you to settings for that single setup. Later app updates
+  that change the dependency list surface a "Sync dependencies" button in the
+  same section — one idempotent click.
+
+Once the environment is ready, categories on the desktop run in exactly the
+same shape as the CLI — one YAML file (official plugins are auto-seeded,
+including the zero-credential demo `myssia-demo`: GitHub's new-star board,
+abridged below):
+
+```yaml
+id: myssia-demo
+name: Demo · GitHub new stars
+schedule: "0 9 * * *"
+sources:
+  - name: github-new-stars
+    engine: direct_api
+    url: "https://api.github.com/search/repositories?q=created:%3E2026-09-01&sort=stars&order=desc&per_page=30"
+    extract:
+      type: json_path
+      fields:
+        title: "$.items[*].full_name"
+        url: "$.items[*].html_url"
+push:
+  - channel: stdout              # zero-credential channel; runs out of the box once configured
+```
+
+### 1.2 From source (CLI / development)
+
 世事 is a pure-Python package (Python 3.11+) with zero heavy core
 dependencies. Note: the root package depends on the in-repo subpackage
 `myssia-classifier` (a uv workspace member, not published to PyPI), so

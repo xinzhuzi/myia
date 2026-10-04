@@ -7,6 +7,54 @@
 
 ## 1. 安装
 
+### 1.1 桌面应用(推荐)
+
+桌面安装包(macOS dmg / Windows msi)从
+[Releases](https://github.com/xinzhuzi/myia/releases) 下载。**Python 运行时与
+第三方依赖不随安装包分发**(包体因此显著更小):装好后首次启动,到
+**设置 → Python 环境** 分区点「开始配置」,应用在线安装一套自管环境,全程状态
+可见、失败可重试:
+
+- 安装链五步:**下载 → sha256 校验 → 解压到数据根 → pip 按锁版清单装依赖 →
+  自检握手**,设置页逐项亮灯;断网/坏包中途失败,重试时已完成的步骤自动跳过
+  (幂等续装),不用从头再来。
+- 运行时是**钉版**的
+  [indygreg/python-build-standalone](https://github.com/indygreg/python-build-standalone)
+  `cpython-3.12.7+20241016`(install_only 发行,sha256 随包清单钉死,换镜像也
+  绕不过校验);装进数据根下的 `python/`(macOS
+  `~/Library/Application Support/MYIA/python/`,Windows `%APPDATA%\MYIA\python\`),
+  绝不写安装目录。
+- **双镜像可覆盖**(弱网/国内网络友好):设置页可同时替换「运行时下载源」
+  (整串 URL)与「PyPI 镜像」(如 `https://pypi.tuna.tsinghua.edu.cn/simple`)。
+  镜像只换下载地址,版本钉死与 sha256 校验不放松。
+- 首跑需联网,预留约 500MB 磁盘;环境就绪前各屏显示「Python 运行环境未配置」
+  引导,**不会自动后台下载**,配置完成后核心进程即自动拉起。
+- 从旧版本升级:数据库/插件/模型/钥匙串凭据**原样沿用零迁移**,首启出现一次性
+  引导横幅,进设置完成同一次配置即可;之后应用更新若依赖清单有变,同一分区出现
+  「同步依赖」一键幂等补齐。
+
+环境就绪后,桌面端跑的品类与 CLI 完全同形——都是一份 YAML(装机自动种子官方
+插件,含零凭据演示件 `myssia-demo`:GitHub 新星榜,简化形态如下):
+
+```yaml
+id: myssia-demo
+name: 演示 · GitHub 新星
+schedule: "0 9 * * *"
+sources:
+  - name: github-new-stars
+    engine: direct_api
+    url: "https://api.github.com/search/repositories?q=created:%3E2026-09-01&sort=stars&order=desc&per_page=30"
+    extract:
+      type: json_path
+      fields:
+        title: "$.items[*].full_name"
+        url: "$.items[*].html_url"
+push:
+  - channel: stdout              # 零凭据通道,环境配置完成即可开箱跑
+```
+
+### 1.2 源码安装(CLI / 开发)
+
 世事 是纯 Python 包(Python 3.11+),核心零重依赖。注意:根包依赖同仓
 子包 `myssia-classifier`(uv workspace 成员,未发布 PyPI),源码安装只能走
 `uv sync`——裸 `pip install -e .` 解析不到该依赖,会直接失败:

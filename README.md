@@ -202,7 +202,14 @@ uv run myssia run plugins/demo-min.yaml                    # 正式跑;--loop �
    (或双击被拦后到 系统设置 → 隐私与安全性 → 点「仍要打开」);
 3. 安装包未做 Apple 公证(公证需付费开发者账号)—— 代码完全开源可审计,
    每个安装包由 GitHub Actions 公开构建、日志可溯;右键打开一次即完成
-   Gatekeeper 放行,之后正常双击启动。
+   Gatekeeper 放行,之后正常双击启动;
+4. **Python 运行环境首次配置**:运行时与依赖不随包分发(安装包因此显著更小)
+   ——启动后到 设置 → Python 环境 点「开始配置」,在线下载钉版运行时
+   ([indygreg/python-build-standalone](https://github.com/indygreg/python-build-standalone)
+   `cpython-3.12.7+20241016`,sha256 随包清单钉死)并按锁版清单装依赖,装进
+   数据根 `python/` 子目录;下载源与 PyPI 索引均可在设置页换成镜像(只换地址,
+   不绕校验),首跑需联网。详见
+   [快速上手 §1.1](docs/zh/getting-started.md)。
 
 ### Windows(x64)
 
@@ -215,17 +222,20 @@ Windows 版本随下个 Release 交付;交付前 Releases 页暂无 msi(见路�
 2. 首次运行弹 SmartScreen「Windows 已保护你的电脑」时,点
    **「更多信息」→「仍要运行」**(未购买代码签名证书的如实代价,与 macOS
    右键打开同一口径);
-3. Windows Defender 误报可能:安装包内含未签名的 PyInstaller sidecar
-   (`myssia-core.exe`),SmartScreen/Defender 可能告警——代码完全开源可审计,
-   每个安装包由 GitHub Actions 公开构建、日志可溯;如遇拦截,同样
-   「更多信息」→「仍要运行」,必要时在 Defender 提示里选「允许」;
-4. 数据根在 `%APPDATA%\MYIA`(资源管理器地址栏粘贴即达),装机首跑自动
-   种子官方插件,首屏点「运行第一个插件」;
+3. **Python 运行环境首次配置**:与 macOS 同一链路——设置 → Python 环境 →
+   「开始配置」,在线下载同一钉版运行时的 `x86_64-pc-windows-msvc` 等效件并
+   按锁版清单装依赖;下载源与 PyPI 镜像同样可在设置页覆盖(详见
+   [快速上手 §1.1](docs/zh/getting-started.md));
+4. 数据根在 `%APPDATA%\MYIA`(资源管理器地址栏粘贴即达),自管 Python 装在
+   数据根 `python\` 子目录;
 5. 升级:设置页「检查更新」,msi 静默(passive)安装后自动重启
-   (见 [desktop/UPDATER.md](desktop/UPDATER.md))。
+   (见 [desktop/UPDATER.md](desktop/UPDATER.md));旧版数据原样沿用零迁移,
+   首启一次性引导进设置完成环境配置。
 
-装机首跑自动种子官方插件(含零凭据演示件 `myssia-demo`:GitHub 新星榜),
-第一次点「运行第一个插件」就出真数据;设置页「检查更新」走签名更新通道。
+Python 环境配置完成后,装机首跑自动种子官方插件(含零凭据演示件
+`myssia-demo`:GitHub 新星榜),第一次点「运行第一个插件」就出真数据;
+设置页「检查更新」走签名更新通道,应用更新后依赖有漂移时在同一分区一键
+「同步依赖」(幂等,已装跳过)。
 
 桌面五屏(截图为 demo 插件真实抓取数据):
 
@@ -544,12 +554,34 @@ The macOS (Apple Silicon) installer ships via GitHub Releases:
 3. The package is not Apple-notarized (notarization requires a paid developer
    account) — the code is fully open-source and auditable, and every installer
    is built in public by GitHub Actions with traceable logs. One right-click
-   open clears Gatekeeper; subsequent launches open normally.
+   open clears Gatekeeper; subsequent launches open normally;
+4. **First-time Python runtime setup**: the runtime and dependencies do not
+   ship inside the installer (which keeps it much smaller) — after launching,
+   open Settings → Python environment and click "Start setup" to download the
+   pinned runtime
+   ([indygreg/python-build-standalone](https://github.com/indygreg/python-build-standalone)
+   `cpython-3.12.7+20241016`, sha256 pinned by the bundled manifest) and
+   install the locked dependency list into `python/` under the data root.
+   Both the runtime download URL and the PyPI index can be overridden with
+   mirrors in settings (address only — the check is never bypassed); the
+   first setup needs network. See
+   [Getting started §1.1](docs/en/getting-started.md).
 
-A fresh install auto-seeds the official plugins (including the
-zero-credential demo `myssia-demo`: GitHub's new-star board), so the first click
-of "run your first plugin" shows real data; the settings screen offers
-"Check for updates" over a signed update channel.
+On Windows (x64) the flow is the same: the msi installer (shipping via
+Releases — see the roadmap note) downloads the `x86_64-pc-windows-msvc`
+equivalent of the same pinned runtime on first setup; the data root is
+`%APPDATA%\MYIA` with the managed Python under `python\`; upgrades go through
+"Check for updates" (silent passive msi install + restart, see
+[desktop/UPDATER.md](desktop/UPDATER.md)) — data carries over untouched and a
+one-time banner walks you to settings for the single setup.
+
+Once the Python environment is configured, a fresh install auto-seeds the
+official plugins (including the zero-credential demo `myssia-demo`: GitHub's
+new-star board), so the first click of "run your first plugin" shows real
+data; the settings screen offers "Check for updates" over a signed update
+channel, and when an app update changes the dependency list the same section
+grows a one-click "Sync dependencies" action (idempotent — installed packages
+are skipped).
 
 The five desktop screens (fed by real demo-plugin data):
 
