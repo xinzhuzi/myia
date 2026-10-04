@@ -1,9 +1,14 @@
-// MYIA 桌面壳:Tauri 2 窗口 + 持久 PyInstaller sidecar(stdin/stdout JSON-RPC)胶水。
+// MYIA 桌面壳:Tauri 2 窗口 + 持久 Python sidecar(stdin/stdout JSON-RPC)胶水。
 // 协议权威定义:desktop/entry.py 模块注释 —— 请求行 {"id",method,params} →
 // 应答行 {"id",result|{error:{code,path,message}}};无 id 的 {"type": …} 行是
 // 流式事件(log/progress/completed),原样转发为 Tauri 事件 `sidecar://event`。
 // 前端唯一入口:invoke("sidecar_request", { method, params })。
+// spawn 源(10-05-desktop-managed-py-env 第 2 步)已切自管 Python 环境:
+// `<数据根>/python/bin/python3 -m myssia_desktop_entry`(PYTHONPATH=随包源码),
+// 环境探测/IPC/空态事件见 pyenv.rs;旧冻结 sidecar 链待第 7 步打包收口退役。
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod pyenv;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -43,9 +48,11 @@ struct Sidecar {
     respawn_attempts: Mutex<u32>,
 }
 
-/// sidecar 常驻进程:`myssia-core serve`,启动时 spawn,pump 任务独占消费其 stdout。
+/// sidecar 常驻进程:自管 python `-m myssia_desktop_entry`(serve 协议),
+/// 启动时 spawn,pump 任务独占消费其 stdout。
 #[tauri::command]
 async fn sidecar_request(
+    app: AppHandle,
     state: State<'_, Sidecar>,
     method: String,
     params: Option<Value>,
@@ -58,7 +65,13 @@ async fn sidecar_request(
         let mut guard = state.child.lock().unwrap();
         match guard.as_mut() {
             Some(child) => child.write(format!("{request}\n").as_bytes()).map_err(|e| e.to_string()),
-            None => Err("sidecar 进程未运行".into()),
+            // 进程未运行两分源:环境未就绪(未配置/安装中/异常)→ 协议层报
+            // 结构化 pyenv_not_ready(prd Req3,带 status 数据);其余维持
+            // 进程级 sidecar_not_running(崩溃待 respawn/手动拉起)。
+            None => match pyenv::unready_error(&app) {
+                Some(error) => Err(error.to_string()),
+                None => Err("sidecar 进程未运行".into()),
+            },
         }
     };
     if let Err(message) = write {
@@ -125,7 +138,7 @@ fn pump_task(app: AppHandle, mut rx: tauri::async_runtime::Receiver<CommandEvent
                     eprintln!("sidecar 退出: code={:?} signal={:?}", payload.code, payload.signal);
                     let state = app.state::<Sidecar>();
                     *state.child.lock().unwrap() = None;
-                    // drop(child 关闭管道 = stdin EOF,冻结包 serve 循环干净退出;
+                    // drop(child 关闭管道 = stdin EOF,serve 循环干净退出;
                     // 遗留 python 孤儿靠此自清 —— design §2.1② 注记,冒烟核)
                     {
                         let mut pending = state.pending.lock().unwrap();
@@ -145,14 +158,35 @@ fn pump_task(app: AppHandle, mut rx: tauri::async_runtime::Receiver<CommandEvent
 
 /// 拉起 sidecar(setup 首启 / 自动 respawn / 手动 sidecar_restart 三处共用)。
 /// spawn 后即起 pump 任务独占消费其 stdout;MYIA_HOME 注入规则同 v1.1.1。
+/// 第 2 步起 spawn 源切自管 Python 环境(design §4):
+/// `<数据根>/python/bin/python3 -m myssia_desktop_entry serve`(win 为
+/// python.exe;serve 尾参是第 1 步入口模块 argv 契约——无参直通 CLI 空.help
+/// 退出 0,sidecar 起即死,见 pyenv::ENTRY_ARGS),PYTHONPATH=随包
+/// Resources/myssia-src(开发 Python 与应用 Python 分家,Req 4)。
+/// 环境未就绪 → PyenvNotReadyError(结构化携带 status;setup/respawn 路径
+/// downcast 识别后转空态事件,不当 io 失败重试)。
 fn spawn_sidecar(app: &AppHandle) -> Result<CommandChild, Box<dyn std::error::Error>> {
+    let data_root = data_root(app)?;
+    let resource_dir = app.path().resource_dir()?;
+    let installing = app.state::<pyenv::PyenvManager>().installing.lock().unwrap().clone();
+    let status = pyenv::status_at(
+        &data_root,
+        Some(&resource_dir),
+        installing.as_deref(),
+        &pyenv::read_settings(&data_root),
+    );
+    if !pyenv::spawnable(status.state) {
+        return Err(Box::new(pyenv::PyenvNotReadyError(status)));
+    }
+    let mut command = app
+        .shell()
+        .command(pyenv::python_bin_path(&data_root))
+        .args(pyenv::ENTRY_ARGS) // RPC serve 模式;直通模式留给 CLI 场景
+        .env("PYTHONPATH", pyenv::resource_src_dir(&resource_dir));
     // MYIA_HOME 注入尊重用户显式设置(自动化/自定位数据根的逃生口):
     // 已设则原样继承,不夺权;未设才计算平台根并注入 + 预建目录。
-    // sidecar 叫 myssia-core(带 -core 后缀,与主程序 MYIA 不同名——macOS APFS
-    // 大小写不敏感,sidecar 若与主程序同名会在 Contents/MacOS/ 互相覆盖)
-    let mut command = app.shell().sidecar("myssia-core")?.args(["serve"]); // entry.py RPC 模式;直通模式(无参数)留给 CLI 场景
     if std::env::var_os("MYIA_HOME").is_none() {
-        command = command.env("MYIA_HOME", myssia_home_dir(app)?);
+        command = command.env("MYIA_HOME", &data_root);
     }
     // app/bundle 版本注入(C10):单一事实源 = tauri.conf.json 的 version
     // (package_info),sidecar `version` 应答透传为 app_version 字段;
@@ -197,6 +231,16 @@ fn schedule_respawn(app: AppHandle) {
                 match spawn_sidecar(&app) {
                     Ok(child) => *child_guard = Some(child),
                     Err(error) => {
+                        if let Some(not_ready) = error.downcast_ref::<pyenv::PyenvNotReadyError>() {
+                            // 环境在运行途中转未就绪(数据根被清/戳被改判):
+                            // 重试不会让环境就绪,转空态事件走 UI 引导(D2),
+                            // 本任务退出(sidecar://state 停在 respawning 是刻意的:
+                            // pyenv 空态事件才是此刻的真相,拉起按钮救不了环境)。
+                            let _ = app.emit(pyenv::PYENV_STATUS_EVENT, &not_ready.0);
+                            let _ = app.emit(pyenv::PYENV_NOT_READY_EVENT, &not_ready.0);
+                            eprintln!("desktop: {not_ready};停止自动 respawn");
+                            return;
+                        }
                         eprintln!("desktop: sidecar respawn 失败(第 {attempt} 次): {error}");
                         continue; // attempts 已 +1,下一轮更长退避直至 dead
                     }
@@ -233,6 +277,16 @@ async fn sidecar_restart(state: State<'_, Sidecar>, app: AppHandle) -> Result<Va
     *state.respawn_attempts.lock().unwrap() = 0;
     let _ = app.emit(SIDECAR_STATE_EVENT, json!({"state": "online", "respawned": false}));
     Ok(json!({"restarted": true}))
+}
+
+/// 壳侧数据根解析(spawn 注入/自管环境探测共用,与 spawn 的 MYIA_HOME 注入
+/// 规则同源):显式 `MYIA_HOME` env 尊重用户设置原样继承(自动化/自定位数据根
+/// 的逃生口;entry.py `_serve_context` 同优先级链);未设才计算平台根并预建目录。
+fn data_root(app: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    if let Some(home) = std::env::var_os("MYIA_HOME") {
+        return Ok(PathBuf::from(home));
+    }
+    myssia_home_dir(app)
 }
 
 /// MYIA 应用数据根(v1.1.1 桌面数据通路统一,与 entry.py `myssia_home()` 同路径):
@@ -314,19 +368,41 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         // dialog:看图屏系统文件选择器(前端 @tauri-apps/plugin-dialog;权限见 capabilities/default.json)
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![sidecar_request, sidecar_restart])
+        .invoke_handler(tauri::generate_handler![
+            sidecar_request,
+            sidecar_restart,
+            pyenv::pyenv_get_status,
+            pyenv::pyenv_start_setup,
+            pyenv::pyenv_sync_deps
+        ])
         .setup(move |app| {
             // 冷启动打点(沿用 spike 惯例):进程启动 → sidecar spawn 完成。
             // 先 manage 后 spawn:pump 任务一启动就会触达 Sidecar 状态
-            // (spawn_sidecar 内起 pump),manage 必须先行。
+            // (spawn_sidecar 内起 pump),manage 必须先行。PyenvManager 同理
+            // (spawn_sidecar/探测都要读它的 installing 槽)。
             app.manage(Sidecar {
                 child: Mutex::new(None),
                 pending: Mutex::new(HashMap::new()),
                 next_id: AtomicU64::new(1),
                 respawn_attempts: Mutex::new(0),
             });
-            let child = spawn_sidecar(app.handle())?; // 首启失败仍硬失败(与现状一致;respawn 只管运行中退出)
-            *app.state::<Sidecar>().child.lock().unwrap() = Some(child);
+            app.manage(pyenv::PyenvManager::default());
+            // 自管 Python 环境探测(第 2 步):未就绪(not_configured/installing/
+            // error)不 spawn、启动不崩——发空态事件走 UI 引导(D2),sidecar
+            // 请求由协议层报结构化 pyenv_not_ready(prd Req 3);就绪/依赖漂移
+            // 照常 spawn(漂移只是设置页「同步依赖」提示,D4 不强制拦)。
+            let status = pyenv::current_status(app.handle())?;
+            let _ = app.emit(pyenv::PYENV_STATUS_EVENT, &status);
+            if pyenv::spawnable(status.state) {
+                let child = spawn_sidecar(app.handle())?; // 首启 io 失败仍硬失败(与现状一致;respawn 只管运行中退出)
+                *app.state::<Sidecar>().child.lock().unwrap() = Some(child);
+            } else {
+                let _ = app.emit(pyenv::PYENV_NOT_READY_EVENT, &status);
+                eprintln!(
+                    "desktop: Python 运行环境未就绪(state={:?}),不 spawn sidecar;UI 走引导空态",
+                    status.state
+                );
+            }
             // MYIA_SMOKE_ROUTE 静默冒烟钩子(v1.1.1 装机五屏截图用):launchctl
             // setenv 传入路由名(如 "feed"),启动即设 window.location.hash("#/feed");
             // 未设则零行为变化。立即 + 1500ms 两次 eval 兜底 webview 未就绪的窗口期,
@@ -369,7 +445,11 @@ fn main() {
                 #[cfg(target_os = "macos")]
                 yield_focus_after_silent_start(app.handle().clone());
             }
-            eprintln!("desktop: sidecar(serve) spawned in {} ms", started.elapsed().as_millis());
+            eprintln!(
+                "desktop: setup done in {} ms(sidecar {})",
+                started.elapsed().as_millis(),
+                if pyenv::spawnable(status.state) { "spawned" } else { "skipped(环境未就绪)" }
+            );
             Ok(())
         })
         .build(tauri::generate_context!())
