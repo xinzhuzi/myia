@@ -451,3 +451,9 @@ main > div.flex.flex-col:not(.h-full) {
 [data-testid="doctor-verify"] li {
   padding-block: 0.25rem;
 }
+
+
+/* 文字覆盖防护(主人 2026-10-04 报障) */
+main > div, main > section, main > article {
+  position: relative;
+}

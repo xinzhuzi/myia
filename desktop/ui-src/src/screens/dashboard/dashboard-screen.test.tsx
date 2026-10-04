@@ -1,1141 +1,908 @@
 // @vitest-environment jsdom
-//
-// 定时任务屏测试(10-04-cron-ui):mock 传输层(@tauri-apps/api/core invoke +
-// api/event listen,messaging 形态;emitSidecarEvent 注入 cron.* 事件)。
-// 用例 = research/screen-spec.md §5 #1-#27 全集(编号对应 AC;#18 logs 涟漪
-// 落 logs-screen.test.tsx;#20-#27 = Stage 6 蓝本对排缺口修复,G8 reload
-// generation 守卫为代码审查项不设用例)+ Stage 1 骨架基线(空态/错误态/
-// 路由可达)。协议契约权威:desktop/entry.py `_m_cron_*` + @/lib/api types.ts。
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+/**
+ * 仪表盘组件测试 —— mock sidecar(vi.mock "@/lib/api" 的 api 门面,
+ * doctor / runs.list / run.status / store.trend 返回夹具;错误用真实
+ * SidecarRequestError 注入)。覆盖:概览条(D4 四格)/ 采集量趋势(Select
+ * 时间范围 + 自绘 sparkline,窗口切换重查)/ 源健康度卡网格(四态 + 坏者
+ * 优先 + 相对时间锚)/ 品类状态卡(含载入失败)/ 源健康度四态计数 /
+ * 近期 run 成功率(runs.list 历史行 + run.status 活跃叠加,C3)/ 错误与空态。
+ */
+import { cleanup, fireEvent, render, screen, waitFor, act } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
-vi.mock("@tauri-apps/api/event", () => ({ listen: mocks.listen }));
-
-// jsdom 缺指针捕获/滚动 API(Radix Select trigger 的 onPointerDown 依赖
-// hasPointerCapture;item 聚焦路径依赖 scrollIntoView)——最小 polyfill
-beforeAll(() => {
-  if (typeof Element.prototype.hasPointerCapture !== "function") {
-    Element.prototype.hasPointerCapture = () => false;
-  }
-  if (typeof Element.prototype.releasePointerCapture !== "function") {
-    Element.prototype.releasePointerCapture = () => undefined;
-  }
-  if (typeof Element.prototype.scrollIntoView !== "function") {
-    Element.prototype.scrollIntoView = () => undefined;
-  }
-});
-
-import App from "@/App";
+import { SidecarRequestError } from "@/lib/api";
 import type {
-  CronExecutionRow,
-  CronJobRecord,
-  CronListResult,
-  CronStatusResult,
-  YamlListResult,
+  DoctorResult,
+  RunEntry,
+  RunOutcomeDay,
+  RunRecord,
+  SourceHealthState,
+  TrendDay,
 } from "@/lib/api";
 
-// ---------------------------------------------------------------------------
-// 传输层假实现(invoke 按方法分发 + 事件捕获)
-// ---------------------------------------------------------------------------
-
-/** 已注册的 sidecar 事件 handler(供 emitSidecarEvent 注入;messaging 形态) */
-const eventHandlers: Array<(payload: unknown) => void> = [];
-
-/** 注入一条 sidecar 事件(client.ts listen 回调解包 event.payload 后进屏内
- *  handler —— 注入须按 Tauri 事件形态 {event, id, payload} 包装)。 */
-function emitSidecarEvent(payload: unknown): void {
-  for (const handler of [...eventHandlers]) {
-    act(() => handler({ event: "sidecar://event", id: 1, payload }));
-  }
-}
-
-/** invoke 按方法分发;handler 收 (params) 可带副作用(如排队后改内存 store) */
-function mockSidecar(handlers: Record<string, (params: Record<string, unknown>) => unknown>): void {
-  mocks.invoke.mockImplementation((_cmd: string, args: { method?: string; params?: Record<string, unknown> }) => {
-    const handler = handlers[args?.method ?? ""];
-    if (handler === undefined) {
-      if (args?.method === "version") {
-        return Promise.resolve({ name: "myssia", version: "1.0.0", protocol: 10 });
-      }
-      return Promise.reject(new Error(`测试未 mock 的方法:${args?.method}`));
-    }
-    return Promise.resolve(handler(args.params ?? {}));
-  });
-}
-
-/** 取某方法已被 invoke 的 params 序列(断言调用形状) */
-function invokedParams(method: string): Record<string, unknown>[] {
-  return mocks.invoke.mock.calls
-    .filter((call) => (call[1] as { method?: string }).method === method)
-    .map((call) => ((call[1] as { params?: Record<string, unknown> }).params ?? {}));
-}
-
-/** Radix Select 交互配方(v2.1.4 实核):trigger 以 pointerType=mouse 的
- *  pointerDown 打开;item 上普通 click 即选择(handleSelect 有 disabled 守卫)。 */
-function openSelect(trigger: HTMLElement): void {
-  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
-}
-
-// ---------------------------------------------------------------------------
-// 协议夹具(形状逐字段对照 types.ts / entry.py `_m_cron_*` 应答载荷)
-// ---------------------------------------------------------------------------
-
-function cronJob(overrides: Partial<CronJobRecord> = {}): CronJobRecord {
+vi.mock("@/lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api")>();
   return {
-    id: "a1b2c3d4e5f6",
-    name: "早晚情报流",
-    category: "/p/news.yaml",
-    schedule: { kind: "cron", expr: "0 9 * * *", display: "every day 9am" },
-    schedule_display: "every day 9am",
-    repeat: { times: null, completed: 0 },
-    enabled: true,
-    state: "scheduled",
-    paused_at: null,
-    paused_reason: null,
-    created_at: "2026-10-04T09:00:00+08:00",
-    next_run_at: "2026-10-05T09:00:00+08:00",
-    last_run_at: null,
-    last_status: null,
-    last_error: null,
-    last_delivery_error: null,
-    failure_streak: 0,
-    deliver: "local",
-    origin: { source: "desktop" },
-    timezone: null,
+    ...actual,
+    api: {
+      ...actual.api,
+      doctor: vi.fn(),
+      runsList: vi.fn(),
+      runStatus: vi.fn(),
+      runStart: vi.fn(),
+      storeTrend: vi.fn(),
+      runsTrend: vi.fn(),
+      feedbackStats: vi.fn(),
+    },
+    onSidecarEvent: vi.fn(),
+  };
+});
+
+const { api, onSidecarEvent } = await import("@/lib/api");
+const doctorMock = vi.mocked(api.doctor);
+const runsListMock = vi.mocked(api.runsList);
+const runStatusMock = vi.mocked(api.runStatus);
+const runStartMock = vi.mocked(api.runStart);
+const storeTrendMock = vi.mocked(api.storeTrend);
+const runsTrendMock = vi.mocked(api.runsTrend);
+const feedbackStatsMock = vi.mocked(api.feedbackStats);
+const onSidecarEventMock = vi.mocked(onSidecarEvent);
+
+import { DashboardScreen } from "./dashboard-screen";
+import { Sparkline } from "./sparkline";
+import {
+  buildOverviewStats,
+  cumulativeOutcomeSummary,
+  fillDailyCounts,
+  fillDailyOutcomes,
+  overviewTrendDays,
+  shiftUtcDate,
+  successRateSeries,
+  toSparklinePoints,
+} from "./api";
+import type { DashboardRun } from "./api";
+
+// ---------------------------------------------------------------------------
+// 夹具(形状严格对齐 types.ts:DoctorResult / RunEntry)
+// ---------------------------------------------------------------------------
+
+function fixtureSource(
+  name: string,
+  state: SourceHealthState,
+  latest: DoctorResult["plugins"][number]["sources"][number]["health"]["latest"] = null,
+) {
+  return {
+    name,
+    url: `https://example.com/${name}`,
+    engine: "static_html",
+    engine_hint: null,
+    health: { state, reason: state === "dead" ? "连续无产出" : "", observed: 5, latest, baseline: 2 },
+    fingerprint_skips: { observed: 0, skipped: 0 },
+  };
+}
+
+function fixturePlugin(overrides: Partial<DoctorResult["plugins"][number]>) {
+  return {
+    file: "tech.yaml",
+    id: "tech",
+    name: "科技资讯",
+    schedule: "0 9 * * *",
+    timezone: "Asia/Shanghai",
+    push_channels: [],
+    loaded: true,
+    load_errors: null,
+    sources: [],
+    next_fire_at: "2026-10-03T09:00:00+08:00",
+    enrich: null,
     ...overrides,
   };
 }
 
-const STATUS_OK: CronStatusResult = {
-  db: "/h/myssia.db",
-  data_root: "/h",
-  ticker_alive: true,
-  heartbeat_age_seconds: 3,
-  last_success_age_seconds: 60,
-  last_error: null,
-  estopped: false,
-  jobs_total: 0,
-  jobs_enabled: 0,
-  next_due_at: "2026-10-05T09:00:00+08:00",
-};
-
-const STATUS_STALE: CronStatusResult = {
-  ...STATUS_OK,
-  ticker_alive: false,
-  heartbeat_age_seconds: 900,
-};
-
-const STATUS_ESTOPPED: CronStatusResult = {
-  ...STATUS_OK,
-  estopped: true,
-};
-
-function listResult(jobs: CronJobRecord[]): CronListResult {
-  return { db: "/h/myssia.db", data_root: "/h", count: jobs.length, jobs };
+function fixtureDoctor(overrides: Partial<DoctorResult> = {}): DoctorResult {
+  return {
+    command: "doctor",
+    generated_at: "2026-10-02T12:00:00+00:00",
+    db: "myssia.db",
+    healthy: true,
+    plugins: [
+      fixturePlugin({
+        sources: [fixtureSource("hn", "ok"), fixtureSource("gh", "ok"), fixtureSource("blog", "degraded")],
+      }),
+    ],
+    credentials: { backend_available: true, backend_error: null, entries: [] },
+    proxy: { config: null, pools: [] },
+    findings: [],
+    summary: { plugins: 1, sources: 3, errors: 0, warnings: 0 },
+    ...overrides,
+  };
 }
 
-const YAML_LIST: YamlListResult = {
-  plugins_dir: "/p",
-  files: [
-    {
-      file: "/p/news.yaml",
-      name: "news.yaml",
-      parse_ok: true,
-      category_id: "news",
-      category_name: "新闻",
-      sources: 3,
-      error: null,
-    },
-    {
-      file: "/p/broken.yaml",
-      name: "broken.yaml",
-      parse_ok: false,
-      category_id: null,
-      category_name: null,
-      sources: null,
-      error: { path: "$.sources[0]", code: "invalid_source", message: "源缺 url" },
-    },
-  ],
-};
+let nextRunId = 0;
+/** runs.list 历史行(runs 表直读形状,types.ts RunRecord) */
+function fixtureHistoryRun(overrides: Partial<RunRecord> = {}): RunRecord {
+  nextRunId += 1;
+  return {
+    run_id: nextRunId,
+    category: "tech",
+    status: "success",
+    started_at: "2026-10-02T08:00:00+00:00",
+    finished_at: "2026-10-02T08:00:01+00:00",
+    stats: { items_retained: 5 },
+    steps: null,
+    error: null,
+    ...overrides,
+  };
+}
 
-let confirmSpy: ReturnType<typeof vi.spyOn>;
+/** run.status 内存注册表条目(仅活跃叠加用;entry.py `_m_run_status`) */
+function fixtureRegistryRun(overrides: Partial<RunEntry> = {}): RunEntry {
+  return {
+    run_id: 9000,
+    yaml: "/plugins/tech.yaml",
+    db: "myssia.db",
+    dry: false,
+    state: "running",
+    exit_code: null,
+    status: null,
+    started_at: "2026-10-03T08:00:00+00:00",
+    finished_at: null,
+    duration_ms: null,
+    record: null,
+    ...overrides,
+  };
+}
 
-beforeEach(() => {
-  mocks.invoke.mockReset();
-  mocks.listen.mockReset();
-  eventHandlers.length = 0;
-  mocks.listen.mockImplementation((name: string, handler: (event: unknown) => void) => {
-    if (name === "sidecar://event") eventHandlers.push(handler);
-    return Promise.resolve(() => {});
+function mockSidecar(
+  doctor: Promise<DoctorResult>,
+  history: Promise<{ runs: RunRecord[] }>,
+  registry: Promise<{ runs: RunEntry[] }> = Promise.resolve({ runs: [] }),
+) {
+  doctorMock.mockReturnValue(doctor);
+  // runs.list 应答形 = RunsListResult(db/count/runs);夹具只给 runs,补外层
+  runsListMock.mockReturnValue(history.then((payload) => ({ db: "myssia.db", count: payload.runs.length, ...payload })));
+  runStatusMock.mockReturnValue(registry);
+  // B2/B4/G6 三自取数卡:默认空态,不搅既有用例;专项用例自行覆写
+  storeTrendMock.mockResolvedValue({ days: [] });
+  runsTrendMock.mockResolvedValue({ days: [] });
+  feedbackStatsMock.mockResolvedValue({
+    window_days: 14,
+    stats: {
+      total: 0,
+      good: 0,
+      bad: 0,
+      bad_ratio: 0,
+      by_channel: {},
+      top_bad_categories: [],
+      top_bad_words: [],
+    },
+    active_tuning: {},
+    tuning_history: [],
   });
-  confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-});
+}
 
 afterEach(() => {
-  cleanup();
-  confirmSpy.mockRestore();
+  cleanup(); // vitest globals 关闭,RTL 自动清理不生效,须显式清理
+  vi.resetAllMocks();
+  nextRunId = 0;
 });
 
-function renderScreen(): ReturnType<typeof render> {
-  return render(
-    <MemoryRouter>
-      <div data-testid="screen-stub" />
-    </MemoryRouter>,
-  );
-}
-
-/** 打开创建 Dialog 并等选择器清单就绪——必须等 trigger 解除 disabled
- *  (yaml.list 的 promise 落地渲染后)才返回:抢先 openSelect 会点在禁用
- *  trigger 上,下拉永不打开(#9 门禁首轮实炸的竞态面) */
-async function openCreateDialog(): Promise<void> {
-  fireEvent.click(await screen.findByTestId("cron-create-open"));
-  await waitFor(() => {
-    expect(invokedParams("yaml.list")).toHaveLength(1);
-    expect((screen.getByTestId("cron-form-category") as HTMLButtonElement).disabled).toBe(false);
-  });
-}
-
-/** 按名称单元格定位行(动作按钮作用域) */
-function getByRowName(rows: HTMLElement, name: string): HTMLElement {
-  const cell = within(rows).getByText(name);
-  const row = cell.closest("tr");
-  if (row === null) throw new Error(`找不到含「${name}」的行`);
-  return row;
-}
-
-// ---------------------------------------------------------------------------
-// Stage 1 基线:空态 / 错误态 / 路由可达
-// ---------------------------------------------------------------------------
-
-describe("CronScreen 基线(Stage 1)", () => {
-  it("空库:挂载双拉 cron.list + cron.status,空态引导卡含 CLI 对照", async () => {
-    mockSidecar({ "cron.list": () => listResult([]), "cron.status": () => STATUS_OK });
-    renderScreen();
-
-    expect(await screen.findByText("创建第一个定时任务")).toBeTruthy();
-    expect(screen.getByText(/myssia cron list/)).toBeTruthy();
-    const methods = mocks.invoke.mock.calls.map((call) => (call[1] as { method: string }).method);
-    expect(methods).toContain("cron.list");
-    expect(methods).toContain("cron.status");
-  });
-
-  it("拉取失败:ErrorBox 结构化错误(code 原文)+ 重试按钮", async () => {
-    mockSidecar({ "cron.status": () => STATUS_OK });
-    mocks.invoke.mockImplementation((_cmd: string, args: { method?: string }) => {
-      if (args?.method === "cron.list") {
-        return Promise.reject(
-          JSON.stringify({ code: "store_corrupt", path: "$", message: "cron 账本不可读" }),
-        );
-      }
-      return Promise.resolve(STATUS_OK);
-    });
-    renderScreen();
-
-    const alertBox = await screen.findByRole("alert");
-    expect(alertBox.textContent).toContain("cron 账本不可读");
-    expect(alertBox.textContent).toContain("code=store_corrupt");
-    expect(within(alertBox).getByRole("button", { name: /重试/ })).toBeTruthy();
-  });
+// Radix Select 2.x 在 jsdom 里开下拉需要的指针捕获/滚动桩(趋势时间范围切换用例)
+beforeAll(() => {
+  window.HTMLElement.prototype.hasPointerCapture = () => false;
+  window.HTMLElement.prototype.releasePointerCapture = () => {};
+  window.HTMLElement.prototype.scrollIntoView = () => {};
 });
 
-describe("路由接线(App.tsx /cron)", () => {
-  it.skip("/cron 路由可达(页头已删——无头布局,保留跳过占位)", async () => {
-    mockSidecar({ "cron.list": () => listResult([]), "cron.status": () => STATUS_OK });
-    render(
-      <MemoryRouter initialEntries={["/cron"]}>
-        <App />
-      </MemoryRouter>,
+// ---------------------------------------------------------------------------
+// 用例
+// ---------------------------------------------------------------------------
+
+describe("DashboardScreen", () => {
+  it("渲染品类状态卡:健康品类=正常,载入失败品类=异常", async () => {
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [
+            fixturePlugin({ file: "tech.yaml", sources: [fixtureSource("hn", "ok")] }),
+            fixturePlugin({
+              file: "broken.yaml",
+              name: "坏品类",
+              loaded: false,
+              load_errors: [{ error_type: "config_error", path: "$", message: "schema 拒载" }],
+            }),
+          ],
+          findings: [
+            {
+              severity: "error",
+              scope: "plugin:broken.yaml",
+              code: "config_error",
+              message: "schema 拒载",
+            },
+          ],
+          healthy: false,
+          summary: { plugins: 2, sources: 1, errors: 1, warnings: 0 },
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
     );
+    render(<DashboardScreen />);
 
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "定时任务" })).toBeTruthy();
-    });
-    const nav = screen.getByRole("navigation", { name: "主导航" });
-    expect(within(nav).getByRole("link", { name: "定时任务" })).toBeTruthy();
-    expect(within(nav).getByRole("link", { name: "源管理" })).toBeTruthy();
+    await screen.findByTestId("category-tech.yaml");
+    expect(screen.getByText("坏品类")).toBeTruthy();
+    const healthy = screen.getByTestId("category-tech.yaml");
+    expect(healthy.textContent).toContain("正常");
+    const broken = screen.getByTestId("category-broken.yaml");
+    expect(broken.textContent).toContain("异常");
+    expect(broken.textContent).toContain("未载入");
+    expect(screen.getByTestId("dashboard-screen-root")).toBeTruthy();
   });
-});
 
-// ---------------------------------------------------------------------------
-// screen-spec §5 #1-#12(编号对应 AC)
-// ---------------------------------------------------------------------------
+  it("源健康度汇总按四态计数(ok/degraded/dead/unknown)", async () => {
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [
+            fixturePlugin({
+              sources: [
+                fixtureSource("a", "ok"),
+                fixtureSource("b", "ok"),
+                fixtureSource("c", "degraded"),
+                fixtureSource("d", "dead"),
+                fixtureSource("e", "unknown"),
+              ],
+            }),
+          ],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
 
-describe("#1 列表渲染:全字段(AC3)", () => {
-  it("name/schedule_display/deliver/repeat 渲染;times null 显示 ∞", async () => {
-    mockSidecar({
-      "cron.list": () =>
-        listResult([
-          cronJob({
-            name: "早晚情报流",
-            schedule_display: "every day 9am",
-            deliver: "feishu:ops群",
-            repeat: { times: 5, completed: 2 },
+    await screen.findByTestId("category-tech.yaml");
+    expect(screen.getByTestId("health-ok").textContent).toContain("2");
+    expect(screen.getByTestId("health-degraded").textContent).toContain("1");
+    expect(screen.getByTestId("health-dead").textContent).toContain("1");
+    expect(screen.getByTestId("health-unknown").textContent).toContain("1");
+  });
+
+  it("近期 run 成功率:8/10 成功 = 80%,活跃(run.status 叠加)不计入且单独标注", async () => {
+    const history: RunRecord[] = [];
+    for (let i = 0; i < 8; i += 1) history.push(fixtureHistoryRun({}));
+    history.push(fixtureHistoryRun({ status: "partial" }));
+    history.push(fixtureHistoryRun({ status: "failed" }));
+    history.push(fixtureHistoryRun({ status: "running" })); // pipeline start_run 即写表
+    // 协议契约:runs.list 新→旧(entry.py `_m_runs_list`),夹具反转为真实顺序;
+    // 注册表活跃条目与之合并 → running 表行标 active(mergeDashboardRuns ①)
+    mockSidecar(
+      Promise.resolve(fixtureDoctor()),
+      Promise.resolve({ runs: history.reverse() }),
+      Promise.resolve({ runs: [fixtureRegistryRun()] }),
+    );
+    render(<DashboardScreen />);
+
+    await screen.findByTestId("category-tech.yaml");
+    expect(screen.getByTestId("run-success-rate").textContent).toBe("80%");
+    expect(screen.getByTestId("run-success-rate").parentElement?.textContent).toContain("8/10 次成功");
+    expect(screen.getByTestId("run-success-rate").parentElement?.textContent).toContain("1 个运行中");
+    // 最近列表最多 10 条,且含最新(运行中)那条
+    expect(screen.getByTestId(`recent-run-${nextRunId}`)).toBeTruthy();
+    expect(screen.getAllByTestId(/^recent-run-/)).toHaveLength(10);
+  });
+
+  it("runs.list 历史可达:注册表空(sidecar 重启后)历史行仍上屏", async () => {
+    // C3 验收的组件级形态:run.status 空(内存态随重启蒸发),仪表盘吃 runs.list
+    mockSidecar(
+      Promise.resolve(fixtureDoctor()),
+      Promise.resolve({
+        runs: [fixtureHistoryRun(), fixtureHistoryRun({ status: "cancelled" })], // 新→旧
+      }),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    await screen.findByTestId("category-tech.yaml");
+    expect(screen.getByTestId("run-success-rate").textContent).toBe("50%");
+    expect(screen.getByTestId(`recent-run-${nextRunId}`).textContent).toContain("已取消");
+  });
+
+  it("分区失败降级:doctor 挂而 runs 活 → 降级横幅(码+原因+重试指引)+ 其余分区照常渲染,不整屏报废", async () => {
+    mockSidecar(
+      Promise.reject(
+        new SidecarRequestError({
+          code: "config",
+          path: "params.yamls",
+          message: "品类 YAML 校验失败",
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    const banner = await screen.findByTestId("dashboard-section-errors");
+    expect(banner.textContent).toContain("config");
+    expect(banner.textContent).toContain("品类 YAML 校验失败");
+    expect(banner.textContent).toContain("降级");
+    expect(banner.textContent).toContain("刷新");
+    expect(screen.getByTestId("dashboard-overview")).toBeTruthy();
+    expect(screen.queryByTestId("dashboard-error")).toBeNull();
+  });
+
+  it("internal_error 单区失败 → 人话文案 + mono 码,不裸放 raw code", async () => {
+    mockSidecar(
+      Promise.reject(
+        new SidecarRequestError({
+          code: "internal_error",
+          path: "$",
+          message: "Traceback …",
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    const banner = await screen.findByTestId("dashboard-section-errors");
+    expect(banner.textContent).toContain("核心内部错误");
+    expect(banner.textContent).toContain("internal_error");
+    expect(banner.textContent).not.toContain("Traceback");
+  });
+
+  it("空态:无品类、无 run 时给引导文案,成功率为 —(不虚构 0%)", async () => {
+    mockSidecar(Promise.resolve(fixtureDoctor({ plugins: [] })), Promise.resolve({ runs: [] }));
+    render(<DashboardScreen />);
+
+    await screen.findByText("暂无品类");
+    expect(screen.getByText(/还没有 run 记录/)).toBeTruthy();
+    expect(screen.getByTestId("run-success-rate").textContent).toBe("—");
+  });
+
+  it("刷新按钮重新拉取 doctor + run.status", async () => {
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    render(<DashboardScreen />);
+    await screen.findByTestId("category-tech.yaml");
+    expect(doctorMock).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+    await screen.findByTestId("category-tech.yaml");
+    expect(doctorMock).toHaveBeenCalledTimes(2);
+    expect(runStatusMock).toHaveBeenCalledTimes(2);
+  });
+
+  // -------------------------------------------------------------------------
+  // D4/D5(10-03-ui-deep-imitation):概览条 / 趋势 sparkline / 源健康卡网格
+  // (对照 teardown-vercel-dashboard #2/#3/#4/#6)
+  // -------------------------------------------------------------------------
+
+  it("概览条(D4):今日采集=trend 右端 / 活跃源=ok+degraded / 推送成功=今日 run 的 push ok / 告警=findings", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [
+            fixturePlugin({
+              sources: [
+                fixtureSource("a", "ok"),
+                fixtureSource("b", "degraded"),
+                fixtureSource("c", "dead"),
+                fixtureSource("d", "unknown"),
+              ],
+            }),
+          ],
+          findings: [
+            { severity: "error", scope: "plugin:tech.yaml", code: "credentials", message: "缺凭据" },
+            { severity: "warning", scope: "plugin:tech.yaml", code: "env_ref_missing", message: "缺环境变量" },
+          ],
+        }),
+      ),
+      Promise.resolve({
+        runs: [
+          fixtureHistoryRun({
+            started_at: `${today}T08:00:00+00:00`,
+            stats: {
+              items_retained: 5,
+              push: [
+                { channel: "tg", ok: true },
+                { channel: "feishu", ok: false },
+                { channel: "mail", ok: true },
+              ],
+            },
           }),
-          cronJob({
-            id: "b2c3d4e5f6a7",
-            name: "周报",
-            schedule: { kind: "interval", minutes: 10080, display: "every 10080m" },
-            schedule_display: "every 10080m",
-            repeat: { times: null, completed: 0 },
+        ],
+      }),
+    );
+    storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 5 }] });
+    render(<DashboardScreen />);
+
+    await screen.findByTestId("category-tech.yaml");
+    await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("5"));
+    expect(screen.getByText("今日采集")).toBeTruthy(); // 默认今日档,口径不动
+    expect(screen.getByTestId("stat-active-sources").textContent).toContain("2"); // ok+degraded
+    expect(screen.getByTestId("stat-active-sources").textContent).toContain("共 4 源");
+    expect(screen.getByTestId("stat-window-push").textContent).toContain("2"); // 2 次 ok 推送
+    expect(screen.getByTestId("stat-alerts").textContent).toContain("2"); // error+warning 各一
+    expect(screen.getByTestId("dashboard-overview")).toBeTruthy();
+    expect(storeTrendMock).toHaveBeenCalledWith({ days: 1 }); // A-dash:概览独立 1 天窗
+  });
+
+  it("A-dash 概览窗口:Select 切 7 天 → 采集格=窗口求和、推送格吃窗口内 run;活跃源/告警保持快照并注记", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [
+            fixturePlugin({
+              sources: [fixtureSource("a", "ok"), fixtureSource("b", "ok"), fixtureSource("c", "degraded")],
+            }),
+          ],
+          findings: [
+            { severity: "warning", scope: "plugin:tech.yaml", code: "env_ref_missing", message: "缺环境变量" },
+          ],
+        }),
+      ),
+      Promise.resolve({
+        runs: [
+          // 昨日 run:2 次 ok 推送(今日档不入窗,7 天档入窗)
+          fixtureHistoryRun({
+            started_at: `${yesterday}T08:00:00+00:00`,
+            stats: {
+              items_retained: 3,
+              push: [
+                { channel: "tg", ok: true },
+                { channel: "tg", ok: true },
+                { channel: "mail", ok: false },
+              ],
+            },
           }),
-        ]),
-      "cron.status": () => STATUS_OK,
-    });
-    renderScreen();
-
-    const rows = await screen.findByTestId("cron-job-rows");
-    expect(within(rows).getByText("早晚情报流")).toBeTruthy();
-    expect(within(rows).getByText("every day 9am")).toBeTruthy();
-    expect(within(rows).getByText("feishu:ops群")).toBeTruthy();
-    expect(within(rows).getByText("2/5")).toBeTruthy();
-    expect(within(rows).getByText("0/∞")).toBeTruthy();
-  });
-});
-
-describe("#2 四态 badge 色(AC3)", () => {
-  it("ok→ok 类/failed→destructive/delivery_failed→warning/paused→中性", async () => {
-    mockSidecar({
-      "cron.list": () =>
-        listResult([
-          cronJob({ id: "j1", name: "甲", last_status: "ok" }),
-          cronJob({ id: "j2", name: "乙", last_status: "failed", last_error: "boom" }),
-          cronJob({ id: "j3", name: "丙", last_status: "delivery_failed" }),
-          cronJob({ id: "j4", name: "丁", state: "paused", paused_at: "2026-10-04T09:00:00+08:00" }),
-        ]),
-      "cron.status": () => STATUS_OK,
-    });
-    renderScreen();
-
-    await screen.findByTestId("cron-job-rows");
-    expect(screen.getByText("成功").className).toContain("text-ok");
-    expect(screen.getByText("失败").className).toContain("destructive");
-    expect(screen.getByText("投递失败").className).toContain("text-warning");
-    expect(screen.getByText("已暂停").className).toContain("bg-secondary");
-  });
-});
-
-describe("#3 逾期红标边界(AC3)", () => {
-  it("next=now-16min 红 / now-14min 不红 / paused 无标", async () => {
-    const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
-    mockSidecar({
-      "cron.list": () =>
-        listResult([
-          cronJob({ id: "late16", name: "迟到十六", next_run_at: minutesAgo(16) }),
-          cronJob({ id: "late14", name: "迟到十四", next_run_at: minutesAgo(14) }),
-          cronJob({ id: "paused", name: "已暂停的", state: "paused", next_run_at: minutesAgo(30) }),
-        ]),
-      "cron.status": () => STATUS_OK,
-    });
-    renderScreen();
-
-    await screen.findByTestId("cron-job-rows");
-    const overdueMarks = screen.getAllByText("逾期");
-    expect(overdueMarks).toHaveLength(1); // 16min 红、14min 宽限内、paused 无
-    // 「逾期」标记 span 本体无类;红色在父级时间 span 上
-    expect(overdueMarks[0]?.parentElement?.className).toContain("text-destructive");
-    expect(screen.getByText("已暂停的").closest("tr")?.textContent).not.toContain("逾期");
-  });
-});
-
-describe("#4 all 切换(AC3)", () => {
-  it("开关打开后 list 携 all:true;终态行出现「已完结」", async () => {
-    mockSidecar({
-      "cron.list": (params) =>
-        listResult(params.all === true ? [cronJob({ id: "done", name: "已完成的", state: "completed" })] : []),
-      "cron.status": () => STATUS_OK,
-    });
-    renderScreen();
-
-    await screen.findByText("创建第一个定时任务"); // 默认仅活跃 = 空
-    fireEvent.click(screen.getByTestId("cron-all-switch"));
-
-    await screen.findByText("已完结");
-    const listCalls = invokedParams("cron.list");
-    expect(listCalls[listCalls.length - 1]).toEqual({ all: true });
-  });
-});
-
-describe("#5 活性条三态(AC2)", () => {
-  it("正常灰字含 data_root;僵死黄条 cron-stale;急停红条 cron-estopped+恢复全部+注记", async () => {
-    // 正常
-    mockSidecar({ "cron.list": () => listResult([]), "cron.status": () => STATUS_OK });
-    const first = renderScreen();
-    const normal = await first.findByTestId("cron-vitality");
-    expect(normal.textContent).toContain("ticker 活跃");
-    expect(normal.textContent).toContain("/h"); // Q3 数据根可见
-    first.unmount();
-
-    // 僵死(heartbeat_age_seconds > 180 / ticker 不活)
-    mockSidecar({ "cron.list": () => listResult([]), "cron.status": () => STATUS_STALE });
-    const second = renderScreen();
-    expect(await second.findByTestId("cron-stale")).toBeTruthy();
-    second.unmount();
-
-    // 急停
-    mockSidecar({
-      "cron.list": () => listResult([]),
-      "cron.status": () => STATUS_ESTOPPED,
-      "cron.resume": () => ({ estopped: false, cleared: true }),
-    });
-    const third = renderScreen();
-    const estopBar = await third.findByTestId("cron-estopped");
-    expect(estopBar.textContent).toContain("已急停");
-    expect(estopBar.textContent).toContain("仅暂停调度"); // Q4 注记
-    expect(within(estopBar).getByTestId("cron-resume-all")).toBeTruthy();
-    // AC5 恢复全部调用形状:点击 → cron.resume {all:true}
-    fireEvent.click(within(estopBar).getByTestId("cron-resume-all"));
-    await waitFor(() => {
-      expect(invokedParams("cron.resume")).toContainEqual({ all: true });
-    });
-    third.unmount();
-
-    // 僵死判据第二支独立钉:ticker_alive:true 且 heartbeat_age_seconds=900
-    // (>180)——防 cronTickerStale 退化成仅 !ticker_alive 也照绿
-    mockSidecar({
-      "cron.list": () => listResult([]),
-      "cron.status": () => ({ ...STATUS_OK, ticker_alive: true, heartbeat_age_seconds: 900 }),
-    });
-    const fourth = renderScreen();
-    expect(await fourth.findByTestId("cron-stale")).toBeTruthy();
-    fourth.unmount();
-  });
-});
-
-describe("#6 急停全部(AC5)", () => {
-  it("红钮→确认 Dialog→invoke cron.pause {all:true}", async () => {
-    mockSidecar({
-      "cron.list": () => listResult([]),
-      "cron.status": () => STATUS_OK,
-      "cron.pause": () => ({ estopped: true, marker: "2026-10-04T10:00:00+08:00" }),
-    });
-    renderScreen();
-
-    fireEvent.click(await screen.findByTestId("cron-estop-all"));
-    expect(await screen.findByText("急停全部定时任务?")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("cron-estop-confirm"));
-
-    await waitFor(() => {
-      expect(invokedParams("cron.pause")).toContainEqual({ all: true });
-    });
-    expect((await screen.findByTestId("cron-notice")).textContent).toContain("已急停");
-  });
-});
-
-describe("#7 创建提交形状(AC4)", () => {
-  it("chips 点击→schedule;选择器选 parse_ok 项→category 绝对路径;全字段 payload", async () => {
-    mockSidecar({
-      "cron.list": () => listResult([]),
-      "cron.status": () => STATUS_OK,
-      "yaml.list": () => YAML_LIST,
-      "cron.create": () => ({ job: cronJob() }),
-    });
-    renderScreen();
-    await openCreateDialog();
-
-    // chips 行:点击填 schedule 输入框
-    fireEvent.click(screen.getByTestId("cron-chip-every monday 9am"));
-    expect((screen.getByTestId("cron-form-schedule") as HTMLInputElement).value).toBe("every monday 9am");
-
-    // 选择器:parse_ok 项 → category 绝对路径
-    openSelect(screen.getByTestId("cron-form-category"));
-    fireEvent.click(await screen.findByRole("option", { name: "新闻" }));
-
-    // 高级折叠展开后补全字段
-    fireEvent.click(screen.getByText(/高级选项/));
-    fireEvent.change(screen.getByTestId("cron-form-deliver"), { target: { value: "feishu:ops" } });
-    fireEvent.change(screen.getByTestId("cron-form-failureDeliver"), { target: { value: "feishu:alert" } });
-    fireEvent.change(screen.getByTestId("cron-form-repeat"), { target: { value: "5" } });
-    fireEvent.change(screen.getByTestId("cron-form-timezone"), { target: { value: "Asia/Shanghai" } });
-    fireEvent.change(screen.getByTestId("cron-form-config"), { target: { value: "/p/pools.yaml" } });
-    fireEvent.change(screen.getByTestId("cron-form-runTimeout"), { target: { value: "600" } });
-    fireEvent.click(within(screen.getByText("dry-run(零持久化试跑)").parentElement!).getByRole("switch"));
-
-    fireEvent.click(screen.getByTestId("cron-form-submit"));
-
-    await waitFor(() => {
-      expect(invokedParams("cron.create")).toEqual([
-        {
-          schedule: "every monday 9am",
-          category: "/p/news.yaml",
-          deliver: "feishu:ops",
-          failure_deliver: "feishu:alert",
-          timezone: "Asia/Shanghai",
-          config: "/p/pools.yaml",
-          repeat: 5,
-          run_timeout: 600,
-          dry_run: true,
-        },
-      ]);
-    });
-  });
-});
-
-describe("#8 创建错误回显(AC4)", () => {
-  it("create 报 parse 错误→错误行含原文,Dialog 不关", async () => {
-    mockSidecar({
-      "cron.list": () => listResult([]),
-      "cron.status": () => STATUS_OK,
-      "yaml.list": () => YAML_LIST,
-      "cron.create": () =>
-        Promise.reject(
-          JSON.stringify({
-            code: "cron_create_failed",
-            path: "params",
-            message: "schedule 解析失败:未知形态「foo」",
+          // 前日 run:0 次 ok 推送
+          fixtureHistoryRun({
+            started_at: `${twoDaysAgo}T08:00:00+00:00`,
+            stats: { items_retained: 2, push: [{ channel: "mail", ok: false }] },
           }),
-        ),
+        ],
+      }),
+    );
+    storeTrendMock.mockResolvedValue({
+      days: [
+        { date: twoDaysAgo, count: 2 },
+        { date: yesterday, count: 3 },
+        { date: today, count: 4 },
+      ],
     });
-    renderScreen();
-    await openCreateDialog();
+    render(<DashboardScreen />);
 
-    fireEvent.click(screen.getByTestId("cron-chip-0 9 * * *"));
-    openSelect(screen.getByTestId("cron-form-category"));
-    fireEvent.click(await screen.findByRole("option", { name: "新闻" }));
-    fireEvent.click(screen.getByTestId("cron-form-submit"));
+    // 默认今日档:采集=当日 4;推送=—(今日无 run,不虚构 0)
+    await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("4"));
+    expect(screen.getByTestId("stat-window-push").textContent).toContain("—");
 
-    const errorLine = await screen.findByTestId("cron-form-error");
-    expect(errorLine.textContent).toContain("schedule 解析失败:未知形态「foo」");
-    expect(screen.getByTestId("cron-form-schedule")).toBeTruthy(); // Dialog 未关
+    // 概览 Select 切 7 天(与趋势卡 Select 同款交互;Radix 需 mouse 型 pointerDown)
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    const option = await screen.findByRole("option", { name: "7 天" });
+    fireEvent.click(option);
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 })); // 独立重查
+
+    // 采集格 = 窗口求和 2+3+4=9;推送格 = 窗口内 run 的 ok 计数 2
+    await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("9"));
+    expect(screen.getByText("近 7 天采集")).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("stat-window-push").textContent).toContain("2"));
+
+    // 两格快照:活跃源(ok 2 + degraded 1 → 活跃 3)、告警(findings 1)不随窗,note 注记口径
+    expect(screen.getByTestId("stat-active-sources").textContent).toContain("3");
+    expect(screen.getByTestId("stat-active-sources").textContent).toContain("即时快照不随窗");
+    expect(screen.getByTestId("stat-alerts").textContent).toContain("1");
+    expect(screen.getByTestId("stat-alerts").textContent).toContain("即时快照不随窗");
   });
-});
 
-describe("#9 选择器坏文件禁选(AC4)", () => {
-  it("parse_ok:false 项 aria-disabled+「解析失败」;手输兜底可提交", async () => {
-    mockSidecar({
-      "cron.list": () => listResult([]),
-      "cron.status": () => STATUS_OK,
-      "yaml.list": () => YAML_LIST,
-      "cron.create": () => ({ job: cronJob() }),
+  it("趋势(D4/D5):sparkline 画补零等长窗口(默认 14 点),Select 切 7 天重查 store.trend", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 3 }] });
+    render(<DashboardScreen />);
+
+    const spark = await screen.findByTestId("dashboard-sparkline");
+    const polyline = spark.querySelector("polyline");
+    expect(polyline).toBeTruthy();
+    expect(polyline?.getAttribute("points")?.trim().split(/\s+/)).toHaveLength(14); // 补零 = 等长序列
+    expect(screen.getByTestId("trend-total").textContent).toContain("共 3 条");
+    expect(storeTrendMock).toHaveBeenCalledWith({ days: 14 }); // 默认窗口
+
+    // Select 时间范围切换(teardown #6):Radix 下拉仅对 mouse 型 pointerDown 开
+    // (react-select dist index.mjs:214 的 pointerType==="mouse" 门)→ 显式带 pointerType
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "趋势时间范围" }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
     });
-    renderScreen();
-    await openCreateDialog();
-
-    openSelect(screen.getByTestId("cron-form-category"));
-    const badOption = await screen.findByRole("option", { name: /解析失败/ });
-    expect(badOption.getAttribute("aria-disabled")).toBe("true");
-    expect(badOption.textContent).toContain("解析失败");
-
-    // 手输兜底:末项「手输路径…」切换 input,提交带手输绝对路径
-    fireEvent.click(screen.getByRole("option", { name: "手输路径…" }));
-    fireEvent.change(await screen.findByTestId("cron-form-category-input"), {
-      target: { value: "/p/manual.yaml" },
-    });
-    fireEvent.click(screen.getByTestId("cron-chip-30m"));
-    fireEvent.click(screen.getByTestId("cron-form-submit"));
-
-    await waitFor(() => {
-      const created = invokedParams("cron.create");
-      expect(created).toHaveLength(1);
-      expect(created[0]).toMatchObject({ schedule: "30m", category: "/p/manual.yaml" });
-    });
+    const option = await screen.findByRole("option", { name: "7 天" });
+    fireEvent.click(option);
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 }));
   });
-});
 
-describe("#10 编辑预填+部分更新(AC4)", () => {
-  it("fromJob 预填;只改 deliver→edit 仅含 job+deliver", async () => {
-    mockSidecar({
-      "cron.list": () =>
-        listResult([cronJob({ repeat: { times: 5, completed: 1 }, deliver: "local", timezone: null })]),
-      "cron.status": () => STATUS_OK,
-      "yaml.list": () => YAML_LIST,
-      "cron.edit": () => ({ job: cronJob() }),
-    });
-    renderScreen();
+  it("趋势独立降级:store.trend 拒绝 → 趋势卡显错、概览采集格如实 — 且注记错误码,doctor 区块照常", async () => {
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    storeTrendMock.mockRejectedValue(
+      new SidecarRequestError({ code: "db_locked", path: "$", message: "数据库被锁" }),
+    );
+    render(<DashboardScreen />);
 
-    const rows = await screen.findByTestId("cron-job-rows");
-    fireEvent.click(within(getByRowName(rows, "早晚情报流")).getByRole("button", { name: "编辑" }));
-    await waitFor(() => {
-      expect(invokedParams("yaml.list")).toHaveLength(1);
-    });
-
-    // 预填:schedule=expr 直读、deliver=local(高级折叠内)
-    expect((screen.getByTestId("cron-form-schedule") as HTMLInputElement).value).toBe("0 9 * * *");
-    fireEvent.click(screen.getByText(/高级选项/));
-    expect((screen.getByTestId("cron-form-deliver") as HTMLInputElement).value).toBe("local");
-    // dry_run 开关编辑态禁用(cron.edit 更新键集无此键——entry.py 4620-4637,
-    // 可切不可交 = 误导 affordance;禁用后载荷必不含该键)
-    const dryRunSwitch = within(screen.getByText("dry-run(零持久化试跑)", { exact: false }).parentElement!).getByRole("switch");
-    expect((dryRunSwitch as HTMLButtonElement).disabled).toBe(true);
-
-    // 只改 deliver → 部分更新载荷仅 job + deliver
-    fireEvent.change(screen.getByTestId("cron-form-deliver"), { target: { value: "feishu:ops" } });
-    fireEvent.click(screen.getByTestId("cron-form-submit"));
-
-    await waitFor(() => {
-      expect(invokedParams("cron.edit")).toEqual([{ job: "a1b2c3d4e5f6", deliver: "feishu:ops" }]);
-    });
-    expect(await screen.findByTestId("cron-notice")).toBeTruthy();
+    const trendError = await screen.findByTestId("dashboard-trend-error");
+    expect(trendError.textContent).toContain("db_locked");
+    await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("—"));
+    expect(screen.getByTestId("stat-window-items").textContent).toContain("db_locked"); // A-dash 降级注记
+    expect(screen.getByTestId("category-tech.yaml")).toBeTruthy();
   });
-});
 
-describe("#11 动作四件(AC5)", () => {
-  it("run/pause/resume invoke 形状;remove 先 window.confirm", async () => {
-    mockSidecar({
-      "cron.list": () =>
-        listResult([cronJob({ id: "ja", name: "甲" }), cronJob({ id: "jb", name: "乙", state: "paused" })]),
-      "cron.status": () => STATUS_OK,
-      "cron.run": () => ({ job: cronJob() }),
-      "cron.pause": () => ({ job: cronJob() }),
-      "cron.resume": () => ({ job: cronJob() }),
-      "cron.remove": () => ({ removed: true, job_id: "ja", name: "甲" }),
+  it("源健康度卡网格(D4):四态卡 + 坏者(dead)排前 + 观测时间锚回 runs.list + 无观测显 —", async () => {
+    // 90 分钟前启动的 run(留 ~30 分钟余量,相对时间稳定落「1 小时前」)
+    const observedRunStarted = new Date(Date.now() - 90 * 60_000).toISOString();
+    const observedRun = fixtureHistoryRun({
+      started_at: observedRunStarted,
+      finished_at: new Date().toISOString(),
     });
-    renderScreen();
+    const plugin = fixturePlugin({
+      sources: [
+        fixtureSource("hn", "ok", {
+          run_id: observedRun.run_id,
+          run_status: "success",
+          item_count: 5,
+          skip_reason: null,
+          failed: false,
+        }),
+        fixtureSource("deadone", "dead"),
+        fixtureSource("fresh", "unknown"),
+      ],
+    });
+    mockSidecar(
+      Promise.resolve(fixtureDoctor({ plugins: [plugin] })),
+      Promise.resolve({ runs: [observedRun] }),
+    );
+    render(<DashboardScreen />);
 
-    const rows = await screen.findByTestId("cron-job-rows");
-    const rowA = getByRowName(rows, "甲");
-    const rowB = getByRowName(rows, "乙");
+    const okCard = await screen.findByTestId("source-card-tech.yaml#hn");
+    expect(okCard.textContent).toContain("正常");
+    expect(okCard.textContent).toContain("1 小时前"); // latest.run_id → runs.list startedAt
+    expect(okCard.textContent).toContain("最近 5 条");
+    expect(screen.getByTestId("source-health-grid")).toBeTruthy();
 
-    fireEvent.click(within(rowA).getByRole("button", { name: "运行" }));
-    await waitFor(() => expect(invokedParams("cron.run")).toContainEqual({ job: "ja" }));
+    // 坏者优先:dead 卡排在 ok 卡之前(buildSourceHealthCards 状态序)
+    const deadCard = screen.getByTestId("source-card-tech.yaml#deadone");
+    expect(deadCard.textContent).toContain("失效");
+    expect(deadCard.compareDocumentPosition(okCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    fireEvent.click(within(rowA).getByRole("button", { name: "暂停" }));
+    // 无观测(latest=null)→ 相对时间如实 —
+    expect(screen.getByTestId("source-card-tech.yaml#fresh").textContent).toContain("—");
+  });
+
+  // -------------------------------------------------------------------------
+  // G4(10-03-feed-ux):品类卡「跑一次」状态机(照抄 feed 空态 CTA)
+  // -------------------------------------------------------------------------
+
+  it("跑一次:run.start(yaml)→ completed 事件 → 刷新;busy 期按钮禁用", async () => {
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    runStartMock.mockResolvedValue({
+      run_id: 7, state: "running", yaml: "tech.yaml", dry: false, db: "myssia.db",
+    });
+    let emitEvent: ((event: { type: string; run_id: number }) => void) | undefined;
+    onSidecarEventMock.mockImplementation((handler: (event: never) => void) => {
+      emitEvent = handler as (event: { type: string; run_id: number }) => void;
+      return Promise.resolve(() => {});
+    });
+    render(<DashboardScreen />);
+    await screen.findByTestId("category-tech.yaml");
+
+    const runOnce = screen.getByRole("button", { name: "跑一次:科技资讯" });
+    fireEvent.click(runOnce);
+    await waitFor(() => expect(runStartMock).toHaveBeenCalledWith({ yaml: "tech.yaml" }));
+    // busy(collecting)期按钮禁用,防重复发起
     await waitFor(() =>
-      expect(invokedParams("cron.pause")).toContainEqual({ job: "ja", reason: "桌面端手动暂停" }),
+      expect((screen.getByRole("button", { name: "跑一次:科技资讯" }) as HTMLButtonElement).disabled).toBe(true),
     );
 
-    fireEvent.click(within(rowB).getByRole("button", { name: "恢复" }));
-    await waitFor(() => expect(invokedParams("cron.resume")).toContainEqual({ job: "jb" }));
-
-    // remove 先 window.confirm:拒绝 → 不发请求;同意 → cron.remove
-    confirmSpy.mockReturnValue(false);
-    fireEvent.click(within(rowA).getByRole("button", { name: "删除" }));
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(invokedParams("cron.remove")).toHaveLength(0);
-
-    confirmSpy.mockReturnValue(true);
-    fireEvent.click(within(rowA).getByRole("button", { name: "删除" }));
-    await waitFor(() => expect(invokedParams("cron.remove")).toContainEqual({ job: "ja" }));
+    const doctorCallsBefore = doctorMock.mock.calls.length;
+    act(() => emitEvent?.({ type: "completed", run_id: 7 }));
+    await waitFor(() => expect(doctorMock.mock.calls.length).toBeGreaterThan(doctorCallsBefore));
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: "跑一次:科技资讯" }) as HTMLButtonElement).disabled).toBe(false),
+    );
   });
-});
 
-describe("#12 run 排队语义(AC5,grill 二 Q1)", () => {
-  it("run 后 notice「已排队/≤60 秒」+行「已排队」态;completed 事件到刷新", async () => {
-    let storeJob = cronJob();
-    let listCallCount = 0;
-    mockSidecar({
-      "cron.list": () => {
-        listCallCount += 1;
-        return listResult([storeJob]);
-      },
-      "cron.status": () => STATUS_OK,
-      "cron.run": () => {
-        storeJob = { ...storeJob, manual_run_at: "2026-10-04T10:00:10+08:00" };
-        return { job: storeJob };
-      },
-    });
-    renderScreen();
+  it("跑一次错误路径:run_busy 结构化拒绝行内回显,按钮回可用", async () => {
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    runStartMock.mockRejectedValue(
+      new SidecarRequestError({ code: "run_busy", path: "$", message: "已有 run 在执行" }),
+    );
+    onSidecarEventMock.mockResolvedValue(() => {});
+    render(<DashboardScreen />);
+    await screen.findByTestId("category-tech.yaml");
 
-    const rows = await screen.findByTestId("cron-job-rows");
-    expect(screen.queryByText("已排队")).toBeNull();
-
-    fireEvent.click(within(getByRowName(rows, "早晚情报流")).getByRole("button", { name: "运行" }));
-
-    const notice = await screen.findByTestId("cron-notice");
-    expect(notice.textContent).toContain("已排队");
-    expect(notice.textContent).toContain("60 秒");
-    expect(await screen.findByText("已排队")).toBeTruthy(); // 行短时排队态(manual_run_at 派生)
-
-    // completed 事件到 → notice 翻新 + list 重拉
-    const listCallsAtRun = listCallCount;
-    emitSidecarEvent({
-      type: "cron.completed",
-      job_id: storeJob.id,
-      name: storeJob.name,
-      ok: true,
-      status: "ok",
-      delivery_error: null,
-      summary: null,
-      ts: "2026-10-04T10:00:40+08:00",
-    });
-    await waitFor(() => {
-      expect(screen.getByTestId("cron-notice").textContent).toContain("完成");
-    });
-    // 「已排队」态随 completed 收讫清除——本 mock 的 store 刻意不 pop
-    // manual_run_at(事件发射先于后端 mark_job_run,tick.py `_process_due_job`
-    // 顺序),证明清态来自客户端收讫集合而非数据派生
-    await waitFor(() => {
-      expect(screen.queryByText("已排队")).toBeNull();
-    });
-    expect(listCallCount).toBeGreaterThan(listCallsAtRun);
+    fireEvent.click(screen.getByRole("button", { name: "跑一次:科技资讯" }));
+    const errorLine = await screen.findByTestId("run-once-error-tech.yaml");
+    expect(errorLine.textContent).toContain("run_busy");
+    expect((screen.getByRole("button", { name: "跑一次:科技资讯" }) as HTMLButtonElement).disabled).toBe(false);
   });
-});
 
-// ---------------------------------------------------------------------------
-// screen-spec §5 #13-#17 + #19(Stage 4;#18 logs 涟漪在 logs-screen.test.tsx)
-// ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // G6(10-04-desktop-b234):成功率趋势第二序列(runs.trend)
+  // -------------------------------------------------------------------------
 
-/** 执行账本行夹具(D10 摘要快照;形状对齐 CronExecutionRow/CronRunSummary;
- *  默认 partial 跑:退出码 3=部分成功 + 失败行,F6 全字段可见) */
-function executionRow(overrides: Partial<CronExecutionRow> = {}): CronExecutionRow {
-  return {
-    id: "e1b2c3d4e5f6",
-    job_id: "jx",
-    source: "tick",
-    status: "completed",
-    scheduled_instant: "2026-10-04T09:00:00+08:00",
-    pid: 12345,
-    process_start_time: 1728000000.5,
-    claimed_at: "2026-10-04T09:00:01+08:00",
-    started_at: "2026-10-04T09:00:02+08:00",
-    finished_at: "2026-10-04T09:05:15+08:00",
-    error: null,
-    run_summary: {
-      job: { id: "jx", name: "有历史的", category: "/p/news.yaml" },
-      run: {
-        status: "partial",
-        exit_code: 3,
-        timed_out: false,
-        run_id: 7,
-        dry_run: false,
-        duration_seconds: 12.3,
-        error: null,
-      },
-      sources: { total: 3, ok: 2, failed: 1, items: 40 },
-      items_retained: 12,
-      push: [],
-      failures: ["src-a · http_error · 连接超时"],
-      failure_count: 1,
-    },
-    ...overrides,
-  };
-}
-
-describe("#13 历史展开(AC6)", () => {
-  it("首次展开 invoke runs{job,limit:10};摘要字段渲染;空态;折叠再展开不重拉", async () => {
-    mockSidecar({
-      "cron.list": () =>
-        listResult([cronJob({ id: "jx", name: "有历史的" }), cronJob({ id: "jy", name: "没历史的" })]),
-      "cron.status": () => STATUS_OK,
-      "cron.runs": (params) =>
-        params.job === "jx"
-          ? { db: "/h/myssia.db", count: 1, executions: [executionRow()] }
-          : { db: "/h/myssia.db", count: 0, executions: [] },
+  it("G6 成功率折线:running 不入分母、零完结日不入线、max=1 固定 [0,1] 刻度,摘要 = 累计口径", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const beforeYesterday = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    runsTrendMock.mockResolvedValue({
+      days: [
+        // 前天:3 个 run 全 running(零完结)→ 不入线
+        { date: beforeYesterday, total: 3, statuses: { running: 3 } },
+        // 昨天:2/5 成功 = 0.4
+        { date: yesterday, total: 5, statuses: { success: 2, partial: 3 } },
+        // 今天:12 run 含 running 2 → finished 10、success 8 = 0.8(running 不入分母)
+        { date: today, total: 12, statuses: { success: 8, running: 2, failed: 2 } },
+      ],
     });
-    renderScreen();
+    render(<DashboardScreen />);
 
-    const rows = await screen.findByTestId("cron-job-rows");
-    const expandX = within(getByRowName(rows, "有历史的")).getByRole("button", {
-      name: /展开「有历史的」/,
-    });
-    expect(expandX.getAttribute("aria-expanded")).toBe("false");
-
-    fireEvent.click(expandX);
-    await waitFor(() => {
-      expect(invokedParams("cron.runs")).toContainEqual({ job: "jx", limit: 10 });
-    });
-    expect(expandX.getAttribute("aria-expanded")).toBe("true");
-    // 展开钮 aria-controls 指向真实 id(logs 屏 163/261 成对先例)
-    expect(document.getElementById("cron-runs-jx")).not.toBeNull();
-    const list = await screen.findByTestId("cron-runs-jx-list");
-    expect(list.textContent).toContain("源 2/3"); // D10 摘要:源 ok/total
-    expect(list.textContent).toContain("12.3s"); // 时长
-    expect(list.textContent).toContain("留存 12"); // 条目留存
-    expect(list.textContent).toContain("排程"); // source=tick 人话
-    // F6:run 语义状态(partial → 部分成功 warning)+ 失败行 + finished_at 时刻
-    expect(list.textContent).toContain("部分成功");
-    expect(list.textContent).toContain("src-a · http_error · 连接超时");
-    expect(list.textContent).toContain("10/04 09:05"); // = finished_at(非 claimed_at 09:00)
-
-    // 空态:无执行行的 job
-    fireEvent.click(within(getByRowName(rows, "没历史的")).getByRole("button", { name: /展开「没历史的」/ }));
-    expect(await screen.findByText("暂无运行历史")).toBeTruthy();
-
-    // 折叠再展开:惰性缓存,不重拉(ensureRuns 只首发)
-    fireEvent.click(expandX); // 收起
-    fireEvent.click(expandX); // 再展开
-    expect(invokedParams("cron.runs").filter((params) => params.job === "jx")).toHaveLength(1);
+    const rate = await screen.findByTestId("dashboard-rate-sparkline");
+    const polyline = rate.querySelector("polyline");
+    expect(polyline).toBeTruthy();
+    // 固定 [0,1] 刻度(max=1):0.4 → y=3+42*0.6=28.2;0.8 → y=3+42*0.2=11.4。
+    // max 归一会让 0.8 贴顶(3.0)、0.4 半程(24.0)—— 本断言即真刻度护栏。
+    expect(polyline?.getAttribute("points")).toBe("3.0,28.2 257.0,11.4");
+    // 摘要 = 累计口径(非均值):finished 15(10+5)、success 10 → 67%
+    const summary = screen.getByTestId("rate-summary");
+    expect(summary.textContent).toContain("近 14 天累计成功率 67%(10/15 次成功)");
+    expect(rate.getAttribute("aria-label")).toContain("无完结 run 的日子不入线");
+    expect(runsTrendMock).toHaveBeenCalledWith({ days: 14 }); // 与采集量同默认窗口
   });
-});
 
-describe("#14 事件驱动(AC7)", () => {
-  it("emitSidecarEvent(completed)→notice(name/status)+list 重拉", async () => {
-    let listCalls = 0;
-    mockSidecar({
-      "cron.list": () => {
-        listCalls += 1;
-        return listResult([]);
-      },
-      "cron.status": () => STATUS_OK,
+  it("G6 窗口切换:Select 切 7 天 → runs.trend 与 store.trend 同窗重查", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 3 }] });
+    runsTrendMock.mockResolvedValue({
+      days: [{ date: today, total: 4, statuses: { success: 4 } }],
     });
-    renderScreen();
-    await screen.findByText("创建第一个定时任务");
-    const before = listCalls;
+    render(<DashboardScreen />);
+    await screen.findByTestId("dashboard-rate-sparkline");
 
-    emitSidecarEvent({
-      type: "cron.completed",
-      job_id: "a1b2c3d4e5f6",
-      name: "早晚情报流",
-      ok: true,
-      status: "partial",
-      delivery_error: null,
-      summary: null,
-      ts: "2026-10-04T10:00:40+08:00",
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "趋势时间范围" }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
     });
-
-    const notice = await screen.findByTestId("cron-notice");
-    expect(notice.textContent).toContain("早晚情报流");
-    expect(notice.textContent).toContain("status=partial");
-    await waitFor(() => {
-      expect(listCalls).toBeGreaterThan(before);
-    });
+    const option = await screen.findByRole("option", { name: "7 天" });
+    fireEvent.click(option);
+    await waitFor(() => expect(runsTrendMock).toHaveBeenCalledWith({ days: 7 }));
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 }));
   });
-});
 
-describe("#15 skipped 事件(AC7)", () => {
-  it("文案含「跳过」;重拉列表", async () => {
-    let listCalls = 0;
-    mockSidecar({
-      "cron.list": () => {
-        listCalls += 1;
-        return listResult([]);
-      },
-      "cron.status": () => STATUS_OK,
-    });
-    renderScreen();
-    await screen.findByText("创建第一个定时任务");
-    const before = listCalls;
+  it("G6 独立降级(双向):runs.trend 挂 → 成功率区人话错误、采集量照画;store.trend 挂 → 采集量显错、成功率照画", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    // 正向:runs.trend 拒
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 3 }] });
+    runsTrendMock.mockRejectedValue(
+      new SidecarRequestError({ code: "transport_error", path: "$", message: "与核心的连接异常" }),
+    );
+    const { unmount } = render(<DashboardScreen />);
 
-    emitSidecarEvent({
-      type: "cron.skipped",
-      job_id: "a1b2c3d4e5f6",
-      name: "早晚情报流",
-      reason: "run_busy",
-      active_run_id: 7,
-      ts: "2026-10-04T10:00:00+08:00",
-    });
+    const rateError = await screen.findByTestId("dashboard-rate-error");
+    expect(rateError.textContent).toContain("与核心的连接异常"); // 人话文案(fbbaaa7 判例)
+    expect(rateError.textContent).toContain("[transport_error]"); // mono 码如实,不裸放 raw
+    await waitFor(() => expect(screen.getByTestId("dashboard-sparkline").querySelector("polyline")).toBeTruthy());
+    unmount();
 
-    const notice = await screen.findByTestId("cron-notice");
-    expect(notice.textContent).toContain("跳过");
-    expect(notice.textContent).toContain("早晚情报流");
-    await waitFor(() => {
-      expect(listCalls).toBeGreaterThan(before);
+    // 反向:store.trend 拒、runs.trend 活
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    storeTrendMock.mockRejectedValue(
+      new SidecarRequestError({ code: "db_locked", path: "$", message: "数据库被锁" }),
+    );
+    runsTrendMock.mockResolvedValue({
+      days: [{ date: today, total: 2, statuses: { success: 1, failed: 1 } }],
     });
+    render(<DashboardScreen />);
+
+    await screen.findByTestId("dashboard-trend-error");
+    const rateSpark = await screen.findByTestId("dashboard-rate-sparkline");
+    expect(rateSpark.querySelector("polyline")).toBeTruthy(); // allSettled 分流,互不连带
   });
-});
 
-describe("#16 手动刷新(AC7)", () => {
-  it("刷新按钮→list+status 双拉", async () => {
-    let listCalls = 0;
-    let statusCalls = 0;
-    mockSidecar({
-      "cron.list": () => {
-        listCalls += 1;
-        return listResult([]);
-      },
-      "cron.status": () => {
-        statusCalls += 1;
-        return STATUS_OK;
-      },
-    });
-    renderScreen();
-    await screen.findByTestId("cron-vitality"); // 首拉落地
-    const beforeList = listCalls;
-    const beforeStatus = statusCalls;
+  it("G6 空态:全窗口零完结 run → 如实提示,不画 0% 平线", async () => {
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    runsTrendMock.mockResolvedValue({ days: [] }); // 全窗口零 run(含缺省空库)
+    render(<DashboardScreen />);
 
-    fireEvent.click(screen.getByTestId("cron-refresh"));
-
-    await waitFor(() => {
-      expect(listCalls).toBe(beforeList + 1);
-      expect(statusCalls).toBe(beforeStatus + 1);
-    });
-  });
-});
-
-describe("#17 零轮询(AC7)", () => {
-  it("listen 只一次;1min 时钟 tick 零取数且驱动逾期标跨宽限线翻红(删 setInterval 即红)", async () => {
-    vi.useFakeTimers();
-    try {
-      // 14.5min 前(15min 宽限内):tick 60s 后跨线翻红——证明逾期标随
-      // 本地走时重算,而非只在取数时刷新
-      const now = Date.now();
-      mockSidecar({
-        "cron.list": () =>
-          listResult([cronJob({ name: "常驻的", next_run_at: new Date(now - 14.5 * 60_000).toISOString() })]),
-        "cron.status": () => STATUS_OK,
-      });
-      renderScreen();
-      await act(async () => {}); // 冲微任务:首拉落地(不依赖定时器)
-
-      expect(screen.getByTestId("cron-job-rows")).toBeTruthy();
-      expect(mocks.listen).toHaveBeenCalledTimes(1); // 事件订阅只一条,零轮询通道
-      expect(screen.queryByText("逾期")).toBeNull(); // 宽限内不红
-
-      const invokeCount = mocks.invoke.mock.calls.length;
-      act(() => {
-        vi.advanceTimersByTime(60_000); // 1min 时钟 tick(fake Date 同步走)
-      });
-      expect(mocks.invoke.mock.calls.length).toBe(invokeCount); // tick 零取数
-      expect(screen.getByText("逾期")).toBeTruthy(); // 14.5+1 > 15min:跨线翻红
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-});
-
-describe("#19 estopped 下单 job 操作(Q4;AC2/AC5)", () => {
-  it("急停态仍可暂停/编辑单 job;红条含注记文案", async () => {
-    mockSidecar({
-      "cron.list": () => listResult([cronJob({ id: "jz", name: "急停中的" })]),
-      "cron.status": () => STATUS_ESTOPPED,
-      "cron.pause": () => ({ job: cronJob() }),
-      "cron.edit": () => ({ job: cronJob() }),
-    });
-    renderScreen();
-
-    const bar = await screen.findByTestId("cron-estopped");
-    expect(bar.textContent).toContain("仅暂停调度"); // Q4 注记
-
-    const rows = await screen.findByTestId("cron-job-rows");
-    fireEvent.click(within(getByRowName(rows, "急停中的")).getByRole("button", { name: "暂停" }));
-    await waitFor(() => {
-      expect(invokedParams("cron.pause")).toContainEqual({ job: "jz", reason: "桌面端手动暂停" });
-    });
-
-    fireEvent.click(within(getByRowName(rows, "急停中的")).getByRole("button", { name: "编辑" }));
-    expect(await screen.findByTestId("cron-form-schedule")).toBeTruthy(); // 编辑 Dialog 可开
+    const empty = await screen.findByTestId("dashboard-rate-empty");
+    expect(empty.textContent).toContain("无已完结 run");
+    expect(screen.queryByTestId("dashboard-rate-sparkline")).toBeNull(); // 不虚构 0%/100%
+    expect(screen.queryByTestId("dashboard-rate-error")).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// screen-spec §5 #20-#27(Stage 6 蓝本对排缺口修复;G8 = 代码审查项不设用例)
+// api 纯函数(原 B4 死组件测试承载;10-04-desktop-b234 删死组件时迁此续命
+// ——fillDailyCounts/shiftUtcDate/toSparklinePoints 仍是 api.ts 活函数)
 // ---------------------------------------------------------------------------
 
-describe("#20 error 态 badge(G1;AC3)", () => {
-  it("state=error → destructive「已停摆」+ title 含 last_error;优先于 last_status 派生", async () => {
-    mockSidecar({
-      "cron.list": () =>
-        listResult([
-          // last_status=ok 若不被抢占会渲染「成功」(ok 色)——抢占序证明
-          cronJob({
-            id: "jer",
-            name: "停摆的",
-            state: "error",
-            last_status: "ok",
-            last_error: "recurring 算不出下次运行时刻",
-          }),
-        ]),
-      "cron.status": () => STATUS_OK,
-    });
-    renderScreen();
+describe("fillDailyCounts 聚合(B4 验收落点;死组件测试迁入)", () => {
+  it("补零天:稀疏行铺满窗口,缺数日 count=0,旧→新稳定输出", () => {
+    const rows: TrendDay[] = [
+      { date: "2026-10-03", count: 4 },
+      { date: "2026-09-30", count: 1 },
+    ];
+    const filled = fillDailyCounts(rows, 7, "2026-10-03");
+    expect(filled).toHaveLength(7);
+    expect(filled.map((day) => day.date)).toEqual([
+      "2026-09-27",
+      "2026-09-28",
+      "2026-09-29",
+      "2026-09-30",
+      "2026-10-01",
+      "2026-10-02",
+      "2026-10-03",
+    ]);
+    expect(filled.map((day) => day.count)).toEqual([0, 0, 0, 1, 0, 0, 4]);
+  });
 
-    const rows = await screen.findByTestId("cron-job-rows");
-    const stopped = within(rows).getByText("已停摆");
-    expect(stopped.className).toContain("destructive"); // H530 error→destructive 对位
-    expect(stopped.title).toContain("recurring 算不出下次运行时刻"); // H1158-1166 title 悬浮细节
-    expect(within(rows).queryByText("成功")).toBeNull(); // 优先于 last_status 派生
+  it("窗口裁剪:窗口外行丢弃(更早日期不带入);非法日期行防御性忽略", () => {
+    const rows: TrendDay[] = [
+      { date: "2020-01-01", count: 99 },
+      { date: "2026-10-02", count: 2 },
+      { date: "not-a-date", count: 7 },
+    ];
+    const filled = fillDailyCounts(rows, 3, "2026-10-03");
+    expect(filled.map((day) => day.count)).toEqual([0, 2, 0]);
+  });
+
+  it("空态 = 全零窗口(不是空数组;sparkline 需等长序列)", () => {
+    const filled = fillDailyCounts([], 14, "2026-10-03");
+    expect(filled).toHaveLength(14);
+    expect(filled.every((day) => day.count === 0)).toBe(true);
+  });
+
+  it("days 非法(0/负/小数)= 空数组(防御,不抛)", () => {
+    expect(fillDailyCounts([], 0, "2026-10-03")).toEqual([]);
+    expect(fillDailyCounts([], -3, "2026-10-03")).toEqual([]);
+    expect(fillDailyCounts([], 2.5, "2026-10-03")).toEqual([]);
+  });
+
+  it("shiftUtcDate:UTC 字符历法加减(跨月/跨年正确,不经本地时区)", () => {
+    expect(shiftUtcDate("2026-10-03", -1)).toBe("2026-10-02");
+    expect(shiftUtcDate("2026-10-01", -1)).toBe("2026-09-30");
+    expect(shiftUtcDate("2026-01-01", -1)).toBe("2025-12-31");
+    expect(shiftUtcDate("2026-02-28", 1)).toBe("2026-03-01"); // 2026 非闰年
+    expect(shiftUtcDate("bad", 1)).toBe("bad");
   });
 });
 
-describe("#21 错误红行(G2b;AC3)", () => {
-  it("last_error/last_delivery_error 有值→行下红字两行且截 120;无值不渲染行", async () => {
-    const longError = "连".repeat(200);
-    mockSidecar({
-      "cron.list": () =>
-        listResult([
-          cronJob({
-            id: "jerr",
-            name: "带错的",
-            last_error: longError,
-            last_delivery_error: "feishu 410 gone",
-          }),
-          cronJob({ id: "jok", name: "干净的" }),
-        ]),
-      "cron.status": () => STATUS_OK,
-    });
-    renderScreen();
+describe("toSparklinePoints(死组件测试迁入)", () => {
+  it("按 max 归一:峰值贴上边、零贴下边,点数 = 输入长度", () => {
+    const points = toSparklinePoints([0, 5, 10], 100, 50, 5).split(" ");
+    expect(points).toHaveLength(3);
+    const [, mid, top] = points.map((point) => point.split(",").map(Number));
+    expect(mid[1]).toBe(30 - 5); // (5/10) 半程:pad + span*(1-0.5) = 5+40*0.5=25
+    expect(top[1]).toBe(5); // 峰值贴 pad
+  });
 
-    const rows = await screen.findByTestId("cron-job-rows");
-    const lastErr = within(rows).getByText(/上次错误:/);
-    expect(lastErr.textContent).toBe(`上次错误:${"连".repeat(120)}...`); // 截 120 + ...
-    expect(lastErr.closest("td")?.className).toContain("text-destructive");
-    const deliveryErr = within(rows).getByText(/投递错误:/);
-    expect(deliveryErr.textContent).toBe("投递错误:feishu 410 gone"); // 短文原样
-    expect(deliveryErr.closest("td")?.getAttribute("colspan")).toBe("9"); // 九列契约
+  it("全零 = 居中平线(不除零);空输入/过小画布 = 空串", () => {
+    const flat = toSparklinePoints([0, 0, 0], 100, 50, 5).split(" ");
+    expect(flat.every((point) => point.split(",")[1] === "25.0")).toBe(true);
+    expect(toSparklinePoints([], 100, 50)).toBe("");
+    expect(toSparklinePoints([1], 4, 4)).toBe("");
+  });
 
-    // 无值不渲染:干净行(末行)之后无错误行
-    const cleanRow = getByRowName(rows, "干净的");
-    expect(cleanRow.nextElementSibling?.textContent ?? "").not.toContain("错误:");
+  it("单点居中(x = width/2,不除零)", () => {
+    expect(toSparklinePoints([7], 100, 50, 5)).toBe("50.0,5.0");
   });
 });
 
-describe("#22 上次运行列(G2a;AC3)", () => {
-  it("last_run_at 有值本地化渲染 / 空 = 「—」;列位在「下次运行」后", async () => {
-    mockSidecar({
-      "cron.list": () =>
-        listResult([
-          cronJob({ id: "jran", name: "跑过的", last_run_at: "2026-10-04T09:05:15+08:00" }),
-          cronJob({ id: "jnew", name: "没跑过的", last_run_at: null }),
-        ]),
-      "cron.status": () => STATUS_OK,
-    });
-    renderScreen();
+describe("G6 成功率装配纯函数(10-04-desktop-b234)", () => {
+  const rows: RunOutcomeDay[] = [
+    { date: "2026-10-01", total: 3, statuses: { running: 3 } }, // 零完结 → 不入序
+    { date: "2026-10-02", total: 5, statuses: { success: 2, partial: 3 } }, // 0.4
+    { date: "2026-10-03", total: 12, statuses: { success: 8, running: 2, failed: 2 } }, // running 不入分母 → 0.8
+  ];
 
-    const rows = await screen.findByTestId("cron-job-rows");
-    expect(screen.getByRole("columnheader", { name: "上次运行" })).toBeTruthy();
-    const ranRow = getByRowName(rows, "跑过的");
-    expect(within(ranRow).getByText("10/04 09:05")).toBeTruthy(); // 本地化 MM-DD HH:mm
-    // 列位:cells[3]=下次运行(10/05 09:00)、cells[4]=上次运行(10/04 09:05)
-    const ranCells = (ranRow as HTMLTableRowElement).cells;
-    expect(ranCells[3]?.textContent).toContain("10/05 09:00");
-    expect(ranCells[4]?.textContent).toContain("10/04 09:05");
-    const newRow = getByRowName(rows, "没跑过的") as HTMLTableRowElement;
-    expect(newRow.cells[4]?.textContent).toBe("—"); // 空 = 「—」
+  it("fillDailyOutcomes:补零对齐镜像 fillDailyCounts,缺数日 total 0", () => {
+    const filled = fillDailyOutcomes([rows[1]], 3, "2026-10-03");
+    expect(filled.map((day) => day.date)).toEqual(["2026-10-01", "2026-10-02", "2026-10-03"]);
+    expect(filled[0]).toEqual({ date: "2026-10-01", total: 0, statuses: {} });
+    expect(filled[2]).toEqual({ date: "2026-10-03", total: 0, statuses: {} });
+    expect(fillDailyOutcomes([], 0, "2026-10-03")).toEqual([]); // 非法 days 防御
+  });
+
+  it("successRateSeries:running 不入分母、零完结日不入序(不虚构 0%/100%)", () => {
+    const series = successRateSeries(rows);
+    expect(series).toEqual([
+      { date: "2026-10-02", rate: 0.4 },
+      { date: "2026-10-03", rate: 0.8 },
+    ]);
+    // 若 running 入分母,今天会是 8/12≈0.667 —— 0.8 即分母剔除的数值断言
+    expect(successRateSeries([{ date: "2026-10-01", total: 4, statuses: { running: 4 } }])).toEqual([]);
+  });
+
+  it("cumulativeOutcomeSummary:窗口累计口径(finished=Σ(total−running))", () => {
+    expect(cumulativeOutcomeSummary(rows)).toEqual({ finished: 15, success: 10, rate: 10 / 15 });
+    expect(cumulativeOutcomeSummary([])).toEqual({ finished: 0, success: 0, rate: null });
   });
 });
 
-describe("#23 name 表单(G3;AC4)", () => {
-  it("创建可命名(payload 含 name);留空不带键;编辑改名入 diff", async () => {
-    mockSidecar({
-      "cron.list": () => listResult([cronJob()]),
-      "cron.status": () => STATUS_OK,
-      "yaml.list": () => YAML_LIST,
-      "cron.create": () => ({ job: cronJob() }),
-      "cron.edit": () => ({ job: cronJob() }),
-    });
-    renderScreen();
-    await screen.findByTestId("cron-job-rows");
+describe("buildOverviewStats 窗口语义(A-dash 纯函数;两格随窗两格快照)", () => {
+  const today = "2026-10-04";
+  const doctor = fixtureDoctor(); // 3 源:2 ok + 1 degraded;findings 空
+  const trendToday: TrendDay[] = [{ date: today, count: 5 }];
+  const trend7: TrendDay[] = [
+    { date: "2026-09-28", count: 1 },
+    { date: today, count: 5 },
+  ];
 
-    // 创建可命名:name 输入(主字段组最上)+ chips + 选择器 → payload 含 name
-    await openCreateDialog();
-    fireEvent.change(screen.getByTestId("cron-form-name"), { target: { value: "我的任务" } });
-    fireEvent.click(screen.getByTestId("cron-chip-30m"));
-    openSelect(screen.getByTestId("cron-form-category"));
-    fireEvent.click(await screen.findByRole("option", { name: "新闻" }));
-    fireEvent.click(screen.getByTestId("cron-form-submit"));
-    await waitFor(() => {
-      expect(invokedParams("cron.create")[0]).toMatchObject({ name: "我的任务" });
-    });
-    await waitFor(() => {
-      expect(screen.queryByTestId("cron-form-submit")).toBeNull(); // Dialog 关闭收口
-    });
+  /** DashboardRun 最小行(pushOk>0 时带 push 数组) */
+  function dashRun(runId: number, startedAt: string, pushOk = 0): DashboardRun {
+    return {
+      runId,
+      category: "tech",
+      status: "success",
+      startedAt,
+      finishedAt: startedAt,
+      stats:
+        pushOk > 0
+          ? { push: Array.from({ length: pushOk }, () => ({ channel: "tg", ok: true })) }
+          : null,
+      active: false,
+      dry: false,
+      durationMs: 0,
+    };
+  }
 
-    // 留空不带键(optionalParam = undefined;后端 _cron_opt_str 空串即拒)
-    await openCreateDialog();
-    fireEvent.click(screen.getByTestId("cron-chip-30m"));
-    openSelect(screen.getByTestId("cron-form-category"));
-    fireEvent.click(await screen.findByRole("option", { name: "新闻" }));
-    fireEvent.click(screen.getByTestId("cron-form-submit"));
-    await waitFor(() => {
-      expect(invokedParams("cron.create")).toHaveLength(2);
-    });
-    expect(invokedParams("cron.create")[1]?.name).toBeUndefined();
-    await waitFor(() => {
-      expect(screen.queryByTestId("cron-form-submit")).toBeNull(); // Dialog 关闭收口
-    });
+  it("今日档(默认):采集=单日 count;推送=今日 run 的 ok 计数;今日无 run = null 不虚构 0", () => {
+    const stats = buildOverviewStats(doctor, [dashRun(1, "2026-10-04T08:00:00+00:00", 2)], trendToday, today);
+    expect(stats.window).toBe("today");
+    expect(stats.windowItems).toBe(5);
+    expect(stats.windowPushOk).toBe(2);
+    const noTodayRun = buildOverviewStats(doctor, [dashRun(2, "2026-10-03T08:00:00+00:00", 3)], trendToday, today);
+    expect(noTodayRun.windowPushOk).toBeNull();
+  });
 
-    // 编辑改名入 diff:预填旧名,只改 name → 载荷仅 job+name
-    fireEvent.click(within(getByRowName(screen.getByTestId("cron-job-rows"), "早晚情报流")).getByRole("button", { name: "编辑" }));
-    await waitFor(() => {
-      expect(invokedParams("yaml.list")).toHaveLength(2);
-    });
-    expect((screen.getByTestId("cron-form-name") as HTMLInputElement).value).toBe("早晚情报流"); // fromJob 预填
-    fireEvent.change(screen.getByTestId("cron-form-name"), { target: { value: "新名字" } });
-    fireEvent.click(screen.getByTestId("cron-form-submit"));
-    await waitFor(() => {
-      expect(invokedParams("cron.edit")).toEqual([{ job: "a1b2c3d4e5f6", name: "新名字" }]);
-    });
+  it("7 天档:采集=窗口求和(非右端单值);推送吃窗口内 run,窗口外(8 天前)不入", () => {
+    const inWindow = [dashRun(3, "2026-10-01T08:00:00+00:00", 1), dashRun(4, "2026-10-04T09:00:00+00:00", 1)];
+    const outOfWindow = dashRun(5, "2026-09-26T08:00:00+00:00", 9); // today−8 = 窗外
+    const stats = buildOverviewStats(doctor, [...inWindow, outOfWindow], trend7, today, 7);
+    expect(stats.windowItems).toBe(6); // 1+5
+    expect(stats.windowPushOk).toBe(2); // 窗外 9 次不入
+  });
+
+  it("快照格不随窗:activeSources/totalSources/alerts 两档一致;trend=null → 采集格 null", () => {
+    const todayStats = buildOverviewStats(doctor, [], trendToday, today);
+    const weekStats = buildOverviewStats(doctor, [], trend7, today, 7);
+    expect(weekStats.activeSources).toBe(todayStats.activeSources); // 2
+    expect(weekStats.totalSources).toBe(todayStats.totalSources); // 3
+    expect(weekStats.alerts).toBe(todayStats.alerts); // 0
+    expect(buildOverviewStats(doctor, [], null, today, 7).windowItems).toBeNull();
+  });
+
+  it("overviewTrendDays:今日→1(1 天补零窗右端即今天),窗口档原样", () => {
+    expect(overviewTrendDays("today")).toBe(1);
+    expect(overviewTrendDays(7)).toBe(7);
+    expect(overviewTrendDays(30)).toBe(30);
   });
 });
 
-describe("#24 错误保留旧列表(G4;AC3/AC7)", () => {
-  it("reload 失败→ErrorBox 出现且旧表行仍在(错误条+旧表共存)", async () => {
-    let failList = false;
-    mockSidecar({
-      "cron.list": () => {
-        if (failList) {
-          return Promise.reject(
-            JSON.stringify({ code: "internal_error", path: "$", message: "重拉失败 boom" }),
-          );
-        }
-        return listResult([cronJob({ id: "jkeep", name: "旧表还在的" })]);
-      },
-      "cron.status": () => STATUS_OK,
-    });
-    renderScreen();
-    await screen.findByText("旧表还在的");
-
-    failList = true;
-    fireEvent.click(screen.getByTestId("cron-refresh"));
-
-    const alertBox = await screen.findByRole("alert"); // ErrorBox(H629 错误条)
-    expect(alertBox.textContent).toContain("重拉失败 boom");
-    expect(screen.getByText("旧表还在的")).toBeTruthy(); // 旧表共存,未被清空
+describe("Sparkline max prop(G6 固定刻度;向后兼容回归护栏)", () => {
+  it("max=1:固定 [0,1] 真刻度,0.4/0.8 不被拉成满格差", () => {
+    const { container } = render(
+      <Sparkline values={[0.4, 0.8]} max={1} aria-label="固定刻度" />,
+    );
+    // 0.4 → y=3+42*0.6=28.2;0.8 → y=3+42*0.2=11.4(距顶还有余量 = 真刻度)
+    expect(container.querySelector("polyline")?.getAttribute("points")).toBe("3.0,28.2 257.0,11.4");
   });
-});
 
-describe("#25 列表计数(G5;AC3)", () => {
-  it("工具行「共 N 个」=当前行数;all 开关联动", async () => {
-    const active = [cronJob({ id: "ja", name: "甲" }), cronJob({ id: "jb", name: "乙" })];
-    const withPaused = [...active, cronJob({ id: "jc", name: "丙", state: "paused" })];
-    mockSidecar({
-      "cron.list": (params) => listResult(params.all === true ? withPaused : active),
-      "cron.status": () => STATUS_OK,
-    });
-    renderScreen();
-
-    await screen.findByTestId("cron-job-rows");
-    expect(screen.getByTestId("cron-job-count").textContent).toBe("共 2 个");
-
-    fireEvent.click(screen.getByTestId("cron-all-switch"));
-    await waitFor(() => {
-      expect(screen.getByTestId("cron-job-count").textContent).toBe("共 3 个"); // H1092 ({jobs.length}) 对位
-    });
-  });
-});
-
-describe("#26 校验聚焦(G6;AC4)", () => {
-  it("缺 schedule→对应 input 获焦;错误字段在高级折叠→先展开再聚焦", async () => {
-    mockSidecar({
-      "cron.list": () => listResult([]),
-      "cron.status": () => STATUS_OK,
-      "yaml.list": () => YAML_LIST,
-      "cron.create": () => ({ job: cronJob() }),
-    });
-    renderScreen();
-    await openCreateDialog();
-
-    // 缺 schedule:错误行 + schedule input 获焦(HJ 77-85 focusCronField)
-    fireEvent.click(screen.getByTestId("cron-form-submit"));
-    expect(screen.getByTestId("cron-form-error").textContent).toContain("排程必填");
-    await waitFor(() => {
-      expect(document.activeElement?.id).toBe("cron-create-schedule");
-    });
-
-    // 高级折叠内字段(repeat 非整数):填坏后收起折叠再提交 → 先展开再聚焦
-    fireEvent.click(screen.getByTestId("cron-chip-30m"));
-    openSelect(screen.getByTestId("cron-form-category"));
-    fireEvent.click(await screen.findByRole("option", { name: "新闻" }));
-    const advancedToggle = screen.getByText(/高级选项/).closest("button")!;
-    fireEvent.click(advancedToggle); // 展开
-    fireEvent.change(screen.getByTestId("cron-form-repeat"), { target: { value: "abc" } });
-    fireEvent.click(advancedToggle); // 收起
-    expect(advancedToggle.getAttribute("aria-expanded")).toBe("false");
-
-    fireEvent.click(screen.getByTestId("cron-form-submit"));
-    expect(screen.getByTestId("cron-form-error").textContent).toContain("repeat 必须为整数");
-    await waitFor(() => {
-      expect(advancedToggle.getAttribute("aria-expanded")).toBe("true"); // 先展开
-      expect(document.activeElement?.id).toBe("cron-create-repeat"); // 再聚焦
-    });
-  });
-});
-
-describe("#27 编辑示 id(G7;AC4)", () => {
-  it("编辑 Dialog footer 含 font-mono job.id;create 不示", async () => {
-    mockSidecar({
-      "cron.list": () => listResult([cronJob()]),
-      "cron.status": () => STATUS_OK,
-      "yaml.list": () => YAML_LIST,
-    });
-    renderScreen();
-
-    const rows = await screen.findByTestId("cron-job-rows");
-    fireEvent.click(within(getByRowName(rows, "早晚情报流")).getByRole("button", { name: "编辑" }));
-    const idSpan = await screen.findByTestId("cron-edit-job-id"); // H1065-1068 对位
-    expect(idSpan.textContent).toBe("a1b2c3d4e5f6");
-    expect(idSpan.className).toContain("font-mono");
+  it("不传 max:现行为 max 归一不变(存量采集量序列零感知)", () => {
+    const { container } = render(<Sparkline values={[0.4, 0.8]} aria-label="归一" />);
+    // max=0.8:0.4 → y=3+42*0.5=24.0;0.8 → 贴顶 3.0
+    expect(container.querySelector("polyline")?.getAttribute("points")).toBe("3.0,24.0 257.0,3.0");
   });
 });

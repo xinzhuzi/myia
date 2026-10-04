@@ -320,7 +320,7 @@ export function Sidebar() {
      "absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize select-none",
      dragging ? "bg-primary/40" : "bg-transparent hover:bg-primary/20",
     )}
-    style={{ marginRight: "-3px" }}
+    style={{ marginRight: "0px" }}
    />
    {/* 品牌区已删(主人「无头」);macOS 标题栏走 overlay 沉浸式 */}
    {/* 分组节奏:组间 16px,组内行距 4px(gap-1) */}
