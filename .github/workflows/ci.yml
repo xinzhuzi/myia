@@ -20,6 +20,8 @@ jobs:
       - name: Sync workspace dependencies
         run: uv sync
       - name: Run tests
+        env:
+          TZ: Asia/Shanghai  # 排程/cron 行为断言按 +08 编写(hermes-cron 线后续可 TZ 无关化)
         run: uv run --no-sync python -m pytest -q --tb=short
 
   ui-test:
