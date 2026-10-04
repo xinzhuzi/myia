@@ -93,3 +93,4 @@ gitnexus detect-changes -r shishi --scope staged
 
 - **平台真发半面已闭环(飞书)**:归档时 G2/AC6 留空所缺的「平台定向卡真发」,已由后续批次(10-04-wrapup-checklist「按建议做完」流)实证——hermes-cron 运行摘要卡于 2026-10-04 18:41 真发 `feishu:AI福利群`(沙箱 fixture 品类一轮,跑完即删 job、令牌即用即废;执行链证据 `../10-04-wrapup-checklist/evidence/feishu-cron-card.md`)。AC6「deliver 定向到达」的真发半面据此闭环;failure_deliver/三态语义此前已单测覆盖。
 - **仍缺**:TG 定向真发(全机无 TELEGRAM 凭据,wrapup 长期挂账,主人建 bot 后可补);官方 news.yaml 真网品类整跑(离线冒烟口径已在案,装机后随手可验)。
+- **桌面宿主首燃已实证(证据 wrapup evidence/cron-first-fire.md,即本档 `../10-04-wrapup-checklist/evidence/cron-first-fire.md`)**:冻结包 /Applications/世事.app 的 sidecar ticker(F2.2 宿主面)真机点亮——MYIA_HOME 沙箱 1m 周期 7 次执行(首燃/catch-up×2/manual/正常槽,executions 账本 source="tick"),此前的宿主冒烟全是 CLI serve。
