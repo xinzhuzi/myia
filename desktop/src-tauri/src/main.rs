@@ -10,6 +10,7 @@
 
 mod pyenv;
 mod pyenv_install;
+mod pyenv_migration;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -385,7 +386,8 @@ fn main() {
             sidecar_restart,
             pyenv::pyenv_get_status,
             pyenv::pyenv_start_setup,
-            pyenv::pyenv_sync_deps
+            pyenv::pyenv_sync_deps,
+            pyenv_migration::pyenv_migration_banner
         ])
         .setup(move |app| {
             // 冷启动打点(沿用 spike 惯例):进程启动 → sidecar spawn 完成。
@@ -414,6 +416,30 @@ fn main() {
                     "desktop: Python 运行环境未就绪(state={:?}),不 spawn sidecar;UI 走引导空态",
                     status.state
                 );
+            }
+            // MYIA_PYENV_AUTOSETUP 自动化端到端冒烟钩子(10-05 第 5 步;同
+            // MYIA_SMOKE_ROUTE 先例,发布包无人设置,D2「用户显式点开始配置」
+            // 的产品行为不变):设置即视为已点「开始配置」,拉起与
+            // pyenv_start_setup 同一条安装链(镜像读沙箱 pyenv-settings.json,
+            // 测试预写指向本地静态服务器)。挂在 if/else 之后:取值 "1" 仅
+            // not_configured 态触发(AC1 全新装机主链);"force" 无视当前态重跑
+            // ——ready 态幂等二跑验证用(AC4,已装步全 skipped;ready 态壳会先
+            // spawn 常驻 sidecar,链成功后 spawn_sidecar_if_idle 幂等不杀活进程,
+            // D4 未要求重启);installing 态会被 start_install_thread 的占坑护栏
+            // 拒绝,不构成双跑。
+            if let Ok(mode) = std::env::var("MYIA_PYENV_AUTOSETUP") {
+                let allowed =
+                    matches!(status.state, pyenv::PyenvState::NotConfigured) || mode == "force";
+                if allowed {
+                    match crate::pyenv_install::start_install_thread(app.handle().clone(), false) {
+                        Ok(()) => {
+                            eprintln!("desktop: MYIA_PYENV_AUTOSETUP={mode} 冒烟钩子已拉起安装链")
+                        }
+                        Err(err) => {
+                            eprintln!("desktop: MYIA_PYENV_AUTOSETUP 拉起安装链失败: {err}")
+                        }
+                    }
+                }
             }
             // MYIA_SMOKE_ROUTE 静默冒烟钩子(v1.1.1 装机五屏截图用):launchctl
             // setenv 传入路由名(如 "feed"),启动即设 window.location.hash("#/feed");
