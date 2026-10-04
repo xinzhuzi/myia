@@ -467,3 +467,12 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 推送(主人授权「推」):fetch 后 `origin/main...main`=0/2 无分叉(记档员时段 10v3 分叉已被后续合流吸收),`git push origin main` = e053614..550c1b4 三笔 fast-forward 一次过,无 rebase 无冲突;journal 本笔随后补推
 - 门禁:纯文档批(文档/配置类豁免口径)仍实跑 `gitnexus detect-changes -r shishi --scope staged`="No changes detected";未跑测试套件(零代码改动)
 - 未收编:`10-04-ui-reskin-r2/`、`10-04-g9-read-all/` 两未跟踪目录(并行线在途,pathspec 纪律不碰)
+
+## 2026-10-04 G9 重开两小件收口(收口员会话,task 10-04-g9-read-all;推送归下一阶段)
+
+- 做了什么:G9 余量两小件收口入库——R1 品类分组组头「本组全部已读」钮(`store.state.mark_all` 带 category 精确等值=该品类全库含未翻页;inScope 谓词乐观翻转+失败快照只回滚作用域内行域外组不动;未分类组 null 不出钮=红线、时间/不分组/未过门零入口)+R2 全库两钮 inline 二次确认(confirmAllMark 态:一次点击只进确认态零 RPC,「确认」才执行;Esc 全局(输入框不抢)/失焦出「确认/取消」簇/「取消」三路退出;品类钮按 grill Q3 推荐豁免=作用域小一级 title 如实)+R4 文案(品类钮 aria/title「该品类『X』全库条目(含未翻页)」;过门全库文案无「已加载/本地态」字样);测试=g9-read-all describe 5 新用例+既有 G9 用例改二次确认口径
+- 证据:feed-screen.tsx(+262/-74)与 feed-screen.test.tsx(+219)全 diff 实读分诊=纯 G9 面(唯一删行=旧用例名「一键生效」→「二次确认后生效」改写);AC4 协议对账收口实跑=`git diff --stat -- desktop/entry.py .trellis/spec/desktop/sidecar-protocol.md` 空+`PROTOCOL_VERSION = 10`(entry.py:456,与 read-state-server 收口值一致不 bump)+mark_all 注册 entry.py:4800 既有+mirror 既有行 sidecar-protocol.md:81/:277——零新增方法零 bump mirror 零加行
+- 翻案链:fe-gap-census R5 立档→终审撤并(2237bf9 backlog 消号「不另立项」)→主人令「按照你的建议继续做完」重开(wrapup prd:73-75 追记)→本收口交付;三级档口径对齐=backlog 第 5 项 G9 行追记「余量两小件已由 10-04-g9-read-all(重开)交付」+wrapup 追记补收口终态(feat fe9f1ed)+g9 档自身 AC1-AC6 全勾/prd Notes 收口勾验+AC4 对账+质检处置+实现偏差四块
+- 门禁:收口自跑 `cd desktop/ui-src && npx vitest run src/screens/feed/feed-screen.test.tsx` = 1 file/76 tests passed(19:50:48);全量门禁归本轮工作流脚本统一跑=vitest 22 文件/374 用例+tsc+vite 构建绿(尾输出转录自收口令,非本会话自跑);提交前实跑 `gitnexus detect-changes -r shishi --scope staged`:feat 批=2 files/4 symbols(FeedScreen/loadMore/markAllRead/saveImpl-test)/受影响流程 6/风险 high——FeedScreen 枢纽符号在案,6 流程全为 feed 屏内 UI 流、协议面零触碰、双门禁绿后放行;docs 批记录见该笔提交前实跑(纯文档批)
+- 质检与偏差如实:两低危 mustFix=false 维持(确认钮簇无 autoFocus=键盘焦点回落 body,AC3 字面已满足;组头入口随 displayItems 过滤集渲染,「未读」过滤下已读尽组不可达、切「全部」恢复);偏差三条在档(确认态=常规两钮整体让位给确认/取消对,若设计要另一颗常驻需再调一处 JSX;组头钮无禁用条件=幂等置值按最小面;首跑 1 例时序抖动「j/k+U 联动」非本 diff 路径,复跑 3 次+HEAD 基线 2 次全绿)
+- 提交:fe9f1ed feat(desktop) 两件+测试(逐路径 add);docs 批一笔=g9 档四件套(task.json review+notes 直改/prd AC 勾选+Notes 四块/implement.jsonl +2/check.jsonl +1)+wrapup 翻案注记+backlog 消号注记+journal 本段随批入库;journal 提交前分诊:树内 journal 先前零未提交段(前流段均已随 e6f5093/d963eb3 入库),本段为唯一增量、零外来代码;reskin-r2 在途件(layout 四件/index.css/sources 三件+10-04-ui-reskin-r2/ 目录)pathspec 纪律未碰;未跑 task.py、不 push(推送归下一阶段)

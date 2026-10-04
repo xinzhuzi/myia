@@ -56,7 +56,9 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
      store.state.mark_all 全库批量语义三端+UI 能力门+按钮真话(commit
      afa7339);快捷键/右键批量件随 `10-04-interaction-batch`(已归档);
      余量档 10-04-g9-read-all(按品类批量入口+全库确认交互)同日撤并,
-     不另立项;fe-gap-census matrix §二核验回标(2026-10-04)
+     不另立项;fe-gap-census matrix §二核验回标(2026-10-04);
+     **余量翻案(2026-10-04 晚)**:撤并后主人令重开,余量两小件已由
+     10-04-g9-read-all(重开)交付
    - G10:代理池连通性测试按钮(doctor --config 探测已有,差 UI)
      → **后端依赖已解锁**:`10-04-proxy-pool` 已归档(2026-10-04 fe-gap-census
      matrix §二核验:设置屏仅凭据表单 `settings-screen.tsx:132/383-384`,无测试

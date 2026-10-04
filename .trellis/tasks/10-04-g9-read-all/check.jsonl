@@ -1,0 +1,1 @@
+{"file": "desktop/ui-src/src/screens/feed/feed-screen.tsx", "reason": "收口质检(2026-10-04):AC4 协议对账实跑过——git diff --stat entry.py+sidecar-protocol.md=空/PROTOCOL_VERSION=10(entry.py:456)/mark_all 注册 :4800 既有,零新增零 bump;scoped vitest 实跑 76/76 绿。两低危 mustFix=false 维持:确认钮簇无 autoFocus(键盘焦点回落 body,AC3 字面已满足);组头入口随 displayItems 过滤集渲染,「未读」过滤下已读尽组不可达(切「全部」恢复,边界知会)"}
