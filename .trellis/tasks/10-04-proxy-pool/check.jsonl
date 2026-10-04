@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/10-04-proxy-pool/prd.md", "reason": "验收基准:AC1-AC7 逐条核对(AC6 manual 留主人;AC7 含字符串池失败语义变化披露项);已拍板决议 D1-D10 与非目标清单(residential/跨 run 持久化/主动探活/UI 面板均不做)是防越界面;round 2 质询修正三条+补拍一条的落地形态核对;路径基准注记(并行改名在飞,锚点核对口径)"}
+{"file": ".trellis/tasks/10-04-proxy-pool/design.md", "reason": "核验偏离:§2 YAML 校验 code 集/§3 facade **kwargs 透传与 pool_transport_for 统一命名(D9)/§4 admit 规则+半开单飞 try/finally 全终态清位含 CancelledError+§4.5 懒建失败冒 ProxyConfigError(D10)/§5 消费点(§5.4 三读者)/§6 不变量(registry 零改动)/§8 迁移表是否与实现一致;§9 取舍逐条对照(行为变化披露/冷启代价/超时计数/熔断不睡/浏览器不轮换/facade duck-type/doctor 增字段)"}
+{"file": ".trellis/tasks/10-04-proxy-pool/implement.md", "reason": "门禁 G1/G2 的清单与豁免口径(0.1 预存红归属);Stage A-D 勾选完整性;D3 回滚注记是否入 commit message;0.2 三读者核账是否逐文件单跑(rg 乱序教训)"}
+{"file": "src/myia/engines/registry.py", "reason": "不变量核验点(278-295):diff 必须为零改动;proxy_pool_exhausted 与 proxy_config 均经 startswith('proxy_') 落入「不清 hint+短路链」——B5 有专测,检查时复核测试真实覆盖(非仅字符串断言)"}
+{"file": "tests/test_proxy_pool.py", "reason": "AC2/AC3 新测试面:熔断零网络(mock 计数)/半开单飞(并发只一骑)/取消路径清位(wait_for 取消后可再入)/假时钟零真等四项是最易做假的断言,逐一核对测试真的数了 mock 命中与时钟注入"}
+{"file": ".trellis/spec/python/index.md", "reason": "红线核对:核心依赖零新增(httpx 既有能力内完成)、结构化错误中文文案惯例、D2 spec 小节是否与实现同步且含字符串池行为变化披露(热点文件核对追加式未重排)"}
+{"file": "docs/zh/schema.md", "reason": "AC7 双语同步核验(与 docs/en/schema.md 对照):pools 节新增 upstreams 形态样例两侧一致,字符串样例保留,失败语义变化披露两侧都有;文档热点文件核对未被重排"}

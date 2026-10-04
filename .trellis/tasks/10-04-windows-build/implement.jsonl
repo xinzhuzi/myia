@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/10-04-windows-build/research/windows-build-current-state.md", "reason": "全量探查证据:windows job 3/3 红的根因(ocrmac/pyobjc 链,生产 run 日志)、tauri-bundler 源码级前提(.ico 必需、msi-updater 目录、非 ASCII 资产名)、装机链已就绪的源码引证、dispatch 版本坑与 uv.lock 镜像坑——design 的每个决策都指向本档对应节"}
+{"file": ".trellis/spec/python/index.md", "reason": "「桌面发行数据根」节(冒烟口径:cwd 无关路径解析/首跑种子)与「依赖分层」节(extras 可选依赖纪律——本任务给 vision extra 的 ocrmac 加平台标记须守住核心依赖零变化红线)"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "dispatch CI 验证循环属长任务:后台跑 + 轮 gh 查状态,禁 sleep 轮询;动手前先报量(uv.lock 重锁的 diff 人工核属查改分家)"}
+{"file": ".trellis/spec/guides/search-sop.md", "reason": "实施期对 CI 日志/tauri 上游行为再查证时的搜索铁律(中文路径勿手拼、先 Read 再操作);gh 命令实况与 GitNexus 用法"}

@@ -11,6 +11,46 @@ repeated here.
 
 ### Added
 
+- **Desktop cron sidecar surface** (10-04-hermes-cron, B3): nine sidecar
+  methods wiring the desktop shell into the new `myia.cron` subsystem —
+  `cron.list` / `cron.create` / `cron.edit` / `cron.pause` / `cron.resume` /
+  `cron.run` / `cron.remove` / `cron.status` / `cron.runs`, all thin wrappers
+  over the same `CronJobs`/`ExecutionLedger` API layer the `myia cron` CLI
+  uses (identical semantics and error codes; job references accept id or
+  name with `cron_ambiguous_job`/`cron_job_not_found` structured refusals;
+  create reuses the CLI's gates — full `load_category_file` early-failure as
+  `cron_category_invalid`, absolute category-path storage, timezone chain
+  job > category YAML > local). `serve` now also hosts a cron ticker
+  (daemon thread started once the RPC loop is ready, never on the serve
+  thread itself — the head-of-line blocking rule; supervised via
+  `SupervisedTickerThread` plus a dedicated supervisor thread polling
+  `restart_if_dead`; home mode only — dev fallback keeps the repo cwd clean
+  and defers to `myia cron serve`; coexists with the CLI host through the
+  tick file lock and fire claims, Hermes' native multi-host design). Two
+  events: `cron.skipped` — a cron fire that collides with the desktop
+  single-flight run lock skips that fire (grill Q2: the advanced slot is
+  consumed, nothing queued or rolled back, user-initiated runs win;
+  `last_status="skipped_busy"` is recorded by the tick layer as a success
+  semantics that leaves the failure streak untouched) and `cron.completed`
+  — per-fire completion with the run summary lifted straight from the
+  execution ledger's `run_summary_json` (no second parse of subprocess
+  stdout; `summary: null` when the best-effort ledger write failed, never
+  fabricated). The reset-between-tests fixture now stops the ticker
+  (thread-leak guard). Protocol version bumped to 9 (48 → 57 methods).
+- **Run success-rate trend** (10-04-desktop-b234, G6): new `runs.trend` sidecar
+  method serving the dashboard's success-rate sparkline — a per-day × per-status
+  aggregation over the `runs` table (`substr(started_at, 1, 10)` UTC calendar
+  day, same window semantics as `store.trend`: `days` clamped to [1, 90]
+  defaulting to 14, optional `category` filter, `db` fallback), answering
+  `{days: [{date, total, statuses: {<status>: count}}]}` oldest → newest with
+  only the days that have data. Aggregation happens server-side because
+  `runs.list` caps at 200 rows — under cron scheduling plus manual runs a
+  30-day window can exceed that limit, and a frontend-side aggregation over a
+  truncated list would silently distort the series. `statuses` groups the
+  open vocabulary verbatim (real vocabulary: running/success/partial/failed);
+  excluding `running` from the rate denominator is a frontend assembly
+  decision (dashboard `successRateSeries`), not a protocol behavior. Protocol
+  version bumped to 8.
 - **Alert-rules protocol surface** (10-04-alert-rules, Stage D): four sidecar
   methods for the desktop alert-rule manager — `alerts.list` (full rule list
   with per-rule `fired_count` / `last_fired_at` derived from the `alert_fired`
@@ -35,7 +75,7 @@ repeated here.
   — one event per new hit, emitted before `completed`, shape
   `{rule_id, rule_name, item_id, dedup_key, title, action, action_status, ts}`
   (querying the store rather than parsing subprocess logs keeps the replay
-  free of log-format coupling). Engine/storage groundwork: `shishi.alerts`
+  free of log-format coupling). Engine/storage groundwork: `myia.alerts`
   package + `alert_rules`/`alert_fired` tables (schema v7 migration) +
   `Pipeline._alert_pass` attach point.
 - **Sidecar protocol version bumped to 7** (`PROTOCOL_VERSION`,
@@ -85,7 +125,7 @@ repeated here.
 - **v1.1.2 desktop parity batch — second slice, protocol methods**:
   `feedback.mark` / `feedback.list` / `feedback.stats` (B2 — desktop feedback
   entries via the same `myia.feedback` code path as the CLI with
-  `channel="desktop"`, so `shishi feedback list` sees the same rows;
+  `channel="desktop"`, so `myia feedback list` sees the same rows;
   payload keys aligned with the CLI's row/stats shapes) and `store.trend`
   (B4 — per-day item counts over `first_seen`, UTC calendar days, window
   clamped to [1, 90]). No `PROTOCOL_VERSION` bump of its own: the batch rides
@@ -151,11 +191,24 @@ repeated here.
 
 ### Changed
 
+- **Naming reversal: `myia` is the technical identity again** (owner decision,
+  2026-10-04): MYIA is the repo / PyPI / CLI / module name, 「世事」 the Chinese
+  brand name — romaji `shishi` survives only inside Chinese-name annotations
+  (e.g. 「MYIA(中文名:世事)」). Everything the 1.1.1-era rename touched is
+  precisely reverted: module tree `src/shishi` → `src/myia` (all imports,
+  `-m` subprocess refs, plugin adapters, loggers), `[project.scripts]
+  myia = "myia.cli:main"`, wheel `packages = ["src/myia"]`, extras
+  self-references `myia[…]`, PyPI names `myia` / `myia-classifier` (both still
+  unpublished — nothing to migrate), Docker image `ghcr.io/xinzhuzi/myia`,
+  GitHub repo `xinzhuzi/myia`, sidecar `_m_version` name `myia` (protocol
+  methods and versions untouched), desktop release ASCII aliases back to
+  `myia.*`. The historical sections below keep the `shishi` names they
+  actually shipped with.
 - **Versioning reset to 0.0.1** (owner decision, 2026-10-03): the version
   sequence restarts from `0.0.1`. The `v1.1.1` git tag and its GitHub Release
   were removed, and every version source was reset accordingly: root and
   classifier `pyproject.toml`, `myia.__version__`, `tauri.conf.json`,
-  `Cargo.toml` (+ `Cargo.lock`), plus the `shishi-classifier` dependency
+  `Cargo.toml` (+ `Cargo.lock`), plus the `myia-classifier` dependency
   window (`>=0.0.1,<0.1`). The `1.x` sections below remain as the historical
   record of the retired sequence.
 - **Tag-driven releases** (10-03-tag-release): publishing is now triggered
@@ -281,7 +334,7 @@ repeated here.
   secrets, an agent-facing skill sheet, and bilingual (zh/en) docs kept
   consistent with the code by tests.
 
-[0.0.1]: https://github.com/xinzhuzi/shishi/releases/tag/v0.0.1
+[0.0.1]: https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
 
 <!-- 1.x sequence retired 2026-10-03 (versioning reset to 0.0.1): the
      v1.0.0/v1.1.0/v1.1.1 tags and their GitHub Releases were deleted, so the

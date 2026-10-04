@@ -1,0 +1,11 @@
+{"file": ".trellis/spec/python/index.md", "reason": "Python 工程约定:核心 6 依赖红线(池化零新依赖的依据)、目录结构、类型注解与结构化错误惯例;D2 要在此 spec 增池化小节(热点文件:先读现状追加式;须含字符串池失败语义变化披露)"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "长任务监控(后台任务+exit 文件禁 sleep 轮询)、先报量再动手、查改分家——Stage 0 基线与门禁节奏依据"}
+{"file": ".trellis/tasks/10-04-proxy-pool/prd.md", "reason": "已拍板决议 D1-D10(round 1 七问 + round 2 质询 17ok/3change/1missing 全按推荐)+质询修正与补拍记录;AC1-AC7(AC7 含行为变化披露项);非目标防越界;路径基准注记(并行会话 src/shishi→src/myia 改名在飞)"}
+{"file": ".trellis/tasks/10-04-proxy-pool/design.md", "reason": "技术设计权威版:YAML 混形 schema(§2)、facade 含 **kwargs 透传面与统一命名 pool_transport_for(§3,D9)、健康模型/半开单飞 try/finally 全终态清位(§4)/懒建失败冒 ProxyConfigError(§4.5,D10)、五消费点接线(§5,§5.4 三读者)、降级链不变量(§6)、测试迁移表(§8)、取舍含行为变化披露与冷启代价(§9)、回滚(§10)"}
+{"file": "src/myia/engines/fetch_base.py", "reason": "主战场:ProxyPools/load_proxy_pools(538-738)、client_for_pool/robots_for_pool(1475-1527)、_prepare_proxy_transport(1607-1649)、_send_with_retry/_wrap_proxy_transport_failure(1750-1819)——声明层/运行时/引擎接线三层都落在此;动手前先跑 impact(gitnexus -r 取当前索引名)"}
+{"file": "src/myia/engines/registry.py", "reason": "降级链 proxy_* 短路不变量所在地(278-295):本任务红线=零改动+新增 proxy_pool_exhausted/proxy_config 均经 startswith('proxy_') 落入既有分支;B5 不变量测试的消费端"}
+{"file": "tests/test_proxy_transport.py", "reason": "既有 33 项基线(2026-10-04 两次真跑 33 passed)+ make_pool_context/recorder_client 夹具范式:迁移表(design §8,仅 :223/:240 断言改写 + :243 可选加固一行)+ 新用例追加;AC1 语义保持的判定面"}
+{"file": "src/myia/pipeline.py", "reason": "图片下载环 _ring_proxy_for_source(1596-1630)是池 client 消费点:C1 适配 facade+per-request timeout(**kwargs 透传);context 每 run 新建实证(898/1011/1150)=D7 依据;并行会话热点文件,先读现状"}
+{"file": "src/myia/vision/collect.py", "reason": "facade **kwargs 透传的现网证据(:445 request 传 follow_redirects=False;:966-968 自建 client 同款参数)——D9 修正的消费方,改 facade 签名前必读"}
+{"file": "src/myia/cli.py", "reason": "doctor _probe_proxy_pools(1184-1215)与 _proxy_findings(1669-1684):C3 逐上游探测改造点;_build_async_client monkeypatch 先例(:1178 注释);并行会话已改此文件(M/R 状态),先读现状、追加式"}
+{"file": "src/myia/engines/crawl4ai.py", "reason": "_active_proxy_url 三读者之一(226;另两家 stealth_browser.py:727-728、scrapling.py:410-411):C2 接 facade.current_url,会话内不轮换(design §5.4);注意 rg 多文件输出乱序,核账逐文件单跑"}

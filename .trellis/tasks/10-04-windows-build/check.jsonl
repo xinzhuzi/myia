@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/10-04-windows-build/research/windows-build-current-state.md", "reason": "验收对照的证据基线:windows job 历史 3/3 failure 的结论与根因日志、bundler 源码引证(.ico/msi-updater/非 ASCII)、本机实测记录(collect_all 缺包仅警告)——检查时核对实现是否与证据口径一致,勿凭印象"}
+{"file": ".trellis/spec/python/index.md", "reason": "「桌面发行数据根」节(改路径行为必须同步 sidecar 协议测试的边界——本任务对 entry.py 零触碰,检查时确认此边界未被破坏)与依赖分层红线(核心依赖零变化)"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "检查纪律:CI 验证循环的长任务监控形态、查改分家;共享热点文件(desktop/entry.py、schema.py、sidecar 协议测试、ui-src types.ts)零触碰主张的核对方法"}

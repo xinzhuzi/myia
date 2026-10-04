@@ -1,0 +1,11 @@
+{"file": ".trellis/tasks/10-04-desktop-b234/prd.md", "reason": "验收主档:AC 逐项勾选+证据;探查结论节的 B2/B3/B4 交付矩阵(R1 终检对照面——协议/UI/测试三面各实测,行号按终检时现树同步刷新,grill ③);已拍板决议 6 条+质询修正 4 项(change 采纳记录),翻案时以本档为准"}
+{"file": ".trellis/tasks/10-04-desktop-b234/design.md", "reason": "验收口径细则:§2 runs.trend 契约(参数钳制/错误结构/应答形状)、§3 成功率口径(success/(total−running),零完结日不入线)与「不含进行中」注记要求、§4 测试面五用例清单、§5 死代码删后 grep 零命中判据"}
+{"file": "desktop/entry.py", "reason": "终检点:PROTOCOL_VERSION 实读+1(与 spec 版本段一致);_HANDLERS 含 runs.trend;模块 docstring 方法表补行;feedback.*/store.trend/runs.list 三先例仍在位(B2/B4/C3 核验)"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "对账面:注册表行数 == data.allowed == 48(implement 步骤 8 对账命令输出两数相等);分组注记含 desktop-b234 批+协议版本注记"}
+{"file": "tests/test_desktop_sidecar_protocol.py", "reason": "定向门禁主战场:uv run --no-sync python -m pytest tests/test_desktop_sidecar_protocol.py -q 全绿;runs.trend 节五用例在位(聚合/钳制/category/空态/注册面)"}
+{"file": "desktop/ui-src/src/screens/dashboard/dashboard-screen.tsx", "reason": "终检点(行号动态,fbbaaa7 后趋势块 :468-519):趋势块含成功率第二行(testid dashboard-rate-sparkline/dashboard-rate-error,人话文案);摘要累计口径+「不含进行中」Badge;与采集量趋势 allSettled 双向独立降级;B2 反馈统计卡(:649)/B4 趋势节仍在位(核验)"}
+{"file": "desktop/ui-src/src/screens/dashboard/sparkline.tsx", "reason": "grill 修正终检点:max prop 向后兼容(未传=现行为 max 归一),存量采集量序列零感知;成功率序列 max=1 固定刻度断言在 vitest"}
+{"file": "desktop/ui-src/src/lib/api/types.ts", "reason": "热点文件追加式核验:git diff 确认只增不改(METHOD map +1 行、RunsTrend* 类型追加);他人改动零重排"}
+{"file": "desktop/ui-src/src/lib/api/client.ts", "reason": "热点文件追加式核验:git diff 确认 runsTrend 门面追加在 storeTrend 后,其余零改动"}
+{"file": "README.md", "reason": "口径核对:行 280 交付宣称(已随桌面对齐批次落地+✅)与实际一致零改动即过;成功率半句是否加字归下一发布任务,本批不动"}
+{"file": ".trellis/tasks/10-03-v12-backlog/prd.md", "reason": "回标面:§5 G6 消号注记(收口时加「已随 10-04-desktop-b234 交付」;撞在途则留主人,与本批平行任务统一处理)"}

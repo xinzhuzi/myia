@@ -9,13 +9,14 @@
   请求 `{"id","method","params"}`;应答 `{"id","result"}` 或
   `{"id","error":{code,path,message,data}}`;`id` 缺省 = 通知(只执行不应答);
   事件无 id,以 `type` 区分。
-- 事件 8 类:`log` / `progress` / `completed`(run 族)/ `test.completed`(试抓 job,C13)/
+- 事件 10 类:`log` / `progress` / `completed`(run 族)/ `test.completed`(试抓 job,C13)/
   `image.models.progress` / `image.models.completed`(模型下载 job)/ `image.server.completed`(server 自启 job;vision-v2 批)/
-  `alerts.fired`(run 终态告警命中回放;alert-rules 批)。
+  `alerts.fired`(run 终态告警命中回放;alert-rules 批)/
+  `cron.skipped`(cron fire 撞桌面 run 单飞锁跳过)/ `cron.completed`(cron fire 完成,带运行摘要;hermes-cron 批)。
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 47 行;代码 `_HANDLERS` 现值 47,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 57 行;代码 `_HANDLERS` 现值 57,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -66,6 +67,16 @@
 | 45 | `alerts.save` | `_m_alerts_save` | 规则**全量替换**(承建/改/启停一体,不设独立启停方法;push.write 全量先例):`{rules:[AlertRuleInput]}` → `{ok, rules}`;两道门 = 逐条过构造门(shishi.alerts.compile_rule:name/scope/when 白名单语法/action/action_config 形状)任一失败 `alert_rule_invalid`(data 三键 index/field/reason)**整批零写入** + diff 落库(带 id 更新保 id/不带新建/库中多余 id 删除,fired 历史照留;空数组 = 清空回到零惊扰默认;alert-rules 批) |
 | 46 | `alerts.delete` | `_m_alerts_delete` | `{id}` → `{ok}`:删规则定义行,**fired 历史照留**(命中历史是事实);未知 id = `alert_not_found`(alert-rules 批) |
 | 47 | `alerts.test` | `_m_alerts_test` | **dry 求值,不真发不落 fired**:`{rule?\|rule_id?, item?\|item_id?}` → `{matched, muted, actions, eval_error?, already_fired?}`;rule = 草稿(未保存即可测)/rule_id = 已存规则;item = 合成字段 dict(`Item.from_extracted` 构造,content 补丁生效)/item_id = 库内条目(求值上下文与引擎同门)/都缺 = 最近一条(空库 `alert_test_no_item`);muted = effective mute 压制(品类 watchlist + 反馈 0.0 词,命中即不评估);actions 展开 push 通道解析结果+降级原因 / tag 标签;already_fired 仅 rule_id 形态;真发测试借既有 `push.test`(alert-rules 批) |
+| 48 | `runs.trend` | `_m_runs_trend` | run 成功率趋势(SQLiteStore.daily_run_outcomes:runs 表按 `substr(started_at,1,10)` UTC 逐日×status 聚合旧→新,`days` 钳制 [1,90] 缺省 14、`category?`、`db?` → `{days:[{date,total,statuses{…}}]}`,零数日补齐归前端 fillDailyOutcomes;statuses 开放词表原样分组,真实词表 4 态 running/success/partial/failed;服务端聚合而非前端算 runs.list —— limit≤200 在 cron 排程+手动 run 下 30 天窗可超限,截断会让序列静默失真;desktop-b234 批 G6) |
+| 49 | `cron.list` | `_m_cron_list` | 定时 job 清单(`CronJobs.list_jobs`,缺省仅活跃;`all:true` 含暂停/终态;`db?` 覆写数据根;hermes-cron 批) |
+| 50 | `cron.create` | `_m_cron_create` | 建定时 job:`{schedule, category, name?, deliver?, failure_deliver?, repeat?, timezone?, config?, run_timeout?, dry_run?, paused?, paused_reason?, db?}`;Q6 完整 `load_category_file` 早失败(`cron_category_invalid`,data=LoadError.to_dict)、Q5 绝对路径存储、时区链 timezone > 品类 YAML > 本地;schedule 解析/once 超窗/repeat 等 ValueError = `cron_create_failed`;origin=`{source:"desktop"}`(hermes-cron 批) |
+| 51 | `cron.edit` | `_m_cron_edit` | 部分更新(同 create 可选字段):schedule 变更由底座重算 `next_run_at` 并重推导 repeat 缺省(once↔recurring 翻转);category 同款 Q6 早失败;空更新集 = `cron_edit_no_changes`;终态复活拒绝/解析失败 = `cron_edit_failed`(hermes-cron 批) |
+| 52 | `cron.pause` | `_m_cron_pause` | 暂停 job(`reason?` 可选,F1.1);`{all:true}` = 全局急停 estop 标记(grill Q4:tick 跳过派发、在途 run 不受影响),与 `job` 互斥(hermes-cron 批) |
+| 53 | `cron.resume` | `_m_cron_resume` | 恢复 job / 一次性重挂(`at?` = ISO 时刻,`rearm_oneshot`);`{all:true}` = 解除全局急停,与 `job`/`at` 互斥;recurring 拒 `at`/once 过窗 = `cron_resume_failed`(hermes-cron 批) |
+| 54 | `cron.run` | `_m_cron_run` | 下次 tick 立即跑(`trigger_job`,manual 来源;复活 paused + 计入 repeat,§8.1 事实裁决;`manual_run_at=next_run_at`);终态 job 拒绝 = `cron_run_failed`(hermes-cron 批) |
+| 55 | `cron.remove` | `_m_cron_remove` | 删 job 记录 → `{removed, job_id, name}`;output 目录与账本行保留(运行证据)(hermes-cron 批) |
+| 56 | `cron.status` | `_m_cron_status` | ticker 活性快照(F1.6):`{ticker_alive, heartbeat_age_seconds, last_success_age_seconds, last_error, estopped, jobs_total, jobs_enabled, next_due_at}`;心跳新鲜窗 = interval×3+20s(CLI `cron status` 同公式);serve 内置 ticker 起过才活,dev 回退恒 not-alive(hermes-cron 批) |
+| 57 | `cron.runs` | `_m_cron_runs` | 执行账本尾查(`ExecutionLedger.list_executions` 新→旧):`{job?, limit?=20 钳制 [1,500], db?}` → `{count, executions}`;`run_summary_json` 随行解析为 `run_summary`(D10 摘要快照;损坏串如实带 `{raw}`)(hermes-cron 批) |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+
@@ -84,6 +95,14 @@ fe-small-batch 批(task 10-03-fe-small-batch)新增 1:43 `feed.enrich`(G8,
 alert-rules 批(task 10-04-alert-rules)新增 4:44-47 `alerts.*` 四方法 +
 `alerts.fired` 回放事件(见下方契约段);协议 v7(hermes-cron 批未先合入,
 v7 归本批——按合入顺序定案,开工实读 `PROTOCOL_VERSION`=6)。
+desktop-b234 批(task 10-04-desktop-b234)新增 1:48 `runs.trend`(G6 成功率
+折线:runs 表逐日×status 聚合,`days` 钳制 [1,90] 缺省 14、`category?`、`db?`
+→ `{days:[{date,total,statuses{…}}]}` 旧→新;statuses 开放词表原样分组,真实
+词表 4 态 running/success/partial/failed;服务端聚合因 runs.list limit≤200 在
+cron 排程+手动 run 下 30 天窗可超限、前端聚合会静默失真);协议 v8。
+hermes-cron 批(task 10-04-hermes-cron B3)新增 9:49-57 `cron.*` 九方法 +
+`cron.skipped`/`cron.completed` 两事件 + serve 内置 cron ticker(见下方契约段);
+协议 v9。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成
@@ -101,7 +120,10 @@ LIKE NOCASE,%/_ 按字面转义)。旧调用零感知。
 v4(weixin-bridge 批 `bridge.status`)、v5(vision-v2 批:`image.models.*` 四 +
 `image.server.*` 两 + `image.files.purge` + `store.items` 投影三键,见下段)、
 v6(fe-small-batch 批 `feed.enrich`,契约见下段)、v7(alert-rules 批 `alerts.*`
-四方法 + `alerts.fired` 事件,契约见下段)。
+四方法 + `alerts.fired` 事件,契约见下段)、
+v8(desktop-b234 批 `runs.trend` 成功率趋势逐日聚合)、
+v9(hermes-cron 批 `cron.*` 九方法 + `cron.skipped`/`cron.completed` 事件 +
+serve 内置 cron ticker,契约见下段)。
 
 **vision-v2 批七方法契约(task 10-03-vision-v2;能力实现 `shishi.vision.models` /
 `shishi.vision.server`,重依赖惰性,huggingface-hub 在 extras `shishi[vision]`)**:
@@ -171,6 +193,41 @@ action_status, ts}`**:run 终态收口处(发 `completed` 的同一监管线程)
 (item_id 形态);运行期求值错/mute 压制/通道降级/发送失败 = 非协议错
 (WARNING 隔离,logs.tail 可见)。
 
+**cron.* 契约(task 10-04-hermes-cron B3;能力实现 `myia.cron` 包,与 CLI
+`myia cron` 同一 API 层(AC7);蓝本 Hermes cron/(MIT)gateway 内嵌 cron 的
+等价物)**:`job` 引用 = id 或名字(`resolve_job_ref`:精确 id → 精确名 →
+唯一前缀;重名 = `cron_ambiguous_job` 带 `data.candidates`,未找到 =
+`cron_job_not_found`);数据根 = `db` 参数(缺省 = serve 上下文 db)的父
+目录,cron 目录(jobs.json/executions.db/output/)挂数据根。`cron.list
+{all?, db?}` → `{db, data_root, count, jobs}`(缺省仅活跃,`all:true` 含
+paused/终态);`cron.create {schedule, category, name?, deliver?,
+failure_deliver?, repeat?, timezone?, config?, run_timeout?, dry_run?,
+paused?, paused_reason?, db?}` → `{job}`——Q6 完整 `load_category_file`
+早失败(`cron_category_invalid`,data = LoadError.to_dict 的 errors[]),
+Q5 绝对路径存储,时区链 timezone > 品类 YAML timezone > 本地,schedule
+五形态解析失败/once 超窗/repeat 形状/paused 自相矛盾 = `cron_create_failed`
+(ValueError 原文);`cron.edit` 同 create 可选字段做部分更新,schedule 变更
+重算 `next_run_at`;`cron.pause {job, reason?}` / `{all:true}` estop;
+`cron.resume {job, at?}` / `{all:true}`;`cron.run {job}` = trigger(manual
+来源,复活 paused + 计入 repeat);`cron.remove {job}`(output/账本保留);
+`cron.status {}` → ticker 活性 + 下次到期 + 急停态;`cron.runs {job?,
+limit?=20 钳 [1,500]}` → executions 账本(`run_summary` 随行解析)。
+**serve 内置 cron ticker**:serve() 就绪后起、EOF 关停(lifetime = serve),
+daemon 线程绝不占 serve 线程(B10 队头阻塞铁律);监督 = `SupervisedTickerThread`
++ 专职 supervisor 线程周期 `restart_if_dead`(F2.2,CLI `cron serve` 主循环
+同款,serve 线程阻塞在 readline 承担不了);**home 模式才起**(桌面生产
+恒 home;dev 回落数据根 cwd 不起,防测试/开发 serve 污染仓库目录,dev
+常宿形态用 `myia cron serve`);与 CLI serve 并存靠 tick 文件锁 + fire
+claim 互斥(多宿主,照抄 Hermes)。**事件 `cron.skipped {job_id, name,
+reason:"run_busy", active_run_id, ts}`**:cron fire 撞桌面 run 单飞锁
+(`_RUNS_LOCK/_ACTIVE_RUN_ID`)= 跳过本 fire(grill Q2:advance 已消耗不排队
+不回滚,与 at-most-once 一致,用户手点优先;`last_status="skipped_busy"`
+由 tick 层落库,成功语义不动 streak);**事件 `cron.completed {job_id,
+name, ok, status, delivery_error, summary, ts}`**:fire 完成——摘要直接取
+runner 随执行行落账的 `run_summary_json`(D10,零二次解析子进程 stdout;
+status 取摘要 run 块,账本无行时 summary=null/status 回落成功布尔,不虚构)。
+桌面定时任务 UI 屏不在本批(PRD 非目标:sidecar 方法齐即可,UI 另立档)。
+
 ## 错误码表
 
 ### 协议级(分发层 `_handle_line` entry.py:1902-1936,5 个)
@@ -202,6 +259,7 @@ action_status, ts}`**:run 终态收口处(发 `completed` 的同一监管线程)
 | 消息 | `unknown_platform` / `discover_not_supported` / `channel_refresh_failed` / `alias_write_failed` / `push_write_unsupported`(另复用 `category_invalid` / `file_not_found` / `path_outside_root` / `source_write_failed` / `invalid_params`) | channels.* / push.write 全链路(task 10-03-messaging-ui;数据面错误码透传 push 层如 `credential_not_found` 经 `channel_refresh_failed.data.code` 携带) |
 | 看图模型/服务 | `download_busy` / `ensure_busy`(另复用 `invalid_params`;activate 改写 vision.yaml 失败复用 `image_config_invalid`) | image.models.* / image.server.* 单飞拒绝与参数形状;`VisionModelError`/`VisionServerError` code 透传(delete/activate 走应答错误,download/ensure 走完成事件 error 字段,枚举见上方 vision-v2 契约段;task 10-03-vision-v2) |
 | 告警规则 | `alert_rule_invalid` / `alert_not_found` / `alert_test_no_item`(另复用 `invalid_params` 互斥门/载荷形状、`item_not_found` 的 item_id 形态) | `alerts.save` 某条构造期拒(data `{index, field, reason}`,整批零写入)/ `alerts.delete`·`alerts.test`(rule_id 形态)·`alerts.save`(载荷未知 id)未知 id / `alerts.test` 缺省取材空库(task 10-04-alert-rules;求值错/mute/降级/发送失败 = 非协议错,WARNING 隔离走 logs.tail) |
+| 定时任务 | `cron_category_invalid` / `cron_create_failed` / `cron_edit_failed` / `cron_edit_no_changes` / `cron_resume_failed` / `cron_run_failed` / `cron_ambiguous_job` / `cron_job_not_found`(另复用 `invalid_params` 参数形状/all 与 job 互斥) | `cron.create`/`cron.edit` 品类 YAML 装不上(Q6 早失败,data=LoadError.to_dict)/ `create` 的 schedule 五形态·once 超窗·repeat·paused 自相矛盾(ValueError 原文)/ `edit` 的 schedule 变更解析失败·终态复活拒绝 / `edit` 空更新集 / `resume` 的 recurring 拒 at·once 过窗 / `run` 终态 job 拒绝 / 名字引用重名(data.candidates)/ id 或名字未找到(task 10-04-hermes-cron;与 CLI `myia cron` 同码) |
 
 ### 透传族(`exc.code` 动态透传,不在 entry.py 静态出现)
 
@@ -226,4 +284,6 @@ push 层 `PushSendError.code`(`missing_target` / `env_var_missing` /
    同源对账,屏私名单不扩);
   `sources.write` 在 `screens/sources/api.ts`、`yaml.*` 在 `screens/yaml-editor/api.ts`、
   `image.config.*` 在 `screens/settings/vision-api.ts`、`channels.*`/`push.write`/
-  `bridge.status` 在 `screens/messaging/api.ts` 屏私有封装(invoke 直连,不走共享门面)。
+  `bridge.status` 在 `screens/messaging/api.ts` 屏私有封装(invoke 直连,不走共享门面);
+  `cron.*` 九方法暂无任何前端接线(桌面定时任务 UI 屏是 hermes-cron 的 PRD 非目标,
+  另立档;接线时按上表对账)。

@@ -16,7 +16,7 @@
 - engines/ 下 crawl4ai.py、scrapling.py、stealth_browser.py、llm_browser.py 当前为占位壳(仅 `__future__` import,未引任何第三方库);实装排期见各 `vXX-engine-*` 任务,提前实装属越界
 - 判断一个依赖放核心还是 extras 的标准:核心流水线(L1/L2+分类+推送)能跑 = 核心依赖;只有特定引擎/通道需要 = extras
 
-## 目录结构(src/myia/)
+## 目录结构(src/shishi/)
 
 ```
 cli.py          命令入口(输出对 AI/人类双友好)
@@ -49,3 +49,18 @@ vision/         看图:双引擎 OCR(ocrmac+rapidocr-onnxruntime)+ OpenAI 兼容
 - 首跑种子:home 模式 && plugins 空 && 无 `.seeded` 标志 → 拷随包 `Resources/plugins/*.yaml`(官方品类 YAML 四件套);标志在即永不复种(尊重用户删除)。dev 模式零动作
 - 市场面(`myia plugin list`,InstalledPluginStore)与品类 YAML 平铺共用 `<home>/plugins` 不冲突(health 扫描非递归);官方插件 = 品类 YAML 形态,经 health/doctor 可见,plugins.list 首跑空是合法态
 - 改路径行为必须同步 `tests/test_desktop_sidecar_protocol.py` 的上下文/种子用例;发布前必跑「真实安装冒烟」(cwd=/ 全方法矩阵),mock 层绿不算数(v1.1 教训)
+
+## 代理池池化(2026-10-04 定案,task 10-04-proxy-pool)
+
+- **声明形态(混形兼容)**:全局配置 `pools` 节每池两种形态——字符串(v0.2,等价单上游池)或映射 `{upstreams: [...], max_failures?, probe_interval?}`;凭据只走 `env:`/`keychain:` 引用(明文加载期拒载红线),校验全挂 `load_proxy_pools` 的 LoadError 通道(`invalid_pool_upstreams`/`invalid_pool_policy`/`unknown_pool_field`),零第二套规则;`schema.py` 的 `pool:<名称>` 语法零改动
+- **运行时(`engines/fetch_base.py:ProxyPoolTransport`)**:每池每 run 一个 facade(`FetchContext.pool_transports`,duck-type `request`/`get`/`stream`/`aclose`,**显式 **kwargs 透传**——图片环 per-request timeout 与 `follow_redirects=False` 走这条路);顺序游标轮换,transport 失败即换下一个可 admit 上游(消耗源 retry 预算);被动健康:连续 transport 失败计数达 `max_failures`(默认 3)摘除,成功(<400)清零,HTTP 状态失败不计数不清零;摘除过 `probe_interval`(默认 300s)由流量自然触发**半开单飞**试炼(成功归队/失败立即重摘除;`trial_in_flight` 清位 finally 覆盖含 CancelledError——sidecar 壳超时取消不留永久占坑);懒建 client 构建失败**不计数直接冒 `ProxyConfigError`**(依赖缺失真相不被健康模型吃掉);生命周期 = run,不落库不跨 run
+- **每池熔断(派生态)**:全部上游摘除且无到期半开 → 请求零网络抛 `ProxyPoolExhaustedError`(`proxy_pool_exhausted`,带自愈时刻),mount 期与 retry 循环内两处同语义;**不睡等半开**(快速失败交还调用方,下一 run 自然重试)
+- **不变量**:proxy_* 家族四类 `proxy_error`/`proxy_timeout`/`proxy_network`/`proxy_pool_exhausted` 全部 startswith("proxy_"),registry 的「不清 hint + 短路降级链」对四类一致(**registry.py/schema.py 零改动是红线**);轮换/健康收敛在 facade 内,降级链不感知池内部;浏览器三读者(crawl4ai/stealth_browser/scrapling)消费 mount 时刻的 `_active_proxy_url`,会话内不轮换
+- **行为变化披露**:字符串(单上游)池失败语义从「逐源各自重试」变为「3 连败摘除 → 池熔断快速失败」——docs/en+zh schema.md 全局配置节同款披露文字,升级说明必须带上
+- **回滚注记**:revert 后 `upstreams` 映射形态 YAML 会被旧加载器以 `invalid_pools` 结构化拒载(非静默)——回滚前需把池化 YAML 还原为字符串形态
+
+## 桌面 Windows 发行(2026-10-04 定案,task 10-04-windows-build)
+
+- **依赖平台标记红线**:vision extra 的 `ocrmac` 恒带 `sys_platform == 'darwin'` 标记(macOS Vision 独占,Windows 无 wheel,裸装拉 pyobjc 链必炸——生产 run 37117015528 实锤);动 vision extras 时标记不可丢;`myia-core.spec` 的 ocrmac collect_all 有同款 darwin 门(卫生项);uv.lock 重锁保持镜像 URL 体系并人工核 diff
+- **产物与 latest.json 单写者**:desktop-release.yml 的 windows-msi 为正式 CI 目标(无 continue-on-error、timeout 60,失败=run 红但不牵连 mac 发布);msi 产物上传前改 ASCII 名 `myia_<版本>_x64.msi`/`.msi.sig`(GitHub 剥非 ASCII 资产名);latest.json 只由 release-finalize 归聚 job 单一产出(`needs: [macos-dmg, windows-msi]` + `if: always() && mac result 门`,darwin-aarch64 条目恒在、windows-x86_64 按产物存在条件并入),mac/windows job 不得自写(双写者竞态);dispatch 于分支跑时版本回退 tauri.conf.json,不以分支名当 semver
+- **签名与冒烟口径**:v1 不购代码签名证书,SmartScreen「更多信息→仍要运行」+ Defender 误报白名单走 README 安装节文档化放行;Windows 真机冒烟七项清单(安装/放行/首跑种子/keychain→DPAPI 链/黑窗/passive 升级/单实例)归主人侧,交付判据 = CI 绿 + artifacts(10-04-windows-build prd)

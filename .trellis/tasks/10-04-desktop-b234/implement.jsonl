@@ -1,0 +1,17 @@
+{"file": ".trellis/tasks/archive/2026-10/10-03-gap-census/prd.md", "reason": "B2/B3/B4 权威定义源(§2 B 组行 33-35:卡片反馈按钮/settings 反馈开关/采集量趋势;宣称 vs 实际证据);文末 Round 3 拍板注记定 B 组路由与改宣称史"}
+{"file": ".trellis/tasks/10-03-v12-backlog/prd.md", "reason": "§4(行 27-35)B2/B3/B4 边界与回标史(已被 v112-desktop-parity 吸收);§5 G6(行 40)「采集量/成功率趋势折线,与 B4 同块合并考虑」= 本任务真增量的池档出处"}
+{"file": ".trellis/tasks/archive/2026-10/10-03-v111-release/prd.md", "reason": "v1.1.1 改宣称记录(Requirements 4 行 26-28 + 验收行 90/123):README 三项交付宣称如实化改口的来龙去脉;现 README.md:280 已回填「已交付」口径的依据链"}
+{"file": ".trellis/tasks/archive/2026-10/10-03-v112-desktop-parity/prd.md", "reason": "B2/B3/B4 实现归属档:需求表行 36-38(建议实现口径)+ AC 行 62-64 + 归档注记行 120(代码在位 dc1cf86+UI 半边)——核验矩阵的对照面,防止重做已交付件"}
+{"file": ".trellis/tasks/archive/2026-10/10-03-ui-feature-census/prd.md", "reason": "G6 定义行 29:「仅最近 N 次成功率数字,无时间序列 → P2 采集量/成功率折线(run 记录已有数据)」——本任务成功率折线的原始判词与优先级"}
+{"file": ".trellis/tasks/archive/2026-10/10-02-v11-desktop-app/prd.md", "reason": "B3/B4 原始承诺(五屏范围行 10-15:仪表盘「采集量趋势」、设置「反馈开关」)——验收口径的最初源头"}
+{"file": "desktop/entry.py", "reason": "协议面主战场:PROTOCOL_VERSION=371 行(实读后 +1);_m_store_trend:2745 与 _m_runs_list:2572=参数校验/错误结构先例;_HANDLERS 注册表 :4040+ 追加 runs.trend;模块 docstring 方法表 :49-57/:157/:172 补行"}
+{"file": "src/myia/store/sqlite.py", "reason": "store 层落点:daily_item_counts:830=聚合口径镜像(substr(UTC 日)/窗口下界/ValueError);list_runs:1667=runs 表读先例;runs schema:146-148(status 开放词表)。注意:模块改名波在途,开工 find 重定位"}
+{"file": "src/myia/store/models.py", "reason": "RunRecord:218-234 字段形状(started_at/status/stats);RUN_STATUS_* :44-47 为 4 态 running/success/partial/failed+RUN_STATUSES 词表 :48-50(grill 修正:cli.py 的 config_error 是错误响应 error_type,非 runs.status 值,docstring 例举勿抄)——聚合分组与前端消费键的依据"}
+{"file": "desktop/ui-src/src/screens/dashboard/sparkline.tsx", "reason": "grill 修正落点:sparkPoints :39-48 只收 values 且强制 max 归一,无 points/domain 透传口——加向后兼容可选 prop max?: number(固定上界,未传=现行为),成功率序列喂 max=1 落实固定 [0,1] 真刻度;须带存量回归护栏用例"}
+{"file": "desktop/ui-src/src/screens/dashboard/dashboard-screen.tsx", "reason": "UI 落点(行号=grill 后复核值,fbbaaa7 10:54 分区降级提交后):内联采集量趋势节 :468-519(同块加成功率第二行);windowDays state :312;refreshTrend :333(升级 allSettled 双序列);近期 run 成功率数字卡 :625(口径差异对照面);FeedbackStatsCard :649;分钟级在漂,开工重读现状"}
+{"file": "desktop/ui-src/src/screens/dashboard/api.ts", "reason": "装配层先例与新增落点(行号=grill 后复核值):summarizeRuns:187-203(成功率口径=success/非 active);runsList limit 20 :75;fillDailyCounts:285;toSparklinePoints:300(max 归一——比率序列不可复用,经 Sparkline 新可选 max prop 走固定 [0,1] 域,grill 修正);toTrendWindow:325/fetchTrendWindow:334(独立降级+fbbaaa7 allSettled 分区降级先例 :72-88)"}
+{"file": "desktop/ui-src/src/lib/api/types.ts", "reason": "共享热点文件(追加式纪律):StoreTrend 区 :698-711=类型样式;:887 METHOD map 追加 runs.trend 行"}
+{"file": "desktop/ui-src/src/lib/api/client.ts", "reason": "共享热点文件(追加式纪律):storeTrend 门面 :209 之后追加 runsTrend"}
+{"file": "tests/test_desktop_sidecar_protocol.py", "reason": "共享热点文件(追加式纪律):runs.list 测试 :1989-2012=种子直写先例;test_store_trend:3217=聚合断言样式;:2186-2197=注册面断言段(方法清单若全量列,+1 同步)"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "协议镜像 spec:注册表 47 行+分组注记+版本段(alert-rules v7「按合入顺序定案,开工实读」判例);新方法必须同步此档,对账 data.allowed==注册表行数"}
+{"file": "desktop/ui-src/src/screens/dashboard/trend-card.tsx", "reason": "死代码清理对象:零引用实证(ui-src 全树 grep TrendCard 仅自身+测试);被 dashboard-screen 内联节+共享 ./api 装配取代,连 trend-card.test.tsx 一并删"}
