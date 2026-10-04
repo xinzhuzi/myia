@@ -64,6 +64,12 @@ handleTest 起手 setTestOutcome(null)(新发起即关旧弹窗,既有行为保�
 - 浏览器直开无事件通道:行为不变(发起错误照走失败弹窗,零事件依赖)。
 - 回滚 = revert 单笔提交(无协议/存储/依赖面)。
 
+## 已知边界与互斥(复查 M/L 修法,2026-10-05)
+
+- **模态互斥**:结果弹窗渲染条件 `testOutcome && editingFile === null`——编辑模态在途时结果不叠双模态(同 z-50 叠底 + 两个 window keydown 监听 ESC 双关,会静默丢结果),只驻 state,编辑弹窗关闭后自然浮现;新发起试抓起手 `setTestOutcome(null)` 旧弹窗随关(既有行为)。
+- 概要括注仅 `engineConfigured !== engineHit` 时示(引擎缺位回落时防「命中 X(配置 X)」重复);失败明细 path 空不带冒号;正文滚动容器 `tabIndex={0}`(键盘可滚)。
+- testing 卡死(事件永不到达)无超时,与横幅时代一致(预存行为,如实认定);无 focus trap 系继承 YamlEditorDialog 范式局限(全仓弹窗共性,另行统一)。
+
 ## 权衡记录
 
 - 自动弹出 vs 手动点开:试抓由用户行内发起,等结果是其直接意图 → 完成即弹,少一次点击(Kestra Trigger→Execution 详情同向)。

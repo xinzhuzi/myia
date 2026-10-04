@@ -38,6 +38,17 @@
 > 真机目验(弹窗观感/交互手感)留主人;装机包未随本笔刷新(见完成汇报)。
 > 混线注记:实现撞并行会话迁移排程一览/跑一次到 cron 屏(在途未提交),sources-screen/sources.test 两件经临时索引外科提交(只进我方 hunks,外来 hunks 原样留工作树),验证在 git archive 隔离树实跑门禁。
 
+## 复查收口(trellis-check 独立复查,主人质询「深化与补全」触发)
+
+复查结论「可归档」,发现 1M+3L+1 断言缺口,按判例当场全修(代码笔见 git log,门禁 sources 16/16 绿+tsc 0):
+
+- [M] 编辑模态在途时试抓完成 → 双模态叠底+ESC 双关丢结果(本笔新引入组合)→ 修法:渲染条件互斥(`testOutcome && editingFile === null`),结果驻 state,编辑弹窗关闭后自然浮现;新用例钉死(编辑开→完成到达不叠→ESC 关编辑→弹窗浮现)
+- [L] AC1 后半「旧横幅 testid 清零」补显式反向断言(`test-result-ok/fail` 均 null)
+- [L] 引擎缺位回落时概要括注重复并示 → 仅 `engineConfigured !== engineHit` 时示括注
+- [L] 弹窗正文纯键盘不可滚(容器无可聚焦元素)→ 滚动容器 `tabIndex={0}`
+- [L] `data.errors` path 缺省时空冒头 → path 空不带冒号(防御形状,后端恒带)
+- 如实认定非缺陷:testing 卡死(事件永不到达)与横幅时代行为一致(两代均无超时,预存);无 focus trap 系继承 YamlEditorDialog 范式局限(全仓弹窗共性,非本笔引入);`verdict=/skip_reason=` mono 技术小字属 R2 明细范围(行话判例禁的是活性条)
+
 ## 明确不在本档(留观,待主人裁决)
 
 同屏「跑一次」终态横幅、「启停写回复核」横幅、存储告警条:同族贴顶模式,但各有任务出身(10-04-topbar-cleanup 等)且未被判词点名——不擅动,本档只修试抓一线。
