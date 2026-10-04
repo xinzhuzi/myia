@@ -151,7 +151,10 @@ export function appendFeedPage(loaded: FeedItem[], page: FeedPage): { items: Fee
 }
 
 // ---------------------------------------------------------------------------
-// 未读 / 星标 / 稍后读三态(本地态:localStorage 持久,键 = itemKey)
+// 未读 / 星标 / 稍后读三态 —— 双通路(G9,10-04-read-state-server):
+//   未过门(旧 sidecar)= 本地态:localStorage 持久,键 = itemKey(本节函数);
+//   过门(protocol ≥ READ_STATE_PROTOCOL)= 服务端态:条目投影三键派生 +
+//   store.state.* 置位(见本文件 G9 节 + feed-screen 能力门分流)。
 // ---------------------------------------------------------------------------
 
 export interface FeedItemState {
@@ -208,8 +211,10 @@ export function toggleMarker(states: FeedStateMap, key: string, marker: keyof Fe
 /**
  * 批量置位(G9,10-03-fe-small-batch):对 loaded 全部条目把 marker 置为
  * value;全 false 的键顺手剪除(与 toggleMarker 同存储纪律)。作用域 =
- * 已加载条目(本地态只能按 itemKey 置位,未翻页条目不在内,按钮 title
- * 如实注明)。
+ * 已加载条目(本地态只能按 itemKey 置位,未翻页条目不在内)。
+ * G9 后半(read-state-server):过门通路的批量已改走 store.state.mark_all
+ * (全库语义),本函数仅未过门(旧 sidecar)通路调用 —— 过门后成死支,
+ * 保留不删防未过门组合回归(design §5.4;引用面 grep 在案)。
  */
 export function setMarkerBulk(
   items: FeedItem[],
@@ -241,6 +246,72 @@ export function applyFeedFilter(items: FeedItem[], states: FeedStateMap, filter:
     if (filter === "starred") return state.starred === true;
     return state.later === true;
   });
+}
+
+// ---------------------------------------------------------------------------
+// G9 服务端读态(read-state-server):能力门常量 + 条目派生状态源 + 一次性搬迁
+// ---------------------------------------------------------------------------
+
+/**
+ * 服务端读态能力门版本:sidecar `version().protocol ≥ 本值` → 服务端通路;
+ * 低版本 / 探测失败 → 旧 localStorage 通路原样保留(旧 sidecar + 新 UI 组合
+ * 可用,AC7)。取值与 entry.py `PROTOCOL_VERSION` 同笔维护:read-state-server
+ * 批 = 10(含 hermes-cron 竞速顺延,开工实读;后端 bump 时此处同批跟改)。
+ */
+export const READ_STATE_PROTOCOL = 10;
+
+/**
+ * 条目 → FeedStateMap(过门后的状态源):read/starred/later 投影三键按
+ * itemKey 直配;三态全缺省/false 不产键 —— 与 loadFeedStates 的缺省语义
+ * 对齐,喂既有 applyFeedFilter / sortUnreadFirst / 渲染管线零改动。
+ */
+export function statesFromItems(items: FeedItem[]): FeedStateMap {
+  const states: FeedStateMap = {};
+  for (const item of items) {
+    const state: FeedItemState = {};
+    if (item.read === true) state.read = true;
+    if (item.starred === true) state.starred = true;
+    if (item.later === true) state.later = true;
+    if (state.read || state.starred || state.later) states[itemKey(item)] = state;
+  }
+  return states;
+}
+
+/** 一次性搬迁会话哨位:模块级布尔防 React StrictMode 双挂载双调(每会话至多
+ *  一次;不做 localStorage 旗标 —— webview 数据可被独立清掉,服务端
+ *  store_meta `feed_state_imported_at` 才是幂等真相,Q2.2)。 */
+let feedStatesImportAttempted = false;
+
+/**
+ * 一次性搬迁 localStorage 读态快照(G9 Q2;过门后由 feed 屏挂载触发):
+ * 旧 map 非空 → 单请求 `store.state.import` 整 map 搬完(逐键 RPC = N 往返,
+ * 否);应答仅记日志不弹窗(搬迁对用户透明,skipped = id:<url> 形态如实
+ * 计数);旧键保留不删(降级回旧 build 读旧快照照常,回滚路径 Q2.3)。
+ * 失败不重试(本会话):服务端旗标未落,下会话自然再试。
+ *
+ * Returns: 实际发起导入的应答 `{imported, skipped}`;null = 未发起
+ * (本会话已发起过 / 旧 map 为空 / 搬迁失败)。
+ */
+export async function importLocalFeedStates(): Promise<{ imported: number; skipped: number } | null> {
+  if (feedStatesImportAttempted) return null;
+  feedStatesImportAttempted = true;
+  const states = loadFeedStates();
+  if (Object.keys(states).length === 0) return null;
+  try {
+    const result = await api.storeStateImport({ states });
+    console.info(
+      `[feed] 读态一次性搬迁:imported=${result.imported} skipped=${result.skipped}` +
+        "(旧键 myssia.feed.states.v1 保留不删)",
+    );
+    return result;
+  } catch (err) {
+    console.warn(
+      `[feed] 读态一次性搬迁失败(本会话不再重试,下会话再搬):${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------

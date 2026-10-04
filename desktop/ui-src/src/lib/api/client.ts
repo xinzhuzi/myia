@@ -1,9 +1,10 @@
 /**
  * MYIA 桌面 sidecar API client —— sidecar 协议(`desktop/entry.py` `_HANDLERS`,
  * 方法数随批滚动,单一事实源 = spec 注册表)的共享封装:
- * 类型面 `SidecarProtocol` 盖 31 方法(核心 + image.config.* + v1.1.2 批八方法 +
- * feed-ux 批三方法 + vision-v2 批七方法 + fe-small-batch 批 feed.enrich),
- * `api` 门面封装核心 22 方法
+ * 类型面 `SidecarProtocol` 盖 35 方法(核心 + image.config.* + v1.1.2 批八方法 +
+ * feed-ux 批三方法 + vision-v2 批七方法 + fe-small-batch 批 feed.enrich +
+ * read-state-server 批三方法 store.state.*),
+ * `api` 门面封装核心 26 方法
  * ——封装面 ≠ 协议面,分工见下方 api 对象头注释。
  *
  * 传输:壳命令 `sidecar_request`(src-tauri/src/main.rs);Rust 侧
@@ -61,6 +62,12 @@ import type {
   SourcesTestResult,
   StoreItemsParams,
   StoreItemsResult,
+  StoreStateImportParams,
+  StoreStateImportResult,
+  StoreStateMarkAllParams,
+  StoreStateMarkAllResult,
+  StoreStateMarkParams,
+  StoreStateMarkResult,
   StoreTrendParams,
   StoreTrendResult,
   VersionParams,
@@ -140,7 +147,9 @@ async function request<M extends SidecarMethod>(
  * 8 方法(runCancel/runsList/secretDelete/sourcesTest + feedbackMark/
  * feedbackList/feedbackStats/storeTrend,10-03-v112-desktop-parity)
  * + feed-ux 批 3 方法(feedExport/schedulePreview/pushTest,10-03-feed-ux)
- * + fe-small-batch 批 1 方法(feedEnrich,10-03-fe-small-batch G8),
+ * + fe-small-batch 批 1 方法(feedEnrich,10-03-fe-small-batch G8)
+ * + read-state-server 批 3 方法(storeStateMark/storeStateMarkAll/
+ * storeStateImport,10-04-read-state-server G9),
  * 非协议全量。协议面(单一事实源 = entry.py `_HANDLERS`,注册表见
  * .trellis/spec/desktop/sidecar-protocol.md)的其余方法走屏私有封装:
  * sources.write → screens/sources/api.ts、yaml.* → screens/yaml-editor/api.ts、
@@ -179,6 +188,15 @@ export const api = {
   /** 情报流条目(新→旧;SQLite 单库直读;游标 before/before_id + query) */
   storeItems: (params: StoreItemsParams = {}): Promise<StoreItemsResult> =>
     request("store.items", params),
+  /** G9 读态单键置位(按 dedup_key,同键多行同置;feed 屏乐观更新的服务端真源) */
+  storeStateMark: (params: StoreStateMarkParams): Promise<StoreStateMarkResult> =>
+    request("store.state.mark", params),
+  /** G9 全库批量置位(可选 category;「全部标已读」全库语义的唯一入口) */
+  storeStateMarkAll: (params: StoreStateMarkAllParams): Promise<StoreStateMarkAllResult> =>
+    request("store.state.mark_all", params),
+  /** G9 localStorage 读态一次性搬迁(幂等旗标在服务端 store_meta,重放安全) */
+  storeStateImport: (params: StoreStateImportParams): Promise<StoreStateImportResult> =>
+    request("store.state.import", params),
   /** 导出当前过滤视图为 JSONL/CSV(G3;sidecar 直写,数据不经 webview) */
   feedExport: (params: FeedExportParams): Promise<FeedExportResult> =>
     request("feed.export", params),

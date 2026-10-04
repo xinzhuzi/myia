@@ -472,10 +472,12 @@ def test_store_items_projects_image_ocr_scalar(tmp_path):
     assert by_key["ocr3"]["image_ocr_lines"] is None
     assert by_key["ocr3"]["image_ocr"] == "x"
     # raw 整包仍不出协议面:仅白名单投影,其余 metadata 键不外泄
+    # (read/starred/later = v10 起随行读态三键,G9)
     assert set(by_key["ocr1"]) == {
         "id", "url", "dedup_key", "title", "source", "content", "image_ocr",
         "image_caption", "image_files", "image_ocr_lines",
         "tags", "category", "scores", "pushed_at", "push_slot", "first_seen",
+        "read", "starred", "later",
     }
 
 
@@ -2280,11 +2282,13 @@ def test_method_registry_allowed_matches_handlers():
     v1.1.2 批第二切片(feedback.mark/list/stats + store.trend)+
     fe-small-batch 批(feed.enrich)+ alert-rules 批(alerts.* 四方法,
     10-04-alert-rules)+ desktop-b234 批(runs.trend,10-04-desktop-b234)+
-    hermes-cron 批(cron.* 九方法,10-04-hermes-cron B3)后 = 57。"""
+    hermes-cron 批(cron.* 九方法,10-04-hermes-cron B3)+
+    read-state-server 批(store.state.* 三方法,10-04-read-state-server)
+    后 = 60。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 57
+    assert len(allowed) == 60
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",
@@ -2294,7 +2298,8 @@ def test_method_registry_allowed_matches_handlers():
                    "alerts.list", "alerts.save", "alerts.delete", "alerts.test",
                    "cron.list", "cron.create", "cron.edit", "cron.pause",
                    "cron.resume", "cron.run", "cron.remove", "cron.status",
-                   "cron.runs"):
+                   "cron.runs", "store.state.mark", "store.state.mark_all",
+                   "store.state.import"):
         assert method in allowed
 
 
@@ -2306,9 +2311,274 @@ def test_protocol_version_bumped_for_feed_ux():
     alert-rules 批(alerts.* 四方法 + alerts.fired 事件,10-04-alert-rules)→ v7;
     desktop-b234 批(runs.trend,10-04-desktop-b234)→ v8;
     hermes-cron 批(cron.* 九方法 + cron.skipped/cron.completed 两事件 +
-    serve 内置 cron ticker,10-04-hermes-cron B3)→ v9。"""
+    serve 内置 cron ticker,10-04-hermes-cron B3)→ v9;
+    read-state-server 批(store.state.* 三方法 + store.items 投影补
+    read/starred/later 三键,10-04-read-state-server)→ v10(开工实读 v9 后
+    +1:hermes-cron 已先合入,竞速顺延)。"""
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
-    assert responses[0]["result"]["protocol"] == 9
+    assert responses[0]["result"]["protocol"] == 10
+
+
+# ---------------------------------------------------------------------------
+# read-state-server 批(10-04-read-state-server,协议件):store.state.* 三方法
+# + store.items/feed.export 投影补 read/starred/later 三键(G9)
+# ---------------------------------------------------------------------------
+
+#: v7 期 items 表形状(无 read/starred/later 三列;直造旧表而非从 v8 降级——
+#: SQLite DROP COLUMN 会因建表 DDL 中的行注释重建出非法语句,真实旧库本就是
+#: 这种带列旧形状,直造更忠实;store 层 tests/test_read_state.py 同款)。
+_V7_ITEMS_DDL = """
+CREATE TABLE IF NOT EXISTS items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    url TEXT NOT NULL,
+    dedup_key TEXT NOT NULL,
+    source TEXT,
+    title TEXT NOT NULL,
+    content TEXT,
+    content_hash TEXT,
+    tags TEXT,
+    category TEXT,
+    scores TEXT,
+    pushed_at TEXT,
+    push_slot TEXT,
+    first_seen TEXT NOT NULL,
+    raw TEXT
+);
+"""
+
+
+def _make_v7_database(path, rows: list[tuple[str, str, str]]) -> None:
+    """手造 v7 库:旧形状 items 表 + 版本戳 7(模拟升级前的库文件)。"""
+    import sqlite3
+
+    raw = sqlite3.connect(path)
+    raw.executescript(
+        _V7_ITEMS_DDL
+        + "CREATE TABLE IF NOT EXISTS store_meta"
+        + " (key TEXT PRIMARY KEY, value TEXT NOT NULL);"
+    )
+    raw.execute("INSERT INTO store_meta (key, value) VALUES ('schema_version', '7')")
+    raw.executemany(
+        "INSERT INTO items (url, dedup_key, title, first_seen)"
+        " VALUES (?, ?, ?, '2026-10-01T00:00:00+00:00')",
+        rows,
+    )
+    raw.commit()
+    raw.close()
+
+
+def test_store_state_v7_database_migrates_on_protocol_open(tmp_path):
+    """AC1 迁移:v7 旧库被任一协议方法打开即迁 v8——行保留、三列 +
+    idx_items_dedup_key 在位、schema_version=8、存量行读态不猜测(全 False)。
+    fresh 库直建 v8 两路径同形由 store 层 tests/test_read_state.py 盖;
+    此处验协议面触发(handler 每请求独立 SQLiteStore 开库)。"""
+    import sqlite3
+
+    db = tmp_path / "legacy-v7.db"
+    _make_v7_database(db, [
+        ("https://old/1", "https://old/1", "旧条目一"),
+        ("https://old/2", "https://old/2", "旧条目二"),
+    ])
+
+    code, responses, _ = rpc({"id": 1, "method": "store.items", "params": {"db": str(db)}})
+    result = responses[0]["result"]
+    assert result["count"] == 2  # 行保留
+    by_key = {item["dedup_key"]: item for item in result["items"]}
+    assert (by_key["https://old/1"]["read"],
+            by_key["https://old/1"]["starred"],
+            by_key["https://old/1"]["later"]) == (False, False, False)  # 迁移不猜读态
+
+    raw = sqlite3.connect(db)
+    version = raw.execute(
+        "SELECT value FROM store_meta WHERE key = 'schema_version'"
+    ).fetchone()[0]
+    columns = {row[1] for row in raw.execute("PRAGMA table_info(items)").fetchall()}
+    indexes = {row[1] for row in raw.execute("PRAGMA index_list(items)").fetchall()}
+    raw.close()
+    assert version == "8"
+    assert {"read", "starred", "later"} <= columns
+    assert "idx_items_dedup_key" in indexes
+
+
+def test_store_state_mark_roundtrip_and_projection(tmp_path):
+    """§6.1-3:mark 单键置位 → store.items 应答 read=true(投影联通);
+    未列出键不动;rowcount 口径 = 匹配行数如实回传。"""
+    db = tmp_path / "mark.db"
+    _seed_items_for_export(db, [("条目甲", "news", "a"), ("条目乙", "news", "b")])
+
+    code, responses, _ = rpc({"id": 1, "method": "store.state.mark", "params": {
+        "db": str(db), "keys": ["e0"], "marker": "read", "value": True}})
+    assert responses[0]["result"] == {"updated": 1}
+
+    code, responses, _ = rpc({"id": 2, "method": "store.items", "params": {"db": str(db)}})
+    by_key = {item["dedup_key"]: item for item in responses[0]["result"]["items"]}
+    assert (by_key["e0"]["read"], by_key["e0"]["starred"], by_key["e0"]["later"]) == (True, False, False)
+    assert by_key["e1"]["read"] is False  # 未列出键不动
+
+    # 幂等重放:显式置同值,rowcount 仍如实计匹配行(不二次核算)
+    code, responses, _ = rpc({"id": 3, "method": "store.state.mark", "params": {
+        "db": str(db), "keys": ["e0"], "marker": "read", "value": True}})
+    assert responses[0]["result"] == {"updated": 1}
+    # 未知键:匹配 0 行,如实回传 0
+    code, responses, _ = rpc({"id": 4, "method": "store.state.mark", "params": {
+        "db": str(db), "keys": ["no-such-key"], "marker": "later", "value": True}})
+    assert responses[0]["result"] == {"updated": 0}
+
+
+def test_store_state_mark_same_dedup_key_multi_row_all_marked(tmp_path):
+    """§6.1-4 / AC2 红线:dated-key 旋转下同键多行(dedup_registry 滚键)
+    同置——与 localStorage itemKey 语义一致。"""
+    from datetime import datetime, timezone
+
+    from myssia.store.models import ItemRecord
+
+    db = tmp_path / "dated.db"
+    store = SQLiteStore(str(db))
+    base = datetime(2026, 10, 3, tzinfo=timezone.utc)
+    store.save_item(ItemRecord(url="https://d/old", dedup_key="dated:2026-10-01",
+                               title="旧轮", first_seen=base))
+    store.save_item(ItemRecord(url="https://d/new", dedup_key="dated:2026-10-01",
+                               title="新轮", first_seen=base.replace(hour=2)))
+    store.close()
+
+    code, responses, _ = rpc({"id": 1, "method": "store.state.mark", "params": {
+        "db": str(db), "keys": ["dated:2026-10-01"], "marker": "read", "value": True}})
+    assert responses[0]["result"] == {"updated": 2}  # 同键两行同置
+
+    code, responses, _ = rpc({"id": 2, "method": "store.items", "params": {"db": str(db)}})
+    items = responses[0]["result"]["items"]
+    assert len(items) == 2 and all(item["read"] for item in items)
+
+
+def test_store_state_mark_invalid_params_matrix(tmp_path):
+    """§6.1-5:非法 marker / 非 bool value / 空 keys / 含空串 / 超 2000 上限
+    → invalid_params;恰 2000 边界放行(上限是误用防线不是容量声明)。"""
+    db = tmp_path / "matrix.db"
+    SQLiteStore(str(db)).close()
+    cases = [
+        ({"keys": ["k"], "marker": "deleted", "value": True}, "params.marker"),
+        ({"keys": ["k"], "marker": "read", "value": "yes"}, "params.value"),
+        ({"keys": [], "marker": "read", "value": True}, "params.keys"),
+        ({"keys": ["ok", ""], "marker": "read", "value": True}, "params.keys"),
+        ({"keys": ["ok", 5], "marker": "read", "value": True}, "params.keys"),
+        ({"keys": [f"k{i}" for i in range(2001)], "marker": "read", "value": True},
+         "params.keys"),
+    ]
+    for index, (extra, path) in enumerate(cases):
+        code, responses, _ = rpc({"id": index, "method": "store.state.mark",
+                                  "params": {"db": str(db), **extra}})
+        error = responses[0]["error"]
+        assert error["code"] == "invalid_params" and error["path"] == path, extra
+
+    code, responses, _ = rpc({"id": 90, "method": "store.state.mark", "params": {
+        "db": str(db), "keys": [f"k{i}" for i in range(2000)],
+        "marker": "read", "value": True}})
+    assert responses[0]["result"] == {"updated": 0}  # 边界放行:空库匹配 0 行
+
+
+def test_store_state_mark_all_whole_library_and_category(tmp_path):
+    """§6.1-6:mark_all 全库置位(计数=全库行数,含未翻页语义)+ category
+    精确等值过滤(只置该类;无 query 参数——Q3.2 钉死)。"""
+    db = tmp_path / "markall.db"
+    _seed_items_for_export(db, [
+        ("甲", "news", "a"), ("乙", "news", "b"), ("丙", "stocks", "api"),
+    ])
+
+    code, responses, _ = rpc({"id": 1, "method": "store.state.mark_all", "params": {
+        "db": str(db), "marker": "read", "value": True}})
+    assert responses[0]["result"] == {"updated": 3}  # 全库 = 3 行全置
+
+    code, responses, _ = rpc({"id": 2, "method": "store.state.mark_all", "params": {
+        "db": str(db), "marker": "starred", "value": True, "category": "news"}})
+    assert responses[0]["result"] == {"updated": 2}  # 只置 news 类
+
+    code, responses, _ = rpc({"id": 3, "method": "store.items", "params": {"db": str(db)}})
+    by_category = {item["category"]: item for item in responses[0]["result"]["items"]}
+    assert by_category["news"]["read"] is True and by_category["news"]["starred"] is True
+    assert by_category["stocks"]["read"] is True and by_category["stocks"]["starred"] is False
+
+    code, responses, _ = rpc({"id": 4, "method": "store.state.mark_all", "params": {
+        "db": str(db), "marker": "read", "value": False, "category": ""}})
+    assert responses[0]["error"]["code"] == "invalid_params"  # category 空串拒绝
+    # 无 query 参数是契约钉死(Q3.2):方法签名不含它,handler 对多余键
+    # 不主动拒(与全协议风格一致,未知键静默忽略),不另设拒绝用例。
+
+
+def test_store_state_import_three_key_forms(tmp_path):
+    """§6.1-7 / AC4:import 三形态——dedup_key 直配置上 / id:<n> 映射置上 /
+    id:<url> 计 skipped;快照只覆盖出现的标记键。"""
+    db = tmp_path / "import.db"
+    _seed_items_for_export(db, [("甲", "news", "a"), ("乙", "stocks", "b")])
+    store = SQLiteStore(str(db))
+    numeric_id = store.list_items()[0].id  # 取一行真实 id(id:<n> 引用)
+    store.close()
+
+    states = {
+        "e0": {"read": True},                      # dedup_key 直配
+        f"id:{numeric_id}": {"starred": True},     # id:<n> → 解析到 dedup_key
+        "id:https://example.com/missed": {"read": True},  # id:<url> 无从解析
+    }
+    code, responses, _ = rpc({"id": 1, "method": "store.state.import", "params": {
+        "db": str(db), "states": states}})
+    assert responses[0]["result"] == {"imported": 2, "skipped": 1}
+
+    code, responses, _ = rpc({"id": 2, "method": "store.items", "params": {"db": str(db)}})
+    by_key = {item["dedup_key"]: item for item in responses[0]["result"]["items"]}
+    assert by_key["e0"]["read"] is True and by_key["e0"]["starred"] is False  # 只覆盖出现键
+    starred_keys = [key for key, item in by_key.items() if item["starred"]]
+    assert len(starred_keys) == 1  # id:<n> 解析目标已置(恰一行)
+
+
+def test_store_state_import_second_call_is_noop_with_server_flag(tmp_path):
+    """§6.1-8:import 二次调用 no-op(imported=0,不触库);幂等旗标 =
+    store_meta feed_state_imported_at(服务端是唯一真相,Q2.2)可直查。"""
+    db = tmp_path / "flag.db"
+    _seed_items_for_export(db, [("甲", "news", "a")])
+
+    code, responses, _ = rpc({"id": 1, "method": "store.state.import", "params": {
+        "db": str(db), "states": {"e0": {"read": True}}}})
+    assert responses[0]["result"] == {"imported": 1, "skipped": 0}
+
+    # 旗标已落在 store_meta(与库同寿命,webview 清数据击不穿)
+    store = SQLiteStore(str(db))
+    try:
+        assert store.get_meta("feed_state_imported_at") is not None
+    finally:
+        store.close()
+
+    # 二次调用:即使载荷不同也 no-op 应答,值不再被覆盖(重放不可能)
+    code, responses, _ = rpc({"id": 2, "method": "store.state.import", "params": {
+        "db": str(db), "states": {"e0": {"starred": True}}}})
+    assert responses[0]["result"] == {"imported": 0, "skipped": 0}
+    code, responses, _ = rpc({"id": 3, "method": "store.items", "params": {"db": str(db)}})
+    item = responses[0]["result"]["items"][0]
+    assert item["read"] is True and item["starred"] is False  # 第二发未触库
+
+
+def test_store_items_and_feed_export_carry_state_keys_csv_unchanged(tmp_path):
+    """§6.1-9 / AC5:feed.export JSONL 多三键(共用 _item_dict 投影,加法变化);
+    CSV 固定列集不变。"""
+    db = tmp_path / "export-state.db"
+    _seed_items_for_export(db, [("甲", "news", "a"), ("乙", "news", "b")])
+    code, responses, _ = rpc({"id": 1, "method": "store.state.mark", "params": {
+        "db": str(db), "keys": ["e0"], "marker": "read", "value": True}})
+    assert responses[0]["result"] == {"updated": 1}
+
+    jsonl_path = tmp_path / "state.jsonl"
+    code, responses, _ = rpc({"id": 2, "method": "feed.export", "params": {
+        "format": "jsonl", "path": str(jsonl_path), "db": str(db)}})
+    assert responses[0]["result"]["count"] == 2
+    rows = {obj["dedup_key"]: obj for obj in (
+        json.loads(line) for line in jsonl_path.read_text(encoding="utf-8").splitlines()
+    )}
+    assert rows["e0"]["read"] is True and rows["e0"]["starred"] is False and rows["e0"]["later"] is False
+    assert rows["e1"]["read"] is False  # JSONL 三键随行
+
+    csv_path = tmp_path / "state.csv"
+    code, responses, _ = rpc({"id": 3, "method": "feed.export", "params": {
+        "format": "csv", "path": str(csv_path), "db": str(db)}})
+    assert csv_path.read_text(encoding="utf-8").splitlines()[0] == (
+        "id,first_seen,category,source,title,url,content")  # CSV 列集不变
 
 
 # ---------------------------------------------------------------------------
@@ -2597,7 +2867,8 @@ def test_serve_starts_and_stops_cron_ticker(tmp_path, monkeypatch):
     monkeypatch.setattr(entry, "_handle_line", spy)
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
     assert code == 0
-    assert responses[0]["result"]["protocol"] == 9
+    # v9 = hermes-cron 批;v10 = read-state-server 批(版本实读 +1 顺延)
+    assert responses[0]["result"]["protocol"] == 10
     assert seen["supervisor_alive"] and seen["ticker_alive"]
     # EOF:serve 返回前已关停(idle ticker 即醒即退,interval 已注入 0.05s)
     assert entry._CRON_SUPERVISOR is None and entry._CRON_TICKER is None

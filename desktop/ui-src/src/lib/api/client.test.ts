@@ -22,6 +22,49 @@ describe("api 门面方法集(对账 _HANDLERS 键)", () => {
     expect(typeof api.schedulePreview).toBe("function");
     expect(typeof api.pushTest).toBe("function");
   });
+
+  it("read-state-server 三方法在门面上(与 entry.py 注册同名,10-04 G9)", () => {
+    expect(typeof api.storeStateMark).toBe("function");
+    expect(typeof api.storeStateMarkAll).toBe("function");
+    expect(typeof api.storeStateImport).toBe("function");
+  });
+});
+
+describe("storeStateMark / storeStateMarkAll / storeStateImport(G9)", () => {
+  it("mark:透传 keys/marker/value 到 store.state.mark;result 形状透传", async () => {
+    mocks.invoke.mockResolvedValue({ updated: 2 });
+    const result = await api.storeStateMark({ keys: ["dk-1", "dk-2"], marker: "read", value: true });
+    expect(mocks.invoke).toHaveBeenCalledWith("sidecar_request", {
+      method: "store.state.mark",
+      params: { keys: ["dk-1", "dk-2"], marker: "read", value: true },
+    });
+    expect(result.updated).toBe(2);
+  });
+
+  it("mark_all:透传 marker/value(可选 category)到 store.state.mark_all", async () => {
+    mocks.invoke.mockResolvedValue({ updated: 7 });
+    await api.storeStateMarkAll({ marker: "read", value: false });
+    expect(mocks.invoke).toHaveBeenCalledWith("sidecar_request", {
+      method: "store.state.mark_all",
+      params: { marker: "read", value: false },
+    });
+    await api.storeStateMarkAll({ marker: "starred", value: true, category: "ai-news" });
+    expect(mocks.invoke).toHaveBeenLastCalledWith("sidecar_request", {
+      method: "store.state.mark_all",
+      params: { marker: "starred", value: true, category: "ai-news" },
+    });
+  });
+
+  it("import:整 map 单请求透传到 store.state.import;imported/skipped 形状透传", async () => {
+    mocks.invoke.mockResolvedValue({ imported: 2, skipped: 1 });
+    const states = { "dk-1": { read: true }, "id:9": { starred: true }, "id:https://x": { later: true } };
+    const result = await api.storeStateImport({ states });
+    expect(mocks.invoke).toHaveBeenCalledWith("sidecar_request", {
+      method: "store.state.import",
+      params: { states },
+    });
+    expect(result).toEqual({ imported: 2, skipped: 1 });
+  });
 });
 
 describe("feedExport(G3)", () => {

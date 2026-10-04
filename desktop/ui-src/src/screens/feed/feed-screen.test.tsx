@@ -15,6 +15,10 @@
  * 守卫/scrollIntoView)/ 显示选项下拉(未读优先 + 分组维度,myssia.feed.display.v1
  * 持久)/ 卡片右键菜单四动作(打开原文/复制链接/标已读/沉淀 G12 联动);
  * 纯函数 sortUnreadFirst / groupFeedItemsByCategory / load·saveFeedDisplay。
+ * read-state-server 批(10-04 G9 后半):能力门分流(protocol ≥
+ * READ_STATE_PROTOCOL 过门走 store.state.*,低版/失败走旧 localStorage 通路)/
+ * toggle 乐观 + 失败回滚 / mark_all 全库语义与 title 真话 / 一次性导入
+ * (整 map 单请求,双挂载只一发,旧键不删);纯函数 statesFromItems。
  */
 import { cleanup, fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
@@ -30,6 +34,7 @@ import type {
   HealthResult,
   StoreItemsParams,
   StoreItemsResult,
+  VersionResult,
 } from "@/lib/api";
 
 import {
@@ -39,9 +44,11 @@ import {
   groupFeedItems,
   groupFeedItemsByCategory,
   loadFeedDisplay,
+  READ_STATE_PROTOCOL,
   saveFeedDisplay,
   setMarkerBulk,
   sortUnreadFirst,
+  statesFromItems,
 } from "./api";
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -50,11 +57,15 @@ vi.mock("@/lib/api", async (importOriginal) => {
     ...actual,
     api: {
       ...actual.api,
+      version: vi.fn(),
       storeItems: vi.fn(),
       health: vi.fn(),
       runStart: vi.fn(),
       feedExport: vi.fn(),
       feedEnrich: vi.fn(),
+      storeStateMark: vi.fn(),
+      storeStateMarkAll: vi.fn(),
+      storeStateImport: vi.fn(),
     },
     onSidecarEvent: vi.fn(),
   };
@@ -72,6 +83,10 @@ const healthMock = vi.mocked(api.health);
 const runStartMock = vi.mocked(api.runStart);
 const feedExportMock = vi.mocked(api.feedExport);
 const feedEnrichMock = vi.mocked(api.feedEnrich);
+const versionMock = vi.mocked(api.version);
+const markMock = vi.mocked(api.storeStateMark);
+const markAllMock = vi.mocked(api.storeStateMarkAll);
+const importMock = vi.mocked(api.storeStateImport);
 const onSidecarEventMock = vi.mocked(onSidecarEvent);
 const shellOpenMock = vi.mocked((await import("@tauri-apps/plugin-shell")).open);
 const dialogSaveMock = vi.mocked((await import("@tauri-apps/plugin-dialog")).save);
@@ -158,6 +173,30 @@ function result(items: FeedItem[]): StoreItemsResult {
   return { db: "myssia.db", count: items.length, items };
 }
 
+/** 能力门探测应答(仅 protocol 字段参与判定) */
+function versionResult(protocol: number): VersionResult {
+  return { name: "myssia", version: "test", protocol, app_version: null };
+}
+
+/**
+ * G9 服务端通路用例的干净模块图:resetModules 后动态取新实例 —— 一次性
+ * 搬迁的会话哨位(api.ts 模块级布尔)与 mock 实例全部归零,用例间互不
+ * 牵连(mock 工厂随 resetModules 重跑,新图里的 vi.fn 是新实例)。
+ */
+async function importFreshScreen() {
+  vi.resetModules();
+  const libApi = await import("@/lib/api");
+  const feedScreen = await import("./feed-screen");
+  return {
+    FeedScreen: feedScreen.FeedScreen,
+    versionMock: vi.mocked(libApi.api.version),
+    storeItemsMock: vi.mocked(libApi.api.storeItems),
+    markMock: vi.mocked(libApi.api.storeStateMark),
+    markAllMock: vi.mocked(libApi.api.storeStateMarkAll),
+    importMock: vi.mocked(libApi.api.storeStateImport),
+  };
+}
+
 // G12 夹具:plugins 目录两个 YAML(一好一坏)+ 目标原文(流式 keywords)
 const G12_FILES = [
   {
@@ -232,6 +271,9 @@ beforeEach(() => {
   localStorageStub.clear();
   healthMock.mockResolvedValue(healthResult());
   onSidecarEventMock.mockResolvedValue(() => {});
+  // 能力门缺省 = 低一版(未过门旧通路):既有用例全部走 localStorage 语义;
+  // 服务端通路用例自带 versionResult(READ_STATE_PROTOCOL) 覆写。
+  versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL - 1));
 });
 
 afterEach(() => {
@@ -1255,6 +1297,218 @@ describe("FeedScreen · interaction-batch(A-feed)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// read-state-server 批(10-04 G9 后半):服务端通路(干净模块图)+ 能力门分流
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
+  it("能力门过门:toggle 走 store.state.mark(乐观翻转),不写 localStorage", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    fresh.markMock.mockResolvedValue({ updated: 1 });
+    fresh.storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    const card = await screen.findByTestId("feed-item-1");
+    // 过门生效的可见标志:批量按钮 title 换全库真话
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
+    );
+    const star = within(card).getByRole("button", { name: "星标" });
+    fireEvent.click(star);
+    await waitFor(() =>
+      expect(fresh.markMock).toHaveBeenCalledWith({ keys: ["dk-1"], marker: "starred", value: true }),
+    );
+    await waitFor(() => expect(star.getAttribute("aria-pressed")).toBe("true"));
+    // 服务端是唯一真源:本地快照零写入
+    expect(localStorageStub.getItem("myssia.feed.states.v1")).toBeNull();
+  });
+
+  it("toggle 乐观 + 失败回滚:mark 拒绝 → 条目态回翻 + feed-mark-error 错误码原样明示", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    let rejectMark: ((err: unknown) => void) | undefined;
+    fresh.markMock.mockImplementation(
+      () => new Promise((_resolve, reject) => {
+        rejectMark = reject;
+      }),
+    );
+    fresh.storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    const card = await screen.findByTestId("feed-item-1");
+    const star = within(card).getByRole("button", { name: "星标" });
+    fireEvent.click(star);
+    // 乐观:请求在途即按下
+    await waitFor(() => expect(star.getAttribute("aria-pressed")).toBe("true"));
+    expect(fresh.markMock).toHaveBeenCalledWith({ keys: ["dk-1"], marker: "starred", value: true });
+    act(() =>
+      rejectMark?.(new SidecarRequestError({ code: "internal_error", path: "$", message: "写库失败" })),
+    );
+    // 回滚:回到调用前真值(未星标)
+    await waitFor(() => expect(star.getAttribute("aria-pressed")).toBe("false"));
+    const error = await screen.findByTestId("feed-mark-error");
+    expect(error.textContent).toContain("internal_error");
+    expect(error.textContent).toContain("写库失败");
+  });
+
+  it("全部标已读 = 全库语义:点击发 store.state.mark_all(不按已加载 keys);title 真话;就地翻转不整页重拉", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    fresh.markAllMock.mockResolvedValue({ updated: 99 });
+    fresh.storeItemsMock.mockResolvedValue(result([fixtureItem(), fixtureItem()]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    await screen.findByText("条目 1");
+    const readAll = screen.getByRole("button", { name: "全部标已读" });
+    await waitFor(() => expect(readAll.getAttribute("title")).toContain("全库"));
+    // title 真话:含未翻页(全库),不再含「本地态/已加载」旧注记
+    const title = readAll.getAttribute("title") ?? "";
+    expect(title).toContain("未翻页");
+    expect(title).not.toContain("本地态");
+    expect(title).not.toContain("已加载");
+    fireEvent.click(readAll);
+    await waitFor(() => expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: true }));
+    expect(fresh.markMock).not.toHaveBeenCalled(); // 全库单 UPDATE,不逐键置位
+    // 就地翻转已加载行:默认「未读」过滤 0/2、卡片离场;不整页重拉
+    await waitFor(() => expect(screen.getByText("0 / 2 条")).toBeTruthy());
+    expect(screen.queryByTestId(/^feed-item-/)).toBeNull();
+    expect(fresh.storeItemsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("全部标未读失败:按调用前快照回滚(不瞎翻)+ feed-mark-error 明示", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    let rejectAll: ((err: unknown) => void) | undefined;
+    fresh.markAllMock.mockImplementation(
+      () => new Promise((_resolve, reject) => {
+        rejectAll = reject;
+      }),
+    );
+    fresh.storeItemsMock.mockResolvedValue(result([
+      fixtureItem({ read: true, title: "已读甲" }),
+      fixtureItem({ title: "未读乙" }),
+    ]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    await screen.findByText("未读乙");
+    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
+    await screen.findByText("已读甲");
+    fireEvent.click(screen.getByRole("button", { name: "全部标未读" }));
+    await waitFor(() => expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: false }));
+    // 乐观:两卡都翻未读
+    await waitFor(() => expect(screen.getByTestId("feed-item-1").getAttribute("data-unread")).toBe("true"));
+    expect(screen.getByTestId("feed-item-2").getAttribute("data-unread")).toBe("true");
+    act(() =>
+      rejectAll?.(new SidecarRequestError({ code: "store_corrupt", path: "$", message: "库损坏" })),
+    );
+    // 快照回滚:甲回已读、乙保持未读
+    await waitFor(() => expect(screen.getByTestId("feed-item-1").getAttribute("data-unread")).toBe("false"));
+    expect(screen.getByTestId("feed-item-2").getAttribute("data-unread")).toBe("true");
+    const error = await screen.findByTestId("feed-mark-error");
+    expect(error.textContent).toContain("store_corrupt");
+  });
+
+  it("一次性导入:map 非空 + 过门 → 单请求整 map(dedup_key/id:<n>/id:<url> 三形态);双挂载只一发;旧键不删", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    fresh.importMock.mockResolvedValue({ imported: 2, skipped: 1 });
+    fresh.storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    const map = {
+      "dk-1": { read: true },
+      "id:9": { starred: true },
+      "id:https://example.com/x": { later: true },
+    };
+    localStorageStub.setItem("myssia.feed.states.v1", JSON.stringify(map));
+    const first = render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(fresh.importMock).toHaveBeenCalledTimes(1));
+    // 整 map 一个请求(逐键 RPC = N 往返,否)
+    expect(fresh.importMock).toHaveBeenCalledWith({ states: map });
+    first.unmount();
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    await screen.findByTestId("feed-item-1"); // 第二次挂载完成渲染
+    expect(fresh.importMock).toHaveBeenCalledTimes(1); // 会话哨位:双挂载只一发
+    // 旧键保留不删(降级回旧 build 的回滚路径,Q2.3)
+    expect(localStorageStub.getItem("myssia.feed.states.v1")).toBe(JSON.stringify(map));
+  });
+
+  it("一次性导入:map 空 → 过门也不发 import", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    fresh.storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    await screen.findByTestId("feed-item-1");
+    // 等能力门真正翻到服务端通路(title 现全库语义)再断言不发
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
+    );
+    expect(fresh.importMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("FeedScreen · read-state-server 能力门分流(未过门 = 旧通路原样)", () => {
+  it("低一版 protocol:旧 localStorage 通路照常(写 myssia.feed.states.v1),零 store.state.* 调用", async () => {
+    versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL - 1));
+    storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    renderScreen();
+    const card = await screen.findByTestId("feed-item-1");
+    // 未过门生效的可见标志:title 仍是本地态注记
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("本地态"),
+    );
+    fireEvent.click(within(card).getByRole("button", { name: "星标" }));
+    await waitFor(() => {
+      const persisted: unknown = JSON.parse(localStorageStub.getItem("myssia.feed.states.v1") ?? "{}");
+      expect((persisted as Record<string, { starred?: boolean }>)["dk-1"]?.starred).toBe(true);
+    });
+    expect(markMock).not.toHaveBeenCalled();
+    expect(markAllMock).not.toHaveBeenCalled();
+    expect(importMock).not.toHaveBeenCalled();
+  });
+
+  it("version 调用失败:按未过门处理,旧通路照常(拒绝不阻断情报流)", async () => {
+    versionMock.mockRejectedValue(
+      new SidecarRequestError({ code: "sidecar_unavailable", path: "$", message: "sidecar 未起" }),
+    );
+    storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    renderScreen();
+    await screen.findByTestId("feed-item-1");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("本地态"),
+    );
+    fireEvent.click(screen.getByText("条目 1")); // 标题点击 = 记已读(旧通路本地生效)
+    await waitFor(() => expect(screen.queryByTestId("feed-item-1")).toBeNull()); // 未读过滤下离场
+    const persisted: unknown = JSON.parse(localStorageStub.getItem("myssia.feed.states.v1") ?? "{}");
+    expect((persisted as Record<string, { read?: boolean }>)["dk-1"]?.read).toBe(true);
+    expect(markMock).not.toHaveBeenCalled();
+    expect(importMock).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // D4 纯函数(api.ts):groupFeedItems 时间分桶边界 / categoryColor 稳定性
 // ---------------------------------------------------------------------------
 
@@ -1459,5 +1713,26 @@ describe("feed interaction-batch 纯函数(api.ts)", () => {
     expect(loadFeedDisplay(storage)).toEqual({ unreadFirst: false, groupMode: "none" });
 
     expect(loadFeedDisplay(null)).toEqual(DEFAULT_FEED_DISPLAY); // storage 缺席
+  });
+});
+
+// ---------------------------------------------------------------------------
+// read-state-server 纯函数(api.ts):statesFromItems 条目派生状态源
+// ---------------------------------------------------------------------------
+
+describe("feed read-state-server 纯函数(api.ts)", () => {
+  it("statesFromItems:三键真值产键、全缺省/false 不产键(与 loadFeedStates 缺省语义对齐);键 = itemKey 同源", () => {
+    const read = fixtureItem({ read: true });
+    const all = fixtureItem({ read: true, starred: true, later: true });
+    const bare = fixtureItem();
+    const explicitFalse = fixtureItem({ read: false, starred: false, later: false });
+    const noDedup = fixtureItem({ id: 9, dedup_key: "", starred: true }); // itemKey 兜底形态 id:<n>
+    const states = statesFromItems([read, all, bare, explicitFalse, noDedup]);
+    expect(states[read.dedup_key]).toEqual({ read: true });
+    expect(states[all.dedup_key]).toEqual({ read: true, starred: true, later: true });
+    expect(states[bare.dedup_key]).toBeUndefined();
+    expect(states[explicitFalse.dedup_key]).toBeUndefined();
+    expect(states["id:9"]).toEqual({ starred: true });
+    expect(statesFromItems([])).toEqual({}); // 空入空出
   });
 });

@@ -55,7 +55,14 @@ runs.list         (SQLiteStore.list_runs 直读)   历史 run(新→旧;重启�
 runs.trend        (SQLiteStore.daily_run_outcomes) run 成功率趋势(UTC 逐日×status
                                                  计数,窗口 [1,90] 天)
 logs.tail         (sidecar 内环形缓冲)            最近日志行(可按 run_id 过滤)
-store.items       (SQLiteStore.list_items 直读)  情报流条目(新→旧;游标/搜索)
+store.items       (SQLiteStore.list_items 直读)  情报流条目(新→旧;游标/搜索;
+                                                 投影含 read/starred/later)
+store.state.mark  (SQLiteStore.set_item_states)  按 dedup_key 批量置位读/星/稍后读
+                                                 (同键多行同置;keys ≤2000 防线)
+store.state.mark_all (SQLiteStore.set_all_item_states) 全库(可选 category)置位
+                                                 (含未翻页条目;无 query)
+store.state.import (SQLiteStore.import_item_states) localStorage 读态一次性搬迁
+                                                 (服务端旗标幂等)
 feedback.mark     (record_feedback 同门直调)      卡片 👍/👎 入库(channel=
                                                  desktop;CLI feedback list
                                                  可见同一条目)
@@ -188,7 +195,18 @@ cron.runs          (ExecutionLedger.list_executions) 执行账本尾查(新→�
 - ``store.items`` params:``db``、``category``、``since``(ISO 时间)、``limit``、
   ``query``(title/content/source 三列 LIKE NOCASE)、``before``(ISO 时间,
   first_seen 严格小于)、``before_id``(与 before 组成 ``(first_seen, id)``
-  复合游标;同刻批量超单页 limit 也能翻页取尽)。
+  复合游标;同刻批量超单页 limit 也能翻页取尽)。投影自 v10 起含
+  ``read``/``starred``/``later`` 三布尔键(feed.export JSONL 同源连带)。
+- ``store.state.*`` 三方法(G9,10-04-read-state-server):``mark {keys:
+  [dedup_key, …], marker: read|starred|later, value, db?}`` → ``{updated}``
+  (SQLite UPDATE rowcount 口径,匹配行计数如实回传;同 dedup_key 多行
+  同置,幂等;keys 上限 2000 = 误用防线,整库语义走 mark_all);
+  ``mark_all {marker, value, category?, db?}`` → ``{updated}``(category
+  精确等值与 list_items 同参,无 query——决议 Q3.2 钉死);``import
+  {states: {<key>: {read?/starred?/later?}}, db?}`` → ``{imported,
+  skipped}``(key 三分:dedup_key 直配 / ``id:<n>`` 解析 / 其余如实计
+  skipped;store_meta 旗标 ``feed_state_imported_at`` 幂等,已设 = no-op
+  应答不触库——服务端旗标是唯一真相)。
 - ``secret.delete`` params:``name``;secrets 层 code 透传(``secret_not_found``
   第二次删除、``invalid_secret_name`` 等)。
 - ``feedback.*`` 三方法(B2,10-03-v112-desktop-parity):``feedback.mark
@@ -432,7 +450,10 @@ from myssia.vision.server import (
 #: 10-04-desktop-b234)。
 #: v9 = hermes-cron 批(cron.* 九方法 + cron.skipped/cron.completed 两事件
 #: + serve 内置 cron ticker,10-04-hermes-cron B3)。
-PROTOCOL_VERSION = 9
+#: v10 = read-state-server 批(store.state.mark/mark_all/import 三方法 +
+#: store.items 投影补 read/starred/later 三键;G9,10-04-read-state-server;
+#: 开工实读 v9 后 +1——hermes-cron 已先合入,竞速条款顺延本批 v10)。
+PROTOCOL_VERSION = 10
 #: 日志环形缓冲容量(行);logs.tail 的硬上限。
 LOG_RING_CAPACITY = 4000
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
@@ -788,8 +809,19 @@ def _m_doctor(params: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# 方法:store.items / secret.set / secret.list(凭据只入钥匙链)
+# 方法:store.items / store.state.*(G9 读态)/ secret.* (凭据只入钥匙链)
 # ---------------------------------------------------------------------------
+
+#: store.state.* 的 marker 枚举(items 表三列一一对应;列名白名单防注入,
+#: 真白名单在 store 层 ``_ITEM_STATE_COLUMNS``)。
+_ITEM_STATE_MARKERS = ("read", "starred", "later")
+#: store.state.mark 单请求 keys 上限(G9 防御性常量):mark 的作用域 = 单键
+#: toggle 与已加载批量(一页 50/limit ≤200),整库语义必须走 mark_all——
+#: 上限是误用防线不是容量声明,超限 invalid_params 提示走 mark_all。
+_STATE_MARK_KEYS_MAX = 2000
+#: localStorage 读态一次性搬迁的幂等旗标键(store_meta;G9 Q2.2:服务端
+#: 旗标是唯一真相,webview 数据可被独立清掉、客户端旗标不可信)。
+FEED_STATE_IMPORTED_AT_META = "feed_state_imported_at"
 
 
 def _item_dict(item: Any) -> dict[str, Any]:
@@ -802,6 +834,11 @@ def _item_dict(item: Any) -> dict[str, Any]:
     键,raw 其余键仍不出面;无图/类型不符/空白条目置 None,feed 屏零渲染
     变化。``image_ocr_lines`` 逐行 ``{text, conf}`` 原样透传(供详情逐行
     置信度渲染),形态不符(非 list[dict{str, num}])整体置 None 不硬抛。
+
+    G9(v10)起随行带 ``read``/``starred``/``later`` 三布尔键(读态迁服务端,
+    items 表三列直读):采集管线永不携带读态(save_item 列清单不含三列),
+    置位只走 ``store.state.*``;feed.export JSONL 共用本投影连带多三键
+    (CSV 固定列集不变)。
     """
     raw = item.raw if isinstance(item.raw, Mapping) else {}
     ocr = raw.get("image_ocr")
@@ -840,6 +877,9 @@ def _item_dict(item: Any) -> dict[str, Any]:
         "pushed_at": item.pushed_at.isoformat() if item.pushed_at else None,
         "push_slot": item.push_slot,
         "first_seen": item.first_seen.isoformat() if item.first_seen else None,
+        "read": bool(item.read),
+        "starred": bool(item.starred),
+        "later": bool(item.later),
     }
 
 
@@ -890,6 +930,127 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
     finally:
         store.close()
     return {"db": str(db), "count": len(items), "items": [_item_dict(item) for item in items]}
+
+
+def _m_store_state_mark(params: dict[str, Any]) -> dict[str, Any]:
+    """按 dedup_key 批量置位读态标记(G9,10-04-read-state-server §4.1)。
+
+    ``{keys, marker, value, db?}`` → ``{updated}``;同 dedup_key 多行
+    (dated-key 旋转)同置,与 localStorage itemKey 语义一致;幂等(显式
+    置目标值)。``updated`` = SQLite UPDATE rowcount(匹配行数口径,置同值
+    行也计入,如实回传不二次核算)。keys 上限 :data:`_STATE_MARK_KEYS_MAX`:
+    整库语义走 ``store.state.mark_all``。
+    """
+    keys = params.get("keys")
+    if not isinstance(keys, list) or not keys:
+        raise ProtocolError("invalid_params", "keys 必须为非空字符串数组(dedup_key)", path="params.keys")
+    if len(keys) > _STATE_MARK_KEYS_MAX:
+        raise ProtocolError(
+            "invalid_params",
+            f"keys 超上限 {_STATE_MARK_KEYS_MAX}(整库语义请走 store.state.mark_all)",
+            path="params.keys",
+        )
+    for key in keys:
+        if not isinstance(key, str) or not key:
+            raise ProtocolError("invalid_params", "keys 不能包含非字符串或空串", path="params.keys")
+    marker = params.get("marker")
+    if marker not in _ITEM_STATE_MARKERS:
+        raise ProtocolError(
+            "invalid_params", "marker 必须是 read/starred/later 之一", path="params.marker"
+        )
+    value = params.get("value")
+    if not isinstance(value, bool):
+        raise ProtocolError("invalid_params", "value 必须为布尔", path="params.value")
+    db = params.get("db") or _serve_context().db
+    try:
+        store = SQLiteStore(db)
+    except StoreSchemaError as exc:
+        raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
+    try:
+        updated = store.set_item_states(keys, marker, value)
+    except ValueError as exc:  # store 层参数校验(marker 白名单等)
+        raise ProtocolError("invalid_params", str(exc), path="params") from exc
+    finally:
+        store.close()
+    return {"updated": updated}
+
+
+def _m_store_state_mark_all(params: dict[str, Any]) -> dict[str, Any]:
+    """全库(可选 category)置位读态标记(G9,§4.2)。
+
+    ``{marker, value, category?, db?}`` → ``{updated}``;category 精确等值
+    (与 list_items 同参,非 LIKE;不收 query——决议 Q3.2 钉死:LIKE 进
+    UPDATE 是范围蠕变)。缺省 category = 全库所有条目(含未翻页/未加载),
+    这是「全部标已读」的全库语义来源。
+    """
+    marker = params.get("marker")
+    if marker not in _ITEM_STATE_MARKERS:
+        raise ProtocolError(
+            "invalid_params", "marker 必须是 read/starred/later 之一", path="params.marker"
+        )
+    value = params.get("value")
+    if not isinstance(value, bool):
+        raise ProtocolError("invalid_params", "value 必须为布尔", path="params.value")
+    category = params.get("category")
+    if category is not None and (not isinstance(category, str) or not category):
+        raise ProtocolError(
+            "invalid_params", "category 必须为非空字符串(全库请省略)", path="params.category"
+        )
+    db = params.get("db") or _serve_context().db
+    try:
+        store = SQLiteStore(db)
+    except StoreSchemaError as exc:
+        raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
+    try:
+        updated = store.set_all_item_states(marker, value, category)
+    except ValueError as exc:
+        raise ProtocolError("invalid_params", str(exc), path="params") from exc
+    finally:
+        store.close()
+    return {"updated": updated}
+
+
+def _m_store_state_import(params: dict[str, Any]) -> dict[str, Any]:
+    """localStorage 读态快照一次性搬迁(G9 搬迁门,Q2;§4.3)。
+
+    ``{states: {<key>: {read?, starred?, later?}}, db?}`` → ``{imported,
+    skipped}``;key 三分:dedup_key 直配 / ``id:<n>`` 先解析到键 / ``id:<url>``
+    及无从解析形态如实计 skipped(条目已剪枝不复活)。幂等旗标 = store_meta
+    :data:`FEED_STATE_IMPORTED_AT_META`:已设 → ``{imported: 0, skipped: 0}``
+    不触库(重放不可能,Q2.2);未设 → 导入后落 ISO 时间戳。
+    """
+    states = params.get("states")
+    if not isinstance(states, dict):
+        raise ProtocolError(
+            "invalid_params", "states 必须为对象({<key>: {read?/starred?/later?}})", path="params.states"
+        )
+    for key, snapshot in states.items():
+        if not isinstance(key, str) or not key:
+            raise ProtocolError(
+                "invalid_params", "states 键必须为非空字符串(dedup_key 或 id:<n>)", path="params.states"
+            )
+        if not isinstance(snapshot, dict):
+            raise ProtocolError("invalid_params", f"states[{key}] 必须为对象", path="params.states")
+        for name, flag in snapshot.items():
+            if name not in _ITEM_STATE_MARKERS or not isinstance(flag, bool):
+                raise ProtocolError(
+                    "invalid_params", f"states[{key}] 仅接受 read/starred/later 布尔键", path="params.states"
+                )
+    db = params.get("db") or _serve_context().db
+    try:
+        store = SQLiteStore(db)
+    except StoreSchemaError as exc:
+        raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
+    try:
+        if store.get_meta(FEED_STATE_IMPORTED_AT_META) is not None:
+            return {"imported": 0, "skipped": 0}  # 旗标已设:no-op,不触 items
+        imported, skipped = store.import_item_states(states)
+        store.set_meta(
+            FEED_STATE_IMPORTED_AT_META, datetime.now(timezone.utc).isoformat()
+        )
+    finally:
+        store.close()
+    return {"imported": imported, "skipped": skipped}
 
 
 def _m_secret_set(params: dict[str, Any]) -> dict[str, Any]:
@@ -4635,6 +4796,9 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "store.trend": _m_store_trend,
     "logs.tail": _m_logs_tail,
     "store.items": _m_store_items,
+    "store.state.mark": _m_store_state_mark,
+    "store.state.mark_all": _m_store_state_mark_all,
+    "store.state.import": _m_store_state_import,
     "feed.export": _m_feed_export,
     "feed.enrich": _m_feed_enrich,
     "schedule.preview": _m_schedule_preview,

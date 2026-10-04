@@ -450,12 +450,70 @@ export interface FeedItem {
   pushed_at: string | null;
   push_slot: string | null;
   first_seen: string | null;
+  /** G9 服务端读态(store.items 投影三键,10-04-read-state-server;旧 sidecar
+   *  无此键 → 可选,缺省视同 false —— feed 屏 statesFromItems 兜缺省)。 */
+  read?: boolean;
+  starred?: boolean;
+  later?: boolean;
 }
 
 export interface StoreItemsResult {
   db: string;
   count: number;
   items: FeedItem[];
+}
+
+// ---------------------------------------------------------------------------
+// store.state.*(G9,10-04-read-state-server:读/星/稍后读三态迁服务端;与
+// entry.py `_m_store_state_mark` / `_m_store_state_mark_all` /
+// `_m_store_state_import` 互指;能力门常量 READ_STATE_PROTOCOL 在
+// screens/feed/api.ts —— 过门判 protocol ≥ 该值)
+// ---------------------------------------------------------------------------
+
+/** 三态标记(items 表三列一一对应;mark / mark_all / import 共用词表) */
+export type ItemStateMarker = "read" | "starred" | "later";
+
+/** store.state.mark:按 dedup_key 批量置位(同键多行同置;幂等显式置值) */
+export interface StoreStateMarkParams {
+  /** dedup_key 清单(非空,服务端上限 2000;整库语义走 mark_all) */
+  keys: string[];
+  marker: ItemStateMarker;
+  value: boolean;
+  db?: string;
+}
+
+export interface StoreStateMarkResult {
+  /** SQLite UPDATE rowcount(匹配行数口径,置同值行也计入,如实回传) */
+  updated: number;
+}
+
+/** store.state.mark_all:全库(可选 category 精确等值)单条 UPDATE;
+ *  无 query 参数(决议 Q3.2 钉死);缺省 category = 全库含未翻页/未加载
+ *  ——「全部标已读」的全库语义来源 */
+export interface StoreStateMarkAllParams {
+  marker: ItemStateMarker;
+  value: boolean;
+  category?: string;
+  db?: string;
+}
+
+export interface StoreStateMarkAllResult {
+  updated: number;
+}
+
+/** store.state.import:localStorage 读态快照一次性搬迁(幂等旗标在服务端
+ *  store_meta `feed_state_imported_at`,重放不可能) */
+export interface StoreStateImportParams {
+  /** key 三分:dedup_key 直配 / id:<n> 经 items.id 映射 / id:<url> 计 skipped */
+  states: Record<string, Partial<Record<ItemStateMarker, boolean>>>;
+  db?: string;
+}
+
+export interface StoreStateImportResult {
+  /** 有匹配行的键数 */
+  imported: number;
+  /** 无匹配 / 无法解析的键数(id:<url> 形态如实计数) */
+  skipped: number;
 }
 
 // feed.export(G3,10-03-feed-ux:当前过滤视图导出 JSONL/CSV,sidecar 直写;
@@ -899,6 +957,9 @@ export interface SidecarProtocol {
   "runs.trend": { params: RunsTrendParams; result: RunsTrendResult };
   "logs.tail": { params: LogsTailParams; result: LogsTailResult };
   "store.items": { params: StoreItemsParams; result: StoreItemsResult };
+  "store.state.mark": { params: StoreStateMarkParams; result: StoreStateMarkResult };
+  "store.state.mark_all": { params: StoreStateMarkAllParams; result: StoreStateMarkAllResult };
+  "store.state.import": { params: StoreStateImportParams; result: StoreStateImportResult };
   "feed.export": { params: FeedExportParams; result: FeedExportResult };
   "feed.enrich": { params: FeedEnrichParams; result: FeedEnrichResult };
   "schedule.preview": { params: SchedulePreviewParams; result: SchedulePreviewResult };

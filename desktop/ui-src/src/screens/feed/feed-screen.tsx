@@ -55,6 +55,7 @@ import {
   formatRelativeTime,
   groupFeedItems,
   groupFeedItemsByCategory,
+  importLocalFeedStates,
   isOpenableUrl,
   itemKey,
   KEYWORD_MAX_CHARS,
@@ -62,12 +63,14 @@ import {
   loadFeedDisplay,
   loadFeedStates,
   primaryScore,
+  READ_STATE_PROTOCOL,
   readYamlRaw,
   saveFeedDisplay,
   saveFeedStates,
   saveYamlRaw,
   setMarkerBulk,
   sortUnreadFirst,
+  statesFromItems,
   toggleMarker,
   type ExportFormat,
   type FeedDisplayOptions,
@@ -751,6 +754,13 @@ function FeedCard({
  *  下拉(未读优先 + 分组维度 时间/品类/不分组,myssia.feed.display.v1 本地
  *  持久)/ 卡片右键上下文菜单(打开原文/复制链接/标已读切换/沉淀为关键词,
  *  基件 ui/context-menu.tsx 本批自建)。
+ *
+ * read-state-server(10-04,G9 后半):已读/星标/稍后读迁服务端 —— 能力门
+ *  (挂载一次 api.version,protocol ≥ READ_STATE_PROTOCOL)分流:过门走
+ *  store.state.*(单键 mark 乐观 + 失败回滚;「全部标已读/未读」= mark_all
+ *  全库语义,title 换真话,就地翻转不整页重拉)+ 首启 localStorage 一次性
+ *  搬迁(importLocalFeedStates,旧键保留不删);未过门(旧 sidecar 配新 UI)
+ *  旧 localStorage 通路原样保留,零行为变化。
  */
 export function FeedScreen() {
   const navigate = useNavigate();
@@ -758,7 +768,8 @@ export function FeedScreen() {
   const outlet = useOutletContext<CategoryFilterContext | null>();
   const category = outlet?.category ?? null;
   const [items, setItems] = useState<FeedItem[]>([]);
-  const [states, setStates] = useState<FeedStateMap>({});
+  /** 未过门通路的本地态(localStorage 持久;过门后状态源 = 条目派生,不再读写) */
+  const [localStates, setLocalStates] = useState<FeedStateMap>({});
   const [filter, setFilter] = useState<FeedFilter>("unread");
   /** A-feed 显示选项:未读优先 + 分组维度(本地持久,进屏 loadFeedDisplay 回填) */
   const [display, setDisplay] = useState<FeedDisplayOptions>(DEFAULT_FEED_DISPLAY);
@@ -780,10 +791,38 @@ export function FeedScreen() {
   const [exporting, setExporting] = useState(false);
   const [exportNote, setExportNote] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
+  /** G9 读态置位失败回显(服务端通路;失败即回滚,本行如实告知,惯例同 openError) */
+  const [markError, setMarkError] = useState<string | null>(null);
+
+  /** G9 能力门:null = 探测中(按未过门处理,走旧通路);true = sidecar
+   *  protocol ≥ READ_STATE_PROTOCOL → 服务端读态通路。直调 api.version,
+   *  失败即未过门(design §5.1,不引入全局 hook 依赖)。 */
+  const [serverStateReady, setServerStateReady] = useState<boolean | null>(null);
+  const useServerState = serverStateReady === true;
 
   useEffect(() => {
-    setStates(loadFeedStates());
+    setLocalStates(loadFeedStates());
     setDisplay(loadFeedDisplay());
+  }, []);
+
+  // 能力门探测(挂载一次):低版本/探测失败 → false(旧 localStorage 通路)
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .version()
+      .then((info) => {
+        if (!cancelled) {
+          setServerStateReady(
+            typeof info?.protocol === "number" && info.protocol >= READ_STATE_PROTOCOL,
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setServerStateReady(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 防抖提交(G1):输入停顿 300ms → query(触发服务端重查);Enter 即时
@@ -826,6 +865,29 @@ export function FeedScreen() {
     void refresh();
   }, [refresh]);
 
+  // G9 状态源切换(§5.2):过门后 states 不再从 localStorage 派生,改由页内
+  // 条目派生(store.items 投影三键);applyFeedFilter / sortUnreadFirst /
+  // 渲染管线零改动,只换状态源。
+  const states = useMemo<FeedStateMap>(
+    () => (useServerState ? statesFromItems(items) : localStates),
+    [useServerState, items, localStates],
+  );
+
+  // G9 一次性搬迁(Q2):过门且旧 map 非空 → 单请求 store.state.import(会话
+  // 哨位防双调,幂等真相在服务端 store_meta);搬迁晚于首页应答时轻量
+  // refresh 一次,让已导入读态即时对齐(搬迁对用户透明,不弹窗)。
+  // refresh 随 query/category 变化重跑无妨:哨位已挡,重入零 RPC。
+  useEffect(() => {
+    if (!useServerState) return;
+    let cancelled = false;
+    void importLocalFeedStates().then((outcome) => {
+      if (!cancelled && outcome !== null && outcome.imported > 0) void refresh();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [useServerState, refresh]);
+
   const loadMore = useCallback(async () => {
     if (loadingMore || cursor === null) return;
     setLoadingMore(true);
@@ -850,8 +912,9 @@ export function FeedScreen() {
     }
   }, [cursor, cursorId, loadingMore, category, query]);
 
+  /** 未过门通路的本地态写入:置 state + localStorage 持久(过门后不走此路) */
   const updateStates = useCallback((next: FeedStateMap) => {
-    setStates(next);
+    setLocalStates(next);
     saveFeedStates(next);
   }, []);
 
@@ -861,20 +924,57 @@ export function FeedScreen() {
     saveFeedDisplay(next);
   }, []);
 
+  /** G9 服务端通路单键置位:乐观翻本地条目 → store.state.mark(keys=[itemKey],
+   *  前端算好目标值显式置位,无读-改-写);失败回滚到调用前真值(不瞎取反,
+   *  防连点竞态)+ feed-mark-error 行明示(惯例同 openError)。 */
+  const markItemState = useCallback(
+    (item: FeedItem, marker: "starred" | "later" | "read", value: boolean) => {
+      const key = itemKey(item);
+      const previous = items.find((candidate) => itemKey(candidate) === key)?.[marker] === true;
+      if (previous === value) return;
+      const flip = (target: boolean) =>
+        setItems((current) =>
+          current.map((candidate) =>
+            itemKey(candidate) === key ? { ...candidate, [marker]: target } : candidate,
+          ),
+        );
+      flip(value);
+      void api
+        .storeStateMark({ keys: [key], marker, value })
+        .then(() => setMarkError(null))
+        .catch((err) => {
+          flip(previous);
+          setMarkError(err instanceof SidecarRequestError ? `${err.code}: ${err.message}` : String(err));
+        });
+    },
+    [items],
+  );
+
   const markRead = useCallback(
     (item: FeedItem) => {
       const key = itemKey(item);
       if (states[key]?.read) return;
-      updateStates({ ...states, [key]: { ...(states[key] ?? {}), read: true } });
+      if (useServerState) {
+        markItemState(item, "read", true);
+      } else {
+        updateStates({ ...states, [key]: { ...(states[key] ?? {}), read: true } });
+      }
     },
-    [states, updateStates],
+    [states, useServerState, markItemState, updateStates],
   );
 
   const toggle = useCallback(
     (item: FeedItem, marker: "starred" | "later" | "read") => {
-      updateStates(toggleMarker(states, itemKey(item), marker));
+      const key = itemKey(item);
+      const current = states[key] ?? {};
+      const target = !current[marker];
+      if (useServerState) {
+        markItemState(item, marker, target);
+      } else {
+        updateStates(toggleMarker(states, key, marker));
+      }
     },
-    [states, updateStates],
+    [states, useServerState, markItemState, updateStates],
   );
 
   /** G8:精评成功 → 把维度分并回列表条目(卡片分数徽标即时刷新;items 表
@@ -887,13 +987,34 @@ export function FeedScreen() {
     );
   }, []);
 
-  /** G9 批量:全部标已读/未读(作用域 = 已加载条目;本地态按 itemKey 置位,
-   *  未翻页条目不在内——按钮 title 如实注明,计数行随 states 派生自动同步)。 */
+  /** G9 批量:全部标已读/未读 —— 过门后 store.state.mark_all 全库单 UPDATE
+   *  (含未翻页/未加载条目;就地翻转已加载行即时反馈,不整页重拉,失败按
+   *  调用前快照回滚);未过门 = 旧本地批量(作用域 = 已加载条目,本地态按
+   *  itemKey 置位,未翻页条目不在内——按钮 title 如实注明)。 */
   const markAllRead = useCallback(
     (value: boolean) => {
+      if (useServerState) {
+        const snapshot = new Map(items.map((candidate) => [itemKey(candidate), candidate.read === true]));
+        setItems((current) => current.map((candidate) => ({ ...candidate, read: value })));
+        void api
+          .storeStateMarkAll({ marker: "read", value })
+          .then(() => setMarkError(null))
+          .catch((err) => {
+            setItems((current) =>
+              current.map((candidate) => ({
+                ...candidate,
+                read: snapshot.get(itemKey(candidate)) ?? false,
+              })),
+            );
+            setMarkError(
+              err instanceof SidecarRequestError ? `${err.code}: ${err.message}` : String(err),
+            );
+          });
+        return;
+      }
       updateStates(setMarkerBulk(items, states, "read", value));
     },
-    [items, states, updateStates],
+    [useServerState, items, states, updateStates],
   );
   const unreadLoaded = useMemo(
     () => items.filter((candidate) => !(states[itemKey(candidate)]?.read)).length,
@@ -1065,7 +1186,9 @@ export function FeedScreen() {
     <div className="flex flex-col gap-4 pb-6">
       <PageHeader
         title="情报流"
-        description="按时间分组的条目流:未读 / 星标 / 稍后读(本地态,随浏览器存储持久)"
+        description={`按时间分组的条目流:未读 / 星标 / 稍后读(${
+          useServerState ? "服务端持久,随库同步" : "本地态,随浏览器存储持久"
+        })`}
         actions={
           <div className="flex items-center gap-1.5">
             <Button
@@ -1120,13 +1243,20 @@ export function FeedScreen() {
         <span className="ml-2 text-2xs text-muted-foreground">
           {filter === "all" ? `共 ${items.length} 条` : `${visible.length} / ${items.length} 条`}
         </span>
-        {/* G9 批量操作(入口在过滤区):作用域 = 已加载条目,计数行随本地态自动同步 */}
+        {/* G9 批量操作(入口在过滤区):过门 = store.state.mark_all 全库语义
+            (title 真话:全库所有条目含未翻页);未过门 = 旧本地批量(作用域 =
+            已加载条目,title 如实注明)。禁用口径两路同按已加载视图 —— 全库
+            未读计数不在本批(PRD Q3.4),可见反馈以已加载行为准。 */}
         <Button
           variant="ghost"
           size="sm"
           className="h-6 px-1.5 text-2xs text-muted-foreground"
           aria-label="全部标已读"
-          title={`把已加载的 ${items.length} 条(未读 ${unreadLoaded})全部标记为已读;本地态,未翻页条目不含`}
+          title={
+            useServerState
+              ? "把全库所有条目(含未翻页)标记为已读(store.state.mark_all,服务端持久)"
+              : `把已加载的 ${items.length} 条(未读 ${unreadLoaded})全部标记为已读;本地态,未翻页条目不含`
+          }
           onClick={() => markAllRead(true)}
           disabled={items.length === 0 || unreadLoaded === 0}
         >
@@ -1137,7 +1267,11 @@ export function FeedScreen() {
           size="sm"
           className="h-6 px-1.5 text-2xs text-muted-foreground"
           aria-label="全部标未读"
-          title={`把已加载的 ${items.length} 条(已读 ${items.length - unreadLoaded})全部恢复未读;本地态`}
+          title={
+            useServerState
+              ? "把全库所有条目(含未翻页)恢复为未读(store.state.mark_all,服务端持久)"
+              : `把已加载的 ${items.length} 条(已读 ${items.length - unreadLoaded})全部恢复未读;本地态`
+          }
           onClick={() => markAllRead(false)}
           disabled={items.length - unreadLoaded === 0}
         >
@@ -1230,6 +1364,11 @@ export function FeedScreen() {
         {openError ? (
           <p className="text-xs text-destructive" data-testid="feed-open-error">
             打开原文失败:{openError}
+          </p>
+        ) : null}
+        {markError ? (
+          <p className="text-xs text-destructive" data-testid="feed-mark-error">
+            标记状态失败(已回滚):{markError}
           </p>
         ) : null}
 
