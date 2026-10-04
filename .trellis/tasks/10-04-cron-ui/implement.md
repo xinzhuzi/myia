@@ -4,43 +4,43 @@
 
 ## Stage 0:基线与占地
 
-- [ ] 0.1 `git status` 核 sidebar.tsx/App.tsx/types.ts 是否被 ui-reskin-r2 线占用;被占=等待环 4min×20 轮,仍占则 patch 交收口
-- [ ] 0.2 `npm --prefix desktop/ui-src run test` + `run build` 基线绿记录
+- [x] 0.1 `git status` 核 sidebar.tsx/App.tsx/types.ts 是否被 ui-reskin-r2 线占用;被占=等待环 4min×20 轮,仍占则 patch 交收口(收口核:树上占线实为 10-04-ui-kestra-anchor——sidebar.tsx 混该线 Kestra 重锚大改,cron 份仅 Clock import+导航项两 hunk,收口期 hunk 分离提交;App/types/client/logs 五文件 diff 纯 cron 无混)
+- [x] 0.2 `npm --prefix desktop/ui-src run test` + `run build` 基线绿记录(收口期复跑代替:23 文件/409 测试全过+build 1.99s 三绿,存证见 journal 收口段)
 
 ## Stage 1:骨架与数据层
 
-- [ ] 1.1 types.ts:cron 九方法+yaml.list 复用签名入 SidecarProtocol mirror(**按 research/types-draft.md 逐字抄后对源复核**,可选键边界 `?:` 以后端「显式才有」为准)+ **CronCompleted/CronSkipped 事件 interface 入 SidecarEvent 联合 + logs/api.ts eventToRow 穷尽守卫适配(runId=null 系统行,alerts.fired 先例)**;client.ts 共享门面 + client.test.ts 逐方法批断言(F8/AC8)
-- [ ] 1.2 screens/cron/ 建骨架:路由(App.tsx)+侧栏项(sidebar.tsx)+空屏三态;api.ts invoke 封装
-- [ ] 1.3 cron-form.ts:emptyCronJobForm/fromJob/buildPayload + 常量镜像(grace/stale 注双向出处)
+- [x] 1.1 types.ts:cron 九方法+yaml.list 复用签名入 SidecarProtocol mirror(**按 research/types-draft.md 逐字抄后对源复核**,可选键边界 `?:` 以后端「显式才有」为准)+ **CronCompleted/CronSkipped 事件 interface 入 SidecarEvent 联合 + logs/api.ts eventToRow 穷尽守卫适配(runId=null 系统行,alerts.fired 先例)**;client.ts 共享门面 + client.test.ts 逐方法批断言(F8/AC8)
+- [x] 1.2 screens/cron/ 建骨架:路由(App.tsx)+侧栏项(sidebar.tsx)+空屏三态;api.ts invoke 封装
+- [x] 1.3 cron-form.ts:emptyCronJobForm/fromJob/buildPayload + 常量镜像(grace/stale 注双向出处)
 - 测试:骨架渲染+路由可达
 
 ## Stage 2:列表与活性
 
 > 布局与列定义按 research/screen-spec.md §1-§2 契约执行。
 
-- [ ] 2.1 活性条(status;三态:正常/僵死黄条 `!ticker_alive||heartbeat_age_seconds>180s`/急停红条;**双向:急停全部红钮+确认 Dialog/恢复全部**,grill Q6)
-- [ ] 2.2 job 列表(table;全字段+四态 badge(蓝本 STATUS_TONE 映射表形态,H 526-532)+逾期红标(15min grace)+all 切换;行内展开模式照 logs 屏 expanded Set+惰性拉取)
+- [x] 2.1 活性条(status;三态:正常/僵死黄条 `!ticker_alive||heartbeat_age_seconds>180s`/急停红条;**双向:急停全部红钮+确认 Dialog/恢复全部**,grill Q6)
+- [x] 2.2 job 列表(table;全字段+四态 badge(蓝本 STATUS_TONE 映射表形态,H 526-532)+逾期红标(15min grace)+all 切换;行内展开模式照 logs 屏 expanded Set+惰性拉取)
 - 测试:按 **research/screen-spec.md §5 用例清单 #1-#18** 逐条落(编号对应 AC);mock=messaging 式传输层+emitSidecarEvent(ground-truth §6)
 
 ## Stage 3:双 Dialog 与动作
 
-- [ ] 3.1 创建 Dialog(**schedule 五种模板 chips**+手输;**category=yaml.list 选择器**坏文件禁选+手输兜底;全字段+错误回显:create 的 parse/category 校验错误)
-- [ ] 3.2 编辑 Dialog(预填+部分更新)
-- [ ] 3.3 行内动作:**run=排队语义(grill 二 Q1:notice「已排队,≤60 秒内开始」+行短时「已排队」态,completed 事件刷新)**/pause(reason)/resume/remove(确认);estopped 下单 job 操作照常开放(Q4)
+- [x] 3.1 创建 Dialog(**schedule 五种模板 chips**+手输;**category=yaml.list 选择器**坏文件禁选+手输兜底;全字段+错误回显:create 的 parse/category 校验错误)
+- [x] 3.2 编辑 Dialog(预填+部分更新)
+- [x] 3.3 行内动作:**run=排队语义(grill 二 Q1:notice「已排队,≤60 秒内开始」+行短时「已排队」态,completed 事件刷新)**/pause(reason)/resume/remove(确认);estopped 下单 job 操作照常开放(Q4)
 - 测试:提交参数形状断言/错误回显断言/确认流
 
 ## Stage 4:历史与事件
 
-- [ ] 4.1 行内展开 runs(cron.runs;run_summary_json 摘要;空态)
-- [ ] 4.2 刷新(grill Q2 修正案):订阅模式照 messaging 811-837(cancelled+unlisten)消费 cron.completed/cron.skipped→**notice 横幅**(messaging 先例)+重拉;手动刷新按钮;逾期红标本地 1min 时钟重渲染;**不引入 interval 轮询**
+- [x] 4.1 行内展开 runs(cron.runs;run_summary_json 摘要;空态)
+- [x] 4.2 刷新(grill Q2 修正案):订阅模式照 messaging 811-837(cancelled+unlisten)消费 cron.completed/cron.skipped→**notice 横幅**(messaging 先例)+重拉;手动刷新按钮;逾期红标本地 1min 时钟重渲染;**不引入 interval 轮询**(收口核:screens/ 全树唯一 setInterval = cron-screen.tsx:566 的 1min 时钟,测试断言 tick 零取数)
 - 测试:事件驱动重拉断言(mock 事件流)
 
 ## Stage 5:门禁与收口
 
-- [ ] 5.1 `npm --prefix desktop/ui-src run test` + `run build`(tsc+vite)三绿;entry.py `git diff` 空(零协议变更)
-- [ ] 5.2 docstring 蓝本标注终核(design §1 对照表逐行勾销)
-- [ ] 5.3 spec 更新:desktop/sidecar-protocol.md 前端镜像面注一笔(消费方+1,方法不加);frontend-ui.md 若有屏清单则补
-- [ ] 5.4 pathspec 提交(feat(desktop): 定时任务管理屏);grill 六问决议已批(2026-10-04 全按推荐)随批入 prd/design,无待回写项
+- [x] 5.1 `npm --prefix desktop/ui-src run test` + `run build`(tsc+vite)三绿;entry.py `git diff` 空(零协议变更)(收口实测:409 测试/23 文件全过、build 1.99s、`git diff --stat -- desktop/entry.py` 空)
+- [x] 5.2 docstring 蓝本标注终核(design §1 对照表逐行勾销)(收口抽核:cron-screen.tsx:55-60 活性条对位 H 907-921;cron-form.ts:149/152/176 常量镜像与 STATUS_TONE 526-532 出处注齐)
+- [x] 5.3 spec 更新:desktop/sidecar-protocol.md 前端镜像面注一笔(消费方+1,方法不加);frontend-ui.md 若有屏清单则补(七屏→八屏;CHANGELOG Unreleased Added 同批入)
+- [x] 5.4 pathspec 提交(feat(desktop): 定时任务管理屏);grill 六问决议已批(2026-10-04 全按推荐)随批入 prd/design,无待回写项
 
 ## 验证命令速查
 

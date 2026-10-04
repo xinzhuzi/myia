@@ -492,3 +492,13 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 门禁:本轮工作流脚本统一实跑(尾输出转录;红线「脚本统一,不自跑」,收口会话未自跑)——vitest 全量 22 文件/376 用例 4.98s 全绿(上轮 374→376 恰合 +2)+tsc+vite 绿;复验发现与处置=[];两笔提交前各实跑 `gitnexus detect-changes -r shishi --scope staged`:feat 批="No changes detected"(纯增量 60 行零删,JSX 属性+新测试块零符号级行为变更;上轮 feat 批曾报 4 symbols/6 流程,本轮缩至零报与改动面收窄吻合,如实记)
 - 提交与分诊:dcaa2d9 fix(desktop) 两代码文件(逐路径 add,60+/0-);docs 批=g9 档补遗(prd Notes 补遗行+质检登记「已修」标注/check.jsonl +1 行)+journal 本段随批入库;分诊实况=树内脏件恰三路径(feed 两件+本档 prd)全归本批,ui-reskin-r2/cron-ui 零在途件在场、零吸收;task.json 维持 review 未动(档纪律;其 notes「备案不改」为上轮历史原文不改写,补修正态以 prd Notes 补遗行为准);未跑 task.py、不 push(推送归下一阶段)
 - 遗留:件二行为级边界(未读过滤下已读尽组不可达)按质检原判维持行为不变、仅 title 知会——行为级修复需破协议零新增铁律,留主人另议;归档(task.py archive→completed)+终勾留主人;推送归下一阶段
+
+## 2026-10-04 cron-ui 定时任务管理屏收口(收口提交员会话,task 10-04-cron-ui;不 push)
+
+- 交付:5b3fae3 feat(desktop) 一笔 14 文件(+2859/-19)——screens/cron/ 四件(cron-screen.tsx 1049 行/cron-form.ts 239 行/api.ts/测试 900 行 21 用例)+ 接线六件(App 路由+八屏注/sidebar 侧栏项/types.ts 镜像 35→45 方法+CronCompleted/CronSkipped 入 SidecarEvent 联合/client 门面十方法 cronList…cronRuns+yamlList/client.test.ts 逐方法批断言/logs api.ts eventToRow 两事件穷尽守卫/logs 测试两事件系统行断言)+ spec 两件(sidecar-protocol.md 前端镜像面注:消费方+1、方法不加版本不动;frontend-ui.md 七屏→八屏)+ CHANGELOG Unreleased ### Added 一条(未撞并行,-U0 未启用);零协议变更收口实跑 `git diff --stat -- desktop/entry.py`=空
+- 并行分诊(树上 10-04-ui-kestra-anchor 在途实况):App/types/client/client.test/logs-api/logs-test 五文件 diff 全读=纯 cron 无混;sidebar.tsx 混该线 Kestra 重锚大改,cron 份仅 Clock import+「定时任务」导航项两 hunk——收口期手工 hunk 分离(暂存窗口前后 shasum 同为 ae8c29e2…,零并行覆盖;kestra 份 app-layout/page-header/index.css/sidebar 主体+分诊期新落 logs-screen.tsx/sources-screen.tsx/sources-table.tsx 全留树未碰,佐证该线活跃在途)
+- 门禁(双口径都跑):①共享工作树全量 `npm --prefix desktop/ui-src run test`=23 文件/409 用例全过+`run build`(tsc -b && vite build,1.99s)绿 GATE_EXIT=0;②detached worktree(检 5b3fae3+主树 node_modules 软链)复验提交树本体=同 23 文件/409 用例+build 1.97s 双 EXIT=0(隔离 kestra 在途改动的独立证据),验毕 worktree 移除
+- 实现审查项:grep 实跑 screens/ 全树唯一 setInterval=cron-screen.tsx:566 的 1min 本地时钟(测试断言 tick 零取数)——「无 interval 轮询」成立;蓝本 docstring 抽核在位(cron-screen.tsx:55-60 活性条对位 H CronPage 907-921、cron-form.ts:149-176 常量镜像+STATUS_TONE 526-532 双向出处注)
+- 勾档:implement.md 全步骤 [x](0.1/0.2 如实注收口口径:占线实为 kestra 线、hunk 分离代 patch 交收口;基线以收口期复跑代替)+prd.md AC1-AC9 全勾(AC5 按 prd 内 grill 二 Q1 批准口径=排队语义 notice+行「已排队」态;各 AC 附测试锚)+task.json 直改 status=review
+- 提交前实跑 `gitnexus detect-changes -r shishi --scope staged`:14 files/25 symbols/34 流程/risk=critical(hub 符号 api/App/NAV_GROUPS/types 接口族触发顶格;numstat 全批纯增量,19 删行均注释改写,协议面零触碰,双门禁绿后放行)
+- docs 批一笔:本段+10-04-cron-ui 档三件(implement/prd 勾选+task.json review);未跑 task.py、不 push(推送归下一阶段)

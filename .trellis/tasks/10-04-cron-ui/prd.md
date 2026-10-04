@@ -34,15 +34,15 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 入口:侧栏项+路由可达,屏在 AppLayout 内,导航态正确。
-- [ ] AC2 活性条:status 数据渲染;模拟僵死/急停态的屏测各一(黄条/红条+恢复入口)。
-- [ ] AC3 列表:mock 数据渲染全字段;四态色 badge 断言;逾期红标边界测试;all 切换。
-- [ ] AC4 双 Dialog:创建全字段提交→cron.create 参数形状断言;parse 错误/category 校验错误回显断言;**chips 点击填入断言;category 选择器渲染 yaml.list 数据、坏文件行禁选、手输兜底**;编辑预填+部分更新。
-- [ ] AC5 动作四件:run(进行态+toast)/pause/resume/remove(确认)调用形状断言;删除需确认;**急停全部(确认 Dialog)/恢复全部**断言。
-- [ ] AC6 历史:行展开渲染 runs;run_summary_json 摘要字段断言;空态。
-- [ ] AC7 事件与刷新:cron.completed/cron.skipped 触发 notice(载荷 name/status 断言)+重拉(mock 事件流,messaging 式传输层 mock+emitSidecarEvent 注入);手动刷新;**无 interval 轮询断言(实现审查项)**;逾期红标跨分钟走时(本地时钟 tick);**SidecarEvent 联合补两事件后 logs 屏穷尽守卫同步适配(runId=null 系统行断言)**。
-- [ ] AC8 镜像:types.ts 方法签名(cron 九+yaml.list 复用)+两事件 interface 入联合;client 门面 + **client.test.ts 逐方法批断言**(对账形态=typeof 断言非计数,深化实证);status 返回键名按 ground-truth §1 逐字(ticker_alive/heartbeat_age_seconds/…)。
-- [ ] AC9 回归:vitest 全量+tsc+build 三绿;entry.py 零改动(diff 空);蓝本对照 docstring 齐全。
+- [x] AC1 入口:侧栏项+路由可达,屏在 AppLayout 内,导航态正确。(测试「/cron 路由可达:页头+侧栏导航项同屏可见」)
+- [x] AC2 活性条:status 数据渲染;模拟僵死/急停态的屏测各一(黄条/红条+恢复入口)。(测试「正常灰字含 data_root;僵死黄条 cron-stale;急停红条 cron-estopped+恢复全部+注记」)
+- [x] AC3 列表:mock 数据渲染全字段;四态色 badge 断言;逾期红标边界测试;all 切换。(测试:全字段+∞/四态映射/now-16min 红与 now-14min 不红边界/all:true 携带与「已完结」)
+- [x] AC4 双 Dialog:创建全字段提交→cron.create 参数形状断言;parse 错误/category 校验错误回显断言;**chips 点击填入断言;category 选择器渲染 yaml.list 数据、坏文件行禁选、手输兜底**;编辑预填+部分更新。(测试五件齐:chips→schedule/parse_ok 选择→绝对路径全字段/parse 错误行含原文 Dialog 不关/parse_ok:false aria-disabled+手输兜底/fromJob 预填仅 job+deliver)
+- [x] AC5 动作四件:run(进行态+toast)/pause/resume/remove(确认)调用形状断言;删除需确认;**急停全部(确认 Dialog)/恢复全部**断言。(grill 二 Q1 批准改排队语义:notice「已排队/≤60 秒」+行「已排队」态,测试按此落;红钮→确认 Dialog→cron.pause {all:true} 测试在)
+- [x] AC6 历史:行展开渲染 runs;run_summary_json 摘要字段断言;空态。(测试:runs{job,limit:10}+摘要渲染+空态+折叠再展开不重拉)
+- [x] AC7 事件与刷新:cron.completed/cron.skipped 触发 notice(载荷 name/status 断言)+重拉(mock 事件流,messaging 式传输层 mock+emitSidecarEvent 注入);手动刷新;**无 interval 轮询断言(实现审查项)**;逾期红标跨分钟走时(本地时钟 tick);**SidecarEvent 联合补两事件后 logs 屏穷尽守卫同步适配(runId=null 系统行断言)**。(收口实现审查:screens/ 全树唯一 setInterval = cron-screen.tsx:566 的 1min 时钟且测试断言 tick 零取数;logs-screen.test.tsx 两事件系统行断言在)
+- [x] AC8 镜像:types.ts 方法签名(cron 九+yaml.list 复用)+两事件 interface 入联合;client 门面 + **client.test.ts 逐方法批断言**(对账形态=typeof 断言非计数,深化实证);status 返回键名按 ground-truth §1 逐字(ticker_alive/heartbeat_age_seconds/…)。(SidecarProtocol 35→45 方法;门面 cronList…cronRuns+yamlList 十方法 typeof+payload 透传断言)
+- [x] AC9 回归:vitest 全量+tsc+build 三绿;entry.py 零改动(diff 空);蓝本对照 docstring 齐全。(收口实测:23 文件/409 测试全过、tsc -b+vite build 1.99s、`git diff --stat -- desktop/entry.py` 空;docstring 抽核见 implement.md 5.2)
 
 ## Grill 决议(2026-10-04 批复:六问全按推荐)
 
