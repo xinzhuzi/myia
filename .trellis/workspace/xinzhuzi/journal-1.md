@@ -519,6 +519,24 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 提交与分诊:fix 批提交前实跑 `gitnexus detect-changes -r shishi --scope staged`="No changes detected"(纯增量 JSX/测试块,索引器零符号级捕捉,同 g9 补遗批先例,如实记);docs(task) 批=10-04-cron-ui 档六件(implement/prd/design/evidence/screen-spec/task.json)+journal 本段;journal 分诊=树内先前未提交段恰一段=ui-kestra-anchor 收口段(dde18d8 只带 task 档未带 journal,系该线终稿记录),循 e6f5093/d963eb3 拾前段先例随本笔一并入库;docs/screenshots/reskin-r2-final/compare-vs-vercel.png 未跟踪件属 reskin-r2 线残件,pathspec 纪律未碰;docs 批循文档豁免未跑 detect-changes
 - 遗留:归档(task.py archive→completed)+终裁留主人;未 push(推送归下一阶段)
 
+## 2026-10-04 topbar-cleanup 顶栏拆万能控件归位各屏收口(收口员会话,task 10-04-topbar-cleanup;不 push)
+
+- 交付(三线,git diff --stat 实核恰 8 白名单文件 +677/-269):①壳层 top-bar 三件(top-bar.tsx -103 行/Breadcrumb·ChevronRight·NavLink·品类 Select·GlobalRun 整拆/app-layout.tsx 纯注释 13 行/top-bar.test.tsx 重写)——终态=左屏标题(resolveNav 与侧栏同口径纯 span,顶栏零品牌元素;品牌字本就只在侧栏 sidebar.tsx:290-295)+右 ⌘K 方形图标钮(aria-haspopup/aria-expanded/aria-label=「打开命令面板」+⌘K title 保留,与 command-palette.test.tsx 接线断言对齐;⌘K 键盘唤起系 CommandPalette 自含监听未动);health() 拉取保留透传命令面板「切换品类」(category/categoryOptions/onCategoryChange 均其必填 props,该文件白名单外未动),AppLayout 品类全局态保留(命令面板仍可切→Outlet context→feed 屏,但 feed 屏已不再消费,见②);②feed 三件(api.ts +categoryOptionsFromHealth 纯函数:id 去重首现优先/name 缺省回 id/null id 不入/localeCompare;feed-screen.tsx 品类 Radix Select data-testid=filter-category+屏内 useState 自持弃 useOutletContext/一行 feed-toolbar 收纳读态分段+计数+批量簇+显示选项+搜索+刷新迁入;测试 +163 行内含 Radix jsdom 桩);③sources 两件(sources-screen.tsx 排程行尾 Play「跑一次」钮=Kestra Flows.vue actions 范式对位,RunOnceState 照抄仪表盘形状,run.start 单飞 run_busy 拒并发/run_id 对账防串台/终态横幅按 status 分色/完成后 reload;sources.test.tsx +2 用例)
+- 门禁(收口会话全复跑,非转录):cd desktop/ui-src 下 `npx vitest run src/components/layout/top-bar.test.tsx`=8/8、`...command-palette.test.tsx`=19/19、`...src/screens/feed`=2 文件 87/87、`...src/screens/sources`=20/20;`npx tsc -b` exit 0+`npx tsc -p . --noEmit` exit 0(壳层期 tsc -b 曾 exit 2 报 5 错、全在并行 sidebar/settings 在途中间态,该二线已各自入库 a3e698c/61ace57 后终态树净归零——三线自检的「错误集随并行编辑漂移」主张与提交链吻合);全量 `npm --prefix desktop/ui-src run test`=23 文件/424 用例 5.75s EXIT=0;`run build`=tsc -b+vite 2.01s EXIT=0(仅 chunk>500kB 既有警告);树核净=git status 恰 8 白名单 M 件+本档目录+reskin-r2 残件 compare-vs-vercel.png(该线遗留,pathspec 纪律不碰)
+- 勾档:task.json 直改 status planning→review+notes 三线收口摘要(918 字,json.load 语法验过;completedAt 留 null 归档面);implement.jsonl/check.jsonl 均 0 行空档(循 reskin-r2/kestra-anchor 先例职责面=task.json+journal 未代补,如实记);prd.md Requirements/AC 系 TBD 模板态(轻量任务 PRD-only 先例,零代码需求面以 task.json description+notes 承载)
+- 提交面:8 代码文件留树未提交(收口令=task.json 直改+journal 追加,不含提交/推送);未跑 task.py start/finish/archive、不 push、未跑 detect-changes(无提交故无 staged 面要求);归档(completed)与提交/推送留主人
+- 遗留:①命令面板切品类经 AppLayout 全局态下发但 feed 屏已自持品类(屏内下拉为准),该全局态当前实际消费方仅命令面板自身回显——是否进一步收缩 AppLayout 品类态留主人另议(白名单外);②sources「跑一次」终态横幅只驻屏内不跨屏(与仪表盘品类卡同 v1 口径);③主人目验终裁未做(权限外)
+
+## 2026-10-05 tests 按模块分组 + 分类器测试迁包(10-05-tests-module-grouping)
+
+- 主人验收 tests/ 结构后令「按照你的逻辑去做,并且每个模块不应该混杂在一起」。
+- tests/ 94 文件平铺 → 镜像 src/myssia 的 14 个模块组(alerts/classify/cli/cron/credhunter/desktop/engines/enrich/feedback/pipeline/plugins/push/store/vision),根上只留 6 个跨切面测试+conftest+共享 fixtures;test_classify.py+classify_gold.json 迁 myssia-classifier/tests/ 且 import 改直引 myssia_classifier(独立包测试零主包依赖)。
+- 三个坑提前排掉:conftest「from conftest import」链在子目录下靠 pytest 装载根 conftest 入 sys.path 成立(定向冒烟实证);test_yaml_editor_protocol_gaps 跨文件 import test_desktop_sidecar_protocol 必须同目录(都进 desktop/);caplog logger 名随 import 改写。
+- 门禁:全量 3585 passed 19 skipped(基线 3297 以上)+ ruff 全绿;gitnexus detect-changes staged 干净。
+- ⚠️ 混写事故:89 个 git mv 重命名被并行提交 8d2e8a8(桌面标题栏)意外收编(共享暂存区竞态再现,零内容变更);内容增量由 b864d2b 承接。两笔均未推,拆分与否留主人裁决。
+- 任务 → review。
+- 深化第二轮(主人令「深化与补充」):implement.md 补建 94→14 权威映射+归组六规则;spec python 新增「测试目录布局」节(归组纪律/路径范式/testpaths+__init__+sdist 三红线);evidence 严格版 v2——教训:nodeid 归一用 sed 剥斜杠会切进参数化 ID,硬证明要只归一目录段、测试 ID 原样保留多重集比较(v1 结论对但方法有理论碰撞缝,已弃用注明);spec 插段吃标题行的事故自纠(替换锚点必须回写)。
+
 ## 2026-10-05 消息模块三件套:走查+冒烟+P3 标题层级(主人令「1,2,3 都做」)
 
 - 走查(探查代理 89 工具调用全链底稿,终报已呈主人):push 层 40 文件/CHANNELS 30 条/PLATFORMS 28 家(6 家结构化壳如实 dependency_missing);路由 score>类目>保守 digest 三层;digest AM/PM 槽位聚合;定向派发+死信账本(platform:chat_id 键,URL 形 chat_id 落 sha256 前 16 位);targets 四路径解析(直达钩子>目录 chat_id>精确名>唯一前缀+三段话题回退);桌面消息屏五分区(平台总览/通道目录/推送规则/告警/状态条)。CLI 无 push 顶级命令,通道真发=桌面 push.test(entry.py:3843);cron deliver 摘要走 deliver_run_summary(cron/summary.py:329)。
@@ -535,3 +553,46 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - ⚠️ 提交事故:两件 staged 被并行会话 732b424(justfile 线)收编——共享暂存区反向竞态(与 8d2e8a8 收编 89 git mv 同族);循 tests-module-grouping G1 判例不拆刚落提交,代码入库无损已验(git show 三处符号在)。教训:staged 挂着就要立刻 commit,detect-changes 的窗口期就是被收编的风险窗口;本会话后续 docs 批全部改走 pathspec(--only)提交,不再依赖共享 index 状态。
 - 装机:worktree 检出 732b424→ui-src npm ci+desktop npm install→npm run tauri build(世事.app 132.15MiB)→ditto 备份换装(备份 /tmp/世事.app.bak-ks-010926;回执 /tmp/ks-install.exit=ok installed,链日志 /tmp/ks-install.log);**装机版 myssia-core 实跑 `secret list` 安静返回两条名 exit=0 零授权框——若走旧读数据路径,未授权二进制必弹**=AC7 可自动化最强证据;GUI 开屏零弹窗终裁=主人重开 app 目验。
 - docs:41f6c99(task 档三件套+spec security-baseline「名探测零弹窗/值读取 ACL 不变」铁律行)+本批(AC7 勾选回执+journal 本段,journal 仍采 HEAD+本会话块拼装的外科提交);不 push。
+
+## 2026-10-05 推送凭据用户旅程接通(task 10-05-push-credential-journey;主人「用户使用起来非常不方便」→「就是这条路,立项修」)
+
+- 诊断:接入路三件套各干各的——消息屏指南教 curl+zshrc+2h 手工续 token,GUI app 根本读不到 zshrc(本机四路实核 env 全空为证);设置屏表单存钥匙链只喂测试按钮;真实管线读 YAML env: 引用→必炸 env_var_missing。用户照指南做完也收不到推送。
+- 后端(a152024):base.resolve_channel_credential(显式引用原样→env_var_missing 回退钥匙链 myia/push/<ENV_KEY>→双缺报同码+「设置→推送」指引文案);feishu/telegram/webhook 三通道接线;飞书 TOKEN_API_URL 自动 mint tenant token+TENANT_TOKEN_CACHE(提前 120s 失效,手工 token 优先,mint 拒绝 feishu_token_mint_failed)。测试 +12(tests/push/test_push_credential_journey.py,InMemory 钥匙链注入+MockTransport 零外网)。
+- 前端(c0c63e8):设置→推送 按通道预设字段(feishu app_id/app_secret/chat_id、tg token/chat_id、webhook url;逐非空写 myia/push/*,空跳过不覆盖),发送测试 target=keychain:myia/push/<通道目标键>与真实 run 同源;旧通用表单收「自定义凭据位」折叠区;消息屏指南重写「到设置→推送填一次+token 自动续期」,curl/zshrc/2h 段全删(测试含反向断言)。
+- 门禁:pytest 定向 1119+1skip 绿、ruff 绿、tsc build 绿、detect-changes 两批(python 5 文件 28 符号 0 流程 low/desktop 13 符号);**vitest 全量 4 红系并行 5c188c0 在途**(pluginFile API 层截断改协议载荷未随 4 条断言,sources 线活跃,归属其线不代改;白名单 scoped settings 35/messaging 53 全绿)。附:代修 33f7377 的 TDZ 编译错(handleProbeAll 插 reload 声明前,致 tsc 红+20 测崩,挪回声明后)——循 dd9711e CI 回绿判例。
+- 提交纪律执行:全程 pathspec(--only)提交,零共享 index 依赖(上一任务 732b424 收编教训落地)。
+- 装机:worktree 检出当时 HEAD(58941a3,含本任务全部+并行新提交)→tauri build→备份换装(/tmp/世事.app.bak-pj-013028;/tmp/pj-install.exit=ok installed 01:30);装机版 secret list 静默+CLI 健康。
+- docs:e038e04(三件套+AC1-6+spec security-baseline「推送通道凭据解析顺序」铁律行)+本批(AC7 回执+journal)。主人侧唯一剩余:重开 app→设置→推送 填飞书 App ID/Secret→发送测试。未 push。
+
+## 2026-10-05 消息模块×Hermes 上游深度对拍(主人令「深度排查一下」,前问「按 Hermes 方式做的吗」)
+
+- 方法:上游实读本机检出 ~/.hermes/hermes-agent(git af90026,v0.21.4+canary.2026-10-04,代理 67 工具调用全量事实单)× MYIA 侧 34 文件蓝本锚注记+本会话走查底稿交叉;关键可疑点逐一实证。
+- **总判定:骨架忠实度高(寻址/目录/死信/平台面逐条对位,偏离均有据);2 真实缺口+3 可升级项+1 锚注记过强(已修 9ab0e12);4 面 MYIA 合理超出蓝本。**
+- 壳判定复核通过:buzz=WebSocket 推送(NIP-42)/photon=_sidecar_send 子进程/yuanbao=WS+pending_acks/raft=仅入站唤醒——W3「无 one-shot HTTP 出站」判定全部成立,无错判。
+- 忠实对位证据:targets 四路径 vs resolve_send_target(send_message_targets.py:145-212;差异=无 discord guild 档、无 pass_unresolved 兜底=更严格);死信仅整聊死亡/成功自愈 vs dead_targets.py+delivery.py:186-206 逐条对位;目录双文件+别名覆盖+唯一前缀歧义即错对位(channel_directory.py:408-434);telegram 4096 分段/caption 1024 对位。
+- 刻意偏离(有据):凭据存储钥匙链 vs profile .env(红线);飞书 token 载体=手写 mint vs lark SDK 托管(9ab0e12 修正表述);入站面整体不移植(W1 定向出站决议)。
+- **真实缺口(上游有/MYIA 无/未注记非目标)**:①投递重试账本——Hermes delivery_obligations at-least-once(3 次退避/24h 过期/boot sweep/flood 契约,delivery_ledger.py 564 行),MYIA 只有死信账本,immediate 发送失败即丢(digest 留池、immediate 无);②飞书发送零重试零长度护栏——Hermes _feishu_send_with_retry(指数退避+reply 降级,adapter.py:3925-3970)+8000 截断/4000 分块,MYIA feishu_card 一次 POST 无重试无截断(grep 实证零命中),大 digest 卡有超限风险;③(轻)telegram 无 retry_after 退避(senders.py:70-96 上游有)。
+- 可升级项(壳判定对但上游有实装可借):signal(SIGNAL_HTTP_URL JSON-RPC 客户端,上游 gateway/platforms 实装)、bluebubbles(REST)、discord/slack 目录自动发现(guild 枚举/conversations 翻页,MYIA W3 只给了 simplex)。
+- MYIA 合理超出:飞书群目录自动发现(上游 feishu 无 list_channels 纯会话积累,MYIA 官方 API 翻页+429 退避补齐)、route/digest 聚合层(上游无出站聚合,digest 在 cron 提示词层=MYIA 产品本体)、死信账本键凭据保护(URL sha256)、push.test+设置屏表单(对位上游 setup 向导)。
+- 处置:缺口①②建议立项待主人批;可升级项待令;锚注记过强已修;其余维持。上游版本钉死 af90026 供后续复查。
+
+## 2026-10-05 试抓结果改详情弹窗(task 10-05-test-result-dialog;主人判词「这种提示做详情弹窗…完全设计错误」)
+
+- 判词截图读图:3466×160 一级 Vision OCR(置信度 0.50 压线)+本机 VL 二级校对——屏顶常驻绿条「试抓 aihot:static_html·20条·退化1次·内容有变化或首次抓取,线上调度会正常提取」。定位 sources-screen.tsx:341-353(C13 回显横幅族);后端 test.completed 明细一应俱全(failures/items/fingerprint)被 summarizeTestCompleted 压成一行。
+- 落地(6d43209):撤贴顶横幅族(进行中条+成功/失败条);新 test-result-dialog.tsx(手写 overlay 抄 YamlEditorDialog 范式,零新依赖)吃满结构化明细(概要/指纹判定/退化链逐条/条目预览+截断标/失败明细);api.ts summarizeTestCompleted→buildTestOutcome(三 kind 视图);进行中态=行内 spinner+日志屏提示 title;「job #N」行话清零。
+- **混线外科**:实现撞并行会话同树迁移排程一览/跑一次到 cron 屏(在途未提交),sources-screen/sources.test 两件绞死——临时索引+git archive 隔离树(git show HEAD 基线+python 精确替换,全断言)实跑门禁(tsc 干净+scoped vitest 17 过,3 预存红=5c188c0 basename 债归属并行线),commit-tree+CAS update-ref 只进我方 hunks,外来 hunks 原样留工作树,共享索引五路径事后对齐(并行 staged journal 分毫未动)。HEAD 中途被并行推到 5ca2597(docs-only)无碍基线。
+- docs:3a230c5(三件套+AC 六条全勾+真机目验留主人)。装机包未刷新:当前工作树含并行线在途 UI(排程迁移未收口),此刻重打包会把半成品打进装机版——待该线落定或主人令下再刷新,如实声明。
+- 留观(PRD 注记):同屏「跑一次」终态横幅/启停复核横幅同族贴顶模式,未被判词点名不擅动,待主人裁决。
+
+### 深化补全波(主人质询「你有深化与补全吗」触发)
+
+- 独立复查缺位补上:trellis-check 派单(check.jsonl 两 spec+AC 对证+边界猎取),隔离 worktree 复跑门禁实证后回报「可归档,1M+3L+1 断言缺口」。
+- 四修当场落(5bb10e9):[M] 编辑模态在途试抓完成→双模态叠底+ESC 双关丢结果(本笔新引入组合)→渲染条件互斥+新用例钉死;[L×3+断言] 旧横幅 testid 反向断言/概要括注去重(configured≠hit)/滚动容器 tabIndex=0/path 空不带冒头。门禁 sources 16/16+tsc 0(并行线 8cd3084 已把排程迁移+basename 断言债落定,427 全绿,sources 工作树转净——外科提交阶段结束,恢复常规 pathspec)。
+- 档案回填:prd 复查收口节+design 已知边界与互斥节;前波 design↔实现三处漂移已闭(c4adadd)。c5e0371 并行 ruff 排除与 api.ts 全路径回退(5c188c0 反转)在途,归属其线。
+- 教训:window 级 keydown 多弹窗并存必双关——同屏多模态(事件驱动×手开)要互斥守卫;「事件到达≠立即可见」,结果驻 state 延迟浮现是正解。
+
+## 2026-10-05 grill 质询+跑一次弹窗化(task 10-05-run-once-result-dialog;主人「按推荐」全批)
+
+- 主人问「使用grill对trellis任务文档深化与补全了吗」——此前只有 trellis-check 复查,正式质询确缺;grilling 技能五问 frontier(Q1 自动弹出/Q2 互斥取向/Q3 同族横幅处置/Q4 卡死超时/Q5 装机时机),主人按推荐全批,决议回写 70f483d。
+- Q3a+b 落地新档 10-05-run-once-result-dialog(PRD-only 轻量):cron 屏「跑一次」终态/发起失败 → RunOnceResultDialog;实现取屏内既有 Dialog 基件(Radix,job 编辑同款)而非第三份手写 overlay——同屏一致性+白得焦点圈禁;基件自带 X 关闭钮(aria-label=关闭)与我底部按钮撞名,删自家走基件;trace 值(run_id/status/exit)收 mono 技术小字,活性条「异步 run #N」行话清零+反向断言。8bbc383+2170999;门禁 cron 34/34+全量 428/428+tsc 0。Q3c/d(启停复核/告警条)按决议保留;Q4 记 backlog。
+- Q5 装机刷新:worktree 检出 7502a0c 干净构建(sources 早净但全仓多线在途,循 keychain/push 会话 worktree 构建判例零混入),sidecar+tauri build 后台跑,出口文件 /tmp/trd-install.exit、链日志 /tmp/trd-build.log;成则 ditto 备份静默换装。

@@ -1,0 +1,11 @@
+# install log — yaml 修复(10-04-yaml-editor-no-scroll)装机换装
+
+- 2026-10-05 00:44–00:49 +08 装机员换装 commit **207f219**(含 efecaff=yaml 三缺陷修复;`git merge-base --is-ancestor efecaff main` 实证 YES)。**未在主仓库根构建**:主仓工作树当时有他线 6 个 UI 文件 166 行未提交 WIP(cron/dashboard/feed 屏),照先例(install-log 第 2 行 worktree 口径)于干净 worktree `/tmp/myia-install-yamlfix`(detached HEAD=207f219,`git status --short` 0 脏)执行同一组命令。链路(逐段后台+日志+退出码文件):
+  - stage0 `npm ci --prefix desktop/ui-src && npm ci --prefix desktop`(00:44:5x–00:45:25 exit=0,日志 /tmp/yamlfix-stage0.log;**退出码文件缺写**——`exit $ec` 在 `{}` 组内终结 shell 未及 `echo >.exit`,以日志尾行 `exit=0`+宿主通知 exit 0 双证,stage1 起改组内先写退出码,已修复)
+  - stage1 `npm --prefix desktop/ui-src run build`(00:45:2x–00:46:06 exit=0,vite ✓ built in 1.48s;/tmp/yamlfix-stage1.log + .exit)
+  - stage2 `bash desktop/build-sidecar.sh`(默认目标=aarch64-apple-darwin;00:46:50–00:47:31 ≈41s exit=0,PyInstaller onefile;/tmp/yamlfix-stage2.log + .exit;产物 118M → desktop/src-tauri/binaries/myssia-core-aarch64-apple-darwin;代码自上次装包后有变(0f491fb/09abb67 动 src/myssia),故未用 MYIA_SIDECAR_SKIP)
+  - stage3 `MYIA_SIDECAR_SKIP=1 npm --prefix desktop run tauri build`(00:47:51–00:48:54 exit=0,Rust release Finished in 37.30s,script 自带二段式跳过 beforeBuildCommand 重复 sidecar 重建——日志实证「MYIA_SIDECAR_SKIP=1 且产物已存在,跳过」;/tmp/yamlfix-stage3.log + .exit;bundle:世事.app + 世事_0.0.1_aarch64.dmg)
+- 换装:备份 `/tmp/世事.app.bak-yamlfix-10050049`(ditto exit=0,132M,缘由=yamlfix 链换装前态=他线 00:43 所装 41ccdba 包 inode=303937636)→ rm 旧 → ditto 新包 → **/Applications/世事.app 新 inode=303993326**(132M,Contents/MacOS/{MYIA,myssia-core},Resources{icon.icns,plugin.yaml,plugins} 实存);不启动 app、不抢焦点。
+- 验证:包内 sidecar 直跑 `--help` exit=0(/tmp/yamlfix-sidecar-help.log),usage 已含 `maigret`/`media` 子命令(09abb67/0f491fb 内容入包实证,即包=207f219 新 sidecar);UI 侧修复以构建链溯源为证(worktree HEAD=207f219 净树 + stage1/3 exit=0,tauri 资产嵌入二进制无明文可比对)。codesign -v exit=1「code has no resources but signature indicates they must be present」——新装/旧装备份/worktree 原包**三者同报**,系本地 tauri ad-hoc 签名固有态,非换装损伤。
+- 过程留痕与更正:链首曾判「无 app 进程在跑」系 `pgrep -fl | head -5` 截断漏判,后核实 pid 52736(00:45:17 起)= 主仓库 target/ 下他线自家构建实例,非 /Applications 包,与本换装无冲突,未动。
+- 终态:四段链全绿(exit 全 0),总耗时 **00:44:24–00:49:36 ≈ 5min12s**(含换装+冒烟)。新包路径 `/tmp/myia-install-yamlfix/desktop/src-tauri/target/release/bundle/macos/世事.app`(已装);备份 `/tmp/世事.app.bak-yamlfix-10050049`。不 push、不打 tag、未触发发布流;task.json 未动(任务仍 review,门禁归工作流脚本)。

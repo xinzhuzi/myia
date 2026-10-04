@@ -1,0 +1,99 @@
+{
+  "checks": [
+    {
+      "name": "A0 首屏可选行就绪",
+      "ok": true,
+      "detail": "visible=['ai-news', 'credentials', 'exposure', 'games']"
+    },
+    {
+      "name": "A1 打开即载入 news.yaml 头行",
+      "ok": true,
+      "detail": "# plugins/ai-news.yaml — AI news digest: aggregato"
+    },
+    {
+      "name": "A2 键盘输入生效(行尾追加)",
+      "ok": true,
+      "detail": "ator hot feed + AI forums.  # probe-edit"
+    },
+    {
+      "name": "A3 脏标记出现(标题带 *)",
+      "ok": true,
+      "detail": "ai-news.yaml *"
+    },
+    {
+      "name": "A4 保存按钮随 dirty 解禁",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "B1 坏 yaml 校验出 error findings",
+      "ok": true,
+      "detail": "错误 | $.broken | unknown_field | 未知字段 'broken',schema 不允许(fail-fast)"
+    },
+    {
+      "name": "B2 多 findings 结果区可滚或未溢出",
+      "ok": true,
+      "detail": "{\"cls\": \"cm-scroller\", \"scrollH\": 433, \"clientH\": 433}"
+    },
+    {
+      "name": "C1 dirty 守卫后弹窗可关",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "C2 重开后内容回磁盘原样",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "C3 Cmd+S 保存成功提示",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "C4 doctor 复核提示出现",
+      "ok": true,
+      "detail": "doctor 复核通过:识别「AI资讯」(2 源)"
+    },
+    {
+      "name": "C5 落盘含编辑",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "C6 .bak 留底生成",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "C7 保存后标题去 *",
+      "ok": true,
+      "detail": "ai-news.yaml"
+    },
+    {
+      "name": "D1 切到另一文件路径正确",
+      "ok": true,
+      "detail": "/tmp/myia-yaml-sweep/home/plugins/credentials.yaml"
+    },
+    {
+      "name": "D2 内容随文件切换",
+      "ok": true,
+      "detail": "# plugins/credentials.yaml — credential hunter: na"
+    },
+    {
+      "name": "E1 双栏屏左栏列出插件 yaml",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "E2 双栏屏载入 wool.yaml",
+      "ok": true,
+      "detail": "# plugins/wool.yaml — freebie/deal intelligence ov"
+    },
+    {
+      "name": "E3 双栏屏输入生效",
+      "ok": true,
+      "detail": null
+    }
+  ]
+}

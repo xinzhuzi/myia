@@ -26,6 +26,19 @@ Telegram Bot API 无「列出会话」能力(蓝本事实轮核),目录条目唯
 With a user template the rendered text is sent **without** ``parse_mode``
 (user-controlled plain text; HTML-escaping it would corrupt their intent).
 
+sendMessage 发送包退避(10-05-push-reliability-batch R2,缺口③):蓝本
+Hermes ``_send_telegram_message_with_retry`` + ``_telegram_retry_delay``
+(``tools/send_message_senders.py:70-96``,NousResearch/Hermes-Agent,MIT)。
+MYIA 落法(:meth:`TelegramChannel._post_message`):429 应答携带
+``parameters.retry_after`` 时**优先**按其值退避(非数值回落 1.0s,蓝本
+同款);超时(:class:`httpx.TimeoutException` 及其子类)**永不重试**——
+请求可能已送达,重发即重复消息(蓝本以 "timed out"/"timeout" 文本匹配
+判定,MYIA 按异常类型结构化判定);5xx/429 类错误码指数退避 ``2**attempt``
+秒,总尝试 :data:`SEND_ATTEMPTS`(3 次)封顶。sleeper 构造注入,测试钉
+零等待。【MYIA 偏离注记:蓝本对**非超时**纯网络错(如 connection
+refused,无瞬态标记文本)不重试;MYIA 按本仓 webhook 通道先例(at-least-
+once 主题,R1 重试账本配套)对传输层非超时错误同样退避重试】。
+
 Credentials stay references until send time (security baseline: 凭据零明文):
 the bot token and chat id resolve from ``env:``/``keychain:`` references at
 send time, and error messages carry reference names only, never values.
@@ -36,12 +49,13 @@ All HTTP I/O goes through an injectable ``httpx.AsyncClient`` — tests use
 
 from __future__ import annotations
 
+import asyncio
 import html
 import logging
 import mimetypes
 import re
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Awaitable, Callable, Mapping, Sequence
 
 import httpx
 
@@ -68,6 +82,7 @@ __all__ = [
     "DEFAULT_TOKEN_ENV_REF",
     "MAX_ITEM_LINE_LENGTH",
     "MESSAGE_LIMIT",
+    "SEND_ATTEMPTS",
     "TELEGRAM_API_BASE",
     "TELEGRAM_USERNAME_RE",
     "TelegramChannel",
@@ -97,6 +112,19 @@ CHAT_ID_RE = re.compile(r"^-?\d+$")
 #: 公开 ``@username``(Hermes ``telegram_ids`` 同款宽度:5-32 位字母数字下划线,
 #: 容忍 4 位历史短名;**只对公开用户名有效**,私聊无公开用户名)。
 TELEGRAM_USERNAME_RE = re.compile(r"^@[A-Za-z0-9_]{4,32}$")
+
+# ------------------------------------------------- sendMessage 包退避(R2)
+
+#: sendMessage 发送包退避总尝试次数(10-05-push-reliability-batch R2)。
+#: 蓝本锚:Hermes ``_send_telegram_message_with_retry(attempts=3)``
+#: (``tools/send_message_senders.py:85-96``,NousResearch/Hermes-Agent,MIT)。
+SEND_ATTEMPTS = 3
+#: 瞬态错误码:429 限频(缺 ``parameters.retry_after`` 时按指数退避)+ 5xx
+#: 网关类。蓝本以标记文本判定("too many requests"/"502"…),MYIA 按 Bot API
+#: 结构化 ``error_code`` 判定,口径等价。
+_TRANSIENT_ERROR_CODES = frozenset({429, 500, 502, 503, 504})
+#: 瞬态 HTTP 状态(非 JSON 应答体走 invalid_response 时仍可判瞬态)。
+_TRANSIENT_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 
 
 def split_message(text: str, *, limit: int = MESSAGE_LIMIT) -> list[str]:
@@ -263,13 +291,17 @@ class TelegramChannel(TrendAwareChannel):
         client: injectable ``httpx.AsyncClient`` (tests mock here); when
             omitted a per-send client is created with ``timeout``.
         timeout: per-send timeout in seconds for the self-managed client.
+        sleep: awaitable backoff sleeper(10-05 R2 sendMessage 包退避,
+            构造注入);defaults to :func:`asyncio.sleep`,测试钉零等待。
 
     Raises:
-        PushSendError: credential resolution failed, HTTP transport failed,
-            non-JSON response, or the API answered ``ok != true``. Chunks are
-            sent in order; a failure mid-sequence fails the whole channel
-            send (a flush-level retry may re-deliver earlier chunks — the
-            digest.py 留池重试 contract, accepted trade-off).
+        PushSendError: credential resolution failed, HTTP transport failed
+            (after the R2 transient-retry budget; timeouts never retried),
+            non-JSON response, or the API answered ``ok != true`` (非瞬态
+            码立即失败). Chunks are sent in order; a failure mid-sequence
+            fails the whole channel send (a flush-level retry may
+            re-deliver earlier chunks — the digest.py 留池重试 contract,
+            accepted trade-off).
     """
 
     name = "telegram"
@@ -286,6 +318,7 @@ class TelegramChannel(TrendAwareChannel):
         renderer: TemplateRenderer | None = None,
         client: httpx.AsyncClient | None = None,
         timeout: float = DEFAULT_SEND_TIMEOUT_SECONDS,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         self._target = target
         self._template = template
@@ -293,6 +326,7 @@ class TelegramChannel(TrendAwareChannel):
         self._renderer = renderer or TemplateRenderer()
         self._client = client
         self._timeout = timeout
+        self._sleep = sleep
 
     async def send(self, items: Sequence[Any], context: SendContext) -> None:
         """Send the item batch as one or more sequential ``sendMessage`` calls.
@@ -445,6 +479,25 @@ class TelegramChannel(TrendAwareChannel):
     async def _post_message(
         self, token: str, chat_id: str, text: str, parse_mode: str | None
     ) -> dict[str, Any]:
+        """One ``sendMessage`` POST with bounded transient backoff(10-05 R2)。
+
+        蓝本锚:Hermes ``_send_telegram_message_with_retry`` / ``_telegram_retry_delay``
+        (``tools/send_message_senders.py:70-96``,NousResearch/Hermes-Agent,MIT)。
+        退避规则(:meth:`_api_retry_delay`):
+
+        - 429 应答携带 ``parameters.retry_after`` → 按其值退避(优先级最高;
+          非数值回落 1.0s,蓝本同款);
+        - 超时(:class:`httpx.TimeoutException` 子类)→ **永不重试**(请求
+          可能已送达,重发即重复消息;蓝本按 "timed out" 文本判定,MYIA 按
+          异常类型结构化判定);
+        - 5xx/429 错误码、瞬态 HTTP 状态、非超时传输错 → 指数退避
+          ``2**attempt`` 秒,总尝试 :data:`SEND_ATTEMPTS` 封顶;
+        - 其余(400/403 等永久码)立即失败。
+
+        Raises:
+            PushSendError: 传输失败 / 非 JSON 应答 / API ``ok != true``
+                (重试预算耗尽或非瞬态码立即)。
+        """
         body: dict[str, Any] = {
             "chat_id": chat_id,
             "text": text,
@@ -453,36 +506,99 @@ class TelegramChannel(TrendAwareChannel):
         if parse_mode is not None:
             body["parse_mode"] = parse_mode
         url = f"{TELEGRAM_API_BASE}/bot{token}/sendMessage"
-        try:
-            if self._client is not None:
-                response = await self._client.post(url, json=body)
-            else:
-                async with httpx.AsyncClient(timeout=self._timeout) as client:
-                    response = await client.post(url, json=body)
-        except httpx.HTTPError as exc:
-            raise PushSendError(
-                "http_error", f"telegram 请求失败: {type(exc).__name__}: {exc}"
-            ) from exc
-        return self._parse_response(response)
+        for attempt in range(SEND_ATTEMPTS):
+            try:
+                if self._client is not None:
+                    response = await self._client.post(url, json=body)
+                else:
+                    async with httpx.AsyncClient(timeout=self._timeout) as client:
+                        response = await client.post(url, json=body)
+            except httpx.TimeoutException as exc:
+                # 超时永不重试:sendMessage 可能已送达,重发=重复消息。
+                raise PushSendError(
+                    "http_error", f"telegram 请求失败: {type(exc).__name__}: {exc}"
+                ) from exc
+            except httpx.HTTPError as exc:
+                # 非超时传输错:退避重试(MYIA 偏离注记,见模块 docstring)。
+                if attempt >= SEND_ATTEMPTS - 1:
+                    raise PushSendError(
+                        "http_error",
+                        f"telegram 请求失败(已退避重试 {SEND_ATTEMPTS - 1} 次): "
+                        f"{type(exc).__name__}: {exc}",
+                    ) from exc
+                delay = float(2**attempt)
+                logger.warning(
+                    "telegram 传输层失败(第 %d/%d 次尝试),%.1fs 后退避重试: %s",
+                    attempt + 1,
+                    SEND_ATTEMPTS,
+                    delay,
+                    type(exc).__name__,
+                )
+                await self._sleep(delay)
+                continue
+            try:
+                return self._parse_response(response)
+            except PushSendError as exc:
+                delay = self._api_retry_delay(exc, attempt)
+                if delay is None or attempt >= SEND_ATTEMPTS - 1:
+                    raise
+                logger.warning(
+                    "telegram API 应答瞬态失败(第 %d/%d 次尝试),%.1fs 后退避重试: %s",
+                    attempt + 1,
+                    SEND_ATTEMPTS,
+                    delay,
+                    exc,
+                )
+                await self._sleep(delay)
+        raise AssertionError("unreachable: retry loop must return or raise")  # pragma: no cover
+
+    def _api_retry_delay(self, error: PushSendError, attempt: int) -> float | None:
+        """API 层失败的退避秒数;``None`` = 终局不重试(蓝本 ``_telegram_retry_delay``
+        的 MYIA 结构化版:retry_after 优先 → 瞬态码指数退避 → None)。
+        """
+        retry_after = getattr(error, "telegram_retry_after", None)
+        if retry_after is not None:
+            try:
+                return max(float(retry_after), 0.0)
+            except (TypeError, ValueError):
+                return 1.0
+        error_code = getattr(error, "telegram_error_code", None)
+        if error_code in _TRANSIENT_ERROR_CODES:
+            return float(2**attempt)
+        if getattr(error, "http_status", None) in _TRANSIENT_STATUS_CODES:
+            return float(2**attempt)
+        return None
 
     @staticmethod
     def _parse_response(response: httpx.Response) -> dict[str, Any]:
         try:
             data = response.json()
         except ValueError as exc:
-            raise PushSendError(
+            error = PushSendError(
                 "invalid_response",
                 f"telegram 响应不是 JSON(HTTP {response.status_code}): {response.text[:200]!r}",
-            ) from exc
+            )
+            # R2:结构化 HTTP 状态(非 JSON 的 5xx/429 应答仍可判瞬态退避)。
+            error.http_status = response.status_code  # type: ignore[attr-defined]
+            raise error from exc
         if not isinstance(data, Mapping) or data.get("ok") is not True:
             error_code = data.get("error_code") if isinstance(data, Mapping) else None
             description = (
                 data.get("description") if isinstance(data, Mapping) else response.text[:200]
             )
-            raise PushSendError(
+            error = PushSendError(
                 "telegram_api_error",
                 f"telegram API 返回错误: error_code={error_code} description={description}",
             )
+            # R2:结构化错误码 / retry_after / HTTP 状态,供
+            # :meth:`_api_retry_delay` 退避判定(429 携 retry_after 优先)。
+            error.telegram_error_code = error_code if isinstance(error_code, int) else None  # type: ignore[attr-defined]
+            parameters = data.get("parameters") if isinstance(data, Mapping) else None
+            error.telegram_retry_after = (  # type: ignore[attr-defined]
+                parameters.get("retry_after") if isinstance(parameters, Mapping) else None
+            )
+            error.http_status = response.status_code  # type: ignore[attr-defined]
+            raise error
         return dict(data)
 
     # ------------------------------------------------- 直达解析(design D1)

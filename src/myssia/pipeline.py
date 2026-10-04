@@ -143,6 +143,7 @@ from myssia.push import (
     send_immediate,
 )
 from myssia.push.directory import REFRESH_STALE_SECONDS, ChannelDirectory, ChannelEntry
+from myssia.push.retry_ledger import PushRetryLedger
 from myssia.push.wecom import TOKEN_CACHE_FILENAME as WECOM_TOKEN_CACHE_FILENAME
 from myssia.push.templates import (
     build_keyword_trends,
@@ -858,6 +859,13 @@ class Pipeline:
         _data_root = Path(self._db_path).parent
         self._channel_directory = ChannelDirectory(_data_root)
         self._delivery_ledger = DeliveryLedger(_data_root)
+        # 投递重试账本(R1,10-05-push-reliability-batch):immediate 瞬态失败
+        # 的 at-least-once 兜底(蓝本 Hermes gateway/delivery_ledger.py;digest
+        # 全通道失败有留池,immediate 原先失败即丢)。时钟取注入的 wall_clock
+        # (测试钉死不漂移);读写 best-effort,损坏退化内存态不阻塞推送。
+        self._retry_ledger = PushRetryLedger(
+            _data_root, clock=lambda: self._wall_clock().timestamp()
+        )
 
     def _enrich_settings_from_config(self) -> EnrichSettings:
         """Schema 承载的端点引用 → :class:`EnrichSettings`(PRD: enrich 节承载 base_url)。
@@ -2228,6 +2236,10 @@ class Pipeline:
             channel.set_trend_context(**self._run_trend_kwargs)
         reports: list[SendReport] = []
         now = self._wall_clock()  # 槽位/防重发一律用注入时钟(测试钉死日期不漂移)
+        # R1 投递重试冲账:每轮推送阶段先 flush 到期条目(at-least-once;
+        # 蓝本「启动 sweep」的 MYIA 形态——run 推送阶段开头逐通道冲账),
+        # 再发本轮新条目。dry-run 在上方已提前 return(零发送零副作用)。
+        reports.extend(await self._flush_push_retries(channel, registry, now))
         if buckets["immediate"]:
             immediate_reports = await send_immediate(
                 buckets["immediate"],
@@ -2239,6 +2251,7 @@ class Pipeline:
                 item_specs=immediate_specs,
                 directory=self._channel_directory,
                 ledger=self._delivery_ledger,
+                retry_ledger=self._retry_ledger,
             )
             # 抑制计数:与 send_immediate 内部同一判定(should_send 纯读),
             # 定向条目一条多报告,不能用「条目数 − 报告数」推算。
@@ -2304,6 +2317,57 @@ class Pipeline:
             push.channel, out.immediate, out.digest, out.archive, out.ok,
         )
         return out
+
+    async def _flush_push_retries(
+        self,
+        channel: Any,
+        registry: DedupRegistry,
+        now: datetime,
+    ) -> list[SendReport]:
+        """R1 投递重试冲账:claim 到期条目 → 经 send_immediate 原路重投。
+
+        重投走 :func:`~myssia.push.digest.send_immediate` 完整链路(解析/
+        死信过滤/成功自愈/同槽位防重发),不绕过派发层语义;**不传**
+        ``retry_ledger``——结转由本方法统一处理,避免重投失败被二次入账。
+        局结转:任一成功 → 出队;同槽位防重发拦截(零报告=已在本槽位投出)
+        → 按成功出队;纯终态跳过(死信/未解析)→ 终态放弃;真失败 →
+        按退避再排队或耗尽弃置(预算/退避由账本自理,蓝本同款 30s/120s/
+        最后一击)。重投可能重复(蓝本 at-least-once 语义:崩溃残留的
+        attempting 条目即刻再认领,平台可能已收到上一击)——MYIA 无恢复
+        标记前缀基础设施,以日志说破。
+        """
+        due = self._retry_ledger.claim_due(channel=channel.name, now=now.timestamp())
+        if not due:
+            return []
+        logger.info("投递重试冲账开始: channel=%s due=%s", channel.name, len(due))
+        reports: list[SendReport] = []
+        for entry in due:
+            entry_reports = await send_immediate(
+                entry.items,
+                channels=[channel],
+                registry=registry,
+                tz=self._tz,
+                now=now,
+                category=self.config.name,
+                item_specs=[entry.target_spec] if entry.target_spec else None,
+                directory=self._channel_directory,
+                ledger=self._delivery_ledger,
+            )
+            reports.extend(entry_reports)
+            ts = now.timestamp()
+            if any(report.ok for report in entry_reports):
+                self._retry_ledger.mark_delivered(entry.entry_id, now=ts)
+            elif not entry_reports:
+                # 同槽位防重发拦截:该条目已在本槽位成功投出(重投晚到),使命完成。
+                self._retry_ledger.mark_delivered(entry.entry_id, now=ts)
+            elif all(report.skipped for report in entry_reports):
+                self._retry_ledger.abandon(
+                    entry.entry_id, "重投被终态跳过(死信/对象未解析)", now=ts
+                )
+            else:
+                errors = "; ".join(filter(None, (report.error for report in entry_reports)))
+                self._retry_ledger.mark_failed(entry.entry_id, errors or "重投失败", now=ts)
+        return reports
 
     # ------------------------------------------------------------ alert 附加步
     # 告警规则引擎挂点(design §6,PRD 10-04-alert-rules grill Q3):run() 阶段

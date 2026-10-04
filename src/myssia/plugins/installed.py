@@ -170,6 +170,9 @@ class InstalledEntry:
             "compatible_current": self.compatible_current,
             # v1.1 分级(desktop/remote/server-only;manifest 缺失时无从判断)。
             "tier": manifest.tier if manifest else None,
+            # 批二门槛激活策略(paid/trace/platform/stale;未声明 = None 无门槛件;
+            # 启用状态由 gates.yaml 派生,见 myssia.gates.plugin_gate_open)。
+            "gate": manifest.gate if manifest else None,
             "requires": list(manifest.requires) if manifest else [],
             "provides": list(manifest.provides) if manifest else [],
             "modes": manifest.modes.model_dump() if manifest else None,

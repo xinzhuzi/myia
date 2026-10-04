@@ -14,16 +14,33 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
    - v1.2 目标:msi/exe 产物可用(真机安装冒烟,对齐 v1.1.1 的 macOS 验收
      口径:cwd 无关路径解析 + 首跑种子 + 五屏数据/空态)。
    - 开放:主人有无 Windows 真机/VM 做冒烟(拆任务时问)。
+   - **回标(2026-10-05,盘点员)**:**已消号**——归属 `10-04-windows-build`(已归档):
+     CI desktop-release run 37186006759 三作业全绿、**windows-msi 首绿**(2026-10-04,
+     产物 myssia_0.0.1_x64.msi+.sig ASCII);上文「允许失败」为池档过时口径,
+     已被 0378ed3(productName 拆 WiX 非 ASCII 雷)/b0044c5(msi 布局 glob)两轮
+     修复终结;真机安装冒烟七项留主人(wrapup-checklist 档);**本地自助构建链
+     另线在途 `10-05-win-local-build`(in_progress:家庭 Windows 真机 UGit 克隆
+     →复刻 CI 链本地打 MSI→静默安装冒烟)**。上方「现状/开放」小节仅存档备查。
 2. **crawl4ai L3 实装**
    - 现状:`src/myia/engines/crawl4ai.py` 为薄层(~10KB);v0.2 任务
      (10-01-v02-engine-crawl4ai)按其范围已毕,L3 降级档实质缺位。
    - v1.2 目标:真引擎进降级链(L2 失败→L3 接管),extras 可选依赖
      `shishi[crawl4ai]`,测试走录制回放(CI 零外网,Python spec)。
+   - **回标(2026-10-05,盘点员)**:**已消号**——归属 `10-04-crawl4ai-l3`(已归档,
+     2026-10-04 交付 review):真引擎进降级链+首遇终身一次探测/预算 3/30s 帽/
+     aihot 目标(grill 四决议)+探测 fixture 六件+真网双路冒烟;「L3 实质缺位」
+     系池档过时口径(教训在册:选池档任务前先对归档验前提)。
+     extras 现名 `myssia[crawl4ai]`(命名终局 myssia;现路径
+     `src/myssia/engines/crawl4ai.py`)。
 3. **proxy_pool 对接**
    - 现状:fetch_base 有 143 处 proxy 引用,transport 单上游(v0.2 已毕,
      10-01-v02-proxy-transport);池化(轮换/健康检查/住宅 IP)未写。
    - v1.2 目标:池化抽象 + 至少一家服务商实装;**服务商与预算是主人决策**,
      拆任务时先问。
+   - **回标(2026-10-05,盘点员)**:**已消号**——归属 `10-04-proxy-pool`(已归档,
+     f759c87):多上游轮换/被动健康/半开恢复/每池熔断+doctor 逐上游探测
+     (2026-10-04 交付);服务商决策见本档「主人侧前置」节(已答:有);
+     余量「代理池管理面板 UI」在第 6 项远期形态池继续留池。
 4. **B2/B3/B4 桌面补实现**(grill Round 3 Q6:v1.1.1 先改宣称,补实现排 v1.2)
    - 桌面反馈入口(feed 卡片反馈按钮,对应 CLI feedback mark/list/stats)
    - settings 屏反馈开关分区(routes 骨架曾列)

@@ -65,6 +65,8 @@ OFFICIAL_PACKAGES = (
     "myssia-maigret",
     "myssia-theharvester",
     "myssia-urlwatch",
+    "myssia-rsshub",
+    "myssia-spiderfoot",
 )
 
 #: v1.1 定级建议(PRD 10-02-v11-plugins-source-arch 复核表)钉死的期望分级。
@@ -80,6 +82,8 @@ EXPECTED_TIERS = {
     "myssia-maigret": "desktop",
     "myssia-theharvester": "desktop",
     "myssia-urlwatch": "desktop",
+    "myssia-rsshub": "remote",
+    "myssia-spiderfoot": "remote",
 }
 
 

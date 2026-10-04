@@ -1,0 +1,163 @@
+{
+  "dialog": {
+    "path": "/tmp/myia-yaml-repro/home/plugins/games.yaml",
+    "state": {
+      "metrics": {
+        "scroller": {
+          "cls": "cm-scroller",
+          "scrollH": 7419,
+          "clientH": 7419,
+          "offsetH": 7419,
+          "overflowY": "auto",
+          "overflowX": "auto",
+          "height": "7419.11px",
+          "rectH": 7419
+        },
+        "wrap": {
+          "cls": "min-h-0 overflow-hidden rounded-md border border-border bg-background ",
+          "scrollH": 7419,
+          "clientH": 616,
+          "offsetH": 618,
+          "overflowY": "hidden",
+          "overflowX": "hidden",
+          "height": "618px",
+          "rectH": 618
+        },
+        "editor": {
+          "cls": "cm-editor ͼ1 ͼ3 ͼ4 ͼ18 ͼ16 ͼo ͼ17",
+          "scrollH": 7419,
+          "clientH": 7419,
+          "offsetH": 7419,
+          "overflowY": "visible",
+          "overflowX": "visible",
+          "height": "7419.11px",
+          "rectH": 7419
+        },
+        "content": {
+          "cls": "cm-content",
+          "scrollH": 7419,
+          "clientH": 7419,
+          "offsetH": 7419,
+          "overflowY": "visible",
+          "overflowX": "visible",
+          "height": "7419.11px",
+          "rectH": 7419
+        },
+        "scrollOffsets": {
+          "top": 0,
+          "left": 0
+        }
+      },
+      "content_lines": {
+        "count": 39,
+        "head": [
+          "# plugins/games.yaml — official plugin: game deal intelligence (折扣/限免)",
+          "# over four public official APIs — Epic weekly freebies + Steam daily",
+          "# specials + CheapShark multi-store deals(v3, task 10-03-games-v3;source"
+        ],
+        "tail": [
+          "      type: json_path           # 逐元素提取,缺字段省略不错位(无促销元素",
+          "                                # 自然没有 discount_pct)",
+          "      # 条目 URL = 商店页 + slug;占位符在装载期与 fields 交叉校验(拼错即"
+        ]
+      }
+    },
+    "scroll": {
+      "programmatic": {
+        "found": true,
+        "after": 0,
+        "scrollable": false
+      },
+      "wheel_top_after": 0,
+      "pagedown_top_after": 0
+    },
+    "content_match": {
+      "disk_lines": 330,
+      "shown_lines": 39,
+      "head_equal": true,
+      "tail_equal": false,
+      "tail_shown": [
+        "      type: json_path           # 逐元素提取,缺字段省略不错位(无促销元素",
+        "                                # 自然没有 discount_pct)",
+        "      # 条目 URL = 商店页 + slug;占位符在装载期与 fields 交叉校验(拼错即"
+      ],
+      "tail_disk": [
+        "storage:                        # 基线期自动长于条目期:metric_history 按",
+        "  retention: 90d                # 2× retention 保留(周环比至少两个完整窗口)",
+        "  vacuum: monthly"
+      ]
+    }
+  },
+  "screen": {
+    "state": {
+      "metrics": {
+        "scroller": {
+          "cls": "cm-scroller",
+          "scrollH": 7419,
+          "clientH": 7419,
+          "offsetH": 7419,
+          "overflowY": "auto",
+          "overflowX": "auto",
+          "height": "7419.3px",
+          "rectH": 7419
+        },
+        "wrap": {
+          "cls": "min-h-0 overflow-hidden rounded-md border border-border bg-background ",
+          "scrollH": 7419,
+          "clientH": 889,
+          "offsetH": 891,
+          "overflowY": "hidden",
+          "overflowX": "hidden",
+          "height": "891px",
+          "rectH": 891
+        },
+        "editor": {
+          "cls": "cm-editor ͼ1 ͼ3 ͼ4 ͼ18 ͼ16 ͼo ͼ17",
+          "scrollH": 7419,
+          "clientH": 7419,
+          "offsetH": 7419,
+          "overflowY": "visible",
+          "overflowX": "visible",
+          "height": "7419.3px",
+          "rectH": 7419
+        },
+        "content": {
+          "cls": "cm-content",
+          "scrollH": 7419,
+          "clientH": 7419,
+          "offsetH": 7419,
+          "overflowY": "visible",
+          "overflowX": "visible",
+          "height": "7419.3px",
+          "rectH": 7419
+        },
+        "scrollOffsets": {
+          "top": 0,
+          "left": 0
+        }
+      },
+      "content_lines": {
+        "count": 66,
+        "head": [
+          "# plugins/games.yaml — official plugin: game deal intelligence (折扣/限免)",
+          "# over four public official APIs — Epic weekly freebies + Steam daily",
+          "# specials + CheapShark multi-store deals(v3, task 10-03-games-v3;source"
+        ],
+        "tail": [
+          "",
+          "",
+          "  # Steam 每日特惠官方接口(featuredcategories 的 specials 即特惠区,"
+        ]
+      }
+    },
+    "scroll": {
+      "programmatic": {
+        "found": true,
+        "after": 0,
+        "scrollable": false
+      },
+      "wheel_top_after": 0,
+      "pagedown_top_after": 0
+    }
+  }
+}

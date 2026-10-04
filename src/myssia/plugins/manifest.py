@@ -14,6 +14,12 @@
   移出(仅服务端可选部署,如重 Web 服务/不可进程化上游);
 - ``requires`` — 宿主能力要求(封闭词表 :data:`myssia.schema.REQUIRES_TOKENS`,
   当前只有 ``docker``;``requires: docker`` 与 ``[docker]`` 两种写法都收);
+- ``gate`` — 批二门槛机制(D4/D5,task 10-05-plugin-market-batch)的可选
+  **激活策略**字段(缺省不声明 = 无门槛件):``paid`` 付费知情 /
+  ``trace`` 第三方留痕 / ``platform`` 自有实例 / ``stale`` 停更知情。与
+  ``tier`` 正交组合(tier 表传输形态、gate 表激活策略,如 crawlab =
+  ``tier: remote`` + ``gate: platform``);状态开关落全局 ``gates.yaml``
+  (:mod:`myssia.gates`),不落品类 YAML;
 - ``provides`` — 提供的能力名(小写标识符,品类侧与目录索引引用它);
 - ``modes`` — v1.7 双模式:``local``(本机 Docker compose)/ ``remote``
   (endpoint + keychain token 引用)。模型直接复用品类顶层 plugin 节的
@@ -66,6 +72,7 @@ from myssia.schema import (
 )
 
 __all__ = [
+    "GATE_TOKENS",
     "MANIFEST_FILENAME",
     "ManifestAdapterConfig",
     "ManifestInstallConfig",
@@ -85,6 +92,12 @@ _MANIFEST_FILENAMES = (MANIFEST_FILENAME, "plugin.yml")
 #: desktop 桌面默认集(源码/进程内,零 docker)/ remote 桌面可选(已部署
 #: 服务接入)/ server-only 桌面默认集移出(仅服务端可选部署)。
 TIER_TOKENS = ("desktop", "remote", "server-only")
+
+#: 批二门槛激活策略词表(D5,task 10-05-plugin-market-batch):与 TIER_TOKENS
+#: 正交 —— tier 表传输形态、gate 表激活策略。paid=付费知情(按页计费 SaaS)/
+#: trace=第三方留痕(公共实例等)/ platform=自有实例(同物种例外通道)/
+#: stale=停更知情(pin 版自担维护);缺省不声明 = 无门槛件。
+GATE_TOKENS = ("paid", "trace", "platform", "stale")
 
 #: 插件自身版本:语义化版本(主.次.修,允许 pre-release/build 后缀)。
 _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.\-]+)?$")
@@ -189,6 +202,9 @@ class PluginManifest(_StrictManifestModel):
     # v1.1 源码型插件扩展(可选;旧包缺省 None,向后兼容):
     vendor: ManifestVendorConfig | None = None
     adapter: ManifestAdapterConfig | None = None
+    # 批二门槛机制(D5):可选激活策略字段,缺省不声明 = 无门槛件;
+    # 状态派生自全局 gates.yaml(myssia.gates),TIER_TOKENS 三元组不动。
+    gate: str | None = None
 
     @field_validator("id")
     @classmethod
@@ -228,6 +244,18 @@ class PluginManifest(_StrictManifestModel):
                 "invalid_tier",
                 f"tier 取值 {value!r} 不在允许范围 {list(TIER_TOKENS)} 内"
                 "(desktop=桌面默认集 / remote=桌面可选 / server-only=桌面默认集移出)",
+            )
+        return value
+
+    @field_validator("gate")
+    @classmethod
+    def _check_gate(cls, value: str | None) -> str | None:
+        if value is not None and value not in GATE_TOKENS:
+            raise SchemaValueError(
+                "invalid_gate",
+                f"gate 取值 {value!r} 不在允许范围 {list(GATE_TOKENS)} 内"
+                "(paid=付费知情 / trace=第三方留痕 / platform=自有实例 / stale=停更知情;"
+                "缺省不声明=无门槛件;开关配置走全局 gates.yaml,不落品类 YAML)",
             )
         return value
 

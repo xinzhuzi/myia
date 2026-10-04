@@ -438,6 +438,7 @@ findings → 修复动作对照:
 | `keychain_name_noncanonical` | 引用名改为 `myia/<scope>/<name>`,旧值重新 set 后改 YAML |
 | `store_error` | SQLite 库损坏或 schema 版本过新:换 `--db` 路径或删除重建(会丢历史) |
 | 代理类 finding(带 `--config`) | 代理池连不通是 warning;`credential_unresolved`/`invalid_proxy_url` 是 error,修全局配置 |
+| `gate_disabled`(severity=info) | 门槛件(付费/留痕/自有实例/停更)未启用是正常态,不是故障;知情确认后用 `myssia gates set` 逐件开启,付费/平台件需先 `myssia secret set` 写入钥匙串键 |
 
 修复循环:改 YAML → `myssia test --json` 验证提取 → `myssia doctor --json` 直到
 `findings` 清零 → `myssia run --dry-run --json` 演练 → 正式 `run`/`--loop`。

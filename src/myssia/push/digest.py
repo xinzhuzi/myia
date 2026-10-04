@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone, tzinfo
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 from myssia.dedup import SLOT_BOUNDARY_HOUR, DedupRegistry
 from myssia.push.base import (
@@ -36,6 +36,9 @@ from myssia.push.base import (
 from myssia.push.delivery import DeliveryLedger, send_batch_to_targets
 from myssia.push.directory import ChannelDirectory
 from myssia.store import SLOT_AM, SLOT_PM
+
+if TYPE_CHECKING:  # 运行期无环:retry_ledger 单向 import delivery(分类器)
+    from myssia.push.retry_ledger import PushRetryLedger
 
 __all__ = ["DigestAggregator", "PendingDigestItem", "send_immediate"]
 
@@ -68,19 +71,37 @@ def _slot_of(local: datetime) -> str:
     return SLOT_AM if local.hour < SLOT_BOUNDARY_HOUR else SLOT_PM
 
 
-async def _send_via(channel: Channel, items: Sequence[Any], context: SendContext) -> SendReport:
-    """Send through one channel, converting failures into a failed report."""
+async def _send_via(
+    channel: Channel,
+    items: Sequence[Any],
+    context: SendContext,
+    retry_ledger: "PushRetryLedger | None" = None,
+) -> SendReport:
+    """Send through one channel, converting failures into a failed report.
+
+    R1 接线(10-05-push-reliability-batch):``retry_ledger`` 在场且
+    ``context.kind == "immediate"`` 时,失败(非死信/非配置级)入重试账本
+    (at-least-once;门槛与预算由账本自理,digest 留池路径天然被 kind 拦下)。
+    """
     try:
         await channel.send(items, context)
     except PushSendError as exc:
         logger.warning(
             "通道发送失败(继续其余通道): channel=%s code=%s error=%s", channel.name, exc.code, exc
         )
+        if retry_ledger is not None:
+            retry_ledger.enqueue_failure(
+                channel=channel.name, items=items, target_spec=None, error=exc, kind=context.kind
+            )
         return SendReport(channel.name, ok=False, item_count=len(items), error=f"[{exc.code}] {exc}")
     except Exception as exc:  # noqa: BLE001 - 部分失败语义要求隔离未知异常
         logger.error(
             "通道发送未知异常(需要介入): channel=%s error=%s", channel.name, exc, exc_info=True
         )
+        if retry_ledger is not None:
+            retry_ledger.enqueue_failure(
+                channel=channel.name, items=items, target_spec=None, error=exc, kind=context.kind
+            )
         return SendReport(
             channel.name, ok=False, item_count=len(items), error=f"[unexpected] {type(exc).__name__}: {exc}"
         )
@@ -95,18 +116,19 @@ async def _send_via_channel_targets(
     context: SendContext,
     directory: ChannelDirectory | None,
     ledger: DeliveryLedger | None,
+    retry_ledger: "PushRetryLedger | None" = None,
 ) -> list[SendReport]:
     """One batch through every channel:legacy 单卡 or 定向逐对象派发。
 
     ``specs`` 为 None/空 = legacy 路径(每通道一张卡,行为不变);否则经
     :func:`myssia.push.delivery.send_batch_to_targets` 解析→死信过滤→逐对象
     发送。定向条目但 ``directory`` 缺席(管线未接线)按失败报告说破,不
-    静默丢卡。
+    静默丢卡。``retry_ledger`` 透传(R1:immediate 瞬态失败入重试账本)。
     """
     reports: list[SendReport] = []
     for channel in channels:
         if not specs:
-            reports.append(await _send_via(channel, items, context))
+            reports.append(await _send_via(channel, items, context, retry_ledger=retry_ledger))
             continue
         if directory is None:
             logger.error(
@@ -132,6 +154,7 @@ async def _send_via_channel_targets(
                 context=context,
                 directory=directory,
                 ledger=ledger,
+                retry_ledger=retry_ledger,
             )
         )
     return reports
@@ -300,6 +323,7 @@ async def send_immediate(
     item_specs: Sequence[Sequence[str] | None] | None = None,
     directory: ChannelDirectory | None = None,
     ledger: DeliveryLedger | None = None,
+    retry_ledger: "PushRetryLedger | None" = None,
 ) -> list[SendReport]:
     """Push immediate-bucket items right away, one card per item per channel.
 
@@ -311,6 +335,11 @@ async def send_immediate(
     定向条目(10-03-messaging-core):``item_specs`` 与 ``items`` 按位对齐,
     非空 specs 的条目逐对象派发(每对象一张卡);缺省 None/空 = 全 legacy
     路径,行为逐字节不变。``directory`` 在场才启用定向。
+
+    R1 接线(10-05-push-reliability-batch):``retry_ledger`` 在场时,瞬态
+    失败(非死信/非配置级)入投递重试账本(at-least-once;digest 无此忧
+    ——全通道失败有留池)。管线重投冲账复用本函数但不传 ``retry_ledger``
+    (结转由冲账侧统一处理,避免二次入账)。
 
     Returns:
         One :class:`SendReport` per item × channel(定向条目为 item × 对象)。
@@ -337,6 +366,7 @@ async def send_immediate(
             context=context,
             directory=directory,
             ledger=ledger,
+            retry_ledger=retry_ledger,
         )
         reports.extend(item_reports)
         if registry is not None and key and any(report.ok for report in item_reports):

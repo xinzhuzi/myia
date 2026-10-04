@@ -36,10 +36,40 @@ multipart 上传首图换 ``image_key``(同一 tenant token,应用需开
 是被动回信(入站消息自带 reply_to/root 元数据);MYIA 出站-only 无入站
 可依附,是以存量 thread_id 为锚的**主动**话题投递。偏离注记 2:Hermes
 在回复目标失效时回退 ``receive_id_type="thread_id"`` 直发(上游 3759-
-3760 行)——MYIA 不采纳:该 receive_id_type 不在官方成文枚举,且话题群
-直发 create 会**开新话题**(官方行为),静默错位比诚实失败更糟;话题根
-失效按 ``feishu_api_error`` 进死信】。回复端点不收 ``receive_id``/
+3760 行)——MYIA 持续不采纳:该 receive_id_type 不在官方成文枚举。话题
+根失效的处置随 10-05-push-reliability-batch R2 演进:从「按
+``feishu_api_error`` 进死信」升级为**锚失效降级**(见下方「发送护栏」
+节——蓝本 ``_feishu_send_with_retry`` 的 create 兜底分支,与被否决的
+thread_id 直发是两条不同机制)】。回复端点不收 ``receive_id``/
 ``receive_id_type``(路径参数即锚),与 create 路径共用同一卡片组装。
+
+发送护栏(10-05-push-reliability-batch R2,缺口②):蓝本 Hermes
+``FeishuAdapter._feishu_send_with_retry``(``plugins/platforms/feishu/
+adapter.py:3925-3970``,NousResearch/Hermes-Agent,MIT)与
+``MAX_MESSAGE_LENGTH=8000``/``_SPLIT_THRESHOLD=4000`` 常量对(上游
+1293-1295 行)。三件落地(:meth:`FeishuCardChannel._send_with_retry` /
+:func:`_split_item_cards` / :func:`_split_markdown_cards`):
+
+- **瞬态重试**:网络错(``http_error``)/ 5xx·429 状态 / 飞书限流类业务
+  码(:data:`TRANSIENT_API_CODES`)→ 指数退避 ``2**attempt`` 秒,总尝试
+  :data:`SEND_ATTEMPTS` 次;sleeper 构造注入(默认 :func:`asyncio.sleep`,
+  测试钉零等待)。MYIA 刻意收窄:蓝本对**一切**异常重试,MYIA 只认瞬态
+  类——配置错(如 99991663 token 失效)立即失败,交死信/重试账本分类。
+- **话题锚失效降级**:reply 端点应答码 ∈
+  :data:`FEISHU_REPLY_FALLBACK_CODES`(230011/231003,消息被撤回/不存在,
+  蓝本同名常量)→ 丢弃话题锚,改投 create 端点向 chat_id 发新消息;多卡
+  场景降级只做一次(锚已判死,后续卡直发 create,免在话题群里连环开新话
+  题)。【上游护栏「话题内不降级」(metadata.thread_id 在场即跳过降级,
+  上游 3943-3949 行,防 create 开新话题)在 MYIA 无从移植:MYIA 唯一的
+  reply 路径就是话题路径,且协议面无法辨别话题群——按本档 PRD(R2/AC2)
+  裁定投递保真优先,锚失效一律降级并以 warning 留痕(不静默);话题群内
+  降级会开出新话题是已记档的已知代价】
+- **卡片长度护栏**:估算载荷(序列化 JSON 字符数)超
+  :data:`CARD_SPLIT_THRESHOLD`(对齐上游 ``_SPLIT_THRESHOLD=4000`` 的预拆
+  口径:贴近飞书客户端 ~4096 字符分片线)→ 拆多卡发送。拆分不破坏条目
+  完整性:内置布局按**条目**贪心装箱,模板输出按**行**边界切;单条目/
+  单行自身超阈值时独占一卡(不截断——截断会吃条目、硬切会断 lark_md 链
+  接语法;蓝本 8000 硬截断仅适用上游纯文本,卡片版刻意不取)。
 
 Credentials stay references until send time (security baseline: 凭据零明文):
 the bot token comes from ``env:FEISHU_BOT_TOKEN`` (or an injected value for
@@ -58,7 +88,7 @@ import mimetypes
 import re
 import time
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Awaitable, Callable, Mapping, Sequence
 from urllib.parse import quote
 
 import httpx
@@ -82,17 +112,22 @@ from myssia.schema import CredentialResolveError
 __all__ = [
     "API_URL",
     "CAPTION_EXCERPT_CHARS",
+    "CARD_SPLIT_THRESHOLD",
     "CHATS_API_URL",
     "CHATS_MAX_PAGES",
     "CHATS_PAGE_SIZE",
     "DEFAULT_TOKEN_ENV_REF",
     "DIRECT_REF_RE",
+    "FEISHU_REPLY_FALLBACK_CODES",
     "FeishuCardChannel",
     "IMAGES_API_URL",
+    "SEND_ATTEMPTS",
     "TENANT_TOKEN_CACHE",
     "THREAD_ID_RE",
     "TOKEN_API_URL",
     "TOKEN_REFRESH_LEAD_SECONDS",
+    "TRANSIENT_API_CODES",
+    "TRANSIENT_STATUS_CODES",
     "build_card",
     "build_markdown_card",
     "card_title",
@@ -153,6 +188,32 @@ DIRECT_REF_RE = re.compile(
 #: ``om_xxx``/``mt_xxx``,均在其内);不匹配即结构化报错,解析值不回显
 #: (discord 话题同款纪律,10-03-messaging-w3-longtail D1)。
 THREAD_ID_RE = re.compile(r"^[-A-Za-z0-9_]+$")
+
+# --------------------------------------------------------------- 发送护栏(R2)
+
+#: 发送包瞬态重试总尝试次数(10-05-push-reliability-batch R2):网络错 /
+#: 5xx·429 / 飞书限流类应答按 ``2**attempt`` 秒指数退避重试,总尝试本数。
+#: 蓝本锚:Hermes ``_FEISHU_SEND_ATTEMPTS = 3``(``plugins/platforms/feishu/
+#: adapter.py:145``,NousResearch/Hermes-Agent,MIT;重试体见其
+#: ``_feishu_send_with_retry``,上游 3925-3970 行)。
+SEND_ATTEMPTS = 3
+#: reply 端点「锚消息被撤回/不存在」类错误码 → 丢弃话题锚,降级为群内
+#: create 新消息(多卡只降级一次,见 :meth:`FeishuCardChannel._send_with_retry`)。
+#: 蓝本锚:Hermes ``_FEISHU_REPLY_FALLBACK_CODES = frozenset({230011, 231003})``
+#: (上游 adapter.py:188,降级分支 3939-3956;MIT 出处同上)。
+FEISHU_REPLY_FALLBACK_CODES = frozenset({230011, 231003})
+#: 瞬态 HTTP 状态(429 限频 / 5xx 网关抖动;含非 JSON 应答体):退避重试。
+#: MYIA 收窄注记:蓝本对一切异常重试,MYIA 只认瞬态类(配置错快速失败)。
+TRANSIENT_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+#: 飞书限流类业务码:99991400 = too many request(应用级 QPS 频率限制,
+#: 官方错误码);退避后重试通常可自愈。
+TRANSIENT_API_CODES = frozenset({99991400})
+#: 卡片估算载荷拆分阈值(字符数):超线拆多卡,条目完整(见模块 docstring
+#: 「发送护栏」节)。蓝本锚:上游纯文本对 ``MAX_MESSAGE_LENGTH=8000`` 硬截
+#: 断 + ``_SPLIT_THRESHOLD = 4000`` 预拆(上游 adapter.py:1293-1295,注释
+#: 明言 4000 贴近飞书客户端 ~4096 字符分片线使续拆几乎必然);MYIA 卡片
+#: 版不截断只拆分,故单取 4000 预拆线。
+CARD_SPLIT_THRESHOLD = 4000
 
 
 def thread_reply_url(thread_id: str) -> str:
@@ -273,6 +334,97 @@ def _card_shell(
     }
 
 
+def _card_payload_chars(card: Mapping[str, Any]) -> int:
+    """估算载荷 = 序列化 JSON 字符数(``ensure_ascii=False``,中文按 1 字符计,
+    与上游字符口径一致)。阈值判定用,宁保守不精确——真实载荷是 HTTP body
+    字节数(UTF-8 中文 3 字节),字符数低估字节但高估飞书客户端按字符的
+    分片口径,取字符数对齐蓝本语义。
+    """
+    return len(json.dumps(card, ensure_ascii=False))
+
+
+def _split_item_cards(
+    items: Sequence[Any], *, title: str, threshold: int
+) -> list[dict[str, Any]]:
+    """长度护栏(内置布局):条目贪心装箱成多卡,估算载荷 ≤ threshold。
+
+    条目完整性是硬约束:单条目自身超阈值时独占一卡(不截断、不切行,
+    如实超线发送)。装箱估算按「含 footer」的完整卡计算(footer 实际
+    只挂末卡,末卡因此恒在线内,前段卡更小)。
+    """
+    chunks: list[list[Any]] = []
+    current: list[Any] = []
+    for item in items:
+        if current and _card_payload_chars(
+            build_card([*current, item], title=title)  # footer 缺省即 CARD_FOOTER
+        ) > threshold:
+            chunks.append(current)
+            current = [item]
+        else:
+            current.append(item)
+    if current:
+        chunks.append(current)
+    if not chunks:  # 空批次保住占位卡(「本槽位没有待推送条目」,行为不变)
+        chunks = [[]]
+    return [
+        build_card(chunk, title=title, footer=(CARD_FOOTER if index == len(chunks) - 1 else None))
+        for index, chunk in enumerate(chunks)
+    ]
+
+
+def _split_markdown_cards(
+    markdown: str, *, title: str, threshold: int
+) -> list[dict[str, Any]]:
+    """长度护栏(用户模板输出):按行边界切多卡,估算载荷 ≤ threshold。
+
+    行完整性是条目完整性的模板对应物——模板渲染产物无条目结构,行是其
+    最近似的完整单元;单行自身超阈值时独占一卡——lark_md 链接语法可横跨
+    硬切口,绝不硬切(与 telegram 通道的 plain-text 硬切论证不同:那边
+    无 parse_mode)。
+    """
+    lines = markdown.split("\n")
+    chunks: list[list[str]] = []
+    current: list[str] = []
+    for line in lines:
+        if current and _card_payload_chars(
+            build_markdown_card("\n".join([*current, line]), title=title)
+        ) > threshold:
+            chunks.append(current)
+            current = [line]
+        else:
+            current.append(line)
+    if current:
+        chunks.append(current)
+    return [
+        build_markdown_card(
+            "\n".join(chunk),
+            title=title,
+            footer=(CARD_FOOTER if index == len(chunks) - 1 else None),
+        )
+        for index, chunk in enumerate(chunks)
+    ]
+
+
+def _is_transient_send_error(error: PushSendError) -> bool:
+    """发送失败是否瞬态类(可退避重试):网络错 / 5xx·429 状态 / 限流类业务码。
+
+    蓝本对一切异常重试(上游 3958-3969);MYIA 收窄为瞬态类——配置错
+    (99991663 token 失效等)立即失败,交死信/重试账本(R1)按 code 分类。
+    """
+    if error.code == "http_error":
+        return True
+    if getattr(error, "http_status", None) in TRANSIENT_STATUS_CODES:
+        return True
+    return getattr(error, "feishu_code", None) in TRANSIENT_API_CODES
+
+
+def _is_reply_anchor_lost(error: PushSendError) -> bool:
+    """失败是否 reply 端点「锚消息被撤回/不存在」类码(蓝本 fallback codes)。"""
+    return error.code == "feishu_api_error" and (
+        getattr(error, "feishu_code", None) in FEISHU_REPLY_FALLBACK_CODES
+    )
+
+
 class FeishuCardChannel(TrendAwareChannel):
     """``feishu_card`` channel: one POST per message to open.feishu.cn.
 
@@ -296,10 +448,14 @@ class FeishuCardChannel(TrendAwareChannel):
         client: injectable ``httpx.AsyncClient`` (tests mock here); when
             omitted a per-send client is created with ``timeout``.
         timeout: per-send timeout in seconds for the self-managed client.
+        sleep: awaitable backoff sleeper(10-05 R2 发送护栏,构造注入);
+            defaults to :func:`asyncio.sleep`,测试钉零等待。
 
     Raises:
-        PushSendError: credential resolution failed, HTTP transport failed,
-            non-JSON response, or Feishu answered a non-zero ``code``.
+        PushSendError: credential resolution failed, HTTP transport failed
+            after the :data:`SEND_ATTEMPTS` transient-retry budget,
+            non-JSON response, or Feishu answered a non-zero ``code``
+            (配置类码立即失败,不重试)。
     """
 
     name = "feishu_card"
@@ -322,6 +478,7 @@ class FeishuCardChannel(TrendAwareChannel):
         renderer: TemplateRenderer | None = None,
         client: httpx.AsyncClient | None = None,
         timeout: float = DEFAULT_SEND_TIMEOUT_SECONDS,
+        sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         self._target = target
         self._template = template
@@ -329,15 +486,19 @@ class FeishuCardChannel(TrendAwareChannel):
         self._renderer = renderer or TemplateRenderer()
         self._client = client
         self._timeout = timeout
+        self._sleep = sleep
 
     async def send(self, items: Sequence[Any], context: SendContext) -> None:
-        """Render and POST one interactive card carrying ``items``.
+        """Render and POST one or more interactive cards carrying ``items``.
 
         定向优先(``context.target.chat_id`` > legacy ``target`` 引用);
         两条路径都缺席时报 ``missing_target`` 结构化错误(fail-fast,
         绝不猜默认群)。``context.target.thread_id`` 在场即改投话题回复端点
         (root_id 锚定,蓝本锚/偏离注记见模块 docstring「话题定向」节);
-        legacy 路径无话题概念,thread_id 恒 None(行为不变)。
+        legacy 路径无话题概念,thread_id 恒 None(行为不变)。R2 发送护栏:
+        估算载荷超 :data:`CARD_SPLIT_THRESHOLD` 拆多卡(:meth:`_build_cards`),
+        每卡经 :meth:`_send_with_retry` 发送包(瞬态退避 + 话题锚失效降级,
+        降级后后续卡直发 create)。
 
         Raises:
             PushSendError: on any credential/transport/API failure (callers
@@ -354,25 +515,38 @@ class FeishuCardChannel(TrendAwareChannel):
             if context.target is not None
             else None
         )
-        card = self._build_card(items, context)
-        # immediate 带图(看图 v2):先建卡(模板渲染错误在此抛出,零请求
-        # 发出),再尝试附图——上传/降级均在组装层内闭环,不阻投递。
-        card = await self._attach_card_image(token, card, items, context)
-        body = {
-            "receive_id": chat_id,
-            "msg_type": "interactive",
-            "content": json.dumps(card, ensure_ascii=False),
-        }
-        await self._post(token, body, thread_id=thread_id)
+        cards = self._build_cards(items, context)
+        for index, card in enumerate(cards):
+            # immediate 带图(看图 v2):先建卡(模板渲染错误在 _build_cards
+            # 抛出,零请求发出),再尝试附图——上传/降级均在组装层内闭环,
+            # 不阻投递;多卡时图只随首卡(单条目带图与拆卡不同时发生,防御
+            # 性保序)。
+            if index == 0:
+                card = await self._attach_card_image(token, card, items, context)
+            body = {
+                "receive_id": chat_id,
+                "msg_type": "interactive",
+                "content": json.dumps(card, ensure_ascii=False),
+            }
+            thread_id = await self._send_with_retry(token, body, thread_id=thread_id)
         logger.debug(
-            "飞书卡片已提交: slot=%s kind=%s count=%d target=%s",
+            "飞书卡片已提交: cards=%d slot=%s kind=%s count=%d target=%s",
+            len(cards),
             context.slot,
             context.kind,
             len(items),
             context.target,
         )
 
-    def _build_card(self, items: Sequence[Any], context: SendContext) -> dict[str, Any]:
+    def _build_cards(
+        self, items: Sequence[Any], context: SendContext
+    ) -> list[dict[str, Any]]:
+        """组装发送卡(R2 长度护栏):估算载荷超阈值 → 拆多卡。
+
+        内置布局按条目贪心装箱(:func:`_split_item_cards`),用户模板输出按
+        行边界切(:func:`_split_markdown_cards`);不超阈值时单卡,产物与
+        历史单卡逐字节同形(含 footer)。
+        """
         title = card_title(context)
         if self._template is not None:
             # 契约:send 只抛 PushSendError —— 模板渲染失败(未定义变量/沙箱
@@ -386,8 +560,10 @@ class FeishuCardChannel(TrendAwareChannel):
                 raise PushSendError(
                     "template_render_error", f"push[].template 渲染失败: {exc}"
                 ) from exc
-            return build_markdown_card(markdown, title=title)
-        return build_card(items, title=title)
+            return _split_markdown_cards(
+                markdown, title=title, threshold=CARD_SPLIT_THRESHOLD
+            )
+        return _split_item_cards(items, title=title, threshold=CARD_SPLIT_THRESHOLD)
 
     # ------------------------------------------------- immediate 带图(看图 v2)
 
@@ -592,6 +768,52 @@ class FeishuCardChannel(TrendAwareChannel):
         except CredentialResolveError as exc:
             raise PushSendError(exc.code, f"飞书 target 解析失败: {exc}") from exc
 
+    async def _send_with_retry(
+        self, token: str, body: dict[str, Any], *, thread_id: str | None
+    ) -> str | None:
+        """发送包(单卡):瞬态退避重试 + 话题锚失效降级(10-05 R2)。
+
+        蓝本锚:Hermes ``FeishuAdapter._feishu_send_with_retry``
+        (``plugins/platforms/feishu/adapter.py:3925-3970``,NousResearch/
+        Hermes-Agent,MIT)——指数退避 ``2**attempt`` 秒,总尝试
+        :data:`SEND_ATTEMPTS`;reply 应答码命中
+        :data:`FEISHU_REPLY_FALLBACK_CODES`(锚消息被撤回/不存在)即置空
+        锚、改投 create 新消息(蓝本 ``active_reply_to = None`` 后 ``_raw(
+        None)``,降级发送同在本循环的瞬态重试保护内)。MYIA 适配注记见
+        模块 docstring「发送护栏」节。
+
+        Returns:
+            实际生效的话题锚(降级后为 None)——多卡场景后续卡直发
+            create:锚已判死,逐卡再探死锚只会在话题群里连环开新话题。
+        """
+        for attempt in range(SEND_ATTEMPTS):
+            try:
+                await self._post(token, body, thread_id=thread_id)
+            except PushSendError as exc:
+                if thread_id is not None and _is_reply_anchor_lost(exc):
+                    logger.warning(
+                        "飞书话题锚失效(code=%s,消息被撤回/不存在),降级为"
+                        "群内新消息(话题群内会开出新话题,以此留痕不静默): %s",
+                        getattr(exc, "feishu_code", None),
+                        exc,
+                    )
+                    thread_id = None
+                    continue
+                if attempt >= SEND_ATTEMPTS - 1 or not _is_transient_send_error(exc):
+                    raise
+                delay = float(2**attempt)
+                logger.warning(
+                    "飞书发送失败(第 %d/%d 次尝试),%.1fs 后退避重试: %s",
+                    attempt + 1,
+                    SEND_ATTEMPTS,
+                    delay,
+                    exc,
+                )
+                await self._sleep(delay)
+            else:
+                return thread_id
+        raise AssertionError("unreachable: retry loop must return or raise")  # pragma: no cover
+
     async def _post(
         self, token: str, body: dict[str, Any], *, thread_id: str | None = None
     ) -> dict[str, Any]:
@@ -602,12 +824,13 @@ class FeishuCardChannel(TrendAwareChannel):
         话题必须走回复端点,直发 create 会开新话题);回复体只携带
         ``msg_type``/``content``——不收 ``receive_id``/``receive_id_type``
         (路径参数即锚)。蓝本 Hermes ``_send_raw_message`` 的话题分支;
-        偏离注记(不采纳其 create 兜底)见模块 docstring。
+        偏离注记见模块 docstring。单次往返不重试——重试/降级由
+        :meth:`_send_with_retry` 发送包统一持有(R2)。
 
         Raises:
             PushSendError: 话题 id 形态非法(结构化报错,解析值不回显)、
-                HTTP 传输失败、非 JSON 响应或飞书非零 code(话题根失效也
-                走这里——诚实失败进死信,不静默开新话题)。
+                HTTP 传输失败、非 JSON 响应或飞书非零 code(携带结构化
+                ``feishu_code``/``http_status`` 属性,供重试/降级判定)。
         """
         url = API_URL
         params: dict[str, str] | None = None
@@ -653,18 +876,26 @@ class FeishuCardChannel(TrendAwareChannel):
         try:
             data = response.json()
         except ValueError as exc:
-            raise PushSendError(
+            error = PushSendError(
                 "invalid_response",
                 f"飞书响应不是 JSON(HTTP {response.status_code}): {response.text[:200]!r}",
-            ) from exc
+            )
+            # R2:结构化 HTTP 状态(5xx/429 的非 JSON 应答按瞬态退避重试)。
+            error.http_status = response.status_code  # type: ignore[attr-defined]
+            raise error from exc
         if not isinstance(data, Mapping) or data.get("code") != 0:
             code = data.get("code") if isinstance(data, Mapping) else None
             message = (
                 data.get("msg") if isinstance(data, Mapping) else response.text[:200]
             )
-            raise PushSendError(
+            error = PushSendError(
                 "feishu_api_error", f"飞书 API 返回错误: code={code} msg={message}"
             )
+            # R2:结构化数值码 + HTTP 状态,供 :func:`_is_transient_send_error`
+            # (限流退避)与 :func:`_is_reply_anchor_lost`(锚失效降级)判定。
+            error.feishu_code = code if isinstance(code, int) else None  # type: ignore[attr-defined]
+            error.http_status = response.status_code  # type: ignore[attr-defined]
+            raise error
         logger.debug("飞书 API 调用成功")
         return dict(data)
 

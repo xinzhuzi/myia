@@ -36,16 +36,20 @@ import threading
 import time
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from myssia.push.base import Channel, PushSendError, SendContext, SendReport
 from myssia.push.directory import ChannelDirectory
 from myssia.push.targets import ChannelTarget, resolve_all
 
+if TYPE_CHECKING:  # 运行期无环:retry_ledger 单向 import 本模块(分类器)
+    from myssia.push.retry_ledger import PushRetryLedger
+
 __all__ = [
     "LEDGER_FILENAME",
     "classify_dead_error",
     "is_chat_level_not_found",
+    "is_config_send_error",
     "scrub_dead_markers",
     "DeliveryLedger",
     "send_batch_to_targets",
@@ -212,6 +216,19 @@ def classify_dead_error(error: BaseException | str) -> str | None:
     return None
 
 
+def is_config_send_error(error: BaseException | str) -> bool:
+    """配置级错误码判定(10-05-push-reliability-batch R1 接线):True = 加载/
+    解析/凭据引用类问题,修配置才是出路——死信不成立(会话并非不可达),
+    重试也无解(下轮还是同样的错),两类账本都不收。
+
+    与 :func:`classify_dead_error` 的分工:后者把配置级错误归 ``None``
+    (不标死信),本谓词把同一族从「瞬态可重试」里再分出来——重试账本
+    (:mod:`myssia.push.retry_ledger`)据此拒绝入队。
+    """
+    code = getattr(error, "code", None)
+    return isinstance(code, str) and code in _CONFIG_ERROR_CODES
+
+
 #: webhook 型 chat_id 的 URL 前缀判定(10-03-messaging-w3-longtail 复核 C2):
 #: google_chat/teams/mattermost(webhook 路)的 chat_id 是**整条含凭据的
 #: webhook URL**(query 带 key/token/access_token)——这类值摘要化后才允许
@@ -353,6 +370,7 @@ async def send_batch_to_targets(
     directory: ChannelDirectory,
     ledger: DeliveryLedger | None = None,
     platforms: Mapping[str, Any] | None = None,
+    retry_ledger: "PushRetryLedger | None" = None,
 ) -> list[SendReport]:
     """Send one card carrying ``items`` to every target resolved from ``specs``.
 
@@ -360,6 +378,10 @@ async def send_batch_to_targets(
     ``context.target``)→ 成功自愈 / 硬失败标 dead。单对象失败不阻断同批
     其余对象(partial-failure 约定);未解析 spec 与 dead 跳过产出
     ``skipped=True`` 的失败报告(摘要池据此不做无限重试)。
+
+    R1 接线(10-05-push-reliability-batch):``retry_ledger`` 在场且
+    ``context.kind == "immediate"`` 时,瞬态失败(非死信/非配置级)逐对象
+    入重试账本(at-least-once;门槛与预算由账本自理)。
 
     Args:
         items: 本卡携带的条目(digest=整批,immediate=单条)。
@@ -371,6 +393,7 @@ async def send_batch_to_targets(
         ledger: 死信账本;None = 不做死信跟踪(测试/演示)。
         platforms: 平台注册表(直达解析钩子);缺省惰性取
             ``myssia.push.PLATFORMS``。
+        retry_ledger: 投递重试账本(R1);None = 不做 immediate 重试留账。
 
     Returns:
         每对象一份 :class:`SendReport`(未解析 spec 同样计入)。
@@ -406,7 +429,13 @@ async def send_batch_to_targets(
         for exc in errors
     ]
 
-    for target in targets:
+    # 目标↔源 spec 对齐(R1 接线):resolve_all 不回传定位信息;失败 spec
+    # 按值过滤后 zip 对齐保位序(同值 spec 解析结局一致,按值过滤不破坏
+    # 对应关系)——瞬态失败入账时把「源 spec」带给重试条目,重投走原路。
+    failed_specs = {exc.spec for exc in errors}
+    paired_targets = list(zip(targets, (spec for spec in specs if spec not in failed_specs)))
+
+    for target, source_spec in paired_targets:
         if ledger is not None and ledger.is_dead(target):
             # Hermes 同款:dead 跳过 + 结构化日志,不发告警卡;某次成功即自愈。
             logger.info(
@@ -440,6 +469,14 @@ async def send_batch_to_targets(
                     ledger.mark_dead(target, reason=f"{kind}: {str(exc)[:120]}")
                 else:
                     logger.debug("瞬态投递错误,不标死信: target=%s error=%s", target, exc)
+            if retry_ledger is not None:
+                retry_ledger.enqueue_failure(
+                    channel=channel.name,
+                    items=items,
+                    target_spec=source_spec,
+                    error=exc,
+                    kind=context.kind,
+                )
         except Exception as exc:  # noqa: BLE001 - 部分失败语义要求隔离未知异常
             logger.error(
                 "定向发送未知异常(需要介入): channel=%s target=%s error=%s",
@@ -456,6 +493,14 @@ async def send_batch_to_targets(
                     error=f"[unexpected] {type(exc).__name__}: {exc}",
                 )
             )
+            if retry_ledger is not None:
+                retry_ledger.enqueue_failure(
+                    channel=channel.name,
+                    items=items,
+                    target_spec=source_spec,
+                    error=exc,
+                    kind=context.kind,
+                )
         else:
             reports.append(SendReport(channel=channel.name, ok=True, item_count=len(items)))
             if ledger is not None:

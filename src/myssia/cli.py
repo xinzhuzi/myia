@@ -46,6 +46,11 @@ stdout 只有一份纯 JSON(AI 消费路径)。
                 0,发现的问题全部落在 ``findings``(healthy=false)。
 - ``secret``    钥匙链凭据 set/list/delete(薄包装 myssia.secrets;值永不
                 回显、不落日志)。
+- ``gates``     门槛件知情启用 show/set(D4/D7,10-05-plugin-market-batch
+                批二):付费 SaaS/第三方留痕/自有实例/停更分析的激活开关,
+                落全局 gates.yaml(fail-closed:缺失/损坏 = 全关);saas/
+                platforms 逐件 on 需钥匙串键在位,缺键结构化拒(退出码 1);
+                BYO-agent 无桌面时的配置通道。
 - ``plugin``    市场插件装卸:list/install/remove(v0.3,薄包装
                 myssia.plugins;装卸 fail-fast 结构化拒绝,扫描零异常 ——
                 任何插件装不上/配置坏都不拦核心流水线,铁律)。
@@ -100,6 +105,7 @@ import threading
 import time
 import types
 from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import replace as dataclass_replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -134,6 +140,23 @@ from myssia.feedback import (
     load_active_tuning,
     record_feedback,
     resolve_item_ref,
+)
+from myssia.gates import (
+    GATES_KINDS,
+    GatesConfig,
+    PlatformGate,
+    SaaSGate,
+    canonical_saas_key_ref,
+    default_gates_path,
+    load_gates_config,
+    load_gates_fail_closed,
+    plugin_gate_key,
+    plugin_gate_open,
+    replace_analysis_switch,
+    replace_platform_gate,
+    replace_saas_gate,
+    save_gates_config,
+    valid_gate_key,
 )
 from myssia.pipeline import Pipeline, build_cron_trigger
 from myssia.push import PLATFORMS
@@ -358,6 +381,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_list_parser(sub)
     _add_doctor_parser(sub)
     _add_secret_parser(sub)
+    _add_gates_parser(sub)
     _add_plugin_parser(sub)
     _add_channels_parser(sub)
     _add_feedback_parser(sub)
@@ -765,11 +789,12 @@ def _add_doctor_parser(sub: argparse._SubParsersAction) -> None:
     """``myssia doctor``:结构化诊断。"""
     doctor = sub.add_parser(
         "doctor",
-        help="结构化诊断:源状态机/凭据/代理/调度,--json 供 agent 自修",
+        help="结构化诊断:源状态机/凭据/代理/调度/门槛件,--json 供 agent 自修",
         description=(
             "诊断完成即退出 0;发现的问题全部落在 findings(healthy=false)。"
             "覆盖:插件加载(含明文凭据拒载)、源健康度、engine_hints、凭据引用"
-            "(env: 存在性 + keychain: 引用存在性)、代理连通性(--config)、下次触发时间、enrich 预算/缓存。"
+            "(env: 存在性 + keychain: 引用存在性)、代理连通性(--config)、下次触发时间、enrich 预算/缓存;"
+            "市场面门槛件(未启用 = info 级 finding,用户没开是正常态不是故障;坏 gates.yaml = warning)。"
         ),
     )
     doctor.add_argument(
@@ -779,6 +804,16 @@ def _add_doctor_parser(sub: argparse._SubParsersAction) -> None:
         "--plugins-dir",
         default=DEFAULT_PLUGINS_DIR,
         help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR})",
+    )
+    doctor.add_argument(
+        "--dir",
+        default=str(default_install_root()),
+        help="市场插件安装根(门槛件分组扫描;默认 ~/.myia/plugins)",
+    )
+    doctor.add_argument(
+        "--gates-file",
+        default=None,
+        help="gates.yaml 路径(缺省 MYIA_HOME env > ~/.myia/gates.yaml)",
     )
     doctor.add_argument(
         "--db",
@@ -836,6 +871,55 @@ def _add_secret_parser(sub: argparse._SubParsersAction) -> None:
     )
 
 
+def _add_gates_parser(sub: argparse._SubParsersAction) -> None:
+    """``myssia gates``:门槛件知情启用 show / set(D7,照 secret 命令族形状)。"""
+    gates = sub.add_parser(
+        "gates",
+        help="门槛件知情启用:show / set(付费/留痕/自有实例/停更,fail-closed)",
+        description=(
+            "e 路门槛化的配置面(D4):付费 SaaS 引擎、第三方留痕通道、自有实例"
+            "接入、停更分析件的激活开关全部落全局 gates.yaml,永不落品类 YAML"
+            "(AI 生成配置时不可能无意开启付费通道)。fail-closed:文件缺失/损坏"
+            "= 全关 + doctor warning。saas/platforms 逐件 on 需要钥匙串键在位"
+            "(缺键结构化拒,先 myssia secret set 写入);platform 类组织性不执法"
+            "(D6)。退出码只用 0/1(与 secret 族对齐)。"
+        ),
+    )
+    gates_sub = gates.add_subparsers(
+        dest="gates_command", required=True, title="门槛件操作"
+    )
+    show = gates_sub.add_parser("show", help="查看门槛配置(整份配置 + 路径)")
+    show.add_argument(
+        "--file",
+        default=None,
+        help="gates.yaml 路径(缺省 MYIA_HOME env > ~/.myia/gates.yaml)",
+    )
+    show.add_argument(
+        "--json", dest="as_json", action="store_true", help="机器可读输出(单份 JSON,stdout)"
+    )
+    setter = gates_sub.add_parser(
+        "set",
+        help="逐件启停:<kind>.<name> <on|off>(总开关不带 .name)",
+    )
+    setter.add_argument(
+        "target",
+        help=(
+            "目标开关:paid_engines / third_party_trace(总开关)或 "
+            "saas.<name> / platforms.<name> / analysis.<name>(逐件,"
+            "如 saas.zenrows / platforms.crawlab)"
+        ),
+    )
+    setter.add_argument("value", choices=("on", "off"), help="开关值(on / off)")
+    setter.add_argument(
+        "--file",
+        default=None,
+        help="gates.yaml 路径(缺省 MYIA_HOME env > ~/.myia/gates.yaml)",
+    )
+    setter.add_argument(
+        "--json", dest="as_json", action="store_true", help="机器可读输出(单份 JSON,stdout)"
+    )
+
+
 def _add_plugin_parser(sub: argparse._SubParsersAction) -> None:
     """``myssia plugin``:市场插件装卸 list / install / remove(v0.3)。"""
     plugin = sub.add_parser(
@@ -860,6 +944,14 @@ def _add_plugin_parser(sub: argparse._SubParsersAction) -> None:
         "--dir",
         default=str(default_install_root()),
         help="插件安装根(默认 ~/.myia/plugins)",
+    )
+    listing.add_argument(
+        "--gates-file",
+        default=None,
+        help=(
+            "gates.yaml 路径(门槛件分组/启用徽标派生;缺省 MYIA_HOME env > "
+            "~/.myia/gates.yaml;坏文件 = 全关 + 顶层 gates.error)"
+        ),
     )
     listing.add_argument(
         "--probe",
@@ -2990,6 +3082,13 @@ def _print_human_doctor(payload: dict[str, Any]) -> None:
         print(
             f"  代理池 {entry.get('pool')}{which} — {state}{latency} {entry.get('message', '')}"
         )
+    gates = payload.get("gates") or {}
+    if gates.get("error"):
+        first = (gates["error"].get("errors") or [{}])[0]
+        print(f"  门槛配置拒载(已按全关处理):{first.get('message', gates['error'])}")
+    for item in gates.get("gated") or []:
+        state = "已启用" if item["enabled"] else "未启用(正常态,知情后 myssia gates set 可开启)"
+        print(f"  门槛件 {item['id']}[{item['gate']}] — {state}")
     for item in payload["findings"]:
         print(
             f"  [{item['severity']}] {item['scope']} {item['code']}: {item['message']}"
@@ -3030,6 +3129,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     )
     _telegram_poll_conflict_findings(loaded, findings)
     proxy_section = _doctor_proxy(args, backend, findings)
+    gates_section = _doctor_gates(args, findings)
     payload = _doctor_payload(
         args,
         plugins=plugins,
@@ -3037,6 +3137,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
         backend_error=backend_error,
         credential_entries=credential_entries,
         proxy_section=proxy_section,
+        gates_section=gates_section,
         findings=findings,
     )
     if as_json:
@@ -3056,9 +3157,10 @@ def _doctor_payload(
     backend_error: SecretError | None,
     credential_entries: list[dict[str, Any]],
     proxy_section: dict[str, Any],
+    gates_section: dict[str, Any],
     findings: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Assemble the doctor report (healthy = 无 error 级 finding)."""
+    """Assemble the doctor report (healthy = 无 error 级 finding;info 不计病)."""
     errors = sum(1 for item in findings if item["severity"] == "error")
     warnings = sum(1 for item in findings if item["severity"] == "warning")
     return {
@@ -3073,6 +3175,7 @@ def _doctor_payload(
             "entries": credential_entries,
         },
         "proxy": proxy_section,
+        "gates": gates_section,
         "findings": findings,
         "summary": {
             "plugins": len(plugins),
@@ -3166,6 +3269,80 @@ def _doctor_proxy(
     return section
 
 
+#: 门槛类型 → 知情文案(doctor info finding / list 徽标共用;§6.2 三态模板)。
+_GATE_ADVISORIES: dict[str, str] = {
+    "paid": "付费知情:按页计费,你的采集目标清单将经对方服务器并与你的账号绑定",
+    "trace": "第三方留痕:采集目标将经公共实例等第三方服务器",
+    "platform": "自有实例门槛:需自部署实例 endpoint(组织性不执法,不拦 direct_api 源)",
+    "stale": "停更知情:上游已冻结,启用即接受 pin 版自担维护",
+}
+
+
+def _doctor_gates(args: argparse.Namespace, findings: list[dict[str, Any]]) -> dict[str, Any]:
+    """门槛件诊断段:坏 gates.yaml = warning(fail-closed 全关);未启用门槛件 = info。
+
+    词表纪律(§6.2):用户没开门槛件是正常态不是故障 —— ``gate_disabled`` 走
+    **info** 级,与 warning(自动降级的异常)分开;启用后不再产 finding。
+    扫描面 = 市场插件安装根(--dir)里 manifest 声明 ``gate`` 的件。
+    """
+    gates_file = Path(args.gates_file).expanduser() if args.gates_file else default_gates_path()
+    config, gates_error = load_gates_fail_closed(gates_file)
+    section: dict[str, Any] = {
+        "file": str(gates_file),
+        "exists": gates_file.exists(),
+        "error": gates_error,
+        "gated": [],
+    }
+    if gates_error is not None:
+        first = (gates_error.get("errors") or [{}])[0]
+        _finding(
+            findings,
+            severity="warning",
+            scope="gates",
+            code="gates_invalid",
+            message=(
+                f"gates.yaml 拒载,门槛件已按全关处理(fail-closed):"
+                f"{first.get('message', '')};修复后重跑 doctor"
+            ),
+        )
+    try:
+        entries = InstalledPluginStore(args.dir).entries()
+    except Exception as exc:  # noqa: BLE001 - 诊断面任何意外降级为 finding,不炸体检
+        _finding(
+            findings,
+            severity="warning",
+            scope="gates",
+            code="gates_scan_failed",
+            message=f"市场插件扫描失败(门槛诊断跳过): {exc}",
+        )
+        return section
+    for entry in entries:
+        if entry.manifest is None or not entry.manifest.gate:
+            continue
+        gate = entry.manifest.gate
+        enabled = plugin_gate_open(config, gate, entry.manifest.id)
+        section["gated"].append(
+            {
+                "id": entry.manifest.id,
+                "gate": gate,
+                "enabled": enabled,
+            }
+        )
+        if not enabled:
+            advisory = _GATE_ADVISORIES.get(gate, "")
+            _finding(
+                findings,
+                severity="info",
+                scope=f"plugin:{entry.manifest.id}",
+                code="gate_disabled",
+                message=(
+                    f"门槛件 {entry.manifest.id}(gate={gate})未启用 —— 正常态,不是故障;"
+                    f"{advisory};知情后 myssia gates set 可开启"
+                ),
+            )
+    return section
+
+
 # ---------------------------------------------------------------------------
 # myssia secret:钥匙链凭据管理(薄包装 myssia.secrets)
 # ---------------------------------------------------------------------------
@@ -3238,6 +3415,200 @@ def _cmd_secret(args: argparse.Namespace) -> int:
     else:
         print(f"已从系统钥匙链删除 name={payload['name']}")
     return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
+# myssia gates:门槛件知情启用(D4/D7,批二 10-05-plugin-market-batch)
+# ---------------------------------------------------------------------------
+
+
+def _gates_target_parse(target: str) -> tuple[str, str | None]:
+    """解析 ``<kind>`` / ``<kind>.<name>`` 目标;非法形态结构化 ValueError。"""
+    if "." in target:
+        kind, _, name = target.partition(".")
+    else:
+        kind, name = target, None
+    if kind not in GATES_KINDS:
+        raise ValueError(
+            f"未知门槛 kind {kind!r}(合法:{list(GATES_KINDS)};总开关不带 .name,逐件如 saas.zenrows)"
+        )
+    if kind in ("paid_engines", "third_party_trace"):
+        if name is not None:
+            raise ValueError(f"{kind} 是总开关,不带逐件名(收到 {target!r};逐件形态是 saas/platforms/analysis.<name>)")
+        return kind, None
+    if name is None:
+        raise ValueError(f"{kind} 是逐件开关,需要 <kind>.<name> 形态(如 {kind}.zenrows)")
+    if not valid_gate_key(name):
+        raise ValueError(f"逐件名 {name!r} 应为小写字母/数字/连字符/下划线且字母数字开头(1-64 字符)")
+    return kind, name
+
+
+def _gates_keychain_name(config: GatesConfig, kind: str, name: str) -> str | None:
+    """逐件 on 需在位的钥匙串键名;None = 该件不携带凭据(platforms 可无 token)。"""
+    if kind == "saas":
+        gate = config.saas.get(name)
+        ref = gate.api_key_ref if gate is not None else None
+        if ref is None:
+            # 未显式配置引用:用规范缺省名检查,并在成功开启时物化进配置
+            return canonical_saas_key_ref(name).removeprefix("keychain:")
+        return ref.removeprefix("keychain:")
+    if kind == "platforms":
+        gate = config.platforms.get(name)
+        if gate is None or gate.token_ref is None:
+            return None  # platform 组织性不执法(D6):无 token 声明即无可检键
+        return gate.token_ref.removeprefix("keychain:")
+    return None  # analysis / 总开关:纯布尔,无凭据
+
+
+def _gates_check_key(
+    keychain_name: str | None, *, as_json: bool
+) -> bool:
+    """钥匙串键在位检查(缺键/后端不可用 = 结构化拒,fail-closed 不写盘)。"""
+    if keychain_name is None:
+        return True
+    backend = _safe_keychain_backend()
+    if backend is None:
+        _emit_generic_error(
+            "gates",
+            f"钥匙链后端不可用,无法确认凭据 {keychain_name} 在位(fail-closed 拒绝开启);"
+            "无钥匙串的主机请改在有钥匙串的环境启用门槛件",
+            as_json=as_json,
+            code="gate_key_unverifiable",
+        )
+        return False
+    try:
+        exists = backend.get_password(SECRET_SERVICE, keychain_name) is not None
+    except Exception as exc:  # noqa: BLE001 - 钥匙链异常 = 无法核验,不是能开启
+        _emit_generic_error(
+            "gates",
+            f"钥匙链读取失败,无法确认凭据 {keychain_name} 在位({exc})",
+            as_json=as_json,
+            code="gate_key_unverifiable",
+        )
+        return False
+    if not exists:
+        _emit_generic_error(
+            "gates",
+            f"钥匙链中不存在凭据 {keychain_name};先 myssia secret set {keychain_name} 写入,"
+            "再开启本门槛件(付费引擎按页计费,键不在位拒绝开启)",
+            as_json=as_json,
+            code="gate_key_missing",
+        )
+        return False
+    return True
+
+
+def _gates_set(args: argparse.Namespace) -> int:
+    """``myssia gates set <kind>[.<name>] <on|off>``:同门校验 → 键检查 → 原子落盘。"""
+    as_json = args.as_json
+    try:
+        kind, name = _gates_target_parse(args.target)
+    except ValueError as exc:
+        _emit_generic_error("gates", str(exc), as_json=as_json, code="invalid_target")
+        return EXIT_CONFIG_ERROR
+    value = args.value == "on"
+    path = Path(args.file).expanduser() if args.file else default_gates_path()
+    try:
+        config = load_gates_config(path)
+    except LoadError as exc:
+        _emit_generic_error(
+            "gates",
+            f"gates 配置拒载,零写入: {exc.errors[0].message if exc.errors else exc}",
+            as_json=as_json,
+            code="gates_invalid",
+            errors=exc.to_dict().get("errors"),
+        )
+        return EXIT_CONFIG_ERROR
+    # 逐件开启先过钥匙串键在位检查(缺键 = 结构化拒,零写入;总开关/关闭不需键)
+    if value and name is not None:
+        if not _gates_check_key(_gates_keychain_name(config, kind, name), as_json=as_json):
+            return EXIT_CONFIG_ERROR
+    if kind == "paid_engines":
+        config = dataclass_replace(config, paid_engines=value)
+    elif kind == "third_party_trace":
+        config = dataclass_replace(config, third_party_trace=value)
+    elif kind == "saas":
+        existing = config.saas.get(name)
+        api_key_ref = (
+            existing.api_key_ref
+            if existing is not None and existing.api_key_ref
+            else canonical_saas_key_ref(name)
+        )
+        config = replace_saas_gate(config, name, SaaSGate(enabled=value, api_key_ref=api_key_ref))
+    elif kind == "platforms":
+        existing = config.platforms.get(name)
+        config = replace_platform_gate(
+            config,
+            name,
+            PlatformGate(
+                enabled=value,
+                endpoint=existing.endpoint if existing is not None else "",
+                token_ref=existing.token_ref if existing is not None else None,
+            ),
+        )
+    else:
+        config = replace_analysis_switch(config, name, value)
+    save_gates_config(path, config)
+    payload = {
+        "command": "gates",
+        "action": "set",
+        "target": args.target,
+        "kind": kind,
+        "name": name,
+        "value": value,
+        "path": str(path),
+        "config": config.to_payload(),
+    }
+    if as_json:
+        _print_json(payload)
+    else:
+        state = "开启" if value else "关闭"
+        print(f"门槛 {args.target} 已{state}(gates.yaml: {path})")
+    return EXIT_OK
+
+
+def _gates_show(args: argparse.Namespace) -> int:
+    """``myssia gates show``:整份门槛配置 + 路径;坏文件结构化拒(不装作全关)。"""
+    as_json = args.as_json
+    path = Path(args.file).expanduser() if args.file else default_gates_path()
+    try:
+        config = load_gates_config(path)
+    except LoadError as exc:
+        _emit_generic_error(
+            "gates",
+            f"gates 配置拒载: {exc.errors[0].message if exc.errors else exc}",
+            as_json=as_json,
+            code="gates_invalid",
+            errors=exc.to_dict().get("errors"),
+        )
+        return EXIT_CONFIG_ERROR
+    payload = {
+        "command": "gates",
+        "action": "show",
+        "path": str(path),
+        "exists": path.exists(),
+        "config": config.to_payload(),
+    }
+    if as_json:
+        _print_json(payload)
+        return EXIT_OK
+    print(f"门槛配置({path},{'已配置' if payload['exists'] else '未配置 = 全关(fail-closed 缺省)'}):")
+    print(f"  paid_engines={'开' if config.paid_engines else '关'} third_party_trace={'开' if config.third_party_trace else '关'}")
+    for key, gate in sorted(config.saas.items()):
+        print(f"  saas.{key}: {'开' if gate.enabled else '关'}(key={gate.api_key_ref or '未配置'})")
+    for key, gate in sorted(config.platforms.items()):
+        print(f"  platforms.{key}: {'开' if gate.enabled else '关'}(endpoint={gate.endpoint or '未配置'})")
+    for key, value in sorted(config.analysis.items()):
+        print(f"  analysis.{key}: {'开' if value else '关'}")
+    return EXIT_OK
+
+
+def _cmd_gates(args: argparse.Namespace) -> int:
+    """``myssia gates show|set`` 的分发入口(退出码 0/1,照 secret 族)。"""
+    _configure_logging(as_json=args.as_json)
+    if args.gates_command == "set":
+        return _gates_set(args)
+    return _gates_show(args)
 
 
 # ---------------------------------------------------------------------------
@@ -3422,6 +3793,10 @@ def _plugin_list(
 
     缺失安装根 = 空清单(未装插件是正常态,不是错误);--probe 显式 opt-in
     remote 端点探测(网络 I/O),探测失败只产 findings,不改退出码。
+
+    批二门槛机制(D4/D5):manifest 声明 ``gate`` 的件独立分组进
+    ``payload["gates"]["gated"]``,每件带 ``enabled`` 徽标(状态派生自
+    gates.yaml,坏文件 = 全关 + 顶层 ``gates.error`` 结构化警告)。
     """
     entries = store.entries()
     if getattr(args, "probe", False):
@@ -3437,6 +3812,28 @@ def _plugin_list(
                     client_factory=_build_async_client,
                 )
             )
+    gates_file = Path(args.gates_file).expanduser() if args.gates_file else default_gates_path()
+    gates_config, gates_error = load_gates_fail_closed(gates_file)
+    plugin_payloads: list[dict[str, Any]] = []
+    gated: list[dict[str, Any]] = []
+    for entry in entries:
+        payload = entry.to_dict()
+        gate = payload.get("gate")
+        if entry.manifest is not None and gate:
+            enabled = plugin_gate_open(gates_config, gate, entry.manifest.id)
+            payload["gate_enabled"] = enabled
+            gated.append(
+                {
+                    "id": entry.manifest.id,
+                    "gate": gate,
+                    # 派生查询键(官方件惯例 = id 去 myssia- 前缀)
+                    "key": plugin_gate_key(entry.manifest.id),
+                    "enabled": enabled,
+                }
+            )
+        else:
+            payload["gate_enabled"] = None
+        plugin_payloads.append(payload)
     tiers: dict[str, int] = {}
     for entry in entries:
         if entry.manifest is not None:
@@ -3446,7 +3843,14 @@ def _plugin_list(
         "action": "list",
         "dir": str(store.root),
         "myssia_version": myssia.__version__,
-        "plugins": [entry.to_dict() for entry in entries],
+        "plugins": plugin_payloads,
+        "gates": {
+            "file": str(gates_file),
+            "exists": gates_file.exists(),
+            # 坏文件 = 全关(fail-closed);错误结构化带回,不是静默吞掉
+            "error": gates_error,
+            "gated": gated,
+        },
         "summary": {
             "installed": sum(1 for entry in entries if entry.manifest is not None),
             "usable": sum(
@@ -3458,6 +3862,9 @@ def _plugin_list(
             ),
             # v1.1 分级计数(desktop/remote/server-only,见 plugins.manifest)。
             "tiers": dict(sorted(tiers.items())),
+            # 批二门槛件计数(已启用/未启用;未启用是正常态,doctor 走 info)
+            "gated_total": len(gated),
+            "gated_enabled": sum(1 for item in gated if item["enabled"]),
             "errors": sum(
                 1
                 for entry in entries
@@ -3490,6 +3897,18 @@ def _print_human_plugin_list(payload: dict[str, Any]) -> None:
     if tiers:
         tier_text = ", ".join(f"{tier}={count}" for tier, count in tiers.items())
         print(f"  分级:{tier_text}")
+    gates = payload.get("gates") or {}
+    if gates.get("error"):
+        # fail-closed:坏文件 = 全关,但必须可见(不是静默吞掉)
+        first = (gates["error"].get("errors") or [{}])[0]
+        print(f"  门槛配置拒载(已按全关处理):{first.get('message', gates['error'])}")
+    gated = gates.get("gated") or []
+    if gated:
+        lines = ", ".join(
+            f"{item['id']}[{item['gate']}]{'已启用' if item['enabled'] else '未启用'}"
+            for item in gated
+        )
+        print(f"  门槛件({len(gated)}):{lines}")
     for plugin in payload["plugins"]:
         if not plugin["loaded"]:
             print(f"  {plugin['path']} — manifest 缺失或损坏")
@@ -3499,8 +3918,13 @@ def _print_human_plugin_list(payload: dict[str, Any]) -> None:
                 if plugin["compatible_current"]
                 else f"不兼容(要求 myssia {plugin['compatible']})"
             )
+            gate_badge = (
+                f"{{{plugin['gate']}:{'开' if plugin['gate_enabled'] else '未启用'}}}"
+                if plugin.get("gate")
+                else ""
+            )
             print(
-                f"  {plugin['id']}@{plugin['version']}[{plugin['tier']}]({plugin['name']}){compatibility}"
+                f"  {plugin['id']}@{plugin['version']}[{plugin['tier']}]({plugin['name']}){compatibility}{gate_badge}"
                 f" requires={plugin['requires']} provides={plugin['provides']}"
             )
         for finding in plugin["findings"]:
@@ -5100,6 +5524,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "list": _cmd_list,
         "doctor": _cmd_doctor,
         "secret": _cmd_secret,
+        "gates": _cmd_gates,
         "plugin": _cmd_plugin,
         "channels": _cmd_channels,
         "feedback": _cmd_feedback,

@@ -409,6 +409,7 @@ from myssia.schema import (
     load_category,
     load_category_file,
 )
+from myssia.gates import GATES_FILE_NAME
 from myssia.secrets import SecretError, delete_secret, list_secrets, set_secret
 from myssia.store import FEEDBACK_CHANNEL_DESKTOP, SQLiteStore, StoreSchemaError
 from myssia.store.models import AlertRule
@@ -776,9 +777,15 @@ def _m_plugins_list(params: dict[str, Any]) -> dict[str, Any]:
 
     ``dir`` 缺省走 serve 上下文安装根(home 模式 = ``MYIA_PLUGIN_DIR`` env
     否则 ``<home>/plugins``;市场面首跑合法为空,design.md D7)。
+    ``gates_file`` 缺省走 gates.yaml 上下文路径(门槛件分组/徽标派生,
+    批二 D4;显式 params 永远赢)。
     """
     ctx = _serve_context()
-    argv = ["plugin", "list", "--json", "--dir", str(params.get("dir") or ctx.install_root)]
+    argv = [
+        "plugin", "list", "--json",
+        "--dir", str(params.get("dir") or ctx.install_root),
+        "--gates-file", str(params.get("gates_file") or _gates_yaml_path(ctx)),
+    ]
     code, payload = _cli_json(argv)
     if code != 0:
         raise _cli_error(code, payload)
@@ -795,6 +802,8 @@ def _m_doctor(params: dict[str, Any]) -> dict[str, Any]:
         argv.append(str(yaml_path))
     argv += ["--plugins-dir", str(params.get("plugins_dir") or ctx.plugins_dir)]
     argv += ["--db", str(params.get("db") or ctx.db)]
+    argv += ["--dir", str(params.get("dir") or ctx.install_root)]
+    argv += ["--gates-file", str(params.get("gates_file") or _gates_yaml_path(ctx))]
     if params.get("config"):
         argv += ["--config", str(params["config"])]
     if params.get("probe_timeout") is not None:
@@ -3058,6 +3067,17 @@ def _m_logs_tail(params: dict[str, Any]) -> dict[str, Any]:
 def _vision_yaml_path(ctx: ServeContext) -> Path:
     """vision.yaml 路径:home 模式落数据根;dev 回退 cwd 相对(与 db/plugins 同约)。"""
     return ctx.home / VISION_FILE_NAME if ctx.home is not None else Path(VISION_FILE_NAME)
+
+
+def _gates_yaml_path(ctx: ServeContext) -> Path:
+    """gates.yaml 路径:与 vision.yaml 同位(home 模式落数据根;dev 回退 cwd 相对)。
+
+    门槛件知情启用配置(10-05-plugin-market-batch 批二 D4):plugins.list 的
+    分组徽标 / doctor 的门槛 findings / 设置面 gates.get/save(批二第 11 步)
+    共用本路径,解析挂 ``_serve_context`` 优先级链(显式 params > MYIA_HOME
+    env > bundle 探测 > dev cwd)。
+    """
+    return ctx.home / GATES_FILE_NAME if ctx.home is not None else Path(GATES_FILE_NAME)
 
 
 def _load_vision(ctx: ServeContext) -> VisionConfig:
