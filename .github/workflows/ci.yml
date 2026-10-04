@@ -41,6 +41,8 @@ jobs:
       - name: Install UI dependencies
         run: npm ci --no-fund --no-audit
       - name: Run UI component tests (5 screens)
+        env:
+          TZ: Asia/Shanghai  # 与 test job 同口径:相对时间/排程类断言按 +08 编写
         run: npm test
       - name: Type-check and build (tsc -b && vite build)
         run: npm run build

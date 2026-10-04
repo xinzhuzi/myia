@@ -24,7 +24,7 @@ function healthOf(pluginIds: { id: string | null; name: string | null }[]): Heal
   return {
     command: "list",
     plugins_dir: "/home/plugins",
-    db: "/home/myia.db",
+    db: "/home/myssia.db",
     store_error: null,
     plugins: pluginIds.map((entry, index) => ({
       file: `/home/plugins/${entry.id ?? `broken-${index}`}.yaml`,
@@ -45,7 +45,7 @@ function healthOf(pluginIds: { id: string | null; name: string | null }[]): Heal
 }
 
 beforeEach(() => {
-  mocks.version.mockResolvedValue({ name: "shishi", version: "1.1.1", protocol: 3 });
+  mocks.version.mockResolvedValue({ name: "myssia", version: "1.1.1", protocol: 3 });
   mocks.listen.mockResolvedValue(() => undefined);
   mocks.invoke.mockResolvedValue({ restarted: true });
   // Radix Select 高亮滚动 jsdom 未实现,补 stub(真实浏览器原生)
@@ -140,12 +140,4 @@ describe("TopBar 壳层件(D4:面包屑+全局命令位)", () => {
     expect(within(nav).queryByText("采集")).toBeNull();
   });
 
-  it("全局命令位留白:预留位存在(占位文案+快捷键提示),非交互", () => {
-    renderTopBar();
-    const slot = screen.getByTitle("全局命令位:命令面板属后续版本,此处仅预留位置");
-    expect(slot.getAttribute("aria-hidden")).toBe("true");
-    expect(slot.textContent).toContain("搜索或跳转…");
-    // 快捷键文案只做视觉锚点(mac ⌘K / 其余 Ctrl K,按运行平台)
-    expect(/⌘K|Ctrl K/.test(slot.textContent ?? "")).toBe(true);
-  });
 });

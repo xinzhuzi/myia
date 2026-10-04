@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ChevronRight, Search } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
+import { CommandPalette } from "@/components/layout/command-palette";
 import { GlobalRun } from "@/components/layout/global-run";
 import { resolveNav } from "@/components/layout/sidebar";
 import {
@@ -36,6 +37,7 @@ export function TopBar({
   onCategoryChange: (next: string | null) => void;
 }) {
   const [options, setOptions] = useState<CategoryOption[]>([]);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +95,30 @@ export function TopBar({
       </div>
 
       <GlobalRun category={category} />
-      <CommandSlot />
+
+      {/* 全局命令位:⌘K 命令面板真触发器(D4 留位 → interaction-batch A-cmd) */}
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={paletteOpen}
+        aria-label="打开命令面板"
+        title="命令面板(⌘K:导航/跑一次/刷新/切品类)"
+        onClick={() => setPaletteOpen(true)}
+        className="flex h-7 w-44 cursor-pointer items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2 text-xs text-muted-foreground/70 outline-none transition-colors duration-(--duration-fast) ease-out-expo hover:border-border hover:bg-muted/50 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
+      >
+        <Search className="size-3 shrink-0" aria-hidden />
+        <span className="flex-1 truncate text-left">搜索或跳转…</span>
+        <kbd className="rounded-sm border border-border/60 bg-muted px-1 font-mono text-2xs leading-4 text-muted-foreground">
+          {COMMAND_KEY}
+        </kbd>
+      </button>
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        category={category}
+        categoryOptions={options}
+        onCategoryChange={onCategoryChange}
+      />
     </header>
   );
 }
@@ -124,21 +149,6 @@ function Breadcrumb() {
 }
 
 /**
- * 全局命令位(D4 明确「留白」):只预留位置与视觉锚点(Linear 顶栏搜索/
- * 命令触发器形态),命令面板属功能件归后续任务,此处非交互、对辅助技术隐藏。
+ * 全局命令位(D4 留位 → A-cmd 真件):触发按钮 + CommandPalette(面板本体
+ * 含 ⌘K 自含监听,品类 options 与切换回调自本组件下传/透传)。
  */
-function CommandSlot() {
-  return (
-    <div
-      aria-hidden
-      title="全局命令位:命令面板属后续版本,此处仅预留位置"
-      className="flex h-7 w-44 select-none items-center gap-1.5 rounded-md border border-border/60 bg-muted/30 px-2 text-xs text-muted-foreground/70"
-    >
-      <Search className="size-3 shrink-0" />
-      <span className="flex-1 truncate">搜索或跳转…</span>
-      <kbd className="rounded-sm border border-border/60 bg-muted px-1 font-mono text-2xs leading-4 text-muted-foreground">
-        {COMMAND_KEY}
-      </kbd>
-    </div>
-  );
-}
