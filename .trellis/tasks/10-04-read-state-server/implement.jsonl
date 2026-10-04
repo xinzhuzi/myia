@@ -1,0 +1,17 @@
+{"file": ".trellis/tasks/10-04-read-state-server/prd.md", "reason": "裁决基准:Grill 决议 Q1-Q4(2026-10-04)逐条钉死——items 三列不建独立表/置位必须按 dedup_key(同键多行同置红线)/一次性导入+服务端 store_meta 旗标+旧键不删/三方法挂 store. 家族/三态一次全迁/starred 不豁免剪枝;Requirements R1-R5 与 AC1-AC10 为验收口径"}
+{"file": ".trellis/tasks/10-04-read-state-server/design.md", "reason": "契约权威:§1 表结构(三列 DDL+idx_items_dedup_key)/§2 迁移(_migrate_v8 幂等草稿)/§3 store 三方法契约(set_item_states 按键置位红线+rowcount 口径/import key 三分+整键覆盖)/§4 协议面(三方法参数校验+keys≤2000+版本实读+1+投影三键连带 feed.export JSONL)/§5 UI 切换(能力门/乐观回滚/title 换全库真话/导入流程)/§6 测试面 10+5 用例/§7 竞速与回滚"}
+{"file": ".trellis/tasks/10-04-read-state-server/implement.md", "reason": "阶段与门禁:步骤 0 开工实读(PROTOCOL_VERSION 实读+1 记录槽/SCHEMA_VERSION=7/_HANDLERS 基线)→ 8 全量门禁;明确不改点(save_item 列清单/CSV 列集/旧通路代码)与不 push 不 task.py 纪律"}
+{"file": "desktop/entry.py", "reason": "协议面主战场:PROTOCOL_VERSION=8(:379,开工实读重取)→+1;_item_dict(:739-787)加三键连带 feed.export JSONL(:940)而 CSV(:934)不动;_m_store_items(:790-806)校验/连接收口风格为三新 handler 模板;_HANDLERS 注册(:4092-4094)store. 家族聚簇"}
+{"file": "src/myia/store/sqlite.py", "reason": "存储主战场:SCHEMA_VERSION=7(:83)→8;_SCHEMA items DDL(:87-121,现仅 idx_url/idx_category)加三列+dedup_key 索引(feedback 先例 :180);_MIGRATIONS(:400-406)挂 _migrate_v8(PRAGMA table_info 幂等,v2 先例 :232-242);get/set_meta(:683-696)旗标现成;cleanup_expired(:1868-1878)剪枝不豁免的语义出处"}
+{"file": "src/myia/store/models.py", "reason": "ItemRecord(:109-125)加 read/starred/later 三 bool 字段(default False);_row_to_item(sqlite.py:452)映射跟进"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "协议档 mirror 对账面:注册表加三方法行+分组注记段追加本批行(含 store.items 投影三键/feed.export JSONL 加法注记)+版本 bump 注记与 hermes-cron 竞速顺延条款(先例 :86-87 alert-rules 批);错误码与 mirror 一致性纪律"}
+{"file": "desktop/ui-src/src/screens/feed/api.ts", "reason": "UI 态层现状:itemKey dedup_key 优先/id: 兜底(:140-144,导入 key 三分的来源);FeedItemState 三态同对象(:157-161);STORAGE_KEY myia.feed.states.v1(:166,导入读+不删);loadFeedStates/saveFeedStates/toggleMarker/setMarkerBulk(:166-230)旧通路保留,statesFromItems 新纯函数的形状对齐面"}
+{"file": "desktop/ui-src/src/screens/feed/feed-screen.tsx", "reason": "切换主战场:markAllRead 定义(:890-902)与批量按钮 title(:1123-1141,「作用域=已加载条目/本地态」注记作废换全库真话);applyFeedFilter 调用点(:903)states 源切换处;toggle 乐观+失败回滚挂点"}
+{"file": "desktop/ui-src/src/lib/api/client.ts", "reason": "RPC 面板:api.version()(:154-155)能力门现成;新增 store.state.mark/mark_all/import 三封装入面板(spec 注册表↔门面对账纪律)"}
+{"file": "desktop/ui-src/src/lib/api/types.ts", "reason": "FeedItem 补 read/starred/later 三可选键(服务端投影消费)+ 三新方法参数/应答类型"}
+{"file": "desktop/ui-src/src/hooks/use-sidecar-status.ts", "reason": "能力门参考:probeVersion/api.version 探测形态(:35-41,直调 api.version 失败即未过门的依据);不引入 hook 依赖的取舍见 design §5.1"}
+{"file": "tests/test_desktop_sidecar_protocol.py", "reason": "协议测试形状:store.items 用例(:390-482)校验风格/rpc 断言模板;本批 10 用例落点(同 dedup_key 多行/mark_all category/import 三形态/幂等旗标/投影三键/版本对账)"}
+{"file": "tests/test_feedback.py", "reason": "迁移测试先例:test_v3_database_migrates_to_v4_preserving_rows(:248)手造旧版库→开库→断言 schema_version/行保留 的形状,v7→v8 用例照抄"}
+{"file": ".trellis/spec/python/error-handling.md", "reason": "store 层 ValueError→协议 invalid_params 的错误模型纪律(设计 §4.6 同款收口)"}
+{"file": ".trellis/spec/python/index.md", "reason": "store/ 层布局与增改边界(:27 SQLite+去重注册表;新方法落 items 节同族聚簇)"}
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "UI 改动纪律:乐观更新/错误呈现/按钮 title 如实文案的既有惯例(feed 屏改动对齐)"}

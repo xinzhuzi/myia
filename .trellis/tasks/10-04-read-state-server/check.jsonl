@@ -1,0 +1,10 @@
+{"file": ".trellis/tasks/10-04-read-state-server/prd.md", "reason": "验收口径=Grill 决议节 Q1-Q4(2026-10-04)逐条核对+AC1-AC10 逐项勾验;红线复述:置位必须按 dedup_key 同键多行同置/旗标必须在服务端 store_meta/旧键不删/mark_all 不收 query/未读过滤全库化不在本批"}
+{"file": ".trellis/tasks/10-04-read-state-server/design.md", "reason": "对账面:§1-§5 逐节核对(三列 NOT NULL DEFAULT 0/_migrate_v8 幂等三连 if/三方法契约与校验/投影三键连带 JSONL/能力门与导入流程);§6 测试面 10+5 用例是否齐落;§7 竞速条款是否在协议档兑现"}
+{"file": ".trellis/tasks/10-04-read-state-server/implement.md", "reason": "门禁核对:步骤 0 实读记录(PROTOCOL_VERSION 实读+1 与 entry.py 现值/档注记三方一致)→ 步骤 8 全量门禁实测输出;不改点清单(save_item/CSV/旧通路)是否被越界"}
+{"file": "desktop/entry.py", "reason": "终检点:PROTOCOL_VERSION 实读值 = 实现时现值+1 且档注记一致;_HANDLERS 三新行与档 mirror 行数对账;_item_dict 三键在位且 CSV csv_columns(:934)未动;import handler 旗标先行(no-op 路径)"}
+{"file": "src/myia/store/sqlite.py", "reason": "终检点:SCHEMA_VERSION=8;_SCHEMA 与 _migrate_v8 双落(两路径同形);idx_items_dedup_key 在位;set_item_states 的 UPDATE 按 dedup_key 不按 id(红线);store_meta 键 feed_state_imported_at 读写"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "mirror 对账:三方法行+store.items 投影注记+feed.export JSONL 加法注记+版本 bump(含 hermes-cron 竞速顺延条款);注册表行数 == _HANDLERS 实数"}
+{"file": "desktop/ui-src/src/screens/feed/feed-screen.tsx", "reason": "终检点:批量按钮 title 为全库真话(无「已加载条目/本地态/未翻页」字样);toggle 乐观+失败回滚;能力门分流(protocol 低/失败走旧通路写 myia.feed.states.v1)"}
+{"file": "desktop/ui-src/src/screens/feed/api.ts", "reason": "终检点:旧键 myia.feed.states.v1 未删(保留回滚路径);导入单请求整 map;statesFromItems 形状与 loadFeedStates 缺省语义对齐"}
+{"file": "tests/test_desktop_sidecar_protocol.py", "reason": "测试面核对:10 用例齐(重点=同 dedup_key 多行同置/v7→v8 迁移行保留/import 三形态含 skipped/幂等 no-op/CSV 列不变);实测命令与输出回填 implement.md 步骤 7"}
+{"file": "desktop/ui-src/src/screens/feed/feed-screen.test.tsx", "reason": "vitest 面核对:能力门分流/乐观回滚/mark_all 全库语义与 title 断言/导入触发(双挂载单发)在案"}

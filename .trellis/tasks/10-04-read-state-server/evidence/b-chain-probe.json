@@ -1,0 +1,128 @@
+{
+  "chain": "隔离 MYIA_HOME 真跑 v7→v8 迁移 + store.state.mark/mark_all/import + 投影/导出",
+  "sandbox_home": "/tmp/myia-qc/home-b",
+  "passed": 24,
+  "total": 24,
+  "results": [
+    {
+      "step": "version.protocol",
+      "ok": true,
+      "detail": "protocol=10(期望 10)"
+    },
+    {
+      "step": "store.items.open",
+      "ok": true,
+      "detail": "count=6"
+    },
+    {
+      "step": "AC1.schema_version=8",
+      "ok": true,
+      "detail": "schema_version=8"
+    },
+    {
+      "step": "AC1.three_columns",
+      "ok": true,
+      "detail": "items 列含三态列=True"
+    },
+    {
+      "step": "AC1.defaults_zero",
+      "ok": true,
+      "detail": "{'read': '0', 'starred': '0', 'later': '0'}"
+    },
+    {
+      "step": "AC1.dedup_index",
+      "ok": true,
+      "detail": "idx=True, non-unique=True"
+    },
+    {
+      "step": "AC1.legacy_rows_unread",
+      "ok": true,
+      "detail": "迁移后非零态行=0(期望 0)"
+    },
+    {
+      "step": "AC2.mark_shared_key",
+      "ok": true,
+      "detail": "updated=2(期望 2)"
+    },
+    {
+      "step": "AC2.shared_rows_both_set",
+      "ok": true,
+      "detail": "两行 read=[(1,), (1,)]"
+    },
+    {
+      "step": "AC2.invalid_marker",
+      "ok": true,
+      "detail": "code=invalid_params"
+    },
+    {
+      "step": "AC2.keys_2001_rejected",
+      "ok": true,
+      "detail": "code=invalid_params"
+    },
+    {
+      "step": "AC3.mark_all_full",
+      "ok": true,
+      "detail": "updated=6(期望 6)"
+    },
+    {
+      "step": "AC3.mark_all_category",
+      "ok": true,
+      "detail": "updated=2(期望 2)"
+    },
+    {
+      "step": "AC3.category_only_tech",
+      "ok": true,
+      "detail": "rows=[('https://old/1', 0), ('https://old/2', 0), ('https://old/3', 1), ('https://old/4', 1), ('https://old/5', 0), ('https://old/6', 0)]"
+    },
+    {
+      "step": "AC4.import_counts",
+      "ok": true,
+      "detail": "result={'imported': 2, 'skipped': 1}"
+    },
+    {
+      "step": "AC4.server_flag",
+      "ok": true,
+      "detail": "feed_state_imported_at=2026-10-04T06:43:11.448152+00:00"
+    },
+    {
+      "step": "AC4.id_mapped_state",
+      "ok": true,
+      "detail": "id:3 → read/starred/later=(1, 1, 0)"
+    },
+    {
+      "step": "AC4.shared_key_both_read",
+      "ok": true,
+      "detail": "同键两行 read=1 计数=2"
+    },
+    {
+      "step": "AC4.second_noop",
+      "ok": true,
+      "detail": "二次 import={'imported': 0, 'skipped': 0}"
+    },
+    {
+      "step": "AC4.noop_not_written",
+      "ok": true,
+      "detail": "二次 import 后 old/6 read=(0,)(期望 0)"
+    },
+    {
+      "step": "AC5.store_items_projection",
+      "ok": true,
+      "detail": "6 条均含三键=True"
+    },
+    {
+      "step": "AC5.export_jsonl",
+      "ok": true,
+      "detail": "JSONL 6 条含三键=True,result={'path': '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-04-read-state-server/evidence/export-probe.jsonl', 'count': 6, 'bytes': 2392}"
+    },
+    {
+      "step": "AC5.export_csv_unchanged",
+      "ok": true,
+      "detail": "CSV 表头无三态列=True: id,first_seen,category,source,title,url,content"
+    },
+    {
+      "step": "AC10.no_read_filter_param",
+      "ok": true,
+      "detail": "带 read 参数 count=6(未知键被忽略,无过滤参数面)"
+    }
+  ]
+}

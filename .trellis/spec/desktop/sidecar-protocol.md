@@ -16,7 +16,7 @@
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 57 行;代码 `_HANDLERS` 现值 57,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 60 行;代码 `_HANDLERS` 现值 60,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -77,6 +77,9 @@
 | 55 | `cron.remove` | `_m_cron_remove` | 删 job 记录 → `{removed, job_id, name}`;output 目录与账本行保留(运行证据)(hermes-cron 批) |
 | 56 | `cron.status` | `_m_cron_status` | ticker 活性快照(F1.6):`{ticker_alive, heartbeat_age_seconds, last_success_age_seconds, last_error, estopped, jobs_total, jobs_enabled, next_due_at}`;心跳新鲜窗 = interval×3+20s(CLI `cron status` 同公式);serve 内置 ticker 起过才活,dev 回退恒 not-alive(hermes-cron 批) |
 | 57 | `cron.runs` | `_m_cron_runs` | 执行账本尾查(`ExecutionLedger.list_executions` 新→旧):`{job?, limit?=20 钳制 [1,500], db?}` → `{count, executions}`;`run_summary_json` 随行解析为 `run_summary`(D10 摘要快照;损坏串如实带 `{raw}`)(hermes-cron 批) |
+| 58 | `store.state.mark` | `_m_store_state_mark` | 按 dedup_key 批量置位读态(G9):`{keys:[dedup_key,…], marker: read\|starred\|later, value, db?}` → `{updated}`(SQLite UPDATE rowcount 口径,匹配行数如实回传含置同值行;同键多行 dated-key 旋转同置,与 localStorage itemKey 语义一致;幂等;keys ≤2000 = 误用防线非容量声明,超限 invalid_params 提示走 mark_all;read-state-server 批) |
+| 59 | `store.state.mark_all` | `_m_store_state_mark_all` | 全库置位(G9「全部标已读」全库语义来源):`{marker, value, category?, db?}` → `{updated}`;category 精确等值与 `list_items` 同参(非 LIKE,不收 query——决议 Q3.2 钉死);缺省 = 全库所有条目含未翻页/未加载;rowcount 口径同 mark(read-state-server 批) |
+| 60 | `store.state.import` | `_m_store_state_import` | localStorage 读态一次性搬迁(G9 Q2 搬迁门):`{states: {<key>: {read?/starred?/later?}}, db?}` → `{imported, skipped}`;key 三分:dedup_key 直配/`id:<n>` 先解析到键/`id:<url>` 及无从解析形态如实计 skipped(已剪枝条目不复活);幂等旗标 = store_meta `feed_state_imported_at`(服务端是唯一真相,webview 清数据击不穿):已设 → `{imported:0, skipped:0}` 不触库,未设 → 导入后落 ISO 时间戳(read-state-server 批) |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+
@@ -103,11 +106,20 @@ cron 排程+手动 run 下 30 天窗可超限、前端聚合会静默失真);协
 hermes-cron 批(task 10-04-hermes-cron B3)新增 9:49-57 `cron.*` 九方法 +
 `cron.skipped`/`cron.completed` 两事件 + serve 内置 cron ticker(见下方契约段);
 协议 v9。
+read-state-server 批(task 10-04-read-state-server,协议件)新增 3:58-60
+`store.state.mark`/`mark_all`/`import`(G9 读态迁服务端三方法;`store.items`
+投影连带补 `read`/`starred`/`later` 三布尔键,feed.export JSONL 同源连带、
+CSV 固定列集不变);协议 v10——竞速条款落地:hermes-cron 已先合入 v9,
+本批开工实读 `PROTOCOL_VERSION`=9 后 +1 = 10(alert-rules 先例,按合入
+顺序定案)。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成
 `(first_seen, id)` 复合游标,成对出现)、`query`(title/content/source 三列
-LIKE NOCASE,%/_ 按字面转义)。旧调用零感知。
+LIKE NOCASE,%/_ 按字面转义)。旧调用零感知。v10(read-state-server 批)起
+`_item_dict` 投影随行带 `read`/`starred`/`later` 三布尔键(G9 读态迁服务端:
+采集管线永不携带读态,置位只走 `store.state.*`;旧 UI 忽略新键零回归);
+`feed.export` JSONL 共用同一投影连带多三键(加法变化),CSV 固定列集不变。
 
 **feed-ux 批三方法参数(task 10-03-feed-ux,契约钉死于任务档 design.md §1)**:
 `feed.export {format: jsonl|csv, path: 绝对路径, category?, query?}` →
@@ -123,7 +135,9 @@ v6(fe-small-batch 批 `feed.enrich`,契约见下段)、v7(alert-rules 批 `alert
 四方法 + `alerts.fired` 事件,契约见下段)、
 v8(desktop-b234 批 `runs.trend` 成功率趋势逐日聚合)、
 v9(hermes-cron 批 `cron.*` 九方法 + `cron.skipped`/`cron.completed` 事件 +
-serve 内置 cron ticker,契约见下段)。
+serve 内置 cron ticker,契约见下段)、
+v10(read-state-server 批 `store.state.*` 三方法 + `store.items` 投影补
+`read`/`starred`/`later` 三键;契约见注册表 58-60 行与 store.items 段注记)。
 
 **vision-v2 批七方法契约(task 10-03-vision-v2;能力实现 `shishi.vision.models` /
 `shishi.vision.server`,重依赖惰性,huggingface-hub 在 extras `shishi[vision]`)**:
@@ -260,6 +274,7 @@ status 取摘要 run 块,账本无行时 summary=null/status 回落成功布尔,
 | 看图模型/服务 | `download_busy` / `ensure_busy`(另复用 `invalid_params`;activate 改写 vision.yaml 失败复用 `image_config_invalid`) | image.models.* / image.server.* 单飞拒绝与参数形状;`VisionModelError`/`VisionServerError` code 透传(delete/activate 走应答错误,download/ensure 走完成事件 error 字段,枚举见上方 vision-v2 契约段;task 10-03-vision-v2) |
 | 告警规则 | `alert_rule_invalid` / `alert_not_found` / `alert_test_no_item`(另复用 `invalid_params` 互斥门/载荷形状、`item_not_found` 的 item_id 形态) | `alerts.save` 某条构造期拒(data `{index, field, reason}`,整批零写入)/ `alerts.delete`·`alerts.test`(rule_id 形态)·`alerts.save`(载荷未知 id)未知 id / `alerts.test` 缺省取材空库(task 10-04-alert-rules;求值错/mute/降级/发送失败 = 非协议错,WARNING 隔离走 logs.tail) |
 | 定时任务 | `cron_category_invalid` / `cron_create_failed` / `cron_edit_failed` / `cron_edit_no_changes` / `cron_resume_failed` / `cron_run_failed` / `cron_ambiguous_job` / `cron_job_not_found`(另复用 `invalid_params` 参数形状/all 与 job 互斥) | `cron.create`/`cron.edit` 品类 YAML 装不上(Q6 早失败,data=LoadError.to_dict)/ `create` 的 schedule 五形态·once 超窗·repeat·paused 自相矛盾(ValueError 原文)/ `edit` 的 schedule 变更解析失败·终态复活拒绝 / `edit` 空更新集 / `resume` 的 recurring 拒 at·once 过窗 / `run` 终态 job 拒绝 / 名字引用重名(data.candidates)/ id 或名字未找到(task 10-04-hermes-cron;与 CLI `myia cron` 同码) |
+| 读态置位 | (仅复用 `invalid_params` + 透传 `store_corrupt`/`schema_version_newer`) | `store.state.mark` 的 keys 非非空数组/含非字符串或空串/超 2000、marker 不在 read/starred/later 枚举、value 非 bool;`store.state.mark_all` 的 marker/value/category 空串;`store.state.import` 的 states 非对象/键非字符串/值非对象/标记键非枚举布尔(task 10-04-read-state-server;参数形状全静态校验,无新业务 code) |
 
 ### 透传族(`exc.code` 动态透传,不在 entry.py 静态出现)
 
@@ -285,5 +300,8 @@ push 层 `PushSendError.code`(`missing_target` / `env_var_missing` /
   `sources.write` 在 `screens/sources/api.ts`、`yaml.*` 在 `screens/yaml-editor/api.ts`、
   `image.config.*` 在 `screens/settings/vision-api.ts`、`channels.*`/`push.write`/
   `bridge.status` 在 `screens/messaging/api.ts` 屏私有封装(invoke 直连,不走共享门面);
-  `cron.*` 九方法暂无任何前端接线(桌面定时任务 UI 屏是 hermes-cron 的 PRD 非目标,
-  另立档;接线时按上表对账)。
+ `cron.*` 九方法暂无任何前端接线(桌面定时任务 UI 屏是 hermes-cron 的 PRD 非目标,
+ 另立档;接线时按上表对账)。
+ `store.state.*` 三方法的前端接线归 10-04-read-state-server 前端件(feed 屏
+ 能力门:`api.version().protocol >= 10` 走服务端态通路,否则原样走旧
+ localStorage 通路——旧 sidecar + 新 UI 组合可用;接线落成后按上表 58-60 行对账)。
