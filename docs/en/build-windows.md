@@ -109,6 +109,29 @@ start "" "C:\Program Files\myssia\MYIA.exe"
 Verify three things: Task Manager shows both `MYIA.exe` and a `myssia-core` process;
 the window renders the dashboard; the `%APPDATA%\MYIA` data directory exists.
 
+(Optional) to smoke-test one level deeper: drop a minimal category into
+`plugins/smoke-local.yaml` (below) before building — after install, the dashboard
+should list the category and the data directory should grow a `myssia.db`, proving
+the whole Python engine chain is alive:
+
+```yaml
+id: smoke-local
+name: Local smoke
+schedule: "*/30 * * * *"
+sources:
+  - name: example-news
+    engine: static_html
+    url: "https://example.com/news"
+    extract:
+      type: list
+      item: "article"
+      fields:
+        title: "h2 a"
+        url: "h2 a@href"
+push:
+  - channel: stdout
+```
+
 ## Common Pitfalls
 
 | # | Symptom | Cause | Fix |

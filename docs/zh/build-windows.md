@@ -96,6 +96,27 @@ start "" "C:\Program Files\myssia\MYIA.exe"
 验证三点:任务管理器里 `MYIA.exe` 与 `myssia-core` 双进程存活;窗口渲染出仪表盘;
 `%APPDATA%\MYIA` 数据目录生成。
 
+(可选)想再深一层冒烟:打包前放一个最小品类(`plugins/smoke-local.yaml`,内容如下),
+装好后仪表盘应列出该品类、数据目录生成 `myssia.db`,即证明 Python 引擎整链存活:
+
+```yaml
+id: smoke-local
+name: 本地冒烟
+schedule: "*/30 * * * *"
+sources:
+  - name: example-news
+    engine: static_html
+    url: "https://example.com/news"
+    extract:
+      type: list
+      item: "article"
+      fields:
+        title: "h2 a"
+        url: "h2 a@href"
+push:
+  - channel: stdout
+```
+
 ## 常见坑速查
 
 | # | 症状 | 原因 | 解法 |
