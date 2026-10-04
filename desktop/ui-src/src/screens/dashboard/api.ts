@@ -43,21 +43,49 @@ export interface DashboardRun {
   durationMs: number | null;
 }
 
-/** 一次仪表盘刷新的原始快照 */
-export interface DashboardData {
-  doctor: DoctorResult;
-  /** 合并后的 run 行(新→旧) */
-  runs: DashboardRun[];
+/** 分区失败条目:局部降级不整屏报废(主人 2026-10-04 目验判例「报错你也不处理」)。 */
+export interface DashboardSectionError {
+  /** 失败的数据分区 */
+  section: "doctor" | "runs" | "registry";
+  error: { code: string; message: string };
 }
 
-/** 历史 20 条 + 内存活跃叠加;并发拉三方法,任一失败即整体拒绝(错误上抛)。 */
+/** 一次仪表盘刷新的原始快照(分区可缺,失败进 sectionErrors) */
+export interface DashboardData {
+  /** doctor 失败时为 null(品类状态/源健康度/告警格降级) */
+  doctor: DoctorResult | null;
+  /** 合并后的 run 行(新→旧);runs.list 失败时仅注册表活跃行,双败为空数组 */
+  runs: DashboardRun[];
+  /** 失败分区清单;三区全败时调用方按整屏错误处理 */
+  sectionErrors: DashboardSectionError[];
+}
+
+function toSectionError(reason: unknown, section: DashboardSectionError["section"]): DashboardSectionError {
+  const err =
+    reason && typeof reason === "object" && "code" in reason
+      ? (reason as { code: string; message?: string })
+      : { code: "transport_error", message: String(reason) };
+  return { section, error: { code: err.code ?? "transport_error", message: String(err.message ?? reason) } };
+}
+
+/** 历史 20 条 + 内存活跃叠加;并发拉三方法,allSettled 分区降级(单区失败不再拖垮整屏)。 */
 export async function loadDashboardData(): Promise<DashboardData> {
-  const [doctor, history, registry] = await Promise.all([
+  const [doctorR, historyR, registryR] = await Promise.allSettled([
     api.doctor(),
     api.runsList({ limit: 20 }),
     api.runStatus(),
   ]);
-  return { doctor, runs: mergeDashboardRuns(history.runs, registry.runs) };
+  const sectionErrors: DashboardSectionError[] = [];
+  const doctor = doctorR.status === "fulfilled" ? doctorR.value : (sectionErrors.push(toSectionError(doctorR.reason, "doctor")), null);
+  const history = historyR.status === "fulfilled" ? historyR.value : (sectionErrors.push(toSectionError(historyR.reason, "runs")), null);
+  const registry = registryR.status === "fulfilled" ? registryR.value : (sectionErrors.push(toSectionError(registryR.reason, "registry")), null);
+  if (history === null && registry !== null) {
+    return { doctor, runs: mergeDashboardRuns([], registry.runs), sectionErrors };
+  }
+  if (history !== null && registry !== null) {
+    return { doctor, runs: mergeDashboardRuns(history.runs, registry.runs), sectionErrors };
+  }
+  return { doctor, runs: [], sectionErrors };
 }
 
 /**
@@ -336,13 +364,14 @@ export function runItemCount(run: DashboardRun): number | null {
 export interface OverviewStats {
   /** 今日采集:store.trend 补零窗口右端(UTC 日口径,与趋势卡一致,不伪称本地时区) */
   todayItems: number | null;
-  /** 活跃源 = 健康度活着(ok + degraded;dead/unknown 不计) */
-  activeSources: number;
-  totalSources: number;
+  /** 活跃源 = 健康度活着(ok + degraded;dead/unknown 不计);doctor 分区失败 = null */
+  activeSources: number | null;
+  /** doctor 分区失败 = null */
+  totalSources: number | null;
   /** 推送成功:今日(UTC)启动的 run 里 stats.push[].ok=true 计数;无数据 = null(不虚构 0) */
   pushOkToday: number | null;
-  /** 告警:doctor findings 总数(error + warning 两级都在内) */
-  alerts: number;
+  /** 告警:doctor findings 总数(error + warning 两级都在内);doctor 分区失败 = null */
+  alerts: number | null;
 }
 
 /** run 的 stats.push[] 里 ok=true 的个数(pipeline.py `stats_dict` 的 push 段) */
@@ -367,21 +396,21 @@ export function utcDateOf(iso: string | null): string | null {
  * 不拖垮整屏;today 显式传入(纯函数可测)。
  */
 export function buildOverviewStats(
-  doctor: DoctorResult,
+  doctor: DoctorResult | null,
   runs: DashboardRun[],
   trend: TrendDay[] | null,
   today: string = utcToday(),
 ): OverviewStats {
-  const health = summarizeSourceHealth(doctor);
+  const health = doctor !== null ? summarizeSourceHealth(doctor) : null;
   const todayRuns = runs.filter((run) => utcDateOf(run.startedAt) === today);
   const trendKnown = trend !== null && trend.length > 0;
   const lastDay = trendKnown ? trend[trend.length - 1] : null;
   return {
     todayItems: lastDay ? lastDay.count : null,
-    activeSources: health.ok + health.degraded,
-    totalSources: health.ok + health.degraded + health.dead + health.unknown,
+    activeSources: health ? health.ok + health.degraded : null,
+    totalSources: health ? health.ok + health.degraded + health.dead + health.unknown : null,
     pushOkToday: todayRuns.length > 0 ? todayRuns.reduce((sum, run) => sum + countPushOk(run), 0) : null,
-    alerts: doctor.findings.length,
+    alerts: doctor !== null ? doctor.findings.length : null,
   };
 }
 

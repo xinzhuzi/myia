@@ -283,7 +283,7 @@ describe("DashboardScreen", () => {
     expect(screen.getByTestId(`recent-run-${nextRunId}`).textContent).toContain("已取消");
   });
 
-  it("sidecar 结构化错误上屏:错误码 + 中文原因,不裸崩", async () => {
+  it("分区失败降级:doctor 挂而 runs 活 → 降级横幅(码+原因+重试指引)+ 其余分区照常渲染,不整屏报废", async () => {
     mockSidecar(
       Promise.reject(
         new SidecarRequestError({
@@ -296,9 +296,32 @@ describe("DashboardScreen", () => {
     );
     render(<DashboardScreen />);
 
-    const banner = await screen.findByTestId("dashboard-error");
+    const banner = await screen.findByTestId("dashboard-section-errors");
     expect(banner.textContent).toContain("config");
     expect(banner.textContent).toContain("品类 YAML 校验失败");
+    expect(banner.textContent).toContain("降级");
+    expect(banner.textContent).toContain("刷新");
+    expect(screen.getByTestId("dashboard-overview")).toBeTruthy();
+    expect(screen.queryByTestId("dashboard-error")).toBeNull();
+  });
+
+  it("internal_error 单区失败 → 人话文案 + mono 码,不裸放 raw code", async () => {
+    mockSidecar(
+      Promise.reject(
+        new SidecarRequestError({
+          code: "internal_error",
+          path: "$",
+          message: "Traceback …",
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    const banner = await screen.findByTestId("dashboard-section-errors");
+    expect(banner.textContent).toContain("核心内部错误");
+    expect(banner.textContent).toContain("internal_error");
+    expect(banner.textContent).not.toContain("Traceback");
   });
 
   it("空态:无品类、无 run 时给引导文案,成功率为 —(不虚构 0%)", async () => {

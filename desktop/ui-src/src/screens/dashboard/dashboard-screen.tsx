@@ -217,6 +217,25 @@ function RecentRunRow({ run }: { run: DashboardRun }) {
   );
 }
 
+/** 常见 sidecar 错误码的人话(主人 2026-10-04 目验判例:raw code 不是给人看的)。 */
+const SIDECAR_ERROR_HINTS: Record<string, string> = {
+  internal_error: "核心内部错误——重试通常可恢复,持续出现请重启应用",
+  sidecar_timeout: "核心响应超时——稍候重试",
+  method_not_found: "核心版本过旧缺此方法——请更新应用",
+  store_schema: "数据库版本不兼容——应用与数据需同版升级",
+  transport_error: "与核心的连接异常——重试或重启应用",
+};
+
+function humanizeSidecarError(code: string, message: string): string {
+  return SIDECAR_ERROR_HINTS[code] ?? message;
+}
+
+const SECTION_LABELS: Record<"doctor" | "runs" | "registry", string> = {
+  doctor: "诊断/源健康度",
+  runs: "历史 run",
+  registry: "进行中 run",
+};
+
 /**
  * 概览条格(teardown-vercel-dashboard #2:小标签 = 大写+弱色,大数字 = tnum
  * 全局已开;value=null 显 — 不虚构)。note = 弱注记(口径说明)。
@@ -335,10 +354,10 @@ export function DashboardScreen() {
     void refreshTrend(windowDays);
   }, [refreshTrend, windowDays]);
 
-  const healthCounts: SourceHealthCounts | null = data ? summarizeSourceHealth(data.doctor) : null;
+  const healthCounts: SourceHealthCounts | null = data?.doctor ? summarizeSourceHealth(data.doctor) : null;
   const runSummary: RunSuccessSummary | null = data ? summarizeRuns(data.runs) : null;
-  const categories: CategoryCardModel[] = data ? buildCategoryCards(data.doctor) : [];
-  const sourceCards: SourceHealthCardModel[] = data ? buildSourceHealthCards(data.doctor, data.runs) : [];
+  const categories: CategoryCardModel[] = data?.doctor ? buildCategoryCards(data.doctor) : [];
+  const sourceCards: SourceHealthCardModel[] = data?.doctor ? buildSourceHealthCards(data.doctor, data.runs) : [];
   const overview: OverviewStats | null = data
     ? buildOverviewStats(data.doctor, data.runs, trend, utcToday())
     : null;
@@ -373,10 +392,27 @@ export function DashboardScreen() {
         <div className="px-6">
           <Card data-testid="dashboard-error">
             <CardContent className="pt-1">
-              <p className="text-sm font-medium text-destructive">
-                仪表盘数据不可用(sidecar 错误码 {error.code})
+              <p className="text-sm font-medium text-destructive">仪表盘数据不可用</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {humanizeSidecarError(error.code, error.message)}
+                <span className="ml-1 font-mono">[{error.code}]</span>
+                ——点右上「刷新」重试
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">{error.message}</p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : data !== null && data.sectionErrors.length > 0 ? (
+        <div className="px-6">
+          <Card data-testid="dashboard-section-errors">
+            <CardContent className="pt-1">
+              <p className="text-sm font-medium text-warning">部分数据不可用,已降级显示其余分区</p>
+              {data.sectionErrors.map((sectionError) => (
+                <p key={sectionError.section} className="mt-1 text-xs text-muted-foreground">
+                  {SECTION_LABELS[sectionError.section]}:{humanizeSidecarError(sectionError.error.code, sectionError.error.message)}
+                  <span className="ml-1 font-mono">[{sectionError.error.code}]</span>
+                </p>
+              ))}
+              <p className="mt-1 text-xs text-muted-foreground">点右上「刷新」重试失败分区。</p>
             </CardContent>
           </Card>
         </div>
@@ -406,7 +442,7 @@ export function DashboardScreen() {
                     testid="stat-active-sources"
                     label="活跃源"
                     value={overview.activeSources}
-                    note={`共 ${overview.totalSources} 源 · ok+degraded`}
+                    note={overview.totalSources === null ? "诊断不可达 · doctor 分区失败" : `共 ${overview.totalSources} 源 · ok+degraded`}
                   />
                   <StatCell
                     testid="stat-push-success"
@@ -419,7 +455,7 @@ export function DashboardScreen() {
                     label="告警"
                     value={overview.alerts}
                     note="doctor error+warning 发现"
-                    destructive={overview.alerts > 0}
+                    destructive={(overview.alerts ?? 0) > 0}
                   />
                 </>
               )}
