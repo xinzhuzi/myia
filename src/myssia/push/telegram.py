@@ -54,11 +54,12 @@ from myssia.push.base import (
     clip_text,
     item_images,
     item_view,
+    resolve_channel_credential,
 )
 from myssia.push.feishu_card import card_title
 from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
 from myssia.push.templates import TemplateRenderError, TemplateRenderer
-from myssia.schema import CredentialResolveError, resolve_credential
+from myssia.schema import CredentialResolveError
 
 __all__ = [
     "CAPTION_LIMIT",
@@ -353,7 +354,11 @@ class TelegramChannel(TrendAwareChannel):
         if self._token is not None:
             return self._token
         try:
-            return resolve_credential(DEFAULT_TOKEN_ENV_REF)
+            # 10-05-push-credential-journey:env 缺失回退钥匙链规范名
+            # myia/push/TELEGRAM_BOT_TOKEN(设置→推送 表单存入位)。
+            return resolve_channel_credential(
+                DEFAULT_TOKEN_ENV_REF, env_key="TELEGRAM_BOT_TOKEN", label="telegram bot token"
+            )
         except CredentialResolveError as exc:
             raise PushSendError(exc.code, f"telegram bot 凭据解析失败: {exc}") from exc
 
@@ -428,7 +433,12 @@ class TelegramChannel(TrendAwareChannel):
 
     def _resolve_chat_id(self) -> str:
         try:
-            return resolve_credential(self._target or DEFAULT_TARGET_ENV_REF)
+            # 同 token:env 缺失回退 myia/push/TELEGRAM_CHAT_ID(设置→推送)。
+            return resolve_channel_credential(
+                self._target or DEFAULT_TARGET_ENV_REF,
+                env_key="TELEGRAM_CHAT_ID",
+                label="telegram 推送会话 chat_id",
+            )
         except CredentialResolveError as exc:
             raise PushSendError(exc.code, f"telegram target 解析失败: {exc}") from exc
 

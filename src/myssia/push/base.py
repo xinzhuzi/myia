@@ -27,6 +27,8 @@ from typing import (
     runtime_checkable,
 )
 
+from myssia import secrets as secrets_store
+from myssia.schema import CredentialResolveError, resolve_credential
 from myssia.store import PUSH_SLOTS
 
 if TYPE_CHECKING:  # 运行期无环:targets 仅作类型标注(base ← targets 单向)
@@ -42,6 +44,7 @@ __all__ = [
     "Channel",
     "also_seen_list",
     "clip_text",
+    "resolve_channel_credential",
     "item_images",
     "item_view",
 ]
@@ -270,6 +273,45 @@ def clip_text(text: str, limit: int, *, ellipsis: str = "…") -> str:
     if len(text) <= limit:
         return text
     return text[: limit - len(ellipsis)] + ellipsis
+
+
+def resolve_channel_credential(reference: str, *, env_key: str, label: str) -> str:
+    """通道凭据解析:显式引用优先,``env:`` 缺失时回退钥匙链规范名。
+
+    10-05-push-credential-journey:品类 YAML 的 ``env:`` 引用在 GUI 桌面
+    (不读 shell 环境)原本必炸 ``env_var_missing``——设置屏推送表单把
+    凭据存进钥匙链规范名 ``myia/push/<ENV_KEY>``(叶名=环境变量名,
+    ``matchSecretNames`` 同口径),本 helper 把两条路接通:
+
+    1. 按引用原样解析(``env:``/``keychain:``;显式 ``keychain:`` 语义
+       零变化,任何非 env 缺失的失败原样上抛);
+    2. 仅当 ``env:`` 引用因 ``env_var_missing`` 失败 → 读
+       ``myia/push/<env_key>``;未录/无钥匙链后端 → 维持
+       ``env_var_missing`` 码,文案指引「设置→推送」。
+
+    Args:
+        reference: 通道默认或用户 YAML 写的凭据引用。
+        env_key: 该凭据位的环境变量名(回退键 ``myia/push/<env_key>``)。
+        label: 错误文案里的凭据位人话名(如「飞书 bot 令牌」)。
+
+    Raises:
+        CredentialResolveError: 同 :func:`myssia.schema.resolve_credential`;
+            env 缺失且回退未录时为 ``env_var_missing``(含设置→推送指引)。
+    """
+    try:
+        return resolve_credential(reference)
+    except CredentialResolveError as exc:
+        if exc.code != "env_var_missing":
+            raise
+        fallback_name = f"myia/push/{env_key}"
+        try:
+            return secrets_store.get_secret(fallback_name)
+        except secrets_store.SecretError:
+            raise CredentialResolveError(
+                "env_var_missing",
+                f"环境变量 {env_key} 未设置,钥匙链规范名 {fallback_name} 亦未录入;"
+                f"到 设置→推送 填一次即可(或设置环境变量 {env_key})——{label}",
+            ) from exc
 
 
 @dataclass(frozen=True)

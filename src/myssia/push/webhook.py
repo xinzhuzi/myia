@@ -31,9 +31,10 @@ from myssia.push.base import (
     SendContext,
     TrendAwareChannel,
     item_view,
+    resolve_channel_credential,
 )
 from myssia.push.templates import TemplateRenderError, TemplateRenderer
-from myssia.schema import CredentialResolveError, resolve_credential
+from myssia.schema import CredentialResolveError
 
 __all__ = [
     "BACKOFF_CAP_SECONDS",
@@ -172,7 +173,11 @@ class WebhookChannel(TrendAwareChannel):
     def _resolve_endpoint(self) -> str:
         reference = self._target or DEFAULT_ENDPOINT_ENV_REF
         try:
-            resolved = resolve_credential(reference)
+            # 10-05-push-credential-journey:env 缺失回退钥匙链规范名
+            # myia/push/MYIA_WEBHOOK_URL(设置→推送 表单存入位)。
+            resolved = resolve_channel_credential(
+                reference, env_key="MYIA_WEBHOOK_URL", label="webhook 接收端点"
+            )
         except CredentialResolveError as exc:
             raise PushSendError(exc.code, f"webhook 端点凭据解析失败: {exc}") from exc
         endpoint = resolved.strip()

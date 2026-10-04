@@ -56,6 +56,7 @@ import json
 import logging
 import mimetypes
 import re
+import time
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 from urllib.parse import quote
@@ -71,11 +72,12 @@ from myssia.push.base import (
     clip_text,
     item_images,
     item_view,
+    resolve_channel_credential,
 )
 from myssia.push.directory import ChannelEntry
 from myssia.push.targets import ChannelTarget
 from myssia.push.templates import TemplateRenderError, TemplateRenderer
-from myssia.schema import CredentialResolveError, resolve_credential
+from myssia.schema import CredentialResolveError
 
 __all__ = [
     "API_URL",
@@ -87,7 +89,10 @@ __all__ = [
     "DIRECT_REF_RE",
     "FeishuCardChannel",
     "IMAGES_API_URL",
+    "TENANT_TOKEN_CACHE",
     "THREAD_ID_RE",
+    "TOKEN_API_URL",
+    "TOKEN_REFRESH_LEAD_SECONDS",
     "build_card",
     "build_markdown_card",
     "card_title",
@@ -115,6 +120,16 @@ CHATS_PAGE_SIZE = 100
 CHATS_MAX_PAGES = 20
 #: Bot credential reference; the value is a tenant access token.
 DEFAULT_TOKEN_ENV_REF = "env:FEISHU_BOT_TOKEN"
+#: Tenant-token mint endpoint(10-05-push-credential-journey:app_id+app_secret
+#: 自换 token,消灭「curl 手工换 + 每 2 小时续命」;凭据位 = 设置→推送
+#: 表单存入的钥匙链规范名 ``myia/push/FEISHU_APP_ID``/``FEISHU_APP_SECRET``
+#: 与 ``env:`` 同键回退解析)。
+TOKEN_API_URL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+#: 缓存失效提前量(秒):expire 减去本值即本地过期线,避免临界命中已失效 token。
+TOKEN_REFRESH_LEAD_SECONDS = 120.0
+#: 进程内 tenant token 缓存:{app_id: (token, expires_at_monotonic)}。
+#: sidecar 常驻进程 2 小时一 mint 足够;重启重 mint 一次可接受(无落盘泄面)。
+TENANT_TOKEN_CACHE: dict[str, tuple[str, float]] = {}
 DEFAULT_HEADER_COLOR = "blue"
 CARD_FOOTER = "MYIA 自动聚合推送 · 条目来自公开论坛分享,注意甄别风险。"
 
@@ -321,7 +336,7 @@ class FeishuCardChannel(TrendAwareChannel):
             PushSendError: on any credential/transport/API failure (callers
                 isolate per channel; nothing is raised on success).
         """
-        token = self._resolve_token()
+        token = await self._obtain_token()
         chat_id = (
             context.target.chat_id
             if context.target is not None
@@ -485,13 +500,76 @@ class FeishuCardChannel(TrendAwareChannel):
             )
         return image_key
 
-    def _resolve_token(self) -> str:
+    async def _obtain_token(self) -> str:
+        """取 tenant access token:注入 → BOT_TOKEN(env→kc 回退)→ app 凭据 mint。
+
+        10-05-push-credential-journey:三级解析——①构造 ``token=`` 注入
+        (测试/显式);②``FEISHU_BOT_TOKEN`` 走
+        :func:`~myssia.push.base.resolve_channel_credential`(显式引用优先,
+        env 缺失回退钥匙链规范名 ``myia/push/FEISHU_BOT_TOKEN``,手工 token
+        用户路径保留);③``FEISHU_APP_ID``+``FEISHU_APP_SECRET``(同一回退)
+        在场则自 mint + 进程缓存(过期前 ``TOKEN_REFRESH_LEAD_SECONDS`` 重
+        mint)。三级全缺 → ``env_var_missing`` 指引设置→推送。
+
+        Raises:
+            PushSendError: 三级全缺(``env_var_missing``)或 mint 失败
+                (``feishu_token_mint_failed``)。
+        """
         if self._token is not None:
             return self._token
         try:
-            return resolve_credential(DEFAULT_TOKEN_ENV_REF)
-        except CredentialResolveError as exc:
-            raise PushSendError(exc.code, f"飞书 bot 凭据解析失败: {exc}") from exc
+            return resolve_channel_credential(
+                DEFAULT_TOKEN_ENV_REF, env_key="FEISHU_BOT_TOKEN", label="飞书 tenant token"
+            )
+        except CredentialResolveError as bot_token_miss:
+            app_id = self._resolve_app_credential("FEISHU_APP_ID")
+            app_secret = self._resolve_app_credential("FEISHU_APP_SECRET")
+            if app_id is None or app_secret is None:
+                raise PushSendError(
+                    bot_token_miss.code,
+                    f"飞书 bot 凭据解析失败: {bot_token_miss}"
+                    "(或录入 FEISHU_APP_ID+FEISHU_APP_SECRET 走自动续期)",
+                ) from bot_token_miss
+        return await self._mint_tenant_token(app_id, app_secret)
+
+    def _resolve_app_credential(self, env_key: str) -> str | None:
+        """App 凭据位解析(env → 钥匙链规范名);缺任一返回 None(交由调用方指引)。"""
+        try:
+            return resolve_channel_credential(
+                f"env:{env_key}", env_key=env_key, label="飞书应用凭据"
+            )
+        except CredentialResolveError:
+            return None
+
+    async def _mint_tenant_token(self, app_id: str, app_secret: str) -> str:
+        """Mint + 缓存 tenant token(模块级缓存按 app_id 分键;提前量失效)。"""
+        cached = TENANT_TOKEN_CACHE.get(app_id)
+        if cached is not None and cached[1] > time.monotonic():
+            return cached[0]
+        body = {"app_id": app_id, "app_secret": app_secret}
+        try:
+            if self._client is not None:
+                response = await self._client.post(TOKEN_API_URL, json=body)
+            else:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
+                    response = await client.post(TOKEN_API_URL, json=body)
+            envelope = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise PushSendError(
+                "feishu_token_mint_failed",
+                f"飞书 tenant token 换取请求失败: {type(exc).__name__}: {exc}",
+            ) from exc
+        token = envelope.get("tenant_access_token")
+        expire = envelope.get("expire")
+        if envelope.get("code") != 0 or not isinstance(token, str) or not token:
+            raise PushSendError(
+                "feishu_token_mint_failed",
+                f"飞书 tenant token 换取应答非零 code 或缺 token: {str(envelope)[:200]!r}"
+                "(核对 app_id/app_secret 与应用发布状态)",
+            )
+        lifetime = expire if isinstance(expire, (int, float)) else 0
+        TENANT_TOKEN_CACHE[app_id] = (token, time.monotonic() + max(lifetime - TOKEN_REFRESH_LEAD_SECONDS, 0.0))
+        return token
 
     def _resolve_target(self) -> str:
         if self._target is None:
@@ -501,7 +579,9 @@ class FeishuCardChannel(TrendAwareChannel):
                 "本次发送也未携带 context.target——两条寻址路径至少一条在场",
             )
         try:
-            return resolve_credential(self._target)
+            return resolve_channel_credential(
+                self._target, env_key="FEISHU_CHAT_ID", label="飞书推送群 chat_id"
+            )
         except CredentialResolveError as exc:
             raise PushSendError(exc.code, f"飞书 target 解析失败: {exc}") from exc
 
@@ -598,7 +678,7 @@ class FeishuCardChannel(TrendAwareChannel):
                 (:meth:`myssia.push.directory.ChannelDirectory.refresh`)按
                 发现失败隔离:告警 + 保留旧桶,不触碰投递死信账本。
         """
-        token = self._resolve_token()
+        token = await self._obtain_token()
         entries: list[ChannelEntry] = []
         page_token: str | None = None
         for page_index in range(CHATS_MAX_PAGES):
