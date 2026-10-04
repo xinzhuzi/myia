@@ -1,0 +1,28 @@
+# myssia-urlwatch — 官方场景件:轻量变更监控(封装 thp/urlwatch)。
+#
+# 上游 urlwatch 为 BSD-3-Clause(2026-10-05 对 2.29 装包源码 license 头
+# 亲核);以 pip 依赖形态经 uv 临时环境(--no-project --with urlwatch)
+# 隔离子进程调用,不 vendor、不复制源码,依赖不进根依赖(核心 6 依赖
+# 红线)。版本不钉(裁定 R-1 同款):监控目标形态千差万别,跟随上游
+# 自更新;测试全 mock,零网络可复现。
+#
+# 桌面路径(desktop 分级):本批交付程序面 adapter.run(urls)——对一组
+# URL 做快照对比(new/changed/unchanged/error 事件 + 统一 diff),快照
+# 缓存落 ~/.myia/urlwatch/cache.db 跨 run 持久;与 myssia-monitor
+# (changedetection.io remote 桩)互补本地零 docker 形态。
+id: myssia-urlwatch
+name: 变更监控(urlwatch)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: desktop
+requires: []
+provides: [change_monitor]
+adapter:
+  entry: adapter.py
+  mode: subprocess
+modes:
+  local:
+    # 纯本地监控件,进程内无服务形态;上游是 CLI 库,无 remote endpoint。
+    install: myssia plugin install plugins/myssia-urlwatch
+install:
+  source: https://github.com/xinzhuzi/myia.git

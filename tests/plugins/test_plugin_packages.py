@@ -1,6 +1,6 @@
-"""官方七件场景件(plugin packages)的封装契约测试(PRD 10-01-v03-plugin-market
+"""官方场景件(plugin packages)的封装契约测试(PRD 10-01-v03-plugin-market
 及其 v1.1 架构转向,PRD 10-02-v11-plugins-source-arch;10-03-aipocket-fusion
-接入线增 myssia-credhunter).
+接入线增 myssia-credhunter;10-05-plugin-market-batch 首批增 media/maigret/urlwatch).
 
 七个 ``plugins/<id>/`` 目录是市场插件包:每包含 ``plugin.yaml``(manifest,
 规范见 :mod:`myssia.plugins.manifest`)+ README + 桌面路径声明。三条被钉住的
@@ -51,7 +51,8 @@ DOCKER_PLUGINS_DIR = REPO_ROOT / "docker" / "plugins"
 #: 官方场景件(目录名 == manifest id)。myssia-credhunter 于
 #: 10-03-aipocket-fusion 接线段加入:进程内三 lane 凭证猎手(desktop);
 #: myssia-media 于 10-05-plugin-market-batch 首批加入:yt-dlp 扁平快扫
-#: (desktop,公域上游 uv 隔离子进程,裁定 R-1 不钉版)。
+#: (desktop,公域上游 uv 隔离子进程,裁定 R-1 不钉版);myssia-urlwatch
+#: 同批加入:轻量变更监控(BSD-3-Clause 上游 uv 隔离子进程,b 路同构)。
 OFFICIAL_PACKAGES = (
     "myssia-proxy",
     "myssia-osint",
@@ -63,6 +64,7 @@ OFFICIAL_PACKAGES = (
     "myssia-media",
     "myssia-maigret",
     "myssia-theharvester",
+    "myssia-urlwatch",
 )
 
 #: v1.1 定级建议(PRD 10-02-v11-plugins-source-arch 复核表)钉死的期望分级。
@@ -77,6 +79,7 @@ EXPECTED_TIERS = {
     "myssia-media": "desktop",
     "myssia-maigret": "desktop",
     "myssia-theharvester": "desktop",
+    "myssia-urlwatch": "desktop",
 }
 
 
@@ -505,6 +508,9 @@ SOURCE_TYPE_PACKAGES = {
     # 10-05-plugin-market-batch 首批:MYIA 侧适配器 + GPL-2.0 上游 submodule
     # 指针目录 vendor/(gitlink,上游代码零入库、零复制;照 myssia-osint 样板)。
     "myssia-theharvester": {"adapter.py", "vendor"},
+    # 10-05-plugin-market-batch 首批:MYIA 侧适配器 + 隔离环境薄 shim 常量
+    # (BSD-3-Clause 上游零 vendored,uv 临时环境经 Python API 结构化取事件)。
+    "myssia-urlwatch": {"adapter.py"},
 }
 
 
