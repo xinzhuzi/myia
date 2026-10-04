@@ -17,4 +17,4 @@ modes:
     endpoint: https://aipocket.example.com   # 你的 aipocket 部署地址占位(RFC 2606 保留域)
     token: keychain:myia/credentials/token   # myssia secret set myia/credentials/token(Bearer)
 install:
-  source: https://github.com/xinzhuzi/myssia.git
+  source: https://github.com/xinzhuzi/myia.git

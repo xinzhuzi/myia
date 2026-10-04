@@ -109,7 +109,7 @@ class TestManifestSchemaEvolution:
             "version": "1.0.0",
             "compatible": ">=0.0.1,<0.1",
             "modes": {"remote": {"endpoint": "https://demo-wrapper.example.com"}},
-            "install": {"source": "https://github.com/xinzhuzi/myssia.git"},
+            "install": {"source": "https://github.com/xinzhuzi/myia.git"},
         }
         data.update(overrides)
         return data

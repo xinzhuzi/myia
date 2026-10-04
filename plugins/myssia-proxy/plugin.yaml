@@ -27,4 +27,4 @@ modes:
   remote:
     endpoint: https://proxy-pool.example.com   # 已部署的 proxy_pool API 占位地址
 install:
-  source: https://github.com/xinzhuzi/myssia.git
+  source: https://github.com/xinzhuzi/myia.git

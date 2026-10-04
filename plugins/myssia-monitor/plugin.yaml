@@ -18,4 +18,4 @@ modes:
     endpoint: https://my-monitor.example.com   # 你的 changedetection.io 实例占位地址
     token: keychain:myia/monitor/token         # myssia secret set myia/monitor/token(上游 X-Api-Key)
 install:
-  source: https://github.com/xinzhuzi/myssia.git
+  source: https://github.com/xinzhuzi/myia.git

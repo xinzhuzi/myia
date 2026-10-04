@@ -74,11 +74,11 @@ Windows job(msi)为**正式交付目标**(10-04-windows-build):不再 `continue-
   "platforms": {
     "darwin-aarch64": {
       "signature": "<myssia.app.tar.gz.sig 文件内容(一行)>",
-      "url": "https://github.com/xinzhuzi/myssia/releases/download/v0.2.0/myssia.app.tar.gz"
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.2.0/myssia.app.tar.gz"
     },
     "windows-x86_64": {
       "signature": "<myssia_0.2.0_x64.msi.sig 内容>",
-      "url": "https://github.com/xinzhuzi/myssia/releases/download/v0.2.0/myssia_0.2.0_x64.msi"
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.2.0/myssia_0.2.0_x64.msi"
     }
   }
 }

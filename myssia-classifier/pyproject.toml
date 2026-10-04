@@ -36,9 +36,9 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/xinzhuzi/myssia"
-Repository = "https://github.com/xinzhuzi/myssia"
-Issues = "https://github.com/xinzhuzi/myssia/issues"
+Homepage = "https://github.com/xinzhuzi/myia"
+Repository = "https://github.com/xinzhuzi/myia"
+Issues = "https://github.com/xinzhuzi/myia/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["myssia_classifier"]

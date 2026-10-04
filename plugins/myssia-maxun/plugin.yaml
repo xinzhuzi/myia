@@ -17,4 +17,4 @@ modes:
     # 上游鉴权为控制台会话(浏览器登录),无稳定 API token 契约,故无 token 声明。
     endpoint: https://maxun.example.com
 install:
-  source: https://github.com/xinzhuzi/myssia.git
+  source: https://github.com/xinzhuzi/myia.git

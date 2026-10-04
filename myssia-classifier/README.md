@@ -15,7 +15,7 @@ myssia 七大类关键词分类引擎,独立 pip 包:零运行时依赖、免费
 
 ## 安装
 
-尚未上架 PyPI;在那之前从 myssia 仓库以 uv workspace 安装(`git clone https://github.com/xinzhuzi/myssia && cd myssia && uv sync`),PyPI 上架后即可 `pip install myssia-classifier`。
+尚未上架 PyPI;在那之前从 myssia 仓库以 uv workspace 安装(`git clone https://github.com/xinzhuzi/myia && cd myssia && uv sync`),PyPI 上架后即可 `pip install myssia-classifier`。
 
 ## 最小示例
 

@@ -16,4 +16,4 @@ modes:
     endpoint: https://douyin-api.example.com
     token: keychain:myia/douyin/token   # myssia secret set myia/douyin/token(上游 X-API-Key)
 install:
-  source: https://github.com/xinzhuzi/myssia.git
+  source: https://github.com/xinzhuzi/myia.git

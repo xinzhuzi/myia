@@ -38,4 +38,4 @@ modes:
   local:
     install: myssia plugin install plugins/myssia-credhunter
 install:
-  source: https://github.com/xinzhuzi/myssia.git
+  source: https://github.com/xinzhuzi/myia.git
