@@ -6,7 +6,7 @@
 > 存在的为准(如 #开源 #独立开发 #AI效率工具,发前搜索确认),勿堆 tag。
 >
 > 终态口径(2026-10-04 实核):定名 myssia(中文名:世事)· GitHub 仓库
-> `xinzhuzi/myia` · PyPI 双包 `myssia` / `myssia-classifier` 登记(主人门禁)
+> `xinzhuzi/myia` · PyPI 双包 `myssia` / `myssia-classifier` 0.0.1 已上线(pip install myssia)
 > 在途——现在不能写 `pip install`;v0.0.1 三形态 = 桌面 dmg(Release)+ Docker
 > 镜像(GHCR)+ PyPI 在途;Windows msi 构建管线已绿但 Release 页无 msi。
 

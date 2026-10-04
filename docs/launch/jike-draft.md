@@ -7,10 +7,10 @@
 > 发前搜索确认),勿堆 tag。
 > 本稿口径是 **v0.0.1 发布后的现实**(`pip install myssia` 直装、Docker 镜像
 > `ghcr.io/xinzhuzi/myia`)——截至本稿写就,仓库 README 仍是旧版 + uv-only
-> 口径、PyPI 双包未上架、v0.0.1 tag 已推送但 Release 页未上线,故硬 gate 里把
+> 口径、PyPI 双包未上架、v0.0.1 tag 已推送但 Release 页未上线,故硬 gate 里把【2026-10-05 更新:双包 0.0.1 已上线,此行过时仅存档】
 > 这些列为发帖前置条件,未满足前**不可发**。
 >
-> **2026-10-04 终态实核**:PyPI 双包仍 404(登记=主人门禁,在途,包名终局
+> **2026-10-04 终态实核**:PyPI 双包仍 404(登记=主人门禁,在途,包名终局【2026-10-05 更新:双包 0.0.1 已上线,此行过时仅存档】
 > `myssia` / `myssia-classifier`);v0.0.1 Release 已上线但资产带旧名前缀
 > (`shishi_0.0.1_aarch64.dmg`,直链以 Release 页为准);Docker 0.0.1 镜像在
 > `ghcr.io/xinzhuzi/shishi:0.0.1`(发布时旧仓名,后续版本在

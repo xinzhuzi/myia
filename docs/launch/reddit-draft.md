@@ -26,11 +26,11 @@
 >
 > 本稿口径是 **v0.0.1 发布后的现实**(`pip install myssia` on PyPI、Docker
 > 镜像 `ghcr.io/xinzhuzi/myia`)——截至本稿写就,仓库 README 仍是旧版 +
-> "install from source" 口径、PyPI 双包未上架(实测 404)、v0.0.1 tag 已推送
+> "install from source" 口径、PyPI 双包未上架(实测 404)、v0.0.1 tag 已推送【2026-10-05 更新:双包 0.0.1 已上线,此行过时仅存档】
 > 但 Release 页未上线,故硬 gate 里把这些列为发帖前置条件,未满足前**不可发**
 > (正文里的 "on PyPI" 等表述发早一天就是假话)。
 >
-> **2026-10-04 终态实核**:PyPI 双包仍 404(登记=主人门禁,在途,包名终局
+> **2026-10-04 终态实核**:PyPI 双包仍 404(登记=主人门禁,在途,包名终局【2026-10-05 更新:双包 0.0.1 已上线,此行过时仅存档】
 > `myssia` / `myssia-classifier`);v0.0.1 Release 已上线但资产带旧名前缀
 > (`shishi_0.0.1_aarch64.dmg`,直链以 Release 页为准);Docker 0.0.1 镜像在
 > `ghcr.io/xinzhuzi/shishi:0.0.1`(发布时旧仓名,后续版本在
@@ -248,7 +248,7 @@ Docker(0.0.1 镜像在 `ghcr.io/xinzhuzi/shishi:0.0.1`,后续版本在
 真数据;设置页走签名更新通道,验签后自动下载安装。桌面截图(均为 demo 插件
 真实数据):仪表盘/信息流/源管理/日志/设置。
 
-**PyPI 双包(`myssia` / `myssia-classifier`)在途**(2026-10-04 实核 404,登记
+**PyPI 双包(`myssia` / `myssia-classifier`)在途**(2026-10-04 实核 404,登记【2026-10-05 更新:双包 0.0.1 已上线,此行过时仅存档】
 未完成):上架后 `pip install myssia` 直装、`import myssia` 可用(命名终局:
 CLI/模块/发行名 = myssia,GitHub 仓库 = xinzhuzi/myia,「世事」为中文名)。
 

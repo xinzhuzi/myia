@@ -9,7 +9,7 @@
 > 代码块用 ```yaml / ```bash 高亮。
 >
 > 终态口径(2026-10-04 实核):定名 myssia(中文名:世事)· GitHub 仓库
-> `xinzhuzi/myia` · PyPI 双包 `myssia` / `myssia-classifier` 登记(主人门禁)
+> `xinzhuzi/myia` · PyPI 双包 `myssia` / `myssia-classifier` 0.0.1 已上线(pip install myssia)
 > 在途——现在不能写 `pip install`;v0.0.1 三形态 = 桌面 dmg(Release)+
 > Docker 镜像(GHCR)+ PyPI 在途;Windows msi 构建管线已绿但 Release 页
 > 无 msi;五项新能力(cron / 告警规则 / ⌘K 面板 / 读态服务端化 / 交互批)
