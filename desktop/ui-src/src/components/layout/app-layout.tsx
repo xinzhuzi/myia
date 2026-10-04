@@ -5,9 +5,11 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 
 /**
- * 应用骨架:左侧导航(七屏,Linear 式分组+底部 sidecar 状态区)+
- * 顶栏(面包屑/品类/全局跑一次/全局命令位留白)+ 内容区。
- * 暗色单主题;滚动只发生在内容区,侧栏/顶栏常驻。
+ * 应用骨架:左侧导航(七屏,Kestra SideBar 模式:分组可折叠 + 底部
+ * sidecar 状态区;结构对位 kestra/ui/src/components/layout/OnlyLeftMenu
+ * Layout.vue [Apache-2.0,借结构改语义])+ 顶栏(面包屑/品类/全局跑一次/
+ * 全局命令位留白;承担 Kestra KsTopNavBar 的 60px 边线顶栏角色)+ 内容区。
+ * 暗色单主题(Kestra ks-theme-dark 基调);滚动只发生在内容区,侧栏/顶栏常驻。
  *
  * 品类全局选择器(C8,10-03-feed-ux):选中值提升到本层(不引状态库,
  * Outlet context 即 router 原生的 prop drilling 通道)→ 情报流屏服务端

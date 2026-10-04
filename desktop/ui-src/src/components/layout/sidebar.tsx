@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Clock, FileCode2, Inbox, LayoutDashboard, Loader2, MessageCircle, PanelLeftClose, PanelLeftOpen, PlugZap, Rss, Settings, Terminal, Unplug } from "lucide-react";
+import { ChevronDown, Clock, FileCode2, Inbox, LayoutDashboard, Loader2, MessageCircle, PanelLeftClose, PanelLeftOpen, PlugZap, Rss, Settings, Terminal, Unplug } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -10,10 +10,13 @@ import { useSidecarStatus } from "@/hooks/use-sidecar-status";
 import { cn } from "@/lib/utils";
 
 /**
- * 导航分组(D4 壳层对标 Linear 侧栏「倒 L」结构,research/teardown-linear-activity.md
- * 可抄清单 #1):顶部主入口区(无组标题)→ 中部带标题分组 → 底部账户区。
- * 底部账户区映射 = 设置行 + sidecar 状态(本应用单用户无账户,Linear 的
- * 「用户头像/设置」落成「设置 + 运行状态」)。
+ * 导航分组(10-04-ui-kestra-anchor 重锚 Kestra SideBar 模式):
+ * 顶部主入口区(无组标题 = Kestra 顶层直链)→ 中部带标题分组
+ * (KsSideBarSection:可折叠 + chevron)→ 底部账户区映射 = 设置行 +
+ * sidecar 状态(本应用单用户无账户)。
+ * [来源 Apache-2.0,只读参考,借结构改语义]
+ *   kestra/ui/src/components/layout/SideBar.vue(顶层直链/分组/收藏/底部槽)
+ *   kestra/ui/packages/design-system/.../KsSideBar(KsSideBarSection/KsSideBarItem).vue
  */
 export interface NavEntry {
   to: string;
@@ -24,7 +27,7 @@ export interface NavEntry {
 }
 
 export interface NavGroup {
-  /** null = 顶部主入口区(Linear 工作区区,无组标题) */
+  /** null = 顶部主入口区(Kestra 顶层直链区,无组标题、不可折叠) */
   label: string | null;
   entries: NavEntry[];
 }
@@ -55,7 +58,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-/** 底部设置行(Linear:底部账户区;样式与主导航行一致,激活竖条同口径) */
+/** 底部设置行(Kestra footer 槽;样式与主导航行一致) */
 const SETTINGS_ENTRY: NavEntry = { to: "/settings", label: "设置", icon: Settings, end: false };
 
 /** 按路由解析当前导航项(顶栏面包屑与侧栏激活态同一口径) */
@@ -84,6 +87,7 @@ export interface SidebarPrefs {
 }
 
 const SIDEBAR_STORAGE_KEY = "myssia.sidebar.v1";
+const SIDEBAR_GROUPS_STORAGE_KEY = "myssia.sidebar-groups.v1";
 const SIDEBAR_DEFAULT_WIDTH = 224; // 展开宽(w-56 换算);w-56 类被内联宽取代
 const SIDEBAR_MIN_WIDTH = 200;
 const SIDEBAR_MAX_WIDTH = 360;
@@ -123,12 +127,45 @@ export function saveSidebarPrefs(
   }
 }
 
-/** 导航行:图标 16px 与文字对齐(可抄 #14);激活 = accent 行背景 + 左缘 2px
- *  品牌竖条(可抄 #1/#6 的竖条语言)+ font-medium 提对比(R2 校准轮②);
- *  hover 半透明 accent。
- *  折叠态:行仍占满导航内容宽、图标居中、文字隐去(title 补可达性)——
- *  行宽不变是刻意的:竖条 -left-2 在两态都钉在侧栏左缘同一位置,
- *  不会因图标居中而飘到行中间(激活竖条在图标态的位置适配)。 */
+/** 分组折叠记忆(Kestra layoutStore.setMenuSectionCollapsed 的本地等价;
+ *  独立存储键——不并入 sidebar.v1,避免污染其 {collapsed,width} 契约)。
+ *  只记录显式折叠(true)的组,缺省 = 展开(Kestra defaultCollapsed=false)。 */
+function loadGroupCollapsed(
+  storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
+): Record<string, boolean> {
+  if (storage === null) return {};
+  try {
+    const raw = storage.getItem(SIDEBAR_GROUPS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (value === true) out[key] = true; // 只认真布尔,其余形态弃
+    }
+    return out;
+  } catch {
+    return {}; // 损坏即弃
+  }
+}
+
+function saveGroupCollapsed(
+  groups: Record<string, boolean>,
+  storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
+): void {
+  if (storage === null) return;
+  try {
+    storage.setItem(SIDEBAR_GROUPS_STORAGE_KEY, JSON.stringify(groups));
+  } catch {
+    // 写失败不阻断
+  }
+}
+
+/** 导航行(Kestra KsSideBarItem 规格):min-h 26px · px8/py4 · gap8 ·
+ *  圆角 8(--ks-radius-base)· 字 12/500 · 图标 16px;
+ *  hover = bg-hover 填充 + 次级文字色;active = bg-active 填充 + link 色
+ *  (primary-200,--ks-text-link)——弃 Linear 左缘竖条,Kestra 以
+ *  「填充 + 文字色」区分激活。折叠态:图标居中、文字隐去(title 补可达性)。 */
 function NavRow({ entry, collapsed }: { entry: NavEntry; collapsed: boolean }) {
   const { to, label, icon: Icon, end } = entry;
   return (
@@ -138,26 +175,18 @@ function NavRow({ entry, collapsed }: { entry: NavEntry; collapsed: boolean }) {
       title={collapsed ? label : undefined}
       className={({ isActive }) =>
         cn(
-          "relative flex h-8 items-center rounded-md text-sm text-muted-foreground",
+          "flex min-h-[26px] items-center gap-2 rounded-md py-1 text-xs font-medium",
           "transition-colors duration-(--duration-fast) ease-out-expo",
-          collapsed ? "justify-center px-0" : "gap-2.5 px-2.5",
+          collapsed ? "justify-center px-0" : "px-2",
           isActive
-            ? "bg-accent font-medium text-foreground"
-            : "hover:bg-accent/60 hover:text-foreground",
+            ? "bg-accent text-link"
+            : "text-foreground hover:bg-accent hover:text-secondary-foreground",
         )
       }
     >
       {({ isActive }) => (
         <>
-          <span
-            aria-hidden
-            className={cn(
-              "absolute -left-2 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary",
-              "transition-opacity duration-(--duration-fast) ease-out-expo",
-              isActive ? "opacity-100" : "opacity-0",
-            )}
-          />
-          <Icon className="size-4 shrink-0" />
+          <Icon className={cn("size-4 shrink-0", isActive && "text-link")} aria-hidden />
           {collapsed ? null : label}
         </>
       )}
@@ -165,14 +194,67 @@ function NavRow({ entry, collapsed }: { entry: NavEntry; collapsed: boolean }) {
   );
 }
 
+/** 分组区(Kestra KsSideBarSection 借构):标题钮(12/400/dim 色,hover 提
+ *  前景色)+ chevron 14px 折叠旋 -90°;条目区 grid-rows 0fr↔1fr 折叠动画
+ *  (250ms · Kestra 缓动 cubic-bezier(0.22,1,0.36,1)),折叠时内层 inert
+ *  防键盘焦点(Kestra 同款)。chevron 紧随文字(Kestra 原版排布)。 */
+function GroupSection({
+  label,
+  entries,
+  collapsed,
+  onToggle,
+}: {
+  label: string;
+  entries: NavEntry[];
+  collapsed: boolean;
+  onToggle: (label: string) => void;
+}) {
+  const isCollapsed = collapsed === true;
+  return (
+    <section className="flex flex-col">
+      <button
+        type="button"
+        aria-expanded={!isCollapsed}
+        onClick={() => onToggle(label)}
+        className="flex w-full items-center gap-2 px-2.5 pb-1 pt-2 text-xs font-normal text-muted-foreground transition-colors duration-(--duration-fast) ease-out-expo hover:text-foreground"
+      >
+        <span className="min-w-0 truncate text-left">{label}</span>
+        <ChevronDown
+          aria-hidden
+          className={cn(
+            "size-3.5 shrink-0 transition-transform duration-(--duration-fast) ease-out-expo",
+            isCollapsed && "-rotate-90",
+          )}
+        />
+      </button>
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+          isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
+        )}
+      >
+        <div className="min-h-0 overflow-hidden" inert={isCollapsed ? true : undefined}>
+          <div className="flex flex-col gap-1">
+            {entries.map((entry) => (
+              <NavRow key={entry.to} entry={entry} collapsed={false} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /**
- * 左侧导航(Linear 质感):品牌区 → 分组导航 → 底部(设置 + sidecar 状态 + 折叠钮)。
- * 滚动只发生在分组导航区;分组标题 2xs 弱色(Linear 分组标题体感)。
- * 折叠态(D4):`[` 键或底部按钮切换;图标态 = 品牌标居中、分组标题隐去、
- * 导航行图标居中;宽/折叠记忆走 localStorage(重开窗口还原)。
+ * 左侧导航(Kestra SideBar 模式):品牌区(含折叠钮,= Kestra header 槽的
+ * header-toggle)→ 分组导航(可折叠分组)→ 底部(设置 + sidecar 状态)。
+ * 面板 = bg-sidebar + 右缘 1px 描边,扁平无内分隔线(Kestra 同款);
+ * 滚动只发生在分组导航区;折叠态 = 品牌标与折叠钮纵向堆叠(56px 宽)、
+ * 分组标题隐去、导航行图标居中;宽/折叠/分组折叠记忆走 localStorage。
  */
 export function Sidebar() {
   const [prefs, setPrefs] = useState<SidebarPrefs>(() => loadSidebarPrefs());
+  const [groupCollapsed, setGroupCollapsed] = useState<Record<string, boolean>>(() => loadGroupCollapsed());
   const collapsed = prefs.collapsed;
   const width = prefs.width ?? SIDEBAR_DEFAULT_WIDTH;
 
@@ -180,6 +262,14 @@ export function Sidebar() {
     setPrefs((prev) => {
       const next = { ...prev, collapsed: !prev.collapsed };
       saveSidebarPrefs(next);
+      return next;
+    });
+  }, []);
+
+  const toggleGroup = useCallback((label: string) => {
+    setGroupCollapsed((prev) => {
+      const next = { ...prev, [label]: prev[label] !== true };
+      saveGroupCollapsed(next);
       return next;
     });
   }, []);
@@ -194,8 +284,8 @@ export function Sidebar() {
     >
       <div
         className={cn(
-          "flex h-12 shrink-0 items-center border-b border-border/60 px-4",
-          collapsed && "justify-center px-0",
+          "flex shrink-0 items-center px-4",
+          collapsed ? "flex-col gap-1 px-0 py-2" : "h-12",
         )}
         title={collapsed ? "世事 MYIA" : undefined}
       >
@@ -203,42 +293,48 @@ export function Sidebar() {
         {collapsed ? null : (
           <>
             <span className="text-sm font-medium text-sidebar-foreground">世事</span>
-            {/* 整值 muted-foreground(WCAG 实算):/70 在 sidebar 底上仅 3.68,/80 仅 4.49,均 <4.5;整值 6.46 */}
+            {/* 整值 muted-foreground(WCAG 实算,Kestra 重锚后):#9797a6 于
+                sidebar 底 #1e202a 对比 5.62:1 ≥4.5;半透明档不再使用 */}
             <span className="text-2xs text-muted-foreground">MYIA</span>
+            <span className="flex-1" aria-hidden />
           </>
         )}
-      </div>
-      {/* R2 刀1 呼吸感:分组间距 16→24(gap-block 令牌,VL 读 Linear 分组间距
-          24px);组内行距 2px 不动(导航密度与 Linear 同档) */}
-      <nav className="flex flex-1 flex-col gap-block overflow-y-auto px-2 pt-3 pb-2" aria-label="主导航">
-        {NAV_GROUPS.map((group, index) => (
-          <div key={group.label ?? `main-${index}`} className="flex flex-col gap-0.5">
-            {group.label && !collapsed ? (
-              <div className="px-2.5 pb-0.5 pt-1 text-2xs text-muted-foreground">{group.label}</div>
-            ) : null}
-            {group.entries.map((entry) => (
-              <NavRow key={entry.to} entry={entry} collapsed={collapsed} />
-            ))}
-          </div>
-        ))}
-      </nav>
-      <div className="flex shrink-0 flex-col gap-0.5 border-t border-border/60 px-2 pt-2 pb-2.5">
-        <NavRow entry={SETTINGS_ENTRY} collapsed={collapsed} />
-        <SidecarStatusBar collapsed={collapsed} />
         <Button
           variant="ghost"
-          size="sm"
-          className={cn(
-            "h-7 w-full justify-start px-2.5 text-xs text-muted-foreground",
-            collapsed && "justify-center px-0",
-          )}
+          size="icon"
+          className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
           onClick={toggleCollapsed}
           title={collapsed ? "展开侧栏（[）" : "折叠侧栏（[）"}
           aria-label={collapsed ? "展开侧栏" : "折叠侧栏"}
           aria-keyshortcuts="["
         >
-          {collapsed ? <PanelLeftOpen className="size-3.5" /> : <PanelLeftClose className="size-3.5" />}
+          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
         </Button>
+      </div>
+      {/* 分组节奏:组间 16px(Kestra 组标题 pt12 + 行 mb4 的有效间距档),
+          组内行距 4px(gap-1 = --ks-spacing-1) */}
+      <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 pt-3 pb-2" aria-label="主导航">
+        {NAV_GROUPS.map((group, index) =>
+          !collapsed && group.label !== null ? (
+            <GroupSection
+              key={group.label}
+              label={group.label}
+              entries={group.entries}
+              collapsed={groupCollapsed[group.label] === true}
+              onToggle={toggleGroup}
+            />
+          ) : (
+            <div key={group.label ?? `main-${index}`} className="flex flex-col gap-1">
+              {group.entries.map((entry) => (
+                <NavRow key={entry.to} entry={entry} collapsed={collapsed} />
+              ))}
+            </div>
+          ),
+        )}
+      </nav>
+      <div className="flex shrink-0 flex-col gap-1 px-2 pt-2 pb-2.5">
+        <NavRow entry={SETTINGS_ENTRY} collapsed={collapsed} />
+        <SidecarStatusBar collapsed={collapsed} />
       </div>
     </aside>
   );
@@ -255,7 +351,7 @@ function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
     const title = `sidecar v${info?.version} · 协议 v${info?.protocol}${appPart}`;
     if (collapsed) {
       return (
-        <div className="flex h-8 items-center justify-center" title={title}>
+        <div className="flex min-h-[26px] items-center justify-center" title={title}>
           <span className="relative flex size-2 shrink-0">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" />
             <span className="relative inline-flex size-2 rounded-full bg-ok" />
@@ -264,7 +360,7 @@ function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
       );
     }
     return (
-      <div className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-xs text-muted-foreground" title={title}>
+      <div className="flex min-h-[26px] items-center gap-2 px-2 text-xs text-muted-foreground" title={title}>
         <span className="relative flex size-2 shrink-0">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" />
           <span className="relative inline-flex size-2 rounded-full bg-ok" />
@@ -277,13 +373,13 @@ function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
   if (status === "connecting") {
     if (collapsed) {
       return (
-        <div className="flex h-8 items-center justify-center text-muted-foreground" title="连接 sidecar…">
+        <div className="flex min-h-[26px] items-center justify-center text-muted-foreground" title="连接 sidecar…">
           <Loader2 className="size-3 shrink-0 animate-spin" />
         </div>
       );
     }
     return (
-      <div className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-xs text-muted-foreground">
+      <div className="flex min-h-[26px] items-center gap-2 px-2 text-xs text-muted-foreground">
         <Loader2 className="size-3 shrink-0 animate-spin" />
         连接 sidecar…
       </div>
@@ -294,13 +390,13 @@ function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
     // 壳层自动重拉中(main.rs 退避序列):静待,动作按钮保持可点(提前手动拉起)
     if (collapsed) {
       return (
-        <div className="flex h-8 items-center justify-center text-warning" title="sidecar 已退出,壳层按退避自动重拉">
+        <div className="flex min-h-[26px] items-center justify-center text-warning" title="sidecar 已退出,壳层按退避自动重拉">
           <Loader2 className="size-3 shrink-0 animate-spin" />
         </div>
       );
     }
     return (
-      <div className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-xs text-warning" title="sidecar 已退出,壳层按退避自动重拉">
+      <div className="flex min-h-[26px] items-center gap-2 px-2 text-xs text-warning" title="sidecar 已退出,壳层按退避自动重拉">
         <Loader2 className="size-3 shrink-0 animate-spin" />
         重拉 sidecar…
       </div>
@@ -311,7 +407,7 @@ function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
     // 自动重拉超限:唯一修复动作 = 手动拉起(reprobe 内含 sidecar_restart)
     if (collapsed) {
       return (
-        <div className="flex h-8 items-center justify-center">
+        <div className="flex min-h-[26px] items-center justify-center">
           <Button
             variant="ghost"
             size="icon"
@@ -327,7 +423,7 @@ function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
     }
     return (
       <div
-        className="flex h-8 items-center gap-1.5 rounded-md pl-2.5 pr-1 text-xs text-dead"
+        className="flex min-h-[26px] items-center gap-1.5 pl-2 pr-1 text-xs text-dead"
         title={error ? `${error.code}: ${error.message}` : undefined}
       >
         <Unplug className="size-3 shrink-0" />
@@ -348,7 +444,7 @@ function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
 
   if (collapsed) {
     return (
-      <div className="flex h-8 items-center justify-center">
+      <div className="flex min-h-[26px] items-center justify-center">
         <Button
           variant="ghost"
           size="icon"
@@ -364,7 +460,7 @@ function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
   }
   return (
     <div
-      className="flex h-8 items-center gap-1.5 rounded-md pl-2.5 pr-1 text-xs text-muted-foreground"
+      className="flex min-h-[26px] items-center gap-1.5 pl-2 pr-1 text-xs text-muted-foreground"
       title={error ? `${error.code} @ ${error.path}: ${error.message}` : undefined}
     >
       <Unplug className="size-3 shrink-0 text-warning" />

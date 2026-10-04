@@ -1,52 +1,108 @@
 @import "tailwindcss";
 
 /*
- * 世事(MYIA)桌面设计 token —— Linear 暗色质感 + 品牌意象(eyes+universe)。
- * 色系锚点取自 desktop/branding/myssia-icon.svg:深空蓝底(#070B18→#0E1730)、
- * 青 #22D3EE → 紫 #8B5CF6 渐变、瞳孔高亮 #67E8F9;中性面按 Linear 的
- * 低对比分层(背景/面板/悬浮三层 + 极细描边)。
- * 本应用为暗色单主题(桌面客户端,规划定稿),故 token 直接落 :root。
+ * 世事(MYIA)桌面设计 token —— Kestra 暗色基调(10-04-ui-kestra-anchor)。
+ * 色系锚点 = Kestra UI 暗色主题,来源(Apache-2.0,只读参考,借结构改语义):
+ *   /tmp/kestra-src/ui/packages/design-system/src/assets/styles/ks-tokens.scss
+ *   /tmp/kestra-src/ui/packages/design-system/src/assets/styles/ks-theme-dark.scss
+ *   /tmp/kestra-src/ui/packages/design-system/src/assets/styles/ks-theme-light.scss
+ *   /tmp/kestra-src/ui/packages/design-system/src/assets/styles/_color-palette.scss
+ * 提取方式:node_modules 的 @kestra-io/design-system 为空,按预案改由
+ *   rg 'ks-bg|ks-border|ks-color' 扫 ui/src/components + ui/src/styles
+ * (701 处使用,Top 频:ks-border-default×190 / ks-bg-surface×102 /
+ *  ks-border-focus×65 / ks-border-subtle×52 / ks-bg-base×47 / ks-bg-hover×43),
+ * 变量定义真源 = 上述 packages/design-system 源码包。
+ * 本应用为暗色单主题 → 以 ks-theme-dark 为映射主源;品牌青→紫渐变
+ * (--brand-*)是自有品牌层(myssia-icon.svg),非 Linear/Kestra 侧,保留。
+ *
+ * ── Kestra 变量清单(暗色主题解析值;来源 ks-theme-dark.scss + _color-palette.scss)──
+ * bg 组:
+ *   --ks-bg-base #14181f(cool-950,主内容底)· --ks-bg-surface #20232d(cool-800)
+ *   --ks-bg-elevated #1e202a(cool-900,下拉浮层)· --ks-bg-sidebar #1e202a(cool-900)
+ *   --ks-bg-overlay #20232d(cool-800,模态)· --ks-bg-input #14181f(cool-950)
+ *   --ks-bg-hover / --ks-bg-active #2f3342(cool-500,行悬停/激活同填充)
+ *   --ks-bg-hover-elevated #2c303f(cool-600)· --ks-bg-inactive #262a35(cool-700)
+ *   --ks-bg-badge #20232d · --ks-bg-tag rgba(白 10%)· --ks-bg-scrim rgba(#14181f,80%)
+ * border 组:
+ *   --ks-border-default #2c303f(cool-600)· --ks-border-strong #404559(cool-400,
+ *   KsInput 输入描边)· --ks-border-subtle #262a35(cool-700)
+ *   --ks-border-focus #631bf3(primary-500)· --ks-border-error #f73a3d(red-400)
+ *   --ks-border-success #1e875e · --ks-border-warning #a44500 · --ks-border-info #718bfe
+ *   宽度:thin 1px / base 2px / thick 4px;块:border-block-primary = 1px solid default
+ * color/text 组:
+ *   --ks-text-primary #ffffff · --ks-text-secondary/--ks-text-muted #cfd3d6(cool-200)
+ *   --ks-text-dim/--ks-text-inactive #9797a6(cool-300)· --ks-text-link #cdb6fb(primary-200)
+ *   --ks-text-error #ffacac(red-200)· --ks-text-success #bffddd(green-100)
+ *   --ks-text-warning #ff8b61(orange-300)· --ks-text-info #718bfe(blue-300)
+ * icon 组:default #ffffff · hover #7738f5(primary-400)· active #cdb6fb(primary-200)
+ *   · muted/inactive #9797a6(cool-300)
+ * status 组(dark):error #ff6a6c(red-300)· success #43f6b6(green-300)
+ *   · warning #ff8b61(orange-300)· running #9869f7(primary-300)
+ *   · neutral #9797a6(cool-300)· pending #fce070(yellow-300)
+ * btn 组:primary default/hover/active = #631bf3/#7738f5/#5212d6(primary-500/400/600)
+ *   · primary-text #ffffff · secondary-bg #2f3342→hover #404559(cool-500→400)
+ * toggle:active #7738f5(primary-400)· default/hover #404559(cool-400)
+ * shadow:紫黑 #0d0618 底(element 5% / elevated·surface 15%)
+ * scrollbar:bg #14181f · content #2f3342
+ * 原语子集:cool-400 #404559 · cool-500 #2f3342 · cool-600 #2c303f · cool-700 #262a35
+ *   · cool-800 #20232d · cool-900 #1e202a · cool-950 #14181f;primary-200 #cdb6fb
+ *   · primary-300 #9869f7 · primary-400 #7738f5 · primary-500 #631bf3(Kestra 品牌紫)
+ *   · primary-600 #5212d6;red-300 #ff6a6c · red-400 #f73a3d · red-500 #ed0011
+ *   · green-300 #43f6b6;orange-300 #ff8b61;blue-300 #718bfe;yellow-300 #fce070
+ * 度量(ks-tokens.scss + variables.scss):
+ *   间距 1..8/10/12/16 = 4/8/12/16/24/32/40/48/64/80px(4px 栅格)
+ *   圆角 xs4 sm6 base8 lg10 xl14(px;EP 映射 base/small/round = 8/6/10)
+ *   字号 2xs10 xs11 sm12 base·md14 lg16 xl18 2xl20 3xl22 4xl26(px)
+ *   控件高 = Element Plus 默认 32px(small 24 / large 40;Kestra 不覆写)
+ *   侧栏:面板 p 24(上)/16(下) + 右缘 1px default 描边,扁平无内分隔线;
+ *     行 min-h 26 · px8 py4 · gap8 · 圆角 base8 · 字 12/500 · 图标 16
+ *     hover = bg-hover + 次级文字色,active = bg-active + link 色(无竖条)
+ *     分组标题 12/400/dim · pt12 mb8 · chevron 14 折叠旋转 -90°
+ *     分组折叠动画 grid-rows 0fr→1fr · 250ms cubic-bezier(0.22,1,0.36,1) + inert
+ *   顶栏(页头):高 60 · px16 · border-block-primary · bg-surface ·
+ *     标题+描述(tooltip 信息图标)+右侧动作
+ * ─────────────────────────────────────────────────────────────────────
  */
 
 :root {
-  /* 面:背景 < 卡片 < 悬浮(popover/accent)三级分层 */
-  --background: #0a0d16;
-  --foreground: #e7ebf3;
-  --card: #0e1220;
-  --card-foreground: #e7ebf3;
-  --popover: #141a2b;
-  --popover-foreground: #e7ebf3;
-  --sidebar: #080b13;
-  --sidebar-foreground: #e7ebf3;
+  /* 面:Kestra 暗色三阶 —— base(cool-950) < elevated/sidebar(cool-900) < surface/overlay(cool-800) */
+  --background: #14181f; /* --ks-bg-base */
+  --foreground: #ffffff; /* --ks-text-primary */
+  --card: #1e202a; /* --ks-bg-elevated(cool-900):内容卡一阶浮起 */
+  --card-foreground: #ffffff;
+  --popover: #20232d; /* --ks-bg-surface/--ks-bg-overlay(cool-800):浮层两阶 */
+  --popover-foreground: #ffffff;
+  --sidebar: #1e202a; /* --ks-bg-sidebar:侧栏亮于内容底(Kestra 特征,弃 Linear 暗于底) */
+  --sidebar-foreground: #ffffff;
 
-  /* 主色:品牌青;按钮/焦点/激活态 */
-  --primary: #22d3ee;
-  --primary-foreground: #05222b;
-  --secondary: #161d2e;
-  --secondary-foreground: #c7cedd;
-  --muted: #131927;
-  --muted-foreground: #8b94a7;
-  --accent: #1a2236;
-  --accent-foreground: #e7ebf3;
+  /* 主色:Kestra 品牌紫 primary-500;按钮/焦点/激活态 */
+  --primary: #631bf3; /* --ks-btn-primary-bg-default */
+  --primary-foreground: #ffffff; /* --ks-btn-primary-text */
+  --secondary: #2f3342; /* --ks-btn-secondary-bg-default(cool-500) */
+  --secondary-foreground: #cfd3d6; /* cool-200(--ks-text-secondary) */
+  --muted: #20232d; /* --ks-bg-surface(cool-800) */
+  --muted-foreground: #9797a6; /* --ks-text-dim(cool-300) */
+  --accent: #2f3342; /* --ks-bg-hover/--ks-bg-active(cool-500) */
+  --accent-foreground: #ffffff;
+  --link: #cdb6fb; /* --ks-text-link(primary-200):暗底链接/激活导航文字 */
 
-  /* 语义:destructive + 源健康度四态(仪表盘/源管理/日志共用) */
-  --destructive: #e5484d;
-  --destructive-foreground: #fdebec;
-  --ok: #3dd68c;
-  --warning: #f5b544;
-  --dead: #e5484d;
-  --unknown: #8b94a7;
+  /* 语义:destructive + 源健康度四态(status 组对位 ks-theme-dark) */
+  --destructive: #ed0011; /* red-500:动作底(白字对比 5.1:1;红 300 档偏亮仅作文字态) */
+  --destructive-foreground: #ffffff;
+  --ok: #43f6b6; /* --ks-status-success(green-300) */
+  --warning: #ff8b61; /* --ks-status-warning(orange-300) */
+  --dead: #ff6a6c; /* --ks-status-error(red-300) */
+  --unknown: #9797a6; /* --ks-status-neutral(cool-300) */
 
-  --border: #1d2536;
-  --input: #1d2536;
-  --ring: #22d3ee;
+  --border: #2c303f; /* --ks-border-default(cool-600) */
+  --input: #2c303f; /* 同 border 族;输入控件实色描边另走 --control-border */
+  --ring: #7738f5; /* primary-400(--ks-icon-hover/--ks-toggle-active):暗底焦点可见档 */
 
-  /* 品牌:青→紫渐变(logo 字标/空态光晕/高亮点缀用) */
+  /* 品牌:青→紫渐变(logo 字标/空态光晕/高亮点缀)——自有品牌层,保留 */
   --brand-from: #22d3ee;
   --brand-to: #8b5cf6;
 
-  /* 圆角基线 8→10px(R2 刀2:VL 读 Linear 卡圆角 8~12px,升一档更柔;
-     控件圆角走 --control-radius=8px 不受影响) */
+  /* 圆角:卡 = --ks-radius-lg(10px);控件 = --ks-radius-base(8px,见 --control-radius) */
   --radius: 0.625rem;
 
   /* ---- D2 token 深化(10-03-ui-deep-imitation design.md)---- */
@@ -59,10 +115,10 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  /* elevation:面以细边框分层为主,阴影只给浮层(重阴影是反模式);
-     阴影色带深空蓝底色,与 --background 同族 */
-  --shadow-popover: 0 4px 16px rgb(2 6 23 / 0.45);
-  --shadow-drawer: 0 12px 40px rgb(2 6 23 / 0.55);
+  /* elevation:Kestra 以细边框分层为主,阴影只给浮层;阴影色 = Kestra
+     紫黑 #0d0618(--ks-shadow-* 同底色),与 --background 同族 */
+  --shadow-popover: 0 4px 16px rgb(13 6 24 / 0.45);
+  --shadow-drawer: 0 12px 40px rgb(13 6 24 / 0.55);
 
   /* 密度梯度:表格/日志 compact 节奏基数 4px(→ p-table/py-table/gap-table);
      默认 spacing 节奏不变 */
@@ -82,15 +138,17 @@
      12 列栅格由各屏 R2 重排落地,本层给卡间 gap 与等高约定 */
   --gap-grid: 0.75rem; /* 12px:同一栅格内卡片间距(linear-2 实测 12px) */
 
-  /* 刀4 控件规格(VL 读数:控件高 32px 一致 / 圆角 ~8px / 暗色描边低可见
-     「几乎隐形」+ 微填充):Select/Button/Input 一套尺寸与描边 */
+  /* 刀4 控件规格(重锚 Kestra):控件高 32px = Element Plus 默认档
+     (Kestra KsButton/KsSelect 不覆写尺寸);圆角 8px = --ks-radius-base
+     (EP border-radius-base 映射);描边弃 Linear 白 11% 半透明,改
+     --ks-border-strong 实色(KsInput 同款);底 = --ks-bg-input 暗于卡面 */
   --control-h: 2rem; /* 32px:控件默认高(button/select-trigger/input 同族) */
-  --control-h-sm: 1.75rem; /* 28px:紧凑档(size=sm) */
-  --control-radius: 8px; /* 控件圆角(radius-md 同值) */
+  --control-h-sm: 1.75rem; /* 28px:紧凑档(EP small=24px,本仓取 28 为中文密度档,偏离在案) */
+  --control-radius: 8px; /* --ks-radius-base */
   --control-px: 0.625rem; /* 10px:控件横向内边距 */
-  --control-border: rgb(255 255 255 / 0.11); /* 低可见描边:白 11%,随底色自适应 */
-  --control-bg: rgb(255 255 255 / 0.04); /* 静息微填充:Linear 输入类惯例 */
-  --control-bg-hover: rgb(255 255 255 / 0.07);
+  --control-border: #404559; /* --ks-border-strong(cool-400):实色输入描边 */
+  --control-bg: #14181f; /* --ks-bg-input(cool-950):暗于卡面的内嵌感 */
+  --control-bg-hover: #1e202a; /* cool-900 一阶反馈(Kestra 输入 hover 只变描边,此处保留升档微反馈) */
 }
 
 @theme inline {
@@ -119,6 +177,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-link: var(--link); /* --ks-text-link:暗底链接/激活导航文字(primary-200) */
   --color-brand-from: var(--brand-from);
   --color-brand-to: var(--brand-to);
 
@@ -283,10 +342,11 @@
     }
   }
 
-  /* Linear 质感:细滚动条,弱存在感 */
+  /* 细滚动条,弱存在感(Kestra 档:--ks-scrollbar-content cool-500,
+     hover 升 cool-400) */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #232d45 transparent;
+    scrollbar-color: #2f3342 transparent;
   }
 
   ::-webkit-scrollbar {
@@ -295,12 +355,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #232d45;
+    background: #2f3342;
     border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #2e3a59;
+    background: #404559;
   }
 
   ::-webkit-scrollbar-track {
@@ -342,11 +402,11 @@ main > div.flex.flex-col:not(.h-full) {
   padding-inline: var(--pad-card);
 }
 
-/* 刀4 控件统一规格:输入类(Input/SelectTrigger)统一「微填充 + 低可见
-   描边」的 Linear 质感(毒评④「像草稿」:裸透明底+独描边显毛坯);
-   描边统一 --control-border(白 11%),Button 的 outline 变体同款描边
-   (无边框变体不受影响)。hover/open 态在此一并声明,避免非分层
-   静息底色盖住组件内 utilities 的状态反馈。 */
+/* 刀4 控件统一规格(Kestra 重锚):输入类(Input/SelectTrigger)统一
+   「暗于卡面的实底 + 实色描边」= --ks-bg-input/--ks-border-strong 的
+   Kestra 输入质感(弃 Linear 半透明微填充);描边统一 --control-border,
+   Button 的 outline 变体同款描边(无边框变体不受影响)。hover/open 态
+   在此一并声明,避免非分层静息底色盖住组件内 utilities 的状态反馈。 */
 [data-slot="input"],
 [data-slot="select-trigger"] {
   border-color: var(--control-border);
