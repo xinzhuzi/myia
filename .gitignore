@@ -111,3 +111,7 @@ Thumbs.db
 /credhunter-keystore.json
 # 技能工具链的本地锁文件(本机技能版本快照,非仓库配置)
 /skills-lock.json
+
+# ---- 装机包冒烟(e2e package smoke)运行产物 ----
+# package_smoke.py 的截图/日志输出目录(运行态证据,不入库;脚本本体在库)
+desktop/ui-src/e2e/artifacts/
