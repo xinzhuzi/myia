@@ -124,11 +124,13 @@ DEFAULT_TOKEN_ENV_REF = "env:FEISHU_BOT_TOKEN"
 #: 自换 token,消灭「curl 手工换 + 每 2 小时续命」;凭据位 = 设置→推送
 #: 表单存入的钥匙链规范名 ``myia/push/FEISHU_APP_ID``/``FEISHU_APP_SECRET``
 #: 与 ``env:`` 同键回退解析)。
-#: 蓝本锚:app_id/secret 自动换发 tenant token = Hermes 同款机制
-#: (``plugins/platforms/feishu/adapter.py`` 的 ``tenant_access_token/internal``
-#: 调用与 ``FEISHU_APP_ID``/``FEISHU_APP_SECRET`` 凭据位,NousResearch/
-#: Hermes-Agent,MIT);存储刻意偏离——Hermes 存 profile ``.env``/config
-#: extra,MYIA 按 security-baseline 铁律存系统钥匙链(env: 兼容优先)。
+#: 蓝本锚:app_id/secret 自换 tenant token 的机制语义对位 Hermes
+#: (``FEISHU_APP_ID``/``FEISHU_APP_SECRET`` 凭据位同名;onboarding 探针直调
+#: 同一端点,``plugins/platforms/feishu/adapter.py:4245``,NousResearch/
+#: Hermes-Agent,MIT);载体刻意偏离——上游运行期由 lark-oapi SDK 托管
+#: token 生命周期,MYIA 裸 httpx 故手写 mint+缓存;存储亦偏离——Hermes 存
+#: profile ``.env``/config extra,MYIA 按 security-baseline 铁律存系统钥匙链
+#: (env: 兼容优先)。(2026-10-05 深度对拍定稿表述)
 TOKEN_API_URL = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
 #: 缓存失效提前量(秒):expire 减去本值即本地过期线,避免临界命中已失效 token。
 TOKEN_REFRESH_LEAD_SECONDS = 120.0
