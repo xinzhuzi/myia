@@ -1,0 +1,131 @@
+{
+  "steps": [
+    {
+      "name": "P0:真 sidecar spawn(run.status 空注册表应答)",
+      "ok": true,
+      "evidence": "{\"id\":145,\"result\":{\"runs\":[]}}",
+      "screenshot": null
+    },
+    {
+      "name": "P0:方法注册面 runs.trend 在 method_not_found.allowed(共 48 方法)",
+      "ok": true,
+      "evidence": "code=method_not_found;allowed=48;含 runs.trend=true",
+      "screenshot": null
+    },
+    {
+      "name": "P0:runs.trend days=14 聚合(今天 3s+1f+1r / 昨天 1s+1r / 3 天前 2f;旧→新)",
+      "ok": true,
+      "evidence": "dates=[\"2026-10-01:{\\\"failed\\\":2}\",\"2026-10-03:{\\\"running\\\":1,\\\"success\\\":1}\",\"2026-10-04:{\\\"failed\\\":1,\\\"running\\\":1,\\\"success\\\":3}\"]",
+      "screenshot": null
+    },
+    {
+      "name": "P0:runs.trend 钳制/过滤/形状(days0→仅今天、91→含 40 天前 partial、category 过滤、非 int 拒)",
+      "ok": true,
+      "evidence": "days0=[\"2026-10-04\"];91 含 d40 partial=true;cat none=0;days\"7\" err=invalid_params",
+      "screenshot": null
+    },
+    {
+      "name": "P0:store.trend days=14(10 天前 7 / 3 天前 3 / 今天 5,旧→新)",
+      "ok": true,
+      "evidence": "[{\"date\":\"2026-09-24\",\"count\":7},{\"date\":\"2026-10-01\",\"count\":3},{\"date\":\"2026-10-04\",\"count\":5}]",
+      "screenshot": null
+    },
+    {
+      "name": "P0:feedback.stats 基线(既有 CLI good×1)",
+      "ok": true,
+      "evidence": "{\"total\":1,\"good\":1,\"bad\":0,\"bad_ratio\":0,\"by_channel\":{\"cli\":1},\"top_bad_categories\":[],\"top_bad_words\":[]}",
+      "screenshot": null
+    },
+    {
+      "name": "B2:feed 卡片 👍 标记(aria-pressed=true + 置灰防重)",
+      "ok": true,
+      "evidence": "目标行可见=true;点击前 pressed=false/enabled=true;点击后 pressed=true+disabled=true;span 文本=\"\"",
+      "screenshot": "b2-feed-marked.png"
+    },
+    {
+      "name": "B2:feedback.mark→list 往返(channel=desktop,dedup_key=b234-smoke-key-1)",
+      "ok": true,
+      "evidence": "[{\"id\":2,\"item_id\":15,\"dedup_key\":\"b234-smoke-key-1\",\"verdict\":\"good\",\"channel\":\"desktop\",\"title\":\"B234 冒烟反馈条目\",\"category\":\"ai-news\",\"created_at\":\"2026-10-04T04:12:07.711828+00:00\"},{\"id\":1,\"item_id\":null,\"dedup_key\":\"b234-cli-old\",\"verdict\":\"good\",\"channel\":\"cli\",\"title\":\"旧 CLI 条\",\"category\":null,\"created_at\":\"2026-10-02T04:12:05.938765+00:00\"}]",
+      "screenshot": null
+    },
+    {
+      "name": "B2:feedback.stats 标记后(cli1+desktop1 → good=2)",
+      "ok": true,
+      "evidence": "{\"total\":2,\"good\":2,\"bad\":0,\"bad_ratio\":0,\"by_channel\":{\"desktop\":1,\"cli\":1},\"top_bad_categories\":[],\"top_bad_words\":[]}",
+      "screenshot": null
+    },
+    {
+      "name": "B3:enrich.enabled 开关 → yaml.save 写回磁盘 false + doctor 复核回显 + .bak 留底",
+      "ok": true,
+      "evidence": "开关 true→false;磁盘 enrich.enabled true→false;.bak=true;状态行=\"/tmp/myia-b234-e2e/home/plugins/ai-news.yaml 精评已停用(enrich.enabled 写回,doctor 已复核)。\"",
+      "screenshot": "b3-enrich-disabled.png"
+    },
+    {
+      "name": "B3:回拨复原(enrich.enabled → true)",
+      "ok": true,
+      "evidence": "磁盘 enrich.enabled=true;开关 aria-checked=true",
+      "screenshot": null
+    },
+    {
+      "name": "B4:采集量趋势摘要(近 14 天共 15 条 · 峰值 7 条/日;种子 7+3+5)",
+      "ok": true,
+      "evidence": "trend-total=\"近 14 天共 15 条 · 峰值 7 条/日\"",
+      "screenshot": "b4-g6-dashboard-14d.png"
+    },
+    {
+      "name": "B4:采集量 sparkline SVG polyline 与种子真数据逐点对算(14 点,max=7 归一)",
+      "ok": true,
+      "evidence": "rendered=\"3.0,45.0 22.5,45.0 42.1,45.0 61.6,3.0 81.2,45.0 100.7,45.0 120.2,45.0 139.8,45.0 159.3,45.0 178.8,45.0 198.4,27.0 217.9,45.0 237.5,45.0 257.0,15.0\"\nexpected=\"3.0,45.0 22.5,45.0 42.1,45.0 61.6,3.0 81.2,45.0 100.7,45.0 120.2,45.0 139.8,45.0 159.3,45.0 178.8,45.0 198.4,27.0 217.9,45.0 237.5,45.0 257.0,15.0\"",
+      "screenshot": null
+    },
+    {
+      "name": "G6:成功率 sparkline 固定 [0,1] 刻度逐点对算(3 点 [0,1,0.75],max=1,area=false)",
+      "ok": true,
+      "evidence": "rendered=\"3.0,45.0 130.0,3.0 257.0,13.5\"\nexpected=\"3.0,45.0 130.0,3.0 257.0,13.5\";polygon(渐变填充)=0",
+      "screenshot": null
+    },
+    {
+      "name": "G6:累计成功率摘要(57% = 4/7;零完结日不入线)",
+      "ok": true,
+      "evidence": "rate-summary=\"近 14 天累计成功率 57%(4/7 次成功)\"",
+      "screenshot": null
+    },
+    {
+      "name": "G6:成功率 sparkline aria 累计口径 + 「不含进行中」口径注记在卡面",
+      "ok": true,
+      "evidence": "aria-label=\"近 14 天累计成功率 57%(4/7 次成功),无完结 run 的日子不入线\"",
+      "screenshot": null
+    },
+    {
+      "name": "B4/G6:趋势区零错误零空态(双序列都画出来了)",
+      "ok": true,
+      "evidence": "trend-error/rate-error/rate-empty 命中数=0",
+      "screenshot": null
+    },
+    {
+      "name": "G6 口径差异实录:「近期 run 成功率」卡(runs.list 内存合并)=40% ≠ 趋势 57%(表内 status 口径)",
+      "ok": true,
+      "evidence": "run-success-rate 卡=\"40%\"(10 行含 2 行僵尸 running 全算完结 → 4/10);趋势卡 57%(4/7,running 不入分母)——两口径卡面各自如实,不冒充同源",
+      "screenshot": null
+    },
+    {
+      "name": "B2:仪表盘反馈统计卡计数(good=2 cli+desktop / bad=0)",
+      "ok": true,
+      "evidence": "feedback-good=\"2\";feedback-bad=\"0\"",
+      "screenshot": null
+    },
+    {
+      "name": "B4:窗口切换 7 天双查询重画(共 8 条 · 峰值 5;7 点对算)",
+      "ok": true,
+      "evidence": "trend-total=\"近 7 天共 8 条 · 峰值 5 条/日\";points 对算 一致\nrendered=\"3.0,45.0 45.3,45.0 87.7,45.0 130.0,19.8 172.3,45.0 214.7,45.0 257.0,3.0\"\nexpected=\"3.0,45.0 45.3,45.0 87.7,45.0 130.0,19.8 172.3,45.0 214.7,45.0 257.0,3.0\"",
+      "screenshot": "b4-g6-dashboard-7d.png"
+    },
+    {
+      "name": "G6:窗口切换后成功率序列不变(3 个完结日全在 7 天窗内;57% 4/7)",
+      "ok": true,
+      "evidence": "points=\"3.0,45.0 130.0,3.0 257.0,13.5\";summary=\"近 7 天累计成功率 57%(4/7 次成功)\"",
+      "screenshot": null
+    }
+  ],
+  "consoleErrors": []
+}

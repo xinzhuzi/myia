@@ -1,0 +1,70 @@
+{
+  "db": "/tmp/myia-b234-e2e/home/myia.db",
+  "now_utc": "2026-10-04T04:12:05.938765+00:00",
+  "today": "2026-10-04",
+  "yesterday": "2026-10-03",
+  "d3": "2026-10-01",
+  "d10": "2026-09-24",
+  "d40": "2026-08-25",
+  "items": {
+    "d10": 7,
+    "d3": 3,
+    "today": 5,
+    "target_dedup_key": "b234-smoke-key-1"
+  },
+  "runs": {
+    "today": {
+      "success": 3,
+      "failed": 1,
+      "running": 1
+    },
+    "yesterday": {
+      "success": 1,
+      "running": 1
+    },
+    "d3": {
+      "failed": 2
+    },
+    "d40": {
+      "partial": 1
+    }
+  },
+  "feedback_cli_rows": 1,
+  "expected": {
+    "trend_counts_14d": [
+      0,
+      0,
+      0,
+      7,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      5
+    ],
+    "trend_total_text_14d": "近 14 天共 15 条 · 峰值 7 条/日",
+    "trend_counts_7d": [
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      5
+    ],
+    "trend_total_text_7d": "近 7 天共 8 条 · 峰值 5 条/日",
+    "rate_points_14d": [
+      0.0,
+      1.0,
+      0.75
+    ],
+    "rate_summary_14d": "近 14 天累计成功率 57%(4/7 次成功)",
+    "rate_summary_7d": "近 7 天累计成功率 57%(4/7 次成功)",
+    "run_success_rate_card": "40%"
+  }
+}
