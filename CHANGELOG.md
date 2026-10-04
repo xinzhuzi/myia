@@ -11,6 +11,12 @@ repeated here.
 
 ### Changed
 
+- **Tests reorganized by module; classifier now ships its own tests**(2026-10-05,
+  10-05-tests-module-grouping):主包 `tests/` 由 94 文件平铺重组为镜像
+  `src/myssia` 的 14 个模块组(alerts/cli/cron/credhunter/engines/push/store/
+  vision…),根仅留跨切面测试与共享 fixtures;`myssia-classifier` 首次自带
+  `tests/`(sdist 自下一版起随附,wheel 仍仅含 `myssia_classifier` 包体);
+  根 `testpaths` 双目录,CI 单命令全量门禁不变,3604 收集零丢失实证。
 - **Third full-chain rename: myia → myssia**(2026-10-04 终版命名决议:myssia 为
   项目唯一正式名——GitHub 仓库 xinzhuzi/myia、PyPI 发行名 myssia /
   myssia-classifier、CLI `myssia`、Python 模块 `src/myssia`、classifier 模块

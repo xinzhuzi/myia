@@ -51,11 +51,11 @@
 - **F5 implement.jsonl/check.jsonl 保持空是有意的**:task.py 脚手架约定该二文件「spec/research docs only, no code paths」,本任务纯机械迁移无 spec 依赖,填码路径反违约定。
 - **F6 陈旧缓存注记**:根 `.pytest_cache/` 与 `tests/__pycache__/` 残留旧平铺位置的 pyc/nodeid,pytest 首跑自愈、无功能影响,按「不确定就不动」惯例不手清。
 
-开放决策(grill 回合呈主人,见会话):
+开放决策(grill 回合呈主人,**2026-10-05 主人批「按你的建议」全按推荐定案**):
 
-- **G1** 8d2e8a8 混写提交是否拆分归位(两笔均未推)。
-- **G2** CHANGELOG Unreleased 是否补一条(tests 结构重组;sdist 随附测试属发行物可见变化)。
-- **G3** 分类器 sdist 随附 tests 是否保留默认(或显式 exclude 求纯净)。
+- **G1 ✅ 不拆 8d2e8a8**:内容无害(纯移动)、归属已在 b864d2b 提交信息与本档双向注记;并行线活跃期不动刚落提交,若推送前主人仍要干净历史再议。
+- **G2 ✅ CHANGELOG 补条**:Unreleased/Changed 已加「Tests reorganized by module; classifier now ships its own tests」条目(随本笔回写入库)。
+- **G3 ✅ sdist 随附 tests 保留默认**:零配置零维护,wheel 纯净不受影响;已在 CHANGELOG 条目内对下游声明。
 
 ## 非目标
 
