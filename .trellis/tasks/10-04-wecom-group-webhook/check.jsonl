@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/python/index.md", "reason": "检查依据"}
+{"file": "tests/test_messaging_wecom.py", "reason": "自测 uv run --no-sync python -m pytest tests/ -q -k wecom → 46 passed(33 基线 + 13 群形态新增);全量 3297 passed 19 skipped;额外 test_schema/test_push_delivery/test_messaging_pipeline 140 passed;ruff 两触碰文件 All checks passed"}
