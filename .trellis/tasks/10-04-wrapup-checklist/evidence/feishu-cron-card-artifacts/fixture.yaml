@@ -1,0 +1,23 @@
+id: feishu-cron-card
+name: 飞书收卡验证
+schedule: "* * * * *"
+timezone: Asia/Shanghai
+sources:
+  - name: local-fixture
+    engine: static_html
+    url: "http://127.0.0.1:8813/index.html"
+    extract:
+      type: list
+      item: "article.post"
+      fields:
+        title: "h2 a"
+        url: "h2 a@href"
+classify:
+  builtin: false
+  rules: []
+dedup:
+  key: "{url}"
+push:
+  - channel: stdout
+storage:
+  retention: 30d
