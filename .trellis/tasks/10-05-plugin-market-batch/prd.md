@@ -1,0 +1,100 @@
+# 插件市场批量收录:市面有名爬虫/分析工具(先定引擎层 vs 插件层分工)
+
+## Goal
+
+把市面有名的爬虫/分析工具成批收录进 `plugins/` 市场。**第一阶段先定案引擎链(L1-L6)与插件层的分工**(主人 2026-10-05 指令:「先把这个问题讨论清楚了」),再全量盘点+分批落地。铁律不变:装不上不拦核心。
+
+## 背景:现状两层各自是什么(事实,非提案)
+
+### 引擎层(核心,`src/myssia/engines/`)
+
+- 自动降级链 `direct_api → static_html → crawl4ai ⇄ firecrawl → scrapling → stealth_browser → llm_browser`(`registry.py` 模块文档):回答的问题是「**这个 URL 的结构化内容,用最低成本怎么拿**」。
+- crawl4ai/firecrawl/scrapling/隐身浏览器进核心而非插件,机制原因:
+  1. 抓取是流水线第一步,**每个源的每次 run 都要用**——若做成插件,「装不上不拦核心」铁律立即被核心自身依赖击穿;
+  2. 降级链要做进程内控制流(逐档尝试/失败记账/`engine_hints` 胜者持久化/预算与取消),引擎必须是被调度的库,不是外部进程;
+  3. 上游以「库/API」形态被嵌入(pip 装或 BYO endpoint),MYIA **只借其执行机构,不保留其产品形态**;调度/降级/记账是 MYIA 自研。
+- 可选依赖纪律:后端缺失=结构化失败(`dependency_missing`)继续降级,不拦链。
+
+### 插件层(`plugins/` + `~/.myia/plugins` 安装根 + manifest 规范)
+
+- 回答的问题是「**给核心加一个它不该自有、可整体失效的能力**」:代理出口池、凭证猎取、OSINT 侦察(Photon 子进程)、变更监控(changedetection.io remote)、无代码平台(Maxun server-only)、抖音采集、aipocket 聚合。
+- 已有正规通道先例:**链外源引擎**——`engine: credhunter` 注册进 `ENGINE_REGISTRY` 但刻意不进 `AUTO_CHAIN`,`engines/credhunter.py` 的实现就是「加载 `plugins/myssia-credhunter/adapter.py` 进程内执行」(`engines/credhunter.py` 模块文档)。即**架构上已经允许「插件发行新抓取能力」**:显式选用、单档链、失败=源级结构化失败、不参与自动降级。
+- 市场治理:manifest 分级(desktop/remote/server-only)+ 许可红线(AGPL 只桩不抄、GPL 走 submodule 样板=Photon、BSD/MIT 可直借)+ 版本矩阵 + community/ 收录规范。
+
+## 待主人定案的分层裁决(Phase 1 出口)
+
+**问题:引擎层已覆盖「有名的爬虫库」,插件层还承载什么?**
+
+建议答案(待质询/主人裁决):
+
+1. **两层不是竞争,是两问**:引擎=「URL→结构化内容」的通用抓取调度(每个源都路过);插件=「场景能力+生态接入」(特定品类/任务才用,可整体失效,带上游生态与部署形态)。已有的 7 件全部落在这一定义内,无一与引擎链重叠。
+2. **逐工具归位判定框**(批量收录时每个工具过一遍,顺序裁):
+   - a. 它是「库/API,能把 URL 变结构化内容」且比现有档更强 → 候选**核心链新档**(如 scrapy/crawlee 型库;进链须回答「比 scrapling 强在哪、降级序插哪」);
+   - b. 它是「采集能力但非浏览器降级语义」(API 猎取/侦察/平台代抓) → **插件+链外引擎**(照 credhunter 先例);
+   - c. 它是「独立平台/服务」(自带编排与 UI) → **remote/server-only 桩+compose**(照 maxun/monitor 先例);
+   - d. 它与 MYIA 同物种(本身就是情报/采集编排台,如 Crawlab) → **默认不收**——把竞品包进来当数据源语义牵强,除非用户已有部署实例要接(c 形态);
+   - e. 许可/免费路径不过关(connector-selection 硬规则) → 不立项,记档。
+3. **桌面优先纪律不变**:desktop 分级=进程内/子进程零 docker;要 docker 的进 server-only。
+
+## 主人 2026-10-05 追问:云 API 花钱 + 第三方留痕 + 自研 vs 借(Phase 1 裁决输入)
+
+**顾虑原文**:「这些 API 会花费钱,还会在别人的服务器上面留下问题吧?很多内容这样方便,还是你自己自研方便呢?」
+
+事实澄清(避免误伤现有架构):
+
+- 引擎链四件全是**本地开源库**(crawl4ai/scrapling pip 装本机跑;隐身浏览器本机 playwright;firecrawl 开源可自部署,云端是可选 BYO-key)——**不是云 API**;项目书面宪法本就排序「本地/自托管 > 多年稳定免费层 > 聚合器只做可选后端,永不默认」(connector-selection spec)。
+- 真正会「花钱+第三方留痕」的是**厂商反爬 SaaS**(Zenrows/ScraperAPI/Crawlbase 型):按页计费,且你监控的全部目标 URL 集中经过对方服务器、与你的账号(API key)绑定——对情报工具这是最坏的留痕形态(目标侧留痕是采集固有,厂商侧聚合留痕是我们主动送出去的)。
+
+**✅ 主人已批(2026-10-05「优先使用零成本的爬虫手段」)——以下升级为定案,判定框以此为准**:
+
+- **P0 本地执行硬规则**:收录的每个工具必须「本地跑」(进程内/子进程,开源上游)或「指向自部署实例」(remote 桩指用户自己的部署);厂商 SaaS 型收录=默认不立项(e 路),特殊需要时至多做文档级可选后端,永不成为插件 lane 缺省。
+- **自研 vs 借的分工线**:能力是 MYIA 核心回路(采集调度/去重/分类/精评/推送/凭证猎取)→ 自研(credhunter 先例);能力是通用轮子且上游开源健康(浏览器/指纹/反检测/代理测活)→ 借库嵌入,不自研(自研 playwright 级轮子是输局);无开源上游又是核心需要 → 才评估自研或付费。
+- 该规则与本仓既有门禁(免费路径/许可红线)叠加生效,不改写。
+
+## 2026-10-05 grill 决议(主人按建议全批 D1-D3;Phase 1 出口达成)
+
+| # | 决议点 | 定案(2026-10-05 主人批) |
+| --- | --- | --- |
+| D1 | 两层分工定义 + 判定框 a-e(引擎=「URL→结构化内容」通用调度,插件=「可整体失效的场景能力+生态接入」) | **按上文建议答案定案**——7 件现有插件全部落在该定义内,无一与引擎链重叠;判定框作为 Phase 2 盘点表唯一归位依据 |
+| D2 | P0 本地执行硬规则(对主人「花钱+第三方留痕」顾虑的回应) | **批准为硬规则**:收录件必须本地跑(进程内/子进程开源上游)或指向自部署实例;厂商反爬 SaaS(Zenrows/ScraperAPI 型)默认不立项(e 路),至多文档级可选后端、永不做缺省 |
+| D3 | 自研 vs 借的分工线 | **按建议定案**:核心回路(调度/去重/分类/精评/推送/凭证猎取)自研;通用轮子(浏览器/指纹/反检测/代理测活)借开源库嵌入不自研;无开源上游且核心需要才评估自研或付费 |
+
+> 依据事实(已在档):引擎链四件全是本地开源库非云 API;厂商 SaaS 的「目标 URL 集+账号绑定」是最坏留痕形态;connector-selection spec 宪法排序「本地/自托管 > 稳定免费层 > 聚合器只做可选后端」。
+
+## Phase 2 盘点表骨架(D1 定案后填充;○=待核实,照 supplier-map 惯例)
+
+| 形态类 | 候选(全部 ○ 待核实:上游/license/免费路径/活跃度) | 预期归位倾向 |
+| --- | --- | --- |
+| 平台/编排型 | Crawlab(BSD)、EasySpider(AGPL,只看不抄)、Huginn、(闭源参照:八爪鱼) | c/d:独立平台→remote/server-only 桩;同物种竞品默认不收 |
+| 通用抓取库 | scrapy、crawlee(py)、selectolax/httpx 组合、selenium-wire 族 | a/b:逐个答「比 scrapling 强在哪、降级序插哪」,答不出不进链 |
+| 采集专项/反检测 | curl_cffi(指纹模拟)、undetected-chromedriver、Zenrows/ScraperAPI 型 SaaS | 库→a/b 候选;SaaS→e(D2 硬规则) |
+| OSINT/侦察 | theHarvester、SpiderFoot、maigret(Photon 已收先例) | b:插件+链外引擎(照 credhunter/Photon 先例) |
+| 监控/变更 | changedetection.io(已收)、urlwatch、Huginn watch 型 | c/b:remote 桩或插件 |
+| 分析/结构化 | trafilatura(正文抽取)、readability-lxml、newspaper3k 族 | a/b:正文抽取属「URL→结构化内容」语义,进链候选须答增量 |
+
+> 填表纪律:每行须核实 license(AGPL 只桩不抄/GPL 走 submodule)、免费路径(connector-selection 硬规则)、桌面分级(desktop=零 docker;要 docker 的 server-only);≥4 形态类、≥15 工具为 AC2 口径。
+
+## Requirements
+
+- R1(Phase 1):分层定案——**已毕(2026-10-05 D1-D3 决议,见决议表)**;判定框 a-e 为 Phase 2 唯一归位依据。
+- R2(Phase 2):全量盘点表——市面有名爬虫/分析工具清单(平台型/库型/采集专项型/分析侦察型/监控型),每行:上游、license、免费路径、形态、建议归位(a/b/c/d/e)、一句话理由;○/● 核实标记照 supplier-map 惯例。
+- R3(Phase 3+):按批次落地收录——manifest+README+adapter(或桩)+compose(服务端)+doctor 集成+OFFICIAL_PLUGINS/golden 同步;每批独立可验。
+- R4:收录一件动一件的验证(tests/test_plugins.py 官方件参数化+golden),禁止一次性大爆炸提交。
+
+## Acceptance Criteria
+
+- [x] AC1:Phase 1 分层定案回写本档(判定框 a-e 主人过目);裁决前不开任何收录工。**(2026-10-05 回标:D1-D3 主人按建议全批,见上决议表;Phase 2 盘点解锁)**
+- [x] AC2:盘点表覆盖 ≥4 形态类、≥15 个有名工具,每行有核实标记。**(2026-10-05 回标:`research.md` 27 行/6 形态类,gh api 快照逐行 ●/○;首批 4 件建议已列,主人过目=当轮汇报,翻案即改;2026-10-05 收录开工令已按档下发执行=b 路首批 maigret+urlwatch,design §1/§3 与 inventory §三)**
+- [x] AC3:首批收录全绿(2026-10-05 首批 5 件:media/maigret/theharvester/rsshub/spiderfoot;tests/plugins 518 绿、`plugin install+list` 沙箱冒烟可见、doctor 降级 warning=包契约既有钉;官方件 golden 无涉——首批零品类 YAML 变更,OFFICIAL_PLUGINS 品类清单不动;**全量 pytest 门禁:批末跑毕,红项归因见下注**)。注:首批期间并行会话同树在做 secrets 修复与 urlwatch 件,全量若有红先归因并行域再回本档。
+- [x] AC4:README「6 official categories」→7(并行会话顺手完成,265b7a9 双语两处)。
+- [ ] AC5(挂账,另任务):装机包 tauri resources 只捆 4/7 官方品类(games/news/exposure 缺)与 `.seeded` 全有或全无补种语义——本任务不动,已单独记录。**首批追加注记:官方场景件已达 12 件(7 桌面+3 remote+2 server-only),装机包市场面是否随包分发 plugins/<pkg> 是 AC5 任务一并裁。**
+
+## Constraints
+
+- 装不上不拦核心(市场铁律);AGPL 不抄码;GPL 走 submodule;凭据零明文;免费路径门禁(connector-selection spec)。
+- 并行会话在场:本任务状态改动直接改 task.json,不用 start/finish 命令(记忆:踩踏在案)。
+
+## Notes
+
+- 2026-10-05 建档。来源:主人「我想的是你把市面上面所有有名的爬虫工具,分析工具塞入这个下面」+「crawl4ai/firecrawl/scrapling/隐身浏览器 为啥走了引擎降级链,如果已经做了,plugins 还有什么作用?建这个 Trellis 任务,先把这个问题讨论清楚了」。
+- 现有 7 件官方件明细与形态见 2026-10-05 会话盘点(plugins/ 目录实况)。
