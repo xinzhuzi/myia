@@ -63,11 +63,16 @@ PyInstaller sidecar 的误报可能性如实注记;UPDATER.md 第三节(手工�
       → 终检冒烟(2026-10-04)**manual**:静态面终检复核实读全过——pyproject.toml:50
       marker、uv.lock:1979/2003 marker、ocrmac sdist+wheel 两条 URL 均 tsinghua;
       windows runner 装配=CI 日志为准,未跑(推 origin 首跑)
+      → 首跑实况(2026-10-04,run 37178701163):windows uv sync **失败**,
+      根因=外来改名反转漏改子包名(workspace member 不一致),非 ocrmac
+      marker——错误面与 vision extra 无关;不勾,详见验收记录 CI 首跑节
 - [ ] AC2 CI 绿:desktop-release.yml 的 windows-msi job conclusion=success
       (workflow_dispatch 验证 run 即可,tag 发布为最终态);run 日志含 bundle 目录
       清单步(产物路径可溯)。
       → 终检冒烟 **manual**:静态断言 34 PASS + actionlint clean(终检会话复跑
       exit 0);真 run conclusion 待推 origin 首跑,未跑
+      → 首跑实况(2026-10-04,run 37178701163):windows-msi conclusion=
+      **failure**(死于 sidecar 装配,外来根因);不勾,详见验收记录 CI 首跑节
 - [ ] AC3 打包配置:tauri.conf.json `bundle.icon` 含 `icons/icon.ico`;mac 主线
       不回归(macos-dmg job 仍绿,`--bundles app,dmg` 链照常)。
       → 终检冒烟 **manual**:配置面终检复核实读过(bundle.icon 三元组含
@@ -80,6 +85,8 @@ PyInstaller sidecar 的误报可能性如实注记;UPDATER.md 第三节(手工�
       URL 指 ASCII 资产名。
       → 终检冒烟 **manual**:静态+dry 过(workflow 断言+dry D2/D4 30 PASS);
       Release/artifacts 实际=CI 首跑(+tag),未跑
+      → 首跑实况(2026-10-04,run 37178701163):artifacts **0 件**(mac/win
+      双死于 sidecar 装配,未到产物步);不勾,详见验收记录 CI 首跑节
 - [x] AC5 文档:README Windows 安装小节 + SmartScreen/Defender 注记落盘;
       UPDATER.md 第三节/第六节更新为自动化口径;真机冒烟清单(安装/放行/首跑种子/
       keychain→凭据管理器 DPAPI 链/五屏/updater passive/单实例观察项,七项)
@@ -95,6 +102,8 @@ PyInstaller sidecar 的误报可能性如实注记;UPDATER.md 第三节(手工�
 - [ ] AC7 证据:CI 绿 run URL 与产物清单回填本档「验收记录」;归档留主人。
       → 终检冒烟 **manual**:run URL 回填前提=CI 真跑(dispatch 循环),未跑;
       静态/dry 证据已入 evidence/,CI 首跑后由主人/后续会话回填
+      → 首跑实况(2026-10-04):两 run URL+失败根因已回填验收记录 CI 首跑节,
+      但均为红 run(无「CI 绿」证据);AC7 判据未满,不勾
 
 ## 待拍板(全带推荐;2026-10-04 主人 /workflow 授权「七连全按推荐」口径,已按推荐定稿见下节)
 
@@ -210,10 +219,41 @@ Windows 产物 ASCII 改名 `myia_<版本>_x64.msi`/`.sig`)、F4(README Windows
 | actionlint | `actionlint .github/workflows/desktop-release.yml` | exit 0 clean |
 | 版本解析 dry | 四场景 bash 演练(tag/分支无参/分支带参/预发布) | 全部符合预期 |
 
-**未跑(如实)**:dispatch 验证循环(`gh workflow run desktop-release.yml`)
-——本会话口径不真跑 CI;AC1 的 windows runner 装配、AC2/AC4 的 run 绿与
-artifacts、AC7 的 run URL 回填,待分支推送后由主人/后续会话执行(判据见
-implement 阶段 4)。全量 pytest 归脚本统一门禁。
+**未跑(如实,实施会话口径)**:dispatch 验证循环(`gh workflow run
+desktop-release.yml`)——本会话口径不真跑 CI;AC1 的 windows runner 装配、
+AC2/AC4 的 run 绿与 artifacts、AC7 的 run URL 回填,待分支推送后由主人/后续
+会话执行(判据见 implement 阶段 4)。全量 pytest 归脚本统一门禁。
+
+### CI 首跑实跑记录(2026-10-04 推送后,CI 收口会话回填;HEAD=1c46a27)
+
+| run | URL | 终态 |
+|---|---|---|
+| ci.yml(push 触发) | https://github.com/xinzhuzi/myia/actions/runs/37178669780 | **failure**:test / docker-build / ruff 三红;ui-test、rust-check 绿 |
+| desktop-release.yml(workflow_dispatch @ main) | https://github.com/xinzhuzi/myia/actions/runs/37178701163 | **failure**:macos-dmg 与 windows-msi 双双死于「构建 sidecar」步(29s / 1m15s);release-finalize skipped(macos-dmg result 门);**artifacts 0 件**(无 win-msi/mac-updater/latest-json) |
+
+- **四红同源,均非本任务域文件**:HEAD `1c46a27` 上
+  `myia-classifier/pyproject.toml` 的包名仍为 `shishi-classifier`
+  (`0a085cc` 改名反转把目录改回 myia-classifier 但漏改子包名),与根
+  pyproject `tool.uv.workspace/sources` 及 uv.lock 的 `myia-classifier`
+  不一致——test job `uv sync` 报「`myia-classifier` references a workspace
+  in `tool.uv.sources` … but is not a workspace member」;docker 与双平台
+  sidecar 的 `--frozen` 同报「Missing workspace member `shishi-classifier`」
+  (三个 job 日志实抓,行号见 run)。
+- **另:ruff F821** `src/myia/cli.py:3854`(undefined name `_cmd_cron`)——
+  `f759c87`(本批 proxy-pool 提交)夹带了并行 hermes-cron 线在途的
+  handlers 引用行;定义 `def _cmd_cron` 在并行会话**未提交**工作树
+  (src/myia/cli.py:1813,+815 行 cron 族),尚未随任何提交入库。
+- **处置(按「外来(并行线)→如实记录不修」纪律)**:两族失败的修复文件
+  (`myia-classifier/pyproject.toml`、`src/myia/cli.py`、`tests/test_cli.py`)
+  均带并行会话未提交改动——不碰、不代提交、不 force push。本任务域文件
+  (desktop-release.yml / build-sidecar.sh)在两 run 中行为符合设计:守卫步
+  过、uv/node/rust 装配过、失败点全在上游依赖装配(仓库态),未到 Tauri
+  打包段——**msi 命名 / WiX 对中文名 / 路径大小写三雷区(4.3)未触及**。
+- **AC 状态(如实,不勾)**:AC1 windows runner uv sync=失败(外来根因,
+  非 ocrmac marker——错误面为 workspace member,与 vision extra 无关);
+  AC2 windows-msi conclusion=failure;AC4 artifacts 0 件;AC7 无绿 run URL。
+  待并行线修复(子包名回 myia-classifier + cron 定义入库)推 main 后重新
+  dispatch 验证(判据仍按 implement 4.2),届时由后续会话/主人回标本节。
 
 ## Notes
 
