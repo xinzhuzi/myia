@@ -22,7 +22,7 @@
 
    **回标(2026-10-04 收口)**:装机取证材料已备——七屏实拍入库 `docs/screenshots/install-cronline-1004/`(01-dashboard / 02-feed / 03-sources / 04-logs / 05-settings / 06-messaging / 07-cmdk-palette,随 86117c3);像素级目验留主人;(3) keychain 跨进程验收无屏证,仍须主人实收。
 
-   **追记(2026-10-04 cron-ui 落地后)**:上述七屏系 cron-ui **之前**的构建所拍——**第八屏「定时任务」(10-04-cron-ui,commit 5b3fae3)尚未进任何装机截图**;下次装机目验须重打包(含 cron-ui+Stage 6 缺口修复批)并补拍 08-cron 屏;本机尚有 3 笔提交未推(5b3fae3/42509bd/12a1719,推送留主人)。
+   **追记(2026-10-04 cron-ui 落地后)**:上述七屏系 cron-ui **之前**的构建所拍——**第八屏「定时任务」(10-04-cron-ui,commit 5b3fae3)尚未进任何装机截图**;下次装机目验须重打包(含 cron-ui+Stage 6 缺口修复批)并补拍 08-cron 屏;本机尚有 5 笔提交未推(5b3fae3/42509bd/12a1719/50dc8fd/873a748,推送留主人;后续再落提交时顺更此数)。
 
 ### 三、长期挂账
 

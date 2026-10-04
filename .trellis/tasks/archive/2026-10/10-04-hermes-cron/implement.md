@@ -88,3 +88,8 @@ uv run shishi cron status && uv run shishi cron runs
 uv run python .trellis/tasks/10-04-hermes-cron/research/probe-dow-normalizer.py
 gitnexus detect-changes -r shishi --scope staged
 ```
+
+## 终局补记(2026-10-04,归档后;原文勾选框与收口注记保持历史原状)
+
+- **平台真发半面已闭环(飞书)**:归档时 G2/AC6 留空所缺的「平台定向卡真发」,已由后续批次(10-04-wrapup-checklist「按建议做完」流)实证——hermes-cron 运行摘要卡于 2026-10-04 18:41 真发 `feishu:AI福利群`(沙箱 fixture 品类一轮,跑完即删 job、令牌即用即废;执行链证据 `../10-04-wrapup-checklist/evidence/feishu-cron-card.md`)。AC6「deliver 定向到达」的真发半面据此闭环;failure_deliver/三态语义此前已单测覆盖。
+- **仍缺**:TG 定向真发(全机无 TELEGRAM 凭据,wrapup 长期挂账,主人建 bot 后可补);官方 news.yaml 真网品类整跑(离线冒烟口径已在案,装机后随手可验)。
