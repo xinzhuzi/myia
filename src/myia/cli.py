@@ -49,6 +49,9 @@ stdout 只有一份纯 JSON(AI 消费路径)。
 - ``feedback``  反馈闭环 list/stats/mark(v0.3,薄包装 shishi.feedback;
                 mark 是桌面形态的手动标记接收路,TG/飞书回调经 pipeline/
                 回调端点入库,负反馈随维护阶段自动调参)。
+- ``alerts``    告警规则命中历史只读 ``list``(v1;alert_fired 新→旧,
+                --rule 过滤 / --limit 钳制 [1,200] / --json;桌面 sidecar
+                独占写路径,规则建删启停走 alerts.* 四方法,CLI 写留 v2)。
 - ``skill``     Agent Skill 安装通路 install/path(纯文件操作,退出码
                 0/1;目标已存在默认结构化拒绝,--force 才覆盖;--link 符号
                 链接;--path 自定义目录;真实安装目录按平台惯例探测)。
@@ -147,7 +150,13 @@ from shishi.secrets import (
     set_secret,
     validate_secret_name,
 )
-from shishi.store import FEEDBACK_CHANNEL_CLI, FeedbackRecord, SQLiteStore, StoreSchemaError
+from shishi.store import (
+    FEEDBACK_CHANNEL_CLI,
+    AlertFired,
+    FeedbackRecord,
+    SQLiteStore,
+    StoreSchemaError,
+)
 
 __all__ = ["build_parser", "main"]
 
@@ -280,6 +289,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_plugin_parser(sub)
     _add_channels_parser(sub)
     _add_feedback_parser(sub)
+    _add_alerts_parser(sub)
     _add_skill_parser(sub)
     _add_osint_parser(sub)
     _add_proxy_parser(sub)
@@ -521,6 +531,29 @@ def _add_feedback_parser(sub: argparse._SubParsersAction) -> None:
     stats.add_argument("--top", type=int, default=5, help="Top 类目/词条数(默认 5)")
     stats.add_argument("--db", default=DEFAULT_DB_PATH, help=f"SQLite 存储路径(默认 ./{DEFAULT_DB_PATH})")
     stats.add_argument("--json", dest="as_json", action="store_true", help="机器可读输出")
+
+
+def _add_alerts_parser(sub: argparse._SubParsersAction) -> None:
+    """``shishi alerts``:告警命中历史只读 list(v1;design §8,feedback 先例)."""
+    alerts = sub.add_parser(
+        "alerts",
+        help="告警命中历史只读:list(alert_fired 新→旧;写路径留 v2)",
+        description=(
+            "桌面 sidecar 独占写路径;CLI 只读命中历史(alert_fired 表,对齐 "
+            "feedback list 先例)。规则建/删/启停走消息屏「告警规则」子面板"
+            "(alerts.* 四方法),CLI 写路径留 v2。"
+        ),
+    )
+    alerts_sub = alerts.add_subparsers(dest="alerts_command", required=True, title="告警操作")
+    listing = alerts_sub.add_parser(
+        "list", help="告警命中历史(默认最近 100 条,新→旧)"
+    )
+    listing.add_argument("--rule", type=int, default=None, help="按规则 id 过滤(alert_rules.id)")
+    listing.add_argument(
+        "--limit", type=int, default=100, help="返回条数上限(默认 100,钳制 [1,200])"
+    )
+    listing.add_argument("--db", default=DEFAULT_DB_PATH, help=f"SQLite 存储路径(默认 ./{DEFAULT_DB_PATH})")
+    listing.add_argument("--json", dest="as_json", action="store_true", help="机器可读输出(单份 JSON,stdout)")
 
 
 def _add_skill_parser(sub: argparse._SubParsersAction) -> None:
@@ -2403,6 +2436,64 @@ def _cmd_feedback(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# myia alerts:告警命中历史只读(v1;design §8,CLI 写路径留 v2)
+# ---------------------------------------------------------------------------
+
+
+def _alert_fired_row_dict(fired: AlertFired) -> dict[str, Any]:
+    """Machine-readable fired row(--json / AI 消费形态;rule_name/title 为
+    命中时快照,规则删除/条目剪枝后历史仍可读)。"""
+    return {
+        "id": fired.id,
+        "rule_id": fired.rule_id,
+        "rule_name": fired.rule_name,
+        "item_id": fired.item_id,
+        "dedup_key": fired.dedup_key,
+        "title": fired.title,
+        "category": fired.category,
+        "action": fired.action,
+        "action_status": fired.action_status,
+        "created_at": fired.created_at.isoformat() if fired.created_at else None,
+    }
+
+
+def _alerts_list(args: argparse.Namespace, *, as_json: bool) -> int:
+    """``shishi alerts list``:告警命中历史(新→旧);0/1。"""
+    try:
+        store = SQLiteStore(args.db)
+    except StoreSchemaError as exc:
+        _emit_generic_error("store", str(exc), as_json=as_json, error_type=exc.code, **exc.details)
+        return EXIT_CONFIG_ERROR
+    try:
+        rows = store.list_fired(rule_id=args.rule, limit=args.limit)
+    finally:
+        store.close()
+    payload = {
+        "command": "alerts",
+        "action": "list",
+        "count": len(rows),
+        "items": [_alert_fired_row_dict(row) for row in rows],
+    }
+    if as_json:
+        _print_json(payload)
+        return EXIT_OK
+    print(f"世事 alerts list:共 {len(rows)} 条命中(新→旧)")
+    for row in rows:
+        when = row.created_at.isoformat(sep=" ") if row.created_at else "-"
+        print(
+            f"  #{row.id} {when} [{row.action}:{row.action_status}] "
+            f"{row.rule_name} — {row.title or '(无标题)'}"
+        )
+    return EXIT_OK
+
+
+def _cmd_alerts(args: argparse.Namespace) -> int:
+    """``shishi alerts`` 分发入口(v1 只读 ``list``;写路径留 v2,design §8)。"""
+    _configure_logging(as_json=args.as_json)
+    return _alerts_list(args, as_json=args.as_json)
+
+
+# ---------------------------------------------------------------------------
 # myia skill:Agent Skill 安装通路(PRD 10-02-v11;纯文件操作,退出码 0/1)
 # ---------------------------------------------------------------------------
 
@@ -3197,6 +3288,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "plugin": _cmd_plugin,
         "channels": _cmd_channels,
         "feedback": _cmd_feedback,
+        "alerts": _cmd_alerts,
         "skill": _cmd_skill,
         "osint": _cmd_osint,
         "proxy": _cmd_proxy,
