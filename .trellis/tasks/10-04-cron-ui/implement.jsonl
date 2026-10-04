@@ -1,4 +1,6 @@
 {"file": ".trellis/tasks/10-04-cron-ui/research/myia-ground-truth.md", "reason": "实现直接消费的地面真值:九方法参数键名逐字/事件联合缺口(logs 穷尽守卫涟漪)/notice 横幅先例/镜像与对账测试形态/mock 选型/展开与 table 先例——含对原稿的三处修正"}
+{"file": ".trellis/tasks/10-04-cron-ui/research/types-draft.md", "reason": "types.ts 接口逐字抄草案(九方法 Params/Result+CronJobRecord+两事件+yaml.list),落地时对源复核可选键边界"}
+{"file": ".trellis/tasks/10-04-cron-ui/research/screen-spec.md", "reason": "屏布局契约(五区域/表列定义/Dialog 三组表单/事件与时钟)+18 条测试用例清单(编号对应 AC)"}
 {"file": ".trellis/tasks/10-04-cron-ui/research/hermes-cronpage-map.md", "reason": "蓝本 CronPage 行号地图:逐段对位表(工具/表单三函数/STATUS_TONE/主组件/Modal/列表/常量镜像),实现每块前读对应段"}
 {"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "前端镜像纪律(方法签名入 types.ts+client 门面)与事件清单(cron.completed/cron.skipped);零协议变更红线的出处"}
 {"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "token/基件纪律(14 基件,禁局部 ring/对比度红线/text 阶梯);UI 深度模仿批沉淀的屏级规范"}

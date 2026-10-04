@@ -1,6 +1,6 @@
 # Implement:10-04-cron-ui
 
-> 蓝本先读:`~/.hermes/hermes-agent/web/src/pages/CronPage.tsx`(行号地图=research/hermes-cronpage-map.md)+ `web/src/lib/cron-job.ts` 全文;MYIA 侧先读 **research/myia-ground-truth.md(参数键名/事件联合缺口/notice/先例全在)** + spec desktop/sidecar-protocol.md(镜像纪律)+ frontend-ui.md(token/基件红线)。
+> 蓝本先读:`~/.hermes/hermes-agent/web/src/pages/CronPage.tsx`(行号地图=research/hermes-cronpage-map.md)+ `web/src/lib/cron-job.ts` 全文;MYIA 侧先读 **research/myia-ground-truth.md(参数键名/事件联合缺口/notice/先例全在)** + **research/types-draft.md(接口逐字抄,落地时对源复核)** + **research/screen-spec.md(布局契约+18 条测试用例清单)** + spec desktop/sidecar-protocol.md + frontend-ui.md。
 
 ## Stage 0:基线与占地
 
@@ -9,16 +9,18 @@
 
 ## Stage 1:骨架与数据层
 
-- [ ] 1.1 types.ts:cron 九方法+yaml.list 复用签名入 SidecarProtocol mirror(参数键名按 ground-truth §1 逐字)+ **CronCompleted/CronSkipped 事件 interface 入 SidecarEvent 联合 + logs/api.ts eventToRow 穷尽守卫适配(runId=null 系统行,alerts.fired 先例)**;client.ts 共享门面 + client.test.ts 逐方法批断言(F8/AC8)
+- [ ] 1.1 types.ts:cron 九方法+yaml.list 复用签名入 SidecarProtocol mirror(**按 research/types-draft.md 逐字抄后对源复核**,可选键边界 `?:` 以后端「显式才有」为准)+ **CronCompleted/CronSkipped 事件 interface 入 SidecarEvent 联合 + logs/api.ts eventToRow 穷尽守卫适配(runId=null 系统行,alerts.fired 先例)**;client.ts 共享门面 + client.test.ts 逐方法批断言(F8/AC8)
 - [ ] 1.2 screens/cron/ 建骨架:路由(App.tsx)+侧栏项(sidebar.tsx)+空屏三态;api.ts invoke 封装
 - [ ] 1.3 cron-form.ts:emptyCronJobForm/fromJob/buildPayload + 常量镜像(grace/stale 注双向出处)
 - 测试:骨架渲染+路由可达
 
 ## Stage 2:列表与活性
 
-- [ ] 2.1 活性条(status;僵死黄条判据 `!writer_alive||heartbeat_age>180s`;estopped 红条+**双向:急停全部红钮+确认 Dialog/恢复全部**,grill Q6)
+> 布局与列定义按 research/screen-spec.md §1-§2 契约执行。
+
+- [ ] 2.1 活性条(status;三态:正常/僵死黄条 `!ticker_alive||heartbeat_age_seconds>180s`/急停红条;**双向:急停全部红钮+确认 Dialog/恢复全部**,grill Q6)
 - [ ] 2.2 job 列表(table;全字段+四态 badge(蓝本 STATUS_TONE 映射表形态,H 526-532)+逾期红标(15min grace)+all 切换;行内展开模式照 logs 屏 expanded Set+惰性拉取)
-- 测试:四态色断言/逾期边界/空态/僵死与急停各一(**messaging 式传输层 mock+emitSidecarEvent 注入**,ground-truth §6)
+- 测试:按 **research/screen-spec.md §5 用例清单 #1-#18** 逐条落(编号对应 AC);mock=messaging 式传输层+emitSidecarEvent(ground-truth §6)
 
 ## Stage 3:双 Dialog 与动作
 
