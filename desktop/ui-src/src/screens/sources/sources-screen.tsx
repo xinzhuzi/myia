@@ -1,4 +1,4 @@
-import { Loader2, Play, Plus, RefreshCw } from "lucide-react";
+import { FlaskConical, Loader2, Play, Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -116,6 +116,19 @@ export function SourcesScreen() {
   const [scheduleRows, setScheduleRows] = useState<ScheduleRow[] | null>(null);
   /** 工具栏刷新态(Kestra KSFilter refresh 位):有数据时原地转圈不卸表格 */
   const [refreshing, setRefreshing] = useState(false);
+  /** 一键探查(主人 2026-10-05):doctor 全源诊断 → reload 更新健康度 */
+  const [probing, setProbing] = useState(false);
+  const handleProbeAll = useCallback(async () => {
+    setProbing(true);
+    try {
+      await api.doctor();
+      await reload();
+    } catch {
+      // doctor 失败不塌屏,reload 照常拉旧数据
+    } finally {
+      setProbing(false);
+    }
+  }, [reload]);
 
   const reload = useCallback(async () => {
     setRefreshing(true);
@@ -397,6 +410,21 @@ export function SourcesScreen() {
           跑一次 {runOnce.name} 发起失败:{runOnce.message}
         </div>
       ) : null}
+
+      {/* 一键探查(主人 2026-10-05):doctor 全源诊断 → 刷新健康度 */}
+      <div className="flex items-center justify-end px-6 pb-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void handleProbeAll()}
+          disabled={probing || refreshing}
+          data-testid="probe-all"
+          className="gap-1.5"
+        >
+          {probing ? <Loader2 className="size-3.5 animate-spin" /> : <FlaskConical className="size-3.5" />}
+          {probing ? "探查中…" : "一键探查"}
+        </Button>
+      </div>
 
       {/* Kestra Flows 分区范式(full-container):表格不再卡包裹,直接铺在内容底
           上(KsDataTable 观感);加载/空态同区呈现 */}
