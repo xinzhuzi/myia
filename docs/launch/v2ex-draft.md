@@ -14,6 +14,14 @@
 > `ghcr.io/xinzhuzi/myia`)——截至本稿写就,仓库 README 仍是旧版 +
 > uv-only 口径、PyPI 双包未上架、v0.0.1 tag 已推送但 Release 页未上线,故硬
 > gate 里把这些列为发帖前置条件,未满足前**不可发**。
+>
+> **2026-10-04 终态实核**:PyPI 双包仍 404(登记=主人门禁,在途,包名终局
+> `myssia` / `myssia-classifier`);v0.0.1 Release 已上线但资产带旧名前缀
+> (`shishi_0.0.1_aarch64.dmg`,直链以 Release 页为准);Docker 0.0.1 镜像在
+> `ghcr.io/xinzhuzi/shishi:0.0.1`(发布时旧仓名,后续版本在
+> `ghcr.io/xinzhuzi/myia`);Windows msi 构建管线已绿(Release 页无 msi);
+> `myssia --version` 实输出 `myssia 0.0.1`。硬 gate 未过前,本稿 pip 口径
+> 不可发;uv 源码口径的现行版见 `v2ex.md`。
 
 ## 标题候选(选一)
 
@@ -91,8 +99,10 @@ push:
    缺省行为);「真人验证+手机号」类源直接结构化报错,不做绕过。
 
 运行形态三选:CLI 常驻(`myssia run --loop`,APScheduler 进程内调度)、
-Docker(仓库自带 compose 文件,镜像 `ghcr.io/xinzhuzi/myia`,CI 对 main
-与 `v*` tag 自动构建),或桌面应用——Tauri 2 壳,Python 核心以 sidecar
+Docker(仓库自带 compose 文件,镜像在 GHCR——0.0.1 的 tag 因发布时仓库短暂
+更名落在 `ghcr.io/xinzhuzi/shishi:0.0.1`,仓库已定名回 `myia`,后续版本在
+`ghcr.io/xinzhuzi/myia`;发布改 tag 驱动,main 推送不再出镜像),或桌面
+应用——Tauri 2 壳,Python 核心以 sidecar
 嵌入,多屏 UI(仪表盘/源/信息流/日志/设置)。装机首跑自动种子官方插件,
 含一个零凭据 demo(GitHub 新星榜),第一次点「运行第一个插件」就出真数据;
 设置页「检查更新」走签名更新通道,验签后自动下载安装。桌面截图见附图
@@ -100,11 +110,13 @@ Docker(仓库自带 compose 文件,镜像 `ghcr.io/xinzhuzi/myia`,CI 对 main
 
 **安装**:
 
-- CLI:`pip install myssia`(v0.0.1 起 PyPI 直装;`myssia --version` →
-  `myia 0.0.1`)。重引擎可选:`pip install "myssia[crawl4ai]"` /
-  `"myssia[llm]"`。源码开发走 uv workspace:`git clone` + `uv sync`。
-- 桌面(macOS Apple Silicon):Releases 下载 dmg(文件名应形如
-  `myssia_0.0.1_aarch64.dmg`,发帖当日从 Release 页复制实际资产直链)。
+- CLI:`pip install myssia`(**前提:硬 gate 2 已过**——2026-10-04 实核 PyPI
+  仍 404,登记在途;过门后 `myssia --version` → `myssia 0.0.1`)。重引擎
+  可选:`pip install "myssia[crawl4ai]"` / `"myssia[llm]"`。源码开发走 uv
+  workspace:`git clone` + `uv sync`。
+- 桌面(macOS Apple Silicon):Releases 下载 dmg(2026-10-04 实测 Release
+  资产名为 `shishi_0.0.1_aarch64.dmg`——发布时仓库短暂用旧名,定名终局
+  myssia 后未重发,发帖当日从 Release 页复制实际资产直链,禁止手拼)。
   安装包没做 Apple 公证(公证要付费开发者账号)——代码全开源、
   每个包由 GitHub Actions 公开构建、日志可溯;
   首次打开在「应用程序」里右键 世事 →「打开」→ 再点「打开」(或双击被拦后
@@ -112,15 +124,19 @@ Docker(仓库自带 compose 文件,镜像 `ghcr.io/xinzhuzi/myia`,CI 对 main
 
 **如实交底**(没做的事不吹):
 
-- PyPI 双包 v0.0.1 起已上架(`myia` / `myssia-classifier`),
-  `pip install myssia` 即装;uv 源码走法仍适用于开发;
-- 本版 Release 只有 macOS(Apple Silicon)安装包,没有其他桌面平台产物;
+- PyPI 双包上架前提 = 硬 gate 2(2026-10-04 实核仍 404,双包名 `myssia` /
+  `myssia-classifier`,登记在途);过门后 `pip install myssia` 即装,
+  uv 源码走法仍适用于开发;
+- Windows:msi 构建管线已在 CI 跑绿(验证 run 产出 `myssia_0.0.1_x64.msi`
+  工件),但 v0.0.1 Release 页没有 Windows 包、装机未验证——首个 Windows
+  安装包随下个 Release,现在当没有;
 - 桌面推送卡片里的反馈按钮还没做,在后续批次(反馈闭环 CLI + 回调接收
   现已可用);
 - 安装包未公证(上面说了,右键打开)。
 
 CI 全绿;2000+ 测试零真实网络(全部录制回放;公开可查:
-https://github.com/xinzhuzi/myia/actions/workflows/ci.yml )。
+https://github.com/xinzhuzi/myia/actions/workflows/ci.yml ;2026-10-04 工作树
+`pytest --collect-only` 实测 3604,发帖当日以 CI 实数为准)。
 
 链接:
 
@@ -133,14 +149,17 @@ https://github.com/xinzhuzi/myia/actions/workflows/ci.yml )。
 
 ## 发帖前硬 gate(未全部满足不发;写稿时点实测状态已注)
 
-1. **v0.0.1 Release 已上线**(写稿实测 Release 页 404,tag 已推送):dmg 等
-   资产 URL 当日从 Release 页复制粘贴,禁止手改版本号拼链。
+1. **v0.0.1 Release 已上线**(写稿实测 Release 页 404,tag 已推送;2026-10-04
+   实核已上线,资产带旧名前缀 `shishi_*`):dmg 等资产 URL 当日从 Release 页
+   复制粘贴,禁止手改版本号拼链。
 2. **PyPI 双包已上架**(写稿实测 pypi.org/pypi/myssia/json 与
-   /myssia-classifier/json 均 404):两个 JSON API 返回 200 再发。
+   /myssia-classifier/json 均 404;2026-10-04 终态复测仍 404,登记=主人门禁
+   在途,若 pypi.org 侧曾按旧名建过 pending publisher 需删旧建新):
+   两个 JSON API 返回 200 再发。
 3. **命名决议落地(2026-10-04 终版)**:myssia 为项目唯一正式名——发行名/CLI/
-   模块名全链统一(`src/myssia`、`myssia.cli:main`),「世事」为中文名;
-   早前的 myia 与短暂 shishi 皆为历史。发布前干净环境
-   `python -c "import myssia"` 实测通过。
+   模块名全链统一(`src/myssia`、`myssia.cli:main`),「世事」为中文名,
+   GitHub 仓库保持 `xinzhuzi/myia`(split naming,owner decision B)。
+   发布前干净环境 `python -c "import myssia"` 实测通过。
 4. **README 已同步切到 pip + 0.0.1 口径**(快速开始 / 下载安装段 / 版本号 /
    `myssia-classifier` 目录链接)——否则读者点进仓库第一屏就与帖子矛盾。
 5. **CHANGELOG [Unreleased] 已定版为 [0.0.1]**;顺带把 README 与 CHANGELOG
@@ -149,10 +168,15 @@ https://github.com/xinzhuzi/myia/actions/workflows/ci.yml )。
 6. **屏数与截图按当版实际 UI 核对**:第六屏「消息」已在开发分支合入,若随
    v0.0.1 发布,正文「多屏 UI」列举与附图按实际增补。
 7. **CI 测试数以当日实数刷新**:写稿时本地 `pytest --collect-only` 实测
-   2159 条,正文用「2000+」;CI 实跑数若不同,以 CI 为准。
+   2159 条,正文用「2000+」;2026-10-04 终态复测 3604 条;CI 实跑数若不同,
+   以 CI 为准。
 
 ## 发帖后动作
 
 - 当天把帖子链接记进任务日志,启动 `docs/launch/README.md` 的首周反馈表
 - 评论区的 bug 回报引导到 issue 模板;schema 建议单独开 issue 讨论
 - 若发出后桌面端有新版本 / 新平台产物,回帖补更,别让旧回复过期误导
+
+---
+
+> 2026-10-04 终态刷新,待主人定稿。

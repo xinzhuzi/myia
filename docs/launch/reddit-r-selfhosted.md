@@ -1,6 +1,13 @@
 # Reddit r/selfhosted 首发文案(英文场景,未发出)
 
-> **状态:草稿,发布节奏由主人定。**
+> **状态:草稿,已对齐 2026-10-04 终态,发布节奏由主人定。**
+>
+> 终态口径(2026-10-04 实核):定名 **myssia**(中文名:世事)· GitHub 仓库
+> `xinzhuzi/myia` · PyPI 双包 `myssia` / `myssia-classifier` 登记(主人门禁)
+> 在途——正文不写 `pip install`;v0.0.1 三形态 = 桌面 dmg(Release)+ Docker
+> 镜像(GHCR)+ PyPI 在途;Windows msi 构建管线已绿但 Release 页无 msi;
+> 五项新能力(cron / alert rules / ⌘K palette / server-side read state /
+> interaction batch)已合 main、随下个发布版交付,v0.0.1 安装包里没有。
 
 > **发前必做:人工点开核实现行版规(下方版规信息均未经直接核实)。** 本写稿
 > 环境对 reddit 的全部抓取通道均被拒(WebFetch 与 curl 带 UA 请求 `.json` API
@@ -27,9 +34,9 @@
 
 ## 标题候选(选一)
 
-1. `I built an open-source, self-hosted intelligence hub: one YAML file per thing I want to watch, and my coding agent writes the YAML (MIT)`
-2. `Shishi (世事) — self-hosted "tell it what to watch, AI does the rest": fetch → classify → dedup → push to Telegram/Feishu (MIT, v0.0.1, desktop app)`
-3. `Stop wiring RSS + diff-watchers + webhooks by hand: Shishi is one config-driven pipeline for any watch category (open source, MIT)`
+1. `I built an open-source, self-hosted intelligence hub: one YAML file per thing I want to watch, and my coding agent writes the YAML (MIT, Docker image + desktop dmg)`
+2. `myssia (世事) — self-hosted "tell it what to watch, AI does the rest": fetch → classify → dedup → push to Telegram/Feishu (MIT, v0.0.1, desktop app)`
+3. `Stop wiring RSS + diff-watchers + webhooks by hand: myssia is one config-driven pipeline for any watch category (open source, MIT)`
 
 ## 正文
 
@@ -40,9 +47,10 @@ problem: a scraper, a cron job, a diff watcher, a dedup hack, a webhook into
 my messenger. Each new target (AI news, stock moves, freebies, GPU prices)
 meant re-wiring all of it.
 
-So I built **Shishi (世事)** — an open-source (MIT), self-hosted intelligence
-hub. Pure Python, one SQLite file, no daemon, no Redis, no Postgres.
-**One YAML file = one intelligence category:**
+So I built **myssia (世事 — "the ways of the world" in Chinese)** — an
+open-source (MIT), self-hosted intelligence hub. Pure Python, one SQLite
+file, no daemon, no Redis, no Postgres. **One YAML file = one intelligence
+category:**
 
 ```yaml
 id: demo-min
@@ -95,24 +103,37 @@ What's inside:
   and sources that demand human verification (CAPTCHA, phone numbers) fail
   with a structured error instead of being bypassed.
 
-It runs as a plain CLI loop (`myssia run --loop`) or via the bundled
-[docker compose](https://github.com/xinzhuzi/myia/blob/main/docker/docker-compose.yml);
-data lands in one SQLite file with retention + VACUUM.
+It runs as a plain CLI loop (`myssia run --loop`), via Docker — the v0.0.1
+multi-arch image (amd64/arm64) is on GHCR: `docker pull
+ghcr.io/xinzhuzi/shishi:0.0.1` (the repo carried a short-lived name when
+0.0.1 shipped; it's back to `myia` now, and later releases land under
+`ghcr.io/xinzhuzi/myia`) — or as the desktop app below. Data lands in one
+SQLite file with retention + VACUUM.
 
-**v0.0.1 shipped this week**, and the desktop app got daily-drivable:
+**v0.0.1 shipped this week** in three forms — the desktop dmg on GitHub
+Releases, the Docker image above, and the PyPI packages (that pair is still
+in flight: registration pending, so CLI install stays source-based for
+now). The desktop app got daily-drivable:
 
 - macOS (Apple Silicon) installer on
   [GitHub Releases](https://github.com/xinzhuzi/myia/releases/tag/v0.0.1) —
-  grab `myssia_0.0.1_aarch64.dmg`. It is **not** Apple-notarized (notarization
-  needs a paid developer account, which I don't have yet), so first launch
-  takes the right-click → Open → Open dance; every installer is built in
-  public CI with traceable logs, and the code is fully auditable.
+  grab the dmg (heads-up: the asset currently carries the short-lived old
+  repo name, `shishi_0.0.1_aarch64.dmg`; the Releases page is authoritative).
+  It is **not** Apple-notarized (notarization needs a paid developer
+  account, which I don't have yet), so first launch takes the right-click →
+  Open → Open dance; every installer is built in public CI with traceable
+  logs, and the code is fully auditable.
 - A fresh install auto-seeds the official plugins, including a
   **zero-credential demo** — GitHub's new-star board via one unauthenticated
   API call — so the first "run" click shows real data instead of a config
   error. Nothing to fill in.
 - **Signed update channel**: the settings screen checks for updates,
   downloads and installs them with signature verification, then relaunches.
+- Windows: the msi pipeline went green in CI right after this release (a
+  verification run produced the msi artifact), but no Windows installer is
+  attached to v0.0.1 and I haven't smoke-tested an install — the first
+  Windows package ships with the next release. No "works on Windows" claims
+  yet.
 
 The five desktop screens (all fed by real demo-plugin data):
 [dashboard](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/dashboard.png) ·
@@ -121,15 +142,26 @@ The five desktop screens (all fed by real demo-plugin data):
 [logs](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/logs.png) ·
 [settings](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/settings.png)
 
+**Landed on main since the release** (shipping with the next version — not
+in the v0.0.1 dmg): scheduled jobs — `myssia cron`, natural-language
+schedules ("every monday 9am") or 5-field cron, three coexisting hosts
+(CLI serve / desktop ticker / system crontab tick) with run summaries
+delivered to targeted channels (local archive / Feishu / Telegram); alert
+rules evaluated against every incoming item (push or tag on match, with a
+dry-test that never sends); a ⌘K command palette; feed read/starred/later
+state moved server-side (whole-library "mark all read", survives a device
+change); and a keyboard-interaction batch (j/k navigation, context menu,
+unread-first, collapsible sidebar).
+
 Honest status:
 
 - CLI install is **from source** for now (`git clone` + `uv sync` — the repo
-  is a uv workspace); the PyPI packages are pending a manual release
-  workflow. Full walk-through:
+  is a uv workspace); the PyPI packages (`myssia` / `myssia-classifier`) are
+  pending registration + a manual release workflow. Full walk-through:
   [docs/en/getting-started.md](https://github.com/xinzhuzi/myia/blob/main/docs/en/getting-started.md)
   (bilingual; the 中文 tree ships in-repo and tests keep both in sync).
-- The Windows build is verified at **build level only** — I haven't
-  smoke-tested an install on Windows yet.
+- The Windows msi builds green in CI — **build level only**: no installer
+  in Releases yet, no install smoke-tested.
 - 1300+ tests run in CI, none of them touching the real network.
 
 Links:
@@ -143,26 +175,40 @@ credential handling. What would *you* point it at first?
 
 ## 中文对照草稿(发布前主人过目用,不直接发出)
 
-各位好,我给自己造了个开源自托管情报中枢 **世事 / Shishi**(MIT,纯 Python +
-SQLite 单文件、无守护进程):想盯的每类情报(AI 资讯/股票异动/羊毛/显卡行情)
-就是一个 YAML 文件,抓取→分类→去重→打分→推送到 Telegram/飞书全自动。YAML
-都不用自己写:内置 Agent Skill 让编码 agent 照 12 节规范现场生成、`myssia test`
-试抓验证、坏了凭 `myssia doctor` 自修——说需求,AI 做其余。
+各位好,我给自己造了个开源自托管情报中枢 **myssia(中文名:世事)**(MIT,
+纯 Python + SQLite 单文件、无守护进程):想盯的每类情报(AI 资讯/股票异动/
+羊毛/显卡行情)就是一个 YAML 文件,抓取→分类→去重→打分→推送到
+Telegram/飞书全自动。YAML 都不用自己写:内置 Agent Skill 让编码 agent 照
+12 节规范现场生成、`myssia test` 试抓验证、坏了凭 `myssia doctor` 自修——
+说需求,AI 做其余。
 
 内里:六级采集降级梯(API→静态 HTML→crawl4ai/Firecrawl→Scrapling→隐身浏览器→
 LLM 浏览器,胜出引擎按源记忆);零 token 七类关键词分类器 + 可选 LLM 精评,
 score ≥ 8 立推、≥ 5 进早晚摘要;飞书/Telegram/webhook/stdout 四通道 + URL 键
 去重;凭据只走 env/系统钥匙链,YAML 里出现明文凭据加载即拒;robots.txt 默认
 尊重、要真人验证的源结构化报错不绕过;反馈闭环 CLI 现已可用(桌面卡片内按钮
-下一版)。CLI `myssia run --loop` 或随包 docker compose 跑,数据单 SQLite 文件。
+下一版)。CLI `myssia run --loop`、Docker(v0.0.1 双平台镜像在 GHCR:
+`ghcr.io/xinzhuzi/shishi:0.0.1`,仓库已定名回 myia,后续版本镜像在
+`ghcr.io/xinzhuzi/myia`)或桌面应用,数据单 SQLite 文件。
 
-**v0.0.1 本周发布**,桌面端可日常用了:macOS(Apple Silicon)安装包在 GitHub
-Releases(`myssia_0.0.1_aarch64.dmg`;未做 Apple 公证,首开右键→打开,安装包
-公开 CI 构建);装机首跑种子官方插件,含零凭据演示件(GitHub 新星榜,一次免
-鉴权 API 调用),第一次点运行就出真数据;设置页走签名更新通道。五屏截图:
-仪表盘/信息流/源管理/日志/设置。
+**v0.0.1 本周三形态**:桌面 macOS(Apple Silicon)安装包在 GitHub Releases
+(资产名 `shishi_0.0.1_aarch64.dmg`——发布时仓库短暂用旧名,以 Release 页为
+准;未做 Apple 公证,首开右键→打开,安装包公开 CI 构建)+ Docker 镜像 +
+PyPI 双包在途(登记未完成,现在 pip 装不了);装机首跑种子官方插件,含零
+凭据演示件(GitHub 新星榜,一次免鉴权 API 调用),第一次点运行就出真数据;
+设置页走签名更新通道。五屏截图:仪表盘/信息流/源管理/日志/设置。
 
-如实说:CLI 目前源码安装(git clone + uv sync,uv workspace),PyPI 待手动发布
-流程;the Windows build did not ship in v0.0.1 (no Windows installer in Releases — macOS only for now);CI 1300+ tests never touch the real network.
+发布后合入 main、随下个版本(如实:v0.0.1 安装包里没有):定时任务
+`myssia cron`(自然语言排程 + 运行摘要定向投递)、告警规则、⌘K 命令面板、
+已读状态进服务端、feed 键盘流(j/k 导航/右键菜单/未读优先/侧栏折叠)。
+
+如实说:CLI 目前源码安装(git clone + uv sync,uv workspace),PyPI 双包
+(`myssia` / `myssia-classifier`)登记在途;Windows msi 构建管线已绿(CI 验证
+run 产出工件)但 Release 页没有 Windows 包、装机未验证;CI 1300+ tests
+(README 徽章口径)never touch the real network。
 
 仓库 https://github.com/xinzhuzi/myia ,求建议:你会先拿它盯什么?
+
+---
+
+> 2026-10-04 终态刷新,待主人定稿。

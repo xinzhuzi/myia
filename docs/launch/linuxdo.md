@@ -1,12 +1,19 @@
 # LinuxDo 首发文案(中文场景,未发出)
 
-> **状态:草稿,已更新到 v0.0.1 发布现实,发布节奏由主人定。** LinuxDo 偏好
+> **状态:草稿,已对齐 2026-10-04 终态,发布节奏由主人定。** LinuxDo 偏好
 > 真诚分享 + 可复现的自部署细节,反感营销腔;注意版规(发帖板块选
 > 「资源荟萃/前沿快讯」类开源分享,以站内实际板块为准)与信任等级要求。
 > 社区对「白嫖/羊毛」接受度高,但请把伦理边界讲在前面。
 > 发帖时:五张截图一律用论坛附件上传(本地路径见正文截图占位清单;正文里
 > 不要留任何图片外链——Discourse 外链图可能不渲染,且易被视为引流);
 > 代码块用 ```yaml / ```bash 高亮。
+>
+> 终态口径(2026-10-04 实核):定名 myssia(中文名:世事)· GitHub 仓库
+> `xinzhuzi/myia` · PyPI 双包 `myssia` / `myssia-classifier` 登记(主人门禁)
+> 在途——现在不能写 `pip install`;v0.0.1 三形态 = 桌面 dmg(Release)+
+> Docker 镜像(GHCR)+ PyPI 在途;Windows msi 构建管线已绿但 Release 页
+> 无 msi;五项新能力(cron / 告警规则 / ⌘K 面板 / 读态服务端化 / 交互批)
+> 已合 main、随下个发布版交付,v0.0.1 安装包里没有。
 
 ## 标题候选(选一)
 
@@ -15,15 +22,18 @@
 
 ## 正文
 
-先说清楚这是什么:一个开源自托管情报中枢 **世事**(MIT,纯 Python 3.11+,SQLite 单文件,无守护进程)。所有「我想第一时间知道」的事——AI 资讯、股票异动、羊毛线报、显卡行情——都是一份 YAML 配置,流水线自动做采集 → 分类 → 去重 → 打分 → 推送(飞书卡片 / Telegram / webhook / stdout)。
+先说清楚这是什么:一个开源自托管情报中枢 **世事**(技术名 **myssia**——发行名/CLI/Python 模块名一律 `myssia`,GitHub 仓库 `xinzhuzi/myia`;MIT,纯 Python 3.11+,SQLite 单文件,无守护进程)。所有「我想第一时间知道」的事——AI 资讯、股票异动、羊毛线报、显卡行情——都是一份 YAML 配置,流水线自动做采集 → 分类 → 去重 → 打分 → 推送(飞书卡片 / Telegram / webhook / stdout)。
 
-**v0.0.1 已经发了**(GitHub Release,macOS Apple Silicon 安装包 + 签名更新通道),桌面端从这版起可日常使用;CLI 走源码安装。两条路都给,任选。
+**v0.0.1 已经发了**:GitHub Release 挂 macOS(Apple Silicon)安装包 + 签名更新
+通道,Docker 双平台镜像(amd64/arm64)同批上了 GHCR;PyPI 双包登记在途。
+桌面端从这版起可日常使用;CLI 走源码安装。桌面、Docker、CLI 三条路都给,任选。
 
 ### 桌面端(不想碰命令行的走这条)
 
-下载:`myssia_0.0.1_aarch64.dmg` →
-https://github.com/xinzhuzi/myia/releases/download/v0.0.1/myssia_0.0.1_aarch64.dmg
-(Release 页:https://github.com/xinzhuzi/myia/releases/tag/v0.0.1)
+下载:v0.0.1 的 macOS 安装包(2026-10-04 实测 Release 资产名为
+`shishi_0.0.1_aarch64.dmg`——发布时仓库短暂用旧名,定名终局 myssia 后未重发,
+**发帖当日从 Release 页复制实际资产直链,以页面为准**)→
+https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
 
 丑话说在前面:
 
@@ -35,9 +45,10 @@ https://github.com/xinzhuzi/myia/releases/download/v0.0.1/myssia_0.0.1_aarch64.d
   JSON 单请求),第一次点「运行第一个插件」就出真数据,不用先填任何 key。
 - 设置页有「检查更新」,走签名更新的通道(Release 附带 `.sig` 签名与
   `latest.json`,更新包验签后安装)。
-- **没有 Windows 包**:本版 Release 只发了上面这一个 macOS 安装包,
-  Windows 构建管线还没跑通(CI 里是个标注「允许失败」的实验性 job,
-  这版没过),Windows 机器上没有开箱即用的路线,弄通了回来补。
+- **Windows 尚无安装包**:v0.0.1 Release 只挂了 macOS 安装包。Windows msi
+  构建管线在这版之后已转正式目标并在 CI 跑绿(2026-10-04 验证 run 产出
+  `myssia_0.0.1_x64.msi` 工件),但还没挂上 Release、装机也没验证过——首个
+  Windows 安装包随下个 Release 交付,现在不做任何「Windows 能用」的宣称。
 
 桌面五屏,截图就是 demo 插件真实抓取的数据,不是摆拍(发帖时把下面五张
 本地截图用论坛附件上传、按此顺序插入,说明文字可带走):
@@ -56,9 +67,15 @@ cd myia
 uv sync    # 源码装法仅此一条(uv workspace,裸 pip 解析不到同仓子包)
 ```
 
-> 如实说:**PyPI 还没上**,`pip install myssia` 现在装不了;上架前请用上面的
-> uv 路线。本仓是 uv workspace(`myssia-classifier` 是 workspace 成员),裸
-> `pip install -e .` 拉不齐依赖。
+> 如实说:**PyPI 双包(`myssia` / `myssia-classifier`)登记在途**,`pip install
+myssia` 现在装不了;上架前请用上面的 uv 路线。本仓是 uv workspace
+(`myssia-classifier` 是 workspace 成员),裸 `pip install -e .` 拉不齐依赖。
+
+服务器长跑可用 Docker:v0.0.1 双平台镜像已上 GHCR——
+`docker pull ghcr.io/xinzhuzi/shishi:0.0.1`(amd64/arm64;0.0.1 发布时仓库
+短暂更名,镜像 tag 落在旧仓名下;仓库已定名回 `myia`,GHCR 包页清理与后续
+版本镜像 `ghcr.io/xinzhuzi/myia` 的切换随下个发布收口)。仓库自带
+[docker compose](https://github.com/xinzhuzi/myia/blob/main/docker/docker-compose.yml)。
 
 最小品类长这样,零凭据、复制就能跑(`url` 换成任意服务端渲染的列表页):
 
@@ -115,14 +132,29 @@ secret set` 管录入,值走 stdin 不进 shell history、不进日志、不进
 配置;所有命令带 `--json`(stdout 恒为恰好一份 JSON 文档),退出码契约
 0/1/2/3,`myssia doctor --json` 的 findings 就是给 agent 自修的行动清单。
 
+### 下一批已在 main(如实:v0.0.1 安装包里没有,随下个发布版交付)
+
+- **定时任务 `myssia cron`**:schedule 吃自然语言(`every monday 9am`)也吃
+  5 段 cron;CLI 常驻(`cron serve`)、桌面端内置 ticker、外接 crontab 手动
+  `cron tick` 三宿主共存(tick 文件锁 + fire 认领互斥);到点跑一遍品类管线,
+  运行摘要定向投递(本地留档 / 飞书 / Telegram 等平台)。
+- **告警规则**:对每条新入流情报求值,命中即推送 / 打标;规则管理带 dry
+  测试(不真发、不记触发史),触发事件实时回放桌面端。
+- **桌面交互批**:⌘K 命令面板(全局导航 + 动作)、feed j/k 键盘导航与右键
+  菜单(复制链接 / 标已读)、未读优先与分组切换、侧栏折叠;已读 / 星标 /
+  稍后状态从本地 localStorage 迁到服务端存储——换设备不丢,「全部已读」
+  是整库语义。
+
 ### 状态如实
 
-- CI 1300+ 测试全绿,无一条碰真实网络;
-- macOS 桌面端 v0.0.1 起日常可用;**Windows 本版没有任何产物与验证**——
-  Release 只有 macOS 包,Windows 构建 job 这版就没跑通(实验性、允许失败),
-  CLI 在 Windows 上同样没验证过,这里不做任何「Windows 能跑」的宣称;
-- 桌面卡片内反馈按钮排后续批次(反馈闭环 CLI 现已可用);
-- PyPI 双包(`myia` / `myssia-classifier`)待发,发布前源码安装仅 uv。
+- CI 1300+ 测试全绿(README 徽章口径;当前工作树 `pytest --collect-only`
+  实测 3604,2026-10-04),无一条碰真实网络;
+- macOS 桌面端 v0.0.1 起日常可用;**Windows 本版 Release 无产物**——msi 构建
+  管线已绿(CI 验证 run 产出工件),但未挂 Release、装机未验证,CLI 在
+  Windows 上同样没验证过,这里不做任何「Windows 能跑」的宣称;
+- 桌面卡片内反馈按钮已随桌面对齐批次落地 main、随下个发布版交付(反馈闭环
+  CLI 现已可用);
+- PyPI 双包(`myssia` / `myssia-classifier`)登记在途,上架前源码安装仅 uv。
 
 链接:
 
@@ -139,3 +171,7 @@ macOS 的打开体验有没有被 Gatekeeper 恶心到(除了右键打开还有�
 - 链接记任务日志,进首周反馈表(docs/launch/README.md)
 - 「求源」类回复归集成候选插件清单,开 issue 讨论
 - LinuxDo 反馈里的采集伦理问题优先回应(launch/README.md 的处理原则)
+
+---
+
+> 2026-10-04 终态刷新,待主人定稿。

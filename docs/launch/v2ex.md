@@ -1,6 +1,6 @@
 # V2EX 首发文案(中文场景,未发出)
 
-> **状态:已更新到 v0.0.1 发布现实,可发。发布节奏由主人定。** V2EX 偏好第一手
+> **状态:已对齐 2026-10-04 终态,待主人定稿,发布节奏由主人定。** V2EX 偏好第一手
 > 「分享创造」复盘,技术细节 > 营销话术;建议节点:分享创造(/go/create)或
 > Python(/go/python),以站点实际节点为准。回复区保持真诚答疑,勿自顶刷屏。
 >
@@ -8,6 +8,13 @@
 > 建议 dashboard / feed / settings 三张(最多全五张),文件在仓库
 > `docs/screenshots/`(dashboard.png / feed.png / sources.png / logs.png /
 > settings.png,均为 demo 插件真实抓取数据)。
+>
+> 终态口径(2026-10-04 实核):定名 myssia(中文名:世事)· GitHub 仓库
+> `xinzhuzi/myia` · PyPI 双包 `myssia` / `myssia-classifier` 登记(主人门禁)
+> 在途——现在不能写 `pip install`;v0.0.1 三形态 = 桌面 dmg(Release)+
+> Docker 镜像(GHCR)+ PyPI 在途;Windows msi 构建管线已绿但 Release 页
+> 无 msi;五项新能力(cron / 告警规则 / ⌘K 面板 / 读态服务端化 / 交互批)
+> 已合 main、随下个发布版交付,v0.0.1 安装包里没有。
 
 ## 标题候选(选一)
 
@@ -20,15 +27,19 @@
 同一套东西重新拼一遍:采集脚本、cron、diff 监控、去重、往聊天工具里推
 webhook。直到把它拧成了一条流水线,索性开源——
 
-**世事**,AI 原生情报中枢,MIT,纯 Python(3.11+)+ SQLite 单文件,核心依赖
-极轻(无 Redis、无 Postgres、无常驻守护):
+**世事**(技术名 **myssia**:发行名/CLI/Python 模块名一律 `myssia`,GitHub
+仓库是 `xinzhuzi/myia`;钥匙链等既有装机数据身份保留旧名 `myia/` 以兼容,
+见下文第 5 点),AI 原生情报中枢,MIT,纯 Python(3.11+)+ SQLite 单文件,
+核心依赖极轻(无 Redis、无 Postgres、无常驻守护):
 
 ```
 fetch → classify → dedup → analyze → enrich → push
 ```
 
-刚发布 v0.0.1(2026-10-03):macOS(Apple Silicon)安装包上了 GitHub Releases,
-桌面端自这个版本起可日常使用。先讲设计,最后如报告状态。
+刚发布 v0.0.1(2026-10-03),三形态:桌面 macOS(Apple Silicon)安装包上了
+GitHub Releases(Windows msi 构建管线已绿、Release 页待挂)、Docker 双平台
+镜像上了 GHCR(amd64/arm64)、PyPI 双包登记在途;桌面端自这个版本起可日常
+使用。先讲设计,最后如实报告状态。
 
 核心设计:
 
@@ -81,32 +92,45 @@ push:
 6. **采集伦理**:默认尊重 robots.txt(qps 默认 0.5、jitter、429/5xx 指数退避
    都是缺省行为);「真人验证+手机号」类源直接结构化报错,不做绕过。
 
-运行形态:CLI 常驻(`myssia run --loop`,APScheduler 进程内调度)、自带
-docker compose,或桌面应用——Tauri 2 壳,Python 核心以 sidecar 嵌入,五屏
-UI(仪表盘/源/信息流/日志/设置)。装机首跑自动种子官方插件,含一个零凭据
-demo(GitHub 新星榜),第一次点「运行第一个插件」就出真数据;设置页
-「检查更新」走签名更新通道。桌面截图见附图(即仓库 docs/screenshots/)。
+7. **下一批已在 main(随下个发布版交付,v0.0.1 安装包里没有)**:定时任务
+   `myssia cron`(自然语言排程 `every monday 9am` 或 5 段 cron,三宿主共存,
+   到点跑品类管线 + 运行摘要定向投递本地/飞书/Telegram)、告警规则(对每条
+   新入流情报求值,命中即推送/打标,dry 测试不真发)、⌘K 命令面板、
+   已读/星标/稍后状态服务端化(整库「全部已读」、换设备不丢)、feed 键盘流
+   (j/k 导航、右键菜单、未读优先/分组切换、侧栏折叠)。
+
+运行形态:CLI 常驻(`myssia run --loop`,APScheduler 进程内调度)、Docker
+(v0.0.1 双平台镜像已上 GHCR;0.0.1 的 tag 因发布时仓库短暂更名落在
+`ghcr.io/xinzhuzi/shishi:0.0.1`,仓库已定名回 `myia`,后续版本在
+`ghcr.io/xinzhuzi/myia`;仓库自带 compose 文件),或桌面应用——Tauri 2
+壳,Python 核心以 sidecar 嵌入,五屏 UI(仪表盘/源/信息流/日志/设置)。装机
+首跑自动种子官方插件,含一个零凭据 demo(GitHub 新星榜),第一次点「运行
+第一个插件」就出真数据;设置页「检查更新」走签名更新通道。桌面截图见附图
+(即仓库 docs/screenshots/)。
 
 **安装**:
 
-- 桌面(macOS Apple Silicon):Releases 下载 `myssia_0.0.1_aarch64.dmg`
-  (约 117 MB)。安装包没做 Apple 公证(公证要付费开发者账号)——代码全开源、
-  每个包由 GitHub Actions 公开构建、日志可溯;首次打开右键 →「打开」放行
-  Gatekeeper,之后正常双击。
+- 桌面(macOS Apple Silicon):Releases 下载 dmg(2026-10-04 实测 Release
+  资产名为 `shishi_0.0.1_aarch64.dmg`,约 117 MB——发布时仓库短暂用旧名,
+  定名终局 myssia 后未重发,以 Release 页实际资产为准)。安装包没做 Apple
+  公证(公证要付费开发者账号)——代码全开源、每个包由 GitHub Actions 公开
+  构建、日志可溯;首次打开右键 →「打开」放行 Gatekeeper,之后正常双击。
 - CLI:仓库是 uv workspace,源码安装 `git clone` + `uv sync`
-  (`uv run myssia --version` → `myia 0.0.1`)。
+  (`uv run myssia --version` → `myssia 0.0.1`)。
 
 **如实交底**(没做的事不吹):
 
-- PyPI 还没发——`myia` / `myssia-classifier` 都未上架,现在别
+- PyPI 双包(`myssia` / `myssia-classifier`)登记在途——都未上架,现在别
   `pip install`,CLI 安装只有源码 `uv sync` 一条路;
-- Windows 构建这版没过(Release 里没有 Windows 包),Windows 朋友暂时当没有;
-- 桌面推送卡片里的反馈按钮还没做,排后续桌面对齐批次(反馈闭环 CLI
-  现已可用);
+- Windows:msi 构建管线已在 CI 跑绿(2026-10-04 验证 run 产出 msi 工件),
+  但 v0.0.1 Release 页没有 Windows 包、装机未验证——首个 Windows 安装包随
+  下个 Release,Windows 朋友暂时当没有;
+- 桌面推送卡片里的反馈按钮还没随 v0.0.1 发出(已落地 main、随下个发布版
+  交付;反馈闭环 CLI 现已可用);
 - 安装包未公证(上面说了,右键打开)。
 
-CI 全绿;1300+ 测试零真实网络(全部录制回放),当前工作树 collect 到 1833 个
-还在涨。
+CI 全绿;1300+ 测试零真实网络(全部录制回放,README 徽章口径),当前工作树
+`pytest --collect-only` 实测 3604 个(2026-10-04)。
 
 链接:
 
@@ -123,3 +147,7 @@ CI 全绿;1300+ 测试零真实网络(全部录制回放),当前工作树 collec
 - 评论区的 bug 回报引导到 issue 模板;schema 建议单独开 issue 讨论
 - 若发出后 PyPI 上架 / Windows 装机验证完成,回帖补更,别让「PyPI 未发」的
   老回复过期误导
+
+---
+
+> 2026-10-04 终态刷新,待主人定稿。

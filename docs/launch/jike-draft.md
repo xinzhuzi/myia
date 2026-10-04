@@ -9,6 +9,14 @@
 > `ghcr.io/xinzhuzi/myia`)——截至本稿写就,仓库 README 仍是旧版 + uv-only
 > 口径、PyPI 双包未上架、v0.0.1 tag 已推送但 Release 页未上线,故硬 gate 里把
 > 这些列为发帖前置条件,未满足前**不可发**。
+>
+> **2026-10-04 终态实核**:PyPI 双包仍 404(登记=主人门禁,在途,包名终局
+> `myssia` / `myssia-classifier`);v0.0.1 Release 已上线但资产带旧名前缀
+> (`shishi_0.0.1_aarch64.dmg`,直链以 Release 页为准);Docker 0.0.1 镜像在
+> `ghcr.io/xinzhuzi/shishi:0.0.1`(发布时旧仓名,后续版本在
+> `ghcr.io/xinzhuzi/myia`);Windows msi 构建管线已绿(Release 页无 msi);
+> `myssia --version` 实输出 `myssia 0.0.1`。硬 gate 未过前,本稿 pip 口径
+> 不可发;uv 源码口径的现行版见 `jike.md`。
 
 ## 文案(正文纯文本、无 Markdown;实测字符数见文末「发帖前硬 gate」末项;嫌长可拆两条——① 到「CLI」段为止,② 从「最想推的点」起到结尾)
 
@@ -55,20 +63,22 @@ https://github.com/xinzhuzi/myia
   `settings.png` —— 连动图共 6 张,即刻单帖图数上限以 App 实际为准。
 - 评论区置顶(安装入口集中在这里,别塞正文):
   - Release 页:https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
-  - dmg 直链:**发帖当日从 Release 页复制资产 URL**(文件名应形如
-    `myssia_0.0.1_aarch64.dmg`,但禁止手改版本号拼链,以页面为准)
+  - dmg 直链:**发帖当日从 Release 页复制资产 URL**(2026-10-04 实测资产名
+    为 `shishi_0.0.1_aarch64.dmg`——发布时仓库短暂用旧名;后续版本资产名随
+    定名回到 `myssia_*`,以页面为准,禁止手改版本号拼链)
   - CLI 两行:
     `pip install myssia`
-    `myssia --version   # myia 0.0.1`
+    `myssia --version   # myssia 0.0.1`(2026-10-04 实测输出)
   - 上手走读:https://github.com/xinzhuzi/myia/blob/main/docs/zh/getting-started.md
 - 备答(全部如实口径,别替产品许愿):
   - 「和 RSSHub / changedetection.io 区别?」→ README「市面空白:为什么是
     世事」对比表,直接引。
-  - 「有 Windows 吗?」→ 本版 Release 只有 macOS Apple Silicon 安装包,
-    没有其他桌面平台的产物,不做任何相关宣称。
-  - 「pip install 行吗?」→ 行,v0.0.1 起双包(`myia` /
-    `myssia-classifier`)已上 PyPI;重引擎是可选 extras
-    (`pip install "myssia[crawl4ai]"`)。
+  - 「有 Windows 吗?」→ Windows msi 构建管线已在 CI 跑绿(验证 run 产出
+    工件),但 v0.0.1 Release 页没有 msi、装机未验证;首个 Windows 安装包随
+    下个 Release,现在不做「支持 Windows」的宣称。
+  - 「pip install 行吗?」→ 行——前提是硬 gate 2 过(PyPI 双包上架;2026-10-04
+    实核仍 404,登记在途);上架后双包为 `myssia` / `myssia-classifier`,
+    重引擎是可选 extras(`pip install "myssia[crawl4ai]"`)。
   - 「桌面卡片里能标记有用/没用吗?」→ 卡片内按钮还在后续批次;反馈闭环
     现在 CLI(`myssia feedback mark`)就能用。
   - 「质量怎么保证?」→ CI 2000+ 测试(发帖当日以 CI 实数回答),无一条
@@ -98,12 +108,16 @@ push:
 
 ## 发帖前硬 gate(未全部满足不发;写稿时点实测状态已注)
 
-1. **v0.0.1 Release 已上线**(写稿实测 Release 页 404,tag 已推送):dmg 等
+1. **v0.0.1 Release 已上线**(写稿实测 Release 页 404,tag 已推送;2026-10-04
+   实核已上线,资产带旧名前缀 `shishi_*`):dmg 等
    资产 URL 当日从 Release 页复制粘贴。
 2. **PyPI 双包已上架**(写稿实测 pypi.org/pypi/myssia/json 与
-   /myssia-classifier/json 均 404):两个 JSON API 返回 200 再发。
+   /myssia-classifier/json 均 404;2026-10-04 终态复测仍 404,登记=主人
+   门禁在途,若 pypi.org 侧曾按旧名建过 pending publisher 需删旧建新):
+   两个 JSON API 返回 200 再发。
 3. **命名决议落地(2026-10-04 终版)**:myssia 为项目唯一正式名——发行名/CLI/
-   模块名全链统一(`src/myssia`、`myssia.cli:main`),「世事」为中文名;
+   模块名全链统一(`src/myssia`、`myssia.cli:main`),「世事」为中文名,
+   GitHub 仓库保持 `xinzhuzi/myia`(split naming,owner decision B);
    早前的 myia 与短暂 shishi 皆为历史。发布前干净环境
    `python -c "import myssia"` 实测通过。
 4. **README 已同步切到 pip + 0.0.1 口径**(快速开始 / 下载安装段 / 版本号 /
@@ -117,3 +131,7 @@ push:
 7. **即刻正文重新数字数**:本稿写就时实测正文(「这两年断断续续」起至话题
    标签行止)927 字符(含空白)、去空白 804、其中 CJK+全角 450,即刻动态
    上限内;若再增删文案,发前用同口径重数,勿沿用旧数。
+
+---
+
+> 2026-10-04 终态刷新,待主人定稿。

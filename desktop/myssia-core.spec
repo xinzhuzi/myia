@@ -10,7 +10,7 @@ _REPO_ROOT = os.path.dirname(SPECPATH)
 datas = [(os.path.join(_REPO_ROOT, 'myssia-classifier', 'myssia_classifier', 'data', 'keywords.json'), 'myssia_classifier/data')]
 binaries = []
 hiddenimports = ['myssia.secrets']
-hiddenimports += collect_submodules('myia')
+hiddenimports += collect_submodules('myssia')
 # ocrmac 平台门(10-04-windows-build F2):macOS Vision 独占,Windows/Linux 不装
 # (pyproject vision extra 带 sys_platform == 'darwin' 标记)。缺包时 collect_all
 # 仅警告不炸(PyInstaller 6.22.3 实测),此门为卫生项——意图显式 + 日志干净。
