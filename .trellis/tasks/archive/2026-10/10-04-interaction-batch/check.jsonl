@@ -1,3 +1,4 @@
 {"file": ".trellis/tasks/10-04-interaction-batch/evidence/smoke-notes.md", "reason": "独立无头冒烟质检 39/39 绿(j/k 巡历边界/focus 环/输入框守卫、⌘K 全链、右键四动作+标签随态、折叠两通道+持久、显示选项+持久;附 B 链 G9 页面侧证据);九实拍截图+bridge RPC 全量日志同目录;设施在 /tmp/myia-qc 仓库零改动"}
 {"file": ".trellis/tasks/10-04-interaction-batch/evidence/a-smoke-probe.json", "reason": "探针明细:passed 39/total 39,consoleErrors 空——质检一次过的机读凭据"}
 {"file": "desktop/ui-src/src/screens/feed/feed-screen.test.tsx", "reason": "收口门禁实跑(2026-10-04 15:23):scoped vitest 6 文件 148 用例全绿(command-palette 19/top-bar 6/use-hotkeys 8/dashboard 36/ui-base 10/feed-screen 69,后者含在途 G9 层)+ npx tsc -b exit 0;全量 npm test 未复跑——在途 G9 流占有工作树,全量归该线收口"}
+{"file": "desktop/ui-src/src/components/layout/app-layout.test.tsx", "reason": "复审修整批门禁实跑(2026-10-04 15:49):①基线全量 npm test=21 文件 350 绿(改动前);②scoped vitest 3 文件 35 绿(app-layout 9/top-bar 7/command-palette 19 回归);③npx tsc -b exit 0;④全量 npm test=22 文件 360 绿(改动后,G9 流已落库全量无阻碍——初收口时工作树被占有未复跑全量,本轮补上)"}
