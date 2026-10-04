@@ -104,6 +104,7 @@ Hermes 深度对拍(2026-10-05,上游钉死 af90026)产出的缺口与升级项*
     蓝本锚注记+MIT:Hermes af90026 在 d613310/7502a0c/f143000/4863430/
     9b9b540 批注全落。
 - [x] AC7:装机换装(worktree HEAD 构建静默换装)+装机版健康冒烟;回执留档。
+  - **终局刷新(03:06)**:换装 b72fee4(=f64c0ef+复审修复 338faa4/adcdbc5+纯文档;备份 /tmp/世事.app.bak-wf2-030701;回执 /tmp/wf2-install.exit=ok installed,装机版 secret list 静默+cron list exit=0)。HEAD f2e0194 首刷因并行打包线 Cargo sha2 依赖未提交(pyenv.rs 已入库而 Cargo.toml/lock 躺工作树)于 worktree 构建必炸,未采——该线补齐依赖提交后下次装机自刷。
   - 证据:回执 /tmp/wf-batch-install.exit=「ok installed
     f64c0ef225c7942f486a44eef691dc9ce736e14f bak=/tmp/世事.app.bak-wf-025213」
     (worktree HEAD f64c0ef 干净构建静默换装,世事.app 132.24 MiB);装机版
