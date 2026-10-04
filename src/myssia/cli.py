@@ -916,8 +916,9 @@ def _add_channels_parser(sub: argparse._SubParsersAction) -> None:
         description=(
             "目录 = 各平台可达推送对象(群/私聊/话题)的缓存地图,"
             "落在 <数据根>/channel_directory.json(数据根 = --db 父目录)。"
-            "refresh 调平台列表 API 发现(飞书 im/v1/chats;单平台失败保留旧桶);"
-            "list 纯读不发现。私聊(飞书列表 API 不返回)经"
+            "refresh 调平台列表 API 发现(飞书 im/v1/chats、discord 服务器频道、"
+            "slack users.conversations、simplex 联系人;单平台失败保留旧桶);"
+            "list 纯读不发现。私聊与无发现平台经"
             ' <数据根>/channel_aliases.json 手工登记:{"feishu": {"oc_xxx": "别名"}}。'
         ),
     )
@@ -929,7 +930,9 @@ def _add_channels_parser(sub: argparse._SubParsersAction) -> None:
         help="刷新平台通道目录(缺省全部已注册平台;失败平台保留旧桶并结构化上报)",
     )
     refresh.add_argument(
-        "platforms", nargs="*", help="要刷新的平台名(缺省全部已注册,当前:feishu)"
+        "platforms",
+        nargs="*",
+        help="要刷新的平台名(缺省全部已注册平台;有自动发现的:feishu/discord/slack/simplex)",
     )
     refresh.add_argument(
         "--db",
