@@ -77,11 +77,12 @@ a=核心链新档(库型且更强) · b=插件+链外引擎(本地跑,照 credhu
 3. **myssia-rsshub(RSSHub,AGPL)** — 资讯源扩容 remote 桩;自部署优先,公共实例文档标注留痕。
 4. **myssia-spiderfoot(MIT)或 myssia-theharvester(GPL-2)二选一** — 聚合侦察 lane,首批只做一件。
 
-## 未核项(○ 汇总,收录实施时核)
+## 未核项(○ 汇总;2026-10-05 第五波已闭大半,残余如下)
 
-- you-get/MediaCrawler/weibo-search/SpiderKeeper 的许可详情(API 报 NOASSERTION/NONE,实施前读仓库原文确认)
-- Amass 现行 license 条款与其被动模式能力边界
-- TikTokDownloader 桌面本地形态的依赖重量(实施时评)
+- ~~MediaCrawler/weibo-search/SpiderKeeper 许可~~ **已闭(第五波)**:非商业学习许可/无/无
+- you-get 的许可详情(NOASSERTION)——件已判「被覆盖」不收,核验随之作废
+- Amass 现行 license 条款与其被动模式能力边界(观察档,若立项再核)
+- TikTokDownloader 桌面本地形态的依赖重量(备选件,收录实施时评)
 
 ## 第三波:开源分析方案盘点(2026-10-05 晚,find-skills 三源法;主人令「找开源分析方案查融合」)
 
