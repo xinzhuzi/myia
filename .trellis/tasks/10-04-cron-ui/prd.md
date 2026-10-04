@@ -9,12 +9,12 @@
 ## Requirements
 
 - **F1 入口**:侧栏主群新增「定时任务」(Clock 图标,排「源管理」后);HashRouter 加 `/cron` 路由(App.tsx `<Route path="cron">`),AppLayout 包裹。
-- **F2 ticker 活性条**(蓝本 schedulerStaleAgeS 对位):屏首读 `cron.status`(心跳龄/最后错误/急停态/下次到期),僵死(>5min)黄条示警、急停态红条+「恢复全部」入口;镜像蓝本「调度器僵了页面会喊」。
+- **F2 ticker 活性条**(蓝本 schedulerStaleAgeS 对位):屏首读 `cron.status`(heartbeat_age/last_error/**writer_alive**/estopped/next_due_at),僵死(`!writer_alive || heartbeat_age>180s`)黄条示警;急停态红条;**双向操作**(grill Q6):「急停全部」红钮+Dialog 确认(cron.pause all)与红条上「恢复全部」(cron.resume all)。
 - **F3 job 列表**(cron.list;table 基件):行=名称 / 排程人话(`schedule_display` 字段直读)/ 下次运行(逾期红标:now > next_run_at + grace)/ 上次状态四态色 badge(ok=success、failed=destructive、delivery_failed/skipped_busy=warning、paused=灰)/ deliver / repeat。含 `all=true` 切换显示暂停/终态(蓝本 Jobs 视图)。
-- **F4 创建/编辑双 Dialog**(dialog 基件,蓝本双 Modal 对位):字段=schedule(自然语言/5 段 cron 手输,**parse 错误文案原样回显**)/category(绝对路径手填;create 即校验早失败的错误回显)/deliver spec/failure_deliver/repeat/timezone/run_timeout/dry_run(Switch)。编辑=same form 预填+cron.edit 部分更新。
+- **F4 创建/编辑双 Dialog**(dialog 基件,蓝本双 Modal 对位):字段=schedule(**常用模板 chips**点击填入仍可改:每 30 分钟/每小时/每天 9 点/工作日 9 点/每周一 9 点;自然语言/5 段 cron 手输,**parse 错误文案原样回显**)/**category 下拉选择器**(grill Q4:吃现成 `yaml.list` 列品类 YAML,坏文件带标禁选;留「手输路径」兜底)/deliver spec(附格式说明)/failure_deliver/repeat/timezone/run_timeout/dry_run(Switch)。编辑=same form 预填+cron.edit 部分更新。
 - **F5 行内动作**:立即运行(cron.run,进行态 spinner+toast)/暂停(cron.pause,可填 reason)/恢复(cron.resume)/删除(cron.remove,Dialog 确认)。
 - **F6 运行历史**:行展开(cron.runs):executions 尾查新→旧,status/finished_at/run_summary_json 摘要(状态/时长/留存/失败行);输出目录留 CLI 查看(档内注记)。
-- **F7 刷新**:进屏全量拉 + 10s 轮询 + `cron.completed`/`cron.skipped` 事件即时刷新(toast+列表重拉);事件类型已在前端 SidecarEvent 联合。
+- **F7 刷新**(grill Q2 修正案):**事件驱动为主,不引入 interval 轮询**(全仓 UI 零轮询先例)——进屏拉全量 + `cron.completed`/`cron.skipped` 事件即时重拉(toast 吃事件载荷 name/status)+ 手动刷新按钮;逾期红标走时用**本地 1 分钟时钟重渲染**(纯前端 tick,不重取数据)。
 - **F8 前端镜像纪律**:本屏消费的九方法签名入 types.ts SidecarProtocol mirror + client.ts 共享 `api` 门面(spec desktop/sidecar-protocol.md 纪律第 3 条)。
 
 ## 非目标(不抄清单)
@@ -37,13 +37,15 @@
 - [ ] AC1 入口:侧栏项+路由可达,屏在 AppLayout 内,导航态正确。
 - [ ] AC2 活性条:status 数据渲染;模拟僵死/急停态的屏测各一(黄条/红条+恢复入口)。
 - [ ] AC3 列表:mock 数据渲染全字段;四态色 badge 断言;逾期红标边界测试;all 切换。
-- [ ] AC4 双 Dialog:创建全字段提交→cron.create 参数形状断言;parse 错误/category 校验错误回显断言;编辑预填+部分更新。
-- [ ] AC5 动作四件:run(进行态+toast)/pause/resume/remove(确认)调用形状断言;删除需确认。
+- [ ] AC4 双 Dialog:创建全字段提交→cron.create 参数形状断言;parse 错误/category 校验错误回显断言;**chips 点击填入断言;category 选择器渲染 yaml.list 数据、坏文件行禁选、手输兜底**;编辑预填+部分更新。
+- [ ] AC5 动作四件:run(进行态+toast)/pause/resume/remove(确认)调用形状断言;删除需确认;**急停全部(确认 Dialog)/恢复全部**断言。
 - [ ] AC6 历史:行展开渲染 runs;run_summary_json 摘要字段断言;空态。
-- [ ] AC7 事件:cron.completed/cron.skipped 触发 toast+重拉(mock 事件流)。
+- [ ] AC7 事件与刷新:cron.completed/cron.skipped 触发 toast(载荷 name/status 断言)+重拉(mock 事件流);手动刷新;**无 interval 轮询断言(实现审查项)**;逾期红标跨分钟走时(本地时钟 tick)。
 - [ ] AC8 镜像:types.ts 九方法签名+client 门面;SidecarProtocol 对账测试同步(前端侧计数,若纪律要求)。
 - [ ] AC9 回归:vitest 全量+tsc+build 三绿;entry.py 零改动(diff 空);蓝本对照 docstring 齐全。
 
-## Grill 待决(三问带推荐,批复后回写)
+## Grill 决议(2026-10-04 批复:六问全按推荐)
 
-Q1 位置:主群「源管理」后(推荐,情报域相邻)vs「消息」群;Q2 刷新:10s 轮询+事件即时(推荐)vs 纯事件;Q3 历史形态:行内展开(推荐,logs 屏先例)vs 独立 Dialog。
+Q1 位置=主群「源管理」后 / Q2 刷新=**事件驱动+手动刷新+本地时钟 tick,不引入 interval 轮询**(全仓 UI 零轮询先例)/ Q3 历史=行内展开 / Q4 category=**yaml.list 下拉选择器**(坏文件带标禁选)+手输兜底 / Q5 schedule=**模板 chips**(五种,填入仍可改)/ Q6 急停=**双向**(急停全部红钮+确认 Dialog;恢复全部)。
+
+**事实裁决五条**(grill 前源码坐实,随批生效):①协议形状五件(list=完整 job 记录/status 含 writer_alive+estopped+next_due_at/runs 钳 [1,500] 带解析摘要/事件载荷 skipped{reason,active_run_id}+completed{ok,status,delivery_error,summary});②**逾期 grace=15 分钟照抄**(H hermes_cli/cron.py:630,过点还在跑是常态);③僵死判据=`!writer_alive || heartbeat_age>180s`;④toast/confirm 先例在(messaging/feed 的 toast、window.confirm spy 先例);⑤screens 零 setInterval(→Q2 修正依据)。Round 2 依赖项随决议落定:选择器坏文件行=禁选带标、chips 仅填入与错误回显零耦合。
