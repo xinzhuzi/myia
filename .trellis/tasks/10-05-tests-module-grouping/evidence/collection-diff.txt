@@ -1,0 +1,16 @@
+# 零丢失硬证明工件(10-05-tests-module-grouping / F1,严格版 v2)
+
+方法:git worktree 检出迁移前树 d83be5a,与迁移后树(HEAD)各跑
+  .venv/bin/python -m pytest --collect-only -q
+原始清单原样附档(nodeids-d83be5a.txt / nodeids-head.txt)。对 diff 归一只做在
+目录段:path 按 '/' 取 basename 后与 '::' 后**原样测试 ID**(含参数化 ID 内的
+斜杠)拼回键,按多重集比较——无 sed 剥斜杠的理论碰撞缝(v1 弃用,其双侧同变形
+结论与 v2 一致)。
+
+结果:
+  pre  (d83be5a): 3604 nodeids
+  post (HEAD)   : 3604 nodeids
+  仅前有: 0   仅后有: 0   —— 零丢失、零新增,严格无损
+
+附:全量执行面 `3585 passed, 19 skipped`(19 skipped 与迁移无关:平台/引擎
+门控跳过,迁移前后同款)。

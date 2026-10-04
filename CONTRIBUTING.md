@@ -28,7 +28,7 @@ Layout map / 目录速览:
 | `plugins/` | Official category YAMLs + market plugin packages |
 | `skill/SKILL.md` | Agent-facing condensed schema & workflow |
 | `docs/zh/`, `docs/en/` | Bilingual docs, drift-locked by tests |
-| `tests/` | pytest suite (CI gate) |
+| `tests/` | pytest suite grouped by module (CI gate); classifier tests in `myssia-classifier/tests/` |
 
 ## Ground rules / 红线(违反任何一条的 PR 会被拒绝)
 

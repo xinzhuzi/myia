@@ -34,6 +34,13 @@ vision/         看图:双引擎 OCR(ocrmac+rapidocr-onnxruntime)+ OpenAI 兼容
 - 现有文件多为薄壳:任务是**填充**而非新建;新模块先在对应 PRD 登记
 - plugins/*.yaml 是 schema 的端到端测试:发现 schema 缺口先回改 schema,不许插件私加字段
 
+## 测试目录布局(2026-10-05 定案,task 10-05-tests-module-grouping)
+
+- 主包测试**镜像 `src/myssia` 结构**落 `tests/<模块组>/`(现 14 组:alerts/classify/cli/cron/credhunter/desktop/engines/enrich/feedback/pipeline/plugins/push/store/vision);`tests/` 根只放跨切面件:conftest.py(全树唯一,`from conftest import` 助手链靠 pytest 装载它把 tests/ 送进 sys.path,子目录同享——**勿改回 `from tests.conftest import`**,历史见 718d56c)、共享 fixtures/、regen_push_targets_golden.py、docs/schema/secrets/skill_doc/smoke/trellis 守卫六件;**新测试按被测对象归组落位,不再新增根平铺**(test_cli_xxx → tests/cli/;分不清对象 = 横切,才许进根)
+- 归组按「被测对象」不按 import 形态(import 了 pipeline 但测告警规则的归 alerts/);跨测试文件 import 必须同目录(test_yaml_editor_protocol_gaps ↔ test_desktop_sidecar_protocol 同在 desktop/);特性横切端到端归 pipeline/;`myssia-classifier` 的语义测试随包走 `myssia-classifier/tests/` 且**零 `myssia.` 依赖**(直引 `myssia_classifier`,连 caplog logger 名一起改;直引符号面经 `from myssia_classifier import …` 全量核验);主包 `tests/classify/test_classifier_package.py` 只测 shim 同一性与独立发行契约
+- 路径取值:子目录文件取仓库根 `Path(__file__).resolve().parents[2]`、取共享 fixtures `parents[1] / "fixtures"`;根留文件维持 `parents[1]`/`parent / "fixtures"`。**移动测试文件后必跑全量** `uv run --no-sync python -m pytest -q`;数量不跌 ≠ 零丢失,零丢失要 collect-only 归一 diff 验(方法与工件见任务档 evidence/)
+- 布局红线:根 `testpaths = ["tests", "myssia-classifier/tests"]` 保持 CI 单命令门禁(`ci.yml` 零路径硬编码);子目录**不加 `__init__.py`**(代价 = 测试文件 basename 全局唯一,新增重名即 pytest 模块冲突,改名解决);`.trellis` 归档与 CHANGELOG 历史里的旧路径不改写;`myssia-classifier` sdist 随附 tests 属刻意默认(G3 决议),wheel 仍仅含包体
+
 ## 消息平台层(2026-10-03 定案,task 10-03-hermes-messaging)
 
 - **蓝本移植,不 vendor 原文**:源自 Hermes(NousResearch/Hermes-Agent,MIT)gateway 的通道目录/对象解析/定向投递逐文件重写为 MYIA 风格,模块 docstring 标注上游文件路径与 MIT 归属,上游对照表登记在各子任务档;不整块拷贝原文、不引 git 子模块。各平台一律 httpx 直连官方 API,不引平台 SDK(核心 6 依赖红线不动);接不上官方 API 的平台进 extras 并结构化报错

@@ -57,6 +57,14 @@
 - **G2 ✅ CHANGELOG 补条**:Unreleased/Changed 已加「Tests reorganized by module; classifier now ships its own tests」条目(随本笔回写入库)。
 - **G3 ✅ sdist 随附 tests 保留默认**:零配置零维护,wheel 纯净不受影响;已在 CHANGELOG 条目内对下游声明。
 
+## 深化补全第二轮(2026-10-05,主人令「深化与补充」)
+
+- **implement.md 补建**:94→14 组权威映射(迁移后磁盘逐组重取)+ 归组六规则 + 执行实录 + 回滚路径 + 两条教训(暂存区竞态/证据链),原先只存于已清理的临时脚本,现已档案化。
+- **spec 约定落地(Phase 3.3)**:`.trellis/spec/python/index.md` 新增「测试目录布局」节——新测试按被测对象归组、根不再新增平铺、路径取值范式、零丢失验证法、testpaths/`__init__`/sdist 三红线;防布局随肌肉记忆退化。
+- **evidence/ 工件三件**:collection-diff.txt(严格版 v2:只归一目录段、测试 ID 含参数化斜杠原样保留,多重集比较 3604↔3604 双向零差;v1 sed 版有理论碰撞缝已弃用并注明)+ 前后原始 collect-only 清单两份。
+- **CONTRIBUTING.md 表行刷新**:tests/ 行注明按模块分组 + 分类器测试独立目录。
+- 过程自纠一次:spec 插入时吃掉「消息平台层」标题行,当即读现场修复并全标题核验(8 节齐全)。
+
 ## 非目标
 
 - 不改产品代码逻辑(仅注释中的测试路径引用);不动 desktop/ui-src 前端测试;不给子目录加 `__init__.py`(文件名全局唯一,rootdir prepend 模式无冲突,已验证 conftest `from conftest import` 链依赖 tests/ 入 sys.path,由 pytest 装载根 conftest 保证)
