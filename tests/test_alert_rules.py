@@ -27,8 +27,8 @@ from typing import Any
 import httpx
 import pytest
 
-import shishi.pipeline as pipeline_module
-from shishi.alerts import (
+import myssia.pipeline as pipeline_module
+from myssia.alerts import (
     ALERT_SCOPES,
     AlertConfigError,
     AlertEngine,
@@ -36,12 +36,12 @@ from shishi.alerts import (
     compile_rule,
     compile_rules,
 )
-from shishi.dedup import DedupRegistry
-from shishi.pipeline import Item, Pipeline
-from shishi.push.base import SendReport
-from shishi.push.digest import DigestAggregator
-from shishi.schema import load_category
-from shishi.store import (
+from myssia.dedup import DedupRegistry
+from myssia.pipeline import Item, Pipeline
+from myssia.push.base import SendReport
+from myssia.push.digest import DigestAggregator
+from myssia.schema import load_category
+from myssia.store import (
     SCHEMA_VERSION,
     AlertFired,
     AlertRule,
@@ -101,7 +101,7 @@ class FakeChannel:
     async def send(self, items, context) -> None:
         self.calls.append({"items": list(items), "context": context})
         if self.fail:
-            from shishi.push import PushSendError
+            from myssia.push import PushSendError
 
             raise PushSendError("http_error", "模拟通道故障")
 
@@ -143,16 +143,16 @@ def test_fresh_database_baseline_has_both_tables_unseeded(tmp_path):
     assert {"alert_rules", "alert_fired", "idx_alert_fired_created"} <= names
     assert store.list_alert_rules() == []
     assert store.list_fired() == []
-    assert store.get_meta("schema_version") == str(SCHEMA_VERSION) == "7"
+    assert store.get_meta("schema_version") == str(SCHEMA_VERSION) == "8"
     store.close()
 
 
-def test_v6_database_upgrades_to_v7_idempotent_zero_data_migration(tmp_path):
+def test_v6_database_upgrades_to_current_idempotent_zero_data_migration(tmp_path):
     """旧 v6 库打开自动升级;幂等重放;既有表与行零触碰."""
     path = tmp_path / "v6.db"
     store = SQLiteStore(path)
     marker = store.save_item(
-        __import__("shishi.store", fromlist=["ItemRecord"]).ItemRecord(
+        __import__("myssia.store", fromlist=["ItemRecord"]).ItemRecord(
             url="https://x/m", dedup_key="marker", title="既有行零触碰"
         )
     )
@@ -165,7 +165,7 @@ def test_v6_database_upgrades_to_v7_idempotent_zero_data_migration(tmp_path):
     store.close()
 
     reopened = SQLiteStore(path)  # 打开即自动迁移
-    assert reopened.get_meta("schema_version") == "7"
+    assert reopened.get_meta("schema_version") == "8"
     tables = {
         row[0]
         for row in reopened.conn.execute(
@@ -181,7 +181,7 @@ def test_v6_database_upgrades_to_v7_idempotent_zero_data_migration(tmp_path):
     reopened.conn.commit()
     reopened.close()
     again = SQLiteStore(path)  # 幂等重放:已有形状上再放一遍迁移
-    assert again.get_meta("schema_version") == "7"
+    assert again.get_meta("schema_version") == "8"
     assert [r.name for r in again.list_alert_rules()] == ["告警"]  # 数据存活
     again.close()
 
@@ -190,7 +190,7 @@ def test_newer_schema_version_refused(tmp_path):
     """v8 库被旧版本打开 → 既有「不要降级打开新库」护栏直拦."""
     path = tmp_path / "future.db"
     store = SQLiteStore(path)
-    store.conn.execute("UPDATE store_meta SET value = '8' WHERE key = 'schema_version'")
+    store.conn.execute("UPDATE store_meta SET value = '9' WHERE key = 'schema_version'")
     store.conn.commit()
     store.close()
     with pytest.raises(StoreSchemaError) as excinfo:
@@ -332,7 +332,7 @@ def test_fired_counts_derivation_and_delete_keeps_history(tmp_path):
 
 def test_update_item_tags_writeback(tmp_path):
     store = make_store(tmp_path)
-    from shishi.store import ItemRecord
+    from myssia.store import ItemRecord
 
     store.save_item(ItemRecord(url="https://x/a", dedup_key="k1", title="T", tags=["old"]))
     assert store.update_item_tags(dedup_key="k1", tags=["old", "watch"]) is True
@@ -392,7 +392,7 @@ def test_compile_rules_skips_bad_rows_isolated(caplog):
     """读库坏行 = 单行 WARNING 跳过,好行照常编译(不 break 批)."""
     good = push_rule(name="好")
     bad = push_rule(name="坏", when="title.lower")
-    with caplog.at_level("WARNING", logger="shishi.alerts.rule"):
+    with caplog.at_level("WARNING", logger="myssia.alerts.rule"):
         compiled = compile_rules([good, bad])
     assert len(compiled) == 1 and compiled[0].name == "好"
     assert any("告警规则拒载" in record.message for record in caplog.records)
@@ -538,7 +538,7 @@ def test_push_action_degraded_no_channel_without_resolver_call(tmp_path, caplog)
         return None  # 当前品类 push[] 无 telegram
 
     engine = AlertEngine(store=store, channel_resolver=resolver, send=ok_send(calls))
-    with caplog.at_level("WARNING", logger="shishi.alerts.engine"):
+    with caplog.at_level("WARNING", logger="myssia.alerts.engine"):
         fired = asyncio.run(engine.run_pass([make_item()], [rule]))
     assert [row.action_status for row in fired] == ["degraded_no_channel"]
     assert calls == []  # 未发送
@@ -548,7 +548,7 @@ def test_push_action_degraded_no_channel_without_resolver_call(tmp_path, caplog)
 
 def test_tag_action_two_step_writeback(tmp_path):
     """tag 两步:内存 add_tags(保序去重)+ items.tags 回写,状态 tagged."""
-    from shishi.store import ItemRecord
+    from myssia.store import ItemRecord
 
     store = make_store(tmp_path)
     store.save_item(ItemRecord(url="https://api.demo.local/a", dedup_key="key-a",
@@ -567,7 +567,7 @@ def test_tag_writeback_missing_row_warns_but_statuses_tagged(tmp_path, caplog):
     """items 行已被剪枝:回写 False → WARNING;动作已执行,状态如实 tagged."""
     store = make_store(tmp_path)
     rule = store.save_alert_rule(tag_rule())
-    with caplog.at_level("WARNING", logger="shishi.alerts.engine"):
+    with caplog.at_level("WARNING", logger="myssia.alerts.engine"):
         fired = asyncio.run(
             AlertEngine(store=store).run_pass([make_item(dedup_key="pruned")], [rule])
         )
@@ -846,7 +846,7 @@ def test_pipeline_feedback_mute_word_joins_suppression(tmp_path):
     (ratio=1.0 → 重算权重恰为 0.0,与活跃值相等 = 幂等不写),0.0 得以
     存活到 _alert_pass 读词表——这正是真实反馈环到达该态的路径。
     """
-    from shishi.store import FeedbackRecord, TuningRecord
+    from myssia.store import FeedbackRecord, TuningRecord
 
     store = make_store(tmp_path)
     for index in range(2):  # DEFAULT_MIN_BAD_COUNT=2, ratio=1.0 ≥ 0.5
@@ -895,7 +895,7 @@ def test_pipeline_alert_pass_failure_isolated_from_run_status(tmp_path, monkeypa
         ),
         store=store,
     )
-    with caplog.at_level("WARNING", logger="shishi.pipeline"):
+    with caplog.at_level("WARNING", logger="myssia.pipeline"):
         result = asyncio.run(pipeline.run())
     assert result.status == "success"  # run 终态不被附加步拖垮
     assert any("告警附加步失败" in record.message for record in caplog.records)
