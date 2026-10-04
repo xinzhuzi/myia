@@ -22,6 +22,8 @@
 
    **回标(2026-10-04 收口)**:装机取证材料已备——七屏实拍入库 `docs/screenshots/install-cronline-1004/`(01-dashboard / 02-feed / 03-sources / 04-logs / 05-settings / 06-messaging / 07-cmdk-palette,随 86117c3);像素级目验留主人;(3) keychain 跨进程验收无屏证,仍须主人实收。
 
+   **追记(2026-10-04 cron-ui 落地后)**:上述七屏系 cron-ui **之前**的构建所拍——**第八屏「定时任务」(10-04-cron-ui,commit 5b3fae3)尚未进任何装机截图**;下次装机目验须重打包(含 cron-ui+Stage 6 缺口修复批)并补拍 08-cron 屏;本机尚有 3 笔提交未推(5b3fae3/42509bd/12a1719,推送留主人)。
+
 ### 三、长期挂账
 
 - 真机飞书/TG 收卡。**回标(2026-10-04)**:飞书半面已真发——hermes-cron 运行摘要卡一张于 18:41 定向真发 `feishu:AI福利群`(跑完即删 job、沙箱即弃、令牌即用即废;执行链与「只发一张」保证:`evidence/feishu-cron-card.md`);出站-only 链路无回执,群内目验请主人查收。TG 半面未随本批动。

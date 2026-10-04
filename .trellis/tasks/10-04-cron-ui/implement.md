@@ -42,6 +42,16 @@
 - [x] 5.3 spec 更新:desktop/sidecar-protocol.md 前端镜像面注一笔(消费方+1,方法不加);frontend-ui.md 若有屏清单则补(七屏→八屏;CHANGELOG Unreleased Added 同批入)
 - [x] 5.4 pathspec 提交(feat(desktop): 定时任务管理屏);grill 六问决议已批(2026-10-04 全按推荐)随批入 prd/design,无待回写项
 
+## Stage 6:蓝本对排缺口修复(2026-10-04 交付后审计追设;**待主人批,批即执行**)
+
+> 出处=evidence/blueprint-parity-audit.md(50 项对排);全部零协议变更。
+
+- [ ] 6.1 **G1+G2 错误可见性族**(中×2):cronStatusBadge 加 `state=error`→destructive 分支(停摆 job 可见,对位 H530);job 行补 `last_error`/`last_delivery_error` 红字渲染(H1218-1233 对位)+ `last_run_at` 列(H1202-1204 对位,或并入展开);测试补 error 态与错误行断言
+- [ ] 6.2 **G3 name 表单**(中低):CronFormDialog 补可选 name 输入(cron-form 状态已备,编辑 diff 已支持);测试补创建命名/编辑改名
+- [ ] 6.3 低项打包:G4 reload 错误保留旧列表(data 不置 null,对位 LoadErrorNotice 形态)/G5 列表计数 (N)/G6 校验失败聚焦+滚动+展开折叠组/G7 编辑底部 job.id mono/G8 reload generation 竞态守卫(对位 H625-661)
+- [ ] 6.4 文档勘误:prd F5「Dialog 确认」→对齐 design/实现的 window.confirm;design 偏离表补 PluginSlot 一行(B8)+last_run 列裁剪条目(B9)
+- [ ] 6.5 门禁复跑(vitest+build+entry.py diff 空)+ pathspec 提交 fix(desktop)
+
 ## 验证命令速查
 
 ```bash
