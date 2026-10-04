@@ -23,7 +23,7 @@ handleTest 起手 setTestOutcome(null)(新发起即关旧弹窗,既有行为保�
 ```ts
 {
   sourceName: string;
-  ok: boolean;
+  ok: boolean;   // report 形随源级 report.ok(引擎链耗尽如实判失败,kind 仍 report 并携 report.error)
   kind: "report" | "event_error" | "launch_error";
   // kind="report"(事件 ok 且报文里有本源报告;报告缺源 → event_error 形「报告里没有该源的结果」)
   engine?: string;            // 命中引擎(report.engine)
@@ -31,9 +31,10 @@ handleTest 起手 setTestOutcome(null)(新发起即关旧弹窗,既有行为保�
   itemCount?: number;
   fingerprint?: { verdict: string; meaning: string; skipReason: string | null };
   failures?: { engine: string; errorType: string; message: string }[];
-  items?: { dedupKey: string | null; fields: Record<string, string> }[];
+  items?: { dedupKey: string | null; dedupKeyError: string | null; fields: Record<string, string> }[];  // dedupKeyError = 模板求值失败,如实呈现不静默
   itemsTruncated?: boolean;
   // kind="event_error"(事件 ok=false):error + data.errors[] {path, message}
+  // kind="report" 且链耗尽前的整体超时(report.error)也入 error 字段,弹窗失败明细节呈现
   error?: string; errors?: { path: string; message: string }[];
   // kind="launch_error"(sources.test invoke 被拒):code + message
   code?: string; message?: string;
@@ -45,7 +46,7 @@ handleTest 起手 setTestOutcome(null)(新发起即关旧弹窗,既有行为保�
 - 容器:`fixed inset-0 z-50 bg-black/60 animate-overlay-in` 遮罩 + 居中面板 `w-[min(760px,88vw)] max-h-[80vh] flex flex-col rounded-lg border border-border bg-card shadow-drawer animate-dialog-in`(全 token,零 arbitrary 值)。
 - 标题区:`试抓结果 · {sourceName}` + 状态徽章(成功=ok 色/失败=destructive 色,`test-result-status`)+ X 关闭钮。
 - 正文(overflow-y-auto)分节,有则渲染:
-  1. 概要:引擎命中 `{engine}`(配置 `{engineConfigured}`)· 条目 `{itemCount}` 条
+  1. 概要:引擎命中 `{engine}`(配置 `{engineConfigured}`)· 条目 `{itemCount}` 条(链耗尽时命中回落配置引擎,再缺位如实「—」)
   2. 指纹判定:`fingerprint.meaning` 全文
   3. 引擎退化({n} 次):逐条 `{engine} [{errorType}] {message}`
   4. 条目预览(`test-result-items`):逐条 dedup_key(mono 2xs)+ fields「k = v」行;`itemsTruncated` → 「仅预览前 N 条」
