@@ -409,3 +409,20 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 门禁结果:提交前实跑 cron 七件套+test_cli+sidecar 协议+test_docs = 587 全绿(26.47s);C2 红线核过(pyproject/sqlite.py/uv.lock 零改动,cli.py 纯增量 run --loop 原样);detect-changes -r shishi --scope staged(文档批暂存上,提交前实跑)= 21 files/8 symbols/受影响流程 0/risk low,全为文档标题符号。实现期全量 3573 passed/19 skipped/4 failed(4 红均 HEAD 态外来 alert_rules/baseline,收口未复跑全量——以实现期记录+本次定向门禁为准)。
 - 冒烟证据:.trellis/tasks/10-04-hermes-cron/evidence/smoke-e2e.md(serve ≥2 fire/runs 表 2 行/摘要落盘/心跳 33s 新鲜/remove 清场)+ smoke-refix.md(手动 tick 真派发/deliver stdout:debug 到达/failure_deliver 失败卡到达),随 e0f79cb 入库。
 - 遗留:①AC6 平台真发面(feishu/telegram 定向卡入群)无凭据未验,留空不勾,待有凭据环境补真发;②品类 fixture 为本地静态源非官方 news.yaml(离线约束,偏差在案);③journal 本段按收口令范围追加未随批提交(并行 +7 行在树,下次 journal 入库时一并);④不 push 不打 tag(主人门禁)。
+
+## 2026-10-04 前端缺口普查收口(收口员会话)
+
+- 普查结论:34 条对标可抄项=已实装/维持 24+在途 4+部分 3+未做未关 3;G 系 16 行终态=已做 10/留池 5(含 G9 全库余量)/关闭 1(G11 红线),池文档漂移(G5 主体/G7/G8/G12 未消号)登记为文档债;质量债点名项(P1×2/旁核对比度×3/text-2xs)全部已修且独立 WCAG 复算达标(6.46/4.67/4.73/5.87-6.14)
+- 路由建议 9 组(R1-R9)只建议未执行:直接小修三件(R1 feed Cmd+F 聚焦/R2 AlertsFiredEvent 入联合/R3 tauri.conf 版本号)+档内回标一件(R4 池漂移,池纪律本收口未动)+立档一件(R5 G9 全库批量已读,架构级先 grill)+入池两件(R6 G10 连通性按钮/R7 杂项七件)+关闭两组(R8 语义不匹配 4 项/R9 在途六件与已做项);R1-R5 留主人拍板
+- join_403 处置:实跑 `.venv/bin/python -m pytest tests/test_messaging_irc.py` = 29 passed 0.13s(含 `test_join_403_is_not_found_dead`),不在当前红测清单、已被在途线修掉;零代码修复=零 fix(test) 提交,无需移交 read-state-server;wrapup-checklist 第五节已回标完结(4e3a586)
+- 提交实录(竞态):fe-gap-census 三件套(prd 填实/matrix.md 新增/task.json planning→review)暂存后、提交前被并行线 44b06dd(fix(ci) interaction-batch 伴件,已推 origin)整索引吸收——三文件逐字在库(task.json diff 已核对),独立 docs 提交不复存在;已推历史禁 force-push 故不重写,以本注记为准。本收口自落 4e3a586 一笔(wrapup 回标,--only pathspec 防再吸收)
+- 门禁口径:收口纯档操作零代码改动;定向门禁=join_403 所在文件全量 29 passed(实跑);未复跑全量 pytest/vitest(在途双流占有工作树、普查红线只读,全量归各在途线收口);detect-changes -r shishi --scope staged 实跑="No changes detected"(纯文档批);不 push(主人门禁)
+- 遗留:R1-R5 拍板与执行排期留主人(fe-gap-census prd 末项未勾即此);疑死工作流 6 个处置仍留主人确认(未动);journal 本段循 hermes-cron 收口先例未随批提交,下次 journal 入库一并
+
+## 2026-10-04 定名 myssia 终局(第三轮全链改名 + PyPI 注册 + CI 三救)
+
+- 命名三段折戟:myia 被 PyPI 仿冒保护永久拦(mypy 邻近,my-ia 连字符也被忽略)、主人先后试 myssia 表单通过;终版决议:**myssia=唯一正式名**(仓库 xinzhuzi/myssia/PyPI 双包/CLI/模块 src/myssia),世事=中文名,myia/shishi=历史;keychain 名空间与 ~/.myia 数据根刻意保留(免装机数据迁移)
+- 第三轮全链改名(150 重命名+365 文件)后连续三次 git add 中止踩坑:**任一 pathspec 不存在整条命令失败**(myia.spec→根 branding/→根 Cargo.lock),第三笔用 git add -u 收口;期间 HEAD 两笔断链(新路径+旧 import)推上过 origin
+- CI 三救:①两个被排除的测试文件冻结在 shishi 时代致收集失败→导入翻新版+schema 断言 v7→v8 对齐(107 绿);②改名清扫卷入并行线在途 sidebar/feed(引用未提交新文件)→收编 interaction-batch 五件套+top-bar 对+删过时占位用例(vitest 337 绿);③cron 线测试按 +08 编写→CI 双 job 钉 TZ=Asia/Shanghai
+- 教训入册:排除「在途文件」保并行线时,必须检查其**已提交版是否被冻结在旧时代**(改名/大迁移场景必炸 CI);git add 慎用多 pathspec 列表,add -u 或逐目录验证存在性
+- 主人侧遗留:PyPI 两条 pending publisher 需删旧重加(Repository 改填 myssia——仓库又改名了,OIDC 跟着走)
