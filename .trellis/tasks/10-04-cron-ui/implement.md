@@ -26,7 +26,7 @@
 
 - [ ] 3.1 创建 Dialog(**schedule 五种模板 chips**+手输;**category=yaml.list 选择器**坏文件禁选+手输兜底;全字段+错误回显:create 的 parse/category 校验错误)
 - [ ] 3.2 编辑 Dialog(预填+部分更新)
-- [ ] 3.3 行内动作:run(spinner+toast)/pause(reason)/resume/remove(确认)
+- [ ] 3.3 行内动作:**run=排队语义(grill 二 Q1:notice「已排队,≤60 秒内开始」+行短时「已排队」态,completed 事件刷新)**/pause(reason)/resume/remove(确认);estopped 下单 job 操作照常开放(Q4)
 - 测试:提交参数形状断言/错误回显断言/确认流
 
 ## Stage 4:历史与事件

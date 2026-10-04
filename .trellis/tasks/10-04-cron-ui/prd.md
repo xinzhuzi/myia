@@ -9,10 +9,10 @@
 ## Requirements
 
 - **F1 入口**:侧栏主群新增「定时任务」(Clock 图标,排「源管理」后);HashRouter 加 `/cron` 路由(App.tsx `<Route path="cron">`),AppLayout 包裹。
-- **F2 ticker 活性条**(蓝本 schedulerStaleAgeS 对位):屏首读 `cron.status`(heartbeat_age/last_error/**writer_alive**/estopped/next_due_at),僵死(`!writer_alive || heartbeat_age>180s`)黄条示警;急停态红条;**双向操作**(grill Q6):「急停全部」红钮+Dialog 确认(cron.pause all)与红条上「恢复全部」(cron.resume all)。
+- **F2 ticker 活性条**(蓝本 schedulerStaleAgeS 对位):屏首读 `cron.status`(ticker_alive/heartbeat_age_seconds/last_error/estopped/next_due_at),僵死(`!ticker_alive || heartbeat_age_seconds>180s`)黄条示警;急停态红条+**双向操作**(grill Q6):「急停全部」红钮+Dialog 确认(cron.pause all)与红条上「恢复全部」(cron.resume all);急停红条注记「仅暂停调度,单 job 操作仍可用」(grill 二 Q4,忠实后端语义);**正常态灰字显示当前数据根**(grill 二 Q3,自解释 CLI 异根 job 不可见)。
 - **F3 job 列表**(cron.list;table 基件):行=名称 / 排程人话(`schedule_display` 字段直读)/ 下次运行(逾期红标:now > next_run_at + grace)/ 上次状态四态色 badge(ok=success、failed=destructive、delivery_failed/skipped_busy=warning、paused=灰)/ deliver / repeat。含 `all=true` 切换显示暂停/终态(蓝本 Jobs 视图)。
 - **F4 创建/编辑双 Dialog**(dialog 基件,蓝本双 Modal 对位):字段=schedule(**常用模板 chips**点击填入仍可改:每 30 分钟/每小时/每天 9 点/工作日 9 点/每周一 9 点;自然语言/5 段 cron 手输,**parse 错误文案原样回显**)/**category 下拉选择器**(grill Q4:吃现成 `yaml.list` 列品类 YAML,坏文件 `parse_ok:false` 行禁选带标;留「手输入口」兜底)/deliver spec(附格式说明)/failure_deliver/repeat/**config(pools YAML,可选高级)**/timezone/run_timeout/dry_run(Switch)。编辑=same form 预填+cron.edit 部分更新。
-- **F5 行内动作**:立即运行(cron.run,进行态 spinner+notice)/暂停(cron.pause,可填 reason)/恢复(cron.resume)/删除(cron.remove,Dialog 确认)。反馈用**屏内持久 notice 横幅**(messaging 先例,库内无浮动 toast,不引新组件——grill 事实校准)。
+- **F5 行内动作**:立即运行(cron.run,**排队语义**:点击→notice「已排队,≤60 秒内开始」+行短时「已排队」态,completed 事件落地刷新——cron.run 是安排下个 tick 执行非同步跑,grill 二 Q1)/暂停(cron.pause,可填 reason)/恢复(cron.resume)/删除(cron.remove,Dialog 确认)。反馈用**屏内持久 notice 横幅**(messaging 先例,库内无浮动 toast,不引新组件——grill 事实校准)。
 - **F6 运行历史**:行展开(cron.runs):executions 尾查新→旧,status/finished_at/run_summary 摘要(状态/时长/留存/失败行);输出目录留 CLI 查看(档内注记)。
 - **F7 刷新**(grill Q2 修正案):**事件驱动为主,不引入 interval 轮询**(全仓 UI 零轮询先例)——进屏拉全量 + `cron.completed`/`cron.skipped` 事件即时重拉(notice 吃事件载荷 name/status)+ 手动刷新按钮;逾期红标走时用**本地 1 分钟时钟重渲染**(纯前端 tick,不重取数据)。**前置:两事件尚不在 TS `SidecarEvent` 联合**(现 8 员)——本任务补两事件 interface+入联合,并照 alerts.fired 先例同步适配 logs 屏 `eventToRow` 穷尽守卫(runId=null 系统摘要行;深化实证,原稿「事件已在前端联合」系误写)。
 - **F8 前端镜像纪律**:本屏消费的方法(cron 九+yaml.list 复用)签名入 types.ts SidecarProtocol mirror(现 35 方法不含 cron.*,补齐=mirror 对账非协议变更)+ client.ts 共享 `api` 门面(client.test.ts 逐方法批断言同步,非计数式)。
@@ -49,3 +49,5 @@
 Q1 位置=主群「源管理」后 / Q2 刷新=**事件驱动+手动刷新+本地时钟 tick,不引入 interval 轮询**(全仓 UI 零轮询先例)/ Q3 历史=行内展开 / Q4 category=**yaml.list 下拉选择器**(坏文件带标禁选)+手输兜底 / Q5 schedule=**模板 chips**(五种,填入仍可改)/ Q6 急停=**双向**(急停全部红钮+确认 Dialog;恢复全部)。
 
 **事实裁决五条**(grill 前源码坐实,随批生效):①协议形状五件(list=完整 job 记录/status 含 writer_alive+estopped+next_due_at/runs 钳 [1,500] 带解析摘要/事件载荷 skipped{reason,active_run_id}+completed{ok,status,delivery_error,summary});②**逾期 grace=15 分钟照抄**(H hermes_cli/cron.py:630,过点还在跑是常态);③僵死判据=`!writer_alive || heartbeat_age>180s`;④toast/confirm 先例在(messaging/feed 的 toast、window.confirm spy 先例);⑤screens 零 setInterval(→Q2 修正依据)。Round 2 依赖项随决议落定:选择器坏文件行=禁选带标、chips 仅填入与错误回显零耦合。
+
+**Grill 二轮(2026-10-04 批复:四问全按推荐)**:Q1 立即运行=**排队语义**(notice「≤60 秒内开始」+行「已排队」态,非 spinner 死等——cron.run 事实=安排下个 tick 执行)/Q2 **不做行级「运行中」**(无 started 事件,自动跑的进行态仅在历史展开可见;不为 badge 破零协议变更红线)/Q3 **活性条显示数据根**(list/status 均返回 data_root,自解释 CLI 异根 job 不可见)/Q4 **estopped 下单 job 操作照常开放**(后端事实=estop 只拦 tick 派发,tick.py:312;红条注记说明)。

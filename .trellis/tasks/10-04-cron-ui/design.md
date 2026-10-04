@@ -37,9 +37,11 @@ desktop/ui-src/src/App.tsx            # <Route path="cron" element={<CronScreen/
 
 刷新(F7,grill Q2 修正案+深化校准):进屏 Promise.all(list+status)→ 订阅模式照 messaging 811-837(cancelled 旗标+unlisten 清理)消费 cron.completed/cron.skipped →**notice 横幅**(messaging 73-76/330-342 先例,非浮动 toast)直读载荷 name/status+立即重拉→手动刷新按钮;**不做 interval 轮询**;逾期红标走时=本地 1min 时钟重渲染。
 
-## 2.5 Grill 决议(2026-10-04 六问全按推荐)
+## 2.5 Grill 决议(2026-10-04 六问全按推荐;二轮四问同批)
 
-Q1 主群源管理后 / Q2 事件驱动+手动刷新+本地时钟 / Q3 历史行内展开 / Q4 category=yaml.list 选择器+手输兜底 / Q5 schedule 模板 chips / Q6 急停双向(红钮+确认 Dialog/红条恢复全部)。事实裁决五条见 prd「Grill 决议」节(协议形状五件/**grace=15min 照抄 H cron.py:630**/僵死判据 `!writer_alive||heartbeat_age>180s`/toast·confirm 先例在/screens 零 setInterval)。
+一轮:Q1 主群源管理后 / Q2 事件驱动+手动刷新+本地时钟 / Q3 历史行内展开 / Q4 category=yaml.list 选择器+手输兜底 / Q5 schedule 模板 chips / Q6 急停双向(红钮+确认 Dialog/红条恢复全部)。
+
+二轮(事实驱动,全按推荐):**Q1 立即运行=排队语义**(cron.run 事实=安排下个 tick≤60s,notice+行「已排队」态,completed 事件刷新)/ **Q2 不做行级运行中**(无 started 事件;进行态仅历史展开可见,不破零协议变更红线)/ **Q3 活性条显示 data_root**(list/status 均返回)/ **Q4 estopped 下单 job 操作照常**(estop 只拦 tick 派发 tick.py:312,红条注记)。事实裁决五条见 prd「Grill 决议」节(协议形状五件/**grace=15min 照抄 H cron.py:630**/僵死判据 `!ticker_alive||heartbeat_age_seconds>180s`/notice 先例/零轮询先例)。
 
 ## 3. 偏离表(蓝本 → MYIA,逐条理由)
 

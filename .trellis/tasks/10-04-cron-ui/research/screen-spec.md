@@ -7,9 +7,11 @@
 ```
 ┌────────────────────────────────────────────────┐
 │ A 活性条(常驻一行,三态:                     │
-│   正常=灰字「ticker 活跃 · 下次 <时刻> · N 个 job」; │
+│   正常=灰字「ticker 活跃 · 下次 <时刻> · N 个 job · <data_root 灰字小字>」(Q3 数据根可见,│
+│         一眼自解释「CLI 在别处建的 job 为什么看不见」); │
 │   僵死=黄条 data-testid=cron-stale(判据 !ticker_alive||heartbeat_age_seconds>180); │
-│   急停=红条 data-testid=cron-estopped+「恢复全部」按钮) │
+│   急停=红条 data-testid=cron-estopped+「恢复全部」按钮+注记一句 │
+│         「急停仅暂停调度,单 job 操作仍可用」(Q4,忠实后端语义)) │
 │   右侧常驻:「急停全部」红钮(确认 Dialog)+ 手动「刷新」│
 ├────────────────────────────────────────────────┤
 │ B notice 横幅(有则显示,messaging 形态;事件与动作共用) │
@@ -34,7 +36,7 @@
 | 上次状态 | ~110 | badge 四态:ok=success/failed=destructive/delivery_failed·skipped_busy=warning/paused(或 state=paused)=中性;state=completed=灰「已完结」 |
 | 投递 | ~120 | deliver(截断) |
 | 次数 | ~80 | repeat:completed/times,∞=times null 显示「∞」 |
-| 动作 | ~200 | 立即运行(spinner 键 Set)/暂停/恢复/编辑/删除(删除经确认) |
+| 动作 | ~200 | 立即运行(**排队语义 Q1**:点击→notice「已排队,≤60 秒内开始」+行短时「已排队」态;completed 事件落地刷新——非 spinner 死等)/暂停/恢复/编辑/删除(删除经确认) |
 
 ## 3. 创建/编辑 Dialog(F4)
 
@@ -46,6 +48,7 @@
 ## 4. 事件/时钟
 
 - 订阅:messaging 模式(cancelled+unlisten);cron.completed→notice(ok/error 按 ok 字段)+重拉 list;cron.skipped→notice(warning 文案「因运行占用跳过」)+重拉;
+- **无 started 事件(grill 二 Q2 定案)**:自动触发的 job「正在跑」不做行级态——进行态仅在历史展开可见(executions `running` 行);手动触发的可见性=「已排队」行态至 completed;
 - 本地时钟:1min setInterval **只重渲染逾期标**(useMemo 依赖 now state;此为唯一 interval,与「无轮询」不冲突——不取数);
 
 ## 5. 测试用例清单(cron-screen.test.tsx;传输层 mock+emitSidecarEvent)
@@ -63,7 +66,8 @@
 | 9 | 选择器坏文件禁选 | parse_ok:false 项 disabled+「解析失败」;手输兜底可提交(AC4) |
 | 10 | 编辑预填+部分更新 | 只改 deliver→edit 仅含 job+deliver(AC4) |
 | 11 | 动作四件 | run/pause/resume invoke 形状;remove 先 window.confirm(AC5) |
-| 12 | run spinner | run 后行内 spinner 至 completed 事件(AC5) |
+| 12 | run 排队语义 | run 后 notice「已排队/≤60 秒」+行「已排队」态;completed 事件到刷新(AC5,grill 二 Q1) |
+| 19 | estopped 下单 job 操作 | estopped 态仍可暂停/编辑单 job(后端语义,Q4);红条含注记文案(AC2/AC5) |
 | 13 | 历史展开 | 首次展开 invoke runs{job,limit:10};摘要字段渲染;空态(AC6) |
 | 14 | 事件驱动 | emitSidecarEvent(completed)→notice(name/status)+list 重拉(AC7) |
 | 15 | skipped 事件 | 文案含「跳过」;重拉(AC7) |
