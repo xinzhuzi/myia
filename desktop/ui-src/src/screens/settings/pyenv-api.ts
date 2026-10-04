@@ -1,9 +1,10 @@
 /**
- * Python 运行环境 IPC 封装(10-05-desktop-managed-py-env 第 4 步;本屏私有
- * api 模块,惯例同 vision-api.ts:invoke 直连 + 错误归一化走 ./api 的
- * asSidecarError,共享客户端 @/lib/api 只读不动)。
+ * Python 运行环境 IPC 封装(10-05-desktop-managed-py-env 第 4 步建、第 6 步扩:
+ * 消费方 = 设置屏 Python 环境分区 + 全局存量迁移横幅 components/layout/
+ * migration-banner.tsx;invoke 直连 + 错误归一化走 ./api 的 asSidecarError,
+ * 共享客户端 @/lib/api 只读不动)。
  *
- * 契约(波次钉死,与壳侧 src-tauri/src/pyenv.rs 逐字段对齐):
+ * 契约(波次钉死,与壳侧 src-tauri/src/pyenv*.rs 逐字段对齐):
  * - command `pyenv_get_status` → `{state, install_path, python_path,
  *   mirror_runtime, mirror_pypi, steps:[{phase,status,error}]}`
  *   state = not_configured|installing|ready|error|deps_stale(IPC 五态)
@@ -11,6 +12,9 @@
  *   按 tauri 默认映射传 camelCase(mirrorRuntime/mirrorPypi,pyenv.rs 命令注释
  *   同口径);整体替换式落盘,空串归一为缺省(= 清回默认源)
  * - command `pyenv_sync_deps()`(D4 依赖漂移时的一键幂等重跑)
+ * - command `pyenv_migration_banner()`(第 6 步 D5/design §6:存量迁移一次性
+ *   引导,查询即消费 —— {show:true} 每数据根至多一次,壳侧标记落盘;
+ *   pyenv_migration.rs 为对齐源)
  * - event `pyenv-status-changed`(载荷同 status 形态;前端初始化仍以拉取
  *   `pyenv_get_status` 为准,事件只作变更通知)
  */
@@ -134,6 +138,36 @@ export async function pyenvStartSetup(
 /** 同步依赖(D4:依赖漂移时的一键幂等重跑安装链)。 */
 export async function pyenvSyncDeps(): Promise<PyenvStatus> {
   return parsePyenvStatus(await invoke("pyenv_sync_deps"));
+}
+
+/**
+ * `pyenv_migration_banner` 结果(D5/design §6:存量迁移一次性引导)。
+ * 查询即消费:壳侧命中「旧数据根 && 无 python-env.json && 未引导过」即落
+ * 标记并回 show=true —— 同一数据根上此后恒 false(含重启),AC5「出现且
+ * 仅出现一次」由壳侧钉死,前端只如实渲染。
+ */
+export interface MigrationBannerDecision {
+  show: boolean;
+}
+
+/**
+ * wire 载荷 → MigrationBannerDecision(TS 侧守门):show 非布尔即抛
+ * (壳侧 serde 已钉死,出现即对齐破了,大声失败,同 parsePyenvStatus 口径)。
+ */
+export function parseMigrationBannerDecision(raw: unknown): MigrationBannerDecision {
+  if (typeof raw !== "object" || raw === null) {
+    throw new TypeError(`migration banner 载荷不是对象: ${String(raw)}`);
+  }
+  const show = (raw as Record<string, unknown>).show;
+  if (typeof show !== "boolean") {
+    throw new TypeError(`migration banner.show 非布尔: ${String(show)}`);
+  }
+  return { show };
+}
+
+/** 存量迁移一次性引导查询(第 6 步;AppLayout 挂载时调用一次)。 */
+export async function pyenvMigrationBanner(): Promise<MigrationBannerDecision> {
+  return parseMigrationBannerDecision(await invoke("pyenv_migration_banner"));
 }
 
 /**
