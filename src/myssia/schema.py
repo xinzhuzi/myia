@@ -159,6 +159,10 @@ ENGINES = (
     "llm_browser",
     # 链外源引擎(10-03-aipocket-fusion):显式选择才生效,不参与 auto 降级链。
     "credhunter",
+    # 付费 SaaS gated 引擎(10-05-plugin-market-batch R6/D4):链外+门槛件,
+    # fetch 前置查 gates.yaml,关闭态 gate_closed;永不缺省、永不进 AUTO_CHAIN。
+    "zenrows",
+    "scraperapi",
 )
 PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
@@ -213,6 +217,7 @@ REQUIRES_TOKENS = ("docker",)
 EngineName = Literal[
     "auto", "direct_api", "static_html", "crawl4ai", "firecrawl", "scrapling", "stealth_browser", "llm_browser",
     "credhunter",
+    "zenrows", "scraperapi",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]
 ExtractType = Literal["list", "item", "json_path", "rss"]

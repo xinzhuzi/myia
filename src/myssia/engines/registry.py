@@ -36,7 +36,11 @@ registered in :data:`ENGINE_REGISTRY` but deliberately absent from
 :data:`AUTO_CHAIN` — they assemble items in-process from a scenario plugin
 (GitHub 工件猎取 / FOFA-Shodan 曝面 / 本地文本扫描) instead of fetching a
 URL, so browser-style degradation does not apply; explicit selection yields a
-single-rung chain and a failure is a structured per-source failure.
+single-rung chain and a failure is a structured per-source failure. The gated
+paid-SaaS engines (``zenrows`` / ``scraperapi``, 10-05-plugin-market-batch R6)
+sit beside the chain for a different reason — they only ever run after the
+``gates.yaml`` 知情开关 is verified (closed gate = structured ``gate_closed``,
+zero upstream requests), so auto must never route paid traffic implicitly.
 """
 
 from __future__ import annotations
@@ -105,6 +109,11 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     "llm_browser": lambda: _load("llm_browser", "LLMBrowserEngine"),
     "firecrawl": lambda: _load("firecrawl", "FirecrawlEngine"),
     "credhunter": lambda: _load("credhunter", "CredhunterEngine"),
+    # 付费 SaaS gated 引擎(10-05-plugin-market-batch R6):链外同 credhunter
+    # 先例 —— 显式 engine 选择才生效,auto 永不路过;fetch 前置查 gates.yaml
+    # (关闭态 gate_closed,与 dependency_missing 分列;骨架见 engines/saas.py)。
+    "zenrows": lambda: _load("zenrows", "ZenrowsEngine"),
+    "scraperapi": lambda: _load("scraperapi", "ScraperAPIEngine"),
 }
 
 # Static typing view of the registry (class names resolved lazily at runtime).
