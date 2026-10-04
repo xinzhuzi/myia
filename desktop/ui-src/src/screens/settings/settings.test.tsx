@@ -23,6 +23,8 @@ import type {
   DoctorResult,
   EnrichSection,
   Finding,
+  GatesSaveParams,
+  GatesView,
   PluginReport,
   ProxyPoolStatus,
   SecretSetParams,
@@ -106,6 +108,26 @@ interface SidecarState {
   doctor: (params: { config?: string }) => DoctorResult;
   /** push.test 可编程应答(G5 用例;缺省成功) */
   pushTest: (params: { channel: string; target?: string }) => unknown;
+  /** gates.* 内存态(门槛件分区;缺省 = 全关空表,fail-closed 未配置态) */
+  gates: GatesView;
+  gatesPath: string;
+  /** gates.save 最近一次收到的整份载荷(断言用;null = 尚未保存) */
+  gatesSaved: GatesView | null;
+  /** gates.get 拒载明细(gates.yaml 坏 = 全关态 + error 载荷,不炸设置屏) */
+  gatesGetError: { source: string | null; errors: { path: string; error_type: string; message: string }[] } | null;
+}
+
+/** gates.yaml 全关缺省态(GatesConfig().to_payload 同形状) */
+function gatesFixture(overrides?: Partial<GatesView>): GatesView {
+  return {
+    version: 1,
+    paid_engines: false,
+    third_party_trace: false,
+    saas: {},
+    platforms: {},
+    analysis: {},
+    ...overrides,
+  };
 }
 
 function installSidecar(doctorImpl?: (params: { config?: string }) => DoctorResult) {
@@ -113,6 +135,10 @@ function installSidecar(doctorImpl?: (params: { config?: string }) => DoctorResu
     secrets: new Map(),
     doctor: doctorImpl ?? (() => doctorFixture()),
     pushTest: (params) => ({ ok: true, channel: params.channel }),
+    gates: gatesFixture(),
+    gatesPath: "/home/myia/gates.yaml",
+    gatesSaved: null,
+    gatesGetError: null,
   };
   mocks.invoke.mockImplementation(
     async (_command: string, args: { method: string; params?: unknown }) => {
@@ -140,6 +166,22 @@ function installSidecar(doctorImpl?: (params: { config?: string }) => DoctorResu
           return state.pushTest(args.params as { channel: string; target?: string });
         case "doctor":
           return state.doctor((args.params ?? {}) as { config?: string });
+        case "gates.get":
+          // entry.py _m_gates_get 实况:坏文件 fail-closed 不炸设置屏
+          // (config 全关 + error 载荷;exists = 文件在否)
+          return {
+            config: state.gates,
+            path: state.gatesPath,
+            exists: state.gatesGetError !== null,
+            error: state.gatesGetError,
+          };
+        case "gates.save": {
+          const params = args.params as GatesSaveParams;
+          state.gatesSaved = params.config;
+          state.gates = params.config;
+          state.gatesGetError = null; // 合法覆写即修复
+          return { ok: true, path: state.gatesPath };
+        }
         default:
           throw JSON.stringify({
             code: "method_not_found",
@@ -863,5 +905,166 @@ describe("设置:分区过滤(census #7 补做,纯前端实时)", () => {
     await openSection("system");
     expect(screen.getByTestId("settings-section-system")).toBeTruthy();
     expect(screen.getByTestId("settings-nav-system").getAttribute("aria-current")).toBe("true");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 门槛件分区(10-05-plugin-market-batch 批二第 11 步):gates.get/save 三卡
+// (付费通道 / 自有实例 / 分析件 D8 占位);知情警示文案铁律(design §6.4)
+// + 值只经 secret.set 入钥匙链零回显 + third_party_trace 载荷保真透传(D9)
+// ---------------------------------------------------------------------------
+
+describe("设置:门槛件分区(gates)", () => {
+  it("三卡渲染 + 知情文案在位;分析件=批三解锁占位(D8 非空面);官方件物化默认全关;挂载即 gates.get", async () => {
+    installSidecar();
+    renderScreen();
+    await openSection("gates");
+
+    expect(screen.getByTestId("settings-section-gates")).toBeTruthy();
+    await screen.findByTestId("gates-paid-card");
+    expect(screen.getByTestId("gates-platforms-card")).toBeTruthy();
+    expect(screen.getByTestId("gates-analysis-card")).toBeTruthy();
+    // 知情警示(design §6.4 文案铁律:每开关挂警示)
+    expect(screen.getByTestId("gates-paid-card").textContent).toContain("按页计费");
+    expect(screen.getByTestId("gates-paid-card").textContent).toContain("经对方服务器");
+    expect(screen.getByTestId("gates-platforms-card").textContent).toContain("组织性不执法");
+    // 分析件占位:批三解锁(D8:零分析件落地,但分区不是空面)
+    expect(screen.getByTestId("gates-analysis-card").textContent).toContain("批三解锁");
+    // 官方件物化(design §6.1 样例形状):zenrows/scraperapi/crawlab/worldmonitor
+    // 四行齐,未配置 = 全关 + 规范钥匙串引用
+    for (const name of ["zenrows", "scraperapi"]) {
+      const row = screen.getByTestId(`gates-saas-row-${name}`);
+      const toggle = within(row).getByRole("switch", { name: `付费引擎开关 ${name}` });
+      expect(toggle.getAttribute("aria-checked")).toBe("false");
+      expect(row.textContent).toContain(`myia/saas/${name}-key`);
+    }
+    for (const name of ["crawlab", "worldmonitor"]) {
+      const row = screen.getByTestId(`gates-platform-row-${name}`);
+      expect(
+        within(row).getByRole("switch", { name: `自有实例开关 ${name}` }).getAttribute("aria-checked"),
+      ).toBe("false");
+    }
+    expect(within(screen.getByTestId("gates-platform-row-crawlab")).queryByLabelText("crawlab Token 值")).toBeTruthy();
+    expect(screen.queryByLabelText("worldmonitor Token 值")).toBeNull(); // worldmonitor 无凭据位(design §6.1)
+    // 挂载即整读一次(gates.get);分析件占位零保存动作(D8)
+    expect(callsOf("gates.get")).toHaveLength(1);
+  });
+
+  it("付费通道:总开关+逐件+key 值录入 → secret.set 入钥匙链 + gates.save 整份原子落盘;third_party_trace 透传不丢(D9)", async () => {
+    const state = installSidecar();
+    // CLI 设过的既有值:UI 不提供假开关(D9 无执法点),但保存载荷保真透传
+    state.gates.third_party_trace = true;
+    renderScreen();
+    await openSection("gates");
+    await screen.findByTestId("gates-paid-card");
+
+    fireEvent.click(screen.getByRole("switch", { name: "付费通道总开关" }));
+    fireEvent.click(screen.getByRole("switch", { name: "付费引擎开关 zenrows" }));
+    await typeByLabel("zenrows API Key 值", "sk-zenrows-secret-value");
+    fireEvent.click(screen.getByRole("button", { name: "保存付费通道" }));
+
+    await screen.findByTestId("save-status");
+    // key 值只经 secret.set 入规范名;值零回显、保存即清
+    expect(callsOf("secret.set")).toContainEqual({ name: "myia/saas/zenrows-key", value: "sk-zenrows-secret-value" });
+    expect(state.secrets.get("myia/saas/zenrows-key")).toBe("sk-zenrows-secret-value");
+    expect(document.body.textContent).not.toContain("sk-zenrows-secret-value");
+    expect((screen.getByLabelText("zenrows API Key 值") as HTMLInputElement).value).toBe("");
+    // gates.save:整份配置(总开关 + 逐件 + canonical 引用物化 + 透传 third_party_trace)
+    expect(state.gatesSaved).not.toBeNull();
+    expect(state.gatesSaved?.paid_engines).toBe(true);
+    expect(state.gatesSaved?.third_party_trace).toBe(true);
+    expect(state.gatesSaved?.saas.zenrows).toEqual({ enabled: true, api_key: "keychain:myia/saas/zenrows-key" });
+    expect(state.gatesSaved?.saas.scraperapi).toEqual({ enabled: false, api_key: "keychain:myia/saas/scraperapi-key" });
+    expect(state.gatesSaved?.platforms.crawlab).toEqual({
+      enabled: false,
+      endpoint: "",
+      token: "keychain:myia/platforms/crawlab-token",
+    });
+    expect(state.gatesSaved?.analysis).toEqual({});
+    expect(screen.getByTestId("save-status").textContent).toContain("myia/saas/zenrows-key");
+  });
+
+  it("自有实例:endpoint 非法前端拦零协议调用;改 https 后保存;token 值入钥匙链零回显", async () => {
+    const state = installSidecar();
+    renderScreen();
+    await openSection("gates");
+    await screen.findByTestId("gates-platforms-card");
+
+    fireEvent.click(screen.getByRole("switch", { name: "自有实例开关 crawlab" }));
+    await typeByLabel("crawlab endpoint", "ftp://crawlab.example.com");
+    fireEvent.click(screen.getByRole("button", { name: "保存自有实例" }));
+
+    // 前端同门校验(gates.py invalid_endpoint 口径):拦下,零 gates.save/secret.set
+    expect(await screen.findByText(/endpoint 须为 http\(s\) 地址/)).toBeTruthy();
+    expect(callsOf("gates.save")).toEqual([]);
+    expect(state.gatesSaved).toBeNull();
+
+    await typeByLabel("crawlab endpoint", "https://crawlab.example.com");
+    await typeByLabel("crawlab Token 值", "tok-crawlab-private");
+    fireEvent.click(screen.getByRole("button", { name: "保存自有实例" }));
+
+    await screen.findByTestId("save-status");
+    expect(state.gatesSaved?.platforms.crawlab).toEqual({
+      enabled: true,
+      endpoint: "https://crawlab.example.com",
+      token: "keychain:myia/platforms/crawlab-token",
+    });
+    expect(callsOf("secret.set")).toContainEqual({ name: "myia/platforms/crawlab-token", value: "tok-crawlab-private" });
+    expect(document.body.textContent).not.toContain("tok-crawlab-private");
+    expect((screen.getByLabelText("crawlab Token 值") as HTMLInputElement).value).toBe("");
+  });
+
+  it("gates.yaml 拒载 → 全关态仍可进(fail-closed 修复入口):警示卡 + 三卡照常渲染 + 保存后警示消除", async () => {
+    const state = installSidecar();
+    state.gatesGetError = {
+      source: "/home/myia/gates.yaml",
+      errors: [
+        { path: "$", error_type: "unknown_field", message: "存在未知字段: ['oops'](允许:[…];手滑字段名不会静默失效)" },
+      ],
+    };
+    renderScreen();
+    await openSection("gates");
+
+    // 拒载如实上屏(结构化明细),但设置屏是修复入口:三卡仍可编辑(全关默认态)
+    const warn = await screen.findByTestId("gates-corrupt-warning");
+    expect(warn.textContent).toContain("fail-closed");
+    expect(warn.textContent).toContain("unknown_field");
+    expect(screen.getByTestId("gates-paid-card")).toBeTruthy();
+    expect(screen.getByTestId("gates-platforms-card")).toBeTruthy();
+    expect(
+      within(screen.getByTestId("gates-paid-card")).getByRole("switch", { name: "付费通道总开关" }).getAttribute("aria-checked"),
+    ).toBe("false");
+
+    // 保存任一卡 = 合法覆写修复
+    fireEvent.click(screen.getByRole("switch", { name: "付费通道总开关" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存付费通道" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("gates-corrupt-warning")).toBeNull();
+    });
+    expect(state.gatesSaved?.paid_engines).toBe(true);
+  });
+
+  it("gates.get 未达(传输/协议层错误)→ 整屏结构化错误卡,不渲染表单", async () => {
+    mocks.invoke.mockImplementation(async (_command: string, args: { method: string }) => {
+      if (args.method === "doctor") return doctorFixture();
+      if (args.method === "secret.list") return { names: [] };
+      if (args.method === "gates.get") {
+        throw JSON.stringify({
+          code: "method_not_found",
+          path: "method",
+          message: "未知方法 gates.get",
+        });
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "method", message: `未知方法 ${args.method}` });
+    });
+    renderScreen();
+    await openSection("gates");
+
+    const card = await screen.findByTestId("gates-load-error");
+    const box = await within(card).findByRole("alert");
+    expect(box.textContent).toContain("method_not_found");
+    // 协议面缺失:不出可编辑表单(与拒载 fail-closed 分支不同)
+    expect(screen.queryByTestId("gates-paid-card")).toBeNull();
+    expect(screen.queryByTestId("gates-platforms-card")).toBeNull();
   });
 });

@@ -2283,12 +2283,14 @@ def test_method_registry_allowed_matches_handlers():
     fe-small-batch 批(feed.enrich)+ alert-rules 批(alerts.* 四方法,
     10-04-alert-rules)+ desktop-b234 批(runs.trend,10-04-desktop-b234)+
     hermes-cron 批(cron.* 九方法,10-04-hermes-cron B3)+
-    read-state-server 批(store.state.* 三方法,10-04-read-state-server)
-    后 = 60。"""
+    read-state-server 批(store.state.* 三方法,10-04-read-state-server)+
+    plugin-market-b2 批(gates.get/gates.save 两方法,10-05-plugin-market-batch
+    批二第 10 步 D4/D7;设置面分区 UI = 同批第 11 步)
+    后 = 62。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 60
+    assert len(allowed) == 62
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",
@@ -2299,7 +2301,7 @@ def test_method_registry_allowed_matches_handlers():
                    "cron.list", "cron.create", "cron.edit", "cron.pause",
                    "cron.resume", "cron.run", "cron.remove", "cron.status",
                    "cron.runs", "store.state.mark", "store.state.mark_all",
-                   "store.state.import"):
+                   "store.state.import", "gates.get", "gates.save"):
         assert method in allowed
 
 
@@ -2314,7 +2316,12 @@ def test_protocol_version_bumped_for_feed_ux():
     serve 内置 cron ticker,10-04-hermes-cron B3)→ v9;
     read-state-server 批(store.state.* 三方法 + store.items 投影补
     read/starred/later 三键,10-04-read-state-server)→ v10(开工实读 v9 后
-    +1:hermes-cron 已先合入,竞速顺延)。"""
+    +1:hermes-cron 已先合入,竞速顺延);
+    plugin-market-batch 批二(gates.get/gates.save 两方法,
+    10-05-plugin-market-batch 第 11 步)**未随批 bump**——地基路定案维持
+    v10(两方法在 v10 内交付,注册表 62 行;gates UI 无 protocol 版本能力门,
+    旧壳+新 UI 组合经 method_not_found 结构化降级不白屏)。若后续补 bump,
+    本断言随迁。"""
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
     assert responses[0]["result"]["protocol"] == 10
 
@@ -4297,3 +4304,120 @@ def test_alerts_fired_replay_only_new_hits_in_window(tmp_path):
     assert count == 1
     event = json.loads(out.getvalue().splitlines()[0])
     assert event["type"] == "alerts.fired" and event["dedup_key"] == "new"
+
+
+# ---------------------------------------------------------------------------
+# gates.get / gates.save(10-05-plugin-market-batch 批二第 11 步;能力实现
+# src/myssia/gates.py `GatesConfig`,处理器 entry.py `_m_gates_get`/
+# `_m_gates_save`;契约 = 任务档 design.md §6.7 + 处理器实况——get 应答
+# {config, path, exists, error}:坏文件 fail-closed 不 fail fast,全关态 +
+# 拒载明细带回,一次合法 save 覆写修复;save 同门校验失败
+# `gates_config_invalid` 零落盘,tmp+rename 原子写)
+# ---------------------------------------------------------------------------
+
+GATES_CONFIG_OK = {
+    "version": 1,
+    "paid_engines": True,
+    "third_party_trace": False,
+    "saas": {
+        "zenrows": {"enabled": True, "api_key": "keychain:myia/saas/zenrows-key"},
+        "scraperapi": {"enabled": False, "api_key": "keychain:myia/saas/scraperapi-key"},
+    },
+    "platforms": {
+        "crawlab": {"enabled": False, "endpoint": "https://crawlab.example.com",
+                    "token": "keychain:myia/platforms/crawlab-token"},
+        "worldmonitor": {"enabled": False, "endpoint": "", "token": None},
+    },
+    "analysis": {},
+}
+
+
+def test_gates_get_missing_file_is_all_off(tmp_path, monkeypatch):
+    """get:文件不存在 = 全关默认态(fail-closed 合法未配置),exists=False 零 error。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+    code, responses, _ = rpc({"id": 1, "method": "gates.get", "params": {}})
+    assert code == 0
+    result = responses[0]["result"]
+    assert result["path"] == str(tmp_path / "home" / "gates.yaml")
+    assert result["exists"] is False
+    assert result["error"] is None
+    assert result["config"] == {
+        "version": 1, "paid_engines": False, "third_party_trace": False,
+        "saas": {}, "platforms": {}, "analysis": {},
+    }
+
+
+def test_gates_save_and_get_roundtrip(tmp_path, monkeypatch):
+    """save→get 往返:keychain 引用原样落盘/回显,凭据永不回值。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+    code, responses, _ = rpc({"id": 1, "method": "gates.save",
+                              "params": {"config": GATES_CONFIG_OK}})
+    assert responses[0]["result"] == {"ok": True, "path": str(tmp_path / "home" / "gates.yaml")}
+    text = (tmp_path / "home" / "gates.yaml").read_text(encoding="utf-8")
+    assert "keychain:myia/saas/zenrows-key" in text
+    assert "keychain:myia/platforms/crawlab-token" in text
+
+    code, responses, _ = rpc({"id": 2, "method": "gates.get", "params": {}})
+    result = responses[0]["result"]
+    assert result["exists"] is True
+    assert result["error"] is None
+    assert result["config"]["paid_engines"] is True
+    assert result["config"]["saas"]["zenrows"] == {"enabled": True, "api_key": "keychain:myia/saas/zenrows-key"}
+    assert result["config"]["platforms"]["crawlab"]["endpoint"] == "https://crawlab.example.com"
+    assert result["config"]["platforms"]["worldmonitor"]["token"] is None
+
+
+def test_gates_save_plaintext_and_unknown_field_rejected_zero_write(tmp_path, monkeypatch):
+    """save:明文凭据/未知顶层字段 = gates_config_invalid(结构化明细)零落盘。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+    plaintext = {
+        **GATES_CONFIG_OK,
+        "saas": {"zenrows": {"enabled": True, "api_key": "sk-plaintext"},
+                 "scraperapi": GATES_CONFIG_OK["saas"]["scraperapi"]},
+    }
+    code, responses, _ = rpc({"id": 1, "method": "gates.save", "params": {"config": plaintext}})
+    error = responses[0]["error"]
+    assert error["code"] == "gates_config_invalid"
+    assert error["data"]["errors"][0]["error_type"] == "credential_plaintext"
+    assert not (tmp_path / "home" / "gates.yaml").exists()  # 拒载 = 零写入
+
+    unknown = {**GATES_CONFIG_OK, "paid_engine": True}  # 手滑字段名不会静默失效
+    code, responses, _ = rpc({"id": 2, "method": "gates.save", "params": {"config": unknown}})
+    error = responses[0]["error"]
+    assert error["code"] == "gates_config_invalid"
+    assert error["data"]["errors"][0]["error_type"] == "unknown_field"
+    assert not (tmp_path / "home" / "gates.yaml").exists()
+
+
+def test_gates_save_missing_config_invalid_params(tmp_path, monkeypatch):
+    """save:缺 config 对象 = invalid_params(参数形状,非业务校验)。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+    code, responses, _ = rpc({"id": 1, "method": "gates.save", "params": {}})
+    assert responses[0]["error"]["code"] == "invalid_params"
+    assert not (tmp_path / "home" / "gates.yaml").exists()
+
+
+def test_gates_get_broken_file_fail_closed_then_save_repairs(tmp_path, monkeypatch):
+    """get:坏文件不 fail fast——全关态 + exists=True + 拒载明细;合法 save 覆写修复。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+    home = tmp_path / "home"
+    home.mkdir(parents=True)
+    (home / "gates.yaml").write_text(
+        "version: 1\npaid_engines: true\noops_field: 1\n", encoding="utf-8")
+
+    code, responses, _ = rpc({"id": 1, "method": "gates.get", "params": {}})
+    result = responses[0]["result"]
+    assert result["exists"] is True
+    assert result["error"] is not None
+    assert result["error"]["errors"][0]["error_type"] == "unknown_field"
+    # fail-closed:拒载 = 全关默认态(paid_engines 不透传内存里的 true)
+    assert result["config"]["paid_engines"] is False
+    assert result["config"]["saas"] == {}
+
+    # 一次合法 save 覆写修复(设置屏 = 修复入口)
+    code, responses, _ = rpc({"id": 2, "method": "gates.save", "params": {"config": GATES_CONFIG_OK}})
+    assert responses[0]["result"]["ok"] is True
+    code, responses, _ = rpc({"id": 3, "method": "gates.get", "params": {}})
+    result = responses[0]["result"]
+    assert result["error"] is None
+    assert result["config"]["saas"]["zenrows"]["enabled"] is True

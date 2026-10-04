@@ -1209,6 +1209,74 @@ export interface ImageFilesPurgeResult {
 }
 
 // ---------------------------------------------------------------------------
+// gates.get / gates.save(10-05-plugin-market-batch 批二第 11 步:门槛件
+// 知情启用配置 <MYIA_HOME>/gates.yaml 的读写;能力实现 src/myssia/gates.py
+// `GatesConfig.to_payload`(同一形状),契约 = 任务档 design.md §6.7 +
+// entry.py `_m_gates_get`/`_m_gates_save` 实况 —— gates.get {} →
+// {config, path, exists, error};gates.save {config} → {ok, path})
+// ---------------------------------------------------------------------------
+
+/** 付费 SaaS 逐件门槛(gates.yaml `saas.<name>` 形状;官方件 = 引擎名小写) */
+export interface SaaSGateView {
+  enabled: boolean;
+  /** `keychain:myia/saas/<name>-key` 引用或 null(未配置);明文/env: 拒载 */
+  api_key: string | null;
+}
+
+/** 自有实例逐件门槛(`platforms.<name>` 形状;门槛 = 用户自部署 endpoint) */
+export interface PlatformGateView {
+  enabled: boolean;
+  /** 自部署实例地址(https://…;空串 = 未配置) */
+  endpoint: string;
+  /** `keychain:myia/platforms/<name>-token` 引用或 null(无凭据件合法) */
+  token: string | null;
+}
+
+/** gates.yaml 整份配置的协议/落盘视图;fail-closed:文件缺失/损坏 = 全关 + 空逐件表 */
+export interface GatesView {
+  version: 1;
+  /** 付费 SaaS 采集通道总开关(知情:按页计费 + 目标清单经对方服务器) */
+  paid_engines: boolean;
+  /** 第三方留痕通道总开关(D9:现阶段无执法点,保护 = README 知情文案) */
+  third_party_trace: boolean;
+  saas: Record<string, SaaSGateView>;
+  platforms: Record<string, PlatformGateView>;
+  /** 停更知情分析件逐件开关(D8:批二仅 schema+设置面占位,零分析件) */
+  analysis: Record<string, boolean>;
+}
+
+/** gates.yaml 拒载的结构化明细(`LoadError.to_dict` 同形状;fail-closed 证据) */
+export interface GatesLoadErrorView {
+  source: string | null;
+  errors: { path: string; error_type: string; message: string }[];
+}
+
+/**
+ * gates.get 应答:整份门槛配置(凭据只回引用,永不回值)+ gates.yaml 路径。
+ * 坏文件 **不炸设置屏**(与 image.config.read 的 fail fast 不同属刻意):
+ * config 恒为全关默认态 + `error` 带拒载明细,UI 据此提示「已按全关处理」
+ * 并可用一次合法 save 覆写修复(设置屏是修复入口,entry.py `_m_gates_get`)。
+ */
+export interface GatesGetResult {
+  config: GatesView;
+  path: string;
+  /** gates.yaml 是否已存在(false = 合法未配置态) */
+  exists: boolean;
+  /** 拒载明细(null = 装载干净;非 null 时 config = 全关默认态) */
+  error: GatesLoadErrorView | null;
+}
+
+/** gates.save 参数:整份配置同门校验(GatesConfig 构造即校验),失败零写入 */
+export interface GatesSaveParams {
+  config: GatesView;
+}
+
+export interface GatesSaveResult {
+  ok: true;
+  path: string;
+}
+
+// ---------------------------------------------------------------------------
 // 方法 ↔ 参数/结果 映射(entry.py `_HANDLERS` 全集)
 // ---------------------------------------------------------------------------
 
@@ -1261,6 +1329,10 @@ export interface SidecarProtocol {
   "cron.runs": { params: CronRunsParams; result: CronRunsResult };
   // yaml.list 复用(10-04-cron-ui category 选择器;第二消费方,非协议变更)
   "yaml.list": { params: EmptyParams; result: YamlListResult };
+  // gates.*(10-05-plugin-market-batch 批二第 11 步:门槛件知情启用配置读写;
+  // 镜像 src/myssia/gates.py GatesConfig.to_payload,契约 design.md §6.7)
+  "gates.get": { params: EmptyParams; result: GatesGetResult };
+  "gates.save": { params: GatesSaveParams; result: GatesSaveResult };
 }
 
 export type SidecarMethod = keyof SidecarProtocol;

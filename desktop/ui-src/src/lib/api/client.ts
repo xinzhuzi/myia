@@ -1,11 +1,11 @@
 /**
  * MYIA 桌面 sidecar API client —— sidecar 协议(`desktop/entry.py` `_HANDLERS`,
  * 方法数随批滚动,单一事实源 = spec 注册表)的共享封装:
- * 类型面 `SidecarProtocol` 盖 45 方法(核心 + image.config.* + v1.1.2 批八方法 +
+ * 类型面 `SidecarProtocol` 盖 47 方法(核心 + image.config.* + v1.1.2 批八方法 +
  * feed-ux 批三方法 + vision-v2 批七方法 + fe-small-batch 批 feed.enrich +
  * read-state-server 批三方法 store.state.* + cron-ui 批 cron.* 九方法与
- * yaml.list 复用),
- * `api` 门面封装核心 36 方法
+ * yaml.list 复用 + gates 批两方法 gates.get/save),
+ * `api` 门面封装核心 38 方法
  * ——封装面 ≠ 协议面,分工见下方 api 对象头注释。
  *
  * 传输:壳命令 `sidecar_request`(src-tauri/src/main.rs);Rust 侧
@@ -45,6 +45,9 @@ import type {
   FeedEnrichResult,
   FeedExportParams,
   FeedExportResult,
+  GatesGetResult,
+  GatesSaveParams,
+  GatesSaveResult,
   HealthParams,
   HealthResult,
   LogsTailParams,
@@ -169,7 +172,9 @@ async function request<M extends SidecarMethod>(
  * storeStateImport,10-04-read-state-server G9)
  * + cron-ui 批 10 方法(cronList…cronRuns 九方法 + yamlList 复用,
  * 10-04-cron-ui:定时任务屏走共享门面——yaml.list 虽属 yaml-editor 批,
- * 但第二消费方按同源对账入面,yaml.* 其余仍屏私有),
+ * 但第二消费方按同源对账入面,yaml.* 其余仍屏私有)
+ * + gates 批 2 方法(gatesGet/gatesSave,10-05-plugin-market-batch 批二
+ * 第 11 步:设置屏门槛件分区读写 gates.yaml),
  * 非协议全量。协议面(单一事实源 = entry.py `_HANDLERS`,注册表见
  * .trellis/spec/desktop/sidecar-protocol.md)的其余方法走屏私有封装:
  * sources.write → screens/sources/api.ts、yaml.* → screens/yaml-editor/api.ts、
@@ -280,6 +285,11 @@ export const api = {
     request("cron.runs", params),
   /** 品类 YAML 清单(category 选择器数据源;坏文件入列 parse_ok:false) */
   yamlList: (): Promise<YamlListResult> => request("yaml.list", {} as EmptyParams),
+  // ---- gates 批(10-05-plugin-market-batch 批二第 11 步;设置屏门槛件分区) ----
+  /** 门槛件配置整读(gates.yaml;缺失/损坏 = 全关默认态,凭据只回引用) */
+  gatesGet: (): Promise<GatesGetResult> => request("gates.get", {} as EmptyParams),
+  /** 门槛件配置整存(同门校验失败零写入;tmp+rename 原子落盘) */
+  gatesSave: (params: GatesSaveParams): Promise<GatesSaveResult> => request("gates.save", params),
 } as const;
 
 /** 订阅 sidecar 流式事件(log/progress/completed);返回取消订阅函数。 */

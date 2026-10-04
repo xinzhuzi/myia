@@ -16,7 +16,7 @@
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 60 行;代码 `_HANDLERS` 现值 60,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 62 行;代码 `_HANDLERS` 现值 62,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -80,6 +80,8 @@
 | 58 | `store.state.mark` | `_m_store_state_mark` | 按 dedup_key 批量置位读态(G9):`{keys:[dedup_key,…], marker: read\|starred\|later, value, db?}` → `{updated}`(SQLite UPDATE rowcount 口径,匹配行数如实回传含置同值行;同键多行 dated-key 旋转同置,与 localStorage itemKey 语义一致;幂等;keys ≤2000 = 误用防线非容量声明,超限 invalid_params 提示走 mark_all;read-state-server 批) |
 | 59 | `store.state.mark_all` | `_m_store_state_mark_all` | 全库置位(G9「全部标已读」全库语义来源):`{marker, value, category?, db?}` → `{updated}`;category 精确等值与 `list_items` 同参(非 LIKE,不收 query——决议 Q3.2 钉死);缺省 = 全库所有条目含未翻页/未加载;rowcount 口径同 mark(read-state-server 批) |
 | 60 | `store.state.import` | `_m_store_state_import` | localStorage 读态一次性搬迁(G9 Q2 搬迁门):`{states: {<key>: {read?/starred?/later?}}, db?}` → `{imported, skipped}`;key 三分:dedup_key 直配/`id:<n>` 先解析到键/`id:<url>` 及无从解析形态如实计 skipped(已剪枝条目不复活);幂等旗标 = store_meta `feed_state_imported_at`(服务端是唯一真相,webview 清数据击不穿):已设 → `{imported:0, skipped:0}` 不触库,未设 → 导入后落 ISO 时间戳(read-state-server 批) |
+| 61 | `gates.get` | `_m_gates_get` | gates.yaml 整读:`{}` → `{config, path, exists, error}`(config = GatesConfig.to_payload 同形状,凭据位只回 `keychain:` 引用永不回值;文件缺失 = 全关默认态 exists=false;**坏文件不 fail fast** —— fail-closed 全关态 + `error` 拒载明细(LoadError.to_dict)带回,设置屏是修复入口,一次合法 save 覆写修复,与 image.config.read 的 fail fast 不同属刻意;设置屏门槛件分区消费;10-05-plugin-market-batch 批二) |
+| 62 | `gates.save` | `_m_gates_save` | gates.yaml 整存:`{config}` → `{ok, path}`(tmp+rename 原子写;`GatesConfig` 构造即校验,失败 `gates_config_invalid`(data=LoadError.to_dict)零落盘;缺 config 对象 = `invalid_params`;10-05-plugin-market-batch 批二) |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+
@@ -112,6 +114,14 @@ read-state-server 批(task 10-04-read-state-server,协议件)新增 3:58-60
 CSV 固定列集不变);协议 v10——竞速条款落地:hermes-cron 已先合入 v9,
 本批开工实读 `PROTOCOL_VERSION`=9 后 +1 = 10(alert-rules 先例,按合入
 顺序定案)。
+plugin-market-batch 批二(task 10-05-plugin-market-batch 第 11 步)新增 2:
+61-62 `gates.get`/`gates.save`(门槛件知情启用配置 `<home>/gates.yaml` 读写,
+设置屏门槛件分区消费;能力实现 `src/myssia/gates.py`,契约 = 任务档
+design.md §6.7 + entry.py `_m_gates_get`/`_m_gates_save` 实况——get 应答较
+§6.7 早稿多 `exists`/`error` 两键:坏文件 fail-closed 不炸设置屏,拒载明细
+带回,保存即覆写修复)。**协议版本未随批 bump**:地基路定案维持 v10(两方法
+在 v10 内交付,注册表 62 行;gates UI 无 protocol 版本能力门,旧壳+新 UI
+组合经 method_not_found 结构化降级不白屏;若后续补 bump v11,版本用例随迁)。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成
@@ -138,6 +148,8 @@ v9(hermes-cron 批 `cron.*` 九方法 + `cron.skipped`/`cron.completed` 事件 +
 serve 内置 cron ticker,契约见下段)、
 v10(read-state-server 批 `store.state.*` 三方法 + `store.items` 投影补
 `read`/`starred`/`later` 三键;契约见注册表 58-60 行与 store.items 段注记)。
+plugin-market-batch 批二 `gates.get`/`gates.save`(契约见注册表 61-62 行)
+未随批 bump,在 v10 内交付(地基路定案,理由见上方批注段)。
 
 **vision-v2 批七方法契约(task 10-03-vision-v2;能力实现 `shishi.vision.models` /
 `shishi.vision.server`,重依赖惰性,huggingface-hub 在 extras `shishi[vision]`)**:
@@ -267,6 +279,7 @@ status 取摘要 run 块,账本无行时 summary=null/status 回落成功布尔,
 | 试抓 | `test_busy`(另复用 `invalid_params` / `not_yaml_suffix` / `path_outside_root` / `source_file_unreadable`) | `sources.test`:单飞拒绝 / 参数形状 / 围栏 / 品类装不上(v112 批 C13);子进程级 CLI 错不走请求错误,经 `test.completed` 事件 `ok:false` 透传 |
 | 品类 YAML 编辑 | `path_outside_root` / `not_yaml_suffix` / `invalid_file_stem` / `file_too_large` / `invalid_encoding` / `file_not_found` / `mtime_conflict` / `duplicate_category_id`(另复用 `category_invalid` / `source_file_unreadable` / `source_write_failed`) | 围栏 + 乐观锁 + 跨文件查重(yaml.* 六方法) |
 | 看图配置 | `image_config_invalid` | `image.config.read` 装载拒载 / `image.config.save` 未过校验零写入(拆四留二后看图族仅余此码) |
+| 门槛件 | `gates_config_invalid`(另复用 `invalid_params`) | `gates.save` 载荷未过 `GatesConfig` 同门校验(明文凭据 `credential_plaintext`/未知字段/非法 endpoint 等;data = `LoadError.to_dict` 的 errors[] 明细)零写入;`gates.save` 缺 config 对象 / `gates.get` 带非法参数 = `invalid_params`(task 10-05-plugin-market-batch 批二第 11 步) |
 | feed-ux 导出 | `export_path_invalid` / `export_write_failed` | `feed.export`:路径空/相对/父目录不存在 / 写盘 IO 失败(task 10-03-feed-ux G3) |
 | feed-ux 排程 | `invalid_cron`(防御性;另复用 `invalid_params`/`not_yaml_suffix`/`path_outside_root`/`source_file_unreadable`) | `schedule.preview`:`build_cron_trigger` 兜底 / 参数 / 围栏 / 品类装不上(task 10-03-feed-ux G4) |
 | 单条精评 | `enrich_not_configured` / `enrich_timeout` / `enrich_failed`(另复用 `invalid_params`/`item_not_found`/`store_corrupt`;`EnrichConfigError` code 动态透传) | `feed.enrich`:品类未启用 enrich/缺端点引用/品类 YAML 缺失(graceful,`data.reason` 三分)/ `asyncio.run` 整段超时 / 条目未获分(degrade_reason+failures 入 data);凭据解析失败透传 `credential_unresolved` 等(fe-small-batch 批 G8) |
@@ -289,10 +302,11 @@ push 层 `PushSendError.code`(`missing_target` / `env_var_missing` /
 1. 新增/改名方法:**只改 `_HANDLERS` 一处** + `tests/desktop/test_desktop_sidecar_protocol.py` 契约用例;
    本文注册表随同更新(行号注解允许漂移,方法名集合不许漂)。
 2. 对账手法:发未知方法名,拿 `data.allowed` 与本文注册表比对;前端共享类型映射
-   `SidecarProtocol`(types.ts)现盖 45 方法(核心 + image.config.* + v1.1.2 批八方法 +
+   `SidecarProtocol`(types.ts)现盖 47 方法(核心 + image.config.* + v1.1.2 批八方法 +
    feed-ux 批三方法 + vision-v2/fe-small-batch/read-state-server 批 + cron-ui 批
-   `cron.*` 九方法与 `yaml.list` 复用,10-04-cron-ui),`sources.write`/`yaml.*`(除
-   `yaml.list`)刻意未入共享映射——对账时按上表分组核对,勿以映射数当全量。
+   `cron.*` 九方法与 `yaml.list` 复用,10-04-cron-ui + gates 批两方法,10-05-plugin-
+   market-batch 批二),`sources.write`/`yaml.*`(除 `yaml.list`)刻意未入共享映射——
+   对账时按上表分组核对,勿以映射数当全量。
 3. 封装面 ≠ 协议面:`ui-src/src/lib/api/client.ts` 的 `api` 门面盖核心 10 方法 +
    v1.1.2 桌面对齐批 8 方法(`runCancel`/`runsList`/`secretDelete`/`sourcesTest` +
    `feedbackMark`/`feedbackList`/`feedbackStats`/`storeTrend`,
@@ -308,6 +322,9 @@ push 层 `PushSendError.code`(`missing_target` / `env_var_missing` /
   按同源对账入面,yaml.* 其余仍屏私有;消费方 = `screens/cron/`(list/status/runs
   + 动作四件 + estop 双向;事件 cron.completed/cron.skipped 已入 `SidecarEvent`
   联合与 logs 屏 eventToRow)。
+ `gates.get`/`gates.save` 已由 10-05-plugin-market-batch 批二第 11 步接线(设置屏
+  门槛件分区):两方法入共享门面(`gatesGet`/`gatesSave`),消费方 =
+  `screens/settings/`(门槛件三卡:付费通道/自有实例/分析件 D8 占位)。
  `store.state.*` 三方法的前端接线归 10-04-read-state-server 前端件(feed 屏
  能力门:`api.version().protocol >= 10` 走服务端态通路,否则原样走旧
  localStorage 通路——旧 sidecar + 新 UI 组合可用;接线落成后按上表 58-60 行对账)。

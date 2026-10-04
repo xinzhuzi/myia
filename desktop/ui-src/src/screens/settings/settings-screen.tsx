@@ -5,6 +5,7 @@ import {
   Eye,
   KeyRound,
   Lightbulb,
+  Lock,
   RefreshCw,
   Save,
   Send,
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type { DoctorParams, SidecarRequestError } from "@/lib/api";
+import type { DoctorParams, GatesLoadErrorView, GatesView, SidecarRequestError } from "@/lib/api";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -126,6 +127,7 @@ const SECTIONS: SettingsSection[] = [
   { id: "general", label: "通用", icon: SlidersHorizontal, title: "通用", description: "LLM 精评与代理池凭据 + doctor 诊断" },
   { id: "push", label: "推送", icon: Send, title: "推送", description: "通道凭据;发送测试验证连通" },
   { id: "vision", label: "视觉", icon: Eye, title: "视觉", description: "看图通道与 OCR + MLX 视觉模型" },
+  { id: "gates", label: "门槛件", icon: Lock, title: "门槛件", description: "付费 SaaS / 自有实例 / 分析件:知情启用(fail-closed,缺省全关)" },
   { id: "system", label: "系统", icon: Activity, title: "系统", description: "sidecar 连接 + 软件更新 + 凭据管理" },
 ];
 const DEFAULT_SECTION = "general";
@@ -351,6 +353,456 @@ function EnrichFeedbackCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * 门槛件分区(10-05-plugin-market-batch 批二第 11 步,R5 尾/D4):gates.yaml
+ * 知情启用配置的读写面(sidecar gates.get/save,契约 design.md §6.7)。
+ *
+ * 三卡:付费通道(paid_engines 总开关 + saas 逐件开关 + 钥匙串键录入——
+ * 值只经 secret.set 入钥匙链,配置只存 keychain: 引用,与 vision 云端 key
+ * 同门)/ 自有实例(platforms 逐件 endpoint+token 表单)/ 分析件(D8:批二
+ * 仅占位,「批三解锁」禁用态,零分析件落地,不是空面)。
+ *
+ * 文案铁律(design §6.4):每开关挂知情警示(按页计费/目标清单经对方服务
+ * 器/组织性不执法);fail-closed:gates.yaml 缺失 = 全关默认态,拒载 =
+ * 全关态 + 警示卡(设置屏是修复入口,保存任一卡即合法覆写,entry.py
+ * `_m_gates_get` 刻意不 fail fast);传输层失败才整屏 ErrorBox。整份配置
+ * 经 gates.save 原子落盘,未知逐件键(community 件)与 third_party_trace
+ * (D9:现阶段无执法点,UI 不提供假开关)载荷保真透传,不在保存时丢失。
+ */
+
+/** 官方付费 SaaS 件(R6 zenrows/scraperapi;键名与 gates.yaml `saas.<name>`、
+ *  引擎词表同口径;知情文案按件挂) */
+const GATES_SAAS_ITEMS: { name: string; label: string; note: string }[] = [
+  { name: "zenrows", label: "Zenrows", note: "按页计费;开启后目标 URL 经 Zenrows 服务器抓取(永不进自动降级链,仅显式 engine 选用)" },
+  { name: "scraperapi", label: "ScraperAPI", note: "按页计费;开启后目标 URL 经 ScraperAPI 服务器抓取(永不进自动降级链,仅显式 engine 选用)" },
+];
+
+/** 官方自有实例件(R7 crawlab/worldmonitor remote 桩;token 位按件有无) */
+const GATES_PLATFORM_ITEMS: { name: string; label: string; hasToken: boolean }[] = [
+  { name: "crawlab", label: "Crawlab", hasToken: true },
+  { name: "worldmonitor", label: "worldmonitor", hasToken: false },
+];
+
+/** 钥匙串引用规范名(gates.py `canonical_saas_key_ref` / platforms 模板同口径) */
+const saasKeyRef = (name: string) => `keychain:myia/saas/${name}-key`;
+const platformTokenRef = (name: string) => `keychain:myia/platforms/${name}-token`;
+
+/** 引用 → 钥匙串名(自定义引用跟随;无引用/非引用回落规范名) */
+function secretNameFromRef(ref: string | null, fallback: string): string {
+  return ref && ref.startsWith("keychain:") ? ref.slice("keychain:".length) : fallback;
+}
+
+/** 未配置的官方件物化进编辑态(design §6.1 样例形状:enabled:false + 规范引用;
+ *  显式优于隐式,与 gates.py 「创建新件时物化」同口径) */
+function materializeGates(view: GatesView): GatesView {
+  const saas = { ...view.saas };
+  for (const item of GATES_SAAS_ITEMS) {
+    if (!saas[item.name]) saas[item.name] = { enabled: false, api_key: saasKeyRef(item.name) };
+  }
+  const platforms = { ...view.platforms };
+  for (const item of GATES_PLATFORM_ITEMS) {
+    if (!platforms[item.name]) {
+      platforms[item.name] = { enabled: false, endpoint: "", token: item.hasToken ? platformTokenRef(item.name) : null };
+    }
+  }
+  return { ...view, saas, platforms };
+}
+
+function GatesForm({
+  secretNames,
+  onSecretsChanged,
+}: {
+  /** 设置屏已加载的钥匙链名清单(判逐件 key 是否已存;值永不可读) */
+  secretNames: string[] | null;
+  /** 凭据写入后回抛刷新(存在性徽标随动) */
+  onSecretsChanged: () => void;
+}) {
+  const [draft, setDraft] = useState<GatesView | null>(null);
+  const [path, setPath] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<SidecarRequestError | null>(null);
+  /** gates.yaml 拒载明细(fail-closed:config 恒为全关态,设置屏是修复入口) */
+  const [configError, setConfigError] = useState<GatesLoadErrorView | null>(null);
+  const [dirty, setDirty] = useState(false);
+  /** 逐卡保存态(与 LLM/推送卡同款 CardSaveBar 反馈) */
+  const [paidSave, setPaidSave] = useState<CardSaveState | null>(null);
+  const [platformsSave, setPlatformsSave] = useState<CardSaveState | null>(null);
+  /** 付费 key / 平台 token 的值输入(只经 secret.set 入钥匙链,保存即清) */
+  const [paidValues, setPaidValues] = useState<Record<string, string>>({});
+  const [tokenValues, setTokenValues] = useState<Record<string, string>>({});
+  /** 平台 endpoint 前端校验(gates.py 同门:http(s) 或空;省一轮协议往返) */
+  const [endpointErrors, setEndpointErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await api.gatesGet();
+        if (cancelled) return;
+        setPath(result.path);
+        setConfigError(result.error);
+        setDraft(materializeGates(result.config));
+      } catch (error) {
+        if (!cancelled) setLoadError(asSidecarError(error));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const patchConfig = useCallback((patch: (prev: GatesView) => GatesView) => {
+    setDirty(true);
+    setDraft((prev) => (prev === null ? prev : patch(prev)));
+  }, []);
+
+  const toggleSaas = useCallback(
+    (name: string) =>
+      patchConfig((prev) => ({
+        ...prev,
+        saas: { ...prev.saas, [name]: { ...prev.saas[name], enabled: !prev.saas[name].enabled } },
+      })),
+    [patchConfig],
+  );
+
+  const togglePlatform = useCallback(
+    (name: string) =>
+      patchConfig((prev) => ({
+        ...prev,
+        platforms: { ...prev.platforms, [name]: { ...prev.platforms[name], enabled: !prev.platforms[name].enabled } },
+      })),
+    [patchConfig],
+  );
+
+  const setPlatformEndpoint = useCallback(
+    (name: string, endpoint: string) => {
+      setEndpointErrors((prev) => ({ ...prev, [name]: "" }));
+      patchConfig((prev) => ({
+        ...prev,
+        platforms: { ...prev.platforms, [name]: { ...prev.platforms[name], endpoint } },
+      }));
+    },
+    [patchConfig],
+  );
+
+  const hasValueInput = (values: Record<string, string>) =>
+    Object.values(values).some((value) => value.trim() !== "");
+
+  /** 整份配置原子保存(gates.save)+ 本卡填了值的凭据先入钥匙链(secret.set)。
+   *  失败零写入是后端契约;前端只再拦一道 endpoint 形状(gates.py 同门)。 */
+  const saveCard = useCallback(
+    async (card: "paid" | "platforms") => {
+      if (draft === null) return;
+      const setSave = card === "paid" ? setPaidSave : setPlatformsSave;
+      if (card === "platforms") {
+        const errors: Record<string, string> = {};
+        for (const [name, gate] of Object.entries(draft.platforms)) {
+          const endpoint = gate.endpoint.trim();
+          if (endpoint && !endpoint.startsWith("http://") && !endpoint.startsWith("https://")) {
+            errors[name] = "endpoint 须为 http(s) 地址(自有实例占位)";
+          }
+        }
+        setEndpointErrors(errors);
+        if (Object.keys(errors).length > 0) return; // 前端拦下,零协议调用
+      }
+      setSave({ kind: "saving" });
+      try {
+        const names: string[] = [];
+        const valueEntries =
+          card === "paid"
+            ? Object.entries(paidValues)
+            : Object.entries(tokenValues);
+        for (const [name, value] of valueEntries) {
+          const trimmed = value.trim();
+          if (!trimmed) continue; // 留空不覆盖已录值
+          const ref =
+            card === "paid"
+              ? (draft.saas[name]?.api_key ?? null)
+              : (draft.platforms[name]?.token ?? null);
+          const fallback =
+            card === "paid" ? `myia/saas/${name}-key` : `myia/platforms/${name}-token`;
+          const record = await saveSecret(secretNameFromRef(ref, fallback), trimmed);
+          names.push(record.name);
+        }
+        if (card === "paid") setPaidValues({});
+        else setTokenValues({});
+        const result = await api.gatesSave({ config: draft });
+        setPath(result.path);
+        setConfigError(null); // 合法覆写即修复(设置屏 = fail-closed 的修复入口)
+        setDirty(false);
+        setSave(
+          names.length > 0
+            ? { kind: "saved", names, note: `门槛配置已写入 ${result.path}(值不回显)` }
+            : { kind: "note", note: `门槛配置已写入 ${result.path}` },
+        );
+        if (names.length > 0) onSecretsChanged();
+      } catch (error) {
+        setSave({ kind: "error", error: asSidecarError(error) });
+      }
+    },
+    [draft, paidValues, tokenValues, onSecretsChanged],
+  );
+
+  if (loadError !== null) {
+    // 传输/协议层失败(method 不达、壳不可用等)如实上屏;gates.yaml 拒载
+    // 不走此分支 —— 那是结构化 error 载荷(上方 configError 警示卡)
+    return (
+      <Card data-testid="gates-load-error">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="size-4 text-muted-foreground" />
+            门槛件配置读取失败
+          </CardTitle>
+          <CardDescription>
+            gates.get 未达(sidecar 不可用或协议错误);重进本分区重试,详见下方结构化错误
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ErrorBox error={loadError} />
+        </CardContent>
+      </Card>
+    );
+  }
+  if (draft === null) {
+    return (
+      <Card data-testid="gates-loading">
+        <CardContent className="pt-6">
+          <span className="text-xs text-muted-foreground">门槛配置装载中…</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const saasEntries = [
+    ...GATES_SAAS_ITEMS.map((item) => item.name),
+    ...Object.keys(draft.saas).filter((name) => !GATES_SAAS_ITEMS.some((item) => item.name === name)),
+  ];
+  const platformEntries = [
+    ...GATES_PLATFORM_ITEMS.map((item) => item.name),
+    ...Object.keys(draft.platforms).filter((name) => !GATES_PLATFORM_ITEMS.some((item) => item.name === name)),
+  ];
+  const analysisEntries = Object.entries(draft.analysis);
+
+  return (
+    <>
+      {/* gates.yaml 拒载警示(fail-closed):config 已按全关处理,但设置屏仍是
+          修复入口 —— 保存任一卡 = 用合法配置覆写坏文件(entry.py 刻意不 fail fast) */}
+      {configError !== null ? (
+        <Card
+          data-testid="gates-corrupt-warning"
+          className="border-warning/40 bg-warning/[0.04]"
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-warning">
+              <ShieldAlert className="size-4" />
+              gates.yaml 拒载(fail-closed,已按全关处理)
+            </CardTitle>
+            <CardDescription>
+              门槛件全关继续运行,核心品类不受影响;下方表单以全关默认态渲染,
+              保存任一卡将用合法配置覆写修复该文件
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1 text-2xs text-muted-foreground">
+            {configError.errors.map((detail) => (
+              <p key={`${detail.path}:${detail.error_type}`}>
+                <span className="font-mono">[{detail.error_type}]</span> {detail.path} — {detail.message}
+              </p>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* 卡一:付费通道(paid_engines 总开关 + saas 逐件 + 钥匙串键录入) */}
+      <Card data-testid="gates-paid-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="size-4 text-muted-foreground" />
+            付费通道(付费 SaaS 采集引擎)
+          </CardTitle>
+          <CardDescription>
+            知情启用:按页计费,你的采集目标清单将经对方服务器并与账号绑定;永不缺省、永不进自动降级链(仅显式 engine 选用)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-1">
+          <div className="divide-y divide-border/60">
+            <SettingRow
+              label="付费通道总开关"
+              description="按页计费,你的采集目标清单将经对方服务器(gates.yaml paid_engines;逐件还需各自开启)"
+            >
+              <Switch
+                checked={draft.paid_engines}
+                onCheckedChange={() => patchConfig((prev) => ({ ...prev, paid_engines: !prev.paid_engines }))}
+                aria-label="付费通道总开关"
+                title="知情确认后开启;文件缺失/损坏时 fail-closed 全关"
+              />
+            </SettingRow>
+            {saasEntries.map((name) => {
+              const gate = draft.saas[name];
+              const official = GATES_SAAS_ITEMS.find((item) => item.name === name);
+              const secretName = secretNameFromRef(gate.api_key, `myia/saas/${name}-key`);
+              const keyPresent = secretNames?.includes(secretName) ?? false;
+              return (
+                <div key={name} data-testid={`gates-saas-row-${name}`} className="flex flex-col">
+                  <SettingRow label={official?.label ?? name} description={official?.note ?? "付费 SaaS 逐件开关(community 件;按页计费知情)"}>
+                    {gate.enabled && secretNames !== null && !keyPresent ? (
+                      <Badge variant="destructive" title={`钥匙链缺 ${secretName};开启态调用会因凭据缺失失败`}>
+                        钥匙链缺键
+                      </Badge>
+                    ) : null}
+                    <Switch
+                      checked={gate.enabled}
+                      onCheckedChange={() => toggleSaas(name)}
+                      aria-label={`付费引擎开关 ${name}`}
+                    />
+                  </SettingRow>
+                  <FieldInput
+                    label="API Key 值"
+                    aria-label={`${name} API Key 值`}
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder={`写入 ${secretName};留空不覆盖`}
+                    value={paidValues[name] ?? ""}
+                    onChange={(event) => setPaidValues((prev) => ({ ...prev, [name]: event.target.value }))}
+                    hint={`值只入钥匙链,配置侧存 ${gate.api_key ?? saasKeyRef(name)} 引用(明文引用会被拒载)`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <CardSaveBar
+            state={paidSave}
+            savingLabel="保存中…"
+            action={
+              <Button
+                size="sm"
+                onClick={() => void saveCard("paid")}
+                disabled={(!dirty && !hasValueInput(paidValues)) || paidSave?.kind === "saving"}
+                title={dirty || hasValueInput(paidValues) ? "整份门槛配置原子落盘(gates.save)" : "无改动可保存"}
+              >
+                <Save className="size-3.5" />
+                保存付费通道
+              </Button>
+            }
+          />
+          <p className="border-t border-border/60 pt-2 text-2xs text-muted-foreground">
+            第三方留痕通道(third_party_trace)= {draft.third_party_trace ? "开" : "关"}:公共 RSSHub
+            实例等;现阶段无执法点(D9,保护 = 插件 README 知情文案),经 myssia gates set 配置,保存时原样透传
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 卡二:自有实例(platforms 逐件 endpoint + token 表单;D6 组织性不执法) */}
+      <Card data-testid="gates-platforms-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="size-4 text-muted-foreground" />
+            自有实例(同物种例外通道)
+          </CardTitle>
+          <CardDescription>
+            门槛 = 你自部署的实例 endpoint(Crawlab/worldmonitor 等 remote 桩);MYIA 组织性不执法,不拦你的 direct_api 源(D6)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-1">
+          <div className="divide-y divide-border/60">
+            {platformEntries.map((name) => {
+              const gate = draft.platforms[name];
+              const official = GATES_PLATFORM_ITEMS.find((item) => item.name === name);
+              const officialHasToken = official?.hasToken ?? gate.token !== null;
+              const tokenName = secretNameFromRef(gate.token, `myia/platforms/${name}-token`);
+              return (
+                <div key={name} data-testid={`gates-platform-row-${name}`} className="flex flex-col">
+                  <SettingRow
+                    label={official?.label ?? name}
+                    description="接入即知情确认:该实例将收到你的采集目标清单与账号 token(组织性确认,不执法)"
+                  >
+                    <Switch
+                      checked={gate.enabled}
+                      onCheckedChange={() => togglePlatform(name)}
+                      aria-label={`自有实例开关 ${name}`}
+                    />
+                  </SettingRow>
+                  <FieldInput
+                    label="endpoint"
+                    aria-label={`${name} endpoint`}
+                    placeholder="https://crawlab.example.com"
+                    value={gate.endpoint}
+                    error={endpointErrors[name] || null}
+                    onChange={(event) => setPlatformEndpoint(name, event.target.value)}
+                    hint="自部署实例地址(http(s));留空 = 未配置,开关保持知情确认态"
+                  />
+                  {officialHasToken ? (
+                    <FieldInput
+                      label="Token 值"
+                      aria-label={`${name} Token 值`}
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder={`写入 ${tokenName};留空不覆盖`}
+                      value={tokenValues[name] ?? ""}
+                      onChange={(event) => setTokenValues((prev) => ({ ...prev, [name]: event.target.value }))}
+                      hint={`值只入钥匙链,配置侧存 ${gate.token ?? platformTokenRef(name)} 引用`}
+                    />
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+          <CardSaveBar
+            state={platformsSave}
+            savingLabel="保存中…"
+            action={
+              <Button
+                size="sm"
+                onClick={() => void saveCard("platforms")}
+                disabled={(!dirty && !hasValueInput(tokenValues)) || platformsSave?.kind === "saving"}
+                title={dirty || hasValueInput(tokenValues) ? "整份门槛配置原子落盘(gates.save)" : "无改动可保存"}
+              >
+                <Save className="size-3.5" />
+                保存自有实例
+              </Button>
+            }
+          />
+        </CardContent>
+      </Card>
+
+      {/* 卡三:分析件(D8:批二仅 schema+占位,「批三解锁」禁用态,不是空面) */}
+      <Card data-testid="gates-analysis-card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lightbulb className="size-4 text-muted-foreground" />
+            分析件(停更知情)
+          </CardTitle>
+          <CardDescription>
+            批二零分析件落地(D8):批三解锁时每开关将挂「上游冻结,pin 版自担维护」知情警示;分析 lane 挂点(classify 后处理还是 enrich 平行)随批三质询定案
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="divide-y divide-border/60">
+            {analysisEntries.length === 0 ? (
+              <SettingRow
+                label="分析件"
+                description="停更知情型分析件(snownlp 情感等)批三解锁;gates.analysis schema 已就位,配置经 myssia gates set 可达"
+              >
+                <Badge variant="outline">批三解锁</Badge>
+              </SettingRow>
+            ) : (
+              analysisEntries.map(([name, on]) => (
+                <SettingRow key={name} label={name} description="批三解锁前只读(D8:仅 schema+设置面占位,不提供开关)">
+                  <span className="text-2xs text-muted-foreground">{on ? "已启用" : "已停用"}</span>
+                  <Badge variant="outline">批三解锁</Badge>
+                </SettingRow>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <p className="text-2xs text-muted-foreground">
+        门槛铁律:开关只落全局 {path ?? "gates.yaml"}(不进品类 YAML,AI 生成配置不可能无意开启付费通道);
+        文件缺失/损坏 = 全关 + doctor 提示;门槛件任何失败(含引擎 gate_closed)不拦核心品类。
+      </p>
+    </>
   );
 }
 
@@ -618,7 +1070,7 @@ export function SettingsScreen() {
     <div className="flex flex-col gap-block pb-block">
       <PageHeader
         title="设置"
-        description="通用 / 视觉 / 推送 / 更新 / 高级 五分区 —— 凭据只入系统钥匙链,doctor 验证回显,软件更新检查"
+        description="通用 / 推送 / 视觉 / 门槛件 / 系统 五分区 —— 凭据只入系统钥匙链,门槛件知情启用(fail-closed),doctor 验证回显"
         actions={
           <Button size="sm" variant="outline" onClick={() => void runDoctor()} disabled={verifying}>
             <RefreshCw className={verifying ? "size-3.5 animate-spin" : "size-3.5"} />
@@ -862,6 +1314,12 @@ export function SettingsScreen() {
           {/* 看图配置(10-03-vision-pipeline 拆屏后看图在桌面的唯一保留面:
               通道/引擎结构配置 + 云端 key 入钥匙链 + 模型管理;已有件整卡融入不重写) */}
           {activeSection.id === "vision" ? <VisionForm secretNames={secretNames} /> : null}
+
+          {/* 门槛件(10-05-plugin-market-batch 批二第 11 步:付费 SaaS / 自有实例 /
+              分析件知情启用,gates.get/save 读写 <MYIA_HOME>/gates.yaml) */}
+          {activeSection.id === "gates" ? (
+            <GatesForm secretNames={secretNames} onSecretsChanged={() => void refreshSecretNames()} />
+          ) : null}
 
           {activeSection.id === "push" ? (
             <Card>
