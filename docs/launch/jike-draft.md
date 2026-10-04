@@ -5,8 +5,8 @@
 > 星号井号反引号都会原样显示),配图走本地文件上传(外链图不渲染),链接放
 > 结尾一条 + 评论区置顶。话题标签以站内实际存在的为准(本稿末尾带了三个,
 > 发前搜索确认),勿堆 tag。
-> 本稿口径是 **v0.0.1 发布后的现实**(`pip install shishi` 直装、Docker 镜像
-> `ghcr.io/xinzhuzi/shishi`)——截至本稿写就,仓库 README 仍是旧版 + uv-only
+> 本稿口径是 **v0.0.1 发布后的现实**(`pip install myssia` 直装、Docker 镜像
+> `ghcr.io/xinzhuzi/myia`)——截至本稿写就,仓库 README 仍是旧版 + uv-only
 > 口径、PyPI 双包未上架、v0.0.1 tag 已推送但 Release 页未上线,故硬 gate 里把
 > 这些列为发帖前置条件,未满足前**不可发**。
 
@@ -23,13 +23,13 @@
 「运行」就出真数据,不用先填任何 key;设置页「检查更新」,验签后自动下载
 安装新版本。丑话说在前面:安装包没做 Apple 公证,首次打开需要右键 → 打开。
 
-爱命令行的走 CLI:v0.0.1 起 pip install shishi 直装,Python 里
-import shishi 也通了;服务器长跑用 Docker 镜像 ghcr.io/xinzhuzi/shishi。
+爱命令行的走 CLI:v0.0.1 起 pip install myssia 直装,Python 里
+import myia 也通了;服务器长跑用 Docker 镜像 ghcr.io/xinzhuzi/myia。
 
 最想推的点还是:YAML 都不用自己写。如果你在用 Claude Code 或 Cursor(两款
 让 AI 替你干活的编程工具),把内置的「使用说明书」(Agent Skill)装进去,
 说一句「帮我盯着 XX」,AI 就会照着 12 节规范现场把配置写出来、试抓验证、
-跑起来;源坏了,shishi doctor 的诊断信息就是给它自己修看的。
+跑起来;源坏了,myia doctor 的诊断信息就是给它自己修看的。
 说需求,AI 做其余。
 
 几个认真做的地方:
@@ -40,7 +40,7 @@ import shishi 也通了;服务器长跑用 Docker 镜像 ghcr.io/xinzhuzi/shishi
 - 默认尊重 robots.txt、限速礼貌;要过真人验证的源不碰
 
 MIT,纯 Python + SQLite 单文件。求 Star、求拍砖 👇
-https://github.com/xinzhuzi/shishi
+https://github.com/xinzhuzi/myia
 
 #开源 #独立开发 #AI效率工具
 
@@ -54,23 +54,23 @@ https://github.com/xinzhuzi/shishi
   `docs/screenshots/dashboard.png`、`feed.png`、`sources.png`、`logs.png`、
   `settings.png` —— 连动图共 6 张,即刻单帖图数上限以 App 实际为准。
 - 评论区置顶(安装入口集中在这里,别塞正文):
-  - Release 页:https://github.com/xinzhuzi/shishi/releases/tag/v0.0.1
+  - Release 页:https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
   - dmg 直链:**发帖当日从 Release 页复制资产 URL**(文件名应形如
-    `shishi_0.0.1_aarch64.dmg`,但禁止手改版本号拼链,以页面为准)
+    `myia_0.0.1_aarch64.dmg`,但禁止手改版本号拼链,以页面为准)
   - CLI 两行:
-    `pip install shishi`
-    `shishi --version   # shishi 0.0.1`
-  - 上手走读:https://github.com/xinzhuzi/shishi/blob/main/docs/zh/getting-started.md
+    `pip install myssia`
+    `myia --version   # myia 0.0.1`
+  - 上手走读:https://github.com/xinzhuzi/myia/blob/main/docs/zh/getting-started.md
 - 备答(全部如实口径,别替产品许愿):
   - 「和 RSSHub / changedetection.io 区别?」→ README「市面空白:为什么是
     世事」对比表,直接引。
   - 「有 Windows 吗?」→ 本版 Release 只有 macOS Apple Silicon 安装包,
     没有其他桌面平台的产物,不做任何相关宣称。
-  - 「pip install 行吗?」→ 行,v0.0.1 起双包(`shishi` /
-    `shishi-classifier`)已上 PyPI;重引擎是可选 extras
-    (`pip install "shishi[crawl4ai]"`)。
+  - 「pip install 行吗?」→ 行,v0.0.1 起双包(`myia` /
+    `myia-classifier`)已上 PyPI;重引擎是可选 extras
+    (`pip install "myia[crawl4ai]"`)。
   - 「桌面卡片里能标记有用/没用吗?」→ 卡片内按钮还在后续批次;反馈闭环
-    现在 CLI(`shishi feedback mark`)就能用。
+    现在 CLI(`myia feedback mark`)就能用。
   - 「质量怎么保证?」→ CI 2000+ 测试(发帖当日以 CI 实数回答),无一条
     碰真实网络。
 
@@ -100,12 +100,13 @@ push:
 
 1. **v0.0.1 Release 已上线**(写稿实测 Release 页 404,tag 已推送):dmg 等
    资产 URL 当日从 Release 页复制粘贴。
-2. **PyPI 双包已上架**(写稿实测 pypi.org/pypi/shishi/json 与
-   /shishi-classifier/json 均 404):两个 JSON API 返回 200 再发。
-3. **模块更名落地**:仓库源码已 `myia` → `shishi`,干净环境
-   `python -c "import shishi"` 实测通过(写稿时入口仍是 `myia.cli:main`)。
+2. **PyPI 双包已上架**(写稿实测 pypi.org/pypi/myia/json 与
+   /myia-classifier/json 均 404):两个 JSON API 返回 200 再发。
+3. **命名决议落地**:2026-10-04 起 MYIA 为技术身份、「世事」为中文名,
+   模块树为 `src/myia`,干净环境 `python -c "import myia"` 实测通过,
+   CLI 入口 `myia.cli:main`。
 4. **README 已同步切到 pip + 0.0.1 口径**(快速开始 / 下载安装段 / 版本号 /
-   `shishi-classifier` 目录链接;写稿时 README 仍是旧版 + uv-only)——否则
+   `myia-classifier` 目录链接;写稿时 README 仍是旧版 + uv-only)——否则
    读者点进仓库第一屏就与帖子矛盾。
 5. **CHANGELOG [Unreleased] 已定版为 [0.0.1]**;顺带把 README 与 CHANGELOG
    关于桌面反馈按钮交付批次的口径对齐(两处现在一个写桌面对齐批次、一个写

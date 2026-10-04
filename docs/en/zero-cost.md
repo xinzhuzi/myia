@@ -93,7 +93,7 @@ Two cautions:
   `env:` are both refused at load) — record it in the keychain first:
 
 ```bash
-shishi secret set myia/image/api_key < key.txt    # value goes over stdin, never into shell history
+myia secret set myia/image/api_key < key.txt    # value goes over stdin, never into shell history
 ```
 
 ### Wiring up: enrich
@@ -165,7 +165,7 @@ not been verified, so this doc makes no promise about it.
   new paywalls, tighter rate limits, or outright shutdowns can happen;
   scan the vendor's pricing page before wiring one in.
 - **No plaintext credentials**: YAML carries only `env:` / `keychain:`
-  references, and values go through `shishi secret set`'s stdin pipe; the
+  references, and values go through `myia secret set`'s stdin pipe; the
   vision cloud key accepts `keychain:` only.
 - **Don't bet on marketing quotas**: anything labeled "credits /
   one-off quota" can go to zero. For critical categories, never make a

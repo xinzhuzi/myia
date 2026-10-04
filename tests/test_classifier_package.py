@@ -1,7 +1,7 @@
-"""Standalone-package contract for myia-classifier (task 10-01-v10-classifier-pypi).
+"""Standalone-package contract for myssia-classifier (task 10-01-v10-classifier-pypi).
 
 The classifier ships as its own zero-dependency distribution (PyPI name
-``myia-classifier``, import name ``myia_classifier``); ``shishi.classify`` is
+``myssia-classifier`` (发行名 2026-10-04 终版), import name ``myia_classifier``); ``myia.classify`` is
 only a compatibility shim re-exporting its API. These tests pin the
 standalone surface from the *installed* distribution: direct import and
 classification, packaged keyword data, distribution metadata, zero runtime
@@ -32,22 +32,22 @@ def test_keyword_data_file_ships_inside_the_package():
 
 
 def test_distribution_metadata_version_and_trove_classifiers():
-    dist = metadata.metadata("shishi-classifier")
+    dist = metadata.metadata("myssia-classifier")
     assert myia_classifier.__version__ == "0.0.1"
-    assert metadata.version("shishi-classifier") == myia_classifier.__version__
+    assert metadata.version("myssia-classifier") == myia_classifier.__version__
     assert dist["License"] == "MIT"
     assert "License :: OSI Approved :: MIT License" in dist.get_all("Classifier") or []
     assert "Typing :: Typed" in (dist.get_all("Classifier") or [])
 
 
 def test_distribution_declares_zero_runtime_dependencies():
-    # PRD 铁律: myia-classifier 零重依赖(PyYAML 仅 load_rules 惰性引用,不列为依赖)
-    assert metadata.requires("shishi-classifier") in (None, [])
+    # PRD 铁律: myssia-classifier 零重依赖(PyYAML 仅 load_rules 惰性引用,不列为依赖)
+    assert metadata.requires("myssia-classifier") in (None, [])
 
 
 def test_myia_classify_shim_reexports_standalone_objects():
-    import shishi.classify as shim
-    import shishi.classify.custom as shim_custom
+    import myia.classify as shim
+    import myia.classify.custom as shim_custom
     import myia_classifier.custom as real_custom
 
     assert shim.classify_item is myia_classifier.classify_item

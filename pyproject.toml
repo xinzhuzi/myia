@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "myia"
+name = "myssia"
 version = "0.0.1"
 description = "AI-native intelligence hub — config-driven fetch, classify, analyze, push. 说需求,AI 做其余。"
 readme = "README.md"
@@ -24,7 +24,7 @@ dependencies = [
     # 分类引擎已拆为独立发行(任务 10-01-v10-classifier-pypi);固定版本范围,
     # 语义由 src/myia/classify 兼容 shim 保留,import 路径不变。
     # 版本窗随版本序列归零重定为 0.0 序列(2026-10-03 主人令从 0.0.1 重新开始)。
-    "myia-classifier>=0.0.1,<0.1",
+    "myssia-classifier>=0.0.1,<0.1",
 ]
 
 [project.optional-dependencies]
@@ -61,7 +61,7 @@ members = ["myia-classifier"]
 
 # myia-classifier(目录同名)不发布到 PyPI 前按 workspace 成员解析;发布后可切注册表源。
 [tool.uv.sources]
-myia-classifier = { workspace = true }
+myssia-classifier = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/myia"]

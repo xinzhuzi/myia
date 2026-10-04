@@ -45,7 +45,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
    AM/PM 槽位管「发没发过」(防重发),两层正交。
 7. **YAML 必须 UTF-8**;顶层必须是映射;重复键拒载。
 
-## 2. 插件规范速查(12 节 schema,与 `src/shishi/schema.py` 逐字段一致)
+## 2. 插件规范速查(12 节 schema,与 `src/myia/schema.py` 逐字段一致)
 
 「12 节」计数:根节 11 个字段 + `push[].route` 单独算一节。字段/缺省值由
 `tests/test_skill_doc.py` 对照 pydantic 模型逐项校验。
@@ -276,9 +276,9 @@ target = 会话 peer id(`env:WEIXIN_PEER_ID`,定向写 `weixin:<peer id>`,
 |---|---|---|---|
 | L1 | `direct_api` | 数据有公开 JSON/REST API(行情、发版、社区 REST) | 最快最省;`extract.type: json_path`;先 curl 确认返回结构再写 fields |
 | L2 | `static_html` | 服务端渲染 HTML(论坛列表、新闻页、Discourse `/latest`);RSS/Atom feed | 零依赖;`extract.type: list` + CSS 选择器(feed 用 `type: rss`,CSS 的 `<link>` void 元素拿不到条目 url) |
-| L3 | `crawl4ai` | JS 渲染页面,源码里看不到数据 | 可选依赖 `shishi[crawl4ai]`,未装时报 `dependency_missing` 并继续降级;无 `extract` 时自动结构化兜底 |
+| L3 | `crawl4ai` | JS 渲染页面,源码里看不到数据 | 可选依赖 `myia[crawl4ai]`,未装时报 `dependency_missing` 并继续降级;无 `extract` 时自动结构化兜底 |
 | L3' | `firecrawl` | crawl4ai 的云端替代后端 | 需 endpoint+key(`MYIA_FIRECRAWL_URL` / `MYIA_FIRECRAWL_API_KEY` 环境变量,或 `engine_options.firecrawl.endpoint/api_key`,值必须是 `env:`/`keychain:` 引用);未配置该层失败并继续降级 |
-| L4 | `scrapling` | 基础盾/改版频繁源:自适应选择器自愈 + 隐身指纹 + `pagination.mode: scroll` 无限滚动 | 可选依赖 `shishi[scrapling]`,未装时报 `dependency_missing` 并继续降级;企业级风控(手机验证码/真人审核)零尝试并结构化报错,明确不支持 |
+| L4 | `scrapling` | 基础盾/改版频繁源:自适应选择器自愈 + 隐身指纹 + `pagination.mode: scroll` 无限滚动 | 可选依赖 `myia[scrapling]`,未装时报 `dependency_missing` 并继续降级;企业级风控(手机验证码/真人审核)零尝试并结构化报错,明确不支持 |
 | L5 | `stealth_browser` | 反检测真浏览器:登录墙(cookie 注入,凭据走 `keychain:`)/ 基础验证码 | 需 invisible_playwright_mcp 服务(`engine_options.stealth_browser`,未启动报 `mcp_server_missing`);手机验证码/真人审核零尝试,报 `captcha_*` 结构化错误,不绕过 |
 | L6 | `llm_browser` | LLM 驱动浏览器(skyvern 自然语言指挥),多步交互/复杂表单死源的最后手段 | 需 skyvern endpoint+key(`engine_options.llm_browser.endpoint/api_key`,值必须是 `env:`/`keychain:` 引用);硬护栏:单源白名单(仅 `engine: llm_browser` 显式指定或 `auto` 链尾触达)+ 每 run 次数/预算熔断 |
 

@@ -10,15 +10,15 @@
 
 世事 is a pure-Python package (Python 3.11+) with zero heavy core
 dependencies. Note: the root package depends on the in-repo subpackage
-`shishi-classifier` (a uv workspace member, not published to PyPI), so
+`myia-classifier` (a uv workspace member, not published to PyPI), so
 installing from source requires `uv sync` — a bare `pip install -e .`
 cannot resolve that dependency and fails outright:
 
 ```bash
-git clone https://github.com/xinzhuzi/shishi
+git clone https://github.com/xinzhuzi/myia
 cd 世事
 uv sync                     # the only from-source install (workspace deps resolve via uv alone)
-uv run shishi --version       # prints shishi x.y.z (the installed version)
+uv run myia --version       # prints myia x.y.z (the installed version)
 ```
 
 Heavy fetch engines are optional extras. When one is missing the pipeline
@@ -43,7 +43,7 @@ that are resolved at run time:
 - `env:VAR_NAME` — read from the environment at run time;
 - `keychain:myia/<scope>/<name>` — read from the OS keychain (macOS
   Keychain / Windows DPAPI). The namespace is canonical: store the value
-  first with `shishi secret set`, then reference it in YAML. Flat legacy
+  first with `myia secret set`, then reference it in YAML. Flat legacy
   names (e.g. `keychain:linuxsb_cookie`) are refused at resolve time.
 
 ```bash
@@ -58,7 +58,7 @@ export MYIA_LLM_KEY=...
 # Credentials that should not live in the environment (e.g. a site cookie)
 # go into the keychain: pipe the value over stdin — never pass it as a
 # command-line argument (it would land in shell history and process lists)
-shishi secret set myia/stocks/site_cookie < cookie.txt
+myia secret set myia/stocks/site_cookie < cookie.txt
 ```
 
 The Weixin channel is an optional bridge: outbound goes through a local
@@ -71,10 +71,10 @@ zero-cost paths (local mlx-vlm/Ollama → cloud free tiers → light Gemini
 daily batches); see [Zero-cost setup](zero-cost.md) for endpoint choices
 and the quota snapshot.
 
-Misconfiguration needs no guesswork: `shishi doctor --json` probes every
+Misconfiguration needs no guesswork: `myia doctor --json` probes every
 reference for existence (is the env var set / is the keychain name present)
 and turns a missing one into a concrete repair action (e.g. run
-`shishi secret set ...`).
+`myia secret set ...`).
 
 ## 3. Run your first category
 
@@ -104,16 +104,16 @@ push:
 Three commands cover verify → rehearse → run:
 
 ```bash
-uv run shishi test plugins/demo-min.yaml --json            # trial-fetch each source, no push/storage
-uv run shishi run plugins/demo-min.yaml --dry-run --json   # full rehearsal, no push
-uv run shishi run plugins/demo-min.yaml                    # the first real run
+uv run myia test plugins/demo-min.yaml --json            # trial-fetch each source, no push/storage
+uv run myia run plugins/demo-min.yaml --dry-run --json   # full rehearsal, no push
+uv run myia run plugins/demo-min.yaml                    # the first real run
 ```
 
-- `shishi test --json` reports per source: `ok` (did the chain get data),
+- `myia test --json` reports per source: `ok` (did the chain get data),
   `engine` (the engine actually chosen), `items[].fields` (extracted-field
   preview) and `fingerprint.verdict` (`unchanged_skip` = content unchanged,
   normal; `changed_or_first_fetch` = items will be extracted).
-- `shishi run --json` reports `stages[]` (fetch/classify/dedup/analyze/push
+- `myia run --json` reports `stages[]` (fetch/classify/dedup/analyze/push
   items_in→items_out with skip reasons) and `pushes[]` (route buckets and
   send results).
 - For long-term use add `--loop`: resident scheduling by the YAML's
@@ -122,11 +122,11 @@ uv run shishi run plugins/demo-min.yaml                    # the first real run
   `getUpdates` stream (the bot token always comes from
   `env:TELEGRAM_BOT_TOKEN`), and Telegram answers concurrent pollers with
   409 Conflict — keep at most one `--loop` category per token and move the
-  other categories to other push channels; `shishi doctor` flags shared
+  other categories to other push channels; `myia doctor` flags shared
   setups as `telegram_token_poll_conflict`.
 
 The official categories in the repo (freebies / stocks / AI news / GPU
-prices, …) work the same way, e.g. `uv run shishi run plugins/wool.yaml`;
+prices, …) work the same way, e.g. `uv run myia run plugins/wool.yaml`;
 every credential slot in an official plugin is already an `env:` /
 `keychain:` reference — prepare the values as in section 2.
 
@@ -137,7 +137,7 @@ verifies and runs it with the same commands.
 
 ## 4. Where data lives
 
-Everything is stored in a single SQLite file (default `./shishi.db`, override
+Everything is stored in a single SQLite file (default `./myia.db`, override
 with `--db`): fetched items, the dedup registry, change baselines and
 numeric history, push feedback, run history and per-source health.
 `storage.retention` in the plugin YAML controls the retention window (expired
@@ -162,4 +162,4 @@ item retention (so the "vs last week" window stays complete).
   snapshot and per-vendor wiring steps.
 - Feedback loop: the "valuable / not valuable" buttons on pushed cards feed
   back and keep tuning; the CLI equivalents are
-  `shishi feedback list / stats / mark`.
+  `myia feedback list / stats / mark`.

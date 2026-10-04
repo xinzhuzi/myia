@@ -1,9 +1,9 @@
-# PyPI Publish — shishi-classifier / shishi 双包发行(1.1.1 起发行名随世事更名;根包模块名 2026-10-04 已同步改名 src/shishi,classifier 模块名 myia_classifier 过渡保留)(PRD 10-01-v10-classifier-pypi)。
+# PyPI Publish — myssia-classifier / myssia 双包发行(发行名 2026-10-04 终版:PyPI 仿冒保护拦 myia,主人定 myssia)(2026-10-04 命名决议:MYIA 为技术身份,世事为中文名;短暂更名 shishi 已全量回改,根包模块名 src/myia、classifier 模块名 myia_classifier)(PRD 10-01-v10-classifier-pypi)。
 # tag 驱动发布(10-03-tag-release):推 v* tag 即正式发布;手动 dispatch 保留为演练通道。
 # 与 CI/Docker 发布刻意分离:CI 管测试,Docker 管镜像,本文件管 PyPI。
 #
 # ── 触发方式 ─────────────────────────────────────────────────────────────────
-#   正式发布 = 推 v* tag:双包同发(shishi + shishi-classifier)到正式 PyPI
+#   正式发布 = 推 v* tag:双包同发(myssia + myssia-classifier)到正式 PyPI
 #   (OIDC Trusted Publishing),wheels/sdist 附挂到同 tag 的 GitHub Release
 #   (见 attach-release job);tag 事件下 inputs 全为空串,三处解析均按 tag 语义
 #   落位(repository→pypi / package→both / use-api-token→false 走 OIDC)。
@@ -13,10 +13,10 @@
 #
 # ── Trusted Publishing 四元组(owner 发布前在 PyPI 侧按此核对)──────────────────
 #   owner             = xinzhuzi
-#   repository        = shishi
+#   repository        = myia
 #   workflow_filename = pypi-publish.yml
 #   environment       = pypi
-#   两个项目(myia 与 myia-classifier)各自注册一次,四元组完全相同——同一工作流
+#   两个项目(myssia 与 myssia-classifier)各自注册一次,四元组完全相同——同一工作流
 #   发多包是 PyPI 官方支持的用法;action 从 OIDC claim 自动取 owner/repo/workflow,
 #   YAML 内无需也不应硬编码。逐步操作见 docs/launch/RELEASE.md。
 #
@@ -56,10 +56,10 @@ on:
       package:
         description: "要发布的包"
         type: choice
-        default: myia-classifier
+        default: myssia-classifier
         options:
-          - myia-classifier
-          - myia
+          - myssia-classifier
+          - myssia
           - both
       use-api-token:
         description: "用 API Token 上传(false = Trusted Publishing OIDC)"
@@ -154,7 +154,7 @@ jobs:
             myia)            uv build . --wheel --sdist --out-dir dist ;;
             both|"")
               # 空串 = tag 事件(push 下 inputs.* 全为空串),tag 发布语义 = 双包
-              # 同发(shishi 依赖 shishi-classifier),与 both 同分支。
+              # 同发(myia 依赖 myia-classifier),与 both 同分支。
               uv build myia-classifier --wheel --sdist --out-dir dist
               uv build . --wheel --sdist --out-dir dist
               ;;
@@ -192,14 +192,14 @@ jobs:
               },
               "myia": {
                   "wheel": [
-                      "shishi/enrich/data/prompt.json",
-                      "shishi/enrich/data/dedupe_prompt.json",
-                      "shishi/classify/__init__.py",
+                      "myia/enrich/data/prompt.json",
+                      "myia/enrich/data/dedupe_prompt.json",
+                      "myia/classify/__init__.py",
                   ],
                   "sdist": [
-                      "src/shishi/enrich/data/prompt.json",
-                      "src/shishi/enrich/data/dedupe_prompt.json",
-                      "src/shishi/classify/__init__.py",
+                      "src/myia/enrich/data/prompt.json",
+                      "src/myia/enrich/data/dedupe_prompt.json",
+                      "src/myia/classify/__init__.py",
                   ],
               },
           }
@@ -209,9 +209,9 @@ jobs:
               "sdist": lambda p: tarfile.open(p).getnames(),
           }
 
-          # 发行文件名前缀(PyPI 规范化连字符→下划线)≠ 模块名:发行名 1.1.1 起
-          # 已是 shishi/shishi-classifier,v0.0.1 E2E 实证按模块名 glob 四项全空
-          dist_prefix = {"myia_classifier": "shishi_classifier", "myia": "shishi"}
+          # 发行文件名前缀(PyPI 规范化连字符→下划线)≠ 模块名:2026-10-04 命名
+          # 回改后发行名恢复 myia/myia-classifier,前缀与模块名同形
+          dist_prefix = {"myssia_classifier": "myssia_classifier", "myssia": "myssia"}
 
           failures = []
           for proj in projects:

@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "shishi-classifier"
+name = "myssia-classifier"
 version = "0.0.1"
 description = "Zero-dependency seven-category keyword classifier with free/paid dual-signal adjudication, data-driven keyword tables, and a safe custom-rule API. 七大类双信号关键词分类引擎。"
 readme = "README.md"
@@ -17,7 +17,7 @@ keywords = [
     "chinese",
     "rule-engine",
     "information-filtering",
-    "shishi",
+    "myia",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

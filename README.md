@@ -135,7 +135,7 @@ uv run myia --version       # myia 0.0.1
 ```
 
 > 本仓是 uv workspace(`myia-classifier` 是 workspace 成员):裸 `pip install -e .`
-> 装不齐依赖,源码安装请用 `uv sync`;`pip install myia` 待 PyPI 上架后可用。
+> 装不齐依赖,源码安装请用 `uv sync`;`pip install myssia` 待 PyPI 上架后可用。
 
 重型采集引擎是可选 extras;缺引擎时沿梯子优雅降级,给出结构化
 `dependency_missing` 错误而不是崩溃:
@@ -281,6 +281,7 @@ myia doctor --json                        # 拿 findings;agent 自修后复查
 | Write a plugin | [docs/en/write-a-plugin.md](docs/en/write-a-plugin.md) | [docs/zh/write-a-plugin.md](docs/zh/write-a-plugin.md) |
 | Schema reference | [docs/en/schema.md](docs/en/schema.md) | [docs/zh/schema.md](docs/zh/schema.md) |
 | FAQ(伦理与边界) | [docs/en/faq.md](docs/en/faq.md) | [docs/zh/faq.md](docs/zh/faq.md) |
+| Scheduled jobs (cron) | [docs/en/cron.md](docs/en/cron.md) | [docs/zh/cron.md](docs/zh/cron.md) |
 
 面向 agent 的浓缩参考:[`skill/SKILL.md`](skill/SKILL.md)。
 
@@ -459,7 +460,7 @@ uv run myia --version       # myia 0.0.1
 
 > This repo is a uv workspace (`myia-classifier` is a workspace member): a bare
 > `pip install -e .` won't pull it in — install from source with `uv sync`;
-> `pip install myia` becomes available once the package lands on PyPI.
+> `pip install myssia` becomes available once the package lands on PyPI.
 
 Heavy fetch engines are optional extras; a missing engine degrades gracefully
 down the ladder with a structured `dependency_missing` error instead of
@@ -592,6 +593,7 @@ entry point, and zh/en trees cannot drift apart:
 | Write a plugin | [docs/en/write-a-plugin.md](docs/en/write-a-plugin.md) | [docs/zh/write-a-plugin.md](docs/zh/write-a-plugin.md) |
 | Schema reference | [docs/en/schema.md](docs/en/schema.md) | [docs/zh/schema.md](docs/zh/schema.md) |
 | FAQ (ethics & boundaries) | [docs/en/faq.md](docs/en/faq.md) | [docs/zh/faq.md](docs/zh/faq.md) |
+| Scheduled jobs (cron) | [docs/en/cron.md](docs/en/cron.md) | [docs/zh/cron.md](docs/zh/cron.md) |
 
 Agent-facing condensed reference: [`skill/SKILL.md`](skill/SKILL.md).
 

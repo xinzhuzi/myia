@@ -22,7 +22,7 @@
 
 最想推的点还是:YAML 都不用自己写。把内置的 Agent Skill 装进 Claude Code
 或 Cursor,说一句「帮我盯着 XX」,agent 照 12 节规范现场生成配置、试抓验证、
-跑起来;源坏了,shishi doctor 的结构化诊断就是给 agent 自修看的。
+跑起来;源坏了,myia doctor 的结构化诊断就是给 agent 自修看的。
 说需求,AI 做其余。
 
 几个认真做的地方:
@@ -34,7 +34,7 @@
 
 MIT,纯 Python + SQLite 单文件,docker compose 也能跑,双语文档在仓库里。
 求 Star、求拍砖 👇
-https://github.com/xinzhuzi/shishi
+https://github.com/xinzhuzi/myia
 
 ## 发布要点
 
@@ -45,13 +45,13 @@ https://github.com/xinzhuzi/shishi
   `docs/screenshots/dashboard.png`、`feed.png`、`sources.png`、`logs.png`、
   `settings.png` —— 连动图共 6 张,即刻单帖图数上限以 App 实际为准。
 - 评论区置顶(安装入口集中在这里,别塞正文):
-  - Release 页:https://github.com/xinzhuzi/shishi/releases/tag/v0.0.1
-  - dmg 直链:https://github.com/xinzhuzi/shishi/releases/download/v0.0.1/shishi_0.0.1_aarch64.dmg
+  - Release 页:https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
+  - dmg 直链:https://github.com/xinzhuzi/myia/releases/download/v0.0.1/myia_0.0.1_aarch64.dmg
   - CLI 三行:
-    `git clone https://github.com/xinzhuzi/shishi && cd shishi`
+    `git clone https://github.com/xinzhuzi/myia && cd myia`
     `uv sync`
-    `uv run shishi --version   # shishi 0.0.1`
-  - 上手走读:https://github.com/xinzhuzi/shishi/blob/main/docs/zh/getting-started.md
+    `uv run myia --version   # myia 0.0.1`
+  - 上手走读:https://github.com/xinzhuzi/myia/blob/main/docs/zh/getting-started.md
 - 备答(全部如实口径,别替产品许愿):
   - 「和 RSSHub / changedetection.io 区别?」→ README「市面空白:为什么是
     世事」对比表,直接引(表格在远端 main 已存在)。

@@ -74,7 +74,7 @@ cloud:
 - `cloud.api_key` 只收 `keychain:` 引用(明文与 `env:` 一律拒载),先录钥匙链:
 
 ```bash
-shishi secret set myia/image/api_key < key.txt    # 值走 stdin,不落 shell history
+myia secret set myia/image/api_key < key.txt    # 值走 stdin,不落 shell history
 ```
 
 ### 接入:精评(enrich)
@@ -134,7 +134,7 @@ export MYIA_LLM_KEY=<你的 AI Studio API key>
 
 - **额度会变**:上表所有数字为快照 2026-10-03,以各官网为准。免费层是营销手段,
   可能新增收费墙、收紧限速或下线;接入前扫一眼官网定价页。
-- **凭据不落明文**:YAML 只写 `env:` / `keychain:` 引用,值走 `shishi secret set`
+- **凭据不落明文**:YAML 只写 `env:` / `keychain:` 引用,值走 `myia secret set`
   的 stdin 管道;看图云端 key 只收 `keychain:`。
 - **营销型额度不押注**:凡「赠金 / credits / 一次性额度」都可能归零,关键品类
   不要把免费档当唯一依赖,本地端点做兜底。

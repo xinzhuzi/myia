@@ -5,7 +5,7 @@
 > plugins — every section has clear semantics and a default. The condensed
 > agent-facing version of this page is the Agent Skill
 > [`skill/SKILL.md`](../skill/SKILL.md); the two documents cross-reference
-> each other and are locked to `src/shishi/schema.py` field-for-field by
+> each other and are locked to `src/myia/schema.py` field-for-field by
 > `tests/test_skill_doc.py`, so they cannot drift apart.
 
 ## Schema sections
@@ -78,11 +78,11 @@ See [plugins/stocks.yaml](../plugins/stocks.yaml) for the complete
   run time) or `keychain:myia/<scope>/<name>` (system keychain — macOS
   Keychain / Windows DPAPI; the canonical namespace groups secrets by
   purpose, e.g. `keychain:myia/stocks/linuxsb_cookie`. Write the value with
-  `shishi secret set myia/<scope>/<name>`; a flat legacy name like
+  `myia secret set myia/<scope>/<name>`; a flat legacy name like
   `keychain:linuxsb_cookie` is refused at resolve time).
 - An auth-scheme prefix round-trips: `Authorization: "Bearer env:TOKEN"`.
 - A YAML containing a plaintext credential **refuses to start** (exit code 1,
-  error carries the field path). `shishi doctor --json` also probes every
+  error carries the field path). `myia doctor --json` also probes every
   referenced credential for existence (`env_ref_missing` /
   `keychain_ref_missing` findings) so an agent can repair the environment
   by itself.
@@ -111,7 +111,7 @@ What "AI writes the YAML" looks like end to end (commands abbreviated):
 
 ```
 user:   帮我盯着几个仓库的发版,重要更新立刻推给我。
-agent:  shishi init --json
+agent:  myia init --json
         # reads the structured checklist: required inputs (identity /
         # schedule / sources), optional sections with their defaults, the
         # five hard rules and the recommended next steps
@@ -120,17 +120,17 @@ agent:  writes plugins/repo-releases.yaml   # follows skill/SKILL.md §2 quick
         # fields (url included), classify.builtin: false + one custom rule,
         # dedup {url}, feishu_card push with a three-tier route, env refs
         # for every credential slot
-agent:  shishi test plugins/repo-releases.yaml --json
+agent:  myia test plugins/repo-releases.yaml --json
         # trial-fetches each source (no push, no storage); checks
         # items[].fields, items[].dedup_key and fingerprint.verdict
-agent:  shishi run plugins/repo-releases.yaml --dry-run --json
+agent:  myia run plugins/repo-releases.yaml --dry-run --json
         # full rehearsal: stage in→out counts, skip reasons, route buckets
-agent:  shishi run plugins/repo-releases.yaml
-        # first real run; then shishi doctor --json until findings is empty
+agent:  myia run plugins/repo-releases.yaml
+        # first real run; then myia doctor --json until findings is empty
         # before handing the category to --loop scheduling
 user:   (receives the release card in Feishu)
 ```
 
-The same loop is what happens when a source breaks later: `shishi doctor
+The same loop is what happens when a source breaks later: `myia doctor
 --json` reports the failing source with a structured code, the agent adjusts
 the YAML (or the environment) and re-verifies — the user only decides.

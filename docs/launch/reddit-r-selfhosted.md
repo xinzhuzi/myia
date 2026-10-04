@@ -67,10 +67,10 @@ push:
 The YAML is the whole deployment: schedule (cron + timezone), any number of
 sources, dedup keys, scoring thresholds, push channels. And because it's
 agent-native, you don't even write it — the bundled Agent Skill
-(`shishi skill install --agent claude`, Cursor supported too) teaches your
+(`myia skill install --agent claude`, Cursor supported too) teaches your
 coding agent the 12-section schema; it generates the file, trial-fetches with
-`shishi test`, rehearses with `--dry-run`, and repairs broken sources from
-`shishi doctor --json` output. You say what you want; the agent does the rest.
+`myia test`, rehearses with `--dry-run`, and repairs broken sources from
+`myia doctor --json` output. You say what you want; the agent does the rest.
 
 What's inside:
 
@@ -95,15 +95,15 @@ What's inside:
   and sources that demand human verification (CAPTCHA, phone numbers) fail
   with a structured error instead of being bypassed.
 
-It runs as a plain CLI loop (`shishi run --loop`) or via the bundled
-[docker compose](https://github.com/xinzhuzi/shishi/blob/main/docker/docker-compose.yml);
+It runs as a plain CLI loop (`myia run --loop`) or via the bundled
+[docker compose](https://github.com/xinzhuzi/myia/blob/main/docker/docker-compose.yml);
 data lands in one SQLite file with retention + VACUUM.
 
 **v0.0.1 shipped this week**, and the desktop app got daily-drivable:
 
 - macOS (Apple Silicon) installer on
-  [GitHub Releases](https://github.com/xinzhuzi/shishi/releases/tag/v0.0.1) —
-  grab `shishi_0.0.1_aarch64.dmg`. It is **not** Apple-notarized (notarization
+  [GitHub Releases](https://github.com/xinzhuzi/myia/releases/tag/v0.0.1) —
+  grab `myia_0.0.1_aarch64.dmg`. It is **not** Apple-notarized (notarization
   needs a paid developer account, which I don't have yet), so first launch
   takes the right-click → Open → Open dance; every installer is built in
   public CI with traceable logs, and the code is fully auditable.
@@ -115,18 +115,18 @@ data lands in one SQLite file with retention + VACUUM.
   downloads and installs them with signature verification, then relaunches.
 
 The five desktop screens (all fed by real demo-plugin data):
-[dashboard](https://github.com/xinzhuzi/shishi/blob/main/docs/screenshots/dashboard.png) ·
-[feed](https://github.com/xinzhuzi/shishi/blob/main/docs/screenshots/feed.png) ·
-[sources](https://github.com/xinzhuzi/shishi/blob/main/docs/screenshots/sources.png) ·
-[logs](https://github.com/xinzhuzi/shishi/blob/main/docs/screenshots/logs.png) ·
-[settings](https://github.com/xinzhuzi/shishi/blob/main/docs/screenshots/settings.png)
+[dashboard](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/dashboard.png) ·
+[feed](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/feed.png) ·
+[sources](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/sources.png) ·
+[logs](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/logs.png) ·
+[settings](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/settings.png)
 
 Honest status:
 
 - CLI install is **from source** for now (`git clone` + `uv sync` — the repo
   is a uv workspace); the PyPI packages are pending a manual release
   workflow. Full walk-through:
-  [docs/en/getting-started.md](https://github.com/xinzhuzi/shishi/blob/main/docs/en/getting-started.md)
+  [docs/en/getting-started.md](https://github.com/xinzhuzi/myia/blob/main/docs/en/getting-started.md)
   (bilingual; the 中文 tree ships in-repo and tests keep both in sync).
 - The Windows build is verified at **build level only** — I haven't
   smoke-tested an install on Windows yet.
@@ -134,9 +134,9 @@ Honest status:
 
 Links:
 
-- Repo: https://github.com/xinzhuzi/shishi (MIT)
-- Release v0.0.1: https://github.com/xinzhuzi/shishi/releases/tag/v0.0.1
-- Agent Skill (for your coding agent): https://github.com/xinzhuzi/shishi/blob/main/skill/SKILL.md
+- Repo: https://github.com/xinzhuzi/myia (MIT)
+- Release v0.0.1: https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
+- Agent Skill (for your coding agent): https://github.com/xinzhuzi/myia/blob/main/skill/SKILL.md
 
 Happy to answer questions — especially on the degrade chain and the
 credential handling. What would *you* point it at first?
@@ -146,18 +146,18 @@ credential handling. What would *you* point it at first?
 各位好,我给自己造了个开源自托管情报中枢 **世事 / Shishi**(MIT,纯 Python +
 SQLite 单文件、无守护进程):想盯的每类情报(AI 资讯/股票异动/羊毛/显卡行情)
 就是一个 YAML 文件,抓取→分类→去重→打分→推送到 Telegram/飞书全自动。YAML
-都不用自己写:内置 Agent Skill 让编码 agent 照 12 节规范现场生成、`shishi test`
-试抓验证、坏了凭 `shishi doctor` 自修——说需求,AI 做其余。
+都不用自己写:内置 Agent Skill 让编码 agent 照 12 节规范现场生成、`myia test`
+试抓验证、坏了凭 `myia doctor` 自修——说需求,AI 做其余。
 
 内里:六级采集降级梯(API→静态 HTML→crawl4ai/Firecrawl→Scrapling→隐身浏览器→
 LLM 浏览器,胜出引擎按源记忆);零 token 七类关键词分类器 + 可选 LLM 精评,
 score ≥ 8 立推、≥ 5 进早晚摘要;飞书/Telegram/webhook/stdout 四通道 + URL 键
 去重;凭据只走 env/系统钥匙链,YAML 里出现明文凭据加载即拒;robots.txt 默认
 尊重、要真人验证的源结构化报错不绕过;反馈闭环 CLI 现已可用(桌面卡片内按钮
-下一版)。CLI `shishi run --loop` 或随包 docker compose 跑,数据单 SQLite 文件。
+下一版)。CLI `myia run --loop` 或随包 docker compose 跑,数据单 SQLite 文件。
 
 **v0.0.1 本周发布**,桌面端可日常用了:macOS(Apple Silicon)安装包在 GitHub
-Releases(`shishi_0.0.1_aarch64.dmg`;未做 Apple 公证,首开右键→打开,安装包
+Releases(`myia_0.0.1_aarch64.dmg`;未做 Apple 公证,首开右键→打开,安装包
 公开 CI 构建);装机首跑种子官方插件,含零凭据演示件(GitHub 新星榜,一次免
 鉴权 API 调用),第一次点运行就出真数据;设置页走签名更新通道。五屏截图:
 仪表盘/信息流/源管理/日志/设置。
@@ -165,4 +165,4 @@ Releases(`shishi_0.0.1_aarch64.dmg`;未做 Apple 公证,首开右键→打开,�
 如实说:CLI 目前源码安装(git clone + uv sync,uv workspace),PyPI 待手动发布
 流程;the Windows build did not ship in v0.0.1 (no Windows installer in Releases — macOS only for now);CI 1300+ tests never touch the real network.
 
-仓库 https://github.com/xinzhuzi/shishi ,求建议:你会先拿它盯什么?
+仓库 https://github.com/xinzhuzi/myia ,求建议:你会先拿它盯什么?
