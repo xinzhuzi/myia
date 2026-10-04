@@ -1,11 +1,9 @@
-import { useCallback, useState } from "react";
-import { ChevronDown, Clock, FileCode2, Inbox, LayoutDashboard, MessageCircle, PanelLeftClose, PanelLeftOpen, Rss, Settings, Terminal } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronDown, Clock, FileCode2, Inbox, LayoutDashboard, MessageCircle, Rss, Settings, Terminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { MyssiaMark } from "@/components/myssia-mark";
-import { Button } from "@/components/ui/button";
-import { useHotkeys } from "@/hooks/use-hotkeys";
 import { cn } from "@/lib/utils";
 
 /**
@@ -91,6 +89,7 @@ const SIDEBAR_DEFAULT_WIDTH = 224; // 展开宽(w-56 换算);w-56 类被内联�
 const SIDEBAR_MIN_WIDTH = 200;
 const SIDEBAR_MAX_WIDTH = 360;
 const SIDEBAR_ICON_WIDTH = 56; // 折叠宽(w-14 换算)
+const SIDEBAR_COLLAPSE_THRESHOLD = 120; // 拖拽到此宽以下自动折叠(icon 态)
 
 export function loadSidebarPrefs(
  storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
@@ -256,14 +255,8 @@ export function Sidebar() {
  const [groupCollapsed, setGroupCollapsed] = useState<Record<string, boolean>>(() => loadGroupCollapsed());
  const collapsed = prefs.collapsed;
  const width = prefs.width ?? SIDEBAR_DEFAULT_WIDTH;
-
- const toggleCollapsed = useCallback(() => {
-  setPrefs((prev) => {
-   const next = { ...prev, collapsed: !prev.collapsed };
-   saveSidebarPrefs(next);
-   return next;
-  });
- }, []);
+ const [dragging, setDragging] = useState(false);
+ const dragState = useRef<{ startX: number; startWidth: number } | null>(null);
 
  const toggleGroup = useCallback((label: string) => {
   setGroupCollapsed((prev) => {
@@ -273,18 +266,67 @@ export function Sidebar() {
   });
  }, []);
 
- // [ = 折叠/展开;输入框守卫在底座(顶栏搜索/CodeMirror 内敲 [ 不抢键)
- useHotkeys({ "[": toggleCollapsed });
+ // 鼠标拖拽右缘调宽:拖到 <COLLAPSE_THRESHOLD 自动折叠(icon 态),拖宽自动展开;松手持久化
+ const onDragStart = useCallback((e: React.PointerEvent) => {
+  e.preventDefault();
+  dragState.current = { startX: e.clientX, startWidth: collapsed ? SIDEBAR_ICON_WIDTH : width };
+  setDragging(true);
+ }, [collapsed, width]);
+
+ useEffect(() => {
+  if (!dragging) return;
+  const onMove = (e: PointerEvent) => {
+   if (!dragState.current) return;
+   const delta = e.clientX - dragState.current.startX;
+   const target = dragState.current.startWidth + delta;
+   setPrefs((prev) => {
+    if (target <= SIDEBAR_COLLAPSE_THRESHOLD) {
+     return { ...prev, collapsed: true };
+    }
+    const clamped = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, target));
+    return { collapsed: false, width: clamped };
+   });
+  };
+  const onUp = () => {
+   setDragging(false);
+   dragState.current = null;
+   setPrefs((prev) => {
+    saveSidebarPrefs(prev);
+    return prev;
+   });
+  };
+  document.addEventListener("pointermove", onMove);
+  document.addEventListener("pointerup", onUp);
+  return () => {
+   document.removeEventListener("pointermove", onMove);
+   document.removeEventListener("pointerup", onUp);
+  };
+ }, [dragging]);
 
  return (
   <aside
    style={{ width: collapsed ? SIDEBAR_ICON_WIDTH : width }}
-   className="flex shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-[width] duration-(--duration-base) ease-out-expo"
+   className={cn(
+    "relative flex shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground",
+    dragging ? "" : "transition-[width] duration-(--duration-base) ease-out-expo",
+   )}
   >
+   {/* 拖拽手柄:右缘 6px 命中区,hover/drag 高亮;拖到窄端自动折叠 */}
+   <div
+    role="separator"
+    aria-orientation="vertical"
+    aria-label="拖拽调整侧栏宽度(拖到最窄折叠为图标)"
+    onPointerDown={onDragStart}
+    className={cn(
+     "absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize select-none",
+     dragging ? "bg-primary/40" : "bg-transparent hover:bg-primary/20",
+    )}
+    style={{ marginRight: "-3px" }}
+   />
    <div
     className={cn(
      "flex shrink-0 items-center px-4",
-     collapsed ? "flex-col gap-1 px-0 py-2" : "h-12",
+     collapsed ? "justify-center px-0 py-2" : "h-12",
     )}
     title={collapsed ? "世事 MYIA" : undefined}
    >
@@ -292,26 +334,12 @@ export function Sidebar() {
     {collapsed ? null : (
      <>
       <span className="text-sm font-medium text-sidebar-foreground">世事</span>
-      {/* 整值 muted-foreground(WCAG 实算,Kestra 重锚后):#9797a6 于
-        sidebar 底 #1e202a 对比 5.62:1 ≥4.5;半透明档不再使用 */}
       <span className="text-2xs text-muted-foreground">MYIA</span>
       <span className="flex-1" aria-hidden />
      </>
     )}
-    <Button
-     variant="ghost"
-     size="icon"
-     className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
-     onClick={toggleCollapsed}
-     title={collapsed ? "展开侧栏（[）" : "折叠侧栏（[）"}
-     aria-label={collapsed ? "展开侧栏" : "折叠侧栏"}
-     aria-keyshortcuts="["
-    >
-     {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-    </Button>
    </div>
-   {/* 分组节奏:组间 16px(Kestra 组标题 pt12 + 行 mb4 的有效间距档),
-     组内行距 4px(gap-1 = --ks-spacing-1) */}
+   {/* 分组节奏:组间 16px,组内行距 4px(gap-1) */}
    <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 pt-3 pb-2" aria-label="主导航">
     {NAV_GROUPS.map((group, index) =>
      !collapsed && group.label !== null ? (
