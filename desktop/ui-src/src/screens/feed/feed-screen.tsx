@@ -1313,12 +1313,12 @@ export function FeedScreen() {
         description={`按时间分组的条目流:未读 / 星标 / 稍后读(${
           useServerState ? "服务端持久,随库同步" : "本地态,随浏览器存储持久"
         })`}
-
       />
 
       {/* 工具条(10-04-topbar-cleanup 品类归位):一行收纳品类下拉 + 读态分段 +
-          计数/批量 + 右侧显示选项/搜索/刷新,置于列表头部(KsFilter 范式,同
-          源管理/日志工具行;行内控件 32px 档,列表区内滚时本行常驻) */}
+          计数/批量 + 右侧显示选项/搜索/刷新/导出(G3,10-05 自页头 actions 迁入),
+          置于列表头部(KsFilter 范式,同源管理/日志工具行;行内控件 32px 档,
+          列表区内滚时本行常驻) */}
       <div className="flex flex-wrap items-center gap-2 px-6" data-testid="feed-toolbar">
         {/* 品类下拉(feed 屏自建,顶栏拆下归位):value = 品类 id,服务端
             store.items 精确等值;「全部品类」= null 不传参。词汇源 =
@@ -1559,49 +1559,53 @@ export function FeedScreen() {
           >
             <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
           </Button>
-        </div>
-        {/* G3 导出组(10-05 自 PageHeader.actions 迁入:无头化后 PageHeader 不渲染,动作归工具条,防功能不可达) */}
-            <div className="flex items-center gap-2">
-              {/* R2 刀4:格式对 = 分段控件(微填充+低可见描边,与顶栏控件同族);
-                  内钮 h-6,段容器高 = h-7 控件族 */}
-              <div
-                role="group"
-                aria-label="导出格式"
-                className="flex items-center gap-0.5 rounded-md border border-(--control-border) bg-(--control-bg) p-0.5"
-              >
-                <Button
-                  variant={exportFormat === "jsonl" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="h-6 gap-0 px-2 text-xs"
-                  aria-pressed={exportFormat === "jsonl"}
-                  title={`JSON Lines 格式(默认文件名 ${defaultExportName("jsonl")})`}
-                  onClick={() => setExportFormat("jsonl")}
-                >
-                  JSONL
-                </Button>
-                <Button
-                  variant={exportFormat === "csv" ? "secondary" : "ghost"}
-                  size="sm"
-                  className="h-6 gap-0 px-2 text-xs"
-                  aria-pressed={exportFormat === "csv"}
-                  title={`CSV 格式(默认文件名 ${defaultExportName("csv")})`}
-                  onClick={() => setExportFormat("csv")}
-                >
-                  CSV
-                </Button>
-              </div>
+          {/* G3 导出组(10-05 自 PageHeader.actions 迁入工具条右端,刷新钮之后):
+              无头化(d9ae353)后 PageHeader 返回 null,actions 不再渲染、导出
+              不可达 —— 迁入工具条归位。格式词表 = ExportFormat(jsonl/csv,与
+              sidecar params.format 同词表、与旧 actions 同逻辑,无 json 档)。 */}
+          <div className="flex items-center gap-2">
+            {/* R2 刀4:格式对 = 分段控件(微填充+低可见描边,与工具条控件同族);
+                内钮 h-6,段容器高 = h-7 控件族 */}
+            <div
+              role="group"
+              aria-label="导出格式"
+              className="flex items-center gap-0.5 rounded-md border border-(--control-border) bg-(--control-bg) p-0.5"
+            >
               <Button
-                variant="outline"
+                variant={exportFormat === "jsonl" ? "secondary" : "ghost"}
                 size="sm"
-                onClick={() => void exportCurrentView()}
-                disabled={exporting}
-                title="导出当前过滤视图(品类 × 搜索词)为本地文件"
+                className="h-6 gap-0 px-2 text-xs"
+                aria-pressed={exportFormat === "jsonl"}
+                title={`JSON Lines 格式(默认文件名 ${defaultExportName("jsonl")})`}
+                onClick={() => setExportFormat("jsonl")}
               >
-                <Download className={exporting ? "size-3.5 animate-pulse" : "size-3.5"} />
-                {exporting ? "导出中…" : "导出当前视图"}
+                JSONL
+              </Button>
+              <Button
+                variant={exportFormat === "csv" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-6 gap-0 px-2 text-xs"
+                aria-pressed={exportFormat === "csv"}
+                title={`CSV 格式(默认文件名 ${defaultExportName("csv")})`}
+                onClick={() => setExportFormat("csv")}
+              >
+                CSV
               </Button>
             </div>
-      
+            {/* 导出主钮:Download 图标,dialog.save → feed.export;失败回显走
+                下方列表区 feed-export-result 行(inline,惯例同 openError) */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void exportCurrentView()}
+              disabled={exporting}
+              title="导出当前过滤视图(品类 × 搜索词)为本地文件"
+            >
+              <Download className={exporting ? "size-3.5 animate-pulse" : "size-3.5"} />
+              {exporting ? "导出中…" : "导出当前视图"}
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* 列表区(内滚):导出回执/错误横幅/加载/空态/分组列表都在滚动面内,

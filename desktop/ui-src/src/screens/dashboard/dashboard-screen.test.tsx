@@ -355,16 +355,47 @@ describe("DashboardScreen", () => {
     expect(screen.getByTestId("run-success-rate").textContent).toBe("—");
   });
 
-  it("刷新按钮重新拉取 doctor + run.status", async () => {
+  it("刷新数据钮:嵌概览卡头(不占独立行),点击重拉 doctor/run.status/趋势,loading 期自转", async () => {
     mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    // 第二次 doctor 应答挂起(手放行),冻结 loading 态供自转/禁用断言
+    let release: ((value: DoctorResult) => void) | undefined;
+    doctorMock.mockImplementationOnce(() => Promise.resolve(fixtureDoctor()));
+    doctorMock.mockImplementationOnce(
+      () => new Promise<DoctorResult>((resolve) => {
+        release = resolve;
+      }),
+    );
     render(<DashboardScreen />);
     await screen.findByTestId("category-tech.yaml");
     expect(doctorMock).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "刷新" }));
-    await screen.findByTestId("category-tech.yaml");
-    expect(doctorMock).toHaveBeenCalledTimes(2);
+    const refreshBtn = screen.getByRole("button", { name: "刷新数据" });
+    // 嵌在概览条卡头右上(不占独立行);独立刷新行已撤
+    expect(refreshBtn.closest("section")?.getAttribute("data-testid")).toBe("dashboard-overview");
+    expect(screen.queryByTestId("dashboard-toolbar")).toBeNull();
+    expect((refreshBtn as HTMLButtonElement).disabled).toBe(false);
+
+    const trendCallsBefore = storeTrendMock.mock.calls.length;
+    fireEvent.click(refreshBtn);
+    // loading 期:禁用 + RefreshCw 自转
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: "刷新数据" }) as HTMLButtonElement).disabled).toBe(true),
+    );
+    expect(
+      screen.getByRole("button", { name: "刷新数据" }).querySelector("svg")?.getAttribute("class"),
+    ).toContain("animate-spin");
+    // 趋势同窗重查(refreshTrend + 概览窗各一笔)
+    await waitFor(() => expect(storeTrendMock.mock.calls.length).toBe(trendCallsBefore + 2));
+
+    act(() => release?.(fixtureDoctor()));
+    await waitFor(() => expect(doctorMock).toHaveBeenCalledTimes(2));
     expect(runStatusMock).toHaveBeenCalledTimes(2);
+    await waitFor(() =>
+      expect((screen.getByRole("button", { name: "刷新数据" }) as HTMLButtonElement).disabled).toBe(false),
+    );
+    expect(
+      screen.getByRole("button", { name: "刷新数据" }).querySelector("svg")?.getAttribute("class"),
+    ).not.toContain("animate-spin");
   });
 
   // -------------------------------------------------------------------------

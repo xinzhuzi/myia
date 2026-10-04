@@ -768,6 +768,22 @@ describe("FeedScreen", () => {
     expect(screen.getByTestId("feed-export-result").textContent).toContain("export_write_failed");
   });
 
+  it("G3 导出组在工具条右端可达(10-05 自 PageHeader.actions 迁入;无头化回归闸)", async () => {
+    storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    renderScreen();
+    await screen.findByText("条目 1");
+
+    // 无头化(d9ae353)后 PageHeader 返回 null,actions 不再渲染 —— 导出组
+    // 必须落在 feed-toolbar 内才是可达入口;且次序在刷新钮之后(工具条右端)
+    const toolbar = within(screen.getByTestId("feed-toolbar"));
+    expect(toolbar.getByRole("group", { name: "导出格式" })).toBeTruthy();
+    expect(toolbar.getByRole("button", { name: "JSONL" })).toBeTruthy();
+    expect(toolbar.getByRole("button", { name: "CSV" })).toBeTruthy();
+    const refresh = toolbar.getByRole("button", { name: "刷新" });
+    const exportButton = toolbar.getByRole("button", { name: "导出当前视图" });
+    expect(refresh.compareDocumentPosition(exportButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   // -------------------------------------------------------------------------
   // vision-v2 批(10-03-vision-v2):图析详情展开(OCR 全文/逐行置信度/caption/图文件)
   // -------------------------------------------------------------------------

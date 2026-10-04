@@ -614,24 +614,6 @@ export function DashboardScreen() {
     <div data-testid="dashboard-screen-root" className="flex flex-col gap-block pb-6">
       <PageHeader title="仪表盘" description="概览条 / 采集量趋势 / 源健康度 / 品类与近期 run" />
 
-      {/* 刷新行(10-05 自 PageHeader.actions 迁入:无头化后 PageHeader 不渲染,
-          动作归内容区,防功能不可达) */}
-      <div className="flex justify-end px-6" data-testid="dashboard-toolbar">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            void refresh();
-            void refreshTrend(windowDays);
-            void refreshOverview(overviewWindow);
-          }}
-          disabled={loading}
-        >
-          <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
-          刷新
-        </Button>
-      </div>
-
       {error ? (
         <div className="px-6">
           <Card data-testid="dashboard-error">
@@ -640,7 +622,7 @@ export function DashboardScreen() {
               <p className="mt-1 text-xs text-muted-foreground">
                 {humanizeSidecarError(error.code, error.message)}
                 <span className="ml-1 font-mono">[{error.code}]</span>
-                ——点上方「刷新」重试
+                ——点概览条右上「刷新数据」重试
               </p>
             </CardContent>
           </Card>
@@ -656,7 +638,7 @@ export function DashboardScreen() {
                   <span className="ml-1 font-mono">[{sectionError.error.code}]</span>
                 </p>
               ))}
-              <p className="mt-1 text-xs text-muted-foreground">点右上「刷新」重试失败分区。</p>
+              <p className="mt-1 text-xs text-muted-foreground">点概览条右上「刷新数据」重试失败分区。</p>
             </CardContent>
           </Card>
         </div>
@@ -680,24 +662,45 @@ export function DashboardScreen() {
               {overviewWindow === "today" ? "今日概览(UTC)" : `近 ${overviewWindow} 天概览(UTC)`}
             </h2>
           </div>
-          <Select
-            value={overviewWindow === "today" ? "today" : String(overviewWindow)}
-            onValueChange={(value) =>
-              setOverviewWindow(value === "today" ? "today" : (Number(value) as TrendWindowDays))
-            }
-          >
-            <SelectTrigger size="sm" className="w-28" aria-label="概览时间范围">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">今日(UTC)</SelectItem>
-              {TREND_WINDOW_DAYS.map((option) => (
-                <SelectItem key={option} value={String(option)}>
-                  {option} 天
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select
+              value={overviewWindow === "today" ? "today" : String(overviewWindow)}
+              onValueChange={(value) =>
+                setOverviewWindow(value === "today" ? "today" : (Number(value) as TrendWindowDays))
+              }
+            >
+              <SelectTrigger size="sm" className="w-28" aria-label="概览时间范围">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">今日(UTC)</SelectItem>
+                {TREND_WINDOW_DAYS.map((option) => (
+                  <SelectItem key={option} value={String(option)}>
+                    {option} 天
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* 刷新钮(10-05 二迁:独立刷新行 → 概览卡头右上角,不占独立行;
+                KsIconButton 同解剖 28px ghost 图标钮,sources-table 判例;
+                onClick 沿既有刷新逻辑 refresh + refreshTrend + refreshOverview,
+                loading 期 RefreshCw 原地自转(updater-card 同款)) */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              aria-label="刷新数据"
+              title="重新拉取仪表盘数据(doctor / runs / 趋势)"
+              disabled={loading}
+              onClick={() => {
+                void refresh();
+                void refreshTrend(windowDays);
+                void refreshOverview(overviewWindow);
+              }}
+            >
+              <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
+            </Button>
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {loading && overview === null ? (
