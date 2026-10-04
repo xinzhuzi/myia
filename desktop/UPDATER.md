@@ -17,10 +17,12 @@ Tauri 2 官方 updater 插件的签名/发布/升级流程。**铁律:签名私�
 - 本地普通构建(不打更新包):无需任何签名环境;
 - 本地要出签名更新包:按第四节导出环境变量。
 
-> **本地开发提示(10-03-ci-gates D5)**:`tauri dev` 前先在 desktop/ 下跑
-> `bash build-sidecar.sh`。externalBin 指向被 gitignore 的 `binaries/`
-> (tauri.conf.json `bundle.externalBin`),fresh clone 不先出 sidecar 则
-> `tauri dev` 直接挂且无提示;sidecar 生成后不必每次重跑,改动 entry.py 才需要。
+> **本地开发提示(2026-10-05 更新,10-05-desktop-managed-py-env 第 7 步)**:
+> PyInstaller sidecar 冻结链已退役——`tauri.conf.json` 已移除 `bundle.externalBin`,
+> Python 面(源码/锁版清单/runtime manifest)改经 `bundle.resources` 随包,
+> fresh clone 的 `tauri dev` / `npm run tauri build` 无需任何 Python 预构建;
+> 运行时与依赖由用户首跑在设置页「开始配置」下载安装(自管环境,数据根拉起)。
+> 旧链档注见 `desktop/build-sidecar.sh` 头注。
 
 ## 二、一次性配置:生成签名密钥并配 CI Secrets
 
@@ -53,12 +55,12 @@ npx tauri signer generate -w ~/.tauri/myssia.key
 git tag v0.2.0 && git push origin v0.2.0
 ```
 
-流水线(macOS 主线 + Windows 正式目标 + release-finalize 归聚):
+流水线(macOS 主线 + Windows 正式目标 + release-finalize 归聚;2026-10-05 起无
+Python 预构建步骤——sidecar 冻结链退役,Python 面经 tauri resources 随包):
 
-1. `desktop/build-sidecar.sh <triple>` 各平台出 sidecar(Windows 侧 vision extra 的 `ocrmac` 带 `sys_platform == 'darwin'` 标记,不再拉 pyobjc 链);
-2. 写 `tauri.release.conf.json` 合并片(真实 pubkey + `createUpdaterArtifacts: true` + 解析版本号),`npx tauri build --bundles app,dmg|msi --config tauri.release.conf.json`(**macOS 必须带 `app` 目标**:updater 的 tar.gz/.sig 只在 MacOsBundle 目标在列时产出,仅 `dmg` 会跳过更新包且随后删除 .app 中间产物,后续 `cat *.sig` 步骤必失败);
-3. macOS job 产物上传 Release(仅 tag 触发):**dmg**、**`myssia.app.tar.gz` + `.sig`**(updater 增量包与签名,ASCII 名);
-4. **release-finalize 归聚 job**(`needs: [macos-dmg, windows-msi]`,`if: always() && needs.macos-dmg.result == 'success'`):下载两平台产物 → 生成 **`latest.json`**(**单写者**:darwin-aarch64 条目恒在,windows-x86_64 条目按产物存在与否自动并入)→ Windows msi(`myssia_<版本>_x64.msi` + `.msi.sig`,ASCII 名)与 latest.json 挂 Release(仅 tag 触发)。`workflow_dispatch` 演练时不上传 Release,latest.json 以 `latest-json` artifact 交付复核。
+1. 写 `tauri.release.conf.json` 合并片(真实 pubkey + `createUpdaterArtifacts: true` + 解析版本号),`npx tauri build --bundles app,dmg|msi --config tauri.release.conf.json`(**macOS 必须带 `app` 目标**:updater 的 tar.gz/.sig 只在 MacOsBundle 目标在列时产出,仅 `dmg` 会跳过更新包且随后删除 .app 中间产物,后续 `cat *.sig` 步骤必失败);
+2. macOS job 产物上传 Release(仅 tag 触发):**dmg**、**`myssia.app.tar.gz` + `.sig`**(updater 增量包与签名,ASCII 名);
+3. **release-finalize 归聚 job**(`needs: [macos-dmg, windows-msi]`,`if: always() && needs.macos-dmg.result == 'success'`):下载两平台产物 → 生成 **`latest.json`**(**单写者**:darwin-aarch64 条目恒在,windows-x86_64 条目按产物存在与否自动并入)→ Windows msi(`myssia_<版本>_x64.msi` + `.msi.sig`,ASCII 名)与 latest.json 挂 Release(仅 tag 触发)。`workflow_dispatch` 演练时不上传 Release,latest.json 以 `latest-json` artifact 交付复核。
 
 Windows job(msi)为**正式交付目标**(10-04-windows-build):不再 `continue-on-error`;失败=run 红(可见),但不牵连 macOS 发布与 mac 更新通道(归聚 job 以 `always()` + mac result 门执行,windows 缺席仅表现为条目/资产缺席)。**手工补 windows 条目**降级为归聚失败的应急路径(见下文格式)。Windows 实机安装/升级冒烟清单(七项,主人侧)在 `10-04-windows-build` 任务档。
 
@@ -117,6 +119,6 @@ npx tauri build --bundles app,dmg --config \
 
 > **构建警示(2026-10-03 装机冒烟实测)**:任何**绕过 tauri CLI 的裸 `cargo build`**
 > 都会产出零资产嵌入、烤死 devUrl 的白屏二进制(Cargo.toml 无 `[features]`
-> custom-protocol 转发)。发版/验证一律走 `npm run tauri build`(或
-> build-sidecar.sh 链);根治方案(features 段转发)已建议入桌面对齐批次
+> custom-protocol 转发)。发版/验证一律走 `npm run tauri build`;根治方案
+> (features 段转发)已建议入桌面对齐批次
 > (10-03-v112-desktop-parity,随下个发布版节奏走)。

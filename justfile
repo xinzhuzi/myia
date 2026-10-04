@@ -8,8 +8,8 @@
 #   Rust  stable  ← desktop/src-tauri/rust-toolchain.toml(rustup 原生读)
 #   Node   22     ← desktop/package.json 与 desktop/ui-src/package.json 的 engines.node
 #
-# Windows:在 Git Bash(装 git 自带)或 WSL 里运行——与 Windows CI 用 Git Bash
-# 跑 build-sidecar.sh 的既有事实一致;不提供 PowerShell 移植。
+# Windows:在 Git Bash(装 git 自带)或 WSL 里运行——与 Windows CI 步骤用
+# bash shell 的既有事实一致;不提供 PowerShell 移植。
 set shell := ["bash", "-cu"]
 
 # 一键全栈环境(幂等可重跑):uv sync --all-extras(纪律:裸 sync 卸 extras)+ 两个 npm 根 npm ci + Rust 工具链提示。
@@ -36,9 +36,10 @@ check:
     npm --prefix desktop/ui-src run build
     cd desktop/src-tauri && cargo check --locked
 
-# 桌面全链:sidecar 打包(PyInstaller,经既有 build-sidecar.sh)→ tauri build;安装包产出到 desktop/src-tauri/target/。
+# 桌面全链:tauri build(beforeBuildCommand 链自带随包源码树 __pycache__ 清理 + vite
+# 前端构建;PyInstaller sidecar 链已退役,Python 运行时/依赖不进包——自管环境,
+# 见 desktop/build-sidecar.sh 头注);安装包产出到 desktop/src-tauri/target/。
 build-desktop:
-    npm --prefix desktop run sidecar
     npm --prefix desktop run tauri build
 
 # Docker 镜像构建检查(与 ci.yml docker-build job 同口径:本机原生架构,不 push 不打 tag)。

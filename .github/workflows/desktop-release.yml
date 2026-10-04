@@ -16,10 +16,13 @@
 #   步骤直接中文报错,不产出半成品 release。
 #
 # ── 构建链 ────────────────────────────────────────────────────────────────────
-#   build-sidecar.sh <target-triple>(PyInstaller,不支持交叉编译 → 按平台各建一个
-#   job;MYIA_SIDECAR_SKIP=1 让 beforeBuildCommand 链复用前一步产物不重复打包)
-#   → npx tauri build --bundles <app,dmg|msi>(vite 前端经 beforeBuildCommand 链构建;
-#   macOS 必须带 app 目标,updater 的 tar.gz/.sig 才会产出)。
+#   npx tauri build --bundles <app,dmg|msi>(vite 前端 + 随包源码树 __pycache__ 清理
+#   经 beforeBuildCommand 链;macOS 必须带 app 目标,updater 的 tar.gz/.sig 才会产出)。
+#   Python 面(10-05-desktop-managed-py-env):myssia 源码/入口模块/requirements-lock
+#   /runtime-manifest 以 tauri resources 随包(纯 Python,轻);运行时与第三方依赖
+#   不进包,用户首跑在设置页「开始配置」下载安装(自管环境)。PyInstaller sidecar
+#   冻结链已退役(desktop/build-sidecar.sh 档注;externalBin 已从 tauri.conf.json
+#   移除),本流水线无 Python 预构建步骤,亦无需 uv。
 #
 # ── 已知边界 ─────────────────────────────────────────────────────────────────
 #   * macOS 仅 aarch64(macos-14);x86_64/ universal 未配,需要时加 target 扩展;
@@ -48,7 +51,7 @@ permissions:
 jobs:
   macos-dmg:
     name: macOS dmg(aarch64,updater 主线)
-    runs-on: macos-14 # arm64,与 sidecar target aarch64-apple-darwin 一致
+    runs-on: macos-14 # arm64:当前唯一 mac 交付架构(与 dmg 单架构口径一致)
     steps:
       - uses: actions/checkout@v4
 
@@ -65,11 +68,6 @@ jobs:
             exit 1
           fi
           echo "updater secrets OK(密码未配置视为空密码,签名时需一致)。"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.11"
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -91,10 +89,6 @@ jobs:
       - name: 安装前端 npm 依赖(ui-src)
         working-directory: desktop/ui-src
         run: npm ci --no-fund --no-audit
-
-      - name: 构建 sidecar(aarch64-apple-darwin)
-        working-directory: desktop
-        run: bash build-sidecar.sh aarch64-apple-darwin
 
       # 版本解析(dispatch 修复,10-04-windows-build F3):dispatch 入参 →
       # tag/分支名去 v → 非 semver(分支 dispatch 未传 version)回退
@@ -131,7 +125,6 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          MYIA_SIDECAR_SKIP: "1" # beforeBuildCommand 链复用上一步 sidecar 产物
         # --bundles 必须含 app:updater 的 tar.gz/.sig 只在 MacOsBundle 目标在列时
         # 产出(tauri-bundler 门逻辑),仅 dmg 会跳过更新包且随后把 .app 中间产物
         # 删掉 —— 归聚 job 读 .sig 必因缺席而红(v1.1 评审修复)。
@@ -192,11 +185,6 @@ jobs:
           fi
           echo "updater secrets OK(密码未配置视为空密码,签名时需一致)。"
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.11"
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -217,14 +205,6 @@ jobs:
       - name: 安装前端 npm 依赖(ui-src)
         working-directory: desktop/ui-src
         run: npm ci --no-fund --no-audit
-
-      # vision extra 的 ocrmac 带 sys_platform == 'darwin' 标记(F1 根因修复):
-      # Windows 跳过 ocrmac 及 pyobjc 传递链(锁内全 macosx wheel,sdist 构建必炸,
-      # run 37117015528 实锤),其余 vision 依赖的 win_amd64 wheel 均已在锁内。
-      - name: 构建 sidecar(x86_64-pc-windows-msvc)
-        working-directory: desktop
-        shell: bash
-        run: bash build-sidecar.sh x86_64-pc-windows-msvc
 
       # 版本解析与 mac job 同款(dispatch 修复):分支 dispatch 未传 version 时
       # 回退 tauri.conf.json——分支名硬闯 WiX convert_version 必炸。
@@ -261,7 +241,6 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          MYIA_SIDECAR_SKIP: "1" # beforeBuildCommand 链复用上一步 sidecar 产物
         run: npx tauri build --bundles msi --config src-tauri/tauri.release.conf.json
 
       # 诊断步:msi/msi-updater 目录与命名以本清单日志为准(发行资产取 updater 版,

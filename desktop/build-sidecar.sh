@@ -1,4 +1,31 @@
 #!/usr/bin/env bash
+# ⛔ 已退役(2026-10-05,10-05-desktop-managed-py-env 第 7 步 / design §2)——档注保留
+#
+# 桌面端已切换「自管 Python 环境」(PRD 决议 D1-D6):Python 运行时与第三方依赖不再
+# 冻结进包(旧 myssia-core PyInstaller onefile 单二进制即 ~118MiB),改为——
+#   * myssia 源码 / 入口模块 / requirements-lock.txt / runtime-manifest.json 随 tauri
+#     resources 交付(desktop/src-tauri/tauri.conf.json bundle.resources;externalBin
+#     已移除,本脚本产物无消费方);
+#   * 运行时 cpython(python-build-standalone 钉版)由用户在设置页「开始配置」经
+#     安装链下载安装到 <数据根>/python/(desktop/src-tauri/src/pyenv_install.rs);
+#   * 壳侧 spawn 改 <数据根>/python/bin/python3 -m myssia_desktop_entry serve
+#     (desktop/src-tauri/src/pyenv.rs,ENTRY_ARGS)。
+# desktop-release.yml 与 tauri beforeBuildCommand 已去 sidecar 构建段。回滚口径
+# (PRD 回滚点):旧冻结版安装包可直接重装回落(数据根布局不变,数据无损),
+# 无需重建本链。新安装/构建叙事:docs/zh/getting-started.md、desktop/UPDATER.md。
+# 以下保留原脚本全文备档(2026-10-01 spike 起 PyInstaller onefile 链,v1.1 产品化
+# 支持目标三元组与 CI 二段式构建);执行即退出 1,防误用已死链。
+# ============================================================================
+cat >&2 <<'RETIRED'
+错误:build-sidecar.sh 已退役(2026-10-05,10-05-desktop-managed-py-env 第 7 步)。
+桌面端改为自管 Python 环境:源码/锁版清单随 tauri resources,运行时与依赖
+首跑经设置页「开始配置」下载安装;externalBin 已从 tauri.conf.json 移除,
+本链产物无消费方。新安装/构建叙事见 docs/zh/getting-started.md 与
+desktop/UPDATER.md;回滚 = 直接重装旧版冻结安装包(数据根兼容,数据无损)。
+RETIRED
+exit 1
+
+# ── 以下为退役前原脚本(备档,不可达)─────────────────────────────────────────
 # desktop sidecar 构建脚本(v1.1 产品化:可指定目标平台,产物直落 Tauri externalBin 位):
 #   ./build-sidecar.sh                     # 默认目标 = 当前主机三元组
 #   ./build-sidecar.sh aarch64-apple-darwin

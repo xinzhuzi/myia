@@ -5,7 +5,7 @@
   "version": "0.0.1",
   "identifier": "com.myssia.app",
   "build": {
-    "beforeBuildCommand": "npm run sidecar && npm run build",
+    "beforeBuildCommand": "npm run clean:pycache && npm run build",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../ui"
   },
@@ -34,9 +34,6 @@
       "icons/icon.icns",
       "icons/icon.png",
       "icons/icon.ico"
-    ],
-    "externalBin": [
-      "binaries/myssia-core"
     ],
     "resources": {
       "../fixture/plugin.yaml": "plugin.yaml",

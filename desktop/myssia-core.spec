@@ -1,4 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
+# ⛔ 已退役(2026-10-05,10-05-desktop-managed-py-env 第 7 步 / design §2)——档注保留。
+# PyInstaller onefile 冻结链已退役:桌面端改为自管 Python 环境(源码/锁版清单随
+# tauri resources 交付,运行时与依赖首跑经设置页安装;详见 build-sidecar.sh 头注)。
+# tauri.conf.json 已移除 externalBin,本 spec 无消费方;以下保留原文件备档,勿再用于构建。
 import os
 import sys
 from PyInstaller.utils.hooks import collect_submodules

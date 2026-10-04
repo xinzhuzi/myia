@@ -67,13 +67,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev \
             librsvg2-dev libayatana-appindicator3-dev
-      # tauri-build 的 build.rs 校验 externalBin 存在性,而 binaries/ 被 gitignore
-      # (.gitignore:67),fresh checkout 必须先造占位再 check(不必真跑 PyInstaller;
-      # 起草期实测:无占位必红,占位后全绿)。
-      - name: Create placeholder externalBin
-        run: |
-          mkdir -p binaries
-          touch "binaries/myssia-core-$(rustc -vV | sed -n 's/^host: //p')"
+      # externalBin 已退役(10-05-desktop-managed-py-env 第 7 步):Python 面随
+      # resources 交付,tauri-build 不再校验 binaries/(占位步骤同步移除)。
       - name: cargo check
         run: cargo check --locked
 

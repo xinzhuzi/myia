@@ -7,7 +7,7 @@
   },
   "scripts": {
     "tauri": "tauri",
-    "sidecar": "bash build-sidecar.sh",
+    "clean:pycache": "node scripts/clean-pycache.mjs",
     "build": "npm --prefix ui-src run build"
   },
   "devDependencies": {
