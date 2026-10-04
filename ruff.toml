@@ -4,5 +4,11 @@
 # 起步集只拦致命错(语法错 E9/F7、未定义名 F82、比较错 F63)——起草期实测
 # ruff 0.16.10 默认规则面 498 错(I001/F401/UP 等),不清存量、不扩集,另行立项。
 # CI 与本地同款命令:uvx ruff@0.16.10 check .(锁版本,防默认规则面漂移)。
+#
+# vendored 第三方代码整体排除(2026-10-05:theharvester 收编 6ba242e 后,其自带
+# pyproject 嵌套配置把 ASYNC/UP 等规则带进检查面,vendored 代码不经自家门禁);
+# 新增 vendor 一律同款登记,勿裸收。
+extend-exclude = ["plugins/myssia-theharvester/vendor"]
+
 [lint]
 select = ["E9", "F63", "F7", "F82"]
