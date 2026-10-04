@@ -115,6 +115,8 @@
 
 ## Acceptance Criteria
 
-- [ ] 档已建:prd 四+一节齐全(一~五节按上口径落档)。
-- [ ] `implement.jsonl` / `check.jsonl` 各一条指向本 prd。
-- [ ] `task.py validate` 通过。
+- [x] 档已建:prd 四+一节齐全(一~五节按上口径落档)。(2026-10-05 收口实读:一~六节全在档——一节主人门禁三回标/二节装机三态注/三节挂账/四节处置双销项/五节在途知悉+六节路由终态)
+- [x] `implement.jsonl` / `check.jsonl` 各一条指向本 prd。(实读各恰 1 条指本档 prd.md;validate 输出 implement 1 entries / check 1 entries 互证)
+- [x] `task.py validate` 通过。(2026-10-05 实跑 `python3 .trellis/scripts/task.py validate <本档目录>` → ✓ All validations passed,exit 0)
+
+> **收口(2026-10-05)**:AI 侧账目全回标毕,剩余项均主人侧(纯目验新包/GHCR 加 scope/四帖措辞定稿+发/W2 给 bot 发条消息,TG·GLM 可选——见「收尾轮回标」节);档转 review,待主人目验过说「归档」再清档(二节附步骤 7,归档令留主人)。
