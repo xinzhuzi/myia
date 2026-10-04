@@ -251,7 +251,7 @@ jobs:
           PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
         run: |
           jq -n --arg v "$MYIA_VERSION" --arg p "$PUBKEY" \
-            '{version: $v, bundle: {createUpdaterArtifacts: true},
+            '{version: $v, productName: "myssia", bundle: {createUpdaterArtifacts: true},
               plugins: {updater: {pubkey: $p}}}' > tauri.release.conf.json
           echo "release conf merged (version $MYIA_VERSION)"
 
