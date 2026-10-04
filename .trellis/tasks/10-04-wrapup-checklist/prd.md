@@ -31,7 +31,7 @@
 
 ### 五、在途知悉(并行会话自收,勿重复立项)
 
-- `messaging-w3-longtail`(残余红测 `test_join_403` 归它)——已归档,红测若仍在树=移交 read-state-server 收口批或独立小修。
+- ~~`messaging-w3-longtail`(残余红测 `test_join_403` 归它)——已归档,红测若仍在树=移交 read-state-server 收口批或独立小修~~。**✅ 处置完结(2026-10-04 收口核)**:实跑 `.venv/bin/python -m pytest tests/test_messaging_irc.py` = 29 passed 0.13s(含 `test_join_403_is_not_found_dead`,tests/test_messaging_irc.py:252)——`test_join_403` 已不在当前红测清单,系被在途线修掉;零代码修复故零 fix(test) 提交,亦无需移交 read-state-server。
 - ~~`shishi-everywhere`~~(已归档;PyPI 注册动作仍在第一节挂账,注意发行名已漂移 myssia)。
 - ~~`10-04-alert-rules`~~(已归档)。
 - `v12-backlog` 池。
