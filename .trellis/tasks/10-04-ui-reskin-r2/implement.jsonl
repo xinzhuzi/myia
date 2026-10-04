@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/10-04-ui-reskin-r2/prd.md", "reason": "R2 目标与 VL 闭环 AC;主人终裁「布局很差找最好看」+全模块令"}
+{"file": ".trellis/tasks/10-04-ui-reskin-r2/evidence/dash-vl-r1.md", "reason": "VL 毒评记录链示例——审美回路的实现证据形态"}
+{"file": "desktop/ui-src/src/index.css", "reason": "基调四刀落点:间距/栅格/层级/控件令牌(各屏消费 gap-block/gap-grid/p-card/max-w-content)"}
