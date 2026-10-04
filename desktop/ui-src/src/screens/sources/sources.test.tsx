@@ -606,6 +606,133 @@ describe("源管理:试抓此源(C13)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 品类行「跑一次」(10-04-topbar-cleanup):顶栏全局跑一次归位源管理 ——
+// Kestra Flows 列表 Trigger 动作钮范式(Flows.vue 行尾 actions 列 IconButton+Play,
+// 排程一览每行 = 一个品类 YAML):run.start 单飞 → completed 事件 run_id 对账收尾
+// ---------------------------------------------------------------------------
+
+describe("源管理:品类行跑一次(顶栏控件归位)", () => {
+  type EventHandler = (event: { payload: Record<string, unknown> }) => void;
+
+  function installEvents() {
+    let handler: EventHandler | null = null;
+    mocks.listen.mockImplementation(async (_name: string, fn: EventHandler) => {
+      handler = fn;
+      return () => undefined;
+    });
+    return {
+      emit: (payload: Record<string, unknown>) => handler?.({ payload }),
+    };
+  }
+
+  /** 两品类夹具:ai-news(有源)+ weekly(无源);schedule.preview 全好 */
+  function twoCategorySidecar() {
+    const { map } = okSidecar(["local-api"]);
+    map["schedule.preview"] = (params: never) => {
+      const { file } = params as { file: string };
+      return {
+        file,
+        schedule: "*/15 * * * *",
+        timezone: "Asia/Shanghai",
+        runs: ["2026-10-04T09:00:00+08:00"],
+      };
+    };
+    map.health = () =>
+      healthResult([
+        pluginReport(FILE, "ai-news", [sourceReport("local-api", "ok")]),
+        pluginReport("plugins/weekly.yaml", "weekly", []),
+      ]);
+    return { map };
+  }
+
+  it("排程行 Trigger 钮发起 run.start(yaml=品类文件)→ completed 按 run_id 对账收尾 + reload", async () => {
+    const events = installEvents();
+    const { map } = twoCategorySidecar();
+    map["run.start"] = (params: never) => {
+      const { yaml } = params as { yaml: string };
+      return { run_id: 31, state: "running", yaml, dry: false, db: "myssia.db" };
+    };
+    installSidecar(map);
+    render(
+      <MemoryRouter>
+        <SourcesScreen />
+      </MemoryRouter>,
+    );
+
+    // 每行品类(含无源品类)行尾各有 Trigger 钮(Kestra Flows actions 范式)
+    const trigger = await screen.findByRole("button", { name: "跑一次:品类 ai-news" });
+    expect(screen.getByRole("button", { name: "跑一次:品类 weekly" })).toBeTruthy();
+    const healthCallsBefore = callCount("health");
+
+    fireEvent.click(trigger);
+    await waitFor(() => expect(lastCall("run.start")?.params).toEqual({ yaml: FILE }));
+    // 进行中横幅(带日志屏深链)+ run 单飞:全区品类行 Trigger 禁点
+    const running = await screen.findByTestId("run-once-running");
+    expect(running.textContent).toContain("品类 ai-news");
+    expect(running.textContent).toContain("run #31");
+    expect(running.querySelector("a")?.getAttribute("href")).toBe("#/logs");
+    expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "跑一次:品类 weekly" }) as HTMLButtonElement).disabled).toBe(true);
+
+    // 串台防护:别的入口发起的 run(run_id=99)completed 不抢收
+    events.emit({ type: "completed", run_id: 99, exit_code: 0, status: "success", dry: false, ts: "2026-10-04T09:00:00+00:00" });
+    expect(screen.getByTestId("run-once-running")).toBeTruthy();
+
+    events.emit({ type: "completed", run_id: 31, exit_code: 0, status: "success", dry: false, ts: "2026-10-04T09:01:00+00:00" });
+    const done = await screen.findByTestId("run-once-ok");
+    expect(done.textContent).toContain("品类 ai-news");
+    expect(done.textContent).toContain("run #31");
+    expect(done.textContent).toContain("success");
+    expect(done.getAttribute("role")).toBe("status");
+    expect(screen.queryByTestId("run-once-running")).toBeNull();
+    // 终态后 reload:健康度/最近产出再拉(失败 run 也是运行记录,照刷)
+    await waitFor(() => expect(callCount("health")).toBeGreaterThan(healthCallsBefore));
+    // 单飞解除:按钮回可用
+    expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("发起被拒(run_busy)→ 红条回显按钮回可用;failed 终态如实红条不伪装成功", async () => {
+    const events = installEvents();
+    const { map } = twoCategorySidecar();
+    let reject = true;
+    map["run.start"] = () => {
+      if (reject) {
+        throw JSON.stringify({
+          code: "run_busy",
+          path: "$",
+          message: "已有 run 在执行 run_id=8(单飞)",
+          data: { active_run_id: 8 },
+        });
+      }
+      return { run_id: 32, state: "running", yaml: FILE, dry: false, db: "myssia.db" };
+    };
+    installSidecar(map);
+    render(
+      <MemoryRouter>
+        <SourcesScreen />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "跑一次:品类 ai-news" }));
+    const busy = await screen.findByTestId("run-once-error");
+    expect(busy.textContent).toContain("run_busy");
+    expect(busy.textContent).toContain("已有 run 在执行");
+    expect(busy.getAttribute("role")).toBe("alert");
+    // 拒绝不滞留 busy:按钮立即可重试
+    expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(false);
+
+    // 重试发起成功;failed 终态(exit=2)红条如实分级
+    reject = false;
+    fireEvent.click(screen.getByRole("button", { name: "跑一次:品类 ai-news" }));
+    await screen.findByTestId("run-once-running");
+    events.emit({ type: "completed", run_id: 32, exit_code: 2, status: "failed", dry: false, ts: "2026-10-04T09:02:00+00:00" });
+    const fail = await screen.findByTestId("run-once-fail");
+    expect(fail.textContent).toContain("failed");
+    expect(fail.getAttribute("role")).toBe("alert");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 排程一览(G4,10-03-feed-ux):schedule.preview 逐品类并发,单品类失败不塌整区
 // ---------------------------------------------------------------------------
 

@@ -20,15 +20,17 @@
  * toggle 乐观 + 失败回滚 / mark_all 全库语义与 title 真话 / 一次性导入
  * (整 map 单请求,双挂载只一发,旧键不删);纯函数 statesFromItems。
  * g9-read-all 批(10-04 R1/R2/R4):品类分组组头「本组全部已读」(mark_all 带
- * category 精确等值;未分类组不出钮、时间/不分组无入口、未过门零入口)/
+ * category 精确等值;未分类组不出钮、时间/不分组无组头入口)/
  * 全库两按钮 inline 二次确认(一次点击进确认态,再点执行;取消/Esc/失焦
  * 退出零执行);品类批量失败按快照只回滚作用域内行(域外组不动)。
+ * topbar-cleanup 归位批(10-04):屏内品类下拉(health().plugins 词汇源,
+ * value = 品类 id 服务端精确等值,「全部品类」= 不传参;不再吃 Outlet
+ * context)+ 工具条一行收纳(KsFilter:品类下拉 + 读态分段 + 搜索 + 刷新
+ * 同容器,刷新自页头迁入);纯函数 categoryOptionsFromHealth。
  */
 import { cleanup, fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
-import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import type { CategoryFilterContext } from "@/components/layout/app-layout";
+import { MemoryRouter } from "react-router-dom";
+import { afterAll, beforeAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SidecarRequestError } from "@/lib/api";
 import type {
@@ -44,6 +46,7 @@ import type {
 import {
   appendWatchlistKeyword,
   categoryColor,
+  categoryOptionsFromHealth,
   DEFAULT_FEED_DISPLAY,
   groupFeedItems,
   groupFeedItemsByCategory,
@@ -135,18 +138,20 @@ function renderScreen() {
   );
 }
 
-/** C8 接线路径:AppLayout 形态(Routes → Outlet context 下发品类) */
-function renderScreenWithCategory(category: string | null) {
-  const context: CategoryFilterContext = { category };
-  return render(
-    <MemoryRouter initialEntries={["/feed"]}>
-      <Routes>
-        <Route path="/" element={<Outlet context={context} />}>
-          <Route path="feed" element={<FeedScreen />} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
-  );
+/** 品类下拉选项用 PluginReport 夹具(形状对齐 types.ts;字段按需覆写) */
+function pluginEntry(overrides: Partial<HealthResult["plugins"][number]> = {}): HealthResult["plugins"][number] {
+  return {
+    file: "/home/plugins/x.yaml",
+    id: "x",
+    name: null,
+    schedule: null,
+    timezone: null,
+    push_channels: [],
+    loaded: true,
+    load_errors: null,
+    sources: [],
+    ...overrides,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -278,6 +283,22 @@ beforeEach(() => {
   // 能力门缺省 = 低一版(未过门旧通路):既有用例全部走 localStorage 语义;
   // 服务端通路用例自带 versionResult(READ_STATE_PROTOCOL) 覆写。
   versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL - 1));
+});
+
+// Radix Select 2.x 在 jsdom 里开品类下拉需要的指针捕获/滚动桩(topbar-cleanup
+// 归位批;同款见 logs-screen.test.tsx / dashboard-screen.test.tsx beforeAll)。
+// scrollIntoView 落 Element.prototype(与下方 j/k 用例的 spy 同层 —— 落
+// HTMLElement.prototype 会遮蔽该 spy,断言不到「最近侧滚入」调用)
+beforeAll(() => {
+  window.HTMLElement.prototype.hasPointerCapture = () => false;
+  window.HTMLElement.prototype.releasePointerCapture = () => {};
+  Element.prototype.scrollIntoView = () => {};
+});
+afterAll(() => {
+  // 桩留在原型上会外溢到同 worker 的其他测试文件,退出时还原
+  delete (window.HTMLElement.prototype as Partial<HTMLElement>).hasPointerCapture;
+  delete (window.HTMLElement.prototype as Partial<HTMLElement>).releasePointerCapture;
+  delete (Element.prototype as Partial<Element>).scrollIntoView;
 });
 
 afterEach(() => {
@@ -498,14 +519,94 @@ describe("FeedScreen", () => {
   });
 
   // -------------------------------------------------------------------------
-  // feed-ux 批(10-03-feed-ux):C8 品类接线 / G1 搜索 / G2 展开与打开原文 / G3 导出
+  // feed-ux 批(10-03-feed-ux)+ topbar-cleanup 品类归位(10-04):品类接线 /
+  // G1 搜索 / G2 展开与打开原文 / G3 导出
   // -------------------------------------------------------------------------
 
-  it("C8 品类接线:Outlet context 品类 → storeItems 收到 category 服务端过滤;null = 不传参", async () => {
+  it("品类下拉归位(topbar-cleanup):选中品类 → storeItems 带 category 服务端过滤 × 搜索作用域行如实;切回「全部品类」= 不传参", async () => {
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
-    renderScreenWithCategory("ai-news");
+    renderScreen();
     await screen.findByText("条目 1");
-    expect(storeItemsMock).toHaveBeenCalledWith({ limit: 50, category: "ai-news" });
+
+    // Radix Select(mouse 型 pointerDown 才开下拉,惯例同 logs 屏)
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "品类过滤" }), { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("option", { name: "AI资讯" }));
+
+    // 屏内下拉自持品类 → 服务端精确等值重查(不再吃 Outlet context)
+    await waitFor(() => expect(storeItemsMock).toHaveBeenLastCalledWith({ limit: 50, category: "ai-news" }));
+
+    // 品类 × 搜索叠加:query 随游标透传,作用域行如实注明当前品类
+    fireEvent.change(screen.getByLabelText("搜索条目"), { target: { value: "GLM" } });
+    fireEvent.keyDown(screen.getByLabelText("搜索条目"), { key: "Enter" });
+    await waitFor(() =>
+      expect(storeItemsMock).toHaveBeenLastCalledWith({ limit: 50, category: "ai-news", query: "GLM" }),
+    );
+    expect(screen.getByTestId("feed-search-scope").textContent).toContain("ai-news");
+
+    // 切回「全部品类」= null 不传参(Radix 受控切换路径)
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "品类过滤" }), { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("option", { name: "全部品类" }));
+    await waitFor(() => expect(storeItemsMock).toHaveBeenLastCalledWith({ limit: 50, query: "GLM" }));
+  });
+
+  it("品类下拉选项:health().plugins id 去重 + 名称回显 + null id 不入;health 失败静默只剩「全部品类」", async () => {
+    storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    const first = renderScreen();
+    await screen.findByText("条目 1");
+
+    // 缺省 health(单插件 ai-news):全部品类 + AI资讯
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "品类过滤" }), { button: 0, pointerType: "mouse" });
+    let options = await screen.findAllByRole("option");
+    expect(options.map((node) => node.textContent)).toEqual(["全部品类", "AI资讯"]);
+    first.unmount();
+
+    // 多插件(同 id 去重首现优先 / null id 不入 / name 缺省回 id):重挂载拉新清单
+    healthMock.mockResolvedValue(
+      healthResult({
+        plugins: [
+          pluginEntry({ file: "/home/plugins/stocks.yaml", id: "stocks", name: null }),
+          pluginEntry({ file: "/home/plugins/ai-news.yaml", id: "ai-news", name: "AI资讯" }),
+          pluginEntry({ file: "/home/plugins/dup.yaml", id: "ai-news", name: "重复id后现" }),
+          pluginEntry({ file: "/home/plugins/broken.yaml", id: null, name: "坏插件" }),
+        ],
+      }),
+    );
+    const second = renderScreen();
+    await screen.findByText("条目 1");
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "品类过滤" }), { button: 0, pointerType: "mouse" });
+    options = await screen.findAllByRole("option");
+    expect(options.map((node) => node.textContent)).toEqual(["全部品类", "AI资讯", "stocks"]);
+    second.unmount();
+
+    // health 失败:不拦情报流,清单收敛为仅「全部品类」
+    healthMock.mockRejectedValue(new Error("sidecar 未连接"));
+    renderScreen();
+    await screen.findByText("条目 1");
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "品类过滤" }), { button: 0, pointerType: "mouse" });
+    options = await screen.findAllByRole("option");
+    expect(options.map((node) => node.textContent)).toEqual(["全部品类"]);
+  });
+
+  it("工具条一行收纳(KsFilter):品类下拉 + 读态分段 + 搜索 + 刷新同容器;刷新钮(KsFilter refresh 位,自页头迁入)重发查询", async () => {
+    storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    renderScreen();
+    await screen.findByText("条目 1");
+
+    // 一行工具条:品类下拉 / 读态分段组 / 搜索框 / 刷新钮同容器
+    const toolbar = screen.getByTestId("feed-toolbar");
+    expect(within(toolbar).getByRole("combobox", { name: "品类过滤" })).toBeTruthy();
+    const segmented = within(toolbar).getByRole("group", { name: "读态过滤" });
+    for (const label of ["未读", "星标", "稍后读", "全部"]) {
+      expect(within(segmented).getByRole("button", { name: `过滤:${label}` })).toBeTruthy();
+    }
+    expect(within(toolbar).getByLabelText("搜索条目")).toBeTruthy();
+    expect(within(toolbar).getByRole("button", { name: "显示选项" })).toBeTruthy();
+
+    // 刷新迁入工具条(全屏仅此一枚「刷新」钮):点击重发 store.items
+    expect(screen.getAllByRole("button", { name: "刷新" })).toHaveLength(1);
+    const calls = storeItemsMock.mock.calls.length;
+    fireEvent.click(within(toolbar).getByRole("button", { name: "刷新" }));
+    await waitFor(() => expect(storeItemsMock.mock.calls.length).toBeGreaterThan(calls));
   });
 
   it("G1 搜索:Enter 即时提交 → query 随首页与翻页透传;计数行双层如实", async () => {
@@ -2038,5 +2139,25 @@ describe("feed read-state-server 纯函数(api.ts)", () => {
     expect(states[explicitFalse.dedup_key]).toBeUndefined();
     expect(states["id:9"]).toEqual({ starred: true });
     expect(statesFromItems([])).toEqual({}); // 空入空出
+  });
+});
+
+// ---------------------------------------------------------------------------
+// topbar-cleanup 纯函数(api.ts):categoryOptionsFromHealth 品类下拉词汇源
+// ---------------------------------------------------------------------------
+
+describe("feed topbar-cleanup 纯函数(api.ts)", () => {
+  it("categoryOptionsFromHealth:id 去重(首现优先)+ name 缺省回 id + null id 不入 + id 排序稳定", () => {
+    const plugins = [
+      pluginEntry({ id: "stocks", name: null }), // name 缺省回 id
+      pluginEntry({ id: "ai-news", name: "AI资讯" }),
+      pluginEntry({ id: "ai-news", name: "重复id后现" }), // 同 id 去重,首现优先
+      pluginEntry({ id: null, name: "坏插件" }), // 装不上(id=null)不入选项
+    ];
+    expect(categoryOptionsFromHealth(plugins)).toEqual([
+      { id: "ai-news", label: "AI资讯" },
+      { id: "stocks", label: "stocks" },
+    ]);
+    expect(categoryOptionsFromHealth([])).toEqual([]); // 空入空出
   });
 });

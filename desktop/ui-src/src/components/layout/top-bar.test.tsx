@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 //
-// 顶栏接线测试:①品类选择器(C8,10-03-feed-ux)选项 = health().plugins 的
-// id 去重 + 名称回显;选中回调上抛(null = 全部品类);health 失败静默收敛。
-// ②D4 壳层:面包屑(世事 › 分组 › 页面,与侧栏导航同口径)+ 全局命令位
-// = ⌘K 命令面板真触发器(interaction-batch A-cmd;面板本体细测——唤起/
-// 巡游/动作——在 command-palette.test.tsx「top-bar 接线」节,此处测触发器
-// 件本身的可达语义)。TopBar 现消费 useLocation(面包屑),须在 MemoryRouter 下渲染。
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+// 顶栏接线测试(壳层清理后极简形态):①屏标题 = 当前路由在侧栏导航口径
+// 下的页面名;②拆除断言:品牌字/面包屑/品类下拉/全局跑一次/假搜索框
+// 均不再出现(侧栏已有品牌+导航;品类与跑一次由 feed/sources 屏自放
+// 上下文版);③⌘K 命令面板触发器收为图标钮(button + aria-haspopup=
+// dialog,点击唤起面板且 aria-expanded 翻转;面板本体细测在
+// command-palette.test.tsx,此处测触发器件本身的可达语义);④health
+// 仍拉取(品类清单供命令面板「切换品类」透传),失败静默不拦顶栏。
+// TopBar 现消费 useLocation(屏标题),须在 MemoryRouter 下渲染。
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
@@ -20,37 +22,13 @@ vi.mock("@/lib/api", async (importOriginal) => {
 });
 
 import { TopBar } from "@/components/layout/top-bar";
-import type { HealthResult } from "@/lib/api";
-
-function healthOf(pluginIds: { id: string | null; name: string | null }[]): HealthResult {
-  return {
-    command: "list",
-    plugins_dir: "/home/plugins",
-    db: "/home/myssia.db",
-    store_error: null,
-    plugins: pluginIds.map((entry, index) => ({
-      file: `/home/plugins/${entry.id ?? `broken-${index}`}.yaml`,
-      id: entry.id,
-      name: entry.name,
-      schedule: null,
-      timezone: null,
-      push_channels: [],
-      loaded: true,
-      load_errors: null,
-      sources: [],
-    })),
-    summary: { plugins: pluginIds.length, sources: 0, ok: 0, degraded: 0, dead: 0, unknown: 0 },
-    healthy: true,
-    first_run: false,
-    exit_code: 0,
-  } as HealthResult;
-}
 
 beforeEach(() => {
   mocks.version.mockResolvedValue({ name: "myssia", version: "1.1.1", protocol: 3 });
   mocks.listen.mockResolvedValue(() => undefined);
   mocks.invoke.mockResolvedValue({ restarted: true });
-  // Radix Select 高亮滚动 jsdom 未实现,补 stub(真实浏览器原生)
+  mocks.health.mockResolvedValue({ plugins: [] });
+  // Radix 巡游高亮滚动 jsdom 未实现,补 stub(真实浏览器原生)
   Element.prototype.scrollIntoView = vi.fn();
 });
 
@@ -59,90 +37,55 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderTopBar(
-  onCategoryChange: (next: string | null) => void = vi.fn(),
-  category: string | null = null,
-  initialEntry = "/",
-) {
+function renderTopBar(initialEntry = "/") {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
-      <TopBar category={category} onCategoryChange={onCategoryChange} />
+      <TopBar category={null} onCategoryChange={vi.fn()} />
     </MemoryRouter>,
   );
 }
 
-describe("TopBar 品类选择器(C8)", () => {
-  it("选项 = health().plugins 的 id 去重(id=null 不入),名称回显;选中上抛回调", async () => {
-    const onChange = vi.fn();
-    mocks.health.mockResolvedValue(
-      healthOf([
-        { id: "ai-news", name: "AI资讯" },
-        { id: "stocks", name: "股票" },
-        { id: "ai-news", name: "重复 id" }, // 同 id 多文件:首现优先
-        { id: null, name: "装不上的" }, // id=null 不入选项
-      ]),
-    );
-    renderTopBar(onChange);
-
-    // Radix Select 受控组件:展开后点选「AI资讯」→ 上抛 id
-    fireEvent.click(screen.getByLabelText("品类选择"));
-    const option = await screen.findByRole("option", { name: "AI资讯" });
-    expect(option).toBeTruthy();
-    fireEvent.click(option);
-    expect(onChange).toHaveBeenCalledWith("ai-news");
+describe("TopBar 屏标题(极简形态)", () => {
+  it("标题 = 当前路由在侧栏导航口径下的页面名(分组路由)", () => {
+    renderTopBar("/sources");
+    expect(screen.getByText("源管理")).toBeTruthy();
   });
 
-  it("「全部品类」选中 = 上抛 null(协议不传参);受控值回显", async () => {
-    const onChange = vi.fn();
-    mocks.health.mockResolvedValue(healthOf([{ id: "stocks", name: "股票" }]));
-    // 从已选品类出发( Radix 对重选当前值不派发变更,测的是切换路径)
-    renderTopBar(onChange, "stocks");
-
-    fireEvent.click(screen.getByLabelText("品类选择"));
-    fireEvent.click(await screen.findByRole("option", { name: "全部品类" }));
-    expect(onChange).toHaveBeenCalledWith(null);
+  it("主入口区路由同样只有页面名(根路由 = 仪表盘)", () => {
+    renderTopBar("/");
+    expect(screen.getByText("仪表盘")).toBeTruthy();
   });
 
-  it("health 失败静默:不阻塞顶栏,选项收敛为仅「全部品类」", async () => {
-    mocks.health.mockRejectedValue(new Error("sidecar 未连接"));
-    renderTopBar();
-
-    await waitFor(() => expect(mocks.health).toHaveBeenCalledTimes(1));
-    fireEvent.click(screen.getByLabelText("品类选择"));
-    const options = await screen.findAllByRole("option");
-    expect(options.map((node) => node.textContent)).toEqual(["全部品类"]);
+  it("底部设置路由也在口径内(设置)", () => {
+    renderTopBar("/settings");
+    expect(screen.getByText("设置")).toBeTruthy();
   });
 });
 
-describe("TopBar 壳层件(D4:面包屑+全局命令位)", () => {
-  it("面包屑 = 世事 › 分组 › 页面(与侧栏导航同一解析口径)", () => {
-    renderTopBar(undefined, null, "/sources");
-    const nav = screen.getByRole("navigation", { name: "面包屑" });
-    expect(within(nav).getByRole("link", { name: "世事" })).toBeTruthy();
-    expect(within(nav).getByText("采集")).toBeTruthy(); // 分组段(弱色)
-    expect(within(nav).getByText("源管理")).toBeTruthy(); // 页面段(末段)
+describe("TopBar 拆除断言(壳层清理)", () => {
+  it("无面包屑、无品牌字「世事」(侧栏已有品牌+导航)", () => {
+    renderTopBar("/sources");
+    expect(screen.queryByRole("navigation", { name: "面包屑" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "世事" })).toBeNull();
+    expect(screen.queryByText("世事")).toBeNull();
+    expect(screen.queryByText("采集")).toBeNull(); // 分组段不出现
   });
 
-  it("主入口区路由无分组段:世事 › 仪表盘(根路由)", () => {
-    renderTopBar(undefined, null, "/");
-    const nav = screen.getByRole("navigation", { name: "面包屑" });
-    expect(within(nav).getByRole("link", { name: "世事" })).toBeTruthy();
-    expect(within(nav).getByText("仪表盘")).toBeTruthy();
-    // 无分组段:任何组标题都不出现
-    for (const group of ["采集", "推送"]) {
-      expect(within(nav).queryByText(group)).toBeNull();
-    }
+  it("无品类下拉、无全局跑一次(由 feed/sources 屏自放上下文版)", () => {
+    renderTopBar("/feed");
+    expect(screen.queryByLabelText("品类选择")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^跑一次/ })).toBeNull();
   });
 
-  it("底部设置路由也在面包屑口径内(世事 › 设置)", () => {
-    renderTopBar(undefined, null, "/settings");
-    const nav = screen.getByRole("navigation", { name: "面包屑" });
-    expect(within(nav).getByRole("link", { name: "世事" })).toBeTruthy();
-    expect(within(nav).getByText("设置")).toBeTruthy();
-    expect(within(nav).queryByText("采集")).toBeNull();
+  it("无假搜索框(触发器收为图标钮,不占宽)", () => {
+    renderTopBar();
+    expect(screen.queryByText("搜索或跳转…")).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
   });
+});
 
-  it("全局命令位 = ⌘K 真触发器:button + aria-haspopup=dialog,点击唤起面板且 aria-expanded 翻转", async () => {
+describe("TopBar ⌘K 命令面板触发器", () => {
+  it("图标钮 = button + aria-haspopup=dialog,点击唤起面板且 aria-expanded 翻转", async () => {
     renderTopBar();
     const trigger = screen.getByRole("button", { name: "打开命令面板" });
     expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
@@ -152,5 +95,16 @@ describe("TopBar 壳层件(D4:面包屑+全局命令位)", () => {
     expect(await screen.findByRole("dialog", { name: "命令面板" })).toBeTruthy();
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
   });
+});
 
+describe("TopBar health 拉取(品类清单供命令面板透传)", () => {
+  it("挂载即拉取一次;失败静默不拦顶栏", async () => {
+    mocks.health.mockRejectedValue(new Error("sidecar 未连接"));
+    renderTopBar();
+
+    await waitFor(() => expect(mocks.health).toHaveBeenCalledTimes(1));
+    // 顶栏本体仍完整:屏标题与触发器俱在
+    expect(screen.getByText("仪表盘")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "打开命令面板" })).toBeTruthy();
+  });
 });

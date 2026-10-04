@@ -16,11 +16,10 @@ import {
   Tags,
   X,
 } from "lucide-react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
-import type { CategoryFilterContext } from "@/components/layout/app-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,6 +38,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, onSidecarEvent, SidecarRequestError } from "@/lib/api";
 import type { FeedEnrichResult, FeedItem, UnlistenFn } from "@/lib/api";
@@ -48,6 +55,7 @@ import {
   appendWatchlistKeyword,
   applyFeedFilter,
   categoryColor,
+  categoryOptionsFromHealth,
   DEFAULT_FEED_DISPLAY,
   defaultExportName,
   exportFeedView,
@@ -73,6 +81,7 @@ import {
   statesFromItems,
   toggleMarker,
   type ExportFormat,
+  type FeedCategoryOption,
   type FeedDisplayOptions,
   type YamlTargetFile,
 } from "./api";
@@ -748,8 +757,8 @@ function FeedCard({
 /**
  * 情报流:条目卡片列表 + 未读/星标/稍后读三态(本地态,localStorage 持久)
  * + 游标分页加载(见 ./api 的协议缺口注记)+ 服务端搜索(G1,防抖/Enter
- * 提交,query 随游标透传)+ 顶栏品类服务端过滤(C8,Outlet context)+ 卡片
- * 展开/打开原文(G2)+ 导出当前视图(G3,dialog.save → feed.export)。
+ * 提交,query 随游标透传)+ 屏内品类下拉服务端过滤(10-04-topbar-cleanup
+ * 归位)+ 卡片展开/打开原文(G2)+ 导出当前视图(G3,dialog.save → feed.export)。
  *
  * D4 结构性重做(10-03-ui-deep-imitation,对标 teardown-linear-activity
  * #4/#5/#6/#11):三级信息密度(13px 标题/正文 + 11px 元信息)、品类色条、
@@ -784,12 +793,21 @@ function FeedCard({
  *
  * fe-gap-census R1(10-04):Mod+F 聚焦内联搜索框(拦截浏览器查找并全选
  *  词面)+ Esc 即时清空(词面与已提交 query 同步归零,不等 300ms 防抖)。
+ *
+ * topbar-cleanup 归位(10-04):品类过滤从全局顶栏拆下自建 —— 屏内品类下拉
+ *  (词汇源 health().plugins,value = 品类 id 与 store.items 精确等值,
+ *  「全部品类」= null 不传参;不再吃 Outlet context)+ 工具条一行收纳
+ *  (KsFilter 范式,同源管理/日志工具行:品类下拉 + 读态分段 + 计数/批量 +
+ *  右侧显示选项/搜索/刷新,置于列表头部;刷新自页头迁入工具条图标位)。
  */
 export function FeedScreen() {
   const navigate = useNavigate();
-  // 顶栏品类(C8):路由 Outlet context 下发;直渲染(无 Outlet 父级)容错 null
-  const outlet = useOutletContext<CategoryFilterContext | null>();
-  const category = outlet?.category ?? null;
+  /** 品类过滤(10-04-topbar-cleanup 归位):屏内下拉自持(「全部品类」=
+   *  null 不传参),不再吃全局顶栏 Outlet context;refresh/loadMore 随其
+   *  变化重查(服务端精确等值,非本地过滤)。 */
+  const [category, setCategory] = useState<string | null>(null);
+  /** 品类下拉选项(health().plugins 派生,挂载一次;与旧顶栏词汇源同构) */
+  const [categoryOptions, setCategoryOptions] = useState<FeedCategoryOption[]>([]);
   const [items, setItems] = useState<FeedItem[]>([]);
   /** 未过门通路的本地态(localStorage 持久;过门后状态源 = 条目派生,不再读写) */
   const [localStates, setLocalStates] = useState<FeedStateMap>({});
@@ -833,6 +851,23 @@ export function FeedScreen() {
   useEffect(() => {
     setLocalStates(loadFeedStates());
     setDisplay(loadFeedDisplay());
+  }, []);
+
+  // 品类下拉选项(挂载一次):health().plugins → id 去重 + 名称回显(同旧
+  // 顶栏纪律);失败静默收敛为仅「全部品类」—— 不拦情报流,选中过滤自然空态
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .health()
+      .then((health) => {
+        if (!cancelled) setCategoryOptions(categoryOptionsFromHealth(health.plugins));
+      })
+      .catch(() => {
+        if (!cancelled) setCategoryOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 能力门探测(挂载一次):低版本/探测失败 → false(旧 localStorage 通路)
@@ -1318,36 +1353,77 @@ export function FeedScreen() {
               <Download className={exporting ? "size-3.5 animate-pulse" : "size-3.5"} />
               {exporting ? "导出中…" : "导出当前视图"}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
-              <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
-              刷新
-            </Button>
           </div>
         }
       />
 
-      <div className="flex flex-wrap items-center gap-1 px-6">
-        {FILTERS.map((entry) => (
-          <Button
-            key={entry.key}
-            variant={filter === entry.key ? "secondary" : "ghost"}
-            size="sm"
-            aria-label={`过滤:${entry.label}`}
-            aria-pressed={filter === entry.key}
-            // 可达性知会(质检件二,最小面):组头随 displayItems(过滤后集合)
-            // 渲染 —— 未读过滤下某品类已加载行全已读时整组不出场,组头批量
-            // 入口暂不可达;title 知会切「全部」恢复,不改过滤/分组渲染语义
-            title={
-              entry.key === "unread"
-                ? "未读过滤会隐藏已加载行全已读的分组(含其批量入口);切「全部」可恢复"
-                : undefined
-            }
-            onClick={() => setFilter(entry.key)}
+      {/* 工具条(10-04-topbar-cleanup 品类归位):一行收纳品类下拉 + 读态分段 +
+          计数/批量 + 右侧显示选项/搜索/刷新,置于列表头部(KsFilter 范式,同
+          源管理/日志工具行;行内控件 32px 档,列表区内滚时本行常驻) */}
+      <div className="flex flex-wrap items-center gap-2 px-6" data-testid="feed-toolbar">
+        {/* 品类下拉(feed 屏自建,顶栏拆下归位):value = 品类 id,服务端
+            store.items 精确等值;「全部品类」= null 不传参。词汇源 =
+            health().plugins(与旧顶栏同构);选项缺载/拉取失败只剩「全部品类」 */}
+        <Select
+          value={category ?? "all"}
+          onValueChange={(value) => setCategory(value === "all" ? null : value)}
+        >
+          <SelectTrigger
+            className="max-w-48 text-muted-foreground"
+            aria-label="品类过滤"
+            data-testid="filter-category"
+            title="品类服务端过滤(store.items 精确等值);「全部品类」= 不传参"
           >
-            {entry.label}
-          </Button>
-        ))}
-        <span className="ml-2 text-2xs text-muted-foreground">
+            <SelectValue />
+          </SelectTrigger>
+          {/* R2 刀4:浮层阴影走 --shadow-popover 令牌(面分层体系) */}
+          <SelectContent className="shadow-popover">
+            <SelectItem value="all">全部品类</SelectItem>
+            {categoryOptions.map((option) => (
+              <SelectItem key={option.id} value={option.id}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* 读态分段(KsFilter 范式,同源管理健康度筛选形态):微填充容器 +
+            内钮 h-7,激活 = bg-accent;aria-label/title 语义原样保留 */}
+        <div
+          role="group"
+          aria-label="读态过滤"
+          className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5"
+        >
+          {FILTERS.map((entry) => {
+            const active = filter === entry.key;
+            return (
+              <button
+                key={entry.key}
+                type="button"
+                aria-label={`过滤:${entry.label}`}
+                aria-pressed={active}
+                // 可达性知会(质检件二,最小面):组头随 displayItems(过滤后集合)
+                // 渲染 —— 未读过滤下某品类已加载行全已读时整组不出场,组头批量
+                // 入口暂不可达;title 知会切「全部」恢复,不改过滤/分组渲染语义
+                title={
+                  entry.key === "unread"
+                    ? "未读过滤会隐藏已加载行全已读的分组(含其批量入口);切「全部」可恢复"
+                    : undefined
+                }
+                onClick={() => setFilter(entry.key)}
+                className={
+                  "h-7 rounded-md px-2.5 text-xs transition-colors duration-(--duration-fast) ease-out-expo " +
+                  (active
+                    ? "bg-accent font-medium text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground")
+                }
+              >
+                {entry.label}
+              </button>
+            );
+          })}
+        </div>
+        <span className="text-2xs text-muted-foreground">
           {filter === "all" ? `共 ${items.length} 条` : `${visible.length} / ${items.length} 条`}
         </span>
         {/* G9 批量操作(入口在过滤区):过门 = store.state.mark_all 全库语义
@@ -1485,25 +1561,45 @@ export function FeedScreen() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Search className="size-3.5 text-muted-foreground" aria-hidden />
-          <input
-            ref={searchInputRef}
-            type="search"
-            value={searchInput}
-            aria-label="搜索条目"
-            placeholder="搜索标题 / 摘要 / 来源(服务端全库)"
-            className="h-7 w-64 rounded-md border border-(--control-border) bg-(--control-bg) px-2.5 text-xs text-foreground transition-colors duration-(--duration-fast) ease-out-expo placeholder:text-muted-foreground hover:bg-(--control-bg-hover)"
-            onChange={(event) => setSearchInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") setQuery(searchInput.trim());
-              // Esc 即时清空(R1):词面与已提交 query 同步归零,不等 300ms 防抖
-              // (type="search" 的原生 Esc 清空对受控值不生效,故显式处理)
-              if (event.key === "Escape") {
-                setSearchInput("");
-                setQuery("");
-              }
-            }}
-          />
+          {/* KsFilter 搜索位:前导图标入框(同源管理/日志工具行),Mod+F 聚焦
+              与 Esc 即时清空行为原样保留 */}
+          <div className="relative">
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
+            />
+            <Input
+              ref={searchInputRef}
+              type="search"
+              value={searchInput}
+              aria-label="搜索条目"
+              placeholder="搜索标题 / 摘要 / 来源(服务端全库)"
+              className="w-64 pl-8 text-xs"
+              onChange={(event) => setSearchInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") setQuery(searchInput.trim());
+                // Esc 即时清空(R1):词面与已提交 query 同步归零,不等 300ms 防抖
+                // (type="search" 的原生 Esc 清空对受控值不生效,故显式处理)
+                if (event.key === "Escape") {
+                  setSearchInput("");
+                  setQuery("");
+                }
+              }}
+            />
+          </div>
+          {/* KsFilter refresh 位(自页头迁入):图标钮承载,loading 期原地自旋
+              (同源管理工具行);重发当前 品类 × 搜索词 的 store.items 查询 */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            aria-label="刷新"
+            title="重发 store.items 查询(当前品类 × 搜索词)"
+            onClick={() => void refresh()}
+            disabled={loading}
+          >
+            <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
+          </Button>
         </div>
       </div>
 

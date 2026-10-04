@@ -14,7 +14,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import { api, SidecarRequestError } from "@/lib/api";
-import type { FeedItem, SidecarErrorShape } from "@/lib/api";
+import type { FeedItem, HealthResult, SidecarErrorShape } from "@/lib/api";
 
 /** 单页条数(与卡片瀑布一屏量级匹配) */
 export const FEED_PAGE_SIZE = 50;
@@ -25,7 +25,7 @@ export interface FeedPageRequest {
   /** 复合游标第二键(与 cursor 同源:同刻条目翻页不跳不重) */
   cursorId: number | null;
   pageSize?: number;
-  /** 品类过滤(null = 不传参 = 全部品类;C8 Outlet context 直通) */
+  /** 品类过滤(null = 不传参 = 全部品类;feed 屏内品类下拉自持,10-04-topbar-cleanup 归位) */
   category?: string | null;
   /** 服务端搜索词(G1:title/content/source 三列 LIKE NOCASE,随游标透传) */
   query?: string | null;
@@ -59,6 +59,36 @@ export async function fetchFeedPage(request: FeedPageRequest): Promise<FeedPage>
     nextCursor: oldest?.first_seen ?? null,
     nextCursorId: oldest?.id ?? null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// 屏内品类下拉(10-04-topbar-cleanup:品类过滤从全局顶栏拆下归位 feed 屏;
+// 词汇源沿用顶栏旧路 = health().plugins,与 store.items 的 category 精确
+// 等值同口径 —— 入库时条目记 config.id(pipeline.py `category=self.config.id`),
+// 选项 value 即 plugin.id,label 显名称)
+// ---------------------------------------------------------------------------
+
+/** 品类下拉选项(id = 服务端过滤词;label = 回显名) */
+export interface FeedCategoryOption {
+  id: string;
+  label: string;
+}
+
+/**
+ * health().plugins → 品类下拉选项:id 去重(目录内同 id 多文件时首现优先)
+ * + 名称回显(name 缺省回 id);装不上的插件 id=null 不入选项(选了也无数据
+ * 可滤);排序稳定(id localeCompare)。与旧顶栏下拉同构(拆下归位零语义变化)。
+ */
+export function categoryOptionsFromHealth(plugins: HealthResult["plugins"]): FeedCategoryOption[] {
+  const seen = new Map<string, string>();
+  for (const plugin of plugins) {
+    if (plugin.id && !seen.has(plugin.id)) {
+      seen.set(plugin.id, plugin.name ?? plugin.id);
+    }
+  }
+  return [...seen.entries()]
+    .map(([id, label]) => ({ id, label }))
+    .sort((a, b) => a.id.localeCompare(b.id));
 }
 
 // ---------------------------------------------------------------------------
