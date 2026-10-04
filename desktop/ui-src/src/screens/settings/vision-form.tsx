@@ -32,6 +32,7 @@ import {
 import { saveSecret } from "./api";
 import { ErrorBox } from "./error-box";
 import { FieldInput } from "./field-input";
+import { SettingRow } from "./settings-row";
 
 /** 云端 api_key 的钥匙链规范名(与 sidecar vision.yaml 引用同口径) */
 const SECRET_NAME_IMAGE_API_KEY = "myia/image/api_key";
@@ -186,38 +187,34 @@ export function VisionForm({ secretNames }: VisionFormProps) {
             image.config.save —— 协议未收编(Python 侧未落地)时会得到结构化 method_not_found,如实呈现。
           </div>
         ) : null}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs text-muted-foreground">默认通道</span>
-            <Select
-              value={form.channelDefault}
-              onValueChange={(value) => setForm((prev) => ({ ...prev, channelDefault: value as VisionChannel }))}
-            >
-              <SelectTrigger aria-label="看图默认通道" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="local">本地(零出网)</SelectItem>
-                <SelectItem value="cloud">云端(出网)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs text-muted-foreground">OCR 默认引擎</span>
-            <Select
-              value={form.ocrEngine}
-              onValueChange={(value) => setForm((prev) => ({ ...prev, ocrEngine: value as OcrEngine }))}
-            >
-              <SelectTrigger aria-label="OCR 默认引擎" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="vision">Vision(macOS)</SelectItem>
-                <SelectItem value="rapidocr">RapidOCR</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        <SettingRow label="默认通道" description="本地零出网优先;云端出网(按云端 key)">
+          <Select
+            value={form.channelDefault}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, channelDefault: value as VisionChannel }))}
+          >
+            <SelectTrigger aria-label="看图默认通道" className="w-64 min-w-0 flex-1 sm:flex-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="local">本地(零出网)</SelectItem>
+              <SelectItem value="cloud">云端(出网)</SelectItem>
+            </SelectContent>
+          </Select>
+        </SettingRow>
+        <SettingRow label="OCR 默认引擎" description="Vision(macOS 原生)或 RapidOCR">
+          <Select
+            value={form.ocrEngine}
+            onValueChange={(value) => setForm((prev) => ({ ...prev, ocrEngine: value as OcrEngine }))}
+          >
+            <SelectTrigger aria-label="OCR 默认引擎" className="w-64 min-w-0 flex-1 sm:flex-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="vision">Vision(macOS)</SelectItem>
+              <SelectItem value="rapidocr">RapidOCR</SelectItem>
+            </SelectContent>
+          </Select>
+        </SettingRow>
         <FieldInput
           label="本地 base_url"
           aria-label="本地 base_url"
@@ -243,27 +240,25 @@ export function VisionForm({ secretNames }: VisionFormProps) {
           onChange={(event) => setForm((prev) => ({ ...prev, cloudModel: event.target.value }))}
           hint="默认 glm-4.6v(glm-4.5v 错读勿用);留空按已保存值"
         />
-        <div className="flex items-end gap-2">
-          <div className="min-w-0 flex-1">
-            <FieldInput
-              label="云端 API Key"
-              aria-label="云端 API Key"
-              type="password"
-              autoComplete="new-password"
-              placeholder="输入后才写入;保存即清,永不回显"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              hint={`写入钥匙链 ${SECRET_NAME_IMAGE_API_KEY};未录时云端回落既有 LLM key(myia/llm/api_key)`}
-            />
-          </div>
-          {secretNames !== null ? (
-            keyInKeychain ? (
-              <Badge variant="ok" className="mb-1.5">key 已在钥匙链</Badge>
-            ) : (
-              <Badge variant="outline" className="mb-1.5">key 未录(云端回落 LLM key)</Badge>
-            )
-          ) : null}
-        </div>
+        <FieldInput
+          label="云端 API Key"
+          aria-label="云端 API Key"
+          type="password"
+          autoComplete="new-password"
+          placeholder="输入后才写入;保存即清,永不回显"
+          value={apiKey}
+          onChange={(event) => setApiKey(event.target.value)}
+          hint={`写入钥匙链 ${SECRET_NAME_IMAGE_API_KEY};未录时云端回落既有 LLM key(myia/llm/api_key)`}
+          action={
+            secretNames !== null ? (
+              keyInKeychain ? (
+                <Badge variant="ok">key 已在钥匙链</Badge>
+              ) : (
+                <Badge variant="outline">key 未录(云端回落 LLM key)</Badge>
+              )
+            ) : null
+          }
+        />
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
             <Save className="size-3.5" />
@@ -647,7 +642,7 @@ export function VisionModelsCard() {
 
         {/* 下载区:repo + 本地名(可选);进度条吃 progress 事件 */}
         <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col divide-y divide-border/60">
             <FieldInput
               label="repo"
               aria-label="模型 repo"

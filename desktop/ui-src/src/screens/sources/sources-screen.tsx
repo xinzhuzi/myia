@@ -1,4 +1,4 @@
-import { RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -12,6 +12,7 @@ import type { TestCompletedEvent } from "@/lib/api";
 import { YamlEditorDialog } from "@/screens/yaml-editor/yaml-editor-dialog";
 
 import { ErrorBox } from "./error-box";
+import { FirstRunGuide } from "./first-run-guide";
 import {
   asSidecarError,
   formatScheduleRun,
@@ -49,6 +50,14 @@ interface TestState {
 /**
  * 源管理:插件/源表格(TanStack 排序/筛选/分页)+ 健康度三色 + 启停写回 + 试抓。
  *
+ * 10-04-ui-kestra-anchor:布局对齐 Kestra Flows 列表(结构借自 Apache-2.0
+ * kestra/ui/src/components/flows/Flows.vue + design-system KsDataTable/KsFilter,
+ * 借结构改语义):顶栏主操作「新建品类」(NavBarAction primary 范式,指向
+ * 既有配置编辑深链)、表格满高分区铺底(full-container,无卡包裹)、工具栏
+ * = KSFilter 范式(搜索+分段筛选+刷新)、行点击开编辑(NON_NAVIGATING_TARGETS
+ * 同款守卫)、动作列图标钮(KsIconButton)。不抄:执行统计迷你时序图(health
+ * 协议无逐 run 历史面)、批量勾选(v1 无批量写回协议)、列显隐配置(列集固定)。
+ *
  * 启停链路:ToggleSwitch → sources.write(契约见 api.ts)→ doctor({yamls:[file]})
  * 复核往返一致 → 刷新 health。任一步失败都回到结构化错误态(开关状态不动),
  * 绝不假装成功。
@@ -80,9 +89,17 @@ export function SourcesScreen() {
   testingRef.current = testing;
   /** 排程一览(G4):逐品类 schedule.preview;单品类失败不塌整区 */
   const [scheduleRows, setScheduleRows] = useState<ScheduleRow[] | null>(null);
+  /** 工具栏刷新态(Kestra KSFilter refresh 位):有数据时原地转圈不卸表格 */
+  const [refreshing, setRefreshing] = useState(false);
 
   const reload = useCallback(async () => {
-    setState({ status: "loading", data: null, error: null });
+    setRefreshing(true);
+    // 首载/错误重试 = 全量骨架;已有数据 = 原地刷新(表格保持挂载)
+    setState((prev) =>
+      prev.status === "ready"
+        ? { ...prev, error: null }
+        : { status: "loading", data: null, error: null },
+    );
     try {
       const data = await loadSourcesData();
       setState({ status: "ready", data, error: null });
@@ -92,6 +109,8 @@ export function SourcesScreen() {
         .catch(() => undefined);
     } catch (error) {
       setState({ status: "error", data: null, error: asSidecarError(error) });
+    } finally {
+      setRefreshing(false);
     }
   }, []);
 
@@ -204,9 +223,13 @@ export function SourcesScreen() {
                 ) : null}
               </div>
             ) : null}
-            <Button size="sm" variant="outline" onClick={() => void reload()} disabled={state.status === "loading"}>
-              <RefreshCw className={state.status === "loading" ? "size-3.5 animate-spin" : "size-3.5"} />
-              刷新
+            {/* Kestra Flows 顶栏范式(NavBarAction primary):主操作=新建,
+                指向既有配置编辑屏深链(纯导航,零新功能) */}
+            <Button size="sm" asChild>
+              <a href="#/yaml-editor" title="到配置编辑新建品类 YAML">
+                <Plus className="size-3.5" />
+                新建品类
+              </a>
             </Button>
           </>
         }
@@ -271,40 +294,42 @@ export function SourcesScreen() {
         </div>
       ) : null}
 
+      {/* Kestra Flows 分区范式(full-container):表格不再卡包裹,直接铺在内容底
+          上(KsDataTable 观感);加载/空态同区呈现 */}
       <div className="px-6">
-        <Card>
-          {/* R2 重排:CardContent 不再写 p-4 —— 纵向呼吸由基调层 [data-slot=card]
-              padding-block 20px 统一供给,横向由 card-content padding-inline 20px
-              供给;原先 p-4 与基调层叠成 36/20 不对称(毒评②边距不均) */}
-          <CardContent className="flex flex-col gap-4">
-            {state.status === "loading" ? (
-              <div className="flex flex-col gap-2" aria-label="加载中">
-                {[0, 1, 2].map((index) => (
-                  <Skeleton key={index} className="h-9 w-full" />
-                ))}
-              </div>
-            ) : state.status === "ready" && rows.length > 0 ? (
-              <SourcesTable
-                rows={rows}
-                disabledKeys={disabledKeys}
-                pendingKeys={pendingKeys}
-                testingKey={testing?.key ?? null}
-                onToggle={(row, next) => void handleToggle(row, next)}
-                onEdit={(row) => setEditingFile(row.pluginFile)}
-                onTest={(row) => void handleTest(row)}
-              />
-            ) : state.status === "ready" ? (
-              <EmptyState
-                title="还没有源数据"
-                description={
-                  state.data && state.data.summary.plugins > 0
-                    ? "已装品类存在但都没有声明源;品类 YAML 的 sources: 节为空或加载失败"
-                    : `插件目录(${state.data?.pluginsDir ?? "plugins"})下没有可加载的品类 YAML`
-                }
-              />
-            ) : null}
-          </CardContent>
-        </Card>
+        {state.status === "loading" ? (
+          <div className="flex flex-col gap-2 py-2" aria-label="加载中">
+            {[0, 1, 2].map((index) => (
+              <Skeleton key={index} className="h-10 w-full" />
+            ))}
+          </div>
+        ) : state.status === "ready" && rows.length > 0 ? (
+          <SourcesTable
+            rows={rows}
+            disabledKeys={disabledKeys}
+            pendingKeys={pendingKeys}
+            testingKey={testing?.key ?? null}
+            onToggle={(row, next) => void handleToggle(row, next)}
+            onEdit={(row) => setEditingFile(row.pluginFile)}
+            onTest={(row) => void handleTest(row)}
+            onRefresh={() => void reload()}
+            refreshing={refreshing}
+          />
+        ) : state.status === "ready" ? (
+          state.data && state.data.summary.plugins > 0 ? (
+            <EmptyState
+              title="还没有源数据"
+              description="已装品类存在但都没有声明源;品类 YAML 的 sources: 节为空或加载失败"
+            />
+          ) : (
+            /* 首跑引导态(R4):零品类 YAML 时给 Kestra 式引导(一键跑 demo),
+               不再零蛋屏;pluginsDir 交代数据根 */
+            <FirstRunGuide
+              pluginsDir={state.data?.pluginsDir ?? null}
+              onDemoCreated={() => void reload()}
+            />
+          )
+        ) : null}
       </div>
 
       {disabledEntries.length > 0 ? (

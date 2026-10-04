@@ -54,6 +54,7 @@ import type { DoctorVerify, EnrichView, SecretSaveRecord } from "./api";
 import { DoctorVerifyPanel } from "./doctor-verify";
 import { ErrorBox } from "./error-box";
 import { FieldInput } from "./field-input";
+import { SettingRow } from "./settings-row";
 import { UpdaterCard } from "./updater-card";
 import { VisionForm } from "./vision-form";
 
@@ -65,6 +66,13 @@ import { VisionForm } from "./vision-form";
 // 每 Card 一个设置主题)+ 开关行自动保存无按钮、输入类配卡片底部保存条
 // (拆解表标注「自创」项,按仓内卡片底栏实现)+ 危险操作单独 Destructive
 // Card 置于区页底部二次确认。vision/updater 已有件整卡融入,不重写。
+//
+// 10-04-ui-kestra-anchor:行式对齐 Kestra settings(结构借自 Apache-2.0
+// kestra/ui/src/components/settings/BasicSettings.vue + components/
+// {Wrapper,block/Block,block/SettingRow}.vue,借结构改语义):内容列
+// 600px 居中单列(Wrapper 范式)、行 = SettingRow 横排(label+hint 左/
+// 控件右 w-64)、卡内行间 divide-y 细线。不抄:单页无分区导航(我们的
+// 五分区 ?section= 深链是既有功能面,R5 零改动保留)。
 // ---------------------------------------------------------------------------
 
 /** 通道 → 规范凭据名缺省(target 语义:feishu 卡的 chat_id / tg 的 bot token / webhook 地址) */
@@ -281,30 +289,23 @@ function EnrichFeedbackCard({
             暂无带 enrich 节的品类(doctor 回显为准);到「配置编辑」为品类补 enrich 节。
           </span>
         ) : (
-          enrichSections.map(({ pluginFile, enrich }) => {
-            const row = rowState(pluginFile);
-            const modelValue = row.modelDraft || enrich.model;
-            const modelDirty = row.modelDraft !== "" && row.modelDraft !== enrich.model;
-            return (
-              <div
-                key={pluginFile}
-                data-testid={`enrich-row-${pluginFile}`}
-                className="flex flex-col gap-3 rounded-md border border-border/60 bg-muted/40 p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-xs font-medium text-foreground">
-                      {pluginFile.split("/").pop() ?? pluginFile}
-                    </span>
+          /* Kestra SettingRow 扁平化:逐品类 = 开关行 + model 行,行间细线,
+             控件右缘与全卡行对齐同一轨(不再嵌套内缩盒) */
+          <div className="divide-y divide-border/60">
+            {enrichSections.map(({ pluginFile, enrich }) => {
+              const row = rowState(pluginFile);
+              const modelValue = row.modelDraft || enrich.model;
+              const modelDirty = row.modelDraft !== "" && row.modelDraft !== enrich.model;
+              return (
+                <div key={pluginFile} data-testid={`enrich-row-${pluginFile}`} className="flex flex-col">
+                  <SettingRow
+                    label={pluginFile.split("/").pop() ?? pluginFile}
+                    description={`预算护栏 budget_per_run = ${enrich.budget_per_run}(只读,改值走「配置编辑」)`}
+                  >
                     <span className="text-2xs text-muted-foreground">
-                      预算护栏 budget_per_run = {enrich.budget_per_run}(只读,改值走「配置编辑」)
-                    </span>
-                  </div>
-                  {/* 开关行:自动保存无按钮(拆解表第 5 条;Linear 开关即时生效模式) */}
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-xs text-muted-foreground">
                       {row.saving ? "写回中…" : enrich.enabled ? "精评已启用" : "精评已停用"}
                     </span>
+                    {/* 开关行:自动保存无按钮(拆解表第 5 条;Linear 开关即时生效模式) */}
                     <Switch
                       checked={enrich.enabled}
                       disabled={row.saving}
@@ -319,41 +320,37 @@ function EnrichFeedbackCard({
                         )
                       }
                     />
-                  </div>
-                </div>
-                <div className="flex items-end gap-2">
-                  <div className="min-w-0 flex-1">
-                    <FieldInput
-                      label="enrich.model"
-                      aria-label={`精评模型 ${pluginFile}`}
-                      placeholder={enrich.model}
-                      value={modelValue}
-                      hint="写回品类 YAML enrich.model(yaml.save;doctor 回显为现值)"
-                      onChange={(event) => setRowState(pluginFile, { modelDraft: event.target.value })}
-                    />
-                  </div>
-                  {/* 终审修整:保存钮 variant 与「保存 LLM 凭据」统一 default
-                      (VL 指认两类保存按钮位/质感不统一;同为主操作,同一视觉) */}
-                  <Button
-                    size="sm"
-                    disabled={!modelDirty || row.saving}
-                    title={modelDirty ? "写回 enrich.model" : "与现值一致,无需保存"}
-                    onClick={() =>
-                      void writeNode(
-                        pluginFile,
-                        "model",
-                        modelValue.trim(),
-                        `${pluginFile} enrich.model 已写回(${modelValue.trim()}),doctor 已复核。`,
-                      )
+                  </SettingRow>
+                  <FieldInput
+                    label="enrich.model"
+                    aria-label={`精评模型 ${pluginFile}`}
+                    placeholder={enrich.model}
+                    value={modelValue}
+                    hint="写回品类 YAML enrich.model(yaml.save;doctor 回显为现值)"
+                    onChange={(event) => setRowState(pluginFile, { modelDraft: event.target.value })}
+                    action={
+                      <Button
+                        size="sm"
+                        disabled={!modelDirty || row.saving}
+                        title={modelDirty ? "写回 enrich.model" : "与现值一致,无需保存"}
+                        onClick={() =>
+                          void writeNode(
+                            pluginFile,
+                            "model",
+                            modelValue.trim(),
+                            `${pluginFile} enrich.model 已写回(${modelValue.trim()}),doctor 已复核。`,
+                          )
+                        }
+                      >
+                        <Save className="size-3.5" />
+                        保存 model
+                      </Button>
                     }
-                  >
-                    <Save className="size-3.5" />
-                    保存 model
-                  </Button>
+                  />
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -660,15 +657,13 @@ export function SettingsScreen() {
         </div>
 
         {/* 右列:区标题+描述,下堆叠多个 Card(每 Card 一个设置主题)。
-            R2 刀3:区标题升 text-lg(16px semibold,字号阶梯档)——级差链
-            页标题 20 → 区标题 16 → 卡标题 13。
-            终审修整:卡间 gap-grid(12px)→gap-4(16px),VL 指认「顶部 YAML
-            区块密集堆叠无呼吸」 */}
+            10-04-ui-kestra-anchor:内容列宽对齐 Kestra settings Wrapper
+            (min(600px, 100%-48px) 居中单列);行 = SettingRow 横排范式 */}
         <section
           key={activeSection.id}
           aria-labelledby={`settings-section-title-${activeSection.id}`}
           data-testid={`settings-section-${activeSection.id}`}
-          className="flex w-full min-w-0 max-w-3xl animate-fade-in flex-col gap-4"
+          className="flex w-full min-w-0 max-w-[600px] animate-fade-in flex-col gap-4"
         >
           <header className="flex flex-col gap-1 pb-1">
             <h2 id={`settings-section-title-${activeSection.id}`} className="text-lg font-semibold text-foreground">
@@ -690,34 +685,36 @@ export function SettingsScreen() {
                     base_url / key 属凭据类,只经 secret.set 入钥匙链;model 经下方「评分与反馈」写回品类 YAML(yaml.save)
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  <FieldInput
-                    label="base_url"
-                    aria-label="base_url"
-                    placeholder="https://open.bigmodel.cn/api/paas/v4 或 env:MYIA_LLM_BASE_URL"
-                    value={llm.baseUrl}
-                    onChange={(event) => setLlm((prev) => ({ ...prev, baseUrl: event.target.value }))}
-                    error={llmErrors.baseUrl}
-                    hint="http(s) 地址 → 值入钥匙链(myia/llm/base_url);env:/keychain: 引用 → 直接写 YAML,不经界面"
-                  />
-                  <FieldInput
-                    label="model"
-                    aria-label="model"
-                    placeholder="glm-4-flash(doctor 回显为现值)"
-                    value={llm.model}
-                    onChange={(event) => setLlm((prev) => ({ ...prev, model: event.target.value }))}
-                    hint="非凭据:存于品类 YAML enrich.model;写回走下方「评分与反馈」分区(yaml.save,mtime 乐观锁)"
-                  />
-                  <FieldInput
-                    label="LLM API Key"
-                    aria-label="LLM API Key"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="输入后才写入;保存即清,永不回显"
-                    value={llm.key}
-                    onChange={(event) => setLlm((prev) => ({ ...prev, key: event.target.value }))}
-                    hint="写入 myia/llm/api_key;YAML 侧引用 keychain:myia/llm/api_key"
-                  />
+                <CardContent className="flex flex-col gap-1">
+                  <div className="divide-y divide-border/60">
+                    <FieldInput
+                      label="base_url"
+                      aria-label="base_url"
+                      placeholder="https://open.bigmodel.cn/api/paas/v4 或 env:MYIA_LLM_BASE_URL"
+                      value={llm.baseUrl}
+                      onChange={(event) => setLlm((prev) => ({ ...prev, baseUrl: event.target.value }))}
+                      error={llmErrors.baseUrl}
+                      hint="http(s) 地址 → 值入钥匙链(myia/llm/base_url);env:/keychain: 引用 → 直接写 YAML,不经界面"
+                    />
+                    <FieldInput
+                      label="model"
+                      aria-label="model"
+                      placeholder="glm-4-flash(doctor 回显为现值)"
+                      value={llm.model}
+                      onChange={(event) => setLlm((prev) => ({ ...prev, model: event.target.value }))}
+                      hint="非凭据:存于品类 YAML enrich.model;写回走下方「评分与反馈」分区(yaml.save,mtime 乐观锁)"
+                    />
+                    <FieldInput
+                      label="LLM API Key"
+                      aria-label="LLM API Key"
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="输入后才写入;保存即清,永不回显"
+                      value={llm.key}
+                      onChange={(event) => setLlm((prev) => ({ ...prev, key: event.target.value }))}
+                      hint="写入 myia/llm/api_key;YAML 侧引用 keychain:myia/llm/api_key"
+                    />
+                  </div>
                   <CardSaveBar
                     state={llmSave}
                     savingLabel="保存中…"
@@ -746,8 +743,8 @@ export function SettingsScreen() {
                   </CardTitle>
                   <CardDescription>池凭据入钥匙链;池 URL 结构在全局 pools YAML(探测走 doctor --config)</CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-col gap-3">
-                  <div className="grid grid-cols-2 gap-2">
+                <CardContent className="flex flex-col gap-1">
+                  <div className="divide-y divide-border/60">
                     <FieldInput
                       label="池名"
                       aria-label="代理池名"
@@ -755,6 +752,7 @@ export function SettingsScreen() {
                       value={proxy.pool}
                       onChange={(event) => setProxy((prev) => ({ ...prev, pool: event.target.value }))}
                       error={proxyErrors.pool}
+                      hint="写入 myia/proxy/<池名>;YAML 侧以 keychain: 引用"
                     />
                     <FieldInput
                       label="凭据值"
@@ -765,6 +763,19 @@ export function SettingsScreen() {
                       value={proxy.value}
                       onChange={(event) => setProxy((prev) => ({ ...prev, value: event.target.value }))}
                       error={proxyErrors.value}
+                    />
+                    <FieldInput
+                      label="全局 pools YAML 路径"
+                      aria-label="pools YAML 路径"
+                      placeholder="config/pools.yaml(--config;缺省=只看现状)"
+                      value={probePath}
+                      onChange={(event) => setProbePath(event.target.value)}
+                      hint="doctor --config 探测全局池结构"
+                      action={
+                        <Button size="sm" variant="secondary" onClick={() => void handleProbe()} disabled={verifying}>
+                          探测
+                        </Button>
+                      }
                     />
                   </div>
                   <CardSaveBar
@@ -777,20 +788,6 @@ export function SettingsScreen() {
                       </Button>
                     }
                   />
-                  <div className="flex items-end gap-2 border-t border-border/60 pt-3">
-                    <div className="min-w-0 flex-1">
-                      <FieldInput
-                        label="全局 pools YAML 路径"
-                        aria-label="pools YAML 路径"
-                        placeholder="config/pools.yaml(--config;缺省=只看现状)"
-                        value={probePath}
-                        onChange={(event) => setProbePath(event.target.value)}
-                      />
-                    </div>
-                    <Button size="sm" variant="secondary" onClick={() => void handleProbe()} disabled={verifying}>
-                      探测
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
 
@@ -828,61 +825,60 @@ export function SettingsScreen() {
                   通道启停与阈值路由在品类 YAML push: 节
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">通道</span>
-                    <Select
-                      value={push.channel}
-                      onValueChange={(channel) =>
-                        setPush((prev) => ({
-                          ...prev,
-                          channel: channel as PushChannel,
-                          secretName: PUSH_SECRET_NAME_BY_CHANNEL[channel] ?? prev.secretName,
-                        }))
-                      }
-                    >
-                      <SelectTrigger aria-label="推送通道" className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PUSH_CHANNELS.map((channel) => (
-                          <SelectItem key={channel} value={channel}>
-                            {channel}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <CardContent className="flex flex-col gap-1">
+                  <div className="divide-y divide-border/60">
+                    <SettingRow label="通道" description="feishu_card / telegram / webhook;通道启停与阈值路由在品类 YAML push: 节">
+                      <Select
+                        value={push.channel}
+                        onValueChange={(channel) =>
+                          setPush((prev) => ({
+                            ...prev,
+                            channel: channel as PushChannel,
+                            secretName: PUSH_SECRET_NAME_BY_CHANNEL[channel] ?? prev.secretName,
+                          }))
+                        }
+                      >
+                        <SelectTrigger aria-label="推送通道" className="w-64 min-w-0 flex-1 sm:flex-none">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PUSH_CHANNELS.map((channel) => (
+                            <SelectItem key={channel} value={channel}>
+                              {channel}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </SettingRow>
+                    <FieldInput
+                      label="品类 scope"
+                      aria-label="品类 scope"
+                      placeholder="stocks"
+                      value={push.scope}
+                      onChange={(event) => setPush((prev) => ({ ...prev, scope: event.target.value }))}
+                      error={pushErrors.scope}
+                      hint="凭据引用键段:myia/<scope>/<凭据名>"
+                    />
+                    <FieldInput
+                      label="凭据名段"
+                      aria-label="推送凭据名"
+                      placeholder={PUSH_SECRET_NAME_BY_CHANNEL[push.channel]}
+                      value={push.secretName}
+                      onChange={(event) => setPush((prev) => ({ ...prev, secretName: event.target.value }))}
+                      error={pushErrors.secretName}
+                      hint="通道目标凭据名(feishu 卡 chat_id / tg token / webhook url)"
+                    />
+                    <FieldInput
+                      label="凭据值"
+                      aria-label="推送凭据值"
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="写入 myia/<scope>/<name>;永不回显"
+                      value={push.value}
+                      onChange={(event) => setPush((prev) => ({ ...prev, value: event.target.value }))}
+                      error={pushErrors.value}
+                    />
                   </div>
-                  <FieldInput
-                    label="品类 scope"
-                    aria-label="品类 scope"
-                    placeholder="stocks"
-                    value={push.scope}
-                    onChange={(event) => setPush((prev) => ({ ...prev, scope: event.target.value }))}
-                    error={pushErrors.scope}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <FieldInput
-                    label="凭据名段"
-                    aria-label="推送凭据名"
-                    placeholder={PUSH_SECRET_NAME_BY_CHANNEL[push.channel]}
-                    value={push.secretName}
-                    onChange={(event) => setPush((prev) => ({ ...prev, secretName: event.target.value }))}
-                    error={pushErrors.secretName}
-                  />
-                  <FieldInput
-                    label="凭据值"
-                    aria-label="推送凭据值"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="写入 myia/<scope>/<name>;永不回显"
-                    value={push.value}
-                    onChange={(event) => setPush((prev) => ({ ...prev, value: event.target.value }))}
-                    error={pushErrors.value}
-                  />
-                </div>
                 <CardSaveBar
                   state={pushSave}
                   savingLabel="保存中…"

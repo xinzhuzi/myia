@@ -1,4 +1,4 @@
-import { Bell, MessageCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, Bell, CheckCircle2, MessageCircle, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -328,16 +328,41 @@ export function MessagingScreen() {
       ) : null}
 
       {notice ? (
-        <div
-          role={notice.kind === "error" ? "alert" : "status"}
-          className={
-            notice.kind === "error"
-              ? "mx-6 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-              : "mx-6 rounded-md border border-ok/30 bg-ok/10 px-4 py-3 text-sm text-ok"
-          }
-          data-testid="messaging-notice"
-        >
-          {notice.text}
+        /* 10-04-ui-kestra-anchor:通知走 Kestra 通知中心范式(结构借自
+           Apache-2.0 design-system KsNotification/ElNotification:右上角浮卡
+           +类型图标+可关闭,借结构改语义)。不自动消失:结果性通知(保存/
+           刷新/别名)由用户关或下一次操作替换,行为面零改动 */
+        <div className="pointer-events-none fixed top-16 right-6 z-50 flex flex-col items-end gap-2">
+          <div
+            role={notice.kind === "error" ? "alert" : "status"}
+            data-testid="messaging-notice"
+            className={
+              "pointer-events-auto flex w-84 animate-pop-in items-start gap-2.5 rounded-lg border border-border border-l-2 bg-popover/95 px-4 py-3 shadow-popover backdrop-blur " +
+              (notice.kind === "error" ? "border-l-destructive" : "border-l-ok")
+            }
+          >
+            {notice.kind === "error" ? (
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-dead" />
+            ) : (
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-ok" />
+            )}
+            <p
+              className={
+                "min-w-0 flex-1 text-left text-xs leading-5 " +
+                (notice.kind === "error" ? "text-dead" : "text-foreground")
+              }
+            >
+              {notice.text}
+            </p>
+            <button
+              type="button"
+              aria-label="关闭通知"
+              className="-m-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/60 hover:text-foreground"
+              onClick={() => setNotice(null)}
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -391,7 +416,8 @@ export function MessagingScreen() {
                       {refreshing.has(platform) ? "发现中…" : "刷新"}
                     </Button>
                   </div>
-                  <ul className="flex flex-col gap-1">
+                  {/* Kestra 列表密度:逐行边框盒 → hairline 分隔行(hover 弱底) */}
+                  <ul className="flex flex-col divide-y divide-border/60">
                     {(data?.platforms[platform] ?? []).map((entry) => {
                       const aliased = data ? hasAlias(entry, data.aliases) : false;
                       const dead = data ? isDeadEntry(entry, data.dead) : false;
@@ -400,7 +426,7 @@ export function MessagingScreen() {
                       return (
                         <li
                           key={`${entry.platform}:${entry.chat_id}`}
-                          className="flex flex-col gap-1 rounded-md border border-border/60 px-3 py-2"
+                          className="flex flex-col gap-1 py-3 transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/25"
                           data-testid={`entry-${entry.chat_id}`}
                         >
                           <div className="flex items-center justify-between gap-2">

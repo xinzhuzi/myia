@@ -384,7 +384,7 @@ describe("源管理:启停写回 + doctor 往返复核", () => {
 });
 
 describe("源管理:空态与错误态", () => {
-  it("无插件 → 品牌空态", async () => {
+  it("无插件 → 首跑引导态(Kestra 空态+一键 demo)", async () => {
     const { map } = okSidecar([]);
     map.health = () => healthResult([]);
     installSidecar(map);
@@ -393,8 +393,44 @@ describe("源管理:空态与错误态", () => {
         <SourcesScreen />
       </MemoryRouter>,
     );
-    expect(await screen.findByText("还没有源数据")).toBeTruthy();
+    /* 10-04-ui-kestra-anchor:零品类 YAML = 引导态,不再是死文案空态 */
+    expect(await screen.findByText("还没有品类源")).toBeTruthy();
     expect(screen.getByText(/插件目录\(plugins\)下没有可加载的品类 YAML/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "一键跑 demo" })).toBeTruthy();
+    expect(screen.getByTestId("first-run-guide")).toBeTruthy();
+    expect(screen.getByText("需要指引?")).toBeTruthy();
+  });
+
+  it("一键跑 demo:模板落盘 + run.start + 完成态去日志屏(首跑引导闭环)", async () => {
+    const { map } = okSidecar([]);
+    map.health = () => healthResult([]);
+    let savedFile = "";
+    let savedContent = "";
+    map["yaml.template"] = () => ({ content: "id: my-category\nsources: []\n" });
+    map["yaml.save"] = (params: never) => {
+      const { file, content } = params as { file: string; content: string };
+      savedFile = file;
+      savedContent = content;
+      return { file, created: true, warnings: [], doctor: { ok: true, message: "doctor ok" } };
+    };
+    map["run.start"] = (params: never) => {
+      expect((params as { yaml: string }).yaml).toBe(savedFile);
+      return { run_id: 42 };
+    };
+    installSidecar(map);
+    render(
+      <MemoryRouter>
+        <SourcesScreen />
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "一键跑 demo" }));
+    const started = await screen.findByTestId("demo-started");
+    expect(started.textContent).toContain("run #42");
+    expect(savedFile).toContain("myssia-demo.yaml");
+    // 模板 id 段替换为 demo stem(createDraft 同款文本手术)
+    expect(savedContent).toContain("id: myssia-demo");
+    // 完成态带日志屏深链(采集结果去向)
+    expect(screen.getByRole("link", { name: "去日志屏查看" })).toBeTruthy();
   });
 
   it("sidecar 不可用 → 结构化错误(code/path)+ 重试", async () => {

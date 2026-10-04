@@ -6,7 +6,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronUp, ChevronsUpDown, Loader2, FlaskConical, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Loader2, FlaskConical, Pencil, RefreshCw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,14 @@ import type { ColumnDef, SortingState } from "@tanstack/react-table";
 
 /** 健康度过滤档(全部 = 不筛);排序用严重度秩:ok 最轻、dead 最重 */
 const HEALTH_RANK = { ok: 0, degraded: 1, dead: 2, unknown: 3 } as const;
+
+/*
+ * 10-04-ui-kestra-anchor:工具栏/行交互/动作列对齐 Kestra Flows 列表
+ * (结构借自 Apache-2.0 kestra/ui/src/components/flows/Flows.vue +
+ * design-system KsDataTable/KsFilter/KsIconButton,借结构改语义):
+ * KSFilter 式工具栏(搜索+分段筛选+刷新)、行点击开编辑(NON_NAVIGATING_
+ * TARGETS 守卫)、动作列图标钮。不抄:列显隐配置/批量勾选(协议面无对应)。
+ */
 
 export type HealthFilter = "all" | "ok" | "degraded" | "dead";
 
@@ -50,6 +58,9 @@ interface SourcesTableProps {
   onEdit: (row: SourceRow) => void;
   /** 行「试抓」:发起 sources.test 异步 job(C13;结果经 test.completed 事件回屏) */
   onTest: (row: SourceRow) => void;
+  /** 工具栏刷新(Kestra KSFilter 的 refresh 位;loading 态由屏层传入) */
+  onRefresh: () => void;
+  refreshing: boolean;
 }
 
 /** 品类插件列的排序/筛选键(名称优先,缺位回退 id/文件) */
@@ -186,32 +197,37 @@ const COLUMNS: ColumnDef<SourceRow>[] = [
     enableSorting: false,
     enableGlobalFilter: false,
     enableResizing: false,
+    size: 72,
     cell: ({ row, table }) => {
       const meta = table.options.meta as SourcesTableMeta;
       const key = sourceKey(row.original.pluginFile, row.original.sourceName);
       const testing = meta.testingKey === key;
       return (
-        <div className="flex items-center gap-1">
+        /* Kestra Flows 动作列范式(KsIconButton):24px 幽灵图标钮 + tooltip,
+           文字收进 title/aria-label——密度对齐,试抓/编辑语义不变 */
+        <div className="flex items-center justify-end gap-0.5">
           {/* 试抓动作(C13):异步 job(sources.test),结果在表格上方回显;单飞期间全表禁点 */}
           <Button
-            size="sm"
-            variant="outline"
+            size="icon"
+            variant="ghost"
+            className="size-7"
             disabled={meta.testingKey !== null}
             aria-label={`试抓 ${row.original.sourceName}`}
             title={`myssia test ${row.original.pluginFile} --source ${row.original.sourceName}`}
             onClick={() => meta.onTest(row.original)}
           >
             {testing ? <Loader2 className="size-3.5 animate-spin" /> : <FlaskConical className="size-3.5" />}
-            试抓
           </Button>
           {/* 编辑动作:当场弹出编辑对话框(不离开源管理屏;深链 /yaml-editor?file= 仍可用) */}
           <Button
-            size="sm"
-            variant="outline"
+            size="icon"
+            variant="ghost"
+            className="size-7"
+            aria-label="编辑"
             title={`弹出编辑对话框:${row.original.pluginFile}`}
             onClick={() => meta.onEdit(row.original)}
           >
-            编辑
+            <Pencil className="size-3.5" />
           </Button>
         </div>
       );
@@ -230,13 +246,15 @@ interface SourcesTableMeta {
   /** 行「试抓」:发起 sources.test 异步 job(结果经 test.completed 事件回屏) */
   onTest: (row: SourceRow) => void;
 }
-
 /**
  * 插件/源表格:引擎仍是 TanStack Table(排序/筛选/分页),渲染层迁 Phase1
- * 基件 ui/table(D4):compact 36px 行密度、细边框分层、表头 2xs;列宽拖拽
- * (columnResizeMode=onChange,拖右缘手柄实时改宽,双击手柄复位);末列(操作)
- * 不定宽,吃掉剩余宽度 —— 其余列渲染宽度 = getSize() 像素原值,拖拽所见即所得。
- * 列头点击循环排序(升→降→取消);全局文本框与健康度 chips 由父组件受控传入。
+ * 基件 ui/table(D4)。10-04-ui-kestra-anchor 对标 Kestra Flows.vue/KsDataTable:
+ * ①工具栏 = KSFilter 范式(搜索框 + 分段筛选 + 刷新图标钮,贴表格上方一条);
+ * ②表格直接铺在内容底上(无卡包裹,Kestra 列表满高分区 full-container 观感),
+ *   行点击 = 编辑(Kestra 行点击进 flow 编辑器;NON_NAVIGATING_TARGETS 同款
+ *   守卫:按钮/开关/链接/拖拽手柄点击不触发行导航);
+ * ③动作列 = KsIconButton 图标钮(tooltip 承载语义)。
+ * 列宽拖拽(columnResizeMode=onChange)与列头循环排序保持不变。
  */
 export function SourcesTable({
   rows,
@@ -246,6 +264,8 @@ export function SourcesTable({
   onToggle,
   onEdit,
   onTest,
+  onRefresh,
+  refreshing,
 }: SourcesTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -279,9 +299,9 @@ export function SourcesTable({
   const headers = table.getHeaderGroups()[0]?.headers ?? [];
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* R2 刀4 控件质感:工具栏一行内控件高度统一 32px(筛选 chips 弃 sm 档,
-          与 Input h-8 同族);搜索框带 Linear 式前置放大镜 */}
+    <div className="flex flex-col gap-3">
+      {/* Kestra KSFilter 范式:一条工具栏贴表格上方 —— 左搜索/右筛选+刷新;
+          控件高统一 32px(--control-h 档) */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="relative w-64">
           <Search
@@ -296,20 +316,50 @@ export function SourcesTable({
             className="pl-8"
           />
         </div>
-        <div className="flex items-center gap-1" role="group" aria-label="健康度筛选">
-          {HEALTH_FILTERS.map(({ value, label }) => (
-            <Button
-              key={value}
-              variant={healthFilter === value ? "secondary" : "ghost"}
-              onClick={() => setHealthFilter(value)}
-            >
-              {label}
-            </Button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div
+            role="group"
+            aria-label="健康度筛选"
+            className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5"
+          >
+            {HEALTH_FILTERS.map(({ value, label }) => {
+              const active = healthFilter === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setHealthFilter(value)}
+                  className={
+                    "h-7 rounded-md px-2.5 text-xs transition-colors duration-(--duration-fast) ease-out-expo " +
+                    (active
+                      ? "bg-accent font-medium text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground")
+                  }
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            aria-label="刷新"
+            title="重载源健康度与排程"
+            disabled={refreshing}
+            onClick={onRefresh}
+          >
+            <RefreshCw className={refreshing ? "size-3.5 animate-spin" : "size-3.5"} />
+          </Button>
         </div>
       </div>
 
-      <Table className={cn("table-fixed", resizing && "select-none")}>
+      {/* 表格区:满铺无卡填充(Kestra full-container 密度),外缘 hairline
+          容器收边(与下方排程/停用卡的圆角分层同族)+ 表头浅底带 */}
+      <div className="overflow-hidden rounded-lg border border-border">
+        <Table className={cn("table-fixed", resizing && "select-none")}>
         {/* 列宽拖拽:定宽列渲染 getSize() 原值;末列(操作)不定宽吃剩余宽度 */}
         <colgroup>
           {leafColumns.map((column, index) =>
@@ -320,7 +370,7 @@ export function SourcesTable({
             ),
           )}
         </colgroup>
-        <TableHeader>
+        <TableHeader className="bg-muted/30">
           <TableRow className="hover:bg-transparent">
             {headers.map((header, index) => {
               const canSort = header.column.getCanSort();
@@ -384,16 +434,26 @@ export function SourcesTable({
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.map((row) => (
-            /* 终审修整:行高 36→44px——VL 指认「行距过密、开关与最近产出列拥挤」
-               (compact 密度档对表格正文过紧,升一档呼吸) */
-            <TableRow key={row.id} className="h-11">
+            /* Kestra Flows 行点击范式:整行可点开编辑(= 弹出编辑对话框),
+               按钮/开关/链接/拖拽手柄内的点击不冒泡到行(NON_NAVIGATING_TARGETS
+               同款守卫);行高 44px 档(Kestra el-table ~41px 同密度带) */
+            <TableRow
+              key={row.id}
+              className="h-11 cursor-pointer hover:bg-accent/40"
+              onClick={(event) => {
+                const target = event.target as HTMLElement;
+                if (target.closest("button, a, input, [role='switch'], [data-column-resize-handle]")) return;
+                onEdit(row.original);
+              }}
+            >
               {row.getVisibleCells().map((cell) => (
                 <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
               ))}
             </TableRow>
           ))}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
 
       <div className="flex items-center justify-between text-2xs text-muted-foreground">
         <span>

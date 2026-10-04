@@ -6,7 +6,6 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import type { SidecarRequestError } from "@/lib/api";
@@ -37,6 +36,13 @@ const INITIAL_RUN: RunView = { starting: false, runId: null, error: null };
 
 /**
  * 配置编辑第六屏:左文件列表 + 右 CodeMirror 原文编辑。
+ *
+ * 10-04-ui-kestra-anchor:IDE 满高框架对齐 Kestra 流编辑器(结构借自
+ * Apache-2.0 kestra/ui/src/components/flows/FlowCreate.vue 的 full-container
+ * 分区 + 编辑器顶栏动作位,借结构改语义):去双层卡嵌套,左文件栏改平铺
+ * 侧板(border-r 细线分层),右编辑区 = 工具条(跑一次/校验/保存)+ 满高
+ * 编辑面 + 底部 findings 抽屉。不抄:Topology/Source 双面板切换(CodeMirror
+ * 单面即全部语义)、Monaco(vite 体积约束,CodeMirror 已在案)。
  *
  * 编辑内核(读取→dirty→校验→保存→doctor 复核)在 use-yaml-file-editor,
  * 与源管理弹窗(yaml-editor-dialog.tsx)共享同一份保存逻辑。本屏独有:
@@ -179,29 +185,20 @@ export function YamlEditorScreen() {
   const draftName = docReady?.draft ? docReady.fileName : null;
 
   return (
-    /* R2 重排:满高编辑器屏不适用区块 gap-block 令牌(基调层显式排除),
-       头→工作区节奏用标准 16px 档(IDE 密度),底部呼吸 pb-4 保持 */
-    <div className="flex h-full min-h-0 flex-col gap-4 pb-4">
+    /* 10-04-ui-kestra-anchor:IDE 满高框架对齐 Kestra 编辑器(FlowCreate.vue
+       full-container + MultiPanelFlowEditorView,借结构改语义;Apache-2.0):
+       左文件栏 = 平铺侧板(border-r 细线分层,无卡包裹),右编辑区 = 工具条
+       (文件名+校验/保存/跑一次)+ 编辑面 + 底部 findings 抽屉;编辑器满高
+       铺底,不再双层卡嵌套 */
+    <div className="flex h-full min-h-0 flex-col pb-4">
       <PageHeader
         title="配置编辑"
         description="品类 YAML 原文编辑:注释逐字节保真;保存经同门校验(坏内容零写入),成功后 doctor 复核"
         actions={
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={docReady === null || dirty || run.starting}
-              title={dirty ? "先保存再运行" : "以当前品类发起一次采集(run.start)"}
-              onClick={() => void handleRunOnce()}
-            >
-              <Play className="size-3.5" />
-              跑一次
-            </Button>
-            <Button size="sm" variant="outline" disabled={list.status === "loading"} onClick={() => void reloadList()}>
-              <RefreshCw className={list.status === "loading" ? "size-3.5 animate-spin" : "size-3.5"} />
-              刷新
-            </Button>
-          </>
+          <Button size="sm" variant="outline" disabled={list.status === "loading"} onClick={() => void reloadList()}>
+            <RefreshCw className={list.status === "loading" ? "size-3.5 animate-spin" : "size-3.5"} />
+            刷新
+          </Button>
         }
       />
 
@@ -216,54 +213,70 @@ export function YamlEditorScreen() {
         </div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 gap-4 px-6">
-        <Card className="flex w-72 shrink-0 flex-col">
-          {/* R2 重排:CardContent 去 p-3 —— 卡边距统一走基调层 20px(纵向卡身
-              + 横向卡内容),原先 p-3 与基调层叠成 32/20 不对称 */}
-          <CardContent className="flex min-h-0 flex-1 flex-col">
-            {list.status === "loading" ? (
-              <div className="flex flex-col gap-2" aria-label="文件列表加载中">
-                {[0, 1, 2, 3].map((index) => (
-                  <Skeleton key={index} className="h-10 w-full" />
-                ))}
-              </div>
-            ) : list.status === "ready" ? (
-              <FileList
-                files={list.files}
-                selectedFile={selectedFile}
-                draftName={draftName}
-                onSelect={(file) => void openFile(file)}
-                onDelete={(entry) => void handleDelete(entry)}
-                onCreate={(stem) => void createDraft(stem, list.pluginsDir)}
-              />
-            ) : null}
-          </CardContent>
-        </Card>
+      <div className="flex min-h-0 flex-1 px-6">
+        {/* 左文件栏:Kestra 侧板范式——flat 列表贴底,border-r 细线与编辑区分层 */}
+        <aside className="flex w-64 shrink-0 flex-col border-r border-border pr-3">
+          {list.status === "loading" ? (
+            <div className="flex flex-col gap-2 pt-1" aria-label="文件列表加载中">
+              {[0, 1, 2, 3].map((index) => (
+                <Skeleton key={index} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : list.status === "ready" ? (
+            <FileList
+              files={list.files}
+              selectedFile={selectedFile}
+              draftName={draftName}
+              onSelect={(file) => void openFile(file)}
+              onDelete={(entry) => void handleDelete(entry)}
+              onCreate={(stem) => void createDraft(stem, list.pluginsDir)}
+            />
+          ) : null}
+        </aside>
 
-        <Card className="flex min-w-0 flex-1 flex-col">
-          <CardContent className="flex min-h-0 flex-1 flex-col gap-2">
-            {/* 标题区:文件名 + dirty 标记 + 完整路径(dev 模式即仓库路径,决议 10 保透明) */}
-            <div className="flex items-center justify-between gap-2" data-testid="editor-title">
-              <span className="flex min-w-0 items-center gap-1.5">
-                <span className="truncate text-sm font-medium text-foreground">
-                  {docReady ? docReady.fileName : "未选择文件"}
-                  {dirty ? " *" : ""}
-                </span>
-                {docReady?.draft ? <Badge variant="default">未保存草稿</Badge> : null}
+        {/* 右编辑区:工具条(Kestra 编辑器顶栏位)+ 编辑面 + findings 抽屉 */}
+        <main className="flex min-w-0 flex-1 flex-col pl-6">
+          {/* 工具条:文件名/dirty/路径在左,校验/保存/跑一次在右(Kestra
+              编辑器 TopBar 动作位;⌘S 键帽与 runNotice 同行) */}
+          <div
+            className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-border"
+            data-testid="editor-title"
+          >
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-sm font-medium text-foreground">
+                {docReady ? docReady.fileName : "未选择文件"}
+                {dirty ? " *" : ""}
               </span>
+              {docReady?.draft ? <Badge variant="default">未保存草稿</Badge> : null}
               <span
-                className="max-w-[55%] truncate font-mono text-2xs text-muted-foreground"
+                className="max-w-[38%] truncate font-mono text-2xs text-muted-foreground"
                 title={docReady ? docReady.file : undefined}
                 data-testid="editor-path"
               >
                 {docReady ? docReady.file : ""}
               </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* 终审修整:「校验」outline→secondary——与「保存」(default)同为
-                  填充型按钮,消灭描边粗细不一的观感(VL 指认);⌘S 文字标签
-                  升 kbd 键帽(与顶栏命令位同族) */}
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              {runNotice ? (
+                <span
+                  role="status"
+                  data-testid="run-notice"
+                  className="max-w-56 truncate text-2xs text-warning"
+                  title={runNotice}
+                >
+                  {runNotice}
+                </span>
+              ) : null}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={docReady === null || dirty || run.starting}
+                title={dirty ? "先保存再运行" : "以当前品类发起一次采集(run.start)"}
+                onClick={() => void handleRunOnce()}
+              >
+                <Play className="size-3.5" />
+                跑一次
+              </Button>
               <Button
                 size="sm"
                 variant="secondary"
@@ -285,86 +298,75 @@ export function YamlEditorScreen() {
                 <kbd className="rounded-sm border border-border/60 bg-muted px-1 font-mono leading-4 text-muted-foreground">
                   ⌘S
                 </kbd>
-                保存
               </span>
-              {runNotice ? (
-                <span
-                  role="status"
-                  data-testid="run-notice"
-                  className="truncate text-2xs text-warning"
-                >
-                  {runNotice}
-                </span>
-              ) : null}
-            </div>
+            </span>
+          </div>
 
-            {/* 终审修整:编辑器区四周留白(pr-2 右侧呼吸 + 编辑面弱底)——
-                VL 指认「编辑器右侧无留白贴边」(CodeMirror 文字满宽到卡缘) */}
-            <div className="min-h-0 flex-1 pr-2">
-              {doc.status === "idle" ? (
-                <EmptyState
-                  compact
-                  title="从左侧选择品类文件"
-                  description="坏文件(损坏徽标)也能打开修复;「新建」从最小模板起草"
-                />
-              ) : doc.status === "loading" ? (
-                <div className="flex h-full flex-col gap-2" aria-label="文件读取中">
-                  <Skeleton className="h-full w-full" />
-                </div>
-              ) : doc.status === "error" ? (
-                <ErrorBox error={doc.error} onRetry={() => void openFile(doc.file)} />
-              ) : (
-                <EditorPane value={doc.content} onChange={setContent} className="h-full" />
-              )}
-            </div>
+          {/* 编辑面:满高铺底(Kestra 编辑器面无卡边距;右缘呼吸保底) */}
+          <div className="min-h-0 flex-1 py-2 pr-1">
+            {doc.status === "idle" ? (
+              <EmptyState
+                compact
+                title="从左侧选择品类文件"
+                description="坏文件(损坏徽标)也能打开修复;「新建」从最小模板起草"
+              />
+            ) : doc.status === "loading" ? (
+              <div className="flex h-full flex-col gap-2" aria-label="文件读取中">
+                <Skeleton className="h-full w-full" />
+              </div>
+            ) : doc.status === "error" ? (
+              <ErrorBox error={doc.error} onRetry={() => void openFile(doc.file)} />
+            ) : (
+              <EditorPane value={doc.content} onChange={setContent} className="h-full" />
+            )}
+          </div>
 
-            {/* 结果区:校验 findings / 保存结构化错误 / doctor 复核 / 跑一次去向 */}
-            <div className="flex max-h-44 shrink-0 flex-col gap-1.5 overflow-y-auto border-t border-border pt-2">
-              {validate.error ? <ErrorBox error={validate.error} /> : null}
-              {validate.result ? (
-                <FindingsPanel
-                  findings={validate.result.findings}
-                  emptyText={
-                    validate.result.valid
-                      ? validate.result.category
-                        ? `校验通过:${validate.result.category.name}(${validate.result.category.sources} 源)`
-                        : "校验通过"
-                      : null
-                  }
-                />
-              ) : null}
+          {/* findings 抽屉:校验 findings / 保存结构化错误 / doctor 复核 / 跑一次去向 */}
+          <div className="flex max-h-44 shrink-0 flex-col gap-1.5 overflow-y-auto border-t border-border pt-2">
+            {validate.error ? <ErrorBox error={validate.error} /> : null}
+            {validate.result ? (
+              <FindingsPanel
+                findings={validate.result.findings}
+                emptyText={
+                  validate.result.valid
+                    ? validate.result.category
+                      ? `校验通过:${validate.result.category.name}(${validate.result.category.sources} 源)`
+                      : "校验通过"
+                    : null
+                }
+              />
+            ) : null}
 
-              {save.error ? <ErrorBox error={save.error} /> : null}
-              {save.created !== null && save.error === null ? (
-                <p role="status" data-testid="save-ok" className="text-xs text-ok">
-                  已保存{save.created ? "(新建)" : ""} · mtime 基线已更新
-                </p>
-              ) : null}
-              {save.created !== null && save.error === null ? (
-                <FindingsPanel findings={save.warnings} emptyText="保存完成,无警告" />
-              ) : null}
-              {save.doctor ? (
-                <p
-                  role="status"
-                  data-testid="doctor-check"
-                  className={save.doctor.ok ? "text-xs text-ok" : "text-xs text-destructive"}
-                >
-                  {save.doctor.message}
-                </p>
-              ) : null}
+            {save.error ? <ErrorBox error={save.error} /> : null}
+            {save.created !== null && save.error === null ? (
+              <p role="status" data-testid="save-ok" className="text-xs text-ok">
+                已保存{save.created ? "(新建)" : ""} · mtime 基线已更新
+              </p>
+            ) : null}
+            {save.created !== null && save.error === null ? (
+              <FindingsPanel findings={save.warnings} emptyText="保存完成,无警告" />
+            ) : null}
+            {save.doctor ? (
+              <p
+                role="status"
+                data-testid="doctor-check"
+                className={save.doctor.ok ? "text-xs text-ok" : "text-xs text-destructive"}
+              >
+                {save.doctor.message}
+              </p>
+            ) : null}
 
-              {run.runId !== null ? (
-                <p role="status" data-testid="run-started" className="text-xs text-foreground">
-                  已发起采集(run #{run.runId});
-                  <Link to="/logs" className="ml-0.5 text-primary underline-offset-2 hover:underline">
-                    去日志屏查看
-                  </Link>
-                </p>
-              ) : null}
-              {run.error ? <ErrorBox error={run.error} /> : null}
-            </div>
-          </CardContent>
-        </Card>
+            {run.runId !== null ? (
+              <p role="status" data-testid="run-started" className="text-xs text-foreground">
+                已发起采集(run #{run.runId});
+                <Link to="/logs" className="ml-0.5 text-primary underline-offset-2 hover:underline">
+                  去日志屏查看
+                </Link>
+              </p>
+            ) : null}
+            {run.error ? <ErrorBox error={run.error} /> : null}
+          </div>
+        </main>
       </div>
     </div>
   );
