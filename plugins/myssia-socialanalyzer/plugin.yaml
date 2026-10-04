@@ -1,0 +1,23 @@
+# myssia-socialanalyzer — 官方场景件:社媒画像分析台(封装 qeeqbox/social-analyzer)。
+#
+# 分析件二批(AC9,task 10-05-plugin-market-batch 批二):对给定用户名做
+# 1000+ 社媒站点的存在性检测与画像深挖(名称/头像/简介/链接聚合),与
+# myssia-maigret 互补(maigret=跨站占用快扫,social-analyzer=站点画像深挖;
+# 上游 2026-01 后趋缓,已记档)。**无门槛件**(普通 remote 桩,不声明
+# gate)。本插件只以 manifest 声明依赖与文档引用接入,不复制其任何源码;
+# 上游虽提供 API/CLI/Web 三形态,但其 docker 栈含 selenium 网格较重,本件
+# **只桩不带 compose**(要自部署请直接用上游仓库自带的部署 compose)。
+id: myssia-socialanalyzer
+name: 社媒画像分析台(social-analyzer)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: remote
+requires: []
+provides: [social_profiling]
+modes:
+  remote:
+    endpoint: https://socialanalyzer.example.com   # your social-analyzer deployment
+    # 上游自部署 Web/API 面无内建鉴权(回环/内网部署自担边界);故本件
+    # 不带 token 声明。
+install:
+  source: https://github.com/xinzhuzi/myia.git
