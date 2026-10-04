@@ -57,7 +57,9 @@ Hermes 深度对拍(2026-10-05,上游钉死 af90026)产出的缺口与升级项*
     test_corrupt_file_degrades_to_empty_then_rewrites)/全程 fake clock
     (test_full_heal_loop_with_fake_clock);落库载体 d613310(收编)+换眼复审
     R1-high 修复 9b9b540(定向重投回归 test_targeted_retry_resends_to_resolved_
-    target_not_exploded);本收口重跑 tests/push 1088 全过(exit 0)。
+    target_not_exploded)+复审二轮 338faa4(防重发闸门拦重投/零报告误判
+    mark_delivered 永久丢,/tmp/r1_repro.py 复现+slot_dedup 开关+三形回归,
+    tests/push 1091 批注);本收口重跑 tests/push 1088 全过(exit 0,f64c0ef)。
 - [x] AC2(R2):飞书瞬态重试/降级/拆卡、TG retry_after 退避逐错序列断言;
   既有 tests/push 零回归。
   - 证据:tests/push/test_feishu_retry.py 27 用例(飞书瞬态退避逐错序列+reply
@@ -72,7 +74,9 @@ Hermes 深度对拍(2026-10-05,上游钉死 af90026)产出的缺口与升级项*
     test_messaging_bluebubbles.py 23 用例壳断言已改 MockTransport 真发送断言;
     消息屏 messaging-screen.test.tsx/platform-icons.test.tsx 随 7502a0c 同步;
     批内门禁 tests/push 1060+messaging 66+tsc+build 绿(7502a0c 批注);
-    本收口重跑 vitest 全量 23 文件 433 全过+npm run build(tsc+vite)exit 0。
+    复审二轮 adcdbc5(signal 应答校验 fail-closed:200+JSON 缺 result 不再
+    放行,测试+2,tests/push 1093 批注);本收口重跑 vitest 全量 23 文件 433
+    全过+npm run build(tsc+vite)exit 0(两笔复审修复均纯 python,UI 面不变)。
 - [x] AC4(R4):discord/slack 发现(翻页聚合/限流退避/补名)测试在案;
   channels.refresh 链路零协议变更。
   - 证据:f143000 恰好白名单四文件,test_messaging_discord.py 30+
@@ -90,6 +94,8 @@ Hermes 深度对拍(2026-10-05,上游钉死 af90026)产出的缺口与升级项*
     (该提交 stat 无 skill 文件);白名单域(tests/push+消息屏 UI)全绿。
     ruff check=All checks passed(exit 0);vitest 全量 23 文件 433 全过;
     npm run build(tsc+vite)exit 0。批内锚:d613310 收编时全量 3935 过。
+    复审二轮后代码尖(adcdbc5)复跑:pytest 全量 3969 passed/32 skipped/
+    同两外来红(90.95s)、tests/push 1093 全过(15.32s)、push 域 ruff 绿。
 - [x] AC6:每路 pathspec 提交(--only)零外来混入;蓝本锚注记+MIT 全部落。
   - 证据:R3=7502a0c 九文件、R4=f143000 四文件+d556bb7 文案单文件、R2 修复
     4863430/f64c0ef 面收敛,皆白名单内;R1/R2 原始实装载体为 d613310 收编
@@ -102,12 +108,16 @@ Hermes 深度对拍(2026-10-05,上游钉死 af90026)产出的缺口与升级项*
     f64c0ef225c7942f486a44eef691dc9ce736e14f bak=/tmp/世事.app.bak-wf-025213」
     (worktree HEAD f64c0ef 干净构建静默换装,世事.app 132.24 MiB);装机版
     /Applications/世事.app/Contents/MacOS/myssia-core secret list=两条凭据名
-    exit=0 零授权框、cron list --json=exit 0。
+    exit=0 零授权框、cron list --json=exit 0。谱系注记:装机钉版 f64c0ef
+    (换装毕 02:52),其后的复审二轮两笔 338faa4(02:54:44)/adcdbc5(02:57:05)
+    未随包——循 0355528 判例如实注记,下次装机自刷。
 - [x] AC8:换眼复审(独立上下文读四路 diff)发现项修复或如实标注。
-  - 证据:复审产出三笔全落——9b9b540(批注「R1 换眼复审 R1-high」:定向重投
+  - 证据:复审产出五笔全落——9b9b540(批注「R1 换眼复审 R1-high」:定向重投
     spec 逐字符炸开,修复+回归用例)、4863430(R2:降级烧槽位 AssertionError
     逐错序列复现+修)、f64c0ef(R2 换眼复审:蓝本偏离归属伪托如实化,行为
-    零改动,tests/push 1088+ruff 绿)。
+    零改动,tests/push 1088+ruff 绿)、338faa4(R1 二轮:防重发闸门拦重投+
+    零报告误判 mark_delivered,/tmp/r1_repro.py 复现+修,tests/push 1091)、
+    adcdbc5(R3 二轮:signal 应答校验 fail-closed,tests/push 1093)。
 
 ## Constraints
 
