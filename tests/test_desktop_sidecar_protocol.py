@@ -24,8 +24,8 @@ from typing import Any
 
 import pytest
 
-from shishi.secrets import InMemoryKeychainBackend
-from shishi.store import SQLiteStore
+from myia.secrets import InMemoryKeychainBackend
+from myia.store import SQLiteStore
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ENTRY_PATH = REPO_ROOT / "desktop" / "entry.py"
@@ -106,8 +106,8 @@ def _reset_sidecar_state(monkeypatch):
     backend = InMemoryKeychainBackend()
 
     def fake_delete_secret(name: str) -> None:
-        # 与 shishi.secrets.delete_secret 同门:名字校验 → 存在性 → 删除
-        from shishi.secrets import SecretError, validate_secret_name
+        # 与 myia.secrets.delete_secret 同门:名字校验 → 存在性 → 删除
+        from myia.secrets import SecretError, validate_secret_name
 
         validate_secret_name(name)
         if backend.get_password("myia", name) is None:
@@ -214,13 +214,13 @@ def wait_completed(out: io.StringIO, run_id: int, timeout: float = 60.0) -> dict
 
 
 def test_version_roundtrip():
-    """version:与 shishi.__version__ 一致,携带协议版本。"""
-    import shishi
+    """version:与 myia.__version__ 一致,携带协议版本。"""
+    import myia
 
     code, responses, events = rpc({"id": 1, "method": "version", "params": {}})
     assert code == 0
     assert events == []
-    assert responses == [{"id": 1, "result": {"name": "shishi", "version": shishi.__version__,
+    assert responses == [{"id": 1, "result": {"name": "myia", "version": myia.__version__,
                                               "protocol": entry.PROTOCOL_VERSION,
                                               "app_version": None}}]
 
@@ -393,7 +393,7 @@ def test_store_items_seeded_db_with_filters(tmp_path):
     store = SQLiteStore(str(db))
     from datetime import datetime, timezone
 
-    from shishi.store.models import ItemRecord
+    from myia.store.models import ItemRecord
     for index in range(3):
         store.save_item(ItemRecord(
             url=f"https://example.com/{index}", dedup_key=f"k{index}", title=f"条目{index}",
@@ -422,7 +422,7 @@ def test_store_items_projects_image_ocr_scalar(tmp_path):
     store = SQLiteStore(str(db))
     from datetime import datetime, timezone
 
-    from shishi.store.models import ItemRecord
+    from myia.store.models import ItemRecord
     store.save_item(ItemRecord(
         url="https://example.com/vision", dedup_key="ocr1", title="带图条目",
         first_seen=datetime(2026, 10, 2, tzinfo=timezone.utc),
@@ -486,7 +486,7 @@ def test_store_items_corrupt_db_structured_error(tmp_path):
 
 
 def test_secret_set_roundtrip_value_never_echoed():
-    """secret.set:写入走 shishi.secrets(钥匙链),应答零回显值。"""
+    """secret.set:写入走 myia.secrets(钥匙链),应答零回显值。"""
     fake = entry.set_secret
     code, responses, events = rpc({"id": 9, "method": "secret.set",
                                    "params": {"name": "myia/proto/token", "value": "super-secret-value"}})
@@ -546,7 +546,7 @@ def test_oneshot_passthrough_preserves_cli_contract(tmp_path):
         check=False,
     )
     assert version.returncode == 0
-    assert version.stdout.startswith("shishi ")
+    assert version.stdout.startswith("myia ")
     bad = write_yaml(tmp_path, BAD_CRON_YAML, "passthrough-bad.yaml")
     run = subprocess.run(
         [sys.executable, str(ENTRY_PATH), "run", bad, "--db", str(tmp_path / "p.db")],
@@ -603,7 +603,7 @@ plugin:
 def test_sources_write_disable_enable_roundtrip(tmp_path):
     """disable 摘出(enable 移回):myia 装载器同门复核 + sidecar 节保留 +
     暂存文件 lossless 往返 —— PRD「写回品类 YAML 并被 myia run 识别」。"""
-    from shishi.schema import load_category_file
+    from myia.schema import load_category_file
 
     yaml_path = Path(write_yaml(tmp_path, SOURCES_WRITE_YAML, "sources-demo.yaml"))
 
@@ -677,7 +677,7 @@ def test_sources_write_structured_refusals(tmp_path):
     )
     assert responses[0]["error"]["code"] == "last_source"
     # 拒绝 = 零写入(文件仍是「只剩 keep-me」的成功态,不是半态)
-    from shishi.schema import load_category_file
+    from myia.schema import load_category_file
 
     assert [source.name for source in load_category_file(yaml_path).sources] == ["keep-me"]
     assert yaml_path.read_text(encoding="utf-8") != before
@@ -740,8 +740,8 @@ def test_serve_context_plugin_dir_env_respected(tmp_path, monkeypatch):
 
 def test_serve_context_dev_fallback_unchanged(monkeypatch):
     """dev 回退:三项默认与 v1.1 CLI 常量逐字节一致(仓库内行为不回退)。"""
-    from shishi.cli import DEFAULT_DB_PATH, DEFAULT_PLUGINS_DIR
-    from shishi.plugins.installed import default_install_root
+    from myia.cli import DEFAULT_DB_PATH, DEFAULT_PLUGINS_DIR
+    from myia.plugins.installed import default_install_root
 
     monkeypatch.delattr(sys, "frozen", raising=False)
     ctx = entry._serve_context()
@@ -1131,7 +1131,7 @@ sources: []
 def test_yaml_save_new_file_roundtrip_and_not_found_fork(tmp_path, monkeypatch):
     """新建往返:null mtime + 不存在 = 创建(created=true、无 .bak)→ doctor/
     list 识别新品类,既有文件 .bak 不误伤;非 null mtime + 不存在 = file_not_found。"""
-    from shishi.schema import load_category_file
+    from myia.schema import load_category_file
 
     plugins = _editor_plugins(tmp_path, monkeypatch, ("demo.yaml", EDITOR_YAML))
     new_path = plugins / "fresh-pick.yaml"
@@ -1238,7 +1238,7 @@ def test_yaml_template_passes_load_category():
     """模板必过 load_category(schema 演进防腐锁);头注释指向 stocks.yaml。"""
     import yaml as yaml_module
 
-    from shishi.schema import load_category
+    from myia.schema import load_category
 
     code, responses, _ = rpc({"id": 1, "method": "yaml.template"})
     content = responses[0]["result"]["content"]
@@ -1580,7 +1580,7 @@ def test_channels_refresh_unknown_platform_structured(tmp_path, monkeypatch):
 
 def test_channels_refresh_discover_failure_keeps_old_bucket(tmp_path, monkeypatch):
     """refresh 发现失败(凭据缺失族):结构化 channel_refresh_failed,旧桶不动。"""
-    from shishi.push.base import PushSendError
+    from myia.push.base import PushSendError
 
     home = _messaging_home(tmp_path, monkeypatch, yaml_text=None)
     _write_directory(home, {"feishu": [
@@ -1591,7 +1591,7 @@ def test_channels_refresh_discover_failure_keeps_old_bucket(tmp_path, monkeypatc
         def discover_directory(self):
             raise PushSendError("credential_not_found", "飞书 bot 凭据未配置")
 
-    monkeypatch.setattr("shishi.push.PLATFORMS", {"feishu": _BrokenAdapter})
+    monkeypatch.setattr("myia.push.PLATFORMS", {"feishu": _BrokenAdapter})
     code, responses, _ = rpc(
         {"id": 1, "method": "channels.refresh", "params": {"platform": "feishu"}},
     )
@@ -1606,7 +1606,7 @@ def test_channels_refresh_discover_failure_keeps_old_bucket(tmp_path, monkeypatc
 
 def test_channels_refresh_merges_and_persists(tmp_path, monkeypatch):
     """refresh 正例:发现条目桶替换落盘,应答 merged=n + entries;updated_at 前移。"""
-    from shishi.push.directory import ChannelEntry
+    from myia.push.directory import ChannelEntry
 
     home = _messaging_home(tmp_path, monkeypatch, yaml_text=None)
 
@@ -1617,7 +1617,7 @@ def test_channels_refresh_merges_and_persists(tmp_path, monkeypatch):
                 ChannelEntry(platform="feishu", chat_id="oc_2", name="羊毛反馈群", type="group"),
             ]
 
-    monkeypatch.setattr("shishi.push.PLATFORMS", {"feishu": _FakeAdapter})
+    monkeypatch.setattr("myia.push.PLATFORMS", {"feishu": _FakeAdapter})
     code, responses, _ = rpc(
         {"id": 1, "method": "channels.refresh", "params": {"platform": "feishu"}},
     )
@@ -1637,14 +1637,14 @@ def test_channels_refresh_merges_and_persists(tmp_path, monkeypatch):
 def test_channels_refresh_no_discovery_platform_structured(tmp_path, monkeypatch):
     """W2 平台(ntfy/dingtalk/wecom)refresh:无自动发现 = discover_not_supported
     结构化说明(与 telegram 被动积累同族),不是 channel_refresh_failed;旧桶不动。"""
-    from shishi.push import NtfyChannel
+    from myia.push import NtfyChannel
 
     home = _messaging_home(tmp_path, monkeypatch, yaml_text=None)
     _write_directory(home, {"ntfy": [
         {"platform": "ntfy", "chat_id": "games", "name": "游戏台", "type": "channel",
          "thread_id": None, "last_seen": None}]})
 
-    monkeypatch.setattr("shishi.push.PLATFORMS", {"ntfy": NtfyChannel})
+    monkeypatch.setattr("myia.push.PLATFORMS", {"ntfy": NtfyChannel})
     code, responses, _ = rpc(
         {"id": 1, "method": "channels.refresh", "params": {"platform": "ntfy"}},
     )
@@ -1719,7 +1719,7 @@ def test_channels_alias_param_validation(tmp_path, monkeypatch):
 
 def test_push_write_full_replacement_roundtrip(tmp_path, monkeypatch):
     """push.write 正例:targets 全量替换落盘;注释/其他节逐字节保留;.bak 留底。"""
-    from shishi.schema import load_category_file
+    from myia.schema import load_category_file
 
     home = _messaging_home(tmp_path, monkeypatch)
     yaml_path = home / "plugins" / "messaging-demo.yaml"
@@ -1756,7 +1756,7 @@ def test_push_write_full_replacement_roundtrip(tmp_path, monkeypatch):
 
 def test_push_write_bad_targets_rejected_zero_write(tmp_path, monkeypatch):
     """push.write 拒写:坏 targets(跨平台前缀)→ category_invalid 且文件未变。"""
-    from shishi.schema import load_category_file  # noqa: F401 — 门禁语义锚点
+    from myia.schema import load_category_file  # noqa: F401 — 门禁语义锚点
 
     home = _messaging_home(tmp_path, monkeypatch)
     yaml_path = home / "plugins" / "messaging-demo.yaml"
@@ -1782,7 +1782,7 @@ def test_push_write_bad_targets_rejected_zero_write(tmp_path, monkeypatch):
 
 def test_push_write_empty_array_removes_section(tmp_path, monkeypatch):
     """push.write 空数组 = 摘除 push 节(品类允许无 push);再写回可复原。"""
-    from shishi.schema import load_category_file
+    from myia.schema import load_category_file
 
     home = _messaging_home(tmp_path, monkeypatch)
     yaml_path = home / "plugins" / "messaging-demo.yaml"
@@ -1845,7 +1845,7 @@ def test_push_write_fence_and_param_refusals(tmp_path, monkeypatch):
 
 def test_push_write_mid_file_block_and_template_roundtrip(tmp_path, monkeypatch):
     """push 块夹在文件中部(plugin: 节在后)同样可换;多行模板 literal 往返保真。"""
-    from shishi.schema import load_category_file
+    from myia.schema import load_category_file
 
     home = _messaging_home(
         tmp_path,
@@ -2013,6 +2013,92 @@ def test_runs_list_reads_table_newest_first(tmp_path):
     assert responses[0]["error"]["code"] == "invalid_params"
 
 
+def test_runs_trend_daily_outcomes_utc(tmp_path):
+    """G6 runs.trend:runs 表逐日×status 聚合(旧→新)—— statuses.running 如实
+    计数(分母剔除是前端装配行为,归 vitest);category 过滤 + 钳制 + 空态。"""
+    from datetime import datetime, timedelta, timezone
+
+    db = tmp_path / "runs-trend.db"
+    store = SQLiteStore(str(db))
+    now = datetime.now(timezone.utc)
+
+    def backdate(run_id: int, started_at: datetime) -> None:
+        store.conn.execute(
+            "UPDATE runs SET started_at = ? WHERE id = ?",
+            (started_at.isoformat(), run_id),
+        )
+        store.conn.commit()
+
+    # 今天:demo success×2 + failed×1;昨天:demo 只 start 不 finish(running×1);
+    # 40 天前:partial×1(days=14 窗口外)
+    for _ in range(2):
+        run_id = store.start_run("demo")
+        backdate(run_id, now)
+        store.finish_run(run_id, status="success")
+    run_id = store.start_run("demo")
+    backdate(run_id, now)
+    store.finish_run(run_id, status="failed")
+    run_id = store.start_run("demo")
+    backdate(run_id, now - timedelta(days=1))  # running:不 finish
+    run_id = store.start_run("demo")
+    backdate(run_id, now - timedelta(days=40))
+    store.finish_run(run_id, status="partial")
+    # 今天:另一品类 other success×1(category 过滤用)
+    run_id = store.start_run("other")
+    backdate(run_id, now)
+    store.finish_run(run_id, status="success")
+    store.close()
+
+    code, responses, _ = rpc(
+        {"id": 1, "method": "runs.trend", "params": {"db": str(db), "days": 14}},
+    )
+    days = responses[0]["result"]["days"]
+    assert [row["date"] for row in days] == sorted({row["date"] for row in days})  # 旧→新
+    by_date = {row["date"]: row for row in days}
+    today = by_date[now.date().isoformat()]
+    assert today["total"] == 4  # demo 3 + other 1(窗口右端含今天)
+    assert today["statuses"] == {"success": 3, "failed": 1}
+    yesterday = by_date[(now - timedelta(days=1)).date().isoformat()]
+    assert yesterday["total"] == 1
+    assert yesterday["statuses"] == {"running": 1}  # running 如实计数(不在此剔除)
+    assert (now - timedelta(days=40)).date().isoformat() not in by_date  # 窗外不入
+
+    # category 过滤:demo 窗口 = 今天 3 + 昨天 running 1
+    code, responses, _ = rpc(
+        {"id": 2, "method": "runs.trend",
+         "params": {"db": str(db), "days": 14, "category": "demo"}},
+    )
+    demo = {row["date"]: row for row in responses[0]["result"]["days"]}
+    assert demo[now.date().isoformat()]["total"] == 3
+    assert (now - timedelta(days=1)).date().isoformat() in demo
+    # days 钳制:0 → 1(只剩今天)、91 → 90 不报错
+    code, responses, _ = rpc(
+        {"id": 3, "method": "runs.trend", "params": {"db": str(db), "days": 0}},
+    )
+    zero = responses[0]["result"]["days"]
+    assert [row["date"] for row in zero] == [now.date().isoformat()]
+    code, responses, _ = rpc(
+        {"id": 4, "method": "runs.trend", "params": {"db": str(db), "days": 91}},
+    )
+    # 91 → 90 不报错;90 天窗含 40 天前的 partial 行(14 天窗不含,两响应由此可分)
+    wide = {row["date"]: row for row in responses[0]["result"]["days"]}
+    assert wide[(now - timedelta(days=40)).date().isoformat()]["statuses"] == {"partial": 1}
+    # 参数形状:days 非整数/bool、category 空串 = invalid_params
+    for bad_params in ({"days": "7"}, {"days": True}, {"category": ""}):
+        code, responses, _ = rpc(
+            {"id": 5, "method": "runs.trend", "params": {"db": str(db), **bad_params}},
+        )
+        assert responses[0]["error"]["code"] == "invalid_params"
+
+    # 空态:零 run 库 → {"days": []}(合法空态,非错误)
+    empty_db = tmp_path / "empty.db"
+    SQLiteStore(str(empty_db)).close()
+    code, responses, _ = rpc(
+        {"id": 6, "method": "runs.trend", "params": {"db": str(empty_db)}},
+    )
+    assert responses[0]["result"] == {"days": []}
+
+
 def test_secret_delete_roundtrip():
     """C5 secret.delete:删除后 secret.list 不再列出;二次删除 secret_not_found。"""
     code, responses, _ = rpc({"id": 1, "method": "secret.set",
@@ -2037,7 +2123,7 @@ def test_store_items_same_timestamp_pagination_to_exhaustion(tmp_path):
     翻页推进直至取尽(sum == 7 且零重复);单 before 会整批跳过同刻条目(对照)。"""
     from datetime import datetime, timezone
 
-    from shishi.store.models import ItemRecord
+    from myia.store.models import ItemRecord
     db = tmp_path / "same.db"
     store = SQLiteStore(str(db))
     moment = datetime(2026, 10, 2, 8, 0, tzinfo=timezone.utc)
@@ -2080,7 +2166,7 @@ def test_store_items_query_like_nocase(tmp_path):
     """C1×G1 query:title/content/source 三列 NOCASE LIKE;% 通配按字面匹配。"""
     from datetime import datetime, timezone
 
-    from shishi.store.models import ItemRecord
+    from myia.store.models import ItemRecord
     db = tmp_path / "query.db"
     store = SQLiteStore(str(db))
     base = datetime(2026, 10, 2, tzinfo=timezone.utc)
@@ -2189,14 +2275,14 @@ def test_method_registry_allowed_matches_handlers():
     vision-v2 批(image.models.*×4 + image.server.*×2 + image.files.purge)+
     v1.1.2 批第二切片(feedback.mark/list/stats + store.trend)+
     fe-small-batch 批(feed.enrich)+ alert-rules 批(alerts.* 四方法,
-    10-04-alert-rules)后 = 47。"""
+    10-04-alert-rules)+ desktop-b234 批(runs.trend,10-04-desktop-b234)后 = 48。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 47
-    for method in ("run.cancel", "runs.list", "secret.delete", "sources.test",
-                   "feed.export", "push.test", "schedule.preview", "bridge.status",
-                   "image.models.list", "image.models.download",
+    assert len(allowed) == 48
+    for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
+                   "sources.test", "feed.export", "push.test", "schedule.preview",
+                   "bridge.status", "image.models.list", "image.models.download",
                    "image.models.delete", "image.models.activate",
                    "image.server.status", "image.server.ensure",
                    "image.files.purge", "feed.enrich",
@@ -2209,9 +2295,10 @@ def test_protocol_version_bumped_for_feed_ux():
     (bridge.status,10-03-messaging-weixin-bridge)→ v4;vision-v2 批
     (image.models.*/image.server.* + store.items 三新投影键)→ v5;
     fe-small-batch 批(feed.enrich,10-03-fe-small-batch G8)→ v6;
-    alert-rules 批(alerts.* 四方法 + alerts.fired 事件,10-04-alert-rules)→ v7。"""
+    alert-rules 批(alerts.* 四方法 + alerts.fired 事件,10-04-alert-rules)→ v7;
+    desktop-b234 批(runs.trend,10-04-desktop-b234)→ v8。"""
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
-    assert responses[0]["result"]["protocol"] == 7
+    assert responses[0]["result"]["protocol"] == 8
 
 
 # ---------------------------------------------------------------------------
@@ -2223,7 +2310,7 @@ def _seed_items_for_export(db, titles):
     """三个标题 + 类目/来源各异的可查询条目(新→旧入库)。"""
     from datetime import datetime, timezone
 
-    from shishi.store.models import ItemRecord
+    from myia.store.models import ItemRecord
     store = SQLiteStore(str(db))
     base = datetime(2026, 10, 3, tzinfo=timezone.utc)
     for index, (title, category, source) in enumerate(titles):
@@ -2357,7 +2444,7 @@ def test_push_test_sends_via_channel_with_target(monkeypatch):
             sent["items"] = list(items)
             sent["context"] = context
 
-    monkeypatch.setitem(entry.shishi_push.CHANNELS, "feishu_card", FakeChannel)
+    monkeypatch.setitem(entry.myia_push.CHANNELS, "feishu_card", FakeChannel)
     code, responses, _ = rpc(
         {"id": 1, "method": "push.test",
          "params": {"channel": "feishu_card", "target": "keychain:myia/feishu/chat_id"}},
@@ -2371,7 +2458,7 @@ def test_push_test_sends_via_channel_with_target(monkeypatch):
 
 # ---------------------------------------------------------------------------
 # feed.enrich(10-03-fe-small-batch G8,协议 v6 #43):单条情报卡 AI 摘要,
-# 骑 shishi.enrich.LLMEnricher 同门管线(端点 env: 引用 + enrich_cache 复用)
+# 骑 myia.enrich.LLMEnricher 同门管线(端点 env: 引用 + enrich_cache 复用)
 # ---------------------------------------------------------------------------
 
 
@@ -2420,7 +2507,7 @@ class _FakeCompletion:
         self.calls: list[str] = []
 
     async def complete(self, *, model: str, system: str, user: str):
-        from shishi.enrich.client import CompletionResult
+        from myia.enrich.client import CompletionResult
 
         self.calls.append(user)
         if self.fail:
@@ -2451,7 +2538,7 @@ def _seed_enrich_db(tmp_path: Path, *, category: str = "feed-enrich-demo") -> st
     """一条带 content 的种子条目(category 可指向不存在的品类测拒配)。"""
     from datetime import datetime, timezone
 
-    from shishi.store.models import ItemRecord
+    from myia.store.models import ItemRecord
 
     db = tmp_path / "enrich.db"
     store = SQLiteStore(str(db))
@@ -2968,7 +3055,7 @@ def test_image_server_ensure_paths(tmp_path, monkeypatch):
     探测统一桩死(dev 主机 8080 可能真跑着 mlx_vlm.server,测试绝不碰真网);
     ①走真 ensure 实现,②③走 entry 能力桩。
     """
-    import shishi.vision.server as vision_server_module
+    import myia.vision.server as vision_server_module
     monkeypatch.setattr(vision_server_module, "_probe",
                         lambda url, timeout=2.0: (False, False))
     home = _vision_home(tmp_path, monkeypatch)
@@ -3045,7 +3132,7 @@ def test_image_server_ensure_paths(tmp_path, monkeypatch):
 
 def test_image_server_ensure_single_flight_busy(tmp_path, monkeypatch):
     """ensure 单飞:慢路径进行中第二单结构化 ensure_busy(不排队不双起)。"""
-    import shishi.vision.server as vision_server_module
+    import myia.vision.server as vision_server_module
     monkeypatch.setattr(vision_server_module, "_probe",
                         lambda url, timeout=2.0: (False, False))
     _vision_home(tmp_path, monkeypatch)
@@ -3133,7 +3220,7 @@ def _seed_feedback_db(tmp_path: Path) -> str:
     """带一条目 + 一条既有 CLI 反馈的种子库(mark 往返的对照面)。"""
     from datetime import datetime, timezone
 
-    from shishi.store.models import FEEDBACK_CHANNEL_CLI, FeedbackRecord, ItemRecord
+    from myia.store.models import FEEDBACK_CHANNEL_CLI, FeedbackRecord, ItemRecord
 
     db = tmp_path / "feedback.db"
     store = SQLiteStore(str(db))
@@ -3218,7 +3305,7 @@ def test_store_trend_daily_counts_utc(tmp_path):
     """store.trend:items 按 first_seen UTC 逐日计数(旧→新);category 过滤 + 钳制。"""
     from datetime import datetime, timedelta, timezone
 
-    from shishi.store.models import ItemRecord
+    from myia.store.models import ItemRecord
 
     db = tmp_path / "trend.db"
     store = SQLiteStore(str(db))
@@ -3308,7 +3395,7 @@ def test_alerts_list_empty_is_legal_state(tmp_path):
 def test_alerts_save_full_replacement_keeps_ids(tmp_path):
     """save 全量替换(diff 保 id):建两条 → 改一条(保 id 翻启停)+ 删一条 +
     新增一条;fired_count/last_fired_at 自 alert_fired 派生(计数不落规则行)."""
-    from shishi.store.models import AlertFired
+    from myia.store.models import AlertFired
 
     db = tmp_path / "alerts.db"
     code, responses, _ = rpc({"id": 1, "method": "alerts.save", "params": {"db": str(db), "rules": [
@@ -3393,7 +3480,7 @@ def test_alerts_save_invalid_rule_zero_write(tmp_path):
 
 def test_alerts_delete_keeps_fired_history(tmp_path):
     """delete:删定义行 fired 历史照留(命中历史是事实);未知 id 结构化拒。"""
-    from shishi.store.models import AlertFired
+    from myia.store.models import AlertFired
 
     db = tmp_path / "alerts.db"
     code, responses, _ = rpc({"id": 1, "method": "alerts.save",
@@ -3423,7 +3510,7 @@ def _seed_alert_items(db, rows):
     """种库内条目(新→旧依序入库;返回 None,行 id 由调用方再查)."""
     from datetime import datetime, timezone
 
-    from shishi.store.models import ItemRecord
+    from myia.store.models import ItemRecord
 
     store = SQLiteStore(str(db))
     base = datetime(2026, 10, 4, tzinfo=timezone.utc)
@@ -3459,7 +3546,7 @@ def test_alerts_test_stored_rule_and_item_forms(tmp_path):
     """test 取材形态:rule_id+item_id(库内条目)/ 缺省最近一条 / already_fired
     预查;错误码 alert_not_found / item_not_found / alert_test_no_item /
     invalid_params(互斥门)."""
-    from shishi.store.models import AlertFired
+    from myia.store.models import AlertFired
 
     db = tmp_path / "alerts.db"
     code, responses, _ = rpc({"id": 1, "method": "alerts.save", "params": {"db": str(db), "rules": [
@@ -3510,7 +3597,7 @@ def test_alerts_test_stored_rule_and_item_forms(tmp_path):
 def test_alerts_test_mute_and_eval_error(tmp_path):
     """test 语义:mute 压制(effective mute = 反馈 0.0 权重词,命中即未命中
     不评估)与 eval_error 如实上报(引擎运行期 WARNING+未命中的同款事实)."""
-    from shishi.store.models import TuningRecord
+    from myia.store.models import TuningRecord
 
     db = tmp_path / "alerts.db"
     _seed_alert_items(db, [("某公司完成融资", "news")])
@@ -3617,7 +3704,7 @@ def test_alerts_fired_replay_only_new_hits_in_window(tmp_path):
     (崩窗/重跑防线是 UNIQUE 占坑,事件面不重复消费)."""
     from datetime import datetime, timedelta, timezone
 
-    from shishi.store.models import AlertFired
+    from myia.store.models import AlertFired
 
     db = tmp_path / "window.db"
     store = SQLiteStore(str(db))

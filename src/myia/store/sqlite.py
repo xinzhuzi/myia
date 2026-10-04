@@ -4,11 +4,11 @@ Single-file database (default ``myia.db``, path configurable), WAL journal
 mode for the single-process asyncio workload, ``busy_timeout`` so concurrent
 writers from separate connections wait instead of failing with
 "database is locked". A PostgreSQL backend plugs in behind
-:class:`shishi.store.base.Store` in v0.2+ — no Redis/PG dependency in v0.1.
+:class:`myia.store.base.Store` in v0.2+ — no Redis/PG dependency in v0.1.
 
 Schema versioning (v0.2 storage hardening): ``store_meta['schema_version']``
 stamps the layout; opening a database runs idempotent migrations forward and
-refuses — with :class:`shishi.store.errors.StoreSchemaError` — a file that is
+refuses — with :class:`myia.store.errors.StoreSchemaError` — a file that is
 not a usable SQLite database or was written by a *newer* MYIA. Versions:
 
 - 1 — v0.1: items / dedup_registry / change_baseline / engine_hints / runs.
@@ -31,6 +31,11 @@ not a usable SQLite database or was written by a *newer* MYIA. Versions:
   dedup_key)`` 是 at-most-once 占坑门闩) — additive, no seed rows (零惊扰:
   不配规则 = 每 run 一次空表 SELECT 后短路), legacy databases migrate
   without touching existing rows.
+- 8 — G9 server-side read state (PRD 10-04-read-state-server):
+  ``items.read/starred/later`` 三列(0/1,DEFAULT 0 未读——迁移不猜测读态,
+  首切由 store.state.import 搬运 localStorage 快照)+ ``idx_items_dedup_key``
+  (置位按 dedup_key 同键多行同置;非 UNIQUE) — additive, legacy databases
+  migrate without touching existing rows.
 
 Retention & vacuum: :meth:`SQLiteStore.cleanup_expired` deletes pushed items
 after ``retention`` days (anchored at ``pushed_at``), never-pushed items after
@@ -54,9 +59,9 @@ from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 
-from shishi.schema import VACUUM_CADENCES
-from shishi.store.errors import StoreSchemaError
-from shishi.store.models import (
+from myia.schema import VACUUM_CADENCES
+from myia.store.errors import StoreSchemaError
+from myia.store.models import (
     ALERT_ACTIONS,
     ALERT_ACTION_STATUSES,
     FEEDBACK_VERDICTS,
@@ -80,7 +85,7 @@ from shishi.store.models import (
 logger = logging.getLogger(__name__)
 
 #: Current layout version; bump + add a migration entry when the DDL changes.
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # 同进程并发「首次打开同一数据库」的串行化锁(见 SQLiteStore.__init__)。
 _OPEN_LOCK = threading.Lock()
@@ -99,6 +104,25 @@ UNPUSHED_RETENTION_MULTIPLIER = 2
 #: 亦然;按 2× retention 保留(默认 90d 条目 → 180d 数值基线)。
 BASELINE_RETENTION_MULTIPLIER = 2
 
+#: G9 读态标记词表 → ``items`` 列名(白名单显式映射:列名不可参数化,
+#: 防 SQL 注入;协议层 marker 枚举与 store 层 ValueError 同源于此)。
+_ITEM_STATE_COLUMNS: dict[str, str] = {"read": "read", "starred": "starred", "later": "later"}
+
+
+def _item_state_column(marker: str) -> str:
+    """Map a G9 marker word to its ``items`` column, refusing anything else.
+
+    列名不可参数化——这是置位/导入路径唯一的注入面,白名单字典显式映射
+    收口(未知 marker 走 ValueError,与 save_item 系字段校验同纪律)。
+    """
+    column = _ITEM_STATE_COLUMNS.get(marker)
+    if column is None:
+        raise ValueError(
+            f"字段校验失败: marker 必须为 {sorted(_ITEM_STATE_COLUMNS)} 之一,得到 {marker!r}"
+        )
+    return column
+
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,10 +138,16 @@ CREATE TABLE IF NOT EXISTS items (
     pushed_at TEXT,     -- ISO-8601 UTC
     push_slot TEXT,     -- 'am' | 'pm'
     first_seen TEXT NOT NULL,
-    raw TEXT            -- optional JSON object
+    raw TEXT,           -- optional JSON object
+    read INTEGER NOT NULL DEFAULT 0,      -- 1 = 已读(G9 读态迁服务端;0/1,与协议层 bool 互转)
+    starred INTEGER NOT NULL DEFAULT 0,   -- 1 = 星标(策展态,同 retention 剪枝,PRD Q4.2)
+    later INTEGER NOT NULL DEFAULT 0      -- 1 = 稍后读(同上;随条目剪枝会静默过期,明示)
 );
 CREATE INDEX IF NOT EXISTS idx_items_url ON items(url);
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
+-- 非 UNIQUE:dated-key 旋转下同 dedup_key 多行合法(sqlite.py get_item_by_dedup_key
+-- docstring),置位按键同置(Q1.3);feedback 表同款先例 idx_feedback_dedup_key。
+CREATE INDEX IF NOT EXISTS idx_items_dedup_key ON items(dedup_key);
 
 CREATE TABLE IF NOT EXISTS dedup_registry (
     key TEXT PRIMARY KEY,          -- composite dedup key or bare URL
@@ -394,6 +424,27 @@ def _migrate_v7_add_alerts(conn: sqlite3.Connection) -> None:
     logger.info("存储迁移完成: 新增 alert_rules / alert_fired 表(告警规则引擎)")
 
 
+def _migrate_v8_add_item_states(conn: sqlite3.Connection) -> None:
+    """v7 → v8: add ``items.read/starred/later`` + ``idx_items_dedup_key`` (G9 读态迁服务端).
+
+    Idempotent: fresh v8 databases already created the columns & index via
+    ``_SCHEMA``; legacy v7 databases get them here. Existing rows keep the
+    DEFAULT 0 (unread) -- 迁移不猜测读态,首切由 store.state.import 搬运
+    localStorage 快照(Q2).dedup_key 索引非 UNIQUE:dated-key 旋转下同键
+    多行合法,置位按键同置(Q1.3)。逐列独立 if(PRAGMA 幂等检查,v2 先例):
+    三列 ALTER 中断后重开可续,不要求原子批。
+    """
+    columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(items)").fetchall()}
+    if "read" not in columns:
+        conn.execute("ALTER TABLE items ADD COLUMN read INTEGER NOT NULL DEFAULT 0")
+    if "starred" not in columns:
+        conn.execute("ALTER TABLE items ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
+    if "later" not in columns:
+        conn.execute("ALTER TABLE items ADD COLUMN later INTEGER NOT NULL DEFAULT 0")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_items_dedup_key ON items(dedup_key)")
+    logger.info("存储迁移完成: items 表新增 read/starred/later 三列 + idx_items_dedup_key(G9)")
+
+
 #: target version → migration (runs with the connection inside the caller's
 #: transaction; every migration must be idempotent — fresh databases replay
 #: them after ``CREATE TABLE IF NOT EXISTS`` already produced the new shape).
@@ -404,6 +455,7 @@ _MIGRATIONS: dict[int, object] = {
     5: _migrate_v5_add_metric_history,
     6: _migrate_v6_add_feedback_external_id,
     7: _migrate_v7_add_alerts,
+    8: _migrate_v8_add_item_states,
 }
 
 
@@ -465,6 +517,9 @@ def _row_to_item(row: sqlite3.Row) -> ItemRecord:
         push_slot=row["push_slot"],
         first_seen=_from_iso(row["first_seen"]),
         raw=_json_loads(row["raw"]),
+        read=bool(row["read"]),
+        starred=bool(row["starred"]),
+        later=bool(row["later"]),
     )
 
 
@@ -552,7 +607,7 @@ def metric_window_start(now: datetime, window: str, tz: tzinfo | None = None) ->
     窗口语义(单一实现,两处不漂)。
 
     Raises:
-        ValueError: ``window`` 不在 :data:`shishi.store.models.METRIC_WINDOWS`。
+        ValueError: ``window`` 不在 :data:`myia.store.models.METRIC_WINDOWS`。
     """
     if window not in METRIC_WINDOWS:
         raise ValueError(
@@ -568,7 +623,7 @@ def metric_window_start(now: datetime, window: str, tz: tzinfo | None = None) ->
 
 
 class SQLiteStore:
-    """SQLite-backed :class:`shishi.store.base.Store`.
+    """SQLite-backed :class:`myia.store.base.Store`.
 
     Safe for cross-thread use within one process (guarded writes plus
     ``busy_timeout`` for other connections opening the same file).
@@ -827,6 +882,116 @@ class SQLiteStore:
             params.append(limit)
         return [_row_to_item(row) for row in self._query_all(sql, tuple(params))]
 
+    def set_item_states(self, dedup_keys: list[str], marker: str, value: bool) -> int:
+        """置位一批 dedup_key 的读态标记(G9,store.state.mark 底座)。
+
+        marker ∈ {"read", "starred", "later"};``UPDATE items SET <marker> = ?
+        WHERE dedup_key IN (...)`` —— 同键多行(dated-key 旋转)同置,与
+        localStorage itemKey 语义一致(Q1.3);幂等(显式置目标值,无读-改-写)。
+        采集管线永不携带读态(save_item 列清单不含三列),读态只由此面置位。
+
+        Returns:
+            实改行数 = SQLite UPDATE rowcount(口径:匹配行数——直连模式下
+            置同值行也计入;如实回传,不做「实改值」二次核算,协议应答
+            ``updated`` 即此数)。
+
+        Raises:
+            ValueError: marker 非法 / dedup_keys 空 / 含空串或非字符串。
+        """
+        column = _item_state_column(marker)
+        if not dedup_keys:
+            raise ValueError("字段校验失败: dedup_keys 不能为空")
+        for key in dedup_keys:
+            if not isinstance(key, str) or not key:
+                raise ValueError("字段校验失败: dedup_keys 不能包含非字符串或空串")
+        placeholders = ", ".join("?" for _ in dedup_keys)
+        cursor = self._write(
+            f"UPDATE items SET {column} = ? WHERE dedup_key IN ({placeholders})",
+            (1 if value else 0, *dedup_keys),
+        )
+        return int(cursor.rowcount)
+
+    def set_all_item_states(self, marker: str, value: bool, category: str | None = None) -> int:
+        """全库(可选 category)置位(G9,store.state.mark_all 底座)。
+
+        单条 ``UPDATE items SET <marker> = ? [WHERE category = ?]``;category
+        词义与 :meth:`list_items` 同参(精确等值,非 LIKE;不收 query——
+        决议 Q3.2 钉死:LIKE 进 UPDATE 是范围蠕变)。None = 全库所有条目
+        (含未翻页/未加载),这是「全部标已读」的全库语义来源。
+
+        Returns:
+            rowcount(口径同 :meth:`set_item_states`:匹配行数,如实回传)。
+
+        Raises:
+            ValueError: marker 非法 / category 空串(None 表全库,空串是入参错误)。
+        """
+        column = _item_state_column(marker)
+        if category is not None and not category:
+            raise ValueError("字段校验失败: category 不能为空串(全库请传 None)")
+        sql = f"UPDATE items SET {column} = ?"
+        params: tuple = (1 if value else 0,)
+        if category is not None:
+            sql += " WHERE category = ?"
+            params = (1 if value else 0, category)
+        cursor = self._write(sql, params)
+        return int(cursor.rowcount)
+
+    def import_item_states(self, states: dict[str, dict[str, bool]]) -> tuple[int, int]:
+        """导入 localStorage 读态快照(G9,Q2 搬迁门;幂等旗标在调用方 handler)。
+
+        key 三分(Q2.4):dedup_key 直配;``id:<n>`` 先 ``SELECT dedup_key
+        FROM items WHERE id=<n>`` 取键(取不到 = 跳过);``id:<url>`` 及任何
+        无从解析形态 = 跳过。每键单条 UPDATE(同键多行同置,与
+        :meth:`set_item_states` 同红线;SET 子句只含快照中出现的标记键,
+        缺省标记不写 = 逐行继承现有列值)。整键覆盖而非逐键合并——快照是
+        v1 期唯一真源,合并无信息可合。
+
+        Returns:
+            ``(imported, skipped)``:imported = 有匹配行的键数(实际写了
+            ≥1 行);skipped = 无匹配行 / 无法解析 / 三键全缺省(``{}``
+            值条目跳写)的键数。N 键 N 条 UPDATE 单连接一次 commit(v1
+            map 量级 = 用户点过的条目数,百级典型,不引入批量 CASE WHEN)。
+
+        幂等性由 handler 侧 ``store_meta`` 旗标(``feed_state_imported_at``)
+        保证;本方法本身可重复调用(重放 = 再覆盖,故旗标必须先行)。
+        """
+        imported = 0
+        skipped = 0
+        with self._lock:
+            for key, snapshot in states.items():
+                resolved: str | None = key
+                if isinstance(key, str) and key.startswith("id:"):
+                    ref = key[3:]
+                    if not ref.isdigit():
+                        resolved = None  # id:<url> 形态:无从解析,跳过
+                    else:
+                        row = self.conn.execute(
+                            "SELECT dedup_key FROM items WHERE id = ?", (int(ref),)
+                        ).fetchone()
+                        resolved = str(row["dedup_key"]) if row is not None else None
+                if resolved is None:
+                    skipped += 1
+                    continue
+                assignments: dict[str, int] = {}
+                if isinstance(snapshot, dict):
+                    for name, column in _ITEM_STATE_COLUMNS.items():
+                        if name in snapshot:
+                            assignments[column] = 1 if snapshot[name] else 0
+                if not assignments:
+                    skipped += 1  # {} 值 / 全未知标记:跳写
+                    continue
+                set_clause = ", ".join(f"{column} = ?" for column in assignments)
+                cursor = self.conn.execute(
+                    f"UPDATE items SET {set_clause} WHERE dedup_key = ?",
+                    (*assignments.values(), resolved),
+                )
+                if cursor.rowcount > 0:
+                    imported += 1
+                else:
+                    skipped += 1  # 键合法但无匹配行(条目已剪枝):不复活,如实计
+            self.conn.commit()
+        return imported, skipped
+
     def daily_item_counts(
         self, *, days: int = 14, category: str | None = None
     ) -> list[tuple[str, int]]:
@@ -856,6 +1021,45 @@ class SQLiteStore:
             (str(row["day"]), int(row["count"]))
             for row in self._query_all(sql, tuple(params))
         ]
+
+    def daily_run_outcomes(
+        self, *, days: int = 14, category: str | None = None
+    ) -> list[dict[str, object]]:
+        """Per-day per-status run counts for the last ``days`` days(成功率趋势,runs.trend)。
+
+        Groups on ``substr(started_at, 1, 10)``(UTC calendar day,与
+        :meth:`daily_item_counts` 同口径);窗口下界 = UTC now − days 天
+        (仅作 SQL 过滤,零数日补齐归调用方/前端)。Returns
+        ``[{date, total, statuses: {<status>: count}}]`` old → new,窗口内
+        零 run 时为空列表(合法空态)。statuses 为开放词表原样分组——真实
+        词表 4 态 running/success/partial/failed(models.py RUN_STATUSES),
+        未知状态照回,前端只消费 success/running 两键,其余求和入「完结未全成」。
+
+        Raises:
+            ValueError: ``days`` 非正整数(与 :meth:`daily_item_counts` 同口径)。
+        """
+        if not isinstance(days, int) or isinstance(days, bool) or days < 1:
+            raise ValueError(f"字段校验失败: days 必须为正整数,得到 {days!r}")
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        sql = (
+            "SELECT substr(started_at, 1, 10) AS day, status, COUNT(*) AS n "
+            "FROM runs WHERE started_at IS NOT NULL AND started_at >= ?"
+        )
+        params: list[object] = [since]
+        if category is not None:
+            sql += " AND category = ?"
+            params.append(category)
+        sql += " GROUP BY day, status ORDER BY day ASC"
+        out: dict[str, dict[str, object]] = {}
+        for row in self._query_all(sql, tuple(params)):
+            date = str(row["day"])
+            day = out.setdefault(date, {"date": date, "total": 0, "statuses": {}})
+            statuses = day["statuses"]
+            assert isinstance(statuses, dict)  # 上面 setdefault 的形状,窄化给类型器
+            status = str(row["status"])
+            statuses[status] = statuses.get(status, 0) + int(row["n"])
+            day["total"] = int(day["total"]) + int(row["n"])
+        return [out[date] for date in sorted(out)]
 
     def mark_item_pushed(
         self, item_id: int, slot: str, pushed_at: datetime | None = None
@@ -1115,7 +1319,7 @@ class SQLiteStore:
 
         Raises:
             ValueError: empty ``dedup_key`` / ``channel``, or ``verdict``
-                outside :data:`shishi.store.models.FEEDBACK_VERDICTS`.
+                outside :data:`myia.store.models.FEEDBACK_VERDICTS`.
         """
         if not feedback.dedup_key:
             raise ValueError("字段校验失败: feedback.dedup_key 不能为空")
@@ -1332,7 +1536,7 @@ class SQLiteStore:
 
         Raises:
             ValueError: ``window`` outside
-                :data:`shishi.store.models.METRIC_WINDOWS`.
+                :data:`myia.store.models.METRIC_WINDOWS`.
         """
         start = metric_window_start(now, window, tz)
         row = self._query_one(
@@ -1380,7 +1584,7 @@ class SQLiteStore:
     # written by the desktop sidecar (alerts.save 全量替换在此之上 diff 编排),
     # fired rows are the 命中历史 — snapshots survive rule deletion and item
     # retention. scope/when 语法/action_config 形状的构造期拒在
-    # shishi.alerts.rule.compile_rule(读库坏行 WARNING 跳过、写库拒整批共用)。
+    # myia.alerts.rule.compile_rule(读库坏行 WARNING 跳过、写库拒整批共用)。
 
     def save_alert_rule(self, rule: AlertRule) -> AlertRule:
         """Insert or update one alert rule; return the persisted row.
@@ -1390,7 +1594,7 @@ class SQLiteStore:
 
         Raises:
             ValueError: empty ``name`` / ``when``, ``action`` outside
-                :data:`shishi.store.models.ALERT_ACTIONS`, or an unknown
+                :data:`myia.store.models.ALERT_ACTIONS`, or an unknown
                 ``rule.id`` on update.
         """
         if not rule.name:
@@ -1475,8 +1679,8 @@ class SQLiteStore:
 
         Raises:
             ValueError: empty ``dedup_key``, ``action`` outside
-                :data:`shishi.store.models.ALERT_ACTIONS`, or ``action_status``
-                outside :data:`shishi.store.models.ALERT_ACTION_STATUSES`.
+                :data:`myia.store.models.ALERT_ACTIONS`, or ``action_status``
+                outside :data:`myia.store.models.ALERT_ACTION_STATUSES`.
         """
         if not fired.dedup_key:
             raise ValueError("字段校验失败: alert_fired.dedup_key 不能为空")
@@ -1529,7 +1733,7 @@ class SQLiteStore:
 
         Raises:
             ValueError: ``status`` outside
-                :data:`shishi.store.models.ALERT_ACTION_STATUSES`, or no fired
+                :data:`myia.store.models.ALERT_ACTION_STATUSES`, or no fired
                 row with ``fired_id``.
         """
         if status not in ALERT_ACTION_STATUSES:
@@ -1716,7 +1920,7 @@ class SQLiteStore:
 
         Raises:
             ValueError: unknown ``run_id``, empty ``step``, ``status`` outside
-                :data:`shishi.store.models.STEP_STATUSES`, or a non-mapping
+                :data:`myia.store.models.STEP_STATUSES`, or a non-mapping
                 payload.
         """
         if not step:

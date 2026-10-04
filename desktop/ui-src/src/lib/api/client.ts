@@ -44,6 +44,8 @@ import type {
   RunStatusResult,
   RunsListParams,
   RunsListResult,
+  RunsTrendParams,
+  RunsTrendResult,
   SchedulePreviewParams,
   SchedulePreviewResult,
   SecretDeleteParams,
@@ -169,6 +171,9 @@ export const api = {
   /** 历史 run(runs 表直读,新→旧;sidecar 重启后仍可达;C3) */
   runsList: (params: RunsListParams = {}): Promise<RunsListResult> =>
     request("runs.list", params),
+  /** run 逐日×status 聚合(成功率趋势,G6;UTC 逐日,窗口 [1,90]) */
+  runsTrend: (params: RunsTrendParams = {}): Promise<RunsTrendResult> =>
+    request("runs.trend", params),
   /** 环形缓冲最近日志(可按 run_id 过滤) */
   logsTail: (params: LogsTailParams = {}): Promise<LogsTailResult> => request("logs.tail", params),
   /** 情报流条目(新→旧;SQLite 单库直读;游标 before/before_id + query) */

@@ -11,7 +11,14 @@ import { cleanup, fireEvent, render, screen, waitFor, act } from "@testing-libra
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { SidecarRequestError } from "@/lib/api";
-import type { DoctorResult, RunEntry, RunRecord, SourceHealthState } from "@/lib/api";
+import type {
+  DoctorResult,
+  RunEntry,
+  RunOutcomeDay,
+  RunRecord,
+  SourceHealthState,
+  TrendDay,
+} from "@/lib/api";
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
@@ -24,6 +31,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       runStatus: vi.fn(),
       runStart: vi.fn(),
       storeTrend: vi.fn(),
+      runsTrend: vi.fn(),
       feedbackStats: vi.fn(),
     },
     onSidecarEvent: vi.fn(),
@@ -36,10 +44,23 @@ const runsListMock = vi.mocked(api.runsList);
 const runStatusMock = vi.mocked(api.runStatus);
 const runStartMock = vi.mocked(api.runStart);
 const storeTrendMock = vi.mocked(api.storeTrend);
+const runsTrendMock = vi.mocked(api.runsTrend);
 const feedbackStatsMock = vi.mocked(api.feedbackStats);
 const onSidecarEventMock = vi.mocked(onSidecarEvent);
 
 import { DashboardScreen } from "./dashboard-screen";
+import { Sparkline } from "./sparkline";
+import {
+  buildOverviewStats,
+  cumulativeOutcomeSummary,
+  fillDailyCounts,
+  fillDailyOutcomes,
+  overviewTrendDays,
+  shiftUtcDate,
+  successRateSeries,
+  toSparklinePoints,
+} from "./api";
+import type { DashboardRun } from "./api";
 
 // ---------------------------------------------------------------------------
 // 夹具(形状严格对齐 types.ts:DoctorResult / RunEntry)
@@ -140,8 +161,9 @@ function mockSidecar(
   // runs.list 应答形 = RunsListResult(db/count/runs);夹具只给 runs,补外层
   runsListMock.mockReturnValue(history.then((payload) => ({ db: "myia.db", count: payload.runs.length, ...payload })));
   runStatusMock.mockReturnValue(registry);
-  // B2/B4 两新卡(自取数):默认空态,不搅既有用例;专项用例自行覆写
+  // B2/B4/G6 三自取数卡:默认空态,不搅既有用例;专项用例自行覆写
   storeTrendMock.mockResolvedValue({ days: [] });
+  runsTrendMock.mockResolvedValue({ days: [] });
   feedbackStatsMock.mockResolvedValue({
     window_days: 14,
     stats: {
@@ -391,12 +413,88 @@ describe("DashboardScreen", () => {
     render(<DashboardScreen />);
 
     await screen.findByTestId("category-tech.yaml");
-    await waitFor(() => expect(screen.getByTestId("stat-today-items").textContent).toContain("5"));
+    await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("5"));
+    expect(screen.getByText("今日采集")).toBeTruthy(); // 默认今日档,口径不动
     expect(screen.getByTestId("stat-active-sources").textContent).toContain("2"); // ok+degraded
     expect(screen.getByTestId("stat-active-sources").textContent).toContain("共 4 源");
-    expect(screen.getByTestId("stat-push-success").textContent).toContain("2"); // 2 次 ok 推送
+    expect(screen.getByTestId("stat-window-push").textContent).toContain("2"); // 2 次 ok 推送
     expect(screen.getByTestId("stat-alerts").textContent).toContain("2"); // error+warning 各一
     expect(screen.getByTestId("dashboard-overview")).toBeTruthy();
+    expect(storeTrendMock).toHaveBeenCalledWith({ days: 1 }); // A-dash:概览独立 1 天窗
+  });
+
+  it("A-dash 概览窗口:Select 切 7 天 → 采集格=窗口求和、推送格吃窗口内 run;活跃源/告警保持快照并注记", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [
+            fixturePlugin({
+              sources: [fixtureSource("a", "ok"), fixtureSource("b", "ok"), fixtureSource("c", "degraded")],
+            }),
+          ],
+          findings: [
+            { severity: "warning", scope: "plugin:tech.yaml", code: "env_ref_missing", message: "缺环境变量" },
+          ],
+        }),
+      ),
+      Promise.resolve({
+        runs: [
+          // 昨日 run:2 次 ok 推送(今日档不入窗,7 天档入窗)
+          fixtureHistoryRun({
+            started_at: `${yesterday}T08:00:00+00:00`,
+            stats: {
+              items_retained: 3,
+              push: [
+                { channel: "tg", ok: true },
+                { channel: "tg", ok: true },
+                { channel: "mail", ok: false },
+              ],
+            },
+          }),
+          // 前日 run:0 次 ok 推送
+          fixtureHistoryRun({
+            started_at: `${twoDaysAgo}T08:00:00+00:00`,
+            stats: { items_retained: 2, push: [{ channel: "mail", ok: false }] },
+          }),
+        ],
+      }),
+    );
+    storeTrendMock.mockResolvedValue({
+      days: [
+        { date: twoDaysAgo, count: 2 },
+        { date: yesterday, count: 3 },
+        { date: today, count: 4 },
+      ],
+    });
+    render(<DashboardScreen />);
+
+    // 默认今日档:采集=当日 4;推送=—(今日无 run,不虚构 0)
+    await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("4"));
+    expect(screen.getByTestId("stat-window-push").textContent).toContain("—");
+
+    // 概览 Select 切 7 天(与趋势卡 Select 同款交互;Radix 需 mouse 型 pointerDown)
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    const option = await screen.findByRole("option", { name: "7 天" });
+    fireEvent.click(option);
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 })); // 独立重查
+
+    // 采集格 = 窗口求和 2+3+4=9;推送格 = 窗口内 run 的 ok 计数 2
+    await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("9"));
+    expect(screen.getByText("近 7 天采集")).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("stat-window-push").textContent).toContain("2"));
+
+    // 两格快照:活跃源(ok 2 + degraded 1 → 活跃 3)、告警(findings 1)不随窗,note 注记口径
+    expect(screen.getByTestId("stat-active-sources").textContent).toContain("3");
+    expect(screen.getByTestId("stat-active-sources").textContent).toContain("即时快照不随窗");
+    expect(screen.getByTestId("stat-alerts").textContent).toContain("1");
+    expect(screen.getByTestId("stat-alerts").textContent).toContain("即时快照不随窗");
   });
 
   it("趋势(D4/D5):sparkline 画补零等长窗口(默认 14 点),Select 切 7 天重查 store.trend", async () => {
@@ -424,7 +522,7 @@ describe("DashboardScreen", () => {
     await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 }));
   });
 
-  it("趋势独立降级:store.trend 拒绝 → 趋势卡显错、概览今日格如实 —,doctor 区块照常", async () => {
+  it("趋势独立降级:store.trend 拒绝 → 趋势卡显错、概览采集格如实 — 且注记错误码,doctor 区块照常", async () => {
     mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
     storeTrendMock.mockRejectedValue(
       new SidecarRequestError({ code: "db_locked", path: "$", message: "数据库被锁" }),
@@ -433,7 +531,8 @@ describe("DashboardScreen", () => {
 
     const trendError = await screen.findByTestId("dashboard-trend-error");
     expect(trendError.textContent).toContain("db_locked");
-    await waitFor(() => expect(screen.getByTestId("stat-today-items").textContent).toContain("—"));
+    await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("—"));
+    expect(screen.getByTestId("stat-window-items").textContent).toContain("db_locked"); // A-dash 降级注记
     expect(screen.getByTestId("category-tech.yaml")).toBeTruthy();
   });
 
@@ -524,5 +623,286 @@ describe("DashboardScreen", () => {
     const errorLine = await screen.findByTestId("run-once-error-tech.yaml");
     expect(errorLine.textContent).toContain("run_busy");
     expect((screen.getByRole("button", { name: "跑一次:科技资讯" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  // -------------------------------------------------------------------------
+  // G6(10-04-desktop-b234):成功率趋势第二序列(runs.trend)
+  // -------------------------------------------------------------------------
+
+  it("G6 成功率折线:running 不入分母、零完结日不入线、max=1 固定 [0,1] 刻度,摘要 = 累计口径", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const beforeYesterday = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    runsTrendMock.mockResolvedValue({
+      days: [
+        // 前天:3 个 run 全 running(零完结)→ 不入线
+        { date: beforeYesterday, total: 3, statuses: { running: 3 } },
+        // 昨天:2/5 成功 = 0.4
+        { date: yesterday, total: 5, statuses: { success: 2, partial: 3 } },
+        // 今天:12 run 含 running 2 → finished 10、success 8 = 0.8(running 不入分母)
+        { date: today, total: 12, statuses: { success: 8, running: 2, failed: 2 } },
+      ],
+    });
+    render(<DashboardScreen />);
+
+    const rate = await screen.findByTestId("dashboard-rate-sparkline");
+    const polyline = rate.querySelector("polyline");
+    expect(polyline).toBeTruthy();
+    // 固定 [0,1] 刻度(max=1):0.4 → y=3+42*0.6=28.2;0.8 → y=3+42*0.2=11.4。
+    // max 归一会让 0.8 贴顶(3.0)、0.4 半程(24.0)—— 本断言即真刻度护栏。
+    expect(polyline?.getAttribute("points")).toBe("3.0,28.2 257.0,11.4");
+    // 摘要 = 累计口径(非均值):finished 15(10+5)、success 10 → 67%
+    const summary = screen.getByTestId("rate-summary");
+    expect(summary.textContent).toContain("近 14 天累计成功率 67%(10/15 次成功)");
+    expect(rate.getAttribute("aria-label")).toContain("无完结 run 的日子不入线");
+    expect(runsTrendMock).toHaveBeenCalledWith({ days: 14 }); // 与采集量同默认窗口
+  });
+
+  it("G6 窗口切换:Select 切 7 天 → runs.trend 与 store.trend 同窗重查", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 3 }] });
+    runsTrendMock.mockResolvedValue({
+      days: [{ date: today, total: 4, statuses: { success: 4 } }],
+    });
+    render(<DashboardScreen />);
+    await screen.findByTestId("dashboard-rate-sparkline");
+
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "趋势时间范围" }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    const option = await screen.findByRole("option", { name: "7 天" });
+    fireEvent.click(option);
+    await waitFor(() => expect(runsTrendMock).toHaveBeenCalledWith({ days: 7 }));
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 }));
+  });
+
+  it("G6 独立降级(双向):runs.trend 挂 → 成功率区人话错误、采集量照画;store.trend 挂 → 采集量显错、成功率照画", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    // 正向:runs.trend 拒
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 3 }] });
+    runsTrendMock.mockRejectedValue(
+      new SidecarRequestError({ code: "transport_error", path: "$", message: "与核心的连接异常" }),
+    );
+    const { unmount } = render(<DashboardScreen />);
+
+    const rateError = await screen.findByTestId("dashboard-rate-error");
+    expect(rateError.textContent).toContain("与核心的连接异常"); // 人话文案(fbbaaa7 判例)
+    expect(rateError.textContent).toContain("[transport_error]"); // mono 码如实,不裸放 raw
+    await waitFor(() => expect(screen.getByTestId("dashboard-sparkline").querySelector("polyline")).toBeTruthy());
+    unmount();
+
+    // 反向:store.trend 拒、runs.trend 活
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    storeTrendMock.mockRejectedValue(
+      new SidecarRequestError({ code: "db_locked", path: "$", message: "数据库被锁" }),
+    );
+    runsTrendMock.mockResolvedValue({
+      days: [{ date: today, total: 2, statuses: { success: 1, failed: 1 } }],
+    });
+    render(<DashboardScreen />);
+
+    await screen.findByTestId("dashboard-trend-error");
+    const rateSpark = await screen.findByTestId("dashboard-rate-sparkline");
+    expect(rateSpark.querySelector("polyline")).toBeTruthy(); // allSettled 分流,互不连带
+  });
+
+  it("G6 空态:全窗口零完结 run → 如实提示,不画 0% 平线", async () => {
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    runsTrendMock.mockResolvedValue({ days: [] }); // 全窗口零 run(含缺省空库)
+    render(<DashboardScreen />);
+
+    const empty = await screen.findByTestId("dashboard-rate-empty");
+    expect(empty.textContent).toContain("无已完结 run");
+    expect(screen.queryByTestId("dashboard-rate-sparkline")).toBeNull(); // 不虚构 0%/100%
+    expect(screen.queryByTestId("dashboard-rate-error")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// api 纯函数(原 B4 死组件测试承载;10-04-desktop-b234 删死组件时迁此续命
+// ——fillDailyCounts/shiftUtcDate/toSparklinePoints 仍是 api.ts 活函数)
+// ---------------------------------------------------------------------------
+
+describe("fillDailyCounts 聚合(B4 验收落点;死组件测试迁入)", () => {
+  it("补零天:稀疏行铺满窗口,缺数日 count=0,旧→新稳定输出", () => {
+    const rows: TrendDay[] = [
+      { date: "2026-10-03", count: 4 },
+      { date: "2026-09-30", count: 1 },
+    ];
+    const filled = fillDailyCounts(rows, 7, "2026-10-03");
+    expect(filled).toHaveLength(7);
+    expect(filled.map((day) => day.date)).toEqual([
+      "2026-09-27",
+      "2026-09-28",
+      "2026-09-29",
+      "2026-09-30",
+      "2026-10-01",
+      "2026-10-02",
+      "2026-10-03",
+    ]);
+    expect(filled.map((day) => day.count)).toEqual([0, 0, 0, 1, 0, 0, 4]);
+  });
+
+  it("窗口裁剪:窗口外行丢弃(更早日期不带入);非法日期行防御性忽略", () => {
+    const rows: TrendDay[] = [
+      { date: "2020-01-01", count: 99 },
+      { date: "2026-10-02", count: 2 },
+      { date: "not-a-date", count: 7 },
+    ];
+    const filled = fillDailyCounts(rows, 3, "2026-10-03");
+    expect(filled.map((day) => day.count)).toEqual([0, 2, 0]);
+  });
+
+  it("空态 = 全零窗口(不是空数组;sparkline 需等长序列)", () => {
+    const filled = fillDailyCounts([], 14, "2026-10-03");
+    expect(filled).toHaveLength(14);
+    expect(filled.every((day) => day.count === 0)).toBe(true);
+  });
+
+  it("days 非法(0/负/小数)= 空数组(防御,不抛)", () => {
+    expect(fillDailyCounts([], 0, "2026-10-03")).toEqual([]);
+    expect(fillDailyCounts([], -3, "2026-10-03")).toEqual([]);
+    expect(fillDailyCounts([], 2.5, "2026-10-03")).toEqual([]);
+  });
+
+  it("shiftUtcDate:UTC 字符历法加减(跨月/跨年正确,不经本地时区)", () => {
+    expect(shiftUtcDate("2026-10-03", -1)).toBe("2026-10-02");
+    expect(shiftUtcDate("2026-10-01", -1)).toBe("2026-09-30");
+    expect(shiftUtcDate("2026-01-01", -1)).toBe("2025-12-31");
+    expect(shiftUtcDate("2026-02-28", 1)).toBe("2026-03-01"); // 2026 非闰年
+    expect(shiftUtcDate("bad", 1)).toBe("bad");
+  });
+});
+
+describe("toSparklinePoints(死组件测试迁入)", () => {
+  it("按 max 归一:峰值贴上边、零贴下边,点数 = 输入长度", () => {
+    const points = toSparklinePoints([0, 5, 10], 100, 50, 5).split(" ");
+    expect(points).toHaveLength(3);
+    const [, mid, top] = points.map((point) => point.split(",").map(Number));
+    expect(mid[1]).toBe(30 - 5); // (5/10) 半程:pad + span*(1-0.5) = 5+40*0.5=25
+    expect(top[1]).toBe(5); // 峰值贴 pad
+  });
+
+  it("全零 = 居中平线(不除零);空输入/过小画布 = 空串", () => {
+    const flat = toSparklinePoints([0, 0, 0], 100, 50, 5).split(" ");
+    expect(flat.every((point) => point.split(",")[1] === "25.0")).toBe(true);
+    expect(toSparklinePoints([], 100, 50)).toBe("");
+    expect(toSparklinePoints([1], 4, 4)).toBe("");
+  });
+
+  it("单点居中(x = width/2,不除零)", () => {
+    expect(toSparklinePoints([7], 100, 50, 5)).toBe("50.0,5.0");
+  });
+});
+
+describe("G6 成功率装配纯函数(10-04-desktop-b234)", () => {
+  const rows: RunOutcomeDay[] = [
+    { date: "2026-10-01", total: 3, statuses: { running: 3 } }, // 零完结 → 不入序
+    { date: "2026-10-02", total: 5, statuses: { success: 2, partial: 3 } }, // 0.4
+    { date: "2026-10-03", total: 12, statuses: { success: 8, running: 2, failed: 2 } }, // running 不入分母 → 0.8
+  ];
+
+  it("fillDailyOutcomes:补零对齐镜像 fillDailyCounts,缺数日 total 0", () => {
+    const filled = fillDailyOutcomes([rows[1]], 3, "2026-10-03");
+    expect(filled.map((day) => day.date)).toEqual(["2026-10-01", "2026-10-02", "2026-10-03"]);
+    expect(filled[0]).toEqual({ date: "2026-10-01", total: 0, statuses: {} });
+    expect(filled[2]).toEqual({ date: "2026-10-03", total: 0, statuses: {} });
+    expect(fillDailyOutcomes([], 0, "2026-10-03")).toEqual([]); // 非法 days 防御
+  });
+
+  it("successRateSeries:running 不入分母、零完结日不入序(不虚构 0%/100%)", () => {
+    const series = successRateSeries(rows);
+    expect(series).toEqual([
+      { date: "2026-10-02", rate: 0.4 },
+      { date: "2026-10-03", rate: 0.8 },
+    ]);
+    // 若 running 入分母,今天会是 8/12≈0.667 —— 0.8 即分母剔除的数值断言
+    expect(successRateSeries([{ date: "2026-10-01", total: 4, statuses: { running: 4 } }])).toEqual([]);
+  });
+
+  it("cumulativeOutcomeSummary:窗口累计口径(finished=Σ(total−running))", () => {
+    expect(cumulativeOutcomeSummary(rows)).toEqual({ finished: 15, success: 10, rate: 10 / 15 });
+    expect(cumulativeOutcomeSummary([])).toEqual({ finished: 0, success: 0, rate: null });
+  });
+});
+
+describe("buildOverviewStats 窗口语义(A-dash 纯函数;两格随窗两格快照)", () => {
+  const today = "2026-10-04";
+  const doctor = fixtureDoctor(); // 3 源:2 ok + 1 degraded;findings 空
+  const trendToday: TrendDay[] = [{ date: today, count: 5 }];
+  const trend7: TrendDay[] = [
+    { date: "2026-09-28", count: 1 },
+    { date: today, count: 5 },
+  ];
+
+  /** DashboardRun 最小行(pushOk>0 时带 push 数组) */
+  function dashRun(runId: number, startedAt: string, pushOk = 0): DashboardRun {
+    return {
+      runId,
+      category: "tech",
+      status: "success",
+      startedAt,
+      finishedAt: startedAt,
+      stats:
+        pushOk > 0
+          ? { push: Array.from({ length: pushOk }, () => ({ channel: "tg", ok: true })) }
+          : null,
+      active: false,
+      dry: false,
+      durationMs: 0,
+    };
+  }
+
+  it("今日档(默认):采集=单日 count;推送=今日 run 的 ok 计数;今日无 run = null 不虚构 0", () => {
+    const stats = buildOverviewStats(doctor, [dashRun(1, "2026-10-04T08:00:00+00:00", 2)], trendToday, today);
+    expect(stats.window).toBe("today");
+    expect(stats.windowItems).toBe(5);
+    expect(stats.windowPushOk).toBe(2);
+    const noTodayRun = buildOverviewStats(doctor, [dashRun(2, "2026-10-03T08:00:00+00:00", 3)], trendToday, today);
+    expect(noTodayRun.windowPushOk).toBeNull();
+  });
+
+  it("7 天档:采集=窗口求和(非右端单值);推送吃窗口内 run,窗口外(8 天前)不入", () => {
+    const inWindow = [dashRun(3, "2026-10-01T08:00:00+00:00", 1), dashRun(4, "2026-10-04T09:00:00+00:00", 1)];
+    const outOfWindow = dashRun(5, "2026-09-26T08:00:00+00:00", 9); // today−8 = 窗外
+    const stats = buildOverviewStats(doctor, [...inWindow, outOfWindow], trend7, today, 7);
+    expect(stats.windowItems).toBe(6); // 1+5
+    expect(stats.windowPushOk).toBe(2); // 窗外 9 次不入
+  });
+
+  it("快照格不随窗:activeSources/totalSources/alerts 两档一致;trend=null → 采集格 null", () => {
+    const todayStats = buildOverviewStats(doctor, [], trendToday, today);
+    const weekStats = buildOverviewStats(doctor, [], trend7, today, 7);
+    expect(weekStats.activeSources).toBe(todayStats.activeSources); // 2
+    expect(weekStats.totalSources).toBe(todayStats.totalSources); // 3
+    expect(weekStats.alerts).toBe(todayStats.alerts); // 0
+    expect(buildOverviewStats(doctor, [], null, today, 7).windowItems).toBeNull();
+  });
+
+  it("overviewTrendDays:今日→1(1 天补零窗右端即今天),窗口档原样", () => {
+    expect(overviewTrendDays("today")).toBe(1);
+    expect(overviewTrendDays(7)).toBe(7);
+    expect(overviewTrendDays(30)).toBe(30);
+  });
+});
+
+describe("Sparkline max prop(G6 固定刻度;向后兼容回归护栏)", () => {
+  it("max=1:固定 [0,1] 真刻度,0.4/0.8 不被拉成满格差", () => {
+    const { container } = render(
+      <Sparkline values={[0.4, 0.8]} max={1} aria-label="固定刻度" />,
+    );
+    // 0.4 → y=3+42*0.6=28.2;0.8 → y=3+42*0.2=11.4(距顶还有余量 = 真刻度)
+    expect(container.querySelector("polyline")?.getAttribute("points")).toBe("3.0,28.2 257.0,11.4");
+  });
+
+  it("不传 max:现行为 max 归一不变(存量采集量序列零感知)", () => {
+    const { container } = render(<Sparkline values={[0.4, 0.8]} aria-label="归一" />);
+    // max=0.8:0.4 → y=3+42*0.5=24.0;0.8 → 贴顶 3.0
+    expect(container.querySelector("polyline")?.getAttribute("points")).toBe("3.0,24.0 257.0,3.0");
   });
 });

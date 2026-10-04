@@ -22,6 +22,9 @@ export interface SparklineProps {
   strokeClassName?: string;
   /** 折线下渐变填充(D5:折线+渐变填充;默认开) */
   area?: boolean;
+  /** 固定 y 上界(比率序列喂 max=1 落实 [0,1] 真刻度;未传 = 现行为
+   *  max 归一不变,存量采集量序列零感知;10-04-desktop-b234 G6) */
+  max?: number;
   /** building 态呼吸:末点亮起点(teardown-vercel-dashboard #6「building 态可 pulse」) */
   pulse?: boolean;
   className?: string;
@@ -35,10 +38,17 @@ interface SparkPoint {
   y: number;
 }
 
-/** 等距 x + 按 max 归一 y;全零 = 居中平线(max=0 不除零),单点居中。 */
-function sparkPoints(values: number[], width: number, height: number, pad: number): SparkPoint[] {
+/** 等距 x + 归一 y(默认按序列 max;domainMax 给定 = 固定上界真刻度);
+ * 全零 = 居中平线(max=0 不除零),单点居中。 */
+function sparkPoints(
+  values: number[],
+  width: number,
+  height: number,
+  pad: number,
+  domainMax?: number,
+): SparkPoint[] {
   if (values.length === 0 || width <= pad * 2 || height <= pad * 2) return [];
-  const max = Math.max(...values, 0);
+  const max = domainMax !== undefined && domainMax > 0 ? domainMax : Math.max(...values, 0);
   const spanX = width - pad * 2;
   const spanY = height - pad * 2;
   return values.map((value, index) => ({
@@ -55,13 +65,14 @@ export function Sparkline({
   pad = 3,
   strokeClassName = "stroke-primary",
   area = true,
+  max,
   pulse = false,
   className,
   "aria-label": ariaLabel,
   "data-testid": dataTestId,
 }: SparklineProps) {
   const gradientId = useId();
-  const points = sparkPoints(values, width, height, pad);
+  const points = sparkPoints(values, width, height, pad, max);
   const line = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
   const baseline = height - pad;
   const last = points.length > 0 ? points[points.length - 1] : null;

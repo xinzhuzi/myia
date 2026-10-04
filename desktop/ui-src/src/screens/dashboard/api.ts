@@ -14,6 +14,7 @@ import type {
   DoctorResult,
   Finding,
   RunEntry,
+  RunOutcomeDay,
   RunRecord,
   SourceHealthState,
   StoreTrendResult,
@@ -21,7 +22,7 @@ import type {
 } from "@/lib/api";
 
 /** 本屏组件从 ./api 统一取类型(趋势窗视图模型的日行形状与 @/lib/api 同源) */
-export type { TrendDay };
+export type { TrendDay, RunOutcomeDay };
 
 /**
  * 仪表盘 run 行视图模型:历史行(runs.list)+ 活跃叠加(run.status 内存态)。
@@ -337,6 +338,75 @@ export async function fetchTrendWindow(days: number): Promise<TrendDay[]> {
 }
 
 // ---------------------------------------------------------------------------
+// 成功率趋势(G6,10-04-desktop-b234:runs.trend 纯函数装配;口径 = 每日
+// success/(total−running),running 不入分母,零完结日不入线不虚构 0%/100%)
+// ---------------------------------------------------------------------------
+
+/** 补零对齐(镜像 fillDailyCounts):缺数日补 total 0,旧→新稳定输出。 */
+export function fillDailyOutcomes(rows: RunOutcomeDay[], days: number, today: string): RunOutcomeDay[] {
+  if (!Number.isInteger(days) || days <= 0) return [];
+  const byDate = new Map<string, RunOutcomeDay>();
+  for (const row of rows) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(row.date)) byDate.set(row.date, row);
+  }
+  const out: RunOutcomeDay[] = [];
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const date = shiftUtcDate(today, -offset);
+    out.push(byDate.get(date) ?? { date, total: 0, statuses: {} });
+  }
+  return out;
+}
+
+/** 单日成功率:success/(total−running);零完结日 = null(不入线,不虚构)。 */
+export function dayOutcomeRate(day: RunOutcomeDay): number | null {
+  const running = day.statuses.running ?? 0;
+  const finished = day.total - running;
+  if (finished <= 0) return null;
+  const success = day.statuses.success ?? 0;
+  return success / finished;
+}
+
+/**
+ * 逐日成功率序列(有完结 run 的日子才入序,旧→新;x 轴与采集量折线不对齐
+ * 属如实取舍 —— 压缩画法,卡面注记说明,见任务档 design §3)。
+ */
+export interface OutcomeRatePoint {
+  date: string;
+  rate: number;
+}
+
+export function successRateSeries(filled: RunOutcomeDay[]): OutcomeRatePoint[] {
+  const out: OutcomeRatePoint[] = [];
+  for (const day of filled) {
+    const rate = dayOutcomeRate(day);
+    if (rate !== null) out.push({ date: day.date, rate });
+  }
+  return out;
+}
+
+/** 窗口累计(摘要行/aria 用,累计口径非均值):{finished, success, rate}。 */
+export function cumulativeOutcomeSummary(filled: RunOutcomeDay[]): {
+  finished: number;
+  success: number;
+  rate: number | null;
+} {
+  let finished = 0;
+  let success = 0;
+  for (const day of filled) {
+    const running = day.statuses.running ?? 0;
+    finished += day.total - running;
+    success += day.statuses.success ?? 0;
+  }
+  return { finished, success, rate: finished > 0 ? success / finished : null };
+}
+
+/** runs.trend 应答 → 补零窗口;失败上抛由调用侧降级(allSettled 分流)。 */
+export async function fetchOutcomeWindow(days: number): Promise<RunOutcomeDay[]> {
+  const result = await api.runsTrend({ days });
+  return fillDailyOutcomes(result.days, days, utcToday());
+}
+
+// ---------------------------------------------------------------------------
 // 小格式化(本屏私有;跨屏抽取属共享层,不在本任务边界)
 // ---------------------------------------------------------------------------
 
@@ -357,20 +427,34 @@ export function runItemCount(run: DashboardRun): number | null {
 
 // ---------------------------------------------------------------------------
 // D4 概览条(10-03-ui-deep-imitation;teardown-vercel-dashboard #2:一行四格
-// = 小标签(大写+弱色)+ 大数字(tnum)):今日采集 / 活跃源 / 推送成功 / 告警
+// = 小标签(大写+弱色)+ 大数字(tnum)):采集 / 活跃源 / 推送成功 / 告警。
+// A-dash(10-04-interaction-batch)卡片级时间范围:概览条独立窗口
+// (今日(UTC)/7/14/30 天)—— 只采集与推送两格随窗;活跃源/告警 = doctor
+// 点快照,无时间序列,不随窗(硬切 = 伪窗口),卡面注记口径。
 // ---------------------------------------------------------------------------
+
+/** 概览窗口档位:今日(UTC)单日,或近 N 天(档位与趋势卡同门;默认今日) */
+export type OverviewWindow = "today" | TrendWindowDays;
+export const OVERVIEW_WINDOW_DEFAULT: OverviewWindow = "today";
+
+/** 概览窗口 → store.trend days 参数(今日 = 1 天补零窗口,右端即今天;零新协议) */
+export function overviewTrendDays(window: OverviewWindow): number {
+  return window === "today" ? 1 : window;
+}
 
 /** 概览条四格视图模型(全部零协议改动:既有 doctor/runs.list/store.trend 装配) */
 export interface OverviewStats {
-  /** 今日采集:store.trend 补零窗口右端(UTC 日口径,与趋势卡一致,不伪称本地时区) */
-  todayItems: number | null;
-  /** 活跃源 = 健康度活着(ok + degraded;dead/unknown 不计);doctor 分区失败 = null */
+  /** 装配窗口(口径回显;今日 = UTC 单日) */
+  window: OverviewWindow;
+  /** 采集格:窗口内入库条目数(今日档 = 当日;窗口档 = 窗口求和);趋势不可达 = null */
+  windowItems: number | null;
+  /** 活跃源 = 健康度活着(ok + degraded;dead/unknown 不计);doctor 分区失败 = null(点快照,不随窗) */
   activeSources: number | null;
-  /** doctor 分区失败 = null */
+  /** doctor 分区失败 = null(点快照,不随窗) */
   totalSources: number | null;
-  /** 推送成功:今日(UTC)启动的 run 里 stats.push[].ok=true 计数;无数据 = null(不虚构 0) */
-  pushOkToday: number | null;
-  /** 告警:doctor findings 总数(error + warning 两级都在内);doctor 分区失败 = null */
+  /** 推送格:窗口内(UTC)启动 run 的 stats.push[].ok=true 计数;窗口内无 run = null(不虚构 0) */
+  windowPushOk: number | null;
+  /** 告警:doctor findings 总数(error + warning 两级都在内);doctor 分区失败 = null(点快照,不随窗) */
   alerts: number | null;
 }
 
@@ -391,25 +475,32 @@ export function utcDateOf(iso: string | null): string | null {
 }
 
 /**
- * 概览条装配:doctor(源/告警)+ runs(今日推送)+ trend 窗口(今日采集)。
- * trend 独立拉取可失败(与品类/健康卡解耦):null = 「今日采集」格显 —,
- * 不拖垮整屏;today 显式传入(纯函数可测)。
+ * 概览条装配:doctor(源/告警快照)+ runs(窗口内推送)+ trend 窗口(采集)。
+ * trend 由调用侧按同窗口独立拉取(A-dash:概览不与趋势卡共用窗口),失败 =
+ * null → 采集格显 —,不拖垮整屏;today 显式传入(纯函数可测)。窗口内推送
+ * = startedAt 的 UTC 日落在 [today−(N−1), today](今日档即单日);runs 为
+ * runs.list 上限 20 条的快照,窗口口径如实注记由卡面负责。
  */
 export function buildOverviewStats(
   doctor: DoctorResult | null,
   runs: DashboardRun[],
   trend: TrendDay[] | null,
   today: string = utcToday(),
+  window: OverviewWindow = OVERVIEW_WINDOW_DEFAULT,
 ): OverviewStats {
   const health = doctor !== null ? summarizeSourceHealth(doctor) : null;
-  const todayRuns = runs.filter((run) => utcDateOf(run.startedAt) === today);
+  const windowStart = window === "today" ? today : shiftUtcDate(today, -(window - 1));
+  const windowRuns = runs.filter((run) => {
+    const date = utcDateOf(run.startedAt);
+    return date !== null && date >= windowStart && date <= today;
+  });
   const trendKnown = trend !== null && trend.length > 0;
-  const lastDay = trendKnown ? trend[trend.length - 1] : null;
   return {
-    todayItems: lastDay ? lastDay.count : null,
+    window,
+    windowItems: trendKnown ? trend.reduce((sum, day) => sum + day.count, 0) : null,
     activeSources: health ? health.ok + health.degraded : null,
     totalSources: health ? health.ok + health.degraded + health.dead + health.unknown : null,
-    pushOkToday: todayRuns.length > 0 ? todayRuns.reduce((sum, run) => sum + countPushOk(run), 0) : null,
+    windowPushOk: windowRuns.length > 0 ? windowRuns.reduce((sum, run) => sum + countPushOk(run), 0) : null,
     alerts: doctor !== null ? doctor.findings.length : null,
   };
 }

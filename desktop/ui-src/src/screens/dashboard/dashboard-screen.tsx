@@ -16,12 +16,17 @@ import {
   buildCategoryCards,
   buildOverviewStats,
   buildSourceHealthCards,
+  cumulativeOutcomeSummary,
+  fetchOutcomeWindow,
   fetchTrendWindow,
   formatDuration,
   formatRelativeTime,
   formatSuccessRate,
   loadDashboardData,
+  OVERVIEW_WINDOW_DEFAULT,
+  overviewTrendDays,
   runItemCount,
+  successRateSeries,
   summarizeRuns,
   summarizeSourceHealth,
   TREND_WINDOW_DAYS,
@@ -35,6 +40,8 @@ import type {
   DashboardData,
   DashboardRun,
   OverviewStats,
+  OverviewWindow,
+  RunOutcomeDay,
   RunSuccessSummary,
   SourceHealthCardModel,
   SourceHealthCounts,
@@ -312,7 +319,13 @@ export function DashboardScreen() {
   const [windowDays, setWindowDays] = useState<TrendWindowDays>(TREND_WINDOW_DEFAULT);
   const [trend, setTrend] = useState<TrendDay[] | null>(null);
   const [trendError, setTrendError] = useState<SidecarRequestError | null>(null);
+  const [outcomes, setOutcomes] = useState<RunOutcomeDay[] | null>(null);
+  const [outcomeError, setOutcomeError] = useState<SidecarRequestError | null>(null);
   const [trendLoading, setTrendLoading] = useState(true);
+  // A-dash(10-04-interaction-batch):概览条独立窗口,不与趋势卡共用(切换互不牵连)
+  const [overviewWindow, setOverviewWindow] = useState<OverviewWindow>(OVERVIEW_WINDOW_DEFAULT);
+  const [overviewTrend, setOverviewTrend] = useState<TrendDay[] | null>(null);
+  const [overviewTrendError, setOverviewTrendError] = useState<SidecarRequestError | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -330,19 +343,46 @@ export function DashboardScreen() {
     }
   }, []);
 
+  /**
+   * 双趋势同窗并发拉取(G6):采集量(store.trend)与成功率(runs.trend)
+   * allSettled 分流 —— 一条失败另一条照画,各自错误各自降级(fbbaaa7 分区
+   * 降级判例,勿用会一败俱败的 Promise.all)。
+   */
   const refreshTrend = useCallback(async (days: TrendWindowDays) => {
     setTrendLoading(true);
     setTrendError(null);
+    setOutcomeError(null);
+    const toSidecarError = (err: unknown): SidecarRequestError =>
+      err instanceof SidecarRequestError
+        ? err
+        : new SidecarRequestError({ code: "transport_error", path: "$", message: String(err) });
+    const [trendR, outcomeR] = await Promise.allSettled([
+      fetchTrendWindow(days),
+      fetchOutcomeWindow(days),
+    ]);
+    if (trendR.status === "fulfilled") setTrend(trendR.value);
+    else setTrendError(toSidecarError(trendR.reason));
+    if (outcomeR.status === "fulfilled") setOutcomes(outcomeR.value);
+    else setOutcomeError(toSidecarError(outcomeR.reason));
+    setTrendLoading(false);
+  }, []);
+
+  /**
+   * 概览独立趋势窗(A-dash):按概览窗口另拉一份 store.trend(今日档 = 1 天
+   * 窗口),失败自降级 —— 采集格显 — + 注记错误码,活跃源/告警/推送照
+   * doctor/runs 装配,不拖垮概览其余格。切换先清旧窗数据(不用旧窗和冒充新窗)。
+   */
+  const refreshOverview = useCallback(async (window: OverviewWindow) => {
+    setOverviewTrend(null);
+    setOverviewTrendError(null);
     try {
-      setTrend(await fetchTrendWindow(days));
+      setOverviewTrend(await fetchTrendWindow(overviewTrendDays(window)));
     } catch (err) {
-      setTrendError(
+      setOverviewTrendError(
         err instanceof SidecarRequestError
           ? err
           : new SidecarRequestError({ code: "transport_error", path: "$", message: String(err) }),
       );
-    } finally {
-      setTrendLoading(false);
     }
   }, []);
 
@@ -354,18 +394,24 @@ export function DashboardScreen() {
     void refreshTrend(windowDays);
   }, [refreshTrend, windowDays]);
 
+  useEffect(() => {
+    void refreshOverview(overviewWindow);
+  }, [refreshOverview, overviewWindow]);
+
   const healthCounts: SourceHealthCounts | null = data?.doctor ? summarizeSourceHealth(data.doctor) : null;
   const runSummary: RunSuccessSummary | null = data ? summarizeRuns(data.runs) : null;
   const categories: CategoryCardModel[] = data?.doctor ? buildCategoryCards(data.doctor) : [];
   const sourceCards: SourceHealthCardModel[] = data?.doctor ? buildSourceHealthCards(data.doctor, data.runs) : [];
   const overview: OverviewStats | null = data
-    ? buildOverviewStats(data.doctor, data.runs, trend, utcToday())
+    ? buildOverviewStats(data.doctor, data.runs, overviewTrend, utcToday(), overviewWindow)
     : null;
 
   const counts = trend ? trendCounts(trend) : [];
   const trendTotal = counts.reduce((sum, count) => sum + count, 0);
   const trendPeak = counts.reduce((max, count) => Math.max(max, count), 0);
   const collecting = runSummary !== null && runSummary.running > 0;
+  const rateSeries = outcomes !== null ? successRateSeries(outcomes) : [];
+  const outcomeSummary = outcomes !== null ? cumulativeOutcomeSummary(outcomes) : null;
 
   return (
     <div data-testid="dashboard-screen-root" className="flex flex-col gap-6 pb-6">
@@ -379,6 +425,7 @@ export function DashboardScreen() {
             onClick={() => {
               void refresh();
               void refreshTrend(windowDays);
+              void refreshOverview(overviewWindow);
             }}
             disabled={loading}
           >
@@ -418,10 +465,39 @@ export function DashboardScreen() {
         </div>
       ) : null}
 
-      {/* 概览条(D4;teardown #2:一行四格,大写小标签 + 大数字 tnum;趋势不可达时今日格如实显 —) */}
-      <section data-testid="dashboard-overview" aria-label="今日概览" className="px-6">
+      {/* 概览条(D4;teardown #2:一行四格,大写小标签 + 大数字 tnum)。
+          A-dash:独立窗口 Select(今日(UTC)/7/14/30 天,趋势卡同款形态)——
+          采集/推送两格随窗;活跃源/告警 = doctor 点快照不随窗,窗口档注记口径 */}
+      <section
+        data-testid="dashboard-overview"
+        aria-label={overviewWindow === "today" ? "今日概览" : `近 ${overviewWindow} 天概览`}
+        className="px-6"
+      >
         <Card>
-          <CardContent className="py-5">
+          <CardContent className="flex flex-col gap-4 py-5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+                {overviewWindow === "today" ? "今日概览(UTC)" : `近 ${overviewWindow} 天概览(UTC)`}
+              </p>
+              <Select
+                value={overviewWindow === "today" ? "today" : String(overviewWindow)}
+                onValueChange={(value) =>
+                  setOverviewWindow(value === "today" ? "today" : (Number(value) as TrendWindowDays))
+                }
+              >
+                <SelectTrigger size="sm" className="h-6 text-xs" aria-label="概览时间范围">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">今日(UTC)</SelectItem>
+                  {TREND_WINDOW_DAYS.map((option) => (
+                    <SelectItem key={option} value={String(option)}>
+                      {option} 天
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-4 md:gap-x-0 md:divide-x md:divide-border/60">
               {loading && overview === null ? (
                 [0, 1, 2, 3].map((index) => (
@@ -433,28 +509,48 @@ export function DashboardScreen() {
               ) : overview === null ? null : (
                 <>
                   <StatCell
-                    testid="stat-today-items"
-                    label="今日采集"
-                    value={overview.todayItems}
-                    note="UTC 日口径 · items 入库"
+                    testid="stat-window-items"
+                    label={overviewWindow === "today" ? "今日采集" : `近 ${overviewWindow} 天采集`}
+                    value={overview.windowItems}
+                    note={
+                      overviewTrendError !== null
+                        ? `趋势不可达(${overviewTrendError.code})· 如实显 —`
+                        : overviewWindow === "today"
+                          ? "UTC 日口径 · items 入库"
+                          : `UTC 逐日 ${overviewWindow} 天求和 · items 入库`
+                    }
                   />
                   <StatCell
                     testid="stat-active-sources"
                     label="活跃源"
                     value={overview.activeSources}
-                    note={overview.totalSources === null ? "诊断不可达 · doctor 分区失败" : `共 ${overview.totalSources} 源 · ok+degraded`}
+                    note={
+                      overview.totalSources === null
+                        ? "诊断不可达 · doctor 分区失败"
+                        : overviewWindow === "today"
+                          ? `共 ${overview.totalSources} 源 · ok+degraded`
+                          : `共 ${overview.totalSources} 源 · ok+degraded · 即时快照不随窗`
+                    }
                   />
                   <StatCell
-                    testid="stat-push-success"
+                    testid="stat-window-push"
                     label="推送成功"
-                    value={overview.pushOkToday}
-                    note="今日(UTC)run 的 ok 推送"
+                    value={overview.windowPushOk}
+                    note={
+                      overviewWindow === "today"
+                        ? "今日(UTC)run 的 ok 推送 · 受 runs.list 20 条上限"
+                        : `近 ${overviewWindow} 天(UTC)run 的 ok 推送 · 受 runs.list 20 条上限`
+                    }
                   />
                   <StatCell
                     testid="stat-alerts"
                     label="告警"
                     value={overview.alerts}
-                    note="doctor error+warning 发现"
+                    note={
+                      overviewWindow === "today"
+                        ? "doctor error+warning 发现"
+                        : "doctor error+warning 发现 · 即时快照不随窗"
+                    }
                     destructive={(overview.alerts ?? 0) > 0}
                   />
                 </>
@@ -522,6 +618,55 @@ export function DashboardScreen() {
                 </p>
               </>
             )}
+
+            {/* 成功率第二序列(G6,10-04-desktop-b234):同块同行共享窗口 Select;
+                口径 = 每日 success/(total−running),与「近期 run 成功率」卡
+                (内存合并 active)不同源,卡面如实注记不冒充同源 */}
+            <div className="mt-2 flex flex-col gap-2 border-t border-border/60 pt-3" data-testid="dashboard-rate-section">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                成功率
+                <Badge variant="outline">不含进行中</Badge>
+              </p>
+              {trendLoading && outcomes === null ? (
+                <>
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-3 w-2/3" />
+                </>
+              ) : outcomeError ? (
+                <p className="text-xs text-destructive" data-testid="dashboard-rate-error">
+                  成功率趋势不可用:{humanizeSidecarError(outcomeError.code, outcomeError.message)}
+                  <span className="ml-1 font-mono">[{outcomeError.code}]</span>
+                </p>
+              ) : rateSeries.length === 0 ? (
+                <p className="text-xs text-muted-foreground" data-testid="dashboard-rate-empty">
+                  近 {windowDays} 天无已完结 run——成功率无从谈起,先跑一轮再说
+                </p>
+              ) : (
+                <>
+                  <Sparkline
+                    values={rateSeries.map((point) => point.rate)}
+                    max={1}
+                    area={false}
+                    data-testid="dashboard-rate-sparkline"
+                    aria-label={
+                      outcomeSummary && outcomeSummary.rate !== null
+                        ? `近 ${windowDays} 天累计成功率 ${formatSuccessRate(outcomeSummary.rate)}` +
+                          `(${outcomeSummary.success}/${outcomeSummary.finished} 次成功),无完结 run 的日子不入线`
+                        : `近 ${windowDays} 天成功率 sparkline,无完结 run 的日子不入线`
+                    }
+                  />
+                  {outcomeSummary && outcomeSummary.rate !== null ? (
+                    <p className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
+                      <span data-testid="rate-summary">
+                        近 {windowDays} 天累计成功率 {formatSuccessRate(outcomeSummary.rate)}(
+                        {outcomeSummary.success}/{outcomeSummary.finished} 次成功)
+                      </span>
+                      <Badge variant="outline">零完结日不入线</Badge>
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
           </CardContent>
         </Card>
 
