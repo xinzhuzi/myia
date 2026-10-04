@@ -3,7 +3,7 @@
   "name": "push-reliability-batch",
   "title": "推送可靠性与平台升级批(深度对拍产出全量执行)",
   "description": "Hermes 深度对拍产出的缺口与升级项全量落地(主人 2026-10-05「按照你的建议去做,都弄上」):R1 投递重试账本(immediate at-least-once,蓝本 delivery_ledger.py 状态机);R2 飞书发送重试+卡片长度护栏+reply 失效降级、telegram retry_after 退避;R3 signal(JSON-RPC)与 bluebubbles(REST)从结构化壳升真出站+消息屏 UI 同步;R4 discord/slack 目录自动发现(蓝本 guild 枚举/conversations 翻页)。执行=动态工作流四路并行(pathspec 提交纪律),终局=全量门禁+换眼复审+装机换装",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-05 主人 /workflow 令「按照你的建议去做,都弄上」——深度对拍产出 R1-R4 全量执行,动态工作流四路并行(白名单互斥;__init__.py 仅 R3 碰),终局全量门禁+换眼复审+装机换装。",
+  "notes": "2026-10-05 主人 /workflow 令「按照你的建议去做,都弄上」——深度对拍产出 R1-R4 全量执行,动态工作流四路并行(白名单互斥;__init__.py 仅 R3 碰),终局全量门禁+换眼复审+装机换装。收口(同日):四路提交指纹 R1=d613310 收编+R1-high 修复 9b9b540、R2=d613310+修复 a371526/4863430+复审修正 f64c0ef、R3=7502a0c、R4=f143000(+文案 d556bb7);AC1-AC8 全勾(证据行在 prd.md);收口重跑门禁=tests/push 1088 过/pytest 全量 3964 过+2 外来红(plugin-market 批二域,如实分类)/ruff 绿/vitest 433 过/tsc+vite build 绿;装机回执 /tmp/wf-batch-install.exit=ok installed f64c0ef(bak=/tmp/世事.app.bak-wf-025213),装机版 secret list+cron list 冒烟过。",
   "meta": {}
 }

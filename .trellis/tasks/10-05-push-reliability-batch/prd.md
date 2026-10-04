@@ -44,20 +44,70 @@ Hermes 深度对拍(2026-10-05,上游钉死 af90026)产出的缺口与升级项*
 
 ## Acceptance Criteria
 
-- [ ] AC1(R1):瞬态失败的 immediate 批次入队→到期重投→3 次耗尽 abandoned
+- [x] AC1(R1):瞬态失败的 immediate 批次入队→到期重投→3 次耗尽 abandoned
   →24h 过期清理→成功出队→死信不入队→原子写容错,全部有测试(fake clock)。
-- [ ] AC2(R2):飞书瞬态重试/降级/拆卡、TG retry_after 退避逐错序列断言;
+  - 证据:tests/push/test_push_retry_ledger.py 30 用例逐项对上——入队
+    (test_transient_immediate_failure_enqueues_with_first_backoff)/到期重投
+    (test_run_flushes_due_retry_at_push_stage)/30s-120s 退避档与 3 次耗尽
+    abandoned(test_backoff_tiers_30_120_then_final_strike+
+    test_exhausted_entry_abandoned_and_kept_for_observation)/24h 过期
+    (test_stale_entry_expired_after_24h)/成功出队(test_delivered_entry_leaves_queue)/
+    死信与配置错不入队(test_dead_error_never_enqueues)/原子写容错
+    (test_atomic_write_leaves_no_tmp_and_file_always_parseable+
+    test_corrupt_file_degrades_to_empty_then_rewrites)/全程 fake clock
+    (test_full_heal_loop_with_fake_clock);落库载体 d613310(收编)+换眼复审
+    R1-high 修复 9b9b540(定向重投回归 test_targeted_retry_resends_to_resolved_
+    target_not_exploded);本收口重跑 tests/push 1088 全过(exit 0)。
+- [x] AC2(R2):飞书瞬态重试/降级/拆卡、TG retry_after 退避逐错序列断言;
   既有 tests/push 零回归。
-- [ ] AC3(R3):signal/bluebubbles 真发送路径(MockTransport)替壳
+  - 证据:tests/push/test_feishu_retry.py 27 用例(飞书瞬态退避逐错序列+reply
+    失效码降级+卡片长度拆分+telegram retry_after,grep retry_after 命中该文件);
+    末次槽降级烧槽位缺陷两笔修复 a371526/4863430(503×2→230011 逐错序列
+    复现+回归用例);本收口干净 worktree(f64c0ef)重跑 `pytest tests/push -q`
+    =1088 passed in 15.12s exit 0=零回归。
+- [x] AC3(R3):signal/bluebubbles 真发送路径(MockTransport)替壳
   dependency_missing 断言;消息屏两家状态/指南/UI 测试同步;scoped
   vitest+tsc 绿。
-- [ ] AC4(R4):discord/slack 发现(翻页聚合/限流退避/补名)测试在案;
+  - 证据:7502a0c 恰好白名单九文件;test_messaging_signal.py 21+
+    test_messaging_bluebubbles.py 23 用例壳断言已改 MockTransport 真发送断言;
+    消息屏 messaging-screen.test.tsx/platform-icons.test.tsx 随 7502a0c 同步;
+    批内门禁 tests/push 1060+messaging 66+tsc+build 绿(7502a0c 批注);
+    本收口重跑 vitest 全量 23 文件 433 全过+npm run build(tsc+vite)exit 0。
+- [x] AC4(R4):discord/slack 发现(翻页聚合/限流退避/补名)测试在案;
   channels.refresh 链路零协议变更。
-- [ ] AC5:全量门禁=pytest 全量+vitest 全量+tsc build 绿(白名单域必须绿;
+  - 证据:f143000 恰好白名单四文件,test_messaging_discord.py 30+
+    test_messaging_slack.py 32 用例(guild 两跳翻页聚合/限流退避/info 补名);
+    channels.refresh 链路零协议变更=d556bb7 仅 src/myssia/cli.py 帮助文案
+    6+/3-,零协议文件改动。
+- [x] AC5:全量门禁=pytest 全量+vitest 全量+tsc build 绿(白名单域必须绿;
   并行在途外来红如实分类记档不拦本批);ruff 绿。
-- [ ] AC6:每路 pathspec 提交(--only)零外来混入;蓝本锚注记+MIT 全部落。
-- [ ] AC7:装机换装(worktree HEAD 构建静默换装)+装机版健康冒烟;回执留档。
-- [ ] AC8:换眼复审(独立上下文读四路 diff)发现项修复或如实标注。
+  - 证据(本收口干净 worktree f64c0ef 重跑):pytest 全量 3964 passed/32
+    skipped/2 failed(92.69s)——两红均外来域非本批白名单:①tests/plugins/
+    test_plugin_packages.py 七 compose 断言红,系 plugin-market 批二
+    0195806/7df322b/66ace59 增三 compose 未随测试(该线修复正以未提交形态
+    在主树,预期集恰增 crawlab/worldmonitor/webcheck);②tests/test_skill_doc.py
+    枚举表红,系 60e2f52 schema.ENGINES 增 zenrows/scraperapi 未随 SKILL.md
+    (该提交 stat 无 skill 文件);白名单域(tests/push+消息屏 UI)全绿。
+    ruff check=All checks passed(exit 0);vitest 全量 23 文件 433 全过;
+    npm run build(tsc+vite)exit 0。批内锚:d613310 收编时全量 3935 过。
+- [x] AC6:每路 pathspec 提交(--only)零外来混入;蓝本锚注记+MIT 全部落。
+  - 证据:R3=7502a0c 九文件、R4=f143000 四文件+d556bb7 文案单文件、R2 修复
+    4863430/f64c0ef 面收敛,皆白名单内;R1/R2 原始实装载体为 d613310 收编
+    提交(源头会话 3h 无活动,telegram 156 行等并行在途改进随收、全量 3935
+    门禁验后落库)——载体偏离 pathspec 纪律如实注记于此,非静默混入;
+    蓝本锚注记+MIT:Hermes af90026 在 d613310/7502a0c/f143000/4863430/
+    9b9b540 批注全落。
+- [x] AC7:装机换装(worktree HEAD 构建静默换装)+装机版健康冒烟;回执留档。
+  - 证据:回执 /tmp/wf-batch-install.exit=「ok installed
+    f64c0ef225c7942f486a44eef691dc9ce736e14f bak=/tmp/世事.app.bak-wf-025213」
+    (worktree HEAD f64c0ef 干净构建静默换装,世事.app 132.24 MiB);装机版
+    /Applications/世事.app/Contents/MacOS/myssia-core secret list=两条凭据名
+    exit=0 零授权框、cron list --json=exit 0。
+- [x] AC8:换眼复审(独立上下文读四路 diff)发现项修复或如实标注。
+  - 证据:复审产出三笔全落——9b9b540(批注「R1 换眼复审 R1-high」:定向重投
+    spec 逐字符炸开,修复+回归用例)、4863430(R2:降级烧槽位 AssertionError
+    逐错序列复现+修)、f64c0ef(R2 换眼复审:蓝本偏离归属伪托如实化,行为
+    零改动,tests/push 1088+ruff 绿)。
 
 ## Constraints
 
