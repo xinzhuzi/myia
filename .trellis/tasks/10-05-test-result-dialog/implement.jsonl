@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "改 UI 必读检查单:token 体系/出处注释/测试同步/协议红线——试抓弹窗全样式须走 token,零 arbitrary 值"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "协议零变更红线:只消费既有 test.completed 载荷,不改 types.ts 事件定义"}

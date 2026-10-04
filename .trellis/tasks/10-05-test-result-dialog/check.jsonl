@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "复核:token/动效/出处注释合规,测试同步与 scoped vitest+tsc 门禁齐跑"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "复核:协议面零改动(git diff 不含 types.ts 事件定义与后端)"}
