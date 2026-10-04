@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/10-04-cron-ui/prd.md", "reason": "AC1-AC9 逐条核对;非目标清单防越离(蓝本字段族/Blueprints/profile/delivery-targets 全不抄)"}
+{"file": ".trellis/tasks/10-04-cron-ui/design.md", "reason": "蓝本对照表逐行勾销(docstring 标注核对)+偏离表 B1-B7 未扩散+风险三项(占用/自绘 toast/常量漂移)复核"}
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "token/基件/对比度红线核对(新屏全量扫)"}
+{"file": ".trellis/tasks/archive/2026-10/10-04-hermes-cron/design.md", "reason": "屏上每个字段/状态的语义与底座权威档一致性核对(四态色映射/grace 逾期/事件形状)"}

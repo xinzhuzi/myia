@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "前端镜像纪律(方法签名入 types.ts+client 门面)与事件清单(cron.completed/cron.skipped);零协议变更红线的出处"}
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "token/基件纪律(14 基件,禁局部 ring/对比度红线/text 阶梯);UI 深度模仿批沉淀的屏级规范"}
+{"file": ".trellis/tasks/archive/2026-10/10-04-hermes-cron/design.md", "reason": "cron 底座的协议语义权威档:九方法/两事件/last_status 四态/grace 与 stale 常量出处(cron/constants.py)——屏的每个字段都对着这里"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "并行会话在场(树上有 ui-reskin-r2 线):等待环纪律+pathspec 提交纪律"}
