@@ -48,8 +48,10 @@ PLUGINS_DIR = REPO_ROOT / "plugins"
 #: 场景件的服务端可选部署(v1.1 起迁出插件目录):docker/plugins/<id>/compose.yml。
 DOCKER_PLUGINS_DIR = REPO_ROOT / "docker" / "plugins"
 
-#: 七件官方场景件(目录名 == manifest id)。myssia-credhunter 于
-#: 10-03-aipocket-fusion 接线段加入:进程内三 lane 凭证猎手(desktop)。
+#: 官方场景件(目录名 == manifest id)。myssia-credhunter 于
+#: 10-03-aipocket-fusion 接线段加入:进程内三 lane 凭证猎手(desktop);
+#: myssia-media 于 10-05-plugin-market-batch 首批加入:yt-dlp 扁平快扫
+#: (desktop,公域上游 uv 隔离子进程,裁定 R-1 不钉版)。
 OFFICIAL_PACKAGES = (
     "myssia-proxy",
     "myssia-osint",
@@ -58,6 +60,7 @@ OFFICIAL_PACKAGES = (
     "myssia-maxun",
     "myssia-credentials",
     "myssia-credhunter",
+    "myssia-media",
 )
 
 #: v1.1 定级建议(PRD 10-02-v11-plugins-source-arch 复核表)钉死的期望分级。
@@ -69,6 +72,7 @@ EXPECTED_TIERS = {
     "myssia-douyin": "server-only",
     "myssia-maxun": "server-only",
     "myssia-credhunter": "desktop",
+    "myssia-media": "desktop",
 }
 
 
@@ -489,6 +493,9 @@ SOURCE_TYPE_PACKAGES = {
     "myssia-osint": {"adapter.py", "vendor"},
     "myssia-proxy": {"adapter.py"},
     "myssia-credhunter": {"adapter.py", "credhunter"},
+    # 10-05-plugin-market-batch 首批:MYIA 侧适配器(uv 隔离子进程调公域上游,
+    # 零 vendored —— yt-dlp 以 pip 依赖形态运行时注入)。
+    "myssia-media": {"adapter.py"},
 }
 
 

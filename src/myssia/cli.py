@@ -214,6 +214,18 @@ DEFAULT_PROXY_COUNT = 5
 DEFAULT_PROXY_CHECK_TIMEOUT_SECONDS = 10.0
 #: 采集类失败码 → 退出码 2(全部源抓取失败 / 零可用代理);其余退 1。
 PROXY_FETCH_FAILURE_CODES = frozenset({"fetch_failed", "no_alive_proxy"})
+#: 视频情报插件(myssia-media,yt-dlp 扁平快扫;10-05-plugin-market-batch 首批)。
+#: 上游公域(Unlicense)经 uv 临时环境子进程调用,不 vendor;版本不钉
+#: (yt-dlp 抽取器时效即生命;测试全 mock,裁定 R-1)。
+MEDIA_PLUGIN_ID = "myssia-media"
+#: 扁平快扫缺省条目上限(频道可达数千条,输出必须有界)。
+DEFAULT_MEDIA_MAX_ITEMS = 50
+#: media 子进程 wall-clock 预算缺省(整个快扫过程,非单请求超时)。
+DEFAULT_MEDIA_TIMEOUT_SECONDS = 180.0
+#: 采集类失败码 → 退出码 2(上游非零退出/超时/输出损坏);其余退 1。
+MEDIA_FETCH_FAILURE_CODES = frozenset(
+    {"media_failed", "media_timeout", "media_output_invalid"}
+)
 #: 凭证猎手插件(myssia-credhunter,进程内三 lane:credhunt/credcheck/exposure;
 #: 10-03-aipocket-fusion;正式取数走 engine: credhunter 进管线,CLI 面是
 #: 调试/冒烟口,credcheck 双入口=--apikey 显式传键 / --from-keystore 读
@@ -319,6 +331,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_skill_parser(sub)
     _add_osint_parser(sub)
     _add_proxy_parser(sub)
+    _add_media_parser(sub)
     _add_credhunt_parser(sub)
     _add_credcheck_parser(sub)
     _add_exposure_parser(sub)
@@ -4228,6 +4241,133 @@ def _add_proxy_parser(sub: argparse._SubParsersAction) -> None:
 
 
 # ---------------------------------------------------------------------------
+# myssia media(myssia-media 插件;10-05-plugin-market-batch 首批:
+# yt-dlp 公域上游经 uv 临时环境隔离子进程,扁平快扫视频/频道/播放列表。
+# 退出码族:0 成功 / 1 配置或环境错误(适配器缺失/uv 缺失/目标非法)/
+# 2 采集失败(上游非零退出/超时/输出损坏);--json 下 stdout 恒单份 JSON)
+# ---------------------------------------------------------------------------
+
+
+def _print_media_human(payload: dict[str, Any]) -> None:
+    """人类可读摘要(与 --json 同一信息,另一种皮)."""
+    meta = payload.get("meta") or {}
+    head = meta.get("title") or payload.get("target") or ""
+    channel = meta.get("channel") or meta.get("uploader") or ""
+    if channel:
+        head = f"{head}({channel})"
+    print(
+        f"世事 media:{head} 条目:{payload.get('entry_count')}/"
+        f"{payload.get('entry_total')}(插件 {payload.get('plugin')})"
+    )
+    for entry in (payload.get("entries") or [])[:10]:
+        duration = entry.get("duration")
+        suffix = f"[{int(duration) // 60}:{int(duration) % 60:02d}]" if duration else ""
+        views = entry.get("view_count")
+        if views is not None:
+            suffix += f"[{views} 次]"
+        print(f"  {entry.get('title') or entry.get('id')}{suffix}")
+    more = (payload.get("entry_count") or 0) - 10
+    if more > 0:
+        print(f"  …另有 {more} 条(--json 看全量)")
+    print(f"  耗时:{payload.get('duration_seconds')}s")
+
+
+def _cmd_media(args: argparse.Namespace) -> int:
+    """``myssia media``:跑一次 yt-dlp 扁平快扫,结构化输出.
+
+    退出码:0 成功(含零条目的合法空态);1 适配器缺失/uv 缺失/目标非法
+    (配置或环境错误);2 采集失败(上游非零退出/超时/输出损坏)。失败码到
+    退出码的映射用 :data:`MEDIA_FETCH_FAILURE_CODES`(CLI 所有,不依赖插件
+    侧导出)。任何失败都只影响本命令,核心品类流水线照常(铁律)。
+    """
+    try:
+        adapter = _import_plugin_adapter(args.plugins_dir, MEDIA_PLUGIN_ID)
+    except (OSError, ImportError, SyntaxError) as exc:
+        _emit_generic_error(
+            "media_adapter_missing",
+            str(exc),
+            as_json=args.as_json,
+            plugins_dir=str(args.plugins_dir),
+        )
+        return EXIT_CONFIG_ERROR
+    try:
+        payload = adapter.run(
+            args.url,
+            timeout=args.timeout,
+            max_items=args.max_items,
+        )
+    except Exception as exc:  # noqa: BLE001 — 适配器一切失败都结构化降级,绝不拦核心
+        details = (
+            exc.to_dict()
+            if hasattr(exc, "to_dict")
+            else {"code": "media_failed", "message": str(exc)}
+        )
+        code = str(details.get("code", "media_failed"))
+        exit_code = (
+            EXIT_FETCH_ALL_FAILED
+            if code in MEDIA_FETCH_FAILURE_CODES
+            else EXIT_CONFIG_ERROR
+        )
+        extra = {
+            key: value
+            for key, value in details.items()
+            if key not in ("code", "message")
+        }
+        _emit_generic_error(
+            code, str(details.get("message", exc)), as_json=args.as_json, **extra
+        )
+        return exit_code
+    if args.as_json:
+        _print_json(payload)
+    else:
+        _print_media_human(payload)
+    return EXIT_OK
+
+
+def _add_media_parser(sub: argparse._SubParsersAction) -> None:
+    """``myssia media``:视频/频道扁平快扫(10-05-plugin-market-batch myssia-media)."""
+    media = sub.add_parser(
+        "media",
+        help="视频/频道扁平快扫(myssia-media 插件,yt-dlp 隔离子进程;失败绝不拦核心)",
+        description=(
+            "定位 <plugins-dir>/myssia-media(适配器 adapter.py),以 uv 临时环境"
+            "(--no-project --with yt-dlp,不进根依赖)隔离子进程跑上游 CLI 的"
+            "--dump-single-json --flat-playlist 扁平快扫:单视频出元数据,频道/"
+            "播放列表出条目清单(不逐条解析媒体流)。目标须 http(s) URL;采集"
+            "边界由使用者自负(站点条款与当地法律)。适配器缺失/目标非法退 1;"
+            "采集失败退 2;任何失败不影响核心品类流水线(铁律)。"
+        ),
+    )
+    media.add_argument(
+        "url",
+        help="采集目标 http(s) URL(视频/频道/播放列表页)",
+    )
+    media.add_argument(
+        "--max-items",
+        type=int,
+        default=DEFAULT_MEDIA_MAX_ITEMS,
+        help=f"返回条目上限,经上游 --playlist-end 前置预算(默认 {DEFAULT_MEDIA_MAX_ITEMS})",
+    )
+    media.add_argument(
+        "--timeout",
+        type=float,
+        default=DEFAULT_MEDIA_TIMEOUT_SECONDS,
+        help=f"子进程 wall-clock 预算秒数(默认 {DEFAULT_MEDIA_TIMEOUT_SECONDS:g})",
+    )
+    media.add_argument(
+        "--plugins-dir",
+        default=DEFAULT_PLUGINS_DIR,
+        help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR},样板位于 myssia-media/ 子目录)",
+    )
+    media.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+
+# ---------------------------------------------------------------------------
 # myssia credhunt / credcheck / exposure(myssia-credhunter 插件三 lane;
 # 10-03-aipocket-fusion:正式取数走 engine: credhunter 进管线,本三命令是
 # 调试/冒烟/后处理口 —— credhunt/exposure 单次取数 stdout JSON,credcheck
@@ -4686,6 +4826,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "skill": _cmd_skill,
         "osint": _cmd_osint,
         "proxy": _cmd_proxy,
+        "media": _cmd_media,
         "credhunt": _cmd_credhunt,
         "credcheck": _cmd_credcheck,
         "exposure": _cmd_exposure,
