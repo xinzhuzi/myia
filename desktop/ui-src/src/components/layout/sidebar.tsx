@@ -1,12 +1,11 @@
 import { useCallback, useState } from "react";
-import { ChevronDown, Clock, FileCode2, Inbox, LayoutDashboard, Loader2, MessageCircle, PanelLeftClose, PanelLeftOpen, PlugZap, Rss, Settings, Terminal, Unplug } from "lucide-react";
+import { ChevronDown, Clock, FileCode2, Inbox, LayoutDashboard, MessageCircle, PanelLeftClose, PanelLeftOpen, Rss, Settings, Terminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { MyssiaMark } from "@/components/myssia-mark";
 import { Button } from "@/components/ui/button";
 import { useHotkeys } from "@/hooks/use-hotkeys";
-import { useSidecarStatus } from "@/hooks/use-sidecar-status";
 import { cn } from "@/lib/utils";
 
 /**
@@ -15,47 +14,47 @@ import { cn } from "@/lib/utils";
  * (KsSideBarSection:可折叠 + chevron)→ 底部账户区映射 = 设置行 +
  * sidecar 状态(本应用单用户无账户)。
  * [来源 Apache-2.0,只读参考,借结构改语义]
- *   kestra/ui/src/components/layout/SideBar.vue(顶层直链/分组/收藏/底部槽)
- *   kestra/ui/packages/design-system/.../KsSideBar(KsSideBarSection/KsSideBarItem).vue
+ *  kestra/ui/src/components/layout/SideBar.vue(顶层直链/分组/收藏/底部槽)
+ *  kestra/ui/packages/design-system/.../KsSideBar(KsSideBarSection/KsSideBarItem).vue
  */
 export interface NavEntry {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-  /** 精确匹配(仅根路由需要) */
-  end: boolean;
+ to: string;
+ label: string;
+ icon: LucideIcon;
+ /** 精确匹配(仅根路由需要) */
+ end: boolean;
 }
 
 export interface NavGroup {
-  /** null = 顶部主入口区(Kestra 顶层直链区,无组标题、不可折叠) */
-  label: string | null;
-  entries: NavEntry[];
+ /** null = 顶部主入口区(Kestra 顶层直链区,无组标题、不可折叠) */
+ label: string | null;
+ entries: NavEntry[];
 }
 
 /** 导航分组清单(prd A-shell「顺手 export」:供后续复用,如命令面/测试口径) */
 export const NAV_GROUPS: NavGroup[] = [
-  {
-    label: null,
-    entries: [
-      { to: "/", label: "仪表盘", icon: LayoutDashboard, end: true },
-      { to: "/feed", label: "情报流", icon: Inbox, end: false },
-    ],
-  },
-  {
-    label: "采集",
-    entries: [
-      { to: "/sources", label: "源管理", icon: Rss, end: false },
-      // 定时任务(10-04-cron-ui):cron.* 管理屏,位次=源管理之后
-      // (与 App.tsx 路由一致;Clock 图标=排程语义)
-      { to: "/cron", label: "定时任务", icon: Clock, end: false },
-      { to: "/yaml-editor", label: "配置编辑", icon: FileCode2, end: false },
-      { to: "/logs", label: "采集日志", icon: Terminal, end: false },
-    ],
-  },
-  {
-    label: "推送",
-    entries: [{ to: "/messaging", label: "消息", icon: MessageCircle, end: false }],
-  },
+ {
+  label: null,
+  entries: [
+   { to: "/", label: "仪表盘", icon: LayoutDashboard, end: true },
+   { to: "/feed", label: "情报流", icon: Inbox, end: false },
+  ],
+ },
+ {
+  label: "采集",
+  entries: [
+   { to: "/sources", label: "源管理", icon: Rss, end: false },
+   // 定时任务(10-04-cron-ui):cron.* 管理屏,位次=源管理之后
+   // (与 App.tsx 路由一致;Clock 图标=排程语义)
+   { to: "/cron", label: "定时任务", icon: Clock, end: false },
+   { to: "/yaml-editor", label: "配置编辑", icon: FileCode2, end: false },
+   { to: "/logs", label: "采集日志", icon: Terminal, end: false },
+  ],
+ },
+ {
+  label: "推送",
+  entries: [{ to: "/messaging", label: "消息", icon: MessageCircle, end: false }],
+ },
 ];
 
 /** 底部设置行(Kestra footer 槽;样式与主导航行一致) */
@@ -63,16 +62,16 @@ const SETTINGS_ENTRY: NavEntry = { to: "/settings", label: "设置", icon: Setti
 
 /** 按路由解析当前导航项(顶栏面包屑与侧栏激活态同一口径) */
 export function resolveNav(pathname: string): { group: string | null; entry: NavEntry } | null {
-  const all = [...NAV_GROUPS.map((group) => ({ label: group.label, entries: group.entries })), { label: null, entries: [SETTINGS_ENTRY] }];
-  for (const group of all) {
-    for (const entry of group.entries) {
-      const matched = entry.end
-        ? pathname === entry.to
-        : pathname === entry.to || pathname.startsWith(entry.to + "/");
-      if (matched) return { group: group.label, entry };
-    }
+ const all = [...NAV_GROUPS.map((group) => ({ label: group.label, entries: group.entries })), { label: null, entries: [SETTINGS_ENTRY] }];
+ for (const group of all) {
+  for (const entry of group.entries) {
+   const matched = entry.end
+    ? pathname === entry.to
+    : pathname === entry.to || pathname.startsWith(entry.to + "/");
+   if (matched) return { group: group.label, entry };
   }
-  return null;
+ }
+ return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,9 +80,9 @@ export function resolveNav(pathname: string): { group: string | null; entry: Nav
 
 /** 侧栏偏好(宽/折叠记忆) */
 export interface SidebarPrefs {
-  collapsed: boolean;
-  /** 展开态宽度(px);null = 未自定义(拖拽调宽落地后写入,底座先支持记忆) */
-  width: number | null;
+ collapsed: boolean;
+ /** 展开态宽度(px);null = 未自定义(拖拽调宽落地后写入,底座先支持记忆) */
+ width: number | null;
 }
 
 const SIDEBAR_STORAGE_KEY = "myssia.sidebar.v1";
@@ -94,155 +93,155 @@ const SIDEBAR_MAX_WIDTH = 360;
 const SIDEBAR_ICON_WIDTH = 56; // 折叠宽(w-14 换算)
 
 export function loadSidebarPrefs(
-  storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
+ storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
 ): SidebarPrefs {
-  if (storage === null) return { collapsed: false, width: null };
-  try {
-    const raw = storage.getItem(SIDEBAR_STORAGE_KEY);
-    if (!raw) return { collapsed: false, width: null };
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return { collapsed: false, width: null };
-    }
-    const record = parsed as Record<string, unknown>;
-    const width =
-      typeof record.width === "number" && Number.isFinite(record.width)
-        ? Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Math.round(record.width)))
-        : null;
-    return { collapsed: record.collapsed === true, width };
-  } catch {
-    return { collapsed: false, width: null }; // 损坏即弃(下次切换重写)
+ if (storage === null) return { collapsed: false, width: null };
+ try {
+  const raw = storage.getItem(SIDEBAR_STORAGE_KEY);
+  if (!raw) return { collapsed: false, width: null };
+  const parsed: unknown = JSON.parse(raw);
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+   return { collapsed: false, width: null };
   }
+  const record = parsed as Record<string, unknown>;
+  const width =
+   typeof record.width === "number" && Number.isFinite(record.width)
+    ? Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, Math.round(record.width)))
+    : null;
+  return { collapsed: record.collapsed === true, width };
+ } catch {
+  return { collapsed: false, width: null }; // 损坏即弃(下次切换重写)
+ }
 }
 
 export function saveSidebarPrefs(
-  prefs: SidebarPrefs,
-  storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
+ prefs: SidebarPrefs,
+ storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
 ): void {
-  if (storage === null) return;
-  try {
-    storage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(prefs));
-  } catch {
-    // 配额/隐私模式写失败不阻断界面(记忆尽力而为)
-  }
+ if (storage === null) return;
+ try {
+  storage.setItem(SIDEBAR_STORAGE_KEY, JSON.stringify(prefs));
+ } catch {
+  // 配额/隐私模式写失败不阻断界面(记忆尽力而为)
+ }
 }
 
 /** 分组折叠记忆(Kestra layoutStore.setMenuSectionCollapsed 的本地等价;
- *  独立存储键——不并入 sidebar.v1,避免污染其 {collapsed,width} 契约)。
- *  只记录显式折叠(true)的组,缺省 = 展开(Kestra defaultCollapsed=false)。 */
+ * 独立存储键——不并入 sidebar.v1,避免污染其 {collapsed,width} 契约)。
+ * 只记录显式折叠(true)的组,缺省 = 展开(Kestra defaultCollapsed=false)。 */
 function loadGroupCollapsed(
-  storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
+ storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
 ): Record<string, boolean> {
-  if (storage === null) return {};
-  try {
-    const raw = storage.getItem(SIDEBAR_GROUPS_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    const out: Record<string, boolean> = {};
-    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-      if (value === true) out[key] = true; // 只认真布尔,其余形态弃
-    }
-    return out;
-  } catch {
-    return {}; // 损坏即弃
+ if (storage === null) return {};
+ try {
+  const raw = storage.getItem(SIDEBAR_GROUPS_STORAGE_KEY);
+  if (!raw) return {};
+  const parsed: unknown = JSON.parse(raw);
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+  const out: Record<string, boolean> = {};
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+   if (value === true) out[key] = true; // 只认真布尔,其余形态弃
   }
+  return out;
+ } catch {
+  return {}; // 损坏即弃
+ }
 }
 
 function saveGroupCollapsed(
-  groups: Record<string, boolean>,
-  storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
+ groups: Record<string, boolean>,
+ storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
 ): void {
-  if (storage === null) return;
-  try {
-    storage.setItem(SIDEBAR_GROUPS_STORAGE_KEY, JSON.stringify(groups));
-  } catch {
-    // 写失败不阻断
-  }
+ if (storage === null) return;
+ try {
+  storage.setItem(SIDEBAR_GROUPS_STORAGE_KEY, JSON.stringify(groups));
+ } catch {
+  // 写失败不阻断
+ }
 }
 
 /** 导航行(Kestra KsSideBarItem 规格):min-h 26px · px8/py4 · gap8 ·
- *  圆角 8(--ks-radius-base)· 字 12/500 · 图标 16px;
- *  hover = bg-hover 填充 + 次级文字色;active = bg-active 填充 + link 色
- *  (primary-200,--ks-text-link)——弃 Linear 左缘竖条,Kestra 以
- *  「填充 + 文字色」区分激活。折叠态:图标居中、文字隐去(title 补可达性)。 */
+ * 圆角 8(--ks-radius-base)· 字 12/500 · 图标 16px;
+ * hover = bg-hover 填充 + 次级文字色;active = bg-active 填充 + link 色
+ * (primary-200,--ks-text-link)——弃 Linear 左缘竖条,Kestra 以
+ * 「填充 + 文字色」区分激活。折叠态:图标居中、文字隐去(title 补可达性)。 */
 function NavRow({ entry, collapsed }: { entry: NavEntry; collapsed: boolean }) {
-  const { to, label, icon: Icon, end } = entry;
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      title={collapsed ? label : undefined}
-      className={({ isActive }) =>
-        cn(
-          "flex min-h-[26px] items-center gap-2 rounded-md py-1 text-xs font-medium",
-          "transition-colors duration-(--duration-fast) ease-out-expo",
-          collapsed ? "justify-center px-0" : "px-2",
-          isActive
-            ? "bg-accent text-link"
-            : "text-foreground hover:bg-accent hover:text-secondary-foreground",
-        )
-      }
-    >
-      {({ isActive }) => (
-        <>
-          <Icon className={cn("size-4 shrink-0", isActive && "text-link")} aria-hidden />
-          {collapsed ? null : label}
-        </>
-      )}
-    </NavLink>
-  );
+ const { to, label, icon: Icon, end } = entry;
+ return (
+  <NavLink
+   to={to}
+   end={end}
+   title={collapsed ? label : undefined}
+   className={({ isActive }) =>
+    cn(
+     "flex min-h-[26px] items-center gap-2 rounded-md py-1 text-xs font-medium",
+     "transition-colors duration-(--duration-fast) ease-out-expo",
+     collapsed ? "justify-center px-0" : "px-2",
+     isActive
+      ? "bg-accent text-link"
+      : "text-foreground hover:bg-accent hover:text-secondary-foreground",
+    )
+   }
+  >
+   {({ isActive }) => (
+    <>
+     <Icon className={cn("size-4 shrink-0", isActive && "text-link")} aria-hidden />
+     {collapsed ? null : label}
+    </>
+   )}
+  </NavLink>
+ );
 }
 
 /** 分组区(Kestra KsSideBarSection 借构):标题钮(12/400/dim 色,hover 提
- *  前景色)+ chevron 14px 折叠旋 -90°;条目区 grid-rows 0fr↔1fr 折叠动画
- *  (250ms · Kestra 缓动 cubic-bezier(0.22,1,0.36,1)),折叠时内层 inert
- *  防键盘焦点(Kestra 同款)。chevron 紧随文字(Kestra 原版排布)。 */
+ * 前景色)+ chevron 14px 折叠旋 -90°;条目区 grid-rows 0fr↔1fr 折叠动画
+ * (250ms · Kestra 缓动 cubic-bezier(0.22,1,0.36,1)),折叠时内层 inert
+ * 防键盘焦点(Kestra 同款)。chevron 紧随文字(Kestra 原版排布)。 */
 function GroupSection({
-  label,
-  entries,
-  collapsed,
-  onToggle,
+ label,
+ entries,
+ collapsed,
+ onToggle,
 }: {
-  label: string;
-  entries: NavEntry[];
-  collapsed: boolean;
-  onToggle: (label: string) => void;
+ label: string;
+ entries: NavEntry[];
+ collapsed: boolean;
+ onToggle: (label: string) => void;
 }) {
-  const isCollapsed = collapsed === true;
-  return (
-    <section className="flex flex-col">
-      <button
-        type="button"
-        aria-expanded={!isCollapsed}
-        onClick={() => onToggle(label)}
-        className="flex w-full items-center gap-2 px-2.5 pb-1 pt-2 text-xs font-normal text-muted-foreground transition-colors duration-(--duration-fast) ease-out-expo hover:text-foreground"
-      >
-        <span className="min-w-0 truncate text-left">{label}</span>
-        <ChevronDown
-          aria-hidden
-          className={cn(
-            "size-3.5 shrink-0 transition-transform duration-(--duration-fast) ease-out-expo",
-            isCollapsed && "-rotate-90",
-          )}
-        />
-      </button>
-      <div
-        className={cn(
-          "grid transition-[grid-template-rows] duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
-          isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
-        )}
-      >
-        <div className="min-h-0 overflow-hidden" inert={isCollapsed ? true : undefined}>
-          <div className="flex flex-col gap-1">
-            {entries.map((entry) => (
-              <NavRow key={entry.to} entry={entry} collapsed={false} />
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+ const isCollapsed = collapsed === true;
+ return (
+  <section className="flex flex-col">
+   <button
+    type="button"
+    aria-expanded={!isCollapsed}
+    onClick={() => onToggle(label)}
+    className="flex w-full items-center gap-2 px-2.5 pb-1 pt-2 text-xs font-normal text-muted-foreground transition-colors duration-(--duration-fast) ease-out-expo hover:text-foreground"
+   >
+    <span className="min-w-0 truncate text-left">{label}</span>
+    <ChevronDown
+     aria-hidden
+     className={cn(
+      "size-3.5 shrink-0 transition-transform duration-(--duration-fast) ease-out-expo",
+      isCollapsed && "-rotate-90",
+     )}
+    />
+   </button>
+   <div
+    className={cn(
+     "grid transition-[grid-template-rows] duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+     isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]",
+    )}
+   >
+    <div className="min-h-0 overflow-hidden" inert={isCollapsed ? true : undefined}>
+     <div className="flex flex-col gap-1">
+      {entries.map((entry) => (
+       <NavRow key={entry.to} entry={entry} collapsed={false} />
+      ))}
+     </div>
+    </div>
+   </div>
+  </section>
+ );
 }
 
 /**
@@ -253,228 +252,92 @@ function GroupSection({
  * 分组标题隐去、导航行图标居中;宽/折叠/分组折叠记忆走 localStorage。
  */
 export function Sidebar() {
-  const [prefs, setPrefs] = useState<SidebarPrefs>(() => loadSidebarPrefs());
-  const [groupCollapsed, setGroupCollapsed] = useState<Record<string, boolean>>(() => loadGroupCollapsed());
-  const collapsed = prefs.collapsed;
-  const width = prefs.width ?? SIDEBAR_DEFAULT_WIDTH;
+ const [prefs, setPrefs] = useState<SidebarPrefs>(() => loadSidebarPrefs());
+ const [groupCollapsed, setGroupCollapsed] = useState<Record<string, boolean>>(() => loadGroupCollapsed());
+ const collapsed = prefs.collapsed;
+ const width = prefs.width ?? SIDEBAR_DEFAULT_WIDTH;
 
-  const toggleCollapsed = useCallback(() => {
-    setPrefs((prev) => {
-      const next = { ...prev, collapsed: !prev.collapsed };
-      saveSidebarPrefs(next);
-      return next;
-    });
-  }, []);
+ const toggleCollapsed = useCallback(() => {
+  setPrefs((prev) => {
+   const next = { ...prev, collapsed: !prev.collapsed };
+   saveSidebarPrefs(next);
+   return next;
+  });
+ }, []);
 
-  const toggleGroup = useCallback((label: string) => {
-    setGroupCollapsed((prev) => {
-      const next = { ...prev, [label]: prev[label] !== true };
-      saveGroupCollapsed(next);
-      return next;
-    });
-  }, []);
+ const toggleGroup = useCallback((label: string) => {
+  setGroupCollapsed((prev) => {
+   const next = { ...prev, [label]: prev[label] !== true };
+   saveGroupCollapsed(next);
+   return next;
+  });
+ }, []);
 
-  // [ = 折叠/展开;输入框守卫在底座(顶栏搜索/CodeMirror 内敲 [ 不抢键)
-  useHotkeys({ "[": toggleCollapsed });
+ // [ = 折叠/展开;输入框守卫在底座(顶栏搜索/CodeMirror 内敲 [ 不抢键)
+ useHotkeys({ "[": toggleCollapsed });
 
-  return (
-    <aside
-      style={{ width: collapsed ? SIDEBAR_ICON_WIDTH : width }}
-      className="flex shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-[width] duration-(--duration-base) ease-out-expo"
+ return (
+  <aside
+   style={{ width: collapsed ? SIDEBAR_ICON_WIDTH : width }}
+   className="flex shrink-0 flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-[width] duration-(--duration-base) ease-out-expo"
+  >
+   <div
+    className={cn(
+     "flex shrink-0 items-center px-4",
+     collapsed ? "flex-col gap-1 px-0 py-2" : "h-12",
+    )}
+    title={collapsed ? "世事 MYIA" : undefined}
+   >
+    <MyssiaMark className="size-6 shrink-0" />
+    {collapsed ? null : (
+     <>
+      <span className="text-sm font-medium text-sidebar-foreground">世事</span>
+      {/* 整值 muted-foreground(WCAG 实算,Kestra 重锚后):#9797a6 于
+        sidebar 底 #1e202a 对比 5.62:1 ≥4.5;半透明档不再使用 */}
+      <span className="text-2xs text-muted-foreground">MYIA</span>
+      <span className="flex-1" aria-hidden />
+     </>
+    )}
+    <Button
+     variant="ghost"
+     size="icon"
+     className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+     onClick={toggleCollapsed}
+     title={collapsed ? "展开侧栏（[）" : "折叠侧栏（[）"}
+     aria-label={collapsed ? "展开侧栏" : "折叠侧栏"}
+     aria-keyshortcuts="["
     >
-      <div
-        className={cn(
-          "flex shrink-0 items-center px-4",
-          collapsed ? "flex-col gap-1 px-0 py-2" : "h-12",
-        )}
-        title={collapsed ? "世事 MYIA" : undefined}
-      >
-        <MyssiaMark className="size-6 shrink-0" />
-        {collapsed ? null : (
-          <>
-            <span className="text-sm font-medium text-sidebar-foreground">世事</span>
-            {/* 整值 muted-foreground(WCAG 实算,Kestra 重锚后):#9797a6 于
-                sidebar 底 #1e202a 对比 5.62:1 ≥4.5;半透明档不再使用 */}
-            <span className="text-2xs text-muted-foreground">MYIA</span>
-            <span className="flex-1" aria-hidden />
-          </>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
-          onClick={toggleCollapsed}
-          title={collapsed ? "展开侧栏（[）" : "折叠侧栏（[）"}
-          aria-label={collapsed ? "展开侧栏" : "折叠侧栏"}
-          aria-keyshortcuts="["
-        >
-          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-        </Button>
+     {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+    </Button>
+   </div>
+   {/* 分组节奏:组间 16px(Kestra 组标题 pt12 + 行 mb4 的有效间距档),
+     组内行距 4px(gap-1 = --ks-spacing-1) */}
+   <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 pt-3 pb-2" aria-label="主导航">
+    {NAV_GROUPS.map((group, index) =>
+     !collapsed && group.label !== null ? (
+      <GroupSection
+       key={group.label}
+       label={group.label}
+       entries={group.entries}
+       collapsed={groupCollapsed[group.label] === true}
+       onToggle={toggleGroup}
+      />
+     ) : (
+      <div key={group.label ?? `main-${index}`} className="flex flex-col gap-1">
+       {group.entries.map((entry) => (
+        <NavRow key={entry.to} entry={entry} collapsed={collapsed} />
+       ))}
       </div>
-      {/* 分组节奏:组间 16px(Kestra 组标题 pt12 + 行 mb4 的有效间距档),
-          组内行距 4px(gap-1 = --ks-spacing-1) */}
-      <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 pt-3 pb-2" aria-label="主导航">
-        {NAV_GROUPS.map((group, index) =>
-          !collapsed && group.label !== null ? (
-            <GroupSection
-              key={group.label}
-              label={group.label}
-              entries={group.entries}
-              collapsed={groupCollapsed[group.label] === true}
-              onToggle={toggleGroup}
-            />
-          ) : (
-            <div key={group.label ?? `main-${index}`} className="flex flex-col gap-1">
-              {group.entries.map((entry) => (
-                <NavRow key={entry.to} entry={entry} collapsed={collapsed} />
-              ))}
-            </div>
-          ),
-        )}
-      </nav>
-      <div className="flex shrink-0 flex-col gap-1 px-2 pt-2 pb-2.5">
-        <NavRow entry={SETTINGS_ENTRY} collapsed={collapsed} />
-        <SidecarStatusBar collapsed={collapsed} />
-      </div>
-    </aside>
-  );
+     ),
+    )}
+   </nav>
+   <div className="flex shrink-0 flex-col gap-1 px-2 pt-2 pb-2.5">
+    <NavRow entry={SETTINGS_ENTRY} collapsed={collapsed} />
+   </div>
+  </aside>
+ );
 }
 
 /** 侧栏底部 sidecar 状态区(D4):状态点 + 一行状态文字;排障三件套
- *  (sidecar 版 · 协议版 · app 版)退到 title 悬浮,不在界面放开发期文案。
- *  折叠态:状态缩成居中一点/一转;dead/offline 只留动作钮(修复 > 状态)。 */
-function SidecarStatusBar({ collapsed }: { collapsed: boolean }) {
-  const { status, info, error, reprobe } = useSidecarStatus();
-
-  if (status === "online") {
-    const appPart = info?.app_version ? ` · app v${info.app_version}` : "";
-    const title = `sidecar v${info?.version} · 协议 v${info?.protocol}${appPart}`;
-    if (collapsed) {
-      return (
-        <div className="flex min-h-[26px] items-center justify-center" title={title}>
-          <span className="relative flex size-2 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" />
-            <span className="relative inline-flex size-2 rounded-full bg-ok" />
-          </span>
-        </div>
-      );
-    }
-    return (
-      <div className="flex min-h-[26px] items-center gap-2 px-2 text-xs text-muted-foreground" title={title}>
-        <span className="relative flex size-2 shrink-0">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60" />
-          <span className="relative inline-flex size-2 rounded-full bg-ok" />
-        </span>
-        sidecar 已连接
-      </div>
-    );
-  }
-
-  if (status === "connecting") {
-    if (collapsed) {
-      return (
-        <div className="flex min-h-[26px] items-center justify-center text-muted-foreground" title="连接 sidecar…">
-          <Loader2 className="size-3 shrink-0 animate-spin" />
-        </div>
-      );
-    }
-    return (
-      <div className="flex min-h-[26px] items-center gap-2 px-2 text-xs text-muted-foreground">
-        <Loader2 className="size-3 shrink-0 animate-spin" />
-        连接 sidecar…
-      </div>
-    );
-  }
-
-  if (status === "respawning") {
-    // 壳层自动重拉中(main.rs 退避序列):静待,动作按钮保持可点(提前手动拉起)
-    if (collapsed) {
-      return (
-        <div className="flex min-h-[26px] items-center justify-center text-warning" title="sidecar 已退出,壳层按退避自动重拉">
-          <Loader2 className="size-3 shrink-0 animate-spin" />
-        </div>
-      );
-    }
-    return (
-      <div className="flex min-h-[26px] items-center gap-2 px-2 text-xs text-warning" title="sidecar 已退出,壳层按退避自动重拉">
-        <Loader2 className="size-3 shrink-0 animate-spin" />
-        重拉 sidecar…
-      </div>
-    );
-  }
-
-  if (status === "dead") {
-    // 自动重拉超限:唯一修复动作 = 手动拉起(reprobe 内含 sidecar_restart)
-    if (collapsed) {
-      return (
-        <div className="flex min-h-[26px] items-center justify-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8 shrink-0 text-dead"
-            title="拉起 sidecar"
-            aria-label="拉起 sidecar"
-            onClick={reprobe}
-          >
-            <PlugZap className="size-3" />
-          </Button>
-        </div>
-      );
-    }
-    return (
-      <div
-        className="flex min-h-[26px] items-center gap-1.5 pl-2 pr-1 text-xs text-dead"
-        title={error ? `${error.code}: ${error.message}` : undefined}
-      >
-        <Unplug className="size-3 shrink-0" />
-        <span className="flex-1">sidecar 已停止</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-6 shrink-0"
-          title="拉起 sidecar"
-          aria-label="拉起 sidecar"
-          onClick={reprobe}
-        >
-          <PlugZap className="size-3" />
-        </Button>
-      </div>
-    );
-  }
-
-  if (collapsed) {
-    return (
-      <div className="flex min-h-[26px] items-center justify-center">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8 shrink-0 text-warning"
-          title="重新探测 sidecar(失败时自动拉起)"
-          aria-label="重新探测 sidecar"
-          onClick={reprobe}
-        >
-          <PlugZap className="size-3" />
-        </Button>
-      </div>
-    );
-  }
-  return (
-    <div
-      className="flex min-h-[26px] items-center gap-1.5 pl-2 pr-1 text-xs text-muted-foreground"
-      title={error ? `${error.code} @ ${error.path}: ${error.message}` : undefined}
-    >
-      <Unplug className="size-3 shrink-0 text-warning" />
-      <span className="flex-1">{error?.code === "sidecar_unavailable" ? "未在 Tauri 环境中" : "sidecar 未连接"}</span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-6 shrink-0"
-        title="重新探测 sidecar(失败时自动拉起)"
-        aria-label="重新探测 sidecar"
-        onClick={reprobe}
-      >
-        <PlugZap className="size-3" />
-      </Button>
-    </div>
-  );
-}
+ * (sidecar 版 · 协议版 · app 版)退到 title 悬浮,不在界面放开发期文案。
+ * 折叠态:状态缩成居中一点/一转;dead/offline 只留动作钮(修复 > 状态)。 */

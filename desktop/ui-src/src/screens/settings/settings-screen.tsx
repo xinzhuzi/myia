@@ -1,4 +1,6 @@
+import { useSidecarStatus } from "@/hooks/use-sidecar-status";
 import {
+  Activity,
   Download,
   Eye,
   KeyRound,
@@ -122,6 +124,13 @@ const SECTIONS: SettingsSection[] = [
     icon: Download,
     title: "更新",
     description: "官方签名更新通道(GitHub Releases):下载与安装均在 Rust 侧完成验签,装好后自动重启",
+  },
+  {
+    id: "status",
+    label: "连接",
+    icon: Activity,
+    title: "连接状态",
+    description: "sidecar 核心进程实时状态(版本/协议/重连),主人 2026-10-04 指令:从侧栏底部挪入设置单独分区",
   },
   {
     id: "advanced",
@@ -672,7 +681,20 @@ export function SettingsScreen() {
             <p className="text-xs text-muted-foreground">{activeSection.description}</p>
           </header>
 
-          {activeSection.id === "general" ? (
+          {activeSection.id === "status" ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="size-4 text-muted-foreground" />
+                  sidecar 核心进程
+                </CardTitle>
+                <CardDescription>实时连接状态(从侧栏底部迁移至此;侧栏不再展示)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SidecarStatusPanel />
+              </CardContent>
+            </Card>
+          ) : activeSection.id === "general" ? (
             <>
               {/* LLM */}
               <Card>
@@ -1005,6 +1027,57 @@ export function SettingsScreen() {
             </>
           ) : null}
         </section>
+      </div>
+    </div>
+  );
+}
+
+/** 设置-连接分区:sidecar 状态面板(主人 2026-10-04 指令从侧栏底部挪入) */
+function SidecarStatusPanel() {
+  const { status, info, error, reprobe } = useSidecarStatus();
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const stateMap: Record<string, { label: string; cls: string; dot: string }> = {
+    online: { label: "已连接", cls: "text-ok", dot: "bg-ok" },
+    connecting: { label: "连接中…", cls: "text-muted-foreground", dot: "bg-muted-foreground" },
+    respawning: { label: "自动重拉中", cls: "text-warning", dot: "bg-warning" },
+    dead: { label: "已退出", cls: "text-dead", dot: "bg-dead" },
+    offline: { label: "未连接", cls: "text-muted-foreground", dot: "bg-muted-foreground" },
+  };
+  const st = stateMap[status] ?? stateMap.offline;
+
+  return (
+    <div data-testid="sidecar-status-panel" className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <span className={`relative flex size-3 shrink-0`}>
+          <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${st.dot} opacity-60`} />
+          <span className={`relative inline-flex size-3 rounded-full ${st.dot}`} />
+        </span>
+        <span className={`text-sm font-medium ${st.cls}`} data-testid="sidecar-status-label">{st.label}</span>
+        <span className="text-2xs text-muted-foreground">检测于 {now.toLocaleTimeString("zh-CN")}</span>
+      </div>
+      {status === "online" && info ? (
+        <div className="grid grid-cols-2 gap-2 text-2xs text-muted-foreground md:grid-cols-4">
+          <div><span className="text-foreground font-medium">核心版本</span><br />v{info.version}</div>
+          <div><span className="text-foreground font-medium">协议版本</span><br />v{info.protocol}</div>
+          <div><span className="text-foreground font-medium">应用版本</span><br />{info.app_version ? `v${info.app_version}` : "—"}</div>
+          <div><span className="text-foreground font-medium">名称</span><br />{info.name}</div>
+        </div>
+      ) : null}
+      {error ? (
+        <div className="text-2xs text-dead">
+          错误:[{error.code}] {error.message}
+        </div>
+      ) : null}
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={() => reprobe()} data-testid="sidecar-status-reprobe">
+          <RefreshCw className="mr-1 size-3" />
+          重新检测
+        </Button>
       </div>
     </div>
   );
