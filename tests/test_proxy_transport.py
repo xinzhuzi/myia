@@ -23,11 +23,12 @@ from typing import Any, Callable
 import httpx
 import pytest
 
-from shishi.engines.direct_api import DirectAPIEngine
-from shishi.engines.fetch_base import (
+from myia.engines.direct_api import DirectAPIEngine
+from myia.engines.fetch_base import (
     DEFAULT_PROXY_PROBE_URL,
     ProxyConfigError,
     ProxyNotSupportedError,
+    ProxyPoolTransport,
     ProxyTransportError,
     BaseEngine,
     check_proxy_connectivity,
@@ -38,8 +39,8 @@ from shishi.engines.fetch_base import (
     load_proxy_pools_file,
     mask_proxy_url,
 )
-from shishi.schema import CredentialResolveError, LoadError
-from shishi.secrets import InMemoryKeychainBackend
+from myia.schema import CredentialResolveError, LoadError
+from myia.secrets import InMemoryKeychainBackend
 
 from conftest import make_client, make_context, make_handler, make_source, run
 
@@ -77,7 +78,7 @@ def recorder_client(
         clients.append(client)
         return client
 
-    monkeypatch.setattr("shishi.engines.fetch_base.httpx.AsyncClient", factory)
+    monkeypatch.setattr("myia.engines.fetch_base.httpx.AsyncClient", factory)
     return recorded, clients
 
 
@@ -181,6 +182,139 @@ def test_load_proxy_pools_file_reads_validates_and_refuses_bad_files(tmp_path):
     assert excinfo.value.errors[0].error_type == "yaml_parse_error"  # 重复键拒载
 
 
+# ------------------------------------------- pools 混形声明(v1.2 池化,PRD D5)
+
+
+def test_load_proxy_pools_string_shape_equals_single_upstream_spec():
+    """字符串形态原样合法:等价于 ``upstreams=(url,)`` 的单上游池(默认策略)."""
+    pools = load_proxy_pools({"pools": {"main": "http://10.0.0.1:8080"}})
+    spec = pools.spec("main")
+    assert spec.upstreams == ("http://10.0.0.1:8080",)
+    assert spec.max_failures == 3 and spec.probe_interval == 300.0  # 默认策略
+    assert pools.raw_url("main") == "http://10.0.0.1:8080"  # v0.2 语义保留
+    assert pools.resolve_upstreams("main") == ["http://10.0.0.1:8080"]
+
+
+def test_load_proxy_pools_mapping_shape_validates_and_overrides_policy(monkeypatch):
+    monkeypatch.setenv("MYIA_T_PROXY_B", "u:p")
+    pools = load_proxy_pools(
+        {
+            "pools": {
+                "rot": {
+                    "upstreams": [
+                        "http://p1.example:8080",
+                        "socks5://env:MYIA_T_PROXY_B@p2.example:1080",
+                    ],
+                    "max_failures": 2,
+                    "probe_interval": 60,
+                }
+            }
+        }
+    )
+    spec = pools.spec("rot")
+    assert spec.upstreams == (
+        "http://p1.example:8080",
+        "socks5://env:MYIA_T_PROXY_B@p2.example:1080",
+    )
+    assert spec.max_failures == 2 and spec.probe_interval == 60.0
+    assert pools.upstream_urls("rot") == list(spec.upstreams)  # doctor 逐上游探测入口
+    assert pools.resolve_upstreams("rot") == [
+        "http://p1.example:8080",
+        "socks5://u:p@p2.example:1080",
+    ]
+    assert pools.raw_url("rot") == "http://p1.example:8080"  # 多上游池 = 第一个
+
+
+def test_load_proxy_pools_both_shapes_legal_side_by_side():
+    """混形兼容:同一 pools 节里字符串池与映射池各自合法."""
+    pools = load_proxy_pools(
+        {"pools": {"legacy": "http://10.0.0.1:8080", "modern": {"upstreams": ["http://10.0.0.2:8080"]}}}
+    )
+    assert pools.names() == ["legacy", "modern"]
+    assert pools.upstream_urls("legacy") == ["http://10.0.0.1:8080"]
+    assert pools.upstream_urls("modern") == ["http://10.0.0.2:8080"]
+
+
+def test_load_proxy_pools_empty_upstreams_refused():
+    with pytest.raises(LoadError) as excinfo:
+        load_proxy_pools({"pools": {"rot": {"upstreams": []}}})
+    detail = excinfo.value.errors[0]
+    assert detail.error_type == "invalid_pool_upstreams"
+    assert detail.path == "$.pools.rot.upstreams"
+
+
+def test_load_proxy_pools_missing_upstreams_key_refused():
+    with pytest.raises(LoadError) as excinfo:
+        load_proxy_pools({"pools": {"rot": {"max_failures": 2}}})
+    assert excinfo.value.errors[0].error_type == "invalid_pool_upstreams"
+
+
+def test_load_proxy_pools_upstream_item_path_in_error_details():
+    """逐上游错误详情路径 ``$.pools.<name>.upstreams[i]`` 形态(结构化可定位)."""
+    with pytest.raises(LoadError) as excinfo:
+        load_proxy_pools(
+            {"pools": {"rot": {"upstreams": ["http://10.0.0.1:8080", "ftp://10.0.0.2:21"]}}}
+        )
+    detail = excinfo.value.errors[0]
+    assert detail.path == "$.pools.rot.upstreams[1]"
+    assert detail.error_type == "unsupported_proxy_scheme"
+
+
+def test_load_proxy_pools_policy_bounds_refused():
+    with pytest.raises(LoadError) as excinfo:
+        load_proxy_pools(
+            {"pools": {"rot": {"upstreams": ["http://10.0.0.1:8080"], "max_failures": 0}}}
+        )
+    assert excinfo.value.errors[0].error_type == "invalid_pool_policy"
+    assert excinfo.value.errors[0].path == "$.pools.rot.max_failures"
+    with pytest.raises(LoadError) as excinfo:
+        load_proxy_pools(
+            {"pools": {"rot": {"upstreams": ["http://10.0.0.1:8080"], "probe_interval": 0.5}}}
+        )
+    assert excinfo.value.errors[0].error_type == "invalid_pool_policy"
+
+
+def test_load_proxy_pools_policy_bool_and_string_refused():
+    with pytest.raises(LoadError) as excinfo:
+        load_proxy_pools(
+            {"pools": {"rot": {"upstreams": ["http://10.0.0.1:8080"], "max_failures": True}}}
+        )
+    assert excinfo.value.errors[0].error_type == "invalid_pool_policy"
+    with pytest.raises(LoadError) as excinfo:
+        load_proxy_pools(
+            {"pools": {"rot": {"upstreams": ["http://10.0.0.1:8080"], "probe_interval": "300"}}}
+        )
+    assert excinfo.value.errors[0].error_type == "invalid_pool_policy"
+
+
+def test_load_proxy_pools_unknown_pool_field_refused():
+    """未知键拒载(unknown_pool_field):拼写错误的策略字段不被静默吞掉."""
+    with pytest.raises(LoadError) as excinfo:
+        load_proxy_pools(
+            {"pools": {"rot": {"upstreams": ["http://10.0.0.1:8080"], "max_failure": 2}}}
+        )
+    detail = excinfo.value.errors[0]
+    assert detail.error_type == "unknown_pool_field"
+    assert detail.path == "$.pools.rot.max_failure"
+
+
+def test_load_proxy_pools_list_shaped_pool_refused():
+    with pytest.raises(LoadError) as excinfo:
+        load_proxy_pools({"pools": {"rot": ["http://10.0.0.1:8080"]}})
+    assert excinfo.value.errors[0].error_type == "invalid_proxy_url"
+
+
+def test_load_proxy_pools_mapping_upstream_plaintext_refused_at_load():
+    """映射形态的上游同样走明文凭据拒载红线(同一校验器,零第二套规则)."""
+    with pytest.raises(LoadError) as excinfo:
+        load_proxy_pools(
+            {"pools": {"rot": {"upstreams": ["http://alice:secret@10.0.0.1:8080"]}}}
+        )
+    detail = excinfo.value.errors[0]
+    assert detail.error_type == "credential_plaintext"
+    assert detail.path == "$.pools.rot.upstreams[0]"
+
+
 def test_expand_proxy_url_missing_env_is_structured(monkeypatch):
     monkeypatch.delenv("MYIA_T_PROXY_MISSING", raising=False)
     with pytest.raises(CredentialResolveError) as excinfo:
@@ -220,7 +354,10 @@ def test_fetch_with_pool_proxy_mounts_shared_proxied_client(monkeypatch):
     assert items == [{"url": "https://a.example/1"}]  # 请求真的走了挂载后的传输层
     assert recorded == [{"proxy": "http://bob:hunter2@proxy.example.com:8080", "timeout": 30.0}]
     assert engine._active_pool == "main"
-    assert context.pool_clients["main"] is engine._active_client
+    # v1.2 池化迁移(design §8):mount 的对象是池 facade(duck-type 面),
+    # 同池多源共享同一 facade —— 身份断言语义原样存活。
+    assert context.pool_transports["main"] is engine._active_client
+    assert context.pool_clients["main"] is engine._active_client  # deprecated alias 同物
     assert hits  # 机器人检查 + 数据请求都发生在代理传输层的 mock 上
 
 
@@ -254,6 +391,7 @@ def test_fetch_direct_keeps_context_client(monkeypatch):
     assert items == [{"url": "https://a.example/1"}]
     assert recorded == []  # direct 不构建任何新客户端
     assert engine._active_client is context.client
+    assert context.pool_transports == {}  # direct 路径 facade 也零构建(grill round 2 加固)
     assert calls["count"] >= 1
 
 
@@ -303,11 +441,19 @@ def test_fetch_residential_refuses_before_network(monkeypatch):
     assert calls["count"] == 0
 
 
-def test_client_for_pool_bad_scheme_is_structured():
-    context = make_pool_context(lambda request: httpx.Response(200, json=[]), pools=None)
+def test_upstream_client_build_failure_is_structured_config_error():
+    """懒建上游 client 构建失败不计数、直接冒 ProxyConfigError(v1.2 迁移:
+    旧 ``client_for_pool(name, url)`` 直传 URL 的签名已 deprecated,等价面
+    改为 facade 懒建期 —— PRD D10:计数换上游会把依赖缺失伪装成
+    proxy_network 连败摘除,真相被健康模型吃掉)."""
+    transport = ProxyPoolTransport("bad", ["ftp://10.0.0.1:21"], clock=lambda: 0.0)
     with pytest.raises(ProxyConfigError) as excinfo:
-        context.client_for_pool("bad", "ftp://10.0.0.1:21")
+        run(transport.get("https://example.com/data"))
     assert excinfo.value.code == "invalid_proxy_url"
+    assert excinfo.value.error_type == "proxy_config"  # startswith("proxy_") 落族
+    health = transport._health["ftp://10.0.0.1:21"]
+    assert health.consec_failures == 0  # 不进健康模型(构建失败 ≠ 上游死)
+    assert health.removed_at is None
 
 
 def test_robots_check_rides_pool_transport(monkeypatch):
@@ -497,10 +643,14 @@ def test_doctor_pool_probes_run_concurrently_in_declared_order(monkeypatch):
     """
     import asyncio
 
-    from shishi import cli
+    from myia import cli
 
     class _Pools:
-        """duck-typed ProxyPools:三池 + 一个凭据解析失败池(隔离用例)。"""
+        """duck-typed ProxyPools:三池 + 一个凭据解析失败池(隔离用例)。
+
+        v1.2 池化迁移:doctor 逐上游探测消费 ``resolve_upstreams``
+        (单上游池 = [resolve(name)],与真 ProxyPools 单上游语义一致)。
+        """
 
         @staticmethod
         def names():
@@ -511,6 +661,12 @@ def test_doctor_pool_probes_run_concurrently_in_declared_order(monkeypatch):
             if name == "broken":
                 raise ValueError("env:MISSING_X 无法解析")
             return f"http://{name}.example:8080"
+
+        @staticmethod
+        def resolve_upstreams(name, backend=None):
+            if name == "broken":
+                raise ValueError("env:MISSING_X 无法解析")
+            return [_Pools.resolve(name, backend)]
 
         @staticmethod
         def raw_url(name):

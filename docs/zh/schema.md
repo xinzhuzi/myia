@@ -1,7 +1,7 @@
 # Schema 参考
 
 > 一个情报品类 = 一份 YAML。本文逐节给出字段、取值与缺省值,与
-> `src/shishi/schema.py` 逐字段一致(由 `tests/test_docs.py` /
+> `src/myia/schema.py` 逐字段一致(由 `tests/test_docs.py` /
 > `tests/test_skill_doc.py` 锁定);文中全部 `yaml` 代码块都是完整可载的品类
 > 配置,复制即用。教程向的写法指南见[插件开发指南](write-a-plugin.md)。
 
@@ -34,7 +34,7 @@
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
-| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `webhook` `stdout` |
+| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
 | `ROUTE_MODES` | `immediate` `digest` `archive` |
 | `ENRICH_SCORES` | `value` `relevance` `credibility` |
 | `VACUUM_CADENCES` | `daily` `weekly` `monthly` `never` |
@@ -51,7 +51,7 @@
 - 凭据类键(键名含词表 `CREDENTIAL_KEY_SUFFIXES` 子串,大小写/连字符不敏感)
   的值出现明文 → 加载期拒载(错误码 `credential_plaintext`)。该规则覆盖
   `sources[].headers`、`post_body`、源级扩展参数——整份 YAML 文档,不止头部。
-- 凭据值永不回显、永不落日志;`shishi secret set myia/<scope>/<name>` 写入,
+- 凭据值永不回显、永不落日志;`myia secret set myia/<scope>/<name>` 写入,
   值走 stdin 管道或安全输入。
 - `enrich.base_url` / `enrich.api_key` / `push[].target` 必须是**纯**引用
   (不允许 scheme 前缀)。
@@ -104,6 +104,34 @@ crawl4ai 的 `BrowserConfig` / `CrawlerRunConfig`,打开其余配置面;透传�
 run 侧 `cache_mode` / `page_timeout`——代理解析、凭据脱敏、缓存旁路与预算护栏
 均由引擎单一来源推导),冲突即 fetch 期结构化报错 `invalid_browser_options` /
 `invalid_run_options`)。扩展参数里的凭据类键同样禁明文。
+
+### 全局配置 pools(代理池,`--config`)
+
+源的 `proxy: pool:<名称>` 引用全局配置(`--config` 注入,run/test/doctor
+共用同一加载器)声明的代理池;凭据只允许 `env:` / `keychain:` 引用,明文
+加载期拒载;同池多源共享同一条池通道:
+
+```yaml
+pools:
+  main: "http://env:MYIA_PROXY_MAIN@proxy.example.com:8080"   # 单上游(v0.2 字符串形态)
+  rotating:                                                    # 多上游池(v1.2)
+    upstreams:
+      - "http://env:MYIA_PROXY_A@p1.example.com:8080"
+      - "socks5://keychain:myia/proxy/b@p2.example.com:1080"
+    max_failures: 3          # 可选;连续失败摘除阈值,默认 3;须 ≥1
+    probe_interval: 300      # 可选;半开恢复间隔(秒),默认 300;须 ≥1
+```
+
+运行语义(两种形态同一引擎):请求按声明顺序游标轮换,transport 失败即
+换下一个健康上游(消耗源 retry 预算);每上游连续 transport 失败计数,达
+`max_failures` 摘除,过 `probe_interval` 后由下一次流量自然触发半开试炼
+(成功归队、失败再摘除;零后台探活);全部上游摘除即池熔断 —— 后续请求
+**零网络快速失败**(`proxy_pool_exhausted`,降级链同 `proxy_*` 家族短路),
+`myia doctor --config` 逐池逐上游并行探测(单上游池输出仅多
+`upstream_index`/`upstreams` 两个纯增字段)。**行为变化(v1.2 披露)**:
+字符串(单上游)池的失败语义从「逐源各自重试」变为「3 连败摘除 → 池熔断
+快速失败」—— YAML 兼容指可原样加载、请求照跑,失败路径不再逐字节等价
+(死上游不再被每源反复烧穿重试预算)。
 
 pagination:
 
@@ -238,13 +266,13 @@ YAML 拒载(退出码 1)。
 
 ### plugin:场景插件双模式(v0.3)
 
-品类依赖某个市场插件(`shishi plugin install` 安装)提供的服务时声明。
+品类依赖某个市场插件(`myia plugin install` 安装)提供的服务时声明。
 **任何插件装不上/配置坏/remote 不可达都不拦核心流水线**——降级为结构化
 finding,品类照常跑(安全基线铁律)。
 
 | 字段 | 缺省 | 语义 |
 |---|---|---|
-| `id` | `必填` | 插件 id(小写字母/数字/连字符/下划线,字母数字开头,惯例 `shishi-<名称>`) |
+| `id` | `必填` | 插件 id(小写字母/数字/连字符/下划线,字母数字开头,惯例 `myia-<名称>`) |
 | `requires` | `[]` | 宿主能力词表(当前仅 `docker`);字符串或列表皆可 |
 | `modes` | `必填` | 双模式至少声明一个:`local`(compose 文件路径 / install 命令至少其一)或 `remote`(endpoint 必填;token **必须** `keychain:myia/<scope>/<name>` 引用,`env:` 也不行) |
 
@@ -254,12 +282,12 @@ name: 页面变更监控
 schedule: "*/15 * * * *"
 timezone: Asia/Shanghai
 plugin:                           # 场景插件声明(v1.1 起官方包为 remote 可选接入)
-  id: shishi-monitor
+  id: myia-monitor
   requires: []
   modes:
     remote:                       # 指向已部署实例(桌面零 Docker);local compose 仍是合法 schema,官方部署文件在 docker/plugins/
       endpoint: https://my-monitor.example.com
-      token: keychain:myia/monitor/token    # shishi secret set myia/monitor/token
+      token: keychain:myia/monitor/token    # myia secret set myia/monitor/token
 sources:
   - name: watch-api
     engine: direct_api
@@ -348,7 +376,7 @@ push:
 两级判重:本地零 token 粗筛圈候选 → LLM 确认(并入 enrich 的批量/缓存/预算
 护栏)。**端点配置复用 `enrich:` 节**——`aggregate.enabled: true` 要求
 enrich 的 `base_url`/`api_key` 有效(同样需要 `--extra llm`);预算与 enrich
-合计消费,谁先到顶谁降级。开启后 `shishi run --json` 的 `stages[]` 会多出
+合计消费,谁先到顶谁降级。开启后 `myia run --json` 的 `stages[]` 会多出
 `aggregate` 阶段。
 
 ```yaml
@@ -385,7 +413,7 @@ push:
 ## 加载期错误(结构化)
 
 装载失败抛 `LoadError`:一次报告**全部**错误,每条含字段路径(JSONPath 风格
-如 `$.sources[0].rate_limit.qps`)+ 机器错误类 + 中文原因;`shishi doctor
+如 `$.sources[0].rate_limit.qps`)+ 机器错误类 + 中文原因;`myia doctor
 --json` 输出同一结构。退出码 1。常见错误类:
 
 | error_type | 含义 |

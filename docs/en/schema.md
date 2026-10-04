@@ -2,7 +2,7 @@
 
 > One intelligence category = one YAML file. This page lists every section's
 > fields, values and defaults, field-for-field identical to
-> `src/shishi/schema.py` (locked by `tests/test_docs.py` /
+> `src/myia/schema.py` (locked by `tests/test_docs.py` /
 > `tests/test_skill_doc.py`); every `yaml` code block here is a complete,
 > loadable category config — copy and run. For the tutorial-style guide see
 > the [plugin guide](write-a-plugin.md).
@@ -38,7 +38,7 @@ entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
-| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `webhook` `stdout` |
+| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
 | `ROUTE_MODES` | `immediate` `digest` `archive` |
 | `ENRICH_SCORES` | `value` `relevance` `credibility` |
 | `VACUUM_CADENCES` | `daily` `weekly` `monthly` `never` |
@@ -59,7 +59,7 @@ entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
   `sources[].headers`, `post_body` and source-level extension parameters —
   the whole YAML document, not just headers.
 - Credential values are never echoed and never logged;
-  `shishi secret set myia/<scope>/<name>` stores one (value via a stdin pipe
+  `myia secret set myia/<scope>/<name>` stores one (value via a stdin pipe
   or a hidden prompt).
 - `enrich.base_url` / `enrich.api_key` / `push[].target` must be **pure**
   references (no auth-scheme prefix).
@@ -122,6 +122,41 @@ single-sourced by the engine), a collision fails the fetch with the
 structured error `invalid_browser_options` / `invalid_run_options`).
 Credential-like keys inside extension parameters are plaintext-refused as
 well.
+
+### Global config pools (proxy pools, `--config`)
+
+A source's `proxy: pool:<name>` references a pool declared in the global
+config (injected via `--config`; run/test/doctor share one loader).
+Credentials are only ever `env:` / `keychain:` references — plaintext is
+refused at load time; all sources on one pool share a single pool transport:
+
+```yaml
+pools:
+  main: "http://env:MYIA_PROXY_MAIN@proxy.example.com:8080"   # single upstream (v0.2 string form)
+  rotating:                                                    # multi-upstream pool (v1.2)
+    upstreams:
+      - "http://env:MYIA_PROXY_A@p1.example.com:8080"
+      - "socks5://keychain:myia/proxy/b@p2.example.com:1080"
+    max_failures: 3          # optional; consecutive-failure removal threshold, default 3; must be ≥1
+    probe_interval: 300      # optional; half-open recovery interval (seconds), default 300; must be ≥1
+```
+
+Runtime semantics (one engine for both forms): requests rotate across
+upstreams in declaration order; a transport failure immediately moves to the
+next healthy upstream (spending the source's retry budget). Each upstream
+counts consecutive transport failures — reaching `max_failures` removes it;
+after `probe_interval` the next traffic naturally triggers a half-open trial
+(success reinstates, failure re-removes; no background prober). When every
+upstream is removed the pool circuit-breaks: further requests **fail fast
+with zero network** (`proxy_pool_exhausted`, short-circuiting the degrade
+chain like the other `proxy_*` classes), and `myia doctor --config` probes
+every upstream of every pool in parallel (single-upstream pools merely gain
+the additive fields `upstream_index`/`upstreams`). **Behavior change (v1.2
+disclosure)**: string (single-upstream) pools move from "each source retries
+on its own" to "3 consecutive failures remove the upstream → the pool
+circuit-breaks and fails fast" — YAML compatibility means it still loads and
+serves as-is; the failure path is deliberately not byte-identical (a dead
+upstream no longer burns every source's retry budget).
 
 pagination:
 
@@ -268,14 +303,14 @@ validation failure refuses the whole YAML (exit code 1).
 ### plugin: scenario plugin dual mode (v0.3)
 
 Declares that this category depends on a market plugin (installed via
-`shishi plugin install`) for its service. **A plugin that cannot install, is
+`myia plugin install`) for its service. **A plugin that cannot install, is
 misconfigured, or whose remote is unreachable never blocks the core
 pipeline** — it degrades to a structured finding and the category keeps
 running (security-baseline rule).
 
 | Field | Default | Semantics |
 |---|---|---|
-| `id` | required | Plugin id (lowercase letters/digits/hyphens/underscores, alphanumeric first; convention `shishi-<name>`) |
+| `id` | required | Plugin id (lowercase letters/digits/hyphens/underscores, alphanumeric first; convention `myia-<name>`) |
 | `requires` | `[]` | Host-capability vocabulary (currently `docker` only); string or list both accepted |
 | `modes` | required | At least one mode: `local` (a compose file path and/or an install command) or `remote` (endpoint required; token **must** be a `keychain:myia/<scope>/<name>` reference — even `env:` is refused) |
 
@@ -285,12 +320,12 @@ name: Page change watch
 schedule: "*/15 * * * *"
 timezone: Asia/Shanghai
 plugin:                           # scenario plugin declaration (official packages: remote opt-in since v1.1)
-  id: shishi-monitor
+  id: myia-monitor
   requires: []
   modes:
     remote:                       # point at an already-deployed instance (desktop: zero Docker); local compose is still valid schema — official deployment files live under docker/plugins/
       endpoint: https://my-monitor.example.com
-      token: keychain:myia/monitor/token    # shishi secret set myia/monitor/token
+      token: keychain:myia/monitor/token    # myia secret set myia/monitor/token
 sources:
   - name: watch-api
     engine: direct_api
@@ -386,7 +421,7 @@ the LLM confirms (inside enrich's batch/cache/budget rails). **Endpoint
 settings are shared with the `enrich:` section** — `aggregate.enabled: true`
 requires enrich's `base_url`/`api_key` to be valid (and `--extra llm`
 likewise); budget is consumed jointly with enrich — whichever hits the cap
-first degrades. When enabled, `shishi run --json`'s `stages[]` gains an
+first degrades. When enabled, `myia run --json`'s `stages[]` gains an
 `aggregate` stage.
 
 ```yaml
@@ -425,7 +460,7 @@ push:
 A failed load raises `LoadError`: **all** errors are reported in one pass,
 each carrying a field path (JSONPath style, e.g.
 `$.sources[0].rate_limit.qps`) + a machine error type + a human message in
-Chinese; `shishi doctor --json` emits the same shape. Exit code 1. Common
+Chinese; `myia doctor --json` emits the same shape. Exit code 1. Common
 error types:
 
 | error_type | meaning |

@@ -10,17 +10,21 @@ Everything the six engine layers share lives here once (PRD 10-01-v01-fetch-base
   conditional requests), normalized-body hash fallback; baselines are read and
   written through the pluggable ``Store`` (change_baseline table);
 - credentials: ``env:VAR`` / ``keychain:NAME`` header references resolved at
-  engine construction — keychain goes through :mod:`shishi.secrets` (macOS
+  engine construction — keychain goes through :mod:`myia.secrets` (macOS
   Keychain / Windows DPAPI); tests inject a mock backend via
   :attr:`FetchContext.keychain_backend`;
 - proxy: ``direct`` and (v0.2 task v02-proxy-transport) ``pool:<name>`` take
   effect — pools are declared once in the global config
   (:class:`ProxyPools` via :func:`load_proxy_pools_file`, credentials only as
-  ``env:``/``keychain:`` references) and each pool mounts ONE shared proxied
-  ``httpx.AsyncClient``; failures on the proxy chain are classified apart
-  from source failures (代理挂 ≠ 源死,降级链决策依据不同).
+  ``env:``/``keychain:`` references) and each pool mounts ONE shared facade
+  (:class:`ProxyPoolTransport`); failures on the proxy chain are classified
+  apart from source failures (代理挂 ≠ 源死,降级链决策依据不同).
+  v1.2 池化(task 10-04-proxy-pool):每池可声明 ``upstreams`` 多上游列表
+  (字符串形态 = 单上游池,原样合法),运行期顺序游标轮换 + 被动失败计数
+  摘除 + 半开单飞恢复,全部上游摘除即池熔断
+  (:class:`ProxyPoolExhaustedError`,零网络快速失败)。
   ``residential:`` stays a structured not-implemented error (v0.3,
-  pool rotation with the myia-proxy plugin).
+  dynamic residential pools with the myia-proxy plugin).
 
 Extraction helpers (``json_path`` for APIs, CSS ``list``/``item`` for HTML,
 ``rss`` for feeds via feedparser) also live here so direct_api / static_html /
@@ -40,10 +44,11 @@ import logging
 import random
 import re
 import time
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Mapping
+from typing import Any, AsyncIterator, Awaitable, Callable, Mapping, Sequence
 from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 
@@ -52,8 +57,8 @@ import httpx
 import yaml
 from selectolax.parser import HTMLParser
 
-from shishi.dedup import DedupRegistry
-from shishi.schema import (  # noqa: F401 - _UniqueKeyLoader 复用其重复键拒载行为
+from myia.dedup import DedupRegistry
+from myia.schema import (  # noqa: F401 - _UniqueKeyLoader 复用其重复键拒载行为
     ExtractConfig,
     RateLimitConfig,
     SchemaValueError,
@@ -65,8 +70,8 @@ from shishi.schema import (  # noqa: F401 - _UniqueKeyLoader 复用其重复键�
     parse_secret_value,
     resolve_credential,
 )
-from shishi.secrets import KeychainBackend
-from shishi.store import Store
+from myia.secrets import KeychainBackend
+from myia.store import Store
 
 logger = logging.getLogger(__name__)
 
@@ -94,11 +99,15 @@ __all__ = [
     "FetchContext",
     "FetchError",
     "HostLimiterRegistry",
+    "PoolSpec",
     "ProxyCheckResult",
     "ProxyConfigError",
+    "ProxyPoolExhaustedError",
+    "ProxyPoolTransport",
     "ProxyNotSupportedError",
     "ProxyPools",
     "ProxyTransportError",
+    "UpstreamHealth",
     "RateLimiter",
     "RobotsCache",
     "RobotsDisallowedError",
@@ -240,6 +249,35 @@ class ProxyTransportError(FetchError):
         self.pool = pool
 
 
+class ProxyPoolExhaustedError(FetchError):
+    """All upstreams of a pool are removed and none is due for half-open.
+
+    池级熔断(派生态,PRD D6):选择圈空 = 全部上游摘除且无到期半开 —— 后续
+    请求**零网络快速失败**,不 sleep 等半开(决定权交还调用方:run 记失败,
+    下一 run 自然重试;桌面 run 间隔分钟级,与 300s 级自愈粒度匹配)。
+
+    Attributes:
+        error_type: ``proxy_pool_exhausted`` — startswith("proxy_"),降级链的
+            「不清 hint + 短路链」行为与既有 ``proxy_*`` 三类完全一致
+            (registry 零改动的依据)。
+        pool: the exhausted pool name.
+        recovery_in_seconds: 距最早半开到期的秒数(monotonic clock 口径,
+            供日志/doctor 解释「何时自愈」);无摘除上游时为 ``None``
+            (防御:选择圈空蕴含至少一个摘除者,理论不可达)。
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        pool: str,
+        recovery_in_seconds: float | None = None,
+    ) -> None:
+        super().__init__(message, error_type="proxy_pool_exhausted")
+        self.pool = pool
+        self.recovery_in_seconds = recovery_in_seconds
+
+
 class EngineNotAvailableError(FetchError):
     """An explicitly selected engine scheduled for a later version."""
 
@@ -324,7 +362,7 @@ def resolve_headers(
 
     ``Cookie: env:LINUXSB_COOKIE``, ``Cookie: keychain:myia/stocks/name`` and
     ``Authorization: Bearer env:T`` expand at engine construction; keychain
-    names go through :mod:`shishi.secrets` (canonical ``myia/<scope>/<name>``
+    names go through :mod:`myia.secrets` (canonical ``myia/<scope>/<name>``
     namespace). ``User-Agent``-style plain values are untouched.
 
     Args:
@@ -388,7 +426,7 @@ def resolve_proxy(proxy: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Proxy transport (v0.2: pools 全局声明 + 品类引用,单上游挂载)
+# Proxy transport (v0.2: pools 全局声明 + 品类引用;v1.2 池化:多上游 + 健康)
 # ---------------------------------------------------------------------------
 
 
@@ -470,7 +508,7 @@ def expand_proxy_url(raw: str, *, backend: KeychainBackend | None = None) -> str
         raw: the configured proxy URL (credentials as references).
         backend: injected keychain backend for ``keychain:`` references
             (``None`` = system keyring discovery), same contract as
-            :func:`shishi.schema.resolve_credential`.
+            :func:`myia.schema.resolve_credential`.
 
     Returns:
         The concrete proxy URL, ready for ``httpx.AsyncClient(proxy=...)``.
@@ -506,7 +544,7 @@ def _split_proxy_credential_refs(userinfo: str) -> list[str]:
     colon-splitting cannot work; instead the whole userinfo is tried as ONE
     reference (the whole ``user:pass`` segment) first, then every colon
     position as a 用户引用:密码引用 pair. Grammar stays canonical in
-    :func:`shishi.schema.parse_secret_value` — 这里零重复定义.
+    :func:`myia.schema.parse_secret_value` — 这里零重复定义.
 
     Raises:
         SchemaValueError: the userinfo is neither a valid single reference nor
@@ -535,17 +573,35 @@ def _split_proxy_credential_refs(userinfo: str) -> list[str]:
     )
 
 
+@dataclass(frozen=True)
+class PoolSpec:
+    """One pool's declaration: upstream list + health policy (PRD D5 混形兼容).
+
+    字符串形态(v0.2)等价于 ``upstreams=(url,)`` 的单上游池;映射形态可逐池
+    覆写策略 —— ``max_failures``(连续 transport 失败摘除阈值,D4 口径)与
+    ``probe_interval``(半开恢复间隔秒;到期由流量自然触发试炼,零后台探活)。
+    """
+
+    upstreams: tuple[str, ...]
+    max_failures: int = 3
+    probe_interval: float = 300.0
+
+
 class ProxyPools:
-    """Global proxy pool declaration: name -> upstream URL (凭据为引用).
+    """Global proxy pool declaration: name -> :class:`PoolSpec` (凭据为引用).
 
     Declared once in the global config (:func:`load_proxy_pools` /
     :func:`load_proxy_pools_file`), referenced from category YAML as
     ``proxy: pool:<name>`` and injected into :attr:`FetchContext.proxy_pools`.
-    品类 YAML 永不出现代理凭据 —— 引用即全部(安全红线)。
+    品类 YAML 永不出现代理凭据 —— 引用即全部(安全红线)。构造函数兼容
+    v0.2 的 ``{name: url}`` 字符串映射(等价单上游池),内建时统一规格化。
     """
 
-    def __init__(self, pools: Mapping[str, str]) -> None:
-        self._pools: dict[str, str] = dict(pools)
+    def __init__(self, pools: Mapping[str, str | PoolSpec]) -> None:
+        self._pools: dict[str, PoolSpec] = {
+            str(name): spec if isinstance(spec, PoolSpec) else PoolSpec((str(spec),))
+            for name, spec in pools.items()
+        }
 
     def names(self) -> list[str]:
         """Declared pool names, sorted (doctor 展示用)."""
@@ -554,8 +610,8 @@ class ProxyPools:
     def __contains__(self, name: object) -> bool:
         return name in self._pools
 
-    def raw_url(self, name: str) -> str:
-        """The configured URL as written (凭据仍是引用;展示需过 :func:`mask_proxy_url`).
+    def spec(self, name: str) -> PoolSpec:
+        """The pool's full declaration (upstreams + policy).
 
         Raises:
             ProxyConfigError: the pool name is not declared
@@ -570,19 +626,65 @@ class ProxyPools:
                 code="proxy_pool_unknown",
             ) from None
 
+    def raw_url(self, name: str) -> str:
+        """The first declared upstream URL as written (凭据仍是引用;展示需过
+        :func:`mask_proxy_url`)。
+
+        单上游池 = 唯一 URL;多上游池 = 第一个(仅 doctor 错误展示兜底用,
+        逐步边缘化 —— 运行态轮换一律走 :meth:`upstream_urls` /
+        :meth:`resolve_upstreams`)。
+
+        Raises:
+            ProxyConfigError: the pool name is not declared
+                (``proxy_pool_unknown``).
+        """
+        return self.spec(name).upstreams[0]
+
+    def upstream_urls(self, name: str) -> list[str]:
+        """Declared upstream URLs in declaration order(doctor 逐上游探测用).
+
+        Raises:
+            ProxyConfigError: the pool name is not declared.
+        """
+        return list(self.spec(name).upstreams)
+
     def resolve(self, name: str, *, backend: KeychainBackend | None = None) -> str:
-        """Expand the pool URL to its concrete form (凭据解析;值不落日志).
+        """Expand the FIRST upstream to its concrete form (v0.2 兼容语义).
+
+        运行态(轮换/健康)不消费本方法 —— 一律走 :meth:`resolve_upstreams`;
+        保留它是 doctor/测试的既有调用面。
 
         Args:
             name: declared pool name.
-            backend: injected keychain backend (tests: mock; ``None`` =
-                system keyring discovery).
+            backend: injected keychain backend for ``keychain:`` references
+                (tests: mock; ``None`` = system keyring discovery).
 
         Raises:
             ProxyConfigError: pool name not declared.
             CredentialResolveError: a credential reference does not resolve.
         """
         return expand_proxy_url(self.raw_url(name), backend=backend)
+
+    def resolve_upstreams(
+        self, name: str, *, backend: KeychainBackend | None = None
+    ) -> list[str]:
+        """Expand EVERY upstream's credential references (运行态轮换的入口).
+
+        Args:
+            name: declared pool name.
+            backend: injected keychain backend (``FetchContext.keychain_backend``
+                in production wiring).
+
+        Returns:
+            Concrete upstream URLs in declaration order(值不落日志,展示一律过
+            :func:`mask_proxy_url`)。
+
+        Raises:
+            ProxyConfigError: pool name not declared.
+            CredentialResolveError: any upstream's credential reference does
+                not resolve(逐上游独立报错,fetch 前零 I/O)。
+        """
+        return [expand_proxy_url(url, backend=backend) for url in self.spec(name).upstreams]
 
 
 def _validate_pool_url(raw_url: str, path: str) -> list[LoadErrorDetail]:
@@ -615,21 +717,110 @@ def _validate_pool_url(raw_url: str, path: str) -> list[LoadErrorDetail]:
     return []
 
 
+_POOL_SPEC_FIELDS = ("upstreams", "max_failures", "probe_interval")
+
+
+def _pool_spec_from_mapping(
+    body: Mapping[str, Any], path: str
+) -> tuple[PoolSpec, list[LoadErrorDetail]]:
+    """映射形态池 -> :class:`PoolSpec`(upstreams + 可选策略;错误结构化收集).
+
+    校验全挂既有 LoadError 通道,零第二套规则:每条上游 URL 过
+    :func:`_validate_pool_url`(scheme 白名单/host/凭据引用);策略字段越界
+    (非数值/非正数/布尔冒充数值)逐条 ``invalid_pool_policy``;未知键拒载
+    ``unknown_pool_field``(拼写错误静默吞策略是配置事故,不吞)。
+    """
+    errors: list[LoadErrorDetail] = []
+    for key in body:
+        if key not in _POOL_SPEC_FIELDS:
+            errors.append(
+                LoadErrorDetail(
+                    f"{path}.{key}",
+                    "unknown_pool_field",
+                    f"未知的池字段 {key!r}(允许 {'/'.join(_POOL_SPEC_FIELDS)};"
+                    "拼写错误在这里拒载,不会被静默吞掉)",
+                )
+            )
+    upstreams = body.get("upstreams")
+    urls: list[str] = []
+    if not isinstance(upstreams, list) or not upstreams:
+        errors.append(
+            LoadErrorDetail(
+                f"{path}.upstreams",
+                "invalid_pool_upstreams",
+                f"池化形态必须带非空 upstreams 列表(代理 URL 字符串),当前为 {upstreams!r}",
+            )
+        )
+    else:
+        for index, item in enumerate(upstreams):
+            item_path = f"{path}.upstreams[{index}]"
+            if not isinstance(item, str) or not item.strip():
+                errors.append(
+                    LoadErrorDetail(
+                        item_path,
+                        "invalid_pool_upstreams",
+                        f"上游必须是留有内容的 URL 字符串,当前为 {item!r}",
+                    )
+                )
+                continue
+            urls.append(item)
+            errors.extend(_validate_pool_url(item, item_path))
+    max_failures = body.get("max_failures", 3)
+    if isinstance(max_failures, bool) or not isinstance(max_failures, int) or max_failures < 1:
+        errors.append(
+            LoadErrorDetail(
+                f"{path}.max_failures",
+                "invalid_pool_policy",
+                f"max_failures 须为 ≥1 的整数(连续 transport 失败摘除阈值),当前为 {max_failures!r}",
+            )
+        )
+        max_failures = 3
+    probe_interval = body.get("probe_interval", 300.0)
+    if (
+        isinstance(probe_interval, bool)
+        or not isinstance(probe_interval, (int, float))
+        or probe_interval < 1
+    ):
+        errors.append(
+            LoadErrorDetail(
+                f"{path}.probe_interval",
+                "invalid_pool_policy",
+                f"probe_interval 须为 ≥1 的数值(半开恢复间隔秒),当前为 {probe_interval!r}",
+            )
+        )
+        probe_interval = 300.0
+    return (
+        PoolSpec(
+            tuple(urls), max_failures=max_failures, probe_interval=float(probe_interval)
+        ),
+        errors,
+    )
+
+
 def load_proxy_pools(data: Mapping[str, Any], *, source: str | None = None) -> ProxyPools:
     """Validate a global-config mapping's ``pools`` declaration.
 
     Global config shape(文档即契约;品类 YAML 只写 ``proxy: pool:<名称>`` 引用,
-    不重复声明)::
+    不重复声明;v1.2 混形兼容 —— 字符串形态原样合法,等价单上游池)::
 
         # 其余顶层节(未来的 CLI 设置等)由各自加载器消费,本加载器只提取 pools
         pools:
-          main: "http://env:MYIA_PROXY_MAIN@proxy.example.com:8080"
-          socks: "socks5://keychain:myia/proxy/socks@proxy.example.com:1080"
+          main: "http://env:MYIA_PROXY_MAIN@proxy.example.com:8080"   # v0.2 字符串
+          rotating:                                                    # v1.2 池化形态
+            upstreams:
+              - "http://env:MYIA_PROXY_A@p1.example.com:8080"
+              - "socks5://keychain:myia/proxy/b@p2.example.com:1080"
+            max_failures: 3          # 可选;连续失败摘除阈值,默认 3;须 ≥1
+            probe_interval: 300      # 可选;半开恢复间隔(秒),默认 300;须 ≥1
 
     Per-pool rules:名称须匹配 ``[A-Za-z0-9_-]+``(与 schema 的 ``pool:<名称>``
     语法一致);scheme 限 http/https/socks5/socks5h;必须带 host;userinfo 只允许
     ``env:``/``keychain:`` 引用。每条失败都是结构化 :class:`LoadError`
     (字段路径 + 错误类 + 中文原因,CLI 退出码 1 / doctor JSON 可消费)。
+
+    **行为变化披露(v1.2)**:字符串池的失败语义从「逐源各自重试」变为
+    「连续失败摘除 → 全池摘除即熔断快速失败」—— YAML 兼容指可原样加载、
+    请求照跑,不指失败路径逐字节等价(docs 与 spec 同款披露)。
 
     Args:
         data: parsed global-config mapping (``yaml.safe_load`` output).
@@ -665,8 +856,9 @@ def load_proxy_pools(data: Mapping[str, Any], *, source: str | None = None) -> P
             ],
             source=source,
         )
+    specs: dict[str, PoolSpec] = {}
     errors: list[LoadErrorDetail] = []
-    for name, raw_url in pools_data.items():
+    for name, raw in pools_data.items():
         path = f"$.pools.{name}"
         if not isinstance(name, str) or not PROXY_POOL_NAME_RE.match(name):
             errors.append(
@@ -677,22 +869,38 @@ def load_proxy_pools(data: Mapping[str, Any], *, source: str | None = None) -> P
                 )
             )
             continue
-        if not isinstance(raw_url, str) or not raw_url.strip():
-            errors.append(
-                LoadErrorDetail(path, "invalid_proxy_url", f"代理 URL 必须是非空字符串,当前为 {raw_url!r}")
-            )
+        if isinstance(raw, str):
+            if not raw.strip():
+                errors.append(
+                    LoadErrorDetail(path, "invalid_proxy_url", f"代理 URL 必须是非空字符串,当前为 {raw!r}")
+                )
+                continue
+            errors.extend(_validate_pool_url(raw, path))
+            specs[name] = PoolSpec((raw,))
             continue
-        errors.extend(_validate_pool_url(raw_url, path))
+        if isinstance(raw, Mapping):
+            spec, spec_errors = _pool_spec_from_mapping(raw, path)
+            errors.extend(spec_errors)
+            specs[name] = spec
+            continue
+        errors.append(
+            LoadErrorDetail(
+                path,
+                "invalid_proxy_url",
+                f"每池应为代理 URL 字符串(v0.2 形态)或 {{{'/'.join(_POOL_SPEC_FIELDS)}}} 映射"
+                f"(池化形态),当前为 {type(raw).__name__}",
+            )
+        )
     if errors:
         raise LoadError(errors, source=source)
-    return ProxyPools({str(name): str(url) for name, url in pools_data.items()})
+    return ProxyPools(specs)
 
 
 def load_proxy_pools_file(path: str | Path) -> ProxyPools:
     """Read the global config file and validate its ``pools`` declaration.
 
     默认文件定位由 CLI 任务(v02-cli-full)决定;本函数只负责读取+校验。
-    错误映射与 :func:`shishi.schema.load_category_file` 同契约,重复键同样拒载
+    错误映射与 :func:`myia.schema.load_category_file` 同契约,重复键同样拒载
     (复用 schema 的 :class:`_UniqueKeyLoader`,私有名引用是有意为之)。
 
     Args:
@@ -736,6 +944,303 @@ def load_proxy_pools_file(path: str | Path) -> ProxyPools:
     if data is None:
         return ProxyPools({})  # 空文件 = 未声明任何池(合法)
     return load_proxy_pools(data, source=source)
+
+
+# ---------------------------------------------------------------------------
+# Pool runtime (v1.2: 轮换 + 被动健康 + 每池熔断;生命周期 = 一个 run,D7)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class UpstreamHealth:
+    """Per-upstream passive health state (PRD D2/D3/D4).
+
+    状态是派生的:``removed_at is None`` = healthy(连续失败未达阈值);
+    非 ``None`` = 摘除,距 ``removed_at`` 一个 ``probe_interval`` 后由流量
+    自然触发半开单飞试炼(零后台探活)。**无独立状态枚举** —— 池熔断是
+    「选择圈空」的派生态(D6),不设独立熔断状态机/计时器。
+    """
+
+    consec_failures: int = 0
+    removed_at: float | None = None
+    trial_in_flight: bool = False
+
+
+class ProxyPoolTransport:
+    """Pool facade:engines hold it as ``_active_client``;每个请求骑当前可
+    admit 的健康上游(轮换/健康/熔断全收敛在此,降级链只看 proxy_* 家族).
+
+    duck-type 面(PRD D9:**显式 ``**kwargs`` 透传** —— 图片环现网经
+    ``client.stream(..., follow_redirects=False, timeout=...)`` 调用,固定
+    签名会打挂;per-request timeout httpx 原生支持,``_send_with_retry``
+    已有先例)::
+
+        await request(method, url, **kwargs) -> httpx.Response
+        await get(url, **kwargs) -> httpx.Response
+        async with stream(method, url, **kwargs) as response: ...
+        await aclose()
+
+    健康模型(被动,零后台任务):transport 级失败(``httpx.TransportError``
+    含 Timeout 族 —— 与 :func:`classify_proxy_transport` 归 proxy_* 的同一
+    集合,D4)**连续**计数,达 ``max_failures`` 摘除;成功(状态 < 400)清零;
+    HTTP 状态失败(4xx/5xx)不计数也不清零 —— 代理已送达,锅是源的。摘除
+    上游经 ``probe_interval`` 后由流量自然触发**半开单飞**试炼:成功复位
+    归队,失败立即重摘除(``removed_at`` 刷新,不另攒 N 次,§4.3);
+    ``trial_in_flight`` 的清位在 ``finally`` 覆盖全部终态 —— 成功 / transport
+    失败 / 非 TransportError 异常 / **CancelledError**(桌面 sidecar 120s 壳
+    超时会取消在飞请求;取消路径不清位 = 该上游本 run 永久占坑 = 最坏情形
+    池提前永久熔断)。全部上游摘除且无到期半开 = 池熔断:零网络抛
+    :class:`ProxyPoolExhaustedError`(不睡等半开,快速失败交还决定权)。
+
+    并发与时钟:单线程 asyncio,health/cursor/trial 位的读写都在 await 间
+    同步段,无锁;同池并发摘除竞态无害(幂等置 ``removed_at``,时戳取后
+    到者)。clock 注入自 :attr:`FetchContext.clock`(测试零真等,同
+    :class:`RateLimiter` 范式)。懒建 per-upstream client 的构建失败
+    **不计数、直接冒** :class:`ProxyConfigError`(D10:计数换上游会把
+    socks 缺 socksio 伪装成 proxy_network 摘除,依赖缺失的真相被健康模型
+    吃掉)。
+    """
+
+    #: 出网恒经代理上游 —— 图片环的连接层 SSRF 复核据此跳过(server_addr
+    #: 是代理地址而非目标站 IP,复核必误杀;myia.vision.collect 消费)。
+    is_proxy_egress = True
+
+    def __init__(
+        self,
+        pool: str,
+        upstreams: Sequence[str],
+        *,
+        max_failures: int = 3,
+        probe_interval: float = 300.0,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        if not upstreams:
+            raise ValueError("代理池至少要有一个上游")
+        self._pool = pool
+        self._upstreams: tuple[str, ...] = tuple(upstreams)  # 凭据已解析的具体 URL
+        self._max_failures = max_failures
+        self._probe_interval = probe_interval
+        self._timeout = timeout
+        self._clock = clock
+        self._clients: dict[str, httpx.AsyncClient] = {}
+        self._health: dict[str, UpstreamHealth] = {
+            url: UpstreamHealth() for url in self._upstreams
+        }
+        #: 顺序游标:最近一次 admit 的下标(声明序环形扫描,D1 顺序轮换)。
+        self._cursor = -1
+        self._current: str | None = None  # 最近骑乘上游(浏览器 mount/日志消费)
+        self._ridden: set[str] = set()  # 至少接过一个请求的上游(错误消息口径)
+
+    # ------------------------------------------------------------- selection
+
+    def _scan_admissible(self, *, take_trial: bool) -> int | None:
+        """从 cursor+1 环形扫第一个可 admit 的上游(healthy / 到期半开).
+
+        admit 规则(design §4.2):healthy 直取;removed 且距 ``removed_at``
+        已过 ``probe_interval`` 且试炼位空闲 → 半开单飞(``take_trial=True``
+        时占位);其余跳过。扫满一圈无 admit → ``None``(池熔断路径)。
+        """
+        size = len(self._upstreams)
+        for step in range(1, size + 1):
+            index = (self._cursor + step) % size
+            health = self._health[self._upstreams[index]]
+            if health.removed_at is None:
+                return index
+            expired = self._clock() - health.removed_at >= self._probe_interval
+            if expired and not health.trial_in_flight:
+                if take_trial:
+                    health.trial_in_flight = True  # 占位到本次请求终态(finally 清)
+                return index
+        return None
+
+    def _select_or_raise(self) -> str:
+        """Per-request selection:游标落位 + 返回本次骑乘的上游.
+
+        轮换节奏(PRD 质询修正④):每次选择从 cursor+1 起扫 —— transport 失败
+        的上游不被下一 attempt 连续复骑(池大小 > 1 时),重试预算花在其余
+        可 admit 上游上;backoff 仍按源 retry 策略照睡(引擎循环不变)。
+        """
+        index = self._scan_admissible(take_trial=True)
+        if index is None:
+            raise self._exhausted_error()
+        self._cursor = index
+        url = self._upstreams[index]
+        self._current = url
+        self._ridden.add(url)
+        return url
+
+    def peek_admissible(self) -> str | None:
+        """下一个会被 admit 的上游 URL(零状态变更:不挪游标、不占半开位).
+
+        mount 期(浏览器引擎直读 ``_active_proxy_url``)与图片环的展示用
+        URL 消费它;真正的 admit(游标落位/试炼占位)只发生在请求路径。
+        """
+        index = self._scan_admissible(take_trial=False)
+        return None if index is None else self._upstreams[index]
+
+    def ensure_operable(self) -> str:
+        """mount 期零 I/O 检查:至少一个上游可 admit,返回其 URL.
+
+        Raises:
+            ProxyPoolExhaustedError: 池已熔断(全部上游摘除且无到期半开)——
+                fetch 前零网络拒绝,与 ``proxy_pools_not_configured`` 同层。
+        """
+        url = self.peek_admissible()
+        if url is None:
+            raise self._exhausted_error()
+        return url
+
+    @property
+    def current_url(self) -> str | None:
+        """当前骑乘(或下一个可 admit 的)上游 URL;熔断态为 ``None``."""
+        if self._current is not None:
+            return self._current
+        return self.peek_admissible()
+
+    def masked_current(self) -> str:
+        """日志形态的当前上游(凭据打码;无骑乘记录退 peek,再退空串)."""
+        url = self._current or self.peek_admissible()
+        return mask_proxy_url(url) if url else ""
+
+    @property
+    def upstreams_total(self) -> int:
+        """池内上游总数(错误消息/日志口径)."""
+        return len(self._upstreams)
+
+    @property
+    def upstreams_tried(self) -> int:
+        """至少接过一个请求的上游数(本 run 累计,错误消息口径)."""
+        return len(self._ridden)
+
+    def _exhausted_error(self) -> ProxyPoolExhaustedError:
+        """构造池熔断错误(携带自愈时刻,日志/doctor 可解释「何时恢复»)."""
+        removed = [health for health in self._health.values() if health.removed_at is not None]
+        due = min(
+            (health.removed_at + self._probe_interval for health in removed), default=None
+        )
+        if due is None:
+            recovery: float | None = None
+            recovery_text = "半开到期由 probe_interval 决定"
+        else:
+            recovery = max(0.0, due - self._clock())
+            recovery_text = f"最早恢复约 {recovery:.0f}s 后由下一请求触发试炼"
+        masked = ", ".join(mask_proxy_url(url) for url in self._upstreams)
+        return ProxyPoolExhaustedError(
+            f"代理池 {self._pool!r} 全部 {len(self._upstreams)} 个上游均已摘除"
+            f"(池熔断,零网络快速失败;不睡等半开 —— {recovery_text}) "
+            f"upstreams=[{masked}]",
+            pool=self._pool,
+            recovery_in_seconds=recovery,
+        )
+
+    # ------------------------------------------------------- upstream clients
+
+    def _client_for(self, upstream: str) -> httpx.AsyncClient:
+        """懒建 per-upstream client(凭据已解析进 URL;同上游复用).
+
+        Raises:
+            ProxyConfigError: 构建失败 —— socks 上游缺 ``httpx[socks]``
+                (socksio)或代理 URL 协议非法(``code``
+                ``proxy_dependency_missing`` / ``invalid_proxy_url``);**不
+                计数不换上游,直接冒**(D10)。
+        """
+        cached = self._clients.get(upstream)
+        if cached is not None:
+            return cached
+        try:
+            client = httpx.AsyncClient(proxy=upstream, timeout=self._timeout)
+        except (ImportError, ValueError) as exc:
+            code = "proxy_dependency_missing" if isinstance(exc, ImportError) else "invalid_proxy_url"
+            raise ProxyConfigError(
+                f"代理 transport 构建失败 pool={self._pool} upstream={mask_proxy_url(upstream)}: {exc};"
+                "socks 上游需安装 httpx[socks](pyproject 已声明,请检查环境)",
+                code=code,
+            ) from exc
+        self._clients[upstream] = client
+        logger.debug(
+            "代理上游 transport 已创建 pool=%s upstream=%s", self._pool, mask_proxy_url(upstream)
+        )
+        return client
+
+    # ---------------------------------------------------------- health bookkeeping
+
+    def _record_failure(self, upstream: str) -> None:
+        """一次 transport 级失败:连续计数 +1,达阈值摘除(D4 口径)."""
+        health = self._health[upstream]
+        health.consec_failures += 1
+        if health.consec_failures >= self._max_failures or health.removed_at is not None:
+            # 半开试炼失败 = 上游仍死:立即重摘除(removed_at 刷新,不另攒 N 次)。
+            health.removed_at = self._clock()
+            logger.warning(
+                "代理上游摘除 pool=%s upstream=%s consec=%s/%s(%.0fs 后由流量触发半开试炼)",
+                self._pool,
+                mask_proxy_url(upstream),
+                health.consec_failures,
+                self._max_failures,
+                self._probe_interval,
+            )
+
+    def _record_success(self, upstream: str) -> None:
+        """一次送达(状态 < 400):连续计数清零 + 复位归队(半开试炼成功同路)."""
+        health = self._health[upstream]
+        health.consec_failures = 0
+        health.removed_at = None
+
+    # ------------------------------------------------------------ duck-type 面
+
+    async def request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
+        """Send one request riding the next admissible upstream(**kwargs 原样透传)."""
+        upstream = self._select_or_raise()
+        health = self._health[upstream]
+        client = self._client_for(upstream)
+        try:
+            response = await client.request(method, url, **kwargs)
+        except httpx.TransportError:
+            self._record_failure(upstream)
+            raise
+        finally:
+            health.trial_in_flight = False  # 全终态清位:成功/transport 失败/取消/其余异常
+        if response.status_code < 400:
+            self._record_success(upstream)
+        return response
+
+    async def get(self, url: str, **kwargs: Any) -> httpx.Response:
+        """``request("GET", ...)`` 的快捷面(RobotsCache/图片环消费形态)."""
+        return await self.request("GET", url, **kwargs)
+
+    @asynccontextmanager
+    async def stream(self, method: str, url: str, **kwargs: Any) -> AsyncIterator[httpx.Response]:
+        """Streaming variant(图片环的逐跳下载;headers 到达即算送达).
+
+        调用方块内的读体异常(含 transport 族)会穿过 yield 点被本方法的
+        失败计数捕获;干净退出且状态 < 400 记成功,``>= 400`` 不计数不清零
+        (HTTP 状态失败,代理已送达,D4)。
+        """
+        upstream = self._select_or_raise()
+        health = self._health[upstream]
+        client = self._client_for(upstream)
+        try:
+            async with client.stream(method, url, **kwargs) as response:
+                yield response
+        except httpx.TransportError:
+            self._record_failure(upstream)
+            raise
+        finally:
+            health.trial_in_flight = False  # 全终态清位(含 CancelledError)
+        if response.status_code < 400:
+            self._record_success(upstream)
+
+    async def aclose(self) -> None:
+        """Close every upstream client built so far(run 收尾由 context 统一调用)."""
+        for upstream, client in self._clients.items():
+            await client.aclose()
+            logger.debug(
+                "代理上游 transport 已关闭 pool=%s upstream=%s",
+                self._pool,
+                mask_proxy_url(upstream),
+            )
+        self._clients.clear()
 
 
 @dataclass(frozen=True)
@@ -1341,7 +1846,7 @@ def extract_rss(text: str, extract: ExtractConfig) -> list[dict]:
     """Apply an ``rss`` extract config to a fetched feed body (feedparser).
 
     ``fields`` values name feedparser entry attributes — closed whitelist
-    :data:`shishi.schema.RSS_ENTRY_FIELDS`, enforced at load time (拼错即拒);
+    :data:`myia.schema.RSS_ENTRY_FIELDS`, enforced at load time (拼错即拒);
     per entry an attribute the feed does not carry is simply omitted from
     that record(逐条目语义,同 json_path;标题/链接齐、缺作者的条目照常
     产出)。A malformed feed never raises: feedparser surfaces it as the
@@ -1439,14 +1944,15 @@ class FetchContext:
     same-host sources. ``clock``/``sleep`` are injectable so tests never wait;
     production uses the defaults (monotonic clock, ``asyncio.sleep``).
     ``keychain_backend`` injects the keychain store for ``keychain:`` header
-    references (tests: :class:`shishi.secrets.InMemoryKeychainBackend`;
+    references (tests: :class:`myia.secrets.InMemoryKeychainBackend`;
     ``None`` = lazily discovered system keyring).
     ``proxy_pools`` injects the global pools declaration (v0.2 proxy
-    transport): sources with ``proxy: pool:<name>`` share ONE proxied
-    AsyncClient per pool (:attr:`pool_clients`), their robots.txt checks ride
-    the same egress (:attr:`pool_robots`), and the clients are closed via
-    :meth:`aclose_pool_clients` at run end. ``None`` = pools 未声明 — pool
-    sources fail structured before any I/O.
+    transport / v1.2 池化): sources with ``proxy: pool:<name>`` share ONE
+    pool facade per pool (:attr:`pool_transports`,轮换/健康/熔断的运行态,
+    生命周期 = 本 run —— 不落库不跨 run,上次摘除不留幽灵,D7), their
+    robots.txt checks ride the same egress (:attr:`pool_robots`), and every
+    upstream client is closed via :meth:`aclose_pool_transports` at run end.
+    ``None`` = pools 未声明 — pool sources fail structured before any I/O.
     """
 
     client: httpx.AsyncClient
@@ -1458,7 +1964,7 @@ class FetchContext:
     robots: RobotsCache | None = None
     keychain_backend: KeychainBackend | None = None
     proxy_pools: ProxyPools | None = None
-    pool_clients: dict[str, httpx.AsyncClient] = field(default_factory=dict)
+    pool_transports: dict[str, ProxyPoolTransport] = field(default_factory=dict)
     pool_robots: dict[str, RobotsCache] = field(default_factory=dict)
     # L3 零结果探测的 run 级剩余预算(源数):registry 每探测一源即减一,
     # 归零后首遇零结果源按健康空页收(10-04-crawl4ai-l3 拍板②;测试可注入小值)。
@@ -1472,59 +1978,88 @@ class FetchContext:
 
     # -------------------------------------------------------- proxy transport
 
-    def client_for_pool(
-        self, name: str, proxy_url: str, *, timeout: float | None = None
-    ) -> httpx.AsyncClient:
-        """One shared proxied AsyncClient per pool (同池多源复用,凭据只解析一次).
+    @property
+    def pool_clients(self) -> dict[str, ProxyPoolTransport]:
+        """Deprecated alias of :attr:`pool_transports`(v1.2 改名,留一个版本周期)."""
+        return self.pool_transports
+
+    def pool_transport_for(self, name: str) -> ProxyPoolTransport:
+        """One shared pool facade per pool (同池多源复用;凭据在首次创建时解析一次).
 
         Args:
             name: pool name (cache key).
-            proxy_url: concrete upstream URL (:meth:`ProxyPools.resolve` 输出).
-            timeout: client default timeout; ``None`` = this context's.
 
         Returns:
-            The cached or newly built proxied client; lifecycle via
-            :meth:`aclose_pool_clients`.
+            The cached or newly built :class:`ProxyPoolTransport`; upstream
+            clients are lazy (首次骑乘才构建,构建失败不计数直接冒
+            :class:`ProxyConfigError`,D10);lifecycle via
+            :meth:`aclose_pool_transports`。
 
         Raises:
-            ProxyConfigError: client construction failed — socks 上游缺
-                ``httpx[socks]``(socksio)或代理 URL 协议非法(``code``
-                ``proxy_dependency_missing`` / ``invalid_proxy_url``)。
+            ProxyConfigError: pools 未注入(``proxy_pools_not_configured``)/
+                池名未声明(``proxy_pool_unknown``)。
+            CredentialResolveError: 任一上游的凭据引用解析失败(fetch 前零 I/O)。
         """
-        cached = self.pool_clients.get(name)
+        cached = self.pool_transports.get(name)
         if cached is not None:
             return cached
-        try:
-            client = httpx.AsyncClient(
-                proxy=proxy_url, timeout=self.timeout if timeout is None else timeout
-            )
-        except (ImportError, ValueError) as exc:
-            # ImportError: socks 上游缺 socksio(httpx[socks]);ValueError: 协议非法。
-            code = "proxy_dependency_missing" if isinstance(exc, ImportError) else "invalid_proxy_url"
+        if self.proxy_pools is None:
             raise ProxyConfigError(
-                f"代理 transport 构建失败 pool={name} upstream={mask_proxy_url(proxy_url)}: {exc};"
-                "socks 上游需安装 httpx[socks](pyproject 已声明,请检查环境)",
-                code=code,
-            ) from exc
-        self.pool_clients[name] = client
-        logger.debug("代理 transport 已创建 pool=%s upstream=%s", name, mask_proxy_url(proxy_url))
-        return client
+                f"源 proxy 指向代理池 {name!r},但运行上下文未注入全局 pools 声明;"
+                "请在全局配置文件声明 pools 并在启动时加载(见 load_proxy_pools_file)",
+                code="proxy_pools_not_configured",
+            )
+        spec = self.proxy_pools.spec(name)  # 未声明 -> proxy_pool_unknown(先于凭据解析)
+        resolved = self.proxy_pools.resolve_upstreams(name, backend=self.keychain_backend)
+        transport = ProxyPoolTransport(
+            name,
+            resolved,
+            max_failures=spec.max_failures,
+            probe_interval=spec.probe_interval,
+            timeout=self.timeout,
+            clock=self.clock,
+        )
+        self.pool_transports[name] = transport
+        logger.debug("代理池 facade 已创建 pool=%s upstreams=%s", name, len(resolved))
+        return transport
 
-    def robots_for_pool(self, name: str, client: httpx.AsyncClient) -> RobotsCache:
-        """robots.txt cache riding the pool's egress (同出口视角判定放行)."""
+    def client_for_pool(
+        self, name: str, proxy_url: str | None = None, *, timeout: float | None = None
+    ) -> ProxyPoolTransport:
+        """Deprecated alias of :meth:`pool_transport_for`(PRD D9 统一命名;留一个版本周期).
+
+        ``proxy_url``/``timeout`` 形参已无人消费,仅为旧调用面保留 —— 凭据
+        一律从全局声明解析,池内 client 缺省超时统一用 context.timeout
+        (per-request 覆写走 facade 的 ``**kwargs`` 透传面)。
+        """
+        return self.pool_transport_for(name)
+
+    def robots_for_pool(
+        self, name: str, client: httpx.AsyncClient | ProxyPoolTransport
+    ) -> RobotsCache:
+        """robots.txt cache riding the pool's egress (同出口视角判定放行).
+
+        ``client`` 传池 facade:RobotsCache 只用 ``.get(url, timeout=...)``,
+        robots.txt 是目标站属性非出口属性 —— 池级一个 cache 骑 facade,
+        视角随轮换保持「活出口」(design §5.2,不按上游复制)。
+        """
         cache = self.pool_robots.get(name)
         if cache is None:
             cache = RobotsCache(client, timeout=self.timeout)
             self.pool_robots[name] = cache
         return cache
 
-    async def aclose_pool_clients(self) -> None:
-        """Close every proxied client this context built (run 收尾/测试拆卸调用)."""
-        for name, client in self.pool_clients.items():
-            await client.aclose()
-            logger.debug("代理 transport 已关闭 pool=%s", name)
-        self.pool_clients.clear()
+    async def aclose_pool_transports(self) -> None:
+        """Close every pool facade's upstream clients (run 收尾/测试拆卸调用)."""
+        for name, transport in self.pool_transports.items():
+            await transport.aclose()
+            logger.debug("代理池 facade 已关闭 pool=%s", name)
+        self.pool_transports.clear()
         self.pool_robots.clear()
+
+    async def aclose_pool_clients(self) -> None:
+        """Deprecated alias of :meth:`aclose_pool_transports`(留一个版本周期)."""
+        await self.aclose_pool_transports()
 
 
 class BaseEngine:
@@ -1533,7 +2068,8 @@ class BaseEngine:
     Engines receive ``(source, context)`` — politeness, retries, change
     fingerprints, credential resolution and the proxy transport live here once.
     Requests ride :attr:`_active_client`: the shared context client for
-    ``direct``, the pool's shared proxied client for ``pool:<名称>``.
+    ``direct``, the pool's shared facade (:class:`ProxyPoolTransport`,
+    duck-typing ``request``/``get``/``stream``/``aclose``)for ``pool:<名称>``.
 
     Raises:
         ProxyNotSupportedError: ``residential:`` proxy (fetch time).
@@ -1608,14 +2144,21 @@ class BaseEngine:
         """Resolve the source's proxy setting into the active transport.
 
         Runs before any network I/O: ``direct`` keeps the shared context
-        client; ``pool:<名称>`` mounts the pool's shared proxied AsyncClient
-        (凭据此刻才解析;声明缺失/池未知/解析失败都在这里结构化报错)并把
-        robots.txt 切到同出口视角。``residential:`` already refused by
+        client; ``pool:<名称>`` mounts the pool's shared facade
+        (:class:`ProxyPoolTransport`,凭据此刻才解析;声明缺失/池未知/解析
+        失败都在这里结构化报错;池已熔断时零 I/O 抛
+        :class:`ProxyPoolExhaustedError`)并把 robots.txt 切到同出口视角。
+        ``_active_proxy_url`` 固定为 mount 时刻的可 admit 上游 —— 浏览器/
+        重型引擎(crawl4ai/stealth_browser/scrapling 三读者)**会话内不轮换**
+        (BrowserConfig/浏览器参数建后代理固定,会话粘性是浏览器形态的合理
+        行为;代理挂照旧冒 ProxyTransportError 链短路,下一 run/源 mount 时
+        自然选到健康上游,design §5.4)。``residential:`` already refused by
         :func:`resolve_proxy`; anything else falls back to direct defensively.
 
         Raises:
             ProxyConfigError: pools 未注入 / 池名未声明 / transport 构建失败.
             CredentialResolveError: 池 URL 的凭据引用解析失败.
+            ProxyPoolExhaustedError: 池已熔断(全部上游摘除且无到期半开).
         """
         assert self.context.robots is not None  # FetchContext.__post_init__ fills it
         self._active_client = self.context.client
@@ -1631,21 +2174,19 @@ class BaseEngine:
                 "请在全局配置文件声明 pools 并在启动时加载(见 load_proxy_pools_file)",
                 code="proxy_pools_not_configured",
             )
-        self.context.proxy_pools.raw_url(pool_name)  # 未声明 -> proxy_pool_unknown(先于凭据解析)
-        resolved = self.context.proxy_pools.resolve(
-            pool_name, backend=self.context.keychain_backend
-        )
-        self._active_client = self.context.client_for_pool(
-            pool_name, resolved, timeout=self.context.timeout
-        )
-        self._active_robots = self.context.robots_for_pool(pool_name, self._active_client)
+        transport = self.context.pool_transport_for(pool_name)
+        upstream = transport.ensure_operable()  # 熔断 -> fetch 前零 I/O 拒绝
+        self._active_client = transport
+        self._active_robots = self.context.robots_for_pool(pool_name, transport)
         self._active_pool = pool_name
-        self._active_proxy_url = resolved  # 浏览器引擎(crawl4ai)直读;日志只出掩码
+        # 浏览器引擎(crawl4ai/stealth_browser/scrapling)直读;值不落日志,只出掩码。
+        self._active_proxy_url = upstream
         logger.info(
-            "代理 transport 已挂载 source=%s pool=%s upstream=%s",
+            "代理 transport 已挂载 source=%s pool=%s upstream=%s upstreams=%s",
             self.source.name,
             pool_name,
-            mask_proxy_url(resolved),
+            mask_proxy_url(upstream),
+            transport.upstreams_total,
         )
 
     async def _fetch_impl(self) -> list[dict]:
@@ -1805,10 +2346,20 @@ class BaseEngine:
         Direct-transport failures pass through untouched (既有 network/timeout
         分类不变);proxied ones become :class:`ProxyTransportError` so the
         degrade chain can tell 代理挂 from 源死 (PRD: 错误分类区分,降级链
-        决策依据不同)。
+        决策依据不同)。池化后(v1.2)消息带最后骑乘上游的掩码形态与已试
+        上游数(facade 运行态,:meth:`ProxyPoolTransport.masked_current`)。
         """
         if self._active_pool is None:
             return exc
+        if isinstance(self._active_client, ProxyPoolTransport):
+            transport = self._active_client
+            return ProxyTransportError(
+                f"代理链路失败 pool={self._active_pool} "
+                f"upstream={transport.masked_current()} "
+                f"(已试 {transport.upstreams_tried}/{transport.upstreams_total} 上游): {exc}",
+                error_type=classify_proxy_transport(exc),
+                pool=self._active_pool,
+            )
         upstream = ""
         if self.context.proxy_pools is not None and self._active_pool in self.context.proxy_pools:
             upstream = mask_proxy_url(self.context.proxy_pools.raw_url(self._active_pool))
