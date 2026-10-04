@@ -42,7 +42,7 @@
 - [x] 5.3 spec 更新:desktop/sidecar-protocol.md 前端镜像面注一笔(消费方+1,方法不加);frontend-ui.md 若有屏清单则补(七屏→八屏;CHANGELOG Unreleased Added 同批入)
 - [x] 5.4 pathspec 提交(feat(desktop): 定时任务管理屏);grill 六问决议已批(2026-10-04 全按推荐)随批入 prd/design,无待回写项
 
-## Stage 6:蓝本对排缺口修复(2026-10-04 交付后审计追设;**待主人批,批即执行**)
+## Stage 6:蓝本对排缺口修复(2026-10-04 交付后审计追设;~~待主人批~~ **已批已执行完毕**,见下方勾选与 evidence 勾销)
 
 > 出处=evidence/blueprint-parity-audit.md(50 项对排);全部零协议变更。规格已展开到执行级(文件:行/形状/蓝本对位/测试);事实核:error 态 job 保持 enabled → 缺省列表可见,纯前端可修。
 

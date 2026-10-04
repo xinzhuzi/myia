@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-04 Stage 6(蓝本对排缺口修复批)开工:主人 /workflow「按照trellis的方式去做」;执行级规格在 implement.md Stage 6+screen-spec §2/§5(#20-#27);2026-10-04 Stage 6 收口:G1-G8 全落+勘误三处(prd F5/design B8/审计勾销),门禁复跑三绿(418 测试/23 文件+build 1.96s+entry.py diff 空),fix(desktop)+docs(task) 两笔入库,转 review",
+  "notes": "2026-10-04 终态:建屏(418 测)+蓝本对排审计(50 项)+Stage 6 修复批全毕;新包已换装 /Applications(23:20);review 待主人目验后归档",
   "meta": {}
 }
