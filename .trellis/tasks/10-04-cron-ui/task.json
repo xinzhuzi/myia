@@ -3,7 +3,7 @@
   "name": "cron-ui",
   "title": "定时任务管理屏:照 Hermes CronPage 抄(桌面 cron UI)",
   "description": "主人令立档:把 hermes-cron 已交付的定时底座(桌面即宿主+sidecar cron.* 九方法)补上可视化管理的皮,蓝本=Hermes web/src/pages/CronPage.tsx(1294 行侧栏页):job 列表+人话排程+逾期红标+创建/编辑双 Modal+手动触发/暂停恢复/删除+运行历史;数据源=cron.* 协议方法,纯前端薄壳",
-  "status": "review",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-04 主人 /workflow「运行trellis任务文档」开工;grill 两轮决议+四层研究档齐备;执行工作流在途",
+  "notes": "2026-10-04 Stage 6(蓝本对排缺口修复批)开工:主人 /workflow「按照trellis的方式去做」;执行级规格在 implement.md Stage 6+screen-spec §2/§5(#20-#27)",
   "meta": {}
 }
