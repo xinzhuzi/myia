@@ -1,0 +1,21 @@
+# 上游 smicallef/SpiderFoot(MIT)官方镜像的等价薄封装;本文件零明文凭据
+# (远程访问口令经 ${SPIDERFOOT_PASSWORD} 注入,与上游 SPIDERFOOT_PASSWORD
+# 语义一致)。用法:docker compose up -d 后,实例地址 http://127.0.0.1:5001
+# 填进 plugin.modes.remote.endpoint;启用远程访问时同步
+# myssia secret set myia/spiderfoot/password。
+services:
+  spiderfoot:
+    image: spiderfoot/spiderfoot:latest
+    container_name: myssia-spiderfoot
+    volumes:
+      - spiderfoot-data:/var/lib/spiderfoot
+    ports:
+      # 默认只绑回环;要远程访问走自有反代/TLS,不开公网裸端口。
+      - "127.0.0.1:5001:5001"
+    environment:
+      # 远程访问口令(上游 SPIDERFOOT_PASSWORD;本机纯内网用可不设)。
+      SPIDERFOOT_PASSWORD: ${SPIDERFOOT_PASSWORD:-}
+    restart: unless-stopped
+
+volumes:
+  spiderfoot-data:

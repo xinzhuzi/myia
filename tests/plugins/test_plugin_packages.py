@@ -171,9 +171,18 @@ class TestPackageManifests:
                 f"{path}: 文档提及 docker-compose(部署文件应指向 docker/plugins/)"
             )
 
-    def test_docker_plugins_dir_holds_exactly_the_five_composes(self):
-        """迁出的部署文件落在 docker/plugins/<id>/compose.yml,五件不多不少。"""
-        expected = {"myssia-proxy", "myssia-osint", "myssia-monitor", "myssia-douyin", "myssia-maxun"}
+    def test_docker_plugins_dir_holds_exactly_the_seven_composes(self):
+        """迁出的部署文件落在 docker/plugins/<id>/compose.yml,七件不多不少
+        (10-05-plugin-market-batch 首批 +rsshub/+spiderfoot 两 remote 桩)。"""
+        expected = {
+            "myssia-proxy",
+            "myssia-osint",
+            "myssia-monitor",
+            "myssia-douyin",
+            "myssia-maxun",
+            "myssia-rsshub",
+            "myssia-spiderfoot",
+        }
         found = {path.parent.name for path in DOCKER_PLUGINS_DIR.glob("*/compose.yml")}
         assert found == expected
 

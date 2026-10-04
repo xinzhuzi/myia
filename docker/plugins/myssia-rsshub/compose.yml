@@ -1,0 +1,24 @@
+# 上游 DIYgod/RSSHub(AGPL-3.0)官方镜像的等价薄封装;本文件零明文凭据
+# (访问键经 ${RSSHUB_ACCESS_KEY} 注入,空值=未启用访问控制,与上游语义一致)。
+# 用法:docker compose up -d 后,实例地址 http://127.0.0.1:1200 填进品类
+# plugin.modes.remote.endpoint;启用访问控制时同步
+# myssia secret set myia/rsshub/access-key。
+services:
+  rsshub:
+    image: diygod/rsshub:latest
+    container_name: myssia-rsshub
+    ports:
+      # 默认只绑回环(自部署零第三方;要远程访问走自有反代/TLS,不开公网裸端口)。
+      - "127.0.0.1:1200:1200"
+    environment:
+      # 可选访问键:启用后所有路由请求须带 ?key= 或 md5 查询参数。
+      RSSHUB_ACCESS_KEY: ${RSSHUB_ACCESS_KEY:-}
+      CACHE_EXPIRE: "3600"
+    restart: unless-stopped
+
+  # 可选增强: Redis 缓存层(高频使用时取消注释;单机轻量用可不动)。
+  # redis:
+  #   image: redis:alpine
+  #   container_name: myssia-rsshub-redis
+  #   restart: unless-stopped
+  # rsshub 的 REDIS_URL: redis://redis:6379/ 需在上面的 environment 追加。

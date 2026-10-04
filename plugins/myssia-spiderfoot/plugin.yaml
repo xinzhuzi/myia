@@ -1,0 +1,22 @@
+# myssia-spiderfoot — 官方场景件:OSINT 聚合查询台(封装 smicallef/SpiderFoot)。
+#
+# 上游 MIT;但上游不在 PyPI(2026-10-05 实测 no solution)且产品形态是
+# Web 服务(自带 UI+SQLite+扫描任务队列),不可进程化 —— 故本插件只以
+# manifest 声明依赖与文档引用接入(10-05-plugin-market-batch 首批;盘点
+# 表原判 b 路后改判 c 路,理由记档),可用形态 = 已部署实例按 remote 接入,
+# 服务端部署 compose 在仓库 docker/plugins/myssia-spiderfoot/。
+id: myssia-spiderfoot
+name: OSINT 聚合查询台(SpiderFoot)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: remote
+requires: []
+provides: [osint_correlation]
+modes:
+  remote:
+    endpoint: https://spiderfoot.example.com   # your SpiderFoot deployment
+    # SpiderFoot 远程访问口令(官方 SPIDERFOOT_PASSWORD 语义);本地纯内网
+    # 部署可不配。凭据只走钥匙串引用,零明文。
+    token: keychain:myia/spiderfoot/password   # myssia secret set myia/spiderfoot/password
+install:
+  source: https://github.com/xinzhuzi/myia.git
