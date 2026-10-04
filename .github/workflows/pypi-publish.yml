@@ -13,12 +13,17 @@
 #
 # ── Trusted Publishing 四元组(owner 发布前在 PyPI 侧按此核对)──────────────────
 #   owner             = xinzhuzi
-#   repository        = myssia
+#   repository        = myia
 #   workflow_filename = pypi-publish.yml
-#   environment       = pypi
-#   两个项目(myssia 与 myssia-classifier)各自注册一次,四元组完全相同——同一工作流
-#   发多包是 PyPI 官方支持的用法;action 从 OIDC claim 自动取 owner/repo/workflow,
-#   YAML 内无需也不应硬编码。逐步操作见 docs/launch/RELEASE.md。
+#   **双包必须双 environment**(2026-10-04 实撞 PyPI 规则:pending publisher
+#   一组四元组(owner/repo/workflow/environment)只允许挂一个项目名,同组
+#   注册第二个项目名报 "already been registered for a different project
+#   name";已存在的项目才可共享四元组,pending 不行):
+#     myssia             → environment = pypi
+#     myssia-classifier  → environment = pypi-classifier
+#   下方 publish job 用 matrix 把两包各配各的 environment 与 packages-dir,
+#   OIDC claim 的 job_environment 随任务实例走,与注册面一一对应。
+#   逐步操作见 docs/launch/RELEASE.md。
 #
 # ── 鉴权双通道(dispatch 时二选一)─────────────────────────────────────────────
 #   A. Trusted Publishing(OIDC,推荐,零长期凭据):use-api-token 选 false。
@@ -247,7 +252,16 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
-    environment: pypi
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 双包双 environment(头注:pending 一组四元组只挂一个项目名)
+          - pkg-glob: dist/myssia-*
+            env-name: pypi
+          - pkg-glob: dist/myssia_classifier-*
+            env-name: pypi-classifier
+    environment: ${{ matrix.env-name }}
     permissions:
       contents: read
       id-token: write  # Trusted Publishing(OIDC)必需;token 模式下也供 PEP 740 attestations 签名用
@@ -298,6 +312,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: ${{ env.REPOSITORY_URL }}
+          packages-dir: ${{ matrix.pkg-glob }}
           verbose: true
 
       - name: Publish to PyPI (API token)
@@ -305,6 +320,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: ${{ env.REPOSITORY_URL }}
+          packages-dir: ${{ matrix.pkg-glob }}
           password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
 

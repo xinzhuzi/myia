@@ -53,9 +53,12 @@ wheel 里就直接失败,到不了 PyPI)。TestPyPI 演练走手动 dispatch,与
 
 ## 第二步:GitHub 仓库设置(一次性)
 
-1. 仓库页 → **Settings → Environments → New environment**,名称填 **`pypi`**
-   (必须与工作流里 `environment: pypi` 逐字一致,Trusted Publishing 的 OIDC
-   claim 会带这个环境名)。
+1. 仓库页 → **Settings → Environments → New environment**,建 **两个环境**:
+   **`pypi`**(主包 myssia 用)与 **`pypi-classifier`**(myssia-classifier 用)。
+   必须与工作流 matrix 里两个 `environment` 逐字一致,Trusted Publishing 的
+   OIDC claim 会带各自的环境名(双包双环境是 PyPI pending 规则所迫:一组
+   四元组只挂一个项目名,2026-10-04 实撞)。环境首次被工作流引用时 GitHub
+   会自动创建,也可在此预建。
 2. 可选加固:给 `pypi` 环境加 **Required reviewers = 你自己**,这样每次发布
    会多一道人工确认;也可以限制只有 main 分支可部署。
    当前决议(2026-10-03 grill Q6)**不加**:推 tag 本身就是主人门禁,双确认
@@ -69,16 +72,16 @@ wheel 里就直接失败,到不了 PyPI)。TestPyPI 演练走手动 dispatch,与
 
 ### 路径 A:Trusted Publishing(OIDC,推荐:零长期凭据、无 token 可泄漏)
 
-对 `myssia` 和 `myssia-classifier` **各注册一次**,四元组完全相同(同一工作流发
+对 `myssia` 和 `myssia-classifier` **各注册一次**,**environment 不同**(同一工作流发
 多包是 PyPI 官方支持的用法;tag 正式发布与 dispatch 演练都走这条):
 
-| 表单字段 | 填写值 |
-|---|---|
-| Owner | `xinzhuzi` |
-| Repository | `myssia` |
-| Workflow filename | `pypi-publish.yml` |
-| Environment | `pypi` |
-| Destination(版本/tag 限制) | 留空即可 |
+| 表单字段 | myssia 那张 | myssia-classifier 那张 |
+|---|---|---|
+| Owner | `xinzhuzi` | `xinzhuzi` |
+| Repository | `myia` | `myia` |
+| Workflow filename | `pypi-publish.yml` | `pypi-publish.yml` |
+| Environment | `pypi` | **`pypi-classifier`** |
+| Destination(版本/tag 限制) | 留空即可 | 留空即可 |
 
 注册入口分两种情况:
 

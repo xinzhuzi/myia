@@ -10,7 +10,7 @@
 
 ### 一、主人门禁(只有主人能做)
 
-1. PyPI 双包 pending publisher:pypi.org 注册时包名以**定名终局为准 = `myssia`/`myssia-classifier`**(2026-10-04 定名,dc064d3/1be66b0 已入库;本条原写 myia/myia-classifier 系改名前口径,如 pypi.org 侧此前已按旧名建过 pending publisher 需删旧建新)、Repository 填 `myia`(GitHub 仓 = xinzhuzi/myia);完成后回话,由 AI 代跑 Re-run + 发布线终勾。
+1. PyPI 双包 pending publisher:pypi.org 注册时包名以**定名终局为准 = `myssia`/`myssia-classifier`**(2026-10-04 定名,dc064d3/1be66b0 已入库;本条原写 myia/myia-classifier 系改名前口径,如 pypi.org 侧此前已按旧名建过 pending publisher 需删旧建新)、Repository 填 `myia`;**双包双 environment:myssia→pypi、myssia-classifier→pypi-classifier**(PyPI pending 一组四元组只挂一个项目名,2026-10-04 实撞;工作流已改 matrix 双环境);完成后回话,由 AI 代跑 Re-run + 发布线终勾。
 2. GHCR 包页清理。
 
 ### 二、装机/真机验收(代码已就绪,留装机)
