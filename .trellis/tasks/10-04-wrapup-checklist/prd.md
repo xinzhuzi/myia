@@ -11,7 +11,7 @@
 ### 一、主人门禁(只有主人能做)
 
 1. ~~PyPI 双包 pending publisher~~ **✅ 已发布上线(2026-10-04)**:pypi.org/myssia 与 myssia-classifier 双 200(0.0.1,与 v0.0.1 tag 一致);过程修三件=workflow 双 environment matrix(PyPI pending 一组四元组一项目名)+packages-dir 不吃 glob 加 staging 步+dispatch 默认 package=classifier 需显式 both;安装冒烟=真实源 pip download 双 whl 过。原条目备查:pypi.org 注册时包名以**定名终局为准 = `myssia`/`myssia-classifier`**(2026-10-04 定名,dc064d3/1be66b0 已入库;本条原写 myia/myia-classifier 系改名前口径,如 pypi.org 侧此前已按旧名建过 pending publisher 需删旧建新)、Repository 填 `myia`;**双包双 environment:myssia→pypi、myssia-classifier→pypi-classifier**(PyPI pending 一组四元组只挂一个项目名,2026-10-04 实撞;工作流已改 matrix 双环境);完成后回话,由 AI 代跑 Re-run + 发布线终勾。人肉步骤单(四元组逐屏登记指引)+Re-run 待命命令+预检取证已存档:`evidence/pypi-steps.md`(备查)。
-2. GHCR 包页清理。**回标(2026-10-04,盘点员)**:只读盘点+清理提案已出——`evidence/ghcr-inventory.md`(myia 包 120 版/shishi 包 115 版/myssia 与 8 变体名不存在;**0 条删除已执行**,KEEP/DELETE 分级提案待主人逐条确认后才动)。横切发现两件主人侧待决:①`myia:latest` 停在早于 v0.0.1 的 dev build,正式 tag 0.0.1/v1.1.1 只在 shishi 包 → `docs/launch/RELEASE.md` 的 `docker pull ghcr.io/xinzhuzi/myia:0.0.1` 当前是坏的(补推 myia:0.0.1 或改文档二选一);②untagged 版本混多架构子清单(每 push 恰 4 个),盲删会打断 keep 集标签的拉取,P3 须走 digest 排除。指定检查 `gh api user/packages` 因本机 token 无 read:packages scope 返回 403 未跑成(已用匿名 registry API+web 版本页双通道互证替代),加 scope 复核留主人。
+2. GHCR 包页清理。**回标(2026-10-04,盘点员)**:只读盘点+清理提案已出——`evidence/ghcr-inventory.md`(myia 包 120 版/shishi 包 115 版/myssia 与 8 变体名不存在;**0 条删除已执行**,KEEP/DELETE 分级提案待主人逐条确认后才动)。横切发现两件主人侧待决:①`myia:latest` 停在早于 v0.0.1 的 dev build,正式 tag 0.0.1/v1.1.1 只在 shishi 包 → `docs/launch/RELEASE.md` 的 `docker pull ghcr.io/xinzhuzi/myia:0.0.1` 当前是坏的(补推 myia:0.0.1 或改文档二选一);②untagged 版本混多架构子清单(每 push 恰 4 个),盲删会打断 keep 集标签的拉取,P3 须走 digest 排除。指定检查 `gh api user/packages` 因本机 token 无 read:packages scope 返回 403 未跑成(已用匿名 registry API+web 版本页双通道互证替代),加 scope 复核留主人。**回标(2026-10-05 收口):scope 复核=仍未具备——`gh auth status` 实测本机 token scopes=`gist, read:org, repo, workflow`,无 read:packages/delete:packages;主人先跑 `gh auth refresh -s read:packages,delete:packages` 授权,`gh api user/packages` 复核与后续清理操作才可走。**
 3. 四帖定稿(docs/launch/ 四平台文案+四 draft)。终态刷新已入库(d963eb3),定稿与发布节奏留主人。**⚠️ 已知陈旧口径**:帖内 PyPI 表述(「双包登记(主人门禁)在途」「都未上架/别 pip install」)写于发布落地前——2026-10-04 收口实测 pypi.org/myssia 与 myssia-classifier 双 200(各 0.0.1)已上架,定稿时须刷新为已上架口径(launch README「PyPI 包若尚未发布」检查项随之核销);即刻帖头部自记的正文实测字符数会随改动失效,须重测。
 
 ### 二、装机/真机验收(代码已就绪,留装机)
@@ -22,7 +22,7 @@
 
    **回标(2026-10-04 收口)**:装机取证材料已备——七屏实拍入库 `docs/screenshots/install-cronline-1004/`(01-dashboard / 02-feed / 03-sources / 04-logs / 05-settings / 06-messaging / 07-cmdk-palette,随 86117c3);像素级目验留主人;(3) keychain 跨进程验收无屏证,仍须主人实收。
 
-   **追记(2026-10-04 cron-ui 落地后)**:上述七屏系 cron-ui **之前**的构建所拍——**第八屏「定时任务」(10-04-cron-ui,commit 5b3fae3)尚未进任何装机截图**;~~下次装机目验须重打包~~ **已换装(2026-10-04 23:20)**:本机重打包链(UI→sidecar→tauri build)静默换装完成,新包含第八屏+Stage 6(sidecar 二进制含 cron.* 符号实证;旧包备份 /tmp/世事.app.bak-pre-cronui-2320);像素目验留主人——**建议目验脚本含「桌面 ticker 首验」:app 开着建 every 1m job 放 2-3 分钟,这是「桌面=定时宿主」第一次在真实冻结包里点亮(此前冒烟全是 CLI serve)**;补拍 08-cron 屏随目验做。未推提交以 git 实况为准。
+   **追记(2026-10-04 cron-ui 落地后)**:上述七屏系 cron-ui **之前**的构建所拍——**第八屏「定时任务」(10-04-cron-ui,commit 5b3fae3)尚未进任何装机截图**;~~下次装机目验须重打包~~ **已换装(2026-10-04 23:20)**:本机重打包链(UI→sidecar→tauri build)静默换装完成,新包含第八屏+Stage 6(sidecar 二进制含 cron.* 符号实证;旧包备份 /tmp/世事.app.bak-pre-cronui-2320);像素目验留主人——**建议目验脚本含「桌面 ticker 首验」:app 开着建 every 1m job 放 2-3 分钟,这是「桌面=定时宿主」第一次在真实冻结包里点亮(此前冒烟全是 CLI serve)**;补拍 08-cron 屏随目验做。~~未推提交以 git 实况为准~~ **推送已毕(2026-10-05 收口:02a438f 已上 origin/main(当时 0/0);其后 d83be5a/8d2e8a8 与本收口档随收口批一并上推)**。
 
 ### 三、长期挂账
 
@@ -30,7 +30,9 @@
 - 活 GLM key 的 enrich 真跑。
 ### 二节附:主人目验操作单(10 分钟,2026-10-04 换装后适用)
 
-> 新包=/Applications/世事.app(23:20 换装,含第八屏+全部修复;旧包 /tmp/世事.app.bak-pre-cronui-2320)。
+> ~~新包=/Applications/世事.app(23:20 换装,含第八屏+全部修复;旧包 /tmp/世事.app.bak-pre-cronui-2320)~~ **已再换装(2026-10-05 00:09,装机员)**:新包=02a438f 树三段链构建(包 mtime 2026-10-05 00:06:27 +08;旧包备份 /tmp/世事.app.bak-final-0009;换装链 exit=0 与已装包验证:`evidence/install-log.md`)。
+>
+> **收口时点注记(2026-10-05 00:16)**:此后 UI 仍在快迭代(d83be5a 00:09:00 彻底无头→8d2e8a8 00:15:08 恢复标准 macOS 标题栏/删 transparent-decorations 试验),装机员追 HEAD 的换装链此刻仍在跑(worktree 构建,/tmp/install-build-final.log 增长中;终局标志=exit 文件写 ok installed)——**主人目验时以装机员终局回执为准,届时即为最新 UI**。
 >
 > **回标(2026-10-04 收口)**:步骤 2/3/7 已由收口流自动化代做(证据 `evidence/cron-first-fire.md`:MYIA_HOME 沙箱冻结包首燃全链 7 次执行+08-cron 屏代拍 OCR 互证)——**主人目验缩为纯过目+步骤 4/5/6(急停亲手试/W2/keychain)**;注:行展开屏与急停红条因安全前置不可代拍(证据「截图局限」节),过目时顺手看一眼即可。
 
