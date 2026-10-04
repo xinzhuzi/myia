@@ -29,7 +29,8 @@ export interface NavGroup {
   entries: NavEntry[];
 }
 
-const NAV_GROUPS: NavGroup[] = [
+/** 导航分组清单(prd A-shell「顺手 export」:供后续复用,如命令面/测试口径) */
+export const NAV_GROUPS: NavGroup[] = [
   {
     label: null,
     entries: [

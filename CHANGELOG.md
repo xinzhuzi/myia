@@ -30,6 +30,18 @@ repeated here.
 
 ### Added
 
+- **Feed inline search takes over the browser find shortcut** (10-04
+  fe-gap-census R1): Mod+F (⌘F / Ctrl+F) in the feed screen now focuses the
+  inline search box and selects its text instead of the webview find bar, and
+  Escape clears both the box and the committed query immediately instead of
+  waiting out the 300 ms debounce (the native `type="search"` Esc reset
+  doesn't fire for controlled inputs, so it's handled explicitly).
+- **`alerts.fired` joined the desktop `SidecarEvent` union** (10-04 fe-gap-census
+  R2): the protocol side has shipped the run-terminal replay (`entry.py`
+  `_replay_alerts_fired`), so the event shape now rides the typed event stream —
+  logs screen gains an exhaustive-guard formatting branch (system summary row,
+  not replayed into the run-domain feed), and the messaging alert panel narrows
+  the union directly instead of casting.
 - **Item read-state protocol surface** (10-04-read-state-server, G9): three
   sidecar methods moving the desktop feed's read/starred/later state from
   webview localStorage into the server-side store — `store.state.mark`

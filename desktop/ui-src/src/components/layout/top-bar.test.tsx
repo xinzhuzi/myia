@@ -2,8 +2,10 @@
 //
 // 顶栏接线测试:①品类选择器(C8,10-03-feed-ux)选项 = health().plugins 的
 // id 去重 + 名称回显;选中回调上抛(null = 全部品类);health 失败静默收敛。
-// ②D4 壳层:面包屑(世事 › 分组 › 页面,与侧栏导航同口径)+ 全局命令位留白。
-// TopBar 现消费 useLocation(面包屑),须在 MemoryRouter 下渲染。
+// ②D4 壳层:面包屑(世事 › 分组 › 页面,与侧栏导航同口径)+ 全局命令位
+// = ⌘K 命令面板真触发器(interaction-batch A-cmd;面板本体细测——唤起/
+// 巡游/动作——在 command-palette.test.tsx「top-bar 接线」节,此处测触发器
+// 件本身的可达语义)。TopBar 现消费 useLocation(面包屑),须在 MemoryRouter 下渲染。
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -138,6 +140,17 @@ describe("TopBar 壳层件(D4:面包屑+全局命令位)", () => {
     expect(within(nav).getByRole("link", { name: "世事" })).toBeTruthy();
     expect(within(nav).getByText("设置")).toBeTruthy();
     expect(within(nav).queryByText("采集")).toBeNull();
+  });
+
+  it("全局命令位 = ⌘K 真触发器:button + aria-haspopup=dialog,点击唤起面板且 aria-expanded 翻转", async () => {
+    renderTopBar();
+    const trigger = screen.getByRole("button", { name: "打开命令面板" });
+    expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(trigger);
+    expect(await screen.findByRole("dialog", { name: "命令面板" })).toBeTruthy();
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
   });
 
 });

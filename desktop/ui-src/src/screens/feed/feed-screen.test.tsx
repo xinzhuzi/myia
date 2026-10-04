@@ -527,6 +527,45 @@ describe("FeedScreen", () => {
     expect(screen.queryByText("情报流还是空的")).toBeNull();
   });
 
+  it("R1 Mod+F:⌘F/Ctrl+F 拦截浏览器查找(preventDefault)改聚焦搜索框并全选词面", async () => {
+    storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    renderScreen();
+    await screen.findByText("条目 1");
+
+    const search = screen.getByLabelText("搜索条目") as HTMLInputElement;
+    fireEvent.change(search, { target: { value: "GLM" } });
+
+    // macOS ⌘F:事件被 preventDefault(fireEvent 返回 false)+ 焦点落搜索框 + 全选
+    const notPrevented = fireEvent.keyDown(window, { key: "f", metaKey: true });
+    expect(notPrevented).toBe(false);
+    expect(document.activeElement).toBe(search);
+    expect(search.selectionStart).toBe(0);
+    expect(search.selectionEnd).toBe("GLM".length);
+
+    // Win/Linux Ctrl+F 同通路(再次聚焦仍成立)
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    expect(document.activeElement).toBe(search);
+  });
+
+  it("R1 Esc 即时清空:搜索态按 Esc → 词面与已提交 query 同步归零(不等 300ms 防抖)", async () => {
+    storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    renderScreen();
+    await screen.findByText("条目 1");
+
+    const search = screen.getByLabelText("搜索条目") as HTMLInputElement;
+    fireEvent.change(search, { target: { value: "GLM" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+    await waitFor(() => expect(storeItemsMock).toHaveBeenLastCalledWith({ limit: 50, query: "GLM" }));
+
+    // 防抖在途的未提交词面(GLM5)也被 Esc 一并吞掉:重查不带 query
+    fireEvent.change(search, { target: { value: "GLM5" } });
+    fireEvent.keyDown(search, { key: "Escape" });
+    expect(search.value).toBe("");
+    await waitFor(() => expect(storeItemsMock).toHaveBeenLastCalledWith({ limit: 50 }));
+    // 搜索范围行随 query 归零离场(回到未过滤态)
+    await waitFor(() => expect(screen.queryByTestId("feed-search-scope")).toBeNull());
+  });
+
   it("G2 卡片展开:展开按钮出全文与元信息,再点收起回两行摘要", async () => {
     const item = fixtureItem({ content: "第一行\n第二行\n第三行" });
     storeItemsMock.mockResolvedValue(result([item]));

@@ -11,7 +11,6 @@ import { Switch } from "@/components/ui/switch";
 import {
   api,
   onSidecarEvent,
-  type AlertsFiredEvent,
   type SidecarRequestError,
   type UnlistenFn,
 } from "@/lib/api";
@@ -804,23 +803,21 @@ function AlertRulesPanel() {
 
   // alerts.fired 事件(design §4.2/§9):toast(本面板 notice)+ 规则行命中数
   // 刷新 —— 本地增量(fired_count+1 / last_fired_at=事件 ts),不整表重拉。
-  // 事件类型暂不在 SidecarEvent 联合(types.ts AlertsFiredEvent 注释:入联合
-  // 与 logs 屏穷尽守卫适配归协议落地批),此处按契约窄化消费
+  // alerts.fired 已入 SidecarEvent 联合(10-04 fe-gap-census R2),此处直接窄化
   useEffect(() => {
     let unlisten: UnlistenFn | null = null;
     let cancelled = false;
     void onSidecarEvent((event) => {
-      const fired = event as unknown as AlertsFiredEvent;
-      if (fired.type !== "alerts.fired") return;
+      if (event.type !== "alerts.fired") return;
       setNotice({
         kind: "ok",
-        text: `告警命中:${fired.rule_name}${fired.title ? `「${fired.title}」` : ""}(${fired.action_status})`,
+        text: `告警命中:${event.rule_name}${event.title ? `「${event.title}」` : ""}(${event.action_status})`,
       });
       setRules((prev) =>
         prev
           ? prev.map((rule) =>
-              rule.id === fired.rule_id
-                ? { ...rule, fired_count: rule.fired_count + 1, last_fired_at: fired.ts }
+              rule.id === event.rule_id
+                ? { ...rule, fired_count: rule.fired_count + 1, last_fired_at: event.ts }
                 : rule,
             )
           : prev,

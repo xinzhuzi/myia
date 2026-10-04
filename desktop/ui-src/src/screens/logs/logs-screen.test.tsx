@@ -15,7 +15,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { SidecarRequestError } from "@/lib/api";
-import type { RunEntry, SidecarEvent } from "@/lib/api";
+import type { AlertsFiredEvent, RunEntry, SidecarEvent } from "@/lib/api";
 
 const harness = vi.hoisted(() => ({
   handler: null as null | ((event: SidecarEvent) => void),
@@ -45,6 +45,7 @@ const logsTailMock = vi.mocked(api.logsTail);
 const runStartMock = vi.mocked(api.runStart);
 
 import { LogsScreen } from "./logs-screen";
+import { eventToRow } from "./api";
 
 // ---------------------------------------------------------------------------
 // 夹具(形状严格对齐 types.ts:RunEntry / LogsTailResult / 三类事件)
@@ -110,6 +111,19 @@ function emit(event: SidecarEvent) {
     harness.handler?.(event);
   });
 }
+
+// alerts.fired 夹具(形状严格对齐 types.ts AlertsFiredEvent;fe-gap-census R2 入联合)
+const alertsFiredFixture: AlertsFiredEvent = {
+  type: "alerts.fired",
+  rule_id: 3,
+  rule_name: "GLM 快讯",
+  item_id: 42,
+  dedup_key: "dk-42",
+  title: "GLM-5 发布",
+  action: "push",
+  action_status: "sent",
+  ts: "t9",
+};
 
 afterEach(() => {
   cleanup(); // vitest globals 关闭,RTL 自动清理不生效,须显式清理
@@ -418,5 +432,34 @@ describe("LogsScreen", () => {
     // 清空 → 恢复五行
     fireEvent.change(screen.getByTestId("log-search-input"), { target: { value: "" } });
     await waitFor(() => expect(screen.getAllByTestId("log-row")).toHaveLength(5));
+  });
+
+  it("alerts.fired 不进采集日志屏(fe-gap-census R2:订阅按 run 域过滤,命中详情归消息屏)", async () => {
+    mockSidecar([run2Running, run1Success]);
+    render(<LogsScreen />);
+    await screen.findAllByTestId("log-row");
+    emit(alertsFiredFixture);
+    expect(screen.queryByText(/告警命中/)).toBeNull();
+  });
+});
+
+describe("eventToRow(alerts.fired)—— fe-gap-census R2 穷尽守卫适配", () => {
+  it("alerts.fired → 系统摘要行(runId=null 同试抓口径;规则名/标题/动作状态入文案;ts 透传)", () => {
+    const row = eventToRow(alertsFiredFixture, 7);
+    expect(row.key).toBe("event:7");
+    expect(row.runId).toBeNull();
+    expect(row.stream).toBe("system");
+    expect(row.ts).toBe("t9");
+    expect(row.text).toContain("告警命中");
+    expect(row.text).toContain("GLM 快讯");
+    expect(row.text).toContain("GLM-5 发布");
+    expect(row.text).toContain("push:sent");
+  });
+
+  it("title=null 的 fired 快照:文案不残留空「」,动作状态仍如实", () => {
+    const row = eventToRow({ ...alertsFiredFixture, title: null, action: "tag", action_status: "tagged" }, 8);
+    expect(row.text).toContain("tag:tagged");
+    expect(row.text).not.toContain("「」");
+    expect(row.text).not.toContain("GLM-5 发布");
   });
 });

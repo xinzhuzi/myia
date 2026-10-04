@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bookmark,
   Check,
@@ -761,6 +761,9 @@ function FeedCard({
  *  全库语义,title 换真话,就地翻转不整页重拉)+ 首启 localStorage 一次性
  *  搬迁(importLocalFeedStates,旧键保留不删);未过门(旧 sidecar 配新 UI)
  *  旧 localStorage 通路原样保留,零行为变化。
+ *
+ * fe-gap-census R1(10-04):Mod+F 聚焦内联搜索框(拦截浏览器查找并全选
+ *  词面)+ Esc 即时清空(词面与已提交 query 同步归零,不等 300ms 防抖)。
  */
 export function FeedScreen() {
   const navigate = useNavigate();
@@ -786,6 +789,8 @@ export function FeedScreen() {
   /** G1 搜索:输入框即时值 / 已提交值(防抖 300ms 或 Enter) */
   const [searchInput, setSearchInput] = useState("");
   const [query, setQuery] = useState("");
+  /** Mod+F 聚焦目标(fe-gap-census R1:⌘F/Ctrl+F 拦截浏览器查找改聚内联搜索框) */
+  const searchInputRef = useRef<HTMLInputElement>(null);
   /** G3 导出:格式选择 + 进行中 + 回显;G2 打开原文失败回显 */
   const [exportFormat, setExportFormat] = useState<ExportFormat>("jsonl");
   const [exporting, setExporting] = useState(false);
@@ -1063,10 +1068,18 @@ export function FeedScreen() {
   }, []);
 
   // U = 当前卡已读/未读切换;j/k = 当前卡上/下移(Linear Inbox 惯例;输入框/
-  // 可编辑目标内敲不触发,守卫与既有 U 键同源,不引外部 hook——feed 本地惯例)
+  // 可编辑目标内敲不触发,守卫与既有 U 键同源,不引外部 hook——feed 本地惯例);
+  // Mod+F(macOS ⌘F / Win·Linux Ctrl+F)= 拦截浏览器查找,聚焦内联搜索框并
+  // 全选词面(可直接改写;fe-gap-census R1,linear-activity #8)
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const pressed = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && pressed === "f") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
       if (pressed !== "u" && pressed !== "j" && pressed !== "k") return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
@@ -1342,6 +1355,7 @@ export function FeedScreen() {
           </DropdownMenu>
           <Search className="size-3.5 text-muted-foreground" aria-hidden />
           <input
+            ref={searchInputRef}
             type="search"
             value={searchInput}
             aria-label="搜索条目"
@@ -1350,6 +1364,12 @@ export function FeedScreen() {
             onChange={(event) => setSearchInput(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") setQuery(searchInput.trim());
+              // Esc 即时清空(R1):词面与已提交 query 同步归零,不等 300ms 防抖
+              // (type="search" 的原生 Esc 清空对受控值不生效,故显式处理)
+              if (event.key === "Escape") {
+                setSearchInput("");
+                setQuery("");
+              }
             }}
           />
         </div>

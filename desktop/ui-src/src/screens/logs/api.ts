@@ -246,10 +246,23 @@ export function eventToRow(event: SidecarEvent, seq: number): LogRow {
       : `▸ 本地视觉服务确保启动失败(job #${event.job_id}:${event.error ?? "error"})`;
     return { key: `event:${seq}`, runId: null, stream: "system", text: outcome, ts: event.ts };
   }
+  if (event.type === "alerts.fired") {
+    // 告警命中回放(10-04-alert-rules,协议 v7):一行系统摘要(runId=null 同
+    // 试抓口径;采集日志屏订阅处按 run 域过滤不续播本事件,命中详情在消息屏
+    // 告警面板 —— 本分支为穷尽守卫的类型适配,fe-gap-census R2)
+    const detail = [event.title, `${event.action}:${event.action_status}`].filter(Boolean).join(" · ");
+    return {
+      key: `event:${seq}`,
+      runId: null,
+      stream: "system",
+      text: `▸ 告警命中(规则「${event.rule_name}」${detail ? ` · ${detail}` : ""})`,
+      ts: event.ts,
+    };
+  }
   // 穷尽防御:SidecarEvent = log/progress/completed/test.completed +
-  // image.models.progress/completed + image.server.completed 七种
-  // (10-03-vision-v2 增模型下载域两事件 + server ensure 终态事件);
-  // 协议再添类型时此处编译期即报错
+  // image.models.progress/completed + image.server.completed + alerts.fired
+  // 八种(10-03-vision-v2 增模型下载域/server ensure 事件;10-04 fe-gap-census
+  // R2 增 alerts.fired);协议再添类型时此处编译期即报错
   const unknownEvent: never = event;
   return { key: `event:${seq}`, runId: null, stream: "system", text: `▸ 未识别事件(${String(unknownEvent)})`, ts: "" };
 }
