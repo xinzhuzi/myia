@@ -596,7 +596,7 @@ class TestSendImmediateIntegration:
             send_immediate(
                 due[0].items,
                 channels=[channel],
-                item_specs=[due[0].target_spec] if due[0].target_spec else None,
+                item_specs=[[due[0].target_spec]] if due[0].target_spec else None,
                 now=NOW,
             )
         )
@@ -716,3 +716,65 @@ class TestPipelineWiring:
         assert PushRetryLedger(tmp_path).pending_count() == 1  # 未到期不冲账
         assert FlakyStdout.total_calls() == 1  # 无重投击发
         assert result2.pushes[0].ok is True  # 本轮无新失败
+
+    def test_targeted_retry_resends_to_resolved_target_not_exploded(
+        self, tmp_path: Path
+    ):
+        """定向重投按源 spec 解析到原对象(换眼复审 R1-high 回归)。
+
+        修复前:``item_specs=[entry.target_spec]`` 把单字符串当「每条目的
+        spec 列表」传给 send_immediate,内部 ``list(specs)`` 逐字符炸开
+        ('f','a','k','e',':','群','二'),全部单字符 spec 解析失败 →
+        7×skipped 报告 → 冲账侧误判「死信/对象未解析」终态放弃——瞬态
+        失败一次认领即灭,at-least-once 对所有定向 immediate 失效且日志
+        归因错误。修复后:spec 包成列表,经目录解析回原对象、成功出队。
+        """
+        manual = ManualClock()
+        store = SQLiteStore(tmp_path / "p.db")
+        client = httpx.AsyncClient(transport=httpx.MockTransport(_make_handler()))
+        pipeline = Pipeline(
+            _make_config(),
+            db_path=tmp_path / "p.db",
+            store=store,
+            client=client,
+            clock=lambda: manual.now,
+            sleep=_no_sleep,
+            wall_clock=lambda: datetime.fromtimestamp(manual.now, tz=timezone.utc),
+        )
+        try:
+            # 预置通道目录(replace_platform 为内存桶替换,directory.py:347;
+            # 持久化走 refresh 流程,与本测试无关)——对 Pipeline 自持的
+            # directory 实例预置,重投解析走真目录。
+            pipeline._channel_directory.replace_platform(
+                "fake", [ChannelEntry(platform="fake", chat_id="c2", name="群二")], now=1.0
+            )
+            assert pipeline._retry_ledger.enqueue_failure(
+                channel="flaky_targeting",
+                items=[ITEM],
+                target_spec="fake:群二",
+                error=TRANSIENT,
+                kind="immediate",
+            )
+            manual.advance(RETRY_BACKOFF_SECONDS[0] + 1)  # 到期
+
+            channel = FakeTargetingChannel()  # 通道已自愈,重投应成功
+
+            async def scenario():
+                registry = pipeline._ensure_registry(store)
+                return await pipeline._flush_push_retries(
+                    channel, registry, datetime.fromtimestamp(manual.now, tz=timezone.utc)
+                )
+
+            reports = asyncio.run(scenario())
+
+            assert [r.ok for r in reports] == [True]  # 修复前:7×skipped 全 False
+            # 重投按源 spec 解析回原对象(修复前:单字符 spec 全解析失败,零发送)
+            assert len(channel.calls) == 1
+            assert channel.calls[0]["context"].target.chat_id == "c2"
+            assert channel.calls[0]["items"] == [ITEM]
+            assert channel.calls[0]["context"].kind == "immediate"
+            # 成功出队,而非误判终态放弃(修复前:abandoned 记录带错归因文案)
+            assert pipeline._retry_ledger.snapshot() == []
+            assert PushRetryLedger(tmp_path).snapshot() == []
+        finally:
+            store.close()

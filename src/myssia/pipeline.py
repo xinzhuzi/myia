@@ -2349,7 +2349,15 @@ class Pipeline:
                 tz=self._tz,
                 now=now,
                 category=self.config.name,
-                item_specs=[entry.target_spec] if entry.target_spec else None,
+                # item_specs 形态=每条目一个 spec **列表**(send_immediate 内部
+                # ``list(specs)`` 展开单条目对象集合);单字符串会被逐字符炸开
+                # 成一串不可解析 spec → 全 skipped → 误判终态放弃(换眼复审
+                # R1-high 回归,tests/push/test_push_retry_ledger.py 有对拍)。
+                # item_specs 形态=每条目一个 spec **列表**(send_immediate 内部
+                # ``list(specs)`` 展开单条目对象集合);单字符串会被逐字符炸开
+                # 成一串不可解析 spec → 全 skipped → 误判终态放弃(换眼复审
+                # R1-high 回归,tests/push/test_push_retry_ledger.py 有对拍)。
+                item_specs=[[entry.target_spec]] if entry.target_spec else None,
                 directory=self._channel_directory,
                 ledger=self._delivery_ledger,
             )
