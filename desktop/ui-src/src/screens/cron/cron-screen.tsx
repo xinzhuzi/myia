@@ -60,7 +60,7 @@ const MANUAL_PAUSE_REASON = "桌面端手动暂停";
  * 布局契约 = research/screen-spec.md §1,逐块蓝本对位:
  *   A 活性条三态(H CronPage 907-921 schedulerStaleAgeS 黄条段):正常灰字
  *     含 data_root / 僵死黄条 cron-stale / 急停红条 cron-estopped + 恢复全部
- *     + 注记「仅暂停调度,单 job 操作仍可用」Q4;右侧常驻 急停全部
+ *     + 注记「仅暂停调度,单个任务操作仍可用」Q4;右侧常驻 急停全部
  *     (确认 Dialog,H 930+ DeleteConfirm 独立确认组件形态)+ 手动刷新;
  *   B notice 横幅(messaging-screen.tsx 73-76/330-342 Notice 形态,
  *     H 895-905 Toast+LoadErrorNotice 的 MYIA 对位;动作与事件共用);
@@ -193,7 +193,7 @@ export function CronScreen() {
       () => {
         setEstopBusy(false);
         setEstopOpen(false);
-        setNotice({ kind: "ok", text: "已急停全部定时任务(仅暂停调度,单 job 操作仍可用)" });
+        setNotice({ kind: "ok", text: "已急停全部定时任务(仅暂停调度,单个任务操作仍可用)" });
         reload();
       },
       (error: SidecarRequestError) => {
@@ -363,7 +363,7 @@ export function CronScreen() {
     <div>
       <PageHeader
         title="定时任务"
-        description="按排程自动跑品类采集;与 CLI myssia cron 管理同一批 job"
+        description="按排程自动跑品类采集;与 CLI myssia cron 管理同一批任务"
       />
       <div className="flex flex-col gap-4 px-6 pb-6">
         {/* ---------------- A 活性条(三态)+ 急停/刷新 ---------------- */}
@@ -381,7 +381,7 @@ export function CronScreen() {
           {estopped ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span className="font-medium">已急停:调度暂停派发</span>
-              <span className="text-xs opacity-80">急停仅暂停调度,单 job 操作仍可用;在途运行不受影响</span>
+              <span className="text-xs opacity-80">急停仅暂停调度,单个任务操作仍可用;在途运行不受影响</span>
               <Button
                 variant="destructive"
                 size="sm"
@@ -396,22 +396,29 @@ export function CronScreen() {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <span className="font-medium">调度器心跳迟滞或已停</span>
               <span className="text-xs opacity-80">
-                ticker 未存活
+                调度器未存活
                 {status?.heartbeat_age_seconds != null ? `(心跳 ${Math.round(status.heartbeat_age_seconds)} 秒前)` : ""}
-                ——job 可能不再按时触发,可先手动「刷新」复核
+                ——任务可能不再按时触发,可先手动「刷新」复核
               </span>
             </div>
           ) : status !== null ? (
             <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
-              <span className="text-foreground">ticker 活跃</span>
+              <span className="text-foreground">调度器运行中</span>
               <span aria-hidden>·</span>
               <span>
-                下次 <span className="text-foreground">{formatCronTime(status.next_due_at)}</span>
+                下次运行 <span className="text-foreground">{formatCronTime(status.next_due_at)}</span>
               </span>
               <span aria-hidden>·</span>
-              <span>{status.jobs_enabled} 个 job</span>
+              <span>
+                {status.jobs_total > status.jobs_enabled
+                  ? `${status.jobs_enabled}/${status.jobs_total}`
+                  : status.jobs_enabled}{" "}
+                个任务启用
+              </span>
               <span aria-hidden>·</span>
-              <span className="font-mono text-2xs">{status.data_root}</span>
+              <span>
+                数据目录 <span className="font-mono text-2xs">{status.data_root}</span>
+              </span>
             </p>
           ) : (
             <span className="text-sm">活性待载入…</span>

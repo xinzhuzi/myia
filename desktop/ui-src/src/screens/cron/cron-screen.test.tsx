@@ -365,9 +365,20 @@ describe("#5 活性条三态(AC2)", () => {
     mockSidecar({ "cron.list": () => listResult([]), "cron.status": () => STATUS_OK });
     const first = renderScreen();
     const normal = await first.findByTestId("cron-vitality");
-    expect(normal.textContent).toContain("ticker 活跃");
-    expect(normal.textContent).toContain("/h"); // Q3 数据根可见
+    expect(normal.textContent).toContain("调度器运行中");
+    expect(normal.textContent).toContain("下次运行"); // 人话文案(r2:去 ticker/job 行话)
+    expect(normal.textContent).toContain("数据目录 /h"); // Q3 数据根可见+带标签
     first.unmount();
+
+    // 部分暂停:启用数/总数 形态(0/0 之外的 1/2 分数钉住)
+    mockSidecar({
+      "cron.list": () => listResult([]),
+      "cron.status": () => ({ ...STATUS_OK, jobs_total: 2, jobs_enabled: 1 }),
+    });
+    const partial = renderScreen();
+    const partialBar = await partial.findByTestId("cron-vitality");
+    expect(partialBar.textContent).toContain("1/2 个任务启用");
+    partial.unmount();
 
     // 僵死(heartbeat_age_seconds > 180 / ticker 不活)
     mockSidecar({ "cron.list": () => listResult([]), "cron.status": () => STATUS_STALE });
