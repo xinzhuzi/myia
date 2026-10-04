@@ -172,6 +172,6 @@ def gate_open(config, kind, name) -> bool    # 引擎/插件侧唯一查询口
 | manifest | tests/plugins/test_plugin_packages.py | gated 档清单/分级/README 门槛文案必含 |
 | 市场/doctor | tests/plugins+tests/cli | plugin list 分组与 enabled 派生;未启用=info 非 warning |
 | 引擎 | tests/engines/test_saas_gated_engines.py | 关闭态 gate_closed;开启态 MockTransport 往返;AUTO_CHAIN 不含断言 |
-| 桩件 | tests/plugins/test_plugin_packages.py | crawlab/worldmonitor tier=gated;compose 集 9 件 |
+| 桩件 | tests/plugins/test_plugin_packages.py | crawlab/worldmonitor `tier: remote`+`gate: platform`(D5 正交组合);compose 集 10 件(7+crawlab/worldmonitor/webcheck,social-analyzer 只桩不携;批二回填修正:本行原 D5 前早稿「tier=gated;9 件」与 prd.md D5 定案及实际交付均不符,复审 low 抓出) |
 | 设置屏 | desktop ui settings 测试+tests/desktop | gates.get/save 协议往返;分区渲染;知情文案在位 |
 | 铁律 | 各新件 | gate_closed/桩不可达/坏 gates.yaml 三态下核心品类与 Pipeline 构造无感 |

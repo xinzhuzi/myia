@@ -34,11 +34,11 @@
 
 ## 批二:D4 门槛机制+门槛件+分析件(2026-10-05 晚立,按依赖序)
 
-10. [ ] **门槛机制先行**(R5,其余件的地基):`src/myssia/gates.py`(gates.yaml fail-closed 装载,照 vision/settings.py)+ manifest `TIER_TOKENS`+`gated`+plugin list 分组+doctor info finding+测试;
-11. [ ] **设置面门槛件分区**(R5 尾):桌面 SECTIONS 第 5 分区+sidecar `gates.get/save` 两方法(main.rs 白名单)+三卡表单+知情文案+UI 测试;
-12. [ ] **付费 SaaS gated 引擎**(R6):zenrows/scraperapi 引擎模块(词表+注册表不进 AUTO_CHAIN+gate_closed 失败类+keychain 键解析)+MockTransport 测试(关闭态/开启态往返);
-13. [ ] **同物种门槛桩**(R7):myssia-crawlab+myssia-worldmonitor(remote,gated tier,compose+README 门槛说明)+EasySpider 形态核验结案记档;
-14. [ ] **分析件二批**(AC9):myssia-webcheck+myssia-socialanalyzer(remote 桩)+trafilatura extract 增评估结案(独立任务或并入,答增量问);
+10. [x] **门槛机制先行**(R5,其余件的地基):`src/myssia/gates.py`(gates.yaml fail-closed 装载,照 vision/settings.py)+ manifest `TIER_TOKENS`+`gated`+plugin list 分组+doctor info finding+测试。**(2026-10-05 批二回填:按 D5 落地=gate 独立字段、TIER_TOKENS 不动;主体 gates.py/manifest.py/cli.py(gates 命令族+plugin list 分组+doctor gate_disabled=info)/SKILL.md 先随并行收编 d613310 入库,本批补 sidecar gates.get/save(entry.py,坏文件 fail-closed 全关+error 带回/同门校验失败零写入)与 tests/test_gates.py,落账 fa10443;门禁实跑见 evidence/batch-2-report.md)**;
+11. [x] **设置面门槛件分区**(R5 尾):桌面 SECTIONS 第 5 分区+sidecar `gates.get/save` 两方法(main.rs 白名单)+三卡表单+知情文案+UI 测试。**(批二回填:84533ee——main.rs 实无方法级白名单、rust 零改动,gates.yaml 拒载=fail-closed 警示卡+保存即覆写修复,分析件卡 D8 禁用占位;协议版本**定案不随批 bump**(维持 v10,两方法在 v10 内交付,测试 docstring 记因 tests/desktop/test_desktop_sidecar_protocol.py:2308);执行中报过的 v11 契约红已随定案消解)**;
+12. [x] **付费 SaaS gated 引擎**(R6):zenrows/scraperapi 引擎模块(词表+注册表不进 AUTO_CHAIN+gate_closed 失败类+keychain 键解析)+MockTransport 测试(关闭态/开启态往返)。**(批二回填:60e2f52——共用骨架 engines/saas.py,关闭态零上游请求,apikey mask 不落日志;执行中报过的 SKILL.md 枚举表连锁红已闭(SKILL.md:57 含两 token,test_skill_doc 24 绿);遗留低危两条见 evidence/batch-2-report.md 复审处置表)**;
+13. [x] **同物种门槛桩**(R7):myssia-crawlab+myssia-worldmonitor(remote,gated tier,compose+README 门槛说明)+EasySpider 形态核验结案记档。**(批二回填:7df322b(crawlab,BSD-3 官方镜像 compose)/0195806(worldmonitor,AGPL 只桩,compose 构建上下文钉上游 tag v2.10.0)——D5 落地=`tier: remote`+`gate: platform`,README 指设置面「自有实例」表单+规范键名 myia/platforms/<name>-token;compose 集**实为 10 件**(卡面 7→9 系本步单步语言,webcheck 同批也配 compose,与卡面文件清单自洽的总数=10,桩件路已如实报;golden 断言同步未随 4a/4b 提交=复审 high,aa89aa5 收编闭环);EasySpider 终态不收(第五波)**;
+14. [x] **分析件二批**(AC9):myssia-webcheck+myssia-socialanalyzer(remote 桩)+trafilatura extract 增评估结案(独立任务或并入,答增量问)。**(批二回填:66ace59(webcheck,MIT 官方镜像 compose)/cd29e0f(socialanalyzer,AGPL 只桩不携 compose,与 cd29e0f 同笔附 research.md 第六波 trafilatura 结案=零配置正文抽取补手写规则两盲区,另立引擎任务);D8 裁剪照办——gates.analysis 仅 schema+设置面占位「批三解锁」,零分析件;D9 backlog 照记)**;
 15. [x] 许可核验批(gh api LICENSE 原文一手,结论 research.md 第五波):MediaCrawler=非商业学习许可(警示型批三裁)/yake=AGPL 双许可(门槛可清,批三候选)/weibo-search+SpiderKeeper=无 LICENSE(维持不收终态);EasySpider 形态核验同批结案=Electron GUI 无 API,维持不收(终态);
 16. [ ] 门禁与提交纪律同首批(单件单提交、tests/plugins 组绿+批末全量、快照外科防并行混线)。
 
