@@ -17,9 +17,7 @@
         "width": 1920,
         "height": 1080,
         "visible": false,
-        "focus": false,
-        "transparent": true,
-        "decorations": false
+        "focus": false
       }
     ],
     "security": {
