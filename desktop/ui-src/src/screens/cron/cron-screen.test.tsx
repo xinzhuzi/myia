@@ -2,9 +2,10 @@
 //
 // 定时任务屏测试(10-04-cron-ui):mock 传输层(@tauri-apps/api/core invoke +
 // api/event listen,messaging 形态;emitSidecarEvent 注入 cron.* 事件)。
-// 用例 = research/screen-spec.md §5 #1-#19 全集(编号对应 AC;#18 logs 涟漪
-// 落 logs-screen.test.tsx)+ Stage 1 骨架基线(空态/错误态/路由可达)。
-// 协议契约权威:desktop/entry.py `_m_cron_*` + @/lib/api types.ts。
+// 用例 = research/screen-spec.md §5 #1-#27 全集(编号对应 AC;#18 logs 涟漪
+// 落 logs-screen.test.tsx;#20-#27 = Stage 6 蓝本对排缺口修复,G8 reload
+// generation 守卫为代码审查项不设用例)+ Stage 1 骨架基线(空态/错误态/
+// 路由可达)。协议契约权威:desktop/entry.py `_m_cron_*` + @/lib/api types.ts。
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -896,5 +897,246 @@ describe("#19 estopped 下单 job 操作(Q4;AC2/AC5)", () => {
 
     fireEvent.click(within(getByRowName(rows, "急停中的")).getByRole("button", { name: "编辑" }));
     expect(await screen.findByTestId("cron-form-schedule")).toBeTruthy(); // 编辑 Dialog 可开
+  });
+});
+
+// ---------------------------------------------------------------------------
+// screen-spec §5 #20-#27(Stage 6 蓝本对排缺口修复;G8 = 代码审查项不设用例)
+// ---------------------------------------------------------------------------
+
+describe("#20 error 态 badge(G1;AC3)", () => {
+  it("state=error → destructive「已停摆」+ title 含 last_error;优先于 last_status 派生", async () => {
+    mockSidecar({
+      "cron.list": () =>
+        listResult([
+          // last_status=ok 若不被抢占会渲染「成功」(ok 色)——抢占序证明
+          cronJob({
+            id: "jer",
+            name: "停摆的",
+            state: "error",
+            last_status: "ok",
+            last_error: "recurring 算不出下次运行时刻",
+          }),
+        ]),
+      "cron.status": () => STATUS_OK,
+    });
+    renderScreen();
+
+    const rows = await screen.findByTestId("cron-job-rows");
+    const stopped = within(rows).getByText("已停摆");
+    expect(stopped.className).toContain("destructive"); // H530 error→destructive 对位
+    expect(stopped.title).toContain("recurring 算不出下次运行时刻"); // H1158-1166 title 悬浮细节
+    expect(within(rows).queryByText("成功")).toBeNull(); // 优先于 last_status 派生
+  });
+});
+
+describe("#21 错误红行(G2b;AC3)", () => {
+  it("last_error/last_delivery_error 有值→行下红字两行且截 120;无值不渲染行", async () => {
+    const longError = "连".repeat(200);
+    mockSidecar({
+      "cron.list": () =>
+        listResult([
+          cronJob({
+            id: "jerr",
+            name: "带错的",
+            last_error: longError,
+            last_delivery_error: "feishu 410 gone",
+          }),
+          cronJob({ id: "jok", name: "干净的" }),
+        ]),
+      "cron.status": () => STATUS_OK,
+    });
+    renderScreen();
+
+    const rows = await screen.findByTestId("cron-job-rows");
+    const lastErr = within(rows).getByText(/上次错误:/);
+    expect(lastErr.textContent).toBe(`上次错误:${"连".repeat(120)}...`); // 截 120 + ...
+    expect(lastErr.closest("td")?.className).toContain("text-destructive");
+    const deliveryErr = within(rows).getByText(/投递错误:/);
+    expect(deliveryErr.textContent).toBe("投递错误:feishu 410 gone"); // 短文原样
+    expect(deliveryErr.closest("td")?.getAttribute("colspan")).toBe("9"); // 九列契约
+
+    // 无值不渲染:干净行(末行)之后无错误行
+    const cleanRow = getByRowName(rows, "干净的");
+    expect(cleanRow.nextElementSibling?.textContent ?? "").not.toContain("错误:");
+  });
+});
+
+describe("#22 上次运行列(G2a;AC3)", () => {
+  it("last_run_at 有值本地化渲染 / 空 = 「—」;列位在「下次运行」后", async () => {
+    mockSidecar({
+      "cron.list": () =>
+        listResult([
+          cronJob({ id: "jran", name: "跑过的", last_run_at: "2026-10-04T09:05:15+08:00" }),
+          cronJob({ id: "jnew", name: "没跑过的", last_run_at: null }),
+        ]),
+      "cron.status": () => STATUS_OK,
+    });
+    renderScreen();
+
+    const rows = await screen.findByTestId("cron-job-rows");
+    expect(screen.getByRole("columnheader", { name: "上次运行" })).toBeTruthy();
+    const ranRow = getByRowName(rows, "跑过的");
+    expect(within(ranRow).getByText("10/04 09:05")).toBeTruthy(); // 本地化 MM-DD HH:mm
+    // 列位:cells[3]=下次运行(10/05 09:00)、cells[4]=上次运行(10/04 09:05)
+    const ranCells = (ranRow as HTMLTableRowElement).cells;
+    expect(ranCells[3]?.textContent).toContain("10/05 09:00");
+    expect(ranCells[4]?.textContent).toContain("10/04 09:05");
+    const newRow = getByRowName(rows, "没跑过的") as HTMLTableRowElement;
+    expect(newRow.cells[4]?.textContent).toBe("—"); // 空 = 「—」
+  });
+});
+
+describe("#23 name 表单(G3;AC4)", () => {
+  it("创建可命名(payload 含 name);留空不带键;编辑改名入 diff", async () => {
+    mockSidecar({
+      "cron.list": () => listResult([cronJob()]),
+      "cron.status": () => STATUS_OK,
+      "yaml.list": () => YAML_LIST,
+      "cron.create": () => ({ job: cronJob() }),
+      "cron.edit": () => ({ job: cronJob() }),
+    });
+    renderScreen();
+    await screen.findByTestId("cron-job-rows");
+
+    // 创建可命名:name 输入(主字段组最上)+ chips + 选择器 → payload 含 name
+    await openCreateDialog();
+    fireEvent.change(screen.getByTestId("cron-form-name"), { target: { value: "我的任务" } });
+    fireEvent.click(screen.getByTestId("cron-chip-30m"));
+    openSelect(screen.getByTestId("cron-form-category"));
+    fireEvent.click(await screen.findByRole("option", { name: "新闻" }));
+    fireEvent.click(screen.getByTestId("cron-form-submit"));
+    await waitFor(() => {
+      expect(invokedParams("cron.create")[0]).toMatchObject({ name: "我的任务" });
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId("cron-form-submit")).toBeNull(); // Dialog 关闭收口
+    });
+
+    // 留空不带键(optionalParam = undefined;后端 _cron_opt_str 空串即拒)
+    await openCreateDialog();
+    fireEvent.click(screen.getByTestId("cron-chip-30m"));
+    openSelect(screen.getByTestId("cron-form-category"));
+    fireEvent.click(await screen.findByRole("option", { name: "新闻" }));
+    fireEvent.click(screen.getByTestId("cron-form-submit"));
+    await waitFor(() => {
+      expect(invokedParams("cron.create")).toHaveLength(2);
+    });
+    expect(invokedParams("cron.create")[1]?.name).toBeUndefined();
+    await waitFor(() => {
+      expect(screen.queryByTestId("cron-form-submit")).toBeNull(); // Dialog 关闭收口
+    });
+
+    // 编辑改名入 diff:预填旧名,只改 name → 载荷仅 job+name
+    fireEvent.click(within(getByRowName(screen.getByTestId("cron-job-rows"), "早晚情报流")).getByRole("button", { name: "编辑" }));
+    await waitFor(() => {
+      expect(invokedParams("yaml.list")).toHaveLength(2);
+    });
+    expect((screen.getByTestId("cron-form-name") as HTMLInputElement).value).toBe("早晚情报流"); // fromJob 预填
+    fireEvent.change(screen.getByTestId("cron-form-name"), { target: { value: "新名字" } });
+    fireEvent.click(screen.getByTestId("cron-form-submit"));
+    await waitFor(() => {
+      expect(invokedParams("cron.edit")).toEqual([{ job: "a1b2c3d4e5f6", name: "新名字" }]);
+    });
+  });
+});
+
+describe("#24 错误保留旧列表(G4;AC3/AC7)", () => {
+  it("reload 失败→ErrorBox 出现且旧表行仍在(错误条+旧表共存)", async () => {
+    let failList = false;
+    mockSidecar({
+      "cron.list": () => {
+        if (failList) {
+          return Promise.reject(
+            JSON.stringify({ code: "internal_error", path: "$", message: "重拉失败 boom" }),
+          );
+        }
+        return listResult([cronJob({ id: "jkeep", name: "旧表还在的" })]);
+      },
+      "cron.status": () => STATUS_OK,
+    });
+    renderScreen();
+    await screen.findByText("旧表还在的");
+
+    failList = true;
+    fireEvent.click(screen.getByTestId("cron-refresh"));
+
+    const alertBox = await screen.findByRole("alert"); // ErrorBox(H629 错误条)
+    expect(alertBox.textContent).toContain("重拉失败 boom");
+    expect(screen.getByText("旧表还在的")).toBeTruthy(); // 旧表共存,未被清空
+  });
+});
+
+describe("#25 列表计数(G5;AC3)", () => {
+  it("工具行「共 N 个」=当前行数;all 开关联动", async () => {
+    const active = [cronJob({ id: "ja", name: "甲" }), cronJob({ id: "jb", name: "乙" })];
+    const withPaused = [...active, cronJob({ id: "jc", name: "丙", state: "paused" })];
+    mockSidecar({
+      "cron.list": (params) => listResult(params.all === true ? withPaused : active),
+      "cron.status": () => STATUS_OK,
+    });
+    renderScreen();
+
+    await screen.findByTestId("cron-job-rows");
+    expect(screen.getByTestId("cron-job-count").textContent).toBe("共 2 个");
+
+    fireEvent.click(screen.getByTestId("cron-all-switch"));
+    await waitFor(() => {
+      expect(screen.getByTestId("cron-job-count").textContent).toBe("共 3 个"); // H1092 ({jobs.length}) 对位
+    });
+  });
+});
+
+describe("#26 校验聚焦(G6;AC4)", () => {
+  it("缺 schedule→对应 input 获焦;错误字段在高级折叠→先展开再聚焦", async () => {
+    mockSidecar({
+      "cron.list": () => listResult([]),
+      "cron.status": () => STATUS_OK,
+      "yaml.list": () => YAML_LIST,
+      "cron.create": () => ({ job: cronJob() }),
+    });
+    renderScreen();
+    await openCreateDialog();
+
+    // 缺 schedule:错误行 + schedule input 获焦(HJ 77-85 focusCronField)
+    fireEvent.click(screen.getByTestId("cron-form-submit"));
+    expect(screen.getByTestId("cron-form-error").textContent).toContain("排程必填");
+    await waitFor(() => {
+      expect(document.activeElement?.id).toBe("cron-create-schedule");
+    });
+
+    // 高级折叠内字段(repeat 非整数):填坏后收起折叠再提交 → 先展开再聚焦
+    fireEvent.click(screen.getByTestId("cron-chip-30m"));
+    openSelect(screen.getByTestId("cron-form-category"));
+    fireEvent.click(await screen.findByRole("option", { name: "新闻" }));
+    const advancedToggle = screen.getByText(/高级选项/).closest("button")!;
+    fireEvent.click(advancedToggle); // 展开
+    fireEvent.change(screen.getByTestId("cron-form-repeat"), { target: { value: "abc" } });
+    fireEvent.click(advancedToggle); // 收起
+    expect(advancedToggle.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(screen.getByTestId("cron-form-submit"));
+    expect(screen.getByTestId("cron-form-error").textContent).toContain("repeat 必须为整数");
+    await waitFor(() => {
+      expect(advancedToggle.getAttribute("aria-expanded")).toBe("true"); // 先展开
+      expect(document.activeElement?.id).toBe("cron-create-repeat"); // 再聚焦
+    });
+  });
+});
+
+describe("#27 编辑示 id(G7;AC4)", () => {
+  it("编辑 Dialog footer 含 font-mono job.id;create 不示", async () => {
+    mockSidecar({
+      "cron.list": () => listResult([cronJob()]),
+      "cron.status": () => STATUS_OK,
+      "yaml.list": () => YAML_LIST,
+    });
+    renderScreen();
+
+    const rows = await screen.findByTestId("cron-job-rows");
+    fireEvent.click(within(getByRowName(rows, "早晚情报流")).getByRole("button", { name: "编辑" }));
+    const idSpan = await screen.findByTestId("cron-edit-job-id"); // H1065-1068 对位
+    expect(idSpan.textContent).toBe("a1b2c3d4e5f6");
+    expect(idSpan.className).toContain("font-mono");
   });
 });

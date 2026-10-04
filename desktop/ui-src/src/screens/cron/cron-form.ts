@@ -194,13 +194,25 @@ const CRON_LAST_STATUS_BADGE: Record<
   skipped_busy: { label: "占用跳过", tone: "warning" },
 };
 
-/** job → 上次状态 badge;paused/终态由 state 抢占(screen-spec §2 上次状态列),
- *  无状态(从未跑且非暂停/终态)= null 渲染「—」 */
+/** job → 上次状态 badge;paused/终态/error 由 state 抢占(screen-spec §2
+ *  上次状态列),无状态(从未跑且非暂停/终态/error)= null 渲染「—」。
+ *  state=error(Stage 6 G1):recurring 算不出 next 的调度死态(jobs.py
+ *  绝不静默停摆),**优先于 last_status 派生**——对位 H530 STATUS_TONE
+ *  `error: "destructive"`;error 态 job 保持 enabled → 缺省列表可见
+ *  (evidence/blueprint-parity-audit.md 事实核),文案「已停摆」。 */
 export function cronStatusBadge(job: Pick<CronJobRecord, "state" | "last_status">): CronStatusBadge | null {
   if (job.state === "completed") return { label: "已完结", tone: "secondary" };
   if (job.state === "paused") return { label: "已暂停", tone: "secondary" };
+  if (job.state === "error") return { label: "已停摆", tone: "destructive" };
   if (job.last_status === null) return null;
   return CRON_LAST_STATUS_BADGE[job.last_status] ?? { label: job.last_status, tone: "secondary" };
+}
+
+/** 文本截断(H 62-76 truncateText 同款:超长 slice + "...")。
+ *  Stage 6 错误可见性族共用:badge title(悬浮细节)与行下错误红行
+ *  (G2b,各截 120,对位 H1218-1233)。 */
+export function truncateCronText(value: string, maxLength: number): string {
+  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
 /** next_run_at 逾期毫秒数(超出 15min 宽限才算;即将到时/宽限内/暂停/终态/

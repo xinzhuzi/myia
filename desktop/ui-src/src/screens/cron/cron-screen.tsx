@@ -26,6 +26,7 @@ import {
   formatCronTime,
   fromJob,
   SCHEDULE_TEMPLATES,
+  truncateCronText,
   type CronJobFormState,
 } from "./cron-form";
 
@@ -64,9 +65,12 @@ const MANUAL_PAUSE_REASON = "桌面端手动暂停";
  *   B notice 横幅(messaging-screen.tsx 73-76/330-342 Notice 形态,
  *     H 895-905 Toast+LoadErrorNotice 的 MYIA 对位;动作与事件共用);
  *   C 工具行(新建定时任务主按钮 + 显示暂停/终态 Switch = list all);
- *   D job 表八列契约(spec §2;H 1000-1290 job 列表+行内动作+runs 展开段):
- *     行可展开 = cron.runs limit 10 惰性拉取(logs 屏 317/423-434 expanded
- *     Set 先例)+ run_summary 摘要行(D10 快照);
+ *   D job 表九列契约(spec §2,Stage 6 G2a 增「上次运行」;H 1000-1290 job
+ *     列表+行内动作+runs 展开段):行可展开 = cron.runs limit 10 惰性拉取
+ *     (logs 屏 317/423-434 expanded Set 先例)+ run_summary 摘要行
+ *     (D10 快照);Stage 6 G1/G2b 错误可见性族 = state=error destructive
+ *     「已停摆」badge(H530)+ badge title=last_error(H1158-1166)+
+ *     行下 last_error/last_delivery_error 条件红行(H1218-1233);
  *   E 空态引导卡(CLI 对照)。
  * 创建/编辑 Dialog(H 940-1000 创建 Modal:遮罩/aria-modal/max-w-3xl 形态;
  * H 143-175 三函数 → 本目录 cron-form.ts;H 348-450 主表单字段布局)。
@@ -103,16 +107,31 @@ export function CronScreen() {
     allRef.current = all;
   }, [all]);
 
+  // G8(Stage 6)reload generation 守卫:useRef 自增,仅最新一次请求的应答
+  // 允许落地(手动刷新/事件重拉/开关切换竞态时旧响应整包丢弃)——对位
+  // H625-661 jobsRequestGenerationRef 同款
+  const reloadGenerationRef = useRef(0);
+
   const reload = useCallback((allOverride?: boolean) => {
     const flag = allOverride ?? allRef.current;
+    const generation = ++reloadGenerationRef.current;
     setCronState((prev) => ({
       status: prev.data === null ? "loading" : "ready",
       data: prev.data,
       error: null,
     }));
     void loadCronOverview(flag).then(
-      (data) => setCronState({ status: "ready", data, error: null }),
-      (error: SidecarRequestError) => setCronState({ status: "error", data: null, error }),
+      (data) => {
+        if (reloadGenerationRef.current !== generation) return;
+        setCronState({ status: "ready", data, error: null });
+      },
+      (error: SidecarRequestError) => {
+        if (reloadGenerationRef.current !== generation) return;
+        // G4(Stage 6)错误不清列表:错误入 error state(ErrorBox 示错 +
+        // 重试),jobs 保留旧值 ——「错误条 + 旧表共存」对位 H629
+        // jobsLoadError 只置横幅不清 jobs 的同款语义
+        setCronState((prev) => ({ status: "error", data: prev.data, error }));
+      },
     );
   }, []);
 
@@ -436,9 +455,14 @@ export function CronScreen() {
           <Button size="sm" onClick={() => setCreateOpen(true)} data-testid="cron-create-open">
             新建定时任务
           </Button>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Switch checked={all} onCheckedChange={toggleAll} aria-label="显示暂停/终态" data-testid="cron-all-switch" />
-            <span>显示暂停/终态</span>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {/* G5(Stage 6)列表计数:当前行数(=list.count,all 开关联动;
+                对位 H1092 `{jobs.length}` 计数形态) */}
+            <span data-testid="cron-job-count">共 {state.data?.list.count ?? 0} 个</span>
+            <div className="flex items-center gap-2">
+              <Switch checked={all} onCheckedChange={toggleAll} aria-label="显示暂停/终态" data-testid="cron-all-switch" />
+              <span>显示暂停/终态</span>
+            </div>
           </div>
         </div>
 
@@ -453,7 +477,9 @@ export function CronScreen() {
 
         {state.status === "error" && state.error ? <ErrorBox error={state.error} onRetry={() => reload()} /> : null}
 
-        {state.status === "ready" && state.data ? (
+        {/* G4(Stage 6):error 态若持有旧数据(刷新失败)则错误条与旧表共存;
+            首拉失败 data=null 走纯 ErrorBox */}
+        {(state.status === "ready" || (state.status === "error" && state.data !== null)) && state.data ? (
           state.data.list.count === 0 ? (
             <EmptyState
               title="创建第一个定时任务"
@@ -541,7 +567,8 @@ export function CronScreen() {
 }
 
 // ---------------------------------------------------------------------------
-// job 表(八列契约 screen-spec §2;colgroup 定宽 = sources-table 先例)
+// job 表(九列契约 screen-spec §2,Stage 6 G2a 增「上次运行」列;colgroup
+// 定宽 = sources-table 先例)
 // ---------------------------------------------------------------------------
 
 interface JobsTableProps {
@@ -573,6 +600,7 @@ function JobsTable(props: JobsTableProps) {
         <col />
         <col className="w-40" />
         <col className="w-[150px]" />
+        <col className="w-35" />
         <col className="w-28" />
         <col className="w-30" />
         <col className="w-20" />
@@ -586,6 +614,7 @@ function JobsTable(props: JobsTableProps) {
           <TableHead>名称</TableHead>
           <TableHead>排程</TableHead>
           <TableHead>下次运行</TableHead>
+          <TableHead>上次运行</TableHead>
           <TableHead>上次状态</TableHead>
           <TableHead>投递</TableHead>
           <TableHead>次数</TableHead>
@@ -662,13 +691,25 @@ function JobRow({
             <span>{formatCronTime(job.next_run_at)}</span>
           )}
         </TableCell>
+        {/* G2a 上次运行(Stage 6):last_run_at 本地化,空 = 「—」
+            (formatCronTime 内建;对位 H1202-1204 last: {formatTime(job.last_run_at)}) */}
+        <TableCell>
+          <span className="text-muted-foreground">{formatCronTime(job.last_run_at)}</span>
+        </TableCell>
         <TableCell>
           {queued ? (
             <Badge variant="default" data-testid={`cron-queued-${job.id}`}>
               已排队
             </Badge>
           ) : badge ? (
-            <Badge variant={badge.tone}>{badge.label}</Badge>
+            // G1(Stage 6):badge title 悬浮 last_error 细节(截断 120,
+            // 对位 H1158-1166 title={lastResult.detail});有错才带,无错省键
+            <Badge
+              variant={badge.tone}
+              title={job.last_error != null ? truncateCronText(job.last_error, 120) : undefined}
+            >
+              {badge.label}
+            </Badge>
           ) : (
             <span className="text-muted-foreground">—</span>
           )}
@@ -705,10 +746,31 @@ function JobRow({
           </div>
         </TableCell>
       </TableRow>
+      {/* G2b(Stage 6)行下错误红行:主行后、展开行前,仅有值才渲染——
+          last_error/last_delivery_error 各一行、截断 120(对位 H1218-1233
+          三红行;我方无 last_fire_error 字段,蓝本第三行不搬) */}
+      {job.last_error != null ? (
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={9} className="px-4 py-1 text-2xs text-destructive">
+            <span className="block truncate" title={job.last_error}>
+              上次错误:{truncateCronText(job.last_error, 120)}
+            </span>
+          </TableCell>
+        </TableRow>
+      ) : null}
+      {job.last_delivery_error != null ? (
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={9} className="px-4 py-1 text-2xs text-destructive">
+            <span className="block truncate" title={job.last_delivery_error}>
+              投递错误:{truncateCronText(job.last_delivery_error, 120)}
+            </span>
+          </TableCell>
+        </TableRow>
+      ) : null}
       {isOpen ? (
         <TableRow className="hover:bg-transparent">
           {/* id 与展开钮 aria-controls 成对(logs 屏 163/261 先例) */}
-          <TableCell id={`cron-runs-${job.id}`} colSpan={8} className="bg-sidebar/40 px-6 py-3">
+          <TableCell id={`cron-runs-${job.id}`} colSpan={9} className="bg-sidebar/40 px-6 py-3">
             <RunsPanel jobId={job.id} state={runsByJob[job.id]} />
           </TableCell>
         </TableRow>
@@ -811,6 +873,8 @@ function CronFormDialog({ open, onOpenChange, mode, job, onSubmit }: CronFormDia
   const [submitting, setSubmitting] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [categoryMode, setCategoryMode] = useState<"select" | "manual">("select");
+  // G6(Stage 6)待聚焦字段 id(见下方聚焦效应)
+  const [pendingFocus, setPendingFocus] = useState<string | null>(null);
   const [yamlFiles, setYamlFiles] = useState<Awaited<ReturnType<typeof api.yamlList>> | null>(null);
   const [yamlError, setYamlError] = useState<string | null>(null);
   const yamlFetchedRef = useRef(false);
@@ -825,6 +889,7 @@ function CronFormDialog({ open, onOpenChange, mode, job, onSubmit }: CronFormDia
     setSubmitting(false);
     setAdvancedOpen(false);
     setCategoryMode("select");
+    setPendingFocus(null);
     if (!yamlFetchedRef.current) {
       yamlFetchedRef.current = true;
       void api.yamlList().then(
@@ -846,13 +911,44 @@ function CronFormDialog({ open, onOpenChange, mode, job, onSubmit }: CronFormDia
     setForm((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  // G6(Stage 6)校验失败聚焦:首错字段 focus + scrollIntoView({block:
+  // "center"})——对位 HJ cron-job.ts 77-85 focusCronField。错误字段在
+  // 高级折叠内则先展开再聚焦:handleSubmit 同批 setAdvancedOpen(true)+
+  // setPendingFocus(id)(React 18 批处理 = 同帧渲染),本效应在展开后的
+  // DOM 上取元素聚焦。
+  useEffect(() => {
+    if (pendingFocus === null) return;
+    const el = document.getElementById(pendingFocus);
+    if (el === null) return;
+    el.focus();
+    el.scrollIntoView?.({ block: "center" });
+    setPendingFocus(null);
+  }, [pendingFocus]);
+
   const handleSubmit = () => {
     if (form.schedule.trim() === "") {
       setFormError("排程必填(如 every monday 9am / 0 9 * * * / in 30m)");
+      setPendingFocus(fieldId("schedule"));
       return;
     }
     if (form.category.trim() === "") {
       setFormError("品类必填:从清单选择,或切「手输路径」");
+      setPendingFocus(categoryMode === "manual" ? fieldId("category") : fieldId("category-select"));
+      return;
+    }
+    // 数值字段前端校验(均在高级折叠内;文案 = entry.py invalid_params
+    // 原文,错误回显「不吞不私造」纪律)——错则先展开折叠再聚焦
+    if (form.repeat.trim() !== "" && !Number.isInteger(Number(form.repeat))) {
+      setFormError("repeat 必须为整数(次数)");
+      if (!advancedOpen) setAdvancedOpen(true);
+      setPendingFocus(fieldId("repeat"));
+      return;
+    }
+    const runTimeoutRaw = form.runTimeout.trim();
+    if (runTimeoutRaw !== "" && !(Number(runTimeoutRaw) > 0)) {
+      setFormError("run_timeout 必须为正数秒");
+      if (!advancedOpen) setAdvancedOpen(true);
+      setPendingFocus(fieldId("runTimeout"));
       return;
     }
     setFormError(null);
@@ -894,6 +990,22 @@ function CronFormDialog({ open, onOpenChange, mode, job, onSubmit }: CronFormDia
 
           {/* 主字段 */}
           <div className="grid gap-4 sm:grid-cols-2">
+            {/* G3(Stage 6)可选 name:主字段组最上(schedule 之前)。
+                create 非空才带键 / edit 走 diff —— cron-form buildPayload/
+                fromJob 状态已备;留空后端缺省取品类文件名(jobs.py
+                create_job `label_source = Path(category).name`[:50]) */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={fieldId("name")} className="text-xs font-medium text-foreground">
+                名称(可选)
+              </label>
+              <Input
+                id={fieldId("name")}
+                value={form.name}
+                onChange={(event) => setField("name", event.target.value)}
+                placeholder="缺省取品类文件名"
+                data-testid="cron-form-name"
+              />
+            </div>
             <div className="flex flex-col gap-1.5">
               <label htmlFor={fieldId("schedule")} className="text-xs font-medium text-foreground">
                 排程
@@ -1036,6 +1148,17 @@ function CronFormDialog({ open, onOpenChange, mode, job, onSubmit }: CronFormDia
         </div>
 
         <DialogFooter>
+          {/* G7(Stage 6)编辑 Dialog footer 左侧 font-mono 示 job.id
+              (对位 H1065-1068 `{editJob.id}` mono 小字;create 不示) */}
+          {mode === "edit" && job ? (
+            <span
+              className="mr-auto self-center truncate font-mono text-xs text-muted-foreground"
+              title={job.id}
+              data-testid="cron-edit-job-id"
+            >
+              {job.id}
+            </span>
+          ) : null}
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={submitting}>
             取消
           </Button>
