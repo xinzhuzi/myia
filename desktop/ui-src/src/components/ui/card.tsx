@@ -25,9 +25,15 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+// as 只换标签名,类名/data-slot 原样透传——分区卡头需要 heading 语义时用
+// (10-05-messaging-heading-levels:消息屏四卡头 as="h2",其余调用方缺省 div 零变化)
+function CardTitle({
+  as: Tag = "div",
+  className,
+  ...props
+}: React.ComponentProps<"div"> & { as?: "div" | "h2" | "h3" | "h4" }) {
   return (
-    <div
+    <Tag
       data-slot="card-title"
       className={cn("text-sm font-semibold leading-none", className)}
       {...props}

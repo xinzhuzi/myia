@@ -344,6 +344,32 @@ describe("消息:通道目录渲染", () => {
   });
 });
 
+describe("消息:分区标题层级(v12-backlog P3 修复)", () => {
+  it("四分区卡头均为 level 2 heading;详情面板 h3/h4 层级连续无跳级", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+    // 目录数据就位 = 四个分区同步渲染完毕
+    await screen.findByTestId("platform-feishu");
+    for (const name of ["平台总览", "通道目录", "推送规则", "告警规则"]) {
+      expect(screen.getByRole("heading", { level: 2, name })).toBeTruthy();
+    }
+    // 详情面板:平台名 h3、小节标题 h4(h2 之下层级连续)
+    const detail = screen.getByTestId("platform-detail");
+    expect(within(detail).getAllByRole("heading", { level: 3 }).length).toBeGreaterThan(0);
+    expect(within(detail).getAllByRole("heading", { level: 4 }).length).toBeGreaterThan(0);
+    // 全屏标题只允许 2/3/4 三档(无 h1、无更高跳级)
+    const levels = screen
+      .getAllByRole("heading")
+      .map((node) => Number(node.tagName.slice(1)));
+    expect(levels.every((level) => [2, 3, 4].includes(level))).toBe(true);
+  });
+});
+
 describe("消息:别名行内编辑", () => {
   it("改名:输入新名保存 → channels.alias(set)参数正确,成功提示呈现", async () => {
     const sidecar = okSidecar();

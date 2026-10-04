@@ -1143,7 +1143,7 @@ export function PlatformOverview({
       <Card>
         {/* R2 刀3:卡头层级化(与消息屏其余卡同款 CardTitle/CardDescription) */}
         <CardHeader>
-          <CardTitle>平台总览</CardTitle>
+          <CardTitle as="h2">平台总览</CardTitle>
           <CardDescription>
             左列点选平台,右栏看详情:状态说明 / 出站凭据指南 / 目录速览;灰卡平台按波次排期,尚未实装
           </CardDescription>

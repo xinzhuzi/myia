@@ -381,7 +381,7 @@ export function MessagingScreen() {
           {/* R2 刀3:卡头层级化(CardTitle 13 semibold + CardDescription),
               说明文字不再挤在标题行括号里 */}
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle as="h2" className="flex items-center gap-2">
               <MessageCircle className="size-4 text-muted-foreground" />
               通道目录
             </CardTitle>
@@ -513,7 +513,7 @@ export function MessagingScreen() {
       <div className="px-6">
         <Card>
           <CardHeader>
-            <CardTitle>推送规则</CardTitle>
+            <CardTitle as="h2">推送规则</CardTitle>
             <CardDescription>给每条规则勾选具体推送对象;保存 = 全量写回该品类 YAML 的 push[]</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -955,7 +955,7 @@ function AlertRulesPanel() {
       <Card>
         <CardHeader className="flex-row items-start justify-between gap-2">
           <div className="flex min-w-0 flex-col gap-0.5">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle as="h2" className="flex items-center gap-2">
               <Bell className="size-4 text-muted-foreground" />
               告警规则
             </CardTitle>
