@@ -4,6 +4,17 @@
 >
 > **在途声明**:10-04-interaction-batch 六件(⌘K 面板/右键菜单/快捷键底座/侧栏折叠/仪表盘时间范围/feed j-k)已在工作树见产物(未提交,git status 大量 M/R),**全部标「在途,勿重复立项」**,本矩阵只记实况不路由。
 
+## 路由执行记录 2026-10-04(主人令全部做完)
+
+> 执行态勾注(文档批回写):普查落档同日,主人令 §处置路由汇总全部做完;逐条执行态如下。
+
+- **直接小修 4 条(R1/R2/R3/R4)→ 由本工作流冲突面批执行**:R1 feed Cmd+F 聚焦搜索框(+Esc 即时清空+搜索框 focus ring)/ R2 AlertsFiredEvent 入 SidecarEvent 联合+logs 穷尽守卫适配 / R3 tauri.conf.json 版本号对齐发布线(归收官流)/ R4 池 prd 回标(档内——已由文档批即席执行,回执 `10-03-v12-backlog/prd.md` Requirements 第 5 项,四条已消号标注 2026-10-04 落)。
+- **G9(R5)→ 已立档,后分两流(2026-10-04 复审修整注)**:全库批量已读 store/协议本体已由 `10-04-read-state-server` 交付(status=review,commit afa7339:`store.state.mark_all` 全库语义三端+UI 能力门+全库按钮真话);余量档=`.trellis/tasks/10-04-g9-read-all/`(planning,仅按品类批量入口+全库确认交互增量,其 prd「依赖核实结论」节立档时已钉死不重复造)——两档非双档悬空。
+- **入池 2 条(R6/R7)→ 已入池**:R6 G10 代理池连通性测试按钮(后端 `10-04-proxy-pool` 已归档=依赖解锁)+ R7 七件小件(侧栏分组折叠/源管理多选点簇筛选/设置 tooltip/snooze 到期重现/设置搜索/suppressed 词表 v2/P3 消息标题跳级)——增补回执 `10-03-v12-backlog/prd.md` Requirements 第 5 项 G10 行(依赖解锁)+ 第 8 项(新增块);池纪律不挂 in_progress。
+- **关闭 3 条 → 维持关闭,不再立项**:R8(语义不匹配/过度 4 项:feed 条目删除/设置 homepage/渠道 Tab/凭据表格化)、R9(在途 6 件归 interaction-batch+对标已实装 24 项)、§3.2 真机手验(已归 `10-04-wrapup-checklist` 档)。
+- **R9 定稿注记(2026-10-04 复审修整)**:gap-matrix 处置路由原文六件=缺口 **#1/#3/#4/#5/#7/#8**(`research/gap-matrix.md:47`);interaction-batch 实际交付 **#1/#2/#3/#4/#5/#8**(其 prd.md:23 分诊口径)。差一件:**#7 设置搜索设置项未随批做,仍悬置留池**(rg 核 `settings-screen.tsx` 仅 useSearchParams 路由参数,无设置搜索功能);#2 侧栏折叠以 A-shell 最小快捷键底座并入本批替补(原路由「单独立项」未走)。定稿按此口径,勿把 #7 记为已做。
+- **R9 注记补正(同日 FixStage,主人令「将所有问题都做完」)**:#7 已于复审修整阶段补做——设置屏分区导航上方加过滤输入,实时过滤分区名(label/id 不分大小写,纯前端零 RPC,Linear settings 口径;`settings-screen.tsx` 分区过滤节 + `settings.test.tsx`「分区过滤」describe 4 用例 scoped vitest 全绿)。定稿口径以本段为准:**#7 = 复审修整阶段补做,非悬置**;上段「勿把 #7 记为已做」作废(该 rg 证据在补做前成立)。
+
 ## 一、对标交互缺口逐条核(teardown 可抄清单 vs 实装)
 
 ### 1.1 linear-activity(情报流与壳层,可抄清单 14 条)
@@ -76,9 +87,9 @@
 | G12 就地沉淀 | **已做**(10-03-fe-small-batch) | 卡内面板 `feed-screen.tsx:382-393`;右键入口在途 `:725` |
 | 远期形态三项(八爪鱼点选建源/代理池面板/凭证猎手) | **留池(v1.2 第 6 项)** | `10-03-v12-backlog/prd.md:49-56` |
 | snooze 到期重现(gap-matrix #6) | **留池(v2)** | 稍后读=本地态(`feed-screen.tsx` later 桶),无到期重现;Linear H 键未对标 |
-| 设置搜索(gap-matrix #7) | **留池** | `rg 搜索 settings-screen.tsx` 零命中;teardown 自身标注「未实证」低置信 |
+| 设置搜索(gap-matrix #7) | **留池 → 同日 FixStage 已补做** | census 时 `rg 搜索 settings-screen.tsx` 零命中;teardown 自身标注「未实证」低置信;补做回执见上「R9 注记补正」 |
 
-**池文档债**:v12-backlog 池 prd 第 5 节仍列 G5 主体/G7/G8/G12 为待做(`10-03-v12-backlog/prd.md:38-47`),实际均已消号——**池清单漂移,需回标**(非产品代码,档内小修)。
+**池文档债**:v12-backlog 池 prd 第 5 节仍列 G5 主体/G7/G8/G12 为待做(`10-03-v12-backlog/prd.md:38-47`),实际均已消号——**池清单漂移,需回标**(非产品代码,档内小修)。→ **已回标(2026-10-04,R4 执行毕,见文首路由执行记录)**。
 
 ## 三、质量债存量(fe-small-batch 残留逐条核 + 在案小件)
 
