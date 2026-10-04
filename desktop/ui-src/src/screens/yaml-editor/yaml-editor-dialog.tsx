@@ -62,6 +62,9 @@ export function YamlEditorDialog({ file, onClose, onSaved }: YamlEditorDialogPro
   // 键盘:ESC 关闭(同守卫);Meta+S 保存(preventDefault 防 webview 默认行为)
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // CodeMirror 子面板(⌘F 搜索)按 ESC 关面板时已消费该键并 preventDefault,
+      // 但事件仍冒泡到 window:已处理的事件不再关弹窗(缺陷 2,10-04-yaml-editor-no-scroll)
+      if (event.defaultPrevented) return;
       if (event.key === "Escape") {
         attemptClose();
       } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {

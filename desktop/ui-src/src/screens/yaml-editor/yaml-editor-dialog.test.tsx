@@ -302,6 +302,26 @@ describe("编辑弹窗:关闭守卫", () => {
     expect(confirmSpy).not.toHaveBeenCalled();
   });
 
+  it("defaultPrevented 的 ESC(CodeMirror 搜索面板已消费)不关弹窗", async () => {
+    installSidecar(okSidecar().map);
+    const { onClose } = renderDialog();
+    await openAndWait();
+
+    // CM 子面板(⌘F 搜索)关面板时 preventDefault 后事件仍冒泡到 window:
+    // 弹窗的 window 监听须跳过已消费事件,否则误关整个编辑弹窗(缺陷 2)
+    const consumed = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    consumed.preventDefault();
+    window.dispatchEvent(consumed);
+
+    expect(screen.getByTestId("yaml-editor-dialog")).toBeTruthy(); // 弹窗仍在
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("dirty 时关闭(ESC/遮罩/关闭按钮)先 confirm:取消留在弹窗内容不丢,确认才关", async () => {
     installSidecar(okSidecar().map);
     const { onClose } = renderDialog();

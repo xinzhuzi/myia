@@ -49,13 +49,18 @@ export function EditorPane({ value, onChange, className }: EditorPaneProps) {
       <CodeMirror
         value={value}
         height="100%"
+        /* className 落到 .cm-theme 容器:父级定高链打通后 .cm-editor 的
+           height:100% 才不退化为内容高(否则外框 overflow-hidden 裁剪、
+           超一屏文件无滚动;10-04-yaml-editor-no-scroll 主缺陷) */
+        className="h-full"
         theme={[oneDark, KESTRA_CHROME]}
         extensions={[yaml()]}
         basicSetup={{
           lineNumbers: true,
           foldGutter: true,
           highlightActiveLine: true,
-          autocompletion: true,
+          // autocompletion 已移除:lang-yaml 无补全源,开关开着永无候选属误导
+          // (grill 2026-10-05 Q1;词级/schema 补全若做另立档)
           bracketMatching: true,
           closeBrackets: true,
         }}

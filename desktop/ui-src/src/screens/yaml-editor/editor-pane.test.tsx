@@ -38,4 +38,15 @@ describe("EditorPane(CodeMirror 封装)", () => {
     // onChange 路径由屏层测试的替身覆盖;此处锁定受控 value 单向即可
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it("高度链:CodeMirror 容器收到 h-full(防 .cm-theme 无定高滚动裁剪回归)", () => {
+    render(<EditorPane value={"a: 1"} onChange={() => {}} />);
+
+    // @uiw 把 className 渲到 .cm-theme 容器(div):该层无定高时 .cm-editor 的
+    // height:100% 退化为内容高,外框 overflow-hidden 裁剪 → 超一屏文件无滚动
+    // (10-04-yaml-editor-no-scroll 主缺陷;此断言防高度链再丢)
+    const theme = document.querySelector(".cm-theme");
+    expect(theme).toBeTruthy();
+    expect(theme?.classList.contains("h-full")).toBe(true);
+  });
 });
