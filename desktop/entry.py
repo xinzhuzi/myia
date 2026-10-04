@@ -32,6 +32,12 @@
     {"type": "image.server.completed", "job_id": 1, "ok": true, "status": {…}, "ts": "…"}
     {"type": "alerts.fired", "rule_id": 3, "rule_name": "…", "item_id": 42, "dedup_key": "…",
      "title": "…", "action": "push", "action_status": "sent", "ts": "…"}
+    {"type": "cron.skipped",   "job_id": "a1b2c3d4e5f6", "name": "早晚情报流",
+     "reason": "run_busy", "active_run_id": 7, "ts": "…"}
+    {"type": "cron.completed", "job_id": "a1b2c3d4e5f6", "name": "早晚情报流",
+     "ok": true, "status": "ok", "delivery_error": null, "summary": {…运行摘要计数…},
+     "ts": "…"}
+
 == 方法集(覆盖现有 CLI 能力) ==
 
 ================= ============================== ============================
@@ -144,6 +150,24 @@ alerts.delete      (delete_alert_rule)             删定义行,fired 历史照�
 alerts.test        (compile_rule + evaluate 同门)  dry 求值不真发不落 fired:
                                                  {matched, muted, actions,
                                                  eval_error?, already_fired?}
+cron.list          (CronJobs.list_jobs)           定时 job 清单(all=true 含
+                                                 暂停/终态);薄封装 cron 包
+cron.create        (CronJobs.create_job)          建定时 job(schedule 五形态;
+                                                 Q6 品类早失败/Q5 绝对路径)
+cron.edit          (CronJobs.update_job)          部分更新;schedule 变更重算
+                                                 next_run_at
+cron.pause         (pause_job/engage_estop)       暂停 job(reason 可选);
+                                                 all=true 全局急停(Q4)
+cron.resume        (resume_job/rearm_oneshot)     恢复/一次性重挂(at=ISO);
+                                                 all=true 解除急停
+cron.run           (CronJobs.trigger_job)         下次 tick 立即跑(manual;
+                                                 复活 paused、计入 repeat)
+cron.remove        (CronJobs.remove_job)          删记录;output 目录与账本
+                                                 行保留(运行证据)
+cron.status        (心跳标记族 + 到期扫描)         ticker 活性(心跳龄/最后
+                                                 错误/下次到期/急停态)
+cron.runs          (ExecutionLedger.list_executions) 执行账本尾查(新→旧,
+                                                 含 run_summary 摘要)
 ================= ============================== ============================
 
 - ``run.start`` params:``yaml``(必填)、``dry``(bool,缺省 false)、``db``、
@@ -268,6 +292,30 @@ alerts.test        (compile_rule + evaluate 同门)  dry 求值不真发不落 f
   action_status, ts}``:run 终态收口处以 ``list_fired(since=run.started_at)``
   查库回放(completed 之前逐条发出;dry run 零落库零回放)。
 
+- ``cron.*`` 九方法 + ``cron.skipped``/``cron.completed`` 两事件
+  (10-04-hermes-cron B3,能力 = ``myia.cron`` 包,与 CLI ``myia cron`` 同一
+  API 层):``cron.list {all?, db?}`` → ``{count, jobs}``;``cron.create
+  {schedule, category, name?, deliver?, failure_deliver?, repeat?, timezone?,
+  config?, run_timeout?, dry_run?, paused?, paused_reason?, db?}``(Q6 完整
+  ``load_category_file`` 早失败 → ``cron_category_invalid``;schedule 解析/
+  once 超窗/repeat 等 ``ValueError`` → ``cron_create_failed``);``cron.edit
+  {job, …同 create 可选字段}``(空更新集 = ``cron_edit_no_changes``);
+  ``cron.pause {job, reason?}`` / ``{all:true}`` 全局急停;``cron.resume
+  {job, at?}`` / ``{all:true}`` 解除急停;``cron.run {job}``;``cron.remove
+  {job}``;``cron.status {}`` → 心跳龄/最后错误/下次到期/急停态;``cron.runs
+  {job?, limit?=20 钳制 [1,500]}`` → 执行账本(含 ``run_summary`` 摘要)。
+  ``job`` 引用 = id 或名字(重名 → ``cron_ambiguous_job`` 带 candidates;
+  未找到 → ``cron_job_not_found``)。数据根 = ``db`` 父目录(缺省 = serve
+  上下文);serve 就绪后内置 cron ticker(daemon 线程,**home 模式才起**,
+  dev 回退用 ``myia cron serve``;监督线程 ``restart_if_dead`` 照抄),与
+  CLI serve 并存靠 tick 文件锁 + fire claim 互斥(多宿主,照抄 Hermes)。
+  事件 ``cron.skipped {job_id, name, reason:"run_busy", active_run_id, ts}``:
+  cron fire 撞桌面 run 单飞锁 = 跳过本 fire(grill Q2;advance 已消耗,不
+  排队不回滚;``last_status="skipped_busy"`` 由 tick 层落库,成功语义不动
+  streak;用户手点优先);事件 ``cron.completed {job_id, name, ok, status,
+  delivery_error, summary, ts}``:fire 完成(摘要 = runner 随执行行落账的
+  ``run_summary_json``,零二次解析;账本写失败时 summary=null 如实)。
+
 铁律:凭据只进系统钥匙链(``secret.set`` 薄包装 myia.secrets,值不落日志/协议流);
 桌面零 Docker;任何插件装不上不拦核心(doctor/list 只产 findings)。
 
@@ -311,6 +359,13 @@ from myia import push as myia_push
 from myia.alerts import AlertConfigError, CompiledAlertRule, alert_view, compile_rule
 from myia.cli import DEFAULT_DB_PATH, DEFAULT_PLUGINS_DIR, main as cli_main
 from myia.classify.custom import RuleEvalError, evaluate_expression
+from myia.cron.jobs import AmbiguousJobReference, CronJobs
+from myia.cron.runner import CronRunner
+from myia.cron.ticker import (
+    DEFAULT_TICK_INTERVAL_SECONDS,
+    SupervisedTickerThread,
+    run_ticker_loop,
+)
 from myia.enrich import EnrichConfigError, EnrichSettings, LLMEnricher
 from myia.enrich.scoring import mute_hit
 from myia.feedback import (
@@ -375,7 +430,9 @@ from myia.vision.server import (
 #: 回放事件;规则引擎 myia.alerts,10-04-alert-rules Stage D)。
 #: v8 = desktop-b234 批(runs.trend:run 成功率趋势逐日×status 聚合,G6;
 #: 10-04-desktop-b234)。
-PROTOCOL_VERSION = 8
+#: v9 = hermes-cron 批(cron.* 九方法 + cron.skipped/cron.completed 两事件
+#: + serve 内置 cron ticker,10-04-hermes-cron B3)。
+PROTOCOL_VERSION = 9
 #: 日志环形缓冲容量(行);logs.tail 的硬上限。
 LOG_RING_CAPACITY = 4000
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
@@ -4072,6 +4129,493 @@ def _m_alerts_test(params: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# 方法:cron.* + serve 内置 ticker
+# (10-04-hermes-cron B3:桌面 sidecar 的定时任务面。能力 = myia.cron 包,
+# 与 CLI ``myia cron`` 同一 API 层(AC7);蓝本 Hermes cron/(MIT)的 gateway
+# 内嵌 cron 等价物——多宿主(tick 文件锁 + fire claim 互斥)照抄)
+# ---------------------------------------------------------------------------
+
+#: serve 内置 cron ticker 的 tick 间隔秒(ticker.py 缺省 60s;测试注入小值)。
+CRON_TICK_INTERVAL_SECONDS: float = DEFAULT_TICK_INTERVAL_SECONDS
+#: 心跳新鲜度判定窗(CLI ``cron status`` 同款公式:interval×3 + 20s)。
+_CRON_TICKER_FRESH_SECONDS: float = DEFAULT_TICK_INTERVAL_SECONDS * 3 + 20
+
+_CRON_TICKER_LOCK = threading.Lock()
+#: ticker 句柄(SupervisedTickerThread,F2.2 同款监督线程);测试夹具拆线防
+#: 线程泄漏(B12)。
+_CRON_TICKER: SupervisedTickerThread | None = None
+#: 宿主监督线程(周期 restart_if_dead;serve 线程阻塞在 readline 承担不了
+#: ticker.py 契约里的宿主监督职责,由本专职线程代行,CLI serve 主循环同款)。
+_CRON_SUPERVISOR: threading.Thread | None = None
+_CRON_STOP: threading.Event | None = None
+
+
+def _cron_emit_event(payload: dict[str, Any]) -> None:
+    """ticker 线程发协议事件(``cron.skipped`` / ``cron.completed``)。
+
+    ``_write_line`` 单写锁串行化(线程安全,B10 队头阻塞铁律的另一半:
+    ticker 绝不进 serve 线程,事件只能旁路直写)。``_OUT`` 未就绪(直通
+    模式/单测直调)时丢弃 + 入环形日志——事件是观测面,发射失败绝不带走
+    调度路径。
+    """
+    try:
+        if _OUT is not None:
+            _write_line(payload)
+        else:
+            _ring_append(None, "stderr", f"sidecar: cron 事件丢弃(_OUT 未就绪): {payload.get('type')}")
+    except Exception as exc:  # noqa: BLE001 — 观测面失败只留痕
+        _ring_append(None, "stderr", f"sidecar: cron 事件发送失败: {exc}")
+
+
+def _cron_dispatch_gate(job: dict[str, Any]) -> bool:
+    """tick 派发钩子(grill Q2):cron fire 前查桌面 run 单飞锁。
+
+    占用 = 跳过本 fire(advance 已消耗,不排队不回滚——与 at-most-once
+    一致;用户手点优先于 cron)。``last_status="skipped_busy"`` 由 tick 层
+    落库(``myia.cron.tick._process_due_job`` 状态显式覆写,成功语义不动
+    streak);本钩子只补发 ``cron.skipped`` 协议事件供桌面 UI 即时可见。
+    """
+    with _RUNS_LOCK:
+        active_run_id = _ACTIVE_RUN_ID
+    if active_run_id is None:
+        return True
+    _cron_emit_event({
+        "type": "cron.skipped",
+        "job_id": job.get("id"),
+        "name": job.get("name"),
+        "reason": "run_busy",
+        "active_run_id": active_run_id,
+        "ts": _now_iso(),
+    })
+    return False
+
+
+def _cron_execute_job(
+    cron: CronJobs, job: dict[str, Any]
+) -> tuple[bool, str | None, str | None]:
+    """tick 执行体包装(``CronRunner.execute``)→ ``cron.completed`` 事件。
+
+    事件载荷(design §4.2):job_id/status/摘要计数——摘要直接取 runner 随
+    执行行落账的 ``run_summary_json``(D10,零二次解析子进程 stdout);取不
+    到(账本 best-effort 写失败)事件照发,``summary=null`` 如实,不虚构。
+    """
+    runner = CronRunner(cron)
+    success, error, delivery_error = runner.execute(job)
+    summary: Any = None
+    execution_id = str(job.get("execution_id") or "")
+    if execution_id:
+        try:
+            row = cron.ledger.get_execution(execution_id)
+            raw = row.get("run_summary_json") if row else None
+            if isinstance(raw, str) and raw:
+                summary = json.loads(raw)
+        except Exception:  # noqa: BLE001 — 事件是观测面
+            summary = None
+    run_status: str | None = None
+    if isinstance(summary, dict):
+        run_block = summary.get("run")
+        if isinstance(run_block, dict) and isinstance(run_block.get("status"), str):
+            run_status = run_block["status"]
+    _cron_emit_event({
+        "type": "cron.completed",
+        "job_id": job.get("id"),
+        "name": job.get("name"),
+        "ok": bool(success),
+        "status": run_status or ("ok" if success else "failed"),
+        "delivery_error": delivery_error,
+        "summary": summary,
+        "ts": _now_iso(),
+    })
+    return success, error, delivery_error
+
+
+def _start_cron_ticker() -> None:
+    """serve() 就绪后起 cron ticker(design §4.2):daemon 线程,绝不占
+    serve 线程(B10);数据根取 ``_serve_context`` 的 db 父目录。
+
+    - 幂等:一个 sidecar 进程至多一套 ticker(``_CRON_TICKER_LOCK`` 内
+      查-占原子);serve EOF 关停后重入 serve 会重起(lifecycle = serve)。
+    - **home 模式才起**(``_serve_context().home is not None``):桌面生产
+      形态恒为 home;dev/测试 serve 落数据根 cwd,起真 ticker 会在仓库建
+      ``cron/`` 目录——dev 常宿形态用 ``myia cron serve``(同底座同互斥);
+      测试验 ticker 走 ``MYIA_HOME`` 注入。
+    - 监督:F2.2 同款 :class:`SupervisedTickerThread`(线程崩了 respawn,
+      restart 计数入日志)+ 专职 supervisor 线程周期 ``restart_if_dead``。
+    - 起动失败只留痕,绝不拦服务起来(首跑种子同哲学)。
+    """
+    global _CRON_TICKER, _CRON_SUPERVISOR, _CRON_STOP
+    with _CRON_TICKER_LOCK:
+        if _CRON_SUPERVISOR is not None and _CRON_SUPERVISOR.is_alive():
+            return
+        try:
+            ctx = _serve_context()
+        except ProtocolError as exc:
+            _ring_append(None, "stderr", f"sidecar: cron ticker 未起({exc.code}: {exc.message})")
+            return
+        if ctx.home is None:
+            return
+        cron = CronJobs.for_db(ctx.db)
+        stop = threading.Event()
+        interval = float(CRON_TICK_INTERVAL_SECONDS)
+
+        def _execute(job: dict[str, Any]) -> tuple[bool, str | None, str | None]:
+            return _cron_execute_job(cron, job)
+
+        ticker = SupervisedTickerThread(
+            run_ticker_loop,
+            args=(cron, stop),
+            kwargs={
+                "interval": interval,
+                "execute_job": _execute,
+                "dispatch_gate": _cron_dispatch_gate,
+            },
+            stop_event=stop,
+            name="cron-ticker",
+        )
+        ticker.start()
+
+        def _supervise() -> None:
+            poll = min(interval, 30.0)  # ticker 死亡的发现时延上限(CLI serve 同款)
+            while not stop.wait(poll):
+                ticker.restart_if_dead()
+            ticker.join(timeout=poll + 5.0)
+        supervisor = threading.Thread(
+            target=_supervise, daemon=True, name="cron-ticker-supervisor"
+        )
+        supervisor.start()
+        _CRON_TICKER, _CRON_SUPERVISOR, _CRON_STOP = ticker, supervisor, stop
+        _ring_append(
+            None, "stderr",
+            f"sidecar: cron ticker 已起(数据根 {cron.store.data_root},interval={interval:.0f}s)",
+        )
+
+
+def _stop_cron_ticker(join_timeout: float = 2.0) -> None:
+    """关停 cron ticker(serve EOF / 测试夹具 B12):置 stop → 有界 join。
+
+    幂等;先摘全局引用再 join(重入安全)。``Event.wait`` 可中断,idle
+    ticker 即醒即退;mid-fire(执行体在跑)时 join 超时后线程在下一轮
+    自行退出,daemon 语义兜底——绝不为等 fire 阻塞调用方。
+    """
+    global _CRON_TICKER, _CRON_SUPERVISOR, _CRON_STOP
+    with _CRON_TICKER_LOCK:
+        stop = _CRON_STOP
+        supervisor = _CRON_SUPERVISOR
+        ticker = _CRON_TICKER
+        _CRON_TICKER = _CRON_SUPERVISOR = _CRON_STOP = None
+    if stop is not None:
+        stop.set()
+    if supervisor is not None and supervisor.is_alive():
+        supervisor.join(join_timeout)
+    if ticker is not None and ticker.is_alive():
+        ticker.join(join_timeout)
+
+
+def _cron_jobs_from_params(params: dict[str, Any]) -> tuple[CronJobs, str]:
+    """cron.* 族的数据根构造:``db`` 覆写(缺省 = serve 上下文 db),数据根
+    = db 父目录(A6,与 CLI ``--db`` 同款推导;cron 目录挂数据根)。"""
+    db = params.get("db")
+    if db is not None and (not isinstance(db, str) or not db):
+        raise ProtocolError("invalid_params", "db 必须为非空字符串", path="params.db")
+    db = db or _serve_context().db
+    return CronJobs.for_db(db), db
+
+
+def _cron_resolve_job(cron: CronJobs, ref: Any) -> dict[str, Any]:
+    """job 引用解析(id 或名字;重名带 candidates,未找到结构化 404)。"""
+    if isinstance(ref, bool) or not isinstance(ref, str) or not ref.strip():
+        raise ProtocolError("invalid_params", "缺少 job 引用(id 或名字)", path="params.job")
+    try:
+        job = cron.resolve_job_ref(ref.strip())
+    except AmbiguousJobReference as exc:
+        raise ProtocolError(
+            "cron_ambiguous_job", str(exc), path="params.job",
+            data={"candidates": [m.get("id") for m in exc.matches]},
+        ) from exc
+    if job is None:
+        raise ProtocolError("cron_job_not_found", f"找不到 cron job:{ref}", path="params.job")
+    return job
+
+
+def _cron_opt_str(params: dict[str, Any], key: str) -> str | None:
+    """可选字符串参数校验(None = 未提供;提供了必须非空字符串)。"""
+    value = params.get(key)
+    if value is not None and (not isinstance(value, str) or not value.strip()):
+        raise ProtocolError("invalid_params", f"{key} 必须为非空字符串", path=f"params.{key}")
+    return value
+
+
+def _cron_category_checked(category: str) -> CategoryConfig:
+    """Q6 早失败:完整 ``load_category_file`` 装不上即拒(create/edit 同门);
+    装上即返回品类配置(create 取其 ``timezone`` 兜底缺省时区)。"""
+    try:
+        return load_category_file(category)
+    except LoadError as exc:
+        raise ProtocolError(
+            "cron_category_invalid", f"品类 YAML 装不上: {exc}",
+            path="params.category", data=exc.to_dict(),
+        ) from exc
+
+
+def _m_cron_list(params: dict[str, Any]) -> dict[str, Any]:
+    """cron.list:job 清单(缺省仅活跃;all=true 含暂停/终态)。"""
+    all_jobs = params.get("all", False)
+    if not isinstance(all_jobs, bool):
+        raise ProtocolError("invalid_params", "all 必须为布尔", path="params.all")
+    cron, db = _cron_jobs_from_params(params)
+    jobs = cron.list_jobs(include_disabled=all_jobs)
+    return {
+        "db": db,
+        "data_root": str(cron.store.data_root),
+        "count": len(jobs),
+        "jobs": [dict(job) for job in jobs],
+    }
+
+
+def _m_cron_create(params: dict[str, Any]) -> dict[str, Any]:
+    """cron.create:建定时 job(Q6 品类早失败;Q5 绝对路径存储由底座落地;
+    时区链 timezone > 品类 YAML timezone > 本地,锚 schedule 解析随档存)。"""
+    schedule = params.get("schedule")
+    if not isinstance(schedule, str) or not schedule.strip():
+        raise ProtocolError(
+            "invalid_params",
+            "缺少 schedule(五形态:30m / every 2h / every monday 9am / "
+            "0 9 * * * / in 30m 或 ISO 时刻)",
+            path="params.schedule",
+        )
+    category = params.get("category")
+    if not isinstance(category, str) or not category.strip():
+        raise ProtocolError("invalid_params", "缺少 category(品类 YAML 路径)", path="params.category")
+    name = _cron_opt_str(params, "name")
+    deliver = _cron_opt_str(params, "deliver")
+    failure_deliver = _cron_opt_str(params, "failure_deliver")
+    timezone = _cron_opt_str(params, "timezone")
+    config = _cron_opt_str(params, "config")
+    repeat = params.get("repeat")
+    if repeat is not None and (isinstance(repeat, bool) or not isinstance(repeat, int)):
+        raise ProtocolError("invalid_params", "repeat 必须为整数(次数)", path="params.repeat")
+    run_timeout = params.get("run_timeout")
+    if run_timeout is not None and (
+        isinstance(run_timeout, bool)
+        or not isinstance(run_timeout, (int, float))
+        or float(run_timeout) <= 0
+    ):
+        raise ProtocolError("invalid_params", "run_timeout 必须为正数秒", path="params.run_timeout")
+    dry_run = params.get("dry_run")
+    if dry_run is not None and not isinstance(dry_run, bool):
+        raise ProtocolError("invalid_params", "dry_run 必须为布尔", path="params.dry_run")
+    paused = params.get("paused", False)
+    if not isinstance(paused, bool):
+        raise ProtocolError("invalid_params", "paused 必须为布尔", path="params.paused")
+    paused_reason = _cron_opt_str(params, "paused_reason")
+    cron, _db = _cron_jobs_from_params(params)
+    config_obj = _cron_category_checked(category)
+    try:
+        job = cron.create_job(
+            category=category,
+            schedule=schedule,
+            name=name,
+            repeat=repeat,
+            deliver=deliver,
+            failure_deliver=failure_deliver,
+            timezone=timezone or config_obj.timezone,
+            config_path=(
+                str(Path(config).expanduser().resolve()) if config else None
+            ),
+            run_timeout=run_timeout,
+            # 仅显式设置才持久化(Hermes 可选键风格;create_job 对 None 不落键)
+            dry_run=True if dry_run else None,
+            paused=paused,
+            paused_reason=paused_reason,
+            origin={"source": "desktop"},
+        )
+    except ValueError as exc:  # schedule 五形态/once 超窗/repeat/paused/timezone
+        raise ProtocolError("cron_create_failed", str(exc), path="params") from exc
+    return {"job": dict(job)}
+
+
+def _m_cron_edit(params: dict[str, Any]) -> dict[str, Any]:
+    """cron.edit:部分更新;schedule 变更由底座重算 next_run_at 并重推导
+    repeat 缺省(once↔recurring 翻转)。"""
+    cron, _db = _cron_jobs_from_params(params)
+    job = _cron_resolve_job(cron, params.get("job"))
+    category = _cron_opt_str(params, "category")
+    if category is not None:
+        _cron_category_checked(category)
+    config = _cron_opt_str(params, "config")
+    updates: dict[str, Any] = {}
+    for key in ("schedule", "name", "deliver", "failure_deliver", "timezone"):
+        value = params.get(key)
+        if value is not None:
+            updates[key] = value
+    if category is not None:
+        updates["category"] = category
+    if config is not None:
+        updates["config_path"] = str(Path(config).expanduser().resolve())
+    repeat = params.get("repeat")
+    if repeat is not None:
+        if isinstance(repeat, bool) or not isinstance(repeat, int):
+            raise ProtocolError("invalid_params", "repeat 必须为整数(次数)", path="params.repeat")
+        updates["repeat"] = repeat
+    run_timeout = params.get("run_timeout")
+    if run_timeout is not None:
+        if (
+            isinstance(run_timeout, bool)
+            or not isinstance(run_timeout, (int, float))
+            or float(run_timeout) <= 0
+        ):
+            raise ProtocolError("invalid_params", "run_timeout 必须为正数秒", path="params.run_timeout")
+        updates["run_timeout"] = run_timeout
+    if not updates:
+        raise ProtocolError(
+            "cron_edit_no_changes",
+            "未给出任何要更新的字段(schedule/name/category/deliver/…)",
+            path="params",
+        )
+    try:
+        updated = cron.update_job(job["id"], updates)
+    except ValueError as exc:  # schedule 解析失败/once 超窗/终态复活拒绝
+        raise ProtocolError("cron_edit_failed", str(exc), path="params") from exc
+    return {"job": dict(updated or {})}
+
+
+def _m_cron_pause(params: dict[str, Any]) -> dict[str, Any]:
+    """cron.pause:暂停 job(reason 可选,F1.1);``all:true`` = 全局急停
+    estop 标记(grill Q4;在途 run 不受影响,tick 跳过派发)。"""
+    all_flag = params.get("all", False)
+    if not isinstance(all_flag, bool):
+        raise ProtocolError("invalid_params", "all 必须为布尔", path="params.all")
+    job_ref = params.get("job")
+    reason = _cron_opt_str(params, "reason")
+    if all_flag and job_ref is not None:
+        raise ProtocolError("invalid_params", "all 是全局急停,不要再带 job", path="params.job")
+    cron, _db = _cron_jobs_from_params(params)
+    if all_flag:
+        marker = cron.engage_estop(reason or "paused via sidecar cron.pause all")
+        return {"estopped": True, "marker": str(marker)}
+    if job_ref is None:
+        raise ProtocolError("invalid_params", "缺少 job(或 all=true 踩全局急停)", path="params.job")
+    job = _cron_resolve_job(cron, job_ref)
+    updated = cron.pause_job(job["id"], reason=reason)
+    return {"job": dict(updated or {})}
+
+
+def _m_cron_resume(params: dict[str, Any]) -> dict[str, Any]:
+    """cron.resume:恢复 job / 一次性重挂(``at`` = ISO 时刻);``all:true``
+    = 解除全局急停。"""
+    all_flag = params.get("all", False)
+    if not isinstance(all_flag, bool):
+        raise ProtocolError("invalid_params", "all 必须为布尔", path="params.all")
+    at = params.get("at")
+    if at is not None and (not isinstance(at, str) or not at.strip()):
+        raise ProtocolError("invalid_params", "at 必须为非空 ISO 时刻串", path="params.at")
+    job_ref = params.get("job")
+    if all_flag and (job_ref is not None or at is not None):
+        raise ProtocolError("invalid_params", "all 是解除全局急停,不要再带 job/at", path="params")
+    cron, _db = _cron_jobs_from_params(params)
+    if all_flag:
+        cleared = cron.disengage_estop()
+        return {"estopped": cron.is_estopped(), "cleared": cleared}
+    if job_ref is None:
+        raise ProtocolError("invalid_params", "缺少 job(或 all=true 解除全局急停)", path="params.job")
+    job = _cron_resolve_job(cron, job_ref)
+    try:
+        updated = (
+            cron.rearm_oneshot(job["id"], at)
+            if at is not None
+            else cron.resume_job(job["id"])
+        )
+    except ValueError as exc:  # recurring 拒 at / once 已过窗 / 覆盖活认领
+        raise ProtocolError("cron_resume_failed", str(exc), path="params") from exc
+    if updated is None:  # pragma: no cover - resolve 已保证存在
+        raise ProtocolError(
+            "cron_job_not_found", f"找不到 cron job:{job_ref}", path="params.job"
+        )
+    return {"job": dict(updated)}
+
+
+def _m_cron_run(params: dict[str, Any]) -> dict[str, Any]:
+    """cron.run:安排下次 tick 立即跑(manual 来源;复活 paused、计入
+    repeat,§8.1 事实裁决)。"""
+    cron, _db = _cron_jobs_from_params(params)
+    job = _cron_resolve_job(cron, params.get("job"))
+    try:
+        updated = cron.trigger_job(job["id"])
+    except ValueError as exc:  # 终态 job 拒绝
+        raise ProtocolError("cron_run_failed", str(exc), path="params") from exc
+    return {"job": dict(updated or {})}
+
+
+def _m_cron_remove(params: dict[str, Any]) -> dict[str, Any]:
+    """cron.remove:删 job 记录;output 目录与账本行保留(运行证据)。"""
+    cron, _db = _cron_jobs_from_params(params)
+    job = _cron_resolve_job(cron, params.get("job"))
+    if not cron.remove_job(job["id"]):  # pragma: no cover - resolve 已保证存在
+        raise ProtocolError(
+            "cron_job_not_found", f"找不到 cron job:{job['id']}", path="params.job"
+        )
+    return {"removed": True, "job_id": job["id"], "name": job.get("name")}
+
+
+def _m_cron_status(params: dict[str, Any]) -> dict[str, Any]:
+    """cron.status:ticker 活性(心跳龄/最后错误)+ 下次到期 + 急停态(F1.6)。"""
+    cron, db = _cron_jobs_from_params(params)
+    heartbeat_age = cron.get_ticker_heartbeat_age()
+    success_age = cron.get_ticker_success_age()
+    last_error = cron.get_ticker_last_error()
+    writer_alive = cron.ticker_heartbeat_writer_alive()
+    estopped = cron.is_estopped()
+    jobs = cron.list_jobs(include_disabled=True)
+    enabled_jobs = [job for job in jobs if job.get("enabled", True)]
+    next_due_at = min(
+        (job["next_run_at"] for job in enabled_jobs if job.get("next_run_at")),
+        default=None,
+    )
+    heartbeat_fresh = (
+        heartbeat_age is not None and heartbeat_age <= _CRON_TICKER_FRESH_SECONDS
+    )
+    return {
+        "db": db,
+        "data_root": str(cron.store.data_root),
+        "ticker_alive": heartbeat_fresh and writer_alive,
+        "heartbeat_age_seconds": heartbeat_age,
+        "last_success_age_seconds": success_age,
+        "last_error": last_error,
+        "estopped": estopped,
+        "jobs_total": len(jobs),
+        "jobs_enabled": len(enabled_jobs),
+        "next_due_at": next_due_at,
+    }
+
+
+def _m_cron_runs(params: dict[str, Any]) -> dict[str, Any]:
+    """cron.runs:执行账本尾查(新→旧;limit 钳制 [1,500];run_summary
+    摘要随行解析,损坏串如实带 raw)。"""
+    limit = params.get("limit", 20)
+    if limit is None:
+        limit = 20
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise ProtocolError("invalid_params", "limit 必须为整数", path="params.limit")
+    limit = max(1, min(limit, 500))
+    cron, db = _cron_jobs_from_params(params)
+    job_ref = params.get("job")
+    job_id_filter: str | None = None
+    if job_ref is not None:
+        job = _cron_resolve_job(cron, job_ref)
+        job_id_filter = job["id"]
+    records: list[dict[str, Any]] = []
+    for row in cron.ledger.list_executions(job_id=job_id_filter, limit=limit):
+        record = dict(row)
+        raw_summary = record.pop("run_summary_json", None)
+        try:
+            record["run_summary"] = json.loads(raw_summary) if raw_summary else None
+        except (TypeError, ValueError):  # 手编/损坏的摘要:如实带原串
+            record["run_summary"] = {"raw": raw_summary}
+        records.append(record)
+    return {"db": db, "count": len(records), "executions": records}
+
+
+# ---------------------------------------------------------------------------
 # 分发与 serve 循环
 # ---------------------------------------------------------------------------
 
@@ -4124,6 +4668,15 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "alerts.save": _m_alerts_save,
     "alerts.delete": _m_alerts_delete,
     "alerts.test": _m_alerts_test,
+    "cron.list": _m_cron_list,
+    "cron.create": _m_cron_create,
+    "cron.edit": _m_cron_edit,
+    "cron.pause": _m_cron_pause,
+    "cron.resume": _m_cron_resume,
+    "cron.run": _m_cron_run,
+    "cron.remove": _m_cron_remove,
+    "cron.status": _m_cron_status,
+    "cron.runs": _m_cron_runs,
 }
 
 
@@ -4180,10 +4733,15 @@ def serve(stdin: Any | None = None, stdout: Any | None = None) -> int:
     global _OUT
     _OUT = stdout if stdout is not None else sys.stdout
     _startup_seed()
+    # cron ticker(10-04-hermes-cron B3):就绪后起、EOF 关停;lifetime =
+    # serve。daemon 线程绝不占本线程(B10 队头阻塞);home 模式才起,
+    # 失败只留痕不拦服务。
+    _start_cron_ticker()
     source = stdin if stdin is not None else sys.stdin
     while True:
         raw = source.readline()
         if not raw:  # EOF:壳侧关闭管道 = 正常关停
+            _stop_cron_ticker(join_timeout=1.0)
             return 0
         line = raw.strip()
         if line:

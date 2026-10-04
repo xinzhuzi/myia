@@ -118,6 +118,10 @@ def _reset_sidecar_state(monkeypatch):
     monkeypatch.setattr(entry, "list_secrets", lambda: sorted(name for _, name in backend._items))
     monkeypatch.setattr(entry, "delete_secret", fake_delete_secret)
     yield
+    # hermes-cron 批(10-04-hermes-cron B3):serve 内置 cron ticker 拆线——
+    # 置 stop + 有界 join + 模块级句柄复位(ground-truth B12 ⚠️ 防测试线程
+    # 泄漏;dev 用例此调用是幂等 no-op,home 模式用例才真正起过线程)。
+    entry._stop_cron_ticker()
 
 
 class _SecretCapture:
@@ -2275,18 +2279,22 @@ def test_method_registry_allowed_matches_handlers():
     vision-v2 批(image.models.*×4 + image.server.*×2 + image.files.purge)+
     v1.1.2 批第二切片(feedback.mark/list/stats + store.trend)+
     fe-small-batch 批(feed.enrich)+ alert-rules 批(alerts.* 四方法,
-    10-04-alert-rules)+ desktop-b234 批(runs.trend,10-04-desktop-b234)后 = 48。"""
+    10-04-alert-rules)+ desktop-b234 批(runs.trend,10-04-desktop-b234)+
+    hermes-cron 批(cron.* 九方法,10-04-hermes-cron B3)后 = 57。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 48
+    assert len(allowed) == 57
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",
                    "image.models.delete", "image.models.activate",
                    "image.server.status", "image.server.ensure",
                    "image.files.purge", "feed.enrich",
-                   "alerts.list", "alerts.save", "alerts.delete", "alerts.test"):
+                   "alerts.list", "alerts.save", "alerts.delete", "alerts.test",
+                   "cron.list", "cron.create", "cron.edit", "cron.pause",
+                   "cron.resume", "cron.run", "cron.remove", "cron.status",
+                   "cron.runs"):
         assert method in allowed
 
 
@@ -2296,9 +2304,303 @@ def test_protocol_version_bumped_for_feed_ux():
     (image.models.*/image.server.* + store.items 三新投影键)→ v5;
     fe-small-batch 批(feed.enrich,10-03-fe-small-batch G8)→ v6;
     alert-rules 批(alerts.* 四方法 + alerts.fired 事件,10-04-alert-rules)→ v7;
-    desktop-b234 批(runs.trend,10-04-desktop-b234)→ v8。"""
+    desktop-b234 批(runs.trend,10-04-desktop-b234)→ v8;
+    hermes-cron 批(cron.* 九方法 + cron.skipped/cron.completed 两事件 +
+    serve 内置 cron ticker,10-04-hermes-cron B3)→ v9。"""
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
-    assert responses[0]["result"]["protocol"] == 8
+    assert responses[0]["result"]["protocol"] == 9
+
+
+# ---------------------------------------------------------------------------
+# hermes-cron 批(10-04-hermes-cron B3):cron.* 九方法 + serve 内置 ticker
+# ---------------------------------------------------------------------------
+
+
+def _write_cron_category(tmp_path: Path, name: str = "news.yaml") -> str:
+    """能过 load_category_file 的品类 YAML(Q6 早失败门的正样本)。"""
+    return write_yaml(tmp_path, VALID_YAML.replace("{port}", "1"), name)
+
+
+def test_cron_family_roundtrip(tmp_path):
+    """cron.* 九方法行为(AC7 与 CLI 同一 API 层):create(Q5 绝对路径/
+    origin=desktop)→ list → edit(schedule 变更重算)→ pause(reason)→
+    resume → run(trigger 复活+manual_run_at)→ status → runs(run_summary
+    解析)→ estop all → remove。"""
+    db = str(tmp_path / "cron.db")
+    category = _write_cron_category(tmp_path)
+
+    code, responses, _ = rpc({"id": 1, "method": "cron.create", "params": {
+        "schedule": "every 45m", "category": category, "name": "早晚情报流",
+        "deliver": "local", "db": db}})
+    assert code == 0
+    job = responses[0]["result"]["job"]
+    assert job["name"] == "早晚情报流"
+    assert job["schedule"]["kind"] == "interval"
+    assert job["next_run_at"]  # scheduled:立即有下次射点
+    assert job["origin"] == {"source": "desktop"}
+    assert job["category"] == str(Path(category))  # Q5:绝对路径存储
+
+    code, responses, _ = rpc({"id": 2, "method": "cron.list", "params": {"db": db}})
+    listed = responses[0]["result"]
+    assert listed["count"] == 1 and listed["jobs"][0]["id"] == job["id"]
+    assert listed["data_root"] == str(tmp_path)  # 数据根 = db 父目录
+
+    code, responses, _ = rpc({"id": 3, "method": "cron.edit", "params": {
+        "job": job["id"], "schedule": "every 2h", "name": "改名", "db": db}})
+    updated = responses[0]["result"]["job"]
+    assert updated["name"] == "改名"
+    assert updated["schedule"]["minutes"] == 120  # schedule 变更重算生效
+
+    code, responses, _ = rpc({"id": 4, "method": "cron.pause", "params": {
+        "job": "改名", "reason": "主人暂停", "db": db}})
+    paused = responses[0]["result"]["job"]
+    assert paused["state"] == "paused"
+    assert paused["paused_reason"] == "主人暂停"
+
+    code, responses, _ = rpc({"id": 5, "method": "cron.resume", "params": {
+        "job": job["id"], "db": db}})
+    resumed = responses[0]["result"]["job"]
+    assert resumed["state"] == "scheduled"
+    assert resumed["paused_reason"] is None
+
+    code, responses, _ = rpc({"id": 6, "method": "cron.run", "params": {
+        "job": job["id"], "db": db}})
+    triggered = responses[0]["result"]["job"]
+    assert triggered["manual_run_at"] == triggered["next_run_at"]  # 下次 tick 立即跑
+
+    code, responses, _ = rpc({"id": 7, "method": "cron.status", "params": {"db": db}})
+    status = responses[0]["result"]
+    assert status["jobs_total"] == 1 and status["jobs_enabled"] == 1
+    assert status["ticker_alive"] is False  # 本测试无 ticker,心跳从未落盘
+    assert status["next_due_at"] == triggered["next_run_at"]
+    assert status["estopped"] is False
+
+    # runs:空账本 → 注入一行带摘要(run_summary_json)→ 随行解析
+    code, responses, _ = rpc({"id": 8, "method": "cron.runs", "params": {"db": db}})
+    assert responses[0]["result"]["count"] == 0
+    from myia.cron.jobs import CronJobs
+
+    cron = CronJobs.for_db(db)
+    row = cron.ledger.create_execution(job["id"], source="manual")
+    cron.ledger.finish_execution(
+        row["id"], success=True, error=None,
+        run_summary={"job": {"id": job["id"]}, "run": {"status": "ok"}},
+    )
+    code, responses, _ = rpc({"id": 9, "method": "cron.runs", "params": {
+        "job": job["id"], "db": db}})
+    result = responses[0]["result"]
+    assert result["count"] == 1
+    record = result["executions"][0]
+    assert record["status"] == "completed"
+    assert record["run_summary"]["run"]["status"] == "ok"
+    assert "run_summary_json" not in record  # 原始串已被解析替换
+
+    # estop(Q4):pause all → status 可见 → resume all 解除
+    code, responses, _ = rpc({"id": 10, "method": "cron.pause", "params": {
+        "all": True, "db": db}})
+    assert responses[0]["result"]["estopped"] is True
+    code, responses, _ = rpc({"id": 11, "method": "cron.status", "params": {"db": db}})
+    assert responses[0]["result"]["estopped"] is True
+    code, responses, _ = rpc({"id": 12, "method": "cron.resume", "params": {
+        "all": True, "db": db}})
+    cleared = responses[0]["result"]
+    assert cleared["cleared"] is True and cleared["estopped"] is False
+
+    code, responses, _ = rpc({"id": 13, "method": "cron.remove", "params": {
+        "job": job["id"], "db": db}})
+    assert responses[0]["result"] == {
+        "removed": True, "job_id": job["id"], "name": "改名"}
+    code, responses, _ = rpc({"id": 14, "method": "cron.list", "params": {
+        "db": db, "all": True}})
+    assert responses[0]["result"]["count"] == 0
+
+
+def test_cron_family_error_matrix(tmp_path):
+    """cron.* 错误码(与 CLI 同门):schedule 解析失败 / 品类装不上(Q6)/
+    参数形状 / 空更新集 / 未知 job / 重名引用 / all 与 job 互斥。"""
+    db = str(tmp_path / "cron.db")
+    category = _write_cron_category(tmp_path)
+    broken = write_yaml(tmp_path, "id: broken\n", "broken.yaml")
+
+    code, responses, _ = rpc({"id": 1, "method": "cron.create", "params": {
+        "schedule": "not-a-cron", "category": category, "db": db}})
+    assert responses[0]["error"]["code"] == "cron_create_failed"
+    code, responses, _ = rpc({"id": 2, "method": "cron.create", "params": {
+        "schedule": "every 45m", "category": broken, "db": db}})
+    error = responses[0]["error"]
+    assert error["code"] == "cron_category_invalid"
+    assert error["path"] == "params.category"
+    assert error["data"]["errors"]  # LoadError.to_dict 结构化细节
+    code, responses, _ = rpc({"id": 3, "method": "cron.create", "params": {
+        "category": category, "db": db}})
+    assert responses[0]["error"]["code"] == "invalid_params"
+    assert responses[0]["error"]["path"] == "params.schedule"
+    code, responses, _ = rpc({"id": 4, "method": "cron.create", "params": {
+        "schedule": "every 45m", "category": category, "repeat": "3", "db": db}})
+    assert responses[0]["error"]["code"] == "invalid_params"
+
+    code, responses, _ = rpc({"id": 5, "method": "cron.create", "params": {
+        "schedule": "every 45m", "category": category, "name": "重名", "db": db}})
+    first = responses[0]["result"]["job"]
+    code, responses, _ = rpc({"id": 6, "method": "cron.create", "params": {
+        "schedule": "every 46m", "category": category, "name": "重名", "db": db}})
+    second = responses[0]["result"]["job"]
+    assert first["id"] != second["id"]
+
+    code, responses, _ = rpc({"id": 7, "method": "cron.pause", "params": {
+        "job": "重名", "db": db}})
+    error = responses[0]["error"]
+    assert error["code"] == "cron_ambiguous_job"
+    assert sorted(error["data"]["candidates"]) == sorted([first["id"], second["id"]])
+    code, responses, _ = rpc({"id": 8, "method": "cron.run", "params": {
+        "job": "查无此 job", "db": db}})
+    assert responses[0]["error"]["code"] == "cron_job_not_found"
+    code, responses, _ = rpc({"id": 9, "method": "cron.edit", "params": {
+        "job": first["id"], "db": db}})
+    assert responses[0]["error"]["code"] == "cron_edit_no_changes"
+    code, responses, _ = rpc({"id": 10, "method": "cron.pause", "params": {
+        "all": True, "job": first["id"], "db": db}})
+    assert responses[0]["error"]["code"] == "invalid_params"
+    code, responses, _ = rpc({"id": 11, "method": "cron.list", "params": {
+        "db": db, "all": "yes"}})
+    assert responses[0]["error"]["code"] == "invalid_params"
+
+
+def test_cron_dispatch_gate_skips_when_run_busy(monkeypatch):
+    """Q2 冲突路径:cron fire 撞桌面 run 单飞锁 = 跳过本 fire + ``cron.skipped``
+    事件(reason=run_busy、active_run_id 透传);空闲时放行且零事件。"""
+    out = io.StringIO()
+    monkeypatch.setattr(entry, "_OUT", out)
+    entry._ACTIVE_RUN_ID = 7
+    try:
+        assert entry._cron_dispatch_gate({"id": "j1", "name": "早晚情报流"}) is False
+    finally:
+        entry._ACTIVE_RUN_ID = None
+    assert entry._cron_dispatch_gate({"id": "j1", "name": "早晚情报流"}) is True
+    lines = [json.loads(line) for line in out.getvalue().splitlines()]
+    assert len(lines) == 1  # 空闲放行不发事件
+    event = lines[0]
+    assert event["type"] == "cron.skipped"
+    assert event["job_id"] == "j1" and event["name"] == "早晚情报流"
+    assert event["reason"] == "run_busy" and event["active_run_id"] == 7
+    assert event["ts"]
+
+
+def test_cron_execute_job_emits_completed_event(monkeypatch):
+    """``cron.completed`` 事件:执行体跑完即发;摘要取账本 ``run_summary_json``
+    (D10 零二次解析),status 从摘要 run 块取;账本无行时 summary=null 如实。"""
+    from types import SimpleNamespace
+
+    out = io.StringIO()
+    monkeypatch.setattr(entry, "_OUT", out)
+
+    class _StubRunner:
+        def __init__(self, cron):
+            self.cron = cron
+
+        def execute(self, job):
+            return True, None, "feishu:群 投递失败"
+
+    monkeypatch.setattr(entry, "CronRunner", _StubRunner)
+    summary = {"job": {"id": "j1"}, "run": {"status": "partial"}}
+    fake_cron = SimpleNamespace(
+        ledger=SimpleNamespace(
+            get_execution=lambda execution_id: {"run_summary_json": json.dumps(summary)},
+        )
+    )
+    ok, error, delivery_error = entry._cron_execute_job(
+        fake_cron, {"id": "j1", "name": "早晚情报流", "execution_id": "e1"}
+    )
+    assert (ok, error, delivery_error) == (True, None, "feishu:群 投递失败")
+    event = json.loads(out.getvalue().splitlines()[0])
+    assert event["type"] == "cron.completed"
+    assert event["job_id"] == "j1" and event["ok"] is True
+    assert event["status"] == "partial"  # 摘要 run 块优先于成功布尔
+    assert event["delivery_error"] == "feishu:群 投递失败"
+    assert event["summary"] == summary
+    assert event["ts"]
+
+    # 账本无行(写失败兜底):事件照发,summary=null 如实、status 回落布尔
+    out.truncate(0)
+    out.seek(0)
+    fake_cron.ledger.get_execution = lambda execution_id: None
+    ok, error, delivery_error = entry._cron_execute_job(
+        fake_cron, {"id": "j2", "name": "无账本", "execution_id": "e2"}
+    )
+    event = json.loads(out.getvalue().splitlines()[0])
+    assert event["type"] == "cron.completed"
+    assert event["summary"] is None and event["status"] == "ok"
+
+
+def test_cron_ticker_lifecycle_home_mode(tmp_path, monkeypatch):
+    """ticker 起停干净(home 模式):supervisor + SupervisedTickerThread 双
+    daemon 起、心跳真落盘(启动即首个心跳)、stop 后线程退出 + 句柄复位。"""
+    from myia.cron.jobs import CronJobs
+
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    monkeypatch.setattr(entry, "CRON_TICK_INTERVAL_SECONDS", 0.05)
+    entry._start_cron_ticker()
+    supervisor, ticker = entry._CRON_SUPERVISOR, entry._CRON_TICKER
+    assert supervisor is not None and supervisor.is_alive()
+    assert ticker is not None and ticker.is_alive()
+    assert entry._CRON_STOP is not None
+
+    cron = CronJobs.for_db(tmp_path / "myia.db")
+    deadline = time.time() + 5.0
+    while time.time() < deadline and cron.get_ticker_heartbeat_age() is None:
+        time.sleep(0.02)
+    assert cron.get_ticker_heartbeat_age() is not None  # ticker 真跑过
+
+    entry._stop_cron_ticker(join_timeout=2.0)
+    assert entry._CRON_SUPERVISOR is None and entry._CRON_TICKER is None
+    assert entry._CRON_STOP is None
+    supervisor.join(2.0)
+    ticker.join(2.0)
+    assert not supervisor.is_alive() and not ticker.is_alive()
+
+    # 幂等:重复 stop 与重复 start(已停后重起)都干净
+    entry._stop_cron_ticker()
+    entry._start_cron_ticker()
+    assert entry._CRON_SUPERVISOR is not None and entry._CRON_SUPERVISOR.is_alive()
+    entry._start_cron_ticker()  # 已在跑:幂等 no-op,不叠线程
+    entry._stop_cron_ticker(join_timeout=2.0)
+    assert entry._CRON_SUPERVISOR is None
+
+
+def test_cron_ticker_dev_mode_not_started():
+    """dev 回退(home=None)不起 ticker:数据根落 cwd,起真 ticker 会污染
+    仓库目录;dev 常宿形态 = ``myia cron serve``(design §4.2 注记)。"""
+    entry._start_cron_ticker()
+    assert entry._CRON_SUPERVISOR is None
+    assert entry._CRON_TICKER is None
+    assert entry._CRON_STOP is None
+
+
+def test_serve_starts_and_stops_cron_ticker(tmp_path, monkeypatch):
+    """serve() 接线:home 模式请求处理期 ticker 在跑(不占 serve 线程,
+    B10);serve EOF 关停 + 句柄复位(lifetime = serve)。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    monkeypatch.setattr(entry, "CRON_TICK_INTERVAL_SECONDS", 0.05)
+    seen: dict[str, Any] = {}
+    original = entry._handle_line
+
+    def spy(line: str) -> None:
+        # 捕获"请求处理那一刻"的活性(serve EOF 会关停,事后验对象必是死的)
+        seen["supervisor_alive"] = (
+            entry._CRON_SUPERVISOR is not None and entry._CRON_SUPERVISOR.is_alive()
+        )
+        seen["ticker_alive"] = (
+            entry._CRON_TICKER is not None and entry._CRON_TICKER.is_alive()
+        )
+        original(line)
+
+    monkeypatch.setattr(entry, "_handle_line", spy)
+    code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
+    assert code == 0
+    assert responses[0]["result"]["protocol"] == 9
+    assert seen["supervisor_alive"] and seen["ticker_alive"]
+    # EOF:serve 返回前已关停(idle ticker 即醒即退,interval 已注入 0.05s)
+    assert entry._CRON_SUPERVISOR is None and entry._CRON_TICKER is None
 
 
 # ---------------------------------------------------------------------------

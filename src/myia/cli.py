@@ -108,6 +108,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import httpx
 
 import myia
+from myia.cron.jobs import AmbiguousJobReference, CronJobs
+from myia.cron.runner import CronRunner
+from myia.cron.tick import tick as cron_tick_scan
+from myia.cron.ticker import (
+    DEFAULT_TICK_INTERVAL_SECONDS,
+    SupervisedTickerThread,
+    run_ticker_loop,
+)
 from myia.dedup import DedupRegistry
 from myia.engines.fetch_base import (
     FetchContext,
@@ -298,6 +306,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", title="子命令")
     _add_run_parser(sub)
+    _add_cron_parser(sub)
     _add_init_parser(sub)
     _add_test_parser(sub)
     _add_list_parser(sub)
@@ -353,6 +362,285 @@ def _add_run_parser(sub: argparse._SubParsersAction) -> None:
         "--config",
         default=None,
         help="全局配置 YAML(pools 代理声明);源用 pool: 代理时必带(与 test/doctor 同一加载器)",
+    )
+
+
+def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
+    """``myia cron``:定时任务族(10-04-hermes-cron design §4.1 十一子命令)。
+
+    蓝本 = Hermes ``hermes_cli/subcommands/cron.py`` 参数面,D2 裁 prompt/
+    skills/monitor/model 族——MYIA 的 job 载荷是品类 YAML 管线,create 必填
+    ``--category``(Q6 完整 load_category_file 校验早失败)。schedule 五形态:
+    ``30m``/``every 2h``(interval)、``every monday 9am``/``weekdays at 9am``/
+    ``0 9 * * *``(5 段 cron,POSIX dow)、``in 30m``/ISO 时刻(once)。
+    """
+    cron = sub.add_parser(
+        "cron",
+        help="定时任务:品类管线定时跑一遍 + 摘要投递(list/create/…/runs + serve/tick)",
+        description=(
+            "定时任务底座:job 注册表落 <数据根>/cron/jobs.json(数据根 = --db 父"
+            "目录),执行账本落同目录 executions.db,不进 myia.db。job 载荷 = 品类"
+            " YAML(创建时完整装载校验,存绝对路径);到点跑一遍管线并把运行摘要"
+            "按 deliver 目标投递(local 或 feishu:群名 等平台 spec)。常驻宿主走"
+            " serve(监督守护线程)或桌面 sidecar,二者并存靠 tick 文件锁 + fire"
+            " claim 互斥;pause --all 是全局急停(tick 全停,不动在途 run)。"
+        ),
+    )
+    cron_sub = cron.add_subparsers(
+        dest="cron_command", required=True, title="定时任务操作"
+    )
+
+    cron_list = cron_sub.add_parser(
+        "list", help="列出定时 job(默认只看启用;--all 含暂停/终态)"
+    )
+    cron_list.add_argument(
+        "--db",
+        default=DEFAULT_DB_PATH,
+        help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
+    )
+    cron_list.add_argument(
+        "--all", action="store_true", help="含 paused/disabled/completed job"
+    )
+    cron_list.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+    cron_create = cron_sub.add_parser(
+        "create",
+        aliases=["add"],
+        help="建定时 job:schedule + 品类 YAML(装载校验早失败)",
+    )
+    cron_create.add_argument(
+        "schedule",
+        help="schedule:'30m'/'every 2h'、'every monday 9am'/'weekdays at 9am'/'0 9 * * *'"
+        "(5 段,POSIX 周几)、'in 30m'/ISO 时刻(once)",
+    )
+    cron_create.add_argument(
+        "--category",
+        required=True,
+        help="品类 YAML 路径(必填;完整装载校验,早失败 exit 1;存绝对路径)",
+    )
+    cron_create.add_argument("--name", help="人类可读 job 名(缺省取品类文件名)")
+    cron_create.add_argument(
+        "--deliver",
+        help="运行摘要投递:'local'(缺省,落 cron/output)或平台 spec 如 'feishu:群名'",
+    )
+    cron_create.add_argument(
+        "--failure-deliver",
+        dest="failure_deliver",
+        help="失败告警目标(同 --deliver 语法;'none' 关闭;缺省回落 --deliver)",
+    )
+    cron_create.add_argument(
+        "--repeat", type=int, help="重复次数(缺省 forever;once 型自动 1)"
+    )
+    cron_create.add_argument(
+        "--db",
+        default=DEFAULT_DB_PATH,
+        help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
+    )
+    cron_create.add_argument(
+        "--config",
+        default=None,
+        help="全局配置 YAML(pools 代理声明;存绝对路径,fire 时作 run --config 透传)",
+    )
+    cron_create.add_argument(
+        "--timezone",
+        default=None,
+        help="IANA 时区(缺省取品类 YAML timezone,再缺省本地)",
+    )
+    cron_create.add_argument(
+        "--run-timeout",
+        dest="run_timeout",
+        type=float,
+        default=None,
+        help="单次运行墙钟超时秒(缺省 3600;超时 kill 整个进程组)",
+    )
+    cron_create.add_argument(
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        help="fire 时管线 --dry-run(不推送不入库)",
+    )
+    cron_create.add_argument(
+        "--paused", action="store_true", help="生而暂停(待 resume 放行)"
+    )
+    cron_create.add_argument(
+        "--paused-reason",
+        dest="paused_reason",
+        default=None,
+        help="暂停原因(审计;须搭配 --paused)",
+    )
+    cron_create.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+    cron_edit = cron_sub.add_parser(
+        "edit", help="编辑 job(部分更新;schedule 变更重算 next_run_at)"
+    )
+    cron_edit.add_argument("job_id", help="job ID 或名字")
+    cron_edit.add_argument(
+        "--db",
+        default=DEFAULT_DB_PATH,
+        help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
+    )
+    cron_edit.add_argument("--schedule", help="新 schedule(变更即重算 next_run_at)")
+    cron_edit.add_argument("--name", help="新名字")
+    cron_edit.add_argument(
+        "--category", help="新品类 YAML 路径(装载校验早失败,存绝对路径)"
+    )
+    cron_edit.add_argument("--deliver", help="新投递目标")
+    cron_edit.add_argument(
+        "--failure-deliver", dest="failure_deliver", help="新失败告警目标('none' 关闭)"
+    )
+    cron_edit.add_argument("--repeat", type=int, help="新重复次数")
+    cron_edit.add_argument("--timezone", help="新 IANA 时区")
+    cron_edit.add_argument("--config", help="新 pools 配置路径(存绝对路径)")
+    cron_edit.add_argument(
+        "--run-timeout", dest="run_timeout", type=float, help="新墙钟超时秒"
+    )
+    cron_edit.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+    cron_pause = cron_sub.add_parser(
+        "pause", help="暂停 job;--all 踩全局急停(tick 全停,不动在途 run)"
+    )
+    cron_pause.add_argument("job_id", nargs="?", help="job ID 或名字(--all 时省略)")
+    cron_pause.add_argument(
+        "--db",
+        default=DEFAULT_DB_PATH,
+        help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
+    )
+    cron_pause.add_argument(
+        "--all", action="store_true", help="全局急停:写 estop 标记,所有 tick 跳过派发"
+    )
+    cron_pause.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+    cron_resume = cron_sub.add_parser(
+        "resume", help="恢复暂停的 job(--at 重挂一次性时刻);--all 解除全局急停"
+    )
+    cron_resume.add_argument("job_id", nargs="?", help="job ID 或名字(--all 时省略)")
+    cron_resume.add_argument(
+        "--db",
+        default=DEFAULT_DB_PATH,
+        help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
+    )
+    cron_resume.add_argument(
+        "--at",
+        dest="run_at",
+        default=None,
+        help="ISO-8601 时刻:把完成/暂停的一次性 job 重挂为新 occurrence(recurring 拒收)",
+    )
+    cron_resume.add_argument(
+        "--all", action="store_true", help="解除全局急停(删 estop 标记)"
+    )
+    cron_resume.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+    cron_run = cron_sub.add_parser("run", help="触发 job:下次 tick 立即跑(manual)")
+    cron_run.add_argument("job_id", help="job ID 或名字")
+    cron_run.add_argument(
+        "--db",
+        default=DEFAULT_DB_PATH,
+        help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
+    )
+    cron_run.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+    cron_remove = cron_sub.add_parser(
+        "remove",
+        aliases=["rm", "delete"],
+        help="删除 job(记录删;output 目录与账本行保留)",
+    )
+    cron_remove.add_argument("job_id", help="job ID 或名字")
+    cron_remove.add_argument(
+        "--db",
+        default=DEFAULT_DB_PATH,
+        help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
+    )
+    cron_remove.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+    cron_status = cron_sub.add_parser(
+        "status", help="调度器活性:心跳龄/最后错误/下次到期/急停态"
+    )
+    cron_status.add_argument(
+        "--db",
+        default=DEFAULT_DB_PATH,
+        help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
+    )
+    cron_status.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+    cron_runs = cron_sub.add_parser(
+        "runs", aliases=["history"], help="执行账本尾查(executions.db,新→旧)"
+    )
+    cron_runs.add_argument("job_id", nargs="?", help="可选 job ID 或名字过滤")
+    cron_runs.add_argument("--limit", type=int, default=20, help="行数(1-500,默认 20)")
+    cron_runs.add_argument(
+        "--db",
+        default=DEFAULT_DB_PATH,
+        help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
+    )
+    cron_runs.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+    cron_serve = cron_sub.add_parser(
+        "serve", help="常驻宿主:监督守护线程每 --interval 秒 tick(Ctrl-C 干净停)"
+    )
+    cron_serve.add_argument(
+        "--db",
+        default=DEFAULT_DB_PATH,
+        help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
+    )
+    cron_serve.add_argument(
+        "--interval",
+        type=float,
+        default=DEFAULT_TICK_INTERVAL_SECONDS,
+        help=f"tick 间隔秒(默认 {DEFAULT_TICK_INTERVAL_SECONDS:g})",
+    )
+
+    cron_tick_cmd = cron_sub.add_parser(
+        "tick", help="手动单次扫描(调试/外接 cron;锁被他宿主持有静默 0)"
+    )
+    cron_tick_cmd.add_argument(
+        "--db",
+        default=DEFAULT_DB_PATH,
+        help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
 
 
@@ -1021,6 +1309,540 @@ def _cmd_run(args: argparse.Namespace) -> int:
     else:
         _print_human(result)
     return _EXIT_BY_STATUS.get(result.status, EXIT_PARTIAL)
+
+
+# ---------------------------------------------------------------------------
+# myia cron:定时任务族(10-04-hermes-cron design §4.1;蓝本 Hermes
+# hermes_cli/subcommands/cron.py 参数面 + hermes_cli/cron.py 展示层,D2 裁
+# prompt/skills/monitor 族。退出码只用 0/1;--json 契约 = stdout 恰一份 JSON)
+# ---------------------------------------------------------------------------
+
+#: 心跳新鲜判据(上游 ``_ticker_age_is_fresh`` 同款:3 个周期 + 20s 裕量;
+#: 与 serve 的 --interval 无关的固定判据,status 端无从得知实际间隔)。
+_CRON_TICKER_FRESH_SECONDS = DEFAULT_TICK_INTERVAL_SECONDS * 3 + 20
+
+#: 子命令别名 → 规范名(argparse 的 dest 记用户敲的原串)。
+_CRON_COMMAND_ALIASES = {
+    "add": "create",
+    "rm": "remove",
+    "delete": "remove",
+    "history": "runs",
+}
+
+
+def _cron_data_root(db_path: str) -> Path:
+    """--db → 数据根(db 父目录,与目录/账本同款推导)。"""
+    return Path(db_path).parent
+
+
+def _cron_job_payload(job: dict[str, Any]) -> dict[str, Any]:
+    """job 记录的 JSON 载荷(逐字段拷贝,免调用方误改存储态)。"""
+    return dict(job)
+
+
+def _cron_resolve_ref(
+    cron: CronJobs, ref: str, *, as_json: bool
+) -> tuple[dict[str, Any] | None, int]:
+    """id 或名字解析 job;未找到/重名自行结构化上报,返回 ``(job, exit_code)``。"""
+    try:
+        job = cron.resolve_job_ref(ref)
+    except AmbiguousJobReference as exc:
+        _emit_generic_error(
+            "cron_ambiguous_job",
+            str(exc),
+            as_json=as_json,
+            candidates=[m.get("id") for m in exc.matches],
+        )
+        return None, EXIT_CONFIG_ERROR
+    if job is None:
+        _emit_generic_error(
+            "cron_job_not_found", f"找不到 cron job:{ref}", as_json=as_json
+        )
+        return None, EXIT_CONFIG_ERROR
+    return job, EXIT_OK
+
+
+def _cmd_cron_list(args: argparse.Namespace) -> int:
+    """``cron list``:name/id/schedule_display/next_run_at/last_status/deliver。"""
+    cron = CronJobs.for_db(args.db)
+    jobs = cron.list_jobs(include_disabled=args.all)
+    if args.as_json:
+        _print_json(
+            {
+                "command": "cron",
+                "action": "list",
+                "data_root": str(cron.store.data_root),
+                "count": len(jobs),
+                "jobs": [_cron_job_payload(job) for job in jobs],
+            }
+        )
+        return EXIT_OK
+    if not jobs:
+        print(f"无定时 job(数据根 {cron.store.data_root};--all 含暂停/终态)")
+        print("建第一个:myia cron create 'every 30m' --category <品类 YAML>")
+        return EXIT_OK
+    print(f"世事 cron list:共 {len(jobs)} 个 job(数据根 {cron.store.data_root})")
+    for job in jobs:
+        state = job.get("state") or (
+            "scheduled" if job.get("enabled", True) else "paused"
+        )
+        print(f"  {job.get('name', '(未命名)')} [{state}] id={job.get('id')}")
+        print(
+            f"    schedule: {job.get('schedule_display') or (job.get('schedule') or {}).get('display')}"
+        )
+        print(f"    next_run: {job.get('next_run_at') or '-'}")
+        print(
+            f"    last_status: {job.get('last_status') or '-'}  deliver: {job.get('deliver') or 'local'}"
+        )
+    return EXIT_OK
+
+
+def _cmd_cron_create(args: argparse.Namespace) -> int:
+    """``cron create``:Q6 完整 load_category_file 早失败;Q5 绝对路径存储;
+    时区链 --timezone > 品类 YAML timezone > 本地(锚 schedule 解析并随档存)。"""
+    try:
+        config = load_category_file(args.category)
+    except LoadError as exc:
+        _emit_config_error(
+            _load_error_details(exc), source=exc.source, as_json=args.as_json
+        )
+        return EXIT_CONFIG_ERROR
+    timezone = args.timezone or config.timezone
+    cron = CronJobs.for_db(args.db)
+    try:
+        job = cron.create_job(
+            category=args.category,
+            schedule=args.schedule,
+            name=args.name,
+            repeat=args.repeat,
+            deliver=args.deliver,
+            failure_deliver=args.failure_deliver,
+            timezone=timezone,
+            config_path=(
+                str(Path(args.config).expanduser().resolve()) if args.config else None
+            ),
+            run_timeout=args.run_timeout,
+            # 仅显式设置才持久化(Hermes 可选键风格;create_job 对 None 不落键)
+            dry_run=True if args.dry_run else None,
+            paused=args.paused,
+            paused_reason=args.paused_reason,
+            origin={"source": "cli"},
+        )
+    except ValueError as exc:  # schedule 五形态/once 超窗/repeat/paused 自相矛盾
+        _emit_generic_error("cron_create_failed", str(exc), as_json=args.as_json)
+        return EXIT_CONFIG_ERROR
+    if args.as_json:
+        _print_json(
+            {"command": "cron", "action": "create", "job": _cron_job_payload(job)}
+        )
+        return EXIT_OK
+    print(f"已建定时 job:{job['name']}(id={job['id']})")
+    print(f"  schedule: {job['schedule_display']}")
+    print(f"  下次运行: {job['next_run_at'] or '(paused,待 resume 放行)'}")
+    print(f"  品类: {job['category']}")
+    return EXIT_OK
+
+
+def _cmd_cron_edit(args: argparse.Namespace) -> int:
+    """``cron edit``:部分更新;schedule 变更由底座重算 next_run_at 并重推导
+    repeat 缺省(once↔recurring 翻转)。"""
+    cron = CronJobs.for_db(args.db)
+    job, exit_code = _cron_resolve_ref(cron, args.job_id, as_json=args.as_json)
+    if job is None:
+        return exit_code
+    if args.category is not None:  # 与 create 同款 Q6 早失败/Q5 绝对路径
+        try:
+            load_category_file(args.category)
+        except LoadError as exc:
+            _emit_config_error(
+                _load_error_details(exc), source=exc.source, as_json=args.as_json
+            )
+            return EXIT_CONFIG_ERROR
+    updates: dict[str, Any] = {}
+    for key in ("schedule", "name", "deliver", "failure_deliver", "timezone"):
+        value = getattr(args, key)
+        if value is not None:
+            updates[key] = value
+    if args.category is not None:
+        updates["category"] = args.category
+    if args.config is not None:
+        updates["config_path"] = str(Path(args.config).expanduser().resolve())
+    if args.repeat is not None:
+        updates["repeat"] = args.repeat
+    if args.run_timeout is not None:
+        updates["run_timeout"] = args.run_timeout
+    if not updates:
+        _emit_generic_error(
+            "cron_edit_no_changes",
+            "未给出任何要更新的字段(--schedule/--name/--category/--deliver/…)",
+            as_json=args.as_json,
+        )
+        return EXIT_CONFIG_ERROR
+    try:
+        updated = cron.update_job(job["id"], updates)
+    except ValueError as exc:  # schedule 解析失败/once 超窗/终态复活拒绝
+        _emit_generic_error("cron_edit_failed", str(exc), as_json=args.as_json)
+        return EXIT_CONFIG_ERROR
+    if args.as_json:
+        _print_json(
+            {
+                "command": "cron",
+                "action": "edit",
+                "job": _cron_job_payload(updated or {}),
+            }
+        )
+        return EXIT_OK
+    print(f"已更新:{updated.get('name', args.job_id)}(id={updated.get('id')})")
+    print(f"  schedule: {updated.get('schedule_display')}")
+    print(f"  下次运行: {updated.get('next_run_at') or '-'}")
+    return EXIT_OK
+
+
+def _cmd_cron_pause(args: argparse.Namespace) -> int:
+    """``cron pause <job>``:暂停;``cron pause --all``:全局急停 estop 标记(Q4)。"""
+    as_json = args.as_json
+    if args.all and args.job_id:
+        _emit_generic_error(
+            "usage", "pause --all 是全局急停,不要再带 job id", as_json=as_json
+        )
+        return EXIT_CONFIG_ERROR
+    if not args.all and not args.job_id:
+        _emit_generic_error(
+            "usage", "pause 需要 job id(或 --all 踩全局急停)", as_json=as_json
+        )
+        return EXIT_CONFIG_ERROR
+    cron = CronJobs.for_db(args.db)
+    if args.all:
+        marker = cron.engage_estop(reason="paused via `myia cron pause --all`")
+        if as_json:
+            _print_json(
+                {
+                    "command": "cron",
+                    "action": "pause",
+                    "estopped": True,
+                    "marker": str(marker),
+                }
+            )
+        else:
+            print(
+                f"已踩全局急停:所有 tick 跳过派发(在途 run 不受影响);恢复用 myia cron resume --all"
+            )
+        return EXIT_OK
+    job, exit_code = _cron_resolve_ref(cron, args.job_id, as_json=as_json)
+    if job is None:
+        return exit_code
+    updated = cron.pause_job(job["id"])
+    if as_json:
+        _print_json(
+            {
+                "command": "cron",
+                "action": "pause",
+                "job": _cron_job_payload(updated or {}),
+            }
+        )
+    else:
+        print(f"已暂停:{job.get('name')} (id={job['id']};resume 放行)")
+    return EXIT_OK
+
+
+def _cmd_cron_resume(args: argparse.Namespace) -> int:
+    """``cron resume <job> [--at ISO]``:恢复/一次性重挂;``--all`` 解除急停。"""
+    as_json = args.as_json
+    if args.all and (args.job_id or args.run_at):
+        _emit_generic_error(
+            "usage", "resume --all 是解除全局急停,不要再带 job id/--at", as_json=as_json
+        )
+        return EXIT_CONFIG_ERROR
+    if not args.all and not args.job_id:
+        _emit_generic_error(
+            "usage", "resume 需要 job id(或 --all 解除全局急停)", as_json=as_json
+        )
+        return EXIT_CONFIG_ERROR
+    cron = CronJobs.for_db(args.db)
+    if args.all:
+        cleared = cron.disengage_estop()
+        if as_json:
+            _print_json(
+                {
+                    "command": "cron",
+                    "action": "resume",
+                    "estopped": cron.is_estopped(),
+                    "cleared": cleared,
+                }
+            )
+        else:
+            print("全局急停已解除" if cleared else "本无全局急停(无需解除)")
+        return EXIT_OK
+    job, exit_code = _cron_resolve_ref(cron, args.job_id, as_json=as_json)
+    if job is None:
+        return exit_code
+    try:
+        updated = (
+            cron.rearm_oneshot(job["id"], args.run_at)
+            if args.run_at
+            else cron.resume_job(job["id"])
+        )
+    except ValueError as exc:  # recurring 拒 --at / once 已过窗 / 覆盖活认领
+        _emit_generic_error("cron_resume_failed", str(exc), as_json=as_json)
+        return EXIT_CONFIG_ERROR
+    if updated is None:  # pragma: no cover - resolve 已保证存在
+        _emit_generic_error(
+            "cron_job_not_found", f"找不到 cron job:{args.job_id}", as_json=as_json
+        )
+        return EXIT_CONFIG_ERROR
+    if as_json:
+        _print_json(
+            {"command": "cron", "action": "resume", "job": _cron_job_payload(updated)}
+        )
+    else:
+        verb = "已重挂" if args.run_at else "已恢复"
+        print(f"{verb}:{updated.get('name')} (id={updated.get('id')})")
+        print(f"  下次运行: {updated.get('next_run_at') or '-'}")
+    return EXIT_OK
+
+
+def _cmd_cron_run(args: argparse.Namespace) -> int:
+    """``cron run <job>``:下次 tick 立即跑(manual;复活 paused、计入 repeat)。"""
+    cron = CronJobs.for_db(args.db)
+    job, exit_code = _cron_resolve_ref(cron, args.job_id, as_json=args.as_json)
+    if job is None:
+        return exit_code
+    try:
+        updated = cron.trigger_job(job["id"])
+    except ValueError as exc:  # 终态 job 拒绝
+        _emit_generic_error("cron_run_failed", str(exc), as_json=args.as_json)
+        return EXIT_CONFIG_ERROR
+    if args.as_json:
+        _print_json(
+            {
+                "command": "cron",
+                "action": "run",
+                "job": _cron_job_payload(updated or {}),
+            }
+        )
+    else:
+        print(f"已触发:{job.get('name')} (id={job['id']})——下次 tick 立即跑(手动来源)")
+        print(f"  next_run: {updated.get('next_run_at') or '-'}")
+    return EXIT_OK
+
+
+def _cmd_cron_remove(args: argparse.Namespace) -> int:
+    """``cron remove <job>``:删记录;output 目录与账本行保留(运行证据)。"""
+    cron = CronJobs.for_db(args.db)
+    job, exit_code = _cron_resolve_ref(cron, args.job_id, as_json=args.as_json)
+    if job is None:
+        return exit_code
+    if not cron.remove_job(job["id"]):  # pragma: no cover - resolve 已保证存在
+        _emit_generic_error(
+            "cron_job_not_found", f"找不到 cron job:{args.job_id}", as_json=args.as_json
+        )
+        return EXIT_CONFIG_ERROR
+    if args.as_json:
+        _print_json(
+            {
+                "command": "cron",
+                "action": "remove",
+                "removed": True,
+                "job_id": job["id"],
+                "name": job.get("name"),
+            }
+        )
+    else:
+        print(f"已删除:{job.get('name')} (id={job['id']};output 目录与执行账本保留)")
+    return EXIT_OK
+
+
+def _cmd_cron_status(args: argparse.Namespace) -> int:
+    """``cron status``:ticker 活性(心跳龄/最后错误)+ 下次到期 + 急停态(F1.6)。"""
+    cron = CronJobs.for_db(args.db)
+    heartbeat_age = cron.get_ticker_heartbeat_age()
+    success_age = cron.get_ticker_success_age()
+    last_error = cron.get_ticker_last_error()
+    writer_alive = cron.ticker_heartbeat_writer_alive()
+    estopped = cron.is_estopped()
+    jobs = cron.list_jobs(include_disabled=True)
+    enabled_jobs = [job for job in jobs if job.get("enabled", True)]
+    next_due_at = min(
+        (job["next_run_at"] for job in enabled_jobs if job.get("next_run_at")),
+        default=None,
+    )
+    heartbeat_fresh = (
+        heartbeat_age is not None and heartbeat_age <= _CRON_TICKER_FRESH_SECONDS
+    )
+    ticker_alive = heartbeat_fresh and writer_alive
+    payload = {
+        "command": "cron",
+        "action": "status",
+        "data_root": str(cron.store.data_root),
+        "ticker_alive": ticker_alive,
+        "heartbeat_age_seconds": heartbeat_age,
+        "last_success_age_seconds": success_age,
+        "last_error": last_error,
+        "estopped": estopped,
+        "jobs_total": len(jobs),
+        "jobs_enabled": len(enabled_jobs),
+        "next_due_at": next_due_at,
+    }
+    if args.as_json:
+        _print_json(payload)
+        return EXIT_OK
+    print(f"世事 cron status(数据根 {cron.store.data_root})")
+    if estopped:
+        print(
+            "⚠ 全局急停中(pause --all 所踩):所有 tick 跳过派发;myia cron resume --all 解除"
+        )
+    if heartbeat_age is None:
+        print("⚠ 调度器从未心跳——serve 未跑过(或刚启动);常驻宿主:myia cron serve")
+    elif not heartbeat_fresh:
+        print(
+            f"⚠ 心跳停滞 {heartbeat_age:.0f}s(预期每 ~{DEFAULT_TICK_INTERVAL_SECONDS:.0f}s 一次)——job 不会再发"
+        )
+        print(
+            "  启动常驻宿主:myia cron serve(或桌面 sidecar);tick 单发调试:myia cron tick"
+        )
+    elif last_error:
+        print(f"⚠ ticker 活着但最近 tick 失败:{last_error}")
+    else:
+        print(
+            f"✓ ticker 活着(心跳 {heartbeat_age:.0f}s 前,上次成功 {success_age if success_age is None else f'{success_age:.0f}s'} 前)"
+        )
+    print(
+        f"job:{len(enabled_jobs)} 启用 / {len(jobs)} 全部;下次到期:{next_due_at or '-'}"
+    )
+    return EXIT_OK
+
+
+def _cmd_cron_runs(args: argparse.Namespace) -> int:
+    """``cron runs [job] --limit``:执行账本尾查(新→旧;--limit 钳制 1-500)。"""
+    cron = CronJobs.for_db(args.db)
+    job_id_filter: str | None = None
+    if args.job_id:
+        job, exit_code = _cron_resolve_ref(cron, args.job_id, as_json=args.as_json)
+        if job is None:
+            return exit_code
+        job_id_filter = job["id"]
+    rows = cron.ledger.list_executions(job_id=job_id_filter, limit=args.limit)
+    records: list[dict[str, Any]] = []
+    for row in rows:
+        record = dict(row)
+        raw_summary = record.pop("run_summary_json", None)
+        try:
+            record["run_summary"] = json.loads(raw_summary) if raw_summary else None
+        except (TypeError, ValueError):  # 手编/损坏的摘要:如实带原串
+            record["run_summary"] = {"raw": raw_summary}
+        records.append(record)
+    if args.as_json:
+        _print_json(
+            {
+                "command": "cron",
+                "action": "runs",
+                "count": len(records),
+                "executions": records,
+            }
+        )
+        return EXIT_OK
+    if not records:
+        print(f"无执行记录(数据根 {cron.store.data_root})")
+        return EXIT_OK
+    print(f"世事 cron runs:共 {len(records)} 条(新→旧)")
+    for record in records:
+        line = (
+            f"  {record.get('id', '?')} [{record.get('status', '?')}]"
+            f" job={record.get('job_id', '?')} source={record.get('source', '?')}"
+            f" {record.get('claimed_at', '?')}"
+        )
+        if record.get("run_summary"):
+            line += "(含运行摘要)"
+        print(line)
+        if record.get("error"):
+            print(f"    {record['error']}")
+    return EXIT_OK
+
+
+def _cmd_cron_serve(args: argparse.Namespace) -> int:
+    """``cron serve``:阻塞常驻宿主(F2.1)。
+
+    SupervisedTickerThread(ticker.py)包裹 run_ticker_loop:线程崩了自动
+    respawn(restart 计数入日志);宿主主循环只做周期性 restart_if_dead 与
+    Ctrl-C 干净关停。执行体注入 B1 接线(G2 端到端):``CronRunner(cron)
+    .execute``(spawn ``myia run --json`` 子进程,D11;sidecar B3 同位;
+    手动 ``cron tick`` 同款注入)。
+    """
+    cron = CronJobs.for_db(args.db)
+    interval = max(1.0, float(args.interval))
+    stop_event = threading.Event()
+    supervisor = SupervisedTickerThread(
+        run_ticker_loop,
+        args=(cron, stop_event),
+        kwargs={"interval": interval, "execute_job": CronRunner(cron).execute},
+        stop_event=stop_event,
+        name="cron-ticker",
+    )
+    supervisor.start()
+    logger.info(
+        "myia cron serve:常驻宿主已启动(数据根 %s,interval=%.0fs,Ctrl-C 停)",
+        cron.store.data_root,
+        interval,
+    )
+    supervision_poll = min(interval, 30.0)  # ticker 死亡的发现时延上限
+    try:
+        while True:
+            time.sleep(supervision_poll)
+            supervisor.restart_if_dead()
+    except KeyboardInterrupt:
+        logger.info("收到中断信号,正在停止 cron ticker…")
+        stop_event.set()
+        supervisor.join(timeout=supervision_poll + 5.0)
+        logger.info("cron serve 已退出")
+    return EXIT_OK
+
+
+def _cmd_cron_tick(args: argparse.Namespace) -> int:
+    """``cron tick``:手动单次扫描(F2.3;锁被他宿主持有 → 静默返回 0)。
+
+    执行体与 serve 同款注入(复查修:``CronRunner(cron).execute``)——F2.3
+    定位「外接 cron 用」,到期 fire 必须真跑;走底座 no-op stub 会把派发
+    记成假成功(completed/ok + repeat 消耗),外接 cron 口径下无运行却耗
+    槽位。离线测试面由 test_cli.py 注入 spawn 替身承担。
+    """
+    cron = CronJobs.for_db(args.db)
+    try:
+        fired = cron_tick_scan(
+            cron, verbose=True, execute_job=CronRunner(cron).execute
+        )
+    except OSError as exc:  # 真锁故障(EMFILE/权限)——非锁竞争(竞争在底层静默 0)
+        _emit_generic_error("cron_tick_failed", str(exc), as_json=False)
+        return EXIT_CONFIG_ERROR
+    logger.info("cron tick 完成:派发 %d 个 job", fired)
+    return EXIT_OK
+
+
+def _cmd_cron(args: argparse.Namespace) -> int:
+    """``myia cron <子命令>`` 分发(design §4.1 十一子命令;退出码 0/1)。"""
+    _configure_logging(as_json=getattr(args, "as_json", False))
+    handlers: dict[str, Any] = {
+        "list": _cmd_cron_list,
+        "create": _cmd_cron_create,
+        "edit": _cmd_cron_edit,
+        "pause": _cmd_cron_pause,
+        "resume": _cmd_cron_resume,
+        "run": _cmd_cron_run,
+        "remove": _cmd_cron_remove,
+        "status": _cmd_cron_status,
+        "runs": _cmd_cron_runs,
+        "serve": _cmd_cron_serve,
+        "tick": _cmd_cron_tick,
+    }
+    command = _CRON_COMMAND_ALIASES.get(args.cron_command, args.cron_command)
+    handler = handlers.get(command)
+    if handler is None:  # pragma: no cover - argparse required=True 兜底
+        _emit_generic_error(
+            "usage",
+            f"未知 cron 子命令:{args.cron_command}",
+            as_json=getattr(args, "as_json", False),
+        )
+        return EXIT_CONFIG_ERROR
+    return handler(args)
 
 
 # ---------------------------------------------------------------------------
