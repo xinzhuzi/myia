@@ -33,8 +33,9 @@ import { SourcesScreen } from "./sources-screen";
 import type { DoctorResult, DoctorPluginReport, HealthResult, PluginReport, SourceReport, SourceHealthState } from "@/lib/api";
 
 const FILE = "plugins/ai-news.yaml";
-/** 写回/复核/读原文断言用短名:API 层 pluginFile 走 split("/").pop() 截断(api.ts flattenHealthPlugins) */
-const SHORT_FILE = FILE.split("/").pop() ?? FILE;
+/** 写回/复核/读原文断言用完整路径:pluginFile 是回传 sidecar 的协议键(yaml.read
+ * 围栏/sources.write 直开都按路径解析;5c188c0 截短名曾致 path_outside_root 回归,
+ * 2026-10-05 冒烟抓获后恢复绝对路径,显示层自行 split("/").pop()) */
 
 // ---------------------------------------------------------------------------
 // 协议夹具(形状逐字段对照 src/lib/api/types.ts / desktop/entry.py)
@@ -331,8 +332,8 @@ describe("源管理:启停写回 + doctor 往返复核", () => {
     expect(screen.getByTestId("roundtrip-ok").textContent).toContain("doctor 复核往返一致");
 
     // 写回参数:品类文件 + disable 名单;复核用 doctor(yamls:[file])——均走 API 层短名口径
-    expect(lastCall("sources.write")?.params).toEqual({ file: SHORT_FILE, disable: ["hacker-news"] });
-    expect(lastCall("doctor")?.params).toEqual({ yamls: [SHORT_FILE] });
+    expect(lastCall("sources.write")?.params).toEqual({ file: FILE, disable: ["hacker-news"] });
+    expect(lastCall("doctor")?.params).toEqual({ yamls: [FILE] });
     // mock 内存态(YAML 代理)真的变了;刷新后表格行消失(URL 唯一,停用区不含 URL)、进「已停用」区
     expect(state.enabled).toEqual(["rsshub"]);
     await waitFor(() => {
@@ -356,7 +357,7 @@ describe("源管理:启停写回 + doctor 往返复核", () => {
     fireEvent.click(screen.getByRole("button", { name: /^启用$/ }));
     const okBanner = await screen.findByTestId("roundtrip-ok");
     expect(okBanner.textContent).toContain("已启用 hacker-news");
-    expect(lastCall("sources.write")?.params).toEqual({ file: SHORT_FILE, enable: ["hacker-news"] });
+    expect(lastCall("sources.write")?.params).toEqual({ file: FILE, enable: ["hacker-news"] });
     await waitFor(() => {
       expect(screen.getByText("hacker-news")).toBeTruthy();
     });
@@ -477,7 +478,7 @@ describe("源管理:空态与错误态", () => {
     await waitFor(() => {
       expect((screen.getByLabelText("yaml-source") as HTMLTextAreaElement).value).toContain("id: ai-news");
     });
-    expect(lastCall("yaml.read")?.params).toEqual({ file: SHORT_FILE });
+    expect(lastCall("yaml.read")?.params).toEqual({ file: FILE });
 
     // 弹窗内保存成功 → 表格数据刷新(health 二次拉取,防编辑后展示陈旧行)
     fireEvent.change(screen.getByLabelText("yaml-source"), {
@@ -532,9 +533,9 @@ describe("源管理:试抓此源(C13 → 详情弹窗)", () => {
 
     await screen.findByText("local-api");
     fireEvent.click(screen.getByRole("button", { name: "试抓 local-api" }));
-    // pluginFile 走 API 层短名口径(5c188c0 split/pop 源头截断)
+    // pluginFile = 完整路径回传协议(短名回归修复);试抓参数随行原样
     await waitFor(() =>
-      expect(lastCall("sources.test")?.params).toEqual({ file: "ai-news.yaml", source: "local-api" }),
+      expect(lastCall("sources.test")?.params).toEqual({ file: FILE, source: "local-api" }),
     );
     // 进行中态 = 行内试抓钮锚点(提示实时输出见日志屏);不再有「异步 job #N」横幅
     const running = await screen.findByTestId("test-running");
