@@ -11,7 +11,7 @@
 > settings.png,均为 demo 插件真实抓取数据;若当版 UI 已有新屏,按实际增补)。
 >
 > 本稿口径是 **v0.0.1 发布后的现实**(`pip install myssia` 直装、Docker 镜像
-> `ghcr.io/xinzhuzi/myssia`)——截至本稿写就,仓库 README 仍是旧版 +
+> `ghcr.io/xinzhuzi/myia`)——截至本稿写就,仓库 README 仍是旧版 +
 > uv-only 口径、PyPI 双包未上架、v0.0.1 tag 已推送但 Release 页未上线,故硬
 > gate 里把这些列为发帖前置条件,未满足前**不可发**。
 
@@ -91,7 +91,7 @@ push:
    缺省行为);「真人验证+手机号」类源直接结构化报错,不做绕过。
 
 运行形态三选:CLI 常驻(`myssia run --loop`,APScheduler 进程内调度)、
-Docker(仓库自带 compose 文件,镜像 `ghcr.io/xinzhuzi/myssia`,CI 对 main
+Docker(仓库自带 compose 文件,镜像 `ghcr.io/xinzhuzi/myia`,CI 对 main
 与 `v*` tag 自动构建),或桌面应用——Tauri 2 壳,Python 核心以 sidecar
 嵌入,多屏 UI(仪表盘/源/信息流/日志/设置)。装机首跑自动种子官方插件,
 含一个零凭据 demo(GitHub 新星榜),第一次点「运行第一个插件」就出真数据;
@@ -120,13 +120,13 @@ Docker(仓库自带 compose 文件,镜像 `ghcr.io/xinzhuzi/myssia`,CI 对 main
 - 安装包未公证(上面说了,右键打开)。
 
 CI 全绿;2000+ 测试零真实网络(全部录制回放;公开可查:
-https://github.com/xinzhuzi/myssia/actions/workflows/ci.yml )。
+https://github.com/xinzhuzi/myia/actions/workflows/ci.yml )。
 
 链接:
 
-- 仓库:https://github.com/xinzhuzi/myssia
-- Release v0.0.1(dmg + 签名更新通道):https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1
-- 快速上手:https://github.com/xinzhuzi/myssia/blob/main/docs/zh/getting-started.md
+- 仓库:https://github.com/xinzhuzi/myia
+- Release v0.0.1(dmg + 签名更新通道):https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
+- 快速上手:https://github.com/xinzhuzi/myia/blob/main/docs/zh/getting-started.md
 - 许可:MIT
 
 求拍砖,尤其是 schema 设计与降级链这两块。你会先拿它盯什么?

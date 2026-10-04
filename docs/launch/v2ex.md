@@ -110,9 +110,9 @@ CI 全绿;1300+ 测试零真实网络(全部录制回放),当前工作树 collec
 
 链接:
 
-- 仓库:https://github.com/xinzhuzi/myssia
-- Release v0.0.1(dmg + 签名更新通道):https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1
-- 快速上手:https://github.com/xinzhuzi/myssia/blob/main/docs/zh/getting-started.md
+- 仓库:https://github.com/xinzhuzi/myia
+- Release v0.0.1(dmg + 签名更新通道):https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
+- 快速上手:https://github.com/xinzhuzi/myia/blob/main/docs/zh/getting-started.md
 - 许可:MIT
 
 求拍砖,尤其是 schema 设计与降级链这两块。你会先拿它盯什么?

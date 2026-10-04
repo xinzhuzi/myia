@@ -12,14 +12,14 @@ repeated here.
 ### Changed
 
 - **Third full-chain rename: myia → myssia**(2026-10-04 终版命名决议:myssia 为
-  项目唯一正式名——GitHub 仓库 xinzhuzi/myssia、PyPI 发行名 myssia /
+  项目唯一正式名——GitHub 仓库 xinzhuzi/myia、PyPI 发行名 myssia /
   myssia-classifier、CLI `myssia`、Python 模块 `src/myssia`、classifier 模块
   `myssia_classifier`、插件 id `myssia-*`;「世事」仍为中文名,README 标题作
   「myssia(中文名:世事)」)。镜像前两轮改名(58cb40b myia→shishi、0a085cc
   shishi→myia)的改动对象逐一照抄:src 树 92 模块、tests/desktop/entry.py/plugins
   的 import 与文档引用、pyproject scripts/wheel packages/workspace、
   build-sidecar.sh/myssia-core.spec、Dockerfile ENTRYPOINT、compose 服务名与
-  ghcr.io/xinzhuzi/myssia 镜像、desktop-release 资产别名 `myssia_*`、tauri
+  ghcr.io/xinzhuzi/myia 镜像、desktop-release 资产别名 `myssia_*`、tauri
   updater endpoint 与内部工件名(`binaries/myssia-core`、`com.myssia.app`)、
   uv.lock 全量再生成。运行时数据身份保留旧名以兼容既有装机:钥匙链名空间
   `myia/<scope>/<name>`(keyring service `myia`)、`~/.myia` 插件安装根、
@@ -30,6 +30,35 @@ repeated here.
 
 ### Added
 
+- **Item read-state protocol surface** (10-04-read-state-server, G9): three
+  sidecar methods moving the desktop feed's read/starred/later state from
+  webview localStorage into the server-side store — `store.state.mark`
+  (`{keys: [dedup_key…], marker: read|starred|later, value}` → `{updated}`;
+  rows sharing a dedup_key through dated-key rotation are marked together,
+  matching the old localStorage itemKey semantics; idempotent explicit-value
+  writes; `updated` is the SQLite rowcount — matched rows, same-value rows
+  included, reported verbatim; keys capped at 2000 as a misuse guard,
+  whole-library semantics must go through `mark_all`), `store.state.mark_all`
+  (`{marker, value, category?}` → `{updated}`; category is exact equality
+  like `list_items` — no query parameter, per the grill Q3.2 ruling that
+  LIKE-in-UPDATE is scope creep; omitting category marks the entire library
+  including unpaged items, which is where the feed's "mark all read"
+  whole-library semantics now come from), and `store.state.import`
+  (`{states: {key: {read?/starred?/later?}}}` → `{imported, skipped}`; the
+  one-time localStorage migration gate — keys are triaged as direct
+  dedup_key / `id:<n>` resolved through the items table / anything else
+  (including `id:<url>`) honestly counted as skipped without resurrecting
+  pruned entries; idempotence lives in the server-side `store_meta` flag
+  `feed_state_imported_at` — the server flag is the single source of truth
+  because webview data can be wiped independently, and an already-set flag
+  answers `{imported: 0, skipped: 0}` without touching the items table). The
+  `store.items`/`feed.export` JSONL projection now carries
+  `read`/`starred`/`later` booleans (additive; CSV column set unchanged; the
+  collect pipeline never persists state — `save_item`'s column list excludes
+  the three columns, so state is only ever set through this surface).
+  Protocol version bumped to 10 (57 → 60 methods; hermes-cron landed v9
+  first, this batch took the next integer per the alert-rules racing
+  precedent of reading `PROTOCOL_VERSION` at start of work).
 - **Desktop cron sidecar surface** (10-04-hermes-cron, B3): nine sidecar
   methods wiring the desktop shell into the new `myia.cron` subsystem —
   `cron.list` / `cron.create` / `cron.edit` / `cron.pause` / `cron.resume` /

@@ -9,7 +9,7 @@
 **说需求,AI 做其余。** · Say what you want — AI does the rest.
 
 <p>
-<a href="https://github.com/xinzhuzi/myssia/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/myssia/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+<a href="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 <img src="https://img.shields.io/badge/tests-1300%2B%20passing-2EA44F" alt="tests: 1300+ passing" />
 <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="python 3.11+" />
 <img src="https://img.shields.io/badge/license-MIT-3DA639" alt="MIT license" />
@@ -139,7 +139,7 @@ URL 键去重注册表 + 早/晚摘要槽位 —— 生产验证过的语义;同
 ## 快速开始
 
 ```bash
-git clone https://github.com/xinzhuzi/myssia
+git clone https://github.com/xinzhuzi/myia
 cd myssia
 uv sync                     # uv workspace(主口径):一并装好 myssia 与 myssia-classifier
 uv run myssia --version       # myssia 0.0.1
@@ -195,7 +195,7 @@ uv run myssia run plugins/demo-min.yaml                    # 正式跑;--loop �
 
 安装包随 GitHub Releases 发布:
 
-1. 从 [Releases](https://github.com/xinzhuzi/myssia/releases) 下载
+1. 从 [Releases](https://github.com/xinzhuzi/myia/releases) 下载
    `myssia_<版本>_aarch64.dmg`(版本号随发布更替,以 Releases 页面实际资产为准),
    把 世事 拖入「应用程序」;
 2. 首次打开:**在「应用程序」里右键 世事 →「打开」→ 再点「打开」**
@@ -209,7 +209,7 @@ uv run myssia run plugins/demo-min.yaml                    # 正式跑;--loop �
 安装包(msi)将随 GitHub Releases 发布——Windows 构建流水线已就绪,首个
 Windows 版本随下个 Release 交付;交付前 Releases 页暂无 msi(见路线图注记):
 
-1. 从 [Releases](https://github.com/xinzhuzi/myssia/releases) 下载
+1. 从 [Releases](https://github.com/xinzhuzi/myia/releases) 下载
    `myssia_<版本>_x64.msi`,双击安装(版本号随发布更替,以 Releases 页面
    实际资产为准);
 2. 首次运行弹 SmartScreen「Windows 已保护你的电脑」时,点
@@ -476,7 +476,7 @@ daemon), retention + auto-VACUUM, in-process scheduling.
 ### Quickstart
 
 ```bash
-git clone https://github.com/xinzhuzi/myssia
+git clone https://github.com/xinzhuzi/myia
 cd myssia
 uv sync                     # uv workspace (primary): installs myssia + myssia-classifier
 uv run myssia --version       # myssia 0.0.1
@@ -535,7 +535,7 @@ Full walk-through: [docs/en/getting-started.md](docs/en/getting-started.md).
 The macOS (Apple Silicon) installer ships via GitHub Releases:
 
 1. Download `myssia_<version>_aarch64.dmg` from
-   [Releases](https://github.com/xinzhuzi/myssia/releases) (the version token
+   [Releases](https://github.com/xinzhuzi/myia/releases) (the version token
    rotates per release — the Releases page is authoritative) and drag 世事 into
    Applications;
 2. On first launch: **right-click 世事 in Applications → Open → Open**

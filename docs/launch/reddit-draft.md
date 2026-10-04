@@ -25,7 +25,7 @@
 >    选择与日期,不影响正文本身。
 >
 > 本稿口径是 **v0.0.1 发布后的现实**(`pip install myssia` on PyPI、Docker
-> 镜像 `ghcr.io/xinzhuzi/myssia`)——截至本稿写就,仓库 README 仍是旧版 +
+> 镜像 `ghcr.io/xinzhuzi/myia`)——截至本稿写就,仓库 README 仍是旧版 +
 > "install from source" 口径、PyPI 双包未上架(实测 404)、v0.0.1 tag 已推送
 > 但 Release 页未上线,故硬 gate 里把这些列为发帖前置条件,未满足前**不可发**
 > (正文里的 "on PyPI" 等表述发早一天就是假话)。
@@ -109,8 +109,8 @@ Three ways to run it:
   extras, e.g. `pip install "myssia[crawl4ai]"`), then `myssia run --loop`
   for scheduled operation.
 - **Docker**: a
-  [compose file](https://github.com/xinzhuzi/myssia/blob/main/docker/docker-compose.yml)
-  ships in the repo; the image is `ghcr.io/xinzhuzi/myssia`, built by CI on
+  [compose file](https://github.com/xinzhuzi/myia/blob/main/docker/docker-compose.yml)
+  ships in the repo; the image is `ghcr.io/xinzhuzi/myia`, built by CI on
   every push to main and every `v*` tag.
 - **Desktop app** — see below.
 
@@ -128,7 +128,7 @@ the PyPI packages and a module rename:
   module named `myia` (naming settled 2026-10-04: MYIA is the technical
   identity, 「世事」 the Chinese name), so `import myssia` works.
 - The macOS (Apple Silicon) installer is on
-  [GitHub Releases](https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1)
+  [GitHub Releases](https://github.com/xinzhuzi/myia/releases/tag/v0.0.1)
   (grab the dmg; the filename is
   `myssia_0.0.1_aarch64.dmg`). It is **not** Apple-notarized (notarization
   needs a paid developer account, which I don't have yet), so first launch
@@ -136,11 +136,11 @@ the PyPI packages and a module rename:
   public CI with traceable logs, and the code is fully auditable.
 
 Desktop screenshots (all fed by real demo-plugin data):
-[dashboard](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/dashboard.png) ·
-[feed](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/feed.png) ·
-[sources](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/sources.png) ·
-[logs](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/logs.png) ·
-[settings](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/settings.png)
+[dashboard](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/dashboard.png) ·
+[feed](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/feed.png) ·
+[sources](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/sources.png) ·
+[logs](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/logs.png) ·
+[settings](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/settings.png)
 
 Honest status:
 
@@ -152,11 +152,11 @@ Honest status:
 
 Links:
 
-- Repo: https://github.com/xinzhuzi/myssia (MIT)
-- Release v0.0.1: https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1
-- Getting started: [docs/en/getting-started.md](https://github.com/xinzhuzi/myssia/blob/main/docs/en/getting-started.md)
+- Repo: https://github.com/xinzhuzi/myia (MIT)
+- Release v0.0.1: https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
+- Getting started: [docs/en/getting-started.md](https://github.com/xinzhuzi/myia/blob/main/docs/en/getting-started.md)
   (bilingual; the Chinese (zh) tree ships in-repo and tests keep both in sync)
-- Agent Skill (for your coding agent): https://github.com/xinzhuzi/myssia/blob/main/skill/SKILL.md
+- Agent Skill (for your coding agent): https://github.com/xinzhuzi/myia/blob/main/skill/SKILL.md
 
 Happy to answer questions — especially on the degrade chain and the
 credential handling. What would *you* point it at first?
@@ -197,7 +197,7 @@ score ≥ 8 立推、≥ 5 进早晚摘要;飞书/Telegram/webhook/stdout 四通
 去重(同一 URL 不推第二遍);凭据只走 env/系统钥匙链,YAML 里出现明文凭据
 加载即拒;robots.txt 默认尊重、要真人验证的源结构化报错不绕过;反馈闭环 CLI
 现已可用(桌面卡片内按钮后续批次)。三种跑法:CLI `myssia run --loop`、
-Docker(镜像 `ghcr.io/xinzhuzi/myssia`)、桌面应用;数据单 SQLite 文件。
+Docker(镜像 `ghcr.io/xinzhuzi/myia`)、桌面应用;数据单 SQLite 文件。
 
 **v0.0.1 起桌面端可日常用**:macOS(Apple Silicon)安装包在 GitHub Releases
 (dmg 文件名 `myssia_0.0.1_aarch64.dmg`,发帖当日从 Release 页复制;未做
@@ -214,4 +214,4 @@ Apple 公证,首开右键→打开,安装包公开 CI 构建);装机首跑种子
 卡片内反馈按钮还没做(反馈闭环 CLI + 回调接收现已可用);CI 2000+ 测试零真实
 网络。
 
-仓库 https://github.com/xinzhuzi/myssia ,求建议:你会先拿它盯什么?
+仓库 https://github.com/xinzhuzi/myia ,求建议:你会先拿它盯什么?

@@ -81,7 +81,7 @@ docker compose -f docker/plugins/myssia-monitor/compose.yml up -d
 
 ## 预构建镜像(GHCR)
 
-CI(main 分支推送、`v*` tag)自动构建多架构镜像发布到 `ghcr.io/xinzhuzi/myssia`。不想本地构建时,删掉 compose 里的 `build:` 块,然后:
+CI(main 分支推送、`v*` tag)自动构建多架构镜像发布到 `ghcr.io/xinzhuzi/myia`。不想本地构建时,删掉 compose 里的 `build:` 块,然后:
 
 ```bash
 docker compose -f docker/docker-compose.yml pull

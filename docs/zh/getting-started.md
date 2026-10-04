@@ -11,7 +11,7 @@
 `uv sync`——裸 `pip install -e .` 解析不到该依赖,会直接失败:
 
 ```bash
-git clone https://github.com/xinzhuzi/myssia
+git clone https://github.com/xinzhuzi/myia
 cd 世事
 uv sync                     # 源码安装唯一走法(workspace 依赖仅 uv 可解析)
 uv run myssia --version       # 输出 myssia x.y.z(x.y.z 为实际安装版本)

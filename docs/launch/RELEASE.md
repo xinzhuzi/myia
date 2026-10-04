@@ -12,7 +12,7 @@ GitHub Release 页):
 | 通道 | 工作流 | 产物 |
 |---|---|---|
 | 桌面 | [desktop-release.yml](../../.github/workflows/desktop-release.yml) | dmg + 更新包(`myssia.app.tar.gz`+sig)+ `latest.json` → Release |
-| Docker | [docker-publish.yml](../../.github/workflows/docker-publish.yml) | 镜像 tag `X.Y.Z` + `latest` → GHCR(`ghcr.io/xinzhuzi/myssia`) |
+| Docker | [docker-publish.yml](../../.github/workflows/docker-publish.yml) | 镜像 tag `X.Y.Z` + `latest` → GHCR(`ghcr.io/xinzhuzi/myia`) |
 | PyPI | [pypi-publish.yml](../../.github/workflows/pypi-publish.yml) | `myssia` + `myssia-classifier` 双包 → pypi.org(OIDC),wheel/sdist 附挂 Release |
 
 PyPI 通道在构建前有两道硬闸:tag 与版本源一致性守卫(第一步的 bump 没做齐
@@ -146,14 +146,14 @@ tag 推出后 Actions 自动起三个 run(互相独立,单通道失败不影响�
 
 1. **Actions 三个 run 全绿**:Desktop Release / Docker Publish / PyPI Publish
    (Desktop 的 Windows job 标黄 = 允许失败,不阻塞)。
-2. **Release 资产 8 件**:<https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1>
+2. **Release 资产 8 件**:<https://github.com/xinzhuzi/myia/releases/tag/v0.0.1>
    - 桌面 4 件:`myssia_0.0.1_aarch64.dmg`、`myssia.app.tar.gz`、
      `myssia.app.tar.gz.sig`、`latest.json`;
    - PyPI 附挂 4 件:`myssia-0.0.1-*.whl`、`myssia-0.0.1.tar.gz`、
      `myssia_classifier-0.0.1-*.whl`、`myssia_classifier-0.0.1.tar.gz`;
    - Windows msi 成功时另有 `*.msi`(+`.msi.sig`),不计入 8 件核对。
 3. **GHCR 镜像 tag 恰两个**:`0.0.1` 与 `latest`(无 `v0.0.1`、无 `sha-*`);
-   `docker pull ghcr.io/xinzhuzi/myssia:0.0.1` 可拉。
+   `docker pull ghcr.io/xinzhuzi/myia:0.0.1` 可拉。
 4. **PyPI 页面**:<https://pypi.org/project/myssia/> 与
    <https://pypi.org/project/myssia-classifier/> 可访问、版本号 `0.0.1`、README
    正常渲染(中文简介 + MIT license);`pip index versions myssia` 列出

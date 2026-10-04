@@ -6,7 +6,7 @@
 > 结尾一条 + 评论区置顶。话题标签以站内实际存在的为准(本稿末尾带了三个,
 > 发前搜索确认),勿堆 tag。
 > 本稿口径是 **v0.0.1 发布后的现实**(`pip install myssia` 直装、Docker 镜像
-> `ghcr.io/xinzhuzi/myssia`)——截至本稿写就,仓库 README 仍是旧版 + uv-only
+> `ghcr.io/xinzhuzi/myia`)——截至本稿写就,仓库 README 仍是旧版 + uv-only
 > 口径、PyPI 双包未上架、v0.0.1 tag 已推送但 Release 页未上线,故硬 gate 里把
 > 这些列为发帖前置条件,未满足前**不可发**。
 
@@ -24,7 +24,7 @@
 安装新版本。丑话说在前面:安装包没做 Apple 公证,首次打开需要右键 → 打开。
 
 爱命令行的走 CLI:v0.0.1 起 pip install myssia 直装,Python 里
-import myssia 也通了;服务器长跑用 Docker 镜像 ghcr.io/xinzhuzi/myssia。
+import myssia 也通了;服务器长跑用 Docker 镜像 ghcr.io/xinzhuzi/myia。
 
 最想推的点还是:YAML 都不用自己写。如果你在用 Claude Code 或 Cursor(两款
 让 AI 替你干活的编程工具),把内置的「使用说明书」(Agent Skill)装进去,
@@ -40,7 +40,7 @@ import myssia 也通了;服务器长跑用 Docker 镜像 ghcr.io/xinzhuzi/myssia
 - 默认尊重 robots.txt、限速礼貌;要过真人验证的源不碰
 
 MIT,纯 Python + SQLite 单文件。求 Star、求拍砖 👇
-https://github.com/xinzhuzi/myssia
+https://github.com/xinzhuzi/myia
 
 #开源 #独立开发 #AI效率工具
 
@@ -54,13 +54,13 @@ https://github.com/xinzhuzi/myssia
   `docs/screenshots/dashboard.png`、`feed.png`、`sources.png`、`logs.png`、
   `settings.png` —— 连动图共 6 张,即刻单帖图数上限以 App 实际为准。
 - 评论区置顶(安装入口集中在这里,别塞正文):
-  - Release 页:https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1
+  - Release 页:https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
   - dmg 直链:**发帖当日从 Release 页复制资产 URL**(文件名应形如
     `myssia_0.0.1_aarch64.dmg`,但禁止手改版本号拼链,以页面为准)
   - CLI 两行:
     `pip install myssia`
     `myssia --version   # myia 0.0.1`
-  - 上手走读:https://github.com/xinzhuzi/myssia/blob/main/docs/zh/getting-started.md
+  - 上手走读:https://github.com/xinzhuzi/myia/blob/main/docs/zh/getting-started.md
 - 备答(全部如实口径,别替产品许愿):
   - 「和 RSSHub / changedetection.io 区别?」→ README「市面空白:为什么是
     世事」对比表,直接引。

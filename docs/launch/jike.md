@@ -34,7 +34,7 @@
 
 MIT,纯 Python + SQLite 单文件,docker compose 也能跑,双语文档在仓库里。
 求 Star、求拍砖 👇
-https://github.com/xinzhuzi/myssia
+https://github.com/xinzhuzi/myia
 
 ## 发布要点
 
@@ -45,13 +45,13 @@ https://github.com/xinzhuzi/myssia
   `docs/screenshots/dashboard.png`、`feed.png`、`sources.png`、`logs.png`、
   `settings.png` —— 连动图共 6 张,即刻单帖图数上限以 App 实际为准。
 - 评论区置顶(安装入口集中在这里,别塞正文):
-  - Release 页:https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1
-  - dmg 直链:https://github.com/xinzhuzi/myssia/releases/download/v0.0.1/myssia_0.0.1_aarch64.dmg
+  - Release 页:https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
+  - dmg 直链:https://github.com/xinzhuzi/myia/releases/download/v0.0.1/myssia_0.0.1_aarch64.dmg
   - CLI 三行:
-    `git clone https://github.com/xinzhuzi/myssia && cd myia`
+    `git clone https://github.com/xinzhuzi/myia && cd myia`
     `uv sync`
     `uv run myssia --version   # myia 0.0.1`
-  - 上手走读:https://github.com/xinzhuzi/myssia/blob/main/docs/zh/getting-started.md
+  - 上手走读:https://github.com/xinzhuzi/myia/blob/main/docs/zh/getting-started.md
 - 备答(全部如实口径,别替产品许愿):
   - 「和 RSSHub / changedetection.io 区别?」→ README「市面空白:为什么是
     世事」对比表,直接引(表格在远端 main 已存在)。

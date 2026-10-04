@@ -13,7 +13,7 @@ contributions should keep those two properties intact.
 Pure Python (3.11+), managed with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone https://github.com/xinzhuzi/myssia
+git clone https://github.com/xinzhuzi/myia
 cd myssia
 uv sync                                  # core + dev deps (+ optional extras as needed)
 uv run --no-sync python -m pytest -q     # full suite, zero real network

@@ -22,8 +22,8 @@
 ### 桌面端(不想碰命令行的走这条)
 
 下载:`myssia_0.0.1_aarch64.dmg` →
-https://github.com/xinzhuzi/myssia/releases/download/v0.0.1/myssia_0.0.1_aarch64.dmg
-(Release 页:https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1)
+https://github.com/xinzhuzi/myia/releases/download/v0.0.1/myssia_0.0.1_aarch64.dmg
+(Release 页:https://github.com/xinzhuzi/myia/releases/tag/v0.0.1)
 
 丑话说在前面:
 
@@ -51,7 +51,7 @@ https://github.com/xinzhuzi/myssia/releases/download/v0.0.1/myssia_0.0.1_aarch64
 ### CLI(论坛朋友大概率更想看这条)
 
 ```bash
-git clone https://github.com/xinzhuzi/myssia
+git clone https://github.com/xinzhuzi/myia
 cd myia
 uv sync    # 源码装法仅此一条(uv workspace,裸 pip 解析不到同仓子包)
 ```
@@ -126,9 +126,9 @@ secret set` 管录入,值走 stdin 不进 shell history、不进日志、不进
 
 链接:
 
-- 仓库:https://github.com/xinzhuzi/myssia
-- 中文快速上手:https://github.com/xinzhuzi/myssia/blob/main/docs/zh/getting-started.md
-- v0.0.1 Release:https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1
+- 仓库:https://github.com/xinzhuzi/myia
+- 中文快速上手:https://github.com/xinzhuzi/myia/blob/main/docs/zh/getting-started.md
+- v0.0.1 Release:https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
 
 求反馈,尤其想听:你们想先盯什么品类?哪些源该进官方插件清单?桌面端
 macOS 的打开体验有没有被 Gatekeeper 恶心到(除了右键打开还有什么顺手的

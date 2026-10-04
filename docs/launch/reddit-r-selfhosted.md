@@ -96,13 +96,13 @@ What's inside:
   with a structured error instead of being bypassed.
 
 It runs as a plain CLI loop (`myssia run --loop`) or via the bundled
-[docker compose](https://github.com/xinzhuzi/myssia/blob/main/docker/docker-compose.yml);
+[docker compose](https://github.com/xinzhuzi/myia/blob/main/docker/docker-compose.yml);
 data lands in one SQLite file with retention + VACUUM.
 
 **v0.0.1 shipped this week**, and the desktop app got daily-drivable:
 
 - macOS (Apple Silicon) installer on
-  [GitHub Releases](https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1) —
+  [GitHub Releases](https://github.com/xinzhuzi/myia/releases/tag/v0.0.1) —
   grab `myssia_0.0.1_aarch64.dmg`. It is **not** Apple-notarized (notarization
   needs a paid developer account, which I don't have yet), so first launch
   takes the right-click → Open → Open dance; every installer is built in
@@ -115,18 +115,18 @@ data lands in one SQLite file with retention + VACUUM.
   downloads and installs them with signature verification, then relaunches.
 
 The five desktop screens (all fed by real demo-plugin data):
-[dashboard](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/dashboard.png) ·
-[feed](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/feed.png) ·
-[sources](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/sources.png) ·
-[logs](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/logs.png) ·
-[settings](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/settings.png)
+[dashboard](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/dashboard.png) ·
+[feed](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/feed.png) ·
+[sources](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/sources.png) ·
+[logs](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/logs.png) ·
+[settings](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/settings.png)
 
 Honest status:
 
 - CLI install is **from source** for now (`git clone` + `uv sync` — the repo
   is a uv workspace); the PyPI packages are pending a manual release
   workflow. Full walk-through:
-  [docs/en/getting-started.md](https://github.com/xinzhuzi/myssia/blob/main/docs/en/getting-started.md)
+  [docs/en/getting-started.md](https://github.com/xinzhuzi/myia/blob/main/docs/en/getting-started.md)
   (bilingual; the 中文 tree ships in-repo and tests keep both in sync).
 - The Windows build is verified at **build level only** — I haven't
   smoke-tested an install on Windows yet.
@@ -134,9 +134,9 @@ Honest status:
 
 Links:
 
-- Repo: https://github.com/xinzhuzi/myssia (MIT)
-- Release v0.0.1: https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1
-- Agent Skill (for your coding agent): https://github.com/xinzhuzi/myssia/blob/main/skill/SKILL.md
+- Repo: https://github.com/xinzhuzi/myia (MIT)
+- Release v0.0.1: https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
+- Agent Skill (for your coding agent): https://github.com/xinzhuzi/myia/blob/main/skill/SKILL.md
 
 Happy to answer questions — especially on the degrade chain and the
 credential handling. What would *you* point it at first?
@@ -165,4 +165,4 @@ Releases(`myssia_0.0.1_aarch64.dmg`;未做 Apple 公证,首开右键→打开,�
 如实说:CLI 目前源码安装(git clone + uv sync,uv workspace),PyPI 待手动发布
 流程;the Windows build did not ship in v0.0.1 (no Windows installer in Releases — macOS only for now);CI 1300+ tests never touch the real network.
 
-仓库 https://github.com/xinzhuzi/myssia ,求建议:你会先拿它盯什么?
+仓库 https://github.com/xinzhuzi/myia ,求建议:你会先拿它盯什么?

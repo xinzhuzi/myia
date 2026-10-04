@@ -15,7 +15,7 @@ installing from source requires `uv sync` — a bare `pip install -e .`
 cannot resolve that dependency and fails outright:
 
 ```bash
-git clone https://github.com/xinzhuzi/myssia
+git clone https://github.com/xinzhuzi/myia
 cd 世事
 uv sync                     # the only from-source install (workspace deps resolve via uv alone)
 uv run myssia --version       # prints myssia x.y.z (the installed version)

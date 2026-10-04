@@ -9,7 +9,7 @@
 > 任何图片外链——Discourse 外链图可能不渲染,且易被视为引流);代码块用
 > ```yaml / ```bash 高亮。
 > 本稿口径是 **v0.0.1 发布后的现实**(`pip install myssia` 直装、Docker 镜像
-> `ghcr.io/xinzhuzi/myssia`)——截至本稿写就,仓库 README 仍是旧版 +
+> `ghcr.io/xinzhuzi/myia`)——截至本稿写就,仓库 README 仍是旧版 +
 > uv-only 口径、PyPI 双包未上架、v0.0.1 tag 已推送但 Release 页未上线,故硬
 > gate 里把这些列为发帖前置条件,未满足前**不可发**。
 
@@ -34,7 +34,7 @@ SQLite 单文件,无守护进程)。所有「我想第一时间知道」的事�
 ### 桌面端(不想碰命令行的走这条)
 
 下载: dmg 资产 →
-https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1
+https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
 (文件名应形如 `myssia_0.0.1_aarch64.dmg`;发帖当日从
 Release 页复制实际资产直链)
 
@@ -79,8 +79,8 @@ pip install "myssia[llm]"       # LLM 精评 / 事件聚合
 是 workspace 成员):`git clone` + `uv sync`。
 
 服务器长跑可用 Docker:仓库自带
-[docker compose](https://github.com/xinzhuzi/myssia/blob/main/docker/docker-compose.yml),
-镜像在 `ghcr.io/xinzhuzi/myssia`(CI 对 main 与 `v*` tag 自动构建发布)。
+[docker compose](https://github.com/xinzhuzi/myia/blob/main/docker/docker-compose.yml),
+镜像在 `ghcr.io/xinzhuzi/myia`(CI 对 main 与 `v*` tag 自动构建发布)。
 
 最小品类长这样,零凭据、复制就能跑(`url` 换成任意服务端渲染的列表页):
 
@@ -143,7 +143,7 @@ Windows DPAPI),明文 Cookie/Token 启动即拒载;`myssia secret set` 管录入
 ### 状态如实
 
 - CI 测试 2000+ 全绿,无一条碰真实网络(全部录制回放;公开可查:
-  https://github.com/xinzhuzi/myssia/actions/workflows/ci.yml ,发帖当日以
+  https://github.com/xinzhuzi/myia/actions/workflows/ci.yml ,发帖当日以
   CI 实数为准);
 - macOS 桌面端 v0.0.1 起日常可用;
 - PyPI 双包(`myia` / `myssia-classifier`)v0.0.1 起已上架,
@@ -155,9 +155,9 @@ Windows DPAPI),明文 Cookie/Token 启动即拒载;`myssia secret set` 管录入
 
 链接:
 
-- 仓库:https://github.com/xinzhuzi/myssia
-- 中文快速上手:https://github.com/xinzhuzi/myssia/blob/main/docs/zh/getting-started.md
-- v0.0.1 Release:https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1
+- 仓库:https://github.com/xinzhuzi/myia
+- 中文快速上手:https://github.com/xinzhuzi/myia/blob/main/docs/zh/getting-started.md
+- v0.0.1 Release:https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
 
 求反馈,尤其想听:你们想先盯什么品类?哪些源该进官方插件清单?桌面端
 macOS 的打开体验有没有被 Gatekeeper 恶心到?
