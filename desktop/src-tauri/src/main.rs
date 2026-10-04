@@ -9,6 +9,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod pyenv;
+mod pyenv_install;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -262,21 +263,32 @@ fn schedule_respawn(app: AppHandle) {
     });
 }
 
+/// 空闲则拉起 sidecar(幂等:进程健在直接返回,绝不杀活进程)。
+/// 手动 sidecar_restart 与安装链就绪(pyenv_install 第 3 步)共用:
+/// 安装完成 → 环境转 ready → 常驻 sidecar 无需等前端动作即起(AC1 主链)。
+fn spawn_sidecar_if_idle(app: &AppHandle) -> Result<bool, Box<dyn std::error::Error>> {
+    let state = app.state::<Sidecar>();
+    let mut child_guard = state.child.lock().unwrap();
+    if child_guard.is_some() {
+        return Ok(false);
+    }
+    let child = spawn_sidecar(app)?;
+    *child_guard = Some(child);
+    drop(child_guard);
+    *state.respawn_attempts.lock().unwrap() = 0;
+    let _ = app.emit(
+        SIDECAR_STATE_EVENT,
+        json!({"state": "online", "respawned": false}),
+    );
+    Ok(true)
+}
+
 /// 手动拉起 sidecar(dead 态顶栏「拉起」按钮 / reprobe 升级链路;C2)。
 /// 幂等:进程健在直接回 restarted=false,绝不杀活进程。
 #[tauri::command]
-async fn sidecar_restart(state: State<'_, Sidecar>, app: AppHandle) -> Result<Value, String> {
-    {
-        let mut child_guard = state.child.lock().unwrap();
-        if child_guard.is_some() {
-            return Ok(json!({"restarted": false}));
-        }
-        let child = spawn_sidecar(&app).map_err(|e| e.to_string())?;
-        *child_guard = Some(child);
-    }
-    *state.respawn_attempts.lock().unwrap() = 0;
-    let _ = app.emit(SIDECAR_STATE_EVENT, json!({"state": "online", "respawned": false}));
-    Ok(json!({"restarted": true}))
+async fn sidecar_restart(app: AppHandle) -> Result<Value, String> {
+    let restarted = spawn_sidecar_if_idle(&app).map_err(|e| e.to_string())?;
+    Ok(json!({ "restarted": restarted }))
 }
 
 /// 壳侧数据根解析(spawn 注入/自管环境探测共用,与 spawn 的 MYIA_HOME 注入

@@ -131,16 +131,27 @@ pub struct PyenvStatus {
     pub steps: Vec<PyenvStep>,
 }
 
-/// 安装链进度戳(`<数据根>/python-env.json`,第 3 步写;字段全宽容:
-/// 未知附加字段忽略,缺 state 按非终态处理)。
-#[derive(Deserialize, Default)]
-struct EnvStamp {
+/// 安装链进度戳(`<数据根>/python-env.json`,第 3 步 pyenv_install 写、本模块读;
+/// 字段全宽容:未知附加字段忽略,缺 state 按非终态处理)。
+#[derive(Deserialize, Serialize, Default)]
+pub(crate) struct EnvStamp {
+    /// 终态标记:仅 "ready"|"error" 落盘;安装进行中恒 null(进程重启后
+    /// 按非终态判「中断可重试」,installing 是壳内存态不落盘)。
     #[serde(default)]
-    state: Option<String>,
+    pub state: Option<String>,
+    /// 依赖指纹:随包 requirements-lock.txt 的 sha256,安装链在依赖步
+    /// 完成/跳过时落(漂移比对基准,D4)。
     #[serde(default)]
-    deps_fingerprint: Option<String>,
+    pub deps_fingerprint: Option<String>,
     #[serde(default)]
-    steps: Vec<PyenvStep>,
+    pub steps: Vec<PyenvStep>,
+}
+
+/// 宽容读进度戳(安装链启动时取上一轮记录,决定哪些步可幂等跳过);
+/// 不可读/不可解析 → None(等价无历史,全链重跑,探测侧另行报 error)。
+pub(crate) fn read_stamp(data_root: &Path) -> Option<EnvStamp> {
+    let text = std::fs::read_to_string(env_stamp_path(data_root)).ok()?;
+    serde_json::from_str(&text).ok()
 }
 
 /// 镜像覆盖(`<数据根>/pyenv-settings.json`;壳写,第 3 步安装链接力读)。
@@ -451,8 +462,9 @@ pub fn unready_error(app: &AppHandle) -> Option<Value> {
 // invoke("pyenv_start_setup", { mirrorRuntime, mirrorPypi }))
 // ---------------------------------------------------------------------------
 
-/// 重算状态 + 广播 `pyenv-status-changed`(命令收尾共用)。
-fn emit_current(app: &AppHandle) -> Result<PyenvStatus, String> {
+/// 重算状态 + 广播 `pyenv-status-changed`(命令收尾与安装链进度回调共用:
+/// pyenv_install 每次更新 installing 槽后调用,载荷与 get_status 恒一致)。
+pub(crate) fn emit_current(app: &AppHandle) -> Result<PyenvStatus, String> {
     let status = current_status(app).map_err(|e| e.to_string())?;
     let _ = app.emit(PYENV_STATUS_EVENT, &status);
     Ok(status)
@@ -464,9 +476,11 @@ pub async fn pyenv_get_status(app: AppHandle) -> Result<PyenvStatus, String> {
     current_status(&app).map_err(|e| e.to_string())
 }
 
-/// 开始配置(D2:显式动作,不自动后台下载)。第 2 步桩:镜像覆盖整体替换式
-/// 落盘(缺省 = 默认源;空串归一为缺省),第 3 步安装链读同文件接力执行;
-/// 安装本体未落——如实返回当前探测态(尚未配置 = not_configured)。
+/// 开始配置(D2:显式动作,不自动后台下载)。第 3 步起接真安装链:
+/// 镜像覆盖整体替换式落盘(缺省 = 默认源;空串归一为缺省)后,拉起后台
+/// 安装线程执行 状态机(下载→校验→解压→依赖→自检,幂等续装,见
+/// pyenv_install::run_chain);本命令即刻返回 installing 态,进度经
+/// `pyenv-status-changed` 事件与 `pyenv_get_status` 查询。安装已在跑 → 拒绝。
 #[tauri::command]
 pub async fn pyenv_start_setup(
     app: AppHandle,
@@ -479,14 +493,22 @@ pub async fn pyenv_start_setup(
         mirror_pypi: normalize_mirror(mirror_pypi.as_deref()),
     };
     write_settings(&data_root, &settings).map_err(|e| e.to_string())?;
-    emit_current(&app)
+    crate::pyenv_install::start_install_thread(app.clone(), false)?;
+    current_status(&app).map_err(|e| e.to_string())
 }
 
-/// 同步依赖(D4:依赖漂移时的一键幂等重跑)。第 2 步桩:重探测如实回当前态
-/// (deps_stale 维持 deps_stale);第 3/5 步接管安装链 deps 段的幂等重跑。
+/// 同步依赖(D4:依赖漂移时的一键幂等重跑)。第 3 步起接真链:只重跑
+/// 安装链的依赖段(pip 锁版 + 自检),运行时段(下载/校验/解压)标记
+/// skipped;已装且指纹一致时 pip 步也 skipped(AC4「已装跳过」)。
+/// Python 未就位(先走完整配置)或安装进行中 → 结构化拒绝。
 #[tauri::command]
 pub async fn pyenv_sync_deps(app: AppHandle) -> Result<PyenvStatus, String> {
-    emit_current(&app)
+    let data_root = crate::data_root(&app).map_err(|e| e.to_string())?;
+    if !python_bin_path(&data_root).exists() {
+        return Err("Python 运行环境未就位:请先在设置页「开始配置」完成完整安装,再同步依赖".into());
+    }
+    crate::pyenv_install::start_install_thread(app.clone(), true)?;
+    current_status(&app).map_err(|e| e.to_string())
 }
 
 // ---------------------------------------------------------------------------

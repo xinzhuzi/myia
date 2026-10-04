@@ -22,6 +22,19 @@ serde_json = "1"
 # 自管 Python 环境(10-05 第 2 步):依赖清单指纹;第 3 步安装链的运行时
 # sha256 校验共用同 crate(design §3「下载:HTTPS + sha256 校验」)。
 sha2 = "0.10"
+# 安装链执行器(10-05 第 3 步,design §3):运行时下载走 reqwest 阻塞客户端
+# (安装链在专用 std 线程跑,不在 tokio 上下文);TLS 与 tauri-plugin-updater
+# 同栈(rustls + ring provider)不引 aws-lc-rs——rustls 直依仅用于安装
+# process 级 ring provider(updater.rs 同款兜底)。tar+flate2 = install_only
+# tar.gz 解压(锁内已有同版,零新增);fs2 = 磁盘余量预检。
+reqwest = { version = "0.13", default-features = false, features = [
+  "blocking",
+  "rustls-no-provider",
+] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+tar = "0.4"
+flate2 = "1"
+fs2 = "0.4"
 # 仅用 time(请求超时);运行时由 tauri 提供,不另起 tokio 特性树。
 tokio = { version = "1", features = ["time"] }
 
