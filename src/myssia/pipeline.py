@@ -2327,14 +2327,21 @@ class Pipeline:
         """R1 投递重试冲账:claim 到期条目 → 经 send_immediate 原路重投。
 
         重投走 :func:`~myssia.push.digest.send_immediate` 完整链路(解析/
-        死信过滤/成功自愈/同槽位防重发),不绕过派发层语义;**不传**
-        ``retry_ledger``——结转由本方法统一处理,避免重投失败被二次入账。
-        局结转:任一成功 → 出队;同槽位防重发拦截(零报告=已在本槽位投出)
-        → 按成功出队;纯终态跳过(死信/未解析)→ 终态放弃;真失败 →
-        按退避再排队或耗尽弃置(预算/退避由账本自理,蓝本同款 30s/120s/
-        最后一击)。重投可能重复(蓝本 at-least-once 语义:崩溃残留的
-        attempting 条目即刻再认领,平台可能已收到上一击)——MYIA 无恢复
-        标记前缀基础设施,以日志说破。
+        死信过滤/成功自愈),不绕过派发层语义,但**跳过同槽位防重发闸门**
+        (``slot_dedup=False``,换眼复审修复)且**不传** ``retry_ledger``
+        ——结转由本方法统一处理,避免重投失败被二次入账。跳闸门的理由:
+        防重发键是条目级、不分子通道/子目标
+        (:func:`myssia.dedup.DedupRegistry.should_send`),多通道/多目标部分
+        成功即 record_push,失败侧的到期重投再过闸门会被拦成零报告(曾把
+        零报告误判「已在本槽位投出」记成功删条目,该通道/目标永久丢);
+        重投条目本身即防重单元(认领即计次、投出即出队),罕见重复由
+        at-least-once 承担(对侧同槽位已收到的角落场景以重复说破,蓝本
+        「may be a duplicate」同款取舍)。局结转:任一成功 → 出队;纯终态
+        跳过(死信/未解析)→ 终态放弃;真失败(含跳闸门后仅剩理论形态的
+        零报告)→ 按退避再排队或耗尽弃置(预算/退避由账本自理,蓝本同款
+        30s/120s/最后一击)。重投可能重复(蓝本 at-least-once 语义:崩溃
+        残留的 attempting 条目即刻再认领,平台可能已收到上一击)——MYIA
+        无恢复标记前缀基础设施,以日志说破。
         """
         due = self._retry_ledger.claim_due(channel=channel.name, now=now.timestamp())
         if not due:
@@ -2353,28 +2360,26 @@ class Pipeline:
                 # ``list(specs)`` 展开单条目对象集合);单字符串会被逐字符炸开
                 # 成一串不可解析 spec → 全 skipped → 误判终态放弃(换眼复审
                 # R1-high 回归,tests/push/test_push_retry_ledger.py 有对拍)。
-                # item_specs 形态=每条目一个 spec **列表**(send_immediate 内部
-                # ``list(specs)`` 展开单条目对象集合);单字符串会被逐字符炸开
-                # 成一串不可解析 spec → 全 skipped → 误判终态放弃(换眼复审
-                # R1-high 回归,tests/push/test_push_retry_ledger.py 有对拍)。
                 item_specs=[[entry.target_spec]] if entry.target_spec else None,
                 directory=self._channel_directory,
                 ledger=self._delivery_ledger,
+                slot_dedup=False,
             )
             reports.extend(entry_reports)
             ts = now.timestamp()
             if any(report.ok for report in entry_reports):
                 self._retry_ledger.mark_delivered(entry.entry_id, now=ts)
-            elif not entry_reports:
-                # 同槽位防重发拦截:该条目已在本槽位成功投出(重投晚到),使命完成。
-                self._retry_ledger.mark_delivered(entry.entry_id, now=ts)
-            elif all(report.skipped for report in entry_reports):
+            elif entry_reports and all(report.skipped for report in entry_reports):
                 self._retry_ledger.abandon(
                     entry.entry_id, "重投被终态跳过(死信/对象未解析)", now=ts
                 )
             else:
+                # slot_dedup=False 关闭同槽位拦截后,零报告只剩理论形态(items
+                # 非空 + 单通道必产报告)——按失败结转,at-least-once 偏置:
+                # 宁可再排队,不把「零证据」记成「已投出」(换眼复审修复:
+                # 曾把零报告误判成功删条目,失败通道/目标永久丢失)。
                 errors = "; ".join(filter(None, (report.error for report in entry_reports)))
-                self._retry_ledger.mark_failed(entry.entry_id, errors or "重投失败", now=ts)
+                self._retry_ledger.mark_failed(entry.entry_id, errors or "重投零报告(理论形态)", now=ts)
         return reports
 
     # ------------------------------------------------------------ alert 附加步

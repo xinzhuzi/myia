@@ -32,7 +32,13 @@
 5. **目标 spec 入账**:定向条目存**源 spec**(由
    :func:`~myssia.push.delivery.send_batch_to_targets` 的目标↔spec 对齐
    提供),重投经 :func:`~myssia.push.digest.send_immediate` 走完整链路
-   (解析/死信过滤/成功自愈/同槽位防重发),不绕过派发层语义。
+   (解析/死信过滤/成功自愈),不绕过派发层语义;同槽位防重发闸门
+   **跳过**(``slot_dedup=False``,换眼复审修复)——防重发键是条目级、
+   不分子通道/子目标(:func:`myssia.dedup.DedupRegistry.should_send`),
+   多通道/多目标部分成功即 record_push,失败侧的到期重投再过闸门会被
+   拦成零报告而被冲账侧误记成功(消息静默丢失);重投条目本身即防重
+   单元(认领即计次、投出即出队),罕见重复由 at-least-once 承担(蓝本
+   「may be a duplicate」同款取舍)。
 6. **蓝本的 flood_control 专用退避与重连专用错误族不移植**:MYIA 通道层
    尚无对应错误形态(飞书/TG 瞬态护栏由 R2 另行落地)。
 

@@ -19,6 +19,7 @@ import httpx
 import pytest
 
 import myssia.pipeline as pipeline_module
+from myssia.dedup import DedupRegistry
 from myssia.pipeline import Pipeline
 from myssia.push.base import PushSendError
 from myssia.push.delivery import DeliveryLedger
@@ -76,6 +77,19 @@ class FlakyChannel:
         if self.fail_next > 0:
             self.fail_next -= 1
             raise TRANSIENT
+
+
+class GoodChannel:
+    """恒成功 fake 通道(多通道部分成功场景的「好侧」)。"""
+
+    name = "good"
+    supports_targeting = False
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def send(self, items, context) -> None:
+        self.calls.append({"items": list(items), "context": context})
 
 
 class FakeTargetingChannel:
@@ -606,6 +620,75 @@ class TestSendImmediateIntegration:
         assert channel.calls[1]["items"] == [ITEM]  # 重投携带原条目
         assert channel.calls[1]["context"].kind == "immediate"
 
+    def test_slot_dedup_gate_default_blocks_bypass_permits(self, tmp_path: Path):
+        """slot_dedup 开关对拍(换眼复审 R1-high 修复的锚点语义):默认闸门
+        照拦(同槽位已发过 → 零报告);False = 重投冲账形态,闸门跳过、
+        成功照常 record_push。"""
+        store = SQLiteStore(tmp_path / "dedup.db")
+        registry = DedupRegistry(store)
+        registry.record_push("k1", now=NOW)  # 模拟本槽位已有任一侧成功
+        channel = FlakyChannel()
+        try:
+            assert (
+                _run(send_immediate([ITEM], channels=[channel], registry=registry, now=NOW))
+                == []
+            )
+            assert channel.calls == []  # 默认形态:键级闸门拦下(零报告)
+
+            reports = _run(
+                send_immediate(
+                    [ITEM], channels=[channel], registry=registry, now=NOW, slot_dedup=False
+                )
+            )
+            assert [r.ok for r in reports] == [True]
+            assert len(channel.calls) == 1  # 旁路形态:真发送
+        finally:
+            store.close()
+
+    def test_partial_success_retry_not_defeated_by_slot_dedup(self, tmp_path: Path):
+        """换眼复审 R1-high 回归(/tmp/r1_repro.py 复现形态):good+flaky 同批,
+        good 成功即**键级** record_push(不分子通道);flaky 侧的到期重投必须
+        带 slot_dedup=False 穿过同槽位闸门真发送——修复前被拦成零报告,
+        冲账侧把零报告误判「已投出」记成功删条目,flaky 侧永久丢失。"""
+        store = SQLiteStore(tmp_path / "dedup.db")
+        registry = DedupRegistry(store)
+        clock = ManualClock()
+        ledger = PushRetryLedger(tmp_path, clock=clock)
+        good, flaky = GoodChannel(), FlakyChannel(fail_next=1)
+        try:
+            reports = _run(
+                send_immediate(
+                    [ITEM],
+                    channels=[good, flaky],
+                    registry=registry,
+                    retry_ledger=ledger,
+                    now=NOW,
+                )
+            )
+            assert [(r.channel, r.ok) for r in reports] == [("good", True), ("flaky", False)]
+            assert ledger.pending_count() == 1
+            assert registry.should_send("k1", now=NOW) is False  # good 已记进本槽位
+
+            clock.advance(RETRY_BACKOFF_SECONDS[0])  # 退避到点,仍同槽位
+            healed = FlakyChannel(fail_next=0)
+            due = ledger.claim_due(channel="flaky", now=clock.now)
+            retry_reports = _run(
+                send_immediate(
+                    due[0].items,
+                    channels=[healed],
+                    registry=registry,
+                    item_specs=[[due[0].target_spec]] if due[0].target_spec else None,
+                    slot_dedup=False,
+                    now=NOW,
+                )
+            )
+            assert [r.ok for r in retry_reports] == [True]
+            assert len(healed.calls) == 1  # 重投真发出去了(修复前:0 次,闸门拦成零报告)
+            assert ledger.mark_delivered(due[0].entry_id, now=clock.now) is True
+            assert ledger.pending_count() == 0
+        finally:
+            store.close()
+
 
 # ---------------------------------------------------------------------------
 # pipeline 接线(每轮 run 推送阶段先 flush 到期条目)
@@ -776,5 +859,54 @@ class TestPipelineWiring:
             # 成功出队,而非误判终态放弃(修复前:abandoned 记录带错归因文案)
             assert pipeline._retry_ledger.snapshot() == []
             assert PushRetryLedger(tmp_path).snapshot() == []
+        finally:
+            store.close()
+
+    def test_flush_retry_bypasses_slot_dedup_after_partial_success(self, tmp_path: Path):
+        """换眼复审 R1-high 回归(管线形态):同槽位防重发键是条目级、不分
+        子通道/子目标——多通道/多目标部分成功(任一 ok 即 record_push)后,
+        失败侧的到期重投不得被闸门拦成零报告再被冲账侧记成成功。修复前:
+        重投 0 次发送、条目被 mark_delivered 删(消息静默丢失,账面记成功)。
+        """
+        manual = ManualClock()
+        store = SQLiteStore(tmp_path / "p.db")
+        client = httpx.AsyncClient(transport=httpx.MockTransport(_make_handler()))
+        pipeline = Pipeline(
+            _make_config(),
+            db_path=tmp_path / "p.db",
+            store=store,
+            client=client,
+            clock=lambda: manual.now,
+            sleep=_no_sleep,
+            wall_clock=lambda: datetime.fromtimestamp(manual.now, tz=timezone.utc),
+        )
+        try:
+            flush_now = datetime.fromtimestamp(
+                manual.now + RETRY_BACKOFF_SECONDS[0] + 1, tz=timezone.utc
+            )
+            registry = pipeline._ensure_registry(store)
+            # 模拟「别的通道/目标」在本槽位成功:键级 record_push 拦住重投闸门
+            registry.record_push("k1", now=flush_now)
+            assert registry.should_send("k1", now=flush_now) is False
+
+            assert pipeline._retry_ledger.enqueue_failure(
+                channel="flaky",
+                items=[ITEM],
+                error=TRANSIENT,
+                kind="immediate",
+            )
+            manual.advance(RETRY_BACKOFF_SECONDS[0] + 1)  # 到期,仍同槽位
+
+            channel = FlakyChannel()  # 通道已自愈
+
+            async def scenario():
+                return await pipeline._flush_push_retries(channel, registry, flush_now)
+
+            reports = asyncio.run(scenario())
+
+            assert [r.ok for r in reports] == [True]
+            assert len(channel.calls) == 1  # 修复前:闸门拦成零报告,0 次发送
+            assert channel.calls[0]["items"] == [ITEM]
+            assert pipeline._retry_ledger.pending_count() == 0  # 真投出后出队
         finally:
             store.close()

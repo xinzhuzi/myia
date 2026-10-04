@@ -324,6 +324,7 @@ async def send_immediate(
     directory: ChannelDirectory | None = None,
     ledger: DeliveryLedger | None = None,
     retry_ledger: "PushRetryLedger | None" = None,
+    slot_dedup: bool = True,
 ) -> list[SendReport]:
     """Push immediate-bucket items right away, one card per item per channel.
 
@@ -339,7 +340,13 @@ async def send_immediate(
     R1 接线(10-05-push-reliability-batch):``retry_ledger`` 在场时,瞬态
     失败(非死信/非配置级)入投递重试账本(at-least-once;digest 无此忧
     ——全通道失败有留池)。管线重投冲账复用本函数但不传 ``retry_ledger``
-    (结转由冲账侧统一处理,避免二次入账)。
+    (结转由冲账侧统一处理,避免二次入账),且带 ``slot_dedup=False``
+    (换眼复审修复):防重发键是**条目级**、不分子通道/子目标——多通道/
+    多目标部分成功即 record_push,失败侧的到期重投再过同槽位闸门会被
+    拦成零报告,冲账侧无从与「真已投出」区分(曾致静默丢失);重投条目
+    本身即防重单元(认领即计次、投出即出队),罕见重复由 at-least-once
+    承担(蓝本「may be a duplicate」同款取舍);成功后照常 record_push,
+    不放大跨槽位重复。
 
     Returns:
         One :class:`SendReport` per item × channel(定向条目为 item × 对象)。
@@ -355,7 +362,12 @@ async def send_immediate(
     for index, item in enumerate(items):
         view = item_view(item)
         key = view.get("dedup_key") or view.get("url")
-        if registry is not None and key and not registry.should_send(key, now=local_now):
+        if (
+            slot_dedup  # 重投冲账跳过闸门(send_immediate docstring:键级粒度 vs 条目级重投)
+            and registry is not None
+            and key
+            and not registry.should_send(key, now=local_now)
+        ):
             logger.info("立即推送跳过(同槽位已发过): key=%s slot=%s", key, context.slot)
             continue
         specs = item_specs[index] if item_specs is not None and index < len(item_specs) else None
