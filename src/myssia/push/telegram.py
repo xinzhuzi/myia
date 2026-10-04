@@ -22,7 +22,7 @@ NousResearch/Hermes-Agent,MIT——MYIA 按本档语义重写,不整块复制)�
 Telegram Bot API 无「列出会话」能力(蓝本事实轮核),目录条目唯一来源是
 被动积累:feedback 轮询的 ``on_chat`` sink 见 telegram_feedback.py。
 
-标题与飞书卡片共用 :func:`shishi.push.feishu_card.card_title`,跨通道标题一致。
+标题与飞书卡片共用 :func:`myssia.push.feishu_card.card_title`,跨通道标题一致。
 With a user template the rendered text is sent **without** ``parse_mode``
 (user-controlled plain text; HTML-escaping it would corrupt their intent).
 
@@ -45,7 +45,7 @@ from typing import Any, Mapping, Sequence
 
 import httpx
 
-from shishi.push.base import (
+from myssia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
@@ -55,10 +55,10 @@ from shishi.push.base import (
     item_images,
     item_view,
 )
-from shishi.push.feishu_card import card_title
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.feishu_card import card_title
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "CAPTION_LIMIT",

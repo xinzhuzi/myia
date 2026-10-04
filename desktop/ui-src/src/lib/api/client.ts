@@ -151,7 +151,7 @@ async function request<M extends SidecarMethod>(
  * 铁律:secret.set 的 value 只经本通道写入系统钥匙链,任何日志/界面零回显。
  */
 export const api = {
-  /** `myia --version` 等价:name/version/protocol */
+  /** `myssia --version` 等价:name/version/protocol */
   version: (params: VersionParams = {}): Promise<VersionResult> => request("version", params),
   /** 源健康度 + summary 聚合(健康度 ok/degraded/dead/unknown) */
   health: (params: HealthParams = {}): Promise<HealthResult> => request("health", params),

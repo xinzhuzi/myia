@@ -6,7 +6,7 @@ Contract (PRD 10-01-v03-engine-scrapling):
   time (never at module import), so the core pipeline stays zero-heavy-
   dependency; when the package is absent the engine raises a structured
   :class:`FetchError` (``error_type=dependency_missing``) whose message carries
-  ``pip install shishi[scrapling]`` verbatim (doctor 消费原文); a broken install
+  ``pip install myssia[scrapling]`` verbatim (doctor 消费原文); a broken install
   (non-ImportError at import time) is structured the same way;
 - **适用场景与边界**:基础盾源(TLS/HTTP2 指纹检测、Cloudflare 基础质询)与
   改版频繁源(adaptive 自愈选择器:每次 ``css()`` 带 ``adaptive=True`` +
@@ -66,24 +66,24 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urljoin
 
-from shishi.engines.fetch_base import (
+from myssia.engines.fetch_base import (
     BaseEngine,
     FetchError,
     coerce_numeric_text,
     mask_proxy_url,
     split_attr_selector,
 )
-from shishi.engines.stealth_browser import classify_hard_wall
+from myssia.engines.stealth_browser import classify_hard_wall
 
 logger = logging.getLogger(__name__)
 
 LAYER = "L4"
 
 #: Install command surfaced verbatim in the dependency-missing error
-#: (验收标准: 未安装依赖时错误信息含 ``pip install shishi[scrapling]``).
-INSTALL_COMMAND = "pip install shishi[scrapling]"
+#: (验收标准: 未安装依赖时错误信息含 ``pip install myssia[scrapling]``).
+INSTALL_COMMAND = "pip install myssia[scrapling]"
 
-#: ``shishi[scrapling]`` 只拉 scrapling 基础包;fetchers 子包还需其自带 extras。
+#: ``myssia[scrapling]`` 只拉 scrapling 基础包;fetchers 子包还需其自带 extras。
 FETCHERS_INSTALL_NOTE = '如导入 scrapling 后仍缺 fetchers,请补装 pip install "scrapling[fetchers]"'
 
 #: 浏览器后端(stealth/dynamic)首次运行需要 scrapling 自装的浏览器内核。
@@ -133,7 +133,7 @@ _URL_ATTRIBUTES = frozenset({"href", "src"})
 def load_scrapling() -> Any:
     """Return the optional ``scrapling.fetchers`` module, imported lazily.
 
-    Lazy so that ``shishi.engines.scrapling`` (and the whole engine registry)
+    Lazy so that ``myssia.engines.scrapling`` (and the whole engine registry)
     imports cleanly without the optional package, and so tests can inject a
     fake module via ``sys.modules``. 导入的是 ``scrapling.fetchers`` 子包
     (引擎消费 AsyncFetcher/StealthyFetcher/DynamicFetcher,基础包 parser-only

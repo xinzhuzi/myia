@@ -23,11 +23,11 @@ from typing import Any
 
 import pytest
 
-from shishi.push.base import Channel, PushSendError, SendContext
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.email import DEFAULT_TARGET_ENV_REF, EmailChannel, normalize_security
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
+from myssia.push.base import Channel, PushSendError, SendContext
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.email import DEFAULT_TARGET_ENV_REF, EmailChannel, normalize_security
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
 
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
 
@@ -79,7 +79,7 @@ def _channel(
     **kwargs: Any,
 ) -> EmailChannel:
     """标准测试通道:全凭据走 MYIA_TEST_* env 引用,SMTP 会话注入桩。"""
-    monkeypatch.setenv("MYIA_TEST_EMAIL_FROM", "myia@example.com")
+    monkeypatch.setenv("MYIA_TEST_EMAIL_FROM", "myssia@example.com")
     monkeypatch.setenv("MYIA_TEST_EMAIL_PASSWORD", "app-password-1")
     monkeypatch.setenv("MYIA_TEST_EMAIL_HOST", "smtp.example.com")
     fake = fake if fake is not None else _FakeSMTP()
@@ -131,7 +131,7 @@ class TestSessionShape:
         assert opener_calls == [
             {"host": "smtp.example.com", "port": 587, "security": "starttls", "timeout": 30.0}
         ]
-        assert fake.login_calls == [("myia@example.com", "app-password-1")]
+        assert fake.login_calls == [("myssia@example.com", "app-password-1")]
         assert len(fake.sent) == 1 and fake.quit_called
 
     def test_port_465_defaults_to_implicit_tls(self, target_env, monkeypatch):
@@ -173,7 +173,7 @@ class TestSessionShape:
         )
 
         msg = fake.sent[0]
-        assert msg["From"] == "myia@example.com"
+        assert msg["From"] == "myssia@example.com"
         assert msg["To"] == "owner@example.com"
         assert "羊毛" in msg["Subject"] and "上午" in msg["Subject"]
         body = msg.get_content()

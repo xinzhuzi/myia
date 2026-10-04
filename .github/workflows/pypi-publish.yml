@@ -1,4 +1,4 @@
-# PyPI Publish — myssia-classifier / myssia 双包发行(发行名 2026-10-04 终版:PyPI 仿冒保护拦 myia,主人定 myssia)(2026-10-04 命名决议:MYIA 为技术身份,世事为中文名;短暂更名 shishi 已全量回改,根包模块名 src/myia、classifier 模块名 myia_classifier)(PRD 10-01-v10-classifier-pypi)。
+# PyPI Publish — myssia-classifier / myssia 双包发行(2026-10-04 终版命名决议:myssia = 项目唯一正式名——发行名/CLI/模块 src/myssia/classifier 模块 myssia_classifier 全链统一,「世事」为中文名;更早的 myia 与短暂 shishi 均为历史)(PRD 10-01-v10-classifier-pypi)。
 # tag 驱动发布(10-03-tag-release):推 v* tag 即正式发布;手动 dispatch 保留为演练通道。
 # 与 CI/Docker 发布刻意分离:CI 管测试,Docker 管镜像,本文件管 PyPI。
 #
@@ -13,7 +13,7 @@
 #
 # ── Trusted Publishing 四元组(owner 发布前在 PyPI 侧按此核对)──────────────────
 #   owner             = xinzhuzi
-#   repository        = myia
+#   repository        = myssia
 #   workflow_filename = pypi-publish.yml
 #   environment       = pypi
 #   两个项目(myssia 与 myssia-classifier)各自注册一次,四元组完全相同——同一工作流
@@ -110,7 +110,7 @@ jobs:
               return tomllib.loads(pathlib.Path(path).read_text(encoding="utf-8"))["project"]["version"]
 
           root_ver = toml_version("pyproject.toml")
-          clf_ver = toml_version("myia-classifier/pyproject.toml")
+          clf_ver = toml_version("myssia-classifier/pyproject.toml")
           tauri_ver = json.loads(pathlib.Path("desktop/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["version"]
           cargo_ver = tomllib.loads(pathlib.Path("desktop/src-tauri/Cargo.toml").read_text(encoding="utf-8"))["package"]["version"]
 
@@ -118,13 +118,13 @@ jobs:
           # classifier pyproject / 桌面两件,版本纪律见 RELEASE.md)
           for label, actual, path in (
               ("根 pyproject", root_ver, "pyproject.toml"),
-              ("classifier pyproject", clf_ver, "myia-classifier/pyproject.toml"),
+              ("classifier pyproject", clf_ver, "myssia-classifier/pyproject.toml"),
           ):
               if actual != tag:
                   print(
                       f"::error::版本不一致:tag={tag},{label}={actual}({path})。"
                       f"当前三值:tag={tag} / pyproject.toml={root_ver} / "
-                      f"myia-classifier/pyproject.toml={clf_ver};桌面侧参考:"
+                      f"myssia-classifier/pyproject.toml={clf_ver};桌面侧参考:"
                       f"desktop/src-tauri/tauri.conf.json={tauri_ver} / Cargo.toml={cargo_ver}。"
                       "请把版本四件套与 tag 同 bump 后重推 tag。"
                   )
@@ -143,19 +143,19 @@ jobs:
           PY
 
       - name: Build distributions
-        # uv workspace 双包:根包(myia)与 myia-classifier 是两个独立发行,
+        # uv workspace 双包:根包(myssia)与 myssia-classifier 是两个独立发行,
         # 分两步 uv build,--out-dir 统一收口到仓库根 dist/(成员默认写各自 dist/)。
         # PACKAGE 经 env 传入,不内插 ${{ }},未知取值直接失败而不是漏建。
         env:
           PACKAGE: ${{ inputs.package }}
         run: |
           case "$PACKAGE" in
-            myia-classifier) uv build myia-classifier --wheel --sdist --out-dir dist ;;
-            myia)            uv build . --wheel --sdist --out-dir dist ;;
+            myssia-classifier) uv build myssia-classifier --wheel --sdist --out-dir dist ;;
+            myssia)          uv build . --wheel --sdist --out-dir dist ;;
             both|"")
               # 空串 = tag 事件(push 下 inputs.* 全为空串),tag 发布语义 = 双包
-              # 同发(myia 依赖 myia-classifier),与 both 同分支。
-              uv build myia-classifier --wheel --sdist --out-dir dist
+              # 同发(myssia 依赖 myssia-classifier),与 both 同分支。
+              uv build myssia-classifier --wheel --sdist --out-dir dist
               uv build . --wheel --sdist --out-dir dist
               ;;
             *) echo "::error::未知 package 输入:${PACKAGE}" ; exit 1 ;;
@@ -175,31 +175,31 @@ jobs:
 
           package = os.environ["PACKAGE"]
           projects = {
-              "myia-classifier": ["myia_classifier"],
-              "myia": ["myia"],
-              "both": ["myia_classifier", "myia"],
+              "myssia-classifier": ["myssia_classifier"],
+              "myssia": ["myssia"],
+              "both": ["myssia_classifier", "myssia"],
               # 空串 = tag 事件(push 下 inputs.* 全为空串)= 双包同发,与 both 同
-              "": ["myia_classifier", "myia"],
+              "": ["myssia_classifier", "myssia"],
           }.get(package)
           if projects is None:
               sys.exit(f"unknown package input: {package!r}")
 
           needs = {
-              "myia_classifier": {
+              "myssia_classifier": {
                   # classifier 是平铺布局(非根包的 src 布局),sdist 内路径与 wheel 同形
-                  "wheel": ["myia_classifier/data/keywords.json"],
-                  "sdist": ["myia_classifier/data/keywords.json"],
+                  "wheel": ["myssia_classifier/data/keywords.json"],
+                  "sdist": ["myssia_classifier/data/keywords.json"],
               },
-              "myia": {
+              "myssia": {
                   "wheel": [
-                      "myia/enrich/data/prompt.json",
-                      "myia/enrich/data/dedupe_prompt.json",
-                      "myia/classify/__init__.py",
+                      "myssia/enrich/data/prompt.json",
+                      "myssia/enrich/data/dedupe_prompt.json",
+                      "myssia/classify/__init__.py",
                   ],
                   "sdist": [
-                      "src/myia/enrich/data/prompt.json",
-                      "src/myia/enrich/data/dedupe_prompt.json",
-                      "src/myia/classify/__init__.py",
+                      "src/myssia/enrich/data/prompt.json",
+                      "src/myssia/enrich/data/dedupe_prompt.json",
+                      "src/myssia/classify/__init__.py",
                   ],
               },
           }
@@ -209,8 +209,7 @@ jobs:
               "sdist": lambda p: tarfile.open(p).getnames(),
           }
 
-          # 发行文件名前缀(PyPI 规范化连字符→下划线)≠ 模块名:2026-10-04 命名
-          # 回改后发行名恢复 myia/myia-classifier,前缀与模块名同形
+          # 发行文件名前缀(PyPI 规范化连字符→下划线)与模块名同形
           dist_prefix = {"myssia_classifier": "myssia_classifier", "myssia": "myssia"}
 
           failures = []

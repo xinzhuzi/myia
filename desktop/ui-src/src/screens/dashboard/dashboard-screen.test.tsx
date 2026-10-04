@@ -102,7 +102,7 @@ function fixtureDoctor(overrides: Partial<DoctorResult> = {}): DoctorResult {
   return {
     command: "doctor",
     generated_at: "2026-10-02T12:00:00+00:00",
-    db: "myia.db",
+    db: "myssia.db",
     healthy: true,
     plugins: [
       fixturePlugin({
@@ -139,7 +139,7 @@ function fixtureRegistryRun(overrides: Partial<RunEntry> = {}): RunEntry {
   return {
     run_id: 9000,
     yaml: "/plugins/tech.yaml",
-    db: "myia.db",
+    db: "myssia.db",
     dry: false,
     state: "running",
     exit_code: null,
@@ -159,7 +159,7 @@ function mockSidecar(
 ) {
   doctorMock.mockReturnValue(doctor);
   // runs.list 应答形 = RunsListResult(db/count/runs);夹具只给 runs,补外层
-  runsListMock.mockReturnValue(history.then((payload) => ({ db: "myia.db", count: payload.runs.length, ...payload })));
+  runsListMock.mockReturnValue(history.then((payload) => ({ db: "myssia.db", count: payload.runs.length, ...payload })));
   runStatusMock.mockReturnValue(registry);
   // B2/B4/G6 三自取数卡:默认空态,不搅既有用例;专项用例自行覆写
   storeTrendMock.mockResolvedValue({ days: [] });
@@ -584,7 +584,7 @@ describe("DashboardScreen", () => {
   it("跑一次:run.start(yaml)→ completed 事件 → 刷新;busy 期按钮禁用", async () => {
     mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
     runStartMock.mockResolvedValue({
-      run_id: 7, state: "running", yaml: "tech.yaml", dry: false, db: "myia.db",
+      run_id: 7, state: "running", yaml: "tech.yaml", dry: false, db: "myssia.db",
     });
     let emitEvent: ((event: { type: string; run_id: number }) => void) | undefined;
     onSidecarEventMock.mockImplementation((handler: (event: never) => void) => {

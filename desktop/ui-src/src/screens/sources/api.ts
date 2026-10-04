@@ -3,8 +3,8 @@
  *
  * 数据面 = sidecar 协议既有方法(entry.py `_HANDLERS`,注册表见
  * .trellis/spec/desktop/sidecar-protocol.md):
- *   health → myia list --json 等价:插件清单 + 源健康度(ok/degraded/dead/unknown)
- *            + summary 聚合;doctor → myia doctor --json 等价(结构化 findings)。
+ *   health → myssia list --json 等价:插件清单 + 源健康度(ok/degraded/dead/unknown)
+ *            + summary 聚合;doctor → myssia doctor --json 等价(结构化 findings)。
  *
  * 启停写回(`sources.write`,已收编进 entry.py `_HANDLERS`):本模块保留
  * 屏私有 invoke 通道(spec 变更纪律第 3 条「封装面 ≠ 协议面」:sources.write

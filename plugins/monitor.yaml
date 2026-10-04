@@ -6,21 +6,21 @@
 # changedetection.io instance — zero docker). A plugin that cannot be
 # installed never blocks the core pipeline (iron law).
 #
-# The `plugin:` declaration is modeled by shishi.schema since v0.3
+# The `plugin:` declaration is modeled by myssia.schema since v0.3
 # (CategoryPluginConfig, validated by load_category and attached to
-# CategoryConfig.plugin; see src/shishi/plugins for the market side).
+# CategoryConfig.plugin; see src/myssia/plugins for the market side).
 id: monitor
 name: 变更监控
 schedule: "*/15 * * * *"
 timezone: Asia/Shanghai
 
 plugin:                             # scenario plugin declaration (remote opt-in, v1.1)
-  id: myia-monitor
+  id: myssia-monitor
   requires: []
   modes:
     remote:
       endpoint: https://my-monitor.example.com   # your changedetection.io instance
-      token: keychain:myia/monitor/token            # myia secret set myia/monitor/token
+      token: keychain:myia/monitor/token            # myssia secret set myia/monitor/token
 
 sources:
   - name: changedetection-watches
@@ -29,7 +29,7 @@ sources:
     method: GET
     headers:
       # 钥匙链凭据引用,规范名空间 myia/<scope>/<name>(写入:
-      # myia secret set myia/monitor/token)
+      # myssia secret set myia/monitor/token)
       X-Api-Key: "keychain:myia/monitor/token"
     extract:
       type: json_path

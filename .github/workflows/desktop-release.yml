@@ -23,7 +23,7 @@
 #
 # ── 已知边界 ─────────────────────────────────────────────────────────────────
 #   * macOS 仅 aarch64(macos-14);x86_64/ universal 未配,需要时加 target 扩展;
-#   * Windows 为正式交付目标(10-04-windows-build):msi 以 ASCII 名(myia_<版本>
+#   * Windows 为正式交付目标(10-04-windows-build):msi 以 ASCII 名(myssia_<版本>
 #     _x64.msi)挂 Release;latest.json 由 release-finalize 单写者产出,手工补条目
 #     降级为归聚失败的应急路径(desktop/UPDATER.md 第三节);
 #   * windows 失败=run 红(可见),但不牵连 macOS 发布与 mac 更新通道:归聚 job
@@ -139,13 +139,13 @@ jobs:
 
       # GitHub 会剥掉资产文件名里的非 ASCII 字符(世事.app.tar.gz→app.tar.gz、
       # 世事_1.1.1_aarch64.dmg→_1.1.1_aarch64.dmg,v1.1.1 实证)——latest.json 若
-      # 指原名即 404。统一先复制成 ASCII 名(myia.*),签名按字节验证不受改名影响。
+      # 指原名即 404。统一先复制成 ASCII 名(myssia.*),签名按字节验证不受改名影响。
       - name: 产物改 ASCII 名(GitHub 剥非 ASCII 资产名)
         run: |
           BUNDLE="desktop/src-tauri/target/release/bundle"
-          cp "$BUNDLE/macos/世事.app.tar.gz"     "$BUNDLE/macos/myia.app.tar.gz"
-          cp "$BUNDLE/macos/世事.app.tar.gz.sig" "$BUNDLE/macos/myia.app.tar.gz.sig"
-          cp "$BUNDLE/dmg/"*"_aarch64.dmg"       "$BUNDLE/dmg/myia_${MYIA_VERSION}_aarch64.dmg"
+          cp "$BUNDLE/macos/世事.app.tar.gz"     "$BUNDLE/macos/myssia.app.tar.gz"
+          cp "$BUNDLE/macos/世事.app.tar.gz.sig" "$BUNDLE/macos/myssia.app.tar.gz.sig"
+          cp "$BUNDLE/dmg/"*"_aarch64.dmg"       "$BUNDLE/dmg/myssia_${MYIA_VERSION}_aarch64.dmg"
 
       # latest.json 生成已移至 release-finalize 归聚 job(单写者,10-04-windows-build
       # D6);本 job 只负责把 mac 签名交给归聚 job。
@@ -153,7 +153,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mac-updater
-          path: desktop/src-tauri/target/release/bundle/macos/myia.app.tar.gz.sig
+          path: desktop/src-tauri/target/release/bundle/macos/myssia.app.tar.gz.sig
           if-no-files-found: error
 
       - name: 上传 Release 附件(dmg / 更新包+签名;release 创建者)
@@ -163,9 +163,9 @@ jobs:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            desktop/src-tauri/target/release/bundle/dmg/myia_*_aarch64.dmg
-            desktop/src-tauri/target/release/bundle/macos/myia.app.tar.gz
-            desktop/src-tauri/target/release/bundle/macos/myia.app.tar.gz.sig
+            desktop/src-tauri/target/release/bundle/dmg/myssia_*_aarch64.dmg
+            desktop/src-tauri/target/release/bundle/macos/myssia.app.tar.gz
+            desktop/src-tauri/target/release/bundle/macos/myssia.app.tar.gz.sig
 
   windows-msi:
     name: Windows msi(x86_64,正式交付目标)
@@ -278,16 +278,16 @@ jobs:
         shell: bash
         run: |
           B="desktop/src-tauri/target/release/bundle"
-          cp "$B"/msi-updater/*_x64*.msi     "$B/myia_${MYIA_VERSION}_x64.msi"
-          cp "$B"/msi-updater/*_x64*.msi.sig "$B/myia_${MYIA_VERSION}_x64.msi.sig"
+          cp "$B"/msi-updater/*_x64*.msi     "$B/myssia_${MYIA_VERSION}_x64.msi"
+          cp "$B"/msi-updater/*_x64*.msi.sig "$B/myssia_${MYIA_VERSION}_x64.msi.sig"
 
       - name: 上传 win-msi artifact(供 release-finalize 挂 Release)
         uses: actions/upload-artifact@v4
         with:
           name: win-msi
           path: |
-            desktop/src-tauri/target/release/bundle/myia_${{ env.MYIA_VERSION }}_x64.msi
-            desktop/src-tauri/target/release/bundle/myia_${{ env.MYIA_VERSION }}_x64.msi.sig
+            desktop/src-tauri/target/release/bundle/myssia_${{ env.MYIA_VERSION }}_x64.msi
+            desktop/src-tauri/target/release/bundle/myssia_${{ env.MYIA_VERSION }}_x64.msi.sig
           if-no-files-found: error
 
   release-finalize:
@@ -341,7 +341,7 @@ jobs:
         env:
           REPO: ${{ github.repository }}
         run: |
-          MAC_SIG="$(cat dist/mac-updater/myia.app.tar.gz.sig)"
+          MAC_SIG="$(cat dist/mac-updater/myssia.app.tar.gz.sig)"
           jq -n --arg v "$MYIA_VERSION" --arg tag "$MYIA_TAG" --arg repo "$REPO" --arg sig "$MAC_SIG" \
             '{version: $v,
               notes: ("世事 " + $v),
@@ -349,14 +349,14 @@ jobs:
               platforms: {
                 "darwin-aarch64": {
                   signature: $sig,
-                  url: ("https://github.com/" + $repo + "/releases/download/" + $tag + "/myia.app.tar.gz")
+                  url: ("https://github.com/" + $repo + "/releases/download/" + $tag + "/myssia.app.tar.gz")
                 }}}' > latest.json
-          if compgen -G 'dist/win-msi/myia_*_x64.msi' >/dev/null; then
-            WIN_SIG="$(cat dist/win-msi/myia_*_x64.msi.sig)"
+          if compgen -G 'dist/win-msi/myssia_*_x64.msi' >/dev/null; then
+            WIN_SIG="$(cat dist/win-msi/myssia_*_x64.msi.sig)"
             jq --arg v "$MYIA_VERSION" --arg tag "$MYIA_TAG" --arg repo "$REPO" --arg sig "$WIN_SIG" \
               '.platforms["windows-x86_64"] = {
                  signature: $sig,
-                 url: ("https://github.com/" + $repo + "/releases/download/" + $tag + "/myia_" + $v + "_x64.msi")
+                 url: ("https://github.com/" + $repo + "/releases/download/" + $tag + "/myssia_" + $v + "_x64.msi")
                }' latest.json > latest.json.tmp
             mv latest.json.tmp latest.json
           else
@@ -379,8 +379,8 @@ jobs:
         with:
           fail_on_unmatched_files: true
           files: |
-            dist/win-msi/myia_*_x64.msi
-            dist/win-msi/myia_*_x64.msi.sig
+            dist/win-msi/myssia_*_x64.msi
+            dist/win-msi/myssia_*_x64.msi.sig
 
       - name: 挂 latest.json 到 Release(单写者产出)
         if: startsWith(github.ref, 'refs/tags/')

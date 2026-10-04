@@ -1,4 +1,4 @@
-"""开箱 demo 插件(plugins/myia-demo.yaml)的发布铁律(v1.1.1)。
+"""开箱 demo 插件(plugins/myssia-demo.yaml)的发布铁律(v1.1.1)。
 
 demo 件是装机首跑「运行第一个插件」的数据来源(README 五屏截图同源),
 发布口径(prd 10-03-v111-release 需求 1):
@@ -9,16 +9,16 @@ demo 件是装机首跑「运行第一个插件」的数据来源(README 五屏�
 
 from pathlib import Path
 
-from shishi.schema import load_category_file
+from myssia.schema import load_category_file
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
-DEMO_YAML = PLUGINS_DIR / "myia-demo.yaml"
+DEMO_YAML = PLUGINS_DIR / "myssia-demo.yaml"
 
 
 def test_demo_plugin_loads_through_schema():
     """真实 schema 入口可加载:目录扫描(test_plugins)之外的专门钉子。"""
     config = load_category_file(DEMO_YAML)
-    assert config.id == "myia-demo"
+    assert config.id == "myssia-demo"
     assert config.sources, "demo 插件必须声明至少一个源"
     assert config.sources[0].engine == "direct_api"
 

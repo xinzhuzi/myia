@@ -24,8 +24,8 @@ from typing import Any
 
 import pytest
 
-from myia.secrets import InMemoryKeychainBackend
-from myia.store import SQLiteStore
+from myssia.secrets import InMemoryKeychainBackend
+from myssia.store import SQLiteStore
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ENTRY_PATH = REPO_ROOT / "desktop" / "entry.py"
@@ -106,8 +106,8 @@ def _reset_sidecar_state(monkeypatch):
     backend = InMemoryKeychainBackend()
 
     def fake_delete_secret(name: str) -> None:
-        # 与 myia.secrets.delete_secret 同门:名字校验 → 存在性 → 删除
-        from myia.secrets import SecretError, validate_secret_name
+        # 与 myssia.secrets.delete_secret 同门:名字校验 → 存在性 → 删除
+        from myssia.secrets import SecretError, validate_secret_name
 
         validate_secret_name(name)
         if backend.get_password("myia", name) is None:
@@ -218,13 +218,13 @@ def wait_completed(out: io.StringIO, run_id: int, timeout: float = 60.0) -> dict
 
 
 def test_version_roundtrip():
-    """version:与 myia.__version__ 一致,携带协议版本。"""
-    import myia
+    """version:与 myssia.__version__ 一致,携带协议版本。"""
+    import myssia
 
     code, responses, events = rpc({"id": 1, "method": "version", "params": {}})
     assert code == 0
     assert events == []
-    assert responses == [{"id": 1, "result": {"name": "myia", "version": myia.__version__,
+    assert responses == [{"id": 1, "result": {"name": "myssia", "version": myssia.__version__,
                                               "protocol": entry.PROTOCOL_VERSION,
                                               "app_version": None}}]
 
@@ -236,7 +236,7 @@ def test_health_roundtrip_with_summary(tmp_path):
     (plugins_dir / "demo.yaml").write_text(
         VALID_YAML.replace("{port}", "9"), encoding="utf-8"
     )
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     code, responses, _ = rpc({"id": 7, "method": "health",
                               "params": {"plugins_dir": str(plugins_dir), "db": str(db)}})
     assert code == 0
@@ -275,7 +275,7 @@ def test_plugins_list_roundtrip(tmp_path):
 def test_doctor_roundtrip(tmp_path):
     """doctor:完成即 0,findings 全量随行,healthy 视角与 CLI 一致。"""
     yaml_path = write_yaml(tmp_path, VALID_YAML.replace("{port}", "9"))
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     code, responses, _ = rpc({"id": 3, "method": "doctor",
                               "params": {"yamls": [yaml_path], "db": str(db)}})
     result = responses[0]["result"]
@@ -294,7 +294,7 @@ def test_run_start_success_full_roundtrip(tmp_path, local_api):
     """成功 run:立即返回 running → log/progress 流 → completed(0/success)
     → run.status done → logs.tail → store.items(数据面贯通)。"""
     yaml_path = write_yaml(tmp_path, VALID_YAML.replace("{port}", str(local_api)))
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     out = io.StringIO()
     stdin = io.StringIO(json.dumps({"id": 1, "method": "run.start",
                                     "params": {"yaml": yaml_path, "db": str(db)}}) + "\n")
@@ -397,7 +397,7 @@ def test_store_items_seeded_db_with_filters(tmp_path):
     store = SQLiteStore(str(db))
     from datetime import datetime, timezone
 
-    from myia.store.models import ItemRecord
+    from myssia.store.models import ItemRecord
     for index in range(3):
         store.save_item(ItemRecord(
             url=f"https://example.com/{index}", dedup_key=f"k{index}", title=f"条目{index}",
@@ -426,7 +426,7 @@ def test_store_items_projects_image_ocr_scalar(tmp_path):
     store = SQLiteStore(str(db))
     from datetime import datetime, timezone
 
-    from myia.store.models import ItemRecord
+    from myssia.store.models import ItemRecord
     store.save_item(ItemRecord(
         url="https://example.com/vision", dedup_key="ocr1", title="带图条目",
         first_seen=datetime(2026, 10, 2, tzinfo=timezone.utc),
@@ -490,7 +490,7 @@ def test_store_items_corrupt_db_structured_error(tmp_path):
 
 
 def test_secret_set_roundtrip_value_never_echoed():
-    """secret.set:写入走 myia.secrets(钥匙链),应答零回显值。"""
+    """secret.set:写入走 myssia.secrets(钥匙链),应答零回显值。"""
     fake = entry.set_secret
     code, responses, events = rpc({"id": 9, "method": "secret.set",
                                    "params": {"name": "myia/proto/token", "value": "super-secret-value"}})
@@ -550,7 +550,7 @@ def test_oneshot_passthrough_preserves_cli_contract(tmp_path):
         check=False,
     )
     assert version.returncode == 0
-    assert version.stdout.startswith("myia ")
+    assert version.stdout.startswith("myssia ")
     bad = write_yaml(tmp_path, BAD_CRON_YAML, "passthrough-bad.yaml")
     run = subprocess.run(
         [sys.executable, str(ENTRY_PATH), "run", bad, "--db", str(tmp_path / "p.db")],
@@ -597,7 +597,7 @@ dedup:
 push:
   - channel: stdout
 plugin:
-  id: myia-demo
+  id: myssia-demo
   modes:
     local:
       compose: docker-compose.yml
@@ -605,9 +605,9 @@ plugin:
 
 
 def test_sources_write_disable_enable_roundtrip(tmp_path):
-    """disable 摘出(enable 移回):myia 装载器同门复核 + sidecar 节保留 +
-    暂存文件 lossless 往返 —— PRD「写回品类 YAML 并被 myia run 识别」。"""
-    from myia.schema import load_category_file
+    """disable 摘出(enable 移回):myssia 装载器同门复核 + sidecar 节保留 +
+    暂存文件 lossless 往返 —— PRD「写回品类 YAML 并被 myssia run 识别」。"""
+    from myssia.schema import load_category_file
 
     yaml_path = Path(write_yaml(tmp_path, SOURCES_WRITE_YAML, "sources-demo.yaml"))
 
@@ -622,10 +622,10 @@ def test_sources_write_disable_enable_roundtrip(tmp_path):
         "enabled": ["keep-me"],
         "disabled": ["drop-me"],
     }
-    # myia run 同门:写回文件可装载,名单只剩 keep-me;plugin: 节原样保留
+    # myssia run 同门:写回文件可装载,名单只剩 keep-me;plugin: 节原样保留
     config = load_category_file(yaml_path)
     assert [source.name for source in config.sources] == ["keep-me"]
-    assert config.plugin is not None and config.plugin.id == "myia-demo"
+    assert config.plugin is not None and config.plugin.id == "myssia-demo"
     raw_text = yaml_path.read_text(encoding="utf-8")
     assert "plugin:" in raw_text and "drop-me" not in raw_text
     # lossless 暂存:被摘出的源完整落在 <yaml>.disabled.json
@@ -681,7 +681,7 @@ def test_sources_write_structured_refusals(tmp_path):
     )
     assert responses[0]["error"]["code"] == "last_source"
     # 拒绝 = 零写入(文件仍是「只剩 keep-me」的成功态,不是半态)
-    from myia.schema import load_category_file
+    from myssia.schema import load_category_file
 
     assert [source.name for source in load_category_file(yaml_path).sources] == ["keep-me"]
     assert yaml_path.read_text(encoding="utf-8") != before
@@ -722,13 +722,13 @@ def _fake_bundle(tmp_path: Path, *plugin_ids: str) -> Path:
     return bundle
 
 
-def test_serve_context_myia_home_env(tmp_path, monkeypatch):
+def test_serve_context_myssia_home_env(tmp_path, monkeypatch):
     """MYIA_HOME env → home 模式:db/plugins 默认全落数据根(并即时建目录)。"""
     home = tmp_path / "home"
     monkeypatch.setenv("MYIA_HOME", str(home))
     ctx = entry._serve_context()
     assert ctx.home == home
-    assert ctx.db == str(home / "myia.db")
+    assert ctx.db == str(home / "myssia.db")
     assert ctx.plugins_dir == str(home / "plugins")
     assert ctx.install_root == str(home / "plugins")
     assert home.is_dir()
@@ -744,8 +744,8 @@ def test_serve_context_plugin_dir_env_respected(tmp_path, monkeypatch):
 
 def test_serve_context_dev_fallback_unchanged(monkeypatch):
     """dev 回退:三项默认与 v1.1 CLI 常量逐字节一致(仓库内行为不回退)。"""
-    from myia.cli import DEFAULT_DB_PATH, DEFAULT_PLUGINS_DIR
-    from myia.plugins.installed import default_install_root
+    from myssia.cli import DEFAULT_DB_PATH, DEFAULT_PLUGINS_DIR
+    from myssia.plugins.installed import default_install_root
 
     monkeypatch.delattr(sys, "frozen", raising=False)
     ctx = entry._serve_context()
@@ -763,7 +763,7 @@ def test_bundle_detection_dot_app(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "executable", str(exe))
     platform_root = tmp_path / "platform-root"
-    monkeypatch.setattr(entry, "myia_home", lambda: platform_root)
+    monkeypatch.setattr(entry, "myssia_home", lambda: platform_root)
     assert entry._inside_app_bundle() is True
     assert entry._serve_context().home == platform_root
 
@@ -785,7 +785,7 @@ def test_seed_copies_official_plugins_and_marks(tmp_path, monkeypatch):
     bundle = _fake_bundle(tmp_path, "ai-news", "wool", "stocks", "gpu-prices")
     monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: bundle)
     ctx = entry.ServeContext(
-        home=home, db=str(home / "myia.db"),
+        home=home, db=str(home / "myssia.db"),
         plugins_dir=str(home / "plugins"), install_root=str(home / "plugins"),
     )
     assert entry._seed_first_run(ctx) is True
@@ -808,7 +808,7 @@ def test_seed_skips_when_user_has_plugins(tmp_path, monkeypatch):
     (plugins / "mine.yaml").write_text(OFFICIAL_TEMPLATE.format(pid="mine"), encoding="utf-8")
     monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: bundle)
     ctx = entry.ServeContext(
-        home=home, db=str(home / "myia.db"),
+        home=home, db=str(home / "myssia.db"),
         plugins_dir=str(plugins), install_root=str(plugins),
     )
     assert entry._seed_first_run(ctx) is False
@@ -843,7 +843,7 @@ def test_health_first_run_flag_and_home_defaults(tmp_path, monkeypatch):
     result = responses[0]["result"]
     assert code == 0
     assert result["plugins_dir"] == str(home / "plugins")
-    assert result["db"] == str(home / "myia.db")
+    assert result["db"] == str(home / "myssia.db")
     assert result["first_run"] is True
     assert result["healthy"] is True  # 空态是合法态,不是错误
 
@@ -875,28 +875,28 @@ def test_store_items_and_run_default_db_follow_home(tmp_path, monkeypatch):
     monkeypatch.setenv("MYIA_HOME", str(home))
     code, responses, _ = rpc({"id": 1, "method": "store.items", "params": {"limit": 5}})
     assert code == 0
-    assert responses[0]["result"]["db"] == str(home / "myia.db")
+    assert responses[0]["result"]["db"] == str(home / "myssia.db")
     assert responses[0]["result"]["items"] == []
 
 
-def test_myia_home_three_platforms(tmp_path, monkeypatch):
-    """myia_home 三平台规则(design.md D1):darwin=~/Library/Application
+def test_myssia_home_three_platforms(tmp_path, monkeypatch):
+    """myssia_home 三平台规则(design.md D1):darwin=~/Library/Application
     Support/MYIA、win32=%APPDATA%\\MYIA、linux=~/.myia(本机外分支注入
     sys.platform 验证;Path.home 按 tarHeel 平台语义 monkeypatch)。"""
     # darwin(HOME 重定向,避免触碰真实用户目录)
     monkeypatch.setattr(sys, "platform", "darwin")
     monkeypatch.setenv("HOME", str(tmp_path))
-    assert entry.myia_home() == tmp_path / "Library" / "Application Support" / "MYIA"
+    assert entry.myssia_home() == tmp_path / "Library" / "Application Support" / "MYIA"
     # win32(APPDATA 优先,缺失回退 ~/AppData/Roaming)
     monkeypatch.setattr(sys, "platform", "win32")
     monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
-    assert entry.myia_home() == tmp_path / "Roaming" / "MYIA"
+    assert entry.myssia_home() == tmp_path / "Roaming" / "MYIA"
     monkeypatch.delenv("APPDATA")
     monkeypatch.setattr(Path, "home", lambda: tmp_path)  # Windows 语义:家目录即 %USERPROFILE%
-    assert entry.myia_home() == tmp_path / "AppData" / "Roaming" / "MYIA"
+    assert entry.myssia_home() == tmp_path / "AppData" / "Roaming" / "MYIA"
     # linux/其余(POSIX 家目录策略,收编旧 ~/.myia 约定)
     monkeypatch.setattr(sys, "platform", "linux")
-    assert entry.myia_home() == tmp_path / ".myia"
+    assert entry.myssia_home() == tmp_path / ".myia"
 
 
 def test_run_start_default_db_follows_home(tmp_path, monkeypatch):
@@ -909,7 +909,7 @@ def test_run_start_default_db_follows_home(tmp_path, monkeypatch):
     code, responses, _ = rpc({"id": 1, "method": "run.start", "params": {"yaml": yaml_path}})
     assert code == 0
     started = responses[0]["result"]
-    assert started["db"] == str(home / "myia.db")
+    assert started["db"] == str(home / "myssia.db")
     assert started["state"] == "running" and started["dry"] is False
     assert entry._ACTIVE_RUN_ID == 1
     entry._ACTIVE_RUN_ID = None  # no-op worker 不会走 finally 清理,此处手工复位
@@ -1135,7 +1135,7 @@ sources: []
 def test_yaml_save_new_file_roundtrip_and_not_found_fork(tmp_path, monkeypatch):
     """新建往返:null mtime + 不存在 = 创建(created=true、无 .bak)→ doctor/
     list 识别新品类,既有文件 .bak 不误伤;非 null mtime + 不存在 = file_not_found。"""
-    from myia.schema import load_category_file
+    from myssia.schema import load_category_file
 
     plugins = _editor_plugins(tmp_path, monkeypatch, ("demo.yaml", EDITOR_YAML))
     new_path = plugins / "fresh-pick.yaml"
@@ -1149,7 +1149,7 @@ def test_yaml_save_new_file_roundtrip_and_not_found_fork(tmp_path, monkeypatch):
     assert result["written"] is True and result["created"] is True
     assert result["backed_up"] is None and result["warnings"] == []
     assert isinstance(result["mtime"], float) and result["mtime"] > 0
-    # myia run 同门:新文件可装载,id 即用户命名
+    # myssia run 同门:新文件可装载,id 即用户命名
     assert load_category_file(new_path).id == "fresh-pick"
     # doctor 识别(保存闭环的证据面)
     _, responses, _ = rpc({"id": 2, "method": "doctor", "params": {"yamls": [str(new_path)]}})
@@ -1242,7 +1242,7 @@ def test_yaml_template_passes_load_category():
     """模板必过 load_category(schema 演进防腐锁);头注释指向 stocks.yaml。"""
     import yaml as yaml_module
 
-    from myia.schema import load_category
+    from myssia.schema import load_category
 
     code, responses, _ = rpc({"id": 1, "method": "yaml.template"})
     content = responses[0]["result"]["content"]
@@ -1265,7 +1265,7 @@ def test_yaml_secret_warning_level_and_save_not_blocked(tmp_path, monkeypatch):
         "message": result["findings"][0]["message"],
     }]
     assert "myia/push/demo" in result["findings"][0]["message"]  # message 含凭据名
-    assert "myia secret set" in result["findings"][0]["message"]  # 与录入命令
+    assert "myssia secret set" in result["findings"][0]["message"]  # 与录入命令
     assert "NOT_SET_ANYWHERE" not in json.dumps(result)  # env: 不对照名单(决议 8)
     # warning 不拦保存,且应答原样带回(UI 展示)
     _, responses, _ = rpc({"id": 2, "method": "yaml.save",
@@ -1584,7 +1584,7 @@ def test_channels_refresh_unknown_platform_structured(tmp_path, monkeypatch):
 
 def test_channels_refresh_discover_failure_keeps_old_bucket(tmp_path, monkeypatch):
     """refresh 发现失败(凭据缺失族):结构化 channel_refresh_failed,旧桶不动。"""
-    from myia.push.base import PushSendError
+    from myssia.push.base import PushSendError
 
     home = _messaging_home(tmp_path, monkeypatch, yaml_text=None)
     _write_directory(home, {"feishu": [
@@ -1595,7 +1595,7 @@ def test_channels_refresh_discover_failure_keeps_old_bucket(tmp_path, monkeypatc
         def discover_directory(self):
             raise PushSendError("credential_not_found", "飞书 bot 凭据未配置")
 
-    monkeypatch.setattr("myia.push.PLATFORMS", {"feishu": _BrokenAdapter})
+    monkeypatch.setattr("myssia.push.PLATFORMS", {"feishu": _BrokenAdapter})
     code, responses, _ = rpc(
         {"id": 1, "method": "channels.refresh", "params": {"platform": "feishu"}},
     )
@@ -1610,7 +1610,7 @@ def test_channels_refresh_discover_failure_keeps_old_bucket(tmp_path, monkeypatc
 
 def test_channels_refresh_merges_and_persists(tmp_path, monkeypatch):
     """refresh 正例:发现条目桶替换落盘,应答 merged=n + entries;updated_at 前移。"""
-    from myia.push.directory import ChannelEntry
+    from myssia.push.directory import ChannelEntry
 
     home = _messaging_home(tmp_path, monkeypatch, yaml_text=None)
 
@@ -1621,7 +1621,7 @@ def test_channels_refresh_merges_and_persists(tmp_path, monkeypatch):
                 ChannelEntry(platform="feishu", chat_id="oc_2", name="羊毛反馈群", type="group"),
             ]
 
-    monkeypatch.setattr("myia.push.PLATFORMS", {"feishu": _FakeAdapter})
+    monkeypatch.setattr("myssia.push.PLATFORMS", {"feishu": _FakeAdapter})
     code, responses, _ = rpc(
         {"id": 1, "method": "channels.refresh", "params": {"platform": "feishu"}},
     )
@@ -1641,14 +1641,14 @@ def test_channels_refresh_merges_and_persists(tmp_path, monkeypatch):
 def test_channels_refresh_no_discovery_platform_structured(tmp_path, monkeypatch):
     """W2 平台(ntfy/dingtalk/wecom)refresh:无自动发现 = discover_not_supported
     结构化说明(与 telegram 被动积累同族),不是 channel_refresh_failed;旧桶不动。"""
-    from myia.push import NtfyChannel
+    from myssia.push import NtfyChannel
 
     home = _messaging_home(tmp_path, monkeypatch, yaml_text=None)
     _write_directory(home, {"ntfy": [
         {"platform": "ntfy", "chat_id": "games", "name": "游戏台", "type": "channel",
          "thread_id": None, "last_seen": None}]})
 
-    monkeypatch.setattr("myia.push.PLATFORMS", {"ntfy": NtfyChannel})
+    monkeypatch.setattr("myssia.push.PLATFORMS", {"ntfy": NtfyChannel})
     code, responses, _ = rpc(
         {"id": 1, "method": "channels.refresh", "params": {"platform": "ntfy"}},
     )
@@ -1723,7 +1723,7 @@ def test_channels_alias_param_validation(tmp_path, monkeypatch):
 
 def test_push_write_full_replacement_roundtrip(tmp_path, monkeypatch):
     """push.write 正例:targets 全量替换落盘;注释/其他节逐字节保留;.bak 留底。"""
-    from myia.schema import load_category_file
+    from myssia.schema import load_category_file
 
     home = _messaging_home(tmp_path, monkeypatch)
     yaml_path = home / "plugins" / "messaging-demo.yaml"
@@ -1745,7 +1745,7 @@ def test_push_write_full_replacement_roundtrip(tmp_path, monkeypatch):
     result = responses[0]["result"]
     assert result["written"] is True
     assert result["changed"] is True
-    # myia run 同门:写回文件可装载,push 逐条对上
+    # myssia run 同门:写回文件可装载,push 逐条对上
     config = load_category_file(yaml_path)
     assert [push.channel for push in config.push] == ["feishu_card", "stdout"]
     assert config.push[0].targets == ["feishu:AI中转站合伙人群"]
@@ -1760,7 +1760,7 @@ def test_push_write_full_replacement_roundtrip(tmp_path, monkeypatch):
 
 def test_push_write_bad_targets_rejected_zero_write(tmp_path, monkeypatch):
     """push.write 拒写:坏 targets(跨平台前缀)→ category_invalid 且文件未变。"""
-    from myia.schema import load_category_file  # noqa: F401 — 门禁语义锚点
+    from myssia.schema import load_category_file  # noqa: F401 — 门禁语义锚点
 
     home = _messaging_home(tmp_path, monkeypatch)
     yaml_path = home / "plugins" / "messaging-demo.yaml"
@@ -1786,7 +1786,7 @@ def test_push_write_bad_targets_rejected_zero_write(tmp_path, monkeypatch):
 
 def test_push_write_empty_array_removes_section(tmp_path, monkeypatch):
     """push.write 空数组 = 摘除 push 节(品类允许无 push);再写回可复原。"""
-    from myia.schema import load_category_file
+    from myssia.schema import load_category_file
 
     home = _messaging_home(tmp_path, monkeypatch)
     yaml_path = home / "plugins" / "messaging-demo.yaml"
@@ -1849,7 +1849,7 @@ def test_push_write_fence_and_param_refusals(tmp_path, monkeypatch):
 
 def test_push_write_mid_file_block_and_template_roundtrip(tmp_path, monkeypatch):
     """push 块夹在文件中部(plugin: 节在后)同样可换;多行模板 literal 往返保真。"""
-    from myia.schema import load_category_file
+    from myssia.schema import load_category_file
 
     home = _messaging_home(
         tmp_path,
@@ -1875,7 +1875,7 @@ def test_push_write_mid_file_block_and_template_roundtrip(tmp_path, monkeypatch)
             'push:\n'
             '  - channel: stdout\n'
             'plugin:\n'
-            '  id: myia-mid\n'
+            '  id: myssia-mid\n'
             '  modes:\n'
             '    local:\n'
             '      compose: docker-compose.yml\n'
@@ -1898,7 +1898,7 @@ def test_push_write_mid_file_block_and_template_roundtrip(tmp_path, monkeypatch)
     assert responses[0]["result"]["changed"] is True
     config = load_category_file(yaml_path)
     assert config.push[0].template == template  # 多行模板逐字节往返
-    assert config.plugin is not None and config.plugin.id == "myia-mid"  # 后节未动
+    assert config.plugin is not None and config.plugin.id == "myssia-mid"  # 后节未动
     text = yaml_path.read_text(encoding="utf-8")
     assert "# 头部注释:push 之前的内容逐字节不动" in text
     assert text.index("plugin:") > text.index("push:")  # push 仍在 plugin 之前
@@ -2127,7 +2127,7 @@ def test_store_items_same_timestamp_pagination_to_exhaustion(tmp_path):
     翻页推进直至取尽(sum == 7 且零重复);单 before 会整批跳过同刻条目(对照)。"""
     from datetime import datetime, timezone
 
-    from myia.store.models import ItemRecord
+    from myssia.store.models import ItemRecord
     db = tmp_path / "same.db"
     store = SQLiteStore(str(db))
     moment = datetime(2026, 10, 2, 8, 0, tzinfo=timezone.utc)
@@ -2170,7 +2170,7 @@ def test_store_items_query_like_nocase(tmp_path):
     """C1×G1 query:title/content/source 三列 NOCASE LIKE;% 通配按字面匹配。"""
     from datetime import datetime, timezone
 
-    from myia.store.models import ItemRecord
+    from myssia.store.models import ItemRecord
     db = tmp_path / "query.db"
     store = SQLiteStore(str(db))
     base = datetime(2026, 10, 2, tzinfo=timezone.utc)
@@ -2378,7 +2378,7 @@ def test_cron_family_roundtrip(tmp_path):
     # runs:空账本 → 注入一行带摘要(run_summary_json)→ 随行解析
     code, responses, _ = rpc({"id": 8, "method": "cron.runs", "params": {"db": db}})
     assert responses[0]["result"]["count"] == 0
-    from myia.cron.jobs import CronJobs
+    from myssia.cron.jobs import CronJobs
 
     cron = CronJobs.for_db(db)
     row = cron.ledger.create_execution(job["id"], source="manual")
@@ -2535,7 +2535,7 @@ def test_cron_execute_job_emits_completed_event(monkeypatch):
 def test_cron_ticker_lifecycle_home_mode(tmp_path, monkeypatch):
     """ticker 起停干净(home 模式):supervisor + SupervisedTickerThread 双
     daemon 起、心跳真落盘(启动即首个心跳)、stop 后线程退出 + 句柄复位。"""
-    from myia.cron.jobs import CronJobs
+    from myssia.cron.jobs import CronJobs
 
     monkeypatch.setenv("MYIA_HOME", str(tmp_path))
     monkeypatch.setattr(entry, "CRON_TICK_INTERVAL_SECONDS", 0.05)
@@ -2545,7 +2545,7 @@ def test_cron_ticker_lifecycle_home_mode(tmp_path, monkeypatch):
     assert ticker is not None and ticker.is_alive()
     assert entry._CRON_STOP is not None
 
-    cron = CronJobs.for_db(tmp_path / "myia.db")
+    cron = CronJobs.for_db(tmp_path / "myssia.db")
     deadline = time.time() + 5.0
     while time.time() < deadline and cron.get_ticker_heartbeat_age() is None:
         time.sleep(0.02)
@@ -2569,7 +2569,7 @@ def test_cron_ticker_lifecycle_home_mode(tmp_path, monkeypatch):
 
 def test_cron_ticker_dev_mode_not_started():
     """dev 回退(home=None)不起 ticker:数据根落 cwd,起真 ticker 会污染
-    仓库目录;dev 常宿形态 = ``myia cron serve``(design §4.2 注记)。"""
+    仓库目录;dev 常宿形态 = ``myssia cron serve``(design §4.2 注记)。"""
     entry._start_cron_ticker()
     assert entry._CRON_SUPERVISOR is None
     assert entry._CRON_TICKER is None
@@ -2612,7 +2612,7 @@ def _seed_items_for_export(db, titles):
     """三个标题 + 类目/来源各异的可查询条目(新→旧入库)。"""
     from datetime import datetime, timezone
 
-    from myia.store.models import ItemRecord
+    from myssia.store.models import ItemRecord
     store = SQLiteStore(str(db))
     base = datetime(2026, 10, 3, tzinfo=timezone.utc)
     for index, (title, category, source) in enumerate(titles):
@@ -2746,7 +2746,7 @@ def test_push_test_sends_via_channel_with_target(monkeypatch):
             sent["items"] = list(items)
             sent["context"] = context
 
-    monkeypatch.setitem(entry.myia_push.CHANNELS, "feishu_card", FakeChannel)
+    monkeypatch.setitem(entry.myssia_push.CHANNELS, "feishu_card", FakeChannel)
     code, responses, _ = rpc(
         {"id": 1, "method": "push.test",
          "params": {"channel": "feishu_card", "target": "keychain:myia/feishu/chat_id"}},
@@ -2760,7 +2760,7 @@ def test_push_test_sends_via_channel_with_target(monkeypatch):
 
 # ---------------------------------------------------------------------------
 # feed.enrich(10-03-fe-small-batch G8,协议 v6 #43):单条情报卡 AI 摘要,
-# 骑 myia.enrich.LLMEnricher 同门管线(端点 env: 引用 + enrich_cache 复用)
+# 骑 myssia.enrich.LLMEnricher 同门管线(端点 env: 引用 + enrich_cache 复用)
 # ---------------------------------------------------------------------------
 
 
@@ -2809,7 +2809,7 @@ class _FakeCompletion:
         self.calls: list[str] = []
 
     async def complete(self, *, model: str, system: str, user: str):
-        from myia.enrich.client import CompletionResult
+        from myssia.enrich.client import CompletionResult
 
         self.calls.append(user)
         if self.fail:
@@ -2840,7 +2840,7 @@ def _seed_enrich_db(tmp_path: Path, *, category: str = "feed-enrich-demo") -> st
     """一条带 content 的种子条目(category 可指向不存在的品类测拒配)。"""
     from datetime import datetime, timezone
 
-    from myia.store.models import ItemRecord
+    from myssia.store.models import ItemRecord
 
     db = tmp_path / "enrich.db"
     store = SQLiteStore(str(db))
@@ -3357,7 +3357,7 @@ def test_image_server_ensure_paths(tmp_path, monkeypatch):
     探测统一桩死(dev 主机 8080 可能真跑着 mlx_vlm.server,测试绝不碰真网);
     ①走真 ensure 实现,②③走 entry 能力桩。
     """
-    import myia.vision.server as vision_server_module
+    import myssia.vision.server as vision_server_module
     monkeypatch.setattr(vision_server_module, "_probe",
                         lambda url, timeout=2.0: (False, False))
     home = _vision_home(tmp_path, monkeypatch)
@@ -3434,7 +3434,7 @@ def test_image_server_ensure_paths(tmp_path, monkeypatch):
 
 def test_image_server_ensure_single_flight_busy(tmp_path, monkeypatch):
     """ensure 单飞:慢路径进行中第二单结构化 ensure_busy(不排队不双起)。"""
-    import myia.vision.server as vision_server_module
+    import myssia.vision.server as vision_server_module
     monkeypatch.setattr(vision_server_module, "_probe",
                         lambda url, timeout=2.0: (False, False))
     _vision_home(tmp_path, monkeypatch)
@@ -3514,7 +3514,7 @@ def test_image_files_purge_rejects_bad_days(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # feedback.mark / feedback.list / feedback.stats + store.trend + version.app_version
 # (B2/B4/C10,10-03-v112-desktop-parity 第二切片;CLI 往返一致 = channel=desktop
-# 落 feedback 表,CLI `myia feedback list` 无过滤即见同一条目)
+# 落 feedback 表,CLI `myssia feedback list` 无过滤即见同一条目)
 # ---------------------------------------------------------------------------
 
 
@@ -3522,7 +3522,7 @@ def _seed_feedback_db(tmp_path: Path) -> str:
     """带一条目 + 一条既有 CLI 反馈的种子库(mark 往返的对照面)。"""
     from datetime import datetime, timezone
 
-    from myia.store.models import FEEDBACK_CHANNEL_CLI, FeedbackRecord, ItemRecord
+    from myssia.store.models import FEEDBACK_CHANNEL_CLI, FeedbackRecord, ItemRecord
 
     db = tmp_path / "feedback.db"
     store = SQLiteStore(str(db))
@@ -3607,7 +3607,7 @@ def test_store_trend_daily_counts_utc(tmp_path):
     """store.trend:items 按 first_seen UTC 逐日计数(旧→新);category 过滤 + 钳制。"""
     from datetime import datetime, timedelta, timezone
 
-    from myia.store.models import ItemRecord
+    from myssia.store.models import ItemRecord
 
     db = tmp_path / "trend.db"
     store = SQLiteStore(str(db))
@@ -3697,7 +3697,7 @@ def test_alerts_list_empty_is_legal_state(tmp_path):
 def test_alerts_save_full_replacement_keeps_ids(tmp_path):
     """save 全量替换(diff 保 id):建两条 → 改一条(保 id 翻启停)+ 删一条 +
     新增一条;fired_count/last_fired_at 自 alert_fired 派生(计数不落规则行)."""
-    from myia.store.models import AlertFired
+    from myssia.store.models import AlertFired
 
     db = tmp_path / "alerts.db"
     code, responses, _ = rpc({"id": 1, "method": "alerts.save", "params": {"db": str(db), "rules": [
@@ -3782,7 +3782,7 @@ def test_alerts_save_invalid_rule_zero_write(tmp_path):
 
 def test_alerts_delete_keeps_fired_history(tmp_path):
     """delete:删定义行 fired 历史照留(命中历史是事实);未知 id 结构化拒。"""
-    from myia.store.models import AlertFired
+    from myssia.store.models import AlertFired
 
     db = tmp_path / "alerts.db"
     code, responses, _ = rpc({"id": 1, "method": "alerts.save",
@@ -3812,7 +3812,7 @@ def _seed_alert_items(db, rows):
     """种库内条目(新→旧依序入库;返回 None,行 id 由调用方再查)."""
     from datetime import datetime, timezone
 
-    from myia.store.models import ItemRecord
+    from myssia.store.models import ItemRecord
 
     store = SQLiteStore(str(db))
     base = datetime(2026, 10, 4, tzinfo=timezone.utc)
@@ -3848,7 +3848,7 @@ def test_alerts_test_stored_rule_and_item_forms(tmp_path):
     """test 取材形态:rule_id+item_id(库内条目)/ 缺省最近一条 / already_fired
     预查;错误码 alert_not_found / item_not_found / alert_test_no_item /
     invalid_params(互斥门)."""
-    from myia.store.models import AlertFired
+    from myssia.store.models import AlertFired
 
     db = tmp_path / "alerts.db"
     code, responses, _ = rpc({"id": 1, "method": "alerts.save", "params": {"db": str(db), "rules": [
@@ -3899,7 +3899,7 @@ def test_alerts_test_stored_rule_and_item_forms(tmp_path):
 def test_alerts_test_mute_and_eval_error(tmp_path):
     """test 语义:mute 压制(effective mute = 反馈 0.0 权重词,命中即未命中
     不评估)与 eval_error 如实上报(引擎运行期 WARNING+未命中的同款事实)."""
-    from myia.store.models import TuningRecord
+    from myssia.store.models import TuningRecord
 
     db = tmp_path / "alerts.db"
     _seed_alert_items(db, [("某公司完成融资", "news")])
@@ -4006,7 +4006,7 @@ def test_alerts_fired_replay_only_new_hits_in_window(tmp_path):
     (崩窗/重跑防线是 UNIQUE 占坑,事件面不重复消费)."""
     from datetime import datetime, timedelta, timezone
 
-    from myia.store.models import AlertFired
+    from myssia.store.models import AlertFired
 
     db = tmp_path / "window.db"
     store = SQLiteStore(str(db))

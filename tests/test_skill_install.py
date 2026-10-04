@@ -1,4 +1,4 @@
-"""Tests for ``myia skill install|path`` — the Agent Skill install path (task 10-02-v11).
+"""Tests for ``myssia skill install|path`` — the Agent Skill install path (task 10-02-v11).
 
 PRD 10-02-v11-skill-install 验收的四类子行为,全部在临时目录完成:
 
@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from shishi.cli import EXIT_CONFIG_ERROR, EXIT_OK, main
+from myssia.cli import EXIT_CONFIG_ERROR, EXIT_OK, main
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 #: 被安装的源:仓库 canonical skill/SKILL.md(test_skill_doc.py 锁定不漂移)。
@@ -62,7 +62,7 @@ def run_plain(argv: list[str], capsys: pytest.CaptureFixture[str]) -> int:
 
 
 # ---------------------------------------------------------------------------
-# myia skill path
+# myssia skill path
 # ---------------------------------------------------------------------------
 
 
@@ -106,7 +106,7 @@ def test_skill_path_human_mode_mentions_agent_paths(capsys):
 
 
 # ---------------------------------------------------------------------------
-# myia skill install — 四类子行为(PRD 验收)
+# myssia skill install — 四类子行为(PRD 验收)
 # ---------------------------------------------------------------------------
 
 

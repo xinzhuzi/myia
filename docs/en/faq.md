@@ -83,13 +83,13 @@ Config files get copied, committed, shared — plaintext credentials are the
 first leak. 世事 refuses plaintext values under credential-like keys **at
 load time** (error type `credential_plaintext`, exit code 1) and accepts
 only `env:` / `keychain:myia/<scope>/<name>` references; values are never
-echoed, never logged. `myia doctor --json` probes every reference and hands
+echoed, never logged. `myssia doctor --json` probes every reference and hands
 you a repair action.
 
 ### Will my cookies leak?
 
 Credentials stored in the OS keychain (macOS Keychain / Windows DPAPI) never
-enter the repository, config files or logs; `myia secret list` shows names
+enter the repository, config files or logs; `myssia secret list` shows names
 only. The repository is public — zero credentials, intranet addresses or
 production corpora in the repo is the project's own red line, and every
 credential slot in the official plugins is a reference placeholder.
@@ -98,7 +98,7 @@ credential slot in the official plugins is a reference placeholder.
 
 ### Where does data live? Does it grow forever?
 
-One SQLite file (default `./myia.db`, override with `--db`).
+One SQLite file (default `./myssia.db`, override with `--db`).
 `storage.retention` (default `90d`) purges expired items automatically and
 `storage.vacuum` (default `monthly`) reclaims space periodically; categories
 declaring `baseline:` keep numeric history for twice the item retention (so
@@ -106,7 +106,7 @@ the week-over-week window stays complete).
 
 ### Why were my items dropped?
 
-Three normal drop paths, all visible in `myia run --json` under
+Three normal drop paths, all visible in `myssia run --json` under
 `stages[].skips`:
 
 1. **`classify_unmatched`**: the built-in seven-category scan
@@ -154,8 +154,8 @@ timestamps further apart than `window_hours` never reach the LLM at all.
 
 ### A source broke — now what?
 
-The agent-facing repair loop: fix the YAML → `myia test --json` to verify
-extraction → `myia doctor --json` until `findings` is empty → `--dry-run`
+The agent-facing repair loop: fix the YAML → `myssia test --json` to verify
+extraction → `myssia doctor --json` until `findings` is empty → `--dry-run`
 rehearsal → a real run. The source health state machine
 (`ok`/`degraded`/`dead`/`unknown`) and the findings→repair table live in the
 self-diagnosis section of the [plugin guide](write-a-plugin.md).
@@ -175,5 +175,5 @@ Nothing — the core pipeline keeps running. A scenario plugin (declared in
 the `plugin:` section) that cannot install, is misconfigured, or whose
 remote is unreachable degrades to one structured finding; the rest of the
 category keeps fetching and pushing (the desktop tool's lifeline). Manage
-with `myia plugin list / install / remove`; the community directory is at
+with `myssia plugin list / install / remove`; the community directory is at
 `plugins/community/README.md`.

@@ -150,7 +150,7 @@ export interface PushWriteResult {
 }
 
 /** bridge.status 应答(微信桥接探测;形状逐字段对照 desktop/entry.py
- * `_m_bridge_status` → shishi.push.weixin.probe_bridge 的 BridgeStatus)。 */
+ * `_m_bridge_status` → myssia.push.weixin.probe_bridge 的 BridgeStatus)。 */
 export interface BridgeStatusView {
   available: boolean;
   reason: string | null;
@@ -390,8 +390,8 @@ export async function alertsTest(params: AlertsTestParams): Promise<AlertTestRes
 // ---------------------------------------------------------------------------
 
 /**
- * push 动作 channel 下拉名集 = `shishi.push.CHANNELS` 键集镜像(30 条:
- * 8 核心 + W3 长尾 22;同步源 src/shishi/push/__init__.py:181-191)。
+ * push 动作 channel 下拉名集 = `myssia.push.CHANNELS` 键集镜像(30 条:
+ * 8 核心 + W3 长尾 22;同步源 src/myssia/push/__init__.py:181-191)。
  * UI 只做名集提示,凭据解析在执行期(品类 push[] 第一个此类型通道,
  * 未配置则降级不发 —— design §7.1)。
  */

@@ -10,7 +10,7 @@ Everything the six engine layers share lives here once (PRD 10-01-v01-fetch-base
   conditional requests), normalized-body hash fallback; baselines are read and
   written through the pluggable ``Store`` (change_baseline table);
 - credentials: ``env:VAR`` / ``keychain:NAME`` header references resolved at
-  engine construction — keychain goes through :mod:`myia.secrets` (macOS
+  engine construction — keychain goes through :mod:`myssia.secrets` (macOS
   Keychain / Windows DPAPI); tests inject a mock backend via
   :attr:`FetchContext.keychain_backend`;
 - proxy: ``direct`` and (v0.2 task v02-proxy-transport) ``pool:<name>`` take
@@ -24,7 +24,7 @@ Everything the six engine layers share lives here once (PRD 10-01-v01-fetch-base
   摘除 + 半开单飞恢复,全部上游摘除即池熔断
   (:class:`ProxyPoolExhaustedError`,零网络快速失败)。
   ``residential:`` stays a structured not-implemented error (v0.3,
-  dynamic residential pools with the myia-proxy plugin).
+  dynamic residential pools with the myssia-proxy plugin).
 
 Extraction helpers (``json_path`` for APIs, CSS ``list``/``item`` for HTML,
 ``rss`` for feeds via feedparser) also live here so direct_api / static_html /
@@ -57,8 +57,8 @@ import httpx
 import yaml
 from selectolax.parser import HTMLParser
 
-from myia.dedup import DedupRegistry
-from myia.schema import (  # noqa: F401 - _UniqueKeyLoader 复用其重复键拒载行为
+from myssia.dedup import DedupRegistry
+from myssia.schema import (  # noqa: F401 - _UniqueKeyLoader 复用其重复键拒载行为
     ExtractConfig,
     RateLimitConfig,
     SchemaValueError,
@@ -70,15 +70,15 @@ from myia.schema import (  # noqa: F401 - _UniqueKeyLoader 复用其重复键拒
     parse_secret_value,
     resolve_credential,
 )
-from myia.secrets import KeychainBackend
-from myia.store import Store
+from myssia.secrets import KeychainBackend
+from myssia.store import Store
 
 logger = logging.getLogger(__name__)
 
 # 后端端点解析值不落日志(llm_browser/firecrawl 模块契约同旨):httpx 自身的
 # INFO 请求行("HTTP Request: POST https://host/...")内嵌完整 URL —— 含凭据
 # 引用解析出的后端端点 —— 本模块的脱敏盖不住第三方 logger,只能把它的 INFO
-# 压掉;请求生命周期日志由 myia 自己的 logger 负责(logging.md 级别语义)。
+# 压掉;请求生命周期日志由 myssia 自己的 logger 负责(logging.md 级别语义)。
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 __all__ = [
@@ -146,7 +146,7 @@ RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 KEY_ROTATE_STATUS_CODES = frozenset({401, 403, 429})
 
 # grill Q4 (2026-10-01): pool -> single upstream transport shipped in v0.2
-# (task v02-proxy-transport); residential -> pool rotation (v0.3, myia-proxy
+# (task v02-proxy-transport); residential -> pool rotation (v0.3, myssia-proxy
 # plugin) and stays a structured not-implemented error until then.
 PROXY_SCHEDULE: dict[str, tuple[str, str]] = {
     "residential": ("v0.3", "住宅代理池轮换"),
@@ -156,7 +156,7 @@ PROXY_SCHEDULE: dict[str, tuple[str, str]] = {
 # socks support comes from the httpx[socks] extra, pyproject 已声明).
 SUPPORTED_PROXY_SCHEMES = ("http", "https", "socks5", "socks5h")
 
-# Lightweight unauthenticated endpoint for ``myia doctor`` connectivity probes
+# Lightweight unauthenticated endpoint for ``myssia doctor`` connectivity probes
 # (answers with the proxy egress IP as ``{"ip": ...}`` JSON; the pipeline
 # itself never calls it).
 DEFAULT_PROXY_PROBE_URL = "https://api.ipify.org/?format=json"
@@ -193,7 +193,7 @@ class FetchError(RuntimeError):
 
     Attributes:
         error_type: machine-readable class (network / parse / robots_disallowed
-            / ...), consumed by the degrade chain and ``myia doctor``.
+            / ...), consumed by the degrade chain and ``myssia doctor``.
     """
 
     def __init__(self, message: str, *, error_type: str = "fetch_error") -> None:
@@ -362,7 +362,7 @@ def resolve_headers(
 
     ``Cookie: env:LINUXSB_COOKIE``, ``Cookie: keychain:myia/stocks/name`` and
     ``Authorization: Bearer env:T`` expand at engine construction; keychain
-    names go through :mod:`myia.secrets` (canonical ``myia/<scope>/<name>``
+    names go through :mod:`myssia.secrets` (canonical ``myia/<scope>/<name>``
     namespace). ``User-Agent``-style plain values are untouched.
 
     Args:
@@ -508,7 +508,7 @@ def expand_proxy_url(raw: str, *, backend: KeychainBackend | None = None) -> str
         raw: the configured proxy URL (credentials as references).
         backend: injected keychain backend for ``keychain:`` references
             (``None`` = system keyring discovery), same contract as
-            :func:`myia.schema.resolve_credential`.
+            :func:`myssia.schema.resolve_credential`.
 
     Returns:
         The concrete proxy URL, ready for ``httpx.AsyncClient(proxy=...)``.
@@ -544,7 +544,7 @@ def _split_proxy_credential_refs(userinfo: str) -> list[str]:
     colon-splitting cannot work; instead the whole userinfo is tried as ONE
     reference (the whole ``user:pass`` segment) first, then every colon
     position as a 用户引用:密码引用 pair. Grammar stays canonical in
-    :func:`myia.schema.parse_secret_value` — 这里零重复定义.
+    :func:`myssia.schema.parse_secret_value` — 这里零重复定义.
 
     Raises:
         SchemaValueError: the userinfo is neither a valid single reference nor
@@ -900,7 +900,7 @@ def load_proxy_pools_file(path: str | Path) -> ProxyPools:
     """Read the global config file and validate its ``pools`` declaration.
 
     默认文件定位由 CLI 任务(v02-cli-full)决定;本函数只负责读取+校验。
-    错误映射与 :func:`myia.schema.load_category_file` 同契约,重复键同样拒载
+    错误映射与 :func:`myssia.schema.load_category_file` 同契约,重复键同样拒载
     (复用 schema 的 :class:`_UniqueKeyLoader`,私有名引用是有意为之)。
 
     Args:
@@ -1002,7 +1002,7 @@ class ProxyPoolTransport:
     """
 
     #: 出网恒经代理上游 —— 图片环的连接层 SSRF 复核据此跳过(server_addr
-    #: 是代理地址而非目标站 IP,复核必误杀;myia.vision.collect 消费)。
+    #: 是代理地址而非目标站 IP,复核必误杀;myssia.vision.collect 消费)。
     is_proxy_egress = True
 
     def __init__(
@@ -1245,7 +1245,7 @@ class ProxyPoolTransport:
 
 @dataclass(frozen=True)
 class ProxyCheckResult:
-    """One proxy connectivity probe (``myia doctor`` 消费形态,to_dict 即 JSON).
+    """One proxy connectivity probe (``myssia doctor`` 消费形态,to_dict 即 JSON).
 
     凭据永不入结果:上游只以 :func:`mask_proxy_url` 形态出现。
     """
@@ -1259,7 +1259,7 @@ class ProxyCheckResult:
     error_type: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Machine-readable form for ``myia doctor --json`` and agents."""
+        """Machine-readable form for ``myssia doctor --json`` and agents."""
         return {
             "ok": self.ok,
             "message": self.message,
@@ -1846,7 +1846,7 @@ def extract_rss(text: str, extract: ExtractConfig) -> list[dict]:
     """Apply an ``rss`` extract config to a fetched feed body (feedparser).
 
     ``fields`` values name feedparser entry attributes — closed whitelist
-    :data:`myia.schema.RSS_ENTRY_FIELDS`, enforced at load time (拼错即拒);
+    :data:`myssia.schema.RSS_ENTRY_FIELDS`, enforced at load time (拼错即拒);
     per entry an attribute the feed does not carry is simply omitted from
     that record(逐条目语义,同 json_path;标题/链接齐、缺作者的条目照常
     产出)。A malformed feed never raises: feedparser surfaces it as the
@@ -1944,7 +1944,7 @@ class FetchContext:
     same-host sources. ``clock``/``sleep`` are injectable so tests never wait;
     production uses the defaults (monotonic clock, ``asyncio.sleep``).
     ``keychain_backend`` injects the keychain store for ``keychain:`` header
-    references (tests: :class:`myia.secrets.InMemoryKeychainBackend`;
+    references (tests: :class:`myssia.secrets.InMemoryKeychainBackend`;
     ``None`` = lazily discovered system keyring).
     ``proxy_pools`` injects the global pools declaration (v0.2 proxy
     transport / v1.2 池化): sources with ``proxy: pool:<name>`` share ONE

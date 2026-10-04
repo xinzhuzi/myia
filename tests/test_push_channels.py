@@ -22,9 +22,9 @@ from typing import Any
 import httpx
 import pytest
 
-from shishi.dedup import DedupRegistry
-from shishi.push import telegram as _module
-from shishi.push import (
+from myssia.dedup import DedupRegistry
+from myssia.push import telegram as _module
+from myssia.push import (
     CHANNELS,
     PLATFORMS,
     Channel,
@@ -36,9 +36,9 @@ from shishi.push import (
     route,
     send_immediate,
 )
-from shishi.push.telegram import MESSAGE_LIMIT, build_message, split_message
-from shishi.push.webhook import build_payload
-from shishi.store import SQLiteStore
+from myssia.push.telegram import MESSAGE_LIMIT, build_message, split_message
+from myssia.push.webhook import build_payload
+from myssia.store import SQLiteStore
 
 # Fixed +08:00 offset: deterministic slot math regardless of machine TZ.
 TIMEZONE = timezone(timedelta(hours=8))
@@ -53,7 +53,7 @@ def local_dt(hour: int, minute: int = 0) -> datetime:
 def _channel_credentials(monkeypatch):
     """Default credential env for the helper-built channels (tests may override)."""
     monkeypatch.setenv("MYIA_TEST_TG_CHAT", "424242")
-    monkeypatch.setenv("MYIA_TEST_HOOK_URL", "https://example.com/myia-hook")
+    monkeypatch.setenv("MYIA_TEST_HOOK_URL", "https://example.com/myssia-hook")
 
 
 class SleepRecorder:
@@ -279,7 +279,7 @@ def test_webhook_send_posts_payload_with_render_data_and_item_metadata():
     ]
     asyncio.run(channel.send(items, DIGEST_CONTEXT))
     assert len(calls) == 1
-    assert calls[0]["url"] == "https://example.com/myia-hook"
+    assert calls[0]["url"] == "https://example.com/myssia-hook"
     payload = calls[0]["body"]
     assert payload["channel"] == "webhook"
     assert payload["kind"] == "digest"
@@ -448,7 +448,7 @@ def test_webhook_channel_rejects_negative_retry_config():
 
 def test_route_digest_and_slot_suppression_flow_through_new_channels(tmp_path, monkeypatch):
     monkeypatch.setenv("MYIA_TEST_TG_CHAT", "424242")
-    monkeypatch.setenv("MYIA_TEST_HOOK_URL", "https://example.com/myia-hook")
+    monkeypatch.setenv("MYIA_TEST_HOOK_URL", "https://example.com/myssia-hook")
     tg_calls: list[dict] = []
     hook_calls: list[dict] = []
     tg_client = httpx.AsyncClient(transport=_mock_telegram(tg_calls))
@@ -539,7 +539,7 @@ def test_new_channels_conform_to_channel_protocol_and_registry():
 # ---------------------------------------------------------------------------
 
 #: W3 长尾 22 家通道名(组一 Slack 系 8 + 组二 Matrix 系 8 + 组三长尾壳 6);
-#: 与 shishi.push._W3_LONGTAIL_CHANNELS、schema._W3_LONGTAIL 一一对应。
+#: 与 myssia.push._W3_LONGTAIL_CHANNELS、schema._W3_LONGTAIL 一一对应。
 W3_LONGTAIL_NAMES = (
     "slack",
     "discord",
@@ -587,7 +587,7 @@ class TestW3LongtailRegistry:
         # 通道计数如实:8 既有 + 22 长尾 = 30 通道;28 家支持目录寻址
         # (webhook/stdout 不支持;feishu_card 通道名经 schema 的
         # CHANNEL_PLATFORMS 映射到平台名 feishu,其余 29+27 家平台名 = 通道名)。
-        from shishi.schema import CHANNEL_PLATFORMS
+        from myssia.schema import CHANNEL_PLATFORMS
 
         assert len(CHANNELS) == 30
         assert len(PLATFORMS) == 28

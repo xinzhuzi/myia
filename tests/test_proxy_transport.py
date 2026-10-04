@@ -23,8 +23,8 @@ from typing import Any, Callable
 import httpx
 import pytest
 
-from myia.engines.direct_api import DirectAPIEngine
-from myia.engines.fetch_base import (
+from myssia.engines.direct_api import DirectAPIEngine
+from myssia.engines.fetch_base import (
     DEFAULT_PROXY_PROBE_URL,
     ProxyConfigError,
     ProxyNotSupportedError,
@@ -39,8 +39,8 @@ from myia.engines.fetch_base import (
     load_proxy_pools_file,
     mask_proxy_url,
 )
-from myia.schema import CredentialResolveError, LoadError
-from myia.secrets import InMemoryKeychainBackend
+from myssia.schema import CredentialResolveError, LoadError
+from myssia.secrets import InMemoryKeychainBackend
 
 from conftest import make_client, make_context, make_handler, make_source, run
 
@@ -78,7 +78,7 @@ def recorder_client(
         clients.append(client)
         return client
 
-    monkeypatch.setattr("myia.engines.fetch_base.httpx.AsyncClient", factory)
+    monkeypatch.setattr("myssia.engines.fetch_base.httpx.AsyncClient", factory)
     return recorded, clients
 
 
@@ -643,7 +643,7 @@ def test_doctor_pool_probes_run_concurrently_in_declared_order(monkeypatch):
     """
     import asyncio
 
-    from myia import cli
+    from myssia import cli
 
     class _Pools:
         """duck-typed ProxyPools:三池 + 一个凭据解析失败池(隔离用例)。

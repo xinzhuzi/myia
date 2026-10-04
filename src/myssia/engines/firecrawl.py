@@ -30,14 +30,14 @@ from typing import Any
 
 import httpx
 
-from shishi.engines.fetch_base import (
+from myssia.engines.fetch_base import (
     BaseEngine,
     ExtractionError,
     FetchError,
     extract_html,
     mask_endpoint_url,
 )
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.schema import CredentialResolveError, resolve_credential
 
 logger = logging.getLogger(__name__)
 

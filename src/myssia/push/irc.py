@@ -24,7 +24,7 @@ PING)、``_sa_register``(NICK 碰撞重试)、``_sa_join``(显式拒绝才算失
 
 错误语义:协议级拒绝(数字回执)抛 ``irc_api_error``,文案保留
 ``IRC <numeric> <名称>`` 原厂片段——按 core 分类表
-(:func:`shishi.push.delivery.classify_dead_error`)``IRC 403
+(:func:`myssia.push.delivery.classify_dead_error`)``IRC 403
 ERR_NOSUCHCHANNEL``(频道不存在)→ chat 级 not_found 硬死信(复核 D1:
 裸 ``403`` marker 收敛为锚定形态后,IRC 403 以原厂片段归位 not_found
 家族——硬死信语义不变,仅家族标签校正);429/5xx/超时
@@ -35,7 +35,7 @@ ERR_NOSUCHCHANNEL``(频道不存在)→ chat 级 not_found 硬死信(复核 D1:
 优先,退回 legacy ``target`` 引用;两路全缺报 ``missing_target``。直达解析
 ``#频道``/``&频道``(sigil 形态);裸 nick DM 不设直达(与中文别名撞形),
 经目录登记。目录无自动发现(IRC 无列表 API,蓝本事实),抛
-:class:`~shishi.push.directory.DirectoryDiscoverUnsupported`。
+:class:`~myssia.push.directory.DirectoryDiscoverUnsupported`。
 
 凭据安全基线同其余通道:server/nick/密码只写 ``env:``/``keychain:`` 引用,
 发送期才解析;错误文案只带引用名。测试经 ``connect``/``sleep`` 注入点 mock,
@@ -51,12 +51,12 @@ import re
 import ssl
 from typing import Any, Awaitable, Callable, Sequence
 
-from shishi.push.base import PushSendError, SendContext, TrendAwareChannel
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.ntfy import build_message
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.base import PushSendError, SendContext, TrendAwareChannel
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.ntfy import build_message
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "CONNECT_TIMEOUT_SECONDS",

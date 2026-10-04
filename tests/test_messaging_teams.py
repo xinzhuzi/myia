@@ -23,11 +23,11 @@ from typing import Any
 import httpx
 import pytest
 
-from shishi.push.base import PushSendError, SendContext
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.teams import MESSAGE_LIMIT, TeamsChannel, build_card
-from shishi.push.targets import (
+from myssia.push.base import PushSendError, SendContext
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.teams import MESSAGE_LIMIT, TeamsChannel, build_card
+from myssia.push.targets import (
     RESOLVED_DIRECT,
     RESOLVED_DIRECTORY_NAME,
     ChannelTarget,
@@ -204,7 +204,7 @@ class TestAddressing:
         assert target.resolved_from == RESOLVED_DIRECT
 
     def test_resolve_via_directory_name(self, tmp_path):
-        from shishi.push.directory import ChannelEntry
+        from myssia.push.directory import ChannelEntry
 
         directory = ChannelDirectory(tmp_path)
         directory.merge_entries(

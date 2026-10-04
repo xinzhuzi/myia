@@ -1,8 +1,8 @@
-# myia-classifier
+# myssia-classifier
 
-MYIA 七大类关键词分类引擎,独立 pip 包:零运行时依赖、免费/付费双信号裁决、数据与代码分离、命中可追溯。
+myssia 七大类关键词分类引擎,独立 pip 包:零运行时依赖、免费/付费双信号裁决、数据与代码分离、命中可追溯。
 
-从 MYIA 核心的分类层(`myia.classify`)拆出,忠实移植生产爬虫关键词分类器(2026-09-28 纠错版,金测集钉住语义)。可脱离 MYIA 单独引用,MYIA 核心也以固定版本范围依赖本包。
+从 myssia 核心的分类层(`myssia.classify`)拆出,忠实移植生产爬虫关键词分类器(2026-09-28 纠错版,金测集钉住语义)。可脱离 myssia 单独引用,myssia 核心也以固定版本范围依赖本包。
 
 ## 特性
 
@@ -15,12 +15,12 @@ MYIA 七大类关键词分类引擎,独立 pip 包:零运行时依赖、免费/�
 
 ## 安装
 
-尚未上架 PyPI;在那之前从 MYIA 仓库以 uv workspace 安装(`git clone https://github.com/xinzhuzi/MYIA && cd MYIA && uv sync`),PyPI 上架后即可 `pip install myia-classifier`。
+尚未上架 PyPI;在那之前从 myssia 仓库以 uv workspace 安装(`git clone https://github.com/xinzhuzi/myssia && cd myssia && uv sync`),PyPI 上架后即可 `pip install myssia-classifier`。
 
 ## 最小示例
 
 ```python
-from myia_classifier import classify_item
+from myssia_classifier import classify_item
 
 result = classify_item({"title": "Claude 免费领100$"})
 print(result.category)  # "token"
@@ -36,7 +36,7 @@ for evidence in result.matched:
 规则读取条目字段(字典键或对象属性),在粗分类之上打 tag:
 
 ```python
-from myia_classifier import Rule, classify_item
+from myssia_classifier import Rule, classify_item
 
 rule = Rule(name="big-move", when="abs(change_pct) >= 3", tag="大波动")
 result = classify_item({"title": "NVDA 盘前大跌", "change_pct": -4.2}, rules=[rule])
@@ -47,10 +47,10 @@ print(result.tags)  # ["大波动"]
 
 ## 自定义词表
 
-默认词表随包分发(`myia_classifier/data/keywords.json`);也可以加载自己的 JSON:
+默认词表随包分发(`myssia_classifier/data/keywords.json`);也可以加载自己的 JSON:
 
 ```python
-from myia_classifier import load_table, classify_title
+from myssia_classifier import load_table, classify_title
 
 table = load_table()  # 缺省即打包词表;自定义时传自己的 JSON 路径(结构非法时结构化报错)
 print(classify_title("便宜出极速服务器三台", table).category)  # "server"(打包词表实测命中)
@@ -60,10 +60,10 @@ print(classify_title("便宜出极速服务器三台", table).category)  # "serv
 
 ## 从 YAML 加载规则
 
-`load_rules` 可直接读取 MYIA 插件 YAML 的 `classify.rules` 节(需要环境里装有 PyYAML;本包不把它列为依赖):
+`load_rules` 可直接读取 myssia 插件 YAML 的 `classify.rules` 节(需要环境里装有 PyYAML;本包不把它列为依赖):
 
 ```python
-from myia_classifier import load_rules
+from myssia_classifier import load_rules
 
 rules = load_rules("plugin.yaml")
 ```

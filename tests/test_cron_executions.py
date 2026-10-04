@@ -31,15 +31,15 @@ from typing import Any, Optional
 
 import pytest
 
-from myia.cron import executions as cron_exec
-from myia.cron.executions import ExecutionLedger
+from myssia.cron import executions as cron_exec
+from myssia.cron.executions import ExecutionLedger
 
 UTC = timezone.utc
 
 
 @pytest.fixture()
 def ledger(tmp_path: Any) -> ExecutionLedger:
-    return ExecutionLedger.for_db(tmp_path / "myia.db")
+    return ExecutionLedger.for_db(tmp_path / "myssia.db")
 
 
 def seed_row(
@@ -84,7 +84,7 @@ def live_child() -> Any:
 
 
 def test_for_db_derives_db_path_and_bootstraps(tmp_path: Any) -> None:
-    ledger = ExecutionLedger.for_db(tmp_path / "myia.db")
+    ledger = ExecutionLedger.for_db(tmp_path / "myssia.db")
     assert ledger.data_root == tmp_path
     assert ledger.db_path == tmp_path / "cron" / "executions.db"
     assert not ledger.db_path.exists()

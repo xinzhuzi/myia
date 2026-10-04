@@ -1,7 +1,7 @@
 """Feedback ingestion: normalize verdicts, resolve items, write the table.
 
-The receiving layer sits in front of :class:`shishi.store.Store` so all three
-delivery paths (CLI ``myia feedback mark`` / TG ``getUpdates`` callback /
+The receiving layer sits in front of :class:`myssia.store.Store` so all three
+delivery paths (CLI ``myssia feedback mark`` / TG ``getUpdates`` callback /
 飞书卡片回调端点) land identical rows: verdict normalized to ``good``/
 ``bad``, the item resolved for the association, and title/category
 snapshotted at feedback time — the snapshots keep 负反馈 Top 类目/词 statistics
@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Mapping
 
-from shishi.store import (
+from myssia.store import (
     FEEDBACK_BAD,
     FEEDBACK_GOOD,
     FEEDBACK_VERDICTS,

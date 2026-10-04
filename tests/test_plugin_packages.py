@@ -1,13 +1,13 @@
 """官方七件场景件(plugin packages)的封装契约测试(PRD 10-01-v03-plugin-market
 及其 v1.1 架构转向,PRD 10-02-v11-plugins-source-arch;10-03-aipocket-fusion
-接入线增 myia-credhunter).
+接入线增 myssia-credhunter).
 
 七个 ``plugins/<id>/`` 目录是市场插件包:每包含 ``plugin.yaml``(manifest,
-规范见 :mod:`shishi.plugins.manifest`)+ README + 桌面路径声明。三条被钉住的
+规范见 :mod:`myssia.plugins.manifest`)+ README + 桌面路径声明。三条被钉住的
 契约:
 
 1. 各件 manifest 全部过真实校验入口 :func:`load_manifest_file`:id==目录名、
-   版本矩阵兼容当前 myia、**tier 分级**(desktop/remote/server-only)与
+   版本矩阵兼容当前 myssia、**tier 分级**(desktop/remote/server-only)与
    定级一致、remote 端点只用 example.com 占位域(公开仓库红线);
 2. **remote 模式 mock 往返**:MockTransport 拦截端点探测,零真实网络;
 3. **铁律呼应**:损坏/未装的插件包只降级为 warning finding,核心品类加载
@@ -33,42 +33,42 @@ import httpx
 import pytest
 import yaml
 
-from shishi import __version__ as shishi_version
-from shishi.pipeline import Pipeline
-from shishi.plugins import VersionRange, check_category_plugin, check_remote_modes
-from shishi.plugins.installed import InstalledPluginStore
-from shishi.plugins.manifest import load_manifest_file
-from shishi.schema import load_category_file
-from shishi.secrets import InMemoryKeychainBackend
-from shishi.secrets import reset_backend as reset_keychain_backend
-from shishi.secrets import set_backend as set_keychain_backend
+from myssia import __version__ as myssia_version
+from myssia.pipeline import Pipeline
+from myssia.plugins import VersionRange, check_category_plugin, check_remote_modes
+from myssia.plugins.installed import InstalledPluginStore
+from myssia.plugins.manifest import load_manifest_file
+from myssia.schema import load_category_file
+from myssia.secrets import InMemoryKeychainBackend
+from myssia.secrets import reset_backend as reset_keychain_backend
+from myssia.secrets import set_backend as set_keychain_backend
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_DIR = REPO_ROOT / "plugins"
 #: 场景件的服务端可选部署(v1.1 起迁出插件目录):docker/plugins/<id>/compose.yml。
 DOCKER_PLUGINS_DIR = REPO_ROOT / "docker" / "plugins"
 
-#: 七件官方场景件(目录名 == manifest id)。myia-credhunter 于
+#: 七件官方场景件(目录名 == manifest id)。myssia-credhunter 于
 #: 10-03-aipocket-fusion 接线段加入:进程内三 lane 凭证猎手(desktop)。
 OFFICIAL_PACKAGES = (
-    "myia-proxy",
-    "myia-osint",
-    "myia-douyin",
-    "myia-monitor",
-    "myia-maxun",
-    "myia-credentials",
-    "myia-credhunter",
+    "myssia-proxy",
+    "myssia-osint",
+    "myssia-douyin",
+    "myssia-monitor",
+    "myssia-maxun",
+    "myssia-credentials",
+    "myssia-credhunter",
 )
 
 #: v1.1 定级建议(PRD 10-02-v11-plugins-source-arch 复核表)钉死的期望分级。
 EXPECTED_TIERS = {
-    "myia-proxy": "desktop",
-    "myia-osint": "desktop",
-    "myia-monitor": "remote",
-    "myia-credentials": "remote",
-    "myia-douyin": "server-only",
-    "myia-maxun": "server-only",
-    "myia-credhunter": "desktop",
+    "myssia-proxy": "desktop",
+    "myssia-osint": "desktop",
+    "myssia-monitor": "remote",
+    "myssia-credentials": "remote",
+    "myssia-douyin": "server-only",
+    "myssia-maxun": "server-only",
+    "myssia-credhunter": "desktop",
 }
 
 
@@ -95,10 +95,10 @@ class TestPackageManifests:
         assert re.fullmatch(r"\d+\.\d+\.\d+", manifest.version)
 
     @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)
-    def test_version_matrix_declares_compatible_myia_range(self, package: str):
-        """每件都声明兼容 myia 的版本范围,且当前版本落在其中。"""
+    def test_version_matrix_declares_compatible_myssia_range(self, package: str):
+        """每件都声明兼容 myssia 的版本范围,且当前版本落在其中。"""
         manifest = load_package(package)
-        assert VersionRange(manifest.compatible).contains(shishi_version)
+        assert VersionRange(manifest.compatible).contains(myssia_version)
 
     @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)
     def test_requires_stays_inside_closed_vocabulary(self, package: str):
@@ -114,14 +114,14 @@ class TestPackageManifests:
 
     def test_remote_only_package_ships_no_compose(self):
         """v1.1 起所有官方包都不再携带本地部署文件(不只 credentials)。"""
-        manifest = load_package("myia-credentials")
+        manifest = load_package("myssia-credentials")
         assert manifest.modes.local is None
         assert manifest.modes.remote is not None
-        assert not (package_dir("myia-credentials") / "docker-compose.yml").exists()
+        assert not (package_dir("myssia-credentials") / "docker-compose.yml").exists()
 
     @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)
     def test_v11_tier_matches_prd_table(self, package: str):
-        """v1.1 分级与 PRD 定级表一字不差(myia plugin list 据此展示)。"""
+        """v1.1 分级与 PRD 定级表一字不差(myssia plugin list 据此展示)。"""
         manifest = load_package(package)
         assert manifest.tier == EXPECTED_TIERS[package]
         assert manifest.tier in ("desktop", "remote", "server-only")
@@ -130,7 +130,7 @@ class TestPackageManifests:
     def test_no_manifest_declares_local_compose_anymore(self, package: str):
         """桌面优先(v1.1):manifest 不再声明 local compose 模式。
 
-        10-03-aipocket-fusion 起 myia-credhunter 是例外形状:纯进程内源码件
+        10-03-aipocket-fusion 起 myssia-credhunter 是例外形状:纯进程内源码件
         声明 ``modes.local.install``(市场安装命令,**无 compose**)——禁的是
         插件目录携带本地部署 compose,不是禁 local 安装形态本身。
         """
@@ -162,7 +162,7 @@ class TestPackageManifests:
 
     def test_docker_plugins_dir_holds_exactly_the_five_composes(self):
         """迁出的部署文件落在 docker/plugins/<id>/compose.yml,五件不多不少。"""
-        expected = {"myia-proxy", "myia-osint", "myia-monitor", "myia-douyin", "myia-maxun"}
+        expected = {"myssia-proxy", "myssia-osint", "myssia-monitor", "myssia-douyin", "myssia-maxun"}
         found = {path.parent.name for path in DOCKER_PLUGINS_DIR.glob("*/compose.yml")}
         assert found == expected
 
@@ -197,7 +197,7 @@ class TestPackageManifests:
         assert token.startswith("keychain:myia/")
         name = token.split(":", 1)[1]
         assert name.count("/") == 2, f"token 应为 myia/<scope>/<name>:{name}"
-        assert name.split("/")[1] == package.removeprefix("myia-"), (
+        assert name.split("/")[1] == package.removeprefix("myssia-"), (
             "token scope 应与插件名对应"
         )
 
@@ -239,7 +239,7 @@ def test_plugin_compose_parses_and_holds_no_plaintext_secrets(compose_path: Path
 class TestCategoryWiring:
     @pytest.mark.parametrize(
         ("category", "package"),
-        [("monitor", "myia-monitor"), ("credentials", "myia-credentials")],
+        [("monitor", "myssia-monitor"), ("credentials", "myssia-credentials")],
     )
     def test_category_plugin_section_matches_package_manifest(
         self, category: str, package: str
@@ -257,14 +257,14 @@ class TestCategoryWiring:
         assert config.plugin.modes.remote.token == manifest.modes.remote.token
 
     def test_exposure_plugin_section_matches_credhunter_manifest(self):
-        """exposure 品类 ↔ myia-credhunter 包(进程内 local 形态)同源咬合。
+        """exposure 品类 ↔ myssia-credhunter 包(进程内 local 形态)同源咬合。
 
         10-03-aipocket-fusion:exposure.yaml 的 plugin 节走 local.install
         (纯源码进程内件,无 remote 端点)——id/requires/install 命令与
         manifest 一字不差。
         """
         config = load_category_file(PLUGINS_DIR / "exposure.yaml")
-        manifest = load_package("myia-credhunter")
+        manifest = load_package("myssia-credhunter")
         assert config.plugin is not None
         assert config.plugin.id == manifest.id
         assert config.plugin.requires == manifest.requires
@@ -275,7 +275,7 @@ class TestCategoryWiring:
 
     def test_credentials_source_header_reuses_package_token_ref(self):
         config = load_category_file(PLUGINS_DIR / "credentials.yaml")
-        manifest = load_package("myia-credentials")
+        manifest = load_package("myssia-credentials")
         source = next(s for s in config.sources if s.name == "aipocket")
         token = manifest.modes.remote.token
         assert token is not None
@@ -329,7 +329,7 @@ class TestRemoteRoundTrip:
         assert "HTTP 500" in finding.message
 
     def test_probe_never_asks_for_token_check_without_backend(
-        self, package: str = "myia-monitor"
+        self, package: str = "myssia-monitor"
     ):
         """backend=None 时 token 存在性不可核验也不是问题(不产 finding)。"""
         manifest = load_package(package)
@@ -375,7 +375,7 @@ class TestIronLawOnRealPackages:
         self, tmp_path: Path, keychain_backend
     ):
         store = InstalledPluginStore(tmp_path / "plugins")
-        store.install(package_dir("myia-monitor"))
+        store.install(package_dir("myssia-monitor"))
         config = load_category_file(PLUGINS_DIR / "monitor.yaml")
         assert config.plugin is not None
         # token 未写入 → warning,不抛、不拦:
@@ -391,8 +391,8 @@ class TestIronLawOnRealPackages:
     def test_corrupt_installed_manifest_only_degrades_to_warning(self, tmp_path: Path):
         """铁律:已装包的 manifest 坏 → warning findings;核心加载与 Pipeline 无感。"""
         store = InstalledPluginStore(tmp_path / "plugins")
-        store.install(package_dir("myia-monitor"))
-        (tmp_path / "plugins" / "myia-monitor" / "plugin.yaml").write_text(
+        store.install(package_dir("myssia-monitor"))
+        (tmp_path / "plugins" / "myssia-monitor" / "plugin.yaml").write_text(
             "id: [unclosed\n", encoding="utf-8"
         )
         config = load_category_file(PLUGINS_DIR / "monitor.yaml")
@@ -479,23 +479,23 @@ def test_package_files_hold_no_private_addresses_or_traces(package: str):
 
 
 #: v1.1 源码型/进程内插件(PRD 10-02-v11-plugins-source-arch):插件目录除
-#: manifest/文档外,还允许 MYIA 侧适配器 adapter.py;myia-osint 另有上游
+#: manifest/文档外,还允许 MYIA 侧适配器 adapter.py;myssia-osint 另有上游
 #: submodule 指针目录 vendor/(gitlink,上游代码零入库、零复制);
-#: myia-proxy 的适配器是自实现精简版(参照 proxy_pool 思路),零 vendored。
-#: myia-credhunter(10-03-aipocket-fusion)是进程内多模块件:adapter.py +
+#: myssia-proxy 的适配器是自实现精简版(参照 proxy_pool 思路),零 vendored。
+#: myssia-credhunter(10-03-aipocket-fusion)是进程内多模块件:adapter.py +
 #: credhunter/ 子模块目录(含 data/ 指纹库数据文件),全部 MYIA 侧从零
 #: 创作的功能重实现,零 vendored(AGPL 上游零入库)。
 SOURCE_TYPE_PACKAGES = {
-    "myia-osint": {"adapter.py", "vendor"},
-    "myia-proxy": {"adapter.py"},
-    "myia-credhunter": {"adapter.py", "credhunter"},
+    "myssia-osint": {"adapter.py", "vendor"},
+    "myssia-proxy": {"adapter.py"},
+    "myssia-credhunter": {"adapter.py", "credhunter"},
 }
 
 
 def test_official_packages_never_reference_their_upstream_by_copying_files():
     """GPL/AGPL 红线的包形状证据:官方件包里没有任何上游源码文件被复制入库.
 
-    v1.1 起源码型插件(myia-osint)以 gitlink(submodule)指向上游 ——
+    v1.1 起源码型插件(myssia-osint)以 gitlink(submodule)指向上游 ——
     vendor/ 是 submodule 指针而非上游文件;适配器 adapter.py 是 MYIA 侧
     代码。gitlink 形状(160000 == manifest pin)钉在
     tests/test_osint_plugin.py::TestSubmoduleShape。
@@ -513,7 +513,7 @@ def test_official_packages_never_reference_their_upstream_by_copying_files():
 
 def test_source_type_vendor_directory_holds_only_the_submodule():
     """源码型样板的 vendor/ 里除 submodule 外零散落文件(无上游复制)."""
-    vendor = package_dir("myia-osint") / "vendor"
+    vendor = package_dir("myssia-osint") / "vendor"
     assert vendor.is_dir(), "源码型样板应声明 vendor/"
     stray = [
         path.name

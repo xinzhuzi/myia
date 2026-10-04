@@ -6,7 +6,7 @@ Covers:
 - dependency missing: real ImportError path (skipped automatically if the
   owner installs crawl4ai) and the deterministic None-in-sys.modules path —
   both assert the structured ``dependency_missing`` error carries
-  ``pip install shishi[crawl4ai]`` verbatim;
+  ``pip install myssia[crawl4ai]`` verbatim;
 - fetch path against a **fake crawl4ai module injected via sys.modules**
   (zero real network, zero real browser): list extract over rendered HTML,
   no-extract auto-structuring fallback (markdown str 与 MarkdownGenerationResult
@@ -49,10 +49,10 @@ from urllib.parse import urlsplit
 import httpx
 import pytest
 
-from shishi.engines import registry
-from shishi.engines import crawl4ai as crawl4ai_module
-from shishi.engines.crawl4ai import Crawl4AIEngine, load_crawl4ai
-from shishi.engines.fetch_base import (
+from myssia.engines import registry
+from myssia.engines import crawl4ai as crawl4ai_module
+from myssia.engines.crawl4ai import Crawl4AIEngine, load_crawl4ai
+from myssia.engines.fetch_base import (
     DEFAULT_USER_AGENT,
     BaseEngine,
     EngineNotAvailableError,
@@ -60,8 +60,8 @@ from shishi.engines.fetch_base import (
     RobotsDisallowedError,
     load_proxy_pools,
 )
-from shishi.engines.firecrawl import FirecrawlEngine
-from shishi.engines.static_html import StaticHTMLEngine
+from myssia.engines.firecrawl import FirecrawlEngine
+from myssia.engines.static_html import StaticHTMLEngine
 
 from conftest import make_client, make_context, make_handler, make_source, run
 
@@ -243,7 +243,7 @@ def test_load_crawl4ai_absent_raises_structured_dependency_error(monkeypatch):
     with pytest.raises(FetchError) as excinfo:
         load_crawl4ai()
     assert excinfo.value.error_type == "dependency_missing"
-    assert "pip install shishi[crawl4ai]" in str(excinfo.value)
+    assert "pip install myssia[crawl4ai]" in str(excinfo.value)
 
 
 @pytest.mark.skipif(
@@ -260,7 +260,7 @@ def test_fetch_engine_not_installed_real_error(monkeypatch):
     with pytest.raises(FetchError) as excinfo:
         run(engine.fetch())
     assert excinfo.value.error_type == "dependency_missing"
-    assert "pip install shishi[crawl4ai]" in str(excinfo.value)
+    assert "pip install myssia[crawl4ai]" in str(excinfo.value)
 
 
 # ---------------------------------------------------------------------------
@@ -724,7 +724,7 @@ def test_auto_chain_dependency_missing_degrades_to_firecrawl(monkeypatch):
         "http_500",
         "dependency_missing",
     ]
-    assert any("pip install shishi[crawl4ai]" in failure.message for failure in outcome.failures)
+    assert any("pip install myssia[crawl4ai]" in failure.message for failure in outcome.failures)
 
 
 # ---------------------------------------------------------------------------
@@ -904,14 +904,14 @@ def test_l3_probe_exception_rolls_back_source_not_failed(monkeypatch, engine_sto
         "extract_unsupported",
         "dependency_missing",  # L3 失败记录保留
     ]
-    assert any("pip install shishi[crawl4ai]" in failure.message for failure in outcome.failures)
+    assert any("pip install myssia[crawl4ai]" in failure.message for failure in outcome.failures)
     assert engine_store.get_engine_hint(SITE_URL) == "static_html"
     assert context.l3_probe_budget == 2
 
 
 # ---------------------------------------------------------------------------
 # 真实源 smoke(PRD 验收:JS 渲染源真实跑通):可选依赖 + 真实网络,
-# 默认跳过,本地装好 shishi[crawl4ai] 后设 MYIA_SMOKE_REAL=1 执行(仓库统一
+# 默认跳过,本地装好 myssia[crawl4ai] 后设 MYIA_SMOKE_REAL=1 执行(仓库统一
 # opt-in 变量,与 test_scrapling.py / test_direct_api.py 同门禁)。
 # ---------------------------------------------------------------------------
 
@@ -924,12 +924,12 @@ SMOKE_TARGET_DEFAULT = "https://aihot.news/items/bzodztryi4kvwm4kz9mrwb6nn"
 
 @pytest.mark.skipif(
     not os.environ.get("MYIA_SMOKE_REAL"),
-    reason="真实源 smoke:仅本地安装 shishi[crawl4ai] 且设 MYIA_SMOKE_REAL=1 时执行,CI 不依赖",
+    reason="真实源 smoke:仅本地安装 myssia[crawl4ai] 且设 MYIA_SMOKE_REAL=1 时执行,CI 不依赖",
 )
 def test_smoke_real_js_article_renders_items_and_markdown():
     """PRD 验收入口(10-04-crawl4ai-l3):真实 JS 渲染文章页 L3 全链真跑——
     fetch 走完即 exit 0 语义;断言条目 >0、自动结构化 markdown 非空;
-    shishi.vision.collect 可导入(装了 vision extras)时附打同域图收集数
+    myssia.vision.collect 可导入(装了 vision extras)时附打同域图收集数
     (看图线 JS 页路径联动,缺席软降级只跳过该组断言)。
     目标覆写:MYIA_SMOKE_TARGET=<url>(默认 aihot 文章页,见上)。"""
     target = os.environ.get("MYIA_SMOKE_TARGET") or SMOKE_TARGET_DEFAULT
@@ -948,9 +948,9 @@ def test_smoke_real_js_article_renders_items_and_markdown():
     content = items[0].get("content") or ""
     assert content.strip(), "渲染后的 markdown 载荷非空"
     try:
-        from shishi.vision.collect import markdown_image_urls
+        from myssia.vision.collect import markdown_image_urls
     except ImportError:  # vision extras 未装:软降级,不阻塞 smoke
-        print(f"[smoke] shishi.vision.collect 不可导入,跳过同域图断言 markdown_len={len(content)}")
+        print(f"[smoke] myssia.vision.collect 不可导入,跳过同域图断言 markdown_len={len(content)}")
     else:
         images = markdown_image_urls(content, target)
         print(
@@ -981,7 +981,7 @@ def test_pool_proxy_is_passed_via_proxy_config(monkeypatch):
         )))
         return real_client(**kwargs)
 
-    monkeypatch.setattr("shishi.engines.fetch_base.httpx.AsyncClient", factory)
+    monkeypatch.setattr("myssia.engines.fetch_base.httpx.AsyncClient", factory)
     client = make_client(make_handler(lambda r: httpx.Response(404, text="")))
     context, _ = make_context(client)
     context.proxy_pools = load_proxy_pools(
@@ -1015,7 +1015,7 @@ def test_pool_proxy_falls_back_to_deprecated_proxy_kwarg_with_one_warning(monkey
     source = make_source(engine="crawl4ai", url=SITE_URL, extract=LIST_EXTRACT, proxy="pool:main")
     engine = Crawl4AIEngine(source, context)
 
-    with caplog.at_level(logging.WARNING, logger="shishi.engines.crawl4ai"):
+    with caplog.at_level(logging.WARNING, logger="myssia.engines.crawl4ai"):
         run(engine.fetch())
         run(engine.fetch())  # 第二轮:回落路径复用,不再重复告警
 
@@ -1162,4 +1162,4 @@ def test_broken_install_import_error_is_structured(monkeypatch):
     with pytest.raises(FetchError) as excinfo:
         load_crawl4ai()
     assert excinfo.value.error_type == "dependency_missing"
-    assert "pip install shishi[crawl4ai]" in str(excinfo.value)
+    assert "pip install myssia[crawl4ai]" in str(excinfo.value)

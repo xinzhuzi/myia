@@ -22,11 +22,11 @@
   纠缠)。
 - **错误码 → 死信映射(W2 模板探查,已对照 A2A v1.0 规范)**:HTTP 层错误
   文案保留 ``HTTP <status>`` 与响应体片段,经
-  :func:`shishi.push.delivery.classify_dead_error` 判定——HTTP 403 →
+  :func:`myssia.push.delivery.classify_dead_error` 判定——HTTP 403 →
   ``forbidden``、HTTP 404 → ``not_found``、429/5xx/传输失败 → 瞬态不标。
   JSON-RPC 层 ``error`` 对象(如 ``code=-32600`` 请求非法/``-32000`` 服务端
   错误)如实入 ``a2a_api_error`` 文案;code/message 是对端可控自由文本,
-  入文案前先经 :func:`shishi.push.delivery.scrub_dead_markers` 滤除分类器
+  入文案前先经 :func:`myssia.push.delivery.scrub_dead_markers` 滤除分类器
   marker 子串 → 恒瞬态(对端 agent 的语义错误重试无害)。
 - **鉴权可选**:对端要求 Bearer 时配 :data:`DEFAULT_TOKEN_ENV_REF`
   (蓝本 ``_auth_header`` 同款 ``Authorization: Bearer``);缺省 env 缺席 =
@@ -57,18 +57,18 @@ from typing import Any, Mapping, Sequence
 
 import httpx
 
-from shishi.push.base import (
+from myssia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
     TrendAwareChannel,
 )
-from shishi.push.delivery import scrub_dead_markers
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.ntfy import build_message
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.delivery import scrub_dead_markers
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.ntfy import build_message
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "DEFAULT_TARGET_ENV_REF",

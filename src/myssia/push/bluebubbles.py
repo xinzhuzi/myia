@@ -19,7 +19,7 @@ extras 并结构化报错,不进核心」,本模块是**extras 壳**:
   ``iMessage;…``/``SMS;…`` chat GUID 形态与 ``+`` 手机号(蓝本
   ``chatGuid``/``_ADDRESS_RE`` 形态)、目录无自动发现(常驻服务端才有
   chat 列表,extras 壳不含)抛
-  :class:`~shishi.push.directory.DirectoryDiscoverUnsupported`;
+  :class:`~myssia.push.directory.DirectoryDiscoverUnsupported`;
 - 真实发送路(REST + password,纯 ``httpx`` 可达)待 extras 落地批次实装
   ——壳先钉住注册表/UI 卡/凭据指南的契约面。
 
@@ -32,9 +32,9 @@ import logging
 import re
 from typing import Any, Sequence
 
-from shishi.push.base import PushSendError, SendContext, TrendAwareChannel
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.base import PushSendError, SendContext, TrendAwareChannel
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
 
 __all__ = [
     "CHAT_GUID_RE",
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 #: 修复指引 + 服务端部署指引(如实口径,同 yuanbao ``INSTALL_HINT``:
 #: pyproject 尚无 ``bluebubbles`` extras 组,不虚指
-#: ``pip install 'shishi[bluebubbles]'``——发送路纯 ``httpx`` 无额外 pip
+#: ``pip install 'myssia[bluebubbles]'``——发送路纯 ``httpx`` 无额外 pip
 #: 依赖,extras 组待实装批次定义)。
 INSTALL_COMMAND = (
     "部署 BlueBubbles 服务端(https://bluebubbles.app,常驻 macOS 的"

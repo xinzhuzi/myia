@@ -19,7 +19,7 @@
   引用(schema 纪律:YAML 零明文),发送期才解析,错误文案只带引用名。
   密码显式引用解析失败即报错;缺省 ``env:EMAIL_PASSWORD`` 缺席 = 匿名投递
   (本地中继 ``localhost:25`` 合法态——ntfy 可选 token 同款取舍,告警不报错)。
-- **一封一报**:subject = :func:`~shishi.push.feishu_card.card_title`(跨通道
+- **一封一报**:subject = :func:`~myssia.push.feishu_card.card_title`(跨通道
   标题一致),正文 = 用户模板渲染或内置纯文本版式;正文不预切(蓝本
   ``MAX_MESSAGE_LENGTH`` 50K 是 Gmail 单封上限,远超摘要体量)。
 
@@ -33,7 +33,7 @@
 
 错误码 → 死信映射(W2 模板探查):SMTP 应答码空间(535 认证失败 / 550
 收件人拒收 / 421 临时拒绝)与 core 分类器
-(:func:`shishi.push.delivery.classify_dead_error`)的 ASCII marker 表
+(:func:`myssia.push.delivery.classify_dead_error`)的 ASCII marker 表
 (``403`` / ``http 404`` / ``forbidden`` 族)无码点交集 → **本通道全部
 错误按瞬态处理,不标 dead**。这不是疏漏而是取舍:邮件硬退信以 DSN 回执
 邮件形式异步到达(发送期常是「先收下再退信」),发送期拒绝是服务器实现
@@ -53,12 +53,12 @@ from email.message import EmailMessage
 from email.utils import formatdate
 from typing import Any, Callable, Sequence
 
-from shishi.push.base import PushSendError, SendContext, TrendAwareChannel, item_view
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.feishu_card import card_title
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.base import PushSendError, SendContext, TrendAwareChannel, item_view
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.feishu_card import card_title
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "DEFAULT_FROM_ENV_REF",
@@ -152,7 +152,7 @@ def build_body(items: Sequence[Any], context: SendContext) -> str:
     """内置纯文本正文:每条目一行「标题 · URL」(标题在 subject,正文不重复)。
 
     与 ntfy ``build_message`` 同款行形态;邮件 subject 已由
-    :func:`~shishi.push.feishu_card.card_title` 承载,正文直接从条目行开始。
+    :func:`~myssia.push.feishu_card.card_title` 承载,正文直接从条目行开始。
     """
     lines: list[str] = []
     for item in items:
@@ -283,7 +283,7 @@ class EmailChannel(TrendAwareChannel):
         message["Subject"] = card_title(context)
         message["Date"] = formatdate(localtime=True)
         domain = from_addr.rsplit("@", 1)[-1] if "@" in from_addr else "localhost"
-        message["Message-ID"] = f"<myia-{uuid.uuid4().hex[:12]}@{domain}>"
+        message["Message-ID"] = f"<myssia-{uuid.uuid4().hex[:12]}@{domain}>"
         message.set_content(body, charset="utf-8")
         return message
 

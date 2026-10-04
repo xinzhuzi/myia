@@ -128,7 +128,7 @@ enrich:
                                 # (docs/zh/zero-cost.md §enrich、docker/env.example
                                 # 同名条目;容器走 docker/.env,CLI 走 shell 导出)
   api_key: keychain:myia/image/api_key   # 既有 GLM key(与 vision.yaml cloud 同链;
-                                # myia secret set myia/image/api_key 录入)
+                                # myssia secret set myia/image/api_key 录入)
 
 push:
   - channel: feishu_card

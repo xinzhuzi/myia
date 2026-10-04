@@ -6,7 +6,7 @@ Tauri 2 官方 updater 插件的签名/发布/升级流程。**铁律:签名私�
 
 | 位置 | 内容 |
 |------|------|
-| `desktop/src-tauri/tauri.conf.json` → `plugins.updater` | `endpoints`(默认指向 GitHub Releases 的 `latest.json`)、`pubkey`(**占位符** `__MYIA_UPDATER_PUBKEY_PLACEHOLDER__`,真实公钥由 CI 注入)、`windows.installMode: "passive"`(静默升级,仅进度条不点击) |
+| `desktop/src-tauri/tauri.conf.json` → `plugins.updater` | `endpoints`(默认指向 GitHub Releases 的 `latest.json`)、`pubkey`(**占位符** `__MYSSIA_UPDATER_PUBKEY_PLACEHOLDER__`,真实公钥由 CI 注入)、`windows.installMode: "passive"`(静默升级,仅进度条不点击) |
 | `desktop/src-tauri/Cargo.toml` | `tauri-plugin-updater`(校验+下载+安装)、`tauri-plugin-process`(安装后 relaunch) |
 | `desktop/src-tauri/src/main.rs` | 两个插件的 `.plugin(...)` 注册 |
 | `desktop/src-tauri/capabilities/default.json` | `updater:default`、`process:allow-restart` |
@@ -28,22 +28,22 @@ Tauri 2 官方 updater 插件的签名/发布/升级流程。**铁律:签名私�
 
 ```bash
 cd desktop
-npx tauri signer generate -w ~/.tauri/myia.key
+npx tauri signer generate -w ~/.tauri/myssia.key
 # 提示设置密码(可留空;留空则 CI 的 TAURI_SIGNING_PRIVATE_KEY_PASSWORD 也留空)
 # 产出:
-#   ~/.tauri/myia.key      私钥(绝不提交、绝不上传日志)
-#   ~/.tauri/myia.key.pub  公钥(可入库/入 CI)
+#   ~/.tauri/myssia.key      私钥(绝不提交、绝不上传日志)
+#   ~/.tauri/myssia.key.pub  公钥(可入库/入 CI)
 ```
 
 把公钥与私钥配进仓库 **Settings → Secrets and variables → Actions → New repository secret**(共 3 个):
 
 | Secret 名 | 值 | 说明 |
 |-----------|----|------|
-| `TAURI_UPDATER_PUBKEY` | `myia.key.pub` 文件全文(一行 minisign 公钥) | CI 注入 tauri.conf 替换占位符 |
-| `TAURI_SIGNING_PRIVATE_KEY` | `myia.key` 文件全文 | CI 签名更新产物 |
+| `TAURI_UPDATER_PUBKEY` | `myssia.key.pub` 文件全文(一行 minisign 公钥) | CI 注入 tauri.conf 替换占位符 |
+| `TAURI_SIGNING_PRIVATE_KEY` | `myssia.key` 文件全文 | CI 签名更新产物 |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | 生成时设置的密码(未设则填空串/跳过) | 签名密码 |
 
-验证公钥(可选):`cat ~/.tauri/myia.key.pub` 形如 `dW50cnVzdGVkIGNvbW1lbnQ6…` 的 base64 串。
+验证公钥(可选):`cat ~/.tauri/myssia.key.pub` 形如 `dW50cnVzdGVkIGNvbW1lbnQ6…` 的 base64 串。
 
 ## 三、发布流程(正常路径)
 
@@ -57,8 +57,8 @@ git tag v0.2.0 && git push origin v0.2.0
 
 1. `desktop/build-sidecar.sh <triple>` 各平台出 sidecar(Windows 侧 vision extra 的 `ocrmac` 带 `sys_platform == 'darwin'` 标记,不再拉 pyobjc 链);
 2. 写 `tauri.release.conf.json` 合并片(真实 pubkey + `createUpdaterArtifacts: true` + 解析版本号),`npx tauri build --bundles app,dmg|msi --config tauri.release.conf.json`(**macOS 必须带 `app` 目标**:updater 的 tar.gz/.sig 只在 MacOsBundle 目标在列时产出,仅 `dmg` 会跳过更新包且随后删除 .app 中间产物,后续 `cat *.sig` 步骤必失败);
-3. macOS job 产物上传 Release(仅 tag 触发):**dmg**、**`myia.app.tar.gz` + `.sig`**(updater 增量包与签名,ASCII 名);
-4. **release-finalize 归聚 job**(`needs: [macos-dmg, windows-msi]`,`if: always() && needs.macos-dmg.result == 'success'`):下载两平台产物 → 生成 **`latest.json`**(**单写者**:darwin-aarch64 条目恒在,windows-x86_64 条目按产物存在与否自动并入)→ Windows msi(`myia_<版本>_x64.msi` + `.msi.sig`,ASCII 名)与 latest.json 挂 Release(仅 tag 触发)。`workflow_dispatch` 演练时不上传 Release,latest.json 以 `latest-json` artifact 交付复核。
+3. macOS job 产物上传 Release(仅 tag 触发):**dmg**、**`myssia.app.tar.gz` + `.sig`**(updater 增量包与签名,ASCII 名);
+4. **release-finalize 归聚 job**(`needs: [macos-dmg, windows-msi]`,`if: always() && needs.macos-dmg.result == 'success'`):下载两平台产物 → 生成 **`latest.json`**(**单写者**:darwin-aarch64 条目恒在,windows-x86_64 条目按产物存在与否自动并入)→ Windows msi(`myssia_<版本>_x64.msi` + `.msi.sig`,ASCII 名)与 latest.json 挂 Release(仅 tag 触发)。`workflow_dispatch` 演练时不上传 Release,latest.json 以 `latest-json` artifact 交付复核。
 
 Windows job(msi)为**正式交付目标**(10-04-windows-build):不再 `continue-on-error`;失败=run 红(可见),但不牵连 macOS 发布与 mac 更新通道(归聚 job 以 `always()` + mac result 门执行,windows 缺席仅表现为条目/资产缺席)。**手工补 windows 条目**降级为归聚失败的应急路径(见下文格式)。Windows 实机安装/升级冒烟清单(七项,主人侧)在 `10-04-windows-build` 任务档。
 
@@ -73,12 +73,12 @@ Windows job(msi)为**正式交付目标**(10-04-windows-build):不再 `continue-
   "pub_date": "2026-10-02T12:00:00Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "<myia.app.tar.gz.sig 文件内容(一行)>",
-      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.2.0/myia.app.tar.gz"
+      "signature": "<myssia.app.tar.gz.sig 文件内容(一行)>",
+      "url": "https://github.com/xinzhuzi/myssia/releases/download/v0.2.0/myssia.app.tar.gz"
     },
     "windows-x86_64": {
-      "signature": "<myia_0.2.0_x64.msi.sig 内容>",
-      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.2.0/myia_0.2.0_x64.msi"
+      "signature": "<myssia_0.2.0_x64.msi.sig 内容>",
+      "url": "https://github.com/xinzhuzi/myssia/releases/download/v0.2.0/myssia_0.2.0_x64.msi"
     }
   }
 }
@@ -90,10 +90,10 @@ Windows job(msi)为**正式交付目标**(10-04-windows-build):不再 `continue-
 
 ```bash
 cd desktop
-export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/myia.key)"
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/myssia.key)"
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="…"    # 未设密码则留空
 npx tauri build --bundles app,dmg --config \
-  <(printf '{"version":"9.9.9","bundle":{"createUpdaterArtifacts":true},"plugins":{"updater":{"pubkey":"%s"}}}' "$(cat ~/.tauri/myia.key.pub)")
+  <(printf '{"version":"9.9.9","bundle":{"createUpdaterArtifacts":true},"plugins":{"updater":{"pubkey":"%s"}}}' "$(cat ~/.tauri/myssia.key.pub)")
 # 产物:src-tauri/target/release/bundle/{dmg/*.dmg, macos/世事.app.tar.gz{,.sig}}
 # (--bundles 必须含 app,理由见第三节)
 ```

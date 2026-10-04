@@ -85,7 +85,7 @@ def resolve_zone(tz: str | ZoneInfo | None = None) -> ZoneInfo:
 
     Raises:
         ValueError: 名称不是有效 IANA 时区(结构化报错,措辞对齐
-            :func:`myia.pipeline.build_cron_trigger` 先例)。
+            :func:`myssia.pipeline.build_cron_trigger` 先例)。
     """
     if tz is None:
         return _local_zone()

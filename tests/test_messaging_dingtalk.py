@@ -27,11 +27,11 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 import pytest
 
-from shishi.push import DingTalkChannel, SendContext
-from shishi.push.base import PushSendError
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
+from myssia.push import DingTalkChannel, SendContext
+from myssia.push.base import PushSendError
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
 
 WEBHOOK = "https://oapi.dingtalk.com/robot/send?access_token=abc123def456"
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")

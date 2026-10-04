@@ -3,13 +3,13 @@
 Tables (v0.4, PRD 10-01-v01-store-dedup + 10-01-v02-storage-hardening
 + 10-01-v02-enrich-llm + 10-01-v03-feedback-loop + 10-01-v04-trend-baseline):
 - items           — intelligence entries flowing through pipelines
-- dedup_registry  — seen dedup keys (see shishi.dedup for slot semantics)
+- dedup_registry  — seen dedup keys (see myssia.dedup for slot semantics)
 - change_baseline — per-URL change fingerprints (consumed by engines/fetch_base)
 - engine_hints    — engine auto-degrade write-back (consumed by engines/registry)
 - runs            — one row per pipeline execution, including per-step
                     progress (``runs.steps``, 断点续跑)
-- enrich_cache    — per-URL LLM score cache (consumed by shishi.enrich)
-- feedback        — good/bad verdicts on pushed items (consumed by shishi.feedback)
+- enrich_cache    — per-URL LLM score cache (consumed by myssia.enrich)
+- feedback        — good/bad verdicts on pushed items (consumed by myssia.feedback)
 - feedback_tuning — append-only parameter-adjustment history (反馈调参可追溯)
 - metric_history  — numeric snapshots per (category, metric_key, field) for
                     the v0.4 trend baseline (vs 昨日/上周, 关键词提及量周环比);
@@ -31,9 +31,9 @@ The public surface is the :class:`Store` protocol plus the default
 protocol in v0.2+.
 """
 
-from shishi.store.base import Store
-from shishi.store.errors import StoreSchemaError
-from shishi.store.models import (
+from myssia.store.base import Store
+from myssia.store.errors import StoreSchemaError
+from myssia.store.models import (
     ALERT_ACTION_PUSH,
     ALERT_ACTION_STATUSES,
     ALERT_ACTION_TAG,
@@ -82,7 +82,7 @@ from shishi.store.models import (
     RunRecord,
     TuningRecord,
 )
-from shishi.store.sqlite import (
+from myssia.store.sqlite import (
     BASELINE_RETENTION_MULTIPLIER,
     SCHEMA_VERSION,
     UNPUSHED_RETENTION_MULTIPLIER,

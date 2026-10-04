@@ -1,4 +1,4 @@
-"""myia-proxy 适配器:进程内轻量代理抓取+测活(零 Redis 零 docker)——MYIA 侧代码.
+"""myssia-proxy 适配器:进程内轻量代理抓取+测活(零 Redis 零 docker)——MYIA 侧代码.
 
 本文件由 MYIA 仓库创作与维护,**不是**上游 proxy_pool(jhao104/proxy_pool,
 MIT)的代码:参照其「fetch → 校验 → 取用」思路自实现的精简版,零上游源码
@@ -10,11 +10,11 @@ MIT)的代码:参照其「fetch → 校验 → 取用」思路自实现的精简
    单代理超时 :data:`DEFAULT_CHECK_TIMEOUT_SECONDS`),有响应且状态码
    ``< 400`` 记可用,并记录往返延迟;
 3. **装配**:抓取/测活统计 + 可用代理列表(``proxy`` + ``latency_ms``)构成
-   结构化 JSON 结果(``myia proxy --json`` 的 AI 消费路径)。
+   结构化 JSON 结果(``myssia proxy --json`` 的 AI 消费路径)。
 
 精简边界(诚实声明):无定时抓取、无存储池、无 HTTP API —— 完整 proxy_pool
 服务形态(定时 + Redis 池 + API)是**服务端可选**路径,compose 在仓库
-``docker/plugins/myia-proxy/``(桌面零 docker;已部署实例按 remote 模式填
+``docker/plugins/myssia-proxy/``(桌面零 docker;已部署实例按 remote 模式填
 endpoint,见本插件 README)。
 
 错误契约(.trellis/spec/python/error-handling):所有失败都抛
@@ -26,10 +26,10 @@ endpoint,见本插件 README)。
 - ``fetch_failed``     全部源抓取失败(采集失败 → CLI 退 2)
 - ``no_alive_proxy``   抓到候选但测活零可用(采集失败 → CLI 退 2)
 
-失败码 → CLI 退出码的映射归 CLI 所有(``shishi.cli.PROXY_FETCH_FAILURE_CODES``,
+失败码 → CLI 退出码的映射归 CLI 所有(``myssia.cli.PROXY_FETCH_FAILURE_CODES``,
 spec python/error-handling 的退出码契约);适配器只负责如实上报 code。
 
-铁律(security-baseline):适配器任何失败只影响 ``myia proxy`` 自身,
+铁律(security-baseline):适配器任何失败只影响 ``myssia proxy`` 自身,
 核心品类流水线照常跑通(测试钉在 tests/test_proxy_plugin.py)。
 """
 
@@ -147,7 +147,7 @@ def fetch_candidates(
     reports: list[dict[str, Any]] = []
     for source in FETCH_SOURCES:
         report: dict[str, Any] = {"url": source, "proxies": 0, "error": None}
-        client = client_factory(timeout=timeout, follow_redirects=True, headers={"User-Agent": "myia-proxy-adapter/1.1"})
+        client = client_factory(timeout=timeout, follow_redirects=True, headers={"User-Agent": "myssia-proxy-adapter/1.1"})
         try:
             try:
                 response = client.get(source)
@@ -264,7 +264,7 @@ def run(
             sources=reports,
         )
     return {
-        "plugin": "myia-proxy",
+        "plugin": "myssia-proxy",
         "mode": "in_process",
         "status": "success",
         "requested_count": count,

@@ -27,22 +27,22 @@ import httpx
 import pytest
 import yaml
 
-import shishi.cli as cli_module
-from shishi.cli import EXIT_CONFIG_ERROR, EXIT_OK, main
-from shishi.pipeline import ChannelPushReport, RunResult, StageReport
-from shishi.plugins import (
+import myssia.cli as cli_module
+from myssia.cli import EXIT_CONFIG_ERROR, EXIT_OK, main
+from myssia.pipeline import ChannelPushReport, RunResult, StageReport
+from myssia.plugins import (
     PluginStoreError,
     VersionRange,
     VersionSpecError,
     check_category_plugin,
     check_remote_modes,
 )
-from shishi.plugins.installed import InstalledPluginStore, PluginFinding
-from shishi.plugins.manifest import load_manifest, load_manifest_file
-from shishi.schema import LoadError, load_category, load_category_file
-from shishi.secrets import InMemoryKeychainBackend
-from shishi.secrets import reset_backend as reset_keychain_backend
-from shishi.secrets import set_backend as set_keychain_backend
+from myssia.plugins.installed import InstalledPluginStore, PluginFinding
+from myssia.plugins.manifest import load_manifest, load_manifest_file
+from myssia.schema import LoadError, load_category, load_category_file
+from myssia.secrets import InMemoryKeychainBackend
+from myssia.secrets import reset_backend as reset_keychain_backend
+from myssia.secrets import set_backend as set_keychain_backend
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -52,7 +52,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # ---------------------------------------------------------------------------
 
 VALID_MANIFEST_YAML = """
-id: myia-monitor
+id: myssia-monitor
 name: 变更监控(changedetection.io)
 version: 1.0.0
 compatible: ">=0.0.1,<0.1"
@@ -66,7 +66,7 @@ modes:
     endpoint: https://my-monitor.example.com
     token: keychain:myia/monitor/token
 install:
-  source: https://github.com/myia-official/myia-monitor.git
+  source: https://github.com/myssia-official/myssia-monitor.git
 """
 
 CATEGORY_WITH_PLUGIN_YAML = """
@@ -85,7 +85,7 @@ sources:
 push:
   - channel: stdout
 plugin:
-  id: myia-monitor
+  id: myssia-monitor
   requires: docker
   modes:
     remote:
@@ -93,17 +93,17 @@ plugin:
       token: keychain:myia/monitor/token
 """
 
-#: 兼容当前 myia 版本序列的标准窗口(版本序列归零 10-03-tag-release 决议 9:
+#: 兼容当前 myssia 版本序列的标准窗口(版本序列归零 10-03-tag-release 决议 9:
 #: 与根 pyproject 依赖窗同款;升入 0.1 系列时随五处版本源同步)。
 ANY_MYIA = ">=0.0.1,<0.1"
 
 
-def write_plugin_dir(tmp_path: Path, name: str = "myia-monitor", manifest_text: str = VALID_MANIFEST_YAML) -> Path:
+def write_plugin_dir(tmp_path: Path, name: str = "myssia-monitor", manifest_text: str = VALID_MANIFEST_YAML) -> Path:
     """一个带 manifest/README/compose 的完整插件来源目录(装卸测试的夹具)。"""
     source = tmp_path / "source" / name
     source.mkdir(parents=True, exist_ok=True)
     (source / "plugin.yaml").write_text(manifest_text, encoding="utf-8")
-    (source / "README.md").write_text("# myia-monitor\n", encoding="utf-8")
+    (source / "README.md").write_text("# myssia-monitor\n", encoding="utf-8")
     (source / "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
     return source
 
@@ -240,7 +240,7 @@ class TestManifestSchema:
     def test_manifest_roundtrip_all_fields(self):
         """全字段往返:requires 裸字符串归一为列表,双模式完整保留。"""
         manifest = load_manifest(yaml.safe_load(VALID_MANIFEST_YAML))
-        assert manifest.id == "myia-monitor"
+        assert manifest.id == "myssia-monitor"
         assert manifest.version == "1.0.0"
         assert manifest.compatible == ">=0.0.1,<0.1"
         assert manifest.requires == ["docker"]
@@ -370,7 +370,7 @@ class TestManifestSchema:
     def test_manifest_file_load_roundtrip(self, tmp_path: Path):
         source = write_plugin_dir(tmp_path)
         manifest = load_manifest_file(source / "plugin.yaml")
-        assert manifest.id == "myia-monitor"
+        assert manifest.id == "myssia-monitor"
         assert manifest.modes.local.compose == "docker-compose.yml"
 
 
@@ -387,14 +387,14 @@ class TestInstalledStore:
         source = write_plugin_dir(tmp_path)
         store = InstalledPluginStore(plugin_root)
         result = store.install(source)
-        assert result["id"] == "myia-monitor"
+        assert result["id"] == "myssia-monitor"
         assert result["compatible_current"] is True
         installed = Path(result["path"])
         assert (installed / "plugin.yaml").is_file()
         assert (installed / "README.md").is_file()
         assert (installed / "docker-compose.yml").is_file()
         (entry,) = store.entries()
-        assert entry.plugin_id == "myia-monitor"
+        assert entry.plugin_id == "myssia-monitor"
         assert entry.compatible_current is True
         assert entry.findings == []
 
@@ -406,7 +406,7 @@ class TestInstalledStore:
         assert excinfo.value.code == "invalid_source"
 
     def test_install_rejects_broken_manifest_with_structured_errors(self, tmp_path: Path, plugin_root: Path):
-        source = write_plugin_dir(tmp_path, manifest_text="id: myia-broken\nbanana: true\n")
+        source = write_plugin_dir(tmp_path, manifest_text="id: myssia-broken\nbanana: true\n")
         with pytest.raises(PluginStoreError) as excinfo:
             InstalledPluginStore(plugin_root).install(source)
         assert excinfo.value.code == "manifest_invalid"
@@ -432,15 +432,15 @@ class TestInstalledStore:
         assert excinfo.value.code == "already_installed"
         store.install(write_plugin_dir(tmp_path / "second"), force=True)
         (entry,) = store.entries()
-        assert entry.plugin_id == "myia-monitor"
+        assert entry.plugin_id == "myssia-monitor"
 
     def test_remove_removes_and_then_reports_not_installed(self, tmp_path: Path, plugin_root: Path):
         store = InstalledPluginStore(plugin_root)
         store.install(write_plugin_dir(tmp_path))
-        assert store.remove("myia-monitor")["removed"] is True
+        assert store.remove("myssia-monitor")["removed"] is True
         assert store.entries() == []
         with pytest.raises(PluginStoreError) as excinfo:
-            store.remove("myia-monitor")
+            store.remove("myssia-monitor")
         assert excinfo.value.code == "not_installed"
 
     def test_remove_rejects_path_traversal_id(self, tmp_path: Path, plugin_root: Path):
@@ -449,7 +449,7 @@ class TestInstalledStore:
         assert excinfo.value.code == "invalid_plugin_id"
 
     def test_entries_broken_manifest_yields_structured_finding_not_exception(self, tmp_path: Path, plugin_root: Path):
-        broken = plugin_root / "myia-broken"
+        broken = plugin_root / "myssia-broken"
         broken.mkdir(parents=True)
         (broken / "plugin.yaml").write_text("id: [unclosed\n", encoding="utf-8")
         (entry,) = InstalledPluginStore(plugin_root).entries()
@@ -460,7 +460,7 @@ class TestInstalledStore:
         assert finding.detail is not None and finding.detail["errors"]
 
     def test_entries_missing_manifest_is_warning_finding(self, plugin_root: Path):
-        stray = plugin_root / "myia-empty"
+        stray = plugin_root / "myssia-empty"
         stray.mkdir(parents=True)
         (entry,) = InstalledPluginStore(plugin_root).entries()
         assert entry.manifest is None
@@ -491,7 +491,7 @@ class TestIronLaw:
     def test_category_with_uninstalled_plugin_loads_with_warning_finding(self, tmp_path: Path, plugin_root: Path):
         """插件未装:品类照常加载,自检只产一条 warning 级 plugin_not_installed。"""
         config = load_category_file(write_category_yaml(tmp_path))
-        assert config.plugin is not None and config.plugin.id == "myia-monitor"
+        assert config.plugin is not None and config.plugin.id == "myssia-monitor"
         findings = check_category_plugin(config.plugin, InstalledPluginStore(plugin_root))
         assert finding_codes(findings) == ["plugin_not_installed"]
         assert all(finding.severity == "warning" for finding in findings)
@@ -499,7 +499,7 @@ class TestIronLaw:
     def test_run_succeeds_when_plugin_not_installed(
         self, tmp_path: Path, plugin_root: Path, fake_pipeline, capsys, keychain_backend
     ):
-        """铁律:插件未装,myia run 无感 —— 退出码 0,FakePipeline 照常被构造并跑完。"""
+        """铁律:插件未装,myssia run 无感 —— 退出码 0,FakePipeline 照常被构造并跑完。"""
         yaml_path = write_category_yaml(tmp_path)
         code = main(["run", str(yaml_path), "--json"])
         payload = json.loads(capsys.readouterr().out)
@@ -511,7 +511,7 @@ class TestIronLaw:
         self, tmp_path: Path, plugin_root: Path, fake_pipeline, capsys, caplog, keychain_backend
     ):
         """铁律:已装目录的 manifest 坏,run 照常 0,findings 以 warning 落日志。"""
-        broken = plugin_root / "myia-monitor"
+        broken = plugin_root / "myssia-monitor"
         broken.mkdir(parents=True)
         (broken / "plugin.yaml").write_text("id: [unclosed\n", encoding="utf-8")
         config = load_category_file(write_category_yaml(tmp_path))
@@ -560,7 +560,7 @@ class TestIronLaw:
                 }],
                 "push": [{"channel": "stdout"}],
                 "plugin": {
-                    "id": "myia-monitor",
+                    "id": "myssia-monitor",
                     "modes": {"remote": {"endpoint": "https://my-monitor.example.com"}},
                 },
             }
@@ -588,7 +588,7 @@ class TestIronLaw:
                 }],
                 "push": [{"channel": "stdout"}],
                 "plugin": {
-                    "id": "myia-monitor",
+                    "id": "myssia-monitor",
                     "modes": {"remote": {"endpoint": "https://my-monitor.example.com"}},
                 },
             }
@@ -619,7 +619,7 @@ class TestIronLaw:
                 }],
                 "push": [{"channel": "stdout"}],
                 "plugin": {
-                    "id": "myia-monitor",
+                    "id": "myssia-monitor",
                     "modes": {"remote": {"endpoint": "https://my-monitor.example.com"}},
                 },
             }
@@ -645,7 +645,7 @@ class TestIronLaw:
                 }],
                 "push": [{"channel": "stdout"}],
                 "plugin": {
-                    "id": "myia-monitor",
+                    "id": "myssia-monitor",
                     "modes": {"remote": {"endpoint": "https://my-monitor.example.com"}},
                 },
             }
@@ -690,7 +690,7 @@ class TestCategoryPluginSection:
         """
         config = load_category_file(REPO_ROOT / "plugins" / "monitor.yaml")
         assert config.plugin is not None
-        assert config.plugin.id == "myia-monitor"
+        assert config.plugin.id == "myssia-monitor"
         assert config.plugin.requires == []
         assert config.plugin.modes.local is None
         assert config.plugin.modes.remote is not None
@@ -785,7 +785,7 @@ class TestCategoryPluginSection:
 
 
 # ---------------------------------------------------------------------------
-# CLI:myia plugin list / install / remove(--json 单文档,退出码 0/1)
+# CLI:myssia plugin list / install / remove(--json 单文档,退出码 0/1)
 # ---------------------------------------------------------------------------
 
 
@@ -805,16 +805,16 @@ class TestPluginCli:
         assert main(["plugin", "list", "--dir", str(plugin_root), "--json"]) == EXIT_OK
         payload = json.loads(capsys.readouterr().out)
         (entry,) = payload["plugins"]
-        assert entry["id"] == "myia-monitor" and entry["loaded"] is True
+        assert entry["id"] == "myssia-monitor" and entry["loaded"] is True
         assert entry["compatible_current"] is True
         assert payload["summary"]["usable"] == 1
-        assert main(["plugin", "remove", "myia-monitor", "--dir", str(plugin_root), "--json"]) == EXIT_OK
+        assert main(["plugin", "remove", "myssia-monitor", "--dir", str(plugin_root), "--json"]) == EXIT_OK
         capsys.readouterr()
         assert main(["plugin", "list", "--dir", str(plugin_root), "--json"]) == EXIT_OK
         assert json.loads(capsys.readouterr().out)["plugins"] == []
 
     def test_install_broken_manifest_exits_one_structured(self, tmp_path: Path, plugin_root: Path, capsys):
-        source = write_plugin_dir(tmp_path, manifest_text="id: myia-broken\nbanana: true\n")
+        source = write_plugin_dir(tmp_path, manifest_text="id: myssia-broken\nbanana: true\n")
         code = main(["plugin", "install", str(source), "--dir", str(plugin_root), "--json"])
         payload = json.loads(capsys.readouterr().out)
         assert code == EXIT_CONFIG_ERROR
@@ -832,13 +832,13 @@ class TestPluginCli:
         assert payload["code"] == "already_installed"
 
     def test_remove_missing_exits_one(self, tmp_path: Path, plugin_root: Path, capsys):
-        code = main(["plugin", "remove", "myia-ghost", "--dir", str(plugin_root), "--json"])
+        code = main(["plugin", "remove", "myssia-ghost", "--dir", str(plugin_root), "--json"])
         payload = json.loads(capsys.readouterr().out)
         assert code == EXIT_CONFIG_ERROR
         assert payload["code"] == "not_installed"
 
     def test_list_broken_entry_reports_finding_and_exits_zero(self, tmp_path: Path, plugin_root: Path, capsys):
-        broken = plugin_root / "myia-broken"
+        broken = plugin_root / "myssia-broken"
         broken.mkdir(parents=True)
         (broken / "plugin.yaml").write_text("id: [unclosed\n", encoding="utf-8")
         code = main(["plugin", "list", "--dir", str(plugin_root), "--json"])
@@ -869,7 +869,7 @@ class TestPluginCli:
         code = main(["plugin", "list", "--dir", str(plugin_root)])
         out = capsys.readouterr().out
         assert code == EXIT_OK
-        assert "myia-monitor@1.0.0" in out
+        assert "myssia-monitor@1.0.0" in out
         with pytest.raises(json.JSONDecodeError):
             json.loads(out)
 
@@ -913,7 +913,7 @@ class TestPluginStoreIoGuards:
         # 关键:已装插件未被删除(此前被 rmtree 半卸)
         assert installed_dir.is_dir()
         assert (installed_dir / "plugin.yaml").is_file()
-        assert [entry.plugin_id for entry in store.entries()] == ["myia-monitor"]
+        assert [entry.plugin_id for entry in store.entries()] == ["myssia-monitor"]
 
     def test_remove_symlinked_plugin_dir_is_structured_io_error(
         self, tmp_path: Path, plugin_root: Path
@@ -923,7 +923,7 @@ class TestPluginStoreIoGuards:
         source = write_plugin_dir(tmp_path)
         store = InstalledPluginStore(plugin_root)
         store.install(source)
-        real = plugin_root / "myia-monitor"
+        real = plugin_root / "myssia-monitor"
         link = plugin_root / "link-demo"
         link.symlink_to(real)
 
@@ -953,6 +953,6 @@ class TestPluginStoreIoGuards:
                 store.install(source)
             assert excinfo.value.code == "io_error"
             # 半装残留已清(「绝不半装」承诺)
-            assert not (plugin_root / "myia-monitor").exists()
+            assert not (plugin_root / "myssia-monitor").exists()
         finally:
             blocked.chmod(0o755)  # 还原,tearDown 的 tmp 清理不被权限卡住

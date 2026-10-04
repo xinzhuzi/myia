@@ -15,7 +15,7 @@
   日志文件超 5MB 打开前轮转成 ``.1``(:func:`_rotate_log_if_huge`)。
 
 调用方:管线侧 collect 环 ``vl:local`` 前 ensure 一次(失败沿用
-``vl_skipped_error`` 降级,绝不阻管线,见 :mod:`shishi.pipeline`);协议侧
+``vl_skipped_error`` 降级,绝不阻管线,见 :mod:`myssia.pipeline`);协议侧
 ``image.server.status`` / ``image.server.ensure``(desktop/entry.py)。
 
 纪律:零重依赖(httpx + subprocess,均为核心依赖面);spawn 用
@@ -37,7 +37,7 @@ from urllib.parse import urlparse
 
 import httpx
 
-from shishi.vision.settings import VisionConfig
+from myssia.vision.settings import VisionConfig
 
 __all__ = [
     "HEALTH_POLL_INTERVAL_SECONDS",

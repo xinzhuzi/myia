@@ -1,4 +1,4 @@
-"""Tests for shishi.push.delivery — 定向派发 + 死信账本(蓝本移植自 Hermes
+"""Tests for myssia.push.delivery — 定向派发 + 死信账本(蓝本移植自 Hermes
 gateway/delivery.py + dead_targets.py + platforms/base.py 分类表)。
 
 覆盖任务 10-03-messaging-core 步骤 5:fake 通道注入派发循环、空 specs 短路、
@@ -15,16 +15,17 @@ from pathlib import Path
 
 import pytest
 
-from shishi.push.base import PushSendError, SendContext
-from shishi.push.delivery import (
+from myssia.push.base import PushSendError, SendContext
+from myssia.push.delivery import (
     LEDGER_FILENAME,
     DeliveryLedger,
     classify_dead_error,
     is_chat_level_not_found,
+    scrub_dead_markers,
     send_batch_to_targets,
 )
-from shishi.push.directory import ChannelDirectory, ChannelEntry
-from shishi.push.targets import ChannelTarget
+from myssia.push.directory import ChannelDirectory, ChannelEntry
+from myssia.push.targets import ChannelTarget
 
 
 class FakeTargetingChannel:
@@ -147,6 +148,57 @@ class TestClassifyDeadError:
         """
         exc = PushSendError(code, "room 403 forbidden chat not found")
 
+        assert classify_dead_error(exc) is None
+
+    @pytest.mark.parametrize("status", [400, 401, 403, 404])
+    def test_token_level_failures_never_mark_dead(self, status):
+        """W3 复核修复:token 端点失败(应用级凭据根因)无死信语义。
+
+        qqbot/msgraph_webhook 的 token 文案家族(≥400 JSON 错误体的
+        ``token 获取失败`` 与非 JSON 应答的 ``token 响应不是 JSON``)即便
+        携带 ``HTTP 403/404`` 也不得判 forbidden/not_found——死信对象是
+        具体 chat 而根因在应用侧,且死信跳过后无成功投递即永不自愈。
+        消息端点的同状态码语义不变(对照仍判死信)。
+        """
+        assert classify_dead_error(f"qqbot token 获取失败: HTTP {status} '…'") is None
+        assert (
+            classify_dead_error(
+                f"msgraph_webhook token 获取失败: HTTP {status} error=invalid_client '…'"
+            )
+            is None
+        )
+        assert classify_dead_error(f"qqbot token 响应不是 JSON(HTTP {status}): '<html/>'") is None
+        # 对照:消息端点(非 token 家族)的 403/404 死信语义不受影响。
+        assert classify_dead_error("qqbot HTTP 403: 'smoke body'") == "forbidden"
+        assert classify_dead_error("msgraph_webhook HTTP 404: 'chat not found'") == "not_found"
+
+
+class TestScrubDeadMarkers:
+    def test_scrubs_all_three_marker_families_case_insensitive(self):
+        """对端自由文本过 scrub 后,分类 blob 与三张 marker 表零子串交集。"""
+        hostile = (
+            "task Forbidden by policy; peer said HTTP 404, "
+            "chat not found, thread not found, errcode=40003"
+        )
+        scrubbed = scrub_dead_markers(hostile)
+        blob = scrubbed.lower()
+        for marker in ("forbidden", "http 404", "chat not found", "thread not found", "errcode=40003"):
+            assert marker not in blob
+        assert "…" in scrubbed  # 命中段以省略号占位,可见「有内容被滤除」
+        # 非命中段原样保留(大小写不变)
+        assert "task" in scrubbed and "by policy" in scrubbed
+
+    def test_benign_text_passes_through_unchanged(self):
+        text = "对端 agent 语义错误: invalid request shape (-32600)"
+        assert scrub_dead_markers(text) == text
+
+    def test_scrubbed_peer_text_never_classifies_dead(self):
+        """端到端语义:对端文案恰含 marker 字样,滤除后错误恒瞬态。"""
+        exc = PushSendError(
+            "a2a_api_error",
+            "a2a 对端返回 JSON-RPC 错误: code=-32000"
+            f" message={scrub_dead_markers('peer replied forbidden & HTTP 404')}",
+        )
         assert classify_dead_error(exc) is None
 
 
@@ -509,7 +561,7 @@ class TestSendBatchToTargets:
         ledger.mark_dead(platform="fake", chat_id="c1", reason="forbidden: x")
         channel = FakeTargetingChannel()
 
-        with caplog.at_level(logging.INFO, logger="shishi.push.delivery"):
+        with caplog.at_level(logging.INFO, logger="myssia.push.delivery"):
             reports = _run(
                 send_batch_to_targets(
                     [{"title": "t"}],

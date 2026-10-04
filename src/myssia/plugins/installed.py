@@ -1,7 +1,7 @@
 """已安装插件仓:扫描 / 装卸 / 品类侧启动自检(加载失败→结构化 finding,绝不拦核心).
 
 安装布局:每个插件是安装根目录下的一个子目录(目录名 == manifest id),根下
-``plugin.yaml`` 即 manifest(:mod:`shishi.plugins.manifest`)。默认安装根
+``plugin.yaml`` 即 manifest(:mod:`myssia.plugins.manifest`)。默认安装根
 ``~/.myia/plugins``,环境变量 ``MYIA_PLUGIN_DIR`` 可覆盖(桌面端与 CLI 共用
 同一解析,:func:`default_install_root`)。
 
@@ -36,21 +36,21 @@ from typing import Any
 
 import httpx
 
-import shishi
-from shishi.plugins.manifest import (
+import myssia
+from myssia.plugins.manifest import (
     MANIFEST_FILENAME,
     PluginManifest,
     find_manifest_file,
     load_manifest_file,
 )
-from shishi.plugins.versioning import VersionRange
-from shishi.schema import (
+from myssia.plugins.versioning import VersionRange
+from myssia.schema import (
     _PLUGIN_ID_RE,
     CategoryPluginConfig,
     SchemaValueError,
     parse_secret_value,
 )
-from shishi.secrets import SECRET_SERVICE, KeychainBackend
+from myssia.secrets import SECRET_SERVICE, KeychainBackend
 
 __all__ = [
     "DEFAULT_INSTALL_ROOT",
@@ -80,9 +80,9 @@ def default_install_root() -> Path:
     return Path(override).expanduser() if override else DEFAULT_INSTALL_ROOT
 
 
-def myia_version() -> str:
-    """当前 myia 核心版本(版本矩阵比对的被检方;独立函数便于测试替换)。"""
-    return shishi.__version__
+def myssia_version() -> str:
+    """当前 myssia 核心版本(版本矩阵比对的被检方;独立函数便于测试替换)。"""
+    return myssia.__version__
 
 
 # ---------------------------------------------------------------------------
@@ -152,10 +152,10 @@ class InstalledEntry:
 
     @property
     def compatible_current(self) -> bool | None:
-        """当前 myia 是否落在兼容范围;manifest 缺失时 None(无从判断)。"""
+        """当前 myssia 是否落在兼容范围;manifest 缺失时 None(无从判断)。"""
         if self.manifest is None:
             return None
-        return VersionRange(self.manifest.compatible).contains(myia_version())
+        return VersionRange(self.manifest.compatible).contains(myssia_version())
 
     def to_dict(self) -> dict[str, Any]:
         manifest = self.manifest
@@ -246,7 +246,7 @@ class InstalledPluginStore:
                     "warning",
                     f"plugin:{entry.manifest.id}",
                     "incompatible_version",
-                    f"插件要求 myia {entry.manifest.compatible},当前 myia {myia_version()};"
+                    f"插件要求 myssia {entry.manifest.compatible},当前 myssia {myssia_version()};"
                     "该插件将被跳过,核心流水线不受影响",
                 )
             )
@@ -273,11 +273,11 @@ class InstalledPluginStore:
         Args:
             source: 插件目录(含 ``plugin.yaml``)或 ``plugin.yaml`` 文件路径。
             force: 目标已存在时覆盖;版本矩阵不兼容时强制安装(warning 语义)。
-            current_version: 版本矩阵比对用的当前 myia 版本;None = 实际版本。
+            current_version: 版本矩阵比对用的当前 myssia 版本;None = 实际版本。
 
         Returns:
             安装结果 dict(id/name/version/compatible/compatible_current/
-            forced/source/path),``myia plugin install --json`` 直出。
+            forced/source/path),``myssia plugin install --json`` 直出。
 
         Raises:
             PluginStoreError: 结构化失败 —— 来源不存在/没有 manifest/manifest
@@ -299,7 +299,7 @@ class InstalledPluginStore:
                 f"插件 manifest 校验失败({manifest_file}): {first}",
                 errors=detail.get("errors") if isinstance(detail, dict) else None,
             ) from exc
-        current = current_version if current_version is not None else myia_version()
+        current = current_version if current_version is not None else myssia_version()
         range_ok = VersionRange(manifest.compatible).contains(current)
         # manifest id 已过 _PLUGIN_ID_RE(仅小写字母/数字/_-),无路径穿越可能。
         dest = self._root / manifest.id
@@ -323,8 +323,8 @@ class InstalledPluginStore:
         if not range_ok and not force:
             raise PluginStoreError(
                 "incompatible_version",
-                f"插件 {manifest.id} 要求 myia {manifest.compatible},当前 myia {current};"
-                "请升级 myia 或选择兼容版本,确认风险后可 --force 强制安装",
+                f"插件 {manifest.id} 要求 myssia {manifest.compatible},当前 myssia {current};"
+                "请升级 myssia 或选择兼容版本,确认风险后可 --force 强制安装",
             )
         try:
             self._root.mkdir(parents=True, exist_ok=True)
@@ -417,7 +417,7 @@ def check_category_plugin(
 
     1. 插件是否已装(未装 → ``plugin_not_installed``,品类按无插件继续跑);
     2. 已装目录的 manifest 是否可读(坏 → 原样带上 store 的 findings);
-    3. 版本矩阵是否兼容当前 myia(不兼容 → ``incompatible_version``,插件跳过);
+    3. 版本矩阵是否兼容当前 myssia(不兼容 → ``incompatible_version``,插件跳过);
     4. remote token 在钥匙链是否存在(``backend=None`` 时跳过 —— 无法核验不是
        问题);
     5. ``probe_remote=True`` 时 remote 端点可达性(显式 opt-in,run 路径默认
@@ -442,7 +442,7 @@ def check_category_plugin(
                 scope,
                 "plugin_not_installed",
                 f"插件 {section.id} 未安装(安装根 {store.root});本品类按无插件继续跑,"
-                "其 local/remote 服务能力不可用。安装:myia plugin install <插件目录>",
+                "其 local/remote 服务能力不可用。安装:myssia plugin install <插件目录>",
             )
         ]
     # 已装目录自身的 findings(manifest 坏/版本不兼容)全部降为 warning 透出:
@@ -450,14 +450,14 @@ def check_category_plugin(
     findings = [dataclass_replace(finding, severity="warning") for finding in entry.findings]
     if entry.manifest is None:
         return findings
-    current = current_version if current_version is not None else myia_version()
+    current = current_version if current_version is not None else myssia_version()
     if not VersionRange(entry.manifest.compatible).contains(current):
         findings.append(
             PluginFinding(
                 "warning",
                 scope,
                 "incompatible_version",
-                f"已安装插件要求 myia {entry.manifest.compatible},当前 myia {current};"
+                f"已安装插件要求 myssia {entry.manifest.compatible},当前 myssia {current};"
                 "已跳过该插件,核心流水线不受影响",
             )
         )
@@ -512,7 +512,7 @@ def check_remote_modes(
                         scope,
                         "plugin_token_missing",
                         f"remote token 引用的钥匙链凭据 {ref.name} 不存在;"
-                        f"请执行 myia secret set {ref.name} 写入,否则 remote 模式不可用",
+                        f"请执行 myssia secret set {ref.name} 写入,否则 remote 模式不可用",
                     )
                 )
     if probe_remote:

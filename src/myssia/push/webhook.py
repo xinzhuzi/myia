@@ -1,9 +1,9 @@
 """Generic webhook channel: POST the rendered payload as JSON to any endpoint.
 
-The plugin-ecosystem integration point (myia-monitor / n8n / 自建接收端):
+The plugin-ecosystem integration point (myssia-monitor / n8n / 自建接收端):
 the payload is the render data (kind/slot/date/category/count, plus the user
 template's ``text`` when configured) plus per-item metadata via
-:func:`shishi.push.base.item_view` — the same shape the ``stdout`` channel
+:func:`myssia.push.base.item_view` — the same shape the ``stdout`` channel
 prints, so consumers treat both as one contract.
 
 The endpoint URL goes through a **credential reference** (``env:`` /
@@ -25,15 +25,15 @@ from typing import Any, Awaitable, Callable, Sequence
 
 import httpx
 
-from shishi.push.base import (
+from myssia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
     TrendAwareChannel,
     item_view,
 )
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "BACKOFF_CAP_SECONDS",
@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 #: Endpoint credential reference used when the constructor gets no ``target``.
 DEFAULT_ENDPOINT_ENV_REF = "env:MYIA_WEBHOOK_URL"
 #: Retried with backoff (transient); other 4xx are permanent, single attempt.
-#: Same policy as the fetch layer (shishi.engines.fetch_base), kept local so the
+#: Same policy as the fetch layer (myssia.engines.fetch_base), kept local so the
 #: push layer does not import the engine layer.
 RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 DEFAULT_RETRIES = 2

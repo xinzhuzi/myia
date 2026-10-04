@@ -4,7 +4,7 @@
 > sections. This is the full reference for humans and AI alike: every section
 > has clear semantics and a default. The condensed version is the Agent Skill
 > [skill/SKILL.md](../../skill/SKILL.md); the two documents cross-reference
-> each other and are locked field-for-field to `src/myia/schema.py` by
+> each other and are locked field-for-field to `src/myssia/schema.py` by
 > `tests/test_skill_doc.py` and `tests/test_docs.py`, so they cannot drift.
 > This page teaches the *how*; field-by-field detail lives in the
 > [schema reference](schema.md).
@@ -13,19 +13,19 @@
 
 ```
 user request
-  → myia init --json           # fetch the structured input checklist (what to collect, what defaults)
+  → myssia init --json           # fetch the structured input checklist (what to collect, what defaults)
   → write plugins/<id>.yaml    # section by section, against the schema reference (docs/en/schema.md)
-  → myia test plugins/<id>.yaml --json    # trial-fetch each source; check fields and dedup keys (no push/storage)
-  → myia run plugins/<id>.yaml --dry-run --json   # full rehearsal (no push)
-  → myia run plugins/<id>.yaml            # the first real run; add --loop for resident scheduling
-  → myia doctor --json         # done when findings is empty
+  → myssia test plugins/<id>.yaml --json    # trial-fetch each source; check fields and dedup keys (no push/storage)
+  → myssia run plugins/<id>.yaml --dry-run --json   # full rehearsal (no push)
+  → myssia run plugins/<id>.yaml            # the first real run; add --loop for resident scheduling
+  → myssia doctor --json         # done when findings is empty
 ```
 
 Every command's `--json` output is **exactly one JSON document** (stdout);
 logs go to stderr — and with `--json`, the `stdout` push channel's card lines
 are rerouted to stderr too, so the whole stdout always `json.load`s. Exit codes: `0` success / `1` config or usage error /
 `2` all sources failed / `3` partial failure. A source that breaks later
-follows the same loop: `myia doctor --json` reports the structured problem →
+follows the same loop: `myssia doctor --json` reports the structured problem →
 the agent fixes the YAML (or the environment) → re-verify — the user only
 decides.
 
@@ -61,14 +61,14 @@ error carries the field path):
 |---|---|---|---|
 | L1 | `direct_api` | the data has a public JSON/REST API (quotes, releases, community REST) | fastest and cheapest; `extract.type: json_path`; curl the endpoint to confirm the shape before writing fields; when the payload carries no page URL, render item links with `extract.url_template` from `{field}` placeholders (see plugins/games.yaml) |
 | L2 | `static_html` | server-rendered HTML (forum lists, news pages) | zero deps; `extract.type: list` + CSS selectors |
-| L3 | `crawl4ai` | JS-rendered pages — the data is not in the page source | optional dep `myia[crawl4ai]`; when missing, `dependency_missing` and the chain continues; without `extract` it auto-structures |
+| L3 | `crawl4ai` | JS-rendered pages — the data is not in the page source | optional dep `myssia[crawl4ai]`; when missing, `dependency_missing` and the chain continues; without `extract` it auto-structures |
 | L3' | `firecrawl` | cloud alternative to crawl4ai | needs endpoint+key (`MYIA_FIRECRAWL_URL` / `MYIA_FIRECRAWL_API_KEY`, or `engine_options.firecrawl.endpoint/api_key` references); unconfigured → this rung fails and the chain continues |
-| L4 | `scrapling` | basic anti-bot shields (TLS/HTTP2 fingerprints, basic CF challenges), frequently-redesigned pages (self-healing selectors), infinite-scroll lists | optional dep `myia[scrapling]`; backend via `engine_options.scrapling.backend` (`stealth`/`dynamic`/`static`); `pagination.mode: scroll` is supported here only |
+| L4 | `scrapling` | basic anti-bot shields (TLS/HTTP2 fingerprints, basic CF challenges), frequently-redesigned pages (self-healing selectors), infinite-scroll lists | optional dep `myssia[scrapling]`; backend via `engine_options.scrapling.backend` (`stealth`/`dynamic`/`static`); `pagination.mode: scroll` is supported here only |
 | L5 | `stealth_browser` | hard-anti-bot pages (anti-detect browser driven over MCP) | needs a Playwright-MCP server; per-run page budget `engine_options.stealth_browser.max_pages` (default 10); `headers.Cookie` on the source is injected past login walls |
 | L6 | `llm_browser` | last resort when everything above failed (LLM-driven browser, skyvern) | burns tokens — fallback only; `MYIA_SKYVERN_URL` / `MYIA_SKYVERN_API_KEY` or `engine_options.llm_browser.endpoint/api_key` references |
 
 **Off-chain source engine `credhunter`** (not one of the L1-L6 layers): the
-in-process scenario plugin `myia-credhunter` (see `plugins/myia-credhunter/`) —
+in-process scenario plugin `myssia-credhunter` (see `plugins/myssia-credhunter/`) —
 items are assembled by the adapter itself, the `url` is never fetched. Three
 lanes selected via `engine_options.credhunter.lane`: `credhunt` (GitHub
 artifact hunting, token-pool references, no token → explicit empty state,
@@ -83,7 +83,7 @@ finding is masked head-8/tail-4.
 
 Rule of thumb: view the page source first — data visible → L2, data via an
 API → L1, JS-only → L3; when unsure pick `engine: auto` and read the chosen
-engine from `myia test --json` (the `engine` field). Never write CSS
+engine from `myssia test --json` (the `engine` field). Never write CSS
 selectors for an API source, never write json_path for an SSR page. Every
 engine respects robots.txt and rate-limits (qps 0.5) by default; sources
 behind human verification + phone numbers are never bypassed — L5
@@ -194,15 +194,15 @@ push:
 
 - Credentials are **never written in plaintext** in a plugin YAML — only
   `env:VAR_NAME` or `keychain:myia/<scope>/<name>` references.
-- Store a keychain value with `myia secret set myia/<scope>/<name>`; the
+- Store a keychain value with `myssia secret set myia/<scope>/<name>`; the
   value goes through a stdin pipe or a hidden prompt (**never** `--value` —
-  it would land in shell history and process lists); `myia secret list`
-  lists names only; `myia secret delete <name>` removes one.
+  it would land in shell history and process lists); `myssia secret list`
+  lists names only; `myssia secret delete <name>` removes one.
 - An auth-scheme prefix round-trips: `Authorization: "Bearer env:AIPOCKET_TOKEN"`.
 - A plaintext credential **refuses to start** (exit code 1, the error carries
   the field path); credential values are never echoed and never logged
   (reference names may appear, resolved values must not).
-- `myia doctor --json` probes every reference for existence
+- `myssia doctor --json` probes every reference for existence
   (`env_ref_missing` / `keychain_ref_missing`) so an agent can repair the
   environment by itself.
 
@@ -218,7 +218,7 @@ token; details in [skill/SKILL.md](../../skill/SKILL.md) §2.13):
 - `wecom`: `target` = touser userid (`env:WECOM_TUSER`); the self-built-app credentials are read from `env:WECOM_CORPID` / `env:WECOM_CORPSECRET` / `env:WECOM_AGENTID`.
 - `weixin`: optional bridge channel — outbound goes through the local Hermes-Agent CLI
   (path overridable via `weixin_hermes_bin`); the login state lives only on the Hermes side,
-  MYIA itself holds zero credentials. `target` = conversation peer id (`env:WEIXIN_PEER_ID`,
+  myssia itself holds zero credentials. `target` = conversation peer id (`env:WEIXIN_PEER_ID`,
   direct push `weixin:<peer id>`); without a Hermes install, sends return a structured
   `bridge_unavailable` error (the config still loads).
 - `webhook`: `target` = endpoint URL reference (e.g. `env:MYIA_WEBHOOK_URL`).
@@ -227,17 +227,17 @@ token; details in [skill/SKILL.md](../../skill/SKILL.md) §2.13):
 ## Verify and run
 
 ```bash
-myia test plugins/<id>.yaml --json          # trial-fetch (no push/storage; 120s per-source timeout; --source picks one)
-myia run plugins/<id>.yaml --dry-run --json # full rehearsal, no push, no side effects
-myia run plugins/<id>.yaml                  # the first real run
-myia run plugins/<id>.yaml --loop           # resident: fires on schedule+timezone
+myssia test plugins/<id>.yaml --json          # trial-fetch (no push/storage; 120s per-source timeout; --source picks one)
+myssia run plugins/<id>.yaml --dry-run --json # full rehearsal, no push, no side effects
+myssia run plugins/<id>.yaml                  # the first real run
+myssia run plugins/<id>.yaml --loop           # resident: fires on schedule+timezone
 ```
 
-- `myia test --json` reports per source: `ok`, `engine`, `items[].fields`,
+- `myssia test --json` reports per source: `ok`, `engine`, `items[].fields`,
   `items[].dedup_key` (a `dedup_key_error` means the key template does not
   render), `fingerprint.verdict`, and `failures[]` (engine / error_type /
   message).
-- `myia run --json` reports `stages[]` (items_in→items_out and skip reasons
+- `myssia run --json` reports `stages[]` (items_in→items_out and skip reasons
   per stage), `sources[]`, `push[]` (per-channel buckets, routing decisions,
   send reports); `status` is `success`/`partial`/
   `failed`, mapping to exit codes 0/3/2.
@@ -247,7 +247,7 @@ myia run plugins/<id>.yaml --loop           # resident: fires on schedule+timezo
 ## Self-diagnosis (doctor findings → repair actions)
 
 ```bash
-myia doctor --json                    # by default checks every plugin in plugins/; or myia doctor <yaml> --json
+myssia doctor --json                    # by default checks every plugin in plugins/; or myssia doctor <yaml> --json
 ```
 
 Source health state machine: `ok` / `degraded` (not fingerprint-skipped yet
@@ -261,10 +261,10 @@ Common findings and repairs:
 | `credential_plaintext` | replace the plaintext with an `env:`/`keychain:` reference |
 | `unknown_field` | fix the field name against the [schema reference](schema.md) |
 | `missing_field` / `invalid_value` | locate by the `path` field, add the required key or fix the value |
-| `source_dead` (3 failed rounds) | read `failures[]` from `myia test --json`: new URL / adjust extract / step up an engine or proxy; comment the source out if it is hopeless |
-| `source_degraded` (0 items / halved) | the page structure likely changed: rerun `myia test --json`, fix the extract selectors |
+| `source_dead` (3 failed rounds) | read `failures[]` from `myssia test --json`: new URL / adjust extract / step up an engine or proxy; comment the source out if it is hopeless |
+| `source_degraded` (0 items / halved) | the page structure likely changed: rerun `myssia test --json`, fix the extract selectors |
 | `env_ref_missing` | set the environment variable (e.g. `export FEISHU_CHAT_ID=...`) |
-| `keychain_ref_missing` | store it with `myia secret set <name>` |
+| `keychain_ref_missing` | store it with `myssia secret set <name>` |
 | `keychain_name_noncanonical` | rename the reference to `myia/<scope>/<name>` and update the YAML |
 | `store_error` | corrupt SQLite or a too-new schema version: switch `--db` or rebuild (history is lost) |
 | plugin finding (v0.3) | a market plugin that cannot install or is unreachable degrades to a finding and **never blocks the core pipeline**; fix the `plugin:` section or reinstall per the message |
@@ -272,9 +272,9 @@ Common findings and repairs:
 
 ## Pre-flight checklist
 
-1. `myia test` passes (exit code 0 or 3, sources `ok: true`, field previews
+1. `myssia test` passes (exit code 0 or 3, sources `ok: true`, field previews
    non-empty, no `dedup_key_error`).
-2. `myia doctor` reports an empty `findings`.
+2. `myssia doctor` reports an empty `findings`.
 3. Every credential slot is a reference — no plaintext; `engine` values are
    legal; `dedup.key` does not contain `{title}`.
 4. Categories outside the seven built-ins set `classify.builtin: false`
@@ -285,7 +285,7 @@ Common findings and repairs:
 
 ## Going further: plugin market and feedback loop
 
-- **Scenario plugins** (v0.3, slimmed in v1.1): `myia plugin list / install /
+- **Scenario plugins** (v0.3, slimmed in v1.1): `myssia plugin list / install /
   remove`; a category YAML declares its dependency in the top-level `plugin:`
   section (`remote` endpoint + keychain token; the `local` docker compose mode
   remains valid schema but official plugins no longer ship local compose files —
@@ -294,18 +294,18 @@ Common findings and repairs:
   directory lives in `plugins/community/README.md`.
 - **Source-type / in-process plugins** (v1.1, desktop-first): official
   packages declare a `tier` (`desktop` default set / `remote` opt-in /
-  `server-only`), shown by `myia plugin list`. The `myia-osint` sample pins
+  `server-only`), shown by `myssia plugin list`. The `myssia-osint` sample pins
   upstream source as a git submodule under the plugin's `vendor/` directory
   (manifest gains optional `vendor:` / `adapter:` sections; unknown fields
   still fail fast), and an adapter shells out to the upstream CLI inside an
   isolated uv environment (deps fetched on demand, never into the root
-  project) — `myia osint https://example.com --json` runs one structured
-  recon with zero Docker. `myia-proxy` is the in-process counterpart: `myia
+  project) — `myssia osint https://example.com --json` runs one structured
+  recon with zero Docker. `myssia-proxy` is the in-process counterpart: `myia
   proxy --json` fetches public free proxies and liveness-checks them in
   process (zero Redis, zero Docker). A missing upstream only degrades with
   structured errors and never blocks the core pipeline.
 - **Feedback loop** (v0.3): negative feedback is stored —
-  `myia feedback list / stats / mark` — and maintenance retunes watchlist
+  `myssia feedback list / stats / mark` — and maintenance retunes watchlist
   weights and thresholds automatically (prompt notes are recorded in the
   tuning history and surfaced in stats; Telegram/Feishu callback receivers
   ship now — in-card buttons land with the desktop UI).

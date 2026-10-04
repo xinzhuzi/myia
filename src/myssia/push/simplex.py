@@ -14,7 +14,7 @@ WS 帧 ``{"corrId": …, "cmd": "<命令>"}``、应答按 corrId 关联
   (``/contacts``/``/groups``,蓝本事实),照 feishu_card
   ``discover_directory`` 范式实装(本批唯一的发现实装)。
 - **依赖门(ocr.py 范式)**:WS 客户端库 ``websockets`` 是可选依赖(extras
-  ``shishi[simplex]``),惰性 import——缺装时发送/发现抛
+  ``myssia[simplex]``),惰性 import——缺装时发送/发现抛
   ``dependency_missing`` 结构化错误并附安装命令,核心依赖红线不破;
   另需本机 ``simplex-chat`` 守护进程(``simplex-chat -p 5225`` 类服务模式)。
 - **分段**:守护进程对超长文本无硬限,蓝本按 8000 字符 sanity 切块
@@ -43,13 +43,13 @@ import re
 import time
 from typing import Any, Mapping, Protocol, Sequence
 
-from shishi.push.base import PushSendError, SendContext, TrendAwareChannel
-from shishi.push.directory import ChannelEntry
-from shishi.push.ntfy import build_message
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.telegram import split_message
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.base import PushSendError, SendContext, TrendAwareChannel
+from myssia.push.directory import ChannelEntry
+from myssia.push.ntfy import build_message
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.telegram import split_message
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "CLIENT_PACKAGE",
@@ -67,10 +67,10 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-#: WS 客户端库(extras ``shishi[simplex]``;缺装 → dependency_missing)。
+#: WS 客户端库(extras ``myssia[simplex]``;缺装 → dependency_missing)。
 CLIENT_PACKAGE = "websockets"
 INSTALL_COMMAND = (
-    "pip install 'shishi[simplex]'  # 或 uv add 'shishi[simplex]';"
+    "pip install 'myssia[simplex]'  # 或 uv add 'myssia[simplex]';"
     "并需本机 simplex-chat 守护进程(服务模式,WS API)"
 )
 #: 守护进程 WS 地址引用(本机服务模式缺省端口,蓝本同款)。
@@ -264,7 +264,7 @@ class SimplexChannel(TrendAwareChannel):
     def _next_corr_id(self) -> str:
         """mint 关联 id(计数器 + 毫秒,蓝本 ``_make_corr_id`` 同构)。"""
         self._corr_counter += 1
-        return f"myia-{self._corr_counter}-{int(time.time() * 1000)}"
+        return f"myssia-{self._corr_counter}-{int(time.time() * 1000)}"
 
     async def _connect(self, ws_url: str) -> SimplexWS:
         """开一条短连接;连接层异常 → 结构化错误(依赖门在缺省连接器内)。

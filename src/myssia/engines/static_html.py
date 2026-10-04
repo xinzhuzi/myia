@@ -31,7 +31,7 @@ from urllib.parse import urljoin
 
 from selectolax.parser import HTMLParser
 
-from shishi.engines.fetch_base import (
+from myssia.engines.fetch_base import (
     BaseEngine,
     decode_response,
     extract_html,

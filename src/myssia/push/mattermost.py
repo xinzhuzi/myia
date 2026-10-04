@@ -12,7 +12,7 @@ Mattermost 官方「Incoming Webhooks」契约(``POST {url}`` body
   "message": <≤4000 字符分段>}``;成功 201。错误应答 JSON
   ``{"id": "app.channel.not_found.app_error", "message": …, "status_code": …}``,
   文案保留 ``HTTP <status>`` + 原厂 id/message 供死信分类
-  (:func:`shishi.push.delivery.classify_dead_error`:403 → forbidden、
+  (:func:`myssia.push.delivery.classify_dead_error`:403 → forbidden、
   404(channel 不存在)→ not_found、429/5xx → 瞬态)。**与蓝本的偏离**:
   Hermes ``_post_message`` 携 ``root_id`` 做话题内回复,断根时以
   ``_post_preserving_thread`` 回退平铺;MYIA 出站通知一律平铺发频道
@@ -28,7 +28,7 @@ Mattermost 官方「Incoming Webhooks」契约(``POST {url}`` body
 26 位小写字母数字 channel id(蓝本 id 形态);频道名(``town-square``)走
 目录别名。目录无自动发现(蓝本列表 API 建立在常驻 websocket 会话上,MYIA
 出站-only 不含),抛
-:class:`~shishi.push.directory.DirectoryDiscoverUnsupported`。
+:class:`~myssia.push.directory.DirectoryDiscoverUnsupported`。
 
 凭据安全基线同其余通道:YAML 只写 ``env:``/``keychain:`` 引用,发送期才
 解析;错误文案只带引用名,绝不带解析值。All HTTP I/O goes through an
@@ -45,18 +45,18 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from shishi.push.base import (
+from myssia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
     TrendAwareChannel,
 )
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.ntfy import build_message
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.telegram import split_message
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.ntfy import build_message
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.telegram import split_message
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "CHANNEL_ID_RE",

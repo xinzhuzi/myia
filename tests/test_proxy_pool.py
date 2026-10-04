@@ -26,8 +26,8 @@ from typing import Any, Callable
 import httpx
 import pytest
 
-from myia.engines.direct_api import DirectAPIEngine
-from myia.engines.fetch_base import (
+from myssia.engines.direct_api import DirectAPIEngine
+from myssia.engines.fetch_base import (
     ProxyConfigError,
     ProxyPoolExhaustedError,
     ProxyPoolTransport,
@@ -36,10 +36,10 @@ from myia.engines.fetch_base import (
     load_proxy_pools,
     mask_proxy_url,
 )
-from myia.engines.registry import fetch_source
-from myia.schema import LoadError
-from myia.store import SQLiteStore
-from myia.vision.collect import _client_egress_is_proxied
+from myssia.engines.registry import fetch_source
+from myssia.schema import LoadError
+from myssia.store import SQLiteStore
+from myssia.vision.collect import _client_egress_is_proxied
 
 from conftest import FakeClock, make_client, make_context, make_source, run
 
@@ -130,7 +130,7 @@ def upstream_recorder(monkeypatch, responders: dict[str, Any]) -> list[str]:
             kwargs.setdefault("transport", httpx.MockTransport(responder))
         return real_client(**kwargs)
 
-    monkeypatch.setattr("myia.engines.fetch_base.httpx.AsyncClient", factory)
+    monkeypatch.setattr("myssia.engines.fetch_base.httpx.AsyncClient", factory)
     return built
 
 
@@ -499,11 +499,11 @@ def test_registry_short_circuits_and_keeps_hint_on_exhausted(monkeypatch, tmp_pa
 
         def firecrawl_factory():
             firecrawl_calls["count"] += 1
-            from myia.engines.firecrawl import FirecrawlEngine
+            from myssia.engines.firecrawl import FirecrawlEngine
 
             return FirecrawlEngine
 
-        from myia.engines import registry
+        from myssia.engines import registry
 
         monkeypatch.setitem(registry.ENGINE_REGISTRY, "firecrawl", firecrawl_factory)
         monkeypatch.setitem(sys.modules, "crawl4ai", None)
@@ -735,7 +735,7 @@ def _fake_check_shape(ok: bool = True) -> dict[str, Any]:
 def test_doctor_probes_every_upstream_with_index_fields(monkeypatch):
     """doctor 逐池逐上游:展开 resolve_upstreams 并行探测,行带
     upstream_index/upstreams;单上游池输出 = 既有字段集 + 纯增字段(AC4)."""
-    from myia import cli
+    from myssia import cli
 
     probed: list[str] = []
 
@@ -765,7 +765,7 @@ def test_doctor_probes_every_upstream_with_index_fields(monkeypatch):
 
 def test_doctor_multi_upstream_resolution_failure_isolated(monkeypatch):
     """单池凭据解析失败不拖垮其余池(部分失败语义,mask 打码不变)."""
-    from myia import cli
+    from myssia import cli
 
     async def fake_check(proxy_url, *, client=None, timeout=10.0, **kwargs):  # pragma: no cover
         raise AssertionError("探测不应发生:唯一池解析失败")

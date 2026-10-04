@@ -1,8 +1,8 @@
-"""Tests for myia.cli — exit-code contract, --json/--dry-run/--loop, stubs.
+"""Tests for myssia.cli — exit-code contract, --json/--dry-run/--loop, stubs.
 
 Covers PRD 10-01-v01-cli-basic acceptance criteria:
 
-- ``myia run <yaml> --dry-run --json`` 输出单份可被 json/jq 解析的结果;
+- ``myssia run <yaml> --dry-run --json`` 输出单份可被 json/jq 解析的结果;
 - 配置错误退出码 1,错误信息含字段路径(与 schema 层打通);
 - 退出码语义 0/1/2/3 全覆盖(供 agent 与 CI 判断);
 - ``--help`` 输出清晰;``list``/``test``/``init`` 等留位子命令结构化提示;
@@ -28,12 +28,12 @@ from typing import Any
 
 import pytest
 
-import myia
-import myia.cli as cli_module
-from myia.cli import EXIT_CONFIG_ERROR, EXIT_OK, EXIT_PARTIAL, build_parser, main
-from myia.pipeline import ChannelPushReport, RunResult, StageReport
-from myia.schema import load_category
-from myia.store import AlertFired, SQLiteStore
+import myssia
+import myssia.cli as cli_module
+from myssia.cli import EXIT_CONFIG_ERROR, EXIT_OK, EXIT_PARTIAL, build_parser, main
+from myssia.pipeline import ChannelPushReport, RunResult, StageReport
+from myssia.schema import load_category
+from myssia.store import AlertFired, SQLiteStore
 
 VALID_YAML = """
 id: demo
@@ -254,7 +254,7 @@ def test_run_maps_status_to_exit_code(fake_pipeline, capsys, status, expected):
 
 def test_exit_code_constants_are_pinned():
     """退出码常量即 CLI 契约,不可漂移。"""
-    from myia.cli import EXIT_FETCH_ALL_FAILED
+    from myssia.cli import EXIT_FETCH_ALL_FAILED
 
     assert (EXIT_OK, EXIT_CONFIG_ERROR, EXIT_FETCH_ALL_FAILED, EXIT_PARTIAL) == (
         0,
@@ -371,7 +371,7 @@ def test_version_flag(capsys):
     assert excinfo.value.code == 0
     # 与 cli.py --version 同源断言(版本序列归零 10-03-tag-release 决议 9 后
     # 不再硬编码版本号,升版免改本测)
-    assert f"myia {myia.__version__}" in capsys.readouterr().out
+    assert f"myssia {myssia.__version__}" in capsys.readouterr().out
 
 
 def test_help_documents_run_and_exit_codes(capsys):
@@ -533,7 +533,7 @@ def test_alerts_cli_is_readonly_v1(capsys):
 # ---------------------------------------------------------------------------
 # cron:定时任务族(10-04-hermes-cron design §4.1 / implement.md B2)。
 # 离线原则:CLI 手动 tick 与 serve 同款注入真执行体(CronRunner.execute,
-# spawn ``myia run --json``);本文件在 spawn 层断掉真子进程(替身直携
+# spawn ``myssia run --json``);本文件在 spawn 层断掉真子进程(替身直携
 # RunResult payload)——品类管线从不被构造,零网络;此处只测 CLI 面
 # (参数、--json 契约、退出码、过滤、派发接线)。
 # ---------------------------------------------------------------------------
@@ -547,7 +547,7 @@ def _offline_cron_runner(monkeypatch: pytest.MonkeyPatch) -> None:
     CLI 面测试的离线原则改由此替身承担:exit 0 + RunResult payload →
     派发路径完整走执行体/账本/记账,只是不 spawn 真进程。
     """
-    from myia.cron.runner import CronRunner, SubprocessResult
+    from myssia.cron.runner import CronRunner, SubprocessResult
 
     payload = {
         "status": "success",
@@ -579,7 +579,7 @@ def test_cron_create_json_absolute_category_and_category_timezone(tmp_path, caps
     """create --json:单份 JSON;Q5 category 存绝对路径;Q6 时区顺势取品类
     YAML 的 timezone(未给 --timezone 时);next_run_at 回显。"""
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
 
     code = main(
         [
@@ -611,7 +611,7 @@ def test_cron_create_json_absolute_category_and_category_timezone(tmp_path, caps
 def test_cron_create_timezone_flag_overrides_category(tmp_path, capsys):
     """--timezone 显式实参优先于品类 YAML 的 timezone。"""
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
 
     code = main(
         [
@@ -639,7 +639,7 @@ def test_cron_create_invalid_category_exits_one_no_job_persisted(tmp_path, capsy
     路径;jobs.json 不落任何 job。"""
     bad = tmp_path / "bad.yaml"
     bad.write_text(VALID_YAML + "\nnope: 未知字段\n", encoding="utf-8")
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
 
     code = main(
         [
@@ -664,7 +664,7 @@ def test_cron_create_invalid_category_exits_one_no_job_persisted(tmp_path, capsy
 
 def test_cron_create_missing_category_file_exits_one(tmp_path, capsys):
     """Q6:品类文件不存在 → exit 1 结构化 file_not_found。"""
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     code = main(
         [
             "cron",
@@ -686,7 +686,7 @@ def test_cron_create_bad_schedule_exits_one(tmp_path, capsys):
     """schedule 解析失败 → exit 1,消息带五形态用法清单(底座 parse_schedule
     文案照抄 H);不落 job。"""
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
 
     code = main(
         [
@@ -711,7 +711,7 @@ def test_cron_create_bad_schedule_exits_one(tmp_path, capsys):
 def test_cron_create_paused_reason_requires_paused(tmp_path, capsys):
     """--paused-reason 不带 --paused:底座自相矛盾守卫 → exit 1。"""
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
 
     code = main(
         [
@@ -735,7 +735,7 @@ def test_cron_create_paused_reason_requires_paused(tmp_path, capsys):
 def test_cron_create_paused_job_has_no_next_run(tmp_path, capsys):
     """--paused:生而暂停(state=paused、next_run_at=None),list 默认不可见。"""
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
 
     code = main(
         [
@@ -760,7 +760,7 @@ def test_cron_create_paused_job_has_no_next_run(tmp_path, capsys):
 def test_cron_list_filters_paused_and_all_includes(tmp_path, capsys):
     """list 默认只看启用;--all 含 paused;人类输出带 name/schedule/deliver。"""
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     assert (
         main(
             [
@@ -814,10 +814,10 @@ def test_cron_list_filters_paused_and_all_includes(tmp_path, capsys):
 
 def test_cron_lifecycle_run_pause_resume_remove_json(tmp_path, capsys):
     """run(trigger)/pause/resume/remove 的 --json 契约与退出码;重删 → 1。"""
-    from myia.cron.jobs import CronJobs
+    from myssia.cron.jobs import CronJobs
 
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     assert (
         main(
             [
@@ -867,7 +867,7 @@ def test_cron_lifecycle_run_pause_resume_remove_json(tmp_path, capsys):
 def test_cron_unknown_and_missing_job_exit_one(tmp_path, capsys):
     """未知 job 引用与未知子命令都归 exit 1(不撞 2/3 的采集语义)。"""
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     assert (
         main(["cron", "pause", "ghost", "--db", str(db), "--json"]) == EXIT_CONFIG_ERROR
     )
@@ -881,11 +881,11 @@ def test_cron_pause_all_estop_blocks_tick_resume_all_fires(
 ):
     """Q4:pause --all 踩 estop 标记 → 到期 job 不派发;resume --all 解除 →
     同一 tick 派发(离线替身记 ok)。"""
-    from myia.cron.jobs import CronJobs
+    from myssia.cron.jobs import CronJobs
 
     _offline_cron_runner(monkeypatch)
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     assert (
         main(
             [
@@ -929,11 +929,11 @@ def test_cron_tick_dispatch_records_execution_and_runs_lists_it(
     tmp_path, capsys, monkeypatch
 ):
     """到期 tick(离线替身执行体)→ 执行账本落行;runs --json 出账、--limit 钳制。"""
-    from myia.cron.jobs import CronJobs
+    from myssia.cron.jobs import CronJobs
 
     _offline_cron_runner(monkeypatch)
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     assert (
         main(
             [
@@ -983,7 +983,7 @@ def test_cron_edit_reschedules_and_updates_payload(tmp_path, capsys):
     """edit --schedule 重算 next_run_at(schedule_display 跟随);裸 edit 无
     字段 → 1。"""
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     assert (
         main(
             [
@@ -1048,7 +1048,7 @@ def test_cron_edit_reschedules_and_updates_payload(tmp_path, capsys):
 
 def test_cron_status_json_contract_and_empty_state(tmp_path, capsys):
     """status --json:单份契约载荷;空数据根 = 合法态(0 job,ticker 未跑)。"""
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     code = main(["cron", "status", "--db", str(db), "--json"])
     assert code == EXIT_OK
     payload = json.loads(capsys.readouterr().out)
@@ -1069,10 +1069,10 @@ def test_cron_status_json_contract_and_empty_state(tmp_path, capsys):
 
 def test_cron_resume_at_rearms_completed_oneshot(tmp_path, capsys):
     """resume --at:一次性 job 完成后重挂新时刻(recurring 拒收 → 1)。"""
-    from myia.cron.jobs import CronJobs
+    from myssia.cron.jobs import CronJobs
 
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     assert (
         main(
             [
@@ -1162,7 +1162,7 @@ def test_cron_resume_at_rearms_completed_oneshot(tmp_path, capsys):
 def test_cron_add_alias_maps_to_create(tmp_path, capsys):
     """别名 add(→create)与 rm(→remove)经规范化分发,行为同规范名。"""
     yaml_path = _write_category(tmp_path)
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     code = main(
         [
             "cron",

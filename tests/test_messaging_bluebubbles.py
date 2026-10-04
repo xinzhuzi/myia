@@ -22,12 +22,12 @@ from typing import Any
 
 import pytest
 
-from shishi.push import SendContext
-from shishi.push.base import Channel, PushSendError, TrendAwareChannel
-from shishi.push.delivery import classify_dead_error
-from shishi.push.bluebubbles import BlueBubblesChannel
-from shishi.push.directory import ChannelDirectory, ChannelEntry, DirectoryDiscoverUnsupported
-from shishi.push.targets import RESOLVED_DIRECT, RESOLVED_DIRECTORY_NAME, ChannelTarget, resolve_target
+from myssia.push import SendContext
+from myssia.push.base import Channel, PushSendError, TrendAwareChannel
+from myssia.push.delivery import classify_dead_error
+from myssia.push.bluebubbles import BlueBubblesChannel
+from myssia.push.directory import ChannelDirectory, ChannelEntry, DirectoryDiscoverUnsupported
+from myssia.push.targets import RESOLVED_DIRECT, RESOLVED_DIRECTORY_NAME, ChannelTarget, resolve_target
 
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
 
@@ -73,7 +73,7 @@ class TestExtrasShell:
         message = str(excinfo.value)
         assert "bluebubbles.app" in message  # 服务端部署指引
         assert "extras 实装批次" in message  # 发送路去向(如实披露)
-        assert "shishi[bluebubbles]" not in message  # extras 组不存在,不虚指 pip 命令
+        assert "myssia[bluebubbles]" not in message  # extras 组不存在,不虚指 pip 命令
 
     def test_dependency_error_is_not_dead_letter(self):
         """依赖缺装是环境问题,不是对象级死信 → 不标。"""

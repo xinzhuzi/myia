@@ -6,23 +6,23 @@
 
 - ``id`` / ``name`` / ``version`` — 插件标识(安装目录名与其一致)、显示名与
   插件自身语义化版本;
-- ``compatible`` — 兼容的 myia 核心版本范围(版本矩阵,语法见
-  :mod:`shishi.plugins.versioning`);
+- ``compatible`` — 兼容的 myssia 核心版本范围(版本矩阵,语法见
+  :mod:`myssia.plugins.versioning`);
 - ``tier`` — v1.1 插件分级(:data:`TIER_TOKENS`,缺省 ``desktop``):
   ``desktop`` 桌面默认集(源码/进程内能力,零 docker);``remote`` 桌面可选
   (经已部署服务接入,零 docker,不进默认集);``server-only`` 桌面默认集
   移出(仅服务端可选部署,如重 Web 服务/不可进程化上游);
-- ``requires`` — 宿主能力要求(封闭词表 :data:`shishi.schema.REQUIRES_TOKENS`,
+- ``requires`` — 宿主能力要求(封闭词表 :data:`myssia.schema.REQUIRES_TOKENS`,
   当前只有 ``docker``;``requires: docker`` 与 ``[docker]`` 两种写法都收);
 - ``provides`` — 提供的能力名(小写标识符,品类侧与目录索引引用它);
 - ``modes`` — v1.7 双模式:``local``(本机 Docker compose)/ ``remote``
   (endpoint + keychain token 引用)。模型直接复用品类顶层 plugin 节的
-  :class:`shishi.schema.PluginModesConfig` —— 凭据规则(endpoint http(s)、
+  :class:`myssia.schema.PluginModesConfig` —— 凭据规则(endpoint http(s)、
   token 只走 ``keychain:myia/<scope>/<name>``)一处定义零漂移;
 - ``install`` — 插件来源(``source``:git/https URL 或本地路径,供人与 agent
-  追溯;实际装卸走 ``myia plugin install <目录>``)。
+  追溯;实际装卸走 ``myssia plugin install <目录>``)。
 
-v1.1 源码型插件(PRD 10-02-v11-plugins-source-arch,样板 myia-osint)新增
+v1.1 源码型插件(PRD 10-02-v11-plugins-source-arch,样板 myssia-osint)新增
 两个**可选**节——旧包(纯 manifest/文档/compose)不声明即缺省 ``None``,
 向后兼容;新包声明后 fail-fast 校验:
 
@@ -36,8 +36,8 @@ v1.1 源码型插件(PRD 10-02-v11-plugins-source-arch,样板 myia-osint)新增
   import,缺省 ``subprocess``)。适配器装不上/上游 vendor 缺失 → 结构化
   降级,绝不拦核心流水线(铁律)。
 
-错误契约与品类 YAML 一致::class:`~shishi.schema.LoadError` 携带结构化明细
-(字段路径 + 错误类 + 中文原因),``myia plugin install --json`` 与修复 agent
+错误契约与品类 YAML 一致::class:`~myssia.schema.LoadError` 携带结构化明细
+(字段路径 + 错误类 + 中文原因),``myssia plugin install --json`` 与修复 agent
 直接消费;未知字段 fail-fast,不做静默忽略。
 """
 
@@ -50,8 +50,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from shishi.plugins.versioning import VersionRange, VersionSpecError
-from shishi.schema import (
+from myssia.plugins.versioning import VersionRange, VersionSpecError
+from myssia.schema import (
     CATEGORY_ID_RE,
     # 私有符号受控复用(与 cli.py 复用 _SECRET_REF_RE 同一先例):防两处漂移。
     _PLUGIN_ID_RE,
@@ -196,7 +196,7 @@ class PluginManifest(_StrictManifestModel):
         if not _PLUGIN_ID_RE.match(value):
             raise SchemaValueError(
                 "invalid_plugin_id",
-                f"插件 id 只允许小写字母/数字/连字符/下划线且字母数字开头(2-64 字符,惯例 myia-<名称>),"
+                f"插件 id 只允许小写字母/数字/连字符/下划线且字母数字开头(2-64 字符,惯例 myssia-<名称>),"
                 f"当前为 {value!r}",
             )
         return value

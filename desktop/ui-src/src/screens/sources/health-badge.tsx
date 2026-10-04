@@ -20,7 +20,7 @@ interface HealthBadgeProps {
   className?: string;
 }
 
-/** 源健康度状态徽章(数据语义:src/myia/cli.py evaluate_source_health)。 */
+/** 源健康度状态徽章(数据语义:src/myssia/cli.py evaluate_source_health)。 */
 export function HealthBadge({ state, reason, className }: HealthBadgeProps) {
   const health = HEALTH_STATE[state];
   return (

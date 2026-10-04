@@ -1,9 +1,9 @@
 # MYIA server image — same core as the desktop/CLI form, packaged for 24/7
 # self-hosting. Build context is the repository root:
 #
-#   docker build -t shishi:local .
+#   docker build -t myssia:local .
 #
-# Runtime entrypoint is the `shishi` CLI; docker-compose overrides the command
+# Runtime entrypoint is the `myssia` CLI; docker-compose overrides the command
 # with `run <plugin.yaml> --loop` (see docker/docker-compose.yml).
 #
 # Build strategy: multi-stage with uv. The builder resolves the exact locked
@@ -13,7 +13,7 @@
 # runtime via environment variables referenced by plugin YAMLs (env:VAR).
 
 # ---------------------------------------------------------------------------
-# Stage 1: builder — resolve locked deps + install the shishi package
+# Stage 1: builder — resolve locked deps + install the myssia package
 # ---------------------------------------------------------------------------
 FROM python:3.11-slim AS builder
 
@@ -35,17 +35,17 @@ WORKDIR /app
 COPY pyproject.toml uv.lock README.md ./
 
 # Workspace sources must exist before any uv sync: uv.lock references the
-# myia-classifier member as an editable path (myia-classifier/), and
+# myssia-classifier member as an editable path (myssia-classifier/), and
 # --frozen resolution fails with "Distribution not found" without it.
 # Trade-off: source changes now bust the dependency cache layer.
 COPY src ./src
-COPY myia-classifier ./myia-classifier
+COPY myssia-classifier ./myssia-classifier
 
 # Dependency layer: cached unless pyproject/uv.lock/sources change.
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-dev
 
-# Full sync installs the shishi package itself (editable by default; the source
+# Full sync installs the myssia package itself (editable by default; the source
 # ships alongside the venv so that is fine in the final image too).
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
@@ -64,25 +64,25 @@ RUN apt-get update \
 
 # Non-root runtime user; uid 1000 must own the mounted data directory
 # (docker/README.md — `chown -R 1000:1000 data` or override MYIA_UID/GID).
-RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin myia
+RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin myssia
 
-COPY --from=builder --chown=myia:myia /app /app
+COPY --from=builder --chown=myssia:myssia /app /app
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
 WORKDIR /app
-USER myia
+USER myssia
 
 # Health dashboard / web panel is a later milestone (plan: 旁观窗口);
 # this image only carries the pipeline core + CLI.
 LABEL org.opencontainers.image.title="MYIA" \
       org.opencontainers.image.description="AI-native intelligence hub — config-driven fetch, classify, dedup, push" \
-      org.opencontainers.image.source="https://github.com/xinzhuzi/MYIA" \
+      org.opencontainers.image.source="https://github.com/xinzhuzi/myssia" \
       org.opencontainers.image.licenses="MIT"
 
 # `docker run <image>` prints the version; the real workload is
-# `shishi run <yaml> --loop`, set by docker-compose (or by hand).
-ENTRYPOINT ["shishi"]
+# `myssia run <yaml> --loop`, set by docker-compose (or by hand).
+ENTRYPOINT ["myssia"]
 CMD ["--version"]

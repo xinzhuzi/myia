@@ -80,11 +80,11 @@ export function isOpenableUrl(url: string | null | undefined): boolean {
 /** 导出格式选择(与 feed.export params.format 同词表) */
 export type ExportFormat = "jsonl" | "csv";
 
-/** 默认文件名:myia-feed-YYYYMMDD.<ext>(本地日期,与导出按钮同日可见) */
+/** 默认文件名:myssia-feed-YYYYMMDD.<ext>(本地日期,与导出按钮同日可见) */
 export function defaultExportName(format: ExportFormat, now: Date = new Date()): string {
   const pad = (value: number) => String(value).padStart(2, "0");
   const date = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
-  return `myia-feed-${date}.${format}`;
+  return `myssia-feed-${date}.${format}`;
 }
 
 /** 保存对话框形状(= @tauri-apps/plugin-dialog save 的参数;注入以便测试) */
@@ -163,7 +163,7 @@ export interface FeedItemState {
 /** key(itemKey)→ 三态;未出现的 key 视为 全 false */
 export type FeedStateMap = Record<string, FeedItemState>;
 
-const STORAGE_KEY = "myia.feed.states.v1";
+const STORAGE_KEY = "myssia.feed.states.v1";
 
 export function loadFeedStates(storage: Storage | null = typeof window === "undefined" ? null : window.localStorage): FeedStateMap {
   if (storage === null) return {};
@@ -353,6 +353,108 @@ export function groupFeedItems(items: FeedItem[], now: Date = new Date()): FeedG
   return order
     .filter((key) => buckets[key].length > 0)
     .map((key) => ({ key, label: GROUP_LABELS[key], items: buckets[key] }));
+}
+
+// ---------------------------------------------------------------------------
+// 显示选项(10-04-interaction-batch A-feed):未读优先 + 分组维度,本地持久
+// (loadFeedStates 同纪律:损坏/字段非法即弃回缺省;storage 缺席 = 缺省)。
+// ---------------------------------------------------------------------------
+
+/** 分组维度:时间四桶(缺省)/ 按品类 / 不分组 */
+export type FeedGroupMode = "time" | "category" | "none";
+
+export interface FeedDisplayOptions {
+  /** 未读优先:未读浮前、已读沉底(两类各自稳定保序) */
+  unreadFirst: boolean;
+  /** 分组维度切换 */
+  groupMode: FeedGroupMode;
+}
+
+/** 缺省显示选项 = 既有行为(时间四桶分组、原序) */
+export const DEFAULT_FEED_DISPLAY: FeedDisplayOptions = { unreadFirst: false, groupMode: "time" };
+
+const DISPLAY_STORAGE_KEY = "myssia.feed.display.v1";
+
+/**
+ * 读取显示选项:JSON 损坏/非对象 → 整体缺省;单字段类型非法 → 逐字段回
+ * 缺省(部分合法仍保留),纪律同 loadFeedStates(不阻断情报流)。
+ */
+export function loadFeedDisplay(
+  storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
+): FeedDisplayOptions {
+  if (storage === null) return { ...DEFAULT_FEED_DISPLAY };
+  try {
+    const raw = storage.getItem(DISPLAY_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_FEED_DISPLAY };
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { ...DEFAULT_FEED_DISPLAY };
+    }
+    const record = parsed as Record<string, unknown>;
+    return {
+      unreadFirst:
+        typeof record.unreadFirst === "boolean" ? record.unreadFirst : DEFAULT_FEED_DISPLAY.unreadFirst,
+      groupMode:
+        record.groupMode === "time" || record.groupMode === "category" || record.groupMode === "none"
+          ? record.groupMode
+          : DEFAULT_FEED_DISPLAY.groupMode,
+    };
+  } catch {
+    return { ...DEFAULT_FEED_DISPLAY };
+  }
+}
+
+export function saveFeedDisplay(
+  options: FeedDisplayOptions,
+  storage: Storage | null = typeof window === "undefined" ? null : window.localStorage,
+): void {
+  if (storage === null) return;
+  try {
+    storage.setItem(DISPLAY_STORAGE_KEY, JSON.stringify(options));
+  } catch {
+    // 配额/隐私模式写失败不阻断界面(本地态尽力而为)
+  }
+}
+
+/**
+ * 未读优先(A-feed):未读浮前、已读沉底;两类各自保持传入原序(ES2019+
+ * sort 稳定保证,不引显式索引兜底)。不改原数组(返回新序)。
+ */
+export function sortUnreadFirst(items: FeedItem[], states: FeedStateMap): FeedItem[] {
+  return [...items].sort(
+    (a, b) => Number(states[itemKey(a)]?.read === true) - Number(states[itemKey(b)]?.read === true),
+  );
+}
+
+/** 品类分组(A-feed):组头色点与卡片品类色条同源(categoryColor) */
+export interface FeedCategoryGroup {
+  /** 品类值(无品类 = null,作 React key 时由消费侧兜底) */
+  key: string | null;
+  /** 组头文案(中文界面;无品类 = 未分类) */
+  label: string;
+  /** 品类色(categoryColor 同源;无品类 = null 不渲色点) */
+  color: string | null;
+  items: FeedItem[];
+}
+
+/**
+ * 按品类分组(A-feed):品类按首次出现顺序出组(稳定、可预期),组内保持
+ * 传入顺序;无品类条目归「未分类」组(排在首次出现处,不强制沉底)。
+ */
+export function groupFeedItemsByCategory(items: FeedItem[]): FeedCategoryGroup[] {
+  const groups: FeedCategoryGroup[] = [];
+  const byCategory = new Map<string | null, FeedCategoryGroup>();
+  for (const item of items) {
+    const key = item.category ?? null;
+    let group = byCategory.get(key);
+    if (!group) {
+      group = { key, label: key ?? "未分类", color: categoryColor(key), items: [] };
+      byCategory.set(key, group);
+      groups.push(group);
+    }
+    group.items.push(item);
+  }
+  return groups;
 }
 
 // ---------------------------------------------------------------------------

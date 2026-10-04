@@ -27,7 +27,7 @@ from typing import Any
 
 import yaml
 
-from shishi.schema import (
+from myssia.schema import (
     CredentialResolveError,
     SchemaValueError,
     parse_secret_value,
@@ -316,7 +316,7 @@ def resolve_cloud_api_key(
     Args:
         config: 已过构造校验的看图配置。
         backend: 注入钥匙链后端(测试 ``InMemoryKeychainBackend``);``None`` =
-            系统钥匙链惰性发现(与 :func:`shishi.schema.resolve_credential` 同参)。
+            系统钥匙链惰性发现(与 :func:`myssia.schema.resolve_credential` 同参)。
 
     Returns:
         已解析的 key;两条链路都无 key 时 ``None``(调用方按 ``无凭据`` 降级)。

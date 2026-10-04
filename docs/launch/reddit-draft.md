@@ -25,7 +25,7 @@
 >    选择与日期,不影响正文本身。
 >
 > 本稿口径是 **v0.0.1 发布后的现实**(`pip install myssia` on PyPI、Docker
-> 镜像 `ghcr.io/xinzhuzi/myia`)——截至本稿写就,仓库 README 仍是旧版 +
+> 镜像 `ghcr.io/xinzhuzi/myssia`)——截至本稿写就,仓库 README 仍是旧版 +
 > "install from source" 口径、PyPI 双包未上架(实测 404)、v0.0.1 tag 已推送
 > 但 Release 页未上线,故硬 gate 里把这些列为发帖前置条件,未满足前**不可发**
 > (正文里的 "on PyPI" 等表述发早一天就是假话)。
@@ -75,10 +75,10 @@ push:
 The YAML is the whole deployment: schedule (cron + timezone), any number of
 sources, dedup keys, scoring thresholds, push channels. And because it's
 agent-native, you don't even write it — the bundled Agent Skill
-(`myia skill install --agent claude`, Cursor supported too) teaches your
+(`myssia skill install --agent claude`, Cursor supported too) teaches your
 coding agent the 12-section schema; it generates the file, trial-fetches with
-`myia test`, rehearses with `--dry-run`, and repairs broken sources from
-`myia doctor --json` output. You say what you want; the agent does the rest.
+`myssia test`, rehearses with `--dry-run`, and repairs broken sources from
+`myssia doctor --json` output. You say what you want; the agent does the rest.
 
 What's inside:
 
@@ -106,11 +106,11 @@ What's inside:
 Three ways to run it:
 
 - **CLI**: `pip install myssia` (v0.0.1, on PyPI; heavy engines are optional
-  extras, e.g. `pip install "myia[crawl4ai]"`), then `myia run --loop`
+  extras, e.g. `pip install "myssia[crawl4ai]"`), then `myssia run --loop`
   for scheduled operation.
 - **Docker**: a
-  [compose file](https://github.com/xinzhuzi/myia/blob/main/docker/docker-compose.yml)
-  ships in the repo; the image is `ghcr.io/xinzhuzi/myia`, built by CI on
+  [compose file](https://github.com/xinzhuzi/myssia/blob/main/docker/docker-compose.yml)
+  ships in the repo; the image is `ghcr.io/xinzhuzi/myssia`, built by CI on
   every push to main and every `v*` tag.
 - **Desktop app** — see below.
 
@@ -126,21 +126,21 @@ the PyPI packages and a module rename:
   relaunches.
 - v0.0.1 put both packages on PyPI — `pip install myssia` — with the Python
   module named `myia` (naming settled 2026-10-04: MYIA is the technical
-  identity, 「世事」 the Chinese name), so `import myia` works.
+  identity, 「世事」 the Chinese name), so `import myssia` works.
 - The macOS (Apple Silicon) installer is on
-  [GitHub Releases](https://github.com/xinzhuzi/myia/releases/tag/v0.0.1)
+  [GitHub Releases](https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1)
   (grab the dmg; the filename is
-  `myia_0.0.1_aarch64.dmg`). It is **not** Apple-notarized (notarization
+  `myssia_0.0.1_aarch64.dmg`). It is **not** Apple-notarized (notarization
   needs a paid developer account, which I don't have yet), so first launch
   takes the right-click → Open → Open dance; every installer is built in
   public CI with traceable logs, and the code is fully auditable.
 
 Desktop screenshots (all fed by real demo-plugin data):
-[dashboard](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/dashboard.png) ·
-[feed](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/feed.png) ·
-[sources](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/sources.png) ·
-[logs](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/logs.png) ·
-[settings](https://github.com/xinzhuzi/myia/blob/main/docs/screenshots/settings.png)
+[dashboard](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/dashboard.png) ·
+[feed](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/feed.png) ·
+[sources](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/sources.png) ·
+[logs](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/logs.png) ·
+[settings](https://github.com/xinzhuzi/myssia/blob/main/docs/screenshots/settings.png)
 
 Honest status:
 
@@ -152,11 +152,11 @@ Honest status:
 
 Links:
 
-- Repo: https://github.com/xinzhuzi/myia (MIT)
-- Release v0.0.1: https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
-- Getting started: [docs/en/getting-started.md](https://github.com/xinzhuzi/myia/blob/main/docs/en/getting-started.md)
+- Repo: https://github.com/xinzhuzi/myssia (MIT)
+- Release v0.0.1: https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1
+- Getting started: [docs/en/getting-started.md](https://github.com/xinzhuzi/myssia/blob/main/docs/en/getting-started.md)
   (bilingual; the Chinese (zh) tree ships in-repo and tests keep both in sync)
-- Agent Skill (for your coding agent): https://github.com/xinzhuzi/myia/blob/main/skill/SKILL.md
+- Agent Skill (for your coding agent): https://github.com/xinzhuzi/myssia/blob/main/skill/SKILL.md
 
 Happy to answer questions — especially on the degrade chain and the
 credential handling. What would *you* point it at first?
@@ -165,14 +165,15 @@ credential handling. What would *you* point it at first?
 
 1. **v0.0.1 Release 已上线**(写稿实测 Release 页 404,tag 已推送):dmg 等
    资产 URL 当日从 Release 页复制粘贴,禁止手改版本号拼链。
-2. **PyPI 双包已上架**(写稿实测 pypi.org/pypi/myia/json 与
-   /myia-classifier/json 均 404):两个 JSON API 返回 200 再发——正文
+2. **PyPI 双包已上架**(写稿实测 pypi.org/pypi/myssia/json 与
+   /myssia-classifier/json 均 404):两个 JSON API 返回 200 再发——正文
    "on PyPI" 的全部表述以此为前提。
-3. **命名决议落地**:2026-10-04 起 MYIA 为技术身份、「世事」为中文名,
-   模块树为 `src/myia`,干净环境 `python -c "import myia"` 实测通过,
-   CLI 入口 `myia.cli:main`。
+3. **命名决议落地(2026-10-04 终版)**:myssia 为项目唯一正式名——发行名/CLI/
+   模块名全链统一(`src/myssia`、`myssia.cli:main`),「世事」为中文名;
+   早前的 myia 与短暂 shishi 皆为历史。发布前干净环境
+   `python -c "import myssia"` 实测通过。
 4. **README 已同步切到 pip + 0.0.1 口径**(快速开始 / 下载安装段 / 版本号 /
-   `myia-classifier` 目录链接)——否则读者点进仓库第一屏就与帖子矛盾。
+   `myssia-classifier` 目录链接)——否则读者点进仓库第一屏就与帖子矛盾。
 5. **CHANGELOG [Unreleased] 已定版为 [0.0.1]**;顺带把 README 与 CHANGELOG
    关于桌面反馈按钮交付批次的口径对齐(两处现在一个写桌面对齐批次、一个写
    v1.2,读者对照会发现打架)。
@@ -187,30 +188,30 @@ credential handling. What would *you* point it at first?
 各位好,我给自己造了个开源自托管情报中枢 **世事 / Shishi**(MIT,纯 Python +
 SQLite 单文件、无守护进程):想盯的每类情报(AI 资讯/股票异动/羊毛/显卡行情)
 就是一个 YAML 文件,抓取→分类→去重→打分→推送到 Telegram/飞书全自动。YAML
-都不用自己写:内置 Agent Skill 让编码 agent 照 12 节规范现场生成、`myia test`
-试抓验证、坏了凭 `myia doctor` 自修——说需求,AI 做其余。
+都不用自己写:内置 Agent Skill 让编码 agent 照 12 节规范现场生成、`myssia test`
+试抓验证、坏了凭 `myssia doctor` 自修——说需求,AI 做其余。
 
 内里:六级采集降级梯(API→静态 HTML→crawl4ai/Firecrawl→Scrapling→隐身浏览器→
 LLM 浏览器,胜出引擎按源记忆);零 token 七类关键词分类器 + 可选 LLM 精评,
 score ≥ 8 立推、≥ 5 进早晚摘要;飞书/Telegram/webhook/stdout 四通道 + URL 键
 去重(同一 URL 不推第二遍);凭据只走 env/系统钥匙链,YAML 里出现明文凭据
 加载即拒;robots.txt 默认尊重、要真人验证的源结构化报错不绕过;反馈闭环 CLI
-现已可用(桌面卡片内按钮后续批次)。三种跑法:CLI `myia run --loop`、
-Docker(镜像 `ghcr.io/xinzhuzi/myia`)、桌面应用;数据单 SQLite 文件。
+现已可用(桌面卡片内按钮后续批次)。三种跑法:CLI `myssia run --loop`、
+Docker(镜像 `ghcr.io/xinzhuzi/myssia`)、桌面应用;数据单 SQLite 文件。
 
 **v0.0.1 起桌面端可日常用**:macOS(Apple Silicon)安装包在 GitHub Releases
-(dmg 文件名 `myia_0.0.1_aarch64.dmg`,发帖当日从 Release 页复制;未做
+(dmg 文件名 `myssia_0.0.1_aarch64.dmg`,发帖当日从 Release 页复制;未做
 Apple 公证,首开右键→打开,安装包公开 CI 构建);装机首跑种子官方插件,含
 零凭据演示件(GitHub 新星榜,一次免鉴权 API 调用),第一次点运行就出真
 数据;设置页走签名更新通道,验签后自动下载安装。桌面截图(均为 demo 插件
 真实数据):仪表盘/信息流/源管理/日志/设置。
 
 **v0.0.1 起**:PyPI 双包上架,`pip install myssia` 直装;Python 模块名
-`myia`(`import myia` 可用;2026-10-04 命名决议:MYIA 为技术身份,「世事」
-为中文名)。
+`myssia`(`import myssia` 可用;2026-10-04 终版命名决议:myssia 为项目唯一
+正式名,「世事」为中文名)。
 
 如实说:Release 目前只有 macOS 安装包,其他桌面平台没有产物、不做宣称;桌面
 卡片内反馈按钮还没做(反馈闭环 CLI + 回调接收现已可用);CI 2000+ 测试零真实
 网络。
 
-仓库 https://github.com/xinzhuzi/myia ,求建议:你会先拿它盯什么?
+仓库 https://github.com/xinzhuzi/myssia ,求建议:你会先拿它盯什么?

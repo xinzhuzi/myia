@@ -1210,7 +1210,7 @@ def _require_sibling(name: str) -> types.ModuleType:
     importlib,插件目录零 ``__pycache__``);仅 :func:`run_from_keystore`
     惰性使用(keystore 读库回填、specs 缺省注册表),验证核心零兄弟依赖。
     """
-    module_name = f"myia_credhunter_{name}"
+    module_name = f"myssia_credhunter_{name}"
     module = sys.modules.get(module_name)
     if module is not None:
         return module

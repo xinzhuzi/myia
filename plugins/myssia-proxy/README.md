@@ -1,4 +1,4 @@
-# myia-proxy — 代理池(proxy_pool)
+# myssia-proxy — 代理池(proxy_pool)
 
 官方场景件,v1.1 分级 **desktop(桌面默认集)**:给采集链提供可轮换的爬虫
 代理 IP。上游 [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool)
@@ -9,9 +9,9 @@
 ## 桌面路径(默认,零 Docker 零 Redis)
 
 ```bash
-myia proxy --json          # 一次抓取公开免费代理 + 逐个测活,结构化输出
-myia proxy --count 10      # 期望可用数凑 10 个(凑够即提前停)
-myia proxy --timeout 15    # 单代理测活超时(秒)
+myssia proxy --json          # 一次抓取公开免费代理 + 逐个测活,结构化输出
+myssia proxy --count 10      # 期望可用数凑 10 个(凑够即提前停)
+myssia proxy --timeout 15    # 单代理测活超时(秒)
 ```
 
 - 流程:逐源礼貌抓取公开免费代理列表(纯文本 `ip:port`,失败互相隔离)→
@@ -36,13 +36,13 @@ API)时,直接填地址:
 
    ```yaml
    plugin:
-     id: myia-proxy
+     id: myssia-proxy
      modes:
        remote:
          endpoint: https://proxy-pool.example.com   # 换成你的已部署地址
    ```
 
-2. `myia doctor --json` / run 自检会给出结构化 warning(端点不可达等),
+2. `myssia doctor --json` / run 自检会给出结构化 warning(端点不可达等),
    不拦核心。
 
 上游 proxy_pool 本身无 API 鉴权;若你在前面加了带 token 的网关,把 token
@@ -51,11 +51,11 @@ API)时,直接填地址:
 ## 服务端形态(可选,不在桌面路径)
 
 完整 proxy_pool 服务形态(定时抓取 + Redis 池 + HTTP API `127.0.0.1:5010`)
-是**服务端可选**部署:compose 在仓库 `docker/plugins/myia-proxy/`,桌面用户
+是**服务端可选**部署:compose 在仓库 `docker/plugins/myssia-proxy/`,桌面用户
 不需要它。从仓库根执行:
 
 ```bash
-docker compose -f docker/plugins/myia-proxy/compose.yml up -d
+docker compose -f docker/plugins/myssia-proxy/compose.yml up -d
 curl "http://127.0.0.1:5010/get"    # 随机取一个可用代理 {"proxy": "..."}
 ```
 
@@ -64,13 +64,13 @@ curl "http://127.0.0.1:5010/get"    # 随机取一个可用代理 {"proxy": "...
 ## 凭据红线
 
 - 本插件全部文件零明文凭据;remote token 一律 `keychain:myia/<scope>/<name>`
-  引用,先 `myia secret set myia/proxy/<name>` 写入钥匙链。
+  引用,先 `myssia secret set myia/proxy/<name>` 写入钥匙链。
 - 仓库即公开:任何真实代理地址、token 零入库。
 
 ## 安装 / 移除
 
 ```bash
-myia plugin install plugins/myia-proxy    # 装入 ~/.myia/plugins(MYIA_PLUGIN_DIR 可覆盖)
-myia plugin list --json
-myia plugin remove myia-proxy
+myssia plugin install plugins/myssia-proxy    # 装入 ~/.myia/plugins(MYIA_PLUGIN_DIR 可覆盖)
+myssia plugin list --json
+myssia plugin remove myssia-proxy
 ```

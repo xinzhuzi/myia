@@ -3,7 +3,7 @@
 写回不再 ``yaml.safe_dump`` 整份重写(那会抹掉全文件注释),而是在原文上
 按行搬运 ``sources:`` 条目:被搬条目自身及其前导空行、上方锚点注释随行,
 其余行逐字节不动;移出条目的逐字节原文随 ``.disabled.json`` 暂存条目
-(``_myia_toggle.raw_block``),enable 插回原位 —— 停用+启用往返 diff 为空。
+(``_myssia_toggle.raw_block``),enable 插回原位 —— 停用+启用往返 diff 为空。
 手术不支持的形态(锚点/别名引用、流式 sources、条目行与解析结果对不齐)
 = ``source_write_unsupported`` 结构化拒写、零写入,绝不静默回退 safe_dump。
 既有协议用例(test_desktop_sidecar_protocol.py)零改动;本文件只补手术
@@ -132,7 +132,7 @@ def test_disable_enable_roundtrip_byte_identical(tmp_path, name):
         "disabled": [name],
     }
     # 写回后仍是 myia 可装载品类(往返一致 = doctor 同门)
-    from shishi.schema import load_category_file
+    from myssia.schema import load_category_file
 
     assert [s.name for s in load_category_file(path).sources] != []
 
@@ -150,7 +150,7 @@ def test_disable_removes_exactly_the_chunk_lines(tmp_path):
     toggle(path, disable=["beta"])
 
     stash = json.loads((tmp_path / ("surgery-demo.yaml" + STASH_SUFFIX)).read_text("utf-8"))
-    chunk = entry._split_keep_lines(stash[0]["_myia_toggle"]["raw_block"])
+    chunk = entry._split_keep_lines(stash[0]["_myssia_toggle"]["raw_block"])
     after_lines = lines_of(path.read_bytes())
     assert after_lines == without_chunk(lines_of(before), chunk)
     # 节外内容逐字节原位:顶部注释、parked 占位、尾节
@@ -274,7 +274,7 @@ def test_stash_records_gap_before_orphan_block(tmp_path):
     path = write_yaml(tmp_path, PARKED_BETWEEN_YAML, "gap-meta.yaml")
     toggle(path, disable=["b"])
     stash = json.loads((tmp_path / ("gap-meta.yaml" + STASH_SUFFIX)).read_text("utf-8"))
-    meta = stash[0]["_myia_toggle"]
+    meta = stash[0]["_myssia_toggle"]
     assert meta["pred"] == "a"
     assert meta["gap_before"] == "\n  # parked: old source\n  #   url: https://old/\n"
 
@@ -291,7 +291,7 @@ def test_stale_gap_falls_back_to_predecessor_anchor(tmp_path):
     )
     result = toggle(path, enable=["b"])
     assert result["written"] is True
-    from shishi.schema import load_category_file
+    from myssia.schema import load_category_file
 
     assert [s.name for s in load_category_file(path).sources] == ["a", "b"]
 
@@ -362,8 +362,8 @@ def test_col0_section_comment_stays_when_last_entry_disabled(tmp_path, text, fil
     assert "- name: b" not in mid  # 条目离场
     assert "# 分节注释" in mid  # 分节注释原地不动
     stash = json.loads((tmp_path / (file_name + STASH_SUFFIX)).read_text("utf-8"))
-    assert "# 分节注释" not in stash[0]["_myia_toggle"]["raw_block"]  # 不入搬运块
-    assert stash[0]["_myia_toggle"]["pred"] == "a"
+    assert "# 分节注释" not in stash[0]["_myssia_toggle"]["raw_block"]  # 不入搬运块
+    assert stash[0]["_myssia_toggle"]["pred"] == "a"
 
     toggle(path, enable=["b"])
     assert path.read_bytes() == before  # 往返 diff 为空
@@ -414,7 +414,7 @@ def test_mid_entry_col0_comment_travels_with_last_entry(tmp_path):
     """末条目正文中段的列 0 注释随条目整段搬运:停用中间态干净(b 的字段
     不残留并入 a,仍取默认 retry),启用逐字节还原;紧贴块界的真分节注释
     形态(缩进前瞻无续行)由上一组用例守住。"""
-    from shishi.schema import load_category_file
+    from myssia.schema import load_category_file
 
     path = write_yaml(tmp_path, MID_ENTRY_COL0_COMMENT_YAML, "mid_comment.yaml")
     before = path.read_bytes()
@@ -427,7 +427,7 @@ def test_mid_entry_col0_comment_travels_with_last_entry(tmp_path):
     assert "- name: b" not in mid  # 条目离场
     assert "retry: 2" not in mid and "# 备注" not in mid  # 字段与中段注释整段随行
     stash = json.loads((tmp_path / ("mid_comment.yaml" + STASH_SUFFIX)).read_text("utf-8"))
-    raw_block = stash[0]["_myia_toggle"]["raw_block"]
+    raw_block = stash[0]["_myssia_toggle"]["raw_block"]
     assert "# 备注" in raw_block and "retry: 2" in raw_block  # 整段入搬运块
 
     toggle(path, enable=["b"])
@@ -444,7 +444,7 @@ def test_anchor_comment_travels_with_entry(tmp_path):
     path = write_yaml(tmp_path, THREE_SOURCES_YAML)
     toggle(path, disable=["beta"])
     stash = json.loads((tmp_path / ("surgery-demo.yaml" + STASH_SUFFIX)).read_text("utf-8"))
-    raw_block = stash[0]["_myia_toggle"]["raw_block"]
+    raw_block = stash[0]["_myssia_toggle"]["raw_block"]
 
     text = path.read_text("utf-8")
     assert "# B 的锚点注释" not in text  # 连注释一起离场,不留孤儿锚点
@@ -535,7 +535,7 @@ def test_crlf_roundtrip_and_midstate(tmp_path):
     mid = path.read_bytes()
     stash = json.loads((tmp_path / ("crlf.yaml" + STASH_SUFFIX)).read_text("utf-8"))
     assert b"\r\n" in mid  # 未搬行没有被换行翻译
-    assert "\r\n" in stash[0]["_myia_toggle"]["raw_block"]  # 被搬行整行原样入暂存
+    assert "\r\n" in stash[0]["_myssia_toggle"]["raw_block"]  # 被搬行整行原样入暂存
     toggle(path, enable=["beta"])
     assert path.read_bytes() == before  # 往返逐字节(含行尾)
 
@@ -633,14 +633,14 @@ def test_misaligned_sources_keys_refused(tmp_path):
 
 def test_stash_preserves_entry_fields_and_raw_block(tmp_path):
     """暂存条目:源字段平铺在外层(既有断言直读 name/url),手术原文与
-    前驱挂在 _myia_toggle;再停用一次,原文逐字节重现。"""
+    前驱挂在 _myssia_toggle;再停用一次,原文逐字节重现。"""
     path = write_yaml(tmp_path, THREE_SOURCES_YAML)
     toggle(path, disable=["gamma"])
     stash_file = tmp_path / ("surgery-demo.yaml" + STASH_SUFFIX)
     stash = json.loads(stash_file.read_text("utf-8"))
     assert [item["name"] for item in stash] == ["gamma"]
     assert stash[0]["url"] == "https://gamma.example/"
-    meta = stash[0]["_myia_toggle"]
+    meta = stash[0]["_myssia_toggle"]
     assert meta["pred"] == "beta"  # 原文本位置 = beta 之后
     assert "# C 的锚点注释(中文,协作者留的)" in meta["raw_block"]
     assert "url: https://gamma.example/" in meta["raw_block"]
@@ -649,7 +649,7 @@ def test_stash_preserves_entry_fields_and_raw_block(tmp_path):
     toggle(path, enable=["gamma"])
     toggle(path, disable=["gamma"])
     stash = json.loads(stash_file.read_text("utf-8"))
-    assert stash[0]["_myia_toggle"]["raw_block"] == first_raw  # 逐字节重现
+    assert stash[0]["_myssia_toggle"]["raw_block"] == first_raw  # 逐字节重现
 
 
 def test_stash_unreadable_contract_unchanged(tmp_path):
@@ -664,7 +664,7 @@ def test_stash_unreadable_contract_unchanged(tmp_path):
 
 
 def test_legacy_stash_without_meta_falls_back_to_append(tmp_path):
-    """旧版暂存(无 _myia_toggle,sidecar 升级窗口):数据无损移入块尾,
+    """旧版暂存(无 _myssia_toggle,sidecar 升级窗口):数据无损移入块尾,
     注释不还原但不报错 —— 兜底不挡升级。"""
     path = write_yaml(tmp_path, THREE_SOURCES_YAML)
     (tmp_path / ("surgery-demo.yaml" + STASH_SUFFIX)).write_text(
@@ -673,7 +673,7 @@ def test_legacy_stash_without_meta_falls_back_to_append(tmp_path):
     )
     result = toggle(path, enable=["legacy"])
     assert result["enabled"] == ["alpha", "beta", "gamma", "legacy"]
-    from shishi.schema import load_category_file
+    from myssia.schema import load_category_file
 
     assert [s.name for s in load_category_file(path).sources][-1] == "legacy"
     # 追加在块尾(parked 占位之前、watchlist 之前)
@@ -682,14 +682,14 @@ def test_legacy_stash_without_meta_falls_back_to_append(tmp_path):
 
 
 def test_corrupted_stash_meta_stripped_from_fallback_block(tmp_path):
-    """损坏暂存(``raw_block`` 非字符串)走重序列化兜底:``_myia_toggle``
+    """损坏暂存(``raw_block`` 非字符串)走重序列化兜底:``_myssia_toggle``
     内部键先剥离再 dump —— 零痕迹进主 YAML,该源此后停用照常(修前内部键
     写进主 YAML,再停用撞保留键被拒 = 启停变砖;评审遗留 low-1)。"""
     # 单元面:兜底序列化对带内部键的条目剥离之,对无内部键的原样
     block = entry._toggle_fallback_block(
-        {"name": "x", "url": "u", "_myia_toggle": {"pred": None}}, 2
+        {"name": "x", "url": "u", "_myssia_toggle": {"pred": None}}, 2
     )
-    assert "_myia_toggle" not in block
+    assert "_myssia_toggle" not in block
     assert "- name: x" in block
 
     path = write_yaml(tmp_path, THREE_SOURCES_YAML)
@@ -699,7 +699,7 @@ def test_corrupted_stash_meta_stripped_from_fallback_block(tmp_path):
                 {
                     "name": "legacy",
                     "url": "https://legacy.example/",
-                    "_myia_toggle": {"raw_block": 123, "pred": "gamma"},
+                    "_myssia_toggle": {"raw_block": 123, "pred": "gamma"},
                 }
             ],
             ensure_ascii=False,
@@ -710,7 +710,7 @@ def test_corrupted_stash_meta_stripped_from_fallback_block(tmp_path):
     result = toggle(path, enable=["legacy"])
     assert result["written"] is True
     text = path.read_text("utf-8")
-    assert "_myia_toggle" not in text  # 主 YAML 零内部键痕迹
+    assert "_myssia_toggle" not in text  # 主 YAML 零内部键痕迹
     assert "- name: legacy" in text
 
     # 此后停用照常;再入暂存的原文同样不带内部键(下一轮 enable 干净还原)
@@ -719,7 +719,7 @@ def test_corrupted_stash_meta_stripped_from_fallback_block(tmp_path):
     stash = json.loads(
         (tmp_path / ("surgery-demo.yaml" + STASH_SUFFIX)).read_text("utf-8")
     )
-    assert "_myia_toggle" not in stash[0]["_myia_toggle"]["raw_block"]
+    assert "_myssia_toggle" not in stash[0]["_myssia_toggle"]["raw_block"]
 
 
 def test_duplicate_residue_heals_from_file_copy(tmp_path):

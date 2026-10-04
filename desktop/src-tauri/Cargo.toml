@@ -1,5 +1,5 @@
 [package]
-name = "myia-desktop"
+name = "myssia-desktop"
 version = "0.0.1"
 description = "MYIA desktop — Tauri 2 shell + PyInstaller sidecar"
 edition = "2021"

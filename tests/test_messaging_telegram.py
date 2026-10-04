@@ -21,13 +21,13 @@ from typing import Any
 import httpx
 import pytest
 
-import shishi.push as push_module
-from shishi.push import PLATFORMS, SendContext, TelegramChannel
-from shishi.push.base import PushSendError
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
-from shishi.push.telegram import MESSAGE_LIMIT
+import myssia.push as push_module
+from myssia.push import PLATFORMS, SendContext, TelegramChannel
+from myssia.push.base import PushSendError
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
+from myssia.push.telegram import MESSAGE_LIMIT
 
 TOKEN = "test-token"
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
@@ -77,10 +77,10 @@ class TestDirectRefParse:
         assert target.resolved_from == RESOLVED_DIRECT
 
     def test_public_username_goes_direct(self):
-        target = TelegramChannel.parse_direct_ref("@myia_channel")
+        target = TelegramChannel.parse_direct_ref("@myssia_channel")
 
         assert target is not None
-        assert target.chat_id == "@myia_channel"
+        assert target.chat_id == "@myssia_channel"
         assert target.resolved_from == RESOLVED_DIRECT
 
     @pytest.mark.parametrize("ref", ["张三", "abc", "@ab", "@bad name", "@x!y", "12 34", ""])
@@ -216,7 +216,7 @@ class TestRegistration:
 # 步骤 2:poller on_chat sink(被动目录积累,design D2)
 # ---------------------------------------------------------------------------
 
-from shishi.push.telegram_feedback import (  # noqa: E402
+from myssia.push.telegram_feedback import (  # noqa: E402
     TelegramFeedbackPoller,
     chat_entry_from_update,
     entry_from_chat,
@@ -372,7 +372,7 @@ class TestPollerSink:
 
         client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         poller = TelegramFeedbackPoller(token=TOKEN, on_chat=seen.append, client=client)
-        from shishi.push.telegram_feedback import TelegramFeedbackError
+        from myssia.push.telegram_feedback import TelegramFeedbackError
 
         with pytest.raises(TelegramFeedbackError):
             _run(poller.poll())
@@ -431,9 +431,9 @@ class TestDirectoryMerge:
 # 步骤 3:管线接线(_build_feedback_poller 注入 sink;注册已随步骤 1 落地)
 # ---------------------------------------------------------------------------
 
-from shishi.pipeline import Pipeline  # noqa: E402
-from shishi.schema import load_category  # noqa: E402
-from shishi.store import SQLiteStore  # noqa: E402
+from myssia.pipeline import Pipeline  # noqa: E402
+from myssia.schema import load_category  # noqa: E402
+from myssia.store import SQLiteStore  # noqa: E402
 
 
 def _tg_pipeline(tmp_path, monkeypatch, push: list[dict[str, Any]] | None = None) -> Pipeline:
@@ -517,8 +517,8 @@ class TestChannelsCliPassivePlatform:
     """telegram 注册进 PLATFORMS 后 ``channels refresh`` 的被动目录形态。"""
 
     def test_refresh_reports_passive_not_failure(self, tmp_path, monkeypatch, capsys):
-        import shishi.cli as cli_module
-        from shishi.cli import main
+        import myssia.cli as cli_module
+        from myssia.cli import main
 
         monkeypatch.setattr(cli_module, "PLATFORMS", {"telegram": TelegramChannel})
         monkeypatch.chdir(tmp_path)
@@ -533,8 +533,8 @@ class TestChannelsCliPassivePlatform:
         assert payload["platforms"] == {}  # 不触碰目录桶(被动积累不被清空)
 
     def test_refresh_default_all_platforms_isolates_passive(self, tmp_path, monkeypatch, capsys):
-        import shishi.cli as cli_module
-        from shishi.cli import main
+        import myssia.cli as cli_module
+        from myssia.cli import main
 
         monkeypatch.setattr(cli_module, "PLATFORMS", {"telegram": TelegramChannel})
         monkeypatch.chdir(tmp_path)

@@ -8,7 +8,7 @@ dispatch) isolate per channel so one broken channel never breaks the batch
 (partial-failure convention).
 
 Credentials never appear here as values: channels resolve ``env:`` /
-``keychain:`` references via :func:`shishi.schema.resolve_credential` at send
+``keychain:`` references via :func:`myssia.schema.resolve_credential` at send
 time, and error messages carry the reference name only, never the value.
 """
 
@@ -17,12 +17,20 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Mapping, Protocol, Sequence, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Mapping,
+    Protocol,
+    Sequence,
+    runtime_checkable,
+)
 
-from shishi.store import PUSH_SLOTS
+from myssia.store import PUSH_SLOTS
 
 if TYPE_CHECKING:  # 运行期无环:targets 仅作类型标注(base ← targets 单向)
-    from shishi.push.targets import ChannelTarget
+    from myssia.push.targets import ChannelTarget
 
 __all__ = [
     "TrendAwareChannel",
@@ -43,7 +51,10 @@ logger = logging.getLogger(__name__)
 #: Per-request timeout for HTTP-backed channels.
 DEFAULT_SEND_TIMEOUT_SECONDS = 10.0
 
-SendKind = Literal["digest", "immediate"]
+#: 发送语义族:``digest``(槽位聚合)/ ``immediate``(单条即发)/
+#: ``cron_summary``(定时任务运行摘要卡,10-04-hermes-cron grill Q3 受控扩值——
+#: 通道侧只把它当「非条目卡」处理:不带图、标题走各自摘要支)。
+SendKind = Literal["digest", "immediate", "cron_summary"]
 
 _ITEM_FIELDS = ("url", "title", "source", "category", "scores", "dedup_key")
 
@@ -100,7 +111,7 @@ class PushSendError(RuntimeError):
             ``template_render_error`` (user template failed at send time),
             ``not_implemented`` (v0.2 channel shells: telegram/webhook), or
             the credential codes re-exported from
-            :class:`shishi.schema.CredentialResolveError`
+            :class:`myssia.schema.CredentialResolveError`
             (``env_var_missing`` / ``keychain_not_supported`` /
             ``invalid_credential_ref``).
     """
@@ -121,7 +132,8 @@ class SendContext:
 
     Raises:
         ValueError: ``slot`` is not ``am``/``pm`` or ``kind`` is not
-            ``digest``/``immediate`` (fail fast on programmer error).
+            ``digest``/``immediate``/``cron_summary`` (fail fast on programmer
+            error).
     """
 
     slot: str
@@ -135,9 +147,10 @@ class SendContext:
             raise ValueError(
                 f"字段校验失败: SendContext.slot 必须是 {sorted(PUSH_SLOTS)} 之一,得到 {self.slot!r}"
             )
-        if self.kind not in ("digest", "immediate"):
+        if self.kind not in ("digest", "immediate", "cron_summary"):
             raise ValueError(
-                f"字段校验失败: SendContext.kind 必须是 digest/immediate 之一,得到 {self.kind!r}"
+                f"字段校验失败: SendContext.kind 必须是 "
+                f"digest/immediate/cron_summary 之一,得到 {self.kind!r}"
             )
 
     @property

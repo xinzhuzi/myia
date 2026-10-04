@@ -32,7 +32,7 @@ import httpx
 import pytest
 from conftest import run
 
-from shishi.enrich import (
+from myssia.enrich import (
     AggregateOutcome,
     EnrichConfigError,
     EnrichSettings,
@@ -41,7 +41,7 @@ from shishi.enrich import (
     pair_cache_key,
     parse_dedupe_payload,
 )
-from shishi.enrich.aggregate import (
+from myssia.enrich.aggregate import (
     DEDUPE_CACHE_KEY_PREFIX,
     coarse_groups,
     parse_item_time,
@@ -49,15 +49,15 @@ from shishi.enrich.aggregate import (
     title_similarity,
     within_window,
 )
-from shishi.enrich.client import CompletionResult
-from shishi.enrich.errors import EnrichConfigError as EnrichConfigErrorAlias
-from shishi.enrich.prompt import load_dedupe_prompt
-from shishi.enrich.scoring import BudgetTracker
-from shishi.pipeline import Pipeline
-from shishi.push import SendContext, TemplateRenderer, build_card
-from shishi.push.telegram import build_message
-from shishi.schema import AggregateConfig, EnrichConfig, LoadError, load_category
-from shishi.store import SQLiteStore
+from myssia.enrich.client import CompletionResult
+from myssia.enrich.errors import EnrichConfigError as EnrichConfigErrorAlias
+from myssia.enrich.prompt import load_dedupe_prompt
+from myssia.enrich.scoring import BudgetTracker
+from myssia.pipeline import Pipeline
+from myssia.push import SendContext, TemplateRenderer, build_card
+from myssia.push.telegram import build_message
+from myssia.schema import AggregateConfig, EnrichConfig, LoadError, load_category
+from myssia.store import SQLiteStore
 
 BASE_URL = "https://llm.test.local/v1"
 API_KEY = "test-key-not-real"
@@ -627,7 +627,7 @@ class TestLazyOpenaiContract:
 def test_aggregate_outcome_has_no_serialization_dead_code():
     """墓碑(PRD v1.1 low #17):AggregateOutcome.to_dict 已删除。
 
-    其 docstring 曾虚构「run stats / myia doctor」消费方,全仓零调用——
+    其 docstring 曾虚构「run stats / myssia doctor」消费方,全仓零调用——
     stage report 走 ``_stage_aggregate`` 的逐字段接线;防止无消费方的
     序列化形态复活。
     """
@@ -916,7 +916,7 @@ class TestPipelineAggregateStage:
         enricher = LLMEnricher(config.enrich, make_settings(), client=client)
         aggregator = EventAggregator(config.aggregate, config.enrich, make_settings(), client=client)
 
-        with caplog.at_level(logging.WARNING, logger="shishi.pipeline"):
+        with caplog.at_level(logging.WARNING, logger="myssia.pipeline"):
             result, _ = run_pipeline(tmp_path, config, handler, aggregator=aggregator, enricher=enricher)
 
         # 精评第一批花掉 60 即到顶 → 剩余条目与判重阶段全部降级零调用
@@ -1020,7 +1020,7 @@ class TestPipelineAggregateStage:
         pipeline = Pipeline(
             config,
             store=SQLiteStore(tmp_path / "opt.db"),
-            stage_options={"aggregate": __import__("shishi.pipeline", fromlist=["StageOptions"]).StageOptions(timeout_seconds=5.0)},
+            stage_options={"aggregate": __import__("myssia.pipeline", fromlist=["StageOptions"]).StageOptions(timeout_seconds=5.0)},
         )
         assert pipeline._stage_options["aggregate"].timeout_seconds == 5.0
         pipeline.close()
@@ -1084,7 +1084,7 @@ class TestMergedCardRendering:
         assert rendered == f"{SAME_EVENT_TITLE}(+2)"
 
     def test_also_seen_list_cleans_dirty_entries(self):
-        from shishi.push import also_seen_list
+        from myssia.push import also_seen_list
 
         item = FakeItem("https://x", "t")
         item.metadata["also_seen"] = [

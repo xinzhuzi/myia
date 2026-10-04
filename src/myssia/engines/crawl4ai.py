@@ -6,9 +6,9 @@ Contract (PRD 10-01-v02-engine-crawl4ai):
   at module import), so the core pipeline stays zero-heavy-dependency; when
   the package is absent the engine raises a structured :class:`FetchError`
   (``error_type=dependency_missing``) whose message carries the extras
-  install command (``pip install shishi[crawl4ai]``) and the browser-binary
+  install command (``pip install myssia[crawl4ai]``) and the browser-binary
   note (crawl4ai manages its own playwright browsers — first run may need
-  ``crawl4ai-setup``), which ``myia doctor`` surfaces verbatim;
+  ``crawl4ai-setup``), which ``myssia doctor`` surfaces verbatim;
 - with ``extract`` (CSS ``list``/``item``) the rendered HTML is parsed by the
   shared ``extract_html`` (same selectors as L2); ``json_path`` is rejected
   here so ``engine: auto`` degrades to the next engine instead of
@@ -55,7 +55,7 @@ import importlib
 import logging
 from typing import Any
 
-from shishi.engines.fetch_base import (
+from myssia.engines.fetch_base import (
     DEFAULT_USER_AGENT,
     BaseEngine,
     ExtractionError,
@@ -68,11 +68,11 @@ from shishi.engines.fetch_base import (
 def _markdown_image_urls(markdown: str, base_url: str) -> list[str]:
     """同域图片链接收集(10-03-vision-pipeline 拍板⑥),依赖未提交前的可选降级。
 
-    shishi.vision.collect 由 vision 会话按自己的节奏发行;引擎对它是软依赖——
+    myssia.vision.collect 由 vision 会话按自己的节奏发行;引擎对它是软依赖——
     模块缺席时跳过图片收集(零行为差异),不挡采集主路径。
     """
     try:
-        from shishi.vision.collect import markdown_image_urls
+        from myssia.vision.collect import markdown_image_urls
     except ImportError:
         return []
     return markdown_image_urls(markdown, base_url)
@@ -82,8 +82,8 @@ logger = logging.getLogger(__name__)
 LAYER = "L3"
 
 #: Install command surfaced verbatim in the dependency-missing error
-#: (验收标准: 未安装依赖时错误信息含 ``pip install shishi[crawl4ai]``).
-INSTALL_COMMAND = "pip install shishi[crawl4ai]"
+#: (验收标准: 未安装依赖时错误信息含 ``pip install myssia[crawl4ai]``).
+INSTALL_COMMAND = "pip install myssia[crawl4ai]"
 
 #: Per-page run budget (seconds) when ``engine_options.crawl4ai.timeout`` is
 #: absent — JS 渲染页比静态页慢,默认预算宽于管线 HTTP 默认 30s。
@@ -114,7 +114,7 @@ __all__ = [
 def load_crawl4ai() -> Any:
     """Return the optional ``crawl4ai`` module, imported lazily at call time.
 
-    Lazy so that ``shishi.engines.crawl4ai`` (and the whole engine registry)
+    Lazy so that ``myssia.engines.crawl4ai`` (and the whole engine registry)
     imports cleanly without the optional package, and so tests can inject a
     fake module via ``sys.modules``.
 

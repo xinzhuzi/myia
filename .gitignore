@@ -9,7 +9,7 @@
 *.pfx
 secrets.*
 # 例外:核心源码模块不叫"secrets 文件",必须入库(fresh clone / wheel 缺它即崩)
-!src/myia/secrets.py
+!src/myssia/secrets.py
 .env
 .env.*
 .envrc
@@ -18,19 +18,19 @@ secrets.*
 LOCAL-NOTES.md
 
 # ---- MYIA 运行时数据(抓取的情报内容属私有数据)----
-myia.db
+myssia.db
 *.db-journal
 *.db-wal
 *.db-shm
 data/
 # 例外:随包分发的程序数据(prompt/关键词表)不是抓取数据,必须入库与进 wheel
-# (classify 词表已随 10-01-v10-classifier-pypi 拆去 myia-classifier 包,例外同步删;
-#  模块改名后路径须跟 src/shishi,否则 hatchling 按 gitignore 吞数据文件进不了 wheel)
-!src/shishi/enrich/data/
-!myia-classifier/myia_classifier/data/
+# (classify 词表已随 10-01-v10-classifier-pypi 拆去 myssia-classifier 包,例外同步删;
+#  模块改名后路径须跟 src/myssia,否则 hatchling 按 gitignore 吞数据文件进不了 wheel)
+!src/myssia/enrich/data/
+!myssia-classifier/myssia_classifier/data/
 # credhunter 指纹库数据(20 发现查询包 + 25 验证规格)同上:程序数据非抓取
 # 产物,fresh clone/CI 缺它即三 lane 启动全坏(10-03-aipocket-fusion R3)。
-!plugins/myia-credhunter/credhunter/data/
+!plugins/myssia-credhunter/credhunter/data/
 out/
 output/
 exports/
@@ -99,12 +99,12 @@ Thumbs.db
 # ---- 仓库根误落的运行时产物(防误提交)----
 # 消息屏目录/别名是运行态数据,正常应落数据根(MYIA_HOME);desktop serve 在
 # 仓库 cwd 下直跑时缺省写到仓库根——内容含真实平台 chat_id 与群名(私有
-# 标识,同 myia.db 零容忍口径),且会随每次 discover 变化,严禁入库。
+# 标识,同 myssia.db 零容忍口径),且会随每次 discover 变化,严禁入库。
 /channel_aliases.json
 /channel_directory.json
 /channel_dead.json
 # credhunter 全文密钥库(指纹→原文,含真实密钥——比 channel_* 更敏感,
-# 零容忍口径同 myia.db):正常应落数据根(MYIA_HOME),引擎缺省路径在仓库
+# 零容忍口径同 myssia.db):正常应落数据根(MYIA_HOME),引擎缺省路径在仓库
 # cwd 直跑时会落仓库根,严禁入库(10-03-aipocket-fusion Q9)。
 /credhunter-keystore.json
 # 技能工具链的本地锁文件(本机技能版本快照,非仓库配置)

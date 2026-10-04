@@ -1,6 +1,6 @@
-"""Tests for shishi.schema — 12-section category YAML models and loading.
+"""Tests for myssia.schema — 12-section category YAML models and loading.
 
-Mirrors src/shishi/schema.py. Covers the PRD (10-01-v01-yaml-schema) acceptance
+Mirrors src/myssia/schema.py. Covers the PRD (10-01-v01-yaml-schema) acceptance
 criteria: the stocks.yaml showcase loads with correct section semantics,
 plaintext credentials / illegal cron / unknown fields are refused, every
 section's defaults are asserted, and load errors are structured
@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from shishi.schema import (
+from myssia.schema import (
     CategoryConfig,
     CredentialResolveError,
     LoadError,
@@ -269,8 +269,8 @@ class TestCredentialRefusal:
     def test_push_with_keychain_target_loads(self):
         # keychain: is valid syntax at load; only resolution is v0.2-gated.
         data = _minimal_data()
-        data["push"] = [{"channel": "telegram", "target": "keychain:myia_bot_token"}]
-        assert load_category(data).push[0].target == "keychain:myia_bot_token"
+        data["push"] = [{"channel": "telegram", "target": "keychain:myssia_bot_token"}]
+        assert load_category(data).push[0].target == "keychain:myssia_bot_token"
 
 
 class TestCronAndTimezoneRefusal:

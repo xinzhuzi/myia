@@ -3,14 +3,14 @@
 Covers the PRD acceptance list:
 
 - 四命令 + ``--json`` 契约测试(stdout 恒为单份可解析 JSON);
-- ``myia init`` 输出被解析为 JSON 成功(契约测试,两种模式同一产物);
+- ``myssia init`` 输出被解析为 JSON 成功(契约测试,两种模式同一产物);
 - doctor 诊断三类预置故障:明文凭据 / 源连续失败 / keychain 引用不存在;
 - 「指纹未跳过但产出 0 条」的源在 run 状态 success 下仍判 degraded
   (ZOL gpu-prices 2026-10-01 静默 0 条事故的对位用例);
 - 源健康度判据:ok(产出/指纹未变)/ degraded(静默 0 条、基线腰斩、
   未满死线的失败)/ dead(连续 3 轮失败)/ unknown(无记录);
-- ``myia test`` 试抓:提取字段 + 指纹 + 去重键预览,不推送不入库;
-- ``myia secret`` set/list/delete 往返(注入 mock 钥匙串,值永不回显)。
+- ``myssia test`` 试抓:提取字段 + 指纹 + 去重键预览,不推送不入库;
+- ``myssia secret`` set/list/delete 往返(注入 mock 钥匙串,值永不回显)。
 
 所有 I/O 走 httpx.MockTransport 与注入的内存钥匙串;存储用 tmp_path /
 :memory:,零真实网络、零真实钥匙串、零共享状态。
@@ -25,17 +25,17 @@ from typing import Any
 import httpx
 import pytest
 
-from shishi import cli as cli_module
-from shishi import secrets as secrets_store
-from shishi.cli import (
+from myssia import cli as cli_module
+from myssia import secrets as secrets_store
+from myssia.cli import (
     EXIT_CONFIG_ERROR,
     EXIT_FETCH_ALL_FAILED,
     EXIT_OK,
     EXIT_PARTIAL,
     main,
 )
-from shishi.secrets import InMemoryKeychainBackend
-from shishi.store import SQLiteStore
+from myssia.secrets import InMemoryKeychainBackend
+from myssia.store import SQLiteStore
 
 VALID_YAML = """
 id: demo
@@ -231,13 +231,13 @@ def api_responder(request: httpx.Request) -> httpx.Response:
 
 
 # ---------------------------------------------------------------------------
-# myia init:结构化信息清单(AI 消费,非人机问答)
+# myssia init:结构化信息清单(AI 消费,非人机问答)
 # ---------------------------------------------------------------------------
 
 
 class TestInit:
     def test_init_json_contract_parses(self, capsys):
-        """契约测试:myia init 输出被解析为 JSON 成功,含必填/可选/规则/下一步。"""
+        """契约测试:myssia init 输出被解析为 JSON 成功,含必填/可选/规则/下一步。"""
         code = main(["init", "--json"])
 
         assert code == EXIT_OK
@@ -256,7 +256,7 @@ class TestInit:
         assert code == EXIT_OK
         captured = capsys.readouterr()
         assert json.loads(captured.out)["command"] == "init"
-        assert "myia test" in captured.err
+        assert "myssia test" in captured.err
 
 
 # ---------------------------------------------------------------------------
@@ -267,7 +267,7 @@ class TestInit:
 class TestSourceHealth:
     def test_silent_zero_with_success_run_is_degraded(self, tmp_path, capsys):
         """ZOL 对位用例:run 级 success,源级静默 0 条 → degraded(success 不掩盖)。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("success", [source_stats("api", item_count=0, skip_reason=None)])])
 
         code = main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
@@ -280,7 +280,7 @@ class TestSourceHealth:
 
     def test_fingerprint_unchanged_zero_is_ok(self, tmp_path, capsys):
         """指纹未变(304/validators_match)导致 0 条:合理跳过,判 ok。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("success", [source_stats("api", item_count=0, skip_reason="not_modified")])])
 
         main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
@@ -291,7 +291,7 @@ class TestSourceHealth:
 
     def test_items_ok_state(self, tmp_path, capsys):
         """本轮有产出:ok。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("success", [source_stats("api", item_count=7)])])
 
         main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
@@ -300,7 +300,7 @@ class TestSourceHealth:
 
     def test_three_consecutive_failures_are_dead(self, tmp_path, capsys):
         """连续 3 轮采集失败:dead。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("failed", [source_stats("api", failed=True)]) for _ in range(3)])
 
         main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
@@ -309,7 +309,7 @@ class TestSourceHealth:
 
     def test_two_failures_are_not_dead(self, tmp_path, capsys):
         """失败不足 3 轮:degraded(未满死线),不到 dead。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("failed", [source_stats("api", failed=True)]) for _ in range(2)])
 
         main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
@@ -318,7 +318,7 @@ class TestSourceHealth:
 
     def test_baseline_drop_needs_five_history_samples(self, tmp_path, capsys):
         """基线判据:被评判轮**之前**满 5 个历史样本且本轮 <50% → degraded。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         histories = [("success", [source_stats("api", item_count=10)]) for _ in range(5)]
         histories.append(("success", [source_stats("api", item_count=3)]))
         seed_runs(db, "demo", histories)
@@ -333,7 +333,7 @@ class TestSourceHealth:
     def test_baseline_drop_excludes_judged_round_from_baseline(self, tmp_path, capsys):
         """回归:被评判的最新一轮不得计入自身基线——否则 50% 阈值被稀释到
         ~44%(4 历史 10 + 本轮 5:旧算法基线 (10*4+5)/5=9,5 ≥ 4.5 漏报)。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         histories = [("success", [source_stats("api", item_count=10)]) for _ in range(4)]
         histories.append(("success", [source_stats("api", item_count=5)]))  # 48.8% < 50%
         seed_runs(db, "demo", histories)
@@ -347,7 +347,7 @@ class TestSourceHealth:
 
     def test_baseline_drop_below_five_samples_stays_ok(self, tmp_path, capsys):
         """样本不足 5 次:只看 0 条判据,腰斩不触发。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         histories = [("success", [source_stats("api", item_count=10)]) for _ in range(3)]
         histories.append(("success", [source_stats("api", item_count=3)]))
         seed_runs(db, "demo", histories)
@@ -358,7 +358,7 @@ class TestSourceHealth:
 
     def test_no_history_is_unknown(self, tmp_path, capsys):
         """store 无运行记录:unknown,不误报。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
 
         main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
@@ -375,14 +375,14 @@ class TestSourceHealth:
 
 
 # ---------------------------------------------------------------------------
-# myia doctor:结构化诊断 + 三类预置故障
+# myssia doctor:结构化诊断 + 三类预置故障
 # ---------------------------------------------------------------------------
 
 
 class TestDoctor:
     def test_healthy_repo_exit_zero_and_contract(self, tmp_path, capsys):
         """健康仓库:exit 0、healthy=true、无 findings;--json 顶层契约完整。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("success", [source_stats("api", item_count=4)])])
         yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
 
@@ -402,7 +402,7 @@ class TestDoctor:
         """调度下次触发时间:ISO 可解析且在未来。"""
         from datetime import datetime
 
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
         yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
 
@@ -414,7 +414,7 @@ class TestDoctor:
 
     def test_detects_plaintext_credential(self, tmp_path, capsys):
         """故障样例 1(明文凭据):加载期拒载,finding 携带字段路径与错误类。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
         yaml_path = write_plugin(tmp_path, "bad.yaml", PLAINTEXT_YAML)
         assert "Cookie" in PLAINTEXT_YAML  # 夹具自检:确实夹带了明文
@@ -433,7 +433,7 @@ class TestDoctor:
 
     def test_detects_dead_source(self, tmp_path, capsys):
         """故障样例 2(源连续失败):连续 3 轮失败 → dead + error 级 finding。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("failed", [source_stats("api", failed=True)]) for _ in range(3)])
         yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
 
@@ -447,7 +447,7 @@ class TestDoctor:
 
     def test_detects_silent_zero_despite_success_run(self, tmp_path, capsys):
         """验收对位用例(doctor 侧):run 级 success,静默 0 条 → doctor 仍报 degraded。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("success", [source_stats("api", item_count=0, skip_reason=None)])])
         yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
 
@@ -462,7 +462,7 @@ class TestDoctor:
 
     def test_detects_missing_keychain_ref(self, tmp_path, capsys, keychain_backend):
         """故障样例 3(keychain 引用不存在):entry.exists=false + 修复指引 finding。"""
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
         yaml_path = write_plugin(tmp_path, "monitor.yaml", KEYCHAIN_YAML)
 
@@ -475,13 +475,13 @@ class TestDoctor:
         assert entry["exists"] is False
         finding = next(f for f in payload["findings"] if f["code"] == "keychain_ref_missing")
         assert finding["severity"] == "error"
-        assert "shishi secret set myia/monitor/token" in finding["message"]
+        assert "myssia secret set myia/monitor/token" in finding["message"]
         assert payload["healthy"] is False
 
     def test_existing_keychain_ref_no_finding(self, tmp_path, capsys, keychain_backend):
         """钥匙链里存在同名凭据:exists=true,无 finding(healthy 保持 true)。"""
         secrets_store.set_secret("myia/monitor/token", "token-value", backend=keychain_backend)
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
         yaml_path = write_plugin(tmp_path, "monitor.yaml", KEYCHAIN_YAML)
 
@@ -496,7 +496,7 @@ class TestDoctor:
     def test_env_ref_missing_is_warning(self, tmp_path, capsys, monkeypatch):
         """env: 引用未设置:warning 级 finding(env 缺失常是调度环境差异)。"""
         monkeypatch.delenv("MYIA_T_DOCTOR_TOKEN", raising=False)
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
         yaml_text = VALID_YAML.replace(
             'Accept: "application/json"', 'Authorization: "Bearer env:MYIA_T_DOCTOR_TOKEN"'
@@ -524,7 +524,7 @@ class TestDoctor:
             "enrich:\n  enabled: true\n  budget_per_run: 12345\n"
         )
         yaml_path = write_plugin(tmp_path, "demo.yaml", enrich_yaml)
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         store = SQLiteStore(str(db))
         store.set_enrich_cache("https://example.com/a", "glm-4-flash", "value@p1",
                                {"scores": {"value": 8}, "score": 8.0})
@@ -542,7 +542,7 @@ class TestDoctor:
         """代理连通性:--config 提供 pools 声明时逐池探测(exit_ip/延迟可见,凭据打码)。"""
         monkeypatch.setenv("MYIA_T_PROXY_USER", "alice")
         monkeypatch.setenv("MYIA_T_PROXY_PASS", "hunter2")
-        pools_file = tmp_path / "shishi.yaml"
+        pools_file = tmp_path / "myssia.yaml"
         pools_file.write_text(
             "pools:\n  main: \"http://env:MYIA_T_PROXY_USER:env:MYIA_T_PROXY_PASS@proxy.example.test:8080\"\n",
             encoding="utf-8",
@@ -553,7 +553,7 @@ class TestDoctor:
             return httpx.Response(200, json={"ip": "203.0.113.7"})
 
         monkeypatch.setattr(cli_module, "_build_async_client", mock_client_factory(responder))
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
         yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
 
@@ -570,14 +570,14 @@ class TestDoctor:
 
     def test_proxy_unreachable_is_warning(self, tmp_path, capsys, monkeypatch):
         """代理不通:warning 级 finding(代理挂 ≠ 源死)。"""
-        pools_file = tmp_path / "shishi.yaml"
+        pools_file = tmp_path / "myssia.yaml"
         pools_file.write_text("pools:\n  main: \"http://proxy.example.test:8080\"\n", encoding="utf-8")
 
         def responder(request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectError("connection refused", request=request)
 
         monkeypatch.setattr(cli_module, "_build_async_client", mock_client_factory(responder))
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
         yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
 
@@ -595,7 +595,7 @@ class TestDoctor:
         directory.mkdir()
         (directory / "demo.yaml").write_text(VALID_YAML, encoding="utf-8")
         (directory / "bad.yaml").write_text(PLAINTEXT_YAML, encoding="utf-8")
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
 
         main(["doctor", "--plugins-dir", str(directory), "--db", str(db), "--json"])
@@ -614,7 +614,7 @@ class TestDoctor:
         (directory / "tg-b.yaml").write_text(
             TELEGRAM_YAML.format(tag="b"), encoding="utf-8"
         )
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
 
         code = main(["doctor", "--plugins-dir", str(directory), "--db", str(db), "--json"])
@@ -635,7 +635,7 @@ class TestDoctor:
             TELEGRAM_YAML.format(tag="a"), encoding="utf-8"
         )
         (directory / "demo.yaml").write_text(VALID_YAML, encoding="utf-8")
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
 
         main(["doctor", "--plugins-dir", str(directory), "--db", str(db), "--json"])
@@ -646,7 +646,7 @@ class TestDoctor:
 
 
 # ---------------------------------------------------------------------------
-# myia test:单源试抓(不推送不入库)
+# myssia test:单源试抓(不推送不入库)
 # ---------------------------------------------------------------------------
 
 
@@ -730,7 +730,7 @@ class TestTrialFetch:
         yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
 
         main(["test", yaml_path, "--json"])
-        assert not (tmp_path / "myia.db").exists()
+        assert not (tmp_path / "myssia.db").exists()
 
     def test_trial_fetch_config_error_exit_one(self, tmp_path, capsys):
         """YAML 拒载:退出码 1(先于任何网络)。"""
@@ -762,7 +762,7 @@ class TestTrialFetch:
 
 
 # ---------------------------------------------------------------------------
-# myia secret:钥匙链凭据管理(mock 钥匙串,零真实触碰)
+# myssia secret:钥匙链凭据管理(mock 钥匙串,零真实触碰)
 # ---------------------------------------------------------------------------
 
 
@@ -834,7 +834,7 @@ class TestJsonContract:
         """四命令 + --json:stdout 均为单份可被 json 解析的文档(验收项)。"""
         monkeypatch.setattr(cli_module, "_build_async_client", mock_client_factory(api_responder))
         yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
-        db = tmp_path / "myia.db"
+        db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("success", [source_stats("api", item_count=4)])])
 
         for argv in (

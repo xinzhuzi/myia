@@ -899,7 +899,7 @@ function AlertRulesPanel() {
       await alertsDelete(ruleId);
       setRules((prev) => (prev ? prev.filter((rule) => rule.id !== ruleId) : prev));
       setPendingDelete(null);
-      setNotice({ kind: "ok", text: "规则已删除(命中历史照留,可在 CLI `shishi alerts list` 查看)" });
+      setNotice({ kind: "ok", text: "规则已删除(命中历史照留,可在 CLI `myssia alerts list` 查看)" });
     } catch (error) {
       const structured = asSidecarError(error);
       setNotice({ kind: "error", text: `删除失败:${structured.message}(code=${structured.code})` });

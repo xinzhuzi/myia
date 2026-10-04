@@ -3,7 +3,7 @@ services:
   # 首次 `docker compose up -d` 时由 compose 从上游 git 仓库拉源码构建。
   proxy-pool:
     build: https://github.com/jhao104/proxy_pool.git
-    container_name: myia-proxy-pool
+    container_name: myssia-proxy-pool
     ports:
       - "127.0.0.1:5010:5010"   # 默认只绑回环;对外暴露请自行加反代 + 鉴权
     environment:
@@ -14,5 +14,5 @@ services:
 
   proxy-redis:
     image: redis:7-alpine
-    container_name: myia-proxy-redis
+    container_name: myssia-proxy-redis
     restart: unless-stopped

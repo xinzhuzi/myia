@@ -5,11 +5,11 @@ from PyInstaller.utils.hooks import collect_submodules
 from PyInstaller.utils.hooks import collect_all
 
 # SPECPATH = spec 所在目录(desktop/);仓库根取其上一级——路径相对化,
-# 任何机器 checkout 后 pyinstaller myia-core.spec 均可跑(不再依赖本机绝对路径)。
+# 任何机器 checkout 后 pyinstaller myssia-core.spec 均可跑(不再依赖本机绝对路径)。
 _REPO_ROOT = os.path.dirname(SPECPATH)
-datas = [(os.path.join(_REPO_ROOT, 'myia-classifier', 'myia_classifier', 'data', 'keywords.json'), 'myia_classifier/data')]
+datas = [(os.path.join(_REPO_ROOT, 'myssia-classifier', 'myssia_classifier', 'data', 'keywords.json'), 'myssia_classifier/data')]
 binaries = []
-hiddenimports = ['myia.secrets']
+hiddenimports = ['myssia.secrets']
 hiddenimports += collect_submodules('myia')
 # ocrmac 平台门(10-04-windows-build F2):macOS Vision 独占,Windows/Linux 不装
 # (pyproject vision extra 带 sys_platform == 'darwin' 标记)。缺包时 collect_all
@@ -49,7 +49,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='myia-core',
+    name='myssia-core',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

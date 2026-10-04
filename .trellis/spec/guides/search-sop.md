@@ -27,8 +27,8 @@
 
 | 工具 | 用途 | 示例命令 |
 |------|------|----------|
-| `fd` | 文件名搜索(推荐) | `fd vision src/myia` |
-| `rg` | 文件内容搜索(正则/精准匹配) | `rg 'def fetch' src/myia/push` |
+| `fd` | 文件名搜索(推荐) | `fd vision src/shishi` |
+| `rg` | 文件内容搜索(正则/精准匹配) | `rg 'def fetch' src/shishi/push` |
 | `gitnexus` | 语义搜索 + 代码知识图谱 + 影响分析 | `gitnexus query -r shishi 'push channel dispatch lifecycle'` |
 | `fzf` | 交互模糊筛选 | `fzf` |
 | LSP | TypeScript 符号索引(`desktop/ui-src`) | `smart_search` / `smart_outline` 或 `tsserver` |
@@ -53,7 +53,7 @@
 
 | 目标 | 首选范围 | 关键约束 |
 |------|----------|----------|
-| Python 核心包 | `src/myia` | 域子目录 `classify/` `push/` `vision/` `store/` `enrich/` `feedback/` `engines/` `plugins/` `dedup.py`;入口 `cli.py`、总管线 `pipeline.py`、schema 事实源 `schema.py` |
+| Python 核心包 | `src/shishi` | 域子目录 `classify/` `push/` `vision/` `store/` `enrich/` `feedback/` `engines/` `plugins/` `dedup.py`;入口 `cli.py`、总管线 `pipeline.py`、schema 事实源 `schema.py` |
 | 测试 | `tests` | 录制回放夹具在 `tests/`(脱敏入盘) |
 | 桌面 sidecar | `desktop/entry.py` | sidecar 协议方法注册表事实源 = `entry.py` `_HANDLERS`(见 spec `desktop/sidecar-protocol.md`) |
 | 桌面构建 | `desktop/build-sidecar.sh` | PyInstaller 链路走 CLI 参数现场生成 spec;`desktop/myia-core.spec` 是历史手写件(已 SPECPATH 相对化,当前无消费方) |
@@ -82,9 +82,9 @@
 
 ```bash
 # ── Python 核心包 ──
-rg -t py 'def ' src/myia/push
-rg -t py '视觉' src/myia/vision
-fd -e py 'client' src/myia
+rg -t py 'def ' src/shishi/push
+rg -t py '视觉' src/shishi/vision
+fd -e py 'client' src/shishi
 
 # ── 桌面 sidecar / 构建 ──
 rg '_HANDLERS' desktop/entry.py

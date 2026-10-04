@@ -25,12 +25,12 @@ from typing import Any
 
 import pytest
 
-import shishi.push.irc as irc_module
-from shishi.push import SendContext
-from shishi.push.base import PushSendError
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, ChannelEntry, DirectoryDiscoverUnsupported
-from shishi.push.irc import (
+import myssia.push.irc as irc_module
+from myssia.push import SendContext
+from myssia.push.base import PushSendError
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, ChannelEntry, DirectoryDiscoverUnsupported
+from myssia.push.irc import (
     IrcChannel,
     chunk_paragraph,
     parse_irc_line,
@@ -38,7 +38,7 @@ from shishi.push.irc import (
     strip_control_chars,
     strip_markdown,
 )
-from shishi.push.targets import RESOLVED_DIRECT, RESOLVED_DIRECTORY_NAME, ChannelTarget, resolve_target
+from myssia.push.targets import RESOLVED_DIRECT, RESOLVED_DIRECTORY_NAME, ChannelTarget, resolve_target
 
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
 
@@ -129,11 +129,11 @@ def _target(chat_id: str) -> ChannelTarget:
 @pytest.fixture()
 def irc_env(monkeypatch):
     monkeypatch.setenv("MYIA_TEST_IRC_SERVER", "irc.example.com")
-    monkeypatch.setenv("MYIA_TEST_IRC_NICK", "myia")
+    monkeypatch.setenv("MYIA_TEST_IRC_NICK", "myssia")
     monkeypatch.setenv("MYIA_TEST_IRC_CHANNEL", "#test")
 
 
-WELCOME = ":irc.example.com 001 myia-push :Welcome to the IRC Network"
+WELCOME = ":irc.example.com 001 myssia-push :Welcome to the IRC Network"
 
 
 # ---------------------------------------------------------------------------
@@ -144,14 +144,14 @@ WELCOME = ":irc.example.com 001 myia-push :Welcome to the IRC Network"
 class TestSessionSequence:
     def test_channel_send_full_handshake(self, irc_env):
         """频道目标:NICK/USER → 001 → JOIN → PRIVMSG → QUIT → close。"""
-        harness = IrcHarness([WELCOME, ":myia-push!~u@h JOIN :#test"])
+        harness = IrcHarness([WELCOME, ":myssia-push!~u@h JOIN :#test"])
         channel = harness.channel()
 
         _run(channel.send([{"title": "羊毛", "url": "https://x/1"}], CONTEXT))
 
         lines = harness.writer.lines
-        assert lines[0] == "NICK myia-push"  # 一次性身份:基名 + -push 后缀
-        assert lines[1].startswith("USER myia-push ")
+        assert lines[0] == "NICK myssia-push"  # 一次性身份:基名 + -push 后缀
+        assert lines[1].startswith("USER myssia-push ")
         assert "JOIN #test" in lines
         privmsgs = "\n".join(line for line in lines if line.startswith("PRIVMSG #test :"))
         assert "羊毛" in privmsgs and "https://x/1" in privmsgs
@@ -172,7 +172,7 @@ class TestSessionSequence:
         assert any(line.startswith("PRIVMSG alice :") for line in harness.writer.lines)
 
     def test_context_target_overrides_legacy(self, irc_env):
-        harness = IrcHarness([WELCOME, ":myia-push!~u@h JOIN :#other"])
+        harness = IrcHarness([WELCOME, ":myssia-push!~u@h JOIN :#other"])
         channel = harness.channel()
 
         _run(channel.send([{"title": "t"}], replace(CONTEXT, target=_target("#other"))))
@@ -183,7 +183,7 @@ class TestSessionSequence:
         """可选 PASS 与 NickServ IDENTIFY 按引用在场发送(等待经 sleep 注入)。"""
         monkeypatch.setenv("MYIA_TEST_IRC_PASS", "s3cret")
         monkeypatch.setenv("MYIA_TEST_IRC_NICKSERV", "hunter2")
-        harness = IrcHarness([WELCOME, ":myia-push!~u@h JOIN :#test"])
+        harness = IrcHarness([WELCOME, ":myssia-push!~u@h JOIN :#test"])
         channel = harness.channel(
             server_password_ref="env:MYIA_TEST_IRC_PASS",
             nickserv_password_ref="env:MYIA_TEST_IRC_NICKSERV",
@@ -238,16 +238,16 @@ class TestProtocolErrors:
         """433 → 换 ``-1`` 后缀重试;蓝本同款有界重试。"""
         harness = IrcHarness(
             [
-                ":irc.example.com 433 * myia-push :Nickname is already in use",
-                ":irc.example.com 001 myia-push-1 :Welcome",
-                ":myia-push-1!~u@h JOIN :#test",
+                ":irc.example.com 433 * myssia-push :Nickname is already in use",
+                ":irc.example.com 001 myssia-push-1 :Welcome",
+                ":myssia-push-1!~u@h JOIN :#test",
             ]
         )
         channel = harness.channel()
 
         _run(channel.send([{"title": "t"}], CONTEXT))
 
-        assert "NICK myia-push-1" in harness.writer.lines
+        assert "NICK myssia-push-1" in harness.writer.lines
 
     def test_join_403_is_not_found_dead(self, irc_env):
         """JOIN 403(频道不存在):原厂片段保留;ERR_NOSUCHCHANNEL → chat 级
@@ -255,7 +255,7 @@ class TestProtocolErrors:
         ``IRC 403 ERR_NOSUCHCHANNEL`` 原厂片段归位 not_found 家族——IRC 语义
         即频道不可达,仍为硬死信,仅家族标签从 forbidden 校正为 not_found)。"""
         harness = IrcHarness(
-            [WELCOME, ":irc.example.com 403 myia-push #nope :No such channel"]
+            [WELCOME, ":irc.example.com 403 myssia-push #nope :No such channel"]
         )
         channel = harness.channel()
 
@@ -268,7 +268,7 @@ class TestProtocolErrors:
     def test_bad_channel_key_is_transient(self, irc_env):
         """JOIN 475(错误频道 key)无 ASCII 死信 marker → 瞬态不标。"""
         harness = IrcHarness(
-            [WELCOME, ":irc.example.com 475 myia-push #locked :Cannot join channel (+k)"]
+            [WELCOME, ":irc.example.com 475 myssia-push #locked :Cannot join channel (+k)"]
         )
         channel = harness.channel()
 
@@ -322,7 +322,7 @@ class TestProtocolErrors:
             [
                 WELCOME,
                 "PING :irc.example.com",
-                ":myia-push!~u@h JOIN :#test",
+                ":myssia-push!~u@h JOIN :#test",
             ]
         )
         channel = harness.channel()
@@ -351,7 +351,7 @@ class TestInjectionAndChunking:
     def test_crlf_in_content_never_creates_rogue_commands(self, irc_env):
         """正文里的 CR/LF 无法伪造协议命令:内容只可能出现在
         ``PRIVMSG <目标> :`` 载荷内(蓝本先分行再逐行剥 CR/LF 的同款防线)。"""
-        harness = IrcHarness([WELCOME, ":myia-push!~u@h JOIN :#test"])
+        harness = IrcHarness([WELCOME, ":myssia-push!~u@h JOIN :#test"])
         channel = harness.channel()
 
         _run(
@@ -370,7 +370,7 @@ class TestInjectionAndChunking:
 
     def test_long_content_chunks_with_pacing(self, irc_env):
         """超行预算(510 字节 - PRIVMSG 开销)自动多行,段间 0.3s 步进。"""
-        harness = IrcHarness([WELCOME, ":myia-push!~u@h JOIN :#test"])
+        harness = IrcHarness([WELCOME, ":myssia-push!~u@h JOIN :#test"])
         channel = harness.channel()
 
         _run(channel.send([{"title": "长" * 2000}], CONTEXT))

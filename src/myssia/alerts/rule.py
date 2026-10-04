@@ -1,13 +1,13 @@
 """Alert rule construction gate(构造期拒,PRD 10-04-alert-rules grill Q7).
 
-存储层(:class:`shishi.store.models.AlertRule`)是纯行 ↔ 对象记录;本模块是
+存储层(:class:`myssia.store.models.AlertRule`)是纯行 ↔ 对象记录;本模块是
 读库(store 载入)与写库(alerts.save)共用的同一道构造门:
 
 - name 非空 / action ∈ {push, tag} / scope ∈ {'global'} ∪ 已知品类;
-- ``when`` 表达式经 classify 白名单 AST 试建(:class:`myia_classifier Rule`,
+- ``when`` 表达式经 classify 白名单 AST 试建(:class:`myssia_classifier Rule`,
   与 ``RouteRule.__post_init__`` 同构):属性访问/下标/lambda/超 1000 字符等
   越权构造在装载期即拒;
-- ``action_config`` 形状:push 需 ``channel ∈ shishi.push.CHANNELS`` + 可选
+- ``action_config`` 形状:push 需 ``channel ∈ myssia.push.CHANNELS`` + 可选
   ``targets: list[str]`` / ``template: str``;tag 需非空 ``tags: list[str]``;
   未知键拒(schema 铁律:未知字段不许静默忽略)。
 
@@ -21,10 +21,10 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
-from shishi.classify.custom import Rule, RuleSyntaxError
-from shishi.push import CHANNELS
-from shishi.push.route import CATEGORY_DEFAULT_ROUTES
-from shishi.store.models import (
+from myssia.classify.custom import Rule, RuleSyntaxError
+from myssia.push import CHANNELS
+from myssia.push.route import CATEGORY_DEFAULT_ROUTES
+from myssia.store.models import (
     ALERT_ACTION_PUSH,
     ALERT_ACTION_TAG,
     ALERT_SCOPE_GLOBAL,

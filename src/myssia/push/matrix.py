@@ -17,7 +17,7 @@ mautrix 客户端库并含 E2EE/入站整套,**MYIA 出站-only 走纯 CS API RE
   room id);``!…`` 原生 id 直发。
 - **错误**:非 2xx 时 Matrix 以 ``{"errcode": "M_FORBIDDEN", "error": …}``
   应答;错误文案保留 ``HTTP <status>`` + 原厂 errcode/error 片段,供死信
-  分类(:func:`shishi.push.delivery.classify_dead_error`:403 → forbidden、
+  分类(:func:`myssia.push.delivery.classify_dead_error`:403 → forbidden、
   404 → not_found、429/M_LIMIT_EXCEEDED → 瞬态)。
 
 寻址(design D1/D4):``supports_targeting=True``;``context.target.chat_id``
@@ -25,7 +25,7 @@ mautrix 客户端库并含 E2EE/入站整套,**MYIA 出站-only 走纯 CS API RE
 ``missing_target``。直达解析 ``!room:server`` / ``#alias:server``。目录无
 自动发现(CS API 的 joined_rooms 无名称、逐房取 name 不成目录;蓝本走
 mautrix 常驻会话,MYIA 出站-only 不含),抛
-:class:`~shishi.push.directory.DirectoryDiscoverUnsupported`。
+:class:`~myssia.push.directory.DirectoryDiscoverUnsupported`。
 
 凭据安全基线同其余通道:YAML 只写 ``env:``/``keychain:`` 引用,发送期才
 解析;错误文案只带引用名,绝不带解析值。All HTTP I/O goes through an
@@ -42,18 +42,18 @@ from urllib.parse import quote
 
 import httpx
 
-from shishi.push.base import (
+from myssia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
     TrendAwareChannel,
 )
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.ntfy import build_message
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.telegram import split_message
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.ntfy import build_message
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.telegram import split_message
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "DEFAULT_SERVER_ENV_REF",
@@ -164,7 +164,7 @@ class MatrixChannel(TrendAwareChannel):
         room_id = await self._ensure_room_id(server, token, chat_id)
         parts = self._compose(items, context)
         for text in parts:
-            txn_id = f"myia-{uuid.uuid4().hex}"  # 幂等键:每次发送全新
+            txn_id = f"myssia-{uuid.uuid4().hex}"  # 幂等键:每次发送全新
             await self._put_message(token, room_send_url(server, room_id, txn_id), text)
         logger.debug(
             "matrix 发送完成: slot=%s kind=%s count=%d parts=%d",

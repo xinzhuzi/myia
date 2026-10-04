@@ -38,16 +38,16 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
-from shishi.enrich.client import OpenAICompatClient
-from shishi.enrich.errors import EnrichConfigError
-from shishi.enrich.prompt import PromptTemplate, load_dedupe_prompt
-from shishi.enrich.scoring import BudgetTracker, ScoreParseError, extract_json_entries
-from shishi.enrich.settings import EnrichSettings, resolve_endpoint
-from shishi.schema import AggregateConfig, EnrichConfig
-from shishi.store import Store
+from myssia.enrich.client import OpenAICompatClient
+from myssia.enrich.errors import EnrichConfigError
+from myssia.enrich.prompt import PromptTemplate, load_dedupe_prompt
+from myssia.enrich.scoring import BudgetTracker, ScoreParseError, extract_json_entries
+from myssia.enrich.settings import EnrichSettings, resolve_endpoint
+from myssia.schema import AggregateConfig, EnrichConfig
+from myssia.store import Store
 
 if TYPE_CHECKING:  # 循环避免:仅类型注解引用 pipeline.Item(运行时鸭子类型)
-    from shishi.pipeline import Item
+    from myssia.pipeline import Item
 
 __all__ = [
     "GROUP_ITEM_CONTENT_CHARS",
@@ -107,7 +107,7 @@ class AggregateOutcome:
     """One ``aggregate`` call's observable result (stage report 逐字段消费).
 
     消费方是 pipeline ``_stage_aggregate`` 的显式字段接线(skips/warnings/
-    合并决策),没有整体序列化形态——``to_dict`` 曾虚构「run stats / myia
+    合并决策),没有整体序列化形态——``to_dict`` 曾虚构「run stats / myssia
     doctor」消费方且全仓零调用,v1.1 已删除(PRD 10-02-v11-low-baseline-
     aggregate #17)。
 
@@ -389,7 +389,7 @@ class EventAggregator:
     Built once per pipeline (fail fast): endpoint references are validated
     and resolved here, the dedupe prompt data file is loaded here, so a
     broken aggregate configuration is a startup failure, never a mid-run
-    surprise — same contract as :class:`~shishi.enrich.LLMEnricher`. One
+    surprise — same contract as :class:`~myssia.enrich.LLMEnricher`. One
     deliberate exception to the startup timing: the optional ``openai``
     package is **not** checked at construction — it is imported lazily at
     the first completion (core stays importable without the extra), so a

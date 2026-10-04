@@ -1,13 +1,13 @@
-"""Compatibility shim: the implementation moved to the standalone myia-classifier package.
+"""Compatibility shim: the implementation moved to the standalone myssia-classifier package.
 
 The classifier ships as its own zero-dependency distribution (PyPI name
-``myia-classifier``, import name :mod:`myia_classifier`); this module
-re-exports its full public API so existing imports (``shishi.pipeline``,
-``shishi.push.route``, plugins, tests) keep working unchanged. New code should
-import from :mod:`myia_classifier` directly.
+``myssia-classifier``, import name :mod:`myssia_classifier`); this module
+re-exports its full public API so existing imports (``myssia.pipeline``,
+``myssia.push.route``, plugins, tests) keep working unchanged. New code should
+import from :mod:`myssia_classifier` directly.
 """
 
-from myia_classifier import (
+from myssia_classifier import (
     ALL_CATEGORIES,
     ALLOWED_FUNCTIONS,
     CATEGORY_CHANNEL,

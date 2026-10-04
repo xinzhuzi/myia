@@ -37,15 +37,15 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from myia.cron import tick as tick_module
-from myia.cron.jobs import CronJobs, release_running_job, try_register_running_job
-from myia.cron.occurrences import scheduled_instant
-from myia.cron.tick import (
+from myssia.cron import tick as tick_module
+from myssia.cron.jobs import CronJobs, release_running_job, try_register_running_job
+from myssia.cron.occurrences import scheduled_instant
+from myssia.cron.tick import (
     TICK_LOCK_NAME,
     _sweep_stale_fire_claims,
     tick,
 )
-from myia.cron.ticker import SupervisedTickerThread, run_ticker_loop
+from myssia.cron.ticker import SupervisedTickerThread, run_ticker_loop
 
 TZ = ZoneInfo("Asia/Shanghai")
 BASE = datetime(2026, 10, 4, 9, 0, tzinfo=TZ)  # 周日 09:00,固定控时基准
@@ -401,8 +401,8 @@ def test_different_db_groups_run_in_parallel(cron: CronJobs, tmp_path: Path) -> 
     """不同 db 的 job 并行派发:两组首 job 用 Barrier 会合(串行则超时破裂)。"""
     seed(
         cron,
-        make_job("ja", db_path=str(tmp_path / "a" / "myia.db")),
-        make_job("jb", db_path=str(tmp_path / "b" / "myia.db")),
+        make_job("ja", db_path=str(tmp_path / "a" / "myssia.db")),
+        make_job("jb", db_path=str(tmp_path / "b" / "myssia.db")),
     )
     barrier = threading.Barrier(2, timeout=10.0)
     passed: set[str] = set()
@@ -423,7 +423,7 @@ def test_different_db_groups_run_in_parallel(cron: CronJobs, tmp_path: Path) -> 
 
 def test_same_db_jobs_run_serially(cron: CronJobs, tmp_path: Path) -> None:
     """同 db 的 job 组内串行:全程组内活跃数恒 1(若并行则重叠 ≥ 2)。"""
-    db = str(tmp_path / "one" / "myia.db")
+    db = str(tmp_path / "one" / "myssia.db")
     seed(cron, make_job("j1", db_path=db), make_job("j2", db_path=db))
     lock = threading.Lock()
     state = {"active": 0, "max_active": 0, "order": []}
@@ -448,8 +448,8 @@ def test_same_db_serial_and_cross_db_parallel_combined(
 ) -> None:
     """D13 组合场景:两组各两 job——组间并行(Barrier 会合),组内串行
     (第二 job 必等第一 job 让位)。"""
-    db_a = str(tmp_path / "a" / "myia.db")
-    db_b = str(tmp_path / "b" / "myia.db")
+    db_a = str(tmp_path / "a" / "myssia.db")
+    db_b = str(tmp_path / "b" / "myssia.db")
     seed(
         cron,
         make_job("a1", db_path=db_a),

@@ -7,7 +7,7 @@
  *   doctor      → 结构化诊断:credentials(entries 存在性核验)/ enrich 节
  *                 (model 等非凭据字段)/ proxy 池探测 / findings / push_channels。
  *
- * 表单字段 → 持久化路径(与 src/myia/schema.py 契约逐条对齐):
+ * 表单字段 → 持久化路径(与 src/myssia/schema.py 契约逐条对齐):
  *   LLM key        → secret.set("myia/llm/api_key")           [钥匙链,本模块直达]
  *   LLM base_url   → 值经 secret.set("myia/llm/base_url") 入钥匙链
  *                    (enrich.base_url 在 YAML 只允许 env:/keychain: 纯引用,

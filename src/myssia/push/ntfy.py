@@ -30,7 +30,7 @@ topic 段是缺省投递 topic)。直达解析 ``ntfy:<topic>``
 
 凭据安全基线同其余通道:引用直到发送期才解析,错误只带引用名;
 错误消息携带 HTTP 状态与响应体片段,供死信分类
-(:func:`shishi.push.delivery.classify_dead_error`,403 → forbidden、
+(:func:`myssia.push.delivery.classify_dead_error`,403 → forbidden、
 404 → not_found,429/5xx/超时 → 瞬态不标)。
 
 All HTTP I/O goes through an injectable ``httpx.AsyncClient`` — tests use
@@ -47,18 +47,18 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from shishi.push.base import (
+from myssia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
     TrendAwareChannel,
     item_view,
 )
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.feishu_card import card_title
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.feishu_card import card_title
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "DEFAULT_SERVER",

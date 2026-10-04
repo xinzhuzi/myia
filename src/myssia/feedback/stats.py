@@ -1,6 +1,6 @@
 """Feedback statistics: good/bad counts, Top 负反馈类目与词 (简单统计起步).
 
-Pure functions over already-fetched :class:`~shishi.store.FeedbackRecord`
+Pure functions over already-fetched :class:`~myssia.store.FeedbackRecord`
 rows — no store access, no learning library (PRD: 简单统计起步,不引入学习库).
 Word extraction is deliberately naive and explainable: latin/digit tokens
 plus overlapping bigrams inside CJK runs (Chinese titles carry no spaces, so
@@ -15,7 +15,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
-from shishi.store import FEEDBACK_BAD, FEEDBACK_GOOD, FeedbackRecord
+from myssia.store import FEEDBACK_BAD, FEEDBACK_GOOD, FeedbackRecord
 
 __all__ = [
     "DEFAULT_TOP_N",
@@ -83,7 +83,7 @@ class FeedbackStats:
         return self.bad / self.total if self.total else 0.0
 
     def to_dict(self) -> dict[str, Any]:
-        """Machine-readable form (``myia feedback stats --json``)."""
+        """Machine-readable form (``myssia feedback stats --json``)."""
         return {
             "total": self.total,
             "good": self.good,

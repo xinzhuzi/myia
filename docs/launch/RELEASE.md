@@ -11,9 +11,9 @@ GitHub Release 页):
 
 | 通道 | 工作流 | 产物 |
 |---|---|---|
-| 桌面 | [desktop-release.yml](../../.github/workflows/desktop-release.yml) | dmg + 更新包(`myia.app.tar.gz`+sig)+ `latest.json` → Release |
-| Docker | [docker-publish.yml](../../.github/workflows/docker-publish.yml) | 镜像 tag `X.Y.Z` + `latest` → GHCR(`ghcr.io/xinzhuzi/myia`) |
-| PyPI | [pypi-publish.yml](../../.github/workflows/pypi-publish.yml) | `myia` + `myia-classifier` 双包 → pypi.org(OIDC),wheel/sdist 附挂 Release |
+| 桌面 | [desktop-release.yml](../../.github/workflows/desktop-release.yml) | dmg + 更新包(`myssia.app.tar.gz`+sig)+ `latest.json` → Release |
+| Docker | [docker-publish.yml](../../.github/workflows/docker-publish.yml) | 镜像 tag `X.Y.Z` + `latest` → GHCR(`ghcr.io/xinzhuzi/myssia`) |
+| PyPI | [pypi-publish.yml](../../.github/workflows/pypi-publish.yml) | `myssia` + `myssia-classifier` 双包 → pypi.org(OIDC),wheel/sdist 附挂 Release |
 
 PyPI 通道在构建前有两道硬闸:tag 与版本源一致性守卫(第一步的 bump 没做齐
 直接红,零产物离库)+ 数据文件校验(`keywords.json` / `prompt.json` 不在
@@ -30,9 +30,9 @@ wheel 里就直接失败,到不了 PyPI)。TestPyPI 演练走手动 dispatch,与
 
 | # | 文件 | 改什么 |
 |---|---|---|
-| 1 | `pyproject.toml`(根) | `version` + 依赖窗 `myia-classifier>=X.Y.Z,<下一档` |
-| 2 | `myia-classifier/pyproject.toml` | `version` |
-| 3 | `src/myia/__init__.py` | `__version__` |
+| 1 | `pyproject.toml`(根) | `version` + 依赖窗 `myssia-classifier>=X.Y.Z,<下一档` |
+| 2 | `myssia-classifier/pyproject.toml` | `version` |
+| 3 | `src/myssia/__init__.py` | `__version__` |
 | 4 | `desktop/src-tauri/tauri.conf.json` | `version` |
 | 5 | `desktop/src-tauri/Cargo.toml`(+ `Cargo.lock`) | `version`(lock 随下一次桌面构建同步) |
 
@@ -69,13 +69,13 @@ wheel 里就直接失败,到不了 PyPI)。TestPyPI 演练走手动 dispatch,与
 
 ### 路径 A:Trusted Publishing(OIDC,推荐:零长期凭据、无 token 可泄漏)
 
-对 `myia` 和 `myia-classifier` **各注册一次**,四元组完全相同(同一工作流发
+对 `myssia` 和 `myssia-classifier` **各注册一次**,四元组完全相同(同一工作流发
 多包是 PyPI 官方支持的用法;tag 正式发布与 dispatch 演练都走这条):
 
 | 表单字段 | 填写值 |
 |---|---|
 | Owner | `xinzhuzi` |
-| Repository | `myia` |
+| Repository | `myssia` |
 | Workflow filename | `pypi-publish.yml` |
 | Environment | `pypi` |
 | Destination(版本/tag 限制) | 留空即可 |
@@ -84,8 +84,8 @@ wheel 里就直接失败,到不了 PyPI)。TestPyPI 演练走手动 dispatch,与
 
 - **项目还不在 PyPI 上(首发场景)**:登录 <https://pypi.org> → 右上角头像 →
   **Account settings → Publishing**(直达 <https://pypi.org/manage/publishing/>)→
-  **Add a new pending publisher**,填上面四元组 + PyPI project name(`myia` 一次,
-  `myia-classifier` 一次)。pending publisher 在工作流首次成功上传时自动转正并
+  **Add a new pending publisher**,填上面四元组 + PyPI project name(`myssia` 一次,
+  `myssia-classifier` 一次)。pending publisher 在工作流首次成功上传时自动转正并
   创建项目。
 - **项目已存在**:打开项目页 → **Manage(设置)→ Publishing → Add a new
   trusted publisher**,填同样四元组。
@@ -98,7 +98,7 @@ OIDC 路径);token 只在手动 dispatch 时可用:
 1. <https://pypi.org/manage/account/token/> → **Add API token**:
    - **新项目首发的鸡生蛋问题**:token scope 下拉里只列已存在的项目,所以首发
      时只能选 **scope: account(所有项目)**;两个包都发上去之后,建议删掉
-     account 级 token,换 project-scoped token(`scope: myia` 各建一把)并更新
+     account 级 token,换 project-scoped token(`scope: myssia` 各建一把)并更新
      GitHub secret——最小权限。
 2. 把 `pypi-` 开头的 token 完整粘贴到第二步的 GitHub secret `PYPI_API_TOKEN`。
 3. dispatch 时勾选 **use-api-token = true**(tag 事件下该输入为空串,永远走
@@ -136,9 +136,9 @@ tag 推出后 Actions 自动起三个 run(互相独立,单通道失败不影响�
 
 | 通道 | 产物 |
 |---|---|
-| GitHub Release | dmg、`myia.app.tar.gz`(+sig)、`latest.json`(桌面)+ `myia-X.Y.Z-*.whl`、`myia-X.Y.Z.tar.gz`、`myia_classifier-X.Y.Z-*.whl`、`myia_classifier-X.Y.Z.tar.gz`(PyPI 附挂);Windows msi(+sig)构建成功时另附 |
+| GitHub Release | dmg、`myssia.app.tar.gz`(+sig)、`latest.json`(桌面)+ `myssia-X.Y.Z-*.whl`、`myssia-X.Y.Z.tar.gz`、`myssia_classifier-X.Y.Z-*.whl`、`myssia_classifier-X.Y.Z.tar.gz`(PyPI 附挂);Windows msi(+sig)构建成功时另附 |
 | GHCR | 镜像 tag `X.Y.Z`、`latest` 两个(不再产 `vX.Y.Z`、`sha-*`) |
-| PyPI | `myia` 与 `myia-classifier` 各一个 `X.Y.Z` |
+| PyPI | `myssia` 与 `myssia-classifier` 各一个 `X.Y.Z` |
 
 ## 第五步:验证发布结果(三通道核对)
 
@@ -146,36 +146,36 @@ tag 推出后 Actions 自动起三个 run(互相独立,单通道失败不影响�
 
 1. **Actions 三个 run 全绿**:Desktop Release / Docker Publish / PyPI Publish
    (Desktop 的 Windows job 标黄 = 允许失败,不阻塞)。
-2. **Release 资产 8 件**:<https://github.com/xinzhuzi/myia/releases/tag/v0.0.1>
-   - 桌面 4 件:`myia_0.0.1_aarch64.dmg`、`myia.app.tar.gz`、
-     `myia.app.tar.gz.sig`、`latest.json`;
-   - PyPI 附挂 4 件:`myia-0.0.1-*.whl`、`myia-0.0.1.tar.gz`、
-     `myia_classifier-0.0.1-*.whl`、`myia_classifier-0.0.1.tar.gz`;
+2. **Release 资产 8 件**:<https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1>
+   - 桌面 4 件:`myssia_0.0.1_aarch64.dmg`、`myssia.app.tar.gz`、
+     `myssia.app.tar.gz.sig`、`latest.json`;
+   - PyPI 附挂 4 件:`myssia-0.0.1-*.whl`、`myssia-0.0.1.tar.gz`、
+     `myssia_classifier-0.0.1-*.whl`、`myssia_classifier-0.0.1.tar.gz`;
    - Windows msi 成功时另有 `*.msi`(+`.msi.sig`),不计入 8 件核对。
 3. **GHCR 镜像 tag 恰两个**:`0.0.1` 与 `latest`(无 `v0.0.1`、无 `sha-*`);
-   `docker pull ghcr.io/xinzhuzi/myia:0.0.1` 可拉。
-4. **PyPI 页面**:<https://pypi.org/project/myia/> 与
-   <https://pypi.org/project/myia-classifier/> 可访问、版本号 `0.0.1`、README
-   正常渲染(中文简介 + MIT license);`pip index versions myia` 列出
+   `docker pull ghcr.io/xinzhuzi/myssia:0.0.1` 可拉。
+4. **PyPI 页面**:<https://pypi.org/project/myssia/> 与
+   <https://pypi.org/project/myssia-classifier/> 可访问、版本号 `0.0.1`、README
+   正常渲染(中文简介 + MIT license);`pip index versions myssia` 列出
    `0.0.1`。
 5. **干净环境安装验证**(模拟真实用户,注意 pip 装的是 PyPI 包,不再走 workspace):
 
 ```bash
-uv venv /tmp/verify-myia && source /tmp/verify-myia/bin/activate
+uv venv /tmp/verify-myssia && source /tmp/verify-myia/bin/activate
 # 先验独立分类器(零依赖,应秒装):
 pip install myssia-classifier
-python -c "from myia_classifier import classify_title, ALL_CATEGORIES; \
+python -c "from myssia_classifier import classify_title, ALL_CATEGORIES; \
            print(classify_title('OpenAI 发布新模型').category, ALL_CATEGORIES)"
 # 预期输出:ai-news(加 7 个类目列表)
 
-# 再验主包(会自动拉 myia-classifier 依赖):
+# 再验主包(会自动拉 myssia-classifier 依赖):
 pip install myssia
-myia --version          # 预期输出:myia <刚发布的版本号>(与上一步 PyPI 页面所示一致)
+myssia --version          # 预期输出:myssia <刚发布的版本号>(与上一步 PyPI 页面所示一致)
 deactivate
 ```
 
 6. 有问题回滚:PyPI 不允许覆盖已上传版本,修复后回第一步 **bump 版本号再发**
-   (五源 + 主包依赖窗 `myia-classifier>=x,<y` 区间)。
+   (五源 + 主包依赖窗 `myssia-classifier>=x,<y` 区间)。
 
 ## 第六步:社区发帖(发布确认后)
 
@@ -208,8 +208,8 @@ test.pypi.org 与 pypi.org 的账号、publisher、token **互不相通**,两边
 
 - **路径 A(Trusted Publishing,推荐)**:登录 <https://test.pypi.org/manage/publishing/>
   → **Add a new pending publisher**,四元组与第三步 A 逐字相同
-  (`xinzhuzi` / `myia` / `pypi-publish.yml` / `pypi`),PyPI project name 各填
-  `myia` 与 `myia-classifier` 一次。GitHub 侧无需新增任何东西
+  (`xinzhuzi` / `myssia` / `pypi-publish.yml` / `pypi`),PyPI project name 各填
+  `myssia` 与 `myssia-classifier` 一次。GitHub 侧无需新增任何东西
   (`environment: pypi` 沿用第二步已建的环境)。
 - **路径 B(API Token)**:登录 <https://test.pypi.org/manage/account/token/> →
   **Add API token**,把 `pypi-` 开头的 token 粘贴到仓库 secret
@@ -236,13 +236,13 @@ gh run watch "$(gh run list --workflow=pypi-publish.yml --limit 1 --json databas
 
 1. **Actions 日志**:该次 run 的 publish job 全绿,日志里
    *Resolve upload repository* 步骤应打印 `上传目标:test-pypi → https://test.pypi.org/legacy/`。
-2. **test.pypi 项目页**:<https://test.pypi.org/project/myia-classifier/> 与
-   <https://test.pypi.org/project/myia/> 可访问、版本号正确(pending publisher
+2. **test.pypi 项目页**:<https://test.pypi.org/project/myssia-classifier/> 与
+   <https://test.pypi.org/project/myssia/> 可访问、版本号正确(pending publisher
    首次上传成功后自动建项目,刚注册完看不到项目页是正常的)。
 3. **pip index 查版本**(不动本地环境):
 
    ```bash
-   pip index versions myia-classifier --index-url https://test.pypi.org/simple/
+   pip index versions myssia-classifier --index-url https://test.pypi.org/simple/
    # 预期列出刚演练上传的版本号
    ```
 
@@ -250,7 +250,7 @@ gh run watch "$(gh run list --workflow=pypi-publish.yml --limit 1 --json databas
 
    ```bash
    uv venv /tmp/verify-testpypi && source /tmp/verify-testpypi/bin/activate
-   pip install --index-url https://test.pypi.org/simple/ myia-classifier
+   pip install --index-url https://test.pypi.org/simple/ myssia-classifier
    # 验主包时其余依赖不在 TestPyPI 上,需挂正式源兜底:
    pip install --index-url https://test.pypi.org/simple/ \
      --extra-index-url https://pypi.org/simple/ myia
@@ -283,7 +283,7 @@ Docker 工作流历史上 main 每推必发,在 GHCR 堆积了 `1.1.1` / `v1.1.1
 | 症状 | 原因与处置 |
 |---|---|
 | Actions 列表看不到 PyPI Publish | workflow 文件不在 main(回第一步合入) |
-| publish 报 `environment pypi not found` 或 claim 不匹配 | 第二步环境名与第三步四元组不一致,逐字核对(`xinzhuzi` / `myia` / `pypi-publish.yml` / `pypi`) |
+| publish 报 `environment pypi not found` 或 claim 不匹配 | 第二步环境名与第三步四元组不一致,逐字核对(`xinzhuzi` / `myssia` / `pypi-publish.yml` / `pypi`) |
 | 报 `Invalid or non-existent authentication information`(OIDC 模式) | PyPI 侧 pending publisher 未注册或四元组填错 |
 | token 模式报 403 | token 过期/权限不足/未更新到 GitHub secret;或首发用了 project-scoped token 但项目还不存在(见第三步 B 的鸡生蛋问题) |
 | build job Verify 步骤失败 | 产物缺数据文件(词表/prompt 回归被拦截)——修 pyproject 的 artifacts 配置,不要跳过校验 |
@@ -291,4 +291,4 @@ Docker 工作流历史上 main 每推必发,在 GHCR 堆积了 `1.1.1` / `v1.1.1
 | PyPI run 守卫步骤红「版本不一致」 | 第一步的版本没 bump 齐(tag ≠ 双 pyproject 之一);守卫红时零产物离库,删 tag 重来安全:`git push --delete origin vX.Y.Z && git tag -d vX.Y.Z`,五源补齐后重打重推 |
 | Release 里有 PyPI 的 wheel/sdist,但缺桌面资产(dmg / `latest.json`) | Desktop Release run 挂了——桌面上传与 PyPI 附挂是两个独立 run,各自往同一 Release 追加;查桌面 run 失败原因,修后对它 Re-run |
 | GHCR 只出了版本 tag,`latest` 没动 | 预发布 tag 的预期行为(`latest=auto` 对 rc/beta 不滚动 `latest`);发正式版即滚动 |
-| 旧版(1.1.1)桌面端「检查更新」404 | v1.1.1 Release 已随版本序列归零删除(决议 9),updater 端点 `releases/latest/download/latest.json` 在无任何 Release 时必 404;`v0.0.1` 发布后即恢复。注意 updater **只升不降**——已装 1.1.1 的机器不会自动降到 0.0.1,需手动重装 `myia_0.0.1_aarch64.dmg` |
+| 旧版(1.1.1)桌面端「检查更新」404 | v1.1.1 Release 已随版本序列归零删除(决议 9),updater 端点 `releases/latest/download/latest.json` 在无任何 Release 时必 404;`v0.0.1` 发布后即恢复。注意 updater **只升不降**——已装 1.1.1 的机器不会自动降到 0.0.1,需手动重装 `myssia_0.0.1_aarch64.dmg` |

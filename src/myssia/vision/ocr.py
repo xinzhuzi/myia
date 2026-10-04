@@ -11,7 +11,7 @@
 - ``rapidocr``:rapidocr-onnxruntime 内置默认 det/rec/cls 模型,零下载;
   置信度刻度普遍 ≥0.9(与 Vision 不可直接互比,UI 注记来源引擎,阈值统一)。
 
-两个引擎都是可选依赖(extras ``shishi[vision]``),惰性 import —— 未装时结构化
+两个引擎都是可选依赖(extras ``myssia[vision]``),惰性 import —— 未装时结构化
 报错并附安装命令,核心流水线零重依赖红线不破。置信度原样透传,不截断不过滤:
 低置信行是「升二级看图」的触发证据,不是噪音。
 
@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from shishi.vision.settings import OCR_ENGINES
+from myssia.vision.settings import OCR_ENGINES
 
 __all__ = [
     "INSTALL_COMMAND",
@@ -44,7 +44,7 @@ __all__ = [
     "sips_resize",
 ]
 
-INSTALL_COMMAND = "pip install 'shishi[vision]'  # 或 uv add 'shishi[vision]'"
+INSTALL_COMMAND = "pip install 'myssia[vision]'  # 或 uv add 'myssia[vision]'"
 
 #: 低于此宽度先 sips 放大再识别(local-ocr 实证阈值;仅 vision 引擎路径)。
 VISION_MIN_WIDTH = 1000

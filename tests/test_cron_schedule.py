@@ -1,4 +1,4 @@
-"""Tests for myia.cron.schedule — schedule 解析 + next-run 计算。
+"""Tests for myssia.cron.schedule — schedule 解析 + next-run 计算。
 
 覆盖任务 10-04-hermes-cron 步骤 A1(implement.md):五形态解析与错误文案
 照抄(上游 H cron/jobs.py:784)、compute_next_run(interval 重锚/UTC 加法、
@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from myia.cron.schedule import (
+from myssia.cron.schedule import (
     ONESHOT_GRACE_SECONDS,
     _classify_dispatch_lateness,
     _compute_grace_seconds,

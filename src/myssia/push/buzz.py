@@ -25,9 +25,9 @@ import logging
 import re
 from typing import Any, Sequence
 
-from shishi.push.base import PushSendError, SendContext, TrendAwareChannel
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.base import PushSendError, SendContext, TrendAwareChannel
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
 
 __all__ = [
     "INSTALL_HINT",

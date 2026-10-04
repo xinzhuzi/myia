@@ -24,11 +24,11 @@ from typing import Any
 import httpx
 import pytest
 
-from shishi.push.base import PushSendError, SendContext
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.qqbot import QQBotChannel, next_msg_seq
-from shishi.push.targets import (
+from myssia.push.base import PushSendError, SendContext
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.qqbot import QQBotChannel, next_msg_seq
+from myssia.push.targets import (
     RESOLVED_DIRECT,
     RESOLVED_DIRECTORY_NAME,
     ChannelTarget,
@@ -133,7 +133,7 @@ class TestTokenAndShape:
         常量);现走 telegram ``split_message`` 同款——逐条独立 POST,每条
         c2c/group 消息各自随机 msg_seq,token 只取一次。
         """
-        from shishi.push.qqbot import MESSAGE_LIMIT
+        from myssia.push.qqbot import MESSAGE_LIMIT
 
         calls: list[dict] = []
         channel = _channel(calls)
@@ -150,7 +150,7 @@ class TestTokenAndShape:
 
     def test_single_overlong_line_hard_splits(self, target_env):
         """单行超限(无行边界可用)按 :data:`MESSAGE_LIMIT` 硬切,不丢不发。"""
-        from shishi.push.qqbot import MESSAGE_LIMIT
+        from myssia.push.qqbot import MESSAGE_LIMIT
 
         calls: list[dict] = []
         channel = _channel(calls)
@@ -198,7 +198,7 @@ class TestTokenAndShape:
         """复核 B2 回归:token 端点非 200 + JSON 错误体 → ``qqbot_api_error``
         带 ``HTTP <status>`` 与原厂片段(与 msgraph_webhook._post_token 同款;
         不得报成「缺 access_token」的 invalid_response、不得丢状态码)。"""
-        from shishi.push.delivery import classify_dead_error
+        from myssia.push.delivery import classify_dead_error
 
         def handler(request: httpx.Request) -> httpx.Response:
             if str(request.url).startswith("https://bots.qq.com/"):
@@ -229,7 +229,7 @@ class TestTokenAndShape:
         文案里的 ``HTTP <status>``;此前仅 400/401 恰好不在分类表,403/404
         会误标)。
         """
-        from shishi.push.delivery import classify_dead_error
+        from myssia.push.delivery import classify_dead_error
 
         def handler(request: httpx.Request) -> httpx.Response:
             if str(request.url).startswith("https://bots.qq.com/"):
@@ -325,7 +325,7 @@ class TestAddressing:
         assert (target.platform, target.chat_id) == ("qqbot", "group:ABCDEF123456")
 
     def test_resolve_via_directory_name(self, tmp_path):
-        from shishi.push.directory import ChannelEntry
+        from myssia.push.directory import ChannelEntry
 
         directory = ChannelDirectory(tmp_path)
         directory.merge_entries(

@@ -127,9 +127,9 @@ enrich:
                                 # (值非密钥;10-03 桌面零 env 化:自 env:MYIA_LLM_BASE_URL
                                 # 迁入钥匙链——桌面 sidecar 无 shell env,env: 引用会在
                                 # 桌面 run 构造期 fail-fast;CLI/桌面同链录入:
-                                # myia secret set myia/llm/base_url,或桌面端凭据页)
+                                # myssia secret set myia/llm/base_url,或桌面端凭据页)
   api_key: keychain:myia/image/api_key   # 既有 GLM key(与 vision.yaml cloud 同链;
-                                # myia secret set myia/image/api_key 录入)
+                                # myssia secret set myia/image/api_key 录入)
 
 push:
   - channel: feishu_card

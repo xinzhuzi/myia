@@ -1,4 +1,4 @@
-"""myia-credhunter 适配器:进程内凭证猎手入口(引擎 + CLI 双面)。
+"""myssia-credhunter 适配器:进程内凭证猎手入口(引擎 + CLI 双面)。
 
 本文件由 MYIA 仓库创作与维护,是上游(AGPL-3.0)行为的**功能重实现**:
 实现只认行为规格文档(``.trellis/tasks/10-03-aipocket-fusion/research/
@@ -79,8 +79,8 @@ __all__ = [
     "specs",
 ]
 
-#: 插件 id(与 plugin.yaml 一致;宿主按 ``<plugins_dir>/myia-credhunter/`` 定位)。
-PLUGIN_ID = "myia-credhunter"
+#: 插件 id(与 plugin.yaml 一致;宿主按 ``<plugins_dir>/myssia-credhunter/`` 定位)。
+PLUGIN_ID = "myssia-credhunter"
 
 #: 能力面(plugin.yaml provides 的代码侧镜像)。
 PROVIDES = ("credhunt", "credcheck", "exposure")
@@ -95,7 +95,7 @@ _MODULES_DIR = _ADAPTER_DIR / "credhunter"
 def _load_module(name: str) -> types.ModuleType:
     """compile+exec 加载一个 ``credhunter/<name>.py`` 子模块(零 __pycache__)。
 
-    与宿主 ``shishi.cli._import_plugin_adapter`` 同一手法与同一理由:不走
+    与宿主 ``myssia.cli._import_plugin_adapter`` 同一手法与同一理由:不走
     importlib 的 SourceFileLoader(会在插件目录写字节码垃圾,污染插件包
     形状)。差异点:子模块**登记进 ``sys.modules``** —— 模块内 dataclass
     的字符串注解解析会按 ``cls.__module__`` 反查 sys.modules,不登记会在
@@ -105,7 +105,7 @@ def _load_module(name: str) -> types.ModuleType:
     module_file = _MODULES_DIR / f"{name}.py"
     if not module_file.is_file():
         raise FileNotFoundError(f"credhunter 子模块不存在:{module_file}")
-    module_name = f"myia_credhunter_{name}"
+    module_name = f"myssia_credhunter_{name}"
     module = types.ModuleType(module_name)
     module.__file__ = str(module_file)
     sys.modules[module_name] = module
@@ -431,7 +431,7 @@ def run(
 
 
 # ---------------------------------------------------------------------------
-# CLI 面(同步):三 lane 子命令 payload(shishi credhunt/credcheck/exposure)
+# CLI 面(同步):三 lane 子命令 payload(myia credhunt/credcheck/exposure)
 # ---------------------------------------------------------------------------
 
 
@@ -442,7 +442,7 @@ def run_credhunt(
     checkpoint: Mapping[str, Any] | None = None,
     clock: Any = time.monotonic,
 ) -> dict[str, Any]:
-    """CLI 面入口(``shishi credhunt``):单轮 GitHub 猎取 stdout payload。
+    """CLI 面入口(``myia credhunt``):单轮 GitHub 猎取 stdout payload。
 
     正式产出走引擎进管线;本面是调试/冒烟口。tokens 为空抛
     ``tokens_missing``(GitHub 无 token 该源不启用,规格 §2);查询页失败
@@ -488,7 +488,7 @@ def run_credcheck(
     probe_balance: bool = False,
     clock: Any = time.monotonic,
 ) -> dict[str, Any]:
-    """CLI 面入口(``shishi credcheck``):凭证验证(+可选余额)payload。
+    """CLI 面入口(``myia credcheck``):凭证验证(+可选余额)payload。
 
     Args:
         records: 待验凭证批,每项 ``{"apikey": str, "apiurl": str(可省)}``
@@ -536,7 +536,7 @@ def run_credcheck_keystore(
     rpm: int = credcheck.PER_PROVIDER_RPM_LIMIT,
     clock: Any = time.monotonic,
 ) -> dict[str, Any]:
-    """CLI 面入口(``shishi credcheck --from-keystore``):读密钥库验证 payload。
+    """CLI 面入口(``myia credcheck --from-keystore``):读密钥库验证 payload。
 
     与 :func:`run_credcheck`(``--apikey`` 显式传键)构成 credcheck 双入口:
     本面读猎手落盘的本地密钥库(缺省 ``$MYIA_HOME``/cwd 下
@@ -595,7 +595,7 @@ def run_exposure(
     probe: bool = True,
     clock: Any = time.monotonic,
 ) -> dict[str, Any]:
-    """CLI 面入口(``shishi exposure``):FOFA/Shodan 曝面 + L0 探测 payload。
+    """CLI 面入口(``myia exposure``):FOFA/Shodan 曝面 + L0 探测 payload。
 
     无 key 的 lane 报 ``credential_missing`` 显式空态(AC6,不抛错);查询
     缺省 = 发现层数据文件查询池。``status`` 沿 exposure 模块口径

@@ -16,10 +16,10 @@ MYIA 移植重写自 Hermes ``gateway/delivery.py``(派发循环/按对象投递
 与上游的偏离/增量注记:
 
 - Hermes 错误串来自 SendResult/异常文本;MYIA 通道一律抛
-  :class:`~shishi.push.base.PushSendError`(code + 中文消息),分类对
+  :class:`~myssia.push.base.PushSendError`(code + 中文消息),分类对
   ``(code, str(exc))`` 文本块做子串匹配——通道子任务(feishu/telegram)
   落地时如有更精确的 API 错误码,可在消息里带原厂描述即可命中;
-- 死信键 ``platform:chat_id``(:class:`~shishi.push.targets.ChannelTarget.key`;
+- 死信键 ``platform:chat_id``(:class:`~myssia.push.targets.ChannelTarget.key`;
   webhook 型 chat_id(整条含凭据 URL)摘要化落盘,复核 C2),条目形态
   ``{"reason": str, "marked_at": ts}``(design D3);
 - 派发入口为批量形态(digest 一批一卡 / immediate 单条),Hermes 无摘要
@@ -38,9 +38,9 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from shishi.push.base import Channel, PushSendError, SendContext, SendReport
-from shishi.push.directory import ChannelDirectory
-from shishi.push.targets import ChannelTarget, resolve_all
+from myssia.push.base import Channel, PushSendError, SendContext, SendReport
+from myssia.push.directory import ChannelDirectory
+from myssia.push.targets import ChannelTarget, resolve_all
 
 __all__ = [
     "LEDGER_FILENAME",
@@ -148,7 +148,7 @@ def scrub_dead_markers(text: str) -> str:
     """滤除文本里全部死信分类器 marker 子串(大小写不敏感,命中段→「…」)。
 
     对端可控自由文本(如 a2a JSON-RPC error 对象的 message)进
-    :class:`~shishi.push.base.PushSendError` 文案前必须先过本函数:分类对
+    :class:`~myssia.push.base.PushSendError` 文案前必须先过本函数:分类对
     拼接文本块做子串匹配(:func:`classify_dead_error`),原样透传的对端
     文案若恰含 ``forbidden`` / ``http 404`` 等字样,会把本应瞬态的错误
     误判成死信(对端与对端 URL 同信任级,10-03-messaging-w3-longtail
@@ -370,7 +370,7 @@ async def send_batch_to_targets(
         directory: 通道目录。
         ledger: 死信账本;None = 不做死信跟踪(测试/演示)。
         platforms: 平台注册表(直达解析钩子);缺省惰性取
-            ``shishi.push.PLATFORMS``。
+            ``myssia.push.PLATFORMS``。
 
     Returns:
         每对象一份 :class:`SendReport`(未解析 spec 同样计入)。

@@ -45,14 +45,14 @@ from typing import Any, Iterable, Mapping, Sequence
 from jinja2 import StrictUndefined, TemplateError
 from jinja2.sandbox import SandboxedEnvironment
 
-from shishi.push.base import SendContext, item_view
-from shishi.store import (
+from myssia.push.base import SendContext, item_view
+from myssia.store import (
     METRIC_WINDOW_DAY,
     METRIC_WINDOW_WEEK,
     METRIC_WINDOWS,
     metric_window_start,
 )
-from shishi.store.models import MetricRecord
+from myssia.store.models import MetricRecord
 
 __all__ = [
     "KEYWORD_METRIC_FIELD",
@@ -398,7 +398,7 @@ def build_keyword_trends(
     """Aggregate weekly mention totals into render-ready trends (周环比).
 
     本周 = ``[本周一零点, +7天)``,上周 = 前移一周;两个半开窗口恰好铺满
-    相邻两周。窗口数学与数值基线共用 :func:`shishi.store.metric_window_start`
+    相邻两周。窗口数学与数值基线共用 :func:`myssia.store.metric_window_start`
     (同一份窗口语义)。返回按本周计数降序的列表(卡片热度排序)。
     """
     week_start = metric_window_start(now, METRIC_WINDOW_WEEK, tz)
@@ -524,7 +524,7 @@ class TemplateRenderer:
         Args:
             source: template text (Jinja2 syntax).
             items: raw pipeline items; each is normalized via
-                :func:`shishi.push.base.item_view` before rendering.
+                :func:`myssia.push.base.item_view` before rendering.
             context: slot/date/category/kind of the enclosing send.
             trends: precomputed per-item comparisons
                 (:func:`build_trend_table`); ``None`` → ``vs_yesterday`` /

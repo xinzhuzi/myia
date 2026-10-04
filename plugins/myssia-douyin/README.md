@@ -1,4 +1,4 @@
-# myia-douyin — 抖音/TikTok 数据 API(Douyin_TikTok_Download_API)
+# myssia-douyin — 抖音/TikTok 数据 API(Douyin_TikTok_Download_API)
 
 官方场景件,v1.1 分级 **server-only(桌面默认集移出)**:自托管的抖音/
 TikTok 数据 API(视频/作者/评论解析、无水印下载)。封装上游
@@ -17,7 +17,7 @@ TikTok 数据 API(视频/作者/评论解析、无水印下载)。封装上游
 
 ```yaml
 plugin:
-  id: myia-douyin
+  id: myssia-douyin
   modes:
     remote:
       endpoint: https://douyin-api.example.com   # 换成你的已部署地址
@@ -27,7 +27,7 @@ plugin:
 先写钥匙链再引用:
 
 ```bash
-myia secret set myia/douyin/token      # 粘贴 dtk_... / API key
+myssia secret set myia/douyin/token      # 粘贴 dtk_... / API key
 ```
 
 - `provides: [douyin_tiktok_api]`:短视频情报类品类经 L1 `direct_api`
@@ -37,10 +37,10 @@ myia secret set myia/douyin/token      # 粘贴 dtk_... / API key
 ## 服务端部署(可选)
 
 **单容器快速通道**(V4 系 Docker Hub 镜像):compose 在仓库
-`docker/plugins/myia-douyin/`,从仓库根执行:
+`docker/plugins/myssia-douyin/`,从仓库根执行:
 
 ```bash
-docker compose -f docker/plugins/myia-douyin/compose.yml up -d
+docker compose -f docker/plugins/myssia-douyin/compose.yml up -d
 curl http://127.0.0.1:8000/docs    # API 文档
 ```
 
@@ -68,7 +68,7 @@ v5 初始化管理员走容器日志里的一次性 setup token;程序调用在�
 ## 安装 / 移除
 
 ```bash
-myia plugin install plugins/myia-douyin
-myia plugin list --json
-myia plugin remove myia-douyin
+myssia plugin install plugins/myssia-douyin
+myssia plugin list --json
+myssia plugin remove myssia-douyin
 ```

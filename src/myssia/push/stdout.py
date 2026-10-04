@@ -12,8 +12,8 @@ import logging
 import sys
 from typing import Any, IO, Sequence
 
-from shishi.push.base import PushSendError, SendContext, TrendAwareChannel, item_view
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.push.base import PushSendError, SendContext, TrendAwareChannel, item_view
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
 
 __all__ = ["StdoutChannel"]
 

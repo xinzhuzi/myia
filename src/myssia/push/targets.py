@@ -11,7 +11,7 @@ Hermes 实际顺序(grill 事实轮核订):
 3. **精确名**(大小写不敏感,忽略首部 ``#``,Hermes 同款规范化);
 4. **唯一前缀**(多义即未命中)。
 
-别名是目录改名层(:mod:`myia.push.directory` 加载期已套用),不是独立
+别名是目录改名层(:mod:`myssia.push.directory` 加载期已套用),不是独立
 解析层级。未命中抛 :class:`TargetResolveError` 结构化错误——【偏离注记】
 Hermes 只报「Could not resolve」不带候选(靠交互式 ``action='list'``);
 MYIA 无交互回路,错误内嵌候选列表】。
@@ -32,7 +32,7 @@ import re
 from dataclasses import dataclass, replace
 from typing import Any, Iterable, Mapping
 
-from myia.push.directory import ChannelDirectory, ChannelEntry
+from myssia.push.directory import ChannelDirectory, ChannelEntry
 
 __all__ = [
     "SPEC_RE",
@@ -120,7 +120,7 @@ class ChannelTarget:
 
     @property
     def key(self) -> str:
-        """死信账本键(与 :class:`myia.push.delivery.DeliveryLedger` 一致)。"""
+        """死信账本键(与 :class:`myssia.push.delivery.DeliveryLedger` 一致)。"""
         return f"{self.platform.strip().lower()}:{self.chat_id.strip()}"
 
     def __str__(self) -> str:
@@ -165,7 +165,7 @@ def resolve_target(
             ``parse_direct_ref(ref) -> ChannelTarget | None`` 直达解析钩子
             (telegram 数字 id/``@username``、feishu ``oc_/ou_/on_/chat_/open_``
             前缀 id 等),命中即跳过目录;声明 ``supports_threads = True``
-            的条目同时启用三段话题拆分。缺省惰性取 ``myia.push.PLATFORMS``。
+            的条目同时启用三段话题拆分。缺省惰性取 ``myssia.push.PLATFORMS``。
 
     Raises:
         TargetResolveError: spec 格式错 / 直达与目录全部未命中 / 前缀多义
@@ -278,7 +278,7 @@ def _platform_supports_threads(
     非 opt-in 平台零行为变化。
     """
     if platforms is None:
-        from myia.push import PLATFORMS  # deferred:避免包初始化环
+        from myssia.push import PLATFORMS  # deferred:避免包初始化环
 
         platforms = PLATFORMS
     entry_cls = platforms.get(platform)
@@ -312,7 +312,7 @@ def _parse_direct_ref(
 ) -> ChannelTarget | None:
     """平台直达钩子分发;无注册表或无钩子/未命中 → None(走目录)。"""
     if platforms is None:
-        from myia.push import PLATFORMS  # deferred:避免包初始化环
+        from myssia.push import PLATFORMS  # deferred:避免包初始化环
 
         platforms = PLATFORMS
     entry_cls = platforms.get(platform)

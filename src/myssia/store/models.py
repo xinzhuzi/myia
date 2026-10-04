@@ -26,7 +26,7 @@ FEEDBACK_VERDICTS = frozenset({FEEDBACK_GOOD, FEEDBACK_BAD})
 # Receiving channels of one feedback (feedback.channel): CLI manual marking
 # and the two channel-specific callback paths (grill Q7 分形态接收).
 # desktop = 桌面 app 卡片 👍/👎(v1.1.2 桌面对齐批 B2;channel 为自由串无词表
-# 校验,此常数只作常量家与 CLI/桌面互认锚点 —— `myia feedback list` 无过滤即见)。
+# 校验,此常数只作常量家与 CLI/桌面互认锚点 —— `myssia feedback list` 无过滤即见)。
 FEEDBACK_CHANNEL_CLI = "cli"
 FEEDBACK_CHANNEL_TELEGRAM = "telegram"
 FEEDBACK_CHANNEL_FEISHU = "feishu"
@@ -79,7 +79,7 @@ ALERT_ACTIONS = frozenset({ALERT_ACTION_PUSH, ALERT_ACTION_TAG})
 
 # Alert rule scope (alert_rules.scope): ``global`` applies to every
 # category's ingest; any other value is a category id (七品类+channel 词表,
-# shishi.push.route.CATEGORY_DEFAULT_ROUTES) and the rule only evaluates
+# myssia.push.route.CATEGORY_DEFAULT_ROUTES) and the rule only evaluates
 # against that category's items.
 ALERT_SCOPE_GLOBAL = "global"
 
@@ -122,6 +122,9 @@ class ItemRecord:
     push_slot: str | None = None
     first_seen: datetime | None = None  # filled by the store on save when absent
     raw: dict | None = None  # optional JSON payload
+    read: bool = False       # G9 服务端读态(库列 0/1;新条目缺省 False)
+    starred: bool = False    # 星标(策展;retention 剪枝不豁免,PRD Q4.2)
+    later: bool = False      # 稍后读(同上)
     id: int | None = None
 
 
@@ -239,7 +242,7 @@ class AlertRule:
     """One ``alert_rules`` row: 情报流告警规则(条件 → 动作).
 
     纯存储记录(行 ↔ 对象互转,零校验):scope/when 白名单语法/action_config
-    形状的构造期拒由 ``shishi.alerts.rule.compile_rule`` 统一承担——读库坏行
+    形状的构造期拒由 ``myssia.alerts.rule.compile_rule`` 统一承担——读库坏行
     WARNING 跳过(隔离)、写库(alerts.save)结构化拒整批,两路共用同一道门。
     ``when`` 字段名与 ``RouteRuleConfig.when`` 对齐;存储列名为 ``when_expr``
     (SQL 保留字规避)。``action_config`` 为 JSON 形态:push ``{channel,

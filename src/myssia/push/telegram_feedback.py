@@ -3,14 +3,14 @@
 The desktop form has no public endpoint for card callbacks, so the receiving
 side polls the Bot API instead: every ``callback_query`` update whose
 ``data`` carries our feedback contract is turned into a callback record for
-:func:`shishi.feedback.ingest_callbacks`. Long-polling (``getUpdates``
+:func:`myssia.feedback.ingest_callbacks`. Long-polling (``getUpdates``
 ``timeout``) keeps this cheap; the pipeline's resident mode runs the loop in
 the background whenever a ``telegram`` push channel is configured.
 
 被动目录积累(10-03-messaging-telegram D2):Telegram Bot API 无「列出
 会话」能力(蓝本事实轮核,Hermes 同款约束),目录条目唯一来源是入站
 回填——轮询看到的每个 update 的 effective chat 归一为
-:class:`~shishi.push.directory.ChannelEntry` 后经 ``on_chat`` sink 交回调方
+:class:`~myssia.push.directory.ChannelEntry` 后经 ``on_chat`` sink 交回调方
 (管线注入 ``ChannelDirectory.merge_entries("telegram", …)``)。sink 是
 **旁路观察者**:解析/去重/错误路径零改动,sink 抛错只记日志不中断轮询;
 不注入时行为与不带 sink 逐字节一致。
@@ -19,7 +19,7 @@ the background whenever a ``telegram`` push channel is configured.
 ``env:TELEGRAM_BOT_TOKEN``,Telegram 对同一 token 的并发 ``getUpdates``
 long-poll 回 **409 Conflict**。因此同一 token 下至多一个常驻进程开启反馈
 轮询——多品类场景只给其中一个品类配 telegram 通道,或让其不常驻;跨进程
-互斥不在库内实现(部署形态保证),``myia doctor`` 以
+互斥不在库内实现(部署形态保证),``myssia doctor`` 以
 ``telegram_token_poll_conflict`` finding 提示多品类共配的情形。
 
 Callback-data contract (buttons belong to the desktop 正式版; the receiver
@@ -42,10 +42,10 @@ from typing import Any, Callable, Mapping
 
 import httpx
 
-from shishi.push.base import DEFAULT_SEND_TIMEOUT_SECONDS
-from shishi.push.directory import ChannelEntry
-from shishi.push.telegram import DEFAULT_TOKEN_ENV_REF
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.base import DEFAULT_SEND_TIMEOUT_SECONDS
+from myssia.push.directory import ChannelEntry
+from myssia.push.telegram import DEFAULT_TOKEN_ENV_REF
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "CALLBACK_PREFIX",
@@ -86,7 +86,7 @@ class TelegramFeedbackError(RuntimeError):
     Attributes:
         code: ``http_error`` / ``invalid_response`` / ``telegram_api_error``
             / credential codes re-exported from
-            :class:`shishi.schema.CredentialResolveError`.
+            :class:`myssia.schema.CredentialResolveError`.
     """
 
     def __init__(self, code: str, message: str) -> None:
@@ -177,7 +177,7 @@ def chat_entry_from_update(update: Any) -> ChannelEntry | None:
 
 @dataclass(frozen=True)
 class TelegramCallback:
-    """One parsed feedback callback (ingestion input, 见 shishi.feedback)."""
+    """One parsed feedback callback (ingestion input, 见 myssia.feedback)."""
 
     update_id: int
     verdict: str
@@ -186,7 +186,7 @@ class TelegramCallback:
 
     @property
     def external_id(self) -> str:
-        """幂等身份:同一 update 双击/重试/重启重放只入库一次(见 shishi.feedback)."""
+        """幂等身份:同一 update 双击/重试/重启重放只入库一次(见 myssia.feedback)."""
         return str(self.update_id)
 
     def to_dict(self) -> dict[str, Any]:

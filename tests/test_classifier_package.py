@@ -1,7 +1,7 @@
 """Standalone-package contract for myssia-classifier (task 10-01-v10-classifier-pypi).
 
 The classifier ships as its own zero-dependency distribution (PyPI name
-``myssia-classifier`` (发行名 2026-10-04 终版), import name ``myia_classifier``); ``myia.classify`` is
+``myssia-classifier`` (发行名 2026-10-04 终版), import name ``myssia_classifier``); ``myssia.classify`` is
 only a compatibility shim re-exporting its API. These tests pin the
 standalone surface from the *installed* distribution: direct import and
 classification, packaged keyword data, distribution metadata, zero runtime
@@ -14,8 +14,8 @@ import pytest
 from importlib import metadata
 from pathlib import Path
 
-import myia_classifier
-from myia_classifier import classify_item, classify_title, load_table
+import myssia_classifier
+from myssia_classifier import classify_item, classify_title, load_table
 
 
 def test_classify_item_standalone_import_and_classify():
@@ -25,7 +25,7 @@ def test_classify_item_standalone_import_and_classify():
 
 
 def test_keyword_data_file_ships_inside_the_package():
-    data_path = Path(myia_classifier.__file__).resolve().parent / "data" / "keywords.json"
+    data_path = Path(myssia_classifier.__file__).resolve().parent / "data" / "keywords.json"
     assert data_path.is_file(), f"关键词数据文件必须随包分发: {data_path}"
     table = load_table(data_path)
     assert classify_title("bybit普通用户的100% AI订阅返现将在10.5取消", table).category == "credit-card"
@@ -33,8 +33,8 @@ def test_keyword_data_file_ships_inside_the_package():
 
 def test_distribution_metadata_version_and_trove_classifiers():
     dist = metadata.metadata("myssia-classifier")
-    assert myia_classifier.__version__ == "0.0.1"
-    assert metadata.version("myssia-classifier") == myia_classifier.__version__
+    assert myssia_classifier.__version__ == "0.0.1"
+    assert metadata.version("myssia-classifier") == myssia_classifier.__version__
     assert dist["License"] == "MIT"
     assert "License :: OSI Approved :: MIT License" in dist.get_all("Classifier") or []
     assert "Typing :: Typed" in (dist.get_all("Classifier") or [])
@@ -45,12 +45,12 @@ def test_distribution_declares_zero_runtime_dependencies():
     assert metadata.requires("myssia-classifier") in (None, [])
 
 
-def test_myia_classify_shim_reexports_standalone_objects():
-    import myia.classify as shim
-    import myia.classify.custom as shim_custom
-    import myia_classifier.custom as real_custom
+def test_myssia_classify_shim_reexports_standalone_objects():
+    import myssia.classify as shim
+    import myssia.classify.custom as shim_custom
+    import myssia_classifier.custom as real_custom
 
-    assert shim.classify_item is myia_classifier.classify_item
+    assert shim.classify_item is myssia_classifier.classify_item
     assert shim_custom._BIN_OPS is real_custom._BIN_OPS  # monkeypatch 必须改到同一张表
 
 
@@ -72,7 +72,7 @@ def test_built_wheel_contains_keyword_data_file(tmp_path):
         pytest.skip("uv 不可用:无法在 CI 验证 wheel 产物内容(请安装 uv)")
     repo_root = Path(__file__).resolve().parents[1]
     subprocess.run(
-        [uv, "build", str(repo_root / "myia-classifier"),
+        [uv, "build", str(repo_root / "myssia-classifier"),
          "--out-dir", str(tmp_path)],
         check=True, capture_output=True,
     )

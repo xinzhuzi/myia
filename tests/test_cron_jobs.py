@@ -1,6 +1,6 @@
 """Cron job 生命周期(tests 冻结命名,10-04-hermes-cron implement A4)。
 
-一个文件收拢 :class:`myia.cron.jobs.CronJobs` 的测试面:
+一个文件收拢 :class:`myssia.cron.jobs.CronJobs` 的测试面:
 
 - CRUD:create 全字段面(design §2.1;category 绝对路径 Q5、once→repeat 1、
   paused reason、可选键仅显式持久化)、get/resolve(id/名/重名)、list
@@ -49,8 +49,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from myia.cron.executions import ExecutionLedger
-from myia.cron.jobs import (
+from myssia.cron.executions import ExecutionLedger
+from myssia.cron.jobs import (
     COMPLETED_ONESHOT_RETENTION_DAYS,
     AmbiguousJobReference,
     CronJobs,
@@ -269,7 +269,7 @@ def test_create_optional_keys_persisted_when_set(jobs: CronJobs) -> None:
         "plugins/news.yaml",
         "every 5m",
         failure_deliver="feishu:ops",
-        db_path="/data/x/myia.db",
+        db_path="/data/x/myssia.db",
         config_path="/data/pools.yaml",
         run_timeout=120,
         dry_run=True,
@@ -277,7 +277,7 @@ def test_create_optional_keys_persisted_when_set(jobs: CronJobs) -> None:
         timezone="UTC",
     )
     assert job["failure_deliver"] == "feishu:ops"
-    assert job["db_path"] == "/data/x/myia.db"
+    assert job["db_path"] == "/data/x/myssia.db"
     assert job["config_path"] == "/data/pools.yaml"
     assert job["run_timeout"] == 120.0
     assert job["dry_run"] is True
@@ -1038,7 +1038,7 @@ def test_due_scan_half_paused_self_disables(jobs: CronJobs, caplog: Any) -> None
         "hp1", enabled=True, paused_at=BASE.isoformat(), next_run_at=BASE.isoformat()
     )
     seed(jobs, job)
-    with caplog.at_level("ERROR", logger="myia.cron.jobs"):
+    with caplog.at_level("ERROR", logger="myssia.cron.jobs"):
         assert jobs.get_due_jobs() == []
     raw = raw_of(jobs, "hp1")
     assert raw["enabled"] is False and raw["state"] == "paused"
@@ -1182,7 +1182,7 @@ def test_due_scan_timezone_migration_fires(
     )
     seed(jobs, raw)
     clock.now = datetime(2026, 10, 4, 18, 0, tzinfo=TZ)  # 17:00+08 已过 → due
-    with caplog.at_level("WARNING", logger="myia.cron.jobs"):
+    with caplog.at_level("WARNING", logger="myssia.cron.jobs"):
         due = jobs.get_due_jobs()
     assert [j["id"] for j in due] == ["m1"]
     assert any("timezone_migration" in r.message for r in caplog.records)

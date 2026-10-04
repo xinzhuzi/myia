@@ -187,7 +187,7 @@ export function SourcesScreen() {
     <div className="flex flex-col gap-4 pb-6">
       <PageHeader
         title="源管理"
-        description="品类源的启停写回品类 YAML;改动被 myia run 识别(doctor 复核往返一致)"
+        description="品类源的启停写回品类 YAML;改动被 myssia run 识别(doctor 复核往返一致)"
         actions={
           <>
             {summary ? (

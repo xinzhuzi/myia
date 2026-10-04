@@ -152,7 +152,7 @@ class ChannelDirectory:
     """Per-data-root channel directory with alias overlay + atomic persistence.
 
     Args:
-        data_root: 数据根目录(db 路径的父目录;CLI cwd / 桌面 ``myia_home()``,
+        data_root: 数据根目录(db 路径的父目录;CLI cwd / 桌面 ``myssia_home()``,
             与任务 10-03-v111-desktop-paths 收口一致,push 层不自建路径解析)。
         now: 时间源注入(测试钉死 ``updated_at``/``last_seen``);缺省墙钟。
     """

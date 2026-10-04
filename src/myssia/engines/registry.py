@@ -46,7 +46,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from importlib import import_module
 
-from shishi.engines.fetch_base import (
+from myssia.engines.fetch_base import (
     BaseEngine,
     EngineFailure,
     EngineNotAvailableError,
@@ -54,7 +54,7 @@ from shishi.engines.fetch_base import (
     FetchError,
     classify_exception,
 )
-from shishi.schema import SourceConfig
+from myssia.schema import SourceConfig
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ ENGINE_CLASSES = ENGINE_REGISTRY
 
 
 def _load(module_name: str, class_name: str) -> type[BaseEngine]:
-    module = import_module(f"shishi.engines.{module_name}")
+    module = import_module(f"myssia.engines.{module_name}")
     return getattr(module, class_name)
 
 

@@ -27,18 +27,18 @@ import sys
 import httpx
 import pytest
 
-from shishi.engines import registry
-from shishi.engines.fetch_base import (
+from myssia.engines import registry
+from myssia.engines.fetch_base import (
     BaseEngine,
     EngineNotAvailableError,
     FetchError,
     load_proxy_pools,
 )
-from shishi.engines.registry import FetchOutcome, auto_degrade, fetch_source, resolve_engine
-from shishi.engines.direct_api import DirectAPIEngine
-from shishi.engines.static_html import StaticHTMLEngine
-from shishi.engines.firecrawl import FirecrawlEngine
-from shishi.schema import SourceConfig
+from myssia.engines.registry import FetchOutcome, auto_degrade, fetch_source, resolve_engine
+from myssia.engines.direct_api import DirectAPIEngine
+from myssia.engines.static_html import StaticHTMLEngine
+from myssia.engines.firecrawl import FirecrawlEngine
+from myssia.schema import SourceConfig
 
 from conftest import make_client, make_context, make_handler, make_raw_source, make_source, run
 
@@ -173,7 +173,7 @@ def test_auto_l2_failure_falls_to_firecrawl(monkeypatch):
         "dependency_missing",  # crawl4ai 依赖缺失,链继续降级
     ]
     assert site_calls["count"] == 4  # L2 的 500 走满 retry=3 退避;crawl4ai 零站点请求
-    assert any("pip install shishi[crawl4ai]" in f.message for f in outcome.failures)
+    assert any("pip install myssia[crawl4ai]" in f.message for f in outcome.failures)
 
 
 def test_hint_tried_first_when_in_chain(engine_store):
@@ -351,7 +351,7 @@ def test_auto_scroll_source_degrades_past_l2_to_scrapling(monkeypatch, engine_st
 
 def _ok_scrapling_factory():
     """滚动页假 L4 工厂:证明链真的降级到了 scrapling 而非 L2 单页假成功。"""
-    from shishi.engines.scrapling import ScraplingEngine
+    from myssia.engines.scrapling import ScraplingEngine
 
     class FakeScrollScrapling(ScraplingEngine):
         async def _fetch_impl(self) -> list[dict]:
@@ -454,7 +454,7 @@ def test_proxy_failure_aborts_chain_and_keeps_hint(monkeypatch, engine_store):
         kwargs.setdefault("transport", httpx.MockTransport(handler))
         return real_client(**kwargs)
 
-    monkeypatch.setattr("shishi.engines.fetch_base.httpx.AsyncClient", pool_client_factory)
+    monkeypatch.setattr("myssia.engines.fetch_base.httpx.AsyncClient", pool_client_factory)
 
     source = make_source(engine="auto", url=SITE_URL, extract=LIST_EXTRACT, retry=0, proxy="pool:main")
     outcome = run(fetch_source(source, context))

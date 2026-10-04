@@ -22,13 +22,13 @@ from typing import Any
 import httpx
 import pytest
 
-from shishi.push import NtfyChannel, SendContext
-from shishi.push.base import PushSendError
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.ntfy import MESSAGE_LIMIT, build_auth_header
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
-from shishi.push.directory import ChannelDirectory
+from myssia.push import NtfyChannel, SendContext
+from myssia.push.base import PushSendError
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.ntfy import MESSAGE_LIMIT, build_auth_header
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
+from myssia.push.directory import ChannelDirectory
 
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
 

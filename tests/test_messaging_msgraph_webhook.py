@@ -25,11 +25,11 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 
-from shishi.push.base import PushSendError, SendContext
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.msgraph_webhook import MSGraphWebhookChannel
-from shishi.push.targets import (
+from myssia.push.base import PushSendError, SendContext
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.msgraph_webhook import MSGraphWebhookChannel
+from myssia.push.targets import (
     RESOLVED_DIRECT,
     RESOLVED_DIRECTORY_NAME,
     ChannelTarget,
@@ -300,7 +300,7 @@ class TestAddressing:
         assert (target.platform, target.chat_id) == ("msgraph_webhook", CHAT_ID)
 
     def test_resolve_via_directory_name(self, tmp_path):
-        from shishi.push.directory import ChannelEntry
+        from myssia.push.directory import ChannelEntry
 
         directory = ChannelDirectory(tmp_path)
         directory.merge_entries(

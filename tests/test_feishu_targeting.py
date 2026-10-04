@@ -21,10 +21,10 @@ from dataclasses import replace
 import httpx
 import pytest
 
-from myia.push import FeishuCardChannel, PushSendError, SendContext
-from myia.push.directory import ChannelDirectory, ChannelEntry
-from myia.push.feishu_card import API_URL, thread_reply_url
-from myia.push.targets import ChannelTarget, TargetResolveError, resolve_target
+from myssia.push import FeishuCardChannel, PushSendError, SendContext
+from myssia.push.directory import ChannelDirectory, ChannelEntry
+from myssia.push.feishu_card import API_URL, thread_reply_url
+from myssia.push.targets import ChannelTarget, TargetResolveError, resolve_target
 
 
 def _capture_client(capture: dict) -> httpx.AsyncClient:

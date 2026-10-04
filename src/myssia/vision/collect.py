@@ -1,10 +1,10 @@
 """管线图片处理环:fetch 尾部对条目配图做 下载 → OCR → 可选 VL 情报向描述。
 
 (task 10-03-vision-pipeline,拍板②:挂点 = ``_stage_fetch`` 条目收集后、
-入 checkpoint 队列前——:func:`myia.pipeline._item_checkpoint` 本就含
+入 checkpoint 队列前——:func:`myssia.pipeline._item_checkpoint` 本就含
 metadata,图析产物续跑自然可见。)
 
-数据流:品类 ``images:`` sidecar 节(:class:`myia.schema.ImagesConfig`)开开关
+数据流:品类 ``images:`` sidecar 节(:class:`myssia.schema.ImagesConfig`)开开关
 与限额;图 URL 来自条目 metadata——extract ``fields`` 配 ``image: img@src``
 落入 ``metadata["image"]``(单值,str)或 L3 crawl4ai 无 extract 时的 markdown
 同域收集落入 ``metadata["images"]``(list[str]);本环就地更新
@@ -66,9 +66,9 @@ png/jpg/webp/gif 魔法字节白名单;流式 10MB 截断。图文件落条目�
 处理完即弃,绝不持久化。
 
 依赖红线:OCR/VL 重依赖全部惰性(ocrmac / rapidocr-onnxruntime / openai,
-extras ``myia[vision]``)——本模块 import 零重依赖,未装 extras 时 OCR 走
+extras ``myssia[vision]``)——本模块 import 零重依赖,未装 extras 时 OCR 走
 ``ocr_failed`` 降级,不炸管线。VL 通道与端点配置复用 ``vision.yaml``
-(:class:`myia.vision.settings.VisionConfig`);token 用量经
+(:class:`myssia.vision.settings.VisionConfig`);token 用量经
 ``BudgetTracker.can_spend/spend``(与 enrich/aggregate 同一共享池,token
 单位零换算)。
 """
@@ -92,15 +92,15 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-from myia.engines.fetch_base import (
+from myssia.engines.fetch_base import (
     DEFAULT_USER_AGENT,
     decode_response,
     resolve_headers,
 )
-from myia.schema import ImagesConfig
-from myia.vision.client import VisionClient
-from myia.vision.ocr import OCRError, run_ocr
-from myia.vision.settings import VisionConfig, resolve_cloud_api_key
+from myssia.schema import ImagesConfig
+from myssia.vision.client import VisionClient
+from myssia.vision.ocr import OCRError, run_ocr
+from myssia.vision.settings import VisionConfig, resolve_cloud_api_key
 
 __all__ = [
     "DESCRIBE_PROMPT",
@@ -511,9 +511,9 @@ def detail_request_headers(
 ) -> dict[str, str]:
     """详情页追抓的源级请求头装配(契约「引擎链抓 item.url」的 headers 面)。
 
-    与 :class:`myia.engines.fetch_base.BaseEngine` 构造期同一规则:源
+    与 :class:`myssia.engines.fetch_base.BaseEngine` 构造期同一规则:源
     ``headers`` 里的 ``env:``/``keychain:`` 凭据引用经
-    :func:`myia.engines.fetch_base.resolve_headers` 解析(登录态
+    :func:`myssia.engines.fetch_base.resolve_headers` 解析(登录态
     Cookie/Authorization 随行),未配 User-Agent 时补引擎缺省 UA——源配的
     Chrome UA 不再被 httpx 默认 UA 顶掉(反爬 403 风险)。凭据解析失败只
     告警并裸头降级(追抓绝不阻管线;列表抓取在同一凭据上早已结构化失败,
@@ -975,7 +975,7 @@ async def process_item_images(
             timeout=DOWNLOAD_TIMEOUT_SECONDS, follow_redirects=False, proxy=proxy_url
         )
         try:
-            with tempfile.TemporaryDirectory(prefix="myia-images-") as tmp:
+            with tempfile.TemporaryDirectory(prefix="myssia-images-") as tmp:
                 dest_dir = Path(tmp)
                 downloads = await asyncio.gather(
                     *(
@@ -1005,7 +1005,7 @@ async def process_item_images(
                 async def _ocr(path: Path) -> list[Any] | None:
                     """一张图的 OCR(to_thread + 信号量;OCRError → None)。
 
-                    返回逐行 :class:`myia.vision.ocr.OcrLine`(带置信度)
+                    返回逐行 :class:`myssia.vision.ocr.OcrLine`(带置信度)
                     —— ``image_ocr`` 拼接与 ``image_ocr_lines`` 投影同源。
                     """
                     async with ocr_sem:

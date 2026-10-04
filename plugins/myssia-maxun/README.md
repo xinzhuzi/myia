@@ -1,4 +1,4 @@
-# myia-maxun — 无代码爬虫平台(Maxun)
+# myssia-maxun — 无代码爬虫平台(Maxun)
 
 官方场景件,v1.1 分级 **server-only(桌面默认集移出)**:浏览器录制式
 无代码爬虫(recorder 机器人 → 结构化数据/REST API/定时任务)。封装上游
@@ -19,7 +19,7 @@
 
 ```yaml
 plugin:
-  id: myia-maxun
+  id: myssia-maxun
   modes:
     remote:
       endpoint: https://maxun.example.com   # 换成你的实例地址
@@ -31,18 +31,18 @@ plugin:
 
 上游鉴权为控制台会话(浏览器登录),没有稳定的 API token 契约,故本插件
 不声明 token;若你在实例前加了带 token 的网关,把 token 写入钥匙链
-(`myia secret set myia/maxun/<name>`)后在品类侧按
+(`myssia secret set myia/maxun/<name>`)后在品类侧按
 `keychain:myia/maxun/<name>` 引用。
 
 ## 服务端部署(可选)
 
 Maxun 是多容器栈(postgres + minio + backend + frontend + browser):
-compose 在仓库 `docker/plugins/myia-maxun/`,从仓库根执行(与本目录配套
+compose 在仓库 `docker/plugins/myssia-maxun/`,从仓库根执行(与本目录配套
 的 `.env` 也建在该目录,先从上游 `.env.example` 复制变量清单逐项填值,
 口令自生成、零明文入库):
 
 ```bash
-cd docker/plugins/myia-maxun
+cd docker/plugins/myssia-maxun
 cp /path/to/upstream/maxun/.env.example .env   # 逐项填值(DB_USER/MINIO_*/BACKEND_URL/PUBLIC_URL…)
 docker compose up -d
 open http://127.0.0.1:5173      # 控制台,注册首个账号即管理员
@@ -62,7 +62,7 @@ open http://127.0.0.1:5173      # 控制台,注册首个账号即管理员
 ## 安装 / 移除
 
 ```bash
-myia plugin install plugins/myia-maxun
-myia plugin list --json
-myia plugin remove myia-maxun
+myssia plugin install plugins/myssia-maxun
+myssia plugin list --json
+myssia plugin remove myssia-maxun
 ```

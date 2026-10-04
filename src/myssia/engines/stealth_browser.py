@@ -69,7 +69,7 @@ from urllib.parse import urlsplit
 import httpx
 from selectolax.parser import HTMLParser
 
-from shishi.engines.fetch_base import BaseEngine, FetchError, extract_html
+from myssia.engines.fetch_base import BaseEngine, FetchError, extract_html
 
 logger = logging.getLogger(__name__)
 

@@ -22,6 +22,6 @@ uv run --no-sync python -m pytest -q                     → 全量回归结果
 - [ ] **凭据零明文**:代码、YAML、测试、文档中凭据位只写 `env:VAR` / `keychain:myia/<scope>/<name>` 引用
 - [ ] 错误结构化(字段路径+错误类+原因),退出码符合契约(0 成功 / 1 配置错误 / 2 全部失败 / 3 部分失败)
 - [ ] 可选依赖(crawl4ai/scrapling/firecrawl/skyvern/openai)只做惰性 import,未新增任何核心依赖(新增依赖需 PRD 论证记录)
-- [ ] 若改了 schema:四处同步无漂移——`src/myia/schema.py`、`skill/SKILL.md`、`docs/`、`plugins/` 示例(`tests/test_docs.py` / `tests/test_skill_doc.py` 会锁)
+- [ ] 若改了 schema:四处同步无漂移——`src/myssia/schema.py`、`skill/SKILL.md`、`docs/`、`plugins/` 示例(`tests/test_docs.py` / `tests/test_skill_doc.py` 会锁)
 - [ ] 文件/标识符英文;错误与日志文案中文;日志不含凭据值
 - [ ] 本 PR 全文(含 diff)无凭据、内网地址、生产语料、私有系统痕迹

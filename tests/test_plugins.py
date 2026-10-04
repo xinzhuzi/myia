@@ -1,7 +1,7 @@
 """Official plugin YAMLs validated end-to-end (PRD 10-01-v01-plugins-official).
 
 The rewritten plugins are the schema's acceptance sample: every file
-must load through :func:`shishi.schema.load_category_file` (which forbids
+must load through :func:`myssia.schema.load_category_file` (which forbids
 unknown fields and plaintext credentials by construction), declare all twelve
 sections explicitly, keep the two-tier push route (immediate + digest), and
 render its push template against representative items. Extraction configs are
@@ -42,14 +42,14 @@ import httpx
 import pytest
 import yaml
 
-from shishi.classify import rules_from_config
-from shishi.engines.fetch_base import extract_html, extract_json, extract_rss
-from shishi.pipeline import Pipeline
-from shishi.push.base import SendContext
-from shishi.push.route import resolve_route, routes_from_config
-from shishi.push.templates import TemplateRenderer, item_metric_key
-from shishi import secrets as secrets_store
-from shishi.schema import (
+from myssia.classify import rules_from_config
+from myssia.engines.fetch_base import extract_html, extract_json, extract_rss
+from myssia.pipeline import Pipeline
+from myssia.push.base import SendContext
+from myssia.push.route import resolve_route, routes_from_config
+from myssia.push.templates import TemplateRenderer, item_metric_key
+from myssia import secrets as secrets_store
+from myssia.schema import (
     ClassifyConfig,
     EnrichConfig,
     LoadError,
@@ -57,8 +57,8 @@ from shishi.schema import (
     load_category,
     load_category_file,
 )
-from shishi.secrets import InMemoryKeychainBackend
-from shishi.store import SQLiteStore
+from myssia.secrets import InMemoryKeychainBackend
+from myssia.store import SQLiteStore
 
 PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -185,8 +185,8 @@ def test_ai_news_images_ring_local_hint_comment_ships_startup_guide():
     assert "\n  vl: local" in text, "vl: local 必须是实配行,不是注释示例"
     assert "mlx_vlm.server" in text, "本地 VL 服务启动指引必须在注释里"
     # A2 端点注记同规(10-03 桌面零 env 化后):keychain: 引用的录入方法必须
-    # 在声明面留一句(myia secret set 指引,games 教训同源)
-    assert "myia secret set myia/llm/base_url" in text, (
+    # 在声明面留一句(myssia secret set 指引,games 教训同源)
+    assert "myssia secret set myia/llm/base_url" in text, (
         "enrich.base_url 的 keychain: 引用必须注明凭据怎么录入"
     )
 
@@ -303,7 +303,7 @@ def test_games_telegram_push_entry_mounted_per_v1_decision5():
     """v1 决议⑤(wrap 落地):telegram 加挂 = 第二个 push 条目,同款两级路由
     (when 逐字与 feishu 条目一致,含 GOG 限免双保险析取),模板走精简纯文本
     变体——telegram 用户模板契约是渲染文本不带 parse_mode 直发
-    (src/shishi/push/telegram.py _compose),markdown 链接语法会原样露出。
+    (src/myssia/push/telegram.py _compose),markdown 链接语法会原样露出。
     chat id 走 env:TELEGRAM_CHAT_ID;bot token 走渠道缺省
     env:TELEGRAM_BOT_TOKEN(DEFAULT_TOKEN_ENV_REF,无需声明)。"""
     config = _load("games")

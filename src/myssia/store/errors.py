@@ -2,11 +2,11 @@
 
 The store must never fail with a bare string: a corrupt database file or a
 schema version the binary does not understand is a *startup* failure and has
-to be machine-consumable (``myia doctor`` v0.2, repairing agents) — field
+to be machine-consumable (``myssia doctor`` v0.2, repairing agents) — field
 paths / codes / found-vs-expected values, Chinese human message.
 
 Subclasses :class:`ValueError` so construction-time callers (``Pipeline(...)``)
-and the CLI config-error family treat it uniformly — and ``myia run`` has an
+and the CLI config-error family treat it uniformly — and ``myssia run`` has an
 explicit ``except StoreSchemaError`` handler around the run itself, because the
 store opens lazily inside ``pipeline.run()`` (exit code 1, structured
 ``{"error": "store", ...}`` on stdout under ``--json``).
@@ -37,5 +37,5 @@ class StoreSchemaError(ValueError):
         self.details: dict[str, Any] = details or {}
 
     def to_dict(self) -> dict[str, Any]:
-        """Machine-readable form for ``myia doctor`` (JSON) and agents."""
+        """Machine-readable form for ``myssia doctor`` (JSON) and agents."""
         return {"error_type": self.code, "message": str(self), **self.details}

@@ -1,4 +1,4 @@
-# myia-credhunter — 官方场景件:凭证猎手(AI 凭证泄露发现/验证/曝面)。
+# myssia-credhunter — 官方场景件:凭证猎手(AI 凭证泄露发现/验证/曝面)。
 #
 # 定位:把「发现(GitHub 工件猎取)→ 验证/余额(credcheck)→ 曝面
 # (FOFA/Shodan + 被动探测)」三段能力原生融进 MYIA 管线的进程内插件。
@@ -11,10 +11,10 @@
 # (不入 git、不外发,items 一律前 8 后 4 掩码)。
 #
 # 市场插件包 = 一个目录:plugin.yaml(manifest 规范见
-# src/shishi/plugins/manifest.py)+ README + adapter.py(进程内适配器,
+# src/myssia/plugins/manifest.py)+ README + adapter.py(进程内适配器,
 # 供应商指纹库为插件内数据文件,加供应商=加数据不改码)。
 # 核心仓库只装声明与文档,装不上不拦核心流水线(铁律)。
-id: myia-credhunter
+id: myssia-credhunter
 name: 凭证猎手(credhunter)
 version: 0.1.0
 compatible: ">=0.0.1,<0.1"
@@ -33,9 +33,9 @@ adapter:
   entry: adapter.py
   mode: in_process
 # 纯源码形态:无 compose、无 remote 服务端点(已部署 aipocket 实例的
-# 聚合接入走 myia-credentials 插件,与本件共存);local 安装 = 市场安装。
+# 聚合接入走 myssia-credentials 插件,与本件共存);local 安装 = 市场安装。
 modes:
   local:
-    install: myia plugin install plugins/myia-credhunter
+    install: myssia plugin install plugins/myssia-credhunter
 install:
-  source: https://github.com/xinzhuzi/MYIA.git
+  source: https://github.com/xinzhuzi/myssia.git

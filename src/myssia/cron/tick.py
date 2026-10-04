@@ -14,19 +14,19 @@ MYIA 移植重写自 Hermes(NousResearch/Hermes-Agent,MIT;上游路径
   H:4239(在途去重 + 账本行 + 派发失败清理)、
   ``_run_with_fire_claim_heartbeat`` H:2706(fire 认领心跳保活);
 - ``cron/scheduler_provider.py`` 的 ``InProcessCronScheduler.start`` 循环段
-  H:438-532——是 :mod:`myia.cron.ticker` 的 ``run_ticker_loop`` 蓝本,非本模块。
+  H:438-532——是 :mod:`myssia.cron.ticker` 的 ``run_ticker_loop`` 蓝本,非本模块。
 
 MYIA 适配(任务 10-04-hermes-cron design §3.1/§3.3/§6,非照抄处仅此):
 
 - **实例化**:上游 tick 经 profile 全局解析存储;MYIA 显式传
-  :class:`~myia.cron.jobs.CronJobs` 门面(存储 + 账本 + 可注入时钟同根)。
+  :class:`~myssia.cron.jobs.CronJobs` 门面(存储 + 账本 + 可注入时钟同根)。
 - **D13 派发分组**:上游无界并行池逐一派发;MYIA **同 db 的 job 串行、
   不同 db 并行**——按 ``db_path`` 覆写(缺省回落数据根)分组,组内顺序
   执行,组间 ``ThreadPoolExecutor(max_workers=min(4, cpu))``。理由:管线
   并发写同 db 未验证(ground-truth W7)。
 - **执行体注入**:上游在派发内联 agent 运行时;MYIA 的执行体是注入的
   ``execute_job`` 钩子(Stage A 为 no-op 测试桩,B1 的
-  :mod:`myia.cron.runner` 子进程模型替换),返回
+  :mod:`myssia.cron.runner` 子进程模型替换),返回
   ``(success, error, delivery_error)`` 三元组供 :meth:`mark_job_run` 记账。
 - **宿主互斥钩子**(grill Q2):``dispatch_gate`` 在 fire claim **之前**逐
   job 检查;False = 宿主忙(桌面 ``run_busy`` 单飞锁被用户手点占用)——
@@ -60,8 +60,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import IO, Any, Callable, Collection, Optional, Text, Tuple
 
-from myia.cron.constants import FIRE_CLAIM_TTL_SECONDS
-from myia.cron.jobs import (
+from myssia.cron.constants import FIRE_CLAIM_TTL_SECONDS
+from myssia.cron.jobs import (
     CronJobs,
     claim_is_live,
     job_running_in_this_process,
@@ -98,9 +98,9 @@ __all__ = [
 #: 全进程单飞:抢不到的静默让路。
 TICK_LOCK_NAME = "tick.lock"
 
-#: 数据根缺省 db 名(``--db`` 缺省 ``myia.db``;db_path 无覆写的 job 归
+#: 数据根缺省 db 名(``--db`` 缺省 ``myssia.db``;db_path 无覆写的 job 归
 #: 默认组,ground-truth B9)。
-DEFAULT_DB_NAME = "myia.db"
+DEFAULT_DB_NAME = "myssia.db"
 
 #: 死属主回收节流(上游 H:4027 同值):recover 要开账本,空闲 60s tick
 #: 不必每轮付一次连接;测试可清 ``_last_dead_owner_reap_at`` 强制下一轮回收。
@@ -195,7 +195,7 @@ def _maybe_reap_dead_owners(cron: CronJobs) -> None:
     try:
         # D14(B1):先杀宿主崩溃遗留的孤儿子进程再通用恢复——孤儿杀除独立于
         # 记账(行可能已被启动恢复先行标 unknown,进程组仍要杀)。
-        from myia.cron.runner import (
+        from myssia.cron.runner import (
             reap_orphaned_subprocesses,
         )  # deferred: 避免 tick → runner 顶层环
 
@@ -263,11 +263,11 @@ def _default_execute_job(
     job: dict[str, Any],
 ) -> Tuple[bool, Optional[str], Optional[str]]:
     """Stage A 占位执行体:不做任何事、记成功。真执行体是 B1 的
-    :mod:`myia.cron.runner`(spawn ``myia run --json`` 子进程,D11);生产
+    :mod:`myssia.cron.runner`(spawn ``myssia run --json`` 子进程,D11);生产
     宿主(serve/sidecar)必须注入——WARNING 让误用可见。"""
     logger.warning(
         "Job '%s': cron runner not injected (Stage A no-op stub) — recording "
-        "no-op success; the real runner lands with myia.cron.runner (B1).",
+        "no-op success; the real runner lands with myssia.cron.runner (B1).",
         job.get("name") or job.get("id"),
     )
     return True, None, None
@@ -358,7 +358,7 @@ def tick(
 
 
 def _job_db_key(cron: CronJobs, job: dict[str, Any]) -> str:
-    """job 的 db 归组键:``db_path`` 覆写(缺省 = 数据根 ``myia.db``),
+    """job 的 db 归组键:``db_path`` 覆写(缺省 = 数据根 ``myssia.db``),
     绝对化后比较(W7:同 db 派发必须互斥,相对路径按 cwd 归一)。"""
     override = job.get("db_path")
     if isinstance(override, str) and override.strip():

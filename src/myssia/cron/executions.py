@@ -1,4 +1,4 @@
-"""Cron 执行账本:``<data_root>/cron/executions.db``(cron 专属 SQLite,不进 myia.db)。
+"""Cron 执行账本:``<data_root>/cron/executions.db``(cron 专属 SQLite,不进 myssia.db)。
 
 账本记录的是「每次尝试已知什么」,不是重试队列。被打断的尝试只有在属主进程
 **被证实死亡**后才落 ``unknown``——claim 时记的指纹读不匹配不是死亡证明。终态
@@ -234,7 +234,7 @@ class ExecutionLedger:
 
     @classmethod
     def for_db(cls, db_path: Union[str, Path]) -> "ExecutionLedger":
-        """从 myia.db 路径定位账本(数据根 = db 父目录,A6)。"""
+        """从 myssia.db 路径定位账本(数据根 = db 父目录,A6)。"""
         return cls(Path(db_path).parent)
 
     # --- 连接与事务(上游 _connect/_transaction L41-101 照抄,裁 open_db 外包)--

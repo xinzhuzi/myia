@@ -42,18 +42,18 @@ from typing import Any, Sequence
 
 import httpx
 
-from shishi.push.base import (
+from myssia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
     TrendAwareChannel,
 )
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.ntfy import build_message
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.telegram import split_message
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.ntfy import build_message
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.telegram import split_message
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "API_BASE",
@@ -243,7 +243,7 @@ class SlackChannel(TrendAwareChannel):
         """``POST {API_BASE}/{method}``;HTTP 非 2xx / 非 JSON / ``ok != true`` 报错。
 
         错误文案保留 ``HTTP <status>`` 与原厂 ``error`` 描述片段,供死信分类
-        (:func:`shishi.push.delivery.classify_dead_error`)。
+        (:func:`myssia.push.delivery.classify_dead_error`)。
         """
         url = f"{API_BASE}/{method}"
         headers = {"Authorization": f"Bearer {token}"}

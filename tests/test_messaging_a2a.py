@@ -26,11 +26,11 @@ from typing import Any
 import httpx
 import pytest
 
-from shishi.push.a2a import PROTOCOL_VERSION, A2aChannel, build_rpc_body, text_part
-from shishi.push.base import Channel, PushSendError, SendContext
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
+from myssia.push.a2a import PROTOCOL_VERSION, A2aChannel, build_rpc_body, text_part
+from myssia.push.base import Channel, PushSendError, SendContext
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
 
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
 PEER = "https://agent.example.com/"

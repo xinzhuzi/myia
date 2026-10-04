@@ -1,4 +1,4 @@
-"""myia-credhunter 插件密钥库(keystore:猎→存→验通路)契约测试。
+"""myssia-credhunter 插件密钥库(keystore:猎→存→验通路)契约测试。
 
 任务 10-03-aipocket-fusion 插件侧 keystore 配套测试:零网络(ghhunt 走
 注入的 httpx.AsyncClient + 异步 MockTransport;run_from_keystore 走注入
@@ -21,7 +21,7 @@ transport + 注入 Pacer)、零真实凭据(fixture 均为人工合成脱敏键,
 4. **路径解析**:``MYIA_HOME`` 环境变量优先、cwd 兜底;适配器
    ``run_credcheck_keystore`` 缺省路径与结构化错误面。
 
-测试纪律:全部模块经 ``shishi.cli._import_plugin_adapter`` 加载(compile+
+测试纪律:全部模块经 ``myssia.cli._import_plugin_adapter`` 加载(compile+
 exec,与宿主同款);registry 用 adapter.specs 的真实数据文件(25 规格)。
 """
 
@@ -39,7 +39,7 @@ from typing import Any, Callable
 import httpx
 import pytest
 
-from shishi.cli import _import_plugin_adapter
+from myssia.cli import _import_plugin_adapter
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_DIR = REPO_ROOT / "plugins"
@@ -66,7 +66,7 @@ _ADAPTER: Any = None
 def adapter() -> Any:
     global _ADAPTER
     if _ADAPTER is None:
-        _ADAPTER = _import_plugin_adapter(PLUGINS_DIR, "myia-credhunter")
+        _ADAPTER = _import_plugin_adapter(PLUGINS_DIR, "myssia-credhunter")
     return _ADAPTER
 
 
@@ -197,7 +197,7 @@ class TestKeystoreRoundtrip:
         assert list(store_path.parent.glob("*.tmp")) == []  # 原子写不残留 tmp
 
     def test_nested_parent_created(self, ks, tmp_path):
-        nested = tmp_path / "myia-home" / "credhunter-keystore.json"
+        nested = tmp_path / "myssia-home" / "credhunter-keystore.json"
         ks.Keystore(nested).record("fp-1", "value", "unknown", "")
         assert nested.is_file()
 
@@ -236,7 +236,7 @@ class TestKeystoreRoundtrip:
 
 
 class TestDefaultPathResolution:
-    def test_myia_home_env_wins(self, ks, monkeypatch, tmp_path):
+    def test_myssia_home_env_wins(self, ks, monkeypatch, tmp_path):
         monkeypatch.setenv("MYIA_HOME", str(tmp_path))
         assert ks.default_keystore_path() == tmp_path / "credhunter-keystore.json"
 
@@ -330,7 +330,7 @@ class TestHuntKeystore:
         assert result["items"]
         assert not (tmp_path / "credhunter-keystore.json").exists()
 
-    def test_adapter_fetch_hunt_defaults_to_myia_home(self, ks, monkeypatch, tmp_path):
+    def test_adapter_fetch_hunt_defaults_to_myssia_home(self, ks, monkeypatch, tmp_path):
         """适配器面缺省注入:MYIA_HOME 下的库收到全文,600 权限。"""
         monkeypatch.setenv("MYIA_HOME", str(tmp_path))
         path = tmp_path / "credhunter-keystore.json"
@@ -476,7 +476,7 @@ class TestAdapterCredcheckKeystoreFace:
         """不可归因键 → no_api_url rejected(零网络);payload 掩码-only。"""
         seed_store(ks, fnd, store_path, (KEY_OPAQUE,))
         payload = adapter().run_credcheck_keystore(keystore_path=str(store_path))
-        assert payload["plugin"] == "myia-credhunter"
+        assert payload["plugin"] == "myssia-credhunter"
         assert payload["capability"] == "credcheck"
         assert payload["status"] == "success"
         assert payload["source"] == "keystore"
@@ -488,7 +488,7 @@ class TestAdapterCredcheckKeystoreFace:
         records = ks.Keystore(store_path).load()
         assert records[fnd.key_fingerprint(KEY_OPAQUE)]["check_state"] == "rejected"
 
-    def test_default_path_from_myia_home(self, ks, monkeypatch, tmp_path):
+    def test_default_path_from_myssia_home(self, ks, monkeypatch, tmp_path):
         monkeypatch.setenv("MYIA_HOME", str(tmp_path))
         payload = adapter().run_credcheck_keystore()  # 空库:零探测、零网络
         assert payload["keystore_path"] == str(tmp_path / "credhunter-keystore.json")
@@ -525,5 +525,5 @@ class TestAdapterCredcheckKeystoreFace:
 
 # 加载纪律自检:本测试文件与适配器共享同一子模块对象(canonical 名复用)。
 def test_shared_canonical_modules() -> None:
-    assert "myia_credhunter_keystore" in sys.modules
-    assert sys.modules["myia_credhunter_keystore"] is adapter().keystore
+    assert "myssia_credhunter_keystore" in sys.modules
+    assert sys.modules["myssia_credhunter_keystore"] is adapter().keystore

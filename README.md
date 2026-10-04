@@ -1,15 +1,15 @@
 <div align="center">
 
-<img src="desktop/branding/myia-icon-1024.png" width="160" alt="世事 — 眼睛与雷达虹膜" />
+<img src="desktop/branding/myssia-icon-1024.png" width="160" alt="世事 — 眼睛与雷达虹膜" />
 
-# 世事
+# myssia(中文名:世事)
 
 **AI 原生情报中枢 · AI-native intelligence hub**
 
 **说需求,AI 做其余。** · Say what you want — AI does the rest.
 
 <p>
-<a href="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+<a href="https://github.com/xinzhuzi/myssia/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/myssia/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 <img src="https://img.shields.io/badge/tests-1300%2B%20passing-2EA44F" alt="tests: 1300+ passing" />
 <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="python 3.11+" />
 <img src="https://img.shields.io/badge/license-MIT-3DA639" alt="MIT license" />
@@ -21,7 +21,7 @@
 <img src="https://img.shields.io/badge/weight-SQLite%20single%20file%20%C2%B7%20no%20daemon-64748B" alt="SQLite single file, no daemon" />
 </p>
 
-<img src="docs/demo/assets/shishi-demo.gif" width="800" alt="世事 demo:一个 YAML → 情报推送(录制于 shishi 命名时期,现 CLI 为 myia run → 收到推送卡片)" />
+<img src="docs/demo/assets/shishi-demo.gif" width="800" alt="世事 demo:一个 YAML → 情报推送(录制于 shishi 命名时期,物料为时代锁定原样保留;现 CLI 为 myssia run → 收到推送卡片)" />
 
 <sub>世事 三分钟 —— 一个 YAML → 情报推送。录制脚本与分镜:<a href="docs/demo/"><code>docs/demo/</code></a></sub>
 
@@ -50,8 +50,8 @@
 
 任何情报品类 = **一份 YAML 文件**。世事 负责抓取(六级引擎自动降级)、分类去重、
 打分(先关键词粗筛 —— 零 token;可选 LLM 精评),把重要的推到你的即时通讯。
-YAML 本身由你的编码 agent 照规范现场生成:读 schema、写配置、`myia test` 试抓
-验证、凭 `myia doctor` 输出自行修复失效源。
+YAML 本身由你的编码 agent 照规范现场生成:读 schema、写配置、`myssia test` 试抓
+验证、凭 `myssia doctor` 输出自行修复失效源。
 
 **人做决策,AI 做其余。**
 
@@ -73,7 +73,7 @@ YAML 本身由你的编码 agent 照规范现场生成:读 schema、写配置、
 
 🧠 **是情报,不只是爬虫**
 七大类关键词分类器(零 token,以独立包
-[`myia-classifier`](myia-classifier/) 发行)+ 可选 LLM 精评(价值/相关性/
+[`myssia-classifier`](myssia-classifier/) 发行)+ 可选 LLM 精评(价值/相关性/
 可信度 0–10)。阈值分级路由:score ≥ 8 立即推,≥ 5 进早晚摘要,其余归档。
 
 </td>
@@ -124,7 +124,7 @@ URL 键去重注册表 + 早/晚摘要槽位 —— 生产验证过的语义;同
 <td colspan="2" width="100%" valign="top">
 
 ⏰ **定时任务:到点跑一遍 + 发摘要**
-`myia cron serve` 常驻、桌面端内置 ticker、外接 crontab 手动 `cron tick`
+`myssia cron serve` 常驻、桌面端内置 ticker、外接 crontab 手动 `cron tick`
 —— 同一底座(tick 文件锁 + fire 认领互斥)多宿主共存;到点自动跑一遍品类
 管线,运行摘要定向投递(本地留档 / 飞书 / Telegram 等平台 spec)。schedule
 吃自然语言(`every monday 9am`)也吃 5 段 cron(POSIX 周几)。
@@ -139,13 +139,13 @@ URL 键去重注册表 + 早/晚摘要槽位 —— 生产验证过的语义;同
 ## 快速开始
 
 ```bash
-git clone https://github.com/xinzhuzi/myia
-cd myia
-uv sync                     # uv workspace(主口径):一并装好 myia 与 myia-classifier
-uv run myia --version       # myia 0.0.1
+git clone https://github.com/xinzhuzi/myssia
+cd myssia
+uv sync                     # uv workspace(主口径):一并装好 myssia 与 myssia-classifier
+uv run myssia --version       # myssia 0.0.1
 ```
 
-> 本仓是 uv workspace(`myia-classifier` 是 workspace 成员):裸 `pip install -e .`
+> 本仓是 uv workspace(`myssia-classifier` 是 workspace 成员):裸 `pip install -e .`
 > 装不齐依赖,源码安装请用 `uv sync`;`pip install myssia` 待 PyPI 上架后可用。
 
 重型采集引擎是可选 extras;缺引擎时沿梯子优雅降级,给出结构化
@@ -179,14 +179,14 @@ push:
   - channel: stdout              # zero-credential local verification
 YAML
 
-uv run myia test plugins/demo-min.yaml --json            # 试抓:不入库、不推送
-uv run myia run plugins/demo-min.yaml --dry-run --json   # 全链演练,不推送
-uv run myia run plugins/demo-min.yaml                    # 正式跑;--loop 常驻调度
+uv run myssia test plugins/demo-min.yaml --json            # 试抓:不入库、不推送
+uv run myssia run plugins/demo-min.yaml --dry-run --json   # 全链演练,不推送
+uv run myssia run plugins/demo-min.yaml                    # 正式跑;--loop 常驻调度
 ```
 
 完整走读:[docs/zh/getting-started.md](docs/zh/getting-started.md)。
 
-> PyPI 包(`myia`、`myia-classifier`)将走手动发布流程;在那之前请如上从源码安装,
+> PyPI 包(`myssia`、`myssia-classifier`)将走手动发布流程;在那之前请如上从源码安装,
 > 桌面用户可直接用下方安装包。
 
 ## 下载安装(桌面应用)
@@ -195,8 +195,8 @@ uv run myia run plugins/demo-min.yaml                    # 正式跑;--loop 常�
 
 安装包随 GitHub Releases 发布:
 
-1. 从 [Releases](https://github.com/xinzhuzi/myia/releases) 下载
-   `myia_<版本>_aarch64.dmg`(版本号随发布更替,以 Releases 页面实际资产为准),
+1. 从 [Releases](https://github.com/xinzhuzi/myssia/releases) 下载
+   `myssia_<版本>_aarch64.dmg`(版本号随发布更替,以 Releases 页面实际资产为准),
    把 世事 拖入「应用程序」;
 2. 首次打开:**在「应用程序」里右键 世事 →「打开」→ 再点「打开」**
    (或双击被拦后到 系统设置 → 隐私与安全性 → 点「仍要打开」);
@@ -209,14 +209,14 @@ uv run myia run plugins/demo-min.yaml                    # 正式跑;--loop 常�
 安装包(msi)将随 GitHub Releases 发布——Windows 构建流水线已就绪,首个
 Windows 版本随下个 Release 交付;交付前 Releases 页暂无 msi(见路线图注记):
 
-1. 从 [Releases](https://github.com/xinzhuzi/myia/releases) 下载
-   `myia_<版本>_x64.msi`,双击安装(版本号随发布更替,以 Releases 页面
+1. 从 [Releases](https://github.com/xinzhuzi/myssia/releases) 下载
+   `myssia_<版本>_x64.msi`,双击安装(版本号随发布更替,以 Releases 页面
    实际资产为准);
 2. 首次运行弹 SmartScreen「Windows 已保护你的电脑」时,点
    **「更多信息」→「仍要运行」**(未购买代码签名证书的如实代价,与 macOS
    右键打开同一口径);
 3. Windows Defender 误报可能:安装包内含未签名的 PyInstaller sidecar
-   (`myia-core.exe`),SmartScreen/Defender 可能告警——代码完全开源可审计,
+   (`myssia-core.exe`),SmartScreen/Defender 可能告警——代码完全开源可审计,
    每个安装包由 GitHub Actions 公开构建、日志可溯;如遇拦截,同样
    「更多信息」→「仍要运行」,必要时在 Defender 提示里选「允许」;
 4. 数据根在 `%APPDATA%\MYIA`(资源管理器地址栏粘贴即达),装机首跑自动
@@ -224,7 +224,7 @@ Windows 版本随下个 Release 交付;交付前 Releases 页暂无 msi(见路�
 5. 升级:设置页「检查更新」,msi 静默(passive)安装后自动重启
    (见 [desktop/UPDATER.md](desktop/UPDATER.md))。
 
-装机首跑自动种子官方插件(含零凭据演示件 `myia-demo`:GitHub 新星榜),
+装机首跑自动种子官方插件(含零凭据演示件 `myssia-demo`:GitHub 新星榜),
 第一次点「运行第一个插件」就出真数据;设置页「检查更新」走签名更新通道。
 
 桌面五屏(截图为 demo 插件真实抓取数据):
@@ -243,23 +243,23 @@ Windows 版本随下个 Release 交付;交付前 Releases 页暂无 msi(见路�
 
 把闭环交给任何编码 agent(Claude Code、Cursor……)。
 [Agent Skill](skill/SKILL.md) 是自包含速查表,一条命令安装
-(`myia skill install --agent claude`;也支持 `cursor` / `zcode`,
+(`myssia skill install --agent claude`;也支持 `cursor` / `zcode`,
 `--path` 自定义目录,`--link` 以链接代替复制):
 
 ```
-myia skill install --agent claude         # 一次性:速查表 → ~/.claude/skills/myia/
-myia init --json                          # 拿结构化信息清单
+myssia skill install --agent claude         # 一次性:速查表 → ~/.claude/skills/myia/
+myssia init --json                          # 拿结构化信息清单
 ( agent 现场写 <id>.yaml )                # 对照 12 节 schema
-myia test plugins/<id>.yaml --json        # 试抓,核对字段与去重键
-myia run plugins/<id>.yaml --dry-run      # 演练
-myia run plugins/<id>.yaml --loop         # 常驻调度
-myia doctor --json                        # 拿 findings;agent 自修后复查
+myssia test plugins/<id>.yaml --json        # 试抓,核对字段与去重键
+myssia run plugins/<id>.yaml --dry-run      # 演练
+myssia run plugins/<id>.yaml --loop         # 常驻调度
+myssia doctor --json                        # 拿 findings;agent 自修后复查
 ```
 
 ## 架构
 
 ```
-用户层          myia CLI · Agent Skill · 桌面应用(Tauri,v1.1)· Web UI(规划中)
+用户层          myssia CLI · Agent Skill · 桌面应用(Tauri,v1.1)· Web UI(规划中)
                      │
 编排层          流水线:fetch → classify → dedup → analyze → enrich → push
                 (进程内 APScheduler + asyncio;无外部编排器、无守护进程)
@@ -272,7 +272,7 @@ myia doctor --json                        # 拿 findings;agent 自修后复查
                 → L4 scrapling → L5 stealth_browser → L6 llm_browser
                 (自动降级链;胜出引擎按源持久化)
                      │
-分析            内置七类关键词分类器(myia-classifier)
+分析            内置七类关键词分类器(myssia-classifier)
                 + 可选 LLM 精评(价值/相关性/可信度,0–10)
                      │
 存储            SQLite 单文件 · 保留期 + VACUUM · 变更基线
@@ -336,12 +336,12 @@ Windows 构建这版未通过,Release 暂无 Windows 安装包(后续批次计�
 - [Scrapling](https://github.com/D4Vinci/Scrapling) —— L4 自适应反爬引擎(可选依赖)
 - [Firecrawl](https://github.com/firecrawl/firecrawl) —— L3 云端/自建渲染后端(可选依赖,以 API 调用)
 - [Skyvern](https://github.com/Skyvern-AI/skyvern) —— L6 LLM 浏览器兜底(可选依赖)
-- [changedetection.io](https://github.com/dgtlmoon/changedetection.io) —— 源管理与 diff 交互参考,`myia-monitor` 插件后端
+- [changedetection.io](https://github.com/dgtlmoon/changedetection.io) —— 源管理与 diff 交互参考,`myssia-monitor` 插件后端
 - [RSSHub](https://github.com/DIYgod/RSSHub) —— 「一切皆源」的哲学参考
-- [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool) —— `myia-proxy` 插件后端
-- [Photon](https://github.com/s0md3v/Photon) —— `myia-osint` 插件后端(以 git 子模块引入)
-- [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) —— `myia-douyin` 插件后端
-- [Maxun](https://github.com/getmaxun/maxun) —— `myia-maxun` 插件后端
+- [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool) —— `myssia-proxy` 插件后端
+- [Photon](https://github.com/s0md3v/Photon) —— `myssia-osint` 插件后端(以 git 子模块引入)
+- [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) —— `myssia-douyin` 插件后端
+- [Maxun](https://github.com/getmaxun/maxun) —— `myssia-maxun` 插件后端
 - [Tauri](https://github.com/tauri-apps/tauri) —— 桌面壳(Python 核心以 sidecar 嵌入)
 
 除明确标注的 git 子模块外,不复制任何上游源码进本仓库;依赖接入策略见
@@ -375,11 +375,11 @@ Describe any category as **one YAML file**. 世事 fetches it (six engines on
 an auto-degrading ladder), classifies and dedups it, scores it (keywords
 first — zero tokens; optional LLM for precision), and pushes what matters to
 your messaging apps. The YAML itself is written by your coding agent: it
-reads the schema, generates the config, trial-fetches with `myia test`, and
-repairs broken sources on its own from `myia doctor` output.
+reads the schema, generates the config, trial-fetches with `myssia test`, and
+repairs broken sources on its own from `myssia doctor` output.
 
 Weixin outbound is a bridge via a local Hermes-Agent install — without one,
-the weixin channel is unavailable (MYIA itself holds zero WeChat credentials).
+the weixin channel is unavailable (myssia itself holds zero WeChat credentials).
 
 **Humans decide; AI does the rest.**
 
@@ -401,7 +401,7 @@ the weixin channel is unavailable (MYIA itself holds zero WeChat credentials).
 
 🧠 **Intelligence, not just crawling**
 A seven-category keyword classifier (zero tokens, shipped as the standalone
-[`myia-classifier`](myia-classifier/) package) plus optional LLM enrichment
+[`myssia-classifier`](myssia-classifier/) package) plus optional LLM enrichment
 scoring value / relevance / credibility 0–10. Thresholds route the result:
 score ≥ 8 pushes immediately, ≥ 5 waits for the AM/PM digest, the rest is
 archived.
@@ -459,7 +459,7 @@ negative feedback retunes watchlist weights and thresholds over time.
 <td colspan="2" width="100%" valign="top">
 
 ⏰ **Scheduled jobs: run it on a clock, deliver the summary**
-`myia cron serve` daemon, the desktop app's built-in ticker, or a manual
+`myssia cron serve` daemon, the desktop app's built-in ticker, or a manual
 `cron tick` from system crontab — one substrate coexisting under a tick
 file lock + fire claims. Each due fire runs the category pipeline once and
 delivers the run summary (local archive / Feishu / Telegram and other
@@ -476,13 +476,13 @@ daemon), retention + auto-VACUUM, in-process scheduling.
 ### Quickstart
 
 ```bash
-git clone https://github.com/xinzhuzi/myia
-cd myia
-uv sync                     # uv workspace (primary): installs myia + myia-classifier
-uv run myia --version       # myia 0.0.1
+git clone https://github.com/xinzhuzi/myssia
+cd myssia
+uv sync                     # uv workspace (primary): installs myssia + myssia-classifier
+uv run myssia --version       # myssia 0.0.1
 ```
 
-> This repo is a uv workspace (`myia-classifier` is a workspace member): a bare
+> This repo is a uv workspace (`myssia-classifier` is a workspace member): a bare
 > `pip install -e .` won't pull it in — install from source with `uv sync`;
 > `pip install myssia` becomes available once the package lands on PyPI.
 
@@ -519,14 +519,14 @@ push:
   - channel: stdout              # zero-credential local verification
 YAML
 
-uv run myia test plugins/demo-min.yaml --json            # trial fetch: no DB, no push
-uv run myia run plugins/demo-min.yaml --dry-run --json   # full rehearsal, no push
-uv run myia run plugins/demo-min.yaml                    # real run; add --loop for scheduling
+uv run myssia test plugins/demo-min.yaml --json            # trial fetch: no DB, no push
+uv run myssia run plugins/demo-min.yaml --dry-run --json   # full rehearsal, no push
+uv run myssia run plugins/demo-min.yaml                    # real run; add --loop for scheduling
 ```
 
 Full walk-through: [docs/en/getting-started.md](docs/en/getting-started.md).
 
-> PyPI packages (`myia`, `myia-classifier`) will publish via a manual release
+> PyPI packages (`myssia`, `myssia-classifier`) will publish via a manual release
 > workflow; until then, install from source as above — or grab the desktop
 > installer below.
 
@@ -534,8 +534,8 @@ Full walk-through: [docs/en/getting-started.md](docs/en/getting-started.md).
 
 The macOS (Apple Silicon) installer ships via GitHub Releases:
 
-1. Download `myia_<version>_aarch64.dmg` from
-   [Releases](https://github.com/xinzhuzi/myia/releases) (the version token
+1. Download `myssia_<version>_aarch64.dmg` from
+   [Releases](https://github.com/xinzhuzi/myssia/releases) (the version token
    rotates per release — the Releases page is authoritative) and drag 世事 into
    Applications;
 2. On first launch: **right-click 世事 in Applications → Open → Open**
@@ -547,7 +547,7 @@ The macOS (Apple Silicon) installer ships via GitHub Releases:
    open clears Gatekeeper; subsequent launches open normally.
 
 A fresh install auto-seeds the official plugins (including the
-zero-credential demo `myia-demo`: GitHub's new-star board), so the first click
+zero-credential demo `myssia-demo`: GitHub's new-star board), so the first click
 of "run your first plugin" shows real data; the settings screen offers
 "Check for updates" over a signed update channel.
 
@@ -567,23 +567,23 @@ The five desktop screens (fed by real demo-plugin data):
 
 Hand the loop to any coding agent (Claude Code, Cursor, …). The
 [Agent Skill](skill/SKILL.md) is a self-contained cheat sheet, installed with
-one command (`myia skill install --agent claude`; also `cursor` / `zcode`,
+one command (`myssia skill install --agent claude`; also `cursor` / `zcode`,
 `--path` for a custom dir, `--link` to symlink instead of copy):
 
 ```
-myia skill install --agent claude         # one-time: skill sheet → ~/.claude/skills/myia/
-myia init --json                          # structured checklist of what to collect
+myssia skill install --agent claude         # one-time: skill sheet → ~/.claude/skills/myia/
+myssia init --json                          # structured checklist of what to collect
 ( agent writes <id>.yaml )                # against the 12-section schema
-myia test plugins/<id>.yaml --json        # trial fetch, inspect fields + dedup keys
-myia run plugins/<id>.yaml --dry-run      # rehearsal
-myia run plugins/<id>.yaml --loop         # scheduled operation
-myia doctor --json                        # findings; the agent repairs and re-checks
+myssia test plugins/<id>.yaml --json        # trial fetch, inspect fields + dedup keys
+myssia run plugins/<id>.yaml --dry-run      # rehearsal
+myssia run plugins/<id>.yaml --loop         # scheduled operation
+myssia doctor --json                        # findings; the agent repairs and re-checks
 ```
 
 ### Architecture
 
 ```
-User layer      myia CLI · Agent Skill · desktop app (Tauri, v1.1) · Web UI (planned)
+User layer      myssia CLI · Agent Skill · desktop app (Tauri, v1.1) · Web UI (planned)
                      │
 Orchestration   Pipeline: fetch → classify → dedup → analyze → enrich → push
                 (in-process APScheduler + asyncio; no external orchestrator, no daemon)
@@ -596,7 +596,7 @@ Fetch engines   L1 direct_api → L2 static_html → L3 crawl4ai ⇄ firecrawl
                 → L4 scrapling → L5 stealth_browser → L6 llm_browser
                 (auto degrade chain; winning engine persisted per source)
                      │
-Analysis        builtin 7-category keyword classifier (myia-classifier)
+Analysis        builtin 7-category keyword classifier (myssia-classifier)
                 + optional LLM enrich (value / relevance / credibility, 0–10)
                      │
 Storage         SQLite single file · retention + VACUUM · change baselines
@@ -667,12 +667,12 @@ dependencies, plugin backends and design references:
 - [Scrapling](https://github.com/D4Vinci/Scrapling) — L4 adaptive anti-bot engine (optional dependency)
 - [Firecrawl](https://github.com/firecrawl/firecrawl) — L3 cloud/self-hosted rendering backend (optional dependency, called as an API)
 - [Skyvern](https://github.com/Skyvern-AI/skyvern) — L6 LLM-browser fallback (optional dependency)
-- [changedetection.io](https://github.com/dgtlmoon/changedetection.io) — source-management & diff UX reference; `myia-monitor` plugin backend
+- [changedetection.io](https://github.com/dgtlmoon/changedetection.io) — source-management & diff UX reference; `myssia-monitor` plugin backend
 - [RSSHub](https://github.com/DIYgod/RSSHub) — the "everything is a feed" philosophy
-- [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool) — `myia-proxy` plugin backend
-- [Photon](https://github.com/s0md3v/Photon) — `myia-osint` plugin backend (vendored via git submodule)
-- [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) — `myia-douyin` plugin backend
-- [Maxun](https://github.com/getmaxun/maxun) — `myia-maxun` plugin backend
+- [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool) — `myssia-proxy` plugin backend
+- [Photon](https://github.com/s0md3v/Photon) — `myssia-osint` plugin backend (vendored via git submodule)
+- [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) — `myssia-douyin` plugin backend
+- [Maxun](https://github.com/getmaxun/maxun) — `myssia-maxun` plugin backend
 - [Tauri](https://github.com/tauri-apps/tauri) — desktop shell (Python core embedded as a sidecar)
 
 No upstream source is copied into this repository except clearly-marked git

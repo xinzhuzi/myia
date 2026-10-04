@@ -1,4 +1,4 @@
-"""myia-credhunter 插件 ghhunt 模块(R1 GitHub 工件猎手)契约测试。
+"""myssia-credhunter 插件 ghhunt 模块(R1 GitHub 工件猎手)契约测试。
 
 任务 10-03-aipocket-fusion R1 配套测试:零真网(全部 I/O 走注入的
 httpx.AsyncClient + 异步 MockTransport)、零真实凭据(fixture 均为人工
@@ -46,7 +46,7 @@ from conftest import FakeClock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_DIR = REPO_ROOT / "plugins"
-PLUGIN_DIR = PLUGINS_DIR / "myia-credhunter"
+PLUGIN_DIR = PLUGINS_DIR / "myssia-credhunter"
 
 # ---------------------------------------------------------------------------
 # 合成脱敏 fixture 键(人工构造,不对应任何真实账号;避开噪声子串与
@@ -77,7 +77,7 @@ DIFF_TEXT = "\n".join(
 
 def _load_ghhunt() -> Any:
     """按适配器同款 compile+exec 手法加载 ghhunt 子模块(零 __pycache__)。"""
-    canonical = "myia_credhunter_ghhunt"
+    canonical = "myssia_credhunter_ghhunt"
     module = sys.modules.get(canonical)
     if module is not None:
         return module
@@ -258,14 +258,14 @@ class TestSpecValues:
 
     def test_sibling_modules_shared_with_adapter(self):
         """后加载的 ghhunt 经 canonical 名复用适配器的兄弟模块对象(生产接线顺序)。"""
-        from shishi.cli import _import_plugin_adapter
+        from myssia.cli import _import_plugin_adapter
 
-        adapter = _import_plugin_adapter(PLUGINS_DIR, "myia-credhunter")
+        adapter = _import_plugin_adapter(PLUGINS_DIR, "myssia-credhunter")
         # 适配器先加载四子模块;随后 compile+exec 加载的 ghhunt 自举时复用之
         module_file = PLUGIN_DIR / "credhunter" / "ghhunt.py"
-        late = types.ModuleType("myia_credhunter_ghhunt_late")
+        late = types.ModuleType("myssia_credhunter_ghhunt_late")
         late.__file__ = str(module_file)
-        sys.modules["myia_credhunter_ghhunt_late"] = late
+        sys.modules["myssia_credhunter_ghhunt_late"] = late
         exec(compile(module_file.read_text(encoding="utf-8"), str(module_file), "exec"), late.__dict__)  # noqa: S102
         assert late._findings is adapter.findings
         assert late._fingerprints is adapter.fingerprints

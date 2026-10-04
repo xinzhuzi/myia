@@ -36,15 +36,15 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/xinzhuzi/MYIA"
-Repository = "https://github.com/xinzhuzi/MYIA"
-Issues = "https://github.com/xinzhuzi/MYIA/issues"
+Homepage = "https://github.com/xinzhuzi/myssia"
+Repository = "https://github.com/xinzhuzi/myssia"
+Issues = "https://github.com/xinzhuzi/myssia/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["myia_classifier"]
+packages = ["myssia_classifier"]
 # 仓库 .gitignore 的 `data/` 规则按构建根相对匹配,会漏掉包内词表数据文件
 # (v0.2 已踩过"wheel 缺文件"的坑);artifacts 显式强制收录,双保险。
-artifacts = ["myia_classifier/data/*.json"]
+artifacts = ["myssia_classifier/data/*.json"]
 
 [tool.hatch.build.targets.sdist]
-artifacts = ["myia_classifier/data/*.json"]
+artifacts = ["myssia_classifier/data/*.json"]

@@ -71,25 +71,25 @@ intelligence hub)`)。有站点对产品 UA 返回 429、对浏览器 UA 放行�
 配置文件会被复制、提交、分享——明文凭据是泄露的第一源头。世事 在**加载期**
 就拒绝凭据类键的明文值(错误码 `credential_plaintext`,退出码 1),只接受
 `env:` / `keychain:myia/<scope>/<name>` 引用;凭据值永不回显、永不落日志。
-`myia doctor --json` 会核验每个引用是否存在并给出修复动作。
+`myssia doctor --json` 会核验每个引用是否存在并给出修复动作。
 
 ### 我的 Cookie 会泄露吗?
 
 存进系统钥匙链(macOS Keychain / Windows DPAPI)的凭据不进仓库、不进配置
-文件、不进日志;`myia secret list` 只列名字。仓库即公开——任何凭据、内网
+文件、不进日志;`myssia secret list` 只列名字。仓库即公开——任何凭据、内网
 地址、生产语料零入库是项目自己的红线,官方插件里的凭据位全部是引用占位。
 
 ## 数据与存储
 
 ### 数据存在哪?会无限膨胀吗?
 
-单 SQLite 文件(默认 `./myia.db`,`--db` 可改)。`storage.retention`(缺省
+单 SQLite 文件(默认 `./myssia.db`,`--db` 可改)。`storage.retention`(缺省
 `90d`)到期自动清理,`storage.vacuum`(缺省 `monthly`)定期 VACUUM 回收
 空间;声明 `baseline:` 的品类,数值历史按保留期 2 倍保存(保证周环比窗口)。
 
 ### 为什么我的条目被丢弃了?
 
-三个最常见的正常丢弃路径,`myia run --json` 的 `stages[].skips` 都看得到:
+三个最常见的正常丢弃路径,`myssia run --json` 的 `stages[].skips` 都看得到:
 
 1. **`classify_unmatched`**:内置七大类扫描(`classify.builtin: true` 默认开)
    没命中——品类对不上七大类时改 `builtin: false` 并写自定义规则;
@@ -127,8 +127,8 @@ intelligence hub)`)。有站点对产品 UA 返回 429、对浏览器 UA 放行�
 
 ### 源挂了怎么办?
 
-面向 AI 的自修循环:改 YAML → `myia test --json` 验证提取 →
-`myia doctor --json` 直到 `findings` 清零 → `--dry-run` 演练 → 正式 run。
+面向 AI 的自修循环:改 YAML → `myssia test --json` 验证提取 →
+`myssia doctor --json` 直到 `findings` 清零 → `--dry-run` 演练 → 正式 run。
 源健康度状态机(`ok`/`degraded`/`dead`/`unknown`)与 findings→修复动作
 对照表见[插件开发指南](write-a-plugin.md)的自诊断节。
 
@@ -144,5 +144,5 @@ intelligence hub)`)。有站点对产品 UA 返回 429、对浏览器 UA 放行�
 
 不怎样——核心流水线照常跑。场景插件(`plugin:` 节声明的依赖)装不上、配置
 坏、remote 不可达,都只降级为一条结构化 finding,品类其余部分继续采集推送
-(桌面工具的生死线)。装卸命令 `myia plugin list / install / remove`;
+(桌面工具的生死线)。装卸命令 `myssia plugin list / install / remove`;
 社区插件目录见 `plugins/community/README.md`。

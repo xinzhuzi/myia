@@ -23,16 +23,16 @@ from typing import Any
 import httpx
 import pytest
 
-from shishi.push import SendContext
-from shishi.push.base import PushSendError
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.matrix import MatrixChannel
-from shishi.push.targets import RESOLVED_DIRECT, RESOLVED_DIRECTORY_PREFIX, ChannelTarget, resolve_target
+from myssia.push import SendContext
+from myssia.push.base import PushSendError
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.matrix import MatrixChannel
+from myssia.push.targets import RESOLVED_DIRECT, RESOLVED_DIRECTORY_PREFIX, ChannelTarget, resolve_target
 
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
 ROOM_ID = "!AbCdEf123:matrix.example.com"
-ALIAS = "#myia:matrix.example.com"
+ALIAS = "#myssia:matrix.example.com"
 
 #: 真实 PLATFORMS 登记 is 集成步(push/__init__);本文件用显式注册表钉
 #: 直达语义,登记后零改动生效。
@@ -112,7 +112,7 @@ class TestSendShape:
 
         assert calls[0]["method"] == "GET"
         assert "/_matrix/client/v3/directory/room/" in calls[0]["url"]
-        assert calls[0]["url"].endswith("%23myia%3Amatrix.example.com")  # # 与 : 均编码
+        assert calls[0]["url"].endswith("%23myssia%3Amatrix.example.com")  # # 与 : 均编码
         assert calls[1]["method"] == "PUT"
         # PUT 用解析出的房间 id(路径段全量编码:! 与 : 均转义)
         assert ROOM_ID.replace("!", "%21").replace(":", "%3A") in calls[1]["url"]
@@ -189,7 +189,7 @@ class TestAddressing:
         channel = _channel(calls)
 
         with pytest.raises(PushSendError) as excinfo:
-            _run(channel.send([{"title": "t"}], replace(CONTEXT, target=_target("myia-room"))))
+            _run(channel.send([{"title": "t"}], replace(CONTEXT, target=_target("myssia-room"))))
         assert excinfo.value.code == "invalid_credential_ref"
         assert calls == []
 
@@ -222,13 +222,13 @@ class TestAddressing:
         directory.replace_platform(
             "matrix",
             [
-                _entry("!r1:s", "myia-room"),
+                _entry("!r1:s", "myssia-room"),
                 _entry("!r2:s", "game-room"),
                 _entry("!r3:s", "game-room-2"),
             ],
         )
 
-        by_name = resolve_target("matrix:myia-room", directory, platforms=PLATFORMS)
+        by_name = resolve_target("matrix:myssia-room", directory, platforms=PLATFORMS)
         assert (by_name.chat_id, by_name.resolved_from) == ("!r1:s", "directory_name")
 
         with pytest.raises(Exception) as excinfo:
@@ -237,7 +237,7 @@ class TestAddressing:
 
 
 def _entry(chat_id: str, name: str):
-    from shishi.push.directory import ChannelEntry
+    from myssia.push.directory import ChannelEntry
 
     return ChannelEntry(platform="matrix", chat_id=chat_id, name=name, type="group")
 

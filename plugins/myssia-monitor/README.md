@@ -1,4 +1,4 @@
-# myia-monitor — 变更监控(changedetection.io)
+# myssia-monitor — 变更监控(changedetection.io)
 
 官方场景件,v1.1 分级 **remote(桌面可选)**:网页变更监控(watch 托管
 变更 + REST API 拉取)。封装上游
@@ -10,12 +10,12 @@
 > L1-L4 降级链)已覆盖桌面主场景 —— 不装本插件,品类照常跑(铁律)。
 > 本插件只是把 watch 托管、变更历史与推送决策交给一张自托管
 > changedetection.io 实例的可选集成;本地 compose 已撤,实例部署走仓库
-> `docker/plugins/myia-monitor/`(服务端可选)。
+> `docker/plugins/myssia-monitor/`(服务端可选)。
 
 ## 桌面路径(默认,零 Docker)
 
 桌面默认路径**就是不用本插件**:品类 YAML 不写 `plugin:` 节,内置变更
-指纹直接生效(`skip 原因=指纹未变` 是正常路径,见 `myia doctor --json`)。
+指纹直接生效(`skip 原因=指纹未变` 是正常路径,见 `myssia doctor --json`)。
 需要集中 watch 管理与实例侧推送时,再接入已部署实例(下一节)。
 
 ## remote 模式(可选接入,零 Docker)
@@ -24,7 +24,7 @@
 
 ```yaml
 plugin:
-  id: myia-monitor
+  id: myssia-monitor
   requires: []
   modes:
     remote:
@@ -35,7 +35,7 @@ plugin:
 先写钥匙链再引用:
 
 ```bash
-myia secret set myia/monitor/token     # 粘贴 API access key(UI Settings → API 开启)
+myssia secret set myia/monitor/token     # 粘贴 API access key(UI Settings → API 开启)
 ```
 
 - `provides: [changedetection]`:变更监控品类(`plugins/monitor.yaml`)
@@ -45,10 +45,10 @@ myia secret set myia/monitor/token     # 粘贴 API access key(UI Settings → A
 ## 服务端形态(可选,不在桌面路径)
 
 自托管 changedetection.io 实例是**服务端可选**部署:compose 在仓库
-`docker/plugins/myia-monitor/`,桌面用户不需要它。从仓库根执行:
+`docker/plugins/myssia-monitor/`,桌面用户不需要它。从仓库根执行:
 
 ```bash
-docker compose -f docker/plugins/myia-monitor/compose.yml up -d
+docker compose -f docker/plugins/myssia-monitor/compose.yml up -d
 open http://127.0.0.1:5000    # Web 控制台(UI 里 Settings → API 开启 access key)
 ```
 
@@ -63,7 +63,7 @@ open http://127.0.0.1:5000    # Web 控制台(UI 里 Settings → API 开启 acc
 ## 安装 / 移除
 
 ```bash
-myia plugin install plugins/myia-monitor
-myia plugin list --json
-myia plugin remove myia-monitor
+myssia plugin install plugins/myssia-monitor
+myssia plugin list --json
+myssia plugin remove myssia-monitor
 ```

@@ -2,7 +2,7 @@
  * 仪表盘数据装配(本屏私有 api 模块;共享客户端 @/lib/api 只读不动)。
  *
  * 数据面 = sidecar 协议三方法(entry.py `_HANDLERS`):
- *   doctor     → myia doctor --json 等价(品类/源健康度/findings);
+ *   doctor     → myssia doctor --json 等价(品类/源健康度/findings);
  *   runs.list  → runs 表直读(新→旧;重启 .app 后历史仍可达,C3);
  *   run.status → 内存注册表(活跃 run 叠加;进行中 run 的实时态)。
  * 纯函数聚合出三块视图模型:品类状态卡 / 源健康度汇总 / 近期 run 成功率。

@@ -66,7 +66,7 @@ function doctorOk(file: string, name: string, sources: number): DoctorResult {
   return {
     command: "doctor",
     generated_at: "2026-10-03T10:00:00.000Z",
-    db: "myia.db",
+    db: "myssia.db",
     healthy: true,
     plugins: [
       {
@@ -192,7 +192,7 @@ function okSidecar() {
     "run.start": (params: never) => {
       const { yaml } = params as { yaml: string };
       state.started.push(params);
-      return { run_id: 9, state: "running", yaml, dry: false, db: "myia.db" };
+      return { run_id: 9, state: "running", yaml, dry: false, db: "myssia.db" };
     },
   };
   return { map, state };
@@ -422,7 +422,7 @@ describe("配置编辑:校验干跑", () => {
     map["yaml.validate"] = () => ({
       valid: false,
       findings: [
-        { path: "$.push[0]", code: "secret_unknown", message: "凭据 myia/push/token 尚未录入钥匙链(先 myia secret set)", level: "warning" },
+        { path: "$.push[0]", code: "secret_unknown", message: "凭据 myia/push/token 尚未录入钥匙链(先 myssia secret set)", level: "warning" },
         { path: "$.sources[0].url", code: "source_invalid", message: "源 url 不能为空", level: "error" },
       ],
       category: null,
@@ -627,7 +627,7 @@ describe("配置编辑:跑一次与采集运行提示", () => {
         {
           run_id: 5,
           yaml: AI,
-          db: "myia.db",
+          db: "myssia.db",
           dry: false,
           state: "running",
           exit_code: null,

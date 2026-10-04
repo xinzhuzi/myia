@@ -33,7 +33,7 @@ MYIA 只做子进程调用,不 vendor 任何上游代码(prd R5 红线):
 发送期解析)。对象 = 微信会话 peer id(``xxx@im.wechat`` DM /
 ``xxx@chatroom`` 群,蓝本 ``get_chat_info`` 形态依据);中文别名不匹配
 直达正则 → 落目录四路径(别名层手工登记,prd R3)。目录无自动发现
-(:class:`~shishi.push.directory.DirectoryDiscoverUnsupported`)。
+(:class:`~myssia.push.directory.DirectoryDiscoverUnsupported`)。
 
 正文:用户模板在场走 :class:`TemplateRenderer`,缺省内置纯文本版式
 (与 ntfy ``build_message`` 同款);长文不预切——Hermes 侧 1800/2000
@@ -56,12 +56,12 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Sequence
 
-from shishi.push.base import PushSendError, SendContext, TrendAwareChannel
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.ntfy import build_message
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.base import PushSendError, SendContext, TrendAwareChannel
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.ntfy import build_message
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "DEFAULT_BRIDGE_TIMEOUT_SECONDS",

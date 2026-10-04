@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         **红线 / Red line:** never paste credentials, cookies, tokens, internal
-        hostnames or private data into this issue. `shishi` errors reference
+        hostnames or private data into this issue. `myia` errors reference
         credential *names* only — keep it that way when you quote output.
         **零容忍:**本 issue 里禁止出现任何凭据值、Cookie、token、内网地址或私人数据;
         引用命令输出时确认凭据位只剩 `env:` / `keychain:` 引用名。
@@ -28,7 +28,7 @@ body:
         only) and the exact command. / 品类 YAML(凭据位只能是 env: 或
         keychain: 引用)与完整命令。
       placeholder: |
-        1. `shishi run plugins/xxx.yaml --json`
+        1. `myssia run plugins/xxx.yaml --json`
         2. …
     validations:
       required: true
@@ -51,14 +51,14 @@ body:
     id: diagnostics
     attributes:
       label: Structured output / 结构化输出
-      description: "`shishi doctor --json` and/or `shishi run --json` output (redact credential values). / `shishi doctor --json` 或 `shishi run --json` 输出(脱敏后粘贴)。"
+      description: "`myssia doctor --json` and/or `myssia run --json` output (redact credential values). / `myssia doctor --json` 或 `myssia run --json` 输出(脱敏后粘贴)。"
       render: json
 
   - type: input
     id: version
     attributes:
       label: 世事 version / 版本
-      placeholder: "shishi 0.1.0 (`uv run shishi --version`)"
+      placeholder: "myia 0.1.0 (`uv run myssia --version`)"
     validations:
       required: true
 

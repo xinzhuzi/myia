@@ -26,14 +26,14 @@ from typing import Any
 
 import httpx
 
-from shishi.engines.fetch_base import (
+from myssia.engines.fetch_base import (
     KEY_ROTATE_STATUS_CODES,
     BaseEngine,
     FetchContext,
     FetchError,
     extract_json,
 )
-from shishi.schema import SourceConfig, resolve_credential
+from myssia.schema import SourceConfig, resolve_credential
 
 logger = logging.getLogger(__name__)
 

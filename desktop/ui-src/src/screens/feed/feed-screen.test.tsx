@@ -11,6 +11,10 @@
  * loading/done/cached/scores 并回/无配置 graceful)/ G9 批量标已读未读(计数
  * 同步 + localStorage)/ G12 沉淀为关键词(yaml.list/read/save 经 invoke mock,
  * mtime 乐观锁 + 手术内容断言)/ P2⑤ 搜索框焦点环归全局体系(无局部 ring 覆写)。
+ * interaction-batch 批(10-04 A-feed):j/k 键盘导航(边界钳制/focus 环/输入框
+ * 守卫/scrollIntoView)/ 显示选项下拉(未读优先 + 分组维度,myssia.feed.display.v1
+ * 持久)/ 卡片右键菜单四动作(打开原文/复制链接/标已读/沉淀 G12 联动);
+ * 纯函数 sortUnreadFirst / groupFeedItemsByCategory / load·saveFeedDisplay。
  */
 import { cleanup, fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
@@ -28,7 +32,17 @@ import type {
   StoreItemsResult,
 } from "@/lib/api";
 
-import { appendWatchlistKeyword, categoryColor, groupFeedItems, setMarkerBulk } from "./api";
+import {
+  appendWatchlistKeyword,
+  categoryColor,
+  DEFAULT_FEED_DISPLAY,
+  groupFeedItems,
+  groupFeedItemsByCategory,
+  loadFeedDisplay,
+  saveFeedDisplay,
+  setMarkerBulk,
+  sortUnreadFirst,
+} from "./api";
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
@@ -71,7 +85,7 @@ function healthResult(overrides: Partial<HealthResult> = {}): HealthResult {
   return {
     command: "list",
     plugins_dir: "/home/plugins",
-    db: "/home/myia.db",
+    db: "/home/myssia.db",
     store_error: null,
     plugins: [
       {
@@ -141,7 +155,7 @@ function fixtureItem(overrides: Partial<FeedItem> = {}): FeedItem {
 }
 
 function result(items: FeedItem[]): StoreItemsResult {
-  return { db: "myia.db", count: items.length, items };
+  return { db: "myssia.db", count: items.length, items };
 }
 
 // G12 夹具:plugins 目录两个 YAML(一好一坏)+ 目标原文(流式 keywords)
@@ -291,7 +305,7 @@ describe("FeedScreen", () => {
     await waitFor(() =>
       expect(within(card2).getByRole("button", { name: "星标" }).getAttribute("aria-pressed")).toBe("true"),
     );
-    const persisted: unknown = JSON.parse(localStorageStub.getItem("myia.feed.states.v1") ?? "{}");
+    const persisted: unknown = JSON.parse(localStorageStub.getItem("myssia.feed.states.v1") ?? "{}");
     expect((persisted as Record<string, { starred?: boolean }>)[items[1].dedup_key]?.starred).toBe(true);
 
     // 稍后读 item3
@@ -403,7 +417,7 @@ describe("FeedScreen", () => {
   it("空流 CTA:点击 → health 取已加载插件 → run.start(yaml) → 采集中 → completed 刷新", async () => {
     storeItemsMock.mockResolvedValue(result([]));
     runStartMock.mockResolvedValue({
-      run_id: 3, state: "running", yaml: "/home/plugins/ai-news.yaml", dry: false, db: "/home/myia.db",
+      run_id: 3, state: "running", yaml: "/home/plugins/ai-news.yaml", dry: false, db: "/home/myssia.db",
     });
     let emitEvent: ((event: { type: string; run_id: number }) => void) | undefined;
     onSidecarEventMock.mockImplementation((handler: (event: never) => void) => {
@@ -524,27 +538,27 @@ describe("FeedScreen", () => {
     renderScreen();
     await screen.findByText("条目 1");
 
-    dialogSaveMock.mockResolvedValue("/tmp/myia-feed-export.jsonl");
-    const exportResult: FeedExportResult = { path: "/tmp/myia-feed-export.jsonl", count: 1, bytes: 640 };
+    dialogSaveMock.mockResolvedValue("/tmp/myssia-feed-export.jsonl");
+    const exportResult: FeedExportResult = { path: "/tmp/myssia-feed-export.jsonl", count: 1, bytes: 640 };
     feedExportMock.mockResolvedValue(exportResult);
 
     fireEvent.click(screen.getByRole("button", { name: "导出当前视图" }));
     await waitFor(() => expect(feedExportMock).toHaveBeenCalled());
-    expect(feedExportMock).toHaveBeenCalledWith({ format: "jsonl", path: "/tmp/myia-feed-export.jsonl" });
+    expect(feedExportMock).toHaveBeenCalledWith({ format: "jsonl", path: "/tmp/myssia-feed-export.jsonl" });
     expect(dialogSaveMock).toHaveBeenCalledWith(
-      expect.objectContaining({ defaultPath: expect.stringMatching(/^myia-feed-\d{8}\.jsonl$/) }),
+      expect.objectContaining({ defaultPath: expect.stringMatching(/^myssia-feed-\d{8}\.jsonl$/) }),
     );
     expect(await screen.findByTestId("feed-export-result")).toBeTruthy();
-    expect(screen.getByTestId("feed-export-result").textContent).toContain("/tmp/myia-feed-export.jsonl");
+    expect(screen.getByTestId("feed-export-result").textContent).toContain("/tmp/myssia-feed-export.jsonl");
     expect(screen.getByTestId("feed-export-result").textContent).toContain("1 条");
 
     // CSV 格式切换后走 csv 词表
     fireEvent.click(screen.getByRole("button", { name: "CSV" }));
-    dialogSaveMock.mockResolvedValue("/tmp/myia-feed-export.csv");
-    feedExportMock.mockResolvedValue({ path: "/tmp/myia-feed-export.csv", count: 1, bytes: 120 });
+    dialogSaveMock.mockResolvedValue("/tmp/myssia-feed-export.csv");
+    feedExportMock.mockResolvedValue({ path: "/tmp/myssia-feed-export.csv", count: 1, bytes: 120 });
     fireEvent.click(screen.getByRole("button", { name: "导出当前视图" }));
     await waitFor(() =>
-      expect(feedExportMock).toHaveBeenLastCalledWith({ format: "csv", path: "/tmp/myia-feed-export.csv" }),
+      expect(feedExportMock).toHaveBeenLastCalledWith({ format: "csv", path: "/tmp/myssia-feed-export.csv" }),
     );
   });
 
@@ -678,7 +692,7 @@ describe("FeedScreen", () => {
     const read = fixtureItem({ category: "stocks" });
     const readNoCategory = fixtureItem({ category: null });
     localStorageStub.setItem(
-      "myia.feed.states.v1",
+      "myssia.feed.states.v1",
       JSON.stringify({
         [read.dedup_key]: { read: true },
         [readNoCategory.dedup_key]: { read: true },
@@ -886,7 +900,7 @@ describe("FeedScreen", () => {
     await waitFor(() => expect(screen.getByText("0 / 3 条")).toBeTruthy());
     expect(screen.queryByTestId(/^feed-item-/)).toBeNull();
     expect(screen.getByText("没有未读条目")).toBeTruthy();
-    const persisted: unknown = JSON.parse(localStorageStub.getItem("myia.feed.states.v1") ?? "{}");
+    const persisted: unknown = JSON.parse(localStorageStub.getItem("myssia.feed.states.v1") ?? "{}");
     for (const item of items) {
       expect((persisted as Record<string, { read?: boolean }>)[item.dedup_key]?.read).toBe(true);
     }
@@ -1007,6 +1021,236 @@ describe("FeedScreen", () => {
     const error = await screen.findByTestId(`feed-keyword-list-error-${item.id}`);
     expect(error.textContent).toContain("source_dir_unreadable");
     expect(within(error).getByRole("button", { name: "重试" })).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// interaction-batch 批(10-04 A-feed):j/k 键盘导航 / 显示选项下拉 /
+// 右键上下文菜单(ui/context-menu.tsx 本批自建基件)
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · interaction-batch(A-feed)", () => {
+  it("j/k 巡游:首按 j 选中首卡(focus 环可见),j/k 上下移,首末边界钳制不回绕", async () => {
+    const items = [fixtureItem(), fixtureItem(), fixtureItem()];
+    storeItemsMock.mockResolvedValue(result(items));
+    // jsdom 无 scrollIntoView 实现:注入 spy 断言「最近侧滚入」调用(测后还原)
+    const originalScroll = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = vi.fn();
+    try {
+      renderScreen();
+      await screen.findByText("条目 1");
+
+      const first = screen.getByTestId(`feed-item-${items[0].id}`);
+      expect(first.getAttribute("data-current")).toBe("false"); // 未选中
+      fireEvent.keyDown(window, { key: "j" });
+      expect(first.getAttribute("data-current")).toBe("true");
+      expect(first.getAttribute("data-nav-focused")).toBe("true");
+      expect(first.className).toContain("ring-1"); // focus 环可见(A-feed 要点)
+      expect(first.className).toContain("ring-primary");
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+
+      // 首卡 k:钳制原地不动(不回绕到末卡)
+      fireEvent.keyDown(window, { key: "k" });
+      expect(first.getAttribute("data-current")).toBe("true");
+
+      // j → 第二卡;前卡让位
+      fireEvent.keyDown(window, { key: "j" });
+      const second = screen.getByTestId(`feed-item-${items[1].id}`);
+      expect(second.getAttribute("data-current")).toBe("true");
+      expect(first.getAttribute("data-current")).toBe("false");
+
+      // 末卡再 j:钳制原地不动(不回绕回首卡)
+      fireEvent.keyDown(window, { key: "j" });
+      fireEvent.keyDown(window, { key: "j" });
+      expect(screen.getByTestId(`feed-item-${items[2].id}`).getAttribute("data-current")).toBe("true");
+      fireEvent.keyDown(window, { key: "j" });
+      expect(screen.getByTestId(`feed-item-${items[2].id}`).getAttribute("data-current")).toBe("true");
+    } finally {
+      Element.prototype.scrollIntoView = originalScroll;
+    }
+  });
+
+  it("j/k focus 环只在键盘巡游时呈现:hover 进入卡让环退出(data-current 仍在)", async () => {
+    const items = [fixtureItem(), fixtureItem()];
+    storeItemsMock.mockResolvedValue(result(items));
+    renderScreen();
+    const first = await screen.findByTestId(`feed-item-${items[0].id}`);
+
+    fireEvent.keyDown(window, { key: "j" });
+    expect(first.className).toContain("ring-1");
+    fireEvent.mouseEnter(first);
+    expect(first.className).not.toContain("ring-1"); // hover = 背景态,focus 环让位
+    expect(first.getAttribute("data-current")).toBe("true"); // 当前卡仍随 hover
+  });
+
+  it("j/k 守卫:输入框内敲 j 不动当前卡;⌘/Ctrl/Alt 修饰键不触发", async () => {
+    const items = [fixtureItem(), fixtureItem()];
+    storeItemsMock.mockResolvedValue(result(items));
+    renderScreen();
+    await screen.findByText("条目 1");
+
+    const search = screen.getByLabelText("搜索条目");
+    fireEvent.change(search, { target: { value: "jk" } });
+    fireEvent.keyDown(search, { key: "j" });
+    fireEvent.keyDown(window, { key: "j", metaKey: true });
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    for (const item of items) {
+      expect(screen.getByTestId(`feed-item-${item.id}`).getAttribute("data-current")).toBe("false");
+    }
+
+    // 守卫外正常路径仍在:window 上裸按 j 选中首卡
+    fireEvent.keyDown(window, { key: "j" });
+    expect(screen.getByTestId(`feed-item-${items[0].id}`).getAttribute("data-current")).toBe("true");
+  });
+
+  it("j/k + U 联动:j 选中后按 U 切已读(默认未读过滤下当前卡离场)", async () => {
+    const items = [fixtureItem(), fixtureItem()];
+    storeItemsMock.mockResolvedValue(result(items));
+    renderScreen();
+    await screen.findByText("条目 1");
+
+    fireEvent.keyDown(window, { key: "j" });
+    fireEvent.keyDown(window, { key: "u" });
+    await waitFor(() => expect(screen.queryByTestId(`feed-item-${items[0].id}`)).toBeNull());
+    expect(screen.getByTestId(`feed-item-${items[1].id}`).getAttribute("data-current")).toBe("false");
+  });
+
+  it("显示选项 · 未读优先:开启后未读浮前(两类各自稳定保序),localStorage 持久", async () => {
+    const unreadA = fixtureItem({ title: "未读甲" });
+    const readB = fixtureItem({ title: "已读乙" });
+    const unreadC = fixtureItem({ title: "未读丙" });
+    localStorageStub.setItem(
+      "myssia.feed.states.v1",
+      JSON.stringify({ [readB.dedup_key]: { read: true } }),
+    );
+    storeItemsMock.mockResolvedValue(result([unreadA, readB, unreadC]));
+    renderScreen();
+    await screen.findByText("未读甲");
+    // 全部视图:排序变化可观察(未读过滤下已读不可见)
+    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
+    const order = () =>
+      screen.getAllByTestId(/^feed-item-/).map((node) => node.getAttribute("data-item-key"));
+    expect(order()).toEqual([unreadA.dedup_key, readB.dedup_key, unreadC.dedup_key]);
+
+    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
+    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "未读优先" }));
+
+    // 未读甲/丙 浮前(原序),已读乙沉底(稳定保序,不乱序)
+    await waitFor(() =>
+      expect(order()).toEqual([unreadA.dedup_key, unreadC.dedup_key, readB.dedup_key]),
+    );
+    const persisted: unknown = JSON.parse(localStorageStub.getItem("myssia.feed.display.v1") ?? "{}");
+    expect((persisted as { unreadFirst?: boolean }).unreadFirst).toBe(true);
+  });
+
+  it("显示选项 · 分组维度:时间四桶(缺省)→ 按品类(色点同 categoryColor)→ 不分组(平铺)", async () => {
+    const tech1 = fixtureItem({ category: "tech", title: "技一" });
+    const news2 = fixtureItem({ category: "news", title: "闻二" });
+    const tech3 = fixtureItem({ category: "tech", title: "技三" });
+    const none4 = fixtureItem({ category: null, title: "无类四" });
+    storeItemsMock.mockResolvedValue(result([tech1, news2, tech3, none4]));
+    renderScreen();
+    await screen.findByText("技一");
+
+    // 缺省 = 时间四桶(既有 D4 行为不动)
+    expect(screen.getByTestId("feed-group-今天").textContent).toContain("4 条");
+
+    // 按品类分组:组头 = 品类首次出现顺序,tech 组头带 categoryColor 同源色点
+    const asRgb = (hex: string) => {
+      const value = Number.parseInt(hex.slice(1), 16);
+      return `rgb(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255})`;
+    };
+    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
+    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "按品类分组" }));
+    const techHeader = await screen.findByTestId("feed-group-tech");
+    expect(techHeader.textContent).toContain("2 条");
+    expect(screen.getByTestId("feed-group-news").textContent).toContain("1 条");
+    expect(screen.getByTestId("feed-group-未分类").textContent).toContain("1 条");
+    const dot = techHeader.querySelector("[data-group-color]");
+    expect(dot).not.toBeNull();
+    expect((dot as HTMLElement).style.backgroundColor).toBe(asRgb(categoryColor("tech") as string));
+    // 无分类组头无色点(色件零渲染纪律)
+    expect(screen.getByTestId("feed-group-未分类").querySelector("[data-group-color]")).toBeNull();
+
+    // 不分组:组头全消、四卡平铺
+    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
+    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "不分组(平铺)" }));
+    await waitFor(() => expect(screen.queryByTestId("feed-group-tech")).toBeNull());
+    expect(screen.queryByTestId(/^feed-group-/)).toBeNull();
+    expect(screen.getAllByTestId(/^feed-item-/)).toHaveLength(4);
+    expect(screen.getByTestId("feed-flat-list")).toBeTruthy();
+
+    // 持久:groupMode = none(重开菜单勾选态同步)
+    const persisted: unknown = JSON.parse(localStorageStub.getItem("myssia.feed.display.v1") ?? "{}");
+    expect((persisted as { groupMode?: string }).groupMode).toBe("none");
+    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: "不分组(平铺)" }).querySelector("svg")).not.toBeNull();
+    expect(within(menu).getByRole("menuitem", { name: "时间分组(今天 / 昨天 / 7 天内 / 更早)" }).querySelector("svg")).toBeNull();
+  });
+
+  it("右键菜单:四动作齐(打开原文/复制链接/标记已读/沉淀为关键词),动作生效且选后自闭", async () => {
+    const item = fixtureItem({ url: "https://example.com/story" });
+    storeItemsMock.mockResolvedValue(result([item]));
+    // navigator.clipboard 在 jsdom 缺席:注入 stub(测后还原)
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    try {
+      renderScreen();
+      fireEvent.click(screen.getByRole("button", { name: "过滤:全部" })); // 标已读后卡仍在场
+      const card = await screen.findByTestId(`feed-item-${item.id}`);
+
+      fireEvent.contextMenu(card);
+      const menu = await screen.findByRole("menu");
+      expect(within(menu).getAllByRole("menuitem").map((node) => node.textContent)).toEqual([
+        "打开原文",
+        "复制链接",
+        "标记已读",
+        "沉淀为关键词…",
+      ]);
+
+      // 标记已读:切已读 + 菜单选后自闭(120ms 离场)
+      fireEvent.click(within(menu).getByRole("menuitem", { name: "标记已读" }));
+      await waitFor(() => expect(card.getAttribute("data-unread")).toBe("false"));
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull(), { timeout: 1000 });
+
+      // 标签随状态切换(已读 → 标记未读);打开原文走 plugin-shell open 同门
+      fireEvent.contextMenu(card);
+      const menu2 = await screen.findByRole("menu");
+      expect(within(menu2).getByRole("menuitem", { name: "标记未读" })).toBeTruthy();
+      fireEvent.click(within(menu2).getByRole("menuitem", { name: "打开原文" }));
+      await waitFor(() => expect(shellOpenMock).toHaveBeenCalledWith("https://example.com/story"));
+
+      // 复制链接:navigator.clipboard.writeText
+      fireEvent.contextMenu(card);
+      fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "复制链接" }));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith("https://example.com/story"));
+
+      // 沉淀为关键词:直调卡内 openPin → G12 就地面板打开(面板本尊零改)
+      const saves = mockYamlSidecar();
+      expect(saves).toHaveLength(0);
+      fireEvent.contextMenu(card);
+      fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: /沉淀为关键词/ }));
+      expect(await screen.findByTestId(`feed-keyword-pin-${item.id}`)).toBeTruthy();
+    } finally {
+      Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
+  it("右键菜单:Esc 关闭;非 http(s) 条目「打开原文/复制链接」禁用(同 URL 门),标已读仍可用", async () => {
+    const ftp = fixtureItem({ url: "ftp://files.example.com/x" });
+    storeItemsMock.mockResolvedValue(result([ftp]));
+    renderScreen();
+    const card = await screen.findByTestId(`feed-item-${ftp.id}`);
+
+    fireEvent.contextMenu(card);
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: "打开原文" }).getAttribute("disabled")).not.toBeNull();
+    expect(within(menu).getByRole("menuitem", { name: "复制链接" }).getAttribute("disabled")).not.toBeNull();
+    expect(within(menu).getByRole("menuitem", { name: "标记已读" }).getAttribute("disabled")).toBeNull();
+
+    fireEvent.keyDown(menu, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull(), { timeout: 1000 });
   });
 });
 
@@ -1143,5 +1387,77 @@ describe("feed fe-small-batch 纯函数(api.ts)", () => {
     // 有其他标记的键保留显式 read:false(与 toggleMarker 的存储纪律一致:
     // 显式 false 与缺省同义,只有三态全 false 才剪键)
     expect(backUnread[items[1].dedup_key]).toEqual({ starred: true, read: false });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// interaction-batch 纯函数(api.ts):sortUnreadFirst 稳定保序 /
+// groupFeedItemsByCategory 品类分组 / load·saveFeedDisplay 本地持久纪律
+// ---------------------------------------------------------------------------
+
+describe("feed interaction-batch 纯函数(api.ts)", () => {
+  it("sortUnreadFirst:未读浮前已读沉底,两类各自稳定保序;全同态原序零变动", () => {
+    const a = fixtureItem();
+    const b = fixtureItem();
+    const c = fixtureItem();
+    const d = fixtureItem();
+    const states = {
+      [b.dedup_key]: { read: true },
+      [d.dedup_key]: { read: true },
+    };
+    expect(sortUnreadFirst([a, b, c, d], states).map((item) => item.dedup_key)).toEqual([
+      a.dedup_key,
+      c.dedup_key,
+      b.dedup_key,
+      d.dedup_key,
+    ]);
+    // 全未读 / 全已读:原序不变
+    expect(sortUnreadFirst([d, c], {}).map((item) => item.id)).toEqual([d.id, c.id]);
+    const allRead = { [d.dedup_key]: { read: true }, [c.dedup_key]: { read: true } };
+    expect(sortUnreadFirst([d, c], allRead).map((item) => item.id)).toEqual([d.id, c.id]);
+    // 不改原数组(返回新序)
+    const source = [b, a];
+    sortUnreadFirst(source, { [a.dedup_key]: { read: true } });
+    expect(source.map((item) => item.id)).toEqual([b.id, a.id]);
+  });
+
+  it("groupFeedItemsByCategory:品类按首次出现出组,组内原序,无品类归「未分类」色 null,色同 categoryColor", () => {
+    const t1 = fixtureItem({ category: "tech" });
+    const n1 = fixtureItem({ category: "news" });
+    const t2 = fixtureItem({ category: "tech" });
+    const bare = fixtureItem({ category: null });
+    const groups = groupFeedItemsByCategory([t1, n1, t2, bare]);
+    expect(groups.map((group) => group.key)).toEqual(["tech", "news", null]);
+    expect(groups[0].items).toEqual([t1, t2]); // 组内保持传入原序
+    expect(groups[1].items).toEqual([n1]);
+    expect(groups[2].label).toBe("未分类");
+    expect(groups[2].color).toBeNull(); // 无品类零色件
+    expect(groups[0].color).toBe(categoryColor("tech")); // 色同源
+    expect(groups[0].label).toBe("tech");
+    // 空入空出
+    expect(groupFeedItemsByCategory([])).toEqual([]);
+  });
+
+  it("loadFeedDisplay / saveFeedDisplay:往返持久;损坏 JSON/非对象回缺省;字段非法逐字段回缺省;storage 缺席 = 缺省", () => {
+    const storage = memoryStorage();
+    expect(loadFeedDisplay(storage)).toEqual(DEFAULT_FEED_DISPLAY); // 无键 = 缺省
+
+    saveFeedDisplay({ unreadFirst: true, groupMode: "category" }, storage);
+    expect(loadFeedDisplay(storage)).toEqual({ unreadFirst: true, groupMode: "category" });
+
+    storage.setItem("myssia.feed.display.v1", "{oops"); // JSON 损坏
+    expect(loadFeedDisplay(storage)).toEqual(DEFAULT_FEED_DISPLAY);
+    storage.setItem("myssia.feed.display.v1", JSON.stringify(["bad", "shape"])); // 非对象
+    expect(loadFeedDisplay(storage)).toEqual(DEFAULT_FEED_DISPLAY);
+
+    // 单字段非法逐字段回落,合法字段保留
+    storage.setItem("myssia.feed.display.v1", JSON.stringify({ unreadFirst: "yes", groupMode: "bogus" }));
+    expect(loadFeedDisplay(storage)).toEqual(DEFAULT_FEED_DISPLAY);
+    storage.setItem("myssia.feed.display.v1", JSON.stringify({ unreadFirst: true }));
+    expect(loadFeedDisplay(storage)).toEqual({ unreadFirst: true, groupMode: "time" });
+    storage.setItem("myssia.feed.display.v1", JSON.stringify({ groupMode: "none" }));
+    expect(loadFeedDisplay(storage)).toEqual({ unreadFirst: false, groupMode: "none" });
+
+    expect(loadFeedDisplay(null)).toEqual(DEFAULT_FEED_DISPLAY); // storage 缺席
   });
 });

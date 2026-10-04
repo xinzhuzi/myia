@@ -43,7 +43,7 @@ struct Sidecar {
     respawn_attempts: Mutex<u32>,
 }
 
-/// sidecar 常驻进程:`myia-core serve`,启动时 spawn,pump 任务独占消费其 stdout。
+/// sidecar 常驻进程:`myssia-core serve`,启动时 spawn,pump 任务独占消费其 stdout。
 #[tauri::command]
 async fn sidecar_request(
     state: State<'_, Sidecar>,
@@ -148,11 +148,11 @@ fn pump_task(app: AppHandle, mut rx: tauri::async_runtime::Receiver<CommandEvent
 fn spawn_sidecar(app: &AppHandle) -> Result<CommandChild, Box<dyn std::error::Error>> {
     // MYIA_HOME 注入尊重用户显式设置(自动化/自定位数据根的逃生口):
     // 已设则原样继承,不夺权;未设才计算平台根并注入 + 预建目录。
-    // sidecar 叫 myia-core:主程序 mainBinaryName=MYIA,macOS APFS 大小写
-    // 不敏感,叫 myia 会在 Contents/MacOS/ 与 MYIA 撞名互相覆盖
-    let mut command = app.shell().sidecar("myia-core")?.args(["serve"]); // entry.py RPC 模式;直通模式(无参数)留给 CLI 场景
+    // sidecar 叫 myssia-core(带 -core 后缀,与主程序 MYIA 不同名——macOS APFS
+    // 大小写不敏感,sidecar 若与主程序同名会在 Contents/MacOS/ 互相覆盖)
+    let mut command = app.shell().sidecar("myssia-core")?.args(["serve"]); // entry.py RPC 模式;直通模式(无参数)留给 CLI 场景
     if std::env::var_os("MYIA_HOME").is_none() {
-        command = command.env("MYIA_HOME", myia_home_dir(app)?);
+        command = command.env("MYIA_HOME", myssia_home_dir(app)?);
     }
     // app/bundle 版本注入(C10):单一事实源 = tauri.conf.json 的 version
     // (package_info),sidecar `version` 应答透传为 app_version 字段;
@@ -235,12 +235,12 @@ async fn sidecar_restart(state: State<'_, Sidecar>, app: AppHandle) -> Result<Va
     Ok(json!({"restarted": true}))
 }
 
-/// MYIA 应用数据根(v1.1.1 桌面数据通路统一,与 entry.py `myia_home()` 同路径):
+/// MYIA 应用数据根(v1.1.1 桌面数据通路统一,与 entry.py `myssia_home()` 同路径):
 /// macOS `~/Library/Application Support/MYIA` / Windows `%APPDATA%\MYIA`
 /// (按 Roaming 惯例拼,APPDATA 重定向的边缘形态由 Python 侧 APPDATA env 兜底)
 /// / Linux `~/.myia`。spawn sidecar 时经 `MYIA_HOME` env 注入 —— 桌面上下文
 /// 的路径解析一处定案;sidecar 自带 .app bundle 探测作双保险。
-fn myia_home_dir(app: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn myssia_home_dir(app: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let home = app.path().home_dir()?;
     let dir = if cfg!(target_os = "macos") {
         home.join("Library/Application Support/MYIA")
@@ -301,7 +301,7 @@ fn main() {
         None => {
             eprintln!("desktop: 已有 MYIA 实例在跑(单实例锁),转激活既有实例后退出");
             let _ = std::process::Command::new("/bin/sh")
-                .args(["-c", "sleep 0.5; exec /usr/bin/open -b com.myia.app"])
+                .args(["-c", "sleep 0.5; exec /usr/bin/open -b com.myssia.app"])
                 .spawn();
             return;
         }

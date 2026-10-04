@@ -146,7 +146,7 @@ _CMP_OPS: dict[type, Any] = {
 class RuleSyntaxError(ValueError):
     """Raised when a ``when`` expression or rule config is invalid (load time).
 
-    The message is structured: ``规则路径: 原因``, consumed by ``myia doctor``
+    The message is structured: ``规则路径: 原因``, consumed by ``myssia doctor``
     and AI self-repair.
     """
 

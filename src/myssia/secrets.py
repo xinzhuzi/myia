@@ -2,7 +2,7 @@
 
 Credential references come in exactly three states (security-baseline spec):
 
-- ``env:VAR`` — resolved by :func:`shishi.schema.resolve_credential`;
+- ``env:VAR`` — resolved by :func:`myssia.schema.resolve_credential`;
 - ``keychain:NAME`` — resolved **here**: the system keychain via the
   ``keyring`` library (macOS Keychain, Windows DPAPI 凭据管理器, Linux
   Secret Service when a desktop keychain is present);
@@ -24,7 +24,7 @@ Fallback (Linux 服务器/无钥匙链环境): ``env:`` 引用为主. When no ke
 exists, discovery raises :class:`SecretError` with code
 ``keychain_backend_unavailable`` and the message guides to ``env:`` — 结构化报错引导.
 
-CLI: ``myia secret set/get/delete/list`` (separate task) is a thin wrapper over
+CLI: ``myssia secret set/get/delete/list`` (separate task) is a thin wrapper over
 :func:`set_secret` / :func:`get_secret` / :func:`delete_secret` /
 :func:`list_secrets` — the interfaces here are the stable contract.
 
@@ -206,20 +206,20 @@ def validate_secret_name(name: str) -> str:
     Raises:
         SecretError: code ``invalid_secret_name`` — the flat legacy form
             (``linuxsb_cookie``) and any other non-canonical name is refused
-            with migration guidance (改 YAML 引用 + ``myia secret set`` 写入).
+            with migration guidance (改 YAML 引用 + ``myssia secret set`` 写入).
     """
     if not isinstance(name, str) or not _SECRET_NAME_RE.match(name):
         raise SecretError(
             "invalid_secret_name",
             f"钥匙链凭据名必须为 myia/<scope>/<name> 形式(按用途分组),当前为 {name!r};"
             "请把 YAML 凭据引用改成 keychain:myia/<scope>/<name>,"
-            "再用 myia secret set myia/<scope>/<name> 写入钥匙链",
+            "再用 myssia secret set myia/<scope>/<name> 写入钥匙链",
         )
     return name
 
 
 # ---------------------------------------------------------------------------
-# CRUD (``myia secret set/get/delete/list`` 的函数契约,CLI 任务直接包装)
+# CRUD (``myssia secret set/get/delete/list`` 的函数契约,CLI 任务直接包装)
 # ---------------------------------------------------------------------------
 
 
@@ -309,7 +309,7 @@ def get_secret(name: str, *, backend: KeychainBackend | None = None) -> str:
         raise SecretError(
             "secret_not_found",
             f"系统钥匙链 service={SECRET_SERVICE!r} 下未找到凭据 {name!r};"
-            f"请先执行 myia secret set {name} 写入,或改用 env: 引用",
+            f"请先执行 myssia secret set {name} 写入,或改用 env: 引用",
         )
     return value
 

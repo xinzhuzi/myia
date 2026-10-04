@@ -27,7 +27,7 @@ URL**;定向 spec 写 ``dingtalk:https://oapi.dingtalk.com/robot/send?...``)
 ``channel_aliases.json`` 是本机私有数据,登记即落本机盘,指南文案已提示。
 
 错误消息携带 ``errcode=<n>`` 与 ``HTTP <status>`` 供死信分类
-(:func:`shishi.push.delivery.classify_dead_error`):310000 族(关键词/加签/
+(:func:`myssia.push.delivery.classify_dead_error`):310000 族(关键词/加签/
 IP/时间戳校验未通过)→ forbidden 硬失败;``-1`` 系统繁忙/超时 → 瞬态。
 
 凭据安全基线同其余通道:引用直到发送期才解析,错误只带引用名;webhook
@@ -48,17 +48,17 @@ from urllib.parse import quote_plus
 
 import httpx
 
-from shishi.push.base import (
+from myssia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
     TrendAwareChannel,
 )
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.ntfy import build_message
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.ntfy import build_message
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "DEFAULT_TARGET_ENV_REF",

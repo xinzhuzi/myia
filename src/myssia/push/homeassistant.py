@@ -18,7 +18,7 @@ MYIA 只做出站定向推送(入站 WebSocket ``state_changed`` 订阅是蓝本
   :data:`MESSAGE_LIMIT` 并告警,不拆多条。
 - **错误码 → 死信映射(W2 模板探查,已对照 HA REST API 文档)**:错误
   文案保留 ``HTTP <status>`` 与响应体片段,经
-  :func:`shishi.push.delivery.classify_dead_error` 判定——HTTP 403 →
+  :func:`myssia.push.delivery.classify_dead_error` 判定——HTTP 403 →
   ``forbidden``、HTTP 404 → ``not_found``(服务/路径不存在)、429/5xx/
   传输失败 → 瞬态不标。HTTP 401(令牌失效)是配置级硬失败,但 core
   分类器无 ``401`` marker → 按瞬态处理(令牌可被主人随时更换重试成功,
@@ -49,18 +49,18 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from shishi.push.base import (
+from myssia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
     TrendAwareChannel,
 )
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.feishu_card import card_title
-from shishi.push.ntfy import build_message
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.feishu_card import card_title
+from myssia.push.ntfy import build_message
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "DEFAULT_HASS_TOKEN_ENV_REF",

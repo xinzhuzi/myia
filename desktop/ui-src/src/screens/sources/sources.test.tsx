@@ -79,7 +79,7 @@ function healthResult(plugins: PluginReport[]): HealthResult {
   return {
     command: "list",
     plugins_dir: "plugins",
-    db: "myia.db",
+    db: "myssia.db",
     store_error: null,
     plugins,
     summary: { plugins: plugins.length, sources, ...counts },
@@ -97,7 +97,7 @@ function doctorResult(file: string, sourceNames: string[]): DoctorResult {
   return {
     command: "doctor",
     generated_at: "2026-10-02T10:00:00.000Z",
-    db: "myia.db",
+    db: "myssia.db",
     healthy: true,
     plugins: [plugin],
     credentials: { backend_available: true, backend_error: null, entries: [] },

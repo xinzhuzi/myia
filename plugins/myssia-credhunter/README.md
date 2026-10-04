@@ -1,8 +1,8 @@
-# myia-credhunter — 凭证猎手(credhunt / credcheck / exposure)
+# myssia-credhunter — 凭证猎手(credhunt / credcheck / exposure)
 
 官方场景件。把「发现 → 验证/余额 → 曝面」三段 AI 凭证情报能力**原生**
 融进 MYIA 管线的进程内插件(desktop 分级,零 Docker 零服务依赖)。已部署
-aipocket 实例的远程聚合接入走姊妹件 `myia-credentials`(remote 分级,
+aipocket 实例的远程聚合接入走姊妹件 `myssia-credentials`(remote 分级,
 endpoint + token 填在 `plugins/credentials.yaml` 的 plugin 节),两件共存、
 互不替代。
 
@@ -34,9 +34,9 @@ behavior-specs/`),零上游代码复制、不搬上游标识符/文案/注释;�
 
 | 能力名 | 段 | 状态 |
 |---|---|---|
-| `credhunt` | GitHub 工件凭证猎取(code search + commit message 两泳道,联合正则十大族) | 已落地:引擎 lane(`engine_options.credhunter.lane: credhunt`)+ CLI 冒烟口 `shishi credhunt` |
-| `credcheck` | 凭证验证(models 三态)+ 余额/身份探测 | 已落地:CLI 子命令 `shishi credcheck` 双入口——`--apikey` 显式传键 / `--from-keystore` 读本地密钥库(猎手命中入库的指纹→全文,验证后回填 `check_state`;见下方「密钥库」节) |
-| `exposure` | FOFA/Shodan 曝面发现 + L0 被动探测 | 已落地:引擎 lane(`lane: exposure`)+ CLI 冒烟口 `shishi exposure`;无 key 显式空态 |
+| `credhunt` | GitHub 工件凭证猎取(code search + commit message 两泳道,联合正则十大族) | 已落地:引擎 lane(`engine_options.credhunter.lane: credhunt`)+ CLI 冒烟口 `myssia credhunt` |
+| `credcheck` | 凭证验证(models 三态)+ 余额/身份探测 | 已落地:CLI 子命令 `myssia credcheck` 双入口——`--apikey` 显式传键 / `--from-keystore` 读本地密钥库(猎手命中入库的指纹→全文,验证后回填 `check_state`;见下方「密钥库」节) |
+| `exposure` | FOFA/Shodan 曝面发现 + L0 被动探测 | 已落地:引擎 lane(`lane: exposure`)+ CLI 冒烟口 `myssia exposure`;无 key 显式空态 |
 
 供应商指纹库(发现层 20 查询包 + 验证层 25 规格,数据文件化,
 `credhunter/data/*.yaml` —— **加供应商 = 加数据不改码**)、密钥指纹
@@ -76,15 +76,15 @@ remote 聚合共存)、`plugins/exposure.yaml`(exposure + scan 双源)。
 
 ### CLI(宿主动态加载,调试/冒烟口)
 
-宿主按 `plugins/myia-credhunter/adapter.py` compile+exec 挂载(与
-`myia proxy` 同一加载器),密钥一律**经参数注入**;`--json` 下 stdout 恒
+宿主按 `plugins/myssia-credhunter/adapter.py` compile+exec 挂载(与
+`myssia proxy` 同一加载器),密钥一律**经参数注入**;`--json` 下 stdout 恒
 单份 JSON,退出码族 0 成功/1 配置错/2 全败/3 部分败:
 
 ```bash
-shishi credhunt --github-token keychain:myia/credhunter/github-token --json
-shishi credcheck --apikey "sk-..." --balance --json   # 入口一:显式传键(自备活 key + 构造死 key 冒烟)
-shishi credcheck --from-keystore --balance --json     # 入口二:读密钥库(猎手命中已入库的全文,验证后回填)
-shishi exposure --fofa-key keychain:myia/credhunter/fofa-key --json
+myia credhunt --github-token keychain:myia/credhunter/github-token --json
+myssia credcheck --apikey "sk-..." --balance --json   # 入口一:显式传键(自备活 key + 构造死 key 冒烟)
+myssia credcheck --from-keystore --balance --json     # 入口二:读密钥库(猎手命中已入库的全文,验证后回填)
+myia exposure --fofa-key keychain:myia/credhunter/fofa-key --json
 ```
 
 进程内(测试/引擎侧)同款入口:
@@ -118,12 +118,12 @@ adapter.run_credcheck_keystore()   # 缺省读 $MYIA_HOME/credhunter-keystore.js
 宿主(CLI/引擎)解析成值后经参数传入。规范名空间 `myia/credhunter/*`:
 
 ```bash
-myia secret set myia/credhunter/github-token   # GitHub 猎取凭据
-myia secret set myia/credhunter/fofa-key       # FOFA 曝面发现
-myia secret set myia/credhunter/shodan-key     # Shodan 曝面发现
+myssia secret set myia/credhunter/github-token   # GitHub 猎取凭据
+myssia secret set myia/credhunter/fofa-key       # FOFA 曝面发现
+myssia secret set myia/credhunter/shodan-key     # Shodan 曝面发现
 ```
 
-品类/配置侧引用写法(与 myia-credentials 同一口径,只许 keychain:):
+品类/配置侧引用写法(与 myssia-credentials 同一口径,只许 keychain:):
 
 ```yaml
 token: keychain:myia/credhunter/github-token
@@ -166,7 +166,7 @@ credhunter/
 ## 安装 / 移除
 
 ```bash
-myia plugin install plugins/myia-credhunter
-myia plugin list --json
-myia plugin remove myia-credhunter
+myssia plugin install plugins/myssia-credhunter
+myssia plugin list --json
+myssia plugin remove myssia-credhunter
 ```

@@ -33,11 +33,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
-from myia.push import PLATFORMS, StdoutChannel
-from myia.push.base import SendContext, clip_text
-from myia.push.delivery import DeliveryLedger, send_batch_to_targets
-from myia.push.directory import ChannelDirectory
-from myia.push.targets import parse_spec
+from myssia.push import PLATFORMS, StdoutChannel
+from myssia.push.base import SendContext, clip_text
+from myssia.push.delivery import DeliveryLedger, send_batch_to_targets
+from myssia.push.directory import ChannelDirectory
+from myssia.push.targets import parse_spec
 
 logger = logging.getLogger(__name__)
 
@@ -340,7 +340,7 @@ def deliver_run_summary(
     - ``"stdout:<任意>"`` → stdout 特殊分支(§8.1 末条:入内存缓冲 +
       logger 回显,协议流零污染——见 :func:`_deliver_summary_via_stdout`);
     - 平台 spec(``feishu:群名`` / ``telegram:12345``)→ 通道按
-      :data:`myia.push.PLATFORMS` 直构(凭据走通道默认 env/keychain 引用链,
+      :data:`myssia.push.PLATFORMS` 直构(凭据走通道默认 env/keychain 引用链,
       §8.1),``send_batch_to_targets`` 逐对象发送 + 死信语义;SendContext
       ``kind="cron_summary"``(grill Q3)、slot/date 按 *now* 本地。
     """

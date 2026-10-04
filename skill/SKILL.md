@@ -1,27 +1,27 @@
 ---
 name: myia
-description: Turn a natural-language intelligence request into a MYIA category plugin and run it. Use when the user asks to monitor, collect, classify, or be pushed any information category (stocks, deals, AI news, credentials, GPU prices, custom) — read the schema quick reference below, generate the 12-section YAML, validate with `myia test`, run with `myia run`, and self-repair from `myia doctor --json` output. Generic standard, not tied to any single agent framework.
+description: Turn a natural-language intelligence request into a myssia category plugin and run it. Use when the user asks to monitor, collect, classify, or be pushed any information category (stocks, deals, AI news, credentials, GPU prices, custom) — read the schema quick reference below, generate the 12-section YAML, validate with `myssia test`, run with `myssia run`, and self-repair from `myssia doctor --json` output. Generic standard, not tied to any single agent framework.
 ---
 
-# MYIA Agent Skill — AI 写源速查
+# myssia Agent Skill — AI 写源速查
 
-MYIA 是一个配置驱动的情报流水线:`fetch → classify → dedup → analyze → enrich → push`。
+myssia 是一个配置驱动的情报流水线:`fetch → classify → dedup → analyze → enrich → push`。
 一个情报品类 = 一份 YAML。用户说需求,agent 做其余:读规范 → 写 YAML → 试抓验证 → 正式运行 → 自诊断修复。
 本文件是自包含速查:不依赖仓库其他文档也能写出合法 YAML(详细版见仓库
 `docs/write-a-plugin.md`,与本文互相引用、由一致性测试 `tests/test_skill_doc.py` 锁住不漂移)。
 
-安装:`myia skill install` 一条命令把本文件装进 agent 的技能目录(各平台目标与开关见文末 §7);内容是通用标准,不专门适配任何单一 agent 框架。
+安装:`myssia skill install` 一条命令把本文件装进 agent 的技能目录(各平台目标与开关见文末 §7);内容是通用标准,不专门适配任何单一 agent 框架。
 
 ## 总工作流(先记这个)
 
 ```
 用户需求
-  → myia init --json           # 拿结构化信息清单(要收集什么、缺省是什么)
+  → myssia init --json           # 拿结构化信息清单(要收集什么、缺省是什么)
   → 写 <id>.yaml(放到 plugins/ 下,对照 §2 速查表)
-  → myia test plugins/<id>.yaml --json    # 逐源试抓,核对字段与去重键(不入库不推送)
-  → myia run plugins/<id>.yaml --dry-run --json   # 全链演练(不推送)
-  → myia run plugins/<id>.yaml            # 正式跑一次;长期使用再加 --loop 常驻调度
-  → myia doctor --json         # findings 清零后收工(见 §5 自诊断)
+  → myssia test plugins/<id>.yaml --json    # 逐源试抓,核对字段与去重键(不入库不推送)
+  → myssia run plugins/<id>.yaml --dry-run --json   # 全链演练(不推送)
+  → myssia run plugins/<id>.yaml            # 正式跑一次;长期使用再加 --loop 常驻调度
+  → myssia doctor --json         # findings 清零后收工(见 §5 自诊断)
 ```
 
 所有命令的 `--json` 输出是**恰好一份 JSON 文档**(stdout),日志走 stderr——
@@ -45,7 +45,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
    AM/PM 槽位管「发没发过」(防重发),两层正交。
 7. **YAML 必须 UTF-8**;顶层必须是映射;重复键拒载。
 
-## 2. 插件规范速查(12 节 schema,与 `src/myia/schema.py` 逐字段一致)
+## 2. 插件规范速查(12 节 schema,与 `src/myssia/schema.py` 逐字段一致)
 
 「12 节」计数:根节 11 个字段 + `push[].route` 单独算一节。字段/缺省值由
 `tests/test_skill_doc.py` 对照 pydantic 模型逐项校验。
@@ -184,8 +184,8 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `batch` | `20` | 批量评分条数(1-1000) |
 | `cache` | `true` | 按 URL 缓存评分,同一 URL 永不打两次分 |
 | `budget_per_run` | `50000` | 单次 run 的 token 预算护栏;耗尽自动降级纯关键词粗筛并有 WARNING |
-| `base_url` | `null` | OpenAI 兼容端点,**只能是 `env:`/`keychain:` 引用**(MYIA 无内置端点),如 `env:MYIA_LLM_BASE_URL` |
-| `api_key` | `null` | API key,同上,如 `env:MYIA_LLM_KEY`(MYIA 无默认 key) |
+| `base_url` | `null` | OpenAI 兼容端点,**只能是 `env:`/`keychain:` 引用**(myssia 无内置端点),如 `env:MYIA_LLM_BASE_URL` |
+| `api_key` | `null` | API key,同上,如 `env:MYIA_LLM_KEY`(myssia 无默认 key) |
 
 ### 2.13 push[](PushConfig)
 
@@ -204,7 +204,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `wecom_corpid` | `null` | 企微自建应用 corpid 引用;省略走 `env:WECOM_CORPID`(仅 `wecom` 可配) |
 | `wecom_corpsecret` | `null` | 企微自建应用 secret 引用;省略走 `env:WECOM_CORPSECRET`(仅 `wecom` 可配) |
 | `wecom_agentid` | `null` | 企微自建应用 AgentId 引用(数值串);省略走 `env:WECOM_AGENTID`(仅 `wecom` 可配) |
-| `weixin_hermes_bin` | `null` | 本机 Hermes CLI 路径覆写(缺省 `~/.hermes/hermes-agent/.hermes/bin/hermes`);本地路径**非凭据**,不走 env:/keychain: 引用,MYIA 对微信零凭据(仅 `weixin` 可配) |
+| `weixin_hermes_bin` | `null` | 本机 Hermes CLI 路径覆写(缺省 `~/.hermes/hermes-agent/.hermes/bin/hermes`);本地路径**非凭据**,不走 env:/keychain: 引用,myssia 对微信零凭据(仅 `weixin` 可配) |
 
 各通道凭据约定:`feishu_card` 的 target = 收件/群 ID(如 `env:FEISHU_CHAT_ID`),
 机器人 token 从 `env:FEISHU_BOT_TOKEN` 读;`telegram` 的 target = chat id
@@ -249,16 +249,16 @@ target = 会话 peer id(`env:WEIXIN_PEER_ID`,定向写 `weixin:<peer id>`,
 - 只允许两种写法:`env:VAR_NAME`(运行时读环境变量)或
   `keychain:myia/<scope>/<name>`(读系统钥匙链,macOS Keychain / Windows DPAPI;
   **名空间必须规范** `myia/<scope>/<name>`,扁平旧名 `keychain:foo` 在解析期被拒)。
-- 写入钥匙链:`myia secret set myia/<scope>/<name>`(值走 stdin 管道或安全输入,
-  **不要**用 `--value` 传——会落 shell history 与进程列表);`myia secret list`
-  只列名字;`myia secret delete <name>` 删除。
+- 写入钥匙链:`myssia secret set myia/<scope>/<name>`(值走 stdin 管道或安全输入,
+  **不要**用 `--value` 传——会落 shell history 与进程列表);`myssia secret list`
+  只列名字;`myssia secret delete <name>` 删除。
 - 可带认证 scheme 前缀:`Authorization: "Bearer env:AIPOCKET_TOKEN"`。
 - 明文凭据 = 启动即拒载(退出码 1,错误带字段路径);凭据值永不回显、永不落日志
   (引用名可以出现,展开后的值禁止)。
 
-## 3. `myia init`:生成 YAML 前先拿信息清单
+## 3. `myssia init`:生成 YAML 前先拿信息清单
 
-`myia init --json` 输出恰好一份 JSON(恒定,不问交互问题),四块内容:
+`myssia init --json` 输出恰好一份 JSON(恒定,不问交互问题),四块内容:
 
 - `required_inputs`:必须向用户收集的信息——品类 id/name、schedule/timezone、
   每个源的 name/url/引擎/extract 方式(含示例)
@@ -268,7 +268,7 @@ target = 会话 peer id(`env:WEIXIN_PEER_ID`,定向写 `weixin:<peer id>`,
 
 把它当问卷:没收集到的可选项按 `default` 补全,直接生成 12 节 YAML。
 
-## 4. 写源工作流:需求 → YAML → myia test → run
+## 4. 写源工作流:需求 → YAML → myssia test → run
 
 ### 4.1 判定数据在哪(引擎选择经验,L1-L6)
 
@@ -276,14 +276,14 @@ target = 会话 peer id(`env:WEIXIN_PEER_ID`,定向写 `weixin:<peer id>`,
 |---|---|---|---|
 | L1 | `direct_api` | 数据有公开 JSON/REST API(行情、发版、社区 REST) | 最快最省;`extract.type: json_path`;先 curl 确认返回结构再写 fields |
 | L2 | `static_html` | 服务端渲染 HTML(论坛列表、新闻页、Discourse `/latest`);RSS/Atom feed | 零依赖;`extract.type: list` + CSS 选择器(feed 用 `type: rss`,CSS 的 `<link>` void 元素拿不到条目 url) |
-| L3 | `crawl4ai` | JS 渲染页面,源码里看不到数据 | 可选依赖 `myia[crawl4ai]`,未装时报 `dependency_missing` 并继续降级;无 `extract` 时自动结构化兜底 |
+| L3 | `crawl4ai` | JS 渲染页面,源码里看不到数据 | 可选依赖 `myssia[crawl4ai]`,未装时报 `dependency_missing` 并继续降级;无 `extract` 时自动结构化兜底 |
 | L3' | `firecrawl` | crawl4ai 的云端替代后端 | 需 endpoint+key(`MYIA_FIRECRAWL_URL` / `MYIA_FIRECRAWL_API_KEY` 环境变量,或 `engine_options.firecrawl.endpoint/api_key`,值必须是 `env:`/`keychain:` 引用);未配置该层失败并继续降级 |
-| L4 | `scrapling` | 基础盾/改版频繁源:自适应选择器自愈 + 隐身指纹 + `pagination.mode: scroll` 无限滚动 | 可选依赖 `myia[scrapling]`,未装时报 `dependency_missing` 并继续降级;企业级风控(手机验证码/真人审核)零尝试并结构化报错,明确不支持 |
+| L4 | `scrapling` | 基础盾/改版频繁源:自适应选择器自愈 + 隐身指纹 + `pagination.mode: scroll` 无限滚动 | 可选依赖 `myssia[scrapling]`,未装时报 `dependency_missing` 并继续降级;企业级风控(手机验证码/真人审核)零尝试并结构化报错,明确不支持 |
 | L5 | `stealth_browser` | 反检测真浏览器:登录墙(cookie 注入,凭据走 `keychain:`)/ 基础验证码 | 需 invisible_playwright_mcp 服务(`engine_options.stealth_browser`,未启动报 `mcp_server_missing`);手机验证码/真人审核零尝试,报 `captcha_*` 结构化错误,不绕过 |
 | L6 | `llm_browser` | LLM 驱动浏览器(skyvern 自然语言指挥),多步交互/复杂表单死源的最后手段 | 需 skyvern endpoint+key(`engine_options.llm_browser.endpoint/api_key`,值必须是 `env:`/`keychain:` 引用);硬护栏:单源白名单(仅 `engine: llm_browser` 显式指定或 `auto` 链尾触达)+ 每 run 次数/预算熔断 |
 
 **链外源引擎 `credhunter`**(不在上表层级里):进程内场景件引擎——items 由
-`plugins/myia-credhunter/` 适配器就地装配(GitHub 工件猎取 / FOFA-Shodan 曝面
+`plugins/myssia-credhunter/` 适配器就地装配(GitHub 工件猎取 / FOFA-Shodan 曝面
 + L0 被动探测 / 本地文本分诊),不抓取 source.url。**不参与 auto 降级链**
 (显式 `engine: credhunter` 才生效,失败=源级结构化失败);凭据走
 `engine_options.credhunter.{github_tokens,fofa_apikey,shodan_apikey}` 引用;
@@ -292,7 +292,7 @@ lane:该源本轮不启用,写好引用即恢复)。授权边界:仅用于已授
 已授权资产排查;命中物一律前 8 后 4 掩码。
 
 经验法则:先看页面源码——搜得到数据写 L2,搜不到找 API 走 L1,都 JS 化才 L3;
-拿不准就 `engine: auto`,用 `myia test --json` 看实际选中引擎(`engine` 字段)。
+拿不准就 `engine: auto`,用 `myssia test --json` 看实际选中引擎(`engine` 字段)。
 不要给 API 源写 CSS 选择器,不要给 SSR 页面写 json_path。
 
 ### 4.2 生成 YAML
@@ -390,19 +390,19 @@ push:
 ### 4.3 验证与运行
 
 ```bash
-myia test plugins/<id>.yaml --json          # 逐源试抓(不入库不推送,每源默认 120s 超时)
-myia run plugins/<id>.yaml --dry-run --json # 全链演练,不推送无副作用
-myia run plugins/<id>.yaml                  # 正式跑一次
-myia run plugins/<id>.yaml --loop           # 常驻:按 schedule+timezone 自动触发
+myssia test plugins/<id>.yaml --json          # 逐源试抓(不入库不推送,每源默认 120s 超时)
+myssia run plugins/<id>.yaml --dry-run --json # 全链演练,不推送无副作用
+myssia run plugins/<id>.yaml                  # 正式跑一次
+myssia run plugins/<id>.yaml --loop           # 常驻:按 schedule+timezone 自动触发
 ```
 
-`myia test --json` 逐源看:`ok`(引擎链是否拿到数据)、`engine`(实际选中引擎)、
+`myssia test --json` 逐源看:`ok`(引擎链是否拿到数据)、`engine`(实际选中引擎)、
 `items[].fields`(提取字段预览)、`items[].dedup_key`(去重键预览,出现
 `dedup_key_error` 说明模板占位符渲染不出)、`fingerprint.verdict`
 (`unchanged_skip` = 内容未变属正常,线上调度会跳过;`changed_or_first_fetch` = 会正常提取;
 `unknown` = 引擎链耗尽)、`failures[]`(engine / error_type / message)。
 
-`myia run --json` 看:`stages[]`(常驻五阶段 fetch/classify/dedup/analyze/push,
+`myssia run --json` 看:`stages[]`(常驻五阶段 fetch/classify/dedup/analyze/push,
 各步 items_in→items_out 与 skips 原因;品类声明 `aggregate:` 时才在 push 前
 条件性插入 aggregate 阶段,未声明的品类不见它)、`sources[]`(源级条目数与
 skip 原因)、`push[]`(逐通道:immediate/digest/archive 分桶计数、路由
@@ -412,7 +412,7 @@ decisions 与发送 reports)。status:`success`/`partial`/`failed`
 ## 5. 自诊断流程(doctor JSON → 修复动作)
 
 ```bash
-myia doctor --json                    # 缺省体检 plugins/ 全部插件;也可 myia doctor <yaml> --json
+myssia doctor --json                    # 缺省体检 plugins/ 全部插件;也可 myssia doctor <yaml> --json
 ```
 
 退出码诊断完成即 0;`healthy: false` 表示存在 error 级 `findings`。
@@ -431,16 +431,16 @@ findings → 修复动作对照:
 | `credential_plaintext`(load_errors) | 把明文改成 `env:`/`keychain:` 引用(见 §2.16) |
 | `unknown_field` | 对照 §2 速查表改字段名;`sources[]` 下的扩展参数若疑似已知字段拼错也会报 |
 | `missing_field` / `invalid_value` 等校验错 | 按 `path` 字段路径定位,补必填项或改取值 |
-| `source_dead`(连续 3 轮失败) | 用 `myia test --json` 看 `failures[]`:URL 失效换 URL;页面改版调 extract;被风控考虑 L3/firecrawl 或代理;确认无解就注释掉该源 |
-| `source_degraded`(0 条/腰斩) | 页面结构疑似变化:重跑 `myia test --json`,检查 `items[].fields` 是否为空,修 extract 选择器 |
+| `source_dead`(连续 3 轮失败) | 用 `myssia test --json` 看 `failures[]`:URL 失效换 URL;页面改版调 extract;被风控考虑 L3/firecrawl 或代理;确认无解就注释掉该源 |
+| `source_degraded`(0 条/腰斩) | 页面结构疑似变化:重跑 `myssia test --json`,检查 `items[].fields` 是否为空,修 extract 选择器 |
 | `env_ref_missing` | 设置环境变量(如 `export FEISHU_CHAT_ID=...`) |
-| `keychain_ref_missing` | `myia secret set <引用名>` 写入钥匙链 |
+| `keychain_ref_missing` | `myssia secret set <引用名>` 写入钥匙链 |
 | `keychain_name_noncanonical` | 引用名改为 `myia/<scope>/<name>`,旧值重新 set 后改 YAML |
 | `store_error` | SQLite 库损坏或 schema 版本过新:换 `--db` 路径或删除重建(会丢历史) |
 | 代理类 finding(带 `--config`) | 代理池连不通是 warning;`credential_unresolved`/`invalid_proxy_url` 是 error,修全局配置 |
 
-修复循环:改 YAML → `myia test --json` 验证提取 → `myia doctor --json` 直到
-`findings` 清零 → `myia run --dry-run --json` 演练 → 正式 `run`/`--loop`。
+修复循环:改 YAML → `myssia test --json` 验证提取 → `myssia doctor --json` 直到
+`findings` 清零 → `myssia run --dry-run --json` 演练 → 正式 `run`/`--loop`。
 不要让用户去读日志——agent 读 JSON、改 YAML、复验。
 
 ## 6. 自查清单(交 YAML 前逐条打勾)
@@ -466,29 +466,29 @@ findings → 修复动作对照:
 10. `engine` 取值都在枚举表里;选 L4-L6 前确认其依赖/外部服务前提(见 §4.1);
     `engine: auto` 是默认且安全的选择(拿不准就让链自己降级)。
 11. 品类对不上七大类时 `classify.builtin: false`(否则未命中条目全被丢弃)。
-12. `myia test` 通过(退出码 0 或 3,且源 `ok: true`、字段预览非空、无 `dedup_key_error`);
-    `myia doctor` 的 `findings` 清零。
+12. `myssia test` 通过(退出码 0 或 3,且源 `ok: true`、字段预览非空、无 `dedup_key_error`);
+    `myssia doctor` 的 `findings` 清零。
 
 ## 7. 本文件的安装与更新(自述)
 
-这份速查由 `myia skill` 子命令安装,不靠手工复制。默认探测四类技能根:
+这份速查由 `myssia skill` 子命令安装,不靠手工复制。默认探测四类技能根:
 `~/.claude/skills`(Claude Code)、`~/.cursor/skills`(Cursor)、
 `~/.zcode/skills`(Zcode)、`~/.agents/skills`(Codex 等通用惯例),安装位置
 一律是 `<技能根>/myia/SKILL.md`:
 
 ```bash
-myia skill path --json                    # 源位置 + 各 agent 推荐路径与安装状态(装没装/副本还是链接/是否落后于源)
-myia skill install --agent claude         # 复制安装(缺省 --agent 时探测已存在的技能根)
-myia skill install --agent cursor --link  # 符号链接代替复制(源更新即跟随,无需重装)
-myia skill install --path ~/my-skills/myia  # 自定义安装目录(目录名 = 技能名)
-myia skill install --agent claude --force # 目标已存在时覆盖;缺省结构化拒绝(退出码 1,code=target_exists)
+myssia skill path --json                    # 源位置 + 各 agent 推荐路径与安装状态(装没装/副本还是链接/是否落后于源)
+myssia skill install --agent claude         # 复制安装(缺省 --agent 时探测已存在的技能根)
+myssia skill install --agent cursor --link  # 符号链接代替复制(源更新即跟随,无需重装)
+myssia skill install --path ~/my-skills/myia  # 自定义安装目录(目录名 = 技能名)
+myssia skill install --agent claude --force # 目标已存在时覆盖;缺省结构化拒绝(退出码 1,code=target_exists)
 ```
 
 契约与修复动作:
 
 - 纯文件操作,退出码只有 `0`(成功)/ `1`(源缺失、目标已存在未 `--force`、用法错误);
   `--json` 输出恰好一份 JSON。
-- `myia skill path` 里某 agent 的 `matches_source: false` = 已装副本落后于源
-  (SKILL.md 更新过),对该 agent 重跑 `myia skill install`,带上 `--agent <名>`
+- `myssia skill path` 里某 agent 的 `matches_source: false` = 已装副本落后于源
+  (SKILL.md 更新过),对该 agent 重跑 `myssia skill install`,带上 `--agent <名>`
   与 `--force`(见上方代码块)。
 - 装进 wheel 后(非源码仓库)找不到源时,设 `MYIA_SKILL_SOURCE` 指向 SKILL.md。

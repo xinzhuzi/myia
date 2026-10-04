@@ -1,20 +1,20 @@
-# Contributing to MYIA / 参与贡献
+# Contributing to myssia / 参与贡献
 
-Thanks for your interest! MYIA is an AI-native intelligence hub: one YAML
+Thanks for your interest! myssia is an AI-native intelligence hub: one YAML
 file per intelligence category, and every interface (CLI `--json`, structured
-errors, `myia doctor`) is built so a coding agent can operate it. New
+errors, `myssia doctor`) is built so a coding agent can operate it. New
 contributions should keep those two properties intact.
 
-感谢关注!MYIA 是 AI 原生情报中枢:一个品类一份 YAML,所有接口(CLI `--json`、
-结构化错误、`myia doctor`)都为「agent 可操作」设计。请在新贡献里保持这两点。
+感谢关注!myssia 是 AI 原生情报中枢:一个品类一份 YAML,所有接口(CLI `--json`、
+结构化错误、`myssia doctor`)都为「agent 可操作」设计。请在新贡献里保持这两点。
 
 ## Development setup / 开发环境
 
 Pure Python (3.11+), managed with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone https://github.com/xinzhuzi/MYIA
-cd MYIA
+git clone https://github.com/xinzhuzi/myssia
+cd myssia
 uv sync                                  # core + dev deps (+ optional extras as needed)
 uv run --no-sync python -m pytest -q     # full suite, zero real network
 ```
@@ -23,8 +23,8 @@ Layout map / 目录速览:
 
 | Path | What lives there |
 |---|---|
-| `src/myia/` | All first-party code: `schema.py` (12-section YAML model), `pipeline.py` (orchestration), `engines/` (7-rung fetch chain), `classify/`, `store/`, `enrich/`, `push/`, `feedback/`, `plugins/`, `cli.py` |
-| `myia-classifier/` | Standalone zero-dependency classifier package (own `pyproject.toml`) |
+| `src/myssia/` | All first-party code: `schema.py` (12-section YAML model), `pipeline.py` (orchestration), `engines/` (7-rung fetch chain), `classify/`, `store/`, `enrich/`, `push/`, `feedback/`, `plugins/`, `cli.py` |
+| `myssia-classifier/` | Standalone zero-dependency classifier package (own `pyproject.toml`) |
 | `plugins/` | Official category YAMLs + market plugin packages |
 | `skill/SKILL.md` | Agent-facing condensed schema & workflow |
 | `docs/zh/`, `docs/en/` | Bilingual docs, drift-locked by tests |
@@ -89,7 +89,7 @@ Layout map / 目录速览:
   logic (expiry, backoff) with freezegun.
 - Every schema field keeps a default-value test; docs examples are validated
   end-to-end by `tests/test_docs.py` (every ```yaml block under `docs/` must
-  load through the real `myia.schema.load_category`) and `tests/test_skill_doc.py`
+  load through the real `myssia.schema.load_category`) and `tests/test_skill_doc.py`
   locks `skill/SKILL.md` to the pydantic models field by field.
 
 Run the suite exactly like CI does:
@@ -103,7 +103,7 @@ uv run --no-sync python -m pytest -q --tb=short
 Changing the YAML schema means changing **four** places in the same PR, or
 the drift tests go red:
 
-`src/myia/schema.py` · `skill/SKILL.md` · `docs/` (zh + en) · `plugins/` examples.
+`src/myssia/schema.py` · `skill/SKILL.md` · `docs/` (zh + en) · `plugins/` examples.
 
 ## Commit & PR / 提交与评审
 

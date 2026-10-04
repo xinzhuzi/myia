@@ -35,7 +35,7 @@ Contract (PRD 10-01-v04-engine-llm-browser; 降级链定案「烧 token,只做�
      llm_browser 源共享,``engine_options.llm_browser.max_calls``,默认 3 ——
      L5 页面预算默认 10,兜底层更严);exceeding raises
      ``call_budget_exhausted`` before the next backend call;
-  3. *token 预算* — the same :class:`shishi.enrich.scoring.BudgetTracker` as
+  3. *token 预算* — the same :class:`myssia.enrich.scoring.BudgetTracker` as
      enrich guards a per-run budget
      (``engine_options.llm_browser.budget_per_run``):每完成一次调用,按
      skyvern 响应上报的用量入账(``usage.total_tokens`` -> ``total_cost`` ->
@@ -44,7 +44,7 @@ Contract (PRD 10-01-v04-engine-llm-browser; 降级链定案「烧 token,只做�
      ``budget_exhausted``。
 - **失败即终止降级链**:L6 是链尾,没有「下一层」—— every failure is a
   structured :class:`FetchError`,registry records it as the chain's final
-  :class:`~shishi.engines.fetch_base.EngineFailure`(所有引擎均失败)。熔断/
+  :class:`~myssia.engines.fetch_base.EngineFailure`(所有引擎均失败)。熔断/
   预算 refusal aborts the whole engine fetch(已抓条目一并丢弃,与 L5 页面
   预算同语义:超预算必须显式升预算,不默默烧钱)。
 - extraction:``json_path`` extracts over skyvern's JSON ``output`` payload
@@ -97,14 +97,14 @@ from typing import Any
 
 import httpx
 
-from shishi.engines.fetch_base import (
+from myssia.engines.fetch_base import (
     BaseEngine,
     FetchError,
     extract_json,
     mask_endpoint_url,
 )
-from shishi.enrich.scoring import BudgetTracker
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.enrich.scoring import BudgetTracker
+from myssia.schema import CredentialResolveError, resolve_credential
 
 logger = logging.getLogger(__name__)
 

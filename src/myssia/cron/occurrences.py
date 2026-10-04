@@ -6,18 +6,18 @@
 
 MYIA 适配(任务 10-04-hermes-cron,非照抄处仅此):
 
-- ``scheduled_instant`` 复用 :func:`myia.cron.executions.canonical_scheduled_
+- ``scheduled_instant`` 复用 :func:`myssia.cron.executions.canonical_scheduled_
   instant`(executions.py 已实现同一语义——aware ISO → UTC ISO、naive/垃圾
   → None——A3 时即注明「occurrences.py(A5)复用本函数,勿重复实现」;
   此处以别名再导出保住上游函数名)。
 - ``completed_occurrence`` 增加 ``ledger`` 关键字参数:上游引模块级
-  ``_transaction``,MYIA 账本是显式 :class:`~myia.cron.executions.
+  ``_transaction``,MYIA 账本是显式 :class:`~myssia.cron.executions.
   ExecutionLedger` 实例,经其公开 :meth:`transaction` 走同一纪律
   (进程内锁 + 必关连接)。
 - ``pending_slot_stamp``/``unclaimed_pending_slot`` 经惰性 import 引
-  ``myia.cron.jobs`` 的 :func:`~myia.cron.jobs.machine_id` /
-  :func:`~myia.cron.jobs.claim_is_live` /
-  :func:`~myia.cron.jobs.job_running_in_this_process`(上游同款双向惰性
+  ``myssia.cron.jobs`` 的 :func:`~myssia.cron.jobs.machine_id` /
+  :func:`~myssia.cron.jobs.claim_is_live` /
+  :func:`~myssia.cron.jobs.job_running_in_this_process`(上游同款双向惰性
   import 防 jobs ↔ occurrences 循环)。
 """
 
@@ -27,8 +27,8 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-from myia.cron.constants import FIRE_CLAIM_SKEW_SECONDS, FIRE_CLAIM_TTL_SECONDS
-from myia.cron.executions import ExecutionLedger, canonical_scheduled_instant
+from myssia.cron.constants import FIRE_CLAIM_SKEW_SECONDS, FIRE_CLAIM_TTL_SECONDS
+from myssia.cron.executions import ExecutionLedger, canonical_scheduled_instant
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +115,7 @@ def completed_occurrence(
 
 def pending_slot_stamp(next_run: Any, now: datetime) -> dict[str, Any]:
     """即将交给派发器的 recurring occurrence 的存储值。"""
-    from myia.cron.jobs import machine_id
+    from myssia.cron.jobs import machine_id
 
     return {"scheduled_at": next_run, "at": now.isoformat(), "by": machine_id()}
 
@@ -127,7 +127,7 @@ def unclaimed_pending_slot(job: dict[str, Any], now: datetime) -> Optional[str]:
     (其排队 worker 会自行认领并清槽)都返回 None。**本进程**戳的、job 却
     不在本进程跑 = 孤儿戳(派发被拒)。**他进程**戳的在 fire-claim 租期内
     仍尊重——同一存储上的第二个活宿主正在派发中,不是死了。"""
-    from myia.cron.jobs import claim_is_live, job_running_in_this_process, machine_id
+    from myssia.cron.jobs import claim_is_live, job_running_in_this_process, machine_id
 
     pending = job.get("pending_slot")
     if not isinstance(pending, dict):

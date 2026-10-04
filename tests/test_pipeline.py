@@ -1,4 +1,4 @@
-"""Tests for shishi.pipeline — orchestration, isolation, timeout/retry, scheduler.
+"""Tests for myssia.pipeline — orchestration, isolation, timeout/retry, scheduler.
 
 Covers PRD 10-01-v01-pipeline-orchestrator acceptance criteria:
 
@@ -30,9 +30,9 @@ import httpx
 import pytest
 from apscheduler.triggers.cron import CronTrigger
 
-import shishi.pipeline as pipeline_module
+import myssia.pipeline as pipeline_module
 from conftest import FakeClock
-from shishi.pipeline import (
+from myssia.pipeline import (
     EXECUTED_STAGES,
     STAGES,
     ChannelPushReport,
@@ -44,8 +44,8 @@ from shishi.pipeline import (
     StageReport,
     build_cron_trigger,
 )
-from shishi.schema import load_category
-from shishi.store import SQLiteStore
+from myssia.schema import load_category
+from myssia.store import SQLiteStore
 
 TIMEZONE = "Asia/Shanghai"
 
@@ -148,7 +148,7 @@ class FlakyOnceChannel(RecordingChannel):
     async def send(self, items, context) -> None:
         self.attempts += 1
         if self.attempts == 1:
-            from shishi.push import PushSendError
+            from myssia.push import PushSendError
 
             raise PushSendError("http_error", "模拟瞬时网络故障")
         await super().send(items, context)
@@ -600,7 +600,7 @@ def test_immediate_send_reaches_channel(tmp_path, monkeypatch):
 def test_stdout_stream_injection_reroutes_channel_output(tmp_path, capsys):
     """stdout_stream 注入:stdout 通道的卡片行写进注入流,进程 stdout 零输出。
 
-    CLI 契约(SKILL.md §0):``myia run --json`` 的 stdout 恰好一份 JSON——
+    CLI 契约(SKILL.md §0):``myssia run --json`` 的 stdout 恰好一份 JSON——
     stdout 通道卡片行经此注入改写 stderr,不再与 run 报告同流(两份 JSON
     会让 AI 消费面 json.load 直接失败)。
     """
@@ -784,10 +784,10 @@ def test_build_channel_wires_target_and_template_for_telegram_and_webhook():
     store = SQLiteStore(":memory:")
     pipeline, _ = make_pipeline(make_config(), handler=make_handler({}), store=store)
 
-    from shishi.push import CHANNELS
-    from shishi.push.telegram import TelegramChannel
-    from shishi.push.webhook import WebhookChannel
-    from shishi.schema import PushConfig
+    from myssia.push import CHANNELS
+    from myssia.push.telegram import TelegramChannel
+    from myssia.push.webhook import WebhookChannel
+    from myssia.schema import PushConfig
 
     assert set(CHANNELS) >= {"telegram", "webhook"}
 

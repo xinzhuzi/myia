@@ -1,14 +1,14 @@
 """Default SQLite backend for the pluggable Store interface.
 
-Single-file database (default ``myia.db``, path configurable), WAL journal
+Single-file database (default ``myssia.db``, path configurable), WAL journal
 mode for the single-process asyncio workload, ``busy_timeout`` so concurrent
 writers from separate connections wait instead of failing with
 "database is locked". A PostgreSQL backend plugs in behind
-:class:`myia.store.base.Store` in v0.2+ — no Redis/PG dependency in v0.1.
+:class:`myssia.store.base.Store` in v0.2+ — no Redis/PG dependency in v0.1.
 
 Schema versioning (v0.2 storage hardening): ``store_meta['schema_version']``
 stamps the layout; opening a database runs idempotent migrations forward and
-refuses — with :class:`myia.store.errors.StoreSchemaError` — a file that is
+refuses — with :class:`myssia.store.errors.StoreSchemaError` — a file that is
 not a usable SQLite database or was written by a *newer* MYIA. Versions:
 
 - 1 — v0.1: items / dedup_registry / change_baseline / engine_hints / runs.
@@ -59,9 +59,9 @@ from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime, timedelta, timezone, tzinfo
 from pathlib import Path
 
-from myia.schema import VACUUM_CADENCES
-from myia.store.errors import StoreSchemaError
-from myia.store.models import (
+from myssia.schema import VACUUM_CADENCES
+from myssia.store.errors import StoreSchemaError
+from myssia.store.models import (
     ALERT_ACTIONS,
     ALERT_ACTION_STATUSES,
     FEEDBACK_VERDICTS,
@@ -607,7 +607,7 @@ def metric_window_start(now: datetime, window: str, tz: tzinfo | None = None) ->
     窗口语义(单一实现,两处不漂)。
 
     Raises:
-        ValueError: ``window`` 不在 :data:`myia.store.models.METRIC_WINDOWS`。
+        ValueError: ``window`` 不在 :data:`myssia.store.models.METRIC_WINDOWS`。
     """
     if window not in METRIC_WINDOWS:
         raise ValueError(
@@ -623,7 +623,7 @@ def metric_window_start(now: datetime, window: str, tz: tzinfo | None = None) ->
 
 
 class SQLiteStore:
-    """SQLite-backed :class:`myia.store.base.Store`.
+    """SQLite-backed :class:`myssia.store.base.Store`.
 
     Safe for cross-thread use within one process (guarded writes plus
     ``busy_timeout`` for other connections opening the same file).
@@ -812,7 +812,7 @@ class SQLiteStore:
     def get_item_by_dedup_key(self, dedup_key: str) -> ItemRecord | None:
         """Return the newest item carrying ``dedup_key``, or None when absent.
 
-        The feedback-loop lookup (CLI ``myia feedback mark <条目>``): the
+        The feedback-loop lookup (CLI ``myssia feedback mark <条目>``): the
         dedup key is the stable identity the pipeline assigns at the dedup
         stage. Dated-key templates can rotate, so multiple rows may share a
         historical key — newest wins.
@@ -1319,7 +1319,7 @@ class SQLiteStore:
 
         Raises:
             ValueError: empty ``dedup_key`` / ``channel``, or ``verdict``
-                outside :data:`myia.store.models.FEEDBACK_VERDICTS`.
+                outside :data:`myssia.store.models.FEEDBACK_VERDICTS`.
         """
         if not feedback.dedup_key:
             raise ValueError("字段校验失败: feedback.dedup_key 不能为空")
@@ -1536,7 +1536,7 @@ class SQLiteStore:
 
         Raises:
             ValueError: ``window`` outside
-                :data:`myia.store.models.METRIC_WINDOWS`.
+                :data:`myssia.store.models.METRIC_WINDOWS`.
         """
         start = metric_window_start(now, window, tz)
         row = self._query_one(
@@ -1584,7 +1584,7 @@ class SQLiteStore:
     # written by the desktop sidecar (alerts.save 全量替换在此之上 diff 编排),
     # fired rows are the 命中历史 — snapshots survive rule deletion and item
     # retention. scope/when 语法/action_config 形状的构造期拒在
-    # myia.alerts.rule.compile_rule(读库坏行 WARNING 跳过、写库拒整批共用)。
+    # myssia.alerts.rule.compile_rule(读库坏行 WARNING 跳过、写库拒整批共用)。
 
     def save_alert_rule(self, rule: AlertRule) -> AlertRule:
         """Insert or update one alert rule; return the persisted row.
@@ -1594,7 +1594,7 @@ class SQLiteStore:
 
         Raises:
             ValueError: empty ``name`` / ``when``, ``action`` outside
-                :data:`myia.store.models.ALERT_ACTIONS`, or an unknown
+                :data:`myssia.store.models.ALERT_ACTIONS`, or an unknown
                 ``rule.id`` on update.
         """
         if not rule.name:
@@ -1679,8 +1679,8 @@ class SQLiteStore:
 
         Raises:
             ValueError: empty ``dedup_key``, ``action`` outside
-                :data:`myia.store.models.ALERT_ACTIONS`, or ``action_status``
-                outside :data:`myia.store.models.ALERT_ACTION_STATUSES`.
+                :data:`myssia.store.models.ALERT_ACTIONS`, or ``action_status``
+                outside :data:`myssia.store.models.ALERT_ACTION_STATUSES`.
         """
         if not fired.dedup_key:
             raise ValueError("字段校验失败: alert_fired.dedup_key 不能为空")
@@ -1733,7 +1733,7 @@ class SQLiteStore:
 
         Raises:
             ValueError: ``status`` outside
-                :data:`myia.store.models.ALERT_ACTION_STATUSES`, or no fired
+                :data:`myssia.store.models.ALERT_ACTION_STATUSES`, or no fired
                 row with ``fired_id``.
         """
         if status not in ALERT_ACTION_STATUSES:
@@ -1920,7 +1920,7 @@ class SQLiteStore:
 
         Raises:
             ValueError: unknown ``run_id``, empty ``step``, ``status`` outside
-                :data:`myia.store.models.STEP_STATUSES`, or a non-mapping
+                :data:`myssia.store.models.STEP_STATUSES`, or a non-mapping
                 payload.
         """
         if not step:
@@ -1986,7 +1986,7 @@ class SQLiteStore:
           content stays one extra window for diagnosis/recovery);
         - change baselines + engine hints — per-URL caches, pruned ONLY via an
           explicit ``active_urls`` set (the caller must own the whole DB
-          namespace: one shared ``myia.db`` serves every category, so a single
+          namespace: one shared ``myssia.db`` serves every category, so a single
           category's source list is NOT authoritative for "stale URL").
           Without ``active_urls`` they are left untouched: rows are tiny (one
           per source URL ever seen), and both wrong kinds of deletion are
@@ -2049,7 +2049,7 @@ class SQLiteStore:
                     "engine_hints", "source_key", active_urls
                 )
             else:
-                # 共享库安全缺省:同一 myia.db 服务所有品类,单品类的源清单
+                # 共享库安全缺省:同一 myssia.db 服务所有品类,单品类的源清单
                 # 无权判定「别的 URL 已失效」;而 last_changed 只在内容真变时
                 # 刷新,按龄删会误杀安静源的指纹 skip。URL 缓存行极小(每源
                 # 一行)、误删代价是两套核心缓存机制失效,故只在调用方显式给

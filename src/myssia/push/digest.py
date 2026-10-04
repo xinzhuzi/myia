@@ -3,7 +3,7 @@
 The digest pool is in-memory for v0.1 (single-process asyncio, in-process
 APScheduler); the pipeline can seed it from
 ``store.list_items(since=slot_window_start)`` across restarts. Slot
-suppression shares the AM/PM dedup registry (:class:`shishi.dedup.DedupRegistry`,
+suppression shares the AM/PM dedup registry (:class:`myssia.dedup.DedupRegistry`,
 grill Q3: local 12:00 boundary) — the registry answers 「发没发过」, routing
 answers 「推不推」 (orthogonal layers, yaml-schema rule 6).
 
@@ -25,17 +25,17 @@ from dataclasses import dataclass
 from datetime import datetime, timezone, tzinfo
 from typing import Any, Sequence
 
-from shishi.dedup import SLOT_BOUNDARY_HOUR, DedupRegistry
-from shishi.push.base import (
+from myssia.dedup import SLOT_BOUNDARY_HOUR, DedupRegistry
+from myssia.push.base import (
     Channel,
     PushSendError,
     SendContext,
     SendReport,
     item_view,
 )
-from shishi.push.delivery import DeliveryLedger, send_batch_to_targets
-from shishi.push.directory import ChannelDirectory
-from shishi.store import SLOT_AM, SLOT_PM
+from myssia.push.delivery import DeliveryLedger, send_batch_to_targets
+from myssia.push.directory import ChannelDirectory
+from myssia.store import SLOT_AM, SLOT_PM
 
 __all__ = ["DigestAggregator", "PendingDigestItem", "send_immediate"]
 
@@ -99,7 +99,7 @@ async def _send_via_channel_targets(
     """One batch through every channel:legacy 单卡 or 定向逐对象派发。
 
     ``specs`` 为 None/空 = legacy 路径(每通道一张卡,行为不变);否则经
-    :func:`shishi.push.delivery.send_batch_to_targets` 解析→死信过滤→逐对象
+    :func:`myssia.push.delivery.send_batch_to_targets` 解析→死信过滤→逐对象
     发送。定向条目但 ``directory`` 缺席(管线未接线)按失败报告说破,不
     静默丢卡。
     """

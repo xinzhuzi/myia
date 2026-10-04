@@ -261,7 +261,7 @@ class CronJobStore:
 
     @classmethod
     def for_db(cls, db_path: Union[str, Path]) -> "CronJobStore":
-        """从 myia.db 路径定位存储(数据根 = db 父目录,A6;CLI 传 ``--db`` 即得)。"""
+        """从 myssia.db 路径定位存储(数据根 = db 父目录,A6;CLI 传 ``--db`` 即得)。"""
         return cls(Path(db_path).parent)
 
     @property

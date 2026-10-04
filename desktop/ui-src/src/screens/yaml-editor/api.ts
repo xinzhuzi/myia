@@ -109,7 +109,7 @@ export interface YamlTemplateResult {
 // ---------------------------------------------------------------------------
 
 /**
- * 品类 id 正则的 TS 镜像(权威定义:src/myia/schema.py `CATEGORY_ID_RE`,
+ * 品类 id 正则的 TS 镜像(权威定义:src/myssia/schema.py `CATEGORY_ID_RE`,
  * `^[a-z0-9][a-z0-9_-]{0,63}$`;entry.py 新建围栏 import 同一常量)。
  * 前端只做「失败即拦不发请求」的预检,后端围栏仍是最终守门 —— 两处语义
  * 必须一致,改 schema 正则时此处同步。

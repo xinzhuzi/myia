@@ -1,8 +1,8 @@
-"""myia-osint 源码型插件样板(PRD 10-02-v11-plugins-source-arch)契约测试.
+"""myssia-osint 源码型插件样板(PRD 10-02-v11-plugins-source-arch)契约测试.
 
 首个「源码型插件」样板的四组被钉住的契约:
 
-1. **manifest schema 演进**:myia-osint 声明 ``vendor``(上游 submodule
+1. **manifest schema 演进**:myssia-osint 声明 ``vendor``(上游 submodule
    pin)与 ``adapter``(MYIA 侧适配器入口/方式)且过真实校验入口;旧五包
    两节缺省 None(向后兼容);vendor/adapter 内未知字段、非 https 来源、
    非法 pin、路径越界、mode 白名单外 —— 全部 fail-fast 拒载;
@@ -11,7 +11,7 @@
 3. **适配器 mock 子进程**:命令形状(uv 隔离环境)、成功装配结构化 JSON、
    非零退出/超时/导出缺失或损坏/目标非法/vendor 缺失/uv 缺失 —— 每种失败
    都是结构化 :class:`OsintAdapterError`(code 词表);
-4. **CLI ``myia osint`` + 铁律**:默认目标 example.com;适配器缺失退 1、
+4. **CLI ``myssia osint`` + 铁律**:默认目标 example.com;适配器缺失退 1、
    vendor 缺失退 1、采集失败退 2;任何失败形态下核心品类加载与 Pipeline
    构造完全无感(装不上不拦核心)。
 
@@ -30,7 +30,7 @@ from typing import Any
 
 import pytest
 
-from shishi.cli import (
+from myssia.cli import (
     EXIT_CONFIG_ERROR,
     EXIT_FETCH_ALL_FAILED,
     EXIT_OK,
@@ -38,23 +38,23 @@ from shishi.cli import (
     _import_osint_adapter,
     main,
 )
-from shishi.pipeline import Pipeline
-from shishi.plugins.manifest import load_manifest, load_manifest_file
-from shishi.schema import LoadError, load_category_file
+from myssia.pipeline import Pipeline
+from myssia.plugins.manifest import load_manifest, load_manifest_file
+from myssia.schema import LoadError, load_category_file
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_DIR = REPO_ROOT / "plugins"
-PLUGIN_DIR = PLUGINS_DIR / "myia-osint"
+PLUGIN_DIR = PLUGINS_DIR / "myssia-osint"
 PLUGIN_ADAPTER = PLUGIN_DIR / "adapter.py"
 
-#: v1.1 起仍为「无 vendor/adapter 旧包」形态的四件(myia-proxy 已升级为
+#: v1.1 起仍为「无 vendor/adapter 旧包」形态的四件(myssia-proxy 已升级为
 #: 进程内适配器插件,挪出本清单,见
 #: TestManifestSchemaEvolution.test_proxy_package_declares_in_process_adapter_without_vendor)。
 LEGACY_PACKAGES = (
-    "myia-douyin",
-    "myia-monitor",
-    "myia-maxun",
-    "myia-credentials",
+    "myssia-douyin",
+    "myssia-monitor",
+    "myssia-maxun",
+    "myssia-credentials",
 )
 
 
@@ -89,14 +89,14 @@ class TestManifestSchemaEvolution:
         assert manifest.adapter is None
 
     def test_proxy_package_declares_in_process_adapter_without_vendor(self):
-        """myia-proxy 与样板同构(声明 adapter)但零 vendored:自实现精简版.
+        """myssia-proxy 与样板同构(声明 adapter)但零 vendored:自实现精简版.
 
-        v1.1 迁移把 myia-proxy 升级为 desktop 分级进程内插件:适配器参照
+        v1.1 迁移把 myssia-proxy 升级为 desktop 分级进程内插件:适配器参照
         proxy_pool 思路自实现(fetch+测活),上游零源码复制、零 submodule。
         """
-        manifest = load_manifest_file(PLUGINS_DIR / "myia-proxy" / "plugin.yaml")
+        manifest = load_manifest_file(PLUGINS_DIR / "myssia-proxy" / "plugin.yaml")
         assert manifest.tier == "desktop"
-        assert manifest.vendor is None, "myia-proxy 为自实现精简版,不得 vendored 上游"
+        assert manifest.vendor is None, "myssia-proxy 为自实现精简版,不得 vendored 上游"
         assert manifest.adapter is not None
         assert manifest.adapter.entry == "adapter.py"
         assert manifest.adapter.mode == "in_process"
@@ -104,12 +104,12 @@ class TestManifestSchemaEvolution:
     @staticmethod
     def _manifest_with(**overrides: Any) -> dict[str, Any]:
         data: dict[str, Any] = {
-            "id": "myia-demo",
+            "id": "myssia-demo",
             "name": "演示插件",
             "version": "1.0.0",
             "compatible": ">=0.0.1,<0.1",
             "modes": {"remote": {"endpoint": "https://demo-wrapper.example.com"}},
-            "install": {"source": "https://github.com/xinzhuzi/MYIA.git"},
+            "install": {"source": "https://github.com/xinzhuzi/myssia.git"},
         }
         data.update(overrides)
         return data
@@ -169,7 +169,7 @@ class TestSubmoduleShape:
         manifest = load_manifest_file(PLUGIN_DIR / "plugin.yaml")
         assert manifest.vendor is not None and manifest.vendor.pin is not None
         probe = subprocess.run(
-            ["git", "ls-files", "--stage", "--", "plugins/myia-osint/vendor/Photon"],
+            ["git", "ls-files", "--stage", "--", "plugins/myssia-osint/vendor/Photon"],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -184,7 +184,7 @@ class TestSubmoduleShape:
 
     def test_gitmodules_declares_photon_submodule(self):
         gitmodules = (REPO_ROOT / ".gitmodules").read_text(encoding="utf-8")
-        assert "plugins/myia-osint/vendor/Photon" in gitmodules
+        assert "plugins/myssia-osint/vendor/Photon" in gitmodules
         assert "https://github.com/s0md3v/Photon" in gitmodules
 
 
@@ -195,7 +195,7 @@ class TestSubmoduleShape:
 
 def make_vendor_plugin(tmp_path: Path) -> Path:
     """构造带 vendor 入口的假插件目录(只造 photon.py 存在性,不装依赖)."""
-    plugin = tmp_path / "myia-osint"
+    plugin = tmp_path / "myssia-osint"
     vendor = plugin / "vendor" / "Photon"
     vendor.mkdir(parents=True)
     (vendor / "photon.py").write_text("# upstream stub\n", encoding="utf-8")
@@ -248,7 +248,7 @@ class TestPhotonAdapter:
             clock=lambda: next(ticks),
         )
         assert result["status"] == "success"
-        assert result["plugin"] == "myia-osint"
+        assert result["plugin"] == "myssia-osint"
         assert result["target"] == "https://example.com", "尾部斜杠被规整"
         assert result["results"] == {"endpoints": ["https://example.com/"]}
         assert result["datasets"] == ["endpoints"]
@@ -322,7 +322,7 @@ class TestPhotonAdapter:
         assert exc_info.value.code == "invalid_target"
 
     def test_vendor_missing_is_structured_not_raised_generic(self, adapter, tmp_path):
-        plugin = tmp_path / "myia-osint"
+        plugin = tmp_path / "myssia-osint"
         plugin.mkdir()
         assert adapter.is_available(plugin) is False
         with pytest.raises(adapter.OsintAdapterError) as exc_info:
@@ -341,7 +341,7 @@ class TestPhotonAdapter:
 
 
 # ---------------------------------------------------------------------------
-# 契约四:CLI myia osint(默认 example.com;退出码 0/1/2)+ 铁律
+# 契约四:CLI myssia osint(默认 example.com;退出码 0/1/2)+ 铁律
 # ---------------------------------------------------------------------------
 
 
@@ -376,7 +376,7 @@ STUB_ADAPTER = textwrap.dedent(
                 "stderr_tail": "boom",
             })
         return {
-            "plugin": "myia-osint",
+            "plugin": "myssia-osint",
             "target": target,
             "status": "success",
             "results": {"endpoints": [target]},
@@ -392,7 +392,7 @@ STUB_ADAPTER = textwrap.dedent(
 
 def make_stub_plugin(tmp_path: Path, *, availability: bool = True, raise_code: str | None = None) -> Path:
     plugins = tmp_path / "plugins"
-    plugin = plugins / "myia-osint"
+    plugin = plugins / "myssia-osint"
     plugin.mkdir(parents=True)
     source = STUB_ADAPTER
     if not availability:
@@ -409,7 +409,7 @@ class TestCliOsint:
         code = main(["osint", "https://example.com", "--plugins-dir", str(plugins), "--json"])
         assert code == EXIT_OK
         payload = json.loads(capsys.readouterr().out)
-        assert payload["plugin"] == "myia-osint"
+        assert payload["plugin"] == "myssia-osint"
         assert payload["target"] == "https://example.com"
         assert payload["status"] == "success"
 
@@ -446,8 +446,8 @@ class TestCliOsint:
     def test_real_adapter_without_vendor_exits_1_with_hint(self, tmp_path, capsys):
         """真适配器 + 无 vendor:结构化 vendor_missing(含 submodule 指引),退 1。"""
         plugins = tmp_path / "plugins"
-        (plugins / "myia-osint").mkdir(parents=True)
-        (plugins / "myia-osint" / "adapter.py").write_text(
+        (plugins / "myssia-osint").mkdir(parents=True)
+        (plugins / "myssia-osint" / "adapter.py").write_text(
             PLUGIN_ADAPTER.read_text(encoding="utf-8"), encoding="utf-8"
         )
         code = main(["osint", "--plugins-dir", str(plugins), "--json"])
@@ -458,8 +458,8 @@ class TestCliOsint:
 
     def test_broken_adapter_source_exits_1_not_crash(self, tmp_path, capsys):
         plugins = tmp_path / "plugins"
-        (plugins / "myia-osint").mkdir(parents=True)
-        (plugins / "myia-osint" / "adapter.py").write_text("def run(: broken", encoding="utf-8")
+        (plugins / "myssia-osint").mkdir(parents=True)
+        (plugins / "myssia-osint" / "adapter.py").write_text("def run(: broken", encoding="utf-8")
         code = main(["osint", "--plugins-dir", str(plugins), "--json"])
         assert code == EXIT_CONFIG_ERROR
         payload = json.loads(capsys.readouterr().out)

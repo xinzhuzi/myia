@@ -2,7 +2,7 @@
 
 ## 适用范围
 
-一切要求用户自配 key/端点的云端连接器:push 通道(`src/myia/push/`)、抓取引擎(`src/myia/engines/`)、vision/enrich 云端端点(`src/myia/vision|enrich/`)。
+一切要求用户自配 key/端点的云端连接器:push 通道(`src/shishi/push/`)、抓取引擎(`src/shishi/engines/`)、vision/enrich 云端端点(`src/shishi/vision|enrich/`)。
 
 ## 硬规则
 

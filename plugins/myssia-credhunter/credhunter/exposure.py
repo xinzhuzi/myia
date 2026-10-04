@@ -96,7 +96,7 @@ __all__ = [
 ]
 
 #: 探测 UA(自有标识;上游无对应物)。
-_USER_AGENT = "myia-credhunter-exposure/0.1"
+_USER_AGENT = "myssia-credhunter-exposure/0.1"
 
 # ---------------------------------------------------------------------------
 # 兄弟模块自举:与 adapter._load_module 同一 compile+exec 手法(零 __pycache__)
@@ -106,11 +106,11 @@ _USER_AGENT = "myia-credhunter-exposure/0.1"
 def _require_sibling(name: str) -> types.ModuleType:
     """取同目录 ``credhunter/<name>.py`` 子模块(登记 sys.modules 后 compile+exec)。
 
-    与适配器 ``_load_module`` 同名同法(``myia_credhunter_<name>``):适配器
+    与适配器 ``_load_module`` 同名同法(``myssia_credhunter_<name>``):适配器
     先加载过的兄弟模块直接复用,独立加载本模块时按需自举。登记先于 exec,
     供兄弟模块内 dataclass 的字符串注解按 ``cls.__module__`` 反查。
     """
-    module_name = f"myia_credhunter_{name}"
+    module_name = f"myssia_credhunter_{name}"
     module = sys.modules.get(module_name)
     if module is not None:
         return module

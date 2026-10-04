@@ -21,7 +21,7 @@ from datetime import datetime, timezone, tzinfo
 from string import Formatter
 from typing import Mapping
 
-from shishi.store import SLOT_AM, SLOT_PM, DedupEntry, Store
+from myssia.store import SLOT_AM, SLOT_PM, DedupEntry, Store
 
 __all__ = ["SLOT_BOUNDARY_HOUR", "DedupRegistry"]
 
@@ -42,7 +42,7 @@ _FORMATTER = Formatter()
 
 
 class DedupRegistry:
-    """Persistent dedup registry on top of a :class:`shishi.store.base.Store`.
+    """Persistent dedup registry on top of a :class:`myssia.store.base.Store`.
 
     The registry owns the dedup semantics (key rendering, slot windows); the
     store owns the rows. One store-backed registry serves both digest and

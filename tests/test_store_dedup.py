@@ -15,8 +15,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from shishi.dedup import DedupRegistry
-from shishi.store import (
+from myssia.dedup import DedupRegistry
+from myssia.store import (
     PUSH_SLOTS,
     SLOT_AM,
     SLOT_PM,
@@ -55,7 +55,7 @@ def make_item(**overrides) -> ItemRecord:
 
 @pytest.fixture()
 def store(tmp_path):
-    s = SQLiteStore(tmp_path / "myia.db")
+    s = SQLiteStore(tmp_path / "myssia.db")
     yield s
     s.close()
 
@@ -395,13 +395,13 @@ def test_store_satisfies_store_protocol(store):
 
 
 def test_store_wal_mode_enabled(tmp_path):
-    with SQLiteStore(tmp_path / "myia.db") as fresh_store:
+    with SQLiteStore(tmp_path / "myssia.db") as fresh_store:
         mode = fresh_store.conn.execute("PRAGMA journal_mode").fetchone()[0]
         assert mode == "wal"
 
 
 def test_wal_concurrent_writers_persist_all_rows(tmp_path):
-    path = tmp_path / "myia.db"
+    path = tmp_path / "myssia.db"
     writer_count, per_writer = 4, 5
     barrier = threading.Barrier(writer_count)
     errors: list[BaseException] = []

@@ -9,6 +9,25 @@ repeated here.
 
 ## [Unreleased]
 
+### Changed
+
+- **Third full-chain rename: myia → myssia**(2026-10-04 终版命名决议:myssia 为
+  项目唯一正式名——GitHub 仓库 xinzhuzi/myssia、PyPI 发行名 myssia /
+  myssia-classifier、CLI `myssia`、Python 模块 `src/myssia`、classifier 模块
+  `myssia_classifier`、插件 id `myssia-*`;「世事」仍为中文名,README 标题作
+  「myssia(中文名:世事)」)。镜像前两轮改名(58cb40b myia→shishi、0a085cc
+  shishi→myia)的改动对象逐一照抄:src 树 92 模块、tests/desktop/entry.py/plugins
+  的 import 与文档引用、pyproject scripts/wheel packages/workspace、
+  build-sidecar.sh/myssia-core.spec、Dockerfile ENTRYPOINT、compose 服务名与
+  ghcr.io/xinzhuzi/myssia 镜像、desktop-release 资产别名 `myssia_*`、tauri
+  updater endpoint 与内部工件名(`binaries/myssia-core`、`com.myssia.app`)、
+  uv.lock 全量再生成。运行时数据身份保留旧名以兼容既有装机:钥匙链名空间
+  `myia/<scope>/<name>`(keyring service `myia`)、`~/.myia` 插件安装根、
+  `MYIA_PLUGIN_DIR`/`MYIA_HOME` 环境变量、桌面数据根
+  `~/Library/Application Support/MYIA`、`mainBinaryName=MYIA`、默认 UA
+  `MYIA/0.1`。myia 与 shishi 从此只是历史(docs/demo 录制物料与本文历史章节
+  按时代锁定保留)。
+
 ### Added
 
 - **Desktop cron sidecar surface** (10-04-hermes-cron, B3): nine sidecar

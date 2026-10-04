@@ -17,8 +17,8 @@ from typing import Any
 import httpx
 import pytest
 
-from shishi.push import FeishuCardChannel, PushSendError
-from shishi.push.directory import ChannelDirectory
+from myssia.push import FeishuCardChannel, PushSendError
+from myssia.push.directory import ChannelDirectory
 
 
 def _chats_body(items: list[dict[str, Any]], *, has_more: bool = False, page_token: str | None = None) -> dict[str, Any]:
@@ -271,6 +271,6 @@ class TestDirectoryMerge:
 
 
 def _entry(chat_id: str, name: str):
-    from shishi.push.directory import ChannelEntry
+    from myssia.push.directory import ChannelEntry
 
     return ChannelEntry(platform="feishu", chat_id=chat_id, name=name)

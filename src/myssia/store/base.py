@@ -1,7 +1,7 @@
 """Pluggable storage interface.
 
 ``Store`` is the contract every storage backend implements. The default
-backend is :class:`shishi.store.SQLiteStore`; a PostgreSQL implementation is
+backend is :class:`myssia.store.SQLiteStore`; a PostgreSQL implementation is
 slotted for v0.2+ and must satisfy this same protocol, so pipeline/engines/
 push code depends on ``Store`` only — never on a concrete backend.
 
@@ -17,7 +17,7 @@ from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
-from shishi.store.models import (
+from myssia.store.models import (
     AlertFired,
     AlertRule,
     ChangeBaseline,
@@ -184,7 +184,7 @@ class Store(Protocol):
         ...
 
     # ----------------------------------------------------------- enrich_cache
-    # Consumed by shishi.enrich (LLM precision scoring, v0.2): same-URL scores
+    # Consumed by myssia.enrich (LLM precision scoring, v0.2): same-URL scores
     # are cached until the model / score dimensions / prompt version changes
     # (all fingerprinted into ``scores_key``) or invalidation is manual.
 
@@ -216,7 +216,7 @@ class Store(Protocol):
         ...
 
     # ---------------------------------------------------------------- feedback
-    # Consumed by shishi.feedback (v0.3 反馈闭环): good/bad verdicts on pushed
+    # Consumed by myssia.feedback (v0.3 反馈闭环): good/bad verdicts on pushed
     # items and the append-only tuning-adjustment history (调整历史可追溯).
 
     def save_feedback(self, feedback: FeedbackRecord) -> int:
@@ -224,7 +224,7 @@ class Store(Protocol):
 
         Raises:
             ValueError: empty ``dedup_key`` / ``channel``, or ``verdict``
-                outside :data:`shishi.store.models.FEEDBACK_VERDICTS`.
+                outside :data:`myssia.store.models.FEEDBACK_VERDICTS`.
         """
         ...
 
@@ -344,7 +344,7 @@ class Store(Protocol):
 
         ``updated_at`` 落库侧刷新(INSERT 时 ``created_at`` 缺省补 now)。
         scope/when 语法/action_config 形状的构造期拒由
-        ``shishi.alerts.rule.compile_rule`` 承担(读库/写库共用同一道门)。
+        ``myssia.alerts.rule.compile_rule`` 承担(读库/写库共用同一道门)。
 
         Raises:
             ValueError: empty ``name`` / ``when``, ``action`` outside the
@@ -445,7 +445,7 @@ class Store(Protocol):
 
         Raises:
             ValueError: unknown ``run_id``, empty ``step``, unknown ``status``
-                (must be one of :data:`shishi.store.models.STEP_STATUSES`), or
+                (must be one of :data:`myssia.store.models.STEP_STATUSES`), or
                 a non-mapping payload.
         """
         ...

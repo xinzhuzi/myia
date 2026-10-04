@@ -1,4 +1,4 @@
-"""myia-osint 适配器:子进程调用上游 Photon(vendor/Photon)——MYIA 侧代码.
+"""myssia-osint 适配器:子进程调用上游 Photon(vendor/Photon)——MYIA 侧代码.
 
 本文件由 MYIA 仓库创作与维护,**不是**上游代码;上游 Photon(GPL-3.0)
 只以 git submodule 形式钉在 ``vendor/Photon``(见 plugin.yaml ``vendor:``
@@ -10,7 +10,7 @@
    uv 缓存的临时环境,绝不进根依赖;依赖清单与上游 requirements.txt 同源:
    requests / urllib3 / tld);
 3. 读取 Photon ``-e json`` 导出的 ``exported.json``,连同命令、退出码、
-   vendor pin 等装配成**结构化 JSON 结果**(AI 消费路径,``myia osint --json``)。
+   vendor pin 等装配成**结构化 JSON 结果**(AI 消费路径,``myssia osint --json``)。
 
 错误契约(.trellis/spec/python/error-handling):所有失败都抛
 :class:`OsintAdapterError`(code + message + 结构化 details,``to_dict()``
@@ -24,10 +24,10 @@
 - ``photon_export_missing`` / ``photon_export_invalid``
                        退出 0 但 JSON 导出缺失/不可解析(采集失败)
 
-失败码 → CLI 退出码的映射归 CLI 所有(``shishi.cli.OSINT_FETCH_FAILURE_CODES``,
+失败码 → CLI 退出码的映射归 CLI 所有(``myssia.cli.OSINT_FETCH_FAILURE_CODES``,
 spec python/error-handling 的退出码契约);适配器只负责如实上报 code。
 
-铁律(security-baseline):适配器任何失败只影响 ``myia osint`` 自身,
+铁律(security-baseline):适配器任何失败只影响 ``myssia osint`` 自身,
 核心品类流水线照常跑通(测试钉在 tests/test_osint_plugin.py)。
 """
 
@@ -54,7 +54,7 @@ __all__ = [
     "vendor_root",
 ]
 
-#: 适配器所在插件目录(本文件按样板布局固定在 plugins/myia-osint/ 下)。
+#: 适配器所在插件目录(本文件按样板布局固定在 plugins/myssia-osint/ 下)。
 PLUGIN_DIR = Path(__file__).resolve().parent
 
 #: 上游 submodule 相对插件目录路径(与 plugin.yaml ``vendor.path`` 同源)。
@@ -237,7 +237,7 @@ def run(
             plugin_dir=str(root),
         )
     started = clock()
-    with tempfile.TemporaryDirectory(prefix="myia-osint-") as scratch:
+    with tempfile.TemporaryDirectory(prefix="myssia-osint-") as scratch:
         loot_dir = Path(scratch) / "loot"
         command = build_command(clean_target, loot_dir, extra_args=extra_args)
         try:
@@ -286,7 +286,7 @@ def run(
             ) from exc
         datasets = sorted(path.stem for path in loot_dir.glob("*.txt"))
     return {
-        "plugin": "myia-osint",
+        "plugin": "myssia-osint",
         "target": clean_target,
         "status": "success",
         "vendor": {

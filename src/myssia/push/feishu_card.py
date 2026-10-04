@@ -15,7 +15,7 @@ the production wf-crawl card.json (local-only reference, never committed):
 ``config.wide_screen_mode`` + blue header + ``lark_md`` divs separated by
 ``hr`` + a trailing ``note``. With a user template the rendered text becomes
 a single ``lark_md`` div inside the same shell. No in-card feedback buttons
-yet: the valuable/not-valuable loop is CLI-first today (``myia feedback
+yet: the valuable/not-valuable loop is CLI-first today (``myssia feedback
 mark``) and the Telegram/Feishu callback *receivers* already speak the
 button contract — the buttons themselves land with the desktop UI
 (deliberate v0.3 scoping, PRD 10-01-v03-feedback-loop Notes).
@@ -30,7 +30,7 @@ multipart 上传首图换 ``image_key``(同一 tenant token,应用需开
 话题定向(10-04-feishu-thread-send):``context.target.thread_id`` 在场即
 改投**话题回复端点** ``POST im/v1/messages/{thread_id}/reply``(root_id
 锚定 = 话题根消息 id;三段 spec ``feishu:<名或id>:<thread_id>`` 的解析在
-:mod:`myia.push.targets`,本类 ``supports_threads = True`` 声明 opt-in)。
+:mod:`myssia.push.targets`,本类 ``supports_threads = True`` 声明 opt-in)。
 蓝本锚:Hermes ``adapter.py`` ``_send_raw_message`` 的话题分支(上游
 3747-3772 行,``im.v1.message.reply``)。【偏离注记 1:Hermes 的话题回复
 是被动回信(入站消息自带 reply_to/root 元数据);MYIA 出站-only 无入站
@@ -62,7 +62,7 @@ from urllib.parse import quote
 
 import httpx
 
-from myia.push.base import (
+from myssia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
@@ -72,10 +72,10 @@ from myia.push.base import (
     item_images,
     item_view,
 )
-from myia.push.directory import ChannelEntry
-from myia.push.targets import ChannelTarget
-from myia.push.templates import TemplateRenderError, TemplateRenderer
-from myia.schema import CredentialResolveError, resolve_credential
+from myssia.push.directory import ChannelEntry
+from myssia.push.targets import ChannelTarget
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "API_URL",
@@ -127,7 +127,7 @@ DIRECT_REF_RE = re.compile(
 )
 
 #: 话题根消息 id 形态(发送侧校验):ASCII 字母/数字/下划线/连字符——与
-#: :data:`myia.push.targets.THREAD_REF_RE` 同款保守集(官方消息 id 形如
+#: :data:`myssia.push.targets.THREAD_REF_RE` 同款保守集(官方消息 id 形如
 #: ``om_xxx``/``mt_xxx``,均在其内);不匹配即结构化报错,解析值不回显
 #: (discord 话题同款纪律,10-03-messaging-w3-longtail D1)。
 THREAD_ID_RE = re.compile(r"^[-A-Za-z0-9_]+$")
@@ -154,11 +154,15 @@ def escape_lark_md(text: str) -> str:
 
 
 def card_title(context: SendContext) -> str:
-    """Production-style card title: 📡 聚合日报 / 🔔 立即推送."""
+    """Production-style card title: 📡 聚合日报 / 🔔 立即推送 / ⏱ 定时摘要."""
     subject = context.category or "情报"
     day = context.date[5:] if len(context.date) >= 10 else context.date
     if context.kind == "immediate":
         return f"🔔 {subject} · {day}"
+    if context.kind == "cron_summary":
+        # 定时任务运行摘要卡(10-04-hermes-cron grill Q3 受控扩值):一次性
+        # 运行报告,无槽位聚合概念,不挂 slot_label。
+        return f"⏱ {subject}定时摘要 {day}"
     return f"📡 {subject}日报 {day} · {context.slot_label}摘要"
 
 
@@ -591,7 +595,7 @@ class FeishuCardChannel(TrendAwareChannel):
         Raises:
             PushSendError: 凭据缺失/失效、HTTP 传输失败、非 JSON 响应或
                 飞书返回非零 code(如 401 对应的 token 失效)。调用方
-                (:meth:`myia.push.directory.ChannelDirectory.refresh`)按
+                (:meth:`myssia.push.directory.ChannelDirectory.refresh`)按
                 发现失败隔离:告警 + 保留旧桶,不触碰投递死信账本。
         """
         token = self._resolve_token()

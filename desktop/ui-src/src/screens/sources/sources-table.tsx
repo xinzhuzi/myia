@@ -198,7 +198,7 @@ const COLUMNS: ColumnDef<SourceRow>[] = [
             variant="outline"
             disabled={meta.testingKey !== null}
             aria-label={`试抓 ${row.original.sourceName}`}
-            title={`myia test ${row.original.pluginFile} --source ${row.original.sourceName}`}
+            title={`myssia test ${row.original.pluginFile} --source ${row.original.sourceName}`}
             onClick={() => meta.onTest(row.original)}
           >
             {testing ? <Loader2 className="size-3.5 animate-spin" /> : <FlaskConical className="size-3.5" />}

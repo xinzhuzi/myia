@@ -24,8 +24,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Sequence
 
-from shishi.push.base import PushSendError, SendContext, TrendAwareChannel
-from shishi.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.base import PushSendError, SendContext, TrendAwareChannel
+from myssia.push.directory import DirectoryDiscoverUnsupported
 
 __all__ = [
     "INSTALL_HINT",

@@ -7,7 +7,7 @@ mechanisms lock the pages to the current code:
 1. **Example YAML blocks** — every ```yaml fenced block anywhere under
    ``docs/`` (zh tree, en tree, and the shared ``docs/write-a-plugin.md``)
    must be a *complete* category config and load through the real entry
-   point :func:`myia.schema.load_category`. Fragments are forbidden:
+   point :func:`myssia.schema.load_category`. Fragments are forbidden:
    fragments would fail the moment an agent copies them (field details
    belong in tables, not in broken examples).
 2. **zh/en structural alignment** — the two trees carry the same page set,
@@ -39,7 +39,7 @@ from typing import Any
 import pytest
 import yaml
 
-from myia.schema import is_credential_key, load_category
+from myssia.schema import is_credential_key, load_category
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = REPO_ROOT / "docs"
@@ -66,7 +66,7 @@ _MD_LINK_RE = re.compile(r"\]\(([^)\s]+)\)")
 _SECRET_REF_VALUE_RE = re.compile(r"^(?:\S+ )?(?:env:|keychain:)")
 
 #: 各通道凭据约定的缺省 env 引用(与 skill/SKILL.md §2.13 及
-#: src/myia/push/*.py 的 DEFAULT_*_ENV_REF 同源)。schema.md 的「各通道凭据
+#: src/myssia/push/*.py 的 DEFAULT_*_ENV_REF 同源)。schema.md 的「各通道凭据
 #: 约定见 write-a-plugin」指向双语文指南,该节内容由此清单锁住不悬空。
 _CHANNEL_CREDENTIAL_ENV_REFS = (
     "env:FEISHU_CHAT_ID",
@@ -162,11 +162,11 @@ def test_docs_yaml_block_loads_through_load_category(path: Path):
     from block validation).
 
     按顶层形态路由(10-04-proxy-pool):``pools`` 顶层块是**全局配置**样例,
-    经 :func:`myia.engines.fetch_base.load_proxy_pools` 校验(凭据引用/
+    经 :func:`myssia.engines.fetch_base.load_proxy_pools` 校验(凭据引用/
     scheme/策略字段与真加载器同规);其余仍是品类 YAML,走
     :func:`load_category`。两条路都是真入口 —— 反漂移保障不因形态分流而放松。
     """
-    from myia.engines.fetch_base import load_proxy_pools
+    from myssia.engines.fetch_base import load_proxy_pools
 
     blocks = _yaml_blocks(_read(path))
     if _is_doc_page(path):

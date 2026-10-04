@@ -1,16 +1,16 @@
-# myia-proxy — 官方场景件:爬虫代理池(封装 jhao104/proxy_pool,MIT)。
+# myssia-proxy — 官方场景件:爬虫代理池(封装 jhao104/proxy_pool,MIT)。
 #
 # v1.1 分级 desktop(桌面默认集):适配器 adapter.py 参照上游「fetch → 校验
 # → 取用」思路自实现精简版 —— 进程内一次抓取公开免费代理 + 逐个测活,
-# 零 Redis 零 docker(`myia proxy --json`);本仓库不复制、不 vendored 上游
+# 零 Redis 零 docker(`myssia proxy --json`);本仓库不复制、不 vendored 上游
 # 任何源码。完整 proxy_pool 服务形态(定时抓取+Redis 池+HTTP API)是服务端
-# 可选路径:compose 在仓库 docker/plugins/myia-proxy/;已部署实例按 remote
+# 可选路径:compose 在仓库 docker/plugins/myssia-proxy/;已部署实例按 remote
 # 模式填 endpoint。
 #
-# 市场插件包 = 一个目录:plugin.yaml(manifest,规范见 src/shishi/plugins/manifest.py)
+# 市场插件包 = 一个目录:plugin.yaml(manifest,规范见 src/myssia/plugins/manifest.py)
 # + README + adapter.py(MYIA 侧适配器)。核心仓库只装声明与文档,装不上
 # 不拦核心流水线(铁律)。
-id: myia-proxy
+id: myssia-proxy
 name: 代理池(proxy_pool)
 version: 1.1.0
 compatible: ">=0.0.1,<0.1"
@@ -27,4 +27,4 @@ modes:
   remote:
     endpoint: https://proxy-pool.example.com   # 已部署的 proxy_pool API 占位地址
 install:
-  source: https://github.com/xinzhuzi/MYIA.git
+  source: https://github.com/xinzhuzi/myssia.git

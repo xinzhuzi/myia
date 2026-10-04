@@ -22,7 +22,7 @@
   ``_next_msg_seq`` 同算法;官方语义:相同 msg_id+msg_seq 组合重复发送失败,
   主动消息也要求该字段)。
 - **超长拆条**:content 超 :data:`MESSAGE_LIMIT` 按行边界拆多条、逐条
-  独立 POST(:func:`shishi.push.telegram.split_message` 复用,discord/slack
+  独立 POST(:func:`myssia.push.telegram.split_message` 复用,discord/slack
   同范式;c2c/group 每条各自随机 msg_seq)。
 - **三种寻址形态**(蓝本 ``_messages_path``/``_send_guild_text`` 同端点集):
   ``c2c:<openid>`` → ``POST /v2/users/{openid}/messages``(body 带
@@ -38,7 +38,7 @@
 (蓝本事实:出站无列表路径),别名手工登记。
 
 错误文案保留 ``HTTP <status>`` 与原厂响应片段供死信分类
-(:func:`shishi.push.delivery.classify_dead_error`):403(unauthorized,如
+(:func:`myssia.push.delivery.classify_dead_error`):403(unauthorized,如
 token 失效/未获该场景授权)→ forbidden、404 → not_found、429(限频)/5xx
 → 瞬态;额度类错误(原厂 ``message`` 文本)原样透传。
 
@@ -56,18 +56,18 @@ from typing import Any, Callable, Sequence
 
 import httpx
 
-from shishi.push.base import (
+from myssia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
     TrendAwareChannel,
 )
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.ntfy import build_message
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.telegram import split_message
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.ntfy import build_message
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.telegram import split_message
+from myssia.push.templates import TemplateRenderError, TemplateRenderer
+from myssia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "API_BASE",

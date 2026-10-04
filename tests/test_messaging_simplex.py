@@ -24,13 +24,13 @@ from typing import Any
 
 import pytest
 
-import shishi.push.simplex as simplex_module
-from shishi.push import SendContext
-from shishi.push.base import PushSendError
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.simplex import SimplexChannel, send_command_text
-from shishi.push.targets import RESOLVED_DIRECT, RESOLVED_DIRECTORY_NAME, ChannelTarget, resolve_target
+import myssia.push.simplex as simplex_module
+from myssia.push import SendContext
+from myssia.push.base import PushSendError
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.simplex import SimplexChannel, send_command_text
+from myssia.push.targets import RESOLVED_DIRECT, RESOLVED_DIRECTORY_NAME, ChannelTarget, resolve_target
 
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
 
@@ -143,7 +143,7 @@ class TestSendShape:
 
         assert len(harness.ws.sent) >= 1
         frame = json.loads(harness.ws.sent[0])
-        assert frame["corrId"].startswith("myia-")
+        assert frame["corrId"].startswith("myssia-")
         assert frame["cmd"].startswith("/_send #3 json ")
         payload = json.loads(frame["cmd"].rsplit(" json ", 1)[1])
         assert payload[0]["msgContent"]["type"] == "text"
@@ -281,7 +281,7 @@ class TestErrorPaths:
         with pytest.raises(PushSendError) as excinfo:
             _run(channel.send([{"title": "t"}], CONTEXT))
         assert excinfo.value.code == "dependency_missing"
-        assert "shishi[simplex]" in str(excinfo.value)  # 安装命令附文案
+        assert "myssia[simplex]" in str(excinfo.value)  # 安装命令附文案
         assert "simplex-chat 守护进程" in str(excinfo.value)
 
     def test_dependency_gate_direct_call(self, monkeypatch):
@@ -369,7 +369,7 @@ class TestDirectoryDiscovery:
 
 
 def _entry(chat_id: str, name: str):
-    from shishi.push.directory import ChannelEntry
+    from myssia.push.directory import ChannelEntry
 
     return ChannelEntry(platform="simplex", chat_id=chat_id, name=name, type="group")
 
@@ -417,6 +417,6 @@ class TestAddressing:
 
 
 def _dm_entry(chat_id: str, name: str):
-    from shishi.push.directory import ChannelEntry
+    from myssia.push.directory import ChannelEntry
 
     return ChannelEntry(platform="simplex", chat_id=chat_id, name=name, type="dm")

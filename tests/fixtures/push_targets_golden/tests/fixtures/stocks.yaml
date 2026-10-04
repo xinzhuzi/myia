@@ -1,5 +1,5 @@
 # plugins/stocks.yaml — complete 12-section schema showcase: stock intelligence.
-# Reference example for docs/write-a-plugin.md; run with `myia run plugins/stocks.yaml`.
+# Reference example for docs/write-a-plugin.md; run with `myssia run plugins/stocks.yaml`.
 id: stocks
 name: 股票情报
 schedule: "0 9,15 * * 1-5"        # trading days 09:00 / 15:00 (cron semantics)

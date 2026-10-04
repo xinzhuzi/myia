@@ -1,4 +1,4 @@
-"""myia-classifier: standalone seven-category keyword classifier.
+"""myssia-classifier: standalone seven-category keyword classifier.
 
 Zero-dependency classification engine extracted from MYIA's classification
 layer. Public entry point is :func:`classify_item`: it runs the built-in
@@ -16,7 +16,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping
 
-from myia_classifier.builtin import (
+from myssia_classifier.builtin import (
     ALL_CATEGORIES,
     CATEGORY_CHANNEL,
     DEFAULT_TABLE_PATH,
@@ -29,7 +29,7 @@ from myia_classifier.builtin import (
     classify_title,
     load_table,
 )
-from myia_classifier.custom import (
+from myssia_classifier.custom import (
     ALLOWED_FUNCTIONS,
     Rule,
     RuleConfigError,
@@ -106,7 +106,7 @@ def classify_item(
         item: dict-like item or object with a ``title`` attribute.
         table: preloaded keyword table; defaults to the packaged
             ``data/keywords.json``.
-        rules: optional custom rules (see :mod:`myia_classifier.custom`).
+        rules: optional custom rules (see :mod:`myssia_classifier.custom`).
 
     Returns:
         ClassifyResult with ``category`` (or ``None`` for dead/noise/

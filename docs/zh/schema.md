@@ -1,7 +1,7 @@
 # Schema 参考
 
 > 一个情报品类 = 一份 YAML。本文逐节给出字段、取值与缺省值,与
-> `src/myia/schema.py` 逐字段一致(由 `tests/test_docs.py` /
+> `src/myssia/schema.py` 逐字段一致(由 `tests/test_docs.py` /
 > `tests/test_skill_doc.py` 锁定);文中全部 `yaml` 代码块都是完整可载的品类
 > 配置,复制即用。教程向的写法指南见[插件开发指南](write-a-plugin.md)。
 
@@ -51,7 +51,7 @@
 - 凭据类键(键名含词表 `CREDENTIAL_KEY_SUFFIXES` 子串,大小写/连字符不敏感)
   的值出现明文 → 加载期拒载(错误码 `credential_plaintext`)。该规则覆盖
   `sources[].headers`、`post_body`、源级扩展参数——整份 YAML 文档,不止头部。
-- 凭据值永不回显、永不落日志;`myia secret set myia/<scope>/<name>` 写入,
+- 凭据值永不回显、永不落日志;`myssia secret set myia/<scope>/<name>` 写入,
   值走 stdin 管道或安全输入。
 - `enrich.base_url` / `enrich.api_key` / `push[].target` 必须是**纯**引用
   (不允许 scheme 前缀)。
@@ -82,7 +82,7 @@
 | 字段 | 缺省 | 语义 |
 |---|---|---|
 | `name` | `必填` | 源名(1-64 字符,插件内唯一,doctor/test 按它定位) |
-| `engine` | `auto` | 引擎名(见词汇表;auto 按降级链,选中回写 SQLite hints 不回写 YAML)。auto 下 L2 静态抓到 0 条时会对**首遇源**(尚无 hint)做一次 L3(crawl4ai)浏览器探测——JS 渲染空壳页由此被接住;探测零结果则锁回 L2 空页语义,每 run 至多探测 3 个源。已锁 L2 的存量源不受影响;手动重探出口 = 显式写 `engine: crawl4ai`。`credhunter` 是**链外源引擎**:不抓取 url、由进程内场景件 myia-credhunter 就地装配 items(GitHub 工件猎取/FOFA-Shodan 曝面/本地文本分诊),不参与 auto 降级链,显式选择才生效;凭据经 `engine_options.credhunter.{github_tokens,fofa_apikey,shodan_apikey}` 引用注入,无 key 的曝面 lane 显式空态(AC6) |
+| `engine` | `auto` | 引擎名(见词汇表;auto 按降级链,选中回写 SQLite hints 不回写 YAML)。auto 下 L2 静态抓到 0 条时会对**首遇源**(尚无 hint)做一次 L3(crawl4ai)浏览器探测——JS 渲染空壳页由此被接住;探测零结果则锁回 L2 空页语义,每 run 至多探测 3 个源。已锁 L2 的存量源不受影响;手动重探出口 = 显式写 `engine: crawl4ai`。`credhunter` 是**链外源引擎**:不抓取 url、由进程内场景件 myssia-credhunter 就地装配 items(GitHub 工件猎取/FOFA-Shodan 曝面/本地文本分诊),不参与 auto 降级链,显式选择才生效;凭据经 `engine_options.credhunter.{github_tokens,fofa_apikey,shodan_apikey}` 引用注入,无 key 的曝面 lane 显式空态(AC6) |
 | `url` | `必填` | http(s) 地址;支持 `{placeholder}` 模板(翻页 `{page}`、扇出 `{symbol}`) |
 | `method` | `GET` | `GET` / `POST`;POST 必配 `post_body`,GET 禁止 |
 | `post_body` | `null` | POST 表单/JSON 体(映射);凭据键同 headers 禁明文 |
@@ -127,7 +127,7 @@ pools:
 `max_failures` 摘除,过 `probe_interval` 后由下一次流量自然触发半开试炼
 (成功归队、失败再摘除;零后台探活);全部上游摘除即池熔断 —— 后续请求
 **零网络快速失败**(`proxy_pool_exhausted`,降级链同 `proxy_*` 家族短路),
-`myia doctor --config` 逐池逐上游并行探测(单上游池输出仅多
+`myssia doctor --config` 逐池逐上游并行探测(单上游池输出仅多
 `upstream_index`/`upstreams` 两个纯增字段)。**行为变化(v1.2 披露)**:
 字符串(单上游)池的失败语义从「逐源各自重试」变为「3 连败摘除 → 池熔断
 快速失败」—— YAML 兼容指可原样加载、请求照跑,失败路径不再逐字节等价
@@ -266,13 +266,13 @@ YAML 拒载(退出码 1)。
 
 ### plugin:场景插件双模式(v0.3)
 
-品类依赖某个市场插件(`myia plugin install` 安装)提供的服务时声明。
+品类依赖某个市场插件(`myssia plugin install` 安装)提供的服务时声明。
 **任何插件装不上/配置坏/remote 不可达都不拦核心流水线**——降级为结构化
 finding,品类照常跑(安全基线铁律)。
 
 | 字段 | 缺省 | 语义 |
 |---|---|---|
-| `id` | `必填` | 插件 id(小写字母/数字/连字符/下划线,字母数字开头,惯例 `myia-<名称>`) |
+| `id` | `必填` | 插件 id(小写字母/数字/连字符/下划线,字母数字开头,惯例 `myssia-<名称>`) |
 | `requires` | `[]` | 宿主能力词表(当前仅 `docker`);字符串或列表皆可 |
 | `modes` | `必填` | 双模式至少声明一个:`local`(compose 文件路径 / install 命令至少其一)或 `remote`(endpoint 必填;token **必须** `keychain:myia/<scope>/<name>` 引用,`env:` 也不行) |
 
@@ -282,12 +282,12 @@ name: 页面变更监控
 schedule: "*/15 * * * *"
 timezone: Asia/Shanghai
 plugin:                           # 场景插件声明(v1.1 起官方包为 remote 可选接入)
-  id: myia-monitor
+  id: myssia-monitor
   requires: []
   modes:
     remote:                       # 指向已部署实例(桌面零 Docker);local compose 仍是合法 schema,官方部署文件在 docker/plugins/
       endpoint: https://my-monitor.example.com
-      token: keychain:myia/monitor/token    # myia secret set myia/monitor/token
+      token: keychain:myia/monitor/token    # myssia secret set myia/monitor/token
 sources:
   - name: watch-api
     engine: direct_api
@@ -376,7 +376,7 @@ push:
 两级判重:本地零 token 粗筛圈候选 → LLM 确认(并入 enrich 的批量/缓存/预算
 护栏)。**端点配置复用 `enrich:` 节**——`aggregate.enabled: true` 要求
 enrich 的 `base_url`/`api_key` 有效(同样需要 `--extra llm`);预算与 enrich
-合计消费,谁先到顶谁降级。开启后 `myia run --json` 的 `stages[]` 会多出
+合计消费,谁先到顶谁降级。开启后 `myssia run --json` 的 `stages[]` 会多出
 `aggregate` 阶段。
 
 ```yaml
@@ -413,7 +413,7 @@ push:
 ## 加载期错误(结构化)
 
 装载失败抛 `LoadError`:一次报告**全部**错误,每条含字段路径(JSONPath 风格
-如 `$.sources[0].rate_limit.qps`)+ 机器错误类 + 中文原因;`myia doctor
+如 `$.sources[0].rate_limit.qps`)+ 机器错误类 + 中文原因;`myssia doctor
 --json` 输出同一结构。退出码 1。常见错误类:
 
 | error_type | 含义 |

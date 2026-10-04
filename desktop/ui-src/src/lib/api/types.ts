@@ -13,9 +13,9 @@
  * 数据形状来源(逐一对照,勿凭记忆臆造):
  *   version / health / plugins.list / doctor / run 系列 / logs.tail / secret 系列
  *   → desktop/entry.py `_HANDLERS` 各方法函数;
- *   health  → src/myia/cli.py `_cmd_list` + `_m_health` 追加的 summary/healthy/exit_code;
+ *   health  → src/myssia/cli.py `_cmd_list` + `_m_health` 追加的 summary/healthy/exit_code;
  *   doctor  → cli.py `_doctor_payload`(identity/sources/enrich/credentials/proxy/findings);
- *   plugins.list → cli.py `_plugin_list` + src/myia/plugins/installed.py `to_dict`;
+ *   plugins.list → cli.py `_plugin_list` + src/myssia/plugins/installed.py `to_dict`;
  *   store.items  → entry.py `_item_dict`(raw/content_hash 不出协议面);
  *   源健康度     → cli.py `evaluate_source_health` / `_fingerprint_skip_stats`。
  */
@@ -45,7 +45,7 @@ export interface VersionParams {}
 
 export interface VersionResult {
   name: string;
-  /** myia.__version__ */
+  /** myssia.__version__ */
   version: string;
   /** 协议版本(PROTOCOL_VERSION,当前 3) */
   protocol: number;
@@ -55,7 +55,7 @@ export interface VersionResult {
 }
 
 // ---------------------------------------------------------------------------
-// health(myia list --json 等价 + summary/healthy/exit_code 增强)
+// health(myssia list --json 等价 + summary/healthy/exit_code 增强)
 // ---------------------------------------------------------------------------
 
 export interface HealthParams {
@@ -147,7 +147,7 @@ export interface HealthResult {
 }
 
 // ---------------------------------------------------------------------------
-// plugins.list(myia plugin list --json 等价)
+// plugins.list(myssia plugin list --json 等价)
 // ---------------------------------------------------------------------------
 
 export interface PluginsListParams {
@@ -185,7 +185,7 @@ export interface PluginListResult {
   command: "plugin";
   action: "list";
   dir: string;
-  myia_version: string;
+  myssia_version: string;
   plugins: InstalledPluginEntry[];
   summary: {
     installed: number;
@@ -197,7 +197,7 @@ export interface PluginListResult {
 }
 
 // ---------------------------------------------------------------------------
-// doctor(myia doctor --json 等价;问题全在 findings,完成即 0)
+// doctor(myssia doctor --json 等价;问题全在 findings,完成即 0)
 // ---------------------------------------------------------------------------
 
 export interface DoctorParams {
@@ -418,7 +418,7 @@ export interface StoreItemsParams {
   limit?: number;
 }
 
-/** OCR 逐行结果(myia.vision.ocr OcrLine 投影;conf 0-1,两引擎刻度不可互比) */
+/** OCR 逐行结果(myssia.vision.ocr OcrLine 投影;conf 0-1,两引擎刻度不可互比) */
 export interface ImageOcrLine {
   text: string;
   conf: number;
@@ -482,7 +482,7 @@ export interface FeedExportResult {
 }
 
 // feed.enrich(G8,10-03-fe-small-batch:单条情报卡 AI 摘要/精评,骑既有 enrich
-// 管线 myia.enrich.LLMEnricher 现跑;与 entry.py `_m_feed_enrich` 互指)
+// 管线 myssia.enrich.LLMEnricher 现跑;与 entry.py `_m_feed_enrich` 互指)
 export interface FeedEnrichParams {
   /** 条目引用:items.id(int)或 dedup_key/URL(str);同 resolve_item_ref
    *  (feedback.mark 口径) */
@@ -595,7 +595,7 @@ export interface TestCompletedEvent {
   job_id: number;
   ok: boolean;
   exit_code: number | null;
-  /** CLI `myia test --json` 报文(command/yaml/sources[]/status) */
+  /** CLI `myssia test --json` 报文(command/yaml/sources[]/status) */
   result?: Record<string, unknown>;
   /** 失败族:error = CLI 报文的 error 字段(config 等) */
   error?: string;
@@ -604,8 +604,8 @@ export interface TestCompletedEvent {
 }
 
 // ---------------------------------------------------------------------------
-// feedback.*(B2,10-03-v112-desktop-parity:桌面反馈入口;与 CLI myia feedback
-// 同门直调 myia.feedback —— channel="desktop" 落库,CLI list 无过滤即见,
+// feedback.*(B2,10-03-v112-desktop-parity:桌面反馈入口;与 CLI myssia feedback
+// 同门直调 myssia.feedback —— channel="desktop" 落库,CLI list 无过滤即见,
 // 往返一致;载荷键逐一对齐 cli.py `_feedback_row_dict` / stats 报文)
 // ---------------------------------------------------------------------------
 
@@ -793,7 +793,7 @@ export interface ImageConfigSaveParams {
 // ---------------------------------------------------------------------------
 // image.models.* / image.server.*(10-03-vision-v2:模型下载与 server 代管;
 // 契约与 entry.py `_m_image_models_*` / `_m_image_server_*` 同形状冻结,
-// 能力实现 src/myia/vision/models.py / server.py)
+// 能力实现 src/myssia/vision/models.py / server.py)
 // ---------------------------------------------------------------------------
 
 /** 已装模型(image.models.list 逐项;模型 = models/ 一级子目录) */
@@ -981,7 +981,7 @@ export interface ImageModelsProgressEvent {
 }
 
 /** 模型下载终态事件:ok=false 时 error = 结构化 code(disk_insufficient /
- *  hf_unavailable / 网络失败族等;见 myia.vision.models 错误码表)。 */
+ *  hf_unavailable / 网络失败族等;见 myssia.vision.models 错误码表)。 */
 export interface ImageModelsCompletedEvent {
   type: "image.models.completed";
   job_id: number;
@@ -992,7 +992,7 @@ export interface ImageModelsCompletedEvent {
 
 /** 本地 server ensure 终态事件(entry.py `_image_server_ensure_worker`;
  *  image.server.ensure 慢路径应答后的收口)。ok=true 时 status =
- * status+{started} 全量;ok=false 时 error = myia.vision.server 错误族
+ * status+{started} 全量;ok=false 时 error = myssia.vision.server 错误族
  * code(no_local_model / spawn_failed / server_start_failed 等)。 */
 export interface ImageServerCompletedEvent {
   type: "image.server.completed";

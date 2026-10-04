@@ -13,12 +13,12 @@ Two distinct phases (see PRD v01-yaml-schema):
   phase -- the official ``plugins/stocks.yaml`` example uses one.
 - **Resolve** (:func:`resolve_credential`): reference -> concrete value at
   fetch/push time. ``env:VAR`` reads the environment; ``keychain:NAME`` reads
-  the system keychain through :mod:`shishi.secrets` (macOS Keychain / Windows
+  the system keychain through :mod:`myssia.secrets` (macOS Keychain / Windows
   DPAPI via the ``keyring`` library; 无钥匙链环境结构化报错并引导改用 ``env:``).
 
 Structured errors: :class:`LoadError` carries a list of
 :class:`LoadErrorDetail` (JSONPath-style field path + machine error type +
-human message in Chinese) so ``myia doctor`` (v0.2) and repairing agents can
+human message in Chinese) so ``myssia doctor`` (v0.2) and repairing agents can
 consume them programmatically.
 
 Scenario plugin sidecar (v0.3 plugin market): a category may also carry an
@@ -28,7 +28,7 @@ remote endpoint + keychain token), validated against
 :attr:`CategoryConfig.plugin`. It is deliberately *not* one of the twelve
 sections (the documented 12-section contract is locked field-for-field by
 tests/test_skill_doc.py); the mode models are shared with the market manifest
-in :mod:`shishi.plugins`. A broken/uninstalled plugin never blocks the core
+in :mod:`myssia.plugins`. A broken/uninstalled plugin never blocks the core
 pipeline — it degrades to structured findings (security-baseline 铁律).
 
 Trend baseline sidecar (v0.4, PRD 10-01-v04-trend-baseline): an optional
@@ -93,8 +93,8 @@ from pydantic import (
     ValidationInfo,
 )
 
-from shishi import secrets as secrets_store
-from shishi.secrets import KeychainBackend
+from myssia import secrets as secrets_store
+from myssia.secrets import KeychainBackend
 
 __all__ = [
     "CATEGORY_ID_RE",
@@ -164,7 +164,7 @@ PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
 BACKOFF_POLICIES = ("exponential", "linear", "none")
 # W3 长尾 22 家(10-03-messaging-w3-longtail):组一 Slack 系 + 组二 Matrix 系
-# + 组三长尾壳;与 shishi.push.CHANNELS 的 _W3_LONGTAIL_CHANNELS 一一对应。
+# + 组三长尾壳;与 myssia.push.CHANNELS 的 _W3_LONGTAIL_CHANNELS 一一对应。
 _W3_LONGTAIL = (
     "slack",
     "discord",
@@ -261,7 +261,7 @@ DEFAULT_AGGREGATE_SIMILARITY = 0.6
 #: 图片处理环缺省每条上限(张):超出静默截断(首张优先,extract 顺序)。
 DEFAULT_IMAGES_MAX_IMAGES = 3
 #: 图片处理环缺省每 run 总上限(张):VL 时长的硬闸,耗尽后条目标
-#: ``skipped:run_limit``(降级矩阵见 myia/vision/collect.py)。
+#: ``skipped:run_limit``(降级矩阵见 myssia/vision/collect.py)。
 DEFAULT_IMAGES_MAX_PER_RUN = 30
 #: 图片处理环缺省最小字节(<10KB 视为图标/追踪像素跳过)。
 DEFAULT_IMAGES_MIN_BYTES = 10_240
@@ -280,7 +280,7 @@ RESERVED_DEDUP_FIELDS = frozenset({"url", "source", "category", "scores", "date"
 #: 规则(路径围栏的一环),前端预检 import 同一常量语义 —— 不复制正则,防两处
 #: 漂移(task 10-03-yaml-editor);manifest 能力名(provides)同源复用。
 CATEGORY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
-#: 场景插件 id(市场 manifest 与品类 plugin 节共用同一 id 空间;惯例 myia-<名称>)。
+#: 场景插件 id(市场 manifest 与品类 plugin 节共用同一 id 空间;惯例 myssia-<名称>)。
 _PLUGIN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,63}$")
 _DURATION_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)(ms|s|m|h)?\s*$")
 _DURATION_UNITS = {"ms": 0.001, "s": 1.0, "m": 60.0, "h": 3600.0}
@@ -290,7 +290,7 @@ _PLACEHOLDER_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 # ``env:VAR`` / ``keychain:NAME``, optionally preceded by an RFC 7235 auth
 # scheme word ("Bearer env:AIPOCKET_TOKEN" in official credentials.yaml).
 # keychain names may be namespaced with ``/`` (myia/<scope>/<name>, the
-# canonical form enforced by shishi.secrets at resolve time).
+# canonical form enforced by myssia.secrets at resolve time).
 _SECRET_REF_RE = re.compile(
     r"^(?:(?P<scheme>[A-Za-z][A-Za-z0-9+\-.]*)[ \t]+)?"
     r"(?:env:(?P<env_var>[A-Za-z_][A-Za-z0-9_]*)|keychain:(?P<kc>[A-Za-z0-9_./\-]+))[ \t]*$"
@@ -329,7 +329,7 @@ class LoadError(Exception):
     """Category YAML refused at load/validate time (CLI exit code 1).
 
     Attributes:
-        errors: all detected failures, structured for ``myia doctor`` (v0.2)
+        errors: all detected failures, structured for ``myssia doctor`` (v0.2)
             and agent self-repair; see :meth:`to_dict`.
         source: file path the config was loaded from, when known.
     """
@@ -354,7 +354,7 @@ class LoadError(Exception):
         return "\n".join(lines)
 
     def to_dict(self) -> dict[str, Any]:
-        """Machine-readable form for ``myia doctor`` (JSON) and agents."""
+        """Machine-readable form for ``myssia doctor`` (JSON) and agents."""
         return {
             "source": self.source,
             "errors": [
@@ -388,7 +388,7 @@ class CredentialResolveError(RuntimeError):
         code: ``env_var_missing`` | ``invalid_credential_ref`` |
             ``invalid_secret_name`` | ``secret_not_found`` |
             ``keychain_backend_unavailable`` | ``keychain_operation_failed``
-            (the last four mirror :class:`shishi.secrets.SecretError` codes).
+            (the last four mirror :class:`myssia.secrets.SecretError` codes).
     """
 
     def __init__(self, code: str, message: str) -> None:
@@ -500,7 +500,7 @@ def resolve_credential(
     """Resolve a credential reference to its concrete value at run time.
 
     ``env:VAR`` reads the process environment; ``keychain:NAME`` reads the
-    system keychain via :mod:`shishi.secrets` — the name must be in the
+    system keychain via :mod:`myssia.secrets` — the name must be in the
     canonical ``myia/<scope>/<name>`` namespace, and hosts without a keychain
     get a structured error guiding to ``env:`` (回退策略: env: 为主).
     Scheme prefixes round-trip: ``Bearer env:T`` -> ``Bearer <value>``.
@@ -508,7 +508,7 @@ def resolve_credential(
     Args:
         value: the credential reference as written in YAML.
         backend: injected keychain backend for ``keychain:`` references
-            (tests inject :class:`shishi.secrets.InMemoryKeychainBackend`);
+            (tests inject :class:`myssia.secrets.InMemoryKeychainBackend`);
             ``None`` = lazily discovered system keyring.
 
     Raises:
@@ -617,7 +617,7 @@ class ExtractConfig(_StrictModel):
     clickable page URL (only a slug / numeric id — Epic freeGamesPromotions,
     Steam featuredcategories), the per-item ``url`` is rendered from
     ``{field}`` placeholders at the extraction outlet
-    (:func:`shishi.engines.fetch_base.extract_json` / ``extract_html``)
+    (:func:`myssia.engines.fetch_base.extract_json` / ``extract_html``)
     instead of being read from ``fields``. This closes the gap stocks.yaml
     documented as「json_path cannot express "item URL = f(field)"」: the
     ``url`` field remains the stable-identity fallback, ``url_template``
@@ -963,7 +963,7 @@ CHANNEL_PLATFORMS: dict[str, str] = {
     **{channel: channel for channel in _W3_LONGTAIL},
 }
 
-#: targets 元素形态 ``platform:名称或id``(与 shishi.push.targets.SPEC_RE 同源;
+#: targets 元素形态 ``platform:名称或id``(与 myssia.push.targets.SPEC_RE 同源;
 #: schema 层本地定值,避免反向 import)。
 _TARGET_SPEC_RE = re.compile(r"^([a-z][a-z0-9_]*):(.+)$")
 
@@ -1018,7 +1018,7 @@ class PushConfig(_StrictModel):
 
     ``timeout`` / ``retries`` / ``retry_backoff_seconds`` are the webhook
     transport contract (PRD 10-01-v02-push-telegram: 超时/重试可配);defaults
-    mirror ``shishi.push.webhook``. They are rejected on other channels (no
+    mirror ``myssia.push.webhook``. They are rejected on other channels (no
     silent ignore).
 
     ``targets``(10-03-messaging-core,design D4):定向推送对象列表,元素
@@ -1030,7 +1030,7 @@ class PushConfig(_StrictModel):
     零迁移。
     """
 
-    #: 与 shishi.push.webhook 的缺省一致(schema 不反依赖 push 层,本地定值)。
+    #: 与 myssia.push.webhook 的缺省一致(schema 不反依赖 push 层,本地定值)。
     channel: PushChannel
     target: str | None = None
     targets: list[str] = Field(default_factory=list)
@@ -1262,7 +1262,7 @@ class BaselineConfig(_StrictModel):
     按 ``(品类, 条目键, 字段)`` 存入 ``metric_history`` 数值历史快照表;推送
     模板经沙箱自定义函数 ``vs_yesterday`` / ``vs_last_week`` 拿到
     「较昨日 / 较上周」对比文本,``keyword_trends`` 上下文携带关键词提及量
-    周环比(见 :mod:`shishi.push.templates`)。:attr:`msrp` 是可选的
+    周环比(见 :mod:`myssia.push.templates`)。:attr:`msrp` 是可选的
     建议零售价对照表(公开数字),模板经 ``vs_msrp`` 消费。
 
     与 ``plugin:`` 同一套 sidecar 机制:由 :func:`load_category` 在装载入口
@@ -1358,7 +1358,7 @@ class ImagesConfig(_StrictModel):
     图片 URL 执行 下载(SSRF 拒私网/魔法字节白名单/流式 10MB 截断/10s 超时)
     → 本地 OCR(to_thread 信号量 4)→ 可选 VL 情报向描述,产物挂
     ``metadata.image_ocr`` / ``image_caption`` / ``image_status``,喂给
-    analyze/enrich 评分与推送模板(见 :mod:`shishi.vision.collect` 的降级
+    analyze/enrich 评分与推送模板(见 :mod:`myssia.vision.collect` 的降级
     矩阵——任何失败只写标记,绝不阻断管线)。**未开启 = 整环零进入**,
     行为与本节不存在时逐字段一致(零影响默认)。
 
@@ -1493,7 +1493,7 @@ class PluginRemoteModeConfig(_StrictModel):
             raise SchemaValueError(
                 "plugin_token_requires_keychain",
                 "modes.remote.token 必须是 keychain:myia/<scope>/<name> 引用"
-                "(插件 remote 凭据只走系统钥匙链);请先 myia secret set 写入再引用",
+                "(插件 remote 凭据只走系统钥匙链);请先 myssia secret set 写入再引用",
             )
         try:
             secrets_store.validate_secret_name(ref.name)
@@ -1522,7 +1522,7 @@ class CategoryPluginConfig(_StrictModel):
     """品类顶层的场景插件声明(v1.7 双模式 sidecar 节)。
 
     语义:本品类依赖市场插件 ``id`` 提供的服务,``modes`` 声明本部署可用的
-    接入方式。该节只服务安装指引与诊断(src/shishi/plugins 包的启动自检/
+    接入方式。该节只服务安装指引与诊断(src/myssia/plugins 包的启动自检/
     doctor);**任何插件装不上/配置坏/remote 不可达都不拦核心流水线**
     (security-baseline 铁律)—— 插件缺失降级为结构化 finding,品类照常跑。
     """
@@ -1537,7 +1537,7 @@ class CategoryPluginConfig(_StrictModel):
         if not _PLUGIN_ID_RE.match(value):
             raise SchemaValueError(
                 "invalid_plugin_id",
-                f"插件 id 只允许小写字母/数字/连字符/下划线且字母数字开头(2-64 字符,惯例 myia-<名称>),"
+                f"插件 id 只允许小写字母/数字/连字符/下划线且字母数字开头(2-64 字符,惯例 myssia-<名称>),"
                 f"当前为 {value!r}",
             )
         return value

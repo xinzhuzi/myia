@@ -41,17 +41,17 @@ import httpx
 import pytest
 from conftest import make_client, make_context, make_handler, make_source, run
 
-from shishi.engines import registry
-from shishi.engines import stealth_browser as stealth
-from shishi.engines.fetch_base import (
+from myssia.engines import registry
+from myssia.engines import stealth_browser as stealth
+from myssia.engines.fetch_base import (
     BaseEngine,
     EngineNotAvailableError,
     FetchError,
     RobotsDisallowedError,
     load_proxy_pools,
 )
-from shishi.engines.registry import fetch_source
-from shishi.engines.stealth_browser import (
+from myssia.engines.registry import fetch_source
+from myssia.engines.stealth_browser import (
     COOKIE_TOOL_NAME,
     DEFAULT_COMMAND,
     INSTALL_HINT,
@@ -62,7 +62,7 @@ from shishi.engines.stealth_browser import (
     parse_cookie_header,
     parse_navigate_status,
 )
-from shishi.secrets import SECRET_SERVICE, InMemoryKeychainBackend
+from myssia.secrets import SECRET_SERVICE, InMemoryKeychainBackend
 
 SITE_URL = "https://shielded.example.com/hot"
 HOST = "shielded.example.com"
@@ -495,7 +495,7 @@ def test_open_arguments_carry_seed_profile_and_pool_proxy(monkeypatch):
         )
         return real_client(**kwargs)
 
-    monkeypatch.setattr("shishi.engines.fetch_base.httpx.AsyncClient", pool_client_factory)
+    monkeypatch.setattr("myssia.engines.fetch_base.httpx.AsyncClient", pool_client_factory)
     client = make_client(make_handler(lambda r: httpx.Response(404, text="")))
     context, _ = make_context(client)
     context.proxy_pools = load_proxy_pools({"pools": {"main": "http://proxy.example.com:8080"}})
@@ -504,7 +504,7 @@ def test_open_arguments_carry_seed_profile_and_pool_proxy(monkeypatch):
         url=SITE_URL,
         extract=LIST_EXTRACT,
         proxy="pool:main",
-        engine_options={"stealth_browser": {"seed": 4242, "profile": "/tmp/myia-profile"}},
+        engine_options={"stealth_browser": {"seed": 4242, "profile": "/tmp/myssia-profile"}},
     )
 
     run(StealthBrowserEngine(source, context).fetch())
@@ -512,7 +512,7 @@ def test_open_arguments_carry_seed_profile_and_pool_proxy(monkeypatch):
     open_call = next(call for name, call in fake.calls if name == "browser_open")
     assert open_call == {
         "seed": 4242,
-        "profile": "/tmp/myia-profile",
+        "profile": "/tmp/myssia-profile",
         "proxy": "http://proxy.example.com:8080",
     }
 

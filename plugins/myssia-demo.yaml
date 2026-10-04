@@ -1,9 +1,9 @@
-# plugins/myia-demo.yaml — 开箱演示件(v1.1.1 随包第五件,grill Q3)。
+# plugins/myssia-demo.yaml — 开箱演示件(v1.1.1 随包第五件,grill Q3)。
 # 目的:装机首跑「运行第一个插件」第一次就出真数据,不撞 config_error;
 #      同时是 README 五屏截图的数据来源。
 # 铁律:零凭据(stdout 通道不需要 target)、零环境变量/钥匙串引用(fail-fast
 #      不破)、分类 builtin 关闭直通(夹具惯例)。
-id: myia-demo
+id: myssia-demo
 name: 演示 · GitHub 新星
 schedule: "0 9 * * *"          # 仅 --loop 常驻时生效;桌面 run.start 单跑不看它
 

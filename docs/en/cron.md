@@ -1,18 +1,18 @@
 # Scheduled jobs (cron)
 
-> Put a category pipeline on a clock: at each due fire MYIA runs it once and
+> Put a category pipeline on a clock: at each due fire myssia runs it once and
 > delivers the summary. One engine, three hosts — CLI daemon
-> (`myia cron serve`), the desktop app (built-in ticker), and manual
-> `myia cron tick` (external cron / debugging) — coexisting under mutual
+> (`myssia cron serve`), the desktop app (built-in ticker), and manual
+> `myssia cron tick` (external cron / debugging) — coexisting under mutual
 > exclusion. A job's payload is a category YAML (see
 > [Write a plugin](write-a-plugin.md) and the [schema reference](schema.md)).
 
 ## 1. A job in thirty seconds
 
 ```bash
-myia cron create "every 2h" --category plugins/news.yaml --deliver local
-myia cron list
-myia cron serve    # resident host, one tick per 60s; Ctrl-C to stop
+myssia cron create "every 2h" --category plugins/news.yaml --deliver local
+myssia cron list
+myssia cron serve    # resident host, one tick per 60s; Ctrl-C to stop
 ```
 
 `--category` points at a category YAML (stored as an absolute path; creation
@@ -42,7 +42,7 @@ storage:
   retention: 30d
 ```
 
-Each due fire spawns one `myia run <category> --json` subprocess (fetch →
+Each due fire spawns one `myssia run <category> --json` subprocess (fetch →
 classify → dedup → analyze → built-in push, unchanged), then delivers a
 **run summary** (status / duration / source stats / retained items / push
 buckets / failure lines) to the `--deliver` target; the local archive lands
@@ -101,11 +101,11 @@ DST fall-back hour strictly advances — no past instants are produced.
 ### CLI daemon (serve)
 
 ```bash
-myia cron serve --db /data/myia.db --interval 60
+myssia cron serve --db /data/myssia.db --interval 60
 ```
 
 Headless/server form: a supervised ticker thread (auto-respawn on crash);
-`myia cron status` reports heartbeat liveness and the next due instant.
+`myssia cron status` reports heartbeat liveness and the next due instant.
 
 ### Desktop
 
@@ -115,7 +115,7 @@ The desktop app starts the same kind of ticker (home mode only) and exposes the
 ### Manual tick (external cron)
 
 ```bash
-myia cron tick --db /data/myia.db
+myssia cron tick --db /data/myssia.db
 ```
 
 One scan-and-dispatch pass for every due job — for system crontabs/CI to drive;
@@ -149,12 +149,12 @@ dbs run in parallel.
 
 The stock compose defaults to `command: run … --loop`; for the scheduled form
 change the `command:` line in `docker/docker-compose.yml` to
-`cron serve --db /data/myia.db` (the image entrypoint is the `myia` CLI) —
+`cron serve --db /data/myssia.db` (the image entrypoint is the `myssia` CLI) —
 jobs live in `/data/cron/jobs.json`, persisted with the volume. Create the
 jobs inside the container — category YAMLs are mounted read-only at
 `/config/plugins/`:
 
 ```bash
-docker compose -f docker/docker-compose.yml run --rm myia \
-  cron create "every 2h" --category /config/plugins/news.yaml --db /data/myia.db
+docker compose -f docker/docker-compose.yml run --rm myssia \
+  cron create "every 2h" --category /config/plugins/news.yaml --db /data/myssia.db
 ```

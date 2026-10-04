@@ -1,11 +1,11 @@
-"""Compatibility shim: implementation lives in ``myia_classifier.builtin``.
+"""Compatibility shim: implementation lives in ``myssia_classifier.builtin``.
 
-See :mod:`shishi.classify` (the package shim) for the migration note.
+See :mod:`myssia.classify` (the package shim) for the migration note.
 ``DEFAULT_TABLE_PATH`` points at the packaged table inside the standalone
 distribution, so data/code separation works identically through this shim.
 """
 
-from myia_classifier.builtin import (
+from myssia_classifier.builtin import (
     ALL_CATEGORIES,
     CATEGORY_CHANNEL,
     DEFAULT_TABLE_PATH,

@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { MyiaMark } from "@/components/myia-mark";
+import { MyssiaMark } from "@/components/myssia-mark";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +30,7 @@ export function EmptyState({
   compact = false,
   className,
 }: EmptyStateProps) {
-  const icon = <MyiaMark className={compact ? "size-8" : "size-14"} />;
+  const icon = <MyssiaMark className={compact ? "size-8" : "size-14"} />;
   const halo = (
     <div
       aria-hidden

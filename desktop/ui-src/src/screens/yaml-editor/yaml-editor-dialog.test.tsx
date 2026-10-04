@@ -36,7 +36,7 @@ function doctorOk(file: string, name: string, sources: number): DoctorResult {
   return {
     command: "doctor",
     generated_at: "2026-10-03T12:00:00.000Z",
-    db: "myia.db",
+    db: "myssia.db",
     healthy: true,
     plugins: [
       {

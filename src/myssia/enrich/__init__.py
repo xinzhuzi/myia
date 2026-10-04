@@ -29,7 +29,7 @@ construction (grill Q6: MYIA 无内置端点、无默认 key;缺失/明文 = 结
 :class:`EnrichConfigError`,启动即拒).
 
 Event aggregation (v0.4, PRD 10-01-v04-event-aggregation): the same package
-also hosts the multi-source same-event dedup (:mod:`shishi.enrich.aggregate`)
+also hosts the multi-source same-event dedup (:mod:`myssia.enrich.aggregate`)
 — a local title-similarity coarse screen plus LLM confirmation that reuses
 the batch/cache/budget rails described above (and one shared per-run token
 budget with scoring when the pipeline runs both stages).
@@ -50,7 +50,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from shishi.enrich.aggregate import (
+from myssia.enrich.aggregate import (
     AggregateOutcome,
     EventAggregator,
     coarse_groups,
@@ -58,22 +58,22 @@ from shishi.enrich.aggregate import (
     parse_dedupe_payload,
     title_similarity,
 )
-from shishi.enrich.client import INSTALL_COMMAND, OpenAICompatClient
-from shishi.enrich.errors import EnrichConfigError
-from shishi.enrich.prompt import PromptTemplate, load_prompt
-from shishi.enrich.scoring import (
+from myssia.enrich.client import INSTALL_COMMAND, OpenAICompatClient
+from myssia.enrich.errors import EnrichConfigError
+from myssia.enrich.prompt import PromptTemplate, load_prompt
+from myssia.enrich.scoring import (
     BudgetTracker,
     ScoreParseError,
     composite_score,
     mute_hit,
     parse_score_payload,
 )
-from shishi.enrich.settings import EnrichSettings, resolve_endpoint
-from shishi.schema import EnrichConfig
-from shishi.store import Store
+from myssia.enrich.settings import EnrichSettings, resolve_endpoint
+from myssia.schema import EnrichConfig
+from myssia.store import Store
 
 if TYPE_CHECKING:  # 循环避免:仅类型注解引用 pipeline.Item(运行时鸭子类型)
-    from shishi.pipeline import Item
+    from myssia.pipeline import Item
 
 __all__ = [
     "CONTENT_SNIPPET_CHARS",
@@ -135,7 +135,7 @@ class EnrichOutcome:
     failures: list[dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Machine-readable form for run stats / ``myia doctor`` (JSON)."""
+        """Machine-readable form for run stats / ``myssia doctor`` (JSON)."""
         return {
             "model": self.model,
             "requested": self.requested,

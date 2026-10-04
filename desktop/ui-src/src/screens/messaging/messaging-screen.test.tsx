@@ -33,8 +33,10 @@ import type { AlertRuleInput, AlertRuleView, BridgeStatusView, ChannelsView } fr
 import {
   buildPlatformCards,
   deriveImplementedStatus,
+  IMPLEMENTED_PLATFORMS,
   matchSecretNames,
   matchesFilter,
+  UPCOMING_PLATFORMS,
 } from "./platform-overview";
 
 const FILE = "plugins/messaging-demo.yaml";
@@ -543,7 +545,7 @@ describe("消息:平台总览三态与头像卡", () => {
 
     const overview = await screen.findByTestId("platform-overview");
     const list = within(overview).getByTestId("platform-card-list");
-    // R1 验收:28 张平台卡全部带头像芯片(2 精确标 + 26 通用标)
+    // R1 验收:28 张平台卡全部带头像芯片(16 brand 精确标 + 11 无标全灰 + 1 通用标)
     expect(within(list).getAllByRole("listitem")).toHaveLength(28);
     expect(list.querySelectorAll("[data-testid^='platform-avatar-']")).toHaveLength(28);
     expect(within(list).getByTestId("platform-avatar-feishu")).toBeTruthy();
@@ -622,9 +624,10 @@ describe("消息:平台总览三态与头像卡", () => {
     );
   });
 
-  it("灰卡(slack,未实装代表)点击选中 → 详情即将支持 + W3 排期说明;无凭据指南、无目录速览", async () => {
+  it("灰卡(signal,未实装代表)点击选中 → 详情即将支持 + W3 排期说明;无凭据指南、无目录速览", async () => {
     // 微信已随 10-03-messaging-weixin-bridge 转实装(桥接灰卡另测),
-    // coming_soon 行为以 W3 未实装平台代表覆盖。
+    // W3 长尾也已转实装——coming_soon 行为以剩余未实装平台代表覆盖
+    // (signal 为壳通道:需 signal-cli 守护进程,extras 结构化报错)。
     const sidecar = okSidecar();
     installSidecar(sidecar.map, sidecar.record);
     render(
@@ -633,15 +636,153 @@ describe("消息:平台总览三态与头像卡", () => {
       </MemoryRouter>,
     );
     const overview = await screen.findByTestId("platform-overview");
-    fireEvent.click(within(overview).getByTestId("platform-card-slack"));
+    fireEvent.click(within(overview).getByTestId("platform-card-signal"));
 
     const detail = within(overview).getByTestId("platform-detail");
-    expect(within(detail).getByText("Slack")).toBeTruthy();
+    expect(within(detail).getByText("Signal")).toBeTruthy();
     expect(within(detail).getByText("即将支持")).toBeTruthy();
     expect(detail.textContent).toContain("W3");
     expect(detail.textContent).toContain("尚未实装");
-    expect(within(detail).queryByTestId("platform-guide-slack")).toBeNull();
+    expect(within(detail).queryByTestId("platform-guide-signal")).toBeNull();
     expect(within(detail).queryByText("目录速览")).toBeNull();
+  });
+
+  it("homeassistant 已转实装(W3 组三):详情需要设置 + 出站凭据指南(HASS_*);不再是灰卡排期文案", async () => {
+    // 后端适配器已入库(src/myssia/push/homeassistant.py + push/__init__.py
+    // 的 CHANNELS/PLATFORMS 注册),UI 卡随转(伞任务验收项「UI 卡转实装+
+    // 凭据指南落地」);fixture 无凭据无目录 → 需要设置(黄),非灰卡。
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+    const overview = await screen.findByTestId("platform-overview");
+    fireEvent.click(within(overview).getByTestId("platform-card-homeassistant"));
+
+    const detail = within(overview).getByTestId("platform-detail");
+    expect(within(detail).getByText("Home Assistant")).toBeTruthy();
+    expect(within(detail).getByText("需要设置")).toBeTruthy();
+    expect(detail.textContent).not.toContain("尚未实装");
+    const guide = within(detail).getByTestId("platform-guide-homeassistant");
+    expect(guide.textContent).toContain("HASS_URL");
+    expect(guide.textContent).toContain("HASS_TOKEN");
+  });
+
+  it("W3 本片四家已转实装:qqbot/msgraph 出站指南 + bluebubbles/yuanbao 壳披露(不再灰卡)", async () => {
+    // 适配器已入库(push/__init__.py 的 CHANNELS/PLATFORMS 注册),UI 卡随转
+    // (伞任务验收项「UI 卡转实装+凭据指南落地」);bluebubbles/yuanbao 是
+    // extras 壳——需要设置 + 说明如实披露 dependency_missing(不假装可用)。
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+    const overview = await screen.findByTestId("platform-overview");
+
+    // qqbot:AppID/Secret 凭据 + bot.q.qq.com 后台 + 主动额度如实说明
+    fireEvent.click(within(overview).getByTestId("platform-card-qqbot"));
+    let detail = within(overview).getByTestId("platform-detail");
+    expect(within(detail).getByText("QQ 机器人")).toBeTruthy();
+    expect(within(detail).getByText("需要设置")).toBeTruthy();
+    expect(detail.textContent).not.toContain("尚未实装");
+    let guide = within(detail).getByTestId("platform-guide-qqbot");
+    expect(guide.textContent).toContain("QQBOT_APP_ID");
+    expect(guide.textContent).toContain("QQBOT_CLIENT_SECRET");
+    expect(guide.textContent).toContain("bot.q.qq.com");
+    expect(guide.textContent).toContain("每月 4 条");
+
+    // msgraph_webhook:client credentials 三件套 + Chat.ReadWrite 应用权限
+    fireEvent.click(within(overview).getByTestId("platform-card-msgraph_webhook"));
+    detail = within(overview).getByTestId("platform-detail");
+    expect(detail.textContent).not.toContain("尚未实装");
+    guide = within(detail).getByTestId("platform-guide-msgraph_webhook");
+    expect(guide.textContent).toContain("MSGRAPH_WEBHOOK_TENANT_ID");
+    expect(guide.textContent).toContain("MSGRAPH_WEBHOOK_CLIENT_SECRET");
+    expect(guide.textContent).toContain("Chat.ReadWrite");
+
+    // bluebubbles(extras 壳):需要设置 + 说明披露 dependency_missing,
+    // 指南给服务端部署指引(不虚指 pip 命令)
+    fireEvent.click(within(overview).getByTestId("platform-card-bluebubbles"));
+    detail = within(overview).getByTestId("platform-detail");
+    expect(within(detail).getByText("需要设置")).toBeTruthy();
+    expect(detail.textContent).toContain("dependency_missing");
+    expect(detail.textContent).not.toContain("尚未实装");
+    guide = within(detail).getByTestId("platform-guide-bluebubbles");
+    expect(guide.textContent).toContain("bluebubbles.app");
+    expect(guide.textContent).not.toContain("myssia[bluebubbles]");
+
+    // yuanbao(extras 壳):无 one-shot 出站的蓝本事实 + uv add websockets
+    fireEvent.click(within(overview).getByTestId("platform-card-yuanbao"));
+    detail = within(overview).getByTestId("platform-detail");
+    expect(detail.textContent).toContain("dependency_missing");
+    expect(detail.textContent).not.toContain("尚未实装");
+    guide = within(detail).getByTestId("platform-guide-yuanbao");
+    expect(guide.textContent).toContain("uv add websockets");
+  });
+
+  it("W3 组三收尾四家已转实装:a2a 出站指南(A2A_PEER/A2A_TOKEN)+ buzz/photon/raft 壳披露(不再灰卡)", async () => {
+    // 适配器已入库(push/__init__.py 的 CHANNELS/PLATFORMS 注册),UI 卡随转
+    // (伞任务验收项「UI 卡转实装+凭据指南落地」);a2a 是可真实发送通道
+    // (one-shot JSON-RPC);buzz/photon/raft 是 extras 壳——需要设置 + 说明
+    // 如实披露 dependency_missing + 修复路径(INSTALL_HINT 上 UI)。
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+    const overview = await screen.findByTestId("platform-overview");
+
+    // a2a:A2A_PEER/A2A_TOKEN 凭据 + SendMessage 冒烟 + 直达 URL 寻址
+    fireEvent.click(within(overview).getByTestId("platform-card-a2a"));
+    let detail = within(overview).getByTestId("platform-detail");
+    expect(within(detail).getByText("A2A")).toBeTruthy();
+    expect(within(detail).getByText("需要设置")).toBeTruthy();
+    expect(detail.textContent).not.toContain("尚未实装");
+    let guide = within(detail).getByTestId("platform-guide-a2a");
+    expect(guide.textContent).toContain("A2A_PEER");
+    expect(guide.textContent).toContain("A2A_TOKEN");
+    expect(guide.textContent).toContain("A2A-Version");
+    expect(guide.textContent).toContain("SendMessage");
+    expect(guide.textContent).toContain("a2a:<对端基址 URL>");
+
+    // buzz(extras 壳):需要设置 + dependency_missing 披露 + CLI 修复路径
+    fireEvent.click(within(overview).getByTestId("platform-card-buzz"));
+    detail = within(overview).getByTestId("platform-detail");
+    expect(within(detail).getByText("需要设置")).toBeTruthy();
+    expect(detail.textContent).toContain("dependency_missing");
+    expect(detail.textContent).not.toContain("尚未实装");
+    guide = within(detail).getByTestId("platform-guide-buzz");
+    expect(guide.textContent).toContain("github.com/block/buzz");
+    expect(guide.textContent).toContain("BUZZ_RELAY_URL");
+    expect(guide.textContent).toContain("BUZZ_PRIVATE_KEY");
+    expect(guide.textContent).toContain("buzz:<频道 UUID>");
+
+    // photon(extras 壳):Node sidecar 修复路径 + 双形态直达(space id/E.164)
+    fireEvent.click(within(overview).getByTestId("platform-card-photon"));
+    detail = within(overview).getByTestId("platform-detail");
+    expect(detail.textContent).toContain("dependency_missing");
+    expect(detail.textContent).not.toContain("尚未实装");
+    guide = within(detail).getByTestId("platform-guide-photon");
+    expect(guide.textContent).toContain("photon.codes");
+    expect(guide.textContent).toContain("PHOTON_PROJECT_ID");
+    expect(guide.textContent).toContain("PHOTON_PROJECT_SECRET");
+    expect(guide.textContent).toContain("E.164");
+
+    // raft(extras 壳):Raft CLI 修复路径 + 无直达形态(别名唯一寻址路)
+    fireEvent.click(within(overview).getByTestId("platform-card-raft"));
+    detail = within(overview).getByTestId("platform-detail");
+    expect(detail.textContent).toContain("dependency_missing");
+    expect(detail.textContent).not.toContain("尚未实装");
+    guide = within(detail).getByTestId("platform-guide-raft");
+    expect(guide.textContent).toContain("raft.build");
+    expect(guide.textContent).toContain("RAFT_PROFILE");
+    expect(guide.textContent).toContain("无直达形态");
   });
 });
 
@@ -656,7 +797,8 @@ describe("消息:平台总览筛选 tabs", () => {
     );
     const overview = await screen.findByTestId("platform-overview");
 
-    // 缺省 = 全部:已实装 2 + 未实装 26 = 28 张卡
+    // 缺省 = 全部:28 张卡 = 已连接 2(fixture 的 feishu/telegram)+ 已实装
+    // 缺凭据(需要设置)+ 微信桥接灰态 1 + 未实装灰卡(批次数见注册表)
     expect(within(overview).getByTestId("platform-filter-all").textContent).toBe("全部(28)");
     expect(within(overview).getByTestId("platform-filter-connected").textContent).toBe("已连接(2)");
     expect(within(overview).getByTestId("platform-filter-disabled").textContent).toBe("未启用(26)");
@@ -668,7 +810,8 @@ describe("消息:平台总览筛选 tabs", () => {
     expect(within(overview).queryByTestId("platform-card-weixin")).toBeNull();
     expect(within(overview).getByTestId("platform-detail").textContent).toContain("飞书");
 
-    // 未启用:需要设置 + 即将支持(此处 fixture 全已连接 → 只剩灰卡)
+    // 未启用:需要设置 + 桥接灰 + 即将支持(fixture 已连接的只有 feishu/telegram;
+    // homeassistant 已转实装但凭据缺失 → 黄卡也在此档)
     fireEvent.click(within(overview).getByTestId("platform-filter-disabled"));
     expect(within(overview).queryByTestId("platform-card-feishu")).toBeNull();
     expect(within(overview).queryByTestId("platform-card-telegram")).toBeNull();
@@ -824,6 +967,61 @@ describe("消息:详情栏出站凭据指南(唯一入口)", () => {
     // 群聊/markdown 是蓝本外能力:描述如实声明只做 text 私聊
     expect(within(overview).getByTestId("platform-detail").textContent).toContain("text 私聊");
   });
+
+  it("W3 组一四平台指南各就位(slack 建 App+scope、discord 开发者模式雪花 id、LINE 长寿命 token+好友约束、mattermost 自建服务器双路)", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+    const overview = await screen.findByTestId("platform-overview");
+
+    // slack:chat:write/im:write scope + xoxb token + curl 冒烟 + C/G/D/U/W 直达
+    fireEvent.click(within(overview).getByTestId("platform-card-slack"));
+    const slackGuide = within(overview).getByTestId("platform-guide-slack");
+    expect(slackGuide.textContent).toContain("SLACK_BOT_TOKEN");
+    expect(slackGuide.textContent).toContain("SLACK_CHANNEL");
+    expect(slackGuide.textContent).toContain("api.slack.com/apps");
+    expect(slackGuide.textContent).toContain("chat:write");
+    expect(slackGuide.textContent).toContain("im:write");
+    expect(slackGuide.textContent).toContain("conversations.open");
+    expect(slackGuide.textContent).toContain("slack.com/api/chat.postMessage");
+    expect(slackGuide.textContent).toContain("slack:C…/G…/D…/U…/W…");
+    expect(slackGuide.textContent).toContain("无自动发现");
+
+    // discord:Developer Portal 建 App + 开发者模式复制雪花频道 id + Bot 冒烟
+    fireEvent.click(within(overview).getByTestId("platform-card-discord"));
+    const discordGuide = within(overview).getByTestId("platform-guide-discord");
+    expect(discordGuide.textContent).toContain("DISCORD_BOT_TOKEN");
+    expect(discordGuide.textContent).toContain("DISCORD_CHANNEL_ID");
+    expect(discordGuide.textContent).toContain("discord.com/developers/applications");
+    expect(discordGuide.textContent).toContain("开发者模式");
+    expect(discordGuide.textContent).toContain("discord.com/api/v10/channels/");
+    expect(discordGuide.textContent).toContain("discord:<snowflake");
+
+    // line:Line Developers Console 长寿命 token + 好友约束如实披露 + push 冒烟
+    fireEvent.click(within(overview).getByTestId("platform-card-line"));
+    const lineGuide = within(overview).getByTestId("platform-guide-line");
+    expect(lineGuide.textContent).toContain("LINE_CHANNEL_ACCESS_TOKEN");
+    expect(lineGuide.textContent).toContain("LINE_TO");
+    expect(lineGuide.textContent).toContain("developers.line.biz");
+    expect(lineGuide.textContent).toContain("加为好友");
+    expect(lineGuide.textContent).toContain("api.line.me/v2/bot/message/push");
+    expect(lineGuide.textContent).toContain("line:U…/C…/R…");
+
+    // mattermost:自建服务器 + PAT/server/channel id 三凭据 + webhook 退路
+    fireEvent.click(within(overview).getByTestId("platform-card-mattermost"));
+    const mmGuide = within(overview).getByTestId("platform-guide-mattermost");
+    expect(mmGuide.textContent).toContain("MATTERMOST_TOKEN");
+    expect(mmGuide.textContent).toContain("MATTERMOST_SERVER");
+    expect(mmGuide.textContent).toContain("MATTERMOST_CHANNEL_ID");
+    expect(mmGuide.textContent).toContain("Personal Access Token");
+    expect(mmGuide.textContent).toContain("Incoming Webhook");
+    expect(mmGuide.textContent).toContain("/api/v4/posts");
+    expect(mmGuide.textContent).toContain("mattermost:<26位");
+  });
 });
 
 describe("消息:底部状态条(R4)", () => {
@@ -884,11 +1082,17 @@ describe("消息:平台总览派生纯函数", () => {
     expect(deriveImplementedStatus([], [])).toBe("needs_setup");
   });
 
-  it("buildPlatformCards:6 已实装(5 缺凭据=需要设置 + 微信桥接灰态)+ 22 未实装;灰卡无指南、id 唯一", () => {
+  it("buildPlatformCards:已实装全缺凭据=需要设置(微信桥接灰态例外)+ 未实装全即将支持;灰卡无指南、id 唯一", () => {
     const cards = buildPlatformCards({}, []);
     expect(cards).toHaveLength(28);
-    expect(cards.filter((card) => card.status === "needs_setup")).toHaveLength(5);
-    expect(cards.filter((card) => card.status === "coming_soon")).toHaveLength(22);
+    // 计数锚在注册表长度(W3 长尾多会话并行转实装,字面量随批腐化):已实装
+    // 缺凭据 → needs_setup,唯一例外是微信桥接灰态;未实装 → coming_soon。
+    expect(cards.filter((card) => card.status === "needs_setup")).toHaveLength(
+      IMPLEMENTED_PLATFORMS.length - 1,
+    );
+    expect(cards.filter((card) => card.status === "coming_soon")).toHaveLength(
+      UPCOMING_PLATFORMS.length,
+    );
     // 微信桥接(10-03-messaging-weixin-bridge):不传 bridgeStatus = 灰态
     // 「需本机 Hermes」,永黄不了(凭据不在 MYIA 侧,needs_setup 是误导)
     expect(cards.find((c) => c.id === "weixin")!.status).toBe("bridge_unavailable");
@@ -900,6 +1104,77 @@ describe("消息:平台总览派生纯函数", () => {
       expect(card.wave).toBe("W2");
       expect(card.discovery).toBe("manual");
     }
+    // W3 长尾组一四家转实装(10-03-messaging-w3-longtail):slack/discord/
+    // line/mattermost 有指南、discovery=manual(蓝本事实:无目录发现)
+    for (const id of ["slack", "discord", "line", "mattermost"]) {
+      const card = cards.find((c) => c.id === id)!;
+      expect(card.guide).not.toBeNull();
+      expect(card.wave).toBe("W3");
+      expect(card.discovery).toBe("manual");
+    }
+    // W3 长尾八家转实装(10-03-messaging-w3-longtail):有指南;simplex 例外
+    // 走 auto(守护进程 /contacts+/groups 发现),其余 discovery=manual
+    for (const id of ["email", "sms", "irc", "whatsapp_cloud", "matrix", "google_chat", "teams"]) {
+      const card = cards.find((c) => c.id === id)!;
+      expect(card.guide).not.toBeNull();
+      expect(card.wave).toBe("W3");
+      expect(card.discovery).toBe("manual");
+    }
+    expect(cards.find((c) => c.id === "simplex")!.wave).toBe("W3");
+    expect(cards.find((c) => c.id === "simplex")!.guide).not.toBeNull();
+    expect(cards.find((c) => c.id === "simplex")!.discovery).toBe("auto");
+    // W3 组三 homeassistant 转实装(10-03-messaging-w3-longtail):有指南、
+    // wave=W3、discovery=manual(HA 无「列出通知目标」API,蓝本事实)
+    const homeassistant = cards.find((c) => c.id === "homeassistant")!;
+    expect(homeassistant.guide).not.toBeNull();
+    expect(homeassistant.wave).toBe("W3");
+    expect(homeassistant.discovery).toBe("manual");
+    // W3 组一/组三四家转实装(本片):qqbot/msgraph_webhook 出站实装;
+    // bluebubbles/yuanbao 是 extras 壳(PRD R3:发送路待 extras)——有指南、
+    // discovery=manual(无目录发现,蓝本事实)
+    for (const id of ["qqbot", "msgraph_webhook", "bluebubbles", "yuanbao"]) {
+      const card = cards.find((c) => c.id === id)!;
+      expect(card.guide).not.toBeNull();
+      expect(card.wave).toBe("W3");
+      expect(card.discovery).toBe("manual");
+    }
+    // W3 组三收尾四家转实装(本片):a2a 出站实装(A2A_PEER/A2A_TOKEN 指南);
+    // buzz/photon/raft 是 extras 壳——有指南、discovery=manual(蓝本事实)
+    for (const id of ["a2a", "buzz", "photon", "raft"]) {
+      const card = cards.find((c) => c.id === id)!;
+      expect(card.guide).not.toBeNull();
+      expect(card.wave).toBe("W3");
+      expect(card.discovery).toBe("manual");
+    }
+    // a2a 是可真实发送通道:走通用派生(缺凭据 = 需要设置,与 feishu 同款;
+    // 钥匙链命中 A2A_PEER 时转绿,由上方 deriveImplementedStatus 用例覆盖)
+    // 壳通道恒 needs_setup:不走通用 deriveImplementedStatus——目录别名条目/
+    // 钥匙链证据都不构成「可发送」(别名进目录 ≠ 可发,绿态「已连接」是误导)
+    const withAlias = buildPlatformCards(
+      {
+        bluebubbles: [channelEntry("bluebubbles", "iMessage;-;+15551234567", "家人群")],
+        yuanbao: [channelEntry("yuanbao", "direct:abc123", "对象")],
+        buzz: [channelEntry("buzz", "0f0e0d0c-0b0a-4909-8807-060504030201", "频道甲")],
+        photon: [channelEntry("photon", "+15551234567", "家人")],
+        raft: [channelEntry("raft", "session-9f2", "工作区对象")],
+      },
+      [],
+    );
+    expect(withAlias.find((c) => c.id === "bluebubbles")!.status).toBe("needs_setup");
+    expect(withAlias.find((c) => c.id === "yuanbao")!.status).toBe("needs_setup");
+    expect(withAlias.find((c) => c.id === "buzz")!.status).toBe("needs_setup");
+    expect(withAlias.find((c) => c.id === "photon")!.status).toBe("needs_setup");
+    expect(withAlias.find((c) => c.id === "raft")!.status).toBe("needs_setup");
+    // 壳通道指南 keys 为空是刻意事实:MYIA 侧零凭据可录(R2「不装可用」
+    // 如实披露;服务端/WS 网关凭据待 extras 实装后补)
+    expect(cards.find((c) => c.id === "bluebubbles")!.guide!.keys).toEqual([]);
+    expect(cards.find((c) => c.id === "yuanbao")!.guide!.keys).toEqual([]);
+    expect(cards.find((c) => c.id === "buzz")!.guide!.keys).toEqual([]);
+    expect(cards.find((c) => c.id === "photon")!.guide!.keys).toEqual([]);
+    expect(cards.find((c) => c.id === "raft")!.guide!.keys).toEqual([]);
+    // a2a 指南凭据项如实非空(A2A_PEER/A2A_TOKEN,可真实发送通道)
+    const a2aKeys = cards.find((c) => c.id === "a2a")!.guide!.keys.map((k) => k.key);
+    expect(a2aKeys).toEqual(["A2A_PEER", "A2A_TOKEN"]);
     // 微信指南 keys 为空是刻意事实:MYIA 侧零凭据(R2「不装可用」如实披露)
     expect(cards.find((c) => c.id === "weixin")!.guide!.keys).toEqual([]);
     expect(cards.find((c) => c.id === "feishu")!.discovery).toBe("auto");

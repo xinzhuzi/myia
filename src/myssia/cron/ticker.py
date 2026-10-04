@@ -18,9 +18,9 @@ MYIA 移植重写自 Hermes(NousResearch/Hermes-Agent,MIT;上游路径
 
 MYIA 适配(任务 10-04-hermes-cron,非照抄处仅此):
 
-- ``run_ticker_loop`` 收显式 :class:`~myia.cron.jobs.CronJobs` 与
+- ``run_ticker_loop`` 收显式 :class:`~myssia.cron.jobs.CronJobs` 与
   ``execute_job``/``dispatch_gate`` 透传(执行体注入与宿主互斥钩子见
-  :mod:`myia.cron.tick`;CLI ``cron serve`` 传 None,B3 sidecar 接
+  :mod:`myssia.cron.tick`;CLI ``cron serve`` 传 None,B3 sidecar 接
   ``run_busy`` 单飞锁)。
 - 上游循环把 provider ``start`` 整体包进监督线程,gateway 另有 housekeeping
   周期性 ``restart_if_dead``;MYIA 的宿主(serve 主循环 / sidecar)负责
@@ -34,8 +34,8 @@ import threading
 import time
 from typing import Any, Callable, Mapping, Optional
 
-from myia.cron.jobs import CronJobs
-from myia.cron.tick import DispatchGate, JobRunner, tick
+from myssia.cron.jobs import CronJobs
+from myssia.cron.tick import DispatchGate, JobRunner, tick
 
 logger = logging.getLogger(__name__)
 

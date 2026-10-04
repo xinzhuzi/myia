@@ -10,13 +10,13 @@
 
 - ``send()`` 立即抛 ``PushSendError("dependency_missing", …)`` 并附安装
   命令(vision/ocr.py ``dependency_missing`` 同款范式):装 extras
-  (``shishi[signal]``,集成步在 pyproject 定义) + 部署 signal-cli 守护进程;
+  (``myssia[signal]``,集成步在 pyproject 定义) + 部署 signal-cli 守护进程;
   依赖门先于凭据解析(装不出的通道没有解析凭据的意义);
 - 寻址面照常接线,extras 落地即可用:``supports_targeting=True``、
   ``context.target`` 优先 / legacy ``target`` 引用、直达解析 ``+手机号``
   (蓝本 recipient 形态;群 id 是 base64,与别名撞形,经目录登记)、目录
   无自动发现(signal-cli 无列表命令,蓝本事实)抛
-  :class:`~shishi.push.directory.DirectoryDiscoverUnsupported`;
+  :class:`~myssia.push.directory.DirectoryDiscoverUnsupported`;
 - 真实发送路(JSON-RPC over HTTP,纯 ``httpx`` 可达)待 extras 落地批次
   实装——壳先钉住注册表/UI 卡/凭据指南的契约面。
 
@@ -29,9 +29,9 @@ import logging
 import re
 from typing import Any, Sequence
 
-from shishi.push.base import PushSendError, SendContext, TrendAwareChannel
-from shishi.push.directory import DirectoryDiscoverUnsupported
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.base import PushSendError, SendContext, TrendAwareChannel
+from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
 
 __all__ = [
     "DEFAULT_TARGET_ENV_REF",
@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 #: extras 安装命令(集成步在 pyproject 定义 ``signal`` extras 组)+ 守护进程指引。
 INSTALL_COMMAND = (
-    "pip install 'shishi[signal]'  # 或 uv add 'shishi[signal]';"
+    "pip install 'myssia[signal]'  # 或 uv add 'myssia[signal]';"
     "并需部署 signal-cli 守护进程(signal-cli daemon --http 模式,"
     "https://github.com/AsamK/signal-cli)"
 )

@@ -1,6 +1,6 @@
-"""myia-proxy 进程内插件(PRD 10-02-v11-plugins-source-arch 迁移)契约测试.
+"""myssia-proxy 进程内插件(PRD 10-02-v11-plugins-source-arch 迁移)契约测试.
 
-myia-proxy v1.1 迁移为 desktop 分级的进程内插件:适配器 adapter.py 参照
+myssia-proxy v1.1 迁移为 desktop 分级的进程内插件:适配器 adapter.py 参照
 上游 proxy_pool(jhao104/proxy_pool,MIT)「fetch → 校验 → 取用」思路
 **自实现精简版**(零源码复制、零 vendored、零 Redis 零 docker)。四组被
 钉住的契约:
@@ -12,7 +12,7 @@ myia-proxy v1.1 迁移为 desktop 分级的进程内插件:适配器 adapter.py 
 3. **适配器 run 组装**:成功装配结构化 JSON;全部源失败 → ``fetch_failed``;
    测活零可用 → ``no_alive_proxy``;count/timeout 非法 → 用法错误码;
    测活有界(MAX_CHECKS),凑够即提前停;
-4. **CLI ``myia proxy`` + 铁律**:适配器缺失退 1、用法错误退 1、采集失败
+4. **CLI ``myssia proxy`` + 铁律**:适配器缺失退 1、用法错误退 1、采集失败
    (fetch_failed/no_alive_proxy)退 2;任何失败形态下核心品类加载与
    Pipeline 构造完全无感(装不上不拦核心)。
 
@@ -30,7 +30,7 @@ from typing import Any
 import httpx
 import pytest
 
-from shishi.cli import (
+from myssia.cli import (
     EXIT_CONFIG_ERROR,
     EXIT_FETCH_ALL_FAILED,
     EXIT_OK,
@@ -38,18 +38,18 @@ from shishi.cli import (
     _import_plugin_adapter,
     main,
 )
-from shishi.pipeline import Pipeline
-from shishi.plugins.manifest import load_manifest_file
-from shishi.schema import load_category_file
+from myssia.pipeline import Pipeline
+from myssia.plugins.manifest import load_manifest_file
+from myssia.schema import load_category_file
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_DIR = REPO_ROOT / "plugins"
-PLUGIN_DIR = PLUGINS_DIR / "myia-proxy"
+PLUGIN_DIR = PLUGINS_DIR / "myssia-proxy"
 
 
 def load_adapter() -> Any:
     """按 CLI 同款加载器(compile+exec)加载真实适配器."""
-    return _import_plugin_adapter(PLUGINS_DIR, "myia-proxy")
+    return _import_plugin_adapter(PLUGINS_DIR, "myssia-proxy")
 
 
 @pytest.fixture()
@@ -211,7 +211,7 @@ class TestProxyRun:
             return httpx.Response(200, text="\n".join(f"10.0.0.{i}:8080" for i in range(1, 11)))
 
         result = adapter.run(count=2, client_factory=make_client_factory(handler), clock=_TickingClock())
-        assert result["plugin"] == "myia-proxy"
+        assert result["plugin"] == "myssia-proxy"
         assert result["mode"] == "in_process"
         assert result["status"] == "success"
         assert result["requested_count"] == 2
@@ -296,7 +296,7 @@ class TestProxyRun:
 
 
 # ---------------------------------------------------------------------------
-# 契约四:CLI myia proxy(退出码 0/1/2)+ 铁律
+# 契约四:CLI myssia proxy(退出码 0/1/2)+ 铁律
 # ---------------------------------------------------------------------------
 
 
@@ -320,7 +320,7 @@ STUB_ADAPTER = textwrap.dedent(
         if SCENARIO == "invalid_count":
             raise FakeError({"code": "invalid_count", "message": "count 必须 ≥ 1(桩)", "count": count})
         return {
-            "plugin": "myia-proxy",
+            "plugin": "myssia-proxy",
             "mode": "in_process",
             "status": "success",
             "requested_count": count,
@@ -336,7 +336,7 @@ STUB_ADAPTER = textwrap.dedent(
 
 def make_stub_plugins(tmp_path: Path, *, scenario: str = "success") -> Path:
     plugins = tmp_path / "plugins"
-    plugin = plugins / "myia-proxy"
+    plugin = plugins / "myssia-proxy"
     plugin.mkdir(parents=True)
     source = STUB_ADAPTER.replace('SCENARIO = "success"', f'SCENARIO = {scenario!r}')
     (plugin / "adapter.py").write_text(source, encoding="utf-8")
@@ -349,7 +349,7 @@ class TestCliProxy:
         code = main(["proxy", "--plugins-dir", str(plugins), "--json"])
         assert code == EXIT_OK
         payload = json.loads(capsys.readouterr().out)
-        assert payload["plugin"] == "myia-proxy"
+        assert payload["plugin"] == "myssia-proxy"
         assert payload["status"] == "success"
         assert payload["alive"][0]["proxy"] == "http://1.2.3.4:8080"
 
@@ -393,8 +393,8 @@ class TestCliProxy:
 
     def test_broken_adapter_source_exits_1_not_crash(self, tmp_path, capsys):
         plugins = tmp_path / "plugins"
-        (plugins / "myia-proxy").mkdir(parents=True)
-        (plugins / "myia-proxy" / "adapter.py").write_text("def run(: broken", encoding="utf-8")
+        (plugins / "myssia-proxy").mkdir(parents=True)
+        (plugins / "myssia-proxy" / "adapter.py").write_text("def run(: broken", encoding="utf-8")
         code = main(["proxy", "--plugins-dir", str(plugins), "--json"])
         assert code == EXIT_CONFIG_ERROR
         payload = json.loads(capsys.readouterr().out)

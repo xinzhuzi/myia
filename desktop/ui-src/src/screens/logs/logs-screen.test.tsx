@@ -53,7 +53,7 @@ import { LogsScreen } from "./logs-screen";
 const run2Running: RunEntry = {
   run_id: 2,
   yaml: "/plugins/daily-tech.yaml",
-  db: "myia.db",
+  db: "myssia.db",
   dry: false,
   state: "running",
   exit_code: null,
@@ -67,7 +67,7 @@ const run2Running: RunEntry = {
 const run1Success: RunEntry = {
   run_id: 1,
   yaml: "/plugins/tech.yaml",
-  db: "myia.db",
+  db: "myssia.db",
   dry: false,
   state: "done",
   exit_code: 0,
@@ -91,10 +91,10 @@ const tailFixture = {
   lines: [
     { seq: 1, ts: "t1", run_id: 2, stream: "stdout" as const, line: "fetch https://example.com" },
     // INFO 级 stderr 行(本仓采集管线日志全走 stderr):正常运行日志,不染警示色
-    { seq: 2, ts: "t2", run_id: 2, stream: "stderr" as const, line: "2026-10-02 12:00:00,001 INFO shishi.pipeline: 运行开始 category=tech run_id=2 sources=1" },
+    { seq: 2, ts: "t2", run_id: 2, stream: "stderr" as const, line: "2026-10-02 12:00:00,001 INFO myssia.pipeline: 运行开始 category=tech run_id=2 sources=1" },
     { seq: 3, ts: "t3", run_id: 2, stream: "stderr" as const, line: "ERROR source fetch failed: timeout" },
     { seq: 4, ts: "t4", run_id: 2, stream: "stderr" as const, line: "2026-10-02 12:00:01,002 WARNING 源限速 backoff 2s" },
-    { seq: 5, ts: "t5", run_id: 2, stream: "stderr" as const, line: "2026-10-02 12:00:02,003 INFO shishi.pipeline: 采集步骤完成 sources=1 items=5 source_failures=0" },
+    { seq: 5, ts: "t5", run_id: 2, stream: "stderr" as const, line: "2026-10-02 12:00:02,003 INFO myssia.pipeline: 采集步骤完成 sources=1 items=5 source_failures=0" },
   ],
   total: 5,
   truncated: false,
@@ -301,7 +301,7 @@ describe("LogsScreen", () => {
       state: "running",
       yaml: "/plugins/tech.yaml",
       dry: false,
-      db: "myia.db",
+      db: "myssia.db",
     });
     mockSidecar([run2Running, run1Success]);
     render(<LogsScreen />);
@@ -311,7 +311,7 @@ describe("LogsScreen", () => {
     fireEvent.click(screen.getByTestId("run-rerun-1"));
     // 回放原 run 三参数(dry/db 原样),不新增协议方法
     await waitFor(() =>
-      expect(runStartMock).toHaveBeenCalledWith({ yaml: "/plugins/tech.yaml", dry: false, db: "myia.db" }),
+      expect(runStartMock).toHaveBeenCalledWith({ yaml: "/plugins/tech.yaml", dry: false, db: "myssia.db" }),
     );
     // 触发成功反馈:新 run_id 上屏(新 run 的展开跟随由列表刷新的 follow 策略承担)
     expect(await screen.findByTestId("run-rerun-ok-1").then((el) => el.textContent)).toContain("已触发 #3");

@@ -1,7 +1,7 @@
-"""skill/SKILL.md ↔ src/shishi/schema.py anti-drift tests (task 10-01-v03-agent-skill).
+"""skill/SKILL.md ↔ src/myssia/schema.py anti-drift tests (task 10-01-v03-agent-skill).
 
 SKILL.md is the agent-facing 12-section quick reference; the PRD requires it to
-stay field-for-field identical to the pydantic models in ``shishi.schema`` and to
+stay field-for-field identical to the pydantic models in ``myssia.schema`` and to
 teach YAML an agent can actually load. Three mechanisms lock that:
 
 1. **Field tables** — every ``### <title>(<Model>)`` header in SKILL.md is
@@ -15,7 +15,7 @@ teach YAML an agent can actually load. Three mechanisms lock that:
    the module-level tuples exactly.
 3. **Example YAML blocks** — every ```yaml fenced block in SKILL.md (and in
    docs/write-a-plugin.md) must load through the real entry point
-   :func:`shishi.schema.load_category`.
+   :func:`myssia.schema.load_category`.
 
 docs/write-a-plugin.md is additionally pinned to the same 12-section vocabulary
 (single-source-of-truth rule: the docs site and SKILL.md may paraphrase, never
@@ -32,8 +32,8 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from shishi import schema
-from shishi.schema import (
+from myssia import schema
+from myssia.schema import (
     CategoryConfig,
     ClassifyConfig,
     ClassifyRuleConfig,
@@ -101,7 +101,7 @@ _SECTION_HEADER_RE = re.compile(r"^###\s+.*\((?P<model>[A-Z][A-Za-z]+)\)\s*$")
 _HEADER_RE = re.compile(r"^#{1,6}\s")
 _CODE_SPAN_RE = re.compile(r"`([^`]+)`")
 
-#: 各通道凭据约定的缺省 env 引用(与 src/shishi/push/*.py 的 DEFAULT_*_ENV_REF
+#: 各通道凭据约定的缺省 env 引用(与 src/myssia/push/*.py 的 DEFAULT_*_ENV_REF
 #: 及 SKILL.md §2.13 同源;docs/write-a-plugin.md 的「各通道凭据约定」指向它)。
 _CHANNEL_CREDENTIAL_ENV_REFS = (
     "env:FEISHU_CHAT_ID",
@@ -316,7 +316,7 @@ def test_skill_yaml_examples_have_no_plaintext_credentials():
     the credential syntax); load_category already refuses plaintext, this
     names the offending key so the fix is obvious.
     """
-    from shishi.schema import is_credential_key
+    from myssia.schema import is_credential_key
 
     def walk(node: Any, path: str) -> None:
         if isinstance(node, dict):
@@ -410,8 +410,8 @@ def test_skill_and_docs_cross_reference_each_other():
 
 
 def test_skill_technique_commands_exist_in_cli():
-    """Every `myia …` command line quoted in SKILL.md uses a real subcommand/option."""
-    from shishi.cli import build_parser
+    """Every `myssia …` command line quoted in SKILL.md uses a real subcommand/option."""
+    from myssia.cli import build_parser
 
     parser = build_parser()
     command_action = next(
@@ -433,10 +433,10 @@ def test_skill_technique_commands_exist_in_cli():
             f"SKILL.md 教学的子命令 {expected} 不在 CLI 中"
         )
 
-    for line in re.findall(r"`myia [^`]+`", _read(SKILL_MD)):
+    for line in re.findall(r"`myssia [^`]+`", _read(SKILL_MD)):
         parts = line.strip("`").split()
         if len(parts) < 2 or parts[1] not in options_by_command:
-            continue  # 泛指用法(如 myia doctor 出现在标题里)由上面的子命令断言覆盖
+            continue  # 泛指用法(如 myssia doctor 出现在标题里)由上面的子命令断言覆盖
         command, option_tokens = parts[1], parts[2:]
         for token in option_tokens:
             if token.startswith("--"):
@@ -459,12 +459,12 @@ def test_skill_run_json_stage_list_matches_executed_stages():
     ``aggregate`` stage only exists when the category declares ``aggregate:``
     — the prose must say so instead of listing it as a standing stage.
     """
-    from shishi.pipeline import EXECUTED_STAGES
+    from myssia.pipeline import EXECUTED_STAGES
 
     text = _read(SKILL_MD)
     assert "/".join(EXECUTED_STAGES) in text, (
         "SKILL.md 的 run --json stages[] 清单应恰为 "
-        f"{'/'.join(EXECUTED_STAGES)}(与 shishi.pipeline.EXECUTED_STAGES 一致)"
+        f"{'/'.join(EXECUTED_STAGES)}(与 myssia.pipeline.EXECUTED_STAGES 一致)"
     )
     assert "analyze/enrich/push" not in text, (
         "SKILL.md 又把 enrich 列进 run --json 的 stages[](执行链没有独立 enrich 阶段)"

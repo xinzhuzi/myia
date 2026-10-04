@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bookmark,
+  Check,
   ChevronDown,
   ChevronRight,
   Download,
@@ -9,6 +10,7 @@ import {
   Play,
   RefreshCw,
   Search,
+  SlidersHorizontal,
   Sparkles,
   Star,
   Tags,
@@ -22,6 +24,21 @@ import type { CategoryFilterContext } from "@/components/layout/app-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, onSidecarEvent, SidecarRequestError } from "@/lib/api";
 import type { FeedEnrichResult, FeedItem, UnlistenFn } from "@/lib/api";
@@ -31,23 +48,29 @@ import {
   appendWatchlistKeyword,
   applyFeedFilter,
   categoryColor,
+  DEFAULT_FEED_DISPLAY,
   defaultExportName,
   exportFeedView,
   fetchFeedPage,
   formatRelativeTime,
   groupFeedItems,
+  groupFeedItemsByCategory,
   isOpenableUrl,
   itemKey,
   KEYWORD_MAX_CHARS,
   listYamlTargets,
+  loadFeedDisplay,
   loadFeedStates,
   primaryScore,
   readYamlRaw,
+  saveFeedDisplay,
   saveFeedStates,
   saveYamlRaw,
   setMarkerBulk,
+  sortUnreadFirst,
   toggleMarker,
   type ExportFormat,
+  type FeedDisplayOptions,
   type YamlTargetFile,
 } from "./api";
 import type { FeedFilter, FeedStateMap } from "./api";
@@ -135,6 +158,16 @@ async function openInBrowser(url: string): Promise<void> {
   await shell.open(url);
 }
 
+/** 右键菜单「复制链接」(A-feed):navigator.clipboard 尽力而为——不可用/
+ *  权限拒 = 静默(菜单轻动作,不弹错误行打断浏览)。 */
+function copyLink(url: string): void {
+  try {
+    void navigator.clipboard?.writeText(url)?.catch(() => {});
+  } catch {
+    // 老 webview 无剪贴板 API:静默
+  }
+}
+
 /** 绝对时间(展开态元信息行):YYYY-MM-DD HH:mm */
 function formatAbsoluteTime(iso: string | null): string {
   if (!iso) return "—";
@@ -148,6 +181,7 @@ function FeedCard({
   item,
   state,
   current,
+  navFocused,
   onCurrent,
   onMarkRead,
   onToggle,
@@ -156,8 +190,10 @@ function FeedCard({
 }: {
   item: FeedItem;
   state: { read?: boolean; starred?: boolean; later?: boolean };
-  /** 键盘「当前卡」(U 快捷键作用目标;hover/focus 进入时置位) */
+  /** 键盘「当前卡」(U/j/k 快捷键作用目标;hover/focus 进入时置位) */
   current: boolean;
+  /** j/k 键盘巡游聚焦(仅键盘置位,鼠标 hover 即清):focus 环呈现与否 */
+  navFocused: boolean;
   onCurrent: (key: string) => void;
   onMarkRead: (item: FeedItem) => void;
   onToggle: (item: FeedItem, marker: "starred" | "later" | "read") => void;
@@ -267,19 +303,26 @@ function FeedCard({
   // 品类色(D4):色条与品类徽标同源;无品类 → null(零色件)
   const color = categoryColor(item.category);
   return (
-    // 三级密度卡(D4):13px 标题/正文、11px 元信息;hover 行背景 accent/50
-    // (teardown-linear-activity #5);品类色条/未读 accent 竖条(#6/D4)。
-    <div
-      data-testid={`feed-item-${rowKey}`}
-      data-category={item.category ?? ""}
-      data-unread={state.read ? "false" : "true"}
-      data-current={current ? "true" : "false"}
-      onMouseEnter={() => onCurrent(key)}
-      onFocus={() => onCurrent(key)}
-      className={`group/feed-item relative rounded-md border py-2 pr-3 pl-3.5 transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/50 ${
-        state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
-      }`}
-    >
+    // 右键上下文菜单(A-feed,10-04-interaction-batch):ContextMenu 根是纯
+    // Provider 零包装 DOM,asChild 把 onContextMenu 合到卡面(布局零扰动)。
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        {/* 三级密度卡(D4):13px 标题/正文、11px 元信息;hover 行背景 accent/50
+            (teardown-linear-activity #5);品类色条/未读 accent 竖条(#6/D4)。
+            j/k 键盘聚焦 = ring 环(A-feed;hover 只置 current 不亮环,Linear 式)。 */}
+        <div
+          data-testid={`feed-item-${rowKey}`}
+          data-item-key={key}
+          data-category={item.category ?? ""}
+          data-unread={state.read ? "false" : "true"}
+          data-current={current ? "true" : "false"}
+          data-nav-focused={navFocused ? "true" : "false"}
+          onMouseEnter={() => onCurrent(key)}
+          onFocus={() => onCurrent(key)}
+          className={`group/feed-item relative rounded-md border py-2 pr-3 pl-3.5 transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/50 ${
+            state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
+          }${navFocused ? " ring-1 ring-primary/60" : ""}`}
+        >
       {/* 左缘竖条:未读 = 2px accent(teardown #6);已读 = 品类色 70%(D4 品类色条) */}
       {(!state.read || color !== null) && (
         <span
@@ -656,7 +699,32 @@ function FeedCard({
           )}
         </div>
       ) : null}
-    </div>
+        </div>
+      </ContextMenuTrigger>
+      {/* 右键菜单四动作(A-feed):打开原文/复制链接同「打开原文」URL 门
+          (isOpenableUrl,非 http(s) 禁用);标已读 = 既有 toggle;沉淀 =
+          直调卡内 openPin(G12 就地面板本尊零改)。 */}
+      <ContextMenuContent>
+        <ContextMenuItem
+          disabled={!openable}
+          onSelect={() =>
+            void openInBrowser(item.url).catch((err) =>
+              onOpenError(err instanceof Error ? err.message : String(err)),
+            )
+          }
+        >
+          打开原文
+        </ContextMenuItem>
+        <ContextMenuItem disabled={!openable} onSelect={() => copyLink(item.url)}>
+          复制链接
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => onToggle(item, "read")}>
+          {state.read ? "标记未读" : "标记已读"}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onSelect={() => void openPin()}>沉淀为关键词…</ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -673,10 +741,16 @@ function FeedCard({
  * frontend-ui-engineering(贴形骨架/带重试错误卡/EmptyState)。
  *
  * fe-small-batch(10-03-fe-small-batch):G8 卡片「AI 摘要」(feed.enrich 单条
- * 精评,loading/错误态,无配置 graceful 明示)/ G9 过滤区批量操作(全部标
- * 已读/未读,计数同步)/ G12 卡片「沉淀为关键词」(yaml.read → watchlist
- * 文本手术 → yaml.save,mtime 乐观锁 + 跨文件 id 查重);P2⑤ 搜索框焦点环
- * 归 index.css 全局 :focus-visible 体系(不再局部 ring-1 覆写)。
+ *  精评,loading/错误态,无配置 graceful 明示)/ G9 过滤区批量操作(全部标
+ *  已读/未读,计数同步)/ G12 卡片「沉淀为关键词」(yaml.read → watchlist
+ *  文本手术 → yaml.save,mtime 乐观锁 + 跨文件 id 查重);P2⑤ 搜索框焦点环
+ *  归 index.css 全局 :focus-visible 体系(不再局部 ring-1 覆写)。
+ *
+ * interaction-batch(10-04,A-feed):j/k 键盘导航(扩既有 U 键 effect 同守卫,
+ *  边界钳制 + scrollIntoView 最近侧 + focus 环仅键盘巡游时呈现)/ 显示选项
+ *  下拉(未读优先 + 分组维度 时间/品类/不分组,myssia.feed.display.v1 本地
+ *  持久)/ 卡片右键上下文菜单(打开原文/复制链接/标已读切换/沉淀为关键词,
+ *  基件 ui/context-menu.tsx 本批自建)。
  */
 export function FeedScreen() {
   const navigate = useNavigate();
@@ -686,6 +760,8 @@ export function FeedScreen() {
   const [items, setItems] = useState<FeedItem[]>([]);
   const [states, setStates] = useState<FeedStateMap>({});
   const [filter, setFilter] = useState<FeedFilter>("unread");
+  /** A-feed 显示选项:未读优先 + 分组维度(本地持久,进屏 loadFeedDisplay 回填) */
+  const [display, setDisplay] = useState<FeedDisplayOptions>(DEFAULT_FEED_DISPLAY);
   const [cursor, setCursor] = useState<string | null>(null);
   /** 复合游标第二键(同刻条目翻页不跳不重;C1) */
   const [cursorId, setCursorId] = useState<number | null>(null);
@@ -707,6 +783,7 @@ export function FeedScreen() {
 
   useEffect(() => {
     setStates(loadFeedStates());
+    setDisplay(loadFeedDisplay());
   }, []);
 
   // 防抖提交(G1):输入停顿 300ms → query(触发服务端重查);Enter 即时
@@ -778,6 +855,12 @@ export function FeedScreen() {
     saveFeedStates(next);
   }, []);
 
+  /** A-feed 显示选项切换:置 state + 本地持久(myssia.feed.display.v1) */
+  const updateDisplay = useCallback((next: FeedDisplayOptions) => {
+    setDisplay(next);
+    saveFeedDisplay(next);
+  }, []);
+
   const markRead = useCallback(
     (item: FeedItem) => {
       const key = itemKey(item);
@@ -819,16 +902,51 @@ export function FeedScreen() {
 
   const visible = useMemo(() => applyFeedFilter(items, states, filter), [items, states, filter]);
 
-  /** 分组时间轴(D4):今天/昨天/7 天内/更早;visible 变化即重算 */
-  const groups = useMemo(() => groupFeedItems(visible), [visible]);
+  /** 展示序(A-feed):过滤结果 → 未读优先(可选;未读浮前,两类各自稳定保序) */
+  const displayItems = useMemo(
+    () => (display.unreadFirst ? sortUnreadFirst(visible, states) : visible),
+    [display.unreadFirst, visible, states],
+  );
 
-  /** 键盘「当前卡」(teardown #6 的 U 快捷键作用目标;hover/focus 进入卡时置位) */
+  /** 分组(A-feed 显示选项):时间四桶(D4 缺省)/ 按品类(组头色点同
+   *  categoryColor 源)/ 不分组(null = 平铺不出组头);displayItems 变化即重算 */
+  const groups = useMemo<
+    { key: string; label: string; items: FeedItem[]; color: string | null }[] | null
+  >(() => {
+    if (display.groupMode === "none") return null;
+    if (display.groupMode === "category") {
+      return groupFeedItemsByCategory(displayItems).map((group) => ({
+        key: group.key ?? "__uncategorized__",
+        label: group.label,
+        items: group.items,
+        color: group.color,
+      }));
+    }
+    return groupFeedItems(displayItems).map((group) => ({
+      key: group.key,
+      label: group.label,
+      items: group.items,
+      color: null,
+    }));
+  }, [display.groupMode, displayItems]);
+
+  /** 键盘「当前卡」(U/j/k 快捷键作用目标;hover/focus 进入卡时置位) */
   const [currentKey, setCurrentKey] = useState<string | null>(null);
+  /** j/k 键盘巡游标志(Linear 式:focus 环只在键盘巡游时呈现,鼠标 hover 即清) */
+  const [navByKeyboard, setNavByKeyboard] = useState(false);
 
-  // U = 当前卡已读/未读切换(Linear Inbox 惯例;输入框内敲 u 不触发)
+  /** hover/focus 进入卡 = 置当前卡并退出键盘巡游态(focus 环让位 hover 背景) */
+  const onCurrentCard = useCallback((key: string) => {
+    setCurrentKey(key);
+    setNavByKeyboard(false);
+  }, []);
+
+  // U = 当前卡已读/未读切换;j/k = 当前卡上/下移(Linear Inbox 惯例;输入框/
+  // 可编辑目标内敲不触发,守卫与既有 U 键同源,不引外部 hook——feed 本地惯例)
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "u" && event.key !== "U") return;
+      const pressed = event.key.toLowerCase();
+      if (pressed !== "u" && pressed !== "j" && pressed !== "k") return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       if (
@@ -837,13 +955,48 @@ export function FeedScreen() {
       ) {
         return;
       }
-      if (currentKey === null) return;
-      const item = items.find((candidate) => itemKey(candidate) === currentKey);
-      if (item) toggle(item, "read");
+      if (pressed === "u") {
+        if (currentKey === null) return;
+        const item = items.find((candidate) => itemKey(candidate) === currentKey);
+        if (item) toggle(item, "read");
+        return;
+      }
+      // j/k:展示序上/下移;边界钳制不回绕(首卡 k / 末卡 j 原地不动),
+      // 未选中时 j 落首卡、k 落末卡(当前卡被过滤离场同此路径)
+      const keys = displayItems.map(itemKey);
+      if (keys.length === 0) return;
+      const index = currentKey === null ? -1 : keys.indexOf(currentKey);
+      const next =
+        pressed === "j"
+          ? keys[index < 0 ? 0 : Math.min(index + 1, keys.length - 1)]
+          : keys[index < 0 ? keys.length - 1 : Math.max(index - 1, 0)];
+      setCurrentKey(next);
+      setNavByKeyboard(true);
+      // 巡游卡滚入视口(最近侧;jsdom 无 scrollIntoView 实现时静默跳过)
+      const escaped =
+        typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(next) : next;
+      const node = document.querySelector<HTMLElement>(`[data-item-key="${escaped}"]`);
+      if (node && typeof node.scrollIntoView === "function") node.scrollIntoView({ block: "nearest" });
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [currentKey, items, toggle]);
+  }, [currentKey, items, toggle, displayItems]);
+
+  /** 单卡渲染(分组/平铺两路共用;右键菜单随卡在 FeedCard 内) */
+  const renderCard = (entry: FeedItem) => (
+    <FeedCard
+      key={itemKey(entry)}
+      item={entry}
+      state={states[itemKey(entry)] ?? {}}
+      current={currentKey === itemKey(entry)}
+      navFocused={currentKey === itemKey(entry) && navByKeyboard}
+      onCurrent={onCurrentCard}
+      onMarkRead={markRead}
+      onToggle={toggle}
+      onOpenError={setOpenError}
+      onEnriched={onEnriched}
+    />
+  );
 
   /** G3 导出当前视图:dialog.save → feed.export;回显 path/count(取消 = 静默) */
   const exportCurrentView = useCallback(async () => {
@@ -997,6 +1150,62 @@ export function FeedScreen() {
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-1.5">
+          {/* A-feed 显示选项(过滤区右侧入口):未读优先 + 分组维度切换,本地
+              记忆(myssia.feed.display.v1);复用既有 ui/dropdown-menu 基件。 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="显示选项"
+                title="显示选项:未读优先 / 分组维度(本地记忆)"
+              >
+                <SlidersHorizontal className="size-3.5" />
+                显示
+                <ChevronDown className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>显示</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => updateDisplay({ ...display, unreadFirst: !display.unreadFirst })}
+                title="未读条目浮到列表前(未读/已读各自稳定保序)"
+              >
+                {display.unreadFirst ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <span className="size-3.5" aria-hidden />
+                )}
+                未读优先
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>分组</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => updateDisplay({ ...display, groupMode: "time" })}>
+                {display.groupMode === "time" ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <span className="size-3.5" aria-hidden />
+                )}
+                时间分组(今天 / 昨天 / 7 天内 / 更早)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => updateDisplay({ ...display, groupMode: "category" })}>
+                {display.groupMode === "category" ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <span className="size-3.5" aria-hidden />
+                )}
+                按品类分组
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => updateDisplay({ ...display, groupMode: "none" })}>
+                {display.groupMode === "none" ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <span className="size-3.5" aria-hidden />
+                )}
+                不分组(平铺)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Search className="size-3.5 text-muted-foreground" aria-hidden />
           <input
             type="search"
@@ -1134,36 +1343,41 @@ export function FeedScreen() {
             </Card>
           )
         ) : (
-          // 分组时间轴(D4):sticky 分组头(今天/昨天/7 天内/更早)+ 组内卡片
-          groups.map((group) => (
-            <section key={group.key} aria-label={`时间分组:${group.label}`}>
-              <div
-                data-testid={`feed-group-${group.label}`}
-                className="sticky top-0 z-10 -mx-6 flex items-center gap-2 bg-background/95 px-6 py-1.5 backdrop-blur-sm"
+          // 分组头(A-feed 显示选项):时间四桶(D4 缺省)或按品类(组头色点
+          // 同 categoryColor 源);sticky 组头 + 组内卡片
+          groups !== null ? (
+            groups.map((group) => (
+              <section
+                key={group.key}
+                aria-label={display.groupMode === "category" ? `品类分组:${group.label}` : `时间分组:${group.label}`}
               >
-                <span className="text-2xs font-medium text-muted-foreground">{group.label}</span>
-                {/* 计数用全强度 muted-foreground(质检修:/70 在 #0a0d16 上实测 3.68:1,
-                    /80 亦仅 4.44:1,均低于 WCAG AA 小字 4.5:1;全强度 6.37:1 达标) */}
-                <span className="text-2xs text-muted-foreground">{group.items.length} 条</span>
-                <span aria-hidden className="h-px flex-1 bg-border/70" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {group.items.map((item) => (
-                  <FeedCard
-                    key={itemKey(item)}
-                    item={item}
-                    state={states[itemKey(item)] ?? {}}
-                    current={currentKey === itemKey(item)}
-                    onCurrent={setCurrentKey}
-                    onMarkRead={markRead}
-                    onToggle={toggle}
-                    onOpenError={setOpenError}
-                    onEnriched={onEnriched}
-                  />
-                ))}
-              </div>
-            </section>
-          ))
+                <div
+                  data-testid={`feed-group-${group.label}`}
+                  className="sticky top-0 z-10 -mx-6 flex items-center gap-2 bg-background/95 px-6 py-1.5 backdrop-blur-sm"
+                >
+                  {display.groupMode === "category" && group.color !== null ? (
+                    <span
+                      aria-hidden
+                      data-group-color
+                      className="size-1.5 rounded-full"
+                      style={{ backgroundColor: group.color }}
+                    />
+                  ) : null}
+                  <span className="text-2xs font-medium text-muted-foreground">{group.label}</span>
+                  {/* 计数用全强度 muted-foreground(质检修:/70 在 #0a0d16 上实测 3.68:1,
+                      /80 亦仅 4.44:1,均低于 WCAG AA 小字 4.5:1;全强度 6.37:1 达标) */}
+                  <span className="text-2xs text-muted-foreground">{group.items.length} 条</span>
+                  <span aria-hidden className="h-px flex-1 bg-border/70" />
+                </div>
+                <div className="flex flex-col gap-1.5">{group.items.map(renderCard)}</div>
+              </section>
+            ))
+          ) : (
+            // 不分组(A-feed):平铺不出组头
+            <div className="flex flex-col gap-1.5" data-testid="feed-flat-list">
+              {displayItems.map(renderCard)}
+            </div>
+          )
         )}
 
         {hasMore && !loading ? (

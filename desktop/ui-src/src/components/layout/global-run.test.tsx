@@ -31,7 +31,7 @@ function healthOf(plugins: { file: string; id: string | null; loaded: boolean }[
   return {
     command: "list",
     plugins_dir: "/plugins",
-    db: "myia.db",
+    db: "myssia.db",
     store_error: null,
     plugins: plugins.map((entry) => ({
       file: entry.file,
@@ -75,7 +75,7 @@ describe("GlobalRun(C12 顶栏跑一次)", () => {
       state: "running",
       yaml: "/plugins/stocks.yaml",
       dry: false,
-      db: "myia.db",
+      db: "myssia.db",
     });
     render(<GlobalRun category="stocks" />);
 
@@ -96,7 +96,7 @@ describe("GlobalRun(C12 顶栏跑一次)", () => {
       state: "running",
       yaml: "/plugins/tech.yaml",
       dry: false,
-      db: "myia.db",
+      db: "myssia.db",
     });
     render(<GlobalRun category={null} />);
 
@@ -111,7 +111,7 @@ describe("GlobalRun(C12 顶栏跑一次)", () => {
       state: "running",
       yaml: "/plugins/tech.yaml",
       dry: false,
-      db: "myia.db",
+      db: "myssia.db",
     });
     mocks.runCancel.mockResolvedValue({ run_id: 9, cancelled: true, state: "running" });
     render(<GlobalRun category="tech" />);
@@ -137,7 +137,7 @@ describe("GlobalRun(C12 顶栏跑一次)", () => {
       state: "running",
       yaml: "/plugins/tech.yaml",
       dry: false,
-      db: "myia.db",
+      db: "myssia.db",
     });
     render(<GlobalRun category="tech" />);
 

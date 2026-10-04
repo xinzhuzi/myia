@@ -1,16 +1,16 @@
 # 定时任务(cron)
 
 > 把品类管线挂上时间表:到点自动「跑一遍 + 发消息」。同一底座三种宿主 ——
-> CLI 常驻(`myia cron serve`)、桌面端(内置 ticker)、手动 `myia cron tick`
+> CLI 常驻(`myssia cron serve`)、桌面端(内置 ticker)、手动 `myssia cron tick`
 > (外接 cron/调试),互斥共存。job 的载荷就是品类 YAML(见
 > [写一个插件](write-a-plugin.md)、[schema 参考](schema.md))。
 
 ## 1. 三十秒建 job
 
 ```bash
-myia cron create "every 2h" --category plugins/news.yaml --deliver local
-myia cron list
-myia cron serve    # 常驻宿主,60s 一轮 tick;Ctrl-C 停
+myssia cron create "every 2h" --category plugins/news.yaml --deliver local
+myssia cron list
+myssia cron serve    # 常驻宿主,60s 一轮 tick;Ctrl-C 停
 ```
 
 `--category` 指向品类 YAML(存绝对路径;创建时走完整装载校验,坏文件当场
@@ -39,7 +39,7 @@ storage:
   retention: 30d
 ```
 
-每次到期 fire = spawn 一次 `myia run <品类> --json` 子进程(抓取→分类→去重
+每次到期 fire = spawn 一次 `myssia run <品类> --json` 子进程(抓取→分类→去重
 →分析→内建推送照常),跑完把**运行结果摘要**(状态/时长/源统计/条目留存/
 推送桶/失败行)投递到 `--deliver` 目标;本地留档在 `<数据根>/cron/output/`。
 
@@ -89,11 +89,11 @@ interval 的下一次到期 = 上次完成时刻 + 周期,且要等下一轮 tic
 ### CLI 常驻(serve)
 
 ```bash
-myia cron serve --db /data/myia.db --interval 60
+myssia cron serve --db /data/myssia.db --interval 60
 ```
 
 headless/服务器形态:监督守护线程跑 ticker(线程崩了自动 respawn),
-`myia cron status` 查心跳活性与下次到期时刻。
+`myssia cron status` 查心跳活性与下次到期时刻。
 
 ### 桌面端
 
@@ -103,7 +103,7 @@ headless/服务器形态:监督守护线程跑 ticker(线程崩了自动 respawn
 ### 手动 tick(外接 cron)
 
 ```bash
-myia cron tick --db /data/myia.db
+myssia cron tick --db /data/myssia.db
 ```
 
 单次扫描派发所有到期 job——给系统 crontab/CI 外接调度用;抢不到锁(其他
@@ -132,11 +132,11 @@ cron 的 fire 是单次 run 子进程,不启动消息轮询,与 `run --loop` 常
 ### docker compose 常宿
 
 官方 compose 默认 `command: run … --loop`;要定时形态就把
-`docker/docker-compose.yml` 里的 command 改为 `cron serve --db /data/myia.db`
-(镜像入口就是 `myia` CLI),job 存进 `/data/cron/jobs.json` 随卷持久化。job
+`docker/docker-compose.yml` 里的 command 改为 `cron serve --db /data/myssia.db`
+(镜像入口就是 `myssia` CLI),job 存进 `/data/cron/jobs.json` 随卷持久化。job
 在容器里建——品类 YAML 只读挂在 `/config/plugins/`:
 
 ```bash
-docker compose -f docker/docker-compose.yml run --rm myia \
-  cron create "every 2h" --category /config/plugins/news.yaml --db /data/myia.db
+docker compose -f docker/docker-compose.yml run --rm myssia \
+  cron create "every 2h" --category /config/plugins/news.yaml --db /data/myssia.db
 ```

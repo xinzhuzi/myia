@@ -17,15 +17,15 @@ from typing import Any
 import httpx
 import pytest
 
-import shishi.pipeline as pipeline_module
-import shishi.push as push_module
+import myssia.pipeline as pipeline_module
+import myssia.push as push_module
 from conftest import FakeClock
-from shishi.pipeline import Pipeline
-from shishi.push.base import PushSendError
-from shishi.push.directory import ChannelDirectory, ChannelEntry
-from shishi.push.weixin import DEFAULT_BRIDGE_TIMEOUT_SECONDS, WeixinChannel
-from shishi.schema import load_category
-from shishi.store import SQLiteStore
+from myssia.pipeline import Pipeline
+from myssia.push.base import PushSendError
+from myssia.push.directory import ChannelDirectory, ChannelEntry
+from myssia.push.weixin import DEFAULT_BRIDGE_TIMEOUT_SECONDS, WeixinChannel
+from myssia.schema import load_category
+from myssia.store import SQLiteStore
 
 TIMEZONE = "Asia/Shanghai"
 
@@ -130,7 +130,7 @@ def _run_pipeline(tmp_path: Path, config, titles: list[str]):
     store = SQLiteStore(tmp_path / "p.db")
     client = httpx.AsyncClient(transport=httpx.MockTransport(make_handler(titles)))
     # db_path 必须显式指到 tmp_path:目录/死信账本落数据根(db 父目录),
-    # 缺省会写到 cwd(CLI 契约默认 myia.db,测试必须隔离)。
+    # 缺省会写到 cwd(CLI 契约默认 myssia.db,测试必须隔离)。
     pipeline = Pipeline(
         config,
         db_path=tmp_path / "p.db",
@@ -379,15 +379,15 @@ class TestDigestPoolingSemantics:
     """flush 留池判定:真失败留池(legacy 不变)/纯终态放弃/死信自愈重发。"""
 
     def _aggregator(self, tmp_path, channel):
-        from shishi.dedup import DedupRegistry
-        from shishi.push import DigestAggregator
+        from myssia.dedup import DedupRegistry
+        from myssia.push import DigestAggregator
 
         return DigestAggregator(
             channels=[channel], registry=DedupRegistry(SQLiteStore(tmp_path / "d.db"))
         )
 
     def test_all_failed_stays_pooled_legacy(self, tmp_path):
-        from shishi.push.base import PushSendError
+        from myssia.push.base import PushSendError
 
         class Failing:
             name = "failing"
@@ -411,7 +411,7 @@ class TestDigestPoolingSemantics:
         assert len(aggregator) == 1  # 留池重试(legacy 行为)
 
     def test_all_terminal_skipped_drops_not_repools(self, tmp_path):
-        from shishi.push import DeliveryLedger
+        from myssia.push import DeliveryLedger
 
         ledger = DeliveryLedger(tmp_path)
         ledger.mark_dead(platform="feishu", chat_id="oc_1", reason="forbidden: x")
@@ -591,7 +591,7 @@ class TestW2PipelineWiring:
         try:
             import logging
 
-            with caplog.at_level(logging.DEBUG, logger="shishi.push.directory"):
+            with caplog.at_level(logging.DEBUG, logger="myssia.push.directory"):
                 asyncio.run(pipeline._refresh_directory_if_stale())
             # 无自动发现是 debug 级说明,不是 warning 失败
             assert not any("目录刷新失败" in r.message for r in caplog.records)

@@ -15,7 +15,7 @@
 (绝不落到下载一半才 ENOSPC)。
 
 依赖红线:``huggingface_hub`` 惰性 import(:func:`_import_hub`,extras
-``shishi[vision]`` 已含)—— 本模块顶层 import 零重依赖,与 ocr/client 的
+``myssia[vision]`` 已含)—— 本模块顶层 import 零重依赖,与 ocr/client 的
 懒加载契约同门;未装 extras 时结构化 ``hf_unavailable`` 附安装命令。
 
 进度事件:``download_model(on_progress=...)`` 回调 ``(done_bytes,
@@ -25,7 +25,7 @@ total 来自预检的仓库总量,预检失败时 None = 只报进度不报总�
 整活跑 sidecar 后台线程(仿 sources.test 先例),绝不阻塞 serve 循环。
 
 错误族(:class:`VisionModelError`,code + message + details,镜像
-:class:`shishi.vision.settings.VisionConfigError`):``invalid_repo``
+:class:`myssia.vision.settings.VisionConfigError`):``invalid_repo``
 (非 ``mlx-community/<name>`` 形态)/ ``invalid_name`` / ``hf_unavailable``
 / ``repo_unreachable`` / ``disk_insufficient`` / ``download_failed`` /
 ``model_not_found`` / ``model_active_refused``(激活模型拒删)/
@@ -45,7 +45,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from shishi.vision.settings import VisionConfig, load_vision_config, save_vision_config
+from myssia.vision.settings import VisionConfig, load_vision_config, save_vision_config
 
 __all__ = [
     "INSTALL_COMMAND",
@@ -58,7 +58,7 @@ __all__ = [
 ]
 
 #: 模型下载安装命令(未装 huggingface_hub 时的结构化提示)。
-INSTALL_COMMAND = "pip install 'shishi[vision]'  # 或 uv add 'shishi[vision]'"
+INSTALL_COMMAND = "pip install 'myssia[vision]'  # 或 uv add 'myssia[vision]'"
 
 #: v2 只收 mlx-community 系 MLX 格式权重(直下免 convert;其余命名空间的
 #: 仓库多为原始 HF 权重,对 mlx_vlm.server 不可用,结构化拒)。
@@ -100,7 +100,7 @@ class VisionModelError(ValueError):
 
 
 def _import_hub() -> Any:
-    """惰性加载 ``huggingface_hub``(extras shishi[vision];缺装结构化报错)。"""
+    """惰性加载 ``huggingface_hub``(extras myssia[vision];缺装结构化报错)。"""
     try:
         return importlib.import_module("huggingface_hub")
     except ImportError as exc:

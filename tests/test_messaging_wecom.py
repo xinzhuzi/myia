@@ -25,13 +25,20 @@ from typing import Any
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
-from shishi.push import SendContext, WecomChannel
-from shishi.push.base import PushSendError
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
-from shishi.push.wecom import MAX_CONTENT_BYTES, split_utf8_chunks
+from myssia.push import SendContext, WecomChannel
+from myssia.push.base import PushSendError
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
+from myssia.push.wecom import (
+    MAX_CONTENT_BYTES,
+    WEBHOOK_MARKDOWN_MAX_BYTES,
+    parse_webhook_key,
+    split_utf8_chunks,
+)
+from myssia.schema import PushConfig
 
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
 NOW = 1_762_000_000.0
@@ -46,13 +53,14 @@ def _capture(request: httpx.Request) -> dict:
 
 
 class _Router:
-    """mock 路由:gettoken 固定应答;message/send 按脚本顺序出应答。"""
+    """mock 路由:gettoken 固定应答;message/send 与 webhook/send 各按脚本顺序出应答。"""
 
     def __init__(self, *, token: str = "tok-1", send_responses: list[httpx.Response] | None = None):
         self.calls: list[dict] = []
         self.token = token
         self.token_responses: list[httpx.Response] = []
         self.send_responses = list(send_responses or [])
+        self.webhook_responses: list[httpx.Response] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.calls.append(_capture(request))
@@ -63,6 +71,10 @@ class _Router:
             return httpx.Response(
                 200, json={"errcode": 0, "access_token": self.token, "expires_in": 7200}
             )
+        if "webhook/send" in url:
+            if self.webhook_responses:
+                return self.webhook_responses.pop(0)
+            return httpx.Response(200, json={"errcode": 0, "errmsg": "ok"})
         if self.send_responses:
             return self.send_responses.pop(0)
         return httpx.Response(200, json={"errcode": 0, "errmsg": "ok", "msgid": "m1"})
@@ -110,6 +122,10 @@ def _token_calls(router: _Router) -> list[dict]:
 
 def _send_calls(router: _Router) -> list[dict]:
     return [c for c in router.calls if "message/send" in c["url"]]
+
+
+def _webhook_calls(router: _Router) -> list[dict]:
+    return [c for c in router.calls if "webhook/send" in c["url"]]
 
 
 # ---------------------------------------------------------------------------
@@ -465,3 +481,157 @@ class TestAddressingAndDirectory:
         counts = _run(directory.refresh({"wecom": WecomChannel()}, now=100.0))
 
         assert counts == {}
+
+
+# ---------------------------------------------------------------------------
+# 群机器人 webhook(MYIA increment · 10-04-wecom-group-webhook)
+#
+# 蓝本外增量(偏离注记):Hermes wecom 无群 webhook 形态(W2 事实表
+# 「无群、无 markdown」);官方事实核订自腾讯文档「群机器人配置说明」
+# doc 91770:webhook/send?key=…、markdown 4096B、text 2048B、20条/分钟。
+# ---------------------------------------------------------------------------
+
+
+GROUP_KEY = "693abc91-7a3b-4bc4-97a0-0ec2a5b8c1de"
+GROUP_WEBHOOK_URL = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={GROUP_KEY}"
+
+
+class TestWebhookKeyParsing:
+    def test_bare_uuid_and_full_url_extract_key(self):
+        assert parse_webhook_key(GROUP_KEY) == GROUP_KEY
+        assert parse_webhook_key(GROUP_WEBHOOK_URL) == GROUP_KEY
+        assert parse_webhook_key(f"  {GROUP_KEY}\n") == GROUP_KEY  # 剥首尾空白
+
+    def test_non_key_forms_return_none(self):
+        for value in ["ZhangSan", "ww1234corp:ZhangSan", "hello world", ""]:
+            assert parse_webhook_key(value) is None
+        # 伪 UUID(段长不对)不命中;非官方 host 的 URL 不提取 key。
+        assert parse_webhook_key("693abc91-7a3b-4bc4-97a0-0ec2a5b8c1d") is None
+        assert parse_webhook_key(
+            "https://evil.example.com/cgi-bin/webhook/send?key=" + GROUP_KEY
+        ) is None
+
+
+class TestGroupWebhookForm:
+    """群形态:零 gettoken、零应用凭据解析,POST webhook/send?key= markdown。"""
+
+    def test_bare_key_target_posts_markdown_without_token(self, monkeypatch):
+        monkeypatch.setenv("MYIA_TEST_WECOM_GROUP_KEY", GROUP_KEY)
+        router = _Router()
+        # 刻意不设 corpid/secret/agentid env:群形态不解析任何应用凭据。
+        channel = _channel(router, target="env:MYIA_TEST_WECOM_GROUP_KEY")
+
+        _run(channel.send([{"title": "羊毛", "url": "https://x/1"}], CONTEXT))
+
+        calls = _webhook_calls(router)
+        assert len(calls) == 1  # 全部 HTTP 调用只有这一次(零 gettoken)
+        assert calls[0]["params"] == {"key": GROUP_KEY}
+        assert calls[0]["body"]["msgtype"] == "markdown"
+        assert "羊毛" in calls[0]["body"]["markdown"]["content"]
+        assert router.calls == calls  # 无任何 message/gettoken 调用
+
+    def test_full_webhook_url_value_extracts_key(self, monkeypatch):
+        monkeypatch.setenv("MYIA_TEST_WECOM_GROUP_KEY", GROUP_WEBHOOK_URL)
+        router = _Router()
+        channel = _channel(router, target="env:MYIA_TEST_WECOM_GROUP_KEY")
+
+        _run(channel.send([{"title": "t"}], CONTEXT))
+
+        assert _webhook_calls(router)[0]["params"] == {"key": GROUP_KEY}
+
+    def test_context_target_uuid_routes_group(self, monkeypatch):
+        """定向优先:chat_id 为 UUID(直达 wecom:<uuid>/别名登记)即群形态。"""
+        monkeypatch.setenv("MYIA_TEST_WECOM_TUSER", "ZhangSan")
+        router = _Router()
+        channel = _channel(router, target="env:MYIA_TEST_WECOM_TUSER")
+
+        _run(
+            channel.send([{"title": "t"}], replace(CONTEXT, target=_target(GROUP_KEY)))
+        )
+
+        assert len(_webhook_calls(router)) == 1
+        assert _send_calls(router) == []
+        assert _token_calls(router) == []
+
+    def test_long_send_chunks_markdown_at_4096_bytes(self, monkeypatch):
+        monkeypatch.setenv("MYIA_TEST_WECOM_GROUP_KEY", GROUP_KEY)
+        router = _Router()
+        channel = _channel(router, target="env:MYIA_TEST_WECOM_GROUP_KEY")
+        items = [{"title": "题" * 1500, "url": f"https://x/{i}"} for i in range(4)]
+
+        _run(channel.send(items, CONTEXT))
+
+        sends = _webhook_calls(router)
+        assert len(sends) > 1
+        assert all(
+            len(s["body"]["markdown"]["content"].encode("utf-8"))
+            <= WEBHOOK_MARKDOWN_MAX_BYTES
+            for s in sends
+        )
+        # 块序即发送序:首块标题行开路,末块收 3 号条目 URL。
+        assert sends[0]["body"]["markdown"]["content"].startswith("📡")
+        assert "https://x/3" in sends[-1]["body"]["markdown"]["content"]
+
+    def test_errcode_is_structured_and_transient(self, monkeypatch):
+        """45009(限频,社区核订)文案带 errcode=N;死信分类瞬态(None)。"""
+        monkeypatch.setenv("MYIA_TEST_WECOM_GROUP_KEY", GROUP_KEY)
+        router = _Router()
+        router.webhook_responses.append(
+            httpx.Response(200, json={"errcode": 45009, "errmsg": "api freq out of limit"})
+        )
+        channel = _channel(router, target="env:MYIA_TEST_WECOM_GROUP_KEY")
+
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send([{"title": "t"}], CONTEXT))
+        assert excinfo.value.code == "wecom_api_error"
+        assert "errcode=45009" in str(excinfo.value)
+        assert classify_dead_error(excinfo.value) is None
+
+    def test_non_json_webhook_response_is_invalid(self, monkeypatch):
+        monkeypatch.setenv("MYIA_TEST_WECOM_GROUP_KEY", GROUP_KEY)
+        router = _Router()
+        router.webhook_responses.append(httpx.Response(200, text="not-json"))
+        channel = _channel(router, target="env:MYIA_TEST_WECOM_GROUP_KEY")
+
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send([{"title": "t"}], CONTEXT))
+        assert excinfo.value.code == "invalid_response"
+
+    def test_missing_group_key_env_is_structured_error(self):
+        router = _Router()
+        channel = _channel(router, target="env:MYIA_TEST_WECOM_GROUP_KEY")
+
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send([{"title": "t"}], CONTEXT))
+        assert excinfo.value.code == "env_var_missing"
+        assert router.calls == []
+
+    def test_uuid_shaped_touser_is_group_form(self, monkeypatch):
+        """歧义钉板(D4 已知限制):UUID 形态值一律判群,key 无效即结构化失败。"""
+        monkeypatch.setenv("MYIA_TEST_WECOM_GROUP_KEY", GROUP_KEY)
+        router = _Router()
+        channel = _channel(router, target="env:MYIA_TEST_WECOM_GROUP_KEY")
+
+        _run(channel.send([{"title": "t"}], CONTEXT))
+
+        assert len(_webhook_calls(router)) == 1
+        assert _send_calls(router) == []
+
+
+class TestGroupFormSchemaZeroChange:
+    """D2 核订钉板:群形态 target 仍是纯引用,schema/pipeline 零改即收口。"""
+
+    def test_group_target_ref_validates_without_app_credentials(self):
+        push = PushConfig(channel="wecom", target="env:WECOM_WEBHOOK_KEY")
+
+        assert (push.channel, push.target) == ("wecom", "env:WECOM_WEBHOOK_KEY")
+
+    def test_group_form_target_still_refuses_plaintext(self):
+        with pytest.raises(ValidationError):
+            PushConfig(channel="wecom", target="693abc91-not-a-ref")
+
+    def test_no_target_and_no_targets_still_rejected(self):
+        with pytest.raises(ValidationError) as excinfo:
+            PushConfig(channel="wecom")
+        wrapped = excinfo.value.errors()[0]["ctx"]["error"]
+        assert wrapped.code == "missing_target"

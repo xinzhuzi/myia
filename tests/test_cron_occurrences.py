@@ -1,7 +1,7 @@
 """Cron occurrences:到期身份去重 + pending_slot(tests 冻结命名,
 10-04-hermes-cron implement A5)。
 
-覆盖 :mod:`myia.cron.occurrences` 全函数面(上游 ``cron/occurrences.py``
+覆盖 :mod:`myssia.cron.occurrences` 全函数面(上游 ``cron/occurrences.py``
 102 行全文对照):
 
 - ``scheduled_instant``:aware ISO → UTC 规范化;naive/非串/垃圾 → None
@@ -29,9 +29,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from myia.cron import occurrences
-from myia.cron.executions import ExecutionLedger
-from myia.cron.jobs import machine_id, try_register_running_job, release_running_job
+from myssia.cron import occurrences
+from myssia.cron.executions import ExecutionLedger
+from myssia.cron.jobs import machine_id, try_register_running_job, release_running_job
 
 TZ = ZoneInfo("Asia/Shanghai")
 NOW = datetime(2026, 10, 4, 9, 6, tzinfo=TZ)
@@ -40,7 +40,7 @@ FIRE_TTL_OVER = 301  # 恰过 FIRE_CLAIM_TTL_SECONDS(300s)的窗
 
 @pytest.fixture()
 def ledger(tmp_path: Any) -> ExecutionLedger:
-    return ExecutionLedger.for_db(tmp_path / "myia.db")
+    return ExecutionLedger.for_db(tmp_path / "myssia.db")
 
 
 def make_job(job_id: str = "job-1", **overrides: Any) -> dict[str, Any]:
@@ -120,7 +120,7 @@ def test_completed_row_proves_completion(
         scheduled_instant=instant,
         finished_at="2026-10-04T01:05:30+00:00",
     )
-    with caplog.at_level("WARNING", logger="myia.cron.occurrences"):
+    with caplog.at_level("WARNING", logger="myssia.cron.occurrences"):
         assert (
             occurrences.completed_occurrence(make_job(), instant, ledger=ledger) is True
         )

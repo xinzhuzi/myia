@@ -27,12 +27,12 @@ from typing import Any
 
 import pytest
 
-from shishi.push import SendContext
-from shishi.push.base import PushSendError
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget
-from shishi.push.weixin import (
+from myssia.push import SendContext
+from myssia.push.base import PushSendError
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
+from myssia.push.weixin import (
     DEFAULT_BRIDGE_TIMEOUT_SECONDS,
     DEFAULT_HERMES_BIN,
     BridgeTimeoutError,

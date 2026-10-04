@@ -1,4 +1,4 @@
-# myia-osint — 官方场景件:OSINT 侦察爬虫(封装 s0md3v/Photon)。
+# myssia-osint — 官方场景件:OSINT 侦察爬虫(封装 s0md3v/Photon)。
 #
 # v1.1 起为「源码型插件」首个样板:上游源码以 git submodule 钉在
 # vendor/Photon(pin 见下),适配器 adapter.py 以隔离子进程(uv 临时
@@ -6,13 +6,13 @@
 #
 # 许可注意:上游 Photon 为 GPL-3.0 —— 本插件只以 submodule 引用方式接入,
 # 不复制、不修改、不分发其任何源码;manifest/adapter 均为 MYIA 侧代码。
-id: myia-osint
+id: myssia-osint
 name: OSINT 侦察爬虫(Photon)
 version: 1.1.0
 compatible: ">=0.0.1,<0.1"
 # v1.1 分级:desktop = 桌面默认集(源码 submodule + uv 临时环境,零 Docker)。
 tier: desktop
-# 源码路径零 Docker;compose 已迁仓库 docker/plugins/myia-osint/(服务端
+# 源码路径零 Docker;compose 已迁仓库 docker/plugins/myssia-osint/(服务端
 # 可选形态),故不再声明 requires: docker,manifest 只声明 remote 占位。
 requires: []
 provides: [photon]
@@ -32,4 +32,4 @@ modes:
     # 端点占位、按需填写。上游无鉴权,故无 token 声明。
     endpoint: https://photon-wrapper.example.com
 install:
-  source: https://github.com/xinzhuzi/MYIA.git
+  source: https://github.com/xinzhuzi/myssia.git

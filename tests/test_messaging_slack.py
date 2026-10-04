@@ -23,17 +23,17 @@ from typing import Any
 import httpx
 import pytest
 
-from shishi.push.base import PushSendError
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.slack import MESSAGE_LIMIT, SlackChannel
-from shishi.push.targets import (
+from myssia.push.base import PushSendError
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.slack import MESSAGE_LIMIT, SlackChannel
+from myssia.push.targets import (
     RESOLVED_DIRECT,
     RESOLVED_DIRECTORY_NAME,
     ChannelTarget,
     resolve_target,
 )
-from shishi.push.base import SendContext
+from myssia.push.base import SendContext
 
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
 
@@ -253,7 +253,7 @@ class TestAddressing:
 
     def test_resolve_via_alias_name_and_prefix(self, tmp_path):
         """目录精确名 + 唯一前缀两路径(注入注册表;集成后随 PLATFORMS)。"""
-        from shishi.push.directory import ChannelEntry
+        from myssia.push.directory import ChannelEntry
 
         directory = ChannelDirectory(tmp_path)
         directory.merge_entries(

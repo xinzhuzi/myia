@@ -21,9 +21,9 @@
 
 ### 桌面端(不想碰命令行的走这条)
 
-下载:`myia_0.0.1_aarch64.dmg` →
-https://github.com/xinzhuzi/myia/releases/download/v0.0.1/myia_0.0.1_aarch64.dmg
-(Release 页:https://github.com/xinzhuzi/myia/releases/tag/v0.0.1)
+下载:`myssia_0.0.1_aarch64.dmg` →
+https://github.com/xinzhuzi/myssia/releases/download/v0.0.1/myssia_0.0.1_aarch64.dmg
+(Release 页:https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1)
 
 丑话说在前面:
 
@@ -51,13 +51,13 @@ https://github.com/xinzhuzi/myia/releases/download/v0.0.1/myia_0.0.1_aarch64.dmg
 ### CLI(论坛朋友大概率更想看这条)
 
 ```bash
-git clone https://github.com/xinzhuzi/myia
+git clone https://github.com/xinzhuzi/myssia
 cd myia
 uv sync    # 源码装法仅此一条(uv workspace,裸 pip 解析不到同仓子包)
 ```
 
 > 如实说:**PyPI 还没上**,`pip install myssia` 现在装不了;上架前请用上面的
-> uv 路线。本仓是 uv workspace(`myia-classifier` 是 workspace 成员),裸
+> uv 路线。本仓是 uv workspace(`myssia-classifier` 是 workspace 成员),裸
 > `pip install -e .` 拉不齐依赖。
 
 最小品类长这样,零凭据、复制就能跑(`url` 换成任意服务端渲染的列表页):
@@ -88,7 +88,7 @@ push:
 内置七大类关键词粗筛(含羊毛/优惠类,零 token)+ 免费/付费双信号裁决,
 可选再叠一层 LLM 精评(价值/相关性/可信度 0–10);阈值分级路由:score≥8
 立即推、≥5 进早晚双摘要(AM/PM 槽位保证同一条不重发)、<5 只归档。
-负反馈现在就能闭环:CLI `myia feedback mark` 回写调优;桌面卡片内按钮
+负反馈现在就能闭环:CLI `myssia feedback mark` 回写调优;桌面卡片内按钮
 排后续批次,还没做,不画饼。
 
 **2. 反爬是六级降级梯,不是无脑硬刚**
@@ -110,10 +110,10 @@ secret set` 管录入,值走 stdin 不进 shell history、不进日志、不进
 卖点修饰。
 
 **5. 对 AI 友好是第一设计原则**
-内置 Agent Skill(自包含速查,`myia skill install --agent claude` 一条命令
+内置 Agent Skill(自包含速查,`myssia skill install --agent claude` 一条命令
 装进 Claude Code,也支持 Cursor / zcode),说「帮我盯着 XX」就能生成品类
 配置;所有命令带 `--json`(stdout 恒为恰好一份 JSON 文档),退出码契约
-0/1/2/3,`myia doctor --json` 的 findings 就是给 agent 自修的行动清单。
+0/1/2/3,`myssia doctor --json` 的 findings 就是给 agent 自修的行动清单。
 
 ### 状态如实
 
@@ -122,13 +122,13 @@ secret set` 管录入,值走 stdin 不进 shell history、不进日志、不进
   Release 只有 macOS 包,Windows 构建 job 这版就没跑通(实验性、允许失败),
   CLI 在 Windows 上同样没验证过,这里不做任何「Windows 能跑」的宣称;
 - 桌面卡片内反馈按钮排后续批次(反馈闭环 CLI 现已可用);
-- PyPI 双包(`myia` / `myia-classifier`)待发,发布前源码安装仅 uv。
+- PyPI 双包(`myia` / `myssia-classifier`)待发,发布前源码安装仅 uv。
 
 链接:
 
-- 仓库:https://github.com/xinzhuzi/myia
-- 中文快速上手:https://github.com/xinzhuzi/myia/blob/main/docs/zh/getting-started.md
-- v0.0.1 Release:https://github.com/xinzhuzi/myia/releases/tag/v0.0.1
+- 仓库:https://github.com/xinzhuzi/myssia
+- 中文快速上手:https://github.com/xinzhuzi/myssia/blob/main/docs/zh/getting-started.md
+- v0.0.1 Release:https://github.com/xinzhuzi/myssia/releases/tag/v0.0.1
 
 求反馈,尤其想听:你们想先盯什么品类?哪些源该进官方插件清单?桌面端
 macOS 的打开体验有没有被 Gatekeeper 恶心到(除了右键打开还有什么顺手的

@@ -23,11 +23,11 @@ from typing import Any
 import httpx
 import pytest
 
-from shishi.push.base import Channel, PushSendError, SendContext
-from shishi.push.delivery import classify_dead_error
-from shishi.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from shishi.push.homeassistant import MESSAGE_LIMIT, HomeAssistantChannel, notify_url
-from shishi.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
+from myssia.push.base import Channel, PushSendError, SendContext
+from myssia.push.delivery import classify_dead_error
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.push.homeassistant import MESSAGE_LIMIT, HomeAssistantChannel, notify_url
+from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
 
 CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
 

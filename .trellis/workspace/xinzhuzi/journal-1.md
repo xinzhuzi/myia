@@ -395,3 +395,17 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 质检 6 项处置:2 硬伤修复(CLI D3 缺口补齐+5 用例;UI 动作字段对齐协议 resolved/resolved_target/degrade_reason,源码 grep 零残留)+2 低判 v2(suppressed 词表)/汇报面不改+2 备案维持;自检申报=协议 pytest 115(含新 10)/告警 49 参数化(34 函数)/messaging vitest 48+build
 - 如实申报:G5 dev 实机手验未做(协议后置落地,硬伤2 即该手验会抓的缺陷、已修);全量 pytest+ruff(未装 .venv)未在收口批重跑;收尾 C2 detect-changes/C4 分批提交/C5 回滚验证未做归实现流主线;唯一越白名单 tests/test_baseline.py :463 '6'→'7' 机械连带(design §2.2 钦定,质检核实)
 - 收口动作:task.json 直改 review+notes 执行摘要(不经 task.py);implement/check.jsonl 各补一行引用;evidence 清点齐(3 PNG+1 DOM 快照,PNG 像素未目验=会话模型无图像输入);不 push、不跑 task.py
+
+## 2026-10-04 凌晨 终局收编:W3 落地 + 发布纪元重定 + 我的后半链被吸收
+
+- 终局工作流(dwfrun-39d071be,Amend 缓存吸收四帖 280 万 token):messaging-w3 全量落地——22 家长尾三组并行(8+6+8)全 TrendAwareChannel 协议达标,集成 3cd0441(CHANNELS 30/PLATFORMS 28+schema+SKILL/docs 反漂移),复核九项收敛 0fc42a5;双门禁绿(专项 140/全量 3023)
+- 树静等待第三次超时(15h 累计,大部队永不停笔)→ 判定"等散场"策略死亡;取而代之的事实:tag-release 线已重定版本纪元 0.0.1 并发布 Release(18:40,我的 v1.1.1 被有意取代删除——世事=新项目 0.0.1 起,符合 tag 驱动纪律),主人旧机已换装;模块改名被 58cb40b 落地(src/shishi+CLI+packaging 链,classifier 目录与 src/myia 残留为其在途续作);PyPI 唯一余项=主人注册 trusted publisher(pending)
+- 我方收尾:归档五档(509ae4a 等);golden-frozen-snapshots 闭环(b92d156,九份冻结+再生成入口+反证双证,活体 plugins 出数据流);messaging-w3/shishi-everywhere 转 review
+- 教训入册:多工作流常驻仓库没有"树静"时刻,发布/快照类操作应"绿 HEAD 即取",不等散场;AmendWorkflow 缓存吸收(停跑流的已完成阶段零成本复用)实战首验成功
+
+## 2026-10-04 hermes-cron 提交收口(收口员会话)
+
+- 干了什么:两笔 pathspec 提交落地——e3d3e60 feat(cron) 代码批 19 文件(jobs/occurrences/tick/ticker/runner/summary 六新模块+__init__ 再导出+CLI cron 十一子命令+sidecar ticker 协议 v9+cron 七件套测试+test_cli/test_desktop_sidecar_protocol 增量,+11550 行);e0f79cb docs(cron) 文档批 21 文件(双语文档补注+README 双区亮点+spec python/index「定时任务底座」节+test_docs BILINGUAL_PAGES+任务三件套勾档+evidence 68K)。task.json 直改 review(未跑 task.py);逐文件分诊后提交,并行改名清扫会话(shishi→myi 残留 ~200 文件)原样在树未收编;唯一例外:test_cli.py 头部 ~15 行 shishi→myia import 前置(该文件 HEAD 本就 import 断裂,cron 用例可跑必要条件)按 main-stays-green 带署名吸收,commit message 在案。
+- 门禁结果:提交前实跑 cron 七件套+test_cli+sidecar 协议+test_docs = 587 全绿(26.47s);C2 红线核过(pyproject/sqlite.py/uv.lock 零改动,cli.py 纯增量 run --loop 原样);detect-changes -r shishi --scope staged(文档批暂存上,提交前实跑)= 21 files/8 symbols/受影响流程 0/risk low,全为文档标题符号。实现期全量 3573 passed/19 skipped/4 failed(4 红均 HEAD 态外来 alert_rules/baseline,收口未复跑全量——以实现期记录+本次定向门禁为准)。
+- 冒烟证据:.trellis/tasks/10-04-hermes-cron/evidence/smoke-e2e.md(serve ≥2 fire/runs 表 2 行/摘要落盘/心跳 33s 新鲜/remove 清场)+ smoke-refix.md(手动 tick 真派发/deliver stdout:debug 到达/failure_deliver 失败卡到达),随 e0f79cb 入库。
+- 遗留:①AC6 平台真发面(feishu/telegram 定向卡入群)无凭据未验,留空不勾,待有凭据环境补真发;②品类 fixture 为本地静态源非官方 news.yaml(离线约束,偏差在案);③journal 本段按收口令范围追加未随批提交(并行 +7 行在树,下次 journal 入库时一并);④不 push 不打 tag(主人门禁)。

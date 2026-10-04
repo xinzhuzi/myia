@@ -82,7 +82,7 @@ function doctorFixture(overrides?: {
   return {
     command: "doctor",
     generated_at: "2026-10-02T10:00:00.000Z",
-    db: "myia.db",
+    db: "myssia.db",
     // 与 cli.py 同口径:healthy = 无 error 级 finding
     healthy: !findings.some((finding) => finding.severity === "error"),
     plugins: overrides?.plugins ?? [],

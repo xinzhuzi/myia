@@ -2,7 +2,7 @@
 
 > One intelligence category = one YAML file. This page lists every section's
 > fields, values and defaults, field-for-field identical to
-> `src/myia/schema.py` (locked by `tests/test_docs.py` /
+> `src/myssia/schema.py` (locked by `tests/test_docs.py` /
 > `tests/test_skill_doc.py`); every `yaml` code block here is a complete,
 > loadable category config — copy and run. For the tutorial-style guide see
 > the [plugin guide](write-a-plugin.md).
@@ -59,7 +59,7 @@ entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
   `sources[].headers`, `post_body` and source-level extension parameters —
   the whole YAML document, not just headers.
 - Credential values are never echoed and never logged;
-  `myia secret set myia/<scope>/<name>` stores one (value via a stdin pipe
+  `myssia secret set myia/<scope>/<name>` stores one (value via a stdin pipe
   or a hidden prompt).
 - `enrich.base_url` / `enrich.api_key` / `push[].target` must be **pure**
   references (no auth-scheme prefix).
@@ -94,7 +94,7 @@ entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
 | Field | Default | Semantics |
 |---|---|---|
 | `name` | required | Source name (1-64 chars, unique within the plugin; doctor/test locate by it) |
-| `engine` | `auto` | Engine name (see vocabulary; `auto` walks the degrade chain, the winner is recorded in SQLite hints, never in your YAML). Under `auto`, when L2 static extraction yields 0 items, sources **without a hint yet** (first encounter) get one L3 (crawl4ai) browser probe — JS-rendered empty shells are caught this way; a zero-result probe locks the source back to L2 empty-page semantics, at most 3 probes per run. Sources already locked to L2 are unaffected; the manual re-probe escape is an explicit `engine: crawl4ai`. `credhunter` is an **off-chain source engine**: it never fetches the url — the in-process scenario plugin myia-credhunter assembles items itself (GitHub artifact hunting / FOFA-Shodan exposure / local text triage); it never joins the auto chain and only takes effect when selected explicitly. Credentials arrive via `engine_options.credhunter.{github_tokens,fofa_apikey,shodan_apikey}` references; keyless exposure lanes degrade to an explicit empty state |
+| `engine` | `auto` | Engine name (see vocabulary; `auto` walks the degrade chain, the winner is recorded in SQLite hints, never in your YAML). Under `auto`, when L2 static extraction yields 0 items, sources **without a hint yet** (first encounter) get one L3 (crawl4ai) browser probe — JS-rendered empty shells are caught this way; a zero-result probe locks the source back to L2 empty-page semantics, at most 3 probes per run. Sources already locked to L2 are unaffected; the manual re-probe escape is an explicit `engine: crawl4ai`. `credhunter` is an **off-chain source engine**: it never fetches the url — the in-process scenario plugin myssia-credhunter assembles items itself (GitHub artifact hunting / FOFA-Shodan exposure / local text triage); it never joins the auto chain and only takes effect when selected explicitly. Credentials arrive via `engine_options.credhunter.{github_tokens,fofa_apikey,shodan_apikey}` references; keyless exposure lanes degrade to an explicit empty state |
 | `url` | required | http(s) address; supports `{placeholder}` templates (`{page}` paging, `{symbol}` fan-out) |
 | `method` | `GET` | `GET` / `POST`; POST requires `post_body`, GET forbids it |
 | `post_body` | `null` | POST form/JSON body (mapping); credential keys are plaintext-refused like headers |
@@ -149,7 +149,7 @@ after `probe_interval` the next traffic naturally triggers a half-open trial
 (success reinstates, failure re-removes; no background prober). When every
 upstream is removed the pool circuit-breaks: further requests **fail fast
 with zero network** (`proxy_pool_exhausted`, short-circuiting the degrade
-chain like the other `proxy_*` classes), and `myia doctor --config` probes
+chain like the other `proxy_*` classes), and `myssia doctor --config` probes
 every upstream of every pool in parallel (single-upstream pools merely gain
 the additive fields `upstream_index`/`upstreams`). **Behavior change (v1.2
 disclosure)**: string (single-upstream) pools move from "each source retries
@@ -303,14 +303,14 @@ validation failure refuses the whole YAML (exit code 1).
 ### plugin: scenario plugin dual mode (v0.3)
 
 Declares that this category depends on a market plugin (installed via
-`myia plugin install`) for its service. **A plugin that cannot install, is
+`myssia plugin install`) for its service. **A plugin that cannot install, is
 misconfigured, or whose remote is unreachable never blocks the core
 pipeline** — it degrades to a structured finding and the category keeps
 running (security-baseline rule).
 
 | Field | Default | Semantics |
 |---|---|---|
-| `id` | required | Plugin id (lowercase letters/digits/hyphens/underscores, alphanumeric first; convention `myia-<name>`) |
+| `id` | required | Plugin id (lowercase letters/digits/hyphens/underscores, alphanumeric first; convention `myssia-<name>`) |
 | `requires` | `[]` | Host-capability vocabulary (currently `docker` only); string or list both accepted |
 | `modes` | required | At least one mode: `local` (a compose file path and/or an install command) or `remote` (endpoint required; token **must** be a `keychain:myia/<scope>/<name>` reference — even `env:` is refused) |
 
@@ -320,12 +320,12 @@ name: Page change watch
 schedule: "*/15 * * * *"
 timezone: Asia/Shanghai
 plugin:                           # scenario plugin declaration (official packages: remote opt-in since v1.1)
-  id: myia-monitor
+  id: myssia-monitor
   requires: []
   modes:
     remote:                       # point at an already-deployed instance (desktop: zero Docker); local compose is still valid schema — official deployment files live under docker/plugins/
       endpoint: https://my-monitor.example.com
-      token: keychain:myia/monitor/token    # myia secret set myia/monitor/token
+      token: keychain:myia/monitor/token    # myssia secret set myia/monitor/token
 sources:
   - name: watch-api
     engine: direct_api
@@ -421,7 +421,7 @@ the LLM confirms (inside enrich's batch/cache/budget rails). **Endpoint
 settings are shared with the `enrich:` section** — `aggregate.enabled: true`
 requires enrich's `base_url`/`api_key` to be valid (and `--extra llm`
 likewise); budget is consumed jointly with enrich — whichever hits the cap
-first degrades. When enabled, `myia run --json`'s `stages[]` gains an
+first degrades. When enabled, `myssia run --json`'s `stages[]` gains an
 `aggregate` stage.
 
 ```yaml
@@ -460,7 +460,7 @@ push:
 A failed load raises `LoadError`: **all** errors are reported in one pass,
 each carrying a field path (JSONPath style, e.g.
 `$.sources[0].rate_limit.qps`) + a machine error type + a human message in
-Chinese; `myia doctor --json` emits the same shape. Exit code 1. Common
+Chinese; `myssia doctor --json` emits the same shape. Exit code 1. Common
 error types:
 
 | error_type | meaning |

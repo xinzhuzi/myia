@@ -35,11 +35,11 @@ class EnrichConfigError(ValueError):
             keychain is not yet supported),
             ``invalid_base_url`` (resolved endpoint is not an http(s) URL),
             ``dependency_missing`` (the optional ``openai`` package, extras
-            ``shishi[llm]``, is not installed — raised at the first LLM call,
+            ``myssia[llm]``, is not installed — raised at the first LLM call,
             the import is lazy, never at startup),
             ``prompt_invalid`` (the external prompt data file is malformed).
         details: structured context (field path / reference name), consumed
-            by ``myia doctor`` (JSON) and repairing agents. Never carries
+            by ``myssia doctor`` (JSON) and repairing agents. Never carries
             resolved credential *values* — reference names only.
     """
 
@@ -49,5 +49,5 @@ class EnrichConfigError(ValueError):
         self.details: dict[str, Any] = details or {}
 
     def to_dict(self) -> dict[str, Any]:
-        """Machine-readable form for ``myia doctor`` (JSON) and agents."""
+        """Machine-readable form for ``myssia doctor`` (JSON) and agents."""
         return {"error_type": self.code, "message": str(self), **self.details}

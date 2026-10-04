@@ -6,15 +6,15 @@
 ``Pipeline._alert_pass``(design §6),协议/CLI/UI 在桌面批(Stage D/E)。
 """
 
-from shishi.alerts.engine import AlertEngine, ChannelResolver, SendFunc, alert_view
-from shishi.alerts.rule import (
+from myssia.alerts.engine import AlertEngine, ChannelResolver, SendFunc, alert_view
+from myssia.alerts.rule import (
     ALERT_SCOPES,
     AlertConfigError,
     CompiledAlertRule,
     compile_rule,
     compile_rules,
 )
-from shishi.store.models import AlertFired, AlertRule
+from myssia.store.models import AlertFired, AlertRule
 
 __all__ = [
     "ALERT_SCOPES",

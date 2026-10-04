@@ -1,4 +1,4 @@
-"""myia-credhunter 插件 R2(credcheck:验证 + 余额探测)契约测试.
+"""myssia-credhunter 插件 R2(credcheck:验证 + 余额探测)契约测试.
 
 任务 10-03-aipocket-fusion R2 配套测试:只读插件目录、**零网络**
 (transport 全部注入 FakeTransport,路由命中即返回 canned 响应)、零真实
@@ -30,11 +30,11 @@ from typing import Any
 
 import pytest
 
-from shishi.cli import _import_plugin_adapter
+from myssia.cli import _import_plugin_adapter
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_DIR = REPO_ROOT / "plugins"
-PLUGIN_DIR = PLUGINS_DIR / "myia-credhunter"
+PLUGIN_DIR = PLUGINS_DIR / "myssia-credhunter"
 
 # ---------------------------------------------------------------------------
 # 合成脱敏 fixture 键(人工构造,不对应任何真实账号;形态只服务于归因分支)
@@ -59,7 +59,7 @@ _CREDCHECK: Any = None
 def _adapter() -> Any:
     global _ADAPTER
     if _ADAPTER is None:
-        _ADAPTER = _import_plugin_adapter(PLUGINS_DIR, "myia-credhunter")
+        _ADAPTER = _import_plugin_adapter(PLUGINS_DIR, "myssia-credhunter")
     return _ADAPTER
 
 

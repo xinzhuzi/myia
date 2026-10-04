@@ -17,7 +17,7 @@ Decision order per item (PRD v01-push-feishu-route, grill Q1/Q3):
    leak spam).
 
 ``when`` expressions reuse the classify whitelist-AST evaluator
-(:class:`shishi.classify.custom.Rule`) — the same safe grammar, the same
+(:class:`myssia.classify.custom.Rule`) — the same safe grammar, the same
 per-item isolation, never ``eval``.
 """
 
@@ -27,8 +27,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Sequence
 
-from shishi.classify.custom import Rule, RuleSyntaxError
-from shishi.schema import ROUTE_MODES
+from myssia.classify.custom import Rule, RuleSyntaxError
+from myssia.schema import ROUTE_MODES
 
 __all__ = [
     "SCORE_FIELD",

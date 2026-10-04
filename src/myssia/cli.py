@@ -30,7 +30,7 @@ stdout 只有一份纯 JSON(AI 消费路径)。
                 品类 YAML 管线,``list/create/edit/pause/resume/run/remove/
                 status/runs`` 管理 + ``serve`` 常驻宿主(监督守护线程)+
                 ``tick`` 手动单次扫描;数据根 = ``--db`` 父目录下的 ``cron/``
-                (jobs.json + executions.db,不进 myia.db)。退出码只用 0/1
+                (jobs.json + executions.db,不进 myssia.db)。退出码只用 0/1
                 (job 的运行成败归 tick/serve 侧,不撞 2/3 的采集语义)。
 - ``init``      输出生成品类 YAML 所需的**结构化信息清单**(JSON,非人机
                 问答):agent 据此向用户收集信息并生成 12 节 YAML。
@@ -44,15 +44,15 @@ stdout 只有一份纯 JSON(AI 消费路径)。
                 pools 声明时)、调度下次触发时间、enrich 预算/缓存;
                 ``--json`` 输出,agent 据 findings 自修。诊断完成即退出
                 0,发现的问题全部落在 ``findings``(healthy=false)。
-- ``secret``    钥匙链凭据 set/list/delete(薄包装 myia.secrets;值永不
+- ``secret``    钥匙链凭据 set/list/delete(薄包装 myssia.secrets;值永不
                 回显、不落日志)。
 - ``plugin``    市场插件装卸:list/install/remove(v0.3,薄包装
-                myia.plugins;装卸 fail-fast 结构化拒绝,扫描零异常 ——
+                myssia.plugins;装卸 fail-fast 结构化拒绝,扫描零异常 ——
                 任何插件装不上/配置坏都不拦核心流水线,铁律)。
 - ``channels``  通道目录 refresh/list(v1.2,10-03-messaging-feishu:
                 定向推送的寻址地图;refresh 调平台列表 API,失败平台保留
                 旧桶并结构化上报,绝不阻塞推送)。
-- ``feedback``  反馈闭环 list/stats/mark(v0.3,薄包装 myia.feedback;
+- ``feedback``  反馈闭环 list/stats/mark(v0.3,薄包装 myssia.feedback;
                 mark 是桌面形态的手动标记接收路,TG/飞书回调经 pipeline/
                 回调端点入库,负反馈随维护阶段自动调参)。
 - ``alerts``    告警规则命中历史只读 ``list``(v1;alert_fired 新→旧,
@@ -61,11 +61,11 @@ stdout 只有一份纯 JSON(AI 消费路径)。
 - ``skill``     Agent Skill 安装通路 install/path(纯文件操作,退出码
                 0/1;目标已存在默认结构化拒绝,--force 才覆盖;--link 符号
                 链接;--path 自定义目录;真实安装目录按平台惯例探测)。
-- ``osint``     一次性 OSINT 侦察(v1.1 源码型插件样板 myia-osint:动态
+- ``osint``     一次性 OSINT 侦察(v1.1 源码型插件样板 myssia-osint:动态
                 加载插件目录 adapter.py,子进程调用上游 Photon——uv 临时
                 环境隔离依赖;输出结构化 JSON;vendor 缺失/适配器不可用 →
                 结构化错误,绝不拦核心流水线,铁律)。
-- ``proxy``     轻量代理抓取+测活(v1.1 desktop 分级 myia-proxy:动态加载
+- ``proxy``     轻量代理抓取+测活(v1.1 desktop 分级 myssia-proxy:动态加载
                 插件目录 adapter.py,进程内完成公开免费代理列表抓取与逐个
                 测活,零 Redis 零 docker;全源失败/零可用 → 结构化错误,
                 绝不拦核心流水线,铁律)。
@@ -107,38 +107,38 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 
-import myia
-from myia.cron.jobs import AmbiguousJobReference, CronJobs
-from myia.cron.runner import CronRunner
-from myia.cron.tick import tick as cron_tick_scan
-from myia.cron.ticker import (
+import myssia
+from myssia.cron.jobs import AmbiguousJobReference, CronJobs
+from myssia.cron.runner import CronRunner
+from myssia.cron.tick import tick as cron_tick_scan
+from myssia.cron.ticker import (
     DEFAULT_TICK_INTERVAL_SECONDS,
     SupervisedTickerThread,
     run_ticker_loop,
 )
-from myia.dedup import DedupRegistry
-from myia.engines.fetch_base import (
+from myssia.dedup import DedupRegistry
+from myssia.engines.fetch_base import (
     FetchContext,
     check_proxy_connectivity,
     classify_exception,
     load_proxy_pools_file,
     mask_proxy_url,
 )
-from myia.engines.registry import fetch_source
-from myia.feedback import (
+from myssia.engines.registry import fetch_source
+from myssia.feedback import (
     DEFAULT_WINDOW_DAYS as DEFAULT_TUNING_WINDOW_DAYS,
 )
-from myia.feedback import (
+from myssia.feedback import (
     FeedbackTuner,
     TuningPolicy,
     load_active_tuning,
     record_feedback,
     resolve_item_ref,
 )
-from myia.pipeline import Pipeline, build_cron_trigger
-from myia.push import PLATFORMS
-from myia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
-from myia.plugins import (
+from myssia.pipeline import Pipeline, build_cron_trigger
+from myssia.push import PLATFORMS
+from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
+from myssia.plugins import (
     InstalledPluginStore,
     PluginFinding,
     PluginStoreError,
@@ -146,7 +146,7 @@ from myia.plugins import (
     check_remote_modes,
     default_install_root,
 )
-from myia.schema import (  # _SECRET_REF_RE 复用:与 schema 同一引用语法,避免两处漂移
+from myssia.schema import (  # _SECRET_REF_RE 复用:与 schema 同一引用语法,避免两处漂移
     _SECRET_REF_RE,
     CategoryConfig,
     CredentialResolveError,
@@ -156,7 +156,7 @@ from myia.schema import (  # _SECRET_REF_RE 复用:与 schema 同一引用语法
     parse_secret_value,
     resolve_credential,
 )
-from myia.secrets import (
+from myssia.secrets import (
     SECRET_SERVICE,
     KeychainBackend,
     SecretError,
@@ -166,7 +166,7 @@ from myia.secrets import (
     set_secret,
     validate_secret_name,
 )
-from myia.store import (
+from myssia.store import (
     FEEDBACK_CHANNEL_CLI,
     AlertFired,
     FeedbackRecord,
@@ -190,9 +190,9 @@ _EXIT_BY_STATUS = {
 }
 
 DEFAULT_PLUGINS_DIR = "plugins"
-DEFAULT_DB_PATH = "myia.db"
+DEFAULT_DB_PATH = "myssia.db"
 #: osint 样板插件与默认目标(PRD 10-02-v11-plugins-source-arch:合法演示域)。
-OSINT_PLUGIN_ID = "myia-osint"
+OSINT_PLUGIN_ID = "myssia-osint"
 DEFAULT_OSINT_TARGET = "https://example.com"
 #: osint 子进程 wall-clock 预算缺省(整个侦察过程,非单请求超时)。
 DEFAULT_OSINT_TIMEOUT_SECONDS = 600.0
@@ -206,19 +206,19 @@ OSINT_FETCH_FAILURE_CODES = frozenset(
         "photon_export_invalid",
     }
 )
-#: 代理池插件(myia-proxy,进程内轻量 fetcher/测活;v1.1 desktop 分级)。
-PROXY_PLUGIN_ID = "myia-proxy"
+#: 代理池插件(myssia-proxy,进程内轻量 fetcher/测活;v1.1 desktop 分级)。
+PROXY_PLUGIN_ID = "myssia-proxy"
 #: 代理测活期望拿到的可用代理缺省数。
 DEFAULT_PROXY_COUNT = 5
 #: 单代理测活超时缺省秒数。
 DEFAULT_PROXY_CHECK_TIMEOUT_SECONDS = 10.0
 #: 采集类失败码 → 退出码 2(全部源抓取失败 / 零可用代理);其余退 1。
 PROXY_FETCH_FAILURE_CODES = frozenset({"fetch_failed", "no_alive_proxy"})
-#: 凭证猎手插件(myia-credhunter,进程内三 lane:credhunt/credcheck/exposure;
+#: 凭证猎手插件(myssia-credhunter,进程内三 lane:credhunt/credcheck/exposure;
 #: 10-03-aipocket-fusion;正式取数走 engine: credhunter 进管线,CLI 面是
 #: 调试/冒烟口,credcheck 双入口=--apikey 显式传键 / --from-keystore 读
 #: 插件侧密钥库回填状态,均不走引擎)。
-CREDHUNTER_PLUGIN_ID = "myia-credhunter"
+CREDHUNTER_PLUGIN_ID = "myssia-credhunter"
 #: credhunt 配置类失败码 → 1(GitHub 无 token 该源不启用,规格语义);
 #: 采集类失败由 payload 状态面(errors/items)判定,不走失败码映射。
 CREDHUNT_CONFIG_FAILURE_CODES = frozenset({"tokens_missing"})
@@ -291,18 +291,18 @@ class _Parser(argparse.ArgumentParser):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the ``myia`` argument parser (help 文本也是 AI 的输入)."""
+    """Build the ``myssia`` argument parser (help 文本也是 AI 的输入)."""
     parser = _Parser(
-        prog="myia",
+        prog="myssia",
         description="世事 — AI-native intelligence hub. 一个品类一份 YAML,fetch→classify→dedup→analyze→push。",
         epilog=(
             "退出码:0 成功 / 1 配置或用法错误 / 2 采集全部失败 / 3 部分失败。\n"
-            "示例:myia run plugins/stocks.yaml --dry-run --json | jq .status\n"
-            "      myia doctor --json | jq '.findings'"
+            "示例:myssia run plugins/stocks.yaml --dry-run --json | jq .status\n"
+            "      myssia doctor --json | jq '.findings'"
         ),
     )
     parser.add_argument(
-        "--version", action="version", version=f"myia {myia.__version__}"
+        "--version", action="version", version=f"myssia {myssia.__version__}"
     )
     sub = parser.add_subparsers(dest="command", title="子命令")
     _add_run_parser(sub)
@@ -328,7 +328,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _add_run_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia run``:品类流水线单次/常驻(v0.1 契约)。"""
+    """``myssia run``:品类流水线单次/常驻(v0.1 契约)。"""
     run = sub.add_parser(
         "run",
         help="跑一次品类流水线(--once 默认)或常驻调度(--loop)",
@@ -366,7 +366,7 @@ def _add_run_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia cron``:定时任务族(10-04-hermes-cron design §4.1 十一子命令)。
+    """``myssia cron``:定时任务族(10-04-hermes-cron design §4.1 十一子命令)。
 
     蓝本 = Hermes ``hermes_cli/subcommands/cron.py`` 参数面,D2 裁 prompt/
     skills/monitor/model 族——MYIA 的 job 载荷是品类 YAML 管线,create 必填
@@ -379,7 +379,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
         help="定时任务:品类管线定时跑一遍 + 摘要投递(list/create/…/runs + serve/tick)",
         description=(
             "定时任务底座:job 注册表落 <数据根>/cron/jobs.json(数据根 = --db 父"
-            "目录),执行账本落同目录 executions.db,不进 myia.db。job 载荷 = 品类"
+            "目录),执行账本落同目录 executions.db,不进 myssia.db。job 载荷 = 品类"
             " YAML(创建时完整装载校验,存绝对路径);到点跑一遍管线并把运行摘要"
             "按 deliver 目标投递(local 或 feishu:群名 等平台 spec)。常驻宿主走"
             " serve(监督守护线程)或桌面 sidecar,二者并存靠 tick 文件锁 + fire"
@@ -645,13 +645,13 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_init_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia init``:生成品类 YAML 的结构化信息清单。"""
+    """``myssia init``:生成品类 YAML 的结构化信息清单。"""
     init = sub.add_parser(
         "init",
         help="输出生成品类 YAML 所需的结构化信息清单(JSON,供 agent 消费)",
         description=(
             "非人机问答:stdout 恒为单份 JSON(含必填/可选项、缺省值与硬规则),"
-            "agent 收集信息后生成 12 节 YAML,再用 myia test 验证。"
+            "agent 收集信息后生成 12 节 YAML,再用 myssia test 验证。"
         ),
     )
     init.add_argument(
@@ -660,7 +660,7 @@ def _add_init_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_test_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia test``:单源试抓(不推送不入库)。"""
+    """``myssia test``:单源试抓(不推送不入库)。"""
     test = sub.add_parser(
         "test",
         help="单源试抓:打印提取字段与指纹结果,不推送不入库",
@@ -688,7 +688,7 @@ def _add_test_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_list_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia list``:插件清单 + 源健康度。"""
+    """``myssia list``:插件清单 + 源健康度。"""
     listing = sub.add_parser(
         "list",
         help="插件清单 + 各源健康度(ok/degraded/dead/unknown)",
@@ -713,7 +713,7 @@ def _add_list_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_doctor_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia doctor``:结构化诊断。"""
+    """``myssia doctor``:结构化诊断。"""
     doctor = sub.add_parser(
         "doctor",
         help="结构化诊断:源状态机/凭据/代理/调度,--json 供 agent 自修",
@@ -753,11 +753,11 @@ def _add_doctor_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_secret_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia secret``:钥匙链凭据 set/list/delete。"""
+    """``myssia secret``:钥匙链凭据 set/list/delete。"""
     secret = sub.add_parser(
         "secret",
         help="钥匙链凭据管理:set / list / delete(值永不回显)",
-        description="薄包装 myia.secrets;凭据名必须为 myia/<scope>/<name> 规范形式。",
+        description="薄包装 myssia.secrets;凭据名必须为 myia/<scope>/<name> 规范形式。",
     )
     secret_sub = secret.add_subparsers(
         dest="secret_command", required=True, title="凭据操作"
@@ -770,7 +770,7 @@ def _add_secret_parser(sub: argparse._SubParsersAction) -> None:
         help=(
             "凭据值;缺省时非 tty 从 stdin 读取、tty 下安全输入(不回显)。"
             "注意:经命令行参数传值会落入 shell history 与进程列表(ps),"
-            "自动化请改用 stdin 管道(如 myia secret set … < value.txt)"
+            "自动化请改用 stdin 管道(如 myssia secret set … < value.txt)"
         ),
     )
     secret_set.add_argument(
@@ -788,7 +788,7 @@ def _add_secret_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_plugin_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia plugin``:市场插件装卸 list / install / remove(v0.3)。"""
+    """``myssia plugin``:市场插件装卸 list / install / remove(v0.3)。"""
     plugin = sub.add_parser(
         "plugin",
         help="市场插件装卸:list / install / remove(装卸失败绝不影响核心流水线)",
@@ -860,7 +860,7 @@ def _add_plugin_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_channels_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia channels``:通道目录 refresh / list(10-03-messaging-feishu D5)。"""
+    """``myssia channels``:通道目录 refresh / list(10-03-messaging-feishu D5)。"""
     channels = sub.add_parser(
         "channels",
         help="通道目录:refresh 刷新平台可达对象 / list 查看(定向推送的寻址地图)",
@@ -910,7 +910,7 @@ def _add_channels_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_feedback_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia feedback``:反馈闭环 list / stats / mark(v0.3,grill Q7)。"""
+    """``myssia feedback``:反馈闭环 list / stats / mark(v0.3,grill Q7)。"""
     feedback = sub.add_parser(
         "feedback",
         help="反馈闭环:list / stats / mark(推送卡片的有价值/没价值回写)",
@@ -925,7 +925,7 @@ def _add_feedback_parser(sub: argparse._SubParsersAction) -> None:
     )
     mark = feedback_sub.add_parser(
         "mark",
-        help="手动标记:myia feedback mark <条目> <good|bad>(桌面形态第三接收路)",
+        help="手动标记:myssia feedback mark <条目> <good|bad>(桌面形态第三接收路)",
     )
     mark.add_argument(
         "item", help="条目引用:items.id 或 dedup_key(默认模板下即条目 URL)"
@@ -978,7 +978,7 @@ def _add_feedback_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_alerts_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia alerts``:告警命中历史只读 list(v1;design §8,feedback 先例)."""
+    """``myssia alerts``:告警命中历史只读 list(v1;design §8,feedback 先例)."""
     alerts = sub.add_parser(
         "alerts",
         help="告警命中历史只读:list(alert_fired 新→旧;写路径留 v2)",
@@ -1012,7 +1012,7 @@ def _add_alerts_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_skill_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia skill``:Agent Skill 安装通路 install / path(PRD 10-02-v11)。"""
+    """``myssia skill``:Agent Skill 安装通路 install / path(PRD 10-02-v11)。"""
     skill = sub.add_parser(
         "skill",
         help="Agent Skill 安装通路:install / path(把 skill/SKILL.md 装进 agent 的技能目录)",
@@ -1076,12 +1076,12 @@ def _add_skill_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_osint_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia osint``:一次性 OSINT 侦察(v1.1 源码型插件样板 myia-osint)."""
+    """``myssia osint``:一次性 OSINT 侦察(v1.1 源码型插件样板 myssia-osint)."""
     osint = sub.add_parser(
         "osint",
-        help="一次性 OSINT 侦察(myia-osint 插件,子进程调用上游 Photon;失败绝不拦核心)",
+        help="一次性 OSINT 侦察(myssia-osint 插件,子进程调用上游 Photon;失败绝不拦核心)",
         description=(
-            "源码型插件样板:定位 <plugins-dir>/myia-osint(适配器 adapter.py + "
+            "源码型插件样板:定位 <plugins-dir>/myssia-osint(适配器 adapter.py + "
             "vendor/Photon submodule),以 uv 临时环境(--no-project --with 按需装依赖,"
             "不进根依赖)隔离子进程运行上游 CLI,读取其 JSON 导出并输出结构化结果。"
             "默认目标 example.com(合法演示域)。vendor 缺失/适配器不可用/目标非法 "
@@ -1104,7 +1104,7 @@ def _add_osint_parser(sub: argparse._SubParsersAction) -> None:
     osint.add_argument(
         "--plugins-dir",
         default=DEFAULT_PLUGINS_DIR,
-        help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR},样板位于 myia-osint/ 子目录)",
+        help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR},样板位于 myssia-osint/ 子目录)",
     )
     osint.add_argument(
         "--json",
@@ -1172,7 +1172,7 @@ def _print_json(payload: dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# myia run(v0.1 契约,保持不变)
+# myssia run(v0.1 契约,保持不变)
 # ---------------------------------------------------------------------------
 
 
@@ -1217,7 +1217,7 @@ def _selfcheck_category_plugin(config: CategoryConfig) -> None:
     铁律(security-baseline):任何 plugin 装不上/配置坏/remote 不可达,核心
     流水线照常跑通 —— 本函数吞掉一切异常,findings 一律 warning 级落日志
     (--json 模式 stderr 可见,stdout 的单份 JSON 不受影响,退出码不变)。
-    自检默认零网络(端点探测是 ``myia plugin list --probe`` 的显式 opt-in)。
+    自检默认零网络(端点探测是 ``myssia plugin list --probe`` 的显式 opt-in)。
     """
     section = config.plugin
     if section is None:
@@ -1255,7 +1255,7 @@ def _log_plugin_finding(finding: PluginFinding, *, prefix: str) -> None:
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
-    """``myia run <yaml>``:加载 → 跑一次或常驻;退出码 0/1/2/3。"""
+    """``myssia run <yaml>``:加载 → 跑一次或常驻;退出码 0/1/2/3。"""
     _configure_logging(as_json=args.as_json)
     try:
         config = load_category_file(args.yaml)
@@ -1312,7 +1312,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# myia cron:定时任务族(10-04-hermes-cron design §4.1;蓝本 Hermes
+# myssia cron:定时任务族(10-04-hermes-cron design §4.1;蓝本 Hermes
 # hermes_cli/subcommands/cron.py 参数面 + hermes_cli/cron.py 展示层,D2 裁
 # prompt/skills/monitor 族。退出码只用 0/1;--json 契约 = stdout 恰一份 JSON)
 # ---------------------------------------------------------------------------
@@ -1379,7 +1379,7 @@ def _cmd_cron_list(args: argparse.Namespace) -> int:
         return EXIT_OK
     if not jobs:
         print(f"无定时 job(数据根 {cron.store.data_root};--all 含暂停/终态)")
-        print("建第一个:myia cron create 'every 30m' --category <品类 YAML>")
+        print("建第一个:myssia cron create 'every 30m' --category <品类 YAML>")
         return EXIT_OK
     print(f"世事 cron list:共 {len(jobs)} 个 job(数据根 {cron.store.data_root})")
     for job in jobs:
@@ -1513,7 +1513,7 @@ def _cmd_cron_pause(args: argparse.Namespace) -> int:
         return EXIT_CONFIG_ERROR
     cron = CronJobs.for_db(args.db)
     if args.all:
-        marker = cron.engage_estop(reason="paused via `myia cron pause --all`")
+        marker = cron.engage_estop(reason="paused via `myssia cron pause --all`")
         if as_json:
             _print_json(
                 {
@@ -1525,7 +1525,7 @@ def _cmd_cron_pause(args: argparse.Namespace) -> int:
             )
         else:
             print(
-                f"已踩全局急停:所有 tick 跳过派发(在途 run 不受影响);恢复用 myia cron resume --all"
+                f"已踩全局急停:所有 tick 跳过派发(在途 run 不受影响);恢复用 myssia cron resume --all"
             )
         return EXIT_OK
     job, exit_code = _cron_resolve_ref(cron, args.job_id, as_json=as_json)
@@ -1689,16 +1689,16 @@ def _cmd_cron_status(args: argparse.Namespace) -> int:
     print(f"世事 cron status(数据根 {cron.store.data_root})")
     if estopped:
         print(
-            "⚠ 全局急停中(pause --all 所踩):所有 tick 跳过派发;myia cron resume --all 解除"
+            "⚠ 全局急停中(pause --all 所踩):所有 tick 跳过派发;myssia cron resume --all 解除"
         )
     if heartbeat_age is None:
-        print("⚠ 调度器从未心跳——serve 未跑过(或刚启动);常驻宿主:myia cron serve")
+        print("⚠ 调度器从未心跳——serve 未跑过(或刚启动);常驻宿主:myssia cron serve")
     elif not heartbeat_fresh:
         print(
             f"⚠ 心跳停滞 {heartbeat_age:.0f}s(预期每 ~{DEFAULT_TICK_INTERVAL_SECONDS:.0f}s 一次)——job 不会再发"
         )
         print(
-            "  启动常驻宿主:myia cron serve(或桌面 sidecar);tick 单发调试:myia cron tick"
+            "  启动常驻宿主:myssia cron serve(或桌面 sidecar);tick 单发调试:myssia cron tick"
         )
     elif last_error:
         print(f"⚠ ticker 活着但最近 tick 失败:{last_error}")
@@ -1765,7 +1765,7 @@ def _cmd_cron_serve(args: argparse.Namespace) -> int:
     SupervisedTickerThread(ticker.py)包裹 run_ticker_loop:线程崩了自动
     respawn(restart 计数入日志);宿主主循环只做周期性 restart_if_dead 与
     Ctrl-C 干净关停。执行体注入 B1 接线(G2 端到端):``CronRunner(cron)
-    .execute``(spawn ``myia run --json`` 子进程,D11;sidecar B3 同位;
+    .execute``(spawn ``myssia run --json`` 子进程,D11;sidecar B3 同位;
     手动 ``cron tick`` 同款注入)。
     """
     cron = CronJobs.for_db(args.db)
@@ -1780,7 +1780,7 @@ def _cmd_cron_serve(args: argparse.Namespace) -> int:
     )
     supervisor.start()
     logger.info(
-        "myia cron serve:常驻宿主已启动(数据根 %s,interval=%.0fs,Ctrl-C 停)",
+        "myssia cron serve:常驻宿主已启动(数据根 %s,interval=%.0fs,Ctrl-C 停)",
         cron.store.data_root,
         interval,
     )
@@ -1818,7 +1818,7 @@ def _cmd_cron_tick(args: argparse.Namespace) -> int:
 
 
 def _cmd_cron(args: argparse.Namespace) -> int:
-    """``myia cron <子命令>`` 分发(design §4.1 十一子命令;退出码 0/1)。"""
+    """``myssia cron <子命令>`` 分发(design §4.1 十一子命令;退出码 0/1)。"""
     _configure_logging(as_json=getattr(args, "as_json", False))
     handlers: dict[str, Any] = {
         "list": _cmd_cron_list,
@@ -1846,7 +1846,7 @@ def _cmd_cron(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# myia init:生成品类 YAML 的结构化信息清单(AI 消费,非人机问答)
+# myssia init:生成品类 YAML 的结构化信息清单(AI 消费,非人机问答)
 # ---------------------------------------------------------------------------
 
 _INIT_REQUIRED_INPUTS: list[dict[str, Any]] = [
@@ -1946,9 +1946,9 @@ _INIT_RULES: list[str] = [
 _INIT_NEXT_STEPS: list[str] = [
     "1. 向用户收集 required_inputs(与需要的 optional_inputs)",
     "2. 未收集的可选节按 default 补全,生成 12 节品类 YAML",
-    "3. myia test <yaml> --json 逐源试抓,核对提取字段与指纹",
-    "4. myia run <yaml> --dry-run --json 全链演练(不推送)",
-    "5. myia doctor --json 体检,把 findings 清零后再常驻调度",
+    "3. myssia test <yaml> --json 逐源试抓,核对提取字段与指纹",
+    "4. myssia run <yaml> --dry-run --json 全链演练(不推送)",
+    "5. myssia doctor --json 体检,把 findings 清零后再常驻调度",
 ]
 
 
@@ -1957,7 +1957,7 @@ def _init_payload() -> dict[str, Any]:
     return {
         "command": "init",
         "purpose": "生成品类 YAML(12 节 schema)所需的信息清单;agent 据此向用户收集信息并生成插件,"
-        "而非人机问答。schema 权威定义:src/myia/schema.py",
+        "而非人机问答。schema 权威定义:src/myssia/schema.py",
         "required_inputs": _INIT_REQUIRED_INPUTS,
         "optional_inputs": _INIT_OPTIONAL_INPUTS,
         "rules": _INIT_RULES,
@@ -1966,13 +1966,13 @@ def _init_payload() -> dict[str, Any]:
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
-    """``myia init``:stdout 恒为单份 JSON(两种模式同一产物,人读加皮走 stderr)。"""
+    """``myssia init``:stdout 恒为单份 JSON(两种模式同一产物,人读加皮走 stderr)。"""
     payload = _init_payload()
     _print_json(payload)
     if not args.as_json:
         print(
             "世事 init:以上 JSON 是生成品类 YAML 的信息清单(供 agent 消费);"
-            "生成后用 myia test 验证。",
+            "生成后用 myssia test 验证。",
             file=sys.stderr,
         )
     return EXIT_OK
@@ -2090,7 +2090,7 @@ def evaluate_source_health(entries: list[dict[str, Any]]) -> dict[str, Any]:
             base.update(
                 state=SOURCE_HEALTH_OK,
                 reason=f"引擎显式空态({latest['skip_reason']}):凭据未配置或无输入,"
-                "配置凭据/输入后即恢复产出(myia secret set myia/credhunter/*)",
+                "配置凭据/输入后即恢复产出(myssia secret set myia/credhunter/*)",
             )
             return base
         base.update(
@@ -2322,7 +2322,7 @@ async def _probe_proxy_pools(
 
 
 # ---------------------------------------------------------------------------
-# myia test:单源试抓(不推送不入库)
+# myssia test:单源试抓(不推送不入库)
 # ---------------------------------------------------------------------------
 
 
@@ -2458,7 +2458,7 @@ def _resolve_pools(config_path: str | None, as_json: bool) -> tuple[Any | None, 
 
 
 def _cmd_test(args: argparse.Namespace) -> int:
-    """``myia test <yaml> [--source name]``:试抓 → 字段与指纹;0/1/2/3。"""
+    """``myssia test <yaml> [--source name]``:试抓 → 字段与指纹;0/1/2/3。"""
     _configure_logging(as_json=args.as_json)
     try:
         config = load_category_file(args.yaml)
@@ -2543,7 +2543,7 @@ async def _test_sources(
 
 
 # ---------------------------------------------------------------------------
-# myia list / myia doctor:插件清单、健康度与结构化诊断
+# myssia list / myssia doctor:插件清单、健康度与结构化诊断
 # ---------------------------------------------------------------------------
 
 
@@ -2696,7 +2696,7 @@ def _print_human_list(payload: dict[str, Any]) -> None:
 
 
 def _cmd_list(args: argparse.Namespace) -> int:
-    """``myia list``:插件清单 + 源健康度;信息性命令,完成即 0(目录错=1)。"""
+    """``myssia list``:插件清单 + 源健康度;信息性命令,完成即 0(目录错=1)。"""
     as_json = args.as_json
     _configure_logging(as_json=as_json)
     try:
@@ -2830,7 +2830,7 @@ def _credential_findings(
                     scope=scope,
                     code="keychain_ref_missing",
                     message=f"钥匙链中不存在凭据 {entry['name']}(引用于 {_format_ref_paths(entry)});"
-                    f"请执行 myia secret set {entry['name']} 写入",
+                    f"请执行 myssia secret set {entry['name']} 写入",
                 )
             if entry.get("note"):
                 _finding(
@@ -2891,7 +2891,7 @@ def _telegram_poll_conflict_findings(
         message=(
             f"{len(telegram_plugins)} 个品类共享同一 bot token(env:TELEGRAM_BOT_TOKEN)"
             f"且都配置了 telegram 通道:{'、'.join(telegram_plugins)};每个常驻进程"
-            "(myia run --loop)都会轮询 getUpdates,同 token 多轮询方会被 Telegram "
+            "(myssia run --loop)都会轮询 getUpdates,同 token 多轮询方会被 Telegram "
             "以 409 Conflict 互踢。只保留一个常驻品类配置 telegram 通道(其余品类"
             "改用其他推送渠道),或仅对其中一个品类使用 --loop。"
         ),
@@ -2948,7 +2948,7 @@ def _print_human_doctor(payload: dict[str, Any]) -> None:
 
 
 def _cmd_doctor(args: argparse.Namespace) -> int:
-    """``myia doctor``:结构化诊断;诊断完成即 0,问题全在 findings。"""
+    """``myssia doctor``:结构化诊断;诊断完成即 0,问题全在 findings。"""
     as_json = args.as_json
     _configure_logging(as_json=as_json)
     try:
@@ -3115,7 +3115,7 @@ def _doctor_proxy(
 
 
 # ---------------------------------------------------------------------------
-# myia secret:钥匙链凭据管理(薄包装 myia.secrets)
+# myssia secret:钥匙链凭据管理(薄包装 myssia.secrets)
 # ---------------------------------------------------------------------------
 
 
@@ -3126,7 +3126,7 @@ def _read_secret_value(args: argparse.Namespace) -> str:
         # 进程列表(ps)。stderr 警告不污染 --json 的 stdout 单文档契约。
         print(
             "警告:凭据值经 --value 命令行参数传入,会落入 shell history 与进程列表(ps);"
-            "自动化场景建议改用 stdin 管道:myia secret set <name> < value.txt",
+            "自动化场景建议改用 stdin 管道:myssia secret set <name> < value.txt",
             file=sys.stderr,
         )
         return args.value
@@ -3141,7 +3141,7 @@ def _emit_secret_error(exc: SecretError, *, as_json: bool) -> None:
 
 
 def _cmd_secret(args: argparse.Namespace) -> int:
-    """``myia secret set|list|delete``:0 成功 / 1 结构化失败。"""
+    """``myssia secret set|list|delete``:0 成功 / 1 结构化失败。"""
     as_json = getattr(args, "as_json", False)
     try:
         if args.secret_command == "set":
@@ -3189,7 +3189,7 @@ def _cmd_secret(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# myia channels:通道目录 refresh / list(v1.2,10-03-messaging-feishu D5)
+# myssia channels:通道目录 refresh / list(v1.2,10-03-messaging-feishu D5)
 # ---------------------------------------------------------------------------
 
 
@@ -3218,7 +3218,7 @@ def _print_channels_table(directory: ChannelDirectory) -> None:
     """目录表(人类可读;对 AI 用 --json)。"""
     platforms = directory.platforms()
     if not platforms:
-        print("通道目录为空:先 myia channels refresh <platform> 发现可达对象")
+        print("通道目录为空:先 myssia channels refresh <platform> 发现可达对象")
         return
     print(f"通道目录(最近刷新 {directory.updated_at or '未知'}):")
     for platform in platforms:
@@ -3230,7 +3230,7 @@ def _print_channels_table(directory: ChannelDirectory) -> None:
 
 
 def _channels_refresh(args: argparse.Namespace) -> int:
-    """``myia channels refresh [platforms...]``:发现 → 合并 → 打印目录。
+    """``myssia channels refresh [platforms...]``:发现 → 合并 → 打印目录。
 
     退出码:全部成功/无自动发现 0;未知平台/凭据缺失等任一结构化失败 1
     (fail-fast 家族语义;失败平台保留旧目录桶,已成功平台照常合并)。
@@ -3328,7 +3328,7 @@ def _channels_refresh(args: argparse.Namespace) -> int:
 
 
 def _channels_list(args: argparse.Namespace) -> int:
-    """``myia channels list``:纯读目录(空目录是合法态,提示先 refresh)。"""
+    """``myssia channels list``:纯读目录(空目录是合法态,提示先 refresh)。"""
     as_json = args.as_json
     data_root = _channels_data_root(args)
     directory = ChannelDirectory(data_root)
@@ -3350,7 +3350,7 @@ def _channels_list(args: argparse.Namespace) -> int:
 
 
 def _cmd_channels(args: argparse.Namespace) -> int:
-    """``myia channels refresh|list`` 的分发入口(退出码 0/1)。"""
+    """``myssia channels refresh|list`` 的分发入口(退出码 0/1)。"""
     _configure_logging(as_json=args.as_json)
     if args.channels_command == "refresh":
         return _channels_refresh(args)
@@ -3358,7 +3358,7 @@ def _cmd_channels(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# myia plugin:市场插件装卸(v0.3;薄包装 myia.plugins,装卸 fail-fast,
+# myssia plugin:市场插件装卸(v0.3;薄包装 myssia.plugins,装卸 fail-fast,
 # 扫描零异常 —— 插件坏绝不拦核心,铁律)
 # ---------------------------------------------------------------------------
 
@@ -3366,7 +3366,7 @@ def _cmd_channels(args: argparse.Namespace) -> int:
 def _plugin_list(
     args: argparse.Namespace, store: InstalledPluginStore, *, as_json: bool
 ) -> int:
-    """``myia plugin list``:已装清单 + findings;信息性命令,完成即 0。
+    """``myssia plugin list``:已装清单 + findings;信息性命令,完成即 0。
 
     缺失安装根 = 空清单(未装插件是正常态,不是错误);--probe 显式 opt-in
     remote 端点探测(网络 I/O),探测失败只产 findings,不改退出码。
@@ -3393,7 +3393,7 @@ def _plugin_list(
         "command": "plugin",
         "action": "list",
         "dir": str(store.root),
-        "myia_version": myia.__version__,
+        "myssia_version": myssia.__version__,
         "plugins": [entry.to_dict() for entry in entries],
         "summary": {
             "installed": sum(1 for entry in entries if entry.manifest is not None),
@@ -3431,7 +3431,7 @@ def _print_human_plugin_list(payload: dict[str, Any]) -> None:
     """人类可读的已装插件清单(与 --json 同一信息)。"""
     summary = payload["summary"]
     print(
-        f"世事 plugin list:{payload['dir']}(myia {payload['myia_version']})"
+        f"世事 plugin list:{payload['dir']}(myssia {payload['myssia_version']})"
         f"共 {len(payload['plugins'])} 个,可用 {summary['usable']} 个"
     )
     tiers = summary.get("tiers") or {}
@@ -3445,7 +3445,7 @@ def _print_human_plugin_list(payload: dict[str, Any]) -> None:
             compatibility = (
                 "兼容"
                 if plugin["compatible_current"]
-                else f"不兼容(要求 myia {plugin['compatible']})"
+                else f"不兼容(要求 myssia {plugin['compatible']})"
             )
             print(
                 f"  {plugin['id']}@{plugin['version']}[{plugin['tier']}]({plugin['name']}){compatibility}"
@@ -3461,7 +3461,7 @@ def _print_human_plugin_list(payload: dict[str, Any]) -> None:
 def _plugin_install(
     args: argparse.Namespace, store: InstalledPluginStore, *, as_json: bool
 ) -> int:
-    """``myia plugin install <source>``:fail-fast 校验后整目录拷贝;0/1。"""
+    """``myssia plugin install <source>``:fail-fast 校验后整目录拷贝;0/1。"""
     try:
         result = store.install(Path(args.source), force=args.force)
     except PluginStoreError as exc:
@@ -3477,7 +3477,7 @@ def _plugin_install(
     if result["forced"]:
         notes.append("--force 覆盖安装")
     if not result["compatible_current"]:
-        notes.append(f"警告:版本不兼容(要求 myia {result['compatible']})")
+        notes.append(f"警告:版本不兼容(要求 myssia {result['compatible']})")
     suffix = f"({';'.join(notes)})" if notes else ""
     print(f"已安装 {result['id']}@{result['version']} → {result['path']}{suffix}")
     return EXIT_OK
@@ -3486,7 +3486,7 @@ def _plugin_install(
 def _plugin_remove(
     args: argparse.Namespace, store: InstalledPluginStore, *, as_json: bool
 ) -> int:
-    """``myia plugin remove <id>``:按 id 移除;0 / 1(未装/id 非法)。"""
+    """``myssia plugin remove <id>``:按 id 移除;0 / 1(未装/id 非法)。"""
     try:
         result = store.remove(args.id)
     except PluginStoreError as exc:
@@ -3500,7 +3500,7 @@ def _plugin_remove(
 
 
 def _cmd_plugin(args: argparse.Namespace) -> int:
-    """``myia plugin list|install|remove`` 的分发入口(退出码 0/1)。"""
+    """``myssia plugin list|install|remove`` 的分发入口(退出码 0/1)。"""
     as_json = args.as_json
     _configure_logging(as_json=as_json)
     store = InstalledPluginStore(args.dir)
@@ -3512,7 +3512,7 @@ def _cmd_plugin(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# myia feedback:反馈闭环(v0.3;CLI 是桌面形态的手动标记接收路)
+# myssia feedback:反馈闭环(v0.3;CLI 是桌面形态的手动标记接收路)
 # ---------------------------------------------------------------------------
 
 
@@ -3531,7 +3531,7 @@ def _feedback_row_dict(record: FeedbackRecord) -> dict[str, Any]:
 
 
 def _feedback_mark(args: argparse.Namespace, *, as_json: bool) -> int:
-    """``myia feedback mark <条目> <good|bad>``:入库并回执;0/1。"""
+    """``myssia feedback mark <条目> <good|bad>``:入库并回执;0/1。"""
     try:
         store = SQLiteStore(args.db)
     except StoreSchemaError as exc:
@@ -3545,7 +3545,7 @@ def _feedback_mark(args: argparse.Namespace, *, as_json: bool) -> int:
             _emit_generic_error(
                 "item_not_found",
                 f"条目不存在: {args.item!r}(可传 items.id 或 dedup_key/URL);"
-                "先用 myia list 或查询 items 表确认",
+                "先用 myssia list 或查询 items 表确认",
                 as_json=as_json,
             )
             return EXIT_CONFIG_ERROR
@@ -3579,7 +3579,7 @@ def _feedback_mark(args: argparse.Namespace, *, as_json: bool) -> int:
 
 
 def _feedback_list(args: argparse.Namespace, *, as_json: bool) -> int:
-    """``myia feedback list``:反馈记录(新→旧);0/1。"""
+    """``myssia feedback list``:反馈记录(新→旧);0/1。"""
     try:
         store = SQLiteStore(args.db)
     except StoreSchemaError as exc:
@@ -3616,7 +3616,7 @@ def _feedback_list(args: argparse.Namespace, *, as_json: bool) -> int:
 
 
 def _feedback_stats(args: argparse.Namespace, *, as_json: bool) -> int:
-    """``myia feedback stats``:窗口统计 + 生效调参 + 可追溯历史;0/1。"""
+    """``myssia feedback stats``:窗口统计 + 生效调参 + 可追溯历史;0/1。"""
     try:
         policy = TuningPolicy(window_days=args.window_days, top_n=args.top)
     except ValueError as exc:
@@ -3698,7 +3698,7 @@ def _feedback_stats(args: argparse.Namespace, *, as_json: bool) -> int:
 
 
 def _cmd_feedback(args: argparse.Namespace) -> int:
-    """``myia feedback list|stats|mark`` 的分发入口(退出码 0/1)。"""
+    """``myssia feedback list|stats|mark`` 的分发入口(退出码 0/1)。"""
     as_json = args.as_json
     _configure_logging(as_json=as_json)
     if args.feedback_command == "mark":
@@ -3709,7 +3709,7 @@ def _cmd_feedback(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
-# myia alerts:告警命中历史只读(v1;design §8,CLI 写路径留 v2)
+# myssia alerts:告警命中历史只读(v1;design §8,CLI 写路径留 v2)
 # ---------------------------------------------------------------------------
 
 
@@ -3731,7 +3731,7 @@ def _alert_fired_row_dict(fired: AlertFired) -> dict[str, Any]:
 
 
 def _alerts_list(args: argparse.Namespace, *, as_json: bool) -> int:
-    """``myia alerts list``:告警命中历史(新→旧);0/1。"""
+    """``myssia alerts list``:告警命中历史(新→旧);0/1。"""
     try:
         store = SQLiteStore(args.db)
     except StoreSchemaError as exc:
@@ -3763,13 +3763,13 @@ def _alerts_list(args: argparse.Namespace, *, as_json: bool) -> int:
 
 
 def _cmd_alerts(args: argparse.Namespace) -> int:
-    """``myia alerts`` 分发入口(v1 只读 ``list``;写路径留 v2,design §8)。"""
+    """``myssia alerts`` 分发入口(v1 只读 ``list``;写路径留 v2,design §8)。"""
     _configure_logging(as_json=args.as_json)
     return _alerts_list(args, as_json=args.as_json)
 
 
 # ---------------------------------------------------------------------------
-# myia skill:Agent Skill 安装通路(PRD 10-02-v11;纯文件操作,退出码 0/1)
+# myssia skill:Agent Skill 安装通路(PRD 10-02-v11;纯文件操作,退出码 0/1)
 # ---------------------------------------------------------------------------
 
 
@@ -3777,7 +3777,7 @@ def skill_source() -> Path | None:
     """Locate the canonical ``skill/SKILL.md``(装进 agent 目录的就是这份).
 
     探测顺序:环境变量 ``MYIA_SKILL_SOURCE``(显式逃生口——设了但文件不存在
-    直接返回 None,绝不静默回退装上另一份文件)→ 仓库源码布局(src/myia/
+    直接返回 None,绝不静默回退装上另一份文件)→ 仓库源码布局(src/myssia/
     cli.py 上三级 = 仓库根)→ 当前工作目录下的 skill/。找不到返回 None
     (调用方结构化上报,绝不猜路径装错文件)。
     """
@@ -3785,7 +3785,7 @@ def skill_source() -> Path | None:
     if env_source:  # 显式指定只认它自己:存在即用,不存在即失败
         candidate = Path(env_source)
         return candidate if candidate.is_file() else None
-    # src/myia/cli.py → parents: [0]=src/myia [1]=src [2]=仓库根
+    # src/myssia/cli.py → parents: [0]=src/myssia [1]=src [2]=仓库根
     for candidate in (
         Path(__file__).resolve().parents[2] / "skill" / "SKILL.md",
         Path.cwd() / "skill" / "SKILL.md",
@@ -3850,7 +3850,7 @@ def _skill_agent_entries() -> list[dict[str, Any]]:
 
 
 def _skill_path_payload() -> dict[str, Any]:
-    """``myia skill path`` report(信息性:完成即 0,源缺失如实 found=false)."""
+    """``myssia skill path`` report(信息性:完成即 0,源缺失如实 found=false)."""
     source = skill_source()
     return {
         "command": "skill",
@@ -3861,7 +3861,7 @@ def _skill_path_payload() -> dict[str, Any]:
         },
         "agents": _skill_agent_entries(),
         "hint": (
-            "myia skill install [--agent claude|cursor|zcode|agents] [--path DIR] [--link] [--force]"
+            "myssia skill install [--agent claude|cursor|zcode|agents] [--path DIR] [--link] [--force]"
         ),
     }
 
@@ -3980,7 +3980,7 @@ def _print_human_skill_path(payload: dict[str, Any]) -> None:
 
 
 def _cmd_skill(args: argparse.Namespace) -> int:
-    """``myia skill install|path``:纯文件操作,退出码只有 0/1。"""
+    """``myssia skill install|path``:纯文件操作,退出码只有 0/1。"""
     as_json = args.as_json
     _configure_logging(as_json=as_json)
     if args.skill_command == "path":
@@ -3997,7 +3997,7 @@ def _cmd_skill(args: argparse.Namespace) -> int:
         _print_json(payload)
     else:
         note = f"({'--force 覆盖' if payload['overwritten'] else '新装'},{payload['mode']})"
-        print(f"已安装 myia 技能 {note} → {payload['target']}")
+        print(f"已安装 myssia 技能 {note} → {payload['target']}")
         print(f"源:{payload['source']}")
     return EXIT_OK
 
@@ -4024,7 +4024,7 @@ def _not_implemented(command: str) -> int:
 
 
 # ---------------------------------------------------------------------------
-# myia osint(v1.1 源码型插件样板:适配器在插件目录,动态加载,零静态耦合)
+# myssia osint(v1.1 源码型插件样板:适配器在插件目录,动态加载,零静态耦合)
 # ---------------------------------------------------------------------------
 
 
@@ -4042,7 +4042,7 @@ def _import_plugin_adapter(plugins_dir: str | Path, plugin_id: str) -> Any:
         raise FileNotFoundError(
             f"适配器不存在:{adapter_file}(样板应随仓库 plugins/ 分发)"
         )
-    module = types.ModuleType(f"myia_{plugin_id.replace('-', '_')}_adapter")
+    module = types.ModuleType(f"myssia_{plugin_id.replace('-', '_')}_adapter")
     module.__file__ = str(adapter_file)
     source = adapter_file.read_text(encoding="utf-8")
     executable = compile(source, str(adapter_file), "exec")
@@ -4051,7 +4051,7 @@ def _import_plugin_adapter(plugins_dir: str | Path, plugin_id: str) -> Any:
 
 
 def _import_osint_adapter(plugins_dir: str | Path) -> Any:
-    """``myia osint`` 的适配器加载(:func:`_import_plugin_adapter` 的样板别名)."""
+    """``myssia osint`` 的适配器加载(:func:`_import_plugin_adapter` 的样板别名)."""
     return _import_plugin_adapter(plugins_dir, OSINT_PLUGIN_ID)
 
 
@@ -4074,7 +4074,7 @@ def _print_osint_human(payload: dict[str, Any]) -> None:
 
 
 def _cmd_osint(args: argparse.Namespace) -> int:
-    """``myia osint``:跑一次上游 Photon 侦察,结构化输出.
+    """``myssia osint``:跑一次上游 Photon 侦察,结构化输出.
 
     退出码:0 成功;1 适配器缺失/vendor 未初始化/目标非法(配置或环境错误);
     2 采集失败(Photon 非零退出/超时/导出缺失或损坏)。失败码到退出码的
@@ -4140,7 +4140,7 @@ def _print_proxy_human(payload: dict[str, Any]) -> None:
 
 
 def _cmd_proxy(args: argparse.Namespace) -> int:
-    """``myia proxy``:进程内轻量代理抓取+测活(myia-proxy 插件,零 Redis 零 docker).
+    """``myssia proxy``:进程内轻量代理抓取+测活(myssia-proxy 插件,零 Redis 零 docker).
 
     退出码:0 成功(拿到 ≥1 个可用代理);1 适配器缺失/用法错误(count/timeout
     非法);2 采集失败(全部源抓取失败 ``fetch_failed`` / 测活零可用
@@ -4189,12 +4189,12 @@ def _cmd_proxy(args: argparse.Namespace) -> int:
 
 
 def _add_proxy_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia proxy``:进程内轻量代理抓取+测活(v1.1 desktop 分级 myia-proxy)."""
+    """``myssia proxy``:进程内轻量代理抓取+测活(v1.1 desktop 分级 myssia-proxy)."""
     proxy = sub.add_parser(
         "proxy",
-        help="轻量代理抓取+测活(myia-proxy 插件,进程内、零 Redis 零 docker;失败绝不拦核心)",
+        help="轻量代理抓取+测活(myssia-proxy 插件,进程内、零 Redis 零 docker;失败绝不拦核心)",
         description=(
-            "桌面路径(默认):定位 <plugins-dir>/myia-proxy(适配器 adapter.py),"
+            "桌面路径(默认):定位 <plugins-dir>/myssia-proxy(适配器 adapter.py),"
             "进程内抓取公开免费代理列表并逐个测活(经代理请求校验目标),输出结构化"
             "结果。零 Redis 零 docker;完整 proxy_pool 服务形态(定时抓取+池化+API)"
             "见 docker/plugins/ 下的可选服务端部署。全部源抓取失败或测活零可用 → "
@@ -4217,7 +4217,7 @@ def _add_proxy_parser(sub: argparse._SubParsersAction) -> None:
     proxy.add_argument(
         "--plugins-dir",
         default=DEFAULT_PLUGINS_DIR,
-        help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR},样板位于 myia-proxy/ 子目录)",
+        help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR},样板位于 myssia-proxy/ 子目录)",
     )
     proxy.add_argument(
         "--json",
@@ -4228,7 +4228,7 @@ def _add_proxy_parser(sub: argparse._SubParsersAction) -> None:
 
 
 # ---------------------------------------------------------------------------
-# myia credhunt / credcheck / exposure(myia-credhunter 插件三 lane;
+# myssia credhunt / credcheck / exposure(myssia-credhunter 插件三 lane;
 # 10-03-aipocket-fusion:正式取数走 engine: credhunter 进管线,本三命令是
 # 调试/冒烟/后处理口 —— credhunt/exposure 单次取数 stdout JSON,credcheck
 # 读凭证批探测回显。退出码族与全家桶对齐:0 成功 / 1 配置或用法错误 /
@@ -4444,7 +4444,7 @@ def _print_credhunt_human(payload: dict[str, Any], *, command: str) -> None:
 
 
 def _cmd_credhunt(args: argparse.Namespace) -> int:
-    """``myia credhunt``:单轮 GitHub 工件凭证猎取(调试/冒烟口).
+    """``myssia credhunt``:单轮 GitHub 工件凭证猎取(调试/冒烟口).
 
     退出码:0 成功(含干净空手);1 适配器缺失/无 token(该源不启用);
     2 全部查询失败;3 部分查询失败仍有产出。正式产出走品类 YAML 的
@@ -4464,7 +4464,7 @@ def _cmd_credhunt(args: argparse.Namespace) -> int:
 
 
 def _cmd_credcheck(args: argparse.Namespace) -> int:
-    """``myia credcheck``:凭证验证(+可选余额/身份探测)stdout payload.
+    """``myssia credcheck``:凭证验证(+可选余额/身份探测)stdout payload.
 
     Q7:余额/身份探测默认关,``--balance`` 显式开;Q8:串行 + 每供应商
     RPM≤30(适配器内建 Pacer)。退出码:0 完成(rejected 是结论不是错误);
@@ -4483,7 +4483,7 @@ def _cmd_credcheck(args: argparse.Namespace) -> int:
 
 
 def _cmd_exposure(args: argparse.Namespace) -> int:
-    """``myia exposure``:FOFA/Shodan 曝面 + L0 被动探测(调试/冒烟口).
+    """``myssia exposure``:FOFA/Shodan 曝面 + L0 被动探测(调试/冒烟口).
 
     退出码:0 成功(含无 key 显式空态,AC6);1 适配器缺失;2 全部查询
     失败且零发现;3 部分查询失败。被动探测只做 L0 unauth_read。
@@ -4501,10 +4501,10 @@ def _cmd_exposure(args: argparse.Namespace) -> int:
 
 
 def _add_credhunt_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia credhunt``:GitHub 工件凭证猎取单轮直跑(myia-credhunter)."""
+    """``myssia credhunt``:GitHub 工件凭证猎取单轮直跑(myssia-credhunter)."""
     credhunt = sub.add_parser(
         "credhunt",
-        help="GitHub 工件凭证猎取单轮直跑(myia-credhunter 插件,调试/冒烟口;正式产出走 engine: credhunter)",
+        help="GitHub 工件凭证猎取单轮直跑(myssia-credhunter 插件,调试/冒烟口;正式产出走 engine: credhunter)",
         description=(
             "按供应商指纹库查询集跑 GitHub code search + commit message 两泳道,"
             "联合正则十大密钥族全文匹配,产出掩码-only(前 8 后 4)发现。"
@@ -4533,7 +4533,7 @@ def _add_credhunt_parser(sub: argparse._SubParsersAction) -> None:
     credhunt.add_argument(
         "--plugins-dir",
         default=DEFAULT_PLUGINS_DIR,
-        help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR},场景件位于 myia-credhunter/ 子目录)",
+        help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR},场景件位于 myssia-credhunter/ 子目录)",
     )
     credhunt.add_argument(
         "--json",
@@ -4544,10 +4544,10 @@ def _add_credhunt_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_credcheck_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia credcheck``:凭证验证 + 可选余额探测(myia-credhunter)."""
+    """``myssia credcheck``:凭证验证 + 可选余额探测(myssia-credhunter)."""
     credcheck = sub.add_parser(
         "credcheck",
-        help="凭证验证(models 三态)+ 可选余额/身份探测(myia-credhunter 插件)",
+        help="凭证验证(models 三态)+ 可选余额/身份探测(myssia-credhunter 插件)",
         description=(
             "双入口:--apikey 显式传键,或 --from-keystore 读猎手落盘的本地"
             "密钥库(缺省 $MYIA_HOME/cwd 下 credhunter-keystore.json,600 权限,"
@@ -4607,10 +4607,10 @@ def _add_credcheck_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_exposure_parser(sub: argparse._SubParsersAction) -> None:
-    """``myia exposure``:FOFA/Shodan 曝面 + L0 被动探测(myia-credhunter)."""
+    """``myssia exposure``:FOFA/Shodan 曝面 + L0 被动探测(myssia-credhunter)."""
     exposure = sub.add_parser(
         "exposure",
-        help="FOFA/Shodan 曝面发现 + L0 被动探测(myia-credhunter 插件,无 key 显式空态)",
+        help="FOFA/Shodan 曝面发现 + L0 被动探测(myssia-credhunter 插件,无 key 显式空态)",
         description=(
             "按指纹库查询集跑 FOFA(qbase64,页间 0.3s,24 查询/run)与 Shodan"
             "(机械翻译查询,页间 1.0s,16 查询/run),命中目标做 L0 unauth_read"
@@ -4648,7 +4648,7 @@ def _add_exposure_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """CLI 入口(pyproject console_scripts:``myia = "myia.cli:main"``)。
+    """CLI 入口(pyproject console_scripts:``myssia = "myssia.cli:main"``)。
 
     Args:
         argv: 参数列表;None 表示 ``sys.argv[1:]``。

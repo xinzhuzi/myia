@@ -3,7 +3,7 @@
   "productName": "世事",
   "mainBinaryName": "MYIA",
   "version": "0.0.1",
-  "identifier": "com.myia.app",
+  "identifier": "com.myssia.app",
   "build": {
     "beforeBuildCommand": "npm run sidecar && npm run build",
     "devUrl": "http://localhost:5173",
@@ -28,24 +28,24 @@
     "active": true,
     "targets": ["app", "dmg"],
     "icon": ["icons/icon.icns", "icons/icon.png", "icons/icon.ico"],
-    "externalBin": ["binaries/myia-core"],
+    "externalBin": ["binaries/myssia-core"],
     "resources": {
       "../fixture/plugin.yaml": "plugin.yaml",
       "../../plugins/ai-news.yaml": "plugins/ai-news.yaml",
       "../../plugins/wool.yaml": "plugins/wool.yaml",
       "../../plugins/stocks.yaml": "plugins/stocks.yaml",
       "../../plugins/gpu-prices.yaml": "plugins/gpu-prices.yaml",
-      "../../plugins/myia-demo.yaml": "plugins/myia-demo.yaml"
+      "../../plugins/myssia-demo.yaml": "plugins/myssia-demo.yaml"
     },
     "category": "DeveloperTool",
-    "shortDescription": "MYIA — AI-native intelligence hub"
+    "shortDescription": "myssia — AI-native intelligence hub"
   },
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/xinzhuzi/myia/releases/latest/download/latest.json"
+        "https://github.com/xinzhuzi/myssia/releases/latest/download/latest.json"
       ],
-      "pubkey": "__MYIA_UPDATER_PUBKEY_PLACEHOLDER__",
+      "pubkey": "__MYSSIA_UPDATER_PUBKEY_PLACEHOLDER__",
       "windows": {
         "installMode": "passive"
       }

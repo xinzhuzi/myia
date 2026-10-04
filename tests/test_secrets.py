@@ -22,15 +22,15 @@ from typing import Any
 
 import pytest
 
-from shishi import secrets as secrets_store
-from shishi.engines.fetch_base import BaseEngine, FetchContext, resolve_headers
-from shishi.schema import (
+from myssia import secrets as secrets_store
+from myssia.engines.fetch_base import BaseEngine, FetchContext, resolve_headers
+from myssia.schema import (
     CredentialResolveError,
     LoadError,
     load_category,
     resolve_credential,
 )
-from shishi.secrets import (
+from myssia.secrets import (
     INDEX_ACCOUNT,
     SECRET_SERVICE,
     InMemoryKeychainBackend,
@@ -258,7 +258,7 @@ class TestSecretCrud:
                 super().delete_password(service, username)
 
         acl_like = AclDeniedReadBackend()
-        with caplog.at_level(logging.WARNING, logger="shishi.secrets"):
+        with caplog.at_level(logging.WARNING, logger="myssia.secrets"):
             with pytest.raises(SecretError) as excinfo:
                 set_secret(CANONICAL_NAME, "v", backend=acl_like)
         assert excinfo.value.code == "keychain_operation_failed"
@@ -281,7 +281,7 @@ class TestSecretCrud:
         with pytest.raises(SecretError) as excinfo:
             get_secret(CANONICAL_NAME, backend=backend)
         assert excinfo.value.code == "secret_not_found"
-        assert "myia secret set" in str(excinfo.value)
+        assert "myssia secret set" in str(excinfo.value)
         assert "env:" in str(excinfo.value)
 
     def test_delete_removes_item_and_second_delete_reports_not_found(self, backend):

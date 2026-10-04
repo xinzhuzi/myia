@@ -1,4 +1,4 @@
-"""myia-credhunter 插件(R4 曝面发现线)契约测试.
+"""myssia-credhunter 插件(R4 曝面发现线)契约测试.
 
 任务 10-03-aipocket-fusion 曝面段(FOFA/Shodan 客户端 + L0 被动探测)的
 配套测试。零网络(HTTP 一律 httpx.MockTransport 注入 client_factory,与
@@ -44,7 +44,7 @@ import httpx
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PLUGIN_DIR = REPO_ROOT / "plugins" / "myia-credhunter"
+PLUGIN_DIR = REPO_ROOT / "plugins" / "myssia-credhunter"
 MODULES_DIR = PLUGIN_DIR / "credhunter"
 
 # 合成脱敏 fixture:人工构造、不对应任何真实账号;主机用保留域/保留网段。
@@ -56,7 +56,7 @@ DOC_IP = "203.0.113.10"
 
 def load_plugin_module(name: str) -> Any:
     """与 adapter._load_module 同款 compile+exec 加载(同名登记,零 __pycache__)."""
-    module_name = f"myia_credhunter_{name}"
+    module_name = f"myssia_credhunter_{name}"
     module = sys.modules.get(module_name)
     if module is not None:
         return module

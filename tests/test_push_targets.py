@@ -1,4 +1,4 @@
-"""Tests for myia.push.targets — 对象解析(蓝本移植自 Hermes send_message_targets).
+"""Tests for myssia.push.targets — 对象解析(蓝本移植自 Hermes send_message_targets).
 
 覆盖任务 10-03-messaging-core 步骤 2:四路径(直达 id/@username 钩子 →
 目录精确 id → 精确名 → 唯一前缀)+ 多义/未命中结构化错误(内嵌候选,
@@ -13,8 +13,8 @@ import re
 
 import pytest
 
-from myia.push.directory import ChannelDirectory, ChannelEntry
-from myia.push.targets import (
+from myssia.push.directory import ChannelDirectory, ChannelEntry
+from myssia.push.targets import (
     RESOLVED_DIRECT,
     RESOLVED_DIRECTORY_ID,
     RESOLVED_DIRECTORY_NAME,

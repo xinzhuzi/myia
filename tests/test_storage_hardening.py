@@ -32,15 +32,15 @@ import httpx
 import pytest
 from conftest import FakeClock
 
-import shishi.pipeline as pipeline_module
-from shishi.dedup import DedupRegistry
-from shishi.pipeline import (
+import myssia.pipeline as pipeline_module
+from myssia.dedup import DedupRegistry
+from myssia.pipeline import (
     RESUME_CHECKPOINT_STAGES,
     Item,
     Pipeline,
 )
-from shishi.schema import StorageConfig, load_category
-from shishi.store import (
+from myssia.schema import StorageConfig, load_category
+from myssia.store import (
     RUN_STATUS_FAILED,
     RUN_STATUS_SUCCESS,
     SCHEMA_VERSION,
@@ -391,7 +391,7 @@ def test_cleanup_prunes_stale_baselines_and_hints_via_active_urls(db_store):
 def test_cleanup_without_active_urls_leaves_url_caches_alone(db_store):
     """共享库安全缺省:无 active_urls 时 baseline/hint 一律保留。
 
-    跨品类行不可删(同一 myia.db 服务所有品类);last_changed 只在内容真变时
+    跨品类行不可删(同一 myssia.db 服务所有品类);last_changed 只在内容真变时
     刷新,按龄删还会误杀长期未变的安静源(指纹 skip 被毁)。"""
     db_store.set_baseline(
         "https://gone.example.com/feed", etag="e", last_changed=PM_NOW - timedelta(days=200)
@@ -581,7 +581,7 @@ def test_resume_after_kill_skips_completed_stages(tmp_path, monkeypatch, caplog)
     handler = make_handler(counter, list_payload([("不该被抓取", "https://api.demo.local/x")]))
     config = make_config()
     pipeline = make_pipeline(config, handler=handler, store=store)
-    with caplog.at_level(logging.INFO, logger="shishi.pipeline"):
+    with caplog.at_level(logging.INFO, logger="myssia.pipeline"):
         result = asyncio.run(pipeline.run())
 
     assert result.resumed_from_run_id == crash_run
@@ -705,7 +705,7 @@ def test_corrupt_checkpoint_falls_back_to_fresh_run(tmp_path, monkeypatch, caplo
     counter = {"n": 0}
     handler = make_handler(counter, list_payload([("免费送 NAS 券", "https://api.demo.local/a")]))
     pipeline = make_pipeline(make_config(), handler=handler, store=store)
-    with caplog.at_level(logging.WARNING, logger="shishi.pipeline"):
+    with caplog.at_level(logging.WARNING, logger="myssia.pipeline"):
         result = asyncio.run(pipeline.run())
     assert result.resumed_from_run_id is None
     assert counter["n"] == 1
@@ -760,7 +760,7 @@ def test_run_maintenance_cleans_and_vacuums(tmp_path):
 
 
 def test_run_maintenance_preserves_other_categories_in_shared_store(tmp_path):
-    """回归(2026-10 复盘 high):同一 myia.db 服务所有品类,A 品类的
+    """回归(2026-10 复盘 high):同一 myssia.db 服务所有品类,A 品类的
     run_maintenance 不得把 B 品类的 baseline/engine_hint 当「过期源」删掉
     ——否则其它品类每轮全量重抓 + 引擎全链重探,两套核心缓存机制永久失效。"""
     store = SQLiteStore(tmp_path / "shared.db")

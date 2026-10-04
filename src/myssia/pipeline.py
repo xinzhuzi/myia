@@ -46,7 +46,7 @@ Observability: every run emits stage-level structured logs (duration, item
 counts, skip reasons -- fingerprint skip and dedup skip are normal paths and
 stay visible), writes a ``runs`` row (status + stats + failure digest) and
 returns a :class:`RunResult` serializable via :meth:`RunResult.to_dict` for
-``myia run --json``.
+``myssia run --json``.
 
 Dry-run (``run(dry_run=True)``): the full chain executes against an in-memory
 store (no dedup/baseline/engine-hint side effects), routing decisions are
@@ -67,7 +67,7 @@ a cadence-gated ``VACUUM`` (:meth:`Pipeline.run_maintenance`, off-loop via
 ``asyncio.to_thread``) — the periodic task rides the existing APScheduler
 cycle, so ``run_forever`` needs no extra job. The same phase runs the v0.3
 feedback loop's periodic tuning (负反馈 Top 类目/词 → demotion adjustments,
-history in ``feedback_tuning``; see :mod:`myia.feedback`), and resident mode
+history in ``feedback_tuning``; see :mod:`myssia.feedback`), and resident mode
 polls TG ``getUpdates`` for card feedback callbacks when a ``telegram`` push
 channel is configured (grill Q7 分形态接收).
 
@@ -104,21 +104,21 @@ import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from myia.alerts import AlertEngine
-from myia.classify import (
+from myssia.alerts import AlertEngine
+from myssia.classify import (
     ClassifyDataError,
     classify_item,
     load_table,
     rules_from_config,
 )
-from myia.dedup import DedupRegistry
-from myia.engines.fetch_base import (
+from myssia.dedup import DedupRegistry
+from myssia.engines.fetch_base import (
     DEFAULT_TIMEOUT_SECONDS,
     FetchContext,
     classify_exception,
 )
-from myia.engines.registry import FetchOutcome, fetch_source
-from myia.enrich import (
+from myssia.engines.registry import FetchOutcome, fetch_source
+from myssia.enrich import (
     AggregateOutcome,
     EnrichConfigError,
     EnrichOutcome,
@@ -126,9 +126,9 @@ from myia.enrich import (
     EventAggregator,
     LLMEnricher,
 )
-from myia.enrich.scoring import BudgetTracker
-from myia.feedback import ActiveTuning, FeedbackTuner, TuningPolicy, ingest_callbacks, load_active_tuning
-from myia.push import (
+from myssia.enrich.scoring import BudgetTracker
+from myssia.feedback import ActiveTuning, FeedbackTuner, TuningPolicy, ingest_callbacks, load_active_tuning
+from myssia.push import (
     CHANNELS,
     DEFAULT_POLL_INTERVAL_SECONDS,
     DeliveryLedger,
@@ -142,16 +142,16 @@ from myia.push import (
     routes_from_config,
     send_immediate,
 )
-from myia.push.directory import REFRESH_STALE_SECONDS, ChannelDirectory, ChannelEntry
-from myia.push.wecom import TOKEN_CACHE_FILENAME as WECOM_TOKEN_CACHE_FILENAME
-from myia.push.templates import (
+from myssia.push.directory import REFRESH_STALE_SECONDS, ChannelDirectory, ChannelEntry
+from myssia.push.wecom import TOKEN_CACHE_FILENAME as WECOM_TOKEN_CACHE_FILENAME
+from myssia.push.templates import (
     build_keyword_trends,
     build_trend_table,
     record_item_metrics,
     record_keyword_mentions,
 )
-from myia.schema import CHANNEL_PLATFORMS, CategoryConfig, LoadError, load_category_file
-from myia.store import (
+from myssia.schema import CHANNEL_PLATFORMS, CategoryConfig, LoadError, load_category_file
+from myssia.store import (
     RUN_STATUS_FAILED,
     RUN_STATUS_PARTIAL,
     RUN_STATUS_RUNNING,
@@ -164,8 +164,8 @@ from myia.store import (
 )
 # 图片处理环(10-03-vision-pipeline,fetch 尾部):vision 包重依赖全惰性
 # (ocrmac/rapidocr/openai 都在首次调用时才 import),这里顶层 import 不破
-# 「核心流水线零重依赖」红线——未装 myia[vision] 的环境 OCR 走 ocr_failed 降级。
-from myia.vision.collect import (
+# 「核心流水线零重依赖」红线——未装 myssia[vision] 的环境 OCR 走 ocr_failed 降级。
+from myssia.vision.collect import (
     DOWNLOAD_TIMEOUT_SECONDS as IMAGE_DOWNLOAD_TIMEOUT_SECONDS,
     PERSIST_DIR_NAME,
     ImageRunState,
@@ -173,8 +173,8 @@ from myia.vision.collect import (
     detail_request_headers,
     process_item_images,
 )
-from myia.vision.server import SERVER_LOG_NAME, ensure_vision_server
-from myia.vision.settings import (
+from myssia.vision.server import SERVER_LOG_NAME, ensure_vision_server
+from myssia.vision.settings import (
     VISION_FILE_NAME,
     VisionConfig,
     VisionConfigError,
@@ -250,7 +250,7 @@ RESUME_CHECKPOINT_STAGES: tuple[str, ...] = ("fetch", "classify", "dedup")
 #: 当前无实现 — do not claim otherwise).
 RESUMABLE_RUN_STATUSES = frozenset({RUN_STATUS_RUNNING, RUN_STATUS_FAILED})
 
-DEFAULT_DB_PATH = "myia.db"
+DEFAULT_DB_PATH = "myssia.db"
 #: Per-stage timeouts (seconds). ``fetch`` applies per source; ``analyze`` and
 #: ``aggregate`` span N batched LLM calls (v0.2 enrich / v0.4 事件聚合), hence
 #: the larger caps — per-call timeouts live inside the enricher/aggregator
@@ -581,7 +581,7 @@ class RunResult:
         }
 
     def to_dict(self) -> dict[str, Any]:
-        """Full machine-readable form for ``myia run --json`` (AI/CI 消费路径)."""
+        """Full machine-readable form for ``myssia run --json`` (AI/CI 消费路径)."""
         duration = self.duration_seconds
         return {
             "category": self.category,
@@ -730,12 +730,12 @@ class Pipeline:
 
         Args:
             category_yaml: validated :class:`CategoryConfig`, or a path to the
-                plugin YAML (loaded via :func:`myia.schema.load_category_file`).
+                plugin YAML (loaded via :func:`myssia.schema.load_category_file`).
             store: injected storage backend (caller owns its lifecycle); when
                 omitted, a :class:`SQLiteStore` at ``db_path`` is created and
                 owned by the pipeline (released via :meth:`close`).
             db_path: SQLite path for the pipeline-owned store (default
-                ``./myia.db``).
+                ``./myssia.db``).
             client: injected ``httpx.AsyncClient`` (tests mock here); when
                 omitted, one is created per run and closed at run end.
             timeout: per-request engine timeout in seconds.
@@ -749,7 +749,7 @@ class Pipeline:
                 make slot math deterministic.
             enricher: injected enrich object (v0.2 analyze stage; tests pass
                 fakes -- 零真实网络). Used as-is when ``enrich.enabled``; the
-                default builds an :class:`~myia.enrich.LLMEnricher`.
+                default builds an :class:`~myssia.enrich.LLMEnricher`.
             enrich_settings: endpoint settings for the default enricher
                 (``base_url``/``api_key`` as ``env:`` references, grill Q6).
                 Shared with the v0.4 event aggregator; ``None`` reads the
@@ -757,7 +757,7 @@ class Pipeline:
             aggregator: injected event aggregator (v0.4 aggregate stage; tests
                 pass fakes -- 零真实网络). Used as-is when
                 ``aggregate.enabled``; the default builds an
-                :class:`~myia.enrich.EventAggregator` on the same endpoint
+                :class:`~myssia.enrich.EventAggregator` on the same endpoint
                 settings as the enricher.
             feedback_policy: 反馈闭环调参阈值 (v0.3, PRD 10-01-v03-feedback-loop);
                 defaults to :class:`TuningPolicy` defaults. The tuner runs in
@@ -767,7 +767,7 @@ class Pipeline:
                 when a ``telegram`` push channel is configured.
             stdout_stream: stream the ``stdout`` push channel writes to;
                 default ``None`` keeps the channel default (``sys.stdout``).
-                ``myia run --json`` 注入 ``sys.stderr``:stdout 通道的卡片行
+                ``myssia run --json`` 注入 ``sys.stderr``:stdout 通道的卡片行
                 与 run 报告 JSON 不能同流,否则「--json 输出恰好一份 JSON
                 文档(stdout)」的 CLI 契约被打破(AI 消费面 json.load 必失败)。
 
@@ -789,7 +789,7 @@ class Pipeline:
         self._sleep = sleep
         self._retry_backoff = retry_backoff_seconds
         self._wall_clock = wall_clock or _utc_now
-        # 全局 pools 声明(v0.2 proxy-transport;myia run --config 加载注入)。
+        # 全局 pools 声明(v0.2 proxy-transport;myssia run --config 加载注入)。
         # 缺省 None:pool: 源会在 fetch 前结构化报 proxy_pools_not_configured。
         self._proxy_pools = proxy_pools
         # 反馈闭环(v0.3):周期调参器随维护阶段执行;TG 轮询随常驻模式执行。
@@ -852,7 +852,7 @@ class Pipeline:
         # partial 前任也不可续跑——留池条目会永久丢失,见 _flush 摘要告警)。
         self._digest_pools: dict[int, DigestAggregator] = {}
         # 消息平台定向(v1.2, 10-03-messaging-core design D3):目录与死信账本
-        # 落数据根(db 路径父目录;CLI cwd / 桌面 myia_home(),与任务
+        # 落数据根(db 路径父目录;CLI cwd / 桌面 myssia_home(),与任务
         # 10-03-v111-desktop-paths 收口一致)。读写 best-effort,损坏退化
         # 内存态,不阻塞推送。
         _data_root = Path(self._db_path).parent
@@ -862,7 +862,7 @@ class Pipeline:
     def _enrich_settings_from_config(self) -> EnrichSettings:
         """Schema 承载的端点引用 → :class:`EnrichSettings`(PRD: enrich 节承载 base_url)。
 
-        ``myia run`` 的唯一用户入口:schema 的 ``enrich.base_url`` /
+        ``myssia run`` 的唯一用户入口:schema 的 ``enrich.base_url`` /
         ``enrich.api_key``(env:/keychain: 引用)在此装配,引用语法/明文由
         EnrichSettings 结构化拒绝。两字段都缺省时返回空 ``EnrichSettings()``
         ——其 __post_init__ 抛 missing_base_url / missing_api_key,与构造注入
@@ -1323,7 +1323,7 @@ class Pipeline:
         metrics_retention_days = self._metrics_retention_days(retention_days)
 
         def _sync() -> dict[str, Any]:
-            # 不传 active_urls:同一 myia.db 被所有品类共享(sqlite.py cleanup
+            # 不传 active_urls:同一 myssia.db 被所有品类共享(sqlite.py cleanup
             # docstring),单品类源清单无权修剪别的品类的 baseline/engine_hint
             # ——否则每轮 run 都会把共享库中其它品类的两套缓存当「过期源」删掉。
             deleted = backend.cleanup_expired(
@@ -1600,7 +1600,7 @@ class Pipeline:
 
         Returns:
             ``(client, proxy_url, owns_client)`` —— ``pool:`` 源返回该池的
-            共享 facade(:class:`myia.engines.fetch_base.ProxyPoolTransport`,
+            共享 facade(:class:`myssia.engines.fetch_base.ProxyPoolTransport`,
             请求委派当前健康上游、**kwargs 透传 per-request 超时与
             ``follow_redirects``;生命周期随 run 收尾的
             ``aclose_pool_transports``)与 mount 时刻的上游 URL;其余
@@ -1631,11 +1631,11 @@ class Pipeline:
         品类 ``images:`` 节未声明/未开启 → 整环零进入(零开销);开启后逐条
         ``detail_fetch_images``(可选详情页追抓,10-03-detail-images)→ 下载→
         本地 OCR→可选 VL,产物挂 ``metadata.image_ocr`` / ``image_caption`` /
-        ``image_status``(降级矩阵见 :mod:`myia.vision.collect`,任何失败只写
+        ``image_status``(降级矩阵见 :mod:`myssia.vision.collect`,任何失败只写
         标记不阻管线)。
 
         ``vision.yaml`` 落数据根(db 路径父目录,与消息平台目录同根——CLI
-        cwd / 桌面 ``myia_home()`` 两形态一致);拒载按「VL 不可用、OCR 照常」
+        cwd / 桌面 ``myssia_home()`` 两形态一致);拒载按「VL 不可用、OCR 照常」
         降级,不 fail run。``max_per_run`` / ``detail_max_items`` 配额与 VL
         预算池都是 run 级状态,由本方法统一持有后逐条传入。源级出网:``pool:``
         源的下载与追抓都骑该池的共享代理 client(小修④),其余源走共享
@@ -2022,7 +2022,7 @@ class Pipeline:
     def _effective_watchlist(self, tuning: ActiveTuning) -> dict[str, list[str]]:
         """watchlist 视图:反馈调出权重 0.0 的词并入 mute(零 token 全降权)。
 
-        enricher 接受 Mapping 形态的 watchlist(myia.enrich._watchlist_lists
+        enricher 接受 Mapping 形态的 watchlist(myssia.enrich._watchlist_lists
         契约),因此无需修改 enrich 层即可施加负反馈词表;未触发降权(权重
         0.0)的词不进 mute,走 :meth:`_apply_feedback_penalties` 的分数乘法。
         """
@@ -2138,7 +2138,7 @@ class Pipeline:
         """目录节流懒刷(grill Q4 定案,Hermes housekeeping 的 MYIA 等价物)。
 
         距上次刷新 > :data:`REFRESH_STALE_SECONDS` 且存在已注册平台
-        (:data:`myia.push.PLATFORMS`)才触发 ``discover_directory``;单平台
+        (:data:`myssia.push.PLATFORMS`)才触发 ``discover_directory``;单平台
         失败退回旧桶 + 结构化告警(directory.refresh 内隔离),整体失败也
         不阻塞推送。core 未注册平台时零开销短路。
         """
@@ -2387,7 +2387,7 @@ class Pipeline:
         bot token 都解析自 ``env:TELEGRAM_BOT_TOKEN``,因此每个配置了 telegram
         通道的常驻进程都会轮询同一条 getUpdates 流——Telegram 对并发轮询方
         回 **409 Conflict** 互踢。同一 token 下至多一个品类以 ``--loop`` 常驻
-        (其余品类换推送渠道,或不常驻);``myia doctor`` 以
+        (其余品类换推送渠道,或不常驻);``myssia doctor`` 以
         ``telegram_token_poll_conflict`` finding 提示多品类共配的情形。
 
         Args:
@@ -2409,7 +2409,7 @@ class Pipeline:
         poll_task = (
             asyncio.create_task(
                 self._feedback_poll_loop(feedback_poller),
-                name=f"myia:feedback-poll:{self.config.id}",
+                name=f"myssia:feedback-poll:{self.config.id}",
             )
             if feedback_poller is not None
             else None
@@ -2435,7 +2435,7 @@ class Pipeline:
         sched.add_job(
             _fire,
             effective_trigger,
-            id=f"myia:run:{self.config.id}",
+            id=f"myssia:run:{self.config.id}",
             name=f"MYIA run {self.config.id}",
             max_instances=1,
             coalesce=True,
@@ -2494,7 +2494,7 @@ class Pipeline:
 
         每 ``feedback_poll_interval`` 秒一轮;offset 书签在轮次间保持(Telegram
         对未确认更新会重发,书签避免重复入库);回调经
-        :func:`myia.feedback.ingest_callbacks` 入库(单条失败不拖垮整批)。
+        :func:`myssia.feedback.ingest_callbacks` 入库(单条失败不拖垮整批)。
         """
         logger.info(
             "TG 反馈轮询已启动 category=%s interval=%ss",

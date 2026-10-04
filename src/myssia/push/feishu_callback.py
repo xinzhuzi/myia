@@ -14,7 +14,7 @@ The core is transport-agnostic: :class:`FeishuCallbackHandler.handle` turns
 ``(headers, body, client_ip)`` into a structured :class:`CallbackResponse`
 (status + JSON payload + parsed feedback callbacks) — unit-testable with
 zero sockets. The stdlib ``http.server`` runner (:func:`build_server`,
-``python -m shishi.push.feishu_callback``) is the compose-form delivery: the
+``python -m myssia.push.feishu_callback``) is the compose-form delivery: the
 core dependency set stays at six packages, no web framework.
 
 Payload contract (button ``value``, both Feishu schema generations):
@@ -23,7 +23,7 @@ Payload contract (button ``value``, both Feishu schema generations):
 ``url_verification`` handshake is answered with the challenge echo — but
 only after the token check (开启即强制鉴权,握手也不例外).
 
-Parsed callbacks go to :func:`shishi.feedback.ingest_callbacks` (dangling
+Parsed callbacks go to :func:`myssia.feedback.ingest_callbacks` (dangling
 dedup keys — retention-pruned items — are tolerated like every channel path).
 """
 
@@ -38,9 +38,9 @@ from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Mapping, Sequence
 
-from shishi.feedback import ingest_callbacks, normalize_verdict
-from shishi.schema import parse_secret_value, resolve_credential
-from shishi.store import FEEDBACK_CHANNEL_FEISHU, Store
+from myssia.feedback import ingest_callbacks, normalize_verdict
+from myssia.schema import parse_secret_value, resolve_credential
+from myssia.store import FEEDBACK_CHANNEL_FEISHU, Store
 
 __all__ = [
     "DEFAULT_HOST",
@@ -371,7 +371,7 @@ def build_server(
     """Build (not start) the callback HTTP server on ``config.host:port``.
 
     Parsed callbacks are ingested into ``store`` per request (单条失败不拖垮
-    端点:ingest 的失败语义见 :func:`shishi.feedback.ingest_callbacks`).
+    端点:ingest 的失败语义见 :func:`myssia.feedback.ingest_callbacks`).
 
     Raises:
         FeishuCallbackConfigError: config invalid (public bind host etc.) or
@@ -429,17 +429,17 @@ def serve(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """``python -m shishi.push.feishu_callback`` — 服务端/compose 回调入口."""
+    """``python -m myssia.push.feishu_callback`` — 服务端/compose 回调入口."""
     import argparse
 
     parser = argparse.ArgumentParser(
-        prog="python -m shishi.push.feishu_callback",
+        prog="python -m myssia.push.feishu_callback",
         description="飞书卡片回调端点(默认关闭;开启强制 token 鉴权 + 仅内网)",
     )
     parser.add_argument("--enable", action="store_true", help="显式开启端点(默认关闭)")
     parser.add_argument("--host", default=DEFAULT_HOST, help=f"绑定地址(默认 {DEFAULT_HOST},仅内网)")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"绑定端口(默认 {DEFAULT_PORT})")
-    parser.add_argument("--db", default="myia.db", help="SQLite 存储路径(默认 ./myia.db)")
+    parser.add_argument("--db", default="myssia.db", help="SQLite 存储路径(默认 ./myssia.db)")
     parser.add_argument(
         "--token-ref",
         default=DEFAULT_TOKEN_ENV_REF,
@@ -454,7 +454,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         config = FeishuCallbackConfig(
             enabled=args.enable, token_ref=args.token_ref, host=args.host, port=args.port
         )
-        from shishi.store import SQLiteStore
+        from myssia.store import SQLiteStore
 
         store = SQLiteStore(args.db)
     except FeishuCallbackConfigError as exc:

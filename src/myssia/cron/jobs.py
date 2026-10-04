@@ -17,15 +17,15 @@ H:2875-3340 / 一次性诊断 H:2521-2584。estop 语义照抄上游
 MYIA 适配(任务 10-04-hermes-cron design §2.1/§6/§8,非照抄处仅此):
 
 - **实例化**:Hermes 用 profile 全局 ``_current_cron_store()``;MYIA 用显式
-  :class:`CronJobs(data_root)` 持 :class:`~myia.cron.store.CronJobStore` +
-  :class:`~myia.cron.executions.ExecutionLedger`(与 store/executions 两底座
+  :class:`CronJobs(data_root)` 持 :class:`~myssia.cron.store.CronJobStore` +
+  :class:`~myssia.cron.executions.ExecutionLedger`(与 store/executions 两底座
   同款取舍)。``now`` 可注入(``now_fn``,测试控时范式 B16:显式 aware
   datetime,无 freezegun)。
 - **载荷 = category**(D2):prompt/skills/model/provider/toolsets/monitor 族
   不搬;create 时 category 解析为**绝对路径**存储(grill Q5);Q6 的
   ``load_category_file`` 早失败校验属 create 调用方(CLI/sidecar,B2/B3),
   底座层不耦合 pipeline——本模块与 schedule/store/executions 一样零
-  ``myia.*``(cron 外)依赖。
+  ``myssia.*``(cron 外)依赖。
 - **四态 last_status**(design §2.1):``ok|failed|delivery_failed|
   skipped_busy``——上游失败态字面量 ``"error"`` 相应改为 ``"failed"``
   (stale-error 重挂守卫同步改判 ``"failed"``);``skipped_busy`` 由
@@ -74,13 +74,13 @@ from zoneinfo import ZoneInfo
 
 from apscheduler.triggers.cron import CronTrigger
 
-from myia.cron.constants import (
+from myssia.cron.constants import (
     CLAIM_TTL_INACTIVITY_HEADROOM,
     FIRE_CLAIM_SKEW_SECONDS,
     FIRE_CLAIM_TTL_SECONDS,
 )
-from myia.cron.executions import ExecutionLedger, pid_exists
-from myia.cron.schedule import (
+from myssia.cron.executions import ExecutionLedger, pid_exists
+from myssia.cron.schedule import (
     ONESHOT_GRACE_SECONDS,
     _classify_dispatch_lateness,
     _compute_grace_seconds,
@@ -98,7 +98,7 @@ from myia.cron.schedule import (
     parse_schedule,
     resolve_zone,
 )
-from myia.cron.store import (
+from myssia.cron.store import (
     CronJobStore,
     _has_pause_marker,
     is_job_runnable,
@@ -399,7 +399,7 @@ class CronJobs:
 
     @classmethod
     def for_db(cls, db_path: Union[str, Path], **kwargs: Any) -> "CronJobs":
-        """从 myia.db 路径定位(CLI ``--db`` 一传即得;A6)。"""
+        """从 myssia.db 路径定位(CLI ``--db`` 一传即得;A6)。"""
         return cls(Path(db_path).parent, **kwargs)
 
     # --- 内部助手 ------------------------------------------------------------
@@ -1495,7 +1495,7 @@ class CronJobs:
             zone = self._job_zone(job)
             if claim_is_live(job.get("fire_claim"), now, FIRE_CLAIM_TTL_SECONDS):
                 return False  # 有人持新鲜认领
-            from myia.cron import occurrences
+            from myssia.cron import occurrences
 
             # ``manual``(off-tick 立即跑)不得戳 occurrence 身份:tick 之外
             # ``next_run_at`` 是下一 occurrence 而非正在跑的这个,戳它会让
@@ -1985,7 +1985,7 @@ class CronJobs:
         恢复的 ``next_run_at`` 或 None。**恰恢复一次**:此戳在这里被丢弃,
         槽随后按普通迟到/fast-forward 策略流动——绝不重放每个错过的槽(上游
         H:3200;属主死/租约过才恢复,见 occurrences.unclaimed_pending_slot)。"""
-        from myia.cron import occurrences
+        from myssia.cron import occurrences
 
         slot = occurrences.unclaimed_pending_slot(job, scan.now)
         if slot is None:
@@ -2043,7 +2043,7 @@ class CronJobs:
         # 两个字段,next_run_at 的任何改写(edit、重锚、fire-claim 推进)都必须
         # 使标记失效。别用 _ensure_aware 规整来「修」它。
         manual_run = job.get("manual_run_at") == next_run
-        from myia.cron import occurrences
+        from myssia.cron import occurrences
 
         if not manual_run and occurrences.completed_occurrence(
             job, next_run, ledger=self.ledger
@@ -2169,6 +2169,6 @@ def _schedule_cadence_with_zone(
 ) -> Optional[float]:
     """``_schedule_cadence_seconds`` 的带时区直通(job 时区版;上游经全局
     配置时区,cron 差值随基准时刻浮动可接受)。"""
-    from myia.cron import schedule as cron_schedule
+    from myssia.cron import schedule as cron_schedule
 
     return cron_schedule._schedule_cadence_seconds(schedule, tz=zone)  # noqa: SLF001 同包私有

@@ -98,14 +98,14 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 _MODULE_DIR = Path(__file__).resolve().parent
-_MODULE_PREFIX = "myia_credhunter_"
+_MODULE_PREFIX = "myssia_credhunter_"
 
 
 def _sibling(name: str) -> types.ModuleType:
     """取兄弟子模块:sys.modules 复用 → 就地 compile+exec 自举。
 
     与适配器的 ``_load_module`` 同手法同理由(不走 importlib,插件目录零
-    ``__pycache__``);canonical 名(``myia_credhunter_<name>``)登记进
+    ``__pycache__``);canonical 名(``myssia_credhunter_<name>``)登记进
     sys.modules,适配器先加载过则直接复用同一模块对象。packs 懒加载:
     仅 :func:`hunt` 缺省 queries 时才读数据文件。
     """

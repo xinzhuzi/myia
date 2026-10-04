@@ -23,8 +23,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from shishi.enrich.errors import EnrichConfigError
-from shishi.schema import parse_secret_value, resolve_credential
+from myssia.enrich.errors import EnrichConfigError
+from myssia.schema import parse_secret_value, resolve_credential
 
 __all__ = [
     "DEFAULT_COMPLETION_TIMEOUT_SECONDS",
@@ -118,8 +118,8 @@ def resolve_endpoint(settings: EnrichSettings) -> tuple[str, str]:
     """Resolve endpoint references to concrete ``(base_url, api_key)`` values.
 
     Shared construction-time resolution for every LLM consumer of the enrich
-    endpoint (:class:`~shishi.enrich.LLMEnricher` scoring and the v0.4
-    :class:`~shishi.enrich.aggregate.EventAggregator` dedup — 同一端点、同一份
+    endpoint (:class:`~myssia.enrich.LLMEnricher` scoring and the v0.4
+    :class:`~myssia.enrich.aggregate.EventAggregator` dedup — 同一端点、同一份
     凭据解析契约). Structured failure with reference *names* only — resolved
     values never appear in errors or logs (日志不含凭据值).
 

@@ -1,4 +1,4 @@
-"""myia-credhunter 插件(R3 指纹库 + 骨架)契约测试.
+"""myssia-credhunter 插件(R3 指纹库 + 骨架)契约测试.
 
 任务 10-03-aipocket-fusion 插件包纯增量段的配套测试,只读插件目录、
 零网络、零真实凭据(fixture 全部为合成脱敏键,不对应任何真实账号)。
@@ -14,13 +14,13 @@
    后缀剥离与 azure_openai 先于 openai 的特异性排序)、apiurl 前缀归因、
    噪声过滤(长度/占位子串/字母序递增段/阻断格式/跨位置过曝);
 4. **items 形状 + Q9 掩码**:前 8 后 4 掩码(短键退化)、dedup 键为结构化
-   字段组合且 {title} 永不进键(用 shishi.dedup.DedupRegistry 证明管线可
+   字段组合且 {title} 永不进键(用 myssia.dedup.DedupRegistry 证明管线可
    渲染)、全文密钥永不进 item(含 content 摘录的先替换后截断);
 5. **适配器双入口**:run 装配掩码-only payload、空文档/无凭据 lane 的
    显式空态(credential_missing,不报错)、async fetch 引擎面、坏文档
    结构化错误(invalid_document)。
 
-测试纪律:经 shishi.cli._import_plugin_adapter 按 CLI 同款加载器
+测试纪律:经 myssia.cli._import_plugin_adapter 按 CLI 同款加载器
 (compile+exec)加载真实适配器(与 tests/test_proxy_plugin.py 同款先例)。
 """
 
@@ -34,13 +34,13 @@ from typing import Any
 import pytest
 import yaml
 
-from shishi.cli import _import_plugin_adapter
-from shishi.dedup import DedupRegistry
-from shishi.plugins.manifest import load_manifest_file
+from myssia.cli import _import_plugin_adapter
+from myssia.dedup import DedupRegistry
+from myssia.plugins.manifest import load_manifest_file
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_DIR = REPO_ROOT / "plugins"
-PLUGIN_DIR = PLUGINS_DIR / "myia-credhunter"
+PLUGIN_DIR = PLUGINS_DIR / "myssia-credhunter"
 
 # ---------------------------------------------------------------------------
 # 合成脱敏 fixture 键(全部人工构造、不对应任何真实账号;形态只服务于
@@ -68,7 +68,7 @@ KEY_FW = "fw_Er6yXm3cVb8nKq2wJt7d"
 
 def load_adapter() -> Any:
     """按 CLI 同款加载器(compile+exec)加载真实适配器."""
-    return _import_plugin_adapter(PLUGINS_DIR, "myia-credhunter")
+    return _import_plugin_adapter(PLUGINS_DIR, "myssia-credhunter")
 
 
 @pytest.fixture()
@@ -94,7 +94,7 @@ def fnd(adapter) -> Any:
 class TestCredhunterManifest:
     def test_desktop_tier_with_in_process_adapter(self):
         manifest = load_manifest_file(PLUGIN_DIR / "plugin.yaml")
-        assert manifest.id == "myia-credhunter"
+        assert manifest.id == "myssia-credhunter"
         assert manifest.tier == "desktop"
         assert manifest.requires == []
         assert manifest.provides == ["credhunt", "credcheck", "exposure"]
@@ -103,7 +103,7 @@ class TestCredhunterManifest:
         assert manifest.adapter.mode == "in_process"
         assert manifest.vendor is None, "功能重实现:零上游 vendored"
         assert manifest.modes.local is not None, "纯源码形态:local 安装声明"
-        assert manifest.modes.remote is None, "无服务端点(远程聚合走 myia-credentials)"
+        assert manifest.modes.remote is None, "无服务端点(远程聚合走 myssia-credentials)"
 
 
 # ---------------------------------------------------------------------------
@@ -491,7 +491,7 @@ class TestAdapterRun:
                 }
             ]
         )
-        assert payload["plugin"] == "myia-credhunter"
+        assert payload["plugin"] == "myssia-credhunter"
         assert payload["mode"] == "in_process"
         assert payload["status"] == "success"
         assert payload["provides"] == ["credhunt", "credcheck", "exposure"]

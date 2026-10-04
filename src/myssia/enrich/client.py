@@ -1,13 +1,13 @@
 """Thin async client over any OpenAI-compatible ``chat.completions`` endpoint.
 
-The ``openai`` package is an *optional* dependency (extras ``shishi[llm]``) and
+The ``openai`` package is an *optional* dependency (extras ``myssia[llm]``) and
 is imported lazily at first use — never at module import — so the core
 pipeline stays zero-heavy-dependency (same pattern as
-``shishi.engines.crawl4ai.load_crawl4ai``). Tests inject a fake object with the
+``myssia.engines.crawl4ai.load_crawl4ai``). Tests inject a fake object with the
 same ``complete()`` coroutine; no test ever touches the network.
 
 Token accounting: the response's ``usage.total_tokens`` travels back with the
-text — it is what :class:`shishi.enrich.scoring.BudgetTracker` spends against
+text — it is what :class:`myssia.enrich.scoring.BudgetTracker` spends against
 ``budget_per_run``. A response without usage information reports 0 tokens
 (the shortfall is visible in the run's outcome stats, not silently assumed).
 """
@@ -20,13 +20,13 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from shishi.enrich.errors import EnrichConfigError
+from myssia.enrich.errors import EnrichConfigError
 
 __all__ = ["INSTALL_COMMAND", "CompletionResult", "OpenAICompatClient"]
 
 logger = logging.getLogger(__name__)
 
-INSTALL_COMMAND = "pip install 'shishi[llm]'  # 或 uv add 'shishi[llm]'"
+INSTALL_COMMAND = "pip install 'myssia[llm]'  # 或 uv add 'myssia[llm]'"
 
 
 @dataclass(frozen=True)

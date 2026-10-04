@@ -1,9 +1,9 @@
-"""Source engine: in-process scenario plugin ``myia-credhunter`` (链外引擎).
+"""Source engine: in-process scenario plugin ``myssia-credhunter`` (链外引擎).
 
 ``engine: credhunter`` does not fetch the source URL — it loads the scenario
-plugin adapter (``plugins/myia-credhunter/adapter.py``) in-process and lets it
+plugin adapter (``plugins/myssia-credhunter/adapter.py``) in-process and lets it
 assemble pipeline items from one of three lanes (task 10-03-aipocket-fusion,
-通路 A of ``research/myia-integration-facts.md`` §2):
+通路 A of ``research/myssia-integration-facts.md`` §2):
 
 - ``scan``(缺省):本地文本扫描 —— ``engine_options.credhunter.documents``
   是命中位置文本批(text/url/source_type/file_path),跑供应商指纹库产出
@@ -22,11 +22,11 @@ an **explicit empty state**, not an error (AC6): the lane reports
 ``credential_missing`` via :attr:`last_skip_reason` and yields zero items. A
 tokenless credhunt lane is no exception — 上游无 token 时该源根本不注册
 (ghhunt.md §2),引擎面同语义 = 本轮不启用(空态,写好引用即恢复产出);
-「显式直跑」的 CLI ``shishi credhunt`` 面才报 ``tokens_missing`` 配置错误退 1
+「显式直跑」的 CLI ``myssia credhunt`` 面才报 ``tokens_missing`` 配置错误退 1
 (adapter 层合同不变)。
 
 Degradation contract: this engine is registered but never in :data:`AUTO_CHAIN`
-(:func:`shishi.engines.registry.auto_degrade` gives it a single-rung chain); an
+(:func:`myssia.engines.registry.auto_degrade` gives it a single-rung chain); an
 adapter that is missing/broken raises a structured ``FetchError`` which the
 registry records as an :class:`EngineFailure` — the category's other sources
 are unaffected (铁律).
@@ -35,7 +35,7 @@ Raises:
     FetchError: unknown lane, malformed options, adapter missing/broken, or
         a lane's own fetch failure. Credential resolution failures (tokenless
         credhunt included) degrade to the explicit empty state instead
-        (AC6 + PRD P3 口径); the CLI ``shishi credhunt`` direct-run face
+        (AC6 + PRD P3 口径); the CLI ``myssia credhunt`` direct-run face
         still reports ``tokens_missing`` as a config error (exit 1).
 """
 
@@ -47,8 +47,8 @@ import types
 from pathlib import Path
 from typing import Any
 
-from shishi.engines.fetch_base import BaseEngine, FetchError
-from shishi.schema import CredentialResolveError, resolve_credential
+from myssia.engines.fetch_base import BaseEngine, FetchError
+from myssia.schema import CredentialResolveError, resolve_credential
 
 logger = logging.getLogger(__name__)
 
@@ -65,18 +65,18 @@ __all__ = ["DEFAULT_PLUGINS_DIR", "LANES", "LAYER", "CredhunterEngine", "import_
 
 
 def import_credhunter_adapter(plugins_dir: str | Path = DEFAULT_PLUGINS_DIR) -> types.ModuleType:
-    """动态加载 ``<plugins_dir>/myia-credhunter/adapter.py``(compile+exec).
+    """动态加载 ``<plugins_dir>/myssia-credhunter/adapter.py``(compile+exec).
 
-    与 ``shishi.cli._import_plugin_adapter`` 同一手法与同一理由(引擎不 import
+    与 ``myssia.cli._import_plugin_adapter`` 同一手法与同一理由(引擎不 import
     CLI,保持 engines 层依赖方向干净):插件目录不是 Python 包,不走
     importlib 的 SourceFileLoader(会在插件目录写 ``__pycache__`` 垃圾);
     核心仓库与插件零静态耦合。加载失败抛 OSError/SyntaxError,由引擎统一
     包成结构化 ``credhunter_adapter_missing`` FetchError。
     """
-    adapter_file = Path(plugins_dir) / "myia-credhunter" / "adapter.py"
+    adapter_file = Path(plugins_dir) / "myssia-credhunter" / "adapter.py"
     if not adapter_file.is_file():
         raise FileNotFoundError(f"credhunter 适配器不存在:{adapter_file}(场景件应随仓库 plugins/ 分发)")
-    module = types.ModuleType("myia_myia_credhunter_adapter")
+    module = types.ModuleType("myssia_myssia_credhunter_adapter")
     module.__file__ = str(adapter_file)
     executable = compile(adapter_file.read_text(encoding="utf-8"), str(adapter_file), "exec")
     exec(executable, module.__dict__)  # noqa: S102 - 仓库内受控插件代码,非任意输入
@@ -84,7 +84,7 @@ def import_credhunter_adapter(plugins_dir: str | Path = DEFAULT_PLUGINS_DIR) -> 
 
 
 class CredhunterEngine(BaseEngine):
-    """In-process source engine backed by the myia-credhunter scenario plugin.
+    """In-process source engine backed by the myssia-credhunter scenario plugin.
 
     Items come from the plugin's fingerprints (masked, Q9); ``extract`` is not
     consulted — a configured extract node is rejected structurally so the
@@ -214,12 +214,12 @@ class CredhunterEngine(BaseEngine):
         if not tokens:
             # ghhunt.md §2:上游无 token 时该源根本不注册(不报错、不启用)——
             # 引擎面同语义 = 显式空态:本轮不启用,写好 keychain 引用即恢复
-            # 产出(「显式直跑」的 CLI shishi credhunt 面才报 tokens_missing
+            # 产出(「显式直跑」的 CLI myia credhunt 面才报 tokens_missing
             # 配置错误退 1,见 CREDHUNT_CONFIG_FAILURE_CODES)。
             self.last_skip_reason = "credential_missing"
             logger.info(
                 "credhunt lane 无可用 GitHub token,显式空态 source=%s"
-                "(myia secret set myia/credhunter/github-token 后引用)",
+                "(myssia secret set myia/credhunter/github-token 后引用)",
                 self.source.name,
             )
             return []
@@ -256,7 +256,7 @@ class CredhunterEngine(BaseEngine):
         if fofa_key is None and shodan_key is None:
             self.last_skip_reason = "credential_missing"
             logger.info(
-                "exposure 双 lane 无凭据,显式空态 source=%s(myia secret set myia/credhunter/*)",
+                "exposure 双 lane 无凭据,显式空态 source=%s(myssia secret set myia/credhunter/*)",
                 self.source.name,
             )
             return []

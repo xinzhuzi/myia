@@ -30,8 +30,8 @@ from typing import Any
 
 import pytest
 
-from myia.cron import store as cron_store
-from myia.cron.store import CronJobStore
+from myssia.cron import store as cron_store
+from myssia.cron.store import CronJobStore
 
 
 def make_job(job_id: str, **overrides: Any) -> dict[str, Any]:
@@ -59,14 +59,14 @@ def make_job(job_id: str, **overrides: Any) -> dict[str, Any]:
 
 @pytest.fixture()
 def store(tmp_path: Path) -> CronJobStore:
-    return CronJobStore.for_db(tmp_path / "myia.db")
+    return CronJobStore.for_db(tmp_path / "myssia.db")
 
 
 # --- 定位与目录 ---------------------------------------------------------------
 
 
 def test_for_db_derives_data_root_and_dirs(tmp_path: Path) -> None:
-    db = tmp_path / "myia.db"
+    db = tmp_path / "myssia.db"
     s = CronJobStore.for_db(db)
     assert s.data_root == tmp_path
     assert s.cron_dir == tmp_path / "cron"
@@ -108,7 +108,7 @@ def test_control_characters_repaired_via_strict_retry(
     store.cron_dir.mkdir(parents=True, exist_ok=True)
     store.jobs_file.write_text(
         '{"jobs": [{"id": "a' + chr(1) + 'b", "name": "x"}]}', encoding="utf-8")
-    with caplog.at_level("WARNING", logger="myia.cron.store"):
+    with caplog.at_level("WARNING", logger="myssia.cron.store"):
         jobs = store.load_jobs()
     assert [j["id"] for j in jobs] == ["a\x01b"]
     # 落盘后的文件用严格模式即可解析(修复持久化)。
@@ -125,7 +125,7 @@ def test_id_keyed_map_flattened_to_list(
         "def": {"id": "xyz", "name": "D"},  # 内联 id 优先
         "junk": 3,                        # 非对象 → 跳过并告警
     }})
-    with caplog.at_level("WARNING", logger="myia.cron.store"):
+    with caplog.at_level("WARNING", logger="myssia.cron.store"):
         jobs = store.load_jobs()
     assert sorted(j["id"] for j in jobs) == ["abc", "xyz"]
     assert jobs[[j["id"] for j in jobs].index("xyz")]["name"] == "D"
@@ -152,7 +152,7 @@ def test_non_object_entries_dropped(
     store: CronJobStore, caplog: pytest.LogCaptureFixture,
 ) -> None:
     write_raw(store, [make_job("keep"), "junk", 3, None])
-    with caplog.at_level("WARNING", logger="myia.cron.store"):
+    with caplog.at_level("WARNING", logger="myssia.cron.store"):
         jobs = store.load_jobs()
     assert jobs == [make_job("keep")]
     assert any("non-object" in r.message for r in caplog.records)
@@ -240,7 +240,7 @@ def test_cross_process_flock_timeout_degrades(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    store = CronJobStore.for_db(tmp_path / "myia.db")
+    store = CronJobStore.for_db(tmp_path / "myssia.db")
     monkeypatch.setattr(cron_store, "JOBS_LOCK_TIMEOUT_SECONDS", 0.5)
     store.ensure_dirs()
     holder = subprocess.Popen(
@@ -255,7 +255,7 @@ def test_cross_process_flock_timeout_degrades(
     try:
         assert holder.stdout is not None
         assert holder.stdout.readline().strip() == "held"
-        with caplog.at_level("ERROR", logger="myia.cron.store"):
+        with caplog.at_level("ERROR", logger="myssia.cron.store"):
             started = time.monotonic()
             store.save_jobs([make_job("degraded")])
             elapsed = time.monotonic() - started

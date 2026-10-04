@@ -2,7 +2,7 @@
 
 Simple statistics only (PRD: 不引入学习库). Every run's maintenance phase
 feeds the window's feedback rows through :meth:`FeedbackTuner.apply`, which
-appends :class:`~shishi.store.TuningRecord` rows when a category/word crosses
+appends :class:`~myssia.store.TuningRecord` rows when a category/word crosses
 the bad-count + bad-ratio thresholds — append-only, so the full adjustment
 history stays in ``feedback_tuning`` (调整历史可追溯) and the *newest* row per
 key is the active adjustment.
@@ -22,7 +22,7 @@ Weight semantics (「watchlist.mute 词表权重」):
 enrich prompt 要点: qualifying windows also append a ``prompt_note`` row —
 the note is recorded and surfaced in stats/run output (traceable), while the
 prompt *template* placeholder to render it into the LLM message belongs to
-``shishi.enrich.prompt`` (outside this task's boundary; tracked as a cross-module
+``myssia.enrich.prompt`` (outside this task's boundary; tracked as a cross-module
 gap — the effective mute list already hardens scoring at zero token cost).
 """
 
@@ -33,8 +33,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Sequence
 
-from shishi.feedback.stats import FeedbackStats, compute_feedback_stats
-from shishi.store import (
+from myssia.feedback.stats import FeedbackStats, compute_feedback_stats
+from myssia.store import (
     TUNING_CATEGORY_PENALTY,
     TUNING_MUTE_WEIGHT,
     TUNING_PROMPT_NOTE,

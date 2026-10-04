@@ -1,14 +1,14 @@
-"""cron 执行体:spawn ``myia run --json`` 子进程 + 摘要投递 + 孤儿回收。
+"""cron 执行体:spawn ``myssia run --json`` 子进程 + 摘要投递 + 孤儿回收。
 
 MYIA 移植重写自 Hermes(NousResearch/Hermes-Agent,MIT;上游路径
 ``~/.hermes/hermes-agent/cron/``):
 
 - ``cron/scheduler.py`` ``_run_one_job_body`` H:3284 —— 执行主干。上游在
   调度进程内组装 agent 运行时;MYIA 的 job 载荷是品类 YAML 管线,执行体 =
-  spawn ``myia run <yaml> --db <db> --json`` 子进程(偏离 D11:sidecar 从不
+  spawn ``myssia run <yaml> --db <db> --json`` 子进程(偏离 D11:sidecar 从不
   进程内构造 Pipeline 是现状铁律,B14;runs 表/退出码语义/崩溃隔离天然获得)。
 - ``cron/scheduler.py`` ``_submit_with_guard`` H:4239 / ``run_job`` H:2546 ——
-  派发守卫与审计归 :mod:`myia.cron.tick`;``_FireOwnership`` H:2981 的 fire
+  派发守卫与审计归 :mod:`myssia.cron.tick`;``_FireOwnership`` H:2981 的 fire
   认领保活同归 tick 层(本模块只报告,宿主互斥/事件钩子语义见 design §3.3)。
 - ``cron/scheduler.py`` H:3744 ``start_new_session=True`` —— 子进程自成进程
   组,超时/取消走 killpg 一锅端(冻结包 onefile 双进程漏孙进程的实证,
@@ -43,18 +43,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Tuple
 
-from myia.cron.executions import (
+from myssia.cron.executions import (
     _owner_is_live,  # noqa: SLF001 同包私有(属主存活判定的唯一纪律,不另写)
     pid_exists,
     process_start_time,
     start_time_fingerprints_match,
 )
-from myia.cron.jobs import (
+from myssia.cron.jobs import (
     DEFAULT_RUN_TIMEOUT_SECONDS,
     _atomic_write_marker,  # noqa: SLF001 同包私有(tick 用 cron._now() 先例)
     resolve_failure_deliver,
 )
-from myia.cron.summary import (
+from myssia.cron.summary import (
     deliver_run_summary,
     render_failure_markdown,
     render_summary_markdown,
@@ -93,7 +93,7 @@ STDERR_TAIL_LINES = 8
 OUTPUT_RETENTION_KEEP = 50
 
 #: 数据根缺省 db 名(tick ``DEFAULT_DB_NAME`` 同源;db_path 无覆写的 job 用它)。
-DEFAULT_DB_NAME = "myia.db"
+DEFAULT_DB_NAME = "myssia.db"
 
 #: D14 在途子进程登记目录(``output/<job_id>/.inflight/<execution_id>.json``):
 #: 宿主崩溃后重启恢复据此找到孤儿进程组;runner 正常收尾即删。
@@ -138,7 +138,7 @@ class InflightContext:
 SpawnFn = Callable[..., SubprocessResult]
 
 #: 可注入投递层(deliver 测试替身):签名同
-#: :func:`myia.cron.summary.deliver_run_summary`(spec, markdown, job,
+#: :func:`myssia.cron.summary.deliver_run_summary`(spec, markdown, job,
 #: data_root, now 逐参传入)。
 DeliverFn = Callable[..., Optional[str]]
 
@@ -149,9 +149,9 @@ DeliverFn = Callable[..., Optional[str]]
 
 
 def self_command(argv_tail: list[str]) -> tuple[list[str], dict[str, str]]:
-    """构造等价 CLI 自调命令:冻结包直通 / dev 下 ``python -m myia.cli``。
+    """构造等价 CLI 自调命令:冻结包直通 / dev 下 ``python -m myssia.cli``。
 
-    dev 下子进程未必装了 myia(conftest 靠 sys.path 注入 src/),以
+    dev 下子进程未必装了 myssia(conftest 靠 sys.path 注入 src/),以
     PYTHONPATH 指到 ``<repo>/src`` 保证可复现(desktop/entry.py
     ``_self_command`` 同款;冻结模式 PyInstaller 包自带全部模块)。
     """
@@ -160,11 +160,11 @@ def self_command(argv_tail: list[str]) -> tuple[list[str], dict[str, str]]:
         return [sys.executable, *argv_tail], env
     src_root = Path(__file__).resolve().parents[2]  # <repo>/src
     env["PYTHONPATH"] = str(src_root) + os.pathsep + env.get("PYTHONPATH", "")
-    return [sys.executable, "-m", "myia.cli", *argv_tail], env
+    return [sys.executable, "-m", "myssia.cli", *argv_tail], env
 
 
 def job_db_path(cron: Any, job: Mapping[str, Any]) -> Path:
-    """job 的 db 路径:``db_path`` 覆写,缺省数据根 ``<data_root>/myia.db``
+    """job 的 db 路径:``db_path`` 覆写,缺省数据根 ``<data_root>/myssia.db``
     (tick ``_job_db_key`` 同口径;~ 展开 + 绝对化)。"""
     override = job.get("db_path")
     if isinstance(override, str) and override.strip():
@@ -173,7 +173,7 @@ def job_db_path(cron: Any, job: Mapping[str, Any]) -> Path:
 
 
 def job_command(cron: Any, job: Mapping[str, Any]) -> tuple[list[str], dict[str, str]]:
-    """组装 ``myia run`` 子进程命令(design §3.2 步骤 1)。
+    """组装 ``myssia run`` 子进程命令(design §3.2 步骤 1)。
 
     ``["run", category, "--db", db, "--json"]`` + 可选 ``--dry-run`` /
     ``--config``(job 可选键;cli.py ``_add_run_parser`` 参数面)。
@@ -538,13 +538,13 @@ class CronRunner:
     """一个数据根的 cron 执行体(tick 派发回调注入形态)。
 
     Args:
-        cron: :class:`~myia.cron.jobs.CronJobs` 门面(存储/账本/注入时钟同根)。
+        cron: :class:`~myssia.cron.jobs.CronJobs` 门面(存储/账本/注入时钟同根)。
         spawn: 子进程层替身(:func:`run_subprocess` 缺省);测试注入 mock
             子进程失败/超时/携带 payload。
-        deliverer: 投递层替身(:func:`myia.cron.summary.deliver_run_summary`
+        deliverer: 投递层替身(:func:`myssia.cron.summary.deliver_run_summary`
             缺省);测试注入 RecordingChannel 形态。
 
-    契约冻结(implement B1)::meth:`execute` 即 :data:`myia.cron.tick.JobRunner`
+    契约冻结(implement B1)::meth:`execute` 即 :data:`myssia.cron.tick.JobRunner`
     协议——入参派发快照(含 ``execution_id``/``_scheduled_instant``),返回
     ``(success, error, delivery_error)`` 三元组;``skipped_busy`` 语义在 tick
     的 ``dispatch_gate`` 注入,本层只报告(design §3.3)。

@@ -1,6 +1,6 @@
 """Vision LLM 客户端:任意 OpenAI 兼容 ``chat.completions`` 端点 + 图片输入。
 
-复用 :class:`shishi.enrich.client.OpenAICompatClient` 的 AsyncOpenAI 模式
+复用 :class:`myssia.enrich.client.OpenAICompatClient` 的 AsyncOpenAI 模式
 (惰性 import、每调用一次 create、60s 请求级超时;整体跑在 sidecar 后台
 线程的事件流里,不受壳 120s 单请求硬超时限制),新增 image content part
 消息 —— local-ocr 技能实证配方:image_url part 在前、text part 在后,图片
@@ -11,7 +11,7 @@
 用 ``default_headers={"Authorization": None}`` 显式剥离(httpx 对 None 头值
 的语义即删除);云端携带真实 Bearer key(key 只经构造参数传递,不落日志)。
 
-发送前长边 >2048 先 :func:`shishi.vision.ocr.sips_resize` 压缩再 base64
+发送前长边 >2048 先 :func:`myssia.vision.ocr.sips_resize` 压缩再 base64
 (VL 输入提速,jpeg 产物;库内 10MB 原件不动,压缩临时文件即弃)。sips 探测
 失败(非 macOS)时跳过压缩原图直发,不硬失败。
 """
@@ -27,9 +27,9 @@ from typing import Any
 
 # 私有符号受控复用(与 desktop/entry.py 复用 schema._SECRET_REF_RE 同一先例):
 # 响应文本/usage 提取只此一处定义,防两处漂移。
-from shishi.enrich.client import _message_text, _usage_tokens
-from shishi.vision.ocr import image_dimensions, sips_resize
-from shishi.vision.settings import VisionConfigError
+from myssia.enrich.client import _message_text, _usage_tokens
+from myssia.vision.ocr import image_dimensions, sips_resize
+from myssia.vision.settings import VisionConfigError
 
 __all__ = [
     "INSTALL_COMMAND",
@@ -39,11 +39,11 @@ __all__ = [
     "VisionResult",
 ]
 
-INSTALL_COMMAND = "pip install 'shishi[vision]'  # 或 uv add 'shishi[vision]'"
+INSTALL_COMMAND = "pip install 'myssia[vision]'  # 或 uv add 'myssia[vision]'"
 #: VL 输入长边上限(超过先 sips 等比压缩再 base64)。
 MAX_LONG_EDGE = 2048
 #: 本地通道占位 key:OpenAI SDK 构造要求非空 api_key;占位后以 default_headers 剥离鉴权头。
-LOCAL_PLACEHOLDER_KEY = "myia-local-no-auth"
+LOCAL_PLACEHOLDER_KEY = "myssia-local-no-auth"
 
 #: 后缀 → MIME(入库白名单 png/jpg/webp 保证未知后缀不可达;兜底 png)。
 _MIME_BY_EXT = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}

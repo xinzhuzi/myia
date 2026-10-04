@@ -206,7 +206,7 @@ def extract_json_entries(text: str) -> list:
     (turned into a one-element list). ``{"items": [...]}`` /
     ``{"results": [...]}`` wrappers are unwrapped. Shared by the scoring
     parser (:func:`parse_score_payload`) and the v0.4 event-dedup parser
-    (:func:`shishi.enrich.aggregate.parse_dedupe_payload`) — one tolerance
+    (:func:`myssia.enrich.aggregate.parse_dedupe_payload`) — one tolerance
     contract for every LLM payload.
 
     Raises:

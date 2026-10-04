@@ -3,7 +3,7 @@
 // 平台头像芯片(task 10-03-messaging-hermes-look R1)组件测试:
 // 28 平台规格表全覆盖(键集与波次表一一对应)、telegram 精确官方标(SVG
 // path 数据直接采用)、feishu 官方字形 monogram(飞书官方标即「飞」)、
-// 未实装平台通用标灰态随波次(W2 全灰 / W3 弱一档)、未登记平台兜底
+// generic 灰态分档(已实装无标全灰 / 未实装 W3 弱一档)、未登记平台兜底
 // monogram。品牌色是数据非主题 token;状态三色不在本文件(在 StatePill)。
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 describe("平台头像:规格表全覆盖", () => {
-  it("28 平台全部有规格;已实装 6 家 brand 精确标,22 家 generic 通用标随波次", () => {
+  it("28 平台全部有规格;已实装 27 家(16 brand 精确标 + 11 无标全灰档),1 家 W3 通用标弱一档", () => {
     const expected = [
       ...IMPLEMENTED_PLATFORMS.map((p) => p.id),
       ...UPCOMING_PLATFORMS.map((p) => p.id),
@@ -31,12 +31,53 @@ describe("平台头像:规格表全覆盖", () => {
     // W2 转实装的四家(ntfy/钉钉/企微/微信)已从 UPCOMING 移入 IMPLEMENTED
     expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("ntfy");
     expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("weixin");
+    // W3 转实装的四家(email/sms/irc/simplex,10-03-messaging-w3-longtail)
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("email");
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("simplex");
+    // W3 转实装的另四家(whatsapp_cloud/matrix/google_chat/teams,同任务)
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("whatsapp_cloud");
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("teams");
+    // W3 组三 homeassistant 转实装(10-03-messaging-w3-longtail,同任务)
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("homeassistant");
+    // W3 组一四家转实装(slack/discord/line/mattermost,10-03-messaging-w3-longtail)
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("slack");
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("mattermost");
+    // W3 组一/组三四家转实装(qqbot/msgraph_webhook 出站实装;bluebubbles/
+    // yuanbao extras 壳,10-03-messaging-w3-longtail 本片)
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("qqbot");
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("msgraph_webhook");
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("bluebubbles");
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("yuanbao");
+    // W3 组三收尾四家转实装(a2a 出站实装;buzz/photon/raft extras 壳)
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("a2a");
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("photon");
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("buzz");
+    expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("raft");
     expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("weixin");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("email");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("whatsapp_cloud");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("teams");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("homeassistant");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("slack");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("mattermost");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("qqbot");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("msgraph_webhook");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("bluebubbles");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("yuanbao");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("a2a");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("photon");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("buzz");
+    expect(UPCOMING_PLATFORMS.map((p) => p.id)).not.toContain("raft");
 
     for (const id of IMPLEMENTED_PLATFORMS.map((p) => p.id)) {
       const spec = PLATFORM_ICON_SPECS[id];
-      expect(spec.kind).toBe("brand");
-      expect(spec.color).toMatch(/^#[0-9A-Fa-f]{6}$/); // 品牌色是数据(官方主色)
+      if (spec.kind === "brand") {
+        expect(spec.color).toMatch(/^#[0-9A-Fa-f]{6}$/); // 品牌色是数据(官方主色)
+      } else {
+        // W3 转实装但无官方品牌标可核订 → generic 全灰档(不带未实装波次)
+        expect(spec.Icon).toBeTruthy(); // 通用标必填(lucide 也是 SVG 组件)
+        expect(spec.wave).toBeUndefined();
+      }
     }
     const waves = new Set<string>();
     for (const platform of UPCOMING_PLATFORMS) {
@@ -78,14 +119,130 @@ describe("平台头像:芯片画法", () => {
   });
 
   it("未实装平台通用标灰态随波次:W3 底与字形各再弱一档(W2 未实装已清零)", () => {
-    // 微信随 10-03-messaging-weixin-bridge 转实装后,UPCOMING 只余 W3 波次
+    // 微信随 10-03-messaging-weixin-bridge 转实装后,UPCOMING 只余 W3 波次;
+    // 代表取仍是未实装的 signal(slack 等已随 W3 各片转实装换 brand 标)。
     expect(UPCOMING_PLATFORMS.filter((p) => p.wave === "W2")).toEqual([]);
-    const { getByTestId } = render(<PlatformAvatar platformId="slack" platformName="Slack" />);
-    const w3 = getByTestId("platform-avatar-slack");
+    const { getByTestId } = render(<PlatformAvatar platformId="signal" platformName="Signal" />);
+    const w3 = getByTestId("platform-avatar-signal");
     expect(w3.querySelector("svg")).toBeTruthy(); // lucide 通用标也是 SVG
     expect(w3.className).toContain("bg-muted/50");
     expect(w3.className).toContain("text-muted-foreground/60");
     expect(w3.className.split(/\s+/)).not.toContain("bg-muted"); // 不用全灰档
+  });
+
+  it("W3 转实装十一家无官方品牌标(email/sms/irc/simplex + qqbot/msgraph_webhook/bluebubbles/yuanbao + 本片 a2a/buzz/raft)→ generic 全灰档(不带波次)", () => {
+    // 10-03-messaging-w3-longtail:十一家无可核订官方标,不虚构品牌色;已实装
+    // 全灰,与未实装 W3 的弱一档区分(末三家 = 组三收尾本片转实装:a2a 是
+    // LF 协议标准无单一品牌方,buzz/raft 蓝本未给标)。
+    for (const id of [
+      "email",
+      "sms",
+      "irc",
+      "simplex",
+      "qqbot",
+      "msgraph_webhook",
+      "bluebubbles",
+      "yuanbao",
+      "a2a",
+      "buzz",
+      "raft",
+    ]) {
+      const { getByTestId } = render(<PlatformAvatar platformId={id} platformName={id} />);
+      const chip = getByTestId(`platform-avatar-${id}`);
+      expect(chip.querySelector("svg")).toBeTruthy(); // lucide 通用标
+      expect(chip.className.split(/\s+/)).toContain("bg-muted"); // 全灰档
+      expect(chip.className.split(/\s+/)).toContain("text-muted-foreground");
+      expect(chip.className.split(/\s+/)).not.toContain("bg-muted/50"); // 不用未实装弱档
+    }
+  });
+
+  it("photon 转实装(组三收尾本片):蓝本官方 logo mark(三条斜圆角杆)品牌色 #6366F1,不再走未实装弱灰档", () => {
+    // 蓝本 platform-icon.tsx 的 PhotonIcon(SVG 数据直接采用,一字符未改)
+    // + 品牌色 #6366F1 同源;photon 是壳通道但标是官方的——标与状态两套
+    // 语言(状态色在 platform-overview 的 StatePill),不因壳降档。
+    const { getByTestId } = render(<PlatformAvatar platformId="photon" platformName="Photon" />);
+    const chip = getByTestId("platform-avatar-photon");
+    const svg = chip.querySelector("svg");
+    expect(svg?.getAttribute("viewBox")).toBe("0 0 24 24");
+    expect(svg?.getAttribute("fill")).toBe("currentColor");
+    expect(svg?.querySelectorAll("rect")).toHaveLength(3); // 三条斜圆角杆(logo mark)
+    expect(chip.style.color).toContain("rgb(99, 102, 241)"); // #6366F1 蓝本品牌色
+    expect(chip.style.backgroundColor).toContain(
+      "color-mix(in srgb, rgb(99, 102, 241) 16%, transparent)",
+    );
+  });
+
+  it("W3 转实装另四家:whatsapp/matrix/google_chat 官方字形品牌色;teams 官方紫 monogram", () => {
+    // 10-03-messaging-w3-longtail:三家字形与品牌色核订自 simple-icons 13;
+    // teams 无 simple-icons 条目(Microsoft 系未收录)→ 官方紫 #6264A7
+    // (Teams UI Toolkit --brand-color)+「T」monogram(钉钉/企微同范式)。
+    const { getByTestId, rerender } = render(
+      <PlatformAvatar platformId="whatsapp_cloud" platformName="WhatsApp" />,
+    );
+    const whatsapp = getByTestId("platform-avatar-whatsapp_cloud");
+    expect(whatsapp.querySelector("svg")?.getAttribute("viewBox")).toBe("0 0 24 24");
+    // Simple Icons「WhatsApp」官方字形开头(路径数据直接采用;一字符未改)
+    expect(whatsapp.querySelector("path")?.getAttribute("d")).toMatch(/^M17\.472 14\.382c/);
+    expect(whatsapp.style.color).toContain("rgb(37, 211, 102)"); // #25D366
+
+    rerender(<PlatformAvatar platformId="matrix" platformName="Matrix" />);
+    const matrix = getByTestId("platform-avatar-matrix");
+    expect(matrix.querySelector("path")?.getAttribute("d")).toMatch(/^M\.632\.55v22\.9H2\.28V24H0V0h2\.28v\.55z/);
+    expect(matrix.style.color).toContain("rgb(0, 0, 0)"); // #000000(Matrix 官方黑)
+
+    rerender(<PlatformAvatar platformId="google_chat" platformName="Google Chat" />);
+    const googleChat = getByTestId("platform-avatar-google_chat");
+    expect(googleChat.querySelector("path")?.getAttribute("d")).toMatch(/^M1\.637 0C\.733 0 0 \.733/);
+    expect(googleChat.style.color).toContain("rgb(52, 168, 83)"); // #34A853
+
+    rerender(<PlatformAvatar platformId="teams" platformName="Microsoft Teams" />);
+    const teams = getByTestId("platform-avatar-teams");
+    expect(teams.textContent).toBe("T"); // 无官方字形条目 → 官方紫 monogram
+    expect(teams.style.color).toContain("rgb(98, 100, 167)"); // #6264A7
+  });
+
+  it("homeassistant 转实装(W3 组三):官方屋形标 + 品牌蓝 tint 底(不再走未实装弱灰档)", () => {
+    // 10-03-messaging-w3-longtail:字形与品牌蓝 #18BCF2 均核订自 simple-icons
+    // 13(源 home-assistant/assets 官方仓库),telegram/ntfy 同范式。
+    const { getByTestId } = render(
+      <PlatformAvatar platformId="homeassistant" platformName="Home Assistant" />,
+    );
+    const chip = getByTestId("platform-avatar-homeassistant");
+    expect(chip.querySelector("svg")?.getAttribute("viewBox")).toBe("0 0 24 24");
+    // Simple Icons「Home Assistant」官方屋形标开头(路径数据直接采用;一字符未改)
+    expect(chip.querySelector("path")?.getAttribute("d")).toMatch(/^M22\.939 10\.627 13\.061\.749/);
+    expect(chip.style.color).toContain("rgb(24, 188, 242)"); // #18BCF2 HA 官方蓝
+  });
+
+  it("W3 组一转实装四家:discord/line/mattermost 官方字形品牌色;slack 官方茄紫 monogram", () => {
+    // 10-03-messaging-w3-longtail:三家字形与品牌色核订自 simple-icons 13
+    // (#5865F2/#00C300/#0058CC,cdn.simpleicons.org);slack 已被 simple-icons
+    // 按品牌方要求移除(同飞书)→ 官方品牌茄紫 #4A154B(Slack brand palette
+    // 主色)+「S」monogram(上游蓝本对 Slack 同款处理)。
+    const { getByTestId, rerender } = render(
+      <PlatformAvatar platformId="slack" platformName="Slack" />,
+    );
+    const slack = getByTestId("platform-avatar-slack");
+    expect(slack.querySelector("svg")).toBeNull(); // monogram 路线不出 svg
+    expect(slack.textContent).toBe("S");
+    expect(slack.style.color).toContain("rgb(74, 21, 75)"); // #4A154B 官方茄紫
+
+    rerender(<PlatformAvatar platformId="discord" platformName="Discord" />);
+    const discord = getByTestId("platform-avatar-discord");
+    expect(discord.querySelector("svg")?.getAttribute("viewBox")).toBe("0 0 24 24");
+    // Simple Icons「Discord」官方字形开头(路径数据直接采用;一字符未改)
+    expect(discord.querySelector("path")?.getAttribute("d")).toMatch(/^M20\.317 4\.3698a19\.7913/);
+    expect(discord.style.color).toContain("rgb(88, 101, 242)"); // #5865F2
+
+    rerender(<PlatformAvatar platformId="line" platformName="LINE" />);
+    const line = getByTestId("platform-avatar-line");
+    expect(line.querySelector("path")?.getAttribute("d")).toMatch(/^M19\.365 9\.863c\.349 0 \.63\.285/);
+    expect(line.style.color).toContain("rgb(0, 195, 0)"); // #00C300
+
+    rerender(<PlatformAvatar platformId="mattermost" platformName="Mattermost" />);
+    const mattermost = getByTestId("platform-avatar-mattermost");
+    expect(mattermost.querySelector("path")?.getAttribute("d")).toMatch(/^M12\.081 0C7\.048-\.034 2\.339 3\.125/);
+    expect(mattermost.style.color).toContain("rgb(0, 88, 204)"); // #0058CC
   });
 
   it("W2 转实装三家:ntfy 官方字形品牌色;钉钉/企微官方主色 monogram(与飞书同范式)", () => {

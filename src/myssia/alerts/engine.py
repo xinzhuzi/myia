@@ -33,12 +33,12 @@ from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime, tzinfo
 from typing import Any
 
-from shishi.dedup import DedupRegistry
-from shishi.enrich.scoring import mute_hit
-from shishi.push.base import Channel, SendReport
-from shishi.push.digest import send_immediate
-from shishi.store.base import Store
-from shishi.store.models import (
+from myssia.dedup import DedupRegistry
+from myssia.enrich.scoring import mute_hit
+from myssia.push.base import Channel, SendReport
+from myssia.push.digest import send_immediate
+from myssia.store.base import Store
+from myssia.store.models import (
     ALERT_ACTION_TAG,
     ALERT_STATUS_DEGRADED_NO_CHANNEL,
     ALERT_STATUS_SEND_FAILED,
@@ -48,7 +48,7 @@ from shishi.store.models import (
     AlertRule,
 )
 
-from shishi.alerts.rule import CompiledAlertRule, compile_rules
+from myssia.alerts.rule import CompiledAlertRule, compile_rules
 
 __all__ = ["AlertEngine", "ChannelResolver", "SendFunc", "alert_view"]
 

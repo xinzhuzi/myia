@@ -39,10 +39,10 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-import myia.push as myia_push
-from myia.cron.executions import pid_exists
-from myia.cron.jobs import CronJobs
-from myia.cron.runner import (
+import myssia.push as myssia_push
+from myssia.cron.executions import pid_exists
+from myssia.cron.jobs import CronJobs
+from myssia.cron.runner import (
     CronRunner,
     InflightContext,
     SubprocessResult,
@@ -55,7 +55,7 @@ from myia.cron.runner import (
     run_subprocess,
     self_command,
 )
-from myia.cron.summary import (
+from myssia.cron.summary import (
     CRON_SUMMARY_TEMPLATE,
     FAILURE_ERROR_CLIP_CHARS,
     SUMMARY_FAILURE_LINE_CLIP,
@@ -65,9 +65,9 @@ from myia.cron.summary import (
     render_summary_markdown,
     summarize_run,
 )
-from myia.cron.tick import tick
-from myia.push.base import PushSendError, SendContext, item_view
-from myia.push.targets import ChannelTarget
+from myssia.cron.tick import tick
+from myssia.push.base import PushSendError, SendContext, item_view
+from myssia.push.targets import ChannelTarget
 
 TZ = ZoneInfo("Asia/Shanghai")
 BASE = datetime(2026, 10, 4, 9, 5, tzinfo=TZ)  # 周日 09:05 → slot=am
@@ -255,7 +255,7 @@ class RecordingChannel:
 def recording(monkeypatch: pytest.MonkeyPatch) -> type[RecordingChannel]:
     RecordingChannel.created = []
     RecordingChannel.fail = False
-    monkeypatch.setitem(myia_push.PLATFORMS, "recording", RecordingChannel)
+    monkeypatch.setitem(myssia_push.PLATFORMS, "recording", RecordingChannel)
     return RecordingChannel
 
 
@@ -283,9 +283,9 @@ def wait_until(predicate: Callable[[], bool], timeout: float = 10.0) -> bool:
 
 
 def test_self_command_dev_form() -> None:
-    """dev 形态:``python -m myia.cli`` + PYTHONPATH 前插 <repo>/src。"""
+    """dev 形态:``python -m myssia.cli`` + PYTHONPATH 前插 <repo>/src。"""
     cmd, env = self_command(["run", "x.yaml", "--json"])
-    assert cmd[:4] == [sys.executable, "-m", "myia.cli", "run"]
+    assert cmd[:4] == [sys.executable, "-m", "myssia.cli", "run"]
     src_root = str(Path(__file__).resolve().parents[1] / "src")
     assert env["PYTHONPATH"].startswith(src_root + os.pathsep)
 
@@ -314,8 +314,8 @@ def test_job_command_assembles_argv(cron: CronJobs, tmp_path: Path) -> None:
 
 
 def test_job_db_path_default_and_override(cron: CronJobs, tmp_path: Path) -> None:
-    """db 缺省 = 数据根 myia.db;覆写 ~ 展开绝对化(tick 分组同口径)。"""
-    assert job_db_path(cron, make_job()) == cron.store.data_root / "myia.db"
+    """db 缺省 = 数据根 myssia.db;覆写 ~ 展开绝对化(tick 分组同口径)。"""
+    assert job_db_path(cron, make_job()) == cron.store.data_root / "myssia.db"
     assert (
         job_db_path(cron, make_job(db_path=str(tmp_path / "x.db"))) == tmp_path / "x.db"
     )
@@ -370,7 +370,7 @@ def test_run_subprocess_timeout_sigkill_after_grace(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """忽略 SIGTERM 的子进程:宽限后 SIGKILL 兜底(killpg 进程组杀)。"""
-    monkeypatch.setattr("myia.cron.runner.TERMINATE_GRACE_SECONDS", 0.5)
+    monkeypatch.setattr("myssia.cron.runner.TERMINATE_GRACE_SECONDS", 0.5)
     script = (
         "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
         "time.sleep(60)"
@@ -679,7 +679,7 @@ def test_deliver_run_summary_stdout_spec_buffered_and_echoed(
     monkeypatch.setattr(sys, "stdout", stdout_capture)
     job = make_job(deliver="stdout:debug")
     markdown = "**早晚情报流** · 定时运行摘要"
-    with caplog.at_level(logging.INFO, logger="myia.cron.summary"):
+    with caplog.at_level(logging.INFO, logger="myssia.cron.summary"):
         result = deliver_run_summary(
             "stdout:debug", markdown, job=job, data_root=tmp_path, now=BASE
         )
@@ -758,7 +758,7 @@ def _insert_execution_with_owner(
     cron: CronJobs, job_id: str, pid: int, *, status: str = "running"
 ) -> str:
     """直插一行指定属主 pid 的账本行(模拟他进程认领;公开 transaction)。"""
-    from myia.cron.executions import process_start_time as pst
+    from myssia.cron.executions import process_start_time as pst
 
     execution_id = f"exec-{pid}-{status}"
     with cron.ledger.transaction() as conn:
@@ -894,7 +894,7 @@ def test_tick_reap_step_invokes_orphan_recovery(cron: CronJobs) -> None:
     execution_id = _insert_execution_with_owner(cron, "j1", dead)
     _write_inflight_marker(cron.store, "j1", execution_id, orphan)
     try:
-        from myia.cron import tick as tick_module
+        from myssia.cron import tick as tick_module
 
         tick_module._last_dead_owner_reap_at.clear()
         assert tick(cron, execute_job=lambda job: (True, None, None)) == 0
@@ -989,7 +989,7 @@ def test_send_context_accepts_cron_summary_kind() -> None:
 
 def test_feishu_card_title_cron_summary_branch() -> None:
     """feishu card_title 的 cron_summary 支(既有两支不变)。"""
-    from myia.push.feishu_card import card_title
+    from myssia.push.feishu_card import card_title
 
     ctx = SendContext(
         slot="pm", date="2026-10-04", category="news", kind="cron_summary"
@@ -1005,7 +1005,7 @@ def test_feishu_card_title_cron_summary_branch() -> None:
 
 def test_cron_summary_template_passes_markdown_through() -> None:
     """透传模板:items[0]['markdown'] 原样取回(TemplateRenderer 渲染)。"""
-    from myia.push.templates import TemplateRenderer
+    from myssia.push.templates import TemplateRenderer
 
     rendered = TemplateRenderer().render(
         CRON_SUMMARY_TEMPLATE,

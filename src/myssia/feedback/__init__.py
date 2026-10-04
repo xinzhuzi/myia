@@ -8,32 +8,32 @@ prompt notes).
 
 Submodules:
 
-- :mod:`shishi.feedback.record` — verdict normalization + ingestion from the
+- :mod:`myssia.feedback.record` — verdict normalization + ingestion from the
   three receiving paths (CLI mark / TG ``getUpdates`` callback / 飞书卡片回调);
-- :mod:`shishi.feedback.stats` — pure statistics over feedback rows (Top 负反馈
+- :mod:`myssia.feedback.stats` — pure statistics over feedback rows (Top 负反馈
   类目/词, simple counting only — 不引入学习库);
-- :mod:`shishi.feedback.tuning` — the periodic tuner (thresholds → append-only
+- :mod:`myssia.feedback.tuning` — the periodic tuner (thresholds → append-only
   adjustments) and the active-tuning view the pipeline applies as demotion.
 
 Receiving forms (grill Q7 定案): 桌面 = TG ``getUpdates`` polling + CLI
 marking; 服务端/compose = 飞书卡片回调端点 (default off; token 鉴权 + 仅内网,
-see :mod:`shishi.push.feishu_callback`).
+see :mod:`myssia.push.feishu_callback`).
 """
 
-from shishi.feedback.record import (
+from myssia.feedback.record import (
     IngestReport,
     ingest_callbacks,
     normalize_verdict,
     record_feedback,
     resolve_item_ref,
 )
-from shishi.feedback.stats import (
+from myssia.feedback.stats import (
     DEFAULT_TOP_N,
     FeedbackStats,
     candidate_words,
     compute_feedback_stats,
 )
-from shishi.feedback.tuning import (
+from myssia.feedback.tuning import (
     DEFAULT_MIN_BAD_COUNT,
     DEFAULT_MIN_BAD_RATIO,
     DEFAULT_WINDOW_DAYS,

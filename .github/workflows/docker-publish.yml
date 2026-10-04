@@ -1,4 +1,4 @@
-# 构建并发布 世事 服务端镜像到 GHCR(ghcr.io/xinzhuzi/shishi)。
+# 构建并发布 世事 服务端镜像到 GHCR(ghcr.io/xinzhuzi/myssia)。
 # 仅 tag 发布:推送 v* tag 才产镜像(main 推送不产镜像,只跑 ci.yml 门禁);
 # 预发布 tag(如 v1.2.0-rc.1)只出版本镜像 tag,不移动 latest。
 # 与 ci.yml 刻意分离:CI 管 push/PR 测试门禁,本工作流只管发镜像。

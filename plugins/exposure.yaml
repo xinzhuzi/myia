@@ -1,5 +1,5 @@
 # plugins/exposure.yaml — AI 基础设施曝面哨兵(FOFA/Shodan 发现 + L0 被动探测
-# + 本地文本分诊),场景件 myia-credhunter(10-03-aipocket-fusion R4/R3)。
+# + 本地文本分诊),场景件 myssia-credhunter(10-03-aipocket-fusion R4/R3)。
 #
 # 授权边界(先读):仅用于已授权安全研究与自有/已授权资产的暴露面排查;
 # 不做大规模扫描、不滥用凭据;被动探测只做 L0 unauth_read(高危类
@@ -16,11 +16,11 @@ schedule: "0 3 * * *"                # 每日 03:00(曝面变化低频,日巡足
 timezone: Asia/Shanghai
 
 plugin:                              # 场景件声明(进程内纯源码形态)
-  id: myia-credhunter
+  id: myssia-credhunter
   requires: []                       # 零 docker 零服务(desktop 分级)
   modes:
     local:
-      install: myia plugin install plugins/myia-credhunter
+      install: myssia plugin install plugins/myssia-credhunter
 
 sources:
   # R4 曝面发现源:FOFA + Shodan 搜页(指纹库查询集)→ 命中目标 L0 被动探测。
@@ -34,10 +34,10 @@ sources:
       credhunter:
         lane: exposure
         fofa_apikey: keychain:myia/credhunter/fofa-key
-        # myia secret set myia/credhunter/fofa-key
+        # myssia secret set myia/credhunter/fofa-key
         fofa_base: https://fofa.info
         shodan_apikey: keychain:myia/credhunter/shodan-key
-        # myia secret set myia/credhunter/shodan-key
+        # myssia secret set myia/credhunter/shodan-key
     proxy: direct
     retry: 0                         # 泳道自带页间限速与逐查询降级,不吃引擎重试
 

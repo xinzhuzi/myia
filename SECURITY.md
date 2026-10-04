@@ -1,13 +1,13 @@
 # Security Policy / 安全策略
 
-MYIA is a crawler-and-pusher: by design it **handles credentials** (LLM keys,
+myssia is a crawler-and-pusher: by design it **handles credentials** (LLM keys,
 push tokens, source cookies, proxy credentials) and **talks to the public
-internet**. This page documents (1) how MYIA handles credentials — the
+internet**. This page documents (1) how myssia handles credentials — the
 contract you can rely on and hold us to — and (2) how to report a
 vulnerability.
 
-MYIA 是一个采集与推送工具:它天然要**经手凭据**(LLM key、推送 token、源站
-Cookie、代理凭据)并**访问公网**。本页说明:(1) MYIA 自身的凭据处理策略——
+myssia 是一个采集与推送工具:它天然要**经手凭据**(LLM key、推送 token、源站
+Cookie、代理凭据)并**访问公网**。本页说明:(1) myssia 自身的凭据处理策略——
 这是你可以依赖、也可以拿来要求我们的契约;(2) 如何报告漏洞。
 
 ## Reporting a vulnerability / 报告漏洞
@@ -15,9 +15,9 @@ Cookie、代理凭据)并**访问公网**。本页说明:(1) MYIA 自身的凭�
 **Do not open a public issue for security problems.** 请勿用公开 issue 报告安全问题。
 
 Use GitHub's private vulnerability reporting:
-**https://github.com/xinzhuzi/MYIA/security/advisories/new**
+**https://github.com/xinzhuzi/myssia/security/advisories/new**
 
-Include: affected version (`myia --version`), reproduction steps, and — if
+Include: affected version (`myssia --version`), reproduction steps, and — if
 relevant — a config snippet **with credentials replaced by
 `env:EXAMPLE_VAR` placeholders**. If you discovered a leak affecting your own
 deployment (e.g. a crash log containing a secret), say so explicitly; we will
@@ -34,9 +34,9 @@ Response targets / 响应时效:
 Coordinated disclosure: we credit reporters in the release notes unless you
 prefer otherwise. 请勿在修复发布前公开细节。
 
-In scope: `src/myia/` credential resolution (env/keychain), plaintext-credential
+In scope: `src/myssia/` credential resolution (env/keychain), plaintext-credential
 rejection, push channels (Feishu card / Telegram / webhook), the plugin
-market loader (`src/myia/plugins/`), feedback/callback endpoints, Docker
+market loader (`src/myssia/plugins/`), feedback/callback endpoints, Docker
 images and compose files, and the GitHub Actions workflows. Out of scope:
 upstream engines' own vulnerabilities (report those upstream — crawl4ai,
 Scrapling, Firecrawl, Skyvern), and social engineering of your own
@@ -52,16 +52,16 @@ These are load-bearing guarantees, not suggestions:
    accepts an `env:VAR` or `keychain:myia/<scope>/<name>` reference. A
    plaintext value in a category YAML is a **load-time rejection** (exit
    code 1), not a warning.
-2. **Values live in the OS keychain or your environment.** `myia secret set
+2. **Values live in the OS keychain or your environment.** `myssia secret set
    myia/<scope>/<name>` writes to the system keychain (macOS Keychain /
    Windows DPAPI via `keyring`); values passed on the command line are
    discouraged (they land in shell history) — stdin piping is documented
    instead.
 3. **Values never reach logs, errors or CLI output.** Diagnostics may name a
    credential (`keychain:myia/stocks/site_cookie missing`) but never echo its
-   value; `myia secret list` shows names only.
+   value; `myssia secret list` shows names only.
 4. **Flat legacy secret names are rejected.** Names must be namespaced
-   `myia/<scope>/<name>` — this keeps MYIA's secrets from colliding with
+   `myia/<scope>/<name>` — this keeps myssia's secrets from colliding with
    other tooling on your machine.
 5. **Push/ingest endpoints default closed.** Callback/ingest API surfaces are
    disabled by default; when enabled they require token auth and bind to
@@ -79,7 +79,7 @@ is a security bug; report it as such.
 
 ## Handling *your* secrets safely / 使用侧建议
 
-- Paste **redacted** `--json` output in issues: MYIA's JSON output keeps
+- Paste **redacted** `--json` output in issues: myssia's JSON output keeps
   credential values out by design, but double-check anything you copy from
   debug logs.
 - Rotate a token if it ever appeared in a screenshot, a shared terminal, or a

@@ -57,5 +57,5 @@ push:
   - channel: stdout              # zero-credential local verification
 ```
 
-三个命令走完「验证 → 演练 → 正式」:`myia test` / `myia run --dry-run` /
-`myia run`(详见双语 Quickstart)。
+三个命令走完「验证 → 演练 → 正式」:`myssia test` / `myssia run --dry-run` /
+`myssia run`(详见双语 Quickstart)。
