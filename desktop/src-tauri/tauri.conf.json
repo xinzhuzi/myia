@@ -44,7 +44,12 @@
       "../../plugins/wool.yaml": "plugins/wool.yaml",
       "../../plugins/stocks.yaml": "plugins/stocks.yaml",
       "../../plugins/gpu-prices.yaml": "plugins/gpu-prices.yaml",
-      "../../plugins/myssia-demo.yaml": "plugins/myssia-demo.yaml"
+      "../../plugins/myssia-demo.yaml": "plugins/myssia-demo.yaml",
+      "../../src/myssia": "myssia-src/myssia",
+      "../entry.py": "myssia-src/entry.py",
+      "../myssia_desktop_entry": "myssia-src/myssia_desktop_entry",
+      "../resources/runtime-manifest.json": "runtime-manifest.json",
+      "../resources/requirements-lock.txt": "requirements-lock.txt"
     },
     "category": "DeveloperTool",
     "shortDescription": "myssia — AI-native intelligence hub"

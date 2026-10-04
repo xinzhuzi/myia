@@ -1,0 +1,94 @@
+# 桌面自管 Python 环境依赖锁版清单(随包 Resources;10-05-desktop-managed-py-env D1/D3)
+# 来源 = pyproject [project] dependencies 经 uv.lock 冻结解析的编译产物,生成命令:
+#   uv export --frozen --no-dev --no-emit-project --no-hashes
+# 唯一手改:workspace 成员 myssia-classifier 由 `-e ./myssia-classifier` 行钉为
+#   PyPI 版 `myssia-classifier==0.0.1`(uv.lock 解析版本即 0.0.1,PyPI 已发布同名
+#   版本,满足 pyproject 约束 >=0.0.1,<0.1;tests/desktop 锁版一致性测试把关)。
+# 消费:壳安装链 spawn <数据根>/python/bin/python3 -m pip install -r 本清单
+#   (PyPI index 可被设置页镜像覆盖,D3;清单本身钉版不受镜像影响)。
+# 平台/版本标记按通用解析保留(linux / <3.12 条目在 mac/win 的 3.12.7 运行时上
+# 自然不触发;win32 条目(keyring 后端)按平台生效)。
+myssia-classifier==0.0.1
+    # via myssia
+annotated-types==0.8.0
+    # via pydantic
+anyio==4.15.1
+    # via httpx
+apscheduler==3.11.3
+    # via myssia
+backports-tarfile==1.2.0 ; python_full_version < '3.12'
+    # via jaraco-context
+certifi==2026.7.22
+    # via
+    #   httpcore
+    #   httpx
+cffi==2.1.1 ; platform_python_implementation != 'PyPy' and sys_platform == 'linux'
+    # via cryptography
+cryptography==50.0.2 ; sys_platform == 'linux'
+    # via secretstorage
+feedparser==6.0.14
+    # via myssia
+feedparser-sgmllib==2.1.0
+    # via feedparser
+h11==0.16.0
+    # via httpcore
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.1
+    # via myssia
+idna==3.20
+    # via
+    #   anyio
+    #   httpx
+importlib-metadata==9.0.1 ; python_full_version < '3.12'
+    # via keyring
+jaraco-classes==3.4.0
+    # via keyring
+jaraco-context==6.1.2
+    # via keyring
+jaraco-functools==4.6.0
+    # via keyring
+jeepney==0.9.0 ; sys_platform == 'linux'
+    # via
+    #   keyring
+    #   secretstorage
+jinja2==3.1.6
+    # via myssia
+keyring==25.7.0
+    # via myssia
+markupsafe==3.0.3
+    # via jinja2
+more-itertools==11.1.0
+    # via
+    #   jaraco-classes
+    #   jaraco-functools
+pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy' and sys_platform == 'linux'
+    # via cffi
+pydantic==2.13.5
+    # via myssia
+pydantic-core==2.46.5
+    # via pydantic
+pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
+    # via keyring
+pyyaml==6.0.3
+    # via myssia
+secretstorage==3.5.0 ; sys_platform == 'linux'
+    # via keyring
+selectolax==0.4.13
+    # via myssia
+socksio==1.0.0
+    # via httpx
+typing-extensions==4.16.0
+    # via
+    #   anyio
+    #   pydantic
+    #   pydantic-core
+    #   typing-inspection
+typing-inspection==0.4.4
+    # via pydantic
+tzdata==2026.4 ; sys_platform == 'win32'
+    # via tzlocal
+tzlocal==5.4.4
+    # via apscheduler
+zipp==4.1.0 ; python_full_version < '3.12'
+    # via importlib-metadata

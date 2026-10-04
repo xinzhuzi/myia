@@ -1,0 +1,26 @@
+{
+  "manifest_version": 1,
+  "runtime": {
+    "name": "cpython",
+    "version": "3.12.7",
+    "release_tag": "20241016",
+    "distribution": "indygreg/python-build-standalone",
+    "install_kind": "install_only"
+  },
+  "platforms": {
+    "aarch64-apple-darwin": {
+      "url": "https://github.com/indygreg/python-build-standalone/releases/download/20241016/cpython-3.12.7+20241016-aarch64-apple-darwin-install_only.tar.gz",
+      "sha256": "4c18852bf9c1a11b56f21bcf0df1946f7e98ee43e9e4c0c5374b2b3765cf9508",
+      "archive": "tar.gz",
+      "extract_root_dir": "python",
+      "python_bin": "python/bin/python3"
+    },
+    "x86_64-pc-windows-msvc": {
+      "url": "https://github.com/indygreg/python-build-standalone/releases/download/20241016/cpython-3.12.7+20241016-x86_64-pc-windows-msvc-install_only.tar.gz",
+      "sha256": "f05531bff16fa77b53be0776587b97b466070e768e6d5920894de988bdcd547a",
+      "archive": "tar.gz",
+      "extract_root_dir": "python",
+      "python_bin": "python/python.exe"
+    }
+  }
+}
