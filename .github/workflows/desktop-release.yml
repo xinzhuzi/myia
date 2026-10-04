@@ -278,8 +278,8 @@ jobs:
         shell: bash
         run: |
           B="desktop/src-tauri/target/release/bundle"
-          cp "$B"/msi-updater/*_x64*.msi     "$B/myssia_${MYIA_VERSION}_x64.msi"
-          cp "$B"/msi-updater/*_x64*.msi.sig "$B/myssia_${MYIA_VERSION}_x64.msi.sig"
+          cp "$B"/msi/*_x64*.msi     "$B/myssia_${MYIA_VERSION}_x64.msi"
+          cp "$B"/msi/*_x64*.msi.sig "$B/myssia_${MYIA_VERSION}_x64.msi.sig"
 
       - name: 上传 win-msi artifact(供 release-finalize 挂 Release)
         uses: actions/upload-artifact@v4
