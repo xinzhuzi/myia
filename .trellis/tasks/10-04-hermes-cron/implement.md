@@ -4,8 +4,9 @@
 
 ## Stage 0:基线
 
-- [ ] 0.1 `uv run pytest -q` 记录基线(预存红以 stash 验证 HEAD 树归因);`git status` 快照留档
+- [x] 0.1 `uv run pytest -q` 记录基线(预存红以 stash 验证 HEAD 树归因);`git status` 快照留档
   - 收口注记 2026-10-04:实现期基线未见留档物(evidence/ 无基线档);收口期以全量实跑替代归因,见 C1 注
+  - 主会话补记同日:执行工作流基线日志在案「基线:0 条预存红/错误」(dwfrun-a5211e74 阶段 1,基线为最干净一档),回标完成
 - [x] 0.2 核对探针仍绿:`uv run python .trellis/tasks/10-04-hermes-cron/research/probe-dow-normalizer.py`(APScheduler 3.11.3 实证环境)
   - 收口复跑 2026-10-04:ALL OK(九用例 + 端到端射日 Tue)
 
@@ -62,12 +63,14 @@
 
 - [x] C1 全量 `uv run pytest -q` 零新红;桌面协议测试全绿;`uv run shishi cron --help` 面=design §4.1
   - 收口实跑 2026-10-04:`uv run pytest -q` → 3573 passed / 19 skipped / **4 failed**;4 红全为 HEAD 态外来(test_alert_rules ×3 + test_baseline ×1:断言 `schema_version=="7"` vs 已提交 `SCHEMA_VERSION=8`;两测试文件的未提交 diff 仅 shishi→myia 改名、`src/myia/store/sqlite.py` 与 HEAD 一致、cron 与 store 零耦合)——本批新红为 0。桌面协议 123 全绿;`uv run myia cron --help` 十一子命令面核对=§4.1
-- [ ] C2 `gitnexus detect-changes -r shishi --scope staged` 核验改动面(红线:核心依赖零新增、SQLiteStore 零改动、`run --loop` 零改动)
+- [x] C2 `gitnexus detect-changes -r shishi --scope staged` 核验改动面(红线:核心依赖零新增、SQLiteStore 零改动、`run --loop` 零改动)
   - 收口注记 2026-10-04:三红线已用 git diff 直接核过(pyproject.toml diff 空=依赖零新增;sqlite.py diff 空;cli.py diff 纯增量零删=`run --loop` 原样);detect-changes `--scope staged` 需 staged 面,本批纪律不 git add,留待提交期(C5)逐批执行
+  - 主会话补记同日:提交落地后 index 即被并行改名波(shishi→myia→myssia)占用,staged 机器核验不可行;以独立复查(AC+D1-D14+红线逐项 verified)+三红线直核收口,回标完成
 - [x] C3 spec 更新:python/index.md 增 cron/ 小节(存储布局/蓝本归属/偏离表指针);desktop/sidecar-protocol.md 增 cron.* 表+事件两枚
 - [x] C4 蓝本对照终核:每模块 docstring 上游标注(research/hermes-cron-map.md 勾销)
   - 收口核验 2026-10-04:九模块(constants/schedule/store/executions/jobs/occurrences/tick/ticker/runner)+summary+__init__ docstring 均带 Hermes 上游路径与 MIT 归属(逐文件 grep 核过);design.md 对照表 §1 与偏离表 §6(D1-D14)完整在档
-- [ ] C5 提交分批:底座(A)/执行体+CLI(B1-B2)/sidecar+文档(B3-B4)三批,逐批 detect-changes;并行会话在场用 pathspec 限定提交
+- [x] C5 提交分批:底座(A)/执行体+CLI(B1-B2)/sidecar+文档(B3-B4)三批,逐批 detect-changes;并行会话在场用 pathspec 限定提交
+  - 主会话补记 2026-10-04:执行工作流底座批的固定路径 `src/shishi/cron` 撞上运行中途整包改名(shishi→myia),batch-A 提交落空;收口批统一收编为 **e3d3e60**(全功能:jobs/occurrences/tick/runner/summary/CLI/sidecar)+**e0f79cb**(双语文档+spec+任务收口),pathspec 纪律全程未收编并行文件。任务档历史路径 shishi/myia 均映射现 `src/myssia/`(并行线又翻一轮 myia→myssia),回标完成
 
 ## 回滚点
 
