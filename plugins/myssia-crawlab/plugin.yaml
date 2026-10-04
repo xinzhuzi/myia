@@ -1,0 +1,28 @@
+# myssia-crawlab — 官方场景件:分布式爬虫管理台(封装 crawlab-team/crawlab)。
+#
+# 同物种例外通道(D4/D6,task 10-05-plugin-market-batch 批二):Crawlab 本身
+# 就是采集编排平台,与 MYIA 同生态位 —— 盘点表原判 d 路默认不收;例外通道
+# = 用户已有自部署实例要接。gate: platform 表「自有实例门槛」:激活开关落
+# 全局 gates.yaml(platforms.crawlab,经 myssia gates set 或桌面设置「门槛件」
+# 分区),**组织性不执法**(不拦用户 direct_api 源;开关=知情确认+plugin list
+# 启用徽标+doctor info→ok),不落品类 YAML。
+#
+# 许可:上游 BSD-3-Clause(gh api LICENSE 原文核,2026-10-05);本插件只以
+# manifest 声明依赖与文档引用接入,不复制其源码。服务端部署 compose 在仓库
+# docker/plugins/myssia-crawlab/。
+id: myssia-crawlab
+name: 分布式爬虫管理台(Crawlab)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: remote
+gate: platform
+requires: []
+provides: [crawl_orchestration]
+modes:
+  remote:
+    endpoint: https://crawlab.example.com   # your Crawlab deployment
+    # 上游 REST 以登录 JWT 为准;部署侧若启用 API token/反代鉴权,凭据写入
+    # 该钥匙串键(纯内网自部署可不配;凭据只走钥匙串引用,零明文)。
+    token: keychain:myia/crawlab/api-token   # myssia secret set myia/crawlab/api-token
+install:
+  source: https://github.com/xinzhuzi/myia.git
