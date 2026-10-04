@@ -297,6 +297,11 @@ def resolve_channel_credential(reference: str, *, env_key: str, label: str) -> s
     Raises:
         CredentialResolveError: 同 :func:`myssia.schema.resolve_credential`;
             env 缺失且回退未录时为 ``env_var_missing``(含设置→推送指引)。
+
+    蓝本对位:Hermes 凭据多源解析 = config ``extra`` > profile ``.env``
+    (``_extra_or_secret``,NousResearch/Hermes-Agent,MIT);MYIA 刻意偏离为
+    「显式引用 > env > 钥匙链规范名」——存储面按 security-baseline 铁律走
+    系统钥匙链(明文 env 文件不落),解析面保持 YAML 引用语义零变化。
     """
     try:
         return resolve_credential(reference)
