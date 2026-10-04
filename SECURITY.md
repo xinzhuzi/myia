@@ -15,7 +15,7 @@ Cookie、代理凭据)并**访问公网**。本页说明:(1) myssia 自身的凭
 **Do not open a public issue for security problems.** 请勿用公开 issue 报告安全问题。
 
 Use GitHub's private vulnerability reporting:
-**https://github.com/xinzhuzi/myssia/security/advisories/new**
+**https://github.com/xinzhuzi/myia/security/advisories/new**
 
 Include: affected version (`myssia --version`), reproduction steps, and — if
 relevant — a config snippet **with credentials replaced by

@@ -32,4 +32,4 @@ modes:
     # 端点占位、按需填写。上游无鉴权,故无 token 声明。
     endpoint: https://photon-wrapper.example.com
 install:
-  source: https://github.com/xinzhuzi/myssia.git
+  source: https://github.com/xinzhuzi/myia.git

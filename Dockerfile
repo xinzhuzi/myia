@@ -79,7 +79,7 @@ USER myssia
 # this image only carries the pipeline core + CLI.
 LABEL org.opencontainers.image.title="MYIA" \
       org.opencontainers.image.description="AI-native intelligence hub — config-driven fetch, classify, dedup, push" \
-      org.opencontainers.image.source="https://github.com/xinzhuzi/myssia" \
+      org.opencontainers.image.source="https://github.com/xinzhuzi/myia" \
       org.opencontainers.image.licenses="MIT"
 
 # `docker run <image>` prints the version; the real workload is
