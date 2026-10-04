@@ -315,6 +315,32 @@ class TestFeishuReplyFallback:
         assert calls[2]["url"].split("?")[0] == API_URL
         assert sleeper.sleeps == []
 
+    def test_fallback_on_last_attempt_still_downgrades(self):
+        """末次尝试槽上的降级不烧预算:503×2 退避耗掉 2 次尝试后,第 3 次
+        (末次)reply 报 230011 → 仍完成降级改投 create(回归:早期 for 槽
+        位计数的实现在此坠入「不可达」AssertionError,降级 create 根本不发)。"""
+        calls: list[dict] = []
+        sleeper = SleepRecorder()
+        channel = _feishu_channel(
+            calls,
+            sleeper,
+            client_kwargs={
+                "responses": [
+                    httpx.Response(503, text="x"),
+                    httpx.Response(503, text="x"),
+                    _feishu_code(230011, "reply message not found"),
+                    _feishu_ok(),
+                ]
+            },
+        )
+        asyncio.run(
+            channel.send([{"title": "条目"}], _ctx(_feishu_target(thread_id="om_root4")))
+        )
+        assert len(calls) == 4  # 2 瞬态 + 1 死锚探测 + 1 降级 create
+        assert calls[2]["url"] == f"{API_URL}/om_root4/reply"
+        assert calls[3]["url"].split("?")[0] == API_URL  # 降级 create 在末次槽内完成
+        assert sleeper.sleeps == [1.0, 2.0]  # 降级零退避(蓝本内联兜底,不额外等)
+
     def test_create_path_fallback_code_fails_without_downgrade(self):
         """create 路径收到 fallback 类码:无锚可丢,立即失败(防自降级环)。"""
         calls: list[dict] = []

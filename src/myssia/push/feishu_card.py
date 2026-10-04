@@ -779,14 +779,18 @@ class FeishuCardChannel(TrendAwareChannel):
         :data:`SEND_ATTEMPTS`;reply 应答码命中
         :data:`FEISHU_REPLY_FALLBACK_CODES`(锚消息被撤回/不存在)即置空
         锚、改投 create 新消息(蓝本 ``active_reply_to = None`` 后 ``_raw(
-        None)``,降级发送同在本循环的瞬态重试保护内)。MYIA 适配注记见
-        模块 docstring「发送护栏」节。
+        None)``,降级发送同在本循环的瞬态重试保护内)。**降级不消耗尝试
+        槽位**——蓝本的 create 兜底与失败的 reply 同属一个 attempt(上游
+        内联执行),MYIA 以「仅瞬态退避递增计数」的 while 循环对齐:末次
+        尝试上才降级也能完成改投,不会耗尽预算坠入不可达路径。MYIA 适配
+        注记见模块 docstring「发送护栏」节。
 
         Returns:
             实际生效的话题锚(降级后为 None)——多卡场景后续卡直发
             create:锚已判死,逐卡再探死锚只会在话题群里连环开新话题。
         """
-        for attempt in range(SEND_ATTEMPTS):
+        attempt = 0
+        while attempt < SEND_ATTEMPTS:
             try:
                 await self._post(token, body, thread_id=thread_id)
             except PushSendError as exc:
@@ -798,6 +802,10 @@ class FeishuCardChannel(TrendAwareChannel):
                         exc,
                     )
                     thread_id = None
+                    # 降级不消耗尝试槽位:蓝本的 create 兜底与 reply 同属一个
+                    # attempt(上游 ``response = await _raw(None)`` 内联执行,
+                    # 上游 3949-3956 行);若以 for 槽位计,末次尝试上的降级会
+                    # 耗尽循环坠入不可达断言——修复实录见 10-05 R2 收尾笔。
                     continue
                 if attempt >= SEND_ATTEMPTS - 1 or not _is_transient_send_error(exc):
                     raise
@@ -810,6 +818,7 @@ class FeishuCardChannel(TrendAwareChannel):
                     exc,
                 )
                 await self._sleep(delay)
+                attempt += 1
             else:
                 return thread_id
         raise AssertionError("unreachable: retry loop must return or raise")  # pragma: no cover
