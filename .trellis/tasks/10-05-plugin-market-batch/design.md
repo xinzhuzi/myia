@@ -80,3 +80,63 @@
 
 新增 5 个 `plugins/myssia-*/`(plugin.yaml+README[+adapter.py][+vendor]);`src/myssia/cli.py` 加 3 组 parser/handler;`.gitmodules` +1;`tests/plugins/test_plugin_packages.py` 清单+3 个新测试文件;`docker/plugins/myssia-{rsshub,spiderfoot}/compose.yml`;README zh/en 品类数 6→7(AC4,顺批做)。
 
+
+## 6. 门槛化融合设计(D4 裁决,2026-10-05 晚;深度探查已核实地基)
+
+> 主人令:e 路改门槛立项+设置面配置。本节是落地设计;地基事实(2026-10-05 实读):`vision/settings.py` 是 `<MYIA_HOME>/vision.yaml` 全局配置先例(「MYIA_HOME 第一个全局配置文件」);桌面设置屏现有 4 分区(通用/推送/视觉/系统,`?section=` 深链模式);manifest tier 词表三元组(desktop/remote/server-only)。
+
+### 6.1 gates.yaml(全局门槛配置,照 vision.yaml 先例)
+
+```yaml
+# <MYIA_HOME>/gates.yaml —— 门槛件知情启用(fail-closed:本文件缺失/损坏=全关)
+version: 1
+paid_engines: false            # 付费 SaaS 采集通道总开关(知情:按页计费)
+third_party_trace: false       # 第三方留痕通道(公共 RSSHub 实例等)
+saas:                          # 付费引擎逐件(key 走钥匙串引用,零明文)
+  zenrows:    {enabled: false, api_key: keychain:myia/saas/zenrows-key}
+  scraperapi: {enabled: false, api_key: keychain:myia/saas/scraperapi-key}
+platforms:                     # 同物种/自有实例接入(门槛=自部署 endpoint)
+  crawlab:     {enabled: false, endpoint: https://crawlab.example.com, token: keychain:myia/platforms/crawlab-token}
+  worldmonitor:{enabled: false, endpoint: https://worldmonitor.example.com}
+analysis:                      # 停更/许可核验后启用的分析件
+  snownlp_sentiment: false     # 知情:上游 2020 停更,pin 版自担维护
+```
+
+- 装载:新模块 `src/myssia/gates.py`(照 vision/settings.py 的「构造即校验+非法拒构造+LoadError 结构化」);坏文件=**全关+doctor warning**(fail-closed,不是 fail-open);
+- **刻意不落品类 YAML**:门槛开关只在这里——AI/模板生成品类配置时不可能无意开启付费通道(主人裁决的「设置里加配置」落地位置)。
+
+### 6.2 manifest 词表与市场面
+
+- `TIER_TOKENS` 增 `gated`:声明即「可装但激活需 gates.yaml 对应开关」;`plugin list` 按 tier 展示时门槛件独立分组+「未启用」徽标;
+- 未启用门槛件 = doctor **info** finding(不是 warning:用户没开是正常态,不是故障);
+- 新 gated 插件包的 README 必须含门槛类型+知情文案(成本/留痕/停更三态文案模板)。
+
+### 6.3 付费 SaaS 引擎化(Zenrows/ScraperAPI,R6)
+
+- `EngineName` 词表新增 `zenrows`/`scraperapi`,注册 `ENGINE_REGISTRY` **永不进 AUTO_CHAIN**(链外引擎,credhunter 先例);
+- fetch 前置检查:总开关或件开关未开 → 结构化失败 `gate_closed`(新失败类,与 `dependency_missing`/`mcp_server_missing` 并列;doctor 文案区分「关着」与「缺依赖」);
+- 开启后:engine_options 收 `api_key: keychain:myia/saas/<name>-key` 引用(凭据解析走既有 secret 通道);测试全 MockTransport(零真实扣费)。
+
+### 6.4 桌面设置屏「门槛件」分区
+
+- `SECTIONS` 增第 5 分区 `{id: "gates", label: "门槛件"}`(照现有 4 分区与 `?section=` 深链模式);
+- 区内三卡:付费通道(总开关+逐件开关+钥匙串键录入)/自有实例(endpoint+token 表单)/分析件(停更知情开关);保存走 sidecar 新方法 `gates.get`/`gates.save`(照 yaml.save 先例,main.rs 白名单同步);
+- 文案铁律:每开关旁挂知情警示(「按页计费,你的采集目标清单将经对方服务器」等)。
+
+### 6.5 e 路逐件门槛表(盘点表回写索引)
+
+| 原判 | 工具 | 门槛类型 | 落地形态 |
+|---|---|---|---|
+| e(SaaS) | Zenrows/ScraperAPI/Crawlbase | 付费知情 | gated 引擎+gates.yaml(§6.3) |
+| e(被覆盖) | Selenium/undetected-chromedriver/you-get/urlwatch | —(维持不收) | 无门槛可设,纯冗余;裁决适用范围不含此类 |
+| e(同物种) | Crawlab/worldmonitor | 自有实例 | remote 桩+gates.platforms(§6.1) |
+| e(同物种) | EasySpider | 形态核验 | 本地 GUI 无 API:门槛条件不成立→维持不收+理由记档(R7) |
+| e(许可) | MediaCrawler/yake/weibo-search/SpiderKeeper | 许可核验 | 法律门槛,核验前不进仓;核验动作入 implement 清单 |
+| e(停更) | snownlp/recon-ng/ScrapydWeb | 停更知情 | gates.analysis 开关+pin 版 |
+| e(免费路径) | — | — | 免费路径门禁是 connector-selection spec 硬规则,D4 不改写 |
+
+### 6.6 与既有判例的一致性
+
+- D2「永不缺省」存活且加强:门槛件=显式知情后的选择,缺省关闭进 gates.yaml fail-closed;
+- 铁律不变:门槛件任何失败(含 gate_closed)不拦核心品类;
+- connector-selection spec 的免费路径门禁不放宽——付费 SaaS 收录的是「用户自带钥匙的通道」,不进官方文档推荐路径(zero-cost.md 不列)。

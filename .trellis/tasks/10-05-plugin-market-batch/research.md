@@ -101,3 +101,23 @@ a=核心链新档(库型且更强) · b=插件+链外引擎(本地跑,照 credhu
 | snownlp | MIT ● | 6.6k ● | e(不活跃) | 中文情感分析经典但 2020 年停更 |
 
 **结论**:分析侧开源件当前融合 0 件(首批全是采集/侦察件;MYIA 分析回路=自研关键词分类+LLM 精评+OCR/VL)。二批建议:web-check+social-analyzer 两桩(c 路快件)+trafilatura extract 增强(引擎侧另立任务)。
+
+## 第四波:e 路门槛化重标注(2026-10-05 晚主人裁决 D4)+分析件二批池
+
+> 裁决原文:「e 路砍掉的不是不做,是要做,但是有门槛的去做,设置里面要加配置的。」→ 逐行回写门槛类型(设计细则 design §6;「被覆盖」类除外)。第三波 10 行分析件中 web-check/social-analyzer 升二批池、worldmonitor 由 d 改判「自有实例门槛桩」。
+
+| 工具 | 原判 | 新判(D4) | 门槛 |
+|---|---|---|---|
+| Zenrows/ScraperAPI/Crawlbase | e(SaaS) | **gated 引擎(R6)** | 付费知情开关+keychain 键 |
+| 公共 RSSHub 实例 | 文档注记 | gated(third_party_trace) | 留痕知情开关 |
+| Crawlab | d(同物种) | **remote 门槛桩(R7)** | 自部署 endpoint(自有实例例外通道) |
+| worldmonitor | d(同物种) | remote 门槛桩(R7) | 自部署 endpoint(AGPL 只桩) |
+| EasySpider | d(同物种) | 维持不收(门槛条件不成立) | 本地 GUI 无 API,无 endpoint 可填——如实记 |
+| MediaCrawler/yake/weibo-search/SpiderKeeper | e(许可) | 门槛=许可核验(法律) | 核验前不进仓;核验动作入清单 |
+| snownlp/recon-ng/ScrapydWeb | e(停更) | gates.analysis 知情开关 | 停更知情+pin 版 |
+| Selenium/undetected-chromedriver/you-get/urlwatch | e(被覆盖) | 维持不收 | 无门槛语义(纯冗余),裁决不含此类 |
+| web-check | c·二批候选 | **二批确定** | 无门槛(MIT 自部署,走普通 remote 桩) |
+| social-analyzer | c·二批候选 | 二批确定 | 无门槛(AGPL 只桩,自部署) |
+| LibreTranslate | c·备选 | 备选(无品类消费面) | — |
+| trafilatura/readability/newspaper3k | a/b 观察 | **extract 增强另立任务(AC9)** | 无门槛,须答「比手写 extract 强在哪」 |
+| RapidFuzz | 核心库候选 | dedup/对齐增强候选 | 无门槛,核心侧评估 |

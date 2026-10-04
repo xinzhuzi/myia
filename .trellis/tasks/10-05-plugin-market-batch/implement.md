@@ -31,3 +31,13 @@
 
 - 单件:删 `plugins/<name>/` + 还原 OFFICIAL_PLUGINS/golden;
 - 整批:revert 批次提交;零核心改动,无数据迁移。
+
+## 批二:D4 门槛机制+门槛件+分析件(2026-10-05 晚立,按依赖序)
+
+10. [ ] **门槛机制先行**(R5,其余件的地基):`src/myssia/gates.py`(gates.yaml fail-closed 装载,照 vision/settings.py)+ manifest `TIER_TOKENS`+`gated`+plugin list 分组+doctor info finding+测试;
+11. [ ] **设置面门槛件分区**(R5 尾):桌面 SECTIONS 第 5 分区+sidecar `gates.get/save` 两方法(main.rs 白名单)+三卡表单+知情文案+UI 测试;
+12. [ ] **付费 SaaS gated 引擎**(R6):zenrows/scraperapi 引擎模块(词表+注册表不进 AUTO_CHAIN+gate_closed 失败类+keychain 键解析)+MockTransport 测试(关闭态/开启态往返);
+13. [ ] **同物种门槛桩**(R7):myssia-crawlab+myssia-worldmonitor(remote,gated tier,compose+README 门槛说明)+EasySpider 形态核验结案记档;
+14. [ ] **分析件二批**(AC9):myssia-webcheck+myssia-socialanalyzer(remote 桩)+trafilatura extract 增评估结案(独立任务或并入,答增量问);
+15. [ ] 许可核验批:MediaCrawler/yake/weibo-search/SpiderKeeper 许可原文核验(仓库 LICENSE 一手),可进则进、不可进如实挂起;
+16. [ ] 门禁与提交纪律同首批(单件单提交、tests/plugins 组绿+批末全量、快照外科防并行混线)。

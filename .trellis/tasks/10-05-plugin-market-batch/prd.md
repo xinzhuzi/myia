@@ -61,6 +61,28 @@
 
 > 依据事实(已在档):引擎链四件全是本地开源库非云 API;厂商 SaaS 的「目标 URL 集+账号绑定」是最坏留痕形态;connector-selection spec 宪法排序「本地/自托管 > 稳定免费层 > 聚合器只做可选后端」。
 
+## 2026-10-05 晚主人裁决 D4:e 路不是「不做」,是「门槛化地做」(+设置面配置)
+
+**原文**:「e 路砍掉的不是不做,是要做,但是有门槛的去做,设置里面要加配置的。」
+
+**D4 定案(细化,对 D2 的演进不是推翻)**:
+
+- e 路语义从「不立项记档」改为「**门槛立项**」:除「被覆盖/无增量」类(Selenium/urlwatch 重复件等,门槛无意义)外,e 路各项全部转为门槛件,门槛类型五类:
+  1. **付费知情门槛**(Zenrows/ScraperAPI/Crawlbase 型 SaaS):收录为 gated 引擎/插件,激活需设置面显式开关(知情确认:花钱+目标清单经第三方)+ keychain 键;**永不缺省、永不进 AUTO_CHAIN**;
+  2. **第三方留痕门槛**(公共 RSSHub 实例等):激活需留痕知情开关;
+  3. **自有实例门槛**(同物种例外通道:Crawlab/worldmonitor 等):收录为 remote 桩,门槛=用户自部署实例 endpoint,非物种本身拒绝;
+  4. **许可核验门槛**(MediaCrawler/yake):法律门槛,核验通过前不进仓库(设置面无关),核验动作进待办;
+  5. **停更知情门槛**(snownlp 型):激活需接受「上游冻结,pin 版自担维护」的知情开关。
+- **设置面配置是硬要求**:门槛开关不落在品类 YAML(那会让 AI 生成配置时无意开启),落在**全局配置文件**(gates.yaml,照 vision.yaml 先例)+ **桌面设置屏新分区**(门槛件:开关/警示文案/凭据录入/endpoint 填写)。
+- **fail-closed**:gates.yaml 缺失/损坏 = 全部门槛件关闭 + doctor 结构化提示;铁律不变(门槛件永不拦核心)。
+- D2 硬规则的存活部分:门槛件**永不缺省**——本地/自托管优先序不变,门槛只是让「用户知情后的选择」有正规的落地通道。
+
+## Requirements(增补)
+
+- R5(门槛机制):gates.yaml 全局配置装载/校验(照 vision/settings.py 同款 fail-closed)+ manifest tier 词表新增 `gated` + `myssia plugin list` 门槛件分组 + 未启用=doctor info finding;桌面设置屏新增「门槛件」分区(sidecar 协议 gates.save/load 两方法,照 yaml.save 先例)。
+- R6(付费 SaaS 引擎化):Zenrows/ScraperAPI 收录为显式引擎词表新档(永不进 AUTO_CHAIN),fetch 前查 gates 总开关,关闭态=结构化失败 `gate_closed`(与 dependency_missing 语义区分);API key 走 keychain 引用。
+- R7(同物种例外通道):Crawlab(BSD,可直借)/worldmonitor(AGPL 只桩)收录为 remote 桩件,门槛=自有实例 endpoint;EasySpider 形态核验(本地 GUI 无 API)如实记档——无服务形态则门槛条件不成立,维持不收并注记理由。
+
 ## Phase 2 盘点表骨架(D1 定案后填充;○=待核实,照 supplier-map 惯例)
 
 | 形态类 | 候选(全部 ○ 待核实:上游/license/免费路径/活跃度) | 预期归位倾向 |
@@ -88,6 +110,10 @@
 - [x] AC3:首批收录全绿(2026-10-05 首批 5 件:media/maigret/theharvester/rsshub/spiderfoot;tests/plugins 518 绿、`plugin install+list` 沙箱冒烟可见、doctor 降级 warning=包契约既有钉;官方件 golden 无涉——首批零品类 YAML 变更,OFFICIAL_PLUGINS 品类清单不动;**全量 pytest 门禁:批末跑毕,红项归因见下注**)。注:首批期间并行会话同树在做 secrets 修复与 urlwatch 件,全量若有红先归因并行域再回本档。
 - [x] AC4:README「6 official categories」→7(并行会话顺手完成,265b7a9 双语两处)。
 - [ ] AC5(挂账,另任务):装机包 tauri resources 只捆 4/7 官方品类(games/news/exposure 缺)与 `.seeded` 全有或全无补种语义——本任务不动,已单独记录。**首批追加注记:官方场景件已达 12 件(7 桌面+3 remote+2 server-only),装机包市场面是否随包分发 plugins/<pkg> 是 AC5 任务一并裁。**
+- [ ] AC6(D4 门槛机制):gates.yaml fail-closed 装载+桌面设置屏门槛件分区+plugin list 门槛件分组全绿;未启用门槛件 doctor=info(非 warning)且核心无感(铁律测试)。
+- [ ] AC7(D4 付费 SaaS):Zenrows/ScraperAPI gated 引擎收录——gate_closed 语义测试(总开关关=结构化失败不降级不烧钱)+ 开启后 MockTransport 往返;永不进 AUTO_CHAIN 的注册表断言。
+- [ ] AC8(D4 同物种/门槛桩):Crawlab+worldmonitor remote 桩收录(compose/README 门槛说明);EasySpider 形态核验结论记档(可接/不可接+理由);MediaCrawler/yake 许可核验动作完成或如实挂起。
+- [ ] AC9(分析件二批):web-check+social-analyzer 桩收录;trafilatura extract 增强评估结案(独立引擎任务或并入,须回答「比手写 extract 规则强在哪」)。
 
 ## Constraints
 
