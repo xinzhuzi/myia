@@ -1,14 +1,13 @@
 import { useSidecarStatus } from "@/hooks/use-sidecar-status";
 import {
   Activity,
-  Download,
+  ShieldAlert,
   Eye,
   KeyRound,
   Lightbulb,
   RefreshCw,
   Save,
   Send,
-  ShieldAlert,
   SlidersHorizontal,
   Stethoscope,
   Trash2,
@@ -96,49 +95,10 @@ interface SettingsSection {
 }
 
 const SECTIONS: SettingsSection[] = [
-  {
-    id: "general",
-    label: "通用",
-    icon: SlidersHorizontal,
-    title: "通用",
-    description:
-      "采集管线核心:LLM 端点与 key、评分回路(enrich)与代理池凭据 —— 全部只入系统钥匙链;底部为 doctor 诊断回显",
-  },
-  {
-    id: "vision",
-    label: "视觉",
-    icon: Eye,
-    title: "视觉",
-    description: "二级看图通道与 OCR 引擎结构配置(落 MYIA_HOME/vision.yaml)+ 本地 MLX 视觉模型管理",
-  },
-  {
-    id: "push",
-    label: "推送",
-    icon: Send,
-    title: "推送",
-    description: "通道凭据(chat_id / bot token / webhook)入钥匙链;「发送测试」真发一条验证连通(push.test)",
-  },
-  {
-    id: "update",
-    label: "更新",
-    icon: Download,
-    title: "更新",
-    description: "官方签名更新通道(GitHub Releases):下载与安装均在 Rust 侧完成验签,装好后自动重启",
-  },
-  {
-    id: "status",
-    label: "连接",
-    icon: Activity,
-    title: "连接状态",
-    description: "sidecar 核心进程实时状态(版本/协议/重连),主人 2026-10-04 指令:从侧栏底部挪入设置单独分区",
-  },
-  {
-    id: "advanced",
-    label: "高级",
-    icon: ShieldAlert,
-    title: "高级",
-    description: "钥匙链凭据名管理与危险操作;值永不可读(secrets.py 契约),删除需二次确认",
-  },
+  { id: "general", label: "通用", icon: SlidersHorizontal, title: "通用", description: "LLM 精评与代理池凭据 + doctor 诊断" },
+  { id: "push", label: "推送", icon: Send, title: "推送", description: "通道凭据;发送测试验证连通" },
+  { id: "vision", label: "视觉", icon: Eye, title: "视觉", description: "看图通道与 OCR + MLX 视觉模型" },
+  { id: "system", label: "系统", icon: Activity, title: "系统", description: "sidecar 连接 + 软件更新 + 凭据管理" },
 ];
 const DEFAULT_SECTION = "general";
 
@@ -681,7 +641,8 @@ export function SettingsScreen() {
             <p className="text-xs text-muted-foreground">{activeSection.description}</p>
           </header>
 
-          {activeSection.id === "status" ? (
+          {activeSection.id === "system" ? (
+            <>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -694,6 +655,8 @@ export function SettingsScreen() {
                 <SidecarStatusPanel />
               </CardContent>
             </Card>
+            <UpdaterCard />
+            </>
           ) : activeSection.id === "general" ? (
             <>
               {/* LLM */}
