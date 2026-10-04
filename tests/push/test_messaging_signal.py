@@ -270,6 +270,34 @@ class TestErrorSemantics:
             _run(channel.send([{"title": "t"}], replace(CONTEXT, target=_target(RECIPIENT))))
         assert excinfo.value.code == "invalid_response"
 
+    def test_missing_result_envelope_fails_closed(self, monkeypatch):
+        """200 + JSON 对象但无 result(反代/健康端点形态)→ 拒绝,绝不静默记成功。
+
+        蓝本 ``_rpc_send``(上游 signal.py:694-697)对 ``result is None`` 判
+        SendResult(success=False) fail-closed;MYIA 同款——放行会把推送吞掉且
+        记成功,重试账本也无失败可入账。
+        """
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": "x"})
+
+        channel = _channel(handler, monkeypatch=monkeypatch)
+
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send([{"title": "t"}], replace(CONTEXT, target=_target(RECIPIENT))))
+        assert excinfo.value.code == "invalid_response"
+        assert "SIGNAL_HTTP_URL" in str(excinfo.value)  # 指错端点的修复指引
+
+    def test_non_object_result_fails_closed(self, monkeypatch):
+        """result 在场但非对象(字符串等坏形)→ 同拒(MYIA 对蓝本的同向收紧)。"""
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": "x", "result": "ok"})
+
+        channel = _channel(handler, monkeypatch=monkeypatch)
+
+        with pytest.raises(PushSendError) as excinfo:
+            _run(channel.send([{"title": "t"}], replace(CONTEXT, target=_target(RECIPIENT))))
+        assert excinfo.value.code == "invalid_response"
+
     def test_missing_target_is_config_error(self, monkeypatch):
         """两路寻址全缺 → ``missing_target``(配置类码,不标死信)。"""
         channel = _channel(monkeypatch=monkeypatch)

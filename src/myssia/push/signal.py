@@ -349,7 +349,20 @@ class SignalChannel(TrendAwareChannel):
                 f"signal JSON-RPC 错误(code={error_code!r}): {str(error_message)[:200]}"
                 "(瞬态;核对守护进程地址/账号与收件人)",
             )
-        failure = _validate_send_result(data.get("result"))
+        result = data.get("result")
+        # fail-closed(蓝本 ``_rpc_send`` 对 ``result is None`` 判发送失败,
+        # 上游 signal.py:694-697):200 + JSON 对象但无 result(如反代/健康
+        # 检查端点的应答)绝不放行为成功——否则推送被静默吞掉且记成功,
+        # 重试账本(R1)也无失败可入账。MYIA 同向收紧:result 非对象亦拒
+        # (signal-cli ``send`` 恒回带 timestamp/results 的对象)。
+        if not isinstance(result, Mapping):
+            raise PushSendError(
+                "invalid_response",
+                "signal 应答缺 result 或 result 非对象(非 signal-cli send 应答"
+                f"形态): {str(data)[:200]!r}(核对 SIGNAL_HTTP_URL 指向 signal-cli"
+                " 守护进程的 /api/v1/rpc 端点)",
+            )
+        failure = _validate_send_result(result)
         if failure is not None:
             raise PushSendError(
                 "signal_api_error",
