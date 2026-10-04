@@ -19,6 +19,8 @@ LOCAL-NOTES.md
 
 # ---- MYIA 运行时数据(抓取的情报内容属私有数据)----
 myssia.db
+# 改名过渡期旧缺省名落下的运行时库(桌面 serve 仓库 cwd 直跑),同零容忍口径
+/myia.db
 *.db-journal
 *.db-wal
 *.db-shm

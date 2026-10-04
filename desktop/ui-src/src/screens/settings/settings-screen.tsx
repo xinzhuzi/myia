@@ -378,6 +378,16 @@ export function SettingsScreen() {
     : DEFAULT_SECTION;
   const activeSection = SECTIONS.find((section) => section.id === sectionId) ?? SECTIONS[0];
 
+  /** 分区过滤(10-04-interaction-batch 补做,census 缺口 #7「设置搜索设置项」:
+   *  Linear settings 口径——分区导航上方过滤框实时过滤分区名,纯前端零 RPC)。
+   *  匹配 label/id 不分大小写(拉丁输入可按 id 命中,如 vision→视觉);
+   *  只影响导航可见性:不改当前分区,URL ?section= 深链语义不动。 */
+  const [sectionFilter, setSectionFilter] = useState("");
+  const sectionQuery = sectionFilter.trim().toLowerCase();
+  const visibleSections = sectionQuery
+    ? SECTIONS.filter(({ id, label }) => label.toLowerCase().includes(sectionQuery) || id.includes(sectionQuery))
+    : SECTIONS;
+
   const [llm, setLlm] = useState<LlmForm>({ baseUrl: "", model: "", key: "" });
   const [llmErrors, setLlmErrors] = useState<Partial<Record<"baseUrl", string>>>({});
   const [proxy, setProxy] = useState<ProxyForm>({ pool: "", value: "" });
@@ -589,42 +599,59 @@ export function SettingsScreen() {
         </div>
       ) : null}
 
-      {/* 左分区导航 + 右分区内容(拆解表第 1/2 条:当前项高亮左竖条,每子区一屏) */}
+      {/* 左列 = 分区过滤框(导航上方,census #7)+ 分区导航;右列 = 分区内容
+          (拆解表第 1/2 条:当前项高亮左竖条,每子区一屏) */}
       <div className="flex flex-col gap-5 px-6 md:flex-row md:gap-6">
-        <nav
-          aria-label="设置分区"
-          data-testid="settings-nav"
-          className="flex shrink-0 flex-row gap-1 overflow-x-auto md:w-44 md:flex-col md:gap-0.5 md:overflow-visible"
-        >
-          {SECTIONS.map(({ id, label, icon: Icon }) => {
-            const active = id === sectionId;
-            return (
-              <button
-                key={id}
-                type="button"
-                data-testid={`settings-nav-${id}`}
-                aria-current={active ? "true" : undefined}
-                onClick={() => setSearchParams(id === DEFAULT_SECTION ? {} : { section: id })}
-                className={cn(
-                  "relative flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-sm",
-                  "transition-colors duration-(--duration-fast) ease-out-expo",
-                  active
-                    ? "bg-accent font-medium text-foreground"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                )}
-              >
-                {active ? (
-                  <span
-                    aria-hidden
-                    className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary"
-                  />
-                ) : null}
-                <Icon className="size-4 shrink-0" />
-                {label}
-              </button>
-            );
-          })}
-        </nav>
+        <div className="flex shrink-0 flex-col gap-2 md:w-44">
+          <input
+            type="search"
+            value={sectionFilter}
+            aria-label="过滤分区"
+            placeholder="过滤分区"
+            data-testid="settings-section-filter"
+            onChange={(event) => setSectionFilter(event.target.value)}
+            className="h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
+          />
+          <nav
+            aria-label="设置分区"
+            data-testid="settings-nav"
+            className="flex flex-row gap-1 overflow-x-auto md:flex-col md:gap-0.5 md:overflow-visible"
+          >
+            {visibleSections.map(({ id, label, icon: Icon }) => {
+              const active = id === sectionId;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  data-testid={`settings-nav-${id}`}
+                  aria-current={active ? "true" : undefined}
+                  onClick={() => setSearchParams(id === DEFAULT_SECTION ? {} : { section: id })}
+                  className={cn(
+                    "relative flex h-8 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-sm",
+                    "transition-colors duration-(--duration-fast) ease-out-expo",
+                    active
+                      ? "bg-accent font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                  )}
+                >
+                  {active ? (
+                    <span
+                      aria-hidden
+                      className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-primary"
+                    />
+                  ) : null}
+                  <Icon className="size-4 shrink-0" />
+                  {label}
+                </button>
+              );
+            })}
+          </nav>
+          {visibleSections.length === 0 ? (
+            <span data-testid="settings-section-filter-empty" className="px-2.5 text-2xs text-muted-foreground">
+              无匹配分区(通用/视觉/推送/更新/高级)
+            </span>
+          ) : null}
+        </div>
 
         {/* 右列:区标题+描述,下堆叠多个 Card(每 Card 一个设置主题) */}
         <section

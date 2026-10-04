@@ -809,3 +809,66 @@ describe("设置:分区导航与危险区(D4 结构重做)", () => {
     expect(status.closest("[data-slot='card']")?.textContent).toContain("LLM 精评"); // 反馈留在本卡底栏
   });
 });
+
+// ---------------------------------------------------------------------------
+// 分区过滤(10-04-interaction-batch 补做,census 缺口 #7「设置搜索设置项」:
+// Linear settings 口径——分区导航上方过滤框实时过滤分区名,纯前端零 RPC;
+// 只影响导航可见性,不改当前分区/URL 深链语义)。
+// ---------------------------------------------------------------------------
+
+describe("设置:分区过滤(census #7 补做,纯前端实时)", () => {
+  it("输入「推」→ 导航只剩推送;过滤不改当前分区(右侧仍通用,内容不换不白屏)", async () => {
+    installSidecar();
+    renderScreen();
+
+    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "推" } });
+    expect(screen.getByTestId("settings-nav-push")).toBeTruthy();
+    for (const id of ["general", "vision", "update", "advanced"]) {
+      expect(screen.queryByTestId(`settings-nav-${id}`)).toBeNull();
+    }
+    // 只过滤导航:当前分区仍是缺省通用,base_url 表单照常在位
+    expect(screen.getByTestId("settings-section-general")).toBeTruthy();
+    expect(screen.getByLabelText("base_url")).toBeTruthy();
+  });
+
+  it("拉丁输入按 id 命中(vision→视觉)+ 大小写不敏感(PUSH 同命中)", async () => {
+    installSidecar();
+    renderScreen();
+
+    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "vision" } });
+    expect(screen.getByTestId("settings-nav-vision")).toBeTruthy();
+    expect(screen.queryByTestId("settings-nav-general")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "PUSH" } });
+    expect(screen.getByTestId("settings-nav-push")).toBeTruthy();
+    expect(screen.queryByTestId("settings-nav-vision")).toBeNull();
+  });
+
+  it("无匹配:导航全隐 + 「无匹配分区」提示,右侧仍渲染当前分区;清空即还原五区", async () => {
+    installSidecar();
+    renderScreen();
+
+    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "xyz" } });
+    for (const id of ["general", "vision", "push", "update", "advanced"]) {
+      expect(screen.queryByTestId(`settings-nav-${id}`)).toBeNull();
+    }
+    expect(screen.getByTestId("settings-section-filter-empty").textContent).toContain("无匹配分区");
+    expect(screen.getByTestId("settings-section-general")).toBeTruthy(); // 不白屏
+
+    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "" } });
+    for (const id of ["general", "vision", "push", "update", "advanced"]) {
+      expect(screen.getByTestId(`settings-nav-${id}`)).toBeTruthy();
+    }
+    expect(screen.queryByTestId("settings-section-filter-empty")).toBeNull();
+  });
+
+  it("过滤与导航功能正交:过滤后剩余分区仍可点切区(aria-current 随迁)", async () => {
+    installSidecar();
+    renderScreen();
+
+    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "高" } });
+    await openSection("advanced");
+    expect(screen.getByTestId("settings-section-advanced")).toBeTruthy();
+    expect(screen.getByTestId("settings-nav-advanced").getAttribute("aria-current")).toBe("true");
+  });
+});

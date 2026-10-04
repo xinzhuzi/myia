@@ -37,14 +37,34 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
    证据与业界参照见 `.trellis/tasks/10-03-ui-feature-census/prd.md` G 矩阵)
    - G5 主体:告警规则(Inoreader Rules 式条件→动作,涉 sidecar 协议扩展;
      G5 前半「推送测试按钮」已随 `10-03-feed-ux` 批次先行)
+     → **已消号**:已做,归属 `10-04-alert-rules`(已归档)——消息屏告警面板
+     alerts.save/test/fired(`messaging-screen.tsx:92-95`)+ sidecar 协议 v7
+     (`desktop/entry.py:429`);2026-10-04 fe-gap-census matrix §二核验回标
    - G6:采集量/成功率趋势折线(与 B4 采集量趋势同属一块,拆任务时合并考虑)
      → **已消号**:采集量半边随 B4(10-03-v112-desktop-parity)、成功率半边随
      `10-04-desktop-b234`(`runs.trend` 协议方法 + 仪表盘同块第二序列,2026-10-04)
    - G7:run 重跑/按品类状态过滤/日志内搜索(重跑依赖 feed-ux G4 的手动触发通道)
+     → **已消号**:已做,归属 `10-03-fe-small-batch`(已归档)——logs 屏三件齐
+     (`logs-screen.tsx:38-40/:127/:135`,注释明引 G7);fe-gap-census matrix
+     §二核验回标(2026-10-04)
    - G8:情报流卡片「AI 摘要」按钮(enrich 管线现成);情绪标注 v2 再议
+     → **已消号**:已做,归属 `10-03-fe-small-batch`(已归档)——Sparkles 按钮
+     +loading/done 态(`feed-screen.tsx:361-381`);情绪标注 v2 维持再议;
+     fe-gap-census matrix §二核验回标(2026-10-04)
    - G9:快捷键与批量操作(全部标已读等)
+     → **已消号**:已做,主体归属 `10-04-read-state-server`(已归档)——
+     store.state.mark_all 全库批量语义三端+UI 能力门+按钮真话(commit
+     afa7339);快捷键/右键批量件随 `10-04-interaction-batch`(已归档);
+     余量档 10-04-g9-read-all(按品类批量入口+全库确认交互)同日撤并,
+     不另立项;fe-gap-census matrix §二核验回标(2026-10-04)
    - G10:代理池连通性测试按钮(doctor --config 探测已有,差 UI)
+     → **后端依赖已解锁**:`10-04-proxy-pool` 已归档(2026-10-04 fe-gap-census
+     matrix §二核验:设置屏仅凭据表单 `settings-screen.tsx:132/383-384`,无测试
+     按钮);维持留池(v1.2),增补回执见第 8 项
    - G12:条目卡「就地沉淀为关键词」入口(OpenCTI 快捷订阅铃铛式,衔接 yaml-editor)
+     → **已消号**:已做,归属 `10-03-fe-small-batch`(已归档)——卡内沉淀面板
+     (`feed-screen.tsx:382-393`);右键入口随 `10-04-interaction-batch` 在途
+     (`feed-screen.tsx:725`);fe-gap-census matrix §二核验回标(2026-10-04)
    - G11 不入池:并入 F 类刻意不做(凭据导出,security-baseline 红线)
 6. **UI 模仿总表远期形态三项入池**(2026-10-03 `10-03-ui-deep-imitation` grill 决议②:
    不入 v1.x 视觉批次,沉本池;对标与取材策略见该任务 prd「取材策略」节)
@@ -66,6 +86,27 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
      supplier-map 判例:收紧源优先评估聚合器,但只做可选后端永不默认)。
    - robots/政策会漂移:拆任务时先重探 robots.txt 再定通道。
    - 场景通用:games(r/GamingNews 曾候选)之外,ai-news 等场景同享。
+8. **fe-gap-census 增补入池**(2026-10-04 `10-04-fe-gap-census` 普查处置路由
+   R6/R7;判词与证据出处 = `.trellis/tasks/10-04-fe-gap-census/research/matrix.md`)
+   - G10 代理池连通性测试按钮(回执:即第 5 项 G10——后端 `10-04-proxy-pool`
+     已归档=依赖解锁,差设置屏测试按钮;与第 6 项代理池管理面板同族,
+     拆任务时合并考虑;出处 matrix §二 G10 行/路由 R6)
+   - 侧栏分组级折叠(每组 ChevronDown 旋转 ~150ms;区别于在途
+     interaction-batch 的整栏 `[` 折叠键——现状分组固定展开,
+     `rg ChevronDown sidebar.tsx` 零命中;出处 matrix §1.1 #2/路由 R7)
+   - 源管理多选点簇筛选(多选过滤 trigger=点簇+「n/m」徽章;现状=单输入全局
+     筛选+健康度三态按钮组 `sources-table.tsx:287-291`;出处 matrix §1.2 #5/
+     路由 R7)
+   - 设置 tooltip 辅助(引导文案已有、零 Tooltip 消费;弱需求,顺手批可带;
+     出处 matrix §1.3 #8/路由 R7)
+   - snooze 到期重现(稍后读=本地态 later 桶、无到期重现,Linear H 键未对标;
+     matrix 原文标「留池(v2)」;出处 matrix §二/路由 R7)
+   - 设置搜索(`rg 搜索 settings-screen.tsx` 零命中;teardown 自身标注
+     「未实证」低置信;出处 matrix §二/路由 R7)
+   - suppressed 状态词表 v2(action_status 词表 `types.ts:1021` 无 suppressed;
+     出处 matrix §3.2/路由 R7)
+   - P3 消息标题跳级(fe-small-batch prd 判「不入本批」;当前消息屏仅
+     PageHeader h1、未见跳级复现;维持登记、勿扩大;出处 matrix §3.1/路由 R7)
 
 ## 主人侧前置(2026-10-03 grill Q4 已答)
 
