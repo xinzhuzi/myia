@@ -71,7 +71,7 @@ EditorPane 根 div(min-h-0 overflow-hidden …;弹窗/屏都给了定高 h-full 
 - [x] **补全开关关闭**:`editor-pane.tsx` basicSetup 移除 `autocompletion`;`closeBrackets`/折叠/括号匹配等其余项保留(grill 决议 Q1)。(回标 2026-10-05:`editor-pane.tsx:62` 已删该行,lineNumbers/foldGutter/highlightActiveLine/bracketMatching/closeBrackets 五项原样)
 - [ ] **中文输入(IME)**:修复后人工在编辑器敲一段中文确认组合输入正常(无头测不了 IME,CodeMirror 6 理论支持,主人日常中文场景须实证)。
 - [x] **门禁**:vitest + tsc + build 全绿。(回标 2026-10-05:工作流脚本统一执行前端构建/前端单测/全量 pytest 全绿;实现会话局部自检 `npx tsc -b` 0 错 + vitest 两改动文件 12 用例过)
-- [ ] **装机包刷新**:入库后重打包静默换装(「完成=入库+门禁绿+装机包已刷新」纪律),主人只做目验:开弹窗滚到文件尾 / 敲一段中文 / ⌘F 开面板后按 ESC 弹窗仍在。
+- [x] **装机包刷新**:入库后重打包静默换装(「完成=入库+门禁绿+装机包已刷新」纪律),主人只做目验:开弹窗滚到文件尾 / 敲一段中文 / ⌘F 开面板按 ESC 弹窗仍在。(回标 2026-10-05:三段链终包 ce9878d 换装留痕 `evidence/install-log-final.md`(01:33,含与旧产物尺寸差异证新码进包);其后并行线 02:09 再换装更新尖;**装机包自动冒烟对当前 /Applications 包全 PASS(A 六项+B 全组,含滚动/ESC/中文插入/保存回路),实跑日志与截图 `desktop/ui-src/e2e/artifacts/`;目验三步已被冒烟代码覆盖,主人仅需真实 IME 组合输入手感一条)**
 
 ## 2026-10-05 补(一):编辑链全面体检(17/17 PASS,零新功能缺陷)
 
