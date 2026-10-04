@@ -20,6 +20,7 @@ import { ErrorBox } from "../sources/error-box";
 import { formatScheduleRun, loadScheduleRows } from "../sources/api";
 import type { ScheduleRow } from "../sources/api";
 import { loadCronOverview, type CronOverview } from "./api";
+import { RunOnceResultDialog } from "./run-once-result-dialog";
 import {
   buildPayload,
   cronNextRunOverdueMs,
@@ -58,8 +59,9 @@ const MANUAL_PAUSE_REASON = "桌面端手动暂停";
 /**
  * 排程一览品类行「跑一次」屏内态(2026-10-05 随排程一览自源管理屏迁入,
  * 状态机照抄源管理/仪表盘 RunOnceState 形状):发起后等 completed 事件按
- * run_id 对账收尾。本屏无健康度面,终态只出横幅不 reload(源管理屏
- * 「终态后刷新健康度」的语义不适用于 cron 主面)。
+ * run_id 对账收尾。本屏无健康度面,终态不 reload(源管理屏「终态后刷新
+ * 健康度」的语义不适用于 cron 主面);终态/发起失败经 RunOnceResultDialog
+ * 模态呈现(10-05-run-once-result-dialog),关闭即回 idle。
  */
 type RunOnceState =
   | { phase: "idle" }
@@ -203,7 +205,7 @@ export function CronScreen() {
     void onSidecarEvent((event) => {
       // 排程行「跑一次」收尾(随排程一览迁入):只收自己发起的 run,
       // 别的入口(日志屏/仪表盘/CLI)发起的 run 不抢收;本屏无健康度面,
-      // 终态只出横幅不 reload
+      // 终态不 reload,详情弹窗呈现(run-once-result-dialog)
       if (event.type === "completed") {
         const completed = event as CompletedEvent;
         const current = runOnceRef.current;
@@ -597,9 +599,11 @@ export function CronScreen() {
         ) : null}
 
         {/* ---------------- F 排程一览(2026-10-05 自源管理屏迁入) ----------------
-            品类「跑一次」回显先行:进行中/终态横幅(成功/部分/失败如实分色);
-            区块本体 = 每品类 schedule/timezone 原文 + 未来 5 次运行
-            (schedule.preview 纯计算),行尾 ▶ 立即跑一次该品类。 */}
+            品类「跑一次」回显:进行中横幅(人话,run_id 类行话不上活性面,
+            10-05-run-once-result-dialog)+ 终态/发起失败模态详情弹窗
+            (grill Q3a+b:判词同族「详情进弹窗」);区块本体 = 每品类
+            schedule/timezone 原文 + 未来 5 次运行(schedule.preview 纯计算),
+            行尾 ▶ 立即跑一次该品类。 */}
         {runOnce.phase === "collecting" ? (
           <div
             role="status"
@@ -607,41 +611,22 @@ export function CronScreen() {
             className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground"
           >
             <Loader2 className="size-3.5 animate-spin" />
-            跑一次 {runOnce.name} 进行中(异步 run #{runOnce.runId},实时输出见
+            跑一次 {runOnce.name} 进行中,实时输出见
             <a
               href="#/logs"
               className="font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
-              title="到采集日志屏跟踪该 run 实时输出"
+              title="到采集日志屏跟踪该次运行实时输出"
             >
               日志屏
             </a>
-            )…
+            …
           </div>
         ) : null}
-        {runOnce.phase === "done" ? (
-          <div
-            role={runDoneTone(runOnce) === "destructive" ? "alert" : "status"}
-            data-testid={`run-once-${runDoneTone(runOnce) === "ok" ? "ok" : "fail"}`}
-            className={
-              runDoneTone(runOnce) === "ok"
-                ? "rounded-md border border-ok/30 bg-ok/10 px-4 py-3 text-sm text-ok"
-                : runDoneTone(runOnce) === "destructive"
-                  ? "rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-                  : "rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning"
-            }
-          >
-            跑一次 {runOnce.name} 完成(run #{runOnce.runId} ·{" "}
-            {runOnce.status ?? (runOnce.exitCode !== null ? `exit ${runOnce.exitCode}` : "终态未知")})。
-          </div>
-        ) : null}
-        {runOnce.phase === "error" ? (
-          <div
-            role="alert"
-            data-testid="run-once-error"
-            className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          >
-            跑一次 {runOnce.name} 发起失败:{runOnce.message}
-          </div>
+        {runOnce.phase === "done" || runOnce.phase === "error" ? (
+          <RunOnceResultDialog
+            outcome={runOnce}
+            onDismiss={() => setRunOnce({ phase: "idle" })}
+          />
         ) : null}
 
         {scheduleRows !== null ? (
@@ -786,16 +771,8 @@ export function CronScreen() {
   );
 }
 
-/** 跑一次终态分色:success=ok / failed+config_error=destructive / partial、cancelled、
- *  终态未知=warning(如实分级,失败不伪装成功;RunExitStatus 语义见 lib/api/types.ts;
- *  2026-10-05 随排程一览自源管理屏迁入) */
-function runDoneTone(
-  done: Extract<RunOnceState, { phase: "done" }>,
-): "ok" | "warning" | "destructive" {
-  if (done.status === "success") return "ok";
-  if (done.status === "failed" || done.status === "config_error") return "destructive";
-  return "warning";
-}
+// 跑一次终态分色(runDoneTone)已随终态横幅弹窗化迁 run-once-result-dialog.tsx
+// (outcomeVariant,10-05-run-once-result-dialog)
 
 // ---------------------------------------------------------------------------
 // job 表(九列契约 screen-spec §2,Stage 6 G2a 增「上次运行」列;colgroup

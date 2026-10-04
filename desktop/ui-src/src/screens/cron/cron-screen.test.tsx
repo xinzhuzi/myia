@@ -1295,10 +1295,10 @@ describe("排程一览(自源管理迁入)", () => {
 
     fireEvent.click(trigger);
     await waitFor(() => expect(invokedParams("run.start")).toContainEqual({ yaml: SCHED_FILE }));
-    // 进行中横幅(带日志屏深链)+ run 单飞:全区品类行 Trigger 禁点
+    // 进行中横幅(人话+日志屏深链;run_id 类行话不上活性面)+ run 单飞:全区品类行 Trigger 禁点
     const running = await screen.findByTestId("run-once-running");
     expect(running.textContent).toContain("品类 ai-news");
-    expect(running.textContent).toContain("run #31");
+    expect(running.textContent).not.toContain("run #");
     expect(running.querySelector("a")?.getAttribute("href")).toBe("#/logs");
     expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "跑一次:品类 weekly" }) as HTMLButtonElement).disabled).toBe(true);
@@ -1308,17 +1308,28 @@ describe("排程一览(自源管理迁入)", () => {
     expect(screen.getByTestId("run-once-running")).toBeTruthy();
 
     emitSidecarEvent({ type: "completed", run_id: 31, exit_code: 0, status: "success", dry: false, ts: "2026-10-04T09:01:00+00:00" });
-    const done = await screen.findByTestId("run-once-ok");
-    expect(done.textContent).toContain("品类 ai-news");
-    expect(done.textContent).toContain("run #31");
-    expect(done.textContent).toContain("success");
-    expect(done.getAttribute("role")).toBe("status");
+    // 终态 → 模态详情弹窗(10-05-run-once-result-dialog;贴顶终态横幅已撤)
+    const done = await screen.findByTestId("run-once-dialog");
+    expect(done.getAttribute("role")).toBe("dialog");
+    expect(done.getAttribute("aria-modal")).toBe("true");
+    expect(done.textContent).toContain("跑一次结果 · 品类 ai-news");
+    expect(screen.getByTestId("run-once-status").textContent).toBe("成功");
+    // trace 值收技术小字(弹窗内可见,活性面无)
+    expect(done.textContent).toContain("status=success");
+    expect(done.textContent).toContain("run_id=31");
+    expect(screen.getByRole("link", { name: "查看采集日志" }).getAttribute("href")).toBe("#/logs");
     expect(screen.queryByTestId("run-once-running")).toBeNull();
     // 单飞解除:按钮回可用
     expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(false);
+
+    // 关闭弹窗 → 终态清除,不残留
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("run-once-dialog")).toBeNull();
+    });
   });
 
-  it("发起被拒(run_busy)→ 红条回显按钮回可用;failed 终态如实红条不伪装成功", async () => {
+  it("发起被拒(run_busy)→ 弹窗失败形按钮回可用;failed 终态如实失败分级不伪装成功", async () => {
     let reject = true;
     mockSidecar({
       "cron.list": () => listResult([]),
@@ -1343,20 +1354,25 @@ describe("排程一览(自源管理迁入)", () => {
     renderScreen();
 
     fireEvent.click(await screen.findByRole("button", { name: "跑一次:品类 ai-news" }));
-    const busy = await screen.findByTestId("run-once-error");
-    expect(busy.textContent).toContain("run_busy");
+    const busy = await screen.findByTestId("run-once-dialog");
+    expect(busy.textContent).toContain("发起失败:run_busy");
     expect(busy.textContent).toContain("已有 run 在执行");
-    expect(busy.getAttribute("role")).toBe("alert");
-    // 拒绝不滞留 busy:按钮立即可重试
+    expect(screen.getByTestId("run-once-status").textContent).toBe("发起失败");
+    // 拒绝不滞留:关闭弹窗即可重试,按钮始终可用
     expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(false);
 
-    // 重试发起成功;failed 终态(exit=2)红条如实分级
+    // 关闭失败弹窗 → 重试发起成功;failed 终态(exit=2)弹窗如实分级
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("run-once-dialog")).toBeNull();
+    });
     reject = false;
     fireEvent.click(screen.getByRole("button", { name: "跑一次:品类 ai-news" }));
     await screen.findByTestId("run-once-running");
     emitSidecarEvent({ type: "completed", run_id: 32, exit_code: 2, status: "failed", dry: false, ts: "2026-10-04T09:02:00+00:00" });
-    const fail = await screen.findByTestId("run-once-fail");
-    expect(fail.textContent).toContain("failed");
-    expect(fail.getAttribute("role")).toBe("alert");
+    const fail = await screen.findByTestId("run-once-dialog");
+    expect(screen.getByTestId("run-once-status").textContent).toBe("失败");
+    expect(fail.textContent).toContain("status=failed");
+    expect(fail.textContent).toContain("exit 2");
   });
 });
