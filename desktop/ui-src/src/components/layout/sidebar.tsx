@@ -3,7 +3,6 @@ import { ChevronDown, Clock, FileCode2, Inbox, LayoutDashboard, MessageCircle, R
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-import { MyssiaMark } from "@/components/myssia-mark";
 import { cn } from "@/lib/utils";
 
 /**
@@ -323,22 +322,7 @@ export function Sidebar() {
     )}
     style={{ marginRight: "-3px" }}
    />
-   <div
-    className={cn(
-     "flex shrink-0 items-center px-4",
-     collapsed ? "justify-center px-0 py-2" : "h-12",
-    )}
-    title={collapsed ? "世事 MYIA" : undefined}
-   >
-    <MyssiaMark className="size-6 shrink-0" />
-    {collapsed ? null : (
-     <>
-      <span className="text-sm font-medium text-sidebar-foreground">世事</span>
-      <span className="text-2xs text-muted-foreground">MYIA</span>
-      <span className="flex-1" aria-hidden />
-     </>
-    )}
-   </div>
+   {/* 品牌区已删(主人「无头」);macOS 标题栏走 overlay 沉浸式 */}
    {/* 分组节奏:组间 16px,组内行距 4px(gap-1) */}
    <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 pt-3 pb-2" aria-label="主导航">
     {NAV_GROUPS.map((group, index) =>
