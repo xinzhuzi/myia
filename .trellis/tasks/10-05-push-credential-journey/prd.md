@@ -62,8 +62,11 @@
   5 文件 28 符号 0 流程 low/desktop 批 13 符号;**vitest 全量 4 红系并行
   5c188c0(pluginFile API 层截断)改协议载荷未随测试断言,该线在途活跃,
   归属其线不代改,白名单 scoped=settings 35/messaging 53 全绿**)
-- [ ] AC7:装机换装后,设置→推送 填飞书 app 凭据→发送测试,真链可达
+- [x] AC7:装机换装后,设置→推送 填飞书 app 凭据→发送测试,真链可达
   (凭据由主人填;链路与解析自动化证据留档,装机包刷新归本任务)。
+  (2026-10-05 01:30 换装,回执 /tmp/pj-install.exit=ok installed 58941a3,
+  备份 /tmp/世事.app.bak-pj-013028;装机版 secret list 静默零弹窗+CLI 健康;
+  主人侧唯一剩余=重开 app 到 设置→推送 填 App ID/Secret 点「发送测试」)
 
 ## Constraints
 
