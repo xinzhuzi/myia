@@ -97,11 +97,9 @@ const COLUMNS: ColumnDef<SourceRow>[] = [
     size: 240,
     minSize: 150,
     cell: ({ row }) => (
-      <div className="flex min-w-0 items-center gap-1.5" title={row.original.pluginFile}>
-        <span className="min-w-0 truncate text-foreground">{pluginLabel(row.original)}</span>
-        <span className="shrink-0 truncate font-mono text-2xs text-muted-foreground">
-          {row.original.pluginFile}
-        </span>
+      <div className="min-w-0" title={row.original.pluginFile}>
+        <div className="truncate text-sm text-foreground">{pluginLabel(row.original)}</div>
+        <div className="truncate font-mono text-2xs text-muted-foreground">{row.original.pluginFile}</div>
         {!row.original.pluginLoaded ? <Badge variant="warning">加载失败</Badge> : null}
       </div>
     ),
