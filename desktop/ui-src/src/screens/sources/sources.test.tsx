@@ -33,6 +33,8 @@ import { SourcesScreen } from "./sources-screen";
 import type { DoctorResult, DoctorPluginReport, HealthResult, PluginReport, SourceReport, SourceHealthState } from "@/lib/api";
 
 const FILE = "plugins/ai-news.yaml";
+/** 写回/复核/读原文断言用短名:API 层 pluginFile 走 split("/").pop() 截断(api.ts flattenHealthPlugins) */
+const SHORT_FILE = FILE.split("/").pop() ?? FILE;
 
 // ---------------------------------------------------------------------------
 // 协议夹具(形状逐字段对照 src/lib/api/types.ts / desktop/entry.py)
@@ -328,9 +330,9 @@ describe("源管理:启停写回 + doctor 往返复核", () => {
     expect(screen.getByTestId("roundtrip-ok").textContent).toContain("已停用 hacker-news");
     expect(screen.getByTestId("roundtrip-ok").textContent).toContain("doctor 复核往返一致");
 
-    // 写回参数:品类文件 + disable 名单;复核用 doctor(yamls:[file])
-    expect(lastCall("sources.write")?.params).toEqual({ file: FILE, disable: ["hacker-news"] });
-    expect(lastCall("doctor")?.params).toEqual({ yamls: [FILE] });
+    // 写回参数:品类文件 + disable 名单;复核用 doctor(yamls:[file])——均走 API 层短名口径
+    expect(lastCall("sources.write")?.params).toEqual({ file: SHORT_FILE, disable: ["hacker-news"] });
+    expect(lastCall("doctor")?.params).toEqual({ yamls: [SHORT_FILE] });
     // mock 内存态(YAML 代理)真的变了;刷新后表格行消失(URL 唯一,停用区不含 URL)、进「已停用」区
     expect(state.enabled).toEqual(["rsshub"]);
     await waitFor(() => {
@@ -354,7 +356,7 @@ describe("源管理:启停写回 + doctor 往返复核", () => {
     fireEvent.click(screen.getByRole("button", { name: /^启用$/ }));
     const okBanner = await screen.findByTestId("roundtrip-ok");
     expect(okBanner.textContent).toContain("已启用 hacker-news");
-    expect(lastCall("sources.write")?.params).toEqual({ file: FILE, enable: ["hacker-news"] });
+    expect(lastCall("sources.write")?.params).toEqual({ file: SHORT_FILE, enable: ["hacker-news"] });
     await waitFor(() => {
       expect(screen.getByText("hacker-news")).toBeTruthy();
     });
@@ -475,7 +477,7 @@ describe("源管理:空态与错误态", () => {
     await waitFor(() => {
       expect((screen.getByLabelText("yaml-source") as HTMLTextAreaElement).value).toContain("id: ai-news");
     });
-    expect(lastCall("yaml.read")?.params).toEqual({ file: FILE });
+    expect(lastCall("yaml.read")?.params).toEqual({ file: SHORT_FILE });
 
     // 弹窗内保存成功 → 表格数据刷新(health 二次拉取,防编辑后展示陈旧行)
     fireEvent.change(screen.getByLabelText("yaml-source"), {
@@ -673,231 +675,10 @@ describe("源管理:试抓此源(C13 → 详情弹窗)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 品类行「跑一次」(10-04-topbar-cleanup):顶栏全局跑一次归位源管理 ——
-// Kestra Flows 列表 Trigger 动作钮范式(Flows.vue 行尾 actions 列 IconButton+Play,
-// 排程一览每行 = 一个品类 YAML):run.start 单飞 → completed 事件 run_id 对账收尾
+// 排程一览 + 品类行「跑一次」用例已随功能迁至 cron-screen.test.tsx
+// (2026-10-05,主人质疑「排程一览是什么意思?没在定时任务里面?」——
+// 排程一览区块与行尾跑一次钮自源管理屏移至定时任务屏底部)
 // ---------------------------------------------------------------------------
-
-describe("源管理:品类行跑一次(顶栏控件归位)", () => {
-  type EventHandler = (event: { payload: Record<string, unknown> }) => void;
-
-  function installEvents() {
-    let handler: EventHandler | null = null;
-    mocks.listen.mockImplementation(async (_name: string, fn: EventHandler) => {
-      handler = fn;
-      return () => undefined;
-    });
-    return {
-      emit: (payload: Record<string, unknown>) => handler?.({ payload }),
-    };
-  }
-
-  /** 两品类夹具:ai-news(有源)+ weekly(无源);schedule.preview 全好 */
-  function twoCategorySidecar() {
-    const { map } = okSidecar(["local-api"]);
-    map["schedule.preview"] = (params: never) => {
-      const { file } = params as { file: string };
-      return {
-        file,
-        schedule: "*/15 * * * *",
-        timezone: "Asia/Shanghai",
-        runs: ["2026-10-04T09:00:00+08:00"],
-      };
-    };
-    map.health = () =>
-      healthResult([
-        pluginReport(FILE, "ai-news", [sourceReport("local-api", "ok")]),
-        pluginReport("plugins/weekly.yaml", "weekly", []),
-      ]);
-    return { map };
-  }
-
-  it("排程行 Trigger 钮发起 run.start(yaml=品类文件)→ completed 按 run_id 对账收尾 + reload", async () => {
-    const events = installEvents();
-    const { map } = twoCategorySidecar();
-    map["run.start"] = (params: never) => {
-      const { yaml } = params as { yaml: string };
-      return { run_id: 31, state: "running", yaml, dry: false, db: "myssia.db" };
-    };
-    installSidecar(map);
-    render(
-      <MemoryRouter>
-        <SourcesScreen />
-      </MemoryRouter>,
-    );
-
-    // 每行品类(含无源品类)行尾各有 Trigger 钮(Kestra Flows actions 范式)
-    const trigger = await screen.findByRole("button", { name: "跑一次:品类 ai-news" });
-    expect(screen.getByRole("button", { name: "跑一次:品类 weekly" })).toBeTruthy();
-    const healthCallsBefore = callCount("health");
-
-    fireEvent.click(trigger);
-    await waitFor(() => expect(lastCall("run.start")?.params).toEqual({ yaml: FILE }));
-    // 进行中横幅(带日志屏深链)+ run 单飞:全区品类行 Trigger 禁点
-    const running = await screen.findByTestId("run-once-running");
-    expect(running.textContent).toContain("品类 ai-news");
-    expect(running.textContent).toContain("run #31");
-    expect(running.querySelector("a")?.getAttribute("href")).toBe("#/logs");
-    expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "跑一次:品类 weekly" }) as HTMLButtonElement).disabled).toBe(true);
-
-    // 串台防护:别的入口发起的 run(run_id=99)completed 不抢收
-    events.emit({ type: "completed", run_id: 99, exit_code: 0, status: "success", dry: false, ts: "2026-10-04T09:00:00+00:00" });
-    expect(screen.getByTestId("run-once-running")).toBeTruthy();
-
-    events.emit({ type: "completed", run_id: 31, exit_code: 0, status: "success", dry: false, ts: "2026-10-04T09:01:00+00:00" });
-    const done = await screen.findByTestId("run-once-ok");
-    expect(done.textContent).toContain("品类 ai-news");
-    expect(done.textContent).toContain("run #31");
-    expect(done.textContent).toContain("success");
-    expect(done.getAttribute("role")).toBe("status");
-    expect(screen.queryByTestId("run-once-running")).toBeNull();
-    // 终态后 reload:健康度/最近产出再拉(失败 run 也是运行记录,照刷)
-    await waitFor(() => expect(callCount("health")).toBeGreaterThan(healthCallsBefore));
-    // 单飞解除:按钮回可用
-    expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(false);
-  });
-
-  it("发起被拒(run_busy)→ 红条回显按钮回可用;failed 终态如实红条不伪装成功", async () => {
-    const events = installEvents();
-    const { map } = twoCategorySidecar();
-    let reject = true;
-    map["run.start"] = () => {
-      if (reject) {
-        throw JSON.stringify({
-          code: "run_busy",
-          path: "$",
-          message: "已有 run 在执行 run_id=8(单飞)",
-          data: { active_run_id: 8 },
-        });
-      }
-      return { run_id: 32, state: "running", yaml: FILE, dry: false, db: "myssia.db" };
-    };
-    installSidecar(map);
-    render(
-      <MemoryRouter>
-        <SourcesScreen />
-      </MemoryRouter>,
-    );
-
-    fireEvent.click(await screen.findByRole("button", { name: "跑一次:品类 ai-news" }));
-    const busy = await screen.findByTestId("run-once-error");
-    expect(busy.textContent).toContain("run_busy");
-    expect(busy.textContent).toContain("已有 run 在执行");
-    expect(busy.getAttribute("role")).toBe("alert");
-    // 拒绝不滞留 busy:按钮立即可重试
-    expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(false);
-
-    // 重试发起成功;failed 终态(exit=2)红条如实分级
-    reject = false;
-    fireEvent.click(screen.getByRole("button", { name: "跑一次:品类 ai-news" }));
-    await screen.findByTestId("run-once-running");
-    events.emit({ type: "completed", run_id: 32, exit_code: 2, status: "failed", dry: false, ts: "2026-10-04T09:02:00+00:00" });
-    const fail = await screen.findByTestId("run-once-fail");
-    expect(fail.textContent).toContain("failed");
-    expect(fail.getAttribute("role")).toBe("alert");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 排程一览(G4,10-03-feed-ux):schedule.preview 逐品类并发,单品类失败不塌整区
-// ---------------------------------------------------------------------------
-
-describe("源管理:排程一览(G4)", () => {
-  it("逐品类出 schedule/timezone 原文 + 未来时刻行;无排程品类明示「无排程」", async () => {
-    const { map } = okSidecar(["local-api"]);
-    map["schedule.preview"] = (params: never) => {
-      const { file } = params as { file: string };
-      if (file.endsWith("nosched.yaml")) {
-        return { file, schedule: null, timezone: null, runs: [] };
-      }
-      return {
-        file,
-        schedule: "*/15 * * * *",
-        timezone: "Asia/Shanghai",
-        runs: ["2026-10-03T09:00:00+08:00", "2026-10-03T09:15:00+08:00"],
-      };
-    };
-    map.health = () =>
-      healthResult([
-        pluginReport(FILE, "ai-news", [sourceReport("local-api", "ok")]),
-        pluginReport("plugins/nosched.yaml", "nosched", []),
-      ]);
-    installSidecar(map);
-
-    render(
-      <MemoryRouter>
-        <SourcesScreen />
-      </MemoryRouter>,
-    );
-
-    const overview = await screen.findByTestId("schedule-overview");
-    expect(overview.textContent).toContain("排程一览");
-    // schedule 原文 + 时区 + 本地化时刻
-    const row = screen.getByTestId(`schedule-row-${FILE}`);
-    expect(row.textContent).toContain("*/15 * * * *");
-    expect(row.textContent).toContain("Asia/Shanghai");
-    expect(row.textContent).toContain("09:00");
-    // 无排程品类明示,不是错误
-    const nosched = screen.getByTestId("schedule-row-plugins/nosched.yaml");
-    expect(nosched.textContent).toContain("无排程");
-    // 预览请求逐品类发出,且带 count(缺省 5)
-    const previewParams = mocks.invoke.mock.calls
-      .filter(([, args]) => (args as { method: string }).method === "schedule.preview")
-      .map(([, args]) => (args as { params: unknown }).params);
-    expect(previewParams).toContainEqual({ file: FILE, count: 5 });
-    expect(previewParams).toContainEqual({ file: "plugins/nosched.yaml", count: 5 });
-  });
-
-  it("单品类预览失败只塌该行(预览失败徽标 + code),整区仍出", async () => {
-    const { map } = okSidecar(["local-api"]);
-    map["schedule.preview"] = (params: never) => {
-      const { file } = params as { file: string };
-      if (file.endsWith("bad.yaml")) {
-        throw JSON.stringify({
-          code: "source_file_unreadable",
-          path: "params.file",
-          message: "品类 YAML 装不上: invalid_cron",
-        });
-      }
-      return { file, schedule: "0 9 * * *", timezone: null, runs: ["2026-10-04T09:00:00+08:00"] };
-    };
-    map.health = () =>
-      healthResult([
-        pluginReport(FILE, "ai-news", [sourceReport("local-api", "ok")]),
-        pluginReport("plugins/bad.yaml", "bad", []),
-      ]);
-    installSidecar(map);
-
-    render(
-      <MemoryRouter>
-        <SourcesScreen />
-      </MemoryRouter>,
-    );
-
-    const badRow = await screen.findByTestId("schedule-row-plugins/bad.yaml");
-    expect(badRow.textContent).toContain("预览失败");
-    expect(badRow.textContent).toContain("source_file_unreadable");
-    // 好品类照常出(allSettled 不塌整区)
-    expect(screen.getByTestId(`schedule-row-${FILE}`).textContent).toContain("0 9 * * *");
-  });
-
-  it("空品类目录:排程一栏给空态引导文案", async () => {
-    const { map } = okSidecar([]);
-    map.health = () => healthResult([]);
-    map["schedule.preview"] = () => ({ file: "", schedule: null, timezone: null, runs: [] });
-    installSidecar(map);
-
-    render(
-      <MemoryRouter>
-        <SourcesScreen />
-      </MemoryRouter>,
-    );
-
-    const overview = await screen.findByTestId("schedule-overview");
-    expect(overview.textContent).toContain("没有品类 YAML");
-  });
-});
 
 // ---------------------------------------------------------------------------
 // D4(10-03-ui-deep-imitation)结构性重做:ui/table 基件迁移 + 列宽拖拽 + 紧凑密度

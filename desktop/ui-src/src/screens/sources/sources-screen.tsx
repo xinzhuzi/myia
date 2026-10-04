@@ -1,4 +1,4 @@
-import { FlaskConical, Loader2, Play, Plus } from "lucide-react";
+import { FlaskConical, Loader2, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -8,21 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, onSidecarEvent, SidecarRequestError } from "@/lib/api";
-import type { CompletedEvent, RunExitStatus, TestCompletedEvent } from "@/lib/api";
+import type { TestCompletedEvent } from "@/lib/api";
 import { YamlEditorDialog } from "@/screens/yaml-editor/yaml-editor-dialog";
 
 import { ErrorBox } from "./error-box";
 import { FirstRunGuide } from "./first-run-guide";
 import {
   asSidecarError,
-  formatScheduleRun,
-  loadScheduleRows,
   buildTestOutcome,
   loadSourcesData,
   verifySourceRoundTrip,
   writeSourceToggle,
 } from "./api";
-import type { RoundTripCheck, ScheduleRow, SourcesData, SourceRow, TestOutcomeView } from "./api";
+import type { RoundTripCheck, SourcesData, SourceRow, TestOutcomeView } from "./api";
 import { SourcesTable, sourceKey } from "./sources-table";
 import { TestResultDialog } from "./test-result-dialog";
 
@@ -49,18 +47,6 @@ interface TestState {
 }
 
 /**
- * 品类「跑一次」屏内态(10-04-topbar-cleanup:顶栏全局跑一次归位到源管理,
- * 状态机照抄仪表盘品类卡 RunOnceState 形状):发起后等 completed 事件按
- * run_id 对账收尾;终态后 reload 刷新健康度/最近产出。
- */
-type RunOnceState =
-  | { phase: "idle" }
-  | { phase: "starting"; file: string; name: string }
-  | { phase: "collecting"; file: string; name: string; runId: number }
-  | { phase: "done"; name: string; runId: number; status: RunExitStatus | null; exitCode: number | null }
-  | { phase: "error"; name: string; message: string };
-
-/**
  * 源管理:插件/源表格(TanStack 排序/筛选/分页)+ 健康度三色 + 启停写回 + 试抓。
  *
  * 10-04-ui-kestra-anchor:布局对齐 Kestra Flows 列表(结构借自 Apache-2.0
@@ -85,18 +71,9 @@ type RunOnceState =
  * 内)。编辑内核与配置编辑屏共享(use-yaml-file-editor),深链 /yaml-editor
  * ?file=… 仍可用(侧栏入口,本屏不再跳转)。
  *
- * 底部「排程一览」(G4,10-03-feed-ux):逐品类 schedule.preview 并发取
- * 未来 5 次运行时刻(Apify 式 Next runs 预览,防 cron 写错);单品类失败
- * 只塌该行(allSettled),预览失败不塌整区。
- *
- * 品类行「跑一次」(10-04-topbar-cleanup):Kestra Flows 列表 Trigger 动作
- * 按钮范式(Flows.vue 行尾 actions 列 IconButton+Play,借结构改语义)——
- * 排程一览每行(= 一个品类 YAML,对应 Kestra 一个 flow)行尾 Play 图标钮
- * 发起 run.start,替代顶栏全局跑一次按钮(不再按「选中品类/第一个可加载」
- * 瞎猜目标)。run 协议单飞(run_busy):忙碌期全区品类行禁点,该行转
- * spinner;completed 事件按 run_id 对账收尾 → 终态横幅(成功/部分/失败
- * 如实分色)+ reload 刷新健康度。发起失败(run_busy/结构化错误)红条回显,
- * 按钮回可用,绝不假装成功。
+ * 底部「排程一览」与品类行「跑一次」已迁至定时任务屏底部(2026-10-05,
+ * 主人质疑「排程一览是什么意思?没在定时任务里面?」——排程语义归位
+ * cron 屏;渲染与状态机见 cron-screen.tsx)。
  */
 export function SourcesScreen() {
   const [state, setState] = useState<LoadState>({ status: "loading", data: null, error: null });
@@ -111,12 +88,6 @@ export function SourcesScreen() {
   const [testOutcome, setTestOutcome] = useState<TestOutcomeView | null>(null);
   const testingRef = useRef<TestState | null>(null);
   testingRef.current = testing;
-  /** 品类「跑一次」(顶栏控件归位):单飞状态机 + 最近一次终态回显 */
-  const [runOnce, setRunOnce] = useState<RunOnceState>({ phase: "idle" });
-  const runOnceRef = useRef<RunOnceState>({ phase: "idle" });
-  runOnceRef.current = runOnce;
-  /** 排程一览(G4):逐品类 schedule.preview;单品类失败不塌整区 */
-  const [scheduleRows, setScheduleRows] = useState<ScheduleRow[] | null>(null);
   /** 工具栏刷新态(Kestra KSFilter refresh 位):有数据时原地转圈不卸表格 */
   const [refreshing, setRefreshing] = useState(false);
   /** 一键探查(主人 2026-10-05):doctor 全源诊断 → reload 更新健康度 */
@@ -132,10 +103,6 @@ export function SourcesScreen() {
     try {
       const data = await loadSourcesData();
       setState({ status: "ready", data, error: null });
-      // 排程一览随 reload 并发刷新;失败静默保留旧值(区块自带错误行,不塌屏)
-      void loadScheduleRows(data.plugins)
-        .then(setScheduleRows)
-        .catch(() => undefined);
     } catch (error) {
       setState({ status: "error", data: null, error: asSidecarError(error) });
     } finally {
@@ -187,20 +154,8 @@ export function SourcesScreen() {
     }
   }, []);
 
-  /** 品类行「跑一次」:run.start 单飞发起(run_busy 拒并发,忙碌态由按钮禁点表达) */
-  const handleRunOnce = useCallback(async (row: ScheduleRow) => {
-    setRunOnce({ phase: "starting", file: row.file, name: row.name });
-    try {
-      const started = await api.runStart({ yaml: row.file });
-      setRunOnce({ phase: "collecting", file: row.file, name: row.name, runId: started.run_id });
-    } catch (error) {
-      const failure = asSidecarError(error);
-      setRunOnce({ phase: "error", name: row.name, message: `${failure.code}:${failure.message}` });
-    }
-  }, []);
-
-  // 侧车事件回屏:test.completed → 试抓详情弹窗;completed → 跑一次收尾
-  // (各按 job_id/run_id 对账防串台;结果只驻屏内,v1 不跨屏)
+  // 侧车事件回屏:test.completed → 试抓详情弹窗(按 job_id 对账防串台;
+  // 结果只驻屏内,v1 不跨屏;run 一次的 completed 收尾随排程一览迁 cron 屏)
   useEffect(() => {
     let unlisten: (() => void) | null = null;
     let disposed = false;
@@ -211,22 +166,6 @@ export function SourcesScreen() {
         if (current === null || testEvent.job_id !== current.jobId) return;
         setTesting(null);
         setTestOutcome(buildTestOutcome(testEvent, current.sourceName));
-        return;
-      }
-      if (event.type === "completed") {
-        const completed = event as CompletedEvent;
-        const current = runOnceRef.current;
-        // run_id 对账:只收自己发起的 run(别的入口发起的 run 不抢收)
-        if (current.phase !== "collecting" || completed.run_id !== current.runId) return;
-        setRunOnce({
-          phase: "done",
-          name: current.name,
-          runId: completed.run_id,
-          status: completed.status,
-          exitCode: completed.exit_code,
-        });
-        // 终态后刷新健康度/最近产出(失败 run 也是运行记录,照刷不误)
-        void reload();
       }
     })
       .then((fn) => {
@@ -240,7 +179,7 @@ export function SourcesScreen() {
       disposed = true;
       unlisten?.();
     };
-  }, [reload]);
+  }, []);
 
   const handleToggle = useCallback(
     async (row: SourceRow, next: boolean) => {
@@ -270,9 +209,6 @@ export function SourcesScreen() {
   );
 
   const rows = state.data?.rows ?? [];
-  /** 跑一次忙碌中的品类文件(null = 空闲;run 单飞,忙碌期全区品类行禁点) */
-  const runActiveFile =
-    runOnce.phase === "starting" || runOnce.phase === "collecting" ? runOnce.file : null;
   const disabledEntries = Object.entries(disabledByFile).flatMap(([file, names]) =>
     names.map((name) => ({ file, name, key: sourceKey(file, name) })),
   );
@@ -343,52 +279,6 @@ export function SourcesScreen() {
           data-testid="roundtrip-ok"
         >
           已{outcome.next ? "启用" : "停用"} {outcome.sourceName} · doctor 复核往返一致
-        </div>
-      ) : null}
-
-      {/* 品类「跑一次」回显(顶栏控件归位):进行中/终态;终态后 health 随 reload 刷新 */}
-      {runOnce.phase === "collecting" ? (
-        <div
-          role="status"
-          data-testid="run-once-running"
-          className="mx-6 flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground"
-        >
-          <Loader2 className="size-3.5 animate-spin" />
-          跑一次 {runOnce.name} 进行中(异步 run #{runOnce.runId},实时输出见
-          <a
-            href="#/logs"
-            className="font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
-            title="到采集日志屏跟踪该 run 实时输出"
-          >
-            日志屏
-          </a>
-          )…
-        </div>
-      ) : null}
-      {runOnce.phase === "done" ? (
-        <div
-          role={runDoneTone(runOnce) === "destructive" ? "alert" : "status"}
-          data-testid={`run-once-${runDoneTone(runOnce) === "ok" ? "ok" : "fail"}`}
-          className={
-            runDoneTone(runOnce) === "ok"
-              ? "mx-6 rounded-md border border-ok/30 bg-ok/10 px-4 py-3 text-sm text-ok"
-              : runDoneTone(runOnce) === "destructive"
-                ? "mx-6 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-                : "mx-6 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning"
-          }
-        >
-          跑一次 {runOnce.name} 完成(run #{runOnce.runId} ·{" "}
-          {runOnce.status ?? (runOnce.exitCode !== null ? `exit ${runOnce.exitCode}` : "终态未知")});
-          健康度与最近产出已刷新。
-        </div>
-      ) : null}
-      {runOnce.phase === "error" ? (
-        <div
-          role="alert"
-          data-testid="run-once-error"
-          className="mx-6 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-        >
-          跑一次 {runOnce.name} 发起失败:{runOnce.message}
         </div>
       ) : null}
 
@@ -500,104 +390,6 @@ export function SourcesScreen() {
         </div>
       ) : null}
 
-      {/* 排程一览(G4,10-03-feed-ux):每品类 schedule/timezone 原文 + 未来 5 次
-          (Apify 式 Next runs 预览,防 cron 写错);单品类失败只塌该行。
-          10-04-topbar-cleanup:行尾加 Kestra Flows Trigger 动作钮(跑一次),
-          承接顶栏全局跑一次的归位。
-          R2 重排:卡头 CardTitle+CardDescription 层级化,卡体只留数据行 */}
-      {scheduleRows !== null ? (
-        <div className="px-6" data-testid="schedule-overview">
-          <Card>
-            <CardHeader>
-              <CardTitle>排程一览</CardTitle>
-              <CardDescription>
-                每品类未来 5 次运行(schedule.preview 纯计算,排程执行属 CLI/常驻
-                形态);改 schedule 节到「配置编辑」;行尾 ▶ 立即跑一次该品类。
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              {scheduleRows.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  插件目录下没有品类 YAML;先装品类再看排程。
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-1.5">
-                  {scheduleRows.map((row) => (
-                    <li
-                      key={row.file}
-                      data-testid={`schedule-row-${row.file}`}
-                      className="grid min-h-11 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 gap-y-1 border-b border-border/40 py-1.5 text-xs last:border-b-0"
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="truncate font-medium text-foreground">{row.name}</span>
-                        {row.error ? (
-                          <Badge variant="destructive" title={row.error}>
-                            预览失败
-                          </Badge>
-                        ) : row.schedule ? (
-                          <Badge variant="outline" className="font-mono" title="5 段 cron 原文">
-                            {row.schedule}
-                          </Badge>
-                        ) : (
-                          <Badge variant="unknown">无排程</Badge>
-                        )}
-                        {row.timezone ? (
-                          <span className="font-mono text-2xs text-muted-foreground">{row.timezone}</span>
-                        ) : null}
-                      </span>
-                      <span className="flex flex-wrap items-center justify-end gap-1 font-mono text-muted-foreground">
-                        {row.error ? (
-                          <span className="truncate text-destructive" title={row.error}>
-                            {row.error}
-                          </span>
-                        ) : row.runs.length > 0 ? (
-                          row.runs.map((run, index) => (
-                            /* 终审修整:时间数据可视化——最近一次运行用品牌青高亮
-                               (下一跳最值得关注),其余保持中性;行 min-h 统一
-                               (VL 指认「各行高不统一、时间纯文本堆砌无可视化」) */
-                            <span
-                              key={run}
-                              className={
-                                index === 0
-                                  ? "inline-flex h-5 items-center rounded-sm border border-primary/40 bg-primary/10 px-1.5 font-mono text-2xs font-medium text-primary"
-                                  : "inline-flex h-5 items-center rounded-sm border border-border/50 bg-muted/50 px-1.5 font-mono text-2xs"
-                              }
-                              title={index === 0 ? `最近一次即将运行:${run}` : run}
-                            >
-                              {formatScheduleRun(run)}
-                            </span>
-                          ))
-                        ) : (
-                          <span>—</span>
-                        )}
-                      </span>
-                      {/* Kestra Flows Trigger 动作按钮范式(Flows.vue 行尾 actions 列
-                          IconButton+Play,tooltip 承载语义):本行品类发起 run.start。
-                          run 协议单飞(run_busy):忙碌期全区品类行禁点,发起行转 spinner */}
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="size-7"
-                        disabled={runActiveFile !== null}
-                        aria-label={`跑一次:${row.name}`}
-                        title={`手动触发该品类采集一次(run.start ${row.file})`}
-                        onClick={() => void handleRunOnce(row)}
-                      >
-                        {runActiveFile === row.file ? (
-                          <Loader2 className="size-3.5 animate-spin" />
-                        ) : (
-                          <Play className="size-3.5" />
-                        )}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
-
       {/* 试抓结果详情弹窗(10-05-test-result-dialog):完成/发起失败即弹模态,
           吃满 test.completed 结构化明细;进行中态由行内 spinner 承载(实时输出见日志屏) */}
       {testOutcome ? (
@@ -633,16 +425,6 @@ const sourceRowShell: SourceRow = {
   },
   fingerprintSkips: { observed: 0, skipped: 0 },
 };
-
-/** 跑一次终态分色:success=ok / failed+config_error=destructive / partial、cancelled、
- *  终态未知=warning(如实分级,失败不伪装成功;RunExitStatus 语义见 lib/api/types.ts) */
-function runDoneTone(
-  done: Extract<RunOnceState, { phase: "done" }>,
-): "ok" | "warning" | "destructive" {
-  if (done.status === "success") return "ok";
-  if (done.status === "failed" || done.status === "config_error") return "destructive";
-  return "warning";
-}
 
 /** 页头健康统计 chip:圆点 + 标签 + 数字(与表格 HealthBadge 同视觉语言) */
 const SUMMARY_TONE = {

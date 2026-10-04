@@ -82,15 +82,16 @@ describe("[ 键切换(侧栏折叠)", () => {
 });
 
 describe("折叠态持久往返(myssia.sidebar.v1)", () => {
-  it.skip("拖拽折叠态持久化(myssia.sidebar.v1):写 {collapsed:true} → 重挂载还原折叠态", () => {
-      localStorage.setItem("myssia.sidebar.v1", JSON.stringify({ collapsed: true, width: null }));
+  it("拖拽折叠态持久化(myssia.sidebar.v1):写 {collapsed:true} → 挂载即图标态;重写展开宽重挂载还原", () => {
+      // 无头改造后品牌区(世事 MYIA title)已整删(d83be5a),折叠判定改锚
+      // aside 内联宽:折叠 = SIDEBAR_ICON_WIDTH 56px ↔ 展开 = 记忆宽
+      localStorageStub.setItem(SIDEBAR_KEY, JSON.stringify({ collapsed: true, width: null }));
       const { unmount } = renderSidebar();
-      expect(screen.getByTitle("世事 MYIA")).toBeTruthy();
+      expect(sidebarWidth()).toBe("56px");
       unmount();
-      localStorage.setItem("myssia.sidebar.v1", JSON.stringify({ collapsed: false, width: 280 }));
+      localStorageStub.setItem(SIDEBAR_KEY, JSON.stringify({ collapsed: false, width: 280 }));
       renderSidebar();
-      const aside = screen.getByRole("complementary") || document.querySelector("aside");
-      expect(aside).toBeTruthy();
+      expect(sidebarWidth()).toBe("280px");
   });
 
   it("存有自定义宽度 {collapsed:false,width:300} → 挂载宽 300px(记忆生效)", () => {

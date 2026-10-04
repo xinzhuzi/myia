@@ -34,6 +34,8 @@ import type {
   CronJobRecord,
   CronListResult,
   CronStatusResult,
+  HealthResult,
+  PluginReport,
   YamlListResult,
 } from "@/lib/api";
 import { CronScreen } from "./cron-screen";
@@ -243,7 +245,7 @@ describe("CronScreen 基线(Stage 1)", () => {
 });
 
 describe("路由接线(App.tsx /cron)", () => {
-  it.skip("/cron 路由可达(页头已删——无头布局)", async () => {
+  it("/cron 路由可达(无头布局:PageHeader 返 null,以活性条为锚)", async () => {
     mockSidecar({ "cron.list": () => listResult([]), "cron.status": () => STATUS_OK });
     render(
       <MemoryRouter initialEntries={["/cron"]}>
@@ -251,8 +253,9 @@ describe("路由接线(App.tsx /cron)", () => {
       </MemoryRouter>,
     );
 
+    // 页头已删(d9ae353 无头):屏内首个可见锚 = 活性条 cron-vitality
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "定时任务" })).toBeTruthy();
+      expect(screen.getByTestId("cron-vitality")).toBeTruthy();
     });
     const nav = screen.getByRole("navigation", { name: "主导航" });
     expect(within(nav).getByRole("link", { name: "定时任务" })).toBeTruthy();
@@ -1149,5 +1152,211 @@ describe("#27 编辑示 id(G7;AC4)", () => {
     const idSpan = await screen.findByTestId("cron-edit-job-id"); // H1065-1068 对位
     expect(idSpan.textContent).toBe("a1b2c3d4e5f6");
     expect(idSpan.className).toContain("font-mono");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 排程一览 + 品类行「跑一次」(2026-10-05 自源管理屏迁入;主人质疑
+// 「排程一览是什么意思?没在定时任务里面?」——排程语义归位 cron 屏):
+// 逐品类 schedule.preview 并发预览(单品类失败只塌该行)+ 行尾 run.start
+// 单飞(completed 事件按 run_id 对账收尾)。用例自 sources.test.tsx 迁移,
+// 适配点:数据面经 health 取品类清单;终态不 reload(本屏无健康度面)。
+// ---------------------------------------------------------------------------
+
+const SCHED_FILE = "plugins/ai-news.yaml";
+
+/** 品类夹具(排程一览只吃 plugins 层,sources 一律空) */
+function schedPlugin(file: string, id: string, schedule: string | null): PluginReport {
+  return {
+    file,
+    id,
+    name: `品类 ${id}`,
+    schedule,
+    timezone: "Asia/Shanghai",
+    push_channels: [],
+    loaded: true,
+    load_errors: null,
+    sources: [],
+  };
+}
+
+function schedHealth(plugins: PluginReport[]): HealthResult {
+  return {
+    command: "list",
+    plugins_dir: "plugins",
+    db: "myssia.db",
+    store_error: null,
+    plugins,
+    summary: { plugins: plugins.length, sources: 0, ok: 0, degraded: 0, dead: 0, unknown: 0 },
+    healthy: true,
+    exit_code: 0,
+  };
+}
+
+describe("排程一览(自源管理迁入)", () => {
+  it("屏底逐品类出 schedule/timezone 原文 + 未来时刻行;无排程品类明示「无排程」", async () => {
+    mockSidecar({
+      "cron.list": () => listResult([]),
+      "cron.status": () => STATUS_OK,
+      health: () =>
+        schedHealth([
+          schedPlugin(SCHED_FILE, "ai-news", "*/15 * * * *"),
+          schedPlugin("plugins/nosched.yaml", "nosched", null),
+        ]),
+      "schedule.preview": (params) => {
+        const { file } = params as { file: string };
+        if (file.endsWith("nosched.yaml")) {
+          return { file, schedule: null, timezone: null, runs: [] };
+        }
+        return {
+          file,
+          schedule: "*/15 * * * *",
+          timezone: "Asia/Shanghai",
+          runs: ["2026-10-03T09:00:00+08:00", "2026-10-03T09:15:00+08:00"],
+        };
+      },
+    });
+    renderScreen();
+
+    const overview = await screen.findByTestId("schedule-overview");
+    expect(overview.textContent).toContain("排程一览");
+    // schedule 原文 + 时区 + 本地化时刻
+    const row = screen.getByTestId(`schedule-row-${SCHED_FILE}`);
+    expect(row.textContent).toContain("*/15 * * * *");
+    expect(row.textContent).toContain("Asia/Shanghai");
+    expect(row.textContent).toContain("09:00");
+    // 无排程品类明示,不是错误
+    const nosched = screen.getByTestId("schedule-row-plugins/nosched.yaml");
+    expect(nosched.textContent).toContain("无排程");
+    // 预览请求逐品类发出,且带 count(缺省 5)
+    expect(invokedParams("schedule.preview")).toContainEqual({ file: SCHED_FILE, count: 5 });
+    expect(invokedParams("schedule.preview")).toContainEqual({ file: "plugins/nosched.yaml", count: 5 });
+  });
+
+  it("单品类预览失败只塌该行(预览失败徽标 + code),整区仍出", async () => {
+    mockSidecar({
+      "cron.list": () => listResult([]),
+      "cron.status": () => STATUS_OK,
+      health: () =>
+        schedHealth([schedPlugin(SCHED_FILE, "ai-news", "0 9 * * *"), schedPlugin("plugins/bad.yaml", "bad", null)]),
+      "schedule.preview": (params) => {
+        const { file } = params as { file: string };
+        if (file.endsWith("bad.yaml")) {
+          throw JSON.stringify({
+            code: "source_file_unreadable",
+            path: "params.file",
+            message: "品类 YAML 装不上: invalid_cron",
+          });
+        }
+        return { file, schedule: "0 9 * * *", timezone: null, runs: ["2026-10-04T09:00:00+08:00"] };
+      },
+    });
+    renderScreen();
+
+    const badRow = await screen.findByTestId("schedule-row-plugins/bad.yaml");
+    expect(badRow.textContent).toContain("预览失败");
+    expect(badRow.textContent).toContain("source_file_unreadable");
+    // 好品类照常出(allSettled 不塌整区)
+    expect(screen.getByTestId(`schedule-row-${SCHED_FILE}`).textContent).toContain("0 9 * * *");
+  });
+
+  it("空品类目录:排程一栏给空态引导文案", async () => {
+    mockSidecar({
+      "cron.list": () => listResult([]),
+      "cron.status": () => STATUS_OK,
+      health: () => schedHealth([]),
+    });
+    renderScreen();
+
+    const overview = await screen.findByTestId("schedule-overview");
+    expect(overview.textContent).toContain("没有品类 YAML");
+  });
+
+  it("排程行 Trigger 钮发起 run.start(yaml=品类文件)→ completed 按 run_id 对账收尾", async () => {
+    mockSidecar({
+      "cron.list": () => listResult([]),
+      "cron.status": () => STATUS_OK,
+      health: () =>
+        schedHealth([schedPlugin(SCHED_FILE, "ai-news", "*/15 * * * *"), schedPlugin("plugins/weekly.yaml", "weekly", null)]),
+      "schedule.preview": (params) => {
+        const { file } = params as { file: string };
+        return { file, schedule: "*/15 * * * *", timezone: "Asia/Shanghai", runs: ["2026-10-04T09:00:00+08:00"] };
+      },
+      "run.start": (params) => {
+        const { yaml } = params as { yaml: string };
+        return { run_id: 31, state: "running", yaml, dry: false, db: "myssia.db" };
+      },
+    });
+    renderScreen();
+
+    // 每行品类(含无源品类)行尾各有 Trigger 钮
+    const trigger = await screen.findByRole("button", { name: "跑一次:品类 ai-news" });
+    expect(screen.getByRole("button", { name: "跑一次:品类 weekly" })).toBeTruthy();
+
+    fireEvent.click(trigger);
+    await waitFor(() => expect(invokedParams("run.start")).toContainEqual({ yaml: SCHED_FILE }));
+    // 进行中横幅(带日志屏深链)+ run 单飞:全区品类行 Trigger 禁点
+    const running = await screen.findByTestId("run-once-running");
+    expect(running.textContent).toContain("品类 ai-news");
+    expect(running.textContent).toContain("run #31");
+    expect(running.querySelector("a")?.getAttribute("href")).toBe("#/logs");
+    expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "跑一次:品类 weekly" }) as HTMLButtonElement).disabled).toBe(true);
+
+    // 串台防护:别的入口发起的 run(run_id=99)completed 不抢收
+    emitSidecarEvent({ type: "completed", run_id: 99, exit_code: 0, status: "success", dry: false, ts: "2026-10-04T09:00:00+00:00" });
+    expect(screen.getByTestId("run-once-running")).toBeTruthy();
+
+    emitSidecarEvent({ type: "completed", run_id: 31, exit_code: 0, status: "success", dry: false, ts: "2026-10-04T09:01:00+00:00" });
+    const done = await screen.findByTestId("run-once-ok");
+    expect(done.textContent).toContain("品类 ai-news");
+    expect(done.textContent).toContain("run #31");
+    expect(done.textContent).toContain("success");
+    expect(done.getAttribute("role")).toBe("status");
+    expect(screen.queryByTestId("run-once-running")).toBeNull();
+    // 单飞解除:按钮回可用
+    expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("发起被拒(run_busy)→ 红条回显按钮回可用;failed 终态如实红条不伪装成功", async () => {
+    let reject = true;
+    mockSidecar({
+      "cron.list": () => listResult([]),
+      "cron.status": () => STATUS_OK,
+      health: () => schedHealth([schedPlugin(SCHED_FILE, "ai-news", "*/15 * * * *")]),
+      "schedule.preview": (params) => {
+        const { file } = params as { file: string };
+        return { file, schedule: "*/15 * * * *", timezone: "Asia/Shanghai", runs: ["2026-10-04T09:00:00+08:00"] };
+      },
+      "run.start": () => {
+        if (reject) {
+          throw JSON.stringify({
+            code: "run_busy",
+            path: "$",
+            message: "已有 run 在执行 run_id=8(单飞)",
+            data: { active_run_id: 8 },
+          });
+        }
+        return { run_id: 32, state: "running", yaml: SCHED_FILE, dry: false, db: "myssia.db" };
+      },
+    });
+    renderScreen();
+
+    fireEvent.click(await screen.findByRole("button", { name: "跑一次:品类 ai-news" }));
+    const busy = await screen.findByTestId("run-once-error");
+    expect(busy.textContent).toContain("run_busy");
+    expect(busy.textContent).toContain("已有 run 在执行");
+    expect(busy.getAttribute("role")).toBe("alert");
+    // 拒绝不滞留 busy:按钮立即可重试
+    expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(false);
+
+    // 重试发起成功;failed 终态(exit=2)红条如实分级
+    reject = false;
+    fireEvent.click(screen.getByRole("button", { name: "跑一次:品类 ai-news" }));
+    await screen.findByTestId("run-once-running");
+    emitSidecarEvent({ type: "completed", run_id: 32, exit_code: 2, status: "failed", dry: false, ts: "2026-10-04T09:02:00+00:00" });
+    const fail = await screen.findByTestId("run-once-fail");
+    expect(fail.textContent).toContain("failed");
+    expect(fail.getAttribute("role")).toBe("alert");
   });
 });

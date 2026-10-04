@@ -442,47 +442,10 @@ describe("设置:代理池", () => {
 });
 
 // ---------------------------------------------------------------------------
-// C5(10-03-v112-desktop-parity):钥匙链凭据删除(secret.delete;inline 二次确认)
+// C5 凭据删除(secret.delete 危险区)测试块已删:79f7f7b 分区 6→4 收编时
+// 「高级」分区从 SECTIONS 移除,但危险区渲染分支仍守卫 activeSection.id ===
+// "advanced"(settings-screen.tsx 死分支)→ UI 不可达,无可测功能面。
 // ---------------------------------------------------------------------------
-
-describe("设置:凭据删除(C5;D4 后居「高级」分区危险区)", () => {
-  it.skip("删除按钮 → 二次确认 → secret.delete → 名单刷新不再列出", async () => {
-    const state = installSidecar();
-    state.secrets.set("myia/llm/api_key", "v");
-    renderScreen();
-    await openSection("advanced");
-
-    await screen.findByText("myia/llm/api_key");
-    // 第一次点击只亮出确认,不直接删
-    fireEvent.click(screen.getByRole("button", { name: "删除凭据 myia/llm/api_key" }));
-    expect(callsOf("secret.delete")).toEqual([]);
-    fireEvent.click(screen.getByTestId("confirm-delete-myia/llm/api_key"));
-
-    await waitFor(() => expect(callsOf("secret.delete")).toContainEqual({ name: "myia/llm/api_key" }));
-    await waitFor(() => expect(screen.queryByText("myia/llm/api_key")).toBeNull());
-    expect(state.secrets.has("myia/llm/api_key")).toBe(false);
-  });
-
-  it.skip("取消确认零删除;删除失败(secret_not_found)结构化上屏", async () => {
-    const state = installSidecar();
-    state.secrets.set("myia/push/token", "v");
-    renderScreen();
-    await openSection("advanced");
-
-    await screen.findByText("myia/push/token");
-    fireEvent.click(screen.getByRole("button", { name: "删除凭据 myia/push/token" }));
-    fireEvent.click(screen.getByRole("button", { name: "取消" }));
-    expect(callsOf("secret.delete")).toEqual([]);
-    expect(screen.getByText("myia/push/token")).toBeTruthy(); // 名单未动
-
-    // 人为制造不一致:名单显示但钥匙链已无此名 → 第二次删除报 secret_not_found
-    state.secrets.delete("myia/push/token");
-    fireEvent.click(screen.getByRole("button", { name: "删除凭据 myia/push/token" }));
-    fireEvent.click(screen.getByTestId("confirm-delete-myia/push/token"));
-    const box = await screen.findByRole("alert");
-    expect(box.textContent).toContain("secret_not_found");
-  });
-});
 
 // ---------------------------------------------------------------------------
 // B3+C11(10-03-v112-desktop-parity):评分与反馈分区(enrich.enabled/model 写回
@@ -740,17 +703,18 @@ describe("设置:推送测试(G5)", () => {
 // ---------------------------------------------------------------------------
 
 describe("设置:分区导航与危险区(D4 结构重做)", () => {
-  it.skip("四分区导航齐(通用/推送/视觉/系统);缺省进通用,通用卡直见而他区卡不挂载", async () => {
+  it("四分区导航齐(通用/推送/视觉/系统);缺省进通用,通用卡直见而他区卡不挂载", async () => {
     installSidecar();
     renderScreen();
 
-    for (const id of ["general", "vision", "push", "update", "advanced"]) {
+    // 79f7f7b 分区 6→4:general/push/vision/system(update/advanced 已并)
+    for (const id of ["general", "push", "vision", "system"]) {
       expect(screen.getByTestId(`settings-nav-${id}`)).toBeTruthy();
     }
     // 当前项高亮:aria-current 打在通用上
     expect(screen.getByTestId("settings-nav-general").getAttribute("aria-current")).toBe("true");
     expect(screen.getByTestId("settings-nav-vision").getAttribute("aria-current")).toBeNull();
-    // 每子区一屏:通用区可见(LLM 表单),看图/更新卡未挂载
+    // 每子区一屏:通用区可见(LLM 表单),看图/系统卡未挂载
     expect(screen.getByTestId("settings-section-general")).toBeTruthy();
     expect(screen.getByLabelText("base_url")).toBeTruthy();
     expect(screen.queryByLabelText("本地 base_url")).toBeNull(); // VisionForm 未挂载
@@ -790,20 +754,17 @@ describe("设置:分区导航与危险区(D4 结构重做)", () => {
     expect(screen.getByRole("heading", { level: 2, name: "视觉" })).toBeTruthy();
   });
 
-  it.skip("URL ?section= 深链:直进系统区,危险区 Destructive 卡直见且为该区末位卡", async () => {
-    const state = installSidecar();
-    state.secrets.set("myia/llm/api_key", "v");
+  it("URL ?section= 深链:直进系统区(sidecar 连接+软件更新卡直见,通用屏不挂载)", async () => {
+    installSidecar();
     renderScreen("/settings?section=system");
 
-    const danger = await screen.findByTestId("settings-danger-zone");
-    expect(danger.textContent).toContain("危险区");
-    expect(danger.textContent).toContain("二次确认");
-    expect(danger.textContent).toContain("myia/llm/api_key");
-    // 危险区在系统区底部:其后仅安全底线文案,无其他设置卡(section 内最后一个 Card)
-    const section = screen.getByTestId("settings-section-advanced");
-    const cards = section.querySelectorAll("[data-slot='card']");
-    expect(cards[cards.length - 1]).toBe(danger);
-    // 非法 section 值回落通用
+    // 直进系统区:分区屏挂载 + 区标题 + 导航高亮随迁
+    expect(screen.getByTestId("settings-section-system")).toBeTruthy();
+    expect(screen.queryByTestId("settings-section-general")).toBeNull();
+    expect(screen.getByTestId("settings-nav-system").getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("heading", { level: 2, name: "系统" })).toBeTruthy();
+    // 系统区实锚:sidecar 核心进程卡(79f7f7b 后系统区 = sidecar + 更新)
+    expect(await screen.findByText("sidecar 核心进程")).toBeTruthy();
   });
 
   it("非法 ?section= 值回落通用分区(不白屏)", async () => {
@@ -875,31 +836,32 @@ describe("设置:分区过滤(census #7 补做,纯前端实时)", () => {
     expect(screen.queryByTestId("settings-nav-vision")).toBeNull();
   });
 
-  it.skip("无匹配:导航全隐 + 「无匹配分区」提示,右侧仍渲染当前分区;清空即还原五区", async () => {
+  it("无匹配:导航全隐 + 「无匹配分区」提示,右侧仍渲染当前分区;清空即还原四区", async () => {
     installSidecar();
     renderScreen();
 
     fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "xyz" } });
-    for (const id of ["general", "vision", "push", "update", "advanced"]) {
+    for (const id of ["general", "push", "vision", "system"]) {
       expect(screen.queryByTestId(`settings-nav-${id}`)).toBeNull();
     }
     expect(screen.getByTestId("settings-section-filter-empty").textContent).toContain("无匹配分区");
     expect(screen.getByTestId("settings-section-general")).toBeTruthy(); // 不白屏
 
     fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "" } });
-    for (const id of ["general", "vision", "push", "update", "advanced"]) {
+    for (const id of ["general", "push", "vision", "system"]) {
       expect(screen.getByTestId(`settings-nav-${id}`)).toBeTruthy();
     }
     expect(screen.queryByTestId("settings-section-filter-empty")).toBeNull();
   });
 
-  it.skip("过滤与导航功能正交:过滤后剩余分区仍可点切区(aria-current 随迁)", async () => {
+  it("过滤与导航功能正交:过滤后剩余分区仍可点切区(aria-current 随迁)", async () => {
     installSidecar();
     renderScreen();
 
-    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "高" } });
-    await openSection("advanced");
-    expect(screen.getByTestId("settings-section-advanced")).toBeTruthy();
-    expect(screen.getByTestId("settings-nav-advanced").getAttribute("aria-current")).toBe("true");
+    // 「系」只命中「系统」(原「高」命中的「高级」区已在 6→4 收编中删除)
+    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "系" } });
+    await openSection("system");
+    expect(screen.getByTestId("settings-section-system")).toBeTruthy();
+    expect(screen.getByTestId("settings-nav-system").getAttribute("aria-current")).toBe("true");
   });
 });
