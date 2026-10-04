@@ -99,7 +99,9 @@ const COLUMNS: ColumnDef<SourceRow>[] = [
     cell: ({ row }) => (
       <div className="min-w-0" title={row.original.pluginFile}>
         <div className="truncate text-sm text-foreground">{pluginLabel(row.original)}</div>
-        <div className="truncate font-mono text-2xs text-muted-foreground">{row.original.pluginFile}</div>
+        <div className="truncate font-mono text-2xs text-muted-foreground">
+          {row.original.pluginFile.split("/").pop()}
+        </div>
         {!row.original.pluginLoaded ? <Badge variant="warning">加载失败</Badge> : null}
       </div>
     ),
