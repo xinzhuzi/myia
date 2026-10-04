@@ -32,7 +32,7 @@
 
 > ~~新包=/Applications/世事.app(23:20 换装,含第八屏+全部修复;旧包 /tmp/世事.app.bak-pre-cronui-2320)~~ **已再换装(2026-10-05 00:09,装机员)**:新包=02a438f 树三段链构建(包 mtime 2026-10-05 00:06:27 +08;旧包备份 /tmp/世事.app.bak-final-0009;换装链 exit=0 与已装包验证:`evidence/install-log.md`)。
 >
-> **收口时点注记(2026-10-05 00:16)**:此后 UI 仍在快迭代(d83be5a 00:09:00 彻底无头→8d2e8a8 00:15:08 恢复标准 macOS 标题栏/删 transparent-decorations 试验),装机员追 HEAD 的换装链此刻仍在跑(worktree 构建,/tmp/install-build-final.log 增长中;终局标志=exit 文件写 ok installed)——**主人目验时以装机员终局回执为准,届时即为最新 UI**。
+> **收口时点注记(2026-10-05 00:16)**:此后 UI 仍在快迭代(d83be5a 00:09:00 彻底无头→8d2e8a8 00:15:08 恢复标准 macOS 标题栏/删 transparent-decorations 试验),装机员追 HEAD 的换装链此刻仍在跑(worktree 构建,/tmp/install-build-final.log 增长中;终局标志=exit 文件写 ok installed)——**主人目验时以装机员终局回执为准,届时即为最新 UI**。**终局补记(00:17):exit=ok installed 已落——/Applications/世事.app 已是 8d2e8a8 构建(包内 MYIA mtime 00:16:59;前态备份 /tmp/世事.app.bak-pre-final-1004),最新 UI 就位,目验可直接走。**
 >
 > **回标(2026-10-04 收口)**:步骤 2/3/7 已由收口流自动化代做(证据 `evidence/cron-first-fire.md`:MYIA_HOME 沙箱冻结包首燃全链 7 次执行+08-cron 屏代拍 OCR 互证)——**主人目验缩为纯过目+步骤 4/5/6(急停亲手试/W2/keychain)**;注:行展开屏与急停红条因安全前置不可代拍(证据「截图局限」节),过目时顺手看一眼即可。
 
