@@ -6,7 +6,7 @@
 // 备案偏差②),本文件按白名单名建,测 Sidebar 折叠面经 AppLayout 骨架呈现。
 // 输入框守卫/修饰键口径归 use-hotkeys.test.tsx(底座 8 用例),此处不重复。
 // 键名 myssia.sidebar.v1 在用例内明写 = 改名即红(存储契约回归锚)。
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
@@ -71,11 +71,6 @@ function sidebarWidth(): string {
   return (aside as HTMLElement).style.width;
 }
 
-function pressBracket() {
-  act(() => {
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "[", bubbles: true }));
-  });
-}
 
 describe("[ 键切换(侧栏折叠)", () => {
   it("拖拽手柄在侧栏右缘(separator role)", () => {
