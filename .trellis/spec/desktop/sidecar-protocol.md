@@ -286,7 +286,7 @@ push 层 `PushSendError.code`(`missing_target` / `env_var_missing` /
 
 ## 变更纪律
 
-1. 新增/改名方法:**只改 `_HANDLERS` 一处** + `tests/test_desktop_sidecar_protocol.py` 契约用例;
+1. 新增/改名方法:**只改 `_HANDLERS` 一处** + `tests/desktop/test_desktop_sidecar_protocol.py` 契约用例;
    本文注册表随同更新(行号注解允许漂移,方法名集合不许漂)。
 2. 对账手法:发未知方法名,拿 `data.allowed` 与本文注册表比对;前端共享类型映射
    `SidecarProtocol`(types.ts)现盖 45 方法(核心 + image.config.* + v1.1.2 批八方法 +

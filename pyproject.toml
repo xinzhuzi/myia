@@ -66,5 +66,8 @@ myssia-classifier = { workspace = true }
 [tool.hatch.build.targets.wheel]
 packages = ["src/myssia"]
 
+# 双测试根(10-05-tests-module-grouping):主包 tests/ 已按 src/myssia 模块分组;
+# myssia-classifier 的语义测试随独立包走自己的 tests/,根 testpaths 一并纳入,
+# CI 单命令 `uv run --no-sync python -m pytest -q` 全量门禁不变。
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "myssia-classifier/tests"]

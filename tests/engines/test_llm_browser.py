@@ -343,7 +343,7 @@ def test_docstring_extra_claims_match_pyproject():
     extra 实存(服务端安装便利),docstring 不得再宣称「no extra is added」."""
     import tomllib
 
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
     with open(repo_root / "pyproject.toml", "rb") as handle:
         extras = tomllib.load(handle)["project"]["optional-dependencies"]
     assert "skyvern" in extras and "firecrawl" in extras

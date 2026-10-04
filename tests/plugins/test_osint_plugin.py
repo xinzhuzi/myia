@@ -42,7 +42,7 @@ from myssia.pipeline import Pipeline
 from myssia.plugins.manifest import load_manifest, load_manifest_file
 from myssia.schema import LoadError, load_category_file
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGINS_DIR = REPO_ROOT / "plugins"
 PLUGIN_DIR = PLUGINS_DIR / "myssia-osint"
 PLUGIN_ADAPTER = PLUGIN_DIR / "adapter.py"

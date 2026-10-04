@@ -1,4 +1,4 @@
-"""Tests for myssia.classify: gold set, dual-signal adjudication, safe rule eval."""
+"""Tests for myssia_classifier: gold set, dual-signal adjudication, safe rule eval."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from myssia.classify import (
+from myssia_classifier import (
     ALL_CATEGORIES,
     CATEGORY_CHANNEL,
     SEVEN_CATEGORIES,
@@ -25,7 +25,7 @@ from myssia.classify import (
     load_table,
     rules_from_config,
 )
-from myssia.classify.builtin import DEFAULT_TABLE_PATH
+from myssia_classifier.builtin import DEFAULT_TABLE_PATH
 
 FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "classify_gold.json"
 
@@ -288,7 +288,7 @@ def test_rule_when_guarded_missing_field_evaluates_false_without_raising():
 
 def test_rule_when_missing_field_arithmetic_logs_warning_and_skips(caplog):
     rule = Rule(name="unguarded", when="abs(change_pct) >= 3", tag="x")
-    with caplog.at_level(logging.WARNING, logger="myssia.classify.custom"):
+    with caplog.at_level(logging.WARNING, logger="myssia_classifier.custom"):
         assert rule.evaluate({"title": "缺字段的条目"}) is False
     assert any(record.levelname == "WARNING" and "unguarded" in record.message for record in caplog.records)
 
@@ -315,7 +315,7 @@ def test_rule_when_pow_blows_up_skips_instead_of_hanging():
 
 
 def test_evaluate_expression_pow_size_guard_is_structured():
-    from myssia.classify.custom import RuleEvalError, evaluate_expression
+    from myssia_classifier.custom import RuleEvalError, evaluate_expression
 
     with pytest.raises(RuleEvalError, match="幂运算规模超限"):
         evaluate_expression("9**9**9", {})
@@ -331,7 +331,7 @@ def test_eval_node_wraps_memory_error_into_rule_eval_error(monkeypatch):
     """资源类异常(MemoryError)同样包装,绝不逃出 Rule.evaluate 的隔离契约。"""
     import ast as _ast
 
-    from myssia.classify import custom as custom_module
+    from myssia_classifier import custom as custom_module
 
     def boom(_left: object, _right: object) -> None:
         raise MemoryError("synthetic")
@@ -411,7 +411,7 @@ def test_classify_item_returns_category_and_fired_tags():
 
 def test_classify_item_rule_failure_does_not_break_classification(caplog):
     rule = Rule(name="broken", when="abs(change_pct) >= 3", tag="x")
-    with caplog.at_level(logging.WARNING, logger="myssia.classify.custom"):
+    with caplog.at_level(logging.WARNING, logger="myssia_classifier.custom"):
         result = classify_item({"title": "Claude 免费领100$"}, rules=[rule])
     assert result.category == "token"
     assert result.tags == []

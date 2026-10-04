@@ -1011,7 +1011,7 @@ class TestRenderBatchImageFields:
         from pathlib import Path
 
         data = _json.loads(
-            (Path(__file__).resolve().parents[1] / "src" / "myssia" / "enrich" / "data" / "prompt.json")
+            (Path(__file__).resolve().parents[2] / "src" / "myssia" / "enrich" / "data" / "prompt.json")
             .read_text(encoding="utf-8")
         )
         assert data["version"] == 2, "图析键进 payload 必须伴随 version bump(缓存指纹)"

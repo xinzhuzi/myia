@@ -43,7 +43,7 @@ from myssia.engines.registry import AUTO_CHAIN, ENGINE_REGISTRY, auto_degrade, f
 from myssia.schema import load_category
 from myssia.store import SQLiteStore
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # ---------------------------------------------------------------------------
 # 合成脱敏 fixture(人工构造,不对应任何真实账号;避开噪声子串)。

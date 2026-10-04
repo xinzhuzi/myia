@@ -14,7 +14,7 @@ import pytest
 
 from myssia.schema import CHANNEL_PLATFORMS, LoadError, load_category
 
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 GOLDEN = FIXTURES / "push_targets_golden_before.json"
 # 冻结副本根(10-03-golden-frozen-snapshots):黄金回归只读这里,不读活库
 # plugins/*.yaml。副本按黄金 JSON 的键(仓库根相对路径)镜像落位,故

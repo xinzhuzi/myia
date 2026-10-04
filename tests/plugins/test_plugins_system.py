@@ -44,7 +44,7 @@ from myssia.secrets import InMemoryKeychainBackend
 from myssia.secrets import reset_backend as reset_keychain_backend
 from myssia.secrets import set_backend as set_keychain_backend
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 # ---------------------------------------------------------------------------

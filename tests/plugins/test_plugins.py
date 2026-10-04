@@ -60,8 +60,8 @@ from myssia.schema import (
 from myssia.secrets import InMemoryKeychainBackend
 from myssia.store import SQLiteStore
 
-PLUGINS_DIR = Path(__file__).resolve().parents[1] / "plugins"
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
+PLUGINS_DIR = Path(__file__).resolve().parents[2] / "plugins"
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 # gpu-prices 补入(10-03-games-v2,grill 决议⑧):全套电池自 v0.4 起从未
 # 覆盖过它;zol 源现被反爬检查页拦(2026-10-03 实测),无 _SNIPPETS 录制
 # 样本(同 v2ex parked 先例),两跑计划用合成 zol 形状 markup。

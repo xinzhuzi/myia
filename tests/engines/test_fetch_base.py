@@ -575,7 +575,7 @@ def test_extract_html_renders_url_template_for_list_type():
 def _gcores_fixture_text() -> str:
     from pathlib import Path
 
-    return (Path(__file__).resolve().parent / "fixtures" / "news-gcores-rss.xml").read_text(
+    return (Path(__file__).resolve().parents[1] / "fixtures" / "news-gcores-rss.xml").read_text(
         encoding="utf-8"
     )
 

@@ -23,7 +23,7 @@ import pytest
 
 from myssia.cli import EXIT_CONFIG_ERROR, EXIT_OK, main
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 #: 被安装的源:仓库 canonical skill/SKILL.md(test_skill_doc.py 锁定不漂移)。
 SOURCE_SKILL_MD = REPO_ROOT / "skill" / "SKILL.md"
 

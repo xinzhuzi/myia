@@ -52,7 +52,7 @@ from myssia.push import (
 from myssia.schema import load_category_file
 from myssia.store import SLOT_AM, SLOT_PM, SQLiteStore
 
-FIXTURE = Path(__file__).resolve().parent / "fixtures" / "stocks.yaml"
+FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "stocks.yaml"
 
 # Fixed +08:00 offset: deterministic slot math regardless of machine TZ.
 TIMEZONE = timezone(timedelta(hours=8))

@@ -1180,7 +1180,7 @@ class _EnrichItemAdapter:
     """ItemRecord → :meth:`LLMEnricher.enrich` 的鸭子类型单条形态。
 
     enrich() 对 items 的契约是 duck-typed(url/title/metadata/scores/
-    add_tags/dedup_key,可选 content 属性;tests/test_enrich.py FakeItem
+    add_tags/dedup_key,可选 content 属性;tests/enrich/test_enrich.py FakeItem
     同款先例),不引 pipeline.Item 重构造。``scores`` 恒起于 None:本次调用
     的产出才有意义,行内既有旧分不冒充本轮结果(未获分 = ``enrich_failed``
     结构化上报,不静默回落)。``metadata`` 种自 ``ItemRecord.raw``

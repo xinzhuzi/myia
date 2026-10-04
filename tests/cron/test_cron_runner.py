@@ -286,7 +286,7 @@ def test_self_command_dev_form() -> None:
     """dev 形态:``python -m myssia.cli`` + PYTHONPATH 前插 <repo>/src。"""
     cmd, env = self_command(["run", "x.yaml", "--json"])
     assert cmd[:4] == [sys.executable, "-m", "myssia.cli", "run"]
-    src_root = str(Path(__file__).resolve().parents[1] / "src")
+    src_root = str(Path(__file__).resolve().parents[2] / "src")
     assert env["PYTHONPATH"].startswith(src_root + os.pathsep)
 
 

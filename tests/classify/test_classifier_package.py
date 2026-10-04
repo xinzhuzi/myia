@@ -70,7 +70,7 @@ def test_built_wheel_contains_keyword_data_file(tmp_path):
     uv = shutil.which("uv")
     if uv is None:
         pytest.skip("uv 不可用:无法在 CI 验证 wheel 产物内容(请安装 uv)")
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
     subprocess.run(
         [uv, "build", str(repo_root / "myssia-classifier"),
          "--out-dir", str(tmp_path)],

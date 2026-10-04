@@ -27,7 +27,7 @@ import pytest
 from myssia.secrets import InMemoryKeychainBackend
 from myssia.store import SQLiteStore
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[2]
 ENTRY_PATH = REPO_ROOT / "desktop" / "entry.py"
 
 _spec = importlib.util.spec_from_file_location("desktop_entry", ENTRY_PATH)

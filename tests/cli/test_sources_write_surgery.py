@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[2]
 ENTRY_PATH = REPO_ROOT / "desktop" / "entry.py"
 PLUGINS_DIR = REPO_ROOT / "plugins"
 

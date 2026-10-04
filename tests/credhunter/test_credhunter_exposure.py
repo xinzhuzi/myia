@@ -43,7 +43,7 @@ from typing import Any
 import httpx
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_DIR = REPO_ROOT / "plugins" / "myssia-credhunter"
 MODULES_DIR = PLUGIN_DIR / "credhunter"
 

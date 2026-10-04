@@ -43,7 +43,7 @@ from myssia.secrets import InMemoryKeychainBackend
 from myssia.secrets import reset_backend as reset_keychain_backend
 from myssia.secrets import set_backend as set_keychain_backend
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGINS_DIR = REPO_ROOT / "plugins"
 #: 场景件的服务端可选部署(v1.1 起迁出插件目录):docker/plugins/<id>/compose.yml。
 DOCKER_PLUGINS_DIR = REPO_ROOT / "docker" / "plugins"

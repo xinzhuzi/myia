@@ -32,7 +32,7 @@ import pytest
 
 from myssia.cli import _import_plugin_adapter
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGINS_DIR = REPO_ROOT / "plugins"
 PLUGIN_DIR = PLUGINS_DIR / "myssia-credhunter"
 

@@ -11,7 +11,7 @@
 ## How verified / 怎么验证的
 
 <!-- 贴出实际运行过的命令与结果,例如:
-uv run --no-sync python -m pytest tests/test_xxx.py -q   → N passed
+uv run --no-sync python -m pytest tests/<module>/test_xxx.py -q   → N passed
 uv run --no-sync python -m pytest -q                     → 全量回归结果
 -->
 

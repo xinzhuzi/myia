@@ -147,7 +147,7 @@ from myssia.push.webhook import WebhookChannel
 #: yuanbao/buzz/photon/raft 无 one-shot HTTP 出站;signal 依赖 signal-cli
 #: 守护进程、bluebubbles 依赖 BlueBubbles 服务端(PRD R3 extras 门)。
 #: 其余 16 家均有 one-shot HTTP 出站(逐家专测见
-#: tests/test_messaging_<平台>.py)。
+#: tests/push/test_messaging_<平台>.py)。
 _W3_LONGTAIL_CHANNELS: dict[str, type] = {
     "slack": SlackChannel,
     "discord": DiscordChannel,
