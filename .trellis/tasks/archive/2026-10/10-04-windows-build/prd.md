@@ -263,3 +263,12 @@ AC2/AC4 的 run 绿与 artifacts、AC7 的 run URL 回填,待分支推送后由�
   (需 §3.3 的 dispatch 版本修复先行);全量门禁由脚本统一。
 - 探查证据全量见 `research/windows-build-current-state.md`(本档所有 CI/源码/锁
   文件结论的出处,含可复现命令)。
+
+## 终局补记(2026-10-04,归档后 CI 验证收口)
+
+> 归档时 CI 首跑未绿;本补记为纯增量事实,原文勾选框保持归档时状态。
+
+- **run https://github.com/xinzhuzi/myia/actions/runs/37186006759(head=b0044c5)三作业全绿**:macOS dmg ✓ / **windows-msi ✓(正式交付目标首次 CI 出绿,AC2 满足)** / 归聚 latest.json ✓
+- 产物:win-msi artifact 121.8MiB(myssia_0.0.1_x64.msi+.sig ASCII 名,AC4 满足·dispatch artifacts 口径)+ latest-json + mac-updater;AC1 依赖面随 job 绿实证(windows runner uv sync 装配过);AC7 本补记即回填
+- 两轮域内修复链:①0378ed3 windows 作业 release conf 注入 productName=myssia(WiX light.exe 产不出非 ASCII 产物名,预判雷区#2 实锤)②b0044c5 产物改名步 glob msi-updater/→msi/(Tauri2 布局,updater msi+.sig 并排 bundle/msi)
+- 真机安装冒烟七项仍留主人(档内清单);Release 页资产挂载属 tag 流
