@@ -195,7 +195,8 @@ uv run myia run plugins/demo-min.yaml                    # 正式跑;--loop 常�
 
 ### Windows(x64)
 
-安装包(msi)同样随 GitHub Releases 发布:
+安装包(msi)将随 GitHub Releases 发布——Windows 构建流水线已就绪,首个
+Windows 版本随下个 Release 交付;交付前 Releases 页暂无 msi(见路线图注记):
 
 1. 从 [Releases](https://github.com/xinzhuzi/myia/releases) 下载
    `myia_<版本>_x64.msi`,双击安装(版本号随发布更替,以 Releases 页面

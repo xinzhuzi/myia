@@ -16,7 +16,7 @@
 - engines/ 下 crawl4ai.py、scrapling.py、stealth_browser.py、llm_browser.py 当前为占位壳(仅 `__future__` import,未引任何第三方库);实装排期见各 `vXX-engine-*` 任务,提前实装属越界
 - 判断一个依赖放核心还是 extras 的标准:核心流水线(L1/L2+分类+推送)能跑 = 核心依赖;只有特定引擎/通道需要 = extras
 
-## 目录结构(src/shishi/)
+## 目录结构(src/myia/)
 
 ```
 cli.py          命令入口(输出对 AI/人类双友好)
