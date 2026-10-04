@@ -82,3 +82,22 @@ a=核心链新档(库型且更强) · b=插件+链外引擎(本地跑,照 credhu
 - you-get/MediaCrawler/weibo-search/SpiderKeeper 的许可详情(API 报 NOASSERTION/NONE,实施前读仓库原文确认)
 - Amass 现行 license 条款与其被动模式能力边界
 - TikTokDownloader 桌面本地形态的依赖重量(实施时评)
+
+## 第三波:开源分析方案盘点(2026-10-05 晚,find-skills 三源法;主人令「找开源分析方案查融合」)
+
+> 发现通道:skills.sh 注册表(仅 ctf-osint 方法论件,无可吸收)+ GitHub 原生搜索(topic text-analysis/osint)+ gh api 逐件验真(license/星/活跃)。判定框同前(P0 零成本+本地执行)。
+
+| 工具 | license | 星数 | 归位 | 一句话理由 |
+|---|---|---|---|---|
+| trafilatura | Apache-2.0 ● | 6.9k ● | a/b 候选(引擎侧另立任务) | 自动正文抽取;「URL→结构化内容」语义属核心 extract 面 |
+| python-readability | Apache-2.0 ● | 2.9k ● | 同族备选 | 与 trafilatura 同生态位,选一即可 |
+| newspaper3k | MIT ● | 15.2k ● | 同族备选 | 新闻结构化三件套里星最高,但年代偏老 |
+| web-check(lissy93) | MIT ● 极活跃 | 35k ● | **c·二批候选** | 网站技术栈/DNS/SSL/头分析;JS 生态自部署桩,与 exposure lane 互补 |
+| social-analyzer(qeeqbox) | AGPL-3.0 ● | 24.2k ● | c·二批候选(只桩) | 社媒画像深挖;与 maigret 互补(占用 vs 画像);2026-01 后趋缓 |
+| LibreTranslate | AGPL-3.0 ● | 17.0k ● | c·备选 | 自托管翻译(外文情报);当前无品类消费面,缓 |
+| RapidFuzz | MIT ● | 4.1k ● | 核心库增强候选 | dedup/实体对齐模糊匹配;库型不进插件层 |
+| worldmonitor | AGPL-3.0 ● | 87.6k ● | **d(同物种不收)** | 描述即「Real-time global intelligence dashboard」=另一个 MYIA |
+| yake | NOASSERTION ○ | 1.9k ● | e(许可未验) | 无监督关键词;仓库无标准 license |
+| snownlp | MIT ● | 6.6k ● | e(不活跃) | 中文情感分析经典但 2020 年停更 |
+
+**结论**:分析侧开源件当前融合 0 件(首批全是采集/侦察件;MYIA 分析回路=自研关键词分类+LLM 精评+OCR/VL)。二批建议:web-check+social-analyzer 两桩(c 路快件)+trafilatura extract 增强(引擎侧另立任务)。
