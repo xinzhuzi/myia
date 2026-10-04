@@ -57,8 +57,12 @@
   `gitnexus detect-changes --scope staged` 面净;零协议变更
   (`secret.list` 应答形状不变)。(真机另验:枚举结果与旧路径逐字节
   一致,`list_secrets()` 安静返回同两条名)
-- [ ] AC7:装机换装后装机版打开消息屏零授权弹窗(装机链回执留档;
-  终裁=主人目验)。
+- [x] AC7:装机换装后装机版打开消息屏零授权弹窗(装机链回执留档;
+  终裁=主人目验)。(2026-10-05 01:09 换装 732b424 构建,备份
+  /tmp/世事.app.bak-ks-010926,/tmp/ks-install.exit=ok installed;
+  **装机版 myssia-core 实跑 `secret list` 安静返回两条名 exit=0 零授权框
+  ——若走旧读数据路径,未授权二进制必弹**;GUI 开屏零弹窗终裁=主人
+  重开 app 目验)
 
 ## Constraints
 
