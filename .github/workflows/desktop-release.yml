@@ -1,13 +1,17 @@
-# Desktop Release — 桌面端打包流水线(PRD 10-02-v11-desktop-app:updater + 打包流水线)。
-# 触发:推送 v* tag;另留 workflow_dispatch 供主人手动演练。
-# 产物:macOS dmg(主线)+ Windows msi(构建级验证,允许失败)→ 全部附到 GitHub Release。
+# Desktop Release — 桌面端打包流水线(PRD 10-02-v11-desktop-app:updater + 打包流水线;
+# 10-04-windows-build:Windows 转正式交付目标 + latest.json 归聚单写者)。
+# 触发:推送 v* tag;另留 workflow_dispatch 供演练——version 入参可指定 semver,
+# 缺省回退 tauri.conf.json 的 version(分支名不是合法 semver,不能作版本)。
+# 产物:macOS dmg + Windows msi(均为正式目标)→ 以 ASCII 名挂 GitHub Release;
+# latest.json 由 release-finalize 归聚 job 单一产出(mac 条目恒在,windows 条目
+# 按产物存在与否自动并入)。
 #
 # ── updater 签名体系(详见 desktop/UPDATER.md)────────────────────────────────
 #   私钥/密码绝不入库,仅经仓库 Secrets 注入,共 3 个:
 #     TAURI_UPDATER_PUBKEY               公钥(替换 tauri.conf.json 的占位符)
 #     TAURI_SIGNING_PRIVATE_KEY          签名私钥(npx tauri signer generate 产出)
 #     TAURI_SIGNING_PRIVATE_KEY_PASSWORD 私钥密码(未设密码则留空)
-#   真实公钥 + createUpdaterArtifacts + tag 版本号经 `tauri build --config` 合并片
+#   真实公钥 + createUpdaterArtifacts + 版本号经 `tauri build --config` 合并片
 #   注入(基础 conf 保持占位符且不开签名,本地无钥构建不破)。Secrets 缺失时守卫
 #   步骤直接中文报错,不产出半成品 release。
 #
@@ -19,17 +23,24 @@
 #
 # ── 已知边界 ─────────────────────────────────────────────────────────────────
 #   * macOS 仅 aarch64(macos-14);x86_64/ universal 未配,需要时加 target 扩展;
-#   * Windows job 为构建级验证(continue-on-error):能出 msi 即算通过,实机安装/
-#     升级交互需主人在 Windows 上确认;失败不阻塞 macOS 发布;
-#   * Windows 产物不自动写 latest.json(mac 主线只写 darwin-aarch64 条目),
-#     windows-x86_64 条目按 desktop/UPDATER.md 第三节手工补。
+#   * Windows 为正式交付目标(10-04-windows-build):msi 以 ASCII 名(myia_<版本>
+#     _x64.msi)挂 Release;latest.json 由 release-finalize 单写者产出,手工补条目
+#     降级为归聚失败的应急路径(desktop/UPDATER.md 第三节);
+#   * windows 失败=run 红(可见),但不牵连 macOS 发布与 mac 更新通道:归聚 job
+#     以 always() + mac result 门执行,mac 条目照发,windows 仅条目/资产缺席;
+#   * 未购代码签名证书:Windows 首装的 SmartScreen 放行口径见 README 安装节;
+#     实机安装/升级冒烟清单在任务档(主人侧,不阻交付)。
 
 name: Desktop Release
 
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "演练版本号(semver,如 0.0.2);缺省回退 tauri.conf.json 的 version"
+        required: false
 
 permissions:
   contents: write # 上传 Release 附件(gh-release)
@@ -85,18 +96,35 @@ jobs:
         working-directory: desktop
         run: bash build-sidecar.sh aarch64-apple-darwin
 
-      - name: 写 updater 发布配置片(真实公钥 + createUpdaterArtifacts + tag 版本)
+      # 版本解析(dispatch 修复,10-04-windows-build F3):dispatch 入参 →
+      # tag/分支名去 v → 非 semver(分支 dispatch 未传 version)回退
+      # tauri.conf.json 的 version——分支名不是合法 semver,硬闯 tauri/WiX
+      # 的版本解析必炸。解析一次写入 GITHUB_ENV,下游步骤直接用 $MYIA_VERSION。
+      - name: 解析版本(dispatch 入参 → tag → tauri.conf.json 兜底)
+        working-directory: desktop/src-tauri
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION="${INPUT_VERSION:-$REF_NAME}"
+          VERSION="${VERSION#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::warn::『$VERSION』非 semver(dispatch 未传 version?)——回退 tauri.conf.json 的 version。"
+            VERSION="$(jq -r .version tauri.conf.json)"
+          fi
+          echo "MYIA_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "release conf version=$VERSION(ref=$REF_NAME,dispatch 入参=${INPUT_VERSION:-无})"
+
+      - name: 写 updater 发布配置片(真实公钥 + createUpdaterArtifacts + 解析版本)
         working-directory: desktop/src-tauri
         # CI-only 文件:只存在于 runner 工作区,不入库(基础 conf 仍是占位符)
         env:
           PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
-          TAG: ${{ github.ref_name }}
         run: |
-          VERSION="${TAG#v}"
-          jq -n --arg v "$VERSION" --arg p "$PUBKEY" \
+          jq -n --arg v "$MYIA_VERSION" --arg p "$PUBKEY" \
             '{version: $v, bundle: {createUpdaterArtifacts: true},
               plugins: {updater: {pubkey: $p}}}' > tauri.release.conf.json
-          echo "release conf merged from tag $TAG (version $VERSION)"
+          echo "release conf merged (version $MYIA_VERSION)"
 
       - name: Tauri 构建(app+dmg + 签名更新包)
         working-directory: desktop
@@ -106,59 +134,46 @@ jobs:
           MYIA_SIDECAR_SKIP: "1" # beforeBuildCommand 链复用上一步 sidecar 产物
         # --bundles 必须含 app:updater 的 tar.gz/.sig 只在 MacOsBundle 目标在列时
         # 产出(tauri-bundler 门逻辑),仅 dmg 会跳过更新包且随后把 .app 中间产物
-        # 删掉 —— latest.json 步骤必因缺 .sig 而红(v1.1 评审修复)。
+        # 删掉 —— 归聚 job 读 .sig 必因缺席而红(v1.1 评审修复)。
         run: npx tauri build --bundles app,dmg --config src-tauri/tauri.release.conf.json
 
       # GitHub 会剥掉资产文件名里的非 ASCII 字符(世事.app.tar.gz→app.tar.gz、
       # 世事_1.1.1_aarch64.dmg→_1.1.1_aarch64.dmg,v1.1.1 实证)——latest.json 若
-      # 指原名即 404。统一先复制成 ASCII 名(shishi.*),签名按字节验证不受改名影响。
+      # 指原名即 404。统一先复制成 ASCII 名(myia.*),签名按字节验证不受改名影响。
       - name: 产物改 ASCII 名(GitHub 剥非 ASCII 资产名)
-        env:
-          TAG: ${{ github.ref_name }}
         run: |
-          VERSION="${TAG#v}"
           BUNDLE="desktop/src-tauri/target/release/bundle"
-          cp "$BUNDLE/macos/世事.app.tar.gz"     "$BUNDLE/macos/shishi.app.tar.gz"
-          cp "$BUNDLE/macos/世事.app.tar.gz.sig" "$BUNDLE/macos/shishi.app.tar.gz.sig"
-          cp "$BUNDLE/dmg/"*"_aarch64.dmg"       "$BUNDLE/dmg/shishi_${VERSION}_aarch64.dmg"
+          cp "$BUNDLE/macos/世事.app.tar.gz"     "$BUNDLE/macos/myia.app.tar.gz"
+          cp "$BUNDLE/macos/世事.app.tar.gz.sig" "$BUNDLE/macos/myia.app.tar.gz.sig"
+          cp "$BUNDLE/dmg/"*"_aarch64.dmg"       "$BUNDLE/dmg/myia_${MYIA_VERSION}_aarch64.dmg"
 
-      - name: 生成 latest.json(updater 索引,darwin-aarch64 条目)
-        env:
-          TAG: ${{ github.ref_name }}
-          REPO: ${{ github.repository }}
-        run: |
-          VERSION="${TAG#v}"
-          BUNDLE="desktop/src-tauri/target/release/bundle"
-          SIG="$(cat "$BUNDLE/macos/shishi.app.tar.gz.sig")"
-          jq -n --arg v "$VERSION" --arg tag "$TAG" --arg repo "$REPO" --arg sig "$SIG" \
-            '{version: $v,
-              notes: ("世事 " + $v),
-              pub_date: (now | todateiso8601),
-              platforms: {
-                "darwin-aarch64": {
-                  signature: $sig,
-                  url: ("https://github.com/" + $repo + "/releases/download/" + $tag + "/shishi.app.tar.gz")
-                }
-              }}' > latest.json
-          cat latest.json
+      # latest.json 生成已移至 release-finalize 归聚 job(单写者,10-04-windows-build
+      # D6);本 job 只负责把 mac 签名交给归聚 job。
+      - name: 上传 mac updater 签名(供 release-finalize 拼 latest.json)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-updater
+          path: desktop/src-tauri/target/release/bundle/macos/myia.app.tar.gz.sig
+          if-no-files-found: error
 
-      - name: 上传 Release 附件(dmg / 更新包+签名 / latest.json)
+      - name: 上传 Release 附件(dmg / 更新包+签名;release 创建者)
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            desktop/src-tauri/target/release/bundle/dmg/shishi_*_aarch64.dmg
-            desktop/src-tauri/target/release/bundle/macos/shishi.app.tar.gz
-            desktop/src-tauri/target/release/bundle/macos/shishi.app.tar.gz.sig
-            latest.json
+            desktop/src-tauri/target/release/bundle/dmg/myia_*_aarch64.dmg
+            desktop/src-tauri/target/release/bundle/macos/myia.app.tar.gz
+            desktop/src-tauri/target/release/bundle/macos/myia.app.tar.gz.sig
 
   windows-msi:
-    name: Windows msi(构建级验证,允许失败)
-    # PRD 约定:Windows 至少完成构建级验证;实机交互需主人。
-    # 本 job 失败不阻塞 macOS 发布(continue-on-error),但失败会标红提醒跟进。
+    name: Windows msi(x86_64,正式交付目标)
+    # 正式目标(10-04-windows-build):失败=run 红(可见),但不牵连 macOS 发布
+    # 与 mac 更新通道——release-finalize 以 always() + mac result 门执行。
+    # Release 挂载不在本 job(消双写者竞态),统一归 release-finalize。
     runs-on: windows-latest
-    continue-on-error: true
+    timeout-minutes: 60 # 挂死不得无限期拖住归聚 job 的 latest.json(grill R2-D6c)
     steps:
       - uses: actions/checkout@v4
 
@@ -203,23 +218,42 @@ jobs:
         working-directory: desktop/ui-src
         run: npm ci --no-fund --no-audit
 
+      # vision extra 的 ocrmac 带 sys_platform == 'darwin' 标记(F1 根因修复):
+      # Windows 跳过 ocrmac 及 pyobjc 传递链(锁内全 macosx wheel,sdist 构建必炸,
+      # run 37117015528 实锤),其余 vision 依赖的 win_amd64 wheel 均已在锁内。
       - name: 构建 sidecar(x86_64-pc-windows-msvc)
         working-directory: desktop
         shell: bash
         run: bash build-sidecar.sh x86_64-pc-windows-msvc
 
-      - name: 写 updater 发布配置片(真实公钥 + createUpdaterArtifacts + tag 版本)
+      # 版本解析与 mac job 同款(dispatch 修复):分支 dispatch 未传 version 时
+      # 回退 tauri.conf.json——分支名硬闯 WiX convert_version 必炸。
+      - name: 解析版本(dispatch 入参 → tag → tauri.conf.json 兜底)
+        working-directory: desktop/src-tauri
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION="${INPUT_VERSION:-$REF_NAME}"
+          VERSION="${VERSION#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::warn::『$VERSION』非 semver(dispatch 未传 version?)——回退 tauri.conf.json 的 version。"
+            VERSION="$(jq -r .version tauri.conf.json)"
+          fi
+          echo "MYIA_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "release conf version=$VERSION(ref=$REF_NAME,dispatch 入参=${INPUT_VERSION:-无})"
+
+      - name: 写 updater 发布配置片(真实公钥 + createUpdaterArtifacts + 解析版本)
         working-directory: desktop/src-tauri
         shell: bash
         env:
           PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
-          TAG: ${{ github.ref_name }}
         run: |
-          VERSION="${TAG#v}"
-          jq -n --arg v "$VERSION" --arg p "$PUBKEY" \
+          jq -n --arg v "$MYIA_VERSION" --arg p "$PUBKEY" \
             '{version: $v, bundle: {createUpdaterArtifacts: true},
               plugins: {updater: {pubkey: $p}}}' > tauri.release.conf.json
-          echo "release conf merged from tag $TAG (version $VERSION)"
+          echo "release conf merged (version $MYIA_VERSION)"
 
       - name: Tauri 构建(msi;WiX 由 tauri CLI 自动下载)
         working-directory: desktop
@@ -230,11 +264,127 @@ jobs:
           MYIA_SIDECAR_SKIP: "1" # beforeBuildCommand 链复用上一步 sidecar 产物
         run: npx tauri build --bundles msi --config src-tauri/tauri.release.conf.json
 
-      - name: 上传 Release 附件(msi + 签名;latest.json 条目按 UPDATER.md 手工补)
+      # 诊断步:msi/msi-updater 目录与命名以本清单日志为准(发行资产取 updater 版,
+      # 见下一步注释);glob 若与实测不符,按日志修正。
+      - name: 产物清单(诊断)
+        shell: bash
+        run: find desktop/src-tauri/target/release/bundle -type f | sort
+
+      # GitHub 剥非 ASCII 资产名(世事_0.0.2_x64_en-US.msi→_0.0.2_x64_en-US.msi,
+      # 与 mac 的 bfb60a0 先例同款坑)→ 统一复制成 ASCII 名。发行资产取 msi-updater/
+      # 的 updater 版 msi(+.sig,与 latest.json 直接同源;与常规 msi 差异仅 webview
+      # 安装模式,首装同样适用)。签名按字节验证,不受改名影响。
+      - name: 产物改 ASCII 名(GitHub 剥非 ASCII 资产名)
+        shell: bash
+        run: |
+          B="desktop/src-tauri/target/release/bundle"
+          cp "$B"/msi-updater/*_x64*.msi     "$B/myia_${MYIA_VERSION}_x64.msi"
+          cp "$B"/msi-updater/*_x64*.msi.sig "$B/myia_${MYIA_VERSION}_x64.msi.sig"
+
+      - name: 上传 win-msi artifact(供 release-finalize 挂 Release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-msi
+          path: |
+            desktop/src-tauri/target/release/bundle/myia_${{ env.MYIA_VERSION }}_x64.msi
+            desktop/src-tauri/target/release/bundle/myia_${{ env.MYIA_VERSION }}_x64.msi.sig
+          if-no-files-found: error
+
+  release-finalize:
+    name: 归聚(latest.json 单写者 + Windows 资产挂 Release)
+    runs-on: ubuntu-latest # jq 预装(grill R2-D6a)
+    needs: [macos-dmg, windows-msi]
+    # mac 绿即执行(10-04-windows-build D6):windows 红/缺席不拖死 latest.json——
+    # mac 条目照发,windows 仅表现为 run 红 + 条目/资产缺席(可见但不伤 mac 用户)。
+    if: always() && needs.macos-dmg.result == 'success'
+    steps:
+      - uses: actions/checkout@v4 # tauri.conf.json 版本兜底用
+
+      - name: 下载 mac updater 签名
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-updater
+          path: dist/mac-updater
+
+      # windows job 成功 ⟹ win-msi artifact 必在(if-no-files-found: error 保证);
+      # 失败则本步跳过,latest.json 仅 mac 条目(下方 compgen 分支)。
+      - name: 下载 windows msi(缺席=windows 未成功,latest.json 仅 mac 条目)
+        if: needs.windows-msi.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: win-msi
+          path: dist/win-msi
+
+      # 版本解析与构建 job 同款;tag 发布时 URL 指真实 tag,dispatch 演练按未来
+      # tag 形态拼(仅入 artifact 复核,不上传 Release)。
+      - name: 解析版本(dispatch 入参 → tag → tauri.conf.json 兜底)
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          VERSION="${INPUT_VERSION:-$REF_NAME}"
+          VERSION="${VERSION#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::warn::『$VERSION』非 semver(dispatch 未传 version?)——回退 tauri.conf.json 的 version。"
+            VERSION="$(jq -r .version desktop/src-tauri/tauri.conf.json)"
+          fi
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            TAG="v${VERSION}"
+          fi
+          echo "MYIA_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "MYIA_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "resolved VERSION=$VERSION TAG=$TAG"
+
+      - name: 生成 latest.json(mac 条目恒在;windows 条目按产物并入)
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          MAC_SIG="$(cat dist/mac-updater/myia.app.tar.gz.sig)"
+          jq -n --arg v "$MYIA_VERSION" --arg tag "$MYIA_TAG" --arg repo "$REPO" --arg sig "$MAC_SIG" \
+            '{version: $v,
+              notes: ("世事 " + $v),
+              pub_date: (now | todateiso8601),
+              platforms: {
+                "darwin-aarch64": {
+                  signature: $sig,
+                  url: ("https://github.com/" + $repo + "/releases/download/" + $tag + "/myia.app.tar.gz")
+                }}}' > latest.json
+          if compgen -G 'dist/win-msi/myia_*_x64.msi' >/dev/null; then
+            WIN_SIG="$(cat dist/win-msi/myia_*_x64.msi.sig)"
+            jq --arg v "$MYIA_VERSION" --arg tag "$MYIA_TAG" --arg repo "$REPO" --arg sig "$WIN_SIG" \
+              '.platforms["windows-x86_64"] = {
+                 signature: $sig,
+                 url: ("https://github.com/" + $repo + "/releases/download/" + $tag + "/myia_" + $v + "_x64.msi")
+               }' latest.json > latest.json.tmp
+            mv latest.json.tmp latest.json
+          else
+            echo "::warn::win-msi 产物缺席(windows job 未成功)——latest.json 仅 darwin-aarch64 条目。"
+          fi
+          cat latest.json
+
+      # 无条件上传(grill R2-D6b):dispatch 验证循环里 latest.json 生成逻辑真实
+      # 执行、内容可人验——最易错件的首跑不应该是主人推 tag 时。
+      - name: latest.json 上传 artifact(dispatch 验证循环复核用)
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-json
+          path: latest.json
+          if-no-files-found: error
+
+      - name: 挂 Windows msi 到 Release(在则挂;release 已由 mac job 创建)
+        if: startsWith(github.ref, 'refs/tags/') && needs.windows-msi.result == 'success'
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            desktop/src-tauri/target/release/bundle/msi/*.msi
-            desktop/src-tauri/target/release/bundle/msi/*.msi.sig
+            dist/win-msi/myia_*_x64.msi
+            dist/win-msi/myia_*_x64.msi.sig
+
+      - name: 挂 latest.json 到 Release(单写者产出)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          fail_on_unmatched_files: true
+          files: latest.json

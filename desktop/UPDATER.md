@@ -53,13 +53,14 @@ npx tauri signer generate -w ~/.tauri/myia.key
 git tag v0.2.0 && git push origin v0.2.0
 ```
 
-流水线(macOS 主线):
+流水线(macOS 主线 + Windows 正式目标 + release-finalize 归聚):
 
-1. `desktop/build-sidecar.sh aarch64-apple-darwin` 出 sidecar;
-2. 写 `tauri.release.conf.json` 合并片(真实 pubkey + `createUpdaterArtifacts: true` + tag 版本号),`npx tauri build --bundles app,dmg --config tauri.release.conf.json`(**必须带 `app` 目标**:updater 的 tar.gz/.sig 只在 MacOsBundle 目标在列时产出,仅 `dmg` 会跳过更新包且随后删除 .app 中间产物,后续 `cat *.sig` 步骤必失败);
-3. 产物上传 Release:**dmg**、**`世事.app.tar.gz` + `.sig`**(updater 增量包与签名)、**`latest.json`**(按 tag 生成)。
+1. `desktop/build-sidecar.sh <triple>` 各平台出 sidecar(Windows 侧 vision extra 的 `ocrmac` 带 `sys_platform == 'darwin'` 标记,不再拉 pyobjc 链);
+2. 写 `tauri.release.conf.json` 合并片(真实 pubkey + `createUpdaterArtifacts: true` + 解析版本号),`npx tauri build --bundles app,dmg|msi --config tauri.release.conf.json`(**macOS 必须带 `app` 目标**:updater 的 tar.gz/.sig 只在 MacOsBundle 目标在列时产出,仅 `dmg` 会跳过更新包且随后删除 .app 中间产物,后续 `cat *.sig` 步骤必失败);
+3. macOS job 产物上传 Release(仅 tag 触发):**dmg**、**`myia.app.tar.gz` + `.sig`**(updater 增量包与签名,ASCII 名);
+4. **release-finalize 归聚 job**(`needs: [macos-dmg, windows-msi]`,`if: always() && needs.macos-dmg.result == 'success'`):下载两平台产物 → 生成 **`latest.json`**(**单写者**:darwin-aarch64 条目恒在,windows-x86_64 条目按产物存在与否自动并入)→ Windows msi(`myia_<版本>_x64.msi` + `.msi.sig`,ASCII 名)与 latest.json 挂 Release(仅 tag 触发)。`workflow_dispatch` 演练时不上传 Release,latest.json 以 `latest-json` artifact 交付复核。
 
-Windows job(msi)为**构建级验证**:`continue-on-error: true`——失败不阻塞 macOS 发布;成功时 msi + `.sig` 也附到 Release(不写 latest.json,Windows 条目见下文手工补)。Windows 实机升级交互标注**需主人**。
+Windows job(msi)为**正式交付目标**(10-04-windows-build):不再 `continue-on-error`;失败=run 红(可见),但不牵连 macOS 发布与 mac 更新通道(归聚 job 以 `always()` + mac result 门执行,windows 缺席仅表现为条目/资产缺席)。**手工补 windows 条目**降级为归聚失败的应急路径(见下文格式)。Windows 实机安装/升级冒烟清单(七项,主人侧)在 `10-04-windows-build` 任务档。
 
 ### latest.json 格式(updater 索引)
 
@@ -68,16 +69,16 @@ Windows job(msi)为**构建级验证**:`continue-on-error: true`——失败不�
 ```json
 {
   "version": "0.2.0",
-  "notes": "MYIA v0.2.0:五界面正式版",
+  "notes": "世事 0.2.0",
   "pub_date": "2026-10-02T12:00:00Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "<世事.app.tar.gz.sig 文件内容(一行)>",
-      "url": "https://github.com/xinzhuzi/MYIA/releases/download/v0.2.0/世事.app.tar.gz"
+      "signature": "<myia.app.tar.gz.sig 文件内容(一行)>",
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.2.0/myia.app.tar.gz"
     },
     "windows-x86_64": {
-      "signature": "<MYIA_0.2.0_x64-setup.exe.sig 或 .msi.sig 内容>",
-      "url": "https://github.com/xinzhuzi/MYIA/releases/download/v0.2.0/MYIA_0.2.0_x64-setup.exe"
+      "signature": "<myia_0.2.0_x64.msi.sig 内容>",
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.2.0/myia_0.2.0_x64.msi"
     }
   }
 }
@@ -110,7 +111,7 @@ npx tauri build --bundles app,dmg --config \
 
 - **Secrets 未配置前,tag 流水线会在守卫步骤直接中文报错**(不产出半成品 release)——需主人按第二节配置 3 个 secret;
 - **前端检查更新入口未接线**:Rust 侧插件已注册,但 UI 调用需要 `ui-src` 增加 `@tauri-apps/plugin-updater` 与 `@tauri-apps/plugin-process` npm 依赖及设置页按钮(归设置界面实现方);
-- **Windows**:构建级 job 允许失败;WiX(mssi)/签名实机验证、passive 安装交互需主人于 Windows 实机确认;
+- **Windows**:正式交付目标(10-04-windows-build)——msi 以 ASCII 名挂 Release,latest.json windows 条目由归聚 job 自动并入;SmartScreen/Defender 放行口径见 README 安装节;WiX/签名实机验证、passive 安装交互仍需主人于 Windows 实机确认(冒烟清单七项在任务档);
 - **密钥轮换**:pubkey 是信任根,换公钥 = 已发布客户端全部失去升级通道(需重装)。私钥疑似泄露时才轮换,且必须伴随一次人工通知;
 - macOS 对外分发还需 Apple Developer ID 签名 + notarization 公证(与 updater 签名是两回事),未配置前下载 dmg 需右键绕过 Gatekeeper。
 

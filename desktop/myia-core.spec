@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+import sys
 from PyInstaller.utils.hooks import collect_submodules
 from PyInstaller.utils.hooks import collect_all
 
@@ -8,10 +9,14 @@ from PyInstaller.utils.hooks import collect_all
 _REPO_ROOT = os.path.dirname(SPECPATH)
 datas = [(os.path.join(_REPO_ROOT, 'myia-classifier', 'myia_classifier', 'data', 'keywords.json'), 'myia_classifier/data')]
 binaries = []
-hiddenimports = ['shishi.secrets']
-hiddenimports += collect_submodules('shishi')
-tmp_ret = collect_all('ocrmac')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+hiddenimports = ['myia.secrets']
+hiddenimports += collect_submodules('myia')
+# ocrmac 平台门(10-04-windows-build F2):macOS Vision 独占,Windows/Linux 不装
+# (pyproject vision extra 带 sys_platform == 'darwin' 标记)。缺包时 collect_all
+# 仅警告不炸(PyInstaller 6.22.3 实测),此门为卫生项——意图显式 + 日志干净。
+if sys.platform == 'darwin':
+    tmp_ret = collect_all('ocrmac')
+    datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('rapidocr_onnxruntime')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('openai')

@@ -27,7 +27,7 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
-    "icon": ["icons/icon.icns", "icons/icon.png"],
+    "icon": ["icons/icon.icns", "icons/icon.png", "icons/icon.ico"],
     "externalBin": ["binaries/myia-core"],
     "resources": {
       "../fixture/plugin.yaml": "plugin.yaml",
@@ -43,7 +43,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/xinzhuzi/shishi/releases/latest/download/latest.json"
+        "https://github.com/xinzhuzi/myia/releases/latest/download/latest.json"
       ],
       "pubkey": "__MYIA_UPDATER_PUBKEY_PLACEHOLDER__",
       "windows": {
