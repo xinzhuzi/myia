@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version-file: desktop/package.json
           cache: npm
           cache-dependency-path: desktop/ui-src/package-lock.json
       # lockfile 权威安装:声明与锁脱节(如漏装依赖)在此直接红,本机侥幸不在场

@@ -18,7 +18,11 @@ Listing: the ``keyring`` library has no enumeration API, so MYIA keeps a JSON
 **name index** inside the keychain itself (account ``INDEX_ACCOUNT``). The index
 stores names only — 引用名可落日志/仓库红线不涉及,值永不. ``list_secrets``
 reconciles the index against the backend and self-heals stale entries (items
-deleted out-of-band via Keychain Access / 凭据管理器).
+deleted out-of-band via Keychain Access / 凭据管理器). On the macOS system-
+default path listing first tries **attributes-only enumeration** via
+``security dump-keychain`` (metadata only — no data read, hence no
+authorization prompt for binaries outside an item's ACL; index + presence
+checks remain the fallback for every other host/path).
 
 Fallback (Linux 服务器/无钥匙链环境): ``env:`` 引用为主. When no keychain backend
 exists, discovery raises :class:`SecretError` with code
@@ -37,6 +41,8 @@ from __future__ import annotations
 import json
 import logging
 import re
+import subprocess
+import sys
 from typing import Protocol
 
 logger = logging.getLogger(__name__)
@@ -67,6 +73,9 @@ INDEX_ACCOUNT = "__index__"
 # ``myia/<scope>/<name>``: scope follows category-id rules (小写字母/数字/连字符/
 # 下划线,字母数字开头), the name segment additionally allows dots (长度各 64)。
 _SECRET_NAME_RE = re.compile(r"^myia/([a-z0-9][a-z0-9_-]{0,63})/([A-Za-z0-9][A-Za-z0-9_.\-]{0,63})$")
+# ``security dump-keychain`` 条目属性行(named 形态):块内配对 svce/acct。
+_DUMP_ACCT_RE = re.compile(r'^"acct"<blob>="(.*)"$')
+_DUMP_SVCE_RE = re.compile(r'^"svce"<blob>="(.*)"$')
 
 
 # ---------------------------------------------------------------------------
@@ -342,16 +351,81 @@ def delete_secret(name: str, *, backend: KeychainBackend | None = None) -> None:
     logger.info("凭据已从系统钥匙链删除 name=%s service=%s", name, SECRET_SERVICE)
 
 
+def _dump_macos_service_accounts(service: str) -> list[str] | None:
+    """macOS attributes-only 枚举:默认钥匙串内该 service 下全部条目 account。
+
+    ``security dump-keychain`` 只输出条目元数据、不读凭据数据——而 macOS
+    钥匙串 ACL 授权只作用于数据读取,所以对不在条目 ACL 里的二进制(如
+    装机版 app 读开发链路写入的凭据名)也**零授权弹窗**(2026-10-05 本机
+    实测:不带 ``-w`` 的 find-generic-password 与 dump-keychain 均零弹窗)。
+    范围=默认钥匙串(dump 无参口径);跨钥匙串条目枚举不到,值读取
+    (:func:`get_secret` 按名直读)不受影响。
+
+    Returns:
+        account 名单(未过滤,名单纪律由调用方执行);``None`` = 枚举不可用
+        (非 darwin / security CLI 缺失 / 非零退出 / 超时),调用方回落
+        既有「索引+存在性核对」路径。
+    """
+    if sys.platform != "darwin":
+        return None
+    try:
+        proc = subprocess.run(
+            ["security", "dump-keychain"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    accounts: list[str] = []
+    acct: str | None = None
+    svce: str | None = None
+    for line in proc.stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("keychain:"):
+            if svce == service and acct is not None:
+                accounts.append(acct)
+            acct, svce = None, None
+            continue
+        acct_match = _DUMP_ACCT_RE.match(stripped)
+        if acct_match is not None:
+            acct = acct_match.group(1)
+            continue
+        svce_match = _DUMP_SVCE_RE.match(stripped)
+        if svce_match is not None:
+            svce = svce_match.group(1)
+    if svce == service and acct is not None:
+        accounts.append(acct)
+    return accounts
+
+
 def list_secrets(*, backend: KeychainBackend | None = None) -> list[str]:
     """List known MYIA secret names, sorted.
 
-    Reads the JSON name index (names only, 索引项里没有值) and reconciles it
-    against the backend: entries whose keychain item vanished out-of-band
+    macOS 系统缺省路径先走 attributes-only 枚举(:func:`_dump_macos_service_accounts`
+    ——零数据读取=零授权弹窗,名字以钥匙串实况为准,天然自愈);枚举不可用
+    (非 darwin/CLI 缺失/非零退出)回落「JSON 名字索引+逐项存在性核对」
+    (数据读取路径,未授权二进制可能触发系统授权框——回落是平台限制下的
+    如实降级),entries whose keychain item vanished out-of-band
     (Keychain Access / 凭据管理器手删) are dropped and the index self-heals.
+
+    注入 backend(测试/显式选择)时**永不**走枚举路径,行为与既往逐字节
+    一致。
 
     Raises:
         SecretError: backend unavailable or a backend read failed.
     """
+    if backend is None:
+        dumped = _dump_macos_service_accounts(SECRET_SERVICE)
+        if dumped is not None:
+            names = [
+                name
+                for name in dumped
+                if name != INDEX_ACCOUNT and _SECRET_NAME_RE.match(name)
+            ]
+            return sorted(set(names))
     chosen = backend if backend is not None else get_backend()
     names = _read_index(chosen)
     alive: list[str] = []

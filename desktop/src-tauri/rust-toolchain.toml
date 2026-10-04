@@ -1,0 +1,6 @@
+# Rust 工具链钉版(10-04-unified-dev-entry):rustup 原生读取。
+# channel=stable 与 CI dtolnay/rust-toolchain@stable 同口径;升级随 stable,
+# 如需精确版本锁再翻案(见任务档 design §2)。profile=minimal 是 CI 同款省盘口径。
+[toolchain]
+channel = "stable"
+profile = "minimal"

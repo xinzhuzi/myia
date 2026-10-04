@@ -74,7 +74,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version-file: desktop/package.json
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -200,7 +200,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version-file: desktop/package.json
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable

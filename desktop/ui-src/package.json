@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "description": "MYIA 桌面客户端前端(Vite + React 19 + TS + Tailwind 4 + shadcn/ui 惯例);构建产物输出到 ../ui(Tauri frontendDist)",
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

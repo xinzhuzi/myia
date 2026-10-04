@@ -2,6 +2,9 @@
   "name": "myssia-desktop",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
     "tauri": "tauri",
     "sidecar": "bash build-sidecar.sh",

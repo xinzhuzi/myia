@@ -30,6 +30,92 @@ Layout map / 目录速览:
 | `docs/zh/`, `docs/en/` | Bilingual docs, drift-locked by tests |
 | `tests/` | pytest suite grouped by module (CI gate); classifier tests in `myssia-classifier/tests/` |
 
+## One-command environment (just) / 一键环境(just)
+
+The fastest path from clean checkout to green gates is the root `justfile`
+([just](https://github.com/casey/just) — `brew install just`, `cargo install
+just`, or see [their docs](https://github.com/casey/just#installation)):
+
+```bash
+just setup          # uv sync --all-extras + npm ci ×2 (desktop + desktop/ui-src)
+just test           # pytest + vitest (frontend component tests)
+just check          # ruff + tsc/vite build + cargo check --locked
+just build-desktop  # sidecar (PyInstaller) → tauri build
+just docker         # docker build . (syntax/deps check, no push)
+```
+
+`just --list` is the living index of every recipe. The justfile is a pure
+facade: each recipe runs the same underlying commands CI runs — it replaces
+none of the native tools (uv / npm / cargo / docker). Tool versions are pinned
+in-repo by native files, with zero extra tooling: `.python-version` (3.12,
+read natively by uv), `desktop/src-tauri/rust-toolchain.toml` (stable +
+minimal, read natively by rustup), and `engines.node: "22"` in **both**
+`desktop/package.json` and `desktop/ui-src/package.json` (CI reads it via
+`node-version-file`). **Windows**: run inside Git Bash (ships with the Git
+installer) or WSL — the same convention the Windows release CI already uses
+to run `build-sidecar.sh` under Git Bash. No PowerShell port is provided.
+
+最快的「从零到门禁绿」路径是仓库根 `justfile`
+([just](https://github.com/casey/just),`brew install just` /
+`cargo install just`,安装方式见[官方文档](https://github.com/casey/just#installation)):
+
+```bash
+just setup          # uv sync --all-extras + 两个 npm 根 npm ci(desktop / desktop/ui-src)
+just test           # pytest + vitest(前端组件测试)
+just check          # ruff + tsc/vite build + cargo check --locked
+just build-desktop  # sidecar 打包(PyInstaller)→ tauri build
+just docker         # docker build .(语法/依赖检查,不 push)
+```
+
+`just --list` 即全部动作的活索引。justfile 是纯门面:每个 recipe 内部跑的
+就是 CI 同款原命令,不替换任何原生工具(uv / npm / cargo / docker)。工具
+版本由仓内钉版文件原生约束(零新工具):`.python-version`(3.12,uv 原生读)、
+`desktop/src-tauri/rust-toolchain.toml`(stable + minimal,rustup 原生读)、
+两个 package.json 的 `engines.node: "22"`(CI 经 `node-version-file` 读取,
+两处必须同步改)。**Windows**:在 Git Bash(装 git 自带)或 WSL 中运行——
+与 Windows 发版 CI 用 Git Bash 跑 `build-sidecar.sh` 的既有事实一致;
+不提供 PowerShell 移植。
+
+## Repo-root runtime artifacts / 仓库根运行产物说明
+
+Several files you will see appear (and disappear) at the repo root are
+**runtime artifacts, not repo content** — all gitignored on purpose. They land
+at the root only when a command runs with the repo as its working directory;
+the proper home for all of them is the data root (`MYIA_HOME`).
+
+- `myssia.db` / `myia.db` — the single-file SQLite store (default
+  `myssia.db`). `myia.db` is the rename-era name: the codebase was renamed to
+  myssia while the data root (env `MYIA_HOME`, config dir) deliberately keeps
+  the `myia` name, so both names stay guarded in `.gitignore`. Contains real
+  fetched intelligence — never commit, and think twice before deleting a
+  local one (that is your data).
+- `channel_aliases.json` / `channel_directory.json` (sometimes
+  `channel_dead.json`) — messaging-screen channel directory state, rewritten
+  on every discover. Contains real platform chat IDs and group names, so the
+  zero-tolerance rule is the same as `myssia.db`.
+- `credhunter-keystore.json` — the credhunter full-text keystore
+  (fingerprint → plaintext secret, written with 0600 perms). Even more
+  sensitive than the channel files; keep it out of every commit.
+- `*.bak` — editor/smoke leftovers next to plugin YAMLs (e.g.
+  `plugins/stocks.yaml.bak`); safe to delete, ignored by pattern.
+
+仓库根会反复出现(又消失)的几个文件是**运行产物,不是仓库内容**——全部
+刻意 gitignore。它们只在命令以仓库为工作目录跑时落到根上,正经归宿都是
+数据根(`MYIA_HOME`):
+
+- `myssia.db` / `myia.db`——单文件 SQLite 库(缺省名 `myssia.db`)。
+  `myia.db` 是更名期旧名:代码包更名 myssia,而数据根(环境变量
+  `MYIA_HOME` 与配置目录)按纪律保留 `myia` 名,故 `.gitignore` 两个名字
+  都守。内容是真实抓取的情报——严禁入库;本地这份是你的数据,删前想清楚。
+- `channel_aliases.json` / `channel_directory.json`(偶有
+  `channel_dead.json`)——消息屏频道目录运行态,每次 discover 都会改写,
+  含真实平台 chat_id 与群名,零容忍口径同 `myssia.db`。
+- `credhunter-keystore.json`——credhunter 全文密钥库(指纹→密钥原文,
+  0600 权限落盘),比 channel_* 更敏感,任何提交里都不该出现。
+- `*.bak`——插件 YAML 旁的编辑/冒烟残留(如 `plugins/stocks.yaml.bak`),
+  按模式 ignore,可放心删。
+
+
 ## Ground rules / 红线(违反任何一条的 PR 会被拒绝)
 
 1. **Credentials are never plaintext.** In code, YAML, tests and docs a

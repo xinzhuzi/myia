@@ -662,3 +662,56 @@ class TestRealKeychainProbe:
                 delete_secret(self.PROBE_NAME, backend=backend)
             except SecretError:
                 pass  # 清理尽力而为:残留探针项不影响任何真实凭据
+
+
+class TestListSecretsMacosEnumeration:
+    """macOS attributes-only 枚举路径(10-05-keychain-silent-listing)。
+
+    探测凭据名不得触发钥匙串授权框:系统缺省路径(backend=None)先走
+    ``security dump-keychain`` 元数据枚举(零数据读取),注入 backend 时
+    永不枚举——既有 InMemory 行为逐字节不变。枚举函数整体 monkeypatch,
+    用例与宿主平台无关(Linux CI 同样覆盖)。
+    """
+
+    def test_dump_result_adopted_without_keyring_fallback(self, monkeypatch):
+        # 探针名不在真钥匙串里:若代码回落真 keyring,断言必失败
+        monkeypatch.setattr(
+            secrets_store,
+            "_dump_macos_service_accounts",
+            lambda service: ["myia/probe/dump-only"],
+        )
+        assert list_secrets() == ["myia/probe/dump-only"]
+
+    def test_dump_filters_index_invalid_names_and_dedups(self, monkeypatch):
+        monkeypatch.setattr(
+            secrets_store,
+            "_dump_macos_service_accounts",
+            lambda service: [
+                "__index__",
+                "flat_legacy",
+                "myia/BAD/Name",
+                "myia/push/a/b",
+                "myia/push/a",
+                "myia/push/a",
+            ],
+        )
+        assert list_secrets() == ["myia/push/a"]
+
+    def test_dump_none_falls_back_to_index_path(self, monkeypatch, backend):
+        monkeypatch.setattr(
+            secrets_store, "_dump_macos_service_accounts", lambda service: None
+        )
+        set_secret("myia/push/a", "v", backend=backend)
+        assert list_secrets(backend=backend) == ["myia/push/a"]
+
+    def test_dump_never_consulted_when_backend_injected(self, monkeypatch, backend):
+        calls: list[str] = []
+
+        def _dump(service: str):
+            calls.append(service)
+            return ["myia/probe/should-not-appear"]
+
+        monkeypatch.setattr(secrets_store, "_dump_macos_service_accounts", _dump)
+        set_secret("myia/push/a", "v", backend=backend)
+        assert list_secrets(backend=backend) == ["myia/push/a"]
+        assert calls == []
