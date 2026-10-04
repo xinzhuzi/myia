@@ -118,6 +118,7 @@ analysis:                      # 停更/许可核验后启用的分析件
 - `EngineName` 词表新增 `zenrows`/`scraperapi`,注册 `ENGINE_REGISTRY` **永不进 AUTO_CHAIN**(链外引擎,credhunter 先例);
 - fetch 前置检查:总开关或件开关未开 → 结构化失败 `gate_closed`(新失败类,与 `dependency_missing`/`mcp_server_missing` 并列;doctor 文案区分「关着」与「缺依赖」);
 - 开启后:engine_options 收 `api_key: keychain:myia/saas/<name>-key` 引用(凭据解析走既有 secret 通道);测试全 MockTransport(零真实扣费)。
+- **API 形态已核 ●(research 第五波)**:Zenrows `GET api.zenrows.com/v1/?apikey=&url=&js_render=true`(可选 premium_proxy/css_extractor);ScraperAPI `GET api.scraperapi.com/?api_key=&url=`(可选 country/render);同薄形态 → 共用一个 SaaS fetch 骨架模块,两引擎各映射参数面。
 
 ### 6.4 桌面设置屏「门槛件」分区
 

@@ -1,1 +1,6 @@
 {"file": ".trellis/spec/domain/connector-selection.md", "reason": "收录硬规则来源:免费路径门禁/本地优先宪法排序/许可红线——Phase 2 盘点表逐行判定必读"}
+{"file": ".trellis/spec/python/index.md", "reason": "Python 工程约定:核心 6 依赖红线(新件一律 uv 隔离子进程)/测试镜像布局(根模块映根文件)/错误契约——gates.py 与四件新引擎/命令的实现约束来源"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "gates.get/save 两新方法的协议规范权威(entry.py _HANDLERS 注册表;main.rs 通用路由零改动)——设置面门槛件分区的接线契约"}
+{"file": ".trellis/spec/domain/security-baseline.md", "reason": "凭据红线(keychain 引用零明文/私有情报不出本机)——gates.yaml 的 saas 键与平台 token 字段设计约束"}
+{"file": ".trellis/spec/domain/yaml-schema.md", "reason": "manifest/品类 YAML 演进纪律:gate 新字段过 schema fail-fast 校验、未知字段拒——plugins/manifest.py 改动的规范面"}
+{"file": ".trellis/tasks/10-05-plugin-market-batch/research.md", "reason": "盘点表五波全量:归位判定框执行依据+上游 API 形态已核(Zenrows/ScraperAPI)+许可核验终态(MediaCrawler/yake/weibo-search/SpiderKeeper/EasySpider)"}

@@ -39,7 +39,7 @@
 12. [ ] **付费 SaaS gated 引擎**(R6):zenrows/scraperapi 引擎模块(词表+注册表不进 AUTO_CHAIN+gate_closed 失败类+keychain 键解析)+MockTransport 测试(关闭态/开启态往返);
 13. [ ] **同物种门槛桩**(R7):myssia-crawlab+myssia-worldmonitor(remote,gated tier,compose+README 门槛说明)+EasySpider 形态核验结案记档;
 14. [ ] **分析件二批**(AC9):myssia-webcheck+myssia-socialanalyzer(remote 桩)+trafilatura extract 增评估结案(独立任务或并入,答增量问);
-15. [ ] 许可核验批:MediaCrawler/yake/weibo-search/SpiderKeeper 许可原文核验(仓库 LICENSE 一手),可进则进、不可进如实挂起;
+15. [x] 许可核验批(gh api LICENSE 原文一手,结论 research.md 第五波):MediaCrawler=非商业学习许可(警示型批三裁)/yake=AGPL 双许可(门槛可清,批三候选)/weibo-search+SpiderKeeper=无 LICENSE(维持不收终态);EasySpider 形态核验同批结案=Electron GUI 无 API,维持不收(终态);
 16. [ ] 门禁与提交纪律同首批(单件单提交、tests/plugins 组绿+批末全量、快照外科防并行混线)。
 
 ## 批一终局快照(2026-10-05 深夜回填;「之前做好的」全量对账)
@@ -78,7 +78,7 @@
 
 ### 12. 付费 SaaS gated 引擎(R6)
 
-- `src/myssia/schema.py` EngineName 词表(~L153)+=`zenrows`/`scraperapi`(显式选用语义,AUTO_CHAIN 不动);`src/myssia/engines/zenrows.py`+`scraperapi.py`:fetch 前置查 gates(总开关+件开关),关闭→`FetchError(class="gate_closed")`(新失败类,doctor 文案与 dependency_missing 分开);开启→keychain 解 api_key→httpx 调上游 REST(Zenrows/ScraperAPI 均为 GET ?url=…&apikey=… 形态,实施时核上游 API 文档○)
+- `src/myssia/schema.py` EngineName 词表(~L153)+=`zenrows`/`scraperapi`(显式选用语义,AUTO_CHAIN 不动);`src/myssia/engines/zenrows.py`+`scraperapi.py`:fetch 前置查 gates(总开关+件开关),关闭→`FetchError(class="gate_closed")`(新失败类,doctor 文案与 dependency_missing 分开);开启→keychain 解 api_key→httpx 调上游 REST(Zenrows/ScraperAPI 均为 GET ?url=…&apikey=… 形态**已核 ●**:Zenrows `GET api.zenrows.com/v1/?apikey=&url=&js_render=true`(可选 premium_proxy/css_extractor);ScraperAPI `GET api.scraperapi.com/?api_key=&url=`(可选 country/render);同薄形态→共用一个 SaaS fetch 骨架,research 第五波)
 - `src/myssia/engines/registry.py` ENGINE_REGISTRY +2(链外,credhunter 先例位)
 - 测试:`tests/engines/test_saas_gated_engines.py`:三态=关闭态 gate_closed/开启态 MockTransport 往返/注册表断言不在 AUTO_CHAIN
 - 品类示例:`plugins/` 不加新品类 yaml(gated 引擎属用户显式 engine 选择,README 文档指路)
@@ -86,7 +86,7 @@
 ### 13. 同物种门槛桩(R7)
 
 - 新建 `plugins/myssia-crawlab/`+`plugins/myssia-worldmonitor/`(plugin.yaml **`tier: remote`+`gate: platform`**(D5 组合)+modes.remote.endpoint 占位+README 门槛说明「自有实例例外通道,组织性不执法」);`docker/plugins/<id>/compose.yml` ×2(compose 集合断言 7→9)
-- `tests/plugins/test_plugin_packages.py`:OFFICIAL_PACKAGES+EXPECTED_TIERS(gated 档)+compose 期望集;EasySpider 形态核验结论写 research.md(预期:本地 GUI 无 API→门槛条件不成立维持不收)
+- `tests/plugins/test_plugin_packages.py`:OFFICIAL_PACKAGES+EXPECTED_TIERS(gated 档)+compose 期望集;EasySpider 形态核验**已毕(第五波)**:Electron GUI 无 API→门槛条件不成立维持不收(终态);桩件仅 crawlab+worldmonitor 两件
 
 ### 14. 分析件二批(AC9)
 
@@ -97,7 +97,7 @@
 
 ### 15. 许可核验批(AC8 尾)
 
-- `gh api repos/<o>/<r>/contents/LICENSE` 逐件核:MediaCrawler/yake/weibo-search/SpiderKeeper;结论写 research.md(可进→按 13 同循环收录;不可进→挂起记理由)
+- **已毕(2026-10-05 深夜)**:结论在 research.md 第五波——MediaCrawler=非商业学习许可(警示型收录留批三)/yake=AGPL-3.0 双许可(门槛可清,批三分析件候选)/weibo-search+SpiderKeeper=无 LICENSE 文件(维持不收,终态);EasySpider=Electron GUI 无 API(门槛条件不成立,维持不收终态)
 
 ### 16. 纪律(同批一)
 

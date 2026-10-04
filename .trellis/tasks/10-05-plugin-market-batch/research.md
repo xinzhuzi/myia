@@ -121,3 +121,24 @@ a=核心链新档(库型且更强) · b=插件+链外引擎(本地跑,照 credhu
 | LibreTranslate | c·备选 | 备选(无品类消费面) | — |
 | trafilatura/readability/newspaper3k | a/b 观察 | **extract 增强另立任务(AC9)** | 无门槛,须答「比手写 extract 强在哪」 |
 | RapidFuzz | 核心库候选 | dedup/对齐增强候选 | 无门槛,核心侧评估 |
+
+## 第五波:事实缺口闭合批(2026-10-05 深夜;主人令深化补全,所有 ○ 当场闭)
+
+### 许可核验(四件,gh api LICENSE 原文一手)
+
+| 工具 | LICENSE 原文 | 结论 |
+|---|---|---|
+| MediaCrawler | **NON-COMMERCIAL LEARNING LICENSE 1.1**(自定义) | 非 OSI 开源;禁商业。警示型收录可行(manifest+README 声明依赖零复制+「非商业学习用途」醒目警示,用户自装上游自负边界)——留批三与 analysis lane 一起裁 |
+| yake | **AGPL-3.0**(免费档)+商业许可双轨 | 门槛可清:按 AGPL 纪律(只声明依赖/桩,零复制;pip 运行时装包不构成分发);关键词提取=批三分析件候选 |
+| weibo-search | **无 LICENSE 文件**(目录全文核) | 全保留版权,维持不收(终态) |
+| SpiderKeeper | **无 LICENSE 文件**(目录全文核) | 同上,维持不收(终态) |
+
+### 付费 SaaS 引擎 API 形态(官网文档核,2026-10-05)
+
+- **Zenrows**:`GET https://api.zenrows.com/v1/?apikey=<KEY>&url=<TARGET>&js_render=true`(或 `X-API-Key` 头);可选 `premium_proxy`/`proxy_country`/`css_extractor`/`wait_for`。文档:docs.zenrows.com/fetch/api-reference
+- **ScraperAPI**:`GET https://api.scraperapi.com/?api_key=<KEY>&url=<TARGET>`;可选 `country`/`render`/`premium`/`session_number`。文档:docs.scraperapi.com
+- 两家同为「GET+key+url」薄形态 → 引擎模块可共用一个 SaaS fetch 骨架,参数面各自映射。
+
+### EasySpider 形态核验(R7/AC8 结案)
+
+仓库结构实读:ElectronJS/+Extension/+ExecuteStage/=Electron GUI+浏览器扩展,**无服务/REST API 形态**;README 无 API/命令行面。→ 门槛条件(自有实例 endpoint)不成立,**维持不收(终态,理由=形态不可接,非许可问题)**。

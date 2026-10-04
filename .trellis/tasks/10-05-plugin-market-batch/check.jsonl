@@ -1,1 +1,5 @@
 {"file": ".trellis/spec/domain/connector-selection.md", "reason": "验收时按硬规则复核盘点表与收录件的免费路径与许可合规"}
+{"file": ".trellis/spec/python/index.md", "reason": "验收对表:核心依赖未增(6 依赖红线)/测试落位(根 vs 组目录)/uv 隔离纪律(新件零根依赖)"}
+{"file": ".trellis/spec/domain/security-baseline.md", "reason": "验收对表:gates.yaml 键全走钥匙串引用零明文;门槛件知情文案在位;私有情报不出本机"}
+{"file": ".trellis/spec/domain/yaml-schema.md", "reason": "验收对表:gate 字段 fail-fast 校验+未知字段拒;OFFICIAL_PACKAGES/golden 同步"}
+{"file": ".trellis/tasks/10-05-plugin-market-batch/design.md", "reason": "验收对表:§6 门槛融合设计+§6.7 测试矩阵(gate_closed 三态/AUTO_CHAIN 不含断言/铁律三态)逐项勾"}
