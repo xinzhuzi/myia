@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-05 主人 /workflow 令「按照你的建议去做,都弄上」——深度对拍产出 R1-R4 全量执行,动态工作流四路并行(白名单互斥;__init__.py 仅 R3 碰),终局全量门禁+换眼复审+装机换装。收口(同日):四路提交指纹 R1=d613310 收编+复审修复 9b9b540/338faa4、R2=d613310+修复 a371526/4863430+复审修正 f64c0ef、R3=7502a0c+复审修复 adcdbc5、R4=f143000(+文案 d556bb7);AC1-AC8 全勾(证据行在 prd.md);收口重跑门禁=tests/push 1088 过/pytest 全量 3964 过+2 外来红(plugin-market 批二域,如实分类)/ruff 绿/vitest 433 过/tsc+vite build 绿;装机回执 /tmp/wf-batch-install.exit=ok installed f64c0ef(bak=/tmp/世事.app.bak-wf-025213),装机版 secret list+cron list 冒烟过;装机钉版未含其后两笔复审修复(338faa4/adcdbc5),下次装机自刷。",
+  "notes": "2026-10-05 主人 /workflow 令「按照你的建议去做,都弄上」——深度对拍产出 R1-R4 全量执行,动态工作流四路并行(白名单互斥;__init__.py 仅 R3 碰),终局全量门禁+换眼复审+装机换装。收口(同日):四路提交指纹 R1=d613310 收编+复审修复 9b9b540/338faa4、R2=d613310+修复 a371526/4863430+复审修正 f64c0ef、R3=7502a0c+复审修复 adcdbc5、R4=f143000(+文案 d556bb7);AC1-AC8 全勾(证据行在 prd.md);收口重跑门禁=tests/push 1088 过/pytest 全量 3964 过+2 外来红(plugin-market 批二域,如实分类)/ruff 绿/vitest 433 过/tsc+vite build 绿;装机谱系三跳:02:52 首装 f64c0ef(bak-wf-025213,回执 /tmp/wf-batch-install.exit 初版)→03:06 终局刷新 b72fee4 含复审二轮两笔(bak-wf2-030701,回执 /tmp/wf2-install.exit)→03:09 自刷完成 cc42e0d(b72fee4+aa89aa5 自管 Python 环境线;回执 /tmp/wf-batch-install.exit=ok installed cc42e0d5062333f0983c84f49a96057e7aaf364b,bak=/tmp/世事.app.bak-wf-030923,136.15MiB);装机版 secret list 静默+cron list --json 均 exit=0,终局装机含全部五笔复审修复,谱系缺口闭。",
   "meta": {}
 }

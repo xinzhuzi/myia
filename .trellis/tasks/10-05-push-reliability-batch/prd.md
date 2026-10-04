@@ -105,6 +105,16 @@ Hermes 深度对拍(2026-10-05,上游钉死 af90026)产出的缺口与升级项*
     9b9b540 批注全落。
 - [x] AC7:装机换装(worktree HEAD 构建静默换装)+装机版健康冒烟;回执留档。
   - **终局刷新(03:06)**:换装 b72fee4(=f64c0ef+复审修复 338faa4/adcdbc5+纯文档;备份 /tmp/世事.app.bak-wf2-030701;回执 /tmp/wf2-install.exit=ok installed,装机版 secret list 静默+cron list exit=0)。HEAD f2e0194 首刷因并行打包线 Cargo sha2 依赖未提交(pyenv.rs 已入库而 Cargo.toml/lock 躺工作树)于 worktree 构建必炸,未采——该线补齐依赖提交后下次装机自刷。
+  - **自刷完成(03:09)**:上条遗留的自刷本轮落地——aa89aa5 收编补齐 Cargo
+    sha2/tempfile 后,回执 /tmp/wf-batch-install.exit=「ok installed
+    cc42e0d5062333f0983c84f49a96057e7aaf364b bak=/tmp/世事.app.bak-wf-030923」
+    (worktree HEAD cc42e0d=b72fee4+aa89aa5 自管 Python 环境线;世事.app
+    136.15 MiB,较旧包 +4M 系 myssia 源码树+入口包进 tauri resources);装机版
+    /Applications/世事.app/Contents/MacOS/myssia-core secret list=两条凭据名
+    (myia/image/api_key、myia/llm/base_url)exit=0 静默零授权框、
+    cron list --json=exit 0(count=0 合法 JSON)。终局装机含全部五笔复审修复,
+    谱系缺口闭。本轮曲折如实:干净构建三折——worktree 注册残留两撞 128(fail
+    脚本 rm -rf 目录不 prune 注册)+sha2 E0432 一撞,prune+aa89aa5 落库后成。
   - 证据:回执 /tmp/wf-batch-install.exit=「ok installed
     f64c0ef225c7942f486a44eef691dc9ce736e14f bak=/tmp/世事.app.bak-wf-025213」
     (worktree HEAD f64c0ef 干净构建静默换装,世事.app 132.24 MiB);装机版
