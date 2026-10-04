@@ -61,6 +61,7 @@ OFFICIAL_PACKAGES = (
     "myssia-credentials",
     "myssia-credhunter",
     "myssia-media",
+    "myssia-maigret",
 )
 
 #: v1.1 定级建议(PRD 10-02-v11-plugins-source-arch 复核表)钉死的期望分级。
@@ -73,6 +74,7 @@ EXPECTED_TIERS = {
     "myssia-maxun": "server-only",
     "myssia-credhunter": "desktop",
     "myssia-media": "desktop",
+    "myssia-maigret": "desktop",
 }
 
 
@@ -496,6 +498,8 @@ SOURCE_TYPE_PACKAGES = {
     # 10-05-plugin-market-batch 首批:MYIA 侧适配器(uv 隔离子进程调公域上游,
     # 零 vendored —— yt-dlp 以 pip 依赖形态运行时注入)。
     "myssia-media": {"adapter.py"},
+    # 10-05-plugin-market-batch 首批:MYIA 侧适配器(MIT 上游同零 vendored)。
+    "myssia-maigret": {"adapter.py"},
 }
 
 

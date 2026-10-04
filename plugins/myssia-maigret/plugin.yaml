@@ -1,0 +1,26 @@
+# myssia-maigret — 官方场景件:用户名跨站侦察(封装 soxoj/maigret)。
+#
+# 上游 maigret 为 MIT;以 pip 依赖形态经 uv 临时环境(--no-project
+# --with maigret)隔离子进程调用,不 vendor、不复制源码,依赖不进根依赖
+# (核心 6 依赖红线)。版本不钉(裁定 R-1):站点库随上游自更新,每次取
+# uv 缓存最新版;测试全 mock,零网络可复现。
+#
+# 桌面路径(desktop 分级):`myssia maigret <username> --json` —— 跨站
+# 查一个用户名在流行站点的占用/命中(maigret 官方站点库,默认 top-100
+# 站,本机直连零第三方聚合服务器)。
+id: myssia-maigret
+name: 用户名侦察(maigret)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: desktop
+requires: []
+provides: [username_recon]
+adapter:
+  entry: adapter.py
+  mode: subprocess
+modes:
+  local:
+    # 纯 CLI 侦察件,进程内无服务形态;上游是 CLI 库,无 remote endpoint。
+    install: myssia plugin install plugins/myssia-maigret
+install:
+  source: https://github.com/xinzhuzi/myia.git

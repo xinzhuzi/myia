@@ -226,6 +226,24 @@ DEFAULT_MEDIA_TIMEOUT_SECONDS = 180.0
 MEDIA_FETCH_FAILURE_CODES = frozenset(
     {"media_failed", "media_timeout", "media_output_invalid"}
 )
+#: 用户名侦察插件(myssia-maigret,MIT 上游经 uv 临时环境子进程调用,不 vendor;
+#: 10-05-plugin-market-batch 首批,裁定 R-1 不钉版——站点库随上游自更新)。
+MAIGRET_PLUGIN_ID = "myssia-maigret"
+#: 缺省扫描范围:站点库 rank 前 N 站(全库数千站要数小时,桌面缺省必须有界)。
+DEFAULT_MAIGRET_TOP_SITES = 100
+#: maigret 子进程 wall-clock 预算缺省(top-100 站量级实测分钟级)。
+DEFAULT_MAIGRET_TIMEOUT_SECONDS = 600.0
+#: 逐站请求超时缺省秒数(上游 --timeout 语义)。
+DEFAULT_MAIGRET_SITE_TIMEOUT_SECONDS = 15.0
+#: 采集类失败码 → 退出码 2;零命中=合法空态不是错误;其余退 1。
+MAIGRET_FETCH_FAILURE_CODES = frozenset(
+    {
+        "maigret_failed",
+        "maigret_timeout",
+        "maigret_report_missing",
+        "maigret_report_invalid",
+    }
+)
 #: 凭证猎手插件(myssia-credhunter,进程内三 lane:credhunt/credcheck/exposure;
 #: 10-03-aipocket-fusion;正式取数走 engine: credhunter 进管线,CLI 面是
 #: 调试/冒烟口,credcheck 双入口=--apikey 显式传键 / --from-keystore 读
@@ -332,6 +350,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_osint_parser(sub)
     _add_proxy_parser(sub)
     _add_media_parser(sub)
+    _add_maigret_parser(sub)
     _add_credhunt_parser(sub)
     _add_credcheck_parser(sub)
     _add_exposure_parser(sub)
@@ -4368,6 +4387,129 @@ def _add_media_parser(sub: argparse._SubParsersAction) -> None:
 
 
 # ---------------------------------------------------------------------------
+# myssia maigret(myssia-maigret 插件;10-05-plugin-market-batch 首批:
+# maigret(MIT)上游经 uv 临时环境隔离子进程,用户名跨站侦察(-J simple
+# JSON 报告,命中对象在条目 status 键下——v0.6.6 实测契约)。
+# 退出码族:0 成功(含零命中合法空态)/ 1 配置或环境错误 / 2 采集失败;
+# --json 下 stdout 恒单份 JSON)
+# ---------------------------------------------------------------------------
+
+
+def _print_maigret_human(payload: dict[str, Any]) -> None:
+    """人类可读摘要(与 --json 同一信息,另一种皮)."""
+    print(
+        f"世事 maigret:{payload.get('target')} 命中 {payload.get('hit_count')} 站"
+        f"(范围 top-{payload.get('top_sites')},插件 {payload.get('plugin')})"
+    )
+    for hit in payload.get("hits") or []:
+        tags = ",".join(hit.get("tags") or []) or "无标签"
+        print(f"  {hit.get('site')}:{hit.get('url')}[{tags}]")
+    print(f"  耗时:{payload.get('duration_seconds')}s")
+
+
+def _cmd_maigret(args: argparse.Namespace) -> int:
+    """``myssia maigret``:跑一次上游 maigret 跨站侦察,结构化输出.
+
+    退出码:0 成功(含零命中合法空态);1 适配器缺失/uv 缺失/用户名非法
+    (配置或环境错误);2 采集失败(上游非零退出/超时/报告缺失或损坏)。
+    失败码到退出码的映射用 :data:`MAIGRET_FETCH_FAILURE_CODES`(CLI 所有)。
+    任何失败都只影响本命令,核心品类流水线照常(铁律)。
+    """
+    try:
+        adapter = _import_plugin_adapter(args.plugins_dir, MAIGRET_PLUGIN_ID)
+    except (OSError, ImportError, SyntaxError) as exc:
+        _emit_generic_error(
+            "maigret_adapter_missing",
+            str(exc),
+            as_json=args.as_json,
+            plugins_dir=str(args.plugins_dir),
+        )
+        return EXIT_CONFIG_ERROR
+    try:
+        payload = adapter.run(
+            args.username,
+            timeout=args.timeout,
+            top_sites=args.top_sites,
+            site_timeout=args.site_timeout,
+        )
+    except Exception as exc:  # noqa: BLE001 — 适配器一切失败都结构化降级,绝不拦核心
+        details = (
+            exc.to_dict()
+            if hasattr(exc, "to_dict")
+            else {"code": "maigret_failed", "message": str(exc)}
+        )
+        code = str(details.get("code", "maigret_failed"))
+        exit_code = (
+            EXIT_FETCH_ALL_FAILED
+            if code in MAIGRET_FETCH_FAILURE_CODES
+            else EXIT_CONFIG_ERROR
+        )
+        extra = {
+            key: value
+            for key, value in details.items()
+            if key not in ("code", "message")
+        }
+        _emit_generic_error(
+            code, str(details.get("message", exc)), as_json=args.as_json, **extra
+        )
+        return exit_code
+    if args.as_json:
+        _print_json(payload)
+    else:
+        _print_maigret_human(payload)
+    return EXIT_OK
+
+
+def _add_maigret_parser(sub: argparse._SubParsersAction) -> None:
+    """``myssia maigret``:用户名跨站侦察(10-05-plugin-market-batch myssia-maigret)."""
+    maigret = sub.add_parser(
+        "maigret",
+        help="用户名跨站侦察(myssia-maigret 插件,uv 隔离子进程;失败绝不拦核心)",
+        description=(
+            "定位 <plugins-dir>/myssia-maigret(适配器 adapter.py),以 uv 临时环境"
+            "(--no-project --with maigret,不进根依赖)隔离子进程跑上游 CLI:对"
+            "一个用户名跨站查占用/命中(-J simple JSON 报告),站点范围按 rank"
+            " 前 N 预算。零命中=合法空态;仅用于已授权侦察目标,逐站直连零第三方"
+            "聚合服务器。适配器缺失/用户名非法退 1;采集失败退 2;任何失败不影响"
+            "核心品类流水线(铁律)。"
+        ),
+    )
+    maigret.add_argument(
+        "username",
+        help="待查用户名(字母数字开头,仅字母/数字/./_/-;授权侦察目标)",
+    )
+    maigret.add_argument(
+        "--top-sites",
+        type=int,
+        default=DEFAULT_MAIGRET_TOP_SITES,
+        help=f"站点库 rank 前 N 预算(默认 {DEFAULT_MAIGRET_TOP_SITES};0=不限,慎用)",
+    )
+    maigret.add_argument(
+        "--timeout",
+        type=float,
+        default=DEFAULT_MAIGRET_TIMEOUT_SECONDS,
+        help=f"子进程 wall-clock 预算秒数(默认 {DEFAULT_MAIGRET_TIMEOUT_SECONDS:g})",
+    )
+    maigret.add_argument(
+        "--site-timeout",
+        type=float,
+        default=DEFAULT_MAIGRET_SITE_TIMEOUT_SECONDS,
+        help=f"逐站请求超时秒数,透传上游 --timeout(默认 {DEFAULT_MAIGRET_SITE_TIMEOUT_SECONDS:g})",
+    )
+    maigret.add_argument(
+        "--plugins-dir",
+        default=DEFAULT_PLUGINS_DIR,
+        help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR},样板位于 myssia-maigret/ 子目录)",
+    )
+    maigret.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="机器可读输出(单份 JSON,stdout)",
+    )
+
+
+# ---------------------------------------------------------------------------
 # myssia credhunt / credcheck / exposure(myssia-credhunter 插件三 lane;
 # 10-03-aipocket-fusion:正式取数走 engine: credhunter 进管线,本三命令是
 # 调试/冒烟/后处理口 —— credhunt/exposure 单次取数 stdout JSON,credcheck
@@ -4827,6 +4969,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "osint": _cmd_osint,
         "proxy": _cmd_proxy,
         "media": _cmd_media,
+        "maigret": _cmd_maigret,
         "credhunt": _cmd_credhunt,
         "credcheck": _cmd_credcheck,
         "exposure": _cmd_exposure,
