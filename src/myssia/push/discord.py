@@ -20,8 +20,22 @@ Bot <token>`` + ``{"content": …}``)。MYIA 按本档语义重写,不整块复�
 寻址(design D1/D4):``supports_targeting=True``;``context.target.chat_id``
 优先,退回 legacy ``target`` 引用(**须显式配置,无运行期 env 缺省回退**;
 推荐引用名 ``env:DISCORD_CHANNEL_ID``,蓝本同名 env 先例)。直达形态:雪花 id(17-20 位数字,
-Discord snowflake 官方形态)。目录无自动发现(蓝本事实:出站无列表路径),
-别名手工登记。
+Discord snowflake 官方形态)。
+
+目录自动发现(10-05-push-reliability-batch R4):``discover_directory`` 实装。
+蓝本锚:Hermes ``gateway/channel_directory.py`` 的 ``_build_discord``(上游
+174-197 行,NousResearch/Hermes-Agent,MIT)——枚举 bot 可见服务器内的
+text + forum 频道。载体偏离:蓝本读 discord.py SDK 的网关缓存
+(``client.guilds``,需 WebSocket 在场),MYIA 出站-only 无网关,REST 等价
+两跳 = ``GET /users/@me/guilds``(``after`` 游标翻页,20 页 × 200 保底,
+对位蓝本 slack 侧同款翻页护栏)→ 每服务器 ``GET /guilds/{id}/channels``
+过滤 type 0(GUILD_TEXT)/15(GUILD_FORUM,发消息自动开帖,蓝本注释同义)。
+forum 在 MYIA 目录语汇里落 ``type="topic"``(:data:`myssia.push.directory.
+ENTRY_TYPES` 对齐 Hermes channel/dm/forum 语汇的第四槽)。两处不适用蓝本
+分支:obfuscated 占位过滤(#90154 是 SDK 缓存侧问题,REST 列表本就按 bot
+视野返回)与 session DM 回填(gateway 入站专属,MYIA 零入站——DM 靠别名
+手工登记,feishu 私聊同款组内约定)。``ChannelEntry`` 无 guild 位:跨服务器
+同名频道以雪花 id 直达消歧(蓝本 entry 的 guild 字段在此裁剪)。
 
 错误文案保留 ``HTTP <status>`` 与原厂响应片段(Discord 错误体
 ``{"message": "Unknown Channel", "code": 10003}``)供死信分类:
@@ -34,9 +48,11 @@ Discord snowflake 官方形态)。目录无自动发现(蓝本事实:出站无�
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 import re
-from typing import Any, Sequence
+from typing import Any, Awaitable, Callable, Mapping, Sequence
 
 import httpx
 
@@ -46,7 +62,7 @@ from myssia.push.base import (
     SendContext,
     TrendAwareChannel,
 )
-from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.directory import ChannelEntry
 from myssia.push.ntfy import build_message
 from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
 from myssia.push.telegram import split_message
@@ -58,7 +74,11 @@ __all__ = [
     "CHANNEL_ID_RE",
     "DEFAULT_TARGET_ENV_REF",
     "DEFAULT_TOKEN_ENV_REF",
+    "DISCOVER_CHANNEL_TYPES",
+    "DISCOVER_MAX_PAGES",
+    "DISCOVER_PAGE_SIZE",
     "DiscordChannel",
+    "GUILDS_API_URL",
     "MESSAGE_LIMIT",
 ]
 
@@ -74,6 +94,17 @@ DEFAULT_TARGET_ENV_REF = "env:DISCORD_CHANNEL_ID"
 MESSAGE_LIMIT = 2000
 #: 直达 id 形态:Discord snowflake(17-20 位数字,官方 Twitter 雪花同源)。
 CHANNEL_ID_RE = re.compile(r"^\d{16,20}$")
+#: 目录发现第一跳:bot 已加入服务器列表(蓝本 ``client.guilds`` 的 REST 等价)。
+GUILDS_API_URL = f"{API_BASE}/users/@me/guilds"
+#: 目录发现 guild 翻页页大小(官方 limit 上限 200;取上限减少往返)。
+DISCOVER_PAGE_SIZE = 200
+#: 目录发现翻页保底上限(20 页 × 200 = 4000 服务器;服务端游标不收敛时防死循环,
+#: 蓝本 slack ``_slack_team_channels`` 的 range(20) 护栏同款)。
+DISCOVER_MAX_PAGES = 20
+#: guild 频道 type → 目录 entry type 过滤表(蓝本 text+forum 枚举面同款):
+#: 0 = GUILD_TEXT → "channel";15 = GUILD_FORUM → "topic"(发消息自动开帖,
+#: MYIA 目录语汇第四槽;其余 type——语音/分类/公告等——蓝本未枚举,跳过)。
+DISCOVER_CHANNEL_TYPES: Mapping[int, str] = {0: "channel", 15: "topic"}
 
 
 class DiscordChannel(TrendAwareChannel):
@@ -101,6 +132,10 @@ class DiscordChannel(TrendAwareChannel):
     #: 目录寻址已开(context.target 优先,legacy target 兜底);协议判定见
     #: base.Channel docstring。
     supports_targeting = True
+    #: 目录发现 429 退避兜底秒数(响应体带 retry_after 时以其为准;测试钉 0)。
+    discover_backoff_seconds = 1.0
+    #: 退避 sleeper 注入点(测试记录时长 + 免真睡;缺省 asyncio.sleep)。
+    discover_sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep
 
     def __init__(
         self,
@@ -241,14 +276,150 @@ class DiscordChannel(TrendAwareChannel):
                 f"discord 响应缺消息 id: {str(data)[:200]!r}",
             )
 
-    # --------------------------------------------- 目录(无自动发现)+ 直达
+    # ------------------------------------------------- 目录发现(R4)+ 直达
 
-    async def discover_directory(self) -> list[Any]:
-        """discord 无自动发现(蓝本事实:出站 REST 无列表消费)。"""
-        raise DirectoryDiscoverUnsupported(
-            "discord 无自动发现(蓝本事实):本档未消费 guild/channel 列表 API;"
-            "直达写 discord:<snowflake 频道 id>,常用地名用别名登记"
+    async def discover_directory(self) -> list[ChannelEntry]:
+        """枚举 bot 可见服务器的 text + forum 频道(目录发现,R4 实装)。
+
+        蓝本 ``_build_discord``(channel_directory.py:174-197,MIT)的 REST
+        移植:``GET /users/@me/guilds`` 翻页(after 游标,保底
+        :data:`DISCOVER_MAX_PAGES` 页)→ 每服务器 ``GET /guilds/{id}/channels``
+        过滤 :data:`DISCOVER_CHANNEL_TYPES`(text/forum,蓝本枚举面同款);
+        跨服务器按频道雪花 id 去重。``last_seen`` 不在此填——目录合并口
+        (:meth:`myssia.push.directory.ChannelDirectory.replace_platform`)
+        统一盖刷新戳(feishu 同款约定)。
+
+        Raises:
+            PushSendError: 凭据缺失、HTTP 传输失败、非 JSON 响应或非 2xx
+                (429 退避一次仍失败也走这里;调用方 refresh 按发现失败隔离:
+                告警 + 保留旧桶)。
+        """
+        token = self._resolve_token()
+        entries: list[ChannelEntry] = []
+        seen: set[str] = set()
+        after: str | None = None
+        for _page_index in range(DISCOVER_MAX_PAGES):
+            guilds = await self._fetch_guilds_page(token, after)
+            for raw in guilds:
+                if not isinstance(raw, Mapping):
+                    continue
+                guild_id = str(raw.get("id") or "").strip()
+                if not guild_id:
+                    continue
+                for channel in await self._fetch_guild_channels(token, guild_id):
+                    entry = self._entry_from_channel(channel)
+                    if entry is not None and entry.chat_id not in seen:
+                        seen.add(entry.chat_id)
+                        entries.append(entry)
+            if len(guilds) < DISCOVER_PAGE_SIZE:
+                return entries  # 尾页(Discord 翻页契约:不足一页即尽)
+            after = str(guilds[-1].get("id") or "").strip() if isinstance(guilds[-1], Mapping) else ""
+            if not after:
+                # 整页却取不到游标:防御性止步(不依赖服务端守约,feishu 同款)。
+                logger.warning("discord 服务器列表整页但缺 after 游标,目录发现提前止步")
+                return entries
+        logger.warning(
+            "discord 服务器列表翻页达保底上限 %d 页,目录可能不完整(服务端游标未收敛)",
+            DISCOVER_MAX_PAGES,
         )
+        return entries
+
+    @staticmethod
+    def _entry_from_channel(raw: Any) -> ChannelEntry | None:
+        """One guild channel → :class:`ChannelEntry`;非枚举面/形态坏 → None。
+
+        仅 text(0)/forum(15) 进目录(蓝本枚举面);id 过雪花形态校验;
+        ``name`` 缺失退回频道 id 占位(条目仍可按 id 寻址,feishu 同款)。
+        """
+        if not isinstance(raw, Mapping):
+            return None
+        channel_id = str(raw.get("id") or "").strip()
+        if not CHANNEL_ID_RE.fullmatch(channel_id):
+            return None
+        entry_type = DISCOVER_CHANNEL_TYPES.get(raw.get("type"))
+        if entry_type is None:
+            return None
+        name = str(raw.get("name") or "").strip() or channel_id
+        return ChannelEntry(platform="discord", chat_id=channel_id, name=name, type=entry_type)
+
+    async def _fetch_guilds_page(self, token: str, after: str | None) -> list[Any]:
+        """One ``GET /users/@me/guilds`` page(after 游标翻页)。"""
+        params: dict[str, Any] = {"limit": DISCOVER_PAGE_SIZE}
+        if after:
+            params["after"] = after
+        data = await self._discover_get(token, GUILDS_API_URL, params)
+        if not isinstance(data, list):
+            raise PushSendError(
+                "invalid_response",
+                f"discord 服务器列表响应不是数组: {str(data)[:200]!r}",
+            )
+        return data
+
+    async def _fetch_guild_channels(self, token: str, guild_id: str) -> list[Any]:
+        """One ``GET /guilds/{id}/channels``(单服务器全量频道,无翻页)。"""
+        data = await self._discover_get(
+            token, f"{API_BASE}/guilds/{guild_id}/channels", None
+        )
+        if not isinstance(data, list):
+            raise PushSendError(
+                "invalid_response",
+                f"discord 服务器频道列表响应不是数组(guild {guild_id[:4]}…):"
+                f" {str(data)[:200]!r}",
+            )
+        return data
+
+    async def _discover_get(
+        self, token: str, url: str, params: dict[str, Any] | None
+    ) -> Any:
+        """目录发现 GET(429 退避一次再试;retry_after 优先,feishu D2 同款)。
+
+        退避时长取响应体 ``retry_after``(Discord 429 官方字段,秒)缺省
+        :attr:`discover_backoff_seconds`;经 :attr:`discover_sleeper` 注入,
+        测试免真睡。二次 429 不再退避,按非 2xx 结构化报错(诚实失败)。
+        """
+        headers = {"Authorization": f"Bot {token}"}
+        response: httpx.Response | None = None
+        for attempt in (1, 2):
+            try:
+                if self._client is not None:
+                    response = await self._client.get(url, params=params, headers=headers)
+                else:
+                    async with httpx.AsyncClient(timeout=self._timeout) as client:
+                        response = await client.get(url, params=params, headers=headers)
+            except httpx.HTTPError as exc:
+                raise PushSendError(
+                    "http_error", f"discord 目录发现请求失败: {type(exc).__name__}: {exc}"
+                ) from exc
+            if response.status_code != 429 or attempt == 2:
+                break
+            await self._discover_backoff(response)
+        assert response is not None  # 循环体至少执行一次
+        if not response.is_success:
+            # 文案形态与 _post_message 同款:HTTP <status> + 原厂 body 片段。
+            raise PushSendError(
+                "discord_api_error",
+                f"discord HTTP {response.status_code}: {response.text[:200]!r}",
+            )
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise PushSendError(
+                "invalid_response",
+                f"discord 响应不是 JSON(HTTP {response.status_code}): {response.text[:200]!r}",
+            ) from exc
+
+    async def _discover_backoff(self, response: httpx.Response) -> None:
+        """429 退避:响应体 ``retry_after`` 优先,缺省类级兜底秒数。"""
+        delay = self.discover_backoff_seconds
+        with contextlib.suppress(ValueError):
+            body = response.json()
+            if isinstance(body, Mapping):
+                value = body.get("retry_after")
+                if isinstance(value, (int, float)) and value >= 0:
+                    delay = float(value)
+        logger.warning("discord 目录发现 429 限频,退避 %.1fs 重试一次", delay)
+        # 经类取值调用:实例访问会把普通函数绑成方法(self 混入首参)。
+        await self.__class__.discover_sleeper(delay)
 
     @classmethod
     def parse_direct_ref(cls, ref: str) -> ChannelTarget | None:

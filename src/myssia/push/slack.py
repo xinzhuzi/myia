@@ -27,8 +27,22 @@ MYIA 按本档语义重写,不整块复制:
 推荐引用名 ``env:SLACK_CHANNEL``——蓝本 cron delivery 同名先例
 ``SLACK_HOME_CHANNEL``,MYIA 按通道名取 ``SLACK_CHANNEL``,schema 层
 target/targets 二选一强制)。直达形态 ``C/G/D/U/W`` 系 id(Hermes setup 指南:「频道
-ID 以 C 开头」)。目录无自动发现(蓝本事实:slack 适配器无列表 API 路径),
-别名手工登记。
+ID 以 C 开头」)。
+
+目录自动发现(10-05-push-reliability-batch R4):``discover_directory`` 实装。
+蓝本锚:Hermes ``gateway/channel_directory.py`` 的 ``_slack_team_channels``
+与 ``_slack_resolve_raw_names``(上游 235-317 行,NousResearch/Hermes-Agent,
+MIT)——``users.conversations``(types=public+private、exclude_archived、
+limit=200、游标翻页 20 页保底)逐页聚合,再对无名单的条目
+``conversations.info``/``users.info`` 补名。载体偏离:蓝本多工作空间
+(``_team_clients`` 按 team 迭代)与 session DM 回填是 gateway 入站专属,
+MYIA 单 bot token 单工作空间、零入站——DM 不在 types 枚举面内(蓝本同值),
+靠别名手工登记(feishu 私聊同款组内约定);补名判据从「name 以 C/G/D
+原始 id 前缀开头」(session 占名条目)退化为「name 缺失/空」,补名失败
+保留 id 占位仍可寻址(蓝本 info 不 ok 时条目保留原名同语义);蓝本
+``asyncio.gather`` 并发补名改为顺序循环(无 session 大批量,简单优先)。
+私有频道落 ``type="group"``、公开频道 ``type="channel"``(蓝本 private/
+channel 语汇对位 :data:`myssia.push.directory.ENTRY_TYPES` 仓内约定)。
 
 凭据安全基线同其余通道:token 引用直到发送期才解析,错误只带引用名;全部
 HTTP 经注入的 ``httpx.AsyncClient``(测试 ``httpx.MockTransport``,零真发)。
@@ -36,9 +50,11 @@ HTTP 经注入的 ``httpx.AsyncClient``(测试 ``httpx.MockTransport``,零真发
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 import re
-from typing import Any, Sequence
+from typing import Any, Awaitable, Callable, Mapping, Sequence
 
 import httpx
 
@@ -48,7 +64,7 @@ from myssia.push.base import (
     SendContext,
     TrendAwareChannel,
 )
-from myssia.push.directory import DirectoryDiscoverUnsupported
+from myssia.push.directory import ChannelEntry
 from myssia.push.ntfy import build_message
 from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
 from myssia.push.telegram import split_message
@@ -60,6 +76,9 @@ __all__ = [
     "CHANNEL_ID_RE",
     "DEFAULT_TARGET_ENV_REF",
     "DEFAULT_TOKEN_ENV_REF",
+    "DISCOVER_MAX_PAGES",
+    "DISCOVER_PAGE_SIZE",
+    "DISCOVER_TYPES",
     "MESSAGE_LIMIT",
     "SlackChannel",
 ]
@@ -79,6 +98,13 @@ MESSAGE_LIMIT = 39000
 #: (U/W 发送期先 conversations.open 换 D…,蓝本 #17444 同款);9-12 位大写
 #: 字母数字(Slack id 官方字符集)。
 CHANNEL_ID_RE = re.compile(r"^[CGDUW][A-Z0-9]{8,20}$")
+#: 目录发现 types 枚举面(蓝本 ``_slack_team_channels`` 同值:公开 + 私有
+#: 成员频道;im/mpim 不入——DM 靠别名手工登记,蓝本 session 回填不适用)。
+DISCOVER_TYPES = "public_channel,private_channel"
+#: 目录发现页大小(蓝本同值 limit=200,官方上限)。
+DISCOVER_PAGE_SIZE = 200
+#: 目录发现翻页保底上限(蓝本 ``range(20)`` 护栏同款:20 页 × 200 = 4000 频道)。
+DISCOVER_MAX_PAGES = 20
 
 
 class SlackChannel(TrendAwareChannel):
@@ -105,6 +131,10 @@ class SlackChannel(TrendAwareChannel):
     #: 目录寻址已开(context.target 优先,legacy target 兜底);协议判定见
     #: base.Channel docstring。
     supports_targeting = True
+    #: 目录发现 429 退避兜底秒数(响应 Retry-After 头在场时以其为准;测试钉 0)。
+    discover_backoff_seconds = 1.0
+    #: 退避 sleeper 注入点(测试记录时长 + 免真睡;缺省 asyncio.sleep)。
+    discover_sleeper: Callable[[float], Awaitable[None]] = asyncio.sleep
 
     def __init__(
         self,
@@ -257,6 +287,11 @@ class SlackChannel(TrendAwareChannel):
             raise PushSendError(
                 "http_error", f"slack 请求失败: {type(exc).__name__}: {exc}"
             ) from exc
+        return self._parse_api_response(response, method)
+
+    @staticmethod
+    def _parse_api_response(response: httpx.Response, method: str) -> dict[str, Any]:
+        """Slack 应答公共判据:HTTP 层 → JSON → ``ok``(POST/GET 读路径共用)。"""
         if response.status_code >= 400:
             # HTTP 层错误(429 限频 / 5xx / 方法不存在):状态码先于 JSON 解析
             # 进文案,死信分类按 429/5xx → 瞬态、403/404 → 硬失败命中。
@@ -279,18 +314,186 @@ class SlackChannel(TrendAwareChannel):
             )
         return data
 
-    # --------------------------------------------- 目录(无自动发现)+ 直达
+    # ------------------------------------------------- 目录发现(R4)+ 直达
 
-    async def discover_directory(self) -> list[Any]:
-        """slack 无自动发现(蓝本事实:适配器无列表 API 出站路径)。
+    async def discover_directory(self) -> list[ChannelEntry]:
+        """列出 bot 已加入的公开 + 私有频道(目录发现,R4 实装)。
 
-        conversations.list 存在于官方 API 面,但本档蓝本未消费、MYIA 侧无
-        入站可回填;条目唯一来源 = 别名手工登记 + 直达 id(组内约定)。
+        蓝本 ``_slack_team_channels`` + ``_slack_resolve_raw_names``
+        (channel_directory.py:235-317,MIT)的 MYIA 移植:
+        ``users.conversations``(types/:data:`DISCOVER_TYPES`、
+        exclude_archived、limit=200、``response_metadata.next_cursor``
+        游标翻页,保底 :data:`DISCOVER_MAX_PAGES` 页)逐页聚合;name
+        缺失的条目再经 ``conversations.info`` 补名(im 形态经
+        ``users.info`` 取 display_name,蓝本同分支)。``last_seen`` 不在
+        此填——目录合并口统一盖刷新戳(feishu 同款约定)。
+
+        Raises:
+            PushSendError: 凭据缺失、HTTP 传输失败、非 JSON 响应、
+                ``ok != true`` 或 429 退避一次仍失败(调用方 refresh 按发现
+                失败隔离:告警 + 保留旧桶)。补名单条失败**不**上抛——保留
+                id 占位仍可寻址(蓝本 info 不 ok 条目保留原名同语义)。
         """
-        raise DirectoryDiscoverUnsupported(
-            "slack 无自动发现(蓝本事实):本档未消费列表 API;"
-            "直达写 slack:C…/G…/D…/U…(U/W 自动换 DM),常用地名用别名登记"
+        token = self._resolve_token()
+        entries: list[ChannelEntry] = []
+        seen: set[str] = set()
+        cursor: str | None = None
+        for _page_index in range(DISCOVER_MAX_PAGES):
+            params: dict[str, Any] = {
+                "types": DISCOVER_TYPES,
+                "exclude_archived": "true",
+                "limit": DISCOVER_PAGE_SIZE,
+            }
+            if cursor:
+                params["cursor"] = cursor
+            data = await self._api_get(token, "users.conversations", params)
+            for raw in data.get("channels") or []:
+                entry = self._entry_from_conversation(raw)
+                if entry is not None and entry.chat_id not in seen:
+                    seen.add(entry.chat_id)
+                    entries.append(entry)
+            metadata = data.get("response_metadata")
+            cursor = (
+                str(metadata.get("next_cursor") or "").strip()
+                if isinstance(metadata, Mapping)
+                else ""
+            )
+            if not cursor:
+                break
+        else:
+            logger.warning(
+                "slack 频道列表翻页达保底上限 %d 页,目录可能不完整(服务端游标未收敛)",
+                DISCOVER_MAX_PAGES,
+            )
+        await self._resolve_raw_names(token, entries)
+        return entries
+
+    @staticmethod
+    def _entry_from_conversation(raw: Any) -> ChannelEntry | None:
+        """One ``channels[]`` → :class:`ChannelEntry`;形态坏 → None。
+
+        公开频道 ``type="channel"``、私有频道 ``type="group"``(蓝本
+        private/channel 语汇对位仓内 ENTRY_TYPES);``name`` 缺失先以 id
+        占位(补名 pass 兜底),仍可按 id 寻址。archived 由请求参数
+        exclude_archived 排除(蓝本同值),响应内不重复判。
+        """
+        if not isinstance(raw, Mapping):
+            return None
+        chat_id = str(raw.get("id") or "").strip()
+        if not chat_id:
+            return None
+        name = str(raw.get("name") or "").strip() or chat_id
+        return ChannelEntry(
+            platform="slack",
+            chat_id=chat_id,
+            name=name,
+            type="group" if raw.get("is_private") else "channel",
         )
+
+    async def _resolve_raw_names(self, token: str, entries: list[ChannelEntry]) -> None:
+        """补名 pass:name 仍是 id 占位的条目经 info 调用取名(蓝本移植)。
+
+        ``conversations.info`` 非 im → name/name_normalized;is_im 且带
+        user → ``users.info`` 取 profile.display_name → real_name → name,
+        并把 type 改判 ``dm``(蓝本同分支;MYIA types 枚举面不含 im,该
+        分支为形态防御)。单条失败(含 ``ok=false``)仅 debug 日志、条目
+        保留 id 占位——补名是尽力而为,不阻发现(蓝本同语义)。
+        """
+        for entry in entries:
+            if entry.name != entry.chat_id:
+                continue
+            try:
+                info = await self._api_get(
+                    token, "conversations.info", {"channel": entry.chat_id}
+                )
+            except PushSendError as exc:
+                logger.debug(
+                    "slack 目录补名失败(保留 id 占位): channel=%s error=%s",
+                    entry.chat_id,
+                    exc,
+                )
+                continue
+            channel = info.get("channel")
+            if not isinstance(channel, Mapping):
+                continue
+            resolved: str | None = None
+            if not channel.get("is_im"):
+                resolved = str(
+                    channel.get("name") or channel.get("name_normalized") or ""
+                ).strip() or None
+            else:
+                user_id = str(channel.get("user") or "").strip()
+                if not user_id:
+                    continue
+                try:
+                    user_info = await self._api_get(
+                        token, "users.info", {"user": user_id}
+                    )
+                except PushSendError as exc:
+                    logger.debug(
+                        "slack 目录 DM 补名失败(保留 id 占位): user=%s error=%s",
+                        user_id,
+                        exc,
+                    )
+                    continue
+                user = user_info.get("user")
+                if isinstance(user, Mapping):
+                    profile = user.get("profile")
+                    resolved = (
+                        str(
+                            (profile.get("display_name") if isinstance(profile, Mapping) else None)
+                            or user.get("real_name")
+                            or user.get("name")
+                            or ""
+                        ).strip()
+                        or None
+                    )
+                if resolved:
+                    entry.type = "dm"
+            if resolved:
+                entry.name = resolved
+
+    async def _api_get(
+        self, token: str, method: str, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """``GET {API_BASE}/{method}``(目录发现读路径;429 退避一次再试)。
+
+        Slack 读方法走 GET + 查询参;限频 = HTTP 429 + ``Retry-After`` 头
+        (秒),退避时长以其为准、缺省 :attr:`discover_backoff_seconds`,
+        经 :attr:`discover_sleeper` 注入(测试免真睡)。二次 429 不再退避,
+        按 HTTP 层错误结构化报错(feishu D2 同款取舍)。应答判据与 POST 路
+        径共用(:meth:`_parse_api_response`)。
+        """
+        url = f"{API_BASE}/{method}"
+        headers = {"Authorization": f"Bearer {token}"}
+        response: httpx.Response | None = None
+        for attempt in (1, 2):
+            try:
+                if self._client is not None:
+                    response = await self._client.get(url, params=params, headers=headers)
+                else:
+                    async with httpx.AsyncClient(timeout=self._timeout) as client:
+                        response = await client.get(url, params=params, headers=headers)
+            except httpx.HTTPError as exc:
+                raise PushSendError(
+                    "http_error", f"slack 请求失败: {type(exc).__name__}: {exc}"
+                ) from exc
+            if response.status_code != 429 or attempt == 2:
+                break
+            await self._discover_backoff(response)
+        assert response is not None  # 循环体至少执行一次
+        return self._parse_api_response(response, method)
+
+    async def _discover_backoff(self, response: httpx.Response) -> None:
+        """429 退避:``Retry-After`` 头优先,缺省类级兜底秒数。"""
+        delay = self.discover_backoff_seconds
+        header = response.headers.get("Retry-After")
+        if header is not None:
+            with contextlib.suppress(ValueError):
+                delay = max(float(header), 0.0)
+        logger.warning("slack 目录发现 429 限频,退避 %.1fs 重试一次", delay)
+        # 经类取值调用:实例访问会把普通函数绑成方法(self 混入首参)。
+        await self.__class__.discover_sleeper(delay)
 
     @classmethod
     def parse_direct_ref(cls, ref: str) -> ChannelTarget | None:
