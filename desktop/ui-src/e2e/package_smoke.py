@@ -543,6 +543,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             except (json.JSONDecodeError, IndexError):
                 err_obj = {"code": "bridge_error", "path": "$", "message": str(exc)}
             body = json.dumps(err_obj, ensure_ascii=False).encode("utf-8")
+            say(f"  [/rpc 500] {method}: {body.decode('utf-8')[:300]}")
             self.send_response(500)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
@@ -624,13 +625,38 @@ def part_a(app_dir: Path, cleanups: list) -> None:
     say(f"PART A 真机启动断言:{app_dir}")
     say("=" * 72)
 
-    # A0 预检:已有实例在跑则无法做启动断言(单实例锁会让新实例转激活旧实例后退出)
+    # A0 预检+清场:装机/换装流水线里常有上一棒留下的运行实例(单实例锁会让
+    # 我们的 open 变成转激活既有实例+退出,既测不了启动又抢屏)。礼貌请退
+    # (osascript quit,Apple Event 不激活不夺焦;TERM 兜底),退不掉才 FAIL。
     pre_main = pgrep_exact("MYIA")
     pre_side = pgrep_exact("myssia-core")
-    if not REPORT.check("A0-预检无既有实例", not pre_main and not pre_side,
-                        f"MYIA={pre_main} myssia-core={pre_side}" if (pre_main or pre_side) else "环境干净"):
-        say("  环境不干净(主人或他线在跑 app),Part A 无法做启动断言,跳过本部分")
-        return
+    if pre_main or pre_side:
+        say(f"  预检发现既有实例(MYIA={pre_main} myssia-core={pre_side}),先礼貌请退再测")
+        run_cmd(["osascript", "-e", f'tell application id "{BUNDLE_ID}" to quit'], timeout=30)
+        for _ in range(30):
+            time.sleep(0.5)
+            if not pgrep_exact("MYIA"):
+                break
+        if pgrep_exact("MYIA"):
+            run_cmd(["pkill", "-TERM", "-x", "MYIA"], timeout=15)
+            for _ in range(20):
+                time.sleep(0.5)
+                if not pgrep_exact("MYIA"):
+                    break
+        for _ in range(20):  # sidecar 随 stdin EOF 自清,略等
+            if not pgrep_exact("myssia-core"):
+                break
+            time.sleep(0.5)
+        if pgrep_exact("myssia-core"):
+            run_cmd(["pkill", "-TERM", "-x", "myssia-core"], timeout=15)
+            time.sleep(2.0)
+        cleared = not pgrep_exact("MYIA") and not pgrep_exact("myssia-core")
+        if not REPORT.check("A0-预检清场(既有实例礼貌请退)", cleared,
+                            f"清场后 MYIA={pgrep_exact('MYIA')} myssia-core={pgrep_exact('myssia-core')}"):
+            say("  既有实例请不退(主人进程不让关?),Part A 无法做启动断言,跳过本部分")
+            return
+    else:
+        REPORT.check("A0-预检清场(既有实例礼貌请退)", True, "环境干净")
 
     sandbox = Path(tempfile.mkdtemp(prefix="myia-smoke-a-"))
     cleanups.append(lambda: shutil.rmtree(sandbox, ignore_errors=True))
@@ -841,9 +867,23 @@ def drive_ui(page, origin: str, sandbox: Path, seed_names: list[str]) -> None:
     edit_btn = page.locator(f"button[title^='弹出编辑对话框'][title*='{longest}']").first
     edit_btn.wait_for(state="visible", timeout=30000)
     edit_btn.click()
-    page.wait_for_selector("[data-testid='yaml-editor-dialog']", timeout=15000)
-    page.wait_for_selector(".cm-content", timeout=15000)
-    page.wait_for_timeout(1000)  # CM 视口渲染落定
+    try:
+        page.wait_for_selector("[data-testid='yaml-editor-dialog']", timeout=15000)
+        page.wait_for_selector(".cm-content", timeout=15000)
+        page.wait_for_timeout(1000)  # CM 视口渲染落定
+    except Exception as exc:  # noqa: BLE001 — 打不开要带现场诊断,不裸抛 ZZ
+        diag = page.evaluate(
+            """() => ({
+                dialog: !!document.querySelector('[data-testid=\"yaml-editor-dialog\"]'),
+                editor: !!document.querySelector('.cm-editor'),
+                path: document.querySelector('[data-testid=\"editor-path\"]')?.textContent ?? null,
+                bodyText: (document.querySelector('[data-testid=\"yaml-editor-dialog\"]')?.innerText ?? document.body.innerText).slice(0, 400),
+            })"""
+        )
+        shot("fail-dialog-open.png")
+        REPORT.check("B2-0-编辑弹窗打开(源管理行内编辑)", False,
+                     f"等待 .cm-content 超时({type(exc).__name__});现场={json.dumps(diag, ensure_ascii=False)}")
+        return
     shown_path = page.locator("[data-testid='editor-path']").inner_text()
     REPORT.check("B2-0-编辑弹窗打开(源管理行内编辑)", longest in shown_path, f"editor-path={shown_path}")
 
