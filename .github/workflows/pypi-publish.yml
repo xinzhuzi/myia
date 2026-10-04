@@ -272,6 +272,16 @@ jobs:
           name: dist
           path: dist/
 
+      - name: Stage this package's files
+        # pypi-publish action 的 packages-dir 只吃目录不吃 glob(2026-10-04 实撞
+        # FileNotFoundError: 'dist/myssia-*');matrix 各自把本包文件挪进 upload/。
+        env:
+          PKG_GLOB: ${{ matrix.pkg-glob }}
+        run: |
+          mkdir -p upload/
+          mv $PKG_GLOB upload/
+          ls -la upload/
+
       - name: Resolve upload repository
         # 演练开关:repository=test-pypi(默认)→ TestPyPI;pypi → 正式 PyPI。
         # URL 经 GITHUB_ENV 传给下方 publish action 的 repository-url,
@@ -312,7 +322,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: ${{ env.REPOSITORY_URL }}
-          packages-dir: ${{ matrix.pkg-glob }}
+          packages-dir: upload/
           verbose: true
 
       - name: Publish to PyPI (API token)
@@ -320,7 +330,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: ${{ env.REPOSITORY_URL }}
-          packages-dir: ${{ matrix.pkg-glob }}
+          packages-dir: upload/
           password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
 
