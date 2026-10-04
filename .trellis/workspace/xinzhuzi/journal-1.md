@@ -426,3 +426,17 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - CI 三救:①两个被排除的测试文件冻结在 shishi 时代致收集失败→导入翻新版+schema 断言 v7→v8 对齐(107 绿);②改名清扫卷入并行线在途 sidebar/feed(引用未提交新文件)→收编 interaction-batch 五件套+top-bar 对+删过时占位用例(vitest 337 绿);③cron 线测试按 +08 编写→CI 双 job 钉 TZ=Asia/Shanghai
 - 教训入册:排除「在途文件」保并行线时,必须检查其**已提交版是否被冻结在旧时代**(改名/大迁移场景必炸 CI);git add 慎用多 pathspec 列表,add -u 或逐目录验证存在性
 - 主人侧遗留:PyPI 两条 pending publisher 需删旧重加(Repository 改填 myssia——仓库又改名了,OIDC 跟着走)
+
+## 2026-10-04 对标交互小批收口(收口员会话)
+
+- 四批全落并逐一实核:A-shell(sidebar 折叠+宽度记忆 myssia.sidebar.v1+use-hotkeys 底座 8 用例)/A-cmd(⌘K palette 19 用例+top-bar 真触发器 6 用例+context-menu 基件 297 行零新依赖)/A-dash(概览独立窗口 Select 仅采集推送两格随窗,源健康卡不加范围——PRD:72-75 落位,ask 括号口径相反按 PRD 落地并如实上报,36 用例)/A-feed(j/k 巡游+focus 环+显示选项 myssia.feed.display.v1+右键四动作沉淀直调 openPin,69 用例);偏差三条在案:ui/command.tsx 内联未建、app-layout 判定不需接线(Sidebar 自持态)、存储键随定名终局呈 myssia.*(原报 myia.*)
+- 落库竞态实录:五伴件+top-bar 对走 CI 救援 44b06dd/7011d9f(与定名终局 CI 三救同源);sidebar/feed/dashboard 改动随改名清扫 513eb11 git add -u 入库;收口以 grep 逐项实核在库(OverviewWindow/collapsed/ContextMenu/sortUnreadFirst/loadFeedDisplay)。当前树 feed×3+client×3 脏 = G9 read-state-server 在途层(实读 diff=READ_STATE_PROTOCOL=10/store.state.mark_all),非本批残留
+- 门禁:收口实跑 scoped vitest 6 文件 148 用例全绿+npx tsc -b exit 0;全量 npm test 未复跑(在途 G9 流占有工作树,全量归该线收口——fe-gap-census 收口同口径先例);质检=独立无头冒烟 39/39 绿(consoleErrors 空,evidence 九截图+bridge RPC 日志+探针明细)
+- 收口动作:task.json 直改 in_progress→review+notes 摘要;implement/check 两 jsonl 补行(5+3);零协议改动无 PROTOCOL_VERSION 事项;未 push、未跑 task.py;journal 本段循 hermes-cron/fe-gap-census 收口先例未随批提交,下次 journal 入库一并
+
+## 2026-10-04 G9 读态迁服务端收口(收口员会话,task 10-04-read-state-server)
+
+- 三流汇总实核:引擎件 store v8(items 三列+idx_items_dedup_key+set_item_states/set_all_item_states/import_item_states,SCHEMA_VERSION 7→8)与 CHANGELOG Added 条目已被改名流 513eb11 `git add -u` 先行收编入库(现树 clean,grep 逐项在位);协议件 PROTOCOL_VERSION 开工实读 9(hermes-cron 先合 v9,竞速顺延)+1=10、_HANDLERS 57→60(store.state.mark/mark_all/import 紧跟 store.items 聚簇)、_item_dict 三键投影(CSV 固定七列:1151 不动/JSONL 同源连带);UI 件 READ_STATE_PROTOCOL=10、能力门分流、乐观+失败回滚、mark_all 全库单 UPDATE、一次性导入(STORAGE_KEY 现名 myssia.feed.states.v1,改名波漂移以现树为准);spec mirror 注册表 58-60 行+v10 竞速注记+错误码读态行,与 _HANDLERS 实数 60 对账相等
+- 门禁(implement.md 步骤 8,收口实跑):`.venv/bin/python -m pytest tests/ -q` = 3585 passed/19 skipped(86s;系统 python 缺 feedparser 故走项目 venv;定向协议+read_state = 157 passed);`cd desktop/ui-src && npm test` = 21 文件 350 用例全绿(feed-screen 69 含 read-state-server 套件——顺带补掉 interaction-batch 收口「全量 npm test 归 G9 线收口」的悬置项);`npm run build` = tsc -b + vite ✓ 1.53s(>500kB chunk 警告为既有提示);`git diff --stat` 白名单复核 9 文件 1096+/36- 无夹带;协议工程师预警的 test_alert_rules/test_baseline 倒灌 v7 异常已消(现 clean 且期望 v8,与 a773cf7 一致)
+- 收口动作:两笔 pathspec 提交——afa7339 feat(desktop) 代码批 9 文件(entry.py+UI 六件+协议测试+新 tests/test_read_state.py 409 行);07f486c docs(task) 文档批 11 文件(spec mirror+任务三件套勾档+evidence 五件);task.json 直改 in_progress→review+notes 执行摘要(未跑 task.py);implement.md 步骤 0-8 全勾(步骤 0 实读值回填、步骤 8 三门禁输出在案)、prd.md AC1-AC10 逐条勾验带证据;白名单外脏件(10-03-v12-backlog/prd.md、fe-gap-census/matrix.md、g9-read-all/、interaction-batch/)零收编;未 push
+- 遗留:①myia.db(仓库根,v6 旧形状 31 条、无本批索引,.gitignore:21 只盖 myssia.db 不盖旧名)清不清归主人;②10-04-g9-read-all 档(planning,fe-gap-census R5 立档、声明依赖本收口)待再分诊——mark_all 全库语义本批已落,核心面疑已被覆盖;③journal 本段循收口先例未随批提交(树内现有两段:interaction-batch + 本段),下次 journal 入库一并;④归档(task.py archive → completed+移档)按纪律留主人

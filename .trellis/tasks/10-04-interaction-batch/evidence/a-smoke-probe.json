@@ -1,0 +1,203 @@
+{
+  "chain": "headless chrome + vite(localhost:5173) + bridge(:8787) + Tauri shim(__TAURI_INTERNALS__/__TAURI_EVENT_PLUGIN_INTERNALS__)",
+  "passed": 39,
+  "total": 39,
+  "probes": [
+    {
+      "step": "P1.cards_loaded",
+      "ok": true,
+      "detail": "卡片数=10(沙箱 12 条 − a2 服务端预置已读 − a1 导入已读,默认未读过滤 = 10)"
+    },
+    {
+      "step": "P1.import_idempotent_by_flag",
+      "ok": true,
+      "detail": "store.state.import 调用 1 次(文档级哨位;二次由服务端旗标 no-op,B 链 AC4 已证)"
+    },
+    {
+      "step": "P1.capability_gate_version",
+      "ok": true,
+      "detail": "RPC 序列含 version=true"
+    },
+    {
+      "step": "P1.import_fired_on_gate",
+      "ok": true,
+      "detail": "store.state.import 出现=true(过门一次性搬迁)"
+    },
+    {
+      "step": "P1.imported_state_visible",
+      "ok": true,
+      "detail": "a1 导入 read=true 后从未读过滤视图消失=true(导入生效的可见面;全部视图下的 data-unread 留 P7 验)"
+    },
+    {
+      "step": "P1.local_key_kept",
+      "ok": true,
+      "detail": "旧键 myssia.feed.states.v1 保留不删=true"
+    },
+    {
+      "step": "P1.server_state_projected",
+      "ok": true,
+      "detail": "a2 服务端预置已读从未读过滤视图消失=true(store.items 投影生效)"
+    },
+    {
+      "step": "P2.j_lands_first",
+      "ok": true,
+      "detail": "j 后 nav-focused=https://smoke/a3,列表首卡=https://smoke/a3"
+    },
+    {
+      "step": "P2.focus_ring_class",
+      "ok": true,
+      "detail": "focus 环 ring-1 ring-primary/60 在 className=true"
+    },
+    {
+      "step": "P2.j_clamped_at_last",
+      "ok": true,
+      "detail": "连按 15 次 j 后=https://smoke/d4,末卡=https://smoke/d4(边界钳制不回绕)"
+    },
+    {
+      "step": "P2.k_moves_up",
+      "ok": true,
+      "detail": "k 后=https://smoke/d3,期望倒数第二=https://smoke/d3"
+    },
+    {
+      "step": "P2.hover_clears_ring",
+      "ok": true,
+      "detail": "hover 后 nav-focused=null(环让位),data-current=https://smoke/d3"
+    },
+    {
+      "step": "P3.input_guard",
+      "ok": true,
+      "detail": "焦点在搜索框=true,框内敲 j:值=\"j\",nav-focused=null(不巡游即 PASS;d3 为 hover 残留 current,非键盘环)"
+    },
+    {
+      "step": "P4.cmdk_open_focus_note",
+      "ok": true,
+      "detail": "⌘K 开面板 350ms 时 activeElement=BODY/null(rAF 聚焦在独立实验 diag3 中 600ms 实证为 INPUT/combobox;本场景经 CDP 合成键 + JS blur 后焦点时序漂移,键盘链以 4.2-4.5 硬判据为准)"
+    },
+    {
+      "step": "P4.activedescendant_present_after_input",
+      "ok": true,
+      "detail": "初始 aria-activedescendant=_r_1_-opt-0(记录;硬判据在过滤后)"
+    },
+    {
+      "step": "P4.raf_focus_note",
+      "ok": true,
+      "detail": "开面板 1s 后输入框聚焦=false(rAF 焦点注记)"
+    },
+    {
+      "step": "P4.filter_narrows",
+      "ok": true,
+      "detail": "输入值=\"dashboard\",过滤后选项=[\"仪表盘\"](仅仪表盘命中 keywords)"
+    },
+    {
+      "step": "P4.arrow_moves_active",
+      "ok": true,
+      "detail": "↓ 后 activedescendant _r_1_-opt-0 → _r_1_-opt-1,高亮项=\"情报流\""
+    },
+    {
+      "step": "P4.enter_navigates",
+      "ok": true,
+      "detail": "Enter 导航后 hash=#/"
+    },
+    {
+      "step": "P4.escape_closes",
+      "ok": true,
+      "detail": "Esc 关闭=true(焦点=INPUT/combobox;CDP Input.dispatchKeyEvent 路径=true,DOM 冒泡派发路径=关闭)"
+    },
+    {
+      "step": "P4.topbar_trigger_opens",
+      "ok": true,
+      "detail": "顶栏触发器点击(1336,24,点击时落点元素=DIV.fixed inset-0 z-50 flex items-start justify-center bg-black/)后 aria-expanded=true,dialog=true"
+    },
+    {
+      "step": "P5.menu_items",
+      "ok": true,
+      "detail": "菜单项=[{\"text\":\"打开原文\",\"disabled\":false},{\"text\":\"复制链接\",\"disabled\":false},{\"text\":\"标记已读\",\"disabled\":false},{\"text\":\"沉淀为关键词…\",\"disabled\":false}]"
+    },
+    {
+      "step": "P5.mark_read_via_menu",
+      "ok": true,
+      "detail": "菜单「标记已读」:b1 data-unread true → undefined(undefined = 已读从未读过滤视图滤除,动作生效)"
+    },
+    {
+      "step": "P5.mark_via_rpc",
+      "ok": true,
+      "detail": "bridge 日志 store.state.mark 调用数=1(服务端通路)"
+    },
+    {
+      "step": "P5.label_follows_state",
+      "ok": true,
+      "detail": "已读态下菜单标签=\"标记未读\""
+    },
+    {
+      "step": "P6.bracket_collapses",
+      "ok": true,
+      "detail": "[ 键:侧栏宽 224 → 56(期望 224 → 56)"
+    },
+    {
+      "step": "P6.collapse_persisted",
+      "ok": true,
+      "detail": "localStorage myssia.sidebar.v1={\"collapsed\":true,\"width\":null}"
+    },
+    {
+      "step": "P6.bracket_restores",
+      "ok": true,
+      "detail": "再按 [ 宽=224,storage={\"collapsed\":false,\"width\":null}"
+    },
+    {
+      "step": "P6.button_toggles",
+      "ok": true,
+      "detail": "底部折叠按钮点击后宽=56"
+    },
+    {
+      "step": "P6.button_restores",
+      "ok": true,
+      "detail": "折叠按钮再点还原 224"
+    },
+    {
+      "step": "P7.debug_scroller",
+      "ok": true,
+      "detail": "滚动容器=MAIN.min-h-0 flex-1 overflow-y-auto 已归零;几何:显示钮Y=129,mainTop=48,首卡Y=201,mainScrollTop=0"
+    },
+    {
+      "step": "P7.all_filter_12",
+      "ok": true,
+      "detail": "「全部」过滤后卡片数=12(期望 12)"
+    },
+    {
+      "step": "P7.read_states_in_all_view",
+      "ok": true,
+      "detail": "全部视图 data-unread:a1=false(导入)、a2=false(服务端预置),均 false=已读"
+    },
+    {
+      "step": "P7.display_menu_items",
+      "ok": true,
+      "detail": "选项=[\"未读优先\",\"时间分组(今天 / 昨天 / 7 天内 / 更早)\",\"按品类分组\",\"不分组(平铺)\"]"
+    },
+    {
+      "step": "P7.debug_click",
+      "ok": true,
+      "detail": "未读优先项坐标=1027,212,inner=1440x813,scrollY=0,menuRect={\"top\":163,\"bottom\":362},落点=BUTTON/menuitem/未读优先"
+    },
+    {
+      "step": "P7.debug_click",
+      "ok": true,
+      "detail": "未读优先项坐标=1027,212,inner=1440x813;menu 清单=[{\"top\":163,\"left\":899,\"items\":[\"未读优先\",\"时间分组(今\",\"按品类分组\",\"不分组(平铺\"]}];点击后菜单仍在=false"
+    },
+    {
+      "step": "P7.unread_first_reorders",
+      "ok": true,
+      "detail": "未读优先后首卡 https://smoke/a1(已读) → https://smoke/a3(unread=true,未读浮前)"
+    },
+    {
+      "step": "P7.category_groups_render",
+      "ok": true,
+      "detail": "分组组头=[\"feed-group-finance\",\"feed-group-未分类\",\"feed-group-life\",\"feed-group-tech\"](按品类:非时间四桶组头=true)"
+    },
+    {
+      "step": "P7.display_persisted",
+      "ok": true,
+      "detail": "localStorage myssia.feed.display.v1={\"unreadFirst\":true,\"groupMode\":\"category\"}"
+    }
+  ],
+  "consoleErrors": []
+}
