@@ -1,5 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, CircleDot, Gauge, HeartPulse, Loader2, Play, RefreshCw, TrendingUp, TriangleAlert } from "lucide-react";
+import {
+  Activity,
+  CircleCheck,
+  CircleDot,
+  CirclePlay,
+  CircleStop,
+  CircleX,
+  Gauge,
+  HeartPulse,
+  Loader2,
+  Play,
+  RefreshCw,
+  TrendingUp,
+  TriangleAlert,
+} from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
@@ -51,6 +65,16 @@ import type {
 import { FeedbackStatsCard } from "./feedback-stats-card";
 import { Sparkline } from "./sparkline";
 
+/*
+ * 10-04-ui-kestra-anchor(仪表盘运行区):结构借自 Apache-2.0
+ * kestra/ui/src/components/executions/ExecutionRoot.vue +
+ * ExecutionRootTopBar.vue(运行区头部「全部 run」全量出口),借结构改语义;
+ * RunStatusChip/RecentRunRow 解剖对位 design-system KsExecutionStatus
+ * (small 档)与 Executions.vue 表行,活跃行常驻运行态对位
+ * ExecutionPending/ExecutionProgress。不抄:Tabs 切换族/写操作族(见
+ * evidence/仪表盘运行区-mapping.md)。
+ */
+
 /** 品类 tone → 徽标(健康度四态语义沿用共享 Badge:ok/warning/destructive) */
 const TONE_BADGE: Record<CategoryTone, { variant: "ok" | "warning" | "destructive"; label: string }> = {
   ok: { variant: "ok", label: "正常" },
@@ -84,28 +108,57 @@ function StatusDot({ state, reason }: { state: SourceHealthState; reason?: strin
   );
 }
 
-/** run 状态 → 徽标(runs 表 status 语义;active = 当前会话进行中,C3) */
+/** run 状态 → 徽标(runs 表 status 语义;active = 当前会话进行中,C3)。
+ *  10-04-ui-kestra-anchor:附描边圆图标(对位 Kestra KsExecutionStatus 的
+ *  statusIcon),芯片解剖见 RunStatusChip */
 function runStatusBadge(run: DashboardRun) {
   if (run.active) {
-    return { variant: "default" as const, label: "运行中" };
+    return { variant: "default" as const, label: "运行中", icon: CirclePlay };
   }
   switch (run.status) {
     case "success":
-      return { variant: "ok" as const, label: "成功" };
+      return { variant: "ok" as const, label: "成功", icon: CircleCheck };
     case "partial":
-      return { variant: "warning" as const, label: "部分" };
+      return { variant: "warning" as const, label: "部分", icon: TriangleAlert };
     case "config_error":
-      return { variant: "warning" as const, label: "配置" };
+      return { variant: "warning" as const, label: "配置", icon: TriangleAlert };
     case "failed":
-      return { variant: "destructive" as const, label: "失败" };
+      return { variant: "destructive" as const, label: "失败", icon: CircleX };
     case "cancelled":
-      return { variant: "unknown" as const, label: "已取消" };
+      return { variant: "unknown" as const, label: "已取消", icon: CircleStop };
     case "running":
       // 表内 running 且无内存活跃 = sidecar 中断遗留的僵尸行(如实标注)
-      return { variant: "warning" as const, label: "中断" };
+      return { variant: "warning" as const, label: "中断", icon: TriangleAlert };
     default:
-      return { variant: "unknown" as const, label: run.status ?? "未知" };
+      return { variant: "unknown" as const, label: run.status ?? "未知", icon: CircleDot };
   }
+}
+
+/** 状态芯片(Kestra KsExecutionStatus small 档:24px 高/12px 字/6px 圆角/
+ *  状态色淡底 + 描边圆图标;与采集日志屏 StatusChip 同解剖,屏内私有复制) */
+const RUN_CHIP_TONE: Record<string, string> = {
+  default: "border-primary/25 bg-primary/15 text-primary",
+  ok: "border-ok/30 bg-ok/15 text-ok",
+  warning: "border-warning/30 bg-warning/15 text-warning",
+  destructive: "border-destructive/30 bg-destructive/15 text-[#ff6b70]",
+  unknown: "border-unknown/30 bg-unknown/10 text-unknown",
+};
+function RunStatusChip({
+  badge,
+  pulse = false,
+}: {
+  badge: { variant: "default" | "ok" | "warning" | "destructive" | "unknown"; label: string; icon: typeof CircleCheck };
+  pulse?: boolean;
+}) {
+  const Icon = badge.icon;
+  return (
+    <span
+      className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] border px-2 text-xs font-medium tabular-nums ${RUN_CHIP_TONE[badge.variant]}`}
+    >
+      <Icon aria-hidden className={`size-3.5 ${pulse ? "animate-pulse" : ""}`} />
+      {badge.label}
+    </span>
+  );
 }
 
 /** 「跑一次」状态机(G4,10-03-feed-ux;照抄 feed 空态 CTA 形状) */
@@ -202,24 +255,44 @@ function CategoryCard({
   );
 }
 
+/** 近期 run 行,解剖对位 Kestra Executions.vue 表行(与采集日志屏组头同语言:
+ *  #id mono · 品类 · 相对开始时间(KsDateAgo inverted)· 耗时 mono · 状态芯片);
+ *  活跃行 = ExecutionPending/Progress 同义的常驻运行态:主色左缘 + 图标呼吸 +
+ *  「日志」直采链接(纯导航;HashRouter 下 a#hash 与 Link 等价,免 Router 上下文) */
 function RecentRunRow({ run }: { run: DashboardRun }) {
   const badge = runStatusBadge(run);
   const itemCount = runItemCount(run);
   return (
     <div
       data-testid={`recent-run-${run.runId}`}
-      className="flex items-center justify-between gap-2 border-b border-border/40 py-1.5 last:border-b-0"
+      className={`flex items-center gap-2 border-b border-border/40 py-1.5 pl-2 last:border-b-0 ${
+        run.active ? "border-l-2 border-l-primary bg-primary/5" : ""
+      }`}
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="font-mono text-2xs text-muted-foreground">#{run.runId}</span>
-        <span className="truncate text-xs text-foreground">{run.category}</span>
-        {run.dry ? <Badge variant="outline">dry</Badge> : null}
-      </div>
-      <div className="flex shrink-0 items-center gap-2 text-2xs text-muted-foreground">
-        {itemCount !== null ? <span>{itemCount} 条</span> : null}
-        <span className="font-mono">{formatDuration(run.durationMs)}</span>
-        <Badge variant={badge.variant}>{badge.label}</Badge>
-      </div>
+      <span className="w-8 shrink-0 font-mono text-2xs text-muted-foreground">#{run.runId}</span>
+      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{run.category}</span>
+      {run.dry ? <Badge variant="outline">dry</Badge> : null}
+      <span className="flex shrink-0 items-center gap-3 text-2xs text-muted-foreground">
+        {itemCount !== null ? (
+          <span className="w-11 text-right tabular-nums">{itemCount} 条</span>
+        ) : (
+          <span className="w-11" aria-hidden />
+        )}
+        <span className="w-[68px] text-right tabular-nums" title={run.startedAt ?? undefined}>
+          {formatRelativeTime(run.startedAt)}
+        </span>
+        <span className="w-14 text-right font-mono">{formatDuration(run.durationMs)}</span>
+        <RunStatusChip badge={badge} pulse={run.active} />
+        {run.active ? (
+          <a
+            href="#/logs"
+            className="shrink-0 rounded-sm text-2xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+            title="到采集日志屏跟踪该 run 实时输出"
+          >
+            日志 →
+          </a>
+        ) : null}
+      </span>
     </div>
   );
 }
@@ -901,13 +974,22 @@ export function DashboardScreen() {
       </section>
 
       <div className="grid grid-cols-1 gap-grid px-6 md:grid-cols-2">
-        {/* 近期 run 成功率 */}
+        {/* 近期 run 成功率(运行区;行解剖对位 Kestra Executions 表行,头部
+            「全部 run」= ExecutionRoot 到 Executions 列表的全量出口,纯导航) */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="size-3.5 text-muted-foreground" />
-              近期 run 成功率
-            </CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="size-3.5 text-muted-foreground" />
+                近期 run 成功率
+              </CardTitle>
+              <a
+                href="#/logs"
+                className="shrink-0 text-xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+              >
+                全部 run →
+              </a>
+            </div>
             <CardDescription>最近 {runSummary?.total ?? 0} 次采集的完成与成功分布</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">

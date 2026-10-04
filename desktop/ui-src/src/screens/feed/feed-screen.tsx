@@ -79,6 +79,13 @@ import {
 import type { FeedFilter, FeedStateMap } from "./api";
 import { FeedCardFeedback } from "./feed-card-feedback";
 
+/*
+ * 10-04-ui-kestra-anchor(情报流):满高列表骨架与行距密度借自 Apache-2.0
+ * kestra/ui/src/components/executions/Executions.vue + design-system
+ * KsDataTable(满高内滚+sticky 组头贴容器顶),借结构改语义。不抄:整表化
+ * (保行级卡片交互)、复选/批量/分页(见 evidence/情报流-mapping.md)。
+ */
+
 /** 过滤页签(默认未读,Miniflux 式) */
 const FILTERS: { key: FeedFilter; label: string }[] = [
   { key: "unread", label: "未读" },
@@ -322,7 +329,7 @@ function FeedCard({
           data-nav-focused={navFocused ? "true" : "false"}
           onMouseEnter={() => onCurrent(key)}
           onFocus={() => onCurrent(key)}
-          className={`group/feed-item relative rounded-md border py-2.5 pr-3 pl-4 transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/50 ${
+          className={`group/feed-item relative rounded-md border py-2 pr-3 pl-4 transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/50 ${
             state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
           }${navFocused ? " ring-1 ring-primary/60" : ""}`}
         >
@@ -1263,7 +1270,9 @@ export function FeedScreen() {
     : `把已加载的 ${items.length} 条(已读 ${items.length - unreadLoaded})全部恢复未读;本地态`;
 
   return (
-    <div className="flex flex-col gap-block pb-6">
+    /* 满高列表容器(10-04-ui-kestra-anchor:Kestra Executions 列表密度——列表区
+     * 内滚、过滤条/组头常驻;页面级 gap-block 滚动让位) */
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <PageHeader
         title="情报流"
         description={`按时间分组的条目流:未读 / 星标 / 稍后读(${
@@ -1498,7 +1507,10 @@ export function FeedScreen() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 px-6">
+      {/* 列表区(内滚):导出回执/错误横幅/加载/空态/分组列表都在滚动面内,
+          sticky 组头贴本容器顶(Kestra 表体同构;容器不加 pt——顶部 padding 会让
+          组头上沿露内容缝) */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-6">
         {exportNote ? (
           <p className="text-xs text-muted-foreground" data-testid="feed-export-result">
             {exportNote}
@@ -1675,14 +1687,15 @@ export function FeedScreen() {
                       </Button>
                     ) : null}
                   </div>
-                  <div className="flex flex-col gap-2">{group.items.map(renderCard)}</div>
+                  {/* 组内行距 6px(Kestra 列表密度档;卡 py-2 同步收紧) */}
+                  <div className="flex flex-col gap-1.5">{group.items.map(renderCard)}</div>
                 </section>
               );
             })}
             </div>
           ) : (
-            // 不分组(A-feed):平铺不出组头
-            <div className="flex flex-col gap-2" data-testid="feed-flat-list">
+            // 不分组(A-feed):平铺不出组头(行距同组内 6px 密度档)
+            <div className="flex flex-col gap-1.5" data-testid="feed-flat-list">
               {displayItems.map(renderCard)}
             </div>
           )
