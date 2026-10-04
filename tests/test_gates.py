@@ -18,7 +18,9 @@
 - doctor:未启用门槛件 = **info** 级 finding(非 warning,用户没开是正常态)、
   启用后不再产 finding、坏 gates.yaml = warning;
 - desktop/entry.py ``_gates_yaml_path``:与 vision.yaml 同位(home 模式落数据根,
-  dev 回退 cwd 相对)。
+  dev 回退 cwd 相对);sidecar ``gates.get``/``gates.save``(design §6.7 契约):
+  get 坏文件 fail-closed=全关+error 带回(设置屏是修复入口不炸)、save 同门
+  校验失败 ``gates_config_invalid`` 零写入、往返原样回显 keychain 引用。
 
 测试纪律(与全仓一致):零真实钥匙串(InMemoryKeychainBackend 注入)、
 零真实网络(本面无网络路径)、零共享状态(每测独立 tmp_path)。
@@ -882,3 +884,66 @@ class TestDesktopGatesPath:
         assert ctx.home is None
         assert module._gates_yaml_path(ctx) == Path("gates.yaml")
         assert module._vision_yaml_path(ctx) == Path("vision.yaml")
+
+
+class TestDesktopGatesHandlers:
+    """sidecar ``gates.get``/``gates.save``(design §6.7 契约;设置屏修复入口)。"""
+
+    def test_handlers_registered(self):
+        module = _load_entry_module()
+        assert module._HANDLERS["gates.get"] is module._m_gates_get
+        assert module._HANDLERS["gates.save"] is module._m_gates_save
+
+    def test_get_missing_file_all_closed(self, tmp_path, monkeypatch):
+        module = _load_entry_module()
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+        payload = module._m_gates_get({})
+        assert payload["path"] == str(tmp_path / "gates.yaml")
+        assert payload["exists"] is False
+        assert payload["error"] is None
+        assert payload["config"] == GatesConfig().to_payload()
+
+    def test_get_broken_file_fail_closed_with_error(self, tmp_path, monkeypatch):
+        module = _load_entry_module()
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+        write_gates(tmp_path / "gates.yaml", "{ not yaml")
+        payload = module._m_gates_get({})
+        # fail-closed:设置屏不炸,全关态 + 结构化 error 带回(修复入口还在)
+        assert payload["exists"] is True
+        assert payload["config"] == GatesConfig().to_payload()
+        assert payload["error"]["errors"][0]["error_type"] == "gates_unreadable"
+
+    def test_save_then_get_round_trip(self, tmp_path, monkeypatch):
+        module = _load_entry_module()
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+        document = yaml.safe_load(FULL_GATES_YAML)
+        document["paid_engines"] = True
+        result = module._m_gates_save({"config": document})
+        assert result["ok"] is True
+        assert result["path"] == str(tmp_path / "gates.yaml")
+        assert (tmp_path / "gates.yaml").exists()
+        # get 往返:keychain 引用原样回显,永不携带解析值
+        payload = module._m_gates_get({})
+        assert payload["exists"] is True
+        assert payload["error"] is None
+        assert payload["config"]["paid_engines"] is True
+        assert payload["config"]["saas"]["zenrows"]["api_key"] == "keychain:myia/saas/zenrows-key"
+
+    def test_save_invalid_config_structured_error_zero_write(self, tmp_path, monkeypatch):
+        module = _load_entry_module()
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+        document = yaml.safe_load(FULL_GATES_YAML)
+        document["unknown_switch"] = True  # 未知字段 → 同门拒收
+        with pytest.raises(module.ProtocolError) as excinfo:
+            module._m_gates_save({"config": document})
+        assert excinfo.value.code == "gates_config_invalid"
+        assert excinfo.value.data["errors"][0]["error_type"] == "unknown_field"
+        assert not (tmp_path / "gates.yaml").exists()  # 零写入
+
+    def test_save_missing_config_param_rejected(self, tmp_path, monkeypatch):
+        module = _load_entry_module()
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+        with pytest.raises(module.ProtocolError) as excinfo:
+            module._m_gates_save({})
+        assert excinfo.value.code == "invalid_params"
+        assert not (tmp_path / "gates.yaml").exists()

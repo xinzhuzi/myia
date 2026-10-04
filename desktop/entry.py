@@ -129,6 +129,11 @@ image.server.ensure (nohup 自起 mlx_vlm.server)    应答立即返:已健康=s
 image.files.purge  (按 mtime 清 <home>/images)     {deleted, bytes_freed};
                                                  days≥1 整数;只删文件不动
                                                  目录(CLI 面能力,零 UI)
+gates.get          (gates.yaml 脱敏读取)          {config, path};坏文件
+                                                 fail-closed=全关+error 带回
+                                                 (设置屏是修复入口,不炸)
+gates.save         (同门校验→tmp+rename 原子写)    {ok, path};校验失败
+                                                 gates_config_invalid 零写入
 channels.list      (消息屏目录四视图)              目录(platforms)+别名(aliases)
                                                  +死信(dead)+推送规则(rules);
                                                  零平台=合法空态
@@ -409,7 +414,13 @@ from myssia.schema import (
     load_category,
     load_category_file,
 )
-from myssia.gates import GATES_FILE_NAME
+from myssia.gates import (
+    GATES_FILE_NAME,
+    GatesConfig,
+    GatesLoadError,
+    load_gates_fail_closed,
+    save_gates_config,
+)
 from myssia.secrets import SecretError, delete_secret, list_secrets, set_secret
 from myssia.store import FEEDBACK_CHANNEL_DESKTOP, SQLiteStore, StoreSchemaError
 from myssia.store.models import AlertRule
@@ -3073,11 +3084,53 @@ def _gates_yaml_path(ctx: ServeContext) -> Path:
     """gates.yaml 路径:与 vision.yaml 同位(home 模式落数据根;dev 回退 cwd 相对)。
 
     门槛件知情启用配置(10-05-plugin-market-batch 批二 D4):plugins.list 的
-    分组徽标 / doctor 的门槛 findings / 设置面 gates.get/save(批二第 11 步)
-    共用本路径,解析挂 ``_serve_context`` 优先级链(显式 params > MYIA_HOME
-    env > bundle 探测 > dev cwd)。
+    分组徽标 / doctor 的门槛 findings / 设置面 gates.get/save 共用本路径,
+    解析挂 ``_serve_context`` 优先级链(显式 params > MYIA_HOME env > bundle
+    探测 > dev cwd)。
     """
     return ctx.home / GATES_FILE_NAME if ctx.home is not None else Path(GATES_FILE_NAME)
+
+
+def _m_gates_get(params: dict[str, Any]) -> dict[str, Any]:
+    """gates.get:门槛配置脱敏读取(design §6.7 契约 ``{config, path}``)。
+
+    坏文件 **fail-closed 不炸设置屏**:全关态 + 结构化 ``error`` 带回
+    (与 CLI plugin list 的 ``gates.error`` 同形状),UI 据此提示「已按全关
+    处理」并可用一次合法 save 覆写修复 —— 与 :func:`_m_image_config_read`
+    的 fail fast 不同属刻意:vision.yaml 坏是单能力失效,门槛配置坏时
+    设置屏必须仍可进(它是修复入口)。
+    """
+    ctx = _serve_context()
+    path = _gates_yaml_path(ctx)
+    config, error = load_gates_fail_closed(path)
+    return {
+        "config": config.to_payload(),
+        "path": str(path),
+        "exists": path.exists(),
+        "error": error,
+    }
+
+
+def _m_gates_save(params: dict[str, Any]) -> dict[str, Any]:
+    """gates.save:同门校验(:class:`GatesConfig` 构造即校验)→ tmp+rename 原子写。
+
+    校验失败(未知字段/明文凭据/非布尔等)= ``gates_config_invalid``
+    结构化 error **零写入**;成功应答 design §6.7 契约 ``{ok, path}``。
+    """
+    payload = params.get("config")
+    if not isinstance(payload, dict):
+        raise ProtocolError("invalid_params", "缺少对象字段 config", path="params.config")
+    try:
+        config = GatesConfig.from_payload(payload)
+    except GatesLoadError as exc:
+        raise ProtocolError(
+            "gates_config_invalid",
+            f"门槛配置未过校验,零写入: {exc}",
+            path="params.config",
+            data=exc.to_dict(),
+        ) from exc
+    saved = save_gates_config(_gates_yaml_path(_serve_context()), config)
+    return {"ok": True, "path": str(saved)}
 
 
 def _load_vision(ctx: ServeContext) -> VisionConfig:
@@ -4842,6 +4895,8 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "image.server.status": _m_image_server_status,
     "image.server.ensure": _m_image_server_ensure,
     "image.files.purge": _m_image_files_purge,
+    "gates.get": _m_gates_get,
+    "gates.save": _m_gates_save,
     "channels.list": _m_channels_list,
     "channels.refresh": _m_channels_refresh,
     "channels.alias": _m_channels_alias,
