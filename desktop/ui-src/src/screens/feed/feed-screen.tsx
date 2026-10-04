@@ -1325,6 +1325,14 @@ export function FeedScreen() {
             size="sm"
             aria-label={`过滤:${entry.label}`}
             aria-pressed={filter === entry.key}
+            // 可达性知会(质检件二,最小面):组头随 displayItems(过滤后集合)
+            // 渲染 —— 未读过滤下某品类已加载行全已读时整组不出场,组头批量
+            // 入口暂不可达;title 知会切「全部」恢复,不改过滤/分组渲染语义
+            title={
+              entry.key === "unread"
+                ? "未读过滤会隐藏已加载行全已读的分组(含其批量入口);切「全部」可恢复"
+                : undefined
+            }
             onClick={() => setFilter(entry.key)}
           >
             {entry.label}
@@ -1381,6 +1389,10 @@ export function FeedScreen() {
               variant="destructive"
               size="sm"
               className="px-2 text-xs"
+              // 键盘/读屏补位(质检件一):触发钮卸载后焦点回落 body —— 确认态
+              // 挂载即 autoFocus 落确认主钮;与下方簇 onBlur「焦点离开整个
+              // 钮簇才取消」口径不打架(程序化初始焦点在簇内,不构成簇级退出)
+              autoFocus
               aria-label={confirmAllMark === "read" ? "确认全部标已读" : "确认全部标未读"}
               title={confirmAllMark === "read" ? markAllReadTitle : markAllUnreadTitle}
               onClick={() => {

@@ -1762,6 +1762,54 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
     expect(within(screen.getByTestId("feed-group-tech")).queryByRole("button")).toBeNull();
     expect(markAllMock).not.toHaveBeenCalled();
   });
+
+  it("质检件一键盘焦点:进入确认态后焦点自动落确认主钮(触发钮卸载不回落 body);Esc 仍取消且零执行", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    fresh.markAllMock.mockResolvedValue({ updated: 99 });
+    fresh.storeItemsMock.mockResolvedValue(result([fixtureItem(), fixtureItem()]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    await screen.findByText("条目 1");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
+    );
+
+    // 键盘路径:一次点击进确认态,触发钮已卸载 —— autoFocus 补位,焦点落
+    // 确认主钮(键盘/读屏用户无需重 Tab 定位;不回落 body)
+    fireEvent.click(screen.getByRole("button", { name: "全部标已读" }));
+    const confirm = screen.getByRole("button", { name: "确认全部标已读" });
+    expect(document.activeElement).toBe(confirm);
+
+    // Esc 全局收口不被程序化初始焦点破坏:确认态退出、回到常规两钮、零执行
+    fireEvent.keyDown(confirm, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "确认全部标已读" })).toBeNull());
+    expect(screen.getByRole("button", { name: "全部标已读" })).toBeTruthy();
+    expect(fresh.markAllMock).not.toHaveBeenCalled();
+  });
+
+  it("质检件二知会:「过滤:未读」钮 title 注明会隐藏全已读分组(含批量入口),其余页签不带(最小面)", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    fresh.storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    await screen.findByText("条目 1");
+    const unread = screen.getByRole("button", { name: "过滤:未读" });
+    expect(unread.getAttribute("title")).toContain("全已读");
+    expect(unread.getAttribute("title")).toContain("批量入口");
+    expect(unread.getAttribute("title")).toContain("全部");
+    // 知会特定于未读口径(组头随过滤后集合渲染的边界);其余页签零附加文案
+    expect(screen.getByRole("button", { name: "过滤:星标" }).getAttribute("title")).toBeNull();
+    expect(screen.getByRole("button", { name: "过滤:稍后读" }).getAttribute("title")).toBeNull();
+    expect(screen.getByRole("button", { name: "过滤:全部" }).getAttribute("title")).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
