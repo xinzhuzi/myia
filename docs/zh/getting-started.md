@@ -3,6 +3,7 @@
 > 3 分钟跑通第一个品类:安装 → 配凭据 → 试抓 → 正式运行 → 看数据。
 > 读完本页再看[插件开发指南](write-a-plugin.md)与 [schema 参考](schema.md);
 > 采集伦理与边界见 [FAQ](faq.md)。
+> 桌面端从源码本地构建(Windows MSI)见 [Windows 本地构建](build-windows.md)。
 
 ## 1. 安装
 

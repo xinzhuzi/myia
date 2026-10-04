@@ -5,6 +5,8 @@
 > Then continue with the [plugin guide](write-a-plugin.md) and the
 > [schema reference](schema.md); see the [FAQ](faq.md) for crawling ethics
 > and boundaries.
+> Building the desktop app from source (Windows MSI): see
+> [Windows local build](build-windows.md).
 
 ## 1. Install
 
