@@ -28,6 +28,8 @@
 
 - 真机飞书/TG 收卡。**回标(2026-10-04)**:飞书半面已真发——hermes-cron 运行摘要卡一张于 18:41 定向真发 `feishu:AI福利群`(跑完即删 job、沙箱即弃、令牌即用即废;执行链与「只发一张」保证:`evidence/feishu-cron-card.md`);出站-only 链路无回执,群内目验请主人查收。TG 半面未随本批动。
 - 活 GLM key 的 enrich 真跑。
+- **cron 长跑观察(2026-10-04 落档;未暴露层,只能时间/真机暴露)**:at-most-once/崩溃恢复/终态 7 天清扫/DST 换日目前全为单测与探针——桌面 ticker 首验(见二节追记)之后,靠日常使用观察;首个小长假或某夜可挂 overnight(建 every 30m job 观察 executions 账本与心跳)。
+- **发布链未验证这批提交(设计如此,记档备查)**:desktop-release 与 Docker 工作流尚未见过 cron 线提交(tag 驱动,下次发 v* tag 即全链验证);另 push 前这两条流水线对 Stage 6 提交同样零暴露。
 
 ### 四、待主人确认的处置
 
