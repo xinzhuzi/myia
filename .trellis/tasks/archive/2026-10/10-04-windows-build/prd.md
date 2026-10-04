@@ -57,7 +57,7 @@ PyInstaller sidecar 的误报可能性如实注记;UPDATER.md 第三节(手工�
 
 ## Acceptance Criteria
 
-- [ ] AC1 依赖:pyproject vision extra 的 ocrmac 带 `sys_platform == 'darwin'` 标记;
+- [x] AC1 依赖:pyproject vision extra 的 ocrmac 带 `sys_platform == 'darwin'` 标记;
       重锁后 uv.lock 的 ocrmac 条目带 marker 且 URL 体系不变(仍 tsinghua);
       `uv sync --frozen --no-dev --extra vision` 在 windows runner 装配成功(CI 日志为准)。
       → 终检冒烟(2026-10-04)**manual**:静态面终检复核实读全过——pyproject.toml:50
@@ -66,18 +66,26 @@ PyInstaller sidecar 的误报可能性如实注记;UPDATER.md 第三节(手工�
       → 首跑实况(2026-10-04,run 37178701163):windows uv sync **失败**,
       根因=外来改名反转漏改子包名(workspace member 不一致),非 ocrmac
       marker——错误面与 vision extra 无关;不勾,详见验收记录 CI 首跑节
-- [ ] AC2 CI 绿:desktop-release.yml 的 windows-msi job conclusion=success
+      → 绿跑回填(2026-10-04,run 37186006759):pyproject.toml:50 marker 实读
+      在位;uv.lock:1979/2003 marker、ocrmac sdist+wheel URL 均 tsinghua
+      (2243/2245);windows-msi job「构建 sidecar(x86_64-pc-windows-msvc)」步
+      success(build-sidecar.sh 在 runner 建 desktop/.venv-build 并跑通
+      PyInstaller,msi 随后产出)=装配成功,CI 日志为准;勾
+- [x] AC2 CI 绿:desktop-release.yml 的 windows-msi job conclusion=success
       (workflow_dispatch 验证 run 即可,tag 发布为最终态);run 日志含 bundle 目录
       清单步(产物路径可溯)。
       → 终检冒烟 **manual**:静态断言 34 PASS + actionlint clean(终检会话复跑
       exit 0);真 run conclusion 待推 origin 首跑,未跑
       → 首跑实况(2026-10-04,run 37178701163):windows-msi conclusion=
       **failure**(死于 sidecar 装配,外来根因);不勾,详见验收记录 CI 首跑节
+      → 绿跑回填(2026-10-04,run 37186006759):windows-msi job conclusion=
+      **success**(job 111387927642);「产物清单(诊断)」步在且绿,日志实列
+      bundle/msi 产物路径;勾
 - [ ] AC3 打包配置:tauri.conf.json `bundle.icon` 含 `icons/icon.ico`;mac 主线
       不回归(macos-dmg job 仍绿,`--bundles app,dmg` 链照常)。
       → 终检冒烟 **manual**:配置面终检复核实读过(bundle.icon 三元组含
       icons/icon.ico,文件 84,679 B);macos-dmg 仍绿=CI 结果,未跑
-- [ ] AC4 产物:Release(或验证 run 的 artifacts)含 ASCII 名 msi + `.msi.sig`
+- [x] AC4 产物:Release(或验证 run 的 artifacts)含 ASCII 名 msi + `.msi.sig`
       (`myia_<版本>_x64*.msi` 形态——ASCII 前缀随仓内现行口径,2026-10-04 并行
       改名扫荡已把 mac 资产前缀 shishi→myia,windows 对齐);latest.json 由归聚
       job 单一产出(dispatch run 中以 `latest-json` artifact 形态可复核),
@@ -87,6 +95,12 @@ PyInstaller sidecar 的误报可能性如实注记;UPDATER.md 第三节(手工�
       Release/artifacts 实际=CI 首跑(+tag),未跑
       → 首跑实况(2026-10-04,run 37178701163):artifacts **0 件**(mac/win
       双死于 sidecar 装配,未到产物步);不勾,详见验收记录 CI 首跑节
+      → 绿跑回填(2026-10-04,run 37186006759):win-msi artifact(127,699,711 B)
+      内含 ASCII 名 myssia_0.0.1_x64.msi + myssia_0.0.1_x64.msi.sig(上传步
+      日志实列双路径;前缀 myssia=productName 现行口径,与本档字面 myia_ 之别
+      以自注「ASCII 前缀随仓内现行口径」为准);latest-json artifact 双平台
+      条目齐、URL 指 ASCII 资产名;dispatch run 挂 Release 步 skipped=tag 门
+      设计内,以 artifacts 通道验;勾
 - [x] AC5 文档:README Windows 安装小节 + SmartScreen/Defender 注记落盘;
       UPDATER.md 第三节/第六节更新为自动化口径;真机冒烟清单(安装/放行/首跑种子/
       keychain→凭据管理器 DPAPI 链/五屏/updater passive/单实例观察项,七项)
@@ -99,11 +113,13 @@ PyInstaller sidecar 的误报可能性如实注记;UPDATER.md 第三节(手工�
       → 终检冒烟 passed:全量 pytest 3495 passed/0 failed;spec 平台门终检实读
       (myia-core.spec:17-19 darwin 门)+ py_compile ok;mac 构基本会话 exit 0/
       124,059,712B,终检核磁盘产物在位 124,120,784B;dry D1 四场景版本回退全 PASS
-- [ ] AC7 证据:CI 绿 run URL 与产物清单回填本档「验收记录」;归档留主人。
+- [x] AC7 证据:CI 绿 run URL 与产物清单回填本档「验收记录」;归档留主人。
       → 终检冒烟 **manual**:run URL 回填前提=CI 真跑(dispatch 循环),未跑;
       静态/dry 证据已入 evidence/,CI 首跑后由主人/后续会话回填
       → 首跑实况(2026-10-04):两 run URL+失败根因已回填验收记录 CI 首跑节,
       但均为红 run(无「CI 绿」证据);AC7 判据未满,不勾
+      → 绿跑回填(2026-10-04,工作流 dwfrun-6fb40055):绿 run URL+产物清单
+      已回填验收记录「发布验证回填」节,归档状态不动;勾(终审留主人)
 
 ## 待拍板(全带推荐;2026-10-04 主人 /workflow 授权「七连全按推荐」口径,已按推荐定稿见下节)
 
@@ -253,7 +269,25 @@ AC2/AC4 的 run 绿与 artifacts、AC7 的 run URL 回填,待分支推送后由�
   非 ocrmac marker——错误面为 workspace member,与 vision extra 无关);
   AC2 windows-msi conclusion=failure;AC4 artifacts 0 件;AC7 无绿 run URL。
   待并行线修复(子包名回 myia-classifier + cron 定义入库)推 main 后重新
-  dispatch 验证(判据仍按 implement 4.2),届时由后续会话/主人回标本节。
+      dispatch 验证(判据仍按 implement 4.2),届时由后续会话/主人回标本节。
+
+### 发布验证回填(2026-10-04,b0044c5 绿跑;工作流 dwfrun-6fb40055 会话)
+
+并行线修复(windows-msi WiX 非 ASCII 产物名 + bundle glob 两修)推 main 后,
+b0044c5 的 Desktop Release run 全绿——本节由发布验证回填会话据 gh CLI 实查回填:
+
+| 项 | 实查结论(gh run list/view/api、gh run download、git merge-base) |
+|---|---|
+| 绿 run | https://github.com/xinzhuzi/myia/actions/runs/37186006759 — headSha b0044c5,createdAt 2026-10-04T07:30:45Z,conclusion **success** |
+| windows-msi job | **success**(job 111387927642,07:30:49Z–07:40:50Z):构建 sidecar(x86_64-pc-windows-msvc)/ Tauri 构建(msi;WiX light 产出 myssia_0.0.1_x64_en-US.msi 121.98 MiB)/ 产物清单(诊断)/ 产物改 ASCII 名 / 上传 win-msi 全绿 |
+| macos-dmg / 归聚 job | 双 **success**(111387927624 / 111389484702);latest.json 生成+artifact 上传绿,挂 Release 两步 skipped=dispatch run tag 门(设计内) |
+| run artifacts | win-msi 127,699,711 B(内含 myssia_0.0.1_x64.msi + myssia_0.0.1_x64.msi.sig,上传步日志实列双路径)、latest-json 913 B、mac-updater 485 B |
+| latest.json 复核 | darwin-aarch64 恒在 + windows-x86_64 并入;双 URL 指 ASCII 资产名(myssia.app.tar.gz / myssia_0.0.1_x64.msi);pub_date 2026-10-04T07:41:01Z |
+| 血统 | `git fetch origin` 后 `git merge-base --is-ancestor b0044c5 origin/main` exit 0——绿 run 跑在被认领提交上 |
+| Release v0.0.1 现存资产 | latest.json、shishi.app.tar.gz、shishi.app.tar.gz.sig、shishi_0.0.1_aarch64.dmg——**三件 shishi_* 旧名残留**(前两次 mac 发布所挂,不动留主人);且新产出 latest.json 的 darwin URL 指新名 myssia.app.tar.gz,与现存旧名资产暂不对应,tag 重跑后由新资产接管,旧名清理留主人 |
+
+AC1/AC2/AC4/AC7 据此回标(逐条证据见各 AC 追加行);AC3/AC5/AC6 维持原状态,
+不在本次回填域。
 
 ## Notes
 
@@ -272,3 +306,4 @@ AC2/AC4 的 run 绿与 artifacts、AC7 的 run URL 回填,待分支推送后由�
 - 产物:win-msi artifact 121.8MiB(myssia_0.0.1_x64.msi+.sig ASCII 名,AC4 满足·dispatch artifacts 口径)+ latest-json + mac-updater;AC1 依赖面随 job 绿实证(windows runner uv sync 装配过);AC7 本补记即回填
 - 两轮域内修复链:①0378ed3 windows 作业 release conf 注入 productName=myssia(WiX light.exe 产不出非 ASCII 产物名,预判雷区#2 实锤)②b0044c5 产物改名步 glob msi-updater/→msi/(Tauri2 布局,updater msi+.sig 并排 bundle/msi)
 - 真机安装冒烟七项仍留主人(档内清单);Release 页资产挂载属 tag 流
+- 溯源:本节事实经工作流 dwfrun-6fb40055 发布验证回填(归档状态不动、终勾留主人);shishi_* 旧名残留资产已如实列出,处置留主人。
