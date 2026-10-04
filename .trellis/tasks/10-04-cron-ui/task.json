@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-04 终态:建屏(418 测)+蓝本对排审计(50 项)+Stage 6 修复批全毕;新包已换装 /Applications(23:20);review 待主人目验后归档",
+  "notes": "2026-10-04 终态:建屏(418 测)+蓝本对排审计(50 项)+Stage 6 修复批全毕;新包已换装 /Applications(23:20);review 待主人目验后归档;review 回修 r2(10-05 主人「用户看不懂」):活性条去行话——ticker 活跃→调度器运行中/N(/M)个任务启用/下次运行/数据目录前缀,急停·僵死条同族同步;vitest 419+tsc 绿;41ccdba;新包已换装 /Applications(00:43)",
   "meta": {}
 }
