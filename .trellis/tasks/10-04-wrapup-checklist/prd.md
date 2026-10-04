@@ -10,8 +10,9 @@
 
 ### 一、主人门禁(只有主人能做)
 
-1. ~~PyPI 双包 pending publisher~~ **✅ 已发布上线(2026-10-04)**:pypi.org/myssia 与 myssia-classifier 双 200(0.0.1,与 v0.0.1 tag 一致);过程修三件=workflow 双 environment matrix(PyPI pending 一组四元组一项目名)+packages-dir 不吃 glob 加 staging 步+dispatch 默认 package=classifier 需显式 both;安装冒烟=真实源 pip download 双 whl 过。原条目备查:pypi.org 注册时包名以**定名终局为准 = `myssia`/`myssia-classifier`**(2026-10-04 定名,dc064d3/1be66b0 已入库;本条原写 myia/myia-classifier 系改名前口径,如 pypi.org 侧此前已按旧名建过 pending publisher 需删旧建新)、Repository 填 `myia`;**双包双 environment:myssia→pypi、myssia-classifier→pypi-classifier**(PyPI pending 一组四元组只挂一个项目名,2026-10-04 实撞;工作流已改 matrix 双环境);完成后回话,由 AI 代跑 Re-run + 发布线终勾。
-2. GHCR 包页清理。
+1. ~~PyPI 双包 pending publisher~~ **✅ 已发布上线(2026-10-04)**:pypi.org/myssia 与 myssia-classifier 双 200(0.0.1,与 v0.0.1 tag 一致);过程修三件=workflow 双 environment matrix(PyPI pending 一组四元组一项目名)+packages-dir 不吃 glob 加 staging 步+dispatch 默认 package=classifier 需显式 both;安装冒烟=真实源 pip download 双 whl 过。原条目备查:pypi.org 注册时包名以**定名终局为准 = `myssia`/`myssia-classifier`**(2026-10-04 定名,dc064d3/1be66b0 已入库;本条原写 myia/myia-classifier 系改名前口径,如 pypi.org 侧此前已按旧名建过 pending publisher 需删旧建新)、Repository 填 `myia`;**双包双 environment:myssia→pypi、myssia-classifier→pypi-classifier**(PyPI pending 一组四元组只挂一个项目名,2026-10-04 实撞;工作流已改 matrix 双环境);完成后回话,由 AI 代跑 Re-run + 发布线终勾。人肉步骤单(四元组逐屏登记指引)+Re-run 待命命令+预检取证已存档:`evidence/pypi-steps.md`(备查)。
+2. GHCR 包页清理。**回标(2026-10-04,盘点员)**:只读盘点+清理提案已出——`evidence/ghcr-inventory.md`(myia 包 120 版/shishi 包 115 版/myssia 与 8 变体名不存在;**0 条删除已执行**,KEEP/DELETE 分级提案待主人逐条确认后才动)。横切发现两件主人侧待决:①`myia:latest` 停在早于 v0.0.1 的 dev build,正式 tag 0.0.1/v1.1.1 只在 shishi 包 → `docs/launch/RELEASE.md` 的 `docker pull ghcr.io/xinzhuzi/myia:0.0.1` 当前是坏的(补推 myia:0.0.1 或改文档二选一);②untagged 版本混多架构子清单(每 push 恰 4 个),盲删会打断 keep 集标签的拉取,P3 须走 digest 排除。指定检查 `gh api user/packages` 因本机 token 无 read:packages scope 返回 403 未跑成(已用匿名 registry API+web 版本页双通道互证替代),加 scope 复核留主人。
+3. 四帖定稿(docs/launch/ 四平台文案+四 draft)。终态刷新已入库(d963eb3),定稿与发布节奏留主人。**⚠️ 已知陈旧口径**:帖内 PyPI 表述(「双包登记(主人门禁)在途」「都未上架/别 pip install」)写于发布落地前——2026-10-04 收口实测 pypi.org/myssia 与 myssia-classifier 双 200(各 0.0.1)已上架,定稿时须刷新为已上架口径(launch README「PyPI 包若尚未发布」检查项随之核销);即刻帖头部自记的正文实测字符数会随改动失效,须重测。
 
 ### 二、装机/真机验收(代码已就绪,留装机)
 
@@ -19,9 +20,11 @@
 2. 消息平台 W2 换装冒烟。
 3. keychain `-25244` 修复的跨进程验收(修复已入库 `9652cf3`)。
 
+   **回标(2026-10-04 收口)**:装机取证材料已备——七屏实拍入库 `docs/screenshots/install-cronline-1004/`(01-dashboard / 02-feed / 03-sources / 04-logs / 05-settings / 06-messaging / 07-cmdk-palette,随 86117c3);像素级目验留主人;(3) keychain 跨进程验收无屏证,仍须主人实收。
+
 ### 三、长期挂账
 
-- 真机飞书/TG 收卡。
+- 真机飞书/TG 收卡。**回标(2026-10-04)**:飞书半面已真发——hermes-cron 运行摘要卡一张于 18:41 定向真发 `feishu:AI福利群`(跑完即删 job、沙箱即弃、令牌即用即废;执行链与「只发一张」保证:`evidence/feishu-cron-card.md`);出站-only 链路无回执,群内目验请主人查收。TG 半面未随本批动。
 - 活 GLM key 的 enrich 真跑。
 
 ### 四、待主人确认的处置
@@ -67,7 +70,9 @@
   `10-04-interaction-batch`(已归档);余量曾立档 `.trellis/tasks/10-04-g9-read-all/`
   (按品类批量入口+全库确认交互,grill 未批不开工),终审裁定**撤并不另立项**——
   档自工作树移除(未跟踪件,零 git 痕迹),G9 终态=`10-03-v12-backlog/prd.md`
-  第 5 项已消号标注(在库)。
+  第 5 项已消号标注(在库)。2026-10-04 晚追记:主人令『按照你的建议继续做完』,
+  G9 余量两小件经拍板重开——档 .trellis/tasks/10-04-g9-read-all 恢复执行;主体消号
+  维持,余量归重开档。
 - **入池 2 条(R6/R7)→ 已入池**:G10 代理池连通性测试按钮(后端依赖解锁)
   +七件小件(侧栏分组折叠/源管理多选点簇/设置 tooltip/snooze 到期重现/设置搜索/
   suppressed 词表 v2/P3 标题跳级),增补回执 `10-03-v12-backlog/prd.md` 第 5 项
