@@ -120,6 +120,17 @@ URL 键去重注册表 + 早/晚摘要槽位 —— 生产验证过的语义;同
 
 </td>
 </tr>
+<tr>
+<td colspan="2" width="100%" valign="top">
+
+⏰ **定时任务:到点跑一遍 + 发摘要**
+`myia cron serve` 常驻、桌面端内置 ticker、外接 crontab 手动 `cron tick`
+—— 同一底座(tick 文件锁 + fire 认领互斥)多宿主共存;到点自动跑一遍品类
+管线,运行摘要定向投递(本地留档 / 飞书 / Telegram 等平台 spec)。schedule
+吃自然语言(`every monday 9am`)也吃 5 段 cron(POSIX 周几)。
+
+</td>
+</tr>
 </table>
 
 开箱即用:SQLite 单文件存储(无 Redis、无 Postgres、无常驻守护),保留期
@@ -441,6 +452,19 @@ Mark pushed items valuable / not valuable (CLI today; in-card desktop
 buttons have landed on main in the desktop-parity batch and ship with the
 next release; Telegram/Feishu callback receivers are ready) —
 negative feedback retunes watchlist weights and thresholds over time.
+
+</td>
+</tr>
+<tr>
+<td colspan="2" width="100%" valign="top">
+
+⏰ **Scheduled jobs: run it on a clock, deliver the summary**
+`myia cron serve` daemon, the desktop app's built-in ticker, or a manual
+`cron tick` from system crontab — one substrate coexisting under a tick
+file lock + fire claims. Each due fire runs the category pipeline once and
+delivers the run summary (local archive / Feishu / Telegram and other
+platform specs). Schedules take natural language (`every monday 9am`) or
+5-field cron (POSIX dow).
 
 </td>
 </tr>

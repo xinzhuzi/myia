@@ -63,6 +63,11 @@ under `<data root>/cron/output/`.
 Time words accept `9am` / `9:30am` / `14:00` / `7` (bare 24h hour) / `noon` /
 `midnight`; durations accept `30m` / `2h` / `1d` and bare units (`hour` = hourly).
 
+An interval's next due instant is completion + period, and it is only picked
+up by the next tick (one per 60s by default) — `every 1m` under the default
+tick lands roughly every 2 minutes; tighten serve's `--interval` if you need
+denser fires.
+
 ### The 5-field cron and POSIX dow
 
 `minute hour day month dow`, **exactly 5 fields** (6-field forms are rejected
@@ -143,5 +148,13 @@ dbs run in parallel.
 ### docker compose resident form
 
 The stock compose defaults to `command: run … --loop`; for the scheduled form
-change the command to `cron serve --db /data/myia.db` (see `docker/README.md`)
-— jobs live in `/data/cron/jobs.json`, persisted with the volume.
+change the `command:` line in `docker/docker-compose.yml` to
+`cron serve --db /data/myia.db` (the image entrypoint is the `myia` CLI) —
+jobs live in `/data/cron/jobs.json`, persisted with the volume. Create the
+jobs inside the container — category YAMLs are mounted read-only at
+`/config/plugins/`:
+
+```bash
+docker compose -f docker/docker-compose.yml run --rm myia \
+  cron create "every 2h" --category /config/plugins/news.yaml --db /data/myia.db
+```

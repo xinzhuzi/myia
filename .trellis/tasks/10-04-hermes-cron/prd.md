@@ -55,18 +55,19 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 底座 API:`create/get/list/update/pause/resume/trigger/rearm_oneshot/remove` 全量单测覆盖,含 repeat 退役、paused reason、schedule 变更重算 next_run_at、无效 schedule 报错文案。
-- [ ] AC2 schedule 解析:五种形态(interval/自然语言周几/cron/一次性 in-NaN/ISO)解析与 compute_next_run 全测,DST 回拨小时不产生过去时刻、interval 加 UTC、重启不重锚;**dow 归一化覆盖 POSIX 全形态(0/7=周日、列表/区间/步进/环绕区间 5-1/名字)且端到端射日正确**(实证器用例并入测试)。
-- [ ] AC2b 子进程执行体:`shishi run --json` spawn/RunResult JSON 解析/退出码映射(0=ok,2=failed,3=partial 附注)/墙钟超时 killpg(SIGTERM→宽限→SIGKILL)/日志落 output 目录,全测。
-- [ ] AC3 at-most-once:tick 先推进后派发;模拟「推进后进程崩溃」→ pending_slot 恢复恰一次;两个并发 tick(双线程抢文件锁)只派发一份。
-- [ ] AC4 执行账本:claimed→running→completed/failed 状态机;杀死执行进程后重启恢复为 interrupted,不重发已终态 execution;终态行数裁剪生效。
-- [ ] AC5 多宿主互斥:`cron serve` 与桌面 sidecar ticker 同时开,同一 job 同一时刻只跑一份(tick 锁 + fire claim 双保险),人工 `cron tick` 抢不到锁时安静返回 0;**cron fire 撞桌面 run_busy 单飞锁=跳过本 fire+`skipped_busy`+`cron.skipped` 事件**(grill Q2 批复后按决议核);**同 db 多 job 派发串行、不同 db 并行**。
+- [x] AC1 底座 API:`create/get/list/update/pause/resume/trigger/rearm_oneshot/remove` 全量单测覆盖,含 repeat 退役、paused reason、schedule 变更重算 next_run_at、无效 schedule 报错文案。
+- [x] AC2 schedule 解析:五种形态(interval/自然语言周几/cron/一次性 in-NaN/ISO)解析与 compute_next_run 全测,DST 回拨小时不产生过去时刻、interval 加 UTC、重启不重锚;**dow 归一化覆盖 POSIX 全形态(0/7=周日、列表/区间/步进/环绕区间 5-1/名字)且端到端射日正确**(实证器用例并入测试)。
+- [x] AC2b 子进程执行体:`shishi run --json` spawn/RunResult JSON 解析/退出码映射(0=ok,2=failed,3=partial 附注)/墙钟超时 killpg(SIGTERM→宽限→SIGKILL)/日志落 output 目录,全测。
+- [x] AC3 at-most-once:tick 先推进后派发;模拟「推进后进程崩溃」→ pending_slot 恢复恰一次;两个并发 tick(双线程抢文件锁)只派发一份。
+- [x] AC4 执行账本:claimed→running→completed/failed 状态机;杀死执行进程后重启恢复为 interrupted,不重发已终态 execution;终态行数裁剪生效。
+- [x] AC5 多宿主互斥:`cron serve` 与桌面 sidecar ticker 同时开,同一 job 同一时刻只跑一份(tick 锁 + fire claim 双保险),人工 `cron tick` 抢不到锁时安静返回 0;**cron fire 撞桌面 run_busy 单飞锁=跳过本 fire+`skipped_busy`+`cron.skipped` 事件**(grill Q2 批复后按决议核);**同 db 多 job 派发串行、不同 db 并行**。
 - [ ] AC6 情报流 job 端到端:`shishi cron create "every 5m" --category plugins/news.yaml --deliver <stdout/测试通道>` 真跑:管线执行、RunResult 摘要生成、deliver 定向到达;运行失败路径 failure_deliver 收到失败摘要;`last_status="delivery_failed"` 语义(成功+投递失败)有测。
-- [ ] AC7 CLI 全子命令 + sidecar cron.* 方法行为一致(同一 API 层),桌面 `_HANDLERS` 注册表与协议测试同步。
-- [ ] AC8 心跳/状态:`cron status` 报告 ticker 活性(心跳龄)、下次到期时刻;心跳标记文件在 tick 成功/失败时更新。
-- [ ] AC9 蓝本对照:每个移植模块 docstring 标注上游文件;design.md 对照表完整;偏离表逐条有理由。
-- [ ] AC10 回归:全量 pytest 零新红;`run --loop` 原行为不动;不新增核心依赖(pyproject dependencies 不变)。
-- [ ] AC11 文档:docs/zh+en 新增定时任务文档(建 job/自然语言 schedule 语法/deliver spec/serve 形态),双语同步。
+  - 留空注记 2026-10-04 收口:管线执行/摘要生成/deliver 到达(stdout:debug 面)/failure_deliver 失败卡/delivery_failed 语义均有真跑或单测(evidence/smoke-e2e.md + smoke-refix.md + test_cron_runner.py);**平台真发面(feishu/telegram 定向卡入群)未验**——冒烟环境无平台凭据不伪造,且品类 fixture 为本地静态源非官方 news.yaml(离线约束,偏差在案);该面待有凭据环境补真发后勾
+- [x] AC7 CLI 全子命令 + sidecar cron.* 方法行为一致(同一 API 层),桌面 `_HANDLERS` 注册表与协议测试同步。
+- [x] AC8 心跳/状态:`cron status` 报告 ticker 活性(心跳龄)、下次到期时刻;心跳标记文件在 tick 成功/失败时更新。
+- [x] AC9 蓝本对照:每个移植模块 docstring 标注上游文件;design.md 对照表完整;偏离表逐条有理由。
+- [x] AC10 回归:全量 pytest 零新红;`run --loop` 原行为不动;不新增核心依赖(pyproject dependencies 不变)。
+- [x] AC11 文档:docs/zh+en 新增定时任务文档(建 job/自然语言 schedule 语法/deliver spec/serve 形态),双语同步。
 
 ## Grill 决议(2026-10-04 批复:七问全按推荐;主人 /workflow 开工令,按先例)
 

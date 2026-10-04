@@ -154,7 +154,7 @@ execute(job) -> (status, summary_dict):
 
 ### 4.2 sidecar cron.* 方法族(协议四件套,B12)
 
-`cron.list/create/edit/pause/resume/run/remove/status/runs`(薄封装 API 层,参数同 CLI;create 参数收 `schedule/category/name/deliver/failure_deliver/repeat/timezone/run_timeout/dry_run/paused`)。事件:`cron.skipped`(W3)、`cron.completed`(fire 完成,带 job_id/status/摘要计数——桌面 UI 后续消费)。协议版本 **v7**(一任务批一 bump);`_HANDLERS` 43→52;对账计数测试同步;**ticker 线程句柄入 `_reset_sidecar_state` autouse 夹具**(B12 ⚠️,防测试线程泄漏)。ticker 启动=serve() 就绪后 daemon Thread(数据根从 `_serve_context` 取),绝不占 serve 线程(B10 队头阻塞铁律)。
+`cron.list/create/edit/pause/resume/run/remove/status/runs`(薄封装 API 层,参数同 CLI;create 参数收 `schedule/category/name/deliver/failure_deliver/repeat/timezone/run_timeout/dry_run/paused`)。事件:`cron.skipped`(W3)、`cron.completed`(fire 完成,带 job_id/status/摘要计数——桌面 UI 后续消费)。协议版本 **v9**(一任务批一 bump;design 起草时写 v7/43→52,先行批次 alert-rules/B234 各顺延一版,开工基线实为 48——复查修补回标为实装与 spec 登记口径);`_HANDLERS` 48→57;对账计数测试同步;**ticker 线程句柄入 `_reset_sidecar_state` autouse 夹具**(B12 ⚠️,防测试线程泄漏)。ticker 启动=serve() 就绪后 daemon Thread(数据根从 `_serve_context` 取),绝不占 serve 线程(B10 队头阻塞铁律)。
 
 ## 5. 摘要卡(W4,grill Q3)
 

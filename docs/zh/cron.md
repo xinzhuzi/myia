@@ -58,6 +58,10 @@ storage:
 时间词支持 `9am` / `9:30am` / `14:00` / `7`(裸 24h 小时)/ `noon` /
 `midnight`;时长支持 `30m` / `2h` / `1d` 与裸单位(`hour` = 每 1 小时)。
 
+interval 的下一次到期 = 上次完成时刻 + 周期,且要等下一轮 tick(缺省 60s
+一轮)才被捞走——`every 1m` 在缺省 tick 下实际节律约 2 分钟一发,要更密就
+调小 serve 的 `--interval`。
+
 ### 5 段 cron 与 POSIX 周几语义
 
 `分 时 日 月 周`,**限恰好 5 段**(6 段结构化拒收)。周几(dow)按 **POSIX
@@ -127,6 +131,12 @@ cron 的 fire 是单次 run 子进程,不启动消息轮询,与 `run --loop` 常
 
 ### docker compose 常宿
 
-官方 compose 默认 `command: run … --loop`;要定时形态就把 command 改为
-`cron serve --db /data/myia.db`(详见 `docker/README.md`),job 存进
-`/data/cron/jobs.json` 随卷持久化。
+官方 compose 默认 `command: run … --loop`;要定时形态就把
+`docker/docker-compose.yml` 里的 command 改为 `cron serve --db /data/myia.db`
+(镜像入口就是 `myia` CLI),job 存进 `/data/cron/jobs.json` 随卷持久化。job
+在容器里建——品类 YAML 只读挂在 `/config/plugins/`:
+
+```bash
+docker compose -f docker/docker-compose.yml run --rm myia \
+  cron create "every 2h" --category /config/plugins/news.yaml --db /data/myia.db
+```

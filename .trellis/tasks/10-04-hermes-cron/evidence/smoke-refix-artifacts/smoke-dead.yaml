@@ -1,0 +1,20 @@
+id: smoke-dead
+name: 复查冒烟-死端口
+schedule: "0 9,21 * * *"
+timezone: Asia/Shanghai
+sources:
+  - name: local-fixture
+    engine: static_html
+    url: "http://127.0.0.1:8802/index.html"
+    extract:
+      type: list
+      item: "article.post"
+      fields:
+        title: "h2 a"
+        url: "h2 a@href"
+dedup:
+  key: "{url}"
+push:
+  - channel: stdout
+storage:
+  retention: 30d

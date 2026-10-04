@@ -27,6 +27,7 @@ classify/       builtin(七大类+双信号,数据与代码分离)/ custom(YAML 
 dedup.py store/ SQLite + 去重注册表 + 变更基线;接口可插拔(PG 留位)
 enrich/         LLM 精评(批量/缓存/预算护栏)
 push/           通道(feishu_card/telegram/webhook/stdout)+ 阈值分级路由 + 消息平台层(directory/targets/delivery:通道目录+对象解析+定向投递)
+cron/           定时任务底座(schedule 解析/store 存锁/jobs 生命周期/executions 账本/occurrences 去重/tick+ticker 调度/runner 子进程执行体/summary 投递;蓝本 Hermes cron/,MIT;见下方「定时任务底座」节)
 vision/         看图:双引擎 OCR(ocrmac+rapidocr-onnxruntime)+ OpenAI 兼容 VisionClient + vision.yaml 配置 + collect.py 管线图片处理环(fetch 尾部下载→OCR→可选 VL 描述,品类 images: 节驱动,降级只写 image_status 绝不阻管线)+ models.py 模型仓管(HF mlx-community 直下免 convert:snapshot_download+local_dir 断点续传、HfApi 预检磁盘不足即拒、清单/删除/激活,huggingface-hub 惰性 import 在 extras)+ server.py mlx_vlm.server 代管(status 2s 探 / ensure 自起+健康等待 ≤120s:并发互斥锁、超窗杀孤儿不留、日志 >5MB 轮转;失败结构化上抛绝不阻管线)(extras myia[vision],惰性 import;10-03-vision-v2)
 ```
 
@@ -64,3 +65,10 @@ vision/         看图:双引擎 OCR(ocrmac+rapidocr-onnxruntime)+ OpenAI 兼容
 - **依赖平台标记红线**:vision extra 的 `ocrmac` 恒带 `sys_platform == 'darwin'` 标记(macOS Vision 独占,Windows 无 wheel,裸装拉 pyobjc 链必炸——生产 run 37117015528 实锤);动 vision extras 时标记不可丢;`myia-core.spec` 的 ocrmac collect_all 有同款 darwin 门(卫生项);uv.lock 重锁保持镜像 URL 体系并人工核 diff
 - **产物与 latest.json 单写者**:desktop-release.yml 的 windows-msi 为正式 CI 目标(无 continue-on-error、timeout 60,失败=run 红但不牵连 mac 发布);msi 产物上传前改 ASCII 名 `myia_<版本>_x64.msi`/`.msi.sig`(GitHub 剥非 ASCII 资产名);latest.json 只由 release-finalize 归聚 job 单一产出(`needs: [macos-dmg, windows-msi]` + `if: always() && mac result 门`,darwin-aarch64 条目恒在、windows-x86_64 按产物存在条件并入),mac/windows job 不得自写(双写者竞态);dispatch 于分支跑时版本回退 tauri.conf.json,不以分支名当 semver
 - **签名与冒烟口径**:v1 不购代码签名证书,SmartScreen「更多信息→仍要运行」+ Defender 误报白名单走 README 安装节文档化放行;Windows 真机冒烟七项清单(安装/放行/首跑种子/keychain→DPAPI 链/黑窗/passive 升级/单实例)归主人侧,交付判据 = CI 绿 + artifacts(10-04-windows-build prd)
+
+## 定时任务底座(2026-10-04 定案,task 10-04-hermes-cron)
+
+- **蓝本移植,不 vendor 原文**:源自 Hermes(NousResearch/Hermes-Agent,MIT)`cron/` 子系统,逐文件重写为 MYIA 风格、模块 docstring 标注上游文件路径与行号段;**上游对照表与偏离表(D1-D14)登记在任务档 design.md §1/§6,改 cron 代码前必读**——「偏离表之外全照抄」是纪律。croniter 不进依赖红线:cron 时刻计算 = APScheduler `CronTrigger` + POSIX dow 归一化层(`normalize_dow` 展开 0/7=周日、列表/区间/步进/环绕为周名;探针实证 APScheduler 数字周几为周一系,不归一化错位一天);cron 表达式限恰好 5 段
+- **存储布局(不进 myia.db)**:数据根 = `--db` 父目录(`CronJobs.for_db`),全部落 `<数据根>/cron/`——`jobs.json`(job 注册表,tmp+rename 原子写 + 跨进程建议锁;他进程磁盘新增的未知 job 合并不覆盖)、`executions.db`(cron 专属 SQLite 执行账本,`run_summary_json` 摘要快照随终态)、`output/<job_id>/`(运行文档+stderr,倒序裁剪留 50)、`tick.lock`/`paused.marker`(estop)/心跳标记族;**SQLiteStore SCHEMA_VERSION 零改动是红线**
+- **at-most-once 与多宿主**:tick 在文件锁内**先推进 next_run_at 再派发**(锁被他宿主持有 = 静默 return 0);fire claim TTL 300s 认领;`cron serve`(监督守护线程,崩了 respawn)/桌面 sidecar ticker(仅 home 模式)/手动 `cron tick` 三宿主共存;cron fire 撞桌面 run 单飞锁 = 跳过本 fire(`skipped_busy` + `cron.skipped` 事件,用户手点优先);同 db job 派发串行、不同 db 并行
+- **执行体 = 子进程**(偏离 D11,对齐 sidecar「从不构造 Pipeline」铁律):spawn `myia run <品类> --json`(start_new_session 自成进程组;墙钟 run_timeout 缺省 3600s,超时 killpg SIGTERM→宽限→SIGKILL);退出码 0/2/3 映射 ok/failed/partial(3 算成功附注);摘要投递复用 push 平台层 directory+targets+delivery,deliver spec = `local`/`feishu:群名`/`telegram:id`/`stdout:debug`(内存缓冲+日志回显,协议流零污染);SendContext kind=`cron_summary`(受控扩值);投递失败记 `last_status="delivery_failed"` 不动 failure_streak
