@@ -22,7 +22,7 @@
 - [x] AC2 `myssia-classifier/tests/test_classify.py` + `tests/fixtures/classify_gold.json` 存在,且其 import 全部指向 `myssia_classifier`(零 `myssia.` 依赖)
   — evidence: 文件+fixture 均在新位;`grep "myssia\." myssia-classifier/tests/test_classify.py` 零命中(顶层 import/局部 import×2/caplog logger 名×2/首行 docstring 全改直引)。
 - [x] AC3 全量绿:`uv run --no-sync python -m pytest -q` 收集 ≥3290(基线 3297)零失败;`uvx ruff@0.16.10 check .` 零错
-  — evidence: `3585 passed, 19 skipped in 93.15s`(高于基线,并行线新增测试全数收进);ruff `All checks passed!`。
+  — evidence: `3585 passed, 19 skipped in 93.15s`;ruff `All checks passed!`。**grill 补强(F1)**:数量涨不能反证零丢失——已用迁移前树(d83be5a worktree)与现树各跑 `pytest --collect-only -q`,3604↔3604 个 nodeid 按文件名+测试 ID 归一后双向 diff = **0 行差异**,严格无损。
 - [x] AC4 `ci.yml` 零编辑,靠根 testpaths 生效
   — evidence: b864d2b 触碰清单不含 `.github/workflows/`(仅 PR 模板示例行路径改新形态);根 pyproject testpaths=["tests","myssia-classifier/tests"]。
 - [x] AC5 活文件中 `tests/test_` 引用与实际路径零漂移(test_docs/test_skill_doc 自身一致性测试也须过)
@@ -39,6 +39,23 @@
 - Lint:`uvx ruff@0.16.10 check .` → All checks passed!
 - GitNexus:`gitnexus detect-changes -r shishi --scope staged` → No changes detected(测试移动不触符号图)
 - 提交:纯重命名部分随 8d2e8a8(事故收编,零内容变更);内容增量+任务档 = b864d2b;本回标 = 追加一笔
+
+## grill 深化与补全(2026-10-05,主人令「继续排查问题…深化与补全」)
+
+事实层排查结论(全部实证,已核):
+
+- **F1 零丢失硬证明**:d83be5a(迁移前)worktree vs 现树,`pytest --collect-only` 各 3604 条 nodeid,按「文件名::测试 ID」归一双向 diff = 0——迁移严格无损,替换原 AC3 的弱数量论证。
+- **F2 分类器发行物影响**:`[tool.hatch.build.targets.wheel] packages=["myssia_classifier"]` 不变,wheel 纯净零新增;sdist 按 hatchling 默认含非 gitignore 文件,**自下一版起 sdist 将随附 tests/**(装包不执行测试、零依赖声明不受影响,属常规做法);myssia-classifier/README 零测试路径引用,无需改。
+- **F3 工具链/打包配置清扫**:`.zcodeignore`、`.gitattributes`、`ci.yml`、mypy/coverage 配置、`desktop/myssia-core.spec`、`desktop/build-sidecar.sh` 均零 `tests` 路径引用——迁移不触发任何工具链改动。
+- **F4 基线再生成脚本自洽**:`tests/regen_push_targets_golden.py` 未随迁(留根),其 MANIFEST 键为仓库根相对路径、冻结副本落 `tests/fixtures/push_targets_golden/`,引用的两端均未动。
+- **F5 implement.jsonl/check.jsonl 保持空是有意的**:task.py 脚手架约定该二文件「spec/research docs only, no code paths」,本任务纯机械迁移无 spec 依赖,填码路径反违约定。
+- **F6 陈旧缓存注记**:根 `.pytest_cache/` 与 `tests/__pycache__/` 残留旧平铺位置的 pyc/nodeid,pytest 首跑自愈、无功能影响,按「不确定就不动」惯例不手清。
+
+开放决策(grill 回合呈主人,见会话):
+
+- **G1** 8d2e8a8 混写提交是否拆分归位(两笔均未推)。
+- **G2** CHANGELOG Unreleased 是否补一条(tests 结构重组;sdist 随附测试属发行物可见变化)。
+- **G3** 分类器 sdist 随附 tests 是否保留默认(或显式 exclude 求纯净)。
 
 ## 非目标
 
