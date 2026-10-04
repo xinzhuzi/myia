@@ -2,7 +2,7 @@
 
 ## Goal
 
-在家庭 Windows 真机(zbj @ 192.168.0.101,Windows 11 build 26200)上:
+在家庭 Windows 真机(<用户> @ <局域网IP>,Windows 11 build 26200)上:
 
 1. 用机器上已装的 **UGit**(`ugit clone`)从 GitHub 克隆 `xinzhuzi/myia`;
 2. 复刻 CI `desktop-release.yml` 的 `windows-msi` job 构建链,在该真机上**本地打出 Windows MSI**;
@@ -25,7 +25,7 @@
 - **不碰 updater 私钥**:本地构建不签名(CI 注释明示:基础 conf 是占位符且不开签名,本地无钥构建不破);不产生 latest.json,不挂 Release。
 - **长任务纪律**:分钟级命令(依赖安装、cargo 构建、PyInstaller)一律后台跑 + 日志文件 + 退出码文件,禁 sleep 轮询。
 - **Trellis 并行纪律**:并行会话在场(10-05-tests-module-grouping in_progress),禁 `task.py start/finish` 踩共享指针,状态走 task.json 直改。
-- SSH 通道:免密 `ssh zbj@192.168.0.101`(cmd 默认 shell);RustDesk 图形通道留给主人目验,不抢。
+- SSH 通道:免密 `ssh <用户>@<局域网IP>`(cmd 默认 shell);RustDesk 图形通道留给主人目验,不抢。
 
 ## Acceptance Criteria
 

@@ -3,7 +3,7 @@
 ## 1. 通道与拓扑
 
 ```
-Mac(本会话,MYIA 仓) --免密SSH(cmd)--> Windows 真机 zbj@192.168.0.101
+Mac(本会话,MYIA 仓) --免密SSH(cmd)--> Windows 真机 <用户>@<局域网IP>
                                           ├─ UGit 5.54.0(自带 git 2.x)
                                           ├─ Git for Windows 2.55(Git Bash)
                                           ├─ Node v24.12 / Python 3.12
@@ -12,7 +12,7 @@ Mac(本会话,MYIA 仓) --免密SSH(cmd)--> Windows 真机 zbj@192.168.0.101
                                           └─ GitHub/npm/PyPI/rustup/astral 直连 200 OK
 ```
 
-- 所有远端操作走 `ssh -o BatchMode=yes zbj@192.168.0.101 "<cmd>"`(cmd 默认 shell);需要 bash 的步骤显式调 `"C:\Program Files\Git\bin\bash.exe" -lc "..."`。
+- 所有远端操作走 `ssh -o BatchMode=yes <用户>@<局域网IP> "<cmd>"`(cmd 默认 shell);需要 bash 的步骤显式调 `"C:\Program Files\Git\bin\bash.exe" -lc "..."`。
 - **长任务模式**(工程纪律):`ssh ... "cmd > log 2>&1 && echo 0 > exit.file || echo 1 > exit.file"` 挂 Mac 侧 run_in_background,回看用 `TaskOutput`,禁 sleep 轮询。
 - Windows 侧工作目录:`D:\dev\myia`(D 盘 419GB 空闲,`D:\dev` 已存在;路径短——PyInstaller/cargo 长路径风险低)。
 

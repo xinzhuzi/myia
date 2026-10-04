@@ -2,7 +2,7 @@
 
 > **执行状态:2026-10-05 全部完成,8/8 AC 绿**。实际执行与下述计划的偏差四处在 evidence/build-win.md:ugit clone GUI 耦合降级 UGit 自带 git(§1 坑1)、URL 级代理覆盖键修正(§1 坑2)、PATH 前置 Git Bash 躲 WSL bash 存根(§6 坑3)、SSH 无桌面上下文改 schtasks 交互会话+`MYIA_SHOW_ON_START=1` 亮窗(§8 坑3/坑4)。各步 ✓ 如下。
 
-> 通道总纲:Mac 本会话 → `ssh -o BatchMode=yes zbj@192.168.0.101 "<cmd>"`(远端默认 shell=cmd.exe)。
+> 通道总纲:Mac 本会话 → `ssh -o BatchMode=yes <用户>@<局域网IP> "<cmd>"`(远端默认 shell=cmd.exe)。
 > 长任务(≥1 分钟)一律 **后台模式**:`run_in_background` + 远端日志文件 + 退出码文件(`&& echo 0 > <file>.exit || echo 1 > <file>.exit`),用 TaskOutput 回看,**禁 sleep 轮询**。
 > Windows 侧日志/退出码文件统一放 `D:\dev\winbuild-log\`(首步创建)。
 > 每步完成:在本文件勾选 + evidence/build-win.md 追记(实际命令/耗时/坑)。
@@ -13,8 +13,8 @@
 
 已核实(证据见 evidence/build-win.md §盘点):
 
-- SSH 免密通(`SSH_OK`,家目录 `C:\Users\ZBJ`);本机同网段 192.168.0.105,直连真实。
-- UGit 5.54.0:`C:\Users\ZBJ\AppData\Local\UGit\bin\ugit(.bat)` + 自带 git;`ugit clone <url|slug> [-b branch]` 子命令存在。
+- SSH 免密通(`SSH_OK`,家目录 `%USERPROFILE%`);本机同网段 <同网段本机IP>,直连真实。
+- UGit 5.54.0:`%USERPROFILE%\AppData\Local\UGit\bin\ugit(.bat)` + 自带 git;`ugit clone <url|slug> [-b branch]` 子命令存在。
 - Git for Windows 2.55(Git Bash:`C:\Program Files\Git\bin\bash.exe`);Node v24.12(D:\nodejs);Python 3.12(D:\Python312)。
 - MSVC 在:vswhere 实证 `C:\Program Files\Microsoft Visual Studio\18\Enterprise` 与 `...\2022\Community` 均含 VC.Tools.x86.x64。
 - **缺**:cargo/rustc/rustup、uv。
@@ -26,18 +26,18 @@
 
 ```bash
 # 1) 建远端日志目录 + 目标目录定位(若 D:\dev\myia 已存在则停下人工确认,勿覆盖)
-ssh zbj@192.168.0.101 "mkdir D:\dev\winbuild-log 2>nul & if exist D:\dev\myia (echo TARGET_EXISTS) else (echo TARGET_FREE)"
+ssh <用户>@<局域网IP> "mkdir D:\dev\winbuild-log 2>nul & if exist D:\dev\myia (echo TARGET_EXISTS) else (echo TARGET_FREE)"
 
 # 2) ugit clone(ugit 克隆到 CWD → 先 cd /d D:\dev)
-ssh zbj@192.168.0.101 "cd /d D:\dev && ugit clone https://github.com/xinzhuzi/myia.git"
+ssh <用户>@<局域网IP> "cd /d D:\dev && ugit clone https://github.com/xinzhuzi/myia.git"
 
 # 3) 验证:工作树 + commit + 大小
-ssh zbj@192.168.0.101 "cd /d D:\dev\myia && git rev-parse HEAD && git log --oneline -2 && dir /s /a:-d | findstr /C:\"个文件\""
+ssh <用户>@<局域网IP> "cd /d D:\dev\myia && git rev-parse HEAD && git log --oneline -2 && dir /s /a:-d | findstr /C:\"个文件\""
 ```
 
 - **预期**:clone 输出 UGit/clone 完成信息;`git rev-parse HEAD` 出 40 位 hash(记入 evidence);仓库含 `src\`、`desktop\`、`myia-classifier\`、`pyproject.toml`。
 - **失败兜底**(D3 链,按序降级,每次降级在 evidence 记明原因):
-  1. `ssh ... "cd /d D:\dev && \"C:\Users\ZBJ\AppData\Local\UGit\app-5.54.0\resources\app\git\cmd\git.exe\" clone https://github.com/xinzhuzi/myia.git"`
+  1. `ssh ... "cd /d D:\dev && \"%USERPROFILE%\AppData\Local\UGit\app-5.54.0\resources\app\git\cmd\git.exe\" clone https://github.com/xinzhuzi/myia.git"`
   2. `ssh ... "cd /d D:\dev && git clone https://github.com/xinzhuzi/myia.git"`
 - **坑**:ugit 若弹 GUI 无输出——观察 60s 内 `D:\dev\myia\.git` 是否出现,无则降级。
 - **预计耗时**:1–5 分钟(仓库+git 历史约几十 MB,GitHub 直连)。
@@ -46,10 +46,10 @@ ssh zbj@192.168.0.101 "cd /d D:\dev\myia && git rev-parse HEAD && git log --onel
 
 ```bash
 # 1) 官方安装器(PowerShell,装到 %USERPROFILE%\.local\bin)
-ssh zbj@192.168.0.101 "powershell -NoProfile -ExecutionPolicy Bypass -Command \"irm https://astral.sh/uv/install.ps1 | iex\""
+ssh <用户>@<局域网IP> "powershell -NoProfile -ExecutionPolicy Bypass -Command \"irm https://astral.sh/uv/install.ps1 | iex\""
 
 # 2) 新开会话验证(PATH 已刷新;不行就全路径 %USERPROFILE%\.local\bin\uv.exe)
-ssh zbj@192.168.0.101 "uv --version || %USERPROFILE%\.local\bin\uv.exe --version"
+ssh <用户>@<局域网IP> "uv --version || %USERPROFILE%\.local\bin\uv.exe --version"
 ```
 
 - **预期**:`uv 0.9.x` 之类版本号。
@@ -60,10 +60,10 @@ ssh zbj@192.168.0.101 "uv --version || %USERPROFILE%\.local\bin\uv.exe --version
 
 ```bash
 # 1) 下载 rustup-init 并无人值守安装;已有 MSVC 会被探测复用,-y 免交互
-ssh zbj@192.168.0.101 "curl -L -o %TEMP%\rustup-init.exe https://win.rustup.rs/x86_64 && %TEMP%\rustup-init.exe -y --default-toolchain stable-x86_64-pc-windows-msvc"
+ssh <用户>@<局域网IP> "curl -L -o %TEMP%\rustup-init.exe https://win.rustup.rs/x86_64 && %TEMP%\rustup-init.exe -y --default-toolchain stable-x86_64-pc-windows-msvc"
 
 # 2) 新会话验证(装到 %USERPROFILE%\.cargo;新 SSH 会话自动带 PATH)
-ssh zbj@192.168.0.101 "cargo --version && rustc -vV | findstr host"
+ssh <用户>@<局域网IP> "cargo --version && rustc -vV | findstr host"
 ```
 
 - **预期**:`cargo 1.8x.x`;`host: x86_64-pc-windows-msvc`;**绝不能是 gnu 后缀**(gnu 会缺 MSVC 链接器语义)。
@@ -73,7 +73,7 @@ ssh zbj@192.168.0.101 "cargo --version && rustc -vV | findstr host"
 ## S4 npm 依赖安装(desktop + ui-src)
 
 ```bash
-ssh zbj@192.168.0.101 "cd /d D:\dev\myia\desktop && npm ci --no-fund --no-audit && cd ui-src && npm ci --no-fund --no-audit && echo NPM_CI_ALL_OK"
+ssh <用户>@<局域网IP> "cd /d D:\dev\myia\desktop && npm ci --no-fund --no-audit && cd ui-src && npm ci --no-fund --no-audit && echo NPM_CI_ALL_OK"
 ```
 
 - **预期**:两段 npm ci 都 0 退出,尾行 `NPM_CI_ALL_OK`;`desktop\node_modules\` 与 `ui-src\node_modules\` 出现,`desktop\node_modules\.bin\tauri.cmd` 存在。
@@ -86,10 +86,10 @@ Git Bash 下跑(脚本自带 Windows 适配:venv Scripts/、DATA_SEP=`;`、MINGW
 
 ```bash
 # 后台模式(首次 uv sync 拉 PyPI + onnxruntime 大 wheel,分钟级)
-ssh zbj@192.168.0.101 "\"C:\Program Files\Git\bin\bash.exe\" -lc \"cd /d/dev/myia/desktop && bash build-sidecar.sh x86_64-pc-windows-msvc\" > D:\dev\winbuild-log\sidecar.log 2>&1 && echo 0 > D:\dev\winbuild-log\sidecar.exit || echo 1 > D:\dev\winbuild-log\sidecar.exit"
+ssh <用户>@<局域网IP> "\"C:\Program Files\Git\bin\bash.exe\" -lc \"cd /d/dev/myia/desktop && bash build-sidecar.sh x86_64-pc-windows-msvc\" > D:\dev\winbuild-log\sidecar.log 2>&1 && echo 0 > D:\dev\winbuild-log\sidecar.exit || echo 1 > D:\dev\winbuild-log\sidecar.exit"
 # ↑ 整条挂 run_in_background;完成后 TaskOutput 回看 + 远端核验:
 
-ssh zbj@192.168.0.101 "type D:\dev\winbuild-log\sidecar.exit & dir D:\dev\myia\desktop\src-tauri\binaries"
+ssh <用户>@<局域网IP> "type D:\dev\winbuild-log\sidecar.exit & dir D:\dev\myia\desktop\src-tauri\binaries"
 ```
 
 - **预期**:exit=0;`myssia-core-x86_64-pc-windows-msvc.exe` 产出,体积 >30MB;日志尾行 `sidecar built: ...`。
@@ -103,7 +103,7 @@ ssh zbj@192.168.0.101 "type D:\dev\winbuild-log\sidecar.exit & dir D:\dev\myia\d
 ## S6 写本地 overlay 配置片(躲 WiX 非 ASCII 雷)
 
 ```bash
-ssh zbj@192.168.0.101 "echo {\"productName\": \"myssia\"} > D:\dev\myia\desktop\src-tauri\tauri.local.conf.json && type D:\dev\myia\desktop\src-tauri\tauri.local.conf.json"
+ssh <用户>@<局域网IP> "echo {\"productName\": \"myssia\"} > D:\dev\myia\desktop\src-tauri\tauri.local.conf.json && type D:\dev\myia\desktop\src-tauri\tauri.local.conf.json"
 ```
 
 - **预期**:文件内容 `{"productName": "myssia"}`(单行 JSON,Tauri config 合并语义=浅合并覆盖 productName;版本沿用基础 conf 0.0.1;不开签名/不产 updater 包)。
@@ -114,10 +114,10 @@ ssh zbj@192.168.0.101 "echo {\"productName\": \"myssia\"} > D:\dev\myia\desktop\
 
 ```bash
 # 后台模式(cargo 首跑全量编译 + WiX 自动下载,10–25 分钟级)
-ssh zbj@192.168.0.101 "cd /d D:\dev\myia\desktop && set MYIA_SIDECAR_SKIP=1&& npx tauri build --bundles msi --config src-tauri/tauri.local.conf.json > D:\dev\winbuild-log\tauri.log 2>&1 && echo 0 > D:\dev\winbuild-log\tauri.exit || echo 1 > D:\dev\winbuild-log\tauri.exit"
+ssh <用户>@<局域网IP> "cd /d D:\dev\myia\desktop && set MYIA_SIDECAR_SKIP=1&& npx tauri build --bundles msi --config src-tauri/tauri.local.conf.json > D:\dev\winbuild-log\tauri.log 2>&1 && echo 0 > D:\dev\winbuild-log\tauri.exit || echo 1 > D:\dev\winbuild-log\tauri.exit"
 # ↑ 挂 run_in_background;完成后:
 
-ssh zbj@192.168.0.101 "type D:\dev\winbuild-log\tauri.exit & dir /s /b D:\dev\myia\desktop\src-tauri\target\release\bundle\msi"
+ssh <用户>@<局域网IP> "type D:\dev\winbuild-log\tauri.exit & dir /s /b D:\dev\myia\desktop\src-tauri\target\release\bundle\msi"
 ```
 
 - **说明**:`MYIA_SIDECAR_SKIP=1` 让 beforeBuildCommand 链(`npm run sidecar && npm run build`)复用 S5 产物不重打包;注意 cmd 里 `set X=1&&`(等号紧贴 &&,防变量值尾带空格)。`npm run build` 会真实跑 vite 构建 `ui-src → ui\`(冒烟必需)。
@@ -132,18 +132,18 @@ ssh zbj@192.168.0.101 "type D:\dev\winbuild-log\tauri.exit & dir /s /b D:\dev\my
 
 ```bash
 # 1) 找到产物全名(上一步已知,占位 <MSI>)
-ssh zbj@192.168.0.101 "dir /b D:\dev\myia\desktop\src-tauri\target\release\bundle\msi"
+ssh <用户>@<局域网IP> "dir /b D:\dev\myia\desktop\src-tauri\target\release\bundle\msi"
 
 # 2) 静默安装(退出码:0=成,3010=成需重启,1603/1925=权限/失败)
-ssh zbj@192.168.0.101 "msiexec /i D:\dev\myia\desktop\src-tauri\target\release\bundle\msi\<MSI> /qn /norestart /L*v D:\dev\winbuild-log\msi-install.log & echo EXITCODE=%ERRORLEVEL%"
+ssh <用户>@<局域网IP> "msiexec /i D:\dev\myia\desktop\src-tauri\target\release\bundle\msi\<MSI> /qn /norestart /L*v D:\dev\winbuild-log\msi-install.log & echo EXITCODE=%ERRORLEVEL%"
 
 # 3) 失败(1603/1925)时:schtasks 免 UAC 提权通道
-ssh zbj@192.168.0.101 "schtasks /create /tn myssia-install /tr \"msiexec /i D:\dev\myia\desktop\src-tauri\target\release\bundle\msi\<MSI> /qn /norestart /L*v D:\dev\winbuild-log\msi-install.log\" /sc once /st 23:59 /rl highest /f && schtasks /run /tn myssia-install"
+ssh <用户>@<局域网IP> "schtasks /create /tn myssia-install /tr \"msiexec /i D:\dev\myia\desktop\src-tauri\target\release\bundle\msi\<MSI> /qn /norestart /L*v D:\dev\winbuild-log\msi-install.log\" /sc once /st 23:59 /rl highest /f && schtasks /run /tn myssia-install"
 # 查询结果直到 LastResult 出 0/3010:
-ssh zbj@192.168.0.101 "schtasks /query /tn myssia-install /v /fo list | findstr /i result & type D:\dev\winbuild-log\msi-install.log | findstr /i \"error\""
+ssh <用户>@<局域网IP> "schtasks /query /tn myssia-install /v /fo list | findstr /i result & type D:\dev\winbuild-log\msi-install.log | findstr /i \"error\""
 
 # 4) 定位安装落点(mainBinaryName=MYIA → MYIA.exe)
-ssh zbj@192.168.0.101 "dir /s /b \"C:\Program Files\myssia\MYIA.exe\" 2>nul & dir /s /b \"C:\Program Files (x86)\myssia\MYIA.exe\" 2>nul & powershell -NoProfile -Command \"Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue | Where-Object DisplayName -like '*myssia*' | Select DisplayName, InstallLocation | Format-List\""
+ssh <用户>@<局域网IP> "dir /s /b \"C:\Program Files\myssia\MYIA.exe\" 2>nul & dir /s /b \"C:\Program Files (x86)\myssia\MYIA.exe\" 2>nul & powershell -NoProfile -Command \"Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\* -ErrorAction SilentlyContinue | Where-Object DisplayName -like '*myssia*' | Select DisplayName, InstallLocation | Format-List\""
 ```
 
 - **预期**:EXITCODE=0;`MYIA.exe` 落盘(典型 `C:\Program Files\myssia\MYIA.exe`),注册表 DisplayName=myssia。
@@ -153,13 +153,13 @@ ssh zbj@192.168.0.101 "dir /s /b \"C:\Program Files\myssia\MYIA.exe\" 2>nul & di
 
 ```bash
 # 1) 启动(不抢焦点:PowerShell Start-Process 默认不置前台;家机无人值守,可接受)
-ssh zbj@192.168.0.101 "powershell -NoProfile -Command \"Start-Process '<S8定位到的MYIA.exe全路径>'\""
+ssh <用户>@<局域网IP> "powershell -NoProfile -Command \"Start-Process '<S8定位到的MYIA.exe全路径>'\""
 
 # 2) 等 20 秒后核验:双进程 + 窗口标题 + 应用数据目录(identifier=com.myssia.app)
-ssh zbj@192.168.0.101 "tasklist | findstr /i \"MYIA myssia-core\" & powershell -NoProfile -Command \"Get-Process MYIA -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,MainWindowTitle | Format-List\" & dir /b %APPDATA%\com.myssia.app 2>nul"
+ssh <用户>@<局域网IP> "tasklist | findstr /i \"MYIA myssia-core\" & powershell -NoProfile -Command \"Get-Process MYIA -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,MainWindowTitle | Format-List\" & dir /b %APPDATA%\com.myssia.app 2>nul"
 
 # 3) 冒烟完成,收进程(静默纪律:不霸屏;安装保留)
-ssh zbj@192.168.0.101 "taskkill /im MYIA.exe /f 2>nul & taskkill /im myssia-core-x86_64-pc-windows-msvc.exe /f 2>nul & echo SMOKE_DONE"
+ssh <用户>@<局域网IP> "taskkill /im MYIA.exe /f 2>nul & taskkill /im myssia-core-x86_64-pc-windows-msvc.exe /f 2>nul & echo SMOKE_DONE"
 ```
 
 - **预期**:MYIA.exe + myssia-core-x86_64-pc-windows-msvc.exe 两进程同帧;MainWindowTitle 非空(如"世事")或 `%APPDATA%\com.myssia.app` 目录生成,至少其一;WebView2 Win11 内置无需装。

@@ -2,7 +2,7 @@
   "id": "win-local-build",
   "name": "win-local-build",
   "title": "Windows 真机本地打包与冒烟(UGit 克隆 + Tauri MSI)",
-  "description": "在家庭 Windows 真机(zbj@192.168.0.101)上用 UGit 克隆 GitHub xinzhuzi/myia,复刻 CI windows-msi 构建链完成本地 MSI 打包,并真机安装+启动冒烟验证",
+  "description": "在家庭 Windows 真机(<用户>@<局域网IP>)上用 UGit 克隆 GitHub xinzhuzi/myia,复刻 CI windows-msi 构建链完成本地 MSI 打包,并真机安装+启动冒烟验证",
   "status": "review",
   "dev_type": null,
   "scope": null,

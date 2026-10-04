@@ -1,22 +1,22 @@
 # Evidence — Windows 真机本地打包与冒烟(10-05-win-local-build)
 
-机器:zbj @ 192.168.0.101(Windows 11,build 10.0.26200.9445);通道:免密 SSH(默认 shell=cmd)。
+机器:<用户> @ <局域网IP>(Windows 11,build 10.0.26200.9445);通道:免密 SSH(默认 shell=cmd)。
 日志目录(Windows 侧):`D:\dev\winbuild-log\`(clone/rustup/sidecar/tauri/msi-install 各 .log+.exit)。
 
 ## §0 环境盘点(2026-10-05 会话首探)
 
 | 项 | 状态 |
 |---|---|
-| UGit 5.54.0 | ✅ 已装(`C:\Users\ZBJ\AppData\Local\UGit\bin\ugit(.bat)` + 自带 git);`ugit clone <url> [-b]` 子命令存在 |
+| UGit 5.54.0 | ✅ 已装(`%USERPROFILE%\AppData\Local\UGit\bin\ugit(.bat)` + 自带 git);`ugit clone <url> [-b]` 子命令存在 |
 | Git for Windows | ✅ 2.55.0.windows.5(Git Bash:`C:\Program Files\Git\bin\bash.exe`) |
 | Node / npm | ✅ v24.12.0(D:\nodejs);registry=官方 npmjs |
 | Python | ✅ 3.12(D:\Python312) |
 | MSVC | ✅ VS2022 Community + VS18 Enterprise 均含 VC.Tools.x86.x64(vswhere 实证) |
 | cargo/rustc/rustup | ❌ 缺 → S3 装 |
-| uv | ❌ 缺 → S2 装(已装 0.12.23,`C:\Users\ZBJ\.local\bin`,新会话 PATH 生效) |
+| uv | ❌ 缺 → S2 装(已装 0.12.23,`%USERPROFILE%\.local\bin`,新会话 PATH 生效) |
 | 网络 | github.com / api.github.com / registry.npmjs.org / pypi.org / static.rust-lang.org / astral.sh 直连 200;crates.io API HEAD 403(bot 拦 HEAD,非不可用) |
 | 磁盘 | C 269G / D 419.8G / E 649.7G / F 10.8T 空闲 |
-| RustDesk | 21118 可达(留主人目验通道,本次不用) |
+| RustDesk | 直连端口可达(留主人目验通道,本次不用) |
 
 ## §1 S1 克隆(坑 ×2)
 
@@ -40,7 +40,7 @@ Failed to connect to 127.0.0.1 port 7897 after 2066 ms: Couldn't connect to serv
 ```
 git -c http.proxy= -c http.https://github.com/.proxy= clone --progress https://github.com/xinzhuzi/myia.git D:\dev\myia
 ```
-⚠️ 顺带发现(只报位置不改):`.gitconfig` 的 `[credential "https://cnb.cool"]` 段存有明文密码(`credential.helper=store` 风格),建议主人换凭据管理器。
+⚠️ 顺带发现(只报位置不改):`.gitconfig` 的 `[credential "<第三方Git托管>"]` 段存有明文密码(`credential.helper=store` 风格),建议主人换凭据管理器。
 
 ### 结果
 ✅ 第三轮(命令级 URL 级空覆盖)克隆成功:**7470 objects / 61.07 MiB**(UGit 自带 git.exe 直连 GitHub,~1–2 MiB/s)。
@@ -49,7 +49,7 @@ git -c http.proxy= -c http.https://github.com/.proxy= clone --progress https://g
 
 ## §2 S2 uv
 
-`irm https://astral.sh/uv/install.ps1 | iex` → `uv 0.12.23`(46b84fd0b 2026-10-03, x86_64-pc-windows-msvc),装于 `C:\Users\ZBJ\.local\bin`,新 SSH 会话 PATH 直接可用。✅ AC2 前半。
+`irm https://astral.sh/uv/install.ps1 | iex` → `uv 0.12.23`(46b84fd0b 2026-10-03, x86_64-pc-windows-msvc),装于 `%USERPROFILE%\.local\bin`,新 SSH 会话 PATH 直接可用。✅ AC2 前半。
 
 ## §3 S3 Rust
 
@@ -123,4 +123,9 @@ taskkill 双进程;删除 schtasks 冒烟三任务(myssia-smoke/shot/show);**装
 3. ugit CLI 的 `clone` GUI 耦合已记档;若主人想用 UGit 图形界面克隆,需人在机器上点。
 4. WebView2 已在机(154.0.4258.53),无需随包分发处置;但其他目标用户机器若无 WebView2,MSI 的 downloadBootstrapper 模式在无网/被墙环境会失败——发布文档口径问题,不阻本任务。
 5. 本次全链未遇 crates.io 拦截(HEAD 403 只是 bot 拦 curl 探测,cargo 稀疏索引直连全过)、npm/PyPI 直连全过,无需镜像。
-6. 主人 `.gitconfig` 明文凭据(cnb.cool)与 git 代理指向未启动的 7897——已提醒,未动。
+6. 主人 `.gitconfig` 明文凭据(<第三方Git托管>)与 git 代理指向未启动的 7897——已提醒,未动。
+
+## §10 经验沉淀与脱敏(2026-10-05 主人令)
+
+- **经验已落项目**:Windows 真机构建全链(前置→克隆→sidecar→MSI→安装→冒烟+六坑速查)沉淀为 `docs/zh/build-windows.md` + `docs/en/build-windows.md`(双语对照),零敏感信息。
+- **脱敏记录**:任务档内局域网 IP/Windows 用户名/第三方凭据域名共 39 处已替换为占位符(本节)。⚠️ 如实记档:首笔提交 367f83a(含未脱敏原文)已被并行会话连带推至公开仓——泄露面=私网段 IP(RFC1918 外网不可达)+本机用户名+凭据所属域名指代(无任何凭据值),评低危;历史级清除需 force-push 重写公开历史(tags/CI/并行会话在途,破坏面大于收益),未擅动,主人裁决。
