@@ -206,14 +206,21 @@ const COLUMNS: ColumnDef<SourceRow>[] = [
         /* Kestra Flows 动作列范式(KsIconButton):24px 幽灵图标钮 + tooltip,
            文字收进 title/aria-label——密度对齐,试抓/编辑语义不变 */
         <div className="flex items-center justify-end gap-0.5">
-          {/* 试抓动作(C13):异步 job(sources.test),结果在表格上方回显;单飞期间全表禁点 */}
+          {/* 试抓动作(C13):异步 job(sources.test),完成即弹详情弹窗回显
+              (10-05-test-result-dialog:横幅撤除);单飞期间全表禁点,testing 态
+              锚点(提示实时输出见日志屏)迁此钮 */}
           <Button
             size="icon"
             variant="ghost"
             className="size-7"
             disabled={meta.testingKey !== null}
             aria-label={`试抓 ${row.original.sourceName}`}
-            title={`myssia test ${row.original.pluginFile} --source ${row.original.sourceName}`}
+            title={
+              testing
+                ? "试抓进行中,实时输出见日志屏"
+                : `myssia test ${row.original.pluginFile} --source ${row.original.sourceName}`
+            }
+            data-testid={testing ? "test-running" : undefined}
             onClick={() => meta.onTest(row.original)}
           >
             {testing ? <Loader2 className="size-3.5 animate-spin" /> : <FlaskConical className="size-3.5" />}

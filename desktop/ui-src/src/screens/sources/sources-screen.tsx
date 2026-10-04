@@ -1,4 +1,4 @@
-import { FlaskConical, Loader2, Play, Plus, RefreshCw } from "lucide-react";
+import { FlaskConical, Loader2, Play, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -17,13 +17,14 @@ import {
   asSidecarError,
   formatScheduleRun,
   loadScheduleRows,
+  buildTestOutcome,
   loadSourcesData,
-  summarizeTestCompleted,
   verifySourceRoundTrip,
   writeSourceToggle,
 } from "./api";
 import type { RoundTripCheck, ScheduleRow, SourcesData, SourceRow, TestOutcomeView } from "./api";
 import { SourcesTable, sourceKey } from "./sources-table";
+import { TestResultDialog } from "./test-result-dialog";
 
 interface LoadState {
   status: "loading" | "error" | "ready";
@@ -74,9 +75,11 @@ type RunOnceState =
  * 复核往返一致 → 刷新 health。任一步失败都回到结构化错误态(开关状态不动),
  * 绝不假装成功。
  *
- * 行「试抓」(C13,10-03-v112-desktop-parity):api.sourcesTest 异步 job(单飞,
- * 全表试抓禁点)→ test.completed 事件回屏,行上方回显引擎/条数/指纹判定或
- * 结构化错误;结果只驻屏内,v1 不做跨屏留存(如实注记)。
+ * 行「试抓」(C13,10-03-v112-desktop-parity;10-05-test-result-dialog 改详情
+ * 弹窗):api.sourcesTest 异步 job(单飞,全表试抓禁点)→ test.completed 事件
+ * 回屏,完成即弹模态详情弹窗(引擎/条数/指纹判定/退化链/条目预览,发起失败
+ * 同弹窗失败形);进行中态 = 行内 spinner,实时输出见日志屏,「job #N」类
+ * 行话不上屏。结果只驻屏内,v1 不做跨屏留存(如实注记)。
  *
  * 行「编辑」:当场弹出 YAML 编辑对话框(不离开本屏;dirty 关闭守卫在弹窗
  * 内)。编辑内核与配置编辑屏共享(use-yaml-file-editor),深链 /yaml-editor
@@ -103,7 +106,7 @@ export function SourcesScreen() {
   const [outcome, setOutcome] = useState<ToggleOutcome | null>(null);
   /** 当场编辑的品类文件(null = 弹窗关闭) */
   const [editingFile, setEditingFile] = useState<string | null>(null);
-  /** 试抓(C13):进行中 job(单飞)+ 最近一次结果回显 */
+  /** 试抓(C13):进行中 job(单飞)+ 最近一次结果(详情弹窗展示) */
   const [testing, setTesting] = useState<TestState | null>(null);
   const [testOutcome, setTestOutcome] = useState<TestOutcomeView | null>(null);
   const testingRef = useRef<TestState | null>(null);
@@ -173,10 +176,13 @@ export function SourcesScreen() {
       });
     } catch (error) {
       const failure = asSidecarError(error);
+      // 发起失败(单飞拒绝/参数形状)同走详情弹窗失败形(R1 三形归一)
       setTestOutcome({
         sourceName: row.sourceName,
         ok: false,
-        summary: `发起失败(${failure.code}):${failure.message}`,
+        kind: "launch_error",
+        code: failure.code,
+        message: failure.message,
       });
     }
   }, []);
@@ -193,7 +199,7 @@ export function SourcesScreen() {
     }
   }, []);
 
-  // 侧车事件回屏:test.completed → 试抓行内回显;completed → 跑一次收尾
+  // 侧车事件回屏:test.completed → 试抓详情弹窗;completed → 跑一次收尾
   // (各按 job_id/run_id 对账防串台;结果只驻屏内,v1 不跨屏)
   useEffect(() => {
     let unlisten: (() => void) | null = null;
@@ -204,7 +210,7 @@ export function SourcesScreen() {
         const current = testingRef.current;
         if (current === null || testEvent.job_id !== current.jobId) return;
         setTesting(null);
-        setTestOutcome(summarizeTestCompleted(testEvent, current.sourceName));
+        setTestOutcome(buildTestOutcome(testEvent, current.sourceName));
         return;
       }
       if (event.type === "completed") {
@@ -337,31 +343,6 @@ export function SourcesScreen() {
           data-testid="roundtrip-ok"
         >
           已{outcome.next ? "启用" : "停用"} {outcome.sourceName} · doctor 复核往返一致
-        </div>
-      ) : null}
-
-      {/* 试抓(C13)回显:进行中 spinner 文案 / 完成摘要;结果只驻屏内(如实注记) */}
-      {testing ? (
-        <div
-          role="status"
-          className="mx-6 flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground"
-          data-testid="test-running"
-        >
-          <RefreshCw className="size-3.5 animate-spin" />
-          试抓 {testing.sourceName} 进行中(异步 job #{testing.jobId},子进程日志见日志屏)…
-        </div>
-      ) : null}
-      {testOutcome ? (
-        <div
-          role={testOutcome.ok ? "status" : "alert"}
-          data-testid={`test-result-${testOutcome.ok ? "ok" : "fail"}`}
-          className={
-            testOutcome.ok
-              ? "mx-6 rounded-md border border-ok/30 bg-ok/10 px-4 py-3 text-sm text-ok"
-              : "mx-6 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          }
-        >
-          试抓 {testOutcome.sourceName}:{testOutcome.summary}
         </div>
       ) : null}
 
@@ -615,6 +596,12 @@ export function SourcesScreen() {
             </CardContent>
           </Card>
         </div>
+      ) : null}
+
+      {/* 试抓结果详情弹窗(10-05-test-result-dialog):完成/发起失败即弹模态,
+          吃满 test.completed 结构化明细;进行中态由行内 spinner 承载(实时输出见日志屏) */}
+      {testOutcome ? (
+        <TestResultDialog outcome={testOutcome} onClose={() => setTestOutcome(null)} />
       ) : null}
 
       {/* 当场编辑弹窗:行「编辑」打开;关闭守卫(dirty confirm)在弹窗内部;保存成功刷新表格 */}

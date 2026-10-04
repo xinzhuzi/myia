@@ -20,7 +20,8 @@
  *
  * 试抓此源(C13,10-03-v112-desktop-parity):发起走共享门面 `api.sourcesTest`
  * (本批新方法全入共享 client,spec 注册表新增行 ↔ 门面新增行同源对账);
- * 结果经 `test.completed` 事件回屏,摘要在 summarizeTestCompleted。
+ * 结果经 `test.completed` 事件回屏 → buildTestOutcome 结构化视图,由试抓
+ * 详情弹窗展示(10-05-test-result-dialog:横幅撤除,协议零改动只消费)。
  */
 import { invoke } from "@tauri-apps/api/core";
 
@@ -223,15 +224,53 @@ export async function writeSourceToggle(params: SourcesWriteParams): Promise<Sou
 }
 
 // ---------------------------------------------------------------------------
-// 试抓此源(C13):sources.test 异步 job;结果摘要自 test.completed 事件
+// 试抓此源(C13):sources.test 异步 job;结果视图自 test.completed 事件
+// (10-05-test-result-dialog:结构化明细吃满,由详情弹窗展示,不再压一行摘要)
 // ---------------------------------------------------------------------------
 
-/** test.completed 的行内回显摘要(源/引擎/条数/指纹判定或失败原因) */
+/** 引擎退化链一条(EngineFailure.to_dict 的引擎段:engine/error_type/message) */
+interface TestOutcomeFailure {
+  engine: string;
+  errorType: string;
+  message: string;
+}
+
+/** 条目预览一条:dedup_key(或其求值错误,互斥)+ 截断字段(k → 已字符串化值) */
+interface TestOutcomeItem {
+  dedupKey: string | null;
+  /** dedup_key 求值失败(模板缺字段等;如实呈现,不静默) */
+  dedupKeyError: string | null;
+  fields: Record<string, string>;
+}
+
+/**
+ * 试抓结果详情弹窗的视图模型(三 kind,10-05-test-result-dialog):
+ * report = 事件 ok 且报文里有本源报告(引擎/条数/指纹/退化链/条目预览);
+ * event_error = 事件 ok=false(CLI error 族 + data.errors 逐条)或报告缺源;
+ * launch_error = sources.test 发起被拒(test_busy 等,屏层 catch 构造)。
+ */
 export interface TestOutcomeView {
   sourceName: string;
   ok: boolean;
-  /** 一行摘要(ok 与失败两形;失败带 error 族与细节) */
-  summary: string;
+  kind: "report" | "event_error" | "launch_error";
+  // kind="report" 专属
+  /** 命中引擎(report.engine;链耗尽时缺位) */
+  engine?: string;
+  /** 配置引擎(report.engine_configured) */
+  engineConfigured?: string;
+  itemCount?: number;
+  fingerprint?: { verdict: string; meaning: string; skipReason: string | null };
+  failures?: TestOutcomeFailure[];
+  items?: TestOutcomeItem[];
+  /** 后端只带前 N 条预览(report.items_truncated) */
+  itemsTruncated?: boolean;
+  // kind="event_error"(事件 ok=false):error + data.errors[] {path, message};
+  // kind="report" 且链耗尽超时时也可携带 report.error({error_type, message})
+  error?: string;
+  errors?: { path: string; message: string }[];
+  // kind="launch_error"(sources.test invoke 被拒):code + message
+  code?: string;
+  message?: string;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -240,50 +279,124 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === "object" && value !== null;
 }
 
+/** data.errors[] → {path, message}(形状不符的条目跳过,不虚构) */
+function parseEventErrors(data: UnknownRecord | undefined): { path: string; message: string }[] {
+  if (!data || !Array.isArray(data.errors)) return [];
+  const errors: { path: string; message: string }[] = [];
+  for (const entry of data.errors) {
+    if (!isRecord(entry) || typeof entry.message !== "string") continue;
+    errors.push({
+      path: typeof entry.path === "string" ? entry.path : "",
+      message: entry.message,
+    });
+  }
+  return errors;
+}
+
+/** fingerprint {skip_reason, verdict, meaning} → 视图形;缺 meaning 视为无判定 */
+function parseFingerprint(raw: unknown): TestOutcomeView["fingerprint"] {
+  if (!isRecord(raw) || typeof raw.meaning !== "string") return undefined;
+  return {
+    verdict: typeof raw.verdict === "string" ? raw.verdict : "",
+    meaning: raw.meaning,
+    skipReason: typeof raw.skip_reason === "string" ? raw.skip_reason : null,
+  };
+}
+
+/** failures[] → {engine, errorType, message}(引擎退化链逐条) */
+function parseFailures(raw: unknown): TestOutcomeFailure[] {
+  if (!Array.isArray(raw)) return [];
+  const failures: TestOutcomeFailure[] = [];
+  for (const entry of raw) {
+    if (!isRecord(entry) || typeof entry.message !== "string") continue;
+    failures.push({
+      engine: typeof entry.engine === "string" ? entry.engine : "?",
+      errorType: typeof entry.error_type === "string" ? entry.error_type : "?",
+      message: entry.message,
+    });
+  }
+  return failures;
+}
+
+/** items[] → {dedupKey / dedupKeyError, fields}(fields 值字符串化,null → 「—」) */
+function parseItems(raw: unknown): TestOutcomeItem[] {
+  if (!Array.isArray(raw)) return [];
+  const items: TestOutcomeItem[] = [];
+  for (const entry of raw) {
+    if (!isRecord(entry)) continue;
+    const fields: Record<string, string> = {};
+    if (isRecord(entry.fields)) {
+      for (const [key, value] of Object.entries(entry.fields)) {
+        fields[key] = value === null ? "—" : String(value);
+      }
+    }
+    items.push({
+      dedupKey: typeof entry.dedup_key === "string" ? entry.dedup_key : null,
+      dedupKeyError: typeof entry.dedup_key_error === "string" ? entry.dedup_key_error : null,
+      fields,
+    });
+  }
+  return items;
+}
+
+/** report.error({error_type, message},如链耗尽前的整体超时)→ 一行文案 */
+function parseReportError(raw: unknown): string | undefined {
+  if (!isRecord(raw)) return undefined;
+  const errorType = typeof raw.error_type === "string" ? raw.error_type : "";
+  const message = typeof raw.message === "string" ? raw.message : "";
+  if (!errorType && !message) return undefined;
+  return [errorType, message].filter(Boolean).join(":");
+}
+
 /**
- * test.completed 事件 → 行内摘要(ok 形:引擎 + 条数 + 指纹判定含义,取
- * result.sources[] 里本源的报告;失败形:CLI error 族 + 首条失败原因)。
+ * test.completed 事件 → 详情弹窗视图(10-05-test-result-dialog):吃满既有
+ * 结构化报文(引擎命中/配置、条数、指纹判定、退化链逐条、条目预览 + 截断
+ * 标记);失败形带 error 族与 data.errors 逐条。防御式取值与屏内旧摘要同款,
+ * 报文缺本源报告 → event_error 形「报告里没有该源的结果」。
  */
-export function summarizeTestCompleted(event: {
-  ok: boolean;
-  error?: string;
-  result?: Record<string, unknown>;
-  data?: Record<string, unknown>;
-}, sourceName: string): TestOutcomeView {
+export function buildTestOutcome(
+  event: {
+    ok: boolean;
+    error?: string;
+    result?: Record<string, unknown>;
+    data?: Record<string, unknown>;
+  },
+  sourceName: string,
+): TestOutcomeView {
   if (!event.ok) {
-    const detail = event.data && isRecord(event.data) && Array.isArray(event.data.errors)
-      ? (() => {
-          const first = event.data.errors[0];
-          return isRecord(first) && typeof first.message === "string" ? first.message : "";
-        })()
-      : "";
     return {
       sourceName,
       ok: false,
-      summary: `试抓失败(${event.error ?? "error"})${detail ? `:${detail}` : ""}`,
+      kind: "event_error",
+      error: event.error ?? "error",
+      errors: parseEventErrors(event.data),
     };
   }
   const result = event.result ?? {};
   const reports = Array.isArray(result.sources) ? (result.sources as unknown[]) : [];
-  const report = reports.find(
-    (entry) => isRecord(entry) && entry.source === sourceName,
-  );
+  const report = reports.find((entry) => isRecord(entry) && entry.source === sourceName);
   if (!isRecord(report)) {
-    return { sourceName, ok: false, summary: "试抓完成但报告里没有该源的结果" };
+    return {
+      sourceName,
+      ok: false,
+      kind: "event_error",
+      error: "报告里没有该源的结果",
+      errors: [],
+    };
   }
-  const engine = typeof report.engine === "string" ? report.engine : String(report.engine_configured ?? "?");
-  const count = typeof report.item_count === "number" ? report.item_count : 0;
-  const fingerprint = isRecord(report.fingerprint) && typeof report.fingerprint.meaning === "string"
-    ? report.fingerprint.meaning
-    : "";
-  const failureNote =
-    Array.isArray(report.failures) && report.failures.length > 0
-      ? ` · 退化 ${report.failures.length} 次`
-      : "";
   return {
     sourceName,
-    ok: true,
-    summary: `${engine} · ${count} 条${failureNote}${fingerprint ? ` · ${fingerprint}` : ""}`,
+    ok: report.ok !== false,
+    kind: "report",
+    engine: typeof report.engine === "string" ? report.engine : undefined,
+    engineConfigured:
+      typeof report.engine_configured === "string" ? report.engine_configured : undefined,
+    itemCount: typeof report.item_count === "number" ? report.item_count : 0,
+    fingerprint: parseFingerprint(report.fingerprint),
+    failures: parseFailures(report.failures),
+    items: parseItems(report.items),
+    itemsTruncated: report.items_truncated === true,
+    error: parseReportError(report.error),
   };
 }
 

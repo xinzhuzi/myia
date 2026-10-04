@@ -496,15 +496,16 @@ describe("源管理:空态与错误态", () => {
 });
 
 // ---------------------------------------------------------------------------
-// C13(10-03-v112-desktop-parity):行「试抓」(sources.test 异步 job → test.completed 回显)
+// C13(10-03-v112-desktop-parity):行「试抓」(sources.test 异步 job →
+// test.completed 详情弹窗;10-05-test-result-dialog 撤贴顶横幅改模态)
 // ---------------------------------------------------------------------------
 
-describe("源管理:试抓此源(C13)", () => {
-  type EventHanlder = (event: { payload: Record<string, unknown> }) => void;
+describe("源管理:试抓此源(C13 → 详情弹窗)", () => {
+  type EventHandler = (event: { payload: Record<string, unknown> }) => void;
 
   function installEvents() {
-    let handler: EventHanlder | null = null;
-    mocks.listen.mockImplementation(async (_name: string, fn: EventHanlder) => {
+    let handler: EventHandler | null = null;
+    mocks.listen.mockImplementation(async (_name: string, fn: EventHandler) => {
       handler = fn;
       return () => undefined;
     });
@@ -513,7 +514,7 @@ describe("源管理:试抓此源(C13)", () => {
     };
   }
 
-  it("行按钮发起 sources.test(job_id 对账)→ 事件回显引擎/条数/指纹摘要", async () => {
+  it("完成即弹详情弹窗:概要/指纹判定/退化链/条目预览吃满结构化报文;ESC 关闭", async () => {
     const events = installEvents();
     const { map } = okSidecar(["local-api"]);
     map["sources.test"] = (params: never) => {
@@ -529,8 +530,14 @@ describe("源管理:试抓此源(C13)", () => {
 
     await screen.findByText("local-api");
     fireEvent.click(screen.getByRole("button", { name: "试抓 local-api" }));
-    await waitFor(() => expect(lastCall("sources.test")?.params).toEqual({ file: FILE, source: "local-api" }));
-    expect(await screen.findByTestId("test-running")).toBeTruthy();
+    // pluginFile 走 API 层短名口径(5c188c0 split/pop 源头截断)
+    await waitFor(() =>
+      expect(lastCall("sources.test")?.params).toEqual({ file: "ai-news.yaml", source: "local-api" }),
+    );
+    // 进行中态 = 行内试抓钮锚点(提示实时输出见日志屏);不再有「异步 job #N」横幅
+    const running = await screen.findByTestId("test-running");
+    expect(running.getAttribute("title")).toBe("试抓进行中,实时输出见日志屏");
+    expect(document.body.textContent ?? "").not.toContain("job #");
 
     events.emit({
       type: "test.completed",
@@ -542,27 +549,72 @@ describe("源管理:试抓此源(C13)", () => {
         sources: [
           {
             source: "local-api",
+            url: "https://example.com/local-api",
             engine: "direct_api",
             engine_configured: "auto",
             ok: true,
-            item_count: 2,
-            failures: [],
-            fingerprint: { verdict: "changed_or_first_fetch", meaning: "内容有变化或首次抓取,线上调度会正常提取" },
+            item_count: 3,
+            failures: [
+              {
+                source: "local-api",
+                engine: "static_html",
+                url: "https://example.com/local-api",
+                error_type: "network",
+                message: "引擎链第一跳网络失败,已退化",
+              },
+            ],
+            fingerprint: {
+              skip_reason: null,
+              verdict: "changed_or_first_fetch",
+              meaning: "内容有变化或首次抓取,线上调度会正常提取",
+            },
+            items: [
+              { fields: { title: "第一条", url: "https://example.com/a" }, dedup_key: "sha:aaa" },
+              { fields: { title: "第二条" }, dedup_key: null, dedup_key_error: "模板缺字段 link" },
+            ],
+            items_truncated: true,
           },
         ],
       },
       ts: "2026-10-03T08:00:00+00:00",
     });
 
-    const banner = await screen.findByTestId("test-result-ok");
-    expect(banner.textContent).toContain("local-api");
-    expect(banner.textContent).toContain("direct_api");
-    expect(banner.textContent).toContain("2 条");
-    expect(banner.textContent).toContain("内容有变化或首次抓取");
-    expect(screen.queryByTestId("test-running")).toBeNull(); // job 收尾
+    // 模态弹窗自动弹出(role=dialog aria-modal),贴屏顶横幅已撤
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.getAttribute("aria-label")).toBe("试抓结果 local-api");
+    expect(screen.getByTestId("test-result-status").textContent).toBe("成功");
+    const text = dialog.textContent ?? "";
+    // 概要:引擎命中 / 配置引擎 / 条数
+    expect(text).toContain("direct_api");
+    expect(text).toContain("auto");
+    expect(text).toContain("3 条");
+    // 指纹判定全文
+    expect(text).toContain("内容有变化或首次抓取,线上调度会正常提取");
+    // 引擎退化链逐条
+    expect(text).toContain("static_html");
+    expect(text).toContain("network");
+    expect(text).toContain("引擎链第一跳网络失败,已退化");
+    // 条目预览:dedup_key + 字段「k = v」+ 求值失败如实 + 截断标记
+    const items = screen.getByTestId("test-result-items");
+    const itemsText = items.textContent ?? "";
+    expect(itemsText).toContain("sha:aaa");
+    expect(itemsText).toContain("title = 第一条");
+    expect(itemsText).toContain("模板缺字段 link");
+    expect(itemsText).toContain("仅预览前 2 条");
+    // 底部深链:查看采集日志
+    expect(screen.getByRole("link", { name: "查看采集日志" }).getAttribute("href")).toBe("#/logs");
+    // job 收尾:进行中锚点撤
+    expect(screen.queryByTestId("test-running")).toBeNull();
+
+    // ESC 关闭(只读无 dirty 守卫)
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
   });
 
-  it("失败形:CLI config 错经事件透传(ok=false)→ 红条回显;发起被拒也如实上屏", async () => {
+  it("失败形:事件 ok=false → error 族+data.errors 逐条入弹窗;发起被拒(test_busy)同弹窗;遮罩/X 均可关", async () => {
     const events = installEvents();
     const { map } = okSidecar(["local-api"]);
     map["sources.test"] = () => ({ job_id: 9, state: "running", source: "local-api" });
@@ -586,11 +638,19 @@ describe("源管理:试抓此源(C13)", () => {
       ts: "2026-10-03T08:00:00+00:00",
     });
 
-    const banner = await screen.findByTestId("test-result-fail");
-    expect(banner.textContent).toContain("config");
-    expect(banner.textContent).toContain("源 'x' 不存在");
+    const dialog = await screen.findByTestId("test-result-dialog");
+    expect(screen.getByTestId("test-result-status").textContent).toBe("失败");
+    const text = dialog.textContent ?? "";
+    expect(text).toContain("config");
+    expect(text).toContain("$.sources:源 'x' 不存在");
 
-    // 发起失败(test_busy 单飞)→ 同一红条位呈现,不静默
+    // 遮罩点击关闭
+    fireEvent.click(screen.getByTestId("test-result-overlay"));
+    await waitFor(() => {
+      expect(screen.queryByTestId("test-result-dialog")).toBeNull();
+    });
+
+    // 发起失败(test_busy 单飞)→ 同一弹窗失败形,不静默
     map["sources.test"] = () => {
       throw JSON.stringify({
         code: "test_busy",
@@ -600,8 +660,15 @@ describe("源管理:试抓此源(C13)", () => {
       });
     };
     fireEvent.click(screen.getByRole("button", { name: "试抓 local-api" }));
-    const busy = await screen.findByTestId("test-result-fail");
+    const busy = await screen.findByTestId("test-result-dialog");
     expect(busy.textContent).toContain("test_busy");
+    expect(busy.textContent).toContain("已有试抓在执行");
+
+    // X 关闭钮
+    fireEvent.click(screen.getByRole("button", { name: "关闭对话框" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("test-result-dialog")).toBeNull();
+    });
   });
 });
 
