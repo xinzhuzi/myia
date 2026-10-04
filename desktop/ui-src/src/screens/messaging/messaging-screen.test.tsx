@@ -886,7 +886,7 @@ describe("消息:平台总览筛选 tabs", () => {
 });
 
 describe("消息:详情栏出站凭据指南(唯一入口)", () => {
-  it("选中 feishu 即见指南(零点击,卡片上无展开按钮):tenant token 手工换 + curl 命令", async () => {
+  it("选中 feishu 即见指南(零点击,卡片上无展开按钮):app 凭据 + 设置→推送 引导,零 curl/零 zshrc", async () => {
     const sidecar = okSidecar();
     installSidecar(sidecar.map, sidecar.record);
     render(
@@ -897,19 +897,21 @@ describe("消息:详情栏出站凭据指南(唯一入口)", () => {
     const overview = await screen.findByTestId("platform-overview");
     // 缺省选中 feishu:指南直接在详情栏,不再需要「点开卡片」
     const guide = within(overview).getByTestId("platform-guide-feishu");
-    expect(guide.textContent).toContain("FEISHU_BOT_TOKEN");
-    expect(guide.textContent).toContain("tenant_access_token");
+    expect(guide.textContent).toContain("FEISHU_APP_ID");
+    expect(guide.textContent).toContain("FEISHU_APP_SECRET");
     expect(guide.textContent).toContain("im:message:send_as_bot");
-    expect(guide.textContent).toContain(
-      "curl -X POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
-    );
+    // 10-05-push-credential-journey:接引导到 设置→推送(自动续期),手工 curl/zshrc/2h 段全删
+    expect(guide.textContent).toContain("设置→推送");
+    expect(guide.textContent).toContain("自动续期");
+    expect(guide.textContent).not.toContain("curl");
+    expect(guide.textContent).not.toContain(".zshrc");
     // R2:左卡上不再有指南展开交互(无 aria-expanded 的按钮)
     const feishuCard = within(overview).getByTestId("platform-card-feishu");
     expect(feishuCard.getAttribute("aria-expanded")).toBeNull();
     expect(feishuCard.tagName).toBe("BUTTON"); // 卡即选中按钮,无二级展开
   });
 
-  it("点击 telegram 卡 → 指南切到 telegram(@BotFather + @userinfobot + 两个凭据 key)", async () => {
+  it("点击 telegram 卡 → 指南切到 telegram(@BotFather + 设置→推送 + 两个凭据 key)", async () => {
     const sidecar = okSidecar();
     installSidecar(sidecar.map, sidecar.record);
     render(
@@ -924,7 +926,8 @@ describe("消息:详情栏出站凭据指南(唯一入口)", () => {
     expect(guide.textContent).toContain("TELEGRAM_BOT_TOKEN");
     expect(guide.textContent).toContain("TELEGRAM_CHAT_ID");
     expect(guide.textContent).toContain("@BotFather");
-    expect(guide.textContent).toContain("@userinfobot");
+    expect(guide.textContent).toContain("设置→推送");
+    expect(guide.textContent).not.toContain(".zshrc");
     // 详情栏一次只展示一个平台:feishu 指南随选中切换离开
     expect(within(overview).queryByTestId("platform-guide-feishu")).toBeNull();
   });

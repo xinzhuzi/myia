@@ -91,24 +91,28 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     name: "飞书",
     wave: "W1",
     discovery: "auto",
-    description: "飞书开放平台机器人(W1 已实装):tenant_access_token 出站卡片发送 + 群目录发现;凭据经环境变量注入 run。",
+    description: "飞书开放平台机器人(W1 已实装):tenant_access_token 出站卡片发送 + 群目录发现;凭据到 设置→推送 填一次,token 自动续期。",
     guide: {
       keys: [
         {
-          key: "FEISHU_BOT_TOKEN",
-          purpose: "tenant_access_token(应用级令牌);出站卡片发送与群目录发现共用,run 时读环境变量",
+          key: "FEISHU_APP_ID",
+          purpose: "飞书应用 App ID;与应用 App Secret 一起自动换发 tenant token(约 2 小时自动续期,无需手工换)",
+        },
+        {
+          key: "FEISHU_APP_SECRET",
+          purpose: "飞书应用 App Secret;出站卡片发送与群目录发现共用的应用级凭据",
+        },
+        {
+          key: "FEISHU_CHAT_ID",
+          purpose: "缺省推送群的 chat_id(可选);不填则按推送规则勾选的对象投递",
         },
       ],
       steps: [
         "打开飞书开放平台(open.feishu.cn)→ 开发者后台 → 「创建企业自建应用」,记下应用的 App ID 与 App Secret。",
-        "在应用里添加「机器人」能力;「权限管理」开通 im:message:send_as_bot(以机器人身份发消息)和 im:chat:readonly(读机器人所在群列表,目录发现用)。",
+        "在应用里添加「机器人」能力;「权限管理」开通 im:message:send_as_bot(以机器人身份发消息)和 im:chat:readonly(读机器人所在群列表,目录发现用);要看图推送再开 im:resource(上传图片)。",
         "「版本管理与发布」发布版本并让组织管理员审核通过;把机器人拉进要推送的群。",
-        {
-          text: "手工换 tenant token:在终端执行下面这条(把 cli_xxx / xxx 换成你的 App ID / App Secret),应答里的 tenant_access_token 字段就是令牌;细节以开放平台文档「获取 tenant_access_token 内部接口」页为准。",
-          code: 'curl -X POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal \\\n  -H "Content-Type: application/json" \\\n  -d \'{"app_id":"cli_xxx","app_secret":"xxx"}\'',
-        },
-        "把令牌写入环境变量 FEISHU_BOT_TOKEN(例如在 ~/.zshrc 加一行 export FEISHU_BOT_TOKEN=t-xxx,重开终端/应用后生效)。注意令牌有效期约 2 小时,过期后按上一步重换并更新环境变量。",
-        "回到本屏点飞书分组里的「刷新」列出群目录,再到下区「推送规则」勾选推送对象。",
+        "到 设置→推送 选 feishu_card:填 App ID 与 App Secret(可选填群 chat_id)→ 保存 → 点「发送测试」。token 由应用自动续期,全程无需手工换。",
+        "群 chat_id 不必手抄:回到本屏点飞书分组里的「刷新」列出群目录,再到下区「推送规则」勾选推送对象。",
       ],
     },
   },
@@ -122,19 +126,18 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
       keys: [
         {
           key: "TELEGRAM_BOT_TOKEN",
-          purpose: "机器人令牌;出站发送与被动目录积累共用,run 时读环境变量",
+          purpose: "机器人令牌;出站发送与被动目录积累共用,设置→推送 填一次即可",
         },
         {
           key: "TELEGRAM_CHAT_ID",
-          purpose: "缺省推送会话的数字 chat_id;只在规则没写 targets 的旧式用法里生效",
+          purpose: "缺省推送会话的数字 chat_id(可选);只在规则没写 targets 的旧式用法里生效",
         },
       ],
       steps: [
         "在 Telegram 里找 @BotFather 发送 /newbot,按提示给机器人起显示名和用户名(用户名须以 bot 结尾);BotFather 最后回复的 HTTP API token 就是 TELEGRAM_BOT_TOKEN。",
-        "拿 chat_id:找 @userinfobot 发任意消息,它回复里的 Id 就是你自己的数字 chat_id(与机器人的私聊会话就用它)。",
-        "群聊不必手抄 id:把机器人拉进群、在群里发条消息,本屏目录会直接记下该群;私聊目录同理——不给机器人发消息,目录里就不会有会话。",
-        "把令牌与 chat_id 写入环境变量 TELEGRAM_BOT_TOKEN 与 TELEGRAM_CHAT_ID(例如在 ~/.zshrc 里 export,重开终端/应用后生效)。",
-        "给机器人发条消息后回本屏刷新:目录出现该会话,即可在「推送规则」里勾选它。",
+        "到 设置→推送 选 telegram:填 Bot Token(可选填数字 chat_id)→ 保存 → 点「发送测试」。",
+        "群聊/私聊会话不必手抄 id:把机器人拉进群、或给机器人发条消息,本屏目录会自动记下该会话;不给机器人发消息,目录里就不会有会话。",
+        "目录里出现会话后,到下区「推送规则」勾选它作为推送对象即可。",
       ],
     },
   },

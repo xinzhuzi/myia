@@ -118,18 +118,6 @@ export function SourcesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   /** 一键探查(主人 2026-10-05):doctor 全源诊断 → reload 更新健康度 */
   const [probing, setProbing] = useState(false);
-  const handleProbeAll = useCallback(async () => {
-    setProbing(true);
-    try {
-      await api.doctor();
-      await reload();
-    } catch {
-      // doctor 失败不塌屏,reload 照常拉旧数据
-    } finally {
-      setProbing(false);
-    }
-  }, [reload]);
-
   const reload = useCallback(async () => {
     setRefreshing(true);
     // 首载/错误重试 = 全量骨架;已有数据 = 原地刷新(表格保持挂载)
@@ -154,6 +142,18 @@ export function SourcesScreen() {
 
   useEffect(() => {
     void reload();
+  }, [reload]);
+
+  const handleProbeAll = useCallback(async () => {
+    setProbing(true);
+    try {
+      await api.doctor();
+      await reload();
+    } catch {
+      // doctor 失败不塌屏,reload 照常拉旧数据
+    } finally {
+      setProbing(false);
+    }
   }, [reload]);
 
   /** 编辑弹窗保存成功:刷新表格(编辑可能改了源名单/健康度,与启停写回后同款 reload) */

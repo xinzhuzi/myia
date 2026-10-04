@@ -333,29 +333,71 @@ describe("设置:doctor 验证回显", () => {
 });
 
 describe("设置:推送通道凭据", () => {
-  it("按 scope+名字写 myia/<scope>/<name>;值零回显", async () => {
+  it("预设位:feishu 三字段逐条写 myia/push/<ENV_KEY>;保存即清值零回显", async () => {
+    const state = installSidecar();
+    renderScreen();
+    await openSection("push");
+    await typeByLabel("feishu_card App ID", "cli_test_app");
+    await typeByLabel("feishu_card App Secret", "sec_private_value");
+    await typeByLabel("feishu_card 群 chat_id", "oc_room123");
+    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
+
+    await screen.findByTestId("save-status");
+    expect(callsOf("secret.set")).toContainEqual({
+      name: "myia/push/FEISHU_APP_ID",
+      value: "cli_test_app",
+    });
+    expect(callsOf("secret.set")).toContainEqual({
+      name: "myia/push/FEISHU_APP_SECRET",
+      value: "sec_private_value",
+    });
+    expect(callsOf("secret.set")).toContainEqual({
+      name: "myia/push/FEISHU_CHAT_ID",
+      value: "oc_room123",
+    });
+    expect(document.body.textContent).not.toContain("sec_private_value");
+    expect((screen.getByLabelText("feishu_card App Secret") as HTMLInputElement).value).toBe("");
+    expect(state.secrets.get("myia/push/FEISHU_APP_SECRET")).toBe("sec_private_value");
+  });
+
+  it("预设位:空字段跳过;全空 → note 拦截零协议调用", async () => {
+    installSidecar();
+    renderScreen();
+    await openSection("push");
+    await typeByLabel("feishu_card App Secret", "only_secret");
+    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
+    await screen.findByTestId("save-status");
+    expect(callsOf("secret.set")).toEqual([
+      { name: "myia/push/FEISHU_APP_SECRET", value: "only_secret" },
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
+    expect(await screen.findByText(/至少填一个字段/)).toBeTruthy();
+    expect(callsOf("secret.set")).toHaveLength(1);
+  });
+
+  it("自定义凭据位(折叠区):按 scope+名字写 myia/<scope>/<name>", async () => {
     const state = installSidecar();
     renderScreen();
     await openSection("push");
     await typeByLabel("品类 scope", "stocks");
     await typeByLabel("推送凭据名", "chat_id");
     await typeByLabel("推送凭据值", "oc_abc123private");
-    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存自定义凭据位" }));
 
     await screen.findByTestId("save-status");
     expect(callsOf("secret.set")).toContainEqual({ name: "myia/stocks/chat_id", value: "oc_abc123private" });
     expect(document.body.textContent).not.toContain("oc_abc123private");
-    expect((screen.getByLabelText("推送凭据值") as HTMLInputElement).value).toBe("");
     expect(state.secrets.get("myia/stocks/chat_id")).toBe("oc_abc123private");
   });
 
-  it("scope 非法 → 前端校验拦截,零协议调用", async () => {
+  it("自定义凭据位:scope 非法 → 前端校验拦截,零协议调用", async () => {
     installSidecar();
     renderScreen();
     await openSection("push");
     await typeByLabel("品类 scope", "Stocks!");
     await typeByLabel("推送凭据值", "whatever");
-    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存自定义凭据位" }));
 
     expect(await screen.findByText(/scope 须为品类 id 规则/)).toBeTruthy();
     expect(callsOf("secret.set")).toEqual([]);
@@ -652,34 +694,23 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
 // ---------------------------------------------------------------------------
 
 describe("设置:推送测试(G5)", () => {
-  it("scope 已填 → target 组 keychain 引用下发;成功回显 ok 徽标", async () => {
+  it("target=预设位 keychain 引用(与真实推送同源解析);成功回显 ok 徽标", async () => {
     installSidecar();
     renderScreen();
     await openSection("push");
 
-    await typeByLabel("品类 scope", "stocks");
     fireEvent.click(screen.getByRole("button", { name: "发送测试" }));
 
     await waitFor(() => expect(callsOf("push.test")).toHaveLength(1));
-    // channel 取表单当前选中(feishu_card);target = 表单 scope/凭据名组合
+    // channel 取表单当前选中(feishu_card);target = 预设凭据位(10-05-push-credential-journey)
     expect(callsOf("push.test")).toContainEqual({
       channel: "feishu_card",
-      target: "keychain:myia/stocks/chat_id",
+      target: "keychain:myia/push/FEISHU_CHAT_ID",
     });
     expect(await screen.findByText("通道连通")).toBeTruthy();
     expect(screen.getByTestId("push-test-result").textContent).toContain("feishu_card");
-    // 状态行绝不出现凭据值(这里本就没填值;引用名不是秘密)
-    expect(document.body.textContent).not.toContain("keychain:myia/stocks/chat_id");
-  });
-
-  it("scope 空 → 不带 target(走通道默认 env 引用链,如实测)", async () => {
-    installSidecar();
-    renderScreen();
-    await openSection("push");
-
-    fireEvent.click(screen.getByRole("button", { name: "发送测试" }));
-    await waitFor(() => expect(callsOf("push.test")).toHaveLength(1));
-    expect(callsOf("push.test")).toContainEqual({ channel: "feishu_card" });
+    // 状态行绝不出现凭据值(引用名不是秘密)
+    expect(document.body.textContent).not.toContain("keychain:myia/push/FEISHU_CHAT_ID");
   });
 
   it("失败结构化透传:env_var_missing → 通道失败徽标 + code:message 行内回显", async () => {

@@ -83,6 +83,34 @@ const PUSH_SECRET_NAME_BY_CHANNEL: Record<string, string> = {
   webhook: "url",
 };
 type PushChannel = keyof typeof PUSH_SECRET_NAME_BY_CHANNEL;
+
+/**
+ * 通道 → 预设凭据位(10-05-push-credential-journey:填一次即可真收推送)。
+ * 键 = 环境变量名(钥匙链规范名 myia/push/<键> 与运行时 env: 回退同口径);
+ * password 位只写不回显;optional 位留空不保存(不覆盖已录值)。
+ */
+const PUSH_FIELDS_BY_CHANNEL: Record<
+  PushChannel,
+  { key: string; label: string; password?: boolean; optional?: boolean; hint: string }[]
+> = {
+  feishu_card: [
+    { key: "FEISHU_APP_ID", label: "App ID", hint: "飞书开放平台 → 开发者后台 → 应用详情" },
+    { key: "FEISHU_APP_SECRET", label: "App Secret", password: true, hint: "同应用详情页;保存后 token 自动续期,无需手工换" },
+    { key: "FEISHU_CHAT_ID", label: "群 chat_id", optional: true, hint: "可选;消息屏「刷新」列群目录可查;不填则按规则的推送对象" },
+  ],
+  telegram: [
+    { key: "TELEGRAM_BOT_TOKEN", label: "Bot Token", password: true, hint: "@BotFather 建 bot 后回复的令牌" },
+    { key: "TELEGRAM_CHAT_ID", label: "chat_id", optional: true, hint: "可选;给 bot 发条消息后消息屏目录自动记下会话" },
+  ],
+  webhook: [{ key: "MYIA_WEBHOOK_URL", label: "接收端点 URL", hint: "POST JSON 的接收端(自建服务 / n8n 等)" }],
+};
+
+/** 通道 → 「发送测试」的目标凭据键(push.test target = keychain:myia/push/<键>) */
+const PUSH_TEST_TARGET_KEY: Record<PushChannel, string> = {
+  feishu_card: "FEISHU_CHAT_ID",
+  telegram: "TELEGRAM_CHAT_ID",
+  webhook: "MYIA_WEBHOOK_URL",
+};
 const PUSH_CHANNELS = Object.keys(PUSH_SECRET_NAME_BY_CHANNEL) as PushChannel[];
 
 /** 分区定义(拆解表第 1 条:通用/视觉/推送/更新/高级) */
@@ -363,6 +391,8 @@ export function SettingsScreen() {
   const [probePath, setProbePath] = useState("");
   const [push, setPush] = useState<PushForm>({ channel: "feishu_card", scope: "", secretName: "chat_id", value: "" });
   const [pushErrors, setPushErrors] = useState<Partial<Record<"scope" | "secretName" | "value", string>>>({});
+  /** 预设凭据位值(10-05-push-credential-journey):{ENV_KEY: 值},按通道字段集读写 */
+  const [pushValues, setPushValues] = useState<Record<string, string>>({});
 
   /** 每卡独立保存态(D4:每区保存态反馈;替代旧全局横幅) */
   const [llmSave, setLlmSave] = useState<CardSaveState | null>(null);
@@ -523,14 +553,18 @@ export function SettingsScreen() {
   const [pushTestNote, setPushTestNote] = useState<string | null>(null);
   const [pushTestOk, setPushTestOk] = useState<boolean | null>(null);
 
-  const handlePushTest = useCallback(async () => {
+  const handlePushTest = useCallback(async (explicitTarget?: string) => {
     setPushTesting(true);
     setPushTestNote(null);
     setPushTestOk(null);
-    // target 引用:表单 scope/凭据名齐全才组;否则让通道走默认 env 链(如实测)
-    const scope = push.scope.trim();
-    const name = push.secretName.trim() || PUSH_SECRET_NAME_BY_CHANNEL[push.channel] || "";
-    const target = scope && name ? `keychain:myia/${scope}/${name}` : undefined;
+    // target 引用:显式传入(预设位)优先;否则自定义位 scope/凭据名齐全才组;
+    // 都无则让通道走默认 env 链(env 缺失时运行时自动回退钥匙链规范名)
+    let target = explicitTarget;
+    if (!target) {
+      const scope = push.scope.trim();
+      const name = push.secretName.trim() || PUSH_SECRET_NAME_BY_CHANNEL[push.channel] || "";
+      target = scope && name ? `keychain:myia/${scope}/${name}` : undefined;
+    }
     try {
       const result = await api.pushTest({ channel: push.channel, ...(target ? { target } : {}) });
       setPushTestOk(true);
@@ -547,6 +581,37 @@ export function SettingsScreen() {
       setPushTesting(false);
     }
   }, [push.channel, push.scope, push.secretName]);
+
+  /** 预设凭据位保存(10-05-push-credential-journey):逐非空字段写
+   *  myia/push/<ENV_KEY>;空字段跳过不覆盖(清除走危险区 secret.delete)。 */
+  const handlePresetSave = useCallback(async () => {
+    const fields = PUSH_FIELDS_BY_CHANNEL[push.channel];
+    const entries = fields
+      .map((field) => ({ field, value: (pushValues[field.key] ?? "").trim() }))
+      .filter((entry) => entry.value !== "");
+    if (entries.length === 0) {
+      setPushSave({ kind: "note", note: "至少填一个字段再保存;留空的字段不会覆盖已录入的值。" });
+      return;
+    }
+    setPushSave({ kind: "saving" });
+    try {
+      const names: string[] = [];
+      for (const entry of entries) {
+        const record = await saveSecret(`myia/push/${entry.field.key}`, entry.value);
+        names.push(record.name);
+      }
+      setPushSave({
+        kind: "saved",
+        names,
+        note: "已入钥匙链;运行时 env 缺失会自动用这些值(发送测试与真实推送同源)。",
+      });
+      setPushValues({});
+      await runDoctor();
+      await refreshSecretNames();
+    } catch (error) {
+      setPushSave({ kind: "error", error: asSidecarError(error) });
+    }
+  }, [push.channel, pushValues, refreshSecretNames, runDoctor]);
 
   return (
     /* R2 重排:区块节奏消费具名令牌 gap-block(24px)+ pb-block */
@@ -806,7 +871,7 @@ export function SettingsScreen() {
                   推送通道
                 </CardTitle>
                 <CardDescription>
-                  通道凭据(chat_id / bot token / webhook)入钥匙链;「发送测试」真发一条验证通道连通(push.test);
+                  按通道填一次凭据(入钥匙链 myia/push/*),运行时自动解析;「发送测试」与真实推送同源;
                   通道启停与阈值路由在品类 YAML push: 节
                 </CardDescription>
               </CardHeader>
@@ -835,6 +900,66 @@ export function SettingsScreen() {
                         </SelectContent>
                       </Select>
                     </SettingRow>
+                    {PUSH_FIELDS_BY_CHANNEL[push.channel].map((field) => (
+                      <FieldInput
+                        key={field.key}
+                        label={field.label}
+                        aria-label={`${push.channel} ${field.label}`}
+                        type={field.password ? "password" : "text"}
+                        autoComplete="new-password"
+                        placeholder={`写入 myia/push/${field.key};永不回显`}
+                        value={pushValues[field.key] ?? ""}
+                        onChange={(event) =>
+                          setPushValues((prev) => ({ ...prev, [field.key]: event.target.value }))
+                        }
+                        hint={field.hint}
+                      />
+                    ))}
+                  </div>
+                <CardSaveBar
+                  state={pushSave}
+                  savingLabel="保存中…"
+                  action={
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => void handlePresetSave()}
+                        disabled={pushSave?.kind === "saving" || pushTesting}
+                      >
+                        <Save className="size-3.5" />
+                        保存推送凭据
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          void handlePushTest(`keychain:myia/push/${PUSH_TEST_TARGET_KEY[push.channel]}`)
+                        }
+                        disabled={pushTesting}
+                        title="真发一条测试消息(push.test):目标=该通道预设凭据位,与真实推送同源解析"
+                      >
+                        <Send className={pushTesting ? "size-3.5 animate-pulse" : "size-3.5"} />
+                        {pushTesting ? "发送中…" : "发送测试"}
+                      </Button>
+                      {pushTestOk === true ? <Badge variant="ok">通道连通</Badge> : null}
+                      {pushTestOk === false ? <Badge variant="destructive">通道失败</Badge> : null}
+                    </div>
+                  }
+                />
+                {pushTestNote ? (
+                  <p
+                    role={pushTestOk === false ? "alert" : "status"}
+                    data-testid="push-test-result"
+                    className={pushTestOk === false ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
+                  >
+                    {pushTestNote}
+                  </p>
+                ) : null}
+                <details className="border-t border-border/60 pt-2 text-2xs text-muted-foreground">
+                  <summary className="cursor-pointer select-none">
+                    自定义凭据位(品类 YAML 手写 keychain: 引用用;日常接入用上方预设位即可)
+                  </summary>
+                  <div className="mt-2 flex flex-col gap-2">
                     <FieldInput
                       label="品类 scope"
                       aria-label="品类 scope"
@@ -863,44 +988,14 @@ export function SettingsScreen() {
                       onChange={(event) => setPush((prev) => ({ ...prev, value: event.target.value }))}
                       error={pushErrors.value}
                     />
-                  </div>
-                <CardSaveBar
-                  state={pushSave}
-                  savingLabel="保存中…"
-                  action={
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => void handlePushSave()}
-                        disabled={pushSave?.kind === "saving" || pushTesting}
-                      >
+                    <div>
+                      <Button size="sm" variant="outline" onClick={() => void handlePushSave()}>
                         <Save className="size-3.5" />
-                        保存推送凭据
+                        保存自定义凭据位
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void handlePushTest()}
-                        disabled={pushTesting}
-                        title="真发一条测试消息(push.test):验证所选通道连通性"
-                      >
-                        <Send className={pushTesting ? "size-3.5 animate-pulse" : "size-3.5"} />
-                        {pushTesting ? "发送中…" : "发送测试"}
-                      </Button>
-                      {pushTestOk === true ? <Badge variant="ok">通道连通</Badge> : null}
-                      {pushTestOk === false ? <Badge variant="destructive">通道失败</Badge> : null}
                     </div>
-                  }
-                />
-                {pushTestNote ? (
-                  <p
-                    role={pushTestOk === false ? "alert" : "status"}
-                    data-testid="push-test-result"
-                    className={pushTestOk === false ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
-                  >
-                    {pushTestNote}
-                  </p>
-                ) : null}
+                  </div>
+                </details>
                 <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2 text-2xs text-muted-foreground">
                   <span>推送通道声明(push: 节)与阈值路由在品类 YAML:</span>
                   {/* HashRouter 路由:普通锚点即可跳配置编辑屏,不引 Router context 依赖 */}
