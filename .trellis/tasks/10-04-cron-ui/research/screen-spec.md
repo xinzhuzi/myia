@@ -46,6 +46,8 @@
 - 承载:dialog 基件;表单分三组——**chips 行**(五种,点击填 schedule 输入框)/主字段(schedule 手输、category 选择器)/**高级折叠**(deliver/failure_deliver/repeat/timezone/config/run_timeout/dry_run Switch);
 - category 选择器:select 基件,数据=yaml.list;坏文件(parse_ok:false)项禁选带「解析失败」后缀;末项「手输路径…」切换 input;
 - 错误回显:submit 失败把 ProtocolError message 原样入 notice/error 行(parse 文案/category 校验);编辑零更新(cron_edit_no_changes)提示后关闭;
+- 校验聚焦(Stage 6 G6):提交校验失败 focus 首错字段+`scrollIntoView({block:"center"})`(HJ cron-job.ts 77-85 focusCronField 对位);错误字段在高级折叠内先展开再聚焦——前端数值校验 repeat(整数)/run_timeout(正数秒),文案=entry.py invalid_params 原文;
+- name 输入(Stage 6 G3):主字段组最上可选 name Input,placeholder「缺省取品类文件名」;create 非空才带键、edit 走 diff;
 - 编辑预填:fromJob(cron-form.ts);schedule 变更后端重算 next_run_at,保存后刷新列表。
 
 ## 4. 事件/时钟

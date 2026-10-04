@@ -46,20 +46,20 @@
 
 > 出处=evidence/blueprint-parity-audit.md(50 项对排);全部零协议变更。规格已展开到执行级(文件:行/形状/蓝本对位/测试);事实核:error 态 job 保持 enabled → 缺省列表可见,纯前端可修。
 
-- [ ] 6.1 **G1+G2 错误可见性族**(中×2)
+- [x] 6.1 **G1+G2 错误可见性族**(中×2)(2026-10-04 落地:cron-form.ts `cronStatusBadge`/`truncateCronText` + cron-screen.tsx 第九列/红行/badge title;#20/#21/#22 过)
   - G1 badge:cron-form.ts:199-204 `cronStatusBadge` 抢占序=paused→「已暂停」/completed→「已完结」/**新增 `state=error`→destructive「已停摆」(优先于 last_status 派生,对位 H530)**;badge 加 `title={job.last_error}`(悬浮细节,对位 H1158-1166)
   - G2a 列:表加**第九列「上次运行」**(排「下次运行」后,~140px,`job.last_run_at` 本地化,空=「—」;对位 H1202-1204;注意 list 已富化 `latest_execution` 可作交叉)
   - G2b 行下错误红行:主行之后、展开钮行之前,条件渲染 `<TableRow><TableCell colSpan={9} className="text-destructive">`:`last_error`(前缀「上次错误:」)与 `last_delivery_error`(前缀「投递错误:」)各一行、截断 120,仅有值时渲染(对位 H1218-1233 三红行;我方无 last_fire_error 字段)
   - 测试 #20/#21/#22(见 screen-spec §5 增补)
-- [ ] 6.2 **G3 name 表单**(中低):CronFormDialog 主字段组最上(schedule 之前)加可选 `Input name`,placeholder「缺省取品类文件名」;buildPayload=create 非空才带键、edit 走 diff(cron-form 状态已备 name);测试 #23
-- [ ] 6.3 低项打包
+- [x] 6.2 **G3 name 表单**(中低)(落地:cron-screen.tsx CronFormDialog 主字段组最上 name Input;buildPayload/fromJob 状态原本已备;#23 过)
+- [x] 6.3 低项打包(全落:cron-screen.tsx reload 保留旧数据+generation 守卫/工具行计数/pendingFocus 聚合聚焦/编辑 footer id;#24-#27 过;G8 代码审查项)
   - G4:reload 错误分支**不清列表**(cron-screen.tsx:115 一带):错误入 error state,ErrorBox 显示但 jobs 保留旧值(对位 H629「错误条+旧列表共存」);#24
   - G5:工具行右侧「共 N 个」=当前行数(all 开关联动;对位 H1092);#25
   - G6:提交校验失败→focus 首个错字段+`scrollIntoView({block:"center"})`;错误字段在高级折叠内则先展开再聚焦(对位 HJ:77-85 focusCronField);#26
   - G7:编辑 Dialog footer 左侧 `font-mono` 显示 job.id(对位 H1065-1068);并入 #27
   - G8:reload 加 generation 计数守卫(useRef 自增、过期响应丢弃;对位 H625-661);实现审查项(代码存在性,不写竞态测试)
-- [ ] 6.4 文档勘误:prd F5「Dialog 确认」→「window.confirm 确认(design 注册先例)」;design 偏离表补 **B8 PluginSlot 扩展槽不抄(无插件系统)**;审计报告 evidence 勾销对应项
-- [ ] 6.5 门禁复跑(vitest+build+entry.py diff 空)+ pathspec 提交 fix(desktop);screen-spec §2/§5 随改随更(九列/错误行/#20-#27)
+- [x] 6.4 文档勘误:prd F5「Dialog 确认」→「window.confirm 确认(design 注册先例)」;design 偏离表补 **B8 PluginSlot 扩展槽不抄(无插件系统)**;审计报告 evidence 勾销对应项(2026-10-04 三处均已改)
+- [x] 6.5 门禁复跑(vitest+build+entry.py diff 空)+ pathspec 提交 fix(desktop);screen-spec §2/§5 随改随更(九列/错误行/#20-#27)(执行批门禁 2026-10-04 过:23 文件/418 测试全绿、build 1.93s、`git diff --stat -- desktop/entry.py` 空;screen-spec §2/§5 核对与实现一致;pathspec 提交按 Stage 6 交办「不 commit」暂缓→**收口会话补落**:门禁复跑同绿=23 文件/418 测试 5.06s+build 1.96s+entry.py diff 空,fix(desktop) 一笔+docs(task) 一笔随收口入库)
 
 ## 验证命令速查
 

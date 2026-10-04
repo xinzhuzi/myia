@@ -54,6 +54,7 @@ desktop/ui-src/src/App.tsx            # <Route path="cron" element={<CronScreen/
 | B5 | deliver 手输 spec,不做 delivery-targets API | 协议零变更红线;格式说明一行足够 |
 | B6 | REST fetch → sidecar invoke(client 门面) | 桌面架构差,蓝本数据流形态保留(加载/错误/空态三态) |
 | B7 | 输出预览不进屏 | cron.runs 已带 run_summary_json 摘要;原文留 CLI/文件 |
+| B8 | 不抄 PluginSlot 扩展槽(H 894 `cron:top` / 1291 `cron:bottom` 插件注入位) | MYIA 无插件系统(Stage 6 对排审计补登记) |
 
 ## 4. 风险
 

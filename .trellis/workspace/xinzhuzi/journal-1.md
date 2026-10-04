@@ -502,3 +502,19 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 勾档:implement.md 全步骤 [x](0.1/0.2 如实注收口口径:占线实为 kestra 线、hunk 分离代 patch 交收口;基线以收口期复跑代替)+prd.md AC1-AC9 全勾(AC5 按 prd 内 grill 二 Q1 批准口径=排队语义 notice+行「已排队」态;各 AC 附测试锚)+task.json 直改 status=review
 - 提交前实跑 `gitnexus detect-changes -r shishi --scope staged`:14 files/25 symbols/34 流程/risk=critical(hub 符号 api/App/NAV_GROUPS/types 接口族触发顶格;numstat 全批纯增量,19 删行均注释改写,协议面零触碰,双门禁绿后放行)
 - docs 批一笔:本段+10-04-cron-ui 档三件(implement/prd 勾选+task.json review);未跑 task.py、不 push(推送归下一阶段)
+
+## 2026-10-04 ui-kestra-anchor 全应用 Kestra 重锚收口(收口归档员会话,task 10-04-ui-kestra-anchor)
+
+- 基调=四件事全落地(转录收口令):道A(采集日志 Executions.vue+Gantt 满高内滚/仪表盘运行区 ExecutionRoot+KsExecutionStatus small/情报流 KsDataTable 满高骨架,VL 各 1 轮放行,改动仅 logs/dashboard/feed 三件)+道B(源管理 Flows.vue 工具栏+行点击开编辑/配置编辑 IDE 满高框架/设置 SettingRow 横排 600px 单列/消息 KsNotification 右上浮卡/空态引导 R4 FirstRunGuide 一键跑 demo,VL 2+2+2+2 轮)+终审 11/11 屏 PASS(sips+qwen3-vl 逐屏复评+PIL 色板实测,VL 14 条具体主张全被 DOM/PIL 实测推翻存证)+修整一次过+门禁绿(vitest 410/410+tsc 零错,真库只读)
+- evidence 清点(收口实跑 ls/md5):36 件全在=20 PNG(8 屏 before/after+settings push/vision+messaging toast+empty 三补)+8 vl.md+8 mapping.md;道A 12 件主张与实物逐一对上;messaging 三图同 MD5(e864b8a1)实核属实=messaging before/after+empty-messaging-kestra-before 三拷贝(真库目录空,改动面证据在 messaging-toast 夹具图,vl.md 已如实注档;empty-messaging 一件 grep 全档零引用=孤儿证据件,清点不删留主人);settings-kestra before/after 尺寸仅差 10B 但 cmp 实测内容相异,真变更已捕获
+- Apache-2.0 归属核对(grep 全量+逐件实读):13 个借结构文件中 11 件头注在位(logs/sources×2/first-run-guide/settings×3/messaging/editor-pane/yaml-editor-screen/app-layout/page-header/sidebar+index.css token 清单共 12 处),缺注 2 件=dashboard-screen.tsx/feed-screen.tsx(diff 内联注释自证借 Kestra 解剖但无 Apache-2.0 头注)——收口补注 2 处(纯注释块,循本仓 [Apache-2.0,借结构改语义] 体例,含不抄清单指回 mapping);vision-form.tsx 判定=消费 SettingRow 组件非直接借结构,归属由 settings-row.tsx 头注覆盖,不补
+- 收口动作:task.json 直改 status planning→review+notes 四件事摘要(json.load 语法验过);补注后实跑 `npx tsc -b` exit 0(注释面零破坏);implement.jsonl/check.jsonl 均 0 行空档(各阶段未落行,循 reskin-r2 先例职责面=task.json+evidence+journal 未代补,如实记)
+- 遗留:①主人目验终裁未做(材料已备,终审 11/11 PASS+贴合 8.5-9.5/10 在案);②树内 docs/screenshots/reskin-r2-final/compare-vs-vercel.png 未跟踪件属 reskin-r2 线残件,不在本任务白名单未碰;③归档(task.py archive→completed)按纪律留主人;未 push、未跑 task.py
+
+## 2026-10-04 cron-ui Stage 6 蓝本对排缺口修复批收口(收口提交员会话,task 10-04-cron-ui;不 push)
+
+- 交付:b895060 fix(desktop) 一笔三件(+394/-17)——G1 cron-form.ts `cronStatusBadge` 增 `state=error`→destructive「已停摆」抢占(优先于 last_status 派生,对位 H530)+badge title 悬浮 last_error 截 120(H1158-1166,新增 `truncateCronText` 共用截断)/G2a 第九列「上次运行」last_run_at 本地化空=「—」(H1202-1204)/G2b 行下 last_error/last_delivery_error 条件红行 colSpan=9 各截 120(H1218-1233)/G3 主字段组最上可选 name Input(create 非空才带键、edit 走 diff)/G4 reload 错误保留旧列表(H629)/G5 工具行「共 N 个」计数(H1092)/G6 校验失败 focus 首错+scrollIntoView+高级折叠先展开(HJ cron-job.ts 77-85)/G7 编辑 footer font-mono job.id(H1065-1068)/G8 reload generation 竞态守卫(H625-661);测试 #20-#27 八用例全落(cron-screen.test.tsx +248);三文件 diff 全读核验与审计规格一一对应
+- 门禁(本会话自跑):`npm --prefix desktop/ui-src run test`=23 文件/418 测试全过 5.06s EXIT=0;`run build`=tsc -b+vite 1.96s EXIT=0(仅 chunk>500kB 既有警告);`git diff --stat -- desktop/entry.py` 空=零协议变更
+- 勾档:evidence/blueprint-parity-audit.md 待办四项 ✅+implement.md Stage 6 五步全 [x](6.1-6.4 执行批注、6.5 收口补注门禁复跑数字与两笔提交)+prd F3「待批」→「已回补」(F5 勘误/design B8 执行批已入)+task.json 直改 status in_progress→review+notes 收口摘要(json.load 语法验过)
+- 提交与分诊:fix 批提交前实跑 `gitnexus detect-changes -r shishi --scope staged`="No changes detected"(纯增量 JSX/测试块,索引器零符号级捕捉,同 g9 补遗批先例,如实记);docs(task) 批=10-04-cron-ui 档六件(implement/prd/design/evidence/screen-spec/task.json)+journal 本段;journal 分诊=树内先前未提交段恰一段=ui-kestra-anchor 收口段(dde18d8 只带 task 档未带 journal,系该线终稿记录),循 e6f5093/d963eb3 拾前段先例随本笔一并入库;docs/screenshots/reskin-r2-final/compare-vs-vercel.png 未跟踪件属 reskin-r2 线残件,pathspec 纪律未碰;docs 批循文档豁免未跑 detect-changes
+- 遗留:归档(task.py archive→completed)+终裁留主人;未 push(推送归下一阶段)

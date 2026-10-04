@@ -11,7 +11,9 @@
 
 ## 待办(若批,零协议变更可落)
 
-1. **G1+G2 同族修**:cronStatusBadge 加 state=error→destructive 分支;job 行补错误行渲染(last_error/last_delivery_error 红字,H1218-1233 对位)+ last_run_at 列(H1202-1204 对位,或并入展开);
-2. **G3**:CronFormDialog 补 name 输入(可选;编辑 diff 已支持);
-3. 低项打包:G4 reload 错误保留旧列表(data 不置 null)/G5 列表计数 (N)/G6 校验失败聚焦/滚动+展开折叠组/G7 编辑底部 job.id mono/G8 reload generation 守卫;
-4. 勘误:prd F5「Dialog 确认」→window.confirm 对齐 design;design 偏离表补 PluginSlot 一行+last_run 裁剪条目。
+> **2026-10-04 Stage 6 已批执行,下四项全数落地勾销**(实现=desktop/ui-src/src/screens/cron/{cron-form.ts,cron-screen.tsx};测试=#20-#27 八用例,全量 23 文件/418 测试绿 + build 过 + entry.py diff 空):
+
+1. ~~**G1+G2 同族修**~~ ✅:cronStatusBadge 加 state=error→destructive「已停摆」分支(cron-form.ts,优先于 last_status 派生,对位 H530)+ badge title=last_error 截断 120(H1158-1166);行下 last_error/last_delivery_error 条件红行 colSpan=9 各截 120(H1218-1233;我方无 last_fire_error,蓝本第三行不搬)+「上次运行」第九列 last_run_at 本地化空=「—」(H1202-1204);
+2. ~~**G3**~~ ✅:CronFormDialog 主字段组最上补可选 name Input(placeholder「缺省取品类文件名」;create 非空才带键,edit 走 diff——buildPayload/fromJob 状态原本已备);
+3. 低项打包 ✅:G4 reload 错误保留旧列表(data 不置 null,ErrorBox+旧表共存,对位 H629)/G5 工具行「共 N 个」=list.count(对位 H1092)/G6 校验失败 focus 首错+scrollIntoView+高级折叠先展开(对位 HJ cron-job.ts 77-85;repeat/run_timeout 数值前端校验文案=entry.py invalid_params 原文)/G7 编辑 footer font-mono job.id(对位 H1065-1068)/G8 reload generation 守卫(useRef 自增丢弃过期响应,对位 H625-661;代码审查项不设竞态测试);
+4. 勘误 ✅:prd F5「Dialog 确认」→「window.confirm 确认(design 注册先例)」;design 偏离表补 B8 PluginSlot 不抄(无插件系统);last_run 裁剪疑虑随 G2a 全列展示消解(空=「—」,不裁剪)。
