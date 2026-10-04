@@ -526,3 +526,12 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - P3(task 10-05-messaging-heading-levels,PRD-only 轻量):**登记口径修正**——fe-gap-census「仅 PageHeader h1、未见跳级复现」已过时(PageHeader 无头化 d9ae353 后全应用无 h1),真实形态=消息屏首标题即 platform-overview 悬空 h3(h2 缺位)。修法=card.tsx CardTitle 加可选 as prop(缺省 div,gitnexus impact 上游 11 调用方评级 CRITICAL→纯增量缺省路径零变化缓解,门禁按 AC3 走全量)+四分区卡头 as=h2(平台总览/通道目录/推送规则/告警规则)+详情面板 h3/h4 自然归位;视觉零变化(类名/data-slot 原样透传)。测试 +1 用例(四分区 heading level2+全屏层级仅 2/3/4)。
 - 门禁:全量 npm run test 23 文件 420 passed+8 skipped 绿;npm run build(tsc+vite)绿 1.58s;git diff --stat -- desktop/entry.py 空=零协议变更;detect-changes staged 见提交批注。
 - 收口:task.json 直改 in_progress→review(并行会话在途禁 start/finish);spec frontend-ui.md:70 heading 行改写(残留消号+CardTitle as=h2 范式);v12-backlog 第 8 项 P3 行消号回标——**两档均并行脏件,v12-backlog prd 与 journal 采快照外科(cp 前后 diff 提取本会话 hunk,patch 到 HEAD 副本+hash-object+update-index 只进 index;journal 同法 EOF 追加块拼 HEAD 副本)**;不 push。
+
+## 2026-10-05 钥匙串凭据名探测零弹窗(主人报障「打开消息要输密码」;task 10-05-keychain-silent-listing)
+
+- 诊断:弹的是 macOS 钥匙串授权框,非 MYIA 要密码——消息屏挂载 secret.list(平台卡判定信号)→ list_secrets 旧路径两步都是**数据读取**(索引项 JSON+逐项 get_password 存在性核对),本机两条凭据(看图线经 .venv python 写入)的 ACL 不含装机版 myssia-core,首次读取必弹;拒绝不被系统记忆→每次开屏重弹。实测定向:attributes-only 查询(find-generic-password 不带 -w / dump-keychain)零弹窗——授权只作用于数据读取。
+- 修法(D1-D5 见 design.md):secrets.py 新增 _dump_macos_service_accounts(darwin 门卫+subprocess timeout 10s+块解析 svce/acct,一切失败路径返 None)+list_secrets 头部枚举分支(backend=None 且枚举成功即返回,连 get_backend 都不触碰;__index__/不合规名剔除+sorted(set));注入 backend 永不枚举→既有测试零漂移;值读取 ACL 语义零变化(修探测不修用凭据)。
+- 门禁:scoped pytest tests/test_secrets.py 55+1skip 绿、ruff 绿、真机 list_secrets() 枚举与旧路径逐字节一致(raw 3 account→过滤后同两条名)。
+- ⚠️ 提交事故:两件 staged 被并行会话 732b424(justfile 线)收编——共享暂存区反向竞态(与 8d2e8a8 收编 89 git mv 同族);循 tests-module-grouping G1 判例不拆刚落提交,代码入库无损已验(git show 三处符号在)。教训:staged 挂着就要立刻 commit,detect-changes 的窗口期就是被收编的风险窗口;本会话后续 docs 批全部改走 pathspec(--only)提交,不再依赖共享 index 状态。
+- 装机:worktree 检出 732b424→ui-src npm ci+desktop npm install→npm run tauri build(世事.app 132.15MiB)→ditto 备份换装(备份 /tmp/世事.app.bak-ks-010926;回执 /tmp/ks-install.exit=ok installed,链日志 /tmp/ks-install.log);**装机版 myssia-core 实跑 `secret list` 安静返回两条名 exit=0 零授权框——若走旧读数据路径,未授权二进制必弹**=AC7 可自动化最强证据;GUI 开屏零弹窗终裁=主人重开 app 目验。
+- docs:41f6c99(task 档三件套+spec security-baseline「名探测零弹窗/值读取 ACL 不变」铁律行)+本批(AC7 勾选回执+journal 本段,journal 仍采 HEAD+本会话块拼装的外科提交);不 push。
