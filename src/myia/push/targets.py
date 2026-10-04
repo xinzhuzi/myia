@@ -11,10 +11,16 @@ Hermes 实际顺序(grill 事实轮核订):
 3. **精确名**(大小写不敏感,忽略首部 ``#``,Hermes 同款规范化);
 4. **唯一前缀**(多义即未命中)。
 
-别名是目录改名层(:mod:`shishi.push.directory` 加载期已套用),不是独立
+别名是目录改名层(:mod:`myia.push.directory` 加载期已套用),不是独立
 解析层级。未命中抛 :class:`TargetResolveError` 结构化错误——【偏离注记】
 Hermes 只报「Could not resolve」不带候选(靠交互式 ``action='list'``);
 MYIA 无交互回路,错误内嵌候选列表】。
+
+三段话题形态(10-04-feishu-thread-send):``platform:<名或id>:<thread_id>``
+在上述四路径**整体未命中后**追加回退——末段拆出话题 id,base 经同一套
+钩子+四路径解析。仅对声明 ``supports_threads = True`` 的平台类生效
+(本期仅 feishu;蓝本 ``_FEISHU_TARGET_RE`` 的 ``<id>:<thread>`` 直达
+形态是其 id-base 子集);显式话题段覆盖目录条目存量 ``thread_id``。
 
 安全:全部为纯字符串/前缀匹配,无任何 ``eval``/动态执行。
 """
@@ -23,13 +29,14 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Iterable, Mapping
 
-from shishi.push.directory import ChannelDirectory, ChannelEntry
+from myia.push.directory import ChannelDirectory, ChannelEntry
 
 __all__ = [
     "SPEC_RE",
+    "THREAD_REF_RE",
     "ChannelTarget",
     "TargetResolveError",
     "parse_spec",
@@ -42,6 +49,12 @@ logger = logging.getLogger(__name__)
 #: 合法 spec 形态 ``platform:名称或id``(platform 小写字母开头,后接小写
 #: 字母/数字/下划线;冒号后非空,允许 ``@``/负号/中文等原生 id 字符)。
 SPEC_RE = re.compile(r"^([a-z][a-z0-9_]*):(.+)$")
+
+#: 三段形态的话题段字符集(10-04-feishu-thread-send):ASCII 字母/数字/
+#: 下划线/连字符——与 feishu ``DIRECT_REF_RE`` 的话题组同款保守集。
+#: 中文/空格/点号不匹配 ⇒ 含冒号的合法名称/非话题形态零误伤(slack 的
+#: ``chan:168….123`` 时间戳、matrix 的 ``room:$event`` 均含本集合外字符)。
+THREAD_REF_RE = re.compile(r"^[-A-Za-z0-9_]+$")
 
 #: 解析来源标签(报告/日志用)。
 RESOLVED_DIRECT = "direct"
@@ -107,7 +120,7 @@ class ChannelTarget:
 
     @property
     def key(self) -> str:
-        """死信账本键(与 :class:`shishi.push.delivery.DeliveryLedger` 一致)。"""
+        """死信账本键(与 :class:`myia.push.delivery.DeliveryLedger` 一致)。"""
         return f"{self.platform.strip().lower()}:{self.chat_id.strip()}"
 
     def __str__(self) -> str:
@@ -119,9 +132,7 @@ def parse_spec(spec: str) -> tuple[str, str]:
     """``platform:名称或id`` → ``(platform, ref)``;格式错抛 TargetResolveError。"""
     match = SPEC_RE.fullmatch(spec.strip())
     if match is None:
-        raise TargetResolveError(
-            spec, platform=None, ref=None, reason="bad_format"
-        )
+        raise TargetResolveError(spec, platform=None, ref=None, reason="bad_format")
     platform, ref = match.group(1), match.group(2).strip()
     if not ref:
         raise TargetResolveError(spec, platform=platform, ref=ref, reason="bad_format")
@@ -135,9 +146,7 @@ def _normalize_query(value: str) -> str:
 
 def _candidate_labels(entries: Iterable[ChannelEntry]) -> list[str]:
     """候选描述列表(``名称 (chat_id)``),按名称稳定排序,供错误内嵌。"""
-    return sorted(
-        f"{entry.name} ({entry.chat_id})" for entry in entries if entry.name
-    )
+    return sorted(f"{entry.name} ({entry.chat_id})" for entry in entries if entry.name)
 
 
 def resolve_target(
@@ -149,19 +158,61 @@ def resolve_target(
     """Resolve one ``platform:名称或id`` spec to a :class:`ChannelTarget`.
 
     Args:
-        spec: 待解析 spec。
+        spec: 待解析 spec(两段 ``platform:名称或id``,或 opt-in 平台的三段
+            ``platform:<名或id>:<thread_id>``)。
         directory: 通道目录(别名已在加载期套用)。
         platforms: 平台注册表(``PLATFORMS``,platform → 通道类);条目可提供
             ``parse_direct_ref(ref) -> ChannelTarget | None`` 直达解析钩子
             (telegram 数字 id/``@username``、feishu ``oc_/ou_/on_/chat_/open_``
-            前缀 id 等),命中即跳过目录。缺省惰性取 ``shishi.push.PLATFORMS``。
+            前缀 id 等),命中即跳过目录;声明 ``supports_threads = True``
+            的条目同时启用三段话题拆分。缺省惰性取 ``myia.push.PLATFORMS``。
 
     Raises:
-        TargetResolveError: spec 格式错 / 直达与目录全部未命中 / 前缀多义。
+        TargetResolveError: spec 格式错 / 直达与目录全部未命中 / 前缀多义
+            (整体 ref 或三段 base 任一多义均按多义上报)。
     """
     platform, ref = parse_spec(spec)
     bucket = directory.entries(platform)
 
+    # 1-4. 直达钩子 + 目录四路径,整体 ref 优先——含冒号的名称照旧整体匹配,
+    # 绝不先拆三段(既有解析行为零变化)。
+    target = _match_direct_or_directory(spec, platform, ref, bucket, platforms)
+    if target is not None:
+        return target
+
+    # 5. 三段回退(10-04-feishu-thread-send):``<名或id>:<thread_id>``,
+    #    仅 supports_threads 平台;显式话题段覆盖目录条目存量 thread_id。
+    split = _split_thread_ref(platform, ref, platforms)
+    if split is not None:
+        base_ref, thread_id = split
+        base_target = _match_direct_or_directory(
+            spec, platform, base_ref, bucket, platforms
+        )
+        if base_target is not None:
+            return replace(base_target, thread_id=thread_id)
+
+    reason = "unknown_platform" if not bucket else "unresolvable"
+    raise TargetResolveError(
+        spec,
+        platform=platform,
+        ref=ref,
+        candidates=_candidate_labels(bucket),
+        reason=reason,
+    )
+
+
+def _match_direct_or_directory(
+    spec: str,
+    platform: str,
+    ref: str,
+    bucket: list[ChannelEntry],
+    platforms: Mapping[str, Any] | None,
+) -> ChannelTarget | None:
+    """直达钩子 + 目录四路径(解析顺序 1→4);未命中返回 None。
+
+    前缀多义即刻抛 :class:`TargetResolveError`(候选取 ref 自身的前缀命中,
+    spec 用调用方原 spec——错误信息始终呈现用户输入)。
+    """
     # 1. 直达钩子:显式 id/@username 不经目录(Hermes 平台 parser 的等价物)。
     direct = _parse_direct_ref(platform, ref, platforms)
     if direct is not None:
@@ -191,15 +242,47 @@ def resolve_target(
             candidates=_candidate_labels(prefix_matches),
             reason="ambiguous_prefix",
         )
+    return None
 
-    reason = "unknown_platform" if not bucket else "unresolvable"
-    raise TargetResolveError(
-        spec,
-        platform=platform,
-        ref=ref,
-        candidates=_candidate_labels(bucket),
-        reason=reason,
-    )
+
+def _split_thread_ref(
+    platform: str, ref: str, platforms: Mapping[str, Any] | None
+) -> tuple[str, str] | None:
+    """``<名或id>:<thread_id>`` 末段拆分;不可拆/平台未 opt-in → None。
+
+    拆分条件(全部满足才拆):平台类声明 ``supports_threads = True``;ref 含
+    冒号且 base 非空(``feishu::mt_x`` 的空 base 不拆——chat_id 是必填的
+    寻址/账本位);话题段匹配 :data:`THREAD_REF_RE`(保守 id 字符集,见其
+    注记)。取**最后一个**冒号(``oc_a:b:c`` → base ``oc_a:b`` + 话题
+    ``c``):更前的冒号段随 base 走整体解析,直达钩子自会消化
+    (``oc_a:b`` 命中 feishu ``DIRECT_REF_RE`` 的话题组)。
+    """
+    if not _platform_supports_threads(platform, platforms):
+        return None
+    base, sep, thread = ref.rpartition(":")
+    if not sep or not base.strip():
+        return None
+    thread = thread.strip()
+    if not thread or THREAD_REF_RE.fullmatch(thread) is None:
+        return None
+    return base.strip(), thread
+
+
+def _platform_supports_threads(
+    platform: str, platforms: Mapping[str, Any] | None
+) -> bool:
+    """平台类是否声明话题寻址(``supports_threads`` 类属性,缺省 False)。
+
+    与 :func:`_parse_direct_ref` 同一注册表取法(None → 惰性 ``PLATFORMS``):
+    未注册平台/未声明旗标一律 False——三段拆分是对既有解析的纯增量,
+    非 opt-in 平台零行为变化。
+    """
+    if platforms is None:
+        from myia.push import PLATFORMS  # deferred:避免包初始化环
+
+        platforms = PLATFORMS
+    entry_cls = platforms.get(platform)
+    return bool(getattr(entry_cls, "supports_threads", False))
 
 
 def resolve_all(
@@ -229,7 +312,7 @@ def _parse_direct_ref(
 ) -> ChannelTarget | None:
     """平台直达钩子分发;无注册表或无钩子/未命中 → None(走目录)。"""
     if platforms is None:
-        from shishi.push import PLATFORMS  # deferred:避免包初始化环
+        from myia.push import PLATFORMS  # deferred:避免包初始化环
 
         platforms = PLATFORMS
     entry_cls = platforms.get(platform)
@@ -248,9 +331,14 @@ def _parse_direct_ref(
         chat_id = str(target[0])
         thread = str(target[1]) if len(target) > 1 and target[1] else None
         return ChannelTarget(
-            platform=platform, chat_id=chat_id, thread_id=thread, resolved_from=RESOLVED_DIRECT
+            platform=platform,
+            chat_id=chat_id,
+            thread_id=thread,
+            resolved_from=RESOLVED_DIRECT,
         )
-    logger.debug("parse_direct_ref 返回非常规形态,忽略: platform=%s value=%r", platform, target)
+    logger.debug(
+        "parse_direct_ref 返回非常规形态,忽略: platform=%s value=%r", platform, target
+    )
     return None
 
 

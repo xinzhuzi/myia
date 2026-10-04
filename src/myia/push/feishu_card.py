@@ -27,6 +27,20 @@ multipart 上传首图换 ``image_key``(同一 tenant token,应用需开
 降级「图析摘要卡」文本形态(lark_md 图析摘要行 + 配图 N 张注记),只告警
 不阻投递。digest 批量不带图;路由/when 逻辑零改动,仅组装层增强。
 
+话题定向(10-04-feishu-thread-send):``context.target.thread_id`` 在场即
+改投**话题回复端点** ``POST im/v1/messages/{thread_id}/reply``(root_id
+锚定 = 话题根消息 id;三段 spec ``feishu:<名或id>:<thread_id>`` 的解析在
+:mod:`myia.push.targets`,本类 ``supports_threads = True`` 声明 opt-in)。
+蓝本锚:Hermes ``adapter.py`` ``_send_raw_message`` 的话题分支(上游
+3747-3772 行,``im.v1.message.reply``)。【偏离注记 1:Hermes 的话题回复
+是被动回信(入站消息自带 reply_to/root 元数据);MYIA 出站-only 无入站
+可依附,是以存量 thread_id 为锚的**主动**话题投递。偏离注记 2:Hermes
+在回复目标失效时回退 ``receive_id_type="thread_id"`` 直发(上游 3759-
+3760 行)——MYIA 不采纳:该 receive_id_type 不在官方成文枚举,且话题群
+直发 create 会**开新话题**(官方行为),静默错位比诚实失败更糟;话题根
+失效按 ``feishu_api_error`` 进死信】。回复端点不收 ``receive_id``/
+``receive_id_type``(路径参数即锚),与 create 路径共用同一卡片组装。
+
 Credentials stay references until send time (security baseline: 凭据零明文):
 the bot token comes from ``env:FEISHU_BOT_TOKEN`` (or an injected value for
 tests). Errors carry reference names only, never resolved values.
@@ -44,10 +58,11 @@ import mimetypes
 import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+from urllib.parse import quote
 
 import httpx
 
-from shishi.push.base import (
+from myia.push.base import (
     DEFAULT_SEND_TIMEOUT_SECONDS,
     PushSendError,
     SendContext,
@@ -57,10 +72,10 @@ from shishi.push.base import (
     item_images,
     item_view,
 )
-from shishi.push.directory import ChannelEntry
-from shishi.push.targets import ChannelTarget
-from shishi.push.templates import TemplateRenderError, TemplateRenderer
-from shishi.schema import CredentialResolveError, resolve_credential
+from myia.push.directory import ChannelEntry
+from myia.push.targets import ChannelTarget
+from myia.push.templates import TemplateRenderError, TemplateRenderer
+from myia.schema import CredentialResolveError, resolve_credential
 
 __all__ = [
     "API_URL",
@@ -72,10 +87,12 @@ __all__ = [
     "DIRECT_REF_RE",
     "FeishuCardChannel",
     "IMAGES_API_URL",
+    "THREAD_ID_RE",
     "build_card",
     "build_markdown_card",
     "card_title",
     "escape_lark_md",
+    "thread_reply_url",
 ]
 
 logger = logging.getLogger(__name__)
@@ -103,8 +120,26 @@ CARD_FOOTER = "MYIA 自动聚合推送 · 条目来自公开论坛分享,注意�
 
 #: 直达对象形态(Hermes ``send_message_targets.py`` 的 ``_FEISHU_TARGET_RE``
 #: 同款:oc_ 群/私聊、ou_ open_id、on_ union_id、chat_/open_ 原生 id;可选
-#: ``:thread`` 部分只解析不入发送路由)。
-DIRECT_REF_RE = re.compile(r"^((?:oc|ou|on|chat|open)_[-A-Za-z0-9]+)(?::([-A-Za-z0-9_]+))?$")
+#: ``:thread`` 部分自 10-04-feishu-thread-send 起由发送侧兑现——见
+#: :meth:`FeishuCardChannel.send` 的话题回复路径)。
+DIRECT_REF_RE = re.compile(
+    r"^((?:oc|ou|on|chat|open)_[-A-Za-z0-9]+)(?::([-A-Za-z0-9_]+))?$"
+)
+
+#: 话题根消息 id 形态(发送侧校验):ASCII 字母/数字/下划线/连字符——与
+#: :data:`myia.push.targets.THREAD_REF_RE` 同款保守集(官方消息 id 形如
+#: ``om_xxx``/``mt_xxx``,均在其内);不匹配即结构化报错,解析值不回显
+#: (discord 话题同款纪律,10-03-messaging-w3-longtail D1)。
+THREAD_ID_RE = re.compile(r"^[-A-Za-z0-9_]+$")
+
+
+def thread_reply_url(thread_id: str) -> str:
+    """话题回复端点 ``im/v1/messages/{root_id}/reply``(root_id = 话题根消息 id)。
+
+    thread_id 经 :func:`urllib.parse.quote` 字面化入路径(防御:path 注入;
+    合法形态本就全在 unreserved 集内,quote 是纵深一层)。
+    """
+    return f"{API_URL}/{quote(thread_id, safe='')}/reply"
 
 
 def escape_lark_md(text: str) -> str:
@@ -162,14 +197,22 @@ def build_card(
         if index:
             elements.append({"tag": "hr"})
         elements.append(
-            {"tag": "div", "text": {"tag": "lark_md", "content": _item_markdown(item_view(item))}}
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": _item_markdown(item_view(item))},
+            }
         )
     if not elements:
         elements.append(
-            {"tag": "div", "text": {"tag": "lark_md", "content": "本槽位没有待推送条目"}}
+            {
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": "本槽位没有待推送条目"},
+            }
         )
     if footer:
-        elements.append({"tag": "note", "elements": [{"tag": "plain_text", "content": footer}]})
+        elements.append(
+            {"tag": "note", "elements": [{"tag": "plain_text", "content": footer}]}
+        )
     return _card_shell(title, elements, header_color)
 
 
@@ -185,14 +228,21 @@ def build_markdown_card(
         {"tag": "div", "text": {"tag": "lark_md", "content": markdown}}
     ]
     if footer:
-        elements.append({"tag": "note", "elements": [{"tag": "plain_text", "content": footer}]})
+        elements.append(
+            {"tag": "note", "elements": [{"tag": "plain_text", "content": footer}]}
+        )
     return _card_shell(title, elements, header_color)
 
 
-def _card_shell(title: str, elements: list[dict[str, Any]], header_color: str) -> dict[str, Any]:
+def _card_shell(
+    title: str, elements: list[dict[str, Any]], header_color: str
+) -> dict[str, Any]:
     return {
         "config": {"wide_screen_mode": True},
-        "header": {"template": header_color, "title": {"tag": "plain_text", "content": title}},
+        "header": {
+            "template": header_color,
+            "title": {"tag": "plain_text", "content": title},
+        },
         "elements": elements,
     }
 
@@ -204,7 +254,9 @@ class FeishuCardChannel(TrendAwareChannel):
     ``context.target.chat_id`` 优先、退回 legacy ``target`` 引用(schema
     侧 targets 在场时 target 可省,故构造参数同样可选);``ou_`` 前缀按
     ``receive_id_type=open_id`` 投递(Hermes 发送路由同款),其余维持
-    ``chat_id``。
+    ``chat_id``。话题寻址(10-04-feishu-thread-send):``supports_threads=
+    True`` + ``context.target.thread_id`` 在场改投 ``{thread_id}/reply``
+    话题回复端点(蓝本锚/偏离注记见模块 docstring「话题定向」节)。
 
     Args:
         target: credential reference for the receiving chat id
@@ -228,6 +280,10 @@ class FeishuCardChannel(TrendAwareChannel):
     #: 目录寻址已开(10-03-messaging-feishu):context.target 优先,legacy
     #: target 兜底;协议判定见 base.Channel docstring。
     supports_targeting = True
+    #: 话题寻址已开(10-04-feishu-thread-send):core targets 解析器据此启用
+    #: ``feishu:<名或id>:<thread_id>`` 三段回退(targets._split_thread_ref),
+    #: 发送侧兑现见 :meth:`send` 的话题回复路径。
+    supports_threads = True
     #: 目录发现 429 退避秒数(design D2:退避一次再试;测试可钉 0)。
     discover_backoff_seconds = 1.0
 
@@ -253,7 +309,9 @@ class FeishuCardChannel(TrendAwareChannel):
 
         定向优先(``context.target.chat_id`` > legacy ``target`` 引用);
         两条路径都缺席时报 ``missing_target`` 结构化错误(fail-fast,
-        绝不猜默认群)。
+        绝不猜默认群)。``context.target.thread_id`` 在场即改投话题回复端点
+        (root_id 锚定,蓝本锚/偏离注记见模块 docstring「话题定向」节);
+        legacy 路径无话题概念,thread_id 恒 None(行为不变)。
 
         Raises:
             PushSendError: on any credential/transport/API failure (callers
@@ -265,6 +323,11 @@ class FeishuCardChannel(TrendAwareChannel):
             if context.target is not None
             else self._resolve_target()
         )
+        thread_id = (
+            (context.target.thread_id or "").strip() or None
+            if context.target is not None
+            else None
+        )
         card = self._build_card(items, context)
         # immediate 带图(看图 v2):先建卡(模板渲染错误在此抛出,零请求
         # 发出),再尝试附图——上传/降级均在组装层内闭环,不阻投递。
@@ -274,10 +337,13 @@ class FeishuCardChannel(TrendAwareChannel):
             "msg_type": "interactive",
             "content": json.dumps(card, ensure_ascii=False),
         }
-        await self._post(token, body)
+        await self._post(token, body, thread_id=thread_id)
         logger.debug(
             "飞书卡片已提交: slot=%s kind=%s count=%d target=%s",
-            context.slot, context.kind, len(items), context.target,
+            context.slot,
+            context.kind,
+            len(items),
+            context.target,
         )
 
     def _build_card(self, items: Sequence[Any], context: SendContext) -> dict[str, Any]:
@@ -287,7 +353,9 @@ class FeishuCardChannel(TrendAwareChannel):
             # 拦截等运行期错误;语法错误已在加载期被 schema 拒绝)包装为
             # 结构化的 template_render_error,由调用方按通道隔离。
             try:
-                markdown = self._renderer.render(self._template, items, context, **self.trend_render_kwargs())
+                markdown = self._renderer.render(
+                    self._template, items, context, **self.trend_render_kwargs()
+                )
             except TemplateRenderError as exc:
                 raise PushSendError(
                     "template_render_error", f"push[].template 渲染失败: {exc}"
@@ -298,7 +366,11 @@ class FeishuCardChannel(TrendAwareChannel):
     # ------------------------------------------------- immediate 带图(看图 v2)
 
     async def _attach_card_image(
-        self, token: str, card: dict[str, Any], items: Sequence[Any], context: SendContext
+        self,
+        token: str,
+        card: dict[str, Any],
+        items: Sequence[Any],
+        context: SendContext,
     ) -> dict[str, Any]:
         """Immediate 单条目带图组装:img 元素(上传成功)或图析摘要行(降级)。
 
@@ -354,7 +426,9 @@ class FeishuCardChannel(TrendAwareChannel):
             1, {"tag": "div", "text": {"tag": "lark_md", "content": "\n".join(lines)}}
         )
         logger.info(
-            "飞书卡片采用图析摘要文本形态: 声明 %d 图,本机存在 %d", info.declared, len(info.paths)
+            "飞书卡片采用图析摘要文本形态: 声明 %d 图,本机存在 %d",
+            info.declared,
+            len(info.paths),
         )
         return card
 
@@ -427,23 +501,55 @@ class FeishuCardChannel(TrendAwareChannel):
         except CredentialResolveError as exc:
             raise PushSendError(exc.code, f"飞书 target 解析失败: {exc}") from exc
 
-    async def _post(self, token: str, body: dict[str, Any]) -> dict[str, Any]:
-        receive_id = str(body.get("receive_id") or "")
-        # ou_ 前缀是用户 open_id,须按 open_id 路由;其余(oc_/chat_/……)
-        # 一律 chat_id(Hermes feishu adapter 发送路由同款形态)。
-        params = {
-            "receive_id_type": "open_id" if receive_id.startswith("ou_") else "chat_id"
-        }
+    async def _post(
+        self, token: str, body: dict[str, Any], *, thread_id: str | None = None
+    ) -> dict[str, Any]:
+        """POST one message:话题回复端点(thread_id 在场)或 create 端点。
+
+        话题路径(10-04-feishu-thread-send):``POST im/v1/messages/{thread_id}/
+        reply``,root_id 锚定 = 话题根消息 id(官方契约:话题群内定位既有
+        话题必须走回复端点,直发 create 会开新话题);回复体只携带
+        ``msg_type``/``content``——不收 ``receive_id``/``receive_id_type``
+        (路径参数即锚)。蓝本 Hermes ``_send_raw_message`` 的话题分支;
+        偏离注记(不采纳其 create 兜底)见模块 docstring。
+
+        Raises:
+            PushSendError: 话题 id 形态非法(结构化报错,解析值不回显)、
+                HTTP 传输失败、非 JSON 响应或飞书非零 code(话题根失效也
+                走这里——诚实失败进死信,不静默开新话题)。
+        """
+        url = API_URL
+        params: dict[str, str] | None = None
+        payload: dict[str, Any] = body
+        if thread_id is not None:
+            if THREAD_ID_RE.fullmatch(thread_id) is None:
+                raise PushSendError(
+                    "invalid_thread_ref",
+                    f"飞书话题 id 形态非法(须为 ASCII 字母/数字/下划线/连字符):"
+                    f"得到 {len(thread_id)} 字符的值,不匹配该形态(解析值不回显)",
+                )
+            url = thread_reply_url(thread_id)
+            params = None  # 回复端点无 receive_id_type 查询参
+            payload = {"msg_type": body.get("msg_type"), "content": body.get("content")}
+        else:
+            receive_id = str(body.get("receive_id") or "")
+            # ou_ 前缀是用户 open_id,须按 open_id 路由;其余(oc_/chat_/……)
+            # 一律 chat_id(Hermes feishu adapter 发送路由同款形态)。
+            params = {
+                "receive_id_type": "open_id"
+                if receive_id.startswith("ou_")
+                else "chat_id"
+            }
         headers = {"Authorization": f"Bearer {token}"}
         try:
             if self._client is not None:
                 response = await self._client.post(
-                    API_URL, params=params, headers=headers, json=body
+                    url, params=params, headers=headers, json=payload
                 )
             else:
                 async with httpx.AsyncClient(timeout=self._timeout) as client:
                     response = await client.post(
-                        API_URL, params=params, headers=headers, json=body
+                        url, params=params, headers=headers, json=payload
                     )
         except httpx.HTTPError as exc:
             raise PushSendError(
@@ -462,7 +568,9 @@ class FeishuCardChannel(TrendAwareChannel):
             ) from exc
         if not isinstance(data, Mapping) or data.get("code") != 0:
             code = data.get("code") if isinstance(data, Mapping) else None
-            message = data.get("msg") if isinstance(data, Mapping) else response.text[:200]
+            message = (
+                data.get("msg") if isinstance(data, Mapping) else response.text[:200]
+            )
             raise PushSendError(
                 "feishu_api_error", f"飞书 API 返回错误: code={code} msg={message}"
             )
@@ -483,7 +591,7 @@ class FeishuCardChannel(TrendAwareChannel):
         Raises:
             PushSendError: 凭据缺失/失效、HTTP 传输失败、非 JSON 响应或
                 飞书返回非零 code(如 401 对应的 token 失效)。调用方
-                (:meth:`shishi.push.directory.ChannelDirectory.refresh`)按
+                (:meth:`myia.push.directory.ChannelDirectory.refresh`)按
                 发现失败隔离:告警 + 保留旧桶,不触碰投递死信账本。
         """
         token = self._resolve_token()
@@ -528,9 +636,14 @@ class FeishuCardChannel(TrendAwareChannel):
         name = str(raw.get("name") or "").strip() or chat_id
         return ChannelEntry(platform="feishu", chat_id=chat_id, name=name, type="group")
 
-    async def _fetch_chats_page(self, token: str, page_token: str | None) -> dict[str, Any]:
+    async def _fetch_chats_page(
+        self, token: str, page_token: str | None
+    ) -> dict[str, Any]:
         """One ``GET im/v1/chats`` page(429 退避一次再试,design D2)。"""
-        params: dict[str, Any] = {"user_id_type": "open_id", "page_size": CHATS_PAGE_SIZE}
+        params: dict[str, Any] = {
+            "user_id_type": "open_id",
+            "page_size": CHATS_PAGE_SIZE,
+        }
         if page_token:
             params["page_token"] = page_token
         headers = {"Authorization": f"Bearer {token}"}
@@ -573,8 +686,9 @@ class FeishuCardChannel(TrendAwareChannel):
         """显式 id 直达:``oc_/ou_/on_/chat_/open_`` 前缀不经目录。
 
         Hermes ``_FEISHU_TARGET_RE`` 同款形态;``oc_x:mt_x`` 的 ``:mt_x``
-        部分解析进 ``thread_id``(发送侧不实装,prd 非目标)。非 id 形态
-        返回 None(调用方回落目录四路径解析)。
+        部分解析进 ``thread_id``,自 10-04-feishu-thread-send 起由发送侧
+        兑现(:meth:`send` 的话题回复路径)。非 id 形态返回 None(调用方
+        回落目录四路径解析)。
         """
         match = DIRECT_REF_RE.fullmatch(ref.strip())
         if match is None:
