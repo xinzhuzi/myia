@@ -33,10 +33,13 @@
 | 名称 | 弹性 | name(缺省截断 40,DeleteConfirm 同款 truncate) |
 | 排程 | ~160 | schedule_display(人话直读) |
 | 下次运行 | ~150 | next_run_at 本地化;**逾期红标**=now>next+15min(text-destructive+标「逾期」);终态/暂停=「—」 |
-| 上次状态 | ~110 | badge 四态:ok=success/failed=destructive/delivery_failed·skipped_busy=warning/paused(或 state=paused)=中性;state=completed=灰「已完结」 |
+| **上次运行**(Stage 6 G2a 增列) | ~140 | last_run_at 本地化,空=「—」(对位 H1202-1204) |
+| 上次状态 | ~110 | badge 四态:ok=success/failed=destructive/delivery_failed·skipped_busy=warning/paused(或 state=paused)=中性;state=completed=灰「已完结」;**state=error→destructive「已停摆」(G1,优先于 last_status 派生,对位 H530;badge title=last_error 截断)** |
 | 投递 | ~120 | deliver(截断) |
 | 次数 | ~80 | repeat:completed/times,∞=times null 显示「∞」 |
 | 动作 | ~200 | 立即运行(**排队语义 Q1**:点击→notice「已排队,≤60 秒内开始」+行短时「已排队」态;completed 事件落地刷新——非 spinner 死等)/暂停/恢复/编辑/删除(删除经确认) |
+
+**行下错误红行(Stage 6 G2b,对位 H1218-1233)**:主行后、展开行前,有值才渲染——`<TableCell colSpan={9}>` 两行红字:`上次错误:{last_error 截 120}` / `投递错误:{last_delivery_error 截 120}`。
 
 ## 3. 创建/编辑 Dialog(F4)
 
@@ -68,6 +71,14 @@
 | 11 | 动作四件 | run/pause/resume invoke 形状;remove 先 window.confirm(AC5) |
 | 12 | run 排队语义 | run 后 notice「已排队/≤60 秒」+行「已排队」态;completed 事件到刷新(AC5,grill 二 Q1) |
 | 19 | estopped 下单 job 操作 | estopped 态仍可暂停/编辑单 job(后端语义,Q4);红条含注记文案(AC2/AC5) |
+| 20 | error 态 badge(G1) | state=error 行 badge destructive+文案「已停摆」+title 含 last_error;优先于 last_status 派生(AC3) |
+| 21 | 错误红行(G2b) | last_error/last_delivery_error 有值→行下红字两行渲染且截断 120;无值不渲染行(AC3) |
+| 22 | 上次运行列(G2a) | last_run_at 有值本地化渲染/空=「—」(AC3) |
+| 23 | name 表单(G3) | 创建可命名(payload 含 name);编辑改名入 diff;留空不带键(AC4) |
+| 24 | 错误保留旧列表(G4) | reload 失败→ErrorBox 出现且列表行仍在(AC3/AC7) |
+| 25 | 列表计数(G5) | 工具行「共 N 个」=行数;all 开关联动(AC3) |
+| 26 | 校验聚焦(G6) | 提交缺 schedule→对应 input 获焦;错误字段在高级折叠→先展开再聚焦(AC4) |
+| 27 | 编辑示 id(G7) | 编辑 Dialog footer 含 font-mono job.id(AC4) |
 | 13 | 历史展开 | 首次展开 invoke runs{job,limit:10};摘要字段渲染;空态(AC6) |
 | 14 | 事件驱动 | emitSidecarEvent(completed)→notice(name/status)+list 重拉(AC7) |
 | 15 | skipped 事件 | 文案含「跳过」;重拉(AC7) |
