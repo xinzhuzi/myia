@@ -608,6 +608,9 @@ describe("源管理:试抓此源(C13 → 详情弹窗)", () => {
     expect(screen.getByRole("link", { name: "查看采集日志" }).getAttribute("href")).toBe("#/logs");
     // job 收尾:进行中锚点撤
     expect(screen.queryByTestId("test-running")).toBeNull();
+    // 旧贴顶横幅 testid 清零(复查 L:AC1 后半的显式反向断言)
+    expect(screen.queryByTestId("test-result-ok")).toBeNull();
+    expect(screen.queryByTestId("test-result-fail")).toBeNull();
 
     // ESC 关闭(只读无 dirty 守卫)
     fireEvent.keyDown(window, { key: "Escape" });
@@ -671,6 +674,60 @@ describe("源管理:试抓此源(C13 → 详情弹窗)", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("test-result-dialog")).toBeNull();
     });
+  });
+
+  it("编辑模态在途时试抓完成:不叠双模态,关闭编辑后结果弹窗自然浮现(复查 M)", async () => {
+    const events = installEvents();
+    const { map } = okSidecar(["local-api"]);
+    map["sources.test"] = () => ({ job_id: 11, state: "running", source: "local-api" });
+    installSidecar(map);
+    render(
+      <MemoryRouter>
+        <SourcesScreen />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("local-api");
+    fireEvent.click(screen.getByRole("button", { name: "试抓 local-api" }));
+    await screen.findByTestId("test-running");
+
+    // 编辑模态先开(行编辑钮;未改稿干净态,ESC 直关无 dirty confirm)
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    expect(await screen.findByTestId("yaml-editor-dialog")).toBeTruthy();
+
+    // 试抓于编辑在途时完成:不叠双模态(同 z-50 叠底 + ESC 双关会静默丢结果)
+    events.emit({
+      type: "test.completed",
+      job_id: 11,
+      ok: true,
+      exit_code: 0,
+      result: {
+        command: "test",
+        sources: [
+          {
+            source: "local-api",
+            engine: "direct_api",
+            engine_configured: "auto",
+            ok: true,
+            item_count: 1,
+            failures: [],
+            fingerprint: {
+              skip_reason: null,
+              verdict: "changed_or_first_fetch",
+              meaning: "内容有变化或首次抓取,线上调度会正常提取",
+            },
+          },
+        ],
+      },
+      ts: "2026-10-03T08:00:00+00:00",
+    });
+    expect(screen.queryByTestId("test-result-dialog")).toBeNull();
+
+    // 关闭编辑弹窗(ESC)→ 结果弹窗自然浮现,结果未丢
+    fireEvent.keyDown(window, { key: "Escape" });
+    const dialog = await screen.findByTestId("test-result-dialog");
+    expect(dialog.textContent).toContain("direct_api");
+    expect(dialog.textContent).toContain("内容有变化或首次抓取");
   });
 });
 

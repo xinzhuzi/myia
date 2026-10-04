@@ -57,13 +57,14 @@ export function TestResultDialog({ outcome, onClose }: TestResultDialogProps) {
   const failureLines: string[] = [];
   if (outcome.kind === "event_error") {
     failureLines.push(`试抓失败(${outcome.error ?? "error"})`);
-    for (const entry of outcome.errors ?? []) {
-      failureLines.push(`${entry.path}:${entry.message}`);
-    }
   } else if (outcome.kind === "launch_error") {
     failureLines.push(`发起失败(${outcome.code ?? "error"}):${outcome.message ?? ""}`);
   } else if (outcome.error) {
     failureLines.push(`试抓失败:${outcome.error}`);
+  }
+  // data.errors 逐条:path 缺省不带空冒头(后端恒带 path,防御形状)
+  for (const entry of outcome.kind === "event_error" ? outcome.errors ?? [] : []) {
+    failureLines.push(`${entry.path ? `${entry.path}:` : ""}${entry.message}`);
   }
 
   // 引擎命中:链耗尽时 report.engine 缺位,回落配置引擎,再缺位如实「—」
@@ -100,8 +101,9 @@ export function TestResultDialog({ outcome, onClose }: TestResultDialogProps) {
           </Button>
         </div>
 
-        {/* 正文:分节滚动,有则渲染 */}
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-3">
+        {/* 正文:分节滚动,有则渲染;tabIndex 使焦点驻面板时方向键可滚本容器
+            (复查 L 修复:容器内无可聚焦元素时键盘不可滚,YamlEditor 靠 CodeMirror 免此题) */}
+        <div tabIndex={0} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-3">
           {/* 1. 概要(kind=report):引擎命中/配置引擎/条数 */}
           {outcome.kind === "report" ? (
             <section className="flex flex-col gap-1.5" aria-label="概要">
@@ -109,7 +111,7 @@ export function TestResultDialog({ outcome, onClose }: TestResultDialogProps) {
               <p className="text-sm">
                 <span className="text-muted-foreground">引擎命中</span>{" "}
                 <span className="font-mono text-foreground">{engineHit}</span>
-                {outcome.engineConfigured ? (
+                {outcome.engineConfigured && outcome.engineConfigured !== engineHit ? (
                   <>
                     <span className="text-muted-foreground">(配置 </span>
                     <span className="font-mono text-foreground">{outcome.engineConfigured}</span>

@@ -391,8 +391,10 @@ export function SourcesScreen() {
       ) : null}
 
       {/* 试抓结果详情弹窗(10-05-test-result-dialog):完成/发起失败即弹模态,
-          吃满 test.completed 结构化明细;进行中态由行内 spinner 承载(实时输出见日志屏) */}
-      {testOutcome ? (
+          吃满 test.completed 结构化明细;进行中态由行内 spinner 承载(实时输出见日志屏)。
+          互斥守卫(复查 M 修复):编辑模态在途时不叠双模态(同 z-50 叠底 + ESC 双关
+          会静默丢结果),结果只驻 state,编辑弹窗关闭后自然浮现 */}
+      {testOutcome && editingFile === null ? (
         <TestResultDialog outcome={testOutcome} onClose={() => setTestOutcome(null)} />
       ) : null}
 
