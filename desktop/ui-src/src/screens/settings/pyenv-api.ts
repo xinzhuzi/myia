@@ -139,7 +139,7 @@ export async function pyenvSyncDeps(): Promise<PyenvStatus> {
 /**
  * 订阅 `pyenv-status-changed`(载荷同 status 形态,经 parsePyenvStatus 守门);
  * 返回取消订阅函数。载荷不合契约时不静默:交 onMalformed 上屏(默认忽略,
- * 事件态保留上一次已知good值,拉取仍是唯一真相源)。
+ * 事件态保留上一次已知的好值,拉取仍是唯一真相源)。
  */
 export function onPyenvStatusChanged(
   onStatus: (status: PyenvStatus) => void,

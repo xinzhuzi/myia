@@ -141,7 +141,19 @@ function installSidecar(doctorImpl?: (params: { config?: string }) => DoctorResu
     gatesGetError: null,
   };
   mocks.invoke.mockImplementation(
-    async (_command: string, args: { method: string; params?: unknown }) => {
+    async (_command: string, args: { method?: string; params?: unknown }) => {
+      // pyenv 壳命令直连(10-05-desktop-managed-py-env 第 4 步):无 method 键,
+      // 缺省未配置态足以供分区挂载断言(行为面全覆盖在 pyenv-card.test.tsx)
+      if (_command === "pyenv_get_status") {
+        return {
+          state: "not_configured",
+          install_path: "/home/myia/python",
+          python_path: "/home/myia/python/bin/python3",
+          mirror_runtime: null,
+          mirror_pypi: null,
+          steps: [],
+        };
+      }
       switch (args.method) {
         case "secret.set": {
           const { name, value } = args.params as SecretSetParams;
@@ -1066,5 +1078,42 @@ describe("设置:门槛件分区(gates)", () => {
     // 协议面缺失:不出可编辑表单(与拒载 fail-closed 分支不同)
     expect(screen.queryByTestId("gates-paid-card")).toBeNull();
     expect(screen.queryByTestId("gates-platforms-card")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Python 运行环境分区(10-05-desktop-managed-py-env 第 4 步,D1/D2):导航可达
+// + 深链落点(D2 引导空态「一键跳设置」指向 ?section=python-env)。IPC 契约与
+// 行为面(开始配置/双镜像/明细/同步依赖)全覆盖在 pyenv-card.test.tsx。
+// ---------------------------------------------------------------------------
+
+describe("设置:Python 运行环境分区(python-env)", () => {
+  it("导航含「Python 环境」;深链 ?section=python-env 挂载 PyenvCard 并拉取 pyenv_get_status", async () => {
+    installSidecar();
+    renderScreen("/settings?section=python-env");
+
+    expect(screen.getByTestId("settings-section-python-env")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Python 运行环境" })).toBeTruthy();
+    expect(screen.getByTestId("settings-nav-python-env").getAttribute("aria-current")).toBe("true");
+    await screen.findByTestId("pyenv-card");
+    // 挂载即拉取(契约:前端初始化以 pyenv_get_status 为准,事件只作变更通知)
+    const pyenvCalls = mocks.invoke.mock.calls.filter(([command]) => command === "pyenv_get_status");
+    expect(pyenvCalls.length).toBe(1);
+    expect(await screen.findByTestId("pyenv-state-badge")).toBeTruthy();
+    // 缺省分区(通用)不挂载本卡:零额外 IPC
+  });
+
+  it("缺省分区不拉取 pyenv(卡未挂载零 IPC);导航点击可进「Python 环境」区", async () => {
+    installSidecar();
+    renderScreen();
+    await screen.findByTestId("doctor-verify");
+    expect(screen.queryByTestId("pyenv-card")).toBeNull();
+    expect(
+      mocks.invoke.mock.calls.filter(([command]) => command === "pyenv_get_status").length,
+    ).toBe(0);
+
+    await openSection("python-env");
+    expect(screen.getByTestId("settings-section-python-env")).toBeTruthy();
+    expect(await screen.findByTestId("pyenv-card")).toBeTruthy();
   });
 });

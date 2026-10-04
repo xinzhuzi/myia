@@ -2,6 +2,7 @@ import { useSidecarStatus } from "@/hooks/use-sidecar-status";
 import {
   Activity,
   ShieldAlert,
+  Cpu,
   Eye,
   KeyRound,
   Lightbulb,
@@ -56,6 +57,7 @@ import type { DoctorVerify, EnrichView, SecretSaveRecord } from "./api";
 import { DoctorVerifyPanel } from "./doctor-verify";
 import { ErrorBox } from "./error-box";
 import { FieldInput } from "./field-input";
+import { PyenvCard } from "./pyenv-card";
 import { SettingRow } from "./settings-row";
 import { UpdaterCard } from "./updater-card";
 import { VisionForm } from "./vision-form";
@@ -128,6 +130,9 @@ const SECTIONS: SettingsSection[] = [
   { id: "push", label: "推送", icon: Send, title: "推送", description: "通道凭据;发送测试验证连通" },
   { id: "vision", label: "视觉", icon: Eye, title: "视觉", description: "看图通道与 OCR + MLX 视觉模型" },
   { id: "gates", label: "门槛件", icon: Lock, title: "门槛件", description: "付费 SaaS / 自有实例 / 分析件:知情启用(fail-closed,缺省全关)" },
+  // 10-05-desktop-managed-py-env 第 4 步(D1/D2):Python 运行环境自管区块,
+  // 也是 D2 引导空态「一键跳设置」的深链落点(#/settings?section=python-env)
+  { id: "python-env", label: "Python 环境", icon: Cpu, title: "Python 运行环境", description: "运行时与依赖按需下载:开始配置 / 双镜像覆盖 / 安装明细 / 同步依赖" },
   { id: "system", label: "系统", icon: Activity, title: "系统", description: "sidecar 连接 + 软件更新 + 凭据管理" },
 ];
 const DEFAULT_SECTION = "general";
@@ -1070,7 +1075,7 @@ export function SettingsScreen() {
     <div className="flex flex-col gap-block pb-block">
       <PageHeader
         title="设置"
-        description="通用 / 推送 / 视觉 / 门槛件 / 系统 五分区 —— 凭据只入系统钥匙链,门槛件知情启用(fail-closed),doctor 验证回显"
+        description="通用 / 推送 / 视觉 / 门槛件 / Python 环境 / 系统 六分区 —— 凭据只入系统钥匙链,门槛件知情启用(fail-closed),doctor 验证回显"
         actions={
           <Button size="sm" variant="outline" onClick={() => void runDoctor()} disabled={verifying}>
             <RefreshCw className={verifying ? "size-3.5 animate-spin" : "size-3.5"} />
@@ -1137,7 +1142,7 @@ export function SettingsScreen() {
           </nav>
           {visibleSections.length === 0 ? (
             <span data-testid="settings-section-filter-empty" className="px-2.5 text-2xs text-muted-foreground">
-              无匹配分区(通用/视觉/推送/更新/高级)
+              无匹配分区(通用/推送/视觉/门槛件/Python 环境/系统)
             </span>
           ) : null}
         </div>
@@ -1320,6 +1325,10 @@ export function SettingsScreen() {
           {activeSection.id === "gates" ? (
             <GatesForm secretNames={secretNames} onSecretsChanged={() => void refreshSecretNames()} />
           ) : null}
+
+          {/* Python 运行环境(10-05-desktop-managed-py-env 第 4 步,D1/D2:
+              开始配置/路径/双镜像覆盖/安装明细/同步依赖;IPC 契约见 pyenv-api.ts) */}
+          {activeSection.id === "python-env" ? <PyenvCard /> : null}
 
           {activeSection.id === "push" ? (
             <Card>
