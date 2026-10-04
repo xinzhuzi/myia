@@ -43,14 +43,15 @@ deliver → gateway 平台适配器               shishi/push/(W1 消息平台�
   "schedule": {"kind": "cron", "expr": "0 9 * * *", "display": "every day at 9am"},
   "schedule_display": "every day at 9am",
   "repeat": {"times": null, "completed": 0},   // times null = forever;once 自动 times=1
-  "enabled": true, "state": "scheduled",       // state ∈ scheduled|paused(终态即退役删除)
+  "enabled": true, "state": "scheduled",       // state ∈ scheduled|paused|completed(终态留存7天)|error(recurring 算不出 next,绝不静默停摆)
   "paused_at": null, "paused_reason": null,
+  "manual_run_at": null,           // trigger 下次 tick 立即跑的标记(防 TZ 修复守卫误判,照抄;mark 后清)
   "created_at": "...", "next_run_at": "...", "last_run_at": null,
-  "last_status": null,              // ok|failed|delivery_failed|skipped_busy(W3,grill Q2)
+  "last_status": null,              // ok|failed|delivery_failed|skipped_busy
   "last_error": null, "last_delivery_error": null,
   "failure_streak": 0,
   "deliver": "local",               // local | platform:ref;缺省 local(D4)
-  "failure_deliver": null,          // 同 spec 语法;运行失败时投递失败摘要
+  "failure_deliver": null,          // 同 spec 语法;缺省回落 deliver,显式 "none" 关闭(照抄)
   "origin": {"source": "cli"},      // cli|desktop;不参与投递(D4)
   "timezone": null                  // 可选 IANA;解析链 job > 品类 YAML schedule.timezone > 本地
 }
@@ -178,17 +179,28 @@ execute(job) -> (status, summary_dict):
 | D10 | executions 增 run_summary_json 列 | `cron runs` 直出摘要;上游从 Hermes 会话 DB 取,MYIA 无会话存储 |
 | D11 | 执行体=spawn `shishi run --json` 子进程(Hermes=进程内 agent) | sidecar 不构造 Pipeline 是现状范式(B14);runs 表/维护/退出码天然;崩溃隔离;killpg+墙钟超时复用 run.start 范式 |
 | D12 | HERMES_CRON_TIMEOUT 不活跃超时 → run_timeout 墙钟超时 | 子进程内活性宿主不可见;墙钟+killpg 可实现等价的资源护栏 |
-| D13 | 同 db job 派发串行化(W7) | Pipeline 并发写同 db 未验证;Hermes 并行池保留,按 db 分组排队 | 
+| D13 | 同 db job 派发串行化(W7) | Pipeline 并发写同 db 未验证;Hermes 并行池保留,按 db 分组排队 |
+| D14 | 孤儿子进程=重启恢复时 killpg+execution 终态化 unknown | 宿主崩溃后子进程无人记账;slot 已消耗不重发;杀孤防与新 fire 并发写同 db;Hermes adopt 机器属 D3 缓域 | 
 
 ## 7. 兼容、回滚与风险
 
 - 零迁移:不动 SQLiteStore schema、不动现有 CLI 行为、`run --loop` 原样;新目录首跑自建;回滚=删 `src/shishi/cron/`+CLI 子命令+sidecar 注册,数据目录无害残留。
 - 风险:①normalize_dow 边角(环绕/步进/大小写)——实证器九用例+单测扩全;②子进程 stdout 混行(管线日志走 stderr、JSON 独占 stdout,`--json` 契约保证 B9);③宿主事件线程安全——`_write_line` 锁内,先例 B10;④目录跨进程 last-writer-wins(W6)——注记不加锁,观测条目可再积累;⑤sidecar 与 serve 同时投递摘要的重复面——deliver 发送幂等性=平台侧非幂等,靠 fire claim 唯一认领保证单发(照抄 Hermes 语义)。
 
-## 8. Grill 待决问题(已带推荐,批复后回写)
+## 8. Grill 决议(2026-10-04 批复:七问全按推荐;主人 /workflow 开工令,按先例=按推荐)
 
-- **Q1 执行体形态**:子进程 `shishi run --json`(D11,推荐)vs sidecar 进程内构造 Pipeline(新范式,探查明示需背书)。
-- **Q2 cron × 桌面单飞冲突**:占用即跳过本 fire+`skipped_busy` 状态+`cron.skipped` 事件(推荐,与 at-most-once 一致)vs 排队等 run 完(Hermes 无排队语义)。
-- **Q3 摘要卡 kind**:受控扩 `SendContext.kind="cron_summary"`(推荐,三处小改)vs 借用 digest(零改但语义失真)。
-- **Q4 estop 全局急停**:`pause --all`/`resume --all` 落 marker 文件,tick 检查照抄 Hermes estop(推荐保留)vs v1 砍掉逐 job pause 够用。
-- **Q5 repeat×长任务**:interval 5m 而管线跑 8m→完成后重锚 last_run_at+5m(推荐,compute_next_run 锚语义自然给出)vs 错过后立即补发。
+- **Q1 执行体=子进程 `shishi run --json`**(D11)。附带 Round 2 裁决:**宿主崩溃残留的孤儿子进程=重启恢复时 killpg + execution 终态化 unknown**(新偏离 D14;slot 已消耗不重发,杀孤防与新 fire 并发写同 db;Hermes adopt 机器属 D3 缓域)。
+- **Q2 run_busy 冲突=跳过本 fire** + `last_status="skipped_busy"` + `cron.skipped` 事件(用户手点优先;与 at-most-once 一致)。
+- **Q3 摘要卡 kind=受控扩 `"cron_summary"`**(base.py Literal+校验+card_title 三处小改)。
+- **Q4 全局急停保留**:`pause --all`/`resume --all` 落 marker 文件,tick 检查照抄 Hermes estop。
+- **Q5 category 路径=create 时解析为绝对路径存储**。
+- **Q6 create 校验=完整 load_category_file**(早失败,exit 1;顺势取 schedule.timezone 定缺省时区)。
+- **Q7 不动 docker/**(docs 注记 compose 用户改 command=`shishi cron serve` 即得常宿形态)。
+
+### 8.1 事实裁决(源码坐实随批回写,照抄判据 +5)
+
+- **重锚锚 run 完成时刻**:H `_advance_after_run` 用 `compute_next_run(schedule, now)`(now=mark 时刻)——interval 5m 跑 8m → 下次=完成后+5m,不立即补发(原 Q5 假设成立,非岔路)。
+- **failure_deliver 缺省回落 deliver**(H create_job:「falls back to deliver」);显式 `"none"` 关闭。
+- **trigger 手动跑复活 paused**(enabled=True+state=scheduled)且**计入 repeat.completed**;`manual_run_at` 标记防 TZ 修复守卫误判(job 记录加此可选字段)。
+- **终态留存不即删**:`state="completed"` 记录留 7 天(`COMPLETED_ONESHOT_RETENTION_DAYS=7`,配置可覆写)后清扫;recurring 算不出 next → `state="error"` 绝不静默停摆(H #16265 守卫)——§2.1 state 枚举因此为 `scheduled|paused|completed|error`。
+- **deliver 通道构造=宿主直构**:`CHANNELS[name]()` + 凭据走通道默认 env/keychain 引用链(push.test 先例 entry.py:3503);stdout 通道 serve 模式下卡片行入内存缓冲回显(同款特殊分支)。

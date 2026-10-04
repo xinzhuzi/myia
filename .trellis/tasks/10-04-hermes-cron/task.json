@@ -3,7 +3,7 @@
   "name": "hermes-cron",
   "title": "Hermes cron 定时任务移植:定时底座 + 情报流定时跑一遍发消息",
   "description": "按 Hermes 源码(~/.hermes/hermes-agent,cron/ 子系统,MIT)狠照抄:先做定时任务底座(job 存储/schedule 解析/tick 调度/执行账本/生命周期 API/CLI/宿主),再做上层业务=情报流 job(品类 YAML 整体跑一遍 Pipeline.run + 运行结果摘要定向推送)",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "2026-10-04 grill 七问全按推荐批复(主人 /workflow 开工令,按先例=按推荐);决议与五项事实裁决已回写三档;执行工作流在途",
   "meta": {}
 }

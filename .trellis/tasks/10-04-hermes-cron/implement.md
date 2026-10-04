@@ -23,9 +23,10 @@
   - 照抄 H cron/executions.py:DDL(design §2.3,含 run_summary_json)/状态机/属主指纹(pid+start_time)/中断恢复/终态裁剪 1000;裁 metrics 上报
   - 测试 `tests/test_cron_executions.py`:全转移+死属主判定(指纹不匹配≠死亡)+恢复+终态不可变
 - [ ] A4 `shishi/cron/jobs.py`(生命周期)
-  - 照抄 H jobs.py:create/get/list/update/pause/resume/trigger/rearm_oneshot/remove + _apply_schedule_update + mark_job_run + get_due_jobs(backlog 坍缩)+ advance_next_runs + 心跳标记族;estop marker 检查口(grill Q4)
+  - 照抄 H jobs.py:create/get/list/update/pause/resume/trigger/rearm_oneshot/remove + _apply_schedule_update + mark_job_run + get_due_jobs(backlog 坍缩)+ advance_next_runs + 心跳标记族;estop marker 检查口(grill Q4 已批保留)
+  - **grill 事实裁决落地**:trigger 复活 paused+计入 repeat+manual_run_at 标记;终态 `state="completed"` 留存 7 天清扫(`COMPLETED_ONESHOT_RETENTION_DAYS=7` 可覆写);recurring 算不出 next → `state="error"` 不静默停摆;failure_deliver 缺省回落 deliver、"none" 关闭;`_advance_after_run` 锚 run 完成时刻
   - job 字段按 design §2.1(D2/D4/D11 改造);mark_job_run 四态 last_status(ok/failed/delivery_failed/skipped_busy)
-  - 测试 `tests/test_cron_jobs.py`:CRUD+repeat 退役+paused reason+schedule 变更重算+due 扫描坍缩+心跳
+  - 测试 `tests/test_cron_jobs.py`:CRUD+repeat 退役+paused reason+schedule 变更重算+due 扫描坍缩+心跳+trigger 复活/计数/终态留存清扫/failure_deliver 回落
 - [ ] A5 `shishi/cron/occurrences.py`
   - 照抄 H cron/occurrences.py:scheduled_instant 去重 + pending_slot 三函数
   - 测试 `tests/test_cron_occurrences.py`

@@ -68,6 +68,6 @@
 - [ ] AC10 回归:全量 pytest 零新红;`run --loop` 原行为不动;不新增核心依赖(pyproject dependencies 不变)。
 - [ ] AC11 文档:docs/zh+en 新增定时任务文档(建 job/自然语言 schedule 语法/deliver spec/serve 形态),双语同步。
 
-## Grill 待决问题(五问全带推荐,批复后回写本档)
+## Grill 决议(2026-10-04 批复:七问全按推荐;主人 /workflow 开工令,按先例)
 
-见 design.md §8:Q1 执行体=子进程(推荐)/ Q2 run_busy 冲突=跳过本 fire+事件(推荐)/ Q3 摘要卡 kind=受控扩 cron_summary(推荐)/ Q4 全局急停 pause --all 保留(推荐)/ Q5 repeat×长任务=完成后重锚 last_run_at(推荐)。
+Q1 执行体=子进程(含 Round 2:孤儿子进程重启时 killpg+execution 终态化 unknown,新偏离 D14)/ Q2 run_busy 冲突=跳过本 fire+skipped_busy+cron.skipped 事件 / Q3 摘要卡 kind=受控扩 cron_summary / Q4 全局急停 pause --all 保留 / Q5 category=create 时绝对路径存储 / Q6 create 完整 load_category_file 校验早失败 / Q7 不动 docker(docs 注记 compose 改 command 即得常宿形态)。**事实裁决五项**(重锚=run 完成时刻/failure_deliver 缺省回落 deliver/trigger 复活 paused 且计入 repeat/终态留存 7 天后清扫/通道直构 push.test 先例)见 design.md §8.1。
