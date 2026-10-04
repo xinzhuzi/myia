@@ -1,6 +1,6 @@
 # Implement:10-04-cron-ui
 
-> 蓝本先读:`~/.hermes/hermes-agent/web/src/pages/CronPage.tsx`(534-700 主组件/143-175 表单三函数/526+ 状态色)+ `web/src/lib/cron-job.ts` 全文;MYIA 侧先读 spec desktop/sidecar-protocol.md(镜像纪律)+ frontend-ui.md(token/基件红线)。
+> 蓝本先读:`~/.hermes/hermes-agent/web/src/pages/CronPage.tsx`(行号地图=research/hermes-cronpage-map.md)+ `web/src/lib/cron-job.ts` 全文;MYIA 侧先读 **research/myia-ground-truth.md(参数键名/事件联合缺口/notice/先例全在)** + spec desktop/sidecar-protocol.md(镜像纪律)+ frontend-ui.md(token/基件红线)。
 
 ## Stage 0:基线与占地
 
@@ -9,7 +9,7 @@
 
 ## Stage 1:骨架与数据层
 
-- [ ] 1.1 types.ts 方法签名入 SidecarProtocol mirror + client.ts 共享门面(F8;grill Q4 后=**十方法**:cron 九 + `yaml.list` 复用);对账测试同步(前端侧)
+- [ ] 1.1 types.ts:cron 九方法+yaml.list 复用签名入 SidecarProtocol mirror(参数键名按 ground-truth §1 逐字)+ **CronCompleted/CronSkipped 事件 interface 入 SidecarEvent 联合 + logs/api.ts eventToRow 穷尽守卫适配(runId=null 系统行,alerts.fired 先例)**;client.ts 共享门面 + client.test.ts 逐方法批断言(F8/AC8)
 - [ ] 1.2 screens/cron/ 建骨架:路由(App.tsx)+侧栏项(sidebar.tsx)+空屏三态;api.ts invoke 封装
 - [ ] 1.3 cron-form.ts:emptyCronJobForm/fromJob/buildPayload + 常量镜像(grace/stale 注双向出处)
 - 测试:骨架渲染+路由可达
@@ -17,8 +17,8 @@
 ## Stage 2:列表与活性
 
 - [ ] 2.1 活性条(status;僵死黄条判据 `!writer_alive||heartbeat_age>180s`;estopped 红条+**双向:急停全部红钮+确认 Dialog/恢复全部**,grill Q6)
-- [ ] 2.2 job 列表(table;全字段+四态 badge+逾期红标+all 切换)
-- 测试:四态色断言/逾期边界/空态/僵死与急停各一
+- [ ] 2.2 job 列表(table;全字段+四态 badge(蓝本 STATUS_TONE 映射表形态,H 526-532)+逾期红标(15min grace)+all 切换;行内展开模式照 logs 屏 expanded Set+惰性拉取)
+- 测试:四态色断言/逾期边界/空态/僵死与急停各一(**messaging 式传输层 mock+emitSidecarEvent 注入**,ground-truth §6)
 
 ## Stage 3:双 Dialog 与动作
 
@@ -30,7 +30,7 @@
 ## Stage 4:历史与事件
 
 - [ ] 4.1 行内展开 runs(cron.runs;run_summary_json 摘要;空态)
-- [ ] 4.2 刷新(grill Q2 修正案):cron.completed/cron.skipped 事件→toast(载荷 name/status)+重拉;手动刷新按钮;逾期红标本地 1min 时钟重渲染;**不引入 interval 轮询**
+- [ ] 4.2 刷新(grill Q2 修正案):订阅模式照 messaging 811-837(cancelled+unlisten)消费 cron.completed/cron.skipped→**notice 横幅**(messaging 先例)+重拉;手动刷新按钮;逾期红标本地 1min 时钟重渲染;**不引入 interval 轮询**
 - 测试:事件驱动重拉断言(mock 事件流)
 
 ## Stage 5:门禁与收口

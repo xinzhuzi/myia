@@ -1,4 +1,6 @@
+{"file": ".trellis/tasks/10-04-cron-ui/research/myia-ground-truth.md", "reason": "实现直接消费的地面真值:九方法参数键名逐字/事件联合缺口(logs 穷尽守卫涟漪)/notice 横幅先例/镜像与对账测试形态/mock 选型/展开与 table 先例——含对原稿的三处修正"}
+{"file": ".trellis/tasks/10-04-cron-ui/research/hermes-cronpage-map.md", "reason": "蓝本 CronPage 行号地图:逐段对位表(工具/表单三函数/STATUS_TONE/主组件/Modal/列表/常量镜像),实现每块前读对应段"}
 {"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "前端镜像纪律(方法签名入 types.ts+client 门面)与事件清单(cron.completed/cron.skipped);零协议变更红线的出处"}
 {"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "token/基件纪律(14 基件,禁局部 ring/对比度红线/text 阶梯);UI 深度模仿批沉淀的屏级规范"}
-{"file": ".trellis/tasks/archive/2026-10/10-04-hermes-cron/design.md", "reason": "cron 底座的协议语义权威档:九方法/两事件/last_status 四态/grace 与 stale 常量出处(cron/constants.py)——屏的每个字段都对着这里"}
+{"file": ".trellis/tasks/archive/2026-10/10-04-hermes-cron/design.md", "reason": "cron 底座的协议语义权威档:九方法/两事件/last_status 四态/grace 与 stale 常量出处——屏的每个字段都对着这里"}
 {"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "并行会话在场(树上有 ui-reskin-r2 线):等待环纪律+pathspec 提交纪律"}
