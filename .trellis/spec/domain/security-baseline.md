@@ -6,6 +6,7 @@
 - YAML 只许 `keychain:` / `env:` 引用;**配置文件出现明文凭据 = 启动即报错拒跑**
 - 三态:`env:VAR` / `keychain:name` / CLI 首跑录入(`myia secret set`)后入钥匙链
 - 钥匙串既有项更新被拒(macOS -25244 需 GUI 授权)时回落「删旧建新」重建:写前探测保留旧值、重建失败尽力回写(`set_secret`,10-03-image-fix-followups)
+- 凭据**名**探测零弹窗:macOS 系统缺省路径 `list_secrets` 走 attributes-only 枚举(`security dump-keychain` 元数据,零数据读取=零授权框);注入 backend/枚举不可用回落索引+存在性核对;值读取的 ACL 授权语义不变(10-05-keychain-silent-listing)
 - 仓库红线(2026-10-01 grill Q8 提级):**仓库即公开,含 `.trellis/` 全部任务/PRD/research**——任何凭据、内网地址(127.0.0.1 例外)、生产语料、私有系统痕迹零容忍;任务文档自下笔起按公开标准撰写,验证记录只写「验证通过+日期」;唯一例外是标注「仅本地」的外部规划文档路径引用
 
 ## 网络
