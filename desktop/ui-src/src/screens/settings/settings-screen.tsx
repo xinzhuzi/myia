@@ -1210,6 +1210,80 @@ export function SettingsScreen() {
               </CardContent>
             </Card>
             <UpdaterCard />
+
+            {/* 危险区(拆解表第 6 条):单独 Destructive Card 置于区页底部;
+                inline 二次确认沿用仓内惯例(同看图模型卡删除)。
+                10-05 归位:79f7f7b 分区 6→4 收编时「高级」区被移除,此卡曾在
+                守卫 id==="advanced" 的死分支里 UI 不可达;系统分区描述与终态
+                合同本就写着「凭据管理」——钥匙链清单/删除的唯一入口在此落地 */}
+            <Card
+              data-testid="settings-danger-zone"
+              className="border-destructive/40 bg-destructive/[0.04]"
+            >
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                  <ShieldAlert className="size-4" />
+                  危险区 · 钥匙链凭据(secret.list)
+                </CardTitle>
+                <CardDescription>
+                  只有名字,值永不可读(secrets.py 契约);删除需二次确认,删除后引用该凭据的源将采集失败
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2">
+                {deleteError ? <ErrorBox error={deleteError} /> : null}
+                {secretNames === null ? (
+                  <span className="text-xs text-muted-foreground">无法获取(secret.list 失败或环境不可用)</span>
+                ) : secretNames.length === 0 ? (
+                  <span className="text-xs text-muted-foreground">暂无凭据</span>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {secretNames.map((name) => (
+                      <span key={name} className="flex items-center gap-0.5">
+                        <Badge variant="outline" className="font-mono">
+                          {name}
+                        </Badge>
+                        {deletingSecret === name ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              data-testid={`confirm-delete-${name}`}
+                              onClick={() => void handleDeleteSecret(name)}
+                            >
+                              确认删除
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setDeletingSecret(null)}>
+                              取消
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 hover:text-destructive"
+                            aria-label={`删除凭据 ${name}`}
+                            title={`删除 ${name}:删除后引用该凭据的源将采集失败`}
+                            onClick={() => {
+                              setDeleteError(null);
+                              setDeletingSecret(name);
+                            }}
+                          >
+                            <Trash2 className="size-3" />
+                          </Button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <p className="text-2xs text-muted-foreground">
+              安全底线:任何凭据输入只经协议 secret.set 写入系统钥匙链(macOS Keychain /
+              Windows DPAPI);配置文件出现明文凭据 = 启动即报错拒跑。model /
+              enrich.enabled 经「通用 → 评分与反馈」写回品类 YAML(yaml.save,注释保真);
+              池 URL 结构写回顺延(待拍板落点),push 通道声明去「配置编辑」。
+            </p>
             </>
           ) : activeSection.id === "general" ? (
             <>
@@ -1504,84 +1578,6 @@ export function SettingsScreen() {
                 </div>
               </CardContent>
             </Card>
-          ) : null}
-
-          {/* 软件更新(官方签名更新通道,updater-card.tsx;已有件融入不重写) */}
-          {activeSection.id === "update" ? <UpdaterCard /> : null}
-
-          {activeSection.id === "advanced" ? (
-            <>
-              {/* 危险区(拆解表第 6 条):单独 Destructive Card 置于区页底部;
-                  inline 二次确认沿用仓内惯例(同看图模型卡删除) */}
-              <Card
-                data-testid="settings-danger-zone"
-                className="border-destructive/40 bg-destructive/[0.04]"
-              >
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-destructive">
-                    <ShieldAlert className="size-4" />
-                    危险区 · 钥匙链凭据(secret.list)
-                  </CardTitle>
-                  <CardDescription>
-                    只有名字,值永不可读(secrets.py 契约);删除需二次确认,删除后引用该凭据的源将采集失败
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col gap-2">
-                  {deleteError ? <ErrorBox error={deleteError} /> : null}
-                  {secretNames === null ? (
-                    <span className="text-xs text-muted-foreground">无法获取(secret.list 失败或环境不可用)</span>
-                  ) : secretNames.length === 0 ? (
-                    <span className="text-xs text-muted-foreground">暂无凭据</span>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {secretNames.map((name) => (
-                        <span key={name} className="flex items-center gap-0.5">
-                          <Badge variant="outline" className="font-mono">
-                            {name}
-                          </Badge>
-                          {deletingSecret === name ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                data-testid={`confirm-delete-${name}`}
-                                onClick={() => void handleDeleteSecret(name)}
-                              >
-                                确认删除
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => setDeletingSecret(null)}>
-                                取消
-                              </Button>
-                            </>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="size-6 hover:text-destructive"
-                              aria-label={`删除凭据 ${name}`}
-                              title={`删除 ${name}:删除后引用该凭据的源将采集失败`}
-                              onClick={() => {
-                                setDeleteError(null);
-                                setDeletingSecret(name);
-                              }}
-                            >
-                              <Trash2 className="size-3" />
-                            </Button>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <p className="text-2xs text-muted-foreground">
-                安全底线:任何凭据输入只经协议 secret.set 写入系统钥匙链(macOS Keychain /
-                Windows DPAPI);配置文件出现明文凭据 = 启动即报错拒跑。model /
-                enrich.enabled 经「通用 → 评分与反馈」写回品类 YAML(yaml.save,注释保真);
-                池 URL 结构写回顺延(待拍板落点),push 通道声明去「配置编辑」。
-              </p>
-            </>
           ) : null}
         </section>
       </div>

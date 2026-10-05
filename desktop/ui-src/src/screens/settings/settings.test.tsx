@@ -209,7 +209,8 @@ function installSidecar(doctorImpl?: (params: { config?: string }) => DoctorResu
 
 function callsOf(method: string): unknown[] {
   return mocks.invoke.mock.calls
-    .filter(([, args]) => (args as { method: string }).method === method)
+    // 直连壳命令(sidecar_restart / pyenv_*)无 args 对象——filter 侧容 undefined
+    .filter(([, args]) => (args as { method?: string } | undefined)?.method === method)
     .map(([, args]) => (args as { params: unknown }).params);
 }
 
@@ -496,10 +497,44 @@ describe("设置:代理池", () => {
 });
 
 // ---------------------------------------------------------------------------
-// C5 凭据删除(secret.delete 危险区)测试块已删:79f7f7b 分区 6→4 收编时
-// 「高级」分区从 SECTIONS 移除,但危险区渲染分支仍守卫 activeSection.id ===
-// "advanced"(settings-screen.tsx 死分支)→ UI 不可达,无可测功能面。
+// C5 凭据删除(secret.delete 危险区):79f7f7b 分区 6→4 收编时「高级」区从
+// SECTIONS 移除,危险区一度困在守卫 id==="advanced" 的死分支 UI 不可达
+// (本测试块当时整删)。10-05 归位:危险区随系统分区渲染(分区描述与终态
+// 合同的「凭据管理」落地),死分支已删,测试块随之恢复。
 // ---------------------------------------------------------------------------
+
+describe("设置:危险区钥匙链凭据(C5;10-05 归位系统分区)", () => {
+  it("系统分区挂危险区卡并列出钥匙链名(通用区不挂)", async () => {
+    const state = installSidecar();
+    state.secrets.set("myia/llm/api_key", "v1");
+    state.secrets.set("myia/push/FEISHU_APP_ID", "v2");
+    renderScreen("/settings?section=system");
+
+    const zone = await screen.findByTestId("settings-danger-zone");
+    expect(zone.textContent).toContain("危险区 · 钥匙链凭据");
+    expect(zone.textContent).toContain("myia/llm/api_key");
+    expect(zone.textContent).toContain("myia/push/FEISHU_APP_ID");
+    expect(screen.queryByTestId("settings-section-general")).toBeNull();
+  });
+
+  it("删除凭据:inline 二次确认 → secret.delete 真调 → 清单刷新徽标消失", async () => {
+    const state = installSidecar();
+    state.secrets.set("myia/proxy/main", "v");
+    renderScreen("/settings?section=system");
+    await screen.findByTestId("settings-danger-zone");
+
+    fireEvent.click(screen.getByRole("button", { name: "删除凭据 myia/proxy/main" }));
+    fireEvent.click(screen.getByTestId("confirm-delete-myia/proxy/main"));
+
+    await waitFor(() => {
+      expect(callsOf("secret.delete")).toContainEqual({ name: "myia/proxy/main" });
+    });
+    await waitFor(() => {
+      expect(screen.queryByText("myia/proxy/main")).toBeNull();
+    });
+    expect(state.secrets.has("myia/proxy/main")).toBe(false);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // B3+C11(10-03-v112-desktop-parity):评分与反馈分区(enrich.enabled/model 写回
