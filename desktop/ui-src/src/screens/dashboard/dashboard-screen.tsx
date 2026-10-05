@@ -299,6 +299,7 @@ function RecentRunRow({ run }: { run: DashboardRun }) {
 
 /** 常见 sidecar 错误码的人话(主人 2026-10-04 目验判例:raw code 不是给人看的)。 */
 const SIDECAR_ERROR_HINTS: Record<string, string> = {
+  pyenv_not_ready: "Python 运行环境未就绪——配置完成后数据即恢复(顶部横幅可一键前往设置)",
   internal_error: "核心内部错误——重试通常可恢复,持续出现请重启应用",
   sidecar_timeout: "核心响应超时——稍候重试",
   method_not_found: "核心版本过旧缺此方法——请更新应用",
@@ -713,7 +714,9 @@ export function DashboardScreen() {
                     value={overview.windowItems}
                     note={
                       overviewTrendError !== null
-                        ? `趋势不可达(${overviewTrendError.code})· 如实显 —`
+                        ? overviewTrendError.code === "pyenv_not_ready"
+                          ? "数据待 Python 环境配置 · 如实显 —"
+                          : `趋势不可达(${overviewTrendError.code})· 如实显 —`
                         : overviewWindow === "today"
                           ? "UTC 日口径 · items 入库"
                           : `UTC 逐日 ${overviewWindow} 天求和 · items 入库`
