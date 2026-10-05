@@ -1,0 +1,30 @@
+{
+  "id": "win-second-instance-show",
+  "name": "win-second-instance-show",
+  "title": "Windows 二实例唤出静默主窗",
+  "description": "对运行中的 MYIA Windows 实例再次启动(双击图标)时唤出并聚焦已藏主窗,补齐 Windows 静默启动缺唤出通道的交付级缺口",
+  "status": "review",
+  "dev_type": null,
+  "scope": "desktop-rust-shell",
+  "package": "desktop",
+  "priority": "P2",
+  "creator": "xinzhuzi",
+  "assignee": "xinzhuzi",
+  "createdAt": "2026-10-05",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "729b8f2",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "desktop/src-tauri/src/main.rs",
+    "desktop/src-tauri/Cargo.toml",
+    "desktop/src-tauri/Cargo.lock"
+  ],
+  "notes": "代码笔 729b8f2(--only 三路径);AC2-AC4 已勾(门禁亲跑),AC1 行为面留 Windows 真机(prd Notes 四步);任务档本笔入库",
+  "meta": {}
+}
