@@ -782,7 +782,7 @@ def test_bundle_detection_requires_dot_app(tmp_path, monkeypatch):
 
 
 def test_seed_copies_official_plugins_and_marks(tmp_path, monkeypatch):
-    """首跑种子:空 plugins → 拷官方四件套 + 写 .seeded;标志抑制复种。"""
+    """首跑补种:空 plugins → 拷官方四件套 + 写 .seeded;删件后重启补缺回。"""
     home = tmp_path / "home"
     bundle = _fake_bundle(tmp_path, "ai-news", "wool", "stocks", "gpu-prices")
     monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: bundle)
@@ -793,29 +793,80 @@ def test_seed_copies_official_plugins_and_marks(tmp_path, monkeypatch):
     assert entry._seed_first_run(ctx) is True
     seeded = sorted(path.name for path in (home / "plugins").glob("*.yaml"))
     assert seeded == ["ai-news.yaml", "gpu-prices.yaml", "stocks.yaml", "wool.yaml"]
-    assert (home / entry.SEED_MARKER).exists()
+    marker = home / entry.SEED_MARKER
+    assert marker.exists()
 
-    # 幂等:用户删光一个插件后重启,标志在 → 不复种(尊重用户删除)
+    # 幂等补缺(AC5 语义):删一个插件后重启 → 该件补回,标志不重写。
     (home / "plugins" / "wool.yaml").unlink()
-    assert entry._seed_first_run(ctx) is False
-    assert not (home / "plugins" / "wool.yaml").exists()
+    mtime_before = marker.stat().st_mtime_ns
+    assert entry._seed_first_run(ctx) is True
+    assert (home / "plugins" / "wool.yaml").exists()
+    assert marker.stat().st_mtime_ns == mtime_before  # 首次补种时刻定格
 
 
 def test_seed_skips_when_user_has_plugins(tmp_path, monkeypatch):
-    """升级安装/手动放置过插件(plugins 非空)→ 零打扰:不种、不写标志。"""
+    """用户自建品类在场:原样保留零覆盖,bundle 缺件(官方位)照补。"""
     home = tmp_path / "home"
     bundle = _fake_bundle(tmp_path, "ai-news")
     plugins = home / "plugins"
     plugins.mkdir(parents=True)
-    (plugins / "mine.yaml").write_text(OFFICIAL_TEMPLATE.format(pid="mine"), encoding="utf-8")
+    mine = OFFICIAL_TEMPLATE.format(pid="mine")
+    (plugins / "mine.yaml").write_text(mine, encoding="utf-8")
     monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: bundle)
     ctx = entry.ServeContext(
         home=home, db=str(home / "myssia.db"),
         plugins_dir=str(plugins), install_root=str(plugins),
     )
+    assert entry._seed_first_run(ctx) is True  # 官方 ai-news 缺 → 补
+    assert (plugins / "mine.yaml").read_text(encoding="utf-8") == mine  # 用户件不动
+    assert sorted(path.name for path in plugins.glob("*.yaml")) == ["ai-news.yaml", "mine.yaml"]
+    assert (home / entry.SEED_MARKER).exists()
+
+
+def test_seed_does_not_overwrite_existing_games_yaml(tmp_path, monkeypatch):
+    """AC5 补种:已存在 games.yaml(手改/旧版)→ 逐字节原样,绝不被 bundle 覆盖。"""
+    home = tmp_path / "home"
+    bundle = _fake_bundle(tmp_path, "games", "news")
+    plugins = home / "plugins"
+    plugins.mkdir(parents=True)
+    custom = OFFICIAL_TEMPLATE.format(pid="games-user-edited")
+    (plugins / "games.yaml").write_text(custom, encoding="utf-8")
+    monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: bundle)
+    ctx = entry.ServeContext(
+        home=home, db=str(home / "myssia.db"),
+        plugins_dir=str(plugins), install_root=str(plugins),
+    )
+    assert entry._seed_first_run(ctx) is True  # news 缺,补了一件
+    assert (plugins / "games.yaml").read_text(encoding="utf-8") == custom
+    assert sorted(path.name for path in plugins.glob("*.yaml")) == ["games.yaml", "news.yaml"]
+
+    # 零缺件再跑:幂等零动作(全量在位)。
+    assert entry._seed_first_run(ctx) is False
+    assert (plugins / "games.yaml").read_text(encoding="utf-8") == custom
+
+
+def test_seed_fills_missing_news_yaml_only(tmp_path, monkeypatch):
+    """AC5 补种:缺 news.yaml 时只补 news.yaml;全量在位的首次启动零标志。"""
+    home = tmp_path / "home"
+    bundle = _fake_bundle(tmp_path, "ai-news", "news")
+    plugins = home / "plugins"
+    plugins.mkdir(parents=True)
+    for pid in ("ai-news", "news"):
+        (plugins / f"{pid}.yaml").write_text(OFFICIAL_TEMPLATE.format(pid=pid), encoding="utf-8")
+    monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: bundle)
+    ctx = entry.ServeContext(
+        home=home, db=str(home / "myssia.db"),
+        plugins_dir=str(plugins), install_root=str(plugins),
+    )
+    # 从未缺件:零拷贝、零标志(「已做过一次补种」的记录无从谈起)。
     assert entry._seed_first_run(ctx) is False
     assert not (home / entry.SEED_MARKER).exists()
-    assert sorted(path.name for path in plugins.glob("*.yaml")) == ["mine.yaml"]
+
+    # 缺 news.yaml → 只补 news.yaml,标志随之落盘。
+    (plugins / "news.yaml").unlink()
+    assert entry._seed_first_run(ctx) is True
+    assert (plugins / "news.yaml").exists()
+    assert (home / entry.SEED_MARKER).exists()
 
 
 def test_serve_startup_seeds_in_home_mode(tmp_path, monkeypatch):

@@ -346,8 +346,9 @@ serve 上下文路径解析(v1.1.1 统一,优先级):显式 params > ``MYIA_HOME
 (Tauri 壳 spawn 时注入)> 冻结 .app bundle 探测(平台数据根
 ``~/Library/Application Support/MYIA`` / ``%APPDATA%\\MYIA`` / ``~/.myia``)>
 dev 回退 cwd(仓库内运行行为不变)。home 模式下 db/plugins 缺省
-``<home>/myssia.db``、``<home>/plugins``;serve 启动时首跑种子 —— plugins
-目录空则从随包 Resources 拷官方品类 YAML(标志 ``.seeded`` 抑制复种);
+``<home>/myssia.db``、``<home>/plugins``;serve 启动时品类补种 —— 随包
+Resources 官方品类 YAML **缺哪件补哪件、绝不覆盖已存在文件**(每次启动
+幂等;标志 ``.seeded`` = 「已做过一次补种」的记录,不再是复种抑制器);
 health 应答附 ``first_run`` 供 UI 空态引导。
 
 == 退出码 ==
@@ -473,7 +474,8 @@ STATUS_BY_EXIT = {0: "success", 1: "config_error", 2: "failed", 3: "partial"}
 
 #: 应用数据根环境变量名(Tauri 壳 spawn sidecar 时注入,优先级见 _serve_context)。
 MYIA_HOME_ENV = "MYIA_HOME"
-#: 首跑种子标志文件名(数据根下;存在即永不复种,用户删光插件也不打扰)。
+#: 品类补种标志文件名(数据根下;语义 = 「已做过一次补种」的记录 —— 首次
+#: 补种时刻定格,不随幂等补缺刷新;补种本身每次启动照跑,见 _seed_first_run)。
 SEED_MARKER = ".seeded"
 
 
@@ -586,31 +588,36 @@ def _serve_context() -> ServeContext:
 
 
 def _seed_first_run(ctx: ServeContext) -> bool:
-    """首跑种子:``<home>/plugins`` 无品类 YAML 且未种过 → 拷随包官方插件。
+    """品类补种:随包官方 YAML **缺哪件补哪件,绝不覆盖已存在文件**。
 
-    幂等由 ``<home>/.seeded`` 标志保证(用户删光插件不复种);拷贝非原子
-    可接受 —— 中途失败最坏半份副本且无标志,下次启动整体重拷覆盖。
+    AC5 补种语义(10-05-plugin-market-batch):每次启动幂等补缺 —— 官方
+    新品类随升级自动出现(旧「全有或全无」退役);用户已有同名文件
+    (手改/自建/旧版品类)逐字节原样保留。``<home>/.seeded`` 标志不再是
+    复种抑制器,只记录首次补种时刻(存在即不重写);零缺件启动零写入。
+    拷贝非原子可接受 —— 中途失败最坏少补几件,下次启动继续补缺。
     仅 home 模式调用;dev 模式零动作。
     """
     assert ctx.home is not None
-    if (ctx.home / SEED_MARKER).exists():
-        return False
-    plugins_dir = Path(ctx.plugins_dir)
-    if _has_category_yamls(plugins_dir):
-        return False  # 升级安装/用户手动放置过插件 —— 不打扰
     bundle = _bundle_plugins_dir()
     if bundle is None:
         return False
+    plugins_dir = Path(ctx.plugins_dir)
     plugins_dir.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
     for pattern in ("*.yaml", "*.yml"):
         for source in sorted(bundle.glob(pattern)):
-            shutil.copy2(source, plugins_dir / source.name)
+            target = plugins_dir / source.name
+            if target.exists():
+                continue  # 绝不覆盖已存在文件
+            shutil.copy2(source, target)
             copied.append(source.name)
-    (ctx.home / SEED_MARKER).write_text(_now_iso() + "\n", encoding="utf-8")
-    _ring_append(
-        None, "stderr", f"sidecar: 首跑种子 {len(copied)} 个官方插件 -> {plugins_dir}"
-    )
+    if copied:
+        marker = ctx.home / SEED_MARKER
+        if not marker.exists():
+            marker.write_text(_now_iso() + "\n", encoding="utf-8")
+        _ring_append(
+            None, "stderr", f"sidecar: 品类补种 {len(copied)} 件 -> {plugins_dir}"
+        )
     return bool(copied)
 
 
