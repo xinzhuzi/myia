@@ -110,6 +110,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -3279,13 +3280,27 @@ _GATE_ADVISORIES: dict[str, str] = {
     "stale": "停更知情:上游已冻结,启用即接受 pin 版自担维护",
 }
 
+#: 已知公共实例域(D9 第三方留痕知情;小清单内置,勿引外部依赖)。
+#: platforms 门槛语义是「自有实例」—— endpoint 指向公共实例即目标清单经
+#: 第三方服务器并留痕,doctor 出 info 提示(组织性不执法,D6;不做拦截)。
+KNOWN_PUBLIC_INSTANCE_HOSTS: frozenset[str] = frozenset({"rsshub.app"})
+
+
+def _public_instance_hint(endpoint: str) -> str | None:
+    """endpoint 命中已知公共实例域 → 返回该域;未命中/空 endpoint → None。"""
+    if not endpoint:
+        return None
+    host = (urlsplit(endpoint).hostname or "").lower()
+    return host if host in KNOWN_PUBLIC_INSTANCE_HOSTS else None
+
 
 def _doctor_gates(args: argparse.Namespace, findings: list[dict[str, Any]]) -> dict[str, Any]:
     """门槛件诊断段:坏 gates.yaml = warning(fail-closed 全关);未启用门槛件 = info。
 
     词表纪律(§6.2):用户没开门槛件是正常态不是故障 —— ``gate_disabled`` 走
     **info** 级,与 warning(自动降级的异常)分开;启用后不再产 finding。
-    扫描面 = 市场插件安装根(--dir)里 manifest 声明 ``gate`` 的件。
+    扫描面 = 市场插件安装根(--dir)里 manifest 声明 ``gate`` 的件;
+    另查 gates.platforms endpoint 命中已知公共实例域(D9 留痕知情 info)。
     """
     gates_file = Path(args.gates_file).expanduser() if args.gates_file else default_gates_path()
     config, gates_error = load_gates_fail_closed(gates_file)
@@ -3307,6 +3322,24 @@ def _doctor_gates(args: argparse.Namespace, findings: list[dict[str, Any]]) -> d
             message=(
                 f"gates.yaml 拒载,门槛件已按全关处理(fail-closed):"
                 f"{first.get('message', '')};修复后重跑 doctor"
+            ),
+        )
+    # D9 第三方留痕知情:platforms 门槛语义是自有实例,endpoint 指向已知
+    # 公共实例(rsshub.app 等)时出 info 提示 —— 坏文件路径 config 已全关
+    # (platforms 空),本循环自然空转,无需额外分支。
+    for name, gate in sorted(config.platforms.items()):
+        public_host = _public_instance_hint(gate.endpoint)
+        if public_host is None:
+            continue
+        _finding(
+            findings,
+            severity="info",
+            scope="gates",
+            code="third_party_trace",
+            message=(
+                f"platforms.{name} endpoint 指向已知公共实例({public_host})——"
+                f"第三方留痕知情:采集目标将经公共实例服务器并留痕;"
+                f"门槛语义是自有实例,自部署可消除(rsshub 件 README 有指引)"
             ),
         )
     try:

@@ -73,5 +73,10 @@ class ZenrowsEngine(SaasEngineBase):
         )
 
     def _upstream_returns_json(self) -> bool:
-        """css_extractor 一经配置,Zenrows 响应即 JSON(上游抽取语义)。"""
-        return "css_extractor" in self.engine_options()
+        """css_extractor 一经配置(值非 null),Zenrows 响应即 JSON(上游抽取语义)。
+
+        判值不判键:``css_extractor: ~``(显式 null)= 空态,与 ``_query_params``
+        的发参条件同口径 —— 否则「不发参却按 JSON 解析」会让上游的 HTML 回应
+        换来误导性 json_decode,还白发一次付费请求。
+        """
+        return self.engine_options().get("css_extractor") is not None

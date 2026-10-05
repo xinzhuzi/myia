@@ -115,7 +115,12 @@ def gated_context(
 
 
 def failing_handler():
-    """任何非 robots 请求即失败的 handler(关闭态零请求断言)。"""
+    """任何非 robots 请求即失败的 handler(关闭态零请求断言)。
+
+    已知盲区(批二遗留):``make_handler`` 会自动应答 ``/robots.txt``(404
+    fail-open),经它包装后「零请求」守卫不覆盖 robots 拉取一路 —— 补强见
+    :func:`test_closed_gate_precedes_robots_zero_requests_including_robots`。
+    """
     return make_handler(lambda request: pytest.fail(f"不应发起任何请求:{request.url}"))
 
 
@@ -166,6 +171,44 @@ def test_bad_gates_file_logs_warning_but_stays_fail_closed(monkeypatch, tmp_path
             run(engine.fetch())
     assert excinfo.value.error_type == "gate_closed"
     assert any("全关" in record.getMessage() for record in caplog.records)
+
+
+def test_closed_gate_precedes_robots_zero_requests_including_robots(monkeypatch, tmp_path):
+    """关闭态零请求守卫补强:不经 ``make_handler`` 包装,robots.txt 拉取也算请求。
+
+    门槛检查(:meth:`SaasEngineBase._fetch_impl` 先 ``_gate()`` 后
+    ``_ensure_robots_allowed``)必须先于 robots —— 否则关闭态虽不烧钱也会
+    对目标站发一次 robots 拉取。旧守卫(failing_handler)因 make_handler
+    自动应答 robots.txt 看不见这一路,本例连 robots 一并钉死。
+    """
+    set_home(monkeypatch, tmp_path, GATES_TOTAL_ON_ENGINE_OFF)
+    client = make_client(lambda request: pytest.fail(f"不应发起任何请求:{request.url}"))
+    context, _ = make_context(client)
+    engine = ZenrowsEngine(make_source(engine="zenrows", url=TARGET_URL), context)
+
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "gate_closed"
+
+
+def test_robots_denied_open_gate_skips_paid_upstream_request(monkeypatch, tmp_path):
+    """robots 拒绝目标站 ∧ 门槛开:robots_disallowed 结构化失败,零上游付费请求。
+
+    robots×gate 开关态盲区补(批二遗留 2):礼貌约束作用于目标站点
+    (saas.py 模块文档)—— 目标站 Disallow 时上游代抓请求根本不应发出。
+    """
+    set_home(monkeypatch, tmp_path, GATES_ZENROWS_ON)
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        pytest.fail(f"robots 已拒目标站,不应再请求上游:{request.url}")
+
+    client = make_client(make_handler(responder, robots="User-agent: *\nDisallow: /\n"))
+    context, _ = gated_context(client)
+    engine = ZenrowsEngine(make_source(engine="zenrows", url=TARGET_URL), context)
+
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "robots_disallowed"
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +306,35 @@ def test_zenrows_css_extractor_json_mode(monkeypatch, tmp_path):
             "price": "42",
             "url": "https://js-heavy.example.com/t/1",
         }
+    ]
+
+
+def test_zenrows_css_extractor_explicit_null_is_html_mode(monkeypatch, tmp_path):
+    """css_extractor: ~(显式 null)= 空态:不发参、响应按 HTML 直通解析。
+
+    判值不判键(批二遗留修):键在值空时曾按 JSON 模式解析 —— 上游回 HTML
+    换来误导性 json_decode,还白发一次付费请求;现与 _query_params 发参条件
+    同口径,显式 None 落空态语义一致化。
+    """
+    set_home(monkeypatch, tmp_path, GATES_ZENROWS_ON)
+    captured: dict = {}
+
+    def responder(request: httpx.Request) -> httpx.Response:
+        captured["params"] = dict(request.url.params)
+        return httpx.Response(200, text=PAGE_HTML)
+
+    client = make_client(make_handler(responder))
+    context, _ = gated_context(client)
+    source = make_source(
+        engine="zenrows",
+        url=TARGET_URL,
+        engine_options={"zenrows": {"css_extractor": None}},
+    )
+
+    items = run(ZenrowsEngine(source, context).fetch())
+    assert "css_extractor" not in captured["params"]  # 空态不发参
+    assert items == [
+        {"url": TARGET_URL, "title": "JS 渲染标题", "content": PAGE_HTML}
     ]
 
 

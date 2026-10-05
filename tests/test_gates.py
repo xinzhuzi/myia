@@ -900,6 +900,77 @@ class TestDoctorGates:
         assert payload["gates"]["gated"] == []
         assert not [f for f in payload["findings"] if f["scope"].startswith("plugin:myssia-plain")]
 
+    def test_platforms_endpoint_public_instance_is_trace_info(self, tmp_path, capsys, backend):
+        """D9:platforms endpoint 命中已知公共实例域(rsshub.app)= info 留痕知情。
+
+        内置小清单(KNOWN_PUBLIC_INSTANCE_HOSTS,勿引外部依赖);组织性不执法
+        (D6):info 不抬 warning、healthy 不受影响、也不拦任何源。
+        """
+        market = make_market(tmp_path, GATED_MANIFEST_YAML)
+        gates_file = write_gates(
+            tmp_path / "gates.yaml",
+            (
+                "version: 1\n"
+                "platforms:\n"
+                "  crawlab:\n"
+                "    enabled: true\n"
+                "    endpoint: https://rsshub.app\n"
+            ),
+        )
+        code, payload = run_doctor(capsys, tmp_path, market, gates_file)
+        assert code == EXIT_OK
+        hints = [f for f in payload["findings"] if f["code"] == "third_party_trace"]
+        assert len(hints) == 1
+        assert hints[0]["severity"] == "info"
+        assert "rsshub.app" in hints[0]["message"]
+        assert "留痕" in hints[0]["message"]
+        # info 级不动 summary 口径(与 gate_disabled 同纪律)
+        assert payload["summary"]["warnings"] == 0
+        assert payload["healthy"] is True
+        # 门槛件本身已启用:不叠 gate_disabled
+        assert not [f for f in payload["findings"] if f["code"] == "gate_disabled"]
+
+    def test_platforms_endpoint_public_instance_hint_also_when_disabled(
+        self, tmp_path, capsys, backend
+    ):
+        """endpoint 留痕事实与开关无关:未启用的公共实例 endpoint 同样提示。"""
+        market = make_market(tmp_path, GATED_MANIFEST_YAML)
+        gates_file = write_gates(
+            tmp_path / "gates.yaml",
+            (
+                "version: 1\n"
+                "platforms:\n"
+                "  crawlab:\n"
+                "    enabled: false\n"
+                "    endpoint: https://rsshub.app/\n"
+            ),
+        )
+        code, payload = run_doctor(capsys, tmp_path, market, gates_file)
+        assert code == EXIT_OK
+        assert len([f for f in payload["findings"] if f["code"] == "third_party_trace"]) == 1
+        # 未启用照旧走 gate_disabled info(两条 finding 并存,各说各事)
+        assert len([f for f in payload["findings"] if f["code"] == "gate_disabled"]) == 1
+
+    def test_platforms_endpoint_self_hosted_no_trace_hint(self, tmp_path, capsys, backend):
+        """自部署 endpoint(含子域/端口/路径形态)不命中清单 → 零提示。"""
+        market = make_market(tmp_path, GATED_MANIFEST_YAML)
+        gates_file = write_gates(
+            tmp_path / "gates.yaml",
+            (
+                "version: 1\n"
+                "platforms:\n"
+                "  crawlab:\n"
+                "    enabled: true\n"
+                "    endpoint: https://crawlab.example.com:8080/path\n"
+                "  worldmonitor:\n"
+                "    enabled: false\n"
+                "    endpoint: https://my-rsshub.example.net\n"
+            ),
+        )
+        code, payload = run_doctor(capsys, tmp_path, market, gates_file)
+        assert code == EXIT_OK
+        assert not [f for f in payload["findings"] if f["code"] == "third_party_trace"]
+
 
 # ---------------------------------------------------------------------------
 # desktop/entry.py:gates.yaml 路径解析挂 _serve_context 优先级链
