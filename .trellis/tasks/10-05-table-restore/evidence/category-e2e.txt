@@ -1,0 +1,11 @@
+[32m[INFO] 2026-10-05 15:07:14,065 [RapidTable] download_file.py:56: File exists and is valid: /private/tmp/table-e2e/lib/python3.12/site-packages/rapid_table/models/slanet-plus.onnx[0m
+[32m[INFO] 2026-10-05 15:07:14,067 [RapidTable] base.py:53: Using engine_name: onnxruntime[0m
+[32m[INFO] 2026-10-05 15:07:14,067 [RapidTable] main.py:35: Using /private/tmp/table-e2e/lib/python3.12/site-packages/rapid_table/models/slanet-plus.onnx[0m
+[33m[WARNING] 2026-10-05 15:07:14,100 [RapidTable] main.py:52: rapidocr package is not installed, only table rec[0m
+[load] 品类装载 OK:id=table-e2e images.table=True ocr_engine=rapidocr
+BatchRec:   0%|          | 0/1 [00:00<?, ?it/s]BatchRec: 100%|██████████| 1/1 [00:00<00:00, 43.09it/s]
+[collect] image_status='ok'
+[collect] metadata keys=['image', 'image_ocr', 'image_status', 'tables']
+[collect] image_ocr(前 80 字符)='品种\n价格\n涨跌幅\nBTC\n65000\n+2.3%\nETH\n3200\n-1.2%\nSOL\n150\n+5.6%'
+[assert] metadata.tables 恰三键 {markdown,rows,cols},4x3 逐格对齐真引擎探针基准
+[assert] AC6 品类级端到端 PASS(品类 YAML 装载 + collect 环真 run_table + 三键契约)

@@ -1,4 +1,7 @@
 """判据验证:pagetype 文章形态判别力 + extract=None 现状拒载实证。"""
+# ruff: noqa: F821
+# ↑ :7 exec(open(...)) 运行时注入三夹具常量(ARTICLE/LISTING 等,定义在
+# /tmp/traf-eval-matrix.py),静态分析不可见;evidence 脚本勿以此为由清全文件。
 import json
 from types import SimpleNamespace
 from trafilatura import extract as traf_extract
