@@ -139,8 +139,10 @@ const SECTIONS: SettingsSection[] = [
   { id: "vision", label: "视觉", icon: Eye, title: "视觉", description: "看图通道与 OCR + MLX 视觉模型" },
   { id: "gates", label: "门槛件", icon: Lock, title: "门槛件", description: "付费 SaaS / 自有实例 / 分析件:知情启用(fail-closed,缺省全关)" },
   // 10-05-bundled-plugins-install:装机组件分区(随包官方插件件发现/一键装;
-  // sidecar plugins.bundled.list/install,契约见 bundled-plugins-api.ts)
-  { id: "installer-plugins", label: "装机组件", icon: Layers, title: "装机组件", description: "随包官方插件件:发现 / 一键安装 / 重装(整目录拷贝过 manifest 校验;卸载走 CLI)" },
+  // sidecar plugins.bundled.list/install,契约见 bundled-plugins-api.ts)。
+  // 批二(10-05-bundled-plugins-batch2):+卸载(uninstall)与品类 YAML
+  // 平铺装(category_install/categories)。
+  { id: "installer-plugins", label: "装机组件", icon: Layers, title: "装机组件", description: "随包官方插件件:发现 / 安装 / 重装 / 卸载 + 品类配置平铺装(manifest 校验;品类与补种同落点)" },
   // 10-05-desktop-managed-py-env 第 4 步(D1/D2):Python 运行环境自管区块,
   // 也是 D2 引导空态「一键跳设置」的深链落点(#/settings?section=python-env)
   { id: "python-env", label: "Python 环境", icon: Cpu, title: "Python 运行环境", description: "运行时与依赖按需下载:开始配置 / 双镜像覆盖 / 安装明细 / 同步依赖" },

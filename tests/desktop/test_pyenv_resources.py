@@ -134,6 +134,13 @@ def test_seed_resources_untouched(source: str, dest: str) -> None:
 #: 故闭包必须与 extras myssia[table] 三件同源(交叉对齐测试把守)。
 TABLE_COMPONENT_PIP_SPEC = "rapid-table==3.0.2 rapidocr-onnxruntime>=1.3 tqdm>=4"
 
+#: 正文抽取兜底组件闭包(10-05-bundled-plugins-batch2 R1):与 pyproject
+#: extras ``myssia[trafilatura]`` 逐字符同字串——主件也用 extras 原窗
+#: ``>=2.3,<3`` 不钉版(与 table 主件钉 ==3.0.2 不同:trafilatura extras
+#: 本身是双约束窗,组件侧钉版会造出第三种口径;selectolax<1 钉版不可省,
+#: 防 1.0.0 撞 Modest 解析器移除墙,保护 MYIA extract_html 面)。
+TRAFILATURA_COMPONENT_PIP_SPEC = "trafilatura>=2.3,<3 selectolax<1"
+
 
 def test_components_resource_declared_and_present() -> None:
     """components.json 随包映射已声明且源文件在盘。"""
@@ -145,7 +152,11 @@ def test_components_resource_declared_and_present() -> None:
 
 def test_components_registry_shape() -> None:
     """注册表契约形态:{components:[{id,pip_spec,label,description}]},首件
-    table 钉版在册(id/pip_spec/label 非空;壳侧过滤半截条目,这里钉上游不产半截)。"""
+    table 钉版在册(id/pip_spec/label 非空;壳侧过滤半截条目,这里钉上游不产半截)。
+
+    形状正则的约束段是 ``[^\s]+`` 整段——天然容忍逗号多约束 token(如
+    ``trafilatura>=2.3,<3``),无需为多约束单列语法;此处遍历**全部条目**
+    (不止 table)做形状检查,后续加件自动纳管。"""
     registry = json.loads((RESOURCES_DIR / "components.json").read_text(encoding="utf-8"))
     assert isinstance(registry.get("components"), list), "components 须为数组"
     ids = [entry.get("id") for entry in registry["components"]]
@@ -154,15 +165,15 @@ def test_components_registry_shape() -> None:
         assert isinstance(entry, dict), f"条目须为对象: {entry!r}"
         for key in ("id", "pip_spec", "label", "description"):
             assert isinstance(entry.get(key), str) and entry[key], f"条目缺非空 {key}: {entry!r}"
+        # pip spec 形状:闭包逐条 name==version 钉版或 name<op>version 约束
+        # (组件机制按「钉版闭包」设计;主件 == 钉版,伴生件与 extras 同字串)。
+        for token in entry["pip_spec"].split():
+            assert re.match(
+                r"^[A-Za-z0-9][A-Za-z0-9._-]*(==[^\s]+|>=?[^\s]+|<=?[^\s]+|!=+[^\s]+|~=+[^\s]+)$",
+                token,
+            ), f"spec 形状不符: {token!r}"
     table = next(entry for entry in registry["components"] if entry["id"] == "table")
     assert table["pip_spec"] == TABLE_COMPONENT_PIP_SPEC, f"table 闭包漂移: {table['pip_spec']!r}"
-    # pip spec 形状:闭包逐条 name==version 钉版或 name<op>version 约束
-    # (组件机制按「钉版闭包」设计;主件 == 钉版,伴生件与 extras 同字串)。
-    for token in table["pip_spec"].split():
-        assert re.match(
-            r"^[A-Za-z0-9][A-Za-z0-9._-]*(==[^\s]+|>=?[^\s]+|<=?[^\s]+|!=+[^\s]+|~=+[^\s]+)$",
-            token,
-        ), f"spec 形状不符: {token!r}"
 
 
 def test_table_component_matches_pyproject_extras() -> None:
@@ -197,6 +208,38 @@ def test_table_component_matches_pyproject_extras() -> None:
             f"{name} 桌面钉版 {pinned[0].version} 不满足 extras 约束 "
             f"{extras_req.specifier}(代差即引擎三处调用面全断)"
         )
+
+
+def test_trafilatura_component_matches_pyproject_extras() -> None:
+    """桌面组件闭包 ↔ pyproject extras ``myssia[trafilatura]`` 交叉对齐
+    (10-05-bundled-plugins-batch2 R1)。
+
+    与 table 的三方锁(tests/cli/test_cli_full.py
+    test_table_component_closure_three_way)对照,本件**如实降为两方**:
+    doctor 探测面不存在——trafilatura 是 env 开关件(``MYIA_EXTRACT_FALLBACK``,
+    static_html.py 惰性 import + 缺装结构化降级),不是 images.table 式品类
+    声明件,cli.py 无探测清单可锁;pyenv 侧(pyenv_components.rs
+    ``load_registry``)全动态零 id 锁(实测无注册表 id 硬编码,测试常量
+    TABLE_PIP_SPEC 只是测试基准)——两侧锁面 = extras 字串与注册表 pip_spec
+    **逐字符一致**(主件用 extras 原窗 ``>=2.3,<3``,不引入第三种钉版口径;
+    sorted 对比避免 Requirement 归一化重排 ``<3,>=2.3`` 造成假阴/假阳)。
+    """
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    extras_raw = list(pyproject["project"]["optional-dependencies"]["trafilatura"])
+    registry = json.loads((RESOURCES_DIR / "components.json").read_text(encoding="utf-8"))
+    entry = next(e for e in registry["components"] if e["id"] == "trafilatura")
+    assert entry["pip_spec"] == TRAFILATURA_COMPONENT_PIP_SPEC, (
+        f"trafilatura 闭包漂移: {entry['pip_spec']!r}"
+    )
+    # 逐字符同字串:token 原文排序后与 extras 原文排序后相等(不经 Requirement
+    # 归一化——它会把 >=2.3,<3 重排成 <3,>=2.3,比不出「同字串」)。
+    assert sorted(entry["pip_spec"].split()) == sorted(extras_raw), (
+        f"闭包与 extras 不逐字符同字串: 桌面 {sorted(entry['pip_spec'].split())} "
+        f"vs extras {sorted(extras_raw)}(任一侧漂移即红)"
+    )
+    # label/description 人话在册(R1:开关与缺省态必须写进描述)
+    assert entry["label"] == "正文抽取兜底"
+    assert "MYIA_EXTRACT_FALLBACK" in entry["description"], "描述须写明开关环境变量"
 
 
 # ---------------------------------------------------------------------------

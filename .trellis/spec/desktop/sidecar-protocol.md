@@ -16,7 +16,7 @@
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 64 行;代码 `_HANDLERS` 现值 64,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 66 行;代码 `_HANDLERS` 现值 66,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -82,8 +82,10 @@
 | 60 | `store.state.import` | `_m_store_state_import` | localStorage 读态一次性搬迁(G9 Q2 搬迁门):`{states: {<key>: {read?/starred?/later?}}, db?}` → `{imported, skipped}`;key 三分:dedup_key 直配/`id:<n>` 先解析到键/`id:<url>` 及无从解析形态如实计 skipped(已剪枝条目不复活);幂等旗标 = store_meta `feed_state_imported_at`(服务端是唯一真相,webview 清数据击不穿):已设 → `{imported:0, skipped:0}` 不触库,未设 → 导入后落 ISO 时间戳(read-state-server 批) |
 | 61 | `gates.get` | `_m_gates_get` | gates.yaml 整读:`{}` → `{config, path, exists, error}`(config = GatesConfig.to_payload 同形状,凭据位只回 `keychain:` 引用永不回值;文件缺失 = 全关默认态 exists=false;**坏文件不 fail fast** —— fail-closed 全关态 + `error` 拒载明细(LoadError.to_dict)带回,设置屏是修复入口,一次合法 save 覆写修复,与 image.config.read 的 fail fast 不同属刻意;设置屏门槛件分区消费;10-05-plugin-market-batch 批二) |
 | 62 | `gates.save` | `_m_gates_save` | gates.yaml 整存:`{config}` → `{ok, path}`(tmp+rename 原子写;`GatesConfig` 构造即校验,失败 `gates_config_invalid`(data=LoadError.to_dict)零落盘;缺 config 对象 = `invalid_params`;10-05-plugin-market-batch 批二) |
-| 63 | `plugins.bundled.list` | `_m_plugins_bundled_list` | 随包插件组件包发现:`{}` → `{dir, count, plugins}`(枚举 env `MYIA_BUNDLED_PLUGINS` 目录下含 plugin.yaml 的子目录,逐包 manifest 摘要 id/name/version/tier/gate/requires/provides + 版本兼容判定 + 已装态 installed/installed_version——对齐安装根 InstalledPluginStore 的 plugin_id;**env 未设/目录不存在 = 合法空表** `{dir:null, count:0, plugins:[]}`(dev 形态/旧包/未注入如实);坏 manifest 条目级 finding(manifest_invalid)不整表炸,沿 yaml.list 先例;目录名与 manifest id 不一致 → id_mismatch warning 如实透出;10-05-bundled-plugins-install) |
-| 64 | `plugins.bundled.install` | `_m_plugins_bundled_install` | 随包组件包一键装:`{id, force?}` → `{ok, dir, version}`(id 过 `_PLUGIN_ID_RE` 同门防穿越 → 目录映射 → 直调 `InstalledPluginStore.install` 与 CLI `myssia plugin install` 同门:manifest 校验→版本矩阵→整目录拷贝绝不半装;已装未 force/版本不兼容未 force → PluginStoreError code 原文透传 already_installed/incompatible_version 等;env 不可用 `bundled_plugins_unavailable`、id 不在目录 `bundled_plugin_not_found`;卸载本期不在协议面(CLI `myssia plugin remove` 在库;随包原件只读永不删,卸载=删安装根拷贝可重装);10-05-bundled-plugins-install) |
+| 63 | `plugins.bundled.list` | `_m_plugins_bundled_list` | 随包插件组件包发现:`{}` → `{dir, count, plugins, categories}`(枚举 env `MYIA_BUNDLED_PLUGINS` 目录下含 plugin.yaml 的子目录,逐包 manifest 摘要 id/name/version/tier/gate/requires/provides + 版本兼容判定 + 已装态 installed/installed_version——对齐安装根 InstalledPluginStore 的 plugin_id;**env 未设/目录不存在 = 合法空表** `{dir:null, count:0, plugins:[], categories:[]}`(dev 形态/旧包/未注入如实);坏 manifest 条目级 finding(manifest_invalid)不整表炸,沿 yaml.list 先例;目录名与 manifest id 不一致 → id_mismatch warning 如实透出;批二 R3 增 `categories` 键=同目录平铺品类 YAML 发现视图(见 #66 行注);`count` 语义不变=组件包数;10-05-bundled-plugins-install,批二扩) |
+| 64 | `plugins.bundled.install` | `_m_plugins_bundled_install` | 随包组件包一键装:`{id, force?}` → `{ok, dir, version}`(id 过 `_PLUGIN_ID_RE` 同门防穿越 → 目录映射 → 直调 `InstalledPluginStore.install` 与 CLI `myssia plugin install` 同门:manifest 校验→版本矩阵→整目录拷贝绝不半装;已装未 force/版本不兼容未 force → PluginStoreError code 原文透传 already_installed/incompatible_version 等;env 不可用 `bundled_plugins_unavailable`、id 不在目录 `bundled_plugin_not_found`;10-05-bundled-plugins-install) |
+| 65 | `plugins.bundled.uninstall` | `_m_plugins_bundled_uninstall` | 随包组件包卸载:`{id}` → `{ok, id, path}`(id 过 `_PLUGIN_ID_RE` 同门 → 直调 `InstalledPluginStore.remove` 与 CLI `myssia plugin remove` 同门:删安装根 `<install_root>/<id>` 整目录,绝不半删;**随包原件只读永不删**,卸载后可随时经 #64 重装;**不依赖 bundled root**——卸载是安装根操作,`MYIA_BUNDLED_PLUGINS` 未设的 dev 形态/旧包同样可卸已装件,如实;PluginStoreError code 原文透传 not_installed/io_error;10-05-bundled-plugins-batch2 R2) |
+| 66 | `plugins.bundled.category_install` | `_m_plugins_bundled_category_install` | 随包品类 YAML 平铺安装:`{id, force?}` → `{ok, file, path}`(与组件包安装语义刻意不同:品类=单文件平铺拷到 `<plugins_dir>/<源文件名>`,与 `_seed_first_run` 补种同落点;id 过 `CATEGORY_ID_RE`(schema 同源防穿越)→ 定位(文件名 stem 直配 > YAML id 字段兜底)→ `load_category_file` 校验通过才装(坏件 `category_invalid` 拒零拷贝)→ tmp+rename 原子拷贝;**已有同名文件未 force → `category_exists` 结构化拒如实「已存在」不覆盖**——与补种幂等补缺对齐不打架:补种=自动补缺永不覆盖,本面=显式知情,force 才覆盖;**id/冲突定义**:品类 id = YAML `id:` 字段(CATEGORY_ID_RE),冲突 = 数据根 plugins/ 下同名文件存在(文件级,内容同否不判);与组件包零冲突(子目录 vs 平铺文件两种形状互不占据);env 不可用 `bundled_plugins_unavailable`、id 合形不在目录 `bundled_category_not_found`;品类无卸载面(补种只补不删,删文件走 yaml-editor 屏);10-05-bundled-plugins-batch2 R3) |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+
@@ -141,6 +143,15 @@ spawn 时注入 `MYIA_BUNDLED_PLUGINS=Resources/plugins`(release 且用户未显
 **协议版本未随批 bump**:循 plugin-market-batch gates 批二「地基路」先例——
 旧壳+新 UI 组合下设置屏「装机组件」分区经 method_not_found 结构化降级(不
 白屏),与 gates UI 无版本能力门同款;注册表 64 行。
+bundled-plugins-batch2 批(task 10-05-bundled-plugins-batch2,前轮四件翻案)
+新增 2:65 `plugins.bundled.uninstall`(卸载=删安装根拷贝,直调
+`InstalledPluginStore.remove` 与 CLI `myssia plugin remove` 同门;不依赖
+bundled root,dev 形态可卸)+ 66 `plugins.bundled.category_install`(品类
+YAML 平铺安装,与补种同落点;已存在未 force 拒,force 才覆盖——两语义对齐
+不打架:补种自动补缺永不覆盖,安装面显式知情);#63 连带增 `categories`
+发现键(`count` 语义不变)。**同样不 bump v10**:循本族「地基路」先例——
+旧壳+新 UI 组合下卸载钮/品类分区经 method_not_found 结构化降级不白屏,
+新增应答键(`categories`)旧 UI 忽略零回归;注册表 66 行。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成
@@ -308,6 +319,7 @@ status 取摘要 run 块,账本无行时 summary=null/status 回落成功布尔,
 | 定时任务 | `cron_category_invalid` / `cron_create_failed` / `cron_edit_failed` / `cron_edit_no_changes` / `cron_resume_failed` / `cron_run_failed` / `cron_ambiguous_job` / `cron_job_not_found`(另复用 `invalid_params` 参数形状/all 与 job 互斥) | `cron.create`/`cron.edit` 品类 YAML 装不上(Q6 早失败,data=LoadError.to_dict)/ `create` 的 schedule 五形态·once 超窗·repeat·paused 自相矛盾(ValueError 原文)/ `edit` 的 schedule 变更解析失败·终态复活拒绝 / `edit` 空更新集 / `resume` 的 recurring 拒 at·once 过窗 / `run` 终态 job 拒绝 / 名字引用重名(data.candidates)/ id 或名字未找到(task 10-04-hermes-cron;与 CLI `myia cron` 同码) |
 | 读态置位 | (仅复用 `invalid_params` + 透传 `store_corrupt`/`schema_version_newer`) | `store.state.mark` 的 keys 非非空数组/含非字符串或空串/超 2000、marker 不在 read/starred/later 枚举、value 非 bool;`store.state.mark_all` 的 marker/value/category 空串;`store.state.import` 的 states 非对象/键非字符串/值非对象/标记键非枚举布尔(task 10-04-read-state-server;参数形状全静态校验,无新业务 code) |
 | 随包插件一键装 | `bundled_plugins_unavailable` / `bundled_plugin_not_found`(另复用 `invalid_params` id/force 形状;装卸门错误码 `PluginStoreError.code` 动态透传见透传族) | `plugins.bundled.install`:env `MYIA_BUNDLED_PLUGINS` 未设/目录不可达(dev 形态/旧包/未注入如实;`bundled_plugins_unavailable`)/ id 过正则门但随包目录内无此件(`bundled_plugin_not_found`,可用件见 list;task 10-05-bundled-plugins-install) |
+| 随包品类平铺装 | `bundled_category_not_found` / `category_exists` / `category_invalid` / `io_error`(另复用 `bundled_plugins_unavailable`/`invalid_params`) | `plugins.bundled.category_install`:id 过 `CATEGORY_ID_RE` 但随包平铺 YAML 内无此件(`bundled_category_not_found`,可用件见 list 的 categories)/ 数据根已有同名文件未 force(`category_exists`——如实「已存在」不覆盖,与补种幂等补缺语义对齐)/ 随包 YAML 装不上(`category_invalid`,坏件拒零拷贝)/ tmp+rename 拷贝 IO 失败;task 10-05-bundled-plugins-batch2 R3 |
 
 ### 透传族(`exc.code` 动态透传,不在 entry.py 静态出现)
 
@@ -319,7 +331,9 @@ push 层 `PushSendError.code`(`missing_target` / `env_var_missing` /
 `plugins.bundled.install` 透传插件仓 `PluginStoreError.code`(installed.py 装卸门
 唯一 fail-fast 面:already_installed / incompatible_version / manifest_invalid /
 invalid_source / io_error;task 10-05-bundled-plugins-install,`data.errors` 带
-manifest 校验明细)。
+manifest 校验明细);`plugins.bundled.uninstall` 同族透传 remove 侧
+`PluginStoreError.code`(not_installed / io_error;批二 R2——卸载=安装根操作,
+id 正则门与 install 同门,invalid_plugin_id 形态在协议层先拦为 invalid_params)。
 
 ## 变更纪律
 
@@ -355,6 +369,10 @@ manifest 校验明细)。
   types+invoke 封装先例;不进共享门面——单屏单消费方,yaml.* 同款惯例),
   消费方 = `screens/settings/bundled-plugins-card.tsx`(逐包行+一键装/重装;
   SidecarProtocol 共享映射数不变,对账时勿按 47 计本族)。
+  批二(10-05-bundled-plugins-batch2)同面扩三键:`uninstall`/`category_install`
+  两方法与 list 新增 `categories` 键均走同一 bundled-plugins-api.ts 屏私有封装
+  (消费方不变=bundled-plugins-card.tsx 增卸载钮+品类分区行;共享门面与
+  SidecarProtocol 映射数仍不变,对账口径同上)。
  `store.state.*` 三方法的前端接线归 10-04-read-state-server 前端件(feed 屏
   能力门:`api.version().protocol >= 10` 走服务端态通路,否则原样走旧
   localStorage 通路——旧 sidecar + 新 UI 组合可用;接线落成后按上表 58-60 行对账)。

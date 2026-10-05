@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 //
-// 「装机组件」分区卡契约测试(10-05-bundled-plugins-install):mock Tauri IPC
-// (sidecar_request 通道),覆盖:
+// 「装机组件」分区卡契约测试(10-05-bundled-plugins-install + 批二
+// 10-05-bundled-plugins-batch2):mock Tauri IPC(sidecar_request 通道),覆盖:
 // - plugins.bundled.list 渲染:逐包行(名称/版本/tier·gate 徽章/已装态徽章/
 //   findings 行内展示)+ 已装版本落后随包 →「可重装更新」;
 // - 安装/重装按钮两态:未装件发 {id}(零 force 键)、已装件发 {id, force:true};
 //   装后回读 list(拉取是真相源);
+// - 卸载钮(批二 R2):已装行普通确认后发 {id};取消零调用;未装行零卸载钮;
+// - 品类分区(批二 R3):名称/排程/已存在徽章;未存在发 {id}、已存在确认后
+//   发 {id, force:true}(覆盖是知情操作);
 // - 装卸错误结构化上屏(PluginStoreError code 透传,如 already_installed);
 // - 空态如实:dir=null(dev/旧包未注入)→ 提示块,零虚构清单零按钮。
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -15,7 +18,12 @@ const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
 
 import { BundledPluginsCard } from "./bundled-plugins-card";
-import { parseBundledPluginsInstall, parseBundledPluginsList } from "./bundled-plugins-api";
+import {
+  parseBundledCategoryInstall,
+  parseBundledPluginsInstall,
+  parseBundledPluginsList,
+  parseBundledPluginsUninstall,
+} from "./bundled-plugins-api";
 
 // ---------------------------------------------------------------------------
 // 夹具(wire 形 = entry.py _m_plugins_bundled_list 应答的原样 JSON)
@@ -55,21 +63,27 @@ function wirePlugin(overrides: Partial<WirePlugin> & { dir_name: string }): Reco
   };
 }
 
-function wireList(plugins: Record<string, unknown>[], dir: string | null = "/app/Contents/Resources/plugins") {
-  return { dir, count: plugins.length, plugins };
+function wireList(
+  plugins: Record<string, unknown>[],
+  dir: string | null = "/app/Contents/Resources/plugins",
+  categories: unknown[] = [],
+) {
+  return { dir, count: plugins.length, plugins, categories };
 }
 
-/** 记账式 IPC 桩:list 内存态 + install 翻态回读(壳桩行为 = entry.py 语义)。 */
+/** 记账式 IPC 桩:list 内存态 + install 翻态回读(壳桩行为 = entry.py 语义);
+ * 批二扩 uninstall/category_install(品类翻态回读同源)。 */
 function installBundledIpc(
   initial: Record<string, unknown>[],
   dir: string | null = "/app/Contents/Resources/plugins",
   installImpl?: (params: { id: string; force?: boolean }) => unknown,
-) {
-  const seen: { method: string; params: unknown }[] = [];
+  initialCategories: Record<string, unknown>[] = [],
+) {  const seen: { method: string; params: unknown }[] = [];
   let current = initial;
+  let currentCategories = initialCategories;
   mocks.invoke.mockImplementation(async (_command: string, args?: { method?: string; params?: unknown }) => {
     seen.push({ method: args?.method ?? "", params: args?.params });
-    if (args?.method === "plugins.bundled.list") return wireList(current, dir);
+    if (args?.method === "plugins.bundled.list") return wireList(current, dir, currentCategories);
     if (args?.method === "plugins.bundled.install") {
       if (installImpl) {
         const outcome = installImpl(args.params as { id: string; force?: boolean });
@@ -94,6 +108,29 @@ function installBundledIpc(
         dir: `/home/myia/plugins/${id}`,
         version: (current.find((p) => (p as unknown as WirePlugin).dir_name === id) as unknown as WirePlugin).version,
       };
+    }
+    if (args?.method === "plugins.bundled.uninstall") {
+      const { id } = args.params as { id: string };
+      current = current.map((plugin) =>
+        (plugin as unknown as WirePlugin).dir_name === id ? { ...plugin, installed: false, installed_version: null } : plugin,
+      );
+      return { ok: true, id, path: `/home/myia/plugins/${id}` };
+    }
+    if (args?.method === "plugins.bundled.category_install") {
+      const { id, force } = args.params as { id: string; force?: boolean };
+      const target = currentCategories.find((cat) => (cat as { id?: string | null }).id === id);
+      if (target && (target as { exists?: boolean }).exists && force !== true) {
+        // 该件已存在未 force → category_exists 结构化拒(与补种「绝不覆盖」语义对齐)
+        throw JSON.stringify({
+          code: "category_exists",
+          path: "params.id",
+          message: `数据根已有同名品类文件;确认覆盖请加 force`,
+        });
+      }
+      currentCategories = currentCategories.map((cat) =>
+        (cat as { id?: string | null }).id === id ? { ...cat, exists: true } : cat,
+      );
+      return { ok: true, file: `${id}.yaml`, path: `/home/myia/plugins/${id}.yaml` };
     }
     throw JSON.stringify({ code: "method_not_found", path: "method", message: `未知方法 ${args?.method}` });
   });
@@ -145,9 +182,10 @@ describe("装机组件:发现面渲染", () => {
     expect(screen.getByTestId("bundled-plugin-myssia-crawlab-install")).toBeDefined();
     expect(screen.getByTestId("bundled-tier-remote").textContent).toBe("remote");
     expect(screen.getByTestId("bundled-gate-platform").textContent).toBe("platform");
-    // 能力名与卸载指引文案在卡内
+    // 能力名与卸载面文案在卡内(批二:本屏可卸载,已装行有卸载钮)
     expect(screen.getByTestId("bundled-plugins-rows").textContent).toContain("proxy_pool");
-    expect(screen.getByTestId("bundled-plugins-card").textContent).toContain("myssia plugin remove");
+    expect(screen.getByTestId("bundled-plugin-myssia-proxy-uninstall")).toBeDefined();
+    expect(screen.queryByTestId("bundled-plugin-myssia-crawlab-uninstall")).toBeNull(); // 未装行零卸载钮
     expect(screen.getByTestId("bundled-plugins-card").textContent).toContain("vendor_missing");
   });
 
@@ -242,6 +280,165 @@ describe("装机组件:一键装/重装两态", () => {
   });
 });
 
+describe("装机组件:卸载钮(批二 R2)", () => {
+  it("已装行「卸载」:普通确认 → 发 {id};回执「已卸载」+ 回读 list(已装徽章随新)", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { seen } = installBundledIpc([
+      wirePlugin({ dir_name: "myssia-proxy", id: "myssia-proxy", name: "代理池", installed: true, installed_version: "1.0.0" }),
+    ]);
+    render(<BundledPluginsCard />);
+    fireEvent.click(await screen.findByTestId("bundled-plugin-myssia-proxy-uninstall"));
+
+    await screen.findByTestId("bundled-install-note");
+    expect(confirmSpy).toHaveBeenCalledTimes(1); // 普通一次确认(非危险操作,不循钥匙链二次确认判例)
+    expect(confirmSpy.mock.calls[0][0]).toContain("myssia-proxy");
+    const uninstallCall = seen.find((call) => call.method === "plugins.bundled.uninstall");
+    expect(uninstallCall?.params).toEqual({ id: "myssia-proxy" });
+    expect(screen.getByTestId("bundled-install-note").textContent).toContain("已卸载");
+    expect(screen.getByTestId("bundled-install-note").textContent).toContain("可随时重装");
+    // 卸载后回读:list ≥ 2 次(挂载 + 卸后),已装态翻「未装」
+    const listCalls = seen.filter((call) => call.method === "plugins.bundled.list");
+    expect(listCalls.length).toBeGreaterThanOrEqual(2);
+    await waitFor(() => {
+      expect(screen.getByTestId("bundled-plugin-myssia-proxy-state").textContent).toBe("未装");
+    });
+    confirmSpy.mockRestore();
+  });
+
+  it("确认取消 → 零卸载调用(不误删)", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const { seen } = installBundledIpc([
+      wirePlugin({ dir_name: "myssia-proxy", id: "myssia-proxy", name: "代理池", installed: true, installed_version: "1.0.0" }),
+    ]);
+    render(<BundledPluginsCard />);
+    fireEvent.click(await screen.findByTestId("bundled-plugin-myssia-proxy-uninstall"));
+
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalledTimes(1));
+    expect(seen.find((call) => call.method === "plugins.bundled.uninstall")).toBeUndefined();
+    expect(screen.queryByTestId("bundled-install-note")).toBeNull();
+    confirmSpy.mockRestore();
+  });
+
+  it("not_installed 结构化上屏(未装件被并发卸载的如实态)", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mocks.invoke.mockImplementation(async (_command: string, args?: { method?: string; params?: unknown }) => {
+      if (args?.method === "plugins.bundled.list") {
+        return wireList([
+          wirePlugin({ dir_name: "myssia-proxy", id: "myssia-proxy", name: "代理池", installed: true, installed_version: "1.0.0" }),
+        ]);
+      }
+      if (args?.method === "plugins.bundled.uninstall") {
+        throw JSON.stringify({
+          code: "not_installed",
+          path: "params.id",
+          message: "插件 myssia-proxy 未安装于 /home/myia/plugins,无法移除",
+        });
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "method", message: "未知方法" });
+    });
+    render(<BundledPluginsCard />);
+    fireEvent.click(await screen.findByTestId("bundled-plugin-myssia-proxy-uninstall"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toContain("not_installed");
+    });
+    expect(screen.queryByTestId("bundled-install-note")).toBeNull();
+    confirmSpy.mockRestore();
+  });
+});
+
+describe("装机组件:品类分区(批二 R3)", () => {
+  const CATEGORIES = [
+    { file: "ai-news.yaml", path: "/app/Contents/Resources/plugins/ai-news.yaml", id: "ai-news", name: "AI资讯", schedule: "0 9 * * *", exists: true, findings: [] },
+    { file: "monitor.yaml", path: "/app/Contents/Resources/plugins/monitor.yaml", id: "monitor", name: "变更监控", schedule: "*/15 * * * *", exists: false, findings: [] },
+  ];
+
+  it("品类行渲染:名称/排程/已存在徽章(已存在 ok/未装 outline)", async () => {
+    installBundledIpc([wirePlugin({ dir_name: "myssia-proxy", id: "myssia-proxy", name: "代理池" })], undefined, undefined, CATEGORIES);
+    render(<BundledPluginsCard />);
+
+    await screen.findByTestId("bundled-categories");
+    expect(screen.getByTestId("bundled-category-ai-news.yaml-state").textContent).toBe("已存在");
+    expect(screen.getByTestId("bundled-category-monitor.yaml-state").textContent).toBe("未装");
+    expect(screen.getByTestId("bundled-category-monitor.yaml").textContent).toContain("*/15 * * * *");
+    expect(screen.getByTestId("bundled-category-monitor.yaml").textContent).toContain("变更监控");
+    // 与补种语义对齐的说明文案在分区(section 含标题)
+    expect(screen.getByTestId("bundled-categories-section").textContent).toContain("补种");
+  });
+
+  it("未存在品类「安装」发 {id} 零 force 键(零确认弹窗);装后回读 exists 翻真", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { seen } = installBundledIpc([wirePlugin({ dir_name: "myssia-proxy", id: "myssia-proxy", name: "代理池" })], undefined, undefined, CATEGORIES);
+    render(<BundledPluginsCard />);
+    fireEvent.click(await screen.findByTestId("bundled-category-monitor.yaml-install"));
+
+    await screen.findByTestId("bundled-install-note");
+    expect(confirmSpy).not.toHaveBeenCalled(); // 未存在零确认(不是覆盖操作)
+    const call = seen.find((item) => item.method === "plugins.bundled.category_install");
+    expect(call?.params).toEqual({ id: "monitor" }); // 零 force 键
+    expect(screen.getByTestId("bundled-install-note").textContent).toContain("monitor.yaml 已安装");
+    await waitFor(() => {
+      expect(screen.getByTestId("bundled-category-monitor.yaml-state").textContent).toBe("已存在");
+    });
+    confirmSpy.mockRestore();
+  });
+
+  it("已存在品类「覆盖」:普通确认后发 {id, force:true};取消零调用(与补种「绝不覆盖」对齐)", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValueOnce(true);
+    const { seen } = installBundledIpc([wirePlugin({ dir_name: "myssia-proxy", id: "myssia-proxy", name: "代理池" })], undefined, undefined, CATEGORIES);
+    render(<BundledPluginsCard />);
+    fireEvent.click(await screen.findByTestId("bundled-category-ai-news.yaml-overwrite"));
+
+    await screen.findByTestId("bundled-install-note");
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(confirmSpy.mock.calls[0][0]).toContain("ai-news.yaml");
+    const call = seen.find((item) => item.method === "plugins.bundled.category_install");
+    expect(call?.params).toEqual({ id: "ai-news", force: true });
+    expect(screen.getByTestId("bundled-install-note").textContent).toContain("已覆盖");
+    // 取消路径:再点一次但 confirm 返回 false → 零新增调用
+    confirmSpy.mockReturnValueOnce(false);
+    fireEvent.click(screen.getByTestId("bundled-category-ai-news.yaml-overwrite"));
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalledTimes(2));
+    expect(seen.filter((item) => item.method === "plugins.bundled.category_install")).toHaveLength(1);
+    confirmSpy.mockRestore();
+  });
+
+  it("坏品类 YAML 件:findings 行内 + 安装钮禁用;category_exists 结构化上屏", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const badCategories = [
+      {
+        file: "broken.yaml",
+        path: "/app/Contents/Resources/plugins/broken.yaml",
+        id: null,
+        name: null,
+        schedule: null,
+        exists: false,
+        findings: [{ severity: "error", scope: "category:broken.yaml", code: "category_invalid", message: "随包品类 YAML 校验失败:schedule 不是合法的 5 段 cron" }],
+      },
+    ];
+    mocks.invoke.mockImplementation(async (_command: string, args?: { method?: string; params?: unknown }) => {
+      if (args?.method === "plugins.bundled.list") {
+        return wireList([wirePlugin({ dir_name: "myssia-proxy", id: "myssia-proxy", name: "代理池" })], undefined, badCategories);
+      }
+      if (args?.method === "plugins.bundled.category_install") {
+        throw JSON.stringify({
+          code: "category_exists",
+          path: "params.id",
+          message: "数据根已有同名品类文件 /home/myia/plugins/ai-news.yaml;确认覆盖请加 force",
+        });
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "method", message: "未知方法" });
+    });
+    render(<BundledPluginsCard />);
+
+    const findings = await screen.findByTestId("bundled-category-broken.yaml-findings");
+    expect(findings.textContent).toContain("category_invalid");
+    const button = screen.getByTestId("bundled-category-broken.yaml-install") as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    confirmSpy.mockRestore();
+  });
+});
+
 describe("装机组件:wire 解析守门", () => {
   it("parseBundledPluginsList:契约形态过;dir/count 非契约即抛;条目附加字段宽容", () => {
     // 附加未知字段 extra:1(wire 侧宽容忽略——与后端条目级坏件不拦整表同口径)
@@ -253,12 +450,16 @@ describe("装机组件:wire 解析守门", () => {
     expect(parsed.plugins[0]).toMatchObject({ dir_name: "x", id: "x", installed: false });
     expect(() => parseBundledPluginsList({ count: 1 })).toThrow();
     expect(() => parseBundledPluginsList({ dir: "/x", count: "1", plugins: [] })).toThrow();
-    // dev 空态契约:dir=null 合法
+    // dev 空态契约:dir=null 合法(categories 同空)
     expect(parseBundledPluginsList({ dir: null, count: 0, plugins: [] })).toEqual({
       dir: null,
       count: 0,
       plugins: [],
+      categories: [],
     });
+    // categories 缺键宽容为空(旧 sidecar + 新 UI 的第二种旧壳态,list 在但无键)
+    const legacyParsed = parseBundledPluginsList({ dir: "/x", count: 1, plugins: [wire] });
+    expect(legacyParsed.categories).toEqual([]);
   });
 
   it("parseBundledPluginsInstall:三键契约;ok 非 true / 缺键即抛", () => {
@@ -269,5 +470,32 @@ describe("装机组件:wire 解析守门", () => {
     });
     expect(() => parseBundledPluginsInstall({ ok: false, dir: "/x", version: "1.0.0" })).toThrow();
     expect(() => parseBundledPluginsInstall({ ok: true, dir: "/x" })).toThrow();
+  });
+
+  it("parseBundledPluginsUninstall / parseBundledCategoryInstall:批二两应答守门(缺键即抛)", () => {
+    expect(parseBundledPluginsUninstall({ ok: true, id: "myssia-proxy", path: "/x" })).toEqual({
+      ok: true,
+      id: "myssia-proxy",
+      path: "/x",
+    });
+    expect(() => parseBundledPluginsUninstall({ ok: true, id: "x" })).toThrow();
+    expect(parseBundledCategoryInstall({ ok: true, file: "ai-news.yaml", path: "/x" })).toEqual({
+      ok: true,
+      file: "ai-news.yaml",
+      path: "/x",
+    });
+    expect(() => parseBundledCategoryInstall({ ok: true, file: "x" })).toThrow();
+    // 品类条目 wire 守门:file/path 宽容降级空串、exists 仅 true 认定;
+    // 非对象条目丢弃(对象条目缺键降级默认值——与 plugins 条目同口径)
+    const parsed = parseBundledPluginsList(
+      wireList([], "/x", [
+        { file: "ai-news.yaml", path: "/x/ai-news.yaml", id: "ai-news", name: "AI资讯", schedule: "0 9 * * *", exists: true, findings: [] },
+        { id: "broken" },
+        "not-an-object",
+      ]),
+    );
+    expect(parsed.categories).toHaveLength(2);
+    expect(parsed.categories[0]).toMatchObject({ file: "ai-news.yaml", id: "ai-news", exists: true });
+    expect(parsed.categories[1]).toMatchObject({ file: "", id: "broken", exists: false });
   });
 });

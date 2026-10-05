@@ -1,4 +1,4 @@
-import { Check, Download, Layers, PackageOpen, RefreshCw, RotateCcw } from "lucide-react";
+import { Check, Download, FileText, Layers, PackageOpen, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -9,25 +9,31 @@ import { cn } from "@/lib/utils";
 
 import { asSidecarError } from "./api";
 import {
+  bundledCategoryInstall,
   bundledPluginsInstall,
   bundledPluginsList,
+  bundledPluginsUninstall,
+  type BundledCategoryView,
   type BundledPluginsListResult,
   type BundledPluginView,
 } from "./bundled-plugins-api";
 import { ErrorBox } from "./error-box";
 
 /**
- * 「装机组件」分区卡(10-05-bundled-plugins-install):随包插件组件包的
- * 发现 + 一键装/重装面(sidecar plugins.bundled.list/install)。
+ * 「装机组件」分区卡(10-05-bundled-plugins-install + 批二 batch2):随包
+ * 插件组件包的发现 + 一键装/重装/卸载面 + 品类 YAML 平铺装面(sidecar
+ * plugins.bundled.list/install/uninstall/category_install)。
  *
- * 逐包行 = 名称/版本/tier·gate 徽章/已装态徽章(已装版本与随包版本不同 →
- * 「可重装更新」)/安装·重装按钮/findings 行内展示(坏 manifest 等条目级
- * finding 如实透出,不拦整表渲染)。空态如实:dir=null(dev 形态/旧包未注入
- * MYIA_BUNDLED_PLUGINS)→ 提示本分区在正式安装包内可用,不虚构清单。
+ * 组件包逐包行 = 名称/版本/tier·gate 徽章/已装态徽章(已装版本与随包版本
+ * 不同 → 「可重装更新」)/安装·重装·卸载按钮/findings 行内展示(坏 manifest
+ * 等条目级 finding 如实透出,不拦整表渲染)。空态如实:dir=null(dev 形态/
+ * 旧包未注入 MYIA_BUNDLED_PLUGINS)→ 提示本分区在正式安装包内可用,不虚构。
  *
- * 卸载本期不做(档记后续):随包原件只读永不删(卸载 = 删安装根拷贝,可
- * 随时重装);文案明示卸载走 CLI `myssia plugin remove`。vendor 缺失不在
- * 安装时检查、不伪造完整性(osint/theHarvester 运行时走 adapter 既有结构化
+ * 批二:已装行「卸载」钮(普通确认——卸载=删安装根拷贝非危险操作,随包原件
+ * 只读永不删,可随时重装);品类分区行(安装语义 = 单文件平铺拷到数据根
+ * plugins/,与启动补种同落点;已存在如实呈现不覆盖,覆盖是知情操作经确认
+ * 才发 force——与补种「幂等补缺绝不覆盖」语义对齐)。vendor 缺失不在安装时
+ * 检查、不伪造完整性(osint/theHarvester 运行时走 adapter 既有结构化
  * vendor_missing 指引,许可红线:vendor/ submodule 不随包分发)。
  */
 
@@ -60,10 +66,10 @@ interface InstallOutcome {
 export function BundledPluginsCard() {
   const [list, setList] = useState<BundledPluginsListResult | null>(null);
   const [loadError, setLoadError] = useState<SidecarRequestError | null>(null);
-  /** 正在安装/重装的件 id(行级 busy;装卸动作与拉取错误分槽)。 */
-  const [installingId, setInstallingId] = useState<string | null>(null);
-  const [installError, setInstallError] = useState<SidecarRequestError | null>(null);
-  const [installNote, setInstallNote] = useState<InstallOutcome | null>(null);
+  /** 正在安装/重装/卸载/品类装的件 id(行级 busy;装卸动作与拉取错误分槽)。 */
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<SidecarRequestError | null>(null);
+  const [actionNote, setActionNote] = useState<InstallOutcome | null>(null);
 
   const refresh = useCallback(async () => {
     setLoadError(null);
@@ -83,21 +89,80 @@ export function BundledPluginsCard() {
   const handleInstall = useCallback(
     async (plugin: BundledPluginView) => {
       if (plugin.id === null) return; // manifest 坏件:目录内没有可安装的 manifest,按了也装不上
-      setInstallingId(plugin.id);
-      setInstallError(null);
-      setInstallNote(null);
+      setBusyId(plugin.id);
+      setActionError(null);
+      setActionNote(null);
       try {
         const result = await bundledPluginsInstall({ id: plugin.id, force: plugin.installed });
-        setInstallNote({
+        setActionNote({
           text: `${plugin.id}@${result.version} 已${plugin.installed ? "重装" : "安装"} → ${result.dir}(整目录拷贝,manifest 校验通过)`,
           ok: true,
         });
         // 拉取是真相源:安装后回读已装态徽章随新
         await refresh();
       } catch (raw) {
-        setInstallError(asSidecarError(raw));
+        setActionError(asSidecarError(raw));
       } finally {
-        setInstallingId(null);
+        setBusyId(null);
+      }
+    },
+    [refresh],
+  );
+
+  /** 卸载(批二 R2):删安装根拷贝(随包原件只读永不删,可随时重装)——
+   *  非危险操作,普通一次确认(不循钥匙链删除二次确认判例);取消零调用。 */
+  const handleUninstall = useCallback(
+    async (plugin: BundledPluginView) => {
+      if (plugin.id === null || !plugin.installed) return;
+      const confirmed = window.confirm(
+        `卸载 ${plugin.name ?? plugin.id}(${plugin.id})?\n\n卸载 = 删除插件根里的安装拷贝;随包原件只读不受影响,可随时重装。`,
+      );
+      if (!confirmed) return;
+      setBusyId(plugin.id);
+      setActionError(null);
+      setActionNote(null);
+      try {
+        const result = await bundledPluginsUninstall({ id: plugin.id });
+        setActionNote({
+          text: `${result.id} 已卸载(${result.path});随包原件只读,可随时重装`,
+          ok: true,
+        });
+        await refresh();
+      } catch (raw) {
+        setActionError(asSidecarError(raw));
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [refresh],
+  );
+
+  /** 品类平铺装(批二 R3):未存在 → {id}(零 force);已存在 → 确认后
+   *  {id, force:true} 覆盖(本地手改会丢失,知情操作;与补种「绝不覆盖」
+   *  语义对齐——自动面永不覆盖,显式面知情才覆盖)。 */
+  const handleCategoryInstall = useCallback(
+    async (category: BundledCategoryView) => {
+      if (category.id === null) return; // 坏 YAML 件:无可安装内容,按了也装不上
+      if (category.exists) {
+        const confirmed = window.confirm(
+          `覆盖品类文件 ${category.file}?\n\n数据根已有同名文件(补种或自建);覆盖将丢失其中的本地修改。`,
+        );
+        if (!confirmed) return;
+      }
+      setBusyId(`category:${category.id}`);
+      setActionError(null);
+      setActionNote(null);
+      try {
+        const result = await bundledCategoryInstall({ id: category.id, force: category.exists });
+        setActionNote({
+          text: `${result.file} 已${category.exists ? "覆盖" : "安装"} → ${result.path}(单文件平铺,与启动补种同落点)`,
+          ok: true,
+        });
+        await refresh();
+      } catch (raw) {
+        setActionError(asSidecarError(raw));
+      } finally {
+        setBusyId(null);
       }
     },
     [refresh],
@@ -111,8 +176,8 @@ export function BundledPluginsCard() {
           随包官方插件件(装机组件)
         </CardTitle>
         <CardDescription>
-          安装包内已随包分发的官方插件组件包:一键装进插件根(整目录拷贝,manifest 校验 + 版本矩阵 + 绝不半装,与 CLI{" "}
-          <code>myssia plugin install</code> 同一道门)。品类 YAML(羊毛/行情等)走启动补种,不在此面。
+          安装包内已随包分发的官方插件组件包:一键装/重装/卸载(整目录拷贝,manifest 校验 + 版本矩阵 + 绝不半装,与 CLI{" "}
+          <code>myssia plugin install/remove</code> 同一道门)。品类 YAML(羊毛/行情等)走启动补种自动补缺;本分区亦提供显式安装/覆盖(批二)。
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -148,8 +213,7 @@ export function BundledPluginsCard() {
                 {list.dir}
               </code>
               <p className="text-2xs leading-4 text-muted-foreground">
-                随包原件只读永不删(卸载 = 删安装根拷贝,可随时重装;卸载走 CLI{" "}
-                <code>myssia plugin remove &lt;id&gt;</code>,本屏不提供卸载)。部分件(osint/theHarvester)运行需上游
+                随包原件只读永不删(卸载 = 删安装根拷贝,可随时重装)。部分件(osint/theHarvester)运行需上游
                 vendor 源码,装机包未含(许可边界);运行时按其结构化 <code>vendor_missing</code> 指引自行补齐。
               </p>
             </div>
@@ -159,7 +223,7 @@ export function BundledPluginsCard() {
               className="flex flex-col divide-y divide-border/60 rounded-lg border border-border/60"
             >
               {list.plugins.map((plugin) => {
-                const busy = plugin.id !== null && installingId === plugin.id;
+                const busy = plugin.id !== null && busyId === plugin.id;
                 // 未装不兼容件禁装(知情禁用:随包件超前于当前 myssia,该等壳更新,
                 // CLI 面 --force 仍可达);已装件不受此限——重装带 force 即强装通道。
                 const installBlocked = plugin.id === null || (!plugin.installed && plugin.compatible_current === false);
@@ -221,7 +285,7 @@ export function BundledPluginsCard() {
                       {busy ? (
                         <span role="status" className="flex items-center gap-1 text-2xs text-warning">
                           <RefreshCw className="size-3 animate-spin" />
-                          {plugin.installed ? "重装中…" : "安装中…"}
+                          处理中(安装/重装/卸载)…
                         </span>
                       ) : null}
                     </div>
@@ -250,21 +314,142 @@ export function BundledPluginsCard() {
                         )}
                         {plugin.installed ? "重装" : "安装"}
                       </Button>
+                      {plugin.installed ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={busy}
+                          data-testid={`bundled-plugin-${plugin.dir_name}-uninstall`}
+                          aria-label={`卸载${plugin.name ?? plugin.dir_name}`}
+                          title="卸载安装根拷贝(随包原件只读不受影响,可随时重装;普通确认)"
+                          onClick={() => void handleUninstall(plugin)}
+                        >
+                          <Trash2 className={busy ? "size-3.5 animate-pulse" : "size-3.5"} />
+                          卸载
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {installError ? <ErrorBox error={installError} /> : null}
-            {installNote ? (
-              <p
-                role={installNote.ok ? "status" : "alert"}
-                data-testid="bundled-install-note"
-                className={cn("flex items-start gap-1.5 text-xs leading-5", installNote.ok ? "text-ok" : "text-destructive")}
+            {/* 品类配置分区(批二 R3):随包品类 YAML 发现/平铺装面。安装语义 =
+                单文件平铺拷到数据根 plugins/(与启动补种同落点);已存在如实
+                呈现不覆盖,覆盖是知情操作(确认后才发 force)。空表(dev 形态
+                旧 sidecar)静默零渲染。 */}
+            {list.categories.length > 0 ? (
+              <section
+                aria-labelledby="bundled-categories-title"
+                data-testid="bundled-categories-section"
+                className="flex flex-col gap-3"
               >
-                {installNote.ok ? <Check className="mt-0.5 size-3.5 shrink-0" /> : null}
-                {installNote.text}
+                <h3
+                  id="bundled-categories-title"
+                  className="text-2xs font-medium tracking-wide text-muted-foreground"
+                >
+                  品类配置(单文件平铺装到插件根;启动补种已自动补缺的件呈现「已存在」)
+                </h3>
+                <div
+                  data-testid="bundled-categories"
+                  className="flex flex-col divide-y divide-border/60 rounded-lg border border-border/60"
+                >
+                  {list.categories.map((category) => {
+                    const busy = category.id !== null && busyId === `category:${category.id}`;
+                    const installBlocked = category.id === null;
+                    return (
+                      <div
+                        key={category.file}
+                        data-testid={`bundled-category-${category.file}`}
+                        className="flex flex-wrap items-center justify-between gap-3 p-4"
+                      >
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                            <span className="text-sm font-medium text-foreground">
+                              {category.name ?? category.file}
+                            </span>
+                            <span className="font-mono text-2xs text-muted-foreground">
+                              {category.id ?? category.file}
+                            </span>
+                            <Badge
+                              variant={category.exists ? "ok" : "outline"}
+                              data-testid={`bundled-category-${category.file}-state`}
+                            >
+                              {category.exists ? "已存在" : "未装"}
+                            </Badge>
+                          </div>
+                          {category.schedule ? (
+                            <p className="text-2xs leading-4 text-muted-foreground">
+                              排程 {category.schedule}(cron;随包文件 {category.file})
+                            </p>
+                          ) : null}
+                          {category.findings.length > 0 ? (
+                            <div
+                              data-testid={`bundled-category-${category.file}-findings`}
+                              className="flex flex-col gap-0.5"
+                            >
+                              {category.findings.map((finding, index) => (
+                                <p
+                                  key={`${finding.code}-${index}`}
+                                  role="alert"
+                                  className={cn(
+                                    "text-left text-2xs leading-4",
+                                    finding.severity === "error" ? "text-destructive" : "text-warning",
+                                  )}
+                                >
+                                  [{finding.severity}] {finding.code}:{finding.message}
+                                </p>
+                              ))}
+                            </div>
+                          ) : null}
+                          {busy ? (
+                            <span role="status" className="flex items-center gap-1 text-2xs text-warning">
+                              <RefreshCw className="size-3 animate-spin" />
+                              品类安装中…
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant={category.exists ? "outline" : "secondary"}
+                            disabled={busy || installBlocked}
+                            data-testid={`bundled-category-${category.file}-${category.exists ? "overwrite" : "install"}`}
+                            aria-label={`${category.exists ? "覆盖" : "安装"}品类${category.name ?? category.file}`}
+                            title={
+                              category.id === null
+                                ? "品类 YAML 坏件:无法通过校验,不可安装(见上方 finding)"
+                                : category.exists
+                                  ? "覆盖数据根同名文件(本地修改会丢失;确认后执行)"
+                                  : "单文件平铺拷到插件根(与启动补种同落点)"
+                            }
+                            onClick={() => void handleCategoryInstall(category)}
+                          >
+                            {category.exists ? (
+                              <RotateCcw className={busy ? "size-3.5 animate-pulse" : "size-3.5"} />
+                            ) : (
+                              <Download className={busy ? "size-3.5 animate-pulse" : "size-3.5"} />
+                            )}
+                            {category.exists ? "覆盖" : "安装"}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
+            {actionError ? <ErrorBox error={actionError} /> : null}
+            {actionNote ? (
+              <p
+                role={actionNote.ok ? "status" : "alert"}
+                data-testid="bundled-install-note"
+                className={cn("flex items-start gap-1.5 text-xs leading-5", actionNote.ok ? "text-ok" : "text-destructive")}
+              >
+                {actionNote.ok ? <Check className="mt-0.5 size-3.5 shrink-0" /> : null}
+                {actionNote.text}
               </p>
             ) : null}
           </>

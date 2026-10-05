@@ -1,14 +1,24 @@
 /**
- * 随包插件组件包发现/一键装 IPC 封装(10-05-bundled-plugins-install)。
+ * 随包插件组件包发现/一键装/卸载 + 品类 YAML 平铺装 IPC 封装
+ * (10-05-bundled-plugins-install + 批二 10-05-bundled-plugins-batch2)。
  *
- * 数据面 = sidecar 协议两新方法(entry.py `_HANDLERS` 63/64):
+ * 数据面 = sidecar 协议方法(entry.py `_HANDLERS` 63-66):
  *   plugins.bundled.list   → 枚举 env MYIA_BUNDLED_PLUGINS 目录下含 plugin.yaml
  *                             的子目录(env 未设/目录不存在 = 合法空表,dir=null 如实)
+ *                             + 平铺品类 YAML 发现视图(categories,批二 R3)
  *   plugins.bundled.install → {id, force?} → {ok, dir, version}
  *                             (装卸门零新增 = 直调 InstalledPluginStore.install
  *                              与 CLI myssia plugin install 同门;装卸错误码
  *                              already_installed/incompatible_version 等经
  *                              SidecarRequestError.code 原文透传)
+ *   plugins.bundled.uninstall → {id} → {ok, id, path}(批二 R2:直调
+ *                             InstalledPluginStore.remove 与 CLI
+ *                             myssia plugin remove 同门;随包原件只读永不删,
+ *                             not_installed/io_error 透传)
+ *   plugins.bundled.category_install → {id, force?} → {ok, file, path}
+ *                             (批二 R3:品类 YAML 单文件平铺拷到数据根
+ *                              plugins/,与补种同落点;已存在未 force →
+ *                              category_exists 拒,force 才覆盖)
  *
  * 屏私有封装面(spec 变更纪律第 3 条):invoke("sidecar_request") 直连 +
  * 错误归一化走 ./api 的 asSidecarError(与 yaml-editor/api.ts、settings/api.ts
@@ -43,12 +53,28 @@ export interface BundledPluginView {
   findings: Finding[];
 }
 
-/** plugins.bundled.list 应答({dir:null, count:0, plugins:[]} = dev/旧包合法空态)。 */
+/** 品类发现条目(批二 R3;注册表 #63 行 categories 键契约)。 */
+export interface BundledCategoryView {
+  /** 随包文件名(安装落点 = 数据根 plugins/ 下同名平铺文件) */
+  file: string;
+  path: string;
+  id: string | null;
+  name: string | null;
+  /** 品类 cron 排程(坏 YAML → null 如实) */
+  schedule: string | null;
+  /** 数据根 plugins/ 下同名文件已在(补种/自建/本面已装,文件级冲突口径) */
+  exists: boolean;
+  findings: Finding[];
+}
+
+/** plugins.bundled.list 应答(dev/旧包合法空态:categories 同空)。 */
 export interface BundledPluginsListResult {
   /** 随包目录锚点(env 未设/目录不存在 = null 如实,不虚构) */
   dir: string | null;
   count: number;
   plugins: BundledPluginView[];
+  /** 随包品类 YAML 发现面(批二 R3;与组件包并列,count 不含品类) */
+  categories: BundledCategoryView[];
 }
 
 /** plugins.bundled.install 应答(契约三键钉死)。 */
@@ -57,6 +83,22 @@ export interface BundledPluginsInstallResult {
   /** 安装落点(安装根 <install_root>/<id>) */
   dir: string;
   version: string;
+}
+
+/** plugins.bundled.uninstall 应答(批二 R2;契约三键钉死)。 */
+export interface BundledPluginsUninstallResult {
+  ok: boolean;
+  id: string;
+  /** 被删的安装根拷贝路径(随包原件只读,可随时重装) */
+  path: string;
+}
+
+/** plugins.bundled.category_install 应答(批二 R3;契约三键钉死)。 */
+export interface BundledCategoryInstallResult {
+  ok: boolean;
+  file: string;
+  /** 落点(数据根 plugins/<file> 平铺,与补种同落点) */
+  path: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -79,6 +121,9 @@ function asFindings(value: unknown): Finding[] {
  * wire 载荷 → BundledPluginsListResult(TS 侧守门):dir/count 非契约类型即抛
  * (壳侧/协议侧已钉死,出现即对齐破了,大声失败);条目附加字段宽容忽略、
  * 条目非对象形态丢弃(条目级坏件不拦整表渲染,与后端条目级 finding 同口径)。
+ * categories(批二 R3)缺键宽容为空数组——旧 sidecar + 新 UI 组合
+ * (method_not_found 结构化降级之外的第二种旧壳态:list 在但无 categories 键)
+ * 零炸,分区静默空。
  */
 export function parseBundledPluginsList(raw: unknown): BundledPluginsListResult {
   if (typeof raw !== "object" || raw === null) {
@@ -112,7 +157,24 @@ export function parseBundledPluginsList(raw: unknown): BundledPluginsListResult 
         ];
       })
     : [];
-  return { dir: asStringOrNone(record.dir), count: record.count, plugins };
+  const categories = Array.isArray(record.categories)
+    ? record.categories.flatMap((item): BundledCategoryView[] => {
+        if (typeof item !== "object" || item === null) return [];
+        const category = item as Record<string, unknown>;
+        return [
+          {
+            file: typeof category.file === "string" ? category.file : "",
+            path: typeof category.path === "string" ? category.path : "",
+            id: asStringOrNone(category.id),
+            name: asStringOrNone(category.name),
+            schedule: asStringOrNone(category.schedule),
+            exists: category.exists === true,
+            findings: asFindings(category.findings),
+          },
+        ];
+      })
+    : [];
+  return { dir: asStringOrNone(record.dir), count: record.count, plugins, categories };
 }
 
 /** wire 载荷 → BundledPluginsInstallResult(TS 侧守门,同上口径)。 */
@@ -125,6 +187,30 @@ export function parseBundledPluginsInstall(raw: unknown): BundledPluginsInstallR
     throw new TypeError(`随包插件安装结果非契约形态({ok, dir, version}): ${String(raw)}`);
   }
   return { ok: true, dir: record.dir, version: record.version };
+}
+
+/** wire 载荷 → BundledPluginsUninstallResult(批二 R2;TS 侧守门,同上口径)。 */
+export function parseBundledPluginsUninstall(raw: unknown): BundledPluginsUninstallResult {
+  if (typeof raw !== "object" || raw === null) {
+    throw new TypeError(`随包插件卸载结果载荷不是对象: ${String(raw)}`);
+  }
+  const record = raw as Record<string, unknown>;
+  if (record.ok !== true || typeof record.id !== "string" || typeof record.path !== "string") {
+    throw new TypeError(`随包插件卸载结果非契约形态({ok, id, path}): ${String(raw)}`);
+  }
+  return { ok: true, id: record.id, path: record.path };
+}
+
+/** wire 载荷 → BundledCategoryInstallResult(批二 R3;TS 侧守门,同上口径)。 */
+export function parseBundledCategoryInstall(raw: unknown): BundledCategoryInstallResult {
+  if (typeof raw !== "object" || raw === null) {
+    throw new TypeError(`随包品类安装结果载荷不是对象: ${String(raw)}`);
+  }
+  const record = raw as Record<string, unknown>;
+  if (record.ok !== true || typeof record.file !== "string" || typeof record.path !== "string") {
+    throw new TypeError(`随包品类安装结果非契约形态({ok, file, path}): ${String(raw)}`);
+  }
+  return { ok: true, file: record.file, path: record.path };
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +241,32 @@ export async function bundledPluginsInstall(params: {
 }): Promise<BundledPluginsInstallResult> {
   return parseBundledPluginsInstall(
     await bundledRequest("plugins.bundled.install", {
+      id: params.id,
+      ...(params.force ? { force: true } : {}),
+    }),
+  );
+}
+
+/**
+ * 卸载(批二 R2):删安装根拷贝(随包原件只读,可随时重装);未装件经
+ * SidecarRequestError(not_installed)结构化上屏。
+ */
+export async function bundledPluginsUninstall(params: { id: string }): Promise<BundledPluginsUninstallResult> {
+  return parseBundledPluginsUninstall(
+    await bundledRequest("plugins.bundled.uninstall", { id: params.id }),
+  );
+}
+
+/**
+ * 品类 YAML 平铺装(批二 R3):已存在未 force → category_exists 结构化上屏
+ * (与补种「绝不覆盖」语义对齐;覆盖是知情操作,UI 侧确认后才发 force)。
+ */
+export async function bundledCategoryInstall(params: {
+  id: string;
+  force?: boolean;
+}): Promise<BundledCategoryInstallResult> {
+  return parseBundledCategoryInstall(
+    await bundledRequest("plugins.bundled.category_install", {
       id: params.id,
       ...(params.force ? { force: true } : {}),
     }),

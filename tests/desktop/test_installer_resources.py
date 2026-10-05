@@ -4,8 +4,10 @@
 
 1. **官方品类全量捆绑**:tauri.conf.json resources 必须含全部 7 个官方
    品类 YAML(README「7 official categories」口径:ai-news/wool/stocks/
-   gpu-prices/games/news/exposure)+ demo 件——AC5 挂账根因即「只捆 4/7
-   (games/news/exposure 缺)」,补齐后本文件把 7/7 钉死,回退即红。
+   gpu-prices/games/news/exposure)+ demo 件 + 场景品类件
+   monitor/credentials(10-05-bundled-plugins-batch2 R4 进包,安全裁定见
+   OFFICIAL_CATEGORY_YAMLS 注)——AC5 挂账根因即「只捆 4/7
+   (games/news/exposure 缺)」,补齐后本文件把品类面钉死,回退即红。
 2. **desktop tier 插件包源码面随包**(AC5 市场面包裁决):desktop 分级
    全件(EXPECTED_TIERS 口径,与 tests/plugins/test_plugin_packages.py
    同源;跨目录不 import,清单漂移由两侧参数化对不上时人工对账)——含
@@ -30,6 +32,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -41,6 +44,10 @@ PLUGINS_DIR = REPO_ROOT / "plugins"
 
 #: 官方 7 品类(README zh/en「7 official categories」口径)+ demo 件;
 #: AC5 前 resources 只捆前 4,games/news/exposure 为本批补齐件。
+#: monitor/credentials(10-05-bundled-plugins-batch2 R4):场景品类随包
+#: (安全裁定=纯 keychain:/env: 引用模板 + example.com 占位,零明文凭据,
+#: 亲读全文物证);入列后启动补种会自动补到用户数据根(品类全量补缺既有
+#: 语义;无凭据时如实空态,credhunter 无 token 该源不启用)。
 OFFICIAL_CATEGORY_YAMLS = (
     "ai-news.yaml",
     "wool.yaml",
@@ -51,6 +58,10 @@ OFFICIAL_CATEGORY_YAMLS = (
     "exposure.yaml",
     # demo 件非官方品类,但 v1.1 起随包(既有面,不动)。
     "myssia-demo.yaml",
+    # 场景品类件(monitor=changedetection.io 远端集成;credentials=凭证猎手),
+    # 2026-10-05 批二进包:随包 plugins 面自此 10 组件包 + 10 品类 = 20 件。
+    "monitor.yaml",
+    "credentials.yaml",
 )
 
 #: desktop tier 三件套件全件(EXPECTED_TIERS 同源清单;市场面 AC5 裁决:
@@ -103,7 +114,8 @@ def _conf_resources() -> dict[str, str]:
     "yaml_name", [name for name in OFFICIAL_CATEGORY_YAMLS if name != "myssia-demo.yaml"]
 )
 def test_official_category_yaml_bundled(yaml_name: str) -> None:
-    """7 个官方品类逐一:resources 有映射,且映射源在仓库 plugins/ 实况存在。"""
+    """品类 YAML 逐一(官方 7 + 场景 2,monitor/credentials 见常量注):
+    resources 有映射,且映射源在仓库 plugins/ 实况存在。"""
     source = f"../../plugins/{yaml_name}"
     dest = f"plugins/{yaml_name}"
     resources = _conf_resources()
@@ -189,3 +201,39 @@ def test_no_docker_or_pycache_bundled() -> None:
         src for src in resources if "docker" in src.split("/") or "__pycache__" in src.split("/")
     ]
     assert not offenders, f"docker/__pycache__ 不得入 resources: {offenders}"
+
+
+# ---------------------------------------------------------------------------
+# 4. 场景品类件安全裁定守卫(10-05-bundled-plugins-batch2 R4)
+# ---------------------------------------------------------------------------
+
+#: 承载凭据的键(R4 物证核对面):这些键的值只允许 keychain:/env: 引用
+#: 模板、Bearer 前缀引用或占位 URL,出现其余形态即疑似明文凭据。
+_CREDENTIAL_BEARING_RE = re.compile(
+    r"^\s*(?:-\s*)?(token|target|Authorization|X-Api-Key|github_tokens)\s*:\s*(.+?)\s*$",
+    re.MULTILINE,
+)
+
+
+@pytest.mark.parametrize("yaml_name", ["monitor.yaml", "credentials.yaml"])
+def test_scenario_category_yaml_is_credential_template_only(yaml_name: str) -> None:
+    """R4 安全裁定物证钉死:monitor/credentials 只含凭据**引用模板**
+    (``keychain:``/``env:`` + example.com 占位 endpoint),零明文凭据——
+    两件入包(resources 映射)即成随包分发面,未来任何往里加明文密钥的
+    改动在本测试即红(安全红线:入包即泄漏面)。"""
+    text = (PLUGINS_DIR / yaml_name).read_text(encoding="utf-8")
+    for match in _CREDENTIAL_BEARING_RE.finditer(text):
+        raw = match.group(2)
+        if raw.startswith("#"):
+            continue  # 行内注释(如「# myssia secret set …」指引)不是值
+        value = raw.strip("\"'").strip()
+        # 块列表形(`github_tokens:\n  - keychain:…` 的 `\s*` 会吃掉换行把
+        # 列表前缀带进值):剥列表记号后仍是引用才放行
+        value = value.removeprefix("- ").strip()
+        value = value.removeprefix("Bearer ").strip()  # Authorization 惯例前缀
+        assert value.startswith(("keychain:", "env:")), (
+            f"{yaml_name} 疑似明文凭据值(只允许 keychain:/env: 引用模板): "
+            f"{match.group(0).strip()!r}"
+        )
+    # endpoint 是占位符不是真实部署地址(第一道防线:入包前就不该有真实地址)
+    assert "example.com" in text, f"{yaml_name} 缺 example.com 占位锚点(物证核对面变化,人工复核)"

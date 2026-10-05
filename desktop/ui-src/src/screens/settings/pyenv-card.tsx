@@ -219,6 +219,11 @@ const COMPONENT_META: Record<string, { label: string; description: string }> = {
     description:
       "截图表格(行情/比价/参数对比/榜单)还原成结构化 Markdown:rapid_table 3.x onnx 引擎(与 extras myssia[table] 同栈闭包,含 rapidocr 单元格文字;不引 Paddle)。开关开 = 往自管环境装组件(首装联网,PyPI 镜像覆盖生效;SLANET-plus 结构模型首用时自动从 modelscope 下载,之后离线复用);管线侧行为由品类配置 images.table 控制",
   },
+  trafilatura: {
+    label: "正文抽取兜底",
+    description:
+      "网页正文抽取兜底引擎,零配置:static_html 引擎抓到页面但正文抽取缺失或规则跑空时,自动用 trafilatura 补抽正文。缺省关——开关是环境变量 MYIA_EXTRACT_FALLBACK(设为 1 才启用),不设零行为差;缺装时兜底自动降级,不影响核心流水线(闭包与 extras myssia[trafilatura] 同源,selectolax 钉 <1 防解析器兼容墙)",
+  },
 };
 
 export function PyenvCard() {

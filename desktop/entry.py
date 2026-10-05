@@ -974,13 +974,23 @@ def _m_plugins_bundled_list(params: dict[str, Any]) -> dict[str, Any]:
     +已装态(对齐安装根 InstalledPluginStore);**env 未设/目录不存在 =
     合法空表**(dev 形态/旧包/未注入如实,``dir=null`` 不虚构)。坏 manifest
     条目级 finding 不整表炸(yaml.list 先例)。
-    """
+
+    批二(10-05-bundled-plugins-batch2 R3)增 ``categories`` 键:随包目录
+    平铺品类 YAML 发现视图(``_bundled_category_views``);``count`` 语义
+    不变(= 组件包数,兼容既有契约/UI),品类件数由 ``len(categories)``
+    自取。"""
     root = _bundled_plugins_root()
     if root is None:
-        return {"dir": None, "count": 0, "plugins": []}
+        return {"dir": None, "count": 0, "plugins": [], "categories": []}
     ctx = _serve_context()
     plugins = _bundled_plugin_views(root, ctx.install_root)
-    return {"dir": str(root), "count": len(plugins), "plugins": plugins}
+    categories = _bundled_category_views(root, ctx.plugins_dir)
+    return {
+        "dir": str(root),
+        "count": len(plugins),
+        "plugins": plugins,
+        "categories": categories,
+    }
 
 
 def _m_plugins_bundled_install(params: dict[str, Any]) -> dict[str, Any]:
@@ -1021,6 +1031,166 @@ def _m_plugins_bundled_install(params: dict[str, Any]) -> dict[str, Any]:
             data={"errors": exc.errors} if exc.errors else None,
         ) from exc
     return {"ok": True, "dir": result["path"], "version": result["version"]}
+
+
+def _m_plugins_bundled_uninstall(params: dict[str, Any]) -> dict[str, Any]:
+    """``plugins.bundled.uninstall {id}``:卸载 = 删安装根拷贝(批二 R2)。
+
+    与 install 对称直调 ``InstalledPluginStore.remove``(CLI
+    ``myssia plugin remove`` 同门:id 门/结构化错误/绝不半删);**随包原件
+    只读永不删**,卸载后可随时经 ``plugins.bundled.install`` 重装。
+    **不依赖随包目录**(``MYIA_BUNDLED_PLUGINS`` 未设也能卸)——卸载是
+    安装根操作,与发现来源无关(dev 形态/旧包已装件同样可卸,如实)。
+    ``PluginStoreError`` code 原文透传(``not_installed``/``io_error``)。
+    应答 ``{ok, id, path}``。
+    """
+    plugin_id = params.get("id")
+    if not isinstance(plugin_id, str) or not _PLUGIN_ID_RE.match(plugin_id):
+        raise ProtocolError(
+            "invalid_params",
+            "缺少合法字符串字段 id(插件 id 应为小写字母/数字开头,可含连字符/下划线,2-64 字符)",
+            path="params.id",
+        )
+    store = InstalledPluginStore(_serve_context().install_root)
+    try:
+        result = store.remove(plugin_id)
+    except PluginStoreError as exc:
+        raise ProtocolError(
+            exc.code,
+            f"随包插件卸载失败: {exc}",
+            path="params.id",
+        ) from exc
+    return {"ok": True, "id": result["id"], "path": result["path"]}
+
+
+def _bundled_category_views(root: Path, plugins_dir: str) -> list[dict[str, Any]]:
+    """枚举随包目录平铺品类 YAML → 发现条目视图(批二 R3;零异常上抛)。
+
+    与 ``_seed_first_run`` 同款 glob 口径(非递归 ``*.yaml``/``*.yml``),
+    装机态两视图所见 = 补种所拷。逐件:id/name/schedule 经
+    ``load_category_file`` 实读(坏 YAML → id=None + 条目级 finding
+    ``category_invalid``,不整表炸,沿 yaml.list 先例);``exists`` = 数据根
+    plugins/ 下同名文件在(= 补种/自建/本面已装,对齐补种落点);文件名 stem
+    与 id 不一致 → ``id_mismatch`` warning 如实透出(定位仍按 id 双路兜底)。
+    """
+    target_dir = Path(plugins_dir)
+    files = sorted([*root.glob("*.yaml"), *root.glob("*.yml")], key=lambda item: item.name)
+    views: list[dict[str, Any]] = []
+    for source in files:
+        view: dict[str, Any] = {
+            "file": source.name,
+            "path": str(source),
+            "id": None,
+            "name": None,
+            "schedule": None,
+            "exists": (target_dir / source.name).exists(),
+            "findings": [],
+        }
+        try:
+            config = load_category_file(source)
+        except Exception as exc:  # noqa: BLE001 - LoadError 与意外 IO 一律条目级 finding
+            first = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
+            detail = exc.to_dict() if hasattr(exc, "to_dict") else None
+            view["findings"].append({
+                "severity": "error", "scope": f"category:{source.name}", "code": "category_invalid",
+                "message": f"随包品类 YAML 校验失败({source}): {first}",
+                **({"detail": detail} if detail is not None else {}),
+            })
+            views.append(view)
+            continue
+        view.update({"id": config.id, "name": config.name, "schedule": config.schedule})
+        if config.id != source.stem:
+            view["findings"].append({
+                "severity": "warning", "scope": f"category:{source.name}", "code": "id_mismatch",
+                "message": f"随包文件名 {source.name!r} 与品类 id {config.id!r} 不一致(定位按 id 双路兜底)",
+            })
+        views.append(view)
+    return views
+
+
+def _locate_bundled_category_yaml(root: Path, category_id: str) -> Path:
+    """随包目录内按 id 定位品类 YAML(文件名 stem 直配 > YAML id 字段兜底)。
+
+    id 已过 ``CATEGORY_ID_RE``(仅小写字母/数字/_-,无路径穿越可能);找不到
+    → ``bundled_category_not_found`` 结构化拒。
+    """
+    files = sorted([*root.glob("*.yaml"), *root.glob("*.yml")], key=lambda item: item.name)
+    for candidate in files:
+        if candidate.stem == category_id:
+            return candidate
+    for candidate in files:  # 兜底:文件名漂移但 YAML id 命中(id_mismatch 件可达)
+        try:
+            config = load_category_file(candidate)
+        except Exception:  # noqa: BLE001 - 坏 YAML 不是可安装来源
+            continue
+        if config.id == category_id:
+            return candidate
+    raise ProtocolError(
+        "bundled_category_not_found",
+        f"随包目录内没有 id 为 {category_id!r} 的品类 YAML(可用件见 plugins.bundled.list 的 categories)",
+        path="params.id",
+    )
+
+
+def _m_plugins_bundled_category_install(params: dict[str, Any]) -> dict[str, Any]:
+    """``plugins.bundled.category_install {id, force?}``:随包品类 YAML 平铺
+    拷进数据根 plugins/(批二 R3)。
+
+    与组件包安装语义刻意不同(组件包=整目录拷贝进安装根;品类=单文件平铺
+    到数据根,与 ``_seed_first_run`` 补种同落点):id 过 ``CATEGORY_ID_RE``
+    (schema 同源防穿越)→ 定位 → ``load_category_file`` 校验通过才装(坏件
+    拒零拷贝)→ tmp+rename 原子拷到 ``<plugins_dir>/<源文件名>``。**已有同名
+    文件未 force → ``category_exists`` 结构化拒(如实「已存在」不覆盖)**——
+    与补种幂等补缺对齐不打架:补种=自动补缺永不覆盖,本面=显式知情操作,
+    force 才覆盖。应答 ``{ok, file, path}``。
+    """
+    root = _bundled_plugins_root()
+    if root is None:
+        raise ProtocolError(
+            "bundled_plugins_unavailable",
+            "随包插件目录不可用(dev 形态或旧包未注入 MYIA_BUNDLED_PLUGINS);无法安装品类",
+            path="params.id",
+        )
+    category_id = params.get("id")
+    if not isinstance(category_id, str) or not CATEGORY_ID_RE.match(category_id):
+        raise ProtocolError(
+            "invalid_params",
+            "缺少合法字符串字段 id(品类 id 应为小写字母/数字开头,可含连字符/下划线,1-64 字符)",
+            path="params.id",
+        )
+    force = params.get("force", False)
+    if not isinstance(force, bool):
+        raise ProtocolError("invalid_params", "force 必须为布尔", path="params.force")
+    source = _locate_bundled_category_yaml(root, category_id)
+    try:
+        load_category_file(source)
+    except Exception as exc:  # noqa: BLE001 - LoadError 结构化(坏件拒,零拷贝)
+        first = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
+        raise ProtocolError(
+            "category_invalid",
+            f"随包品类校验失败({source}): {first}",
+            path="params.id",
+        ) from exc
+    target = Path(_serve_context().plugins_dir) / source.name
+    if target.exists() and not force:
+        raise ProtocolError(
+            "category_exists",
+            f"数据根已有同名品类文件 {target}(补种或用户自建件,如实不覆盖);确认覆盖请加 force",
+            path="params.id",
+        )
+    tmp = target.with_name(f".{source.name}.tmp")
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, tmp)
+        os.replace(tmp, target)  # 原子替换:force 覆盖不留半截,中途失败不留残件
+    except OSError as exc:
+        tmp.unlink(missing_ok=True)
+        raise ProtocolError(
+            "io_error",
+            f"品类文件拷贝失败({source} → {target}): {exc}",
+            path="params.id",
+        ) from exc
+    return {"ok": True, "file": source.name, "path": str(target)}
 
 
 def _m_doctor(params: dict[str, Any]) -> dict[str, Any]:
@@ -5090,6 +5260,8 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "plugins.list": _m_plugins_list,
     "plugins.bundled.list": _m_plugins_bundled_list,
     "plugins.bundled.install": _m_plugins_bundled_install,
+    "plugins.bundled.uninstall": _m_plugins_bundled_uninstall,
+    "plugins.bundled.category_install": _m_plugins_bundled_category_install,
     "doctor": _m_doctor,
     "run.start": _m_run_start,
     "run.status": _m_run_status,
