@@ -97,7 +97,14 @@ push 层新增 `apprise` 通道:一个 pip 依赖(extras 可选)解锁 ~160 个�
       (定向亲跑全绿:pytest push+schema+cli+smoke+pipeline 1489/desktop
       257/gates 83/docs+skill_doc 135、vitest settings 49/49、tsc 0 错、
       ruff 十文件绿;协议面零改动零 bump,doctor findings 加法载荷
-      (R5 先例)。全量门禁归脚本统一跑。)
+      (R5 先例)。全量门禁归脚本统一跑。**复核纠偏 2026-10-06**:
+      「docs+skill_doc 135 全绿」只在提交前工作树成立——65e1b96 的
+      git add schema.py 把并行任务 10-06-ai-news-sources 同窗写入工作树
+      的 urlwatch 两行(ENGINES+EngineName)一并收进提交,提交态 HEAD
+      的 skill/SKILL.md 枚举行缺 urlwatch → test_skill_doc 1 挂(实现员
+      复跑亲证 24 passed 1 failed);补笔 SKILL.md ENGINES 行 urlwatch
+      token 后复跑 skill_doc 25 + docs 110 + schema/smoke/gates/engines
+      591 + push/cli 1297 全绿。详见下方复核处置。)
 - [x] AC6 档:决议回写;主人点名清单落 notes(未点名=档挂 planning)。
       (原门「主人先点名缺的目标」由 2026-10-06 主人令「剩下的问题全部
       做完」整批放行覆盖,task.json notes 记档;档置 review。)
@@ -146,3 +153,30 @@ push 层新增 `apprise` 通道:一个 pip 依赖(extras 可选)解锁 ~160 个�
   (add 拒收只报序号,test ⑤ 断言值不进文案)。
 - **移交**:装机件像素(设置屏 apprise 下拉+真实 doctor finding 行)随下批
   装机包刷新;doctor 屏 finding 行走通用渲染面无专属 UI 需求。
+
+## 复核处置(2026-10-06,复核轮)
+
+- **红门(已修)**:65e1b96 的 `git add src/myssia/schema.py` 把并行任务
+  10-06-ai-news-sources 同窗写入工作树的 urlwatch 两行(schema.py ENGINES
+  元组+EngineName Literal,注释自署 10-06)一并收进提交(git log -S
+  '"urlwatch"' -- src/myssia/schema.py 全史仅此一笔),而 skill/SKILL.md
+  ENGINES 枚举行未含 urlwatch → 提交态 HEAD test_skill_doc 1 挂
+  (test_skill_enum_table_matches_schema_constants 报「文档缺失
+  ['urlwatch']」)。根因:同仓多会话共享工作树,我 docs 测试跑完到
+  git add 之间并行会话改了 schema.py,add 前只对 uv.lock 做了逐块 diff
+  审查、未对 schema.py 复核全量 diff——教训:add 须逐文件 diff 亲验。
+  修法按复核处方:SKILL.md:57 ENGINES 行补 `urlwatch` token(本档补笔);
+  复跑 skill_doc 25 + docs 110 + schema/smoke/gates/engines 591 passed
+  8 skipped + push/cli 1297 全绿。
+- **范围收编(如实认领)**:65e1b96 提交信息「--only 本流路径」与回执
+  「并行在途文件未触碰」失实——schema.py 的 urlwatch 半件属并行任务
+  10-06-ai-news-sources,其配套 engines/registry.py ENGINE_REGISTRY 注册
+  与 engines/urlwatch.py 仍留工作树未提交(其归属不变,由 10-06 收口)。
+  提交态孤立后果:HEAD 下显式 engine: urlwatch 可过 schema 但
+  ENGINE_REGISTRY 无此键,解析必失败(bisect 不友好中间态);处置取
+  「补 SKILL.md token 保门禁绿 + 引擎面归 10-06 收口」而非回滚他人
+  半件(回滚=触碰并行会话内容决策,风险更大;复核处方亦认可两途)。
+- **证据指针澄清(次要)**:AC3 真跑报文无独立仓内工件(报文全文以
+  引文录档内 AC3,取证脚本为一次性 /tmp 脚本未入库);复核已独立重跑
+  证实(1 份 POST/application/json/title/message 与档记一致),AC3
+  判定维持成立。
