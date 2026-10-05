@@ -6,7 +6,9 @@
  *
  * 契约(波次钉死,与壳侧 src-tauri/src/pyenv*.rs 逐字段对齐):
  * - command `pyenv_get_status` → `{state, install_path, python_path,
- *   mirror_runtime, mirror_pypi, steps:[{phase,status,error}]}`
+ *   mirror_runtime, mirror_pypi, steps:[{phase,status,error}],
+ *   components:[{id,installed}]}`(components = 10-05-table-restore R4 扩展,
+ *   注册表缺位回空表)
  *   state = not_configured|installing|ready|error|deps_stale(IPC 五态)
  * - command `pyenv_start_setup(mirror_runtime?, mirror_pypi?)` —— 前端参数键
  *   按 tauri 默认映射传 camelCase(mirrorRuntime/mirrorPypi,pyenv.rs 命令注释
@@ -14,6 +16,8 @@
  * - command `pyenv_sync_deps()`(D4 依赖漂移时的一键幂等重跑)
  * - command `pyenv_verify()`(10-05 主人判例,就绪态「检查状态」:三查=python
  *   可执行/依赖指纹/sidecar 握手,只读零副作用 → `{ok, checks:[{id,ok,detail}]}`)
+ * - command `pyenv_install_component(id)`(10-05-table-restore R4:装可选组件
+ *   进自管环境;壳侧 pyenv_components.rs)
  * - command `pyenv_migration_banner()`(第 6 步 D5/design §6:存量迁移一次性
  *   引导,查询即消费 —— {show:true} 每数据根至多一次,壳侧标记落盘;
  *   pyenv_migration.rs 为对齐源)
@@ -60,6 +64,18 @@ export interface PyenvStatus {
   /** PyPI index 覆盖(当前生效值;null = 默认 PyPI) */
   mirror_pypi: string | null;
   steps: PyenvStep[];
+  /**
+   * 可选组件实况(10-05-table-restore R4 扩展;注册表缺位回空表)。
+   * 两键形态契约钉死:{id, installed}——展示文案(label/description)是
+   * 前端展示层的事(注册表本体只在壳侧消费)。
+   */
+  components: PyenvComponent[];
+}
+
+/** 可选组件(自管环境按需 pip 装;壳侧 pyenv_components.rs 对齐源)。 */
+export interface PyenvComponent {
+  id: string;
+  installed: boolean;
 }
 
 /** 安装链全阶段有序表(安装明细逐项渲染的骨架;steps 只补状态)。 */
@@ -72,8 +88,10 @@ function asStringOrNone(value: unknown): string | null {
 /**
  * wire 载荷 → PyenvStatus(IPC 契约的 TS 侧守门):
  * state 非契约值即抛(壳侧 serde 已钉死,出现即对齐破了,大声失败);
- * steps 附加字段宽容忽略、未知 phase 丢弃、未知 status 按 pending 处理
- * (与壳侧读 python-env.json 的宽容口径一致,坏行不拦状态展示)。
+ * steps/components 附加字段宽容忽略、未知 phase 丢弃、未知 status 按 pending
+ * 处理(与壳侧读 python-env.json 的宽容口径一致,坏行不拦状态展示;
+ * components 缺键回空表 = 旧壳兼容,条目非 {id:string, installed:boolean}
+ * 形即丢弃)。
  */
 export function parsePyenvStatus(raw: unknown): PyenvStatus {
   if (typeof raw !== "object" || raw === null) {
@@ -99,6 +117,14 @@ export function parsePyenvStatus(raw: unknown): PyenvStatus {
         ];
       })
     : [];
+  const components = Array.isArray(record.components)
+    ? record.components.flatMap((entry): PyenvComponent[] => {
+        if (typeof entry !== "object" || entry === null) return [];
+        const component = entry as Record<string, unknown>;
+        if (typeof component.id !== "string" || typeof component.installed !== "boolean") return [];
+        return [{ id: component.id, installed: component.installed }];
+      })
+    : [];
   return {
     state: record.state as PyenvState,
     install_path: typeof record.install_path === "string" ? record.install_path : "",
@@ -106,6 +132,7 @@ export function parsePyenvStatus(raw: unknown): PyenvStatus {
     mirror_runtime: asStringOrNone(record.mirror_runtime),
     mirror_pypi: asStringOrNone(record.mirror_pypi),
     steps,
+    components,
   };
 }
 
@@ -140,6 +167,39 @@ export async function pyenvStartSetup(
 /** 同步依赖(D4:依赖漂移时的一键幂等重跑安装链)。 */
 export async function pyenvSyncDeps(): Promise<PyenvStatus> {
   return parsePyenvStatus(await invoke("pyenv_sync_deps"));
+}
+
+/**
+ * `pyenv_install_component` 结果(10-05-table-restore R4;壳侧
+ * pyenv_components.rs 对齐源)。error 恒在场,无错为 null——安装失败也走
+ * Ok 回包(installed=false + error 明细如实),仅传输/护栏层拒绝走 Err。
+ */
+export interface ComponentInstallOutcome {
+  id: string;
+  installed: boolean;
+  error: string | null;
+}
+
+/**
+ * wire 载荷 → ComponentInstallOutcome(TS 侧守门):id/installed 非契约类型
+ * 即抛(壳侧 serde 已钉死,出现即对齐破了,大声失败,同 parsePyenvStatus 口径)。
+ */
+export function parseComponentInstallOutcome(raw: unknown): ComponentInstallOutcome {
+  if (typeof raw !== "object" || raw === null) {
+    throw new TypeError(`组件安装结果载荷不是对象: ${String(raw)}`);
+  }
+  const record = raw as Record<string, unknown>;
+  if (typeof record.id !== "string" || typeof record.installed !== "boolean") {
+    throw new TypeError(
+      `组件安装结果非契约形态({id, installed, error}): ${String(raw)}`,
+    );
+  }
+  return { id: record.id, installed: record.installed, error: asStringOrNone(record.error) };
+}
+
+/** 装组件进自管环境(设置屏组件开关消费;PyPI 镜像覆盖继承 pyenv-settings)。 */
+export async function pyenvInstallComponent(id: string): Promise<ComponentInstallOutcome> {
+  return parseComponentInstallOutcome(await invoke("pyenv_install_component", { id }));
 }
 
 /**
