@@ -22,3 +22,15 @@
 - Keep `prd.md` focused on requirements, constraints, and acceptance criteria.
 - Lightweight tasks can remain PRD-only.
 - For complex tasks, add `design.md` for technical design and `implement.md` for execution planning before `task.py start`.
+
+## 二段:面板复活(2026-10-05,主人「怎么解决?」令;归档后纯增量补记,原文勾选不改)
+
+亲眼验收轮(无头冒烟+OCR)发现一段修在不可达死 UI 上:d9ae353 无头布局整删 TopBar,CommandPalette 唯一渲染点(top-bar.tsx:93)连坐消失,vitest 428/独立复核/装机包字节验证全放行(组件单测不测挂载)。
+
+- [x] AC6 AppLayout 直挂 `<CommandPalette/>`(fe3abe9;⌘K 自含监听直挂即活,零视觉占用不回顶栏不破主人无头令)
+- [x] AC7 品类命令组与 category 族 props 退役(TopBar 全球过滤 7152ff9 已归情报流;跑一次=第一个可加载插件口径)
+- [x] AC8 死件清除:top-bar.tsx/.test、global-run.tsx/.test 四件删除(d9ae353 起零挂载)
+- [x] AC9 挂载级回归锚:app-layout.test ⌘K 唤出八屏(含定时任务)——防「组件绿但没人挂」类缺陷
+- [x] AC10 门禁:layout scoped 35/35+全量 441/441+tsc 0;无头冒烟亲验 ⌘K 唤出/搜索「定时」过滤/Enter 导航 /cron(截图 .zcode/smoke/eyes-palette.png,OCR 像素层复核)
+
+> 装机包刷新累积差口(面板复活+弹窗后续几笔)待树静窗统一刷,如实声明。
