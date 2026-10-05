@@ -49,7 +49,7 @@ const SCREENS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon; keyw
   { to: "/", label: "仪表盘", icon: LayoutDashboard, keywords: "dashboard home" },
   { to: "/feed", label: "情报流", icon: Inbox, keywords: "feed inbox" },
   { to: "/sources", label: "源管理", icon: Rss, keywords: "sources rss" },
-  { to: "/cron", label: "定时任务", icon: Clock, keywords: "cron schedule 定时" },
+  { to: "/cron", label: "定时任务", icon: Clock, keywords: "cron schedule timer jobs" },
   { to: "/yaml-editor", label: "配置编辑", icon: FileCode2, keywords: "yaml editor config" },
   { to: "/messaging", label: "消息", icon: MessageCircle, keywords: "messaging message push" },
   { to: "/logs", label: "采集日志", icon: Terminal, keywords: "logs terminal" },
