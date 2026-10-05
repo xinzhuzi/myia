@@ -19,8 +19,8 @@
    - 并行会话同批加 myssia-urlwatch(BSD-3 上游,desktop),非本批清单但同任务语境,互不阻塞;
 6. [x] 门禁:tests/plugins 组 518 绿;`myssia plugin install+list` 沙箱冒烟过(myssia-media desktop 可见);装不上场景 doctor 降级 warning=包契约测试既有钉(test_plugin_packages 契约三);批末全量门禁跑毕勾回(见 AC3 注);
 7. [x] README「6 official categories」→7 口径修正(AC4):并行会话顺手完成(265b7a9,双语两处);
-8. [ ] 主人过目首批 → 后续批次按同循环推进(TikTokDownloader 备选/○ 项核实在册);
-9. [ ] a 路候选(curl_cffi/trafilatura)不在本任务做:单独拆任务(引擎链+降级序设计)。
+8. [x] 主人过目首批 → 后续批次按同循环推进(TikTokDownloader 备选/○ 项核实在册)。**(2026-10-05 批三收口注记:批二(D4-D9 六决议)/批三(D10)已按同循环推进毕;TikTokDownloader 备选=批三 gh api 依赖重量核毕→终态不收(research.md 盘点表行+未核项节双落在案);残余 ○ 项同批销(TikTokDownloader 行已划)**
+9. [x] a 路候选(curl_cffi/trafilatura)不在本任务做:单独拆任务(引擎链+降级序设计)。**(2026-10-05 批三收口注记:两档已立=10-05-engine-curl-cffi(L2.5 档评估,定案问题=降级序插哪)+10-05-extract-trafilatura(extract 增强,定案问题=与手写规则共存边界+挂点档位),均 planning、PRD/implement 引用本档 research 证据、零现存档改动,4b66cad)**
 
 ## 收尾
 
@@ -102,3 +102,12 @@
 ### 16. 纪律(同批一)
 
 单件单提交;tests/plugins 组绿+批末全量;并行会话在场→快照外科暂存+状态直改 task.json;提交前 gitnexus detect-changes(索引已刷新,`-r shishi`)。
+
+## 批三:分析 lane+AC5+小修(2026-10-05 午;D10 决议后动工)
+
+17. [x] **批三前置质询定案 D10**(D8 悬案「分析 lane 挂点」闭,主人令按建议执行、翻案即改):挂点=**enrich 平行**——`Pipeline._stage_analyze` 阶段内(dedup 之后、push 之前),与 LLM 精评同位互补,不是 classify 后处理(三处违规:dedup 前烧子进程/抽取开销、装饰挂过滤器阶段诱使参与丢弃决策击穿铁律、失败误翻 partial);lane↔gates.analysis=**真执法(dispatch 级)非组织性**——每轮 `load_gates_fail_closed`+逐件 `gate_open` 先于任何 adapter 加载,gate 关=不 import/不 spawn/条目零触碰的字面零开销,坏 gates.yaml=全关继续跑,lane 关=正常未启用态(doctor info)刻意非 SaaS 的 gate_closed 结构化失败;逐件键名以 `plugin_gate_key` 派生(myssia-snownlp→snownlp、myssia-yake→yake);yake 活跃实况修正(2026-02-11 推送,stale 徽标失实→不声明 gate,市场徽标按 lane 成员资格派生,D5 词表零改动)。**(854f3c7;决议入 prd「批三 grill 决议 D10」节+design §7;爆炸半径 gitnexus impact `_stage_analyze`=0 直接调用方/LOW)**;
+18. [x] **批三收录:分析 lane 三件**(AC9 批三段/D10-3 形态):`src/myssia/analysis_lane.py`(成员注册表 {snownlp,yake})+`Pipeline._analysis_lane_pass`(dedup 后/push 前,enrich 开与关两分支都过,pipeline.py:1895/:1934)+`store.merge_item_metadata` 装饰回填(并入既有 raw 列零 DDL)+**myssia-snownlp**(tier:desktop+gate:stale;子进程钉版 `uv run --no-project --with snownlp==0.12.3` 单次 spawn stdin JSON 批,真跑冒烟正面 0.9635/负面 0.0006)+**myssia-yake**(tier:desktop 不声明 gate;进程内惰性 import,未装=dependency_missing 降级;真跑 yake 0.7.3 英文 n-gram 质量好/中文启发式受限如实记 README)+**myssia-mediacrawler**(警示型文档桩:plugin.yaml+README,零 adapter/零 compose/零 lane 接线)+cli 市场面 gates.analysis_lane 分组+逐件徽标+doctor analysis_lane_disabled=info;测试 43 新例。**(c43144b;门禁 tests/pipeline tests/plugins tests/test_gates.py=842 passed/31 skipped、全树 4199 passed 零回归;TikTokDownloader 核毕结论随笔入 research.md;复审修复 0349930=装载段失败容器补口(捕获面放宽 Exception→analysis_lane_degraded_load_failed 降级 warnings 绝不进 failures,+3 例)+无 content 条目拼串 None 归空(+2 例))**
+19. [x] **AC5 装机包**(挂账件批三清,prd AC5 节三件事):①`_seed_first_run` 改幂等补缺(bundle 缺哪件补哪件绝不覆盖、`.seeded`=补种记录、零缺件零写入,种子用例 2 修 2 增);②tauri resources 品类 7/7 补齐(games/news/exposure)+desktop tier 件源码面逐文件映射(manifest+README+adapter.py,排除 vendor/docker/__pycache__;credhunter/ 自有子包整目录例外随包);③市场面包裁决入 prd(vendor/ GPL submodule 不随包、装机 vendor 缺失走 adapter 既有 vendor_missing 零新码);守卫 tests/desktop/test_installer_resources.py+spec python/index.md 种子行为行同步。**(60fff33;tests/desktop=206 passed 含守卫 27 例;复审修复 119f57f=批三分析件随包面漂移补齐——snownlp/yake 并入三件套面(9 件)+mediacrawler 桩形两件(plugin.yaml+README.md),守卫 32→40 例,tauri 外科 +8 行(pyenv 并行 hunk 未动),双绿 40 passed/262 passed 24 skipped)**
+20. [x] **4low 遗留+D9 小修**:zenrows.py:77 `_upstream_returns_json` 判键改判值(css_extractor:~ 落空态 HTML 直通,null 测试补)+robots 守卫盲区 2 例(关闭态零请求含 robots 拉取/robots 拒绝∧门槛开=零付费请求)+sidecar-protocol.md:282 半句按代码实况修正(entry.py:3094 忽略 params)+D9 公共实例检测落地(cli doctor KNOWN_PUBLIC_INSTANCE_HOSTS(rsshub.app)+platforms endpoint 命中=third_party_trace info finding,4 例测试);crawlab install.source 旧仓名=gh api 双向核验远端实名就是 myia 无错,不采纳修、YAML 注记重定向策略(全仓 20 件统一切 shishi 留批末专项)。**(ead33f7;门禁 tests/engines tests/test_gates.py=429 passed/8 skipped+邻接 tests/plugins tests/desktop=773 passed/22 skipped)**
+21. [x] **两引擎任务建档**(a 路候选出档,步骤 9 闭环):10-05-engine-curl-cffi(L2.5 档:比 static_html 强比 crawl4ai 便宜,定案问题=AUTO_CHAIN 与链外显式选用两候选)+10-05-extract-trafilatura(零配置正文抽取补手写规则两盲区,定案问题=共存边界+挂点档位),`task.py create --no-start` 均 planning、implement.jsonl 各 curated 2 条、零现存档改动(有意不用 --parent 防改母档)。**(4b66cad)**
+22. [x] **批三收口(本步)**:落账五笔按序入 main(854f3c7→c43144b→60fff33→ead33f7→4b66cad,每笔暂存集核对零外来,detect-changes 三笔代码提交=low/medium 无 HIGH/CRITICAL)+复审两修(119f57f/0349930,门禁 1409 passed/39 skipped 提交前亲跑)+归档轮 9 档+全量门禁绿(引自收口指令);回填=implement 本节勾选+prd AC5/AC9 回标+research TikTokDownloader 核毕+evidence/batch-3-report.md,task.json 维持 in_progress(整体转 review/归档留主人裁)。
