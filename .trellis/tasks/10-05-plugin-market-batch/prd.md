@@ -162,3 +162,7 @@
 - **遗留(低危,记档待批三或顺手修,详见 evidence/batch-2-report.md §四)**:zenrows.py:77 css_extractor 显式 null 判键不判值;「零上游请求」守卫 robots 盲区;sidecar-protocol.md:282「gates.get 非法参数」半句超前于代码;四新件 install.source 旧仓库名 xinzhuzi/myia.git(全仓 17 件同惯例,重定向兜底)。
 - **全量门禁注记**:批二回填会话任务书门禁 1182 passed/30 skipped(evidence 报告);aa89aa5 收编回执全量 4074 过;本收口步未重跑全量(职责域外),域内 G1 绿。
 - **真机验收留主人(如有需)**:设置屏「门槛件」分区与 gated 引擎在桌面壳/装机包的实机表现无真机记录(代码侧由 vitest settings+协议测试+MockTransport 测试覆盖)。
+
+## 2026-10-05 收口注记
+
+推送 18558c05→CI run 37264825568 红回执如实双归因(components 映射 1 件=40ac920 已修推/numpy 缺装 8 件=CI 环境债留档;main 末绿 ef6846c),修复 6 笔(8818401..4986c58,含 entry.py 补种锚点 4986c58)已上 origin、新 run 37268141209 重跑中不阻塞;净室构建换装:修复版(ed9ec422+entry.py:522 锚点)13:16:04 装入并补种四件实证逐字节落位、13:16:16 遭并行 table 线反覆盖后 13:31:11 已回装亲验(补种/ai-news 不覆盖/.seeded 定格/门槛 fail-closed 缺省全实测);task.json 转 review(并行会话在场直改字段判例;完成判据现况:入库 ✓/门禁=修复已推待新 run 出绿/装机包 ✓ 修复版在位),详情 `evidence/push-install-closeout.md`。
