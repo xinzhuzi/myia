@@ -376,6 +376,29 @@ def test_real_adapter_file_loads_from_repo_tree():
     assert hasattr(module, "UrlwatchAdapterError")
 
 
+def test_bundled_plugins_env_is_candidate_path(tmp_path, monkeypatch):
+    """MYIA_BUNDLED_PLUGINS(桌面壳 Resources/plugins 锚点)是第二候选:
+    cwd 无件时从随包锚点装载,装机态免「先 UI 安装」前置."""
+    bundled_root = tmp_path / "Resources" / "plugins"
+    plugin_dir = bundled_root / "myssia-urlwatch"
+    plugin_dir.mkdir(parents=True)
+    (plugin_dir / "adapter.py").write_text(
+        "SENTINEL = 'bundled-adapter'\n", encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)  # cwd 相对 plugins/ 不存在 → 候选 1 落空
+    monkeypatch.setenv("MYIA_BUNDLED_PLUGINS", str(bundled_root))
+    module = import_urlwatch_adapter()
+    assert getattr(module, "SENTINEL", None) == "bundled-adapter"
+
+
+def test_bundled_plugins_env_ignored_when_not_a_dir(tmp_path, monkeypatch):
+    """锚点环境变量指向不存在的目录时静默跳过(源码树兜底照走)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MYIA_BUNDLED_PLUGINS", str(tmp_path / "nope"))
+    module = import_urlwatch_adapter()  # 源码树兜底命中
+    assert hasattr(module, "run")
+
+
 # ---------------------------------------------------------------------------
 # 事件映射
 # ---------------------------------------------------------------------------

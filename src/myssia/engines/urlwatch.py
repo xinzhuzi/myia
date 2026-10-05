@@ -42,6 +42,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import os
 import types
 from pathlib import Path
 from typing import Any
@@ -80,11 +81,22 @@ def import_urlwatch_adapter(
     """动态加载 ``<plugins_dir>/myssia-urlwatch/adapter.py``(compile+exec).
 
     与 credhunter 引擎 / CLI ``_import_plugin_adapter`` 同一手法与同一理由
-    (场景件不入核心 import 面);cwd 相对路径未命中时退源码树布局
-    (包文件 ``src/myssia/engines/`` → 仓库根 ``plugins/``),桌面 sidecar
-    cwd 不定态下多一条活路;两处都缺 → 结构化 ``urlwatch_adapter_missing``。
+    (场景件不入核心 import 面)。候选装载路径按序:
+
+    1. ``plugins_dir``(缺省 cwd 相对 ``plugins``,CLI/桌面 home 模式同约定
+       ——桌面 sidecar home 模式 cwd 即数据根,``<home>/plugins`` 命中
+       已安装件);
+    2. ``MYIA_BUNDLED_PLUGINS`` 环境变量(桌面壳 release 态注入的
+       Resources/plugins 锚点,tauri resources 恒随包本件 adapter——
+       引擎消费免「先在 UI 一键安装」前置);
+    3. 源码树布局兜底(包文件 ``src/myssia/engines/`` → 仓库根 ``plugins/``)。
+
+    三处都缺 → 结构化 ``urlwatch_adapter_missing``。
     """
     candidates = [Path(plugins_dir) / "myssia-urlwatch" / "adapter.py"]
+    bundled = os.environ.get("MYIA_BUNDLED_PLUGINS")
+    if bundled:
+        candidates.append(Path(bundled) / "myssia-urlwatch" / "adapter.py")
     here = Path(__file__).resolve()
     if len(here.parents) > 3:  # 源码树布局 src/myssia/engines/urlwatch.py
         candidates.append(
