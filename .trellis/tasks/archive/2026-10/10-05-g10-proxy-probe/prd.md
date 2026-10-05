@@ -50,3 +50,10 @@
 - 与远期「代理池管理面板」同族但本件只做测试按钮(池档决议)。
 - 涉网纪律:本件实现与测试全程零外网(探测路径测试用 env 缺失凭据上游隔离,同 tests/engines/test_proxy_pool.py:766-783 手法)。
 - gitnexus impact 亲跑:`_m_doctor` upstream 0 受影响(risk LOW,注册表 dict 字面量非调用面);`handleProbe` upstream 4(SettingsScreen→App,risk LOW)。
+
+## 收口回执(2026-10-05 归档轮)
+
+- 收口门禁(收口准备轮亲跑,回执落 3470b59 journal 段;本流 ebfb34e 已在其树内):全量 `uv run --no-sync pytest -q` → **4284 passed / 40 skipped / 0 failed**(tests/desktop 面 240 passed 含本流四新例+全量对账例);vitest 全量 **474**;协议对账 `-k method_registry` → 2 passed,`_HANDLERS`=64 / PROTOCOL_VERSION=10 与注册表三方一致;ruff 全绿。
+- 中间态红面注记:trafilatura 流全量曾现 1 failed(对账例断 62 实 64),其 stash 对照已铁证归属本流未收口中间态;收口终态(f77f894)同例绿——归档轮本机复跑 `pytest tests/desktop/test_desktop_sidecar_protocol.py -k method_registry -q` → **2 passed**(亲跑)。
+- CI:run 37304222631(main @ 3470b59,含本流 ebfb34e)→ **success**;归档轮 `gh run view` 亲验 + `merge-base --is-ancestor` 亲证 ebfb34e ∈ 3470b59。
+- 收口处置:归档至 archive/2026-10/;无受阻项(装机包内真机点按未做系既有机房实况,Notes 已记,IPC 代码面由 pytest+vitest 兜底)。

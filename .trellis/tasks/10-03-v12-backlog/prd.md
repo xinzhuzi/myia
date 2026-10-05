@@ -203,3 +203,19 @@ GitNexus 索引名 shishi 系索引层滞后,与远端名无关,不在本专项�
   仅注释行);golden 面排查=`test_plugin_packages.py:165` 只锁 `https://`
   前缀不锁仓库名,无需再生;`desktop/src-tauri/tauri.conf.json:91` updater
   endpoint 同为 myia 真名无需改。
+
+## 本轮纪要(2026-10-05 收口归档轮)
+
+五档收口归档(archive/2026-10),消号项逐条回标:**①a** zenrows 显式 null
+判值/**①b** robots 盲区守卫/**①c** 协议文档超前半句——三件销号
+(`10-05-lowrisk-sweep`,348af86);**①d** install.source=真名反转注记更正+
+冻结广播(同档);**②a** 侧栏分组级折叠销号(7853d96 已在库)/**②b** 源管理
+点簇筛选实做(c26f681)/**②c** 设置 tooltip 裁撤记档(`10-05-fe-gap-batch`);
+G10 探测一键化(`10-05-g10-proxy-probe`,ebfb34e)、trafilatura L2 兜底
+(`10-05-trafilatura-impl`,ba8af60)、装机组件接线(`10-05-bundled-plugins-install`,
+f77f894;装机链 UI 验证受阻待 owner 重打包,回执如实注)同轮归档;
+`10-05-reddit-source` 按其 AC 维持 review 不归档(停主人决策点五项)。
+收口门禁全绿(全量 pytest 4284/0 failed+净树 +31 对账/vitest 474/cargo 54/
+ruff/协议对账 64 三方一致/守军九件 302),CI run 37304222631 success @
+3470b59(归档轮 gh 亲验,六流提交均亲证在其历史内);池档口径不动
+(上方两项 AC 维持未勾)。

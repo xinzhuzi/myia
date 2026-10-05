@@ -58,3 +58,10 @@
 - vendor 许可红线:osint/theHarvester 的 vendor/ submodule 不随包分发(test_installer_resources.py 已钉守卫);装机上 vendor 缺失走 adapter 既有结构化 vendor_missing 指引,本件零改动零新指引(卡片描述如实提及)。
 - 留池档可翻案:装机组件 UI 卸载按钮(本期裁);品类 YAML 8 件进发现/安装面(安装语义不同)。
 - 母任务计划定案原文见基线上下文(本 PRD 忠实落实,唯一修正:description 字段 manifest schema 无此键)。
+
+## 收口回执(2026-10-05 归档轮)
+
+- 收口门禁(收口准备轮亲跑,回执落 3470b59 journal 段;本流 f77f894 已在其树内):全量 `uv run --no-sync pytest -q` → **4284 passed / 40 skipped / 0 failed**(tests/desktop 240 passed = 基线 224+本流 16);vitest 全量 **474**(=465+本流 9);`cargo check --locked` + `cargo test` → **54 passed**;协议对账 64 三方一致(#63/#64 注册表行在列,归档轮本机复跑 `-k method_registry` → 2 passed 亲验);`tsc -b --force` 零错;ruff 全绿。
+- CI:run 37304222631(main @ 3470b59,含本流 f77f894)→ **success**;归档轮 `gh run view` 亲验 + `merge-base --is-ancestor` 亲证 f77f894 ∈ 3470b59。
+- **受阻如实注(装机链验证)**:双保险判据中「直跑新装二进制+截图」结构性依赖 owner 重打包——现装 /Applications/世事.app 二进制 mtime(2026-10-05 16:28)早于 f77f894 提交时间(19:24:44),grep `MYIA_BUNDLED_PLUGINS` 零命中(对照 `MYIA_APP_VERSION` 命中 1)坐实旧包不含本轮壳层 env 注入与 sidecar 两新方法;重打包后补验 `#/settings?section=installer-plugins` 应见 10 件(Resources/plugins 亲验 18 项=10 组件包+8 品类 YAML,与断言口径一致)。代码面全量门禁已绿,机房实况同 table-restore AC4 先例。
+- 收口处置:归档至 archive/2026-10/;留池可翻案两件(UI 卸载按钮/品类 YAML 进发现面)已在 Notes 记档。

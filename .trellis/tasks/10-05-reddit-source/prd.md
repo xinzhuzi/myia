@@ -59,3 +59,8 @@
   **证据**:`research.md` §5 对比表/§6 实现量预估(挂点亲验:`src/myssia/engines/registry.py:79-87`、
   `direct_api.py:10-12,55-56`、`static_html.py:8-11`、`schema.py:597,728,752`、`fetch_base.py:2252,2272`)/
   §7 推荐倾向/§8 决策点五项;档置 review(task.json 亲改)。
+
+## 收口回执(2026-10-05 归档轮)
+
+- 门禁面不适用:本档为评估档零实现代码(f8dba81 纯 .trellis 26 件文档);收口轮亲验 = CI run 37304222631(main @ 3470b59,`merge-base --is-ancestor` 亲证 f8dba81 ∈ 3470b59)→ **success**(`gh run view` 亲跑)。
+- 收口处置:按本档 AC5 与定界「档置 review 不归档」口径,**维持 review 不归档**——停点=主人决策五项(通道选择/2026-10-31 前凭据申请/国际出口复验/48h 保留义务张力/UA 隐私,research.md §8);若定通道转实现,按 research §6 挂点另立实现档。

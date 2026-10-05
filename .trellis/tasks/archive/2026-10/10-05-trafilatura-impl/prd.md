@@ -140,3 +140,9 @@ trafilatura 永不触达(结构性「兜底非首选」)。
   All checks passed! / `gitnexus detect-changes -r shishi --scope staged` →
   16 files, 45 symbols, Affected processes: 0, Risk level: low(CLI 尾部
   「... and 30 more」截断为工具输出形态;py 符号面经索引未见受染流程)。
+
+## 收口回执(2026-10-05 归档轮)
+
+- 收口门禁(收口准备轮亲跑,回执落 3470b59 journal 段;本流 ba8af60 已在其树内):全量 `uv run --no-sync pytest -q` → **4284 passed / 40 skipped / 0 failed**——本流中间态曾红的对账例(62≠64,归属并行流已 stash 铁证)终态转绿零 failed;守军九件(计划清单口径)→ **302 passed, 3 skipped**(3 skipped 为既有条件 skip);净树对账 `git archive 1e231f4` collect 增量 **+31** 与逐函数清点严丝合缝(本流 10 = engines 8 + pipeline 2);ruff 0.16.10 全绿。
+- CI:run 37304222631(main @ 3470b59,含本流 ba8af60)→ **success**;归档轮 `gh run view` 亲验 + `merge-base --is-ancestor` 亲证 ba8af60 ∈ 3470b59。
+- 收口处置:归档至 archive/2026-10/;leftovers 留档不动(source 级开关粒度留池/trafilatura extras 不进 all 组/装机包自管环境未装该组件,后续组件接线跟进)。

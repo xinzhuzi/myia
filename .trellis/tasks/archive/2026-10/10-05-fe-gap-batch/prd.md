@@ -97,3 +97,9 @@
 - 池档基线锚点 sources-table.tsx:287-291 已漂至 :327-351(健康度按钮组),
   本档以 grep 现码为准,勿硬编码行号。
 - git 提交 `git commit --only` 明确路径;不推远端不打 tag。
+
+## 收口回执(2026-10-05 归档轮)
+
+- 收口门禁(收口准备轮亲跑,回执落 3470b59 journal 段;本流 c26f681 已在其树内):desktop/ui-src `npx vitest run` 全量 → **26 files / 474 passed**(=基线 459 + 本流 4 + g10 2 + bundled 9,对账吻合);`npm run build`(tsc -b + vite build)exit 0;全量 pytest **4284 / 0 failed** 与 ruff 全绿(本流零 py 改动,面不受染)。
+- CI:run 37304222631(main @ 3470b59,含本流 c26f681)→ **success**;归档轮 `gh run view` 亲验 + `merge-base --is-ancestor` 亲证 c26f681 ∈ 3470b59。
+- 收口处置:归档至 archive/2026-10/;消号项已逐条回标池档(②a 销号/②b 实现/②c 裁撤+翻案方案留池);无受阻项。

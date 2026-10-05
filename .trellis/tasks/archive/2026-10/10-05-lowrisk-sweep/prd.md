@@ -63,3 +63,10 @@ v12-backlog 池 2026-10-05 傍晚收口后余量定界:①低危尾款四件。�
 - ask 所写 `docs/sidecar-protocol.md` 路径有偏差:全仓 find 实际位于 `.trellis/spec/desktop/sidecar-protocol.md`(find 亲跑);按实际路径亲证,内容与计划定案一致。
 - ①d 计划口径「17 件同惯例」与本轮亲跑 `grep … | wc -l` = **20** 不一致,以亲跑 20 为准(计划基线的 17 可能系旧快照口径)。
 - 池档原无四件既有条目(系本轮基线新定界未入池档登记),销号动作以纪要段落形式落档并注明详情引线回本档。
+
+## 收口回执(2026-10-05 归档轮)
+
+- 收口门禁(收口准备轮亲跑,回执落 3470b59 journal 段;本流 348af86 已在其树内):全量 `uv run --no-sync pytest -q` → **4284 passed / 40 skipped / 0 failed**(本流零代码改动,自身门禁面 1001 passed 已绿于 348af86);`uvx ruff@0.16.10 check .` 全绿。
+- CI:run 37304222631(xinzhuzi/myia,main @ 3470b59,含本流 348af86)→ **success**;归档轮 `gh run view` 亲验 + `git merge-base --is-ancestor` 亲证 348af86 ∈ 3470b59,origin/main 与本地齐平(领先 0)。
+- 归档轮终态复核(亲跑):`uv run --no-sync pytest tests/desktop/test_desktop_sidecar_protocol.py -k method_registry -q` → **2 passed**(并行流中间态曾红的对账例终态绿)。
+- 收口处置:`task.py archive --no-commit --skip-branch-validation` 归档至 archive/2026-10/;无受阻项(三件销号+一件注记已定局)。
