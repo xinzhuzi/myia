@@ -173,6 +173,44 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
      判定=壳进程 env 显式 MYIA_HOME,与 data_root/单实例锁 var_os 分支同
      口径;置冒烟路由/亮窗之前),主窗标题「世事(沙箱)」;测试按实现面
      取 cargo 单测两例(Some 加后缀/None 透传)非 vitest。
+10. **GitHub 集成候选批(2026-10-05 深夜盘点轮入池;主人令「都落实到
+    trellis 任务文档」)**——盘点口径:RSSHub 已在(官方场景件
+    plugins/myssia-rsshub,DIYgod/RSSHub 封装,AGPL 只作自托管 HTTP 服务
+    消费零代码复用);以下为核实后**未集成**且与产品(自托管情报调度台)
+    相性好的候选,按价值排序,全部自托管友好;开工时逐件拆正式任务:
+
+   - **Apprise(推送统一层,扩张比最高)**:MIT,一个 pip 依赖解锁 100+
+     推送目标(Discord/Slack/Teams/Pushover/Gotify/…),现推送面 6 通道
+     (telegram/feishu/ntfy/dingtalk/wecom/weixin);挂点=push 层新增
+     `apprise` 通道(目标串走该库原生 URL 形态,凭据引用体系 env:/keychain:
+     照旧),extras 形态(`myssia[apprise]`)与 trafilatura 先例同构;
+     桌面锁不进(可选件)。
+   - **Bark(iOS 推送十行级小通道)**:自建或官方端点,HTTP POST 一发即达,
+     通知即时性远超 TG/飞书;挂点=push 层 `bark` 通道(端点+可选 key 走
+     凭据引用);可与 Apprise 同批或单拆。
+   - **SearXNG(自托管元搜索 → 情报源)**:搜索式情报(关键词日报/舆情面),
+     走现有 static_html/direct_api 引擎层零新引擎;拆任务时先探其
+     format=json 接口与 robots 口径(自托管实例 robots 自控)。
+   - **Firecrawl OSS server(自托管 JS 渲染+正文,gates 引擎族自托管兜底)**:
+     给 Zenrows/ScraperAPI 之外添零供应商依赖的一条路(自托管 API 兼容层);
+     ui-feature-census 时只评过其 SaaS 面参考价值低,自托管面未探——拆任务
+     时先探 OSS server 与 SaaS API 的兼容度再定「gated 引擎」还是独立引擎。
+   - **cron 心跳告警(原生小功能,非外部依赖)**:executions 账本上加
+     「某品类久未触发」规则(healthchecks.io 式 dead-man switch),与告警
+     规则族(alerts.save/fired,10-04-alert-rules)合并考虑,监控自身调度
+     健康。
+   - 弱需求备忘(idea 池,不拆任务):changedetection.io(UI 模仿册在案,
+     urlwatch 覆盖大半,增量=快照/diff 可视化)、gallery-dl(媒体情报扩容,
+     yt-dlp 同族)、ArchiveBox(urlwatch 变更时网页留档)。
+   - 死路不再追(档内在案):Pushshift(2023-05 起 mod-only)、GNews RSS
+     (robots 禁)、Bing RSS(本出口 302 墙 PoC)、smzdm(反爬)、Reddit
+     直抓(robots 全禁,官方 API 路在 `10-05-reddit-source` 决策+并行
+     reddit-official-engine 线)。
+   - 备忘(本轮盘点同期工程面状态,非池项):11 笔未推(CI 未验新代码)、
+     装机包(9c287b1 构建)落后 HEAD 五笔——推送过 CI 后应走重打包换装
+     (「完成=装机包刷新」判例);待主人过目 4 档 review
+     (telegram-token-dedupe/ui-chore-batch/win-second-instance-show/
+     reddit-source,后者 10-31 API 申请截止剩 26 天)。
 ## 主人侧前置(2026-10-03 grill Q4 已答)
 
 - **Windows 真机/VM:有**——v1.2 Windows 拆任务按完整安装冒烟口径(对齐 macOS 的
