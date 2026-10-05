@@ -141,6 +141,7 @@ from myssia.feedback import (
     record_feedback,
     resolve_item_ref,
 )
+from myssia.analysis_lane import ANALYSIS_LANE_MEMBERS
 from myssia.gates import (
     GATES_KINDS,
     GatesConfig,
@@ -148,6 +149,7 @@ from myssia.gates import (
     SaaSGate,
     canonical_saas_key_ref,
     default_gates_path,
+    gate_open,
     load_gates_config,
     load_gates_fail_closed,
     plugin_gate_key,
@@ -3292,6 +3294,8 @@ def _doctor_gates(args: argparse.Namespace, findings: list[dict[str, Any]]) -> d
         "exists": gates_file.exists(),
         "error": gates_error,
         "gated": [],
+        # 批三分析 lane 成员(启用徽标按 lane 成员资格派生,D10-2)
+        "analysis_lane": [],
     }
     if gates_error is not None:
         first = (gates_error.get("errors") or [{}])[0]
@@ -3340,6 +3344,34 @@ def _doctor_gates(args: argparse.Namespace, findings: list[dict[str, Any]]) -> d
                     f"{advisory};知情后 myssia gates set 可开启"
                 ),
             )
+    # 批三分析 lane 成员(D10-2 最小扩展):未启用 = 正常态 info(与 gate_disabled
+    # 同级);按 **lane 成员资格**(analysis_lane 注册表)派生——yake 不声明
+    # gate 也要可见;声明 gate 的件(snownlp: stale)已由上一循环出 finding,
+    # 不双报(两处查询同一 analysis.<key> 开关,状态必然一致)。
+    member_key_of = {package: key for key, package in ANALYSIS_LANE_MEMBERS.items()}
+    for entry in entries:
+        if entry.manifest is None:
+            continue
+        member_key = member_key_of.get(entry.manifest.id)
+        if member_key is None:
+            continue
+        enabled = gate_open(config, "analysis", member_key)
+        section["analysis_lane"].append(
+            {"id": entry.manifest.id, "key": member_key, "enabled": enabled}
+        )
+        if enabled or entry.manifest.gate:
+            continue
+        _finding(
+            findings,
+            severity="info",
+            scope=f"plugin:{entry.manifest.id}",
+            code="analysis_lane_disabled",
+            message=(
+                f"分析 lane 件 {entry.manifest.id} 未启用 —— 正常态,不是故障;"
+                f"知情后 myssia gates set analysis.{member_key} on 可开启"
+                f"(启用后 analyze 阶段对本轮条目做本地装饰,不过滤不拦推送)"
+            ),
+        )
     return section
 
 
@@ -3814,8 +3846,13 @@ def _plugin_list(
             )
     gates_file = Path(args.gates_file).expanduser() if args.gates_file else default_gates_path()
     gates_config, gates_error = load_gates_fail_closed(gates_file)
+    # 批三分析 lane 成员(D10-2 最小扩展):lane 件启用徽标按 **lane 成员资格**
+    # 派生自 gates.analysis.<key> 开关,而非 manifest gate 字段——yake 不声明
+    # gate(上游活跃,stale 徽标失实),徽标跟着 gate 走会漏(D5 词表零改动)。
+    member_key_of = {package: key for key, package in ANALYSIS_LANE_MEMBERS.items()}
     plugin_payloads: list[dict[str, Any]] = []
     gated: list[dict[str, Any]] = []
+    analysis_lane: list[dict[str, Any]] = []
     for entry in entries:
         payload = entry.to_dict()
         gate = payload.get("gate")
@@ -3833,6 +3870,15 @@ def _plugin_list(
             )
         else:
             payload["gate_enabled"] = None
+        member_key = member_key_of.get(entry.manifest.id) if entry.manifest is not None else None
+        if member_key is None:
+            payload["analysis_lane"] = None
+        else:
+            lane_enabled = gate_open(gates_config, "analysis", member_key)
+            payload["analysis_lane"] = {"key": member_key, "enabled": lane_enabled}
+            analysis_lane.append(
+                {"id": entry.manifest.id, "key": member_key, "enabled": lane_enabled}
+            )
         plugin_payloads.append(payload)
     tiers: dict[str, int] = {}
     for entry in entries:
@@ -3850,6 +3896,8 @@ def _plugin_list(
             # 坏文件 = 全关(fail-closed);错误结构化带回,不是静默吞掉
             "error": gates_error,
             "gated": gated,
+            # 批三分析 lane 成员清单(启用徽标派生自 analysis.<key>,D10-2)
+            "analysis_lane": analysis_lane,
         },
         "summary": {
             "installed": sum(1 for entry in entries if entry.manifest is not None),
@@ -3909,6 +3957,13 @@ def _print_human_plugin_list(payload: dict[str, Any]) -> None:
             for item in gated
         )
         print(f"  门槛件({len(gated)}):{lines}")
+    analysis_lane = gates.get("analysis_lane") or []
+    if analysis_lane:
+        lines = ", ".join(
+            f"{item['id']}(analysis.{item['key']}){'已启用' if item['enabled'] else '未启用'}"
+            for item in analysis_lane
+        )
+        print(f"  分析 lane 件({len(analysis_lane)}):{lines}")
     for plugin in payload["plugins"]:
         if not plugin["loaded"]:
             print(f"  {plugin['path']} — manifest 缺失或损坏")
@@ -3923,8 +3978,14 @@ def _print_human_plugin_list(payload: dict[str, Any]) -> None:
                 if plugin.get("gate")
                 else ""
             )
+            lane = plugin.get("analysis_lane")
+            lane_badge = (
+                f"{{lane:analysis.{lane['key']}:{'开' if lane['enabled'] else '未启用'}}}"
+                if lane
+                else ""
+            )
             print(
-                f"  {plugin['id']}@{plugin['version']}[{plugin['tier']}]({plugin['name']}){compatibility}{gate_badge}"
+                f"  {plugin['id']}@{plugin['version']}[{plugin['tier']}]({plugin['name']}){compatibility}{gate_badge}{lane_badge}"
                 f" requires={plugin['requires']} provides={plugin['provides']}"
             )
         for finding in plugin["findings"]:

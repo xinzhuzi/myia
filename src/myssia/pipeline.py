@@ -105,6 +105,15 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from myssia.alerts import AlertEngine
+from myssia.analysis_lane import (
+    ANALYSIS_LANE_MEMBERS,
+    AnalysisLaneError,
+    decorate_items,
+    default_plugins_roots,
+    import_analysis_adapter,
+    lane_degrade_token,
+    locate_adapter_file,
+)
 from myssia.classify import (
     ClassifyDataError,
     classify_item,
@@ -128,6 +137,7 @@ from myssia.enrich import (
 )
 from myssia.enrich.scoring import BudgetTracker
 from myssia.feedback import ActiveTuning, FeedbackTuner, TuningPolicy, ingest_callbacks, load_active_tuning
+from myssia.gates import GATES_FILE_NAME, gate_open, load_gates_fail_closed
 from myssia.push import (
     CHANNELS,
     DEFAULT_POLL_INTERVAL_SECONDS,
@@ -722,6 +732,7 @@ class Pipeline:
         enricher: Any | None = None,
         enrich_settings: EnrichSettings | None = None,
         aggregator: Any | None = None,
+        analysis_adapters: Mapping[str, Any] | None = None,
         proxy_pools: Any | None = None,
         feedback_policy: TuningPolicy | None = None,
         feedback_poll_interval: float = DEFAULT_POLL_INTERVAL_SECONDS,
@@ -760,6 +771,11 @@ class Pipeline:
                 ``aggregate.enabled``; the default builds an
                 :class:`~myssia.enrich.EventAggregator` on the same endpoint
                 settings as the enricher.
+            analysis_adapters: 注入的分析 lane 适配器(批三 D10;键 =
+                :data:`myssia.analysis_lane.ANALYSIS_LANE_MEMBERS` 的 gate 键,
+                值 = 带 ``decorate(texts)`` 的任意对象,测试 mock 用)。缺省
+                None = 按候选根发现并 compile+exec 加载官方件 adapter;**gate
+                检查在加载之前**——gates.yaml 全关时注入与否都不触碰条目。
             feedback_policy: 反馈闭环调参阈值 (v0.3, PRD 10-01-v03-feedback-loop);
                 defaults to :class:`TuningPolicy` defaults. The tuner runs in
                 the maintenance phase of every non-dry run.
@@ -838,6 +854,10 @@ class Pipeline:
                 enrich_settings if enrich_settings is not None else self._enrich_settings_from_config(),
                 clock=self._clock,
             )
+        # 分析 lane(批三 D10):注入的适配器优先(测试 mock);缺省按候选根
+        # 发现官方件 adapter。执法(gates.analysis 开关)在 run 时逐轮判定,
+        # 构造期零加载——「gate 关 = 不 import 插件码」从构造期就成立。
+        self._analysis_adapters = dict(analysis_adapters) if analysis_adapters else {}
         try:
             self._tz = ZoneInfo(self.config.timezone) if self.config.timezone else None
         except (ZoneInfoNotFoundError, ValueError, OSError) as exc:
@@ -1870,6 +1890,9 @@ class Pipeline:
                 isolated inside the enricher and surface as report skips.
         """
         if not self.config.enrich.enabled or self._enricher is None:
+            # 分析 lane(D10-1):与 enrich 开关正交——LLM 精评关着不该关本地
+            # 分析件,gates.analysis 才是 lane 的唯一开关,两分支都必须经过。
+            await self._analysis_lane_pass(items, report, store)
             report.items_out = len(items)
             report.status = "ok"
             logger.info("分析步骤直通(enrich 未启用,仅关键词粗筛) items=%s", len(items))
@@ -1906,6 +1929,9 @@ class Pipeline:
                 failure.get("url"), failure.get("error_type"), failure.get("message"),
             )
         self._apply_feedback_penalties(items, tuning, report)
+        # 分析 lane(D10-1):与 LLM 精评同位互补——顺序执行(enrich 先、lane 后;
+        # 并行不强制,实现裁量)。装饰落 metadata,任何失败走 warnings 不翻 partial。
+        await self._analysis_lane_pass(items, report, store)
         report.items_out = len(items)
         report.status = "ok"
         logger.info(
@@ -1916,6 +1942,110 @@ class Pipeline:
             report.skips.get("feedback_downweighted", 0),
         )
         return items
+
+    async def _analysis_lane_pass(
+        self, items: list[Item], report: StageReport, store: Store
+    ) -> None:
+        """分析 lane 子步(批三 D10):本地零 token 分析件装饰,不过滤.
+
+        执法关系(D10-2:真执法,dispatch 级):每轮装载
+        ``<数据根>/gates.yaml``(照 vision ring 每轮装载先例,设置面开关下一轮
+        即生效;坏文件 = 全关态继续 = lane 不跑,fail-closed)→ 逐件
+        ``gate_open(config, "analysis", key)`` **在任何 adapter 加载之前**——
+        gate 关 = 不 import 插件码、不 spawn、条目零触碰,仅字典查找。
+        lane 关 = 正常未启用态(debug 日志),不是 ``gate_closed`` 结构化失败
+        (那是 SaaS 引擎「被品类请求后被拒」的语义;lane 的唯一激活路径就是
+        gates.yaml,不存在该调用方)。
+
+        装饰契约:输出落 ``item.metadata``(route/push 模板经 ``Item.view()``
+        消费),装饰不过滤——lane 任何输出不改变条目存活;items 表回填
+        best-effort(``merge_item_metadata``,照 enricher 回填先例)。失败容器:
+        件级/条目级失败进 ``report.warnings`` + ``analysis_lane_degraded_*``
+        skip 计数,**绝不进 ``report.failures``**(分析件失败是常态降级,
+        不翻 partial/退出码)。
+
+        续跑注记:``_item_checkpoint`` 不序列化 ``content``,续跑条目输入退化
+        title-only;lane 无法区分「续跑退化」与「源本来无 content」,统一记
+        ``analysis_lane_title_only`` skip 计数(DEBUG)不告警,不阻。
+        """
+        if not items:
+            return
+        gates_config, gates_error = load_gates_fail_closed(
+            Path(self._db_path).parent / GATES_FILE_NAME
+        )
+        if gates_error is not None:
+            logger.warning(
+                "gates.yaml 拒载,分析 lane 按全关处理(fail-closed):%s",
+                gates_error.get("message") or gates_error,
+            )
+        open_keys = [
+            key for key in ANALYSIS_LANE_MEMBERS if gate_open(gates_config, "analysis", key)
+        ]
+        if not open_keys:
+            logger.debug("分析 lane 未启用(gates.analysis 全关),条目零触碰 items=%s", len(items))
+            return
+        title_only = sum(1 for item in items if not item.content)
+        if title_only:
+            report.skips["analysis_lane_title_only"] += title_only
+            logger.debug(
+                "分析 lane 输入 title-only 条目 %s/%s(源无 content 或续跑退化)", title_only, len(items)
+            )
+        plugins_roots = default_plugins_roots(Path(self._db_path).parent)
+        for key in open_keys:
+            package = ANALYSIS_LANE_MEMBERS[key]
+            texts = [
+                {"url": item.url, "text": f"{item.title}\n{item.content}".strip()}
+                for item in items
+            ]
+            try:
+                adapter = self._analysis_adapters.get(key)
+                if adapter is None:
+                    adapter_file = locate_adapter_file(plugins_roots, package)
+                    if adapter_file is None:
+                        raise AnalysisLaneError(
+                            "adapter_missing",
+                            f"分析 lane 适配器不存在:{package}/adapter.py"
+                            f"(候选根:{[str(root) for root in plugins_roots]})",
+                        )
+                    adapter = import_analysis_adapter(adapter_file)
+                # 子进程型适配器(snownlp)阻塞 spawn,丢线程池防事件循环饿死。
+                decorations = await asyncio.to_thread(decorate_items, adapter, texts)
+            except AnalysisLaneError as exc:
+                token = lane_degrade_token(exc.code)
+                report.skips[f"analysis_lane_degraded_{token}"] += len(items)
+                report.warnings.append(
+                    {
+                        "plugin": package,
+                        "error_type": f"analysis_lane_{token}",
+                        "message": exc.message,
+                        "items": len(items),
+                    }
+                )
+                logger.warning(
+                    "分析 lane 件降级(条目照常投递) plugin=%s reason=%s items=%s: %s",
+                    package, token, len(items), exc.message,
+                )
+                continue
+            decorated = 0
+            by_url = {item.url: item for item in items}
+            for url, fields in decorations.items():
+                item = by_url.get(url)
+                if item is None:
+                    continue
+                item.metadata.update(fields)
+                decorated += 1
+                if item.dedup_key:
+                    try:
+                        store.merge_item_metadata(item.dedup_key, fields)
+                    except Exception as exc:  # noqa: BLE001 - 回填 best-effort,失败只告警
+                        logger.warning(
+                            "分析 lane 装饰回填 items 表失败 dedup_key=%s: %s",
+                            item.dedup_key, exc,
+                        )
+            report.skips[f"analysis_lane_{key}_decorated"] += decorated
+            logger.info(
+                "分析 lane 件完成 plugin=%s items=%s decorated=%s", package, len(items), decorated
+            )
 
     # ------------------------------------------------------ event aggregation
 

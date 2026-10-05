@@ -1,9 +1,10 @@
 """官方场景件(plugin packages)的封装契约测试(PRD 10-01-v03-plugin-market
 及其 v1.1 架构转向,PRD 10-02-v11-plugins-source-arch;10-03-aipocket-fusion
 接入线增 myssia-credhunter;10-05-plugin-market-batch 首批增 media/maigret/
-urlwatch/rsshub/spiderfoot,批二增 crawlab/worldmonitor/webcheck/socialanalyzer).
+urlwatch/rsshub/spiderfoot,批二增 crawlab/worldmonitor/webcheck/socialanalyzer,
+批三增 snownlp/yake/mediacrawler——分析 lane 两 adapter 件 + 警示文档桩).
 
-十七个 ``plugins/<id>/`` 目录是市场插件包:每包含 ``plugin.yaml``(manifest,
+二十个 ``plugins/<id>/`` 目录是市场插件包:每包含 ``plugin.yaml``(manifest,
 规范见 :mod:`myssia.plugins.manifest`)+ README + 桌面路径声明。三条被钉住的
 契约:
 
@@ -76,6 +77,12 @@ OFFICIAL_PACKAGES = (
     "myssia-worldmonitor",
     "myssia-webcheck",
     "myssia-socialanalyzer",
+    # 批三(D10-3,task 10-05-plugin-market-batch):分析 lane 两 adapter 件
+    # (snownlp 停更知情 gate/yake 无 gate)+ mediacrawler 最薄警示文档桩
+    # (非商业学习许可,零 adapter 零程序面)。
+    "myssia-snownlp",
+    "myssia-yake",
+    "myssia-mediacrawler",
 )
 
 #: v1.1 定级建议(PRD 10-02-v11-plugins-source-arch 复核表)钉死的期望分级。
@@ -99,15 +106,21 @@ EXPECTED_TIERS = {
     "myssia-worldmonitor": "remote",
     "myssia-webcheck": "remote",
     "myssia-socialanalyzer": "remote",
+    # 批三(D10-3):分析 lane 件 + 警示桩,全部 desktop(零 docker 本地形态)。
+    "myssia-snownlp": "desktop",
+    "myssia-yake": "desktop",
+    "myssia-mediacrawler": "desktop",
 }
 
 #: 批二(D5,10-05-plugin-market-batch)门槛声明期望表:``gate`` 与 ``tier``
 #: 正交(缺省不声明 = 无门槛件)。首批 gated 官方件 = 同物种门槛桩两件
-#: (crawlab/worldmonitor,自有实例例外通道);webcheck/socialanalyzer 等
-#: 普通件必须不声明——plugin.yaml 删 gate 行本表即红,声明面不裸奔。
+#: (crawlab/worldmonitor,自有实例例外通道);批三(D10-3)增 snownlp 的
+#: 停更知情(stale);webcheck/socialanalyzer/yake/mediacrawler 等普通件
+#: 必须不声明——plugin.yaml 删 gate 行本表即红,声明面不裸奔。
 EXPECTED_GATES = {
     "myssia-crawlab": "platform",
     "myssia-worldmonitor": "platform",
+    "myssia-snownlp": "stale",
 }
 
 
@@ -265,10 +278,22 @@ class TestPackageManifests:
             assert "gates" in readme, (
                 f"{package}: 门槛 README 缺激活通道指路(gates set / 设置门槛件)"
             )
+        elif manifest.gate == "stale":
+            # 批三(D10-3,snownlp):停更知情三件套——门槛类型(停更)、
+            # 知情内容(上游冻结/pin 版自担维护)、激活通道(gates set)。
+            assert "停更" in readme, (
+                f"{package}: stale 门槛 README 缺门槛类型说明(停更知情)"
+            )
+            assert "自担维护" in readme, (
+                f"{package}: stale 门槛 README 缺知情文案(上游冻结,pin 版自担维护)"
+            )
+            assert "gates set" in readme, (
+                f"{package}: stale 门槛 README 缺激活通道指路(gates set analysis.*)"
+            )
         else:
             pytest.fail(
                 f"{package}: gate={manifest.gate!r} 尚无 README 文案契约映射"
-                "(paid/trace/stale 官方件出现时补本测试词表)"
+                "(paid/trace 官方件出现时补本测试词表)"
             )
 
     @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)
@@ -592,6 +617,12 @@ SOURCE_TYPE_PACKAGES = {
     # 10-05-plugin-market-batch 首批:MYIA 侧适配器 + 隔离环境薄 shim 常量
     # (BSD-3-Clause 上游零 vendored,uv 临时环境经 Python API 结构化取事件)。
     "myssia-urlwatch": {"adapter.py"},
+    # 批三(D10-3):分析 lane 两 adapter 件。snownlp = MIT 上游 uv 隔离子进程
+    # 钉版(0.12.3)+ MYIA 薄 shim 常量;yake = AGPL 上游进程内惰性 import,
+    # 零 vendored(pip 运行时自装不构成分发,research 第五波裁定)。
+    # mediacrawler 刻意无 adapter(警示型文档桩,零程序面)。
+    "myssia-snownlp": {"adapter.py"},
+    "myssia-yake": {"adapter.py"},
 }
 
 

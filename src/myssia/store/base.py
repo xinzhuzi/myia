@@ -107,6 +107,27 @@ class Store(Protocol):
         """
         ...
 
+    def merge_item_metadata(self, dedup_key: str, metadata: Mapping[str, object]) -> bool:
+        """Merge keys into one item's ``raw`` JSON column(分析 lane 装饰回填).
+
+        定位语义与 :meth:`update_item_scores` 同门(dedup_key 稳定身份);
+        合并语义 = 现有 ``raw`` 键保留、同名新键覆盖(lane 装饰是 run 级重算,
+        最新一轮为准)。
+
+        Args:
+            dedup_key: the item's dedup key (stable identity from the dedup stage).
+            metadata: JSON-serializable decoration fields (e.g. ``sentiment`` /
+                ``keywords``,task 10-05-plugin-market-batch 批三).
+
+        Returns:
+            True when a row was updated, False when the key matches no item
+            (retention 已剪枝等;调用方 best-effort,debug 记录即可).
+
+        Raises:
+            ValueError: empty ``dedup_key`` or a non-mapping ``metadata``.
+        """
+        ...
+
     # ---------------------------------------------------------- dedup_registry
 
     def get_dedup_entry(self, key: str) -> DedupEntry | None:

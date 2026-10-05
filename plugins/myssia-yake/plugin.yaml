@@ -1,0 +1,30 @@
+# myssia-yake — 官方场景件:关键词装饰(封装 LIAAD/yake)。
+#
+# 上游 yake 为 AGPL-3.0 免费档 + 商业许可双轨(gh api LICENSE 原文核,
+# 2026-10-05,research.md 第五波):AGPL 纪律 = 只声明依赖零复制(pip 运行时
+# 自装不构成分发),本件不 vendor、不复制上游源码,MYIA 侧只有自写 adapter。
+# 最后推送 2026-02-11 = 活跃,stale 徽标失实(2026-10-05 gh api 复核)——
+# **不声明 gate**(许可核验已过 = D4 类型4 设置面无关;停更知情不适用)。
+# 但 lane 级纪律仍在:批三分析 lane 件一律显式开启才跑,激活开关落全局
+# gates.yaml 的 analysis.yake(缺省关闭来自 D2「永不缺省」,不依赖 manifest
+# 徽标;市场面启用徽标按 lane 成员资格派生,见 cli.py)。
+#
+# 进程内形态(credhunter 先例):adapter 惰性 import yake——未装 =
+# dependency_missing 条目级降级 warning,绝不拦核心;安装命令
+# `uv pip install yake`(进宿主环境,不进根依赖)。
+id: myssia-yake
+name: 关键词装饰(yake)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: desktop
+requires: []
+provides: [keywords]
+adapter:
+  entry: adapter.py
+  mode: in_process
+modes:
+  local:
+    # 纯本地分析件,无服务形态、无 remote endpoint;yake 为进程内惰性 import。
+    install: myssia plugin install plugins/myssia-yake
+install:
+  source: https://github.com/xinzhuzi/myia.git

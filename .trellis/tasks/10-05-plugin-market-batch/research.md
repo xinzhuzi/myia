@@ -23,7 +23,7 @@ a=核心链新档(库型且更强) · b=插件+链外引擎(本地跑,照 credhu
 |---|---|---|---|---|---|
 | yt-dlp | Unlicense(公域) ● | 195k ● | 本地 CLI ● | **b·首批** | 视频/频道情报(元数据+下载),零成本本地 subprocess,公域许可最干净 |
 | RSSHub | AGPL-3.0 ● | 46.4k ● | 自部署/公共实例 | **c·首批(桩)** | 万物转 RSS 扩资讯源;AGPL 只桩不抄;文档须标注公共实例=第三方留痕,缺省指自部署 |
-| TikTokDownloader | GPL-3.0 ● | 16.5k ● | 本地 CLI ● | 备选(不进首批) | 抖音桌面本地路径候选;但 myssia-douyin 已覆盖该场景(remote),重复收录暂缓 |
+| TikTokDownloader | GPL-3.0 ● | 16.5k ● | 本地 CLI ● | **不收(重)** | 抖音采集;**批三 gh api 依赖重量核毕(2026-10-05)**:requirements.txt 12 项直接钉版依赖,含 fastapi+uvicorn(内嵌 Web 服务)、javascript(PyMiniRacer/V8 桥)、rich(交互控制台)——应用形态非库形态,GPL-3.0 叠加 myssia-douyin(remote)已覆盖该场景,终态不收 |
 | you-get | NOASSERTION ○ | 56.9k ● | 本地 ● | **e(被覆盖)** | yt-dlp 同生态位且覆盖更窄 |
 | MediaCrawler | NOASSERTION ○ | 66.2k ● | 本地 ● | **e(许可缺失)** | 小红书/快手/B站/微博多平台;仓库无标准 license=法律风险,不立项 |
 | weibo-search | NONE ○ | 2.3k ● | 本地 ● | **e(许可缺失)** | 无 LICENSE 文件;微博品类将来需要时走自研 lane |
@@ -82,7 +82,7 @@ a=核心链新档(库型且更强) · b=插件+链外引擎(本地跑,照 credhu
 - ~~MediaCrawler/weibo-search/SpiderKeeper 许可~~ **已闭(第五波)**:非商业学习许可/无/无
 - you-get 的许可详情(NOASSERTION)——件已判「被覆盖」不收,核验随之作废
 - Amass 现行 license 条款与其被动模式能力边界(观察档,若立项再核)
-- TikTokDownloader 桌面本地形态的依赖重量(备选件,收录实施时评)
+- ~~TikTokDownloader 桌面本地形态的依赖重量~~ **已闭(批三,2026-10-05)**:重(12 项直接钉版依赖,fastapi+uvicorn/javascript-V8/rich 应用形态)→ 终态不收,见盘点表行
 
 ## 第三波:开源分析方案盘点(2026-10-05 晚,find-skills 三源法;主人令「找开源分析方案查融合」)
 

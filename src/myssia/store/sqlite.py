@@ -1109,6 +1109,43 @@ class SQLiteStore:
             logger.debug("条目评分回填 dedup_key=%s dims=%s", dedup_key, sorted(scores))
         return updated
 
+    def merge_item_metadata(self, dedup_key: str, metadata: Mapping[str, object]) -> bool:
+        """Merge keys into one item's ``raw`` JSON column(分析 lane 装饰回填).
+
+        定位语义与 :meth:`update_item_scores` 同门(dedup_key 稳定身份);读改写
+        在同一把写锁内完成,防并发 run 丢更新。合并语义 = 现有 ``raw`` 键保留、
+        同名新键覆盖(lane 装饰是 run 级重算,最新一轮为准);``raw`` 原值不是
+        对象(损坏行)时以本次合并值为准整体重建——装饰不因行坏而丢,行坏由
+        retention/doctor 面另行暴露。
+
+        Raises:
+            ValueError: empty ``dedup_key`` or a non-mapping ``metadata``.
+        """
+        if not dedup_key:
+            raise ValueError("字段校验失败: items.dedup_key 不能为空")
+        if not isinstance(metadata, Mapping):
+            raise ValueError(
+                f"字段校验失败: metadata 必须是键值映射,得到 {type(metadata).__name__}"
+            )
+        with self._lock:
+            row = self.conn.execute(
+                "SELECT raw FROM items WHERE dedup_key = ? ORDER BY id DESC LIMIT 1",
+                (dedup_key,),
+            ).fetchone()
+            if row is None:
+                return False
+            current = _json_loads(row["raw"]) if isinstance(row["raw"], str) else None
+            merged: dict[str, object] = dict(current) if isinstance(current, dict) else {}
+            merged.update(dict(metadata))
+            cursor = self.conn.execute(
+                "UPDATE items SET raw = ? WHERE dedup_key = ?",
+                (_json_dumps(merged), dedup_key),
+            )
+            self.conn.commit()
+        if cursor.rowcount:
+            logger.debug("条目装饰回填 dedup_key=%s fields=%s", dedup_key, sorted(metadata))
+        return bool(cursor.rowcount)
+
     # ---------------------------------------------------------- dedup_registry
 
     def get_dedup_entry(self, key: str) -> DedupEntry | None:

@@ -1,0 +1,30 @@
+# myssia-snownlp — 官方场景件:中文情感装饰(封装 isnowfy/snownlp)。
+#
+# 上游 snownlp 为 MIT(gh api LICENSE 原文核,2026-10-05);**最后推送
+# 2020-01-19 = 停更名副其实**,故 manifest 声明 gate: stale(D4 类型5
+# 停更知情:上游冻结,启用即接受 pin 版自担维护)。激活开关落全局
+# gates.yaml 的 analysis.snownlp(经 myssia gates set 或桌面设置「门槛件」
+# 分区),不落品类 YAML;批三分析 lane 成员(analysis_lane.py 注册表)。
+#
+# 上游以 uv 隔离子进程**钉版**调用(`uv run --no-project --with
+# snownlp==0.12.3`,pin 号 = 2026-10-05 收录时 PyPI 末版亲核):停更件钉版
+# 是纪律(上游不会再发修复版,漂移只会引入未经审视的变化);依赖只进 uv
+# 缓存的临时环境,绝不进根依赖(核心 6 依赖红线)。每轮**单次 spawn**
+# stdin JSON 批处理——snownlp import 即载训练模型,逐条 spawn 会反复载模。
+id: myssia-snownlp
+name: 中文情感装饰(snownlp)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: desktop
+gate: stale
+requires: []
+provides: [sentiment]
+adapter:
+  entry: adapter.py
+  mode: subprocess
+modes:
+  local:
+    # 纯本地分析件,无服务形态、无 remote endpoint;uv 临时环境注入上游依赖。
+    install: myssia plugin install plugins/myssia-snownlp
+install:
+  source: https://github.com/xinzhuzi/myia.git

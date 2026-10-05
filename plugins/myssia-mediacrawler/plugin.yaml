@@ -1,0 +1,24 @@
+# myssia-mediacrawler — 官方场景件:多平台内容采集(**警示型文档桩,非程序面**).
+#
+# 上游 MediaCrawler(NanmiCoder/MediaCrawler,小红书/快手/B站/微博/贴吧
+# 采集)为 **NON-COMMERCIAL LEARNING LICENSE 1.1**(自定义非商业学习许可,
+# gh api LICENSE 原文核 2026-10-05,research.md 第五波):非 OSI 开源、
+# **禁止商业使用**——法律门槛 = D4 类型4(README 级警示,设置面无关)。
+#
+# 最薄形态(D10-3):**零 adapter/零 compose/零 CLI/零 lane 接线**——本件
+# 是市场知识面(收录=知道它存在+知道边界),MYIA 不调用、不集成、不捆绑;
+# 用户自行 clone 上游、自担许可边界。不声明 gate:无程序面即无开关可执法
+# (gate 词表是激活策略,不是许可声明)。
+id: myssia-mediacrawler
+name: 多平台内容采集(MediaCrawler·警示桩)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: desktop
+requires: []
+provides: [mediacrawler]
+modes:
+  local:
+    # 无程序面(零 adapter):安装 = 用户自行 clone 上游,MYIA 不参与不校验。
+    install: git clone https://github.com/NanmiCoder/MediaCrawler(用户自行部署,自担许可边界)
+install:
+  source: https://github.com/xinzhuzi/myia.git
