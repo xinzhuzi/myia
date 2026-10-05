@@ -3,7 +3,7 @@
   "name": "10-05-cron-heartbeat",
   "title": "cron 心跳告警(品类久未成功触发)",
   "description": "告警规则族新增 cron_stale 类型:executions 账本只读评估距上次成功触发超阈值即告警(healthchecks 式 dead-man switch 原生版);auto 阈值=2×期望间隔 fail-fast;冷静期/冷却沿 engine 既有;协议加法可选字段零版本 bump;消息屏告警面板表单+fired 卡。",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
