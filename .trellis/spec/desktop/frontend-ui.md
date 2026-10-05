@@ -11,6 +11,7 @@
 4. **出处注释**:对标 Linear/Vercel 的模仿点须带 teardown 出处注释(例:`feed-screen.tsx` 三级密度卡注 `teardown-linear-activity #5`;`dashboard-screen.tsx:385` 概览条注 `teardown #2`)。无出处的新样式默认是 AI 默认态,review 会打回。
 5. **测试同步**:屏结构变化牵动 `*.test.tsx` 断言,同笔更新;scoped vitest 自跑(`npx vitest run <files>`)、`npx tsc --noEmit -p tsconfig.app.json` 过;vite build 归统一门禁,不在任务内跑。
 6. **协议红线**:UI 层不得触发 sidecar 协议变更(见 [sidecar-protocol.md](./sidecar-protocol.md));要新方法 = 停止回 PRD 重新裁定。
+7. **label 内禁嵌 labelable element**(10-05-ui-chore-batch 实测坑):`<button>` 等表单族元素嵌进 `<label>` 会让同一 label 同时标注输入框和按钮(`getByLabelText` 双匹配、点 label 焦点行为含糊)——label 旁挂问号提示/图标钮一律走兄弟位(`settings/label-hint.tsx` 的 HintButton 头注同款纪律)。
 
 ## Token 体系(index.css `:root`,经 `@theme inline` 暴露为工具类)
 
