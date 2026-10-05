@@ -1,0 +1,80 @@
+== amazon-home: https://www.amazon.com/  (TLS 指纹墙经典例(python TLS 常 503 captcha;robots * 放行首页)) ==
+  A(httpx+MYIA UA): {'status': 200, 'http_version': 'HTTP/1.1', 'bytes': 767407, 'server': 'Server', 'cf_mitigated': '', 'title': 'Amazon.com. Spend less. Smile more.', 'verdict': 'ok', 'elapsed_s': 1.87}
+  B(httpx+Chrome UA): {'status': 202, 'http_version': 'HTTP/1.1', 'bytes': 2007, 'server': 'CloudFront', 'cf_mitigated': '', 'title': '', 'verdict': 'ok', 'elapsed_s': 1.09}
+  C(curl_cffi chrome): {'status': 202, 'http_version': 3, 'bytes': 2007, 'server': 'CloudFront', 'cf_mitigated': '', 'title': '', 'verdict': 'ok', 'elapsed_s': 0.97}
+== zillow-homes: https://www.zillow.com/homes/for_sale/  (Cloudflare 硬墙站(robots * 明文 Allow 该路径)) ==
+  A(httpx+MYIA UA): {'status': 200, 'http_version': 'HTTP/1.1', 'bytes': 672916, 'server': 'CloudFront', 'cf_mitigated': '', 'title': 'San Jose CA Real Estate - San Jose CA Homes For Sale | Zillow', 'verdict': 'ok', 'elapsed_s': 2.26}
+  B(httpx+Chrome UA): {'status': 200, 'http_version': 'HTTP/1.1', 'bytes': 672908, 'server': 'CloudFront', 'cf_mitigated': '', 'title': 'San Jose CA Real Estate - San Jose CA Homes For Sale | Zillow', 'verdict': 'ok', 'elapsed_s': 2.06}
+  C(curl_cffi chrome): {'status': 200, 'http_version': 3, 'bytes': 672902, 'server': 'CloudFront', 'cf_mitigated': '', 'title': 'San Jose CA Real Estate - San Jose CA Homes For Sale | Zillow', 'verdict': 'ok', 'elapsed_s': 1.99}
+
+== JSON ==
+{
+ "amazon-home": {
+  "url": "https://www.amazon.com/",
+  "note": "TLS 指纹墙经典例(python TLS 常 503 captcha;robots * 放行首页)",
+  "A": {
+   "status": 200,
+   "http_version": "HTTP/1.1",
+   "bytes": 767407,
+   "server": "Server",
+   "cf_mitigated": "",
+   "title": "Amazon.com. Spend less. Smile more.",
+   "verdict": "ok",
+   "elapsed_s": 1.87
+  },
+  "B": {
+   "status": 202,
+   "http_version": "HTTP/1.1",
+   "bytes": 2007,
+   "server": "CloudFront",
+   "cf_mitigated": "",
+   "title": "",
+   "verdict": "ok",
+   "elapsed_s": 1.09
+  },
+  "C": {
+   "status": 202,
+   "http_version": 3,
+   "bytes": 2007,
+   "server": "CloudFront",
+   "cf_mitigated": "",
+   "title": "",
+   "verdict": "ok",
+   "elapsed_s": 0.97
+  }
+ },
+ "zillow-homes": {
+  "url": "https://www.zillow.com/homes/for_sale/",
+  "note": "Cloudflare 硬墙站(robots * 明文 Allow 该路径)",
+  "A": {
+   "status": 200,
+   "http_version": "HTTP/1.1",
+   "bytes": 672916,
+   "server": "CloudFront",
+   "cf_mitigated": "",
+   "title": "San Jose CA Real Estate - San Jose CA Homes For Sale | Zillow",
+   "verdict": "ok",
+   "elapsed_s": 2.26
+  },
+  "B": {
+   "status": 200,
+   "http_version": "HTTP/1.1",
+   "bytes": 672908,
+   "server": "CloudFront",
+   "cf_mitigated": "",
+   "title": "San Jose CA Real Estate - San Jose CA Homes For Sale | Zillow",
+   "verdict": "ok",
+   "elapsed_s": 2.06
+  },
+  "C": {
+   "status": 200,
+   "http_version": 3,
+   "bytes": 672902,
+   "server": "CloudFront",
+   "cf_mitigated": "",
+   "title": "San Jose CA Real Estate - San Jose CA Homes For Sale | Zillow",
+   "verdict": "ok",
+   "elapsed_s": 1.99
+  }
+ }
+}

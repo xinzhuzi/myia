@@ -24,9 +24,16 @@
 
 ## Acceptance Criteria(骨架)
 
-- [ ] AC1:两问各有实证答案(非推断),材料在档可复核。
-- [ ] AC2:进链/不进链定案记档;进链则降级序定案+核心链改动清单;不进链则母任务 research 表回写终态。
+- [x] AC1:两问各有实证答案(非推断),材料在档可复核。(research.md §1-§4;evidence/01-05 原始输出:七站三路矩阵+echo 指纹自证+robots 记档+PyPI 轮子清单)
+- [x] AC2:进链/不进链定案记档;进链则降级序定案+核心链改动清单;不进链则母任务 research 表回写终态。(定案=不进链、不做链外注册、记档收束,见下方定案段;母任务 `.trellis/tasks/10-05-plugin-market-batch/research.md` 第二波表 curl_cffi 行已回写终态——时点在归档前,满足 R3 时序)
 - [ ] AC3:本任务止于评估定案——planning 期零核心文件改动;实现另立阶段(本档转实现前须先补 design/implement)。
+  - 自查声明(2026-10-05 收束时):全程 `git status --porcelain` 核对,本任务仅写 `.trellis/tasks/10-05-engine-curl-cffi/` 内文件(research/prd/task.json/evidence)+ prd R3 明文要求的母任务 research 表终态回写一行;零核心文件改动(无 src/、tests/、desktop/、docs/、pyproject 触碰);实验全部在 /tmp/curl-eval 独立 venv,探针脚本零 myssia import。红线零违反,勾选留收口复核。
+
+## 定案(2026-10-05 评估收束:不进链,记档收束)
+
+- **Q1(比现有档强在哪)**:七站三路矩阵(A=httpx+MYIA 缺省 UA / B=httpx+Chrome UA 控制组 / C=curl_cffi chrome150,B/C 的 UA 逐字节同)实证:「A 拒+B 拒+C 过」的 TLS 指纹归因形态**零例**;唯一硬墙(scrapingcourse CF managed challenge)三路全拒——curl_cffi 不执行 JS,该盲区与 static_html 同;amazon 呈反增量(未知 UA 拿全页、浏览器 UA 两路同收 202 拦截页);aihot 墙=nginx 已知爬虫 UA 黑名单(与归档 10-04-crawl4ai-l3 manifest 互证),现行 `source.headers` 配置可解。**本批规模下 TLS 指纹增量不可测/不成立**(计划指令诚实边界条款,严禁凑数)。
+- **Q2(降级序插哪)**:**不进 AUTO_CHAIN、亦不做链外注册**。进链三重否决:①零实证增量(Goal 明文「答不出即不入链、记档收束」);②`registry.py:261/279/307/316-320` 的 L3 零结果探测对「下一档=crawl4ai」硬编码,插档会静默改道 10-04-crawl4ai-l3 语义(隐藏爆炸半径);③被墙源每 run 多烧一次全量 HTTP+失败噪音。再触发条件与若将来实装的链外注册形态备忘见 research.md §4.3/§4.4。
+- **回写**:母任务 research 第二波表 curl_cffi 行终态已回写(活档未归档,时序合规);本档转 review。
 
 ## Constraints
 

@@ -63,7 +63,7 @@ a=核心链新档(库型且更强) · b=插件+链外引擎(本地跑,照 credhu
 | 工具 | license | 星数 | 零成本/本地 | 判定 | 一句话理由 |
 |---|---|---|---|---|---|
 | maigret | MIT ● | 38.3k ● | 本地 ● | **b·首批(升格)** | 用户名跨 3000+ 站侦察;MIT 极干净、极活跃(10-04 仍在推);OSINT 件里许可与活跃度双最优 |
-| curl_cffi | MIT ●(repo 已迁 lexiforest) | 6.7k ● | 本地 ● | **a 候选(另立引擎任务,不入插件批)** | 浏览器 TLS 指纹模拟无浏览器;潜在「L2.5」档(比 static_html 强、比 crawl4ai 便宜);属核心链改动,须单独答「降级序插哪」 |
+| curl_cffi | MIT ●(repo 已迁 lexiforest) | 6.7k ● | 本地 ● | **a 候选(另立引擎任务,不入插件批)→ 终态:不进链、不做链外注册,记档收束**(2026-10-05 `.trellis/tasks/10-05-engine-curl-cffi/` 评估定案,回写时母任务未归档) | 浏览器 TLS 指纹模拟无浏览器;潜在「L2.5」档(比 static_html 强、比 crawl4ai 便宜);属核心链改动,须单独答「降级序插哪」。**终态依据**:七站三路矩阵零「仅 curl_cffi 过」例(B 路 UA 控制组在列),唯一硬墙(CF managed challenge)三路全拒(curl_cffi 不执行 JS),aihot 类墙=UA 黑名单 headers 可解;进链另有 L3 探测键控改写爆炸半径(registry.py:261/279/307)。再触发条件见该档 research.md §4.3 |
 | trafilatura | Apache-2.0 ● | 6.9k ● | 本地 ● | **观察(核心 extract 能力增强候选)** | 自动正文抽取,语义属「URL→结构化内容」核心侧而非插件;与 L2 手写 extract 规则互补,另立评估 |
 | undetected-chromedriver | GPL-3.0 ● | 12.9k ● | 本地 ● | **e(被 L5 覆盖+趋缓)** | 2025-07 后慢维护;playwright 隐身已占 L5 |
 | urlwatch | NOASSERTION ○ | 3.1k ● | 本地 ● | **e(被覆盖)** | changedetection.io 已收同场景 |
