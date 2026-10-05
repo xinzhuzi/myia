@@ -54,11 +54,33 @@
 ## Acceptance Criteria
 
 - [ ] AC1 自托管实例真跑通:3-5 站 scrape 应答样本在档(含 JS 重站)。
+      —— blocked:本机 docker 前置不满足(Docker Desktop 已卸尽,坏符号
+      链接+无 colima/podman/lima/orbstack+无 socket,探针全录
+      evidence/docker-unavailable-probe.txt)。真跑与应答样本留主人服务器
+      (AC manual;复验法=zero-cost §4 末注记:`myssia test <品类>.yaml
+      --json` 挑 JS 重站跑一遍)。
 - [ ] AC2 质量对照表:vs Zenrows 基线,差异与 cloud-only 缺口如实。
-- [ ] AC3 指引:文档节+compose 模板+AGPL 边界句;零代码或最小适配另立
+      —— blocked 同 AC1(无实例即无对照数据);cloud-only 缺口面已按官方
+      四来源如实落 evidence/official-selfhost-sources.md 并入文档节
+      (Fire-engine 全家/LLM 抽取自带端点/agent-browser-interact 云端/
+      默认栈无鉴权无 TLS),vs Zenrows 的正文完整度对照缺真跑,不虚构。
+- [x] AC3 指引:文档节+compose 模板+AGPL 边界句;零代码或最小适配另立
       (若适配,本档注记并指新档)。
+      —— 2026-10-05 交付:README 双语「自托管 Firecrawl 兜底」节 +
+      docs/{zh,en}/zero-cost.md §4 双语镜像(compose 起法+.env 三行模板+
+      就绪探针+MYIA_FIRECRAWL_URL 指法+按源 env: 引用示例+AGPL 服务消费
+      边界句同 RSSHub 先例+cloud-only 缺口清单),均标注「本机未实测」。
+      模板逐句来自官方 self-host 文档(来源四件见 evidence)。零代码达成
+      ——未暴露需适配的 API 缺口:引擎打 `POST /v1/scrape`,现行上游
+      `apps/api/src/index.ts` 明挂 v1 路由(源码级佐证,非真跑,真跑归
+      AC1 复验),故无需另立适配档。
 - [ ] AC4 门禁:全量 pytest/vitest 零回归(纯文档+evidence 则豁免代码门禁,
       记档声明)。
+      —— 豁免声明:本批零代码(仅 README/docs 双语 md+evidence+本档),
+      按档内条款豁免全量代码门禁;定向门禁亲跑
+      `uv run pytest tests/test_docs.py tests/engines/test_firecrawl.py -q`
+      = 127 passed, 1 skipped(文档反漂移全套+firecrawl 引擎 18 用例零
+      回归)。全量 pytest/vitest 由脚本统一跑。
 
 ## 边界与红线
 
@@ -70,3 +92,34 @@
 
 - 问题:自托管 docker 前提。做法:主人整体放行,排队第 5(验证型零代码预期);本机 compose 真跑先行,主人服务器复验 AC manual。
 - 执行顺序(全五档):cron-heartbeat(先做,零前置)→ push-bark → push-apprise(点名即启)→ source-searxng → firecrawl-selfhost-verify。
+
+## 实施注记(2026-10-05,blocked 分支如实记)
+
+- **docker 前置不满足 → 走档内替代分支**(docs 节照写+标注本机未实测):
+  本机 Docker Desktop 已卸载——`/usr/local/bin/docker` 为指向不存在的
+  `/Applications/Docker.app` 的坏符号链接;无 daemon socket、无 DOCKER_HOST、
+  无 colima/podman/lima/orbstack 任何替代运行时,仅剩 vmnetd 残留进程。
+  五步探针全录 `evidence/docker-unavailable-probe.txt`。不擅自装容器运行时
+  (主人已卸载即意图明示;档内前置=「主人机器可跑 docker」是前提不是待办)。
+- **交付面(零代码)**:README 双语「自托管 Firecrawl 兜底」节 +
+  `docs/{zh,en}/zero-cost.md` §4 双语镜像。compose 起法与 .env 模板逐句
+  取自官方 SELF_HOST.md;就绪探针 `/v0/health/readiness` 取自官方文档站
+  (钉 v2.11.162);资源上限(api 4C/8G)取自官方 docker-compose.yaml。
+  AGPL 服务消费边界句同 RSSHub 先例(plugins/myssia-rsshub/README.md:5-6
+  句式);cloud-only 缺口清单不美化(Fire-engine/截图/页面操作、LLM 抽取
+  自带端点、agent-browser-interact、默认栈无鉴权无 TLS)。
+- **API 兼容缺口核查(源码级,未真跑)**:引擎打 `POST {endpoint}/v1/scrape`
+  (src/myssia/engines/firecrawl.py:181),现行上游 apps/api/src/index.ts
+  `app.use("/v1", v1Router)` 明挂 v1 面;自托管 API key 可选(官方
+  Troubleshooting 原句)与引擎「未配置 key 不发 Authorization 头」行为吻合
+  (firecrawl.py:183-184)。**结论:暂无适配需求,不另立档**;若主人服务器
+  复验暴露 v1 面行为差(如格式字段拒收),再立最小适配档。
+- **doctor 端点连通项(Requirement 3)**:真跑未发生→「实例挂了降级链静默
+  劣化」无实证,按档内「否则零面」不做。
+- **门禁**:定向 `uv run pytest tests/test_docs.py tests/engines/test_firecrawl.py
+  -q` = 127 passed, 1 skipped(2026-10-05 亲跑);全量归脚本。AC4 豁免
+  条款已声明(纯文档+evidence 零代码)。
+- **复验口径(AC manual,留主人)**:可跑 docker 的机器按 zero-cost §4 起
+  栈 → `MYIA_FIRECRAWL_URL` 指实例(标准口可免)→ `uv run myssia test
+  <品类>.yaml --json` 挑 1 个 JS 重站 + 1 个静态站 → 应答样本与 Zenrows
+  对照落本档 evidence/,AC1/AC2 即闭。

@@ -3,7 +3,7 @@
   "name": "10-05-firecrawl-selfhost-verify",
   "title": "Firecrawl 自托管真跑验证与部署指引(验证型档)",
   "description": "grill 核查发现 engines/firecrawl.py 已默认自托管端点(127.0.0.1:3002)且在降级链——真实缺口=从未对真自托管实例跑通+无指引。本档=docker compose 真跑 3-5 站 vs Zenrows 基线+部署文档;预期零代码,缺口才另立适配档。AGPL 服务消费边界。",
-  "status": "planning",
+  "status": "blocked",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -15,7 +15,7 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "8b40ac1",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -24,6 +24,6 @@
     "src/myssia/engines/firecrawl.py",
     "src/myssia/engines/registry.py"
   ],
-  "notes": "由 v12-backlog 池第 10 项缩水而来(池原口径『自托管面未探』半数已不成立);前置=可跑 docker | 放行回执:问题:自托管 docker 前提。做法:主人整体放行,排队第 5(验证型零代码预期);本机 compose 真跑先行,主人服务器复验 AC manual。",
+  "notes": "由 v12-backlog 池第 10 项缩水而来(池原口径『自托管面未探』半数已不成立);前置=可跑 docker | 放行回执:问题:自托管 docker 前提。做法:主人整体放行,排队第 5(验证型零代码预期);本机 compose 真跑先行,主人服务器复验 AC manual。 | 2026-10-05 实施回执:本机 docker 前置不满足(Docker Desktop 已卸尽=坏符号链接+无 socket+无替代运行时,五步探针录 evidence/docker-unavailable-probe.txt)→ 按档走 blocked 分支:AC3 指引面照写交付(README 双语节+zero-cost §4 双语镜像,官方 SELF_HOST.md 逐句模板+AGPL 边界句同 RSSHub 先例+cloud-only 缺口不美化,均标『本机未实测』,提交 8b40ac1);AC1/AC2 真跑与 vs Zenrows 对照留主人服务器(复验法=zero-cost §4 末注记);零代码零适配需求(引擎 /v1/scrape 与上游 index.ts app.use v1 源码级同构,佐证在档非真跑);AC4 按档内条款豁免全量代码门禁(纯文档+evidence),定向门禁亲跑 pytest test_docs+test_firecrawl 127 passed 1 skipped;doctor 连通项按『真跑证明有价值才加』未做。",
   "meta": {}
 }
