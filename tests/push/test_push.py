@@ -695,6 +695,9 @@ def test_feishu_and_stdout_channels_conform_to_channel_protocol(monkeypatch):
         "dingtalk",
         "wecom",
         "weixin",
+        # bark(10-05-push-bark):iOS 即时推送零依赖小件(专测
+        # tests/push/test_bark.py)。
+        "bark",
         # ---- W3 长尾(10-03-messaging-w3-longtail)----
         "slack",
         "discord",

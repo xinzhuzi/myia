@@ -205,6 +205,9 @@ PUSH_CHANNELS = (
     "weixin",
     "webhook",
     "stdout",
+    # bark 随 10-05-push-bark 增(iOS 即时推送,零依赖小件;不进
+    # CHANNEL_PLATFORMS——Bark 无目录语义,配 targets 即拒,同 webhook)。
+    "bark",
     *_W3_LONGTAIL,
 )
 ROUTE_MODES = ("immediate", "digest", "archive")
@@ -228,6 +231,7 @@ ExtractType = Literal["list", "item", "json_path", "rss"]
 BackoffPolicy = Literal["exponential", "linear", "none"]
 PushChannel = Literal[
     "feishu_card", "telegram", "ntfy", "dingtalk", "wecom", "weixin", "webhook", "stdout",
+    "bark",
     "slack", "discord", "whatsapp_cloud", "line", "qqbot", "google_chat", "teams",
     "msgraph_webhook", "matrix", "mattermost", "irc", "simplex", "signal",
     "bluebubbles", "email", "sms", "homeassistant", "a2a", "yuanbao", "buzz",
@@ -1065,6 +1069,11 @@ class PushConfig(_StrictModel):
     #: hermes``)。**本地路径,非凭据**——不走 env:/keychain: 引用体系,
     #: 也不含任何秘密;MYIA 对微信零凭据(登录态只存在 Hermes 侧)。
     weixin_hermes_bin: str | None = None
+    # ---- Bark(iOS 推送)可选字段(10-05-push-bark)----
+    #: Bark 服务端端点(**非凭据**:官方公共服务或自建主机地址,可落 YAML)。
+    #: 缺省 = 官方端点 ``https://api.day.app``(常量定值在 myssia.push.bark,
+    #: schema 不反依赖 push 层);自建同构服务填 ``http://<host>:8080``。
+    bark_endpoint: str | None = None
 
     #: 各通道专属可选凭据字段的合法宿主(仅本通道可配;与 timeout/retries
     #: 仅 webhook 同一 fail-fast 哲学,不留静默忽略)。
@@ -1073,6 +1082,7 @@ class PushConfig(_StrictModel):
         "dingtalk": ("dingtalk_secret",),
         "wecom": ("wecom_corpid", "wecom_corpsecret", "wecom_agentid"),
         "weixin": ("weixin_hermes_bin",),
+        "bark": ("bark_endpoint",),
     }
 
     @model_validator(mode="before")
@@ -1134,6 +1144,26 @@ class PushConfig(_StrictModel):
     @classmethod
     def _check_targets(cls, value: list[str]) -> list[str]:
         return _validate_target_specs(value, "push[].targets")
+
+    @field_validator("bark_endpoint")
+    @classmethod
+    def _check_bark_endpoint_url(cls, value: str | None) -> str | None:
+        """bark 端点 http(s) 门(source url 先例;防花样新 scheme 的 SSRF 面)。
+
+        端点非凭据(官方公共服务/自建主机地址),不走引用体系;但 scheme 门
+        同既有 URL 字段纪律:``file://``/``gopher://`` 等花样新 scheme 在
+        加载期即拒,不拖到发送期。
+        """
+        if value is None:
+            return value
+        parsed = urlparse(value)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise SchemaValueError(
+                "invalid_url",
+                f"push[].bark_endpoint 必须是 http(s) 地址(官方留空即可,自建如 http://<host>:8080),当前为 {value!r}",
+                path_suffix="bark_endpoint",
+            )
+        return value
 
     @field_validator("template")
     @classmethod

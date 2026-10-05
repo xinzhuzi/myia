@@ -5,7 +5,7 @@
 // env: 引用不经界面写 / 表单校验 / secret.set 失败结构化错误 /
 // doctor 回显(凭据存在性 + enrich 现值 + findings)/ 推送凭据保存 / 代理池探测。
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
@@ -237,6 +237,18 @@ async function openSection(sectionId: string): Promise<void> {
 beforeEach(() => {
   mocks.invoke.mockReset();
 });
+// Radix Select 在 jsdom 打开下拉需指针捕获 + 选中项滚入桩(dashboard/logs 屏
+// 同款;退出还原防外溢到同 worker 其他测试文件)
+beforeAll(() => {
+  window.HTMLElement.prototype.hasPointerCapture = () => false;
+  window.HTMLElement.prototype.releasePointerCapture = () => {};
+  Element.prototype.scrollIntoView = () => {};
+});
+afterAll(() => {
+  delete (window.HTMLElement.prototype as Partial<HTMLElement>).hasPointerCapture;
+  delete (window.HTMLElement.prototype as Partial<HTMLElement>).releasePointerCapture;
+  delete (Element.prototype as Partial<Element>).scrollIntoView;
+});
 afterEach(() => {
   cleanup(); // vitest 非 globals 模式下 RTL 不自动清理,防 DOM 跨测试污染
   vi.clearAllMocks();
@@ -458,6 +470,31 @@ describe("设置:推送通道凭据", () => {
 
     expect(await screen.findByText(/scope 须为品类 id 规则/)).toBeTruthy();
     expect(callsOf("secret.set")).toEqual([]);
+  });
+
+  // bark(10-05-push-bark):iOS 即时推送通道接入设置→推送表单
+  it("bark(iOS 推送):下拉可选;device key 入钥匙链 + 两处提示文案在位", async () => {
+    const state = installSidecar();
+    renderScreen();
+    await openSection("push");
+
+    // Radix Select(mouse 型 pointerDown 才开下拉,惯例同 feed 屏)
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "推送通道" }), { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("option", { name: "Bark(iOS 推送)" }));
+
+    // 提示一:device key 走 env:/keychain: 引用(在 Bark App 里复制)
+    expect(screen.getByText(/在 iPhone 的 Bark App 里复制/)).toBeTruthy();
+
+    await typeByLabel("bark Device Key", "devkey_from_app");
+    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
+    await screen.findByTestId("save-status");
+    expect(callsOf("secret.set")).toContainEqual({ name: "myia/push/BARK_DEVICE_KEY", value: "devkey_from_app" });
+    expect(state.secrets.get("myia/push/BARK_DEVICE_KEY")).toBe("devkey_from_app");
+
+    // 提示二:bark_endpoint 留空=官方服务;自建填主机地址(YAML 字段,非凭据)
+    const endpointHint = screen.getByTestId("bark-endpoint-hint").textContent ?? "";
+    expect(endpointHint).toContain("留空 = 官方服务");
+    expect(endpointHint).toContain("自建");
   });
 });
 

@@ -34,7 +34,7 @@
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
-| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
+| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `bark` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
 | `ROUTE_MODES` | `immediate` `digest` `archive` |
 | `ENRICH_SCORES` | `value` `relevance` `credibility` |
 | `VACUUM_CADENCES` | `daily` `weekly` `monthly` `never` |
@@ -229,7 +229,7 @@ rate_limit:
 
 | 字段 | 缺省 | 语义 |
 |---|---|---|
-| `channel` | `必填` | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `webhook` / `stdout` |
+| `channel` | `必填` | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `webhook` / `stdout` / `bark`(iOS 即时推送) |
 | `target` | `null` | 推送目标,只能是**纯** `env:`/`keychain:` 引用;`stdout` 禁止配置,其余通道必填 |
 | `route` | `[]` | 阈值路由(见下表);留空 = 七大类缺省映射(羊毛/节点/代买 → immediate,其余 → digest) |
 | `template` | `null` | Jinja2 卡片模板(沙箱渲染,语法错误加载期拒);省略用通道内置版式 |
@@ -239,6 +239,7 @@ rate_limit:
 | `ntfy_token` | `null` | ntfy 可选鉴权 token 引用(值 = Bearer 或 `user:pass` → Basic);省略且 `env:NTFY_TOKEN` 未设 = 无鉴权(仅 `ntfy` 可配) |
 | `dingtalk_secret` | `null` | 钉钉可选加签密钥引用(配即 HMAC-SHA256 加签;省略 = 裸 webhook)(仅 `dingtalk` 可配) |
 | `wecom_corpid` / `wecom_corpsecret` / `wecom_agentid` | `null` | 企微自建应用三凭据引用;省略走缺省 env `WECOM_CORPID`/`WECOM_CORPSECRET`/`WECOM_AGENTID`(仅 `wecom` 可配) |
+| `bark_endpoint` | `null` | Bark(iOS 推送)服务端端点;**非凭据**可落 YAML:留空 = 官方服务 `https://api.day.app`,自建填主机地址(如 `http://<host>:8080`);须 http(s) 形态(仅 `bark` 可配) |
 
 route 规则:
 

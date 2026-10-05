@@ -66,6 +66,9 @@ from myssia.push.directory import (
 )
 from myssia.push.dingtalk import DingTalkChannel
 from myssia.push.ntfy import NtfyChannel
+# bark(iOS 即时推送,10-05-push-bark):零依赖 one-shot POST 小件;
+# 无目录寻址(不进 PLATFORMS,同 webhook)。
+from myssia.push.bark import BarkChannel
 from myssia.push.feishu_card import (
     API_URL,
     DEFAULT_TOKEN_ENV_REF,
@@ -191,6 +194,9 @@ CHANNELS: dict[str, type] = {
     "weixin": WeixinChannel,
     "webhook": WebhookChannel,
     "stdout": StdoutChannel,
+    # bark(10-05-push-bark):iOS 即时推送 one-shot POST;不进 PLATFORMS
+    #(Bark 无目录语义,config targets 即拒,同 webhook)。
+    "bark": BarkChannel,
     **_W3_LONGTAIL_CHANNELS,
 }
 
@@ -263,6 +269,7 @@ __all__ = [
     "PollResult",
     "STOCKS_EXAMPLE_TEMPLATE",
     "Channel",
+    "BarkChannel",
     "DigestAggregator",
     "DingTalkChannel",
     "FeishuCardChannel",

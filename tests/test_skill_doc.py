@@ -119,6 +119,8 @@ _CHANNEL_CREDENTIAL_ENV_REFS = (
     "env:WECOM_CORPSECRET",
     "env:WECOM_AGENTID",
     "env:MYIA_WEBHOOK_URL",
+    # bark(10-05-push-bark):device key 引用(端点非凭据,不入本表)。
+    "env:BARK_DEVICE_KEY",
 )
 
 

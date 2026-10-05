@@ -193,6 +193,7 @@ push:
 - `wecom`:`target` = touser userid(`env:WECOM_TUSER`),自建应用三凭据从`env:WECOM_CORPID` / `env:WECOM_CORPSECRET` / `env:WECOM_AGENTID` 读。
 - `weixin`:可选桥接通道——出站经本机 Hermes-Agent CLI(路径可用 `weixin_hermes_bin` 覆写),登录态只存 Hermes 侧、myssia 零凭据;`target` = 会话 peer id(`env:WEIXIN_PEER_ID`,定向写 `weixin:<peer id>`),无 Hermes 环境时发送返回 `bridge_unavailable` 结构化错误(配置照常加载)。
 - `webhook`:`target` = 端点 URL 引用(如 `env:MYIA_WEBHOOK_URL`)。
+- `bark`(iOS 即时推送):`target` = device key 引用(`env:BARK_DEVICE_KEY`,在 iPhone Bark App 里复制);端点**非凭据**——`bark_endpoint` 留空 = 官方服务 `https://api.day.app`,自建填主机地址(如 `http://<host>:8080`,docker `finb/bark-server`);通知固定按 `MYIA` 分组;无目录语义,不能配 `targets`。
 - `stdout`:零凭据,本地验证首选。
 
 ## 验证与运行

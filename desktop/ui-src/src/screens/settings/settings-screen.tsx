@@ -86,11 +86,13 @@ import { VisionForm } from "./vision-form";
 // 承接无头化后 PageHeader 渲染 null 而丢失的「重新验证」入口。
 // ---------------------------------------------------------------------------
 
-/** 通道 → 规范凭据名缺省(target 语义:feishu 卡的 chat_id / tg 的 bot token / webhook 地址) */
+/** 通道 → 规范凭据名缺省(target 语义:feishu 卡的 chat_id / tg 的 bot token / webhook 地址 / bark 的 device key) */
 const PUSH_SECRET_NAME_BY_CHANNEL: Record<string, string> = {
   feishu_card: "chat_id",
   telegram: "token",
   webhook: "url",
+  // bark(10-05-push-bark):target = device key(在 iPhone Bark App 里复制)
+  bark: "device_key",
 };
 type PushChannel = keyof typeof PUSH_SECRET_NAME_BY_CHANNEL;
 
@@ -113,6 +115,10 @@ const PUSH_FIELDS_BY_CHANNEL: Record<
     { key: "TELEGRAM_CHAT_ID", label: "chat_id", optional: true, hint: "可选;给 bot 发条消息后消息屏目录自动记下会话" },
   ],
   webhook: [{ key: "MYIA_WEBHOOK_URL", label: "接收端点 URL", hint: "POST JSON 的接收端(自建服务 / n8n 等)" }],
+  // bark(10-05-push-bark):iOS 即时推送;唯一凭据位 = device key
+  bark: [
+    { key: "BARK_DEVICE_KEY", label: "Device Key", password: true, hint: "在 iPhone 的 Bark App 里复制;凭据走 env:/keychain: 引用(保存即入钥匙链)" },
+  ],
 };
 
 /** 通道 → 「发送测试」的目标凭据键(push.test target = keychain:myia/push/<键>) */
@@ -120,6 +126,14 @@ const PUSH_TEST_TARGET_KEY: Record<PushChannel, string> = {
   feishu_card: "FEISHU_CHAT_ID",
   telegram: "TELEGRAM_CHAT_ID",
   webhook: "MYIA_WEBHOOK_URL",
+  bark: "BARK_DEVICE_KEY",
+};
+/** 通道 → 下拉显示名(既有通道 = 原名零漂移;bark 带人话标注,10-05-push-bark) */
+const PUSH_CHANNEL_LABELS: Record<PushChannel, string> = {
+  feishu_card: "feishu_card",
+  telegram: "telegram",
+  webhook: "webhook",
+  bark: "Bark(iOS 推送)",
 };
 const PUSH_CHANNELS = Object.keys(PUSH_SECRET_NAME_BY_CHANNEL) as PushChannel[];
 
@@ -1452,7 +1466,7 @@ export function SettingsScreen() {
               </CardHeader>
                 <CardContent className="flex flex-col gap-1">
                   <div className="divide-y divide-border/60">
-                    <SettingRow label="通道" description="feishu_card / telegram / webhook;通道启停与阈值路由在品类 YAML push: 节">
+                    <SettingRow label="通道" description="feishu_card / telegram / webhook / bark;通道启停与阈值路由在品类 YAML push: 节">
                       <Select
                         value={push.channel}
                         onValueChange={(channel) =>
@@ -1469,7 +1483,7 @@ export function SettingsScreen() {
                         <SelectContent>
                           {PUSH_CHANNELS.map((channel) => (
                             <SelectItem key={channel} value={channel}>
-                              {channel}
+                              {PUSH_CHANNEL_LABELS[channel]}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1490,6 +1504,13 @@ export function SettingsScreen() {
                         hint={field.hint}
                       />
                     ))}
+                    {push.channel === "bark" ? (
+                      // bark 端点非凭据(不进钥匙链),引导写在品类 YAML;10-05-push-bark
+                      <p data-testid="bark-endpoint-hint" className="px-1 pb-1 text-2xs text-muted-foreground">
+                        推送端点 bark_endpoint:留空 = 官方服务(api.day.app);自建 bark-server
+                        填主机地址(如 http://192.168.1.10:8080)——写在品类 YAML push: 节
+                      </p>
+                    ) : null}
                   </div>
                 <CardSaveBar
                   state={pushSave}
@@ -1551,7 +1572,7 @@ export function SettingsScreen() {
                       value={push.secretName}
                       onChange={(event) => setPush((prev) => ({ ...prev, secretName: event.target.value }))}
                       error={pushErrors.secretName}
-                      hint="通道目标凭据名(feishu 卡 chat_id / tg token / webhook url)"
+                      hint="通道目标凭据名(feishu 卡 chat_id / tg token / webhook url / bark device_key)"
                     />
                     <FieldInput
                       label="凭据值"

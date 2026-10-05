@@ -38,7 +38,7 @@ entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
-| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
+| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `bark` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
 | `ROUTE_MODES` | `immediate` `digest` `archive` |
 | `ENRICH_SCORES` | `value` `relevance` `credibility` |
 | `VACUUM_CADENCES` | `daily` `weekly` `monthly` `never` |
@@ -265,7 +265,7 @@ structured `dependency_missing` and fallback to keyword-only scoring).
 
 | Field | Default | Semantics |
 |---|---|---|
-| `channel` | required | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `webhook` / `stdout` |
+| `channel` | required | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `webhook` / `stdout` / `bark` (iOS push) |
 | `target` | `null` | Push target, a **pure** `env:`/`keychain:` reference; forbidden on `stdout`, required elsewhere |
 | `route` | `[]` | Threshold routing (table below); empty = the seven-category default mapping (freebie/node/buying-agent → immediate, others → digest) |
 | `template` | `null` | Jinja2 card template (sandboxed render; syntax errors refused at load); omit for the channel's built-in layout |
@@ -275,6 +275,7 @@ structured `dependency_missing` and fallback to keyword-only scoring).
 | `ntfy_token` | `null` | Optional ntfy auth token reference (value = Bearer token or `user:pass` → Basic); omitted with `env:NTFY_TOKEN` unset = no auth (`ntfy` only) |
 | `dingtalk_secret` | `null` | Optional DingTalk signing secret reference (set = HMAC-SHA256 signed; omitted = bare webhook) (`dingtalk` only) |
 | `wecom_corpid` / `wecom_corpsecret` / `wecom_agentid` | `null` | WeCom self-built-app credential references; omitted falls back to env `WECOM_CORPID`/`WECOM_CORPSECRET`/`WECOM_AGENTID` (`wecom` only) |
+| `bark_endpoint` | `null` | Bark (iOS push) server endpoint; **not a credential**, safe in YAML: unset = the official service `https://api.day.app`, self-hosted = host address (e.g. `http://<host>:8080`); must be http(s) (`bark` only) |
 
 route rules:
 

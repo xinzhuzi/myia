@@ -58,7 +58,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
-| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
+| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `bark` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
 | `ROUTE_MODES` | `immediate` `digest` `archive` |
 | `ENRICH_SCORES` | `value` `relevance` `credibility` |
 | `VACUUM_CADENCES` | `daily` `weekly` `monthly` `never` |
@@ -193,9 +193,9 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 
 | 字段 | 缺省 | 语义 |
 |---|---|---|
-| `channel` | `必填` | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `weixin` / `webhook` / `stdout` |
+| `channel` | `必填` | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `weixin` / `webhook` / `stdout` / `bark`(iOS 即时推送) |
 | `target` | `null` | 推送目标,只能是 `env:`/`keychain:` 引用;`stdout` 禁止配置;其余通道必填(配 `targets` 的通道可省) |
-| `targets` | `[]` | 定向推送对象列表,元素 `platform:名称或id`(如 `feishu:AI中转站合伙人群`,自动去重保序);仅寻址通道 `feishu_card`/`telegram`/`ntfy`/`dingtalk`/`wecom`/`weixin` 支持(webhook/stdout 配即拒),同平台约束:平台前缀须与本条目通道一致,跨平台写多条 push;在场时 `target` 可省;优先级:规则级 `targets` > 通道级 `targets` > legacy `target` |
+| `targets` | `[]` | 定向推送对象列表,元素 `platform:名称或id`(如 `feishu:AI中转站合伙人群`,自动去重保序);仅寻址通道 `feishu_card`/`telegram`/`ntfy`/`dingtalk`/`wecom`/`weixin` 支持(webhook/stdout/bark 配即拒),同平台约束:平台前缀须与本条目通道一致,跨平台写多条 push;在场时 `target` 可省;优先级:规则级 `targets` > 通道级 `targets` > legacy `target` |
 | `route` | `[]` | 阈值路由(见 route 节);留空 = 七大类缺省映射(羊毛/节点/代买 → immediate,其余 → digest) |
 | `template` | `null` | Jinja2 卡片模板(沙箱渲染,未知变量报错);省略用通道内置版式 |
 | `timeout` | `10.0` | 发送超时秒数(**仅 `webhook` 生效**,其他通道配置即拒) |
@@ -207,6 +207,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `wecom_corpsecret` | `null` | 企微自建应用 secret 引用;省略走 `env:WECOM_CORPSECRET`(仅 `wecom` 可配) |
 | `wecom_agentid` | `null` | 企微自建应用 AgentId 引用(数值串);省略走 `env:WECOM_AGENTID`(仅 `wecom` 可配) |
 | `weixin_hermes_bin` | `null` | 本机 Hermes CLI 路径覆写(缺省 `~/.hermes/hermes-agent/.hermes/bin/hermes`);本地路径**非凭据**,不走 env:/keychain: 引用,myssia 对微信零凭据(仅 `weixin` 可配) |
+| `bark_endpoint` | `null` | Bark(iOS 推送)服务端端点;**非凭据**,可落 YAML。留空 = 官方服务 `https://api.day.app`;自建填主机地址(如 `http://<host>:8080`,docker `finb/bark-server`);须 http(s) 形态(仅 `bark` 可配) |
 
 各通道凭据约定:`feishu_card` 的 target = 收件/群 ID(如 `env:FEISHU_CHAT_ID`),
 机器人 token 从 `env:FEISHU_BOT_TOKEN` 读;`telegram` 的 target = chat id
@@ -222,7 +223,10 @@ target = `{server}/{topic}` 整串引用(如 `env:NTFY_TARGET`,定向写
 target = 会话 peer id(`env:WEIXIN_PEER_ID`,定向写 `weixin:<peer id>`,
 `xxx@im.wechat` DM / `xxx@chatroom` 群),无 Hermes 环境发送返回
 `bridge_unavailable` 结构化错误(配置照常加载,如实灰态);
-`webhook` 的 target = 端点 URL 引用(如 `env:MYIA_WEBHOOK_URL`);`stdout`
+`webhook` 的 target = 端点 URL 引用(如 `env:MYIA_WEBHOOK_URL`);`bark`
+(iOS 即时推送)的 target = device key 引用(`env:BARK_DEVICE_KEY`,在
+iPhone Bark App 里复制),端点非凭据:留空 = 官方服务,自建配
+`bark_endpoint`,通知固定按 `MYIA` 分组;`stdout`
 零凭据,本地验证首选。ntfy/钉钉/企微三平台无目录自动发现(蓝本事实),
 `targets` 走直达 id 或别名手工登记(channel_aliases.json)。
 
