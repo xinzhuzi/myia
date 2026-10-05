@@ -94,8 +94,9 @@ const STAMP_TMP_FILE: &str = ".python-env.json.tmp";
 
 /// 安装链错误分类。前五类为契约钉死的用户可重试面(ask/design §3),
 /// `SetupFailed` 是内部类(manifest 缺失/形态不符、非磁盘类 io 等)。
+/// pub(crate):组件机制(pyenv_components)复用同一分类与渲染口径。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum InstallErrorKind {
+pub(crate) enum InstallErrorKind {
     NetworkFailed,
     ChecksumMismatch,
     DiskFull,
@@ -118,7 +119,8 @@ impl InstallErrorKind {
 }
 
 /// 渲染为 steps[].error 字符串(分类码前缀,前端可据此分类重试文案)。
-fn render_error(kind: InstallErrorKind, detail: impl std::fmt::Display) -> String {
+/// pub(crate):组件机制(10-05-table-restore)复用同一错误分类渲染口径。
+pub(crate) fn render_error(kind: InstallErrorKind, detail: impl std::fmt::Display) -> String {
     format!("{}: {}", kind.as_str(), detail)
 }
 
@@ -217,7 +219,11 @@ fn file_sha256(path: &Path) -> Option<String> {
 }
 
 /// 磁盘预检(design §3:~500MB 余量;在链首执行,覆盖下载+解压+依赖总量)。
-fn disk_precheck(data_root: &Path, required: u64) -> Result<(), (InstallErrorKind, String)> {
+/// pub(crate):组件安装(10-05-table-restore)复用同一预检门。
+pub(crate) fn disk_precheck(
+    data_root: &Path,
+    required: u64,
+) -> Result<(), (InstallErrorKind, String)> {
     fs::create_dir_all(data_root).map_err(|e| {
         (
             InstallErrorKind::SetupFailed,
@@ -614,17 +620,54 @@ fn run_pip(
     lock: &Path,
     index_url: Option<&str>,
 ) -> Result<(), (InstallErrorKind, String)> {
+    run_pip_install(
+        python,
+        vec!["-r".into(), lock.as_os_str().to_os_string()],
+        index_url,
+    )
+}
+
+/// 组件 pip spec 安装(10-05-table-restore 组件机制:spec 为位置参数,不走
+/// -r——`-r rapid-table==…` 会被 pip 当 requirements 文件读,语义即错)。
+/// spec 字符串可含空格分隔多条(组件闭包,与 pyproject extras 同源),逐条
+/// 作位置参数传 pip install(`pip install a==1 b>=2` 标准形态)。与主链
+/// run_pip 同源:同一子进程组装段(索引覆盖/PYTHONPATH 隔离/失败尾部回显),
+/// 消费方 pyenv_components.rs。
+pub(crate) fn run_pip_spec(
+    python: &Path,
+    spec: &str,
+    index_url: Option<&str>,
+) -> Result<(), (InstallErrorKind, String)> {
+    let requirements: Vec<std::ffi::OsString> = spec
+        .split_whitespace()
+        .map(std::ffi::OsString::from)
+        .collect();
+    if requirements.is_empty() {
+        return Err((
+            InstallErrorKind::PipFailed,
+            "pip spec 为空(全空白):注册表条目无效".to_string(),
+        ));
+    }
+    run_pip_install(python, requirements, index_url)
+}
+
+/// pip install 子进程公共段:argv 组装(-m pip install --no-input
+/// --disable-pip-version-check <requirement_args> [--index-url …])、剥
+/// PYTHONPATH(Req 4 与开发 Python 分家)、失败输出尾部回显(PIP_OUTPUT_TAIL)。
+fn run_pip_install(
+    python: &Path,
+    requirement_args: Vec<std::ffi::OsString>,
+    index_url: Option<&str>,
+) -> Result<(), (InstallErrorKind, String)> {
     let mut command = Command::new(python);
-    command
-        .args([
-            "-m",
-            "pip",
-            "install",
-            "--no-input",
-            "--disable-pip-version-check",
-            "-r",
-        ])
-        .arg(lock);
+    command.args([
+        "-m",
+        "pip",
+        "install",
+        "--no-input",
+        "--disable-pip-version-check",
+    ]);
+    command.args(&requirement_args);
     if let Some(index) = index_url {
         command.args(["--index-url", index]);
     }
@@ -656,7 +699,7 @@ fn run_pip(
 }
 
 /// version ping 自检:短命 serve 进程握手(与常驻 spawn 同源 argv/env 注入)。
-fn selfcheck_version_ping(
+pub(crate) fn selfcheck_version_ping(
     python: &Path,
     resource_dir: &Path,
     data_root: &Path,
@@ -1021,6 +1064,107 @@ fn execute(cfg: &ChainConfig, on_update: &dyn Fn(&[PyenvStep])) -> ChainOutcome 
         Ok(()) => runner.finish_ok(),
         Err((kind, detail)) => return runner.fail(PyenvPhase::Selfcheck, kind, detail),
     }
+}
+
+// ---------------------------------------------------------------------------
+// 环境体检(10-05 主人判例:就绪态主按钮=「检查状态」,查出错引导重装)
+// ---------------------------------------------------------------------------
+
+/// 体检单项(IPC 契约:`{id, ok, detail}`;
+/// id = python_binary | deps_fingerprint | sidecar_handshake)。
+#[derive(Clone, serde::Serialize)]
+pub struct PyenvVerifyCheck {
+    pub id: String,
+    pub ok: bool,
+    pub detail: String,
+}
+
+/// 体检结果(IPC 契约:`{ok, checks:[…]}`;ok = 全部单项通过)。
+#[derive(serde::Serialize)]
+pub struct PyenvVerifyResult {
+    pub ok: bool,
+    pub checks: Vec<PyenvVerifyCheck>,
+}
+
+/// 环境体检三查:①python 二进制在位且可执行(--version);②依赖指纹
+/// 与随包锁版清单一致(进度戳 vs 现算);③sidecar version 握手(与安装链
+/// selfcheck 同源)。只读不落戳、不翻状态、不碰网络——查出错的重装入口
+/// = pyenv_start_setup 幂等链(已装步全跳过);指纹单项漂移对应
+/// deps_stale 的「同步依赖」,detail 内自带引导。
+#[tauri::command]
+pub async fn pyenv_verify(app: AppHandle) -> Result<PyenvVerifyResult, String> {
+    let data_root = crate::data_root(&app).map_err(|e| e.to_string())?;
+    let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
+    let status = pyenv::current_status(&app).map_err(|e| e.to_string())?;
+    let python = PathBuf::from(&status.python_path);
+
+    let mut checks: Vec<PyenvVerifyCheck> = Vec::new();
+
+    // ① 二进制在位 + 可执行(握手的前置;缺位则 ③ 不单独跑)
+    let (binary_ok, binary_detail) = if python.exists() {
+        match Command::new(&python).arg("--version").output() {
+            Ok(output) if output.status.success() => (
+                true,
+                String::from_utf8_lossy(&output.stdout).trim().to_string(),
+            ),
+            Ok(output) => (
+                false,
+                format!(
+                    "退出码 {:?}:{} {}",
+                    output.status.code(),
+                    String::from_utf8_lossy(&output.stdout).trim(),
+                    String::from_utf8_lossy(&output.stderr).trim()
+                ),
+            ),
+            Err(err) => (false, format!("拉起失败: {err}")),
+        }
+    } else {
+        (false, format!("二进制缺位: {}", python.display()))
+    };
+    checks.push(PyenvVerifyCheck {
+        id: "python_binary".into(),
+        ok: binary_ok,
+        detail: binary_detail,
+    });
+
+    // ② 依赖指纹:进度戳落值 vs 随包锁版清单现算(同 lock_fingerprint 口径)
+    let stamp_fp = pyenv::read_stamp(&data_root).and_then(|stamp| stamp.deps_fingerprint);
+    let lock_fp = pyenv::lock_fingerprint(&pyenv::resource_lock_path(&resource_dir));
+    let (fp_ok, fp_detail) = match (&stamp_fp, &lock_fp) {
+        (Some(recorded), Some(current)) if recorded == current => {
+            (true, format!("一致({current})"))
+        }
+        (Some(recorded), Some(current)) => (
+            false,
+            format!("漂移:进度戳 {recorded} ≠ 随包 {current};「同步依赖」幂等对齐,或重装"),
+        ),
+        (None, Some(_)) => (false, "进度戳无依赖指纹(安装链未走完;重装可重建)".into()),
+        (Some(_), None) => (false, "随包锁版清单缺位(壳资源异常;重装不可自愈需换包)".into()),
+        (None, None) => (false, "进度戳与随包清单双双缺位;重装可重建".into()),
+    };
+    checks.push(PyenvVerifyCheck {
+        id: "deps_fingerprint".into(),
+        ok: fp_ok,
+        detail: fp_detail,
+    });
+
+    // ③ sidecar version 握手(python 缺位时跳过——① 已定位根因,不重复报)
+    if binary_ok {
+        let app_version = app.package_info().version.to_string();
+        let (shake_ok, shake_detail) =
+            match selfcheck_version_ping(&python, &resource_dir, &data_root, &app_version) {
+                Ok(()) => (true, "version 应答正常".into()),
+                Err((_, detail)) => (false, detail),
+            };
+        checks.push(PyenvVerifyCheck {
+            id: "sidecar_handshake".into(),
+            ok: shake_ok,
+            detail: shake_detail,
+        });
+    }
+
+    let ok = checks.iter().all(|check| check.ok);
+    Ok(PyenvVerifyResult { ok, checks })
 }
 
 // ---------------------------------------------------------------------------

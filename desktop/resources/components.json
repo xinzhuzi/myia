@@ -1,0 +1,10 @@
+{
+  "components": [
+    {
+      "id": "table",
+      "pip_spec": "rapid-table==3.0.2 rapidocr-onnxruntime>=1.3 tqdm>=4",
+      "label": "表格还原",
+      "description": "截图表格(行情/比价/参数对比/榜单)还原成结构化 Markdown:rapid_table 3.x onnx 引擎,闭包与 extras myssia[table] 同源(rapidocr-onnxruntime 供单元格文字、tqdm 为 3.0.2 轮隐性依赖);SLANET-plus 结构模型首用时从 modelscope 自动下载(6.8MB,SHA256 校验)后离线复用;首装需联网,PyPI 镜像覆盖生效"
+    }
+  ]
+}

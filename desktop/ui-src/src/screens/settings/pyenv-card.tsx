@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import type { SidecarRequestError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -13,9 +14,11 @@ import { ErrorBox } from "./error-box";
 import {
   onPyenvStatusChanged,
   pyenvGetStatus,
+  pyenvInstallComponent,
   pyenvStartSetup,
   pyenvSyncDeps,
   PYENV_PHASE_ORDER,
+  type PyenvComponent,
   type PyenvState,
   type PyenvStatus,
   type PyenvPhase,
@@ -33,8 +36,10 @@ import {
  *
  * 字段面:开始配置(D2 显式动作)/ 安装路径 / Python 使用路径 / 运行时下载源
  * 覆盖 / PyPI 镜像覆盖(双镜像,D3)/ 安装明细(状态机五阶段逐项)/ 同步依赖
- * (D4,依赖漂移时出现)。IPC 契约见 ./pyenv-api.ts(波次钉死,与壳侧 pyenv.rs
- * 对齐);安装本体在第 3/5 步接管,本卡如实消费命令应答与状态事件,不伪造进度。
+ * (D4,依赖漂移时出现)/ 可选组件开关(10-05-table-restore R4:首件「表格
+ * 还原」按需装进自管环境,零重打包;卸载本期不做)。IPC 契约见 ./pyenv-api.ts
+ * (波次钉死,与壳侧 pyenv.rs / pyenv_components.rs 对齐);组件安装本体复用
+ * 壳侧安装链依赖段,本卡如实消费命令应答与状态事件,不伪造进度。
  */
 
 /** 五态的展示元(徽标色 + 引导文案;文案口径 = prd D1-D5 与 design §3/§7)。 */
@@ -192,6 +197,20 @@ function mergedSteps(steps: PyenvStep[]): PyenvStep[] {
   );
 }
 
+/**
+ * 已知组件的展示文案(10-05-table-restore):注册表(components.json)是壳侧
+ * 功能面(id/pip_spec/指纹)的唯一权威且只在壳侧消费;status.components[]
+ * 契约两键钉死({id, installed}),展示文案归前端展示层——已知 id 用此处
+ * 中文文案,未知 id 退回原 id 不拦渲染。
+ */
+const COMPONENT_META: Record<string, { label: string; description: string }> = {
+  table: {
+    label: "表格还原",
+    description:
+      "截图表格(行情/比价/参数对比/榜单)还原成结构化 Markdown:rapid_table 3.x onnx 引擎(与 extras myssia[table] 同栈闭包,含 rapidocr 单元格文字;不引 Paddle)。开关开 = 往自管环境装组件(首装联网,PyPI 镜像覆盖生效;SLANET-plus 结构模型首用时自动从 modelscope 下载,之后离线复用);管线侧行为由品类配置 images.table 控制",
+  },
+};
+
 export function PyenvCard() {
   const [status, setStatus] = useState<PyenvStatus | null>(null);
   const [loadError, setLoadError] = useState<SidecarRequestError | null>(null);
@@ -278,6 +297,47 @@ export function PyenvCard() {
       setSyncBusy(false);
     }
   }, [applyStatus]);
+
+  /** 组件开关(10-05-table-restore R4):off→on = pyenv_install_component 装
+   *  进自管环境(装后拉取回读,components[] 随新);on→off = 卸载本期不做,
+   *  如实提示不伪造关闭。与主链动作(开始配置/同步依赖)反馈分槽,互不覆写。 */
+  const [installingComponent, setInstallingComponent] = useState<string | null>(null);
+  const [componentError, setComponentError] = useState<SidecarRequestError | null>(null);
+  const [componentNote, setComponentNote] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const handleToggleComponent = useCallback(
+    async (component: PyenvComponent, next: boolean) => {
+      if (!next) {
+        setComponentError(null);
+        setComponentNote({
+          text: "组件卸载本期未提供(档记后续):停用表格还原请把品类配置的 images.table 关掉;此处开关只管装进自管环境。",
+          ok: false,
+        });
+        return;
+      }
+      setInstallingComponent(component.id);
+      setComponentError(null);
+      setComponentNote(null);
+      try {
+        const outcome = await pyenvInstallComponent(component.id);
+        if (outcome.error) {
+          setComponentNote({ text: `组件 ${component.id} 安装失败:${outcome.error}`, ok: false });
+        } else {
+          setComponentNote({
+            text: `组件 ${component.id} 已装进自管环境(指纹已记;可重开幂等跳过)。`,
+            ok: true,
+          });
+        }
+        // 拉取是真相源:按结果回读状态(components[] 随新;镜像草稿不覆写)
+        applyStatus(await pyenvGetStatus(), false);
+      } catch (raw) {
+        setComponentError(asSidecarError(raw));
+      } finally {
+        setInstallingComponent(null);
+      }
+    },
+    [applyStatus],
+  );
 
   const meta = status !== null ? STATE_META[status.state] : null;
 
@@ -388,6 +448,87 @@ export function PyenvCard() {
                 })}
               </ol>
             </section>
+
+            {/* 可选组件(10-05-table-restore R4):首件「表格还原」;装/状态回读
+                如实呈现,卸载本期不做。注册表缺位(旧包)→ components 空 → 不渲染 */}
+            {status.components.length > 0 ? (
+              <section aria-labelledby="pyenv-components-title" className="flex flex-col gap-3">
+                <h3 id="pyenv-components-title" className="text-2xs font-medium tracking-wide text-muted-foreground">
+                  可选组件(按需装进自管环境,零重打包)
+                </h3>
+                <div
+                  data-testid="pyenv-components"
+                  className="flex flex-col divide-y divide-border/60 rounded-lg border border-border/60"
+                >
+                  {status.components.map((component) => {
+                    const display = COMPONENT_META[component.id];
+                    // 环境未配置/主链安装中:开关禁用(壳侧同门,前端先拦一道)
+                    const envBlocked =
+                      status.state === "not_configured" || status.state === "installing";
+                    const busy = installingComponent === component.id;
+                    return (
+                      <div
+                        key={component.id}
+                        data-testid={`pyenv-component-${component.id}`}
+                        className="flex flex-wrap items-center justify-between gap-3 p-4"
+                      >
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                          <span className="text-sm font-medium text-foreground">
+                            {display?.label ?? component.id}
+                          </span>
+                          <p className="text-2xs leading-4 text-muted-foreground">
+                            {display?.description ?? "自管环境可选组件(按需安装)"}
+                          </p>
+                          {busy ? (
+                            <span
+                              role="status"
+                              data-testid={`pyenv-component-${component.id}-busy`}
+                              className="flex items-center gap-1 text-2xs text-warning"
+                            >
+                              <RefreshCw className="size-3 animate-spin" />
+                              安装中(下载依赖,可能耗时数分钟)…
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Badge
+                            variant={component.installed ? "ok" : "outline"}
+                            data-testid={`pyenv-component-${component.id}-state`}
+                          >
+                            {component.installed ? "已装" : "未装"}
+                          </Badge>
+                          <Switch
+                            checked={component.installed}
+                            disabled={busy || envBlocked}
+                            aria-label={`组件开关 ${component.id}`}
+                            title={
+                              envBlocked
+                                ? "Python 环境未就位/主链安装中:先完成「开始配置」再装组件"
+                                : component.installed
+                                  ? "已装进自管环境;卸载本期未提供(停用走品类配置 images.table)"
+                                  : "往自管环境装该组件(pip,镜像覆盖生效)"
+                            }
+                            onCheckedChange={(checked) =>
+                              void handleToggleComponent(component, checked)
+                            }
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {componentError ? <ErrorBox error={componentError} /> : null}
+                {componentNote ? (
+                  <p
+                    role={componentNote.ok ? "status" : "alert"}
+                    data-testid="pyenv-component-note"
+                    className={componentNote.ok ? "text-xs text-ok" : "text-xs text-destructive"}
+                  >
+                    {componentNote.text}
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
 
             {/* 动作条:反馈在左、动作在右(全宽,主按钮不再 sm 收缩);同步依赖仅漂移态出现(D4) */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">

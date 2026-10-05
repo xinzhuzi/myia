@@ -4,6 +4,8 @@
 
 1. ``tauri.conf.json`` resources 段:自管环境五映射已声明且源路径磁盘实况
    存在;既有官方插件种子映射(首跑种子依赖)不被挤掉。
+   1b. 组件注册表 ``components.json`` 随包映射 + 契约形态(10-05-table-restore
+   R4;首件 table 钉版在册)。
 2. ``desktop/resources/runtime-manifest.json``:钉版=主人 D3 原文 URL(mac)+
    同 release Windows 等效件;sha256 为实算入盘的 64 位小写 hex;解压布局
    (install_only 根目录 ``python/`` 与平台 python_bin)自洽。
@@ -112,6 +114,89 @@ def test_myssia_resource_tree_shape() -> None:
 def test_seed_resources_untouched(source: str, dest: str) -> None:
     """官方插件种子映射保持(首跑种子 _bundle_plugins_dir 依赖;不被重排挤掉)。"""
     assert _conf_resources().get(source) == dest
+
+
+# ---------------------------------------------------------------------------
+# 1b. 组件注册表 components.json(10-05-table-restore 桌面侧 R4):随包映射
+#     + 契约形态(壳侧 pyenv_components.rs 读同文件宽容解析;此处钉「形」
+#     与首件钉版,防注册表被无声挤掉或改坏——壳侧宽容读取会把坏文件吞成
+#     空表,组件开关整面静默消失,故须仓测钉死)。
+# ---------------------------------------------------------------------------
+
+#: 表格还原组件闭包与钉版(pip_spec 可含空格分隔多条 spec,逐条作 pip install
+#: 位置参数)。**跟引擎 API 走**(质检高危修正:组件消费者是
+#: src/myssia/vision/table.py,按 rapid_table 3.x API 写——裸 RapidTable()/
+#: ocr_results= 复数/pred_htmls 复数;1.0.3 虽模型随轮但 __init__ 必传
+#: RapidTableInput、ocr_result/pred_html 单数,三处调用面全断)。主件钉
+#: ==3.0.2 落在 extras >=3.0.2,<4 内;rapidocr-onnxruntime 供单元格文字
+#: (引擎显式喂 ocr_results 绕开其内置新版 rapidocr 通道)、tqdm 是 3.0.2
+#: 轮隐性 import(extras 显式补)——裸装主件会让引擎 dependency_missing,
+#: 故闭包必须与 extras myssia[table] 三件同源(交叉对齐测试把守)。
+TABLE_COMPONENT_PIP_SPEC = "rapid-table==3.0.2 rapidocr-onnxruntime>=1.3 tqdm>=4"
+
+
+def test_components_resource_declared_and_present() -> None:
+    """components.json 随包映射已声明且源文件在盘。"""
+    source, dest = "../resources/components.json", "components.json"
+    resources = _conf_resources()
+    assert resources.get(source) == dest, f"resources 缺映射 {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
+    assert (SRC_TAURI / source).is_file(), f"映射源不存在: {source}"
+
+
+def test_components_registry_shape() -> None:
+    """注册表契约形态:{components:[{id,pip_spec,label,description}]},首件
+    table 钉版在册(id/pip_spec/label 非空;壳侧过滤半截条目,这里钉上游不产半截)。"""
+    registry = json.loads((RESOURCES_DIR / "components.json").read_text(encoding="utf-8"))
+    assert isinstance(registry.get("components"), list), "components 须为数组"
+    ids = [entry.get("id") for entry in registry["components"]]
+    assert "table" in ids, f"首件 table 必须在册(实得 {ids})"
+    for entry in registry["components"]:
+        assert isinstance(entry, dict), f"条目须为对象: {entry!r}"
+        for key in ("id", "pip_spec", "label", "description"):
+            assert isinstance(entry.get(key), str) and entry[key], f"条目缺非空 {key}: {entry!r}"
+    table = next(entry for entry in registry["components"] if entry["id"] == "table")
+    assert table["pip_spec"] == TABLE_COMPONENT_PIP_SPEC, f"table 闭包漂移: {table['pip_spec']!r}"
+    # pip spec 形状:闭包逐条 name==version 钉版或 name<op>version 约束
+    # (组件机制按「钉版闭包」设计;主件 == 钉版,伴生件与 extras 同字串)。
+    for token in table["pip_spec"].split():
+        assert re.match(
+            r"^[A-Za-z0-9][A-Za-z0-9._-]*(==[^\s]+|>=?[^\s]+|<=?[^\s]+|!=+[^\s]+|~=+[^\s]+)$",
+            token,
+        ), f"spec 形状不符: {token!r}"
+
+
+def test_table_component_matches_pyproject_extras() -> None:
+    """桌面组件闭包 ↔ pyproject extras ``myssia[table]`` 交叉对齐(红线)。
+
+    质检高危「桌面钉 1.0.3 / 引擎按 3.x API 写」的根因是两侧并行未对齐;
+    本测试把「组件消费者是引擎」钉成仓测:闭包逐件与 extras 同名、主件钉版
+    满足 extras 约束、伴生件字串与 extras 逐字符一致——任一侧漂移即红。
+    """
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    extras_raw = pyproject["project"]["optional-dependencies"]["table"]
+    extras = {_pep503(str(Requirement(raw).name)): str(Requirement(raw)) for raw in extras_raw}
+    desktop = {
+        _pep503(str(Requirement(token).name)): token
+        for token in TABLE_COMPONENT_PIP_SPEC.split()
+    }
+    assert set(desktop) == set(extras), (
+        f"闭包件集与 extras 不一致: 桌面 {sorted(desktop)} vs extras {sorted(extras)}"
+        "(裸装主件会让引擎 dependency_missing 于伴生件)"
+    )
+    for name, desktop_raw in desktop.items():
+        extras_req = Requirement(extras[name])
+        desktop_req = Requirement(desktop_raw)
+        if str(desktop_req.specifier) == str(extras_req.specifier):
+            continue  # 伴生件:与 extras 完全同字串
+        # 主件允许更严(钉版),但钉的版本必须落在 extras 约束内
+        pinned = list(desktop_req.specifier)
+        assert len(pinned) == 1 and pinned[0].operator == "==", (
+            f"{name} 桌面侧须钉版(==)或与 extras 同字串: {desktop_raw!r}"
+        )
+        assert extras_req.specifier.contains(pinned[0].version, prereleases=True), (
+            f"{name} 桌面钉版 {pinned[0].version} 不满足 extras 约束 "
+            f"{extras_req.specifier}(代差即引擎三处调用面全断)"
+        )
 
 
 # ---------------------------------------------------------------------------
