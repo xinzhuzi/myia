@@ -757,3 +757,11 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 工程课:①工作流复核修一轮后不重跑全量门禁=脚本盲区,收官主会话亲跑补上;②禁触清单运行时动态取经受住考验(并行线同窗又落 dashboard-glance 两笔+residual-sweep,零撞);③docker 前置探查要全链(命令不在 PATH≠没装:坏符号链接/socket/colima/orbstack 逐项)。
 - 状态:heartbeat/bark 两档 review;searxng planning(blocked 注记)/firecrawl blocked;apprise 留主人点名即启。留主人:Bark 真推(装 App 复制 key→设置→推送)、searxng/firecrawl docker 机复验、装机包刷新(净树后)。
 - 提交:searxng task.json 受阻回执+本 journal 段 --only 入库;不推远端(累计 8 笔待推,过 CI 后统一)。
+
+## 2026-10-06 凌晨:「剩余问题全清」工作流收口(dwfrun-75e102f4,10 段/30 步,主会话补 CI 重跑)
+
+- 终态:既有批推送 CI 绿(run 37337984034)→ 三件代码批全交付(每件实施+独立复核+发现修一轮)→ 四门禁绿 → 二次推送 → **新批 CI 红=清华镜像对 httpcore==1.0.9 回 403(基础设施瞬时,非代码;主会话 gh run rerun --failed 补重跑,脚本第二推送段无修复环=缺口已记)** → 装机包重打包换装四断言过(mtime 新/0.0.1/lock 逐字节一致/能拉起,备份 /tmp/世事.app.bak-finishall-013820)→ 像素级验收 12 截图在档(仪表盘 verdict「10项告警·2个源退化·今日采集994条·17/31源在线」逐字在屏/设置推送 Bark+Apprise 下拉开合+Bark 表单/消息屏两帧)→ **trafilatura 开关已启用**(launchctl getenv MYIA_EXTRACT_FALLBACK=1 亲验,下次自然重启生效)。
+- 三件代码批:①**Apprise 全量落地 review**(65e1b96+0d9380b+复核处置 56d7b9f:17 用例+json:// sink 真跑报文+文档六件;复核抓出共享工作树碰撞=git add schema.py 误收并行 10-06 urlwatch 两行致 skill_doc 红,补笔修复+教训「add 前逐文件 git diff 亲验」入档);②**心跳 ticker 直挂收尾**(eef1f00+d653348:run_ticker_loop 可选参 heartbeat_scan 缺省 300s 零行为变化,异常隔离沿 _guarded;解析器抽公共件 _build_push_channel/run_heartbeat_scan/make_cron_heartbeat_scan,cli serve+desktop sidecar 两宿主接线;真跑=零品类 run 兜底直扫 fire sent+卡片行);③**三件界面小件**(949802a snooze 到期 7 天重现/b8a6a7b 设置字段级搜索/305c7be suppressed 词表 v2+池档消号 a3434cc)。
+- **并行线同窗大进展(不属本流,如实记)**:colima/docker 已装!searxng-core/valkey 容器在跑(source-searxng 档推进中);firecrawl 档再尝试=45 分钟拉层 ~50KB/s 未完降级清场(blocked 理由从「无 docker」迁移为「docker hub 带宽」,已拉 2.4GB 层缓存备续跑);urlwatch 内容过滤根治(ca7efc0)+ai-news 测试轮(2f0e17d:12 源 953 条/enrich 装机缺 openai extras 缺口实证/推送凭据双空=装机件从未推成——owner_left 新增)。未推 4 笔均并行线在途,不代推。
+- 工程课:①脚本两段推送都该带修复环(第二段红只能主会话补);②共享工作树下 git add 前必须逐文件 diff 亲验(apprise 碰撞案);③CI 镜像 403 这类基础设施红先 rerun 再定性,别急着改代码。
+- 状态终表:AI 侧清单全清(owner-only 六类维持:Reddit 决策 10-31/Bark 真推/docker 带宽复验/Windows 真机/review 过目/远期池)。
