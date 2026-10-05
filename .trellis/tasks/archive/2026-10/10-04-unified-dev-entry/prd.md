@@ -71,3 +71,8 @@
 
 - 规模预估:约 0.5-1 天(justfile ~100 行 + 三件套钉版 + CI 三行收敛 + CONTRIBUTING 两段 + 清理);无 Windows 脚本原生化(如需另立档)。
 - 2026-10-05 grill 决议已全批(Q4-Q8 按推荐),三件套齐(prd + design.md + implement.md),**start 前置条件就绪**;排期在 10-04-yaml-editor-no-scroll 之后。
+
+## 归档后勘误(2026-10-05 主会话)
+
+- 「一条路走通桌面构建」AC 的回标注记写「recipe 从 sidecar 到 tauri build 串通」**失准**:`just build-desktop` 实跑退出码 0 属实,但 recipe 本体已随 50b622c(打包链退役,10-05-desktop-managed-py-env 第 7 步)改为**仅** `npm --prefix desktop run tauri build`——sidecar 段被架构换代移除,非本档 recipe 设计。归档时点的架构语境见该线。
+- 「门禁」AC 后半(CI 照常绿)归档时因 gh 退出码 1 留「无法判定」——**2026-10-05 复核实绿**:origin/main 五项 check-runs 全 completed/success(Rust/Docker/test/UI/ruff)。CI 未引入 just 依赖属实。

@@ -122,6 +122,12 @@ class Report:
             self.failures.append((name, detail))
         return ok
 
+    def skip(self, name: str, note: str = "") -> None:
+        line = f"SKIP [{name}]"
+        if note:
+            line += f" {note}"
+        print(line, flush=True)
+
     def summary(self) -> int:
         print("-" * 72, flush=True)
         if not self.failures:
@@ -620,7 +626,7 @@ SHIM_JS = r"""
 # --------------------------------------------------------------------------
 # Part A:真机启动断言
 # --------------------------------------------------------------------------
-def part_a(app_dir: Path, cleanups: list) -> None:
+def part_a(app_dir: Path, cleanups: list, frozen: bool = True) -> None:
     say("=" * 72)
     say(f"PART A 真机启动断言:{app_dir}")
     say("=" * 72)
@@ -673,13 +679,16 @@ def part_a(app_dir: Path, cleanups: list) -> None:
         time.sleep(1.0)
         mains = pgrep_exact("MYIA")
         sides = pgrep_exact("myssia-core")
-        if mains and sides:
+        if mains and (sides or not frozen):
             main_pid, side_pids = mains[0], sides
             break
     REPORT.check("A2-MYIA 主进程存活(pgrep -x MYIA)", main_pid is not None, f"pid={main_pid}")
-    is_child = any(main_pid in ancestor_pids(sp) for sp in side_pids) if main_pid else False
-    REPORT.check("A3-myssia-core sidecar 子进程存活(pgrep -x myssia-core,祖含 MYIA)",
-                 bool(side_pids) and is_child, f"sidecars={side_pids} 祖链含主进程={is_child}")
+    if frozen:
+        is_child = any(main_pid in ancestor_pids(sp) for sp in side_pids) if main_pid else False
+        REPORT.check("A3-myssia-core sidecar 子进程存活(pgrep -x myssia-core,祖含 MYIA)",
+                     bool(side_pids) and is_child, f"sidecars={side_pids} 祖链含主进程={is_child}")
+    else:
+        REPORT.skip("A3-sidecar 断言", "自管 Python 架构(无冻结 sidecar):待 pyenv 安装后由 10-05-desktop-managed-py-env 线验收")
 
     # A4 窗口存在(CGWindowList optionAll;隐藏窗亦列,System Events 会假阴性,在册坑)
     windows: list[dict] = []
@@ -716,9 +725,13 @@ def part_a(app_dir: Path, cleanups: list) -> None:
         if state["lock"] and state["db"] and state["yamls"]:
             break
         time.sleep(1.0)
-    REPORT.check("A5-数据根生成(.instance.lock+myssia.db+种子品类)",
-                 state["lock"] and state["db"] and bool(state["yamls"]),
-                 f"lock={state['lock']} db={state['db']} 种子={state['yamls']}")
+    if frozen:
+        REPORT.check("A5-数据根生成(.instance.lock+myssia.db+种子品类)",
+                     state["lock"] and state["db"] and bool(state["yamls"]),
+                     f"lock={state['lock']} db={state['db']} 种子={state['yamls']}")
+    else:
+        REPORT.check("A5-数据根生成(.instance.lock;db/种子属 sidecar 职责,新架构 SKIP)",
+                     state["lock"], f"lock={state['lock']}(db/种子待 pyenv 安装)")
 
     # A6 安静退出(osascript quit;0.5-3s 内退净;兜底 TERM)
     run_cmd(["osascript", "-e", f'tell application id "{BUNDLE_ID}" to quit'], timeout=30)
@@ -1001,11 +1014,20 @@ def main() -> int:
     say(f"冒烟对象:{app_dir}")
     say(f"截图目录:{ARTIFACTS_DIR}")
 
+    frozen = (app_dir / "Contents/MacOS/myssia-core").exists()
+    if not frozen:
+        say("架构判别:自管 Python(包内无冻结 sidecar;10-05-desktop-managed-py-env 形态)——A 部分跑启动面,B 部分显式 SKIP")
+
     cleanups: list = []
     exit_code = 2
     try:
-        part_a(app_dir, cleanups)
-        part_b(app_dir, cleanups)
+        part_a(app_dir, cleanups, frozen=frozen)
+        if frozen:
+            part_b(app_dir, cleanups)
+        else:
+            say("=" * 72)
+            say("PART B 包内件行为断言:SKIP(自管 Python 架构——包内件行为待运行时下载的 Python 环境就绪后由 pyenv 线验收;UI dist 行为已在冻结期架构全量验证)")
+            say("=" * 72)
         exit_code = REPORT.summary()
     except SmokeTimeout as exc:
         REPORT.check("ZZ-整体超时熔断", False, str(exc))
