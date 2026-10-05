@@ -53,11 +53,11 @@
 
 ## 验收标准(AC)
 
-- [ ] AC1:S1 探查表落 `research.md`(每源:官方 RSS 有无/robots 口径/状态码/出口可达/条目形状样例),可用源进 `plugins/ai-news.yaml`,`myssia run plugins/ai-news.yaml --dry-run --json` 绿
-- [ ] AC2:S2 挂点实现 + 测试(全 mock 零网络),ai-news 挂示范 watch 源,changed/new 事件→条目→digest 全链绿;首跑冷启动语义有测试钉
-- [ ] AC3:S3 通道探查落 `research.md`(RSSHub twitter 路由现行凭据要求 + 部署形态 + X API 付费层现值),主人决策点如实列;不部署不代申请
-- [ ] AC4:涉网探查全走单次零压力 + 先 robots + honest UA + 证据落 `evidence/` 纪律
-- [ ] AC5:门禁全量绿(pytest + vitest);装机包按「完成=装机包刷新」判例刷新,或完成汇报首段显式声明未刷新
+- [x] AC1:S1 探查表落 `research.md`(§1:七家 200 RSS+robots 对照逐家记录;§2 watch 页探查;证据 `evidence/probe{,2,3}-log.md` + `probe4-*.json`),可用源进 `plugins/ai-news.yaml`(七家 RSS),`--dry-run` 全链冒烟回执落 evidence(回执注记见 §0:round1 sniff 工具故障销号)。
+- [x] AC2:S2 挂点实现 + 测试(`tests/engines/test_urlwatch_engine.py` 30 例全 mock 零网络,含首跑冷启动 announce_new=false 钉死、去重锚点指纹两性[同 diff 同锚/异 diff 异锚]、unchanged 合法空态、robots 面、adapter 错误码三态);ai-news 挂三家 watch 源(Anthropic/Meta/Cohere)。
+- [x] AC3:S3 通道探查落 `research.md` §3(TWITTER_AUTH_TOKEN 实锤=zread 官方环境变量表;twitter 路由脆弱性官方文档在案;X API 付费层不走),YAML 注释态入位启用三步+候选账号八号;不部署不代申请。
+- [x] AC4:涉网探查全走单次+先 robots+honest UA+证据落 `evidence/`(四轮脚本+回执全在档;round1 工具故障与 round2 重取证翻案记档 §0)。
+- [ ] AC5:门禁全量绿(pytest 4377/0+vitest 516/0+tsc 0 错+build ✓ 已亲验;装机包刷新=判例处理中)。
 
 ## 涉网纪律(全程硬约束)
 
