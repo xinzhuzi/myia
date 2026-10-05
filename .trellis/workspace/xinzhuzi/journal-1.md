@@ -734,3 +734,9 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - **/workflow 队列工作流(dwfrun-b921446d)拉起**:dynamic-workflows 技能正式走完;拓扑=四任务串行(接线批/bark 全实现/searxng 探查/firecrawl 验证)×(实施员→脚本四门禁 world.run 分支→独立复核只读→发现修一轮→收口);**禁触清单运行时从 git.status 动态取**(并行线又开 dashboard-glance/trafilatura-source-scope 两新线,静态清单必过时);纪律内嵌(pathspec 提交/不碰 journal/trellis 状态直改 task.json/不可能即升级);看板 board+primary 收口报告;apprise 留主人点名即启写进 conclusion。
 - 并行线同窗:bundled-plugins-batch2 落地(825cf21+1150cea:trafilatura 组件表/卸载钮/品类 YAML 发现面/monitor+credentials 随包,注册表 64→66)。
 - 提交:heartbeat 批 833b331(含四档放行回执);本 journal 段 --only 入库;不推远端。
+
+## 2026-10-05 夜 「按建议全部解决」批(主人令;六档+守波并行实录)
+
+- 六流交付:token 互踢修复(d793a86 轮询租约,同 token 单轮询器)/Windows 二实例唤出(729b8f2 single-instance 插件 windows 门控)/UI 三件(a17c931 tooltip 五字段+c73baef 沙箱标题+7cdc709 CI actions 升版)/Reddit 官方引擎(b1489ef 链外凭据可选,人肉注册单 10-31 截止在档)/装机组件扩批(825cf21 trafilatura 组件表+卸载钮+品类 YAML 发现面+monitor/credentials 映射,注册表 64→66)/trafilatura 源级开关(d11a7ef engine_options 旋钮,schema 零编辑)。
+- 守波:外部会话同期落池 10 五档并交付 cron-heartbeat 第一批(833b331 store v9);两波共 19+ 提交互不收编,合并树全量门禁亲验 4374/0+vitest 488+cargo 56+ruff 绿后统一推送。
+- 留主人:Reddit app 注册(10-31)+钥匙串两键/Windows 真机验证二实例(步骤单在档)/表格还原开关一键/沙箱标题真机眼见。
