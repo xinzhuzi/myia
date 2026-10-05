@@ -1,0 +1,16 @@
+== 装机件像素终验(2026-10-05 夜,主会话)==
+build: tauri build 世事.app 17.07MiB(adhoc, binary 22:53)→ 静默换装 /Applications/世事.app(优雅退出+清 WKWebView 缓存 com.myssia.app)
+取证: MYIA_SHOW_ON_START=1 直跑二进制, swift CGWindowList 窗 id=22340, screencapture -x -l 22340
+== 一级 Vision OCR(节选关键行,置信度)==
+0.30  • 8 项告警 今日采集0条•1/21 源在线
+0.50  の今日概览(UTC)
+1.00  活跃源 / 1/21
+0.30  还有 17个异常•查看全部
+0.30  源健康度 21个源•异常优先
+== 二级本机 VL(qwen3-vl-8b-mlx)校对五关键行 ==
+1. 8 项告警 今日采集 0 条 · 1/21 源在线 | 无出入
+2. 活跃源 1/21 | 无出入
+3. 源健康度 21 个源 · 异常优先 | 无出入
+4. 还有 17 个异常 · 查看全部 → | 图内有→(初稿漏),UI 无误
+5. 今日概览(UTC) | 无出入
+结论: 装机件渲染新 UI 全数命中,真机数据 warning 态如实(8 findings/1-21 源)

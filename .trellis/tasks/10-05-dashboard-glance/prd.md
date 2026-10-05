@@ -79,9 +79,14 @@
 - [x] AC4 分母+文案:活跃源 12/14;两屏(dashboard+logs)可见文案 run 清零、dry→试跑、aria 人话(测试断言新文案)。
 - [x] AC5 门禁:`cd desktop/ui-src && npm run test` + `npm run build`(含
   tsc -b)全绿;根 `uv run pytest` 全量兜底零新红。
-- [ ] AC6 装机包:刷新+像素级验证(截屏+OCR 证据入 evidence/)。
-  ——无头冒烟已取证,装机包刷新待办(mock-bridge 双场景 9 帧截图+DOM 探针
-  +OCR 存 evidence/,见尾部回执注记)。
+- [x] AC6 装机包:刷新+像素级验证(截屏+OCR 证据入 evidence/)。
+  ——已销号(主会话 2026-10-05 夜补):tauri build 重打包(世事.app
+  17.07MiB,adhoc)静默换装 /Applications/世事.app(优雅退出+清 WKWebView
+  缓存)+MYIA_SHOW_ON_START=1 直跑+screencapture -l 窗取证+local-ocr 两级链
+  (Vision 一级+本机 VL 二级校对五关键行全对):warning 态 verdict「8 项告警 ·
+  今日采集 0 条 · 1/21 源在线」、活跃源 1/21、异常优先节注、溢出口逐字在屏
+  (evidence/10-installed-app-verdict.png+installed-ocr.txt);无头冒烟另存
+  9 帧(mock-bridge 双场景+DOM 探针,见尾部回执注记)。
 
 ## 收口回执(2026-10-05)
 

@@ -46,7 +46,10 @@
   判例刷新换装(交付完成判定含装机包)。
   ——按无头冒烟路径取证(9 帧+探针+OCR 入 evidence/);装机包刷新
   未做(AC6 留空待办)。
-- [ ] S8 勾 AC(prd.md)→ review。
+  ——装机包终验主会话已补(同日夜):tauri build 重打包静默换装
+  /Applications/世事.app+MYIA_SHOW_ON_START=1 亮窗取证+两级 OCR 五关键行
+  全对=evidence/10-installed-app-verdict.png+installed-ocr.txt,AC6 销号。
+- [x] S8 勾 AC(prd.md)→ review。
 
 ## review gates
 
