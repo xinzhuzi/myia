@@ -14,6 +14,13 @@ metadata,图析产物续跑自然可见。)
 - ``image_caption``:VL 情报向描述(仅 VL 产出非空时写入);
 - ``image_status``:降级标记(环真正跑了才写,见下表)。
 
+表格还原(10-05-table-restore,R2/R6:品类 ``images.table`` 开):下载关后
+对通过关的图跑 :func:`myssia.vision.table.run_table`(rapid_table 结构化,
+惰性 import,extras ``myssia[table]``),还原表落 ``metadata.tables =
+[{markdown, rows, cols}]``(GFM 管道表,推送卡片可直接嵌表);引擎缺装/
+失败只写 ``metadata.table_status = "table_provider_error"``,**绝不阻管线**
+(与 images 环同款红线;缺省关 = 分支零进入,逐字段零影响)。
+
 可选落图(10-03-vision-v2,品类 ``images.persist`` 开):通过全部下载关的
 图**内容寻址持久化**到 ``<images_dir>/<sha16>.<ext>``(调用方传入,管线
 侧 = 数据根 ``images/``;同图同文件不重复落盘),metadata 另增
@@ -48,6 +55,7 @@ DNS rebinding(连接层私网)  该图跳过(reason=ssrf_rebind,计入聚合,同
 超 max_images(每条)         静默截断(首张优先,extract 顺序)
 超 max_per_run(每 run)      ``skipped:run_limit``,本条不再处理
 OCR 异常(逐图)              有图过下载关且全部 OCR 失败 → ``ocr_failed``
+表格还原异常(逐图)          tables 不落该图;有失败 → ``table_status``
 VL 预算不足                  只留 OCR 产物 → ``vl_skipped_budget``
 VL 超时/通道死/未配置        只留 OCR 产物 → ``vl_skipped_error``(不重试)
 images 节未开/无图 URL       整环零进入,metadata 零写入
@@ -101,6 +109,7 @@ from myssia.schema import ImagesConfig
 from myssia.vision.client import VisionClient
 from myssia.vision.ocr import OCRError, run_ocr
 from myssia.vision.settings import VisionConfig, resolve_cloud_api_key
+from myssia.vision.table import TableError, TableResult, run_table
 
 __all__ = [
     "DESCRIBE_PROMPT",
@@ -113,6 +122,7 @@ __all__ = [
     "MAX_REDIRECT_HOPS",
     "OCR_CONCURRENCY",
     "PERSIST_DIR_NAME",
+    "TABLE_CONCURRENCY",
     "VL_CONCURRENCY",
     "VL_TIMEOUT_SECONDS",
     "detail_fetch_images",
@@ -133,6 +143,10 @@ MAX_REDIRECT_HOPS = 3
 OCR_CONCURRENCY = 4
 #: VL 并发上限(本地 GPU 单飞实测定调,拍板③)。
 VL_CONCURRENCY = 1
+#: 表格还原并发上限(10-05-table-restore):rapid_table onnxruntime 会话不
+#: 保证线程安全,且 table.py 内部推理互斥——并发 1 即直通,上限只作环内
+#: 背压声明(与 VL 同款「本地单飞」实测定调)。
+TABLE_CONCURRENCY = 1
 #: VL 每图超时(秒;管线收紧——交互模式 180s 是裕量,不进管线)。2026-10-03
 #: 真网实测 45s 误杀 describe 长输出(本地 GPU 30-60s 边缘,asyncio.TimeoutError
 #: 的 str 为空导致日志无信息),收紧到 90s;run 级护栏仍由 max_per_run 扛。
@@ -999,6 +1013,31 @@ async def process_item_images(
                     persisted = _persist_images(usable, images_dir)
                     if persisted:
                         item.metadata["image_files"] = [str(p) for p in persisted]
+
+                # ---- 表格还原(可选,10-05-table-restore R6):rapid_table 结
+                # 构化,成功表落 metadata.tables(R6 契约 {markdown, rows,
+                # cols});失败只写 table_status,绝不阻管线。return_exceptions
+                # 聚合 = TableError 与未预期异常同待遇(逐图降级,不连坐)。----
+                if effective.table:
+                    table_sem = asyncio.Semaphore(TABLE_CONCURRENCY)
+
+                    async def _table(path: Path) -> TableResult | None:
+                        async with table_sem:
+                            return await asyncio.to_thread(run_table, path)
+
+                    table_outcomes = await asyncio.gather(
+                        *(_table(d.path) for d in usable), return_exceptions=True
+                    )
+                    tables = [o for o in table_outcomes if isinstance(o, TableResult)]
+                    for outcome in table_outcomes:
+                        if isinstance(outcome, BaseException):
+                            logger.warning(
+                                "表格还原失败(table_provider_error,跳过该图): %s", outcome
+                            )
+                    if tables:
+                        item.metadata["tables"] = [t.to_dict() for t in tables]
+                    if any(isinstance(o, BaseException) for o in table_outcomes):
+                        item.metadata["table_status"] = "table_provider_error"
 
                 ocr_sem = asyncio.Semaphore(OCR_CONCURRENCY)
 

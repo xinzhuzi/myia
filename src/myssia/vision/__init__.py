@@ -41,6 +41,13 @@ from myssia.vision.settings import (
     resolve_cloud_api_key,
     save_vision_config,
 )
+from myssia.vision.table import (
+    INSTALL_COMMAND as TABLE_INSTALL_COMMAND,
+    TableError,
+    TableResult,
+    html_table_to_markdown,
+    run_table,
+)
 
 __all__ = [
     "CHANNELS",
@@ -54,6 +61,9 @@ __all__ = [
     "OCR_ENGINES",
     "OCRError",
     "OcrLine",
+    "TABLE_INSTALL_COMMAND",
+    "TableError",
+    "TableResult",
     "VISION_FILE_NAME",
     "VISION_MIN_WIDTH",
     "VISION_UPSCALE_TARGET",
@@ -61,10 +71,12 @@ __all__ = [
     "VisionConfig",
     "VisionConfigError",
     "VisionResult",
+    "html_table_to_markdown",
     "image_dimensions",
     "load_vision_config",
     "resolve_cloud_api_key",
     "run_ocr",
+    "run_table",
     "save_vision_config",
     "sips_resize",
 ]

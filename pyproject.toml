@@ -48,6 +48,13 @@ llm = ["openai>=1.30"]
 # 无 wheel(传递链 pyobjc 全 macosx wheel,uv.lock 实读;CI run 37117015528
 # Windows sdist 构建炸)。macOS 装配与无标记逐字节等价(marker 恒真)。
 vision = ["ocrmac>=1.0; sys_platform == 'darwin'", "rapidocr-onnxruntime>=1.3", "openai>=1.30", "huggingface-hub>=0.23"]
+# 表格还原(10-05-table-restore,R1/R3):rapid-table(RapidAI 家族 onnx 表格
+# 结构还原,SLANET-plus 模型首用从 modelscope 下载 6.8MB 到包目录,SHA256
+# 校验——3.x 轮并不内置模型,README 措辞已过期,3.0.2 轮实读);单元格文字
+# 走 rapidocr-onnxruntime(vision extras 同栈复用,wrapper 显式喂 ocr_results
+# 绕开其内置新版 rapidocr 通道);tqdm 是 rapid-table 3.0.2 轮的隐性 import
+# (未声明进 requires-dist,main.py:11 实读),显式补上防裸装炸 import。
+table = ["rapid-table>=3.0.2,<4", "rapidocr-onnxruntime>=1.3", "tqdm>=4"]
 all = ["crawl4ai", "scrapling", "firecrawl-py", "skyvern", "openai>=1.30", "huggingface-hub>=0.23"]
 
 [project.scripts]

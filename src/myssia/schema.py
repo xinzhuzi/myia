@@ -1416,6 +1416,15 @@ class ImagesConfig(_StrictModel):
     #: 供 feed 详情展开);缺省 false = 纯文本产物、图文件即弃,行为与
     #: 落图能力引入前逐字段一致(零影响默认;隐私与体积由用户裁量)。
     persist: bool = False
+    #: 表格还原开关(10-05-table-restore,R2):开 = 图片环对通过下载关的
+    #: 图跑 rapid_table 结构化(:func:`myssia.vision.table.run_table`),还原
+    #: 表落 ``metadata.tables = [{markdown, rows, cols}]``(GFM,推送卡片可直
+    #: 接嵌表);引擎缺装/失败只写 ``metadata.table_status =
+    #: "table_provider_error"``,绝不阻管线(与 images 环同款红线)。缺省
+    #: false = 整分支零进入(零影响默认;重依赖 extras ``myssia[table]``,
+    #: 惰性 import)。不开放源级 ``images_table`` 覆写(组件开关是全局
+    #: 语义,与 persist 同不覆写)。
+    table: bool = False
 
 
 # ---------------------------------------------------------------------------
