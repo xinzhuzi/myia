@@ -781,6 +781,33 @@ def test_bundle_detection_requires_dot_app(tmp_path, monkeypatch):
     assert entry._serve_context().home is None
 
 
+def test_bundle_plugins_dir_managed_python_resource_tree(tmp_path, monkeypatch):
+    """托管 Python 形态(非冻结,10-05-desktop-managed-py-env):资源树布局
+    Resources/myssia-src/entry.py → 按本文件相对定位旁级 Resources/plugins。
+
+    装机实测回归钉(2026-10-05 换装):冻结时代 ``sys.frozen`` 门 + exe 相对
+    候选在 ``python -m myssia_desktop_entry`` 形态下恒 None,品类补种静默
+    no-op —— games/news/exposure 永不落数据根,此测试钉死该形态的解析。"""
+    resources = tmp_path / "Resources"
+    src_tree = resources / "myssia-src"
+    src_tree.mkdir(parents=True)
+    shutil.copyfile(ENTRY_PATH, src_tree / "entry.py")
+    bundle = resources / "plugins"
+    bundle.mkdir()
+    (bundle / "games.yaml").write_text(OFFICIAL_TEMPLATE.format(pid="games"), encoding="utf-8")
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    spec = importlib.util.spec_from_file_location("managed_entry_probe", src_tree / "entry.py")
+    managed = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(managed)
+    assert managed._bundle_plugins_dir() == bundle
+
+
+def test_bundle_plugins_dir_dev_tree_stays_none(monkeypatch):
+    """开发树(desktop/entry.py,父目录名非 myssia-src)且非冻结 → None,dev 行为零变化。"""
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    assert entry._bundle_plugins_dir() is None
+
+
 def test_seed_copies_official_plugins_and_marks(tmp_path, monkeypatch):
     """首跑补种:空 plugins → 拷官方四件套 + 写 .seeded;删件后重启补缺回。"""
     home = tmp_path / "home"

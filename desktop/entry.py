@@ -507,16 +507,27 @@ def _bundle_plugins_dir() -> Path | None:
     """随包官方插件目录(Tauri resources;dev 或无资源时 None)。
 
     候选按平台资源布局:macOS .app 的 ``Contents/Resources/plugins``、
-    Windows/Linux 资源保持相对结构落在 exe 旁(``plugins/``)。
+    Windows/Linux 资源保持相对结构落在 exe 旁(``plugins/``);托管 Python
+    形态(10-05-desktop-managed-py-env:壳 spawn ``python -m
+    myssia_desktop_entry``,真解释器非冻结,``sys.frozen`` 恒空)按本文件
+    布局定位 —— 资源树本件在 ``Resources/myssia-src/`` 下,父级即
+    ``Resources``,随包 ``plugins`` 在其旁(与壳侧 pyenv.rs
+    ``RESOURCE_SRC_DIR`` 同名锚点)。开发树本件在 ``desktop/`` 下,目录名
+    不命中,dev 形态行为零变化(仍 None)。
     """
-    if not getattr(sys, "frozen", False):
-        return None
-    exe = Path(sys.executable).resolve()
-    candidates = [
-        exe.parent.parent / "Resources" / "plugins",
-        exe.parent / "plugins",
-        exe.parent / "resources" / "plugins",
-    ]
+    candidates: list[Path] = []
+    # 托管 Python 形态:exe 相对候选恒不可达(解释器在 <数据根>/python/,
+    # 不在 .app 内),资源树布局是唯一可靠锚点。
+    src_root = Path(__file__).resolve().parent
+    if src_root.name == "myssia-src":
+        candidates.append(src_root.parent / "plugins")
+    if getattr(sys, "frozen", False):
+        exe = Path(sys.executable).resolve()
+        candidates += [
+            exe.parent.parent / "Resources" / "plugins",
+            exe.parent / "plugins",
+            exe.parent / "resources" / "plugins",
+        ]
     for candidate in candidates:
         if candidate.is_dir() and any(candidate.glob("*.yaml")):
             return candidate
