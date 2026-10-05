@@ -59,6 +59,7 @@ import { BundledPluginsCard } from "./bundled-plugins-card";
 import { DoctorVerifyPanel } from "./doctor-verify";
 import { ErrorBox } from "./error-box";
 import { FieldInput } from "./field-input";
+import { LabelHint } from "./label-hint";
 import { PyenvCard } from "./pyenv-card";
 import { SettingRow } from "./settings-row";
 import { UpdaterCard } from "./updater-card";
@@ -313,7 +314,12 @@ function EnrichFeedbackCard({
               return (
                 <div key={pluginFile} data-testid={`enrich-row-${pluginFile}`} className="flex flex-col">
                   <SettingRow
-                    label={pluginFile.split("/").pop() ?? pluginFile}
+                    label={
+                      <LabelHint
+                        label={pluginFile.split("/").pop() ?? pluginFile}
+                        tip="开 = 每条情报交给 AI 打个分再入库。预算护栏限制一轮采集最多花多少钱,超了就停;这里是只读回显,想改数额到「配置编辑」改品类文件里的 budget_per_run。"
+                      />
+                    }
                     description={`预算护栏 budget_per_run = ${enrich.budget_per_run}(只读,改值走「配置编辑」)`}
                   >
                     <span className="text-2xs text-muted-foreground">
@@ -680,6 +686,7 @@ function GatesForm({
                     placeholder={`写入 ${secretName};留空不覆盖`}
                     value={paidValues[name] ?? ""}
                     onChange={(event) => setPaidValues((prev) => ({ ...prev, [name]: event.target.value }))}
+                    labelHint="密钥只存进系统钥匙串,配置文件里只存一个指名道姓的引用、不存明文。留空保存不会动已录过的旧密钥。"
                     hint={`值只入钥匙链,配置侧存 ${gate.api_key ?? saasKeyRef(name)} 引用(明文引用会被拒载)`}
                   />
                 </div>
@@ -1377,6 +1384,7 @@ export function SettingsScreen() {
                       value={proxy.pool}
                       onChange={(event) => setProxy((prev) => ({ ...prev, pool: event.target.value }))}
                       error={proxyErrors.pool}
+                      labelHint="池名会拼进凭据保存的名字里(myia/proxy/池名)。同一个池名再存新值就是换密码;字母或数字开头,可以带点、连字符、下划线。"
                       hint="写入 myia/proxy/<池名>;YAML 侧以 keychain: 引用"
                     />
                     <FieldInput

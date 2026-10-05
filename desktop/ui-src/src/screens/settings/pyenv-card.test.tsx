@@ -393,4 +393,46 @@ describe("PyenvCard:设置屏「Python 运行环境」区块", () => {
     await screen.findByTestId("pyenv-state-badge");
     expect(screen.getByTestId("pyenv-state-badge").textContent).toContain("未配置");
   });
+
+  // -------------------------------------------------------------------------
+  // 高困惑字段 tooltip(10-05-ui-chore-batch ①):双镜像覆盖两字段问号提示,
+  // 悬停 → tooltip 出现 + aria-describedby 挂通(与 ui-base 基件自测同口径)。
+  // -------------------------------------------------------------------------
+  it("双镜像覆盖两字段 tooltip:悬停出现人话文案且 aria-describedby 挂通", async () => {
+    installPyenvIpc();
+    installListen();
+    render(<PyenvCard />);
+    await screen.findByTestId("pyenv-state-badge");
+
+    vi.useFakeTimers();
+    try {
+      // 运行时下载源覆盖:讲清「只换下载地址、校验照做」
+      const runtimeTrigger = screen.getByRole("button", { name: "运行时下载源覆盖说明" });
+      fireEvent.mouseEnter(runtimeTrigger);
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      const runtimeTip = screen.getByRole("tooltip");
+      expect(runtimeTip.textContent).toContain("不会下到被改过的包");
+      expect(runtimeTrigger.getAttribute("aria-describedby")).toBe(runtimeTip.id);
+
+      // 关延 80ms + 离场卸载 120ms 快进干净,再验第二个字段
+      fireEvent.mouseLeave(runtimeTrigger);
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+
+      // PyPI 镜像覆盖:讲清「只改去哪儿下载,不影响装什么」
+      const pypiTrigger = screen.getByRole("button", { name: "PyPI 镜像覆盖说明" });
+      fireEvent.mouseEnter(pypiTrigger);
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      const pypiTip = screen.getByRole("tooltip");
+      expect(pypiTip.textContent).toContain("不影响装什么");
+      expect(pypiTrigger.getAttribute("aria-describedby")).toBe(pypiTip.id);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

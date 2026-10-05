@@ -3,6 +3,7 @@ import { useId, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+import { HintButton } from "./label-hint";
 import { SettingRow } from "./settings-row";
 
 interface FieldInputProps extends React.ComponentProps<typeof Input> {
@@ -10,6 +11,9 @@ interface FieldInputProps extends React.ComponentProps<typeof Input> {
   label: string;
   /** 一行说明(引用规则/去向;SettingRow 的 description 位) */
   hint?: ReactNode;
+  /** 高困惑字段的问号提示(10-05-ui-chore-batch ①):有值时 label 旁挂
+   *  LabelHint(tooltip 基件),文案须人话零行话 */
+  labelHint?: string;
   /** 校验错误(前端同口径校验,先挡一道) */
   error?: string | null;
   /** 控件右缘追加位(徽标/动作钮;如云端 key 的「已入钥匙链」徽标) */
@@ -23,12 +27,22 @@ interface FieldInputProps extends React.ComponentProps<typeof Input> {
  * (w-64 控件族);内核仍是共享 ui/input 基件(微填充+低可见描边)。
  * 密钥类字段由调用方传 type="password" + autoComplete="new-password"。
  */
-export function FieldInput({ label, hint, error, action, className, ...props }: FieldInputProps) {
+export function FieldInput({ label, hint, labelHint, error, action, className, ...props }: FieldInputProps) {
   const id = useId();
   const errorId = `${id}-error`;
   return (
     <SettingRow
-      label={<label htmlFor={id}>{label}</label>}
+      label={
+        labelHint ? (
+          // 问号按钮在 label 外(labelable element 不得嵌 label,见 label-hint.tsx 头注)
+          <span className="inline-flex items-center gap-1">
+            <label htmlFor={id}>{label}</label>
+            <HintButton name={label} tip={labelHint} />
+          </span>
+        ) : (
+          <label htmlFor={id}>{label}</label>
+        )
+      }
       description={hint}
       error={error ? <span id={errorId}>{error}</span> : null}
     >

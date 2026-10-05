@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 import { asSidecarError } from "./api";
 import { ErrorBox } from "./error-box";
+import { HintButton } from "./label-hint";
 import {
   onPyenvStatusChanged,
   pyenvGetStatus,
@@ -163,12 +164,15 @@ function PathField({
 /** 镜像覆盖输入(全局版面:label 上/输入全宽/hint 下,不走 w-64 右置控件族)。 */
 function MirrorField({
   label,
+  labelHint,
   hint,
   placeholder,
   value,
   onChange,
 }: {
   label: string;
+  /** 高困惑字段的问号提示(10-05-ui-chore-batch ①):有值时 label 旁挂 LabelHint */
+  labelHint?: string;
   hint: string;
   placeholder: string;
   value: string;
@@ -177,9 +181,13 @@ function MirrorField({
   const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-foreground">
-        {label}
-      </label>
+      {/* 问号按钮在 label 外(labelable element 不得嵌 label,见 label-hint.tsx 头注) */}
+      <div className="flex items-center gap-1">
+        <label htmlFor={id} className="text-sm font-medium text-foreground">
+          {label}
+        </label>
+        {labelHint ? <HintButton name={label} tip={labelHint} /> : null}
+      </div>
       <Input id={id} aria-label={label} placeholder={placeholder} value={value} onChange={onChange} />
       <p className="text-2xs leading-4 text-muted-foreground">{hint}</p>
     </div>
@@ -420,6 +428,7 @@ export function PyenvCard() {
               </h3>
               <MirrorField
                 label="运行时下载源覆盖"
+                labelHint="下载 Python 本体慢或不通时,把下载地址换成国内镜像站上同一个文件的地址。留空 = 官方源。只换下载地址,文件完整性校验照做,不会下到被改过的包。"
                 hint="空 = 随包 manifest 钉版源(indygreg python-build-standalone cpython 3.12.7);镜像只换 URL,不绕 sha256 校验"
                 placeholder="https://mirror.example/cpython-3.12.7-…-install_only.tar.gz"
                 value={mirrorRuntime}
@@ -427,6 +436,7 @@ export function PyenvCard() {
               />
               <MirrorField
                 label="PyPI 镜像覆盖"
+                labelHint="装 Python 依赖包慢时,填国内镜像站地址(如清华、阿里)。留空 = 官方源。只改去哪儿下载,不影响装什么、装哪个版本。"
                 hint="空 = 默认 PyPI;依赖安装(pip install --index-url)取此值"
                 placeholder="https://pypi.tuna.tsinghua.edu.cn/simple"
                 value={mirrorPypi}

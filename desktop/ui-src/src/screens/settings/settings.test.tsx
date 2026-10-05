@@ -4,7 +4,7 @@
 // 覆盖:LLM 凭据保存(只经 secret.set 入钥匙链、值零回显、保存即清)/
 // env: 引用不经界面写 / 表单校验 / secret.set 失败结构化错误 /
 // doctor 回显(凭据存在性 + enrich 现值 + findings)/ 推送凭据保存 / 代理池探测。
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
@@ -1231,5 +1231,74 @@ describe("设置:Python 运行环境分区(python-env)", () => {
     await openSection("python-env");
     expect(screen.getByTestId("settings-section-python-env")).toBeTruthy();
     expect(await screen.findByTestId("pyenv-card")).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 高困惑字段 tooltip(10-05-ui-chore-batch ①,池档 v12-backlog 第 8 项翻案):
+// LabelHint 问号按钮悬停 → tooltip 出现且 trigger 的 aria-describedby 挂通
+// tooltip id(a11y 契约与 ui-base.test.tsx 基件自测同口径,业务消费面钉例)。
+// ---------------------------------------------------------------------------
+
+describe("设置:高困惑字段 tooltip(预算护栏/池名/门槛件 API Key)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** 悬停问号按钮 → 快进 300ms 开延 → 返回 tooltip 与 trigger 断言对 */
+  function hoverForTip(trigger: HTMLElement) {
+    fireEvent.mouseEnter(trigger);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    const tip = screen.getByRole("tooltip");
+    return { tip, describedby: trigger.getAttribute("aria-describedby") };
+  }
+
+  /** 关延 80ms + 离场卸载 120ms 全快进,防两个 tooltip 并存干扰 getByRole */
+  function closeTip(trigger: HTMLElement) {
+    fireEvent.mouseLeave(trigger);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+  }
+
+  it("通用分区:预算护栏行(品类问号)+ 代理池池名 tooltip 挂通", async () => {
+    installSidecar(() =>
+      doctorFixture({
+        plugins: [pluginFixture("plugins/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
+      }),
+    );
+    renderScreen();
+    await screen.findByTestId("enrich-row-plugins/stocks.yaml");
+
+    vi.useFakeTimers();
+    // 预算护栏行:品类名旁问号,文案讲人话(只读回显为何改不了)
+    const budgetTrigger = screen.getByRole("button", { name: "stocks.yaml说明" });
+    const budget = hoverForTip(budgetTrigger);
+    expect(budget.tip.textContent).toContain("预算护栏");
+    expect(budget.tip.textContent).toContain("配置编辑");
+    expect(budget.describedby).toBe(budget.tip.id);
+    closeTip(budgetTrigger);
+
+    // 代理池池名:凭据命名规则(myia/proxy/<池名>)
+    const poolTrigger = screen.getByRole("button", { name: "池名说明" });
+    const pool = hoverForTip(poolTrigger);
+    expect(pool.tip.textContent).toContain("myia/proxy/");
+    expect(pool.describedby).toBe(pool.tip.id);
+  });
+
+  it("门槛件分区:SaaS API Key 值 tooltip(钥匙链引用/留空不覆盖)", async () => {
+    installSidecar();
+    renderScreen();
+    await openSection("gates");
+    // 官方 SaaS 逐件渲染(zenrows 行内定位,防多行同 aria-label 撞名)
+    const row = await screen.findByTestId("gates-saas-row-zenrows");
+    const trigger = within(row).getByRole("button", { name: "API Key 值说明" });
+
+    vi.useFakeTimers();
+    const { tip, describedby } = hoverForTip(trigger);
+    expect(tip.textContent).toContain("留空保存不会动已录过的旧密钥");
+    expect(describedby).toBe(tip.id);
   });
 });
