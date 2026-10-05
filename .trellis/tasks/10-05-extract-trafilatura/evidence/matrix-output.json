@@ -1,0 +1,89 @@
+{
+  "trafilatura_version": "2.3.0",
+  "api_note": "bare_extraction 返回 Document 对象(v1 实测);钉 extract(output_format='json') 稳定面",
+  "matrix": {
+    "A_文章页": {
+      "有规则源_现状": {
+        "label": "A1:手写 item 规则命中旧版结构(精确字段)",
+        "outcome": [
+          {
+            "title": "机库起火事故调查报告发布",
+            "content": "事故调查组周五发布了最终调查报告,指出起火原因与配电线路老化有关。报告全文共 87 页,涵盖了事发经过、责任认定与整改建议三个部分。"
+          }
+        ]
+      },
+      "无规则源_加trafilatura后": {
+        "label": "A2:文章页零配置兜底(导航/广告/页脚剥除取证)",
+        "outcome": {
+          "title": "EXAMPLE 新闻网",
+          "date": "2026-10-05",
+          "source": "https://example.org/news/2026-10-05/story",
+          "text_chars": 203,
+          "text_head_150": "机库起火事故调查报告发布⏎事故调查组周五发布了最终调查报告,指出起火原因与配电线路老化有关。报告全文共 87 页,涵盖了事发经过、责任认定与整改建议三个部分。⏎调查组负责人在发布会上表示,涉事机库的配电线路自 2014 年以来未进行过大修,线路绝缘层多处破损,最终在持续高负载下短路起火。⏎报告同时建"
+        },
+        "note": "JSON 键面=['author', 'categories', 'comments', 'date', 'excerpt', 'filedate', 'fingerprint', 'hostname', 'id', 'image', 'language', 'license', 'pagetype', 'raw_text', 'source', 'source-hostname', 'tags', 'text', 'title']"
+      }
+    },
+    "B_列表页": {
+      "有规则源_现状": {
+        "label": "B1:手写 list 规则命中(3 条结构化条目)",
+        "outcome": [
+          {
+            "title": "调查报告发布:机库起火原因查明",
+            "url": "https://example.org/items/1001",
+            "image": "https://example.org/img/1001.jpg"
+          },
+          {
+            "title": "新款 AI 芯片发布,算力翻倍",
+            "url": "https://example.org/items/1002",
+            "image": "https://example.org/img/1002.jpg"
+          },
+          {
+            "title": "开源社区宣布合并两大基金会",
+            "url": "https://example.org/items/1003",
+            "image": "https://example.org/img/1003.jpg"
+          }
+        ]
+      },
+      "无规则源_加trafilatura后": {
+        "label": "B2:列表页喂启发式(退化噪声形态取证)",
+        "outcome": {
+          "title": "最新资讯",
+          "date": "2026-01-01",
+          "source": "https://example.org/news",
+          "text_chars": 78,
+          "text_head_150": "首页⏎|⏎新闻⏎|⏎科技⏎|⏎财经⏎|⏎体育⏎|⏎登录⏎最新资讯⏎调查报告发布:机库起火原因查明⏎新款 AI 芯片发布,算力翻倍⏎开源社区宣布合并两大基金会"
+        },
+        "note": "JSON 键面=['author', 'categories', 'comments', 'date', 'excerpt', 'filedate', 'fingerprint', 'hostname', 'id', 'image', 'language', 'license', 'pagetype', 'raw_text', 'source', 'source-hostname', 'tags', 'text', 'title']"
+      }
+    },
+    "C_改版失效源": {
+      "有规则源_跑空": {
+        "label": "C1:改版后旧规则零命中(整页 0 条=现状静默失效)",
+        "outcome": []
+      },
+      "改版文章页_规则跑空加trafilatura后": {
+        "label": "C2:改版文章页兜底(正文仍在,启发式可救)",
+        "outcome": {
+          "title": "机库起火事故调查报告发布",
+          "date": "2026-10-05",
+          "source": "https://example.org/news/2026-10-05/story",
+          "text_chars": 203,
+          "text_head_150": "机库起火事故调查报告发布⏎事故调查组周五发布了最终调查报告,指出起火原因与配电线路老化有关。报告全文共 87 页,涵盖了事发经过、责任认定与整改建议三个部分。⏎调查组负责人在发布会上表示,涉事机库的配电线路自 2014 年以来未进行过大修,线路绝缘层多处破损,最终在持续高负载下短路起火。⏎报告同时建"
+        },
+        "note": "JSON 键面=['author', 'categories', 'comments', 'date', 'excerpt', 'filedate', 'fingerprint', 'hostname', 'id', 'image', 'language', 'license', 'pagetype', 'raw_text', 'source', 'source-hostname', 'tags', 'text', 'title']"
+      },
+      "改版列表页_规则跑空加trafilatura后": {
+        "label": "C3:改版列表页兜底(列表形态,启发式退化取证)",
+        "outcome": {
+          "title": "最新资讯",
+          "date": "2026-01-01",
+          "source": "https://example.org/news",
+          "text_chars": 51,
+          "text_head_150": "首页⏎|⏎新闻⏎最新资讯⏎台风路径最新预报:明日登陆⏎量子计算原型机误差率创新低⏎城市轨道交通新线开通"
+        },
+        "note": "JSON 键面=['author', 'categories', 'comments', 'date', 'excerpt', 'filedate', 'fingerprint', 'hostname', 'id', 'image', 'language', 'license', 'pagetype', 'raw_text', 'source', 'source-hostname', 'tags', 'text', 'title']"
+      }
+    }
+  }
+}

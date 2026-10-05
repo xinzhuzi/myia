@@ -1,0 +1,9 @@
+== pagetype 判别力 ==
+A 文章页  : pagetype=None title='EXAMPLE 新闻网' date='2026-10-05' text_chars=203
+B 列表页  : pagetype=None title='最新资讯' date='2026-01-01' text_chars=78
+C2 改版文章页: pagetype=None title='机库起火事故调查报告发布' date='2026-10-05' text_chars=203
+C3 改版列表页: pagetype=None title='最新资讯' date='2026-01-01' text_chars=51
+D 纯导航页: pagetype=None title=None date='2026-01-01' text_chars=6
+
+== extract=None 现状(static_html 拒载) ==
+raise FetchError: error_type=extract_required msg=static_html 引擎需要配置 extract 节(v0.1 不做自动结构化)

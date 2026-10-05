@@ -24,10 +24,14 @@
 
 ## Acceptance Criteria(骨架)
 
-- [ ] AC1:共存边界定案(触发条件/输出契约/provenance)记档,逐源行为矩阵在档。
-- [ ] AC2:挂点档位定案(回退 vs enrich 平行)记档,与降级链的交互面说清。
-- [ ] AC3:手写规则路径零回归=硬门;trafilatura 路径=可用性验收(AC 定案时细化)。
-- [ ] AC4:本任务止于评估定案+设计;planning 期零核心文件改动。
+- [x] AC1:共存边界定案(触发条件/输出契约/provenance)记档,逐源行为矩阵在档。
+  ——回填(2026-10-05):research.md §2(三分触发:①规则缺失→兜底主路/②规则跑空→质量门后兜底/③字段级失败→不兜底;输出契约=`{url,title,content[,published,author]}` 零新键对齐 items schema;provenance=`metadata["extract_provenance"]="trafilatura"` 仅兜底条目,规则路径零新键)+§2.4 三列行为矩阵(离线夹具真跑,evidence/matrix-output.json)。
+- [x] AC2:挂点档位定案(回退 vs enrich 平行)记档,与降级链的交互面说清。
+  ——回填(2026-10-05):research.md §3 定案=static_html 引擎内回退;降级链/engine_hints/失败记账逐项推演(§3.1),enrich 平行三重架构性否决理由(§3.2),启发式噪声=触达面天然窄+产出质量后验门(§3.3,pagetype 判据实证不可用)。
+- [x] AC3:手写规则路径零回归=硬门;trafilatura 路径=可用性验收(AC 定案时细化)。
+  ——回填(2026-10-05):research.md §5 守军清单(处理域文件面 7 件行号级+测试面 9 件逐名)为硬门勾选依据;§6 验收口径定案(可用性判据=「无规则源拿到可用正文」A2/C2 形态;噪声如实记档不设质量分门)。
+- [x] AC4:本任务止于评估定案+设计;planning 期零核心文件改动。
+  ——自查声明(2026-10-05):全程仅写本档目录内文件(research.md/evidence/ 五件/prd.md/task.json),`git status --porcelain` 每步核对,核心文件(src/tests/pyproject)零改动零暂存;依赖实证走 /tmp/traf-eval venv,不碰仓库环境。
 
 ## Constraints
 

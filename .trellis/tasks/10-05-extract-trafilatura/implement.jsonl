@@ -1,2 +1,4 @@
 {"file": ".trellis/tasks/10-05-plugin-market-batch/research.md", "reason": "第六波 trafilatura 结案段(补手写规则两盲区/兜底定位/挂点两候选)+第二三四波归位轨迹——共存边界定案的 evidence 源"}
 {"file": ".trellis/spec/python/index.md", "reason": "核心 6 依赖红线/可选依赖纪律——trafilatura 进可选依赖路径的合规约束"}
+{"file": ".trellis/tasks/10-05-extract-trafilatura/research.md", "reason": "评估定案主档:AC1 共存边界(三分触发/零新键输出契约/provenance)+AC2 挂点定案(引擎内回退,enrich 平行否决)+三列行为矩阵+依赖面+守军清单(AC3 硬门依据)+R4 留实现期改动清单"}
+{"file": ".trellis/tasks/10-05-extract-trafilatura/evidence/", "reason": "五件:/tmp/traf-eval venv(trafilatura 2.3.0)离线夹具真跑原始输出与可复现脚本——共存实证+行为矩阵+pagetype 判别力探测+extract_required 拒载实证"}
