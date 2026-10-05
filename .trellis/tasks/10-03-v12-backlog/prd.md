@@ -140,6 +140,11 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
      (②b)与代理池测试按钮两 UI 件,避免面铺宽。**翻案极小方案**(留池,
      半小时量):ui/tooltip.tsx 直接消费,设置屏 3-5 个高困惑字段(enrich
      模型/探测路径/gates 凭据引用)挂 Radix Tooltip + vitest a11y 断言。
+     → **已消号(2026-10-05 晚,翻案落地)**:归属 `10-05-ui-chore-batch`
+     子件①——五字段挂通(预算护栏行/代理池池名/gates SaaS API Key 值/
+     运行时下载源覆盖/PyPI 镜像覆盖),新组件 label-hint.tsx(HintButton+
+     LabelHint)消费既有基件,a11y 断言 aria-describedby 接通三例入
+     settings/pyenv 测试;基件不装包红线维持(自研实现非 Radix 真包)。
    - snooze 到期重现(稍后读=本地态 later 桶、无到期重现,Linear H 键未对标;
      matrix 原文标「留池(v2)」;出处 matrix §二/路由 R7)
    - 设置搜索(`rg 搜索 settings-screen.tsx` 零命中;teardown 自身标注
@@ -163,6 +168,11 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
    - 改进:补验/自动化拉起的实例在窗体自标识(标题后缀「(沙箱)」或顶栏
      细横幅,按 MYIA_HOME 指向一次性目录判定),UI 半行级 + vitest 一例。
    - 量级:半小时;随下个桌面 UI 批顺手带,不单独立项。
+   - **回标(2026-10-05 晚)**:**已消号**——归属 `10-05-ui-chore-batch`
+     子件②:Rust 侧最小面落地(纯函数 sandbox_title + setup set_title,
+     判定=壳进程 env 显式 MYIA_HOME,与 data_root/单实例锁 var_os 分支同
+     口径;置冒烟路由/亮窗之前),主窗标题「世事(沙箱)」;测试按实现面
+     取 cargo 单测两例(Some 加后缀/None 透传)非 vitest。
 ## 主人侧前置(2026-10-03 grill Q4 已答)
 
 - **Windows 真机/VM:有**——v1.2 Windows 拆任务按完整安装冒烟口径(对齐 macOS 的
