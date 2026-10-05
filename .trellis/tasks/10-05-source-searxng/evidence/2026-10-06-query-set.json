@@ -1,0 +1,163 @@
+{
+ "date": "2026-10-06",
+ "instance": "http://127.0.0.1:8888",
+ "params": "format=json&language=zh-CN&safesearch=1&pageno=1&categories=web",
+ "words": [
+  {
+   "label": "舆情词1·人工智能 监管",
+   "total_results": 55,
+   "unresponsive_count": 12,
+   "top3": [
+    {
+     "url": "https://dream.kotra.or.kr/dream/cms/link/actionLinkBoardDetail.do?MENU_ID=3490&pTmplateCd=NT2302&pDataId=25021407000058970100&pUntyDsetId=GD0488",
+     "title": "我国建立人工智能安全监管制度的必要性及现实路径",
+     "content": "要发挥行政治理的主导作用，充分利用市场治理和社群治理等多种治理模式；治理架构方面，要强化协同治理、构建人工智能监管合力；治理工具方面，要充分利用法律、政策、规范标准等强制性和指导性治理工具。未来，我国",
+     "engines": [
+      "naver"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    },
+    {
+     "url": "https://zh.wikipedia.org/wiki/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD%E7%9B%91%E7%AE%A1",
+     "title": "人工智慧監管- 維基百科，自由的百科全書",
+     "content": "人工智慧監管 編輯 ... 人工智慧監管是指公共部門為促進和規範人工智慧而制定的政策與法律。在全球各司法管轄區，包括像IEEE或OECD這樣沒有直接執法權的國際組織，人工智慧的 ...",
+     "engines": [
+      "google cse"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    },
+    {
+     "url": "https://dream.kotra.or.kr/dream/cms/link/actionLinkBoardDetail.do?MENU_ID=3490&pTmplateCd=NT2302&pDataId=25011707000058569512&pUntyDsetId=GD0488",
+     "title": "加强人工智能监管 - 해외경제정보드림",
+     "content": "목록 加强人工智能监管 2025-01-17 출처 :대외경제정책연구원 원문보기 AI 추천 人工智能（AI）是新一轮科技革命和产业变革的重要驱动力量，将对全球经济社会发展和人类文明进步产生深远影响",
+     "engines": [
+      "naver"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    }
+   ]
+  },
+  {
+   "label": "舆情词2·数据泄露 事件 通报",
+   "total_results": 60,
+   "unresponsive_count": 11,
+   "top3": [
+    {
+     "url": "https://www.cac.gov.cn/2025-09/15/c_1759583017717009.htm",
+     "title": "国家网络安全事件报告管理办法_中央网络安全和信息化委员会办公室",
+     "content": "Sep 11, 2025 · 2.核心数据、重要数据、大量公民个人信息丢失或被窃取、篡改、假冒，对国家安全和社会稳定构成严重威胁。 3.其他对国家安全、社会秩序、经济建设和公众利益构成严重威胁、造成严",
+     "engines": [
+      "google cse",
+      "yahoo"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    },
+    {
+     "url": "https://www.secrss.com/articles/81229",
+     "title": "数据泄漏通报机制对比：知情不报，该当何罪？ - 安全内参 | 决策者的...",
+     "content": "Jul 24, 2025 · 尝试比较不同司法辖区的数据泄露通报机制，尤其是违反通报要求的行政处罚。 自2025年年初以来，驴包持续曝光的客户信息泄漏事件，为了解亚太地区主要司法辖区的个保、数据法规制",
+     "engines": [
+      "google cse",
+      "yahoo"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    },
+    {
+     "url": "https://www.lvbug.com/",
+     "title": "黑客服务 - 来自暗网的中文黑客技术服务网站!",
+     "content": "暗网黑客論壇,駭客服務交易针对全球用户.论坛平台接单;密码及网站破解/负面丑闻成绩删改/虚拟币欺盗追退/等/黑客论坛网站联系Telegram:@Bug2012",
+     "engines": [
+      "naver"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    }
+   ]
+  },
+  {
+   "label": "竞品词·Feedly 发布",
+   "total_results": 65,
+   "unresponsive_count": 10,
+   "top3": [
+    {
+     "url": "https://blog.csdn.net/blog_programb/article/details/138782714",
+     "title": "Feedly 是一款提供了跨平台的 RSS 阅读服务，支持多种设备和平台-CSDN...",
+     "content": "Feedly 是一款提供了跨平台的 RSS 阅读服务，支持多种设备和平台。 您可以通过以下步骤使用 Feedly： 访问 https://feedly.com/ ，使用您的 Google 或 Face",
+     "engines": [
+      "google cse",
+      "duckduckgo",
+      "yahoo"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    },
+    {
+     "url": "https://taggbox.com/zh-CN/blog/add-rss-feed-to-feedly/",
+     "title": "将RSS 源添加到Feedly | 快速简易设置指南 - Taggbox",
+     "content": "2026年6月3日 ... Feedly 是一款RSS 阅读器，它可以收集这些订阅源，并将它们显示在一个简洁的控制面板中。 与其每天访问多个网站，不如使用Feedly 的RSS 源添加功能，将 ...",
+     "engines": [
+      "google cse"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    },
+    {
+     "url": "https://gomrcuriosity.com/feedly-introduction/",
+     "title": "Feedly - 強大的RSS 訂閱軟體，幫你拿回閱讀的自主權吧！ - 好奇先生",
+     "content": "2022年8月27日 ... 根據維基百科的介紹， RSS 的全名是Really Simple Syndication ，是一種訊息來源格式規範，用以聚合經常發布更新資料的網站，例如部落格文章、新聞 ",
+     "engines": [
+      "google cse"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    }
+   ]
+  },
+  {
+   "label": "事件词·苹果 发布会 10月",
+   "total_results": 65,
+   "unresponsive_count": 10,
+   "top3": [
+    {
+     "url": "https://news.qq.com/rain/a/20260929A04TGY00",
+     "title": "苹果 10 月第二场发布会前瞻：iPad mini 8 与 iPad 12 看点梳理",
+     "content": "爱思助手消息，本月初，苹果秋季发布会一口气更新了 iPhone 18 Pro 系列、折叠屏 iPhone Duo、新款 Apple Watch 以及 AirPods 5；月末还上线了 M6/M5 Pr",
+     "engines": [
+      "google cse",
+      "duckduckgo",
+      "yahoo"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    },
+    {
+     "url": "https://www.apple.com.cn/apple-events/",
+     "title": "Apple 活动 - Apple (中国大陆)",
+     "content": "Apple 特别活动 2024 年 9 月 10 日. 全新iPhone 16 Pro 和iPhone 16、Apple Watch Series 10 和AirPods 4 联袂登场。全新配色的Ap",
+     "engines": [
+      "google cse",
+      "duckduckgo",
+      "yahoo"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    },
+    {
+     "url": "https://www.apple.com.cn/newsroom/2026/09/apple-unveils-iphone-duo/",
+     "title": "Apple 发布iPhone Duo - Apple (中国大陆)",
+     "content": "2026年9月9日 ... iPhone Duo 提供两种精妙配色：星光白色与夜空色。新款机型自10 月16 日（星期五）起接受预购，10 月23 日（星期五）起正式发售。 “iPhone ...",
+     "engines": [
+      "google cse"
+     ],
+     "template": "default.html",
+     "publishedDate": null
+    }
+   ]
+  }
+ ]
+}

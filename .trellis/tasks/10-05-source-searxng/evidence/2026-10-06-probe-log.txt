@@ -1,0 +1,127 @@
+SearXNG 探查实录(2026-10-06,§8 清单逐项真跑回执)
+================================================================
+实例:http://127.0.0.1:8888(docker compose,~/.searxng-probe/)
+镜像:docker.io/searxng/searxng:latest = 2026.10.4+d48c4b555(colima docker
+29.8.2 client / 29.5.2 server,aarch64 VM 4CPU/8GiB)
+配置:use_default_settings: true + search.formats [html, json] +
+      engines.bing disabled:false(本机出口补偿,见 ⑧);limiter 默认 false
+方法:curl 单次纪律(每探针一发,失败查因不重发);搜索词间 sleep 3-5s;
+      全程 ~14 次 /search 派发(含 limiter 拦截面,未达上游的不计)
+
+----------------------------------------------------------------
+① 起栈+冒烟(research §1 步骤)
+----------------------------------------------------------------
+$ docker compose up -d        # core(8888→8888)+ valkey 两容器
+$ curl http://127.0.0.1:8888/healthz
+OK | HTTP 200
+$ curl http://127.0.0.1:8888/config   # 摘录
+  limiter: {"botdetection.ip_limit.link_token": false,
+            "botdetection.ip_lists.pass_searxng_org": true, "enabled": false}
+  public_instance: false | version: 2026.10.4+d48c4b555
+  engines: 261 项(启用 81)| categories: 33 项
+  locales 含 zh-Hans-CN / zh-Hant-TW / zh-HK
+
+【坑①·colima /tmp 挂载陷阱(重要部署注记)】
+最初按计划放 /tmp/searxng-probe:bind mount 源路径在 macOS /tmp,colima
+默认只共享家目录,VM 内 /tmp 是本地空目录 → 容器看不到 settings.yml →
+entrypoint 日志「"/etc/searxng/settings.yml" does not exist, creating
+from template」→ 从镜像模板重建(无 search.formats)→ json 静默关闭 →
+一切 format=json 请求 403。迁移到 ~/.searxng-probe(家目录=colima 默认
+共享)后容器内 settings.yml=宿主原件,403 消失。
+生产注记:任何 colima/docker-in-VM 部署,compose 目录必须放守护进程
+可见的共享路径(Docker Desktop 无此问题)。
+
+----------------------------------------------------------------
+② 缺省参数实快照(research §2 对账)
+----------------------------------------------------------------
+A. prd.md:26 原样形状(无 categories 参数,走默认 general 类):
+   GET /search?q=人工智能 监管&format=json&language=zh-CN&safesearch=1&pageno=1
+   → HTTP 200,288 bytes,results:[](空)
+   → 快照:2026-10-06-search-default-general-zero.json
+   unresponsive_engines(5):brave/timeout, duckduckgo/CAPTCHA,
+   google cse/timeout, wikidata/timeout, wikipedia/timeout
+   原因:全新实例默认启用的 general 类引擎仅 9 个小引擎
+   (wikipedia/currency/wikidata/duckduckgo/google cse/lingva/
+   dictzone/mymemory translated/brave),本机出口(CN 直连)对
+   google/brave/wikipedia 受限、duckduckgo 掷 CAPTCHA → 全灭。
+B. categories=web(大类池:google cse/naver/qwant 系/bing/ddg/brave…):
+   同词同参+&categories=web → HTTP 200,71907 bytes,results 55 条
+   引擎分布:google cse 20 + google cse images 20 + naver 15
+   → 快照:2026-10-06-search-web-zhcn.json
+   【挂点定案依据】MYIA 引擎请求须带 categories=web(见 research §9)。
+
+----------------------------------------------------------------
+③ 三态+分页(research §4 对账)
+----------------------------------------------------------------
+- 缺 q+format=json → HTTP 400,body: {"error": "No query"}(预测中)
+- 未开 json(改 formats:[html] 复现,limiter 已关防 429 掩蔽):
+  format=json → HTTP 403,Flask 默认 HTML 错误页(text/html,
+  非 JSON);format=csv 同 403。零上游成本(路由层即拒)。
+- 冷门词/引擎全灭 → HTTP 200 + results:[](空数组不报错,②A 即实拍)
+- pageno=2 增量(同词 categories=web):p1=55 条,p2=62 条,
+  p2 中 55 条为新 URL(7 条重叠)→ 上游语义分页+增量成立,
+  佐证 research §3「逐词固定 pageno=1」建议。
+  注意:本构建 bing 主引擎 /config 报 paging:false(分页支持以
+  引擎自报为准,google cse/naver 实测可翻)。
+
+----------------------------------------------------------------
+④ limiter 两态(research §5-2 口径定案)
+----------------------------------------------------------------
+默认态(false):直连零拦截,裸 curl/httpx 全通(①②③ 全程即证)。
+开启态(server.limiter: true + valkey.url: valkey://valkey:6379/0):
+- 裸 curl(UA=curl/x,无 Accept-Language)→ HTTP 429 "Too Many
+  Requests"(17 字节纯文本)——连 /config 都拦;
+- httpx 默认头(UA=python-httpx/0.28.1,无 Accept-Language)
+  → HTTP 429;
+- httpx 仅补 Accept-Language: zh-CN,zh;q=0.9 → HTTP 200 JSON
+  (37822 bytes)——【定案】拦的是缺 Accept-Language 这一件,
+  python-httpx UA 本身不拦;
+- 浏览器全套头(Accept/A-L/A-E+Chrome UA)→ HTTP 200(54989 bytes)。
+→ 逐条记录:2026-10-06-limiter-states.txt
+
+----------------------------------------------------------------
+⑤ zh-CN 接受面
+----------------------------------------------------------------
+language=zh-CN 全程 200(①②③④ 各态);categories=web 下与无
+language 参数结果分布一致(google cse/naver 同构),naver 返回中文
+结果(韩站中文页)、google cse 命中 zh.wikipedia.org → 接受面确认,
+zh-CN 属 SearXNG region 集合(引擎按 regions 过滤)。
+
+----------------------------------------------------------------
+⑥ 查询词示例集(关键词日报骨架)
+----------------------------------------------------------------
+四词各取前 3 条(脱敏:title/url/content 截 100 字/engines/template/
+publishedDate)→ 2026-10-06-query-set.json
+  舆情词1「人工智能 监管」55 条(cac/维基/人民网系结果)
+  舆情词2「数据泄露 事件 通报」60 条(cac.gov.cn/secrss 等)
+  竞品词「Feedly 发布」65 条(CSDN/Taggbox 等)
+  事件词「苹果 发布会 10月」65 条(apple.com.cn/腾讯科技等)
+
+----------------------------------------------------------------
+⑦ 20 条入库截图:随实现批(prd.md:62-64 AC 门控),本批不做
+----------------------------------------------------------------
+
+----------------------------------------------------------------
+⑧ 结果契约核验(research §2.2/§2.3 对账,55 条实快照)
+----------------------------------------------------------------
+- results[0] 键集 = §2.3 骨架 23 键全中(audio_src…views);
+- 骨架外新键 6 个全部来自 images.html 行(google cse images):
+  filesize/formats/img_format/resolution/source/thumbnail_src
+  → template != "default.html" 过滤建议有据(images 卡混入 web 池);
+- publishedDate:web 池前 12 条全 null(§2.2「多数 general 上游
+  不给=null」实证);
+- template 分布:default.html 35 + images.html 20;
+- unresponsive_engines 形状 [引擎名, 错误串] 与 §2.2 一致;
+- 顶层七键 query/results/answers/corrections/infoboxes/
+  suggestions/unresponsive_engines(无 number_of_results,§2.2 一致)。
+
+----------------------------------------------------------------
+⑨ 本机出口引擎实况(自托管引擎策展注记,逐次可抖动)
+----------------------------------------------------------------
+可达且出结果:google cse / google cse images / naver / qwant videos
+ flap:duckduckgo(CAPTCHA↔timeout)、wikipedia/wikidata(200↔timeout)
+ 拒:brave 429、google 主引擎 access denied、yahoo/seznam timeout
+ 异常:bing settings 覆盖启用后 enabled:true 但零结果零报错
+ (!bang 定向亦 0 条、unresponsive 空)——未深挖,如实记;
+ 容器内 urllib 直测 www.bing.com/search 0.42s HTTP 200(网络可达,
+ 问题在引擎实现侧或其指纹面)。引擎策展=部署侧一回事,见 §9。

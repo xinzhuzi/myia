@@ -1,0 +1,29 @@
+§8-④ limiter 两态实测记录(2026-10-06,http://127.0.0.1:8888)
+================================================================
+开启动作:core-config/settings.yml 增
+  server: { limiter: true }
+  valkey:  { url: valkey://valkey:6379/0 }
+docker compose restart core 后 /config:
+  limiter {"botdetection.ip_limit.link_token": false,
+           "botdetection.ip_lists.pass_searxng_org": true, "enabled": true}
+
+[开·裸 curl]  curl http://127.0.0.1:8888/config
+  → HTTP 429 "Too Many Requests"(纯文本 17 字节;/config 也被拦)
+
+[开·httpx 默认头]  GET /search?q=人工智能 监管&format=json&language=zh-CN
+                   &safesearch=1&pageno=1&categories=web
+  请求头:host / accept: */* / accept-encoding: gzip, deflate /
+          connection: keep-alive / user-agent: python-httpx/0.28.1
+  → HTTP 429 bytes 17,body "Too Many Requests"
+
+[开·httpx 仅补 Accept-Language]  同上 + Accept-Language: zh-CN,zh;q=0.9
+  → HTTP 200 bytes 37822,body {"query": "人工智能 监管", "results": …
+
+[开·httpx 浏览器全套头]  Accept+Accept-Language+Accept-Encoding+Chrome UA
+  → HTTP 200 bytes 54989(JSON)
+
+定论:缺 Accept-Language 是被拦的那一件;python-httpx UA 不在拦截面。
+词间 sleep 6s;被 429 的请求未达上游。
+
+[关·还原]  移除 limiter/valkey 两节,restart 后 /config
+  limiter.enabled: false;终态 json 探针 HTTP 200(17878 bytes)。

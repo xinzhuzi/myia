@@ -3,7 +3,7 @@
   "name": "10-05-source-searxng",
   "title": "SearXNG 搜索式情报源(自托管元搜索→关键词日报)",
   "description": "两段式:探查先行(docker 起自托管实例+开 format=json+接口快照/限流口径落 research.md)后实现(engines/searxng.py queries 多词+礼貌间隔+既有 url metric 去重);AGPL 服务消费零代码复用同 RSSHub 判例;示例 YAML 缺省不启用。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -25,6 +25,6 @@
     "src/myssia/schema.py",
     "plugins/searxng.yaml"
   ],
-  "notes": "由 v12-backlog 池第 10 项拆出;硬前置=主人愿跑自托管 docker;不做公共实例代理(明禁 API 滥用) | 放行回执:问题:自托管 docker 前提。做法:主人整体放行,排队第 4;探查段用本机 docker compose 先行验证(不依赖主人服务器),部署上生产才需主人侧 docker;AGPL 服务消费判例在档。 | blocked 回执(2026-10-05 探查段):本机 docker 前置未满足——Docker.app 已卸载(/Applications 无应用,/usr/local/bin/docker 悬空符号链接,无 docker.sock/colima/podman/orbstack,逐项探查证据在 research.md §0),按 prd.md:63-64 AC 门控降级:research.md 已按官方文档取证写成草案(GitHub searxng/searxng master:settings.yml/webapp.py/webutils.py/result_types/limiter.py+官方 docs,接口形状/json 开启步骤/分页/错误三态/限流默认 false 口径全落,含两处 prd 纠偏:分页参数是 pageno 非 p、日期字段是 publishedDate 非 publisheddates),全程标注「未实测,docker 前置未满足」,真跑补齐清单在 research.md §8(装回 Docker Desktop 后照单执行);引擎实现零代码零提交未动(探查过了另批)。",
+  "notes": "由 v12-backlog 池第 10 项拆出;硬前置=主人愿跑自托管 docker;不做公共实例代理(明禁 API 滥用) | 放行回执:问题:自托管 docker 前提。做法:主人整体放行,排队第 4;探查段用本机 docker compose 先行验证(不依赖主人服务器),部署上生产才需主人侧 docker;AGPL 服务消费判例在档。 | blocked 回执(2026-10-05 探查段):本机 docker 前置未满足——Docker.app 已卸载(/Applications 无应用,/usr/local/bin/docker 悬空符号链接,无 docker.sock/colima/podman/orbstack,逐项探查证据在 research.md §0),按 prd.md:63-64 AC 门控降级:research.md 已按官方文档取证写成草案(GitHub searxng/searxng master:settings.yml/webapp.py/webutils.py/result_types/limiter.py+官方 docs,接口形状/json 开启步骤/分页/错误三态/限流默认 false 口径全落,含两处 prd 纠偏:分页参数是 pageno 非 p、日期字段是 publishedDate 非 publisheddates),全程标注「未实测,docker 前置未满足」,真跑补齐清单在 research.md §8(装回 Docker Desktop 后照单执行);引擎实现零代码零提交未动(探查过了另批)。 | 探查段回执(2026-10-06,docker 解锁 colima 29.8.2 后 §8 清单全项真跑):①官方 compose 原样起栈(~/.searxng-probe,SEARXNG_PORT=8888,镜像 2026.10.4+d48c4b555)+healthz 200+/config(limiter 默认 false,261 引擎 82 启用);②缺省参数实快照两态=general 默认类 0 结果(全新实例弱池 9 引擎+本机出口受限,288 bytes 空态快照)/categories=web 55 条(71907 bytes 实快照,§2.2/§2.3 契约 23 键全中+images 附加键 6 个+publishedDate 全 null+template 过滤必要性实证);③三态全命中=format 未激活 403(Flask HTML 非 JSON,csv 同,零上游)/缺 q 400 {\"error\": \"No query\"}/引擎全灭空 results 200/pageno=2 增量 55→62 条(55 新 URL);④limiter 两态定案=默认 false 直连,开 true+valkey 后裸 curl 429(连 /config 都拦)、httpx 默认头 429、仅补 Accept-Language 即 200(python-httpx UA 不拦);⑤language=zh-CN 接受(全程 200,naver/google cse 中文结果);⑥四词示例集(舆情×2/竞品×1/事件×1=55/60/65/65 条)前 3 条脱敏落档;⑦20 条入库截图随实现批(prd.md:62-64 AC 门控)。evidence 六件:2026-10-06-probe-log/limiter-states/config-final/search-default-general-zero/search-web-zhcn/query-set。关键部署坑入档:colima 只共享家目录,/tmp 下 bind mount 是 VM 本地空目录→entrypoint 模板重建 settings→json 静默关→403(迁家目录即好)。挂点定案 research §9:请求形状加 categories=web+常发 Accept-Language 头+template=default.html 过滤+逐词 pageno=1+interval≥1800s 串行+去重走既有 url metric(实测同 URL 异标题会重出);结论=探查通过实现段就绪,续本档第二段不立新档,开工前置=registry.py 与 10-06-ai-news-sources 在途件错峰(urlwatch 注册行未提交,research §7 注记);生产部署留主人服务器(research §9-5:同法起栈+出口冒烟+MYIA 改 base_url/env 指向);本机实例留运行(终态 json 开+limiter 关+bing 启用)供实现批 20 条入库复用。",
   "meta": {}
 }

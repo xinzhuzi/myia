@@ -1,0 +1,87 @@
+SearXNG /config 终态摘录(2026-10-06,limiter 还原 false 后)
+instance: http://127.0.0.1:8888 | version: 2026.10.4+d48c4b555
+limiter: {'botdetection.ip_limit.link_token': False, 'botdetection.ip_lists.pass_searxng_org': True, 'enabled': False} | public_instance: False
+engines 总数 261,启用 82
+启用引擎(按类):
+  1x                       categories=stock images,other paging=False
+  500px                    categories=stock images,other paging=True
+  arch linux wiki          categories=it,software wikis paging=True
+  arxiv                    categories=science,scientific publications paging=True
+  askubuntu                categories=it,q&a paging=True
+  bandcamp                 categories=music paging=True
+  bing                     categories=general,web paging=False
+  bing images              categories=images,web paging=True
+  bing news                categories=news paging=True
+  bing videos              categories=videos,web paging=True
+  brave                    categories=general,web paging=True
+  brave.images             categories=images,web paging=False
+  brave.news               categories=news paging=False
+  brave.videos             categories=videos,web paging=False
+  bt4g                     categories=files paging=True
+  chefkoch                 categories=other paging=True
+  currency                 categories=currency,general paging=False
+  dailymotion              categories=videos paging=True
+  dictzone                 categories=general,translate paging=False
+  docker hub               categories=it,packages paging=True
+  duckduckgo               categories=general,web paging=True
+  duckduckgo images        categories=images paging=True
+  duckduckgo news          categories=news paging=True
+  duckduckgo videos        categories=videos paging=True
+  etymonline               categories=dictionaries,other paging=True
+  europepmc                categories=science,scientific publications paging=True
+  genius                   categories=music,lyrics paging=True
+  gentoo                   categories=it,software wikis paging=True
+  github                   categories=it,repos paging=False
+  google cse               categories=general,web paging=True
+  google cse images        categories=images,web paging=True
+  google news              categories=news paging=True
+  google scholar           categories=science,scientific publications paging=True
+  google videos            categories=videos,web paging=True
+  hoogle                   categories=it,packages paging=False
+  kickass                  categories=files paging=True
+  lemmy comments           categories=social media paging=True
+  lemmy communities        categories=social media paging=True
+  lemmy posts              categories=social media paging=True
+  lemmy users              categories=social media paging=True
+  lingva                   categories=general,translate paging=False
+  mankier                  categories=it paging=False
+  mastodon hashtags        categories=social media paging=False
+  mastodon users           categories=social media paging=False
+  mdn                      categories=it paging=True
+  mixcloud                 categories=music paging=True
+  mymemory translated      categories=general,translate paging=False
+  openairedatasets         categories=science paging=True
+  openairepublications     categories=science paging=True
+  openstreetmap            categories=map paging=False
+  pdbe                     categories=science paging=False
+  pexels                   categories=stock images,other paging=True
+  photon                   categories=map paging=False
+  picjumbo                 categories=stock images,other paging=True
+  pinterest                categories=images paging=True
+  piratebay                categories=files paging=False
+  pubmed                   categories=science,scientific publications paging=False
+  pypi                     categories=it,packages paging=False
+  radio browser            categories=music,radio paging=True
+  reuters                  categories=news paging=True
+  semantic scholar         categories=science,scientific publications paging=True
+  sepiasearch              categories=videos paging=True
+  shopify stock            categories=stock images,other paging=True
+  solidtorrents            categories=files paging=True
+  soundcloud               categories=music paging=True
+  stackoverflow            categories=it,q&a paging=True
+  stocksnap                categories=stock images,other paging=True
+  superuser                categories=it,q&a paging=True
+  tootfinder               categories=social media paging=False
+  unsplash                 categories=stock images,other paging=True
+  vimeo                    categories=videos paging=True
+  wikicommons.audio        categories=music paging=True
+  wikicommons.files        categories=files paging=True
+  wikicommons.images       categories=images paging=True
+  wikicommons.videos       categories=videos paging=True
+  wikidata                 categories=general paging=False
+  wikinews                 categories=news,wikimedia paging=True
+  wikipedia                categories=general paging=False
+  wiktionary               categories=dictionaries,wikimedia,other paging=True
+  wordnik                  categories=dictionaries,define,other paging=False
+  wttr.in                  categories=weather,other paging=False
+  youtube                  categories=videos,music paging=True
