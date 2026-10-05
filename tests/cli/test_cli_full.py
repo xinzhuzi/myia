@@ -19,7 +19,10 @@ Covers the PRD acceptance list:
 from __future__ import annotations
 
 import json
+import re
+import tomllib
 from datetime import UTC
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -694,6 +697,7 @@ class TestDoctor:
         assert "table-demo" in finding["message"]
         assert "rapid-table" in finding["message"]
         assert "rapidocr-onnxruntime" in finding["message"]
+        assert "tqdm" in finding["message"]  # 三侧闭包第三件(隐性 import,探测面不得漏)
         assert "uv sync --extra table" in finding["message"]
         assert "myssia[table]" in finding["message"]
         assert "table_provider_error" in finding["message"]
@@ -739,6 +743,46 @@ class TestDoctor:
         payload = json.loads(capsys.readouterr().out)
         assert not any(
             f["code"] == "table_dependency_missing" for f in payload["findings"]
+        )
+
+    def test_table_component_closure_three_way(self):
+        """三侧闭包锁测:doctor 探测面 ↔ pyproject extras ↔ components.json。
+
+        AC3 质检抓的 tqdm 漂移即三侧面:extras(pyproject.toml:57)与
+        components.json pip_spec 实三件而探测面曾只登记两件,「同源闭包」
+        成过度声明。既有交叉对齐(tests/desktop/test_pyenv_resources.py
+        test_table_component_matches_pyproject_extras)只锁 components.json
+        ↔ extras 两侧,doctor 侧不在锁面——漏任一侧则单侧漂移不响,故
+        此处三方**发行名集合**相等钉死(归一化:切 ==/>=/</ 等版本约束
+        取首段名,-/_ 归一;版本窗不比:extras >=3.0.2,<4 与注册表钉
+        ==3.0.2 的窗含关系系 AC3 质检既有定案,不重复锁)。
+        """
+        repo_root = Path(__file__).resolve().parents[2]
+        pyproject = tomllib.loads(
+            (repo_root / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        extras = pyproject["project"]["optional-dependencies"]["table"]
+        registry = json.loads(
+            (repo_root / "desktop" / "resources" / "components.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        table_entry = next(e for e in registry["components"] if e["id"] == "table")
+        pip_names = table_entry["pip_spec"].split()
+        doctor_names = [
+            dist for _module, dist in cli_module._TABLE_COMPONENT_PACKAGES
+        ]
+
+        def dist_names(tokens: list[str]) -> set[str]:
+            return {
+                re.split(r"[=<>!~]", token, maxsplit=1)[0].lower().replace("-", "_")
+                for token in tokens
+            }
+
+        assert dist_names(extras) == dist_names(doctor_names) == dist_names(pip_names), (
+            f"三侧闭包漂移:extras {sorted(dist_names(extras))} / doctor "
+            f"{sorted(dist_names(doctor_names))} / components.json "
+            f"{sorted(dist_names(pip_names))}(任一侧漂移即红)"
         )
 
 

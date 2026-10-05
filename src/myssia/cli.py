@@ -3047,12 +3047,16 @@ def _telegram_poll_conflict_findings(
 
 #: 表格还原组件的 (import 模块名, 发行版名) 清单(10-05-table-restore AC3)。
 #: 与 pyproject extras ``table`` / desktop/resources/components.json 的
-#: pip_spec 同源闭包(extras 域版本窗 >=3.0.2,<4,组件注册表钉 ==3.0.2);
+#: pip_spec 同源闭包(extras 域版本窗 >=3.0.2,<4,组件注册表钉 ==3.0.2;
+#: tqdm 是 rapid-table 3.0.2 轮未声明进 requires-dist 的隐性 import,
+#: extras 显式补——探测面三件齐,任一缺装即出 finding;三侧闭包发行名
+#: 集合相等由 tests/cli/test_cli_full.py 三方锁测把守);
 #: doctor 只探测不导入 —— find_spec 零模型加载零副作用(真引擎单例在
 #: :func:`myssia.vision.table.run_table` 惰性建)。
 _TABLE_COMPONENT_PACKAGES: tuple[tuple[str, str], ...] = (
     ("rapid_table", "rapid-table"),
     ("rapidocr_onnxruntime", "rapidocr-onnxruntime"),
+    ("tqdm", "tqdm"),
 )
 
 
@@ -3069,7 +3073,7 @@ def _table_component_findings(
     """表格还原组件缺装披露(10-05-table-restore AC3,既有 findings 通道)。
 
     声明 ``images.table: true``(且图片环 ``enabled``)的品类,若
-    rapid-table / rapidocr-onnxruntime 任一未装,出 **warning** 级 finding
+    rapid-table / rapidocr-onnxruntime / tqdm 任一未装,出 **warning** 级 finding
     带安装命令:缺装不是配置错(不翻 ``healthy``),但运行期只会静默降级为
     ``metadata.table_status = table_provider_error``(R6 红线:绝不阻管线)
     —— doctor 提前披露,让「装了开关却没装引擎」可预期、可修复。装齐 =

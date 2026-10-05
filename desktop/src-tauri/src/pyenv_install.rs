@@ -1171,13 +1171,27 @@ pub async fn pyenv_verify(app: AppHandle) -> Result<PyenvVerifyResult, String> {
 // 胶水:AppHandle → 后台安装线程(IPC 命令 pyenv_start_setup/sync_deps 调用)
 // ---------------------------------------------------------------------------
 
-/// 拉起后台安装线程(幂等护栏:安装进行中拒绝二次启动)。
+/// 拉起后台安装线程(幂等护栏:安装进行中拒绝二次启动;组件 pip 单飞
+/// 在跑时同样拒启——主链 deps 段与组件 pip 都写同一自管环境)。
 /// 即刻占坑 installing 槽并广播,链体在专用 std 线程推进,进度经
 /// `pyenv-status-changed` 广播、终态经戳记 + 重算广播。
 pub(crate) fn start_install_thread(app: AppHandle, deps_only: bool) -> Result<(), String> {
     let data_root = crate::data_root(&app).map_err(|e| e.to_string())?;
     let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
     let settings = pyenv::read_settings(&data_root);
+    // —— 护栏:组件 pip 单飞在跑(与组件侧反向护栏对称:pyenv_components.rs
+    //    pyenv_install_component 先查本侧 installing 再占组件坑,这里先查
+    //    组件坑再占主链坑)。先后双锁非原子,TOCTOU 残余窗极窄且两侧对称,
+    //    不为此扩权(单锁结构改动不成比例);消息风格镜像组件侧反向护栏。
+    if app
+        .state::<crate::pyenv_components::ComponentManager>()
+        .installing
+        .lock()
+        .unwrap()
+        .is_some()
+    {
+        return Err("组件安装进行中:请等组件安装完成后再开始安装或同步 Python 环境".into());
+    }
     {
         let manager = app.state::<pyenv::PyenvManager>();
         let mut slot = manager.installing.lock().unwrap();
