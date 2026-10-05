@@ -3,7 +3,7 @@
   "name": "10-05-push-apprise",
   "title": "Apprise 推送统一通道(长尾目标一个依赖通吃)",
   "description": "push 层新增 apprise 通道:extras 可选依赖(MIT,~160 目标,含 bark://),target 走凭据引用多目标串;未装=send-time 结构化拒+doctor finding;零协议面改动。grill 决议:主人先点名真正缺的推送目标再开工。",
-  "status": "planning",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -15,7 +15,7 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "65e1b96",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -23,8 +23,9 @@
   "relatedFiles": [
     "src/myssia/schema.py",
     "src/myssia/push/__init__.py",
+    "src/myssia/push/apprise.py",
     "pyproject.toml"
   ],
-  "notes": "由 v12-backlog 池第 10 项拆出(grill 2026-10-05 深夜轮);开工前置=主人点名缺的目标清单;与 10-05-push-bark 互斥关系记档(先落地者裁或并存由主人定) | 放行回执:问题:Apprise 增量=长尾目标,主人未点名缺什么。做法:主人整体放行(2026-10-05 深夜「都按建议做」),排队第 3;开工条件=点名首个真目标(Pushover/Gotify/任一)即拆实现,或 Bark 落地后仍要长尾再启。顺序:heartbeat→bark→apprise→searxng→firecrawl。",
+  "notes": "由 v12-backlog 池第 10 项拆出(grill 2026-10-05 深夜轮);开工前置=主人点名缺的目标清单;与 10-05-push-bark 互斥关系记档(先落地者裁或并存由主人定) | 放行回执:问题:Apprise 增量=长尾目标,主人未点名缺什么。做法:主人整体放行(2026-10-05 深夜「都按建议做」),排队第 3;开工条件=点名首个真目标(Pushover/Gotify/任一)即拆实现,或 Bark 落地后仍要长尾再启。顺序:heartbeat→bark→apprise→searxng→firecrawl。 | 解锁注记(2026-10-06):原门「主人先点名缺的目标」由主人令「剩下的问题全部做完」整批放行覆盖(heartbeat/bark 均已 review,apprise 排位第 3 到点开工)——点名清单=整批放行,不再单点。 | 实施回执:实现批 65e1b96(schema 32 员/通道 send 期依赖门/doctor finding/17 用例/钉版四处/UI+vitest/文档六件/AC3 json:// sink 真跑出报文);定向门禁全绿(pytest 1489+257+83+135/vitest 49/tsc 0/ruff),全量归脚本;装机件像素留装机批。与 10-05-push-bark 并存定案:原生 Bark=零依赖,apprise=长尾统一,PRD 背景段既有决议。",
   "meta": {}
 }

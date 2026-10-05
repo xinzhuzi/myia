@@ -67,14 +67,40 @@ push 层新增 `apprise` 通道:一个 pip 依赖(extras 可选)解锁 ~160 个�
 
 ## Acceptance Criteria
 
-- [ ] AC1 schema:apprise 入 PushChannel;targets 配即拒;明文 target 拒。
-- [ ] AC2 实现:发送路径六用例绿;未装=结构化拒+doctor finding(不惊扰
-      未配置用户)。
-- [ ] AC3 extras:pyproject 组钉版;lock 不动;`pip install myssia[apprise]`
-      后 json:// sink 真跑出报文证据。
-- [ ] AC4 UI:编辑器下拉+doctor 行像素回执;文案人话。
-- [ ] AC5 门禁:pytest/vitest/ruff 全绿;协议对账例零漂移(64 不动)。
-- [ ] AC6 档:决议回写;主人点名清单落 notes(未点名=档挂 planning)。
+- [x] AC1 schema:apprise 入 PushChannel;targets 配即拒;明文 target 拒。
+      (schema.py:PushChannel Literal + PUSH_CHANNELS 增员 32 通道,不进
+      CHANNEL_PLATFORMS;tests/push/test_apprise.py:targets→
+      targeting_not_supported、明文→load 期 credential_plaintext +
+      发送期 invalid_credential_ref 双层拒。)
+- [x] AC2 实现:发送路径六用例绿;未装=结构化拒+doctor finding(不惊扰
+      未配置用户)。(tests/push/test_apprise.py 17 用例:多目标 add×3+
+      notify×1/明文拒零 apprise 触碰/keychain 回退/未装
+      apprise_unavailable 带安装命令+doctor apprise_not_installed 且
+      未配置品类零 finding/notify False 与 add 拒序号文案透传(目标串
+      值永不进文案)/标题=card_title+body=bark 版式。)
+- [x] AC3 extras:pyproject 组钉版;lock 不动;`pip install myssia[apprise]`
+      后 json:// sink 真跑出报文证据。(pyproject `apprise = ["apprise>=1.9,<2"]`
+      不进 core/all;requirements-lock.txt 桌面锁不动;uv.lock 随 extras
+      合法收录 apprise 1.13.1+传递件(markdown/oauthlib/requests-oauthlib,
+      simplex 先例;uv lock --check 绿)。真跑 2026-10-06:`uv run --with
+      'apprise>=1.9,<2'` 临时装 1.13.1,本机 127.0.0.1 json:// sink 收到
+      1 份 POST(application/json):title=「📡 羊毛日报 10-06 · 上午摘要」
+      (card_title 跨通道一致)、message=两行「▸ 标题 · URL」——零外网
+      零账号,零 uv.lock 之外的仓改动。)
+- [x] AC4 UI:编辑器下拉+doctor 行像素回执;文案人话。(设置→推送下拉增
+      「Apprise(统一推送)」+APPRISE_URL 预设位+apprise-target-hint 文案
+      (env:/keychain: 引用/目标串/逗号分隔多个/未装明确报错不影响其他
+      通道);vitest settings 49/49 含新 apprise 用例。doctor finding 行
+      =通用 findings 渲染面(warning 级,文案自带安装命令),零专属 UI
+      改动即人话可达;装机件像素留装机批,同 bark AC4 判例。)
+- [x] AC5 门禁:pytest/vitest/ruff 全绿;协议对账例零漂移(64 不动)。
+      (定向亲跑全绿:pytest push+schema+cli+smoke+pipeline 1489/desktop
+      257/gates 83/docs+skill_doc 135、vitest settings 49/49、tsc 0 错、
+      ruff 十文件绿;协议面零改动零 bump,doctor findings 加法载荷
+      (R5 先例)。全量门禁归脚本统一跑。)
+- [x] AC6 档:决议回写;主人点名清单落 notes(未点名=档挂 planning)。
+      (原门「主人先点名缺的目标」由 2026-10-06 主人令「剩下的问题全部
+      做完」整批放行覆盖,task.json notes 记档;档置 review。)
 
 ## 边界与红线
 
@@ -86,3 +112,37 @@ push 层新增 `apprise` 通道:一个 pip 依赖(extras 可选)解锁 ~160 个�
 
 - 问题:Apprise 增量=长尾目标,主人未点名缺什么。做法:主人整体放行(2026-10-05 深夜「都按建议做」),排队第 3;开工条件=点名首个真目标(Pushover/Gotify/任一)即拆实现,或 Bark 落地后仍要长尾再启。顺序:heartbeat→bark→apprise→searxng→firecrawl。
 - 执行顺序(全五档):cron-heartbeat(先做,零前置)→ push-bark → push-apprise(点名即启)→ source-searxng → firecrawl-selfhost-verify。
+
+## 实施回执(2026-10-06,队列工作流实施员)
+
+- **解锁**:原门「主人先点名缺的目标」由 2026-10-06 主人令「剩下的问题全部
+  做完」整批放行覆盖(heartbeat 833b331/bark 208a599 均已 review,apprise
+  排位第 3 到点)。
+- **交付面**:pyproject extras(钉版 >=1.9,<2,不进 core/all,桌面锁
+  requirements-lock.txt 不动;uv.lock 随 extras 合法收录,uv lock --check 绿)
+  |schema(Literal+PUSH_CHANNELS 32 员,不进 CHANNEL_PLATFORMS,零新校验
+  逻辑走 platform-is-None 分支)|push/apprise.py(bark 最薄面+simplex 依赖门:
+  send 期惰性 import,未装=apprise_unavailable 带安装命令;target=凭据引用,
+  解析值=逗号/换行多目标串,parse_targets 逐目标 add(拒收报序号不报内容,
+  凭据红线)+一次 notify 广播;notify False=apprise_notify_failed 透传;
+  env 缺失回退 myia/push/APPRISE_URL;body=bark 版式 1024 截断,title=
+  card_title)|CHANNELS 注册(不进 PLATFORMS)+__all__|cli.py doctor
+  apprise_not_installed warning(table_dependency_missing 先例:配了才披露,
+  未配置用户零 finding)|测试新文件 17 用例(mock apprise 注入 sys.modules,
+  crawl4ai/trafilatura 先例)+受波及钉版四处(test_push_channels 计数 32/
+  非寻址四员、test_push_schema_targets 32、test_push 钉死集、两 refs 表锁
+  env:APPRISE_URL)|UI 设置→推送四记录+hint 段+vitest 新用例|文档对账六件
+  (skill/根+zh+en write-a-plugin/zh+en schema)。
+- **kwargs 接线注记**:apprise 无通道专属可选字段(仅 target/template),
+  走 pipeline._build_channel 通用下传路,test_build_channel_wires_target
+  钉死;_W2_CHANNEL_FIELD_KWARGS 零改动。
+- **真跑证据**(AC3,2026-10-06):apprise 1.13.1(uv run --with 临时装)
+  → json://127.0.0.1 sink 1 份 POST:title=「📡 羊毛日报 10-06 · 上午摘要」、
+  message=「▸ AC3 真跑条目一 · https://example.com/1
+▸ AC3 真跑条目二 ·
+  https://example.com/2」;零外网零账号。
+- **边界守住**:apprise API server 形态不做;既有 31 通道零触碰(bark 之外
+  仅注册表一行+__all__ 一行);URL token 永不落 YAML/日志/错误文案
+  (add 拒收只报序号,test ⑤ 断言值不进文案)。
+- **移交**:装机件像素(设置屏 apprise 下拉+真实 doctor finding 行)随下批
+  装机包刷新;doctor 屏 finding 行走通用渲染面无专属 UI 需求。
