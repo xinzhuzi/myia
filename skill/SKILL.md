@@ -256,6 +256,34 @@ target = 会话 peer id(`env:WEIXIN_PEER_ID`,定向写 `weixin:<peer id>`,
 - 明文凭据 = 启动即拒载(退出码 1,错误带字段路径);凭据值永不回显、永不落日志
   (引用名可以出现,展开后的值禁止)。
 
+### 2.17 sidecar 节:images 看图与表格还原(ImagesConfig)
+
+顶层可选 sidecar 节(不属于 12 节;错误路径 `$.images` 前缀,`null` 视为未声明,
+挂到品类配置的 `images` 属性)。开启后 fetch 尾部对条目图片做「下载(私网拒/
+魔法字节白名单/10MB 截断)→ 表格还原(可选)→ OCR → 可选 VL 描述」,产物写
+`metadata.image_ocr` / `image_caption` / `tables` 等标记,**任何失败只写标记、
+绝不阻管线**;未开启 = 整环零进入(零影响默认)。图片 URL 来自 extract `fields`
+配 `image: img@src` 或 L3+ 无 extract 时的同域图链接。
+
+| 字段 | 缺省 | 语义 |
+|---|---|---|
+| `enabled` | `false` | 看图环总开关;关 = 整节零进入 |
+| `max_images` | `3` | 每条目处理上限(张,1-10),超出静默截断 |
+| `max_per_run` | `30` | 每 run 图处理总上限(VL 时长硬闸;耗尽标 `skipped:run_limit`;不开放源级覆写) |
+| `min_bytes` | `10240` | 小于该字节数的图视为图标/追踪像素跳过 |
+| `vl` | `off` | 视觉描述通道:`off`(只 OCR)/ `local`(本地 OpenAI 兼容端点)/ `cloud`(云端视觉模型,token 走 enrich 预算池) |
+| `ocr_engine` | `null` | OCR 引擎覆写(`vision` / `rapidocr`);缺省按 vision.yaml 的 `ocr.engine_default` |
+| `detail_fetch` | `false` | 详情页追抓:对无图条目按管线顺序追抓详情页,同域收 `<img>` 进同一识图环 |
+| `detail_max_items` | `10` | 每 run 追抓条目上限(1-50;串行 + 每请求 ≥1s 间隔;源级覆写 = 该源独立预算) |
+| `persist` | `false` | 通过下载关的图落盘 `MYIA_HOME/images/<sha16>.<ext>`,metadata 增 `image_files`/`image_ocr_lines` |
+| `table` | `false` | 表格还原(10-05):对通过下载关的图跑 rapid_table 结构化,还原表落 `metadata.tables = [{markdown, rows, cols}]`(GFM,推送卡片可直接嵌表);引擎缺装/失败只写 `metadata.table_status = "table_provider_error"`,绝不阻管线。重依赖 extras `myssia[table]`(`uv sync --extra table` / 桌面端设置 → Python 环境 → 组件「表格还原」开关;doctor 对缺装出 `table_dependency_missing`);不开放源级 `images_table` 覆写(与 persist 同为全局语义) |
+
+源级覆写:`images_enabled` / `images_max_images` / `images_min_bytes` /
+`images_vl` / `images_ocr_engine` / `images_detail_fetch` /
+`images_detail_max_items` 平铺参数覆写品类节(`max_per_run` / `persist` /
+`table` 不开放)。与整图语义描述分工:表格结构化 = `table`,整图说明 = `vl`,
+互不替代。
+
 ## 3. `myssia init`:生成 YAML 前先拿信息清单
 
 `myssia init --json` 输出恰好一份 JSON(恒定,不问交互问题),四块内容:
@@ -439,6 +467,7 @@ findings → 修复动作对照:
 | `store_error` | SQLite 库损坏或 schema 版本过新:换 `--db` 路径或删除重建(会丢历史) |
 | 代理类 finding(带 `--config`) | 代理池连不通是 warning;`credential_unresolved`/`invalid_proxy_url` 是 error,修全局配置 |
 | `gate_disabled`(severity=info) | 门槛件(付费/留痕/自有实例/停更)未启用是正常态,不是故障;知情确认后用 `myssia gates set` 逐件开启,付费/平台件需先 `myssia secret set` 写入钥匙串键 |
+| `table_dependency_missing`(severity=warning) | 品类声明 `images.table: true` 但缺 rapid-table 组件(运行期只静默降级为 `table_status`);装:`uv sync --extra table` 或 `pip install "myssia[table]"`,桌面端走 设置 → Python 环境 → 组件「表格还原」开关 |
 
 修复循环:改 YAML → `myssia test --json` 验证提取 → `myssia doctor --json` 直到
 `findings` 清零 → `myssia run --dry-run --json` 演练 → 正式 `run`/`--loop`。

@@ -120,6 +120,34 @@ push:
   - channel: stdout
 """
 
+#: 看图 sidecar + 表格还原品类(10-05-table-restore):doctor 对声明
+#: images.table 且图片环开启的品类做组件缺装披露(table_dependency_missing)。
+TABLE_YAML = """
+id: table-demo
+name: 表格还原演示
+schedule: "0 9 * * *"
+timezone: Asia/Shanghai
+sources:
+  - name: shots
+    engine: static_html
+    url: "https://example.com/shots"
+    rate_limit:
+      qps: 1000.0
+    retry: 0
+    extract:
+      type: list
+      item: "article"
+      fields:
+        title: "h2 a"
+        url: "h2 a@href"
+        image: "img@src"
+images:
+  enabled: true
+  table: true
+push:
+  - channel: stdout
+"""
+
 #: telegram 推送通道品类(bot token 固定解析自 env:TELEGRAM_BOT_TOKEN,
 #: target 指向 chat id 引用;doctor 的 getUpdates 同 token 竞争提示用)。
 TELEGRAM_YAML = """
@@ -643,6 +671,75 @@ class TestDoctor:
         assert not any(
             f["code"] == "telegram_token_poll_conflict" for f in payload["findings"]
         )  # 仅一个轮询方是合法形态(target 的 env 未设置另有 env_ref_missing,不在此断言)
+
+    # -- 表格还原组件缺装披露(10-05-table-restore AC3)-----------------------
+    # 探测面 monkeypatch(cli_module._package_available)固定三态:真环境装没装
+    # rapid-table 属门禁域(uv sync --extra table),测试不依赖宿主环境。
+
+    def test_table_component_missing_disclosure(self, tmp_path, capsys, monkeypatch):
+        """images.table 品类 + 组件缺装:warning finding 带安装命令,不翻 healthy。"""
+        monkeypatch.setattr(cli_module, "_package_available", lambda module: False)
+        db = tmp_path / "myssia.db"
+        SQLiteStore(str(db)).close()
+        yaml_path = write_plugin(tmp_path, "table-demo.yaml", TABLE_YAML)
+
+        code = main(["doctor", yaml_path, "--db", str(db), "--json"])
+        assert code == EXIT_OK
+        payload = json.loads(capsys.readouterr().out)
+        finding = next(
+            f for f in payload["findings"] if f["code"] == "table_dependency_missing"
+        )
+        assert finding["severity"] == "warning"
+        assert finding["scope"] == "components"
+        assert "table-demo" in finding["message"]
+        assert "rapid-table" in finding["message"]
+        assert "rapidocr-onnxruntime" in finding["message"]
+        assert "uv sync --extra table" in finding["message"]
+        assert "myssia[table]" in finding["message"]
+        assert "table_provider_error" in finding["message"]
+        assert payload["healthy"] is True  # warning 不翻转 healthy:缺装不是配置错
+
+    def test_table_component_installed_no_finding(self, tmp_path, capsys, monkeypatch):
+        """组件装齐:正常态零 finding(与 gate_disabled 的 info 语义不同)。"""
+        monkeypatch.setattr(cli_module, "_package_available", lambda module: True)
+        db = tmp_path / "myssia.db"
+        SQLiteStore(str(db)).close()
+        yaml_path = write_plugin(tmp_path, "table-demo.yaml", TABLE_YAML)
+
+        main(["doctor", yaml_path, "--db", str(db), "--json"])
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["findings"] == []
+        assert payload["healthy"] is True
+
+    def test_table_declared_but_images_ring_disabled_no_finding(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """images.enabled: false 时 table 分支不可达(整环零进入),不出 finding。"""
+        monkeypatch.setattr(cli_module, "_package_available", lambda module: False)
+        db = tmp_path / "myssia.db"
+        SQLiteStore(str(db)).close()
+        yaml_path = write_plugin(
+            tmp_path, "table-off.yaml", TABLE_YAML.replace("enabled: true", "enabled: false")
+        )
+
+        main(["doctor", yaml_path, "--db", str(db), "--json"])
+        payload = json.loads(capsys.readouterr().out)
+        assert not any(
+            f["code"] == "table_dependency_missing" for f in payload["findings"]
+        )
+
+    def test_category_without_table_no_finding(self, tmp_path, capsys, monkeypatch):
+        """未声明 images.table 的品类(无 images 节):即使缺装也不披露(零关联)。"""
+        monkeypatch.setattr(cli_module, "_package_available", lambda module: False)
+        db = tmp_path / "myssia.db"
+        SQLiteStore(str(db)).close()
+        yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
+
+        main(["doctor", yaml_path, "--db", str(db), "--json"])
+        payload = json.loads(capsys.readouterr().out)
+        assert not any(
+            f["code"] == "table_dependency_missing" for f in payload["findings"]
+        )
 
 
 # ---------------------------------------------------------------------------

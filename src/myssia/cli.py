@@ -3045,6 +3045,67 @@ def _telegram_poll_conflict_findings(
     )
 
 
+#: 表格还原组件的 (import 模块名, 发行版名) 清单(10-05-table-restore AC3)。
+#: 与 pyproject extras ``table`` / desktop/resources/components.json 的
+#: pip_spec 同源闭包(extras 域版本窗 >=3.0.2,<4,组件注册表钉 ==3.0.2);
+#: doctor 只探测不导入 —— find_spec 零模型加载零副作用(真引擎单例在
+#: :func:`myssia.vision.table.run_table` 惰性建)。
+_TABLE_COMPONENT_PACKAGES: tuple[tuple[str, str], ...] = (
+    ("rapid_table", "rapid-table"),
+    ("rapidocr_onnxruntime", "rapidocr-onnxruntime"),
+)
+
+
+def _package_available(module: str) -> bool:
+    """import 探测(不执行模块代码);测试经 monkeypatch 替身控三态。"""
+    import importlib.util  # 惰性:doctor 冷路径,不为它抬核心 import 面
+
+    return importlib.util.find_spec(module) is not None
+
+
+def _table_component_findings(
+    loaded: Sequence[tuple[str, CategoryConfig]], findings: list[dict[str, Any]]
+) -> None:
+    """表格还原组件缺装披露(10-05-table-restore AC3,既有 findings 通道)。
+
+    声明 ``images.table: true``(且图片环 ``enabled``)的品类,若
+    rapid-table / rapidocr-onnxruntime 任一未装,出 **warning** 级 finding
+    带安装命令:缺装不是配置错(不翻 ``healthy``),但运行期只会静默降级为
+    ``metadata.table_status = table_provider_error``(R6 红线:绝不阻管线)
+    —— doctor 提前披露,让「装了开关却没装引擎」可预期、可修复。装齐 =
+    正常态,零 finding(与 gate_disabled 的 info 语义不同:这里功能已声明
+    且会降级,值得 warning)。``images.enabled: false`` 时整环零进入,
+    table 分支不可达,不出 finding。
+    """
+    categories = [
+        plugin_id
+        for plugin_id, config in loaded
+        if config.images is not None and config.images.enabled and config.images.table
+    ]
+    if not categories:
+        return
+    missing = [
+        dist_name
+        for module_name, dist_name in _TABLE_COMPONENT_PACKAGES
+        if not _package_available(module_name)
+    ]
+    if not missing:
+        return
+    _finding(
+        findings,
+        severity="warning",
+        scope="components",
+        code="table_dependency_missing",
+        message=(
+            f"品类 {'、'.join(sorted(categories))} 声明 images.table: true,"
+            f"但当前 Python 环境缺装 {'、'.join(missing)}:表格还原将降级为"
+            f" metadata.table_status=table_provider_error(不阻管线)。安装:"
+            f'uv sync --extra table(或 pip install "myssia[table]";'
+            f"桌面端:设置 → Python 环境 → 组件「表格还原」开关)"
+        ),
+    )
+
+
 def _print_human_doctor(payload: dict[str, Any]) -> None:
     """人类可读的诊断报告(与 --json 同一信息)。"""
     print(
@@ -3131,6 +3192,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
         credential_entries, backend_error=backend_error, findings=findings
     )
     _telegram_poll_conflict_findings(loaded, findings)
+    _table_component_findings(loaded, findings)
     proxy_section = _doctor_proxy(args, backend, findings)
     gates_section = _doctor_gates(args, findings)
     payload = _doctor_payload(

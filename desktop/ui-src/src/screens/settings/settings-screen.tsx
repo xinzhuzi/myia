@@ -19,7 +19,6 @@ import {
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -74,10 +73,15 @@ import { VisionForm } from "./vision-form";
 //
 // 10-04-ui-kestra-anchor:行式对齐 Kestra settings(结构借自 Apache-2.0
 // kestra/ui/src/components/settings/BasicSettings.vue + components/
-// {Wrapper,block/Block,block/SettingRow}.vue,借结构改语义):内容列
-// 600px 居中单列(Wrapper 范式)、行 = SettingRow 横排(label+hint 左/
-// 控件右 w-64)、卡内行间 divide-y 细线。不抄:单页无分区导航(我们的
-// 五分区 ?section= 深链是既有功能面,R5 零改动保留)。
+// {Wrapper,block/Block,block/SettingRow}.vue,借结构改语义):行 =
+// SettingRow 横排(label+hint 左/控件右 w-64)、卡内行间 divide-y 细线。
+// 不抄:单页无分区导航(我们的分区 ?section= 深链是既有功能面,R5 零改动保留)。
+//
+// 10-05 版面重排:内容列弃旧版 Wrapper 的 600px 固定窄列,跟 Kestra 现行
+// Wrapper.vue 栅格(el-col sm 20/md 18/lg 16/xl 14,offset 居中)——按断点
+// 比例流式居中(md 75%/lg 67%/xl 58%),1920 下 ≈950px 居中、两侧留白对称,
+// 不再左钉右空;区标题行挂 actions(Kestra Block.vue heading 的 actions 槽),
+// 承接无头化后 PageHeader 渲染 null 而丢失的「重新验证」入口。
 // ---------------------------------------------------------------------------
 
 /** 通道 → 规范凭据名缺省(target 语义:feishu 卡的 chat_id / tg 的 bot token / webhook 地址) */
@@ -1072,19 +1076,10 @@ export function SettingsScreen() {
   }, [push.channel, pushValues, refreshSecretNames, runDoctor]);
 
   return (
-    /* R2 重排:区块节奏消费具名令牌 gap-block(24px)+ pb-block */
+    /* R2 重排:区块节奏消费具名令牌 gap-block(24px)+ pb-block;
+       屏级标题行已随无头化移除(PageHeader 渲染 null),「重新验证」
+       动作迁入区标题行 actions 槽(见下方 header) */
     <div className="flex flex-col gap-block pb-block">
-      <PageHeader
-        title="设置"
-        description="通用 / 推送 / 视觉 / 门槛件 / Python 环境 / 系统 六分区 —— 凭据只入系统钥匙链,门槛件知情启用(fail-closed),doctor 验证回显"
-        actions={
-          <Button size="sm" variant="outline" onClick={() => void runDoctor()} disabled={verifying}>
-            <RefreshCw className={verifying ? "size-3.5 animate-spin" : "size-3.5"} />
-            重新验证
-          </Button>
-        }
-      />
-
       {verifyError ? (
         <div className="px-6">
           <ErrorBox error={verifyError} onRetry={() => void runDoctor()} retrying={verifying} />
@@ -1156,18 +1151,21 @@ export function SettingsScreen() {
           ) : null}
         </div>
 
-        {/* 右列:区标题+描述,下堆叠多个 Card(每 Card 一个设置主题)。
-            10-04-ui-kestra-anchor:内容列宽对齐 Kestra settings Wrapper
-            (min(600px, 100%-48px) 居中单列);行 = SettingRow 横排范式。
-            10-05 全局版面判例:Python 环境区不走 600px 窄列——整区居中
-            大版面(max-w-4xl),配置面用满画布,其余分区维持窄列 */}
+        {/* 右列:区标题行(标题+描述左 / actions 右,Block.vue heading 范式),
+            下堆叠多个 Card(每 Card 一个设置主题)。
+            10-05 版面重排:内容列宽跟 Kestra 现行 Wrapper.vue 栅格——
+            按断点比例流式居中(el-col md 18/lg 16/xl 14 offset 居中同构),
+            不再 600px 固定窄列左钉。10-05 全局版面判例:Python 环境区
+            不走比例列——整区居中大版面(max-w-4xl),配置面用满画布 */}
         <section
           key={activeSection.id}
           aria-labelledby={`settings-section-title-${activeSection.id}`}
           data-testid={`settings-section-${activeSection.id}`}
           className={cn(
-            "flex w-full min-w-0 animate-fade-in flex-col gap-4",
-            activeSection.id === "python-env" ? "mx-auto max-w-4xl" : "max-w-[600px]",
+            "flex min-w-0 animate-fade-in flex-col gap-4",
+            activeSection.id === "python-env"
+              ? "mx-auto w-full max-w-4xl"
+              : "mx-auto w-full md:max-w-[75%] lg:max-w-[67%] xl:max-w-[58%]",
           )}
         >
           {/* 全局版面配套:分区导航已隐藏,给一条回分区列表的退路(深链直入也走得通) */}
@@ -1182,11 +1180,19 @@ export function SettingsScreen() {
               返回设置
             </Button>
           ) : null}
-          <header className="flex flex-col gap-1 pb-1">
-            <h2 id={`settings-section-title-${activeSection.id}`} className="text-lg font-semibold text-foreground">
-              {activeSection.title}
-            </h2>
-            <p className="text-xs text-muted-foreground">{activeSection.description}</p>
+          {/* 区标题行 = Kestra Block.vue heading 范式:content(标题+描述)左 /
+              actions 右;「重新验证」自无头化的 PageHeader 迁入(否则不可见) */}
+          <header className="flex items-start justify-between gap-4 pb-1">
+            <div className="flex flex-col gap-1">
+              <h2 id={`settings-section-title-${activeSection.id}`} className="text-lg font-semibold text-foreground">
+                {activeSection.title}
+              </h2>
+              <p className="text-xs text-muted-foreground">{activeSection.description}</p>
+            </div>
+            <Button size="sm" variant="outline" className="shrink-0" onClick={() => void runDoctor()} disabled={verifying}>
+              <RefreshCw className={verifying ? "size-3.5 animate-spin" : "size-3.5"} />
+              重新验证
+            </Button>
           </header>
 
           {activeSection.id === "system" ? (

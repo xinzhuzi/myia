@@ -72,9 +72,15 @@ uv run myssia --version       # 输出 myssia x.y.z(x.y.z 为实际安装版本)
 ```bash
 uv sync --extra crawl4ai    # L3 JS 渲染引擎
 uv sync --extra llm         # enrich 精评 / aggregate 事件聚合(openai 客户端)
+uv sync --extra table       # 表格还原(rapid_table:截图表格 → metadata.tables)
 ```
 
-可选依赖共 5 个:`crawl4ai` / `scrapling` / `firecrawl` / `skyvern` / `llm`。
+可选依赖共 8 个:`crawl4ai` / `scrapling` / `firecrawl` / `skyvern` /
+`simplex` / `llm` / `vision` / `table`。表格还原在桌面端还有第二条安装通道:
+**设置 → Python 环境的「表格还原」组件开关**——往自管环境装钉版组件,零重
+打包,镜像覆盖生效;品类里用 `images.table: true` 开启(schema 细节见
+[schema 参考](schema.md) 的 images 节)。缺装时品类照常跑,只是表格还原静默
+降级,`myssia doctor` 会出 `table_dependency_missing` 提前披露。
 生产长跑可用服务器形态:`docker compose -f docker/docker-compose.yml up -d`(见
 `docker/README.md`)。
 

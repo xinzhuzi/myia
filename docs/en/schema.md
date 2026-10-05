@@ -294,11 +294,12 @@ credential conventions in the [plugin guide](write-a-plugin.md).
 
 ## Sidecar sections (v0.3/v0.4)
 
-Three optional top-level sections, **not part of the 12-section public
+Four optional top-level sections, **not part of the 12-section public
 contract**: validated at the load entry point by `load_category` (error
-paths prefixed `$.plugin` / `$.baseline` / `$.aggregate`; `null` treated as
-absent) and attached to the matching `CategoryConfig` attribute. Any sidecar
-validation failure refuses the whole YAML (exit code 1).
+paths prefixed `$.plugin` / `$.baseline` / `$.aggregate` / `$.images`;
+`null` treated as absent) and attached to the matching `CategoryConfig`
+attribute. Any sidecar validation failure refuses the whole YAML (exit
+code 1).
 
 ### plugin: scenario plugin dual mode (v0.3)
 
@@ -451,6 +452,78 @@ aggregate:
   enabled: true
   window_hours: 24
   similarity_threshold: 0.6
+push:
+  - channel: stdout
+```
+
+### images: vision ring & table restore
+
+Category-level image processing (the vision-ring sidecar section): when
+enabled, the fetch tail runs each item's images through *download (SSRF
+private-net refused / magic-byte whitelist / streaming 10MB cap / 10s
+timeout) → optional table restore → local OCR → optional VL caption*, and
+the results land on `metadata.image_ocr` / `image_caption` / `tables` /
+`image_status` markers, feeding analyze/enrich scoring and push templates.
+**Any failure only writes a marker — the pipeline is never blocked**;
+disabled (or absent) means the whole ring never runs (zero-impact default).
+
+Where image URLs come from: an extract `fields` entry like
+`image: img@src` (the fetch side urljoins `src` attributes), or same-origin
+image links collected from markdown when an L3+ engine runs without
+`extract` (cross-origin ads/tracking pixels are skipped). Source-level flat
+parameters `images_enabled` / `images_max_images` / `images_min_bytes` /
+`images_vl` / `images_ocr_engine` / `images_detail_fetch` /
+`images_detail_max_items` override the category section (`max_per_run` /
+`persist` / `table` are global semantics — no source-level override).
+
+| Field | Default | Semantics |
+|---|---|---|
+| `enabled` | `false` | Vision-ring master switch; off = the section never runs |
+| `max_images` | `3` | Per-item cap (images, 1-10); the rest is silently truncated |
+| `max_per_run` | `30` | Per-run total cap (VL-duration hard gate; when exhausted items get `skipped:run_limit`) |
+| `min_bytes` | `10240` | Images below this size are treated as icons/tracking pixels and skipped |
+| `vl` | `off` | Vision-caption channel: `off` = OCR only (zero VL cost) / `local` = local OpenAI-compatible endpoint (vision.yaml `local`) / `cloud` = cloud vision model (tokens share the enrich budget pool) |
+| `ocr_engine` | `null` | OCR engine override (`vision` / `rapidocr`); default follows vision.yaml's `ocr.engine_default` |
+| `detail_fetch` | `false` | Detail-page backfill: for imageless items, fetch their detail pages in pipeline order and feed same-origin `<img>` into the same ring |
+| `detail_max_items` | `10` | Per-run backfill cap (items, 1-50; serial with ≥1s spacing; the source-level override is that source's own budget) |
+| `persist` | `false` | Persist images that pass the download gates to `MYIA_HOME/images/<sha16>.<ext>` (content-addressed); metadata gains `image_files` / `image_ocr_lines` |
+| `table` | `false` | Table restore: run rapid_table structure recovery on downloaded images; restored tables land in `metadata.tables = [{markdown, rows, cols}]` (GFM, push cards can embed them directly); a missing/failed engine only writes `metadata.table_status = "table_provider_error"` — never blocks the pipeline. No source-level `images_table` override |
+
+Division of labor: `table` handles table *structure* (rows/columns), `vl`
+handles whole-image *semantic* description — neither replaces the other.
+
+**Installing the table-restore component** (a heavy dependency, kept out of
+the core): CLI-side `uv sync --extra table` (or
+`pip install "myssia[table]"`); on the desktop, flip the "table restore"
+component switch under Settings → Python environment to install it into the
+managed environment (mirror overrides apply; the SLANET-plus structure
+model auto-downloads 6.8MB from modelscope on first use, then works
+offline). With the component missing the category still runs — only table
+restore degrades silently; `myssia doctor` reports a
+`table_dependency_missing` warning (with the install command) for
+categories declaring `images.table: true`.
+
+```yaml
+id: gpu-shots
+name: GPU price screenshots
+schedule: "0 10 * * *"
+timezone: Asia/Shanghai
+sources:
+  - name: price-shots
+    engine: static_html
+    url: "https://detail.example.com/vga/"
+    extract:
+      type: list
+      item: "div.list-item"
+      fields:
+        title: "h3 a"
+        url: "h3 a@href"
+        image: "img@src"          # image source for the ring: extract fields collect <img> addresses
+images:
+  enabled: true
+  max_images: 2
+  vl: "off"                       # bare off/on parse as YAML booleans — quote enum values
+  table: true                     # restore price tables in screenshots to GFM, into metadata.tables
 push:
   - channel: stdout
 ```

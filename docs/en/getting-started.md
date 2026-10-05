@@ -89,10 +89,19 @@ degrade chain — it never crashes the run:
 ```bash
 uv sync --extra crawl4ai    # L3 JS-rendered page engine
 uv sync --extra llm         # enrich scoring / aggregate event merging (openai client)
+uv sync --extra table       # table restore (rapid_table: screenshot tables → metadata.tables)
 ```
 
-There are five extras in total: `crawl4ai` / `scrapling` / `firecrawl` /
-`skyvern` / `llm`. For an always-on server deployment use the compose form:
+There are eight extras in total: `crawl4ai` / `scrapling` / `firecrawl` /
+`skyvern` / `simplex` / `llm` / `vision` / `table`. Table restore has a
+second install path on the desktop: the **"table restore" component switch
+under Settings → Python environment** installs the pinned component into
+the managed environment — no repackaging, mirror overrides apply.
+Categories opt in with `images.table: true` (see the images section in the
+[schema reference](schema.md)). With the component missing the category
+still runs — only table restore degrades silently, and `myssia doctor`
+surfaces a `table_dependency_missing` warning ahead of time. For an
+always-on server deployment use the compose form:
 `docker compose -f docker/docker-compose.yml up -d` (see
 `docker/README.md`).
 

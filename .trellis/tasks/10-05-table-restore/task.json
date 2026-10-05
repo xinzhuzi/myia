@@ -3,7 +3,7 @@
   "name": "table-restore",
   "title": "表格还原:自管环境首件可选组件(rapid_table)",
   "description": "主人两轮定向(2026-10-05):截图表格(行情/比价/参数/榜单)还原结构化 Markdown 进条目 metadata,推送卡可直接嵌。决议:R1 引擎 rapid_table(onnx 模型随轮,复用自管环境,不引 Paddle)R2 品类开关 images.table sidecar R3 CLI extras myssia[table] R4 桌面=设置页组件开关经 pyenv 组件机制装进自管环境 R5 表格结构化与整图 VL 描述分工不互代 R6 产 metadata.tables 管道表,失败只记 table_status 不阻管线",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,

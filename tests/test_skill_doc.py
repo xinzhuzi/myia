@@ -40,6 +40,7 @@ from myssia.schema import (
     DedupConfig,
     EnrichConfig,
     ExtractConfig,
+    ImagesConfig,
     PaginationConfig,
     PushConfig,
     RateLimitConfig,
@@ -71,6 +72,9 @@ SECTION_MODELS: dict[str, type[BaseModel]] = {
     "PushConfig": PushConfig,
     "RouteRuleConfig": RouteRuleConfig,
     "StorageConfig": StorageConfig,
+    # sidecar 模型(10-05-table-restore):SKILL.md §2.17 的 images 速查表与
+    # 12 节同款双向锁定 —— sidecar 字段漂移同样必须是红测而不是误导文档。
+    "ImagesConfig": ImagesConfig,
 }
 
 #: Models whose own default is a nested section instance: SKILL.md documents
@@ -243,7 +247,7 @@ def test_skill_field_table_matches_model_fields_and_defaults(model_name: str):
 
 
 def test_skill_documents_every_section_model():
-    """All 13 section models have a quick-reference table (12 节 = 11 根字段 + route)."""
+    """All 14 section models have a quick-reference table (12 节 = 11 根字段 + route;+ images sidecar)."""
     text = _read(SKILL_MD)
     headers = {
         _SECTION_HEADER_RE.match(line).group("model")

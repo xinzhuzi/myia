@@ -259,10 +259,10 @@ immediate。模板上下文:`items`(条目列表,字段来自 extract)、`date`�
 
 ## Sidecar 节(v0.3/v0.4)
 
-三个可选顶层节,**不属于 12 节公开契约**:由 `load_category` 在装载入口单独
-校验(错误路径带 `$.plugin` / `$.baseline` / `$.aggregate` 前缀,`null` 视为
-未声明),挂到 `CategoryConfig` 的同名属性。任何一个 sidecar 校验失败,整份
-YAML 拒载(退出码 1)。
+四个可选顶层节,**不属于 12 节公开契约**:由 `load_category` 在装载入口单独
+校验(错误路径带 `$.plugin` / `$.baseline` / `$.aggregate` / `$.images`
+前缀,`null` 视为未声明),挂到 `CategoryConfig` 的同名属性。任何一个 sidecar
+校验失败,整份 YAML 拒载(退出码 1)。
 
 ### plugin:场景插件双模式(v0.3)
 
@@ -406,6 +406,70 @@ aggregate:
   enabled: true
   window_hours: 24
   similarity_threshold: 0.6
+push:
+  - channel: stdout
+```
+
+### images:看图与表格还原
+
+品类级图片处理声明(看图环 sidecar 节):开启后 fetch 阶段尾部对条目携带的
+图片执行「下载(SSRF 拒私网 / 魔法字节白名单 / 流式 10MB 截断 / 10s 超时)→
+可选表格还原 → 本地 OCR → 可选 VL 情报向描述」,产物挂
+`metadata.image_ocr` / `image_caption` / `tables` / `image_status` 等标记,
+喂给 analyze/enrich 评分与推送模板。**任何失败只写标记、绝不阻断管线**;
+未开启 = 整环零进入,行为与本节不存在时逐字段一致(零影响默认)。
+
+图片 URL 的来源:extract `fields` 配 `image: img@src`(fetch 侧对 src 属性做
+urljoin),或 L3+ 引擎无 `extract` 时的 markdown 同域图链接收集(跨域广告/
+追踪像素不收)。源级平铺参数 `images_enabled` / `images_max_images` /
+`images_min_bytes` / `images_vl` / `images_ocr_engine` / `images_detail_fetch`
+/ `images_detail_max_items` 覆写品类节(`max_per_run` / `persist` / `table`
+是全局语义,不开放源级覆写)。
+
+| 字段 | 缺省 | 语义 |
+|---|---|---|
+| `enabled` | `false` | 看图环总开关;关 = 整节零进入 |
+| `max_images` | `3` | 每条目处理上限(张,1-10),超出静默截断 |
+| `max_per_run` | `30` | 每 run 图处理总上限(VL 时长硬闸;耗尽标 `skipped:run_limit`) |
+| `min_bytes` | `10240` | 小于该字节数的图视为图标/追踪像素跳过 |
+| `vl` | `off` | 视觉描述通道:`off` = 只 OCR(零 VL 开销)/ `local` = 本地 OpenAI 兼容端点(vision.yaml `local` 节)/ `cloud` = 云端视觉模型(token 走 enrich 预算池) |
+| `ocr_engine` | `null` | OCR 引擎覆写(`vision` / `rapidocr`);缺省按 vision.yaml 的 `ocr.engine_default` |
+| `detail_fetch` | `false` | 详情页追抓:对无图条目按管线顺序追抓详情页,同域收 `<img>` 写回 `metadata.images` 后进同一识图环 |
+| `detail_max_items` | `10` | 每 run 追抓条目上限(1-50;串行 + 每请求 ≥1s 间隔;源级覆写 = 该源独立预算) |
+| `persist` | `false` | 通过下载关的图落盘 `MYIA_HOME/images/<sha16>.<ext>`(内容寻址),metadata 增 `image_files` / `image_ocr_lines` |
+| `table` | `false` | 表格还原:对通过下载关的图跑 rapid_table 结构化,还原表落 `metadata.tables = [{markdown, rows, cols}]`(GFM,推送卡片可直接嵌表);引擎缺装/失败只写 `metadata.table_status = "table_provider_error"`,绝不阻管线。不开放源级 `images_table` 覆写 |
+
+分工边界:`table` 管表格结构化(行列还原),`vl` 管整图语义描述,互不替代。
+
+**表格还原的组件安装**(重依赖,不进核心):CLI 侧
+`uv sync --extra table`(或 `pip install "myssia[table]"`);桌面端在
+设置 → Python 环境用「表格还原」组件开关一键装入自管环境(镜像覆盖生效;
+SLANET-plus 结构模型首用时从 modelscope 自动下载 6.8MB 后离线复用)。缺装时
+品类照常跑——图片环其余产物不受影响,仅表格还原静默降级;
+`myssia doctor` 对声明 `images.table: true` 的品类出 `table_dependency_missing`
+warning 提前披露(带安装命令)。
+
+```yaml
+id: gpu-shots
+name: 显卡行情截图
+schedule: "0 10 * * *"
+timezone: Asia/Shanghai
+sources:
+  - name: price-shots
+    engine: static_html
+    url: "https://detail.example.com/vga/"
+    extract:
+      type: list
+      item: "div.list-item"
+      fields:
+        title: "h3 a"
+        url: "h3 a@href"
+        image: "img@src"          # 看图环的图片来源:extract 字段收 <img> 地址
+images:
+  enabled: true
+  max_images: 2
+  vl: "off"                       # YAML 的裸 off/on 会被解析成布尔,枚举值要加引号
+  table: true                     # 截图里的行情表还原成 GFM,落 metadata.tables
 push:
   - channel: stdout
 ```

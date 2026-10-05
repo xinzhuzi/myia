@@ -154,7 +154,14 @@ uv run myssia --version       # myssia 0.0.1
 ```bash
 uv sync --extra crawl4ai    # L3 JS 渲染引擎
 uv sync --extra llm         # LLM 精评 / 事件聚合
+uv sync --extra table       # 表格还原(rapid_table:截图表格 → metadata.tables)
 ```
+
+表格还原是自管 Python 环境的第一件**可选组件**:桌面端在 设置 → Python
+环境 用「表格还原」组件开关往自管环境装钉版组件(零重打包、镜像覆盖生效),
+品类 YAML 里以 `images.table: true` 开启;CLI 侧即上面的 `--extra table`。
+缺装不阻管线(只降级写 `metadata.table_status`),`myssia doctor` 会以
+`table_dependency_missing` 提前披露。
 
 跑第一个品类 —— 零凭据的完整配置就一个小文件:
 
@@ -346,6 +353,7 @@ Windows 构建这版未通过,Release 暂无 Windows 安装包(后续批次计�
 - [Scrapling](https://github.com/D4Vinci/Scrapling) —— L4 自适应反爬引擎(可选依赖)
 - [Firecrawl](https://github.com/firecrawl/firecrawl) —— L3 云端/自建渲染后端(可选依赖,以 API 调用)
 - [Skyvern](https://github.com/Skyvern-AI/skyvern) —— L6 LLM 浏览器兜底(可选依赖)
+- [rapid-table](https://github.com/RapidAI/RapidTable)(RapidAI 家族)—— 表格还原组件(可选依赖,`myssia[table]`)
 - [changedetection.io](https://github.com/dgtlmoon/changedetection.io) —— 源管理与 diff 交互参考,`myssia-monitor` 插件后端
 - [RSSHub](https://github.com/DIYgod/RSSHub) —— 「一切皆源」的哲学参考
 - [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool) —— `myssia-proxy` 插件后端
@@ -503,7 +511,17 @@ crashing:
 ```bash
 uv sync --extra crawl4ai    # L3 JS-rendered page engine
 uv sync --extra llm         # LLM enrich scoring / event aggregation
+uv sync --extra table       # table restore (rapid_table: screenshot tables → metadata.tables)
 ```
+
+Table restore is the first **optional component** for the managed Python
+environment: on the desktop, the "table restore" switch under
+Settings → Python environment installs the pinned component into the managed
+environment (no repackaging, mirror overrides apply); categories opt in with
+`images.table: true`. CLI-side that's the `--extra table` above. A missing
+component never blocks the pipeline (it only degrades, writing
+`metadata.table_status`), and `myssia doctor` discloses it ahead of time as
+`table_dependency_missing`.
 
 Run your first category — a complete, zero-credential config in one small
 file:
@@ -699,6 +717,7 @@ dependencies, plugin backends and design references:
 - [Scrapling](https://github.com/D4Vinci/Scrapling) — L4 adaptive anti-bot engine (optional dependency)
 - [Firecrawl](https://github.com/firecrawl/firecrawl) — L3 cloud/self-hosted rendering backend (optional dependency, called as an API)
 - [Skyvern](https://github.com/Skyvern-AI/skyvern) — L6 LLM-browser fallback (optional dependency)
+- [rapid-table](https://github.com/RapidAI/RapidTable) (RapidAI family) — table-restore component (optional dependency, `myssia[table]`)
 - [changedetection.io](https://github.com/dgtlmoon/changedetection.io) — source-management & diff UX reference; `myssia-monitor` plugin backend
 - [RSSHub](https://github.com/DIYgod/RSSHub) — the "everything is a feed" philosophy
 - [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool) — `myssia-proxy` plugin backend
