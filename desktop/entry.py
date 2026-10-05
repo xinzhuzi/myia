@@ -400,7 +400,14 @@ from myssia.feedback import (
     resolve_item_ref,
 )
 from myssia.pipeline import Item
-from myssia.plugins.installed import INSTALL_ROOT_ENV, default_install_root
+from myssia.plugins.installed import (
+    INSTALL_ROOT_ENV,
+    InstalledPluginStore,
+    PluginStoreError,
+    default_install_root,
+)
+from myssia.plugins.manifest import load_manifest_file
+from myssia.plugins.versioning import VersionRange, VersionSpecError
 from myssia.push import ChannelDirectory, DeliveryLedger, DirectoryDiscoverUnsupported, PushSendError
 from myssia.push.weixin import probe_bridge
 from myssia.schema import (
@@ -410,6 +417,7 @@ from myssia.schema import (
     LoadError,
     # 私有符号受控复用(与 cli.py/manifest.py 复用 _SECRET_REF_RE 同一先例):
     # 重复键检测与凭据引用语法只此一处定义,防两处漂移。
+    _PLUGIN_ID_RE,
     _SECRET_REF_RE,
     _UniqueKeyLoader,
     load_category,
@@ -477,6 +485,9 @@ MYIA_HOME_ENV = "MYIA_HOME"
 #: 品类补种标志文件名(数据根下;语义 = 「已做过一次补种」的记录 —— 首次
 #: 补种时刻定格,不随幂等补缺刷新;补种本身每次启动照跑,见 _seed_first_run)。
 SEED_MARKER = ".seeded"
+#: 随包插件组件包目录锚点 env 名(壳层 spawn 时注入 Resources/plugins;
+#: dev 构建不注入 = 合法空表,plugins.bundled.* 消费,10-05-bundled-plugins-install)。
+BUNDLED_PLUGINS_ENV = "MYIA_BUNDLED_PLUGINS"
 
 
 # ---------------------------------------------------------------------------
@@ -821,6 +832,195 @@ def _m_plugins_list(params: dict[str, Any]) -> dict[str, Any]:
     assert payload is not None
     payload["exit_code"] = code
     return payload
+
+
+# ---------------------------------------------------------------------------
+# 随包插件组件包:发现 / 一键安装(10-05-bundled-plugins-install)
+# ---------------------------------------------------------------------------
+
+
+def _bundled_plugins_root() -> Path | None:
+    """随包插件组件包目录(``MYIA_BUNDLED_PLUGINS`` env;dev/未注入 = None)。
+
+    壳层 spawn 时 release 且用户未显式设才注入 Resources/plugins(壳侧
+    pyenv.rs ``bundled_plugins_env_value`` 同规则);**env 未设/目录不存在
+    都是合法空态**(dev 形态、旧包、自动化冒烟未注入)——返回 None,发现
+    面如实报空,不虚构。
+    """
+    raw = os.environ.get(BUNDLED_PLUGINS_ENV)
+    if not raw:
+        return None
+    root = Path(raw).expanduser()
+    return root if root.is_dir() else None
+
+
+def _bundled_plugin_views(root: Path, install_root: str) -> list[dict[str, Any]]:
+    """枚举随包目录下含 manifest 的子目录 → 发现条目视图(零参数,零异常上抛)。
+
+    逐目录:目录序(确定性);manifest 可读 → 摘要(id/name/version/tier/gate/
+    requires/provides——manifest schema 无 description 字段,摘要以实况字段为
+    准,不硬凑);manifest 坏 → 条目照常入列,id=None + findings 带
+    ``manifest_invalid``(沿 yaml.list「坏文件也入列」先例,坏件不拦整表)。
+    已装态对齐安装根 ``InstalledPluginStore.entries()`` 的 plugin_id(manifest
+    坏的已装目录按目录名兜底,locate 同口径):installed/installed_version
+    (已装但 manifest 坏 → 版本 None,如实)。
+    """
+    installed = {entry.plugin_id or entry.dir_name: entry for entry in InstalledPluginStore(install_root).entries()}
+    views: list[dict[str, Any]] = []
+    for child in sorted(root.iterdir(), key=lambda item: item.name):
+        if child.name.startswith(".") or not child.is_dir():
+            continue
+        manifest_file = (child / "plugin.yaml") if (child / "plugin.yaml").is_file() else (child / "plugin.yml")
+        if not manifest_file.is_file():
+            continue  # 平铺品类 YAML/散落文件不是组件包(补种面已覆盖品类)
+        view: dict[str, Any] = {
+            "dir_name": child.name,
+            "path": str(child),
+            "id": None,
+            "name": None,
+            "version": None,
+            "tier": None,
+            "gate": None,
+            "compatible": None,
+            "compatible_current": None,
+            "requires": [],
+            "provides": [],
+            "installed": False,
+            "installed_version": None,
+            "findings": [],
+        }
+        try:
+            manifest = load_manifest_file(manifest_file)
+        except Exception as exc:  # noqa: BLE001 - LoadError 与意外 IO 一律条目级 finding
+            first = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
+            detail = exc.to_dict() if hasattr(exc, "to_dict") else None
+            view["findings"].append({
+                "severity": "error", "scope": f"plugin:{child.name}", "code": "manifest_invalid",
+                "message": f"随包插件 manifest 校验失败({manifest_file}): {first}",
+                **({"detail": detail} if detail is not None else {}),
+            })
+            views.append(view)
+            continue
+        view.update({
+            "id": manifest.id,
+            "name": manifest.name,
+            "version": manifest.version,
+            "tier": manifest.tier,
+            "gate": manifest.gate,
+            "compatible": manifest.compatible,
+            "compatible_current": _manifest_compatible_with_current(manifest.compatible),
+            "requires": list(manifest.requires),
+            "provides": list(manifest.provides),
+        })
+        # id 与目录名不一致(包内约定应一致;不一致如实透出,安装按 manifest id 落目录)
+        if manifest.id != child.name:
+            view["findings"].append({
+                "severity": "warning", "scope": f"plugin:{child.name}", "code": "id_mismatch",
+                "message": f"随包目录名 {child.name!r} 与 manifest id {manifest.id!r} 不一致(按 manifest id 为准)",
+            })
+        entry = installed.get(manifest.id)
+        if entry is not None:
+            view["installed"] = True
+            view["installed_version"] = entry.manifest.version if entry.manifest is not None else None
+            if entry.manifest is not None and _manifest_compatible_with_current(entry.manifest.compatible) is False:
+                view["findings"].append({
+                    "severity": "warning", "scope": f"plugin:{manifest.id}", "code": "incompatible_version",
+                    "message": f"已装版本要求 myssia {entry.manifest.compatible},当前不兼容(插件将被跳过,核心流水线不受影响)",
+                })
+        views.append(view)
+    return views
+
+
+def _manifest_compatible_with_current(compatible: str) -> bool | None:
+    """版本范围对当前 myssia 的兼容判定(范围串不可解析 → None,无从判断如实)。"""
+    try:
+        return VersionRange(compatible).contains(myssia.__version__)
+    except VersionSpecError:
+        return None
+
+
+def _locate_bundled_plugin_dir(root: Path, plugin_id: str) -> Path:
+    """随包目录内按 id 定位组件包目录(目录名直配 > manifest id 匹配兜底)。
+
+    id 已过 ``_PLUGIN_ID_RE``(仅小写字母/数字/_-,无路径穿越可能);找不到
+    → ``bundled_plugin_not_found`` 结构化拒。
+    """
+    direct = root / plugin_id
+    if direct.is_dir() and any(direct.glob("plugin.y*ml")):
+        return direct
+    for child in sorted(root.iterdir(), key=lambda item: item.name):
+        if child.name.startswith(".") or not child.is_dir():
+            continue
+        manifest_file = (child / "plugin.yaml") if (child / "plugin.yaml").is_file() else (child / "plugin.yml")
+        if not manifest_file.is_file():
+            continue
+        try:
+            manifest = load_manifest_file(manifest_file)
+        except Exception:  # noqa: BLE001 - 坏 manifest 的目录不是可安装来源
+            continue
+        if manifest.id == plugin_id:
+            return child
+    raise ProtocolError(
+        "bundled_plugin_not_found",
+        f"随包插件目录内没有 id 为 {plugin_id!r} 的组件包(可用件见 plugins.bundled.list)",
+        path="params.id",
+    )
+
+
+def _m_plugins_bundled_list(params: dict[str, Any]) -> dict[str, Any]:
+    """``plugins.bundled.list``:随包插件组件包发现(装机态一键安装的数据面)。
+
+    枚举 ``MYIA_BUNDLED_PLUGINS`` 目录下含 manifest 的子目录 → manifest 摘要
+    +已装态(对齐安装根 InstalledPluginStore);**env 未设/目录不存在 =
+    合法空表**(dev 形态/旧包/未注入如实,``dir=null`` 不虚构)。坏 manifest
+    条目级 finding 不整表炸(yaml.list 先例)。
+    """
+    root = _bundled_plugins_root()
+    if root is None:
+        return {"dir": None, "count": 0, "plugins": []}
+    ctx = _serve_context()
+    plugins = _bundled_plugin_views(root, ctx.install_root)
+    return {"dir": str(root), "count": len(plugins), "plugins": plugins}
+
+
+def _m_plugins_bundled_install(params: dict[str, Any]) -> dict[str, Any]:
+    """``plugins.bundled.install {id, force?}``:随包组件包一键装进安装根。
+
+    装卸门零新增:id 过 ``_PLUGIN_ID_RE`` 同门(防穿越,manifest.py/installed.py
+    同源正则)→ 目录映射 → 直调 ``InstalledPluginStore.install``(与 CLI
+    ``myssia plugin install`` 同门:manifest 校验 → 版本矩阵 → 整目录拷贝
+    绝不半装;已装未 force/版本不兼容未 force 结构化拒,``PluginStoreError``
+    code 原文透传)。应答 ``{ok, dir, version}``。
+    """
+    root = _bundled_plugins_root()
+    if root is None:
+        raise ProtocolError(
+            "bundled_plugins_unavailable",
+            "随包插件目录不可用(dev 形态或旧包未注入 MYIA_BUNDLED_PLUGINS);无法一键安装",
+            path="params.id",
+        )
+    plugin_id = params.get("id")
+    if not isinstance(plugin_id, str) or not _PLUGIN_ID_RE.match(plugin_id):
+        raise ProtocolError(
+            "invalid_params",
+            "缺少合法字符串字段 id(插件 id 应为小写字母/数字开头,可含连字符/下划线,2-64 字符)",
+            path="params.id",
+        )
+    force = params.get("force", False)
+    if not isinstance(force, bool):
+        raise ProtocolError("invalid_params", "force 必须为布尔", path="params.force")
+    source = _locate_bundled_plugin_dir(root, plugin_id)
+    store = InstalledPluginStore(_serve_context().install_root)
+    try:
+        result = store.install(source, force=force)
+    except PluginStoreError as exc:
+        raise ProtocolError(
+            exc.code,
+            f"随包插件安装失败: {exc}",
+            path="params.id",
+            data={"errors": exc.errors} if exc.errors else None,
+        ) from exc
+    return {"ok": True, "dir": result["path"], "version": result["version"]}
 
 
 def _m_doctor(params: dict[str, Any]) -> dict[str, Any]:
@@ -4888,6 +5088,8 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "version": _m_version,
     "health": _m_health,
     "plugins.list": _m_plugins_list,
+    "plugins.bundled.list": _m_plugins_bundled_list,
+    "plugins.bundled.install": _m_plugins_bundled_install,
     "doctor": _m_doctor,
     "run.start": _m_run_start,
     "run.status": _m_run_status,

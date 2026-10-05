@@ -49,6 +49,11 @@ pub const ENTRY_ARGS: [&str; 3] = ["-m", ENTRY_MODULE, "serve"];
 pub const RESOURCE_SRC_DIR: &str = "myssia-src";
 /// 随包依赖锁版清单文件名(第 1 步随包;漂移比对基准)。
 pub const RESOURCE_LOCK_FILE: &str = "requirements-lock.txt";
+/// 随包插件组件包目录名(tauri.conf resources 映射 `plugins/<pkg>/…` 后
+/// 位于 resource_dir 下;10-05-bundled-plugins-install 发现/一键安装面)。
+pub const RESOURCE_BUNDLED_PLUGINS_DIR: &str = "plugins";
+/// spawn 时注入的随包插件目录锚点 env 名(sidecar plugins.bundled.* 消费)。
+pub const BUNDLED_PLUGINS_ENV: &str = "MYIA_BUNDLED_PLUGINS";
 /// 环境进度戳文件名(数据根下;安装链写、壳读)。
 const ENV_STAMP_FILE: &str = "python-env.json";
 /// 镜像覆盖落盘文件名(数据根下;壳写、安装链读)。
@@ -229,6 +234,29 @@ pub fn pyenv_settings_path(data_root: &Path) -> PathBuf {
 /// 随包源码目录(spawn 时注入 PYTHONPATH;dev python 与应用 python 分家,Req 4)。
 pub fn resource_src_dir(resource_dir: &Path) -> PathBuf {
     resource_dir.join(RESOURCE_SRC_DIR)
+}
+
+/// 随包插件组件包目录(spawn 时注入 MYIA_BUNDLED_PLUGINS;sidecar 据此发现
+/// 可一键安装的官方件,目录不存在 = 合法空表)。
+pub fn bundled_plugins_dir(resource_dir: &Path) -> PathBuf {
+    resource_dir.join(RESOURCE_BUNDLED_PLUGINS_DIR)
+}
+
+/// spawn 时是否注入 `MYIA_BUNDLED_PLUGINS` 及注入值(纯函数,单测主战场):
+///
+/// - **release 构建且用户未显式设置** → `Some(resource_dir/plugins)`:
+///   装机态唯一可靠锚点(dev python 解释器在数据根,exe 相对定位不可达,
+///   资源树布局是壳侧唯一事实源;4986c58 myssia-src 同款判例);
+/// - **dev 构建定死不注入**(None):dev 形态 resource_dir 无组件包,注入
+///   会让发现面枚举仓库 plugins/ 全量 20 件(含未打包 myssia-crawlab 等),
+///   装机断言数字两态漂;「env 未设 = 合法空表」是 dev 的稳定契约;
+/// - **用户已显式设置**(automation/冒烟)→ None:已设则原样继承不夺权
+///   (MYIA_HOME 同款惯例)。
+pub(crate) fn bundled_plugins_env_value(resource_dir: &Path, already_set: bool, is_debug: bool) -> Option<PathBuf> {
+    if already_set || is_debug {
+        return None;
+    }
+    Some(bundled_plugins_dir(resource_dir))
 }
 
 /// 随包锁版清单路径(依赖漂移比对基准)。
@@ -546,6 +574,30 @@ mod tests {
     #[test]
     fn entry_args_pin_serve_argv_contract() {
         assert_eq!(ENTRY_ARGS, ["-m", "myssia_desktop_entry", "serve"]);
+    }
+
+    /// MYIA_BUNDLED_PLUGINS 注入两态(10-05-bundled-plugins-install):
+    /// release+未显式设 → resource_dir/plugins;dev 构建定死不注入(env 未设
+    /// = sidecar 合法空表,dev 空表是稳定契约);用户已显式设 → 不夺权
+    /// (MYIA_HOME 同款惯例;automation/冒烟直跑二进制显式注入的逃生口)。
+    #[test]
+    fn bundled_plugins_env_value_release_only_and_not_displacing() {
+        let dir = Path::new("/app/Contents/Resources");
+        // release 且未显式设:注入资源树 plugins 锚点(4986c58 myssia-src 同款)
+        assert_eq!(
+            bundled_plugins_env_value(dir, false, false),
+            Some(PathBuf::from("/app/Contents/Resources/plugins"))
+        );
+        // dev 构建定死不注入:仓库 plugins/ 20 件(含未打包件)不得进发现面
+        assert_eq!(bundled_plugins_env_value(dir, false, true), None);
+        // 用户已显式设置:不夺权(automation/冒烟直跑二进制的逃生口)
+        assert_eq!(bundled_plugins_env_value(dir, true, false), None);
+        assert_eq!(bundled_plugins_env_value(dir, true, true), None);
+        // 目录拼装与公开常量一致(单一锚点定义,防两处漂移)
+        assert_eq!(
+            bundled_plugins_dir(dir),
+            PathBuf::from("/app/Contents/Resources").join(RESOURCE_BUNDLED_PLUGINS_DIR)
+        );
     }
 
     /// 五个状态枚举的 JSON 字符串恰为契约钉死值。

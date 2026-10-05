@@ -16,7 +16,7 @@
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 62 行;代码 `_HANDLERS` 现值 62,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 64 行;代码 `_HANDLERS` 现值 64,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -82,6 +82,8 @@
 | 60 | `store.state.import` | `_m_store_state_import` | localStorage 读态一次性搬迁(G9 Q2 搬迁门):`{states: {<key>: {read?/starred?/later?}}, db?}` → `{imported, skipped}`;key 三分:dedup_key 直配/`id:<n>` 先解析到键/`id:<url>` 及无从解析形态如实计 skipped(已剪枝条目不复活);幂等旗标 = store_meta `feed_state_imported_at`(服务端是唯一真相,webview 清数据击不穿):已设 → `{imported:0, skipped:0}` 不触库,未设 → 导入后落 ISO 时间戳(read-state-server 批) |
 | 61 | `gates.get` | `_m_gates_get` | gates.yaml 整读:`{}` → `{config, path, exists, error}`(config = GatesConfig.to_payload 同形状,凭据位只回 `keychain:` 引用永不回值;文件缺失 = 全关默认态 exists=false;**坏文件不 fail fast** —— fail-closed 全关态 + `error` 拒载明细(LoadError.to_dict)带回,设置屏是修复入口,一次合法 save 覆写修复,与 image.config.read 的 fail fast 不同属刻意;设置屏门槛件分区消费;10-05-plugin-market-batch 批二) |
 | 62 | `gates.save` | `_m_gates_save` | gates.yaml 整存:`{config}` → `{ok, path}`(tmp+rename 原子写;`GatesConfig` 构造即校验,失败 `gates_config_invalid`(data=LoadError.to_dict)零落盘;缺 config 对象 = `invalid_params`;10-05-plugin-market-batch 批二) |
+| 63 | `plugins.bundled.list` | `_m_plugins_bundled_list` | 随包插件组件包发现:`{}` → `{dir, count, plugins}`(枚举 env `MYIA_BUNDLED_PLUGINS` 目录下含 plugin.yaml 的子目录,逐包 manifest 摘要 id/name/version/tier/gate/requires/provides + 版本兼容判定 + 已装态 installed/installed_version——对齐安装根 InstalledPluginStore 的 plugin_id;**env 未设/目录不存在 = 合法空表** `{dir:null, count:0, plugins:[]}`(dev 形态/旧包/未注入如实);坏 manifest 条目级 finding(manifest_invalid)不整表炸,沿 yaml.list 先例;目录名与 manifest id 不一致 → id_mismatch warning 如实透出;10-05-bundled-plugins-install) |
+| 64 | `plugins.bundled.install` | `_m_plugins_bundled_install` | 随包组件包一键装:`{id, force?}` → `{ok, dir, version}`(id 过 `_PLUGIN_ID_RE` 同门防穿越 → 目录映射 → 直调 `InstalledPluginStore.install` 与 CLI `myssia plugin install` 同门:manifest 校验→版本矩阵→整目录拷贝绝不半装;已装未 force/版本不兼容未 force → PluginStoreError code 原文透传 already_installed/incompatible_version 等;env 不可用 `bundled_plugins_unavailable`、id 不在目录 `bundled_plugin_not_found`;卸载本期不在协议面(CLI `myssia plugin remove` 在库;随包原件只读永不删,卸载=删安装根拷贝可重装);10-05-bundled-plugins-install) |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+
@@ -129,6 +131,16 @@ serve 上下文数据根发现缺省 `<home>/pools.yaml`,命中才拼 `--config`
 应答键、缺省 false 现行为逐字节不变,旧壳+新 UI 组合旧 `_m_doctor` 忽略未知
 键照跑(不带 config,`proxy.config=null` 前端提示行降级),循 gates 先例维持
 v10。
+bundled-plugins-install 批(task 10-05-bundled-plugins-install)新增 2:
+63-64 `plugins.bundled.list`/`install`(随包插件组件包发现与一键装——壳层
+spawn 时注入 `MYIA_BUNDLED_PLUGINS=Resources/plugins`(release 且用户未显式
+设才注入;dev 构建定死不注入 = 空表稳定契约,防枚举仓库 plugins/ 20 件未打包
+件致断言数字两态漂;壳侧 pyenv.rs `bundled_plugins_env_value` 与本表注册 63/64
+行为同一套),发现/安装全走 sidecar 单一事实源,UI 零 resourceDir 直查;装卸门
+零新增 = 直调 `InstalledPluginStore.install` 与 CLI 同门(见注册表 64 行注)。
+**协议版本未随批 bump**:循 plugin-market-batch gates 批二「地基路」先例——
+旧壳+新 UI 组合下设置屏「装机组件」分区经 method_not_found 结构化降级(不
+白屏),与 gates UI 无版本能力门同款;注册表 64 行。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成
@@ -295,6 +307,7 @@ status 取摘要 run 块,账本无行时 summary=null/status 回落成功布尔,
 | 告警规则 | `alert_rule_invalid` / `alert_not_found` / `alert_test_no_item`(另复用 `invalid_params` 互斥门/载荷形状、`item_not_found` 的 item_id 形态) | `alerts.save` 某条构造期拒(data `{index, field, reason}`,整批零写入)/ `alerts.delete`·`alerts.test`(rule_id 形态)·`alerts.save`(载荷未知 id)未知 id / `alerts.test` 缺省取材空库(task 10-04-alert-rules;求值错/mute/降级/发送失败 = 非协议错,WARNING 隔离走 logs.tail) |
 | 定时任务 | `cron_category_invalid` / `cron_create_failed` / `cron_edit_failed` / `cron_edit_no_changes` / `cron_resume_failed` / `cron_run_failed` / `cron_ambiguous_job` / `cron_job_not_found`(另复用 `invalid_params` 参数形状/all 与 job 互斥) | `cron.create`/`cron.edit` 品类 YAML 装不上(Q6 早失败,data=LoadError.to_dict)/ `create` 的 schedule 五形态·once 超窗·repeat·paused 自相矛盾(ValueError 原文)/ `edit` 的 schedule 变更解析失败·终态复活拒绝 / `edit` 空更新集 / `resume` 的 recurring 拒 at·once 过窗 / `run` 终态 job 拒绝 / 名字引用重名(data.candidates)/ id 或名字未找到(task 10-04-hermes-cron;与 CLI `myia cron` 同码) |
 | 读态置位 | (仅复用 `invalid_params` + 透传 `store_corrupt`/`schema_version_newer`) | `store.state.mark` 的 keys 非非空数组/含非字符串或空串/超 2000、marker 不在 read/starred/later 枚举、value 非 bool;`store.state.mark_all` 的 marker/value/category 空串;`store.state.import` 的 states 非对象/键非字符串/值非对象/标记键非枚举布尔(task 10-04-read-state-server;参数形状全静态校验,无新业务 code) |
+| 随包插件一键装 | `bundled_plugins_unavailable` / `bundled_plugin_not_found`(另复用 `invalid_params` id/force 形状;装卸门错误码 `PluginStoreError.code` 动态透传见透传族) | `plugins.bundled.install`:env `MYIA_BUNDLED_PLUGINS` 未设/目录不可达(dev 形态/旧包/未注入如实;`bundled_plugins_unavailable`)/ id 过正则门但随包目录内无此件(`bundled_plugin_not_found`,可用件见 list;task 10-05-bundled-plugins-install) |
 
 ### 透传族(`exc.code` 动态透传,不在 entry.py 静态出现)
 
@@ -303,6 +316,10 @@ status 取摘要 run 块,账本无行时 summary=null/status 回落成功布尔,
 `src/shishi/` 对应模块,entry.py 只加 `path`/`data` 不改 code。`push.test` 同款透传
 push 层 `PushSendError.code`(`missing_target` / `env_var_missing` /
 `credential_resolve_failed` 等,追源头去 `src/shishi/push/`;task 10-03-feed-ux G5)。
+`plugins.bundled.install` 透传插件仓 `PluginStoreError.code`(installed.py 装卸门
+唯一 fail-fast 面:already_installed / incompatible_version / manifest_invalid /
+invalid_source / io_error;task 10-05-bundled-plugins-install,`data.errors` 带
+manifest 校验明细)。
 
 ## 变更纪律
 
@@ -332,6 +349,12 @@ push 层 `PushSendError.code`(`missing_target` / `env_var_missing` /
  `gates.get`/`gates.save` 已由 10-05-plugin-market-batch 批二第 11 步接线(设置屏
   门槛件分区):两方法入共享门面(`gatesGet`/`gatesSave`),消费方 =
   `screens/settings/`(门槛件三卡:付费通道/自有实例/分析件 D8 占位)。
+ `plugins.bundled.list`/`install` 已由 10-05-bundled-plugins-install 接线(设置屏
+  「装机组件」分区):两方法走**屏私有封装面**(`screens/settings/
+  bundled-plugins-api.ts`,invoke sidecar_request 直连+错误归一化,沿 pyenv-api.ts
+  types+invoke 封装先例;不进共享门面——单屏单消费方,yaml.* 同款惯例),
+  消费方 = `screens/settings/bundled-plugins-card.tsx`(逐包行+一键装/重装;
+  SidecarProtocol 共享映射数不变,对账时勿按 47 计本族)。
  `store.state.*` 三方法的前端接线归 10-04-read-state-server 前端件(feed 屏
- 能力门:`api.version().protocol >= 10` 走服务端态通路,否则原样走旧
- localStorage 通路——旧 sidecar + 新 UI 组合可用;接线落成后按上表 58-60 行对账)。
+  能力门:`api.version().protocol >= 10` 走服务端态通路,否则原样走旧
+  localStorage 通路——旧 sidecar + 新 UI 组合可用;接线落成后按上表 58-60 行对账)。

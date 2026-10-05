@@ -923,6 +923,27 @@ describe("设置:分区导航与危险区(D4 结构重做)", () => {
     expect(screen.getByLabelText("base_url")).toBeTruthy();
   });
 
+  it("装机组件分区(10-05-bundled-plugins-install):URL 深链直进,发现卡挂载且侧栏空态提示含本区", async () => {
+    installSidecar();
+    // 本分区数据面 = plugins.bundled.*(共享桩 default 拒之;此处按契约补一个
+    // 合法空态应答——dev 形态 dir=null,卡片走「未发现随包插件目录」提示块)
+    const baseImpl = mocks.invoke.getMockImplementation();
+    mocks.invoke.mockImplementation(async (_command: string, args: { method?: string; params?: unknown }) => {
+      if (args?.method === "plugins.bundled.list") {
+        return { dir: null, count: 0, plugins: [] };
+      }
+      return baseImpl?.(_command, args);
+    });
+    renderScreen("/settings?section=installer-plugins");
+
+    expect(screen.getByTestId("settings-section-installer-plugins")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "装机组件" })).toBeTruthy();
+    expect(await screen.findByTestId("bundled-plugins-card")).toBeTruthy();
+    expect(await screen.findByTestId("bundled-plugins-empty")).toBeTruthy();
+    // 侧栏过滤空态提示语收录本区名(分区列表从 6 涨到 7)
+    expect(screen.getByTestId("settings-nav-installer-plugins").textContent).toContain("装机组件");
+  });
+
   it("每区保存态反馈在卡片底栏:保存中禁用按钮,成功后 save-status 留在本卡", async () => {
     let releaseSave: (() => void) | null = null;
     mocks.invoke.mockImplementation(async (_command: string, args: { method: string; params?: unknown }) => {

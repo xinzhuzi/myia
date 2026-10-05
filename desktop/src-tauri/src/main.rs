@@ -201,6 +201,17 @@ fn spawn_sidecar(app: &AppHandle) -> Result<CommandChild, Box<dyn std::error::Er
     // 开发态缺省同源(与 .app 版本天然一致,无需另维护常量)。
     let app_version = app.package_info().version.to_string();
     command = command.env("MYIA_APP_VERSION", app_version);
+    // 随包插件组件包目录锚点(10-05-bundled-plugins-install):release 且用户
+    // 未显式设置才注入 MYIA_BUNDLED_PLUGINS=Resources/plugins(dev 构建定死
+    // 不注入,dev 空表是稳定契约;已设原样继承不夺权,MYIA_HOME 同款惯例)。
+    // 发现/一键安装走 sidecar plugins.bundled.* 单一事实源,UI 零 resourceDir 直查。
+    if let Some(dir) = pyenv::bundled_plugins_env_value(
+        &resource_dir,
+        std::env::var_os(pyenv::BUNDLED_PLUGINS_ENV).is_some(),
+        cfg!(debug_assertions),
+    ) {
+        command = command.env(pyenv::BUNDLED_PLUGINS_ENV, dir);
+    }
     let (rx, child) = command.spawn()?;
     pump_task(app.clone(), rx);
     Ok(child)

@@ -6,6 +6,7 @@ import {
   Cpu,
   Eye,
   KeyRound,
+  Layers,
   Lightbulb,
   Lock,
   RefreshCw,
@@ -54,6 +55,7 @@ import {
   verifyWithDoctor,
 } from "./api";
 import type { DoctorVerify, EnrichView, SecretSaveRecord } from "./api";
+import { BundledPluginsCard } from "./bundled-plugins-card";
 import { DoctorVerifyPanel } from "./doctor-verify";
 import { ErrorBox } from "./error-box";
 import { FieldInput } from "./field-input";
@@ -135,6 +137,9 @@ const SECTIONS: SettingsSection[] = [
   { id: "push", label: "推送", icon: Send, title: "推送", description: "通道凭据;发送测试验证连通" },
   { id: "vision", label: "视觉", icon: Eye, title: "视觉", description: "看图通道与 OCR + MLX 视觉模型" },
   { id: "gates", label: "门槛件", icon: Lock, title: "门槛件", description: "付费 SaaS / 自有实例 / 分析件:知情启用(fail-closed,缺省全关)" },
+  // 10-05-bundled-plugins-install:装机组件分区(随包官方插件件发现/一键装;
+  // sidecar plugins.bundled.list/install,契约见 bundled-plugins-api.ts)
+  { id: "installer-plugins", label: "装机组件", icon: Layers, title: "装机组件", description: "随包官方插件件:发现 / 一键安装 / 重装(整目录拷贝过 manifest 校验;卸载走 CLI)" },
   // 10-05-desktop-managed-py-env 第 4 步(D1/D2):Python 运行环境自管区块,
   // 也是 D2 引导空态「一键跳设置」的深链落点(#/settings?section=python-env)
   { id: "python-env", label: "Python 环境", icon: Cpu, title: "Python 运行环境", description: "运行时与依赖按需下载:开始配置 / 双镜像覆盖 / 安装明细 / 同步依赖" },
@@ -1153,7 +1158,7 @@ export function SettingsScreen() {
           </nav>
           {visibleSections.length === 0 ? (
             <span data-testid="settings-section-filter-empty" className="px-2.5 text-2xs text-muted-foreground">
-              无匹配分区(通用/推送/视觉/门槛件/Python 环境/系统)
+              无匹配分区(通用/推送/视觉/门槛件/装机组件/Python 环境/系统)
             </span>
           ) : null}
         </div>
@@ -1438,6 +1443,10 @@ export function SettingsScreen() {
           {activeSection.id === "gates" ? (
             <GatesForm secretNames={secretNames} onSecretsChanged={() => void refreshSecretNames()} />
           ) : null}
+
+          {/* 装机组件(10-05-bundled-plugins-install:随包官方插件件发现/一键装,
+              plugins.bundled.list/install;装卸门与 CLI myssia plugin install 同门) */}
+          {activeSection.id === "installer-plugins" ? <BundledPluginsCard /> : null}
 
           {/* Python 运行环境(10-05-desktop-managed-py-env 第 4 步,D1/D2:
               开始配置/路径/双镜像覆盖/安装明细/同步依赖;IPC 契约见 pyenv-api.ts) */}

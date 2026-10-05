@@ -2461,12 +2461,14 @@ def test_method_registry_allowed_matches_handlers():
     hermes-cron 批(cron.* 九方法,10-04-hermes-cron B3)+
     read-state-server 批(store.state.* 三方法,10-04-read-state-server)+
     plugin-market-b2 批(gates.get/gates.save 两方法,10-05-plugin-market-batch
-    批二第 10 步 D4/D7;设置面分区 UI = 同批第 11 步)
-    后 = 62。"""
+    批二第 10 步 D4/D7;设置面分区 UI = 同批第 11 步)+
+    bundled-plugins-install 批(plugins.bundled.list/install 两方法,
+    10-05-bundled-plugins-install;随包组件包发现/一键装)
+    后 = 64。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 62
+    assert len(allowed) == 64
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",
@@ -2477,7 +2479,8 @@ def test_method_registry_allowed_matches_handlers():
                    "cron.list", "cron.create", "cron.edit", "cron.pause",
                    "cron.resume", "cron.run", "cron.remove", "cron.status",
                    "cron.runs", "store.state.mark", "store.state.mark_all",
-                   "store.state.import", "gates.get", "gates.save"):
+                   "store.state.import", "gates.get", "gates.save",
+                   "plugins.bundled.list", "plugins.bundled.install"):
         assert method in allowed
 
 
