@@ -164,6 +164,27 @@ class FakeRapidOCR:
         return self.result, [0.1]
 
 
+class _FakeNumpyArray(list):
+    """numpy.ndarray 最小桩:仅 ``shape``(按嵌套深度递推),供 ocr_results 契约断言。"""
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        dims: list[int] = [len(self)]
+        first = self[0] if self else None
+        while isinstance(first, list):
+            dims.append(len(first))
+            first = first[0] if first else None
+        return tuple(dims)
+
+
+#: 假 numpy 模块(table.py:178 惰性 import 的全部触面:array/float32 两件;
+#: src 若演进用更多 numpy API,桩即 AttributeError 响亮失败,不静默吞)。
+_FAKE_NUMPY = SimpleNamespace(
+    array=lambda items, dtype=None: _FakeNumpyArray(items),
+    float32="float32",
+)
+
+
 @pytest.fixture(autouse=True)
 def reset_engines():
     """引擎单例逐例重置(sys.modules 假引擎注入后,缓存必须清防串台)。"""
@@ -175,6 +196,20 @@ def reset_engines():
 
 
 class TestRunTableEngine:
+    @pytest.fixture(autouse=True)
+    def fake_numpy(self, monkeypatch: pytest.MonkeyPatch):
+        """注入假 numpy(sys.modules,与假 rapid_table/rapidocr 同纪律)。
+
+        根因(CI run 37268141209 连红):test 作业裸 ``uv sync`` 只装项目+dev
+        组(dev=["pytest"]),numpy 仅经 extras ``myssia[table]`` 传递;而
+        ``_ocr_feed`` 的惰性 ``import numpy``(table.py:178)先于一切引擎
+        分支执行,本类 8 件在无 numpy 环境齐炸 ModuleNotFoundError。桩
+        无条件注入——本地(有真 numpy)/CI(没有)同路径,确定性;真数值
+        正确性归 TestRealEngineFixture 真引擎例(装后沙箱 -e '.[table]',
+        importorskip 守卫),桩不越界。
+        """
+        monkeypatch.setitem(sys.modules, "numpy", _FAKE_NUMPY)
+
     def test_roundtrip_feeds_ocr_results_contract(self, monkeypatch, tmp_path):
         img = tmp_path / "t.png"
         img.write_bytes(PNG_HEAD + b"0" * 64)
