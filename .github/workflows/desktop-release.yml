@@ -271,7 +271,7 @@ jobs:
 
   release-finalize:
     name: 归聚(latest.json 单写者 + Windows 资产挂 Release)
-    runs-on: ubuntu-latest # jq 预装(grill R2-D6a)
+    runs-on: ubuntu-24.04 # jq 预装(grill R2-D6a);ubuntu 钉 24.04(latest 标签 2026-10-19 起迁 26.04,防漂移)
     needs: [macos-dmg, windows-msi]
     # mac 绿即执行(10-04-windows-build D6):windows 红/缺席不拖死 latest.json——
     # mac 条目照发,windows 仅表现为 run 红 + 条目/资产缺席(可见但不伤 mac 用户)。

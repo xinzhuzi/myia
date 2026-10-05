@@ -8,7 +8,9 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # ubuntu-latest 标签 2026-10-19 起渐进迁 Ubuntu 26.04(GitHub changelog
+    # 2026-09-17),全文件钉 24.04 防隐式漂移;当前 latest 即 24.04,零行为变化
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
         with:
@@ -26,7 +28,7 @@ jobs:
 
   ui-test:
     name: UI component tests (desktop/ui-src)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: desktop/ui-src
@@ -52,7 +54,7 @@ jobs:
   # 不加 clippy/fmt/matrix(见该任务 PRD「不做的事」)。
   rust-check:
     name: Rust compile check (desktop/src-tauri)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: desktop/src-tauri
@@ -77,7 +79,7 @@ jobs:
   # 起草期实测 498 错)。本地同款:uvx ruff@0.16.10 check .
   ruff:
     name: Python lint (ruff minimal set)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
@@ -91,7 +93,7 @@ jobs:
   # docker-publish.yml)。
   docker-build:
     name: Docker image build check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - name: docker build .
