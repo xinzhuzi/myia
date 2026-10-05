@@ -4,7 +4,6 @@ import {
   Clock,
   FileCode2,
   Inbox,
-  Layers,
   LayoutDashboard,
   Loader2,
   MessageCircle,
@@ -34,11 +33,14 @@ import { cn } from "@/lib/utils";
  * 命令面(清单自含,不复用 sidebar 的 NAV_GROUPS,避免与 A-shell 跨批
  * 耦合,重复属有意取舍):
  * - 导航八屏(App.tsx 路由表口径);
- * - 跑一次:health → 品类定位插件 → run.start,复刻 global-run.tsx:29-52
- *   口径(GlobalRun 组件本身不动;顶栏按钮不感知面板发起的 run,取舍见
- *   PRD A-cmd 节);
- * - 刷新:window.location.reload(自含,不逐屏发刷新事件);
- * - 切换品类:TopBar 既有 options 清单 + onCategoryChange 透传。
+ * - 跑一次:health → 第一个可加载插件 → run.start;
+ * - 刷新:window.location.reload(自含,不逐屏发刷新事件)。
+ *
+ * 10-05 复活注记:无头布局(d9ae353)整删 TopBar 时,本面板唯一渲染点随
+ * 之消失成为不可达死 UI(主人「怎么解决」→ AppLayout 直挂复活,⌘K 全局
+ * 热键本就自含,零视觉占用不回顶栏不破无头令);品类命令组与 category 族
+ * props 随 TopBar 全球品类过滤(7152ff9 归情报流屏)一并退役,精确的逐品类
+ * 跑一次入口在 cron 屏排程一览行尾。
  */
 
 /** 与 --duration-fast(120ms)对应的离场卸载延迟,改 token 时同步改这里(dialog.tsx 同款) */
@@ -57,7 +59,7 @@ const SCREENS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon; keyw
 ];
 
 /** 面板分组(渲染序 = commands 构建序,filter 保序故分组天然连续) */
-const GROUP_ORDER = ["导航", "动作", "品类"] as const;
+const GROUP_ORDER = ["导航", "动作"] as const;
 type CommandGroup = (typeof GROUP_ORDER)[number];
 
 interface CommandItem {
@@ -75,20 +77,9 @@ interface CommandItem {
 export interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** 当前品类(TopBar 全局过滤态;跑一次按它定位插件) */
-  category: string | null;
-  /** 品类选项(TopBar 既有 health 清单透传;空数组时仅「全部品类」) */
-  categoryOptions: ReadonlyArray<{ id: string; label: string }>;
-  onCategoryChange: (next: string | null) => void;
 }
 
-export function CommandPalette({
-  open,
-  onOpenChange,
-  category,
-  categoryOptions,
-  onCategoryChange,
-}: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
   const listId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -157,17 +148,14 @@ export function CommandPalette({
     };
   }, [mounted]);
 
-  /** 跑一次:health → 品类定位插件 → run.start(global-run.tsx:29-52 同口径) */
+  /** 跑一次:health → 第一个可加载插件 → run.start(品类定位已随品类组退役) */
   const runOnce = useCallback(async () => {
     if (runStarting) return;
     setRunStarting(true);
     setRunError(null);
     try {
       const health = await api.health();
-      const plugin = category
-        ? health.plugins.find((candidate) => candidate.id === category && candidate.loaded) ??
-          health.plugins.find((candidate) => candidate.id === category)
-        : health.plugins.find((candidate) => candidate.loaded) ?? health.plugins[0];
+      const plugin = health.plugins.find((candidate) => candidate.loaded) ?? health.plugins[0];
       if (!plugin) {
         // 保持打开,错误在面板脚注可见
         setRunError("插件目录为空:重启应用触发首跑初始化,或到「源管理」检查插件目录。");
@@ -180,7 +168,7 @@ export function CommandPalette({
     } finally {
       setRunStarting(false);
     }
-  }, [category, onOpenChange, runStarting]);
+  }, [onOpenChange, runStarting]);
 
   const commands = useMemo<CommandItem[]>(() => {
     const navCommands: CommandItem[] = SCREENS.map((screen) => ({
@@ -199,7 +187,7 @@ export function CommandPalette({
         id: "action-run",
         group: "动作",
         label: "跑一次",
-        hint: category ? `当前品类:${category}` : "第一个可用品类",
+        hint: "第一个可用品类",
         keywords: "run collect 采集",
         icon: Play,
         run: runOnce,
@@ -217,34 +205,8 @@ export function CommandPalette({
         },
       },
     ];
-    const categoryCommands: CommandItem[] = [
-      {
-        id: "category-all",
-        group: "品类",
-        label: "切换品类:全部品类",
-        hint: "清除品类过滤",
-        keywords: "category all",
-        icon: Layers,
-        run: () => {
-          onOpenChange(false);
-          onCategoryChange(null);
-        },
-      },
-      ...categoryOptions.map((option) => ({
-        id: `category-${option.id}`,
-        group: "品类" as CommandGroup,
-        label: `切换品类:${option.label}`,
-        hint: option.id,
-        keywords: `category ${option.id}`,
-        icon: Layers,
-        run: () => {
-          onOpenChange(false);
-          onCategoryChange(option.id);
-        },
-      })),
-    ];
-    return [...navCommands, ...actionCommands, ...categoryCommands];
-  }, [category, categoryOptions, navigate, onCategoryChange, onOpenChange, runOnce]);
+    return [...navCommands, ...actionCommands];
+  }, [navigate, onOpenChange, runOnce]);
 
   const keyword = query.trim().toLowerCase();
   const filtered = useMemo(

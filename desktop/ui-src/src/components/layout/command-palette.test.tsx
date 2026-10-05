@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 //
-// ⌘K 命令面板自检(10-04-interaction-batch A-cmd):①唤起/关闭(⌘K·Ctrl+K
-// 自含监听 preventDefault、Esc、遮罩点击、top-bar 真触发器接线);②输入过滤
-// (中文标签/英文 keywords/空态);③键盘巡游(↑↓ 环回、aria-activedescendant
-// 同步、Enter 执行、过滤词变化重置回首项);④动作(导航八屏、跑一次 =
-// global-run.tsx 同口径插件定位、刷新 = window.location.reload、切品类 =
-// options 清单 + onCategoryChange 透传)。视觉动效归统一门禁构建,不在此断言。
+// ⌘K 命令面板自检(10-04-interaction-batch A-cmd;10-05 复活后口径):
+// ①唤起/关闭(⌘K·Ctrl+K 自含监听 preventDefault、Esc、遮罩点击;挂载级
+// 回归在 app-layout.test);②输入过滤(中文标签/英文 keywords/空态);
+// ③键盘巡游(↑↓ 环回、aria-activedescendant 同步、Enter 执行、过滤词变化
+// 重置回首项);④动作(导航八屏、跑一次 = 第一个可加载插件、刷新 =
+// window.location.reload)。品类组已随 TopBar 全球过滤退役(7152ff9 归
+// 情报流屏),挂载直连 AppLayout(10-05 复活注记见组件头)。
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, useLocation } from "react-router-dom";
@@ -30,7 +31,6 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 import { CommandPalette } from "@/components/layout/command-palette";
 import type { CommandPaletteProps } from "@/components/layout/command-palette";
-import { TopBar } from "@/components/layout/top-bar";
 import type { HealthResult } from "@/lib/api";
 
 function healthOf(
@@ -87,21 +87,13 @@ function LocationProbe() {
 
 function renderPalette(overrides: Partial<CommandPaletteProps> = {}) {
   const onOpenChange = vi.fn();
-  const onCategoryChange = vi.fn();
   render(
     <MemoryRouter initialEntries={["/"]}>
       <LocationProbe />
-      <CommandPalette
-        open
-        onOpenChange={onOpenChange}
-        category={null}
-        categoryOptions={[]}
-        onCategoryChange={onCategoryChange}
-        {...overrides}
-      />
+      <CommandPalette open onOpenChange={onOpenChange} {...overrides} />
     </MemoryRouter>,
   );
-  return { onOpenChange, onCategoryChange };
+  return { onOpenChange };
 }
 
 function getInput() {
@@ -157,31 +149,8 @@ describe("唤起与关闭(⌘K 自含监听)", () => {
   });
 });
 
-describe("top-bar 接线(D4 留位换真触发器)", () => {
-  it("触发器 = button + aria-haspopup=dialog;点击与 ⌘K 均唤起面板", async () => {
-    render(
-      <MemoryRouter initialEntries={["/"]}>
-        <TopBar category={null} onCategoryChange={vi.fn()} />
-      </MemoryRouter>,
-    );
-
-    const trigger = screen.getByRole("button", { name: "打开命令面板" });
-    expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
-
-    fireEvent.click(trigger);
-    expect(await screen.findByRole("dialog", { name: "命令面板" })).toBeTruthy();
-    expect(trigger.getAttribute("aria-expanded")).toBe("true");
-
-    // Esc 关闭后,⌘K(面板自含监听)再唤起——不经触发器
-    fireEvent.keyDown(getInput(), { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
-    expect(await screen.findByRole("dialog", { name: "命令面板" })).toBeTruthy();
-  });
-});
-
 describe("命令面与输入过滤", () => {
-  it("默认命令面:导航八屏 + 跑一次/刷新 + 切换品类:全部品类(options 为空)", () => {
+  it("默认命令面:导航八屏 + 跑一次/刷新(品类组已随 TopBar 退役)", () => {
     renderPalette();
     const labels = getOptions().map((node) => node.textContent);
     expect(labels).toEqual([
@@ -195,10 +164,9 @@ describe("命令面与输入过滤", () => {
       "设置",
       "跑一次第一个可用品类", // label + hint 同节点文本
       "刷新重载界面",
-      "切换品类:全部品类清除品类过滤",
     ]);
     // 分组标题(非 option)
-    for (const group of ["导航", "动作", "品类"]) {
+    for (const group of ["导航", "动作"]) {
       expect(screen.getByText(group, { selector: "div" })).toBeTruthy();
     }
   });
@@ -223,12 +191,6 @@ describe("命令面与输入过滤", () => {
     expect(getOptions().map((node) => node.textContent)).toEqual(["定时任务"]);
   });
 
-  it("品类选项下传后进入命令面(切换品类:AI资讯)", () => {
-    renderPalette({ categoryOptions: [{ id: "ai-news", label: "AI资讯" }] });
-    fireEvent.change(getInput(), { target: { value: "AI资讯" } });
-    expect(getOptions().map((node) => node.textContent)).toEqual(["切换品类:AI资讯ai-news"]);
-  });
-
   it("无匹配:空态文案,Enter 不动作", () => {
     const { onOpenChange } = renderPalette();
     fireEvent.change(getInput(), { target: { value: "zzzz" } });
@@ -251,8 +213,8 @@ describe("键盘巡游(↑↓ 环回 + aria 同步)", () => {
 
     fireEvent.keyDown(input, { key: "ArrowUp" });
     expect(selectedOptionText()).toBe("仪表盘");
-    fireEvent.keyDown(input, { key: "ArrowUp" }); // 首项 ↑ 环回末项
-    expect(selectedOptionText()).toContain("切换品类:全部品类");
+    fireEvent.keyDown(input, { key: "ArrowUp" }); // 首项 ↑ 环回末项(刷新)
+    expect(selectedOptionText()).toContain("刷新");
   });
 
   it("过滤词变化后巡游重置回首项", () => {
@@ -294,12 +256,15 @@ describe("动作:导航 / 跑一次 / 刷新 / 切品类", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("跑一次(选中品类口径 = health 内 id 定位该品类 YAML)", async () => {
-    renderPalette({ category: "stocks" });
+  it("跑一次(第一个可加载插件口径;前面有未加载插件时跳过)", async () => {
+    mocks.health.mockResolvedValue(
+      healthOf([{ id: "broken", name: null, loaded: false }, { id: "ai-news", name: "AI资讯" }]),
+    );
+    renderPalette();
     fireEvent.change(getInput(), { target: { value: "跑一次" } });
     fireEvent.keyDown(getInput(), { key: "Enter" });
     await waitFor(() =>
-      expect(mocks.runStart).toHaveBeenCalledWith({ yaml: "/home/plugins/stocks.yaml" }),
+      expect(mocks.runStart).toHaveBeenCalledWith({ yaml: "/home/plugins/ai-news.yaml" }),
     );
   });
 
@@ -333,20 +298,5 @@ describe("动作:导航 / 跑一次 / 刷新 / 切品类", () => {
     }
   });
 
-  it("切品类:Enter 上抛 onCategoryChange(品类 id)并关闭", () => {
-    const { onOpenChange, onCategoryChange } = renderPalette({
-      categoryOptions: [{ id: "ai-news", label: "AI资讯" }],
-    });
-    fireEvent.change(getInput(), { target: { value: "AI资讯" } });
-    fireEvent.keyDown(getInput(), { key: "Enter" });
-    expect(onCategoryChange).toHaveBeenCalledWith("ai-news");
-    expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
 
-  it("切品类:全部品类 → 上抛 null(协议不传参口径)", () => {
-    const { onCategoryChange } = renderPalette();
-    fireEvent.change(getInput(), { target: { value: "全部品类" } });
-    fireEvent.keyDown(getInput(), { key: "Enter" });
-    expect(onCategoryChange).toHaveBeenCalledWith(null);
-  });
 });

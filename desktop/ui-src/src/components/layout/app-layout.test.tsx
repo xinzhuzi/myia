@@ -6,9 +6,9 @@
 // 备案偏差②),本文件按白名单名建,测 Sidebar 折叠面经 AppLayout 骨架呈现。
 // 输入框守卫/修饰键口径归 use-hotkeys.test.tsx(底座 8 用例),此处不重复。
 // 键名 myssia.sidebar.v1 在用例内明写 = 改名即红(存储契约回归锚)。
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn(), version: vi.fn() }));
 
@@ -19,6 +19,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
   return { ...actual, api: { ...actual.api, version: mocks.version } };
 });
 
+import { AppLayout } from "@/components/layout/app-layout";
 import { Sidebar, loadSidebarPrefs, saveSidebarPrefs } from "@/components/layout/sidebar";
 import type { SidebarPrefs } from "@/components/layout/sidebar";
 
@@ -43,6 +44,8 @@ const localStorageStub = memoryStorage();
 const SIDEBAR_KEY = "myssia.sidebar.v1";
 
 beforeEach(() => {
+  // jsdom 未实现 scrollIntoView(⌘K 面板巡游跟随滚动;command-palette.test 同款桩)
+  Element.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal("localStorage", localStorageStub);
   localStorageStub.clear();
   mocks.version.mockResolvedValue({ name: "myssia", version: "1.1.1", protocol: 10 });
@@ -149,5 +152,37 @@ describe("纯函数伴测(loadSidebarPrefs / saveSidebarPrefs)", () => {
     const storage = memoryStorage();
     saveSidebarPrefs({ collapsed: true, width: 320 }, storage);
     expect(loadSidebarPrefs(storage)).toEqual({ collapsed: true, width: 320 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ⌘K 命令面板挂载(10-05 复活回归锚):无头布局整删 TopBar(d9ae353)曾把
+// 面板唯一渲染点连坐成不可达死 UI——组件单测全绿也测不出「没人挂它」,
+// 本节在布局层钉死:AppLayout 必须挂 CommandPalette,⌘K 必须唤得出八屏。
+// ---------------------------------------------------------------------------
+
+describe("⌘K 命令面板挂载(复活回归锚)", () => {
+  function renderLayout() {
+    return render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route index element={<div>dashboard-stub</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  it("AppLayout 直挂面板:⌘K 唤出导航八屏(含定时任务),再 ⌘K 关闭", async () => {
+    renderLayout();
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    const options = await screen.findAllByRole("option");
+    const labels = options.map((node) => node.textContent ?? "");
+    expect(labels.some((t) => t.includes("定时任务"))).toBe(true);
+    expect(labels.length).toBeGreaterThanOrEqual(8);
+    // toggle 关闭
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    await waitFor(() => expect(screen.queryAllByRole("option")).toHaveLength(0));
   });
 });
