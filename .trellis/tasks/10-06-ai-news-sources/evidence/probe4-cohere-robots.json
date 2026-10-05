@@ -1,0 +1,7 @@
+{
+ "utc": "2026-10-05T16:38:41+00:00",
+ "url": "https://cohere.com/robots.txt",
+ "status": 200,
+ "bytes": 328,
+ "body": "User-Agent: *\nAllow: /\nDisallow: /helloworld\nDisallow: /project-pursue\nDisallow: /labormap\nDisallow: /mcp-landscape\nDisallow: /mcp-expertise\nDisallow: /studio\nDisallow: /studio-cohere-labs\nDisallow: /studio-mops\nDisallow: /studio-blog\nDisallow: /studio-campaign\nDisallow: /studio-events\n\nSitemap: https://cohere.com/sitemap.xml\n"
+}

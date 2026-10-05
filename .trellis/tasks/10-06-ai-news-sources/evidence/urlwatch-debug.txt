@@ -1,0 +1,4 @@
+https://www.anthropic.com/news → {"status": "success", "checked": 1, "counts": {"new": 1, "changed": 0, "unchanged": 0, "error": 0, "deferred": 0}}
+   event: new 
+https://cohere.com/blog → {"status": "success", "checked": 1, "counts": {"new": 1, "changed": 0, "unchanged": 0, "error": 0, "deferred": 0}}
+   event: new 

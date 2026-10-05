@@ -3,7 +3,7 @@
   "name": "ai-news-sources",
   "title": "AI资讯源扩容:厂商官方源+官网变更监控+X监控",
   "description": "主人 2026-10-06 gap 点名三块全缺:①各大AI厂商官方源(OpenAI/Anthropic/DeepMind/Qwen/DeepSeek 等 17 家草案)零配置,走既有 rss 通道+news-probe 探查判例逐源入 ai-news.yaml;②官网变更监控——myssia-urlwatch 件(adapter 快照 diff)已交付但零消费方,缺品类管线挂点(源类型 type:watch vs 链外引擎两案 grill 定);③X 监控——正路 myssia-rsshub 自部署 twitter 路由,前置=本机 Docker 已卸载(searxng 同款受阻)+路由凭据探查+主人决策;产出=探查 research.md+加源+挂点实现+门禁绿,涉网全走单次零压力+先 robots 纪律。",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "主人 2026-10-06 令「要做完这个东西,yaml里面要添加完毕」=全量执行:S1+S2+S3 一次做完,X 无部署前置的以注释态入 YAML(reddit-ml 先例);状态直接改 task.json(并行会话在场,不跑 task.py start)。",
+  "notes": "主人 2026-10-06 令「要做完这个东西,yaml里面要添加完毕」→ 全量交付 review:S1 七家厂商官方 RSS(OpenAI/DeepMind/Google Research/微软研究院/HF/Mistral/Qwen,三轮探查+robots 先行证据)+S2 urlwatch 链外引擎(35 测)+三家官网 watch 源(Anthropic/Meta/Cohere;并发首装竞态 4s 错峰重试根治)+S3 X 注释态(RSSHub+TWITTER_AUTH_TOKEN 实锤,两前置一决策)。门禁 pytest 4377/0+vitest 516/0+tsc+build+ruff+detect-changes low。真跑两轮:全品类 dry-run(七家 RSS 零失败/enrich 预算首拉 949 条打穿=一次性入驻洪水)+watch 并发冒烟(零失败+基线种好+meta 空 diff 噪声实证)。装机包已构建+换装+像素验证+adapter uv 兜底外科直更重签+装机态全链终验(prd「换装回执」)。owner_left:X 账号圈选+docker 装回+auth_token(启用 S3);Meta watch 噪声如嫌一句话删源;首日 digest 洪水可上调 budget_per_run;国产五家 SPA watch 待 urlwatch 过滤能力。",
   "meta": {}
 }

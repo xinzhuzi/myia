@@ -1,0 +1,52 @@
+# 临时冒烟品类(10-06-ai-news-sources evidence 件,不入 plugins/):
+# 仅三家 urlwatch watch 源并发真跑,验证并发首装竞态的 4s 错峰重试;
+# enrich/图环全关,push 走 stdout 零外发。跑完即弃,证据在 dryrun-watch.txt。
+id: ai-news
+name: AI资讯冒烟
+
+schedule: "0 8,20 * * *"
+timezone: Asia/Shanghai
+
+sources:
+  - name: anthropic-news-watch
+    engine: urlwatch
+    url: "https://www.anthropic.com/news"
+    method: GET
+    engine_options:
+      urlwatch: {label: "Anthropic 新闻页", announce_new: false, timeout: 90}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+  - name: meta-ai-blog-watch
+    engine: urlwatch
+    url: "https://ai.meta.com/blog"
+    method: GET
+    engine_options:
+      urlwatch: {label: "Meta AI 博客", announce_new: false, timeout: 90}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+  - name: cohere-blog-watch
+    engine: urlwatch
+    url: "https://cohere.com/blog"
+    method: GET
+    engine_options:
+      urlwatch: {label: "Cohere 博客", announce_new: false, timeout: 90}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+watchlist:
+  keywords: [监控]
+  mute: []
+
+classify:
+  builtin: false
+  rules: []
+
+dedup:
+  key: "{url}"
+
+enrich:
+  enabled: false
+
+storage:
+  retention: 90d
+  vacuum: monthly

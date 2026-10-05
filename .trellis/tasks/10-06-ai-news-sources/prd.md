@@ -54,11 +54,21 @@
 ## 验收标准(AC)
 
 - [x] AC1:S1 探查表落 `research.md`(§1:七家 200 RSS+robots 对照逐家记录;§2 watch 页探查;证据 `evidence/probe{,2,3}-log.md` + `probe4-*.json`),可用源进 `plugins/ai-news.yaml`(七家 RSS),`--dry-run` 全链冒烟回执落 evidence(回执注记见 §0:round1 sniff 工具故障销号)。
-- [x] AC2:S2 挂点实现 + 测试(`tests/engines/test_urlwatch_engine.py` 30 例全 mock 零网络,含首跑冷启动 announce_new=false 钉死、去重锚点指纹两性[同 diff 同锚/异 diff 异锚]、unchanged 合法空态、robots 面、adapter 错误码三态);ai-news 挂三家 watch 源(Anthropic/Meta/Cohere)。
+- [x] AC2:S2 挂点实现 + 测试(`tests/engines/test_urlwatch_engine.py` 35 例全 mock 零网络,含首跑冷启动 announce_new=false 钉死、去重锚点指纹两性[同 diff 同锚/异 diff 异锚]、unchanged 合法空态、robots 面、adapter 错误码三态、并发首装竞态 4s 错峰重试三态[先败后成/两连败终态带 stderr 尾/超时零重试]、MYIA_BUNDLED_PLUGINS 随包锚点装载两例);ai-news 挂三家 watch 源(Anthropic/Meta/Cohere);真子进程并发冒烟三源零失败(dryrun-watch-smoke.json)。
 - [x] AC3:S3 通道探查落 `research.md` §3(TWITTER_AUTH_TOKEN 实锤=zread 官方环境变量表;twitter 路由脆弱性官方文档在案;X API 付费层不走),YAML 注释态入位启用三步+候选账号八号;不部署不代申请。
 - [x] AC4:涉网探查全走单次+先 robots+honest UA+证据落 `evidence/`(四轮脚本+回执全在档;round1 工具故障与 round2 重取证翻案记档 §0)。
-- [ ] AC5:门禁全量绿(pytest 4377/0+vitest 516/0+tsc 0 错+build ✓ 已亲验;装机包刷新=判例处理中)。
+- [x] AC5:门禁全量绿(pytest 全量 4377/0 + vitest 516/0 + tsc 0 错 + build ✓ + ruff 绿 + gitnexus detect-changes low/0 流);**装机包已刷新并换装**(判例全流程,回执见下「换装回执」)。
 
 ## 涉网纪律(全程硬约束)
 
 单次(每目标 URL 一次,不重试)、先查目标域 robots.txt 并记档、honest UA、零压力、全部证据落 `evidence/`。
+
+## 换装回执(2026-10-06 01:15-01:40,判例全流程)
+
+- **构建**:`npx tauri build`(世事.app 17.11MiB+DMG),主二进制 sha256 `e0c7914404a4de64b94aced17cd1fa03e4d8f8283381f3e95cabbb65579e5fc7` 换装前后双验命中;包内三要件亲核(Resources/myssia-src/myssia/engines/urlwatch.py 在位、schema.py/registry.py 各 3 处 urlwatch、plugins/ai-news.yaml 14 处新源命中)。
+- **换装五步**:旧实例发现(pgrep 头截教训:首轮检查 `head -3` 把运行中的实例吞了,旧进程跑在已删 inode 上,kill 后重启)/备份 `/tmp/myssia-app-backup-20261006-011523`/ditto 入位/WKWebView+Caches 双缓存清理/`MYIA_SHOW_ON_START=1` 直跑亮窗。
+- **装机数据根**:`~/Library/Application Support/MYIA/plugins/ai-news.yaml` 为 10-03 旧版(补种设计=缺哪补哪绝不覆盖,主人无个性化改动,diff 亲证)→ 备份 `ai-news.yaml.bak-20261006-ai-news-sources` 后换新。
+- **像素验证**:配置编辑器打开装机件 ai-news.yaml,OCR 逐字命中新版头(vendor RSS feeds/urlwatch change-watch sources/engine: urlwatch);证据图 `.zcode/smoke/ai-news-sources/`(不入库)。
+- **外科单文件段(adapter uv 兜底)**:adapter 修复晚于首次构建,二次构建被并行会话在途前端编辑卡死(tsc 语法错,不回滚他人半件)→ 单文件资源直更装机包(逐字节拷贝型资源,源=已提交树,sha 双验一致)+ ad-hoc 重签(`codesign --force --deep -s -`,签名验证过)+ 重启。**下次正式重打包自然收编**。
+- **装机态全链终验**(GUI 极简 PATH `/usr/bin:/bin:/usr/sbin:/sbin` + 随包 PYTHONPATH + 数据根 python + cwd=/tmp):引擎经 MYIA_BUNDLED_PLUGINS 装载**包内** adapter(绝对路径回执)、uv 兜底解析 `~/.local/bin/uv`、is_available=True、ENGINE_REGISTRY 在册——GUI 启动态 watch 源可用性闭环。
+- 装机件现运行于新包(PID 20846),仪表盘态归还。

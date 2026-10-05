@@ -1,0 +1,2 @@
+probe done: 35 feed probes, 18 robots probes; log -> probe-log.md
+EXIT=0
