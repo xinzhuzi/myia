@@ -170,6 +170,11 @@ trafilatura 正文兜底同样缺装不拦链(无规则源照旧 `extract_requir
 后重启;缺省关=既有源零行为差,细节见
 [快速上手](docs/zh/getting-started.md))。
 
+全局 env 之外还可**按源覆写**:品类 YAML 里
+`engine_options.static_html.extract_fallback: true/false` 优先于全局环境变量
+(优先级=源级 > 全局 `MYIA_EXTRACT_FALLBACK` > 缺省关,源级未设时与全局口径
+逐字节一致),详表见 [schema 参考](docs/zh/schema.md) 的 sources `extract` 行。
+
 跑第一个品类 —— 零凭据的完整配置就一个小文件:
 
 ```bash
@@ -543,6 +548,13 @@ be set explicitly (CLI: env prefix on the command line; installed app:
 `launchctl setenv MYIA_EXTRACT_FALLBACK 1` then restart; off by default =
 zero behavior change for existing sources; see
 [getting started](docs/en/getting-started.md)).
+
+Beyond the global env the switch can also be **overridden per source**:
+`engine_options.static_html.extract_fallback: true/false` in category YAML
+takes precedence over the global variable (precedence = source-level > global
+`MYIA_EXTRACT_FALLBACK` > off by default; with the key unset, behavior is
+byte-identical to the global setting) — full details in the `extract` row of
+the [schema reference](docs/en/schema.md).
 
 Run your first category — a complete, zero-credential config in one small
 file:

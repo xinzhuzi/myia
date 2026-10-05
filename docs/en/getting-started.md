@@ -124,6 +124,14 @@ variable and **depends on how you launch**:
   `MYIA_SMOKE_ROUTE`). To turn it off: `launchctl unsetenv
   MYIA_EXTRACT_FALLBACK` and restart.
 
+Beyond the global env the switch can also be **overridden per source**:
+`engine_options.static_html.extract_fallback: true/false` in category YAML
+takes precedence over the global variable (precedence = source-level > global
+`MYIA_EXTRACT_FALLBACK=1` > off by default; with the key unset, behavior is
+byte-identical to the global setting; a non-boolean value is structurally
+refused at fetch time) — full details in the `extract` row of the
+[schema reference](schema.md).
+
 ## 2. Configure credentials
 
 世事 **never accepts plaintext credentials in YAML** — you write references

@@ -98,6 +98,12 @@ uv sync --extra trafilatura # L2 正文兜底(无规则/规则失效源的单页
   `MYIA_SMOKE_ROUTE` 通路)。取消:`launchctl unsetenv MYIA_EXTRACT_FALLBACK`
   后重启。
 
+全局 env 之外还可**按源覆写**:品类 YAML 里
+`engine_options.static_html.extract_fallback: true/false` 优先于全局环境变量
+(优先级=源级 > 全局 `MYIA_EXTRACT_FALLBACK=1` > 缺省关,源级未设时与全局口径
+逐字节一致;值非布尔 fetch 期结构化拒),详表见
+[schema 参考](schema.md) 的 sources `extract` 行。
+
 ## 2. 配置凭据
 
 世事 **不允许在 YAML 里写明文凭据**,只能写引用,运行时解析:
