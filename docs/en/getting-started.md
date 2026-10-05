@@ -155,6 +155,26 @@ resident Hermes-Agent install that holds the login — without one, that
 platform is unavailable (myssia stores zero WeChat credentials; the platform
 card honestly says "needs a local Hermes").
 
+Reddit sources go through the official Data API engine (`engine: reddit`,
+off-chain explicit selection) with **optional** credentials: unconfigured =
+an explicit empty state for that source (`credential_missing` skip, zero
+requests, never blocks the category). To activate, register a script-type app
+at [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) (a placeholder
+redirect uri `http://localhost:8080` is fine), then store the client
+id/secret in the keychain:
+
+```bash
+myssia secret set myia/reddit/client-id < id.txt
+myssia secret set myia/reddit/client-secret < secret.txt
+```
+
+…and reference them via `engine_options.reddit.client_id/client_secret` in
+the source YAML (see the commented example in `plugins/ai-news.yaml`).
+Timing note: Reddit's new-API application window closes 2026-10-31 and the
+public Data API sunsets in phases from 2027-03 (the RSS channel retires
+2026-11-13) — in-channel sources all ride OAuth-authorized calls; the
+`.rss`/`.json` scraping path stays disabled by the site-wide robots ban.
+
 Don't want to configure a paid endpoint? Both vision and enrich have
 zero-cost paths (local mlx-vlm/Ollama → cloud free tiers → light Gemini
 daily batches); see [Zero-cost setup](zero-cost.md) for endpoint choices

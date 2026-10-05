@@ -54,7 +54,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 
 | schema 常量 | 取值 |
 |---|---|
-| `ENGINES` | `auto` `direct_api` `static_html` `crawl4ai` `firecrawl` `scrapling` `stealth_browser` `llm_browser` `credhunter` `scraperapi` `zenrows` |
+| `ENGINES` | `auto` `direct_api` `static_html` `crawl4ai` `firecrawl` `scrapling` `stealth_browser` `llm_browser` `credhunter` `scraperapi` `zenrows` `reddit` |
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
@@ -318,6 +318,19 @@ target = 会话 peer id(`env:WEIXIN_PEER_ID`,定向写 `weixin:<peer id>`,
 无 key 的 lane 一律显式空态(`credential_missing` skip,含无 token 的 GitHub
 lane:该源本轮不启用,写好引用即恢复)。授权边界:仅用于已授权安全研究与自有/
 已授权资产排查;命中物一律前 8 后 4 掩码。
+
+**链外官方 API 引擎 `reddit`**(不在上表层级里):Reddit 官方 Data API OAuth2
+通道(`client_credentials` 取 bearer → `GET oauth.reddit.com/r/<sub>/<listing>`
+单页列表;url 形如 `https://oauth.reddit.com/r/MachineLearning/new`,query 由
+引擎构造,extract/pagination 一律不收)。**不参与 auto 降级链**(显式
+`engine: reddit` 才生效);凭据**可选**:`engine_options.reddit.client_id/
+client_secret` 走 `env:`/`keychain:` 引用,未配 = 该源显式空态
+(`credential_missing` skip,零请求,不拦品类)。启用:reddit.com/prefs/apps
+注册 script 型 app → `myssia secret set myia/reddit/client-id` 与
+`myia/reddit/client-secret` → YAML 配引用。选项 `limit`(1-100,缺省 25)、
+`ua_username`(Reddit 条款 UA 建议段;缺省不带,隐私取舍)。robots 面说明:
+Reddit 两宿主 robots 全禁爬虫,但官方口径 robots.txt 面向搜索引擎、不适用
+Data API 授权用户——引擎不查 robots,`.rss`/`.json` 直抓路线仍被禁(勿配)。
 
 经验法则:先看页面源码——搜得到数据写 L2,搜不到找 API 走 L1,都 JS 化才 L3;
 拿不准就 `engine: auto`,用 `myssia test --json` 看实际选中引擎(`engine` 字段)。

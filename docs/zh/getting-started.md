@@ -124,6 +124,23 @@ myssia secret set myia/stocks/site_cookie < cookie.txt
 微信通道是可选桥接:出站经本机常驻的 Hermes-Agent 持有登录态,无 Hermes
 的环境该平台不可用(myssia 侧零微信凭据,平台卡会如实标「需本机 Hermes」)。
 
+Reddit 源走官方 Data API 引擎(`engine: reddit`,链外显式选用),凭据**可选**:
+不配 = 该源显式空态(`credential_missing` skip,零请求,不拦品类);要启用,
+先在 [reddit.com/prefs/apps](https://www.reddit.com/prefs/apps) 注册 script 型
+app(redirect uri 占位 `http://localhost:8080` 即可),再把 client_id/secret
+写入钥匙串:
+
+```bash
+myssia secret set myia/reddit/client-id < id.txt
+myssia secret set myia/reddit/client-secret < secret.txt
+```
+
+然后在源 YAML 里配 `engine_options.reddit.client_id/client_secret` 引用
+(示例见 `plugins/ai-news.yaml` 注释块)。时效提醒:Reddit 官方新 API 申请
+窗口 2026-10-31 截止、公开 Data API 2027-03 起分阶段终结(RSS 通道
+2026-11-13 退役)—— 通道内源全部经 OAuth 授权调用,`.rss`/`.json` 直抓
+路线因 robots 全站禁抓被禁用。
+
 不想配付费端点?看图与精评都有零成本走法(本地 mlx-vlm/Ollama → 云端
 免费档 → Gemini 轻量日批),端点选型与额度快照见[零成本接入](zero-cost.md)。
 

@@ -41,6 +41,10 @@ paid-SaaS engines (``zenrows`` / ``scraperapi``, 10-05-plugin-market-batch R6)
 sit beside the chain for a different reason — they only ever run after the
 ``gates.yaml`` 知情开关 is verified (closed gate = structured ``gate_closed``,
 zero upstream requests), so auto must never route paid traffic implicitly.
+``reddit`` (10-05-reddit-official-engine) sits beside the chain as an
+official-API engine with **optional** credentials: unconfigured credentials
+are a structured ``credential_missing`` explicit empty state (zero requests,
+never blocks the category), configured ones simply activate the source.
 """
 
 from __future__ import annotations
@@ -114,6 +118,11 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # (关闭态 gate_closed,与 dependency_missing 分列;骨架见 engines/saas.py)。
     "zenrows": lambda: _load("zenrows", "ZenrowsEngine"),
     "scraperapi": lambda: _load("scraperapi", "ScraperAPIEngine"),
+    # 官方 API 引擎(10-05-reddit-official-engine):链外同 credhunter 先例
+    # —— 显式 engine: reddit 才生效,auto 永不路过;凭据可选(未配 =
+    # credential_missing 显式空态零请求,配好即活);robots 面不适用其
+    # 钉死的官方端点(授权通道,见模块文档论证)。
+    "reddit": lambda: _load("reddit", "RedditEngine"),
 }
 
 # Static typing view of the registry (class names resolved lazily at runtime).

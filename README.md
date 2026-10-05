@@ -295,6 +295,8 @@ myssia doctor --json                        # 拿 findings;agent 自修后复查
 采集引擎        L1 direct_api → L2 static_html → L3 crawl4ai ⇄ firecrawl
                 → L4 scrapling → L5 stealth_browser → L6 llm_browser
                 (自动降级链;胜出引擎按源持久化)
+                链外显式引擎:reddit(官方 Data API,凭据可选)· credhunter
+                · zenrows/scraperapi(gated 付费 SaaS)——auto 永不隐式路由
                      │
 分析            内置七类关键词分类器(myssia-classifier)
                 + 可选 LLM 精评(价值/相关性/可信度,0–10)
@@ -365,6 +367,8 @@ Windows 构建这版未通过,Release 暂无 Windows 安装包(后续批次计�
 - [changedetection.io](https://github.com/dgtlmoon/changedetection.io) —— 源管理与 diff 交互参考,`myssia-monitor` 插件后端
 - [RSSHub](https://github.com/DIYgod/RSSHub) —— 「一切皆源」的哲学参考
 - [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool) —— `myssia-proxy` 插件后端
+- [Reddit Data API](https://www.reddit.com/dev/api/) —— `reddit` 引擎的官方授权通道
+  (OAuth2,凭据可选;官方口径:robots.txt 面向搜索引擎而非 Data API 用户)
 - [Photon](https://github.com/s0md3v/Photon) —— `myssia-osint` 插件后端(以 git 子模块引入)
 - [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) —— `myssia-douyin` 插件后端
 - [Maxun](https://github.com/getmaxun/maxun) —— `myssia-maxun` 插件后端

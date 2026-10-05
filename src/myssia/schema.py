@@ -163,6 +163,9 @@ ENGINES = (
     # fetch 前置查 gates.yaml,关闭态 gate_closed;永不缺省、永不进 AUTO_CHAIN。
     "zenrows",
     "scraperapi",
+    # 官方 API 引擎(10-05-reddit-official-engine):链外 + 凭据可选;显式
+    # engine: reddit 才生效,未配凭据 = credential_missing 显式空态(零请求)。
+    "reddit",
 )
 PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
@@ -218,6 +221,7 @@ EngineName = Literal[
     "auto", "direct_api", "static_html", "crawl4ai", "firecrawl", "scrapling", "stealth_browser", "llm_browser",
     "credhunter",
     "zenrows", "scraperapi",
+    "reddit",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]
 ExtractType = Literal["list", "item", "json_path", "rss"]
