@@ -1,0 +1,57 @@
+# AC4 装机真机链实录(验收员 2026-10-05 15:08-15:20)
+
+环境:/Applications/世事.app(二进制 mtime 2026-10-05 13:31:11)、
+数据根自管环境 ~/Library/Application Support/MYIA/python/bin 亲列在位、
+pyenv-settings.json = {}(mirror_pypi 未配置)。
+
+## 已完成段
+
+1. 装前缺装证据:自管 python `-m pip list | grep -iE "rapid|tqdm"` 零命中
+   (exit 1)= 组件三件(rapid-table/rapidocr-onnxruntime/tqdm)全缺装。
+2. 拉起:`launchctl setenv MYIA_SMOKE_ROUTE settings` + `open -a 世事`;
+   main.rs:459-481 机制亲读(hash=#/settings + 1500ms 后 win.show())。
+   6s 后 screencapture,OCR 证设置页可见、侧栏「Python 环境」在列
+   (截图 ac4-realapp-pyenv-ready.png 前身)。
+3. 分区导航:Vision boundingBox 定位「Python 环境」(319.5,254.0),
+   CGEvent 合成点击成功进入「Python 运行环境」分区。OCR 回读:
+   - 状态=「就绪」;「Python 运行环境就绪,sidecar 可正常拉起;已装依赖
+     与随包锁版清单一致」
+   - 安装路径=~/Library/Application Support/MYIA/python;使用路径=
+     .../python/bin/python3(与数据根实况一致)
+   - 镜像源覆盖表单两栏(运行时下载源/PyPI 镜像)均空
+4. 「检查状态」按钮活证:点击后新增「检查通过:python 可执行、依赖指纹
+   一致、sidecar 握手正常」(截图 ac4-realapp-check-status.png)——
+   点击链路+壳侧 detect 全活。
+5. 清场:app 退出 + `launchctl unsetenv MYIA_SMOKE_ROUTE`(getenv 复验空)
+   + 无 env 重启复截屏:显示 feed 屏而非设置页 = 零路由残留;退出该实例
+   还原原状(AC4 前 /Applications 包无运行实例)。
+
+## 受阻段(结构性,如实)
+
+**装机包二进制不含组件安装链 → 「表格还原」开关不在包内,UI 装链不可触发。**
+
+证据链(全部本会话亲跑):
+- 字节级 grep 二进制:UTF-8「组件」0 次、`pyenv_install_component` 0 次;
+  对照组 `pyenv_get_status` 1 次命中 → 非编译期混淆/strip 误判。
+- UI 侧表现与代码互证:pyenv-card.tsx:481 `status.components.length > 0`
+  条件渲染「可选组件」section;components 空(壳 payload 无组件)→ 整段
+  不渲染 → 页面恰好一屏、wheel/PageDown/方向键全无滚动反应(无溢出)。
+- git 侧:4986c58 `git ls-tree` 亲证已含 desktop/src-tauri/src/pyenv_components.rs
+  + desktop/resources/components.json,main.rs 已注册 install_component;
+  包内 Resources/components.json 在位(mtime 13:31)但壳/前端二进制无对应
+  面 → 装机包构建内容 ≠ 4986c58(组件链入库 18558c0=12:39 之前的源),
+  构建线疑点留 owner 复核(与 813c0fe leftovers「装机包未随」互证)。
+
+镜像覆盖口径 (a)(计划④):**镜像覆盖未验(装机实况 pyenv-settings.json={}
+默认源直连)**——组件装链未触发,镜像半句无从验,按计划留注不假勾。
+卸载半句:pyenv_components.rs:286 明文「卸载本期不做」,AC4 该半句以
+「缺装装前证据+卸载记注」如实呈现。
+
+## 过程风险实录(如实)
+
+- 并行会话(漫影工作室 GUI)在本桌面频繁抢前台:一次点击在 swift 编译
+  延迟窗口内落到了并行窗口(坐标 319,254,单击无输入,无破坏);后续全部
+  动作改为单进程「前台门控」(frontmost==MYIA 才发事件)。
+- 全程另有一个 dev 构建实例
+  (target/release/bundle/macos/MYIA.app,pid 15646,并行会话所起)在跑,
+  未触碰;所有 AC4 操作只针对 /Applications 装机包实例。
