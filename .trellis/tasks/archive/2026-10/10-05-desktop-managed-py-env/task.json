@@ -3,7 +3,7 @@
   "name": "desktop-managed-py-env",
   "title": "桌面自管 Python 环境:包体不冻结,设置页按需下载",
   "description": "主人指令(2026-10-05):桌面端自己创造一个 py 环境,打包时不将 Python 运行时/依赖打入包体,用户在设置里自行下载——对齐 MYStudio 已验证模式(Electron 包只带 backend 源码+依赖清单,设置→本地配置→Python 运行环境 点开始配置:下载 python-build-standalone CPython 到 <数据根>/python + pip 装依赖,不进安装目录不进源码目录,两套 Python 分家,引擎按需拉起)。替换 MYIA 现行 PyInstaller onefile 118M 冻结 sidecar;表格还原等可选重件将来都装进这个自管环境免重打包。形态 forks(首跑体验/核心交付物/更新流/存量迁移/Windows)待 grill 定案",
-  "status": "completed",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "xinzhuzi",
   "assignee": "xinzhuzi",
   "createdAt": "2026-10-05",
-  "completedAt": "2026-10-05",
+  "completedAt": null,
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "2026-10-05 审计收口:AC3/AC4/AC5/AC7 已勾、AC1/AC6/AC8 留真机与 CI 面验收(证据与核验方法见 prd 收口段);AC2 有实质缺口不勾——D2 各屏引导空态卡全仓未落地(pyenv_not_ready 事件零前端消费者),且 docs/zh getting-started:30 与 en:39 已把该不存在 UI 写成既有行为,补卡前须先修 main.rs:70-81 pyenv_not_ready 嵌套包装。按「有 gap 不进 review」维持 in_progress。档已被并行会话 4afdd6c(11:20:06)归档并翻 completed(时点在 AC 回标之前),本回填在归档副本 archive/2026-10/10-05-desktop-managed-py-env/ 上进行,status/completedAt 按收口规则回退,归档位置与状态一致性留主人裁定。落地提交:08e163d/f2e0194/aa89aa5/cdade3e/198b0c5/95bff40/e43481b/50b622c/23faa27(装机回执 cc42e0d)。",
   "meta": {}
 }
