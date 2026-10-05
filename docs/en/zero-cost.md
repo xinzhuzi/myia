@@ -158,6 +158,81 @@ export MYIA_LLM_KEY=<your AI Studio API key>
 Set the enrich `model` to a Gemini model name; the free vision quota has
 not been verified, so this doc makes no promise about it.
 
+## 4. Self-hosted Firecrawl: a zero-dollar rendering backend
+
+The three paths above cover LLM endpoints; on the fetch side, JS-heavy
+sources riding the L3 `firecrawl` engine can point at a self-hosted backend
+too — one docker compose stack from the official
+[self-host guide](https://github.com/firecrawl/firecrawl/blob/master/SELF_HOST.md)
+(API + Playwright rendering + Redis/PostgreSQL/RabbitMQ queues), zero
+dollars, and rendering traffic never leaves your machine. The engine talks
+plain HTTP (`POST {endpoint}/v1/scrape`), so a running instance is a ready
+L3 rung on the degrade chain.
+
+> The template in this section comes verbatim from the official self-host
+  docs; the machine that wrote this page has no docker, so it is
+  **unverified locally** — see the re-verification note at the end.
+
+```bash
+git clone https://github.com/firecrawl/firecrawl.git && cd firecrawl
+cat > .env <<'EOF'
+PORT=3002
+HOST=0.0.0.0
+USE_DB_AUTHENTICATION=false   # self-host runs with auth off (trusted networks only); API keys are cloud-only
+EOF
+docker compose up -d --build
+curl http://127.0.0.1:3002/v0/health/readiness   # readiness probe → {"status":"ok"}
+```
+
+Wiring 世事 needs zero code: the engine's built-in default endpoint is the
+standard port `http://127.0.0.1:3002`; set the variable only for a
+non-standard port or a remote machine:
+
+```bash
+export MYIA_FIRECRAWL_URL=http://127.0.0.1:3002   # this is the default; only needed off the standard port
+# MYIA_FIRECRAWL_API_KEY stays unset — self-host runs with auth off; only the api.firecrawl.dev cloud needs a key
+```
+
+Per-source override uses a credential reference (plaintext is always
+refused), same as the enrich pattern:
+
+```yaml
+id: zero-cost-firecrawl
+name: Self-hosted rendering backend demo
+schedule: "0 9 * * *"
+sources:
+  - name: js-heavy-news
+    engine: firecrawl
+    url: "https://example.com/news"
+    engine_options:
+      firecrawl:
+        endpoint: env:MYIA_FIRECRAWL_URL
+push:
+  - channel: stdout
+```
+
+Boundaries, stated plainly:
+
+- **AGPL boundary**: the upstream server is AGPL-3.0; 世事 consumes it
+  purely as a **service** (HTTP API calls) with zero source copying — same
+  as the RSSHub precedent; its server code must not be vendored into this
+  repository (MIT).
+- **Cloud-only gaps** (per the official docs, no sugarcoating): the default
+  self-host stack has **no Fire-engine** — hard anti-bot bypass (IP-block
+  handling / bot-detection warfare) and screenshot / page-action formats
+  are unavailable; LLM structured extraction needs your own
+  OpenAI-compatible endpoint; agent / browser / interact are cloud
+  features. Basic scrape (Fetch + Playwright rendering → markdown/html) is
+  in the stack and exactly covers what the L3 fallback needs (the engine
+  consumes only those two formats).
+- **Resources and re-verification**: the official stack caps the api
+  container at 4 CPUs / 8GB RAM — size lighter machines accordingly; the
+  default stack ships no auth and no TLS, so a public deployment needs
+  hardening (reverse proxy + strong PostgreSQL credentials + a changed
+  `BULL_AUTH_KEY`). This section is unverified locally (no docker) — after
+  deploying, run `uv run myssia test <category>.yaml --json` against one
+  JS-heavy site; a healthy response completes the re-verification.
+
 ## Red lines and habits
 
 - **Quotas move**: every number above is a snapshot from 2026-10-03 —

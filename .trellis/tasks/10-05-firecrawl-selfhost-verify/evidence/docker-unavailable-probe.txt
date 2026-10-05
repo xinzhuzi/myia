@@ -1,0 +1,53 @@
+# docker 可用性探针(10-05-firecrawl-selfhost-verify,2026-10-05)
+
+## 1. PATH 与命令面
+$ docker version
+zsh:7: command not found: docker
+$ docker compose version
+zsh:9: command not found: docker
+
+## 2. 常见安装位置(/usr/local/bin 符号链接形态)
+$ ls -la /usr/local/bin/docker*
+lrwxr-xr-x@ 1 root  staff  54 Dec  1  2025 /usr/local/bin/docker -> /Applications/Docker.app/Contents/Resources/bin/docker
+lrwxr-xr-x@ 1 root  staff  70 Dec  1  2025 /usr/local/bin/docker-compose -> /Applications/Docker.app/Contents/Resources/cli-plugins/docker-compose
+lrwxr-xr-x@ 1 root  staff  73 Dec  1  2025 /usr/local/bin/docker-credential-desktop -> /Applications/Docker.app/Contents/Resources/bin/docker-credential-desktop
+lrwxr-xr-x@ 1 root  staff  77 Dec  1  2025 /usr/local/bin/docker-credential-osxkeychain -> /Applications/Docker.app/Contents/Resources/bin/docker-credential-osxkeychain
+
+$ file /usr/local/bin/docker
+/usr/local/bin/docker: broken symbolic link to /Applications/Docker.app/Contents/Resources/bin/docker
+
+$ readlink /usr/local/bin/docker
+/Applications/Docker.app/Contents/Resources/bin/docker
+
+$ ls -d /Applications/Docker.app
+ls: /Applications/Docker.app: No such file or directory
+
+## 3. daemon socket
+$ ls -la ~/.docker/run/docker.sock /var/run/docker.sock
+ls: /Users/zhengbingjin/.docker/run/docker.sock: No such file or directory
+ls: /var/run/docker.sock: No such file or directory
+
+$ ls ~/.docker/
+ls: /Users/zhengbingjin/.docker/: No such file or directory
+
+$ env | grep -i docker(空=无 DOCKER_HOST 远端)
+(exit 1)
+
+## 4. 替代运行时与残留在途进程
+$ command -v podman nerdctl limactl colima; ls ~/.orbstack/bin ~/.colima
+ls: /Users/zhengbingjin/.orbstack/bin: No such file or directory
+ls: /Users/zhengbingjin/.colima: No such file or directory
+
+$ ps aux | grep -iE "dockerd|com.docker|colima|orbstack|podman" | grep -v grep
+root               352   0.0  0.0 443478816    736   ??  Ss   22Sep26   0:01.24 /Library/PrivilegedHelperTools/com.docker.vmnetd
+
+## 5. brew 面容器包
+$ brew list | grep -iE "docker|colima|podman|lima|orbstack"(空=未装)
+(exit 1)
+
+## 结论
+Docker Desktop 已卸载:/usr/local/bin/docker 为指向 /Applications/Docker.app 的
+坏符号链接(应用本体不存在);无 daemon socket、无 DOCKER_HOST、无任何替代
+容器运行时(colima/podman/lima/orbstack 均无);仅剩 PrivilegedHelperTools
+com.docker.vmnetd 残留进程。本机 docker 前置不满足 → 按档走「文档照写+
+标注本机未实测」分支,真跑 AC 留主人服务器复验。

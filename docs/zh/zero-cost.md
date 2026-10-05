@@ -130,6 +130,70 @@ export MYIA_LLM_KEY=<你的 AI Studio API key>
 
 精评 `model` 填 Gemini 模型名;看图的免费视觉配额未核实,本文不承诺。
 
+## 4. 自托管 Firecrawl:渲染后端兜底(零美元)
+
+上面三条路径管 LLM 端点;采集侧的 JS 重渲染站走 L3 `firecrawl` 引擎时,
+后端同样可以自托管——官方
+[self-host 文档](https://github.com/firecrawl/firecrawl/blob/master/SELF_HOST.md)
+的 docker compose 一套(api + Playwright 渲染 + Redis/PostgreSQL/RabbitMQ
+队列),零美元、渲染流量不出你的机器。引擎只按 HTTP API 调用(`POST
+{endpoint}/v1/scrape`),实例一起就是降级链上现成的 L3 梯级。
+
+> 本节模板逐句来自官方 self-host 文档;撰写本页的机器没有 docker,
+> **未实测**——部署后复验口径见本节末注记。
+
+```bash
+git clone https://github.com/firecrawl/firecrawl.git && cd firecrawl
+cat > .env <<'EOF'
+PORT=3002
+HOST=0.0.0.0
+USE_DB_AUTHENTICATION=false   # 自托管关鉴权(仅可信网络);API key 只有云端才需要
+EOF
+docker compose up -d --build
+curl http://127.0.0.1:3002/v0/health/readiness   # 就绪探针 → {"status":"ok"}
+```
+
+世事 接线零改动:引擎内置缺省端点就是标准口 `http://127.0.0.1:3002`,
+换了端口或部署在远程机器才需要指环境变量:
+
+```bash
+export MYIA_FIRECRAWL_URL=http://127.0.0.1:3002   # 即缺省值,仅非标准口/远程机需要
+# MYIA_FIRECRAWL_API_KEY 不设——自托管关鉴权;云端 api.firecrawl.dev 才需要
+```
+
+按源覆写则写凭据引用(明文一律拒载),与精评同款:
+
+```yaml
+id: zero-cost-firecrawl
+name: 自托管渲染后端演示
+schedule: "0 9 * * *"
+sources:
+  - name: js-heavy-news
+    engine: firecrawl
+    url: "https://example.com/news"
+    engine_options:
+      firecrawl:
+        endpoint: env:MYIA_FIRECRAWL_URL
+push:
+  - channel: stdout
+```
+
+边界如实记:
+
+- **AGPL 边界**:上游 server 是 AGPL-3.0,世事 只以**服务消费**(HTTP
+  API 调用)接入,零源码复制——同 RSSHub 先例;不可把其 server 代码
+  vendor 进本仓库(MIT)。
+- **cloud-only 缺口**(官方明示,不美化):自托管默认栈**不含
+  Fire-engine**——强反爬绕过(IP 封禁处理/机器人检测对抗)与截图、页面
+  操作类格式不可用;LLM 结构化抽取要自带 OpenAI 兼容端点;agent /
+  browser / interact 是云端功能。基础 scrape(Fetch + Playwright 渲染 →
+  markdown/html)在栈内,恰好覆盖 L3 兜底所需(引擎只消费这两种格式)。
+- **资源与复验**:官方栈给 api 容器配的上限是 4 CPU / 8GB 内存,轻量
+  机器量力而行;默认栈无鉴权无 TLS,公网部署须自行加固(反代 + 强
+  PostgreSQL 凭据 + 更换 `BULL_AUTH_KEY`)。本节未在本机实测(无
+  docker)——服务器部署后 `uv run myssia test <品类>.yaml --json` 挑一个
+  JS 重站跑一遍,应答正常即为复验通过。
+
 ## 红线与习惯
 
 - **额度会变**:上表所有数字为快照 2026-10-03,以各官网为准。免费层是营销手段,

@@ -175,6 +175,21 @@ trafilatura 正文兜底同样缺装不拦链(无规则源照旧 `extract_requir
 (优先级=源级 > 全局 `MYIA_EXTRACT_FALLBACK` > 缺省关,源级未设时与全局口径
 逐字节一致),详表见 [schema 参考](docs/zh/schema.md) 的 sources `extract` 行。
 
+### 自托管 Firecrawl 兜底(L3 渲染后端,可选)
+
+L3 `firecrawl` 引擎的渲染后端不必买云端——官方
+[self-host 文档](https://github.com/firecrawl/firecrawl/blob/master/SELF_HOST.md)
+`docker compose` 一套自托管(零美元,渲染流量不出你的机器):克隆仓库 →
+根目录 `.env` 写 `PORT=3002` / `HOST=0.0.0.0` / `USE_DB_AUTHENTICATION=false`
+→ `docker compose up -d --build`。引擎内置缺省端点就是标准口
+`http://127.0.0.1:3002`,非标准口或远程机才设 `MYIA_FIRECRAWL_URL`;
+自托管关鉴权,`MYIA_FIRECRAWL_API_KEY` 不设(云端 `api.firecrawl.dev`
+才需要)。上游 server 是 AGPL-3.0——世事 只以服务消费接入(HTTP API
+调用,零源码复制,同 RSSHub 先例),不 vendor 其代码;强反爬绕过/截图等
+Fire-engine 能力为云端专属,自托管栈不含。完整模板、cloud-only 缺口清单
+与复验口径见[零成本接入 §4](docs/zh/zero-cost.md)(本机无 docker,
+该指引未实测,部署复验留服务器侧)。
+
 跑第一个品类 —— 零凭据的完整配置就一个小文件:
 
 ```bash
@@ -555,6 +570,27 @@ takes precedence over the global variable (precedence = source-level > global
 `MYIA_EXTRACT_FALLBACK` > off by default; with the key unset, behavior is
 byte-identical to the global setting) — full details in the `extract` row of
 the [schema reference](docs/en/schema.md).
+
+#### Self-hosted Firecrawl fallback (optional L3 rendering backend)
+
+The L3 `firecrawl` engine's rendering backend doesn't have to be a cloud
+purchase — the official
+[self-host guide](https://github.com/firecrawl/firecrawl/blob/master/SELF_HOST.md)
+brings up a whole stack with `docker compose` (zero dollars, and rendering
+traffic never leaves your machine): clone the repo → root `.env` with
+`PORT=3002` / `HOST=0.0.0.0` / `USE_DB_AUTHENTICATION=false` →
+`docker compose up -d --build`. The engine's built-in default endpoint is
+the standard port `http://127.0.0.1:3002`; set `MYIA_FIRECRAWL_URL` only for
+a non-standard port or a remote machine. Self-host runs with auth off, so
+`MYIA_FIRECRAWL_API_KEY` stays unset (only the `api.firecrawl.dev` cloud
+needs a key). The upstream server is AGPL-3.0 — 世事 consumes it purely as
+a service (HTTP API calls, zero source copying, same as the RSSHub
+precedent) and never vendors its code; hard anti-bot bypass / screenshots
+and other Fire-engine capabilities are cloud-only and absent from the
+self-hosted stack. Full template, cloud-only gap list and re-verification
+steps in [zero-cost setup §4](docs/en/zero-cost.md) (written on a
+docker-less machine, so the guide is unverified locally — re-verify on the
+server side after deploying).
 
 Run your first category — a complete, zero-credential config in one small
 file:
