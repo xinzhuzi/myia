@@ -65,3 +65,31 @@
 - CI:run 37304222631(main @ 3470b59,含本流 f77f894)→ **success**;归档轮 `gh run view` 亲验 + `merge-base --is-ancestor` 亲证 f77f894 ∈ 3470b59。
 - **受阻如实注(装机链验证)**:双保险判据中「直跑新装二进制+截图」结构性依赖 owner 重打包——现装 /Applications/世事.app 二进制 mtime(2026-10-05 16:28)早于 f77f894 提交时间(19:24:44),grep `MYIA_BUNDLED_PLUGINS` 零命中(对照 `MYIA_APP_VERSION` 命中 1)坐实旧包不含本轮壳层 env 注入与 sidecar 两新方法;重打包后补验 `#/settings?section=installer-plugins` 应见 10 件(Resources/plugins 亲验 18 项=10 组件包+8 品类 YAML,与断言口径一致)。代码面全量门禁已绿,机房实况同 table-restore AC4 先例。
 - 收口处置:归档至 archive/2026-10/;留池可翻案两件(UI 卸载按钮/品类 YAML 进发现面)已在 Notes 记档。
+
+## 补验销号(2026-10-05 晚,重打包落地后;尾部纯增量补记,原文不改)
+
+「收口回执」受阻注记的装机链验证当晚闭环。重打包=并行会话(/tmp/myia-refresh
+回执:build.exit=0、install.ts=20261005-195431 head=9c287b1;新二进制 mtime
+19:51:50,grep `MYIA_BUNDLED_PLUGINS` 命中 1——旧包零命中对照,换装到位):
+
+- **壳层 release 注入(进程级亲证)**:装机版经 `open -g` 无覆盖启动
+  (launchctl getenv 全空、open 不透传 shell env),其 sidecar 进程 env 实读
+  (ps eww)含 `MYIA_BUNDLED_PLUGINS=/Applications/世事.app/Contents/Resources/plugins`
+  (+MYIA_APP_VERSION=0.0.1/MYIA_HOME=真根同点)——AC1 注入逻辑在装机 release
+  构建真实生效,非仅 cargo 单测口径。
+- **UI 像素(installer-plugins.png,20:01:42)**:`#/settings` 装机组件卡全
+  10 件渲染(逐件名称/id/版本/tier 徽章/能力/未装态/安装钮,OCR 与
+  DESKTOP_TIER_PACKAGES 9+STUB_ONLY 1 逐件对上),随包原件只读与
+  vendor_missing 指引文案在屏——受阻注记所记「#/settings?section=
+  installer-plugins 应见 10 件」验讫(AC4 装机态)。
+- **sidecar 四连探针(销号会话亲跑;生产 spawn 同款组合=真数据根 python+
+  装机包 Resources/myssia-src,MYIA_HOME/MYIA_PLUGIN_DIR 隔离到一次性根)**:
+  list → count=10/compat=10;install myssia-proxy → {ok,version:"1.1.0"}
+  落隔离根(README/adapter/plugin.yaml 齐);回读 list installed 翻真;二装
+  未 force → `already_installed` 结构化拒带指引。回执
+  /tmp/myia-bundled-probe.*/out.jsonl。
+- 附注:验中主人曾在补验线沙箱实例(手工预置 python→detect「无戳但 python
+  在→Ready 兜底」、python-env.json 不存在)点「检查状态」见
+  `[deps_fingerprint] 进度戳无依赖指纹`——系一次性沙箱根的如实态非真机故障;
+  真机根 state=ready+指纹 a89418… 与新包随包 requirements-lock.txt sha256
+  逐字节一致,三查全绿。「补验沙箱窗自标识」改进项已落 v12-backlog 池第 9 项。
