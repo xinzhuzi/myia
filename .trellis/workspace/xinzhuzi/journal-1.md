@@ -706,3 +706,9 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - doctor finding 真机坐实(补验截图顺带):games 与 news 均挂 telegram 通道且同用 env:TELEGRAM_BOT_TOKEN——双常驻轮询 getUpdates 会 Telegram 409 互踢(doctor finding feedback/telegram_token_poll_conflict);处置留主人:保留单品类 telegram/换独立 token/仅单品类 --loop。
 - 工程课:①无 GUI 装机件验证通道=生产 spawn 同款直探(真根 python+Resources/myssia-src+隔离根),与并行线窗口取证互不干扰,本轮两线并行零撞;②extras 功能装机验证用 pip --target 叠加层零真环境污染;③补验沙箱窗口会惊扰主人(本轮亲历)——「沙箱窗自标识」已落 v12-backlog 池第 9 项。
 - 提交:归档档补注+池档第 9 项+本 journal 段,--only 三路径纯文档批入库不推远端。
+
+## 2026-10-05 深夜:决策点落地轮(主人令「按照你的建议去做吧」)
+
+- **trafilatura 真机激活路径打通**:one-liner 亲跑(`<数据根>/python/bin/python3 -m pip install "trafilatura>=2.3,<3" "selectolax<1"`→2.3.0 入自管环境;主链 run_pip=纯 `pip install -r` 不卸 extras,后续「同步依赖」不会冲掉,亲核 pyenv_install.rs:618-628)。真机终验三态:开+有装(无叠加层)=A2/C2 出条 provenance=trafilatura 203 字符、B2/C1 质量门拦、A1 规则命中永不触达;关=A1+extract_required+零条与装前基线逐字节同形(缺省关设计在有装态仍成立);指纹戳 a89418… 与随包锁复核仍一致(手 pip 不写戳不触漂移,坐实)。开关本体维持缺省关,启用法=launchctl setenv MYIA_EXTRACT_FALLBACK 1 后重启 app(README 口径)。回执 /tmp/myia-traf-probe/real-*.json。
+- **telegram token 互踢裁决(机制查明后定案:配置不动)**:getUpdates 轮询只存在于常驻 `run_forever`(pipeline.py:2658 `_build_feedback_poller` 唯一调用点);桌面 entry.py 与 cron 宿主(cron/ 全包 grep 零引用)均不起轮询——**桌面态(cron+sidecar 单发 sendMessage)零暴露,当前用法不受影响,砍 YAML 通道是净损失故不动**。暴露面仅=CLI `myssia run --loop` 多品类同 token 常驻,纪律=同 token 至多一品类常驻(doctor finding telegram_token_poll_conflict 本身即此告警,常驻可查)。永久解需两件:主人 BotFather 建第二个 bot(2 分钟)+代码面给 telegram 通道补 per-channel token 引用字段(现 schema 通道级凭据字段只覆盖 ntfy/钉钉/企微,schema.py:1059-1072;telegram 恒走 DEFAULT_TOKEN_ENV_REF env:TELEGRAM_BOT_TOKEN,push/telegram.py:99)——主人要的话另立半小时级小档。
+- 提交:本 journal 段 --only 入库,纯文档批不推远端。
