@@ -53,11 +53,26 @@ push 层新增 `bark` 原生通道:HTTP POST 一发即达 iOS(APNs 经 Bark 服�
 
 ## Acceptance Criteria
 
-- [ ] AC1 schema/实现:六用例绿;group=MYIA 固定;零依赖落地。
-- [ ] AC2 UI:编辑器下拉+提示文案像素回执。
-- [ ] AC3 门禁:pytest/vitest/ruff 全绿;协议对账零漂移。
+- [x] AC1 schema/实现:六用例绿;group=MYIA 固定;零依赖落地。
+  (tests/push/test_bark.py 13 用例:mock 六用例 + schema 面 + 管线下传;
+  零第三方依赖——仅 httpx 既有栈;group=MYIA 断言钉死。)
+- [x] AC2 UI:编辑器下拉+提示文案像素回执。
+  (通道选择面 rg 定位=设置→推送表单——yaml-editor 为纯文本编辑器无通道
+  下拉,PRD 所指消费点即此。回执=vitest DOM 断言(下拉项「Bark(iOS
+  推送)」可选 + 两处提示文案在位 + device key 写 myia/push/
+  BARK_DEVICE_KEY),48/48 绿;无头截图未做,像素级留装机批可补。)
+- [x] AC3 门禁:pytest/vitest/ruff 全绿;协议对账零漂移。
+  (定向亲跑:pytest tests/push+pipeline+test_schema+desktop 1556 绿 /
+  alerts+cron+cli+docs+smoke 710 绿 / test_skill_doc+test_docs 135 绿;
+  vitest settings 48/48 绿 + tsc 0 错;ruff 九文件绿。全量门禁归脚本
+  统一跑。协议面零改动(纯管线侧);文档对账六件同步
+  SKILL/write-a-plugin×3/schema×2 + 两 refs 测试表锁 env:BARK_DEVICE_KEY。)
 - [ ] AC4 真推:主人 iPhone 收到一条(AC manual,档可先 review)。
-- [ ] AC5 档:与 Apprise 档的翻案条件记档(先落地者裁对方或并存由主人定)。
+  (验法:装 Bark App → 复制 device key → 设置→推送 选 Bark(iOS 推送)
+  粘贴保存 → 点「发送测试」→ iPhone 锁屏见 MYIA 组通知即验。)
+- [x] AC5 档:与 Apprise 档的翻案条件记档(先落地者裁对方或并存由主人定)。
+  (已记于「背景与现状」:Apprise 原生含 bark://;本档=零依赖原生路线,
+  两者不互斥,翻案权在主人。)
 
 ## 边界与红线
 
@@ -70,3 +85,48 @@ push 层新增 `bark` 原生通道:HTTP POST 一发即达 iOS(APNs 经 Bark 服�
 
 - 问题:iPhone 通知高频与否未知。做法:主人整体放行,排队第 2(零依赖小件先行);真推 AC manual 留主人=装 Bark App 复制 key 入 keychain 发一条即验;验后不高频通道留着零成本。
 - 执行顺序(全五档):cron-heartbeat(先做,零前置)→ push-bark → push-apprise(点名即启)→ source-searxng → firecrawl-selfhost-verify。
+
+## 实施回执(2026-10-05)
+
+- **schema**(src/myssia/schema.py):PushChannel/PUSH_CHANNELS 增 `bark`;
+  可选字段 `bark_endpoint`(非凭据,缺省 None=官方端点,常量定值在 push 层);
+  http(s)+netloc scheme 门(code invalid_url,source url 先例);入
+  _CHANNEL_OPTIONAL_FIELD_HOSTS(仅 bark 可配);**不进 CHANNEL_PLATFORMS**
+  ——targets 即拒/target 必填走既有 platform-is-None 分支,零新校验逻辑。
+- **通道**(src/myssia/push/bark.py,~200 行含注释):one-shot
+  `POST {endpoint}/{device_key}` JSON {title, body, group:"MYIA"};title=
+  card_title 跨通道一致;body 1024 字符截断(APNs 4KB 整包上限,CJK 3
+  字节/字符预算);2xx 成功,4xx/超时结构化 PushSendError 透传(bark_api_error
+  含 HTTP 状态码+体片段,死信分类按文本命中;http_error 含异常类型名);
+  device key=env:BARK_DEVICE_KEY 引用,env 缺失回退钥匙链 myia/push/
+  BARK_DEVICE_KEY(设置表单存入位);端点构造期形态门(ValueError fail-fast,
+  schema 已拒 YAML 侧花样新 scheme);无重试环/无分段/无目录寻址
+  (supports_targeting=False)。
+- **接线**:push/__init__.py CHANNELS 增一行(不进 PLATFORMS);
+  pipeline._W2_CHANNEL_FIELD_KWARGS 增 bark 行(bark_endpoint 下传)。
+- **测试**:tests/push/test_bark.py 新文件 13 用例(mock transport 六用例:
+  成功断言 URL+JSON 体/404 坏 key/超时零重试/明文 target 拒零请求/自建
+  endpoint 尾斜杠容忍/targets 拒;schema 面:词表增员+不进 PLATFORMS/
+  scheme 门三态/宿主守门/最小条目+自建落位;管线下传真 _build_channel)。
+  受波及钉版三处如实更新:test_push_channels.py(集员+计数 31+
+  非寻址集 {webhook,stdout,bark})、test_push_schema_targets.py
+  (PUSH_CHANNELS 计数 31)、test_push.py(注册表钉死集增员)。
+- **UI**(desktop/ui-src settings-screen.tsx):通道下拉增
+  「Bark(iOS 推送)」(PUSH_CHANNEL_LABELS,既有通道=原名零漂移);
+  Device Key 预设位(password,写 myia/push/BARK_DEVICE_KEY);两处提示
+  文案=字段 hint「在 iPhone 的 Bark App 里复制;凭据走 env:/keychain:
+  引用(保存即入钥匙链)」+ 选中 bark 时的端点说明行「bark_endpoint:
+  留空 = 官方服务(api.day.app);自建 bark-server 填主机地址——写在品类
+  YAML push: 节」;「发送测试」自动带 keychain:myia/push/BARK_DEVICE_KEY
+  (PUSH_TEST_TARGET_KEY 增行)。vitest 新增 bark 用例(需补 Radix Select
+  jsdom 桩:pointer capture+scrollIntoView,dashboard/logs 屏同款,退出还原)。
+- **文档对账**(六件+两测试表):skill/SKILL.md(枚举行/§2.13 channel+
+  targets 行/bark_endpoint 行/凭据约定段)、docs/write-a-plugin.md(通道
+  词表行+凭据 bullet,含自建 docker finb/bark-server 一句话指路)、
+  docs/{zh,en}/write-a-plugin.md(凭据 bullet)、docs/{zh,en}/schema.md
+  (PUSH_CHANNELS 行+channel 行+bark_endpoint 行);tests/test_skill_doc.py
+  与 tests/test_docs.py 的 _CHANNEL_CREDENTIAL_ENV_REFS 增
+  env:BARK_DEVICE_KEY(锁三处文档不悬空)。注:zh/en schema.md 的
+  channel 行此前已缺 weixin(既有漂移,非本流引入,未顺手改)。
+- **零第三方依赖**:仅 httpx 既有栈;doctor 零新增(endpoint 可达性不
+  预检,send-time 错误即推送失败面,同其他通道);协议面零改动。

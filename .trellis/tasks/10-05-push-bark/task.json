@@ -3,7 +3,7 @@
   "name": "10-05-push-bark",
   "title": "Bark 原生推送通道(iOS 即时通知零依赖小件)",
   "description": "push 层新增 bark 通道:POST endpoint/key+group=MYIA,零第三方依赖;bark_endpoint 可选自建;device key 走凭据引用;真推 AC manual(主人 iPhone)。翻案条件=Apprise 先落地且主人接受其依赖则本档可裁。",
-  "status": "planning",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -15,7 +15,7 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "208a599",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -24,6 +24,6 @@
     "src/myssia/schema.py",
     "src/myssia/push/bark.py"
   ],
-  "notes": "由 v12-backlog 池第 10 项拆出;grill Q4 决议=iPhone 高频才值;与 10-05-push-apprise 关系记档 | 放行回执:问题:iPhone 通知高频与否未知。做法:主人整体放行,排队第 2(零依赖小件先行);真推 AC manual 留主人=装 Bark App 复制 key 入 keychain 发一条即验;验后不高频通道留着零成本。",
+  "notes": "由 v12-backlog 池第 10 项拆出;grill Q4 决议=iPhone 高频才值;与 10-05-push-apprise 关系记档 | 放行回执:问题:iPhone 通知高频与否未知。做法:主人整体放行,排队第 2(零依赖小件先行);真推 AC manual 留主人=装 Bark App 复制 key 入 keychain 发一条即验;验后不高频通道留着零成本。 | 实施回执 2026-10-05:bark 通道全量落地(schema/通道/接线/测试 13 用例/UI 下拉+两提示/文档对账六件+两 refs 表);AC1/2/3/5 勾,AC4 真推 manual 留主人(装 Bark App→设置→推送→发送测试);定向门禁亲跑全绿(pytest 1556+710+135/vitest 48+tsc/ruff);Apprise 翻案条件在 prd 背景段。",
   "meta": {}
 }
