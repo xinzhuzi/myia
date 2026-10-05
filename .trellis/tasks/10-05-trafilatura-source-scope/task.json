@@ -3,7 +3,7 @@
   "name": "trafilatura-source-scope",
   "title": "trafilatura 兜底源级开关",
   "description": "母任务(ba8af60)全局 opt-in MYIA_EXTRACT_FALLBACK 扩源级覆写:engine_options.static_html.extract_fallback 布尔,优先级=源级>全局 env>缺省关,全局 env 语义不变;schema.py 零改动(开放命名空间直通,ExtractConfig/SourceConfig CRITICAL 类面零触碰),类型校验落引擎层 invalid_engine_options(saas _bool_option 先例);docs zh/en schema.md + skill/SKILL.md 同步",
-  "status": "planning",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -15,7 +15,7 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "d11a7ef",
   "pr_url": null,
   "subtasks": [],
   "children": [],
@@ -27,6 +27,6 @@
     "docs/en/schema.md",
     "skill/SKILL.md"
   ],
-  "notes": null,
+  "notes": "首步纪律:impact ExtractConfig=CRITICAL 84(direct 47,processes 0,schema.py IMPORTS 边)/SourceConfig=CRITICAL 84(同因)/_fallback_enabled 未入索引(ba8af60 后索引滞后)grep 兜底=模块私有仅 _check_extract_support/_fetch_page 两调用点;两 CRITICAL 类零编辑,形态定案 engine_options.static_html.extract_fallback(schema.py 零改动),实际编辑面 LOW。门禁:pytest tests/test_schema.py tests/engines -q → 473 passed 8 skipped(test_static_html 26=18 既有零改动+8 新:矩阵六格+类型错+②同链);ruff 0.16.10 全仓绿;detect-changes staged → 6 files 11 symbols 0 processes risk low(列出的符号全为 docs/SKILL markdown 标题;static_html.py 符号未入索引=索引滞后,如实记)。schema.py 与 tests/test_schema.py 零触碰(AC3 git status 亲证);工作期新现的并行脏件(tests/desktop/test_desktop_sidecar_protocol.py、tests/pipeline/test_baseline.py)零关联未动;commit --only 六路径(d11a7ef),不推远端。",
   "meta": {}
 }
