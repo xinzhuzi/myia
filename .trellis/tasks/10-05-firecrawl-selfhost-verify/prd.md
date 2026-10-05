@@ -54,16 +54,33 @@
 ## Acceptance Criteria
 
 - [ ] AC1 自托管实例真跑通:3-5 站 scrape 应答样本在档(含 JS 重站)。
-      —— blocked:本机 docker 前置不满足(Docker Desktop 已卸尽,坏符号
+      —— blocked(2026-10-05):本机 docker 前置不满足(Docker Desktop 已卸尽,坏符号
       链接+无 colima/podman/lima/orbstack+无 socket,探针全录
       evidence/docker-unavailable-probe.txt)。真跑与应答样本留主人服务器
       (AC manual;复验法=zero-cost §4 末注记:`myssia test <品类>.yaml
       --json` 挑 JS 重站跑一遍)。
+      —— blocked 持续、瓶颈迁移(2026-10-06 00:56-01:44):docker 前置
+      已解锁(colima running,docker info/compose 5.6.0 亲验通过),按
+      zero-cost §4 模板逐字起栈(官方仓克隆 /tmp/firecrawl-e2e+.env 三行
+      +compose up -d --build 后台+exit 文件法)——45 分钟(首盒 20+延长
+      轮 20+收尾缓冲 3+建栈耗时)拉层未完:docker hub 大层实测 ~50KB/s
+      级,停时 117 层已完成(node/rabbitmq/redis/foundationdb 1.53GB 均
+      完整),playwright 浏览器层 95.42/112.9MB 未完,api 本地 build 未及
+      开始 → 按时间盒纪律 TaskStop+`docker compose down --remove-orphans`
+      清场(本流零容器残留;镜像层缓存与 /tmp 克隆保留,复验续跑不必重下
+      已拉 2.4GB+)。全实录+四站 robots 实况见 evidence/build-timeout-20261006.md。
+      真跑与应答样本仍留主人服务器(AC manual;或本机网络良好窗口按同
+      命令续跑,缓存已备)。
 - [ ] AC2 质量对照表:vs Zenrows 基线,差异与 cloud-only 缺口如实。
       —— blocked 同 AC1(无实例即无对照数据);cloud-only 缺口面已按官方
       四来源如实落 evidence/official-selfhost-sources.md 并入文档节
       (Fire-engine 全家/LLM 抽取自带端点/agent-browser-interact 云端/
       默认栈无鉴权无 TLS),vs Zenrows 的正文完整度对照缺真跑,不虚构。
+      —— Zenrows 基线本机不可得(2026-10-06 实查):shell env 无
+      ZENROWS*;`~/.myia/gates.yaml` 不存在(MYIA_HOME 未设)→
+      saas.zenrows 门槛未开、api_key 引用缺位(引擎凭据走
+      gates.yaml saas.<name>.api_key → 钥匙串,saas.py:19/:155-165)。
+      vs Zenrows 对照无论实例起否均留主人 AC manual,不虚构。
 - [x] AC3 指引:文档节+compose 模板+AGPL 边界句;零代码或最小适配另立
       (若适配,本档注记并指新档)。
       —— 2026-10-05 交付:README 双语「自托管 Firecrawl 兜底」节 +
@@ -81,6 +98,9 @@
       `uv run pytest tests/test_docs.py tests/engines/test_firecrawl.py -q`
       = 127 passed, 1 skipped(文档反漂移全套+firecrawl 引擎 18 用例零
       回归)。全量 pytest/vitest 由脚本统一跑。
+      —— 2026-10-06 复跑(本轮仍零代码零文档改动,仅本档+evidence):
+      `uv run --no-sync pytest tests/test_docs.py tests/engines/test_firecrawl.py
+      -q` = **127 passed, 1 skipped**,与基线逐字一致零回归。
 
 ## 边界与红线
 
@@ -123,3 +143,35 @@
   栈 → `MYIA_FIRECRAWL_URL` 指实例(标准口可免)→ `uv run myssia test
   <品类>.yaml --json` 挑 1 个 JS 重站 + 1 个静态站 → 应答样本与 Zenrows
   对照落本档 evidence/,AC1/AC2 即闭。
+
+## 实施注记·续(2026-10-06,docker 解锁后真跑尝试受阻实况)
+
+- **前置变化**:前序步骤完成 A 项 docker 解锁(brew 装 colima/docker/
+  docker-compose 并 colima start);本轮 00:56 亲验 `docker info`(Client
+  29.8.2/Server 29.5.2,context colima)+`colima status`(running,
+  Virtualization.Framework)——档内「前置:主人机器/服务器可跑 docker」
+  在本机已成立,blocked 的原始理由(docker 不可用)消除,按复验口径起栈。
+- **起栈与超时**(详录 evidence/build-timeout-20261006.md):官方仓
+  `--depth 1` 克隆 /tmp/firecrawl-e2e(不落仓库根,零 vendor 零外来
+  脏面);上游漂移核对——SELF_HOST.md 改版无 Required ENVS 段但
+  `USE_DB_AUTHENTICATION=false` 仍必设(:25),compose 引用实核
+  (docker-compose.yaml:33),三行模板仍有效;`docker compose up -d
+  --build` 后台+exit 文件法,45 分钟未完(docker hub 大层 ~50KB/s 级,
+  117 层完成含 foundationdb 1.53GB,playwright 层 95/113MB,api 本地
+  build 未及开始)→ 按计划时间盒纪律(20+20 延长+缓冲)TaskStop 降级,
+  `docker compose down --remove-orphans` 清场零残留;镜像缓存+/tmp
+  克隆(含 .env)保留备复验。**AC1/AC2 真跑仍留主人服务器,档维持
+  blocked,瓶颈从「无 docker」迁移为「docker hub 拉层带宽」**。
+- **站单四站+robots 亲取**(备复验直接用,全部 curl 2026-10-06):
+  quotes.toscrape.com/js/(JS 重站,robots 404=无限制)、example.com
+  (静态,IANA 文档域自述许可)、news.ycombinator.com/(首页允许,
+  Crawl-delay 30 单次无碍)、techcrunch.com/category/artificial-
+  intelligence/(通用段允许该路径)。两份临时品类 YAML(firecrawl 侧
+  env:MYIA_FIRECRAWL_URL 引用+免费链对照侧)已备 /tmp 并过
+  load_category_file 真载校验,因栈未起未及真跑,复验时直接取用。
+- **Zenrows 凭据实查**:env 无 ZENROWS*、~/.myia/gates.yaml 不存在 →
+  saas.zenrows 门槛未开;AC2 的 vs Zenrows 对照本机无论实例起否均不可
+  得,留主人(如主人配 gates.yaml saas.zenrows.api_key 引用+钥匙串值)。
+- **本轮交付面**:零代码零产品文档改动(验证型预期维持);新增证据
+  evidence/build-timeout-20261006.md;AC4 定向门禁复跑 127 passed
+  1 skipped 与基线一致。
