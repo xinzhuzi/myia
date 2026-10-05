@@ -71,7 +71,10 @@ async fn sidecar_request(
             // 结构化 pyenv_not_ready(prd Req3,带 status 数据);其余维持
             // 进程级 sidecar_not_running(崩溃待 respawn/手动拉起)。
             None => match pyenv::unready_error(&app) {
-                Some(error) => Err(error.to_string()),
+                Some(error) => {
+                    state.pending.lock().unwrap().remove(&id);
+                    return Err(error.to_string());
+                }
                 None => Err("sidecar 进程未运行".into()),
             },
         }
