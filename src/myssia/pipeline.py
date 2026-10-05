@@ -2633,12 +2633,15 @@ class Pipeline:
         ``getUpdates`` for feedback callbacks (桌面形态接收, grill Q7) and
         ingests them into the same store; polling failures log-and-continue.
 
-        **一个 bot token 只允许一个轮询方**(素材 12):所有 telegram 通道的
-        bot token 都解析自 ``env:TELEGRAM_BOT_TOKEN``,因此每个配置了 telegram
-        通道的常驻进程都会轮询同一条 getUpdates 流——Telegram 对并发轮询方
-        回 **409 Conflict** 互踢。同一 token 下至多一个品类以 ``--loop`` 常驻
-        (其余品类换推送渠道,或不常驻);``myssia doctor`` 以
-        ``telegram_token_poll_conflict`` finding 提示多品类共配的情形。
+        **一个 bot token 只允许一个轮询器**(素材 12 → 10-05-telegram-token
+        -dedupe 由库内保证):所有 telegram 通道的 bot token 都解析自
+        ``env:TELEGRAM_BOT_TOKEN``,Telegram 对同 token 的并发
+        ``getUpdates`` 回 **409 Conflict** 互踢。反馈循环启动前先取**轮询
+        租约**(进程内注册表 + 跨进程 flock,见
+        :func:`myssia.push.telegram_feedback.acquire_poll_lease`):先到的
+        常驻进程独占接收,后到者(同进程或他进程)禁动——推送不受影响,
+        只是反馈回调与会话目录观测不进自己的库;``myssia doctor`` 以
+        ``telegram_token_poll_conflict`` finding 披露该单接收方语义。
 
         Args:
             trigger: prebuilt trigger override (tests use fine-grained cron);
@@ -2715,8 +2718,10 @@ class Pipeline:
 
         bot 凭据不可解析(未设 env 等)= 未启用(结构化 INFO,不告警——桌面
         用户没配 TG 是正常态);轮询失败在循环内 log-and-continue。同 token
-        并发轮询约束(409)见 :meth:`run_forever` docstring——本方法不判定
-        其他进程是否也在轮询,跨进程互斥交由部署形态保证。
+        单轮询器约束(409)由反馈循环启动前的**轮询租约**保证(见
+        :meth:`run_forever` docstring 与
+        :func:`myssia.push.telegram_feedback.acquire_poll_lease`)——本方法
+        只建 poller,不取租约。
 
         目录 sink(10-03-messaging-telegram D2):轮询看到的每个会话被动
         merge 进 ``telegram`` 桶(Telegram Bot API 无「列出会话」能力,这是
@@ -2745,25 +2750,40 @@ class Pipeline:
         每 ``feedback_poll_interval`` 秒一轮;offset 书签在轮次间保持(Telegram
         对未确认更新会重发,书签避免重复入库);回调经
         :func:`myssia.feedback.ingest_callbacks` 入库(单条失败不拖垮整批)。
+
+        启动前先取**同 token 轮询租约**(10-05-telegram-token-dedupe):抢
+        不到 = 已有轮询方(本进程注册表或他进程 flock),禁动即返——推送
+        照常,反馈接收由先到的常驻进程独占;租约随循环退出/取消释放。
         """
-        logger.info(
-            "TG 反馈轮询已启动 category=%s interval=%ss",
-            self.config.id, self._feedback_poll_interval,
-        )
-        offset: int | None = None
-        while True:
-            try:
-                result = await poller.poll(offset=offset)
-                offset = result.next_offset or offset
-                if result.callbacks:
-                    store = self._store_for_run(dry_run=False)
-                    report = ingest_callbacks(store, result.callbacks)
-                    logger.info(
-                        "TG 反馈轮询入库 saved=%s skipped=%s failures=%s",
-                        report.saved, report.skipped, len(report.failures),
-                    )
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:  # noqa: BLE001 - 轮询失败不拖垮常驻调度
-                logger.warning("TG 反馈轮询失败(下个周期重试): %s", exc)
-            await asyncio.sleep(self._feedback_poll_interval)
+        lease = poller.acquire_poll_lease()
+        if lease is None:
+            logger.warning(
+                "TG 反馈轮询禁动(同 bot token 已有轮询方,409 防护): "
+                "category=%s 推送不受影响;反馈接收由先到的常驻进程承担",
+                self.config.id,
+            )
+            return
+        try:
+            logger.info(
+                "TG 反馈轮询已启动 category=%s interval=%ss",
+                self.config.id, self._feedback_poll_interval,
+            )
+            offset: int | None = None
+            while True:
+                try:
+                    result = await poller.poll(offset=offset)
+                    offset = result.next_offset or offset
+                    if result.callbacks:
+                        store = self._store_for_run(dry_run=False)
+                        report = ingest_callbacks(store, result.callbacks)
+                        logger.info(
+                            "TG 反馈轮询入库 saved=%s skipped=%s failures=%s",
+                            report.saved, report.skipped, len(report.failures),
+                        )
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - 轮询失败不拖垮常驻调度
+                    logger.warning("TG 反馈轮询失败(下个周期重试): %s", exc)
+                await asyncio.sleep(self._feedback_poll_interval)
+        finally:
+            lease.release()

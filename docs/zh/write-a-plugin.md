@@ -234,7 +234,7 @@ myssia doctor --json                    # 缺省体检 plugins/ 全部插件;也
 | `keychain_name_noncanonical` | 引用名改为 `myia/<scope>/<name>` 后改 YAML |
 | `store_error` | SQLite 库损坏或 schema 版本过新:换 `--db` 路径或删除重建(会丢历史) |
 | 插件类 finding(v0.3) | 市场插件装不上/remote 不可达只降级为 finding,**不拦核心流水线**;按 message 修 `plugin:` 节或重装 |
-| `telegram_token_poll_conflict` | 两个及以上品类共用同一 bot token(`env:TELEGRAM_BOT_TOKEN`)且各自 `--loop` 都会轮询 `getUpdates` → Telegram 回 409 Conflict;同一 token 下至多一个常驻品类保留 telegram 通道,其余品类改用其他推送渠道(单次 run 不轮询,不受影响) |
+| `telegram_token_poll_conflict` | 两个及以上品类共用同一 bot token(`env:TELEGRAM_BOT_TOKEN`):Telegram 对同 token 并发 `getUpdates` 回 409 Conflict,产品已内置同 token 单轮询器防护(先到常驻进程独占反馈接收,后到者轮询禁动,推送不受影响);注意后到常驻品类的 TG 反馈会入先到者的库——需要品类各自独立接收反馈时,为品类单独配置 bot token(另建 BotFather bot)或仅让其中一个品类常驻 |
 
 ## 交付前自查
 

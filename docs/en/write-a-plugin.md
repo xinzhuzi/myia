@@ -268,7 +268,7 @@ Common findings and repairs:
 | `keychain_name_noncanonical` | rename the reference to `myia/<scope>/<name>` and update the YAML |
 | `store_error` | corrupt SQLite or a too-new schema version: switch `--db` or rebuild (history is lost) |
 | plugin finding (v0.3) | a market plugin that cannot install or is unreachable degrades to a finding and **never blocks the core pipeline**; fix the `plugin:` section or reinstall per the message |
-| `telegram_token_poll_conflict` | two or more categories share one bot token (`env:TELEGRAM_BOT_TOKEN`) and each `--loop` process polls `getUpdates` → Telegram answers 409 Conflict; keep the `telegram` channel on at most one resident category and move the others to other push channels (single runs never poll, so they are unaffected) |
+| `telegram_token_poll_conflict` | two or more categories share one bot token (`env:TELEGRAM_BOT_TOKEN`): Telegram answers concurrent `getUpdates` polls with 409 Conflict, and the product now enforces one poller per token in-library (the first resident process owns feedback receiving; later ones stay poll-idle, pushes unaffected); note that feedback for later resident categories lands in the first category's store — configure a separate bot token per category (another BotFather bot) or keep only one category resident if each needs its own feedback |
 
 ## Pre-flight checklist
 

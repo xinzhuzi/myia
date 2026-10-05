@@ -1163,16 +1163,34 @@ class TestPipelineFeedbackLoop:
 # ---------------------------------------------------------------------------
 
 
+class _GrantedLease:
+    """ScriptedPoller 的租约替身:永可得(测循环契约,不测互斥);记录释放。"""
+
+    def __init__(self) -> None:
+        self.releases = 0
+
+    def release(self) -> None:
+        self.releases += 1
+
+
 class ScriptedPoller:
     """``_feedback_poll_loop`` 的剧本化替身:逐轮返回预置结果或抛异常。
 
     记录每轮收到的 ``offset`` 实参(书签推进的直接证据);轮次用尽后重复
     最后一轮(与真实 API 的稳态等价:书签之后的轮次不再有新更新)。
+    ``acquire_poll_lease`` 按循环新契约(10-05-telegram-token-dedupe)发放
+    永可得租约——互斥语义由 tests/push 的租约专项测试把守。
     """
 
     def __init__(self, rounds: list[Any]) -> None:
         self._rounds = list(rounds)
         self.offsets: list[int | None] = []
+        self.leases: list[_GrantedLease] = []
+
+    def acquire_poll_lease(self, *, lock_dir: Any = None) -> _GrantedLease:
+        lease = _GrantedLease()
+        self.leases.append(lease)
+        return lease
 
     async def poll(self, *, offset: int | None = None) -> Any:
         self.offsets.append(offset)
@@ -1279,6 +1297,17 @@ class TestFeedbackPollLoop:
         assert len(seen_stores) == 2
         assert seen_stores[0] is store and seen_stores[1] is store  # 两轮同一 store 对象
         assert len(store.list_feedback()) == 2  # 数据都落在注入库里
+
+    def test_loop_acquires_lease_and_releases_on_cancel(self, store):
+        """租约契约(10-05-telegram-token-dedupe):循环启动先取租约,取消
+        (Ctrl-C 语义)时释放——同 token 下一个循环才可能持有。"""
+        pipeline = self.make_tg_pipeline(store)
+        poller = ScriptedPoller([PollResult()])
+
+        asyncio.run(self._drive(pipeline, poller, rounds=1))
+
+        assert len(poller.leases) == 1  # 启动即取,恰一次
+        assert poller.leases[0].releases >= 1  # 取消路径 finally 释放
 
     def test_single_round_failure_does_not_kill_loop(self, store, caplog):
         """异常隔离:单轮 poll 抛错 → 告警并继续,下一轮照常书签轮询与入库。"""

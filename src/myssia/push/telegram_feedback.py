@@ -15,12 +15,14 @@ the background whenever a ``telegram`` push channel is configured.
 **旁路观察者**:解析/去重/错误路径零改动,sink 抛错只记日志不中断轮询;
 不注入时行为与不带 sink 逐字节一致。
 
-**一个 bot token 只允许一个轮询方**(素材 12):bot token 固定解析自
-``env:TELEGRAM_BOT_TOKEN``,Telegram 对同一 token 的并发 ``getUpdates``
-long-poll 回 **409 Conflict**。因此同一 token 下至多一个常驻进程开启反馈
-轮询——多品类场景只给其中一个品类配 telegram 通道,或让其不常驻;跨进程
-互斥不在库内实现(部署形态保证),``myssia doctor`` 以
-``telegram_token_poll_conflict`` finding 提示多品类共配的情形。
+**一个 bot token 只允许一个轮询方**(素材 12 → 10-05-telegram-token-dedupe
+由库内保证):bot token 固定解析自 ``env:TELEGRAM_BOT_TOKEN``,Telegram 对
+同一 token 的并发 ``getUpdates`` long-poll 回 **409 Conflict** 互踢。多品类
+共享同一 token 因此是受支持形态而非配置错误::func:`acquire_poll_lease`
+以**进程内注册表 + 跨进程 flock** 双层去重——先到的常驻进程独占轮询
+(反馈回调与会话目录观测只入它的库),后到者(同进程或他进程)**禁动**
+(推送不受影响,只是不接收反馈);``myssia doctor`` 的
+``telegram_token_poll_conflict`` finding 披露该单接收方语义。
 
 Callback-data contract (buttons belong to the desktop 正式版; the receiver
 already speaks it): ``fb:<good|bad>:<dedup_key>`` — the dedup key may be a
@@ -36,9 +38,16 @@ all HTTP I/O goes through an injectable ``httpx.AsyncClient`` — tests use
 
 from __future__ import annotations
 
+import contextlib
+import errno
+import hashlib
 import logging
+import os
+import tempfile
+import threading
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping
+from pathlib import Path
+from typing import IO, Any, Callable, Mapping
 
 import httpx
 
@@ -47,6 +56,15 @@ from myssia.push.directory import ChannelEntry
 from myssia.push.telegram import DEFAULT_TOKEN_ENV_REF
 from myssia.schema import CredentialResolveError, resolve_credential
 
+try:  # 跨平台文件锁:Unix fcntl / Windows msvcrt(cron/tick.py 同款守卫导入)
+    import fcntl  # noqa: F401  (可能缺,保名字存在)
+except ImportError:  # pragma: no cover - Windows
+    fcntl = None  # type: ignore[assignment]
+try:
+    import msvcrt  # type: ignore[import-not-found]  # noqa: F401
+except ImportError:  # pragma: no cover - POSIX
+    msvcrt = None  # type: ignore[assignment]
+
 __all__ = [
     "CALLBACK_PREFIX",
     "DEFAULT_POLL_INTERVAL_SECONDS",
@@ -54,7 +72,10 @@ __all__ = [
     "TelegramCallback",
     "TelegramFeedbackError",
     "TelegramFeedbackPoller",
+    "TelegramPollLease",
+    "acquire_poll_lease",
     "chat_entry_from_update",
+    "default_poll_lock_dir",
     "entry_from_chat",
     "parse_callback_data",
 ]
@@ -217,6 +238,147 @@ class PollResult:
         }
 
 
+# ---------------------------------------------------------------------------
+# 同 token 单轮询器租约(10-05-telegram-token-dedupe)
+# ---------------------------------------------------------------------------
+
+#: 进程内租约注册表:token sha256 摘要 → 持有中的租约。同进程第二个轮询
+#: 循环在此被拦下(不落到文件锁层);桌面/服务形态未来把多品类管线收进
+#: 单进程时,这一层就是去重点。
+_POLL_LEASES: dict[str, TelegramPollLease] = {}
+_POLL_LEASES_LOCK = threading.Lock()
+
+
+def default_poll_lock_dir() -> Path:
+    """跨进程轮询锁目录(每用户一目录;多用户 Linux 共享 /tmp 下互不踩踏)。
+
+    品类常驻进程各有 db/cwd,数据根不是共享锚点,故落系统临时目录;macOS/
+    Windows 的 tempdir 本就按用户隔离,POSIX 再以 uid 分目录。
+    """
+    uid = os.getuid() if hasattr(os, "getuid") else None
+    stem = f"myssia-tg-poll-{uid}" if uid is not None else "myssia-tg-poll"
+    return Path(tempfile.gettempdir()) / stem
+
+
+def _is_lock_contention_errno(err: OSError) -> bool:
+    """*err* 是否意味着「另一持有方在锁」而非真故障(errno 族与
+    ``cron/tick.py`` 的 ``_is_lock_contention_errno`` 同源;本域对两者的
+    处置都是禁动,但日志口径分开——竞争是 INFO,真故障是 WARNING)。"""
+    if err.errno is None:
+        return False
+    if fcntl is not None:
+        return err.errno in (errno.EWOULDBLOCK, errno.EAGAIN, errno.EACCES)
+    if msvcrt is not None:  # pragma: no cover - Windows
+        return err.errno in (errno.EACCES, errno.EDEADLK)
+    return False
+
+
+class TelegramPollLease:
+    """一个 bot token 的 getUpdates 轮询租约(持有方独占,后到者禁动)。
+
+    由 :func:`acquire_poll_lease` 创建;``release()`` 幂等——归还进程内
+    注册表并解锁/关闭锁文件。锁文件名只含 token 摘要、内容只写属主 pid
+    (security baseline:凭据零明文)。
+    """
+
+    def __init__(
+        self, digest: str, lock_path: Path | None, lock_fd: IO[str] | None
+    ) -> None:
+        self._digest = digest
+        self._lock_path = lock_path
+        self._lock_fd = lock_fd
+
+    @property
+    def digest(self) -> str:
+        """token 的 sha256 摘要(诊断安全口径;绝不暴露 token 本体)。"""
+        return self._digest
+
+    def release(self) -> None:
+        """释放租约(幂等):注册表出清 → 解锁 → 关 fd。"""
+        if self._lock_fd is None:
+            return
+        with _POLL_LEASES_LOCK:
+            if _POLL_LEASES.get(self._digest) is self:
+                del _POLL_LEASES[self._digest]
+        if fcntl is not None:
+            with contextlib.suppress(OSError):
+                fcntl.flock(self._lock_fd, fcntl.LOCK_UN)
+        elif msvcrt is not None:  # pragma: no cover - Windows
+            with contextlib.suppress(OSError):
+                msvcrt.locking(self._lock_fd.fileno(), msvcrt.LK_UNLCK, 1)
+        with contextlib.suppress(OSError):
+            self._lock_fd.close()
+        self._lock_fd = None
+
+
+def acquire_poll_lease(
+    token: str, *, lock_dir: Path | None = None
+) -> TelegramPollLease | None:
+    """获取该 bot token 的轮询租约;``None`` = 已有轮询方,后到者禁动。
+
+    双层去重(10-05-telegram-token-dedupe 决议):
+
+    1. **进程内注册表**:同进程已有该 token 的持有方 → None;
+    2. **跨进程 flock**:``<lock_dir>/tg-poll-<sha256[:16]>.lock`` 非阻塞
+       独占锁(蓝本 = ``cron/tick.py`` 的 tick.lock);竞争 errno → None。
+
+    锁基础设施真故障(目录建不了等)**fail closed** 也返回 None 并大声
+    记日志:409 互踢伤及的是对方健康轮询方,宁可本方禁动。锁文件开 ``a``
+    模式——竞争输家开文件不截断持有方刚写的 pid 行;拿到锁后才
+    truncate+重写。返回的租约由调用方在轮询循环退出/取消时 ``release()``。
+    """
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    with _POLL_LEASES_LOCK:
+        if digest in _POLL_LEASES:
+            logger.debug(
+                "TG 轮询租约进程内命中(禁动): digest=%s", digest[:16]
+            )
+            return None
+    directory = lock_dir if lock_dir is not None else default_poll_lock_dir()
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        with contextlib.suppress(OSError):
+            os.chmod(directory, 0o700)
+        lock_path = directory / f"tg-poll-{digest[:16]}.lock"
+        lock_fd = open(lock_path, "a", encoding="utf-8")
+    except OSError as exc:
+        logger.warning(
+            "TG 轮询租约目录不可用,反馈轮询禁动(fail closed): %s", exc
+        )
+        return None
+    try:
+        if fcntl is not None:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        elif msvcrt is not None:  # pragma: no cover - Windows
+            msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
+        with contextlib.suppress(OSError):
+            os.chmod(lock_path, 0o600)
+        lock_fd.seek(0)
+        lock_fd.truncate()
+        lock_fd.write(f"pid={os.getpid()}\n")  # 只写属主 pid,凭据零明文
+        lock_fd.flush()
+    except OSError as exc:
+        with contextlib.suppress(OSError):
+            lock_fd.close()
+        if _is_lock_contention_errno(exc):
+            logger.info(
+                "TG 轮询租约被他方持有(禁动): digest=%s", digest[:16]
+            )
+            return None
+        logger.warning(
+            "TG 轮询租约获取失败,反馈轮询禁动(fail closed): %s", exc
+        )
+        return None
+    lease = TelegramPollLease(digest, lock_path, lock_fd)
+    with _POLL_LEASES_LOCK:
+        incumbent = _POLL_LEASES.get(digest)
+        if incumbent is not None:  # 同进程双开竞态(理论不可达,防御)
+            lease.release()
+            return None
+        _POLL_LEASES[digest] = lease
+    return lease
+
+
 class TelegramFeedbackPoller:
     """Polls Bot API ``getUpdates`` for feedback callbacks (桌面形态).
 
@@ -268,6 +430,13 @@ class TelegramFeedbackPoller:
             return resolve_credential(self._token_ref)
         except CredentialResolveError as exc:
             raise TelegramFeedbackError(exc.code, f"telegram bot 凭据解析失败: {exc}") from exc
+
+    def acquire_poll_lease(
+        self, *, lock_dir: Path | None = None
+    ) -> TelegramPollLease | None:
+        """本 poller 的 token 的轮询租约(模块级 :func:`acquire_poll_lease`
+        的便捷入口;``run_forever`` 的反馈循环启动前调用,抢不到即禁动)。"""
+        return acquire_poll_lease(self._token, lock_dir=lock_dir)
 
     async def poll(self, *, offset: int | None = None) -> PollResult:
         """Run one ``getUpdates`` round; return parsed feedback callbacks.

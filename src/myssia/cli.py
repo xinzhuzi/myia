@@ -3014,14 +3014,15 @@ def _proxy_findings(
 def _telegram_poll_conflict_findings(
     loaded: Sequence[tuple[str, CategoryConfig]], findings: list[dict[str, Any]]
 ) -> None:
-    """常驻模式 TG getUpdates 同 token 竞争提示(素材 12,warning 语义).
+    """多品类共享 bot token 的单接收方语义披露(10-05-telegram-token-dedupe).
 
     telegram 通道的 bot token 固定解析自 ``env:TELEGRAM_BOT_TOKEN``(schema
-    不设 per-channel token 位),所以只要 ≥2 个已加载品类都配了 telegram 通道,
-    它们的常驻进程(``--loop``)就会各起一个 ``getUpdates`` 轮询 → Telegram
-    以 409 Conflict 互踢(一个 token 同时只允许一个 long-poll 消费方)。
-    单次 run 不轮询、不受影响,故只警示不判错;无法在此判定谁真的在常驻,
-    提示由主人按部署形态裁决。
+    不设 per-channel token 位),所以 ≥2 个已加载品类共配 telegram 通道时,
+    它们的常驻进程(``--loop``)名义上各起一个 ``getUpdates`` 轮询——Telegram
+    对同 token 并发轮询方回 409 Conflict。产品已在库内保证同 token 单轮询器
+    (轮询租约:先到常驻进程独占,后到者禁动,不再互踢),因此共配是受支持
+    形态;本 finding 只披露残余语义:后到常驻品类的 TG 反馈与会话目录观测
+    会入**先到**常驻品类的库。单次 run 不轮询、不受影响。
     """
     telegram_plugins = [
         plugin_id
@@ -3037,10 +3038,12 @@ def _telegram_poll_conflict_findings(
         code="telegram_token_poll_conflict",
         message=(
             f"{len(telegram_plugins)} 个品类共享同一 bot token(env:TELEGRAM_BOT_TOKEN)"
-            f"且都配置了 telegram 通道:{'、'.join(telegram_plugins)};每个常驻进程"
-            "(myssia run --loop)都会轮询 getUpdates,同 token 多轮询方会被 Telegram "
-            "以 409 Conflict 互踢。只保留一个常驻品类配置 telegram 通道(其余品类"
-            "改用其他推送渠道),或仅对其中一个品类使用 --loop。"
+            f"且都配置了 telegram 通道:{'、'.join(telegram_plugins)}。Telegram 对同 "
+            "token 并发 getUpdates 回 409 Conflict,产品已内置同 token 单轮询器防护:"
+            "先到的常驻进程(myssia run --loop)独占反馈接收,后到者轮询禁动"
+            "(推送不受影响)。注意:后到常驻品类的 TG 反馈会入先到者的库——"
+            "如需品类各自独立接收反馈,请为品类单独配置 bot token(另建 BotFather "
+            "bot)或仅让其中一个品类常驻。"
         ),
     )
 

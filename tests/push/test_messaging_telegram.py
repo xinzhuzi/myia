@@ -545,3 +545,230 @@ class TestChannelsCliPassivePlatform:
         assert code == 0
         assert "被动目录平台" in out
         assert "刷新失败" not in out
+
+
+# ---------------------------------------------------------------------------
+# 同 token 单轮询器租约(10-05-telegram-token-dedupe:409 回归)
+# ---------------------------------------------------------------------------
+
+import hashlib
+import contextlib
+import os
+
+import myssia.pipeline as pipeline_module
+import myssia.push.telegram_feedback as telegram_feedback_module
+from myssia.push.telegram_feedback import (  # noqa: E402
+    TelegramFeedbackError,
+    acquire_poll_lease,
+)
+
+#: 真机场景口径(games/news 同 token 双常驻)的共享 token。
+SHARED_TOKEN = "shared-token-games-news"
+
+#: 复现 409 应答体(Telegram 对同 token 并发 getUpdates 的真实回包形状)。
+CONFLICT_BODY = {
+    "ok": False,
+    "error_code": 409,
+    "description": "Conflict: terminated by other getUpdates request; "
+    "make sure that only one bot instance is running",
+}
+
+#: 一条有效反馈回调(winner 侧断言入库用)。
+AC3_CALLBACK = _update(
+    9001,
+    "callback_query",
+    {"id": "c1", "data": "fb:good:k-ac3", "message": _message(PRIVATE_CHAT)},
+)
+
+
+class TestPollLease:
+    """租约原语契约:进程内注册表 + 跨进程 flock 双层去重(prd AC1/AC2)。"""
+
+    @pytest.fixture(autouse=True)
+    def _clean_poll_leases(self):
+        """注册表是进程级全局:逐测试清场,防泄漏跨测试污染。"""
+        yield
+        for lease in list(telegram_feedback_module._POLL_LEASES.values()):
+            lease.release()
+        telegram_feedback_module._POLL_LEASES.clear()
+
+    def test_same_token_denied_until_release(self, tmp_path):
+        first = acquire_poll_lease(TOKEN, lock_dir=tmp_path)
+        assert first is not None
+        try:
+            # 进程内后到者禁动(第二个轮询循环在此被拦,不落到文件锁层)。
+            assert acquire_poll_lease(TOKEN, lock_dir=tmp_path) is None
+            # 异 token 互不干扰。
+            other = acquire_poll_lease("another-token", lock_dir=tmp_path)
+            assert other is not None
+            other.release()
+        finally:
+            first.release()
+        # 释放后同 token 可重新持有(常驻进程重启语义)。
+        again = acquire_poll_lease(TOKEN, lock_dir=tmp_path)
+        assert again is not None
+        again.release()
+
+    def test_release_is_idempotent(self, tmp_path):
+        lease = acquire_poll_lease(TOKEN, lock_dir=tmp_path)
+        assert lease is not None
+        lease.release()
+        lease.release()  # 二次释放无事可做,绝不抛
+        again = acquire_poll_lease(TOKEN, lock_dir=tmp_path)
+        assert again is not None
+        again.release()  # 拿到的都要还:注册表是进程级全局
+
+    def test_lock_file_holds_no_token_material(self, tmp_path):
+        """凭据红线:锁文件名/内容只见摘要与 pid,绝无 token 本体。"""
+        lease = acquire_poll_lease(TOKEN, lock_dir=tmp_path)
+        assert lease is not None
+        try:
+            files = [p for p in tmp_path.iterdir() if p.is_file()]
+            assert [p.name for p in files] == [
+                f"tg-poll-{hashlib.sha256(TOKEN.encode()).hexdigest()[:16]}.lock"
+            ]
+            assert files[0].read_text(encoding="utf-8") == f"pid={os.getpid()}\n"
+        finally:
+            lease.release()
+
+    def test_cross_process_holder_denies_then_allows(self, tmp_path):
+        """他进程持锁(独立 fd 抢先 flock,进程内注册表拦不到的层)→ 禁动;
+        放锁后可取(prd AC2:同机两进程语义)。"""
+        fcntl = pytest.importorskip("fcntl")
+        digest = hashlib.sha256(TOKEN.encode()).hexdigest()[:16]
+        holder = open(tmp_path / f"tg-poll-{digest}.lock", "a", encoding="utf-8")
+        try:
+            fcntl.flock(holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            assert acquire_poll_lease(TOKEN, lock_dir=tmp_path) is None
+            fcntl.flock(holder, fcntl.LOCK_UN)
+            lease = acquire_poll_lease(TOKEN, lock_dir=tmp_path)
+            assert lease is not None
+            lease.release()
+        finally:
+            holder.close()
+
+
+class TestTelegram409Regression:
+    """409 根因回归:两个消费者同 token 并发 getUpdates 是 Telegram 拒绝的
+    形态;修复后常驻形态只剩一个轮询方(租约保证)。"""
+
+    def test_api_409_body_raises_structured_error(self):
+        """Telegram 的 409 应答(ok=false error_code=409)→ 结构化
+        telegram_api_error(修复前的互踢表征,接收侧必须可诊断)。"""
+        client = httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda request: httpx.Response(409, json=CONFLICT_BODY))
+        )
+        poller = TelegramFeedbackPoller(token=SHARED_TOKEN, client=client)
+        try:
+            with pytest.raises(TelegramFeedbackError) as excinfo:
+                _run(poller.poll())
+        finally:
+            _run(client.aclose())
+
+        assert excinfo.value.code == "telegram_api_error"
+        assert "409" in str(excinfo.value)
+
+
+class TestResidentTokenDedupe:
+    """常驻双品类同 token(真机 games/news 409 场景):只有持租约的一方发出
+    getUpdates,另一方零请求、推送不受影响(prd AC3)。"""
+
+    def _make_resident(self, tmp_path, monkeypatch, *, category_id, db_name):
+        """配 telegram 通道的 Pipeline + 预建 poller;poller 工厂注入**各自
+        计数**的 mock client(区分谁在轮询;零真实网络)。poller 在本方法内
+        即建(工厂 monkeypatch 生效窗口内)——后续二次 patch 不回写先前管线。"""
+        monkeypatch.setenv("TELEGRAM_BOT_TOKEN", SHARED_TOKEN)
+        calls: list[str] = []
+
+        def factory(**kwargs: Any) -> TelegramFeedbackPoller:
+            def handler(request: httpx.Request) -> httpx.Response:
+                calls.append(str(request.url))
+                return httpx.Response(200, json={"ok": True, "result": [AC3_CALLBACK]})
+
+            return TelegramFeedbackPoller(
+                token=SHARED_TOKEN,
+                on_chat=kwargs.get("on_chat"),
+                client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+            )
+
+        monkeypatch.setattr(pipeline_module, "TelegramFeedbackPoller", factory)
+        # 租约锁目录钉进 tmp_path(零 /tmp 泄漏;与并行测试隔离)。
+        monkeypatch.setattr(
+            telegram_feedback_module, "default_poll_lock_dir", lambda: tmp_path
+        )
+        config = load_category(
+            {
+                "id": category_id,
+                "name": category_id,
+                "schedule": "0 9 * * *",
+                "timezone": "UTC",
+                "sources": [
+                    {
+                        "name": "api",
+                        "engine": "direct_api",
+                        "url": "https://api.demo.local/list",
+                        "extract": {
+                            "type": "json_path",
+                            "fields": {"title": "$[*].title", "url": "$[*].url"},
+                        },
+                    }
+                ],
+                "push": [{"channel": "telegram", "targets": ["telegram:12345"]}],
+            }
+        )
+        store = SQLiteStore(tmp_path / db_name)
+        pipeline = Pipeline(
+            config,
+            db_path=tmp_path / db_name,
+            store=store,
+            client=httpx.AsyncClient(
+                transport=httpx.MockTransport(lambda request: httpx.Response(404, text=""))
+            ),
+        )
+        pipeline._feedback_poll_interval = 0.01
+        return pipeline, pipeline._build_feedback_poller(), calls
+
+    def test_second_resident_category_never_polls(self, tmp_path, monkeypatch, caplog):
+        """双常驻同 token:先到者独占 getUpdates,后到者禁动零请求(409 根除)。"""
+        import logging
+
+        first, poller_first, calls_first = self._make_resident(
+            tmp_path, monkeypatch, category_id="games", db_name="games.db"
+        )
+        second, poller_second, calls_second = self._make_resident(
+            tmp_path, monkeypatch, category_id="news", db_name="news.db"
+        )
+
+        async def drive() -> None:
+            loop_first = asyncio.create_task(first._feedback_poll_loop(poller_first))
+            loop_second = asyncio.create_task(second._feedback_poll_loop(poller_second))
+            try:
+                for _ in range(2000):
+                    if len(calls_first) >= 2:
+                        break
+                    await asyncio.sleep(0.005)
+                else:
+                    raise AssertionError(f"先到者轮询未推进(calls={calls_first})")
+            finally:
+                for task in (loop_second, loop_first):
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
+
+        try:
+            with caplog.at_level(logging.WARNING, logger="myssia.pipeline"):
+                asyncio.run(drive())
+        finally:
+            first.close()
+            second.close()
+
+        # 修复后行为:只有先到者发出 getUpdates;后到者零请求(修复前双方
+        # 并发轮询同一 token,Telegram 回 409 互踢)。
+        assert len(calls_first) >= 2
+        assert calls_second == []
+        assert all(SHARED_TOKEN in url for url in calls_first)
+        # 反馈只入先到者的库(单接收方语义,doctor finding 披露的边界)。
+        assert [row.verdict for row in first._injected_store.list_feedback()] == ["good"]
+        assert second._injected_store.list_feedback() == []
+        # 禁动方可诊断:warning 明示同 token 已有轮询方。
+        assert any("TG 反馈轮询禁动" in record.message for record in caplog.records)

@@ -636,7 +636,8 @@ class TestDoctor:
         assert payload["healthy"] is False
 
     def test_multiple_telegram_categories_flagged_as_poll_conflict(self, tmp_path, capsys):
-        """≥2 个品类配 telegram 通道(素材 12):warning 级 getUpdates 同 token 竞争提示。"""
+        """≥2 个品类配 telegram 通道(素材 12 → 10-05 修复后):warning 级
+        单接收方语义披露(库内已保证同 token 单轮询器,不再宣称必然互踢)。"""
         directory = tmp_path / "plugins"
         directory.mkdir()
         (directory / "tg-a.yaml").write_text(
@@ -652,10 +653,11 @@ class TestDoctor:
         assert code == EXIT_OK
         payload = json.loads(capsys.readouterr().out)
         finding = next(f for f in payload["findings"] if f["code"] == "telegram_token_poll_conflict")
-        assert finding["severity"] == "warning"  # 提示不判错:是否常驻由部署形态决定
+        assert finding["severity"] == "warning"  # 披露不判错:单接收方语义由库内保证
         assert finding["scope"] == "feedback"
         assert "tg-a" in finding["message"] and "tg-b" in finding["message"]
-        assert "409" in finding["message"]
+        assert "409" in finding["message"]  # 平台约束仍在文案内(为何要单轮询器)
+        assert "单轮询器" in finding["message"]  # 修复后语义:库内防护而非部署裁决
         assert payload["healthy"] is True  # warning 不翻转 healthy
 
     def test_single_telegram_category_no_conflict_finding(self, tmp_path, capsys):
