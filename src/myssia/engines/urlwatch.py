@@ -331,7 +331,20 @@ class UrlwatchEngine(BaseEngine):
         else:  # changed
             title = f"{label} 官网有更新"
             diff_text = event.get("diff") or ""
-            fingerprint = diff_text or str(event.get("timestamp") or "")
+            # 噪声闸(装机真跑两轮实证,10-06-ai-news-sources §8/§9):CDN/
+            # 出口轮换使大页快照逐次漂移,上游判 changed 但 diff 渲染为空
+            # ——「有更新」标题 + 空 content = 零信息量假阳性,降级为显式
+            # skip 不产条目;diff 正常渲染的真变更照常出条目。
+            if not diff_text.strip():
+                self.last_skip_reason = "watch_noise_empty_diff"
+                logger.info(
+                    "urlwatch 变更事件 diff 为空(页面漂移噪声,不产条目)"
+                    " source=%s url=%s",
+                    self.source.name,
+                    url,
+                )
+                return []
+            fingerprint = diff_text
         anchor = hashlib.sha1(fingerprint.encode("utf-8", "replace")).hexdigest()[:10]
         item: dict[str, Any] = {
             "url": f"{url}#watch-{anchor}",

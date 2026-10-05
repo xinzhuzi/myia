@@ -452,6 +452,20 @@ def test_diff_truncated_to_content_max_chars(patched_adapter):
     assert len(items[0]["content"]) == 200
 
 
+@pytest.mark.parametrize("noise_diff", ["", "   "])
+def test_changed_event_with_empty_diff_is_noise_skip(patched_adapter, noise_diff):
+    """噪声闸(装机真跑两轮实证):changed 但 diff 空/纯空白 = 页面漂移噪声.
+
+    CDN/出口轮换使大页快照逐次漂移,上游判 changed 而 diff 渲染为空——
+    「有更新」标题+空 content 的条目零信息量,降级显式 skip 不产条目。
+    """
+    patched_adapter(fake_adapter(events=[changed_event(diff=noise_diff)]))
+    engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
+    items = run(engine.fetch())
+    assert items == []
+    assert engine.last_skip_reason == "watch_noise_empty_diff"
+
+
 def test_unchanged_is_legal_empty_state(patched_adapter):
     patched_adapter(
         fake_adapter(
