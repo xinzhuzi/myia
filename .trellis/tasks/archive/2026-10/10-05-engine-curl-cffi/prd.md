@@ -26,8 +26,9 @@
 
 - [x] AC1:两问各有实证答案(非推断),材料在档可复核。(research.md §1-§4;evidence/01-05 原始输出:七站三路矩阵+echo 指纹自证+robots 记档+PyPI 轮子清单)
 - [x] AC2:进链/不进链定案记档;进链则降级序定案+核心链改动清单;不进链则母任务 research 表回写终态。(定案=不进链、不做链外注册、记档收束,见下方定案段;母任务 `.trellis/tasks/10-05-plugin-market-batch/research.md` 第二波表 curl_cffi 行已回写终态——时点在归档前,满足 R3 时序)
-- [ ] AC3:本任务止于评估定案——planning 期零核心文件改动;实现另立阶段(本档转实现前须先补 design/implement)。
+- [x] AC3:本任务止于评估定案——planning 期零核心文件改动;实现另立阶段(本档转实现前须先补 design/implement)。
   - 自查声明(2026-10-05 收束时):全程 `git status --porcelain` 核对,本任务仅写 `.trellis/tasks/10-05-engine-curl-cffi/` 内文件(research/prd/task.json/evidence)+ prd R3 明文要求的母任务 research 表终态回写一行;零核心文件改动(无 src/、tests/、desktop/、docs/、pyproject 触碰);实验全部在 /tmp/curl-eval 独立 venv,探针脚本零 myssia import。红线零违反,勾选留收口复核。
+  - 收口复核回标 2026-10-05(勾选落笔):验收轮 confirmed(材料链逐格核验:探针 UA 控制组逐字节比对/矩阵原始日志归因计数/代码行号 registry.py:261/279/307/316-320 亲核/robots 8 host 原文在档);零核心改动经 `git show 43cad69 --stat` 归档轮亲证——14 件全在 .trellis/ 下(evidence 10 + 本档 prd/research/task.json 3 + 母任务 research 表终态回写 1,后者系 prd R3 明文要求),与自查声明一致。
 
 ## 定案(2026-10-05 评估收束:不进链,记档收束)
 

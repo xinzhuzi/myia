@@ -166,3 +166,5 @@
 ## 2026-10-05 收口注记
 
 推送 18558c05→CI run 37264825568 红回执如实双归因(components 映射 1 件=40ac920 已修推/numpy 缺装 8 件=CI 环境债留档;main 末绿 ef6846c),修复 6 笔(8818401..4986c58,含 entry.py 补种锚点 4986c58)已上 origin、新 run 37268141209 重跑中不阻塞;净室构建换装:修复版(ed9ec422+entry.py:522 锚点)13:16:04 装入并补种四件实证逐字节落位、13:16:16 遭并行 table 线反覆盖后 13:31:11 已回装亲验(补种/ai-news 不覆盖/.seeded 定格/门槛 fail-closed 缺省全实测);task.json 转 review(并行会话在场直改字段判例;完成判据现况:入库 ✓/门禁=修复已推待新 run 出绿/装机包 ✓ 修复版在位),详情 `evidence/push-install-closeout.md`。
+
+- **CI 回执(2026-10-05 收口轮补记)**:上注「门禁=修复已推待新 run 出绿」判据**达成**——numpy 缺装红债已修(5ae3bb3:tests/vision mock 套件补假 numpy autouse 桩,CI-sim 修前 8 failed/修后 29 passed 双路复现)并随收口推送(4986c58..e0b6415,7 笔)上 origin → **run 37277285803 五作业全绿**(test/ui-test/rust-check/ruff/docker-build 逐作业 success,conclusion=success,归档轮 gh run view 亲证);完成判据三件齐(入库 ✓/门禁 ✓/装机包 ✓),任务归档收束。

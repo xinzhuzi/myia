@@ -143,3 +143,14 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
 
 - [ ] v1.2 规划时三项各自拆成正式任务并引用本档
 - [ ] 本档不挂 in_progress(它是池,不是工)
+
+## 本轮纪要(2026-10-05 收口轮)
+
+池档口径不动(上两项维持未勾)。同轮收口归档四件,与本池沾边的动向如实记:
+`10-05-engine-curl-cffi` 定案**不进 AUTO_CHAIN 亦不链外注册**(七站三路矩阵
+零「仅 curl_cffi 过」例,再触发条件=出现「TLS 墙+静态 HTML 有内容」实证源)、
+`10-05-extract-trafilatura` 定案 static_html 引擎内回退(实现另立阶段,首步
+须跑 impact _fetch_page/extract_html)——两者若 v1.2 开工属引擎链域引用;
+另 `10-05-plugin-market-batch` 与 `10-05-table-restore` 同轮归档(CI run
+37277285803 五作业全绿;table-restore AC4 装机开关真装链因装机包内容早于
+组件链入库结构性受阻留 owner 重装后再验)。
