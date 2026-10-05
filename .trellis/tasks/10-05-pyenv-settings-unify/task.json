@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "装机销号(2026-10-06 补):装机包已于 2026-10-05 23:36 随 10-05-yaml-editor-csp-blank 修复换装(6f60904,构建含本档 38acd34,merge-base 亲证),档内「装机包未刷新」声明销号;pyenv 分区版面的换装像素终验未单独取证(6f60904 验证面向 YAML 编辑器面),详注见 prd 尾部装机包销号注记。",
   "meta": {}
 }
