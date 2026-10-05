@@ -1,9 +1,9 @@
 import { useId, type ReactNode } from "react";
 
+import { HintButton } from "@/components/label-hint";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-import { HintButton } from "./label-hint";
 import { SettingRow } from "./settings-row";
 
 interface FieldInputProps extends React.ComponentProps<typeof Input> {

@@ -1,7 +1,6 @@
 import { useSidecarStatus } from "@/hooks/use-sidecar-status";
 import {
   Activity,
-  ArrowLeft,
   ShieldAlert,
   Cpu,
   Eye,
@@ -20,6 +19,7 @@ import {
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { LabelHint } from "@/components/label-hint";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -59,7 +59,6 @@ import { BundledPluginsCard } from "./bundled-plugins-card";
 import { DoctorVerifyPanel } from "./doctor-verify";
 import { ErrorBox } from "./error-box";
 import { FieldInput } from "./field-input";
-import { LabelHint } from "./label-hint";
 import { PyenvCard } from "./pyenv-card";
 import { SettingRow } from "./settings-row";
 import { UpdaterCard } from "./updater-card";
@@ -1110,16 +1109,10 @@ export function SettingsScreen() {
       {/* 左列 = 分区过滤框(导航上方,census #7)+ 分区导航;右列 = 分区内容
           (拆解表第 1/2 条:当前项高亮左竖条,每子区一屏)。
           R2 重排:双列间距消费 gap-block(24px);右列卡堆叠走 gap-grid(12px)。
-          10-05 全局版面判例(主人裁:Python 环境配置「缩在一处、小家子气」):
-          python-env 分区激活时隐藏本列并解除 md:flex-row——配置面占满主画布
-          居中(免被 app 左轨 + 设置导航双重挤压),经「返回设置」回分区列表 */}
-      <div
-        className={cn(
-          "flex flex-col gap-card px-6",
-          activeSection.id !== "python-env" && "md:flex-row md:gap-block",
-        )}
-      >
-        <div className={cn("flex shrink-0 flex-col gap-2 md:w-44", activeSection.id === "python-env" && "hidden")}>
+          10-05 主人再裁(python-settings-unify):python-env 曾按 bac3ce4
+          判例隐藏本列独占画布,现撤特殊化——导航对全部分区常驻 */}
+      <div className="flex flex-col gap-card px-6 md:flex-row md:gap-block">
+        <div className="flex shrink-0 flex-col gap-2 md:w-44">
           {/* 终审修整:过滤框转共享 Input 基件(带 data-slot=input,与全屏输入
               同享微填充+低可见描边+统一圆角;原裸 input 描边/填充自成一家,
               VL 指认「输入框描边粗细不一」) */}
@@ -1176,31 +1169,14 @@ export function SettingsScreen() {
             下堆叠多个 Card(每 Card 一个设置主题)。
             10-05 版面重排:内容列宽跟 Kestra 现行 Wrapper.vue 栅格——
             按断点比例流式居中(el-col md 18/lg 16/xl 14 offset 居中同构),
-            不再 600px 固定窄列左钉。10-05 全局版面判例:Python 环境区
-            不走比例列——整区居中大版面(max-w-4xl),配置面用满画布 */}
+            不再 600px 固定窄列左钉;python-env 撤特殊化后同此列宽
+            (10-05-pyenv-settings-unify,不再 max-w-4xl 独占) */}
         <section
           key={activeSection.id}
           aria-labelledby={`settings-section-title-${activeSection.id}`}
           data-testid={`settings-section-${activeSection.id}`}
-          className={cn(
-            "flex min-w-0 animate-fade-in flex-col gap-4",
-            activeSection.id === "python-env"
-              ? "mx-auto w-full max-w-4xl"
-              : "mx-auto w-full md:max-w-[75%] lg:max-w-[67%] xl:max-w-[58%]",
-          )}
+          className="mx-auto flex min-w-0 w-full animate-fade-in flex-col gap-4 md:max-w-[75%] lg:max-w-[67%] xl:max-w-[58%]"
         >
-          {/* 全局版面配套:分区导航已隐藏,给一条回分区列表的退路(深链直入也走得通) */}
-          {activeSection.id === "python-env" ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="self-start text-muted-foreground"
-              onClick={() => setSearchParams({})}
-            >
-              <ArrowLeft className="size-4" />
-              返回设置
-            </Button>
-          ) : null}
           {/* 区标题行 = Kestra Block.vue heading 范式:content(标题+描述)左 /
               actions 右;「重新验证」自无头化的 PageHeader 迁入(否则不可见) */}
           <header className="flex items-start justify-between gap-4 pb-1">

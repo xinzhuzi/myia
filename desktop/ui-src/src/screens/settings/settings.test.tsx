@@ -1201,16 +1201,23 @@ describe("设置:门槛件分区(gates)", () => {
 // Python 运行环境分区(10-05-desktop-managed-py-env 第 4 步,D1/D2):导航可达
 // + 深链落点(D2 引导空态「一键跳设置」指向 ?section=python-env)。IPC 契约与
 // 行为面(开始配置/双镜像/明细/同步依赖)全覆盖在 pyenv-card.test.tsx。
+// 10-05-pyenv-settings-unify:撤特殊化守卫——python-env 与其他分区同版面
+// (导航列常驻不 hidden / 内容列无 max-w-4xl 独占 / 无「返回设置」退路)。
 // ---------------------------------------------------------------------------
 
 describe("设置:Python 运行环境分区(python-env)", () => {
-  it("导航含「Python 环境」;深链 ?section=python-env 挂载 PyenvCard 并拉取 pyenv_get_status", async () => {
+  it("导航含「Python 环境」;深链 ?section=python-env 挂载 PyenvCard 并拉取 pyenv_get_status;版面与其他分区一致(导航常驻/无独占列宽/无返回钮)", async () => {
     installSidecar();
     renderScreen("/settings?section=python-env");
 
     expect(screen.getByTestId("settings-section-python-env")).toBeTruthy();
     expect(screen.getByRole("heading", { level: 2, name: "Python 运行环境" })).toBeTruthy();
     expect(screen.getByTestId("settings-nav-python-env").getAttribute("aria-current")).toBe("true");
+    // 撤特殊化守卫(AC1-3):导航列不隐藏、内容列不独占、无「返回设置」
+    expect(screen.getByTestId("settings-nav").parentElement?.className ?? "").not.toContain("hidden");
+    expect(screen.getByTestId("settings-section-python-env").className).not.toContain("max-w-4xl");
+    expect(screen.getByTestId("settings-section-python-env").className).toContain("xl:max-w-[58%]");
+    expect(screen.queryByRole("button", { name: "返回设置" })).toBeNull();
     await screen.findByTestId("pyenv-card");
     // 挂载即拉取(契约:前端初始化以 pyenv_get_status 为准,事件只作变更通知)
     const pyenvCalls = mocks.invoke.mock.calls.filter(([command]) => command === "pyenv_get_status");

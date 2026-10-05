@@ -1,17 +1,16 @@
 import { Check, Cpu, Download, RefreshCw, ShieldCheck, X } from "lucide-react";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import type { SidecarRequestError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import { asSidecarError } from "./api";
 import { ErrorBox } from "./error-box";
-import { HintButton } from "./label-hint";
+import { FieldInput } from "./field-input";
 import {
   onPyenvStatusChanged,
   pyenvGetStatus,
@@ -32,10 +31,11 @@ import {
 /**
  * 「Python 运行环境」分区(10-05-desktop-managed-py-env 第 4 步;design §5)。
  *
- * 2026-10-05 全局版面判例(主人裁:600px 窄列「小家子气」):本区在
- * settings-screen 侧放开为居中大版面(max-w-4xl),卡内改全宽元素——
- * 状态横幅 / 路径块 break-all 全显不截断 / 镜像输入全宽 / 五阶段
- * 时间线 / 底部动作条;不再用 SettingRow 的 w-64 右置控件族。
+ * 2026-10-05 晚主人再裁(10-05-pyenv-settings-unify):本区撤特殊化回归
+ * 标准分区版面——设置导航常驻、内容列比例列宽;卡补 CardHeader(与其他
+ * 设置卡同款),镜像输入回 FieldInput 行(label 左/输入右 w-64,labelHint
+ * 问号提示由 FieldInput 内建)。状态横幅/路径块 break-all/五阶段时间线/
+ * 底部动作条为内容本体,原样保留。
  *
  * 字段面:开始配置(D2 显式动作)/ 安装路径 / Python 使用路径 / 运行时下载源
  * 覆盖 / PyPI 镜像覆盖(双镜像,D3)/ 安装明细(状态机五阶段逐项)/ 同步依赖
@@ -157,39 +157,6 @@ function PathField({
       >
         {value}
       </code>
-    </div>
-  );
-}
-
-/** 镜像覆盖输入(全局版面:label 上/输入全宽/hint 下,不走 w-64 右置控件族)。 */
-function MirrorField({
-  label,
-  labelHint,
-  hint,
-  placeholder,
-  value,
-  onChange,
-}: {
-  label: string;
-  /** 高困惑字段的问号提示(10-05-ui-chore-batch ①):有值时 label 旁挂 LabelHint */
-  labelHint?: string;
-  hint: string;
-  placeholder: string;
-  value: string;
-  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-}) {
-  const id = useId();
-  return (
-    <div className="flex flex-col gap-1.5">
-      {/* 问号按钮在 label 外(labelable element 不得嵌 label,见 label-hint.tsx 头注) */}
-      <div className="flex items-center gap-1">
-        <label htmlFor={id} className="text-sm font-medium text-foreground">
-          {label}
-        </label>
-        {labelHint ? <HintButton name={label} tip={labelHint} /> : null}
-      </div>
-      <Input id={id} aria-label={label} placeholder={placeholder} value={value} onChange={onChange} />
-      <p className="text-2xs leading-4 text-muted-foreground">{hint}</p>
     </div>
   );
 }
@@ -383,6 +350,15 @@ export function PyenvCard() {
 
   return (
     <Card data-testid="pyenv-card">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Cpu className="size-4 text-muted-foreground" />
+          环境状态与安装
+        </CardTitle>
+        <CardDescription>
+          状态随安装链实时刷新;下载源镜像可选(只换地址,不绕完整性校验),异常可幂等重装
+        </CardDescription>
+      </CardHeader>
       <CardContent className="flex flex-col gap-6">
         {loadError ? <ErrorBox error={loadError} onRetry={() => void refresh()} /> : null}
         {status === null && loadError === null ? (
@@ -426,27 +402,33 @@ export function PyenvCard() {
               />
             </section>
 
-            {/* 双镜像覆盖(D3):镜像只换 URL 不绕 sha256 校验;空 = 默认源 */}
+            {/* 双镜像覆盖(D3):镜像只换 URL 不绕 sha256 校验;空 = 默认源。
+                行式回归 FieldInput(label 左/输入右 w-64,labelHint 问号内建),
+                与全设置屏输入行同一词汇 */}
             <section aria-labelledby="pyenv-mirrors-title" className="flex flex-col gap-3">
               <h3 id="pyenv-mirrors-title" className="text-2xs font-medium tracking-wide text-muted-foreground">
                 镜像源覆盖(可选)
               </h3>
-              <MirrorField
-                label="运行时下载源覆盖"
-                labelHint="下载 Python 本体慢或不通时,把下载地址换成国内镜像站上同一个文件的地址。留空 = 官方源。只换下载地址,文件完整性校验照做,不会下到被改过的包。"
-                hint="空 = 随包 manifest 钉版源(indygreg python-build-standalone cpython 3.12.7);镜像只换 URL,不绕 sha256 校验"
-                placeholder="https://mirror.example/cpython-3.12.7-…-install_only.tar.gz"
-                value={mirrorRuntime}
-                onChange={(event) => setMirrorRuntime(event.target.value)}
-              />
-              <MirrorField
-                label="PyPI 镜像覆盖"
-                labelHint="装 Python 依赖包慢时,填国内镜像站地址(如清华、阿里)。留空 = 官方源。只改去哪儿下载,不影响装什么、装哪个版本。"
-                hint="空 = 默认 PyPI;依赖安装(pip install --index-url)取此值"
-                placeholder="https://pypi.tuna.tsinghua.edu.cn/simple"
-                value={mirrorPypi}
-                onChange={(event) => setMirrorPypi(event.target.value)}
-              />
+              <div className="divide-y divide-border/60">
+                <FieldInput
+                  label="运行时下载源覆盖"
+                  aria-label="运行时下载源覆盖"
+                  placeholder="https://mirror.example/cpython-3.12.7-…-install_only.tar.gz"
+                  value={mirrorRuntime}
+                  onChange={(event) => setMirrorRuntime(event.target.value)}
+                  labelHint="下载 Python 本体慢或不通时,把下载地址换成国内镜像站上同一个文件的地址。留空 = 官方源。只换下载地址,文件完整性校验照做,不会下到被改过的包。"
+                  hint="空 = 随包 manifest 钉版源(indygreg python-build-standalone cpython 3.12.7);镜像只换 URL,不绕 sha256 校验"
+                />
+                <FieldInput
+                  label="PyPI 镜像覆盖"
+                  aria-label="PyPI 镜像覆盖"
+                  placeholder="https://pypi.tuna.tsinghua.edu.cn/simple"
+                  value={mirrorPypi}
+                  onChange={(event) => setMirrorPypi(event.target.value)}
+                  labelHint="装 Python 依赖包慢时,填国内镜像站地址(如清华、阿里)。留空 = 官方源。只改去哪儿下载,不影响装什么、装哪个版本。"
+                  hint="空 = 默认 PyPI;依赖安装(pip install --index-url)取此值"
+                />
+              </div>
             </section>
 
             {/* 安装明细(design §3 状态机逐项;五阶段骨架恒在,steps 补态)。

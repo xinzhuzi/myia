@@ -5,8 +5,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 /**
  * 高困惑字段的问号提示(10-05-ui-chore-batch ①,池档 v12-backlog 第 8 项
- * tooltip 翻案):label 旁挂既有 ui/tooltip 基件的业务消费入口,提示文案
- * 人话零行话。
+ * tooltip 翻案;10-05-dashboard-glance 自 settings/ 上提 src/components/
+ * 共享——ui/tooltip 基件本体不碰,上提的是业务消费入口组件,行为零变化),
+ * 提示文案人话零行话。
  *
  * 两个导出的分工(a11y 关键):`HintButton` 只渲染问号按钮,必须放在
  * `<label>` 元素**外**作兄弟节点——button 是 labelable element,嵌进
