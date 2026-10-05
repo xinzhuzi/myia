@@ -793,6 +793,193 @@ def _category_config_for_heartbeat(
     return None
 
 
+def _build_push_channel(
+    push: Any, *, data_root: Path, stdout_stream: IO[str] | None = None
+) -> Any:
+    """``push[]`` 条目 → 通道实例(原 ``Pipeline._build_channel`` 本体抽出;
+    10-05-cron-heartbeat 收尾件:品类 run 与 ticker 心跳扫描两宿主同门构造,
+    不复制通道 kwargs 矩阵,语义零变化——wecom token 缓存 = 数据根,
+    stdout 流注入 = ``--json`` 契约)。"""
+    channel_cls = CHANNELS[push.channel]  # schema Literal guarantees the name
+    kwargs: dict[str, Any] = {}
+    if push.target is not None:  # stdout 无 target(schema 保证 None)
+        kwargs["target"] = push.target
+    if push.template is not None:
+        kwargs["template"] = push.template
+    if push.channel == "webhook":
+        # PRD:webhook 超时/重试可配(schema 校验仅 webhook 允许这些字段)
+        kwargs["timeout"] = push.timeout
+        kwargs["retries"] = push.retries
+        kwargs["retry_backoff_seconds"] = push.retry_backoff_seconds
+    for field, kwarg in _W2_CHANNEL_FIELD_KWARGS.get(push.channel, ()):
+        value = getattr(push, field, None)
+        if value is not None:
+            kwargs[kwarg] = value
+    if push.channel == "wecom":
+        kwargs["token_cache_path"] = data_root / WECOM_TOKEN_CACHE_FILENAME
+    if push.channel == "stdout" and stdout_stream is not None:
+        # --json 模式:卡片行改写 stderr,run 报告独占 stdout(CLI 契约)
+        kwargs["out"] = stdout_stream
+    return channel_cls(**kwargs)
+
+
+async def run_heartbeat_scan(
+    *,
+    data_root: Path,
+    store: Store,
+    rules: Sequence[AlertRule],
+    registry: DedupRegistry,
+    build_channel: Callable[[Any], Any],
+    now: datetime,
+    tz: Any = None,
+) -> list[AlertFired]:
+    """心跳扫描公共装配(原 ``Pipeline._heartbeat_pass`` 本体抽出;语义零变化,
+    10-05-cron-heartbeat 收尾件:品类 run 搭车路径与 ticker 直挂路径共用,
+    零第二实现)。
+
+    账本解析器在这里注入(引擎零 cron 依赖,依赖方向红线):
+
+    - 品类 → job_ids:经 ``<数据根>/cron/jobs.json`` 公开读路径
+      (:meth:`CronJobStore.load_jobs`;文件不存在 = 无 job,**不建
+      cron 目录**——评估只读,不给数据根留写入足迹)。规则带
+      ``params.job_id`` 时精确到该单任务(PRD 需求 1):被盯任务的
+      停摆不被同品类健康任务的聚合掩蔽;
+    - 距上次成功 / 观测节奏:``ExecutionLedger`` 只读两查询
+      (``last_completed_at`` / ``completed_gap_hours``)。**账本文件
+      缺位(jobs 建好从未派发)时短路不进账本**——``ExecutionLedger``
+      的连接期 DDL 会自建 executions.db,评估侧碰缺位账本就违反
+      「评估只读账本零写入」红线;缺位语义 = 零执行记录,与空表查询
+      同结果(never-succeeded 走规则年龄冷静期),零写入达成。
+    - push 通道:按**规则品类**解析(job 自身 YAML 路径优先——调度器
+      真跑的就是它;plugins 根兜底),禁止借用评估宿主品类凭据。
+
+    jobs.json 读失败 = 本轮心跳跳过(cron 侧自愈路径不动);其余自身
+    失败由调用侧隔离(run 搭车路径 = ``_alert_pass`` 外层 WARNING;
+    ticker 直挂路径 = ``cron.ticker._guarded_heartbeat_scan`` ERROR)。
+    """
+    jobs_store = CronJobStore(data_root)
+    try:
+        jobs = jobs_store.load_jobs() if jobs_store.jobs_file.exists() else []
+    except Exception as exc:  # noqa: BLE001 - 读失败跳过本轮,不自愈不动
+        logger.warning("心跳扫描跳过本轮(cron jobs 读取失败): %s", exc)
+        return []
+    jobs_by_category = _cron_jobs_by_category(jobs)
+    # 账本缺位守卫(评估只读红线):不 exists 就绝不实例化查询——
+    # _connect 的 mkdir+DDL 会把 executions.db 建出来。
+    ledger = (
+        ExecutionLedger(data_root)
+        if (data_root / "cron" / "executions.db").exists()
+        else None
+    )
+
+    def job_ids_for(category: str, job_id: str | None = None) -> list[str]:
+        if job_id is not None:
+            return [str(job_id)]  # 精确模式:构造门已保非空字符串
+        return [
+            str(job["id"]) for job in jobs_by_category.get(category, ())
+            if job.get("id")
+        ]
+
+    def last_success_at(category: str, job_id: str | None = None) -> datetime | None:
+        if ledger is None:
+            return None  # 账本缺位 = 零执行记录(从未成功,零查询零建库)
+        finished = ledger.last_completed_at(job_ids_for(category, job_id))
+        if finished is None:
+            return None
+        try:
+            parsed = datetime.fromisoformat(finished)
+        except ValueError:
+            logger.warning(
+                "心跳账本时间戳不可解析(按无成功处理) category=%s value=%r",
+                category, finished,
+            )
+            return None
+        return parsed if parsed.tzinfo is not None else parsed.astimezone()
+
+    def cadence_hours(category: str, job_id: str | None = None) -> float | None:
+        if ledger is None:
+            return None
+        return ledger.completed_gap_hours(job_ids_for(category, job_id))
+
+    def channel_resolver_for(category: str, channel_name: str):
+        config = _category_config_for_heartbeat(
+            category, jobs_by_category.get(category, ()), data_root
+        )
+        if config is None:
+            return None
+        for push in config.push:
+            if push.channel == channel_name:
+                return build_channel(push)
+        return None
+
+    return await heartbeat_pass(
+        store, rules,
+        last_success_at=last_success_at,
+        now=now,
+        cadence_hours=cadence_hours,
+        channel_resolver_for=channel_resolver_for,
+        registry=registry,
+        tz=tz,
+    )
+
+
+async def _cron_heartbeat_scan_once(db_path: Path) -> list[AlertFired]:
+    """ticker 直挂路径的单次自足扫描:短命 store + 规则筛 + 公共装配。
+
+    与 run 搭车路径(``_alert_pass``)共享 ``run_heartbeat_scan`` 装配,
+    差异仅在宿主侧:自开自关 store(不持长连接,ticker 线程与宿主主循环
+    无锁纠缠)、真时钟(无品类宿主可注入)、无品类时区(送信槽位回退本地)。
+    """
+    store = SQLiteStore(db_path)
+    try:
+        rules = [
+            rule for rule in store.list_alert_rules(enabled=True)
+            if rule.kind == ALERT_RULE_KIND_CRON_STALE
+        ]
+        if not rules:
+            return []  # 零心跳规则零开销:不读 jobs.json/账本,零 cron 足迹
+        data_root = db_path.parent
+        return await run_heartbeat_scan(
+            data_root=data_root,
+            store=store,
+            rules=rules,
+            registry=DedupRegistry(store),
+            build_channel=lambda push: _build_push_channel(push, data_root=data_root),
+            now=_utc_now(),
+        )
+    finally:
+        store.close()
+
+
+def make_cron_heartbeat_scan(db_path: str | Path) -> Callable[[], None]:
+    """cron ticker 低频心跳扫描钩子工厂(10-05-cron-heartbeat 收尾件)。
+
+    残口:``_heartbeat_pass`` 搭品类 run 便车,run 阶段自身异常中断的轮次
+    不扫(``pipeline.py`` run 的阶段链在 try 内,基础设施异常直接跳过
+    ``_alert_pass``)。本工厂产出 ticker 可直调的同步扫描体,交给
+    ``cron.ticker.run_ticker_loop(heartbeat_scan=...)`` 周期兜底——
+    调度停摆恰是最需要心跳告警的时刻,评估不能依赖被评对象的跑批成功。
+
+    - 同步面:ticker 线程无事件循环,内部 ``asyncio.run`` 每扫一环(分钟级
+      cadence,无环复用负担);
+    - 库缺位零足迹:myssia.db 不存在 = 无告警规则可评,直接返回不从
+      ticker 线程建库(评估只读精神;首跑种子前的数据根零意外文件);
+    - 自身异常由 ticker 侧 ``_guarded_heartbeat_scan`` 隔离,本面不再包层。
+
+    Args:
+        db_path: 告警规则库路径(与品类 run/UI 同一个 myssia.db;数据根 =
+            其父目录,cron jobs/账本/jobs.json 均从数据根解析)。
+    """
+    db = Path(db_path)
+
+    def _scan() -> None:
+        if not db.exists():
+            return
+        asyncio.run(_cron_heartbeat_scan_once(db))
+
+    return _scan
+
+
 # ---------------------------------------------------------------------------
 # Pipeline
 # ---------------------------------------------------------------------------
@@ -1026,30 +1213,15 @@ class Pipeline:
         W2 平台(10-03-messaging-w2-platforms):可选凭据引用字段同步下传
         (schema 已保证只在宿主通道出现);wecom 的 token 缓存落数据根
         (db 父目录,与目录/死信账本同一收口;design D2)。
+
+        本体在模块级 :func:`_build_push_channel`(10-05-cron-heartbeat 收尾件
+        抽出,ticker 心跳扫描同门共用);此处只是品类宿主形态的薄委托。
         """
-        channel_cls = CHANNELS[push.channel]  # schema Literal guarantees the name
-        kwargs: dict[str, Any] = {}
-        if push.target is not None:  # stdout 无 target(schema 保证 None)
-            kwargs["target"] = push.target
-        if push.template is not None:
-            kwargs["template"] = push.template
-        if push.channel == "webhook":
-            # PRD:webhook 超时/重试可配(schema 校验仅 webhook 允许这些字段)
-            kwargs["timeout"] = push.timeout
-            kwargs["retries"] = push.retries
-            kwargs["retry_backoff_seconds"] = push.retry_backoff_seconds
-        for field, kwarg in _W2_CHANNEL_FIELD_KWARGS.get(push.channel, ()):
-            value = getattr(push, field, None)
-            if value is not None:
-                kwargs[kwarg] = value
-        if push.channel == "wecom":
-            kwargs["token_cache_path"] = (
-                Path(self._db_path).parent / WECOM_TOKEN_CACHE_FILENAME
-            )
-        if push.channel == "stdout" and self._stdout_stream is not None:
-            # --json 模式:卡片行改写 stderr,run 报告独占 stdout(CLI 契约)
-            kwargs["out"] = self._stdout_stream
-        return channel_cls(**kwargs)
+        return _build_push_channel(
+            push,
+            data_root=Path(self._db_path).parent,
+            stdout_stream=self._stdout_stream,
+        )
 
     # ------------------------------------------------------------------- run
 
@@ -2713,88 +2885,22 @@ class Pipeline:
     ) -> list[AlertFired]:
         """心跳附加步(10-05-cron-heartbeat):cron_stale 规则的时间驱动评估。
 
-        账本解析器在这里注入(引擎零 cron 依赖,依赖方向红线):
-
-        - 品类 → job_ids:经 ``<数据根>/cron/jobs.json`` 公开读路径
-          (:meth:`CronJobStore.load_jobs`;文件不存在 = 无 job,**不建
-          cron 目录**——评估只读,不给数据根留写入足迹)。规则带
-          ``params.job_id`` 时精确到该单任务(PRD 需求 1):被盯任务的
-          停摆不被同品类健康任务的聚合掩蔽;
-        - 距上次成功 / 观测节奏:``ExecutionLedger`` 只读两查询
-          (``last_completed_at`` / ``completed_gap_hours``)。**账本文件
-          缺位(jobs 建好从未派发)时短路不进账本**——``ExecutionLedger``
-          的连接期 DDL 会自建 executions.db,评估侧碰缺位账本就违反
-          「评估只读账本零写入」红线;缺位语义 = 零执行记录,与空表查询
-          同结果(never-succeeded 走规则年龄冷静期),零写入达成。
-        - push 通道:按**规则品类**解析(job 自身 YAML 路径优先——调度器
-          真跑的就是它;plugins 根兜底),禁止借用评估宿主品类凭据。
+        本体在模块级 :func:`run_heartbeat_scan`(10-05-cron-heartbeat 收尾件
+        抽出——解析器三件[jobs.json 分组 / 账本只读守卫 / 按规则品类解析
+        push 通道]与 ticker 直挂路径共用,零第二实现);此处只是品类宿主
+        形态的薄委托:数据根/时区/墙钟取品类配置,通道构造走
+        ``_build_channel``(与 _stage_push 同门)。
 
         自身失败由 ``_alert_pass`` 外层 try 隔离(WARNING,不拖垮 run);
         jobs.json 读失败 = 本轮心跳跳过(cron 侧自愈路径不动)。
         """
-        data_root = Path(self._db_path).parent
-        jobs_store = CronJobStore(data_root)
-        try:
-            jobs = jobs_store.load_jobs() if jobs_store.jobs_file.exists() else []
-        except Exception as exc:  # noqa: BLE001 - 读失败跳过本轮,不自愈不动
-            logger.warning("心跳附加步跳过本轮(cron jobs 读取失败): %s", exc)
-            return []
-        jobs_by_category = _cron_jobs_by_category(jobs)
-        # 账本缺位守卫(评估只读红线):不 exists 就绝不实例化查询——
-        # _connect 的 mkdir+DDL 会把 executions.db 建出来。
-        ledger = (
-            ExecutionLedger(data_root)
-            if (data_root / "cron" / "executions.db").exists()
-            else None
-        )
-
-        def job_ids_for(category: str, job_id: str | None = None) -> list[str]:
-            if job_id is not None:
-                return [str(job_id)]  # 精确模式:构造门已保非空字符串
-            return [
-                str(job["id"]) for job in jobs_by_category.get(category, ())
-                if job.get("id")
-            ]
-
-        def last_success_at(category: str, job_id: str | None = None) -> datetime | None:
-            if ledger is None:
-                return None  # 账本缺位 = 零执行记录(从未成功,零查询零建库)
-            finished = ledger.last_completed_at(job_ids_for(category, job_id))
-            if finished is None:
-                return None
-            try:
-                parsed = datetime.fromisoformat(finished)
-            except ValueError:
-                logger.warning(
-                    "心跳账本时间戳不可解析(按无成功处理) category=%s value=%r",
-                    category, finished,
-                )
-                return None
-            return parsed if parsed.tzinfo is not None else parsed.astimezone()
-
-        def cadence_hours(category: str, job_id: str | None = None) -> float | None:
-            if ledger is None:
-                return None
-            return ledger.completed_gap_hours(job_ids_for(category, job_id))
-
-        def channel_resolver_for(category: str, channel_name: str):
-            config = _category_config_for_heartbeat(
-                category, jobs_by_category.get(category, ()), data_root
-            )
-            if config is None:
-                return None
-            for push in config.push:
-                if push.channel == channel_name:
-                    return self._build_channel(push)
-            return None
-
-        return await heartbeat_pass(
-            store, rules,
-            last_success_at=last_success_at,
-            now=self._wall_clock(),
-            cadence_hours=cadence_hours,
-            channel_resolver_for=channel_resolver_for,
+        return await run_heartbeat_scan(
+            data_root=Path(self._db_path).parent,
+            store=store,
+            rules=rules,
             registry=registry,
+            build_channel=self._build_channel,
+            now=self._wall_clock(),
             tz=self._tz,
         )
 

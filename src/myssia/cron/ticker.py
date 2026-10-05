@@ -22,6 +22,11 @@ MYIA 适配(任务 10-04-hermes-cron,非照抄处仅此):
   ``execute_job``/``dispatch_gate`` 透传(执行体注入与宿主互斥钩子见
   :mod:`myssia.cron.tick`;CLI ``cron serve`` 传 None,B3 sidecar 接
   ``run_busy`` 单飞锁)。
+- ``heartbeat_scan`` 低频钩子(10-05-cron-heartbeat 收尾件):cron_stale
+  心跳告警的兜底直扫——搭车路径(``pipeline._alert_pass`` 尾挂)在 run
+  阶段自身异常中断的轮次不扫,ticker 在品类 run 之外独立周期性直扫;
+  扫描体由宿主注入(pipeline 侧工厂 ``make_cron_heartbeat_scan``,
+  cron/ 零 pipeline 依赖,依赖方向红线不破)。
 - 上游循环把 provider ``start`` 整体包进监督线程,gateway 另有 housekeeping
   周期性 ``restart_if_dead``;MYIA 的宿主(serve 主循环 / sidecar)负责
   周期性调 :meth:`SupervisedTickerThread.restart_if_dead`。
@@ -40,6 +45,7 @@ from myssia.cron.tick import DispatchGate, JobRunner, tick
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "DEFAULT_HEARTBEAT_SCAN_INTERVAL_SECONDS",
     "DEFAULT_TICK_INTERVAL_SECONDS",
     "SupervisedTickerThread",
     "run_ticker_loop",
@@ -47,6 +53,11 @@ __all__ = [
 
 #: tick 间隔秒(F2.1:60s tick;``cron serve --interval`` 可覆写)。
 DEFAULT_TICK_INTERVAL_SECONDS = 60.0
+
+#: 心跳告警(cron_stale)兜底扫描间隔秒(10-05-cron-heartbeat 收尾件):
+#: ticker 直挂路径的节奏,与 tick 间隔解耦——停摆检测不需要 60s 级灵敏度,
+#: 5 分钟既够「沉默可告警」又把评估开销压到可忽略(无规则时一次空表 SELECT)。
+DEFAULT_HEARTBEAT_SCAN_INTERVAL_SECONDS = 300.0
 
 
 class SupervisedTickerThread:
@@ -120,6 +131,18 @@ def _guarded_store_write(
         logger.error("Cron %s store write failed", what, exc_info=True)
 
 
+def _guarded_heartbeat_scan(scan: Callable[[], Any]) -> None:
+    """心跳扫描失败绝不带着 ticker 线程走(``_guarded_store_write`` 同款惯例)。
+
+    只留 ERROR 日志,**不写 ticker 错误 marker**——marker 面 = ticker 自身
+    死活(``cron status`` 活性判读),扫描失败是 cron_stale 评估侧的事,
+    写进去会把「ticker 活着但心跳评估在失败」误染成「ticker 在失败」。"""
+    try:
+        scan()
+    except Exception:
+        logger.error("Cron heartbeat scan failed", exc_info=True)
+
+
 def run_ticker_loop(
     cron: CronJobs,
     stop_event: threading.Event,
@@ -127,6 +150,8 @@ def run_ticker_loop(
     interval: float = DEFAULT_TICK_INTERVAL_SECONDS,
     execute_job: Optional[JobRunner] = None,
     dispatch_gate: Optional[DispatchGate] = None,
+    heartbeat_scan: Optional[Callable[[], Any]] = None,
+    heartbeat_scan_interval: float = DEFAULT_HEARTBEAT_SCAN_INTERVAL_SECONDS,
 ) -> None:
     """常驻循环:阻塞直至 *stop_event* 置位(``cron serve`` / sidecar 的
     ticker 目标函数;上游 ``InProcessCronScheduler.start`` 单 profile 段)。
@@ -134,8 +159,17 @@ def run_ticker_loop(
     启动恢复 + 首个心跳先于循环——让 ``cron status`` 立即看到活 ticker;
     启动期故障只记错误,不带走线程(#111010)。每轮:tick(同步;锁被
     他宿主持有时静默 0)→ 心跳(干净 tick 才盖 success 戳、清错误 marker,
-    让 status 分得清「活着但在失败」与「真在发」,#32612/#32895)→ 等待
-    下一锚点(tick 超期/宿主休眠后重锚,防零长睡眠连发,#114467)。"""
+    让 status 分得清「活着但在失败」与「真在发」,#32612/#32895)→ 心跳
+    告警低频扫描(*heartbeat_scan* 注入时,首轮即扫、其后每
+    *heartbeat_scan_interval* 秒;异常隔离沿 ``_guarded`` 惯例)→ 等待
+    下一锚点(tick 超期/宿主休眠后重锚,防零长睡眠连发,#114467)。
+
+    Args:
+        heartbeat_scan: cron_stale 心跳告警的兜底扫描体(同步可调;
+            ``pipeline.make_cron_heartbeat_scan`` 工厂产出)。None = 零行为
+            变化(既有宿主/测试不注入时与历史完全一致)。
+        heartbeat_scan_interval: 扫描间隔秒(缺省
+            :data:`DEFAULT_HEARTBEAT_SCAN_INTERVAL_SECONDS`)。"""
     logger.info("Cron ticker started (interval=%.0fs)", interval)
 
     # 启动恢复与首个心跳:中断标记 + 活性凭证,必须在任何等待之前。
@@ -155,6 +189,7 @@ def run_ticker_loop(
         )
 
     next_tick = time.monotonic()
+    next_scan = time.monotonic()  # 首轮即扫:启动后不等一个间隔才第一次评估
     while not stop_event.is_set():
         ok = False
         try:
@@ -176,6 +211,14 @@ def run_ticker_loop(
         _guarded_store_write(cron.record_ticker_heartbeat, "heartbeat", success=ok)
         if ok:
             _guarded_store_write(cron.clear_ticker_error, "error clear")
+        # 心跳告警低频扫描钩子(10-05-cron-heartbeat 收尾件):cron_stale 的
+        # 兜底直扫——搭车路径(pipeline run 尾挂)在 run 阶段自身异常中断的
+        # 轮次不扫,这里独立于品类跑批周期性评估(首轮即扫:停摆检测宁早勿
+        # 晚;间隔门在 ticker 自身心跳落笔之后,慢扫描既不推迟活性记账也不
+        # 拖累下一锚点——超期重锚逻辑天然兜住)。
+        if heartbeat_scan is not None and time.monotonic() >= next_scan:
+            next_scan = time.monotonic() + heartbeat_scan_interval
+            _guarded_heartbeat_scan(heartbeat_scan)
         next_tick += interval
         now = time.monotonic()
         if next_tick < now:

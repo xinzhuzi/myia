@@ -161,7 +161,7 @@ from myssia.gates import (
     save_gates_config,
     valid_gate_key,
 )
-from myssia.pipeline import Pipeline, build_cron_trigger
+from myssia.pipeline import Pipeline, build_cron_trigger, make_cron_heartbeat_scan
 from myssia.push import PLATFORMS
 from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
 from myssia.plugins import (
@@ -1913,7 +1913,9 @@ def _cmd_cron_serve(args: argparse.Namespace) -> int:
     respawn(restart 计数入日志);宿主主循环只做周期性 restart_if_dead 与
     Ctrl-C 干净关停。执行体注入 B1 接线(G2 端到端):``CronRunner(cron)
     .execute``(spawn ``myssia run --json`` 子进程,D11;sidecar B3 同位;
-    手动 ``cron tick`` 同款注入)。
+    手动 ``cron tick`` 同款注入)。心跳告警低频兜底扫描(10-05-cron-heartbeat
+    收尾件):cron_stale 评估不依赖品类 run 成功——ticker 直挂,默认每
+    5 分钟一扫(``make_cron_heartbeat_scan`` 工厂,详 pipeline.py)。
     """
     cron = CronJobs.for_db(args.db)
     interval = max(1.0, float(args.interval))
@@ -1921,7 +1923,11 @@ def _cmd_cron_serve(args: argparse.Namespace) -> int:
     supervisor = SupervisedTickerThread(
         run_ticker_loop,
         args=(cron, stop_event),
-        kwargs={"interval": interval, "execute_job": CronRunner(cron).execute},
+        kwargs={
+            "interval": interval,
+            "execute_job": CronRunner(cron).execute,
+            "heartbeat_scan": make_cron_heartbeat_scan(args.db),
+        },
         stop_event=stop_event,
         name="cron-ticker",
     )

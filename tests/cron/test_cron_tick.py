@@ -679,3 +679,78 @@ def test_run_ticker_loop_fires_and_stops_cleanly(cron: CronJobs, clock: Clock) -
     assert cron.get_ticker_heartbeat_age() is not None
     assert cron.get_ticker_last_error() is None
     assert raw_of(cron, "j1")["last_status"] == "ok"
+
+
+def test_run_ticker_loop_heartbeat_scan_fires_and_gates(cron: CronJobs) -> None:
+    """低频扫描钩子(10-05-cron-heartbeat 收尾件):注入即被调——首轮即扫
+    (停摆检测宁早勿晚),且间隔门独立于 tick 密集度(tick 远快于扫描间隔的
+    观察窗内,恰只扫一次;节奏断言沿控时纪律:存在性+计数,不做精确时距)。"""
+    seed(cron, make_job("j1"))
+    scans: list[float] = []
+
+    def counting_scan() -> None:
+        scans.append(time.monotonic())
+
+    stop = threading.Event()
+    loop = threading.Thread(
+        target=run_ticker_loop,
+        args=(cron, stop),
+        kwargs={
+            "interval": 0.05,
+            "heartbeat_scan": counting_scan,
+            "heartbeat_scan_interval": 10.0,  # 观察窗(亚秒)<< 间隔:只该有首轮一扫
+        },
+        daemon=True,
+    )
+    loop.start()
+    try:
+        assert wait_until(lambda: len(scans) >= 1, timeout=5.0), "scan never fired"
+        time.sleep(0.4)  # ≥ 8 个 tick 空转:证间隔门不随 tick 连扫
+        assert len(scans) == 1
+    finally:
+        stop.set()
+        loop.join(timeout=5.0)
+    assert not loop.is_alive()
+
+
+def test_run_ticker_loop_heartbeat_scan_error_isolated(cron: CronJobs) -> None:
+    """扫描钩子自身异常绝不带走 ticker 线程(_guarded 惯例):反复炸的扫描
+    后循环照常 tick/发 job/写心跳;ERROR 留痕但不写 ticker 错误 marker
+    (marker 面 = ticker 自身死活,不被评估侧失败污染);stop 干净退出。"""
+    seed(cron, make_job("j1"))
+    calls: list[str] = []
+    attempts: list[int] = []
+
+    def counting_runner(job: dict[str, Any]) -> tuple[bool, None, None]:
+        calls.append(job["id"])
+        return True, None, None
+
+    def exploding_scan() -> None:
+        attempts.append(1)
+        raise RuntimeError("scan blew up")
+
+    stop = threading.Event()
+    loop = threading.Thread(
+        target=run_ticker_loop,
+        args=(cron, stop),
+        kwargs={
+            "interval": 0.05,
+            "execute_job": counting_runner,
+            "heartbeat_scan": exploding_scan,
+            "heartbeat_scan_interval": 0.05,
+        },
+        daemon=True,
+    )
+    loop.start()
+    try:
+        # 第 3 次扫描尝试 = 线程已扛过前两次异常仍在循环。
+        assert wait_until(lambda: len(attempts) >= 3, timeout=5.0), "loop died with the scan"
+        assert wait_until(
+            lambda: (cron.store.cron_dir / "ticker_heartbeat").exists(), timeout=5.0
+        )
+    finally:
+        stop.set()
+        loop.join(timeout=5.0)
+    assert not loop.is_alive()
+    assert calls == ["j1"]  # job 照发恰一次(扫描异常不拖累派发)
+    assert cron.get_ticker_last_error() is None  # 扫描失败不染指 ticker 错误面

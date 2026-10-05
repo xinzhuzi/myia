@@ -38,7 +38,7 @@ from myssia.alerts import AlertConfigError, AlertEngine, compile_rule
 from myssia.alerts.engine import heartbeat_pass
 from myssia.cron.executions import ExecutionLedger
 from myssia.cron.store import CronJobStore
-from myssia.pipeline import Item, Pipeline
+from myssia.pipeline import Item, Pipeline, make_cron_heartbeat_scan
 from myssia.push.base import SendReport
 from myssia.schema import load_category
 from myssia.store import AlertRule, SQLiteStore
@@ -593,3 +593,50 @@ def test_pipeline_heartbeat_missing_ledger_leaves_no_footprint(tmp_path):
     assert after == before  # 零建库零足迹(复核亲测曾在此多出 executions.db)
     assert store.list_fired() == []  # 规则刚建(年龄 ~0 < 6h)冷静期静默
     store.close()
+
+
+# ---------------------------------------------------------------------------
+# 收尾件(池档 C3 边角):ticker 直挂扫描——run 阶段自身异常中断的轮次
+# 不再漏评(依赖被评对象跑批成功的评估不是停摆检测)
+# ---------------------------------------------------------------------------
+
+def test_ticker_scan_fires_without_any_run(tmp_path, capsys):
+    """工厂闭环:规则+账本就位,**零品类 run**(搭车路径根本不在场)→
+    同步 scan() 即 fire 且走 stdout 通道(action_status=sent);同桶 UNIQUE
+    冷却在直挂路径同样成立(连扫两轮不重发)。"""
+    db = tmp_path / "myssia.db"
+    store = SQLiteStore(db)
+    ai_news_yaml = tmp_path / "plugins" / "ai-news.yaml"
+    _write_category_yaml(ai_news_yaml, _heartbeat_data("ai-news"))
+    _wire_cron(tmp_path, yaml_path=ai_news_yaml, completions={"job-1": 30})
+    store.save_alert_rule(AlertRule(
+        name="ai-news 心跳", when="true", action="push",
+        action_config={"channel": "stdout"}, kind="cron_stale",
+        params={"threshold_hours": 6}, scope="ai-news",
+    ))
+    store.close()
+
+    scan = make_cron_heartbeat_scan(db)
+    scan()  # 同步直调(ticker 线程形态)
+    scan()  # 同桶重扫:UNIQUE 门闩不重发
+
+    reopened = SQLiteStore(db)
+    fired = reopened.list_fired()
+    assert len(fired) == 1
+    assert fired[0].dedup_key.startswith("cron-stale:ai-news:")
+    # 直挂路径走真时钟(_utc_now),静默时长=实距账本回拨点(~30h+N,非定数):
+    # 断言文案点名品类+量纲,不断言具体小时数。
+    assert "ai-news" in fired[0].title and "小时无成功采集" in fired[0].title
+    assert fired[0].action_status == "sent"  # 通道经规则品类 YAML 解析(stdout)
+    out = capsys.readouterr().out
+    assert "ai-news" in out  # stdout 通道真发卡片行(与管线搭车路径同门)
+    reopened.close()
+
+
+def test_ticker_scan_missing_db_leaves_no_footprint(tmp_path):
+    """库缺位零足迹:myssia.db 不存在(告警规则无从谈起)→ scan() 直接返回,
+    不从 ticker 线程建库——评估只读精神,首跑种子前的数据根零意外文件。"""
+    missing = tmp_path / "none.db"
+    make_cron_heartbeat_scan(missing)()
+    assert not missing.exists()
+    assert list(tmp_path.iterdir()) == []  # 数据根整体零足迹

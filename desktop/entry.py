@@ -399,7 +399,7 @@ from myssia.feedback import (
     record_feedback,
     resolve_item_ref,
 )
-from myssia.pipeline import Item
+from myssia.pipeline import Item, make_cron_heartbeat_scan
 from myssia.plugins.installed import (
     INSTALL_ROOT_ENV,
     InstalledPluginStore,
@@ -4924,6 +4924,10 @@ def _start_cron_ticker() -> None:
                 "interval": interval,
                 "execute_job": _execute,
                 "dispatch_gate": _cron_dispatch_gate,
+                # 心跳告警低频兜底扫描(10-05-cron-heartbeat 收尾件):
+                # cron_stale 评估不依赖品类 run 成功,ticker 直挂每 5 分钟
+                # 一扫(CLI ``cron serve`` 同位接线)。
+                "heartbeat_scan": make_cron_heartbeat_scan(ctx.db),
             },
             stop_event=stop,
             name="cron-ticker",
