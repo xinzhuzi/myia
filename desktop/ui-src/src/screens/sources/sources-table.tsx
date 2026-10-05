@@ -277,6 +277,10 @@ export function SourcesTable({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [healthFilter, setHealthFilter] = useState<HealthFilter>("all");
+  // 品类点簇筛选(10-05-fe-gap-batch ②b):多选 Set,簇键 = 行 pluginFile;
+  // 空 Set = 全量零筛选。与 globalFilter(单输入)/healthFilter(健康度按钮组)
+  // 三者并列,各自独立可组合
+  const [clusterFilter, setClusterFilter] = useState<Set<string>>(new Set());
 
   const columns = useMemo(() => COLUMNS, []);
   const columnFilters = useMemo(
@@ -284,8 +288,33 @@ export function SourcesTable({
     [healthFilter],
   );
 
+  // 簇清单从 rows 派生:簇键 = pluginFile(品类 YAML 路径,唯一)、标签 =
+  // pluginLabel(name ?? id ?? file,与品类列同源)、逐簇源数进 chip 徽章;
+  // localeCompare 稳定排序(chip 序不随数据序抖动)
+  const clusters = useMemo(() => {
+    const byFile = new Map<string, { label: string; count: number }>();
+    for (const row of rows) {
+      const entry = byFile.get(row.pluginFile);
+      if (entry) entry.count += 1;
+      else byFile.set(row.pluginFile, { label: pluginLabel(row), count: 1 });
+    }
+    return [...byFile.entries()]
+      .map(([key, { label, count }]) => ({ key, label, count }))
+      .sort((a, b) => a.label.localeCompare(b.label, "zh-Hans-CN"));
+  }, [rows]);
+
+  // 点簇过滤接线 = data 前置派生(而非 filterFn):与 globalFilter/
+  // columnFilters 正交叠加,零自定义 filterFn。防御:刷新后品类可能消失,
+  // 失效簇键从有效集剔除(全失效 = 回全量,不空屏)
+  const visibleRows = useMemo(() => {
+    if (clusterFilter.size === 0) return rows;
+    const liveKeys = new Set(rows.map((row) => row.pluginFile));
+    const effective = new Set([...clusterFilter].filter((key) => liveKeys.has(key)));
+    return effective.size === 0 ? rows : rows.filter((row) => effective.has(row.pluginFile));
+  }, [rows, clusterFilter]);
+
   const table = useReactTable({
-    data: rows,
+    data: visibleRows,
     columns,
     state: { sorting, globalFilter, columnFilters },
     onSortingChange: setSorting,
@@ -362,6 +391,68 @@ export function SourcesTable({
           </Button>
         </div>
       </div>
+
+      {/* 品类点簇筛选条(②b):chips 独立成行(簇数可变多,不挤 32px 控件行);
+          aria-pressed button 与健康度按钮组同范式;单品类(单簇=全量)无筛选
+          意义,不渲染;n/m 徽章 aria-live 让屏幕阅读器感知收窄/复位 */}
+      {clusters.length > 1 ? (
+        <div role="group" aria-label="品类点簇筛选" className="flex flex-wrap items-center gap-1.5">
+          {clusters.map(({ key, label, count }) => {
+            const active = clusterFilter.has(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={active}
+                aria-label={`${label}(${count} 个源)`}
+                title={key}
+                onClick={() =>
+                  setClusterFilter((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(key)) next.delete(key);
+                    else next.add(key);
+                    return next;
+                  })
+                }
+                className={
+                  "inline-flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors duration-(--duration-fast) ease-out-expo " +
+                  (active
+                    ? "border-primary/40 bg-accent font-medium text-foreground shadow-sm"
+                    : "border-border bg-muted/30 text-muted-foreground hover:text-foreground")
+                }
+              >
+                <span className="max-w-40 truncate">{label}</span>
+                <span
+                  aria-hidden
+                  className={
+                    "inline-flex min-w-4 items-center justify-center rounded px-1 text-2xs leading-4 tabular-nums " +
+                    (active ? "bg-primary/15 text-foreground" : "bg-muted text-muted-foreground")
+                  }
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+          {clusterFilter.size > 0 ? (
+            <button
+              type="button"
+              onClick={() => setClusterFilter(new Set())}
+              className="h-7 rounded-md px-1.5 text-xs text-muted-foreground underline-offset-2 transition-colors duration-(--duration-fast) ease-out-expo hover:text-foreground hover:underline"
+            >
+              清除
+            </button>
+          ) : null}
+          <span
+            data-testid="sources-row-count"
+            aria-live="polite"
+            aria-label={`筛选后 ${table.getFilteredRowModel().rows.length} 行,共 ${rows.length} 行`}
+            className="ml-auto inline-flex h-7 items-center font-mono text-2xs text-muted-foreground tabular-nums"
+          >
+            {table.getFilteredRowModel().rows.length}/{rows.length}
+          </span>
+        </div>
+      ) : null}
 
       {/* 表格区:满铺无卡填充(Kestra full-container 密度),外缘 hairline
           容器收边(与下方排程/停用卡的圆角分层同族)+ 表头浅底带 */}

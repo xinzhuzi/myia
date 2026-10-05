@@ -837,3 +837,138 @@ describe("源管理:D4 表格基件迁移(ui/table + 列宽拖拽 + compact 密�
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// 品类点簇筛选(10-05-fe-gap-batch ②b):多选 Set(chips)+ 与全局/健康度
+// 正交叠加 + n/m 徽章(aria-live)+ 清除复位
+// ---------------------------------------------------------------------------
+
+describe("源管理:品类点簇筛选", () => {
+  /** 三品类五源:ai-news(2,含 dead)/ dev-tools(1)/ games(2,含 degraded) */
+  function multiClusterSidecar() {
+    const { map } = okSidecar([]);
+    map.health = () =>
+      healthResult([
+        pluginReport(FILE, "ai-news", [
+          sourceReport("hn", "ok", "https://a.example.com/hn"),
+          sourceReport("rsshub", "dead", "https://a.example.com/rsshub"),
+        ]),
+        pluginReport("plugins/dev-tools.yaml", "dev-tools", [
+          sourceReport("tools-weekly", "ok", "https://b.example.com/tools"),
+        ]),
+        pluginReport("plugins/games.yaml", "games", [
+          sourceReport("play-feed", "degraded", "https://c.example.com/play"),
+          sourceReport("itch", "ok", "https://c.example.com/itch"),
+        ]),
+      ]);
+    return { map };
+  }
+
+  /** chip 可及名 = 显式 aria-label「标签(n 个源)」;品类列同名文本在 div 内,
+      role=button 查询天然不撞 */
+  function clusterChip(label: string, count: number) {
+    return screen.getByRole("button", { name: `${label}(${count} 个源)` }) as HTMLButtonElement;
+  }
+
+  it("单簇过滤:点一簇 chip 仅留该簇行,n/m 与底部计数同步,chip 进按压态", async () => {
+    installSidecar(multiClusterSidecar().map);
+    render(
+      <MemoryRouter>
+        <SourcesScreen />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("hn")).toBeTruthy();
+    expect(clusterChip("品类 ai-news", 2)).toBeTruthy(); // 徽章源数入可及名
+
+    fireEvent.click(clusterChip("品类 ai-news", 2));
+    await waitFor(() => {
+      expect(screen.getByText(/共 2 行/)).toBeTruthy(); // 簇内 2 源(hn/rsshub)
+    });
+    expect(screen.getByText(/全部 5 行/)).toBeTruthy();
+    expect(screen.getByTestId("sources-row-count").textContent).toBe("2/5");
+    expect(screen.queryByText("tools-weekly")).toBeNull(); // 他簇源消失
+    expect(screen.queryByText("itch")).toBeNull();
+    expect(clusterChip("品类 ai-news", 2).getAttribute("aria-pressed")).toBe("true");
+    expect(clusterChip("品类 games", 2).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("多选与健康度正交叠加:两簇 4 行 → 健康度失效档收窄到簇内唯一 dead", async () => {
+    installSidecar(multiClusterSidecar().map);
+    render(
+      <MemoryRouter>
+        <SourcesScreen />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("hn")).toBeTruthy();
+
+    fireEvent.click(clusterChip("品类 ai-news", 2));
+    fireEvent.click(clusterChip("品类 games", 2));
+    await waitFor(() => {
+      expect(screen.getByText(/共 4 行/)).toBeTruthy(); // 2+2
+    });
+    expect(screen.queryByText("tools-weekly")).toBeNull(); // 未选簇仍被滤除
+
+    fireEvent.click(screen.getByRole("button", { name: "失效" })); // 健康度叠加
+    await waitFor(() => {
+      expect(screen.getByText(/共 1 行/)).toBeTruthy();
+    });
+    expect(screen.getByText("rsshub")).toBeTruthy(); // 五源中唯一 dead,且属选中簇
+    expect(screen.queryByText("play-feed")).toBeNull(); // degraded 不进失效档
+
+    fireEvent.click(screen.getByRole("button", { name: "全部" })); // 撤健康度,簇选择保持
+    await waitFor(() => {
+      expect(screen.getByText(/共 4 行/)).toBeTruthy();
+    });
+  });
+
+  it("n/m 计数:初始全量 5/5,点簇随过滤收窄(aria-live 播报收窄结果)", async () => {
+    installSidecar(multiClusterSidecar().map);
+    render(
+      <MemoryRouter>
+        <SourcesScreen />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("hn")).toBeTruthy();
+    const count = screen.getByTestId("sources-row-count");
+    expect(count.textContent).toBe("5/5"); // 空 Set = 全量零筛选
+    expect(count.getAttribute("aria-live")).toBe("polite");
+    expect(count.getAttribute("aria-label")).toBe("筛选后 5 行,共 5 行");
+
+    fireEvent.click(clusterChip("品类 dev-tools", 1));
+    await waitFor(() => {
+      expect(count.textContent).toBe("1/5");
+    });
+    expect(count.getAttribute("aria-label")).toBe("筛选后 1 行,共 5 行");
+  });
+
+  it("清空复位:清除钮一次归零全量,chips 全离按压态,徽章回 5/5", async () => {
+    installSidecar(multiClusterSidecar().map);
+    render(
+      <MemoryRouter>
+        <SourcesScreen />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("hn")).toBeTruthy();
+
+    fireEvent.click(clusterChip("品类 ai-news", 2));
+    fireEvent.click(clusterChip("品类 games", 2));
+    await waitFor(() => {
+      expect(screen.getByText(/共 4 行/)).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "清除" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-row-count").textContent).toBe("5/5");
+    });
+    expect(screen.getByText(/共 5 行/)).toBeTruthy(); // 无「全部 n 行」括注 = 恰好全量
+    expect(screen.queryByText(/全部 \d+ 行/)).toBeNull();
+    expect(screen.getByText("tools-weekly")).toBeTruthy(); // 全源复位
+    for (const [label, count] of [
+      ["品类 ai-news", 2],
+      ["品类 dev-tools", 1],
+      ["品类 games", 2],
+    ] as const) {
+      expect(clusterChip(label, count).getAttribute("aria-pressed")).toBe("false");
+    }
+  });
+});

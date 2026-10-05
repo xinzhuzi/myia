@@ -113,11 +113,33 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
    - 侧栏分组级折叠(每组 ChevronDown 旋转 ~150ms;区别于在途
      interaction-batch 的整栏 `[` 折叠键——现状分组固定展开,
      `rg ChevronDown sidebar.tsx` 零命中;出处 matrix §1.1 #2/路由 R7)
+     → **已消号(2026-10-05)**:登记口径已过时——`7853d96`(2026-10-04
+     Kestra 基调重锚批)已落全链路:`sidebar.tsx` GroupSection(:198-243;
+     标题钮 aria-expanded + ChevronDown size-3.5 折叠旋 -rotate-90,过渡
+     `duration-(--duration-fast)`=**120ms**(原「~150ms」口径不准;定义
+     `index.css:112`)、条目区 grid-rows 0fr↔1fr **250ms** Kestra 缓动
+     cubic-bezier(0.22,1,0.36,1)、折叠时内层 inert 防键盘焦点);独立
+     存储键 `myssia.sidebar-groups.v1`(:86/:135/:155)与整栏折叠键
+     `myssia.sidebar.v1` 分立,两组语义独立共存;`rg ChevronDown
+     sidebar.tsx` 今已命中。处置=池档销号,零代码改动(归属
+     `10-05-fe-gap-batch` ②a 销号核验)。
    - 源管理多选点簇筛选(多选过滤 trigger=点簇+「n/m」徽章;现状=单输入全局
      筛选+健康度三态按钮组 `sources-table.tsx:287-291`;出处 matrix §1.2 #5/
      路由 R7)
+     → **已消号(2026-10-05)**:`10-05-fe-gap-batch` ②b 实做落地——
+     sources-table.tsx 增 clusterFilter Set(簇键=pluginFile)+ 簇 chips 条
+     (aria-pressed+逐簇源数徽章+「清除」钮,单簇不渲染)+ data 前置派生
+     与 globalFilter/健康度按钮组正交叠加(空 Set=全量;刷新后失效簇键
+     自动剔除防空屏)+ n/m 徽章 aria-live;vitest 四用例(单簇/多选×健康度
+     叠加/n·m 计数/清空复位)入 sources.test.tsx。
    - 设置 tooltip 辅助(引导文案已有、零 Tooltip 消费;弱需求,顺手批可带;
      出处 matrix §1.3 #8/路由 R7)
+     → **裁撤(2026-10-05,`10-05-fe-gap-batch` ②c)**:维持弱需求判定不
+     做——基件 `ui/tooltip.tsx` 在库而全 UI 零业务消费(唯一引用=基件自测
+     ui-base.test.tsx),settings-screen.tsx 零命中;同轮已排源管理点簇
+     (②b)与代理池测试按钮两 UI 件,避免面铺宽。**翻案极小方案**(留池,
+     半小时量):ui/tooltip.tsx 直接消费,设置屏 3-5 个高困惑字段(enrich
+     模型/探测路径/gates 凭据引用)挂 Radix Tooltip + vitest a11y 断言。
    - snooze 到期重现(稍后读=本地态 later 桶、无到期重现,Linear H 键未对标;
      matrix 原文标「留池(v2)」;出处 matrix §二/路由 R7)
    - 设置搜索(`rg 搜索 settings-screen.tsx` 零命中;teardown 自身标注
