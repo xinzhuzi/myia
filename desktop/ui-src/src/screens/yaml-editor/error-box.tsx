@@ -14,6 +14,23 @@ interface ErrorBoxProps {
  * mtime_conflict 附「外部已改动,重读拉最新原文」指引(乐观锁冲突不覆盖外部改动)。
  */
 export function ErrorBox({ error, onRetry, retryLabel = "重试" }: ErrorBoxProps) {
+  if (error.code === "pyenv_not_ready") {
+    return (
+      <div
+        role="alert"
+        data-testid="error-box-pyenv-gate"
+        className="rounded-md border border-warning/40 bg-warning/[0.06] px-3 py-2 text-xs"
+      >
+        <p className="font-medium text-warning">{error.message}</p>
+        <a
+          href="#/settings?section=python-env"
+          className="text-2xs text-primary underline underline-offset-2 hover:text-primary/80"
+        >
+          前往设置 →「Python 环境」完成配置(就绪后本功能自动恢复)
+        </a>
+      </div>
+    );
+  }
   return (
     <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs">
       <p className="font-medium text-destructive">{error.message}</p>

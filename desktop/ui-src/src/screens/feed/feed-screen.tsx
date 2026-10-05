@@ -1631,21 +1631,36 @@ export function FeedScreen() {
         {error ? (
           <Card data-testid="feed-error">
             <CardContent className="flex flex-col gap-1.5 pt-1">
-              <p className="text-sm font-medium text-destructive">
-                情报流不可用(sidecar 错误码 {error.code})
-              </p>
-              <p className="text-xs text-muted-foreground">{error.message}</p>
-              {/* 三态(frontend-ui-engineering):错误态带重试动作 */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-fit"
-                onClick={() => void refresh()}
-                disabled={loading}
-              >
-                <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
-                重试
-              </Button>
+              {error.code === "pyenv_not_ready" ? (
+                /* D2/AC2:环境未就绪非重试可救——人话引导进设置(10-05 收尾) */
+                <>
+                  <p className="text-sm font-medium text-warning">{error.message}</p>
+                  <a
+                    href="#/settings?section=python-env"
+                    className="w-fit text-xs text-primary underline underline-offset-2 hover:text-primary/80"
+                  >
+                    前往设置 →「Python 环境」完成配置(就绪后情报流自动恢复)
+                  </a>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-destructive">
+                    情报流不可用(sidecar 错误码 {error.code})
+                  </p>
+                  <p className="text-xs text-muted-foreground">{error.message}</p>
+                  {/* 三态(frontend-ui-engineering):错误态带重试动作 */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => void refresh()}
+                    disabled={loading}
+                  >
+                    <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
+                    重试
+                  </Button>
+                </>
+              )}
             </CardContent>
           </Card>
         ) : null}
