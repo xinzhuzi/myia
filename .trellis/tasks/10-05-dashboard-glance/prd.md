@@ -235,3 +235,17 @@ evidence/ 11- 前缀产出(一行说明):11~18 帧 + 11-probe.json(DOM 探针)+
 vl_check11.py 可复跑件+vl_check11.exit 回执;mock-bridge.py 增 cred/doctorfail
 场景、shim.js params 入痕)= 补批五件+残留缝复审的无头冒烟回执,编号接
 10 号装机帧续排。
+
+## 低危三件回执(2026-10-06 凌晨,主会话顺手清;主人「全部做完」口径)
+
+复审补批三 low 全数销号,主会话直改+门禁亲跑:
+
+- ①TREND_WINDOW_DEFAULT 死导出删除(统一窗后全 src 零消费,grep 实核)。
+- ②findingScopeLabel:db 死分支删(cli 无 db scope),真实数据库相关
+  scope=store 改映射「数据库」(cli.py:3190);测试断言随改
+  (toContain("数据库")+not.toContain("store"))。
+- ③refreshTrend 迟响应护栏:trendSeq 序号过期整笔丢弃(旧窗慢回不再
+  冒充新窗);新增竞态用例(7 天 deferred 挂起→今日先回→7 天迟回 128 条
+  被丢弃,格值稳 5)。
+- 门禁:全量 vitest 517/517(26 文件)+npm run build(tsc -b && vite)绿;
+  pytest 未重跑(本笔纯 UI 零 python 触碰,如实注记)。

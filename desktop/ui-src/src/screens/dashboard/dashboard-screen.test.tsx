@@ -668,7 +668,8 @@ describe("DashboardScreen", () => {
     expect(rows[0].textContent).toContain("缺少 TG_TOKEN 凭据"); // message 原文
     expect(rows[0].getAttribute("title")).toBe("缺少 TG_TOKEN 凭据"); // title=全文
     expect(rows[0].getAttribute("href")).toBe("#/sources");
-    expect(rows[1].textContent).toContain("store"); // 未映射 scope 原文直用
+    expect(rows[1].textContent).toContain("数据库"); // scope=store 人话映射(复审 low:db 死分支删)
+    expect(rows[1].textContent).not.toContain("store"); // 英文原文词不再裸放上屏
     expect(rows[1].textContent).toContain("提醒"); // warning → 提醒词
     expect(rows[1].textContent).toContain("数据库版本偏低");
     expect(screen.queryByTestId("dashboard-alert-overflow")).toBeNull();
@@ -988,6 +989,45 @@ describe("DashboardScreen", () => {
     expect(hoverTooltip(screen.getByRole("button", { name: "告警说明" }))).toContain(
       "即时快照不随窗",
     );
+  });
+
+  it("统一时间窗迟响应护栏(复审 low):旧窗慢回不得冒充新窗", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    runsTrendMock.mockResolvedValue({ days: [] });
+    // 手控 deferred:切 7 天的请求挂起不回;今日窗照常即时回
+    let resolveSeven: (value: { days: TrendDay[] }) => void = () => {};
+    storeTrendMock.mockImplementation((params) => {
+      if (params?.days === 7) {
+        return new Promise((resolve) => {
+          resolveSeven = resolve;
+        });
+      }
+      return Promise.resolve({ days: [{ date: today, count: 5 }] });
+    });
+    render(<DashboardScreen />);
+    await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("5"));
+
+    // 切 7 天(请求挂起)→ 切回今日(先回,格值 5)
+    for (const label of ["7 天", "今日(UTC)"]) {
+      fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
+        button: 0,
+        ctrlKey: false,
+        pointerType: "mouse",
+      });
+      fireEvent.click(await screen.findByRole("option", { name: label }));
+    }
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 }));
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 1 }));
+    await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("5"));
+
+    // 7 天迟回(128 条):序号过期整笔丢弃,今日窗格值不被旧窗覆盖冒充
+    await act(async () => {
+      resolveSeven({ days: [{ date: today, count: 128 }] });
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId("stat-window-items").textContent).toContain("5");
+    expect(screen.getByTestId("stat-window-items").textContent).not.toContain("128");
   });
 
   it("趋势(补批四统一时间窗):默认今日 = 1 天窗单点如实画,概览 Select 切 14 天 → 补零 14 点重查;趋势卡无自有 Select", async () => {

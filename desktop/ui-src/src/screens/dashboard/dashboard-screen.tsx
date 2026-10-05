@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
   CircleCheck,
@@ -404,12 +404,13 @@ interface AlertRowModel {
 
 /**
  * 全局 finding 主体名(scope 人话映射):cli 实况非 plugin scope = credentials /
- * store / gates / feedback / components;映射只做已知主词,其余 scope 原文如实
- * (补批三:credentials/db 例定映射,store 等未见例词原文直用零自造)。
+ * store / gates / feedback / components(cli.py:2957/3190/3389/3037/3104);
+ * 映射只做已知主词,其余 scope 原文如实(补批三例定)。复审 low 修:db 分支
+ * 系死码(cli 无 db scope),真实数据库相关 = store,改映射+删死分支。
  */
 function findingScopeLabel(scope: string): string {
   if (scope === "credentials") return "凭据";
-  if (scope === "db") return "数据库";
+  if (scope === "store") return "数据库";
   return scope;
 }
 
@@ -769,13 +770,16 @@ export function DashboardScreen() {
     }
   }, []);
 
+  const trendSeq = useRef(0);
   /**
    * 双趋势同窗并发拉取(统一时间窗后单窗口单拉数):采集量(store.trend)与
    * 成功率(runs.trend)allSettled 分流 —— 一条失败另一条照画,各自错误各自
    * 降级(fbbaaa7 分区降级判例,勿用会一败俱败的 Promise.all);概览采集格
-   * 同吃 trend(趋势卡与概览四格共用一窗数据,不再另拉一份)。
+   * 同吃 trend(趋势卡与概览四格共用一窗数据,不再另拉一份)。迟响应护栏
+   * (复审 low):序号过期的旧窗慢回整笔丢弃,不用旧窗和冒充新窗。
    */
   const refreshTrend = useCallback(async (days: number) => {
+    const seq = ++trendSeq.current;
     setTrendLoading(true);
     setTrendError(null);
     setOutcomeError(null);
@@ -787,6 +791,7 @@ export function DashboardScreen() {
       fetchTrendWindow(days),
       fetchOutcomeWindow(days),
     ]);
+    if (seq !== trendSeq.current) return; // 旧窗迟回:新窗已在途/已落,整笔丢弃
     if (trendR.status === "fulfilled") setTrend(trendR.value);
     else setTrendError(toSidecarError(trendR.reason));
     if (outcomeR.status === "fulfilled") setOutcomes(outcomeR.value);

@@ -264,7 +264,6 @@ export function buildCategoryCards(doctor: DoctorResult): CategoryCardModel[] {
 /** 趋势窗口档位(卡头切换;服务端钳制 [1,90]) */
 export const TREND_WINDOW_DAYS = [7, 14, 30] as const;
 export type TrendWindowDays = (typeof TREND_WINDOW_DAYS)[number];
-export const TREND_WINDOW_DEFAULT: TrendWindowDays = 14;
 
 /** UTC「今天」的 YYYY-MM-DD(趋势窗口右端;口径 = UTC 逐日,卡面如实注记)。 */
 export function utcToday(): string {
