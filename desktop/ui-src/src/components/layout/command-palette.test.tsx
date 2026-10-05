@@ -3,7 +3,7 @@
 // ⌘K 命令面板自检(10-04-interaction-batch A-cmd):①唤起/关闭(⌘K·Ctrl+K
 // 自含监听 preventDefault、Esc、遮罩点击、top-bar 真触发器接线);②输入过滤
 // (中文标签/英文 keywords/空态);③键盘巡游(↑↓ 环回、aria-activedescendant
-// 同步、Enter 执行、过滤词变化重置回首项);④动作(导航七屏、跑一次 =
+// 同步、Enter 执行、过滤词变化重置回首项);④动作(导航八屏、跑一次 =
 // global-run.tsx 同口径插件定位、刷新 = window.location.reload、切品类 =
 // options 清单 + onCategoryChange 透传)。视觉动效归统一门禁构建,不在此断言。
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -181,13 +181,14 @@ describe("top-bar 接线(D4 留位换真触发器)", () => {
 });
 
 describe("命令面与输入过滤", () => {
-  it("默认命令面:导航七屏 + 跑一次/刷新 + 切换品类:全部品类(options 为空)", () => {
+  it("默认命令面:导航八屏 + 跑一次/刷新 + 切换品类:全部品类(options 为空)", () => {
     renderPalette();
     const labels = getOptions().map((node) => node.textContent);
     expect(labels).toEqual([
       "仪表盘",
       "情报流",
       "源管理",
+      "定时任务",
       "配置编辑",
       "消息",
       "采集日志",
@@ -214,6 +215,12 @@ describe("命令面与输入过滤", () => {
     renderPalette();
     fireEvent.change(getInput(), { target: { value: "feed" } });
     expect(getOptions().map((node) => node.textContent)).toEqual(["情报流"]);
+  });
+
+  it("英文 keywords 过滤:输入「cron」→ 定时任务(10-05-palette-cron-entry)", () => {
+    renderPalette();
+    fireEvent.change(getInput(), { target: { value: "cron" } });
+    expect(getOptions().map((node) => node.textContent)).toEqual(["定时任务"]);
   });
 
   it("品类选项下传后进入命令面(切换品类:AI资讯)", () => {
@@ -266,6 +273,14 @@ describe("动作:导航 / 跑一次 / 刷新 / 切品类", () => {
     fireEvent.change(getInput(), { target: { value: "日志" } });
     fireEvent.keyDown(getInput(), { key: "Enter" });
     expect(screen.getByTestId("location-probe").textContent).toBe("/logs");
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("Enter 执行导航:过滤「定时」→ 路由 /cron 且面板关闭(10-05-palette-cron-entry)", () => {
+    const { onOpenChange } = renderPalette();
+    fireEvent.change(getInput(), { target: { value: "定时" } });
+    fireEvent.keyDown(getInput(), { key: "Enter" });
+    expect(screen.getByTestId("location-probe").textContent).toBe("/cron");
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 

@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  Clock,
   FileCode2,
   Inbox,
   Layers,
@@ -32,7 +33,7 @@ import { cn } from "@/lib/utils";
  *
  * 命令面(清单自含,不复用 sidebar 的 NAV_GROUPS,避免与 A-shell 跨批
  * 耦合,重复属有意取舍):
- * - 导航七屏(App.tsx 路由表口径);
+ * - 导航八屏(App.tsx 路由表口径);
  * - 跑一次:health → 品类定位插件 → run.start,复刻 global-run.tsx:29-52
  *   口径(GlobalRun 组件本身不动;顶栏按钮不感知面板发起的 run,取舍见
  *   PRD A-cmd 节);
@@ -43,11 +44,12 @@ import { cn } from "@/lib/utils";
 /** 与 --duration-fast(120ms)对应的离场卸载延迟,改 token 时同步改这里(dialog.tsx 同款) */
 const EXIT_UNMOUNT_MS = 120;
 
-/** 导航命令清单:App.tsx 路由表七屏(自含数据,不 import NAV_GROUPS) */
+/** 导航命令清单:App.tsx 路由表八屏(自含数据,不 import NAV_GROUPS) */
 const SCREENS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon; keywords: string }> = [
   { to: "/", label: "仪表盘", icon: LayoutDashboard, keywords: "dashboard home" },
   { to: "/feed", label: "情报流", icon: Inbox, keywords: "feed inbox" },
   { to: "/sources", label: "源管理", icon: Rss, keywords: "sources rss" },
+  { to: "/cron", label: "定时任务", icon: Clock, keywords: "cron schedule 定时" },
   { to: "/yaml-editor", label: "配置编辑", icon: FileCode2, keywords: "yaml editor config" },
   { to: "/messaging", label: "消息", icon: MessageCircle, keywords: "messaging message push" },
   { to: "/logs", label: "采集日志", icon: Terminal, keywords: "logs terminal" },
