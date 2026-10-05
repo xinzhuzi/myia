@@ -360,6 +360,8 @@ fn yield_focus_after_silent_start(app: AppHandle) {
 /// 官方 single-instance 插件在 macOS 是空操作,故自持 flock。锁落数据根
 /// (与 sidecar 的 MYIA_HOME 同规则):dev 构建与装机包共用默认根即互斥,
 /// 验证流用 MYIA_HOME 沙箱时属独立实例域(沙箱=独立环境,合理)。
+/// Windows 侧不走 flock:单实例 + 二实例唤出统一由官方 single-instance
+/// 插件承担(见 main() builder 首位注册,命名 mutex 按 identifier 全局互斥)。
 #[cfg(target_os = "macos")]
 fn acquire_instance_lock() -> Option<std::fs::File> {
     use std::os::fd::AsRawFd;
@@ -372,6 +374,16 @@ fn acquire_instance_lock() -> Option<std::fs::File> {
     let file = std::fs::File::create(root.join(".instance.lock")).ok()?;
     let held = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0;
     held.then_some(file) // 进程退出由内核放锁,File 永不显式关闭(mem::forget 持有)
+}
+
+/// 唤出并聚焦主窗(show + set_focus)。三路共用,保证亮窗行为同源
+/// (10-05-win-second-instance-show 收敛):macOS Dock Reopen、Windows
+/// 二实例回调、dev / MYIA_SHOW_ON_START 启动即显。
+fn show_main_window<R: tauri::Runtime>(app: &impl Manager<R>) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
 }
 
 fn main() {
@@ -390,7 +402,24 @@ fn main() {
             return;
         }
     }
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Windows 二实例唤出(10-05-win-second-instance-show):发布包主窗
+    // visible:false 出厂,macOS 有 Dock Reopen 亮窗,Windows 无 Dock 无托盘
+    // ——普通用户双击图标永无窗口(10-05-win-local-build evidence §8 坑 4)。
+    // 官方插件:第二实例启动 → 命名 mutex 判重 → 窗口消息回调第一实例
+    // (此处 show+focus 主窗)→ 第二实例自退,一并补上 Windows 单实例语义。
+    // 插件按注册序初始化,官方要求置于插件列表首位;macOS 是空操作且已有
+    // flock 单实例门,故仅 Windows 注册(mac 零行为变化)。
+    #[cfg(target_os = "windows")]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(
+        |app, argv, _cwd| {
+            eprintln!(
+                "desktop: 第二实例启动(argv={argv:?}),唤出既有实例主窗后其自退"
+            );
+            show_main_window(app);
+        },
+    ));
+    let app = builder
         .plugin(tauri_plugin_shell::init())
         // updater:前端经 @tauri-apps/plugin-updater 检查/下载/安装;签名公钥见 tauri.conf.json
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -497,10 +526,7 @@ fn main() {
             let show_on_start =
                 cfg!(debug_assertions) || std::env::var_os("MYIA_SHOW_ON_START").is_some();
             if show_on_start {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                show_main_window(&*app);
             } else {
                 #[cfg(target_os = "macos")]
                 yield_focus_after_silent_start(app.handle().clone());
@@ -516,16 +542,14 @@ fn main() {
         .expect("tauri application failed to start");
     app.run(|app, event| {
         // Dock 图标点击 / 对运行中实例再 open -a:静默启动藏起的主窗口在此时亮出
+        // (Windows 的对应通道是 single-instance 二实例回调,见 builder 首位注册)
         #[cfg(target_os = "macos")]
         if let tauri::RunEvent::Reopen {
             has_visible_windows: false,
             ..
         } = event
         {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            show_main_window(app);
         }
     });
 }
