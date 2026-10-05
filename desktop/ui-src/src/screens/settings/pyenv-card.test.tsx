@@ -223,6 +223,14 @@ describe("PyenvCard:设置屏「Python 运行环境」区块", () => {
 
     await waitFor(() => expect(callsOf("pyenv_get_status").length).toBe(1));
     expect((await screen.findByTestId("pyenv-state-badge")).textContent).toContain("未配置");
+    // 卡头回归(10-05-pyenv-settings-unify AC4):与其他设置卡同款
+    // CardHeader(图标+标题+描述);CardTitle 是 data-slot div(与兄弟卡同款,无 heading 语义)
+    expect(
+      document.querySelector('[data-testid="pyenv-card"] [data-slot="card-title"]')?.textContent,
+    ).toContain("环境状态与安装");
+    expect(
+      document.querySelector('[data-testid="pyenv-card"] [data-slot="card-description"]'),
+    ).not.toBeNull();
     // 路径两行如实回显(安装路径 / Python 使用路径)
     expect(screen.getByTestId("pyenv-install-path").textContent).toBe(
       "/Users/dev/Library/Application Support/MYIA/python",
