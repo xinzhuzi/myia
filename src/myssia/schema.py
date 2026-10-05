@@ -166,6 +166,9 @@ ENGINES = (
     # 官方 API 引擎(10-05-reddit-official-engine):链外 + 凭据可选;显式
     # engine: reddit 才生效,未配凭据 = credential_missing 显式空态(零请求)。
     "reddit",
+    # 官网页面变更监控引擎(10-06-ai-news-sources):链外 + 零凭据;显式
+    # engine: urlwatch 才生效,消费 myssia-urlwatch 场景件(快照对比)。
+    "urlwatch",
 )
 PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
@@ -208,6 +211,10 @@ PUSH_CHANNELS = (
     # bark 随 10-05-push-bark 增(iOS 即时推送,零依赖小件;不进
     # CHANNEL_PLATFORMS——Bark 无目录语义,配 targets 即拒,同 webhook)。
     "bark",
+    # apprise 随 10-05-push-apprise 增(统一推送,extras 可选依赖一库通吃
+    # ~160 长尾目标;不进 CHANNEL_PLATFORMS——目标=Apprise 原生 URL 串,
+    # 无目录语义,配 targets 即拒,同 webhook/bark)。
+    "apprise",
     *_W3_LONGTAIL,
 )
 ROUTE_MODES = ("immediate", "digest", "archive")
@@ -225,13 +232,14 @@ EngineName = Literal[
     "credhunter",
     "zenrows", "scraperapi",
     "reddit",
+    "urlwatch",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]
 ExtractType = Literal["list", "item", "json_path", "rss"]
 BackoffPolicy = Literal["exponential", "linear", "none"]
 PushChannel = Literal[
     "feishu_card", "telegram", "ntfy", "dingtalk", "wecom", "weixin", "webhook", "stdout",
-    "bark",
+    "bark", "apprise",
     "slack", "discord", "whatsapp_cloud", "line", "qqbot", "google_chat", "teams",
     "msgraph_webhook", "matrix", "mattermost", "irc", "simplex", "signal",
     "bluebubbles", "email", "sms", "homeassistant", "a2a", "yuanbao", "buzz",

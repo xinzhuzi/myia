@@ -86,13 +86,15 @@ import { VisionForm } from "./vision-form";
 // 承接无头化后 PageHeader 渲染 null 而丢失的「重新验证」入口。
 // ---------------------------------------------------------------------------
 
-/** 通道 → 规范凭据名缺省(target 语义:feishu 卡的 chat_id / tg 的 bot token / webhook 地址 / bark 的 device key) */
+/** 通道 → 规范凭据名缺省(target 语义:feishu 卡的 chat_id / tg 的 bot token / webhook 地址 / bark 的 device key / apprise 的目标串) */
 const PUSH_SECRET_NAME_BY_CHANNEL: Record<string, string> = {
   feishu_card: "chat_id",
   telegram: "token",
   webhook: "url",
   // bark(10-05-push-bark):target = device key(在 iPhone Bark App 里复制)
   bark: "device_key",
+  // apprise(10-05-push-apprise):target = Apprise 目标串(bark://… 等多目标)
+  apprise: "targets",
 };
 type PushChannel = keyof typeof PUSH_SECRET_NAME_BY_CHANNEL;
 
@@ -119,6 +121,10 @@ const PUSH_FIELDS_BY_CHANNEL: Record<
   bark: [
     { key: "BARK_DEVICE_KEY", label: "Device Key", password: true, hint: "在 iPhone 的 Bark App 里复制;凭据走 env:/keychain: 引用(保存即入钥匙链)" },
   ],
+  // apprise(10-05-push-apprise):统一推送;唯一凭据位 = Apprise 目标串
+  apprise: [
+    { key: "APPRISE_URL", label: "Apprise 目标串", password: true, hint: "Apprise 原生目标串,如 bark://… 或 pushover://…,逗号或换行分隔多个;凭据走 env:/keychain: 引用(保存即入钥匙链)" },
+  ],
 };
 
 /** 通道 → 「发送测试」的目标凭据键(push.test target = keychain:myia/push/<键>) */
@@ -127,13 +133,15 @@ const PUSH_TEST_TARGET_KEY: Record<PushChannel, string> = {
   telegram: "TELEGRAM_CHAT_ID",
   webhook: "MYIA_WEBHOOK_URL",
   bark: "BARK_DEVICE_KEY",
+  apprise: "APPRISE_URL",
 };
-/** 通道 → 下拉显示名(既有通道 = 原名零漂移;bark 带人话标注,10-05-push-bark) */
+/** 通道 → 下拉显示名(既有通道 = 原名零漂移;bark/apprise 带人话标注) */
 const PUSH_CHANNEL_LABELS: Record<PushChannel, string> = {
   feishu_card: "feishu_card",
   telegram: "telegram",
   webhook: "webhook",
   bark: "Bark(iOS 推送)",
+  apprise: "Apprise(统一推送)",
 };
 const PUSH_CHANNELS = Object.keys(PUSH_SECRET_NAME_BY_CHANNEL) as PushChannel[];
 
@@ -1466,7 +1474,7 @@ export function SettingsScreen() {
               </CardHeader>
                 <CardContent className="flex flex-col gap-1">
                   <div className="divide-y divide-border/60">
-                    <SettingRow label="通道" description="feishu_card / telegram / webhook / bark;通道启停与阈值路由在品类 YAML push: 节">
+                    <SettingRow label="通道" description="feishu_card / telegram / webhook / bark / apprise;通道启停与阈值路由在品类 YAML push: 节">
                       <Select
                         value={push.channel}
                         onValueChange={(channel) =>
@@ -1509,6 +1517,14 @@ export function SettingsScreen() {
                       <p data-testid="bark-endpoint-hint" className="px-1 pb-1 text-2xs text-muted-foreground">
                         推送端点 bark_endpoint:留空 = 官方服务(api.day.app);自建 bark-server
                         填主机地址(如 http://192.168.1.10:8080)——写在品类 YAML push: 节
+                      </p>
+                    ) : null}
+                    {push.channel === "apprise" ? (
+                      // apprise 目标走凭据引用,值为目标串;10-05-push-apprise
+                      <p data-testid="apprise-target-hint" className="px-1 pb-1 text-2xs text-muted-foreground">
+                        目标走 env:/keychain: 引用,值为 Apprise 目标串(bark://…、pushover://…
+                        可逗号分隔多个);需装可选依赖(pip install "myssia[apprise]" 或
+                        uv sync --extra apprise),未装时发送会明确报错、不影响其他通道
                       </p>
                     ) : null}
                   </div>
@@ -1572,7 +1588,7 @@ export function SettingsScreen() {
                       value={push.secretName}
                       onChange={(event) => setPush((prev) => ({ ...prev, secretName: event.target.value }))}
                       error={pushErrors.secretName}
-                      hint="通道目标凭据名(feishu 卡 chat_id / tg token / webhook url / bark device_key)"
+                      hint="通道目标凭据名(feishu 卡 chat_id / tg token / webhook url / bark device_key / apprise targets)"
                     />
                     <FieldInput
                       label="凭据值"

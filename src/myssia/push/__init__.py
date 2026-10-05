@@ -69,6 +69,9 @@ from myssia.push.ntfy import NtfyChannel
 # bark(iOS 即时推送,10-05-push-bark):零依赖 one-shot POST 小件;
 # 无目录寻址(不进 PLATFORMS,同 webhook)。
 from myssia.push.bark import BarkChannel
+# apprise(统一推送,10-05-push-apprise):extras 可选依赖一库通吃 ~160
+# 长尾目标;目标串走凭据引用多目标,无目录寻址(不进 PLATFORMS)。
+from myssia.push.apprise import AppriseChannel
 from myssia.push.feishu_card import (
     API_URL,
     DEFAULT_TOKEN_ENV_REF,
@@ -197,6 +200,9 @@ CHANNELS: dict[str, type] = {
     # bark(10-05-push-bark):iOS 即时推送 one-shot POST;不进 PLATFORMS
     #(Bark 无目录语义,config targets 即拒,同 webhook)。
     "bark": BarkChannel,
+    # apprise(10-05-push-apprise):统一推送(extras 可选);不进 PLATFORMS
+    #(目标=Apprise 原生 URL 串,无目录语义,config targets 即拒,同 bark)。
+    "apprise": AppriseChannel,
     **_W3_LONGTAIL_CHANNELS,
 }
 
@@ -270,6 +276,7 @@ __all__ = [
     "STOCKS_EXAMPLE_TEMPLATE",
     "Channel",
     "BarkChannel",
+    "AppriseChannel",
     "DigestAggregator",
     "DingTalkChannel",
     "FeishuCardChannel",

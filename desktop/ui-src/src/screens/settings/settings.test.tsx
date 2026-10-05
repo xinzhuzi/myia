@@ -496,6 +496,32 @@ describe("设置:推送通道凭据", () => {
     expect(endpointHint).toContain("留空 = 官方服务");
     expect(endpointHint).toContain("自建");
   });
+
+  // apprise(10-05-push-apprise):统一推送通道接入设置→推送表单
+  it("apprise(统一推送):下拉可选;目标串入钥匙链 + 目标引用提示在位", async () => {
+    const state = installSidecar();
+    renderScreen();
+    await openSection("push");
+
+    // Radix Select(mouse 型 pointerDown 才开下拉,惯例同 bark 用例)
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "推送通道" }), { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("option", { name: "Apprise(统一推送)" }));
+
+    // 提示:目标走 env:/keychain: 引用,值为 Apprise 目标串(可逗号分隔多个)
+    const targetHint = screen.getByTestId("apprise-target-hint").textContent ?? "";
+    expect(targetHint).toContain("env:/keychain: 引用");
+    expect(targetHint).toContain("bark://");
+    expect(targetHint).toContain("逗号");
+
+    await typeByLabel("apprise Apprise 目标串", "json://sink/a,bark://key/DEFAULT");
+    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
+    await screen.findByTestId("save-status");
+    expect(callsOf("secret.set")).toContainEqual({
+      name: "myia/push/APPRISE_URL",
+      value: "json://sink/a,bark://key/DEFAULT",
+    });
+    expect(state.secrets.get("myia/push/APPRISE_URL")).toBe("json://sink/a,bark://key/DEFAULT");
+  });
 });
 
 describe("设置:代理池", () => {

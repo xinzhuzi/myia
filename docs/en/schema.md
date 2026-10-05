@@ -38,7 +38,7 @@ entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
-| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `bark` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
+| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `bark` `apprise` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
 | `ROUTE_MODES` | `immediate` `digest` `archive` |
 | `ENRICH_SCORES` | `value` `relevance` `credibility` |
 | `VACUUM_CADENCES` | `daily` `weekly` `monthly` `never` |
@@ -265,7 +265,7 @@ structured `dependency_missing` and fallback to keyword-only scoring).
 
 | Field | Default | Semantics |
 |---|---|---|
-| `channel` | required | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `webhook` / `stdout` / `bark` (iOS push) |
+| `channel` | required | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `webhook` / `stdout` / `bark` (iOS push) / `apprise` (universal push; needs the `myssia[apprise]` extra) |
 | `target` | `null` | Push target, a **pure** `env:`/`keychain:` reference; forbidden on `stdout`, required elsewhere |
 | `route` | `[]` | Threshold routing (table below); empty = the seven-category default mapping (freebie/node/buying-agent → immediate, others → digest) |
 | `template` | `null` | Jinja2 card template (sandboxed render; syntax errors refused at load); omit for the channel's built-in layout |

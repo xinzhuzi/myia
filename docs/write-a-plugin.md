@@ -21,7 +21,7 @@
 | 7 | `classify` | First funnel: built-in seven-category keyword scan (`builtin`; unmatched titles drop) and/or custom `rules` (name / when expression / tag). Zero token. |
 | 8 | `dedup` | Dedup key template, e.g. `{symbol}-{date}` or `{url}`. Composite keys only — never title fingerprints. |
 | 9 | `enrich` | Second funnel: LLM precision scoring — `enabled`, `model` (any OpenAI-compatible endpoint), `scores` (value/relevance/credibility, 0–10), `batch`, `cache` (per-URL result cache), `budget_per_run` (token guardrail; exhausted → keyword-only for the rest of the run), plus `base_url` / `api_key` — each must be a pure `env:`/`keychain:` reference (世事 has no built-in endpoint and no default key). |
-| 10 | `push` | Delivery channels: `channel` (`feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `weixin` / `webhook` / `stdout` / `bark` (iOS push), plus the 22 long-tail platforms `slack` / `discord` / `whatsapp_cloud` / `line` / `qqbot` / `google_chat` / `teams` / `msgraph_webhook` / `matrix` / `mattermost` / `irc` / `simplex` / `signal` / `bluebubbles` / `email` / `sms` / `homeassistant` / `a2a` / `yuanbao` / `buzz` / `photon` / `raft`), `target` (`env:` / `keychain:` refs only; `stdout` takes none), `template` (Jinja2, optional), and webhook-only transport knobs `timeout` / `retries` / `retry_backoff_seconds`. |
+| 10 | `push` | Delivery channels: `channel` (`feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `weixin` / `webhook` / `stdout` / `bark` (iOS push) / `apprise` (universal push via one optional dependency), plus the 22 long-tail platforms `slack` / `discord` / `whatsapp_cloud` / `line` / `qqbot` / `google_chat` / `teams` / `msgraph_webhook` / `matrix` / `mattermost` / `irc` / `simplex` / `signal` / `bluebubbles` / `email` / `sms` / `homeassistant` / `a2a` / `yuanbao` / `buzz` / `photon` / `raft`), `target` (`env:` / `keychain:` refs only; `stdout` takes none), `template` (Jinja2, optional), and webhook-only transport knobs `timeout` / `retries` / `retry_backoff_seconds`. |
 | 11 | `push.route` | Threshold routing per channel, first match wins: `score >= 8` → `immediate`, `>= 5` → `digest` (AM/PM slots), `< 5` → `archive`. Score rules stay dormant until LLM scoring backfills a score. |
 | 12 | `storage` | Data lifecycle: `retention` (e.g. `90d`, expired items auto-purged) and `vacuum` (SQLite VACUUM cadence). |
 
@@ -108,6 +108,12 @@ token; details in `skill/SKILL.md` §2.13):
   `bark_endpoint` unset for the official service (`https://api.day.app`) or set it
   to a self-hosted host (e.g. `http://<host>:8080`, docker `finb/bark-server`);
   notifications carry the fixed `MYIA` group; no `targets` (no directory semantics).
+- `apprise`: `target` = Apprise target-string reference (`env:APPRISE_URL`; the value is
+  one or more native Apprise URLs such as `bark://…` or `pushover://…`, comma/newline
+  separated — one reference, many targets); needs the optional extra
+  `pip install "myssia[apprise]"` — when missing, sends fail structurally with
+  `apprise_unavailable` and `myssia doctor` reports `apprise_not_installed` (users who
+  never configure this channel are never bothered); no `targets` (no directory semantics).
 - `stdout`: zero credentials, first choice for local verification.
 
 ## Example agent session (demo script)

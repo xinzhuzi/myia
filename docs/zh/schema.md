@@ -34,7 +34,7 @@
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
-| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `bark` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
+| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `bark` `apprise` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
 | `ROUTE_MODES` | `immediate` `digest` `archive` |
 | `ENRICH_SCORES` | `value` `relevance` `credibility` |
 | `VACUUM_CADENCES` | `daily` `weekly` `monthly` `never` |
@@ -229,7 +229,7 @@ rate_limit:
 
 | 字段 | 缺省 | 语义 |
 |---|---|---|
-| `channel` | `必填` | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `webhook` / `stdout` / `bark`(iOS 即时推送) |
+| `channel` | `必填` | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `webhook` / `stdout` / `bark`(iOS 即时推送) / `apprise`(统一推送,需 extras `myssia[apprise]`) |
 | `target` | `null` | 推送目标,只能是**纯** `env:`/`keychain:` 引用;`stdout` 禁止配置,其余通道必填 |
 | `route` | `[]` | 阈值路由(见下表);留空 = 七大类缺省映射(羊毛/节点/代买 → immediate,其余 → digest) |
 | `template` | `null` | Jinja2 卡片模板(沙箱渲染,语法错误加载期拒);省略用通道内置版式 |

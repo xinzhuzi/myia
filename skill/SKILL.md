@@ -58,7 +58,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
-| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `bark` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
+| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `bark` `apprise` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
 | `ROUTE_MODES` | `immediate` `digest` `archive` |
 | `ENRICH_SCORES` | `value` `relevance` `credibility` |
 | `VACUUM_CADENCES` | `daily` `weekly` `monthly` `never` |
@@ -193,9 +193,9 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 
 | 字段 | 缺省 | 语义 |
 |---|---|---|
-| `channel` | `必填` | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `weixin` / `webhook` / `stdout` / `bark`(iOS 即时推送) |
+| `channel` | `必填` | `feishu_card` / `telegram` / `ntfy` / `dingtalk` / `wecom` / `weixin` / `webhook` / `stdout` / `bark`(iOS 即时推送) / `apprise`(统一推送,需 extras `myssia[apprise]`) |
 | `target` | `null` | 推送目标,只能是 `env:`/`keychain:` 引用;`stdout` 禁止配置;其余通道必填(配 `targets` 的通道可省) |
-| `targets` | `[]` | 定向推送对象列表,元素 `platform:名称或id`(如 `feishu:AI中转站合伙人群`,自动去重保序);仅寻址通道 `feishu_card`/`telegram`/`ntfy`/`dingtalk`/`wecom`/`weixin` 支持(webhook/stdout/bark 配即拒),同平台约束:平台前缀须与本条目通道一致,跨平台写多条 push;在场时 `target` 可省;优先级:规则级 `targets` > 通道级 `targets` > legacy `target` |
+| `targets` | `[]` | 定向推送对象列表,元素 `platform:名称或id`(如 `feishu:AI中转站合伙人群`,自动去重保序);仅寻址通道 `feishu_card`/`telegram`/`ntfy`/`dingtalk`/`wecom`/`weixin` 支持(webhook/stdout/bark/apprise 配即拒),同平台约束:平台前缀须与本条目通道一致,跨平台写多条 push;在场时 `target` 可省;优先级:规则级 `targets` > 通道级 `targets` > legacy `target` |
 | `route` | `[]` | 阈值路由(见 route 节);留空 = 七大类缺省映射(羊毛/节点/代买 → immediate,其余 → digest) |
 | `template` | `null` | Jinja2 卡片模板(沙箱渲染,未知变量报错);省略用通道内置版式 |
 | `timeout` | `10.0` | 发送超时秒数(**仅 `webhook` 生效**,其他通道配置即拒) |
@@ -226,7 +226,11 @@ target = 会话 peer id(`env:WEIXIN_PEER_ID`,定向写 `weixin:<peer id>`,
 `webhook` 的 target = 端点 URL 引用(如 `env:MYIA_WEBHOOK_URL`);`bark`
 (iOS 即时推送)的 target = device key 引用(`env:BARK_DEVICE_KEY`,在
 iPhone Bark App 里复制),端点非凭据:留空 = 官方服务,自建配
-`bark_endpoint`,通知固定按 `MYIA` 分组;`stdout`
+`bark_endpoint`,通知固定按 `MYIA` 分组;`apprise`(统一推送)的
+target = Apprise 目标串引用(`env:APPRISE_URL`,值为 `bark://…` /
+`pushover://…` 等原生 URL,逗号/换行分隔多目标;需装 extras
+`pip install "myssia[apprise]"`,未装时发送结构化 `apprise_unavailable` +
+doctor finding `apprise_not_installed`,不惊扰未配置用户);`stdout`
 零凭据,本地验证首选。ntfy/钉钉/企微三平台无目录自动发现(蓝本事实),
 `targets` 走直达 id 或别名手工登记(channel_aliases.json)。
 

@@ -531,6 +531,9 @@ def test_new_channels_conform_to_channel_protocol_and_registry():
         # bark(10-05-push-bark):iOS 即时推送零依赖小件;专测见
         # tests/push/test_bark.py。
         "bark",
+        # apprise(10-05-push-apprise):统一推送(extras 可选);专测见
+        # tests/push/test_apprise.py。
+        "apprise",
         *W3_LONGTAIL_NAMES,
     }
     assert TelegramChannel.name == "telegram"
@@ -587,15 +590,21 @@ class TestW3LongtailRegistry:
             )
 
     def test_registry_counts_after_w3_wiring(self):
-        # 通道计数如实:8 既有 + bark(10-05-push-bark)+ 22 长尾 = 31 通道;
-        # 28 家支持目录寻址(webhook/stdout/bark 不支持——bark 无目录语义,
+        # 通道计数如实:8 既有 + bark(10-05-push-bark)+ apprise
+        # (10-05-push-apprise)+ 22 长尾 = 32 通道;28 家支持目录寻址
+        # (webhook/stdout/bark/apprise 不支持——bark/apprise 无目录语义,
         # 同 webhook;feishu_card 通道名经 schema 的 CHANNEL_PLATFORMS 映射到
         # 平台名 feishu,其余平台名 = 通道名)。
         from myssia.schema import CHANNEL_PLATFORMS
 
-        assert len(CHANNELS) == 31
+        assert len(CHANNELS) == 32
         assert len(PLATFORMS) == 28
-        assert set(CHANNELS) - set(CHANNEL_PLATFORMS) == {"webhook", "stdout", "bark"}
+        assert set(CHANNELS) - set(CHANNEL_PLATFORMS) == {
+            "webhook",
+            "stdout",
+            "bark",
+            "apprise",
+        }
         assert set(CHANNEL_PLATFORMS.values()) == set(PLATFORMS)
 
     def test_w3_channels_buildable_under_pipeline_contract(self):

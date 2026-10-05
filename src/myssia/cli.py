@@ -3113,6 +3113,39 @@ def _table_component_findings(
     )
 
 
+def _apprise_component_findings(
+    loaded: Sequence[tuple[str, CategoryConfig]], findings: list[dict[str, Any]]
+) -> None:
+    """apprise 统一推送依赖缺装披露(10-05-push-apprise,table 先例同通道)。
+
+    配置了 ``apprise`` 通道的品类,若 apprise 库未装,发送期只会逐次结构化
+    ``apprise_unavailable``——doctor 提前披露带安装命令(缺装不是配置错,
+    不翻 ``healthy``)。**不惊扰未配置用户**:没配该通道 = 正常态零 finding
+    (惰性 import 面,未配置永不触发;同 TG 凭据不可解析 INFO 先例的克制)。
+    """
+    categories = [
+        plugin_id
+        for plugin_id, config in loaded
+        if any(push.channel == "apprise" for push in config.push)
+    ]
+    if not categories:
+        return
+    if _package_available("apprise"):
+        return
+    _finding(
+        findings,
+        severity="warning",
+        scope="components",
+        code="apprise_not_installed",
+        message=(
+            f"品类 {'、'.join(sorted(categories))} 配置了 apprise 通道(统一推送),"
+            "但当前 Python 环境未安装 apprise 库:该通道推送将结构化失败"
+            "(apprise_unavailable,不阻其他通道)。安装:uv sync --extra apprise"
+            '(或 pip install "myssia[apprise]")'
+        ),
+    )
+
+
 def _print_human_doctor(payload: dict[str, Any]) -> None:
     """人类可读的诊断报告(与 --json 同一信息)。"""
     print(
@@ -3200,6 +3233,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     )
     _telegram_poll_conflict_findings(loaded, findings)
     _table_component_findings(loaded, findings)
+    _apprise_component_findings(loaded, findings)
     proxy_section = _doctor_proxy(args, backend, findings)
     gates_section = _doctor_gates(args, findings)
     payload = _doctor_payload(

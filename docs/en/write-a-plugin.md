@@ -223,6 +223,7 @@ token; details in [skill/SKILL.md](../../skill/SKILL.md) §2.13):
   `bridge_unavailable` error (the config still loads).
 - `webhook`: `target` = endpoint URL reference (e.g. `env:MYIA_WEBHOOK_URL`).
 - `bark` (iOS push): `target` = device key reference (`env:BARK_DEVICE_KEY`, copied from the Bark app on the iPhone); the endpoint is **not** a credential — leave `bark_endpoint` unset for the official service (`https://api.day.app`) or set it to a self-hosted host (e.g. `http://<host>:8080`, docker `finb/bark-server`); notifications carry the fixed `MYIA` group; no `targets` (no directory semantics).
+- `apprise` (universal push): `target` = Apprise target-string reference (`env:APPRISE_URL`; the value is one or more native Apprise URLs such as `bark://…` or `pushover://…`, comma/newline separated — one reference, many targets); needs the optional extra `pip install "myssia[apprise]"` (or `uv sync --extra apprise`) — when missing, sends fail structurally with `apprise_unavailable` and `myssia doctor` reports `apprise_not_installed` (users who never configure this channel are never bothered); no `targets` (no directory semantics).
 - `stdout`: zero credentials, first choice for local verification.
 
 ## Verify and run

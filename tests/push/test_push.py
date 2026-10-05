@@ -698,6 +698,9 @@ def test_feishu_and_stdout_channels_conform_to_channel_protocol(monkeypatch):
         # bark(10-05-push-bark):iOS 即时推送零依赖小件(专测
         # tests/push/test_bark.py)。
         "bark",
+        # apprise(10-05-push-apprise):统一推送 extras 可选通道(专测
+        # tests/push/test_apprise.py)。
+        "apprise",
         # ---- W3 长尾(10-03-messaging-w3-longtail)----
         "slack",
         "discord",
