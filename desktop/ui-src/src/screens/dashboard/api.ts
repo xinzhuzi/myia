@@ -328,8 +328,8 @@ export function toTrendWindow(result: StoreTrendResult, days: number, today: str
 }
 
 /**
- * 拉一个补零趋势窗口(D4 概览条「今日采集」与趋势卡共用:窗口右端即今天,
- * 一次拉数两处消费)。失败上抛,由调用侧降级 —— 趋势不可用时概览格显 —,
+ * 拉一个补零趋势窗口(统一时间窗,补批四:概览采集格与趋势卡同窗一拉,
+ * 窗口右端即今天)。失败上抛,由调用侧降级 —— 趋势不可用时概览格显 —,
  * 不拖垮 doctor/runs 驱动的其余区块。
  */
 export async function fetchTrendWindow(days: number): Promise<TrendDay[]> {
@@ -428,9 +428,10 @@ export function runItemCount(run: DashboardRun): number | null {
 // ---------------------------------------------------------------------------
 // D4 概览条(10-03-ui-deep-imitation;teardown-vercel-dashboard #2:一行四格
 // = 小标签(大写+弱色)+ 大数字(tnum)):采集 / 活跃源 / 推送成功 / 告警。
-// A-dash(10-04-interaction-batch)卡片级时间范围:概览条独立窗口
-// (今日(UTC)/7/14/30 天)—— 只采集与推送两格随窗;活跃源/告警 = doctor
-// 点快照,无时间序列,不随窗(硬切 = 伪窗口),卡面注记口径。
+// 统一时间窗(10-05 补批四,联动合一):概览头 Select(今日(UTC)/7/14/30 天)
+// = 全屏唯一时间窗,驱动概览四格与采集量/成功率两折线(趋势卡自有 Select 已
+// 删);今日档 = 1 天趋势窗。活跃源/告警 = doctor 点快照,无时间序列,不随窗
+// (硬切 = 伪窗口),卡面注记口径。
 // ---------------------------------------------------------------------------
 
 /** 概览窗口档位:今日(UTC)单日,或近 N 天(档位与趋势卡同门;默认今日) */
@@ -476,10 +477,10 @@ export function utcDateOf(iso: string | null): string | null {
 
 /**
  * 概览条装配:doctor(源/告警快照)+ runs(窗口内推送)+ trend 窗口(采集)。
- * trend 由调用侧按同窗口独立拉取(A-dash:概览不与趋势卡共用窗口),失败 =
- * null → 采集格显 —,不拖垮整屏;today 显式传入(纯函数可测)。窗口内推送
- * = startedAt 的 UTC 日落在 [today−(N−1), today](今日档即单日);runs 为
- * runs.list 上限 20 条的快照,窗口口径如实注记由卡面负责。
+ * trend 即趋势卡同份数据(统一时间窗,一窗一拉;补批四前概览另拉一份,已并)。
+ * trend 不可达 = null → 采集格显 —,不拖垮整屏;today 显式传入(纯函数可测)。
+ * 窗口内推送 = startedAt 的 UTC 日落在 [today−(N−1), today](今日档即单日);
+ * runs 为 runs.list 上限 20 条的快照,窗口口径如实注记由卡面负责。
  */
 export function buildOverviewStats(
   doctor: DoctorResult | null,

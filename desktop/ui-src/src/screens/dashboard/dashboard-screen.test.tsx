@@ -3,10 +3,13 @@
  * 仪表盘组件测试 —— mock sidecar(vi.mock "@/lib/api" 的 api 门面,
  * doctor / runs.list / run.status / store.trend 返回夹具;错误用真实
  * SidecarRequestError 注入)。覆盖:状态句(D1 verdict 四态)+ 告警清单
- * (D3 双口径触发)/ 概览条(D4 四格,口径 note 收 ⓘ 悬停 R3)/ 采集量趋势
- * (Select 时间范围 + 自绘 sparkline,窗口切换重查)/ 源健康度卡网格(四态 +
- * 异常优先 + 相对时间锚)/ 品类状态卡(含载入失败)/ 源健康度四态计数 /
- * 最近采集成功率(runs.list 历史行 + run.status 活跃叠加,C3)/ 错误与空态。
+ * (D3 双口径触发 + 补批一 key 去重 + 补批三全局 finding 行)/ 概览条
+ * (D4 四格,口径 note 收 ⓘ 悬停 R3;补批二错误不藏 hover)/ 统一时间窗
+ * (补批四:概览头 Select 驱动四格+两折线,趋势卡自有 Select 已删)/
+ * 采集量趋势(自绘 sparkline,今日档单点)/ 源健康度卡网格(四态 +
+ * 异常优先 + 相对时间锚 + 补批五正常源折叠组)/ 品类状态卡(含载入失败)/
+ * 源健康度四态计数 / 最近采集成功率(runs.list 历史行 + run.status 活跃
+ * 叠加,C3)/ 错误与空态。
  */
 import { cleanup, fireEvent, render, screen, waitFor, act } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -195,7 +198,8 @@ afterEach(() => {
   nextRunId = 0;
 });
 
-// Radix Select 2.x 在 jsdom 里开下拉需要的指针捕获/滚动桩(趋势时间范围切换用例)
+// Radix Select 2.x 在 jsdom 里开下拉需要的指针捕获/滚动桩(时间范围切换用例;
+// 补批四后全屏唯一 Select 在概览头,aria「概览时间范围」)
 beforeAll(() => {
   window.HTMLElement.prototype.hasPointerCapture = () => false;
   window.HTMLElement.prototype.releasePointerCapture = () => {};
@@ -616,6 +620,109 @@ describe("DashboardScreen", () => {
     expect(screen.queryByTestId("dashboard-alert-list")).toBeNull();
   });
 
+  it("告警清单 key 去重(补批一):同品类两条同 code findings 都渲染,key 带序号互异", async () => {
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          findings: [
+            { severity: "warning", scope: "plugin:tech.yaml", code: "env_ref_missing", message: "缺环境变量 FOO" },
+            { severity: "warning", scope: "plugin:tech.yaml", code: "env_ref_missing", message: "缺环境变量 BAR" },
+          ],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    const rows = await screen.findAllByTestId(/^alert-row-/);
+    expect(rows).toHaveLength(2); // 同 code 双条都上屏(旧 key 形态会撞 React key)
+    expect(rows[0].textContent).toContain("缺环境变量 FOO");
+    expect(rows[1].textContent).toContain("缺环境变量 BAR");
+    // testid 即 key:互异 = 序号去重生效
+    expect(rows[0].getAttribute("data-testid")).not.toBe(rows[1].getAttribute("data-testid"));
+  });
+
+  it("告警清单第三行型(补批三):非 plugin scope 的全局 findings 也进行,主体名人话映射、未映射 scope 原文", async () => {
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          findings: [
+            { severity: "error", scope: "credentials", code: "missing", message: "缺少 TG_TOKEN 凭据" },
+            { severity: "warning", scope: "store", code: "schema", message: "数据库版本偏低" },
+          ],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    // 此前该场景告警格>0 清单空;现在全局 finding 行补齐(触发与溢出口同步)
+    const rows = await screen.findAllByTestId(/^alert-row-/);
+    expect(rows).toHaveLength(2);
+    expect(screen.getByTestId("stat-alerts").textContent).toContain("2");
+    expect(rows[0].textContent).toContain("凭据"); // scope=credentials 人话映射
+    expect(rows[0].textContent).toContain("异常"); // error → 异常词(不只靠色)
+    expect(rows[0].textContent).toContain("缺少 TG_TOKEN 凭据"); // message 原文
+    expect(rows[0].getAttribute("title")).toBe("缺少 TG_TOKEN 凭据"); // title=全文
+    expect(rows[0].getAttribute("href")).toBe("#/sources");
+    expect(rows[1].textContent).toContain("store"); // 未映射 scope 原文直用
+    expect(rows[1].textContent).toContain("提醒"); // warning → 提醒词
+    expect(rows[1].textContent).toContain("数据库版本偏低");
+    expect(screen.queryByTestId("dashboard-alert-overflow")).toBeNull();
+  });
+
+  it("错误不藏 hover(补批二):趋势拉取失败 → 采集格 alert note 明文在屏,meta 型 note 不落明文(仍走 ⓘ 悬停)", async () => {
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    storeTrendMock.mockRejectedValue(
+      new SidecarRequestError({ code: "db_locked", path: "$", message: "数据库被锁" }),
+    );
+    render(<DashboardScreen />);
+
+    await screen.findByTestId("category-tech.yaml");
+    // alert 分支:错误明文挂在采集格(R3:错误不藏 hover)
+    await waitFor(() =>
+      expect(screen.getByTestId("stat-window-items").textContent).toContain("趋势不可达(db_locked)"),
+    );
+    expect(screen.getByTestId("stat-window-items").textContent).toContain("如实显 —");
+    // meta 分支:口径 note 不落明文,悬停可查(推送成功/活跃源两格)
+    expect(screen.getByTestId("stat-window-push").textContent).not.toContain("受最近 20 轮上限");
+    expect(hoverTooltip(screen.getByRole("button", { name: "推送成功说明" }))).toContain(
+      "受最近 20 轮上限(runs.list)",
+    );
+    expect(screen.getByTestId("stat-active-sources").textContent).not.toContain("共 3 源");
+    expect(hoverTooltip(screen.getByRole("button", { name: "活跃源说明" }))).toContain(
+      "共 3 源 · ok+degraded",
+    );
+  });
+
+  it("错误不藏 hover(低危②护栏):doctor 分区失败 + 趋势失败 → 「诊断不可达」「趋势不可达」明文在屏,alert 态无 ⓘ 说明钮", async () => {
+    // review 低危②:noteKind=alert 双分支明文此前零断言(「趋势不可达」半边由
+    // 上一用例覆盖,本例补「诊断不可达」半边并作双错同屏护栏)。与 meta 态
+    // 「textContent 不含口径明文」反向断言先例互补,方向勿反:alert = 正向断言
+    mockSidecar(
+      Promise.reject(new SidecarRequestError({ code: "internal_error", path: "$", message: "Traceback …" })),
+      Promise.resolve({ runs: [] }),
+    );
+    storeTrendMock.mockRejectedValue(
+      new SidecarRequestError({ code: "internal_error", path: "$", message: "Traceback …" }),
+    );
+    render(<DashboardScreen />);
+
+    // 活跃源格:doctor 分区失败 → totalSources=null →「诊断不可达」明文(alert 分支)
+    const active = await screen.findByTestId("stat-active-sources");
+    expect(active.textContent).toContain("诊断不可达 · doctor 分区失败");
+    // alert 态不挂 ⓘ 说明钮(明文直显,不走 hover)
+    expect(screen.queryByRole("button", { name: "活跃源说明" })).toBeNull();
+    // 采集格:store.trend 失败(非 pyenv 码)→「趋势不可达(code)」明文 + 如实显 —
+    await waitFor(() =>
+      expect(screen.getByTestId("stat-window-items").textContent).toContain("趋势不可达(internal_error)"),
+    );
+    expect(screen.getByTestId("stat-window-items").textContent).toContain("如实显 —");
+    expect(screen.queryByRole("button", { name: "今日采集说明" })).toBeNull();
+  });
+
   it("试跑徽标:dry 活跃行标「试跑」,title 留 dry run 技术注(dry→试跑,10-05-dashboard-glance)", async () => {
     mockSidecar(
       Promise.resolve(fixtureDoctor()),
@@ -659,8 +766,8 @@ describe("DashboardScreen", () => {
     expect(
       screen.getByRole("button", { name: "刷新数据" }).querySelector("svg")?.getAttribute("class"),
     ).toContain("animate-spin");
-    // 趋势同窗重查(refreshTrend + 概览窗各一笔)
-    await waitFor(() => expect(storeTrendMock.mock.calls.length).toBe(trendCallsBefore + 2));
+    // 趋势重查(统一时间窗:refreshTrend 单笔 store.trend,概览不再另拉)
+    await waitFor(() => expect(storeTrendMock.mock.calls.length).toBe(trendCallsBefore + 1));
 
     act(() => release?.(fixtureDoctor()));
     await waitFor(() => expect(doctorMock).toHaveBeenCalledTimes(2));
@@ -739,10 +846,10 @@ describe("DashboardScreen", () => {
     expect(screen.getByTestId("stat-window-push").textContent).toContain("2"); // 2 次 ok 推送
     expect(screen.getByTestId("stat-alerts").textContent).toContain("2"); // error+warning 各一
     expect(screen.getByTestId("dashboard-overview")).toBeTruthy();
-    expect(storeTrendMock).toHaveBeenCalledWith({ days: 1 }); // A-dash:概览独立 1 天窗
+    expect(storeTrendMock).toHaveBeenCalledWith({ days: 1 }); // 统一时间窗:默认今日 = 1 天窗(趋势卡同窗)
   });
 
-  it("A-dash 概览窗口:Select 切 7 天 → 采集格=窗口求和、推送格吃窗口内 run;活跃源/告警保持快照并注记", async () => {
+  it("统一时间窗切 7 天:采集格=窗口求和、推送格吃窗口内 run;活跃源/告警保持快照并注记", async () => {
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
     const twoDaysAgo = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
@@ -794,7 +901,7 @@ describe("DashboardScreen", () => {
     await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("4"));
     expect(screen.getByTestId("stat-window-push").textContent).toContain("—");
 
-    // 概览 Select 切 7 天(与趋势卡 Select 同款交互;Radix 需 mouse 型 pointerDown)
+    // 概览 Select 切 7 天(补批四后 = 全屏唯一时间窗;Radix 需 mouse 型 pointerDown)
     fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
       button: 0,
       ctrlKey: false,
@@ -802,7 +909,7 @@ describe("DashboardScreen", () => {
     });
     const option = await screen.findByRole("option", { name: "7 天" });
     fireEvent.click(option);
-    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 })); // 独立重查
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 })); // 统一窗重查
 
     // 采集格 = 窗口求和 2+3+4=9;推送格 = 窗口内 run 的 ok 计数 2
     await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("9"));
@@ -822,7 +929,7 @@ describe("DashboardScreen", () => {
     );
   });
 
-  it("趋势(D4/D5):sparkline 画补零等长窗口(默认 14 点),Select 切 7 天重查 store.trend", async () => {
+  it("趋势(补批四统一时间窗):默认今日 = 1 天窗单点如实画,概览 Select 切 14 天 → 补零 14 点重查;趋势卡无自有 Select", async () => {
     const today = new Date().toISOString().slice(0, 10);
     mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
     storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 3 }] });
@@ -830,21 +937,27 @@ describe("DashboardScreen", () => {
 
     const spark = await screen.findByTestId("dashboard-sparkline");
     const polyline = spark.querySelector("polyline");
-    expect(polyline).toBeTruthy();
-    expect(polyline?.getAttribute("points")?.trim().split(/\s+/)).toHaveLength(14); // 补零 = 等长序列
-    expect(screen.getByTestId("trend-total").textContent).toContain("共 3 条");
-    expect(storeTrendMock).toHaveBeenCalledWith({ days: 14 }); // 默认窗口
+    expect(polyline?.getAttribute("points")?.trim().split(/\s+/)).toHaveLength(1); // 单点居中
+    expect(screen.getByTestId("trend-total").textContent).toContain("今日共 3 条");
+    expect(storeTrendMock).toHaveBeenCalledWith({ days: 1 }); // 默认今日 = 1 天窗
+    // 趋势卡自有 Select 已删(统一时间窗,窗口只在概览头)
+    expect(screen.queryByRole("combobox", { name: "趋势时间范围" })).toBeNull();
 
-    // Select 时间范围切换(teardown #6):Radix 下拉仅对 mouse 型 pointerDown 开
-    // (react-select dist index.mjs:214 的 pointerType==="mouse" 门)→ 显式带 pointerType
-    fireEvent.pointerDown(screen.getByRole("combobox", { name: "趋势时间范围" }), {
+    // 概览头 Select 切 14 天(teardown #6 交互保留,窗口换手到概览头)→ 同窗重查 + 补零等长
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
       button: 0,
       ctrlKey: false,
       pointerType: "mouse",
     });
-    const option = await screen.findByRole("option", { name: "7 天" });
+    const option = await screen.findByRole("option", { name: "14 天" });
     fireEvent.click(option);
-    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 }));
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 14 }));
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("dashboard-sparkline").querySelector("polyline")?.getAttribute("points")?.trim().split(/\s+/),
+      ).toHaveLength(14), // 补零 = 等长序列
+    );
+    expect(screen.getByTestId("trend-total").textContent).toContain("近 14 天共 3 条");
   });
 
   it("趋势独立降级:store.trend 拒绝 → 趋势卡显错、概览采集格如实 — 且注记错误码,doctor 区块照常", async () => {
@@ -861,7 +974,7 @@ describe("DashboardScreen", () => {
     expect(screen.getByTestId("category-tech.yaml")).toBeTruthy();
   });
 
-  it("源健康度卡网格(D4):四态卡 + 异常源(dead)排前 + 观测时间锚回 runs.list + 无观测显 —", async () => {
+  it("源健康度卡网格(D4):四态卡 + 异常源(dead)排前 + 观测时间锚回 runs.list + 无观测显 —;ok 卡默认折叠点开后可见", async () => {
     // 90 分钟前启动的 run(留 ~30 分钟余量,相对时间稳定落「1 小时前」)
     const observedRunStarted = new Date(Date.now() - 90 * 60_000).toISOString();
     const observedRun = fixtureHistoryRun({
@@ -887,19 +1000,81 @@ describe("DashboardScreen", () => {
     );
     render(<DashboardScreen />);
 
+    // 坏源照旧铺开:dead 卡即时可见,异常优先排序在 unknown 卡前
+    const deadCard = await screen.findByTestId("source-card-tech.yaml#deadone");
+    expect(deadCard.textContent).toContain("失效");
+    const unknownCard = screen.getByTestId("source-card-tech.yaml#fresh");
+    expect(deadCard.compareDocumentPosition(unknownCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("source-health-grid").textContent).not.toContain("hn"); // ok 卡不在坏源栅格
+
+    // 补批五:ok 卡默认收起,点开折叠组后可见且内容齐全
+    expect(screen.queryByTestId("source-card-tech.yaml#hn")).toBeNull();
+    fireEvent.click(screen.getByTestId("source-ok-toggle"));
     const okCard = await screen.findByTestId("source-card-tech.yaml#hn");
     expect(okCard.textContent).toContain("正常");
     expect(okCard.textContent).toContain("1 小时前"); // latest.run_id → runs.list startedAt
     expect(okCard.textContent).toContain("最近 5 条");
-    expect(screen.getByTestId("source-health-grid")).toBeTruthy();
-
-    // 异常优先:dead 卡排在 ok 卡之前(buildSourceHealthCards 状态序)
-    const deadCard = screen.getByTestId("source-card-tech.yaml#deadone");
-    expect(deadCard.textContent).toContain("失效");
+    // 异常优先:dead 卡排在 ok 卡之前(坏源栅格在折叠组之前)
     expect(deadCard.compareDocumentPosition(okCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     // 无观测(latest=null)→ 相对时间如实 —
-    expect(screen.getByTestId("source-card-tech.yaml#fresh").textContent).toContain("—");
+    expect(unknownCard.textContent).toContain("—");
+  });
+
+  it("源健康度折叠正常源(补批五):默认收起不渲染组,点开 aria 展开,再点收起;零 ok 不渲染折叠组", async () => {
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [
+            fixturePlugin({
+              sources: [
+                fixtureSource("deadone", "dead"),
+                fixtureSource("okone", "ok"),
+                fixtureSource("oktwo", "ok"),
+              ],
+            }),
+          ],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    await screen.findByTestId("source-card-tech.yaml#deadone"); // 坏源照旧铺开
+    const toggle = screen.getByRole("button", { name: /2 个源正常/ });
+    expect(toggle.getAttribute("data-testid")).toBe("source-ok-toggle");
+    expect(toggle.textContent).toContain("2 个源正常 · 展开");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false"); // 默认收起
+    expect(toggle.getAttribute("aria-controls")).toBe("source-ok-group");
+    expect(screen.queryByTestId("source-ok-group")).toBeNull(); // 收起 = 区域不渲染
+    expect(screen.queryByTestId("source-card-tech.yaml#okone")).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("source-ok-toggle").getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByTestId("source-ok-toggle").textContent).toContain("收起");
+    const group = await screen.findByTestId("source-ok-group");
+    expect(group.textContent).toContain("okone");
+    expect(group.textContent).toContain("oktwo");
+    expect(screen.getByTestId("source-card-tech.yaml#okone").textContent).toContain("正常");
+
+    fireEvent.click(screen.getByTestId("source-ok-toggle"));
+    await waitFor(() => expect(screen.queryByTestId("source-ok-group")).toBeNull());
+    expect(screen.getByTestId("source-ok-toggle").getAttribute("aria-expanded")).toBe("false");
+
+    // 零 ok:全坏源时不渲染折叠组(坏源栅格保留;cleanup 卸上一渲染再验)
+    cleanup();
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [fixturePlugin({ sources: [fixtureSource("deadone", "dead"), fixtureSource("d", "degraded")] })],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+    await screen.findByTestId("source-card-tech.yaml#deadone");
+    expect(screen.queryByTestId("source-ok-toggle")).toBeNull();
+    expect(screen.getByTestId("source-health-grid").textContent).toContain("d");
   });
 
   // -------------------------------------------------------------------------
@@ -971,20 +1146,29 @@ describe("DashboardScreen", () => {
     });
     render(<DashboardScreen />);
 
+    // 统一时间窗:默认今日 = 1 天窗,切 14 天拉满窗口再断言三点序列
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("option", { name: "14 天" }));
+
     const rate = await screen.findByTestId("dashboard-rate-sparkline");
     const polyline = rate.querySelector("polyline");
     expect(polyline).toBeTruthy();
     // 固定 [0,1] 刻度(max=1):0.4 → y=3+42*0.6=28.2;0.8 → y=3+42*0.2=11.4。
-    // max 归一会让 0.8 贴顶(3.0)、0.4 半程(24.0)—— 本断言即真刻度护栏。
+    // 两点序列(零完结日不入线);max 归一会让 0.8 贴顶(3.0)、0.4 半程
+    // (24.0)—— 本断言即真刻度护栏。
     expect(polyline?.getAttribute("points")).toBe("3.0,28.2 257.0,11.4");
     // 摘要 = 累计口径(非均值):finished 15(10+5)、success 10 → 67%
     const summary = screen.getByTestId("rate-summary");
     expect(summary.textContent).toContain("近 14 天累计成功率 67%(10/15 次成功)");
     expect(rate.getAttribute("aria-label")).toContain("无完结采集的日子不入线");
-    expect(runsTrendMock).toHaveBeenCalledWith({ days: 14 }); // 与采集量同默认窗口
+    expect(runsTrendMock).toHaveBeenCalledWith({ days: 14 }); // 与采集量同窗(统一时间窗)
   });
 
-  it("G6 窗口切换:Select 切 7 天 → runs.trend 与 store.trend 同窗重查", async () => {
+  it("统一时间窗(补批四):概览 Select 切 7 天 → runs.trend 与 store.trend 同窗重查(默认今日 = 1 天窗)", async () => {
     const today = new Date().toISOString().slice(0, 10);
     mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
     storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 3 }] });
@@ -993,8 +1177,10 @@ describe("DashboardScreen", () => {
     });
     render(<DashboardScreen />);
     await screen.findByTestId("dashboard-rate-sparkline");
+    expect(storeTrendMock).toHaveBeenCalledWith({ days: 1 }); // 默认今日窗
+    expect(runsTrendMock).toHaveBeenCalledWith({ days: 1 });
 
-    fireEvent.pointerDown(screen.getByRole("combobox", { name: "趋势时间范围" }), {
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
       button: 0,
       ctrlKey: false,
       pointerType: "mouse",

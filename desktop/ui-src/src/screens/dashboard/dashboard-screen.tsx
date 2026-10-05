@@ -46,7 +46,6 @@ import {
   summarizeRuns,
   summarizeSourceHealth,
   TREND_WINDOW_DAYS,
-  TREND_WINDOW_DEFAULT,
   trendCounts,
   utcToday,
 } from "./api";
@@ -386,28 +385,43 @@ function VerdictRow({ verdict }: { verdict: DashboardVerdict }) {
   );
 }
 
-/** 告警清单行视图模型(坏源行 + 品类级 finding 补位行的统一形状) */
+/** 告警清单行视图模型(坏源行 + 品类级 finding 补位行 + 全局 finding 行的统一形状) */
 interface AlertRowModel {
   key: string;
   /** 行首状态点色(健康度四色 token 同源) */
   dot: string;
-  /** 状态词(不只靠色:失效/退化/未知;品类级 finding = 异常/提醒) */
+  /** 状态词(不只靠色:失效/退化/未知;finding 行 = 异常/提醒) */
   stateLabel: string;
-  /** 主名:源名 / 品类名 */
+  /** 主名:源名 / 品类名 / 全局 finding 主体名(凭据、数据库等) */
   primary: string;
-  /** 次段:源行 = 所属品类名;品类行无 */
+  /** 次段:源行 = 所属品类名;品类行/全局行无 */
   secondary: string | null;
   /** 原因明细(reason/finding.message 原文直用——cli 已人话,零映射;行内截断) */
   detail: string;
-  /** 相对时间右置(源行);品类级 finding 无时刻 = null */
+  /** 相对时间右置(源行);finding 行无时刻 = null */
   time: string | null;
 }
 
 /**
- * 告警清单行装配(D3):坏源行优先(sourceCards 已按坏者优先排序),品类级
- * findings(scope 恰为 `plugin:<file>`,非 `/source:` 后缀)补位。触发 =
- * 告警(findings)>0 或坏源(state≠ok)>0——两数据面不重合(findings 可只打
- * 品类级、退化可无 finding),双向都要兜;行数不足时两类拼合计。
+ * 全局 finding 主体名(scope 人话映射):cli 实况非 plugin scope = credentials /
+ * store / gates / feedback / components;映射只做已知主词,其余 scope 原文如实
+ * (补批三:credentials/db 例定映射,store 等未见例词原文直用零自造)。
+ */
+function findingScopeLabel(scope: string): string {
+  if (scope === "credentials") return "凭据";
+  if (scope === "db") return "数据库";
+  return scope;
+}
+
+/**
+ * 告警清单行装配(D3 + 补批一/三):坏源行优先(sourceCards 已按坏者优先
+ * 排序);品类级 findings(scope 恰为 `plugin:<file>`,非 `/source:` 后缀)
+ * 补位;全局 findings(非 plugin:* scope,如 credentials/store)也进行——
+ * 告警格计数吃 findings 全量,清单漏全局行会出现「格>0 清单空」的两面不齐。
+ * 触发 = 告警(findings)>0 或坏源(state≠ok)>0——两数据面不重合(findings
+ * 可只打品类级、退化可无 finding),双向都要兜;行数不足时多类拼合计。
+ * key 带序号去重:同品类/同 scope 可载入多条同 code finding(补批一),
+ * 仅 file+code 会撞 React key。
  */
 function buildAlertRows(
   sourceCards: SourceHealthCardModel[],
@@ -428,10 +442,12 @@ function buildAlertRows(
     });
   }
   for (const category of categories) {
+    let seq = 0; // 同品类同 code 可多条:序号保 key 唯一
     for (const finding of findings) {
       if (finding.scope !== `plugin:${category.file}`) continue;
+      seq += 1;
       rows.push({
-        key: `category-${category.file}-${finding.code}`,
+        key: `category-${category.file}-${finding.code}-${seq}`,
         dot: finding.severity === "error" ? "bg-dead" : "bg-warning",
         stateLabel: finding.severity === "error" ? "异常" : "提醒",
         primary: category.name,
@@ -440,6 +456,22 @@ function buildAlertRows(
         time: null,
       });
     }
+  }
+  let scopeSeq = 0;
+  for (const finding of findings) {
+    // plugin:* 前缀 = 品类级(上循环)/ 源级(不入清单)两类,均不进全局行
+    if (finding.scope.startsWith("plugin:")) continue;
+    if (finding.severity !== "error" && finding.severity !== "warning") continue;
+    scopeSeq += 1;
+    rows.push({
+      key: `scope-${finding.scope}-${finding.code}-${scopeSeq}`,
+      dot: finding.severity === "error" ? "bg-dead" : "bg-warning",
+      stateLabel: finding.severity === "error" ? "异常" : "提醒",
+      primary: findingScopeLabel(finding.scope),
+      secondary: null,
+      detail: finding.message,
+      time: null,
+    });
   }
   return rows;
 }
@@ -690,11 +722,15 @@ function SourceCard({ card }: { card: SourceHealthCardModel }) {
   );
 }
 
+/** 源健康度卡栅格类(坏源栅格与 ok 折叠组栅格同款;补批五拆两栅格共用) */
+const SOURCE_GRID_CLASS = "grid grid-cols-1 gap-grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+
 /**
  * 仪表盘(结构性重做,10-03-ui-deep-imitation D4;对标 teardown-vercel-dashboard):
- * 概览条(今日采集/活跃源/推送成功/告警)→ 采集量趋势(Select 时间范围 + 自绘
- * SVG sparkline,D5 决议⑥零依赖;活跃 run 时末点呼吸)+ 品类状态 → 源健康度
- * 卡网格(StatusDot 四色 + 相对时间,gap-6)→ 近期 run 成功率 + 反馈统计。
+ * 概览条(今日采集/活跃源/推送成功/告警;头 Select = 全屏唯一时间窗,补批四)
+ * → 采集量趋势(自绘 SVG sparkline,D5 决议⑥零依赖;窗口随概览 Select;活跃
+ * run 时末点呼吸)+ 成功率第二序列 → 源健康度卡网格(StatusDot 四色 + 相对
+ * 时间,gap-6;补批五:正常源折叠组)→ 品类状态 → 最近采集成功率 + 反馈统计。
  * 数据 = doctor + runs.list + run.status + store.trend(见 ./api;C3:重启 .app
  * 后历史 run 仍可达)。加载/错误/空态三态齐备;趋势独立降级不拖垮整屏。
  */
@@ -702,16 +738,17 @@ export function DashboardScreen() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<SidecarRequestError | null>(null);
   const [loading, setLoading] = useState(true);
-  const [windowDays, setWindowDays] = useState<TrendWindowDays>(TREND_WINDOW_DEFAULT);
   const [trend, setTrend] = useState<TrendDay[] | null>(null);
   const [trendError, setTrendError] = useState<SidecarRequestError | null>(null);
   const [outcomes, setOutcomes] = useState<RunOutcomeDay[] | null>(null);
   const [outcomeError, setOutcomeError] = useState<SidecarRequestError | null>(null);
   const [trendLoading, setTrendLoading] = useState(true);
-  // A-dash(10-04-interaction-batch):概览条独立窗口,不与趋势卡共用(切换互不牵连)
+  // 统一时间窗(补批四,联动合一):概览头 Select = 全屏唯一时间窗,驱动概览
+  // 四格 + 采集量趋势 + 成功率两折线(趋势卡自有 Select 已删);今日档 = 1 天
+  // 趋势窗(单点,sparkline 单值居中已有处理,如实画)
   const [overviewWindow, setOverviewWindow] = useState<OverviewWindow>(OVERVIEW_WINDOW_DEFAULT);
-  const [overviewTrend, setOverviewTrend] = useState<TrendDay[] | null>(null);
-  const [overviewTrendError, setOverviewTrendError] = useState<SidecarRequestError | null>(null);
+  // 源健康度折叠正常源(补批五):坏源照旧铺开,ok 源进折叠组默认收起
+  const [okSourcesExpanded, setOkSourcesExpanded] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -730,11 +767,12 @@ export function DashboardScreen() {
   }, []);
 
   /**
-   * 双趋势同窗并发拉取(G6):采集量(store.trend)与成功率(runs.trend)
-   * allSettled 分流 —— 一条失败另一条照画,各自错误各自降级(fbbaaa7 分区
-   * 降级判例,勿用会一败俱败的 Promise.all)。
+   * 双趋势同窗并发拉取(统一时间窗后单窗口单拉数):采集量(store.trend)与
+   * 成功率(runs.trend)allSettled 分流 —— 一条失败另一条照画,各自错误各自
+   * 降级(fbbaaa7 分区降级判例,勿用会一败俱败的 Promise.all);概览采集格
+   * 同吃 trend(趋势卡与概览四格共用一窗数据,不再另拉一份)。
    */
-  const refreshTrend = useCallback(async (days: TrendWindowDays) => {
+  const refreshTrend = useCallback(async (days: number) => {
     setTrendLoading(true);
     setTrendError(null);
     setOutcomeError(null);
@@ -753,44 +791,25 @@ export function DashboardScreen() {
     setTrendLoading(false);
   }, []);
 
-  /**
-   * 概览独立趋势窗(A-dash):按概览窗口另拉一份 store.trend(今日档 = 1 天
-   * 窗口),失败自降级 —— 采集格显 — + 注记错误码,活跃源/告警/推送照
-   * doctor/runs 装配,不拖垮概览其余格。切换先清旧窗数据(不用旧窗和冒充新窗)。
-   */
-  const refreshOverview = useCallback(async (window: OverviewWindow) => {
-    setOverviewTrend(null);
-    setOverviewTrendError(null);
-    try {
-      setOverviewTrend(await fetchTrendWindow(overviewTrendDays(window)));
-    } catch (err) {
-      setOverviewTrendError(
-        err instanceof SidecarRequestError
-          ? err
-          : new SidecarRequestError({ code: "transport_error", path: "$", message: String(err) }),
-      );
-    }
-  }, []);
-
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
+  // 统一时间窗:概览窗直接驱动两折线(今日档 = 1 天窗,overviewTrendDays 换算)
   useEffect(() => {
-    void refreshTrend(windowDays);
-  }, [refreshTrend, windowDays]);
-
-  useEffect(() => {
-    void refreshOverview(overviewWindow);
-  }, [refreshOverview, overviewWindow]);
+    void refreshTrend(overviewTrendDays(overviewWindow));
+  }, [refreshTrend, overviewWindow]);
 
   const healthCounts: SourceHealthCounts | null = data?.doctor ? summarizeSourceHealth(data.doctor) : null;
   const runSummary: RunSuccessSummary | null = data ? summarizeRuns(data.runs) : null;
   const categories: CategoryCardModel[] = data?.doctor ? buildCategoryCards(data.doctor) : [];
   const sourceCards: SourceHealthCardModel[] = data?.doctor ? buildSourceHealthCards(data.doctor, data.runs) : [];
+  // 统一时间窗:概览四格与趋势卡同吃一份 trend(单窗口单拉数)
   const overview: OverviewStats | null = data
-    ? buildOverviewStats(data.doctor, data.runs, overviewTrend, utcToday(), overviewWindow)
+    ? buildOverviewStats(data.doctor, data.runs, trend, utcToday(), overviewWindow)
     : null;
+  /** 统一窗口人话前缀(可见文案与 aria 同词):今日 / 近 N 天 */
+  const windowLabel = overviewWindow === "today" ? "今日" : `近 ${overviewWindow} 天`;
 
   const counts = trend ? trendCounts(trend) : [];
   const trendTotal = counts.reduce((sum, count) => sum + count, 0);
@@ -807,6 +826,9 @@ export function DashboardScreen() {
   const alertRows = buildAlertRows(sourceCards, categories, data?.doctor?.findings ?? []);
   const deadCategoryCount = categories.filter((category) => category.tone === "dead").length;
   const warningCategoryCount = categories.filter((category) => category.tone === "warning").length;
+  // 补批五:坏源(state≠ok)照旧铺开,ok 源收进折叠组
+  const badSourceCards = sourceCards.filter((card) => card.state !== "ok");
+  const okSourceCards = sourceCards.filter((card) => card.state === "ok");
 
   return (
     <div data-testid="dashboard-screen-root" className="flex flex-col gap-block pb-6">
@@ -850,8 +872,9 @@ export function DashboardScreen() {
           终审修整:单卡 divide-x 四格 → 节头 + 四张独立等宽等高卡(VL 指认
           「四卡紧密堆叠/卡高不一/告警卡错位」);节头与源健康度/品类状态
           同款家族(图标+标题+右侧窗口 Select)。
-          A-dash:独立窗口 Select(今日(UTC)/7/14/30 天,趋势卡同款形态)——
-          采集/推送两格随窗;活跃源/告警 = doctor 点快照不随窗,窗口档注记口径 */}
+          统一时间窗(补批四):此 Select = 全屏唯一时间窗(今日(UTC)/7/14/30
+          天),同步驱动概览四格与下方两折线;活跃源/告警 = doctor 点快照
+          不随窗,窗口档注记口径 */}
       <section
         data-testid="dashboard-overview"
         aria-label={overviewWindow === "today" ? "今日概览" : `近 ${overviewWindow} 天概览`}
@@ -867,9 +890,16 @@ export function DashboardScreen() {
           <div className="flex items-center gap-2">
             <Select
               value={overviewWindow === "today" ? "today" : String(overviewWindow)}
-              onValueChange={(value) =>
-                setOverviewWindow(value === "today" ? "today" : (Number(value) as TrendWindowDays))
-              }
+              onValueChange={(value) => {
+                const next: OverviewWindow =
+                  value === "today" ? "today" : (Number(value) as TrendWindowDays);
+                if (next === overviewWindow) return;
+                // 统一时间窗:切窗即弃旧窗趋势数据(不用旧窗和冒充新窗),
+                // effect 按新窗重查补新;概览四格与两折线同步换窗
+                setTrend(null);
+                setOutcomes(null);
+                setOverviewWindow(next);
+              }}
             >
               <SelectTrigger size="sm" className="w-28" aria-label="概览时间范围">
                 <SelectValue />
@@ -885,8 +915,9 @@ export function DashboardScreen() {
             </Select>
             {/* 刷新钮(10-05 二迁:独立刷新行 → 概览卡头右上角,不占独立行;
                 KsIconButton 同解剖 28px ghost 图标钮,sources-table 判例;
-                onClick 沿既有刷新逻辑 refresh + refreshTrend + refreshOverview,
-                loading 期 RefreshCw 原地自转(updater-card 同款)) */}
+                onClick 沿既有刷新逻辑 refresh + refreshTrend(统一窗后趋势
+                单笔重查,概览不再另拉),loading 期 RefreshCw 原地自转
+                (updater-card 同款)) */}
             <Button
               variant="ghost"
               size="icon"
@@ -896,8 +927,7 @@ export function DashboardScreen() {
               disabled={loading}
               onClick={() => {
                 void refresh();
-                void refreshTrend(windowDays);
-                void refreshOverview(overviewWindow);
+                void refreshTrend(overviewTrendDays(overviewWindow));
               }}
             >
               <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
@@ -914,15 +944,15 @@ export function DashboardScreen() {
                     label={overviewWindow === "today" ? "今日采集" : `近 ${overviewWindow} 天采集`}
                     value={overview.windowItems}
                     note={
-                      overviewTrendError !== null
-                        ? overviewTrendError.code === "pyenv_not_ready"
+                      trendError !== null
+                        ? trendError.code === "pyenv_not_ready"
                           ? "数据待 Python 环境配置 · 如实显 —"
-                          : `趋势不可达(${overviewTrendError.code})· 如实显 —`
+                          : `趋势不可达(${trendError.code})· 如实显 —`
                         : overviewWindow === "today"
                           ? "UTC 日口径 · items 入库"
                           : `UTC 逐日 ${overviewWindow} 天求和 · items 入库`
                     }
-                    noteKind={overviewTrendError !== null ? "alert" : "meta"}
+                    noteKind={trendError !== null ? "alert" : "meta"}
                   />
                   <StatCell
                     testid="stat-active-sources"
@@ -974,9 +1004,10 @@ export function DashboardScreen() {
 
       {/* R2 刀2 重排:趋势卡升全宽 hero(与品类卡的配对等高拉伸会把短卡
           拉成空壳——实测 679px 等高中趋势卡近半是死区;Linear 参考亦为
-          全宽区块纵向节奏),品类状态独立成节移至源健康度之下 */}
+          全宽区块纵向节奏),品类状态独立成节移至源健康度之上 */}
       <section aria-label="采集量趋势" className="px-6">
-        {/* 采集量趋势(teardown #6:Select 时间范围 + 自绘 sparkline;building 态末点呼吸) */}
+        {/* 采集量趋势(teardown #6:自绘 sparkline;building 态末点呼吸)。
+            统一时间窗(补批四):窗口随概览头 Select,趋势卡不再自有 Select */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-2">
@@ -989,23 +1020,8 @@ export function DashboardScreen() {
                   </Badge>
                 ) : null}
               </CardTitle>
-              <Select
-                value={String(windowDays)}
-                onValueChange={(value) => setWindowDays(Number(value) as TrendWindowDays)}
-              >
-                <SelectTrigger size="sm" className="w-28" aria-label="趋势时间范围">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TREND_WINDOW_DAYS.map((option) => (
-                    <SelectItem key={option} value={String(option)}>
-                      {option} 天
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
-            <CardDescription>每日入库条目数(UTC 逐日;时间范围切换即时重查)</CardDescription>
+            <CardDescription>每日入库条目数(UTC 逐日;窗口随概览时间范围)</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {trendLoading && trend === null ? (
@@ -1028,7 +1044,7 @@ export function DashboardScreen() {
                   yLabels={[`${trendPeak}`, `${Math.round(trendPeak / 2)}`, "0"]}
                   data-testid="dashboard-sparkline"
                   pulse={collecting}
-                  aria-label={`近 ${windowDays} 天采集量趋势,共 ${trendTotal} 条,峰值 ${trendPeak} 条`}
+                  aria-label={`${windowLabel}采集量趋势,共 ${trendTotal} 条,峰值 ${trendPeak} 条`}
                 />
                 {trend !== null && trend.length > 0 ? (
                   <p
@@ -1042,19 +1058,19 @@ export function DashboardScreen() {
                 ) : null}
                 <p className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
                   <span data-testid="trend-total">
-                    近 {windowDays} 天共 {trendTotal} 条 · 峰值 {trendPeak} 条/日
+                    {windowLabel}共 {trendTotal} 条 · 峰值 {trendPeak} 条/日
                   </span>
                   <Badge variant="outline">UTC 逐日</Badge>
                 </p>
               </>
             )}
 
-            {/* 成功率第二序列(G6,10-04-desktop-b234):同块同行共享窗口 Select;
-                口径 = 每日 success/(total−running),与「近期 run 成功率」卡
-                (内存合并 active)不同源,卡面如实注记不冒充同源。
-                终审修整:标题升 text-sm/medium(VL 指认与「不含进行中」辅注
-                字号无级差);错误走独立警示条(视觉隔离);图加网格+数据点
-                + y 满刻度标注 */}
+            {/* 成功率第二序列(G6,10-04-desktop-b234):与采集量同吃统一
+                时间窗(补批四);口径 = 每日 success/(total−running),与
+                「最近采集成功率」卡(内存合并 active)不同源,卡面如实注记
+                不冒充同源。终审修整:标题升 text-sm/medium(VL 指认与「不含
+                进行中」辅注字号无级差);错误走独立警示条(视觉隔离);图加
+                网格+数据点 + y 满刻度标注 */}
             <div className="mt-5 flex flex-col gap-2.5 border-t border-border/60 pt-5" data-testid="dashboard-rate-section">
               <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                 成功率
@@ -1074,7 +1090,7 @@ export function DashboardScreen() {
                 />
               ) : rateSeries.length === 0 ? (
                 <p className="text-xs text-muted-foreground" data-testid="dashboard-rate-empty">
-                  近 {windowDays} 天无已完结采集——成功率无从谈起,先跑一轮再说
+                  {windowLabel}无已完结采集——成功率无从谈起,先跑一轮再说
                 </p>
               ) : (
                 <>
@@ -1086,9 +1102,9 @@ export function DashboardScreen() {
                     data-testid="dashboard-rate-sparkline"
                     aria-label={
                       outcomeSummary && outcomeSummary.rate !== null
-                        ? `近 ${windowDays} 天累计成功率 ${formatSuccessRate(outcomeSummary.rate)}` +
+                        ? `${windowLabel}累计成功率 ${formatSuccessRate(outcomeSummary.rate)}` +
                           `(${outcomeSummary.success}/${outcomeSummary.finished} 次成功),无完结采集的日子不入线`
-                        : `近 ${windowDays} 天成功率趋势,无完结采集的日子不入线`
+                        : `${windowLabel}成功率趋势,无完结采集的日子不入线`
                     }
                   />
                   <p className="flex items-center justify-between pl-11 font-mono text-2xs text-muted-foreground">
@@ -1099,7 +1115,7 @@ export function DashboardScreen() {
                   {outcomeSummary && outcomeSummary.rate !== null ? (
                     <p className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
                       <span data-testid="rate-summary">
-                        近 {windowDays} 天累计成功率 {formatSuccessRate(outcomeSummary.rate)}(
+                        {windowLabel}累计成功率 {formatSuccessRate(outcomeSummary.rate)}(
                         {outcomeSummary.success}/{outcomeSummary.finished} 次成功)
                       </span>
                       <Badge variant="outline">零完结日不入线</Badge>
@@ -1112,7 +1128,9 @@ export function DashboardScreen() {
         </Card>
       </section>
 
-      {/* 源健康度卡网格(D4;teardown #3/#4:四态点 + 14 medium 名称 + muted 次行 + 相对时间;gap-6) */}
+      {/* 源健康度卡网格(D4;teardown #3/#4:四态点 + 14 medium 名称 + muted 次行 + 相对时间;gap-6)。
+          补批五折叠正常源:坏源(state≠ok)照旧铺开,ok 源收进折叠组默认收起
+          (spec 折叠组惯例 = 原生 button + aria-expanded/aria-controls) */}
       <section aria-label="源健康度" className="flex flex-col gap-3 px-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -1138,26 +1156,50 @@ export function DashboardScreen() {
             </div>
           )}
         </div>
-        <div
-          data-testid="source-health-grid"
-          className="grid grid-cols-1 gap-grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-        >
-          {loading && !data ? (
-            [0, 1, 2, 3].map((index) => (
+        {loading && !data ? (
+          <div className={SOURCE_GRID_CLASS}>
+            {[0, 1, 2, 3].map((index) => (
               <Skeleton key={index} className="h-28 w-full" />
-            ))
-          ) : sourceCards.length === 0 ? (
-            <div className="col-span-full">
-              <EmptyState
-                compact
-                title="暂无源"
-                description="已载品类下的采集源会在此按健康度展示;先到「源管理」确认品类与源配置"
-              />
-            </div>
-          ) : (
-            sourceCards.map((card) => <SourceCard key={card.key} card={card} />)
-          )}
-        </div>
+            ))}
+          </div>
+        ) : sourceCards.length === 0 ? (
+          <EmptyState
+            compact
+            title="暂无源"
+            description="已载品类下的采集源会在此按健康度展示;先到「源管理」确认品类与源配置"
+          />
+        ) : (
+          <>
+            {badSourceCards.length > 0 ? (
+              <div data-testid="source-health-grid" className={SOURCE_GRID_CLASS}>
+                {badSourceCards.map((card) => (
+                  <SourceCard key={card.key} card={card} />
+                ))}
+              </div>
+            ) : null}
+            {okSourceCards.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  data-testid="source-ok-toggle"
+                  aria-expanded={okSourcesExpanded}
+                  aria-controls="source-ok-group"
+                  onClick={() => setOkSourcesExpanded((expanded) => !expanded)}
+                  className="self-start rounded-sm text-xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+                >
+                  {okSourceCards.length} 个源正常 · {okSourcesExpanded ? "收起" : "展开"}
+                </button>
+                {okSourcesExpanded ? (
+                  <div id="source-ok-group" data-testid="source-ok-group" className={SOURCE_GRID_CLASS}>
+                    {okSourceCards.map((card) => (
+                      <SourceCard key={card.key} card={card} />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
 
       {/* 品类状态(R2 重排:自趋势配对中独立;节头与源健康度同款 = 小卡栅格节

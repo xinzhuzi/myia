@@ -128,3 +128,30 @@
   原文直用);测试断言面 11 处旧文案在案(含 note 明文断言改形态)。
 - 改动面扩大:pathspec = dashboard 三件 + logs-screen(+测试)+
   label-hint 上提 + settings 引用处(执行时 grep 定位)。
+
+## 低危处置回执(2026-10-06,review 三条 low 收口)
+
+- ① 品类补位行 React key 可撞:同品类两条同 code(error_type)的 load_errors
+  finding(cli.py `_plugin_findings` 每条 detail 产一条)在旧 key 形
+  `category-${file}-${code}` 下会重 key。修复 = 装配循环加品类内序号
+  (`${code}-${seq}`,dashboard-screen.tsx `buildAlertRows`),测试 = 同品类
+  两条同 code finding 双行均渲染且行 testid(=key)互异。本笔处置时该修复与
+  测试已由同窗并行「补批一」落工作树(定向 vitest 亲验 58 用例全绿),不重复
+  造件,注记收口。
+- ② alert 型 note 明文零护栏:noteKind="alert" 分支(「趋势不可达(code)」
+  「诊断不可达 · doctor 分区失败」明文直显、不走 ⓘ 悬停,R3「错误不藏
+  hover」)此前零断言。补双护栏:「趋势不可达」半边由并行「补批二」用例
+  (store.trend 拒绝 → 采集格明文 + meta 态反向断言)覆盖;「诊断不可达」
+  半边由本笔新用例(dashboard-screen.test.tsx「错误不藏 hover(低危②
+  护栏)」:doctor 分区拒绝 + 趋势拒绝双错同屏 → 两类明文均在扫读面、alert
+  态无 ⓘ 说明钮)覆盖——正向断言,与 meta 态「textContent 不含口径明文」
+  反向断言先例互补。实现零改动,定向 vitest 亲验 59/59 绿。
+- ③ credentials 级 finding 不触发告警清单的口径缝隙:告警格计数吃 findings
+  全量(scope=credentials/store/db 等全局 finding 也计数),而 design D3 的
+  清单行口径只定义了坏源行 + 品类级(scope=`plugin:<file>`)finding 补位行
+  ——全局 finding 独存时「格>0 清单空」两面不齐,属 D3 档内缝隙。原处置 =
+  注记收口不实现(渲染空清单更差);本笔处置时同窗并行「补批三」已在工作树
+  以「全局 finding 行」实现收口(findingScopeLabel 人话主体名 + 非 plugin:*
+  scope 的 error/warning 行入清单,配测试「格=2 清单=2 行」),两案并存如实
+  记档——空清单缝隙已被实现消除,收口形态以收官树为准,本段即该缝隙的处置
+  注记本体。
