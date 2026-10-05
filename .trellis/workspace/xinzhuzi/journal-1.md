@@ -749,3 +749,11 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 外来在途面(全程零触碰,如实入册):dashboard-glance 域 5 件改+档目录未跟踪、heartbeat 三批 4 件改(alerts/engine.py+cron/executions.py+pipeline.py+test_heartbeat.py)+cron-heartbeat 档 prd/task.json 再改(8be9904 已入库后的新增量),共 11 改+1 未跟踪 ~1059+/110-;journal-1.md 本轮入手时净面(git status 亲验不在脏面清单),外来 hunks 不在,并集判例无面可并,如实注记。
 - 提交:残扫档 prd/task.json 收口注记+journal 本段 --only 三路径入库不推远端;档维持 review,归档循「review 等收口」惯例留主人批次。
 - 并行同窗补记(提交后亲见):cron-heartbeat 第三批 b67dea8 在本轮收口期间由外部会话落库(上文所记心跳域 4 件+档两件出脏面即其入账),终态外来在途面收敛为 dashboard-glance 域 5 改+档目录未跟踪;我方提交零裹挟(git show --stat 三路径亲核)。
+
+## 2026-10-05 深夜:队列工作流收口(dwfrun-b921446d,主会话地面核验+journal 补笔)
+
+- 终态=完成 2/受阻 2(如实)/失败 0,四档全循 trellis(实施→脚本四门禁 world.run 分支→独立复核只读→发现修一轮→收口入档):**cron-heartbeat 接线批+复核处置批**(8be9904+b67dea8:entry 载荷门放行 kind/params+视图透传/pipeline._heartbeat_pass 账本解析器注入/协议文档加法注记零 bump;复核两条真发现全修=①job_id 精确模式此前「收而不用」被盯单任务停摆遭同品类健康掩蔽——解析器两参化+dedup 前缀带 job_id+文案点名任务+新 5 例,AC1 过度声明在档更正 ②executions.db 缺位时 _connect 自建库违反只读红线——db_path.exists() 守卫+目录清单前后一致零足迹断言);**push-bark 全量**(208a599+8ba0285:通道/注册/schema/UI 下拉+Device Key 预设位/13 用例/文档对账六件,review 态,真推 AC4 manual 留主人)。**searxng/firecrawl 双双 blocked 于 docker 前置**(本机 Docker Desktop 已卸尽:坏符号链接+无 socket+无 colima/podman/orbstack,五步探针在档)——searxng 产 research.md 草案全官方源取证并纠正 prd 两笔误(pageno/publishedDate);firecrawl 按档走 docs 分支(README 双语+zero-cost §4 镜像,官方模板+AGPL 边界+cloud-only 清单,均标本机未实测,8b40ac1+28ef46f),真跑留主人 docker 机器。
+- **主会话收官地面真值核验(判例)**:复核修复批落在脚本门禁后,亲补全量 pytest **4397 passed/40 skipped/0 failed**+vitest 全量 **508 passed**(26 文件)——终态全绿,工作流回执与地面一致。
+- 工程课:①工作流复核修一轮后不重跑全量门禁=脚本盲区,收官主会话亲跑补上;②禁触清单运行时动态取经受住考验(并行线同窗又落 dashboard-glance 两笔+residual-sweep,零撞);③docker 前置探查要全链(命令不在 PATH≠没装:坏符号链接/socket/colima/orbstack 逐项)。
+- 状态:heartbeat/bark 两档 review;searxng planning(blocked 注记)/firecrawl blocked;apprise 留主人点名即启。留主人:Bark 真推(装 App 复制 key→设置→推送)、searxng/firecrawl docker 机复验、装机包刷新(净树后)。
+- 提交:searxng task.json 受阻回执+本 journal 段 --only 入库;不推远端(累计 8 笔待推,过 CI 后统一)。
