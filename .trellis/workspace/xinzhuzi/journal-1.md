@@ -677,3 +677,10 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - **验收流(773ea37+e0b6415)**:两评估档 verdictChecks 双 confirmed(trafilatura 档独立重跑矩阵/判官脚本逐值复现);AC6 两级口径过——/tmp/table-e2e '-e .[table]' 主口径 30 passed 零 skip(TestRealEngineFixture 真引擎例真跑,slanet-plus.onnx 7.4M 真从 modelscope 下载)+品类级端到端(品类 YAML 磁盘装载→collect.process_item_images 真跑零打桩→serve()/public_dns 同款 MockTransport 手法零外网→rapidocr 真识别全 12 格,断言 tables 恰三键 {markdown,rows,cols} 且 4x3 逐格对齐);顺手修 judge-script.py 文件级 noqa F821(ruff 8 错消,否则推送后 CI ruff 必红)。AC4 装机真机链=已完成段(缺装证据/MYIA_SMOKE_ROUTE 拉起设置页/Python 环境分区就绪态回读一致/检查状态按钮活证/清场回执)+受阻段如实:装机包二进制不含组件安装链(字节级 grep「组件」/pyenv_install_component 零命中 vs pyenv_get_status 对照命中;4986c58 包内容早于组件链入库 18558c0,构建线疑点留 owner),表格还原开关 UI 装链结构性不可触发;镜像覆盖走口径 a 留注、卸载半句按 pyenv_components.rs:286 记注;过程风险=并行会话 GUI 抢前台一次误击,后续全改单进程前台门控。
 - **收口门禁+推送**:全量 Python 4252 passed/41 skipped(基线 4251+新锁测 1 严丝合缝)/ruff 全仓过/vitest 459/tsc+vite build/cargo 53/定向复跑 416 passed;push 指令矛盾裁定备案(角色纪律「不推远端」vs 计划收口门禁「push→watch 五作业」,依三流回执口径+幂等+不推则「CI 出绿」判据悬空裁推)→ git push 4986c58..e0b6415 七提交(17c0aaa/5ae3bb3/813c0fe/4e7b9e0/43cad69/773ea37/e0b6415)→ run 37277285803 五作业全绿(test/ui-test/rust-check/ruff/docker-build),numpy 修复与 ruff 修复真机出绿;终态 ahead 0。docker 本地无 CLI 省略,CI docker-build 作业覆盖。
 - **本步收口准备**:porcelain 仅 journal 一件——26 行上轮遗留(亲眼验收轮/两档核验收口提交轮/⌘K 面板复活/装机刷新终局四段)随本轮收口段一并入库;git fetch 后 origin/main...HEAD=0/0 无并行新提交无 rebase;待推清单=本 journal 提交一笔,推送归脚本统一。
+
+## 2026-10-05 傍晚 装机链补完轮(主人「都做完了?」三连纠偏:代码检查/慢/后台化)
+
+- 换装:净树 1e231f4 重打包 14.45s,包内三证(组件 IPC 名/护栏双消息/resources 全),旧包疑点(4986c58 时点包不含 12:39 入库组件链)消号=过期树构建;静默换装+缓存清,备份 /tmp。
+- AC4 真机:UI 卡片像素证据(新包含、旧包无)+组件闭包 21 件真装入自管环境(壳侧同款 argv 镜像);徽标「未装」=戳语义正确(手 pip 不写戳,不伪造)。
+- 开关点击四通道全阻:主人机全屏终端 Space 墙(z 序亲证)——前台门控三发/postToPid/AX 两语法/差分按钮全落空;后台截图(screencapture -l optionAll)畅通全程取证。留主人一键(拨开关即 IPC→pip 幂等秒级→写戳→已装)。档 archive/2026-10/10-05-table-restore prd 尾补记+evidence 三件。
+- 教训:装机冒烟亮窗正解=MYIA_SHOW_ON_START=1 直跑二进制(open 不透传 shell env,launchctl setenv 只对 open 生效);全屏 Space 下一切合成点击不可达,验证面改后台截屏+留主人一键。

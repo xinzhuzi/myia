@@ -1,0 +1,4 @@
+onnxruntime            1.30.0
+rapid_table            3.0.2
+rapidocr-onnxruntime   1.4.4
+tqdm                   4.70.1
