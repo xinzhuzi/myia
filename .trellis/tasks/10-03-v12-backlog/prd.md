@@ -147,10 +147,34 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
      settings/pyenv 测试;基件不装包红线维持(自研实现非 Radix 真包)。
    - snooze 到期重现(稍后读=本地态 later 桶、无到期重现,Linear H 键未对标;
      matrix 原文标「留池(v2)」;出处 matrix §二/路由 R7)
+     → **已消号(2026-10-06)**:归属 `10-05-fe-gap-leftovers` ①(949802a)
+     ——feed 层最小面落地:LATER_RESURFACE_DAYS=7 天提醒时效(与时间分组
+     「7 天内/更早」同界),已读+稍后读条目放入超窗即到期重现于默认未读
+     视图(applyFeedFilter 并入,now 注入可测;取消稍后读即离场);锚点
+     first_seen——置位时刻服务端(0/1 列)/本地态(map)均无落点,不为
+     时效扩存储;first_seen 缺失/无效保守不起重现;书签 title 知会规则+
+     稍后读空态文案;纯函数 isLaterResurface/applyFeedFilter 边界 + 服务端
+     通路屏测(到期回未读/未到期只在桶/桶内全量可见)vitest feed 91/91。
    - 设置搜索(`rg 搜索 settings-screen.tsx` 零命中;teardown 自身标注
      「未实证」低置信;出处 matrix §二/路由 R7)
+     → **已消号(2026-10-06)**:归属 `10-05-fe-gap-leftovers` ②(b8a6a7b)
+     ——登记口径已过时(10-04-interaction-batch 已补分区级过滤框,census
+     #7);余量=字段级:导航匹配扩区内字段词面(SECTION_FIELD_TERMS 策展
+     清单,查 base_url/镜像不再落「无匹配分区」)+ 右列直属卡逐卡过滤
+     (Searchable:分区名命中整区显示/字段词命中只显命中卡/全不命中卡全隐
+     +指路空态行);整件子组件区(视觉/门槛件/装机/Python)按区词面整件
+     显隐不进组件内部(穿 5 子组件文件超小件面,如实注记);既有四用例随
+     新语义更新 + 新增三用例,vitest settings 7 文件 120/120。
    - suppressed 状态词表 v2(action_status 词表 `types.ts:1021` 无 suppressed;
      出处 matrix §3.2/路由 R7)
+     → **已消号·词表先行(2026-10-06)**:归属 `10-05-fe-gap-leftovers`
+     ③(305c7be)——消费点先核:action_status 两 UI 消费位(messaging 屏
+     toast / logs 屏 eventToRow)均原样透传渲染、无词表分档,故按池档口径
+     只加词表+注记:AlertsFiredEvent.action_status 词表补 suppressed 并
+     注明 v2 预留语义(同槽位防重发拦截专属终态;现状该路径记 send_failed
+     ——engine.py `_execute_push_with` 零报告回落,后端
+     ALERT_ACTION_STATUSES/store/models.py 未收词,真拆分归 v2 后端批;
+     行号漂移注记:池档原引 types.ts:1021,今 types.ts:1436)。
    - P3 消息标题跳级(fe-small-batch prd 判「不入本批」;当前消息屏仅
      PageHeader h1、未见跳级复现;维持登记、勿扩大;出处 matrix §3.1/路由 R7)
      → **已消号(2026-10-05)**:归属 `10-05-messaging-heading-levels`——登记
