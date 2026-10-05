@@ -284,21 +284,26 @@ async def heartbeat_pass(
 ) -> list:
     """心跳扫描(10-05-cron-heartbeat):逐 cron_stale 规则判「品类久未成功触发」。
 
-    - 阈值:params.threshold_hours 显式,或 auto = 2× cadence_hours(品类)
+    - 阈值:params.threshold_hours 显式,或 auto = 2× cadence_hours(观测集)
       夹 [1,168];auto 且观测不可得 → WARNING 跳过(fail-fast 不猜)。
-    - stale 判定:距 last_success_at(品类最近一次成功执行)超阈值;
+    - 观测集:params.job_id 缺省 = 品类级聚合(该品类全部 job);带 job_id =
+      精确到单任务(PRD 需求 1:被盯单任务的停摆不被同品类健康任务掩蔽)。
+    - stale 判定:距 last_success_at(观测集最近一次成功执行)超阈值;
       从未成功 → 以规则 created_at 起算(冷静期 = 1× 阈值,防装完即报)。
-    - 冷却:dedup_key 带时间桶(cron-stale:<品类>:<桶号>,桶宽 = 阈值),
-      record_fired 的 UNIQUE 门闩天然 at-most-once 每桶一条,零新状态机。
+    - 冷却:dedup_key 带时间桶(cron-stale:<品类>[:<job_id>]:<桶号>,桶宽
+      = 阈值),record_fired 的 UNIQUE 门闩天然 at-most-once 每桶一条,
+      零新状态机(UNIQUE=(rule_id, dedup_key),同品类品类级/精确级规则互不挤占)。
     - 恢复:不再 stale 且上一桶 stale 行在库(has_fired 精确查)→ 发一条
-      恢复通知(cron-recovered:<品类>:<桶号>,同 UNIQUE 冷却)。
+      恢复通知(cron-recovered:<同前缀>:<桶号>,同 UNIQUE 冷却)。
     - 动作:push 用 channel_resolver_for(规则品类, 规则通道名)——**按规则
       品类解析,禁止借用评估宿主品类凭据**(跨品类借凭据红线同
       _execute_push);tag 作用于合成通知(内存语义,items 行不在库如实注记)。
 
     Args:
-        last_success_at: 品类 id → 最近成功执行 datetime(UTC)| None。
-        cadence_hours: 品类 id → 账本观测节奏(小时)| None(auto 阈值用)。
+        last_success_at: (品类 id, job_id|None) → 观测集最近成功执行
+            datetime(UTC)| None;job_id None = 品类级聚合。
+        cadence_hours: (品类 id, job_id|None) → 观测集账本节奏(小时)|
+            None(auto 阈值用)。
         channel_resolver_for: (品类 id, 通道类型名) → 该品类 push[] 内该
             类型第一条的实例 | None(未配置 = 动作降级)。两参缺一不可:
             品类定凭据来源,通道名定投递面——规则明配 stdout 而品类只有
@@ -315,26 +320,32 @@ async def heartbeat_pass(
             continue
         category = rule.scope
         params = rule.params or {}
+        job_id = params.get("job_id")
         if "threshold_hours" in params:
             threshold_hours = float(params["threshold_hours"])
         else:  # auto
-            cadence = cadence_hours(category) if cadence_hours else None
+            cadence = cadence_hours(category, job_id) if cadence_hours else None
             if cadence is None or cadence <= 0:
                 logger.warning(
                     "心跳规则 auto 阈值观测不足(账本节奏不可得),本轮跳过"
-                    "(fail-fast 不猜): rule=%s category=%s", rule.name, category,
+                    "(fail-fast 不猜): rule=%s category=%s job_id=%s",
+                    rule.name, category, job_id,
                 )
                 continue
             threshold_hours = min(
                 max(HEARTBEAT_AUTO_MULTIPLIER * cadence, HEARTBEAT_AUTO_MIN_HOURS),
                 HEARTBEAT_AUTO_MAX_HOURS,
             )
-        last = last_success_at(category)
+        last = last_success_at(category, job_id)
         stale, silent_hours = _stale_since(rule, last, now, threshold_hours)
         bucket = int(now.timestamp() // (threshold_hours * 3600))
+        # 身份前缀:精确模式带 job_id——同品类一条品类级 + 一条精确级规则
+        # 各自独立占坑/冷却,恢复通知也按各自前缀精确查。
+        identity = f"{category}:{job_id}" if job_id else category
         if stale:
-            key = f"cron-stale:{category}:{bucket}"
-            title = f"心跳:品类 {category} 已 {silent_hours:.0f} 小时无成功采集"
+            key = f"cron-stale:{identity}:{bucket}"
+            subject = f"品类 {category} 的任务 {job_id}" if job_id else f"品类 {category}"
+            title = f"心跳:{subject} 已 {silent_hours:.0f} 小时无成功采集"
             content = (
                 f"规则 {rule.name}:距最近一次成功执行已超过阈值 {threshold_hours:.1f} 小时。"
                 "请到定时任务屏查看执行历史(可能调度停摆、任务持续失败或配置损坏)。"
@@ -343,18 +354,19 @@ async def heartbeat_pass(
             if last is None:
                 continue  # 从未成功谈不上恢复
             stale_recent = any(
-                store.has_fired(rule.id, f"cron-stale:{category}:{bucket - offset}")
+                store.has_fired(rule.id, f"cron-stale:{identity}:{bucket - offset}")
                 for offset in (0, 1)
             )
             recovered_recent = any(
-                store.has_fired(rule.id, f"cron-recovered:{category}:{bucket - offset}")
+                store.has_fired(rule.id, f"cron-recovered:{identity}:{bucket - offset}")
                 for offset in (0, 1)
             )
             if not stale_recent or recovered_recent:
                 continue  # 近两桶无 stale 告警,或恢复已通知过:无事发生
-            key = f"cron-recovered:{category}:{bucket}"
-            title = f"心跳恢复:{category} 采集已恢复"
-            content = f"规则 {rule.name}:品类已重新出现成功执行,此前的心跳告警解除。"
+            key = f"cron-recovered:{identity}:{bucket}"
+            subject = f"品类 {category} 的任务 {job_id}" if job_id else f"品类 {category}"
+            title = f"心跳恢复:{subject} 采集已恢复"
+            content = f"规则 {rule.name}:观测目标已重新出现成功执行,此前的心跳告警解除。"
         notice = _HeartbeatNotice(category=category, title=title, content=content, dedup_key=key)
         fired = store.record_fired(AlertFired(
             rule_id=rule.id,

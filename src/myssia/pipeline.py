@@ -2715,9 +2715,15 @@ class Pipeline:
 
         - 品类 → job_ids:经 ``<数据根>/cron/jobs.json`` 公开读路径
           (:meth:`CronJobStore.load_jobs`;文件不存在 = 无 job,**不建
-          cron 目录**——评估只读,不给数据根留写入足迹);
+          cron 目录**——评估只读,不给数据根留写入足迹)。规则带
+          ``params.job_id`` 时精确到该单任务(PRD 需求 1):被盯任务的
+          停摆不被同品类健康任务的聚合掩蔽;
         - 距上次成功 / 观测节奏:``ExecutionLedger`` 只读两查询
-          (``last_completed_at`` / ``completed_gap_hours``),零写入;
+          (``last_completed_at`` / ``completed_gap_hours``)。**账本文件
+          缺位(jobs 建好从未派发)时短路不进账本**——``ExecutionLedger``
+          的连接期 DDL 会自建 executions.db,评估侧碰缺位账本就违反
+          「评估只读账本零写入」红线;缺位语义 = 零执行记录,与空表查询
+          同结果(never-succeeded 走规则年龄冷静期),零写入达成。
         - push 通道:按**规则品类**解析(job 自身 YAML 路径优先——调度器
           真跑的就是它;plugins 根兜底),禁止借用评估宿主品类凭据。
 
@@ -2732,16 +2738,26 @@ class Pipeline:
             logger.warning("心跳附加步跳过本轮(cron jobs 读取失败): %s", exc)
             return []
         jobs_by_category = _cron_jobs_by_category(jobs)
-        ledger = ExecutionLedger(data_root)
+        # 账本缺位守卫(评估只读红线):不 exists 就绝不实例化查询——
+        # _connect 的 mkdir+DDL 会把 executions.db 建出来。
+        ledger = (
+            ExecutionLedger(data_root)
+            if (data_root / "cron" / "executions.db").exists()
+            else None
+        )
 
-        def job_ids_for(category: str) -> list[str]:
+        def job_ids_for(category: str, job_id: str | None = None) -> list[str]:
+            if job_id is not None:
+                return [str(job_id)]  # 精确模式:构造门已保非空字符串
             return [
                 str(job["id"]) for job in jobs_by_category.get(category, ())
                 if job.get("id")
             ]
 
-        def last_success_at(category: str) -> datetime | None:
-            finished = ledger.last_completed_at(job_ids_for(category))
+        def last_success_at(category: str, job_id: str | None = None) -> datetime | None:
+            if ledger is None:
+                return None  # 账本缺位 = 零执行记录(从未成功,零查询零建库)
+            finished = ledger.last_completed_at(job_ids_for(category, job_id))
             if finished is None:
                 return None
             try:
@@ -2754,8 +2770,10 @@ class Pipeline:
                 return None
             return parsed if parsed.tzinfo is not None else parsed.astimezone()
 
-        def cadence_hours(category: str) -> float | None:
-            return ledger.completed_gap_hours(job_ids_for(category))
+        def cadence_hours(category: str, job_id: str | None = None) -> float | None:
+            if ledger is None:
+                return None
+            return ledger.completed_gap_hours(job_ids_for(category, job_id))
 
         def channel_resolver_for(category: str, channel_name: str):
             config = _category_config_for_heartbeat(

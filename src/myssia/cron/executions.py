@@ -538,8 +538,11 @@ class ExecutionLedger:
         return {row["job_id"]: dict(row) for row in rows}
 
     # ------------------------------------------------------------------
-    # 心跳只读查询(10-05-cron-heartbeat;alert 引擎侧注入的解析器消费,
-    # 全部只读零写入——评估只读账本红线)
+    # 心跳只读查询(10-05-cron-heartbeat;alert 引擎侧注入的解析器消费)。
+    # 查询本身零写入;注意 _connect 的连接期 DDL 会**自建缺位的
+    # executions.db**——评估侧因此先以 db_path.exists() 守卫(pipeline.
+    # _heartbeat_pass),账本缺位 = 零执行记录,不进连接,「评估只读账本
+    # 零写入」红线由守卫在调用侧达成。
     # ------------------------------------------------------------------
 
     def last_completed_at(self, job_ids: Sequence[str]) -> Optional[str]:
