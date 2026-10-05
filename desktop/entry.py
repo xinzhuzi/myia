@@ -432,7 +432,7 @@ from myssia.gates import (
 )
 from myssia.secrets import SecretError, delete_secret, list_secrets, set_secret
 from myssia.store import FEEDBACK_CHANNEL_DESKTOP, SQLiteStore, StoreSchemaError
-from myssia.store.models import AlertRule
+from myssia.store.models import ALERT_RULE_KIND_ITEM, AlertRule
 from myssia.vision import (
     VISION_FILE_NAME,
     VisionConfig,
@@ -4384,9 +4384,11 @@ def _m_push_test(params: dict[str, Any]) -> dict[str, Any]:
 # 管线挂点 = Pipeline._alert_pass,契约钉死于任务档 design.md §4)
 # ---------------------------------------------------------------------------
 
-#: AlertRuleInput 载荷的合法键(schema 铁律:未知字段不许静默忽略)。
+#: AlertRuleInput 载荷的合法键(schema 铁律:未知字段不许静默忽略)。kind/
+#: params 是心跳规则(10-05-cron-heartbeat)的加法可选键:语义校验(越表/
+#: cron_stale 形状/item 带 params 拒)走下方同一道 ``compile_rule`` 构造门。
 _ALERT_RULE_INPUT_KEYS = frozenset(
-    {"id", "name", "when", "action", "action_config", "scope", "enabled"}
+    {"id", "name", "when", "action", "action_config", "scope", "enabled", "kind", "params"}
 )
 
 #: AlertConfigError 消息里的字段名抽取(``字段校验失败: <字段> 必须是/无效/
@@ -4460,9 +4462,24 @@ def _alert_rule_from_payload(raw: Any, index: int | None, *, path: str) -> Alert
     if not isinstance(enabled, bool):
         raise _alert_rule_invalid(index, f"enabled 必须为布尔,得到 {enabled!r}",
                                   path=path, field="enabled")
+    # kind/params(10-05-cron-heartbeat 加法可选):这里只做类型形状门,
+    # 语义门(kind 越表/cron_stale 形状/item 带 params 拒)统一走下方
+    # compile_rule——与读库路径共用同一道构造门,零第二实现。
+    kind = raw.get("kind")
+    if kind is None:
+        kind = ALERT_RULE_KIND_ITEM
+    if not isinstance(kind, str):
+        raise _alert_rule_invalid(index, f"kind 必须为字符串,得到 {kind!r}", path=path, field="kind")
+    params = raw.get("params")
+    if params is not None and not isinstance(params, dict):
+        raise _alert_rule_invalid(
+            index, f"params 必须是键值映射或 null,得到 {type(params).__name__}",
+            path=path, field="params",
+        )
     rule = AlertRule(
         id=rule_id, name=name, when=when, action=action,
         action_config=action_config, scope=scope, enabled=enabled,
+        kind=kind, params=params,
     )
     try:
         compile_rule(rule)
@@ -4485,6 +4502,10 @@ def _alert_rule_views(store: SQLiteStore, rules: list[Any]) -> list[dict[str, An
             "when": rule.when,
             "action": rule.action,
             "action_config": rule.action_config,
+            # 心跳规则(10-05-cron-heartbeat)随全字段透传:旧壳不传 kind/
+            # params 的载荷 = item 语义零漂移;新 UI 按回显渲染心跳表单。
+            "kind": rule.kind,
+            "params": rule.params,
             "created_at": rule.created_at.isoformat() if rule.created_at else None,
             "updated_at": rule.updated_at.isoformat() if rule.updated_at else None,
             "fired_count": counts.get(rule.id or -1, 0),

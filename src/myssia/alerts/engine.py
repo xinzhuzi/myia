@@ -292,14 +292,17 @@ async def heartbeat_pass(
       record_fired 的 UNIQUE 门闩天然 at-most-once 每桶一条,零新状态机。
     - 恢复:不再 stale 且上一桶 stale 行在库(has_fired 精确查)→ 发一条
       恢复通知(cron-recovered:<品类>:<桶号>,同 UNIQUE 冷却)。
-    - 动作:push 用 channel_resolver_for(规则品类)——**按规则品类解析,
-      禁止借用评估宿主品类凭据**(跨品类借凭据红线同 _execute_push);
-      tag 作用于合成通知(内存语义,items 行不在库如实注记)。
+    - 动作:push 用 channel_resolver_for(规则品类, 规则通道名)——**按规则
+      品类解析,禁止借用评估宿主品类凭据**(跨品类借凭据红线同
+      _execute_push);tag 作用于合成通知(内存语义,items 行不在库如实注记)。
 
     Args:
         last_success_at: 品类 id → 最近成功执行 datetime(UTC)| None。
         cadence_hours: 品类 id → 账本观测节奏(小时)| None(auto 阈值用)。
-        channel_resolver_for: 品类 id → 该品类 push[] 内指定通道实例 | None。
+        channel_resolver_for: (品类 id, 通道类型名) → 该品类 push[] 内该
+            类型第一条的实例 | None(未配置 = 动作降级)。两参缺一不可:
+            品类定凭据来源,通道名定投递面——规则明配 stdout 而品类只有
+            telegram 时必须降级,不许错型投递。
     """
     compiled_all = compile_rules(rules)
     fired_rows: list = []
@@ -369,7 +372,7 @@ async def heartbeat_pass(
             status = ALERT_STATUS_TAGGED
         else:
             channel = (
-                channel_resolver_for(category)
+                channel_resolver_for(category, compiled_rule.channel)
                 if channel_resolver_for is not None and compiled_rule.channel
                 else None
             )

@@ -4488,6 +4488,69 @@ def test_alerts_fired_replay_only_new_hits_in_window(tmp_path):
     assert event["type"] == "alerts.fired" and event["dedup_key"] == "new"
 
 
+def test_alerts_save_heartbeat_kind_params_roundtrip(tmp_path):
+    """心跳规则载荷(10-05-cron-heartbeat 接线批):kind/params 加法可选键
+    放行——save 落库 + list/save 应答视图透传;旧载荷(零 kind/params)
+    = item 语义零漂移(kind 缺省 'item'/params null)。"""
+    db = tmp_path / "heartbeat.db"
+    code, responses, _ = rpc({"id": 1, "method": "alerts.save", "params": {"db": str(db), "rules": [
+        _alert_rule_payload(name="ai-news 心跳", when="true", action="tag",
+                            kind="cron_stale", params={"threshold_hours": 6},
+                            scope="ai-news"),
+        _alert_rule_payload(name="普通条件规则"),
+    ]}})
+    saved = responses[0]["result"]["rules"]
+    assert responses[0]["result"]["ok"] is True
+    assert saved[0]["kind"] == "cron_stale" and saved[0]["params"] == {"threshold_hours": 6}
+    assert saved[0]["scope"] == "ai-news"
+    assert saved[1]["kind"] == "item" and saved[1]["params"] is None  # 旧载荷零漂移
+
+    code, responses, _ = rpc({"id": 2, "method": "alerts.list", "params": {"db": str(db)}})
+    listed = {rule["id"]: rule for rule in responses[0]["result"]["rules"]}
+    heartbeat = next(rule for rule in listed.values() if rule["kind"] == "cron_stale")
+    assert heartbeat["params"] == {"threshold_hours": 6}
+    item_rule = next(rule for rule in listed.values() if rule["name"] == "普通条件规则")
+    assert item_rule["kind"] == "item" and item_rule["params"] is None
+
+    # 全量替换回传同形态(kind/params 原样带回 = 双向透传)。载荷只携输入键:
+    # 视图含 fired_count/last_fired_at 派生字段,原样回传会被未知键门拒
+    # (schema 铁律,UI 侧同口径只回输入键)。
+    replacement = {
+        "id": heartbeat["id"], "name": heartbeat["name"], "when": heartbeat["when"],
+        "action": heartbeat["action"], "action_config": {"tags": ["hb"]},
+        "scope": heartbeat["scope"], "enabled": heartbeat["enabled"],
+        "kind": heartbeat["kind"], "params": {"auto": True},
+    }
+    code, responses, _ = rpc({"id": 3, "method": "alerts.save",
+                              "params": {"db": str(db), "rules": [replacement]}})
+    updated = responses[0]["result"]["rules"][0]
+    assert updated["kind"] == "cron_stale" and updated["params"] == {"auto": True}
+
+
+def test_alerts_save_heartbeat_bad_shapes_rejected_by_compile_gate(tmp_path):
+    """kind/params 语义门走既有构造门(compile_rule):越表 kind / cron_stale
+    钉品类违例 / item 带 params / params 形状 → alert_rule_invalid 整批零写入."""
+    db = tmp_path / "heartbeat-bad.db"
+    cases = [
+        (_alert_rule_payload(kind="webhook"), "alert_rules.kind"),
+        (_alert_rule_payload(when="true", kind="cron_stale",
+                             params={"threshold_hours": 6}), "scope"),  # global 无所指
+        (_alert_rule_payload(params={"threshold_hours": 6}), "alert_rules.params"),  # item 带 params
+        (_alert_rule_payload(when="true", kind="cron_stale", scope="ai-news",
+                             params={"threshold_hours": 6, "auto": True}), "阈值"),
+        (_alert_rule_payload(when="true", kind="cron_stale", scope="ai-news",
+                             params="6h"), "params"),  # 类型形状门
+    ]
+    for index, (bad_rule, fragment) in enumerate(cases):
+        code, responses, _ = rpc({"id": 10 + index, "method": "alerts.save",
+                                  "params": {"db": str(db), "rules": [bad_rule]}})
+        error = responses[0]["error"]
+        assert error["code"] == "alert_rule_invalid", bad_rule
+        assert fragment in error["data"]["reason"], (bad_rule, error["data"]["reason"])
+    code, responses, _ = rpc({"id": 20, "method": "alerts.list", "params": {"db": str(db)}})
+    assert responses[0]["result"]["count"] == 0  # 整批零写入
+
+
 # ---------------------------------------------------------------------------
 # gates.get / gates.save(10-05-plugin-market-batch 批二第 11 步;能力实现
 # src/myssia/gates.py `GatesConfig`,处理器 entry.py `_m_gates_get`/

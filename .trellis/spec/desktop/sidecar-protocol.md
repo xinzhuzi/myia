@@ -64,7 +64,7 @@
 | 42 | `image.files.purge` | `_m_image_files_purge` | 按 mtime 清 `<数据根>/images` 超龄落图 `{days}`(整数 ≥1)→ `{deleted, bytes_freed}`;只删文件不动目录(内容寻址平铺);CLI 面能力零 UI;目录不存在 = 合法零删(vision-v2 批复查) |
 | 43 | `feed.enrich` | `_m_feed_enrich` | 情报流卡单条「AI 摘要」:`{item}`(items.id 或 dedup_key/URL,`resolve_item_ref` 同 `feedback.mark` 口径)→ `{item_id, model, scores, score, cached}`;骑 `shishi.enrich.LLMEnricher` 现跑(端点 = 条目所属品类 YAML `enrich:` 节 `env:`/`keychain:` 引用解析;enrich_cache 缓存语义复用,命中零 token;分数原路回填 items 表);async `enrich()` 在 handler 内 `asyncio.run` 同步应答,挂 `EnrichSettings.timeout_seconds` 超时;未启用/缺端点/品类 YAML 缺失 = `enrich_not_configured`(graceful;fe-small-batch 批 G8) |
 | 44 | `alerts.list` | `_m_alerts_list` | 告警规则清单(全量 id 升序,启用/停用同行——启停 = save 全量提交):`{}` → `{rules:[AlertRuleView]}`;AlertRuleView = 规则全字段 + `fired_count`/`last_fired_at` 自 alert_fired 表派生(计数不落规则行,save 全量替换不清计数;alert-rules 批) |
-| 45 | `alerts.save` | `_m_alerts_save` | 规则**全量替换**(承建/改/启停一体,不设独立启停方法;push.write 全量先例):`{rules:[AlertRuleInput]}` → `{ok, rules}`;两道门 = 逐条过构造门(shishi.alerts.compile_rule:name/scope/when 白名单语法/action/action_config 形状)任一失败 `alert_rule_invalid`(data 三键 index/field/reason)**整批零写入** + diff 落库(带 id 更新保 id/不带新建/库中多余 id 删除,fired 历史照留;空数组 = 清空回到零惊扰默认;alert-rules 批) |
+| 45 | `alerts.save` | `_m_alerts_save` | 规则**全量替换**(承建/改/启停一体,不设独立启停方法;push.write 全量先例):`{rules:[AlertRuleInput]}` → `{ok, rules}`;两道门 = 逐条过构造门(shishi.alerts.compile_rule:name/scope/when 白名单语法/action/action_config 形状)任一失败 `alert_rule_invalid`(data 三键 index/field/reason)**整批零写入** + diff 落库(带 id 更新保 id/不带新建/库中多余 id 删除,fired 历史照留;空数组 = 清空回到零惊扰默认;alert-rules 批);AlertRuleInput/View **加法可选** `kind`('item' 缺省|'cron_stale')+`params`(心跳参数 `{threshold_hours}` 或 `{auto:true}`+可选 `job_id`;item 规则带 params 拒)——语义校验同走 compile_rule 构造门,PROTOCOL_VERSION 不 bump(gates 加法可选字段先例;10-05-cron-heartbeat) |
 | 46 | `alerts.delete` | `_m_alerts_delete` | `{id}` → `{ok}`:删规则定义行,**fired 历史照留**(命中历史是事实);未知 id = `alert_not_found`(alert-rules 批) |
 | 47 | `alerts.test` | `_m_alerts_test` | **dry 求值,不真发不落 fired**:`{rule?\|rule_id?, item?\|item_id?}` → `{matched, muted, actions, eval_error?, already_fired?}`;rule = 草稿(未保存即可测)/rule_id = 已存规则;item = 合成字段 dict(`Item.from_extracted` 构造,content 补丁生效)/item_id = 库内条目(求值上下文与引擎同门)/都缺 = 最近一条(空库 `alert_test_no_item`);muted = effective mute 压制(品类 watchlist + 反馈 0.0 词,命中即不评估);actions 展开 push 通道解析结果+降级原因 / tag 标签;already_fired 仅 rule_id 形态;真发测试借既有 `push.test`(alert-rules 批) |
 | 48 | `runs.trend` | `_m_runs_trend` | run 成功率趋势(SQLiteStore.daily_run_outcomes:runs 表按 `substr(started_at,1,10)` UTC 逐日×status 聚合旧→新,`days` 钳制 [1,90] 缺省 14、`category?`、`db?` → `{days:[{date,total,statuses{…}}]}`,零数日补齐归前端 fillDailyOutcomes;statuses 开放词表原样分组,真实词表 4 态 running/success/partial/failed;服务端聚合而非前端算 runs.list —— limit≤200 在 cron 排程+手动 run 下 30 天窗可超限,截断会让序列静默失真;desktop-b234 批 G6) |
@@ -229,7 +229,10 @@ code 动态透传(`invalid_repo` / `hf_unavailable` / `repo_unreachable` /
 替换承建/改/启停,不设独立启停方法**(编辑一条提交整个数组,push.write 先例);
 两道门:①逐条构造期拒(`compile_rule`:name/scope('global'+七品类+channel)/
 when 白名单 AST 语法/action ∈ {push,tag}/action_config 形状,push 需
-channel ∈ `shishi.push.CHANNELS` + 可选 targets/template,tag 需非空 tags),
+channel ∈ `shishi.push.CHANNELS` + 可选 targets/template,tag 需非空 tags;
+加法可选 `kind`('item' 缺省|'cron_stale')+`params`——cron_stale 钉品类
+scope+when 恒 'true'+阈值二选一,item 带 params 拒;旧载荷零 kind/params =
+item 语义零漂移,10-05-cron-heartbeat 批,PROTOCOL_VERSION 不 bump),
 任一条失败 = `alert_rule_invalid`(data `{index, field, reason}`)整批零写入;
 ②diff 落库:带 id = 更新保 id(id 稳定是计数派生的前提),不带 = 新建,库中
 多余 id = 删除(fired 历史照留),空数组 = 清空。`alerts.delete {id}` → `{ok}`。

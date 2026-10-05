@@ -105,6 +105,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from myssia.alerts import AlertEngine
+from myssia.alerts.engine import heartbeat_pass
 from myssia.analysis_lane import (
     ANALYSIS_LANE_MEMBERS,
     AnalysisLaneError,
@@ -120,6 +121,8 @@ from myssia.classify import (
     load_table,
     rules_from_config,
 )
+from myssia.cron.executions import ExecutionLedger
+from myssia.cron.store import CronJobStore
 from myssia.dedup import DedupRegistry
 from myssia.engines.fetch_base import (
     DEFAULT_TIMEOUT_SECONDS,
@@ -169,10 +172,13 @@ from myssia.store import (
     RUN_STATUS_SUCCESS,
     STEP_STATUS_RESUMED,
     STEP_STATUS_SKIPPED,
+    AlertFired,
+    AlertRule,
     ItemRecord,
     SQLiteStore,
     Store,
 )
+from myssia.store.models import ALERT_RULE_KIND_CRON_STALE
 # 图片处理环(10-03-vision-pipeline,fetch 尾部):vision 包重依赖全惰性
 # (ocrmac/rapidocr/openai 都在首次调用时才 import),这里顶层 import 不破
 # 「核心流水线零重依赖」红线——未装 myssia[vision] 的环境 OCR 走 ocr_failed 降级。
@@ -706,6 +712,83 @@ def build_cron_trigger(schedule: str, timezone_name: str | None = None) -> CronT
         return CronTrigger.from_crontab(schedule, timezone=tz)
     except ValueError as exc:
         raise ValueError(f"schedule 不是合法的 5 段 cron 表达式({exc})") from exc
+
+
+# ---------------------------------------------------------------------------
+# 心跳附加步的品类解析器(10-05-cron-heartbeat;cron/ 侧零改动的消费面)
+# ---------------------------------------------------------------------------
+
+
+def _cron_jobs_by_category(jobs: Sequence[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """job 载荷按品类 id 分组(心跳评估的「品类 → job」解析源)。
+
+    job 的 ``category`` 存的是绝对 YAML 路径(jobs.py create 口径):文件名
+    stem 直配为主,坏/漂移文件退化 YAML id 兜底——entry 随包品类定位
+    (``_locate_bundled_category_yaml``)同款双路。坏 YAML 的 job 仍按 stem
+    可达(id 兜底不可达,如实少一路)。
+    """
+    mapping: dict[str, list[dict[str, Any]]] = {}
+    for job in jobs:
+        path = str(job.get("category") or "")
+        if not path:
+            continue
+        keys = {Path(path).stem}
+        try:
+            config = load_category_file(path)
+        except (LoadError, OSError):
+            config = None
+        if config is not None:
+            keys.add(config.id)
+        for key in keys:
+            mapping.setdefault(key, []).append(dict(job))
+    return mapping
+
+
+def _category_config_for_heartbeat(
+    category: str,
+    jobs: Sequence[Mapping[str, Any]],
+    data_root: Path,
+) -> CategoryConfig | None:
+    """按品类 id 找已装配置(心跳 push 通道的解析源;只读)。
+
+    候选序:job 自身 YAML 路径优先(调度器真跑的就是它;**加载失败 = 降级
+    不换源**——转投 plugins 根同名文件等于借别份配置的凭据,如实降级更
+    诚实)→ 品类无 job 引用时走 plugins 根(``default_plugins_roots``:
+    cwd > 数据根;桌面装机品类落 ``<数据根>/plugins``)stem 直配 > YAML
+    id 兜底。全部未命中 = None(动作降级)。
+    """
+    tried_job_path = False
+    for job in jobs:
+        path = str(job.get("category") or "")
+        if not path:
+            continue
+        tried_job_path = True
+        try:
+            return load_category_file(path)
+        except (LoadError, OSError):
+            logger.warning(
+                "心跳通道解析:job 引用的品类 YAML 加载失败 category=%s path=%s",
+                category, path,
+            )
+    if tried_job_path:
+        return None  # 调度器自己那份坏了:不换源借凭据,降级如实可见
+    candidates: list[Path] = []
+    for root in default_plugins_roots(data_root):
+        candidates.extend(sorted([*root.glob("*.yaml"), *root.glob("*.yml")], key=lambda p: p.name))
+    for candidate in candidates:
+        if candidate.stem == category:
+            try:
+                return load_category_file(candidate)
+            except (LoadError, OSError):
+                break  # stem 命中但文件坏:该根不再猜(id 兜底会误装他源)
+    for candidate in candidates:
+        try:
+            config = load_category_file(candidate)
+        except (LoadError, OSError):
+            continue
+        if config.id == category:
+            return config
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -2560,6 +2643,8 @@ class Pipeline:
     # 循环后、maintenance 前的独立轻量附加步。明确不取「并入 _stage_push 收
     # 尾」——_stage_push 开头 `if not self.config.push` 直接 return,品类未配
     # push 通道时并入收尾的告警(含 tag-only 规则)全哑。
+    # 心跳附加步(10-05-cron-heartbeat)同段收口:cron_stale 规则是时间
+    # 驱动,不吃条目,但与条目告警共享 store/fired 占坑与隔离边界。
 
     def _resolve_alert_channel(self, channel_name: str):
         """push 动作通道解析:当前品类 ``push[]`` 内该类型第一条(``_build_channel``
@@ -2605,6 +2690,10 @@ class Pipeline:
                 category=self.config.name,
             )
             fired = await engine.run_pass(items, rules)
+            # 心跳附加步(cron_stale 规则;时间驱动,与条目求值同段收口):
+            # 无心跳规则零开销(不读 jobs.json/账本);有则只读评估。
+            if any(rule.kind == ALERT_RULE_KIND_CRON_STALE for rule in rules):
+                fired.extend(await self._heartbeat_pass(store, rules, registry))
             if fired:
                 logger.info(
                     "告警附加步完成 category=%s fired=%s", self.config.id, len(fired)
@@ -2613,6 +2702,81 @@ class Pipeline:
             logger.warning(
                 "告警附加步失败(已隔离,不影响 run 终态): %s", exc, exc_info=True
             )
+
+    async def _heartbeat_pass(
+        self,
+        store: Store,
+        rules: Sequence[AlertRule],
+        registry: DedupRegistry,
+    ) -> list[AlertFired]:
+        """心跳附加步(10-05-cron-heartbeat):cron_stale 规则的时间驱动评估。
+
+        账本解析器在这里注入(引擎零 cron 依赖,依赖方向红线):
+
+        - 品类 → job_ids:经 ``<数据根>/cron/jobs.json`` 公开读路径
+          (:meth:`CronJobStore.load_jobs`;文件不存在 = 无 job,**不建
+          cron 目录**——评估只读,不给数据根留写入足迹);
+        - 距上次成功 / 观测节奏:``ExecutionLedger`` 只读两查询
+          (``last_completed_at`` / ``completed_gap_hours``),零写入;
+        - push 通道:按**规则品类**解析(job 自身 YAML 路径优先——调度器
+          真跑的就是它;plugins 根兜底),禁止借用评估宿主品类凭据。
+
+        自身失败由 ``_alert_pass`` 外层 try 隔离(WARNING,不拖垮 run);
+        jobs.json 读失败 = 本轮心跳跳过(cron 侧自愈路径不动)。
+        """
+        data_root = Path(self._db_path).parent
+        jobs_store = CronJobStore(data_root)
+        try:
+            jobs = jobs_store.load_jobs() if jobs_store.jobs_file.exists() else []
+        except Exception as exc:  # noqa: BLE001 - 读失败跳过本轮,不自愈不动
+            logger.warning("心跳附加步跳过本轮(cron jobs 读取失败): %s", exc)
+            return []
+        jobs_by_category = _cron_jobs_by_category(jobs)
+        ledger = ExecutionLedger(data_root)
+
+        def job_ids_for(category: str) -> list[str]:
+            return [
+                str(job["id"]) for job in jobs_by_category.get(category, ())
+                if job.get("id")
+            ]
+
+        def last_success_at(category: str) -> datetime | None:
+            finished = ledger.last_completed_at(job_ids_for(category))
+            if finished is None:
+                return None
+            try:
+                parsed = datetime.fromisoformat(finished)
+            except ValueError:
+                logger.warning(
+                    "心跳账本时间戳不可解析(按无成功处理) category=%s value=%r",
+                    category, finished,
+                )
+                return None
+            return parsed if parsed.tzinfo is not None else parsed.astimezone()
+
+        def cadence_hours(category: str) -> float | None:
+            return ledger.completed_gap_hours(job_ids_for(category))
+
+        def channel_resolver_for(category: str, channel_name: str):
+            config = _category_config_for_heartbeat(
+                category, jobs_by_category.get(category, ()), data_root
+            )
+            if config is None:
+                return None
+            for push in config.push:
+                if push.channel == channel_name:
+                    return self._build_channel(push)
+            return None
+
+        return await heartbeat_pass(
+            store, rules,
+            last_success_at=last_success_at,
+            now=self._wall_clock(),
+            cadence_hours=cadence_hours,
+            channel_resolver_for=channel_resolver_for,
+            registry=registry,
+            tz=self._tz,
+        )
 
     # --------------------------------------------------------------- forever
 

@@ -25,6 +25,6 @@
     "src/myssia/alerts/engine.py",
     "src/myssia/cron/executions.py"
   ],
-  "notes": "由 v12-backlog 池第 10 项拆出;grill Q7 推荐立项(随下个告警/UI 批);cron 侧零侵入为目标 | 开工回执(2026-10-05 深夜):主人令「都按建议去做」,按推荐首件开工;并行线在途文件(sidecar-protocol.md 等 8 件)避开,协议文档注记延后至并行线落地后补。",
+  "notes": "由 v12-backlog 池第 10 项拆出;grill Q7 推荐立项(随下个告警/UI 批);cron 侧零侵入为目标 | 开工回执(2026-10-05 深夜):主人令「都按建议去做」,按推荐首件开工;并行线在途文件(sidecar-protocol.md 等 8 件)避开,协议文档注记延后至并行线落地后补。| 第二批接线回执(2026-10-05 深夜):接线三件落地(entry 载荷门放行 kind/params+视图透传/pipeline._alert_pass 尾挂 _heartbeat_pass 账本解析器注入/sidecar-protocol.md 加法注记版本不 bump);引擎 channel_resolver_for 扩两参(品类+通道名,防错型投递);真跑证据 /tmp/myia-heartbeat-evidence/batch2-wiring.json;AC1/2/4/5/6 ✅、AC3 ◐(保存链路证据齐,真机像素归装机批)。",
   "meta": {}
 }

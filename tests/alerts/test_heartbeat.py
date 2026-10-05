@@ -25,15 +25,20 @@ import sqlite3
 from datetime import datetime, timedelta, timezone
 
 import pytest
+import httpx
+import yaml
 
 from myssia.alerts import AlertConfigError, AlertEngine, compile_rule
 from myssia.alerts.engine import heartbeat_pass
 from myssia.cron.executions import ExecutionLedger
-from myssia.pipeline import Item
+from myssia.cron.store import CronJobStore
+from myssia.pipeline import Item, Pipeline
 from myssia.push.base import SendReport
+from myssia.schema import load_category
 from myssia.store import AlertRule, SQLiteStore
 
 NOW = datetime(2026, 10, 5, 12, 0, 0, tzinfo=timezone.utc)
+TIMEZONE = "Asia/Shanghai"
 
 
 def make_store(tmp_path) -> SQLiteStore:
@@ -228,11 +233,13 @@ def test_push_action_resolves_channel_for_rule_category(tmp_path):
 
     fired = run(heartbeat_pass(
         store, [rule], last_success_at=lambda c: None, now=NOW,
-        channel_resolver_for=lambda category: (seen.append(f"resolve:{category}") or object()),
+        channel_resolver_for=lambda category, channel: (
+            seen.append(f"resolve:{category}:{channel}") or object()
+        ),
         send=fake_send,
     ))
     assert len(fired) == 1 and fired[0].action_status == "sent"
-    assert "resolve:ai-news" in seen and seen[-1] == "ai-news"  # 按规则品类解析
+    assert "resolve:ai-news:stdout" in seen and seen[-1] == "ai-news"  # 按规则品类+通道名解析
 
 
 def test_push_action_degrades_without_channel_for_rule_category(tmp_path):
@@ -242,7 +249,7 @@ def test_push_action_degrades_without_channel_for_rule_category(tmp_path):
     ))
     fired = run(heartbeat_pass(
         store, [rule], last_success_at=lambda c: None, now=NOW,
-        channel_resolver_for=lambda category: None,
+        channel_resolver_for=lambda category, channel: None,
     ))
     assert fired[0].action_status == "degraded_no_channel"
 
@@ -296,3 +303,149 @@ def test_ledger_last_completed_and_gap(tmp_path):
 def test_ledger_gap_needs_two_completions(tmp_path):
     ledger = _seed_ledger(tmp_path, completions=[2])
     assert ledger.completed_gap_hours(["job-1"]) is None
+
+
+# ---------------------------------------------------------------------------
+# 管线挂点(第二批接线):_alert_pass 尾挂 heartbeat_pass,账本解析器注入
+# ---------------------------------------------------------------------------
+
+def _heartbeat_handler(payloads):
+    """direct_api 源的 mock 传输(test_alert_rules.make_handler 同款)."""
+    def handler(request):
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404, text="")
+        return httpx.Response(200, json=payloads)
+    return handler
+
+
+def make_pipeline(config, *, handler, store: SQLiteStore, **kwargs):
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    return Pipeline(config, store=store, client=client, **kwargs)
+
+
+def _heartbeat_data(category_id: str, **overrides) -> dict:
+    """心跳接线测试的品类配置 data(直连源 + 可空 push;load_category 全字段
+    合法)。落文件用它而不用 ``model_dump()``:pydantic dump 会把平台专属
+    可选字段吐成显式 null/默认值(``ntfy_token: null``/``timeout: 10.0``),
+    schema 的平台字段门拒显式形态——手写 YAML 的形态就是这份 data 本身。"""
+    data = {
+        "id": category_id,
+        "name": f"{category_id} 品类",
+        "schedule": "0 9 * * *",
+        "timezone": TIMEZONE,
+        "sources": [
+            {
+                "name": "api",
+                "engine": "direct_api",
+                "url": "https://api.demo.local/list",
+                "extract": {
+                    "type": "json_path",
+                    "fields": {"title": "$[*].title", "url": "$[*].url"},
+                },
+            }
+        ],
+        "push": [{"channel": "stdout"}],
+        "classify": {"builtin": False, "rules": []},
+    }
+    data.update(overrides)
+    load_category(data)  # 门:形状不合法在造数时就炸,不等到落文件/建管线后
+    return data
+
+
+def _write_category_yaml(path, data: dict) -> None:
+    """把品类 data 落成可再载入的 YAML(``load_category_file`` 同门可读)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+
+def _wire_cron(tmp_path, *, yaml_path, finished_hours_ago, job_id="job-1"):
+    """种 cron 侧事实:jobs.json 一条 job(job.category=品类 YAML 绝对路径)
+    + 执行账本一次成功执行(完成时刻回拨,账本 API 不接受自定义时刻测试直改)。"""
+    jobs_store = CronJobStore(tmp_path)
+    with jobs_store.jobs_lock():
+        jobs_store.save_jobs([{
+            "id": job_id, "name": "定时采集", "schedule": "0 * * * *",
+            "category": str(yaml_path), "enabled": True,
+            "next_run_at": (NOW + timedelta(hours=1)).isoformat(),
+        }], replace=True)
+    ledger = ExecutionLedger(tmp_path)
+    record = ledger.create_execution(job_id, source="tick")
+    ledger.finish_execution(record["id"], success=True)
+    with ledger.transaction() as conn:
+        conn.execute(
+            "UPDATE executions SET finished_at = ? WHERE id = ?",
+            ((NOW - timedelta(hours=finished_hours_ago)).isoformat(), record["id"]),
+        )
+
+
+def test_pipeline_heartbeat_wires_jobs_ledger_and_channel(tmp_path):
+    """端到端接线:run 尾心跳附加步——品类经 jobs.json 解析 job_ids →
+    账本只读驱动 stale 判定 → fired 落库;push 通道按规则品类解析(job 自身
+    YAML 路径),宿主品类(server)未配 push 也照发(禁止借宿主凭据的结构面)。"""
+    db = tmp_path / "myssia.db"
+    store = SQLiteStore(db)
+    ai_news_yaml = tmp_path / "plugins" / "ai-news.yaml"
+    _write_category_yaml(ai_news_yaml, _heartbeat_data("ai-news"))
+    _wire_cron(tmp_path, yaml_path=ai_news_yaml, finished_hours_ago=30)
+    store.save_alert_rule(AlertRule(
+        name="ai-news 心跳", when="true", action="push",
+        action_config={"channel": "stdout"}, kind="cron_stale",
+        params={"threshold_hours": 6}, scope="ai-news",
+    ))
+    host = make_pipeline(
+        load_category(_heartbeat_data("server", push=[])),  # 宿主品类零 push:借不到任何通道
+        handler=_heartbeat_handler([{"title": "某服务器新闻", "url": "https://api.demo.local/a"}]),
+        store=store, db_path=db, wall_clock=lambda: NOW,
+    )
+    result = asyncio.run(host.run())
+    assert result.status == "success"  # 附加步失败也不拖垮 run;这里应全绿
+    fired = store.list_fired()
+    assert len(fired) == 1
+    assert fired[0].dedup_key.startswith("cron-stale:ai-news:")
+    assert "ai-news" in fired[0].title and "30" in fired[0].title
+    assert fired[0].action_status == "sent"  # 通道自 ai-news YAML 解析成功
+    store.close()
+
+
+def test_pipeline_heartbeat_fresh_completion_stays_silent(tmp_path):
+    """新鲜成功(1h 前 < 阈值 6h)→ 静默:接线后的判定链用的是账本真值。"""
+    db = tmp_path / "myssia.db"
+    store = SQLiteStore(db)
+    ai_news_yaml = tmp_path / "plugins" / "ai-news.yaml"
+    _write_category_yaml(ai_news_yaml, _heartbeat_data("ai-news"))
+    _wire_cron(tmp_path, yaml_path=ai_news_yaml, finished_hours_ago=1)
+    store.save_alert_rule(AlertRule(
+        name="ai-news 心跳", when="true", action="tag",
+        action_config={"tags": ["hb"]}, kind="cron_stale",
+        params={"threshold_hours": 6}, scope="ai-news",
+    ))
+    host = make_pipeline(
+        load_category(_heartbeat_data("server", push=[])),
+        handler=_heartbeat_handler([{"title": "某服务器新闻", "url": "https://api.demo.local/a"}]),
+        store=store, db_path=db, wall_clock=lambda: NOW,
+    )
+    result = asyncio.run(host.run())
+    assert result.status == "success"
+    assert store.list_fired() == []
+    store.close()
+
+
+def test_pipeline_without_heartbeat_rules_never_touches_cron(tmp_path):
+    """零心跳规则零惊扰:不读 jobs.json/账本,数据根不落 cron 目录(评估只读,
+    不给从未用过 cron 的部署留写入足迹)."""
+    db = tmp_path / "myssia.db"
+    store = SQLiteStore(db)
+    store.save_alert_rule(AlertRule(
+        name="条目规则", when="'快讯' in title", action="tag",
+        action_config={"tags": ["flash"]},
+    ))
+    host = make_pipeline(
+        load_category(_heartbeat_data("server", push=[])),
+        handler=_heartbeat_handler([{"title": "快讯:某事", "url": "https://api.demo.local/a"}]),
+        store=store, db_path=db, wall_clock=lambda: NOW,
+    )
+    result = asyncio.run(host.run())
+    assert result.status == "success"
+    assert len(store.list_fired()) == 1  # 条目规则照常
+    assert not (tmp_path / "cron").exists()  # 心跳守卫:零 cron 足迹
+    store.close()
