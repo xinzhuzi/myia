@@ -1,0 +1,32 @@
+{
+  "id": "trafilatura-source-scope",
+  "name": "trafilatura-source-scope",
+  "title": "trafilatura 兜底源级开关",
+  "description": "母任务(ba8af60)全局 opt-in MYIA_EXTRACT_FALLBACK 扩源级覆写:engine_options.static_html.extract_fallback 布尔,优先级=源级>全局 env>缺省关,全局 env 语义不变;schema.py 零改动(开放命名空间直通,ExtractConfig/SourceConfig CRITICAL 类面零触碰),类型校验落引擎层 invalid_engine_options(saas _bool_option 先例);docs zh/en schema.md + skill/SKILL.md 同步",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "xinzhuzi",
+  "assignee": "xinzhuzi",
+  "createdAt": "2026-10-05",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/myssia/engines/static_html.py",
+    "tests/engines/test_static_html.py",
+    "docs/zh/schema.md",
+    "docs/en/schema.md",
+    "skill/SKILL.md"
+  ],
+  "notes": null,
+  "meta": {}
+}

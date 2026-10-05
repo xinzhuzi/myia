@@ -88,7 +88,7 @@
 | `post_body` | `null` | POST 表单/JSON 体(映射);凭据键同 headers 禁明文 |
 | `headers` | `{}` | 请求头;凭据键的值必须是引用;不要伪装浏览器 UA(默认 UA 是诚实的 `世事/0.1 (...)`) |
 | `pagination` | `null` | 翻页配置,见下表 |
-| `extract` | `null` | 字段提取,见下表;留空时 L3+ 引擎自动结构化兜底;L2 `static_html` 在装了 `trafilatura` extras 且环境变量 `MYIA_EXTRACT_FALLBACK=1`(缺省关)时,对无规则源与规则跑空(`rss` 除外)的**文章页**做单页正文兜底(产出单条,带 `metadata.extract_provenance="trafilatura"`,正文量不足 120 字符的列表页退化形态被质量门拦下维持零条;规则命中的源永不触达) |
+| `extract` | `null` | 字段提取,见下表;留空时 L3+ 引擎自动结构化兜底;L2 `static_html` 在装了 `trafilatura` extras 且兜底开关打开时,对无规则源与规则跑空(`rss` 除外)的**文章页**做单页正文兜底(产出单条,带 `metadata.extract_provenance="trafilatura"`,正文量不足 120 字符的列表页退化形态被质量门拦下维持零条;规则命中的源永不触达)。开关优先级=**源级 `engine_options.static_html.extract_fallback: true/false` > 全局环境变量 `MYIA_EXTRACT_FALLBACK=1` > 缺省关**(源级未设时行为与全局口径逐字节一致) |
 | `rate_limit` | `见 rate_limit 表` | 礼貌限速(限速在引擎层统一执行) |
 | `proxy` | `direct` | `direct` / `pool:<名称>` / `residential:<区域>`;pool 需 `--config` 全局配置 |
 | `retry` | `3` | 瞬时错误重试预算(0-10) |
@@ -96,7 +96,10 @@
 **源级扩展参数**:未知键(如 `symbols: [NVDA, AAPL]`)原样传给引擎——URL 里的
 `{symbol}` 按列表逐值扇出(一值一请求);`engine_options.<引擎名>` 是引擎
 旋钮命名空间(如 `engine_options.firecrawl.endpoint`、
-`engine_options.scrapling.backend`、`engine_options.stealth_browser.max_pages`;
+`engine_options.scrapling.backend`、`engine_options.stealth_browser.max_pages`、
+`engine_options.static_html.extract_fallback`(trafilatura 兜底单源开关,布尔,
+优先级=源级 > 全局 `MYIA_EXTRACT_FALLBACK` > 缺省关,值非布尔 fetch 期结构化拒
+`invalid_engine_options`);
 `engine_options.crawl4ai` 有 `timeout`(单页预算秒,缺省 60s)、`headless`
 (缺省 `true`)与 `browser_options` / `run_options` 两个透传映射——分别合并进
 crawl4ai 的 `BrowserConfig` / `CrawlerRunConfig`,打开其余配置面;透传映射不得

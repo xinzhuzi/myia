@@ -5,7 +5,9 @@ resolution / item single-page mode / gb18030 decoding (meta charset, no HTTP
 charset) / template pagination with max_pages cap and empty-page stop /
 selector pagination (follow, stop without next, loop guard) / change
 fingerprint skip / unsupported extract type / trafilatura 正文兜底
-(10-05-trafilatura-impl:三分触发①② + 质量门 + 开关缺省关零行为差)。
+(10-05-trafilatura-impl:三分触发①② + 质量门 + 开关缺省关零行为差)/
+源级开关矩阵(10-05-trafilatura-source-scope:engine_options.static_html.
+extract_fallback 三态 × 全局 env 两态)。
 
 All I/O runs on httpx.MockTransport; all waiting is recorded by FakeClock.
 trafilatura 全程 mock(sys.modules 注入,同 rapid_table/rapidocr 先例)——
@@ -17,6 +19,8 @@ from __future__ import annotations
 import httpx
 import json
 import sys
+from typing import Any
+
 import pytest
 
 from myssia.engines.fetch_base import FetchError
@@ -469,3 +473,91 @@ def test_fallback_rss_empty_not_touched(monkeypatch):
     items = run(engine.fetch())
     assert items == []
     assert fake.calls == []  # rss 结构性不触达
+
+
+# ---------------------------------------------------------------------------
+# 源级开关矩阵(10-05-trafilatura-source-scope)
+# engine_options.static_html.extract_fallback 三态 × 全局 env 两态,①场景断言。
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("source_flag", "env_value", "expect_fallback"),
+    [
+        pytest.param(True, "1", True, id="src-on-env-on"),
+        pytest.param(True, None, True, id="src-on-env-off"),
+        pytest.param(False, "1", False, id="src-off-env-on"),
+        pytest.param(False, None, False, id="src-off-env-off"),
+        pytest.param(None, "1", True, id="src-unset-env-on"),
+        pytest.param(None, None, False, id="src-unset-env-off"),
+    ],
+)
+def test_fallback_source_scoped_switch_matrix(
+    monkeypatch, source_flag, env_value, expect_fallback
+):
+    """优先级=源级 > 全局 env > 缺省关。
+
+    源级开两格(全局开/关)均兜底;源级关两格均拒载(含全局开被单源压掉);
+    未设两格=母任务现状逐字节复现(env 开→出条 / env 关→extract_required)。
+    """
+    fake = _FakeTrafilatura(ARTICLE_DOC)
+    monkeypatch.setitem(sys.modules, "trafilatura", fake)
+    if env_value is None:
+        monkeypatch.delenv("MYIA_EXTRACT_FALLBACK", raising=False)
+    else:
+        monkeypatch.setenv("MYIA_EXTRACT_FALLBACK", env_value)
+    overrides: dict[str, Any] = {}
+    if source_flag is not None:
+        overrides["engine_options"] = {"static_html": {"extract_fallback": source_flag}}
+    client = make_client(make_handler(article_site()))
+    source = make_source(engine="static_html", url="https://example.com/news/story", **overrides)
+    context, _ = make_context(client)
+    engine = StaticHTMLEngine(source, context)
+
+    if expect_fallback:
+        items = run(engine.fetch())
+        assert [item.get("extract_provenance") for item in items] == ["trafilatura"]
+        assert fake.calls == ["https://example.com/news/story"]
+    else:
+        with pytest.raises(FetchError) as excinfo:
+            run(engine.fetch())
+        assert excinfo.value.error_type == "extract_required"
+        assert fake.calls == []  # 关态:兜底结构性不触达
+
+
+def test_fallback_source_scoped_type_error(monkeypatch):
+    """类型错即结构化拒(saas._bool_option 先例):含糊值不开不关静默失效才是坑。"""
+    fake = _FakeTrafilatura(ARTICLE_DOC)
+    monkeypatch.setitem(sys.modules, "trafilatura", fake)
+    monkeypatch.setenv("MYIA_EXTRACT_FALLBACK", "1")
+    client = make_client(make_handler(article_site()))
+    source = make_source(
+        engine="static_html",
+        url="https://example.com/news/story",
+        engine_options={"static_html": {"extract_fallback": "yes"}},
+    )
+    context, _ = make_context(client)
+    engine = StaticHTMLEngine(source, context)
+
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "invalid_engine_options"
+    assert fake.calls == []
+
+
+def test_fallback_source_scoped_covers_rules_empty(monkeypatch):
+    """②规则跑空走同一取值链:源级开 + 全局 env 关 → 兜底出条(改版失效源单源可救)。"""
+    fake = _FakeTrafilatura(ARTICLE_DOC)
+    monkeypatch.setitem(sys.modules, "trafilatura", fake)
+    monkeypatch.delenv("MYIA_EXTRACT_FALLBACK", raising=False)
+    client = make_client(make_handler(article_site()))
+    source = html_source(
+        "https://example.com/news/story",
+        engine_options={"static_html": {"extract_fallback": True}},
+    )
+    context, _ = make_context(client)
+    engine = StaticHTMLEngine(source, context)
+
+    items = run(engine.fetch())
+    assert [item["extract_provenance"] for item in items] == ["trafilatura"]
+    assert fake.calls == ["https://example.com/news/story"]

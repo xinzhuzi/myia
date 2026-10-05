@@ -91,14 +91,16 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `post_body` | `null` | POST 表单/JSON 体(映射);其中凭据类键同样禁明文 |
 | `headers` | `{}` | 请求头;凭据类键的值必须是 `env:`/`keychain:` 引用;不要伪装浏览器 UA(有源对 Chrome UA 回 429、对诚实的 MYIA 产品 UA 回 200) |
 | `pagination` | `null` | 翻页配置(见 pagination 节);`template` 模式要求 url 含 `{page}` |
-| `extract` | `null` | 字段提取(见 extract 节);留空时 L3+ 引擎自动结构化兜底 |
+| `extract` | `null` | 字段提取(见 extract 节);留空时 L3+ 引擎自动结构化兜底;L2 `static_html` 装了 `trafilatura` extras 且兜底开关开时对无规则源/规则跑空(`rss` 除外)做单页正文兜底(开关优先级=源级 `engine_options.static_html.extract_fallback` > 全局 `MYIA_EXTRACT_FALLBACK=1` > 缺省关) |
 | `rate_limit` | `见 rate_limit 节` | 礼貌限速(限速在引擎层统一执行) |
 | `proxy` | `direct` | `direct` / `pool:<名称>` / `residential:<区域>`;pool 需全局配置 `--config` |
 | `retry` | `3` | 瞬时错误重试预算(0-10) |
 
 源级扩展参数:未知键(如 `symbols: [NVDA, AAPL]`)原样传给引擎——URL 里的
 `{symbol}` 占位符按列表逐值扇出(一值一请求);`engine_options.<引擎名>` 是
-引擎旋钮命名空间(如 `engine_options.firecrawl.endpoint`)。扩展参数里的凭据类键同样禁明文。
+引擎旋钮命名空间(如 `engine_options.firecrawl.endpoint`、
+`engine_options.static_html.extract_fallback`(trafilatura 兜底单源开关,
+布尔,非布尔值 fetch 期结构化拒))。扩展参数里的凭据类键同样禁明文。
 
 ### 2.4 sources[].pagination(PaginationConfig)
 
