@@ -43,7 +43,9 @@ def load_adapter() -> Any:
     module = types.ModuleType("myssia_urlwatch_adapter_test")
     module.__file__ = str(PLUGIN_ADAPTER)
     exec(  # noqa: S102 - 仓库内受控代码
-        compile(PLUGIN_ADAPTER.read_text(encoding="utf-8"), str(PLUGIN_ADAPTER), "exec"),
+        compile(
+            PLUGIN_ADAPTER.read_text(encoding="utf-8"), str(PLUGIN_ADAPTER), "exec"
+        ),
         module.__dict__,
     )
     return module
@@ -65,17 +67,37 @@ def _runner_with_stdout(stdout: str, *, returncode: int = 0) -> Any:
 def _sample_events() -> list[dict[str, Any]]:
     """shim 事件形状(2026-10-05 对 urlwatch 2.29 源码亲核的 collector 面)."""
     return [
-        {"event": "new", "name": "example.com/a", "location": "https://example.com/a",
-         "timestamp": 1759700000.0},
-        {"event": "changed", "name": "示例", "location": "https://example.com/b",
-         "timestamp": 1759600000.0, "diff": "@@ -1 +1 @@\n-old\n+new" + "x" * 5000},
-        {"event": "unchanged", "name": "example.com/c", "location": "https://example.com/c"},
-        {"event": "error", "name": "example.com/d", "location": "https://example.com/d",
-         "error": "ConnectionError: boom", "traceback_tail": "Traceback (most recent call last): …"},
+        {
+            "event": "new",
+            "name": "example.com/a",
+            "location": "https://example.com/a",
+            "timestamp": 1759700000.0,
+        },
+        {
+            "event": "changed",
+            "name": "示例",
+            "location": "https://example.com/b",
+            "timestamp": 1759600000.0,
+            "diff": "@@ -1 +1 @@\n-old\n+new" + "x" * 5000,
+        },
+        {
+            "event": "unchanged",
+            "name": "example.com/c",
+            "location": "https://example.com/c",
+        },
+        {
+            "event": "error",
+            "name": "example.com/d",
+            "location": "https://example.com/d",
+            "error": "ConnectionError: boom",
+            "traceback_tail": "Traceback (most recent call last): …",
+        },
     ]
 
 
-def _sample_payload(events: list[dict[str, Any]] | None = None, *, checked: int | None = None) -> dict:
+def _sample_payload(
+    events: list[dict[str, Any]] | None = None, *, checked: int | None = None
+) -> dict:
     events = _sample_events() if events is None else events
     return {
         "urlwatch_version": "2.29",
@@ -125,10 +147,10 @@ class TestUrlwatchAdapter:
         "urls",
         [
             [],
-            "ftp://example.com/f",          # 仅 http/https
-            "not-a-url",                     # 无 scheme
-            "https://example.com/ oops",     # 含空白
-            42,                              # 非法类型
+            "ftp://example.com/f",  # 仅 http/https
+            "not-a-url",  # 无 scheme
+            "https://example.com/ oops",  # 含空白
+            42,  # 非法类型
             [42],
             [{"name": "无 url 键"}],
             [""],
@@ -155,7 +177,10 @@ class TestUrlwatchAdapter:
         adapter = load_adapter()
         jobs_path = tmp_path / "urls.yaml"
         adapter.write_jobs_yaml(
-            [{"name": "a", "url": "https://example.com/a"}, {"name": "b", "url": "https://example.com/b"}],
+            [
+                {"name": "a", "url": "https://example.com/a"},
+                {"name": "b", "url": "https://example.com/b"},
+            ],
             jobs_path,
         )
         docs = list(yaml.safe_load_all(jobs_path.read_text(encoding="utf-8")))
@@ -168,7 +193,9 @@ class TestUrlwatchAdapter:
 
     def test_build_command_is_isolated_uv_running_myia_shim(self, tmp_path):
         adapter = load_adapter()
-        command = adapter.build_command(tmp_path / "shim.py", tmp_path / "urls.yaml", tmp_path / "cache.db")
+        command = adapter.build_command(
+            tmp_path / "shim.py", tmp_path / "urls.yaml", tmp_path / "cache.db"
+        )
         assert command[:3] == ["uv", "run", "--no-project"]
         assert "--with" in command and "urlwatch" in command
         assert command[command.index("python") + 1] == str(tmp_path / "shim.py")
@@ -188,7 +215,12 @@ class TestUrlwatchAdapter:
     def test_run_success_counts_events(self, tmp_path):
         adapter = load_adapter()
         payload = adapter.run(
-            ["https://example.com/a", "https://example.com/b", "https://example.com/c", "https://example.com/d"],
+            [
+                "https://example.com/a",
+                "https://example.com/b",
+                "https://example.com/c",
+                "https://example.com/d",
+            ],
             cache_file=tmp_path / "cache.db",
             runner=_runner_with_stdout(_stdout(_sample_payload())),
         )
@@ -196,7 +228,11 @@ class TestUrlwatchAdapter:
         assert payload["plugin"] == "myssia-urlwatch"
         assert payload["checked"] == 4
         assert payload["counts"] == {
-            "new": 1, "changed": 1, "unchanged": 1, "error": 1, "deferred": 0,
+            "new": 1,
+            "changed": 1,
+            "unchanged": 1,
+            "error": 1,
+            "deferred": 0,
         }
         assert payload["cache_file"] == str(tmp_path / "cache.db")
         assert payload["urlwatch_version"] == "2.29"
@@ -204,7 +240,9 @@ class TestUrlwatchAdapter:
         assert changed["name"] == "示例"
         errored = next(e for e in payload["events"] if e["event"] == "error")
         assert errored["error"] == "ConnectionError: boom"
-        assert "traceback_tail" not in errored, "shim 内部字段不上透(adapter 只留有界面)"
+        assert "traceback_tail" not in errored, (
+            "shim 内部字段不上透(adapter 只留有界面)"
+        )
 
     def test_run_bounds_diff_tail(self, tmp_path):
         adapter = load_adapter()
@@ -219,7 +257,13 @@ class TestUrlwatchAdapter:
 
     def test_run_zero_change_is_success_empty_state(self, tmp_path):
         adapter = load_adapter()
-        events = [{"event": "unchanged", "name": "example.com/a", "location": "https://example.com/a"}]
+        events = [
+            {
+                "event": "unchanged",
+                "name": "example.com/a",
+                "location": "https://example.com/a",
+            }
+        ]
         payload = adapter.run(
             ["https://example.com/a"],
             cache_file=tmp_path / "cache.db",
@@ -232,7 +276,11 @@ class TestUrlwatchAdapter:
         """checked - 事件数 = deferred(上游 max_tries 重试未到阈值,本轮不判定)."""
         adapter = load_adapter()
         events = [
-            {"event": "unchanged", "name": "example.com/a", "location": "https://example.com/a"},
+            {
+                "event": "unchanged",
+                "name": "example.com/a",
+                "location": "https://example.com/a",
+            },
         ]
         payload = adapter.run(
             ["https://example.com/a", "https://example.com/b"],
@@ -281,6 +329,8 @@ class TestUrlwatchAdapter:
     def test_uv_missing_is_structured(self, tmp_path, monkeypatch):
         adapter = load_adapter()
         monkeypatch.setattr(adapter.shutil, "which", lambda name: None)
+        # 兜底已知落位一并空置(PATH 与已知落位全缺才是 uv_missing)
+        monkeypatch.setattr(adapter, "_KNOWN_UV_PATHS", ())
         with pytest.raises(adapter.UrlwatchAdapterError) as exc_info:
             adapter.run(
                 ["https://example.com/a"],
@@ -288,6 +338,44 @@ class TestUrlwatchAdapter:
                 runner=_runner_with_stdout(_stdout(_sample_payload())),
             )
         assert exc_info.value.code == "uv_missing"
+
+    def test_uv_falls_back_to_known_paths_when_path_lacks_it(
+        self, tmp_path, monkeypatch
+    ):
+        """GUI 态 PATH 缺 uv(Finder/Dock 启动)→ 已知落位兜底可用.
+
+        10-06-ai-news-sources:桌面壳 spawn 只注入 PYTHONPATH 不补 PATH,
+        which 未命中时按 ~/.local/bin/uv 等绝对路径解析;本测以假 HOME
+        造一个可执行 uv,断言解析与命令装配都吃到绝对路径。
+        """
+        adapter = load_adapter()
+        fake_home = tmp_path / "home"
+        fake_uv = fake_home / ".local" / "bin" / "uv"
+        fake_uv.parent.mkdir(parents=True)
+        fake_uv.write_text("#!/bin/sh\n", encoding="utf-8")
+        fake_uv.chmod(0o755)
+        monkeypatch.setattr(adapter.shutil, "which", lambda name: None)
+        monkeypatch.setattr(adapter.Path, "home", staticmethod(lambda: fake_home))
+        monkeypatch.setattr(
+            adapter,
+            "_KNOWN_UV_PATHS",
+            (fake_home / ".local" / "bin" / "uv",),
+        )
+        assert adapter.uv_executable() == str(fake_uv)
+        assert adapter.is_available() is True
+        captured: dict[str, Any] = {}
+
+        def _capture_runner(command: list[str], **kwargs: Any) -> Any:
+            captured["command"] = command
+            return _runner_with_stdout(_stdout(_sample_payload()))(command, **kwargs)
+
+        result = adapter.run(
+            ["https://example.com/a"],
+            cache_file=tmp_path / "cache.db",
+            runner=_capture_runner,
+        )
+        assert captured["command"][0] == str(fake_uv)
+        assert result["status"] == "success"
 
     def test_url_invalid_raises_before_any_process(self, tmp_path):
         adapter = load_adapter()
@@ -318,9 +406,12 @@ class TestIronLawAdapterNeverBlocksCore:
     def test_adapter_failures_keep_core_unblocked(self, tmp_path, monkeypatch):
         adapter = load_adapter()
         monkeypatch.setattr(adapter.shutil, "which", lambda name: None)
+        monkeypatch.setattr(adapter, "_KNOWN_UV_PATHS", ())
         for bad_call in (
             lambda: adapter.run("ftp://example.com/f", cache_file=tmp_path / "c.db"),
-            lambda: adapter.run(["https://example.com/a"], cache_file=tmp_path / "c.db"),
+            lambda: adapter.run(
+                ["https://example.com/a"], cache_file=tmp_path / "c.db"
+            ),
         ):
             with pytest.raises(adapter.UrlwatchAdapterError):
                 bad_call()

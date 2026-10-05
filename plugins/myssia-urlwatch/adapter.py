@@ -41,6 +41,7 @@ tests/plugins/test_urlwatch_plugin.py)。
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -110,9 +111,30 @@ def plugin_dir() -> Path:
     return PLUGIN_DIR
 
 
+#: GUI 态 PATH 常缺的 uv 已知落位(桌面壳 spawn sidecar 只注入 PYTHONPATH
+#: 不补 PATH;Finder/Dock 启动的 app PATH 无 /opt/homebrew/bin 等——which
+#: 未命中时按序探测这些绝对路径兜底,本机实测两处双在位)。
+_KNOWN_UV_PATHS: tuple[Path, ...] = (
+    Path.home() / ".local" / "bin" / "uv",
+    Path("/opt/homebrew/bin/uv"),
+    Path("/usr/local/bin/uv"),
+)
+
+
+def uv_executable() -> str | None:
+    """解析 uv 可执行路径:PATH(which)优先,GUI 态 PATH 缺失走已知落位."""
+    found = shutil.which("uv")
+    if found:
+        return found
+    for candidate in _KNOWN_UV_PATHS:
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
 def is_available() -> bool:
     """运行前提是否就位:宿主有 uv(上游依赖经 uv 临时环境注入)."""
-    return shutil.which("uv") is not None
+    return uv_executable() is not None
 
 
 def _default_name(url: str) -> str:
@@ -153,8 +175,10 @@ def normalize_urls(urls: Any) -> list[dict[str, str]]:
     jobs: list[dict[str, str]] = []
     seen: set[str] = set()
     for item in items:
-        url = item if isinstance(item, str) else (
-            item.get("url") if isinstance(item, dict) else None
+        url = (
+            item
+            if isinstance(item, str)
+            else (item.get("url") if isinstance(item, dict) else None)
         )
         if not isinstance(url, str) or not url.strip():
             raise UrlwatchAdapterError(
@@ -162,7 +186,9 @@ def normalize_urls(urls: Any) -> list[dict[str, str]]:
                 f"URL 项非法:{item!r}(须为字符串或含 url 键的映射)",
             )
         url = url.strip()
-        if len(url) > _MAX_URL_LENGTH or any(ch.isspace() or ord(ch) < 32 for ch in url):
+        if len(url) > _MAX_URL_LENGTH or any(
+            ch.isspace() or ord(ch) < 32 for ch in url
+        ):
             raise UrlwatchAdapterError(
                 "url_invalid",
                 f"URL 非法(含空白/控制字符或超 {_MAX_URL_LENGTH} 字符):{url[:80]!r}",
@@ -275,9 +301,18 @@ if __name__ == "__main__":
 '''
 
 
-def build_command(shim_path: str | Path, jobs_path: str | Path, cache_path: str | Path) -> list[str]:
-    """装配隔离子进程命令:uv 临时环境跑 MYIA shim(借上游 Python API)."""
-    command = ["uv", "run", "--no-project"]
+def build_command(
+    shim_path: str | Path,
+    jobs_path: str | Path,
+    cache_path: str | Path,
+    uv: str = "uv",
+) -> list[str]:
+    """装配隔离子进程命令:uv 临时环境跑 MYIA shim(借上游 Python API).
+
+    ``uv`` 可注入绝对路径(GUI 态 which 未命中、经 :func:`uv_executable`
+    已知落位解析出的形态);缺省字面 ``uv`` 走子进程 PATH 解析不变。
+    """
+    command = [uv, "run", "--no-project"]
     for dependency in URLWATCH_DEPENDENCIES:
         command += ["--with", dependency]
     command += [
@@ -309,8 +344,11 @@ def parse_payload(raw: str) -> dict[str, Any]:
             "urlwatch_output_invalid",
             f"shim stdout 不是可解析 JSON:{exc}",
         ) from exc
-    if not isinstance(payload, dict) or not isinstance(payload.get("events"), list) \
-            or not isinstance(payload.get("checked"), int):
+    if (
+        not isinstance(payload, dict)
+        or not isinstance(payload.get("events"), list)
+        or not isinstance(payload.get("checked"), int)
+    ):
         raise UrlwatchAdapterError(
             "urlwatch_output_invalid",
             f"shim 输出形状不对(缺 events 列表/checked 计数):{str(raw)[:120]!r}",
@@ -371,14 +409,19 @@ def run(
     """
     do_run = runner if runner is not None else subprocess.run
     jobs = normalize_urls(urls)
-    if shutil.which("uv") is None:
+    uv = uv_executable()
+    if uv is None:
         raise UrlwatchAdapterError(
             "uv_missing",
-            "隔离运行时不可用: PATH 上找不到 uv(https://docs.astral.sh/uv/)。"
-            "适配器以 uv 临时环境运行上游 urlwatch,依赖不进根依赖。",
+            "隔离运行时不可用: PATH 上找不到 uv,已知落位"
+            f"({', '.join(str(p) for p in _KNOWN_UV_PATHS)})也不存在"
+            "(https://docs.astral.sh/uv/)。适配器以 uv 临时环境运行上游"
+            " urlwatch,依赖不进根依赖。",
             checked=len(jobs),
         )
-    cache_path = Path(cache_file).expanduser() if cache_file is not None else DEFAULT_CACHE_FILE
+    cache_path = (
+        Path(cache_file).expanduser() if cache_file is not None else DEFAULT_CACHE_FILE
+    )
     started = clock()
     with tempfile.TemporaryDirectory(prefix="myssia-urlwatch-") as scratch:
         scratch_dir = Path(scratch)
@@ -386,7 +429,7 @@ def run(
         jobs_path = scratch_dir / "urls.yaml"
         shim_path.write_text(SHIM_SOURCE, encoding="utf-8")
         write_jobs_yaml(jobs, jobs_path)
-        command = build_command(shim_path, jobs_path, cache_path)
+        command = build_command(shim_path, jobs_path, cache_path, uv=uv)
         try:
             completed = do_run(
                 command,
