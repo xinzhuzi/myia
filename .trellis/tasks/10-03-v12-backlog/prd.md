@@ -211,6 +211,19 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
      (「完成=装机包刷新」判例);待主人过目 4 档 review
      (telegram-token-dedupe/ui-chore-batch/win-second-instance-show/
      reddit-source,后者 10-31 API 申请截止剩 26 天)。
+   - **回标(2026-10-05 深夜 grill 深化轮)**:真候选拆正式档——Apprise→
+     `10-05-push-apprise`、Bark→`10-05-push-bark`、SearXNG→
+     `10-05-source-searxng`、Firecrawl→`10-05-firecrawl-selfhost-verify`、
+     cron 心跳→`10-05-cron-heartbeat`(五档 prd+task.json 齐,planning,
+     各含背景锚点/grill 决议/实现细节/UI 美化/测试用例级/验证含装机件
+     像素/AC/边界)。grill 事实修正三处:①「现推送面 6 通道」失实——
+     PushChannel 实数 **31**(schema.py:229,slack/discord/teams/matrix/
+     mattermost/…已在),Apprise 增量=长尾非「6→160」;②Apprise 原生含
+     `bark://`,Apprise/Bark 两档关系改「不互斥,先落地者裁或并存主人定」;
+     ③Firecrawl 引擎**已在库且默认自托管端点** 127.0.0.1:3002
+     (firecrawl.py:48,MYIA_FIRECRAWL_URL/KEY 调用时覆盖)+已入降级链
+     (registry.py)——候选缩水为「真跑验证+部署指引」验证型档。弱需求
+     备忘与死路清单维持本池不动。
 ## 主人侧前置(2026-10-03 grill Q4 已答)
 
 - **Windows 真机/VM:有**——v1.2 Windows 拆任务按完整安装冒烟口径(对齐 macOS 的

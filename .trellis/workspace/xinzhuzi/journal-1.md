@@ -718,3 +718,11 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 盘点期同窗并行线又落三批(11 笔未推):telegram 互踢已修(d793a86 同 token 单轮询器租约——超越本 journal 上段「永久解需第二 bot」口径,免建 bot 直解 409)/ui-chore-batch(tooltip 五字段 a17c931+沙箱窗标识 c73baef,池 8/9 双消号)/win-second-instance-show(729b8f2 官方 single-instance 插件,Windows 双击永无窗口的交付级缺口代码面闭合)。
 - **池档 v12-backlog 第 10 项「GitHub 集成候选批」入池**(盘点核实 RSSHub 已在=官方场景件 myssia-rsshub):Apprise(推送统一层,MIT,6 通道→100+ 目标,extras 形态同 trafilatura 先例)/Bark(iOS 推送小通道)/SearXNG(自托管元搜索源,走现有引擎层)/Firecrawl OSS(gates 族自托管兜底,SaaS 面 census 已评低、自托管面拆时先探)/cron 心跳告警(原生件,executions 账本+告警规则族合并考虑)/弱需求备忘(changedetection.io、gallery-dl、ArchiveBox)/死路在案(Pushshift/GNews/Bing RSS/smzdm/Reddit 直抓)。同段备忘工程面状态:11 笔未推 CI 未验、装机包落后 HEAD 五笔(推送过 CI 后重打包换装)、4 档 review 待主人(reddit-source 10-31 API 截止剩 26 天)。
 - 提交:池档+本 journal 段 --only 两路径纯文档批不推远端;并行会话在途目录(10-05-reddit-official-engine 未跟踪)不碰。
+
+## 2026-10-05 深夜:grill 深化轮——池 10 拆五档,计划/实现/测试/验证/UI 五维俱全(主人令「深化与补全,尤其细节」)
+
+- grilling 技能正式质询(判例链收口环)第一轮事实核查抓出三处失实:①推送面实数 **31 通道**非 6(schema.py:229 亲数,slack/discord/teams/matrix/mattermost…已在,W1/W2 线遗产),Apprise 增量=长尾非「6→160」;②Apprise 原生含 `bark://`(官方支持列表 ~160 目标);③**Firecrawl 引擎已在库且默认自托管端点** DEFAULT_FIRECRAWL_ENDPOINT=127.0.0.1:3002(firecrawl.py:48,MYIA_FIRECRAWL_URL/KEY 调用时覆盖)且已入降级链(registry.py:4/:87/:114)——池口径「自托管面未探」半数不成立。主人令「都深化」=不裁剪全拆档。
+- 五档落地(prd+task.json 双件,planning):`10-05-push-apprise`(P2:extras 通道+target 凭据引用多目标串+未装=send-time 结构化拒+doctor finding 不惊扰未配置用户+json:// 磁盘 sink 离线真跑验证法)/`10-05-push-bark`(P2:零依赖十行级,group=MYIA 防刷屏,自建 endpoint 可选,与 apprise 翻案条件互记)/`10-05-source-searxng`(P2:两段式探查先行=json 开启+接口快照+限流口径,AGPL 服务消费判例,queries 多词+礼貌间隔≥1800s+既有 url metric 去重)/`10-05-firecrawl-selfhost-verify`(P2:验证型零代码预期,docker compose 真跑 3-5 站 vs Zenrows 基线+cloud-only 缺口如实+部署指引)/`10-05-cron-heartbeat`(P1:告警族 cron_stale 类型=executions 账本只读+auto 阈值 2×期望间隔 fail-fast+冷静期/冷却沿 engine 既有零新状态机+协议加法可选零 bump+消息屏表单/fired 卡/跳 cron 屏,a11y 沿 ui-chore-batch spec 第 7 条)。
+- 每档结构:背景锚点(文件:行)/grill 决议/Requirements(后端+协议+UI 美化)/测试(用例级枚举)/验证(真跑+装机件像素,「AI 验到像素」判例)/AC/边界红线——覆盖主人点名的计划/处理/测试/验证/美化 UI 五维。
+- 池 10 回标:拆档指针+三处事实修正回写;弱需求备忘与死路清单维持池内。
+- 提交:五档目录+池档+journal --only 入库不推远端;并行在途目录(reddit-official-engine/bundled-plugins-batch2)不碰。
