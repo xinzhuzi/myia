@@ -726,3 +726,11 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 每档结构:背景锚点(文件:行)/grill 决议/Requirements(后端+协议+UI 美化)/测试(用例级枚举)/验证(真跑+装机件像素,「AI 验到像素」判例)/AC/边界红线——覆盖主人点名的计划/处理/测试/验证/美化 UI 五维。
 - 池 10 回标:拆档指针+三处事实修正回写;弱需求备忘与死路清单维持池内。
 - 提交:五档目录+池档+journal --only 入库不推远端;并行在途目录(reddit-official-engine/bundled-plugins-batch2)不碰。
+
+## 2026-10-05 深夜:队列执行轮——heartbeat 第一批入库 + /workflow 队列工作流拉起(主人令「都按建议去做」+「按照 trellis 的方式执行」)
+
+- **四档放行回执+排队顺序落档**(heartbeat→bark→apprise 点名即启→searxng→firecrawl;appprise 的「先点名缺什么目标」门按已记决议保留,整批放行不推翻单项门)。
+- **cron-heartbeat 第一批(833b331,24 文件 +1021)**:store v9(alert_rules +kind/params,幂等守卫迁移)/构造门(scope 钉品类+when 占位 true+阈值二选一 fail-fast+item 带 params 拒)/engine.heartbeat_pass(冷却=时间桶 dedup_key 过 UNIQUE 零新状态机;恢复=近两桶 stale 在场且未恢复过;auto=2× 账本观测节奏夹 [1,168]h 观测不足 WARNING 跳过;push 按规则品类解析通道禁跨品类借凭据;_HeartbeatNotice 鸭子形通知,引擎不 import Pipeline)/executions 两只读查询(last_completed_at/completed_gap_hours 中位)/消息屏表单+徽章+预检(a11y htmlFor 兄弟位)/api.ts 加法可选字段。测试新 25+3 例;版本金丝雀六处随 v9(refused 例改 SCHEMA_VERSION+1 免再漂);门禁亲跑全量 pytest **4366/0**+vitest **488**+tsc 零错+ruff 绿;真跑证据 /tmp/myia-heartbeat-e2e(账本节奏 4h→auto 8h、fire 文案、同桶冷却零复发)。AC1/5/6 勾、AC2/3/4 半勾(接线三件折进工作流首件——当时 entry.py/协议文档被并行线占,现已随 825cf21 落地解禁)。
+- **/workflow 队列工作流(dwfrun-b921446d)拉起**:dynamic-workflows 技能正式走完;拓扑=四任务串行(接线批/bark 全实现/searxng 探查/firecrawl 验证)×(实施员→脚本四门禁 world.run 分支→独立复核只读→发现修一轮→收口);**禁触清单运行时从 git.status 动态取**(并行线又开 dashboard-glance/trafilatura-source-scope 两新线,静态清单必过时);纪律内嵌(pathspec 提交/不碰 journal/trellis 状态直改 task.json/不可能即升级);看板 board+primary 收口报告;apprise 留主人点名即启写进 conclusion。
+- 并行线同窗:bundled-plugins-batch2 落地(825cf21+1150cea:trafilatura 组件表/卸载钮/品类 YAML 发现面/monitor+credentials 随包,注册表 64→66)。
+- 提交:heartbeat 批 833b331(含四档放行回执);本 journal 段 --only 入库;不推远端。
