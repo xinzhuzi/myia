@@ -78,8 +78,8 @@ def index_names(store: SQLiteStore) -> set[str]:
 
 class TestFreshSchemaV8:
     def test_schema_version_is_8(self, store):
-        assert SCHEMA_VERSION == 8
-        assert int(store.get_meta("schema_version")) == 8
+        assert SCHEMA_VERSION == 9
+        assert int(store.get_meta("schema_version")) == 9
 
     def test_items_table_has_three_state_columns_with_defaults(self, store):
         columns = {
@@ -177,7 +177,7 @@ class TestMigrationV7ToV8:
 
         migrated = SQLiteStore(path)
         try:
-            assert int(migrated.get_meta("schema_version")) == 8
+            assert int(migrated.get_meta("schema_version")) == SCHEMA_VERSION
             assert {"read", "starred", "later"} <= item_columns(migrated)
             assert "idx_items_dedup_key" in index_names(migrated)
             titles = [item.title for item in migrated.list_items()]
@@ -201,7 +201,7 @@ class TestMigrationV7ToV8:
 
         again = SQLiteStore(path)
         try:
-            assert int(again.get_meta("schema_version")) == 8
+            assert int(again.get_meta("schema_version")) == 9
             assert again.get_item_by_dedup_key("https://r/1").read is True
         finally:
             again.close()
@@ -222,7 +222,7 @@ class TestMigrationV7ToV8:
 
         resumed = SQLiteStore(path)
         try:
-            assert int(resumed.get_meta("schema_version")) == 8
+            assert int(resumed.get_meta("schema_version")) == 9
             assert {"read", "starred", "later"} <= item_columns(resumed)
             assert "idx_items_dedup_key" in index_names(resumed)
             # 中断前已置位的列值原样保留(幂等 if 只补缺列,不重置已有)。

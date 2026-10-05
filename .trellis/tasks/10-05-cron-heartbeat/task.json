@@ -3,7 +3,7 @@
   "name": "10-05-cron-heartbeat",
   "title": "cron 心跳告警(品类久未成功触发)",
   "description": "告警规则族新增 cron_stale 类型:executions 账本只读评估距上次成功触发超阈值即告警(healthchecks 式 dead-man switch 原生版);auto 阈值=2×期望间隔 fail-fast;冷静期/冷却沿 engine 既有;协议加法可选字段零版本 bump;消息屏告警面板表单+fired 卡。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -20,7 +20,11 @@
   "subtasks": [],
   "children": [],
   "parent": null,
-  "relatedFiles": ["src/myssia/alerts/rule.py", "src/myssia/alerts/engine.py", "src/myssia/cron/executions.py"],
-  "notes": "由 v12-backlog 池第 10 项拆出;grill Q7 推荐立项(随下个告警/UI 批);cron 侧零侵入为目标",
+  "relatedFiles": [
+    "src/myssia/alerts/rule.py",
+    "src/myssia/alerts/engine.py",
+    "src/myssia/cron/executions.py"
+  ],
+  "notes": "由 v12-backlog 池第 10 项拆出;grill Q7 推荐立项(随下个告警/UI 批);cron 侧零侵入为目标 | 开工回执(2026-10-05 深夜):主人令「都按建议去做」,按推荐首件开工;并行线在途文件(sidecar-protocol.md 等 8 件)避开,协议文档注记延后至并行线落地后补。",
   "meta": {}
 }

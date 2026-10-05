@@ -85,7 +85,7 @@ from myssia.store.models import (
 logger = logging.getLogger(__name__)
 
 #: Current layout version; bump + add a migration entry when the DDL changes.
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 # 同进程并发「首次打开同一数据库」的串行化锁(见 SQLiteStore.__init__)。
 _OPEN_LOCK = threading.Lock()
@@ -238,6 +238,8 @@ CREATE TABLE IF NOT EXISTS alert_rules (
     when_expr TEXT NOT NULL,                -- 白名单 AST 表达式原文(SQL 保留字 when 故列名带 _expr)
     action TEXT NOT NULL,                   -- 'push' | 'tag'
     action_config TEXT NOT NULL,            -- JSON:push {channel, targets?, template?} / tag {tags: [..]}
+    kind TEXT NOT NULL DEFAULT 'item',      -- 'item' | 'cron_stale'(10-05-cron-heartbeat)
+    params TEXT,                            -- JSON:cron_stale {threshold_hours} 或 {auto:true};item 恒 NULL
     created_at TEXT NOT NULL,               -- ISO-8601 UTC
     updated_at TEXT NOT NULL
 );
@@ -445,6 +447,21 @@ def _migrate_v8_add_item_states(conn: sqlite3.Connection) -> None:
     logger.info("存储迁移完成: items 表新增 read/starred/later 三列 + idx_items_dedup_key(G9)")
 
 
+def _migrate_v9_add_alert_rule_kind(conn: sqlite3.Connection) -> None:
+    """v8 → v9: alert_rules 增 ``kind``/``params`` 列(10-05-cron-heartbeat).
+
+    Idempotent and purely additive(``_migrate_v6_add_feedback_external_id``
+    同构先例):fresh v9 库经 ``_SCHEMA`` 已带两列;既有行 kind 缺省
+    'item'、params NULL——条目规则语义零漂移,心跳规则是纯新增面。
+    """
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(alert_rules)").fetchall()}
+    if columns and "kind" not in columns:
+        conn.execute("ALTER TABLE alert_rules ADD COLUMN kind TEXT NOT NULL DEFAULT 'item'")
+    if columns and "params" not in columns:
+        conn.execute("ALTER TABLE alert_rules ADD COLUMN params TEXT")
+    logger.info("存储迁移完成: alert_rules 增 kind/params 列(心跳规则类型)")
+
+
 #: target version → migration (runs with the connection inside the caller's
 #: transaction; every migration must be idempotent — fresh databases replay
 #: them after ``CREATE TABLE IF NOT EXISTS`` already produced the new shape).
@@ -456,6 +473,7 @@ _MIGRATIONS: dict[int, object] = {
     6: _migrate_v6_add_feedback_external_id,
     7: _migrate_v7_add_alerts,
     8: _migrate_v8_add_item_states,
+    9: _migrate_v9_add_alert_rule_kind,
 }
 
 
@@ -567,6 +585,10 @@ def _row_to_alert_rule(row: sqlite3.Row) -> AlertRule:
         when=row["when_expr"],
         action=row["action"],
         action_config=config if isinstance(config, dict) else {},
+        kind=row["kind"],
+        params=(lambda value: value if isinstance(value, dict) else None)(
+            _json_loads(row["params"]) if row["params"] is not None else None
+        ),
         created_at=_from_iso(row["created_at"]),
         updated_at=_from_iso(row["updated_at"]),
     )
@@ -1647,7 +1669,7 @@ class SQLiteStore:
         if rule.id is not None:
             cursor = self._write(
                 "UPDATE alert_rules SET name = ?, enabled = ?, scope = ?, when_expr = ?, "
-                "action = ?, action_config = ?, updated_at = ? WHERE id = ?",
+                "action = ?, action_config = ?, kind = ?, params = ?, updated_at = ? WHERE id = ?",
                 (
                     rule.name,
                     1 if rule.enabled else 0,
@@ -1655,6 +1677,8 @@ class SQLiteStore:
                     rule.when,
                     rule.action,
                     _json_dumps(rule.action_config),
+                    rule.kind,
+                    _json_dumps(rule.params) if rule.params is not None else None,
                     _to_iso(now),
                     rule.id,
                 ),
@@ -1666,7 +1690,7 @@ class SQLiteStore:
             with self._lock:
                 cursor = self.conn.execute(
                     "INSERT INTO alert_rules (name, enabled, scope, when_expr, action, "
-                    "action_config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    "action_config, kind, params, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         rule.name,
                         1 if rule.enabled else 0,
@@ -1674,6 +1698,8 @@ class SQLiteStore:
                         rule.when,
                         rule.action,
                         _json_dumps(rule.action_config),
+                        rule.kind,
+                        _json_dumps(rule.params) if rule.params is not None else None,
                         _to_iso(rule.created_at or now),
                         _to_iso(now),
                     ),

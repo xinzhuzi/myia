@@ -22,6 +22,8 @@ Contract (PRD 10-01-v01-engine-l1-l2):
   兜底;产出过最低正文量门才出条(键面全为管线既有键,条目带
   ``extract_provenance="trafilatura"``),不过门/启发式失败=维持零条语义。
   字段级失败(条目缺 url/部分字段 miss)不兜底;规则命中的源结构性永不触达。
+  源级覆写(10-05-trafilatura-source-scope):``engine_options.static_html.
+  extract_fallback: true/false`` 单源开/关,优先级=源级 > 全局 env > 缺省关。
 
 Raises:
     FetchError: extract config missing/unsupported, template param missing.
@@ -40,6 +42,7 @@ from selectolax.parser import HTMLParser
 
 from myssia.engines.fetch_base import (
     BaseEngine,
+    FetchError,
     decode_response,
     extract_html,
     extract_rss,
@@ -50,19 +53,18 @@ logger = logging.getLogger(__name__)
 
 LAYER = "L2"
 
-#: 兜底开关(缺省关=既有源零行为差);读点在引擎内,CLI 与 sidecar 同一
+#: 兜底开关——全局态(缺省关=既有源零行为差);读点在引擎内,CLI 与 sidecar 同一
 #: 代码路径自然同读(desktop/entry.py:563-567「env 可被测试逐例注入」同款形态)。
+#: 源级覆写(10-05-trafilatura-source-scope):``engine_options.static_html.
+#: extract_fallback`` 单源开/关,优先级=源级 > 全局 env > 缺省关。
 FALLBACK_ENV = "MYIA_EXTRACT_FALLBACK"
+#: 源级覆写键名(engine_options.<ENGINE_NAME> 旋钮命名空间,saas._bool_option 先例)。
+FALLBACK_OPTION = "extract_fallback"
 #: 最低正文量门(字符数):夹具标定——文章页 203 过 / 列表页退化 78 拦,120 居中
 #: (评估档 §2.4 矩阵);不过门=视同启发式失败=维持零条语义,不产伪条目。
 FALLBACK_MIN_TEXT_CHARS = 120
 
 __all__ = ["LAYER", "StaticHTMLEngine"]
-
-
-def _fallback_enabled() -> bool:
-    """opt-in 缺省关:只有显式 ``MYIA_EXTRACT_FALLBACK=1`` 才开兜底。"""
-    return os.environ.get(FALLBACK_ENV) == "1"
 
 
 def _load_trafilatura() -> Any:
@@ -140,6 +142,24 @@ class StaticHTMLEngine(BaseEngine):
     ENGINE_NAME = "static_html"
     SUPPORTED_EXTRACT_TYPES = ("list", "item", "rss")
 
+    def _fallback_enabled(self) -> bool:
+        """兜底开关取值链(10-05-trafilatura-source-scope):源级 > 全局 env > 缺省关。
+
+        源级 = ``engine_options.static_html.extract_fallback: true/false``
+        (引擎旋钮命名空间,schema 开放参数直通;布尔类型错即结构化拒,
+        saas ``_bool_option`` 先例——含糊值不开不关静默失效才是坑);
+        未设 → 全局 ``MYIA_EXTRACT_FALLBACK == "1"``(现状语义逐字节不变)。
+        """
+        value = self.engine_options().get(FALLBACK_OPTION)
+        if value is not None:
+            if not isinstance(value, bool):
+                raise FetchError(
+                    f"engine_options.{self.ENGINE_NAME}.{FALLBACK_OPTION} 应为布尔,当前为 {value!r}",
+                    error_type="invalid_engine_options",
+                )
+            return value
+        return os.environ.get(FALLBACK_ENV) == "1"
+
     def _check_extract_support(self) -> None:
         """①extract=None 的兜底放行面(10-05-trafilatura-impl)。
 
@@ -149,7 +169,7 @@ class StaticHTMLEngine(BaseEngine):
         """
         if (
             self.source.extract is None
-            and _fallback_enabled()
+            and self._fallback_enabled()
             and _load_trafilatura() is not None
         ):
             return
@@ -222,7 +242,7 @@ class StaticHTMLEngine(BaseEngine):
             # ② 规则跑空兜底(rss 除外:feedparser 白名单路径结构性不挂);
             # ③字段级失败不进——extract_html 内部语义(条目缺 url→管线
             # invalid_item 记账),本引擎零新代码。
-            if extract.type != "rss" and _fallback_enabled():
+            if extract.type != "rss" and self._fallback_enabled():
                 page_items = _trafilatura_fallback(text, url)
                 if page_items:
                     logger.info("规则跑空,trafilatura 兜底出条 url=%s", url)

@@ -65,3 +65,8 @@ push 层新增 `bark` 原生通道:HTTP POST 一发即达 iOS(APNs 经 Bark 服�
   (README 一句话指路即可)。
 - 红线:device key 明文拒;端点 URL 校验防 SSRF 花样 scheme(schema
   http/https 门同既有 webhook 字段先例)。
+
+## 放行回执(2026-10-05 深夜,主人令「都按建议去做」)
+
+- 问题:iPhone 通知高频与否未知。做法:主人整体放行,排队第 2(零依赖小件先行);真推 AC manual 留主人=装 Bark App 复制 key 入 keychain 发一条即验;验后不高频通道留着零成本。
+- 执行顺序(全五档):cron-heartbeat(先做,零前置)→ push-bark → push-apprise(点名即启)→ source-searxng → firecrawl-selfhost-verify。

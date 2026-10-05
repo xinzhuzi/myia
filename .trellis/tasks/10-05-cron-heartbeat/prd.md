@@ -87,3 +87,15 @@
   (推送通道即上限);跨品类全局一条规则(逐品类/逐任务显式配,防误报面)。
 - 红线:评估只读账本零写入;冷却语义不新建状态机(沿 engine 既有或
   补通用件)。
+
+## 实施回执(2026-10-05 深夜第一批:引擎与存储面)
+
+- **store v9**(sqlite.py):alert_rules 增 `kind`(缺省 'item')/`params`(JSON)两列;迁移幂等守卫(v6 PRAGMA 先例);INSERT/UPDATE/行映射三路带新列。既有行零漂移(=item/NULL)。
+- **构造门**(rule.py):kind 越表拒;cron_stale 强制 scope 钉品类+when 占位 'true'+params 形状(threshold_hours>0 或 auto 二选一,可选 job_id);item 带 params 拒(防误配)。
+- **引擎**(engine.py):run_pass 按 kind 过滤(cron_stale 零进条目路径);新 `heartbeat_pass()`——阈值=显式或 2×账本观测节奏夹 [1,168]h(观测不足 WARNING 跳过 fail-fast);从未成功以规则年龄当冷静期;**冷却=dedup_key 带时间桶过 record_fired UNIQUE 门闩,零新状态机**;恢复=近两桶 stale 行在场且未恢复过 → 恢复通知(同 UNIQUE 冷却);push 动作按**规则品类**解析通道(channel_resolver_for 注入,禁止借用评估宿主品类凭据);合成通知 `_HeartbeatNotice`(Item 鸭子形,myssia-alert: 伪协议,引擎不 import Pipeline 依赖方向红线)。
+- **账本只读**(executions.py):`last_completed_at(job_ids)`(部分索引覆盖)+`completed_gap_hours(job_ids)`(中位间隔,<2 次观测 None);零写入。
+- **UI**(messaging-screen.tsx+api.ts):类型单选(条件/心跳);心跳态 when 让位阈值组(数字输入+「自动」勾选,htmlFor 兄弟位 a11y 沿 ui-chore spec 第 7 条);scope 全局项知情禁用;预检换心跳专属(品类钉死+阈值两态);行内「心跳」徽章+阈值摘要(不露裸 when true);AlertRuleView/Input 加法可选 kind/params(旧壳新 UI 双向不炸)。
+- **测试**:tests/alerts/test_heartbeat.py 新 25 例(迁移/构造门九拒/心跳语义含冷静期-冷却-恢复-auto 两态-push 按规则品类/双向零漂移/账本两查询);messaging vitest 新 3 例(表单两态+载荷形状+行徽章);版本金丝雀 8→9 六处随 v9 更新(refused 例改 SCHEMA_VERSION+1 免再漂)。
+- **门禁(亲跑)**:定向 pytest tests/alerts+store/pipeline 金丝雀+sidecar 单例 159 绿;全量 `uv run --no-sync pytest -q` → **4366 passed / 40 skipped / 0 failed**(9 例版本金丝雀随 v9 更新后全绿);vitest 全量 26 文件 **488 passed**;`tsc -b --force` 零错;ruff 全绿。真跑证据 /tmp/myia-heartbeat-evidence/e2e.json(账本节奏 4h→auto 阈值 8h;fire 文案含品类与时长;同桶冷却 0 复发)。
+- **接线三件(第二批,随 /workflow 队列首件)**:①entry.py `_alert_rule_from_payload` 放行 kind/params(现未知键拒,UI 保存过不去)+alerts.list/save 视图透传;②pipeline 告警段挂 heartbeat_pass(账本/jobs 解析器注入:品类→job_ids→last_completed/gaps);③sidecar-protocol.md alerts.save 行补 kind/params 加法注记(版本不 bump 循 gates 先例)。当时 entry.py/协议文档被并行线占用(bundled-plugins-batch2),现已落地解禁。
+- AC 状态:AC1 ✅(语义全测)AC2 ◐(store 面落地;entry 载荷门+文档注记=接线批)AC3 ◐(组件+vitest;真机像素归接线批随装机)AC4 ◐(引擎级真跑证据在档;宿主端到端归接线批)AC5 ✅(全量四门禁绿;impact 待接线批补)AC6 ✅(cron/ 仅增两只读查询,diff 亲证零写入)。

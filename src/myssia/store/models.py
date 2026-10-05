@@ -104,6 +104,16 @@ ALERT_ACTION_STATUSES = frozenset(
     }
 )
 
+# Alert rule kind (alert_rules.kind, 10-05-cron-heartbeat): ``item`` = 条目
+# 驱动规则(when 表达式求值于 ingest 条目,10-04-alert-rules 原语义);
+# ``cron_stale`` = 时间驱动心跳规则(品类久未成功触发即告警,executions
+# 账本只读评估,不进条目求值路径)。cron_stale 参数落 ``params`` JSON:
+# {threshold_hours>0} 或 {auto: true}(阈值 = 2× 账本观测节奏,夹
+# [1,168]h;观测不足由评估侧 WARNING 跳过,fail-fast 不猜)。
+ALERT_RULE_KIND_ITEM = "item"
+ALERT_RULE_KIND_CRON_STALE = "cron_stale"
+ALERT_RULE_KINDS = frozenset({ALERT_RULE_KIND_ITEM, ALERT_RULE_KIND_CRON_STALE})
+
 
 @dataclass(slots=True)
 class ItemRecord:
@@ -253,7 +263,11 @@ class AlertRule:
     when: str
     action: str  # push | tag (ALERT_ACTIONS)
     action_config: dict = field(default_factory=dict)
-    scope: str = ALERT_SCOPE_GLOBAL  # 'global' | 品类 id
+    kind: str = ALERT_RULE_KIND_ITEM  # item | cron_stale (ALERT_RULE_KINDS)
+    #: cron_stale 专属参数(JSON 列):{threshold_hours} 或 {auto: true};
+    #: item 规则恒 None(构造门拒非 None,防误配)。
+    params: dict | None = None
+    scope: str = ALERT_SCOPE_GLOBAL  # 'global' | 品类 id(cron_stale 必须品类)
     enabled: bool = True
     created_at: datetime | None = None  # filled by the store on save when absent
     updated_at: datetime | None = None  # 落库侧每次 save 刷新

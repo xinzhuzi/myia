@@ -79,3 +79,8 @@
 - 不做:代理公共 SearXNG 实例(公共实例明禁 API 滥用,只走自托管);
   搜索结果正文抓取(条目即情报,深抓走既有引擎手动配置)。
 - 红线:AGPL 零代码复用;queries 明文非凭据可落 YAML(无密)。
+
+## 放行回执(2026-10-05 深夜,主人令「都按建议去做」)
+
+- 问题:自托管 docker 前提。做法:主人整体放行,排队第 4;探查段用本机 docker compose 先行验证(不依赖主人服务器),部署上生产才需主人侧 docker;AGPL 服务消费判例在档。
+- 执行顺序(全五档):cron-heartbeat(先做,零前置)→ push-bark → push-apprise(点名即启)→ source-searxng → firecrawl-selfhost-verify。

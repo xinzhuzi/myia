@@ -81,3 +81,8 @@ push 层新增 `apprise` 通道:一个 pip 依赖(extras 可选)解锁 ~160 个�
 - 不做:apprise API server(docker 常驻服务)形态——CLI 直发已够;
   替换/重构现有 31 通道——零触碰。
 - 凭据红线:url 内 token 永不落 YAML 明文/日志(mask 先例同 telegram)。
+
+## 放行回执(2026-10-05 深夜,主人令「都按建议去做」)
+
+- 问题:Apprise 增量=长尾目标,主人未点名缺什么。做法:主人整体放行(2026-10-05 深夜「都按建议做」),排队第 3;开工条件=点名首个真目标(Pushover/Gotify/任一)即拆实现,或 Bark 落地后仍要长尾再启。顺序:heartbeat→bark→apprise→searxng→firecrawl。
+- 执行顺序(全五档):cron-heartbeat(先做,零前置)→ push-bark → push-apprise(点名即启)→ source-searxng → firecrawl-selfhost-verify。

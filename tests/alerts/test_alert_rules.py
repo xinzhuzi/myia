@@ -143,7 +143,7 @@ def test_fresh_database_baseline_has_both_tables_unseeded(tmp_path):
     assert {"alert_rules", "alert_fired", "idx_alert_fired_created"} <= names
     assert store.list_alert_rules() == []
     assert store.list_fired() == []
-    assert store.get_meta("schema_version") == str(SCHEMA_VERSION) == "8"
+    assert store.get_meta("schema_version") == str(SCHEMA_VERSION) == "9"
     store.close()
 
 
@@ -165,7 +165,7 @@ def test_v6_database_upgrades_to_current_idempotent_zero_data_migration(tmp_path
     store.close()
 
     reopened = SQLiteStore(path)  # 打开即自动迁移
-    assert reopened.get_meta("schema_version") == "8"
+    assert reopened.get_meta("schema_version") == "9"
     tables = {
         row[0]
         for row in reopened.conn.execute(
@@ -181,7 +181,7 @@ def test_v6_database_upgrades_to_current_idempotent_zero_data_migration(tmp_path
     reopened.conn.commit()
     reopened.close()
     again = SQLiteStore(path)  # 幂等重放:已有形状上再放一遍迁移
-    assert again.get_meta("schema_version") == "8"
+    assert again.get_meta("schema_version") == "9"
     assert [r.name for r in again.list_alert_rules()] == ["告警"]  # 数据存活
     again.close()
 
@@ -190,7 +190,10 @@ def test_newer_schema_version_refused(tmp_path):
     """v8 库被旧版本打开 → 既有「不要降级打开新库」护栏直拦."""
     path = tmp_path / "future.db"
     store = SQLiteStore(path)
-    store.conn.execute("UPDATE store_meta SET value = '9' WHERE key = 'schema_version'")
+    store.conn.execute(
+        "UPDATE store_meta SET value = ? WHERE key = 'schema_version'",
+        (str(SCHEMA_VERSION + 1),),
+    )
     store.conn.commit()
     store.close()
     with pytest.raises(StoreSchemaError) as excinfo:

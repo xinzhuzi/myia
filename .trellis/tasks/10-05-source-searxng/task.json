@@ -20,7 +20,11 @@
   "subtasks": [],
   "children": [],
   "parent": null,
-  "relatedFiles": ["src/myssia/engines/registry.py", "src/myssia/schema.py", "plugins/searxng.yaml"],
-  "notes": "由 v12-backlog 池第 10 项拆出;硬前置=主人愿跑自托管 docker;不做公共实例代理(明禁 API 滥用)",
+  "relatedFiles": [
+    "src/myssia/engines/registry.py",
+    "src/myssia/schema.py",
+    "plugins/searxng.yaml"
+  ],
+  "notes": "由 v12-backlog 池第 10 项拆出;硬前置=主人愿跑自托管 docker;不做公共实例代理(明禁 API 滥用) | 放行回执:问题:自托管 docker 前提。做法:主人整体放行,排队第 4;探查段用本机 docker compose 先行验证(不依赖主人服务器),部署上生产才需主人侧 docker;AGPL 服务消费判例在档。",
   "meta": {}
 }

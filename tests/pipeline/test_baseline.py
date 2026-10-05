@@ -460,7 +460,7 @@ def test_v4_database_migrates_to_current_without_data_loss(tmp_path):
     _make_legacy_v4_db(db_path)
     store = SQLiteStore(db_path)
     try:
-        assert store.get_meta("schema_version") == str(SCHEMA_VERSION) == "8"
+        assert store.get_meta("schema_version") == str(SCHEMA_VERSION) == "9"
         item = store.get_item_by_dedup_key("https://example.com/a")
         assert item is not None and item.title == "旧库条目"
         feedback = store.list_feedback()

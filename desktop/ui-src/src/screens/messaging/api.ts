@@ -269,16 +269,32 @@ export interface AlertActionConfig {
  * fired_count(alert_fired GROUP BY COUNT 派生,删规则不清零——历史是事实)、
  * last_fired_at(无命中 null)。协议字段名 `when` 与 RouteRuleConfig.when
  * 对齐(store 层 when_expr 列互转,design §2.3)。
+ *
+ * kind(10-05-cron-heartbeat):'item' = 条目条件规则(when 表达式求值于
+ * 条目);'cron_stale' = 心跳规则(品类久未成功触发,when 恒占位 "true",
+ * 阈值在 params)。旧 sidecar 应答无 kind 字段 → 视图层按 'item' 容缺省
+ * (加法可选字段,旧壳新 UI 双向不炸)。
  */
+export type AlertRuleKind = "item" | "cron_stale";
+
+/** cron_stale 专属参数:显式 threshold_hours 或 auto 二选一(服务端同门校验)。 */
+export interface AlertHeartbeatParams {
+  threshold_hours?: number;
+  auto?: boolean;
+  job_id?: string;
+}
+
 export interface AlertRuleView {
   id: number;
   name: string;
   enabled: boolean;
-  /** 'global' | 品类 id(七品类之一) */
+  /** 'global' | 品类 id(七品类之一;cron_stale 必须品类) */
   scope: string;
   when: string;
   action: AlertAction;
   action_config: AlertActionConfig;
+  kind?: AlertRuleKind;
+  params?: AlertHeartbeatParams | null;
   created_at: string;
   updated_at: string;
   fired_count: number;

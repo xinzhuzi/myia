@@ -65,3 +65,8 @@
 - 不做:vendor/改其 server 代码(AGPL);把自托管 firecrawl 设为降级链
   缺省开启(现缺省链位=需外部服务才触达的语义不变,只是把它跑通+指路)。
 - 前置:主人机器/服务器可跑 docker(与 SearXNG 档同款前提)。
+
+## 放行回执(2026-10-05 深夜,主人令「都按建议去做」)
+
+- 问题:自托管 docker 前提。做法:主人整体放行,排队第 5(验证型零代码预期);本机 compose 真跑先行,主人服务器复验 AC manual。
+- 执行顺序(全五档):cron-heartbeat(先做,零前置)→ push-bark → push-apprise(点名即启)→ source-searxng → firecrawl-selfhost-verify。

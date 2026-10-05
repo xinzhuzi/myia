@@ -2558,7 +2558,7 @@ def _make_v7_database(path, rows: list[tuple[str, str, str]]) -> None:
 
 def test_store_state_v7_database_migrates_on_protocol_open(tmp_path):
     """AC1 迁移:v7 旧库被任一协议方法打开即迁 v8——行保留、三列 +
-    idx_items_dedup_key 在位、schema_version=8、存量行读态不猜测(全 False)。
+    idx_items_dedup_key 在位、schema_version=当前(≥9)、存量行读态不猜测(全 False)。
     fresh 库直建 v8 两路径同形由 store 层 tests/test_read_state.py 盖;
     此处验协议面触发(handler 每请求独立 SQLiteStore 开库)。"""
     import sqlite3
@@ -2584,7 +2584,7 @@ def test_store_state_v7_database_migrates_on_protocol_open(tmp_path):
     columns = {row[1] for row in raw.execute("PRAGMA table_info(items)").fetchall()}
     indexes = {row[1] for row in raw.execute("PRAGMA index_list(items)").fetchall()}
     raw.close()
-    assert version == "8"
+    assert version == "9"
     assert {"read", "starred", "later"} <= columns
     assert "idx_items_dedup_key" in indexes
 

@@ -41,6 +41,8 @@ import {
   targetSpec,
 } from "./api";
 import type {
+  AlertRuleKind,
+  AlertHeartbeatParams,
   AlertAction,
   AlertActionConfig,
   AlertCategoryOption,
@@ -686,13 +688,18 @@ function RuleFileGroup({
 // 告警规则子面板(10-04-alert-rules Stage E;契约 = 任务档 design.md §4/§9)
 // ---------------------------------------------------------------------------
 
-/** 表单草稿(新建无 id;编辑带 id + 保留 enabled——启停在行上,表单不出)。 */
+/** 表单草稿(新建无 id;编辑带 id + 保留 enabled——启停在行上,表单不出)。
+ * kind(10-05-cron-heartbeat):心跳规则不评估条目条件,阈值走 thresholdHours/
+ * autoThreshold 两态草稿(提交时折进 params,when 恒占位 "true")。 */
 interface AlertFormDraft {
   id?: number;
   enabled: boolean;
   name: string;
   scope: string;
   when: string;
+  kind: AlertRuleKind;
+  thresholdHours: string;
+  autoThreshold: boolean;
   action: AlertAction;
   channel: string;
   targets: string;
@@ -714,6 +721,9 @@ function emptyAlertDraft(): AlertFormDraft {
     name: "",
     scope: "global",
     when: "",
+    kind: "item",
+    thresholdHours: "",
+    autoThreshold: false,
     action: "push",
     channel: "",
     targets: "",
@@ -728,7 +738,11 @@ function ruleToDraft(rule: AlertRuleView): AlertFormDraft {
     enabled: rule.enabled,
     name: rule.name,
     scope: rule.scope,
-    when: rule.when,
+    when: rule.kind === "cron_stale" ? "" : rule.when,
+    kind: rule.kind ?? "item",
+    thresholdHours:
+      rule.params?.threshold_hours !== undefined ? String(rule.params.threshold_hours) : "",
+    autoThreshold: rule.params?.auto === true,
     action: rule.action,
     channel: rule.action_config.channel ?? "",
     targets: (rule.action_config.targets ?? []).join(", "),
@@ -762,14 +776,24 @@ function draftToInput(draft: AlertFormDraft): AlertRuleInput {
           ...(draft.template.trim() ? { template: draft.template.trim() } : {}),
         }
       : { tags };
+  const heartbeat = draft.kind === "cron_stale";
+  const threshold = Number.parseFloat(draft.thresholdHours.trim());
+  const params: AlertHeartbeatParams | undefined = heartbeat
+    ? draft.autoThreshold
+      ? { auto: true }
+      : Number.isFinite(threshold) && threshold > 0
+        ? { threshold_hours: threshold }
+        : undefined
+    : undefined;
   return {
     ...(draft.id !== undefined ? { id: draft.id } : {}),
     name: draft.name.trim(),
     enabled: draft.enabled,
     scope: draft.scope,
-    when: draft.when.trim(),
+    when: heartbeat ? "true" : draft.when.trim(),
     action: draft.action,
     action_config,
+    ...(heartbeat ? { kind: "cron_stale" as const, ...(params ? { params } : {}) } : {}),
   };
 }
 
@@ -893,7 +917,18 @@ function AlertRulesPanel() {
       setNotice({ kind: "error", text: "规则名称不能为空" });
       return;
     }
-    if (!form.when.trim()) {
+    if (form.kind === "cron_stale") {
+      // 心跳:不评估条目条件(when 恒占位 "true" 由 draftToInput 折算),
+      // 预检换为品类钉死 + 阈值两态(显式正数或自动)。
+      if (!form.scope || form.scope === "global") {
+        setNotice({ kind: "error", text: "心跳规则必须选择具体品类(全局无所指)" });
+        return;
+      }
+      if (!form.autoThreshold && !(Number.parseFloat(form.thresholdHours.trim()) > 0)) {
+        setNotice({ kind: "error", text: "心跳阈值需填正数小时,或勾选「自动」" });
+        return;
+      }
+    } else if (!form.when.trim()) {
       setNotice({ kind: "error", text: "when 表达式不能为空" });
       return;
     }
@@ -1043,8 +1078,18 @@ function AlertRulesPanel() {
                       />
                       <span className="truncate font-medium text-foreground">{rule.name}</span>
                       <Badge variant="outline">{rule.scope === "global" ? "全局" : rule.scope}</Badge>
-                      <code className="truncate font-mono text-2xs text-muted-foreground" title={rule.when}>
-                        when {rule.when}
+                      {rule.kind === "cron_stale" ? (
+                        <Badge variant="outline">心跳</Badge>
+                      ) : null}
+                      <code
+                        className="truncate font-mono text-2xs text-muted-foreground"
+                        title={rule.when}
+                      >
+                        {rule.kind === "cron_stale"
+                          ? rule.params?.auto
+                            ? "阈值=自动(2× 观测节奏)"
+                            : `阈值 ${rule.params?.threshold_hours ?? "?"} 小时`
+                          : `when ${rule.when}`}
                       </code>
                     </span>
                     <span className="flex shrink-0 items-center gap-1">
@@ -1192,7 +1237,9 @@ function AlertRuleForm({
             value={draft.scope}
             onChange={(event) => onChange({ ...draft, scope: event.target.value })}
           >
-            <option value="global">全局(所有品类)</option>
+            <option value="global" disabled={draft.kind === "cron_stale"}>
+              全局(所有品类){draft.kind === "cron_stale" ? "(心跳须钉品类)" : ""}
+            </option>
             {categories.map((option) => (
               <option key={option.category_id} value={option.category_id}>
                 {option.category_name ? `${option.category_name}(${option.category_id})` : option.category_id}
@@ -1201,17 +1248,81 @@ function AlertRuleForm({
           </select>
         </label>
       </div>
-      <label className="flex flex-col gap-1 text-xs">
-        when 表达式(白名单 AST;可用字段 title/content/source/url/category/score/tags 等,如
-        <code className="font-mono"> &apos;融资&apos; in title or score &gt;= 4</code>)
-        <textarea
-          aria-label="when 表达式"
-          rows={2}
-          className="w-full rounded-md border border-(--control-border) bg-(--control-bg) px-2 py-1 font-mono text-xs outline-none transition-[color,border-color,box-shadow] duration-(--duration-fast) ease-out-expo placeholder:text-muted-foreground/70 focus-visible:ring-[3px] focus-visible:ring-ring/40"
-          value={draft.when}
-          onChange={(event) => onChange({ ...draft, when: event.target.value })}
-        />
-      </label>
+      {draft.kind === "item" ? (
+        <label className="flex flex-col gap-1 text-xs">
+          when 表达式(白名单 AST;可用字段 title/content/source/url/category/score/tags 等,如
+          <code className="font-mono"> &apos;融资&apos; in title or score &gt;= 4</code>)
+          <textarea
+            aria-label="when 表达式"
+            rows={2}
+            className="w-full rounded-md border border-(--control-border) bg-(--control-bg) px-2 py-1 font-mono text-xs outline-none transition-[color,border-color,box-shadow] duration-(--duration-fast) ease-out-expo placeholder:text-muted-foreground/70 focus-visible:ring-[3px] focus-visible:ring-ring/40"
+            value={draft.when}
+            onChange={(event) => onChange({ ...draft, when: event.target.value })}
+          />
+        </label>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted/20 p-2 text-xs">
+          <p className="text-2xs text-muted-foreground">
+            心跳规则盯着自己的定时任务——太久没跑成一条就喊你(不评估条目条件)。
+          </p>
+          <div className="flex items-center gap-3">
+            <label htmlFor="alert-threshold-hours" className="shrink-0">
+              阈值(小时)
+            </label>
+            <Input
+              id="alert-threshold-hours"
+              aria-label="心跳阈值小时数"
+              type="number"
+              min={1}
+              step={1}
+              disabled={draft.autoThreshold}
+              className={cn("w-24 text-xs", inputClass)}
+              value={draft.thresholdHours}
+              onChange={(event) => onChange({ ...draft, thresholdHours: event.target.value })}
+            />
+            {/* checkbox 是 labelable:显式 htmlFor 兄弟位,禁嵌 label(ui-chore spec 第 7 条) */}
+            <input
+              id="alert-threshold-auto"
+              type="checkbox"
+              className="accent-primary"
+              checked={draft.autoThreshold}
+              onChange={(event) => onChange({ ...draft, autoThreshold: event.target.checked })}
+            />
+            <label htmlFor="alert-threshold-auto" className="text-muted-foreground">
+              自动(2× 观测节奏)
+            </label>
+          </div>
+        </div>
+      )}
+      <div className="flex items-center gap-4 text-xs">
+        类型
+        <label className="flex items-center gap-1">
+          <input
+            type="radio"
+            name="alert-kind"
+            className="accent-primary"
+            checked={draft.kind === "item"}
+            onChange={() => onChange({ ...draft, kind: "item" })}
+          />
+          条目条件
+        </label>
+        <label className="flex items-center gap-1">
+          <input
+            type="radio"
+            name="alert-kind"
+            className="accent-primary"
+            checked={draft.kind === "cron_stale"}
+            onChange={() =>
+              onChange({
+                ...draft,
+                kind: "cron_stale",
+                scope: draft.scope === "global" ? "" : draft.scope,
+              })
+            }
+          />
+          品类久未触发(心跳)
+        </label>
+      </div>
       <div className="flex items-center gap-4 text-xs">
         动作
         <label className="flex items-center gap-1">

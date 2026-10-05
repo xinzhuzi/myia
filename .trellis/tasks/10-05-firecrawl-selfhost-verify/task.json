@@ -20,7 +20,10 @@
   "subtasks": [],
   "children": [],
   "parent": null,
-  "relatedFiles": ["src/myssia/engines/firecrawl.py", "src/myssia/engines/registry.py"],
-  "notes": "由 v12-backlog 池第 10 项缩水而来(池原口径『自托管面未探』半数已不成立);前置=可跑 docker",
+  "relatedFiles": [
+    "src/myssia/engines/firecrawl.py",
+    "src/myssia/engines/registry.py"
+  ],
+  "notes": "由 v12-backlog 池第 10 项缩水而来(池原口径『自托管面未探』半数已不成立);前置=可跑 docker | 放行回执:问题:自托管 docker 前提。做法:主人整体放行,排队第 5(验证型零代码预期);本机 compose 真跑先行,主人服务器复验 AC manual。",
   "meta": {}
 }

@@ -20,7 +20,10 @@
   "subtasks": [],
   "children": [],
   "parent": null,
-  "relatedFiles": ["src/myssia/schema.py", "src/myssia/push/bark.py"],
-  "notes": "由 v12-backlog 池第 10 项拆出;grill Q4 决议=iPhone 高频才值;与 10-05-push-apprise 关系记档",
+  "relatedFiles": [
+    "src/myssia/schema.py",
+    "src/myssia/push/bark.py"
+  ],
+  "notes": "由 v12-backlog 池第 10 项拆出;grill Q4 决议=iPhone 高频才值;与 10-05-push-apprise 关系记档 | 放行回执:问题:iPhone 通知高频与否未知。做法:主人整体放行,排队第 2(零依赖小件先行);真推 AC manual 留主人=装 Bark App 复制 key 入 keychain 发一条即验;验后不高频通道留着零成本。",
   "meta": {}
 }

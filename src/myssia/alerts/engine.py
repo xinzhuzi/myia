@@ -40,6 +40,8 @@ from myssia.push.digest import send_immediate
 from myssia.store.base import Store
 from myssia.store.models import (
     ALERT_ACTION_TAG,
+    ALERT_RULE_KIND_CRON_STALE,
+    ALERT_RULE_KIND_ITEM,
     ALERT_STATUS_DEGRADED_NO_CHANNEL,
     ALERT_STATUS_SEND_FAILED,
     ALERT_STATUS_SENT,
@@ -138,6 +140,8 @@ class AlertEngine:
                 continue
             view = alert_view(item)
             for compiled_rule in compiled:
+                if compiled_rule.rule.kind != ALERT_RULE_KIND_ITEM:
+                    continue  # cron_stale 不进条目求值路径(heartbeat_pass 专属)
                 await self._evaluate_one(compiled_rule, item, view, fired_rows)
         return fired_rows
 
@@ -195,8 +199,14 @@ class AlertEngine:
         return ALERT_STATUS_TAGGED
 
     async def _execute_push(self, compiled_rule: CompiledAlertRule, item: Any) -> str:
+        return await self._execute_push_with(compiled_rule, item)
+
+    async def _execute_push_with(
+        self, compiled_rule: CompiledAlertRule, item: Any, resolver: ChannelResolver | None = None
+    ) -> str:
         channel_name = compiled_rule.channel or ""
-        channel = self._channel_resolver(channel_name) if self._channel_resolver else None
+        resolve = resolver or self._channel_resolver
+        channel = resolve(channel_name) if resolve else None
         if channel is None:
             logger.warning(
                 "告警 push 降级(当前品类 push[] 未配置 %r 类型通道,禁止跨品类"
@@ -222,3 +232,180 @@ class AlertEngine:
                 compiled_rule.name,
             )
         return ALERT_STATUS_SEND_FAILED
+
+
+# ---------------------------------------------------------------------------
+# cron 心跳(10-05-cron-heartbeat):时间驱动规则,executions 账本只读评估
+# ---------------------------------------------------------------------------
+
+#: auto 阈值 = 2× 账本观测节奏,夹 [1, 168] 小时(下限防空敏感抖动,上限
+#: 防周更品类永不告警的另一个极端)。
+HEARTBEAT_AUTO_MULTIPLIER = 2.0
+HEARTBEAT_AUTO_MIN_HOURS = 1.0
+HEARTBEAT_AUTO_MAX_HOURS = 168.0
+
+
+class _HeartbeatNotice:
+    """心跳告警的合成通知对象(Item 鸭子形态;引擎不 import Pipeline,
+    依赖方向红线见模块头注)。url 用 myssia-alert: 伪协议如实标注来源,
+    不伪装成可点链接。"""
+
+    def __init__(self, *, category: str, title: str, content: str, dedup_key: str) -> None:
+        self.url = f"myssia-alert://heartbeat/{category}"
+        self.title = title
+        self.source = "cron-heartbeat"
+        self.category = category
+        self.scores = None
+        self.dedup_key = dedup_key
+        self.content = content
+        self.metadata: dict = {}
+
+    def view(self) -> dict:
+        return dict(self.metadata, url=self.url, title=self.title, source=self.source,
+                    category=self.category, scores=self.scores, dedup_key=self.dedup_key)
+
+    def add_tags(self, tags) -> None:  # tag 动作鸭子面(items 行不在库,回写由调用方注记)
+        for tag in tags:
+            if tag not in self.metadata.setdefault("tags", []):
+                self.metadata["tags"].append(tag)
+
+
+async def heartbeat_pass(
+    store: Store,
+    rules,
+    *,
+    last_success_at,
+    now,
+    cadence_hours=None,
+    channel_resolver_for=None,
+    send: SendFunc = send_immediate,
+    registry: DedupRegistry | None = None,
+    tz=None,
+) -> list:
+    """心跳扫描(10-05-cron-heartbeat):逐 cron_stale 规则判「品类久未成功触发」。
+
+    - 阈值:params.threshold_hours 显式,或 auto = 2× cadence_hours(品类)
+      夹 [1,168];auto 且观测不可得 → WARNING 跳过(fail-fast 不猜)。
+    - stale 判定:距 last_success_at(品类最近一次成功执行)超阈值;
+      从未成功 → 以规则 created_at 起算(冷静期 = 1× 阈值,防装完即报)。
+    - 冷却:dedup_key 带时间桶(cron-stale:<品类>:<桶号>,桶宽 = 阈值),
+      record_fired 的 UNIQUE 门闩天然 at-most-once 每桶一条,零新状态机。
+    - 恢复:不再 stale 且上一桶 stale 行在库(has_fired 精确查)→ 发一条
+      恢复通知(cron-recovered:<品类>:<桶号>,同 UNIQUE 冷却)。
+    - 动作:push 用 channel_resolver_for(规则品类)——**按规则品类解析,
+      禁止借用评估宿主品类凭据**(跨品类借凭据红线同 _execute_push);
+      tag 作用于合成通知(内存语义,items 行不在库如实注记)。
+
+    Args:
+        last_success_at: 品类 id → 最近成功执行 datetime(UTC)| None。
+        cadence_hours: 品类 id → 账本观测节奏(小时)| None(auto 阈值用)。
+        channel_resolver_for: 品类 id → 该品类 push[] 内指定通道实例 | None。
+    """
+    compiled_all = compile_rules(rules)
+    fired_rows: list = []
+    for compiled_rule in compiled_all:
+        rule = compiled_rule.rule
+        if rule.kind != ALERT_RULE_KIND_CRON_STALE:
+            continue
+        if rule.id is None:
+            logger.warning("心跳规则未落库(无 id,无法占坑去重),跳过: %s", rule.name)
+            continue
+        category = rule.scope
+        params = rule.params or {}
+        if "threshold_hours" in params:
+            threshold_hours = float(params["threshold_hours"])
+        else:  # auto
+            cadence = cadence_hours(category) if cadence_hours else None
+            if cadence is None or cadence <= 0:
+                logger.warning(
+                    "心跳规则 auto 阈值观测不足(账本节奏不可得),本轮跳过"
+                    "(fail-fast 不猜): rule=%s category=%s", rule.name, category,
+                )
+                continue
+            threshold_hours = min(
+                max(HEARTBEAT_AUTO_MULTIPLIER * cadence, HEARTBEAT_AUTO_MIN_HOURS),
+                HEARTBEAT_AUTO_MAX_HOURS,
+            )
+        last = last_success_at(category)
+        stale, silent_hours = _stale_since(rule, last, now, threshold_hours)
+        bucket = int(now.timestamp() // (threshold_hours * 3600))
+        if stale:
+            key = f"cron-stale:{category}:{bucket}"
+            title = f"心跳:品类 {category} 已 {silent_hours:.0f} 小时无成功采集"
+            content = (
+                f"规则 {rule.name}:距最近一次成功执行已超过阈值 {threshold_hours:.1f} 小时。"
+                "请到定时任务屏查看执行历史(可能调度停摆、任务持续失败或配置损坏)。"
+            )
+        else:
+            if last is None:
+                continue  # 从未成功谈不上恢复
+            stale_recent = any(
+                store.has_fired(rule.id, f"cron-stale:{category}:{bucket - offset}")
+                for offset in (0, 1)
+            )
+            recovered_recent = any(
+                store.has_fired(rule.id, f"cron-recovered:{category}:{bucket - offset}")
+                for offset in (0, 1)
+            )
+            if not stale_recent or recovered_recent:
+                continue  # 近两桶无 stale 告警,或恢复已通知过:无事发生
+            key = f"cron-recovered:{category}:{bucket}"
+            title = f"心跳恢复:{category} 采集已恢复"
+            content = f"规则 {rule.name}:品类已重新出现成功执行,此前的心跳告警解除。"
+        notice = _HeartbeatNotice(category=category, title=title, content=content, dedup_key=key)
+        fired = store.record_fired(AlertFired(
+            rule_id=rule.id,
+            rule_name=rule.name,
+            item_id=None,
+            dedup_key=key,
+            title=title,
+            category=category,
+            action=rule.action,
+        ))
+        if fired is None:
+            continue  # UNIQUE 冲突:本桶已告警过(冷却门闩)
+        if rule.action == ALERT_ACTION_TAG:
+            notice.add_tags(compiled_rule.tags)
+            status = ALERT_STATUS_TAGGED
+        else:
+            channel = (
+                channel_resolver_for(category)
+                if channel_resolver_for is not None and compiled_rule.channel
+                else None
+            )
+            if channel is None:
+                logger.warning(
+                    "心跳 push 降级(规则品类 %r 的 push[] 未配置 %r 类型通道,"
+                    "禁止跨品类借凭据): rule=%s", category, compiled_rule.channel, rule.name,
+                )
+                status = ALERT_STATUS_DEGRADED_NO_CHANNEL
+            else:
+                reports = await send(
+                    [notice],
+                    channels=[channel],
+                    registry=registry,
+                    tz=tz,
+                    now=now,
+                    category=category,
+                    item_specs=[list(compiled_rule.targets) if compiled_rule.targets else None],
+                )
+                status = (
+                    ALERT_STATUS_SENT
+                    if any(report.ok for report in reports)
+                    else ALERT_STATUS_SEND_FAILED
+                )
+        store.mark_alert_fired_status(fired.id, status)
+        fired.action_status = status
+        fired_rows.append(fired)
+    return fired_rows
+
+
+def _stale_since(rule, last, now, threshold_hours):
+    """stale 判定 + 静默时长(小时);从未成功用规则年龄当冷静期。"""
+    if last is not None:
+        silent = (now - last).total_seconds() / 3600
+        return silent > threshold_hours, silent
+    if rule.created_at is None:
+        return False, 0.0  # 无 created_at 可判(未落库形态):保守不报
+    age = (now - rule.created_at).total_seconds() / 3600
+    return age > threshold_hours, age

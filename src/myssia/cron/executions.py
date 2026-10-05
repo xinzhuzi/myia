@@ -537,6 +537,56 @@ class ExecutionLedger:
             ).fetchall()
         return {row["job_id"]: dict(row) for row in rows}
 
+    # ------------------------------------------------------------------
+    # 心跳只读查询(10-05-cron-heartbeat;alert 引擎侧注入的解析器消费,
+    # 全部只读零写入——评估只读账本红线)
+    # ------------------------------------------------------------------
+
+    def last_completed_at(self, job_ids: Sequence[str]) -> Optional[str]:
+        """这些 job 最近一次成功执行的 finished_at(ISO 文本);无成功 → None。
+
+        idx_executions_occurrence 部分索引(status='completed')正好覆盖本
+        查询的过滤面,量级 = 该 job 集的成功执行数。
+        """
+        clean = [str(job_id) for job_id in dict.fromkeys(job_ids) if job_id]
+        if not clean:
+            return None
+        placeholders = ",".join("?" for _ in clean)
+        with self.transaction() as conn:
+            row = conn.execute(
+                f"""SELECT MAX(julianday(finished_at)) AS latest, finished_at
+                    FROM executions
+                    WHERE status='completed' AND finished_at IS NOT NULL
+                      AND job_id IN ({placeholders})""",
+                clean,
+            ).fetchone()
+        return row["finished_at"] if row is not None and row["latest"] is not None else None
+
+    def completed_gap_hours(self, job_ids: Sequence[str], limit: int = 10) -> Optional[float]:
+        """最近 N 次成功执行的中位间隔(小时);少于两次 → None(观测不足)。
+
+        auto 心跳阈值的观测源(2× 中位节奏):用中位数而非均值——单次补跑
+        连发不会把节奏拉虚。
+        """
+        clean = [str(job_id) for job_id in dict.fromkeys(job_ids) if job_id]
+        if not clean:
+            return None
+        placeholders = ",".join("?" for _ in clean)
+        with self.transaction() as conn:
+            rows = conn.execute(
+                f"""SELECT julianday(finished_at) AS t FROM executions
+                    WHERE status='completed' AND finished_at IS NOT NULL
+                      AND job_id IN ({placeholders})
+                    ORDER BY t DESC LIMIT ?""",
+                [*clean, max(2, int(limit))],
+            ).fetchall()
+        times = sorted(row["t"] for row in rows if row["t"] is not None)
+        if len(times) < 2:
+            return None
+        gaps = sorted(b - a for a, b in zip(times, times[1:]))
+        median = gaps[len(gaps) // 2]
+        return median * 24.0
+
 
 def _prune_unlocked(conn: sqlite3.Connection) -> None:
     """终态行按 newest-first 裁到 MAX_TERMINAL_EXECUTIONS(上游 L174)。"""

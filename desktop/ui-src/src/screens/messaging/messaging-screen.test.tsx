@@ -1903,3 +1903,122 @@ describe("告警规则:协议未实装降级与错误态", () => {
     expect(await screen.findByTestId("alert-rule-1")).toBeTruthy();
   });
 });
+
+// ---------------------------------------------------------------------------
+// cron 心跳规则(10-05-cron-heartbeat):kind 选择/阈值两态/载荷形状/行徽章
+// ---------------------------------------------------------------------------
+
+describe("告警规则表单·心跳类型", () => {
+  it("选心跳 → when 输入换阈值字段、全局选项禁用;显式阈值保存载荷带 kind/params/when=true", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    await screen.findByTestId("alert-rule-1");
+    fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+
+    const form = screen.getByTestId("alert-rule-form");
+    expect(within(form).getByLabelText("when 表达式")).toBeTruthy(); // item 形态先在
+
+    fireEvent.click(within(form).getByRole("radio", { name: /品类久未触发/ }));
+
+    // when 表达式让位给阈值组;阈值输入可填
+    expect(within(form).queryByLabelText("when 表达式")).toBeNull();
+    const scopeSelect = within(form).getByLabelText("规则作用域") as HTMLSelectElement;
+    const globalOption = Array.from(scopeSelect.querySelectorAll("option")).find(
+      (option) => option.value === "global",
+    ) as HTMLOptionElement;
+    expect(globalOption.disabled).toBe(true);
+
+    fireEvent.change(within(form).getByLabelText("规则名称"), { target: { value: "ai-news 心跳" } });
+    fireEvent.change(scopeSelect, { target: { value: "messaging-demo" } });
+    fireEvent.change(within(form).getByLabelText("心跳阈值小时数"), { target: { value: "6" } });
+    fireEvent.click(within(form).getByRole("radio", { name: "打标" }));
+    fireEvent.change(within(form).getByLabelText("标签列表"), { target: { value: "heartbeat" } });
+    fireEvent.click(within(form).getByRole("button", { name: "保存规则" }));
+
+    const params = lastParams(sidecar.calls, "alerts.save") as { rules: Array<Record<string, unknown>> };
+    const saved = params.rules.at(-1);
+    expect(saved).toMatchObject({
+      name: "ai-news 心跳",
+      scope: "messaging-demo",
+      when: "true",
+      kind: "cron_stale",
+      params: { threshold_hours: 6 },
+    });
+    expect(saved?.action_config).toEqual({ tags: ["heartbeat"] });
+  });
+
+  it("勾「自动」→ 阈值输入禁用,载荷 params={auto:true}", async () => {
+    const sidecar = okSidecar();
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    await screen.findByTestId("alert-rule-1");
+    fireEvent.click(screen.getByRole("button", { name: "新建规则" }));
+    const form = screen.getByTestId("alert-rule-form");
+    fireEvent.click(within(form).getByRole("radio", { name: /品类久未触发/ }));
+    fireEvent.change(within(form).getByLabelText("规则名称"), { target: { value: "auto 心跳" } });
+    fireEvent.change(within(form).getByLabelText("规则作用域"), { target: { value: "messaging-demo" } });
+    fireEvent.change(within(form).getByLabelText("心跳阈值小时数"), { target: { value: "12" } });
+    fireEvent.click(screen.getByLabelText("自动(2× 观测节奏)"));
+    expect((within(form).getByLabelText("心跳阈值小时数") as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(within(form).getByRole("radio", { name: "打标" }));
+    fireEvent.change(within(form).getByLabelText("标签列表"), { target: { value: "hb" } });
+    fireEvent.click(within(form).getByRole("button", { name: "保存规则" }));
+
+    const params = lastParams(sidecar.calls, "alerts.save") as { rules: Array<Record<string, unknown>> };
+    expect(params.rules.at(-1)).toMatchObject({
+      kind: "cron_stale",
+      params: { auto: true },
+      when: "true",
+    });
+  });
+
+  it("心跳规则的行内摘要:心跳徽章 + 阈值文案(不露裸 when true)", async () => {
+    const sidecar = okSidecar();
+    const base = sidecar.map["alerts.list"] as () => unknown;
+    sidecar.map["alerts.list"] = () => {
+      const data = base() as { rules: Array<Record<string, unknown>> };
+      return {
+        rules: [
+          ...data.rules,
+          {
+            id: 77,
+            name: "server 心跳",
+            enabled: true,
+            scope: "messaging-demo",
+            when: "true",
+            action: "tag",
+            action_config: { tags: ["hb"] },
+            kind: "cron_stale",
+            params: { threshold_hours: 24 },
+            created_at: "2026-10-05T00:00:00",
+            updated_at: "2026-10-05T00:00:00",
+            fired_count: 0,
+            last_fired_at: null,
+          },
+        ],
+      };
+    };
+    installSidecar(sidecar.map, sidecar.record);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+
+    const row = await screen.findByTestId("alert-rule-77");
+    expect(within(row).getByText("心跳")).toBeTruthy();
+    expect(within(row).getByText(/阈值 24 小时/)).toBeTruthy();
+    expect(within(row).queryByText(/when true/)).toBeNull();
+  });
+});

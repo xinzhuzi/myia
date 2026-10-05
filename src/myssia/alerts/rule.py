@@ -27,6 +27,8 @@ from myssia.push.route import CATEGORY_DEFAULT_ROUTES
 from myssia.store.models import (
     ALERT_ACTION_PUSH,
     ALERT_ACTION_TAG,
+    ALERT_RULE_KIND_CRON_STALE,
+    ALERT_RULE_KINDS,
     ALERT_SCOPE_GLOBAL,
     AlertRule,
 )
@@ -91,6 +93,59 @@ def _require_str_list(value: Any, label: str, *, allow_empty: bool = False) -> l
     return list(value)
 
 
+def _validate_cron_stale(rule: AlertRule) -> None:
+    """cron_stale 规则的构造门(10-05-cron-heartbeat):scope 钉品类、when
+    占位 'true'、params 形状 {threshold_hours>0} 或 {auto:true}(可选 job_id)。
+
+    - scope 拒 global:心跳监控的是具体品类的调度健康,global 无所指;
+    - when 恒 'true':存储列 NOT NULL 需占位;该 kind 不进条目求值路径
+      (engine.run_pass 按 kind 过滤),表达式永不被消费——非 'true' 即拒,
+      防读者误以为心跳还看条目条件;
+    - 阈值两选一:显式 threshold_hours(>0)或 auto(评估侧以 2× 账本观测
+      节奏推导,观测不足 WARNING 跳过——fail-fast 不猜)。
+    """
+    if rule.scope == ALERT_SCOPE_GLOBAL:
+        raise AlertConfigError(
+            "字段校验失败: cron_stale 规则的 scope 必须钉死品类(global 无所指,"
+            "心跳监控的是具体品类的调度健康)"
+        )
+    if rule.when.strip() != "true":
+        raise AlertConfigError(
+            "字段校验失败: cron_stale 规则的 when 恒为占位 'true'(该类型不评估"
+            "条目条件;条件规则请用 item 类型)"
+        )
+    if not isinstance(rule.params, dict):
+        raise AlertConfigError(
+            f"字段校验失败: cron_stale 规则的 params 必须是键值映射,"
+            f"得到 {type(rule.params).__name__}"
+        )
+    unknown = set(rule.params) - {"threshold_hours", "auto", "job_id"}
+    if unknown:
+        raise AlertConfigError(
+            f"字段校验失败: cron_stale 规则的 params 含未知键 {sorted(unknown)}"
+            "(允许 threshold_hours/auto/job_id)"
+        )
+    has_explicit = "threshold_hours" in rule.params
+    has_auto = bool(rule.params.get("auto"))
+    if has_explicit == has_auto:
+        raise AlertConfigError(
+            "字段校验失败: cron_stale 规则的阈值必须二选一——显式 threshold_hours"
+            " 或 auto:true(观测节奏推导)"
+        )
+    if has_explicit:
+        threshold = rule.params["threshold_hours"]
+        if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or threshold <= 0:
+            raise AlertConfigError(
+                f"字段校验失败: threshold_hours 必须是正数,得到 {threshold!r}"
+            )
+    if "job_id" in rule.params:
+        job_id = rule.params["job_id"]
+        if not isinstance(job_id, str) or not job_id:
+            raise AlertConfigError(
+                f"字段校验失败: job_id 必须是非空字符串,得到 {job_id!r}"
+            )
+
+
 def compile_rule(rule: AlertRule) -> CompiledAlertRule:
     """构造门:validate + compile one AlertRule(fail fast on config).
 
@@ -110,6 +165,18 @@ def compile_rule(rule: AlertRule) -> CompiledAlertRule:
         raise AlertConfigError(
             f"字段校验失败: alert_rules.action 必须是 "
             f"['{ALERT_ACTION_PUSH}', '{ALERT_ACTION_TAG}'] 之一,得到 {rule.action!r}"
+        )
+    if rule.kind not in ALERT_RULE_KINDS:
+        raise AlertConfigError(
+            f"字段校验失败: alert_rules.kind 必须是 {sorted(ALERT_RULE_KINDS)} 之一,"
+            f"得到 {rule.kind!r}"
+        )
+    if rule.kind == ALERT_RULE_KIND_CRON_STALE:
+        _validate_cron_stale(rule)
+    elif rule.params is not None:
+        raise AlertConfigError(
+            "字段校验失败: alert_rules.params 仅 cron_stale 规则可配(item 规则恒空,"
+            "防误配)"
         )
     compiled = CompiledAlertRule(rule=rule)
     try:
