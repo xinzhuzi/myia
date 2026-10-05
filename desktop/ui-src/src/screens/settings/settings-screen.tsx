@@ -1,6 +1,7 @@
 import { useSidecarStatus } from "@/hooks/use-sidecar-status";
 import {
   Activity,
+  ArrowLeft,
   ShieldAlert,
   Cpu,
   Eye,
@@ -1092,9 +1093,17 @@ export function SettingsScreen() {
 
       {/* 左列 = 分区过滤框(导航上方,census #7)+ 分区导航;右列 = 分区内容
           (拆解表第 1/2 条:当前项高亮左竖条,每子区一屏)。
-          R2 重排:双列间距消费 gap-block(24px);右列卡堆叠走 gap-grid(12px) */}
-      <div className="flex flex-col gap-card px-6 md:flex-row md:gap-block">
-        <div className="flex shrink-0 flex-col gap-2 md:w-44">
+          R2 重排:双列间距消费 gap-block(24px);右列卡堆叠走 gap-grid(12px)。
+          10-05 全局版面判例(主人裁:Python 环境配置「缩在一处、小家子气」):
+          python-env 分区激活时隐藏本列并解除 md:flex-row——配置面占满主画布
+          居中(免被 app 左轨 + 设置导航双重挤压),经「返回设置」回分区列表 */}
+      <div
+        className={cn(
+          "flex flex-col gap-card px-6",
+          activeSection.id !== "python-env" && "md:flex-row md:gap-block",
+        )}
+      >
+        <div className={cn("flex shrink-0 flex-col gap-2 md:w-44", activeSection.id === "python-env" && "hidden")}>
           {/* 终审修整:过滤框转共享 Input 基件(带 data-slot=input,与全屏输入
               同享微填充+低可见描边+统一圆角;原裸 input 描边/填充自成一家,
               VL 指认「输入框描边粗细不一」) */}
@@ -1149,13 +1158,30 @@ export function SettingsScreen() {
 
         {/* 右列:区标题+描述,下堆叠多个 Card(每 Card 一个设置主题)。
             10-04-ui-kestra-anchor:内容列宽对齐 Kestra settings Wrapper
-            (min(600px, 100%-48px) 居中单列);行 = SettingRow 横排范式 */}
+            (min(600px, 100%-48px) 居中单列);行 = SettingRow 横排范式。
+            10-05 全局版面判例:Python 环境区不走 600px 窄列——整区居中
+            大版面(max-w-4xl),配置面用满画布,其余分区维持窄列 */}
         <section
           key={activeSection.id}
           aria-labelledby={`settings-section-title-${activeSection.id}`}
           data-testid={`settings-section-${activeSection.id}`}
-          className="flex w-full min-w-0 max-w-[600px] animate-fade-in flex-col gap-4"
+          className={cn(
+            "flex w-full min-w-0 animate-fade-in flex-col gap-4",
+            activeSection.id === "python-env" ? "mx-auto max-w-4xl" : "max-w-[600px]",
+          )}
         >
+          {/* 全局版面配套:分区导航已隐藏,给一条回分区列表的退路(深链直入也走得通) */}
+          {activeSection.id === "python-env" ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="self-start text-muted-foreground"
+              onClick={() => setSearchParams({})}
+            >
+              <ArrowLeft className="size-4" />
+              返回设置
+            </Button>
+          ) : null}
           <header className="flex flex-col gap-1 pb-1">
             <h2 id={`settings-section-title-${activeSection.id}`} className="text-lg font-semibold text-foreground">
               {activeSection.title}

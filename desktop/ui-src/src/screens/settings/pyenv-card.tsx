@@ -1,16 +1,15 @@
-import { Cpu, Download, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Check, Cpu, Download, RefreshCw, X } from "lucide-react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import type { SidecarRequestError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import { asSidecarError } from "./api";
 import { ErrorBox } from "./error-box";
-import { FieldInput } from "./field-input";
-import { SettingRow } from "./settings-row";
 import {
   onPyenvStatusChanged,
   pyenvGetStatus,
@@ -25,7 +24,12 @@ import {
 } from "./pyenv-api";
 
 /**
- * 「Python 运行环境」卡片(10-05-desktop-managed-py-env 第 4 步;design §5)。
+ * 「Python 运行环境」分区(10-05-desktop-managed-py-env 第 4 步;design §5)。
+ *
+ * 2026-10-05 全局版面判例(主人裁:600px 窄列「小家子气」):本区在
+ * settings-screen 侧放开为居中大版面(max-w-4xl),卡内改全宽元素——
+ * 状态横幅 / 路径块 break-all 全显不截断 / 镜像输入全宽 / 五阶段
+ * 时间线 / 底部动作条;不再用 SettingRow 的 w-64 右置控件族。
  *
  * 字段面:开始配置(D2 显式动作)/ 安装路径 / Python 使用路径 / 运行时下载源
  * 覆盖 / PyPI 镜像覆盖(双镜像,D3)/ 安装明细(状态机五阶段逐项)/ 同步依赖
@@ -64,6 +68,15 @@ const STATE_META: Record<PyenvState, { label: string; badge: "outline" | "ok" | 
   },
 };
 
+/** 状态横幅左边框色(随五态;横幅底统一 bg-accent/30)。 */
+const STATE_BANNER_CLS: Record<PyenvState, string> = {
+  not_configured: "border-border",
+  installing: "border-l-2 border-l-warning/60",
+  ready: "border-l-2 border-l-ok/60",
+  error: "border-l-2 border-l-destructive/60",
+  deps_stale: "border-l-2 border-l-warning/60",
+};
+
 /** 状态机五阶段中文标(design §3:downloading→…→selfcheck)。 */
 const PHASE_LABEL: Record<PyenvPhase, string> = {
   downloading: "下载运行时",
@@ -81,6 +94,90 @@ const STEP_STATUS_META: Record<PyenvStepStatus, { label: string; cls: string }> 
   skipped: { label: "已跳过", cls: "text-muted-foreground" },
   failed: { label: "失败", cls: "text-destructive" },
 };
+
+/** 时间线节点(圆点)随阶段状态的形/色;运行态脉冲不叠转圈(标签位已有 spinner)。 */
+function StepDot({ status }: { status: PyenvStepStatus }) {
+  const base = "relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full border";
+  switch (status) {
+    case "done":
+      return (
+        <span className={cn(base, "border-ok/50 bg-ok/15 text-ok")}>
+          <Check className="size-3.5" />
+        </span>
+      );
+    case "running":
+      return (
+        <span className={cn(base, "border-warning/60 bg-warning/15 text-warning")}>
+          <span className="size-2 animate-pulse rounded-full bg-warning" />
+        </span>
+      );
+    case "failed":
+      return (
+        <span className={cn(base, "border-destructive/60 bg-destructive/15 text-destructive")}>
+          <X className="size-3.5" />
+        </span>
+      );
+    default:
+      return (
+        <span className={cn(base, "border-border bg-muted/30")}>
+          <span className="size-1.5 rounded-full bg-muted-foreground/50" />
+        </span>
+      );
+  }
+}
+
+/** 路径展示块(全局版面:全宽 + break-all,长路径不再 truncate 截断)。 */
+function PathField({
+  testid,
+  label,
+  description,
+  value,
+}: {
+  testid: string;
+  label: string;
+  description: string;
+  value: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      <p className="text-2xs leading-4 text-muted-foreground">{description}</p>
+      <code
+        data-testid={testid}
+        title={value}
+        className="break-all rounded-md border border-border/60 bg-muted/40 px-3 py-2 font-mono text-2xs leading-5 text-foreground/80"
+      >
+        {value}
+      </code>
+    </div>
+  );
+}
+
+/** 镜像覆盖输入(全局版面:label 上/输入全宽/hint 下,不走 w-64 右置控件族)。 */
+function MirrorField({
+  label,
+  hint,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  placeholder: string;
+  value: string;
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-medium text-foreground">
+        {label}
+      </label>
+      <Input id={id} aria-label={label} placeholder={placeholder} value={value} onChange={onChange} />
+      <p className="text-2xs leading-4 text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
 
 /**
  * 安装明细 = 状态机五阶段骨架 + steps 补态(steps 来自进度戳/内存步进,
@@ -186,21 +283,7 @@ export function PyenvCard() {
 
   return (
     <Card data-testid="pyenv-card">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Cpu className="size-4 text-muted-foreground" />
-          Python 运行环境
-          {meta ? (
-            <Badge variant={meta.badge} data-testid="pyenv-state-badge">
-              {meta.label}
-            </Badge>
-          ) : null}
-        </CardTitle>
-        <CardDescription>
-          运行时与依赖按需下载(D1/D2:不随包分发,设置页显式配置);下载 → 校验 → 解压 → pip 锁版依赖 → 自检全链状态可见,失败可重试
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-1">
+      <CardContent className="flex flex-col gap-6">
         {loadError ? <ErrorBox error={loadError} onRetry={() => void refresh()} /> : null}
         {status === null && loadError === null ? (
           <span data-testid="pyenv-loading" className="py-2 text-xs text-muted-foreground">
@@ -210,86 +293,104 @@ export function PyenvCard() {
 
         {status !== null && meta ? (
           <>
-            <p data-testid="pyenv-state-hint" className="py-2 text-xs leading-5 text-muted-foreground">
-              {meta.hint}
-            </p>
-
-            <div className="divide-y divide-border/60">
-              <SettingRow
-                label="安装路径"
-                description="install_only 包解压即得(数据根下,与 models/ 并排;绝不写安装目录)"
-              >
-                <code
-                  data-testid="pyenv-install-path"
-                  className="max-w-full truncate font-mono text-2xs text-muted-foreground"
-                  title={status.install_path}
-                >
-                  {status.install_path}
-                </code>
-              </SettingRow>
-              <SettingRow label="Python 使用路径" description="sidecar spawn 源(壳侧拉起自管 Python 的二进制)">
-                <code
-                  data-testid="pyenv-python-path"
-                  className="max-w-full truncate font-mono text-2xs text-muted-foreground"
-                  title={status.python_path}
-                >
-                  {status.python_path}
-                </code>
-              </SettingRow>
+            {/* 状态横幅:徽标 + 引导语,左边框随五态着色 */}
+            <div className={cn("rounded-lg border bg-accent/30 p-4", STATE_BANNER_CLS[status.state])}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Cpu className="size-4 text-muted-foreground" />
+                <Badge variant={meta.badge} data-testid="pyenv-state-badge">
+                  {meta.label}
+                </Badge>
+                <span className="text-2xs text-muted-foreground">当前环境状态</span>
+              </div>
+              <p data-testid="pyenv-state-hint" className="mt-2 text-xs leading-5 text-foreground/80">
+                {meta.hint}
+              </p>
             </div>
 
+            {/* 环境信息:全宽路径块 */}
+            <section aria-labelledby="pyenv-paths-title" className="flex flex-col gap-3">
+              <h3 id="pyenv-paths-title" className="text-2xs font-medium tracking-wide text-muted-foreground">
+                环境信息
+              </h3>
+              <PathField
+                testid="pyenv-install-path"
+                label="安装路径"
+                description="install_only 包解压即得(数据根下,与 models/ 并排;绝不写安装目录)"
+                value={status.install_path}
+              />
+              <PathField
+                testid="pyenv-python-path"
+                label="Python 使用路径"
+                description="sidecar spawn 源(壳侧拉起自管 Python 的二进制)"
+                value={status.python_path}
+              />
+            </section>
+
             {/* 双镜像覆盖(D3):镜像只换 URL 不绕 sha256 校验;空 = 默认源 */}
-            <div className="divide-y divide-border/60">
-              <FieldInput
+            <section aria-labelledby="pyenv-mirrors-title" className="flex flex-col gap-3">
+              <h3 id="pyenv-mirrors-title" className="text-2xs font-medium tracking-wide text-muted-foreground">
+                镜像源覆盖(可选)
+              </h3>
+              <MirrorField
                 label="运行时下载源覆盖"
-                aria-label="运行时下载源覆盖"
+                hint="空 = 随包 manifest 钉版源(indygreg python-build-standalone cpython 3.12.7);镜像只换 URL,不绕 sha256 校验"
                 placeholder="https://mirror.example/cpython-3.12.7-…-install_only.tar.gz"
                 value={mirrorRuntime}
                 onChange={(event) => setMirrorRuntime(event.target.value)}
-                hint="空 = 随包 manifest 钉版源(indygreg python-build-standalone cpython 3.12.7);镜像只换 URL,不绕 sha256 校验"
               />
-              <FieldInput
+              <MirrorField
                 label="PyPI 镜像覆盖"
-                aria-label="PyPI 镜像覆盖"
+                hint="空 = 默认 PyPI;依赖安装(pip install --index-url)取此值"
                 placeholder="https://pypi.tuna.tsinghua.edu.cn/simple"
                 value={mirrorPypi}
                 onChange={(event) => setMirrorPypi(event.target.value)}
-                hint="空 = 默认 PyPI;依赖安装(pip install --index-url)取此值"
               />
-            </div>
+            </section>
 
-            {/* 安装明细(design §3 状态机逐项;五阶段骨架恒在,steps 补态) */}
-            <div data-testid="pyenv-steps" className="divide-y divide-border/60">
-              {mergedSteps(status.steps).map(({ phase, status: stepStatus, error }) => {
-                const stepMeta = STEP_STATUS_META[stepStatus];
-                return (
-                  <div key={phase} data-testid={`pyenv-step-${phase}`} className="flex flex-col gap-0.5 py-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-foreground">{PHASE_LABEL[phase]}</span>
-                      <span
-                        data-testid={`pyenv-step-${phase}-status`}
-                        className={cn("flex items-center gap-1 text-2xs", stepMeta.cls)}
-                      >
-                        {stepStatus === "running" ? <RefreshCw className="size-3 animate-spin" /> : null}
-                        {stepMeta.label}
-                      </span>
-                    </div>
-                    {error ? (
-                      <p
-                        role="alert"
-                        data-testid={`pyenv-step-${phase}-error`}
-                        className="text-left text-2xs leading-4 text-destructive"
-                      >
-                        {error}
-                      </p>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
+            {/* 安装明细(design §3 状态机逐项;五阶段骨架恒在,steps 补态)。
+                全局版面:五阶段竖向时间线(圆点 + 连接线),非密集行堆 */}
+            <section aria-labelledby="pyenv-steps-title" className="flex flex-col gap-3">
+              <h3 id="pyenv-steps-title" className="text-2xs font-medium tracking-wide text-muted-foreground">
+                安装明细(失败可重试,已装步幂等跳过)
+              </h3>
+              <ol data-testid="pyenv-steps" className="flex flex-col">
+                {mergedSteps(status.steps).map(({ phase, status: stepStatus, error }, index, all) => {
+                  const stepMeta = STEP_STATUS_META[stepStatus];
+                  return (
+                    <li key={phase} data-testid={`pyenv-step-${phase}`} className="relative flex gap-3 pb-5 last:pb-0">
+                      {index < all.length - 1 ? (
+                        <span aria-hidden className="absolute bottom-0 left-[11px] top-7 w-px bg-border" />
+                      ) : null}
+                      <StepDot status={stepStatus} />
+                      <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-sm text-foreground">{PHASE_LABEL[phase]}</span>
+                          <span
+                            data-testid={`pyenv-step-${phase}-status`}
+                            className={cn("flex items-center gap-1 text-2xs", stepMeta.cls)}
+                          >
+                            {stepStatus === "running" ? <RefreshCw className="size-3 animate-spin" /> : null}
+                            {stepMeta.label}
+                          </span>
+                        </div>
+                        {error ? (
+                          <p
+                            role="alert"
+                            data-testid={`pyenv-step-${phase}-error`}
+                            className="text-left text-2xs leading-4 text-destructive"
+                          >
+                            {error}
+                          </p>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
 
-            {/* 动作条(拆解表第 5 条:反馈在左、动作在右);同步依赖仅漂移态出现(D4) */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
+            {/* 动作条:反馈在左、动作在右(全宽,主按钮不再 sm 收缩);同步依赖仅漂移态出现(D4) */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
               <div className="min-w-0 flex-1">
                 {actionError ? <ErrorBox error={actionError} /> : null}
                 {note ? (
@@ -301,25 +402,23 @@ export function PyenvCard() {
               <div className="flex flex-wrap items-center gap-2">
                 {status.state === "deps_stale" ? (
                   <Button
-                    size="sm"
                     variant="outline"
                     onClick={() => void handleSyncDeps()}
                     disabled={syncBusy || setupBusy}
                     data-testid="pyenv-sync-deps"
                     title="D4:幂等重跑依赖安装链,已装依赖会跳过"
                   >
-                    <RefreshCw className={syncBusy ? "size-3.5 animate-spin" : "size-3.5"} />
+                    <RefreshCw className={syncBusy ? "size-4 animate-spin" : "size-4"} />
                     同步依赖
                   </Button>
                 ) : null}
                 <Button
-                  size="sm"
                   onClick={() => void handleStartSetup()}
                   disabled={setupBusy || syncBusy || status.state === "installing"}
                   data-testid="pyenv-start-setup"
                   title="D2:显式开始配置(下载→校验→解压→依赖→自检);安装中不可重复触发"
                 >
-                  <Download className={setupBusy ? "size-3.5 animate-pulse" : "size-3.5"} />
+                  <Download className={setupBusy ? "size-4 animate-pulse" : "size-4"} />
                   开始配置
                 </Button>
               </div>

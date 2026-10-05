@@ -61,3 +61,15 @@
 **结论**:AC3/AC4/AC5/AC7 勾;AC1/AC6/AC8 留真机与 CI 面验收;AC2 实质缺口不勾——D2「各依赖 sidecar 屏引导卡」全仓未落地(证据见 AC2 行),且双语文档已先行把它写成既有行为,公开发布即虚假陈述。
 
 **留主人清单**:① AC1 真机「开始配置」→下载→自检→全功能目验(沙箱链已过,真机数据根未配置);② AC2 裁定——补 D2 引导卡(连带先修 main.rs:70-81 嵌套)或改 docs/zh:30+en:39 表述,可另立档;③ AC6 desktop-release.yml windows-msi job dispatch 演练+真机 win 冒烟;④ AC8 新形态包装机冒烟回执(03:06 b72fee4 过渡谱系有 cc42e0d 冒烟绿,04:21 新形态换装无回执)+全量门禁统一复跑;⑤ 归档(4afdd6c)与 in_progress 状态的最终裁定;⑥ 已知 low 遗留沿袭 implement.md(MYIA_PYENV_AUTOSETUP env 面随包长存 main.rs:420、镜像 URL 无 scheme 强制、docs/{zh,en}/build-windows.md 全文仍按退役 sidecar 链叙事、pyenv_install.rs:1101 同步依赖后不重启在跑 sidecar)。
+
+## 补记(2026-10-05 午后:设置页全局版面判例落地)
+
+**主人判例(截图质询原话)**:「设置这个里面的配置没有放到中心,布局太小家子气了,应该全局布局的,不应该缩到一处地方」。
+
+**根因(主人窗口 931px CSS 实测)**:①配置卡被双重导航挤压——app 左轨 224px + 设置分区导航 176px + 间距后,python-env 分区仅剩 459px 宽(旧 max-w-[600px] 钳制根本未生效,宽度瓶颈在导航挤压而非列宽);②分区列注释声称对齐 Kestra「居中单列」但实现漏 mx-auto;③卡内为 Kestra SettingRow 窄行范式(w-64 右置控件、路径 truncate 截断、五阶段密集行堆),全局看呈「缩在右侧一隅的窄长条」。
+
+**修法(本档第 4 步 UI 重排,属 AC2 同域但独立于引导卡欠账)**:
+- settings-screen.tsx:python-env 分区激活时隐藏设置分区导航列并解除 md:flex-row,配置面占满主画布居中(max-w-4xl);加「返回设置」退路(深链直入走得通);其余分区维持 600px 窄列不动。
+- pyenv-card.tsx:卡内改全宽元素——状态横幅(左边框随五态着色)/路径块 break-all 全显不截断/镜像输入全宽(不走 w-64 右置控件族)/五阶段竖向时间线(圆点+连接线,done✓/running 脉冲/failed✗)/底部动作条主按钮去 sm 收缩。IPC 契约与全部 data-testid 零动。
+
+**验证**:vitest 53/53(pyenv-card 13 + settings 40);tsc -b + vite build 绿;无头冒烟(Playwright+__TAURI_INTERNALS__ shim,mock pyenv_get_status)——931×857 档卡宽 459→659 占满主画布、1512 档 896 居中(主画布内左右对称 196/196)、零横向溢出、「返回设置」回导航正常;DOM 裁切检查零命中;OCR 全文可读(路径不再截断)。VL 三条负面主张(文字重叠/左对齐未居中/导航空白)经 DOM+OCR 交叉证伪,不采信。
