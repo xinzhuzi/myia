@@ -1036,55 +1036,63 @@ describe("设置:分区导航与危险区(D4 结构重做)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 分区过滤(10-04-interaction-batch 补做,census 缺口 #7「设置搜索设置项」:
-// Linear settings 口径——分区导航上方过滤框实时过滤分区名,纯前端零 RPC;
-// 只影响导航可见性,不改当前分区/URL 深链语义)。
+// 设置搜索(10-04-interaction-batch 分区级 + 10-05-fe-gap-leftovers ②字段级):
+// Linear settings 口径——导航上方过滤框实时过滤,纯前端零 RPC;分区级匹配
+// label/id(不改当前分区/URL 深链语义),②字段级再匹配区词面并逐卡过滤
+// (分区名命中 → 整区显示;整件子组件区按区词面整件显隐)。
 // ---------------------------------------------------------------------------
 
 describe("设置:分区过滤(census #7 补做,纯前端实时)", () => {
-  it("输入「推」→ 导航只剩推送;过滤不改当前分区(右侧仍通用,内容不换不白屏)", async () => {
+  it("输入「推」→ 导航只剩推送;当前分区仍是通用(不切区),②字段级下其卡全隐 + 指路空态行(不白屏)", async () => {
     installSidecar();
     renderScreen();
 
-    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "推" } });
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "推" } });
     expect(screen.getByTestId("settings-nav-push")).toBeTruthy();
     for (const id of ["general", "vision", "update", "advanced"]) {
       expect(screen.queryByTestId(`settings-nav-${id}`)).toBeNull();
     }
-    // 只过滤导航:当前分区仍是缺省通用,base_url 表单照常在位
+    // 不切区:分区壳仍是通用;「推」不命中通用词面 → 卡全隐 + 空态行指路左侧
     expect(screen.getByTestId("settings-section-general")).toBeTruthy();
-    expect(screen.getByLabelText("base_url")).toBeTruthy();
+    expect(screen.queryByLabelText("base_url")).toBeNull();
+    expect(screen.getByTestId("settings-field-filter-empty").textContent).toContain("推");
+    expect(screen.getByTestId("settings-field-filter-empty").textContent).toContain("为匹配分区");
   });
 
   it("拉丁输入按 id 命中(vision→视觉)+ 大小写不敏感(PUSH 同命中)", async () => {
     installSidecar();
     renderScreen();
 
-    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "vision" } });
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "vision" } });
     expect(screen.getByTestId("settings-nav-vision")).toBeTruthy();
     expect(screen.queryByTestId("settings-nav-general")).toBeNull();
 
-    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "PUSH" } });
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "PUSH" } });
     expect(screen.getByTestId("settings-nav-push")).toBeTruthy();
-    expect(screen.queryByTestId("settings-nav-vision")).toBeNull();
+    expect(screen.queryByTestId(`settings-nav-vision`)).toBeNull();
   });
 
-  it("无匹配:导航全隐 + 「无匹配分区」提示,右侧仍渲染当前分区;清空即还原四区", async () => {
+  it("无匹配:导航全隐 + 「无匹配分区」提示,右侧区壳仍渲染不白屏(卡随查询全隐 + 字段空态行);清空即还原四区", async () => {
     installSidecar();
     renderScreen();
 
-    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "xyz" } });
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "xyz" } });
     for (const id of ["general", "push", "vision", "system"]) {
       expect(screen.queryByTestId(`settings-nav-${id}`)).toBeNull();
     }
     expect(screen.getByTestId("settings-section-filter-empty").textContent).toContain("无匹配分区");
-    expect(screen.getByTestId("settings-section-general")).toBeTruthy(); // 不白屏
+    expect(screen.getByTestId("settings-section-general")).toBeTruthy(); // 不白屏:分区壳仍在
+    // ② 字段级:当前区(通用)对 xyz 全不命中 → 卡全隐 + 指路空态行
+    expect(screen.queryByLabelText("base_url")).toBeNull();
+    expect(screen.getByTestId("settings-field-filter-empty").textContent).toContain("没有「xyz」");
 
-    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "" } });
     for (const id of ["general", "push", "vision", "system"]) {
       expect(screen.getByTestId(`settings-nav-${id}`)).toBeTruthy();
     }
     expect(screen.queryByTestId("settings-section-filter-empty")).toBeNull();
+    expect(screen.queryByTestId("settings-field-filter-empty")).toBeNull();
+    expect(screen.getByLabelText("base_url")).toBeTruthy(); // 卡还原
   });
 
   it("过滤与导航功能正交:过滤后剩余分区仍可点切区(aria-current 随迁)", async () => {
@@ -1092,10 +1100,53 @@ describe("设置:分区过滤(census #7 补做,纯前端实时)", () => {
     renderScreen();
 
     // 「系」只命中「系统」(原「高」命中的「高级」区已在 6→4 收编中删除)
-    fireEvent.change(screen.getByLabelText("过滤分区"), { target: { value: "系" } });
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "系" } });
     await openSection("system");
     expect(screen.getByTestId("settings-section-system")).toBeTruthy();
     expect(screen.getByTestId("settings-nav-system").getAttribute("aria-current")).toBe("true");
+  });
+
+  // -------------------------------------------------------------------------
+  // ② 字段级(10-05-fe-gap-leftovers):区词面命中导航 + 直属卡逐卡过滤;
+  // 分区名命中整区显示;当前区无命中 → 卡全隐 + 指路空态行
+  // -------------------------------------------------------------------------
+
+  it("② 字段词命中导航:base_url → 通用/视觉在导航(两区词面都有),系统不在;右列逐卡过滤只显 LLM 卡", async () => {
+    installSidecar();
+    renderScreen();
+
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "base_url" } });
+    // 导航:字段词命中含该词的区(通用=LLM base_url,视觉=本地 base_url)
+    expect(screen.getByTestId("settings-nav-general")).toBeTruthy();
+    expect(screen.getByTestId("settings-nav-vision")).toBeTruthy();
+    expect(screen.queryByTestId("settings-nav-system")).toBeNull();
+    // 右列(当前=通用,分区名未命中):逐卡过滤——LLM 卡在,代理池/doctor 卡隐
+    expect(screen.getByLabelText("base_url")).toBeTruthy();
+    expect(screen.queryByLabelText("代理池名")).toBeNull();
+    expect(screen.queryByText("保存后验证(doctor 回显)")).toBeNull();
+    expect(screen.queryByTestId("settings-field-filter-empty")).toBeNull(); // 有命中卡不出空态行
+  });
+
+  it("② 分区名命中 → 整区显示不逐卡过滤:输「通用」→ LLM/代理池/doctor 卡全在", async () => {
+    installSidecar();
+    renderScreen();
+
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "通用" } });
+    expect(screen.getByTestId("settings-nav-general")).toBeTruthy();
+    expect(screen.getByLabelText("base_url")).toBeTruthy();
+    expect(screen.getByLabelText("代理池名")).toBeTruthy();
+    expect(screen.queryByTestId("settings-field-filter-empty")).toBeNull(); // 无空态行
+  });
+
+  it("② 当前区无命中:站通用输「镜像」→ 右列卡全隐 + 指路空态行;导航只剩 Python 环境(词面命中区)", async () => {
+    installSidecar();
+    renderScreen();
+
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "镜像" } });
+    expect(screen.getByTestId("settings-nav-python-env")).toBeTruthy();
+    expect(screen.queryByTestId("settings-nav-general")).toBeNull();
+    expect(screen.queryByLabelText("base_url")).toBeNull();
+    expect(screen.getByTestId("settings-field-filter-empty").textContent).toContain("镜像");
   });
 });
 

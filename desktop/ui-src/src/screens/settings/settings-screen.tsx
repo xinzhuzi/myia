@@ -16,7 +16,7 @@ import {
   Trash2,
   Globe,
 } from "lucide-react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { LabelHint } from "@/components/label-hint";
@@ -170,6 +170,46 @@ const SECTIONS: SettingsSection[] = [
   { id: "system", label: "系统", icon: Activity, title: "系统", description: "sidecar 连接 + 软件更新 + 凭据管理" },
 ];
 const DEFAULT_SECTION = "general";
+
+// ---------------------------------------------------------------------------
+// ② 设置搜索·字段维度(10-05-fe-gap-leftovers,池档「设置搜索」项余量):
+// 分区过滤框(10-04-interaction-batch,census #7)原只匹配分区名——查询
+// 字段词(如 base_url/镜像/chat_id)会落「无匹配分区」。本批两级补全:
+//   ① 分区导航匹配扩到区内字段词面(SECTION_FIELD_TERMS 策展清单,小写;
+//     搜索辅助非门禁:漏词只降可发现性不影响功能;新增字段/卡片随手补,
+//     区词面 ⊇ 区内各卡词面,导航与卡过滤才不互相矛盾);
+//   ② 右列设置卡按词面过滤(Searchable):分区名命中 → 整区显示;字段词
+//     命中 → 只显命中卡。整件子组件区(视觉/门槛件/装机/Python)以区词面
+//     整件显隐,不进组件内部逐卡过滤(进内部需穿 5 个子组件文件,超出本
+//     「纯前端小件」面,如实注记)。
+// ---------------------------------------------------------------------------
+
+/** 各分区字段词面(小写;策展清单,纪律见上) */
+const SECTION_FIELD_TERMS: Record<string, string> = {
+  general:
+    "llm 精评 base_url model api key 评分 反馈 enrich 预算 budget 代理池 池名 凭据值 pools yaml 路径 探测 doctor 保存后验证 回显 诊断",
+  push: "推送 通道 凭据 feishu 飞书 telegram webhook bark apprise chat_id token device_key targets 发送测试 自定义凭据位 scope",
+  vision: "看图 通道 ocr 引擎 vision rapidocr mlx base_url 本地模型路径 云端模型 云端 api key 模型管理 服务",
+  gates: "门槛 付费 saas 采集引擎 zenrows 自有实例 平台 token 分析件 停更 知情 启用",
+  "installer-plugins": "装机 官方插件 发现 安装 重装 卸载 品类配置 平铺 manifest 补种",
+  "python-env": "python 运行时 依赖 下载源 安装路径 使用路径 镜像 pypi 安装明细 同步",
+  system: "sidecar 连接 状态 更新 版本 凭据 钥匙链 secret 删除 危险区",
+};
+
+/** 搜索上下文:query = 过滤框词面(小写 trim);sectionNameMatched = 当前
+ *  分区被分区名(label/id)命中(命中时整区显示,不逐卡过滤)。 */
+const SettingsSearchContext = createContext<{ query: string; sectionNameMatched: boolean }>({
+  query: "",
+  sectionNameMatched: false,
+});
+
+/** 按词面显隐的包装件:query 空恒显;分区名命中恒显(查询针对分区而非
+ *  字段);否则 terms 含 query 才显。terms 为小写词面串。 */
+function Searchable({ terms, children }: { terms: string; children: ReactNode }) {
+  const { query, sectionNameMatched } = useContext(SettingsSearchContext);
+  if (query && !sectionNameMatched && !terms.includes(query)) return null;
+  return <>{children}</>;
+}
 
 interface LlmForm {
   baseUrl: string;
@@ -871,15 +911,28 @@ export function SettingsScreen() {
     : DEFAULT_SECTION;
   const activeSection = SECTIONS.find((section) => section.id === sectionId) ?? SECTIONS[0];
 
-  /** 分区过滤(10-04-interaction-batch 补做,census 缺口 #7「设置搜索设置项」:
-   *  Linear settings 口径——分区导航上方过滤框实时过滤分区名,纯前端零 RPC)。
-   *  匹配 label/id 不分大小写(拉丁输入可按 id 命中,如 vision→视觉);
-   *  只影响导航可见性:不改当前分区,URL ?section= 深链语义不动。 */
+  /** 设置搜索(10-04-interaction-batch 分区级 + ②字段级补全,见模块头 ② 节):
+   *  Linear settings 口径——导航上方过滤框实时过滤,纯前端零 RPC。分区级 =
+   *  label/id 不分大小写(拉丁输入可按 id 命中,如 vision→视觉);字段级 =
+   *  区词面 SECTION_FIELD_TERMS 命中。只影响可见性:不改当前分区,URL
+   *  ?section= 深链语义不动。 */
   const [sectionFilter, setSectionFilter] = useState("");
   const sectionQuery = sectionFilter.trim().toLowerCase();
-  const visibleSections = sectionQuery
-    ? SECTIONS.filter(({ id, label }) => label.toLowerCase().includes(sectionQuery) || id.includes(sectionQuery))
-    : SECTIONS;
+  const sectionNameMatched = ({ id, label }: SettingsSection) =>
+    label.toLowerCase().includes(sectionQuery) || id.includes(sectionQuery);
+  const sectionMatchesQuery = (section: SettingsSection) =>
+    !sectionQuery ||
+    sectionNameMatched(section) ||
+    (SECTION_FIELD_TERMS[section.id] ?? "").includes(sectionQuery);
+  const visibleSections = sectionQuery ? SECTIONS.filter(sectionMatchesQuery) : SECTIONS;
+  /** 当前分区与查询关系:名字命中 → 整区显示;词面命中 → 逐卡过滤;
+   *  全不命中 → 卡片全隐 + 空态提示行(Searchable 同判)。 */
+  const activeNameMatched = !sectionQuery || sectionNameMatched(activeSection);
+  const activeSectionVisible = sectionMatchesQuery(activeSection);
+  const searchContext = useMemo(
+    () => ({ query: sectionQuery, sectionNameMatched: activeNameMatched }),
+    [sectionQuery, activeNameMatched],
+  );
 
   const [llm, setLlm] = useState<LlmForm>({ baseUrl: "", model: "", key: "" });
   const [llmErrors, setLlmErrors] = useState<Partial<Record<"baseUrl", string>>>({});
@@ -1118,9 +1171,10 @@ export function SettingsScreen() {
   }, [push.channel, pushValues, refreshSecretNames, runDoctor]);
 
   return (
-    /* R2 重排:区块节奏消费具名令牌 gap-block(24px)+ pb-block;
+    <SettingsSearchContext.Provider value={searchContext}>
+    {/* R2 重排:区块节奏消费具名令牌 gap-block(24px)+ pb-block;
        屏级标题行已随无头化移除(PageHeader 渲染 null),「重新验证」
-       动作迁入区标题行 actions 槽(见下方 header) */
+       动作迁入区标题行 actions 槽(见下方 header) */}
     <div className="flex flex-col gap-block pb-block">
       {verifyError ? (
         <div className="px-6">
@@ -1137,12 +1191,12 @@ export function SettingsScreen() {
         <div className="flex shrink-0 flex-col gap-2 md:w-44">
           {/* 终审修整:过滤框转共享 Input 基件(带 data-slot=input,与全屏输入
               同享微填充+低可见描边+统一圆角;原裸 input 描边/填充自成一家,
-              VL 指认「输入框描边粗细不一」) */}
+              VL 指认「输入框描边粗细不一」)。②:语义扩为分区+字段两级 */}
           <Input
             type="search"
             value={sectionFilter}
-            aria-label="过滤分区"
-            placeholder="过滤分区"
+            aria-label="过滤分区与字段"
+            placeholder="搜索分区与字段(如 base_url / 镜像 / chat_id)"
             data-testid="settings-section-filter"
             onChange={(event) => setSectionFilter(event.target.value)}
           />
@@ -1214,8 +1268,17 @@ export function SettingsScreen() {
             </Button>
           </header>
 
+          {/* ② 字段级搜索空态:查询非空且当前分区全不命中 → 卡片/子组件全隐
+              (Searchable 同判),此行如实指路左侧匹配分区;分区名/字段命中时不出 */}
+          {sectionQuery && !activeSectionVisible ? (
+            <p data-testid="settings-field-filter-empty" className="text-xs text-muted-foreground">
+              当前分区没有「{sectionFilter.trim()}」相关字段;左侧{visibleSections.length > 0 ? "为匹配分区" : "也无匹配分区"}
+            </p>
+          ) : null}
+
           {activeSection.id === "system" ? (
             <>
+            <Searchable terms="sidecar 连接 状态">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1228,13 +1291,17 @@ export function SettingsScreen() {
                 <SidecarStatusPanel />
               </CardContent>
             </Card>
-            <UpdaterCard />
+            </Searchable>
+            <Searchable terms="更新 版本">
+              <UpdaterCard />
+            </Searchable>
 
             {/* 危险区(拆解表第 6 条):单独 Destructive Card 置于区页底部;
                 inline 二次确认沿用仓内惯例(同看图模型卡删除)。
                 10-05 归位:79f7f7b 分区 6→4 收编时「高级」区被移除,此卡曾在
                 守卫 id==="advanced" 的死分支里 UI 不可达;系统分区描述与终态
                 合同本就写着「凭据管理」——钥匙链清单/删除的唯一入口在此落地 */}
+            <Searchable terms="凭据 钥匙链 secret 删除 危险区">
             <Card
               data-testid="settings-danger-zone"
               className="border-destructive/40 bg-destructive/[0.04]"
@@ -1296,17 +1363,21 @@ export function SettingsScreen() {
                 )}
               </CardContent>
             </Card>
+            </Searchable>
 
+            <Searchable terms="凭据 钥匙链 secret 安全底线 keychain">
             <p className="text-2xs text-muted-foreground">
               安全底线:任何凭据输入只经协议 secret.set 写入系统钥匙链(macOS Keychain /
               Windows DPAPI);配置文件出现明文凭据 = 启动即报错拒跑。model /
               enrich.enabled 经「通用 → 评分与反馈」写回品类 YAML(yaml.save,注释保真);
               池 URL 结构写回顺延(待拍板落点),push 通道声明去「配置编辑」。
             </p>
+            </Searchable>
             </>
           ) : activeSection.id === "general" ? (
             <>
-              {/* LLM */}
+              {/* LLM(②:terms = 本卡可搜词面,⊂ general 区词面) */}
+              <Searchable terms="llm 精评 base_url model api key">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1359,14 +1430,18 @@ export function SettingsScreen() {
                   />
                 </CardContent>
               </Card>
+              </Searchable>
 
               {/* 评分与反馈(B3+C11:enrich.enabled 开关行自动保存 + model 写回 + budget 护栏) */}
+              <Searchable terms="评分 反馈 enrich 预算 budget">
               <EnrichFeedbackCard
                 enrichSections={verify?.enrichSections ?? []}
                 onSaved={(doctor) => setVerify(doctor)}
               />
+              </Searchable>
 
               {/* 代理池 */}
+              <Searchable terms="代理池 池名 凭据值 pools yaml 路径 探测">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1423,8 +1498,10 @@ export function SettingsScreen() {
                   />
                 </CardContent>
               </Card>
+              </Searchable>
 
               {/* 诊断:保存后验证(doctor 回显;与代理池探测同区联动) */}
+              <Searchable terms="doctor 保存后验证 回显 诊断">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1439,28 +1516,45 @@ export function SettingsScreen() {
                   <DoctorVerifyPanel verify={verify} loading={verifying} proxyAutoMiss={probeAutoMiss} />
                 </CardContent>
               </Card>
+              </Searchable>
             </>
           ) : null}
 
           {/* 看图配置(10-03-vision-pipeline 拆屏后看图在桌面的唯一保留面:
-              通道/引擎结构配置 + 云端 key 入钥匙链 + 模型管理;已有件整卡融入不重写) */}
-          {activeSection.id === "vision" ? <VisionForm secretNames={secretNames} /> : null}
+              通道/引擎结构配置 + 云端 key 入钥匙链 + 模型管理;已有件整卡融入不重写)。
+              ②:整件子组件按区词面整件显隐(不进组件内部逐卡过滤,见模块头注) */}
+          {activeSection.id === "vision" ? (
+            <Searchable terms={SECTION_FIELD_TERMS.vision}>
+              <VisionForm secretNames={secretNames} />
+            </Searchable>
+          ) : null}
 
           {/* 门槛件(10-05-plugin-market-batch 批二第 11 步:付费 SaaS / 自有实例 /
-              分析件知情启用,gates.get/save 读写 <MYIA_HOME>/gates.yaml) */}
+              分析件知情启用,gates.get/save 读写 <MYIA_HOME>/gates.yaml)。② 同上整件显隐 */}
           {activeSection.id === "gates" ? (
-            <GatesForm secretNames={secretNames} onSecretsChanged={() => void refreshSecretNames()} />
+            <Searchable terms={SECTION_FIELD_TERMS.gates}>
+              <GatesForm secretNames={secretNames} onSecretsChanged={() => void refreshSecretNames()} />
+            </Searchable>
           ) : null}
 
           {/* 装机组件(10-05-bundled-plugins-install:随包官方插件件发现/一键装,
-              plugins.bundled.list/install;装卸门与 CLI myssia plugin install 同门) */}
-          {activeSection.id === "installer-plugins" ? <BundledPluginsCard /> : null}
+              plugins.bundled.list/install;装卸门与 CLI myssia plugin install 同门)。② 同上 */}
+          {activeSection.id === "installer-plugins" ? (
+            <Searchable terms={SECTION_FIELD_TERMS["installer-plugins"]}>
+              <BundledPluginsCard />
+            </Searchable>
+          ) : null}
 
           {/* Python 运行环境(10-05-desktop-managed-py-env 第 4 步,D1/D2:
-              开始配置/路径/双镜像覆盖/安装明细/同步依赖;IPC 契约见 pyenv-api.ts) */}
-          {activeSection.id === "python-env" ? <PyenvCard /> : null}
+              开始配置/路径/双镜像覆盖/安装明细/同步依赖;IPC 契约见 pyenv-api.ts)。② 同上 */}
+          {activeSection.id === "python-env" ? (
+            <Searchable terms={SECTION_FIELD_TERMS["python-env"]}>
+              <PyenvCard />
+            </Searchable>
+          ) : null}
 
           {activeSection.id === "push" ? (
+            <Searchable terms={SECTION_FIELD_TERMS.push}>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1617,10 +1711,12 @@ export function SettingsScreen() {
                 </div>
               </CardContent>
             </Card>
+            </Searchable>
           ) : null}
         </section>
       </div>
     </div>
+    </SettingsSearchContext.Provider>
   );
 }
 
