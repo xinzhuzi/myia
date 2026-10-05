@@ -90,3 +90,15 @@ round1 脚本 `probe_vendors.py` 的 `sniff()` 写了 `"<html" in head`(str in b
 **第二轮:watch-only 并发冒烟**(临时品类 evidence/smoke-watch-only.yaml,真子进程并发,14.4s):
 - 三源**零失败**;anthropic/cohere = `watch_baseline_seeded`(真实缓存 `~/.myia/urlwatch/cache.db` 基线已种,今晚首跑零噪音);
 - meta 产出 1 条 changed 条目(距首轮快照仅 ~20 分钟)且 diff 为空——**CDN/出口轮换噪声风险实证**(clash 出口不同快照漂移);条目形状健康(标题+`#watch-` 锚点),master 若嫌 meta 噪声可一句话删源。
+
+## §9 主人令「测试一次」真测回执(2026-10-06 01:28-01:55,装机态三轮)
+
+**R1 抛弃库全链**(desktop entry 直通,cwd 解析到 /tmp/myssia.db):12 源采集面全绿——七家 RSS 零失败、anthropic=watch_unchanged、meta/cohere 各 1 条 changed;953 条入库、732 条进 digest 池;enrich 全降级(`openai` extras 未进 desktop requirements-lock——**装机态全品类既有缺口**,非本批引入);推送失败(env+钥匙串双空,装机件从未推成——仪表盘「推送成功O」实为零)。
+
+**R2 噪声闸验证**:七家 RSS 全部命中变更检测短路(hash_match/not_modified/validators_match,30 分钟内二次拉取零成本);meta/cohere 本轮 diff 非空(content 落库 1500 字截断)——但细看内容:**meta 的 diff 全是 React 组件名(build 产物漂移)、cohere 是 Next.js 数据载荷**=框架级噪声非内容信号;urlwatch 无内容过滤前的如实局限(§7 过滤能力是根治项);空 diff 假阳性已由 watch_noise_empty_diff 闸拦截(单测钉死,实证待自然复现)。
+
+**R3 生产库正式跑**(`--db <数据根>/myssia.db`):runs 表 #3 ai-news partial(19.8s),**953 条+2 条 watch 锚点条目入生产库**;入驻洪水被推送必败轮吸收(digest 池随进程即逝,732 条一次性洪水永久消解——主人修好凭据后只剩干净日增量)。aihot invalid_item 失败=既有噪声非本批。
+
+**调度补全**:装机 app「定时任务」原为 0 任务启用(YAML schedule 只是预览)→ `cron create "0 8,20 * * *" --category <数据根>/plugins/ai-news.yaml --db <数据根>/myssia.db` 建「AI资讯」job,重启实例后调度器识别(**1 个任务启用,下次运行 10/06 08:00**,UI 亲证)。
+
+**owner_left 更新**:①推送凭据(设置→推送 录 FEISHU_BOT_TOKEN 或 APP_ID/SECRET,一次性);②desktop lock 增 openai extras(装机态 enrich 起死,涉依赖指纹变更,主人裁定);③meta/cohere watch 的框架噪声——过滤能力前建议观察或删源,主人一句话;④外科直更两件(adapter+engine)待下次正式重打包自然收编。
