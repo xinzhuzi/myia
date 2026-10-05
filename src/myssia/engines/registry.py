@@ -123,6 +123,11 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # credential_missing 显式空态零请求,配好即活);robots 面不适用其
     # 钉死的官方端点(授权通道,见模块文档论证)。
     "reddit": lambda: _load("reddit", "RedditEngine"),
+    # 官网页面变更监控引擎(10-06-ai-news-sources S2):链外同 credhunter
+    # 先例 —— 显式 engine: urlwatch 才生效,auto 永不路过;零凭据,消费
+    # myssia-urlwatch 场景件 adapter(快照对比),changed/new→条目、
+    # unchanged=合法空态;单页语义拒 pagination;只支持 proxy: direct。
+    "urlwatch": lambda: _load("urlwatch", "UrlwatchEngine"),
 }
 
 # Static typing view of the registry (class names resolved lazily at runtime).

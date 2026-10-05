@@ -1,9 +1,12 @@
-# plugins/ai-news.yaml — AI news digest: aggregator hot feed + AI forums.
+# plugins/ai-news.yaml — AI news digest: aggregator hot feed + vendor
+# official sources + official-site change watch + AI forums.
 #
 # Section semantics are documented once, fully, in plugins/stocks.yaml (the
 # schema showcase). This file adds the patterns that file does not show:
 # a firecrawl-backend source, Discourse list extraction with pagination,
-# and a login-walled placeholder source.
+# a login-walled placeholder source, vendor RSS feeds (extract.type: rss,
+# news.yaml gcores 判例同通路) and urlwatch change-watch sources
+# (engine: urlwatch, 10-06-ai-news-sources S2).
 
 id: ai-news
 name: AI资讯
@@ -84,6 +87,166 @@ sources:
     # OCR 环。礼貌上限:每 run 至多 detail_max_items(缺省 10)条、串行、
     # 每请求间隔 ≥1s、单页超时 10s;品类级缺省 false,仅本源示范。
     images_detail_fetch: true
+
+  # ──────────────────────────────────────────────────────────────────────
+  # 厂商官方 RSS 源(10-06-ai-news-sources S1)。探查证据(2026-10-06,直连
+  # 单次+robots 先行,honest UA):.trellis/tasks/10-06-ai-news-sources/
+  # evidence/probe{,2,3}-log.md + probe4-*.json —— 七家全部 200 RSS 且
+  # robots 对 feed 路径 Allow;走 news.yaml gcores 同一 rss 通路
+  # (static_html 收文本 + extract.type: rss 的 feedparser 映射)。
+  # 每源条目量 20-50/次,dedup {url} 全期拦截同条重推。
+  # ──────────────────────────────────────────────────────────────────────
+
+  - name: openai-news            # OpenAI 官方新闻 feed(robots: User-agent: * Allow /)
+    engine: static_html
+    url: "https://openai.com/news/rss.xml"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: deepmind-blog          # Google DeepMind 官方博客 feed
+    engine: static_html
+    url: "https://deepmind.google/blog/rss.xml"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: google-research        # Google Research 官方博客 feed
+    engine: static_html
+    url: "https://research.google/blog/rss/"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: microsoft-research     # Microsoft Research 官方 feed(WordPress /feed/;
+    engine: static_html          # robots 154 行 Disallow 逐一对照,无一命中本路径)
+    url: "https://www.microsoft.com/en-us/research/feed/"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: hf-blog                # Hugging Face 官方博客 feed
+    engine: static_html
+    url: "https://huggingface.co/blog/feed.xml"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: mistral-news           # Mistral AI 官方新闻 feed(/rss.xml 302 落此)
+    engine: static_html
+    url: "https://mistral.ai/news/rss"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: qwen-blog              # Qwen 官方博客 feed(博客页 autodiscovery 实探:
+    engine: static_html          # qwenlm.github.io/blog/index.xml,Hugo 风格路径)
+    url: "https://qwenlm.github.io/blog/index.xml"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  # ──────────────────────────────────────────────────────────────────────
+  # 官网变更监控(10-06-ai-news-sources S2,engine: urlwatch 链外引擎)。
+  # 消费 myssia-urlwatch 场景件(快照对比,缓存 ~/.myia/urlwatch/cache.db
+  # 跨 run 持久);页面有变更才产条目(条目 url 带变更指纹锚点 #watch-<hash>,
+  # 同页面第二次变更不会被 dedup {url} 吞掉),零变更=合法空态。
+  # announce_new: false = 首跑只建快照基线零条目(冷启动不刷屏),之后只报
+  # 变更;上游重试语义自带,不配 retry。
+  # ──────────────────────────────────────────────────────────────────────
+
+  - name: anthropic-news-watch   # Anthropic 新闻页(无 RSS,探查实证 200 html;
+    engine: urlwatch             # robots: User-agent: * Allow /)
+    url: "https://www.anthropic.com/news"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "Anthropic 新闻页"    # 条目标题用的人话名(缺省=源名)
+        announce_new: false          # 首跑建基线,之后只报变更
+        timeout: 90                  # 单页子进程预算秒(缺省 120)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct                   # urlwatch 引擎只支持 direct(子进程直连)
+
+  - name: meta-ai-blog-watch     # Meta AI 博客(无 RSS;robots 的 * 段允许 /blog,
+    engine: urlwatch               # 文件头另附 Meta 自动化采集 notice —— 机械面
+    url: "https://ai.meta.com/blog" # 允许/条款面张力的取合已记 research.md §4)
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "Meta AI 博客"
+        announce_new: false
+        timeout: 90
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  - name: cohere-blog-watch      # Cohere 博客(无 RSS;robots Allow /)
+    engine: urlwatch
+    url: "https://cohere.com/blog"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "Cohere 博客"
+        announce_new: false
+        timeout: 90
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  # ──────────────────────────────────────────────────────────────────────
+  # X(Twitter)监控位(10-06-ai-news-sources S3)——注释态,reddit-ml 同款
+  # 「先决条件入 YAML」先例。通道=自部署 RSSHub(myssia-rsshub 件,
+  # docker/plugins/myssia-rsshub/compose.yml;twitter 路由需给实例配
+  # TWITTER_AUTH_TOKEN —— 官方环境变量表实锤,zread DIYgod/RSSHub
+  # 2026-10-06)。启用三步:
+  #   1. docker compose -f docker/plugins/myssia-rsshub/compose.yml up -d
+  #      (compose 环境注入 TWITTER_AUTH_TOKEN=<自己的 X auth_token>)
+  #   2. 把下方 <rsshub-host> 换成实例地址(如 http://127.0.0.1:1200)
+  #   3. 按主人圈选的账号清单取消注释(下方为候选示范)
+  # 诚实注记:twitter 路由上游脆弱在案(RSSHub 官方文档:/twitter/keyword
+  # 2025-08 起失效,GraphQL 端点持续漂移),实例日志里 4xx/空产出属正常
+  # 降级面,doctor 可见;本机 Docker 未装(10-05-source-searxng §0)是当前
+  # 硬前置。
+  # ──────────────────────────────────────────────────────────────────────
+  # - name: x-openai
+  #   engine: static_html
+  #   url: "https://<rsshub-host>/twitter/user/OpenAI"
+  #   method: GET
+  #   extract:
+  #     type: rss
+  #     fields: {title: title, url: link, published: published}
+  #   rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+  #   proxy: direct
+  #   retry: 3
+  # 候选账号(圈选后复制上面条目改 url 尾):OpenAI / AnthropicAI /
+  #   GoogleDeepMind / xai / karpathy / OfficialLoganG / _akhaliq / simonw
+  #   —— 清单终稿属主人决策(research.md §5)。
 
   # linux.do — placeholder for a login-walled Discourse source. stealth_browser
   # (L5) is implemented and sits at the auto chain's tail carrying login state:
