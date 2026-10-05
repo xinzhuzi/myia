@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/guides/search-sop.md", "reason": "搜索 SOP:GitNexus -r shishi 用法与先 Read 再操作铁律(本任务定位/impact 全程遵守)"}
-{"file": ".trellis/spec/domain/security-baseline.md", "reason": "凭据零明文红线:锁文件名/内容/日志只出现 token 摘要与 pid 的依据"}
-{"file": ".trellis/spec/python/error-handling.md", "reason": "结构化错误约定:租约 fail closed 与禁动告警的口径"}

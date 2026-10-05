@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "检查面:门禁数字(cargo check --locked / cargo test)须如实回填报错"}
-{"file": ".trellis/spec/guides/search-sop.md", "reason": "检查面:gitnexus detect-changes -r shishi --scope staged 提交前核验"}
