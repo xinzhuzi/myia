@@ -92,7 +92,9 @@ pyenv 卡内也弃用全设置屏统一的行式词汇(无 CardHeader、镜像�
 
 - 不动 pyenv-api.ts IPC 契约、壳侧、五态状态机、组件开关行为。
 - 不动其他分区版面;不动 migration-banner / pyenv-gate-banner 深链落点。
-- 装机包刷新不在本档内(提交后按主人节奏;汇报须显式声明未刷新)。
+- 装机包刷新:原判「不在本档内(提交后按主人节奏;汇报须显式声明未刷新)」;
+  2026-10-06 已按 grill Q2(a) 当场重打包换装并通过像素终验,就此销号——
+  详见下方「装机像素终验回执」。
 
 ## 遗留与移交
 
@@ -116,3 +118,58 @@ pyenv 卡内也弃用全设置屏统一的行式词汇(无 CardHeader、镜像�
   档内的装机件双像素验证面向 YAML 编辑器修复面,pyenv 分区版面未见单独
   取证记录——如需按 [[packaged-app-verify-and-swap-race]] 纪律补一帧
   截屏 OCR 即可,不阻塞本档 review 态。
+
+## grill 四决议(2026-10-06,主人令「按照 trellis 方式做完」,按推荐执行)
+
+- **Q1(a) 装机终验过即归档**:本档唯一未销事项就是装机像素终验,终验一过即无等待项,review 态继续空转无意义——当场随收口归档。
+- **Q2(a) 立即重打包换装终验**:与其把「换装像素终验」半项留档占位,不如当场做掉,归档前补齐最后一帧证据,遗留清单清零。
+- **Q3(a) 状态徽标留卡内横幅,不上卡头**:卡头三件套(图标+标题+描述)是全设置屏统一词汇,状态横幅本就是卡内内容本体(D3 已定),徽标上卡头等于再开一处特殊化口子。
+- **Q4(a) 守卫断言维持双向绊线**:jsdom 下断类名不断样式是最小可靠形式(D4 已定),「必含比例列宽类+必不含 max-w-4xl/hidden」双向绊线在 38acd34 已证效,不再加码。
+
+## 装机像素终验回执(2026-10-06,按 grill Q2(a) 当场执行)
+
+- **嵌入与指纹**:新包嵌入 HEAD `3c7986cb9388cb44beab49d99c63c90b5b4ff07c`
+  (=本档复查轮档件提交);主二进制 sha256
+  `186c41b9724a48469fc1ba4e14561afd29a2b691f95005b132639a87dedf6b83`,
+  换装前后双验命中(codesign 两包同态失败已入 problems,不构成 hash 判据阻碍)。
+- **换装五步(全按 [[packaged-app-verify-and-swap-race]] 判例)**:
+  1. 验源:新包主二进制 sha256=`186c41b9…dedf6b83` 亲验命中(codesign 两包同态失败已入 problems)。
+  2. 退实例:`pkill -x MYIA`(原 PID 50032 + sidecar 50037 双静默退场)。
+  3. 备份换包:`/Applications/世事.app` mv 至 `/tmp/myssia-app-backup-20261006-002250/`
+     再 ditto 新包入位;装后主二进制 hash 复验命中。
+  4. 清缓存:`rm -rf ~/Library/WebKit/com.myssia.app` 与
+     `~/Library/Caches/com.myssia.app`,ls 确认双目录已不存在。
+  5. 亮窗取证:`MYIA_SHOW_ON_START=1` 直跑 `/Applications/世事.app/Contents/MacOS/MYIA&`
+     (setup done 171ms + sidecar spawned),窗 id=23128(CGWindowList);
+     取证全程 `screencapture -x -o -l23128`(无影 3840x2100=精确 2x,坐标换算 scale=2)。
+- **导航取证**:cliclick 点左轨「设置」(屏坐标 41,1058,由 OCR 归一化坐标换算)
+  → 设置默认区取证 installed-settings-nav.png → 点「Python 环境」(318,289)
+  → 取证 installed-python-env.png + 镜像区裁片 03-mirror-zone.png(对照帧
+  00-boot-noshadow.png)。收尾 `pkill -x MYIA`,app/sidecar 双静默,系统恢复
+  安静;未 commit 未 push。注:本机 :8080 的 mlx_vlm.server 为本收口会话开始前
+  已在跑的他流进程,未动;备份包保留在 `/tmp/myssia-app-backup-20261006-002250/世事.app` 未删。
+- **证据图**:`.zcode/smoke/pyenv-unify/installed-python-env.png`、
+  `installed-settings-nav.png`、`03-mirror-zone.png`、`00-boot-noshadow.png`。
+- **OCR 四要件结论(双引擎:Vision 一级 OCR + 本机 Qwen3-VL-8B 二级,
+  按 local-ocr 纪律因关键行 conf≤0.5 升级)全中**:
+  - (a) 左侧「过滤分区」标题(conf 1.00)+ 七项分区导航全常驻:通用/推送/视觉/
+    门槛件/装机组件/Python 环境/系统——几何一致(x≈513-676@2x 图,y 中心
+    179/246/313/380/450/517/586,~67px 等距);VL 独立点数「共 7 项」逐项同名。
+  - (b) 无「返回设置」:全图 grep「返回」=0 命中,VL 答「无」。
+  - (c) 卡头「◎ 环境状态与安装」:Vision 坐标 (1423,235) conf 0.50,
+    VL 定向复核「有,原文:环境状态与安装,Python 运行环境下方第一个大模块标题」。
+  - (d) 双镜像行式:「运行时下载源覆盖」标签(x1418-1669,y1117-1145)与输入
+    `https://mirror.example/cpython-3.12.7.`(x2740-3214,y1134-1168)y 带重叠=同行;
+    「PyPI 镜像覆盖」标签(x1418-1630,y1240-1274)与输入
+    `https://pypi.tuna.tsinghua.edu.cn/simple`(x2740-3220,y1262-1290)y 带
+    重叠=同行;两行均标签左/输入右,非全宽上置;VL 独立同判「两处均为同一行
+    左右排布(标签左、输入框右)」。
+- **读回附录**:页状态「就绪」,安装路径
+  /users/zhengbingjin/Library/Application Support/MYIA/python,Python 使用路径
+  .../python/bin/python3,安装明细 5 步(下载运行时/校验 sha256/解压到数据根/
+  pip 安装依赖/自检;1 已完成 4 已跳过),可选组件区(表格还原等,未装)。
+  对照图 installed-settings-nav.png=设置默认「通用」区:同款过滤分区+七项导航+
+  「LLM 精评与代理池凭据 + doctor 诊断」卡头,版面结构一致。
+- 本回执就此销号「遗留与移交·装机包刷新 + 换装像素终验」条目的终验半项
+  (其前半「刷新+换装」已于 2026-10-05 销号,见上方装机包销号注记);
+  归档随 grill Q1(a) 当场执行(→ `.trellis/tasks/archive/2026-10/`)。
