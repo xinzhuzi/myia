@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "主人 2026-10-06 令「要做完这个东西,yaml里面要添加完毕」→ 全量交付 review:S1 七家厂商官方 RSS(OpenAI/DeepMind/Google Research/微软研究院/HF/Mistral/Qwen,三轮探查+robots 先行证据)+S2 urlwatch 链外引擎(35 测)+三家官网 watch 源(Anthropic/Meta/Cohere;并发首装竞态 4s 错峰重试根治)+S3 X 注释态(RSSHub+TWITTER_AUTH_TOKEN 实锤,两前置一决策)。门禁 pytest 4377/0+vitest 516/0+tsc+build+ruff+detect-changes low。真跑两轮:全品类 dry-run(七家 RSS 零失败/enrich 预算首拉 949 条打穿=一次性入驻洪水)+watch 并发冒烟(零失败+基线种好+meta 空 diff 噪声实证)。装机包已构建+换装+像素验证+adapter uv 兜底外科直更重签+装机态全链终验(prd「换装回执」)。owner_left:X 账号圈选+docker 装回+auth_token(启用 S3);Meta watch 噪声如嫌一句话删源;首日 digest 洪水可上调 budget_per_run;国产五家 SPA watch 待 urlwatch 过滤能力。",
+  "notes": "主人 2026-10-06 令「要做完这个东西,yaml里面要添加完毕」→ 全量交付 review:S1 七家厂商官方 RSS(OpenAI/DeepMind/Google Research/微软研究院/HF/Mistral/Qwen,三轮探查+robots 先行证据)+S2 urlwatch 链外引擎(35 测)+三家官网 watch 源(Anthropic/Meta/Cohere;并发首装竞态 4s 错峰重试根治)+S3 X 注释态(RSSHub+TWITTER_AUTH_TOKEN 实锤,两前置一决策)。门禁 pytest 4377/0+vitest 516/0+tsc+build+ruff+detect-changes low。真跑两轮:全品类 dry-run(七家 RSS 零失败/enrich 预算首拉 949 条打穿=一次性入驻洪水)+watch 并发冒烟(零失败+基线种好+meta 空 diff 噪声实证)。装机包已构建+换装+像素验证+adapter uv 兜底外科直更重签+装机态全链终验(prd「换装回执」)。owner_left:X 账号圈选+docker 装回+auth_token(启用 S3);Meta watch 噪声如嫌一句话删源;首日 digest 洪水可上调 budget_per_run;国产五家 SPA watch 待 urlwatch 过滤能力。 | 10-06 二段交付:watch css 过滤根治(背靠背 unchanged 实证)+meta 移除(客户端渲染判死)+装机 lock 扩 llm extras(openai 3.22.1 六轮,与 venv 同版)+生产复测稳态;owner_left 收敛为:推送凭据录入(唯一硬前置)/依赖指纹官方重装一键/Meta 重接需 JS 通道另立档/国产 SPA 五家待过滤能力。",
   "meta": {}
 }

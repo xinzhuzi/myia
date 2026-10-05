@@ -102,3 +102,13 @@ round1 脚本 `probe_vendors.py` 的 `sniff()` 写了 `"<html" in head`(str in b
 **调度补全**:装机 app「定时任务」原为 0 任务启用(YAML schedule 只是预览)→ `cron create "0 8,20 * * *" --category <数据根>/plugins/ai-news.yaml --db <数据根>/myssia.db` 建「AI资讯」job,重启实例后调度器识别(**1 个任务启用,下次运行 10/06 08:00**,UI 亲证)。
 
 **owner_left 更新**:①推送凭据(设置→推送 录 FEISHU_BOT_TOKEN 或 APP_ID/SECRET,一次性);②desktop lock 增 openai extras(装机态 enrich 起死,涉依赖指纹变更,主人裁定);③meta/cohere watch 的框架噪声——过滤能力前建议观察或删源,主人一句话;④外科直更两件(adapter+engine)待下次正式重打包自然收编。
+
+## §10 二段迭代回执(2026-10-06 01:55-02:05,主人令「效果不行继续修改继续测试」)
+
+**watch 噪声根治(css 内容过滤)**:engine_options.urlwatch.selector → job 携上游原生 css 过滤链(`{selector, exclude: "script, style, noscript, template, svg", method: html}`;上游实证:format 键不存在、method 仅 html/xml);adapter normalize_urls 增 filter 透传+cssselect 进依赖。活探:anthropic 425KB 全页→main 20KB 正文(「Introducing Claude Sonnet 5.5…」可读)、cohere 87KB→3480 字;**背靠背双跑 R2=unchanged(框架噪声出局)**。meta 实探 main/article/[role=main]/h1 六种选择器全零=纯客户端渲染页,静态通道取不到正文 → **meta-ai-blog-watch 移除**(JS 渲染通道另立档);ai-news 终态 11 源。
+
+**装机 enrich 起死**:desktop lock 扩 llm extras(uv export --extra llm,增量 openai==3.22.1+jiter/sniffio/truststore/httpx2 六轮,与 CLI venv 同版亲证);锁版一致性 24/24;装机 python 手动补装 openai 3.22.1(依赖指纹戳待主人设置页一键官方重装收绿);生产复测 enrich 零 EnrichConfigError。
+
+**生产复测(全要素)**:零新条目=七家 RSS 全部变更检测短路(hash_match/not_modified/validators_match)+watch 两家过滤基线静默重建(watch_baseline_seeded)——系统稳态,明早 08:00 首个正式调度跑。
+
+**推送凭据终局**:shell env 与 keychain(service myia 仅 myia/image/api_key+myia/llm/base_url 两键)双空——飞书/电报凭据从未录入,装机件与 CLI 均从未真推过;**唯一留主人的动作:设置→推送 录一次飞书凭据**。
