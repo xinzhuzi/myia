@@ -254,8 +254,10 @@ src/myssia/engines/registry.py:121-125 先例)。
   registry.py:121-125)——`ENGINE_REGISTRY` 加一行 `"searxng"`,
   **不进** `AUTO_CHAIN`(registry.py:83-91),显式 `engine: searxng`
   才生效(搜索型源没有「降级链」语义,坏了就是本源结构化失败)。
-  ⚠️ 错峰注记:registry.py 现有 10-06-ai-news-sources 在途未提交改动
-  (urlwatch 注册行),实现批动该文件前须确认对方已收口,防同窗互踩
+  ⚠️ 错峰注记:探查批写作时 registry.py 有 10-06-ai-news-sources 在途
+  未提交改动(urlwatch 注册行)——**ad19a9a 提交时复核实已收口**(urlwatch
+  注册行已由对方落库,registry.py:130,工作树干净),实现批可直接开工;
+  动该文件前仍须例行 `git status` 复核共享工作树,防同窗互踩
   (65e1b96 教训在案)。
 - **base_url 缺省+env**:`searxng_base_url` 缺省 `http://127.0.0.1:8888`,
   env `MYIA_SEARXNG_URL` 覆盖——同 firecrawl 先例(src/myssia/engines/
