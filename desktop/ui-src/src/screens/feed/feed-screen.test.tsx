@@ -27,6 +27,10 @@
  * value = 品类 id 服务端精确等值,「全部品类」= 不传参;不再吃 Outlet
  * context)+ 工具条一行收纳(KsFilter:品类下拉 + 读态分段 + 搜索 + 刷新
  * 同容器,刷新自页头迁入);纯函数 categoryOptionsFromHealth。
+ * fe-gap-leftovers 批(10-05 ①):later 到期重现——稍后读条目放入超
+ * LATER_RESURFACE_DAYS(7 天,与时间分组「更早」同界)即并入未读视图
+ * (服务端通路屏测 + 纯函数 isLaterResurface/applyFeedFilter 边界);
+ * 书签 title 知会到期规则。
  */
 import { cleanup, fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -44,12 +48,15 @@ import type {
 } from "@/lib/api";
 
 import {
+  applyFeedFilter,
   appendWatchlistKeyword,
   categoryColor,
   categoryOptionsFromHealth,
   DEFAULT_FEED_DISPLAY,
   groupFeedItems,
   groupFeedItemsByCategory,
+  isLaterResurface,
+  LATER_RESURFACE_DAYS,
   loadFeedDisplay,
   READ_STATE_PROTOCOL,
   saveFeedDisplay,
@@ -1636,6 +1643,44 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
     );
     expect(fresh.importMock).not.toHaveBeenCalled();
   });
+
+  it("① later 到期重现:已读+稍后读超窗条目回未读流(书签 title 知会);未到期只在稍后读桶", async () => {
+    const fresh = await importFreshScreen();
+    fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    const daysAgoIso = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+    const due = fixtureItem({
+      id: 101,
+      title: "到期稍后读条目",
+      read: true,
+      later: true,
+      first_seen: daysAgoIso(LATER_RESURFACE_DAYS + 3),
+    });
+    const notDue = fixtureItem({
+      id: 102,
+      title: "未到期稍后读条目",
+      read: true,
+      later: true,
+      first_seen: daysAgoIso(1),
+    });
+    fresh.storeItemsMock.mockResolvedValue(result([due, notDue]));
+    render(
+      <MemoryRouter>
+        <fresh.FeedScreen />
+      </MemoryRouter>,
+    );
+    // 默认「未读」视图:两条都已读——到期条目重现,未到期不现;计数行如实
+    await screen.findByText("到期稍后读条目");
+    expect(screen.queryByText("未到期稍后读条目")).toBeNull();
+    expect(screen.getByText("1 / 2 条")).toBeTruthy();
+    // 书签 title 知会到期规则(a11y label 兄弟位)
+    const bookmark = within(screen.getByTestId("feed-item-101")).getByRole("button", { name: "稍后读" });
+    expect(bookmark.getAttribute("title")).toContain("回到未读");
+    // 稍后读桶:两条全量可见(桶内不分到期与否)
+    fireEvent.click(screen.getByRole("button", { name: "过滤:稍后读" }));
+    expect(screen.getByText("到期稍后读条目")).toBeTruthy();
+    expect(screen.getByText("未到期稍后读条目")).toBeTruthy();
+    expect(screen.getByText("2 / 2 条")).toBeTruthy();
+  });
 });
 
 describe("FeedScreen · read-state-server 能力门分流(未过门 = 旧通路原样)", () => {
@@ -2155,6 +2200,52 @@ describe("feed read-state-server 纯函数(api.ts)", () => {
     expect(states[explicitFalse.dedup_key]).toBeUndefined();
     expect(states["id:9"]).toEqual({ starred: true });
     expect(statesFromItems([])).toEqual({}); // 空入空出
+  });
+});
+
+// ---------------------------------------------------------------------------
+// later 到期重现 纯函数(api.ts ①,10-05-fe-gap-leftovers):isLaterResurface
+// 时效判定边界 / applyFeedFilter 未读视图并入到期稍后读
+// ---------------------------------------------------------------------------
+
+describe("feed later 到期重现 纯函数(api.ts)", () => {
+  const NOW = new Date("2026-10-06T12:00:00");
+  const daysAgoIso = (days: number) => new Date(NOW.getTime() - days * 86_400_000).toISOString();
+
+  it("isLaterResurface:later+超窗=到期(含边界整 7 天);未超窗/无 later/first_seen 缺失或无效 = 不到期", () => {
+    const laterState = { later: true };
+    expect(isLaterResurface(fixtureItem({ first_seen: daysAgoIso(8) }), laterState, NOW)).toBe(true);
+    expect(isLaterResurface(fixtureItem({ first_seen: daysAgoIso(7) }), laterState, NOW)).toBe(true); // 边界含
+    expect(isLaterResurface(fixtureItem({ first_seen: daysAgoIso(6) }), laterState, NOW)).toBe(false);
+    expect(isLaterResurface(fixtureItem({ first_seen: daysAgoIso(8) }), { read: true }, NOW)).toBe(false); // 无 later
+    expect(isLaterResurface(fixtureItem({ first_seen: daysAgoIso(8) }), undefined, NOW)).toBe(false);
+    expect(isLaterResurface(fixtureItem({ first_seen: null }), laterState, NOW)).toBe(false); // 缺刻
+    expect(isLaterResurface(fixtureItem({ first_seen: "not-a-date" }), laterState, NOW)).toBe(false); // 无效刻
+    expect(isLaterResurface(fixtureItem({ first_seen: daysAgoIso(8) }), { later: true, read: true }, NOW)).toBe(true); // 已读不影响
+  });
+
+  it("applyFeedFilter:未读视图并入到期稍后读(已读+later+超窗);未到期已读仍只在稍后读桶;桶内全量可见", () => {
+    const due = fixtureItem({ title: "due", first_seen: daysAgoIso(9) });
+    const notDue = fixtureItem({ title: "fresh", first_seen: daysAgoIso(1) });
+    const plainRead = fixtureItem({ title: "read", first_seen: daysAgoIso(9) });
+    const plainUnread = fixtureItem({ title: "unread", first_seen: daysAgoIso(9) });
+    const items = [due, notDue, plainRead, plainUnread];
+    const states = {
+      [due.dedup_key]: { read: true, later: true },
+      [notDue.dedup_key]: { read: true, later: true },
+      [plainRead.dedup_key]: { read: true },
+    };
+    // 未读 = 真·未读 + 到期稍后读(plainRead 已读未稍后读 = 不重现;保序)
+    expect(applyFeedFilter(items, states, "unread", NOW).map((item) => item.title)).toEqual([
+      "due",
+      "unread",
+    ]);
+    // 稍后读桶:到期与否全量可见,过滤语义不动
+    expect(applyFeedFilter(items, states, "later", NOW).map((item) => item.title)).toEqual(["due", "fresh"]);
+    // 全部:不过滤,now 不参与
+    expect(applyFeedFilter(items, states, "all", NOW)).toHaveLength(4);
+    // 不传 now = 当前时刻缺省(新鲜夹具不到期,回归既有三态口径)
+    expect(applyFeedFilter([plainUnread], {}, "unread")).toEqual([plainUnread]);
   });
 });
 

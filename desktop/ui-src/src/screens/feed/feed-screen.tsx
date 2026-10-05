@@ -67,6 +67,7 @@ import {
   isOpenableUrl,
   itemKey,
   KEYWORD_MAX_CHARS,
+  LATER_RESURFACE_DAYS,
   listYamlTargets,
   loadFeedDisplay,
   loadFeedStates,
@@ -106,7 +107,10 @@ const FILTERS: { key: FeedFilter; label: string }[] = [
 const EMPTY_TEXT: Record<FeedFilter, { title: string; description: string }> = {
   unread: { title: "没有未读条目", description: "新采集的条目会按新→旧出现在这里" },
   starred: { title: "还没有星标", description: "点击条目卡上的星形按钮收藏重要情报" },
-  later: { title: "稍后读还是空的", description: "点击书签按钮把条目放入稍后读" },
+  later: {
+    title: "稍后读还是空的",
+    description: `点击书签按钮把条目放入稍后读;放入超过 ${LATER_RESURFACE_DAYS} 天会自动回到未读`,
+  },
   all: { title: "情报流还是空的", description: "数据源为 store.items(新→旧);先跑一次采集" },
 };
 
@@ -443,6 +447,12 @@ function FeedCard({
           className="size-6"
           aria-pressed={state.later === true}
           aria-label="稍后读"
+          // ① 到期重现知会(a11y label 兄弟位):稍后读不是黑洞,超窗回未读
+          title={
+            state.later
+              ? `稍后读中:超过 ${LATER_RESURFACE_DAYS} 天自动回到未读;再点取消`
+              : `放入稍后读;超过 ${LATER_RESURFACE_DAYS} 天自动回到未读`
+          }
           onClick={() => onToggle(item, "later")}
         >
           <Bookmark className={state.later ? "size-3.5 fill-primary text-primary" : "size-3.5 text-muted-foreground"} />
@@ -1096,7 +1106,12 @@ export function FeedScreen() {
     [items, states],
   );
 
-  const visible = useMemo(() => applyFeedFilter(items, states, filter), [items, states, filter]);
+  // ① later 到期重现:now 随过滤重算取值(窗口为天级,会话内漂移无感);
+  //  到期稍后读条目经 applyFeedFilter 并入未读视图(机制见 ./api.ts ① 节)
+  const visible = useMemo(
+    () => applyFeedFilter(items, states, filter, new Date()),
+    [items, states, filter],
+  );
 
   /** 展示序(A-feed):过滤结果 → 未读优先(可选;未读浮前,两类各自稳定保序) */
   const displayItems = useMemo(

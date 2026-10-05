@@ -267,12 +267,52 @@ export function setMarkerBulk(
 
 export type FeedFilter = "unread" | "starred" | "later" | "all";
 
-/** 过滤视图:未读 = 未标记已读;星标/稍后读按各自标记;全部 = 不过滤 */
-export function applyFeedFilter(items: FeedItem[], states: FeedStateMap, filter: FeedFilter): FeedItem[] {
+// ---------------------------------------------------------------------------
+// later 到期重现(10-05-fe-gap-leftovers ①,池档「snooze 到期重现」项):
+// 稍后读桶的提醒时效——放入超窗的条目「到期」,重新计入未读视图(Linear
+// H 键 snooze 到期回 inbox 的最小对标;取消稍后读即离场)。锚点 =
+// first_seen(入库时刻):later 置位时刻服务端(0/1 列,sqlite.py:144)与
+// 本地态(map 无时间戳)均无落点,不为此时效扩存储;窗口取 7 天,与时间
+// 分组「7 天内/更早」同界(groupFeedItems)——到期条目即落「更早」组,
+// 词汇自洽。
+// ---------------------------------------------------------------------------
+
+/** later 提醒时效窗口(天):稍后读条目放入超过本窗口即到期重现于未读 */
+export const LATER_RESURFACE_DAYS = 7;
+const LATER_RESURFACE_MS = LATER_RESURFACE_DAYS * 86_400_000;
+
+/**
+ * 稍后读到期判定:条目带 later 态且 first_seen 早于 now−窗口(含边界)。
+ * first_seen 缺失/无效 = 无法定龄,保守不起重现(不往未读流塞不可定龄的
+ * 条目;与 groupFeedItems 把缺刻条目归「更早」不同判——那里只是展示桶,
+ * 这里起重现会改未读集合,口径从紧)。
+ */
+export function isLaterResurface(
+  item: FeedItem,
+  state: FeedItemState | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (state?.later !== true || !item.first_seen) return false;
+  const seen = new Date(item.first_seen).getTime();
+  if (Number.isNaN(seen)) return false;
+  return now.getTime() - seen >= LATER_RESURFACE_MS;
+}
+
+/**
+ * 过滤视图:未读 = 未标记已读 + 到期稍后读(①:later 放入超窗重现,已读
+ * 但未取消稍后读的到期条目回未读流);星标/稍后读按各自标记(稍后读桶
+ * 不分到期与否全量可见);全部 = 不过滤。now 注入以便测试时效判定。
+ */
+export function applyFeedFilter(
+  items: FeedItem[],
+  states: FeedStateMap,
+  filter: FeedFilter,
+  now: Date = new Date(),
+): FeedItem[] {
   if (filter === "all") return items;
   return items.filter((item) => {
     const state = states[itemKey(item)] ?? {};
-    if (filter === "unread") return !state.read;
+    if (filter === "unread") return !state.read || isLaterResurface(item, state, now);
     if (filter === "starred") return state.starred === true;
     return state.later === true;
   });
