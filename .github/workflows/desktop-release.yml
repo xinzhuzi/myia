@@ -53,7 +53,7 @@ jobs:
     name: macOS dmg(aarch64,updater 主线)
     runs-on: macos-14 # arm64:当前唯一 mac 交付架构(与 dmg 单架构口径一致)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 守卫:updater secrets 必须已配置(配置方法见 desktop/UPDATER.md)
         env:
@@ -168,7 +168,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60 # 挂死不得无限期拖住归聚 job 的 latest.json(grill R2-D6c)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 守卫:updater secrets 必须已配置(配置方法见 desktop/UPDATER.md)
         shell: bash
@@ -277,7 +277,7 @@ jobs:
     # mac 条目照发,windows 仅表现为 run 红 + 条目/资产缺席(可见但不伤 mac 用户)。
     if: always() && needs.macos-dmg.result == 'success'
     steps:
-      - uses: actions/checkout@v4 # tauri.conf.json 版本兜底用
+      - uses: actions/checkout@v5 # tauri.conf.json 版本兜底用
 
       - name: 下载 mac updater 签名
         uses: actions/download-artifact@v4

@@ -10,11 +10,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # osint 插件的 vendor/Photon 是 submodule(许可隔离,GPL 只引用不复制)
           submodules: recursive
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.11"
       - name: Sync workspace dependencies
@@ -31,7 +31,7 @@ jobs:
       run:
         working-directory: desktop/ui-src
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
           node-version-file: desktop/package.json
@@ -57,7 +57,7 @@ jobs:
       run:
         working-directory: desktop/src-tauri
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       # tauri 在 Linux 的系统依赖(GTK/WebKit/glib):裸 ubuntu runner 没有,
       # glib-sys 等经 pkg-config 找不到 .pc 直接红(tauri 官方 prerequisites)。
@@ -79,8 +79,8 @@ jobs:
     name: Python lint (ruff minimal set)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
       - name: Ruff check (locked version)
         run: uvx ruff@0.16.10 check .
 
@@ -93,6 +93,6 @@ jobs:
     name: Docker image build check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: docker build .
         run: docker build .
