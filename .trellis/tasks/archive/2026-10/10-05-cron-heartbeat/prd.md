@@ -71,14 +71,15 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 规则语义:八用例绿(含冷静期/冷却/auto 推算 fail-fast)。
-- [ ] AC2 协议:加法可选字段;对账例绿;PROTOCOL_VERSION 不动。
+- [x] AC1 规则语义:八用例绿(含冷静期/冷却/auto 推算 fail-fast)。
+- [x] AC2 协议:加法可选字段;对账例绿;PROTOCOL_VERSION 不动。
 - [ ] AC3 UI:表单三态(手填/自动勾选/品类选择)+fired 卡+跳转,像素
-      回执在档;a11y 纪律沿 spec。
-- [ ] AC4 真跑:沙箱账本驱动端到端(落库+stdout 通道)证据。
-- [ ] AC5 门禁:全量 pytest/vitest/tsc/ruff 绿;gitnexus impact(rule.py
+      回执在档;a11y 纪律沿 spec。(半勾:组件+vitest 在档;真机像素
+      归「余量全清」终轮装机刷新批补验,标记=消息屏 cron 徽章/表单组)
+- [x] AC4 真跑:沙箱账本驱动端到端(落库+stdout 通道)证据。
+- [x] AC5 门禁:全量 pytest/vitest/tsc/ruff 绿;gitnexus impact(rule.py
       符号)亲跑报半径。
-- [ ] AC6 cron 零侵入:diff 亲证 src/myssia/cron/ 零改动(或如有必要
+- [x] AC6 cron 零侵入:diff 亲证 src/myssia/cron/ 零改动(或如有必要
       改动,注记理由与账本只读口径)。
 
 ## 边界与红线
@@ -133,3 +134,10 @@
 - **gitnexus impact(亲跑,索引先 analyze --index-only 刷新)**:`run_ticker_loop` 0 直接上游(宿主经 SupervisedTickerThread target 注入);`Pipeline._build_channel` MEDIUM/8 直接调用方(pipeline 内部 _push_channel/_resolve_alert_channel 等,纯委托签名不变零改道);`Pipeline._heartbeat_pass` 1 直接调用方(_alert_pass,行为不变)。
 - **门禁(亲跑定向)**:tests/cron/test_cron_tick.py 23 绿(含新 2)+tests/alerts/test_heartbeat.py 35 绿(含新 2);受波及面 tests/pipeline/+tests/push/ 1240 绿、tests/cli/+tests/desktop/+tests/cron/+tests/alerts/ 831 绿;ruff check(仓门禁口径 E9/F7/F63/F82)六文件绿。全量归统一脚本。
 - 残口收口判定:run 异常中断/无 run 可搭车的轮次,心跳评估由 ticker 每 5 分钟兜底;既有搭车路径原样保留(两路径共用装配与 UNIQUE 桶冷却,互为冗余零重发)。
+
+## 归档会话注记(2026-10-06,「余量全清」收口段)
+
+- **AC1/2/4/5/6 复选框代勾**(循 2026-10-04 归档会话「状态≠勾选,归档判据=证据,框未勾不阻断归档但须注记代勾」判例):累计状态行(:101/:113/:122)+四批实施回执证据齐——AC1 含 job_id 精确模式补齐(过度声明已更正)、AC2 载荷门+对账例+PROTOCOL_VERSION 实读不动、AC4 四份真跑证据(b2 引擎级/batch2 宿主端到端/batch3 复核两条/fin 零 run 兜底直扫)、AC5 各批全量+impact 亲跑、AC6 账本缺位守卫后只读红线全边成立。
+- **AC5 门禁半边收口补**:统一批全量亲跑绿(pytest 4461 passed/40 skipped/0 failed+vitest 523(26 文件)+tsc -b 零错+vite build 绿+cargo check --locked/cargo test 56+ruff 全仓绿),推送后 CI 绿(run 37352272165,conclusion=success,headSha ff3e4a9)。
+- **AC3 留半勾**:真机像素归终轮装机刷新批(工作流 F 段标记①=消息屏 cron 徽章/心跳表单组),归档先行不阻塞,补验结果由该批回执;未见则报告 findings 出「装机标记未见」。
+- 提交链:833b331(第一批)+8be9904+b67dea8(接线批+复核处置批)+eef1f00+d653348(收尾件+归属更正);收尾段曾被 d3b23af 收编(归属混批判例,详见 task.json notes)。

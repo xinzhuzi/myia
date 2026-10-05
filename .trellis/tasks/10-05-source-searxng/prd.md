@@ -66,7 +66,8 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 探查:research.md 含接口快照+json 开启步骤+限流口径(真跑)。
+- [x] AC1 探查:research.md 含接口快照+json 开启步骤+限流口径(真跑)。
+      (勾选依据见尾部「探查段收口注记」——research §1/§2.3/§5/§8 全真跑)
 - [ ] AC2 引擎:六用例绿;去重走既有 metric;礼貌间隔在位。
 - [ ] AC3 schema/YAML:queries 校验;示例骨架缺省不启用。
 - [ ] AC4 UI:徽章+模板+文案像素回执。
@@ -84,3 +85,18 @@
 
 - 问题:自托管 docker 前提。做法:主人整体放行,排队第 4;探查段用本机 docker compose 先行验证(不依赖主人服务器),部署上生产才需主人侧 docker;AGPL 服务消费判例在档。
 - 执行顺序(全五档):cron-heartbeat(先做,零前置)→ push-bark → push-apprise(点名即启)→ source-searxng → firecrawl-selfhost-verify。
+
+## 探查段收口注记(2026-10-06,「余量全清」归档会话)
+
+- **AC1 勾选成立**(探查段达成):research.md 已实测结案——§1 json
+  开启 compose 步骤(官方口径+实测通过)、§2.3 接口实快照(categories=web
+  55 条,evidence 蓝本)、§5 限流两态实测定案(常发 Accept-Language+
+  template=default.html 过滤),§8 清单全项真跑 evidence 六件在档。
+- **AC2-AC6 全部为实现段门控**(§9 挂点定案:engines/searxng.py+
+  ENGINE_REGISTRY/queries 校验/示例骨架缺省不启用/UI 徽章/部署指引),
+  实现段续本档不立新档(research §9-1 定案),届时逐项回填,本段不预勾。
+- 统一批门禁亲跑绿(pytest 4461/40/0+vitest 523+tsc/vite build+cargo
+  check/test 56+ruff)+CI 绿(run 37352272165,success,headSha
+  ff3e4a9)与探查段零代码面无涉,如实记;本机实例留跑(json 开+
+  limiter 关+bing 启用)供实现批复用。
+- 本档不归档(in_progress 续实现段);探查段提交 ad19a9a+edecfd0。

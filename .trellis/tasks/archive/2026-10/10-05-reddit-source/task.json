@@ -3,7 +3,7 @@
   "name": "reddit-source",
   "title": "Reddit 情报源合规探查(评估档)",
   "description": "Reddit 情报源合规通道探查评估档:robots.txt 现探(单次零压力)+Public Content Policy 口径核对;官方 Data API OAuth 免费层(额度/注册要求/robots 自指通道)与聚合器(XFlux 型,supplier-map 判例=只做可选后端永不默认)两通道评估;产出 research.md 对比表+推荐倾向+实现量预估;定界=探查不实现,停点=通道选择/凭据/注册属主人决策,档置 review 不归档;零实现代码,涉网全部单次+先 robots+记档。",
-  "status": "review",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "xinzhuzi",
   "assignee": "xinzhuzi",
   "createdAt": "2026-10-05",
-  "completedAt": null,
+  "completedAt": "2026-10-06",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
@@ -22,5 +22,7 @@
   "parent": null,
   "relatedFiles": [],
   "notes": "owner_left 决策点五项(research.md §8):①通道选择(官方 API 限时限窗/聚合器可选后端/暂缓)②官方路凭据申请须主人 2026-10-31 前亲自(新 API 申请截止,2027-03 公 Data API 终结)③聚合器路需国际出口复验(本机三探 302 墙)④Reddit 条款 48h 已删内容清理义务 vs MYIA 长期库张力⑤UA 硬格式含 Reddit 用户名隐私取舍。重大时效:Reddit 2026-09-30 公告 RSS 2026-11-13 退役/公 API 2027-03 终结(二手多源+一手侧证)。评估档不归档,后续实现另立档。",
-  "meta": { "owner_left": "通道选择+凭据申请+出口环境+数据保留义务+UA 隐私(详见 research.md §8)" }
+  "meta": {
+    "owner_left": "通道选择+凭据申请+出口环境+数据保留义务+UA 隐私(详见 research.md §8)"
+  }
 }

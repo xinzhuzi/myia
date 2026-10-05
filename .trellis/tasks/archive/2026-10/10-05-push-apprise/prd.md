@@ -180,3 +180,19 @@ push 层新增 `apprise` 通道:一个 pip 依赖(extras 可选)解锁 ~160 个�
   引文录档内 AC3,取证脚本为一次性 /tmp 脚本未入库);复核已独立重跑
   证实(1 份 POST/application/json/title/message 与档记一致),AC3
   判定维持成立。
+
+## 收口回执(2026-10-06,「余量全清」归档会话)
+
+- **AC5 门禁半边回填(CI 绿)**:统一批全量门禁亲跑绿——pytest 全量
+  4461 passed/40 skipped/0 failed(基线 4397→+64,含本档 17 用例)、
+  vitest 523(26 文件,基线 508→+15 含 settings apprise 用例)、tsc -b
+  零错、vite build 绿、cargo check --locked 零告警、cargo test 56/0、
+  ruff 全仓绿;推送后 CI 绿(run 37352272165,conclusion=success,
+  headSha ff3e4a9,gh run view 亲验)。AC5 复选框据此全勾成立。
+- **AC4 装机像素**:维持「留装机批」注记(设置屏 apprise 下拉+真实
+  doctor finding 行截图),随终轮装机刷新批补帧,同 bark AC4 判例。
+- 归档:本档随「余量全清」收口段归档(task.py archive --no-commit,
+  status review→completed 2026-10-06);提交链 65e1b96(实现 20 文件
+  772 插入)+0d9380b(档置 review)+56d7b9f(复核处置);与 bark 并存
+  决议(bark=零依赖快路/apprise=长尾统一)已在两档与 docs 六件承载,
+  裁撤取舍留主人。

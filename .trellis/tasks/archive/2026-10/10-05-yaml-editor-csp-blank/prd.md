@@ -39,3 +39,10 @@ CodeMirror 6 的全部编辑器样式(基础布局+oneDark 语法配色+前景�
 3. 探针烘进内嵌包(外链 js+css 绕开 script-src/style-src 对探针自身拦截;内联探针会被 CSP 吞)
 4. 坑:裸 `cargo build --release` 产物=devUrl 模式(连 5173),**不代表装机行为**;装机验证必须 `cargo tauri build` 产物
 5. 坑:cargo 指纹可漏判 ui/ 单文件改动,重嵌前 touch src-tauri/src/main.rs 强制
+
+## 归档会话注记(2026-10-06,「余量全清」收口段)
+
+- AC1-4 全勾在档(装机包双验 98050 亮像素/前后对照/换装判例全流程/
+  根因证据入档);提交 6f60904+装机换装 f59b1b49 判例链完整。
+- 统一批门禁亲跑绿(pytest 4461/40/0+vitest 523 等)+CI 绿(run
+  37352272165,success,headSha ff3e4a9)复核;无留主人项。

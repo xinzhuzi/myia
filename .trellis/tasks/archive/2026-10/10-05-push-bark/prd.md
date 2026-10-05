@@ -130,3 +130,13 @@ push 层新增 `bark` 原生通道:HTTP POST 一发即达 iOS(APNs 经 Bark 服�
   channel 行此前已缺 weixin(既有漂移,非本流引入,未顺手改)。
 - **零第三方依赖**:仅 httpx 既有栈;doctor 零新增(endpoint 可达性不
   预检,send-time 错误即推送失败面,同其他通道);协议面零改动。
+
+## 归档会话注记(2026-10-06,「余量全清」收口段)
+
+- AC1/2/3/5 已勾(实施回执在档);**AC4 真推 manual 留主人不阻断归档**
+  (prd 明文「档可先 review」;验法:装 Bark App→复制 device key→设置→
+  推送选 Bark 粘贴保存→「发送测试」→iPhone 锁屏见 MYIA 组通知即验)。
+- AC3 门禁半边收口补:统一批全量亲跑绿(pytest 4461/40/0+vitest 523+
+  tsc/vite build+cargo check/test 56+ruff)+CI 绿(run 37352272165,
+  success,headSha ff3e4a9)。
+- 提交链 208a599+8ba0285;与 Apprise 并存决议两档互记,取舍留主人。

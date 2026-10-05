@@ -175,3 +175,17 @@
 - **本轮交付面**:零代码零产品文档改动(验证型预期维持);新增证据
   evidence/build-timeout-20261006.md;AC4 定向门禁复跑 127 passed
   1 skipped 与基线一致。
+
+## 收口注记(2026-10-06,「余量全清」归档会话;档维持 blocked 不归档)
+
+- 统一批全量门禁亲跑绿(pytest 4461/40/0+vitest 523+tsc -b 零错+vite
+  build+cargo check --locked+cargo test 56+ruff 全仓)+推送 CI 绿
+  (run 37352272165,conclusion=success,headSha ff3e4a9 亲验);本档
+  零代码零产品文档,门禁面无增量,AC4 定向基线(127 passed 1 skipped)
+  维持逐字一致。
+- AC1/AC2 真跑与 vs Zenrows 对照仍留主人(docker hub 拉层带宽 ~50KB/s
+  级+saas.zenrows 凭据缺位,详见 evidence/build-timeout-20261006.md);
+  镜像缓存 2.4GB+ 与 /tmp/firecrawl-e2e 克隆(含 .env)保留,网络良好
+  窗口续跑 `docker compose up -d --build` 可免重下。
+- 归档判据:AC1/AC2 未达成(真跑未发生),依「CI 未绿则涉门禁档留守」
+  同精神——真跑未成的验证档不伪勾不归档,留主人服务器复验后续收。
