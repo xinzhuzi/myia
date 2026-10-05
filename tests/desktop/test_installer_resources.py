@@ -8,9 +8,15 @@
    (games/news/exposure 缺)」,补齐后本文件把 7/7 钉死,回退即红。
 2. **desktop tier 插件包源码面随包**(AC5 市场面包裁决):desktop 分级
    全件(EXPECTED_TIERS 口径,与 tests/plugins/test_plugin_packages.py
-   同源;跨目录不 import,清单漂移由两侧参数化对不上时人工对账)逐件捆
-   manifest+README+adapter.py 三件套;myssia-credhunter 额外捆自有
-   ``credhunter/`` 子包(adapter compile+exec 自举依赖,漏捆即交付坏件)。
+   同源;跨目录不 import,清单漂移由两侧参数化对不上时人工对账)——含
+   adapter 的件逐件捆 manifest+README+adapter.py 三件套(首批 7 件
+   proxy/osint/credhunter/media/maigret/theharvester/urlwatch + 批三分析
+   件 snownlp/yake,2026-10-05 批三复审补齐:两清单曾漂移,分析件收录
+   (c43144b)晚于随包面(60fff33)未跟上);**myssia-mediacrawler 例外
+   =警示型文档桩**(design §7.3 D10-3:零 adapter/零程序面,manifest
+   市场知识面+README 非商业警示即全部,仅捆 plugin.yaml+README.md 两件);
+   myssia-credhunter 额外捆自有 ``credhunter/`` 子包(adapter compile+exec
+   自举依赖,漏捆即交付坏件)。
    **刻意不捆**:vendor/ 外来 submodule(GPL Photon / theHarvester,随包
    分发越许可红线;装机上 vendor 缺失走 adapter 既有结构化
    ``vendor_missing`` 指引,tests/plugins/test_osint_plugin.py 等已钉)、
@@ -47,8 +53,12 @@ OFFICIAL_CATEGORY_YAMLS = (
     "myssia-demo.yaml",
 )
 
-#: desktop tier 插件包全件(EXPECTED_TIERS 同源清单;市场面 AC5 裁决:
-#: desktop 件零 docker、进程内/子进程形态,源码面可随包分发)。
+#: desktop tier 三件套件全件(EXPECTED_TIERS 同源清单;市场面 AC5 裁决:
+#: desktop 件零 docker、进程内/子进程形态,源码面可随包分发)。批三复审
+#: 补齐:c43144b 收录的分析件 snownlp/yake(tier: desktop)并入——与
+#: 首批 7 件(60fff33)同口径,装机包=官方件全集的措辞自此名实相符。
+#: EXPECTED_TIERS 的 desktop 件中仅 myssia-mediacrawler 不在此(零 adapter
+#: 警示桩,桩形清单见 STUB_ONLY_PACKAGES)。
 DESKTOP_TIER_PACKAGES = (
     "myssia-proxy",
     "myssia-osint",
@@ -57,7 +67,17 @@ DESKTOP_TIER_PACKAGES = (
     "myssia-maigret",
     "myssia-theharvester",
     "myssia-urlwatch",
+    "myssia-snownlp",
+    "myssia-yake",
 )
+
+#: desktop tier 警示型文档桩件(design §7.3 D10-3:tier: desktop 但零
+#: adapter/零程序面,收录=市场知识面)——无三件套可捆,按桩形状只钉
+#: manifest+README 两件;上游物零复制(非商业学习许可,README 级警示)。
+STUB_ONLY_PACKAGES = ("myssia-mediacrawler",)
+
+#: 桩件随包的两件面(manifest 市场知识面 + 上游警示文档;无 adapter.py)。
+STUB_SOURCE_FILES = ("plugin.yaml", "README.md")
 
 #: 每个桌面件必备的三件套源码面(manifest 规范 + 上游署名文档 + 适配器)。
 PACKAGE_SOURCE_FILES = ("plugin.yaml", "README.md", "adapter.py")
@@ -125,6 +145,24 @@ def test_credhunter_subpackage_bundled() -> None:
     # 自举依赖的最小实况:入口模块与数据目录在(缺一则装机件必坏)。
     assert (SRC_TAURI / source / "findings.py").is_file()
     assert (SRC_TAURI / source / "data").is_dir()
+
+
+@pytest.mark.parametrize("package", STUB_ONLY_PACKAGES)
+@pytest.mark.parametrize("filename", STUB_SOURCE_FILES)
+def test_stub_package_source_file_bundled(package: str, filename: str) -> None:
+    """警示文档桩件(mediacrawler):仅 manifest+README 两件随包,零 adapter。
+
+    design §7.3 D10-3:零 adapter/零程序面——桩的全部交付面就是市场知识面
+    (plugin.yaml+非商业警示 README),「包内有什么」与「市场有什么」一致
+    的 AC5 口径对桩件止于这两件(捆 adapter.py 映射反而失真:源不存在)。
+    """
+    source = f"../../plugins/{package}/{filename}"
+    dest = f"plugins/{package}/{filename}"
+    resources = _conf_resources()
+    assert resources.get(source) == dest, (
+        f"desktop 桩件源码面未随包: {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
+    )
+    assert (SRC_TAURI / source).is_file(), f"映射源不存在: {source}"
 
 
 # ---------------------------------------------------------------------------
