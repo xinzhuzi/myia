@@ -60,12 +60,12 @@
 ## Acceptance Criteria
 
 - [x] **一门面**:`just --list` 展示全栈动作;`just test` 一条命令跑齐 pytest + vitest;`just check` 跑齐 ruff + tsc + cargo check(对齐 CI 口径);退出码如实透传(绿/红不改口)。
-- [ ] **一条路走通桌面构建**:`just build-desktop` 从 sidecar 打包到 tauri build 串到底(内部调既有 build-sidecar.sh 与 npm scripts,不复制逻辑)。
+- [x] **一条路走通桌面构建**:`just build-desktop` 从 sidecar 打包到 tauri build 串到底(内部调既有 build-sidecar.sh 与 npm scripts,不复制逻辑)。(2026-10-05 回标:recipe 落位 justfile:42,单条 `npm --prefix desktop run tauri build` 串到底,不复制逻辑;sidecar 链已随 50b622c(10-05 第 7 步)退役,AC 原文的 build-sidecar.sh 表述为退役前实况;实跑 `just build-desktop` 由收口工作流稍后执行,结果见工作流终报。)
 - [x] **钉版单处、原生生效**:仓内新增 `.python-version`(3.12)、`rust-toolchain.toml`(stable)、两个 package.json `engines.node`(22);CI 三处 `node-version: "22"`(ci.yml:37、desktop-release.yml:77,203)收敛为 `node-version-file: desktop/package.json`;本机 `uv run python -V` 报 3.12 验证。
 - [x] **Windows 路径**:justfile recipes 无 bash-ism;CONTRIBUTING 注明 Git Bash/WSL 即可本地开发(不写 .ps1)。
 - [x] **新人单页**:CONTRIBUTING.md 增「一键环境」章节(install just → just setup → just test / check / build-desktop);另增「仓库根运行产物说明」段(myia.db/myssia.db 双库由来与数据根留 myia 纪律、channel_*.json、credhunter-keystore.json、*.bak)。
 - [x] **清理落地**:删空根 node_modules 与 `plugins/stocks.yaml.bak`(gitignored 残留);可选顺手删历史残渣 `.mypy_cache`;db/keystore/channel_*.json 一律不动。
-- [ ] **门禁**:`just test` / `just check` 全绿且与直接跑各栈命令结果一致;CI 三 workflow 照常绿(CI 未引入 just 依赖)。
+- [ ] **门禁**:`just test` / `just check` 全绿且与直接跑各栈命令结果一致;CI 三 workflow 照常绿(CI 未引入 just 依赖)。(2026-10-05 回标核验:前半句本地全量门禁由收口工作流统一执行,本轮不代跑;后半句 CI——`gh api repos/xinzhuzi/shishi/commits/aa2ff89a9…/check-runs` 退出码 1(HTTP 422「No commit found for SHA」):aa2ff89 系本地未推提交,远端查无此 SHA(`git ls-remote origin refs/heads/main` 实为 303f57b,本地一路领先至 e46acd0 均未推);本档改动(justfile/钉版三件套/CI 收敛/CONTRIBUTING)均在已推送区间、303f57b check-runs 5/5 success,但未推头部提交无 CI 佐证、无法判定,维持不勾。)
 
 ## Notes
 
