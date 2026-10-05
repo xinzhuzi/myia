@@ -155,6 +155,7 @@ uv run myssia --version       # myssia 0.0.1
 uv sync --extra crawl4ai    # L3 JS 渲染引擎
 uv sync --extra llm         # LLM 精评 / 事件聚合
 uv sync --extra table       # 表格还原(rapid_table:截图表格 → metadata.tables)
+uv sync --extra trafilatura # L2 正文兜底(无规则/规则失效源的单页正文抽取,MYIA_EXTRACT_FALLBACK=1 打开)
 ```
 
 表格还原是自管 Python 环境的第一件**可选组件**:桌面端在 设置 → Python
@@ -162,6 +163,12 @@ uv sync --extra table       # 表格还原(rapid_table:截图表格 → metadata
 品类 YAML 里以 `images.table: true` 开启;CLI 侧即上面的 `--extra table`。
 缺装不阻管线(只降级写 `metadata.table_status`),`myssia doctor` 会以
 `table_dependency_missing` 提前披露。
+
+trafilatura 正文兜底同样缺装不拦链(无规则源照旧 `extract_required` 走降级
+链),且装了也只是具备能力——还需 `MYIA_EXTRACT_FALLBACK=1` 显式打开
+(CLI=命令行 env 前缀;已装 app=`launchctl setenv MYIA_EXTRACT_FALLBACK 1`
+后重启;缺省关=既有源零行为差,细节见
+[快速上手](docs/zh/getting-started.md))。
 
 跑第一个品类 —— 零凭据的完整配置就一个小文件:
 
@@ -354,6 +361,7 @@ Windows 构建这版未通过,Release 暂无 Windows 安装包(后续批次计�
 - [Firecrawl](https://github.com/firecrawl/firecrawl) —— L3 云端/自建渲染后端(可选依赖,以 API 调用)
 - [Skyvern](https://github.com/Skyvern-AI/skyvern) —— L6 LLM 浏览器兜底(可选依赖)
 - [rapid-table](https://github.com/RapidAI/RapidTable)(RapidAI 家族)—— 表格还原组件(可选依赖,`myssia[table]`)
+- [trafilatura](https://github.com/adbar/trafilatura) —— L2 正文兜底组件(可选依赖,`myssia[trafilatura]`,开关 `MYIA_EXTRACT_FALLBACK`)
 - [changedetection.io](https://github.com/dgtlmoon/changedetection.io) —— 源管理与 diff 交互参考,`myssia-monitor` 插件后端
 - [RSSHub](https://github.com/DIYgod/RSSHub) —— 「一切皆源」的哲学参考
 - [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool) —— `myssia-proxy` 插件后端
@@ -512,6 +520,7 @@ crashing:
 uv sync --extra crawl4ai    # L3 JS-rendered page engine
 uv sync --extra llm         # LLM enrich scoring / event aggregation
 uv sync --extra table       # table restore (rapid_table: screenshot tables → metadata.tables)
+uv sync --extra trafilatura # L2 article fallback (single-page body extraction for rule-less/revamped sources, MYIA_EXTRACT_FALLBACK=1 to enable)
 ```
 
 Table restore is the first **optional component** for the managed Python
@@ -522,6 +531,14 @@ environment (no repackaging, mirror overrides apply); categories opt in with
 component never blocks the pipeline (it only degrades, writing
 `metadata.table_status`), and `myssia doctor` discloses it ahead of time as
 `table_dependency_missing`.
+
+The trafilatura article fallback likewise never blocks when missing
+(rule-less sources keep the `extract_required` degrade-chain behavior), and
+installing it only provides the capability — `MYIA_EXTRACT_FALLBACK=1` must
+be set explicitly (CLI: env prefix on the command line; installed app:
+`launchctl setenv MYIA_EXTRACT_FALLBACK 1` then restart; off by default =
+zero behavior change for existing sources; see
+[getting started](docs/en/getting-started.md)).
 
 Run your first category — a complete, zero-credential config in one small
 file:
@@ -718,6 +735,7 @@ dependencies, plugin backends and design references:
 - [Firecrawl](https://github.com/firecrawl/firecrawl) — L3 cloud/self-hosted rendering backend (optional dependency, called as an API)
 - [Skyvern](https://github.com/Skyvern-AI/skyvern) — L6 LLM-browser fallback (optional dependency)
 - [rapid-table](https://github.com/RapidAI/RapidTable) (RapidAI family) — table-restore component (optional dependency, `myssia[table]`)
+- [trafilatura](https://github.com/adbar/trafilatura) — L2 article-fallback component (optional dependency, `myssia[trafilatura]`, switch `MYIA_EXTRACT_FALLBACK`)
 - [changedetection.io](https://github.com/dgtlmoon/changedetection.io) — source-management & diff UX reference; `myssia-monitor` plugin backend
 - [RSSHub](https://github.com/DIYgod/RSSHub) — the "everything is a feed" philosophy
 - [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool) — `myssia-proxy` plugin backend

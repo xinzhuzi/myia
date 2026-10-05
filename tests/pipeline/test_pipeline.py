@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 import time
 from datetime import datetime
 from typing import Any
@@ -884,3 +885,128 @@ def test_pipeline_persists_content_column(tmp_path):
         assert rows["https://api.demo.local/2"].content and "正文乙" in rows["https://api.demo.local/2"].content
     finally:
         store.close()
+
+
+# ---------------------------------------------------------------------------
+# trafilatura 兜底软信号(10-05-trafilatura-impl ②;research §3.1/§7-4)
+# ---------------------------------------------------------------------------
+
+
+class _FakeTrafilatura:
+    """mock trafilatura(sys.modules 注入,同 tests/engines/test_static_html.py)。"""
+
+    def __init__(self, payload: dict):
+        self.payload = payload
+        self.calls: list[str] = []
+
+    def extract(self, html, *, url=None, output_format=None, with_metadata=None):
+        self.calls.append(url)
+        return json.dumps(self.payload)
+
+
+_TRAF_DOC = {
+    "title": "EXAMPLE 新闻网",
+    "author": "张三",
+    "date": "2026-10-05T08:00:00+08:00",
+    "text": (
+        "事故调查组周五发布了最终调查报告,指出起火原因与配电线路老化有关。"
+        "报告全文共 87 页,涵盖了事发经过、责任认定与整改建议三个部分。"
+        "调查组负责人在发布会上表示,涉事机库的配电线路自 2014 年以来未进行过"
+        "大修,线路绝缘层多处破损,最终在持续高负载下短路起火。报告同时建议"
+        "对同类机库进行全面电气安全排查,并在两年内完成整改。相关部门表示将"
+        "采纳该建议,首批排查工作将于下月启动。"
+    ),
+    "description": "应被丢弃",
+    "sitename": "应被丢弃",
+}
+
+_REVAMPED_PAGE = (
+    "<html><head><title>最新资讯</title></head><body>"
+    "<div class='card'><h3><a href='/items/2001'>台风路径最新预报</a></h3></div>"
+    "</body></html>"
+)
+
+
+def _html_handler(payloads: dict[str, str]):
+    """path-keyed HTML handler:robots 404 fail-open,页面按 path 返回。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404, text="")
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html"},
+            text=payloads.get(request.url.path, _REVAMPED_PAGE),
+        )
+
+    return handler
+
+
+def test_rules_empty_fallback_records_warning_not_failure(tmp_path, monkeypatch):
+    """② 软信号:规则跑空+兜底出条 → fetch 阶段 warnings 出
+    extract_rules_empty_fallback(降级注记通道,不翻 run 状态、不计 partial)。"""
+    monkeypatch.setitem(sys.modules, "trafilatura", _FakeTrafilatura(_TRAF_DOC))
+    monkeypatch.setenv("MYIA_EXTRACT_FALLBACK", "1")
+    store = SQLiteStore(tmp_path / "p.db")
+    config = make_config(
+        sources=[
+            {
+                "name": "revamped",
+                "engine": "static_html",
+                "url": "https://revamped.demo.local/news",
+                # 规则在(旧结构 div.list),页面已改版(.card)→ 整页跑空
+                "extract": {
+                    "type": "list",
+                    "item": "div.list div.item",
+                    "fields": {"title": "h3 a", "url": "h3 a@href"},
+                },
+            }
+        ],
+        classify={"builtin": False, "rules": []},
+        push=[{"channel": "stdout"}],
+    )
+    pipeline, _clock = make_pipeline(config, handler=_html_handler({}), store=store)
+    result = asyncio.run(pipeline.run())
+
+    fetch = result.stage("fetch")
+    assert fetch.status == "ok"
+    assert fetch.warnings == [
+        {
+            "source": "revamped",
+            "engine": "static_html",
+            "error_type": "extract_rules_empty_fallback",
+            "message": "规则跑空(整页 0 条),trafilatura 兜底出条;规则选择器疑已失效",
+            "fallback_items": 1,
+        }
+    ]
+    assert fetch.failures == []  # 降级注记不并 failures(resolve_status 不计 partial)
+    assert result.status == "success"  # 自动恢复,不翻 run 状态
+    assert fetch.items_out == 1
+    store.close()
+
+
+def test_missing_rules_fallback_no_rules_empty_warning(tmp_path, monkeypatch):
+    """① 无规则兜底出条:不挂 rules_empty 注记(源没配规则无所谓「已烂」),
+    doctor 由源配置即可分辨①②。"""
+    monkeypatch.setitem(sys.modules, "trafilatura", _FakeTrafilatura(_TRAF_DOC))
+    monkeypatch.setenv("MYIA_EXTRACT_FALLBACK", "1")
+    store = SQLiteStore(tmp_path / "p.db")
+    config = make_config(
+        sources=[
+            {
+                "name": "norules",
+                "engine": "static_html",
+                "url": "https://norules.demo.local/story",
+            }
+        ],
+        classify={"builtin": False, "rules": []},
+        push=[{"channel": "stdout"}],
+    )
+    pipeline, _clock = make_pipeline(config, handler=_html_handler({}), store=store)
+    result = asyncio.run(pipeline.run())
+
+    fetch = result.stage("fetch")
+    assert fetch.status == "ok"
+    assert fetch.warnings == []
+    assert fetch.items_out == 1  # ①兜底出条,零软信号
+    store.close()

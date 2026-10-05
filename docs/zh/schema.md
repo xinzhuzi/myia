@@ -88,7 +88,7 @@
 | `post_body` | `null` | POST 表单/JSON 体(映射);凭据键同 headers 禁明文 |
 | `headers` | `{}` | 请求头;凭据键的值必须是引用;不要伪装浏览器 UA(默认 UA 是诚实的 `世事/0.1 (...)`) |
 | `pagination` | `null` | 翻页配置,见下表 |
-| `extract` | `null` | 字段提取,见下表;留空时 L3+ 引擎自动结构化兜底 |
+| `extract` | `null` | 字段提取,见下表;留空时 L3+ 引擎自动结构化兜底;L2 `static_html` 在装了 `trafilatura` extras 且环境变量 `MYIA_EXTRACT_FALLBACK=1`(缺省关)时,对无规则源与规则跑空(`rss` 除外)的**文章页**做单页正文兜底(产出单条,带 `metadata.extract_provenance="trafilatura"`,正文量不足 120 字符的列表页退化形态被质量门拦下维持零条;规则命中的源永不触达) |
 | `rate_limit` | `见 rate_limit 表` | 礼貌限速(限速在引擎层统一执行) |
 | `proxy` | `direct` | `direct` / `pool:<名称>` / `residential:<区域>`;pool 需 `--config` 全局配置 |
 | `retry` | `3` | 瞬时错误重试预算(0-10) |

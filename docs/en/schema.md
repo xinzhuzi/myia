@@ -100,7 +100,7 @@ entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
 | `post_body` | `null` | POST form/JSON body (mapping); credential keys are plaintext-refused like headers |
 | `headers` | `{}` | Request headers; credential-key values must be references; do not fake a browser UA (the default UA is the honest `世事/0.1 (...)`) |
 | `pagination` | `null` | Paging config, see table below |
-| `extract` | `null` | Field extraction, see table below; empty → L3+ engines auto-structure |
+| `extract` | `null` | Field extraction, see table below; empty → L3+ engines auto-structure. Additionally, with the `trafilatura` extras installed and `MYIA_EXTRACT_FALLBACK=1` set (off by default), L2 `static_html` falls back to single-page article extraction for rule-less sources and rule-empty (non-`rss`) revamps (single item with `metadata.extract_provenance="trafilatura"`; degenerate list-page output under 120 characters of body text is stopped by the quality gate and stays zero-item; rule-hitting sources are never touched) |
 | `rate_limit` | `see rate_limit table` | Politeness limits (throttling is enforced once, in the engine layer) |
 | `proxy` | `direct` | `direct` / `pool:<name>` / `residential:<region>`; pools need a global `--config` |
 | `retry` | `3` | Transient-error retry budget (0-10) |

@@ -1509,8 +1509,38 @@ class Pipeline:
         outcomes = await asyncio.gather(*tasks)
         source_reports: list[SourceReport] = []
         items: list[Item] = []
-        for source_report, raw_items in outcomes:
+        # zip 源配置对齐(gather 保序):②软信号需要「源配了规则」与产出对照。
+        for (source_report, raw_items), source in zip(outcomes, self.config.sources):
             source_reports.append(source_report)
+            if (
+                source_report.engine == "static_html"
+                and source.extract is not None
+                and source.extract.type != "rss"
+                and any(
+                    raw.get("extract_provenance") == "trafilatura"
+                    for raw in raw_items
+                )
+            ):
+                # ② 规则跑空兜底(10-05-trafilatura-impl)的降级注记:自动恢复
+                # 不翻 run 状态(warnings 与 failures 的区别见 StageReport 字段
+                # 注释,enrich 条目级失败同款通道);rules_empty 信号不丢,doctor
+                # 仍见「该源规则已烂」。①(无规则)不挂——源没配规则无所谓失效。
+                report.warnings.append(
+                    {
+                        "source": source_report.name,
+                        "engine": "static_html",
+                        "error_type": "extract_rules_empty_fallback",
+                        "message": (
+                            "规则跑空(整页 0 条),trafilatura 兜底出条;"
+                            "规则选择器疑已失效"
+                        ),
+                        "fallback_items": sum(
+                            1
+                            for raw in raw_items
+                            if raw.get("extract_provenance") == "trafilatura"
+                        ),
+                    }
+                )
             for raw in raw_items:
                 try:
                     items.append(Item.from_extracted(raw, source_report.name))

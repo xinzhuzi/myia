@@ -55,6 +55,12 @@ vision = ["ocrmac>=1.0; sys_platform == 'darwin'", "rapidocr-onnxruntime>=1.3", 
 # 绕开其内置新版 rapidocr 通道);tqdm 是 rapid-table 3.0.2 轮的隐性 import
 # (未声明进 requires-dist,main.py:11 实读),显式补上防裸装炸 import。
 table = ["rapid-table>=3.0.2,<4", "rapidocr-onnxruntime>=1.3", "tqdm>=4"]
+# 正文兜底(10-05-trafilatura-impl):static_html 引擎 extract 缺失/规则跑空时的
+# opt-in 单页正文抽取(开关 MYIA_EXTRACT_FALLBACK=1,缺省关零行为差);惰性
+# import,缺装时兜底能力结构化降级不拦核心(①回落 extract_required、②维持零条)。
+# 'selectolax<1' 钉版不可省:自由解析装 1.0.0 撞 Modest 解析器移除墙,trafilatura
+# 自身走 lxml 不硬依赖 selectolax,钉版保护的是 MYIA extract_html 面(评估档 §4)。
+trafilatura = ["trafilatura>=2.3,<3", "selectolax<1"]
 all = ["crawl4ai", "scrapling", "firecrawl-py", "skyvern", "openai>=1.30", "huggingface-hub>=0.23"]
 
 [project.scripts]

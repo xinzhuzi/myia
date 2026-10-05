@@ -73,16 +73,30 @@ uv run myssia --version       # 输出 myssia x.y.z(x.y.z 为实际安装版本)
 uv sync --extra crawl4ai    # L3 JS 渲染引擎
 uv sync --extra llm         # enrich 精评 / aggregate 事件聚合(openai 客户端)
 uv sync --extra table       # 表格还原(rapid_table:截图表格 → metadata.tables)
+uv sync --extra trafilatura # L2 正文兜底(无规则/规则失效源的单页正文抽取,opt-in 开关)
 ```
 
-可选依赖共 8 个:`crawl4ai` / `scrapling` / `firecrawl` / `skyvern` /
-`simplex` / `llm` / `vision` / `table`。表格还原在桌面端还有第二条安装通道:
+可选依赖共 9 个:`crawl4ai` / `scrapling` / `firecrawl` / `skyvern` /
+`simplex` / `llm` / `vision` / `table` / `trafilatura`。表格还原在桌面端还有第二条安装通道:
 **设置 → Python 环境的「表格还原」组件开关**——往自管环境装钉版组件,零重
 打包,镜像覆盖生效;品类里用 `images.table: true` 开启(schema 细节见
 [schema 参考](schema.md) 的 images 节)。缺装时品类照常跑,只是表格还原静默
 降级,`myssia doctor` 会出 `table_dependency_missing` 提前披露。
 生产长跑可用服务器形态:`docker compose -f docker/docker-compose.yml up -d`(见
 `docker/README.md`)。
+
+**trafilatura 正文兜底的开关(缺省关)**:装了 extras 只是具备能力,还需环境
+变量 `MYIA_EXTRACT_FALLBACK=1` 显式打开——static_html 引擎才会对「无 extract
+规则」与「规则跑空(改版失效)」的源做单页正文兜底(产出条目带
+`metadata.extract_provenance = "trafilatura"`,正文量不足 120 字符的列表页退化
+形态会被质量门拦下维持零条)。开关是全局环境变量,**按启动形态分两态**:
+
+- CLI / 直跑二进制:命令行 env 前缀,如
+  `MYIA_EXTRACT_FALLBACK=1 myssia run <品类>`;
+- 已安装的桌面 app:`launchctl setenv MYIA_EXTRACT_FALLBACK 1` 后**重启 app**
+  (`open` 不透传 shell 环境变量,sidecar 由 app 父进程环境继承;同
+  `MYIA_SMOKE_ROUTE` 通路)。取消:`launchctl unsetenv MYIA_EXTRACT_FALLBACK`
+  后重启。
 
 ## 2. 配置凭据
 

@@ -90,10 +90,11 @@ degrade chain — it never crashes the run:
 uv sync --extra crawl4ai    # L3 JS-rendered page engine
 uv sync --extra llm         # enrich scoring / aggregate event merging (openai client)
 uv sync --extra table       # table restore (rapid_table: screenshot tables → metadata.tables)
+uv sync --extra trafilatura # L2 article fallback (single-page body extraction for rule-less/revamped sources, opt-in switch)
 ```
 
-There are eight extras in total: `crawl4ai` / `scrapling` / `firecrawl` /
-`skyvern` / `simplex` / `llm` / `vision` / `table`. Table restore has a
+There are nine extras in total: `crawl4ai` / `scrapling` / `firecrawl` /
+`skyvern` / `simplex` / `llm` / `vision` / `table` / `trafilatura`. Table restore has a
 second install path on the desktop: the **"table restore" component switch
 under Settings → Python environment** installs the pinned component into
 the managed environment — no repackaging, mirror overrides apply.
@@ -104,6 +105,24 @@ surfaces a `table_dependency_missing` warning ahead of time. For an
 always-on server deployment use the compose form:
 `docker compose -f docker/docker-compose.yml up -d` (see
 `docker/README.md`).
+
+**The trafilatura article-fallback switch (off by default)**: installing the
+extras only provides the capability — the environment variable
+`MYIA_EXTRACT_FALLBACK=1` must also be set explicitly before the
+static_html engine falls back to single-page body extraction for sources
+with no `extract` rules or whose rules went empty after a site revamp
+(fallback items carry `metadata.extract_provenance = "trafilatura"`;
+degenerate list-page output under 120 characters of body text is stopped by
+the quality gate and stays zero-item). The switch is a global environment
+variable and **depends on how you launch**:
+
+- CLI / running the binary directly: prefix the env on the command line,
+  e.g. `MYIA_EXTRACT_FALLBACK=1 myssia run <category>`;
+- installed desktop app: `launchctl setenv MYIA_EXTRACT_FALLBACK 1`, then
+  **restart the app** (`open` does not pass through shell env vars; the
+  sidecar inherits the app's parent process environment — same channel as
+  `MYIA_SMOKE_ROUTE`). To turn it off: `launchctl unsetenv
+  MYIA_EXTRACT_FALLBACK` and restart.
 
 ## 2. Configure credentials
 
