@@ -1,4 +1,4 @@
-import { Check, Cpu, Download, RefreshCw, X } from "lucide-react";
+import { Check, Cpu, Download, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
   pyenvInstallComponent,
   pyenvStartSetup,
   pyenvSyncDeps,
+  pyenvVerify,
   PYENV_PHASE_ORDER,
   type PyenvComponent,
   type PyenvState,
@@ -24,6 +25,7 @@ import {
   type PyenvPhase,
   type PyenvStep,
   type PyenvStepStatus,
+  type PyenvVerifyCheck,
 } from "./pyenv-api";
 
 /**
@@ -58,12 +60,12 @@ const STATE_META: Record<PyenvState, { label: string; badge: "outline" | "ok" | 
   ready: {
     label: "就绪",
     badge: "ok",
-    hint: "Python 运行环境就绪,sidecar 可正常拉起;已装依赖与随包锁版清单一致。",
+    hint: "Python 运行环境就绪,sidecar 可正常拉起;已装依赖与随包锁版清单一致,可随时点「检查状态」复验。",
   },
   error: {
     label: "异常",
     badge: "destructive",
-    hint: "安装链失败或中断:查看下方明细的失败项,点「开始配置」重试(幂等,已完成的步骤会跳过)。",
+    hint: "安装链失败或中断:查看下方明细的失败项,点「重新安装」重试(幂等,已完成的步骤会跳过)。",
   },
   deps_stale: {
     label: "依赖漂移",
@@ -271,6 +273,7 @@ export function PyenvCard() {
     setSetupBusy(true);
     setActionError(null);
     setNote(null);
+    setVerifyProblems(null);
     try {
       const next = await pyenvStartSetup({ mirrorRuntime, mirrorPypi });
       applyStatus(next, true);
@@ -297,6 +300,30 @@ export function PyenvCard() {
       setSyncBusy(false);
     }
   }, [applyStatus]);
+
+  /** 检查状态(就绪态主按钮,10-05 主人判例):三查只读零副作用;
+   *  未过 → 问题逐项上屏并给出「重新安装」入口(幂等链,已装步跳过)。 */
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyProblems, setVerifyProblems] = useState<PyenvVerifyCheck[] | null>(null);
+
+  const handleVerify = useCallback(async () => {
+    setVerifyBusy(true);
+    setActionError(null);
+    setNote(null);
+    setVerifyProblems(null);
+    try {
+      const result = await pyenvVerify();
+      if (result.ok) {
+        setNote("检查通过:python 可执行、依赖指纹一致、sidecar 握手正常。");
+      } else {
+        setVerifyProblems(result.checks.filter((check) => !check.ok));
+      }
+    } catch (raw) {
+      setActionError(asSidecarError(raw));
+    } finally {
+      setVerifyBusy(false);
+    }
+  }, []);
 
   /** 组件开关(10-05-table-restore R4):off→on = pyenv_install_component 装
    *  进自管环境(装后拉取回读,components[] 随新);on→off = 卸载本期不做,
@@ -530,10 +557,26 @@ export function PyenvCard() {
               </section>
             ) : null}
 
-            {/* 动作条:反馈在左、动作在右(全宽,主按钮不再 sm 收缩);同步依赖仅漂移态出现(D4) */}
+            {/* 动作条:反馈在左、动作在右(全宽,主按钮不再 sm 收缩);同步依赖仅漂移态出现(D4)。
+                10-05 主人判例:主按钮语义按态分家——就绪=「检查状态」(三查只读)、
+                异常=「重新安装」(幂等链)、未配置/漂移=「开始配置」;体检未过时
+                追加「重新安装」入口(状态不对就重装) */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
               <div className="min-w-0 flex-1">
                 {actionError ? <ErrorBox error={actionError} /> : null}
+                {verifyProblems ? (
+                  <div
+                    role="alert"
+                    data-testid="pyenv-verify-problems"
+                    className="flex flex-col gap-0.5 text-left text-2xs leading-4 text-destructive"
+                  >
+                    {verifyProblems.map((check) => (
+                      <span key={check.id} data-testid={`pyenv-verify-problem-${check.id}`}>
+                        [{check.id}] {check.detail}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
                 {note ? (
                   <p role="status" data-testid="pyenv-action-note" className="text-xs text-ok">
                     {note}
@@ -553,15 +596,39 @@ export function PyenvCard() {
                     同步依赖
                   </Button>
                 ) : null}
-                <Button
-                  onClick={() => void handleStartSetup()}
-                  disabled={setupBusy || syncBusy || status.state === "installing"}
-                  data-testid="pyenv-start-setup"
-                  title="D2:显式开始配置(下载→校验→解压→依赖→自检);安装中不可重复触发"
-                >
-                  <Download className={setupBusy ? "size-4 animate-pulse" : "size-4"} />
-                  开始配置
-                </Button>
+                {verifyProblems ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => void handleStartSetup()}
+                    disabled={setupBusy || syncBusy}
+                    data-testid="pyenv-reinstall-button"
+                    title="体检未过:幂等重跑安装链(下载→校验→解压→依赖→自检,已装步跳过)"
+                  >
+                    <Download className="size-4" />
+                    重新安装
+                  </Button>
+                ) : null}
+                {status.state === "ready" ? (
+                  <Button
+                    onClick={() => void handleVerify()}
+                    disabled={verifyBusy || setupBusy || syncBusy}
+                    data-testid="pyenv-verify-button"
+                    title="三查:python 可执行 / 依赖指纹 / sidecar 握手;只读零副作用,查出错给重装入口"
+                  >
+                    <ShieldCheck className={verifyBusy ? "size-4 animate-pulse" : "size-4"} />
+                    检查状态
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => void handleStartSetup()}
+                    disabled={setupBusy || syncBusy || status.state === "installing"}
+                    data-testid="pyenv-start-setup"
+                    title="D2:显式开始配置(下载→校验→解压→依赖→自检);安装中不可重复触发;已装步幂等跳过"
+                  >
+                    <Download className={setupBusy ? "size-4 animate-pulse" : "size-4"} />
+                    {status.state === "error" ? "重新安装" : status.state === "installing" ? "安装中…" : "开始配置"}
+                  </Button>
+                )}
               </div>
             </div>
           </>

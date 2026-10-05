@@ -12,6 +12,8 @@
  *   按 tauri 默认映射传 camelCase(mirrorRuntime/mirrorPypi,pyenv.rs 命令注释
  *   同口径);整体替换式落盘,空串归一为缺省(= 清回默认源)
  * - command `pyenv_sync_deps()`(D4 依赖漂移时的一键幂等重跑)
+ * - command `pyenv_verify()`(10-05 主人判例,就绪态「检查状态」:三查=python
+ *   可执行/依赖指纹/sidecar 握手,只读零副作用 → `{ok, checks:[{id,ok,detail}]}`)
  * - command `pyenv_migration_banner()`(第 6 步 D5/design §6:存量迁移一次性
  *   引导,查询即消费 —— {show:true} 每数据根至多一次,壳侧标记落盘;
  *   pyenv_migration.rs 为对齐源)
@@ -189,3 +191,51 @@ export function onPyenvStatusChanged(
 }
 
 export type { UnlistenFn };
+
+// ---------------------------------------------------------------------------
+// 环境体检(10-05 主人判例:就绪态主按钮=「检查状态」,查出错引导重装)
+// ---------------------------------------------------------------------------
+
+/** 体检单项(id = python_binary | deps_fingerprint | sidecar_handshake)。 */
+export interface PyenvVerifyCheck {
+  id: string;
+  ok: boolean;
+  detail: string;
+}
+
+/** `pyenv_verify` 结果(IPC 契约:`{ok, checks:[…]}`;ok = 全部单项通过)。 */
+export interface PyenvVerifyResult {
+  ok: boolean;
+  checks: PyenvVerifyCheck[];
+}
+
+/** wire 载荷 → PyenvVerifyResult(TS 侧守门,同 parsePyenvStatus 口径)。 */
+export function parsePyenvVerifyResult(raw: unknown): PyenvVerifyResult {
+  if (typeof raw !== "object" || raw === null) {
+    throw new Error("pyenv_verify 应答非对象");
+  }
+  const result = raw as { ok?: unknown; checks?: unknown };
+  if (typeof result.ok !== "boolean" || !Array.isArray(result.checks)) {
+    throw new Error("pyenv_verify 应答形态不符(ok/checks)");
+  }
+  return {
+    ok: result.ok,
+    checks: result.checks.map((item) => {
+      const check = (item ?? {}) as Record<string, unknown>;
+      return {
+        id: typeof check.id === "string" ? check.id : "",
+        ok: check.ok === true,
+        detail: typeof check.detail === "string" ? check.detail : "",
+      };
+    }),
+  };
+}
+
+/**
+ * 环境体检(就绪态「检查状态」按钮):三查=python 可执行/依赖指纹/
+ * sidecar 握手。壳侧只读零副作用(不落戳不翻状态不碰网络);查出错后
+ * 的重装入口 = pyenvStartSetup 幂等链。
+ */
+export async function pyenvVerify(): Promise<PyenvVerifyResult> {
+  return parsePyenvVerifyResult(await invoke("pyenv_verify"));
+}

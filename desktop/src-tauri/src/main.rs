@@ -387,6 +387,7 @@ fn main() {
             pyenv::pyenv_get_status,
             pyenv::pyenv_start_setup,
             pyenv::pyenv_sync_deps,
+            pyenv_install::pyenv_verify,
             pyenv_migration::pyenv_migration_banner
         ])
         .setup(move |app| {

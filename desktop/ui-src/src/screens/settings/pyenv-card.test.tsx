@@ -52,7 +52,17 @@ function wireFixture(overrides?: Partial<Record<string, unknown>>): Record<strin
 // 落盘镜像覆盖后重探测回包;sync_deps 重探测如实回当前态)
 // ---------------------------------------------------------------------------
 
-function installPyenvIpc(initial: Record<string, unknown> = wireFixture()) {
+function installPyenvIpc(
+  initial: Record<string, unknown> = wireFixture(),
+  verifyResult: Record<string, unknown> = {
+    ok: true,
+    checks: [
+      { id: "python_binary", ok: true, detail: "Python 3.12.7" },
+      { id: "deps_fingerprint", ok: true, detail: "一致(a89418…)" },
+      { id: "sidecar_handshake", ok: true, detail: "version 应答正常" },
+    ],
+  },
+) {
   let current = initial;
   mocks.invoke.mockImplementation(async (command: string, args?: unknown) => {
     if (command === "pyenv_get_status") return current;
@@ -66,6 +76,7 @@ function installPyenvIpc(initial: Record<string, unknown> = wireFixture()) {
       return current;
     }
     if (command === "pyenv_sync_deps") return current;
+    if (command === "pyenv_verify") return verifyResult;
     throw new Error(`未预期的 IPC 命令: ${command}`);
   });
   return {
@@ -284,8 +295,8 @@ describe("PyenvCard:设置屏「Python 运行环境」区块", () => {
     expect(screen.getByTestId("pyenv-step-downloading-status").textContent).toContain("已完成");
     expect(screen.getByTestId("pyenv-step-verifying-status").textContent).toContain("进行中");
     expect(screen.getByTestId("pyenv-step-extracting-status").textContent).toContain("等待中");
-    // 安装中不可重复触发开始配置;事件刷新不覆写镜像输入(防打断输入,当前无草稿=保持默认)
-    expect((screen.getByRole("button", { name: /开始配置/ }) as HTMLButtonElement).disabled).toBe(true);
+    // 安装中不可重复触发(主按钮转「安装中…」);事件刷新不覆写镜像输入(防打断输入,当前无草稿=保持默认)
+    expect((screen.getByRole("button", { name: /安装中/ }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByLabelText("运行时下载源覆盖") as HTMLInputElement).value).toBe("");
   });
 
@@ -306,6 +317,49 @@ describe("PyenvCard:设置屏「Python 运行环境」区块", () => {
     expect(screen.queryByTestId("pyenv-sync-deps")).toBeNull();
   });
 
+  it("ready 态主按钮=「检查状态」(10-05 主人判例):点击发 pyenv_verify(无参);通过 → 检查通过回执,无重装入口", async () => {
+    installPyenvIpc(wireFixture({ state: "ready" }));
+    installListen();
+    render(<PyenvCard />);
+
+    expect((await screen.findByTestId("pyenv-state-badge")).textContent).toContain("就绪");
+    // 就绪态不再出现「开始配置」——语义按态分家
+    expect(screen.queryByRole("button", { name: /开始配置/ })).toBeNull();
+    const verify = screen.getByRole("button", { name: /检查状态/ }) as HTMLButtonElement;
+    expect(verify.disabled).toBe(false);
+    expect(screen.queryByTestId("pyenv-reinstall-button")).toBeNull();
+
+    fireEvent.click(verify);
+    await waitFor(() => expect(callsOf("pyenv_verify").length).toBe(1));
+    expect(Object.keys((callsOf("pyenv_verify")[0] ?? {}) as object).length).toBe(0); // 无参
+    expect((await screen.findByTestId("pyenv-action-note")).textContent).toContain("检查通过");
+  });
+
+  it("体检未过 → 问题逐项上屏 + 「重新安装」入口(点击发 pyenv_start_setup);通过后回执走绿色 note", async () => {
+    installPyenvIpc(wireFixture({ state: "ready" }), {
+      ok: false,
+      checks: [
+        { id: "python_binary", ok: true, detail: "Python 3.12.7" },
+        { id: "deps_fingerprint", ok: false, detail: "漂移:进度戳 aaa ≠ 随包 bbb;「同步依赖」幂等对齐,或重装" },
+        { id: "sidecar_handshake", ok: false, detail: "自检 version 应答超时(30s)" },
+      ],
+    });
+    installListen();
+    render(<PyenvCard />);
+    await screen.findByTestId("pyenv-state-badge");
+
+    fireEvent.click(screen.getByRole("button", { name: /检查状态/ }));
+    const problems = await screen.findByTestId("pyenv-verify-problems");
+    expect(problems.textContent).toContain("deps_fingerprint");
+    expect(problems.textContent).toContain("漂移");
+    expect(screen.getByTestId("pyenv-verify-problem-sidecar_handshake").textContent).toContain("超时");
+    expect(screen.queryByTestId("pyenv-verify-problem-python_binary")).toBeNull(); // 过了的不列
+
+    // 状态不对就重装:入口出现并发幂等链命令
+    fireEvent.click(screen.getByTestId("pyenv-reinstall-button"));
+    await waitFor(() => expect(callsOf("pyenv_start_setup").length).toBe(1));
+  });
+
   it("error 态:失败步 error 文案逐项可见 + 引导重试;开始配置可点(幂等重试入口)", async () => {
     installPyenvIpc(
       wireFixture({
@@ -322,7 +376,7 @@ describe("PyenvCard:设置屏「Python 运行环境」区块", () => {
     expect((await screen.findByTestId("pyenv-state-badge")).textContent).toContain("异常");
     expect(screen.getByTestId("pyenv-step-verifying-error").textContent).toContain("checksum_mismatch");
     expect(screen.getByTestId("pyenv-state-hint").textContent).toContain("重试");
-    expect((screen.getByRole("button", { name: /开始配置/ }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: /重新安装/ }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("拉取失败 → 结构化错误上屏(ErrorBox),重试走同一条拉取通道", async () => {
