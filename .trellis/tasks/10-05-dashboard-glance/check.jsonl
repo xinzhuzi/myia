@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "复核 token 合规(零新 arbitrary 值)、测试同步(旧文案断言全量换新)与诚实原则(null 显 —/错误明文不藏 hover)"}

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
+import { HintButton } from "@/components/label-hint";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,13 +24,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, onSidecarEvent, SidecarRequestError } from "@/lib/api";
-import type { SourceHealthState, UnlistenFn } from "@/lib/api";
+import type { Finding, SourceHealthState, UnlistenFn } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import {
   buildCategoryCards,
   buildOverviewStats,
   buildSourceHealthCards,
+  buildVerdict,
   cumulativeOutcomeSummary,
   fetchOutcomeWindow,
   fetchTrendWindow,
@@ -53,6 +55,7 @@ import type {
   CategoryTone,
   DashboardData,
   DashboardRun,
+  DashboardVerdict,
   OverviewStats,
   OverviewWindow,
   RunOutcomeDay,
@@ -61,6 +64,7 @@ import type {
   SourceHealthCounts,
   TrendDay,
   TrendWindowDays,
+  VerdictTone,
 } from "./api";
 import { FeedbackStatsCard } from "./feedback-stats-card";
 import { Sparkline } from "./sparkline";
@@ -271,7 +275,11 @@ function RecentRunRow({ run }: { run: DashboardRun }) {
     >
       <span className="w-8 shrink-0 font-mono text-2xs text-muted-foreground">#{run.runId}</span>
       <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{run.category}</span>
-      {run.dry ? <Badge variant="outline">dry</Badge> : null}
+      {run.dry ? (
+        <Badge variant="outline" title="dry run(不落库)">
+          试跑
+        </Badge>
+      ) : null}
       <span className="flex shrink-0 items-center gap-3 text-2xs text-muted-foreground">
         {itemCount !== null ? (
           <span className="w-11 text-right tabular-nums">{itemCount} 条</span>
@@ -313,9 +321,177 @@ function humanizeSidecarError(code: string, message: string): string {
 
 const SECTION_LABELS: Record<"doctor" | "runs" | "registry", string> = {
   doctor: "诊断/源健康度",
-  runs: "历史 run",
-  registry: "进行中 run",
+  runs: "历史采集",
+  registry: "进行中采集",
 };
+
+// ---------------------------------------------------------------------------
+// D2/D3(10-05-dashboard-glance):状态句行 + 告警清单——零新样式家族,
+// 复用 StatusDot「状态点+词」解剖与健康度四色 token;verdict 行是常驻内容
+// 不是 toast/横幅(主人弹窗判例:屏顶横幅慎用)。
+// ---------------------------------------------------------------------------
+
+/** verdict tone → 状态点色(健康度四色 token 同源;状态不只靠色,headline 文字达意) */
+const VERDICT_TONE_DOT: Record<VerdictTone, string> = {
+  ok: "bg-ok",
+  warning: "bg-warning",
+  dead: "bg-dead",
+  unknown: "bg-unknown",
+};
+
+/**
+ * 状态句行(D2):屏 root 首块(无头范式,PageHeader=null 不复活)——
+ * StatusDot 家族「状态点+词」+ headline(text-base medium)+ facts
+ * (text-xs muted,· 分隔);dead/warning 态整行可点跳源管理(与告警清单
+ * 同目的地),ok/unknown 纯文本。role=status + aria-label 汇总句。
+ */
+function VerdictRow({ verdict }: { verdict: DashboardVerdict }) {
+  const summary = [verdict.headline, ...verdict.facts].join(" · ");
+  const clickable = verdict.tone === "dead" || verdict.tone === "warning";
+  const content = (
+    <>
+      <span
+        aria-hidden
+        className={cn("size-2 shrink-0 self-center rounded-full", VERDICT_TONE_DOT[verdict.tone])}
+      />
+      <span className="text-base font-medium text-foreground">{verdict.headline}</span>
+      {verdict.facts.length > 0 ? (
+        <span className="text-xs text-muted-foreground">{verdict.facts.join(" · ")}</span>
+      ) : null}
+    </>
+  );
+  const rowClass = "flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1 py-1";
+  if (clickable) {
+    return (
+      <div className="px-6">
+        <a
+          href="#/sources"
+          data-testid="dashboard-verdict"
+          role="status"
+          aria-label={summary}
+          title="查看源管理"
+          className={rowClass}
+        >
+          {content}
+        </a>
+      </div>
+    );
+  }
+  return (
+    <div className="px-6">
+      <div data-testid="dashboard-verdict" role="status" aria-label={summary} className={rowClass}>
+        {content}
+      </div>
+    </div>
+  );
+}
+
+/** 告警清单行视图模型(坏源行 + 品类级 finding 补位行的统一形状) */
+interface AlertRowModel {
+  key: string;
+  /** 行首状态点色(健康度四色 token 同源) */
+  dot: string;
+  /** 状态词(不只靠色:失效/退化/未知;品类级 finding = 异常/提醒) */
+  stateLabel: string;
+  /** 主名:源名 / 品类名 */
+  primary: string;
+  /** 次段:源行 = 所属品类名;品类行无 */
+  secondary: string | null;
+  /** 原因明细(reason/finding.message 原文直用——cli 已人话,零映射;行内截断) */
+  detail: string;
+  /** 相对时间右置(源行);品类级 finding 无时刻 = null */
+  time: string | null;
+}
+
+/**
+ * 告警清单行装配(D3):坏源行优先(sourceCards 已按坏者优先排序),品类级
+ * findings(scope 恰为 `plugin:<file>`,非 `/source:` 后缀)补位。触发 =
+ * 告警(findings)>0 或坏源(state≠ok)>0——两数据面不重合(findings 可只打
+ * 品类级、退化可无 finding),双向都要兜;行数不足时两类拼合计。
+ */
+function buildAlertRows(
+  sourceCards: SourceHealthCardModel[],
+  categories: CategoryCardModel[],
+  findings: Finding[],
+): AlertRowModel[] {
+  const rows: AlertRowModel[] = [];
+  for (const card of sourceCards) {
+    if (card.state === "ok") continue;
+    rows.push({
+      key: `source-${card.key}`,
+      dot: SOURCE_STATE[card.state].dot,
+      stateLabel: SOURCE_STATE[card.state].label,
+      primary: card.name,
+      secondary: card.pluginName,
+      detail: card.reason,
+      time: formatRelativeTime(card.lastObservedAt),
+    });
+  }
+  for (const category of categories) {
+    for (const finding of findings) {
+      if (finding.scope !== `plugin:${category.file}`) continue;
+      rows.push({
+        key: `category-${category.file}-${finding.code}`,
+        dot: finding.severity === "error" ? "bg-dead" : "bg-warning",
+        stateLabel: finding.severity === "error" ? "异常" : "提醒",
+        primary: category.name,
+        secondary: null,
+        detail: finding.message,
+        time: null,
+      });
+    }
+  }
+  return rows;
+}
+
+/**
+ * 告警清单(D3):概览节内四格之下的异常清单,前三条封顶(grill Q4),行点
+ * 跳源管理;溢出口 N = 清单外剩余异常数(坏源 + 品类级 findings,如实计);
+ * 行集为空 = 零占位。容器语言复用 CategoryCard 的 rounded-md border 弱底家族。
+ */
+function AlertList({ rows }: { rows: AlertRowModel[] }) {
+  if (rows.length === 0) return null;
+  const shown = rows.slice(0, 3);
+  const overflow = rows.length - shown.length;
+  return (
+    <div
+      data-testid="dashboard-alert-list"
+      className="flex flex-col rounded-md border border-border/60 bg-muted/40 px-3"
+    >
+      {shown.map((row) => (
+        <a
+          key={row.key}
+          href="#/sources"
+          data-testid={`alert-row-${row.key}`}
+          title={row.detail}
+          className="flex min-w-0 items-center gap-2 border-b border-border/40 py-1.5 last:border-b-0"
+        >
+          <span className="inline-flex shrink-0 items-center gap-1.5 text-sm text-foreground">
+            <span aria-hidden className={cn("size-2 shrink-0 rounded-full", row.dot)} />
+            {row.stateLabel}
+          </span>
+          <span className="shrink-0 text-sm font-medium text-foreground">{row.primary}</span>
+          {row.secondary !== null ? (
+            <span className="shrink-0 text-xs text-muted-foreground">{row.secondary}</span>
+          ) : null}
+          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">— {row.detail}</span>
+          {row.time !== null ? (
+            <span className="shrink-0 font-mono text-xs text-muted-foreground">{row.time}</span>
+          ) : null}
+        </a>
+      ))}
+      {overflow > 0 ? (
+        <a
+          href="#/sources"
+          data-testid="dashboard-alert-overflow"
+          className="border-t border-border/40 py-1.5 text-xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+        >
+          还有 {overflow} 个异常 · 查看全部 →
+        </a>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * 概览格卡(终审修整:单卡内 divide-x 四格 → 四张独立等宽等高 Card;
@@ -323,17 +499,23 @@ const SECTION_LABELS: Record<"doctor" | "runs" | "registry", string> = {
  * grid gap-grid + 基调层 [data-slot=card] height:100% 天然等高等宽)。
  * teardown-vercel-dashboard #2 血统保留:小标签 = 大写+弱色,大数字 = tnum
  * 全局已开;value=null 显 — 不虚构。note = 弱注记(口径说明)。
+ * R3(10-05-dashboard-glance):口径型 note 收进 ⓘ 悬停(HintButton,
+ * ui/tooltip 基件,键盘 focus 可达)——扫读面只剩标签+大数字;错误/降级型
+ * note(noteKind="alert")保留明文,错误不藏 hover。
  */
 function StatCell({
   label,
   value,
   note,
+  noteKind = "meta",
   destructive = false,
   testid,
 }: {
   label: string;
   value: number | string | null;
   note: string;
+  /** note 性质:meta = 口径注记(ⓘ 悬停);alert = 错误/降级注记(明文) */
+  noteKind?: "meta" | "alert";
   destructive?: boolean;
   testid: string;
 }) {
@@ -349,7 +531,13 @@ function StatCell({
         >
           {value === null ? "—" : value}
         </p>
-        <p className="mt-auto text-2xs leading-snug text-muted-foreground">{note}</p>
+        {noteKind === "alert" ? (
+          <p className="mt-auto text-2xs leading-snug text-muted-foreground">{note}</p>
+        ) : (
+          <div className="mt-auto">
+            <HintButton name={label} tip={note} />
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -611,9 +799,22 @@ export function DashboardScreen() {
   const rateSeries = outcomes !== null ? successRateSeries(outcomes) : [];
   const outcomeSummary = outcomes !== null ? cumulativeOutcomeSummary(outcomes) : null;
 
+  // D1/D3(10-05-dashboard-glance):状态句 + 告警清单装配,零新拉数。
+  // doctorFailed = doctor 分区失败或整屏 error(整屏 error 且 data 仍在时
+  // verdict 显「数据不全」级;data 整体不可达时 buildVerdict 返回 null 不渲染)
+  const doctorFailed = error !== null || (data !== null && data.doctor === null);
+  const verdict = buildVerdict({ overview, health: healthCounts, categories, runSummary, doctorFailed });
+  const alertRows = buildAlertRows(sourceCards, categories, data?.doctor?.findings ?? []);
+  const deadCategoryCount = categories.filter((category) => category.tone === "dead").length;
+  const warningCategoryCount = categories.filter((category) => category.tone === "warning").length;
+
   return (
     <div data-testid="dashboard-screen-root" className="flex flex-col gap-block pb-6">
-      <PageHeader title="仪表盘" description="概览条 / 采集量趋势 / 源健康度 / 品类与近期 run" />
+      <PageHeader title="仪表盘" description="概览条 / 采集量趋势 / 源健康度 / 品类与最近采集" />
+
+      {/* D2 状态句先行:屏首常驻内容行(无头范式首块)——一句话回答
+          「系统还好吗 / 今天有什么新东西 / 有没有要我处理的」 */}
+      {verdict !== null ? <VerdictRow verdict={verdict} /> : null}
 
       {error ? (
         <div className="px-6">
@@ -721,11 +922,16 @@ export function DashboardScreen() {
                           ? "UTC 日口径 · items 入库"
                           : `UTC 逐日 ${overviewWindow} 天求和 · items 入库`
                     }
+                    noteKind={overviewTrendError !== null ? "alert" : "meta"}
                   />
                   <StatCell
                     testid="stat-active-sources"
                     label="活跃源"
-                    value={overview.activeSources}
+                    value={
+                      overview.activeSources !== null && overview.totalSources !== null
+                        ? `${overview.activeSources}/${overview.totalSources}`
+                        : null
+                    }
                     note={
                       overview.totalSources === null
                         ? "诊断不可达 · doctor 分区失败"
@@ -733,6 +939,7 @@ export function DashboardScreen() {
                           ? `共 ${overview.totalSources} 源 · ok+degraded`
                           : `共 ${overview.totalSources} 源 · ok+degraded · 即时快照不随窗`
                     }
+                    noteKind={overview.totalSources === null ? "alert" : "meta"}
                   />
                   <StatCell
                     testid="stat-window-push"
@@ -740,9 +947,10 @@ export function DashboardScreen() {
                     value={overview.windowPushOk}
                     note={
                       overviewWindow === "today"
-                        ? "今日(UTC)run 的 ok 推送 · 受 runs.list 20 条上限"
-                        : `近 ${overviewWindow} 天(UTC)run 的 ok 推送 · 受 runs.list 20 条上限`
+                        ? "今日(UTC)各轮采集的推送成功数 · 受最近 20 轮上限(runs.list)"
+                        : `近 ${overviewWindow} 天(UTC)各轮采集的推送成功数 · 受最近 20 轮上限(runs.list)`
                     }
+                    noteKind="meta"
                   />
                   <StatCell
                     testid="stat-alerts"
@@ -753,11 +961,15 @@ export function DashboardScreen() {
                         ? "doctor error+warning 发现"
                         : "doctor error+warning 发现 · 即时快照不随窗"
                     }
+                    noteKind="meta"
                     destructive={(overview.alerts ?? 0) > 0}
                   />
                 </>
               )}
         </div>
+        {/* R2 告警升格清单(D3):触发 = 告警或坏源非零,坏源行优先 + 品类级
+            findings 补位,前三条封顶,行点跳源管理;皆零零占位 */}
+        <AlertList rows={alertRows} />
       </section>
 
       {/* R2 刀2 重排:趋势卡升全宽 hero(与品类卡的配对等高拉伸会把短卡
@@ -862,7 +1074,7 @@ export function DashboardScreen() {
                 />
               ) : rateSeries.length === 0 ? (
                 <p className="text-xs text-muted-foreground" data-testid="dashboard-rate-empty">
-                  近 {windowDays} 天无已完结 run——成功率无从谈起,先跑一轮再说
+                  近 {windowDays} 天无已完结采集——成功率无从谈起,先跑一轮再说
                 </p>
               ) : (
                 <>
@@ -875,8 +1087,8 @@ export function DashboardScreen() {
                     aria-label={
                       outcomeSummary && outcomeSummary.rate !== null
                         ? `近 ${windowDays} 天累计成功率 ${formatSuccessRate(outcomeSummary.rate)}` +
-                          `(${outcomeSummary.success}/${outcomeSummary.finished} 次成功),无完结 run 的日子不入线`
-                        : `近 ${windowDays} 天成功率趋势,无完结 run 的日子不入线`
+                          `(${outcomeSummary.success}/${outcomeSummary.finished} 次成功),无完结采集的日子不入线`
+                        : `近 ${windowDays} 天成功率趋势,无完结采集的日子不入线`
                     }
                   />
                   <p className="flex items-center justify-between pl-11 font-mono text-2xs text-muted-foreground">
@@ -907,7 +1119,7 @@ export function DashboardScreen() {
             <HeartPulse className="size-3.5 text-muted-foreground" />
             <h2 className="text-base font-semibold text-foreground">源健康度</h2>
             <span className="text-xs text-muted-foreground">
-              {sourceCards.length} 个源 · 坏者(dead → degraded → unknown)靠前
+              {sourceCards.length} 个源 · 异常优先
             </span>
           </div>
           {healthCounts === null ? null : (
@@ -955,7 +1167,13 @@ export function DashboardScreen() {
           <CircleDot className="size-3.5 text-muted-foreground" />
           <h2 className="text-base font-semibold text-foreground">品类状态</h2>
           <span className="text-xs text-muted-foreground">
-            已载品类、调度与诊断评级(0 error / N warning)
+            已载品类、调度与诊断评级(
+            {deadCategoryCount > 0
+              ? `${deadCategoryCount} 品类异常`
+              : warningCategoryCount > 0
+                ? `${warningCategoryCount} 品类有提醒`
+                : "无异常"}
+            )
           </span>
         </div>
         {loading && !data ? (
@@ -987,13 +1205,13 @@ export function DashboardScreen() {
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="flex items-center gap-2">
                 <Activity className="size-3.5 text-muted-foreground" />
-                近期 run 成功率
+                最近采集成功率
               </CardTitle>
               <a
                 href="#/logs"
                 className="shrink-0 text-xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
               >
-                全部 run →
+                全部采集 →
               </a>
             </div>
             <CardDescription>最近 {runSummary?.total ?? 0} 次采集的完成与成功分布</CardDescription>
@@ -1019,7 +1237,7 @@ export function DashboardScreen() {
                   {runSummary.recent.length === 0 ? (
                     <p className="flex items-center gap-1.5 py-2 text-xs text-muted-foreground">
                       <Activity className="size-3.5" />
-                      还没有 run 记录;跑一次采集后这里会列出最近结果
+                      还没有采集记录;跑一次后这里会列出最近结果
                     </p>
                   ) : (
                     runSummary.recent.map((run) => <RecentRunRow key={run.runId} run={run} />)

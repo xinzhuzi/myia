@@ -1,0 +1,161 @@
+{
+  "results": [
+    {
+      "shot": "01-verdict-ok.png",
+      "bytes": 13810,
+      "asserts": {
+        "text": "一切正常\n今日采集 128 条 · 5/5 源在线 · 推送成功 5",
+        "一切正常": true,
+        "今日采集 128 条": true,
+        "5/5 源在线": true,
+        "推送成功 5": true
+      },
+      "probe": {
+        "target": "verdict-ok",
+        "selector": "[data-testid=\"dashboard-verdict\"]",
+        "textLeaves": 2,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "03-overview-four-cells.png",
+      "bytes": 30571,
+      "cells": [
+        "stat-window-items=今日采集128",
+        "stat-active-sources=活跃源5/5",
+        "stat-window-push=推送成功5",
+        "stat-alerts=告警0"
+      ],
+      "probe": {
+        "target": "overview",
+        "selector": "[data-testid=\"dashboard-overview\"]",
+        "textLeaves": 10,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "04-overview-tooltip.png",
+      "bytes": 41581,
+      "tooltipText": "共 5 源 · ok+degraded",
+      "clip": {
+        "x": 224,
+        "y": 52,
+        "width": 1216,
+        "height": 198
+      }
+    },
+    {
+      "shot": "07-success-rate-card-ok.png",
+      "bytes": 130532,
+      "cardTextHead": [
+        "最近采集成功率",
+        "全部采集 →",
+        "最近 10 次采集的完成与成功分布",
+        "80%",
+        "8/10 次成功",
+        "#1001",
+        "tech",
+        "3 条"
+      ],
+      "probe": {
+        "target": "success-rate",
+        "selector": "[data-testid=\"run-success-rate\"]",
+        "textLeaves": 1,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "08-fullpage-ok.png",
+      "bytes": 301082
+    },
+    {
+      "shot": "08-fullpage-ok.png",
+      "rpcMethods": [
+        "doctor",
+        "feedback.stats",
+        "run.status",
+        "runs.list",
+        "runs.trend",
+        "store.trend"
+      ]
+    },
+    {
+      "shot": "02-verdict-dead.png",
+      "bytes": 16156,
+      "asserts": {
+        "text": "2 个源失效\n今日采集 36 条 · 3/6 源在线 · 推送成功 3",
+        "2 个源失效": true,
+        "3/6 源在线": true,
+        "tagName=A(可点)": true
+      },
+      "probe": {
+        "target": "verdict-dead",
+        "selector": "[data-testid=\"dashboard-verdict\"]",
+        "textLeaves": 2,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "05-alert-list-dead.png",
+      "bytes": 44817,
+      "rows": [
+        "失效deadone科技资讯— 连续无产出—",
+        "失效deadtwo科技资讯— 连续无产出—",
+        "退化degradedone科技资讯— 最近一轮零产出—"
+      ],
+      "overflow": "还有 2 个异常 · 查看全部 →",
+      "probe": {
+        "target": "alert-list",
+        "selector": "[data-testid=\"dashboard-alert-list\"]",
+        "textLeaves": 16,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "06-category-note-dead.png",
+      "bytes": 34607,
+      "sectionHead": [
+        "品类状态",
+        "已载品类、调度与诊断评级(1 品类异常)",
+        "",
+        "科技资讯",
+        "",
+        "6 源 · 0 9 * * * · 有排程"
+      ],
+      "probe": {
+        "target": "category-section",
+        "selector": "section[aria-label=\"品类状态\"]",
+        "textLeaves": 9,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "09-fullpage-dead.png",
+      "bytes": 307591
+    },
+    {
+      "shot": "09-fullpage-dead.png",
+      "rpcMethods": [
+        "doctor",
+        "feedback.stats",
+        "run.status",
+        "runs.list",
+        "runs.trend",
+        "store.trend"
+      ]
+    }
+  ],
+  "failures": []
+}

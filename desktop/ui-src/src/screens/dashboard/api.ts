@@ -506,6 +506,83 @@ export function buildOverviewStats(
 }
 
 // ---------------------------------------------------------------------------
+// D1 状态句(10-05-dashboard-glance):一句话总状态纯装配——headline 只承载
+// 最坏态定性(grill Q2),facts 次段拼收获与动态(逐项可缺,缺数省略不显 0,
+// grill Q3);零新拉数,全吃既有装配(overview/health/categories/runSummary)。
+// ---------------------------------------------------------------------------
+
+export type VerdictTone = "dead" | "warning" | "ok" | "unknown";
+
+export interface DashboardVerdict {
+  tone: VerdictTone;
+  /** 主句:选词与着色依据 */
+  headline: string;
+  /** 次段短语(今日收获/动态),逐项可缺;「·」分隔由消费方拼 */
+  facts: string[];
+}
+
+/**
+ * 语气阶梯(最坏优先,纯函数可测):doctorFailed → unknown「数据不全」级;
+ * dead>0 → dead 失效;alerts>0 / degraded>0 / 品类 dead tone → warning
+ * (缺段省略);否则 ok。返回 null = 不渲染(overview 与 runSummary 同源于
+ * data,任一 null 即数据整体不可达——整屏错误卡已负责,不双报;加载态同)。
+ * facts 所有态都拼(grill Q1:采集随概览窗与四格同窗同数;running>0 才拼)。
+ */
+export function buildVerdict(input: {
+  overview: OverviewStats | null;
+  health: SourceHealthCounts | null;
+  categories: CategoryCardModel[];
+  runSummary: RunSuccessSummary | null;
+  /** doctor 分区失败(sectionErrors 含 doctor)或整屏 error */
+  doctorFailed: boolean;
+}): DashboardVerdict | null {
+  const { overview, health, categories, runSummary, doctorFailed } = input;
+  if (overview === null || runSummary === null) return null;
+
+  const facts: string[] = [];
+  if (doctorFailed) facts.push("其余分区已降级显示");
+  if (overview.windowItems !== null) {
+    facts.push(
+      overview.window === "today"
+        ? `今日采集 ${overview.windowItems} 条`
+        : `近 ${overview.window} 天采集 ${overview.windowItems} 条`,
+    );
+  }
+  if (
+    overview.activeSources !== null &&
+    overview.totalSources !== null &&
+    overview.totalSources > 0
+  ) {
+    // totalSources=0(未配置任何源)省略本段:0/0 是空配置不是健康度事实
+    facts.push(`${overview.activeSources}/${overview.totalSources} 源在线`);
+  }
+  if (overview.windowPushOk !== null) facts.push(`推送成功 ${overview.windowPushOk}`);
+  if (runSummary !== null && runSummary.running > 0) facts.push(`${runSummary.running} 个采集中`);
+
+  if (doctorFailed) {
+    return { tone: "unknown", headline: "部分数据不可达,状态未知", facts };
+  }
+  const dead = health?.dead ?? 0;
+  if (dead > 0) {
+    return { tone: "dead", headline: `${dead} 个源失效`, facts };
+  }
+  const alerts = overview.alerts ?? 0;
+  const degraded = health?.degraded ?? 0;
+  if (alerts > 0 || degraded > 0 || categories.some((category) => category.tone === "dead")) {
+    const segments: string[] = [];
+    if (alerts > 0) segments.push(`${alerts} 项告警`);
+    if (degraded > 0) segments.push(`${degraded} 个源退化`);
+    // 兜底段仅在 alerts/degraded 双零而品类 dead tone 触发时出现(理论缺口:
+    // 品类载入失败未产 finding;词表取品类节注三态同源,不自造)
+    if (segments.length === 0) {
+      segments.push(`${categories.filter((category) => category.tone === "dead").length} 品类异常`);
+    }
+    return { tone: "warning", headline: segments.join(" · "), facts };
+  }
+  return { tone: "ok", headline: "一切正常", facts };
+}
+
+// ---------------------------------------------------------------------------
 // 源健康度卡网格(teardown-vercel-dashboard #3/#4:StatusDot 8px 圆点+13px
 // 标签四色映射;Card = 名称 14 medium + muted 次行 + 相对时间;网格 gap-6)
 // ---------------------------------------------------------------------------

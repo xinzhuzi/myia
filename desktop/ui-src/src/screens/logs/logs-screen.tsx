@@ -242,7 +242,11 @@ function RunGroupHeader({
         {/* KsEntityLink 位:品类即 run 的「流程」主体(不可点,不作链接色——
             Kestra 该槽是 RouterLink,我们行级折叠为主交互,诚实呈现) */}
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{run.category}</span>
-        {run.dry ? <Badge variant="outline">dry</Badge> : null}
+        {run.dry ? (
+          <Badge variant="outline" title="dry run(不落库)">
+            试跑
+          </Badge>
+        ) : null}
         <span className="ml-auto flex shrink-0 items-center gap-3 text-2xs text-muted-foreground">
           {errorCount > 0 ? (
             <span data-testid={`run-error-count-${run.runId}`} className="w-[64px] shrink-0 text-right font-medium text-[#ff6b70]">
@@ -290,7 +294,7 @@ function RunGroupHeader({
         size="icon"
         className="size-6 shrink-0 text-muted-foreground"
         data-testid={`run-rerun-${run.runId}`}
-        aria-label={`重跑 run #${run.runId}`}
+        aria-label={`重跑采集 #${run.runId}`}
         title={`重跑该 run(run.start 回放 ${run.yaml}${run.dry ? ",dry" : ""})`}
         disabled={starting}
         onClick={() => onRerun(run)}
@@ -428,11 +432,11 @@ function RunLogBody({
           </p>
         ) : searching && shownRows !== undefined && shownRows.length === 0 ? (
           <p className="text-muted-foreground">
-            <span className="text-brand-from">▍</span> 无命中行(搜索词过滤掉了该 run 的全部日志)
+            <span className="text-brand-from">▍</span> 无命中行(搜索词过滤掉了这轮采集的全部日志)
           </p>
         ) : rows.length === 0 ? (
           <p className="text-muted-foreground">
-            <span className="text-brand-from">▍</span> 该 run 暂无日志(环形缓冲只保留最近 4000 行)
+            <span className="text-brand-from">▍</span> 这轮采集暂无日志(环形缓冲只保留最近 4000 行)
           </p>
         ) : (
           shownRows?.map((row) => <LogRowView key={row.key} row={row} needle={needle} />)
@@ -677,7 +681,7 @@ export function LogsScreen() {
     <div className="flex h-full min-h-0 flex-col gap-4">
       <PageHeader
         title="采集日志"
-        description="run 瀑布(新→旧)· 逐 run 耗时/条数统计 · 错误行高亮 · 展开组流式续播自动滚底"
+        description="采集记录瀑布(新→旧)· 逐轮耗时/条数统计 · 错误行高亮 · 展开组流式续播自动滚底"
         actions={
           <Button variant="outline" size="sm" onClick={() => void refreshRuns()} disabled={loading}>
             <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
@@ -730,7 +734,7 @@ export function LogsScreen() {
           </Button>
         ) : null}
         <span className="text-2xs text-muted-foreground" data-testid="logs-filter-count">
-          {visibleRunRows.length} / {runRows.length} run
+          {visibleRunRows.length} / {runRows.length} 轮
         </span>
         <div className="relative ml-auto">
           <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
@@ -766,7 +770,7 @@ export function LogsScreen() {
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-foreground">运行历史</h2>
             <span className="text-2xs text-muted-foreground">
-              {visibleRunRows.length} / {runRows.length} run · 新→旧
+              {visibleRunRows.length} / {runRows.length} 轮 · 新→旧
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -782,7 +786,7 @@ export function LogsScreen() {
           className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted/60"
           data-testid="run-status-distribution"
           role="img"
-          aria-label={`run 状态分布:${distSegments.map((s) => `${s.label} ${s.count}`).join("、") || "无 run"}`}
+          aria-label={`采集状态分布:${distSegments.map((s) => `${s.label} ${s.count}`).join("、") || "无采集"}`}
         >
           {distSegments.map((segment) => (
             <span
@@ -807,8 +811,8 @@ export function LogsScreen() {
               <CardContent>
                 <EmptyState
                   compact
-                  title="还没有 run 记录"
-                  description="从源管理触发一次采集后,run 将按新→旧出现在这里"
+                  title="还没有采集记录"
+                  description="从源管理触发一次采集后,采集记录将按新→旧出现在这里"
                 />
               </CardContent>
             </Card>
@@ -817,8 +821,8 @@ export function LogsScreen() {
               <CardContent>
                 <EmptyState
                   compact
-                  title="没有匹配的 run"
-                  description="品类/状态过滤或搜索词没有命中任何 run,放宽条件再试"
+                  title="没有匹配的采集记录"
+                  description="品类/状态过滤或搜索词没有命中任何采集记录,放宽条件再试"
                 />
                 <div className="mt-3 flex justify-center">
                   <Button variant="outline" size="sm" onClick={resetFilters}>

@@ -327,9 +327,19 @@ describe("LogsScreen", () => {
     mockSidecar([]);
     render(<LogsScreen />);
 
-    expect(await screen.findByText(/还没有 run 记录/)).toBeTruthy();
+    expect(await screen.findByText(/还没有采集记录/)).toBeTruthy();
     expect(screen.queryByTestId("run-group-header-1")).toBeNull();
     expect(screen.queryByTestId("run-group-header-2")).toBeNull();
+  });
+
+  it("试跑徽标:dry run 行组头标「试跑」,title 留 dry run 技术注(dry→试跑,10-05-dashboard-glance)", async () => {
+    mockSidecar([{ ...run1Success, run_id: 7, dry: true }]);
+    render(<LogsScreen />);
+
+    const header = await screen.findByTestId("run-group-header-7");
+    expect(header.textContent).toContain("试跑");
+    const badge = header.querySelector('[data-slot="badge"]');
+    expect(badge?.getAttribute("title")).toBe("dry run(不落库)");
   });
 
   // -------------------------------------------------------------------------
@@ -386,19 +396,19 @@ describe("LogsScreen", () => {
     mockSidecar([run2Running, run1Success]);
     render(<LogsScreen />);
     await screen.findByTestId("run-group-header-2");
-    expect(screen.getByTestId("logs-filter-count").textContent).toBe("2 / 2 run");
+    expect(screen.getByTestId("logs-filter-count").textContent).toBe("2 / 2 轮");
 
     openSelect("品类过滤");
     fireEvent.click(await screen.findByRole("option", { name: "科技资讯" }));
 
     await waitFor(() => expect(screen.queryByTestId("run-group-header-2")).toBeNull());
     expect(screen.getByTestId("run-group-header-1")).toBeTruthy();
-    expect(screen.getByTestId("logs-filter-count").textContent).toBe("1 / 2 run");
+    expect(screen.getByTestId("logs-filter-count").textContent).toBe("1 / 2 轮");
 
     // 清除过滤(过滤激活时过滤条上的 ghost 按钮)→ 双 run 恢复
     fireEvent.click(screen.getByRole("button", { name: /清除过滤/ }));
     await waitFor(() => expect(screen.getByTestId("run-group-header-2")).toBeTruthy());
-    expect(screen.getByTestId("logs-filter-count").textContent).toBe("2 / 2 run");
+    expect(screen.getByTestId("logs-filter-count").textContent).toBe("2 / 2 轮");
   });
 
   it("状态过滤 + 组合无命中:「运行中」只剩 running run;组合无命中给过滤空态", async () => {
@@ -415,7 +425,7 @@ describe("LogsScreen", () => {
     // 组合:品类=科技资讯(终态成功)+ 状态=运行中 → 无命中,过滤空态
     openSelect("品类过滤");
     fireEvent.click(await screen.findByRole("option", { name: "科技资讯" }));
-    expect(await screen.findByText(/没有匹配的 run/)).toBeTruthy();
+    expect(await screen.findByText(/没有匹配的采集记录/)).toBeTruthy();
     expect(screen.queryByTestId("run-group-header-1")).toBeNull();
     expect(screen.queryByTestId("run-group-header-2")).toBeNull();
 

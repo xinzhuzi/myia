@@ -2,10 +2,11 @@
 /**
  * 仪表盘组件测试 —— mock sidecar(vi.mock "@/lib/api" 的 api 门面,
  * doctor / runs.list / run.status / store.trend 返回夹具;错误用真实
- * SidecarRequestError 注入)。覆盖:概览条(D4 四格)/ 采集量趋势(Select
- * 时间范围 + 自绘 sparkline,窗口切换重查)/ 源健康度卡网格(四态 + 坏者
- * 优先 + 相对时间锚)/ 品类状态卡(含载入失败)/ 源健康度四态计数 /
- * 近期 run 成功率(runs.list 历史行 + run.status 活跃叠加,C3)/ 错误与空态。
+ * SidecarRequestError 注入)。覆盖:状态句(D1 verdict 四态)+ 告警清单
+ * (D3 双口径触发)/ 概览条(D4 四格,口径 note 收 ⓘ 悬停 R3)/ 采集量趋势
+ * (Select 时间范围 + 自绘 sparkline,窗口切换重查)/ 源健康度卡网格(四态 +
+ * 异常优先 + 相对时间锚)/ 品类状态卡(含载入失败)/ 源健康度四态计数 /
+ * 最近采集成功率(runs.list 历史行 + run.status 活跃叠加,C3)/ 错误与空态。
  */
 import { cleanup, fireEvent, render, screen, waitFor, act } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -52,6 +53,7 @@ import { DashboardScreen } from "./dashboard-screen";
 import { Sparkline } from "./sparkline";
 import {
   buildOverviewStats,
+  buildVerdict,
   cumulativeOutcomeSummary,
   fillDailyCounts,
   fillDailyOutcomes,
@@ -60,7 +62,14 @@ import {
   successRateSeries,
   toSparklinePoints,
 } from "./api";
-import type { DashboardRun } from "./api";
+import type {
+  CategoryCardModel,
+  CategoryTone,
+  DashboardRun,
+  OverviewStats,
+  RunSuccessSummary,
+  SourceHealthCounts,
+} from "./api";
 
 // ---------------------------------------------------------------------------
 // 夹具(形状严格对齐 types.ts:DoctorResult / RunEntry)
@@ -193,6 +202,33 @@ beforeAll(() => {
   window.HTMLElement.prototype.scrollIntoView = () => {};
 });
 
+/**
+ * ⓘ 悬停后取 tooltip 文案(R3 口径注记收悬停;触发方式照 ui-base.test.tsx
+ * 基件自测先例:mouseEnter + 假时钟推进 300ms 开延迟,再查 role=tooltip;
+ * 读完即 mouseLeave 关闭并两次推进卸载——离场卸载定时器在关闭拍 flush 后
+ * 才排上,须再推进一拍;保证同用例多次悬停不残留多个 tooltip)。
+ */
+function hoverTooltip(trigger: HTMLElement): string {
+  vi.useFakeTimers();
+  try {
+    fireEvent.mouseEnter(trigger);
+    act(() => {
+      vi.advanceTimersByTime(300); // openDelay 300
+    });
+    const content = screen.getByRole("tooltip").textContent ?? "";
+    fireEvent.mouseLeave(trigger);
+    act(() => {
+      vi.advanceTimersByTime(300); // closeDelay 80 → state=closed
+    });
+    act(() => {
+      vi.advanceTimersByTime(300); // EXIT_UNMOUNT_MS 120 卸载(上一拍 flush 时才排上)
+    });
+    return content;
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 用例
 // ---------------------------------------------------------------------------
@@ -228,7 +264,8 @@ describe("DashboardScreen", () => {
     render(<DashboardScreen />);
 
     await screen.findByTestId("category-tech.yaml");
-    expect(screen.getByText("坏品类")).toBeTruthy();
+    // 「坏品类」现两处(品类卡 + 告警清单补位行),按卡断言不全局取
+    expect(screen.getByTestId("category-broken.yaml").textContent).toContain("坏品类");
     const healthy = screen.getByTestId("category-tech.yaml");
     expect(healthy.textContent).toContain("正常");
     const broken = screen.getByTestId("category-broken.yaml");
@@ -265,7 +302,7 @@ describe("DashboardScreen", () => {
     expect(screen.getByTestId("health-unknown").textContent).toContain("1");
   });
 
-  it("近期 run 成功率:8/10 成功 = 80%,活跃(run.status 叠加)不计入且单独标注", async () => {
+  it("最近采集成功率:8/10 成功 = 80%,活跃(run.status 叠加)不计入且单独标注", async () => {
     const history: RunRecord[] = [];
     for (let i = 0; i < 8; i += 1) history.push(fixtureHistoryRun({}));
     history.push(fixtureHistoryRun({ status: "partial" }));
@@ -351,8 +388,246 @@ describe("DashboardScreen", () => {
     render(<DashboardScreen />);
 
     await screen.findByText("暂无品类");
-    expect(screen.getByText(/还没有 run 记录/)).toBeTruthy();
+    expect(screen.getByText(/还没有采集记录/)).toBeTruthy();
     expect(screen.getByTestId("run-success-rate").textContent).toBe("—");
+  });
+
+  // -------------------------------------------------------------------------
+  // 10-05-dashboard-glance:D1 状态句(verdict)+ D3 告警清单 + dry→试跑
+  // -------------------------------------------------------------------------
+
+  it("verdict ok 态:屏首一行「一切正常 · 今日采集 X 条 · M/K 源在线」,ok 态纯文本", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [
+            fixturePlugin({
+              sources: [fixtureSource("a", "ok"), fixtureSource("b", "ok"), fixtureSource("c", "ok")],
+            }),
+          ],
+          findings: [],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 128 }] });
+    render(<DashboardScreen />);
+
+    const verdict = await screen.findByTestId("dashboard-verdict");
+    expect(verdict.textContent).toContain("一切正常");
+    expect(verdict.textContent).toContain("今日采集 128 条");
+    expect(verdict.textContent).toContain("3/3 源在线");
+    expect(verdict.getAttribute("role")).toBe("status");
+    expect(verdict.getAttribute("aria-label")).toContain("一切正常 · 今日采集 128 条");
+    expect(verdict.tagName).toBe("DIV"); // ok 态纯文本,非链接
+    // 屏首块:先于概览 section(无头范式首块)
+    expect(
+      verdict.compareDocumentPosition(screen.getByTestId("dashboard-overview")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("verdict dead 态:dead 源升「N 个源失效」,整行可点跳源管理", async () => {
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [
+            fixturePlugin({
+              sources: [fixtureSource("a", "ok"), fixtureSource("b", "ok"), fixtureSource("deadone", "dead")],
+            }),
+          ],
+          findings: [],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    const verdict = await screen.findByTestId("dashboard-verdict");
+    expect(verdict.textContent).toContain("1 个源失效");
+    expect(verdict.textContent).toContain("2/3 源在线");
+    expect(verdict.tagName).toBe("A");
+    expect(verdict.getAttribute("href")).toBe("#/sources");
+  });
+
+  it("verdict warning 态:告警/退化拼段缺段省略,facts 随概览窗切 7 天换窗文案(grill Q1)", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok"), fixtureSource("b", "degraded")] })],
+          findings: [
+            { severity: "warning", scope: "plugin:tech.yaml", code: "env_ref_missing", message: "缺环境变量" },
+          ],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 4 }] });
+    render(<DashboardScreen />);
+
+    const verdict = await screen.findByTestId("dashboard-verdict");
+    expect(verdict.textContent).toContain("1 项告警 · 1 个源退化");
+    expect(verdict.getAttribute("href")).toBe("#/sources");
+
+    // 概览窗切 7 天 → facts 采集段换「近 7 天采集 …」(与四格同窗同数)
+    storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 9 }] });
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("option", { name: "7 天" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("dashboard-verdict").textContent).toContain("近 7 天采集 9 条"),
+    );
+    expect(screen.getByTestId("dashboard-verdict").textContent).not.toContain("今日采集");
+  });
+
+  it("verdict unknown 态:doctor 分区失败 → 「部分数据不可达,状态未知 · 其余分区已降级显示」", async () => {
+    mockSidecar(
+      Promise.reject(
+        new SidecarRequestError({ code: "internal_error", path: "$", message: "Traceback …" }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    const verdict = await screen.findByTestId("dashboard-verdict");
+    expect(verdict.textContent).toContain("部分数据不可达,状态未知");
+    expect(verdict.textContent).toContain("其余分区已降级显示");
+    expect(verdict.textContent).not.toContain("源在线"); // doctor 挂 → 缺数省略,不虚构
+    expect(verdict.tagName).toBe("DIV"); // unknown 态纯文本
+  });
+
+  it("verdict 不抢跑:数据整体未到(加载态/整屏错误)不渲染,零双报", () => {
+    const never = <T,>() => new Promise<T>(() => {});
+    mockSidecar(never<DoctorResult>(), never<{ runs: RunRecord[] }>());
+    render(<DashboardScreen />);
+
+    expect(screen.queryByTestId("dashboard-verdict")).toBeNull();
+  });
+
+  it("告警清单(仅坏源口径):坏源行优先前三条可点跳源管理,溢出口如实计", async () => {
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [
+            fixturePlugin({
+              sources: [
+                fixtureSource("a", "ok"),
+                fixtureSource("deadone", "dead"),
+                fixtureSource("degradedone", "degraded"),
+                fixtureSource("unknownone", "unknown"),
+                fixtureSource("deadtwo", "dead"),
+              ],
+            }),
+          ],
+          findings: [],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    const list = await screen.findByTestId("dashboard-alert-list");
+    const rows = screen.getAllByTestId(/^alert-row-/);
+    expect(rows).toHaveLength(3); // grill Q4:三条封顶
+    for (const row of rows) expect(row.getAttribute("href")).toBe("#/sources");
+    // 异常优先排序:dead 两行居前(buildSourceHealthCards dead→degraded→unknown)
+    expect(rows[0].textContent).toContain("失效");
+    expect(rows[1].textContent).toContain("失效");
+    expect(rows[2].textContent).toContain("退化");
+    // 行内容:状态点+词 / 源名 / 品类名 / reason 原文直用 / 相对时间右置
+    expect(rows[0].textContent).toContain("deadone");
+    expect(rows[0].textContent).toContain("科技资讯");
+    expect(rows[0].textContent).toContain("连续无产出"); // reason 原文直用,零映射
+    expect(rows[0].textContent).toContain("—"); // 「品类名 — reason」分隔形态
+    // 溢出口:4 坏源 − 3 行 = 1(如实计)
+    const overflow = screen.getByTestId("dashboard-alert-overflow");
+    expect(overflow.textContent).toContain("还有 1 个异常 · 查看全部 →");
+    expect(overflow.getAttribute("href")).toBe("#/sources");
+    expect(list).toBeTruthy();
+  });
+
+  it("告警清单(仅 findings 口径,零坏源):品类级 finding 补位行(品类名+message 原文)", async () => {
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          findings: [
+            { severity: "error", scope: "plugin:tech.yaml", code: "credentials", message: "缺凭据" },
+          ],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    const rows = await screen.findAllByTestId(/^alert-row-/);
+    expect(screen.getByTestId("dashboard-alert-list")).toBeTruthy();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].textContent).toContain("异常"); // error → 异常词(不只靠色)
+    expect(rows[0].textContent).toContain("科技资讯"); // 品类名
+    expect(rows[0].textContent).toContain("缺凭据"); // finding.message 原文
+    expect(rows[0].getAttribute("title")).toBe("缺凭据"); // title=全文
+    expect(screen.queryByTestId("dashboard-alert-overflow")).toBeNull(); // 无溢出
+  });
+
+  it("告警清单补位:坏源不足 3 行时品类级 findings 补满(坏源行优先,source 级 finding 不入清单)", async () => {
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [fixturePlugin({ sources: [fixtureSource("deadone", "dead"), fixtureSource("a", "ok")] })],
+          findings: [
+            { severity: "error", scope: "plugin:tech.yaml", code: "credentials", message: "缺凭据" },
+            { severity: "warning", scope: "plugin:tech.yaml/source:a", code: "env_ref_missing", message: "缺环境变量" },
+          ],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    const rows = await screen.findAllByTestId(/^alert-row-/);
+    expect(rows).toHaveLength(2); // 1 坏源行 + 1 品类级补位行
+    expect(rows[0].textContent).toContain("deadone"); // 坏源行优先
+    expect(rows[0].getAttribute("href")).toBe("#/sources");
+    expect(rows[1].textContent).toContain("科技资讯");
+    expect(rows[1].textContent).toContain("异常");
+    expect(rows[1].textContent).toContain("缺凭据");
+    expect(screen.queryByTestId("dashboard-alert-overflow")).toBeNull();
+  });
+
+  it("告警清单零占位:告警与坏源皆零时不渲染", async () => {
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          findings: [],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    await screen.findByTestId("category-tech.yaml");
+    expect(screen.queryByTestId("dashboard-alert-list")).toBeNull();
+  });
+
+  it("试跑徽标:dry 活跃行标「试跑」,title 留 dry run 技术注(dry→试跑,10-05-dashboard-glance)", async () => {
+    mockSidecar(
+      Promise.resolve(fixtureDoctor()),
+      Promise.resolve({ runs: [] }), // 无表行 → 注册表活跃 dry run 前插合成行
+      Promise.resolve({ runs: [fixtureRegistryRun({ dry: true })] }),
+    );
+    render(<DashboardScreen />);
+
+    const row = await screen.findByTestId("recent-run-9000");
+    expect(row.textContent).toContain("试跑");
+    const badge = row.querySelector('[data-slot="badge"]');
+    expect(badge?.getAttribute("title")).toBe("dry run(不落库)");
   });
 
   it("刷新数据钮:嵌概览卡头(不占独立行),点击重拉 doctor/run.status/趋势,loading 期自转", async () => {
@@ -446,8 +721,21 @@ describe("DashboardScreen", () => {
     await screen.findByTestId("category-tech.yaml");
     await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("5"));
     expect(screen.getByText("今日采集")).toBeTruthy(); // 默认今日档,口径不动
-    expect(screen.getByTestId("stat-active-sources").textContent).toContain("2"); // ok+degraded
-    expect(screen.getByTestId("stat-active-sources").textContent).toContain("共 4 源");
+    // R4 数字带分母:活跃源 2/4(ok+degraded / 总数;tnum 全局已开)
+    expect(screen.getByTestId("stat-active-sources").textContent).toContain("2/4");
+    // R3 口径注记收 ⓘ 悬停:扫读面无口径明文,悬停后可查
+    expect(screen.getByTestId("stat-active-sources").textContent).not.toContain("共 4 源");
+    expect(hoverTooltip(screen.getByRole("button", { name: "活跃源说明" }))).toContain(
+      "共 4 源 · ok+degraded",
+    );
+    expect(screen.getByTestId("stat-window-items").textContent).not.toContain("UTC 日口径");
+    expect(hoverTooltip(screen.getByRole("button", { name: "今日采集说明" }))).toContain(
+      "UTC 日口径 · items 入库",
+    );
+    // hover note 人话化(D9):「各轮采集的推送成功数 · 受最近 20 轮上限(runs.list)」
+    expect(hoverTooltip(screen.getByRole("button", { name: "推送成功说明" }))).toContain(
+      "受最近 20 轮上限(runs.list)",
+    );
     expect(screen.getByTestId("stat-window-push").textContent).toContain("2"); // 2 次 ok 推送
     expect(screen.getByTestId("stat-alerts").textContent).toContain("2"); // error+warning 各一
     expect(screen.getByTestId("dashboard-overview")).toBeTruthy();
@@ -521,11 +809,17 @@ describe("DashboardScreen", () => {
     expect(screen.getByText("近 7 天采集")).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId("stat-window-push").textContent).toContain("2"));
 
-    // 两格快照:活跃源(ok 2 + degraded 1 → 活跃 3)、告警(findings 1)不随窗,note 注记口径
-    expect(screen.getByTestId("stat-active-sources").textContent).toContain("3");
-    expect(screen.getByTestId("stat-active-sources").textContent).toContain("即时快照不随窗");
+    // 两格快照:活跃源(ok 2 + degraded 1 → 活跃 3/3)、告警(findings 1)不随窗;
+    // 「即时快照不随窗」口径注记收 ⓘ 悬停(R3),textContent 不再明文
+    expect(screen.getByTestId("stat-active-sources").textContent).toContain("3/3");
+    expect(screen.getByTestId("stat-active-sources").textContent).not.toContain("即时快照不随窗");
+    expect(hoverTooltip(screen.getByRole("button", { name: "活跃源说明" }))).toContain(
+      "即时快照不随窗",
+    );
     expect(screen.getByTestId("stat-alerts").textContent).toContain("1");
-    expect(screen.getByTestId("stat-alerts").textContent).toContain("即时快照不随窗");
+    expect(hoverTooltip(screen.getByRole("button", { name: "告警说明" }))).toContain(
+      "即时快照不随窗",
+    );
   });
 
   it("趋势(D4/D5):sparkline 画补零等长窗口(默认 14 点),Select 切 7 天重查 store.trend", async () => {
@@ -567,7 +861,7 @@ describe("DashboardScreen", () => {
     expect(screen.getByTestId("category-tech.yaml")).toBeTruthy();
   });
 
-  it("源健康度卡网格(D4):四态卡 + 坏者(dead)排前 + 观测时间锚回 runs.list + 无观测显 —", async () => {
+  it("源健康度卡网格(D4):四态卡 + 异常源(dead)排前 + 观测时间锚回 runs.list + 无观测显 —", async () => {
     // 90 分钟前启动的 run(留 ~30 分钟余量,相对时间稳定落「1 小时前」)
     const observedRunStarted = new Date(Date.now() - 90 * 60_000).toISOString();
     const observedRun = fixtureHistoryRun({
@@ -599,7 +893,7 @@ describe("DashboardScreen", () => {
     expect(okCard.textContent).toContain("最近 5 条");
     expect(screen.getByTestId("source-health-grid")).toBeTruthy();
 
-    // 坏者优先:dead 卡排在 ok 卡之前(buildSourceHealthCards 状态序)
+    // 异常优先:dead 卡排在 ok 卡之前(buildSourceHealthCards 状态序)
     const deadCard = screen.getByTestId("source-card-tech.yaml#deadone");
     expect(deadCard.textContent).toContain("失效");
     expect(deadCard.compareDocumentPosition(okCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -686,7 +980,7 @@ describe("DashboardScreen", () => {
     // 摘要 = 累计口径(非均值):finished 15(10+5)、success 10 → 67%
     const summary = screen.getByTestId("rate-summary");
     expect(summary.textContent).toContain("近 14 天累计成功率 67%(10/15 次成功)");
-    expect(rate.getAttribute("aria-label")).toContain("无完结 run 的日子不入线");
+    expect(rate.getAttribute("aria-label")).toContain("无完结采集的日子不入线");
     expect(runsTrendMock).toHaveBeenCalledWith({ days: 14 }); // 与采集量同默认窗口
   });
 
@@ -748,7 +1042,7 @@ describe("DashboardScreen", () => {
     render(<DashboardScreen />);
 
     const empty = await screen.findByTestId("dashboard-rate-empty");
-    expect(empty.textContent).toContain("无已完结 run");
+    expect(empty.textContent).toContain("无已完结采集");
     expect(screen.queryByTestId("dashboard-rate-sparkline")).toBeNull(); // 不虚构 0%/100%
     expect(screen.queryByTestId("dashboard-rate-error")).toBeNull();
   });
@@ -919,6 +1213,166 @@ describe("buildOverviewStats 窗口语义(A-dash 纯函数;两格随窗两格快
     expect(overviewTrendDays("today")).toBe(1);
     expect(overviewTrendDays(7)).toBe(7);
     expect(overviewTrendDays(30)).toBe(30);
+  });
+});
+
+describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
+  const stats = (over: Partial<OverviewStats> = {}): OverviewStats => ({
+    window: "today",
+    windowItems: 128,
+    activeSources: 12,
+    totalSources: 14,
+    windowPushOk: 3,
+    alerts: 0,
+    ...over,
+  });
+  const health = (over: Partial<SourceHealthCounts> = {}): SourceHealthCounts => ({
+    ok: 12,
+    degraded: 0,
+    dead: 0,
+    unknown: 2,
+    ...over,
+  });
+  const category = (tone: CategoryTone): CategoryCardModel => ({
+    file: "tech.yaml",
+    name: "科技资讯",
+    loaded: true,
+    schedule: "0 9 * * *",
+    nextFireAt: null,
+    sourceCount: 3,
+    errorCount: 0,
+    warningCount: 0,
+    tone,
+  });
+  const runs = (running = 0): RunSuccessSummary => ({
+    total: 10,
+    running,
+    finished: 10 - running,
+    success: 8,
+    successRate: 0.8,
+    recent: [],
+  });
+
+  it("ok 静态:「一切正常」+ 采集/源在线/推送 三段 facts", () => {
+    expect(
+      buildVerdict({
+        overview: stats(),
+        health: health(),
+        categories: [category("ok")],
+        runSummary: runs(),
+        doctorFailed: false,
+      }),
+    ).toEqual({
+      tone: "ok",
+      headline: "一切正常",
+      facts: ["今日采集 128 条", "12/14 源在线", "推送成功 3"],
+    });
+  });
+
+  it("ok+运行:running>0 才拼「N 个采集中」(grill Q2:动态进 facts 不占 headline)", () => {
+    const verdict = buildVerdict({
+      overview: stats(),
+      health: health(),
+      categories: [category("ok")],
+      runSummary: runs(2),
+      doctorFailed: false,
+    });
+    expect(verdict?.headline).toBe("一切正常");
+    expect(verdict?.facts).toEqual(["今日采集 128 条", "12/14 源在线", "推送成功 3", "2 个采集中"]);
+  });
+
+  it("warning:alerts/degraded 拼段、缺段省略;仅品类 dead tone 触发时兜底「N 品类异常」", () => {
+    expect(
+      buildVerdict({
+        overview: stats({ alerts: 3 }),
+        health: health({ degraded: 2 }),
+        categories: [category("warning")],
+        runSummary: runs(),
+        doctorFailed: false,
+      })?.headline,
+    ).toBe("3 项告警 · 2 个源退化");
+    expect(
+      buildVerdict({
+        overview: stats(),
+        health: health({ degraded: 1 }),
+        categories: [category("ok")],
+        runSummary: runs(),
+        doctorFailed: false,
+      })?.headline,
+    ).toBe("1 个源退化");
+    expect(
+      buildVerdict({
+        overview: stats(),
+        health: health(),
+        categories: [category("dead"), category("dead")],
+        runSummary: runs(),
+        doctorFailed: false,
+      })?.headline,
+    ).toBe("2 品类异常");
+  });
+
+  it("dead:dead>0 最坏优先(压过告警/退化)", () => {
+    expect(
+      buildVerdict({
+        overview: stats({ alerts: 3 }),
+        health: health({ dead: 2, degraded: 1 }),
+        categories: [],
+        runSummary: runs(),
+        doctorFailed: false,
+      })?.headline,
+    ).toBe("2 个源失效");
+  });
+
+  it("unknown:doctorFailed 最坏优先;health 缺 → 源在线缺数省略,首段「其余分区已降级显示」", () => {
+    const verdict = buildVerdict({
+      overview: stats({ activeSources: null, totalSources: null, alerts: null }),
+      health: null,
+      categories: [],
+      runSummary: runs(),
+      doctorFailed: true,
+    });
+    expect(verdict?.tone).toBe("unknown");
+    expect(verdict?.headline).toBe("部分数据不可达,状态未知");
+    expect(verdict?.facts).toEqual(["其余分区已降级显示", "今日采集 128 条", "推送成功 3"]);
+  });
+
+  it("null 分支:overview/runSummary 任一 null(整屏错误/加载态)不渲染", () => {
+    expect(
+      buildVerdict({ overview: null, health: null, categories: [], runSummary: null, doctorFailed: true }),
+    ).toBeNull();
+    expect(
+      buildVerdict({ overview: null, health: health(), categories: [], runSummary: runs(), doctorFailed: false }),
+    ).toBeNull();
+  });
+
+  it("facts 随概览窗(grill Q1):7 天档换「近 7 天采集」;缺数逐项省略不显 0(grill Q3)", () => {
+    const windowed = buildVerdict({
+      overview: stats({ window: 7, windowItems: 900 }),
+      health: health(),
+      categories: [category("ok")],
+      runSummary: runs(),
+      doctorFailed: false,
+    });
+    expect(windowed?.facts[0]).toBe("近 7 天采集 900 条");
+    const missing = buildVerdict({
+      overview: stats({ windowItems: null, activeSources: null, totalSources: null, windowPushOk: null }),
+      health: health(),
+      categories: [category("ok")],
+      runSummary: runs(),
+      doctorFailed: false,
+    });
+    expect(missing?.facts).toEqual([]); // 趋势不可达/无 run → 逐项省略,不虚构 0
+  });
+
+  it("零源配置:totalSources=0 省略源在线段(0/0 不是健康度事实)", () => {
+    const verdict = buildVerdict({
+      overview: stats({ activeSources: 0, totalSources: 0 }),
+      health: health({ ok: 0, unknown: 0 }),
+      categories: [],
+      runSummary: runs(),
+      doctorFailed: false,
+    });
+    expect(verdict?.facts).toEqual(["今日采集 128 条", "推送成功 3"]);
   });
 });
 

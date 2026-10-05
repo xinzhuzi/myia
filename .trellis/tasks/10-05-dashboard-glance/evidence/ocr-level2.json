@@ -1,0 +1,23 @@
+{
+  "overlap_checks": {
+    "01-verdict-ok.png": "无重叠无裁切无溢出",
+    "02-verdict-dead.png": "无重叠无裁切无溢出",
+    "03-overview-four-cells.png": "无重叠无裁切无溢出",
+    "04-overview-tooltip.png": "无重叠无裁切无溢出",
+    "05-alert-list-dead.png": "无重叠无裁切无溢出",
+    "06-category-note-dead.png": "无重叠无裁切无溢出",
+    "07-success-rate-card-ok.png": "无重叠无裁切无溢出",
+    "08-fullpage-ok.png": "无重叠无裁切无溢出",
+    "09-fullpage-dead.png": "无重叠无裁切无溢出"
+  },
+  "proofreads": {
+    "01-verdict-ok.png": {
+      "draft": "• 一切正常 今日采集128条•5/5 源在线•推送成功5",
+      "corrected": "• 一切正常 今日采集 128 条 · 5/5 源在线 · 推送成功 5"
+    },
+    "02-verdict-dead.png": {
+      "draft": "• 2个源失效 今日采集36条•3/6源在线•推送成功3",
+      "corrected": "• 2个源失效 今日采集36条·3/6源在线·推送成功3"
+    }
+  }
+}
