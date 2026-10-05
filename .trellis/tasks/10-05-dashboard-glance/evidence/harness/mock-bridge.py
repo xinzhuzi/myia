@@ -3,7 +3,10 @@
 不 spawn 真 sidecar——POST /rpc 按当前场景回夹具(形状严格仿
 desktop/ui-src/src/screens/dashboard/dashboard-screen.test.tsx 的 fixture* 家族;
 日期用 UTC 今天动态生成,verdict「今日采集」永远落窗)。场景切换:
-GET /scenario?set=ok|dead(驱动脚本在两态截屏之间切换,页面重载即生效)。
+GET /scenario?set=ok|dead|cred|doctorfail(驱动脚本在两态截屏之间切换,页面重载即生效)。
+补批 11- 新增:cred = 源全 ok + 仅 scope=credentials 的 error/warning findings
+(告警清单「凭据」行型);doctorfail = doctor 方法回 error(分区降级 + verdict
+unknown 态)。
 
 应答形与 .zcode/smoke/bridge.mjs 对页面 shim 的契约一致:
 {"result": ...} 或 {"error": {code, path, message}}。
@@ -164,6 +167,21 @@ def doctor_dead():
     }
 
 
+def doctor_cred():
+    """credentials-only finding 态(补批 11-):源全 ok + doctor.findings 只含
+    scope=credentials 的 error+warning(形状仿 dashboard-screen.test.tsx:653/719
+    补批三/复审夹具)。覆盖:告警清单第三行型「凭据」(findingScopeLabel 人话
+    映射)、告警格 2、verdict 升 warning「2 项告警」(可点 A)。"""
+    doctor = doctor_ok()
+    doctor["healthy"] = False
+    doctor["findings"] = [
+        {"severity": "error", "scope": "credentials", "code": "missing", "message": "缺少 TG_TOKEN 凭据"},
+        {"severity": "warning", "scope": "credentials", "code": "expiring", "message": "mail 凭据 30 天内到期"},
+    ]
+    doctor["summary"] = {"plugins": 2, "sources": 5, "errors": 1, "warnings": 1}
+    return doctor
+
+
 def history_runs(success, partial, failed, push_ok_today, base_run_id):
     """runs.list 历史行(新→旧,全部落今日 UTC;success 行带 push 数组喂推送格)。"""
     plan = [("success",)] * success + [("partial",)] * partial + [("failed",)] * failed
@@ -250,9 +268,27 @@ def feedback_stats():
 SCENARIOS = {}
 
 
+class MethodError(Exception):
+    """场景级方法失败(doctorfail 用):do_POST 捕获后回 {"error": ...} 应答。"""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
 def build_scenario(name):
     if name == "ok":
         doctor = doctor_ok()
+        runs = history_runs(success=8, partial=1, failed=1, push_ok_today=3, base_run_id=1001)
+        today_count = 128
+    elif name == "cred":
+        doctor = doctor_cred()
+        runs = history_runs(success=8, partial=1, failed=1, push_ok_today=3, base_run_id=1001)
+        today_count = 128
+    elif name == "doctorfail":
+        # doctor 分区失败 → 整屏降级卡 + verdict unknown「部分数据不可达」(补批 11-)
+        doctor = MethodError("internal_error", "mock: doctor 分区故意失败(补批 11 场景)")
         runs = history_runs(success=8, partial=1, failed=1, push_ok_today=3, base_run_id=1001)
         today_count = 128
     else:
@@ -263,6 +299,8 @@ def build_scenario(name):
     def handler(method, params):
         params = params or {}
         if method == "doctor":
+            if isinstance(doctor, MethodError):
+                raise doctor
             return doctor
         if method == "runs.list":
             limit = params.get("limit", 20)
@@ -284,6 +322,8 @@ def build_scenario(name):
 
 SCENARIOS["ok"] = build_scenario("ok")
 SCENARIOS["dead"] = build_scenario("dead")
+SCENARIOS["cred"] = build_scenario("cred")
+SCENARIOS["doctorfail"] = build_scenario("doctorfail")
 current = {"name": "ok"}
 
 
@@ -333,7 +373,14 @@ class Handler(BaseHTTPRequestHandler):
         method = payload.get("method")
         params = payload.get("params") or {}
         sys.stderr.write(f"[mock-bridge] rpc {method} params={json.dumps(params, ensure_ascii=False)}\n")
-        result = SCENARIOS[current["name"]](method, params)
+        try:
+            result = SCENARIOS[current["name"]](method, params)
+        except MethodError as exc:
+            self._json(
+                200,
+                {"error": {"code": exc.code, "path": "$", "message": exc.message}},
+            )
+            return
         if result is None:
             self._json(200, {"error": {"code": "method_not_found", "path": "$", "message": f"mock 未实现方法 {method}"}})
             return

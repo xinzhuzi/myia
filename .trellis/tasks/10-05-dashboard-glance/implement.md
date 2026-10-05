@@ -60,3 +60,24 @@
 ## 回滚点
 
 - 单提交制;`git revert` 即回滚;无协议/数据迁移,不动共享层。
+
+## 补批步骤(2026-10-05 夜,主人令「剩下的问题全部做完」)
+
+边界两项翻案 + review 在途件收编,五件处置明细与证据见 prd「补批」段。
+
+- [x] S9 补批一~五实现+测试(key 去重/明文断言/凭据行型/统一时间窗联动
+  合一/折叠正常源)——同窗并行补批会话落树,随 f795033 收编提交(与
+  review 三条 low 收口同笔;共享工作树同路径无法拆分)。
+- [x] S10 残留缝复审修(补批三半边):告警三面(格/清单/verdict)同源只计
+  error+warning——api.ts:510 alerts 过滤+dashboard-screen.tsx:450 品类行
+  info 同滤(全局行原有滤)+ 双护栏用例 dashboard-screen.test.tsx:677/713
+  (仅 info 默认装机态/混合计数);随本笔提交。
+- [x] S11 补批冒烟取证(补批会话跑,收口员核对回执件):mock-bridge.py 增
+  cred/doctorfail 场景+shim.js params 入痕;evidence/ 11~18 帧+11-probe.json
+  +两级 OCR(11-ocr-level1/level2)+harness/(shoot11.py/vl_check11.py+
+  vl_check11.exit=0);shots=8 failures=0,全帧零重叠零溢出。
+- [x] S12 记档+门禁复核+单笔收口:prd「补批」段五件勾选+复审/冒烟结论+
+  11- 证据一行说明+边界翻案去向注记;implement 本段;收口员亲跑
+  `npx vitest run src/screens/dashboard` 61/61+`npm run build`(tsc -b)
+  ✓;单笔提交(dashboard 三代码件+本档目录),不 push 不 archive,
+  装机包换装归主会话。

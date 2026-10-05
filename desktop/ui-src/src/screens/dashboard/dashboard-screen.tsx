@@ -417,11 +417,13 @@ function findingScopeLabel(scope: string): string {
  * 告警清单行装配(D3 + 补批一/三):坏源行优先(sourceCards 已按坏者优先
  * 排序);品类级 findings(scope 恰为 `plugin:<file>`,非 `/source:` 后缀)
  * 补位;全局 findings(非 plugin:* scope,如 credentials/store)也进行——
- * 告警格计数吃 findings 全量,清单漏全局行会出现「格>0 清单空」的两面不齐。
- * 触发 = 告警(findings)>0 或坏源(state≠ok)>0——两数据面不重合(findings
- * 可只打品类级、退化可无 finding),双向都要兜;行数不足时多类拼合计。
- * key 带序号去重:同品类/同 scope 可载入多条同 code finding(补批一),
- * 仅 file+code 会撞 React key。
+ * 清单漏全局行会出现「格>0 清单空」的两面不齐。行口径 = error+warning
+ * (复审必改:与告警格计数/verdict 升态三面同源;info 级 = cli 明示的
+ * 正常态注记,gate_disabled/analysis_lane_disabled/third_party_trace 等
+ * 默认装机即有,不入告警也不进行)。触发 = 告警(error+warning)>0 或
+ * 坏源(state≠ok)>0——两数据面不重合(findings 可只打品类级、退化可无
+ * finding),双向都要兜;行数不足时多类拼合计。key 带序号去重:同品类/
+ * 同 scope 可载入多条同 code finding(补批一),仅 file+code 会撞 React key。
  */
 function buildAlertRows(
   sourceCards: SourceHealthCardModel[],
@@ -445,6 +447,7 @@ function buildAlertRows(
     let seq = 0; // 同品类同 code 可多条:序号保 key 唯一
     for (const finding of findings) {
       if (finding.scope !== `plugin:${category.file}`) continue;
+      if (finding.severity !== "error" && finding.severity !== "warning") continue; // info 不入清单
       seq += 1;
       rows.push({
         key: `category-${category.file}-${finding.code}-${seq}`,

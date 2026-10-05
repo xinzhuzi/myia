@@ -455,7 +455,10 @@ export interface OverviewStats {
   totalSources: number | null;
   /** 推送格:窗口内(UTC)启动 run 的 stats.push[].ok=true 计数;窗口内无 run = null(不虚构 0) */
   windowPushOk: number | null;
-  /** 告警:doctor findings 总数(error + warning 两级都在内);doctor 分区失败 = null(点快照,不随窗) */
+  /** 告警:doctor findings 的 error+warning 计数(info 级不入告警——cli 实况
+   *  gate_disabled/analysis_lane_disabled/third_party_trace 等 info 明写「正常态,
+   *  不是故障」且默认装机即有,计入会把正常态播报成告警;doctor 分区失败 =
+   *  null(点快照,不随窗)) */
   alerts: number | null;
 }
 
@@ -502,7 +505,14 @@ export function buildOverviewStats(
     activeSources: health ? health.ok + health.degraded : null,
     totalSources: health ? health.ok + health.degraded + health.dead + health.unknown : null,
     windowPushOk: windowRuns.length > 0 ? windowRuns.reduce((sum, run) => sum + countPushOk(run), 0) : null,
-    alerts: doctor !== null ? doctor.findings.length : null,
+    // 告警只计 error+warning(info 级 = cli 明示的正常态注记,默认装机即有,
+    // 不入告警——与 AlertList 行口径/verdict 升态三面同源,不留「格>0 清单空」缝)
+    alerts:
+      doctor !== null
+        ? doctor.findings.filter(
+            (finding) => finding.severity === "error" || finding.severity === "warning",
+          ).length
+        : null,
   };
 }
 

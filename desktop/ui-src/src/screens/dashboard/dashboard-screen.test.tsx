@@ -17,6 +17,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { SidecarRequestError } from "@/lib/api";
 import type {
   DoctorResult,
+  Finding,
   RunEntry,
   RunOutcomeDay,
   RunRecord,
@@ -671,6 +672,66 @@ describe("DashboardScreen", () => {
     expect(rows[1].textContent).toContain("提醒"); // warning → 提醒词
     expect(rows[1].textContent).toContain("数据库版本偏低");
     expect(screen.queryByTestId("dashboard-alert-overflow")).toBeNull();
+  });
+
+  it("告警口径三面同源(复审必改):info 级 findings 不入告警——仅 info 的默认装机态格=0/清单空/verdict 不升态", async () => {
+    // cli 实况三处 severity="info"(src/myssia/cli.py third_party_trace scope=gates、
+    // gate_disabled / analysis_lane_disabled scope=plugin:<id>),后两者 message
+    // 明写「正常态,不是故障」;gates 未配置 = 关(gates.py gate_open)→ 默认装机
+    // 即有 info findings。types.ts Finding.severity 声明漏 info 档(后端会发),
+    // 夹具模拟真实输出须窄断言;契约修正归共享层批次(红线:不动 @/lib/api)。
+    const info = (scope: string, code: string): Finding => ({
+      severity: "info" as Finding["severity"],
+      scope,
+      code,
+      message: "未启用 —— 正常态,不是故障",
+    });
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          findings: [
+            info("gates", "third_party_trace"),
+            info("plugin:yake", "gate_disabled"),
+            info("plugin:yake", "analysis_lane_disabled"),
+          ],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    await screen.findByTestId("category-tech.yaml");
+    // 修复前:格吃全量 = 3、verdict 升 warning「3 项告警」而清单空(格>0 清单空)
+    await waitFor(() => expect(screen.getByTestId("stat-alerts").textContent).toContain("0"));
+    expect(screen.queryByTestId("dashboard-alert-list")).toBeNull();
+    const verdict = screen.getByTestId("dashboard-verdict");
+    expect(verdict.textContent).toContain("一切正常"); // info = 正常态注记,不升告警态
+    expect(verdict.textContent).not.toContain("项告警");
+  });
+
+  it("告警口径混合计数(复审必改):info+warning 同屏 → 格与清单只吃 error/warning,info 行不进清单", async () => {
+    mockSidecar(
+      Promise.resolve(
+        fixtureDoctor({
+          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          findings: [
+            { severity: "warning" as const, scope: "credentials", code: "missing", message: "缺凭据" },
+            { severity: "info" as Finding["severity"], scope: "store", code: "hint", message: "知情提示,不是故障" },
+            { severity: "info" as Finding["severity"], scope: "plugin:tech.yaml", code: "gate_disabled", message: "未启用 —— 正常态" },
+          ],
+        }),
+      ),
+      Promise.resolve({ runs: [] }),
+    );
+    render(<DashboardScreen />);
+
+    const rows = await screen.findAllByTestId(/^alert-row-/);
+    expect(rows).toHaveLength(1); // 仅 credentials warning 行;info(全局+品类级)都不进
+    expect(rows[0].textContent).toContain("凭据");
+    expect(rows[0].textContent).not.toContain("知情提示");
+    expect(screen.getByTestId("stat-alerts").textContent).toContain("1"); // 2 info 不计数
+    expect(screen.getByTestId("dashboard-verdict").textContent).toContain("1 项告警");
   });
 
   it("错误不藏 hover(补批二):趋势拉取失败 → 采集格 alert note 明文在屏,meta 型 note 不落明文(仍走 ⓘ 悬停)", async () => {

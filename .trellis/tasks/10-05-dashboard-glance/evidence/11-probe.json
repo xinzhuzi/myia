@@ -1,0 +1,320 @@
+{
+  "results": [
+    {
+      "shot": "11-unified-window-7d-ok.png",
+      "bytes": 132184,
+      "clip": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 717
+      },
+      "header": "近 7 天概览(UTC)",
+      "trigger": "7 天",
+      "statWindowItems": "近 7 天采集\n\n164",
+      "axis": [
+        "2026-09-29",
+        "峰值 128 条/日",
+        "2026-10-05"
+      ],
+      "trendTotal": "近 7 天共 164 条 · 峰值 128 条/日",
+      "rateSummary": "近 7 天累计成功率 84%(38/45 次成功)",
+      "dots": {
+        "dashboard-sparkline": {
+          "count": 7,
+          "styles": [
+            "left: 1.15385%; top: 87.5977%;",
+            "left: 17.4359%; top: 90.332%;",
+            "left: 33.7179%; top: 85.5469%;",
+            "left: 50%; top: 93.75%;",
+            "left: 66.2821%; top: 88.9648%;",
+            "left: 82.5641%; top: 91.6992%;",
+            "left: 98.8462%; top: 6.25%;"
+          ]
+        },
+        "dashboard-rate-sparkline": {
+          "count": 5,
+          "styles": [
+            "left: 1.15385%; top: 6.25%;",
+            "left: 25.5769%; top: 43.75%;",
+            "left: 50%; top: 15%;",
+            "left: 74.4231%; top: 28.125%;",
+            "left: 98.8462%; top: 15%;"
+          ]
+        }
+      },
+      "trendDaysCalls": {
+        "store.trend": [
+          1,
+          1,
+          7
+        ],
+        "runs.trend": [
+          1,
+          1,
+          7
+        ]
+      },
+      "selects": [
+        "概览时间范围"
+      ],
+      "trendCardSelects": 0,
+      "probe": {
+        "target": "trend-7d",
+        "selector": "section[aria-label=\"采集量趋势\"]",
+        "textLeaves": 20,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      },
+      "probeOverview": {
+        "target": "overview-7d",
+        "selector": "[data-testid=\"dashboard-overview\"]",
+        "textLeaves": 10,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "12-unified-window-today-ok.png",
+      "bytes": 124462,
+      "clip": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 717
+      },
+      "header": "今日概览(UTC)",
+      "trigger": "今日(UTC)",
+      "axis": [
+        "2026-10-05",
+        "峰值 128 条/日",
+        "2026-10-05"
+      ],
+      "trendTotal": "今日共 128 条 · 峰值 128 条/日",
+      "rateSummary": "今日累计成功率 90%(9/10 次成功)",
+      "dots": {
+        "dashboard-sparkline": {
+          "count": 1,
+          "styles": [
+            "left: 50%; top: 6.25%;"
+          ]
+        },
+        "dashboard-rate-sparkline": {
+          "count": 1,
+          "styles": [
+            "left: 50%; top: 15%;"
+          ]
+        }
+      },
+      "trendDaysCalls": {
+        "store.trend": [
+          1,
+          1,
+          7,
+          1
+        ],
+        "runs.trend": [
+          1,
+          1,
+          7,
+          1
+        ]
+      },
+      "probe": {
+        "target": "trend-today",
+        "selector": "section[aria-label=\"采集量趋势\"]",
+        "textLeaves": 20,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "13-verdict-dead.png",
+      "bytes": 16156,
+      "asserts": {
+        "text": "2 个源失效\n今日采集 36 条 · 3/6 源在线 · 推送成功 3",
+        "2 个源失效": true,
+        "3/6 源在线": true,
+        "tagName=A(可点)": true
+      },
+      "probe": {
+        "target": "verdict-dead",
+        "selector": "[data-testid=\"dashboard-verdict\"]",
+        "textLeaves": 2,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "14-source-collapse-default.png",
+      "bytes": 39666,
+      "badGrid": {
+        "present": 1,
+        "cards": [
+          "source-card-tech.yaml#deadone",
+          "source-card-tech.yaml#deadtwo",
+          "source-card-tech.yaml#degradedone",
+          "source-card-tech.yaml#unknownone"
+        ]
+      },
+      "collapsed": {
+        "text": "2 个源正常 · 展开",
+        "ariaExpanded": "false",
+        "groupPresent": 0
+      },
+      "probe": {
+        "target": "source-collapsed",
+        "selector": "section[aria-label=\"源健康度\"]",
+        "textLeaves": 23,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "15-source-collapse-expanded.png",
+      "bytes": 55158,
+      "expanded": {
+        "text": "2 个源正常 · 收起",
+        "ariaExpanded": "true",
+        "groupCards": [
+          "source-card-tech.yaml#a",
+          "source-card-tech.yaml#b"
+        ]
+      },
+      "probe": {
+        "target": "source-expanded",
+        "selector": "section[aria-label=\"源健康度\"]",
+        "textLeaves": 31,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "16-verdict-warning-cred.png",
+      "bytes": 14766,
+      "asserts": {
+        "text": "2 项告警\n今日采集 128 条 · 5/5 源在线 · 推送成功 5",
+        "2 项告警": true,
+        "5/5 源在线": true,
+        "tagName=A(warning 可点)": true
+      },
+      "probe": {
+        "target": "verdict-cred",
+        "selector": "[data-testid=\"dashboard-verdict\"]",
+        "textLeaves": 2,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "17-alert-cred-credentials.png",
+      "bytes": 50574,
+      "alertsCell": "告警\n\n2",
+      "rows": [
+        {
+          "id": "alert-row-scope-credentials-missing-1",
+          "text": "异常凭据— 缺少 TG_TOKEN 凭据"
+        },
+        {
+          "id": "alert-row-scope-credentials-expiring-2",
+          "text": "提醒凭据— mail 凭据 30 天内到期"
+        }
+      ],
+      "overflowCount": 0,
+      "probe": {
+        "target": "overview-cred",
+        "selector": "[data-testid=\"dashboard-overview\"]",
+        "textLeaves": 16,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "18-verdict-unknown-doctorfail.png",
+      "bytes": 105067,
+      "asserts": {
+        "text": "部分数据不可达,状态未知\n其余分区已降级显示 · 今日采集 128 条 · 推送成功 5",
+        "部分数据不可达,状态未知": true,
+        "其余分区已降级显示": true,
+        "tagName=DIV(unknown 不可点)": true
+      },
+      "sectionErrors": [
+        "部分数据不可用,已降级显示其余分区",
+        "",
+        "诊断/源健康度:核心内部错误——重试通常可恢复,持续出现请重启应用[internal_error]",
+        "",
+        "点概览条右上「刷新数据」重试失败分区。"
+      ],
+      "activeCell": [
+        "活跃源",
+        "",
+        "—",
+        "",
+        "诊断不可达 · doctor 分区失败"
+      ],
+      "alertsCell": [
+        "告警",
+        "",
+        "—"
+      ],
+      "doctorRpc": [
+        {
+          "method": "doctor",
+          "ms": 27,
+          "err": "internal_error",
+          "params": {}
+        },
+        {
+          "method": "doctor",
+          "ms": 25,
+          "err": "internal_error",
+          "params": {}
+        }
+      ],
+      "clip": {
+        "x": 224,
+        "y": 0,
+        "width": 1216,
+        "height": 382
+      },
+      "probe": {
+        "target": "overview-doctorfail",
+        "selector": "[data-testid=\"dashboard-overview\"]",
+        "textLeaves": 11,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      },
+      "probeVerdict": {
+        "target": "verdict-unknown",
+        "selector": "[data-testid=\"dashboard-verdict\"]",
+        "textLeaves": 2,
+        "overlaps": [],
+        "overflows": [],
+        "docHorizontalOverflow": false
+      }
+    },
+    {
+      "shot": "(doctorfail rpc)",
+      "rpcMethods": [
+        "doctor",
+        "feedback.stats",
+        "run.status",
+        "runs.list",
+        "runs.trend",
+        "store.trend"
+      ]
+    }
+  ],
+  "failures": [],
+  "today": "2026-10-05",
+  "day6": "2026-09-29"
+}

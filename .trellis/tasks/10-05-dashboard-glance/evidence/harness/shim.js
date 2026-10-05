@@ -6,7 +6,8 @@
  * 与 Rust Err(String) 同形状,client.ts toSidecarError 解析路径不变);
  * 事件订阅(plugin:event|listen)返回句柄零事件(mock 桥无 SSE,dashboard 只
  * 订阅 completed 刷新,无事件即不刷新,冒烟无碍)。window.__rpc 留调用痕
- * 供驱动脚本断言六方法全被拉过。
+ * 供驱动脚本断言六方法全被拉过(补批 11-:params 一并入痕——统一时间窗
+ * store.trend/runs.trend 的 days 参数靠它断言)。
  */
 (() => {
   const BRIDGE = "http://127.0.0.1:8790";
@@ -24,10 +25,10 @@
       const msg = await res.json();
       const ms = Math.round(performance.now() - t0);
       if (msg && msg.error) {
-        window.__rpc.push({ method, ms, err: msg.error.code });
+        window.__rpc.push({ method, ms, err: msg.error.code, params: args && args.params });
         throw JSON.stringify(msg.error);
       }
-      window.__rpc.push({ method, ms });
+      window.__rpc.push({ method, ms, params: args && args.params });
       return msg.result;
     }
     if (cmd.startsWith("plugin:event|") || cmd === "plugin:app|version") return 0;
