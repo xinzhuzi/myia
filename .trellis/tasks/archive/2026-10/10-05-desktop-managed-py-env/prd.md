@@ -73,3 +73,4 @@
 - pyenv-card.tsx:卡内改全宽元素——状态横幅(左边框随五态着色)/路径块 break-all 全显不截断/镜像输入全宽(不走 w-64 右置控件族)/五阶段竖向时间线(圆点+连接线,done✓/running 脉冲/failed✗)/底部动作条主按钮去 sm 收缩。IPC 契约与全部 data-testid 零动。
 
 **验证**:vitest 53/53(pyenv-card 13 + settings 40);tsc -b + vite build 绿;无头冒烟(Playwright+__TAURI_INTERNALS__ shim,mock pyenv_get_status)——931×857 档卡宽 459→659 占满主画布、1512 档 896 居中(主画布内左右对称 196/196)、零横向溢出、「返回设置」回导航正常;DOM 裁切检查零命中;OCR 全文可读(路径不再截断)。VL 三条负面主张(文字重叠/左对齐未居中/导航空白)经 DOM+OCR 交叉证伪,不采信。
+**装机回执(2026-10-05 12:0x)**:净室构建(git archive HEAD=bac3ce4,target 软链复用依赖缓存,cargo 13.45s)→ 世事.app 16.81 MiB + dmg 7.73 MiB;结构验过(MacOS 仅 MYIA 壳/Resources 含 myssia-src+钉版 manifest+锁版清单);UI 内容链验过(随包主 chunk 含「返回设置」与 pyenv-start-setup 锚);静默启动冒烟(open -g,PID 活、零新崩溃)→ 静默换装 /Applications/世事.app(先验源再删旧,ditto 落位 17M)。部分回填 AC8 装机冒烟欠账(04:21 新形态无回执项)。
