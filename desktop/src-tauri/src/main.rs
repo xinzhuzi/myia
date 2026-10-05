@@ -337,6 +337,21 @@ fn myssia_home_dir(app: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error
     Ok(dir)
 }
 
+/// 沙箱窗标题(10-05-ui-chore-batch,池档 v12-backlog 第 9 项):显式
+/// `MYIA_HOME`(补验/自动化拉起的独立数据根)时主窗标题加「(沙箱)」后缀,
+/// 补验窗口与生产实例零视觉区分引过一场误诊断(主人亲历,见
+/// 10-05-bundled-plugins-install prd「补验销号」段)。判定口径与
+/// data_root/acquire_instance_lock 的 var_os 分支同源:壳自身进程 env 里
+/// 出现 MYIA_HOME 即独立实例域(未设时壳根本不设此 env,只 spawn 时注入给
+/// sidecar 子进程,不影响本判定);纯函数便于单测,setup 处消费。
+fn sandbox_title(base_title: &str, myia_home: Option<&std::ffi::OsStr>) -> String {
+    if myia_home.is_some() {
+        format!("{base_title}(沙箱)")
+    } else {
+        base_title.to_string()
+    }
+}
+
 /// tao 在 applicationDidFinishLaunching 无条件 activateIgnoringOtherApps(true)
 /// (tao-0.37.1 app_state.rs:293,默认值出自 app_delegate.rs:106),连 `open -g`
 /// 的后台启动语义都会被覆盖。窗口隐藏躲不开应用级自激活(键盘焦点仍被夺),
@@ -492,6 +507,15 @@ fn main() {
                     }
                 }
             }
+            // 沙箱窗自标识(池档 v12-backlog 第 9 项):显式 MYIA_HOME = 独立
+            // 实例域(补验/自动化拉起),主窗标题加「(沙箱)」后缀防误当生产
+            // 实例操作;未设零行为变化。置 MYIA_SMOKE_ROUTE 冒烟路由/亮窗之前,
+            // 任何后续截图/自动化产物即带标识。
+            if let Some(window) = app.get_webview_window("main") {
+                if let Ok(base) = window.title() {
+                    let _ = window.set_title(&sandbox_title(&base, std::env::var_os("MYIA_HOME").as_deref()));
+                }
+            }
             // MYIA_SMOKE_ROUTE 静默冒烟钩子(v1.1.1 装机五屏截图用):launchctl
             // setenv 传入路由名(如 "feed"),启动即设 window.location.hash("#/feed");
             // 未设则零行为变化。立即 + 1500ms 两次 eval 兜底 webview 未就绪的窗口期,
@@ -573,5 +597,26 @@ mod tests {
         // 极端 attempt(防御):saturating_pow 封顶,不 panic、单调不降
         assert!(backoff_delay(u32::MAX) >= backoff_delay(RESPAWN_MAX_ATTEMPTS));
         assert_eq!(backoff_delay(0), Duration::from_secs(1)); // 防御性下界
+    }
+
+    /// 沙箱窗自标识(10-05-ui-chore-batch):显式 MYIA_HOME 加「(沙箱)」后缀;
+    /// 判定只看有无(var_os 分支),与 data_root/单实例锁同口径。
+    #[test]
+    fn sandbox_title_appends_suffix_when_myia_home_set() {
+        use std::ffi::OsStr;
+        assert_eq!(
+            sandbox_title("世事", Some(OsStr::new("/tmp/myia-sandbox"))),
+            "世事(沙箱)"
+        );
+        // 指向默认根的显式设置也算独立实例域(同单实例锁口径),后缀照加
+        assert_eq!(
+            sandbox_title("世事", Some(OsStr::new("/默认/数据根"))),
+            "世事(沙箱)"
+        );
+    }
+
+    #[test]
+    fn sandbox_title_passthrough_when_myia_home_unset() {
+        assert_eq!(sandbox_title("世事", None), "世事");
     }
 }
