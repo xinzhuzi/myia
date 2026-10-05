@@ -1,19 +1,24 @@
-# 桌面自管 Python 环境依赖锁版清单(随包 Resources;10-05-desktop-managed-py-env D1/D3)
-# 来源 = pyproject [project] dependencies 经 uv.lock 冻结解析的编译产物,生成命令:
-#   uv export --frozen --no-dev --no-emit-project --no-hashes
+# 桌面自管 Python 环境依赖锁版清单(随包 Resources;10-05-desktop-managed-py-env D1/D3;
+# 10-06-ai-news-sources 二段扩 llm extras:装机态 enrich 依赖 openai,核心流水线
+# 评分面在桌面起死——增量仅 6 轮 openai 系,核心 6 依赖红线不动)
+# 来源 = pyproject [project] dependencies + extras[llm] 经 uv.lock 冻结解析:
+#   uv export --frozen --no-dev --no-emit-project --no-hashes --extra llm
 # 唯一手改:workspace 成员 myssia-classifier 由 `-e ./myssia-classifier` 行钉为
 #   PyPI 版 `myssia-classifier==0.0.1`(uv.lock 解析版本即 0.0.1,PyPI 已发布同名
 #   版本,满足 pyproject 约束 >=0.0.1,<0.1;tests/desktop 锁版一致性测试把关)。
 # 消费:壳安装链 spawn <数据根>/python/bin/python3 -m pip install -r 本清单
 #   (PyPI index 可被设置页镜像覆盖,D3;清单本身钉版不受镜像影响)。
-# 平台/版本标记按通用解析保留(linux / <3.12 条目在 mac/win 的 3.12.7 运行时上
-# 自然不触发;win32 条目(keyring 后端)按平台生效)。
+# 平台/版本标记按通用解析保留(linux / <3.12 / emscripten 条目在 mac/win 的
+#   3.12.7 运行时上自然不触发;win32 条目(keyring 后端)按平台生效)。
 myssia-classifier==0.0.1
     # via myssia
 annotated-types==0.8.0
     # via pydantic
 anyio==4.15.1
-    # via httpx
+    # via
+    #   httpx
+    #   httpx2
+    #   openai
 apscheduler==3.11.3
     # via myssia
 backports-tarfile==1.2.0 ; python_full_version < '3.12'
@@ -31,15 +36,24 @@ feedparser==6.0.14
 feedparser-sgmllib==2.1.0
     # via feedparser
 h11==0.16.0
-    # via httpcore
+    # via
+    #   httpcore
+    #   httpcore2
 httpcore==1.0.9
     # via httpx
+httpcore2==2.13.1 ; sys_platform != 'emscripten'
+    # via httpx2
 httpx==0.28.1
     # via myssia
+httpx2==2.13.1
+    # via openai
+httpx2-jsfetch==1.0 ; python_full_version >= '3.12' and sys_platform == 'emscripten'
+    # via httpx2
 idna==3.20
     # via
     #   anyio
     #   httpx
+    #   httpx2
 importlib-metadata==9.0.1 ; python_full_version < '3.12'
     # via keyring
 jaraco-classes==3.4.0
@@ -54,6 +68,8 @@ jeepney==0.9.0 ; sys_platform == 'linux'
     #   secretstorage
 jinja2==3.1.6
     # via myssia
+jiter==0.17.0
+    # via openai
 keyring==25.7.0
     # via myssia
 markupsafe==3.0.3
@@ -62,10 +78,14 @@ more-itertools==11.1.0
     # via
     #   jaraco-classes
     #   jaraco-functools
+openai==3.22.1
+    # via myssia
 pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy' and sys_platform == 'linux'
     # via cffi
 pydantic==2.13.5
-    # via myssia
+    # via
+    #   myssia
+    #   openai
 pydantic-core==2.46.5
     # via pydantic
 pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
@@ -76,11 +96,19 @@ secretstorage==3.5.0 ; sys_platform == 'linux'
     # via keyring
 selectolax==0.4.13
     # via myssia
+sniffio==1.3.1
+    # via openai
 socksio==1.0.0
     # via httpx
+truststore==0.10.4 ; sys_platform != 'emscripten'
+    # via
+    #   httpcore2
+    #   httpx2
 typing-extensions==4.16.0
     # via
     #   anyio
+    #   httpx2
+    #   openai
     #   pydantic
     #   pydantic-core
     #   typing-inspection
