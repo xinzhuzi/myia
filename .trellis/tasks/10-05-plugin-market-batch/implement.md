@@ -24,8 +24,8 @@
 
 ## 收尾
 
-- [ ] AC 回填;e 路记档汇总(不立项清单)入 research/;
-- [ ] 每批独立提交;跨批不共享半成品。
+- [x] AC 回填(批二 AC6-AC9:批二回标+2026-10-05 批二收口审计复核一行回标,见 prd 收口段;AC5 之 [x] 系并行批三会话在途回标 commit pending,本步未核验、留批三收口);e 路记档汇总=research.md 第四波(e 路门槛化重标注)/第五波(核验终态:weibo-search/SpiderKeeper 无 LICENSE、EasySpider 形态不可接,均维持不收;文件在档根 research.md,design §1「文件名从简」同款);
+- [x] 每批独立提交;跨批不共享半成品(批一 6 笔/批二 7 笔单件单提交;golden 未随件提交事故与教训=evidence/batch-2-report.md §四,aa89aa5 收编闭环)。
 
 ## 回滚
 
@@ -40,7 +40,7 @@
 13. [x] **同物种门槛桩**(R7):myssia-crawlab+myssia-worldmonitor(remote,gated tier,compose+README 门槛说明)+EasySpider 形态核验结案记档。**(批二回填:7df322b(crawlab,BSD-3 官方镜像 compose)/0195806(worldmonitor,AGPL 只桩,compose 构建上下文钉上游 tag v2.10.0)——D5 落地=`tier: remote`+`gate: platform`,README 指设置面「自有实例」表单+规范键名 myia/platforms/<name>-token;compose 集**实为 10 件**(卡面 7→9 系本步单步语言,webcheck 同批也配 compose,与卡面文件清单自洽的总数=10,桩件路已如实报;golden 断言同步未随 4a/4b 提交=复审 high,aa89aa5 收编闭环);EasySpider 终态不收(第五波)**;
 14. [x] **分析件二批**(AC9):myssia-webcheck+myssia-socialanalyzer(remote 桩)+trafilatura extract 增评估结案(独立任务或并入,答增量问)。**(批二回填:66ace59(webcheck,MIT 官方镜像 compose)/cd29e0f(socialanalyzer,AGPL 只桩不携 compose,与 cd29e0f 同笔附 research.md 第六波 trafilatura 结案=零配置正文抽取补手写规则两盲区,另立引擎任务);D8 裁剪照办——gates.analysis 仅 schema+设置面占位「批三解锁」,零分析件;D9 backlog 照记)**;
 15. [x] 许可核验批(gh api LICENSE 原文一手,结论 research.md 第五波):MediaCrawler=非商业学习许可(警示型批三裁)/yake=AGPL 双许可(门槛可清,批三候选)/weibo-search+SpiderKeeper=无 LICENSE(维持不收终态);EasySpider 形态核验同批结案=Electron GUI 无 API,维持不收(终态);
-16. [ ] 门禁与提交纪律同首批(单件单提交、tests/plugins 组绿+批末全量、快照外科防并行混线)。
+16. [x] 门禁与提交纪律同首批(单件单提交✓;tests/plugins 组绿=批二落账前后两跑 1144 passed/30 skipped(evidence §三)+批二回填任务书门禁 1182 passed/30 skipped+批二收口步 G1(tests/plugins+tests/test_gates.py)退出码 0;批末全量=aa89aa5 收编回执全量 4074 过;快照外科=批二落账纪律,evidence §一)。
 
 ## 批一终局快照(2026-10-05 深夜回填;「之前做好的」全量对账)
 
