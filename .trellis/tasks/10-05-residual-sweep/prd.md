@@ -88,3 +88,30 @@
   不提交,如实上报。
 - `git commit --only` 明确路径,绝不 `git add -A`;不推远端不打 tag;遇
   index.lock 稍候重试;uv 裸 sync 禁用;涉网单次(本轮探查已用罄,后续全本地)。
+
+## 收口轮注记(2026-10-05 夜,尾部纯增量,原文不改)
+
+- **标记 B「正文抽取兜底」装机像素补验 = 已完成(seen=true),leftover ②销号**:
+  标记流按配方 `MYIA_SHOW_ON_START=1 MYIA_SMOKE_ROUTE='settings?section=python-env'`
+  直跑 /Applications/世事.app 三轮滚动取证——R1 End 键零位移(根因=滚动容器是
+  内层 main.overflow-y-auto `app-layout.tsx:27`,body 焦点下 End 滚的是外层
+  overflow-hidden 文档,两帧 OCR 框坐标逐字一致证零位移);R2 PageDown×5 重做轮
+  命中:中性点击内容区空白带(配方授权的唯一合成输入)后实滚约 285pt,
+  「正文抽取兜底」label OCR 置信度 **1.00 @1306,1692**,描述三行逐字对上源码
+  `pyenv-card.tsx:222-226`(trafilatura 兜底/MYIA_EXTRACT_FALLBACK 开关/
+  selectolax<1),右侧「未装」chip @2801,1748 同帧;R3 小步滚轮(Swift
+  CGEvent scrollWheelEvent2Source)down/up 各 8×80px 双向实证(命中卡仍在帧/
+  回滚至顶部版位)。事故如实记:R2 首试期间窗被外部并行会话切至「源管理」屏,
+  该轮作废,干净重启重做命中。清场三步完成(pkill 烟测实例→launchctl unsetenv
+  两烟测 env、getenv 双空核验→open -g 复启,ps eww 无 MYIA_* 烟测 env)。
+  佐证引用(既有,未重跑):包内 Resources/components.json 第二件
+  id=trafilatura/label=正文抽取兜底/pip_spec 钉版;vitest
+  `pyenv-components.test.tsx:165,170`。证据 34 件存 /tmp/myia-sweep/
+  (命中帧 b-round2-pagedown-redo.png 626KB 3840x2100)。收口员亲验:命中帧
+  png 与 box.txt 行 42「1.00 1306,1692,161x28 正文抽取兜底」实存。取证主体
+  归标记流回执,本段为并档注记。
+- **索引刷新回执**:gitnexus analyze(不带 -r 形态)退出 0,输出
+  「Preserving 22700 existing embeddings」——索引已刷新,既有嵌入保留。
+- **CI 实况**:绿(run 37326012359;引自收口回执材料)。
+- 本轮收口提交:本档 prd/task.json 收口注记 + workspace journal 清扫段,
+  `--only` 三路径;档维持 review(归档循「review 等收口」惯例留主人批次)。

@@ -740,3 +740,12 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 六流交付:token 互踢修复(d793a86 轮询租约,同 token 单轮询器)/Windows 二实例唤出(729b8f2 single-instance 插件 windows 门控)/UI 三件(a17c931 tooltip 五字段+c73baef 沙箱标题+7cdc709 CI actions 升版)/Reddit 官方引擎(b1489ef 链外凭据可选,人肉注册单 10-31 截止在档)/装机组件扩批(825cf21 trafilatura 组件表+卸载钮+品类 YAML 发现面+monitor/credentials 映射,注册表 64→66)/trafilatura 源级开关(d11a7ef engine_options 旋钮,schema 零编辑)。
 - 守波:外部会话同期落池 10 五档并交付 cron-heartbeat 第一批(833b331 store v9);两波共 19+ 提交互不收编,合并树全量门禁亲验 4374/0+vitest 488+cargo 56+ruff 绿后统一推送。
 - 留主人:Reddit app 注册(10-31)+钥匙串两键/Windows 真机验证二实例(步骤单在档)/表格还原开关一键/沙箱标题真机眼见。
+
+## 2026-10-05 深夜:残扫收口轮(10-05-residual-sweep 标记 B 补验销号+索引回执并档)
+
+- 残扫两件早在库:4acc191(文档源级覆写口径四处 26 行纯散文)+612c427(runner 钉版 ci.yml 5 处+desktop-release.yml 1 处 ubuntu-24.04),bdde667 档 review;门禁数字回执在档(test_docs 110 passed/yaml 两件解析 ok/detect-changes 0 processes low)。
+- 标记 B「正文抽取兜底」装机像素补验销号(原 leftover ②):标记流三轮滚动策略命中——R1 End 键零位移(根因=滚动容器是内层 main.overflow-y-auto app-layout.tsx:27,body 焦点下 End 滚的是外层 overflow-hidden 文档);R2 PageDown×5 重做轮中性聚焦点击(配方授权唯一合成输入)后实滚 ~285pt,label OCR 置信度 1.00 @1306,1692,描述三行逐字对上 pyenv-card.tsx:222-226,右侧「未装」chip 同帧;R3 Swift CGEvent 滚轮 down/up 各 8×80px 双向实证。事故如实:R2 首试窗被并行会话切「源管理」屏(其在动 ~/Library/Application Support/MYIA/plugins),该轮作废干净重启重做。清场三步(pkill 烟测实例→launchctl unsetenv 双烟测 env getenv 双空核验→open -g 复启 ps eww 无 MYIA_* env)。收口员亲验证据件实存:/tmp/myia-sweep/b-round2-pagedown-redo.png(626KB,3840x2100)+box.txt 行 42「1.00 1306,1692,161x28 正文抽取兜底」;佐证引用包内 components.json 第二件+vitest pyenv-components.test.tsx:165,170(既有未重跑)。
+- 索引刷新回执并档:gitnexus analyze 不带 -r 形态退出 0「Preserving 22700 existing embeddings」。CI 实况绿(run 37326012359,引自收口回执材料)。
+- 外来在途面(全程零触碰,如实入册):dashboard-glance 域 5 件改+档目录未跟踪、heartbeat 三批 4 件改(alerts/engine.py+cron/executions.py+pipeline.py+test_heartbeat.py)+cron-heartbeat 档 prd/task.json 再改(8be9904 已入库后的新增量),共 11 改+1 未跟踪 ~1059+/110-;journal-1.md 本轮入手时净面(git status 亲验不在脏面清单),外来 hunks 不在,并集判例无面可并,如实注记。
+- 提交:残扫档 prd/task.json 收口注记+journal 本段 --only 三路径入库不推远端;档维持 review,归档循「review 等收口」惯例留主人批次。
+- 并行同窗补记(提交后亲见):cron-heartbeat 第三批 b67dea8 在本轮收口期间由外部会话落库(上文所记心跳域 4 件+档两件出脏面即其入账),终态外来在途面收敛为 dashboard-glance 域 5 改+档目录未跟踪;我方提交零裹挟(git show --stat 三路径亲核)。
