@@ -1432,7 +1432,14 @@ export interface AlertsFiredEvent {
   dedup_key: string;
   title: string | null;
   action: "push" | "tag";
-  /** pending|sent|send_failed|tagged|degraded_no_channel|skipped_dry_run */
+  /** 终态词表:pending|sent|send_failed|tagged|degraded_no_channel|
+   *  skipped_dry_run + suppressed。suppressed = v2 预留(池档 suppressed
+   *  状态词表 v2,10-05-fe-gap-leftovers ③):告警 push 被同槽位防重发
+   *  拦截的专属终态——现状该路径记 send_failed(alerts/engine.py
+   *  `_execute_push_with` 零报告回落),与真实发送失败不分诊;后端
+   *  ALERT_ACTION_STATUSES(store/models.py)尚未收词,拆分归 v2。UI
+   *  消费位(messaging 屏 toast / logs 屏 eventToRow)均原样透传渲染、
+   *  无词表分档,词表先行不破 string 契约。 */
   action_status: string;
   ts: string;
 }
