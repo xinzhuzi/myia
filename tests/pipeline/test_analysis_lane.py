@@ -266,6 +266,66 @@ class TestLaneDecoration:
         # 本测试源不带 content 字段 → 全部 title-only
         assert result.stage("analyze").skips["analysis_lane_title_only"] == 2
 
+    def test_no_content_items_send_title_only_text(self, tmp_path):
+        """无 content 条目发给 adapter 的 text = 纯标题,绝不含字面 ``'None'``。
+
+        源无 content / 续跑退化是常见态(与上一条 title-only 计数同一路径):
+        拼串必须把 ``content=None`` 归空,否则 snownlp/yake 会对着
+        ``'标题\\nNone'`` 打分抽词,且与 title-only 注记语义自相矛盾
+        (实发文本并非 title-only)。
+        """
+        write_gates(tmp_path, "analysis:\n  snownlp: true\n")
+        adapter = FakeAdapter()
+        pipeline = make_pipeline(tmp_path, analysis_adapters={"snownlp": adapter})
+        result = run(pipeline)
+        assert result.status == "success"
+        assert len(adapter.calls) == 1
+        texts = {entry["url"]: entry["text"] for entry in adapter.calls[0]}
+        assert texts == {
+            "https://api.demo.local/a": "免费送 NAS 券",
+            "https://api.demo.local/b": "白嫖机场体验",
+        }
+        for text in texts.values():
+            assert "None" not in text
+
+    def test_content_items_keep_joined_text_shape(self, tmp_path):
+        """有 content 条目:text = ``title\\ncontent`` 拼接形状(None 归空只影响缺 content 态)。"""
+        write_gates(tmp_path, "analysis:\n  snownlp: true\n")
+        adapter = FakeAdapter()
+        pipeline = make_pipeline(
+            tmp_path,
+            analysis_adapters={"snownlp": adapter},
+            handler_payloads=[
+                {
+                    "title": "免费送 NAS 券",
+                    "url": "https://api.demo.local/a",
+                    "content": "今晚八点开奖",
+                }
+            ],
+            config_overrides={
+                "sources": [
+                    {
+                        "name": "api",
+                        "engine": "direct_api",
+                        "url": "https://api.demo.local/list",
+                        "extract": {
+                            "type": "json_path",
+                            "fields": {
+                                "title": "$[*].title",
+                                "url": "$[*].url",
+                                "content": "$[*].content",
+                            },
+                        },
+                    }
+                ]
+            },
+        )
+        result = run(pipeline)
+        assert result.status == "success"
+        assert len(adapter.calls) == 1
+        assert adapter.calls[0][0]["text"] == "免费送 NAS 券\n今晚八点开奖"
+        assert result.stage("analyze").skips.get("analysis_lane_title_only", 0) == 0
+
 
 # ---------------------------------------------------------------------------
 # 失败容器:降级注记不翻 partial;适配器缺失;token 归一
@@ -300,6 +360,44 @@ class TestLaneDegradation:
         assert result.status == "success"
         assert analyze.skips["analysis_lane_degraded_adapter_missing"] == 2
         assert analyze.warnings and analyze.warnings[0]["plugin"] == "myssia-snownlp"
+
+    @pytest.mark.parametrize(
+        "adapter_source",
+        [
+            pytest.param("def broken(:\n", id="syntax_error"),
+            pytest.param("raise RuntimeError('adapter 顶层炸了')\n", id="exec_raises"),
+            pytest.param("import no_such_lane_dependency\n", id="import_missing"),
+        ],
+    )
+    def test_broken_adapter_file_does_not_block_run(self, tmp_path, monkeypatch, adapter_source):
+        """坏 adapter.py 文件(语法错/exec 抛错/依赖缺失)→ load_failed 降级,run 不翻 partial。
+
+        ``import_analysis_adapter`` 的装载失败(compile SyntaxError / exec
+        顶层抛任意异常,含依赖缺失 ModuleNotFoundError)不是
+        ``AnalysisLaneError``——若逃出 lane 会把 analyze 阶段打翻
+        (error_type=unknown)、push 连坐跳过、run 翻 partial,违反
+        「装不上不拦核心」铁律(design §7.1 失败容器:warnings 不翻 partial)。
+        """
+        plugin_dir = tmp_path / "plugins" / "myssia-snownlp"
+        plugin_dir.mkdir(parents=True)
+        (plugin_dir / "adapter.py").write_text(adapter_source, encoding="utf-8")
+        # 钉死候选根到 tmp:仓库 cwd 的 plugins/ 不参与发现(确定性)
+        monkeypatch.setattr(
+            pipeline_module, "default_plugins_roots", lambda data_root: [tmp_path / "plugins"]
+        )
+        write_gates(tmp_path, "analysis:\n  snownlp: true\n")
+        pipeline = make_pipeline(tmp_path)  # 不注入适配器:走真实文件装载
+        result = run(pipeline)
+        analyze = result.stage("analyze")
+        assert result.status == "success"  # 不翻 partial
+        assert analyze.status == "ok"  # 阶段本体不败
+        assert analyze.failures == []
+        assert analyze.skips["analysis_lane_degraded_load_failed"] == 2
+        assert [w["error_type"] for w in analyze.warnings] == ["analysis_lane_load_failed"]
+        assert analyze.warnings[0]["plugin"] == "myssia-snownlp"
+        # push 未被上游失败连坐:阶段在且 ok(条目照常投递、零丢失)
+        assert result.stage("push").status == "ok"
+        assert len(result.items) == 2
 
     def test_bad_output_shape_degrades(self, tmp_path):
         """适配器输出形状不对(缺 decorations)→ output_invalid 降级。"""

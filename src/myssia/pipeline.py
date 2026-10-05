@@ -1960,9 +1960,11 @@ class Pipeline:
         装饰契约:输出落 ``item.metadata``(route/push 模板经 ``Item.view()``
         消费),装饰不过滤——lane 任何输出不改变条目存活;items 表回填
         best-effort(``merge_item_metadata``,照 enricher 回填先例)。失败容器:
-        件级/条目级失败进 ``report.warnings`` + ``analysis_lane_degraded_*``
-        skip 计数,**绝不进 ``report.failures``**(分析件失败是常态降级,
-        不翻 partial/退出码)。
+        件级/条目级/**装载级**失败(adapter.py 不可读/语法错/exec 抛错——
+        ``import_analysis_adapter`` 不抛 ``AnalysisLaneError`` 的路径,统一归
+        ``analysis_lane_degraded_load_failed``)进 ``report.warnings`` +
+        ``analysis_lane_degraded_*`` skip 计数,**绝不进 ``report.failures``**
+        (分析件失败是常态降级,不翻 partial/退出码)。
 
         续跑注记:``_item_checkpoint`` 不序列化 ``content``,续跑条目输入退化
         title-only;lane 无法区分「续跑退化」与「源本来无 content」,统一记
@@ -1994,7 +1996,7 @@ class Pipeline:
         for key in open_keys:
             package = ANALYSIS_LANE_MEMBERS[key]
             texts = [
-                {"url": item.url, "text": f"{item.title}\n{item.content}".strip()}
+                {"url": item.url, "text": f"{item.title}\n{item.content or ''}".strip()}
                 for item in items
             ]
             try:
@@ -2010,20 +2012,31 @@ class Pipeline:
                     adapter = import_analysis_adapter(adapter_file)
                 # 子进程型适配器(snownlp)阻塞 spawn,丢线程池防事件循环饿死。
                 decorations = await asyncio.to_thread(decorate_items, adapter, texts)
-            except AnalysisLaneError as exc:
-                token = lane_degrade_token(exc.code)
+            except Exception as exc:  # noqa: BLE001 - lane 任何失败 = 件级降级,绝不拦 run
+                if isinstance(exc, AnalysisLaneError):
+                    token = lane_degrade_token(exc.code)
+                    message = exc.message
+                else:
+                    # 装载段缺口(批三复审):import_analysis_adapter 的装载失败
+                    # (read_text OSError / compile SyntaxError / exec 顶层抛错,
+                    # 含依赖缺失 ModuleNotFoundError)不是 AnalysisLaneError——
+                    # 逃出去会把 analyze 阶段打翻 → push 连坐跳过 → run 翻
+                    # partial,违反「装不上不拦核心」。统一归 load_failed 降级
+                    # 注记(decorate_items 已宽捕获适配器执行段,这里补 import/exec)。
+                    token = "load_failed"
+                    message = f"分析 lane 适配器装载失败:{exc}"
                 report.skips[f"analysis_lane_degraded_{token}"] += len(items)
                 report.warnings.append(
                     {
                         "plugin": package,
                         "error_type": f"analysis_lane_{token}",
-                        "message": exc.message,
+                        "message": message,
                         "items": len(items),
                     }
                 )
                 logger.warning(
                     "分析 lane 件降级(条目照常投递) plugin=%s reason=%s items=%s: %s",
-                    package, token, len(items), exc.message,
+                    package, token, len(items), message,
                 )
                 continue
             decorated = 0

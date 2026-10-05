@@ -135,8 +135,10 @@ def import_analysis_adapter(adapter_file: Path | str) -> types.ModuleType:
     """compile+exec 加载一个分析 lane 插件 adapter(credhunter 同手法)。
 
     插件目录不是 Python 包,不走 SourceFileLoader(会在插件目录写
-    ``__pycache__`` 垃圾);核心仓库与插件零静态耦合。加载失败抛
-    OSError/SyntaxError,由调用方统一转 lane 降级注记。
+    ``__pycache__`` 垃圾);核心仓库与插件零静态耦合。加载失败(不可读
+    OSError/语法错 SyntaxError/exec 顶层抛任意异常,含依赖缺失
+    ModuleNotFoundError)**不是** :class:`AnalysisLaneError`,由调用方
+    (``pipeline._analysis_lane_pass``)统一转 ``load_failed`` lane 降级注记。
     """
     path = Path(adapter_file)
     module = types.ModuleType(f"myssia_analysis_lane_{path.parent.name}")
