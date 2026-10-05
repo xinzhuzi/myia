@@ -26,8 +26,11 @@ modes:
     # (endpoint+token),经桌面 设置→门槛件→自有实例 表单或 myssia gates set
     # 写入;凭据键规范名 myia/platforms/crawlab-token(设置面同款)。
 install:
-  # 复审遗留#13 注记(批二报告 4low 之四;2026-10-05):仓库远端已改名
-  # MYIA→shishi(github.com/xinzhuzi/shishi),本字段沿用旧名系全仓 20 件
-  # 既有惯例——GitHub 改名自动重定向,fresh install 不受影响;全仓统一切
-  # shishi 留待批末专项处理(避免本件先行造成 20 件两色)。
+  # 复审遗留#13 注记(批二报告 4low 之四;2026-10-05 更正,task
+  # 10-05-lowrisk-sweep):二次亲核 GitHub 现以 xinzhuzi/myia 为真名
+  # (gh api repos/xinzhuzi/myia → full_name=xinzhuzi/myia 且无重定向来源;
+  # shishi 访问被 301 解析到 myia)——本字段值=当前真名,fresh install
+  # 零重定向,全仓 20 件 manifest source 同值零改动。原「统一切 shishi
+  # 批末专项」作废(那会把 20 件改成别名方向)。GitNexus 索引名 shishi
+  # 系索引层滞后,与远端名无关。
   source: https://github.com/xinzhuzi/myia.git

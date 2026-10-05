@@ -154,3 +154,30 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
 另 `10-05-plugin-market-batch` 与 `10-05-table-restore` 同轮归档(CI run
 37277285803 五作业全绿;table-restore AC4 装机开关真装链因装机包内容早于
 组件链入库结构性受阻留 owner 重装后再验)。
+
+## 本轮纪要(2026-10-05 低危尾款清扫轮,task 10-05-lowrisk-sweep)
+
+**冻结广播(先说最重要)**:plugin manifest「install.source 统一切 shishi
+批末专项」**作废,任何并行会话勿再执行**——2026-10-05 二次亲核,GitHub 现以
+`xinzhuzi/myia` 为真名(`gh api repos/xinzhuzi/myia` → full_name=xinzhuzi/myia
+且无重定向来源;shishi 访问被 301 解析到 myia),全仓 20 件 manifest source
+现值即真名、fresh install 零重定向;照旧执行「切 shishi」会把 20 件改成别名
+方向。`plugins/myssia-crawlab/plugin.yaml` 原过时注记(方向反了)已同轮更正;
+GitNexus 索引名 shishi 系索引层滞后,与远端名无关,不在本专项范围。
+
+低危尾款四件处置结果(详情与引线 = `10-05-lowrisk-sweep` prd.md):
+
+- **①a zenrows css_extractor 显式 null 判值——销号**:ead33f7 已修在库
+  (`src/myssia/engines/zenrows.py:82` 判值口径 `is not None`;守卫
+  `tests/engines/test_saas_gated_engines.py:312-338`),本轮亲证,零代码零测试。
+- **①b saas gated「零上游请求」守卫 robots 盲区——销号**:ead33f7 两守卫在库
+  (`test_saas_gated_engines.py:176-192` 关闭态连 robots 拉取一并零请求;
+  `:194-211` robots 拒+门开=robots_disallowed 零付费上游),本轮亲证。
+- **①c sidecar-protocol「gates.get 非法参数」超前半句——销号**:超前半句
+  已删对齐代码(`.trellis/spec/desktop/sidecar-protocol.md:282` 现文口径=
+  多余键忽略仅入口层通用拒绝;grep「非法参数」该文件零命中),本轮亲证。
+- **①d install.source 仓库名——修注记不修值**:真名反转亲证(myia=真名),
+  20 件 source 值零改动;唯一改动=crawlab plugin.yaml 注记更正(git diff
+  仅注释行);golden 面排查=`test_plugin_packages.py:165` 只锁 `https://`
+  前缀不锁仓库名,无需再生;`desktop/src-tauri/tauri.conf.json:91` updater
+  endpoint 同为 myia 真名无需改。
