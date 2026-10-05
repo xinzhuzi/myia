@@ -188,12 +188,22 @@ class UrlwatchEngine(BaseEngine):
                 f"engine_options.urlwatch.label 应为非空字符串,当前为 {label!r}",
                 error_type="invalid_engine_options",
             )
+        selector = options.get("selector")
+        if selector is not None and (
+            not isinstance(selector, str) or not selector.strip()
+        ):
+            raise FetchError(
+                f"engine_options.urlwatch.selector 应为非空 CSS 选择器字符串,"
+                f"当前为 {selector!r}",
+                error_type="invalid_engine_options",
+            )
         return {
             "timeout": float(timeout),
             "announce_new": announce_new,
             "content_max_chars": content_max,
             "cache_file": cache_file,
             "label": (label or self.source.name).strip(),
+            "selector": selector.strip() if isinstance(selector, str) else None,
         }
 
     # ----------------------------------------------------------------- fetch
@@ -216,7 +226,25 @@ class UrlwatchEngine(BaseEngine):
         # 礼貌自查:目标页抓取虽在子进程,robots 面照查(缺省 respect_robots 真)。
         await self._ensure_robots_allowed(url)
 
-        jobs = [{"name": self.source.name, "url": url}]
+        job: dict[str, Any] = {"name": self.source.name, "url": url}
+        if options["selector"]:
+            # 内容过滤(框架噪声根治):CSS 选择器圈正文区并剔除 script/
+            # style 等噪声节点,快照与 diff 只看正文 HTML 而非整页 ——
+            # meta/cohere 实证的全页 diff 全是 React/Next 构建产物漂移
+            # (research §8/§9)。上游 css 过滤器实证形状:method 仅 html/
+            # xml、exclude 剔除选区内子树(10-06 探针亲验 anthropic 425KB
+            # →main 20KB 正文)。注意:纯客户端渲染页(meta 实证)选不出
+            # 正文,此类站点不适用本引擎(静态通道取不到内容)。
+            job["filter"] = [
+                {
+                    "css": {
+                        "selector": options["selector"],
+                        "exclude": "script, style, noscript, template, svg",
+                        "method": "html",
+                    }
+                }
+            ]
+        jobs = [job]
         adapter = self._adapter()
         result: dict | None = None
         last_exc: Exception | None = None

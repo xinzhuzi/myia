@@ -68,7 +68,7 @@ __all__ = [
 PLUGIN_DIR = Path(__file__).resolve().parent
 
 #: 隔离子进程注入的上游依赖(BSD-3-Clause;不钉版,见模块 docstring)。
-URLWATCH_DEPENDENCIES = ("urlwatch",)
+URLWATCH_DEPENDENCIES = ("urlwatch", "cssselect")
 
 #: 快照缓存缺省落位(MYIA_HOME 桌面数据路径约定;minidb 文件,跨 run 持久)。
 DEFAULT_CACHE_FILE = Path.home() / ".myia" / "urlwatch" / "cache.db"
@@ -172,7 +172,7 @@ def normalize_urls(urls: Any) -> list[dict[str, str]]:
             "url_invalid",
             f"单次 run 最多 {MAX_URLS_PER_RUN} 个 URL(当前 {len(items)}),更多目标请分批",
         )
-    jobs: list[dict[str, str]] = []
+    jobs: list[dict[str, Any]] = []
     seen: set[str] = set()
     for item in items:
         url = (
@@ -202,11 +202,31 @@ def normalize_urls(urls: Any) -> list[dict[str, str]]:
             continue  # 重复 URL 去重保序(上游重复 guid 是硬错)
         seen.add(url)
         name = None
+        job_filter = None
         if isinstance(item, dict):
             name = item.get("name")
+            job_filter = item.get("filter")
         if not isinstance(name, str) or not name.strip():
             name = _default_name(url)
-        jobs.append({"name": name.strip(), "url": url})
+        job: dict[str, Any] = {"name": name.strip(), "url": url}
+        # 可选内容过滤(10-06-ai-news-sources:官网页 watch 的框架噪声根治)
+        # ——上游 UrlsYaml 原生 filter 链,如
+        #   filter: [{"css": {"selector": "main", "format": "text"}}]
+        # css 过滤器需 cssselect(URLWATCH_DEPENDENCIES 随带);形状校验只做
+        # 浅层(非空列表/子键映射),具体过滤器参数由上游装载期校验。
+        if job_filter is not None:
+            if (
+                not isinstance(job_filter, list)
+                or not job_filter
+                or not all(isinstance(sub, dict) and sub for sub in job_filter)
+            ):
+                raise UrlwatchAdapterError(
+                    "url_invalid",
+                    f"job 的 filter 应为非空子过滤器映射列表(上游 UrlsYaml 形态),"
+                    f"当前为 {job_filter!r}",
+                )
+            job["filter"] = job_filter
+        jobs.append(job)
     return jobs
 
 

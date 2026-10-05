@@ -137,6 +137,31 @@ class TestUrlwatchAdapter:
             {"name": "示例", "url": "https://example.com/b"},
         ]
 
+    def test_normalize_urls_passes_through_filter_chain(self):
+        """内容过滤链透传(10-06-ai-news-sources 框架噪声根治):上游 UrlsYaml
+        原生 filter 形态,如 css 选择器圈正文;浅层形状校验,坏形拒绝."""
+        adapter = load_adapter()
+        flt = [
+            {
+                "css": {
+                    "selector": "main",
+                    "exclude": "script, style",
+                    "method": "html",
+                }
+            }
+        ]
+        jobs = adapter.normalize_urls(
+            [{"name": "带过滤", "url": "https://example.com/c", "filter": flt}]
+        )
+        assert jobs == [
+            {"name": "带过滤", "url": "https://example.com/c", "filter": flt}
+        ]
+        for bad in ("main", [], [None], [["x"]], "css: main"):
+            with pytest.raises(adapter.UrlwatchAdapterError):
+                adapter.normalize_urls(
+                    [{"url": "https://example.com/c", "filter": bad}]
+                )
+
     def test_normalize_urls_wraps_single_string(self):
         adapter = load_adapter()
         assert adapter.normalize_urls("https://example.com/x") == [

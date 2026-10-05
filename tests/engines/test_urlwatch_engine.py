@@ -227,6 +227,8 @@ def test_non_direct_proxy_rejected_in_fetch_impl():
         {"content_max_chars": 99999},
         {"cache_file": 123},
         {"label": "  "},
+        {"selector": 123},
+        {"selector": " "},
     ],
 )
 def test_engine_options_type_guard(options):
@@ -402,6 +404,43 @@ def test_bundled_plugins_env_ignored_when_not_a_dir(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 # 事件映射
 # ---------------------------------------------------------------------------
+
+
+def test_selector_option_builds_content_filter_job(patched_adapter):
+    """selector 选项 → job 携带上游实证形状的 css 内容过滤链.
+
+    框架噪声根治(10-06 二段):main 选区 + exclude 剔 script/style
+    + method html;背靠背实证 anthropic/cohere 过滤后快照稳定 unchanged。
+    """
+    calls: list[dict] = []
+    patched_adapter(fake_adapter(events=[changed_event()], calls=calls))
+    engine = UrlwatchEngine(
+        urlwatch_source(engine_options={"urlwatch": {"selector": "main"}}),
+        urlwatch_context(),
+    )
+    items = run(engine.fetch())
+    assert len(items) == 1
+    job = calls[0]["urls"][0]
+    assert job["name"] == "demo"
+    assert job["url"] == PAGE_URL
+    assert job["filter"] == [
+        {
+            "css": {
+                "selector": "main",
+                "exclude": "script, style, noscript, template, svg",
+                "method": "html",
+            }
+        }
+    ]
+
+
+def test_no_selector_means_raw_watch(patched_adapter):
+    """不配 selector = 整页原始监控(向后兼容,过滤器键不出现)."""
+    calls: list[dict] = []
+    patched_adapter(fake_adapter(events=[changed_event()], calls=calls))
+    engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
+    run(engine.fetch())
+    assert calls[0]["urls"][0] == {"name": "demo", "url": PAGE_URL}
 
 
 def test_changed_event_maps_to_item_with_fingerprint_anchor(patched_adapter):

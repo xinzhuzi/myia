@@ -192,20 +192,17 @@ sources:
         label: "Anthropic 新闻页"    # 条目标题用的人话名(缺省=源名)
         announce_new: false          # 首跑建基线,之后只报变更
         timeout: 90                  # 单页子进程预算秒(缺省 120)
+        selector: main               # 正文区过滤:425KB 全页→20KB 正文,
+                                    # script/style 剔除,框架噪声出局
+                                    # (10-06 背靠背实证 unchanged;diff=正文 HTML)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
     proxy: direct                   # urlwatch 引擎只支持 direct(子进程直连)
 
-  - name: meta-ai-blog-watch     # Meta AI 博客(无 RSS;robots 的 * 段允许 /blog,
-    engine: urlwatch               # 文件头另附 Meta 自动化采集 notice —— 机械面
-    url: "https://ai.meta.com/blog" # 允许/条款面张力的取合已记 research.md §4)
-    method: GET
-    engine_options:
-      urlwatch:
-        label: "Meta AI 博客"
-        announce_new: false
-        timeout: 90
-    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+  # Meta AI 博客:已移除(10-06-ai-news-sources 二段)。排查实证
+  # ai.meta.com/blog 是纯客户端渲染页——HTML 里没有 <main>/article/
+  # 任何正文节点(六种选择器全零),静态 urlwatch 通道取不到内容,只能
+  # 监控到 React 构建产物漂移(每 run 假阳性)。要接需 JS 渲染通道
+  # (crawl4ai/stealth)另立档;robots * 段允许 /blog 的记档在 research §4。
 
   - name: cohere-blog-watch      # Cohere 博客(无 RSS;robots Allow /)
     engine: urlwatch
@@ -216,6 +213,7 @@ sources:
         label: "Cohere 博客"
         announce_new: false
         timeout: 90
+        selector: main               # 正文区过滤(同上,实证稳定)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
     proxy: direct
 
