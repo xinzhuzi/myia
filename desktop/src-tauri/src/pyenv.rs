@@ -116,7 +116,9 @@ impl PyenvStep {
 }
 
 /// `pyenv_get_status` 结果 / 两事件共用载荷(IPC 契约波次钉死):
-/// `{state, install_path, python_path, mirror_runtime, mirror_pypi, steps}`。
+/// `{state, install_path, python_path, mirror_runtime, mirror_pypi, steps,
+/// components}`(components = 10-05-table-restore R4 扩展:`[{id, installed}]`,
+/// 注册表缺位回空表)。
 #[derive(Clone, PartialEq, Debug, Serialize)]
 pub struct PyenvStatus {
     pub state: PyenvState,
@@ -129,6 +131,8 @@ pub struct PyenvStatus {
     /// PyPI index 覆盖(当前生效值;null = 默认 PyPI)。
     pub mirror_pypi: Option<String>,
     pub steps: Vec<PyenvStep>,
+    /// 可选组件实况(随包注册表序;组件安装机制见 pyenv_components.rs)。
+    pub components: Vec<crate::pyenv_components::ComponentStatus>,
 }
 
 /// 安装链进度戳(`<数据根>/python-env.json`,第 3 步 pyenv_install 写、本模块读;
@@ -398,7 +402,7 @@ pub fn write_settings(data_root: &Path, settings: &PyenvSettings) -> std::io::Re
 // 状态组装(纯 → 胶水)
 // ---------------------------------------------------------------------------
 
-/// 纯组装:探测 + 路径 + 镜像 → 契约载荷(单测直接覆盖)。
+/// 纯组装:探测 + 路径 + 镜像 + 组件 → 契约载荷(单测直接覆盖)。
 pub fn status_at(
     data_root: &Path,
     resource_dir: Option<&Path>,
@@ -414,6 +418,7 @@ pub fn status_at(
         mirror_runtime: settings.mirror_runtime.clone(),
         mirror_pypi: settings.mirror_pypi.clone(),
         steps: detection.steps,
+        components: crate::pyenv_components::component_statuses(data_root, resource_dir),
     }
 }
 
@@ -560,7 +565,8 @@ mod tests {
         assert_eq!(render(PyenvState::DepsStale), "deps_stale");
     }
 
-    /// 契约载荷键集恰为六键;step 键集恰为三键(error 恒在场,无错为 null)。
+    /// 契约载荷键集恰为七键(components = 10-05-table-restore 扩展);
+    /// step 键集恰为三键(error 恒在场,无错为 null)。
     #[test]
     fn status_payload_shape_matches_ipc_contract() {
         let status = status_at(
@@ -583,6 +589,7 @@ mod tests {
         assert_eq!(
             keys,
             [
+                "components",
                 "install_path",
                 "mirror_pypi",
                 "mirror_runtime",
@@ -598,6 +605,8 @@ mod tests {
             "https://mirror.example/runtime.tar.gz"
         );
         assert_eq!(value["mirror_pypi"], Value::Null);
+        // 注册表缺位 → components 空表(宽容,零行为变化)
+        assert_eq!(value["components"], serde_json::json!([]));
 
         let step = serde_json::to_value(PyenvStep::failed(PyenvPhase::Verifying, "boom")).unwrap();
         let mut step_keys: Vec<&str> = step
@@ -842,6 +851,7 @@ mod tests {
             mirror_runtime: None,
             mirror_pypi: None,
             steps: Vec::new(),
+            components: Vec::new(),
         }));
         let not_ready = error.downcast_ref::<PyenvNotReadyError>().unwrap();
         assert_eq!(not_ready.0.state, PyenvState::NotConfigured);

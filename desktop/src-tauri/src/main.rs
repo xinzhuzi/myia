@@ -9,6 +9,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod pyenv;
+mod pyenv_components;
 mod pyenv_install;
 mod pyenv_migration;
 
@@ -68,8 +69,10 @@ async fn sidecar_request(
         match guard.as_mut() {
             Some(child) => child.write(format!("{request}\n").as_bytes()).map_err(|e| e.to_string()),
             // 进程未运行两分源:环境未就绪(未配置/安装中/异常)→ 协议层报
-            // 结构化 pyenv_not_ready(prd Req3,带 status 数据);其余维持
-            // 进程级 sidecar_not_running(崩溃待 respawn/手动拉起)。
+            // 结构化 pyenv_not_ready(prd Req3,带 status 数据)——原样直出
+            // 不再套 sidecar_not_running 信封(AC2 嵌套包装缺陷:真机实证
+            // 前端只见外层码,路由/引导无从辨识,屏上整块 JSON blob 裸奔);
+            // 其余维持进程级 sidecar_not_running(崩溃待 respawn/手动拉起)。
             None => match pyenv::unready_error(&app) {
                 Some(error) => {
                     state.pending.lock().unwrap().remove(&id);
@@ -391,6 +394,7 @@ fn main() {
             pyenv::pyenv_start_setup,
             pyenv::pyenv_sync_deps,
             pyenv_install::pyenv_verify,
+            pyenv_components::pyenv_install_component,
             pyenv_migration::pyenv_migration_banner
         ])
         .setup(move |app| {
@@ -405,6 +409,9 @@ fn main() {
                 respawn_attempts: Mutex::new(0),
             });
             app.manage(pyenv::PyenvManager::default());
+            // 组件机制(10-05-table-restore):单飞护栏内存槽(installing =
+            // 在装组件 id;pyenv_install_component 占坑/清槽)。
+            app.manage(pyenv_components::ComponentManager::default());
             // 自管 Python 环境探测(第 2 步):未就绪(not_configured/installing/
             // error)不 spawn、启动不崩——发空态事件走 UI 引导(D2),sidecar
             // 请求由协议层报结构化 pyenv_not_ready(prd Req 3);就绪/依赖漂移
