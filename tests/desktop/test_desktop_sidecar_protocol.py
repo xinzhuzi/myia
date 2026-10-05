@@ -286,6 +286,79 @@ def test_doctor_roundtrip(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# doctor config_auto(G10 10-05-g10-proxy-probe:免手填一键化;零外网——命中例
+# 用 env 缺失凭据上游,解析在探测前失败隔离成行,同 test_proxy_pool.py 手法)
+# ---------------------------------------------------------------------------
+
+POOLS_YAML_UNRESOLVED = """
+pools:
+  main:
+    upstreams:
+      - "http://env:MYIA_PROBE_TEST_MISSING@127.0.0.1:9"
+"""
+
+
+def test_doctor_config_auto_discovers_home_pools_yaml(tmp_path, monkeypatch):
+    """config_auto 命中:MYIA_HOME 置 pools.yaml → 自动拼 --config,路径经既有
+    proxy.config 键回显(零新应答键),逐池行真跑(缺凭据 → 解析失败行)。"""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    (home / "pools.yaml").write_text(POOLS_YAML_UNRESOLVED, encoding="utf-8")
+    code, responses, _ = rpc({"id": 1, "method": "doctor", "params": {"config_auto": True}})
+    result = responses[0]["result"]
+    assert result["exit_code"] == 0
+    proxy = result["proxy"]
+    assert proxy["config"] == str(home / "pools.yaml")
+    assert len(proxy["pools"]) == 1
+    row = proxy["pools"][0]
+    assert row["pool"] == "main" and row["ok"] is False
+    assert "无法解析" in row["message"]
+    # 解析失败(credential_unresolved)= error 级 finding,doctor 仍完成即 0
+    assert any(item["scope"] == "proxy:main" for item in result["findings"])
+
+
+def test_doctor_config_auto_miss_and_dev_fallback(tmp_path, monkeypatch):
+    """config_auto 未命中:home 模式零 pools.yaml → 不带 --config(只看现状,
+    proxy.config=null、pools=[]);dev 回退(home=None)同款不炸。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+    code, responses, _ = rpc({"id": 1, "method": "doctor", "params": {"config_auto": True}})
+    result = responses[0]["result"]
+    assert result["exit_code"] == 0
+    assert result["proxy"]["config"] is None and result["proxy"]["pools"] == []
+
+    monkeypatch.delenv("MYIA_HOME")
+    code, responses, _ = rpc({"id": 2, "method": "doctor", "params": {"config_auto": True}})
+    result = responses[0]["result"]
+    assert result["exit_code"] == 0
+    assert result["proxy"]["config"] is None and result["proxy"]["pools"] == []
+
+
+def test_doctor_config_explicit_wins_over_config_auto(tmp_path, monkeypatch):
+    """优先级之首:显式 config 与 config_auto 并存 → 手填赢(路径原样回显)。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+    (tmp_path / "home").mkdir()
+    (tmp_path / "home" / "pools.yaml").write_text(POOLS_YAML_UNRESOLVED, encoding="utf-8")
+    explicit = str(tmp_path / "elsewhere.yaml")
+    code, responses, _ = rpc({"id": 1, "method": "doctor",
+                              "params": {"config": explicit, "config_auto": True}})
+    result = responses[0]["result"]
+    assert result["exit_code"] == 0
+    # 显式路径(不存在)→ 拒载明细进 proxy.error,config 仍回显手填值
+    assert result["proxy"]["config"] == explicit
+    assert result["proxy"]["pools"] == []
+    assert result["proxy"].get("error")
+
+
+def test_doctor_config_auto_non_bool_rejected():
+    """config_auto 形状门:非布尔 invalid_params(path=params.config_auto)。"""
+    code, responses, _ = rpc({"id": 1, "method": "doctor", "params": {"config_auto": "yes"}})
+    error = responses[0]["error"]
+    assert error["code"] == "invalid_params"
+    assert error["path"] == "params.config_auto"
+
+
+# ---------------------------------------------------------------------------
 # run.start / run.status / logs.tail(子进程 + 流式事件 + 退出码透传)
 # ---------------------------------------------------------------------------
 
@@ -529,6 +602,31 @@ def test_protocol_errors_are_structured():
     code, responses, _ = rpc({"id": 3, "method": "does.not.exist"})
     assert responses[0]["error"]["code"] == "method_not_found"
     assert "version" in responses[0]["error"]["data"]["allowed"]
+
+
+def test_method_registry_full_reconciliation():
+    """全量对账(质询补死,归属 G10 流):method_not_found 的 data.allowed ==
+    sorted(_HANDLERS) == sidecar-protocol.md 注册表逐行方法名——两侧动态比对,
+    代码或文档任一侧漂移即红(原用例只断成员包含;行数随批自然涨,不硬编码)。"""
+    code, responses, _ = rpc({"id": 1, "method": "does.not.exist"})
+    allowed = responses[0]["error"]["data"]["allowed"]
+    assert allowed == sorted(entry._HANDLERS)
+    spec_text = (REPO_ROOT / ".trellis" / "spec" / "desktop" / "sidecar-protocol.md").read_text(
+        encoding="utf-8"
+    )
+    table = spec_text.split("## 方法注册表", 1)[1].split("\n分组:", 1)[0]
+    documented: list[str] = []
+    for line in table.splitlines():
+        if not line.startswith("| ") or line.startswith("| #") or line.startswith("|---"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) >= 3 and cells[0].isdigit():
+            documented.append(cells[1].strip("`"))
+    assert sorted(documented) == allowed, (
+        f"注册表({len(documented)} 行)与 _HANDLERS({len(allowed)}) 漂移:"
+        f" 文档多={sorted(set(documented) - set(allowed))},"
+        f" 代码多={sorted(set(allowed) - set(documented))}"
+    )
 
 
 def test_notification_yields_no_response():

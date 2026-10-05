@@ -23,7 +23,7 @@
 | 1 | `version` | `_m_version` | `myia --version` 等价:版本 + 协议版本 + app 版本(`app_version` 透传壳层 `MYIA_APP_VERSION`,dev/CLI 未注入 = null;v112 批 C10) |
 | 2 | `health` | `_m_health` | 插件清单 + 源健康度 + 计数聚合 |
 | 3 | `plugins.list` | `_m_plugins_list` | 已装市场插件 + findings |
-| 4 | `doctor` | `_m_doctor` | 结构化诊断(问题全在 findings,完成即 0) |
+| 4 | `doctor` | `_m_doctor` | 结构化诊断(问题全在 findings,完成即 0);可选布尔 `config_auto`(缺省 false 现行为不变;G10 10-05-g10-proxy-probe):`config` 缺省且 true → 发现 `<数据根>/pools.yaml`,命中才带 `--config`(路径经既有 `proxy.config` 回显,零新应答键;未命中/dev 无 home = 只看现状 `proxy.config=null`;手填 `config` 永远赢;非布尔 `invalid_params`) |
 | 5 | `run.start` | `_m_run_start` | 启动 run 子进程,立即返回 run_id;单飞 `run_busy` |
 | 6 | `run.status` | `_m_run_status` | run 注册表查询;未知 id = 结构化 404 |
 | 7 | `run.cancel` | `_m_run_cancel` | 取消进行中 run:killpg(SIGTERM→5s→SIGKILL);信号终局 status=cancelled(v112 批 C2) |
@@ -122,6 +122,13 @@ design.md §6.7 + entry.py `_m_gates_get`/`_m_gates_save` 实况——get 应答
 带回,保存即覆写修复)。**协议版本未随批 bump**:地基路定案维持 v10(两方法
 在 v10 内交付,注册表 62 行;gates UI 无 protocol 版本能力门,旧壳+新 UI
 组合经 method_not_found 结构化降级不白屏;若后续补 bump v11,版本用例随迁)。
+g10-proxy-probe 批(task 10-05-g10-proxy-probe)给既有 `doctor` 增可选布尔
+`config_auto`(注册表 #4 行注;设置屏代理区「探测」留空路径一键化:sidecar 以
+serve 上下文数据根发现缺省 `<home>/pools.yaml`,命中才拼 `--config`,发现逻辑
+全在 entry.py `_m_doctor`,cli.py 零改动)——**同样不 bump**:零新方法零新
+应答键、缺省 false 现行为逐字节不变,旧壳+新 UI 组合旧 `_m_doctor` 忽略未知
+键照跑(不带 config,`proxy.config=null` 前端提示行降级),循 gates 先例维持
+v10。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成

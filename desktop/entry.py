@@ -824,8 +824,17 @@ def _m_plugins_list(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _m_doctor(params: dict[str, Any]) -> dict[str, Any]:
-    """``myssia doctor --json`` 等价:结构化诊断(问题全在 findings,完成即 0)。"""
+    """``myssia doctor --json`` 等价:结构化诊断(问题全在 findings,完成即 0)。
+
+    G10(10-05-g10-proxy-probe)增可选布尔 ``config_auto``(缺省 false = 现
+    行为逐字节不变):``config`` 缺省且为 true 时以 serve 上下文数据根发现
+    缺省 ``<home>/pools.yaml``——命中才拼 ``--config``(路径经既有
+    ``proxy.config`` 键天然回显,零新应答键),未命中不带 ``--config``
+    (= 只看现状)。发现逻辑全在本层,cli.py 零改动(CLI 本无缺省路径概念)。
+    """
     ctx = _serve_context()
+    if "config_auto" in params and not isinstance(params["config_auto"], bool):
+        raise ProtocolError("invalid_params", "config_auto 必须为布尔", path="params.config_auto")
     argv = ["doctor"]
     for yaml_path in params.get("yamls") or []:
         argv.append(str(yaml_path))
@@ -835,6 +844,10 @@ def _m_doctor(params: dict[str, Any]) -> dict[str, Any]:
     argv += ["--gates-file", str(params.get("gates_file") or _gates_yaml_path(ctx))]
     if params.get("config"):
         argv += ["--config", str(params["config"])]
+    elif params.get("config_auto") and ctx.home is not None:
+        default_pools = ctx.home / "pools.yaml"
+        if default_pools.exists():
+            argv += ["--config", str(default_pools)]
     if params.get("probe_timeout") is not None:
         argv += ["--probe-timeout", str(params["probe_timeout"])]
     argv.append("--json")

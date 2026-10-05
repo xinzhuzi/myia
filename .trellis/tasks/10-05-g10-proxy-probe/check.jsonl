@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "验收对表:doctor 行 config_auto 半句与 entry.py 实况一致;注册表 62 行/PROTOCOL_VERSION 10 不动;全量对账例红即漂移"}
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "验收对表:回显全来自 doctor 应答零本地回显;提示行人话零行话;旧 UI 行为零迁移(有路径探测逐字节现状)"}

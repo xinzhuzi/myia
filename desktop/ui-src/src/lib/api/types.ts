@@ -205,8 +205,10 @@ export interface DoctorParams {
   yamls?: string[];
   plugins_dir?: string;
   db?: string;
-  /** 全局代理池 YAML(--config) */
+  /** 全局代理池 YAML(--config);与 config 互斥——config 缺省且 true 时由
+   *  sidecar 发现 <数据根>/pools.yaml(G10 10-05-g10-proxy-probe,零新应答键) */
   config?: string;
+  config_auto?: boolean;
   /** 代理探测超时秒数 */
   probe_timeout?: number;
 }

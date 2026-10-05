@@ -105,7 +105,7 @@ function doctorFixture(overrides?: {
 
 interface SidecarState {
   secrets: Map<string, string>;
-  doctor: (params: { config?: string }) => DoctorResult;
+  doctor: (params: { config?: string; config_auto?: boolean }) => DoctorResult;
   /** push.test 可编程应答(G5 用例;缺省成功) */
   pushTest: (params: { channel: string; target?: string }) => unknown;
   /** gates.* 内存态(门槛件分区;缺省 = 全关空表,fail-closed 未配置态) */
@@ -130,7 +130,9 @@ function gatesFixture(overrides?: Partial<GatesView>): GatesView {
   };
 }
 
-function installSidecar(doctorImpl?: (params: { config?: string }) => DoctorResult) {
+function installSidecar(
+  doctorImpl?: (params: { config?: string; config_auto?: boolean }) => DoctorResult,
+) {
   const state: SidecarState = {
     secrets: new Map(),
     doctor: doctorImpl ?? (() => doctorFixture()),
@@ -177,7 +179,7 @@ function installSidecar(doctorImpl?: (params: { config?: string }) => DoctorResu
         case "push.test":
           return state.pushTest(args.params as { channel: string; target?: string });
         case "doctor":
-          return state.doctor((args.params ?? {}) as { config?: string });
+          return state.doctor((args.params ?? {}) as { config?: string; config_auto?: boolean });
         case "gates.get":
           // entry.py _m_gates_get 实况:坏文件 fail-closed 不炸设置屏
           // (config 全关 + error 载荷;exists = 文件在否)
@@ -481,6 +483,64 @@ describe("设置:代理池", () => {
     expect(row.textContent).toContain("main");
     expect(row.textContent).toContain("连通");
     expect(row.textContent).toContain("0.42s");
+  });
+
+  it("G10 探测两态:留空发 config_auto,自动命中回显配置路径 + 逐池行", async () => {
+    const seen: Array<{ config?: string; config_auto?: boolean } | undefined> = [];
+    installSidecar((params) => {
+      seen.push(params);
+      // 镜像 sidecar 语义:显式 config 赢;缺省且 config_auto → 自动命中路径
+      const config = params.config ?? (params.config_auto ? "/home/myia/pools.yaml" : null);
+      return doctorFixture({
+        config,
+        pools: config ? [{ pool: "main", ok: true, latency_seconds: 0.31 }] : [],
+      });
+    });
+    renderScreen();
+    await screen.findByTestId("doctor-verify"); // 挂载 doctor 结算(无 config/config_auto)
+    expect(seen[0]).toEqual({});
+    fireEvent.click(screen.getByRole("button", { name: "探测" })); // 路径留空 → 自动态
+
+    await waitFor(() => {
+      expect(seen.some((params) => params?.config_auto === true && params?.config === undefined)).toBe(true);
+    });
+    const row = await screen.findByTestId("proxy-pool-row");
+    expect(row.textContent).toContain("main");
+    expect(row.textContent).toContain("0.31s");
+    expect(screen.getByTestId("proxy-config-path").textContent).toContain("/home/myia/pools.yaml");
+    expect(screen.queryByTestId("proxy-auto-miss")).toBeNull(); // 命中不冒未找到
+  });
+
+  it("G10 探测两态:自动未命中 → 人话提示行;挂载初始不冒;填路径重探退场", async () => {
+    const seen: Array<{ config?: string; config_auto?: boolean } | undefined> = [];
+    installSidecar((params) => {
+      seen.push(params);
+      return doctorFixture({ config: params.config ?? null, pools: [] });
+    });
+    renderScreen();
+    await screen.findByTestId("doctor-verify");
+    // 挂载初始(未探测)不冒「未找到」——提示行只跟自动探测走
+    expect(screen.queryByTestId("proxy-auto-miss")).toBeNull();
+    expect(screen.queryByTestId("proxy-config-path")).toBeNull();
+    expect(screen.getByLabelText("pools YAML 路径").getAttribute("placeholder")).toContain("自动探测");
+
+    fireEvent.click(screen.getByRole("button", { name: "探测" }));
+    await waitFor(() => {
+      expect(seen.some((params) => params?.config_auto === true)).toBe(true);
+    });
+    expect(await screen.findByTestId("proxy-auto-miss")).toBeTruthy();
+    expect(screen.getByTestId("proxy-auto-miss").textContent).toContain("未找到缺省 pools.yaml");
+    expect(screen.getByTestId("proxy-auto-miss").textContent).toContain("填入全局配置路径");
+
+    // 填路径重探 → 显式 config(手填赢),提示行退场
+    await typeByLabel("pools YAML 路径", "config/pools.yaml");
+    fireEvent.click(screen.getByRole("button", { name: "探测" }));
+    await waitFor(() => {
+      expect(seen.some((params) => params?.config === "config/pools.yaml")).toBe(true);
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId("proxy-auto-miss")).toBeNull();
+    });
   });
 
   it("池凭据写入 myia/proxy/<pool>", async () => {

@@ -973,8 +973,15 @@ export function SettingsScreen() {
     }
   }, [proxy, refreshSecretNames, runDoctor]);
 
+  /** G10(10-05-g10-proxy-probe):探测两态——路径非空走显式 config(现状),
+   *  留空走 config_auto 由 sidecar 发现 <数据根>/pools.yaml;autoMiss 记住
+   *  「最近一次探测是自动态」,doctor 应答无新键,未命中提示行靠它 gating
+   *  (挂载初始/保存后刷新不发 config_auto,不冒「未找到」)。 */
+  const [probeAutoMiss, setProbeAutoMiss] = useState(false);
   const handleProbe = useCallback(async () => {
-    await runDoctor(probePath.trim() ? { config: probePath.trim() } : undefined);
+    const path = probePath.trim();
+    setProbeAutoMiss(!path);
+    await runDoctor(path ? { config: path } : { config_auto: true });
   }, [probePath, runDoctor]);
 
   const handlePushSave = useCallback(async () => {
@@ -1380,10 +1387,10 @@ export function SettingsScreen() {
                     <FieldInput
                       label="全局 pools YAML 路径"
                       aria-label="pools YAML 路径"
-                      placeholder="config/pools.yaml(--config;缺省=只看现状)"
+                      placeholder="留空=自动探测 <数据根>/pools.yaml"
                       value={probePath}
                       onChange={(event) => setProbePath(event.target.value)}
-                      hint="doctor --config 探测全局池结构"
+                      hint="留空自动探测数据根缺省文件;填写则用该路径探测"
                       action={
                         <Button size="sm" variant="secondary" onClick={() => void handleProbe()} disabled={verifying}>
                           探测
@@ -1416,7 +1423,7 @@ export function SettingsScreen() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <DoctorVerifyPanel verify={verify} loading={verifying} />
+                  <DoctorVerifyPanel verify={verify} loading={verifying} proxyAutoMiss={probeAutoMiss} />
                 </CardContent>
               </Card>
             </>

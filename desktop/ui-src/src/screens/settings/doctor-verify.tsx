@@ -33,13 +33,16 @@ function CredentialState({ exists }: { exists: boolean | null }) {
 interface DoctorVerifyPanelProps {
   verify: DoctorVerify | null;
   loading: boolean;
+  /** G10:最近一次「探测」是留空自动态(且应答 proxy.config=null)时提示
+   *  未找到缺省 pools.yaml——doctor 应答无新键,auto 态只能由屏侧跟踪。 */
+  proxyAutoMiss?: boolean;
 }
 
 /**
  * doctor 验证回显面板:保存凭据后的存在性核验 + 现值/发现展示。
  * 一切回显都来自 doctor 应答(结构化事实),界面不从本地状态回显任何值。
  */
-export function DoctorVerifyPanel({ verify, loading }: DoctorVerifyPanelProps) {
+export function DoctorVerifyPanel({ verify, loading, proxyAutoMiss = false }: DoctorVerifyPanelProps) {
   if (loading && verify === null) {
     return (
       <div className="flex flex-col gap-2" aria-label="doctor 验证中">
@@ -134,28 +137,39 @@ export function DoctorVerifyPanel({ verify, loading }: DoctorVerifyPanelProps) {
         </section>
       ) : null}
 
-      {verify.proxyPools.length > 0 ? (
+      {verify.proxyPools.length > 0 || (proxyAutoMiss && verify.proxyConfig === null) ? (
         <section className="flex flex-col gap-1.5">
           <p className="text-xs font-medium text-muted-foreground">代理池探测(doctor --config)</p>
-          <ul className="flex flex-col gap-1">
-            {verify.proxyPools.map((pool, index) => (
-              <li
-                key={`${pool.pool ?? index}-${index}`}
-                className="flex flex-wrap items-center gap-2 rounded-sm bg-muted/30 px-2 py-1 text-xs"
-                data-testid="proxy-pool-row"
-              >
-                <span className="font-mono text-foreground">{pool.pool ?? "?"}</span>
-                {pool.ok === true ? (
-                  <Badge variant="ok">连通{typeof pool.latency_seconds === "number" ? ` · ${pool.latency_seconds}s` : ""}</Badge>
-                ) : pool.ok === false ? (
-                  <Badge variant="destructive">不通</Badge>
-                ) : (
-                  <Badge variant="unknown">未探测</Badge>
-                )}
-                {pool.message ? <span className="truncate text-muted-foreground">{pool.message}</span> : null}
-              </li>
-            ))}
-          </ul>
+          {verify.proxyConfig ? (
+            <p className="text-2xs font-mono text-muted-foreground" data-testid="proxy-config-path">
+              已加载配置:{verify.proxyConfig}
+            </p>
+          ) : null}
+          {verify.proxyPools.length > 0 ? (
+            <ul className="flex flex-col gap-1">
+              {verify.proxyPools.map((pool, index) => (
+                <li
+                  key={`${pool.pool ?? index}-${index}`}
+                  className="flex flex-wrap items-center gap-2 rounded-sm bg-muted/30 px-2 py-1 text-xs"
+                  data-testid="proxy-pool-row"
+                >
+                  <span className="font-mono text-foreground">{pool.pool ?? "?"}</span>
+                  {pool.ok === true ? (
+                    <Badge variant="ok">连通{typeof pool.latency_seconds === "number" ? ` · ${pool.latency_seconds}s` : ""}</Badge>
+                  ) : pool.ok === false ? (
+                    <Badge variant="destructive">不通</Badge>
+                  ) : (
+                    <Badge variant="unknown">未探测</Badge>
+                  )}
+                  {pool.message ? <span className="truncate text-muted-foreground">{pool.message}</span> : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground" data-testid="proxy-auto-miss">
+              未找到缺省 pools.yaml——可在上方填入全局配置路径后重探
+            </p>
+          )}
         </section>
       ) : null}
 
