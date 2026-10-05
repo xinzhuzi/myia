@@ -175,3 +175,42 @@ def gate_open(config, kind, name) -> bool    # 引擎/插件侧唯一查询口
 | 桩件 | tests/plugins/test_plugin_packages.py | crawlab/worldmonitor `tier: remote`+`gate: platform`(D5 正交组合);compose 集 10 件(7+crawlab/worldmonitor/webcheck,social-analyzer 只桩不携;批二回填修正:本行原 D5 前早稿「tier=gated;9 件」与 prd.md D5 定案及实际交付均不符,复审 low 抓出) |
 | 设置屏 | desktop ui settings 测试+tests/desktop | gates.get/save 协议往返;分区渲染;知情文案在位 |
 | 铁律 | 各新件 | gate_closed/桩不可达/坏 gates.yaml 三态下核心品类与 Pipeline 构造无感 |
+
+## 7. 批三分析 lane 设计(D10 定案;主人令按建议执行,翻案即改)
+
+> D8 悬案(「分析 lane 挂点:classify 后处理还是 enrich 平行」)经批三前置质询闭案,决议 D10 见 prd.md。本节是落地设计;依据=pipeline.py/gates.py/manifest.py 实况 + urlwatch/credhunter/saas 三先例 + 本日 gh api 上游复核(snownlp 2020-01 停更;yake 2026-02 活跃;MediaCrawler 活跃)。
+
+### 7.1 挂点与执行形状(D10-1:enrich 平行)
+
+- **挂点**:`Pipeline._stage_analyze` 内新增 lane 子步,dedup 之后、push 之前;enrich 启用分支与直通分支(pipeline.py:1872)**都必须经过**(lane 与 `enrich.enabled` 正交——LLM 关着不该关本地分析,gate 才是 lane 的唯一开关)。
+- **顺序/并发**:允许 `asyncio.gather` 与 LLM 精评并行(snownlp 子进程与 LLM 调用互不阻塞),不强制——实现裁量,顺序执行亦合规。
+- **装饰契约**:输出一律落 `item.metadata`(如 `sentiment`/`keywords`),route 规则与 push 模板经 `Item.view()` 消费(与 `metadata['score']` 同可见面);**装饰不过滤**——lane 任何输出不改变条目存活。
+- **失败容器**:条目级/件级失败进 `report.warnings`(照 enrich 条目级失败通道 pipeline.py:1898),**绝不进 `report.failures`**(不翻 partial,退出码不惊动 agent/CI);件级降级(依赖缺/子进程败/输出坏)记 `analysis_lane_degraded_*` skip 计数+WARNING。
+- **items 表回填**:best-effort,照 enricher `update_item_scores` 先例(enrich/__init__.py:465-486);列面(并入 raw 抑或专列)批三实现时定,不预设 schema。
+- **续跑注记**:`_item_checkpoint` 不序列化 `content`(pipeline.py:612),续跑条目分析输入退化 title-only——降级记 warning 不阻;lane 装饰 run 级重算,不进 checkpoint 载荷。
+- **爆炸半径(已跑)**:`gitnexus impact -r shishi _stage_analyze --direction upstream --kind Method --summary-only` = 0 直接调用方/LOW(`run()` flow 字典派发 pipeline.py:1082 是唯一生产引用);钩子封闭在阶段方法内,`run()` 签名不动。
+
+### 7.2 lane ↔ gates.analysis 执法(D10-2:真执法,fail-closed)
+
+- **每轮装载**:lane 入口 `load_gates_fail_closed(<home>/gates.yaml)`(gates.py:432)——照 vision ring 每轮装载先例(pipeline.py:1658),设置面开关下一轮生效;坏文件=全关态继续+既有 doctor warning 通道。
+- **逐件判定**:`gate_open(config, "analysis", key)`(gates.py:492)在**任何 adapter 加载之前**——gate 关=不 import 插件码、不 spawn、条目零触碰,仅字典查找(零开销是字面义)。
+- **语义区分**:lane 关=正常未启用态(doctor info+debug 日志,**非** `gate_closed` 结构化失败——那是 SaaS 引擎「被品类请求后被拒」的语义 saas.py:70;lane 的唯一激活路径就是 gates.yaml,不存在「请求了被拒」的调用方)。
+- **键名**:`plugin_gate_key`(gates.py:499)派生——`myssia-snownlp`→`snownlp`、`myssia-yake`→`yake`;§6.1 样例键 `snownlp_sentiment` 与 gates.py:494 docstring 例键为实现前早稿示意,**批三文档与测试一律用 plugin 派生键**。
+- **市场面最小扩展**:yake 不声明 gate(许可已清+上游活跃,stale 徽标失实),故 plugin list/doctor 的「analysis lane 件启用徽标」按 **lane 成员资格**(provides/lane 清单)派生自 `analysis.<key>` 开关,而非 gate 字段——D5 词表零改动。
+
+### 7.3 三件形态(D10-3)
+
+| 件 | manifest | 上游/许可(●=gh api 2026-10-05 复核) | 形态一句话 |
+|---|---|---|---|
+| myssia-snownlp | tier: desktop+**gate: stale**+adapter(subprocess) | MIT●;最后推送 2020-01-19●(停更名副其实) | 中文情感:uv 隔离子进程**钉版**(`uv run --no-project --with snownlp==<pin>`,pin 号收录时核 PyPI 末版),每轮**单次 spawn** stdin JSON 批处理(import 即载训练模型,禁逐条 spawn),情感分装饰 metadata,错误码照 urlwatch 词表,测试 mock 子进程零网络 |
+| myssia-yake | tier: desktop+**不声明 gate**+adapter(process) | AGPL-3.0 免费档+商业双轨●(research 第五波);最后推送 2026-02-11●(活跃) | 关键词抽取:进程内 adapter 惰性 `import yake`(credhunter 先例 engines/credhunter.py:67),未装=dependency_missing 条目降级 warning;AGPL=只声明依赖零复制(pip 运行时自装不构成分发,第五波已裁);lane 激活走 gates.analysis.yake |
+| myssia-mediacrawler | tier: desktop+**不声明 gate**+**无 adapter** | 非商业学习许可 1.1●(第五波);最后推送 2026-10-04●;无 API 无 pip | **最薄=警示型文档桩**:manifest(modes.local.install=用户自行 clone 上游)+README(非商业醒目警示+零复制+「MYIA 不调用不集成不捆绑,收录=市场知识面,自装自负边界」);零 adapter/零 compose/零 CLI/零 lane 接线;license 门=D4 类型4(README 级,设置面无关) |
+
+### 7.4 批三验证口径(预告,实现时按 tests 现状校准)
+
+- lane 关=零开销:gate 全关时 `_stage_analyze` 路径不触发任何 adapter import/子进程(mock 断言零调用);
+- lane 开=装饰可见:fake analyzer 往 metadata 写 sentiment/keywords,`--json` 输出与 route 规则可见;条目零丢弃;
+- 失败降级:analyzer 抛错→report.warnings+skip 计数,run 状态不翻 partial;
+- 坏 gates.yaml=lane 全关继续跑(铁律测试);
+- snownlp 子进程 mock(照 test_urlwatch_plugin 手法);yake 惰性 import 缺包=dependency_missing 降级;
+- market 面:snownlp 停更徽标(gate: stale)/yake 无徽标但 lane 开关派生启用态/mediacrawler 文档桩契约(照 test_plugin_packages 参数化+golden 同步纪律)。
