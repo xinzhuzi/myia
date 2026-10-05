@@ -641,3 +641,39 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 本轮 actionable 唯一:10-05-palette-cron-entry——①并行归档轮 staged 遗件(回标复核补注四条实读锚)随 5b64799 入库;②task.py archive --skip-branch-validation(工作直落 main,循同轮口径)→ completed 2026-10-05,工具自动提交。
 - 活区余留:10-03-v12-backlog(池,永不归档)+并行在途 plugin-market-batch(in_progress)+新 planning 三件(engine-curl-cffi/extract-trafilatura/table-restore,并行线所立,未动)。
 - 终报后静默收口;未 push。
+
+## 2026-10-05 亲眼验收轮(主人三连问「都验证了吗/亲眼看到了吗」)
+
+- 无头冒烟亲验(eyes-drive.cjs:桥+vite+shim,sources.test/run.start 在 shim 层伪造 started+__EMIT 合成完成事件,零副作用全链):试抓弹窗五节/role/ESC、跑一次弹窗部分完成形/trace 小字/X 钮、侧栏定时任务导航,DOM+截图+OCR(Vision 像素层)三层吻合;进行中横幅实测无「run #」行话。截图 .zcode/smoke/eyes-*.png。
+- **大发现(唯「亲眼」可抓):⌘K 命令面板整件死 UI**——d9ae353 无头布局整删 TopBar 时连坐:CommandPalette 唯一渲染点在 top-bar.tsx:93,而 top-bar 无人 import(除测试)、app-layout 只挂 Sidebar+Outlet;运行页 headers=0 无触发钮。vitest 428 绿(组件单测不测挂载)、装机包 brotli 字节验证(同样不测挂载)全放行——palette-cron-entry 修的条目本身正确但用户按不到。待主人裁决:复活(AppLayout 直挂 <CommandPalette/> 一行,⌘K 热键在组件内,不回顶栏、不破无头令)或退役(删 top-bar/command-palette/global-run 死件)。推荐复活。
+- 附带:冒烟冻结侧车二进制(10-04 协议 v6/43 法)已落后——cron.list/cron.status method_not_found,app 如实出结构化错误框(非产品缺陷);下次冒烟前须换新镜像。shim 工件两条(pyenv_migration_banner 直传 cmd 通道未桩、unlisten 返回 0)记录在案。
+
+## 2026-10-05 两档核验收口提交轮(插件批二 plugin-market-batch+自管py环境 desktop-managed-py-env)
+
+- 方法(两位核验员,成果入档):只读审计+域内门禁——G1 `pytest tests/plugins tests/test_gates.py`、G2 `myssia plugin list` 均退出码 0 无红项;scoped 亲跑各绿(saas_gated_engines 16 例+ruff 四件/pyenv 域内 30+2 例+ruff 六件/沙箱 MYIA_PLUGIN_DIR 逐件 install 四件全过门槛分组正确)。
+- plugin-market-batch(批二域):AC6-AC9 各加一行「批二收口审计复核:met」+prd 尾部收口段+implement 收尾两行/步骤 16 按证据勾选=提交 7c79698(仅 prd/implement 两文件,31+/4-);task.json 维持 in_progress——AC5 之 [x] 系并行批三在途回标且 commit pending,转 review 留批三提交+收口(先例 ce9878d);G2 输出仅本机已装两件=plugin list「已装清单」语义正确非缺口。留主人:真机设置屏门槛件分区/gated 引擎实机表现、遗留低危四条+四新件 install.source 旧仓名、批三是否独立立档。
+- desktop-managed-py-env:AC3/AC4/AC5/AC7 勾+证据回标、AC1/AC6/AC8 留真机、AC2 实质缺口不勾(pyenv_not_ready 事件零前端消费者+docs 双页把不存在 UI 写成既有行为+补卡前须先修 main.rs:70-81 嵌套包装);档目录审计中途被 4afdd6c 归档,回填落归档副本 archive/2026-10/ 且 status 回退 in_progress——该回填已被并行归档提交 a50faf9 原样吞入(提交员逐点比对 task.json 回退/AC 勾注/收口段与核验员报告吻合),工作树零待提交,故本档无独立提交笔。留主人:AC1 真机链/AC2 裁定(补卡或改文案)/AC6 Windows CI+真机/AC8 新形态装机回执+全量门禁统一复跑/归档位置与状态一致性。
+- 提交员处置如实:批三在途件分毫未动(design.md §7 lane 设计、pipeline.py/store base+sqlite/analysis_lane.py 新现、tauri.conf.json/cli.py/zenrows.py/tests 三件/spec 两件、planning 三目录);prd.md 混含的批三 D10 决议节+AC5 翻勾系核验员留档原样随 7c79698 入库(其行内注记「不背书亦不推翻」在案);journal 本段因外来未提交 hunks 在途(+21 行三段:命令面板条目/静默归档轮/亲眼验收轮)按令追加后留工作树不提交;未 push 未打 tag。
+
+### ⌘K 面板复活(主人「怎么解决?」令;fe3abe9+ef6846c)
+
+- 方案:AppLayout 直挂 <CommandPalette/>(热键自含,零视觉占用,不回顶栏不破无头令);品类命令组+category 族 props 随 TopBar 全球过滤退役(7152ff9 已归情报流);清死件四件(top-bar/global-run 各 tsx+test);app-layout.test 新增挂载级回归锚(⌘K 唤出八屏含定时任务)——专防「组件绿但没人挂」类缺陷(vitest/复核/字节验证三关全放行的洞,唯亲验抓到)。
+- 门禁:layout scoped 35/35→全量 441/441+tsc 0;无头冒烟闭环亲验 ⌘K 唤出/搜索「定时」过滤/Enter 导航 /cron(eyes-palette.png+OCR 像素层)。
+- 归档竞态:实施中途任务被并行会话归档(a50faf9),循 b8e20a2 判例归档档尾部纯增量二段补记(ef6846c),原文勾选不改。
+- 装机包累积差口(面板复活+弹窗等)待树静窗统一刷;冒烟冻结侧车二进制待换新(cron.* 缺方法)。
+
+### 装机刷新终局(四轮经过;dwfrun-7be119bc/818c4d4e/ee9f65c6/20fe4708)
+
+- 一轮败:sidecar 步过时(py-env 退役冻结链,HEAD 已无 sidecar 脚本)+npm --prefix ci 用法坑;二轮败:我方工程缺陷(失败分支清理未 await 删了树+Amend 缓存重放「检出成功」未真建);三轮败:**HEAD tsc 断**(table-restore 18558c0 提交 card 消费面、pyenv-api 扩展在途未随,CI 连红两轮起于此);watcher(3 分钟×15 探 HEAD)13:02:43 触发并行线落修(781ee9c),四轮重发却在 pgrep 对表误报礼让(shell 包装进程含关键字)。
+- **终局:装机版已被并行 12:50 波次刷成全量**(其构建树含我方 fe3abe9 面板复活)——字节级七标记全在(test-result-dialog/run-once-dialog/搜索命令/命令面板/定时任务×15/试抓结果/跑一次结果)、「异步 run #」为零;⌘K 面板/两弹窗全部入装,目标达成,四轮未换装一次(退路纪律全程生效,装机版零风险)。
+- 教训:pgrep -fl 对表要排除 shell 包装(脚本已收紧留档);Amend 缓存会重放 world.run 结果——流程里的清理必须 await 且建立步骤要幂等自验;并行多会话格局下「等他们的波次刷」常比抢刷更优。
+
+## 2026-10-05 工作流四流+验收收口轮(CI numpy 债/桌面护栏/curl_cffi+trafilatura 两评估;push run 37277285803 五作业绿)
+
+- **5ae3bb3 fix(tests) CI numpy 债**:main CI test 红根因=裸 uv sync 无 numpy 而 _ocr_feed 惰性 import(table.py:178)先于一切假引擎分支,mock 套件 8 件齐炸;TestRunTableEngine 加 autouse fixture 经 sys.modules 注假 numpy(_FakeNumpyArray 按嵌套深度算 shape 满足 (N,4,2)),与假 rapid_table/rapidocr 同纪律;CI-sim 全新 venv(find_spec=None)修前 8 failed/21 passed 精确复现、修后 29 passed/1 skipped,本机全量 4251 passed/41 skipped。
+- **813c0fe fix(desktop) 桌面护栏**:start_install_thread(真身 pyenv_install.rs:1178,种子 :1068 系行号漂移)占坑前增 ComponentManager.installing 互斥检查(组件 pip 单飞拒启主链,消息镜像组件侧 pyenv_components.rs:315,TOCTOU 残余窗注释记档);调用面 3 处 gitnexus impact -r shishi 亲核 risk HIGH direct 3 与预核一致;cli.py 探测面补 tqdm 成三侧闭包(extras/探测面/components.json),新增三侧闭包锁测 test_table_component_closure_three_way;门禁 pytest 387+cargo check --locked/test 53+vitest 459+tsc -b+vite build 全绿;table-restore AC3/AC4 注回写(装机包未随不重打包,真机链归沙箱)。
+- **43cad69 curl_cffi 评估定案**:不进 AUTO_CHAIN 亦不链外注册——七站三路矩阵(B=httpx+Chrome UA 控制组与 C 路UA 逐字节同,差异收窄到 TLS 栈)零「仅 curl_cffi 过」例,唯一硬墙 scrapingcourse CF managed challenge 三路全拒(不执行 JS 盲区),amazon 反增量 202 拦截页,aihot 墙=nginx UA 黑名单可 headers 解;进链另有 registry.py:261/279/307 L3 探测对 crawl4ai 键控的静默改道爆炸半径;echo 自证 chrome150 指纹生效且改 UA 不改 JA3;8 host robots 记档单次探询(reddit 全站禁抓剔除);留再触发条件(TLS 墙+静态 HTML 有内容的实证源)。task.json 转 review+母任务 research 表终态回写。
+- **4e7b9e0 trafilatura 评估定案**:共存边界=三分触发(规则缺失兜底/规则跑空过质量门后兜底/字段级失败不兜底)+零新键契约 {url,title,content[,published,author]} 对齐 items schema+provenance 仅兜底条目;挂点=static_html 引擎内回退,enrich 平行三重架构性否决(后段无钩子/绕过礼貌设施/改动更大);启发式噪声靠触达面天然窄+质量后验门约束(夹具实证文章 203 字符 vs 列表退化 51-78,pagetype 恒 None 弃用);守军清单 7 文件行号级+9 测试件入档(实现期硬门);AC1-AC4 全勾转 review,planning 期零核心文件改动。
+- **验收流(773ea37+e0b6415)**:两评估档 verdictChecks 双 confirmed(trafilatura 档独立重跑矩阵/判官脚本逐值复现);AC6 两级口径过——/tmp/table-e2e '-e .[table]' 主口径 30 passed 零 skip(TestRealEngineFixture 真引擎例真跑,slanet-plus.onnx 7.4M 真从 modelscope 下载)+品类级端到端(品类 YAML 磁盘装载→collect.process_item_images 真跑零打桩→serve()/public_dns 同款 MockTransport 手法零外网→rapidocr 真识别全 12 格,断言 tables 恰三键 {markdown,rows,cols} 且 4x3 逐格对齐);顺手修 judge-script.py 文件级 noqa F821(ruff 8 错消,否则推送后 CI ruff 必红)。AC4 装机真机链=已完成段(缺装证据/MYIA_SMOKE_ROUTE 拉起设置页/Python 环境分区就绪态回读一致/检查状态按钮活证/清场回执)+受阻段如实:装机包二进制不含组件安装链(字节级 grep「组件」/pyenv_install_component 零命中 vs pyenv_get_status 对照命中;4986c58 包内容早于组件链入库 18558c0,构建线疑点留 owner),表格还原开关 UI 装链结构性不可触发;镜像覆盖走口径 a 留注、卸载半句按 pyenv_components.rs:286 记注;过程风险=并行会话 GUI 抢前台一次误击,后续全改单进程前台门控。
+- **收口门禁+推送**:全量 Python 4252 passed/41 skipped(基线 4251+新锁测 1 严丝合缝)/ruff 全仓过/vitest 459/tsc+vite build/cargo 53/定向复跑 416 passed;push 指令矛盾裁定备案(角色纪律「不推远端」vs 计划收口门禁「push→watch 五作业」,依三流回执口径+幂等+不推则「CI 出绿」判据悬空裁推)→ git push 4986c58..e0b6415 七提交(17c0aaa/5ae3bb3/813c0fe/4e7b9e0/43cad69/773ea37/e0b6415)→ run 37277285803 五作业全绿(test/ui-test/rust-check/ruff/docker-build),numpy 修复与 ruff 修复真机出绿;终态 ahead 0。docker 本地无 CLI 省略,CI docker-build 作业覆盖。
+- **本步收口准备**:porcelain 仅 journal 一件——26 行上轮遗留(亲眼验收轮/两档核验收口提交轮/⌘K 面板复活/装机刷新终局四段)随本轮收口段一并入库;git fetch 后 origin/main...HEAD=0/0 无并行新提交无 rebase;待推清单=本 journal 提交一笔,推送归脚本统一。
