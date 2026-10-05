@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/10-05-plugin-market-batch/research.md", "reason": "第二波 curl_cffi 行(license/星/「L2.5」判定)+判定框 a 路两问出处——本任务定案问题的证据源"}
+{"file": ".trellis/spec/python/index.md", "reason": "核心 6 依赖红线/可选依赖纪律(dependency_missing 不拦链)——curl_cffi C 扩展依赖面评估的合规路径"}
