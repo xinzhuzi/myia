@@ -42,13 +42,19 @@ tokio = { version = "1", features = ["time"] }
 # pyenv 探测单测的临时数据根(三态/指纹/镜像回环)。
 tempfile = "3"
 
+# libc 门控必须 cfg(unix) 而非 macos-only:macOS 侧单实例锁 flock
+# (10-03-single-instance)之外,壳服务组件进程组信号(pyenv_components:
+# kill/pid_t/SIGTERM/SIGKILL/ESRCH,10-06-native-plugin-components)全在
+# #[cfg(unix)] 块——Linux 同属 unix,CI Rust compile check 在 ubuntu 跑,
+# macos-only 门控曾致 Linux 侧 libc 不链接(E0433 ×18);版本随锁内 tao 侧一致。
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 # 静默启动让回激活用(10-03-quiet-launch):NSApp.deactivate() 抵消 tao
 # 启动期无条件 activateIgnoringOtherApps(true)。版本随锁内 tao 侧一致。
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3.2", features = ["NSApplication"] }
-# 单实例锁 flock 用(10-03-single-instance);版本随锁内 tao 侧一致。
-libc = "0.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # Windows 二实例唤出(10-05-win-second-instance-show):官方插件,命名
