@@ -28,9 +28,17 @@
  * context)+ 工具条一行收纳(KsFilter:品类下拉 + 读态分段 + 搜索 + 刷新
  * 同容器,刷新自页头迁入);纯函数 categoryOptionsFromHealth。
  * fe-gap-leftovers 批(10-05 ①):later 到期重现——稍后读条目放入超
- * LATER_RESURFACE_DAYS(7 天,与时间分组「更早」同界)即并入未读视图
- * (服务端通路屏测 + 纯函数 isLaterResurface/applyFeedFilter 边界);
- * 书签 title 知会到期规则。
+ *  LATER_RESURFACE_DAYS(7 天,与时间分组「更早」同界)即并入未读视图
+ *  (服务端通路屏测 + 纯函数 isLaterResurface/applyFeedFilter 边界);
+ *  书签 title 知会到期规则。
+ * feed-channel-groups 批(10-06,主人令「情报流也要分渠道」+「不同渠道
+ *  表现的方式不一样」+「不停地过信息日志,每天凌晨 3 点清零」):品类分组
+ *  下渠道二级分组 / 五档差异化卡面(telegram 气泡 · watch 变更事件 ·
+ *  document 日报 markdown · deal 价格行 · news 现状)/ 实时滚动
+ *  (completed·cron.completed 事件前插新键)+ 当日窗 03:00 视图清零
+ *  (滚动流受窗,星标/稍后读跨窗);纯函数 channelKindOf /
+ *  engineMapFromHealth / groupFeedItemsByChannel / dealPriceView /
+ *  dayWindowStart / inDayWindow / mergeFreshItems。
  */
 import { cleanup, fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -52,12 +60,19 @@ import {
   appendWatchlistKeyword,
   categoryColor,
   categoryOptionsFromHealth,
+  channelKindOf,
+  dayWindowStart,
   DEFAULT_FEED_DISPLAY,
+  dealPriceView,
+  engineMapFromHealth,
   groupFeedItems,
   groupFeedItemsByCategory,
+  groupFeedItemsByChannel,
+  inDayWindow,
   isLaterResurface,
   LATER_RESURFACE_DAYS,
   loadFeedDisplay,
+  mergeFreshItems,
   READ_STATE_PROTOCOL,
   saveFeedDisplay,
   setMarkerBulk,
@@ -143,6 +158,17 @@ function renderScreen() {
       <FeedScreen />
     </MemoryRouter>,
   );
+}
+
+/** 三级下钻(10-06):进入「全部条目 · 滚动流」L3(全局流 = 原平铺视图语义) */
+async function openAllStream() {
+  fireEvent.click(await screen.findByTestId("feed-drill-all"));
+}
+
+/** 惯用入口:渲染 L1 + 下钻全局滚动流(卡片/工具条用例的公共前置) */
+async function renderStream() {
+  renderScreen();
+  await openAllStream();
 }
 
 /** 品类下拉选项用 PluginReport 夹具(形状对齐 types.ts;字段按需覆写) */
@@ -322,7 +348,7 @@ afterEach(() => {
 describe("FeedScreen", () => {
   it("条目卡渲染:标题 / 来源 / 分类标签 / score 徽标 / 相对时间", async () => {
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
-    renderScreen();
+    await renderStream();
 
     await screen.findByText("条目 1");
     expect(screen.getByText(/Example/)).toBeTruthy();
@@ -336,7 +362,7 @@ describe("FeedScreen", () => {
     const withImage = fixtureItem({ image_ocr: "GPT-5 发布会\n  截图里的 关键数字" });
     const withoutImage = fixtureItem();
     storeItemsMock.mockResolvedValue(result([withImage, withoutImage]));
-    renderScreen();
+    await renderStream();
 
     await screen.findByText("条目 1");
     // 有图条目:「图」Badge + 压平空白的单行摘要(10-03-vision-pipeline)
@@ -352,7 +378,7 @@ describe("FeedScreen", () => {
     const long = "字".repeat(300);
     const withImage = fixtureItem({ image_ocr: long });
     storeItemsMock.mockResolvedValue(result([withImage]));
-    renderScreen();
+    await renderStream();
 
     await screen.findByText("条目 1");
     const ocrRow = screen.getByTestId(`feed-image-ocr-${withImage.id}`);
@@ -365,7 +391,7 @@ describe("FeedScreen", () => {
   it("三态(本地):点标题记已读、星标与稍后读切换,过滤页签生效", async () => {
     const items = [fixtureItem(), fixtureItem(), fixtureItem()];
     storeItemsMock.mockResolvedValue(result(items));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     // 点标题 → 已读 → 默认「未读」过滤下消失
@@ -399,12 +425,13 @@ describe("FeedScreen", () => {
     const item = fixtureItem();
     storeItemsMock.mockResolvedValue(result([item]));
     const { unmount } = renderScreen();
+    await openAllStream();
     await screen.findByText("条目 1");
     const card = screen.getByTestId(`feed-item-${item.id}`);
     fireEvent.click(within(card).getByRole("button", { name: "星标" }));
     unmount();
 
-    renderScreen();
+    await renderStream();
     const cardAgain = await screen.findByTestId(`feed-item-${item.id}`);
     expect(within(cardAgain).getByRole("button", { name: "星标" }).getAttribute("aria-pressed")).toBe("true");
   });
@@ -426,16 +453,17 @@ describe("FeedScreen", () => {
       if (params?.before) return Promise.resolve(result(page2));
       return Promise.resolve(result(page1));
     });
-    renderScreen();
+    await renderStream();
 
     const loadMore = await screen.findByRole("button", { name: "加载更早的条目" });
     expect(screen.getByText("50 / 50 条")).toBeTruthy(); // 默认「未读」过滤:计数 50/50
     fireEvent.click(loadMore);
 
-    // 翻页请求带上页最旧条目的 (first_seen, id) 复合游标(C1:同刻条目也能推进)
-    await waitFor(() => expect(storeItemsMock).toHaveBeenCalledTimes(2));
-    expect(storeItemsMock).toHaveBeenNthCalledWith(1, { limit: 50 });
-    expect(storeItemsMock).toHaveBeenNthCalledWith(2, { limit: 50, before: cursor, before_id: cursorId });
+    // 翻页请求带上页最旧条目的 (first_seen, id) 复合游标(C1:同刻条目也能推进;
+    // 三级下钻后调用序 = L1 首页 → 下钻 L3-all 同参重查 → 翻页,按形断言)
+    await waitFor(() =>
+      expect(storeItemsMock).toHaveBeenCalledWith({ limit: 50, before: cursor, before_id: cursorId }));
+    expect(storeItemsMock).toHaveBeenCalledWith({ limit: 50 });
     await screen.findByText("条目 21");
     expect(screen.getByText("80 / 80 条")).toBeTruthy();
     // 页 2 只有 30 条 < limit → 取尽,按钮消失
@@ -449,12 +477,12 @@ describe("FeedScreen", () => {
       page1.push(fixtureItem({ id, dedup_key: `dk-${id}`, title: `条目 ${id}` }));
     }
     storeItemsMock.mockImplementation(() => Promise.resolve(result(page1)));
-    renderScreen();
+    await renderStream();
     const loadMore = await screen.findByRole("button", { name: "加载更早的条目" });
     fireEvent.click(loadMore);
 
-    await waitFor(() => expect(storeItemsMock).toHaveBeenCalledTimes(2));
-    // 追加 0 条 → 判停按钮消失;仍是 50 张卡、无重复
+    await waitFor(() => expect(storeItemsMock.mock.calls.length).toBeGreaterThanOrEqual(3));
+    // 追加 0 条 → 判停按钮消失;仍是 50 张卡、无重复(L1 首页 + 下钻重查 + 翻页 ≥3 发)
     expect(screen.queryByRole("button", { name: "加载更早的条目" })).toBeNull();
     expect(screen.getAllByTestId(/^feed-item-/)).toHaveLength(50);
   });
@@ -530,41 +558,73 @@ describe("FeedScreen", () => {
   // G1 搜索 / G2 展开与打开原文 / G3 导出
   // -------------------------------------------------------------------------
 
-  it("品类下拉归位(topbar-cleanup):选中品类 → storeItems 带 category 服务端过滤 × 搜索作用域行如实;切回「全部品类」= 不传参", async () => {
-    storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+  it("三级下钻作用域(10-06):L1 品类 → L2 渠道 → L3 渠道流 = store.items 带 category+source 精确等值;面包屑回退复称全库", async () => {
+    const newsA = fixtureItem({ category: "ai-news", source: "openai-news", title: "闻甲" });
+    const newsB = fixtureItem({ category: "ai-news", source: "hf-blog", title: "闻乙" });
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(
+          [newsA, newsB].filter(
+            (item) =>
+              (!params?.category || item.category === params.category) &&
+              (!params?.source || item.source === params.source),
+          ),
+        ),
+      ),
+    );
     renderScreen();
-    await screen.findByText("条目 1");
 
-    // Radix Select(mouse 型 pointerDown 才开下拉,惯例同 logs 屏)
-    fireEvent.pointerDown(screen.getByRole("combobox", { name: "品类过滤" }), { button: 0, pointerType: "mouse" });
-    fireEvent.click(await screen.findByRole("option", { name: "AI资讯" }));
+    // L1:品类行(health 词汇源回显名称)→ 点击进 L2
+    fireEvent.click(await screen.findByTestId("feed-drill-cat-ai-news"));
+    const channel = await screen.findByTestId("feed-drill-ch-openai-news");
+    expect(within(channel).getByText("openai-news")).toBeTruthy();
+    expect(within(channel).getByText(/新闻渠道/)).toBeTruthy();
 
-    // 屏内下拉自持品类 → 服务端精确等值重查(不再吃 Outlet context)
-    await waitFor(() => expect(storeItemsMock).toHaveBeenLastCalledWith({ limit: 50, category: "ai-news" }));
+    // L2 → L3:渠道流查询带 category+source 精确等值
+    fireEvent.click(channel);
+    await screen.findByText("闻甲");
+    await waitFor(() =>
+      expect(storeItemsMock).toHaveBeenLastCalledWith({ limit: 50, category: "ai-news", source: "openai-news" }),
+    );
+    expect(screen.queryByText("闻乙")).toBeNull(); // 渠道流只回本渠道行
 
-    // 品类 × 搜索叠加:query 随游标透传,作用域行如实注明当前品类
+    // 渠道 × 搜索叠加:query 随游标透传,作用域行如实注明品类 × 渠道
     fireEvent.change(screen.getByLabelText("搜索条目"), { target: { value: "GLM" } });
     fireEvent.keyDown(screen.getByLabelText("搜索条目"), { key: "Enter" });
     await waitFor(() =>
-      expect(storeItemsMock).toHaveBeenLastCalledWith({ limit: 50, category: "ai-news", query: "GLM" }),
+      expect(storeItemsMock).toHaveBeenLastCalledWith({
+        limit: 50,
+        category: "ai-news",
+        source: "openai-news",
+        query: "GLM",
+      }),
     );
     expect(screen.getByTestId("feed-search-scope").textContent).toContain("ai-news");
+    expect(screen.getByTestId("feed-search-scope").textContent).toContain("openai-news");
 
-    // 切回「全部品类」= null 不传参(Radix 受控切换路径)
-    fireEvent.pointerDown(screen.getByRole("combobox", { name: "品类过滤" }), { button: 0, pointerType: "mouse" });
-    fireEvent.click(await screen.findByRole("option", { name: "全部品类" }));
-    await waitFor(() => expect(storeItemsMock).toHaveBeenLastCalledWith({ limit: 50, query: "GLM" }));
+    // 面包屑回退:渠道 → 品类(L2 计数源 = 全局首页,source 摘除)→ 情报流 L1
+    fireEvent.click(screen.getByTestId("feed-crumb-category"));
+    await waitFor(() => {
+      const last = storeItemsMock.mock.calls[storeItemsMock.mock.calls.length - 1][0] as StoreItemsParams;
+      expect(last.source).toBeUndefined();
+      expect(last.category).toBeUndefined();
+      expect(last.query).toBe("GLM");
+    });
+    // L2 头部可见(渠道行);回 L1:全局行在场
+    expect(await screen.findByTestId("feed-drill-ch-openai-news")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("feed-crumb-home"));
+    expect(await screen.findByTestId("feed-drill-all")).toBeTruthy();
   });
 
-  it("品类下拉选项:health().plugins id 去重 + 名称回显 + null id 不入;health 失败静默只剩「全部品类」", async () => {
-    storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+  it("L1 品类行词汇源:health().plugins id 去重 + 名称回显 + null id 不入;health 失败仍列已加载条目品类", async () => {
+    storeItemsMock.mockResolvedValue(result([fixtureItem({ category: "tech" })]));
     const first = renderScreen();
-    await screen.findByText("条目 1");
 
-    // 缺省 health(单插件 ai-news):全部品类 + AI资讯
-    fireEvent.pointerDown(screen.getByRole("combobox", { name: "品类过滤" }), { button: 0, pointerType: "mouse" });
-    let options = await screen.findAllByRole("option");
-    expect(options.map((node) => node.textContent)).toEqual(["全部品类", "AI资讯"]);
+    // 缺省 health(单插件 ai-news)+ 已加载条目品类 tech:L1 两行(选项序在前)
+    const rowIds = () =>
+      screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"));
+    await waitFor(() => expect(rowIds()).toEqual(["feed-drill-cat-ai-news", "feed-drill-cat-tech"]));
+    expect(screen.getByTestId("feed-drill-cat-ai-news").textContent).toContain("AI资讯"); // 名称回显
     first.unmount();
 
     // 多插件(同 id 去重首现优先 / null id 不入 / name 缺省回 id):重挂载拉新清单
@@ -579,29 +639,35 @@ describe("FeedScreen", () => {
       }),
     );
     const second = renderScreen();
-    await screen.findByText("条目 1");
-    fireEvent.pointerDown(screen.getByRole("combobox", { name: "品类过滤" }), { button: 0, pointerType: "mouse" });
-    options = await screen.findAllByRole("option");
-    expect(options.map((node) => node.textContent)).toEqual(["全部品类", "AI资讯", "stocks"]);
+    await waitFor(() =>
+      expect(screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"))).toEqual([
+        "feed-drill-cat-ai-news",
+        "feed-drill-cat-stocks",
+        "feed-drill-cat-tech",
+      ]),
+    );
+    expect(screen.getByTestId("feed-drill-cat-stocks").textContent).toContain("stocks"); // name 缺省回 id
     second.unmount();
 
-    // health 失败:不拦情报流,清单收敛为仅「全部品类」
+    // health 失败:不拦情报流,品类行收敛为已加载条目品类(选项词表空)
     healthMock.mockRejectedValue(new Error("sidecar 未连接"));
     renderScreen();
-    await screen.findByText("条目 1");
-    fireEvent.pointerDown(screen.getByRole("combobox", { name: "品类过滤" }), { button: 0, pointerType: "mouse" });
-    options = await screen.findAllByRole("option");
-    expect(options.map((node) => node.textContent)).toEqual(["全部品类"]);
+    await waitFor(() =>
+      expect(screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"))).toEqual([
+        "feed-drill-cat-tech",
+      ]),
+    );
   });
 
   it("工具条一行收纳(KsFilter):品类下拉 + 读态分段 + 搜索 + 刷新同容器;刷新钮(KsFilter refresh 位,自页头迁入)重发查询", async () => {
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
-    // 一行工具条:品类下拉 / 读态分段组 / 搜索框 / 刷新钮同容器
+    // 一行工具条:读态分段组 / 搜索框 / 刷新钮同容器(品类选择 = L1/L2
+    // 层级本体,下拉退役 —— 10-06 三级下钻)
     const toolbar = screen.getByTestId("feed-toolbar");
-    expect(within(toolbar).getByRole("combobox", { name: "品类过滤" })).toBeTruthy();
+    expect(within(toolbar).queryByRole("combobox")).toBeNull();
     const segmented = within(toolbar).getByRole("group", { name: "读态过滤" });
     for (const label of ["未读", "星标", "稍后读", "全部"]) {
       expect(within(segmented).getByRole("button", { name: `过滤:${label}` })).toBeTruthy();
@@ -618,7 +684,7 @@ describe("FeedScreen", () => {
 
   it("G1 搜索:Enter 即时提交 → query 随首页与翻页透传;计数行双层如实", async () => {
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     fireEvent.change(screen.getByLabelText("搜索条目"), { target: { value: "GLM" } });
@@ -630,8 +696,11 @@ describe("FeedScreen", () => {
   });
 
   it("G1 搜索空态:零命中给专属空态文案(不再误导为「情报流是空的」)", async () => {
-    storeItemsMock.mockResolvedValue(result([]));
-    renderScreen();
+    let empty = false;
+    storeItemsMock.mockImplementation(() => Promise.resolve(result(empty ? [] : [fixtureItem()])));
+    await renderStream();
+    await screen.findByText("条目 1");
+    empty = true;
     fireEvent.change(screen.getByLabelText("搜索条目"), { target: { value: "不存在的词" } });
     fireEvent.keyDown(screen.getByLabelText("搜索条目"), { key: "Enter" });
 
@@ -641,7 +710,7 @@ describe("FeedScreen", () => {
 
   it("R1 Mod+F:⌘F/Ctrl+F 拦截浏览器查找(preventDefault)改聚焦搜索框并全选词面", async () => {
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     const search = screen.getByLabelText("搜索条目") as HTMLInputElement;
@@ -661,7 +730,7 @@ describe("FeedScreen", () => {
 
   it("R1 Esc 即时清空:搜索态按 Esc → 词面与已提交 query 同步归零(不等 300ms 防抖)", async () => {
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     const search = screen.getByLabelText("搜索条目") as HTMLInputElement;
@@ -681,7 +750,7 @@ describe("FeedScreen", () => {
   it("G2 卡片展开:展开按钮出全文与元信息,再点收起回两行摘要", async () => {
     const item = fixtureItem({ content: "第一行\n第二行\n第三行" });
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     const card = screen.getByTestId(`feed-item-${item.id}`);
@@ -702,7 +771,7 @@ describe("FeedScreen", () => {
     const httpItem = fixtureItem({ url: "https://example.com/story" });
     const ftpItem = fixtureItem({ url: "ftp://files.example.com/x" });
     storeItemsMock.mockResolvedValue(result([httpItem, ftpItem]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     const httpCard = screen.getByTestId(`feed-item-${httpItem.id}`);
@@ -717,7 +786,7 @@ describe("FeedScreen", () => {
     shellOpenMock.mockRejectedValue(new Error("shell 未授权"));
     const item = fixtureItem({ url: "https://example.com/story" });
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     fireEvent.click(within(screen.getByTestId(`feed-item-${item.id}`)).getByRole("button", { name: "打开原文" }));
@@ -728,7 +797,7 @@ describe("FeedScreen", () => {
   it("G3 导出:选格式 → dialog.save 默认名带日期 → feed.export 带当前过滤 → 回显 path/count", async () => {
     const item = fixtureItem();
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     dialogSaveMock.mockResolvedValue("/tmp/myssia-feed-export.jsonl");
@@ -757,7 +826,7 @@ describe("FeedScreen", () => {
 
   it("G3 导出:对话框取消 = 静默(零 RPC 零回显);export_path_invalid 错误回显", async () => {
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     dialogSaveMock.mockResolvedValue(null);
@@ -777,7 +846,7 @@ describe("FeedScreen", () => {
 
   it("G3 导出组在工具条右端可达(10-05 自 PageHeader.actions 迁入;无头化回归闸)", async () => {
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     // 无头化(d9ae353)后 PageHeader 返回 null,actions 不再渲染 —— 导出组
@@ -807,7 +876,7 @@ describe("FeedScreen", () => {
       image_files: ["/data/images/ab/cd12.jpg"],
     });
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     const card = screen.getByTestId(`feed-item-${item.id}`);
@@ -853,7 +922,7 @@ describe("FeedScreen", () => {
     const bare = fixtureItem({ content: null });
     const textOnly = fixtureItem({ content: "纯文本摘要" });
     storeItemsMock.mockResolvedValue(result([bare, textOnly]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     const bareCard = screen.getByTestId(`feed-item-${bare.id}`);
@@ -874,7 +943,7 @@ describe("FeedScreen", () => {
       image_ocr_lines: [{ text: "仅逐行", conf: 0.88 }],
     });
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     const card = screen.getByTestId(`feed-item-${item.id}`);
@@ -908,7 +977,7 @@ describe("FeedScreen", () => {
       }),
     );
     storeItemsMock.mockResolvedValue(result([unread, read, readNoCategory]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
     fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
 
@@ -937,7 +1006,7 @@ describe("FeedScreen", () => {
   it("D4 hover 浮现操作:行背景 accent/50,操作簇 opacity-0→hover 显(focus-within 可达),time 让位", async () => {
     const item = fixtureItem({ url: "https://example.com/story" });
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     const card = await screen.findByTestId(`feed-item-${item.id}`);
 
     // teardown #5:行 hover 背景 = accent/50
@@ -962,7 +1031,7 @@ describe("FeedScreen", () => {
   it("D4 分组时间轴:今日条目落「今天」sticky 组头(计数如实,同组单头)", async () => {
     const items = [fixtureItem(), fixtureItem()];
     storeItemsMock.mockResolvedValue(result(items));
-    renderScreen();
+    await renderStream();
 
     const header = await screen.findByTestId("feed-group-今天");
     expect(header.textContent).toContain("今天");
@@ -975,7 +1044,7 @@ describe("FeedScreen", () => {
     const item = fixtureItem();
     const other = fixtureItem();
     storeItemsMock.mockResolvedValue(result([item, other]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     fireEvent.mouseEnter(screen.getByTestId(`feed-item-${item.id}`));
@@ -1003,6 +1072,7 @@ describe("FeedScreen", () => {
     expect(await screen.findByTestId("feed-loading")).toBeTruthy();
     expect(screen.queryByTestId(/^feed-item-/)).toBeNull();
     act(() => resolveItems?.(result([fixtureItem()])));
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByTestId("feed-item-1");
     expect(screen.queryByTestId("feed-loading")).toBeNull();
   });
@@ -1011,7 +1081,7 @@ describe("FeedScreen", () => {
     storeItemsMock.mockRejectedValueOnce(
       new SidecarRequestError({ code: "store_corrupt", path: "params.db", message: "库文件损坏" }),
     );
-    storeItemsMock.mockResolvedValueOnce(result([fixtureItem()]));
+    storeItemsMock.mockResolvedValue(result([fixtureItem()]));
     renderScreen();
 
     const banner = await screen.findByTestId("feed-error");
@@ -1021,6 +1091,7 @@ describe("FeedScreen", () => {
     expect(screen.queryByTestId("feed-run-cta")).toBeNull();
     expect(screen.queryByText("情报流还是空的")).toBeNull();
     fireEvent.click(within(banner).getByRole("button", { name: "重试" }));
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByTestId("feed-item-1");
     expect(screen.queryByTestId("feed-error")).toBeNull();
   });
@@ -1033,7 +1104,7 @@ describe("FeedScreen", () => {
   it("G8 AI 摘要:点击 → feed.enrich(dedup_key)→ 复合分/模型/维度分/缓存命中上屏,scores 并回刷新徽标", async () => {
     const item = fixtureItem({ scores: { tech: 0.87 } });
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
     expect(screen.getByText("0.87")).toBeTruthy(); // 初始分数徽标
 
@@ -1061,7 +1132,7 @@ describe("FeedScreen", () => {
   it("G8 loading 态:请求在途按钮禁用 + 「精评中…」行", async () => {
     const item = fixtureItem();
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     feedEnrichMock.mockImplementation(() => new Promise<FeedEnrichResult>(() => {}));
@@ -1075,7 +1146,7 @@ describe("FeedScreen", () => {
   it("G8 无配置 graceful:enrich_not_configured 明示「无精评配置」(不伪装成传输错误),按钮可重试", async () => {
     const item = fixtureItem();
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     feedEnrichMock.mockRejectedValue(
@@ -1099,7 +1170,7 @@ describe("FeedScreen", () => {
   it("G9 全部标已读:二次确认后生效 → 计数同步 0/3 + 本地持久;全部标未读可还原", async () => {
     const items = [fixtureItem(), fixtureItem(), fixtureItem()];
     storeItemsMock.mockResolvedValue(result(items));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
     expect(screen.getByText("3 / 3 条")).toBeTruthy();
 
@@ -1122,17 +1193,20 @@ describe("FeedScreen", () => {
     expect(screen.getAllByTestId(/^feed-item-/)).toHaveLength(3);
   });
 
-  it("G9 空载时批量按钮禁用(无事可做不诱点击)", async () => {
-    storeItemsMock.mockResolvedValue(result([]));
-    renderScreen();
-    await screen.findByText("情报流还是空的");
+  it("G9 无未读时批量按钮禁用(过门读态派生;空库 L3 无入口 = L1 空态 CTA 另测)", async () => {
+    versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    storeItemsMock.mockResolvedValue(result([fixtureItem({ read: true }), fixtureItem({ read: true })]));
+    await renderStream();
+    // 默认「未读」过滤下全已读即离场;先切「全部」保卡片在场再断言禁用
+    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
+    await screen.findByText("条目 1");
+    await screen.findByText("条目 2");
     expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("disabled")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "全部标未读" }).getAttribute("disabled")).not.toBeNull();
   });
 
   it("P2⑤:搜索框焦点环归全局 :focus-visible 体系(无局部 ring-1/focus-visible 覆写)", async () => {
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
     const input = screen.getByLabelText("搜索条目");
     expect(input.className).not.toContain("ring-1");
@@ -1142,7 +1216,7 @@ describe("FeedScreen", () => {
   it("G12 沉淀为关键词:面板只列 parse_ok 目标,词面默认条目标题;read(mtime)→ 手术 → save → 回执带 .bak", async () => {
     const item = fixtureItem({ title: "GLM-5 发布" });
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("GLM-5 发布");
     const card = screen.getByTestId(`feed-item-${item.id}`);
 
@@ -1180,7 +1254,7 @@ describe("FeedScreen", () => {
   it("G12 词已在列表:already_present 零写入(save 不发),回执如实", async () => {
     const item = fixtureItem();
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     const saves = mockYamlSidecar();
@@ -1201,7 +1275,7 @@ describe("FeedScreen", () => {
   it("G12 mtime_conflict:save 乐观锁拒绝 → 结构化码原样明示", async () => {
     const item = fixtureItem();
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     mockYamlSidecar({
@@ -1221,7 +1295,7 @@ describe("FeedScreen", () => {
   it("G12 清单拉取失败:list_error 明示 + 重试入口", async () => {
     const item = fixtureItem();
     storeItemsMock.mockResolvedValue(result([item]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     invokeMock.mockImplementation(async () => {
@@ -1249,7 +1323,7 @@ describe("FeedScreen · interaction-batch(A-feed)", () => {
     const originalScroll = Element.prototype.scrollIntoView;
     Element.prototype.scrollIntoView = vi.fn();
     try {
-      renderScreen();
+      await renderStream();
       await screen.findByText("条目 1");
 
       const first = screen.getByTestId(`feed-item-${items[0].id}`);
@@ -1285,7 +1359,7 @@ describe("FeedScreen · interaction-batch(A-feed)", () => {
   it("j/k focus 环只在键盘巡游时呈现:hover 进入卡让环退出(data-current 仍在)", async () => {
     const items = [fixtureItem(), fixtureItem()];
     storeItemsMock.mockResolvedValue(result(items));
-    renderScreen();
+    await renderStream();
     const first = await screen.findByTestId(`feed-item-${items[0].id}`);
 
     fireEvent.keyDown(window, { key: "j" });
@@ -1298,7 +1372,7 @@ describe("FeedScreen · interaction-batch(A-feed)", () => {
   it("j/k 守卫:输入框内敲 j 不动当前卡;⌘/Ctrl/Alt 修饰键不触发", async () => {
     const items = [fixtureItem(), fixtureItem()];
     storeItemsMock.mockResolvedValue(result(items));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     const search = screen.getByLabelText("搜索条目");
@@ -1318,7 +1392,7 @@ describe("FeedScreen · interaction-batch(A-feed)", () => {
   it("j/k + U 联动:j 选中后按 U 切已读(默认未读过滤下当前卡离场)", async () => {
     const items = [fixtureItem(), fixtureItem()];
     storeItemsMock.mockResolvedValue(result(items));
-    renderScreen();
+    await renderStream();
     await screen.findByText("条目 1");
 
     fireEvent.keyDown(window, { key: "j" });
@@ -1336,7 +1410,7 @@ describe("FeedScreen · interaction-batch(A-feed)", () => {
       JSON.stringify({ [readB.dedup_key]: { read: true } }),
     );
     storeItemsMock.mockResolvedValue(result([unreadA, readB, unreadC]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("未读甲");
     // 全部视图:排序变化可观察(未读过滤下已读不可见)
     fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
@@ -1361,34 +1435,23 @@ describe("FeedScreen · interaction-batch(A-feed)", () => {
     const tech3 = fixtureItem({ category: "tech", title: "技三" });
     const none4 = fixtureItem({ category: null, title: "无类四" });
     storeItemsMock.mockResolvedValue(result([tech1, news2, tech3, none4]));
-    renderScreen();
+    await renderStream();
     await screen.findByText("技一");
 
     // 缺省 = 时间四桶(既有 D4 行为不动)
     expect(screen.getByTestId("feed-group-今天").textContent).toContain("4 条");
 
-    // 按品类分组:组头 = 品类首次出现顺序,tech 组头带 categoryColor 同源色点
-    const asRgb = (hex: string) => {
-      const value = Number.parseInt(hex.slice(1), 16);
-      return `rgb(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255})`;
-    };
+    // 三级下钻(10-06)后品类分组退役:菜单只有 时间/不分组 两档;品类维度
+    // = L1/L2 层级本体(见 L1/L2 下钻用例),组头色点随品类分组一并退役
     fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
-    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "按品类分组" }));
-    const techHeader = await screen.findByTestId("feed-group-tech");
-    expect(techHeader.textContent).toContain("2 条");
-    expect(screen.getByTestId("feed-group-news").textContent).toContain("1 条");
-    expect(screen.getByTestId("feed-group-未分类").textContent).toContain("1 条");
-    const dot = techHeader.querySelector("[data-group-color]");
-    expect(dot).not.toBeNull();
-    expect((dot as HTMLElement).style.backgroundColor).toBe(asRgb(categoryColor("tech") as string));
-    // 无分类组头无色点(色件零渲染纪律)
-    expect(screen.getByTestId("feed-group-未分类").querySelector("[data-group-color]")).toBeNull();
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).queryByRole("menuitem", { name: "按品类分组" })).toBeNull();
+    expect(within(menu).getByRole("menuitem", { name: "时间分组(今天 / 昨天 / 7 天内 / 更早)" }).querySelector("svg")).not.toBeNull();
 
     // 不分组:组头全消、四卡平铺
     fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
     fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "不分组(平铺)" }));
-    await waitFor(() => expect(screen.queryByTestId("feed-group-tech")).toBeNull());
-    expect(screen.queryByTestId(/^feed-group-/)).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId(/^feed-group-/)).toBeNull());
     expect(screen.getAllByTestId(/^feed-item-/)).toHaveLength(4);
     expect(screen.getByTestId("feed-flat-list")).toBeTruthy();
 
@@ -1396,9 +1459,9 @@ describe("FeedScreen · interaction-batch(A-feed)", () => {
     const persisted: unknown = JSON.parse(localStorageStub.getItem("myssia.feed.display.v1") ?? "{}");
     expect((persisted as { groupMode?: string }).groupMode).toBe("none");
     fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
-    const menu = await screen.findByRole("menu");
-    expect(within(menu).getByRole("menuitem", { name: "不分组(平铺)" }).querySelector("svg")).not.toBeNull();
-    expect(within(menu).getByRole("menuitem", { name: "时间分组(今天 / 昨天 / 7 天内 / 更早)" }).querySelector("svg")).toBeNull();
+    const menu2 = await screen.findByRole("menu");
+    expect(within(menu2).getByRole("menuitem", { name: "不分组(平铺)" }).querySelector("svg")).not.toBeNull();
+    expect(within(menu2).getByRole("menuitem", { name: "时间分组(今天 / 昨天 / 7 天内 / 更早)" }).querySelector("svg")).toBeNull();
   });
 
   it("右键菜单:四动作齐(打开原文/复制链接/标记已读/沉淀为关键词),动作生效且选后自闭", async () => {
@@ -1408,7 +1471,7 @@ describe("FeedScreen · interaction-batch(A-feed)", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     try {
-      renderScreen();
+      await renderStream();
       fireEvent.click(screen.getByRole("button", { name: "过滤:全部" })); // 标已读后卡仍在场
       const card = await screen.findByTestId(`feed-item-${item.id}`);
 
@@ -1452,7 +1515,7 @@ describe("FeedScreen · interaction-batch(A-feed)", () => {
   it("右键菜单:Esc 关闭;非 http(s) 条目「打开原文/复制链接」禁用(同 URL 门),标已读仍可用", async () => {
     const ftp = fixtureItem({ url: "ftp://files.example.com/x" });
     storeItemsMock.mockResolvedValue(result([ftp]));
-    renderScreen();
+    await renderStream();
     const card = await screen.findByTestId(`feed-item-${ftp.id}`);
 
     fireEvent.contextMenu(card);
@@ -1481,6 +1544,7 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     const card = await screen.findByTestId("feed-item-1");
     // 过门生效的可见标志:批量按钮 title 换全库真话
     await waitFor(() =>
@@ -1511,6 +1575,7 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     const card = await screen.findByTestId("feed-item-1");
     const star = within(card).getByRole("button", { name: "星标" });
     fireEvent.click(star);
@@ -1537,6 +1602,7 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("条目 1");
     const readAll = screen.getByRole("button", { name: "全部标已读" });
     await waitFor(() => expect(readAll.getAttribute("title")).toContain("全库"));
@@ -1556,7 +1622,8 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
     // 就地翻转已加载行:默认「未读」过滤 0/2、卡片离场;不整页重拉
     await waitFor(() => expect(screen.getByText("0 / 2 条")).toBeTruthy());
     expect(screen.queryByTestId(/^feed-item-/)).toBeNull();
-    expect(fresh.storeItemsMock).toHaveBeenCalledTimes(1);
+    // L1 首页 + 下钻 L3-all 同参重查 = 2 发,mark_all 后不再整页重拉
+    expect(fresh.storeItemsMock).toHaveBeenCalledTimes(2);
   });
 
   it("全部标未读失败:按调用前快照回滚(不瞎翻)+ feed-mark-error 明示", async () => {
@@ -1577,6 +1644,7 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("未读乙");
     fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
     await screen.findByText("已读甲");
@@ -1621,6 +1689,7 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByTestId("feed-item-1"); // 第二次挂载完成渲染
     expect(fresh.importMock).toHaveBeenCalledTimes(1); // 会话哨位:双挂载只一发
     // 旧键保留不删(降级回旧 build 的回滚路径,Q2.3)
@@ -1636,6 +1705,7 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByTestId("feed-item-1");
     // 等能力门真正翻到服务端通路(title 现全库语义)再断言不发
     await waitFor(() =>
@@ -1668,6 +1738,7 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     // 默认「未读」视图:两条都已读——到期条目重现,未到期不现;计数行如实
     await screen.findByText("到期稍后读条目");
     expect(screen.queryByText("未到期稍后读条目")).toBeNull();
@@ -1687,7 +1758,7 @@ describe("FeedScreen · read-state-server 能力门分流(未过门 = 旧通路�
   it("低一版 protocol:旧 localStorage 通路照常(写 myssia.feed.states.v1),零 store.state.* 调用", async () => {
     versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL - 1));
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
-    renderScreen();
+    await renderStream();
     const card = await screen.findByTestId("feed-item-1");
     // 未过门生效的可见标志:title 仍是本地态注记
     await waitFor(() =>
@@ -1708,7 +1779,7 @@ describe("FeedScreen · read-state-server 能力门分流(未过门 = 旧通路�
       new SidecarRequestError({ code: "sidecar_unavailable", path: "$", message: "sidecar 未起" }),
     );
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
-    renderScreen();
+    await renderStream();
     await screen.findByTestId("feed-item-1");
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("本地态"),
@@ -1729,43 +1800,30 @@ describe("FeedScreen · read-state-server 能力门分流(未过门 = 旧通路�
 // ---------------------------------------------------------------------------
 
 describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", () => {
-  it("R1 品类组头「本组全部已读」:以该组 category 调 mark_all(精确等值)+ 就地翻转只落该组已加载行;未分类组不出钮(红线)", async () => {
+  it("R1 L2 品类头「本品类全部已读」:以该 category 调 mark_all(精确等值,豁免确认)+ 就地翻转只落该品类计数", async () => {
     const fresh = await importFreshScreen();
     fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
     fresh.markAllMock.mockResolvedValue({ updated: 5 });
-    const techA = fixtureItem({ category: "tech", title: "技甲" });
-    const techB = fixtureItem({ category: "tech", title: "技乙" });
-    const news = fixtureItem({ category: "news", title: "闻丙" });
-    const bare = fixtureItem({ category: null, title: "无类丁" });
-    fresh.storeItemsMock.mockResolvedValue(result([techA, techB, news, bare]));
+    const techA = fixtureItem({ category: "tech", source: "t-a", title: "技甲" });
+    const techB = fixtureItem({ category: "tech", source: "t-b", title: "技乙" });
+    const news = fixtureItem({ category: "news", source: "n-a", title: "闻丙" });
+    fresh.storeItemsMock.mockResolvedValue(result([techA, techB, news]));
     render(
       <MemoryRouter>
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    await screen.findByText("技甲");
-    // 就地翻转可观察性:切「全部」过滤(默认未读过滤下翻已读即离场)
-    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
-    await screen.findByText("无类丁");
-    // 过门生效(title 全库)后切品类分组
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
-    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "按品类分组" }));
-    await screen.findByTestId("feed-group-tech");
-
-    // 组头钮文案(R4):该品类全库(含未翻页)真话,品类名如实入文案
-    const groupButton = screen.getByTestId("feed-group-mark-all-tech");
+    // L1 → L2(tech):头部出「本品类全部已读」(三级下钻后品类批量入口迁驻 L2)
+    fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
+    const groupButton = await screen.findByTestId("feed-category-mark-all");
+    // 钮文案(R4):该品类全库(含未翻页)真话,品类名如实入文案
     expect(groupButton.getAttribute("title")).toContain("全库");
     expect(groupButton.getAttribute("title")).toContain("未翻页");
     expect(groupButton.getAttribute("title")).toContain("tech");
     expect(groupButton.getAttribute("aria-label")).toContain("全库");
-    expect(groupButton.getAttribute("aria-label")).toContain("未翻页");
-    // 未分类组不出钮(红线:null 传 category 等于全库置位)—— 组头零按钮
-    expect(within(screen.getByTestId("feed-group-未分类")).queryByRole("button")).toBeNull();
-    // 全场只有品类组出钮:tech/news 各一枚,共 2(未分类不计)
-    expect(screen.getAllByTestId(/^feed-group-mark-all-/)).toHaveLength(2);
+    // 未读计数可观察:L2 行先见 未读 2
+    expect(screen.getByTestId("feed-drill-ch-t-a").textContent).toContain("未读 1");
+    expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 1");
 
     // 豁免二次确认:一次点击即执行(确认钮簇不出场)
     fireEvent.click(groupButton);
@@ -1773,17 +1831,12 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
       expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: true, category: "tech" }),
     );
     expect(screen.queryByTestId("feed-confirm-all-group")).toBeNull();
-    // 就地翻转只落 tech 组:技甲/技乙已读,闻丙/无类丁不受牵连;不整页重拉
-    await waitFor(() =>
-      expect(screen.getByTestId(`feed-item-${techA.id}`).getAttribute("data-unread")).toBe("false"),
-    );
-    expect(screen.getByTestId(`feed-item-${techB.id}`).getAttribute("data-unread")).toBe("false");
-    expect(screen.getByTestId(`feed-item-${news.id}`).getAttribute("data-unread")).toBe("true");
-    expect(screen.getByTestId(`feed-item-${bare.id}`).getAttribute("data-unread")).toBe("true");
-    expect(fresh.storeItemsMock).toHaveBeenCalledTimes(1);
+    // 就地翻转只落 tech 品类(计数归零,不整页重拉);news 品类不在本 L2 视图
+    await waitFor(() => expect(screen.getByTestId("feed-drill-ch-t-a").textContent).toContain("未读 0"));
+    expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 0");
   });
 
-  it("R1 品类组头批量失败:按调用前快照回滚(只回滚该组已加载行,域外组不动)+ feed-mark-error 明示", async () => {
+  it("R1 L2 品类批量失败:按调用前快照回滚(计数回真值),feed-mark-error 在 L3 流区明示", async () => {
     const fresh = await importFreshScreen();
     fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
     let rejectAll: ((err: unknown) => void) | undefined;
@@ -1792,41 +1845,29 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
         rejectAll = reject;
       }),
     );
-    const techRead = fixtureItem({ category: "tech", read: true, title: "技已读甲" });
-    const techUnread = fixtureItem({ category: "tech", title: "技未读乙" });
-    const newsUnread = fixtureItem({ category: "news", title: "闻未读丙" });
-    fresh.storeItemsMock.mockResolvedValue(result([techRead, techUnread, newsUnread]));
+    const techRead = fixtureItem({ category: "tech", source: "t-a", read: true, title: "技已读甲" });
+    const techUnread = fixtureItem({ category: "tech", source: "t-b", title: "技未读乙" });
+    fresh.storeItemsMock.mockResolvedValue(result([techRead, techUnread]));
     render(
       <MemoryRouter>
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    await screen.findByText("技未读乙");
-    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
-    await screen.findByText("技已读甲");
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
-    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "按品类分组" }));
-    fireEvent.click(await screen.findByTestId("feed-group-mark-all-tech"));
+    fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
+    fireEvent.click(await screen.findByTestId("feed-category-mark-all"));
     await waitFor(() =>
       expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: true, category: "tech" }),
     );
-    // 乐观:tech 组两行都翻已读(乙是真翻转);news 组不动
-    await waitFor(() =>
-      expect(screen.getByTestId(`feed-item-${techUnread.id}`).getAttribute("data-unread")).toBe("false"),
-    );
-    expect(screen.getByTestId(`feed-item-${techRead.id}`).getAttribute("data-unread")).toBe("false");
+    // 乐观:tech 品类未读计数翻 0
+    await waitFor(() => expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 0"));
     act(() =>
       rejectAll?.(new SidecarRequestError({ code: "store_corrupt", path: "$", message: "库损坏" })),
     );
-    // 快照回滚:甲本就已读(回 true)、乙回未读;域外 news 丙全程未读不受牵连
-    await waitFor(() =>
-      expect(screen.getByTestId(`feed-item-${techUnread.id}`).getAttribute("data-unread")).toBe("true"),
-    );
-    expect(screen.getByTestId(`feed-item-${techRead.id}`).getAttribute("data-unread")).toBe("false");
-    expect(screen.getByTestId(`feed-item-${newsUnread.id}`).getAttribute("data-unread")).toBe("true");
+    // 快照回滚:乙回未读(计数 1),甲本就已读不动
+    await waitFor(() => expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 1"));
+    expect(screen.getByTestId("feed-drill-ch-t-a").textContent).toContain("未读 0");
+    // 错误回执挂 L3 流区:面包屑回渠道流后可见(markError 在列表区渲染)
+    fireEvent.click(screen.getByTestId("feed-drill-ch-t-b"));
     const error = await screen.findByTestId("feed-mark-error");
     expect(error.textContent).toContain("store_corrupt");
   });
@@ -1841,6 +1882,7 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("条目 1");
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
@@ -1869,6 +1911,7 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("条目 1");
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
@@ -1910,18 +1953,14 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
     await waitFor(() => expect(screen.getByText("0 / 2 条")).toBeTruthy());
   });
 
-  it("未过门:品类分组组头无批量入口(旧通路无品类作用域,store.state.* 零调用)", async () => {
+  it("未过门:L2 品类头无批量入口(旧通路无品类作用域,store.state.* 零调用)", async () => {
     versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL - 1));
-    storeItemsMock.mockResolvedValue(result([fixtureItem({ category: "tech" }), fixtureItem({ category: null })]));
+    storeItemsMock.mockResolvedValue(result([fixtureItem({ category: "tech" })]));
     renderScreen();
-    await screen.findByText("条目 1");
-    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
-    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
-    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "按品类分组" }));
-    await screen.findByTestId("feed-group-tech");
-    // 未过门:全屏无品类组头批量钮;store.state.* 全家零调用
-    expect(screen.queryByTestId(/^feed-group-mark-all-/)).toBeNull();
-    expect(within(screen.getByTestId("feed-group-tech")).queryByRole("button")).toBeNull();
+    fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
+    await screen.findByTestId("feed-l2");
+    // 未过门:L2 头部无「本品类全部已读」;store.state.* 全家零调用
+    expect(screen.queryByTestId("feed-category-mark-all")).toBeNull();
     expect(markAllMock).not.toHaveBeenCalled();
   });
 
@@ -1935,6 +1974,7 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("条目 1");
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
@@ -1962,10 +2002,10 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("条目 1");
     const unread = screen.getByRole("button", { name: "过滤:未读" });
     expect(unread.getAttribute("title")).toContain("全已读");
-    expect(unread.getAttribute("title")).toContain("批量入口");
     expect(unread.getAttribute("title")).toContain("全部");
     // 知会特定于未读口径(组头随过滤后集合渲染的边界);其余页签零附加文案
     expect(screen.getByRole("button", { name: "过滤:星标" }).getAttribute("title")).toBeNull();
@@ -2266,5 +2306,357 @@ describe("feed topbar-cleanup 纯函数(api.ts)", () => {
       { id: "stocks", label: "stocks" },
     ]);
     expect(categoryOptionsFromHealth([])).toEqual([]); // 空入空出
+  });
+});
+
+// ---------------------------------------------------------------------------
+// feed-channel-groups(10-06):品类分组下渠道二级分组 + 五档差异化卡面 +
+// 实时滚动 + 当日窗 03:00 视图清零
+// ---------------------------------------------------------------------------
+
+/** health 夹具源条目(SourceReport 形状;engine = 渠道类型判定词表源) */
+function sourceEntry(name: string, engine: string): HealthResult["plugins"][number]["sources"][number] {
+  return {
+    name,
+    url: "https://example.com",
+    engine,
+    engine_hint: null,
+    health: {
+      state: "unknown",
+      reason: "无观测",
+      observed: 0,
+      latest: null,
+      baseline: null,
+    },
+    fingerprint_skips: { observed: 0, skipped: 0 },
+  };
+}
+
+describe("FeedScreen · feed-channel-groups(渠道分组+差异化+实时滚动+当日窗)", () => {
+  it("L1 品类计数 → L2 渠道行(类型词+计数)→ L3 渠道内卡片:三级路径逐层可用", async () => {
+    const items = [
+      fixtureItem({ category: "tech", source: "anthropic-news-watch", title: "闻甲" }),
+      fixtureItem({ category: "tech", source: "openai-news", title: "闻乙" }),
+      fixtureItem({ category: "tech", source: "openai-news", title: "闻丙" }),
+      fixtureItem({ category: "news", source: "linuxsb", title: "闻丁" }),
+    ];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(
+          items.filter(
+            (item) =>
+              (!params?.category || item.category === params.category) &&
+              (!params?.source || item.source === params.source),
+          ),
+        ),
+      ),
+    );
+    renderScreen();
+
+    // L1:置顶全局行 + 品类行(tech/news,含今日计数)
+    const allRow = await screen.findByTestId("feed-drill-all");
+    expect(allRow.textContent).toContain("3 渠道"); // 4 条 × 3 渠道(anthropic/openai/linuxsb)
+    const techRow = await screen.findByTestId("feed-drill-cat-tech");
+    expect(techRow.textContent).toContain("3 条");
+    expect(screen.getByTestId("feed-drill-cat-news").textContent).toContain("1 条");
+
+    // L2:tech 品类下两渠道(首现顺序),行带源名 + 类型词 + 窗内计数
+    fireEvent.click(techRow);
+    const channelA = await screen.findByTestId("feed-drill-ch-anthropic-news-watch");
+    expect(channelA.textContent).toContain("anthropic-news-watch");
+    expect(channelA.textContent).toContain("新闻渠道");
+    expect(channelA.textContent).toContain("1 条");
+    const channelB = screen.getByTestId("feed-drill-ch-openai-news");
+    expect(channelB.textContent).toContain("2 条");
+    expect(screen.queryByTestId("feed-drill-ch-linuxsb")).toBeNull(); // 他品类渠道不在场
+    // 置顶「全部渠道」行
+    expect(screen.getByTestId("feed-drill-cat-all")).toBeTruthy();
+
+    // L3:点渠道行进该渠道消息流,卡片只落本渠道
+    fireEvent.click(channelB);
+    expect(await screen.findByText("闻乙")).toBeTruthy();
+    expect(screen.getByText("闻丙")).toBeTruthy();
+    expect(screen.queryByText("闻甲")).toBeNull();
+    expect(screen.queryByText("闻丁")).toBeNull();
+  });
+
+  it("telegram 消息卡:气泡 + 频道名(去平台前缀)+ 时间;元信息行不重复源名", async () => {
+    storeItemsMock.mockResolvedValue(
+      result([fixtureItem({ source: "telegram-durov", title: "消息正文甲", content: "气泡内摘要" })]),
+    );
+    await renderStream();
+    const card = await screen.findByTestId("feed-item-1");
+    expect(card.getAttribute("data-kind")).toBe("telegram");
+    // 气泡在场(testid 挂气泡容器),正文在气泡内
+    const bubble = within(card).getByTestId("feed-tg-bubble-1");
+    expect(within(bubble).getByText("消息正文甲")).toBeTruthy();
+    // 频道名行:去 telegram- 前缀显频道本名;元信息行不重复源名
+    expect(within(card).getByText("durov")).toBeTruthy();
+    expect(within(card).queryByText("telegram-durov")).toBeNull();
+    // 时间在频道名行(等宽相对时间)
+    expect(within(card).getAllByText(/刚刚|分钟前|小时前|天前|\d{4}-/).length).toBeGreaterThan(0);
+  });
+
+  it("urlwatch 变更事件(engine 映射):「有更新」徽标 + 目标页链接(watch_page)+ 展开 diff 明细", async () => {
+    healthMock.mockResolvedValue(
+      healthResult({
+        plugins: [pluginEntry({ id: "ai-news", sources: [sourceEntry("anthropic-news-watch", "urlwatch")] })],
+      }),
+    );
+    storeItemsMock.mockResolvedValue(
+      result([
+        fixtureItem({
+          source: "anthropic-news-watch",
+          title: "Anthropic 官网有更新",
+          content: "+ Claude 5 发布",
+          watch_event: "changed",
+          watch_page: "https://www.anthropic.com/news",
+          url: "https://www.anthropic.com/news#watch-abc123def0",
+        }),
+      ]),
+    );
+    await renderStream();
+    const card = await screen.findByTestId("feed-item-1");
+    expect(card.getAttribute("data-kind")).toBe("watch");
+    expect(within(card).getByTestId("feed-watch-badge-1").textContent).toContain("有更新");
+    // 目标页链接 = watch_page 主机名(条目 url 是 #watch-<sha> 锚)
+    const target = within(card).getByTestId("feed-watch-target-1");
+    expect(target.textContent).toContain("www.anthropic.com");
+    // 展开:diff 变更明细(等宽块)
+    fireEvent.click(within(card).getByRole("button", { name: "展开条目" }));
+    const diff = await within(card).findByTestId("feed-watch-diff-1");
+    expect(diff.textContent).toContain("+ Claude 5 发布");
+  });
+
+  it("prompt 日报(engine 映射):markdown 文档视图可折叠——收起单行摘要,展开出标题/列表/加粗", async () => {
+    healthMock.mockResolvedValue(
+      healthResult({
+        plugins: [pluginEntry({ id: "ai-vendor-watch", sources: [sourceEntry("ai-vendor-watch", "prompt")] })],
+      }),
+    );
+    storeItemsMock.mockResolvedValue(
+      result([
+        fixtureItem({
+          source: "ai-vendor-watch",
+          title: "AI 厂商日报",
+          content: "## 厂商动态\n\n- OpenAI 发模型\n- Anthropic 发论文\n\n**重点** 与 `代码`",
+        }),
+      ]),
+    );
+    await renderStream();
+    const card = await screen.findByTestId("feed-item-1");
+    expect(card.getAttribute("data-kind")).toBe("document");
+    // 收起:文档体不出场(单行摘要形态)
+    expect(within(card).queryByTestId("feed-doc-body-1")).toBeNull();
+    fireEvent.click(within(card).getByRole("button", { name: "展开条目" }));
+    const body = await within(card).findByTestId("feed-doc-body-1");
+    // markdown-lite:## 标题 / 列表项 / **加粗** / `代码`
+    expect(within(body).getByText("厂商动态")).toBeTruthy();
+    expect(within(body).getByText("OpenAI 发模型")).toBeTruthy();
+    expect(within(body).getByText("Anthropic 发论文")).toBeTruthy();
+    expect(within(body).getByText("重点")).toBeTruthy();
+    expect(within(body).getByText("代码")).toBeTruthy();
+  });
+
+  it("games 价格优惠行:现价突出 + 原价划线 + 限免徽标(Epic 形态);CS 美元形态同渲", async () => {
+    storeItemsMock.mockResolvedValue(
+      result([
+        fixtureItem({
+          category: "games",
+          source: "epic-free",
+          title: "Epic 限免游戏",
+          price_text: "¥0.00",
+          final_price: 0,
+          original_price: 3900,
+          discount_pct: 100,
+        }),
+        fixtureItem({
+          category: "games",
+          source: "cheapshark",
+          title: "多店折扣",
+          sale_price: "0.50",
+          normal_price: "16.99",
+          savings_pct: "97.057092",
+        }),
+      ]),
+    );
+    await renderStream();
+    await screen.findByText("Epic 限免游戏");
+    const epic = screen.getByTestId("feed-item-1");
+    expect(epic.getAttribute("data-kind")).toBe("deal");
+    const epicPrice = within(epic).getByTestId("feed-deal-price-1");
+    expect(within(epicPrice).getByText("限免")).toBeTruthy();
+    expect(within(epicPrice).getByText("¥0.00")).toBeTruthy();
+    expect(within(epicPrice).getByText("¥39.00")).toBeTruthy(); // 原价分→元
+    const cs = screen.getByTestId("feed-item-2");
+    const csPrice = within(cs).getByTestId("feed-deal-price-2");
+    expect(within(csPrice).getByText("$0.50")).toBeTruthy();
+    expect(within(csPrice).getByText("$16.99")).toBeTruthy();
+    expect(within(csPrice).getByText("-97%")).toBeTruthy(); // savings_pct 字符串解析取整
+    expect(within(csPrice).queryByText("限免")).toBeNull(); // CS 实测无 0 元 deal
+  });
+
+  it("实时滚动:cron.completed 事件 → 首页新键前插进流(已加载行零扰动)", async () => {
+    let emitEvent: ((event: { type: string }) => void) | undefined;
+    onSidecarEventMock.mockImplementation((handler: (event: never) => void) => {
+      emitEvent = handler as (event: { type: string }) => void;
+      return Promise.resolve(() => {});
+    });
+    const existing = fixtureItem({ title: "旧行" });
+    const fresh = fixtureItem({ title: "新行" });
+    // 前两发(L1 首页 + 下钻 L3-all 同参重查)只回旧行;事件后的 liveRefresh 才见新行
+    let served = 0;
+    storeItemsMock.mockImplementation(() => {
+      served += 1;
+      return Promise.resolve(result(served <= 2 ? [existing] : [fresh, existing]));
+    });
+    await renderStream();
+    await screen.findByText("旧行");
+    expect(screen.queryByText("新行")).toBeNull();
+
+    act(() => emitEvent?.({ type: "cron.completed" }));
+    expect(await screen.findByText("新行")).toBeTruthy();
+    expect(screen.getByText("旧行")).toBeTruthy(); // 前插不弃已加载行
+  });
+
+  it("当日窗 03:00 清零:滚动流(未读/全部)窗内条目离场、视图如实计数;星标跨窗可见;窗锚知会在场", async () => {
+    const start = dayWindowStart();
+    const outOfWindow = fixtureItem({
+      title: "窗前旧条目",
+      first_seen: new Date(start.getTime() - 3_600_000).toISOString(), // 窗起点前 1h,必在窗外
+    });
+    const inWindow = fixtureItem({ title: "窗内新条目" }); // now,必在窗内
+    // 窗外条目滚动流永不可见 → 星标走本地态预置(旧通路,与三态测试同门)
+    localStorageStub.setItem(
+      "myssia.feed.states.v1",
+      JSON.stringify({ [outOfWindow.dedup_key]: { starred: true } }),
+    );
+    storeItemsMock.mockResolvedValue(result([outOfWindow, inWindow]));
+    await renderStream();
+    // 默认未读:窗外条目离场(视图清零语义),窗锚知会在场
+    await screen.findByText("窗内新条目");
+    expect(screen.queryByText("窗前旧条目")).toBeNull();
+    expect(screen.getByTestId("feed-day-window").textContent).toContain("03:00");
+    expect(screen.getByText("1 / 2 条")).toBeTruthy(); // 计数行如实(1 可见 / 2 已加载)
+    // 全部:同样受窗
+    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
+    await screen.findByText("窗内新条目");
+    expect(screen.queryByText("窗前旧条目")).toBeNull();
+    // 星标 = 显式留存,跨窗可见;星标桶不受窗,窗锚知会退场
+    fireEvent.click(screen.getByRole("button", { name: "过滤:星标" }));
+    expect(await screen.findByText("窗前旧条目")).toBeTruthy();
+    expect(screen.queryByTestId("feed-day-window")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// feed-channel-groups 纯函数(api.ts):渠道类型判定 / engine 映射 / 渠道
+// 分组 / 价格视图 / 当日窗 / 实时滚动合并
+// ---------------------------------------------------------------------------
+
+describe("feed channel-groups 纯函数(api.ts)", () => {
+  it("channelKindOf:前缀 telegram > engine urlwatch·watch_event > engine prompt·store_report > 品类·价格键 > news", () => {
+    const engines = new Map([
+      ["anthropic-news-watch", "urlwatch"],
+      ["ai-vendor-watch", "prompt"],
+      ["daily-digest", "store_report"],
+    ]);
+    // telegram 前缀(telegram- 规约 + tg- 旧缩写 + 下划线形),engine 映射不抢判
+    expect(channelKindOf({ source: "telegram-durov", category: null }, engines)).toBe("telegram");
+    expect(channelKindOf({ source: "tg-openai_news", category: null }, new Map([["tg-openai_news", "urlwatch"]]))).toBe("telegram");
+    // watch:engine 映射 / watch_event 字段兜底(旧 sidecar 无映射)
+    expect(channelKindOf({ source: "anthropic-news-watch", category: null }, engines)).toBe("watch");
+    expect(channelKindOf({ source: "x", category: null, watch_event: "changed" })).toBe("watch");
+    // document:prompt / store_report
+    expect(channelKindOf({ source: "ai-vendor-watch", category: null }, engines)).toBe("document");
+    expect(channelKindOf({ source: "daily-digest", category: null }, engines)).toBe("document");
+    // deal:品类 games/wool;价格键在场(异品类也认);无 engine 映射时字段自判
+    expect(channelKindOf({ source: "epic-free", category: "games" })).toBe("deal");
+    expect(channelKindOf({ source: "any", category: "wool" })).toBe("deal");
+    expect(channelKindOf({ source: "any", category: "other", price_text: "¥0.00" })).toBe("deal");
+    expect(channelKindOf({ source: "any", category: "other", final_price: 1360 })).toBe("deal");
+    expect(channelKindOf({ source: "any", category: "other", sale_price: "0.50" })).toBe("deal");
+    // news:缺省;null source 安全
+    expect(channelKindOf({ source: "openai-news", category: "ai-news" })).toBe("news");
+    expect(channelKindOf({ source: null, category: null })).toBe("news");
+  });
+
+  it("engineMapFromHealth:源名→engine 首现优先去重;空/无源插件空映射", () => {
+    const plugins = [
+      pluginEntry({ sources: [sourceEntry("a", "urlwatch"), sourceEntry("b", "static_html")] }),
+      pluginEntry({ sources: [sourceEntry("a", "prompt")] }), // 同名源首现优先
+      pluginEntry({ sources: [] }),
+    ];
+    const engines = engineMapFromHealth(plugins);
+    expect(engines.get("a")).toBe("urlwatch");
+    expect(engines.get("b")).toBe("static_html");
+    expect(engines.size).toBe(2);
+    expect(engineMapFromHealth([]).size).toBe(0);
+  });
+
+  it("groupFeedItemsByChannel:首次出现顺序出组 + 组内保序 + null 源归未知来源 + 组类型取首条判定", () => {
+    const a1 = fixtureItem({ source: "a", title: "a1" });
+    const b1 = fixtureItem({ source: "b", title: "b1" });
+    const a2 = fixtureItem({ source: "a", title: "a2" });
+    const bare = fixtureItem({ source: null, title: "bare" });
+    const groups = groupFeedItemsByChannel([a1, b1, a2, bare]);
+    expect(groups.map((group) => group.key)).toEqual(["a", "b", null]);
+    expect(groups[0].items.map((item) => item.title)).toEqual(["a1", "a2"]);
+    expect(groups[1].items.map((item) => item.title)).toEqual(["b1"]);
+    expect(groups[2].label).toBe("未知来源");
+    expect(groups[0].kind).toBe("news");
+    // engine 映射参与组类型判定
+    const watchGroups = groupFeedItemsByChannel(
+      [fixtureItem({ source: "w", watch_event: "changed" })],
+      new Map([["w", "urlwatch"]]),
+    );
+    expect(watchGroups[0].kind).toBe("watch");
+  });
+
+  it("dealPriceView:games 四源形态——Epic 限免(price_text+分 int+100%)/ Steam 折扣(分 int)/ CS 美元串 / GOG 限免析取", () => {
+    // Epic 限免:price_text 直出 + 原价分→元 + 限免
+    expect(
+      dealPriceView({ price_text: "¥0.00", final_price: 0, original_price: 3900, discount_pct: 100 }),
+    ).toEqual({ current: "¥0.00", original: "¥39.00", discount: 100, free: true });
+    // Steam 折扣:final/original 分 int → 元;80% 非限免
+    expect(
+      dealPriceView({ final_price: 1360, original_price: 6800, discount_pct: 80 }),
+    ).toEqual({ current: "¥13.60", original: "¥68.00", discount: 80, free: false });
+    // CheapShark 美元串:sale/normal 直出 + savings_pct 字符串取整
+    expect(
+      dealPriceView({ sale_price: "0.50", normal_price: "16.99", savings_pct: "97.057092", final_price: "0.50" }),
+    ).toEqual({ current: "$0.50", original: "$16.99", discount: 97, free: false });
+    // GOG 限免析取:sale 0 且 normal>0(字符串形态)
+    expect(
+      dealPriceView({ sale_price: "0.00", normal_price: "19.99", final_price: "0.00" }),
+    ).toEqual({ current: "$0.00", original: "$19.99", discount: null, free: true });
+    // 无任何价格键:current null(消费侧不渲价格块)
+    expect(dealPriceView({})).toEqual({ current: null, original: null, discount: null, free: false });
+  });
+
+  it("dayWindowStart:03:00 锚——当日 03:00 后取当日锚,前取昨日锚,整点含边界", () => {
+    expect(dayWindowStart(new Date(2026, 9, 6, 14, 30)).getTime()).toBe(new Date(2026, 9, 6, 3, 0).getTime());
+    expect(dayWindowStart(new Date(2026, 9, 6, 3, 0)).getTime()).toBe(new Date(2026, 9, 6, 3, 0).getTime()); // 整点含
+    expect(dayWindowStart(new Date(2026, 9, 6, 2, 59)).getTime()).toBe(new Date(2026, 9, 5, 3, 0).getTime());
+    expect(dayWindowStart(new Date(2026, 9, 6, 0, 0)).getTime()).toBe(new Date(2026, 9, 5, 3, 0).getTime()); // 跨月窗口同构
+  });
+
+  it("inDayWindow:窗起含边界、窗前不含、缺失/无效刻保守放行(不静默藏数据)", () => {
+    const start = new Date(2026, 9, 6, 3, 0);
+    expect(inDayWindow("2026-10-06T03:00:00", start)).toBe(true); // 含边界
+    expect(inDayWindow("2026-10-06T10:00:00", start)).toBe(true);
+    expect(inDayWindow("2026-10-06T02:59:59", start)).toBe(false);
+    expect(inDayWindow(null, start)).toBe(true); // 缺刻保守放行
+    expect(inDayWindow("not-a-date", start)).toBe(true); // 无效刻同
+  });
+
+  it("mergeFreshItems:首页新键前插 + 已加载行全保 + added 计数;全旧零扰动", () => {
+    const old1 = fixtureItem({ title: "旧一" });
+    const old2 = fixtureItem({ title: "旧二" });
+    const fresh1 = fixtureItem({ title: "新一" });
+    const merged = mergeFreshItems([old1, old2], [fresh1, old1]);
+    expect(merged.added).toBe(1);
+    expect(merged.items.map((item) => item.title)).toEqual(["新一", "旧一", "旧二"]); // 前插保序
+    expect(mergeFreshItems([old1], [old1]).added).toBe(0); // 无新键零扰动
   });
 });

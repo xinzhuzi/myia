@@ -25,8 +25,11 @@ export interface FeedPageRequest {
   /** 复合游标第二键(与 cursor 同源:同刻条目翻页不跳不重) */
   cursorId: number | null;
   pageSize?: number;
-  /** 品类过滤(null = 不传参 = 全部品类;feed 屏内品类下拉自持,10-04-topbar-cleanup 归位) */
+  /** 品类过滤(null = 不传参 = 全部品类;10-06 三级下钻:L3 品类作用域) */
   category?: string | null;
+  /** 源名过滤(null = 不传参;10-06-feed-channel-groups:L3 渠道作用域,
+   *  store.items source 精确等值) */
+  source?: string | null;
   /** 服务端搜索词(G1:title/content/source 三列 LIKE NOCASE,随游标透传) */
   query?: string | null;
 }
@@ -49,6 +52,7 @@ export async function fetchFeedPage(request: FeedPageRequest): Promise<FeedPage>
       ? { before: request.cursor, ...(request.cursorId !== null ? { before_id: request.cursorId } : {}) }
       : {}),
     ...(request.category ? { category: request.category } : {}),
+    ...(request.source ? { source: request.source } : {}),
     ...(request.query ? { query: request.query } : {}),
   });
   const items = result.items;
@@ -597,6 +601,222 @@ export function groupFeedItemsByCategory(items: FeedItem[]): FeedCategoryGroup[]
   }
   return groups;
 }
+
+// ---------------------------------------------------------------------------
+// 渠道级分组与渠道类型判定(10-06-feed-channel-groups:主人令「情报流也要
+// 分渠道」+「不同渠道表现的方式不一样」)。品类分组下再按渠道(items.source
+// = 源名全称,规约 telegram-<频道原名> 等)细分;渠道类型五档:
+//   telegram = 消息卡(聊天感:正文气泡+时间+频道名;源名前缀判定)
+//   watch    = 变更事件(engine urlwatch 或条目带 watch_event;「有更新」
+//              徽标+时间+目标页链接 watch_page)
+//   document = 日报文档(engine prompt / store_report;markdown 可折叠正文)
+//   deal     = 价格优惠行(品类 games/wool 或价格键在场;价格字段突出)
+//   news     = 新闻列表卡(缺省,现状 RSS 形态)
+// engine 判定的词表源 = health().plugins[].sources[].name→engine 映射
+// (本屏品类下拉同一次 health 调用顺带装配,零新 RPC);health 失败/旧
+// sidecar 无映射时退化为前缀+品类+字段三级判定(watch_event/价格键由
+// _item_dict 白名单投影,见 entry.py)。
+// ---------------------------------------------------------------------------
+
+/** 渠道类型五档(呈现档位;判定优先级 telegram > watch > document > deal) */
+export type ChannelKind = "telegram" | "watch" | "document" | "deal" | "news";
+
+/** telegram 源名前缀(命名规约 telegram-<渠道原名>;tg- 旧缩写同收防漏) */
+const TELEGRAM_SOURCE_RE = /^(telegram|tg)[-_.]/i;
+
+/** 优惠渠道品类集(games 游戏情报 / wool 羊毛情报;config.id 词表) */
+const DEAL_CATEGORIES = new Set(["games", "wool"]);
+
+/** 渠道类型判定输入(item 的渠道相关字段子集;便于纯函数测试窄化) */
+export type ChannelKindInput = Pick<
+  FeedItem,
+  "source" | "category" | "watch_event" | "price_text" | "final_price" | "sale_price"
+>;
+
+/**
+ * 渠道类型判定:源名前缀(telegram- 或 tg- 前缀)→ 消息卡;engine=urlwatch
+ * 或条目带 watch_event(旧 sidecar 无 engine 映射时的字段级兜底)→ 变更
+ * 事件;engine=prompt/store_report → 日报文档;品类 games/wool 或任一
+ * 价格键在场 → 价格优惠行;其余 → 新闻列表卡(现状缺省)。
+ * engineOfSource 缺席(health 失败)= 空映射,纯靠前缀+品类+字段。
+ */
+export function channelKindOf(
+  item: ChannelKindInput,
+  engineOfSource?: ReadonlyMap<string, string>,
+): ChannelKind {
+  const source = item.source ?? "";
+  if (TELEGRAM_SOURCE_RE.test(source)) return "telegram";
+  const engine = engineOfSource?.get(source);
+  if (engine === "urlwatch" || (item.watch_event ?? null) !== null) return "watch";
+  if (engine === "prompt" || engine === "store_report") return "document";
+  if (
+    (item.category !== null && DEAL_CATEGORIES.has(item.category)) ||
+    item.price_text != null ||
+    item.final_price != null ||
+    item.sale_price != null
+  ) {
+    return "deal";
+  }
+  return "news";
+}
+
+/** health().plugins → 源名→engine 映射(渠道类型判定的词表源;同一次调用) */
+export function engineMapFromHealth(plugins: HealthResult["plugins"]): Map<string, string> {
+  const engines = new Map<string, string>();
+  for (const plugin of plugins) {
+    for (const source of plugin.sources) {
+      if (source.name && source.engine && !engines.has(source.name)) {
+        engines.set(source.name, source.engine);
+      }
+    }
+  }
+  return engines;
+}
+
+/** 渠道分组(品类分组下的二级分组):渠道按首次出现顺序出组(与品类分组
+ *  同纪律:稳定、可预期),组内保持传入顺序;无源名条目归「未知来源」组。 */
+export interface FeedChannelGroup {
+  /** 源名(items.source;无源名 = null,React key 由消费侧兜底) */
+  key: string | null;
+  /** 组头文案(源名全称;无源名 = 未知来源) */
+  label: string;
+  /** 渠道类型(组内首条判定;同源同渠道,组内一致) */
+  kind: ChannelKind;
+  items: FeedItem[];
+}
+
+export function groupFeedItemsByChannel(
+  items: FeedItem[],
+  engineOfSource?: ReadonlyMap<string, string>,
+): FeedChannelGroup[] {
+  const groups: FeedChannelGroup[] = [];
+  const bySource = new Map<string | null, FeedChannelGroup>();
+  for (const item of items) {
+    const key = item.source ?? null;
+    let group = bySource.get(key);
+    if (!group) {
+      group = {
+        key,
+        label: key ?? "未知来源",
+        kind: channelKindOf(item, engineOfSource),
+        items: [],
+      };
+      bySource.set(key, group);
+      groups.push(group);
+    }
+    group.items.push(item);
+  }
+  return groups;
+}
+
+/** 价格/优惠行的展示视图(games 四源字段形态并存,push 模板 elif 链同款
+ *  优先序:price_text(Epic 直出)→ sale_price(CS·GOG 美元串,配
+ *  normal_price 原价)→ final_price 数值分 ÷100(Steam/Epic);折扣徽标
+ *  取 discount_pct(int)或 savings_pct(字符串 % 解析);限免判定镜像
+ *  games.yaml classify「限免」析取(final_price==0 / discount≥100 /
+ *  sale 0 且 normal>0)。 */
+export interface DealPriceView {
+  /** 现价词面(直出或换算;无任何价格键 = null,消费侧不渲价格块) */
+  current: string | null;
+  /** 原价词面(划线呈现;无 = null) */
+  original: string | null;
+  /** 折扣百分比(整数;无 = null) */
+  discount: number | null;
+  /** 限免(true = 「限免」徽标) */
+  free: boolean;
+}
+
+export function dealPriceView(
+  item: Pick<FeedItem, "price_text" | "sale_price" | "normal_price" | "final_price" | "original_price" | "discount_pct" | "savings_pct">,
+): DealPriceView {
+  const numericFinal = typeof item.final_price === "number" ? item.final_price : null;
+  const current =
+    item.price_text != null && item.price_text !== ""
+      ? item.price_text
+      : item.sale_price != null && item.sale_price !== ""
+        ? `$${item.sale_price}`
+        : numericFinal !== null
+          ? `¥${(numericFinal / 100).toFixed(2)}`
+          : null;
+  const original =
+    item.normal_price != null && item.normal_price !== ""
+      ? `$${item.normal_price}`
+      : typeof item.original_price === "number"
+        ? `¥${(item.original_price / 100).toFixed(2)}`
+        : null;
+  const savings = item.savings_pct != null ? Number.parseFloat(item.savings_pct) : Number.NaN;
+  const discount =
+    typeof item.discount_pct === "number"
+      ? Math.round(item.discount_pct)
+      : Number.isFinite(savings)
+        ? Math.round(savings)
+        : null;
+  const sale = item.sale_price != null ? Number.parseFloat(item.sale_price) : Number.NaN;
+  const normal = item.normal_price != null ? Number.parseFloat(item.normal_price) : Number.NaN;
+  const free =
+    numericFinal === 0 ||
+    (discount !== null && discount >= 100) ||
+    (Number.isFinite(sale) && sale === 0 && Number.isFinite(normal) && normal > 0);
+  return { current, original, discount, free };
+}
+
+// ---------------------------------------------------------------------------
+// 当日窗滚动 + 实时滚动(10-06-feed-channel-groups 追加:主人令「情报流要
+// 不停地过信息日志,每天凌晨 3 点清零,继续过滤」)。语义:
+//   · 「清零」是**视图层当日窗滚动**——store 数据不动(retention 照旧),
+//     过了 03:00 视图重新从零累计当日流;窗口锚写死 03:00(配置位预留
+//     anchorHour 参数,缺省 DAY_WINDOW_ANCHOR_HOUR)。
+//   · 窗口只作用于滚动流(未读/全部两档);星标/稍后读是用户显式留存,
+//     不随窗清零(跨窗可见)。
+//   · 实时滚动 = completed / cron.completed 事件驱动即时刷新(采集一落地
+//     就进流)+ 可见性感知的定时轮询兜底(CLI 独立跑的采集无事件;隐藏
+//     时暂停,不打 sidecar)。
+// ---------------------------------------------------------------------------
+
+/** 当日窗锚点小时(凌晨 3 点清零;配置位预留,缺省即写死值) */
+export const DAY_WINDOW_ANCHOR_HOUR = 3;
+
+/**
+ * 当日窗起点:now 所在「03:00 → 次日 03:00」窗口的 03:00 时刻。
+ * 例:05-01 14:00 → 05-01 03:00;05-01 02:59 → 04-30 03:00。
+ * `now` 注入以便测试(边界:整点、点前一分钟)。
+ */
+export function dayWindowStart(now: Date = new Date(), anchorHour: number = DAY_WINDOW_ANCHOR_HOUR): Date {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), anchorHour, 0, 0, 0);
+  if (now.getTime() >= start.getTime()) return start;
+  start.setDate(start.getDate() - 1);
+  return start;
+}
+
+/**
+ * 条目是否在当日窗内:first_seen ≥ start 即在窗。缺失/无法解析的
+ * first_seen **保守放行**(进窗可见)—— 与 isLaterResurface 的从紧口径
+ * 相反:这里排除会静默藏数据,宁可多显。items.first_seen 列 NOT NULL,
+ * 异常形态罕见,防御而已。
+ */
+export function inDayWindow(firstSeen: string | null | undefined, start: Date): boolean {
+  if (!firstSeen) return true;
+  const seen = new Date(firstSeen).getTime();
+  if (Number.isNaN(seen)) return true;
+  return seen >= start.getTime();
+}
+
+/** 滚动流窗内过滤(unread/all 两档用;starred/later 不走此门) */
+export function filterDayWindow(items: FeedItem[], start: Date): FeedItem[] {
+  return items.filter((item) => inDayWindow(item.first_seen, start));
+}
+
+/** 轮询合并:首页(新→旧)里已加载集合没有的键 **前插**(实时进流),
+ *  已加载行一条不丢(与翻页 appendFeedPage 的追加语义互补;去重同键)。 */
+export function mergeFreshItems(loaded: FeedItem[], fresh: FeedItem[]): { items: FeedItem[]; added: number } {
+  const seen = new Set(loaded.map(itemKey));
+  const incoming = fresh.filter((item) => !seen.has(itemKey(item)));
+  return { items: [...incoming, ...loaded], added: incoming.length };
+}
+
+/** 实时滚动轮询间隔(毫秒):可见时 30s 一发 store.items 首页查询(SQLite
+ *  读,轻);隐藏暂停(visibilitychange 恢复即刷)。 */
+export const LIVE_POLL_INTERVAL_MS = 30_000;
 
 // ---------------------------------------------------------------------------
 // G12 沉淀为关键词(10-03-fe-small-batch):yaml.* 屏私有封装 + 原文文本手术。

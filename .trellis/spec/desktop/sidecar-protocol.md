@@ -216,6 +216,21 @@ code 动态透传(`invalid_repo` / `hf_unavailable` / `repo_unreachable` /
 产生;`image_ocr_lines` 逐行 `{text, conf}` 原样透传供详情逐行置信度渲染,
 形态不符整体置 None 不半投影——`image_ocr` 旧键 vision-pipeline 已有)。
 
+`_item_dict` 白名单再补两组**渠道差异化呈现键**(task 10-06-feed-channel-groups,
+同「显式才有/异型置 None」纪律;feed.export JSONL 连带,CSV 固定列集不变):
+价格/优惠七键 `price_text` / `sale_price` / `normal_price` / `final_price` /
+`original_price` / `discount_pct` / `savings_pct`(键名 = games 四源 extract
+字段原样;`final_price` 兼收 Epic·Steam 人民币分 int 与 CS·GOG 美元串别名,
+换算归消费侧)+ urlwatch 事件两键 `watch_event`(new|changed)/ `watch_page`
+(目标页真链;条目 url 是 `#watch-<sha>` 锚,目标页链接以本键为准)。前端
+渠道类型判定:telegram-*/tg-* 前缀(源名规约)→ 消息卡;engine=urlwatch
+(health().plugins[].sources[].name→engine 映射)或 watch_event → 变更事件;
+engine=prompt/store_report → 日报文档;品类 games/wool 或价格键存在 → 价格行;
+其余走默认新闻列表卡。同批 `store.items` 增 `source` **精确等值**参数
+(与 `category` 同门,非 LIKE;空串/非字符串 invalid_params)—— 三级下钻
+L1 品类 → L2 渠道 → L3 渠道消息流(`category`+`source`+游标组合联查)的
+L3 查询面。
+
 **feed.enrich 契约(task 10-03-fe-small-batch G8;能力实现 `shishi.enrich`,
 与 `myia run` 第二层漏斗同门)**:`feed.enrich {item: int|str, db?}` →
 `{item_id, model, scores, score, cached}`。`item` 引用口径同 `feedback.mark`

@@ -65,6 +65,7 @@ class Store(Protocol):
         self,
         *,
         category: str | None = None,
+        source: str | None = None,
         since: datetime | None = None,
         before: datetime | None = None,
         before_id: int | None = None,
@@ -77,7 +78,9 @@ class Store(Protocol):
         ``limit`` caps the row count. Both filters are optional.
         ``before``/``before_id`` form the ``(first_seen, id)`` composite cursor
         (strictly-older pagination); ``query`` is a NOCASE LIKE over
-        title/content/source(桌面情报流,10-03-v112-desktop-batch C1).
+        title/content/source(桌面情报流,10-03-v112-desktop-batch C1)。
+        ``source`` is an exact-match source filter(三级下钻 L3 渠道消息流,
+        10-06-feed-channel-groups;与 ``category`` 同门精确等值)。
         """
         ...
 

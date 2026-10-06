@@ -698,7 +698,8 @@ describe("装机组件:轨D remote 配置面板(阶段3)", () => {
     )) as HTMLInputElement;
     // 载入应答未达(mount→IPC 窗口)用户已开始输入
     fireEvent.change(input, { target: { value: "https://draft.example.org" } });
-    resolveGet?.({});
+    // 类型面:闭包内赋值不被 CFA 追踪,显式还原可空调用形态(运行时语义不变)
+    (resolveGet as ((value: unknown) => void) | null)?.({});
     // 应答到达:草稿不被旧配置覆写;徽章如实翻「已配置」
     await waitFor(() =>
       expect(screen.getByTestId("bundled-remote-panel-myssia-firecrawl-state").textContent).toBe("已配置"),

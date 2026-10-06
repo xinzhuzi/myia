@@ -1476,6 +1476,15 @@ def _item_dict(item: Any) -> dict[str, Any]:
     items 表三列直读):采集管线永不携带读态(save_item 列清单不含三列),
     置位只走 ``store.state.*``;feed.export JSONL 共用本投影连带多三键
     (CSV 固定列集不变)。
+
+    10-06-feed-channel-groups 起再白名单两组渠道差异化呈现所需的键
+    (同一「显式才有」纪律,异型/缺失置 None):价格/优惠七键
+    (``price_text``/``sale_price``/``normal_price``/``final_price``/
+    ``original_price``/``discount_pct``/``savings_pct``,供游戏/羊毛
+    渠道的「价格/优惠行」;``final_price`` 兼收人民币分 int 与 CS/GOG
+    美元串别名,换算归消费侧)与 urlwatch 事件两键(``watch_event``/
+    ``watch_page``,供官网监控渠道的「变更事件样式」)。raw 其余键
+    仍不出协议面。
     """
     raw = item.raw if isinstance(item.raw, Mapping) else {}
     ocr = raw.get("image_ocr")
@@ -1497,6 +1506,20 @@ def _item_dict(item: Any) -> dict[str, Any]:
         # 同款严格门:全项皆非空 str 才投影,夹杂坏值整体置 None
         if all(isinstance(path, str) and path for path in files):
             projected_files = list(files)
+
+    def _str_key(name: str) -> str | None:
+        value = raw.get(name)
+        return value if isinstance(value, str) and value.strip() else None
+
+    def _num_key(name: str) -> int | float | str | None:
+        value = raw.get(name)
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            return value
+        # 字符串价格形态(CS/GOG 美元元 "0.50")原样透传,换算归消费侧
+        return value if isinstance(value, str) and value.strip() else None
+
     return {
         "id": item.id,
         "url": item.url,
@@ -1508,6 +1531,24 @@ def _item_dict(item: Any) -> dict[str, Any]:
         "image_caption": caption if isinstance(caption, str) and caption.strip() else None,
         "image_files": projected_files,
         "image_ocr_lines": projected_lines,
+        # 价格/优惠白名单(10-06-feed-channel-groups:游戏/羊毛渠道差异化
+        # 「价格/优惠行」;键 = games 四源 extract 字段名原样——price_text
+        # (Epic "¥60.00" 直出)/ sale_price+normal_price(CS·GOG 美元元字符串)
+        # / final_price(Epic·Steam 人民币分 int;CS·GOG 美元串别名)/
+        # original_price(分 int)/ discount_pct(int)/ savings_pct(CS 字符串
+        # %);异型/缺失置 None,raw 其余键仍不出协议面)
+        "price_text": _str_key("price_text"),
+        "sale_price": _str_key("sale_price"),
+        "normal_price": _str_key("normal_price"),
+        "final_price": _num_key("final_price"),
+        "original_price": _num_key("original_price"),
+        "discount_pct": _num_key("discount_pct"),
+        "savings_pct": _str_key("savings_pct"),
+        # urlwatch 变更事件白名单(同批:官网监控渠道差异化「变更事件样式」;
+        # watch_event = new|changed,watch_page = 目标页真链——条目 url 是
+        # #watch-<sha> 锚,目标页链接以本键为准)
+        "watch_event": _str_key("watch_event"),
+        "watch_page": _str_key("watch_page"),
         "tags": item.tags,
         "category": item.category,
         "scores": item.scores,
@@ -1526,7 +1567,8 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
     游标(C1,与 feed-ux G1 合流形状):``before`` = first_seen 严格小于;
     ``before_id`` 与之组成 ``(first_seen, id)`` 复合游标(同刻条目超单页
     limit 也能推进直至取尽);``query`` = title/content/source 三列 LIKE
-    NOCASE。全部可选,旧调用零感知。
+    NOCASE。``source`` = 源名精确等值(10-06-feed-channel-groups 三级下钻
+    L3 渠道消息流;与 ``category`` 同门)。全部可选,旧调用零感知。
     """
     db = params.get("db") or _serve_context().db
 
@@ -1550,6 +1592,9 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
     query = params.get("query")
     if query is not None and not isinstance(query, str):
         raise ProtocolError("invalid_params", "query 必须为字符串", path="params.query")
+    source = params.get("source")
+    if source is not None and (not isinstance(source, str) or not source):
+        raise ProtocolError("invalid_params", "source 必须为非空字符串(源名精确等值)", path="params.source")
     limit = params.get("limit")
     if limit is not None and (not isinstance(limit, int) or limit < 1):
         raise ProtocolError("invalid_params", "limit 必须为正整数", path="params.limit")
@@ -1559,10 +1604,10 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
         raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
     try:
         items = store.list_items(
-            category=params.get("category"), since=since, before=before,
+            category=params.get("category"), source=source, since=since, before=before,
             before_id=before_id, query=query or None, limit=limit,
         )
-    except ValueError as exc:  # store 层参数校验(空 category 等)
+    except ValueError as exc:  # store 层参数校验(空 category/source 等)
         raise ProtocolError("invalid_params", str(exc), path="params") from exc
     finally:
         store.close()

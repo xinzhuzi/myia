@@ -851,6 +851,7 @@ class SQLiteStore:
         self,
         *,
         category: str | None = None,
+        source: str | None = None,
         since: datetime | None = None,
         before: datetime | None = None,
         before_id: int | None = None,
@@ -864,18 +865,25 @@ class SQLiteStore:
         ``(first_seen, id)`` 元组比较 —— 同刻(相同 first_seen)条目数超过
         单页 limit 时,单靠 ``before`` 会把同刻更旧条目整批跳过,复合游标
         才能推进直至取尽。``query`` = title/content/source 三列 LIKE
-        (NOCASE,无索引单机万级可接受,如实注记)。
+        (NOCASE,无索引单机万级可接受,如实注记)。``source`` = 源名精确
+        等值(10-06-feed-channel-groups 三级下钻 L3 渠道消息流;与
+        ``category`` 同门精确等值,非 LIKE)。
         """
         if limit is not None and limit < 0:
             raise ValueError(f"字段校验失败: limit 不能为负数,得到 {limit}")
         if before is None and before_id is not None:
             raise ValueError("字段校验失败: before_id 需与 before 同传(复合游标)")
+        if source is not None and not source:
+            raise ValueError("字段校验失败: source 过滤需要非空源名")
         sql = "SELECT * FROM items"
         conditions: list[str] = []
         params: list[object] = []
         if category is not None:
             conditions.append("category = ?")
             params.append(category)
+        if source is not None:
+            conditions.append("source = ?")
+            params.append(source)
         if since is not None:
             conditions.append("first_seen >= ?")
             params.append(_to_iso(since))

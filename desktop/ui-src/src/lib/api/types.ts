@@ -406,8 +406,11 @@ export interface LogsTailResult {
 
 export interface StoreItemsParams {
   db?: string;
-  /** 按品类过滤 */
+  /** 按品类过滤(精确等值) */
   category?: string;
+  /** 按源名过滤(精确等值;10-06-feed-channel-groups 三级下钻 L3 渠道
+   *  消息流——源名全称如 telegram-durov,非 LIKE) */
+  source?: string;
   /** ISO 时间下界(first_seen ≥,含边界) */
   since?: string;
   /** 翻页游标(first_seen 严格小于;与 before_id 组成复合游标) */
@@ -447,6 +450,21 @@ export interface FeedItem {
   /** OCR 逐行 {text, conf}(metadata.image_ocr_lines;详情展开逐行置信度表)。
    *  conf 0-1 原样透传,两引擎刻度不可互比 —— 色阶只是视觉提示。 */
   image_ocr_lines?: ImageOcrLine[] | null;
+  /** 价格/优惠白名单七键(10-06-feed-channel-groups:游戏/羊毛渠道「价格/
+   *  优惠行」;键名 = games 四源 extract 字段原样,异型/缺失后端置 None)。
+   *  final_price 兼收 Epic·Steam 人民币分 int 与 CS·GOG 美元串别名
+   *  ("0.50"),换算归前端 dealPriceView。 */
+  price_text?: string | null;
+  sale_price?: string | null;
+  normal_price?: string | null;
+  final_price?: number | string | null;
+  original_price?: number | null;
+  discount_pct?: number | null;
+  savings_pct?: string | null;
+  /** urlwatch 变更事件两键(同批:官网监控渠道「变更事件样式」)。watch_event
+   *  = new|changed;watch_page = 目标页真链(条目 url 是 #watch-<sha> 锚)。 */
+  watch_event?: string | null;
+  watch_page?: string | null;
   tags: string[];
   category: string | null;
   scores: Record<string, unknown> | null;

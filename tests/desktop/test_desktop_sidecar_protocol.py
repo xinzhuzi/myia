@@ -545,13 +545,80 @@ def test_store_items_projects_image_ocr_scalar(tmp_path):
     assert by_key["ocr3"]["image_ocr_lines"] is None
     assert by_key["ocr3"]["image_ocr"] == "x"
     # raw 整包仍不出协议面:仅白名单投影,其余 metadata 键不外泄
-    # (read/starred/later = v10 起随行读态三键,G9)
+    # (read/starred/later = v10 起随行读态三键,G9;价格/优惠七键 + urlwatch
+    # 事件两键 = 10-06-feed-channel-groups 渠道差异化呈现批)
     assert set(by_key["ocr1"]) == {
         "id", "url", "dedup_key", "title", "source", "content", "image_ocr",
         "image_caption", "image_files", "image_ocr_lines",
         "tags", "category", "scores", "pushed_at", "push_slot", "first_seen",
         "read", "starred", "later",
+        "price_text", "sale_price", "normal_price", "final_price",
+        "original_price", "discount_pct", "savings_pct",
+        "watch_event", "watch_page",
     }
+    # 本条 raw 无价格/watch 键 → 全 None(显式才有,异型/缺失置 None)
+    assert by_key["ocr1"]["price_text"] is None
+    assert by_key["ocr1"]["final_price"] is None
+    assert by_key["ocr1"]["watch_event"] is None
+    assert by_key["ocr1"]["watch_page"] is None
+
+
+def test_store_items_projects_price_and_watch_keys(tmp_path):
+    """store.items 价格/watch 白名单投影(10-06-feed-channel-groups):
+    games 四源价格形态(Epic price_text+分 int / CS·GOG 美元串)+ urlwatch
+    事件两键原样出面;异型/缺失置 None,raw 其余键不出面。
+    """
+    db = tmp_path / "channel.db"
+    store = SQLiteStore(str(db))
+    from datetime import datetime, timezone
+
+    from myssia.store.models import ItemRecord
+    common = dict(first_seen=datetime(2026, 10, 6, tzinfo=timezone.utc))
+    store.save_item(ItemRecord(
+        url="https://store.epicgames.com/p/a", dedup_key="epic", title="Epic 限免",
+        raw={"price_text": "¥0.00", "final_price": 0, "original_price": 3900,
+             "discount_pct": 100, "internal_only": "不外泄"},
+        **common,
+    ))
+    store.save_item(ItemRecord(
+        url="https://www.cheapshark.com/redirect?dealID=x", dedup_key="cs",
+        title="CS 折扣", raw={"sale_price": "0.50", "normal_price": "16.99",
+                              "savings_pct": "97.057092", "final_price": "0.50"},
+        **common,
+    ))
+    store.save_item(ItemRecord(
+        url="https://example.com/news#watch-abc123def0", dedup_key="watch1",
+        title="Anthropic 官网有更新",
+        raw={"watch_event": "changed", "watch_page": "https://www.anthropic.com/news",
+             "stars": 2912},
+        **common,
+    ))
+    # 坏形态:布尔折扣(被 bool 门拒)、空串价、非 str watch → 全 None
+    store.save_item(ItemRecord(
+        url="https://example.com/bad", dedup_key="bad", title="形态坏",
+        raw={"discount_pct": True, "price_text": "  ", "watch_page": 42},
+        **common,
+    ))
+    store.close()
+    code, responses, _ = rpc({"id": 1, "method": "store.items", "params": {"db": str(db)}})
+    assert code == 0
+    by_key = {item["dedup_key"]: item for item in responses[0]["result"]["items"]}
+    assert by_key["epic"]["price_text"] == "¥0.00"
+    assert by_key["epic"]["final_price"] == 0
+    assert by_key["epic"]["original_price"] == 3900
+    assert by_key["epic"]["discount_pct"] == 100
+    assert by_key["epic"]["savings_pct"] is None
+    assert by_key["cs"]["sale_price"] == "0.50"
+    assert by_key["cs"]["normal_price"] == "16.99"
+    assert by_key["cs"]["savings_pct"] == "97.057092"
+    assert by_key["cs"]["final_price"] == "0.50"  # 美元串别名原样(换算归消费侧)
+    assert by_key["watch1"]["watch_event"] == "changed"
+    assert by_key["watch1"]["watch_page"] == "https://www.anthropic.com/news"
+    assert "stars" not in by_key["watch1"]  # raw 其余键仍不出协议面
+    assert "internal_only" not in by_key["epic"]
+    assert by_key["bad"]["discount_pct"] is None
+    assert by_key["bad"]["price_text"] is None
+    assert by_key["bad"]["watch_page"] is None
 
 
 def test_store_items_corrupt_db_structured_error(tmp_path):
@@ -2369,6 +2436,53 @@ def test_store_items_same_timestamp_pagination_to_exhaustion(tmp_path):
     code, responses, _ = rpc({"id": 91, "method": "store.items",
                               "params": {"db": str(db), "before_id": 5}})
     assert responses[0]["error"]["code"] == "invalid_params"
+
+
+def test_store_items_source_exact_match(tmp_path):
+    """10-06-feed-channel-groups:source 精确等值(三级下钻 L3 渠道消息流)。
+
+    与 category 同门精确等值非 LIKE;与 category/query 组合联查;空串/
+    非字符串 = invalid_params 结构化拒(store 层 ValueError 同门)。
+    """
+    from datetime import datetime, timezone
+
+    from myssia.store.models import ItemRecord
+    db = tmp_path / "source.db"
+    store = SQLiteStore(str(db))
+
+    def seed(index: int, source: str | None, category: str | None) -> None:
+        store.save_item(ItemRecord(
+            url=f"https://example.com/s{index}", dedup_key=f"s{index}",
+            title=f"条目{index}", source=source, category=category,
+            first_seen=datetime(2026, 10, 6, index + 1, tzinfo=timezone.utc),
+        ))
+
+    seed(0, "telegram-durov", "telegram-channels")
+    seed(1, "telegram-durov", "telegram-channels")
+    seed(2, "openai-news", "ai-news")
+    seed(3, None, "ai-news")
+    store.close()
+
+    def sources_of(params: dict) -> list[str | None]:
+        code, responses, _ = rpc({"id": 1, "method": "store.items",
+                                  "params": {"db": str(db), **params}})
+        return [item["source"] for item in responses[0]["result"]["items"]]
+
+    # 精确等值:只回该渠道行;LIKE 语义的反证(telegram-durov 不匹配 telegram- 前缀子串查询)
+    assert sources_of({"source": "telegram-durov"}) == ["telegram-durov", "telegram-durov"]
+    assert sources_of({"source": "openai-news"}) == ["openai-news"]
+    assert sources_of({"source": "telegram"}) == []  # 非 LIKE:无前缀泛匹配
+    # 与 category 组合(同品类下按渠道收窄)
+    assert sources_of({"category": "ai-news", "source": "openai-news"}) == ["openai-news"]
+    # 与 query 组合
+    assert sources_of({"source": "telegram-durov", "query": "条目1"}) == ["telegram-durov"]
+    # 空串/非字符串 = 结构化拒(serve 出口码恒 0,错误在应答 error 对象)
+    code, responses, _ = rpc({"id": 2, "method": "store.items",
+                              "params": {"db": str(db), "source": ""}})
+    assert code == 0 and responses[0]["error"]["code"] == "invalid_params"
+    code, responses, _ = rpc({"id": 3, "method": "store.items",
+                              "params": {"db": str(db), "source": 42}})
+    assert code == 0 and responses[0]["error"]["code"] == "invalid_params"
 
 
 def test_store_items_query_like_nocase(tmp_path):
