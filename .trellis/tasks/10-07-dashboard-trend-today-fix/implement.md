@@ -34,19 +34,20 @@
 
 ## 批3 全量门禁 + 像素验收(提交点③)
 
-- [ ] `cd desktop/ui-src && npx vitest run` 全量(对照批0 基线:仅 dashboard 文件内预期变动,其余文件 passed 数不变)
-- [ ] `npx tsc -b` 零错(repo 门禁口径)
-- [ ] 像素验收(AI 亲验,不留给主人;grill Q6 批:**devUrl 为准**——本档纯文案/数据装配,零 CSP/打包敏感面;装机包刷新归 tag 驱动发布流,不绑本档):按仓库既有无头 GUI 冒烟链(Playwright + bridge / devUrl,见 memory「装机包 CSP 与 devUrl 三陷阱」——**必须外链 devUrl,裸 cargo build 是 devUrl 模式不代表装机**):
+- [x] `cd desktop/ui-src && npx vitest run` 全量(对照批0 基线:仅 dashboard 文件内预期变动,其余文件 passed 数不变)——脚本统一实跑 `npm --prefix desktop/ui-src run test` exit=0(28 files passed;批0 基线 71→批2 后 scoped 75,新增 4 例)
+- [x] `npx tsc -b` 零错(repo 门禁口径)——`npm --prefix desktop/ui-src run build`(tsc -b && vite build)exit=0
+- [x] 像素验收(AI 亲验,不留给主人;grill Q6 批:**devUrl 为准**——本档纯文案/数据装配,零 CSP/打包敏感面;装机包刷新归 tag 驱动发布流,不绑本档):按仓库既有无头 GUI 冒烟链(Playwright + bridge / devUrl,见 memory「装机包 CSP 与 devUrl 三陷阱」——**必须外链 devUrl,裸 cargo build 是 devUrl 模式不代表装机**):
   - 默认(今日档)截屏:趋势图 ≥2 点有折线、轴行两端日期不同、卡脚「近 7 天」、概览四格仍「今日」口径
   - 切 14 天对比:文案/数据与修复前同形(回归目验)
   - 证据(截屏+度量)存 `evidence/`
-- [ ] `gitnexus detect-changes -r shishi --scope staged` —— 预期仅 dashboard 屏内符号(纯前端,零协议面)
-- **提交点③**
+  ——像素代理(evidence/harness/pixel_verify.py,devUrl+受控 mock)三场景 27/27 断言过,截图三张落 evidence/;主会话 local-ocr 补验两张关键截图(今日档:近7天共22条·峰值5条/日+轴行 2026-09-30/2026-10-06 两端不同+verdict 今日采集5条;全零窗:无 y 刻度列+近7天共0条)——180d707「无图像输入代理像素主张须补位」教训已偿
+- [x] `gitnexus detect-changes -r shishi --scope staged` —— 预期仅 dashboard 屏内符号(纯前端,零协议面)——批1=3 files 3 symbols 0 processes risk low;批2=3 files 2 symbols(DashboardScreen/refreshTrend 屏内)7 affected flows 皆 DashboardScreen 根系(risk=high 系枢纽流程计数,波及面屏内,符合 design §5)
+- **提交点③**(批3 全为验证步,零代码改动,无独立提交;验证回执入本档+run-report)
 
 ## 复查门(review gate)
 
-- [ ] trellis-check 全量:AC1-AC5 逐条 + design §4 矩阵逐行 + 反 AI 审美红线(纯文案不触发,仍核)
-- [ ] 结果回填本档勾选与 review 记录
+- [x] trellis-check 全量:AC1-AC5 逐条 + design §4 矩阵逐行 + 反 AI 审美红线(纯文案不触发,仍核)——独立复查门(工作流「复查门」代理,零实现参与)pass:AC1-AC5 全过;改动面 git diff 亲核限三文件(并行任务 d4bb295 零混淆);scoped 亲跑复验双绿(75 passed+tsc EXIT=0);§4 翻新清单七行逐行对照 diff 全落地、verdict 段零 hunk;D6 不闪机制亲核(骨架屏条件 trendLoading&&trend===null);协议零变更/sparkline 语义零改/反 AI 审美不触发
+- [x] 结果回填本档勾选与 review 记录——勾选随收尾提交;复查唯一 low(evidence/harness/__pycache__ 留档)已清
 
 ## 回滚
 
