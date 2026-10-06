@@ -780,3 +780,10 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - **留守五档**:firecrawl(blocked)/searxng(in_progress 续实现段)/v12-backlog(池永不归档)/ai-news-sources+hermes-monitor-audit(外部会话在途不碰,脏面 1 改+1 未跟踪全程原样)。
 - **留主人清单**:reddit 五决策(硬窗 2026-10-31)+bark 真推(装 App 复制 key 一条即验)+apprise/bark 并存裁撤取舍+cron-heartbeat AC3 像素(终轮刷新批)+firecrawl 真跑与 vs Zenrows+searxng 生产部署(主人服务器)。
 - 提交:.trellis 本流路径 --only 入库(六档新旧两侧+firecrawl/searxng prd+journal),不推远端(工作流 ci2 段统一推)。
+
+## 2026-10-06 凌晨 searxng 实现段收口(主人令「做」)
+
+- 2022bd9:链外引擎(searxng.py ~380 行,base 三级解析源级>env>缺省 8888,礼貌=逐词串行+query_delay 3s 缺省)+schema queries 校验+插件骨架缺省不启用+UI 零改动(徽章字符串动态渲染自动生效,勿造新面判例)+19 引擎用例(55 条实快照夹具)+真跑 127 条入库(≥20 门)+二轮去重幂等(净增 8)+docs 四处(zero-cost §5 compose 模板/schema 词表/SKILL 三处/README)。
+- 门禁亲验:全量 pytest 4483/0(+22)+vitest 523+ruff 绿+cargo(收口段复核);定向 1327/39。
+- 清场:searxng 探查栈 compose down、colima VM stop(续跑 firecrawl 时 colima start 即回,resolv.conf 写实跨 stop/start 保留)、三个心跳沙盘残留 serve 进程精确按库路径击杀(生产 sidecar 零误伤)。
+- 装机包:本轮纯后端+docs 零 UI 行为差,不重刷(装机徽章像素随下批 UI 件,档内注记);真跑栈已收。
