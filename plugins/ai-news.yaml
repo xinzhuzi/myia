@@ -198,11 +198,27 @@ sources:
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
     proxy: direct                   # urlwatch 引擎只支持 direct(子进程直连)
 
-  # Meta AI 博客:已移除(10-06-ai-news-sources 二段)。排查实证
-  # ai.meta.com/blog 是纯客户端渲染页——HTML 里没有 <main>/article/
-  # 任何正文节点(六种选择器全零),静态 urlwatch 通道取不到内容,只能
-  # 监控到 React 构建产物漂移(每 run 假阳性)。要接需 JS 渲染通道
-  # (crawl4ai/stealth)另立档;robots * 段允许 /blog 的记档在 research §4。
+  # Meta AI 博客(10-06 §12 重接):纯客户端渲染页,静态通道六种选择器
+  # 全零判死(ca7efc0 移除)——本源走渲染通道 render: crawl4ai:场景件
+  # render_crawl4ai.py 无头渲染取博文列表纯文本(图片/链接 URL 剔除,
+  # CDN 签名轮换噪声出局),喂 urlwatch shell job 对比(命令 stdout 即
+  # 快照对象;user_visible_url 锚住事件定位)。probe6 实测 7.3s/17345 字/
+  # 5 条博文 slug 可读。前置=运行环境需装 crawl4ai(仓库 venv 有;装机
+  # python 待 desktop lock 收编该 extras,缺则本源每 run 结构化
+  # dependency_missing,同 llm extras 先例归主人)。robots * 段允许
+  # /blog 的取合记档在 research §4(可一句话删源翻案)。
+  - name: meta-ai-blog-watch
+    engine: urlwatch
+    url: "https://ai.meta.com/blog"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "Meta AI 博客"
+        announce_new: false         # 首跑建基线,之后只报变更
+        timeout: 150                # 渲染整页 ~8s + uv 环境开销,宽于静态 90
+        render: crawl4ai            # 渲染通道(与 selector 互斥)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
 
   - name: cohere-blog-watch      # Cohere 博客(无 RSS;robots Allow /)
     engine: urlwatch
