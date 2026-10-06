@@ -28,7 +28,7 @@
 | 6 | `run.status` | `_m_run_status` | run 注册表查询;未知 id = 结构化 404 |
 | 7 | `run.cancel` | `_m_run_cancel` | 取消进行中 run:killpg(SIGTERM→5s→SIGKILL);信号终局 status=cancelled(v112 批 C2) |
 | 8 | `runs.list` | `_m_runs_list` | runs 表直读(新→旧,limit 钳制 [1,200]);重启后历史可达(v112 批 C3) |
-| 9 | `logs.tail` | `_m_logs_tail` | 环形缓冲尾部日志,run_id 可选过滤 |
+| 9 | `logs.tail` | `_m_logs_tail` | 环形缓冲尾部日志,run_id 可选过滤;数据面 = 统一日志模块 `myssia.log.ring_snapshot`(批1 切道,语义逐字对齐旧实现:run_id 过滤+尾部截取,lines 钳制 ≤ 环形帽 4000);serve 冷启动 `backfill` 盘尾回填(预算 2000 行:当日 `logs/myssia-*.jsonl` 尾+不足补前一文件尾,坏行跳过,按读入顺序 seed 环形重发 seq;壳 respawn 后崩溃前日志可达日志屏)——**params/result 形状零变化**、前端 `screens/logs/` 零改;`type:"log"` 事件发射点集合与旧实现逐点相同(10-07-unified-logging design §5) |
 | 10 | `store.items` | `_m_store_items` | SQLite 单库直读情报流(新→旧);游标 `before`/`before_id` + `query`(v112 批 C1) |
 | 11 | `feed.export` | `_m_feed_export` | 当前过滤视图导出 JSONL/CSV:sidecar 直写(数据不经 webview),只写对话框选定单文件;`export_path_invalid`/`export_write_failed`(feed-ux 批 G3) |
 | 12 | `schedule.preview` | `_m_schedule_preview` | 品类排程 Next runs 预览(纯计算零副作用,count 钳制 [1,20];无排程明示 null 非 err;feed-ux 批 G4) |
