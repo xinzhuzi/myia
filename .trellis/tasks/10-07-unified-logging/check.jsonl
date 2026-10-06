@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/python/logging.md", "reason": "核验落盘内容零凭据展开、级别语义未漂移、降级不破主链"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "核验 logs.tail 请求/响应形状零变化、回填语义已入档"}
+{"file": ".trellis/spec/python/error-handling.md", "reason": "镜像失败静默降级路径的错误处理口径核验"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "门禁全量亲跑纪律与提交纪律核验"}
+{"file": ".trellis/tasks/10-07-unified-logging/research/grill-facts.md", "reason": "复查核对面:实现须与事实底册一致(产名/权限名/方向语义),偏离即回查"}

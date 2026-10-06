@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/python/logging.md", "reason": "日志级别语义与凭据红线(日志不含凭据值)是镜像落盘的上游约束;本任务批3 将在此增「落盘」节"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "logs.tail 契约与 serve 上下文路径优先级链(显式 params > MYIA_HOME env > bundle)——镜像目录解析与回填行为须沿此链;批3 补冷启动回填描述"}
+{"file": ".trellis/spec/python/quality.md", "reason": "Python 侧质量门(ruff/测试)口径"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "长任务监控纪律(后台任务+exit 文件禁 sleep 轮询)与门禁纪律——全量 pytest 约二十分钟须后台跑"}
+{"file": ".trellis/tasks/10-07-unified-logging/research/grill-facts.md", "reason": "grill 轮 1 事实底册:tauri-plugin-log 源码级事实(2.10.0/产名/无按天轮转/Webview 方向反转/capability log:default/timezone 重置 formatter 坑)与仓库引用面行号(vision 5 测试断言/respawn 链/CLI 数据根两套实现),批0/批2 直引免重查"}
