@@ -162,6 +162,38 @@ class TestUrlwatchAdapter:
                     [{"url": "https://example.com/c", "filter": bad}]
                 )
 
+    def test_normalize_events_carries_snapshot_bytes(self):
+        """选择器失效哨兵的数据面(10-06 发现 C):shim 事件的快照字节数经
+        _normalize_events 标量透传(int 过/bool 拒/缺省不带)。"""
+        adapter = load_adapter()
+        events = adapter._normalize_events(
+            [
+                {
+                    "event": "unchanged",
+                    "name": "t",
+                    "location": "https://example.com/a",
+                    "timestamp": 1,
+                    "bytes": 42,
+                },
+                {
+                    "event": "unchanged",
+                    "name": "t",
+                    "location": "https://example.com/b",
+                    "timestamp": 1,
+                    "bytes": True,
+                },
+                {
+                    "event": "unchanged",
+                    "name": "t",
+                    "location": "https://example.com/c",
+                    "timestamp": 1,
+                },
+            ]
+        )
+        assert events[0]["bytes"] == 42
+        assert "bytes" not in events[1]
+        assert "bytes" not in events[2]
+
     def test_normalize_urls_wraps_single_string(self):
         adapter = load_adapter()
         assert adapter.normalize_urls("https://example.com/x") == [

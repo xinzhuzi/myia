@@ -33,14 +33,21 @@ sources:
     method: GET
     headers:
       User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
-    extract:                      # verified against the 2026-10 SSR markup
+    extract:                      # verified against the 2026-10 SSR markup.
       type: list
-      item: "article[data-item-id]"   # cards without a title anchor are
-                                      # skipped automatically (zero-hit records)
+      item: "article[data-item-id]"   # 卡片两形态(10-06 发现 B 修复):标题卡
+                                      # (h3 内锚)与作者精选卡(无 h3)——两形态
+                                      # 实证均为整卡单链接且同指 /items/<id>,
+                                      # url 直取卡内 a 即两态通吃;标题逗号并
+                                      # 集按文档序取首个(普通卡 h3 先命中行为
+                                      # 不变,作者卡回退链接文本=正文摘要)。
+                                      # 此前 url 只认 h3 a,每轮静默丢 3-5 条
+                                      # 编辑精选 X 帖(算力承诺/A16Z 报告等恰
+                                      # 是 X 监控信号)。
       fields:
-        title: "h3"                 # headline text
-        url: "h3 a@href"            # /items/<id>, resolved against the page URL
-        image: "img@src"            # card cover image, urljoin'ed against the
+        title: "h3, a"            # 作者精选卡标题回退=链接文本(正文摘要)
+        url: "a@href"             # 整卡单链接(两形态同指 /items,实证)
+        image: "img@src"          # card cover image, urljoin'ed against the
                                     # page URL; lands in metadata["image"] for
                                     # the images: ring below (cards without a
                                     # cover simply omit the field)

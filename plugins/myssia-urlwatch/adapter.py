@@ -333,6 +333,13 @@ class Collector:
             "location": job.get_location(),
             "timestamp": job_state.timestamp,
         }
+        # 快照字节数(10-06 发现 C:选择器失效=静默死亡的检测锚)——过滤后
+        # 快照近零字节而上游仍判 unchanged/new,是选择器选不中正文的结构
+        # 信号,消费方(引擎)据此告警。
+        try:
+            event["bytes"] = len(job_state.new_data or "")
+        except Exception:  # noqa: BLE001 - 字节数是可观测性字段,取不到不带
+            pass
         if verb == "changed":
             try:
                 event["diff"] = job_state.get_diff()
@@ -459,6 +466,10 @@ def _normalize_events(events: list[Any]) -> list[dict[str, Any]]:
         }
         if isinstance(event.get("timestamp"), (int, float)):
             item["timestamp"] = event["timestamp"]
+        if isinstance(event.get("bytes"), (int, float)) and not isinstance(
+            event.get("bytes"), bool
+        ):
+            item["bytes"] = int(event["bytes"])
         if event.get("event") == "changed":
             item["diff"] = _tail(event.get("diff"), _DIFF_TAIL_CHARS)
             if event.get("diff_error"):

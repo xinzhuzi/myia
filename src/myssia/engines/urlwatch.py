@@ -82,6 +82,10 @@ DEFAULT_TIMEOUT_SECONDS = 120.0
 #: content 里 diff 的截断上限(上游事件已截 4000,引擎层再收窄到人读量级)。
 DEFAULT_CONTENT_MAX_CHARS = 1500
 
+#: 选择器失效哨兵阈值(发现 C):过滤后快照字节数低于此值即告警——正常
+#: 正文区快照为千字节级(anthropic 实证 15K),近零=选择器选空。
+TINY_SNAPSHOT_BYTES = 200
+
 #: 渲染通道后端词表(``engine_options.urlwatch.render`` 合法值;词表式收窄,
 #: 新后端=改这里+helper 件,不是自由字符串)。
 RENDER_BACKENDS = ("crawl4ai",)
@@ -96,6 +100,7 @@ __all__ = [
     "LAYER",
     "RENDER_BACKENDS",
     "RENDER_HELPER_FILENAME",
+    "TINY_SNAPSHOT_BYTES",
     "UrlwatchEngine",
     "build_render_command",
     "import_urlwatch_adapter",
@@ -507,8 +512,10 @@ class UrlwatchEngine(BaseEngine):
             )
         if kind == "unchanged":
             self.last_skip_reason = "watch_unchanged"
+            self._warn_if_tiny_snapshot(event, url)
             return []
         if kind == "new":
+            self._warn_if_tiny_snapshot(event, url)
             if not options["announce_new"]:
                 self.last_skip_reason = "watch_baseline_seeded"
                 logger.info(
@@ -559,6 +566,23 @@ class UrlwatchEngine(BaseEngine):
         return [item]
 
     # ------------------------------------------------------- shape overrides
+
+    def _warn_if_tiny_snapshot(self, event: dict[str, Any], url: str) -> None:
+        """选择器失效哨兵(10-06 发现 C,两跑实证):过滤后快照近零字节而上游
+        仍判 unchanged/new——css 选择器选不中正文的结构信号(站点改版即触发,
+        此前形态是恒 unchanged 零告警的静默死亡)。出 WARNING 可见,不翻失败。
+        """
+        snapshot_bytes = event.get("bytes")
+        if isinstance(snapshot_bytes, int) and snapshot_bytes < TINY_SNAPSHOT_BYTES:
+            logger.warning(
+                "urlwatch 快照仅 %s 字节(<%s),选择器疑似失效——目标页可能已"
+                "改版,selector 选不中正文;请到配置编辑核对 %s 的 "
+                "engine_options.urlwatch.selector source=%s",
+                snapshot_bytes,
+                TINY_SNAPSHOT_BYTES,
+                url,
+                self.source.name,
+            )
 
     def _check_pagination_support(self) -> None:
         """单页语义:任何 pagination 配置都结构化拒(不是只拒 scroll).

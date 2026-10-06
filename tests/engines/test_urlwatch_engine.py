@@ -528,6 +528,81 @@ def test_unchanged_is_legal_empty_state(patched_adapter):
     assert engine.last_skip_reason == "watch_unchanged"
 
 
+def test_tiny_snapshot_unchanged_warns_selector_death(patched_adapter, caplog):
+    """选择器失效哨兵(发现 C 两跑实证):unchanged 但快照近零字节 → WARNING
+    可见(此前形态=恒 unchanged 零告警的静默死亡);skip 语义不变。"""
+    patched_adapter(
+        fake_adapter(
+            events=[
+                {
+                    "event": "unchanged",
+                    "name": "demo",
+                    "location": PAGE_URL,
+                    "timestamp": "t",
+                    "bytes": 40,
+                }
+            ],
+            counts={"new": 0, "changed": 0, "unchanged": 1, "error": 0, "deferred": 0},
+        )
+    )
+    engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
+    with caplog.at_level("WARNING", logger="myssia.engines.urlwatch"):
+        items = run(engine.fetch())
+    assert items == []
+    assert engine.last_skip_reason == "watch_unchanged"
+    assert any("选择器疑似失效" in r.message for r in caplog.records)
+
+
+def test_healthy_snapshot_unchanged_stays_silent(patched_adapter, caplog):
+    """健康快照(千字节级)的 unchanged 不触发哨兵(anthropic 实证 15K)."""
+    patched_adapter(
+        fake_adapter(
+            events=[
+                {
+                    "event": "unchanged",
+                    "name": "demo",
+                    "location": PAGE_URL,
+                    "timestamp": "t",
+                    "bytes": 15324,
+                }
+            ],
+            counts={"new": 0, "changed": 0, "unchanged": 1, "error": 0, "deferred": 0},
+        )
+    )
+    engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
+    with caplog.at_level("WARNING", logger="myssia.engines.urlwatch"):
+        items = run(engine.fetch())
+    assert items == []
+    assert not any("选择器疑似失效" in r.message for r in caplog.records)
+
+
+def test_tiny_snapshot_new_baseline_also_warns(patched_adapter, caplog):
+    """new 事件的空基线同样哨兵(announce_new 关路径)。"""
+    patched_adapter(
+        fake_adapter(
+            events=[
+                {
+                    "event": "new",
+                    "name": "demo",
+                    "location": PAGE_URL,
+                    "timestamp": "t1",
+                    "bytes": 0,
+                }
+            ],
+            counts={"new": 1, "changed": 0, "unchanged": 0, "error": 0, "deferred": 0},
+        )
+    )
+    engine = UrlwatchEngine(
+        urlwatch_source(engine_options={"urlwatch": {"announce_new": False}}),
+        urlwatch_context(),
+    )
+    with caplog.at_level("WARNING", logger="myssia.engines.urlwatch"):
+        items = run(engine.fetch())
+    assert items == []
+    assert engine.last_skip_reason == "watch_baseline_seeded"
+    assert any("选择器疑似失效" in r.message for r in caplog.records)
+
+
 def test_new_event_announces_by_default(patched_adapter):
     patched_adapter(
         fake_adapter(
