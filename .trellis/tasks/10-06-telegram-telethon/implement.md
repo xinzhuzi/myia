@@ -11,9 +11,10 @@
 2. ✅ 出口:高价值即时**合并单条**(merge_high_value,组合铁律,锚随消息 id 区间幂等)/普通入库进合并日报(daily-digest 已增「Telegram 群」分区);
 3. ✅ 测试:tests/telegram/test_telegram_filter.py 25 例(同轮恰 1 条端到端+引擎集成);门禁 681 passed+ruff 绿。
 
-## 批次 B3:常驻宿主 telegram serve(每时每刻)
-1. `src/myssia/telegram/`(serve 循环/offset 持久/退避/事件账本,mock 可测);
-2. CLI `myssia telegram serve` + desktop 侧接线(组件化位);测试 D5 serve 面;门禁+提交③。
+## 批次 B3:常驻宿主 telegram serve(每时每刻)——✅ 2026-10-06 完(提交③)
+1. ✅ `src/myssia/telegram/`:serve.py(长轮询 25s/退避 1s→300s/401/409 致命上抛/sink 注入零 pipeline 依赖)+offsets.py(数据根 telegram/offsets.json 原子写断点续拉)+events.py(telegram_events 表 executions 形态,outcome 七词表);引擎共享面抽出(updates_to_items/message_to_item/filter_config_from_options 升模块级,两档同语义);
+2. ✅ CLI `myssia telegram serve`(品类装配/单 bot 校验/推送+入库 sink/致命错误退码 1);桌面接线位=TelegramServeHost 可嵌入 sidecar(模块文档注明 _CRON_TICKER 先例形态;entry.py 由并行任务持有,方法实装留桌面批,如实记档);
+3. ✅ 测试 tests/telegram/test_telegram_serve.py 21 例(全 mock:poller/宿主/退避/账本/CLI 装配);全套 4423 passed+desktop 288 passed;ruff 绿。
 
 ## 批次 B4:Telethon 线(主人小号+验证码到位后)
 1. extras 组件轨(pyproject extras+桌面锁 --extra telethon+设置页组件卡);

@@ -58,6 +58,13 @@ MYIA 具备三层 Telegram 消息获取能力,全部走「链接者」形态,组
   - 出口=组合铁律:`merge_high_value()` 同轮多条高价值合并**单条**(score=组内最高,route `score>=8 → immediate` 一轮至多推一条;合并锚 `<源url>#tg-<chat>-<min>-hv<n>-<max>` 随消息 id 区间稳定→批量档重拉幂等);普通条目带 score 逐条出仓走 archive 入库;daily-digest.yaml 增「Telegram 群」分区(sources: telegram-mihomo_party_group,与 telegram-groups.yaml 同步维护)。
   - 引擎接线:`engines/telegram.py` 增 `completer` 注入口(prompt 判例)+`_filter_options()`(keywords/threshold/model/llm refs/timeout 校验,半配/明文/越界=invalid_engine_options)+`_apply_filter()`(高价值合并单条+普通出仓);条目增 `chat_id`/`message_id` 观测键(合并锚区间与 B3 账本面)。
   - 测试 `tests/telegram/test_telegram_filter.py` 25 例(粗筛/精筛/降级/合并锚幂等/**同轮 5 条恰 1 条合并**端到端+引擎集成 mock getUpdates+fake completer 恰 1 合并条目);tests/telegram+tests/engines+test_schema 计 681 passed;ruff 绿。
+- [~] 阶段一 B3 常驻宿主(2026-10-06):
+  - `src/myssia/telegram/serve.py`(TelegramServeHost):getUpdates **长轮询 25s**(httpx 超时 35s>挂起窗;空窗不忙轮)→ 每轮消息过 B2 过滤管线(两档共用)→ 高价值合并单条即时推/普通入库 → offset 持久(`offsets.py`,数据根 telegram/offsets.json 原子写,重启断点续拉)→ 事件账本(`events.py`,executions 形态新表 telegram_events,outcome 词表 stored/pushed/dropped_coarse/dropped_chat/dropped_textless/dropped_other/error,消息级记账);断线指数退避 1s→2s→…帽 300s 成功归零;401/409 致命错误不蒙头退避(结构化上抛宿主退出);sink 全注入(push_high_value/store_item),宿主本体零 pipeline 依赖(依赖方向红线)。
+  - 引擎共享面抽出:`engines/telegram.py` 的消息分拣/聚合/锚(`updates_to_items`/`message_to_item`)与过滤配置解析(`filter_config_from_options`)升模块级,引擎方法成委托——serve 与批量档同一份消息语义(design D1)。
+  - CLI `myssia telegram serve --category plugins/telegram-groups.yaml --db …`:装配品类(chat_id 唯一/单 bot token 校验,多 bot 拆品类各起宿主)→ 绑定×过滤管线 → 推送 sink(品类 push 首条通道 `_build_push_channel` 同门)/入库 sink(SQLiteStore+DedupRegistry,dedup key={url})→ offsets/events 落数据根 telegram/;Ctrl-C 干净停,致命错误退出码 1,装载/凭据失败结构化指引。
+  - 桌面接线位(Grill Q6 桌面为主):TelegramServeHost 即 sidecar 嵌入单元(asyncio.run+daemon thread 照 _CRON_TICKER 先例),模块文档注明接线形态;entry.py 现由并行任务(10-06-feed-channel-groups)持有,sidecar 方法实装留桌面批——如实记档。
+  - 测试 `tests/telegram/test_telegram_serve.py` 21 例(offsets 往返/坏文件兜底/拒非法值、账本词表/counts、poller URL 形状/401/409/transport/坏载荷+token 零外显、宿主一轮恰 1 推+入库+offset=max+1+账本分布、三类丢弃记账、重启续拉、退避翻倍归零、致命上抛、入库炸不带走循环、过滤炸降级入库、LLM 未配全入库、CLI 装配三例缺 token 指引/非 telegram 源拒/subparser 在册);全套 4423 passed+desktop 288 passed;ruff 绿。
+  - 注:telegram serve CLI 的端到端真跑(AC1 前置)留主人 token 到手;桌面 entry.py 接线待并行任务落地后另批。
 - [ ] 阶段二 Telethon 组件依赖+session 流程+引擎(待填)
 - [ ] 阶段三 组件化件示例(待填)
 - [ ] 门禁+装机(待填)

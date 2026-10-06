@@ -103,8 +103,9 @@ sources:
             max_entries: 10
 
           # ── 分区六:Telegram 群消息(B2 出口:bot 线普通条目 archive 入库,
-          #    本分区承载;高价值 ≥8 分已在采集轮即时单条推出,不重复进日报。
-          #    加群时 telegram-groups.yaml 与本清单同步加一行)──
+          #    本分区承载;高价值 ≥8 分已即时单条推出,同日报全量窗口语义
+          #    再现——与 AI 资讯 immediate(score≥9)同口径,不重复即时,
+          #    日报留档可回看。加群时 telegram-groups.yaml 与本清单同步加一行)──
           - title: Telegram 群
             sources: [telegram-mihomo_party_group]
             max_entries: 10

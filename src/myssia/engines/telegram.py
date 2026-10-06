@@ -62,7 +62,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Mapping
 from urllib.parse import urlencode, urlsplit
 
 import httpx
@@ -213,110 +213,8 @@ class TelegramEngine(BaseEngine):
         }
 
     def _filter_options(self) -> TelegramFilterConfig:
-        """过滤面配置(engine_options.telegram 过滤键;错型即结构化拒).
-
-        - ``keywords``:粗筛词表(缺省内置 :data:`DEFAULT_COARSE_KEYWORDS`;
-          显式空列表 = 关闭粗筛面 —— 有意静默,与缺省区分);
-        - ``score_threshold``:1-10 整数(缺省 8,grill Q5);
-        - ``model``:非空模型名(缺省 glm-4-flash,enrich 同款);
-        - ``llm_base_url``/``llm_api_key``:OpenAI 兼容端点引用,**成对**
-          (半配 = 配置错误结构化拒;全缺 = 降级纯粗筛,合法形态);
-        - ``timeout``:正数秒。
-
-        Raises:
-            FetchError: ``invalid_engine_options``(类型/半配/引用形态)。
-        """
-        from myssia.schema import parse_secret_value
-
-        options = self.engine_options()
-        keywords_option = options.get("keywords")
-        if keywords_option is None:
-            keywords = DEFAULT_COARSE_KEYWORDS
-        elif isinstance(keywords_option, (list, tuple)):
-            keywords_list: list[str] = []
-            for word in keywords_option:
-                if not isinstance(word, str) or not word.strip():
-                    raise FetchError(
-                        f"engine_options.telegram.keywords 元素应为非空字符串,"
-                        f"当前为 {word!r}",
-                        error_type="invalid_engine_options",
-                    )
-                keywords_list.append(word.strip())
-            keywords = tuple(keywords_list)
-        else:
-            raise FetchError(
-                f"engine_options.telegram.keywords 应为字符串列表(缺省内置"
-                f"免费情报词表;空列表 = 关闭粗筛),当前为 {keywords_option!r}",
-                error_type="invalid_engine_options",
-            )
-        threshold = options.get("score_threshold", DEFAULT_SCORE_THRESHOLD)
-        if (
-            isinstance(threshold, bool)
-            or not isinstance(threshold, int)
-            or not 1 <= threshold <= 10
-        ):
-            raise FetchError(
-                f"engine_options.telegram.score_threshold 应为 1-10 整数"
-                f"(缺省 {DEFAULT_SCORE_THRESHOLD},grill Q5),当前为 {threshold!r}",
-                error_type="invalid_engine_options",
-            )
-        model = options.get("model")
-        if model is None:
-            model_str = None
-        elif isinstance(model, str) and model.strip():
-            model_str = model.strip()
-        else:
-            raise FetchError(
-                f"engine_options.telegram.model 应为非空模型名,当前为 {model!r}",
-                error_type="invalid_engine_options",
-            )
-        timeout = options.get("timeout")
-        if timeout is not None and (
-            isinstance(timeout, bool)
-            or not isinstance(timeout, (int, float))
-            or timeout <= 0
-        ):
-            raise FetchError(
-                f"engine_options.telegram.timeout 应为正数秒,当前为 {timeout!r}",
-                error_type="invalid_engine_options",
-            )
-        base_ref = options.get("llm_base_url")
-        key_ref = options.get("llm_api_key")
-        if (base_ref is None) != (key_ref is None):
-            raise FetchError(
-                "engine_options.telegram.llm_base_url 与 llm_api_key 须成对配置"
-                "(env:/keychain: 引用;全缺 = 降级纯粗筛的合法形态):当前 "
-                f"llm_base_url={'已配' if base_ref is not None else '缺'} / "
-                f"llm_api_key={'已配' if key_ref is not None else '缺'}",
-                error_type="invalid_engine_options",
-            )
-        for label, ref in (("llm_base_url", base_ref), ("llm_api_key", key_ref)):
-            if ref is None:
-                continue
-            if not isinstance(ref, str) or not ref.strip():
-                raise FetchError(
-                    f"engine_options.telegram.{label} 应为 env:/keychain: 凭据引用"
-                    "字符串(prompt 引擎/enrich 同契约,明文拒)",
-                    error_type="invalid_engine_options",
-                )
-            try:
-                parse_secret_value(ref, label=f"engine_options.telegram.{label}")
-            except Exception as exc:
-                raise FetchError(
-                    f"engine_options.telegram.{label} 必须是纯 env:/keychain:"
-                    f" 凭据引用(明文拒绝):{exc}",
-                    error_type="invalid_engine_options",
-                ) from exc
-        return TelegramFilterConfig(
-            keywords=keywords,
-            score_threshold=threshold,
-            model=model_str or TelegramFilterConfig.model,  # 缺省 = glm-4-flash
-            llm_base_url=base_ref.strip() if isinstance(base_ref, str) else None,
-            llm_api_key=key_ref.strip() if isinstance(key_ref, str) else None,
-            timeout=float(timeout)
-            if timeout is not None
-            else DEFAULT_LLM_TIMEOUT_SECONDS,
-        )
+        """过滤面配置(engine_options.telegram 过滤键;错型即结构化拒)."""
+        return filter_config_from_options(self.engine_options())
 
     # ------------------------------------------------------- url & credentials
 
@@ -534,74 +432,7 @@ class TelegramEngine(BaseEngine):
         self, updates: list[dict[str, Any]], chat_id: str
     ) -> list[dict]:
         """更新流 → 管线 items(群分拣/媒体组聚合/#tg- 锚;逐条目宽容)."""
-        # 群分拣:只留目标 chat 的消息(单 bot 多群 = 每群一源,各配 chat_id)。
-        messages: list[dict[str, Any]] = []
-        for update in updates:
-            message = update.get("message") or update.get("edited_message")
-            if not isinstance(message, dict):
-                continue
-            chat = message.get("chat")
-            if not isinstance(chat, dict) or str(chat.get("id", "")) != chat_id:
-                continue
-            messages.append(message)
-        # 媒体组聚合:同 media_group_id 取首条有文本的铸锚,整组出一条。
-        seen_groups: set[str] = set()
-        items: list[dict] = []
-        for message in messages:
-            media_group_id = message.get("media_group_id")
-            text = message_text(message)
-            if isinstance(media_group_id, str) and media_group_id:
-                if media_group_id in seen_groups:
-                    continue  # 组内后续消息(纯图/重复 caption)并入首条
-                if text is None:
-                    continue  # 组首无文本:不锁组,组内后续带文本的仍有机会
-                seen_groups.add(media_group_id)
-            if text is None:
-                continue  # 无文本无 caption 的单发消息(贴纸/纯图):零可筛面,跳过
-            items.append(self._message_to_item(message, text))
-        return items
-
-    def _message_to_item(self, message: dict[str, Any], text: str) -> dict[str, Any]:
-        """一条消息 → 管线条目(#tg- 锚 + 观测键;Item.from_extracted 契约)."""
-        chat = message.get("chat") if isinstance(message.get("chat"), dict) else {}
-        message_id = message.get("message_id")
-        item: dict[str, Any] = {
-            "url": f"{self.source.url}#tg-{chat.get('id')}-{message_id}",
-            "title": text[:TITLE_SNIPPET_CHARS],
-            "content": text,
-        }
-        date = message.get("date")
-        if isinstance(date, (int, float)) and not isinstance(date, bool):
-            item["published"] = datetime.fromtimestamp(date, tz=timezone.utc).isoformat()
-        author = self._author_label(message.get("from"))
-        if author:
-            item["author"] = author
-        chat_title = chat.get("title")
-        if isinstance(chat_title, str) and chat_title.strip():
-            item["chat_title"] = chat_title.strip()
-        if isinstance(message.get("media_group_id"), str):
-            item["media_group_id"] = message["media_group_id"]
-        # 观测键(B2/B3 消费):高价值合并锚区间与事件账本按消息 id 记账。
-        item["chat_id"] = chat.get("id")
-        item["message_id"] = message_id
-        return item
-
-    @staticmethod
-    def _author_label(sender: Any) -> str | None:
-        """发送者可读标识:@username 优先,实名拼接兜底,双缺 = None."""
-        if not isinstance(sender, dict):
-            return None
-        username = sender.get("username")
-        if isinstance(username, str) and username.strip():
-            return f"@{username.strip()}"
-        parts = [
-            part
-            for part in (sender.get("first_name"), sender.get("last_name"))
-            if isinstance(part, str) and part.strip()
-        ]
-        if parts:
-            return " ".join(parts)
-        return None
+        return updates_to_items(updates, chat_id, source_url=self.source.url)
 
     # ------------------------------------------------------- shape overrides
 
@@ -617,3 +448,194 @@ class TelegramEngine(BaseEngine):
                 "常驻长轮询走 myssia telegram serve),不支持 pagination 配置",
                 error_type="pagination_unsupported",
             )
+
+
+def filter_config_from_options(
+    options: Mapping[str, Any],
+) -> TelegramFilterConfig:
+    """engine_options.telegram 过滤键 → 过滤配置(引擎与 serve 装配共用).
+
+    键面:keywords(缺省内置词表;空列表=关闭粗筛)/score_threshold(1-10,
+    缺省 8,grill Q5)/model(缺省 glm-4-flash,enrich 同款)/llm_base_url+
+    llm_api_key(成对 env:/keychain: 引用,明文拒;全缺=降级纯粗筛)/
+    timeout(正数秒)。
+
+    Raises:
+        FetchError: ``invalid_engine_options``(类型/半配/引用形态)。
+    """
+    from myssia.schema import parse_secret_value
+
+    keywords_option = options.get("keywords")
+    if keywords_option is None:
+        keywords = DEFAULT_COARSE_KEYWORDS
+    elif isinstance(keywords_option, (list, tuple)):
+        keywords_list: list[str] = []
+        for word in keywords_option:
+            if not isinstance(word, str) or not word.strip():
+                raise FetchError(
+                    f"engine_options.telegram.keywords 元素应为非空字符串,"
+                    f"当前为 {word!r}",
+                    error_type="invalid_engine_options",
+                )
+            keywords_list.append(word.strip())
+        keywords = tuple(keywords_list)
+    else:
+        raise FetchError(
+            f"engine_options.telegram.keywords 应为字符串列表(缺省内置"
+            f"免费情报词表;空列表 = 关闭粗筛),当前为 {keywords_option!r}",
+            error_type="invalid_engine_options",
+        )
+    threshold = options.get("score_threshold", DEFAULT_SCORE_THRESHOLD)
+    if (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, int)
+        or not 1 <= threshold <= 10
+    ):
+        raise FetchError(
+            f"engine_options.telegram.score_threshold 应为 1-10 整数"
+            f"(缺省 {DEFAULT_SCORE_THRESHOLD},grill Q5),当前为 {threshold!r}",
+            error_type="invalid_engine_options",
+        )
+    model = options.get("model")
+    if model is None:
+        model_str = None
+    elif isinstance(model, str) and model.strip():
+        model_str = model.strip()
+    else:
+        raise FetchError(
+            f"engine_options.telegram.model 应为非空模型名,当前为 {model!r}",
+            error_type="invalid_engine_options",
+        )
+    timeout = options.get("timeout")
+    if timeout is not None and (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or timeout <= 0
+    ):
+        raise FetchError(
+            f"engine_options.telegram.timeout 应为正数秒,当前为 {timeout!r}",
+            error_type="invalid_engine_options",
+        )
+    base_ref = options.get("llm_base_url")
+    key_ref = options.get("llm_api_key")
+    if (base_ref is None) != (key_ref is None):
+        raise FetchError(
+            "engine_options.telegram.llm_base_url 与 llm_api_key 须成对配置"
+            "(env:/keychain: 引用;全缺 = 降级纯粗筛的合法形态):当前 "
+            f"llm_base_url={'已配' if base_ref is not None else '缺'} / "
+            f"llm_api_key={'已配' if key_ref is not None else '缺'}",
+            error_type="invalid_engine_options",
+        )
+    for label, ref in (("llm_base_url", base_ref), ("llm_api_key", key_ref)):
+        if ref is None:
+            continue
+        if not isinstance(ref, str) or not ref.strip():
+            raise FetchError(
+                f"engine_options.telegram.{label} 应为 env:/keychain: 凭据引用"
+                "字符串(prompt 引擎/enrich 同契约,明文拒)",
+                error_type="invalid_engine_options",
+            )
+        try:
+            parse_secret_value(ref, label=f"engine_options.telegram.{label}")
+        except Exception as exc:
+            raise FetchError(
+                f"engine_options.telegram.{label} 必须是纯 env:/keychain:"
+                f" 凭据引用(明文拒绝):{exc}",
+                error_type="invalid_engine_options",
+            ) from exc
+    return TelegramFilterConfig(
+        keywords=keywords,
+        score_threshold=threshold,
+        model=model_str or TelegramFilterConfig.model,  # 缺省 = glm-4-flash
+        llm_base_url=base_ref.strip() if isinstance(base_ref, str) else None,
+        llm_api_key=key_ref.strip() if isinstance(key_ref, str) else None,
+        timeout=float(timeout)
+        if timeout is not None
+        else DEFAULT_LLM_TIMEOUT_SECONDS,
+    )
+
+
+    # --------------------------------------------------------------- mapping
+
+def updates_to_items(
+    updates: list[dict[str, Any]], chat_id: str, *, source_url: str
+) -> list[dict]:
+    """更新流 → 管线 items(群分拣/媒体组聚合/#tg- 锚;引擎与 serve 共用).
+
+    B3 抽出为模块级函数:批量引擎(``engine: telegram``)与常驻宿主
+    (``myssia telegram serve``)共用同一分拣/聚合/锚语义 —— 两档只差
+    取数形态(窗口拉取 vs 长轮询),消息面语义一份(design D1)。
+    """
+    # 群分拣:只留目标 chat 的消息(单 bot 多群 = 每群一源,各配 chat_id)。
+    messages: list[dict[str, Any]] = []
+    for update in updates:
+        message = update.get("message") or update.get("edited_message")
+        if not isinstance(message, dict):
+            continue
+        chat = message.get("chat")
+        if not isinstance(chat, dict) or str(chat.get("id", "")) != chat_id:
+            continue
+        messages.append(message)
+    # 媒体组聚合:同 media_group_id 取首条有文本的铸锚,整组出一条。
+    seen_groups: set[str] = set()
+    items: list[dict] = []
+    for message in messages:
+        media_group_id = message.get("media_group_id")
+        text = message_text(message)
+        if isinstance(media_group_id, str) and media_group_id:
+            if media_group_id in seen_groups:
+                continue  # 组内后续消息(纯图/重复 caption)并入首条
+            if text is None:
+                continue  # 组首无文本:不锁组,组内后续带文本的仍有机会
+            seen_groups.add(media_group_id)
+        if text is None:
+            continue  # 无文本无 caption 的单发消息(贴纸/纯图):零可筛面,跳过
+        items.append(message_to_item(message, text, source_url=source_url))
+    return items
+
+
+
+def message_to_item(
+    message: dict[str, Any], text: str, *, source_url: str
+) -> dict[str, Any]:
+    """一条消息 → 管线条目(#tg- 锚 + 观测键;Item.from_extracted 契约)."""
+    chat = message.get("chat") if isinstance(message.get("chat"), dict) else {}
+    message_id = message.get("message_id")
+    item: dict[str, Any] = {
+        "url": f"{source_url}#tg-{chat.get('id')}-{message_id}",
+        "title": text[:TITLE_SNIPPET_CHARS],
+        "content": text,
+    }
+    date = message.get("date")
+    if isinstance(date, (int, float)) and not isinstance(date, bool):
+        item["published"] = datetime.fromtimestamp(date, tz=timezone.utc).isoformat()
+    author = _author_label(message.get("from"))
+    if author:
+        item["author"] = author
+    chat_title = chat.get("title")
+    if isinstance(chat_title, str) and chat_title.strip():
+        item["chat_title"] = chat_title.strip()
+    if isinstance(message.get("media_group_id"), str):
+        item["media_group_id"] = message["media_group_id"]
+    # 观测键(B2/B3 消费):高价值合并锚区间与事件账本按消息 id 记账。
+    item["chat_id"] = chat.get("id")
+    item["message_id"] = message_id
+    return item
+
+
+
+def _author_label(sender: Any) -> str | None:
+    """发送者可读标识:@username 优先,实名拼接兜底,双缺 = None."""
+    if not isinstance(sender, dict):
+        return None
+    username = sender.get("username")
+    if isinstance(username, str) and username.strip():
+        return f"@{username.strip()}"
+    parts = [
+        part
+        for part in (sender.get("first_name"), sender.get("last_name"))
+        if isinstance(part, str) and part.strip()
+    ]
+    if parts:
+        return " ".join(parts)
+    return None

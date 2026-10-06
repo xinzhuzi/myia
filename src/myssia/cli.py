@@ -126,6 +126,7 @@ from myssia.cron.ticker import (
 from myssia.dedup import DedupRegistry
 from myssia.engines.fetch_base import (
     FetchContext,
+    FetchError,
     check_proxy_connectivity,
     classify_exception,
     load_proxy_pools_file,
@@ -413,6 +414,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_credhunt_parser(sub)
     _add_credcheck_parser(sub)
     _add_exposure_parser(sub)
+    _add_telegram_parser(sub)
     for name, blurb in STUB_COMMANDS.items():
         sub.add_parser(name, help=f"{blurb}(后续版本实现)")
     return parser
@@ -453,6 +455,33 @@ def _add_run_parser(sub: argparse._SubParsersAction) -> None:
         "--config",
         default=None,
         help="全局配置 YAML(pools 代理声明);源用 pool: 代理时必带(与 test/doctor 同一加载器)",
+    )
+
+
+def _add_telegram_parser(sub: argparse._SubParsersAction) -> None:
+    """``myssia telegram``:Telegram bot 线常驻宿主(10-06-telegram-telethon B3)."""
+    telegram = sub.add_parser(
+        "telegram",
+        help="Telegram 群消息常驻监控(长轮询→过滤→即时/入库)",
+        description=(
+            "serve 常驻宿主:getUpdates 长轮询(25s)→ 粗筛→LLM 精筛 → "
+            "高价值合并单条即时推、普通入库进合并日报;offset 持久断点续拉。"
+            "桌面接线位:TelegramServeHost 可嵌入 sidecar(详 telegram/serve.py)。"
+        ),
+    )
+    telegram_sub = telegram.add_subparsers(dest="telegram_command", required=True)
+    telegram_serve = telegram_sub.add_parser(
+        "serve", help="常驻宿主:长轮询收群消息,秒级过滤推送(Ctrl-C 干净停)"
+    )
+    telegram_serve.add_argument(
+        "--category",
+        default="plugins/telegram-groups.yaml",
+        help="群消息品类 YAML(telegram-groups 判例;源 engine: telegram)",
+    )
+    telegram_serve.add_argument(
+        "--db",
+        default=_cron_default_db(),
+        help=f"存储路径(定数据根 = db 父目录;默认 $MYIA_HOME 下 {DEFAULT_DB_PATH})",
     )
 
 
@@ -1988,6 +2017,221 @@ def _cmd_cron_tick(args: argparse.Namespace) -> int:
         return EXIT_CONFIG_ERROR
     logger.info("cron tick 完成:派发 %d 个 job", fired)
     return EXIT_OK
+
+
+def _cmd_telegram_serve(args: argparse.Namespace) -> int:
+    """``myssia telegram serve``:bot 线常驻宿主(B3,design D1 双宿主 serve 档).
+
+    装配:品类 YAML(telegram-groups 判例)→ 每 chat_id 一绑定(过滤配置
+    同引擎 ``filter_config_from_options``)→ 共用单 bot token(getUpdates
+    是全 bot 通道;多 bot 请分品类各起一宿主)→ 推送 sink(品类 push 首
+    条通道,``_build_push_channel`` 同门构造)/ 入库 sink(SQLiteStore +
+    DedupRegistry,dedup key={url} 锚幂等)→ offsets/events 落数据根
+    ``telegram/``。Ctrl-C 干净停;致命错误(401/409)结构化退出码 1。
+    """
+    from pathlib import Path
+
+    import httpx
+
+    from myssia.dedup import DedupRegistry
+    from myssia.engines.telegram import filter_config_from_options
+    from myssia.push.base import SendContext
+    from myssia.schema import CredentialResolveError, load_category_file, resolve_credential
+    from myssia.secrets import get_backend
+    from myssia.store import SQLiteStore
+    from myssia.store.models import ItemRecord
+    from myssia.telegram.events import TelegramEventLedger
+    from myssia.telegram.filter import TelegramFilterPipeline
+    from myssia.telegram.offsets import OffsetStore
+    from myssia.telegram.serve import (
+        TelegramPoller,
+        TelegramPollError,
+        TelegramServeHost,
+        TelegramSourceBinding,
+    )
+
+    category_path = Path(args.category)
+    if not category_path.exists():
+        _emit_generic_error(
+            "telegram_serve_config",
+            f"品类文件不存在:{category_path}",
+            as_json=False,
+        )
+        return EXIT_CONFIG_ERROR
+    try:
+        config = load_category_file(category_path)
+    except Exception as exc:  # noqa: BLE001 - 装载失败统一结构化(LoadError 家族)
+        _emit_generic_error(
+            "telegram_serve_config",
+            f"品类装载失败:{category_path}: {exc}",
+            as_json=False,
+        )
+        return EXIT_CONFIG_ERROR
+    non_telegram = [s.name for s in config.sources if s.engine != "telegram"]
+    if non_telegram:
+        _emit_generic_error(
+            "telegram_serve_config",
+            f"telegram serve 只消费 engine: telegram 源,品类含其它引擎源:"
+            f"{', '.join(non_telegram)}(批量采集请走 myssia run)",
+            as_json=False,
+        )
+        return EXIT_CONFIG_ERROR
+
+    bindings: dict[str, TelegramSourceBinding] = {}
+    token_ref: str | None = None
+    try:
+        backend = get_backend()
+        for source in config.sources:
+            options = (source.extra_params.get("engine_options") or {}).get(
+                "telegram", {}
+            )
+            chat_id = options.get("chat_id")
+            if not isinstance(chat_id, (str, int)):
+                _emit_generic_error(
+                    "telegram_serve_config",
+                    f"源 {source.name} 缺 engine_options.telegram.chat_id"
+                    "(目标群数字 id;主人四步后实填)",
+                    as_json=False,
+                )
+                return EXIT_CONFIG_ERROR
+            chat_key = str(chat_id).strip()
+            if chat_key in bindings:
+                _emit_generic_error(
+                    "telegram_serve_config",
+                    f"chat_id {chat_key} 被 multiple 源占用"
+                    f"({bindings[chat_key].source_name} / {source.name})",
+                    as_json=False,
+                )
+                return EXIT_CONFIG_ERROR
+            ref = options.get("bot_token", "keychain:myia/telegram/bot-token")
+            if token_ref is None:
+                token_ref = str(ref)
+            elif str(ref) != token_ref:
+                _emit_generic_error(
+                    "telegram_serve_config",
+                    "telegram serve 单宿主只支持单 bot token(全部源须配同一"
+                    "引用;多 bot 请拆品类各起一宿主)",
+                    as_json=False,
+                )
+                return EXIT_CONFIG_ERROR
+            bindings[chat_key] = TelegramSourceBinding(
+                chat_id=chat_key,
+                source_name=source.name,
+                source_url=source.url,
+                pipeline=TelegramFilterPipeline(
+                    filter_config_from_options(options), keychain_backend=backend
+                ),
+            )
+    except FetchError as exc:  # filter_config_from_options 的结构化拒
+        _emit_generic_error("telegram_serve_config", str(exc), as_json=False)
+        return EXIT_CONFIG_ERROR
+
+    try:
+        bot_token = resolve_credential(token_ref or "", backend=backend)
+    except CredentialResolveError as exc:
+        _emit_generic_error(
+            "telegram_serve_credential",
+            f"bot token 引用解析失败({token_ref}):{exc}\n"
+            "主人四步:BotFather 建 bot → /setprivacy 关隐私模式 → "
+            "myssia secret set myia/telegram/bot-token → 拉进目标群",
+            as_json=False,
+        )
+        return EXIT_CONFIG_ERROR
+
+    db_path = Path(args.db).resolve()
+    data_root = db_path.parent
+    store = SQLiteStore(db_path)
+    registry = DedupRegistry(store, tz=config.timezone)
+    push_channel = None
+    if config.push:
+        from myssia.pipeline import _build_push_channel
+
+        push_channel = _build_push_channel(config.push[0], data_root=data_root)
+
+    def _store_item(item: dict) -> bool:
+        key = str(item.get("url") or "")
+        if not key or registry.is_seen(key):
+            return False
+        metadata = {
+            k: v
+            for k, v in item.items()
+            if k not in ("url", "title", "content", "source")
+        }
+        store.save_item(
+            ItemRecord(
+                url=key,
+                dedup_key=key,
+                title=str(item.get("title") or ""),
+                source=item.get("source"),
+                content=item.get("content"),
+                raw=metadata,
+            )
+        )
+        registry.mark_seen(key)
+        return True
+
+    async def _push_high_value(item: dict) -> None:
+        if push_channel is None:
+            logger.warning(
+                "telegram serve 品类未配 push 通道,高价值条目仅入库 url=%s",
+                item.get("url"),
+            )
+            return
+        now = datetime.now(config.timezone)
+        context = SendContext(
+            slot="am" if now.hour < 12 else "pm",
+            date=now.strftime("%Y-%m-%d"),
+            category=config.name,
+            kind="immediate",
+        )
+        await push_channel.send([item], context)
+
+    telegram_dir = data_root / "telegram"
+    host = TelegramServeHost(
+        poller=TelegramPoller(httpx.AsyncClient(), bot_token),
+        bindings=bindings,
+        offsets=OffsetStore(telegram_dir / "offsets.json"),
+        ledger=TelegramEventLedger(telegram_dir / "events.db"),
+        push_high_value=_push_high_value,
+        store_item=_store_item,
+    )
+    logger.info(
+        "myssia telegram serve:常驻宿主启动(数据根 %s,品类 %s,群 %s,"
+        "Ctrl-C 停)",
+        data_root,
+        config.id,
+        sorted(bindings),
+    )
+    exit_code = EXIT_OK
+    try:
+        asyncio.run(host.run_forever())
+    except KeyboardInterrupt:
+        logger.info("telegram serve 已按 Ctrl-C 停止 rounds=%s", host.rounds)
+    except TelegramPollError as exc:
+        _emit_generic_error(
+            "telegram_serve_fatal", f"{exc.reason}: {exc}", as_json=False
+        )
+        exit_code = EXIT_CONFIG_ERROR
+    finally:
+        store.close()
+    return exit_code
+
+
+def _cmd_telegram(args: argparse.Namespace) -> int:
+    """``myssia telegram <子命令>`` 分发(serve 一员,B3)。"""
+    _configure_logging(as_json=getattr(args, "as_json", False))
+    handlers: dict[str, Any] = {
+        "serve": _cmd_telegram_serve,
+    }
+    handler = handlers.get(args.telegram_command)
+    if handler is None:  # pragma: no cover - argparse required=True 兜底
+        _emit_generic_error(
+            "usage",
+            f"未知 telegram 子命令:{args.telegram_command}",
+            as_json=False,
+        )
+        return EXIT_CONFIG_ERROR
+    return handler(args)
 
 
 def _cmd_cron(args: argparse.Namespace) -> int:
@@ -5862,6 +6106,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "credhunt": _cmd_credhunt,
         "credcheck": _cmd_credcheck,
         "exposure": _cmd_exposure,
+        "telegram": _cmd_telegram,
     }
     handler = handlers.get(args.command)
     if handler is not None:

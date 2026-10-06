@@ -24,7 +24,9 @@
 #   其余 archive 入库,进每日合并日报「Telegram 群」分区。
 #   LLM 端点未配(llm_base_url/llm_api_key 缺)= 降级纯粗筛,全部入库。
 #
-# 未挂 cron(不跑不影响);常驻秒级过滤走 myssia telegram serve(B3),
+# 未挂 cron(不跑不影响);常驻秒级过滤走 myssia telegram serve(B3 已落:
+# myssia telegram serve --category plugins/telegram-groups.yaml,长轮询 25s
+# +offset 持久+断线退避+事件账本;桌面接线位见 telegram/serve.py 文档),
 # 批量档与 serve 档同 token 互斥(409),二选一。
 
 id: telegram-groups
