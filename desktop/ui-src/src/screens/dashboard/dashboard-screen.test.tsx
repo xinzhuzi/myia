@@ -679,10 +679,10 @@ describe("DashboardScreen", () => {
     // cli 实况三处 severity="info"(src/myssia/cli.py third_party_trace scope=gates、
     // gate_disabled / analysis_lane_disabled scope=plugin:<id>),后两者 message
     // 明写「正常态,不是故障」;gates 未配置 = 关(gates.py gate_open)→ 默认装机
-    // 即有 info findings。types.ts Finding.severity 声明漏 info 档(后端会发),
-    // 夹具模拟真实输出须窄断言;契约修正归共享层批次(红线:不动 @/lib/api)。
+    // 即有 info findings。types.ts Finding.severity 已补 info 档(收尾批契约修正),
+    // 夹具直书无需窄断言。
     const info = (scope: string, code: string): Finding => ({
-      severity: "info" as Finding["severity"],
+      severity: "info",
       scope,
       code,
       message: "未启用 —— 正常态,不是故障",
@@ -718,8 +718,8 @@ describe("DashboardScreen", () => {
           plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
           findings: [
             { severity: "warning" as const, scope: "credentials", code: "missing", message: "缺凭据" },
-            { severity: "info" as Finding["severity"], scope: "store", code: "hint", message: "知情提示,不是故障" },
-            { severity: "info" as Finding["severity"], scope: "plugin:tech.yaml", code: "gate_disabled", message: "未启用 —— 正常态" },
+            { severity: "info", scope: "store", code: "hint", message: "知情提示,不是故障" },
+            { severity: "info", scope: "plugin:tech.yaml", code: "gate_disabled", message: "未启用 —— 正常态" },
           ],
         }),
       ),

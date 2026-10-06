@@ -252,7 +252,8 @@ export interface ProxyPoolStatus {
 }
 
 export interface Finding {
-  severity: "error" | "warning";
+  /** info = cli 知情注记(gate_disabled/third_party_trace 等「正常态,不是故障」),不计入告警 */
+  severity: "error" | "warning" | "info";
   scope: string;
   code: string;
   message: string;

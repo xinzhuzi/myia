@@ -179,8 +179,12 @@ export function DoctorVerifyPanel({ verify, loading, proxyAutoMiss = false }: Do
           <ul className="flex flex-col gap-1">
             {verify.findings.map((finding, index) => (
               <li key={`${finding.code}-${index}`} className="flex flex-wrap items-start gap-2 text-xs">
-                <Badge variant={finding.severity === "error" ? "destructive" : "warning"}>
-                  {finding.severity === "error" ? "错误" : "警告"}
+                <Badge
+                  variant={
+                    finding.severity === "error" ? "destructive" : finding.severity === "warning" ? "warning" : "unknown"
+                  }
+                >
+                  {finding.severity === "error" ? "错误" : finding.severity === "warning" ? "警告" : "提示"}
                 </Badge>
                 <span className="font-mono text-muted-foreground">{finding.scope}/{finding.code}</span>
                 <span className="min-w-0 flex-1 text-foreground">{finding.message}</span>
