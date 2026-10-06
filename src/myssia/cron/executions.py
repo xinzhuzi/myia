@@ -481,16 +481,22 @@ class ExecutionLedger:
             params.append(str(job_id))
         if before_claimed_at is not None:
             # 与 ORDER BY 同一 (instant, text) 键,一页永不跳行/重行。
-            clauses.append("(julianday(claimed_at), claimed_at) < (julianday(?), ?)")
+            clauses.append(
+                "(COALESCE(julianday(claimed_at), -1), claimed_at) "
+                "< (COALESCE(julianday(?), -1), ?)"
+            )
             params.extend([str(before_claimed_at)] * 2)
         where = " WHERE " + " AND ".join(clauses) if clauses else ""
         params.append(max(1, min(int(limit), 500)))
         # 时间戳带本地偏移,DST/换区后文本序≠时间序;julianday() 比瞬间(毫秒),
-        # 文本破同毫秒平局。
+        # 文本破同毫秒平局。手编垃圾时间戳 julianday→NULL:COALESCE(-1) 定序为
+        # 「最老」——次序确定且不再随 NULL 比较漂移(10-06-hermes-monitor-audit
+        # 缺陷 8)。
         with self.transaction() as conn:
             rows = conn.execute(
                 "SELECT * FROM executions" + where
-                + " ORDER BY julianday(claimed_at) DESC, claimed_at DESC, id DESC LIMIT ?",
+                + " ORDER BY COALESCE(julianday(claimed_at), -1) DESC,"
+                " claimed_at DESC, id DESC LIMIT ?",
                 params,
             ).fetchall()
         return [dict(row) for row in rows]
@@ -518,7 +524,10 @@ class ExecutionLedger:
 
     def latest_executions(self, job_ids: Sequence[str]) -> dict[str, dict[str, Any]]:
         """一次查询载入多 job 的最新执行(窗口化排序;每行相关子查询用不上
-        索引,随历史平方增长,上游 L500 论证照抄)。"""
+        索引,随历史平方增长,上游 L500 论证照抄)。增长由终态裁剪
+        (:data:`MAX_TERMINAL_EXECUTIONS` 1000 行帽)兜底——10-06-hermes-
+        monitor-audit 缺陷 8 知悉:窗口子查询量级 = 帽内行数,当前量级
+        亚毫秒,不做物化视图翻修。"""
         clean = [str(job_id) for job_id in dict.fromkeys(job_ids) if job_id]
         if not clean:
             return {}
@@ -529,7 +538,8 @@ class ExecutionLedger:
                       SELECT id FROM (
                         SELECT id, ROW_NUMBER() OVER (
                                  PARTITION BY job_id
-                                 ORDER BY julianday(claimed_at) DESC, claimed_at DESC, id DESC
+                                 ORDER BY COALESCE(julianday(claimed_at), -1) DESC,
+                                          claimed_at DESC, id DESC
                                ) AS rn
                         FROM executions WHERE job_id IN ({placeholders}))
                       WHERE rn=1)""",
@@ -592,7 +602,11 @@ class ExecutionLedger:
 
 
 def _prune_unlocked(conn: sqlite3.Connection) -> None:
-    """终态行按 newest-first 裁到 MAX_TERMINAL_EXECUTIONS(上游 L174)。"""
+    """终态行按 newest-first 裁到 MAX_TERMINAL_EXECUTIONS(上游 L174)。
+
+    每次终态都跑(全表删旧)是知悉的取舍(10-06-hermes-monitor-audit
+    缺陷 8):排序面被 1000 行帽钉死,亚毫秒;节流会引入「帽短暂超限」
+    的另一条不变量,不值。"""
     conn.execute(
         """DELETE FROM executions WHERE id IN (
              SELECT id FROM executions

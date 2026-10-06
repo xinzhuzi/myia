@@ -25,9 +25,12 @@ MYIA 适配(任务 10-04-hermes-cron design §3.1/§3.3/§6,非照抄处仅此):
   执行,组间 ``ThreadPoolExecutor(max_workers=min(4, cpu))``。理由:管线
   并发写同 db 未验证(ground-truth W7)。
 - **执行体注入**:上游在派发内联 agent 运行时;MYIA 的执行体是注入的
-  ``execute_job`` 钩子(Stage A 为 no-op 测试桩,B1 的
-  :mod:`myssia.cron.runner` 子进程模型替换),返回
+  ``execute_job`` 钩子(B1 的 :mod:`myssia.cron.runner` 子进程模型,
+  ``CronRunner(cron).execute``;serve/CLI/sidecar 均已注入),返回
   ``(success, error, delivery_error)`` 三元组供 :meth:`mark_job_run` 记账。
+  Stage A 的 no-op 占位执行体已移除(10-06-hermes-monitor-audit 缺陷 7):
+  缺注入的 ``tick()``/``run_ticker_loop`` 一律 ValueError——缺 runner 的
+  派发曾记假成功,fail fast 胜过假健康。
 - **宿主互斥钩子**(grill Q2):``dispatch_gate`` 在 fire claim **之前**逐
   job 检查;False = 宿主忙(桌面 ``run_busy`` 单飞锁被用户手点占用)——
   跳过本 fire(advance 已消耗槽,不排队不回滚,与 at-most-once 一致),
@@ -185,7 +188,14 @@ def _release_tick_lock(lock_fd: IO[Text]) -> None:
 def _maybe_reap_dead_owners(cron: CronJobs) -> None:
     """把属主可证已死、却停在 claimed/running 的账本行终态化 unknown(#86721:
     回收只在调度器启动时跑过,会让崩溃过的行永远堵住该 job)。开账本有成本,
-    按 cron 目录节流。"""
+    按 cron 目录节流。
+
+    已知边界(10-06-hermes-monitor-audit 缺陷 6,注记收口):回收只由**活
+    宿主的 tick** 触发(300s 节流)——kill -9 后无人重启,孤儿子进程(runner
+    spawn 的 ``myssia run``)没有父进程回收,续跑到自然结束并可写同 db。
+    收紧属 pipeline 域(子进程侧 ppid/death-signal 自监视;darwin 无可移植
+    death-signal),不做 cron 域翻修;新宿主首个 tick 的 D14 killpg + 账本
+    unknown 是现存的兜底面。"""
     key = str(cron.store.cron_dir)
     reap_now = time.monotonic()
     last = _last_dead_owner_reap_at.get(key)
@@ -259,18 +269,17 @@ def _sweep_stale_fire_claims(
 # ---------------------------------------------------------------------------
 
 
-def _default_execute_job(
-    job: dict[str, Any],
-) -> Tuple[bool, Optional[str], Optional[str]]:
-    """Stage A 占位执行体:不做任何事、记成功。真执行体是 B1 的
-    :mod:`myssia.cron.runner`(spawn ``myssia run --json`` 子进程,D11);生产
-    宿主(serve/sidecar)必须注入——WARNING 让误用可见。"""
-    logger.warning(
-        "Job '%s': cron runner not injected (Stage A no-op stub) — recording "
-        "no-op success; the real runner lands with myssia.cron.runner (B1).",
-        job.get("name") or job.get("id"),
-    )
-    return True, None, None
+#: 缺执行体的统一报错(缺陷 7):直接调 tick()/run_ticker_loop 而不注入
+#: runner,曾把派发记成假成功(completed/ok + repeat 消耗)——Stage A 的
+#: no-op 占位执行体已随 B1 落地移除,缺注入一律 fail fast。真执行体 =
+#: ``myssia.cron.runner.CronRunner(cron).execute``(serve/CLI/sidecar 均已
+#: 注入),测试注入替身。
+_RUNNER_REQUIRED_MESSAGE = (
+    "tick() requires an injected execute_job runner: the Stage A no-op stub "
+    "was removed (it recorded fake successes — 10-06-hermes-monitor-audit "
+    "defect 7). Inject myssia.cron.runner.CronRunner(cron).execute "
+    "(as serve/CLI/sidecar do) or a test double."
+)
 
 
 def tick(
@@ -301,8 +310,19 @@ def tick(
 
     ``execute_job``/``dispatch_gate`` 语义见模块 docstring;``max_workers``
     供测试覆写并行池上限(缺省 ``min(4, cpu)``)。
+
+    已知设计语义(10-06-hermes-monitor-audit 缺陷 4,知悉不翻修):tick 锁
+    覆盖整个派发期(同步等子进程 run_timeout)——长 job 期间他宿主全静默,
+    积压坍缩为一发(F1.4);这是文件锁 at-most-once 的代价,serve/sidecar
+    专用循环天然容纳。
+
+    Raises:
+        ValueError: ``execute_job`` 未注入(缺陷 7:no-op 占位执行体已移除,
+            缺 runner 的派发会记假成功——fail fast 胜过假健康)。
     """
-    runner: JobRunner = execute_job if execute_job is not None else _default_execute_job
+    if execute_job is None:
+        raise ValueError(_RUNNER_REQUIRED_MESSAGE)
+    runner: JobRunner = execute_job
     cron.store.ensure_dirs()
     lock_fd = _acquire_tick_lock(cron.store.cron_dir / TICK_LOCK_NAME)
     if lock_fd is None:

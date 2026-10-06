@@ -211,6 +211,78 @@ def test_removed_ids_are_intentional_not_merged_back(store: CronJobStore) -> Non
     assert store.load_jobs() == []
 
 
+# --- 降级并发的字段级 3-way 合并(10-06-hermes-monitor-audit 缺陷 3)-------------
+
+
+def _rewrite_disk_job(store: CronJobStore, job_id: str, **fields: object) -> None:
+    """模拟降级锁写者:绕过本进程锁直接改磁盘上某 job 的字段。"""
+    disk = json.loads(store.jobs_file.read_text(encoding="utf-8"))
+    for job in disk["jobs"]:
+        if job["id"] == job_id:
+            job.update(fields)
+    store.jobs_file.write_text(json.dumps(disk, ensure_ascii=False), encoding="utf-8")
+
+
+def test_degraded_concurrent_field_update_survives(store: CronJobStore) -> None:
+    """缺陷 3:临界区读后、存前的降级写者(读改写窗内的 CLI pause)对我们
+    **未触碰字段**的更新不再被陈旧载荷整行碾掉——pause 与本侧字段级共存。"""
+    store.save_jobs([make_job("j1")])
+    with store.jobs_lock():
+        payload = store.load_jobs()  # 本临界区读基线
+        # 降级写者在读后写前绕过锁 pause 了 j1(flock 超时路径不互斥)。
+        _rewrite_disk_job(
+            store, "j1", enabled=False, state="paused-by-degraded-writer"
+        )
+        payload[0]["name"] = "changed"  # 我方只改 name
+        store.save_jobs(payload)  # 3-way 合并:pause 字段是「我们未动的」
+    merged = store.load_jobs()[0]
+    assert merged["name"] == "changed"  # 我方有意变更生效
+    assert merged["enabled"] is False  # 他方更新保留(修复前被碾掉)
+    assert merged["state"] == "paused-by-degraded-writer"
+
+
+def test_three_way_merge_ours_wins_on_same_field(store: CronJobStore) -> None:
+    """同字段双方都改 → 我方(最后写者)赢——与原 last-writer 语义一致的兜底。"""
+    store.save_jobs([make_job("j1", name="base-name")])
+    with store.jobs_lock():
+        payload = store.load_jobs()
+        _rewrite_disk_job(store, "j1", name="theirs-changed-name")
+        payload[0]["name"] = "ours-changed-name"
+        store.save_jobs(payload)
+    assert store.load_jobs()[0]["name"] == "ours-changed-name"
+
+
+def test_three_way_merge_deleted_keys_stay_deleted(store: CronJobStore) -> None:
+    """我方有意删除的键(基线有、载荷无)保持删除,不被磁盘侧复活。"""
+    store.save_jobs([make_job("j1", paused_reason="later")])
+    with store.jobs_lock():
+        payload = store.load_jobs()
+        payload[0].pop("paused_reason")
+        _rewrite_disk_job(store, "j1", enabled=False)  # 同时他方动了别的字段
+        store.save_jobs(payload)
+    merged = store.load_jobs()[0]
+    assert "paused_reason" not in merged  # 删除意图保持
+    assert merged["enabled"] is False  # 他方字段保留
+
+
+def test_three_way_merge_row_recovery_still_works(store: CronJobStore) -> None:
+    """基线在场时整行缺失恢复(上游 #80624)照旧:降级写者新增的行不丢。"""
+    store.save_jobs([make_job("j1")])
+    with store.jobs_lock():
+        payload = store.load_jobs()
+        payload[0]["name"] = "changed"
+        # 他方降级新增 j2 + pause j1(读写窗内)。
+        disk = json.loads(store.jobs_file.read_text(encoding="utf-8"))
+        disk["jobs"].append(make_job("j2"))
+        store.jobs_file.write_text(
+            json.dumps(disk, ensure_ascii=False), encoding="utf-8"
+        )
+        store.save_jobs(payload)
+    merged = {j["id"]: j for j in store.load_jobs()}
+    assert set(merged) == {"j1", "j2"}  # 新行恢复照旧
+    assert merged["j1"]["name"] == "changed"
+
+
 # --- 并发写 -------------------------------------------------------------------
 
 

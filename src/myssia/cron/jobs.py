@@ -61,6 +61,7 @@ import copy
 import json
 import logging
 import os
+import re
 import socket
 import tempfile
 import threading
@@ -137,6 +138,12 @@ ONESHOT_RUN_CLAIM_TTL_SECONDS = 1800.0
 # 全局急停 marker 文件名(design §3.1 步骤 2;`cron pause --all` 写,Q4)。
 ESTOP_MARKER_NAME = "paused.marker"
 
+# fire 认领心跳的刷新阈值(缺陷 3 写节流):认领戳年轻于此值时心跳只验
+# 属主、不重写 jobs.json。取 TTL/2(150s)——60s 心跳节奏下观测年龄上限
+# ≈ 210s < 300s TTL,保活不受影响;测试可 monkeypatch 本值压到 0 复现
+# 「每跳必写」的旧语义(test_cron_tick 真实时钟用例)。
+CLAIM_REFRESH_MIN_AGE_SECONDS = FIRE_CLAIM_TTL_SECONDS / 2
+
 # create/update 共用的空载荷报错文案(D2:载荷 = category)。
 EMPTY_CATEGORY_ERROR = (
     "Cron job requires a category (pipeline YAML path) — the job payload is "
@@ -181,13 +188,25 @@ def _claim_owner_is_dead(claim: dict[str, Any]) -> bool:
 
 
 def claim_is_live(claim: Any, now: datetime, ttl_seconds: float) -> bool:
-    """well-formed 且年龄落在 ``[0, ttl)``、属主未证死的认领算活。未来时刻
-    (时钟/时区偏斜)与残缺 claim 都算 stale——永远不许楔死一个 job;同机
-    属主进程已退出的认领立即失效,而非等满 TTL(上游 H:2245)。"""
+    """well-formed 且年龄落在 ``[-FIRE_CLAIM_TTL_SECONDS, ttl)``、属主未证死的
+    认领算活。残缺 claim 与远未来时刻(超容差的时钟/时区偏斜)都算 stale
+    ——永远不许楔死一个 job;同机属主进程已退出的认领立即失效,而非等满
+    TTL(上游 H:2245)。
+
+    负时长容忍(10-06-hermes-monitor-audit 缺陷 2):时钟回拨/NTP 步进会让
+    「刚刚写的认领」读出负年龄;负窗内的认领按活处理——否则回拨瞬间活
+    ``fire_claim`` 被 stale 清扫放掉,他宿主重新认领形成双跑窗口(owner-fence
+    只能弃回据,停不了已在跑的进程)。容差 = 一个 fire 认领 TTL:回拨超它
+    的认领仍判 stale,「永不楔死」红线不变;属主可证死时仍立即失效
+    (回拨救不了真死的属主)。"""
     if not isinstance(claim, dict) or not claim.get("at"):
         return False
     claimed_at = _parse_aware(claim["at"], resolve_zone())
-    if claimed_at is None or not (0 <= _elapsed_seconds(now, claimed_at) < ttl_seconds):
+    if claimed_at is None or not (
+        -FIRE_CLAIM_TTL_SECONDS
+        <= _elapsed_seconds(now, claimed_at)
+        < ttl_seconds
+    ):
         return False
     return not _claim_owner_is_dead(claim)
 
@@ -285,6 +304,18 @@ TICKER_HEARTBEAT = _MarkerFile("ticker_heartbeat")
 TICKER_LAST_SUCCESS = _MarkerFile("ticker_last_success")
 TICKER_LAST_ERROR = _MarkerFile("ticker_last_error")
 CATCH_UP_OCCURRENCES = _MarkerFile("catch_up_occurrences")
+
+# per-writer 心跳戳目录与陈旧写者清扫线(10-06-hermes-monitor-audit 缺陷 1):
+# 单 ``ticker_heartbeat`` marker 是 last-writer-wins——双 serve 并存时后写者
+# 先停,``cron status`` 只核最后写者 pid,留下最长 3×interval+20s 的 ticker
+# 假阴性窗(另一实例明明在跑却被判死)。per-writer 戳集让活性判读覆盖全部
+# 写者;沉默超期的写者不是活 ticker,顺手清掉防目录无限累积。
+TICKER_WRITERS_DIRNAME = "ticker_writers"
+TICKER_WRITER_STALE_SECONDS = 86400.0
+
+# 心跳扫描专用错误 marker(缺陷 9):cron_stale 评估侧持续失败的 Operator
+# 可见痕迹——与 ``ticker_last_error``(ticker 自身死活面)分立,互不误染。
+HEARTBEAT_SCAN_LAST_ERROR = _MarkerFile("heartbeat_scan_last_error")
 
 
 # ---------------------------------------------------------------------------
@@ -546,14 +577,104 @@ class CronJobs:
         """记录 ticker 活性(``success=True`` 时另戳「上次成功 tick」),让
         ``cron status`` 分得清「活着但在失败」与「真在发」——每 tick 恰一次。
         内容 ``<epoch> <pid>``:被杀 ticker 的最后戳还能新鲜约几分钟,无其他
-        凭据的读者要能核实写入进程仍活着(上游 #32612/#32895)。"""
+        凭据的读者要能核实写入进程仍活着(上游 #32612/#32895)。
+
+        另落 per-writer 戳(缺陷 1):单 marker 是 last-writer-wins,双 serve
+        并存时活性判读必须覆盖全部写者——每实例 ``ticker_writers/<host>-<pid>``
+        一份,读者取全集仲裁,写者顺手清死同胞。"""
         self._write_marker(TICKER_HEARTBEAT, f"{time.time()} {os.getpid()}", ".hb_")
         if success:
             self._write_marker(TICKER_LAST_SUCCESS, str(time.time()), ".hb_")
+        self._refresh_ticker_writer_stamp()
+
+    @staticmethod
+    def _sanitize_host(host: str) -> str:
+        """host 名压进 marker 文件名的安全形(非 ``[A-Za-z0-9_.-]`` → ``_``)。"""
+        return re.sub(r"[^A-Za-z0-9_.-]", "_", host)
+
+    @staticmethod
+    def _local_hostname() -> str:
+        try:
+            return socket.gethostname()
+        except Exception:
+            return "unknown"
+
+    def _ticker_writers_dir(self) -> Path:
+        """per-writer 心跳戳目录(缺陷 1)。"""
+        return self.store.cron_dir / TICKER_WRITERS_DIRNAME
+
+    def _refresh_ticker_writer_stamp(self) -> None:
+        """刷新自己的 per-writer 戳并顺手清死写者;全部尽力——marker 族
+        永不许弄崩 tick。"""
+        try:
+            writers_dir = self._ticker_writers_dir()
+            writers_dir.mkdir(parents=True, exist_ok=True)
+            pid = os.getpid()
+            name = f"{self._sanitize_host(self._local_hostname())}-{pid}"
+            _atomic_write_marker(
+                writers_dir / name, f"{time.time()} {pid}\n", ".hbw_"
+            )
+            self._prune_ticker_writers(writers_dir, own_pid=pid)
+        except Exception:
+            pass
+
+    def _prune_ticker_writers(self, writers_dir: Path, *, own_pid: int) -> None:
+        """清同机可证已死的写者戳与沉默超期的陈旧戳(OSError 尽力吞)。"""
+        now = time.time()
+        local = self._sanitize_host(self._local_hostname())
+        try:
+            paths = list(writers_dir.iterdir())
+        except OSError:
+            return
+        for path in paths:
+            host, _, pid_text = path.name.rpartition("-")
+            epoch: Optional[float] = None
+            try:
+                fields = path.read_text(encoding="utf-8-sig").split()
+                epoch = float(fields[0])
+            except (OSError, ValueError, IndexError):
+                pass
+            if (
+                host == local
+                and pid_text.isdigit()
+                and int(pid_text) != own_pid
+                and not pid_exists(int(pid_text))
+            ):
+                with contextlib.suppress(OSError):
+                    path.unlink()  # 同机死写者:进程已退,戳不再算数
+                continue
+            if epoch is not None and now - epoch > TICKER_WRITER_STALE_SECONDS:
+                with contextlib.suppress(OSError):
+                    path.unlink()  # 沉默超期的写者不是活 ticker
+
+    def _ticker_writer_stamps(self) -> list[tuple[Optional[float], Optional[int], str]]:
+        """全部 per-writer 戳的 ``(戳龄, pid, host)``;读不了的项跳过。"""
+        stamps: list[tuple[Optional[float], Optional[int], str]] = []
+        try:
+            paths = list(self._ticker_writers_dir().iterdir())
+        except OSError:
+            return stamps
+        for path in paths:
+            try:
+                fields = path.read_text(encoding="utf-8-sig").split()
+                age = max(0.0, time.time() - float(fields[0]))
+                pid = int(fields[1])
+            except (OSError, ValueError, IndexError):
+                continue
+            host, _, _pid = path.name.rpartition("-")
+            stamps.append((age, pid, host))
+        return stamps
 
     def ticker_heartbeat_writer_alive(self) -> bool:
-        """写本心跳 stamp 的进程是否仍在运行。旧式裸 epoch 戳没有署名,单凭它
-        不算活调度器的证明。"""
+        """是否有**任一**心跳写者进程仍在运行。单 marker 只见最后写者
+        (缺陷 1 的假阴性窗),per-writer 集覆盖全部写者——任一同机写者
+        pid 活着即活;无 per-writer 集的遗留形态回落旧式单 marker(旧式
+        裸 epoch 戳没有署名,单凭它不算活调度器的证明)。异机署名证不了
+        活,跳过(fail-safe 同 ``_claim_owner_is_dead`` 取向)。"""
+        local = self._sanitize_host(self._local_hostname())
+        for _age, pid, host in self._ticker_writer_stamps():
+            if host == local and pid is not None and pid_exists(pid):
+                return True
         fields_ = self._read_marker_fields(TICKER_HEARTBEAT)
         try:
             return len(fields_) >= 2 and pid_exists(int(fields_[1]))
@@ -561,12 +682,28 @@ class CronJobs:
             return False
 
     def get_ticker_heartbeat_age(self) -> Optional[float]:
-        """距 ticker 上次循环迭代的秒数;None = 缺失/不可读。"""
-        return self._epoch_file_age(TICKER_HEARTBEAT)
+        """距 ticker 上次循环迭代的秒数(全写者取**最新鲜**的一份;含旧式
+        单 marker);None = 缺失/不可读。"""
+        ages = [age for age, _pid, _host in self._ticker_writer_stamps()]
+        legacy = self._epoch_file_age(TICKER_HEARTBEAT)
+        if legacy is not None:
+            ages.append(legacy)
+        return min(ages) if ages else None
 
     def get_ticker_success_age(self) -> Optional[float]:
         """距 ticker 上次**无异常完成**一次 tick 的秒数,或 None。"""
         return self._epoch_file_age(TICKER_LAST_SUCCESS)
+
+    def _read_dated_error(self, marker: _MarkerFile) -> Optional[str]:
+        """``<epoch>\n<消息…>`` 形 marker 的消息段;缺失/不可读 → None。"""
+        try:
+            raw = (self.store.cron_dir / marker.name).read_text(encoding="utf-8-sig")
+        except Exception:
+            return None
+        lines = raw.splitlines()
+        if len(lines) < 2:
+            return None
+        return "\n".join(lines[1:]).strip() or None
 
     def record_ticker_error(self, message: str) -> None:
         """持久化最近一次 tick 失败,让另一进程的 ``cron status`` 能给出原因
@@ -582,16 +719,27 @@ class CronJobs:
 
     def get_ticker_last_error(self) -> Optional[str]:
         """最近记录的 tick 错误消息,或 None。"""
-        try:
-            raw = (self.store.cron_dir / TICKER_LAST_ERROR.name).read_text(
-                encoding="utf-8-sig"
-            )
-        except Exception:
-            return None
-        lines = raw.splitlines()
-        if len(lines) < 2:
-            return None
-        return "\n".join(lines[1:]).strip() or None
+        return self._read_dated_error(TICKER_LAST_ERROR)
+
+    # --- 心跳扫描错误 marker(缺陷 9:ticker 直挂 cron_stale 扫描的失败面)---
+
+    def record_heartbeat_scan_error(self, message: str) -> None:
+        """持久化最近一次心跳告警扫描失败:持续失败此前只留 ERROR 日志,
+        ``cron status`` 无从可见(缺陷 9)。与 ticker 自身错误面分立——
+        写 ``ticker_last_error`` 会把「ticker 活着但评估在失败」误染成
+        「ticker 在失败」。"""
+        self._write_marker(
+            HEARTBEAT_SCAN_LAST_ERROR, f"{time.time()}\n{message.strip()}\n", ".hserr_"
+        )
+
+    def clear_heartbeat_scan_error(self) -> None:
+        """成功一扫后移除扫描错误 marker(尽力)。"""
+        with contextlib.suppress(OSError):
+            (self.store.cron_dir / HEARTBEAT_SCAN_LAST_ERROR.name).unlink()
+
+    def get_heartbeat_scan_last_error(self) -> Optional[str]:
+        """最近记录的心跳扫描错误消息,或 None。"""
+        return self._read_dated_error(HEARTBEAT_SCAN_LAST_ERROR)
 
     def get_catch_up_occurrence_count(self) -> int:
         """积压补发(catch-up)计数(本数据根)。"""
@@ -1378,24 +1526,48 @@ class CronJobs:
     # --- 认领心跳(上游 H:2641-2682 + H:2803)-------------------------------
 
     def _refresh_claim(
-        self, jobs: list[dict[str, Any]], claim: Any, expected_owner: str
+        self,
+        jobs: list[dict[str, Any]],
+        claim: Any,
+        expected_owner: str,
+        *,
+        min_refresh_age_seconds: float,
     ) -> bool:
-        """compare-and-refresh 认领的 ``at`` 戳;*expected_owner* 不再持有 → False。"""
+        """compare-and-refresh 认领的 ``at`` 戳;*expected_owner* 不再持有 → False。
+
+        写节流(10-06-hermes-monitor-audit 缺陷 3):认领戳仍年轻于
+        *min_refresh_age_seconds* 时只验属主、跳过 jobs.json 全量重写——保活
+        只需戳年龄远离 TTL(观测年龄上限 = 阈值 + 一跳心跳间隔,取 ``TTL/2``
+        即留半窗余量),不必每跳落盘。降级锁下每次全量重写都在放大与并发
+        CLI 写互踩的窗口;节流后 fire 认领在 300s TTL/60s 心跳节奏下约
+        2-3 跳才写一次。"""
         if not isinstance(claim, dict) or claim.get("by") != expected_owner:
             return False
-        claim["at"] = self._now().isoformat()
+        now = self._now()
+        claimed_at = _parse_aware(claim.get("at"), resolve_zone())
+        if (
+            claimed_at is not None
+            and 0 <= _elapsed_seconds(now, claimed_at) < min_refresh_age_seconds
+        ):
+            return True  # 属主已验、戳仍新鲜:免一次全量重写
+        claim["at"] = now.isoformat()
         self.store.save_jobs(jobs)
         return True
 
     def heartbeat_run_claim(self, job_id: str, *, expected_owner: str) -> bool:
         """one-shot 的 ``run_claim`` 在 run 存活期间保活:过期 claim 就真意味着
         认领进程死了。compare-and-refresh 阻止陈旧 runner 延长别人接管的认领
-        (#62002)。"""
+        (#62002)。刷新阈值 = 该 job 认领 TTL 的一半(写节流,缺陷 3)。"""
 
         def apply(jobs: list[dict[str, Any]], _i: int, job: dict[str, Any]) -> bool:
             if (job.get("schedule") or {}).get("kind") != "once":
                 return False
-            return self._refresh_claim(jobs, job.get("run_claim"), expected_owner)
+            return self._refresh_claim(
+                jobs,
+                job.get("run_claim"),
+                expected_owner,
+                min_refresh_age_seconds=self._oneshot_run_claim_ttl(job) / 2,
+            )
 
         return bool(self._with_job(job_id, apply, False))
 
@@ -1417,10 +1589,17 @@ class CronJobs:
 
     def heartbeat_fire_claim(self, job_id: str, *, expected_owner: str) -> bool:
         """活 ``fire_claim`` 保活(执行可活过 TTL;属主校验阻止陈旧 runner
-        刷新被恢复的认领;上游 H:2803)。"""
+        刷新被恢复的认领;上游 H:2803)。刷新阈值 =
+        :data:`CLAIM_REFRESH_MIN_AGE_SECONDS`(写节流,缺陷 3:60s 心跳节奏
+        下约 2-3 跳落一次盘)。"""
 
         def apply(jobs: list[dict[str, Any]], _i: int, job: dict[str, Any]) -> bool:
-            return self._refresh_claim(jobs, job.get("fire_claim"), expected_owner)
+            return self._refresh_claim(
+                jobs,
+                job.get("fire_claim"),
+                expected_owner,
+                min_refresh_age_seconds=CLAIM_REFRESH_MIN_AGE_SECONDS,
+            )
 
         return bool(self._with_job(job_id, apply, False))
 
@@ -2015,7 +2194,8 @@ class CronJobs:
         now = scan.now
         zone = self._job_zone(job)
         # 跨进程守卫:他进程活着的 one-shot run_claim(年轻于 TTL)——不重派。
-        # 残缺/未来戳(时钟/TZ 偏斜)算 stale,永不永久新鲜。
+        # 残缺/远未来戳(超容差的时钟/TZ 偏斜)算 stale,永不永久新鲜;负窗
+        # 内的偏斜按活处理(缺陷 2,见 claim_is_live)。
         if (job.get("schedule") or {}).get("kind") == "once" and claim_is_live(
             job.get("run_claim"), now, self._oneshot_run_claim_ttl(job)
         ):

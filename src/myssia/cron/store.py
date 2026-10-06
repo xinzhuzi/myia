@@ -26,6 +26,7 @@ MYIA 适配(10-04-hermes-cron design §1/§6,非照抄处仅此):
 from __future__ import annotations
 
 import contextlib
+import copy
 import json
 import logging
 import os
@@ -56,6 +57,10 @@ JOBS_LOCK_TIMEOUT_SECONDS = 30.0
 
 # 落盘前 shrink-merge 循环的最多重试轮次(verify-after-stage;上游 L1564)。
 SAVE_MERGE_ATTEMPTS = 5
+
+# 3-way 字段合并的「键缺席」哨兵:区分「显式置 None」与「键不在场」
+# (10-06-hermes-monitor-audit 缺陷 3)。
+_ABSENT = object()
 
 # job 记录的终态集合(effective_job_state/is_terminal_job 消费;design §2.1
 # state ∈ scheduled|paused|completed|error)。
@@ -313,6 +318,7 @@ class CronJobStore:
             # 文件可证未变时跳过 shrink-merge 解析。进出重置,锁外加载或上一
             # 临界区的陈旧戳永远不可能压掉一次需要的合并(上游 #80703)。
             self._lock_state.load_stamp = None
+            self._lock_state.load_baseline = None
             lock_fd = None
             try:
                 try:
@@ -342,6 +348,7 @@ class CronJobStore:
             finally:
                 self._lock_state.depth = 0
                 self._lock_state.load_stamp = None
+                self._lock_state.load_baseline = None
 
     # --- 读(上游 L1355-1456 照抄)-----------------------------------------
 
@@ -383,9 +390,24 @@ class CronJobStore:
     def _record_load_stamp(self, stamp: Optional[tuple[int, int, int]]) -> None:
         """把 jobs.json 的戳记给所在 jobs_lock() 临界区(锁外无效操作)。读**前**
         取戳:读中途落地的同胞写会戳不匹配(fail-safe);读后取戳会把一次没看
-        到的写错误地认证为已见(上游 #80703)。"""
+        到的写错误地认证为已见(上游 #80703)。``stamp=None`` 是落盘后的失效
+        信号——基线一并作废(嵌套 save 后的载荷与磁盘关系已变,字段级合并
+        退回 append-only 恢复,与历史行为一致)。"""
         if getattr(self._lock_state, "depth", 0):
             self._lock_state.load_stamp = stamp
+            if stamp is None:
+                self._lock_state.load_baseline = None
+
+    def _record_load_baseline(self, jobs: list[dict[str, Any]]) -> None:
+        """把本临界区读到(且修复完)的 job 快照记为 3-way 合并基线:save 时
+        载荷对基线的 diff = 本临界区的有意变更,磁盘侧对其余字段的并发更新
+        不再被陈旧载荷碾掉(降级锁字段级丢更新,缺陷 3)。锁外无效操作。"""
+        if getattr(self._lock_state, "depth", 0):
+            self._lock_state.load_baseline = {
+                str(job["id"]): copy.deepcopy(job)
+                for job in jobs
+                if isinstance(job, dict) and job.get("id")
+            }
 
     def load_jobs(self) -> list[dict[str, Any]]:
         """从存储读全部 job(含损坏自修复;上游 L1367-1456 照抄)。"""
@@ -473,6 +495,7 @@ class CronJobStore:
             self.save_jobs(jobs, replace=unmergeable and self._peek_jobs_unlocked() is None)
             logger.warning("Auto-repaired jobs.json (%s)", repair)
         self._record_load_stamp(pre_read_stamp)
+        self._record_load_baseline(jobs)
         return jobs
 
     # --- 写(上游 L1499-1620 照抄)-----------------------------------------
@@ -517,6 +540,88 @@ class CronJobStore:
             len(recovered), [j.get("id") for j in recovered])
         return jobs + recovered
 
+    @staticmethod
+    def _three_way_merge_job(
+        base: dict[str, Any], ours: dict[str, Any], theirs: dict[str, Any],
+    ) -> dict[str, Any]:
+        """单 job 字段级 3-way 合并(缺陷 3):以临界区读基线 *base* 区分
+        「我方有意变更」(载荷 vs 基线的 diff,覆写磁盘)与「我方未动」
+        (尊重磁盘侧并发更新);我方有意删除的键(基线有、载荷无)保持删除。
+        同字段双方都改 → 我方赢(与 last-writer 原语义一致的兜底)。"""
+        merged = dict(theirs)
+        for key in set(base) | set(ours):
+            if key in ours:
+                if key not in base or ours[key] != base[key]:
+                    merged[key] = ours[key]  # 我方新增/改写
+                # else:我方未动 → 磁盘侧值(已在 merged)为准
+            else:
+                merged.pop(key, None)  # 我方有意删除
+        return merged
+
+    def _merge_concurrent_disk_writes(
+        self, jobs: list[dict[str, Any]], *, removed_ids: Optional[Collection[str]] = None,
+    ) -> list[dict[str, Any]]:
+        """shrink-merge 的降级并发扩展(10-06-hermes-monitor-audit 缺陷 3)。
+
+        戳匹配 ⇒ 文件可证未变,直接回(原快路径,零解析)。戳不匹配 ⇒ 疑有
+        绕过 flock 的并发写者(flock 超时降级/锁外手编):
+        - 整行缺失(磁盘有、载荷无、非有意删)照旧恢复(上游 #80624);
+        - 同 id 记录在本临界区有读基线时做**字段级 3-way 合并**——降级路径
+          下 CLI pause/update 与 ticker 心跳写的字段级互相覆盖由此收敛为
+          各改各的字段(合并到 rename 的窗口仍在,但已从整个临界区收窄到
+          毫秒级);无基线(锁外构造的载荷、本临界区嵌套 save 之后)退回
+          append-only 恢复,与历史行为一致。"""
+        stamp = getattr(self._lock_state, "load_stamp", None)
+        if stamp is not None and self._jobs_file_stamp() == stamp:
+            return jobs
+        baseline = getattr(self._lock_state, "load_baseline", None)
+        if baseline is None:
+            return self._merge_unexpected_disk_jobs(jobs, removed_ids=removed_ids)
+        disk_jobs = self._peek_jobs_unlocked()
+        if disk_jobs is None:
+            raise RuntimeError(
+                f"Cron database corrupted; refusing to overwrite {self.jobs_file}")
+        disk_by_id: dict[str, dict[str, Any]] = {}
+        for disk_job in disk_jobs:
+            if isinstance(disk_job, dict) and disk_job.get("id"):
+                disk_by_id[str(disk_job["id"])] = disk_job
+        removed = {str(i) for i in (removed_ids or ()) if i}
+        merged_list: list[dict[str, Any]] = []
+        merged_ids: list[str] = []
+        payload_ids: set[str] = set()
+        for job in jobs:
+            if not isinstance(job, dict) or not job.get("id"):
+                merged_list.append(job)
+                continue
+            jid = str(job["id"])
+            payload_ids.add(jid)
+            disk_job = disk_by_id.get(jid)
+            base = baseline.get(jid)
+            if disk_job is None or base is None or jid in removed:
+                merged_list.append(job)
+                continue
+            merged = self._three_way_merge_job(base, job, disk_job)
+            if merged != job:
+                merged_ids.append(jid)
+            merged_list.append(merged)
+        recovered = [
+            disk_job for jid, disk_job in disk_by_id.items()
+            if jid not in payload_ids and jid not in removed
+        ]
+        if recovered:
+            logger.warning(
+                "Preserved %d cron job(s) present on disk but missing from the "
+                "in-memory save payload (concurrent create under degraded lock "
+                "or stale writer): %s",
+                len(recovered), [j.get("id") for j in recovered])
+        if merged_ids:
+            logger.info(
+                "Field-merged %d cron job(s) with concurrent disk writes "
+                "(degraded lock): %s",
+                len(merged_ids), sorted(merged_ids),
+            )
+        return merged_list + recovered
+
     def _stage_jobs_payload(self, jobs: list[dict[str, Any]]) -> str:
         """把存储载荷序列化进 jobs_file 旁一个已 fsync 的临时文件;返回其路径。"""
         fd, tmp_path = _mkstemp_beside(self.jobs_file, suffix=".tmp", prefix=".jobs_")
@@ -541,11 +646,14 @@ class CronJobStore:
         load_jobs 对不可合并形状的自动修复用的整体重写)。"""
         self.ensure_dirs()
         # shrink-merge 循环:合并、staging、再 peek、重试;最后一轮不 re-peek 直写。
+        # 合并入口含降级并发写的字段级 3-way 合并(缺陷 3;replace 形态除外)。
         tmp_path: Optional[str] = None
         try:
             for attempt in range(SAVE_MERGE_ATTEMPTS + 1):
                 if not replace:
-                    jobs = self._merge_unexpected_disk_jobs(jobs, removed_ids=removed_ids)
+                    jobs = self._merge_concurrent_disk_writes(
+                        jobs, removed_ids=removed_ids
+                    )
                 tmp_path = self._stage_jobs_payload(jobs)
                 # stage 后校验:序列化期间落地的同胞写迫使再来一轮合并。
                 if (

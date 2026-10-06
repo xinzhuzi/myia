@@ -41,6 +41,7 @@ import re
 import socket
 import subprocess
 import sys
+import time
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -832,12 +833,48 @@ def test_fire_claim_foreign_host_claim_stays_live(jobs: CronJobs) -> None:
     assert jobs.claim_job_for_fire(job["id"]) is False  # 异机署名证不了死 → 尊重
 
 
+def test_fire_claim_clock_backstep_stays_live(jobs: CronJobs, clock: Clock) -> None:
+    """缺陷 2(时钟回拨):负时长落在容差(一个 fire TTL)内的活认领不清扫
+    ——回拨瞬间他宿主重新认领会形成双跑窗(owner-fence 停不了已跑进程)。"""
+    job = jobs.create_job("plugins/news.yaml", "every 5m")
+    jobs.claim_job_for_fire(job["id"])
+    clock.tick(minutes=-4)  # 回拨 4 分钟(−240s > −300s 容差)
+    assert jobs.claim_job_for_fire(job["id"]) is False  # 认领仍活:不得重认领
+
+
+def test_fire_claim_far_future_stamp_still_stale(jobs: CronJobs) -> None:
+    """远未来戳(超容差的手编/大步进)仍判 stale——「永不楔死 job」红线不变。"""
+    job = jobs.create_job("plugins/news.yaml", "every 5m")
+    raw = raw_of(jobs, job["id"])
+    raw["fire_claim"] = {
+        "at": (BASE + timedelta(hours=1)).isoformat(),
+        "by": f"{socket.gethostname()}:{os.getpid()}",  # 活属主:排除属主死亡路径
+    }
+    seed(jobs, raw)
+    assert jobs.claim_job_for_fire(job["id"]) is True  # −3600s 超容差 → 可回收
+
+
 def test_heartbeat_fire_claim_owner_scoped(jobs: CronJobs, clock: Clock) -> None:
     job = jobs.create_job("plugins/news.yaml", "every 5m")
     jobs.claim_job_for_fire(job["id"])
     owner = raw_of(jobs, job["id"])["fire_claim"]["by"]
     assert jobs.heartbeat_fire_claim(job["id"], expected_owner="not-me") is False
-    clock.tick(minutes=2)
+    clock.tick(minutes=3)  # ≥ TTL/2(150s)刷新阈值才落盘(写节流,缺陷 3)
+    assert jobs.heartbeat_fire_claim(job["id"], expected_owner=owner) is True
+    assert raw_of(jobs, job["id"])["fire_claim"]["at"] == clock.now.isoformat()
+
+
+def test_heartbeat_fire_claim_write_throttled(jobs: CronJobs, clock: Clock) -> None:
+    """写节流(缺陷 3):认领戳年轻于 TTL/2 时心跳只验属主、不重写 jobs.json
+    ——属主不匹配仍 False(节流不免除属主校验);过阈值后照常刷新。"""
+    job = jobs.create_job("plugins/news.yaml", "every 5m")
+    jobs.claim_job_for_fire(job["id"])
+    owner = raw_of(jobs, job["id"])["fire_claim"]["by"]
+    clock.tick(minutes=2)  # 120s < 150s(TTL/2):免落盘
+    assert jobs.heartbeat_fire_claim(job["id"], expected_owner=owner) is True
+    assert raw_of(jobs, job["id"])["fire_claim"]["at"] == BASE.isoformat()
+    assert jobs.heartbeat_fire_claim(job["id"], expected_owner="other") is False
+    clock.tick(minutes=2)  # 累计 240s ≥ 150s:刷新落盘
     assert jobs.heartbeat_fire_claim(job["id"], expected_owner=owner) is True
     assert raw_of(jobs, job["id"])["fire_claim"]["at"] == clock.now.isoformat()
 
@@ -907,12 +944,83 @@ def test_heartbeat_writer_dead_pid_not_alive(jobs: CronJobs, dead_pid: int) -> N
     assert jobs.ticker_heartbeat_writer_alive() is False
 
 
+def _seed_ticker_writer(
+    jobs: CronJobs, host: str, pid: int, epoch: float
+) -> None:
+    """直落一份 per-writer 心跳戳(缺陷 1 的 per-writer 集)。"""
+    writers = jobs.store.cron_dir / "ticker_writers"
+    writers.mkdir(parents=True, exist_ok=True)
+    safe = re.sub(r"[^A-Za-z0-9_.-]", "_", host)
+    (writers / f"{safe}-{pid}").write_text(
+        f"{epoch} {pid}\n", encoding="utf-8"
+    )
+
+
+def test_ticker_writers_set_covers_second_live_writer(
+    jobs: CronJobs, dead_pid: int
+) -> None:
+    """缺陷 1:双 serve 并存时单 marker last-writer-wins——后写者(死 pid)
+    先停不能把活着的另一实例误判死;per-writer 集任一活写者即活。"""
+    jobs.store.ensure_dirs()
+    # 旧式单 marker:最后写者已死(last-writer-wins 的假阴性现场)。
+    (jobs.store.cron_dir / "ticker_heartbeat").write_text(
+        f"{time.time()} {dead_pid}", encoding="utf-8"
+    )
+    # 另一实例仍在跑:per-writer 戳指向本测试进程(活 pid 的替身)。
+    live_writer = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    try:
+        _seed_ticker_writer(jobs, socket.gethostname(), live_writer.pid, time.time())
+        assert jobs.ticker_heartbeat_writer_alive() is True  # 修复前:False
+        assert jobs.get_ticker_heartbeat_age() is not None and (
+            jobs.get_ticker_heartbeat_age() or 0) < 60
+    finally:
+        live_writer.kill()
+        live_writer.wait()
+    # 写者全死:活 pid 消失 → 不活(死 pid 的旧式 marker 兜底同样判死)。
+    assert jobs.ticker_heartbeat_writer_alive() is False
+
+
+def test_ticker_writer_prune_removes_dead_sibling(
+    jobs: CronJobs, dead_pid: int
+) -> None:
+    """写者顺手清同机死同胞的戳(防目录累积);异机署名证不了死、戳又新鲜
+    → 不越权清;活写者(自己)的戳保留。"""
+    _seed_ticker_writer(jobs, socket.gethostname(), dead_pid, time.time())
+    _seed_ticker_writer(jobs, "other-host", 424242, time.time())
+    jobs.record_ticker_heartbeat()
+    names = {p.name for p in (jobs.store.cron_dir / "ticker_writers").iterdir()}
+    assert not any(str(dead_pid) in n for n in names)  # 同机死写者已清
+    assert any("other-host" in n for n in names)  # 异机署名保留
+    assert any(str(os.getpid()) in n for n in names)  # 自己的戳在场
+
+
+def test_ticker_heartbeat_age_takes_freshest_writer(jobs: CronJobs) -> None:
+    """全写者取最新鲜:陈旧死写者的老戳不拖累活写者的活性龄。"""
+    _seed_ticker_writer(jobs, socket.gethostname(), os.getpid(), time.time())
+    _seed_ticker_writer(jobs, socket.gethostname(), 999999, 1700000000.0)
+    age = jobs.get_ticker_heartbeat_age()
+    assert age is not None and age < 60  # 取 min(最新鲜),不是老戳的 decades
+
+
 def test_ticker_error_marker_lifecycle(jobs: CronJobs) -> None:
     assert jobs.get_ticker_last_error() is None
     jobs.record_ticker_error("tick blew up\n细节")
     assert "tick blew up" in (jobs.get_ticker_last_error() or "")
     jobs.clear_ticker_error()
     assert jobs.get_ticker_last_error() is None
+
+
+def test_heartbeat_scan_error_marker_lifecycle(jobs: CronJobs) -> None:
+    """缺陷 9:心跳扫描失败写**专用** marker(cron status 消费),与 ticker
+    自身错误面分立互不误染;成功一扫即清。"""
+    assert jobs.get_heartbeat_scan_last_error() is None
+    jobs.record_heartbeat_scan_error("scan blew up\n细节")
+    assert "scan blew up" in (jobs.get_heartbeat_scan_last_error() or "")
+    assert jobs.get_ticker_last_error() is None  # 不染指 ticker 错误面
+    jobs.record_ticker_error("tick error")
+    jobs.clear_heartbeat_scan_error()
+    assert jobs.get_heartbeat_scan_last_error() is None
+    assert "tick error" in (jobs.get_ticker_last_error() or "")  # 反向亦分立
 
 
 def test_catch_up_counter(jobs: CronJobs) -> None:

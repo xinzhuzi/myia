@@ -367,6 +367,31 @@ def test_list_executions_order_filter_and_cursor(ledger: ExecutionLedger) -> Non
     assert len(ledger.list_executions(limit=0)) == 1
 
 
+def test_hand_broken_claimed_at_sorts_deterministically_oldest(
+    ledger: ExecutionLedger,
+) -> None:
+    """缺陷 8(julianday 失序):手编垃圾 claimed_at 的行 julianday→NULL,
+    COALESCE(-1) 定序为「最老」——次序确定,不随 NULL 比较漂移;合法行的
+    分页游标不受污染。"""
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    for i in range(3):
+        seed_row(
+            ledger, f"a-{i}", job_id="job-a",
+            claimed_at=(base + timedelta(minutes=i)).isoformat(),
+        )
+    seed_row(ledger, "garbage", job_id="job-a", claimed_at="not-a-timestamp")
+
+    rows = ledger.list_executions(job_id="job-a", limit=10)
+    assert [r["id"] for r in rows] == ["a-2", "a-1", "a-0", "garbage"]  # 垃圾恒垫底
+    page = ledger.list_executions(
+        job_id="job-a", limit=2, before_claimed_at=rows[1]["claimed_at"]
+    )
+    assert [r["id"] for r in page] == ["a-0", "garbage"]  # 游标翻页可达垃圾行
+    # 窗口化 latest 同款定序:合法行照常胜出。
+    windowed = ledger.latest_executions(["job-a"])
+    assert windowed["job-a"]["id"] == "a-2"
+
+
 def test_latest_execution_and_windowed_latest(ledger: ExecutionLedger) -> None:
     base = datetime(2026, 1, 1, tzinfo=UTC)
     for i in range(3):

@@ -1055,6 +1055,7 @@ def test_cron_status_json_contract_and_empty_state(tmp_path, capsys):
     assert payload["command"] == "cron" and payload["action"] == "status"
     assert payload["ticker_alive"] is False  # 从未 serve:心跳缺位如实报告
     assert payload["heartbeat_age_seconds"] is None
+    assert payload["heartbeat_scan_error"] is None  # 缺陷 9:扫描失败面在场为空
     assert payload["estopped"] is False
     assert payload["jobs_total"] == 0 and payload["next_due_at"] is None
 
@@ -1065,6 +1066,20 @@ def test_cron_status_json_contract_and_empty_state(tmp_path, capsys):
     payload = json.loads(capsys.readouterr().out)
     assert payload["heartbeat_age_seconds"] is not None
     assert payload["ticker_alive"] is True
+
+
+def test_cron_status_reports_heartbeat_scan_error(tmp_path, capsys):
+    """缺陷 9:心跳扫描持续失败写专用 marker,status(JSON/人读)都可见
+    ——此前只留 ERROR 日志,操作者面无痕迹。"""
+    from myssia.cron.jobs import CronJobs
+
+    db = tmp_path / "myssia.db"
+    CronJobs.for_db(db).record_heartbeat_scan_error("RuntimeError: scan blew up")
+    assert main(["cron", "status", "--db", str(db), "--json"]) == EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+    assert "scan blew up" in (payload["heartbeat_scan_error"] or "")
+    assert main(["cron", "status", "--db", str(db)]) == EXIT_OK
+    assert "scan blew up" in capsys.readouterr().out
 
 
 def test_cron_resume_at_rearms_completed_oneshot(tmp_path, capsys):

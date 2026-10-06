@@ -131,16 +131,26 @@ def _guarded_store_write(
         logger.error("Cron %s store write failed", what, exc_info=True)
 
 
-def _guarded_heartbeat_scan(scan: Callable[[], Any]) -> None:
+def _guarded_heartbeat_scan(cron: CronJobs, scan: Callable[[], Any]) -> None:
     """心跳扫描失败绝不带着 ticker 线程走(``_guarded_store_write`` 同款惯例)。
 
-    只留 ERROR 日志,**不写 ticker 错误 marker**——marker 面 = ticker 自身
-    死活(``cron status`` 活性判读),扫描失败是 cron_stale 评估侧的事,
-    写进去会把「ticker 活着但心跳评估在失败」误染成「ticker 在失败」。"""
+    失败除 ERROR 日志外写**专用** ``heartbeat_scan_last_error`` marker
+    (10-06-hermes-monitor-audit 缺陷 9:此前只留日志,持续失败无操作者
+    可见痕迹),成功一扫即清。仍**不写** ticker 错误 marker——marker 面 =
+    ticker 自身死活(``cron status`` 活性判读),扫描失败是 cron_stale 评估
+    侧的事,写进去会把「ticker 活着但心跳评估在失败」误染成「ticker 在
+    失败」。"""
     try:
         scan()
-    except Exception:
+    except Exception as exc:
         logger.error("Cron heartbeat scan failed", exc_info=True)
+        _guarded_store_write(
+            cron.record_heartbeat_scan_error,
+            "heartbeat scan error",
+            f"{type(exc).__name__}: {exc}",
+        )
+        return
+    _guarded_store_write(cron.clear_heartbeat_scan_error, "heartbeat scan error clear")
 
 
 def run_ticker_loop(
@@ -169,7 +179,18 @@ def run_ticker_loop(
             ``pipeline.make_cron_heartbeat_scan`` 工厂产出)。None = 零行为
             变化(既有宿主/测试不注入时与历史完全一致)。
         heartbeat_scan_interval: 扫描间隔秒(缺省
-            :data:`DEFAULT_HEARTBEAT_SCAN_INTERVAL_SECONDS`)。"""
+            :data:`DEFAULT_HEARTBEAT_SCAN_INTERVAL_SECONDS`)。
+
+    Raises:
+        ValueError: ``execute_job`` 未注入(缺陷 7:常驻宿主缺 runner 会让
+            每 tick 都记假成功——宿主装配错误当场暴露,胜过每轮吞错)。"""
+    if execute_job is None:
+        raise ValueError(
+            "run_ticker_loop requires execute_job (real runner: "
+            "myssia.cron.runner.CronRunner(cron).execute); a resident host "
+            "without a runner would record fake successes every tick "
+            "(10-06-hermes-monitor-audit defect 7)."
+        )
     logger.info("Cron ticker started (interval=%.0fs)", interval)
 
     # 启动恢复与首个心跳:中断标记 + 活性凭证,必须在任何等待之前。
@@ -218,7 +239,7 @@ def run_ticker_loop(
         # 拖累下一锚点——超期重锚逻辑天然兜住)。
         if heartbeat_scan is not None and time.monotonic() >= next_scan:
             next_scan = time.monotonic() + heartbeat_scan_interval
-            _guarded_heartbeat_scan(heartbeat_scan)
+            _guarded_heartbeat_scan(cron, heartbeat_scan)
         next_tick += interval
         now = time.monotonic()
         if next_tick < now:

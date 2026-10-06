@@ -57,7 +57,10 @@ def completed_occurrence(
     两处去重闸(due 扫描与 fire 认领)在 True 时都**不**跑 run、不落账本行
     地消费掉该槽,所以下面的告警是跳过留下的唯一痕迹(上游 #111414)。
     账本异常按「查不了」处理返回 False(fail-open:宁可潜在重发,不可静默
-    吞掉整个调度)。
+    吞掉整个调度)。fail-open 是**裁决过的取向**(10-06-hermes-monitor-audit
+    缺陷 5 注记收口:宁重发不吞调度——账本瞬断的代价是多跑一轮可幂等的
+    管线,反向的代价是射点无声消失;每次 fail-open 都带 WARNING+exc_info
+    日志留痕,不静默)。
     """
     instant = scheduled_instant(instant)
     if instant is None:

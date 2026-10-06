@@ -289,11 +289,24 @@ def test_delivery_failed_status_flows_through(cron: CronJobs) -> None:
     assert job["failure_streak"] == 0
 
 
-def test_default_runner_is_noop_stub(cron: CronJobs) -> None:
-    """A6 缺省执行体 = no-op 成功(B1 替换前的桩契约)。"""
+def test_missing_runner_raises_instead_of_fake_success(cron: CronJobs) -> None:
+    """缺陷 7:缺 execute_job 的 tick() 一律 ValueError——Stage A 的 no-op 桩
+    (记假成功:completed/ok + repeat 消耗)已移除;派发零副作用、账本零行。"""
     seed(cron, make_job("j1"))
-    assert tick(cron) == 1
-    assert raw_of(cron, "j1")["last_status"] == "ok"
+    with pytest.raises(ValueError, match="execute_job"):
+        tick(cron)
+    job = raw_of(cron, "j1")
+    assert job["last_status"] is None  # 没有假成功
+    assert job["repeat"]["completed"] == 0  # 预算未消耗
+    assert job["next_run_at"] == (BASE - timedelta(minutes=1)).isoformat()  # 槽未吞
+    assert cron.ledger.list_executions() == []  # 账本零行
+
+
+def test_run_ticker_loop_requires_runner(cron: CronJobs) -> None:
+    """常驻循环同款 fail fast(缺陷 7):缺 runner 的宿主装配错误当场暴露,
+    不是每轮吞错写假成功。"""
+    with pytest.raises(ValueError, match="execute_job"):
+        run_ticker_loop(cron, threading.Event())
 
 
 def test_idle_tick_records_heartbeat(cron: CronJobs) -> None:
@@ -552,9 +565,14 @@ def test_fire_claim_heartbeat_refreshes_during_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """执行体运行期间 fire 认领被周期刷新(长执行活过 TTL 不被他宿主回收);
-    真实时钟 + 缩短心跳节奏(monkeypatch 模块常量)。"""
+    真实时钟 + 缩短心跳节奏(monkeypatch 模块常量)。写节流阈值
+    (CLAIM_REFRESH_MIN_AGE_SECONDS,缺陷 3)同步压到 0:本用例验的是
+    「每跳可刷新」的机制面,节流行为另见 test_heartbeat_fire_claim_write_throttled。"""
     monkeypatch.setattr(tick_module, "FIRE_CLAIM_HEARTBEAT_SECONDS", 0.05)
     monkeypatch.setattr(tick_module, "FIRE_CLAIM_MISS_CONFIRM_SECONDS", 0.01)
+    from myssia.cron import jobs as jobs_module
+
+    monkeypatch.setattr(jobs_module, "CLAIM_REFRESH_MIN_AGE_SECONDS", 0.0)
     cron = CronJobs(tmp_path)  # 无注入时钟:真实 now,at 戳可分辨先后
     seed(
         cron,
@@ -684,7 +702,8 @@ def test_run_ticker_loop_fires_and_stops_cleanly(cron: CronJobs, clock: Clock) -
 def test_run_ticker_loop_heartbeat_scan_fires_and_gates(cron: CronJobs) -> None:
     """低频扫描钩子(10-05-cron-heartbeat 收尾件):注入即被调——首轮即扫
     (停摆检测宁早勿晚),且间隔门独立于 tick 密集度(tick 远快于扫描间隔的
-    观察窗内,恰只扫一次;节奏断言沿控时纪律:存在性+计数,不做精确时距)。"""
+    观察窗内,恰只扫一次;节奏断言沿控时纪律:存在性+计数,不做精确时距)。
+    成功一扫不留扫描错误 marker(缺陷 9 的清面)。"""
     seed(cron, make_job("j1"))
     scans: list[float] = []
 
@@ -697,6 +716,7 @@ def test_run_ticker_loop_heartbeat_scan_fires_and_gates(cron: CronJobs) -> None:
         args=(cron, stop),
         kwargs={
             "interval": 0.05,
+            "execute_job": lambda job: (True, None, None),  # 缺 runner 即 raise(缺陷 7)
             "heartbeat_scan": counting_scan,
             "heartbeat_scan_interval": 10.0,  # 观察窗(亚秒)<< 间隔:只该有首轮一扫
         },
@@ -711,11 +731,13 @@ def test_run_ticker_loop_heartbeat_scan_fires_and_gates(cron: CronJobs) -> None:
         stop.set()
         loop.join(timeout=5.0)
     assert not loop.is_alive()
+    assert cron.get_heartbeat_scan_last_error() is None  # 成功扫描:marker 不在场
 
 
 def test_run_ticker_loop_heartbeat_scan_error_isolated(cron: CronJobs) -> None:
     """扫描钩子自身异常绝不带走 ticker 线程(_guarded 惯例):反复炸的扫描
-    后循环照常 tick/发 job/写心跳;ERROR 留痕但不写 ticker 错误 marker
+    后循环照常 tick/发 job/写心跳;ERROR 留痕 + **专用** heartbeat_scan
+    错误 marker(缺陷 9:操作者可见,此前只留日志);不写 ticker 错误 marker
     (marker 面 = ticker 自身死活,不被评估侧失败污染);stop 干净退出。"""
     seed(cron, make_job("j1"))
     calls: list[str] = []
@@ -754,3 +776,4 @@ def test_run_ticker_loop_heartbeat_scan_error_isolated(cron: CronJobs) -> None:
     assert not loop.is_alive()
     assert calls == ["j1"]  # job 照发恰一次(扫描异常不拖累派发)
     assert cron.get_ticker_last_error() is None  # 扫描失败不染指 ticker 错误面
+    assert "scan blew up" in (cron.get_heartbeat_scan_last_error() or "")  # 缺陷 9

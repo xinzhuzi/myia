@@ -1805,7 +1805,7 @@ def _cmd_cron_status(args: argparse.Namespace) -> int:
     heartbeat_age = cron.get_ticker_heartbeat_age()
     success_age = cron.get_ticker_success_age()
     last_error = cron.get_ticker_last_error()
-    writer_alive = cron.ticker_heartbeat_writer_alive()
+    heartbeat_scan_error = cron.get_heartbeat_scan_last_error()
     estopped = cron.is_estopped()
     jobs = cron.list_jobs(include_disabled=True)
     enabled_jobs = [job for job in jobs if job.get("enabled", True)]
@@ -1816,7 +1816,7 @@ def _cmd_cron_status(args: argparse.Namespace) -> int:
     heartbeat_fresh = (
         heartbeat_age is not None and heartbeat_age <= _CRON_TICKER_FRESH_SECONDS
     )
-    ticker_alive = heartbeat_fresh and writer_alive
+    ticker_alive = heartbeat_fresh and cron.ticker_heartbeat_writer_alive()
     payload = {
         "command": "cron",
         "action": "status",
@@ -1825,6 +1825,7 @@ def _cmd_cron_status(args: argparse.Namespace) -> int:
         "heartbeat_age_seconds": heartbeat_age,
         "last_success_age_seconds": success_age,
         "last_error": last_error,
+        "heartbeat_scan_error": heartbeat_scan_error,
         "estopped": estopped,
         "jobs_total": len(jobs),
         "jobs_enabled": len(enabled_jobs),
@@ -1853,6 +1854,8 @@ def _cmd_cron_status(args: argparse.Namespace) -> int:
         print(
             f"✓ ticker 活着(心跳 {heartbeat_age:.0f}s 前,上次成功 {success_age if success_age is None else f'{success_age:.0f}s'} 前)"
         )
+    if heartbeat_scan_error:
+        print(f"⚠ ticker 活着但心跳告警扫描最近失败:{heartbeat_scan_error}")
     print(
         f"job:{len(enabled_jobs)} 启用 / {len(jobs)} 全部;下次到期:{next_due_at or '-'}"
     )
