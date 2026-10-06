@@ -787,3 +787,11 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 门禁亲验:全量 pytest 4483/0(+22)+vitest 523+ruff 绿+cargo(收口段复核);定向 1327/39。
 - 清场:searxng 探查栈 compose down、colima VM stop(续跑 firecrawl 时 colima start 即回,resolv.conf 写实跨 stop/start 保留)、三个心跳沙盘残留 serve 进程精确按库路径击杀(生产 sidecar 零误伤)。
 - 装机包:本轮纯后端+docs 零 UI 行为差,不重刷(装机徽章像素随下批 UI 件,档内注记);真跑栈已收。
+
+## 2026-10-06:「都做完那」三线工作流收口(dwfrun-799c41a2,3/3 闭环零受阻)
+
+- **firecrawl 自托管真跑复验:blocked→review 全绿**(e151389)——docker.1ms.run 镜像前缀 33MB/s(vs docker hub ~50KB/s)零 daemon 改动;栈起(三曲折:TLS 瞬断/classic builder 剥 --mount/npm 降速,均 /tmp 克隆内外科修);AC1 四站 myssia test 全 ok(JS 重站 md+html 双证);AC2 对照 JS 站 1574 字 vs 基线 0 条;**最大发现=宿主 clash fake-ip TUN 劫持 UDP53 被 firecrawl SSRF 守卫拒连,extra_hosts 钉真 IP 解**(主人服务器无此坑,对策入 zero-cost);README/zero-cost「未实测」翻转实测通过;清场零容器镜像 5.2GB 留存(复验秒起)。
+- **Windows 无头面五项全闭**(零仓库改动)——SSH 实证装机 0.0.1 在位;**单实例语义无头实测:二拉后 MYIA.exe=2 常驻不自退=0.0.1 无此语义**(预期内:729b8f2∉v0.0.1∉1590546 双证,修复随下个 v* tag MSI);主人 GUI 清单 /tmp/win-owner-gui-checklist.md(亮窗四步+冒烟七项人眼面);taskkill/schtasks 清净。
+- **Reddit 决策备忘**(0b0355e,116 行入档)——五决策做成五分钟选择题(推荐 ①A/②A/③B/④A/⑤A,**②10-31 前亲自注册为唯一硬时限动作**)+八步注册人话清单+决策↔引擎对照(b1489ef 引擎全链在库,仅②有真实剩余动作)。
+- 剩余终局:Bark 真推(物理)/Reddit 决策②注册(主人账号,10-31)/review 过目/远期池/下个 v* tag(载 Windows 修复+今夜全部)。searxng 并行线推进中。
+- 提交:本 journal 段 --only;不推远端。
