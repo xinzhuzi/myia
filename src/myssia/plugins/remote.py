@@ -18,8 +18,9 @@ release 资产 tar.gz,字节校验后经既有
    代理、follow_redirects——GitHub release 资产 302 到 CDN);非 2xx /
    网络失败 = :class:`PluginFetchError`(``plugin_fetch_failed``,
    data 带 url/status)。
-3. :func:`verify_sha256` — 字节钉校验;不符 = :class:`IntegrityMismatch`
-   (``integrity_mismatch``,data 带期望/实得)。
+3. :func:`verify_sha256` — 字节钉校验(编排里先做锁 ``size`` 字节对账,
+   不等早拒);不符 = :class:`IntegrityMismatch`
+   (``integrity_mismatch``,data 带期望/实得/大小定位)。
 4. :func:`extract_staging` — tarfile 安全解包:成员白名单(相对路径、无
    ``..``、无反斜杠、非符号/硬链接、非设备件)+ 唯一顶层前缀
    ``plugins/<id>/`` 剥壳(py>=3.12 ``filter="data"`` 与手工白名单双保险,
@@ -69,7 +70,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from myssia.plugins.installed import InstalledPluginStore, PluginStoreError
-from myssia.plugins.manifest import SHA256_HEX_RE
+from myssia.plugins.manifest import SHA256_HEX_RE, find_manifest_file, load_manifest_file
 from myssia.schema import _PLUGIN_ID_RE
 
 logger = logging.getLogger(__name__)
@@ -159,6 +160,9 @@ class PluginLockAsset(_StrictLockModel):
 
     url: str = Field(min_length=1, max_length=1024)
     sha256: str = Field(min_length=64, max_length=64)
+    # 下载字节对账用:fetch 后 len(payload) 必须等于此值,不等即
+    # integrity_mismatch——sha256 全量摘要前的廉价前置防线,锁配置错/
+    # 仓库侧异常的超大资产在此早拒(install_remote 消费)。
     size: int = Field(gt=0)
     # 冗余自资产内 plugin.yaml(装机预显用;装机后以实拉 manifest 校验为准,
     # 锁只作发现面提示,不放松 store 校验——D3)。
@@ -340,12 +344,17 @@ def fetch_plugin_asset(
 def verify_sha256(payload: bytes, expected: str, *, url: str | None = None) -> None:
     """字节钉校验:sha256(payload) 必须逐字符等于锁钉值。
 
+    expected 必须是规范 64 位小写十六进制(hexdigest 原生形态)——
+    大写/带空白等变体一律按不匹配拒,不做归一化放行,与锁
+    (:class:`PluginLockAsset` 的 ``_check_sha256``)和 manifest
+    (``SHA256_HEX_RE``)双处「内容寻址的字节钉不认变体」口径一致。
+
     Raises:
         IntegrityMismatch: ``integrity_mismatch`` —— data 带 expected/actual
             (与可选 url;AC3 定位信息面)。
     """
     actual = hashlib.sha256(payload).hexdigest()
-    if actual != expected.strip().lower():
+    if actual != expected:
         raise IntegrityMismatch(
             "integrity_mismatch",
             f"插件资产 sha256 校验不符(期望 {expected},实得 {actual})",
@@ -438,6 +447,34 @@ def extract_staging(payload: bytes, staging_dir: Path, *, expected_plugin_id: st
 # ---------------------------------------------------------------------------
 
 
+def _warn_declared_digest_drift(staging_dir: Path, asset: PluginLockAsset, plugin_id: str) -> None:
+    """声明面对账(纯告警,零门):资产内 manifest 的 install.sha256 与锁钉不符时留痕。
+
+    manifest.install 是声明面/溯源字段(manifest.py:「机器事实源是随包
+    plugins.lock.json」),不参与装卸门;但两处字节钉漂移时「人与 agent
+    溯源」会拿错的 digest 去校验资产必然失败——记 warning 让漂移可见,
+    装卸照走锁字节。manifest 坏/缺失不在本面对账,校验归 store.install
+    同门拒。
+    """
+    manifest_file = find_manifest_file(staging_dir)
+    if manifest_file is None:
+        return
+    try:
+        manifest = load_manifest_file(manifest_file)
+    except Exception:  # noqa: BLE001 - 声明面对账不拦装卸;manifest 坏由 store.install 结构化拒
+        return
+    declared = manifest.install.sha256
+    if declared is not None and declared != asset.sha256:
+        logger.warning(
+            "插件 %s 声明面字节钉漂移:资产内 manifest install.sha256=%s 与锁钉 %s 不一致"
+            "(机器事实源是锁,装卸按锁字节校验;请发布链同源回填 manifest)url=%s",
+            plugin_id,
+            declared,
+            asset.sha256,
+            asset.url,
+        )
+
+
 def install_remote(
     lock: PluginsLock,
     plugin_id: str,
@@ -449,7 +486,8 @@ def install_remote(
 ) -> dict[str, Any]:
     """按锁远取一件组件包并装进安装根(编排,编排失败零残件)。
 
-    流程:已装未 force 零网络先拒 → fetch → sha256 校验 → 解包暂存 →
+    流程:已装未 force 零网络先拒 → fetch → 锁 size 前置对账 → sha256
+    校验 → 解包暂存 →(声明面 digest 漂移记 warning,零门)→
     ``store.install(staging, force=force)`` 同门落位(manifest 校验/版本
     矩阵/整目录拷贝/绝不半装全在 store,本函数零复制)。暂存目录
     ``<安装根>/.staging/<id>-<4hex>/``(隐藏目录,store 扫描跳过);成功
@@ -482,8 +520,17 @@ def install_remote(
     staging_dir = store.root / STAGING_DIRNAME / f"{plugin_id}-{secrets.token_hex(2)}"
     try:
         payload = fetch_plugin_asset(asset, timeout=timeout, client_factory=client_factory)
+        if len(payload) != asset.size:
+            # size 前置对账:sha256 全量摘要校验前的廉价防线(锁 size 不
+            # 该是纯声明字段);锁配置错/仓库侧异常的资产在此早拒。
+            raise IntegrityMismatch(
+                "integrity_mismatch",
+                f"插件资产大小与锁不符(期望 {asset.size} 字节,实得 {len(payload)} 字节):{asset.url}",
+                data={"url": asset.url, "expected_size": asset.size, "actual_size": len(payload)},
+            )
         verify_sha256(payload, asset.sha256, url=asset.url)
         extract_staging(payload, staging_dir, expected_plugin_id=plugin_id)
+        _warn_declared_digest_drift(staging_dir, asset, plugin_id)
         return store.install(staging_dir, force=force)
     except OSError as exc:
         # 解包/暂存阶段的文件系统失败(权限/磁盘满等)结构化(io_error),

@@ -695,6 +695,27 @@ def test_install_declaration_only_without_lock_is_structured_refuse(monkeypatch,
     assert not (install_root / "myssia-nolock").exists()
 
 
+def test_install_declaration_dir_polluted_with_pycache_still_refuses(monkeypatch, tmp_path):
+    """回退门收紧:纯声明件目录混入 __pycache__(含 .pyc、无任何 .py)不再
+    按「非隐藏子目录」误判旧包直拷——照走 plugin_lock_missing 结构化拒,
+    不装出缺 adapter 的空壳「已装」件(暴露面:手动/自定义
+    MYIA_BUNDLED_PLUGINS 指向被污染目录)。"""
+    root = tmp_path / "bundled"
+    pkg = make_declaration_package(root, "myssia-dirty", MINIMAL_MANIFEST.format(id="myssia-dirty", name="污染件"))
+    cache = pkg / "__pycache__"
+    cache.mkdir()
+    (cache / "adapter.cpython-312.pyc").write_bytes(b"\x00pyc")
+    install_root = tmp_path / "install-root"
+    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+    _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-dirty"}})
+    error = responses[0]["error"]
+    assert error["code"] == "plugin_lock_missing"
+    assert error["data"]["lock_present"] is False
+    assert not (install_root / "myssia-dirty").exists(), "不得装出缺 adapter 的空壳件"
+
+
 def test_install_lock_entry_missing_for_id_is_structured_refuse(monkeypatch, tmp_path):
     """锁在但无该件条目 → plugin_lock_missing(data lock_present=True);
     声明件照常在 list 可见(发现面不依赖锁)。"""
@@ -718,12 +739,14 @@ def test_install_lock_entry_missing_for_id_is_structured_refuse(monkeypatch, tmp
 
 def test_install_remote_bad_hash_structured_with_digests(monkeypatch, tmp_path):
     """坏 hash 拒:integrity_mismatch + data 带期望/实得与 url;零半装、
-    .staging 零残件(AC3)。"""
+    .staging 零残件(AC3)。夹具与锁 size 同长度、内容漂移——先过 size
+    前置对账,专测摘要面。"""
     root = tmp_path / "bundled"
     make_declaration_package(root, "myssia-badhash", MINIMAL_MANIFEST.format(id="myssia-badhash", name="坏钉件"))
     tarball = build_remote_tarball("myssia-badhash", MINIMAL_MANIFEST.format(id="myssia-badhash", name="坏钉件"))
     write_plugins_lock(root, {"myssia-badhash": lock_entry_for(tarball, "myssia-badhash", sha256="0" * 64)})
-    patch_remote_transport(monkeypatch, serve(b"tampered asset bytes"))
+    tampered = b"t" * len(tarball)
+    patch_remote_transport(monkeypatch, serve(tampered))
     install_root = tmp_path / "install-root"
     monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
     monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
@@ -732,7 +755,7 @@ def test_install_remote_bad_hash_structured_with_digests(monkeypatch, tmp_path):
     error = responses[0]["error"]
     assert error["code"] == "integrity_mismatch"
     assert error["data"]["expected"] == "0" * 64
-    assert error["data"]["actual"] == hashlib.sha256(b"tampered asset bytes").hexdigest()
+    assert error["data"]["actual"] == hashlib.sha256(tampered).hexdigest()
     assert error["data"]["url"].endswith("/plugin-myssia-badhash.tar.gz")
     assert not (install_root / "myssia-badhash").exists()
     staging = install_root / ".staging"

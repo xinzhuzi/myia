@@ -1018,18 +1018,19 @@ def _m_plugins_bundled_list(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _bundled_dir_carries_source(pkg_dir: Path) -> bool:
-    """随包组件包目录是否携带源码/数据件(旧包形态判定,D3 回退门)。
+    """随包组件包目录是否携带源码件(旧包形态判定,D3 回退门)。
 
     新分发规范(10-06 INV-1/2)包内组件包只有声明件(plugin.yaml +
-    README.md);出现任意 ``*.py`` 或非隐藏子目录(如 credhunter/ 自有
-    子包)即旧包形态——锁缺席时按旧「包内直拷」路径回退自愈,零硬切。
+    README.md);子树出现任意 ``*.py`` **文件**才算旧包形态(旧包必携
+    adapter.py 或自有子包源码件如 credhunter/)——锁缺席时按旧「包内
+    直拷」路径回退自愈,零硬切。
+
+    目录存在不算源码信号:纯声明件目录被 ``__pycache__``/logs 等缓存
+    目录污染时,按「非隐藏子目录」误判旧包会直拷装出缺 adapter 的空壳
+    「已装」件;数据-only 目录(无任何 .py)本就无可跑入口,归
+    plugin_lock_missing 结构化拒语义正确。
     """
-    for child in pkg_dir.rglob("*"):
-        if child.suffix == ".py":
-            return True
-        if child.is_dir() and not child.name.startswith("."):
-            return True
-    return False
+    return any(child.is_file() and child.suffix == ".py" for child in pkg_dir.rglob("*"))
 
 
 def _m_plugins_bundled_install(params: dict[str, Any]) -> dict[str, Any]:

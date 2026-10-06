@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
 import tarfile
 from pathlib import Path
 
@@ -23,7 +24,7 @@ import httpx
 import pytest
 
 from myssia.plugins.installed import InstalledPluginStore, PluginStoreError
-from myssia.plugins.manifest import LoadError, load_manifest
+from myssia.plugins.manifest import LoadError, load_manifest, load_manifest_file
 from myssia.plugins.remote import (
     DEFAULT_FETCH_TIMEOUT_SECONDS,
     LOCK_FILENAME,
@@ -307,6 +308,26 @@ def test_verify_sha256_mismatch_is_structured_with_both_digests():
     assert excinfo.value.data["url"] == ASSET_URL
 
 
+@pytest.mark.parametrize(
+    "mutate_digest",
+    [
+        pytest.param(lambda canonical: canonical.upper(), id="大写 digest 拒"),
+        pytest.param(lambda canonical: f" {canonical} ", id="带空白 digest 拒"),
+        pytest.param(lambda canonical: canonical + "\n", id="带换行 digest 拒"),
+    ],
+)
+def test_verify_sha256_rejects_noncanonical_digests(mutate_digest):
+    """字节钉不认变体:大写/带空白 digest 一律按不匹配拒(与锁
+    _check_sha256 / manifest SHA256_HEX_RE「严格 64 位小写」双处口径一致,
+    不做 strip().lower() 归一化放行)。"""
+    payload = build_asset_tarball()
+    canonical = hashlib.sha256(payload).hexdigest()
+    with pytest.raises(PluginRemoteError) as excinfo:
+        verify_sha256(payload, mutate_digest(canonical))
+    assert excinfo.value.code == "integrity_mismatch"
+    assert excinfo.value.data["actual"] == canonical
+
+
 # ---------------------------------------------------------------------------
 # 安全解包:好包 / 恶意件矩阵 / 坏包
 # ---------------------------------------------------------------------------
@@ -397,15 +418,63 @@ def test_install_remote_success_lands_in_store_same_gate(tmp_path, store):
 
 
 def test_install_remote_bad_hash_rejects_with_zero_residue(store):
-    """坏 hash 拒:integrity_mismatch + 期望/实得;零半装零残件(AC3)。"""
+    """坏 hash 拒:integrity_mismatch + 期望/实得;零半装零残件(AC3)。
+
+    夹具与锁 size 同长度、内容漂移——先过 size 前置对账,专测摘要面。"""
+    tarball = build_asset_tarball()
+    lock = PluginsLock.model_validate(build_lock_payload(tarball))
+    tampered = b"t" * len(tarball)
+    with pytest.raises(PluginRemoteError) as excinfo:
+        install_remote(lock, "myssia-demo", store, client_factory=serve_bytes(tampered))
+    assert excinfo.value.code == "integrity_mismatch"
+    assert excinfo.value.data["expected"] == lock.assets["myssia-demo"].sha256
+    assert excinfo.value.data["actual"] == hashlib.sha256(tampered).hexdigest()
+    assert excinfo.value.data["url"] == ASSET_URL
+    assert_no_residue(store)
+
+
+def test_install_remote_size_mismatch_rejects_with_zero_residue(store):
+    """size 前置对账:资产字节数与锁 size 不等 → integrity_mismatch 早拒
+    (sha256 全量摘要前的廉价防线,锁 size 不做纯声明字段),data 带期望/
+    实得大小与 url;零半装零残件。"""
     tarball = build_asset_tarball()
     lock = PluginsLock.model_validate(build_lock_payload(tarball))
     with pytest.raises(PluginRemoteError) as excinfo:
-        install_remote(lock, "myssia-demo", store, client_factory=serve_bytes(b"tampered bytes"))
+        install_remote(lock, "myssia-demo", store, client_factory=serve_bytes(b"short"))
     assert excinfo.value.code == "integrity_mismatch"
-    assert excinfo.value.data["expected"] == lock.assets["myssia-demo"].sha256
+    assert excinfo.value.data["expected_size"] == lock.assets["myssia-demo"].size
+    assert excinfo.value.data["actual_size"] == len(b"short")
     assert excinfo.value.data["url"] == ASSET_URL
     assert_no_residue(store)
+
+
+def test_install_remote_warns_on_declared_digest_drift(store, tmp_path, caplog):
+    """声明面对账(纯告警零门):资产 manifest install.sha256 与锁钉漂移 →
+    warning 留痕(机器事实源是锁,装卸照走锁字节装成,不放松任何门);
+    旧式未声明 digest(21 处存量形态)零告警。"""
+    declared = "b" * 64
+    tarball = build_asset_tarball(manifest_text=MINIMAL_MANIFEST.format(sha256=declared))
+    lock = PluginsLock.model_validate(build_lock_payload(tarball))
+    with caplog.at_level(logging.WARNING, logger="myssia.plugins.remote"):
+        result = install_remote(lock, "myssia-demo", store, client_factory=serve_bytes(tarball))
+    assert result["version"] == "1.0.0"  # 漂移只告警不拦装
+    drift = [r for r in caplog.records if "声明面字节钉漂移" in r.getMessage()]
+    assert len(drift) == 1
+    assert declared in drift[0].getMessage()
+    assert lock.assets["myssia-demo"].sha256 in drift[0].getMessage()
+    # 旧式声明(无 install.sha256)零告警:夹具先自证确为未声明形态
+    legacy_text = MINIMAL_MANIFEST.format(sha256="0" * 64).replace(
+        f'  sha256: "{"0" * 64}"\n  size: 999', ""
+    )
+    manifest_file = tmp_path / "legacy.yaml"
+    manifest_file.write_text(legacy_text, encoding="utf-8")
+    assert load_manifest_file(manifest_file).install.sha256 is None
+    legacy_tarball = build_asset_tarball(manifest_text=legacy_text)
+    legacy_lock = PluginsLock.model_validate(build_lock_payload(legacy_tarball))
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="myssia.plugins.remote"):
+        install_remote(legacy_lock, "myssia-demo", store, force=True, client_factory=serve_bytes(legacy_tarball))
+    assert not [r for r in caplog.records if "声明面字节钉漂移" in r.getMessage()]
 
 
 def test_install_remote_fetch_failure_is_structured_no_half_install(store):
