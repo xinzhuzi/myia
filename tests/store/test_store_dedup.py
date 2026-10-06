@@ -331,6 +331,23 @@ def test_list_items_filters_category_and_limit(store):
     assert [i.dedup_key for i in store.list_items(limit=2)] == ["k3", "k2"]
 
 
+def test_list_items_category_source_validation_symmetric(store):
+    """深审 F6 校验对称:category 与 source 同门强校验(非空字符串;None =
+    不过滤)—— 空串 category 此前静默落 ``category = ''`` 永零命中(假空态),
+    非字符串原样进 SQL;source 只挡空串不挡类型。"""
+    with pytest.raises(ValueError, match="category"):
+        store.list_items(category="")
+    with pytest.raises(ValueError, match="category"):
+        store.list_items(category=123)
+    with pytest.raises(ValueError, match="source"):
+        store.list_items(source="")
+    with pytest.raises(ValueError, match="source"):
+        store.list_items(source=99)
+    # None = 不过滤,合法照常(对称的另一半)
+    assert store.list_items(category=None) is not None
+    assert store.list_items(source=None) is not None
+
+
 def test_list_items_since_filters_first_seen(store):
     early = local_dt(9)
     late = local_dt(14)

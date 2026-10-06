@@ -873,8 +873,13 @@ class SQLiteStore:
             raise ValueError(f"字段校验失败: limit 不能为负数,得到 {limit}")
         if before is None and before_id is not None:
             raise ValueError("字段校验失败: before_id 需与 before 同传(复合游标)")
-        if source is not None and not source:
-            raise ValueError("字段校验失败: source 过滤需要非空源名")
+        # 深审 F6 校验对称:category 与 source 同门强校验(非空字符串;None =
+        # 不过滤)。此前 category 完全未校验 —— 空串静默落 ``category = ''``
+        # 永零命中(假空态),非字符串原样进 SQL;source 只挡空串不挡类型。
+        if category is not None and (not isinstance(category, str) or not category):
+            raise ValueError("字段校验失败: category 过滤需要非空字符串(不过滤请传 None)")
+        if source is not None and (not isinstance(source, str) or not source):
+            raise ValueError("字段校验失败: source 过滤需要非空字符串(不过滤请传 None)")
         sql = "SELECT * FROM items"
         conditions: list[str] = []
         params: list[object] = []
