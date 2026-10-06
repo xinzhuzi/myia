@@ -112,3 +112,36 @@
   有 tsc 类型错(CFA 不追踪闭包赋值)阻塞全仓 build,本批一行 cast 修复(运行时语义
   不变,`resolveGet as ((value: unknown) => void) | null)?.({})`);③同会话工作树另有
   telegram/crawl4ai/urlwatch 等在途脏文件,本提交经 `git commit --only` 定向,未触碰。
+
+## 追加回执:合并日报价值门槛 min_score(2026-10-06 20:20,出口线收尾)
+
+主人判例「有价值才进,不裸塞」的最后一块(与 341c4cb TG 频道价值筛同线):
+`store_report` 的 `sections` 增可选 `min_score`(缺省 `None`=不过滤,现状语义零变化)。
+
+- **语义**:低于线(enrich `value` 0-10 制,严格小于)条目不进分区正文,分区尾折一行
+  `   ……(另有 N 条低价值条目,价值分<X)` 留痕;**无分条目不拦**(`scores.value`
+  缺席/bool/非数值=无分,取分口径=push/digest `_digest_order_key` 判例,精评未覆盖
+  ≠低价值);排序维持 store newest-first 既有判例(不加值排序);门槛拦在
+  `max_entries` 帽之先(低价值不占正文席位);**整区低于线时折叠行即内容**——分区
+  照渲染、报表照发,`store_report_window_empty` 哨兵只留给真空窗(窗不空,静默才是
+  说谎);`report_sections` metadata 增 `low_value` 计数(加法,不动旧键)。
+- **配置**:`plugins/daily-digest.yaml` AI 资讯分区配 `min_score: 3`(口味可调),
+  其余分区缺省不动。
+- **提交**:`9859911`(3 文件 +341/−15;`--only` 定向,并行脏文件 desktop/entry.py、
+  telegram/serve.py、desktop 测试未碰,未推远端)。
+- **门禁**:本文件测试 38→48 例全 mock(+10:阈值拦截/折叠行/无分不拦/贴线分==线
+  不拦/bool 口径/门槛先于帽/整区低价值留痕不发静默/缺省 None 现状/yaml 装载校验
+  端到端);全量 4722 passed / 40 skipped;`uvx ruff` 过;gitnexus impact(render_report
+  LOW,私法 0 上游)+ detect-changes(staged)= 3 文件 39 符号 0 执行流,风险 LOW。
+- **装机外科**(2026-10-06 20:13):备份 `/tmp/myssia-minscore-backup-20261006-201301`
+  (bundle store_report.py + 数据根 daily-digest.yaml 前版);同步两件——bundle
+  `世事.app/Contents/Resources/myssia-src/myssia/engines/store_report.py`(换前 sha
+  =HEAD~1 亲核无并行漂移)与数据根 `~/Library/Application Support/MYIA/plugins/
+  daily-digest.yaml`;sha256 对拍双验一致(`c4b330c8…` / `314aef59…`);engines 陈旧
+  `__pycache__` 清除;`codesign --force --deep -s -` 重签,`codesign -vv` = valid on
+  disk / satisfies its Designated Requirement。
+- **装机态装载校验**(仓库 venv + PYTHONPATH=bundle myssia-src,零真网内存库):
+  ①store_report 装载自装机包路径;②registry 解析 store_report;③数据根 yaml 装载
+  AI 资讯 min_score=3、其余分区缺省;④装机代码端到端:高分进正文/低分折叠行
+  (价值分<3)——4/4 过。cron 挂点 fb85edaf94ac(每日合并日报,数据根 yaml 路径)
+  未动,下次 2026-10-07 08:05 自动带门槛跑。
