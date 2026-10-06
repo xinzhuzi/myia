@@ -1,0 +1,58 @@
+== CN 镜像前缀实测(2026-10-06 12:00-12:16)==
+-- manifest 探针(三前缀全通,各 5001B 多架构清单)--
+docker.1ms.run:     5001
+docker.m.daocloud.io:     5001
+dockerproxy.net:     5001
+
+-- docker.1ms.run/library/postgres:17 --
+exit=0 elapsed=5s start=1791259306 end=1791259311
+17: Pulling from library/postgres
+8ed27976e552: Pulling fs layer
+eb9ecc778db0: Pulling fs layer
+0473fe57c965: Pulling fs layer
+aee75b2aa415: Pulling fs layer
+b9bd31abcf11: Pulling fs layer
+b57c5ada52d4: Pulling fs layer
+Digest: sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+Status: Downloaded newer image for docker.1ms.run/library/postgres:17
+docker.1ms.run/library/postgres:17
+CONTENT: docker.1ms.run/library/postgres disk=667MB
+
+-- docker.1ms.run/library/golang:1.24 首拉(759s 未完,VM 被并行线 colima stop 连带,层已提交部分保留)--
+bc8128ce97cc: Pull complete
+f5657497bb46: Download complete
+unexpected EOF
+-- 续拉(VM 复起后,已提交层复用)--
+Digest: sha256:d2d2bc1c84f7e60d7d2438a3836ae7d0c847f4888464e7ec9ba3a1339a1ee804
+Status: Downloaded newer image for docker.1ms.run/library/golang:1.24
+docker.1ms.run/library/golang:1.24
+elapsed: 17s(日志内时戳差)
+CONTENT: docker.1ms.run/library/golang disk=1.33GB
+
+== fake-ip DNS 证据 ==
+-- VM resolv.conf --
+nameserver 114.114.114.114
+nameserver 223.5.5.5
+-- 容器内解析(默认与强制 --dns 223.5.5.5 均 fake-ip) --
+198.18.1.16     example.com
+198.18.0.14     github.com
+198.18.1.16     example.com
+-- playwright-service SSRF 守卫直证 --
+{"content":"<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><link rel=\"icon\" href=\"data:,\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Example Domain</title><style>html{color-scheme:light dark;background:light-dark(#eee,#222)}body{font:16px/1.6 system-ui,sans-serif;max-width:26em;margin:auto;padding:25vh 2em 2em;text-align:center}</style></head><body><style>svg{display:block;margin:-2.75em auto 0;opacity:.55}p+p{font-size:.875em;opacity:.6}</style><svg viewBox=\"0,0,20,20\" width=\"44\" height=\"44\" fill=\"currentColor\" aria-hidden=\"true\"><path fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" stroke-linejoin=\"round\" d=\"M6 4H3v12q4 0 7 1.5-1-3.5-4-4.5V2q3.5 1 4 3v12.5q3-1.5 7-1.5V4q-4.5 0-7 1\"></path><g transform=\"rotate(-6,13.6,8.3)\"><path id=\"q\" d=\"M11.5 6.6h1.8v1.8l-1 1.6-.6-.3.8-1.3h-1z\"></path><use href=\"#q\" x=\"2.4\"></use></g></svg><p lang=\"en\">This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it for testing and monitoring purposes.</p><p lang=\"ar\" dir=\"rtl\">هذا النطاق مُخصص للاستخدام في أمثلة التوثيق دون الحاجة إلى إذن. هذه ليست خدمة، يُرجى تجنب الاعتماد عليها لأغراض الاختبار والمراقبة.</p><p lang=\"zh\">该域名仅用于文档示例，无需获得许可。这并非一项服务，请勿将其用于测试和监控目的。</p><p lang=\"fr\">L’usage de ce domaine est réservé à des exemples de documentation, sans autorisation préalable.  Il ne s’agit pas d’un service ; son utilisation à des fins de test ou de surveillance est à éviter.</p><p lang=\"ru\">Данный домен предназначен для использования в примерах документации без необходимости получения предварительного разрешения. Это не сервис; не рекомендуется его использование для тестирования и мониторинга.</p><p lang=\"es\">Este dominio está destinado al uso en ejemplos de documentación sin necesidad de permiso. Esto no es un servicio; evitar utilizarlo para realizar pruebas o monitoreos.</p><a href=\"https://iana.org/help/example-domains\">Learn more</a><script src=\"/s.js\"></script>\n</body></html>","pageStatusCode":200,"contentType":"text/html; charset=utf-8","url":"https://example.com/"}
+
+== 就绪探针 ==
+{"status":"ok"}
+== 容器态(起栈后) ==
+NAME                             IMAGE                              COMMAND                  SERVICE              CREATED         STATUS                   PORTS
+firecrawl-api-1                  firecrawl-api                      "docker-entrypoint.s…"   api                  4 minutes ago   Up 4 minutes             0.0.0.0:3002->3002/tcp, [::]:3002->3002/tcp, 8080/tcp
+firecrawl-foundationdb-1         foundationdb/foundationdb:7.3.63   "/usr/bin/tini -g --…"   foundationdb         8 minutes ago   Up 8 minutes             
+firecrawl-nuq-postgres-1         firecrawl-nuq-postgres             "docker-entrypoint.s…"   nuq-postgres         8 minutes ago   Up 8 minutes (healthy)   5432/tcp
+firecrawl-playwright-service-1   firecrawl-playwright-service       "docker-entrypoint.s…"   playwright-service   4 minutes ago   Up 4 minutes             
+firecrawl-rabbitmq-1             rabbitmq:3-management              "docker-entrypoint.s…"   rabbitmq             8 minutes ago   Up 8 minutes (healthy)   4369/tcp, 5671-5672/tcp, 15671-15672/tcp, 15691-15692/tcp, 25672/tcp
+firecrawl-redis-1                redis:alpine                       "docker-entrypoint.s…"   redis                8 minutes ago   Up 8 minutes             6379/tcp
+
+== 修复前对照(extra_hosts 加持前,同一直打 playwright-service 的原样报错) ==
+{"content":"","pageStatusCode":403,"pageError":"Blocked insecure target URL \"https://example.com/\": resolves to a private/internal address"}
+(fake-ip 198.18.1.16 被 playwright-service 的 SSRF 守卫判为内网地址;api 侧 pdf/document
+引擎同因报 "Connection violated security rules."(safeFetch.js:127)。extra_hosts 钉真实
+IP 后同一请求返回 pageStatusCode:200 全文,见上方直证。)

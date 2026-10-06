@@ -170,8 +170,16 @@ plain HTTP (`POST {endpoint}/v1/scrape`), so a running instance is a ready
 L3 rung on the degrade chain.
 
 > The template in this section comes verbatim from the official self-host
-  docs; the machine that wrote this page has no docker, so it is
-  **unverified locally** — see the re-verification note at the end.
+  docs and **was verified locally on 2026-10-06** (colima docker: full
+  stack up, readiness probe 200, four sites scraped through the engine —
+  samples and the comparison table live in
+  `.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/selfhost-run-20261006.md`).
+  CN-network notes: when docker hub layer pulls crawl, use the
+  "mirror-prefix pull + `docker tag` back" route (e.g.
+  `docker pull docker.1ms.run/library/node:22-slim` — no daemon config
+  change; measured 33MB/s locally); on hosts without the buildx plugin the
+  classic builder chokes on the Dockerfile's `--mount=type=cache` lines
+  (strip them temporarily — they only speed up repeat builds).
 
 ```bash
 git clone https://github.com/firecrawl/firecrawl.git && cd firecrawl
@@ -229,9 +237,11 @@ Boundaries, stated plainly:
   container at 4 CPUs / 8GB RAM — size lighter machines accordingly; the
   default stack ships no auth and no TLS, so a public deployment needs
   hardening (reverse proxy + strong PostgreSQL credentials + a changed
-  `BULL_AUTH_KEY`). This section is unverified locally (no docker) — after
-  deploying, run `uv run myssia test <category>.yaml --json` against one
-  JS-heavy site; a healthy response completes the re-verification.
+  `BULL_AUTH_KEY`). This section was verified locally on 2026-10-06
+  (colima docker; `uv run myssia test <category>.yaml --json` green across
+  four sites including a JS-heavy one). On fake-ip proxy setups, pin real
+  IPs via `extra_hosts` on api/playwright-service — see
+  evidence/selfhost-run-20261006.md §3 for the playbook.
 
 ## 5. Self-hosted SearXNG: keyword digests (zero dollars)
 

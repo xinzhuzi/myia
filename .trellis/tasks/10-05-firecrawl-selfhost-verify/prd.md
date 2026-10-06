@@ -53,34 +53,34 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 自托管实例真跑通:3-5 站 scrape 应答样本在档(含 JS 重站)。
-      —— blocked(2026-10-05):本机 docker 前置不满足(Docker Desktop 已卸尽,坏符号
-      链接+无 colima/podman/lima/orbstack+无 socket,探针全录
-      evidence/docker-unavailable-probe.txt)。真跑与应答样本留主人服务器
-      (AC manual;复验法=zero-cost §4 末注记:`myssia test <品类>.yaml
-      --json` 挑 JS 重站跑一遍)。
-      —— blocked 持续、瓶颈迁移(2026-10-06 00:56-01:44):docker 前置
-      已解锁(colima running,docker info/compose 5.6.0 亲验通过),按
-      zero-cost §4 模板逐字起栈(官方仓克隆 /tmp/firecrawl-e2e+.env 三行
-      +compose up -d --build 后台+exit 文件法)——45 分钟(首盒 20+延长
-      轮 20+收尾缓冲 3+建栈耗时)拉层未完:docker hub 大层实测 ~50KB/s
-      级,停时 117 层已完成(node/rabbitmq/redis/foundationdb 1.53GB 均
-      完整),playwright 浏览器层 95.42/112.9MB 未完,api 本地 build 未及
-      开始 → 按时间盒纪律 TaskStop+`docker compose down --remove-orphans`
-      清场(本流零容器残留;镜像层缓存与 /tmp 克隆保留,复验续跑不必重下
-      已拉 2.4GB+)。全实录+四站 robots 实况见 evidence/build-timeout-20261006.md。
-      真跑与应答样本仍留主人服务器(AC manual;或本机网络良好窗口按同
-      命令续跑,缓存已备)。
-- [ ] AC2 质量对照表:vs Zenrows 基线,差异与 cloud-only 缺口如实。
-      —— blocked 同 AC1(无实例即无对照数据);cloud-only 缺口面已按官方
-      四来源如实落 evidence/official-selfhost-sources.md 并入文档节
-      (Fire-engine 全家/LLM 抽取自带端点/agent-browser-interact 云端/
-      默认栈无鉴权无 TLS),vs Zenrows 的正文完整度对照缺真跑,不虚构。
-      —— Zenrows 基线本机不可得(2026-10-06 实查):shell env 无
-      ZENROWS*;`~/.myia/gates.yaml` 不存在(MYIA_HOME 未设)→
-      saas.zenrows 门槛未开、api_key 引用缺位(引擎凭据走
-      gates.yaml saas.<name>.api_key → 钥匙串,saas.py:19/:155-165)。
-      vs Zenrows 对照无论实例起否均留主人 AC manual,不虚构。
+- [x] AC1 自托管实例真跑通:3-5 站 scrape 应答样本在档(含 JS 重站)。
+      —— **2026-10-06 达成**(镜像前缀路线,详录 evidence/selfhost-run-20261006.md):
+      CN 镜像前缀 `docker.1ms.run` 实测可用(postgres:17 166MB/5s≈33MB/s,
+      补齐 golang:1.24+postgres:17 后 docker tag 回原名,零 daemon 配置改动),
+      `docker compose up -d --build` 六容器全 Up(api 3002 就绪探针首探即
+      `{"status":"ok"}`);`MYIA_FIRECRAWL_URL=http://127.0.0.1:3002 uv run
+      myssia test` 四站(quotes.toscrape.com/js + example.com + HN + TC-AI)
+      全 ok,JS 重站渲染内容实锤在(爱因斯坦引文 md/html 双证),直连
+      /v1/scrape 五份全长应答样本落 evidence/scrape-samples/。曲折与 /tmp
+      内外科修(classic builder 剥 --mount / pnpm 耐心参数 / fake-ip 环境下
+      extra_hosts 钉真 IP)全录档,主人服务器复验(AC manual)可直接
+      `docker compose up -d`(镜像已建成)。
+      —— 前 blocked 两轮留痕:2026-10-05 docker 前置不满足;2026-10-06 00:56
+      docker hub 拉层 ~50KB/s 45 分钟超时(证据 evidence/build-timeout-20261006.md)。
+- [x] AC2 质量对照表:vs Zenrows 基线,差异与 cloud-only 缺口如实。
+      —— **2026-10-06 达成(基线=static_html+trafilatura,非 Zenrows,主人
+      放行口径)**:Zenrows 凭据上轮已证缺位(env 无 ZENROWS*+gates.yaml 不
+      存在),vs Zenrows 数字对照仍留主人(AC manual);本轮对照侧改
+      static_html+trafilatura(源级 extract_fallback 开启,链跑+引擎同款
+      助手全长复算双口径),对照表落 evidence/selfhost-run-20261006.md §⑤:
+      JS 重站 1574 字符 vs **0 条**(raw HTML 壳,firecrawl 补位实证)、
+      HN 18285 vs 4101、TC-AI 20709 vs 305(列表卡片 JS 渲染基线拿不到)、
+      example 958 vs 156。附:免费链真降级口径下 JS 站被本机 crawl4ai 接住
+      (功能等位,firecrawl 增量=渲染负载外移)。cloud-only 缺口面维持
+      official-selfhost-sources.md 结论,本轮真跑零新增暴露;/v1/scrape
+      参数面(formats/timeout)与失败结构(success:false+error 码)双向
+      亲证,**API 兼容零缺口、维持不另立适配档**。
+      —— 前 blocked 留痕:无实例即无对照数据(两轮,见 AC1 留痕)。
 - [x] AC3 指引:文档节+compose 模板+AGPL 边界句;零代码或最小适配另立
       (若适配,本档注记并指新档)。
       —— 2026-10-05 交付:README 双语「自托管 Firecrawl 兜底」节 +
@@ -91,6 +91,10 @@
       ——未暴露需适配的 API 缺口:引擎打 `POST /v1/scrape`,现行上游
       `apps/api/src/index.ts` 明挂 v1 路由(源码级佐证,非真跑,真跑归
       AC1 复验),故无需另立适配档。
+      —— 2026-10-06 更新:AC1 真跑达成后,README 双语节与 zero-cost §4
+      双语的「本机未实测」标注已翻转为「2026-10-06 本机 colima docker
+      实测通过」并补国内网络注记(镜像前缀 33MB/s/classic builder 剥
+      --mount/fake-ip extra_hosts 三坑与对策)。
 - [ ] AC4 门禁:全量 pytest/vitest 零回归(纯文档+evidence 则豁免代码门禁,
       记档声明)。
       —— 豁免声明:本批零代码(仅 README/docs 双语 md+evidence+本档),
@@ -101,6 +105,8 @@
       —— 2026-10-06 复跑(本轮仍零代码零文档改动,仅本档+evidence):
       `uv run --no-sync pytest tests/test_docs.py tests/engines/test_firecrawl.py
       -q` = **127 passed, 1 skipped**,与基线逐字一致零回归。
+      —— 2026-10-06 三跑(本轮文档标注翻转 README+zero-cost×2,门禁面
+      复验):同定向命令复跑,结果见档内实施注记·续二。
 
 ## 边界与红线
 
@@ -189,3 +195,44 @@
   窗口续跑 `docker compose up -d --build` 可免重下。
 - 归档判据:AC1/AC2 未达成(真跑未发生),依「CI 未绿则涉门禁档留守」
   同精神——真跑未成的验证档不伪勾不归档,留主人服务器复验后续收。
+
+## 实施注记·续二(2026-10-06 11:57-13:35,镜像前缀路线真跑全绿,AC1/AC2 闭)
+
+- **路线**:按主人令走「镜像前缀拉取+docker tag 回原名」(零 daemon/colima
+  配置改动)。三前缀 manifest 全通,**docker.1ms.run 首个真拉可用**:
+  postgres:17 166MB/5s≈33MB/s(vs 上轮 docker hub 直连 ~50KB/s);golang:1.24
+  首拉 759s 未完系**并行 searxng 线 `colima stop` 连带停了共享 colima VM**
+  (host agent 日志 SIGINT 优雅停机实锤,非崩溃;VM 磁盘无损,复起后续拉
+  17s 完,已提交层复用)。上轮卡死的 112.9MB 层实为 postgres:17 基镜像层
+  (层 ID b9bd31abcf11 比对实锤)。
+- **起栈曲折(全录 evidence/selfhost-run-20261006.md §②)**:①容器内
+  github TLS 瞬断(Step 14 FDB deb,宿主同 URL 200——重试即过);②本机
+  docker CLI 无 buildx 插件→compose 固走 classic builder→Dockerfile
+  `--mount=type=cache` 行不可解析(标签 builder=classic 实证);/tmp 克隆
+  内剥除三缓存挂载+pnpm 耐心参数(npm CDN 中途降速 ~20-40KB/s,首轮 721/780
+  超时,次轮 780/780 过)。13:23 六容器全 Up,readiness 首探 200
+  {"status":"ok"}。时间盒 45 分钟到点时 pnpm 744/780 推进中,按上轮
+  「延长一轮」先例延至硬顶 13:25,实际 13:23 完成(延展决策如实记)。
+- **fake-ip 环境 vs SSRF 守卫(本轮最大发现,§③)**:宿主 clash fake-ip 在
+  TUN 层劫持所有 UDP 53(容器强制 --dns 223.5.5.5 仍回 198.18.x.x),
+  firecrawl 双守卫(api safeFetch+playwright-service)按 RFC 保留段判内网
+  拒连→起栈后首跑全站 500。解法=宿主 alidns DoH 取四站真实 IP,compose
+  给 api/playwright-service 加 extra_hosts 钉真 IP(仅 /tmp 克隆内),
+  force-recreate 后全通。**主人服务器无 fake-ip 环境无此坑**;对策已入
+  zero-cost §4 注记。
+- **AC1**:四站 myssia test 全 ok(引擎零改动,env 覆盖面真测);直连
+  /v1/scrape 五份全长样本落 evidence/scrape-samples/;JS 重站渲染内容
+  md/html 双证。
+- **AC2**:基线按放行口径=static_html+trafilatura(非 Zenrows,Zenrows
+  数字对照留主人),对照表+免费链 crawl4ai 功能等位注记落 §⑤;API 兼容
+  零缺口(v1 面参数+失败结构双向亲证),维持不另立适配档。
+- **文档**:README 双语节+zero-cost §4 双语「未实测」标注翻转为实测通过
+  +国内网络三坑注记(镜像前缀/无 buildx 剥 --mount/fake-ip extra_hosts)。
+- **门禁**:定向 `uv run --no-sync pytest tests/test_docs.py
+  tests/engines/test_firecrawl.py -q` = 127 passed, 1 skipped(文档反漂移
+  全套过=标注翻转零破坏;firecrawl 引擎 18 用例零回归);全量 pytest/
+  vitest 归脚本统一批,本档零代码改动面维持。
+- **收尾**:六容器 compose down 清场(镜像 5.2GB+留存,复验 `docker
+  compose up -d` 秒级);/tmp 克隆三处 /tmp 内修带注释留存;本流零仓库外
+  脏面。**档置 review**:AC1/AC2 本机闭+AC3 既有+AC4 定向绿,vs Zenrows
+  数字对照与主人服务器 AC manual 复验留主人。

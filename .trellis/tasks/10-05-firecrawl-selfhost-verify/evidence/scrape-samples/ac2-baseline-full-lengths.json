@@ -1,0 +1,29 @@
+{
+ "js-heavy-quotes": {
+  "status": 200,
+  "items": 0,
+  "content_len": 0,
+  "head": ""
+ },
+ "static-example": {
+  "status": 200,
+  "items": 1,
+  "content_len": 156,
+  "head": "This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it ",
+  "provenance": "trafilatura"
+ },
+ "hn-front": {
+  "status": 200,
+  "items": 1,
+  "content_len": 4101,
+  "head": "Hacker News\nnew\n|\npast\n|\ncomments\n|\nask\n|\nshow\n|\njobs\n|\nsubmit\nlogin\n1.\nWhy Common Lisp is now the best programming lang",
+  "provenance": "trafilatura"
+ },
+ "tc-ai": {
+  "status": 200,
+  "items": 1,
+  "content_len": 305,
+  "head": "AI\nNews coverage on artificial intelligence and machine learning tech, the companies building them, and the ethical issu",
+  "provenance": "trafilatura"
+ }
+}

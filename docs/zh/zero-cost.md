@@ -139,8 +139,13 @@ export MYIA_LLM_KEY=<你的 AI Studio API key>
 队列),零美元、渲染流量不出你的机器。引擎只按 HTTP API 调用(`POST
 {endpoint}/v1/scrape`),实例一起就是降级链上现成的 L3 梯级。
 
-> 本节模板逐句来自官方 self-host 文档;撰写本页的机器没有 docker,
-> **未实测**——部署后复验口径见本节末注记。
+> 本节模板逐句来自官方 self-host 文档,**2026-10-06 已在本机 colima docker
+> 实测通过**(六容器起栈、就绪探针 200、四站引擎真跑,样本与对照表在
+> `.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/selfhost-run-20261006.md`)。
+> 国内网络注记:docker hub 拉层慢时可用「镜像前缀拉取 + `docker tag` 回原名」
+> (如 `docker pull docker.1ms.run/library/node:22-slim`,不动 daemon 配置,
+> 本机实测 33MB/s);构建在无 buildx 插件的环境走 classic builder 会卡
+> Dockerfile 的 `--mount=type=cache` 行(临时剥掉即可,不影响功能)。
 
 ```bash
 git clone https://github.com/firecrawl/firecrawl.git && cd firecrawl
@@ -190,9 +195,10 @@ push:
   markdown/html)在栈内,恰好覆盖 L3 兜底所需(引擎只消费这两种格式)。
 - **资源与复验**:官方栈给 api 容器配的上限是 4 CPU / 8GB 内存,轻量
   机器量力而行;默认栈无鉴权无 TLS,公网部署须自行加固(反代 + 强
-  PostgreSQL 凭据 + 更换 `BULL_AUTH_KEY`)。本节未在本机实测(无
-  docker)——服务器部署后 `uv run myssia test <品类>.yaml --json` 挑一个
-  JS 重站跑一遍,应答正常即为复验通过。
+  PostgreSQL 凭据 + 更换 `BULL_AUTH_KEY`)。本节 2026-10-06 在本机
+  colima docker 实测通过(`uv run myssia test <品类>.yaml --json` 四站
+  真跑全 ok,含 JS 重站;fake-ip 代理环境需给 api/playwright-service 加
+  `extra_hosts` 钉真实 IP,详见 evidence/selfhost-run-20261006.md §③)。
 
 ## 5. 自托管 SearXNG:关键词日报(零美元)
 

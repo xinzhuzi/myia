@@ -187,8 +187,9 @@ L3 `firecrawl` 引擎的渲染后端不必买云端——官方
 才需要)。上游 server 是 AGPL-3.0——世事 只以服务消费接入(HTTP API
 调用,零源码复制,同 RSSHub 先例),不 vendor 其代码;强反爬绕过/截图等
 Fire-engine 能力为云端专属,自托管栈不含。完整模板、cloud-only 缺口清单
-与复验口径见[零成本接入 §4](docs/zh/zero-cost.md)(本机无 docker,
-该指引未实测,部署复验留服务器侧)。
+与复验口径见[零成本接入 §4](docs/zh/zero-cost.md)(2026-10-06 本机
+colima docker 实测通过:四站真跑样本与对照表在
+`.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/`)。
 
 跑第一个品类 —— 零凭据的完整配置就一个小文件:
 
