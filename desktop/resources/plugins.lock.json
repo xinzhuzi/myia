@@ -1,0 +1,74 @@
+{
+  "manifest_version": 1,
+  "repo": "https://github.com/xinzhuzi/myia",
+  "tag": "v0.0.2",
+  "generated_at": "2026-10-06T15:34:28.976Z",
+  "assets": {
+    "myssia-credhunter": {
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.0.2/plugin-myssia-credhunter.tar.gz",
+      "sha256": "55a34d510d26f769a69bd0a1a1ef758be3c1bfa210cac211ae48bb122a28bf95",
+      "size": 72661,
+      "version": "0.1.0"
+    },
+    "myssia-firecrawl": {
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.0.2/plugin-myssia-firecrawl.tar.gz",
+      "sha256": "d5912958844a862353000fde48d362843ecd4eb5de45de0bc4e8e1981b1fc1b1",
+      "size": 2015,
+      "version": "1.0.0"
+    },
+    "myssia-maigret": {
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.0.2/plugin-myssia-maigret.tar.gz",
+      "sha256": "779e44b6bbf7c521b68d1f834fefd9a36186dff4c692db98144f0740cf11e03c",
+      "size": 6070,
+      "version": "1.0.0"
+    },
+    "myssia-media": {
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.0.2/plugin-myssia-media.tar.gz",
+      "sha256": "e3fbcf3caa28d1b3ab8ef021ddf5ed80fb7dfbf810dbc80e7f13e4e7bf776507",
+      "size": 5513,
+      "version": "1.0.0"
+    },
+    "myssia-mediacrawler": {
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.0.2/plugin-myssia-mediacrawler.tar.gz",
+      "sha256": "f718e454abcbcd0719422fcd99568135237d40771801d79016275d6ff439bc73",
+      "size": 1964,
+      "version": "1.0.0"
+    },
+    "myssia-osint": {
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.0.2/plugin-myssia-osint.tar.gz",
+      "sha256": "65e4845d7d5c48d02af895cd1ff066b6c5240f56a6f4491b880db15da346e5b0",
+      "size": 6696,
+      "version": "1.1.0"
+    },
+    "myssia-proxy": {
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.0.2/plugin-myssia-proxy.tar.gz",
+      "sha256": "9c2d0e16c62bea54bfa55751407fc773472d60e0c24f1000acf83b32b7b6c8a5",
+      "size": 6575,
+      "version": "1.1.0"
+    },
+    "myssia-snownlp": {
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.0.2/plugin-myssia-snownlp.tar.gz",
+      "sha256": "c9c8ddc015b765bb01d13bbcd4b7f310099f8b3c1187c54063b70bee1d9226f6",
+      "size": 6354,
+      "version": "1.0.0"
+    },
+    "myssia-theharvester": {
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.0.2/plugin-myssia-theharvester.tar.gz",
+      "sha256": "979b2aef1f40b4350b8a38398f50f654c3d7e1ebb5185b773ea5fe16e73c8106",
+      "size": 6992,
+      "version": "1.0.0"
+    },
+    "myssia-urlwatch": {
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.0.2/plugin-myssia-urlwatch.tar.gz",
+      "sha256": "57c274bc2b138e10af1b489de393e52f7d60706a5eb04180bd81bb1167cbf989",
+      "size": 12808,
+      "version": "1.0.0"
+    },
+    "myssia-yake": {
+      "url": "https://github.com/xinzhuzi/myia/releases/download/v0.0.2/plugin-myssia-yake.tar.gz",
+      "sha256": "260e898a6d47cd68f90b3cc54e03cd977d1a5cbed128d7862ee7bb96776d5a90",
+      "size": 5506,
+      "version": "1.0.0"
+    }
+  }
+}

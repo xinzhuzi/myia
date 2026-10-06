@@ -75,7 +75,8 @@
       "../myssia_desktop_entry": "myssia-src/myssia_desktop_entry",
       "../resources/runtime-manifest.json": "runtime-manifest.json",
       "../resources/requirements-lock.txt": "requirements-lock.txt",
-      "../resources/components.json": "components.json"
+      "../resources/components.json": "components.json",
+      "../resources/plugins.lock.json": "plugins.lock.json"
     },
     "category": "DeveloperTool",
     "shortDescription": "myssia — AI-native intelligence hub"

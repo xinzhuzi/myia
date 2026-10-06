@@ -45,3 +45,13 @@ build-desktop:
 # Docker 镜像构建检查(与 ci.yml docker-build job 同口径:本机原生架构,不 push 不打 tag)。
 docker:
     docker build .
+
+# 插件发布链:源码资产 + 远取锁(10-06-plugin-src-remote-fetch 批4;design D7)。
+# 发布是显式动作,不串进 build-desktop(避免日常构建误传资产)。
+# 用法:just release-plugins v0.0.2          # 产 dist 资产+写锁并 gh release upload
+#       just release-plugins v0.0.2 --dry-run  # 只产 dist+锁不传(本地重产锁用)
+# 纪律:动过 plugins/myssia-* 源码必重跑本目标再发版——锁钉的 sha256 随树漂移,
+#       同 tag 重传走 gh --clobber 覆盖。资产=git archive tracked 件,vendor
+#       submodule(GPL 分发红线)与 __pycache__ 天然不入,脚本内双保险断言再拦。
+release-plugins tag *flags:
+    node desktop/scripts/release-plugins-lock.mjs {{tag}} {{flags}}
