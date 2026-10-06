@@ -80,3 +80,5 @@
 **本流验证门禁(2026-10-06 12:47 亲跑)**:`uv run --all-extras pytest tests/cron tests/alerts tests/cli/test_cli.py -q` → **463 passed in 29.44s**;`uv run --all-extras ruff check src/myssia/cron/ src/myssia/cli.py tests/cron/ tests/cli/test_cli.py` → All checks passed;`ruff format --check` 同面 12 文件会重排,与 HEAD~1 基线计数**完全一致**(e8d7801 零新增格式漂移,沿 2022bd9 在案先例)。
 
 **本流操作事故披露(已闭环)**:基线比对期间一次 `git stash --keep-index --include-untracked` 误卷并行会话在途件;逐文件比对后全部复原——push 面 7 文件 stash 内容与 f299432 已提交内容逐字节一致(零丢失)、ai-news.yaml 未提交块恢复原位(` M` 态回归并行国产流预期形态)、hermes 流垫片 package.json 恢复后与 4e97a40 HEAD 一致(零损伤);stash 栈已清空。
+
+> 勘误(10-06 终账轮):§4 行文沿用了任务令的错位编号(「时钟回拨=缺陷 3、降级锁=缺陷 4」),正确映射以 §2 审计清单为准:时钟回拨=缺陷 2、降级锁=缺陷 3、缺陷 4=tick 锁覆盖派发期;补测内容本身按行为描述执行无歧义,特此统一口径。
