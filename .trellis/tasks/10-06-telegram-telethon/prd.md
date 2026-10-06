@@ -95,3 +95,41 @@ MYIA 具备三层 Telegram 消息获取能力,全部走「链接者」形态,组
 | 5 即时口径 | 粗筛命中→LLM 打分,**≥8 分即时单条**,其余进日报;口味配置化 |
 | 6 常驻宿主 | **桌面 app 内接线为主**(app 开着=监控活着),CLI 形态留给服务器场景 |
 | 7 保留期 | 90 天照旧可配;敏感群单源短保留 |
+
+## 追加回执:独立深审修复批(2026-10-06 20:52,F8/F9/F10/F11/F12/F13/F14)
+
+- **修复面七发现**(提交 `bced6c5`,10 文件 +614/−52,全 mock 零网络零钥匙串):
+  - **F8(high) 多 bot 双宿主共享单键 offsets.json 交叉污染→静默丢单**:offsets.py 按
+    bot token 指纹分键(`offsets-<sha8(token)>.json` 兄弟文件;update_id 是 per-bot
+    独立序列,A bot 游标对 B bot 是越前游标=漏拉);旧单键迁移=**采纳一次即删**
+    (单 bot 升级不断点;第二 bot 从 0 续拉由锚点去重兜底——重放安全、越前不安全);
+    events.py 账本同指纹分库(`events-<sha8>.db`,counts 不跨 bot 混计);cli.py 与
+    desktop/entry.py 装配面同批传 bot_token。多宿主交替写/迁移链/桌面装配指纹断言入档。
+  - **F9 过滤配置校验晚于 offset 确认**:`_filter_options()` 前移到任何 I/O 之前
+    (确认是全 bot 不可逆语义);时序测试钉死零请求零确认。
+  - **F10 serve poller transport 异常未净化**:httpx 异常 str 带完整 URL(含 token);
+    engines 导出 `mask_token_text` 公开件,serve transport+malformed 两路径过门,
+    token 零外显断言入档。
+  - **F11 telegram_events 无界增长**:executions 1000 行帽判例,record 每写一裁
+    (同事务)+显式 prune();1005 写→帽 1000 最旧出列测试。
+  - **F12 merge_high_value 区间文档措辞**:锚形态如实(首条 url+`-hv<N>-<尾 id>`,
+    非 `<chat>-<min>-<max>` 区间对;数值序 id 全量在 merged_message_ids)。
+  - **F13 媒体组跨轮**:长轮询分批把同 media_group_id 切两轮→后到带 caption 成员
+    重复出条;`updates_to_items` 增 skip_groups 前缀(批量档窗口自带重叠免传,如实
+    注记),serve 宿主跨轮记忆(chat:gid 保留一轮);相册切两轮测试。
+  - **F14 未配通道虚账+资源收尾**:push sink 契约改返 bool(False=通道未配),账本新词
+    `outcome=no_channel`(不再虚记 pushed);宿主退出收 poller 客户端 aclose(新增,
+    软探兼容 fake),账本归装配方收(cli finally / desktop bundle close 各补)。
+- **门禁**:pytest 全量 **4810 passed/40 skipped**;ruff 绿;gitnexus detect-changes
+  (staged)= 10 文件 70 符号 0 执行流 **low**。store 层 F6 校验对称另批 `4acfc42`。
+- **装机外科**(2026-10-06 20:45-20:48):`vite build`+`npx tauri build` exit 0
+  (UI 批 eef5ff1 同窗,一次重打包覆盖两批);备份
+  `/tmp/myssia-app-backup-20261006-204559-deepaudit`;ditto 换装;主二进制 sha256
+  `26ad7151…` 构建产物与 /Applications 装机件双验一致;bundle myssia-src 八件
+  (entry.py+telegram 包四件+engines/telegram.py+cli.py+store/sqlite.py)sha256
+  对拍 **8/8 一致**;bundle 陈旧 `__pycache__` 清除后 adhoc 重签+`codesign -vv`
+  双过(valid on disk/satisfies its Designated Requirement);旧实例(13732/13738)
+  quit 后 `open -g` 静默拉起新进程树 **36514(壳)/36519(sidecar)**;ticker 心跳双验
+  (新写者戳 `…-36519` 即现+65s 续跳精确 +60s 与 DEFAULT_TICK_INTERVAL_SECONDS 吻合,
+  旧死戳顺手清);telegram 宿主 graceful 文件证据=数据根无 telegram/ 目录(token 未配
+  未起;配好重启即活,首次起即走 F8 指纹键);装机实例保持常驻(cron 照跑)。

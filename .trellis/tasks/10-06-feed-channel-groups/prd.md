@@ -154,3 +154,33 @@
   exit 0(**=HEAD(5345efe)+20:33 时点并行在途件的工作树**,并行会话 20:28-20:35
   持续写入中间态致首轮 4 failed、复跑全绿,19:23 先例同型;纯 HEAD 基线无法在本
   窗口重跑如实分界)+ vitest 570/570(跑窗干净)+ tsc -b 0 错。
+
+## 追加回执:独立深审修复批(2026-10-06 20:52,F1/F2/F3/F4/F5/F6/F7)
+
+- **修复面七发现**(提交 `eef5ff1`,5 文件 +546/−104;store 层 F6 另批 `4acfc42`、
+  桌面 `_m_store_items` 协议级 category 强校验随 telegram 批 `bced6c5`):
+  - **F1 L1/L2 只吃全局首页 50 条→假空态**:L1 行计数/全局行统计/L2 渠道列表改按
+    品类查询(store.items 带 category 游标,每品类一页 50 勿全量拉;词表=health 选项
+    ∪全局页品类,join 串依赖防身份抖动);L2 进层定向补查;liveRefresh 在 L1/L2 顺带
+    刷概览。长尾品类假空态/假零回归测试(品类查询确实发出+端到端下钻可见)。
+  - **F2 liveRefresh/refresh 竞态**:请求序号守卫(每发包取新票,应答落地前对票,
+    旧应答丢弃)——refresh 慢应答不覆盖 liveRefresh 已并入新行;切作用域后旧域包
+    不把全局行混进 scoped 流;loadMore 同门;概览独立对票;两竞态场景测试。
+  - **F3 mark_all(category) 全库作用域错配**:L2 豁免钮作用域收窄到当日窗——逐键
+    置位(store.state.mark keys=窗内已加载品类页行),UI 所见=实际作用域;补「窗内
+    未读」反向出口;title 如实不再宣称全库;R1 两测重写(keys 精确集钉死,窗外旧键
+    不入)。
+  - **F4 markdown-lite 死链**:裸链接走 openInBrowser 受控门(plugin-shell open,
+    capabilities 与「打开原文」同门);点击行为测试(shell.open 收到 URL)。
+  - **F5 dealPriceView 字符串价格降级**:Number() 宽容解析三键(final_price/
+    original_price/discount_pct,types.ts 同批放宽);布尔/空串/NaN 不猜;形态测试。
+  - **F6 热键守卫补 <select>**:feed 屏 u/j/k 与 Esc 两处本地守卫补 SELECT(use-hotkeys
+    底座本有,屏内漏);select 聚焦敲 j 不巡游+对照测试。
+  - **F7 分组桶口径**:groupFeedItems 桶边界与当日窗对齐(03:00 锚)——00:00-03:00
+    条目组头如实标「昨天(上一窗口)」;凌晨视角昨日下午条目=「今天」(窗口对齐另一
+    面);DST 注记(Shanghai 无 DST 零影响);边界测试重写+凌晨视角测试。
+- **门禁**:vitest 全量 **577 passed**(feed 屏 112 例,深审批新增 6 例+重写 3 例);
+  `tsc -b` 0 错;pytest/ruff 见 telegram 批回执(同窗全量 4810 passed)。
+- **装机外科**:与 telegram 深审批同窗一次 `npx tauri build` 重打包换装(UI+Python
+  同包),明细见 telegram-telethon 档「追加回执:独立深审修复批」(备份/sha 对拍/
+  重签/open -g 拉起/ticker 心跳双验);WKWebView+Caches 清理在换装时一并做。
