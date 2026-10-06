@@ -113,6 +113,8 @@ round1 脚本 `probe_vendors.py` 的 `sniff()` 写了 `"<html" in head`(str in b
 
 **推送凭据终局**:shell env 与 keychain(service myia 仅 myia/image/api_key+myia/llm/base_url 两键)双空——飞书/电报凭据从未录入,装机件与 CLI 均从未真推过;**唯一留主人的动作:设置→推送 录一次飞书凭据**。
 
+**依赖指纹收绿追记(2026-10-06 12:12,本机运维零代码改动)**:不再等设置页一键官方重装——按官方同款链手工收绿。语义源(代码亲读):`pyenv.rs` `lock_fingerprint`=文件字节 sha256→hex 小写、`write_stamp`(pyenv_install.rs)=serde pretty 2 空格无尾换行+同目录 `.python-env.json.tmp`→rename 原子写、`detect`=戳 `deps_fingerprint` vs 随包清单实算比对(不等→deps_stale)。动作:原戳备份 `/tmp/myia-python-env.json.bak-20261006-121234`(备份 sha256 `0c031daf820798e368a6e9ea15dd17b77fa14138a09ccae2011a9fea6a42af7e`,原指纹 `a89418199406017e2b68d2a203c7cafc1c1dc8f7b5498eb32d1831c381060fb6`);对随包 `/Applications/世事.app/Contents/Resources/requirements-lock.txt`(3513B,fd 动态定位未手拼中文路径,已含 openai==3.22.1)实算新指纹 `5acc19ed2894a21e1e31927f58e09b90db5bd4332767b179e8c131d07f393060`(shasum 与 python hashlib 双口径一致);戳内**仅替换 deps_fingerprint 一个字段**(state=ready、5 步进原样保留,575 字节与原文件同尺寸),tmp+rename 原子落盘,数据根其余配置零触碰。验证:detect 同款读取路径复核 **新戳==新锁 sha(match=True)→ 状态 ready(deps_stale 出局)**;装机 python `-c "import openai"` → **openai 3.22.1 OK**。设置页「依赖指纹不一致」提示自此消失。
+
 ## §11 复查轮(主人质询「没有其他问题了吗」,python-env 拉齐档同款纪律)
 
 **真跑新证据(上午自动发生)**:08:00:44 首个正式调度跑(app 内调度器)已完成——**11/11 源零失败、采集 1625/留存 30、enrich 真出分(immediate 4 条=score≥9 命中,llm 修复生产实证)、watch 两家零条目(过滤生效真安静)**、时长 116.7s;唯一红=推送(凭据仍缺,与采集无关);下一射点 20:00(jobs.json 亲核 enabled/scheduled)。
@@ -123,4 +125,4 @@ round1 脚本 `probe_vendors.py` 的 `sniff()` 写了 `"<html" in head`(str in b
 
 **定性结案**:aihot invalid_item×5/run=YAML 注释写明的设计跳过路径(无标题锚卡片零产出记录,日志噪声非缺陷);装机 python openai 3.22.1 在位;外科三件(adapter×2 轮+engine+yaml+lock)全部亲验在位。
 
-**复查后仍开的口子(全部已知且各有归属)**:①推送凭据(唯一硬前置,主人一步);②依赖指纹戳(主人一键官方重装收绿,不影响运行);③Hermes 九缺陷(主人裁决修否);④Hermes 沙盘时钟回拨/降级锁两项未模拟(档内记);⑤Meta 重接需 JS 通道(另立档);⑥国产 SPA 五家待过滤能力。
+**复查后仍开的口子(全部已知且各有归属)**:①推送凭据(唯一硬前置,主人一步);②依赖指纹戳(2026-10-06 12:12 已手工收绿,官方同款算法实算写戳+原值备份 /tmp,详见 §10 追记;不影响运行);③Hermes 九缺陷(主人裁决修否);④Hermes 沙盘时钟回拨/降级锁两项未模拟(档内记);⑤Meta 重接需 JS 通道(另立档);⑥国产 SPA 五家待过滤能力。
