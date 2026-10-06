@@ -20,7 +20,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, Listener, Manager, State};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
@@ -401,6 +401,83 @@ fn show_main_window<R: tauri::Runtime>(app: &impl Manager<R>) {
     }
 }
 
+/// 前端就绪旗(白窗修复 10-06-smoke-window-politeness R1):前端 App mount
+/// 完成后 emit `myia:ui-ready`,壳层收到置位。验证性亮窗(SMOKE_ROUTE/
+/// SHOW_ON_START)以它门控——「等渲染完才亮」,杜绝先白屏后渲染糊脸。
+static UI_READY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// 挂起中的亮窗请求(等 UI_READY 或超时兜底):0=无,1=亮但不抢焦点,2=亮且聚焦。
+static PENDING_SHOW: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+/// 兜底等待:前端握手永远不来(极端:webview 崩/非 tauri 容器)也不许把窗
+/// 永久藏死,5s 后照亮(此时可能仍是白窗,但验证流有截图断言兜底)。
+const SHOW_FALLBACK: Duration = Duration::from_secs(5);
+
+/// 按焦点档亮主窗(R2:验证路径默认不抢主人前台)。
+fn show_window_now<R: tauri::Runtime>(app: &impl Manager<R>, focus: bool) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        if focus {
+            let _ = window.set_focus();
+        }
+    }
+}
+
+/// 结算挂起请求(原子取出):Some(focus) = 该亮窗了,None = 无挂起。
+fn take_pending_show() -> Option<bool> {
+    match PENDING_SHOW.swap(0, Ordering::AcqRel) {
+        1 => Some(false),
+        2 => Some(true),
+        _ => None,
+    }
+}
+
+/// 验证性亮窗(R1):前端就绪则立刻亮,否则挂起等 `myia:ui-ready` 事件
+/// (事件回调里结算)+ 5s 兜底定时器双保险。
+fn show_main_window_deferred<R: tauri::Runtime>(app: &impl Manager<R>, focus: bool) {
+    if UI_READY.load(Ordering::Acquire) {
+        show_window_now(app, focus);
+        return;
+    }
+    PENDING_SHOW.store(if focus { 2 } else { 1 }, Ordering::Release);
+    let handle = app.app_handle().clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(SHOW_FALLBACK).await;
+        if let Some(focus) = take_pending_show() {
+            eprintln!("desktop: ui-ready 未至,亮窗兜底触发(可能未渲染完)");
+            show_window_now(&handle, focus);
+        }
+    });
+}
+
+/// MYIA_SMOKE_GEOMETRY 解析(R3):`WxH+X+Y` 或 `WxH`(此时不动位置)。
+/// 校验+夹取:W/H ∈ [200,1920]/[200,2160],X/Y ∈ [0,7680];非法输入 None 零行为。
+fn parse_smoke_geometry(raw: &str) -> Option<(u32, u32, i32, i32)> {
+    fn clamp_u32(v: u32, lo: u32, hi: u32) -> u32 {
+        v.clamp(lo, hi)
+    }
+    let raw = raw.trim();
+    let (size_part, pos_part) = match raw.split_once(['+']) {
+        Some((s, p)) => (s, Some(p)),
+        None => (raw, None),
+    };
+    let lowered = size_part.to_ascii_lowercase();
+    let (w_str, h_str) = lowered.split_once('x')?;
+    let w: u32 = w_str.trim().parse().ok()?;
+    let h: u32 = h_str.trim().parse().ok()?;
+    if w == 0 || h == 0 {
+        return None;
+    }
+    let (x, y) = match pos_part {
+        Some(p) => {
+            let (x_str, y_str) = p.split_once('+')?;
+            let x: i32 = x_str.trim().parse().ok()?;
+            let y: i32 = y_str.trim().parse().ok()?;
+            (x.clamp(0, 7680), y.clamp(0, 4320))
+        }
+        None => (-1, -1), // 哨兵:不设位置(沿用当前/居中)
+    };
+    Some((clamp_u32(w, 200, 1920), clamp_u32(h, 200, 2160), x, y))
+}
+
 fn main() {
     let started = Instant::now();
     // 单实例门:已有实例持锁 → 转激活它并退出。激活须等本进程退干净再执行:
@@ -507,6 +584,31 @@ fn main() {
                     }
                 }
             }
+            // 验证窗几何(R3):MYIA_SMOKE_GEOMETRY="WxH+X+Y" 把验证窗变小
+            // 挪角,不再全屏糊主人脸;未设零行为。须在一切 show 之前应用。
+            if let Some((w, h, x, y)) = std::env::var("MYIA_SMOKE_GEOMETRY")
+                .ok()
+                .as_deref()
+                .and_then(parse_smoke_geometry)
+            {
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.set_size(tauri::LogicalSize::new(w, h));
+                    if x >= 0 && y >= 0 {
+                        let _ = win.set_position(tauri::LogicalPosition::new(x, y));
+                    }
+                }
+            }
+            // 白窗修复握手(R1):前端 App mount 完 emit `myia:ui-ready` →
+            // 置就绪旗并结算挂起中的亮窗请求(此时渲染已毕,亮即成品)。
+            if let Some(win) = app.get_webview_window("main") {
+                let handle = app.app_handle().clone();
+                let _ = win.listen("myia:ui-ready", move |_| {
+                    UI_READY.store(true, Ordering::Release);
+                    if let Some(focus) = take_pending_show() {
+                        show_window_now(&handle, focus);
+                    }
+                });
+            }
             // 沙箱窗自标识(池档 v12-backlog 第 9 项):显式 MYIA_HOME = 独立
             // 实例域(补验/自动化拉起),主窗标题加「(沙箱)」后缀防误当生产
             // 实例操作;未设零行为变化。置 MYIA_SMOKE_ROUTE 冒烟路由/亮窗之前,
@@ -536,12 +638,11 @@ fn main() {
                     tauri::async_runtime::spawn(async move {
                         tokio::time::sleep(Duration::from_millis(1500)).await;
                         let _ = win.eval(&script);
-                        // 亮窗必须等 run loop 转起:setup 期 show() 的 orderFront 会被
-                        // visible:false 的初始排序覆盖(实测 2026-10-03);Reopen 路径
-                        // 能亮正是事件循环起来之后。同样仅冒烟 env 存在时触达。
-                        let _ = win.show();
                     });
                 }
+                // 冒烟亮窗改走就绪门控(R1):渲染完才亮、不抢焦点(R2);
+                // run loop 时序由事件/兜底定时器天然保证(均在事件循环起来后)。
+                show_main_window_deferred(&*app, false);
             }
             // 静默启动(10-03-quiet-launch):主窗口 visible:false 出厂,Dock 点击
             // (RunEvent::Reopen)或对运行中实例再 open -a 才亮出。dev 构建与
@@ -550,7 +651,10 @@ fn main() {
             let show_on_start =
                 cfg!(debug_assertions) || std::env::var_os("MYIA_SHOW_ON_START").is_some();
             if show_on_start {
-                show_main_window(&*app);
+                // R1+R2:等渲染完才亮(白窗修复);焦点仅 dev 构建或显式
+                // MYIA_SMOKE_FOCUS=1(要点击交互的验证才开,平时不抢主人前台)。
+                let focus = cfg!(debug_assertions) || std::env::var_os("MYIA_SMOKE_FOCUS").is_some();
+                show_main_window_deferred(&*app, focus);
             } else {
                 #[cfg(target_os = "macos")]
                 yield_focus_after_silent_start(app.handle().clone());
@@ -581,6 +685,39 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 冒烟几何解析(R3):合法两形态/夹取/非法零行为。
+    #[test]
+    fn smoke_geometry_full_form() {
+        assert_eq!(parse_smoke_geometry("900x600+40+400"), Some((900, 600, 40, 400)));
+        assert_eq!(parse_smoke_geometry(" 720x480 \n"), Some((720, 480, -1, -1)));
+    }
+
+    #[test]
+    fn smoke_geometry_clamps_and_rejects() {
+        // 夹取:过小抬到下限,过大压到上限
+        assert_eq!(parse_smoke_geometry("50x40+0+0"), Some((200, 200, 0, 0)));
+        assert_eq!(parse_smoke_geometry("4000x5000+0+0"), Some((1920, 2160, 0, 0)));
+        assert_eq!(parse_smoke_geometry("800x600+99999+0"), Some((800, 600, 7680, 0)));
+        // 非法:零维/坏数字/缺高/位置只有一段 → None(零行为)
+        assert_eq!(parse_smoke_geometry("0x600"), None);
+        assert_eq!(parse_smoke_geometry("900"), None);
+        assert_eq!(parse_smoke_geometry("ax600"), None);
+        assert_eq!(parse_smoke_geometry("900x600+40"), None);
+        assert_eq!(parse_smoke_geometry(""), None);
+    }
+
+    /// 挂起结算纯函数锁(R1):0 无/1 不抢焦/2 抢焦,取出即清零。
+    #[test]
+    fn pending_show_settles_once() {
+        PENDING_SHOW.store(0, Ordering::Release);
+        assert_eq!(take_pending_show(), None);
+        PENDING_SHOW.store(1, Ordering::Release);
+        assert_eq!(take_pending_show(), Some(false));
+        assert_eq!(take_pending_show(), None); // 已清零
+        PENDING_SHOW.store(2, Ordering::Release);
+        assert_eq!(take_pending_show(), Some(true));
+    }
 
     /// 退避纯函数锁:序列恰为 1/2/4/8/16s(RESPAWN_MAX_ATTEMPTS 内),溢出安全。
     #[test]

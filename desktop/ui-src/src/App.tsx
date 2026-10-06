@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppLayout } from "@/components/layout/app-layout";
@@ -29,6 +31,15 @@ import { YamlEditorScreen } from "@/screens/yaml-editor/yaml-editor-screen";
  * (与侧栏一致);与 CLI `myssia cron` 同一批 job 数据。
  */
 export default function App() {
+  // 白窗修复握手(10-06-smoke-window-politeness R1):首屏挂载完成即通知壳层
+  // 「可以亮窗了」——壳层把验证性亮窗(SMOKE_ROUTE/SHOW_ON_START)门控到此刻,
+  // 窗口一出现就是成品而非白屏。动态 import:浏览器 dev 容器无 tauri api 时静默。
+  useEffect(() => {
+    void import("@tauri-apps/api/event")
+      .then(({ emit }) => emit("myia:ui-ready"))
+      .catch(() => {});
+  }, []);
+
   return (
     <Routes>
       <Route element={<AppLayout />}>

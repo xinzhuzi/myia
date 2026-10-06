@@ -17,7 +17,8 @@
         "width": 1920,
         "height": 1080,
         "visible": false,
-        "focus": false
+        "focus": false,
+        "backgroundColor": "#10131a"
       }
     ],
     "security": {
