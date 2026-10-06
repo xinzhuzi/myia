@@ -6,14 +6,17 @@
 # 才会跑。跑之前必须先有一个开了 json 接口的自托管 SearXNG 实例 ——
 # 公共实例明禁 API 滥用(robots /*?*q=* 全禁搜索请求),只走自托管。
 #
-# 【实例从哪来(插件零 docker 模式,终裁 2026-10-06)】本机不再起 docker
-# 栈:已部署好的任意实例(主人服务器/自有机器)把地址填给引擎即可 ——
-# 源级 `searxng_base_url` 或 env `MYIA_SEARXNG_URL` 指过去。自己部署
-# SearXNG 属主人运维面,配方与步骤一律见上游官方容器文档
-# (https://docs.searxng.org/ 运维项由上游文档负责,我方不复刻配方;
-# json 接口开启的关键是 settings.yml 的 `search.formats: [html, json]`
-# 覆盖,详见上游 docs)。本机原生(零 Docker)服务组件形态规划中(壳
-# 服务轨,见任务档 10-06-native-plugin-components),落地后此处同步改写。
+# 【实例从哪来(插件零 docker 模式,终裁 2026-10-06)】两条路,按部署形态二选一:
+# ① 本机原生服务组件(2026-10-06 已落地,壳服务轨):设置 → Python 运行环境 →
+#   可选组件「关键词日报(SearXNG)」行装组件后「启动」——服务监听
+#   127.0.0.1:8888(json 接口已由壳生成的 settings.yml 开启,随机 secret
+#   自动落盘),缺省 base 无需改任何配置即可用;装好默认停,启停只走设置卡
+#   按钮,引擎跑源未启动会结构化提示去设置页(不隐式拉起)。
+# ② 外部已部署实例(主人服务器/自有机器):源级 `searxng_base_url` 或 env
+#   `MYIA_SEARXNG_URL` 指过去即可。自己部署 SearXNG 属主人运维面,配方与
+#   步骤一律见上游官方文档(https://docs.searxng.org/ 运维项由上游文档负责,
+#   我方不复刻配方;json 接口开启的关键是 settings.yml 的
+#   `search.formats: [html, json]` 覆盖,详见上游 docs)。
 #
 # 语义:自己跑的聚合搜索,按关键词天天给你一页结果差集(去重走 {url},
 # 同 URL 只推一次)。礼貌:run 间隔建议 ≥30 分钟(schedule 已按每日设,

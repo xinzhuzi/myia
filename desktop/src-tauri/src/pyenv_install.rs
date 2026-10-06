@@ -516,7 +516,8 @@ fn download_runtime(
 
 /// reqwest(rustls-no-provider 栈,与 tauri-plugin-updater 同款)需要
 /// process 级 crypto provider;updater 只在自查更新时装,这里兜底装 ring。
-fn install_ring_provider_if_missing() {
+/// pub(crate):服务组件健康探测(pyenv_components,轨B)复用同一兜底。
+pub(crate) fn install_ring_provider_if_missing() {
     if rustls::crypto::CryptoProvider::get_default().is_none() {
         let _ = rustls::crypto::ring::default_provider().install_default();
     }
@@ -700,6 +701,18 @@ fn run_pip_install(
     requirement_args: Vec<std::ffi::OsString>,
     index_url: Option<&str>,
 ) -> Result<(), (InstallErrorKind, String)> {
+    run_pip_install_with_extra_flags(python, requirement_args, index_url, &[])
+}
+
+/// run_pip_install 的带额外 flag 形态(当前唯一消费方:轨B searxng 源码包
+/// 二段装的 --no-build-isolation;flag 插在 requirement 之前,与手写 argv
+/// `pip install … --no-build-isolation <reqs>` 同形)。
+fn run_pip_install_with_extra_flags(
+    python: &Path,
+    requirement_args: Vec<std::ffi::OsString>,
+    index_url: Option<&str>,
+    extra_flags: &[&str],
+) -> Result<(), (InstallErrorKind, String)> {
     let mut command = Command::new(python);
     command.args([
         "-m",
@@ -708,6 +721,7 @@ fn run_pip_install(
         "--no-input",
         "--disable-pip-version-check",
     ]);
+    command.args(extra_flags);
     command.args(&requirement_args);
     if let Some(index) = index_url {
         command.args(["--index-url", index]);
@@ -737,6 +751,38 @@ fn run_pip_install(
             tail.trim_end()
         ),
     ))
+}
+
+/// 组件源码包二段安装(10-06-native-plugin-components 轨B:searxng)。
+///
+/// 上游现实(2026-10-06 沙箱实测):searxng 真身**不在 PyPI**(PyPI 同名包
+/// 是无关 MCP 包装器),只能 git 钉 commit 装;且其 setup.py 构建期
+/// ``from searx import get_setting`` 即 import 运行时依赖(msgspec 等),
+/// PEP517 构建隔离态下单发安装必败(ModuleNotFoundError)。故闭包拆两段:
+/// 一段 run_pip_spec 装钉版依赖闭包(-r 上游 commit 钉版 requirements.txt
+/// 原文 URL)+ granian + setuptools/wheel 构建后端;二段本函数用
+/// ``--no-build-isolation`` 装源码包直引 spec(依赖已在场,构建期 import
+/// 全部可解析)。与 run_pip_install 同款子进程纪律(剥 PYTHONPATH/失败输出
+/// 尾部回显);错误分类复用 pip_failed(用户可重试面同族;重跑幂等——
+/// 已装自动跳过)。PyPI 镜像 --index-url 只覆盖 PyPI 依赖解析,git 直引
+/// 段走 github.com(与 Playwright CDN 同理,镜像不覆盖属预期,文案已披露)。
+pub(crate) fn run_pip_src_no_build_isolation(
+    python: &Path,
+    src_spec: &str,
+    index_url: Option<&str>,
+) -> Result<(), (InstallErrorKind, String)> {
+    if src_spec.trim().is_empty() {
+        return Err((
+            InstallErrorKind::PipFailed,
+            "pip_src spec 为空(全空白):注册表条目无效".to_string(),
+        ));
+    }
+    run_pip_install_with_extra_flags(
+        python,
+        vec![std::ffi::OsString::from(src_spec)],
+        index_url,
+        &["--no-build-isolation"],
+    )
 }
 
 /// version ping 自检:短命 serve 进程握手(与常驻 spawn 同源 argv/env 注入)。

@@ -93,7 +93,9 @@ def _conf_resources() -> dict[str, str]:
 def test_pyenv_resources_declared_and_present(source: str, dest: str) -> None:
     """五映射逐条:已按预期目标声明,且源路径在磁盘实况存在(目录/文件形态对)。"""
     resources = _conf_resources()
-    assert resources.get(source) == dest, f"resources 缺映射 {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
+    assert resources.get(source) == dest, (
+        f"resources 缺映射 {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
+    )
     path = (SRC_TAURI / source).resolve()
     assert path.exists(), f"映射源不存在: {source} -> {path}"
     if path.is_dir():
@@ -152,47 +154,115 @@ CRAWL4AI_COMPONENT_PIP_SPEC = "crawl4ai>=0.9,<0.10"
 
 #: post_install 钩子已知值词表(壳侧 install_component 对未知值结构化拒;
 #: 此处钉上游不产未知值——壳侧拒绝发生在用户点安装之后,仓测先拦拼写漂移)。
-KNOWN_POST_INSTALL_HOOKS = {"playwright-chromium"}
+KNOWN_POST_INSTALL_HOOKS = {"playwright-chromium", "pip-src-no-build-isolation"}
+
+#: pre_start 钩子已知值词表(壳侧 start_service_process 对未知值结构化拒;
+#: 钩子配套字段缺失同样安装期先拦——此处钉上游注册表不产漂移形态)。
+KNOWN_PRE_START_HOOKS = {"searxng-settings"}
+
+#: 组件 kind 已知值词表(缺省 = 轨A 库组件;"service" = 轨B 壳服务组件,
+#: 须伴随 service 节且节点键齐全——壳侧动作期校验,这里上游先拦形态漂移)。
+KNOWN_COMPONENT_KINDS = {None, "service"}
+
+#: SearXNG 上游钉 commit(=引擎探查实例 2026.10.4+d48c4b555 的同 commit;
+#: searxng 真身不在 PyPI,git 钉 commit 是唯一可复现安装锚点)。
+SEARXNG_SOURCE_COMMIT = "d48c4b555421e824342c51d68482dd0898e54d0f"
 
 
 def test_components_resource_declared_and_present() -> None:
     """components.json 随包映射已声明且源文件在盘。"""
     source, dest = "../resources/components.json", "components.json"
     resources = _conf_resources()
-    assert resources.get(source) == dest, f"resources 缺映射 {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
+    assert resources.get(source) == dest, (
+        f"resources 缺映射 {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
+    )
     assert (SRC_TAURI / source).is_file(), f"映射源不存在: {source}"
 
 
 def test_components_registry_shape() -> None:
     """注册表契约形态:{components:[{id,pip_spec,label,description}]},首件
-    table 钉版在册(id/pip_spec/label 非空;壳侧过滤半截条目,这里钉上游不产半截)。
+    table 钉版在册(id/pip_spec/label/description 非空;壳侧过滤半截条目,
+    这里钉上游不产半截)。
 
     形状正则的约束段是 ``[^\s]+`` 整段——天然容忍逗号多约束 token(如
     ``trafilatura>=2.3,<3``),无需为多约束单列语法;此处遍历**全部条目**
-    (不止 table)做形状检查,后续加件自动纳管。"""
-    registry = json.loads((RESOURCES_DIR / "components.json").read_text(encoding="utf-8"))
+    (不止 table)做形状检查,后续加件自动纳管。10-06 阶段2 起扩充两类
+    词形(10-06-native-plugin-components 轨B):① ``-r <requirements URL>``
+    (一段闭包经 pip -r 装上游钉版清单;URL 必须 commit 钉版——浮 tag/ref
+    形态即安装不可复现,红);② ``name@git+https://…@<40 位 hex>``(PEP508
+    直引 git commit 钉,无空格形态——组件 spec 按空格分词,带空格的
+    ``name @ url`` 会被拆成两条废 spec)。"""
+    registry = json.loads(
+        (RESOURCES_DIR / "components.json").read_text(encoding="utf-8")
+    )
     assert isinstance(registry.get("components"), list), "components 须为数组"
     ids = [entry.get("id") for entry in registry["components"]]
     assert "table" in ids, f"首件 table 必须在册(实得 {ids})"
     for entry in registry["components"]:
         assert isinstance(entry, dict), f"条目须为对象: {entry!r}"
         for key in ("id", "pip_spec", "label", "description"):
-            assert isinstance(entry.get(key), str) and entry[key], f"条目缺非空 {key}: {entry!r}"
+            assert isinstance(entry.get(key), str) and entry[key], (
+                f"条目缺非空 {key}: {entry!r}"
+            )
         # post_install 钩子(可选字段):在场必须是壳已知值——壳侧对未知值
         # 在用户点安装后才拒,此处上游先拦(壳已知值见 pyenv_components.rs)。
         if "post_install" in entry:
             assert entry["post_install"] in KNOWN_POST_INSTALL_HOOKS, (
                 f"post_install 未知值(壳侧会拒装): {entry['post_install']!r}"
             )
-        # pip spec 形状:闭包逐条 name==version 钉版或 name<op>version 约束
-        # (组件机制按「钉版闭包」设计;主件 == 钉版,伴生件与 extras 同字串)。
+        # pre_start 钩子(可选字段;轨B 服务启动前件生成,同 post_install 惯例)
+        if "pre_start" in entry:
+            assert entry["pre_start"] in KNOWN_PRE_START_HOOKS, (
+                f"pre_start 未知值(壳侧启动期会拒): {entry['pre_start']!r}"
+            )
+        # kind(可选字段):缺省 = 轨A 库组件;"service" = 轨B 壳服务组件,
+        # 须伴随 service 节且节点键齐全(壳侧动作期校验——这里上游先把
+        # 形态漂移拦掉)。
+        assert entry.get("kind") in KNOWN_COMPONENT_KINDS, (
+            f"组件 kind 未知值: {entry.get('kind')!r}(壳已知值: {sorted(map(str, KNOWN_COMPONENT_KINDS))})"
+        )
+        if entry.get("kind") == "service":
+            service = entry.get("service")
+            assert isinstance(service, dict), (
+                f"kind=service 条目缺 service 节: {entry!r}"
+            )
+            assert (
+                isinstance(service.get("start_cmd"), list) and service["start_cmd"]
+            ), f"service.start_cmd 须非空 argv 数组: {service!r}"
+            assert all(
+                isinstance(token, str) and token for token in service["start_cmd"]
+            ), f"service.start_cmd 须非空串数组: {service!r}"
+            assert isinstance(service.get("health_url"), str) and service[
+                "health_url"
+            ].startswith("http"), f"service.health_url 须 http URL: {service!r}"
+            assert isinstance(service.get("port"), int), (
+                f"service.port 须整数: {service!r}"
+            )
+            if "pip_src" in entry:
+                assert isinstance(entry["pip_src"], str) and entry["pip_src"], (
+                    f"pip_src 须非空串: {entry!r}"
+                )
+        # pip spec 形状:闭包逐条钉版/约束词形,或 -r URL、git 直引两类轨B 词形。
         for token in entry["pip_spec"].split():
-            assert re.match(
+            is_pinned = re.match(
                 r"^[A-Za-z0-9][A-Za-z0-9._-]*(==[^\s]+|>=?[^\s]+|<=?[^\s]+|!=+[^\s]+|~=+[^\s]+)$",
                 token,
-            ), f"spec 形状不符: {token!r}"
+            )
+            is_requirements_url = re.match(
+                rf"^(-r|https://raw\.githubusercontent\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/[0-9a-f]{{40}}/[^\s]+)$",
+                token,
+            )
+            is_git_direct_ref = re.match(
+                rf"^[A-Za-z0-9][A-Za-z0-9._-]*@git\+https://[^\s]+@[0-9a-f]{{40}}$",
+                token,
+            )
+            assert is_pinned or is_requirements_url or is_git_direct_ref, (
+                f"spec 形状不符(钉版/约束/-r URL/git 直引四类词形外): {token!r}"
+            )
     table = next(entry for entry in registry["components"] if entry["id"] == "table")
-    assert table["pip_spec"] == TABLE_COMPONENT_PIP_SPEC, f"table 闭包漂移: {table['pip_spec']!r}"
+    assert table["pip_spec"] == TABLE_COMPONENT_PIP_SPEC, (
+        f"table 闭包漂移: {table['pip_spec']!r}"
+    )
 
 
 def test_table_component_matches_pyproject_extras() -> None:
@@ -202,9 +272,13 @@ def test_table_component_matches_pyproject_extras() -> None:
     本测试把「组件消费者是引擎」钉成仓测:闭包逐件与 extras 同名、主件钉版
     满足 extras 约束、伴生件字串与 extras 逐字符一致——任一侧漂移即红。
     """
-    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    pyproject = tomllib.loads(
+        (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
     extras_raw = pyproject["project"]["optional-dependencies"]["table"]
-    extras = {_pep503(str(Requirement(raw).name)): str(Requirement(raw)) for raw in extras_raw}
+    extras = {
+        _pep503(str(Requirement(raw).name)): str(Requirement(raw)) for raw in extras_raw
+    }
     desktop = {
         _pep503(str(Requirement(token).name)): token
         for token in TABLE_COMPONENT_PIP_SPEC.split()
@@ -243,9 +317,13 @@ def test_trafilatura_component_matches_pyproject_extras() -> None:
     **逐字符一致**(主件用 extras 原窗 ``>=2.3,<3``,不引入第三种钉版口径;
     sorted 对比避免 Requirement 归一化重排 ``<3,>=2.3`` 造成假阴/假阳)。
     """
-    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    pyproject = tomllib.loads(
+        (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
     extras_raw = list(pyproject["project"]["optional-dependencies"]["trafilatura"])
-    registry = json.loads((RESOURCES_DIR / "components.json").read_text(encoding="utf-8"))
+    registry = json.loads(
+        (RESOURCES_DIR / "components.json").read_text(encoding="utf-8")
+    )
     entry = next(e for e in registry["components"] if e["id"] == "trafilatura")
     assert entry["pip_spec"] == TRAFILATURA_COMPONENT_PIP_SPEC, (
         f"trafilatura 闭包漂移: {entry['pip_spec']!r}"
@@ -272,7 +350,9 @@ def test_crawl4ai_component_row_contract() -> None:
     G-Q6 三披露(体积 300MB 级 / 落点数据根 playwright-browsers +
     PLAYWRIGHT_BROWSERS_PATH / 卸载即整目录消)——主人磁盘敏感,本轮任务
     起因,披露缺失即红。"""
-    registry = json.loads((RESOURCES_DIR / "components.json").read_text(encoding="utf-8"))
+    registry = json.loads(
+        (RESOURCES_DIR / "components.json").read_text(encoding="utf-8")
+    )
     entry = next(e for e in registry["components"] if e["id"] == "crawl4ai")
     assert entry["pip_spec"] == CRAWL4AI_COMPONENT_PIP_SPEC, (
         f"crawl4ai 闭包漂移: {entry['pip_spec']!r}"
@@ -296,9 +376,13 @@ def test_crawl4ai_component_window_within_extras() -> None:
     件集与 extras 同源(单件),窗覆盖本仓实测 0.9.4、排除 0.10+/0.8.x
     未验线;壳侧指纹随 pip_spec 整串,两侧漂移即 installed=false 引导重装。
     """
-    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    pyproject = tomllib.loads(
+        (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
     extras_raw = pyproject["project"]["optional-dependencies"]["crawl4ai"]
-    extras = {_pep503(str(Requirement(raw).name)): Requirement(raw) for raw in extras_raw}
+    extras = {
+        _pep503(str(Requirement(raw).name)): Requirement(raw) for raw in extras_raw
+    }
     desktop = {
         _pep503(str(Requirement(token).name)): Requirement(token)
         for token in CRAWL4AI_COMPONENT_PIP_SPEC.split()
@@ -316,12 +400,126 @@ def test_crawl4ai_component_window_within_extras() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 1d. searxng 服务组件行(10-06-native-plugin-components 阶段2 轨B,design §2
+#     + G-Q5/G-Q6):两段装闭包 + granian 服务端 + 声明/健康端点/启动前件钩子
+#     三披露锚点。上游现实(2026-10-06 实测):searxng 真身不在 PyPI(同名包
+#     是无关 MCP 包装器),git 钉 commit d48c4b555(=引擎探查实例
+#     2026.10.4+d48c4b555)是唯一可复现安装锚点。
+# ---------------------------------------------------------------------------
+
+
+def _searxng_entry() -> dict:
+    registry = json.loads(
+        (RESOURCES_DIR / "components.json").read_text(encoding="utf-8")
+    )
+    return next(e for e in registry["components"] if e["id"] == "searxng")
+
+
+def test_searxng_component_row_closure_pinned_to_probe_instance_commit() -> None:
+    """两段装闭包逐 token 对账:
+
+    - 一段(依赖闭包):``-r <该 commit 的 requirements.txt 原文 URL>`` +
+      ``granian==2.8.3``(上游当前 master 服务端;arm64 轮在场,沙箱实测
+      起服务/healthz/json 全通)+ ``setuptools wheel``(二段装的构建后端
+      ——上游 setup.py 构建期 import searx,缺它们 --no-build-isolation
+      必败);
+    - 二段(源码包,pip_src 字段):``searxng@git+…@<commit>`` 直引钉版。
+
+    commit 与引擎探查实例同 commit——注册表漂移即红(引擎行为基准与组件
+    安装锚点必须同线)。
+    """
+    entry = _searxng_entry()
+    assert entry["kind"] == "service", (
+        f"searxng 必须是 kind=service 服务组件: {entry!r}"
+    )
+    assert entry["post_install"] == "pip-src-no-build-isolation", (
+        "两段装钩子必须声明(缺它只装了依赖闭包,searx 源码包不在场)"
+    )
+    closure = entry["pip_spec"].split()
+    assert closure[0] == "-r", f"一段闭包必须以 -r 打头(上游钉版清单): {closure!r}"
+    assert closure[1] == (
+        f"https://raw.githubusercontent.com/searxng/searxng/{SEARXNG_SOURCE_COMMIT}"
+        "/requirements.txt"
+    ), f"-r URL 必须 commit 钉版: {closure[1]!r}"
+    assert "granian==2.8.3" in closure, f"granian 服务端须在一段闭包(钉版): {closure!r}"
+    assert "setuptools>=75" in closure and "wheel>=0.45" in closure, (
+        f"二段装的构建后端(钉下限的约束形态)必须在一段闭包(--no-build-isolation 的前提): {closure!r}"
+    )
+    assert entry["pip_src"] == (
+        f"searxng@git+https://github.com/searxng/searxng.git@{SEARXNG_SOURCE_COMMIT}"
+    ), f"pip_src 必须 commit 钉版直引(与引擎探查实例同线): {entry['pip_src']!r}"
+
+
+def test_searxng_service_spec_matches_upstream_serving_shape() -> None:
+    """服务声明与上游服务形态对账(2026-10-06 master 实测:``searx.webserver``
+    已被上游移除,现役服务端是 granian 的 WSGI 接口;entrypoint.sh 的 exec
+    形态 = ``granian searx.webapp:app``):
+
+    - start_cmd = ``-m granian --interface wsgi --host 127.0.0.1 --port 8888
+      searx.webapp:app``(本机回环绑定——桌面服务组件不给外部网络面);
+    - health_url 与 port 声明一致(127.0.0.1:8888;/healthz 上游是纯文本
+      200,零上游搜索成本);
+    - env 注入 SEARXNG_SETTINGS_PATH 指向 ``{service_dir}/settings.yml``
+      (壳侧生成器落点;占位符形态——注册表保持数据根无关)。
+    """
+    entry = _searxng_entry()
+    service = entry["service"]
+    assert service["start_cmd"] == [
+        "-m",
+        "granian",
+        "--interface",
+        "wsgi",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8888",
+        "searx.webapp:app",
+    ], f"start_cmd 必须与上游 granian WSGI 形态同源(本机回环): {service['start_cmd']!r}"
+    assert service["health_url"] == "http://127.0.0.1:8888/healthz"
+    assert service["port"] == 8888, "port 声明须与 health_url/start_cmd 的 8888 一致"
+    assert service["env"] == {"SEARXNG_SETTINGS_PATH": "{service_dir}/settings.yml"}, (
+        f"env 必须恰好注入 settings 路径(占位符形态): {service['env']!r}"
+    )
+    assert entry["pre_start"] == "searxng-settings", (
+        "启动前件生成钩子必须声明(缺它服务起不来——json format 默认不开)"
+    )
+
+
+def test_searxng_component_row_gq6_disclosures() -> None:
+    """G-Q6 三披露(主人磁盘敏感,本轮任务起因;披露缺失即红):
+
+    - 体积:闭包约 100MB 级实测数字入文案(无浏览器/chromium 量级下载——
+      与 crawl4ai 的 300MB/600MB 级对比是用户决策面);
+    - 落点:数据根 services/searxng/(服务数据)+ site-packages(闭包,
+      数据根 python/ 下)——不散落系统缓存区;
+    - 卸载/回收:清数据根即整目录回收;+ G-Q5 手动启停语义(装好默认停,
+      引擎不隐式拉起)与 git 源(需可及 github.com,不走 PyPI 镜像)如实
+      披露。
+    """
+    description = _searxng_entry()["description"]
+    assert "100MB" in description, f"须明示闭包实测体积(G-Q6): {description!r}"
+    assert "services/searxng" in description, (
+        f"须明示服务数据落点(G-Q6): {description!r}"
+    )
+    assert "数据根" in description and "整目录" in description, (
+        f"须明示清数据根即整目录回收(G-Q6): {description!r}"
+    )
+    assert "默认停" in description or "装好默认停" in description, (
+        f"须披露 G-Q5 手动启停语义(装好默认停): {description!r}"
+    )
+    assert "不隐式拉起" in description, f"须披露引擎不隐式拉起(G-Q5): {description!r}"
+    assert "github.com" in description, f"须如实披露 git 源(网络前提;不走 PyPI 镜像)"
+
+
+# ---------------------------------------------------------------------------
 # 2. runtime-manifest.json:钉版 URL + 实算 sha256 + 解压布局
 # ---------------------------------------------------------------------------
 
 
 def _manifest() -> dict:
-    data = json.loads((RESOURCES_DIR / "runtime-manifest.json").read_text(encoding="utf-8"))
+    data = json.loads(
+        (RESOURCES_DIR / "runtime-manifest.json").read_text(encoding="utf-8")
+    )
     assert isinstance(data, dict)
     return data
 
@@ -368,7 +566,9 @@ def test_runtime_manifest_extract_layout() -> None:
     }
     for key, entry in entries.items():
         assert entry["archive"] == "tar.gz"
-        assert entry["extract_root_dir"] == "python", f"{key}: install_only 应解压出 python/ 根目录"
+        assert entry["extract_root_dir"] == "python", (
+            f"{key}: install_only 应解压出 python/ 根目录"
+        )
         assert entry["python_bin"] == expected_bins[key]
         assert entry["python_bin"].startswith(entry["extract_root_dir"] + "/")
 
@@ -381,13 +581,17 @@ def test_runtime_manifest_extract_layout() -> None:
 def _lock_pins() -> dict[str, str]:
     """解析锁版清单:仅取 ``name==version`` 顶格行(注释/续行/标记剥掉)。"""
     pins: dict[str, str] = {}
-    for raw in (RESOURCES_DIR / "requirements-lock.txt").read_text(encoding="utf-8").splitlines():
+    for raw in (
+        (RESOURCES_DIR / "requirements-lock.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ):
         line = raw.split("#", 1)[0].strip()
         if not line:
             continue
-        assert not line.startswith("-e") and "file:" not in line and "://" not in line, (
-            f"桌面锁版清单不得含 editable/路径/URL 依赖: {raw!r}"
-        )
+        assert (
+            not line.startswith("-e") and "file:" not in line and "://" not in line
+        ), f"桌面锁版清单不得含 editable/路径/URL 依赖: {raw!r}"
         pinned = line.split(";", 1)[0].strip()
         name, sep, version = pinned.partition("==")
         assert sep, f"非钉版行(须 name==version): {raw!r}"
@@ -397,7 +601,9 @@ def _lock_pins() -> dict[str, str]:
 
 def test_requirements_lock_covers_pyproject_dependencies() -> None:
     """pyproject 每条直接依赖:锁版清单有钉版行,且版本满足约束(锁=约束的冻结)。"""
-    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    pyproject = tomllib.loads(
+        (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
     deps = pyproject["project"]["dependencies"]
     pins = _lock_pins()
     missing = []
@@ -433,7 +639,9 @@ def _load_entry_package():
     """以包语义直载 desktop/myssia_desktop_entry(不经 sys.path 全局污染)。"""
     pkg_dir = DESKTOP / "myssia_desktop_entry"
     spec = importlib.util.spec_from_file_location(
-        "myssia_desktop_entry", pkg_dir / "__init__.py", submodule_search_locations=[str(pkg_dir)]
+        "myssia_desktop_entry",
+        pkg_dir / "__init__.py",
+        submodule_search_locations=[str(pkg_dir)],
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -444,7 +652,9 @@ def _load_entry_package():
 
 def _load_entry_direct():
     """与 tests/desktop/test_desktop_sidecar_protocol.py 同手法直载 entry.py。"""
-    spec = importlib.util.spec_from_file_location("pyenv_parity_entry", DESKTOP / "entry.py")
+    spec = importlib.util.spec_from_file_location(
+        "pyenv_parity_entry", DESKTOP / "entry.py"
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -453,11 +663,15 @@ def _load_entry_direct():
 def test_entry_package_reuses_entry_protocol_surface() -> None:
     """协议面零漂移:装载目标就是 desktop/entry.py,方法集/协议版本与直载一致。"""
     pkg = _load_entry_package()
-    assert pkg.ENTRY_PY == DESKTOP / "entry.py", "开发树布局:入口包应定位同目录的 entry.py"
+    assert pkg.ENTRY_PY == DESKTOP / "entry.py", (
+        "开发树布局:入口包应定位同目录的 entry.py"
+    )
     reused = pkg.load_entry_module()
     direct = _load_entry_direct()
     assert reused.PROTOCOL_VERSION == direct.PROTOCOL_VERSION
-    assert sorted(reused._HANDLERS) == sorted(direct._HANDLERS), "方法集漂移:装载目标不是同一 entry.py?"
+    assert sorted(reused._HANDLERS) == sorted(direct._HANDLERS), (
+        "方法集漂移:装载目标不是同一 entry.py?"
+    )
     assert callable(reused.serve) and callable(reused.cli_main)
 
 
@@ -480,7 +694,9 @@ def test_entry_module_serve_version_roundtrip(tmp_path: Path) -> None:
         env=_spawn_env(tmp_path),
         timeout=120,
     )
-    assert proc.returncode == 0, f"serve 退出码 {proc.returncode};stderr={proc.stderr[-2000:]}"
+    assert proc.returncode == 0, (
+        f"serve 退出码 {proc.returncode};stderr={proc.stderr[-2000:]}"
+    )
     lines = [line for line in proc.stdout.splitlines() if line.strip()]
     assert lines, f"协议流无应答;stderr={proc.stderr[-2000:]}"
     answer = json.loads(lines[0])
@@ -499,5 +715,7 @@ def test_entry_module_cli_passthrough_version(tmp_path: Path) -> None:
         env=_spawn_env(tmp_path),
         timeout=120,
     )
-    assert proc.returncode == 0, f"--version 退出码 {proc.returncode};stderr={proc.stderr[-2000:]}"
+    assert proc.returncode == 0, (
+        f"--version 退出码 {proc.returncode};stderr={proc.stderr[-2000:]}"
+    )
     assert proc.stdout.strip().startswith("myssia "), proc.stdout

@@ -22,7 +22,11 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: mocks.listen }));
 import {
   parseComponentInstallOutcome,
   parsePyenvStatus,
+  parseServiceStatus,
   pyenvInstallComponent,
+  serviceStart,
+  serviceStatus,
+  serviceStop,
 } from "./pyenv-api";
 import { PyenvCard } from "./pyenv-card";
 import { PYENV_STATUS_EVENT_NAME } from "./pyenv-api";
@@ -269,6 +273,266 @@ describe("pyenv-components:状态事件载荷同源", () => {
     dispatch({ payload: wireFixture({ components: [{ id: "table", installed: true }] }) });
     expect(handler).toHaveBeenLastCalledWith(
       expect.objectContaining({ components: [{ id: "table", installed: true }] }),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 轨B 壳服务组件(10-06-native-plugin-components 阶段2;design §2/G-Q5):
+// components[].kind="service" 三键透传 + 启停按钮/健康绿点/服务态对账。
+// ---------------------------------------------------------------------------
+
+function serviceStatusFixture(
+  id = "searxng",
+  state: "running" | "stopped" = "stopped",
+  healthy = false,
+): Record<string, unknown> {
+  return {
+    id,
+    state,
+    healthy,
+    pid: state === "running" ? 4242 : null,
+    started_at: state === "running" ? 1730000000 : null,
+    last_exit: state === "stopped" ? 0 : null,
+  };
+}
+
+/**
+ * IPC mock:轨B 服务组件面。initial.components 决定渲染面;service_status
+ * 按 serviceOutcomes[id] 应答(缺省 stopped);service_start/stop 记账并翻
+ * serviceOutcomes(模拟壳侧状态戳+对账)。
+ */
+function installServiceIpc(
+  initial: Record<string, unknown>,
+  serviceOutcomes: Record<string, Record<string, unknown>> = {},
+) {
+  let current = initial;
+  const services = { ...serviceOutcomes };
+  const outcomesAfter = {
+    start: (id: string) => ({ ...services[id], state: "running", healthy: true, pid: 9999, started_at: 1730000100, last_exit: null }),
+    stop: (id: string) => ({ id, state: "stopped", healthy: false, pid: null, started_at: null, last_exit: 0 }),
+  };
+  mocks.invoke.mockImplementation(async (command: string, args?: unknown) => {
+    const { id } = (args ?? {}) as { id?: string };
+    if (command === "pyenv_get_status") return current;
+    if (command === "service_status") return services[id ?? ""] ?? serviceStatusFixture(id ?? "searxng");
+    if (command === "service_start") {
+      const outcome = id !== undefined && id in services ? outcomesAfter.start(id) : services[id ?? ""];
+      services[id ?? ""] = outcome;
+      return outcome;
+    }
+    if (command === "service_stop") {
+      const outcome = outcomesAfter.stop(id ?? "");
+      services[id ?? ""] = outcome;
+      return outcome;
+    }
+    if (command === "pyenv_install_component") throw new Error("本测试面不应触发装组件");
+    throw new Error(`未预期的 IPC 命令: ${command}`);
+  });
+  return {
+    emitStatus: (payload: Record<string, unknown>) => {
+      current = payload;
+    },
+  };
+}
+
+describe("pyenv-api:服务组件契约(与壳侧 service_start/stop/status 对齐)", () => {
+  it("serviceStart/Stop/Status:命令名与参数键 id;载荷六键守门透传", async () => {
+    mocks.invoke
+      .mockResolvedValueOnce(serviceStatusFixture("searxng", "running", true))
+      .mockResolvedValueOnce(serviceStatusFixture())
+      .mockResolvedValueOnce(serviceStatusFixture());
+    await serviceStart("searxng");
+    await serviceStop("searxng");
+    await serviceStatus("searxng");
+    expect(mocks.invoke).toHaveBeenNthCalledWith(1, "service_start", { id: "searxng" });
+    expect(mocks.invoke).toHaveBeenNthCalledWith(2, "service_stop", { id: "searxng" });
+    expect(mocks.invoke).toHaveBeenNthCalledWith(3, "service_status", { id: "searxng" });
+  });
+
+  it("parseServiceStatus:六键透传(number|null 宽容);非契约形态即抛", () => {
+    const parsed = parseServiceStatus(serviceStatusFixture("searxng", "running", true));
+    expect(parsed).toEqual({
+      id: "searxng",
+      state: "running",
+      healthy: true,
+      pid: 4242,
+      started_at: 1730000000,
+      last_exit: null,
+    });
+    // 观测三键缺键 → null(宽容,不拦渲染);id/state/healthy 非契约即抛
+    expect(parseServiceStatus({ id: "searxng", state: "stopped", healthy: false })).toEqual({
+      id: "searxng",
+      state: "stopped",
+      healthy: false,
+      pid: null,
+      started_at: null,
+      last_exit: null,
+    });
+    expect(() => parseServiceStatus("not-an-object")).toThrow(TypeError);
+    expect(() => parseServiceStatus({ id: "searxng", state: "bogus", healthy: false })).toThrow(TypeError);
+    expect(() => parseServiceStatus({ id: "searxng", state: "running", healthy: "yes" })).toThrow(TypeError);
+  });
+
+  it("parsePyenvStatus:kind=service 透传,未知/缺省 kind → 库组件形态", () => {
+    const parsed = parsePyenvStatus(
+      wireFixture({
+        components: [
+          { id: "searxng", installed: true, kind: "service" },
+          { id: "table", installed: false },
+          { id: "weird", installed: false, kind: "daemon" },
+        ],
+      }),
+    );
+    expect(parsed.components).toEqual([
+      { id: "searxng", installed: true, kind: "service" },
+      { id: "table", installed: false, kind: undefined },
+      { id: "weird", installed: false, kind: undefined },
+    ]);
+  });
+});
+
+describe("PyenvCard:服务组件行(启停按钮 + 健康绿点 + 状态对账)", () => {
+  it("已装服务行:渲染启停按钮(未运行=「启动」/已停止徽标/灰绿点),挂载即对账 service_status", async () => {
+    installServiceIpc(
+      wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] }),
+    );
+    installListen();
+    render(<PyenvCard />);
+
+    await screen.findByTestId("pyenv-service-searxng-start");
+    expect(screen.getByTestId("pyenv-component-searxng-state").textContent).toBe("已装");
+    expect(screen.getByTestId("pyenv-service-searxng-run-state").textContent).toBe("已停止");
+    await waitFor(() => expect(callsOf("service_status")).toEqual([{ id: "searxng" }]));
+    // 未运行:无启动开关面(Switch 不渲染——服务形态替代库开关),无绿点
+    expect(screen.queryByRole("switch", { name: "组件开关 searxng" })).toBeNull();
+  });
+
+  it("未装服务行:仍走装开关(Switch 渲染,无启停按钮/状态对账)", async () => {
+    installServiceIpc(
+      wireFixture({ components: [{ id: "searxng", installed: false, kind: "service" }] }),
+    );
+    installListen();
+    render(<PyenvCard />);
+
+    await screen.findByTestId("pyenv-component-searxng");
+    expect(screen.getByRole("switch", { name: "组件开关 searxng" })).toBeTruthy();
+    expect(screen.queryByTestId("pyenv-service-searxng-start")).toBeNull();
+    expect(screen.queryByTestId("pyenv-service-searxng-run-state")).toBeNull();
+    await waitFor(() => expect(screen.getByTestId("pyenv-state-badge")).toBeTruthy());
+    expect(callsOf("service_status")).toEqual([]);
+  });
+
+  it("点「启动」→ service_start({id});回包 running+healthy → 按钮翻「停止」+绿点健康 + 绿色回执", async () => {
+    installServiceIpc(
+      wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] }),
+      { searxng: serviceStatusFixture() },
+    );
+    installListen();
+    render(<PyenvCard />);
+    await screen.findByTestId("pyenv-service-searxng-start");
+
+    fireEvent.click(screen.getByTestId("pyenv-service-searxng-start"));
+
+    await waitFor(() => expect(callsOf("service_start")).toEqual([{ id: "searxng" }]));
+    await waitFor(() =>
+      expect(screen.getByTestId("pyenv-service-searxng-run-state").textContent).toBe("运行中"),
+    );
+    expect(screen.getByTestId("pyenv-service-searxng-health").className).toContain("bg-ok");
+    const stop = screen.getByTestId("pyenv-service-searxng-stop") as HTMLButtonElement;
+    expect(stop.disabled).toBe(false);
+    expect(screen.queryByTestId("pyenv-service-searxng-start")).toBeNull();
+    const note = await screen.findByTestId("pyenv-service-note");
+    expect(note.getAttribute("role")).toBe("status");
+    expect(note.textContent).toContain("已启动且健康检查通过");
+    expect(note.textContent).toContain("pid=9999");
+  });
+
+  it("点「停止」→ service_stop({id});回包 stopped → 按钮翻「启动」+绿点转灰 + 回执", async () => {
+    installServiceIpc(
+      wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] }),
+      { searxng: serviceStatusFixture("searxng", "running", true) },
+    );
+    installListen();
+    render(<PyenvCard />);
+
+    // 挂载即对账 → 运行中态呈现(绿点/停止按钮)
+    await waitFor(() =>
+      expect(screen.getByTestId("pyenv-service-searxng-run-state").textContent).toBe("运行中"),
+    );
+    fireEvent.click(screen.getByTestId("pyenv-service-searxng-stop"));
+
+    await waitFor(() => expect(callsOf("service_stop")).toEqual([{ id: "searxng" }]));
+    await waitFor(() =>
+      expect(screen.getByTestId("pyenv-service-searxng-run-state").textContent).toBe("已停止"),
+    );
+    expect(screen.getByTestId("pyenv-service-searxng-health").className).not.toContain("bg-ok");
+    expect(screen.getByTestId("pyenv-service-searxng-start")).toBeTruthy();
+    expect(screen.getByTestId("pyenv-service-note").textContent).toContain("已停止");
+  });
+
+  it("启动回包 running+healthy=false(慢启动)→ 如实呈现黄点警示回执,不谎报健康", async () => {
+    const slowStart = {
+      ...serviceStatusFixture("searxng", "running", false),
+      pid: 4242,
+    };
+    installServiceIpc(
+      wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] }),
+      { searxng: serviceStatusFixture() },
+    );
+    // 覆写 start 应答为「已拉起未绿」;初态对账仍回 stopped(点击前是停态行)
+    mocks.invoke.mockImplementation(async (command: string, args?: unknown) => {
+      const { id } = (args ?? {}) as { id: string };
+      if (command === "service_start" && id === "searxng") return slowStart;
+      if (command === "service_status") return serviceStatusFixture();
+      if (command === "pyenv_get_status")
+        return wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] });
+      throw new Error(`未预期的 IPC 命令: ${command}`);
+    });
+    installListen();
+    render(<PyenvCard />);
+    await screen.findByTestId("pyenv-service-searxng-start");
+
+    fireEvent.click(screen.getByTestId("pyenv-service-searxng-start"));
+
+    const note = await screen.findByTestId("pyenv-service-note");
+    expect(note.getAttribute("role")).toBe("alert");
+    expect(note.textContent).toContain("健康端点尚未通过");
+    expect(screen.getByTestId("pyenv-service-searxng-run-state").textContent).toBe("运行中");
+    expect(screen.getByTestId("pyenv-service-searxng-health").className).toContain("bg-warning");
+  });
+
+  it("启动失败(结构化错误:启动后即退出)→ ErrorBox 上屏,行保持已停止", async () => {
+    installServiceIpc(
+      wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] }),
+      { searxng: serviceStatusFixture() },
+    );
+    mocks.invoke.mockImplementation(async (command: string, args?: unknown) => {
+      if (command === "service_start") {
+        if ((args as { id: string }).id === "searxng") {
+          throw JSON.stringify({
+            code: "service_start_failed",
+            path: "$",
+            message: "服务进程启动后即退出(退出码 Some(78);日志尾部见 /data/services/searxng/service.log)",
+          });
+        }
+      }
+      if (command === "service_status") return serviceStatusFixture();
+      if (command === "pyenv_get_status")
+        return wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] });
+      throw new Error(`未预期的 IPC 命令: ${command}`);
+    });
+    installListen();
+    render(<PyenvCard />);
+    await screen.findByTestId("pyenv-service-searxng-start");
+
+    fireEvent.click(screen.getByTestId("pyenv-service-searxng-start"));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("启动后即退出");
+    expect(alert.textContent).toContain("code=service_start_failed");
+    await waitFor(() =>
+      expect(screen.getByTestId("pyenv-service-searxng-run-state").textContent).toBe("已停止"),
     );
   });
 });

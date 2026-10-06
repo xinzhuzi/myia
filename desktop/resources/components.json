@@ -18,6 +18,24 @@
       "label": "JS 渲染抓取(crawl4ai)",
       "post_install": "playwright-chromium",
       "description": "JS 渲染抓取引擎 crawl4ai(L3,进程内驱动无头浏览器):解锁纯客户端渲染源与 urlwatch 渲染通道(myssia-urlwatch 的 render_crawl4ai 场景件)、images 品类 L3 兜底;缺装时引擎报 dependency_missing 结构化降级,不影响其余流水线。体积与落点:装完 pip 闭包后安装链还会自动下载 playwright chromium 浏览器二进制,下载约 300MB 级、落盘约 600MB(chromium+headless shell+ffmpeg,沙箱实测 557MB;走 Playwright CDN,耗时数分钟);浏览器落数据根 playwright-browsers/ 目录(PLAYWRIGHT_BROWSERS_PATH),不散落系统缓存区,卸载组件或清理数据根即整目录回收。chromium 拉取失败 = 组件卡 error 态可见可重试(重试幂等:pip 已装自动跳过);闭包与 extras myssia[crawl4ai] 同源(crawl4ai 自带 playwright 依赖;窗 >=0.9,<0.10 = 本仓实测 0.9.x 线,0.10+ 未验不冒进)"
+    },
+    {
+      "id": "searxng",
+      "kind": "service",
+      "pip_spec": "-r https://raw.githubusercontent.com/searxng/searxng/d48c4b555421e824342c51d68482dd0898e54d0f/requirements.txt granian==2.8.3 setuptools>=75 wheel>=0.45",
+      "pip_src": "searxng@git+https://github.com/searxng/searxng.git@d48c4b555421e824342c51d68482dd0898e54d0f",
+      "post_install": "pip-src-no-build-isolation",
+      "pre_start": "searxng-settings",
+      "label": "关键词日报(SearXNG)",
+      "service": {
+        "start_cmd": ["-m", "granian", "--interface", "wsgi", "--host", "127.0.0.1", "--port", "8888", "searx.webapp:app"],
+        "health_url": "http://127.0.0.1:8888/healthz",
+        "port": 8888,
+        "env": {
+          "SEARXNG_SETTINGS_PATH": "{service_dir}/settings.yml"
+        }
+      },
+      "description": "自托管聚合搜索服务组件(轨B 壳服务,显式 engine: searxng 源的关键词日报底座):装进自管环境后在组件行手动「启动/停止」,装好默认停(G-Q5 手动启停 + 状态记忆,引擎跑源未启动=结构化提示不隐式拉起);服务监听本机 127.0.0.1:8888,健康端点 /healthz,服务数据(settings.yml 随机 secret + 运行日志)落数据根 services/searxng/ 目录,清理数据根即整目录回收。体积与落点(G-Q6):闭包装进自管环境 site-packages(数据根 python/ 下,不散落系统缓存区),沙箱实测 2026-10-06 落盘约 100MB 级(闭包约 90MB:babel 33M + searx 23M + lxml 20M + granian 16M + 其余纯 Python 件;无浏览器/chromium 量级下载,PyPI 走镜像覆盖生效)。上游现实如实披露:SearXNG 真身不在 PyPI(PyPI 同名包是无关 MCP 包装器),闭包从 GitHub 钉 commit d48c4b555 装源码(=引擎探查实例 2026.10.4+d48c4b555 同 commit;git 段不走 PyPI 镜像,需可及 github.com),上游 setup.py 构建期 import 运行时依赖,故安装链分两段:先装钉版依赖闭包(-r 该 commit 的 requirements.txt + granian==2.8.3 服务端 + setuptools/wheel 构建后端)再 --no-build-isolation 装源码包;任一段失败 = 组件卡 error 态可见可重试(幂等)"
     }
   ]
 }

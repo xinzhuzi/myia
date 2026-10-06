@@ -1,4 +1,4 @@
-import { Check, Cpu, Download, RefreshCw, ShieldCheck, X } from "lucide-react";
+import { Check, Cpu, Download, Play, RefreshCw, ShieldCheck, Square, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,9 @@ import {
   pyenvStartSetup,
   pyenvSyncDeps,
   pyenvVerify,
+  serviceStart,
+  serviceStatus,
+  serviceStop,
   PYENV_PHASE_ORDER,
   type PyenvComponent,
   type PyenvState,
@@ -26,6 +29,7 @@ import {
   type PyenvStep,
   type PyenvStepStatus,
   type PyenvVerifyCheck,
+  type ServiceStatus,
 } from "./pyenv-api";
 
 /**
@@ -179,6 +183,9 @@ function mergedSteps(steps: PyenvStep[]): PyenvStep[] {
  * 功能面(id/pip_spec/指纹)的唯一权威且只在壳侧消费;status.components[]
  * 契约两键钉死({id, installed}),展示文案归前端展示层——已知 id 用此处
  * 中文文案,未知 id 退回原 id 不拦渲染。
+ * 轨B 服务组件(10-06-native-plugin-components 阶段2)的启停交互语义:
+ * 装好默认停(G-Q5),启停只走本卡按钮;健康绿点 = service_status 对账的
+ * healthy(2xx),stopped 恒灰;启停动作后按回包如实翻态(不伪造进度)。
  */
 const COMPONENT_META: Record<string, { label: string; description: string }> = {
   table: {
@@ -195,6 +202,11 @@ const COMPONENT_META: Record<string, { label: string; description: string }> = {
     label: "JS 渲染抓取(crawl4ai)",
     description:
       "JS 渲染抓取引擎 crawl4ai(L3,进程内无头浏览器;闭包与 extras myssia[crawl4ai] 同源,窗 >=0.9,<0.10):解锁纯客户端渲染源与 urlwatch 渲染通道、images 品类 L3 兜底。开关开 = pip 装闭包后自动下载 playwright chromium 浏览器二进制(下载约 300MB 级、落盘约 600MB,沙箱实测 557MB;走 Playwright CDN,耗时数分钟);浏览器落数据根 playwright-browsers/ 目录(PLAYWRIGHT_BROWSERS_PATH),不散落系统缓存区,卸载组件/清理数据根即整目录回收;chromium 拉取失败会在下方示错可重试(重试幂等)",
+  },
+  searxng: {
+    label: "关键词日报(SearXNG)",
+    description:
+      "自托管聚合搜索服务组件(显式 engine: searxng 源的关键词日报底座):装好默认停,此处按钮手动启停(G-Q5:状态记忆,引擎跑源未启动=结构化提示不隐式拉起)。服务监听本机 127.0.0.1:8888,健康端点 /healthz;闭包约 100MB 级落数据根(无浏览器量级下载;PyPI 走镜像),源码从 GitHub 钉 commit 装(需可及 github.com),服务数据(settings.yml + 日志)落数据根 services/searxng/,清数据根即整目录回收",
   },
 };
 
@@ -351,6 +363,58 @@ export function PyenvCard() {
     [applyStatus],
   );
 
+  /** 服务组件实况(轨B:已装服务行初拉/事件刷新后对账;启停回包如实翻态)。
+   *  healthy = service_status 对账真值(健康端点 2xx);stopped 恒无绿点。 */
+  const [serviceStates, setServiceStates] = useState<Record<string, ServiceStatus>>({});
+  const [serviceBusy, setServiceBusy] = useState<string | null>(null);
+  const [serviceError, setServiceError] = useState<SidecarRequestError | null>(null);
+  const [serviceNote, setServiceNote] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const refreshServiceStatus = useCallback(async (id: string) => {
+    try {
+      const next = await serviceStatus(id);
+      setServiceStates((prev) => ({ ...prev, [id]: next }));
+    } catch (raw) {
+      // 探测失败不拦渲染(按钮仍可用;错误如实给一次,不覆写动作回执)
+      setServiceError(asSidecarError(raw));
+    }
+  }, []);
+
+  /** 状态刷新时对已装服务行批量对账(初拉/事件/装完回读共用一条通道)。 */
+  useEffect(() => {
+    if (status === null) return;
+    for (const component of status.components) {
+      if (component.kind === "service" && component.installed) {
+        void refreshServiceStatus(component.id);
+      }
+    }
+  }, [status, refreshServiceStatus]);
+
+  /** 服务启停(G-Q5:显式动作;回包如实翻态 + 回执,不伪造进度)。 */
+  const handleServiceToggle = useCallback(
+    async (component: PyenvComponent, start: boolean) => {
+      setServiceBusy(component.id);
+      setServiceError(null);
+      setServiceNote(null);
+      try {
+        const outcome = start ? await serviceStart(component.id) : await serviceStop(component.id);
+        setServiceStates((prev) => ({ ...prev, [component.id]: outcome }));
+        setServiceNote(
+          start
+            ? outcome.state === "running" && outcome.healthy
+              ? { text: `服务 ${component.id} 已启动且健康检查通过(进程 pid=${outcome.pid})。`, ok: true }
+              : { text: `服务 ${component.id} 已拉起(pid=${outcome.pid})但健康端点尚未通过——实例可能在预热,稍后以状态对账为准;持续未绿请查数据根 services/${component.id}/service.log。`, ok: false }
+            : { text: `服务 ${component.id} 已停止(进程组退出,零残留)。`, ok: true },
+        );
+      } catch (raw) {
+        setServiceError(asSidecarError(raw));
+      } finally {
+        setServiceBusy(null);
+      }
+    },
+    [],
+  );
+
   const meta = status !== null ? STATE_META[status.state] : null;
 
   return (
@@ -495,6 +559,12 @@ export function PyenvCard() {
                     const envBlocked =
                       status.state === "not_configured" || status.state === "installing";
                     const busy = installingComponent === component.id;
+                    // 轨B 服务组件(已装):启停按钮 + 健康绿点(未装仍走装开关;
+                    // 状态未知时按 stopped 呈现,对账毫秒级即至)
+                    const service = component.kind === "service" && component.installed;
+                    const running = service && (serviceStates[component.id]?.state ?? "stopped") === "running";
+                    const healthy = Boolean(running && serviceStates[component.id]?.healthy);
+                    const serviceToggleBusy = serviceBusy === component.id;
                     return (
                       <div
                         key={component.id}
@@ -518,6 +588,16 @@ export function PyenvCard() {
                               安装中(下载依赖,可能耗时数分钟)…
                             </span>
                           ) : null}
+                          {serviceToggleBusy ? (
+                            <span
+                              role="status"
+                              data-testid={`pyenv-service-${component.id}-busy`}
+                              className="flex items-center gap-1 text-2xs text-warning"
+                            >
+                              <RefreshCw className="size-3 animate-spin" />
+                              {running ? "停止中(SIGTERM 进程组,宽限内未退会升级强杀)…" : "启动中(等待健康端点通过,冷启动秒级)…"}
+                            </span>
+                          ) : null}
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <Badge
@@ -526,21 +606,62 @@ export function PyenvCard() {
                           >
                             {component.installed ? "已装" : "未装"}
                           </Badge>
-                          <Switch
-                            checked={component.installed}
-                            disabled={busy || envBlocked}
-                            aria-label={`组件开关 ${component.id}`}
-                            title={
-                              envBlocked
-                                ? "Python 环境未就位/主链安装中:先完成「开始配置」再装组件"
-                                : component.installed
-                                  ? "已装进自管环境;卸载本期未提供(停用走品类/源配置不再引用该组件)"
-                                  : "往自管环境装该组件(pip,镜像覆盖生效)"
-                            }
-                            onCheckedChange={(checked) =>
-                              void handleToggleComponent(component, checked)
-                            }
-                          />
+                          {service ? (
+                            <>
+                              <Badge
+                                variant={running ? "ok" : "outline"}
+                                data-testid={`pyenv-service-${component.id}-run-state`}
+                              >
+                                {running ? "运行中" : "已停止"}
+                              </Badge>
+                              <span
+                                data-testid={`pyenv-service-${component.id}-health`}
+                                title={
+                                  running
+                                    ? healthy
+                                      ? "健康端点 /healthz 返回 2xx"
+                                      : "运行中但健康端点未过(实例内部故障/慢启动;日志见数据根 services 目录)"
+                                    : "服务未运行(装好默认停;点「启动」拉起)"
+                                }
+                                aria-label={`服务健康 ${component.id}`}
+                                className={cn(
+                                  "flex size-2.5 rounded-full",
+                                  running ? (healthy ? "bg-ok" : "bg-warning animate-pulse") : "bg-muted-foreground/40",
+                                )}
+                              />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void handleServiceToggle(component, !running)}
+                                disabled={serviceToggleBusy || envBlocked}
+                                data-testid={`pyenv-service-${component.id}-${running ? "stop" : "start"}`}
+                                title={
+                                  running
+                                    ? "SIGTERM 进程组(覆盖 granian 子进程树)→ 宽限 → SIGKILL 兜底;停止后状态记忆为已停止"
+                                    : "拉起服务进程组并等待健康端点通过;装好默认停,启停只走此按钮(引擎不隐式拉起)"
+                                }
+                              >
+                                {running ? <Square className="size-3.5" /> : <Play className="size-3.5" />}
+                                {running ? "停止" : "启动"}
+                              </Button>
+                            </>
+                          ) : (
+                            <Switch
+                              checked={component.installed}
+                              disabled={busy || envBlocked}
+                              aria-label={`组件开关 ${component.id}`}
+                              title={
+                                envBlocked
+                                  ? "Python 环境未就位/主链安装中:先完成「开始配置」再装组件"
+                                  : component.installed
+                                    ? "已装进自管环境;卸载本期未提供(停用走品类/源配置不再引用该组件)"
+                                    : "往自管环境装该组件(pip,镜像覆盖生效)"
+                              }
+                              onCheckedChange={(checked) =>
+                                void handleToggleComponent(component, checked)
+                              }
+                            />
+                          )}
                         </div>
                       </div>
                     );
@@ -554,6 +675,16 @@ export function PyenvCard() {
                     className={componentNote.ok ? "text-xs text-ok" : "text-xs text-destructive"}
                   >
                     {componentNote.text}
+                  </p>
+                ) : null}
+                {serviceError ? <ErrorBox error={serviceError} /> : null}
+                {serviceNote ? (
+                  <p
+                    role={serviceNote.ok ? "status" : "alert"}
+                    data-testid="pyenv-service-note"
+                    className={serviceNote.ok ? "text-xs text-ok" : "text-xs text-destructive"}
+                  >
+                    {serviceNote.text}
                   </p>
                 ) : null}
               </section>

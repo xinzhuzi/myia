@@ -18,6 +18,9 @@
  *   可执行/依赖指纹/sidecar 握手,只读零副作用 → `{ok, checks:[{id,ok,detail}]}`)
  * - command `pyenv_install_component(id)`(10-05-table-restore R4:装可选组件
  *   进自管环境;壳侧 pyenv_components.rs)
+ * - command `service_start|service_stop|service_status(id)`(轨B 壳服务组件
+ *   生命周期,10-06-native-plugin-components 阶段2;G-Q5 手动启停+状态记忆,
+ *   返回 `{id,state,healthy,pid,started_at,last_exit}`)
  * - command `pyenv_migration_banner()`(第 6 步 D5/design §6:存量迁移一次性
  *   引导,查询即消费 —— {show:true} 每数据根至多一次,壳侧标记落盘;
  *   pyenv_migration.rs 为对齐源)
@@ -72,10 +75,13 @@ export interface PyenvStatus {
   components: PyenvComponent[];
 }
 
-/** 可选组件(自管环境按需 pip 装;壳侧 pyenv_components.rs 对齐源)。 */
+/** 可选组件(自管环境按需 pip 装;壳侧 pyenv_components.rs 对齐源)。
+ *  kind="service" = 轨B 壳服务组件(10-06-native-plugin-components 阶段2:
+ *  同卡组件行扩服务形态——启停按钮 + 健康绿点);缺省 = 轨A 库组件(既有开关面)。 */
 export interface PyenvComponent {
   id: string;
   installed: boolean;
+  kind?: "service";
 }
 
 /** 安装链全阶段有序表(安装明细逐项渲染的骨架;steps 只补状态)。 */
@@ -122,7 +128,10 @@ export function parsePyenvStatus(raw: unknown): PyenvStatus {
         if (typeof entry !== "object" || entry === null) return [];
         const component = entry as Record<string, unknown>;
         if (typeof component.id !== "string" || typeof component.installed !== "boolean") return [];
-        return [{ id: component.id, installed: component.installed }];
+        // kind 附加键宽容:仅 "service" 是契约值(其余/缺省 → 库组件形态,
+        // 与壳侧 skip_serializing_if 的 wire 形一致——库条目仍恰两键)
+        const kind = component.kind === "service" ? ("service" as const) : undefined;
+        return [{ id: component.id, installed: component.installed, kind }];
       })
     : [];
   return {
@@ -200,6 +209,79 @@ export function parseComponentInstallOutcome(raw: unknown): ComponentInstallOutc
 /** 装组件进自管环境(设置屏组件开关消费;PyPI 镜像覆盖继承 pyenv-settings)。 */
 export async function pyenvInstallComponent(id: string): Promise<ComponentInstallOutcome> {
   return parseComponentInstallOutcome(await invoke("pyenv_install_component", { id }));
+}
+
+// ---------------------------------------------------------------------------
+// 轨B 壳服务组件生命周期(10-06-native-plugin-components 阶段2;壳侧
+// pyenv_components.rs service_start/stop/status 对齐源,G-Q5 手动启停+状态记忆)
+// ---------------------------------------------------------------------------
+
+/** 服务运行态(契约两值;IPC wire 形 snake_case 同 PyenvStatus 惯例)。 */
+const SERVICE_RUN_STATES = ["running", "stopped"] as const;
+export type ServiceRunState = (typeof SERVICE_RUN_STATES)[number];
+
+/**
+ * `service_status`(及 start/stop 回包共用载荷)形态:
+ * - `state`: running|stopped(状态戳 pid 对账后的真值,不是按钮愿望);
+ * - `healthy`: 健康端点 2xx(仅 running 态可能 true;stopped 恒 false);
+ * - `pid`/`started_at`/`last_exit`: 观测面(unix 信号死者记 -signal;
+ *   跨壳重启的孤儿停服退出码不可观测 → null 如实)。
+ */
+export interface ServiceStatus {
+  id: string;
+  state: ServiceRunState;
+  healthy: boolean;
+  pid: number | null;
+  started_at: number | null;
+  last_exit: number | null;
+}
+
+function asNumberOrNull(value: unknown): number | null {
+  return typeof value === "number" ? value : null;
+}
+
+/**
+ * wire 载荷 → ServiceStatus(TS 侧守门,同 parsePyenvStatus 口径):
+ * id/state/healthy 非契约类型即抛(对齐破了要大声失败);观测三键宽容
+ * number|null(缺键 = null,不拦状态展示)。
+ */
+export function parseServiceStatus(raw: unknown): ServiceStatus {
+  if (typeof raw !== "object" || raw === null) {
+    throw new TypeError(`service status 载荷不是对象: ${String(raw)}`);
+  }
+  const record = raw as Record<string, unknown>;
+  if (typeof record.id !== "string") {
+    throw new TypeError(`service status.id 非字符串: ${String(record.id)}`);
+  }
+  if (!SERVICE_RUN_STATES.includes(record.state as ServiceRunState)) {
+    throw new TypeError(`service status.state 非契约值: ${String(record.state)}`);
+  }
+  if (typeof record.healthy !== "boolean") {
+    throw new TypeError(`service status.healthy 非布尔: ${String(record.healthy)}`);
+  }
+  return {
+    id: record.id,
+    state: record.state as ServiceRunState,
+    healthy: record.healthy,
+    pid: asNumberOrNull(record.pid),
+    started_at: asNumberOrNull(record.started_at),
+    last_exit: asNumberOrNull(record.last_exit),
+  };
+}
+
+/** 启动服务组件(G-Q5 显式动作;装好默认停。幂等:已在运行 → 原样回当前状态)。 */
+export async function serviceStart(id: string): Promise<ServiceStatus> {
+  return parseServiceStatus(await invoke("service_start", { id }));
+}
+
+/** 停止服务组件(SIGTERM 进程组 → 宽限 → SIGKILL;幂等:未在运行 → 直接回 stopped)。 */
+export async function serviceStop(id: string): Promise<ServiceStatus> {
+  return parseServiceStatus(await invoke("service_stop", { id }));
+}
+
+/** 服务状态查询(对账 + 健康点;启停按钮初值与健康绿点消费)。 */
+export async function serviceStatus(id: string): Promise<ServiceStatus> {
+  return parseServiceStatus(await invoke("service_status", { id }));
 }
 
 /**

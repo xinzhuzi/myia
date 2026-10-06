@@ -542,6 +542,11 @@ fn main() {
             pyenv::pyenv_sync_deps,
             pyenv_install::pyenv_verify,
             pyenv_components::pyenv_install_component,
+            // 轨B 壳服务组件生命周期(10-06-native-plugin-components 阶段2,
+            // design §2/G-Q5:显式启停 + 状态记忆,不隐式拉起)
+            pyenv_components::service_start,
+            pyenv_components::service_stop,
+            pyenv_components::service_status,
             pyenv_migration::pyenv_migration_banner
         ])
         .setup(move |app| {
@@ -559,6 +564,10 @@ fn main() {
             // 组件机制(10-05-table-restore):单飞护栏内存槽(installing =
             // 在装组件 id;pyenv_install_component 占坑/清槽)。
             app.manage(pyenv_components::ComponentManager::default());
+            // 轨B 服务组件管理器(10-06-native-plugin-components 阶段2):本会话
+            // 拉起的服务子进程句柄表(退出码回收依赖句柄;跨会话孤儿靠状态戳
+            // pid + ps argv 复核对账,G-Q5 状态记忆)。
+            app.manage(pyenv_components::ServiceManager::default());
             // 自管 Python 环境探测(第 2 步):未就绪(not_configured/installing/
             // error)不 spawn、启动不崩——发空态事件走 UI 引导(D2),sidecar
             // 请求由协议层报结构化 pyenv_not_ready(prd Req 3);就绪/依赖漂移

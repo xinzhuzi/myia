@@ -1,6 +1,6 @@
 """Tests for the SearXNG self-hosted metasearch engine (10-05-source-searxng).
 
-六用例(夹具蓝本 = 探查实快照 ``.trellis/tasks/10-05-source-searxng/
+八用例(夹具蓝本 = 探查实快照 ``.trellis/tasks/10-05-source-searxng/
 evidence/2026-10-06-search-web-zhcn.json``:55 条 / 35 default.html +
 20 images.html / 七顶层键 / 23 键骨架):
 
@@ -13,7 +13,11 @@ evidence/2026-10-06-search-web-zhcn.json``:55 条 / 35 default.html +
    200 非 JSON → json_decode;results 非数组 → searxng_payload_malformed;
 5. base_url 三级解析:缺省 127.0.0.1:8888 / env MYIA_SEARXNG_URL 覆盖 /
    源级 searxng_base_url 最高优先;
-6. 礼貌参数:逐词串行 + 词间 query_delay(缺省 3s)+ per-host 限速。
+6. 礼貌参数:逐词串行 + 词间 query_delay(缺省 3s)+ per-host 限速;
+7. (10-06 轨B/G-Q5)就绪探测:loopback 未启动 → searxng_service_not_running
+   「服务组件未启动」+设置页引导,零 /search 流量,不隐式拉起;远端未起 →
+   network「实例未起」;探测放行(200/404 皆可)= 实例在;
+8. schema 装载校验(engine=searxng 时 queries 必填)。
 
 零真实网络(MockTransport)。robots 不查(自家实例自授权通道,模块文档
 论证;测试钉死请求序列里无 /robots.txt)。
@@ -36,6 +40,7 @@ from myssia.engines.searxng import (
     DEFAULT_QUERY_DELAY_SECONDS,
     DEFAULT_SEARXNG_BASE_URL,
     ENV_SEARXNG_URL,
+    HEALTHZ_PATH,
     SearxngEngine,
 )
 from myssia.schema import LoadError, SourceConfig, load_category
@@ -122,16 +127,24 @@ ZERO_PAYLOAD = {  # evidence/2026-10-06-search-default-general-zero.json 原样�
 def searxng_handler(
     captured: list[httpx.Request],
     responder=None,
+    probes: list[httpx.Request] | None = None,
 ) -> httpx.AsyncClient:
-    """单宿主 mock:一切 /search 走 responder;其余请求一律失败(零 robots)."""
+    """单宿主 mock:一切 /search 走 responder;/healthz 就绪探测恒 200(计入
+    probes 独立记账,不混入搜索流量断言);其余请求一律失败(零 robots)."""
 
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == f"/{HEALTHZ_PATH}":
+            if probes is not None:
+                probes.append(request)
+            return httpx.Response(200, text="OK")
         captured.append(request)
         if request.url.path == "/search":
             if responder is not None:
                 return responder(request)
             return httpx.Response(200, json=web_payload())
-        pytest.fail(f"意外请求(引擎只应打 /search,且不查 robots):{request.url}")
+        pytest.fail(
+            f"意外请求(引擎只应打 /search 与 /healthz,且不查 robots):{request.url}"
+        )
 
     return make_client(handler)
 
@@ -370,9 +383,15 @@ def test_payload_without_results_array_rejected():
     assert excinfo.value.error_type == "searxng_payload_malformed"
 
 
-def test_dead_instance_transport_error_structured():
-    """连接拒绝(实例未起)→ 结构化失败,不挂死管线(firecrawl 口径)."""
+def test_dead_instance_transport_error_structured(monkeypatch):
+    """transport 失败分岔(轨B G-Q5 就绪探测先拦):
 
+    - loopback base(=本机壳服务组件实例)→ ``searxng_service_not_running``
+      「服务组件未启动」+ 设置页引导;零 /search 流量(探测不过不放查询)。
+    - 远端 base → 既有 network「实例未起」分类(firecrawl 口径不变)。
+    """
+
+    # loopback:连接拒绝 → 服务组件未启动(引导设置页,不隐式拉起)
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("[Errno 61] Connection refused", request=request)
 
@@ -382,8 +401,50 @@ def test_dead_instance_transport_error_structured():
 
     with pytest.raises(FetchError) as excinfo:
         run(SearxngEngine(source, context).fetch())
+    assert excinfo.value.error_type == "searxng_service_not_running"
+    assert "服务组件未启动" in str(excinfo.value)
+    assert "设置" in str(excinfo.value) and "启动" in str(excinfo.value)
+    assert "不隐式拉起" in str(excinfo.value)
+
+    # 远端实例:同样的连接拒绝 → network「实例未起」(部署侧引导)
+    source = make_searxng_source(
+        queries=["q"], retry=0, searxng_base_url="http://192.168.1.10:8888"
+    )
+    with pytest.raises(FetchError) as excinfo:
+        run(SearxngEngine(source, context).fetch())
     assert excinfo.value.error_type == "network"
     assert "实例未起" in str(excinfo.value)
+
+
+def test_readiness_probe_passes_then_searches_run_and_tolerates_4xx_healthz():
+    """就绪探测放行语义:① /healthz 200 → 放行 /search(既有流量断言的
+    探测前提);② /healthz 404(老实例无该路由)= 实例在,照样放行——
+    探测只判「有没有起来」,健康语义归设置卡绿点。"""
+
+    probes: list[httpx.Request] = []
+    captured: list[httpx.Request] = []
+    client = searxng_handler(captured, probes=probes)
+    context, _clock = searxng_context(client)
+    source = make_searxng_source(queries=["q"])
+
+    items = run(SearxngEngine(source, context).fetch())
+    assert len(captured) == 1  # 一发 /search(流量断言不混探测)
+    assert len(probes) == 1  # 探测恰一发,无重试预算放大
+    assert probes[0].url.path == f"/{HEALTHZ_PATH}"
+    assert items  # 放行后正常解析
+
+    # 404 老实例形态:探测应答 404 → 仍在,放行
+    def health_404(request: httpx.Request) -> httpx.Response:
+        if request.url.path == f"/{HEALTHZ_PATH}":
+            return httpx.Response(404, text="not found")
+        if request.url.path == "/search":
+            return httpx.Response(200, json=web_payload(n_default=2, n_images=0))
+        pytest.fail(f"意外请求:{request.url}")
+
+    client404 = make_client(health_404)
+    context404, _clock = searxng_context(client404)
+    items = run(SearxngEngine(source, context404).fetch())
+    assert len(items) == 2  # 404 = 实例在,搜索照常
 
 
 # ---------------------------------------------------------------------------

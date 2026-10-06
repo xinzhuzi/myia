@@ -41,8 +41,14 @@ MYIA 采集的是主人自己部署的实例;上游搜索源的礼貌由聚合�
 —— 引擎不查 robots.txt(reddit「robots 面不适用钉死端点」同款论证,
 本引擎的请求只发往三级解析出的自家 base)。
 
-错误面(research §4/§7,实测对账):
+错误面(research §4/§7,实测对账;+ 轨B 就绪探测,10-06 G-Q5):
 
+- **就绪探测先行**(``/healthz`` 一发即定,不走重试预算):loopback base
+  探测 transport 失败 → ``searxng_service_not_running``「服务组件未启动」
+  结构化失败,文案引导设置页「Python 运行环境 → 关键词日报(SearXNG)」行
+  「启动」;**不隐式拉起**(启停是管控面显式动作,G-Q5)。远端 base 保持
+  「实例未起」network 分类;任何 HTTP 应答(含 404/5xx)= 实例在,放行
+  /search(健康语义归设置卡绿点);
 - HTTP 403 → 实例未开 json format(部署侧:settings.yml 的
   ``search.formats`` 加 ``json`` 后重启容器;实测未激活时 Flask 路由层
   即拒,零上游成本);
@@ -50,8 +56,8 @@ MYIA 采集的是主人自己部署的实例;上游搜索源的礼貌由聚合�
   limiter/ip_lists 口径);
 - HTTP 400/5xx → 透传响应体 ``error`` 字段(实测 ``{"error": "No query"}``
   等形态);
-- 连接拒绝等 transport 失败 → 「实例未起」结构化失败(同 firecrawl 自
-  托管死服务优雅降级口径,不挂死管线);
+- 连接拒绝等 transport 失败(就绪探测已放行后的运行中死亡)→ 「实例未起」
+  结构化失败(同 firecrawl 自托管死服务优雅降级口径,不挂死管线);
 - 响应非 JSON / ``results`` 非数组 → ``json_decode`` /
   ``searxng_payload_malformed``。
 
@@ -93,6 +99,15 @@ ENV_SEARXNG_URL = "MYIA_SEARXNG_URL"
 #: 内置缺省 base(本机探查栈口径:searxng-core 0.0.0.0:8888)。
 DEFAULT_SEARXNG_BASE_URL = "http://127.0.0.1:8888"
 
+#: 就绪探测端点(10-06-native-plugin-components 轨B/G-Q5:本机服务组件
+#: 未启动 → 结构化失败并给设置页引导,**不隐式拉起**——启停是管控面显式
+#: 动作,状态须在设置卡可见)。上游 /healthz 是纯文本 200,零上游搜索成本。
+HEALTHZ_PATH = "healthz"
+
+#: loopback 主机名集合(就绪探测失败文案分岔:loopback base = 本机壳服务
+#: 组件实例(设置页可启);远端 base = 外部实例未起,引导部署侧)。
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
 #: 请求参数常量(探查实测定案,research §9-1;不做配置面)。
 SEARCH_CATEGORIES = "web"
 SEARCH_LANGUAGE = "zh-CN"
@@ -110,6 +125,7 @@ __all__ = [
     "DEFAULT_QUERY_DELAY_SECONDS",
     "DEFAULT_SEARXNG_BASE_URL",
     "ENV_SEARXNG_URL",
+    "HEALTHZ_PATH",
     "LAYER",
     "SEARCH_CATEGORIES",
     "SEARCH_LANGUAGE",
@@ -205,6 +221,9 @@ class SearxngEngine(BaseEngine):
         base = self._base_url()
         queries = self._queries()
         delay = self._query_delay()
+        # G-Q5 就绪探测先行:本机服务组件未启动 → 结构化失败引导设置页
+        # (零 /search 流量——探测不过就不放查询,礼貌面同源)。
+        await self._ensure_service_up(base)
         url = f"{base}/search"
         # 源级显式 Accept-Language 尊重用户配置(reddit UA 政策同款优先级)。
         headers = dict(self._headers)
@@ -226,6 +245,44 @@ class SearxngEngine(BaseEngine):
             )
             items.extend(produced)
         return items
+
+    async def _ensure_service_up(self, base: str) -> None:
+        """G-Q5 就绪探测(10-06-native-plugin-components 轨B):跑源先打一发
+        ``/healthz``——**一发即定**(不走重试预算:服务态不会在毫秒级退避里
+        翻转,重试只是白等;搜索请求自身的既有重试不受影响)。
+
+        - 任何 HTTP 应答(2xx/404/5xx 皆可)= 实例在(健康语义归设置卡绿点,
+          此处只判「有没有起来」;老实例无 /healthz 路由 → 404 也是「在」)。
+        - transport 失败(连接拒绝/超时):
+          - loopback base(=本机壳服务组件实例,缺省 ``127.0.0.1:8888`` 即
+            此类)→ ``searxng_service_not_running`` 结构化失败,文案引导设置
+            页「Python 运行环境 → 关键词日报(SearXNG)」行点「启动」;
+            **不隐式拉起**(隐式拉起=状态不可见,违背管控面透明判例)。
+          - 远端 base → 既有「实例未起」network 分类(firecrawl 死服务口径)。
+        """
+        probe_url = f"{base}/{HEALTHZ_PATH}"
+        try:
+            await self._active_client.request(
+                "GET",
+                probe_url,
+                headers={"Accept-Language": ACCEPT_LANGUAGE},
+                timeout=self.context.timeout,
+            )
+        except httpx.TransportError as exc:
+            if urlsplit(base).hostname in _LOOPBACK_HOSTS:
+                raise FetchError(
+                    "searxng 服务组件未启动(就绪探测 /healthz 网络失败:"
+                    f" {exc};本机实例请在 设置 → Python 运行环境 → 可选组件"
+                    "「关键词日报(SearXNG)」行点「启动」后重跑;"
+                    "引擎不隐式拉起服务,启停状态在设置卡可见)",
+                    error_type="searxng_service_not_running",
+                ) from exc
+            raise FetchError(
+                f"searxng 实例网络失败(常见=实例未起;base 见上文就绪行;"
+                f"起栈指引见 plugins/searxng.yaml 头注): {exc}",
+                error_type=classify_exception(exc),
+            ) from exc
+        logger.debug("searxng 就绪探测通过 base=%s(/healthz 有应答)", base)
 
     async def _search_once(
         self, url: str, headers: dict[str, str], query: str
