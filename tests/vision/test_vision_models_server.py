@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import datetime
 import http.server
-import io
 import json
 import logging
 import socketserver
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -404,25 +404,15 @@ class TestServerStatus:
 
 class FakeProc:
     """Popen 桩:poll 可编排(缺省 None = 活着);terminate/wait/kill 记录调用
-    (超窗孤儿收尾断言用,wait 缺省即时返回);stdout/stderr 可选管道流
-    (10-07-unified-logging 批1:子进程输出泵断言用,缺省无 = 不泵)。"""
+    (超窗孤儿收尾断言用,wait 缺省即时返回)。"""
 
-    def __init__(
-        self,
-        exit_code: int | None = None,
-        *,
-        stderr: io.BytesIO | None = None,
-        stdout: io.BytesIO | None = None,
-    ):
+    def __init__(self, exit_code: int | None = None):
         self.exit_code = exit_code
         self.returncode = exit_code
         self.poll_count = 0
         self.terminated = False
         self.killed = False
         self.wait_count = 0
-        # 迭代完即 EOF 的管道桩(真 Popen 行为);None 属性 = 无管道(旧桩形态零差)
-        self.stderr = iter(stderr.getvalue().splitlines(keepends=True)) if stderr else None
-        self.stdout = iter(stdout.getvalue().splitlines(keepends=True)) if stdout else None
 
     def poll(self) -> int | None:
         self.poll_count += 1
@@ -596,25 +586,51 @@ class TestEnsureServer:
         assert waited >= 0.15  # 确实阻塞等了锁(不是绕过)
 
     def test_spawn_output_pumped_to_unified_log_proc_vision(self, tmp_path, monkeypatch):
-        """决议③(10-07-unified-logging 批1):子进程 stdout/stderr 管道泵入
-        统一 ``<data_root>/logs/myssia-*.jsonl`` 的 proc=vision 行(独立调用
-        形态经 data_root 锚点惰性自举);vision-server.log 及其 .1 轮转形态
-        退役——本目录零新面。"""
+        """决议③(10-07-unified-logging 批1;复查② sink 形态):子进程
+        stdout/stderr 落 ``<data_root>/logs/vision-server.out|.err`` 中继
+        sink——spawn 收到的是**文件句柄而非 PIPE**(nohup 存活语义的修复钉:
+        管道读端随父进程退出全关会让子进程下一次写即 EPIPE),daemon 泵
+        线程从基线 tail 跟读转统一 ``myssia-*.jsonl`` 的 proc=vision 行
+        (独立调用形态经 data_root 锚点惰性自举);基线前的上一程存量不
+        重放;vision-server.log 及其 .1 零新面。"""
         monkeypatch.setattr(vserver, "_probe", lambda url, timeout=2.0: (False, False))
         # 统一日志隔离(批0 tests/test_log.py 同款纪律:root handlers+工厂快照)
         saved_handlers = logging.getLogger().handlers[:]
         saved_factory = logging.getLogRecordFactory()
         unified_log._reset_module_state()
         try:
+            # 上一程 server 的 sink 存量:基线之前,不得重放(已泵进过统一日志)
+            sinks = tmp_path / "logs"
+            sinks.mkdir(parents=True)
+            (sinks / "vision-server.err").write_text(
+                "stale-traceback-from-prev\n", encoding="utf-8"
+            )
+            (sinks / "vision-server.out").write_text(
+                "stale-banner-from-prev\n", encoding="utf-8"
+            )
+            captured: dict = {}
+
+            def _spawn(cmd, **kwargs):  # noqa: ANN003
+                captured.update(kwargs)
+                return FakeProc()
+
             with pytest.raises(vserver.VisionServerError):
                 vserver.ensure_vision_server(  # 超窗上抛只为走到 spawn+泵路径
                     _cfg(tmp_path), data_root=tmp_path,
-                    _spawn=lambda cmd, **k: FakeProc(
-                        stderr=io.BytesIO("Traceback: boom\n".encode()),
-                        stdout=io.BytesIO("INFO: mlx server up\n".encode()),
-                    ),
+                    _spawn=_spawn,
                     health_wait=0.02, poll_interval=0.01,
                 )
+            # 存活语义钉:stdout/stderr 是 sink 文件句柄(各自一份),不是 PIPE
+            assert captured["stdout"] is not subprocess.PIPE
+            assert captured["stderr"] is not subprocess.PIPE
+            assert Path(captured["stdout"].name).name == vserver.SERVER_SINK_OUT_NAME
+            assert Path(captured["stderr"].name).name == vserver.SERVER_SINK_ERR_NAME
+            assert captured["stdout"] is not captured["stderr"]
+            # 子进程写 sink(模拟活 server 持 fd 追加)
+            with open(sinks / "vision-server.err", "ab") as fh:
+                fh.write("Traceback: boom\n".encode())
+            with open(sinks / "vision-server.out", "ab") as fh:
+                fh.write("INFO: mlx server up\n".encode())
             log_file = (
                 tmp_path / "logs" / f"myssia-{datetime.datetime.now():%Y%m%d}.jsonl"
             )
@@ -635,9 +651,54 @@ class TestEnsureServer:
             assert any(
                 e["stream"] == "stdout" and "mlx server up" in e["line"] for e in lines
             )
+            assert all("stale-" not in e["line"] for e in lines)  # 基线前存量不重放
             assert not (tmp_path / "vision-server.log").exists()
             assert not (tmp_path / "vision-server.log.1").exists()
         finally:
             unified_log._reset_module_state()
             logging.getLogger().handlers[:] = saved_handlers
             logging.setLogRecordFactory(saved_factory)
+
+    def test_spawn_sink_over_cap_truncated_and_degrade_devnull(self, tmp_path, monkeypatch):
+        """复查② 边沿:sink 超 ``SERVER_SINK_TRUNCATE_BYTES`` → spawn 前
+        truncate 归零(基线 0);sink 预备失败(logs 路径是文件)→ 该流降级
+        DEVNULL 绝不阻 spawn。"""
+        monkeypatch.setattr(vserver, "_probe", lambda url, timeout=2.0: (False, False))
+        monkeypatch.setattr(vserver, "_ensure_unified_logging", lambda root: None)
+        monkeypatch.setattr(vserver, "SERVER_SINK_TRUNCATE_BYTES", 16)
+
+        sinks = tmp_path / "logs"
+        sinks.mkdir(parents=True)
+        (sinks / "vision-server.err").write_bytes(b"x" * 100)
+        (sinks / "vision-server.out").write_bytes(b"y" * 8)  # 阈内:不动
+        captured: dict = {}
+
+        def _spawn(cmd, **kwargs):  # noqa: ANN003
+            captured.update(kwargs)
+            return FakeProc()
+
+        with pytest.raises(vserver.VisionServerError):
+            vserver.ensure_vision_server(
+                _cfg(tmp_path), data_root=tmp_path, _spawn=_spawn,
+                health_wait=0.02, poll_interval=0.01,
+            )
+        assert (sinks / "vision-server.err").stat().st_size == 0  # 超阈归零
+        assert (sinks / "vision-server.out").stat().st_size == 8  # 阈内原样
+
+        # 降级分支:logs 被文件占位 → mkdir 失败 → 两流 DEVNULL,spawn 照常
+        broken_root = tmp_path / "broken"
+        broken_root.mkdir()
+        (broken_root / "logs").write_text("not a dir", encoding="utf-8")
+        captured2: dict = {}
+
+        def _spawn2(cmd, **kwargs):  # noqa: ANN003
+            captured2.update(kwargs)
+            return FakeProc()
+
+        with pytest.raises(vserver.VisionServerError):
+            vserver.ensure_vision_server(
+                _cfg(broken_root), data_root=broken_root, _spawn=_spawn2,
+                health_wait=0.02, poll_interval=0.01,
+            )
+        assert captured2["stdout"] is subprocess.DEVNULL
+        assert captured2["stderr"] is subprocess.DEVNULL

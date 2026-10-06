@@ -1999,9 +1999,11 @@ class Pipeline:
             vision_cfg = VisionConfig()
         # server 代管(10-03-vision-v2;日志 10-07-unified-logging 批1 决议③):
         # 本轮任何源可能走 vl:local 时,先 ensure 一次本地 mlx_vlm.server(未跑
-        # 则 nohup 自启,健康等待跑线程池防卡事件循环);子进程输出管道泵入统一
-        # myssia-*.jsonl(proc=vision)。失败只告警 —— VL 环稍后照常按
-        # vl_skipped_error 降级不阻管线,语义与手工 nohup 失联的今天完全一致。
+        # 则 nohup 自启,健康等待跑线程池防卡事件循环);子进程输出落中继 sink
+        # (logs/vision-server.out|.err,复查②:文件而非管道,server 存活不随
+        # 本进程)泵入统一 myssia-*.jsonl(proc=vision)。失败只告警 —— VL 环
+        # 稍后照常按 vl_skipped_error 降级不阻管线,语义与手工 nohup 失联的
+        # 今天完全一致。
         if images_cfg.vl == "local" or any(
             (source.extra_params or {}).get("images_vl") == "local"
             for source in self.config.sources

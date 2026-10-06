@@ -3815,9 +3815,13 @@ def _m_logs_tail(params: dict[str, Any]) -> dict[str, Any]:
         raise ProtocolError("invalid_params", "lines 必须为正整数", path="params.lines")
     lines = min(lines, myssia_log.CAPACITY)
     run_id = params.get("run_id")
-    snapshot = myssia_log.ring_snapshot(run_id=run_id, lines=lines)
+    # total/truncated 相对**过滤后总数**(旧实现语义,复查①):ring_snapshot
+    # 自带尾部截取,先截尾再计数会让 total 恒 ≤ lines、truncated 恒 False,
+    # 前端「缓冲截断」徽标死亡。环形帽结构性 ≤ CAPACITY,故传 CAPACITY 取
+    # 全量过滤视图,尾部截取归本函数自理。
+    snapshot = myssia_log.ring_snapshot(run_id=run_id, lines=myssia_log.CAPACITY)
     return {
-        "lines": snapshot,
+        "lines": snapshot[-lines:],
         "total": len(snapshot),
         "truncated": len(snapshot) > lines,
     }

@@ -188,6 +188,27 @@ class TestRunLogsPersistence:
         assert [e["line"] for e in result["lines"]] == ["采集开始 demo", "运行结束 status=success"]
         assert [e["seq"] for e in result["lines"]] == sorted(e["seq"] for e in result["lines"])
 
+    def test_logs_tail_total_and_truncated_semantics(self, tmp_path, monkeypatch):
+        """复查①:total/truncated 相对**过滤后总数**(旧实现语义)——ring 5 行、
+        请求 lines=2 → total=5、truncated=True、lines=尾部 2 行。批1 切道
+        ring_snapshot 后先截尾再计数曾把 truncated 结构性恒 False,前端
+        「缓冲截断」徽标死亡;本用例钉死该路径。"""
+        home = tmp_path / "home"
+        monkeypatch.setenv("MYIA_HOME", str(home))
+        code, _ = rpc({"id": 1, "method": "version"})
+        assert code == 0
+        for i in range(5):
+            myssia_log.stream_line(7, "stdout", f"row-{i}")
+        # 新 serve 实例:行已落盘,backfill 拉回后按协议读(与上面 AC2 同通路)
+        code2, responses2 = rpc(
+            {"id": 2, "method": "logs.tail", "params": {"run_id": 7, "lines": 2}}
+        )
+        result = responses2[0]["result"]
+        assert set(result) == {"lines", "total", "truncated"}
+        assert result["total"] == 5  # 过滤后总数,不是返回条数
+        assert result["truncated"] is True
+        assert [e["line"] for e in result["lines"]] == ["row-3", "row-4"]  # 尾部截取
+
 
 # ---------------------------------------------------------------------------
 # AC3:内嵌 CLI 窗口三向(恰一份 / 裸 print 仍入流 / 窗口后 handler 完整)

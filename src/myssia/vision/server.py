@@ -12,8 +12,11 @@
   首载慢是常态,不是故障);失败结构化上抛(:class:`VisionServerError`)。
   三条自守纪律:并发 ensure 互斥(:data:`_ENSURE_LOCK`,锁内重探健康防双
   spawn);超健康窗先杀子进程再上抛(孤儿不留,:func:`_terminate_proc`);
-  子进程 stdout/stderr 管道泵入统一日志流(10-07-unified-logging 批1
-  决议③:落 ``myssia-*.jsonl`` 的 proc=vision 行,vision-server.log 退役)。
+  子进程 stdout/stderr 落中继 sink 文件(``logs/vision-server.out|.err``),
+  父进程 tail 泵入统一日志流(10-07-unified-logging 批1 决议③:落
+  ``myssia-*.jsonl`` 的 proc=vision 行,vision-server.log 退役;复查②:
+  文件而非管道——管道读端随父进程退出全关,子进程下一次写即 EPIPE,
+  nohup 存活语义会被连坐废除)。
 
 调用方:管线侧 collect 环 ``vl:local`` 前 ensure 一次(失败沿用
 ``vl_skipped_error`` 降级,绝不阻管线,见 :mod:`myssia.pipeline`);协议侧
@@ -21,21 +24,26 @@
 
 纪律:零重依赖(httpx + subprocess,均为核心依赖面);spawn 用
 ``start_new_session=True``(setsid = nohup 语义:脱离终端、不受壳退出
-SIGHUP 波及),子进程输出走 stdout/stderr 管道 → daemon 泵线程逐行
+SIGHUP 波及),子进程 stdout/stderr 落**中继 sink 文件**(子进程持 fd
+追加写,非管道)→ 父进程 daemon 泵线程 tail 跟读逐行
 :func:`myssia.log.stream_line`(崩溃 traceback 不丢;serve 进程的 stdout
-是协议流,子进程输出绝不裸穿)——泵线程随进程退出,setsid 子进程在
-泵线程死后写满管道缓冲属可接受终态(server 死→管道读端全关)。健康
-等待跑在调用方线程(pipeline 经 ``asyncio.to_thread``,协议层同步等待)。
+是协议流,子进程输出绝不裸穿)。文件而非管道是存活语义的成立前提
+(复查②修正批1 的反因果自辩):管道读端随父进程退出全关,子进程下一次
+写即 EPIPE——不是「server 死→读端关」,是「读端关→server 死」;sink
+文件让子进程的输出通道与父进程死活解耦,App 退出/壳 respawn 后 server
+照跑,下次 ensure 健康即复用(零 Metal JIT 冷启重付)。健康等待跑在调用
+方线程(pipeline 经 ``asyncio.to_thread``,协议层同步等待)。
 """
 
 from __future__ import annotations
 
 import contextlib
+import os
 import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 from urllib.parse import urlparse
 
 import httpx
@@ -47,6 +55,9 @@ __all__ = [
     "HEALTH_POLL_INTERVAL_SECONDS",
     "HEALTH_WAIT_SECONDS",
     "PROBE_TIMEOUT_SECONDS",
+    "SERVER_SINK_ERR_NAME",
+    "SERVER_SINK_OUT_NAME",
+    "SERVER_SINK_TRUNCATE_BYTES",
     "TERMINATE_GRACE_SECONDS",
     "VisionServerError",
     "ensure_vision_server",
@@ -62,6 +73,17 @@ HEALTH_WAIT_SECONDS = 120.0
 HEALTH_POLL_INTERVAL_SECONDS = 2.0
 #: 超窗孤儿进程的 SIGTERM 宽限秒数(到期 SIGKILL;run.cancel 同款纪律)。
 TERMINATE_GRACE_SECONDS = 2.0
+#: 子进程 stdout 中继 sink 文件名(落 ``<data_root>/logs/``,复查②)。
+SERVER_SINK_OUT_NAME = "vision-server.out"
+#: 子进程 stderr 中继 sink 文件名(与 out 各一份,保 stream 区分:崩溃
+#: traceback 走 stderr、uvicorn banner/access 走 stdout,统一日志条目可辨)。
+SERVER_SINK_ERR_NAME = "vision-server.err"
+#: sink 截断阈值(字节):spawn 前超过则归零(best-effort 防膨胀;O_APPEND
+#: 语义下即使有残留活进程持 fd,其后续写仍落新 EOF,可见性不断——对照旧
+#: ``.1`` rename 轮转会孤儿化存活进程的 fd)。
+SERVER_SINK_TRUNCATE_BYTES = 5 * 1024 * 1024
+#: 泵轮询间隔(秒;sink 是普通文件,read 到 EOF 即睡)。
+_PUMP_POLL_SECONDS = 0.2
 
 #: ensure 互斥(并发 ensure 双检门):协议层后台线程与管线 ``asyncio.to_thread``
 #: 可能同时进 ensure —— 拿不到锁就等(对等调用 ≤health_wait 必收尾),锁内
@@ -69,6 +91,10 @@ TERMINATE_GRACE_SECONDS = 2.0
 _ENSURE_LOCK = threading.Lock()
 #: 最近一次 spawn 的子进程登记(诊断面/孤儿清理定位;赋值原子,读取方容 None)。
 _LAST_PROC: subprocess.Popen | None = None
+#: 已启泵的 sink 跟读线程登记(stream → thread):同进程 respawn server 时
+#: 旧线程还活着就跟旧线程(sink 是文件不是进程,跟读者换人不换文件)——
+#: 防双泵同文件重复入流;线程死了(如 sink 被删)才允许新起。
+_SINK_PUMPS: dict[str, threading.Thread] = {}
 
 
 class VisionServerError(ValueError):
@@ -160,35 +186,77 @@ def _ensure_unified_logging(data_root: Path | None) -> None:
     unified_log.configure(mode="serve", data_root=data_root, ring=False, proc="vision")
 
 
-def _pump_output(stream_obj: Any, stream_name: str) -> None:
-    """逐行泵子进程管道输出 → 统一日志流(proc=vision;design §2)。
+def _sink_paths(data_root: Path) -> dict[str, Path]:
+    """sink 文件路径(stdout/stderr 各一;落 ``<data_root>/logs/``)。"""
+    return {
+        "stdout": data_root / "logs" / SERVER_SINK_OUT_NAME,
+        "stderr": data_root / "logs" / SERVER_SINK_ERR_NAME,
+    }
 
-    daemon 线程跑:server 活多久泵多久(ensure 返回后照常),父进程退出
-    随之退出;行 decode 容错(uvicorn 启动 banner 偶非 UTF-8 字节)。
+
+def _prepare_sink(path: Path) -> int | None:
+    """sink 预备:建目录 + 超阈归零;返回**基线偏移**(spawn 前 size,归零后 0)。
+
+    基线 = 泵的起点:只读本程子进程的新行,不重放上一程 server 的存量
+    (那些行此前已泵进统一日志,重放即重复)。OSError → None(该流降级
+    DEVNULL,绝不阻 spawn——旧形态 log_path=None 同款容忍)。
     """
-    for raw in stream_obj:
-        if isinstance(raw, bytes):
-            line = raw.decode("utf-8", errors="replace").rstrip("\n")
-        else:
-            line = str(raw).rstrip("\n")
-        if line.strip():
-            unified_log.stream_line(None, stream_name, line, proc="vision")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        size = path.stat().st_size if path.exists() else 0
+        if size > SERVER_SINK_TRUNCATE_BYTES:
+            with path.open("r+b") as fh:
+                fh.truncate(0)
+            return 0
+        return size
+    except OSError:
+        return None
 
 
-def _attach_output_pumps(proc: Any) -> None:
-    """给 spawn 出的子进程挂输出泵(测试替身无管道属性 = 零动作)。"""
-    stderr = getattr(proc, "stderr", None)
-    stdout = getattr(proc, "stdout", None)
-    if stderr is not None:
-        threading.Thread(
-            target=_pump_output, args=(stderr, "stderr"),
-            daemon=True, name="vision-server-stderr-pump",
-        ).start()
-    if stdout is not None:
-        threading.Thread(
-            target=_pump_output, args=(stdout, "stdout"),
-            daemon=True, name="vision-server-stdout-pump",
-        ).start()
+def _pump_sink(path: Path, stream_name: str, start_offset: int) -> None:
+    """tail 跟读 sink 文件 → ``stream_line(proc="vision")``(daemon 线程)。
+
+    从 ``start_offset`` 起只读新行;父进程退出线程随之死——子进程写的是
+    自己持有的文件 fd,零波及(nohup 存活语义,复查②的修复点);父进程
+    死亡期间落盘的行留在 sink 里不重放(终态可见性靠统一 jsonl 的落盘行,
+    不靠 sink 重读)。截断回绕:偏移越过当前文件大小 = 被归零过,seek(0)
+    重对齐。行 decode 容错(uvicorn banner 偶非 UTF-8 字节)。
+    """
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(start_offset)
+            pending = b""
+            while True:
+                chunk = fh.read(65536)
+                if chunk:
+                    pending += chunk
+                    parts = pending.split(b"\n")
+                    pending = parts.pop()
+                    for raw in parts:
+                        line = raw.decode("utf-8", errors="replace").rstrip("\r")
+                        if line.strip():
+                            unified_log.stream_line(None, stream_name, line, proc="vision")
+                else:
+                    if os.fstat(fh.fileno()).st_size < fh.tell():
+                        fh.seek(0)  # 截断回绕:从新文件头重对齐
+                        pending = b""
+                    time.sleep(_PUMP_POLL_SECONDS)
+    except OSError:
+        return  # sink 消失/不可读:泵静默退(终态日志在统一 jsonl)
+
+
+def _start_sink_pumps(sink_specs: dict[str, tuple[Path, int]]) -> None:
+    """给预备好的 sink 起跟读线程(同 stream 已有活线程 = 零动作,防重复入流)。"""
+    for stream_name, (path, baseline) in sink_specs.items():
+        existing = _SINK_PUMPS.get(stream_name)
+        if existing is not None and existing.is_alive():
+            continue
+        thread = threading.Thread(
+            target=_pump_sink, args=(path, stream_name, baseline),
+            daemon=True, name=f"vision-server-{stream_name}-pump",
+        )
+        _SINK_PUMPS[stream_name] = thread
+        thread.start()
 
 
 def _terminate_proc(proc: subprocess.Popen, *, grace: float = TERMINATE_GRACE_SECONDS) -> None:
@@ -225,11 +293,15 @@ def ensure_vision_server(
     前置门槛(不满足 = 结构化拒绝,不盲目 spawn):``local.model`` 已配且
     目录存在 —— 配置缺失是用户态问题,不是本函数该掩盖的。
 
-    日志(10-07-unified-logging 批1,决议③):子进程 stdout/stderr 走管道,
-    daemon 泵线程逐行 ``myssia.log.stream_line(proc="vision")`` 落统一
-    ``myssia-*.jsonl``(崩溃 traceback 不丢);``data_root`` 是数据根锚点
-    (= 旧 ``log_path`` 的父目录语义),进程未配置统一日志且给了锚点时
-    惰性自举(:func:`_ensure_unified_logging`)。
+    日志(10-07-unified-logging 批1 决议③;复查② sink 形态):子进程
+    stdout/stderr 落 ``<data_root>/logs/vision-server.out|.err`` 中继
+    sink(**追加写文件,非管道**——管道读端随本进程退出全关,子进程下一
+    次写即 EPIPE,nohup 存活语义不成立),daemon 泵线程从 spawn 基线 tail
+    跟读逐行 ``myssia.log.stream_line(proc="vision")`` 落统一
+    ``myssia-*.jsonl``(崩溃 traceback 不丢;基线前的上一程存量不重放);
+    ``data_root`` 是数据根锚点(= 旧 ``log_path`` 的父目录语义),进程未
+    配置统一日志且给了锚点时惰性自举(:func:`_ensure_unified_logging`),
+    为 None 时子进程输出 DEVNULL(决议②裸跑零落盘,行为同旧)。
 
     并发互斥:spawn + 健康等待全程持 :data:`_ENSURE_LOCK`(拿不到就等
     对等调用收尾,≤health_wait);锁内**重探健康**再 spawn —— 并发窗口里
@@ -277,11 +349,34 @@ def ensure_vision_server(
         status = vision_server_status(config, timeout=timeout)
         if status["healthy"]:
             return {**status, "started": False}
+        # sink 预备(复查②):子进程 stdout/stderr 落中继文件而非管道——管道
+        # 读端随本进程退出全关,子进程下一次写即 EPIPE,nohup 存活语义被连坐
+        # 废除(App 退出/壳 respawn 连杀在跑 server,下次 ensure 重付 ≤120s
+        # Metal JIT 冷启);文件 fd 子进程自持,server 照跑,健康即复用。
+        sink_specs: dict[str, tuple[Path, int]] = {}
+        handles: list[BinaryIO] = []
+        stdout_arg: Any = subprocess.DEVNULL
+        stderr_arg: Any = subprocess.DEVNULL
+        if root is not None:
+            for stream_name, path in _sink_paths(root).items():
+                baseline = _prepare_sink(path)
+                if baseline is None:
+                    continue
+                try:
+                    fh: BinaryIO = open(path, "ab")  # noqa: SIM115 - 子进程持 dup 的 fd,父进程句柄 finally 即弃
+                except OSError:
+                    continue
+                handles.append(fh)
+                sink_specs[stream_name] = (path, baseline)
+                if stream_name == "stdout":
+                    stdout_arg = fh
+                else:
+                    stderr_arg = fh
         try:
             proc = spawn(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=stdout_arg,
+                stderr=stderr_arg,
                 stdin=subprocess.DEVNULL,
                 start_new_session=True,  # setsid = nohup 语义:脱离终端,壳退出不波及
             )
@@ -291,7 +386,13 @@ def ensure_vision_server(
                 f"无法拉起 mlx_vlm.server(uvx 可用吗?brew install uv): {type(exc).__name__}: {exc}",
                 details={"cmd": cmd, "port": port},
             ) from exc
-        _attach_output_pumps(proc)  # 管道泵 → myssia-*.jsonl(proc=vision)
+        finally:
+            # 子进程持 spawn 时 dup 的 fd(O_APPEND);父进程句柄即弃——泵
+            # 另行自开只读句柄,与写端互不牵连。
+            for fh in handles:
+                with contextlib.suppress(OSError):
+                    fh.close()
+        _start_sink_pumps(sink_specs)  # tail 泵 → myssia-*.jsonl(proc=vision)
         _LAST_PROC = proc  # 模块级登记:诊断/孤儿定位(赋值原子;serve 单写)
         deadline = time.monotonic() + health_wait
         while time.monotonic() < deadline:
