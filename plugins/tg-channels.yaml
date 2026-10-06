@@ -1,0 +1,79 @@
+# plugins/tg-channels.yaml — Telegram 公开频道监控(路线一:网页预览,零凭据)。
+#
+# 写法要点(照 durov 频道 2026-10-06 实测选择器):
+#   url = https://t.me/s/<频道名>   ← 多一个 /s/ 就是消息流网页版
+#   item = .tgme_widget_message      ← 每条消息一张卡
+#   title = 消息正文(text 节点)      ← 没有正文的纯媒体消息自动跳过(零产出记录)
+#   url = @data-post                 ← 消息锚(如 durov/548 → 还原成完整链接做去重键)
+# 加频道 = 复制一个 - name 块改频道名;只支持「公开频道」(点开 t.me/xxx 能看到
+# 消息流的);群组(如 mihomo_party_group)预览页是空的,走 bot 线(另档)。
+# 未挂 cron(不跑不影响);要跑时一句话挂上,产出进每日合并日报。
+
+id: tg-channels
+name: TG频道监控
+
+schedule: "0 8 * * *"            # 挂上后每天早跑(改时点随手调)
+timezone: Asia/Shanghai
+
+sources:
+  # ── 活样例(机制验证用,可删可换)──────────────────────────
+  - name: durov-tg
+    engine: static_html
+    url: "https://t.me/s/durov"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: list
+      item: ".tgme_widget_message"
+      fields:
+        title: ".tgme_widget_message_text"   # 消息正文(纯媒体卡自动跳过)
+        url: "@data-post"                    # 消息锚:durov/548 → urljoin 成完整链接
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  # ── 你的频道往这里加(去掉注释改名字即可)────────────────
+  # - name: 某AI频道-tg
+  #   engine: static_html
+  #   url: "https://t.me/s/<频道名>"
+  #   method: GET
+  #   headers:
+  #     User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+  #   extract:
+  #     type: list
+  #     item: ".tgme_widget_message"
+  #     fields:
+  #       title: ".tgme_widget_message_text"
+  #       url: "@data-post"
+  #   rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+  #   proxy: direct
+  #   retry: 3
+
+watchlist:
+  keywords: [token, 免费, 优惠, 白嫖, 额度]
+  mute: []
+
+classify:
+  builtin: false
+  rules: []
+
+dedup:
+  key: "{url}"                    # 消息锚全期唯一,同条只进一次
+
+enrich:
+  enabled: false
+
+push:
+  - channel: feishu_card
+    target: env:FEISHU_CHAT_ID
+    route:
+      - when: "url != ''"         # 日报层降噪:仅入库,合并日报承载
+        mode: archive
+    template: |
+      {% for item in items %}- {{ item.title }}
+      {% endfor %}
+
+storage:
+  retention: 90d
+  vacuum: monthly
