@@ -143,7 +143,9 @@ def test_fresh_database_baseline_has_both_tables_unseeded(tmp_path):
     assert {"alert_rules", "alert_fired", "idx_alert_fired_created"} <= names
     assert store.list_alert_rules() == []
     assert store.list_fired() == []
-    assert store.get_meta("schema_version") == str(SCHEMA_VERSION) == "9"
+    # 版本钉死跟随符号:字面 "9" 已随 v10(runs.log_run_id;
+    # 10-07-logs-restart-visibility)过期,不再双等字面量。
+    assert store.get_meta("schema_version") == str(SCHEMA_VERSION)
     store.close()
 
 
@@ -165,7 +167,7 @@ def test_v6_database_upgrades_to_current_idempotent_zero_data_migration(tmp_path
     store.close()
 
     reopened = SQLiteStore(path)  # 打开即自动迁移
-    assert reopened.get_meta("schema_version") == "9"
+    assert reopened.get_meta("schema_version") == str(SCHEMA_VERSION)  # v10 起非字面 "9"
     tables = {
         row[0]
         for row in reopened.conn.execute(
@@ -183,7 +185,7 @@ def test_v6_database_upgrades_to_current_idempotent_zero_data_migration(tmp_path
     reopened.conn.commit()
     reopened.close()
     again = SQLiteStore(path)  # 幂等重放:已有形状上再放一遍迁移
-    assert again.get_meta("schema_version") == "9"
+    assert again.get_meta("schema_version") == str(SCHEMA_VERSION)  # v10 起非字面 "9"
     assert [r.name for r in again.list_alert_rules()] == ["告警"]  # 数据存活
     again.close()
 

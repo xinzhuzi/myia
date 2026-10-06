@@ -335,7 +335,14 @@ def test_doctor_config_auto_discovers_home_pools_yaml(tmp_path, monkeypatch):
 
 def test_doctor_config_auto_miss_and_dev_fallback(tmp_path, monkeypatch):
     """config_auto 未命中:home 模式零 pools.yaml → 不带 --config(只看现状,
-    proxy.config=null、pools=[]);dev 回退(home=None)同款不炸。"""
+    proxy.config=null、pools=[]);dev 回退(home=None)同款不炸。
+
+    hermetic(10-07-logs-restart-visibility 门禁修复):dev 腿的
+    plugins_dir="plugins" 按 CWD 相对解析,pytest 非仓根 CWD 时不存在即
+    plugins_dir 拒——chdir 沙箱 + 造空 plugins/ 后仓根/异 CWD 两跑同绿
+    (父提交同 CWD 亦红 = 既有 CWD 敏感,非本批引入,此处一并收口)。"""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "plugins").mkdir()
     monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
     code, responses, _ = rpc({"id": 1, "method": "doctor", "params": {"config_auto": True}})
     result = responses[0]["result"]
@@ -4897,10 +4904,17 @@ def test_alerts_test_synthetic_item_and_content_patch(tmp_path):
     assert responses[0]["result"]["matched"] is False
 
 
-def test_alerts_test_stored_rule_and_item_forms(tmp_path):
+def test_alerts_test_stored_rule_and_item_forms(tmp_path, monkeypatch):
     """test 取材形态:rule_id+item_id(库内条目)/ 缺省最近一条 / already_fired
     预查;错误码 alert_not_found / item_not_found / alert_test_no_item /
-    invalid_params(互斥门)."""
+    invalid_params(互斥门).
+
+    hermetic(10-07-logs-restart-visibility 门禁修复):_category_config_for_item
+    经 _yaml_files 探 plugins 目录,CWD 相对路径在非仓根 CWD 不存在即
+    source_dir_unreadable——chdir 沙箱 + 空 plugins/(config=None 本就容忍),
+    仓根/异 CWD 两跑同绿(父提交同 CWD 亦红 = 既有 CWD 敏感,非本批引入)。"""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "plugins").mkdir()
     from myssia.store.models import AlertFired
 
     db = tmp_path / "alerts.db"
