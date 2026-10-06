@@ -491,6 +491,24 @@ class TestDoctor:
         assert finding["severity"] == "warning"
         assert payload["healthy"] is True  # warning 不翻转 healthy,但 findings 必须可见
 
+    def test_empty_ok_source_zero_items_stays_ok(self, tmp_path, capsys):
+        """empty_ok 声明(10-06-log-health-batch ③):查询形端点 0 条=合法空集,doctor 不误诊 degraded。"""
+        db = tmp_path / "myssia.db"
+        seed_runs(db, "demo", [("success", [source_stats("api", item_count=0, skip_reason=None)])])
+        empty_ok_yaml = VALID_YAML.replace(
+            'url: "https://api.demo.local/list"',
+            'url: "https://api.demo.local/list"\n    empty_ok: true',
+        )
+        yaml_path = write_plugin(tmp_path, "demo.yaml", empty_ok_yaml)
+
+        code = main(["doctor", yaml_path, "--db", str(db), "--json"])
+        assert code == EXIT_OK
+        payload = json.loads(capsys.readouterr().out)
+        source = payload["plugins"][0]["sources"][0]
+        assert source["health"]["state"] == "ok"
+        assert "empty_ok" in source["health"]["reason"]
+        assert not [f for f in payload["findings"] if f["code"] == "source_degraded"]
+
     def test_detects_missing_keychain_ref(self, tmp_path, capsys, keychain_backend):
         """故障样例 3(keychain 引用不存在):entry.exists=false + 修复指引 finding。"""
         db = tmp_path / "myssia.db"

@@ -733,6 +733,26 @@ def test_send_immediate_continues_after_channel_failure():
     assert len(ok.calls) == 2  # 单通道失败不中断整批
 
 
+def test_send_immediate_aggregates_same_cause_failures(caplog):
+    """批内同因聚合(10-06-log-health-batch ④):逐条同因失败只留一条明细 + 批末一行汇总。
+
+    wool 实测 31 条同错 WARNING 刷屏的收口;SendReport 逐条语义零变化。
+    """
+    bad = RecordingChannel(fail=True)
+    items = [
+        {"title": f"t{i}", "url": f"https://example.com/{i}"} for i in range(3)
+    ]
+    with caplog.at_level(logging.WARNING, logger="myssia.push.digest"):
+        reports = asyncio.run(
+            send_immediate(items, channels=[bad], tz=TIMEZONE, now=local_dt(10))
+        )
+    assert [r.ok for r in reports] == [False, False, False]  # 每条仍各自成败
+    details = [r for r in caplog.records if "继续其余通道" in r.getMessage()]
+    summary = [r for r in caplog.records if "本批同因聚合" in r.getMessage()]
+    assert len(details) == 1  # 首条明细
+    assert len(summary) == 1 and "次数=3" in summary[0].getMessage()
+
+
 def test_send_immediate_skips_same_slot_repush(registry):
     channel = RecordingChannel()
     item = {"title": "示例", "url": "https://example.com/a"}

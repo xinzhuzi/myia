@@ -1,0 +1,21 @@
+{
+  "id": "log-health-batch",
+  "name": "log-health-batch",
+  "title": "日志健康批:cron 数据根统一 + doctor 空集误报 + 推送失败日志聚合",
+  "description": "主人 2026-10-06 令「都做完,再深度检查,测试」。三件:①cron 子命令数据根解析与 run/doctor 不一致(cwd 缺省不吃 MYIA_HOME,仓库目录跑 cron 会把 jobs.json 建进仓库——本日实测踩中)统一为 MYIA_HOME 感知;②doctor 把合法空集误诊 source_degraded(gog-free 0 元查询空集=正常)加 empty_ok 语义;③wool 类逐条推送失败同因 WARNING×31 刷屏,同批同因聚合降噪。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "xinzhuzi",
+  "assignee": "xinzhuzi",
+  "createdAt": "2026-10-06",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": []
+}

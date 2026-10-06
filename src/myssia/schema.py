@@ -776,6 +776,11 @@ class SourceConfig(BaseModel):
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
     proxy: str = "direct"
     retry: int = Field(default=DEFAULT_RETRY, ge=0, le=10)
+    #: 查询形端点的合法空集声明(10-06-log-health-batch ③):开 = doctor
+    #: 健康度把「指纹未跳过却产出 0 条」判 ok 而非 degraded——适用于
+    #: 「0 条即无结果」属正常语义的源(如 games/gog-free 的 0 元查询:
+    #: 当前没有限免 ≠ 反爬/页面变化)。引擎与管线零消费,纯诊断口径。
+    empty_ok: bool = False
 
     @property
     def extra_params(self) -> dict[str, Any]:

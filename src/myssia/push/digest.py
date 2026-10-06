@@ -94,22 +94,34 @@ async def _send_via(
     items: Sequence[Any],
     context: SendContext,
     retry_ledger: "PushRetryLedger | None" = None,
+    log_tally: "dict[tuple[str, str], int] | None" = None,
 ) -> SendReport:
     """Send through one channel, converting failures into a failed report.
 
     R1 接线(10-05-push-reliability-batch):``retry_ledger`` 在场且
     ``context.kind == "immediate"`` 时,失败(非死信/非配置级)入重试账本
     (at-least-once;门槛与预算由账本自理,digest 留池路径天然被 kind 拦下)。
+
+    批内同因聚合(10-06-log-health-batch ④):``log_tally`` 在场时按
+    ``(channel, code)`` 计数,同因仅**首条**打 WARNING 明细——逐条即时推送
+    全灭时不再 N 条同错刷屏(wool 实测 31 条);条数汇总由调用方收口。
+    ``SendReport`` 逐条语义零变化(每条仍各自成败)。
     """
     try:
         await channel.send(items, context)
     except PushSendError as exc:
-        logger.warning(
-            "通道发送失败(继续其余通道): channel=%s code=%s error=%s",
-            channel.name,
-            exc.code,
-            exc,
-        )
+        first_in_batch = True
+        if log_tally is not None:
+            key = (channel.name, exc.code)
+            log_tally[key] = log_tally.get(key, 0) + 1
+            first_in_batch = log_tally[key] == 1
+        if first_in_batch:
+            logger.warning(
+                "通道发送失败(继续其余通道): channel=%s code=%s error=%s",
+                channel.name,
+                exc.code,
+                exc,
+            )
         if retry_ledger is not None:
             retry_ledger.enqueue_failure(
                 channel=channel.name,
@@ -154,6 +166,7 @@ async def _send_via_channel_targets(
     directory: ChannelDirectory | None,
     ledger: DeliveryLedger | None,
     retry_ledger: "PushRetryLedger | None" = None,
+    log_tally: "dict[tuple[str, str], int] | None" = None,
 ) -> list[SendReport]:
     """One batch through every channel:legacy 单卡 or 定向逐对象派发。
 
@@ -166,7 +179,9 @@ async def _send_via_channel_targets(
     for channel in channels:
         if not specs:
             reports.append(
-                await _send_via(channel, items, context, retry_ledger=retry_ledger)
+                await _send_via(
+                    channel, items, context, retry_ledger=retry_ledger, log_tally=log_tally
+                )
             )
             continue
         if directory is None:
@@ -417,6 +432,9 @@ async def send_immediate(
         kind="immediate",
     )
     reports: list[SendReport] = []
+    # 批内同因聚合(④):逐条即时推送同因全灭时,首条打明细、其余只计数,
+    # 批末一行汇总——SendReport 逐条语义零变化。
+    failure_tally: dict[tuple[str, str], int] = {}
     for index, item in enumerate(items):
         view = item_view(item)
         key = view.get("dedup_key") or view.get("url")
@@ -441,8 +459,18 @@ async def send_immediate(
             directory=directory,
             ledger=ledger,
             retry_ledger=retry_ledger,
+            log_tally=failure_tally,
         )
         reports.extend(item_reports)
         if registry is not None and key and any(report.ok for report in item_reports):
             registry.record_push(key, now=local_now)
+    for (failed_channel, failed_code), times in failure_tally.items():
+        if times > 1:
+            logger.warning(
+                "通道发送失败(本批同因聚合): channel=%s code=%s 次数=%s——"
+                "首条明细见上,同因其余不再逐条刷屏",
+                failed_channel,
+                failed_code,
+                times,
+            )
     return reports

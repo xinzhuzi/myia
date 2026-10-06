@@ -197,6 +197,10 @@ sources:
       backoff: exponential
       respect_robots: true      # catalog.gog.com robots.txt 404(2026-10-03
                                 # 实测,无限制;同 Epic 判例,缺省即允许)
+    # 合法空集声明(10-06-log-health-batch ③):price=between:0,0 是查询形
+    # 端点,「0 条 = 当前没有限免」是正常语义——不开则 doctor 把健康源误诊
+    # degraded(实测踩中),教用户不信任诊断。
+    empty_ok: true
     proxy: direct
     retry: 3
 

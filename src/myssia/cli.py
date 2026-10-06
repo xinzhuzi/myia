@@ -217,6 +217,20 @@ _EXIT_BY_STATUS = {
 
 DEFAULT_PLUGINS_DIR = "plugins"
 DEFAULT_DB_PATH = "myssia.db"
+
+
+def _cron_default_db() -> str:
+    """cron 组 ``--db`` 缺省:``$MYIA_HOME/myssia.db``(设了 env)否则 ``./myssia.db``。
+
+    10-06-log-health-batch ②:此前 cron 子命令数据根恒为 cwd——在仓库目录跑
+    ``myssia cron create`` 会把 jobs.json 建进仓库(实测踩中)。统一为沙箱
+    语义:MYIA_HOME 在场即锚定数据根,与桌面 sidecar/冒烟沙箱同口径;显式
+    ``--db`` 恒优先,无 env 的终端缺省行为不变。
+    """
+    home = os.environ.get("MYIA_HOME")
+    if home:
+        return str(Path(home) / DEFAULT_DB_PATH)
+    return DEFAULT_DB_PATH
 #: osint 样板插件与默认目标(PRD 10-02-v11-plugins-source-arch:合法演示域)。
 OSINT_PLUGIN_ID = "myssia-osint"
 DEFAULT_OSINT_TARGET = "https://example.com"
@@ -455,7 +469,8 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
         help="定时任务:品类管线定时跑一遍 + 摘要投递(list/create/…/runs + serve/tick)",
         description=(
             "定时任务底座:job 注册表落 <数据根>/cron/jobs.json(数据根 = --db 父"
-            "目录),执行账本落同目录 executions.db,不进 myssia.db。job 载荷 = 品类"
+            "目录;--db 缺省 $MYIA_HOME/myssia.db,未设 env 时 ./myssia.db),"
+            "执行账本落同目录 executions.db,不进 myssia.db。job 载荷 = 品类"
             " YAML(创建时完整装载校验,存绝对路径);到点跑一遍管线并把运行摘要"
             "按 deliver 目标投递(local 或 feishu:群名 等平台 spec)。常驻宿主走"
             " serve(监督守护线程)或桌面 sidecar,二者并存靠 tick 文件锁 + fire"
@@ -471,7 +486,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
     )
     cron_list.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
+        default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
     cron_list.add_argument(
@@ -514,7 +529,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
     )
     cron_create.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
+        default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
     cron_create.add_argument(
@@ -562,7 +577,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
     cron_edit.add_argument("job_id", help="job ID 或名字")
     cron_edit.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
+        default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
     cron_edit.add_argument("--schedule", help="新 schedule(变更即重算 next_run_at)")
@@ -593,7 +608,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
     cron_pause.add_argument("job_id", nargs="?", help="job ID 或名字(--all 时省略)")
     cron_pause.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
+        default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
     cron_pause.add_argument(
@@ -612,7 +627,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
     cron_resume.add_argument("job_id", nargs="?", help="job ID 或名字(--all 时省略)")
     cron_resume.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
+        default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
     cron_resume.add_argument(
@@ -635,7 +650,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
     cron_run.add_argument("job_id", help="job ID 或名字")
     cron_run.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
+        default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
     cron_run.add_argument(
@@ -653,7 +668,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
     cron_remove.add_argument("job_id", help="job ID 或名字")
     cron_remove.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
+        default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
     cron_remove.add_argument(
@@ -668,7 +683,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
     )
     cron_status.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
+        default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
     cron_status.add_argument(
@@ -685,7 +700,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
     cron_runs.add_argument("--limit", type=int, default=20, help="行数(1-500,默认 20)")
     cron_runs.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
+        default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
     cron_runs.add_argument(
@@ -700,7 +715,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
     )
     cron_serve.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
+        default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
     cron_serve.add_argument(
@@ -715,7 +730,7 @@ def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
     )
     cron_tick_cmd.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
+        default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 ./{DEFAULT_DB_PATH})",
     )
 
@@ -2194,12 +2209,16 @@ def _source_entries(runs: list[Any]) -> dict[str, list[dict[str, Any]]]:
     return per_source
 
 
-def evaluate_source_health(entries: list[dict[str, Any]]) -> dict[str, Any]:
+def evaluate_source_health(entries: list[dict[str, Any]], *, empty_ok: bool = False) -> dict[str, Any]:
     """One source's health state from newest-first observations.
 
     Args:
         entries: per-run observations for ONE source, newest first (见
             :func:`_source_entries` 的条目形状)。
+        empty_ok: 源声明「0 条为合法空集」(schema ``empty_ok``;查询形
+            端点如 games/gog-free 的 0 元查询)——「指纹未跳过却产出
+            0 条」判 ok 而非 degraded,防健康度误诊教用户不信任诊断
+            (10-06-log-health-batch ③)。
 
     Returns:
         ``{"state", "reason", "observed", "latest", "baseline"}`` — state ∈
@@ -2247,6 +2266,12 @@ def evaluate_source_health(entries: list[dict[str, Any]]) -> dict[str, Any]:
                 state=SOURCE_HEALTH_OK,
                 reason=f"引擎显式空态({latest['skip_reason']}):凭据未配置或无输入,"
                 "配置凭据/输入后即恢复产出(myssia secret set myia/credhunter/*)",
+            )
+            return base
+        if empty_ok:
+            base.update(
+                state=SOURCE_HEALTH_OK,
+                reason="empty_ok:源声明 0 条为合法空集(查询形端点,无结果≠反爬/页面变化)",
             )
             return base
         base.update(
@@ -2790,7 +2815,9 @@ def _source_report(
                 "url": source.url,
                 "engine": source.engine,
                 "engine_hint": hint,
-                "health": store_down_health or evaluate_source_health(entries),
+                "health": store_down_health or evaluate_source_health(
+                    entries, empty_ok=source.empty_ok
+                ),
                 "fingerprint_skips": _fingerprint_skip_stats(entries),
             }
         )

@@ -1197,6 +1197,35 @@ def test_cron_add_alias_maps_to_create(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["removed"] is True
 
 
+def test_cron_default_db_honors_myia_home(tmp_path, capsys, monkeypatch):
+    """②(10-06-log-health-batch):cron 组 --db 缺省锚定 $MYIA_HOME,不再落 cwd。
+
+    实测踩中形态:在仓库目录跑 `myssia cron create` 把 jobs.json 建进了
+    仓库根——缺省必须 MYIA_HOME 感知,与桌面 sidecar/冒烟沙箱同口径。
+    """
+    home = tmp_path / "home"
+    home.mkdir()
+    yaml_path = _write_category(tmp_path)
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    monkeypatch.chdir(tmp_path)  # cwd ≠ home:证明锚的是 env 不是 cwd
+
+    code = main(["cron", "add", "every 5m", "--category", str(yaml_path), "--json"])
+    assert code == EXIT_OK
+    assert (home / "cron" / "jobs.json").is_file()
+    assert not (tmp_path / "cron" / "jobs.json").exists()
+
+
+def test_cron_default_db_falls_back_to_cwd_without_env(tmp_path, capsys, monkeypatch):
+    """无 MYIA_HOME 时终端缺省行为不变:./myssia.db(cwd)。"""
+    monkeypatch.delenv("MYIA_HOME", raising=False)
+    monkeypatch.chdir(tmp_path)
+    yaml_path = _write_category(tmp_path)
+
+    code = main(["cron", "add", "every 5m", "--category", str(yaml_path), "--json"])
+    assert code == EXIT_OK
+    assert (tmp_path / "cron" / "jobs.json").is_file()
+
+
 def test_cron_subcommand_surface_is_frozen():
     """十一子命令面冻结(design §4.1;别名 add/rm/delete/history 另计)。"""
     parser = build_parser()

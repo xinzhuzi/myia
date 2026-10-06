@@ -95,6 +95,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `rate_limit` | `见 rate_limit 节` | 礼貌限速(限速在引擎层统一执行) |
 | `proxy` | `direct` | `direct` / `pool:<名称>` / `residential:<区域>`;pool 需全局配置 `--config` |
 | `retry` | `3` | 瞬时错误重试预算(0-10) |
+| `empty_ok` | `false` | 声明「0 条为合法空集」(查询形端点,如 0 元/限免查询):doctor 健康度把「指纹未跳过却产出 0 条」判 ok 而非 degraded;引擎与管线零消费,纯诊断口径 |
 
 源级扩展参数:未知键(如 `symbols: [NVDA, AAPL]`)原样传给引擎——URL 里的
 `{symbol}` 占位符按列表逐值扇出(一值一请求);`engine: searxng` 的源级
