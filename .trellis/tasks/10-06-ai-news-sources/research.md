@@ -170,3 +170,13 @@ round1 脚本 `probe_vendors.py` 的 `sniff()` 写了 `"<html" in head`(str in b
 ## §14 推送链终验(2026-10-06 14:54,主人指路 Hermes 蓝本)
 
 主人提示「Hermes 配置里有飞书,2 个机器人」——蓝本部署在 ~/.hermes/hermes-agent,.env 内全套凭据:FEISHU_APP_ID(20)+FEISHU_APP_SECRET(32)+FEISHU_HOME_CHANNEL(35,oc_ 群 chat id)。按 MYIA 钥匙串规范代录三键(myia/push/FEISHU_APP_ID/APP_SECRET/CHAT_ID,值走管道零外显,用完建议主人轮换)。**R5 生产真跑:feishu_card ok=True,6 条日报真发**(tenant token 自动续期路径,首个端到端推送成功——全链至此闭环)。第二个机器人未动(暂无需,留档知会)。meta dependency_missing 维持 partial 属预期(owner 裁决项)。20:00 起每日双槽日报。
+
+## §15 渠道覆盖矩阵与出口环境阻塞(主人问「推文/视频博主/厂商最新渠道」)
+
+| 渠道层 | 状态 | 机制/阻塞 |
+|---|---|---|
+| 厂商官网/博客 | ✅ 在产 | 16 源+prompt 三厂日报 |
+| X 推文博主 | ⚠️ 仅 aihot 编辑精选卡间接信号 | 直连=RSSHub 自部署(Docker 前置)+TWITTER_AUTH_TOKEN,启用三步在 ai-news.yaml S3 注释块 |
+| 视频博主(YouTube) | ❌ 机制就绪、出口阻塞 | YouTube 原生 RSS(feeds/videos.xml?channel_id=)现有 rss 通道直接可吃;本轮探针实证:直连墙+本机代理 7897 未运行双 ConnectError——clash 开着即可配置化接入,零新代码 |
+| 厂商官号(X/YouTube) | 同上两阻塞 | OpenAI/Anthropic/DeepMind 官号 handle 清单已列,代理恢复后一次探查 channel_id 即入册 |
+抓取目标配置位:品类 YAML sources: 段(每爬虫一行)/prompt 件 engine_options.prompt.urls。
