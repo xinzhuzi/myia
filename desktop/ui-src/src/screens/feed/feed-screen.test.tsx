@@ -2393,7 +2393,9 @@ describe("FeedScreen · feed-channel-groups(渠道分组+差异化+实时滚动+
 
     // L1:置顶全局行 + 品类行(tech/news,含今日计数)
     const allRow = await screen.findByTestId("feed-drill-all");
-    expect(allRow.textContent).toContain("3 渠道"); // 4 条 × 3 渠道(anthropic/openai/linuxsb)
+    // 计数随 store.items 异步应答补齐(行先以零计数渲染)——waitFor 等数据
+    // 落地再断(与 F1 用例同款竞态钉法);同批渲染的品类行计数随即可断。
+    await waitFor(() => expect(allRow.textContent).toContain("3 渠道")); // 4 条 × 3 渠道(anthropic/openai/linuxsb)
     const techRow = await screen.findByTestId("feed-drill-cat-tech");
     expect(techRow.textContent).toContain("3 条");
     expect(screen.getByTestId("feed-drill-cat-news").textContent).toContain("1 条");
