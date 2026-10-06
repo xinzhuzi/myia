@@ -1,0 +1,62 @@
+{
+ "r1": {
+  "checked": 4,
+  "events": [
+   {
+    "event": "new",
+    "name": "moonshot",
+    "location": "https://www.moonshot.cn/",
+    "timestamp": null
+   },
+   {
+    "event": "new",
+    "name": "seed",
+    "location": "https://seed.bytedance.com/",
+    "timestamp": null
+   },
+   {
+    "event": "new",
+    "name": "minimax",
+    "location": "https://www.minimaxi.com/",
+    "timestamp": null
+   },
+   {
+    "event": "new",
+    "name": "zhipu",
+    "location": "https://www.zhipuai.cn/news",
+    "timestamp": null
+   }
+  ],
+  "urlwatch_version": "2.29"
+ },
+ "r2": {
+  "checked": 4,
+  "events": [
+   {
+    "event": "unchanged",
+    "name": "moonshot",
+    "location": "https://www.moonshot.cn/",
+    "timestamp": 1791260313
+   },
+   {
+    "event": "unchanged",
+    "name": "minimax",
+    "location": "https://www.minimaxi.com/",
+    "timestamp": 1791260313
+   },
+   {
+    "event": "unchanged",
+    "name": "zhipu",
+    "location": "https://www.zhipuai.cn/news",
+    "timestamp": 1791260313
+   },
+   {
+    "event": "unchanged",
+    "name": "seed",
+    "location": "https://seed.bytedance.com/",
+    "timestamp": 1791260313
+   }
+  ],
+  "urlwatch_version": "2.29"
+ }
+}

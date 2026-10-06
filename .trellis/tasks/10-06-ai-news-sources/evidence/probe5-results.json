@@ -1,0 +1,491 @@
+{
+ "meta": {
+  "utc": "2026-10-06T04:18:18+00:00",
+  "ua": "MYIA-source-probe/0.1 (+https://github.com/xinzhuzi/myia; spa css-filter re-probe)",
+  "round": 5,
+  "urlwatch_version": "2.29",
+  "text_min_chars": 500,
+  "exclude": "script, style, noscript, template, svg",
+  "method": "html",
+  "selectors": [
+   "main",
+   "#app",
+   "#__next",
+   "#root",
+   "[role=main]",
+   "article",
+   "body (baseline)"
+  ],
+  "note": "spa css-filter re-probe (research §7): same LxmlParser chain as production engine_options.urlwatch.selector; decode fixed to urlwatch utf-8-first (initial pass used requests .text -> mojibake on moonshot/deepseek, tool-layer bug same family as probe round1)"
+ },
+ "robots": [
+  {
+   "status": 200,
+   "bytes": 64,
+   "elapsed_s": 0.29,
+   "error": "",
+   "vendor": "zhipu",
+   "origin": "https://www.zhipuai.cn",
+   "allowed": true,
+   "reason": "star-rules=[('allow', '/')] -> allow",
+   "robots_head": "User-Agent: * Allow: /  Sitemap: https://zhipuai.cn/sitemap.xml "
+  },
+  {
+   "status": 404,
+   "bytes": 153,
+   "elapsed_s": 0.17,
+   "error": "",
+   "vendor": "moonshot",
+   "origin": "https://www.moonshot.cn",
+   "allowed": true,
+   "reason": "robots 404 (default allow)",
+   "robots_head": ""
+  },
+  {
+   "status": 200,
+   "bytes": 131,
+   "elapsed_s": 0.1,
+   "error": "",
+   "vendor": "minimax",
+   "origin": "https://www.minimaxi.com",
+   "allowed": true,
+   "reason": "star-rules=[('allow', '/'), ('disallow', '/api/'), ('disallow', '/_next/')] -> allow",
+   "robots_head": "User-Agent: * Allow: / Disallow: /api/ Disallow: /_next/  Host: https://www.minimax.cn Sitemap: https://www.minimax.cn/s"
+  },
+  {
+   "status": 200,
+   "bytes": 70,
+   "elapsed_s": 0.16,
+   "error": "",
+   "vendor": "seed",
+   "origin": "https://seed.bytedance.com",
+   "allowed": true,
+   "reason": "star-rules=[('allow', '/')] -> allow",
+   "robots_head": "User-Agent: * Allow: / Sitemap: https://seed.bytedance.com/sitemap.xml"
+  },
+  {
+   "status": 200,
+   "bytes": 70,
+   "elapsed_s": 0.1,
+   "error": "",
+   "vendor": "deepseek",
+   "origin": "https://www.deepseek.com",
+   "allowed": true,
+   "reason": "star-rules=[('allow', '/')] -> allow",
+   "robots_head": "User-Agent: * Allow: /  Sitemap: https://www.deepseek.com/sitemap.xml "
+  }
+ ],
+ "pages": [
+  {
+   "status": 200,
+   "bytes": 899299,
+   "elapsed_s": 0.48,
+   "error": "",
+   "vendor": "zhipu",
+   "url": "https://www.zhipuai.cn/news"
+  },
+  {
+   "status": 200,
+   "bytes": 98191,
+   "elapsed_s": 0.24,
+   "error": "",
+   "vendor": "moonshot",
+   "url": "https://www.moonshot.cn/"
+  },
+  {
+   "status": 200,
+   "bytes": 339921,
+   "elapsed_s": 0.76,
+   "error": "",
+   "vendor": "minimax",
+   "url": "https://www.minimaxi.com/"
+  },
+  {
+   "status": 200,
+   "bytes": 128636,
+   "elapsed_s": 0.56,
+   "error": "",
+   "vendor": "seed",
+   "url": "https://seed.bytedance.com/"
+  },
+  {
+   "status": 200,
+   "bytes": 115583,
+   "elapsed_s": 0.1,
+   "error": "",
+   "vendor": "deepseek",
+   "url": "https://www.deepseek.com/"
+  }
+ ],
+ "selectors": [
+  {
+   "selector": "main",
+   "filtered_html_chars": 176904,
+   "text_chars": 2138,
+   "preview": "你好 我是 ZCode 头脑风暴 逻辑推理 信息问答 内容创作 创意开发 ZCode 简单、迅捷、氛围十足！ GLM模型 新一代大模型全栈技术体系 GLM-5.3 GLM-5.3 GLM-5.3：前沿编程能力与涌现的网络安全能力。面向复杂软件工程与长程智能体任务，支持 1M 上下文。 GLM-5V-Turbo 迈向原生",
+   "error": "",
+   "elapsed_s": 0.01,
+   "vendor": "zhipu"
+  },
+  {
+   "selector": "#app",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "zhipu"
+  },
+  {
+   "selector": "#__next",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "zhipu"
+  },
+  {
+   "selector": "#root",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "zhipu"
+  },
+  {
+   "selector": "[role=main]",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "zhipu"
+  },
+  {
+   "selector": "article",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "zhipu"
+  },
+  {
+   "selector": "body",
+   "filtered_html_chars": 190813,
+   "text_chars": 2508,
+   "preview": "GLM MaaS 产品 研究 关于我们 EN中 合作咨询 你好 我是 ZCode 头脑风暴 逻辑推理 信息问答 内容创作 创意开发 ZCode 简单、迅捷、氛围十足！ GLM模型 新一代大模型全栈技术体系 GLM-5.3 GLM-5.3 GLM-5.3：前沿编程能力与涌现的网络安全能力。面向复杂软件工程与长程智能体任务",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "zhipu"
+  },
+  {
+   "selector": "main",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "moonshot"
+  },
+  {
+   "selector": "#app",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "moonshot"
+  },
+  {
+   "selector": "#__next",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "moonshot"
+  },
+  {
+   "selector": "#root",
+   "filtered_html_chars": 35363,
+   "text_chars": 848,
+   "preview": "Kimi企业服务API研究下载加入我们关于我们 Kimi企业服务API研究下载加入我们关于我们 寻求将能源转化为智能的最优解 体验 Kimi体验 API 最新研究 我们的研究团队致力于实现 AGI，并为全球开源技术社区带来最新研究 查看更多 2026-07-16Kimi K3 2026-07-16PerceptionB",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "moonshot"
+  },
+  {
+   "selector": "[role=main]",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "moonshot"
+  },
+  {
+   "selector": "article",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "moonshot"
+  },
+  {
+   "selector": "body",
+   "filtered_html_chars": 36282,
+   "text_chars": 848,
+   "preview": "Kimi企业服务API研究下载加入我们关于我们 Kimi企业服务API研究下载加入我们关于我们 寻求将能源转化为智能的最优解 体验 Kimi体验 API 最新研究 我们的研究团队致力于实现 AGI，并为全球开源技术社区带来最新研究 查看更多 2026-07-16Kimi K3 2026-07-16PerceptionB",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "moonshot"
+  },
+  {
+   "selector": "main",
+   "filtered_html_chars": 47648,
+   "text_chars": 1348,
+   "preview": "前沿 Coding /Agent 能力 真实工程级，不止生成代码，更懂协作 MSA · 1M 上下文 全新稀疏注意力，让 context 真正可 scale 原生多模态 Step 0 混合训练 · interleaved 数据 一个使用全新注意力架构 MSA、拥有1M 超长上下文的 Coding/Agentic 前沿模",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "minimax"
+  },
+  {
+   "selector": "#app",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "minimax"
+  },
+  {
+   "selector": "#__next",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "minimax"
+  },
+  {
+   "selector": "#root",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "minimax"
+  },
+  {
+   "selector": "[role=main]",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "minimax"
+  },
+  {
+   "selector": "article",
+   "filtered_html_chars": 17859,
+   "text_chars": 376,
+   "preview": "MiniMax M3 Coding 顶尖 · 1M 上下文 · 原生多模态 MiniMax H3 视频生成 MiniMax Speech 2.8 语音 MiniMax Music 3.0Music GenerationOpen Weights MiniMax Music 3.0：新一代开放权重、生产级全能音乐模型 20",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "minimax"
+  },
+  {
+   "selector": "body",
+   "filtered_html_chars": 72830,
+   "text_chars": 1727,
+   "preview": "模型 语言模型 MiniMax M3MiniMax M2.7MiniMax M2.5 视频生成 MiniMax H3 语音&音乐 MiniMax Speech 2.8MiniMax Music 3.0 产品 MiniMax CodeMiniMax Design语音星野 API 订阅 研究 关于我们 与所有人共创智能 公",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "minimax"
+  },
+  {
+   "selector": "main",
+   "filtered_html_chars": 132488,
+   "text_chars": 2171,
+   "preview": "Seed2.1 面向真实生产力场景的全新智能体 了解更多 技术博客立即体验 最新动态 SeedRealtime 音视频全双工大模型发布：走向全模态自然交互 2026.08.05语音智能了解更多 一镜成片，随心参考：Seedance 2.5 正式发布 2026.07.31视觉智能了解更多 Seed STEM 科学家计划正",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "seed"
+  },
+  {
+   "selector": "#app",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "seed"
+  },
+  {
+   "selector": "#__next",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "seed"
+  },
+  {
+   "selector": "#root",
+   "filtered_html_chars": 82938,
+   "text_chars": 1694,
+   "preview": "首页模型博客&论文Seed Edge加入我们 首页模型博客&论文Seed Edge加入我们 开始体验 EN 首页模型博客&论文Seed Edge加入我们 开始体验 体验豆包AI 体验中心 Seed2.1 面向真实生产力场景的全新智能体 了解更多 技术博客立即体验 最新动态 SeedRealtime 音视频全双工大模型发",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "seed"
+  },
+  {
+   "selector": "[role=main]",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "seed"
+  },
+  {
+   "selector": "article",
+   "filtered_html_chars": 2643,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "seed"
+  },
+  {
+   "selector": "body",
+   "filtered_html_chars": 82953,
+   "text_chars": 1694,
+   "preview": "首页模型博客&论文Seed Edge加入我们 首页模型博客&论文Seed Edge加入我们 开始体验 EN 首页模型博客&论文Seed Edge加入我们 开始体验 体验豆包AI 体验中心 Seed2.1 面向真实生产力场景的全新智能体 了解更多 技术博客立即体验 最新动态 SeedRealtime 音视频全双工大模型发",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "seed"
+  },
+  {
+   "selector": "main",
+   "filtered_html_chars": 10870,
+   "text_chars": 395,
+   "preview": "DeepSeek-V4.1-Flash 发布，文本与 Agent 性能全面提升、兼具原生多模态视觉理解能力，能力更强、速度更快、且成本更低，欢迎测试和反馈探索未至之境 深度思考智能搜索 和 DeepSeek 对话API 开放平台Harness 桌面端 浙ICP备2023025841号浙B2-20250178浙公网安备3",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "deepseek"
+  },
+  {
+   "selector": "#app",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "deepseek"
+  },
+  {
+   "selector": "#__next",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "deepseek"
+  },
+  {
+   "selector": "#root",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "deepseek"
+  },
+  {
+   "selector": "[role=main]",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "deepseek"
+  },
+  {
+   "selector": "article",
+   "filtered_html_chars": 0,
+   "text_chars": 0,
+   "preview": "",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "deepseek"
+  },
+  {
+   "selector": "body",
+   "filtered_html_chars": 13272,
+   "text_chars": 490,
+   "preview": "获取 APP 扫码下载 DeepSeek App 中文EN DeepSeek 网页版DeepSeek HarnessAPI 开放平台API 文档DeepSeek 应用下载加入我们 中文EN DeepSeek-V4.1-Flash 发布，文本与 Agent 性能全面提升、兼具原生多模态视觉理解能力，能力更强、速度更快、且",
+   "error": "",
+   "elapsed_s": 0.0,
+   "vendor": "deepseek"
+  }
+ ],
+ "dual_run": [
+  {
+   "vendor": "zhipu",
+   "selector": "main",
+   "text_chars": 2138,
+   "r1_events": [
+    "new"
+   ],
+   "r2_events": [
+    "unchanged"
+   ],
+   "r2_unchanged": true,
+   "r2_detail": []
+  },
+  {
+   "vendor": "moonshot",
+   "selector": "#root",
+   "text_chars": 848,
+   "r1_events": [
+    "new"
+   ],
+   "r2_events": [
+    "unchanged"
+   ],
+   "r2_unchanged": true,
+   "r2_detail": []
+  },
+  {
+   "vendor": "minimax",
+   "selector": "main",
+   "text_chars": 1348,
+   "r1_events": [
+    "new"
+   ],
+   "r2_events": [
+    "unchanged"
+   ],
+   "r2_unchanged": true,
+   "r2_detail": []
+  },
+  {
+   "vendor": "seed",
+   "selector": "main",
+   "text_chars": 2171,
+   "r1_events": [
+    "new"
+   ],
+   "r2_events": [
+    "unchanged"
+   ],
+   "r2_unchanged": true,
+   "r2_detail": []
+  }
+ ]
+}

@@ -218,6 +218,83 @@ sources:
     proxy: direct
 
   # ──────────────────────────────────────────────────────────────────────
+  # 国产厂商官网 watch(10-06-ai-news-sources research §2 暂缓面翻案,
+  # §7 兑现:urlwatch css 内容过滤落地后重探)。探查证据(2026-10-06,
+  # 单次零压力、robots 先行、honest UA):.trellis/tasks/10-06-ai-news-
+  # sources/evidence/probe5-log.md + probe5-results.json + probe5b-
+  # readable-excerpt.txt —— robots 五家对目标路径全允许(deepseek robots
+  # 本轮补档:User-agent: * Allow: /;moonshot robots 404=默认允许);
+  # 四家过滤后正文 848-2171 字、可读、背靠背双跑 R2=unchanged(框架
+  # 噪声出局,anthropic/cohere 同判例)。deepseek 记死:www.deepseek.com
+  # 的 main 过滤后仅 395 字/body 490 字 <500 字判定线(营销壳页,research
+  # §2「首页 watch 价值低」维持;若后续出 /news 类列表页再探)。
+  # ──────────────────────────────────────────────────────────────────────
+
+  - name: zhipu-news-watch       # 智谱新闻页(SSR /news 列表;robots: * Allow /)
+    engine: urlwatch
+    url: "https://www.zhipuai.cn/news"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "智谱新闻页"          # 条目标题用的人话名(缺省=源名)
+        announce_new: false          # 首跑建基线,之后只报变更
+        timeout: 90
+        selector: main               # 177KB html/2138 字正文;「最新动态」
+                                    # 新闻列表在内(业绩发布/CogAgent-9B
+                                    # 开源等条目可读);hero 营销位同区,
+                                    # 漂移面待 12h 观察窗
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct                   # urlwatch 引擎只支持 direct(子进程直连)
+
+  - name: moonshot-home-watch    # 月之暗面首页(无独立新闻页;robots 404)
+    engine: urlwatch
+    url: "https://www.moonshot.cn/"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "月之暗面首页"
+        announce_new: false
+        timeout: 90
+        selector: "#root"            # 唯一有正文的选择器(main/#app/
+                                    # #__next/[role=main]/article 全零):
+                                    # 35KB html/848 字,「最新研究」条目
+                                    # (Kimi K3/PerceptionBench 等)在内;
+                                    # 注意首页 Doodle 轮换区随月份漂移属
+                                    # 真实内容变更(低资讯价值,非误报)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  - name: minimax-home-watch     # MiniMax 首页(robots: * Allow /,禁 /api/
+    engine: urlwatch               # 与 /_next/,目标页 / 不命中)
+    url: "https://www.minimaxi.com/"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "MiniMax 首页"
+        announce_new: false
+        timeout: 90
+        selector: main               # 48KB html/1348 字;「最新研究」区
+                                    # (Music 3.0/H3/M3 条目带日期)在内
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  - name: seed-home-watch        # 字节 Seed 首页(robots: * Allow /)
+    engine: urlwatch
+    url: "https://seed.bytedance.com/"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "字节 Seed 首页"
+        announce_new: false
+        timeout: 90
+        selector: main               # 132KB html/2171 字;「最新动态」列表
+                                    # (SeedRealtime/Seedance 2.5 等)信号
+                                    # 最强一家;SSR 区块有重复输出,变更
+                                    # diff 仍可读(纯文本归一后稳定)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  # ──────────────────────────────────────────────────────────────────────
   # X(Twitter)监控位(10-06-ai-news-sources S3)——注释态,reddit-ml 同款
   # 「先决条件入 YAML」先例。通道=自部署 RSSHub(myssia-rsshub 件,
   # docker/plugins/myssia-rsshub/compose.yml;twitter 路由需给实例配

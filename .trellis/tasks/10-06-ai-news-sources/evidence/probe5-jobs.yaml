@@ -1,0 +1,7 @@
+{"name": "zhipu", "url": "https://www.zhipuai.cn/news", "filter": [{"css": {"selector": "main", "exclude": "script, style, noscript, template, svg", "method": "html"}}]}
+---
+{"name": "moonshot", "url": "https://www.moonshot.cn/", "filter": [{"css": {"selector": "#root", "exclude": "script, style, noscript, template, svg", "method": "html"}}]}
+---
+{"name": "minimax", "url": "https://www.minimaxi.com/", "filter": [{"css": {"selector": "main", "exclude": "script, style, noscript, template, svg", "method": "html"}}]}
+---
+{"name": "seed", "url": "https://seed.bytedance.com/", "filter": [{"css": {"selector": "main", "exclude": "script, style, noscript, template, svg", "method": "html"}}]}
