@@ -475,6 +475,140 @@ def test_run_status_unknown_id():
 
 
 # ---------------------------------------------------------------------------
+# run.status DB 历史合流(10-07-logs-restart-visibility R1 / AC1)
+# ---------------------------------------------------------------------------
+
+
+def _seed_db_runs(db_path, *, finished=2, zombie=1, log_run_id_base=None):
+    """种库:finished 条收口行(可选回填 log_run_id)+ zombie 条崩溃残留行。
+
+    zombie 后插 → id 最大 → list_runs 新→旧首位即僵尸,恰好考验
+    「无 finished_at 不进历史」的过滤。
+    """
+    store = SQLiteStore(str(db_path))
+    try:
+        ids = []
+        for i in range(finished):
+            run_id = store.start_run("hist-demo")
+            store.finish_run(run_id, status="success", stats={"items_retained": i + 1})
+            if log_run_id_base is not None:
+                store.set_run_log_run_id(run_id, log_run_id_base + i)
+            ids.append(run_id)
+        for _ in range(zombie):
+            store.start_run("hist-demo")
+        return ids
+    finally:
+        store.close()
+
+
+def test_run_status_merges_db_history_after_restart(tmp_path):
+    """重启形态(注册表空):run.status 返回 DB 历史行——徽标/形状/排序/僵尸滤除。"""
+    db = tmp_path / "hist.db"
+    ids = _seed_db_runs(db, finished=2, zombie=1, log_run_id_base=11)
+
+    code, responses, _ = rpc({"id": 1, "method": "run.status", "params": {"db": str(db)}})
+    assert code == 0
+    runs = responses[0]["result"]["runs"]
+    assert [row["run_id"] for row in runs] == sorted(ids, reverse=True)  # 新→旧
+    for index, (row, expected_id) in enumerate(zip(runs, sorted(ids, reverse=True))):
+        assert row["history"] is True  # 徽标字段:前端可辨「上一程」
+        assert row["state"] == "done" and row["dry"] is False
+        assert row["status"] == "success"
+        assert row["yaml"] is None and row["exit_code"] is None  # 库无此二源,如实置空
+        assert row["db"] == str(db)
+        assert row["duration_ms"] is not None and row["duration_ms"] >= 0
+        assert row["finished_at"] is not None and row["started_at"] is not None
+        assert row["record"]["run_id"] == expected_id  # 耐久身份 = record.run_id
+        assert row["record"]["stats"] == {"items_retained": len(ids) - index}
+    # log_run_id 透传:历史行展开 logs.tail?run_id= 的对齐键
+    assert [row["log_run_id"] for row in runs] == [12, 11]
+    # 僵尸行(status=running 无 finished_at)不进历史——「上一程」不冒充运行中
+    assert all(row["status"] != "running" for row in runs)
+    assert len(runs) == 2
+
+
+def test_run_status_registry_first_dedup_and_shape_unchanged(tmp_path):
+    """注册表行在前且形状逐字节不变(零回归);同跑次以 record.run_id 去重不双列。"""
+    db = tmp_path / "dedup.db"
+    ids = _seed_db_runs(db, finished=2, zombie=0)
+    newest, older = ids[-1], ids[0]
+    entry._RUNS[1] = {
+        "run_id": 1, "yaml": "demo.yaml", "db": str(db), "dry": False, "state": "done",
+        "exit_code": 0, "status": "success",
+        "started_at": "2026-10-07T00:00:00+00:00", "finished_at": "2026-10-07T00:00:01+00:00",
+        "duration_ms": 1000, "record": {"run_id": newest, "category": "hist-demo"},
+    }
+    entry._RUNS[2] = {
+        "run_id": 2, "yaml": "run2.yaml", "db": str(db), "dry": False, "state": "running",
+        "exit_code": None, "status": None,
+        "started_at": "2026-10-07T00:01:00+00:00", "finished_at": None,
+        "duration_ms": None, "record": None,
+    }
+
+    code, responses, _ = rpc({"id": 1, "method": "run.status", "params": {"db": str(db)}})
+    runs = responses[0]["result"]["runs"]
+    assert [row["run_id"] for row in runs] == [2, 1, older]  # 注册表新→旧在前,DB 补位
+    # 注册表行零漂移:键集与既有条目完全一致,不混入 history/log_run_id
+    assert set(runs[0]) == {
+        "run_id", "yaml", "db", "dry", "state", "exit_code", "status",
+        "started_at", "finished_at", "duration_ms", "record",
+    }
+    assert set(runs[1]) == set(runs[0])
+    assert runs[1]["record"]["run_id"] == newest  # 该 DB 行已被注册表吸收
+    assert runs[2]["history"] is True and runs[2]["run_id"] == older  # 仅旧行以历史补入
+
+
+def test_run_status_history_cap_fifty(tmp_path):
+    """历史行上限 50:60 条收口行 → 恰 50 条,且取最新 50(新→旧)。"""
+    db = tmp_path / "cap.db"
+    store = SQLiteStore(str(db))
+    try:
+        for _ in range(60):
+            run_id = store.start_run("hist-demo")
+            store.finish_run(run_id, status="success")
+    finally:
+        store.close()
+    code, responses, _ = rpc({"id": 1, "method": "run.status", "params": {"db": str(db)}})
+    runs = responses[0]["result"]["runs"]
+    assert len(runs) == entry._RUN_HISTORY_LIMIT == 50
+    assert [row["run_id"] for row in runs] == list(range(60, 10, -1))  # 60..11
+
+
+def test_run_status_empty_db_zero_regression(tmp_path):
+    """空库 + 空注册表:应答形状与现状全同({"runs": []}),空态不破。"""
+    db = tmp_path / "empty.db"
+    code, responses, _ = rpc({"id": 1, "method": "run.status", "params": {"db": str(db)}})
+    assert code == 0
+    assert responses[0]["result"] == {"runs": []}
+
+
+def test_run_start_writes_log_run_id_and_history_dedup(tmp_path, local_api):
+    """真 run 收口:runs 行回填会话号 log_run_id;全量视图同跑次不双列。"""
+    yaml_path = write_yaml(tmp_path, VALID_YAML.replace("{port}", str(local_api)))
+    db = tmp_path / "roundtrip.db"
+    out = io.StringIO()
+    stdin = io.StringIO(json.dumps({"id": 1, "method": "run.start",
+                                    "params": {"yaml": yaml_path, "db": str(db)}}) + "\n")
+    assert entry.serve(stdin=stdin, stdout=out) == 0
+    run_id = json.loads(out.getvalue().splitlines()[0])["result"]["run_id"]
+    completed = wait_completed(out, run_id)
+    assert completed["exit_code"] == 0 and completed["record"] is not None
+
+    store = SQLiteStore(str(db))
+    try:
+        record = store.latest_run()
+        assert record is not None
+        assert record.log_run_id == run_id  # 会话号落库:重启后历史行可对齐日志
+    finally:
+        store.close()
+
+    code, responses, _ = rpc({"id": 2, "method": "run.status", "params": {"db": str(db)}})
+    runs = responses[0]["result"]["runs"]
+    assert len(runs) == 1  # 注册表行已携带 record.run_id,DB 同跑次被去重
+    assert runs[0]["run_id"] == run_id and "history" not in runs[0]
+
+
+# ---------------------------------------------------------------------------
 # store.items / secret.set / secret.list
 # ---------------------------------------------------------------------------
 
@@ -2320,6 +2454,7 @@ def test_runs_list_reads_table_newest_first(tmp_path):
     assert ids == sorted(ids, reverse=True)  # 新→旧
     assert set(result["runs"][0]) == {
         "run_id", "category", "status", "started_at", "finished_at", "stats", "steps", "error",
+        "log_run_id",  # 10-07-logs-restart-visibility R1 增键(跨重启日志对齐;旧行 NULL)
     }
     # push 段失败明细经 JSON 落库 → 回读 → 应答全程不被滤掉
     assert result["runs"][0]["stats"]["push"][0]["failures"] == [
@@ -2774,7 +2909,9 @@ def test_store_state_v7_database_migrates_on_protocol_open(tmp_path):
     columns = {row[1] for row in raw.execute("PRAGMA table_info(items)").fetchall()}
     indexes = {row[1] for row in raw.execute("PRAGMA index_list(items)").fetchall()}
     raw.close()
-    assert version == "9"
+    from myssia.store import SCHEMA_VERSION
+
+    assert version == str(SCHEMA_VERSION)  # v10(runs.log_run_id;R1)后仍随当前版走
     assert {"read", "starred", "later"} <= columns
     assert "idx_items_dedup_key" in indexes
 

@@ -483,3 +483,87 @@ class TestSuspendResumeStderr:
             h for h in _tagged() if isinstance(h, logging.StreamHandler)
         ]
         assert len(stderr_handlers) == 1
+
+
+# ---------------------------------------------------------------------------
+# 入口 proc 细分(10-07-logs-restart-visibility R2/R3;AC3 双向钉死)
+# ---------------------------------------------------------------------------
+
+
+class TestEntryProcCronAndFeishu:
+    """cron serve="cron" / 普通 CLI="cli" / feishu_callback 统一配置三面。"""
+
+    def test_cron_serve_entry_proc_is_cron(self, isolated, tmp_path, monkeypatch):
+        """独立 cron serve 宿主:dispatch 点分流 proc="cron"(serve handler
+        入口处捕获——不真起 serve_forever,零阻塞零网络)。"""
+        from myssia import cli as myssia_cli
+
+        captured: dict[str, object] = {}
+
+        def fake_serve(args: object) -> int:
+            captured["proc"] = myssia_log._STATE.proc
+            return 0
+
+        monkeypatch.setattr(myssia_cli, "_cmd_cron_serve", fake_serve)
+        code = myssia_cli.main(["cron", "serve", "--db", str(tmp_path / "cron.db")])
+        assert code == 0
+        assert captured["proc"] == "cron"
+        assert myssia_log._STATE.proc == "cron"
+
+    def test_cron_plain_subcommand_proc_stays_cli(self, isolated, tmp_path, monkeypatch):
+        """普通 cron 子命令(非 serve):proc 仍 "cli",十个兄弟命令不误标。"""
+        from myssia import cli as myssia_cli
+
+        monkeypatch.delenv("MYIA_HOME", raising=False)
+        code = myssia_cli.main(["cron", "list", "--db", str(tmp_path / "plain.db")])
+        assert code == 0
+        assert myssia_log._STATE.proc == "cli"
+
+    def test_configure_logging_default_proc_cli(self, isolated, monkeypatch):
+        """_configure_logging 缺省 proc="cli":十二个既有调用点零改动的根据。"""
+        from myssia import cli as myssia_cli
+
+        monkeypatch.delenv("MYIA_HOME", raising=False)
+        myssia_cli._configure_logging(False)
+        assert myssia_log._STATE.proc == "cli"
+        assert myssia_log._STATE.mode == "human"
+
+    def test_feishu_callback_configures_unified_logging(self, isolated, tmp_path, monkeypatch):
+        """MYIA_HOME 在场:file+stderr 两 handler(ring=False 无 RingHandler)、
+        stderr 门 WARNING、INFO 行落盘且 proc="feishu_callback"。
+
+        走公网绑定拒绝(--enable + --host 8.8.8.8)的非阻塞错路:
+        构造期 _validate_bind_host 在 main 的 try 内抛、结构化 return 1,
+        不起 serve_forever、零网络。
+        """
+        import myssia.push.feishu_callback as feishu_callback
+
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+        code = feishu_callback.main(
+            ["--enable", "--host", "8.8.8.8", "--db", str(tmp_path / "feishu.db")]
+        )
+        assert code == 1
+        assert sorted(_tagged_shapes()) == sorted(
+            [("JsonlFileHandler", 0), ("StreamHandler", logging.WARNING)]
+        )
+        assert myssia_log._STATE.proc == "feishu_callback"
+        logging.getLogger("myssia.feishu.demo").info("feishu 落盘一行")
+        path = _today_file(tmp_path)
+        assert path.exists()
+        rows = [json.loads(r) for r in path.read_text(encoding="utf-8").splitlines()]
+        assert rows and all(r["proc"] == "feishu_callback" for r in rows)
+        assert any(r["line"] == "feishu 落盘一行" for r in rows)
+        assert ring_snapshot() == []  # ring=False:独立服务进程无 UI 数据面
+
+    def test_feishu_callback_bare_run_stderr_only(self, isolated, tmp_path, monkeypatch):
+        """裸跑(无 MYIA_HOME):决议②——仅 stderr handler,不在 CWD 建 logs/。"""
+        import myssia.push.feishu_callback as feishu_callback
+
+        monkeypatch.delenv("MYIA_HOME", raising=False)
+        code = feishu_callback.main(
+            ["--enable", "--host", "8.8.8.8", "--db", str(tmp_path / "bare.db")]
+        )
+        assert code == 1
+        assert [t for t, _ in _tagged_shapes()] == ["StreamHandler"]
+        assert not (tmp_path / "logs").exists()
+        assert myssia_log._STATE.proc == "feishu_callback"

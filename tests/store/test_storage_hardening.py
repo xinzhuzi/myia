@@ -286,6 +286,57 @@ def test_corrupt_db_file_refused_with_chained_cause(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# runs.log_run_id(10-07-logs-restart-visibility R1:跨重启日志对齐键)
+# ---------------------------------------------------------------------------
+
+
+def test_set_run_log_run_id_roundtrip(store):
+    run_id = store.start_run("demo")
+    store.finish_run(run_id, status=RUN_STATUS_SUCCESS)
+    assert store.get_run(run_id).log_run_id is None  # 回填前 NULL,不伪造
+    store.set_run_log_run_id(run_id, 7)
+    assert store.get_run(run_id).log_run_id == 7
+    store.set_run_log_run_id(run_id, 9)  # 重复回填幂等覆盖(末次为准)
+    assert store.get_run(run_id).log_run_id == 9
+
+
+def test_set_run_log_run_id_validates_inputs(store):
+    run_id = store.start_run("demo")
+    with pytest.raises(ValueError, match="log_run_id"):
+        store.set_run_log_run_id(run_id, 0)
+    with pytest.raises(ValueError, match="log_run_id"):
+        store.set_run_log_run_id(run_id, True)  # bool 是 int 子类,显式拒
+    with pytest.raises(ValueError, match="不存在"):
+        store.set_run_log_run_id(424242, 1)
+
+
+def test_v9_db_migrates_runs_log_run_id_and_preserves_rows(tmp_path):
+    """v9 库(runs 无 log_run_id)打开即迁移 v10:旧行 NULL、新回填可用。"""
+    path = tmp_path / "v9.db"
+    store = SQLiteStore(path)
+    run_id = store.start_run("demo")
+    store.finish_run(run_id, status=RUN_STATUS_SUCCESS)
+    store.close()
+    conn = sqlite3.connect(path)
+    conn.execute("ALTER TABLE runs DROP COLUMN log_run_id")
+    conn.execute("UPDATE store_meta SET value = '9' WHERE key = 'schema_version'")
+    conn.commit()
+    conn.close()
+
+    migrated = SQLiteStore(path)
+    try:
+        assert int(migrated.get_meta("schema_version")) == SCHEMA_VERSION
+        columns = {row[1] for row in migrated.conn.execute("PRAGMA table_info(runs)")}
+        assert "log_run_id" in columns
+        legacy = migrated.get_run(run_id)
+        assert legacy is not None and legacy.log_run_id is None  # 旧行如实 NULL
+        migrated.set_run_log_run_id(run_id, 3)
+        assert migrated.get_run(run_id).log_run_id == 3
+    finally:
+        migrated.close()
+
+
+# ---------------------------------------------------------------------------
 # runs.steps (断点续跑地基)
 # ---------------------------------------------------------------------------
 

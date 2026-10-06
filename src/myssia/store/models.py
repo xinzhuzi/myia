@@ -245,6 +245,10 @@ class RunRecord:
     error: str | None = None
     steps: dict | None = None
     id: int | None = None
+    #: 侧写日志身份(10-07-logs-restart-visibility R1):sidecar 会话级 run_id——
+    #: JSONL 日志行的 run_id 即此值,跨重启「上一程」行展开 logs.tail 的对齐键。
+    #: 旧行/独立 CLI 跑次 NULL(无法对齐,展示侧如实降级)。
+    log_run_id: int | None = None
 
 
 @dataclass(slots=True)

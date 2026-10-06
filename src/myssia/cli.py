@@ -1309,7 +1309,7 @@ def _add_osint_parser(sub: argparse._SubParsersAction) -> None:
     )
 
 
-def _configure_logging(as_json: bool) -> None:
+def _configure_logging(as_json: bool, *, proc: str = "cli") -> None:
     """统一日志薄壳(10-07-unified-logging 批1):转调 ``myssia.log.configure``。
 
     行为对齐旧 ``basicConfig``:stderr 格式 ``%(asctime)s %(levelname)s
@@ -1320,13 +1320,16 @@ def _configure_logging(as_json: bool) -> None:
     stderr。ring=True:sidecar 内嵌 cli_main 窗口里 CLI 诊断行仍直入环形
     (design §3「恰一份」);独立 CLI 进程内 ring 无消费者,零行为差。
     幂等 configure 替代 force=True——sidecar 的 ring handler 不再被拆(R4)。
+    ``proc``(10-07-logs-restart-visibility R2):默认 ``"cli"`` 十二调用点
+    零改动;独立 ``cron serve`` 宿主在 dispatch 点传 ``"cron"``(常驻进程
+    的行可辨来路,design 曾承诺的 proc 词表落地)。
     """
     home = os.environ.get("MYIA_HOME")
     myssia_log.configure(
         mode="json" if as_json else "human",
         data_root=Path(home).expanduser() if home else None,
         ring=True,
-        proc="cli",
+        proc=proc,
     )
 
 
@@ -2262,8 +2265,18 @@ def _cmd_telegram(args: argparse.Namespace) -> int:
 
 
 def _cmd_cron(args: argparse.Namespace) -> int:
-    """``myssia cron <子命令>`` 分发(design §4.1 十一子命令;退出码 0/1)。"""
-    _configure_logging(as_json=getattr(args, "as_json", False))
+    """``myssia cron <子命令>`` 分发(design §4.1 十一子命令;退出码 0/1)。
+
+    日志 proc 细分(10-07-logs-restart-visibility R2):serve 是独立常驻
+    宿主,行标 ``proc="cron"``;其余十子命令仍是普通 CLI 一次调用,照旧
+    ``proc="cli"``。别名先归一再分流;dispatch 前后无日志行发出,无错标
+    窗口(configure 幂等,serve handler 内的首行日志已带对 proc)。
+    """
+    command = _CRON_COMMAND_ALIASES.get(args.cron_command, args.cron_command)
+    _configure_logging(
+        as_json=getattr(args, "as_json", False),
+        proc="cron" if command == "serve" else "cli",
+    )
     handlers: dict[str, Any] = {
         "list": _cmd_cron_list,
         "create": _cmd_cron_create,
@@ -2277,7 +2290,6 @@ def _cmd_cron(args: argparse.Namespace) -> int:
         "serve": _cmd_cron_serve,
         "tick": _cmd_cron_tick,
     }
-    command = _CRON_COMMAND_ALIASES.get(args.cron_command, args.cron_command)
     handler = handlers.get(command)
     if handler is None:  # pragma: no cover - argparse required=True 兜底
         _emit_generic_error(

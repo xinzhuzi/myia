@@ -85,7 +85,7 @@ from myssia.store.models import (
 logger = logging.getLogger(__name__)
 
 #: Current layout version; bump + add a migration entry when the DDL changes.
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 # 同进程并发「首次打开同一数据库」的串行化锁(见 SQLiteStore.__init__)。
 _OPEN_LOCK = threading.Lock()
@@ -178,7 +178,8 @@ CREATE TABLE IF NOT EXISTS runs (
     status TEXT NOT NULL,          -- running | success | partial | failed
     stats TEXT,                    -- JSON object
     error TEXT,
-    steps TEXT                     -- JSON object: per-step progress (断点续跑)
+    steps TEXT,                    -- JSON object: per-step progress (断点续跑)
+    log_run_id INTEGER             -- sidecar 会话级 run_id(日志行对齐键;10-07-logs-restart-visibility)
 );
 
 CREATE TABLE IF NOT EXISTS store_meta (
@@ -462,6 +463,20 @@ def _migrate_v9_add_alert_rule_kind(conn: sqlite3.Connection) -> None:
     logger.info("存储迁移完成: alert_rules 增 kind/params 列(心跳规则类型)")
 
 
+def _migrate_v10_add_runs_log_run_id(conn: sqlite3.Connection) -> None:
+    """v9 → v10: runs 增 ``log_run_id`` 列(10-07-logs-restart-visibility R1).
+
+    Idempotent and purely additive(``_migrate_v2_add_run_steps`` 同构先例):
+    fresh v10 库经 ``_SCHEMA`` 已带该列;旧行保持 NULL——那批跑次的会话号
+    已不可考(注册表随 sidecar 进程消亡),历史行如实不带日志对齐键,
+    展开侧降级为空,不伪造。
+    """
+    columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(runs)").fetchall()}
+    if columns and "log_run_id" not in columns:
+        conn.execute("ALTER TABLE runs ADD COLUMN log_run_id INTEGER")
+        logger.info("存储迁移完成: runs 表新增 log_run_id 列(日志行对齐键)")
+
+
 #: target version → migration (runs with the connection inside the caller's
 #: transaction; every migration must be idempotent — fresh databases replay
 #: them after ``CREATE TABLE IF NOT EXISTS`` already produced the new shape).
@@ -474,6 +489,7 @@ _MIGRATIONS: dict[int, object] = {
     7: _migrate_v7_add_alerts,
     8: _migrate_v8_add_item_states,
     9: _migrate_v9_add_alert_rule_kind,
+    10: _migrate_v10_add_runs_log_run_id,
 }
 
 
@@ -1930,9 +1946,31 @@ class SQLiteStore:
             raise ValueError(f"runs 记录不存在: id={run_id}")
         logger.debug("run 结束 run_id=%s status=%s", run_id, status)
 
+    def set_run_log_run_id(self, run_id: int, log_run_id: int) -> None:
+        """回填 run 的会话级日志身份(10-07-logs-restart-visibility R1)。
+
+        sidecar 在 run 收口处调用:把「本会话注册表 run_id」落到 runs 行——
+        JSONL 日志行按此值打 run_id,跨重启后历史行展开 ``logs.tail`` 用它
+        对齐(裸 runs.id 与会话号是两个编号空间,不能混用)。旧库行保持
+        NULL(会话号已不可考,不伪造);重复回填以末次为准(同 run 重跑
+        收口幂等覆盖)。
+        """
+        if not isinstance(log_run_id, int) or isinstance(log_run_id, bool) or log_run_id < 1:
+            raise ValueError(f"字段校验失败: runs.log_run_id 必须为正整数,得到 {log_run_id!r}")
+        cursor = self._write(
+            "UPDATE runs SET log_run_id = ? WHERE id = ?",
+            (log_run_id, run_id),
+        )
+        if cursor.rowcount == 0:
+            raise ValueError(f"runs 记录不存在: id={run_id}")
+        logger.debug("run 日志身份回填 run_id=%s log_run_id=%s", run_id, log_run_id)
+
     def _row_to_run(self, row: sqlite3.Row) -> RunRecord:
         # sqlite3.Row 不是 dict:`in` 走 __iter__(值而非键),必须用 row.keys()。
-        steps = _json_loads(row["steps"]) if "steps" in row.keys() else None  # noqa: SIM118
+        keys = row.keys()
+        steps = _json_loads(row["steps"]) if "steps" in keys else None  # noqa: SIM118
+        # log_run_id:v10 起在场;防御式读(旧连接/异构行不炸,v2 steps 同款)。
+        log_run_id = row["log_run_id"] if "log_run_id" in keys else None  # noqa: SIM118
         return RunRecord(
             id=int(row["id"]),
             category=row["category"],
@@ -1942,6 +1980,7 @@ class SQLiteStore:
             stats=_json_loads(row["stats"]),
             error=row["error"],
             steps=steps if isinstance(steps, dict) else None,
+            log_run_id=int(log_run_id) if log_run_id is not None else None,
         )
 
     def list_runs(self, *, category: str | None = None, limit: int = 50) -> list[RunRecord]:

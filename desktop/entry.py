@@ -48,7 +48,9 @@ health            ``myssia list --json``           源健康度 + summary 聚合
 plugins.list      ``myssia plugin list --json``    已装插件清单 + findings
 doctor            ``myssia doctor --json``         findings 全量(完成即 0)
 run.start         ``myssia run <yaml>``            后台子进程,立即返回 run_id
-run.status        (sidecar 内注册表)             state/exit_code/status/record
+run.status        (注册表 + DB runs 历史合流)     state/exit_code/status/record;
+                                                 重启后接「上一程」历史行
+                                                 (history 徽标,上限 50)
 run.cancel        (进程组杀 run 子进程)           SIGTERM→5s 后 SIGKILL 兜底;
                                                  信号终局 status="cancelled"
 runs.list         (SQLiteStore.list_runs 直读)   历史 run(新→旧;重启后可达)
@@ -379,6 +381,7 @@ import os
 import re
 import shutil
 import signal
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -3289,6 +3292,8 @@ _RUN_PROCS: dict[int, subprocess.Popen] = {}
 _CANCEL_TIMERS: list[threading.Timer] = []
 #: SIGTERM 后的 SIGKILL 宽限(run 子进程自清理窗口;killpg 进程组杀)。
 _CANCEL_KILL_GRACE_SECONDS = 5.0
+#: run.status 合流的 DB 历史行上限(10-07-logs-restart-visibility R1;防长列表)。
+_RUN_HISTORY_LIMIT = 50
 
 #: pipeline 结构化日志(logging 规范 key=value 形态)→ 进度事件。
 #: 日志文案变化时优雅退化(进度事件停发,log 事件照常),不影响正确性。
@@ -3358,6 +3363,7 @@ def _run_record_dict(record: Any) -> dict[str, Any]:
         "stats": record.stats,
         "steps": record.steps,
         "error": record.error,
+        "log_run_id": getattr(record, "log_run_id", None),
     }
 
 
@@ -3437,6 +3443,15 @@ def _run_worker(run_id: int, cmd: list[str], env: dict[str, str], *, dry: bool, 
                 latest = store.latest_run()
                 if latest is not None:
                     record = _run_record_dict(latest)
+                    # 会话号回填(10-07-logs-restart-visibility R1):把注册表
+                    # run_id 落到 runs 行——JSONL 日志行按会话号打 run_id,重启后
+                    # 历史行展开 logs.tail 靠它对齐。尽力而为:回填失败只损失
+                    # 「上一程」日志可达性,不连累 record 附挂(latest_run 启发式
+                    # 的既有薄弱面照旧,回填跟随同一行,不放大误挂范围)。
+                    try:
+                        store.set_run_log_run_id(latest.id, run_id)
+                    except Exception:  # noqa: BLE001 — 日志身份尽力而为,缺位不拦 completed
+                        pass
             except Exception:  # noqa: BLE001 — record 尽力而为,缺位不拦 completed
                 record = None
             finally:
@@ -3555,8 +3570,70 @@ def _m_run_start(params: dict[str, Any]) -> dict[str, Any]:
     return {"run_id": run_id, "state": "running", "yaml": yaml_path, "dry": dry, "db": db}
 
 
+def _history_run_rows(db: str, exclude_db_ids: set[int], limit: int) -> list[dict[str, Any]]:
+    """runs 表 → 「上一程」历史行(10-07-logs-restart-visibility R1;尽力而为)。
+
+    - 只收 ``finished_at`` 非 None 的收口行:库内 status=running 无 finished_at
+      的行是崩溃残留/他进程在途,历史徽标下冒充「运行中」会说谎,如实不列;
+    - 去重:``exclude_db_ids`` = 注册表行 record.run_id 集(同跑次不双列;
+      裸 run_id 是两个编号空间,耐久身份只有 record.run_id,dry run 缺位即
+      无从去重——DB 无 dry 行,天然不撞);
+    - 上限 ``limit``(防长列表);为给去重留余量,拉取量 = limit + 排除数;
+    - 行形状 = 注册表条目超集:RunEntry 键全在场(yaml/exit_code 无库源,置
+      None;dry 恒 False——dry run 不落库)+ ``history: True`` 徽标 +
+      ``log_run_id``(展开历史行调 ``logs.tail?run_id=`` 的对齐键,旧库行
+      None = 无法对齐,如实降级);
+    - 尽力而为:库打不开/读失败 → 空列表(注册表视图不受 DB 故障牵连——
+      run.cancel/单飞锁语义都活在注册表侧,历史合流不能反客为主)。
+    """
+    try:
+        store = SQLiteStore(db)
+    except (StoreSchemaError, sqlite3.Error, OSError):
+        return []
+    try:
+        records = store.list_runs(limit=limit + len(exclude_db_ids))
+    except (sqlite3.Error, OSError, ValueError):
+        return []
+    finally:
+        store.close()
+    rows: list[dict[str, Any]] = []
+    for record in records:
+        if len(rows) >= limit:
+            break
+        if record.id in exclude_db_ids or record.finished_at is None:
+            continue
+        duration_ms = None
+        if record.started_at is not None:
+            duration_ms = int((record.finished_at - record.started_at).total_seconds() * 1000)
+        rows.append({
+            "run_id": record.id,
+            "yaml": None,
+            "db": db,
+            "dry": False,
+            "state": "done",
+            "exit_code": None,
+            "status": record.status,
+            "started_at": record.started_at.isoformat() if record.started_at else None,
+            "finished_at": record.finished_at.isoformat(),
+            "duration_ms": duration_ms,
+            "record": _run_record_dict(record),
+            "history": True,
+            "log_run_id": getattr(record, "log_run_id", None),
+        })
+    return rows
+
+
 def _m_run_status(params: dict[str, Any]) -> dict[str, Any]:
-    """run 注册表查询;run_id 缺省 = 全部(新→旧),未知 id = 结构化 404。"""
+    """run 注册表查询合流 DB 历史(10-07-logs-restart-visibility R1)。
+
+    - ``run_id`` 指定:注册表单行查(语义不变;未知 id = 结构化 404)——
+      历史行不经此路(会话号与 DB 号是两个空间,按 DB 号查注册表必歧义);
+    - ``run_id`` 缺省:注册表全部(新→旧,现有语义/形状逐字节不变)在前,
+      DB runs 表「上一程」历史行(新→旧,带 ``history`` 徽标)接续在后;
+      同跑次以 record.run_id 去重不双列;历史 ≤ ``_RUN_HISTORY_LIMIT``。
+      重启后注册表空 → 历史行接管日志屏列表(回填行的 UI 入口),空库
+      零行 = 空态形状与现状全同。
+    """
     run_id = params.get("run_id")
     with _RUNS_LOCK:
         if run_id is not None:
@@ -3566,6 +3643,15 @@ def _m_run_status(params: dict[str, Any]) -> dict[str, Any]:
             runs = [dict(entry)]
         else:
             runs = [dict(_RUNS[key]) for key in sorted(_RUNS, reverse=True)]
+    if run_id is None:
+        seen_db_ids = {
+            (row.get("record") or {}).get("run_id")
+            for row in runs
+            if isinstance(row.get("record"), dict)
+        }
+        seen_db_ids.discard(None)
+        db = str(params.get("db") or _serve_context().db)
+        runs += _history_run_rows(db, seen_db_ids, _RUN_HISTORY_LIMIT)
     return {"runs": runs}
 
 

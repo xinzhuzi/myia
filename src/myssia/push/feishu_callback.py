@@ -33,11 +33,13 @@ import hmac
 import ipaddress
 import json
 import logging
-import sys
+import os
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from myssia import log as myssia_log
 from myssia.feedback import ingest_callbacks, normalize_verdict
 from myssia.schema import parse_secret_value, resolve_credential
 from myssia.store import FEEDBACK_CHANNEL_FEISHU, Store
@@ -446,9 +448,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         help=f"验证 token 凭据引用(默认 {DEFAULT_TOKEN_ENV_REF})",
     )
     args = parser.parse_args(argv)
-    logging.basicConfig(
-        stream=sys.stderr, level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    # 统一日志(10-07-logs-restart-visibility R3,basicConfig 退役):serve
+    # 形态 = stderr WARNING 门 + MYIA_HOME 感知落盘(决议②:裸跑 data_root=None
+    # 仅 stderr,不在 CWD 建 logs/);无 ring(独立服务进程,无 logs.tail 消费面);
+    # proc 专属词表让 JSONL 行可辨来路。ThreadingHTTPServer 请求线程继承 root
+    # 配置,零额外接线。
+    home = os.environ.get("MYIA_HOME")
+    myssia_log.configure(
+        mode="serve",
+        data_root=Path(home).expanduser() if home else None,
+        ring=False,
+        proc="feishu_callback",
     )
     try:
         config = FeishuCallbackConfig(
