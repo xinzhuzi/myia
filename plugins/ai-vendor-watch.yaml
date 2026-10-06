@@ -20,8 +20,9 @@
 #     --schedule "0 8 * * *" --deliver feishu:群名
 # (cron --category 收品类 YAML 路径,完整装载校验早失败;调度/账本/deliver/
 # 孤儿回收全复用现成件——job spawn `myssia run <yaml> --json` 子进程。品类内
-# push 节与 cron deliver 二选一,本件演示品类 push 通道——跑一次
-# `myssia run plugins/ai-vendor-watch.yaml` 即时可见。)
+# push 节与 cron deliver 二选一。日报层降噪(10-06-hermes-align 批次4)后
+# 本件 push 路由 = archive 仅入库,发送由 plugins/daily-digest.yaml 的
+# 「AI 厂商官网」分区合并承担;单独验证产出仍可 `myssia run` 本件看入库。)
 
 id: ai-vendor-watch
 name: AI厂商官网观察
@@ -71,8 +72,11 @@ push:
   - channel: feishu_card
     target: env:FEISHU_CHAT_ID
     route:
-      - when: "url != ''"      # 永真:每日一条日报,跑完即发(immediate)
-        mode: immediate
+      - when: "url != ''"      # 日报层降噪(10-06-hermes-align 批次4):每日一条
+        mode: archive          # 日报仅入库,由 plugins/daily-digest.yaml 的
+                               # 「AI 厂商官网」分区(编号子标题+缩进明细)合并
+                               # 发送——合并日报是唯一日报出口(原 immediate
+                               # 单发退役)
     template: |
       **AI 厂商官网日报 · {{ date }}**
       {% if items %}{{ items[0].prompt_summary }}{% endif %}

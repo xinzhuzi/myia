@@ -285,11 +285,12 @@ def test_games_gog_source_declares_catalog_query_and_double_insurance():
     }
     assert rules["限免"].evaluate(giveaway) is True, "现价 0 且原价>0 = 限免双保险命中"
     assert rules["限免"].evaluate(permfree) is False, "永久免费(原价 0)不是限免,不刷 immediate"
-    # 路由两态:giveaway → immediate(两通道同款);permfree → 保守 digest
+    # 路由两态:giveaway → immediate(两通道同款);permfree → archive
+    # (10-06-hermes-align 批次4 日报层降噪:digest 档退役,合并日报收口)
     for push in config.push:
         routes = routes_from_config(push.route)
         assert resolve_route(giveaway, routes).mode == "immediate"
-        assert resolve_route(permfree, routes).mode == "digest"
+        assert resolve_route(permfree, routes).mode == "archive"
     # None 守卫结构必需:GOG 条目无 final_price/discount_pct,裸 `>=` 比较会在
     # 轮到 GOG 析取前炸掉整条 BoolOp(or 的假值分支继续求值)——这里钉住
     # 守卫形不得回退成裸比较(回退则 giveaway 静默落 digest)。
@@ -315,7 +316,9 @@ def test_games_telegram_push_entry_mounted_per_v1_decision5():
     (feishu,) = by_channel["feishu_card"]
     assert telegram.target == "env:TELEGRAM_CHAT_ID"
     assert [r.when for r in telegram.route] == [r.when for r in feishu.route], "路由 when 与 feishu 条目同款"
-    assert [r.mode for r in telegram.route] == ["immediate", "digest"]
+    # 批次4 日报层降噪:两级路由变三级(限免 immediate + 折扣/兜底 archive,
+    # digest 档退役——日报由 plugins/daily-digest.yaml 合并收口)。
+    assert [r.mode for r in telegram.route] == ["immediate", "archive", "archive"]
     assert telegram.template is not None
     assert "](" not in telegram.template, "纯文本通道:markdown 链接语法会原样露出,必须精简变体"
 
@@ -368,19 +371,20 @@ def test_games_free_item_hits_rules_and_immediate_route():
     assert rules["半价+"].evaluate(discount) is True
 
     # wrap 后双通道(feishu_card + telegram):路由两态对每个条目都成立
+    # (批次4:普通折扣 digest → archive,日报由合并日报收口)
     for push in config.push:
         routes = routes_from_config(push.route)
         assert resolve_route(free, routes).mode == "immediate"
-        assert resolve_route(discount, routes).mode == "digest"
+        assert resolve_route(discount, routes).mode == "archive"
 
 
-def test_games_upcoming_free_hits_tag_rule_and_stays_digest():
+def test_games_upcoming_free_hits_tag_rule_and_stays_archived():
     """10-03-games-v2 决议②:Epic「下周免费」预告走**字段融合**——upcoming_pct
     并入同一条目。10-03-games-dedup-fix 勘误:原「dedup 稳定 {url}、切换碰撞
     由槽位抑制消解」不成立(is_seen 全期拦截,预告日推过的同 url 到免费日
     被吞);修法=dedup 键带价格态 {url}-{final_price},免费日价格变 0 即新键
-    入库,immediate 照常落地。预告不是现在能领的,必须留在 digest、绝不
-    immediate。"""
+    入库,immediate 照常落地。预告不是现在能领的,绝不 immediate——原 digest
+    档随 10-06-hermes-align 批次4 降噪为 archive(日报由合并日报收口)。"""
     config = _load("games")
     rules = {
         rule.tag: rule
@@ -394,16 +398,16 @@ def test_games_upcoming_free_hits_tag_rule_and_stays_digest():
     assert rules["下周免费"].evaluate(upcoming) is True
     assert rules["限免"].evaluate(upcoming) is False, "预告不是当前限免"
     for push in config.push:
-        assert resolve_route(upcoming, routes_from_config(push.route)).mode == "digest"
+        assert resolve_route(upcoming, routes_from_config(push.route)).mode == "archive"
 
 
-def test_games_cheapshark_deal_hits_rule_and_stays_digest():
+def test_games_cheapshark_deal_hits_rule_and_stays_archived():
     """10-03-games-v3 决议④:合成 CS 条目(美元字符串形态,裁自 evidence/
     cs-multi.json Unclaimed World)——`float(savings_pct) >= 50` 白名单转换
     命中「多店半价+」;Epic/Steam 条目无 savings_pct,float(None) 求值失败
-    按不命中(缺字段让路,天然无感);路由零改动:CS 条目无 final_price/
-    discount_pct,两级 when 均不命中走保守缺省 digest——immediate 仍只属限免
-    (digest 无 items 排序,顺序=源到达序,CS 条目落日报尾部)。"""
+    按不命中(缺字段让路,天然无感);CS 条目无 final_price/discount_pct,
+    前两级 when 均不命中——批次4 后落兜底 archive(原保守缺省 digest 随
+    10-06-hermes-align 批次4 降噪退役,immediate 仍只属限免)。"""
     config = _load("games")
     rules = {
         rule.tag: rule
@@ -429,8 +433,9 @@ def test_games_cheapshark_deal_hits_rule_and_stays_digest():
     assert rules["半价+"].evaluate(cs_hit) is False
 
     for push in config.push:
-        assert resolve_route(cs_hit, routes_from_config(push.route)).mode == "digest", (
-            "CS 条目必须落 digest(immediate 只属限免,v3 决议④路由零改动)"
+        assert resolve_route(cs_hit, routes_from_config(push.route)).mode == "archive", (
+            "CS 条目必须落 archive(immediate 只属限免;批次4 后非限免一律仅入库,"
+            "日报由 plugins/daily-digest.yaml 合并收口)"
         )
 
 
@@ -515,10 +520,15 @@ def test_plugin_sources_stay_on_direct_proxy(name):
 
 @pytest.mark.parametrize("name", OFFICIAL_PLUGINS)
 def test_plugin_route_covers_immediate_and_digest(name):
-    """Every plugin ships both tiers (route semantics, PRD requirement)."""
+    """Every plugin ships both tiers (route semantics, PRD requirement).
+
+    批次4(10-06-hermes-align)放宽:非 immediate 档可以是 digest(槽位汇总)
+    或 archive(仅入库,日报由 daily-digest 合并收口)——降噪品类
+    (ai-news/games/ai-vendor-watch)取 archive 形。"""
     config = _load(name)
     modes = {rule.mode for push in config.push for rule in push.route}
-    assert {"immediate", "digest"} <= modes
+    assert "immediate" in modes, "immediate 档是路由语义的地板"
+    assert modes & {"digest", "archive"}, "需有非 immediate 档(digest 或 archive)"
     # declared order is score rules first (v0.2 slot), data rules after
     for push in config.push:
         route_rules = routes_from_config(push.route)

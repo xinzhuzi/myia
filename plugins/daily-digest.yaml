@@ -1,0 +1,120 @@
+# plugins/daily-digest.yaml — 跨品类合并日报(10-06-hermes-align 批次4):
+# 主人截图 OCR 的 Hermes 产线版式——多品类合成**一条**飞书 markdown 文本
+# 消息(msg_form: text),分区 = 品类/报表,-- 分隔线,编号一句话条目,
+# 尾戳 = 生成时间 + 指纹去重 + 静默声明;全分区无新内容 = 整条静默不发。
+#
+# 机制(最小面):engine: store_report 链外引擎(prompt/urlwatch 判例)——
+# 从 store 查本槽位窗(AM = 本地 00:00 起 / PM = 12:00 起)各品类新条目,
+# 按 sections 分区渲染 Hermes 布局,整份报表 = 一条目出仓;push 模板直渲
+# {{ items[0].report_markdown }}(metadata 合并,prompt 引擎同款),经
+# feishu_card msg_form: text 发一条;超 4000 字由通道层按行边界续段并头尾
+# 标 (i/N)(组合铁律在案,不在本层重做)。
+#
+# 分区匹配键 = **源名**(store items.source):分类器 category 对 builtin
+# 关闭的品类(games/ai-vendor-watch)恒 None,源名是唯一稳定锚。
+# dedup 锚点 = 引擎铸的 <url>#report-<YYYYMMDD>-<am|pm>(#prompt- 判例):
+# 每槽一个新键,同槽重跑幂等,跨槽必新。
+#
+# 与既有品类路由的分工(同批降噪):ai-news/games 的 digest 路由已改
+# archive(仅入库),immediate(score≥9/喜加一)保留即时;ai-vendor-watch
+# 整条改 archive——本报表把窗口内全部新条目(含 immediate 已推的)合并
+# 成唯一日报出口。
+#
+# 挂 cron 即成每日两发(错峰在采集之后;复用 cron 调度,spawn
+# `myssia run` 子进程,零新调度面):
+#   myssia cron create --category plugins/daily-digest.yaml \
+#     --schedule "5 8,20 * * *" --db <数据根>/myssia.db
+
+id: daily-digest
+name: 每日合并日报
+
+schedule: "5 8,20 * * *"           # 08:05 / 20:05(采集 08:00/20:00 之后)
+timezone: Asia/Shanghai
+
+sources:
+  - name: daily-digest
+    engine: store_report           # 链外引擎:显式选择才生效,auto 永不路过
+    url: "https://myia.local/daily-digest"   # 锚 URL(仅铸 #report- 锚点用,本引擎零抓取)
+    engine_options:
+      store_report:
+        title: 情报日报
+        timezone: Asia/Shanghai    # 槽位边界时区(引擎读不到品类 timezone)
+        sections:
+          # ── 分区一:AI 资讯(编号一句话;链接附句尾,labels 带来源前缀)──
+          - title: AI 资讯
+            sources:
+              - aihot
+              - cocoloop
+              - openai-news
+              - deepmind-blog
+              - google-research
+              - microsoft-research
+              - hf-blog
+              - mistral-news
+              - qwen-blog
+              - anthropic-news-watch
+              - meta-ai-blog-watch
+              - cohere-blog-watch
+              - zhipu-news-watch
+              - moonshot-home-watch
+              - minimax-home-watch
+              - seed-home-watch
+            labels:                # 来源前缀(标题精炼,可带来源前缀)
+              aihot: 热点聚合
+              cocoloop: CocoLoop
+              openai-news: OpenAI
+              deepmind-blog: DeepMind
+              google-research: Google
+              microsoft-research: 微软研究院
+              hf-blog: HuggingFace
+              mistral-news: Mistral
+              qwen-blog: Qwen
+              anthropic-news-watch: Anthropic
+              meta-ai-blog-watch: MetaAI
+              cohere-blog-watch: Cohere
+              zhipu-news-watch: 智谱
+              moonshot-home-watch: 月之暗面
+              minimax-home-watch: MiniMax
+              seed-home-watch: 字节Seed
+            max_entries: 15        # 分区条目帽(超出「另有 N 条省略」留痕)
+
+          # ── 分区二:AI 厂商官网观察(编号子标题 + 缩进明细行;LLM 摘要
+          #    content 逐行归一缩进,markdown 结构符剥除防飞书 md 破版式)──
+          - title: AI 厂商官网
+            sources: [ai-vendor-watch]
+            style: detail
+            max_lines: 20          # 厂商日报整份缩进,行帽放宽
+
+          # ── 分区三:游戏情报(编号一句话;suffix_fields 取首个非空价格)──
+          - title: 游戏喜加一与折扣
+            sources: [epic-free, steam-specials, cheapshark, gog-free]
+            suffix_fields: [price_text, sale_price]   # "¥0.00" / "0.00"(美元)
+            max_entries: 10
+
+    # 合法空集声明(gog-free 判例):全分区无新条目 = 零产出 = 静默不发,
+    # 不是源退化;引擎另留 skip 哨兵(store_report_window_empty)供 doctor。
+    empty_ok: true
+
+# 报表条目不做关键词预过滤(条目本身是窗口查询产物,无标题可筛)。
+classify:
+  builtin: false
+  rules: []
+
+dedup:
+  key: "{url}"                     # 引擎已铸 #report-<日期>-<槽位> 锚点:每槽新条目,同槽幂等
+
+enrich:
+  enabled: false                   # 报表无逐条评分面,零 token
+
+push:
+  - channel: feishu_card
+    target: env:FEISHU_CHAT_ID     # 主人 DM(bot token 走 FEISHU_APP_ID/SECRET 自 mint)
+    msg_form: text                 # Hermes 日报形态:post md rows,4000 字行边界续段 (i/N)
+    route:
+      - when: "url != ''"          # 永真:报表跑出来即发(immediate,一条消息)
+        mode: immediate
+    template: |
+      {{ items[0].report_markdown }}
+
+storage:
+  retention: 90d

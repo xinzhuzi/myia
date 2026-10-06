@@ -291,8 +291,16 @@ push:
       # when 与 classify 限免规则逐字一致(None 守卫 rationale 见彼处注释)
       - when: 'final_price == 0 or (discount_pct or 0) >= 100 or (float(sale_price or "-1") == 0 and float(normal_price or "-1") > 0)'   # 喜加一即推
         mode: immediate
-      - when: "float(final_price or 0) > 0"               # 普通折扣进日报(守卫:美元串/缺失干净求值,落点同旧)
-        mode: digest
+      - when: "float(final_price or 0) > 0"               # 普通折扣仅入库(守卫:美元串/
+        mode: archive                                     # 缺失干净求值)——日报层降噪
+                                                          # (10-06-hermes-align 批次4):
+                                                          # 原进 digest 槽位汇总卡,现由
+                                                          # plugins/daily-digest.yaml 合并
+                                                          # 日报唯一出口收口
+      - when: "url != ''"                                 # 兜底封边:规则未命中(缺价/
+        mode: archive                                     # 异型字段)同样仅入库——route 层
+                                                          # 保守缺省是 digest,不封边会残留
+                                                          # 逐品类日报单发出口
     # 四源字段形态并存(wrap):价格优先 price_text(Epic "¥60.00"/"0" 直出),
     # Steam 无该字段退 final_price/100(分 → 元),CS/GOG 条目走美元段
     # $sale_price(原价 normal_price)直出(字符串形态免换算)——GOG 条目
@@ -326,8 +334,10 @@ push:
       # (when 逐字与 classify 限免规则一致,None 守卫 rationale 见彼处注释)
       - when: 'final_price == 0 or (discount_pct or 0) >= 100 or (float(sale_price or "-1") == 0 and float(normal_price or "-1") > 0)'   # 喜加一即推
         mode: immediate
-      - when: "float(final_price or 0) > 0"               # 普通折扣进日报(守卫:美元串/缺失干净求值,落点同旧)
-        mode: digest
+      - when: "float(final_price or 0) > 0"               # 普通折扣仅入库(日报层降噪,
+        mode: archive                                     # 同 feishu 条目批次4注记)
+      - when: "url != ''"                                 # 兜底封边(同 feishu 条目):
+        mode: archive                                     # 规则未命中仅入库,不留 digest 出口
     template: |
       游戏情报 · {{ date }}
       {% for item in items %}

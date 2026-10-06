@@ -423,8 +423,12 @@ push:
         mode: immediate
       - when: "category in ['freebie', 'proxy-node', 'buying-agent']"   # v0.1:
         mode: immediate         # give-aways inside AI communities go out now
-      - when: "category == 'ai-news'"   # v0.1: the daily digest bucket
-        mode: digest
+      - when: "category == 'ai-news'"   # 日报层降噪(10-06-hermes-align 批次4):
+        mode: archive           # 仅入库,由 plugins/daily-digest.yaml 合并日报
+                                # 唯一出口收口(原 digest 槽位汇总卡退役)
+      - when: "url != ''"       # 兜底封边:规则未命中的其余分类(server/token/
+        mode: archive           # channel 等)同样仅入库——route 层保守缺省是
+                                # digest,不封边会残留逐品类日报单发出口
     template: |
       **AI 资讯 · {{ date }}**
       {% for item in items %}

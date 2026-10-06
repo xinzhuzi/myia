@@ -141,6 +141,12 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # dependency_missing);LLM 端点凭据经 engine_options.prompt 的
     # base_url/api_key 引用(enrich 同契约,明文拒)。
     "prompt": lambda: _load("prompt", "PromptEngine"),
+    # store 报表引擎(10-06-hermes-align 批次4):链外同 credhunter 先例 ——
+    # 显式 engine: store_report 才生效,auto 永不路过;跨品类合并日报
+    # (store 本槽位窗查询 → Hermes 版式渲染 → 单条目出仓,唯一日报出口);
+    # 零凭据零 HTTP,数据面 = FetchContext.store(注入缺席 = 结构化
+    # store_not_available);单报表语义拒 pagination。
+    "store_report": lambda: _load("store_report", "StoreReportEngine"),
 }
 
 # Static typing view of the registry (class names resolved lazily at runtime).

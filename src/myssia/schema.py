@@ -178,6 +178,11 @@ ENGINES = (
     # (engine_options.prompt.base_url/api_key 引用);显式 engine: prompt
     # 才生效,一轮「抓正文→LLM 摘要」产条目(Hermes chat -Q 最小等价物)。
     "prompt",
+    # store 报表引擎(10-06-hermes-align 批次4):链外 + 零凭据零 HTTP;显式
+    # engine: store_report 才生效,从 store 查本槽位窗各品类新条目,按
+    # Hermes 版式渲染跨品类合并日报(唯一日报出口;既有品类 digest 路由
+    # 同批降噪为 archive,报表从库面收口)。
+    "store_report",
 )
 PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
@@ -247,6 +252,7 @@ EngineName = Literal[
     "urlwatch",
     "searxng",
     "prompt",
+    "store_report",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]
 ExtractType = Literal["list", "item", "json_path", "rss"]
