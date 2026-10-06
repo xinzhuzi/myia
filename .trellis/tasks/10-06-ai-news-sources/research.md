@@ -137,6 +137,6 @@ round1 脚本 `probe_vendors.py` 的 `sniff()` 写了 `"<html" in head`(str in b
 
 **并行协调记档**:本档同刻有「国产五家 watch」流在途(其 probe5 系证据+ai-news.yaml 未提交块);本流 YAML 改动(仅 meta 块)已入工作树但**不随本流提交**——`--only` 按文件粒度提交会吞并行流未提交块,ai-news.yaml 的提交归国产流收口或主人;数据根 YAML(装机活配置)已外科只加 meta 块(不部署其在途源)。本流探查文件定名 probe6 系(其 probe5 编号先占)。**共享暂存区 receipt(§6 第四案同款)**:本流三个探查证据件(probe6-meta-crawl4ai.py/.json/.markdown.txt)staged 后被并行冒烟窗归档提交 b207289 顺带入库(其 add 面扫了 .trellis;内容纯本流产物,本提交的 research §12+probe6-log.md 即其索引)——归属链在此记档,git 史可溯。
 
-**装机同步(外科直更+重签)**:engine urlwatch.py + adapter.py + render_crawl4ai.py 三件 cp 至 `/Applications/世事.app/Contents/Resources/{myssia-src/myssia/engines/,plugins/myssia-urlwatch/}`,codesign ad-hoc 重签。
+**装机同步(外科直更+重签,2026-10-06 下午亲验)**:engine urlwatch.py + adapter.py + render_crawl4ai.py 三件 cp 至 `/Applications/世事.app/Contents/Resources/{myssia-src/myssia/engines/,plugins/myssia-urlwatch/}`(diff 三件逐字节一致),sidecar python(数据根 `python/bin/python3`,ps 实证 serve 进程即它)对三件 py_compile 全过;codesign ad-hoc 重签 `SIGNATURE VALID` 且运行中 app(PID 19416)存活;**调度执行面=子进程**(cron/executions.py:102 subprocess.run)→ 20:00 射点起新进程自然装载新引擎,无需重启 app。数据根 plugins/ai-news.yaml 外科只加 meta 块(12 源,yaml 解析亲验;不部署并行国产流在途源)。装机 python `find_spec('crawl4ai')=False` 亲验=owner_left 如实。
 
 **owner_left(新增一项,同 llm extras 先例)**:装机 python 无 crawl4ai(随包 requirements-lock.txt 亲核无该包)→ 装机态 meta-ai-blog-watch 每 run 结构化 `dependency_missing`(不拦品类内其余源);仓库 CLI(venv 全 extras)即刻可用。收编路径=desktop lock 扩 crawl4ai extras(涉依赖指纹变更,主人裁定)+设置页一键重装;playwright 浏览器二进制走用户级缓存 `~/Library/Caches/ms-playwright`(与仓库 venv 共享,装机装同版 playwright 无需重复下载浏览器)。
