@@ -651,6 +651,47 @@ pub(crate) fn run_pip_spec(
     run_pip_install(python, requirements, index_url)
 }
 
+/// 组件安装后浏览器钩子(10-06-native-plugin-components 轨A:crawl4ai):
+/// 用同一自管 pyenv 的 playwright 拉 chromium 二进制进
+/// `<数据根>/playwright-browsers`(PLAYWRIGHT_BROWSERS_PATH 注入值,与
+/// main.rs spawn_sidecar 运行时注入同目录——装与用必须同源)。浏览器只落
+/// 数据根(卸载组件/清理数据根即整目录消,不散落 OS 缓存区,G-Q6);与
+/// run_pip_install 同款子进程纪律:剥 PYTHONPATH(Req 4)、失败输出尾部回显;
+/// 错误分类复用 pip_failed(用户可重试面同族;重跑幂等——已装二进制跳过)。
+pub(crate) fn run_playwright_install_chromium(
+    python: &Path,
+    browsers_path: &Path,
+) -> Result<(), (InstallErrorKind, String)> {
+    let mut command = Command::new(python);
+    command.args(["-m", "playwright", "install", "chromium"]);
+    command.env("PLAYWRIGHT_BROWSERS_PATH", browsers_path);
+    // 与开发 Python 分家(Req 4):playwright 不见壳进程可能继承的 PYTHONPATH。
+    command.env_remove("PYTHONPATH");
+    let output = command.output().map_err(|e| {
+        (
+            InstallErrorKind::PipFailed,
+            format!("playwright 拉起失败({}): {e}", python.display()),
+        )
+    })?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let mut combined = String::from_utf8_lossy(&output.stdout).into_owned();
+    combined.push_str(&String::from_utf8_lossy(&output.stderr));
+    let tail: String = combined
+        .chars()
+        .skip(combined.chars().count().saturating_sub(PIP_OUTPUT_TAIL))
+        .collect();
+    Err((
+        InstallErrorKind::PipFailed,
+        format!(
+            "playwright install chromium 退出码 {:?},输出尾部: {}",
+            output.status.code(),
+            tail.trim_end()
+        ),
+    ))
+}
+
 /// pip install 子进程公共段:argv 组装(-m pip install --no-input
 /// --disable-pip-version-check <requirement_args> [--index-url …])、剥
 /// PYTHONPATH(Req 4 与开发 Python 分家)、失败输出尾部回显(PIP_OUTPUT_TAIL)。

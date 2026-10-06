@@ -11,6 +11,13 @@
       "pip_spec": "trafilatura>=2.3,<3 selectolax<1",
       "label": "正文抽取兜底",
       "description": "网页正文抽取兜底引擎,零配置:static_html 引擎抓到页面但正文抽取缺失或规则跑空时,自动用 trafilatura 补抽正文(更好的正文,不改变抓取本身)。缺省关——开关是环境变量 MYIA_EXTRACT_FALLBACK(设为 1 才启用),不设零行为差。缺装时兜底能力自动降级,不影响核心流水线;闭包与 extras myssia[trafilatura] 同源(selectolax 钉 <1 防解析器兼容墙)。首装需联网,PyPI 镜像覆盖生效"
+    },
+    {
+      "id": "crawl4ai",
+      "pip_spec": "crawl4ai>=0.9,<0.10",
+      "label": "JS 渲染抓取(crawl4ai)",
+      "post_install": "playwright-chromium",
+      "description": "JS 渲染抓取引擎 crawl4ai(L3,进程内驱动无头浏览器):解锁纯客户端渲染源与 urlwatch 渲染通道(myssia-urlwatch 的 render_crawl4ai 场景件)、images 品类 L3 兜底;缺装时引擎报 dependency_missing 结构化降级,不影响其余流水线。体积与落点:装完 pip 闭包后安装链还会自动下载 playwright chromium 浏览器二进制,下载约 300MB 级、落盘约 600MB(chromium+headless shell+ffmpeg,沙箱实测 557MB;走 Playwright CDN,耗时数分钟);浏览器落数据根 playwright-browsers/ 目录(PLAYWRIGHT_BROWSERS_PATH),不散落系统缓存区,卸载组件或清理数据根即整目录回收。chromium 拉取失败 = 组件卡 error 态可见可重试(重试幂等:pip 已装自动跳过);闭包与 extras myssia[crawl4ai] 同源(crawl4ai 自带 playwright 依赖;窗 >=0.9,<0.10 = 本仓实测 0.9.x 线,0.10+ 未验不冒进)"
     }
   ]
 }

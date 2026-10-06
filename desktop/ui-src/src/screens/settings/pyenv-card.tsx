@@ -191,6 +191,11 @@ const COMPONENT_META: Record<string, { label: string; description: string }> = {
     description:
       "网页正文抽取兜底引擎,零配置:static_html 引擎抓到页面但正文抽取缺失或规则跑空时,自动用 trafilatura 补抽正文。缺省关——开关是环境变量 MYIA_EXTRACT_FALLBACK(设为 1 才启用),不设零行为差;缺装时兜底自动降级,不影响核心流水线(闭包与 extras myssia[trafilatura] 同源,selectolax 钉 <1 防解析器兼容墙)",
   },
+  crawl4ai: {
+    label: "JS 渲染抓取(crawl4ai)",
+    description:
+      "JS 渲染抓取引擎 crawl4ai(L3,进程内无头浏览器;闭包与 extras myssia[crawl4ai] 同源,窗 >=0.9,<0.10):解锁纯客户端渲染源与 urlwatch 渲染通道、images 品类 L3 兜底。开关开 = pip 装闭包后自动下载 playwright chromium 浏览器二进制(下载约 300MB 级、落盘约 600MB,沙箱实测 557MB;走 Playwright CDN,耗时数分钟);浏览器落数据根 playwright-browsers/ 目录(PLAYWRIGHT_BROWSERS_PATH),不散落系统缓存区,卸载组件/清理数据根即整目录回收;chromium 拉取失败会在下方示错可重试(重试幂等)",
+  },
 };
 
 export function PyenvCard() {
@@ -317,7 +322,7 @@ export function PyenvCard() {
       if (!next) {
         setComponentError(null);
         setComponentNote({
-          text: "组件卸载本期未提供(档记后续):停用表格还原请把品类配置的 images.table 关掉;此处开关只管装进自管环境。",
+          text: "组件卸载本期未提供(档记后续):此处开关只管装进自管环境;停用组件行为请调整品类/源配置不再引用该组件(table 走 images.table,crawl4ai 走源 engine 改离 crawl4ai)。",
           ok: false,
         });
         return;
@@ -529,7 +534,7 @@ export function PyenvCard() {
                               envBlocked
                                 ? "Python 环境未就位/主链安装中:先完成「开始配置」再装组件"
                                 : component.installed
-                                  ? "已装进自管环境;卸载本期未提供(停用走品类配置 images.table)"
+                                  ? "已装进自管环境;卸载本期未提供(停用走品类/源配置不再引用该组件)"
                                   : "往自管环境装该组件(pip,镜像覆盖生效)"
                             }
                             onCheckedChange={(checked) =>

@@ -212,6 +212,21 @@ fn spawn_sidecar(app: &AppHandle) -> Result<CommandChild, Box<dyn std::error::Er
     ) {
         command = command.env(pyenv::BUNDLED_PLUGINS_ENV, dir);
     }
+    // crawl4ai 组件浏览器目录注入(10-06-native-plugin-components 轨A):
+    // 组件装的 chromium 落数据根 playwright-browsers/,sidecar 及其子进程
+    // (urlwatch ShellJob 的 render_crawl4ai.py、L3 引擎进程内驱动)经
+    // PLAYWRIGHT_BROWSERS_PATH 找到二进制——装与用同源(pyenv_install 同目录)。
+    // 目录在才注(未装组件零行为差,playwright 各回自家缺省位置,不夺
+    // uvx 自管型 stealth_browser 的浏览器发现面);已设原样继承不夺权
+    // (MYIA_HOME 同款惯例)。
+    if std::env::var_os("PLAYWRIGHT_BROWSERS_PATH").is_none()
+        && pyenv_components::should_inject_browsers_env(&data_root)
+    {
+        command = command.env(
+            "PLAYWRIGHT_BROWSERS_PATH",
+            pyenv_components::playwright_browsers_path(&data_root),
+        );
+    }
     let (rx, child) = command.spawn()?;
     pump_task(app.clone(), rx);
     Ok(child)

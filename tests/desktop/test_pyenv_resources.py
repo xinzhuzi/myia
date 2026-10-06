@@ -141,6 +141,19 @@ TABLE_COMPONENT_PIP_SPEC = "rapid-table==3.0.2 rapidocr-onnxruntime>=1.3 tqdm>=4
 #: 防 1.0.0 撞 Modest 解析器移除墙,保护 MYIA extract_html 面)。
 TRAFILATURA_COMPONENT_PIP_SPEC = "trafilatura>=2.3,<3 selectolax<1"
 
+#: JS 渲染抓取组件闭包(10-06-native-plugin-components 轨A,裁决③):主件窗
+#: ``>=0.9,<0.10``——本仓 uv.lock/dev 实测 0.9.4,引擎(crawl4ai.py 的
+#: MarkdownGenerationResult 鸭子兼容)与 render_crawl4ai 场景件均按 0.9.x
+#: 探测写作;0.10+ 未验不冒进。闭包单件与 extras ``myssia[crawl4ai]``
+#: 同源(crawl4ai 自带 playwright 依赖,不另钉第三口径);浏览器二进制
+#: 不走 pip(安装链 post_install 钩子拉 chromium,壳侧
+#: pyenv_components.rs 把守)。
+CRAWL4AI_COMPONENT_PIP_SPEC = "crawl4ai>=0.9,<0.10"
+
+#: post_install 钩子已知值词表(壳侧 install_component 对未知值结构化拒;
+#: 此处钉上游不产未知值——壳侧拒绝发生在用户点安装之后,仓测先拦拼写漂移)。
+KNOWN_POST_INSTALL_HOOKS = {"playwright-chromium"}
+
 
 def test_components_resource_declared_and_present() -> None:
     """components.json 随包映射已声明且源文件在盘。"""
@@ -165,6 +178,12 @@ def test_components_registry_shape() -> None:
         assert isinstance(entry, dict), f"条目须为对象: {entry!r}"
         for key in ("id", "pip_spec", "label", "description"):
             assert isinstance(entry.get(key), str) and entry[key], f"条目缺非空 {key}: {entry!r}"
+        # post_install 钩子(可选字段):在场必须是壳已知值——壳侧对未知值
+        # 在用户点安装后才拒,此处上游先拦(壳已知值见 pyenv_components.rs)。
+        if "post_install" in entry:
+            assert entry["post_install"] in KNOWN_POST_INSTALL_HOOKS, (
+                f"post_install 未知值(壳侧会拒装): {entry['post_install']!r}"
+            )
         # pip spec 形状:闭包逐条 name==version 钉版或 name<op>version 约束
         # (组件机制按「钉版闭包」设计;主件 == 钉版,伴生件与 extras 同字串)。
         for token in entry["pip_spec"].split():
@@ -240,6 +259,60 @@ def test_trafilatura_component_matches_pyproject_extras() -> None:
     # label/description 人话在册(R1:开关与缺省态必须写进描述)
     assert entry["label"] == "正文抽取兜底"
     assert "MYIA_EXTRACT_FALLBACK" in entry["description"], "描述须写明开关环境变量"
+
+
+# ---------------------------------------------------------------------------
+# 1c. crawl4ai 组件行(10-06-native-plugin-components 轨A,裁决③ + G-Q6):
+#     钉窗闭包 + post_install 浏览器钩子声明 + 体积/落点/卸载三披露。
+# ---------------------------------------------------------------------------
+
+
+def test_crawl4ai_component_row_contract() -> None:
+    """crawl4ai 组件行:pip_spec 钉窗在册 + post_install 钩子声明 +
+    G-Q6 三披露(体积 300MB 级 / 落点数据根 playwright-browsers +
+    PLAYWRIGHT_BROWSERS_PATH / 卸载即整目录消)——主人磁盘敏感,本轮任务
+    起因,披露缺失即红。"""
+    registry = json.loads((RESOURCES_DIR / "components.json").read_text(encoding="utf-8"))
+    entry = next(e for e in registry["components"] if e["id"] == "crawl4ai")
+    assert entry["pip_spec"] == CRAWL4AI_COMPONENT_PIP_SPEC, (
+        f"crawl4ai 闭包漂移: {entry['pip_spec']!r}"
+    )
+    assert entry["post_install"] == "playwright-chromium", (
+        "浏览器钩子必须声明(否则装完缺 chromium 二进制,render 链起不来)"
+    )
+    description = entry["description"]
+    assert "300MB" in description, "须明示 chromium 下载体积(G-Q6)"
+    assert "playwright-browsers" in description, "须明示落点数据根浏览器目录(G-Q6)"
+    assert "PLAYWRIGHT_BROWSERS_PATH" in description, "须写明注入变量名(落点机制)"
+    assert "卸载" in description and "整目录" in description, (
+        "须明示卸载组件即整目录回收(G-Q6)"
+    )
+
+
+def test_crawl4ai_component_window_within_extras() -> None:
+    """桌面钉窗 ↔ extras ``myssia[crawl4ai]`` 交叉对齐(红线,table 同款)。
+
+    extras 本身无约束(纯 ``crawl4ai``)——组件侧窗是收窄不是第三口径:
+    件集与 extras 同源(单件),窗覆盖本仓实测 0.9.4、排除 0.10+/0.8.x
+    未验线;壳侧指纹随 pip_spec 整串,两侧漂移即 installed=false 引导重装。
+    """
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    extras_raw = pyproject["project"]["optional-dependencies"]["crawl4ai"]
+    extras = {_pep503(str(Requirement(raw).name)): Requirement(raw) for raw in extras_raw}
+    desktop = {
+        _pep503(str(Requirement(token).name)): Requirement(token)
+        for token in CRAWL4AI_COMPONENT_PIP_SPEC.split()
+    }
+    assert set(desktop) == set(extras), (
+        f"闭包件集与 extras 不一致: 桌面 {sorted(desktop)} vs extras {sorted(extras)}"
+    )
+    window = desktop["crawl4ai"].specifier
+    assert window.contains("0.9.4") and window.contains("0.9.99"), (
+        f"窗应覆盖 0.9.x 实测线: {window}"
+    )
+    assert not window.contains("0.10.0") and not window.contains("0.8.9"), (
+        f"窗应排除未验线(0.10+ 与 0.8.x): {window}"
+    )
 
 
 # ---------------------------------------------------------------------------

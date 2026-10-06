@@ -36,6 +36,16 @@
 //!   `--disable-pip-version-check`/`--index-url` 覆盖/剥 PYTHONPATH,Req 4
 //!   环境隔离),PyPI 镜像索引继承 `pyenv-settings.json`(design §5,组件
 //!   不另设镜像面),磁盘预检复用同一门;
+//! - **安装后浏览器钩子(10-06-native-plugin-components 轨A,design §3)**:
+//!   注册表条目可选 `post_install: "playwright-chromium"`——pip 闭包装完后
+//!   用同一自管 pyenv 的 playwright 拉 chromium 进
+//!   `<数据根>/playwright-browsers/`(PLAYWRIGHT_BROWSERS_PATH;数据根下,
+//!   卸载组件/清数据根即整目录消,不散落 OS 缓存区,G-Q6 体积披露);
+//!   失败 = 组件戳 error 态可见(既有 error 卡形态),不静默;未知钩子值 =
+//!   注册表与壳版本漂移,结构化拒且零子进程副作用;磁盘预检按钩子加码
+//!   (PLAYWRIGHT_CHROMIUM_DISK_BYTES);运行时 sidecar spawn 经
+//!   should_inject_browsers_env 注入同一 PLAYWRIGHT_BROWSERS_PATH(render
+//!   链子进程继承);
 //! - 护栏:未知组件 id / Python 未就位(先走「开始配置」)/ 主安装链在跑 /
 //!   组件安装单飞(同刻只许一个 pip)→ 结构化拒绝;
 //! - 卸载本期不做(档记后续):开关只管装与状态回读,已装件关档如实呈现。
@@ -55,6 +65,19 @@ use tauri::{AppHandle, Manager};
 pub const COMPONENTS_RESOURCE_FILE: &str = "components.json";
 /// 数据根下组件指纹目录名(逐组件一文件:`pyenv-components/<id>.json`)。
 const COMPONENTS_STAMP_DIR: &str = "pyenv-components";
+/// post_install 钩子:装完 pip 闭包后拉 playwright chromium(轨A crawl4ai,
+/// 10-06-native-plugin-components design §3)。当前唯一钩子值——注册表写下
+/// 即启用;未知值 = 注册表与壳版本漂移,安装期结构化拒(见 install_component)。
+pub const POST_INSTALL_PLAYWRIGHT_CHROMIUM: &str = "playwright-chromium";
+/// 数据根下 playwright 浏览器目录名(PLAYWRIGHT_BROWSERS_PATH 注入值;
+/// 组件浏览器只落这里不散落 OS 缓存区——卸载组件/清理数据根即整目录消,
+/// G-Q6 体积披露的落点承诺)。
+pub const PLAYWRIGHT_BROWSERS_DIR: &str = "playwright-browsers";
+/// playwright chromium 钩子的磁盘预检加码:G-Q6「chromium 下载约 300MB 级」,
+/// 落盘含 chromium + headless shell + ffmpeg 解压总量(2026-10-06 沙箱实测
+/// 557MB),保守取 600MB(在基础门 DISK_REQUIRED_BYTES 之上叠加;主人磁盘
+/// 敏感,重件预检宁严勿松)。
+pub(crate) const PLAYWRIGHT_CHROMIUM_DISK_BYTES: u64 = 600 * 1024 * 1024;
 
 // ---------------------------------------------------------------------------
 // 注册表(随包 components.json;宽容读取)
@@ -72,6 +95,12 @@ pub struct ComponentSpec {
     pub label: String,
     #[serde(default)]
     pub description: String,
+    /// 安装后钩子(可选;缺省 None = 纯 pip 组件,零行为差)。当前唯一值
+    /// [`POST_INSTALL_PLAYWRIGHT_CHROMIUM`];未知值安装期结构化拒(注册表与
+    /// 壳版本漂移不静默)。指纹基准仍是 pip_spec——钩子属安装链行为,不进
+    /// 漂移判定(钩子变更随壳更新,重装引导由 pip_spec 漂移或手动触发)。
+    #[serde(default)]
+    pub post_install: Option<String>,
 }
 
 /// 注册表文档(`{components: [...]}`;components 缺省空表)。
@@ -184,6 +213,35 @@ pub fn is_component_installed(data_root: &Path, spec: &ComponentSpec) -> bool {
 }
 
 // ---------------------------------------------------------------------------
+// playwright 浏览器目录(轨A crawl4ai 组件;安装钩子与运行时注入共用)
+// ---------------------------------------------------------------------------
+
+/// 数据根浏览器目录绝对路径:`<数据根>/playwright-browsers/`。
+/// 安装钩子(PLAYWRIGHT_BROWSERS_PATH 注入 playwright install)与 sidecar
+/// spawn 运行时注入(main.rs)同源取此——装与用必须指向同一目录。
+pub fn playwright_browsers_path(data_root: &Path) -> PathBuf {
+    data_root.join(PLAYWRIGHT_BROWSERS_DIR)
+}
+
+/// sidecar spawn 时是否注入 `PLAYWRIGHT_BROWSERS_PATH`:目录在(组件装过
+/// 浏览器)才注;缺位不注——playwright 回落自家缺省位置,未装组件的存量
+/// 零行为差(含 uvx 自管型 stealth_browser:不夺其浏览器发现面)。调用侧
+/// 仍遵守「已设原样继承不夺权」惯例(MYIA_HOME 同款,见 main.rs spawn_sidecar)。
+pub fn should_inject_browsers_env(data_root: &Path) -> bool {
+    playwright_browsers_path(data_root).is_dir()
+}
+
+/// 组件安装磁盘预算:基础门 + 钩子加码(已知钩子才加;未知值不加——它在
+/// install_component 里先于预检被结构化拒,到不了这里)。
+fn disk_budget(base: u64, hook: Option<&str>) -> u64 {
+    if hook == Some(POST_INSTALL_PLAYWRIGHT_CHROMIUM) {
+        base.saturating_add(PLAYWRIGHT_CHROMIUM_DISK_BYTES)
+    } else {
+        base
+    }
+}
+
+// ---------------------------------------------------------------------------
 // 状态组装(pyenv_get_status 扩展;两键契约)
 // ---------------------------------------------------------------------------
 
@@ -219,8 +277,12 @@ pub struct ComponentInstallOutcome {
     pub error: Option<String>,
 }
 
-/// 组件安装(复用安装链依赖段):磁盘预检 → run_pip_spec(镜像索引透传)→
-/// 指纹戳。成功落 ready+指纹;失败/中断落 error+明细(installed=false 如实)。
+/// 组件安装(复用安装链依赖段;轨A crawl4ai 带浏览器钩子,design §3):
+/// 契约校验(未知 post_install 钩子零副作用拒)→ 磁盘预检(钩子加码)→
+/// run_pip_spec(镜像索引透传)→ playwright chromium 钩子(落
+/// `<数据根>/playwright-browsers/`)→ 指纹戳。成功落 ready+指纹;任一步
+/// 失败/中断落 error+明细(installed=false 如实;重试幂等——pip 已装自动
+/// 跳过、浏览器二进制续装)。
 pub(crate) fn install_component(
     data_root: &Path,
     python_bin: &Path,
@@ -245,11 +307,38 @@ pub(crate) fn install_component(
             error: Some(error),
         }
     };
-    if let Err((kind, detail)) = pyenv_install::disk_precheck(data_root, disk_required_bytes) {
+    // —— 契约校验先于一切子进程:未知 post_install 钩子 = 注册表与壳版本
+    //    漂移(新壳读旧表不会发生——旧表无此字段;新表配旧壳字段被忽略走
+    //    纯 pip),结构化拒且零 pip/浏览器副作用 ——
+    if let Some(hook) = spec.post_install.as_deref() {
+        if hook != POST_INSTALL_PLAYWRIGHT_CHROMIUM {
+            return fail(
+                format!(
+                    "未知 post_install 钩子: {hook}(注册表与壳版本漂移;壳已知值: \
+                     [{POST_INSTALL_PLAYWRIGHT_CHROMIUM}])"
+                ),
+                None,
+            );
+        }
+    }
+    if let Err((kind, detail)) = pyenv_install::disk_precheck(
+        data_root,
+        disk_budget(disk_required_bytes, spec.post_install.as_deref()),
+    ) {
         return fail(pyenv_install::render_error(kind, detail), None);
     }
     match pyenv_install::run_pip_spec(python_bin, &spec.pip_spec, index_url) {
         Ok(()) => {
+            // —— 浏览器钩子(轨A crawl4ai):pip 闭包含 playwright,装完拉
+            //    chromium 进数据根浏览器目录;失败 = error 戳可见,不静默 ——
+            if spec.post_install.as_deref() == Some(POST_INSTALL_PLAYWRIGHT_CHROMIUM) {
+                if let Err((kind, detail)) = pyenv_install::run_playwright_install_chromium(
+                    python_bin,
+                    &playwright_browsers_path(data_root),
+                ) {
+                    return fail(pyenv_install::render_error(kind, detail), None);
+                }
+            }
             write_component_stamp(
                 data_root,
                 &spec.id,
@@ -367,12 +456,29 @@ mod tests {
     /// 交叉对齐把守两侧不漂移)。
     const TABLE_PIP_SPEC: &str = "rapid-table==3.0.2 rapidocr-onnxruntime>=1.3 tqdm>=4";
 
+    /// crawl4ai 组件闭包(10-06-native-plugin-components 轨A;与随包
+    /// components.json 同源,tests/desktop/test_pyenv_resources.py 交叉对齐):
+    /// 窗 >=0.9,<0.10 = 本仓 uv.lock/dev 实测 0.9.4 所在线,引擎与
+    /// render_crawl4ai 场景件均按 0.9.x API 探测写作;0.10+ 未验不冒进。
+    const CRAWL4AI_PIP_SPEC: &str = "crawl4ai>=0.9,<0.10";
+
     fn table_spec() -> ComponentSpec {
         ComponentSpec {
             id: "table".into(),
             pip_spec: TABLE_PIP_SPEC.into(),
             label: "表格还原".into(),
             description: "截图表格还原成结构化 Markdown".into(),
+            post_install: None,
+        }
+    }
+
+    fn crawl4ai_spec() -> ComponentSpec {
+        ComponentSpec {
+            id: "crawl4ai".into(),
+            pip_spec: CRAWL4AI_PIP_SPEC.into(),
+            label: "JS 渲染抓取(crawl4ai)".into(),
+            description: "JS 渲染抓取引擎(crawl4ai + playwright chromium)".into(),
+            post_install: Some(POST_INSTALL_PLAYWRIGHT_CHROMIUM.into()),
         }
     }
 
@@ -398,7 +504,8 @@ mod tests {
         assert_eq!(registry, vec![table_spec()]);
         assert_eq!(registry[0].pip_spec, TABLE_PIP_SPEC);
 
-        // description 缺省空串(宽容);未知附加字段忽略
+        // description 缺省空串(宽容);未知附加字段忽略;post_install 缺省
+        // None(纯 pip 组件,零行为差)——crawl4ai 带钩子条目原样进表
         write_registry(
             resource.path(),
             &registry_json(serde_json::json!([{
@@ -412,6 +519,23 @@ mod tests {
                 pip_spec: "x==1".into(),
                 label: "X".into(),
                 description: String::new(),
+                post_install: None,
+            }]
+        );
+        write_registry(
+            resource.path(),
+            &registry_json(serde_json::json!([{
+                "id": "crawl4ai", "pip_spec": CRAWL4AI_PIP_SPEC,
+                "label": "JS 渲染抓取(crawl4ai)",
+                "description": "d",
+                "post_install": POST_INSTALL_PLAYWRIGHT_CHROMIUM,
+            }])),
+        );
+        assert_eq!(
+            load_registry(Some(resource.path())),
+            vec![ComponentSpec {
+                description: "d".into(),
+                ..crawl4ai_spec()
             }]
         );
 
@@ -464,6 +588,39 @@ mod tests {
         )
         .expect_err("空白 spec 应拒跑");
         assert!(detail.contains("pip spec 为空"), "实际: {detail}");
+    }
+
+    /// 浏览器目录路径与注入判定(轨A):目录在才注(未装组件零行为差,
+    /// playwright 各回各家);路径 = 数据根下 playwright-browsers/。
+    #[test]
+    fn browsers_env_injection_gated_on_directory_presence() {
+        let data = tempfile::tempdir().expect("数据根临时目录创建失败");
+        let browsers = playwright_browsers_path(data.path());
+        assert_eq!(
+            browsers,
+            data.path().join(PLAYWRIGHT_BROWSERS_DIR),
+            "浏览器目录必须在数据根下(卸载组件/清数据根即整目录消)"
+        );
+        assert!(!should_inject_browsers_env(data.path()), "目录缺位不注");
+        std::fs::create_dir_all(&browsers).unwrap();
+        assert!(should_inject_browsers_env(data.path()), "目录在即注");
+    }
+
+    /// 磁盘预算:已知钩子加码 600MB、无钩子/未知钩子不加;saturating 不溢出。
+    #[test]
+    fn disk_budget_adds_chromium_headroom_only_for_known_hook() {
+        let base = 500 * 1024 * 1024u64;
+        assert_eq!(disk_budget(base, None), base);
+        assert_eq!(disk_budget(base, Some("bogus")), base);
+        assert_eq!(
+            disk_budget(base, Some(POST_INSTALL_PLAYWRIGHT_CHROMIUM)),
+            base + PLAYWRIGHT_CHROMIUM_DISK_BYTES
+        );
+        assert_eq!(
+            disk_budget(u64::MAX, Some(POST_INSTALL_PLAYWRIGHT_CHROMIUM)),
+            u64::MAX,
+            "saturating_add 不得溢出回绕"
+        );
     }
 
     /// installed 判定:ready+指纹一致才 true;漂移/error/中断/缺戳/坏戳 false;
@@ -576,10 +733,13 @@ mod tests {
     mod install {
         use super::*;
 
-        /// sh 桩 python:pip 调用记账到日志,可控失败;非 pip argv 即失败。
+        /// sh 桩 python:pip / playwright 调用各自记账到日志,可控失败;
+        /// 非 pip/playwright argv 即失败。playwright 分支同时记
+        /// PLAYWRIGHT_BROWSERS_PATH(钩子落点断言依据)。
         fn stub_python(dir: &Path) -> PathBuf {
             let log = dir.join("pip-invocations.log");
             let fail = dir.join("pip-fail-marker");
+            let pw_fail = dir.join("playwright-fail-marker");
             let bin = dir.join("python3");
             let script = format!(
                 "#!/bin/sh\n\
@@ -588,9 +748,16 @@ mod tests {
                  \x20 if [ -f '{}' ]; then echo 'stub pip boom' >&2; exit 1; fi\n\
                  \x20 exit 0\n\
                  fi\n\
+                 if [ \"$1\" = \"-m\" ] && [ \"$2\" = \"playwright\" ]; then\n\
+                 \x20 printf 'playwright browsers=%s argv=%s\\n' \"$PLAYWRIGHT_BROWSERS_PATH\" \"$*\" >> '{}'\n\
+                 \x20 if [ -f '{}' ]; then echo 'stub playwright boom' >&2; exit 1; fi\n\
+                 \x20 exit 0\n\
+                 fi\n\
                  exit 1\n",
                 log.display(),
                 fail.display(),
+                log.display(),
+                pw_fail.display(),
             );
             std::fs::write(&bin, script).expect("桩 python 写入失败");
             use std::os::unix::fs::PermissionsExt;
@@ -712,6 +879,110 @@ mod tests {
             let error = outcome.error.expect("预检失败应带明细");
             assert!(error.starts_with("disk_full: "), "实际: {error}");
             assert!(pip_log(dir.path()).is_empty(), "预检不过零 pip 调用");
+        }
+
+        // —— crawl4ai 轨A:post_install 浏览器钩子(10-06-native-plugin-components)——
+
+        fn install_crawl4ai(python: &Path, data_root: &Path) -> ComponentInstallOutcome {
+            install_component(data_root, python, &crawl4ai_spec(), None, 1024 * 1024)
+        }
+
+        /// crawl4ai 成功链:pip 闭包 → playwright chromium 钩子恰各跑一次;
+        /// 钩子 PLAYWRIGHT_BROWSERS_PATH = 数据根 playwright-browsers/(G-Q6
+        /// 落点);落 ready+指纹(基准仍是 pip_spec)。
+        #[test]
+        fn crawl4ai_success_runs_chromium_hook_into_data_root_browsers_dir() {
+            let dir = tempfile::tempdir().expect("临时目录创建失败");
+            let python = stub_python(dir.path());
+            let outcome = install_crawl4ai(&python, dir.path());
+
+            assert_eq!(
+                outcome,
+                ComponentInstallOutcome {
+                    id: "crawl4ai".into(),
+                    installed: true,
+                    error: None
+                }
+            );
+            let lines = pip_log(dir.path());
+            assert_eq!(lines.len(), 2, "pip + playwright 恰各一次: {lines:?}");
+            assert!(
+                lines[0].contains("-m pip install") && lines[0].contains(CRAWL4AI_PIP_SPEC),
+                "pip 段先跑且带闭包窗: {}",
+                lines[0]
+            );
+            assert!(
+                lines[1].starts_with("playwright browsers=")
+                    && lines[1].contains("install chromium"),
+                "钩子段 = playwright install chromium: {}",
+                lines[1]
+            );
+            assert!(
+                lines[1].contains(
+                    playwright_browsers_path(dir.path())
+                        .to_str()
+                        .expect("临时目录路径可 utf-8")
+                ),
+                "PLAYWRIGHT_BROWSERS_PATH 必须落数据根浏览器目录: {}",
+                lines[1]
+            );
+            let stamp = read_component_stamp(dir.path(), "crawl4ai").expect("成功应落戳");
+            assert_eq!(stamp.state.as_deref(), Some("ready"));
+            assert_eq!(
+                stamp.fingerprint.as_deref(),
+                Some(spec_fingerprint(CRAWL4AI_PIP_SPEC).as_str()),
+                "指纹基准仍是 pip_spec(钩子不进漂移判定)"
+            );
+            assert_eq!(stamp.error, None);
+            assert!(is_component_installed(dir.path(), &crawl4ai_spec()));
+        }
+
+        /// chromium 钩子失败:pip 已成功也如实翻 error 戳(不静默)、不落指纹
+        /// (防误判已装);重试幂等(pip 段 already satisfied 跳过)。
+        #[test]
+        fn chromium_hook_failure_stamps_error_after_pip_success() {
+            let dir = tempfile::tempdir().expect("临时目录创建失败");
+            let python = stub_python(dir.path());
+            std::fs::write(dir.path().join("playwright-fail-marker"), b"1").unwrap();
+            let outcome = install_crawl4ai(&python, dir.path());
+
+            assert!(!outcome.installed);
+            let error = outcome.error.expect("钩子失败应带明细");
+            assert!(error.starts_with("pip_failed: "), "复用可重试分类: {error}");
+            assert!(error.contains("stub playwright boom"), "输出尾部应回显: {error}");
+            let lines = pip_log(dir.path());
+            assert_eq!(lines.len(), 2, "pip 成功 + 钩子失败各留痕: {lines:?}");
+            let stamp = read_component_stamp(dir.path(), "crawl4ai").expect("失败也应落戳");
+            assert_eq!(stamp.state.as_deref(), Some("error"));
+            assert_eq!(stamp.fingerprint, None, "失败不落指纹(防误判已装)");
+            assert!(!is_component_installed(dir.path(), &crawl4ai_spec()));
+        }
+
+        /// 未知 post_install 钩子:结构化拒且零子进程副作用(注册表与壳版本
+        /// 漂移不静默装一半)。
+        #[test]
+        fn unknown_post_install_hook_rejected_without_spawning() {
+            let dir = tempfile::tempdir().expect("临时目录创建失败");
+            let python = stub_python(dir.path());
+            let bogus = ComponentSpec {
+                post_install: Some("bogus-hook".into()),
+                ..crawl4ai_spec()
+            };
+            let outcome =
+                install_component(dir.path(), &python, &bogus, None, 1024 * 1024);
+
+            assert!(!outcome.installed);
+            let error = outcome.error.expect("契约漂移应带明细");
+            assert!(
+                error.contains("未知 post_install 钩子") && error.contains("bogus-hook"),
+                "实际: {error}"
+            );
+            assert!(
+                pip_log(dir.path()).is_empty(),
+                "契约校验先于一切子进程(零 pip/零 playwright)"
+            );
+            let stamp = read_component_stamp(dir.path(), "crawl4ai").expect("拒也应落戳");
+            assert_eq!(stamp.state.as_deref(), Some("error"));
         }
     }
 }
