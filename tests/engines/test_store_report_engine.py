@@ -23,13 +23,18 @@ SQLiteStore 种子数据 + now_fn 控时 + MockTransport 飞书通道),零真网
    组合铁律不在引擎层重做);
 9. 既有品类路由降噪:ai-news/games/ai-vendor-watch 的 YAML 路由对代表
    条目落 archive/immediate,grep 面无 mode: digest 残留(daily-digest
-   成为唯一日报出口)。
+   成为唯一日报出口);
+10. 分区价值门槛 ``min_score``(主人判例「有价值才进,不裸塞」):阈值
+    拦截/分区尾折叠行留痕/无分数条目不拦(取分口径 = digest 排序键
+    判例)/贴线分(== 线)不拦/门槛拦在 max_entries 帽之先/整区低于线
+    时折叠行即内容(报表照发不静默)/缺省 None = 不过滤维持现状/
+    daily-digest.yaml AI 资讯分区配 3 且其余分区缺省不动。
 """
 
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -55,6 +60,7 @@ from myssia.engines.store_report import (
     StoreReportEngine,
     clip_title,
     normalize_detail_line,
+    record_value_score,
     render_report,
     slot_window,
 )
@@ -136,6 +142,7 @@ def seed(
     first_seen: datetime,
     content: str | None = None,
     raw: dict[str, Any] | None = None,
+    scores: dict[str, Any] | None = None,
 ) -> None:
     store.save_item(
         ItemRecord(
@@ -145,6 +152,7 @@ def seed(
             source=source,
             content=content,
             raw=raw or {},
+            scores=scores,
             first_seen=first_seen,
         )
     )
@@ -193,6 +201,10 @@ def test_registered_off_chain_and_schema_vocab():
             "max_entries",
         ),
         ({"sections": [{"title": "x", "sources": ["a"], "max_lines": 999}]}, "max_lines"),
+        ({"sections": [{"title": "x", "sources": ["a"], "min_score": True}]}, "min_score"),
+        ({"sections": [{"title": "x", "sources": ["a"], "min_score": "3"}]}, "min_score"),
+        ({"sections": [{"title": "x", "sources": ["a"], "min_score": -0.5}]}, "min_score"),
+        ({"sections": [{"title": "x", "sources": ["a"], "min_score": 10.5}]}, "min_score"),
         (
             {"sections": [{"title": "x", "sources": ["a"], "unknown": 1}]},
             "未知字段",
@@ -307,6 +319,33 @@ def test_render_report_all_empty_returns_empty_string():
     ) == ""
 
 
+def test_render_report_low_value_fold_line():
+    """折叠行:门槛公示(整数不带小数点);低价值-only 分区不算空,折叠行即内容."""
+    sections = [
+        DigestSection(
+            title="AI 资讯",
+            entries=[DigestEntry(head="高分要闻", url="https://x/1")],
+            omitted=2,
+            low_value=4,
+            min_score=3,
+        ),
+        DigestSection(title="游戏", entries=[], low_value=5, min_score=2.5),
+        DigestSection(title="空分区", entries=[]),
+    ]
+    rendered = render_report(
+        sections, title="情报日报", date="2026-10-06", slot="pm", generated_at=NOW_PM
+    )
+    assert "1. 高分要闻" in rendered
+    assert "   ……(另有 2 条省略)" in rendered
+    assert "   ……(另有 4 条低价值条目,价值分<3)" in rendered
+    # 省略行在前,低价值折叠行在后(都缀分区尾)。
+    assert rendered.index("另有 2 条省略") < rendered.index("另有 4 条低价值条目")
+    # 低价值-only 分区:标题 + 折叠行照渲染(留痕不灭);空分区照跳过。
+    assert "游戏" in rendered
+    assert "   ……(另有 5 条低价值条目,价值分<2.5)" in rendered
+    assert "空分区" not in rendered
+
+
 def test_normalize_detail_line_strips_markdown_structure():
     assert normalize_detail_line("## 厂商要闻") == "厂商要闻"
     assert normalize_detail_line("- OpenAI 发布新模型") == "OpenAI 发布新模型"
@@ -318,6 +357,21 @@ def test_normalize_detail_line_strips_markdown_structure():
 def test_clip_title_single_line_and_ellipsis():
     assert clip_title("  多行\n标题  ", 80) == "多行 标题"
     assert clip_title("长" * 100, 10) == "长" * 9 + "…"
+
+
+def test_record_value_score_precedent():
+    """取分口径 = push/digest 排序键判例:scores 非映射/value 缺席/bool/
+    非数值都算无分(无分 = min_score 不拦,不武断降级)."""
+    def record(scores: Any) -> ItemRecord:
+        return ItemRecord(url="u", dedup_key="k", title="t", scores=scores)
+
+    assert record_value_score(record(None)) is None
+    assert record_value_score(record({})) is None
+    assert record_value_score(record({"relevance": 9})) is None
+    assert record_value_score(record({"value": True})) is None
+    assert record_value_score(record({"value": "8"})) is None
+    assert record_value_score(record({"value": 8})) == 8.0
+    assert record_value_score(record({"value": 2.5})) == 2.5
 
 
 # -------------------------------------------------------------------- fetch
@@ -457,6 +511,165 @@ def test_fetch_am_window_excludes_pm_items(store):
     items = run(engine.fetch())
     assert items == []
     assert engine.last_skip_reason == SKIP_WINDOW_EMPTY
+
+
+# ------------------------------------------------- 分区价值门槛 min_score
+
+
+def test_fetch_min_score_filters_and_folds(store):
+    """阈值拦截/折叠行/无分数:低于线不进正文,无分(bool/缺席)与贴线分
+    (== 线,不低于)不拦;排序维持 store newest-first 既有判例(不加值排序)."""
+    seeded = [
+        ("无分数老条目", None, IN_WINDOW_PM - timedelta(minutes=40)),
+        ("低价值旧闻", {"value": 1.5}, IN_WINDOW_PM - timedelta(minutes=30)),
+        ("边界分条目", {"value": 3}, IN_WINDOW_PM - timedelta(minutes=20)),
+        ("高分要闻", {"value": 8}, IN_WINDOW_PM - timedelta(minutes=10)),
+        ("bool分不算分", {"value": True}, IN_WINDOW_PM),
+    ]
+    for index, (title, scores, seen) in enumerate(seeded):
+        seed(
+            store,
+            source="aihot",
+            title=title,
+            url=f"https://aihot/ms/{index}",
+            first_seen=seen,
+            scores=scores,
+        )
+    engine = make_engine(
+        store,
+        options=report_options(
+            sections=[{"title": "AI 资讯", "sources": ["aihot"], "min_score": 3}]
+        ),
+    )
+    items = run(engine.fetch())
+    assert len(items) == 1
+    item = items[0]
+    markdown = item["report_markdown"]
+    # 低于线(1.5 < 3)不进正文,分区尾折叠一行留痕(门槛公示不带小数点)。
+    assert "低价值旧闻" not in markdown
+    assert "   ……(另有 1 条低价值条目,价值分<3)" in markdown
+    # 无分/bool 分/贴线分都不拦:精评未覆盖 ≠ 低价值。
+    assert item["report_entries"] == 4
+    assert "bool分不算分" in markdown
+    assert "高分要闻" in markdown
+    assert "边界分条目" in markdown
+    assert "无分数老条目" in markdown
+    # 排序既有判例:store newest-first 原样,不做值排序。
+    numbered = [
+        line
+        for line in markdown.splitlines()
+        if line[:3] in {f"{index}. " for index in range(1, 10)}
+    ]
+    heads = [line.split(". ", 1)[1] for line in numbered]
+    assert heads[0].startswith("bool分不算分")
+    assert heads[1].startswith("高分要闻")
+    assert heads[2].startswith("边界分条目")
+    assert heads[3].startswith("无分数老条目")
+
+
+def test_fetch_min_score_default_keeps_all(store):
+    """缺省 None = 不过滤(维持现状):低分条目照进正文,零折叠行."""
+    seed(
+        store,
+        source="aihot",
+        title="低价值旧闻",
+        url="https://aihot/lo",
+        first_seen=IN_WINDOW_PM,
+        scores={"value": 1.5},
+    )
+    engine = make_engine(store)  # SECTIONS 未配 min_score
+    items = run(engine.fetch())
+    markdown = items[0]["report_markdown"]
+    assert "低价值旧闻" in markdown
+    assert "低价值条目" not in markdown
+    assert items[0]["report_entries"] == 1
+    assert items[0]["report_sections"] == [{"title": "AI 资讯", "entries": 1, "low_value": 0}]
+
+
+def test_fetch_min_score_filters_before_cap(store):
+    """门槛拦在 max_entries 帽之先:低价值条目不占正文席位."""
+    for index in range(3):
+        seed(
+            store,
+            source="aihot",
+            title=f"低分{index}",
+            url=f"https://aihot/lo/{index}",
+            first_seen=IN_WINDOW_PM,
+            scores={"value": 1},
+        )
+    for index in range(6):
+        seed(
+            store,
+            source="aihot",
+            title=f"高分{index}",
+            url=f"https://aihot/hi/{index}",
+            first_seen=IN_WINDOW_PM,
+            scores={"value": 9},
+        )
+    engine = make_engine(
+        store,
+        options=report_options(
+            sections=[
+                {
+                    "title": "AI 资讯",
+                    "sources": ["aihot"],
+                    "max_entries": 5,
+                    "min_score": 3,
+                }
+            ]
+        ),
+    )
+    items = run(engine.fetch())
+    markdown = items[0]["report_markdown"]
+    numbered = [
+        line
+        for line in markdown.splitlines()
+        if line[:3] in {f"{index}. " for index in range(1, 10)}
+    ]
+    assert len(numbered) == 5  # 6 条过线,帽 5
+    assert "低分" not in markdown
+    assert "   ……(另有 1 条省略)" in markdown  # 帽截断只数过线条目
+    assert "   ……(另有 3 条低价值条目,价值分<3)" in markdown
+    assert items[0]["report_entries"] == 5  # 帽后正文数(既有口径)
+
+
+def test_fetch_min_score_all_low_value_traces_not_silent(store):
+    """整区低于线:折叠行即内容,分区照渲染、报表照发——窗不空,静默才是
+    说谎(skip 哨兵只留给真空窗)."""
+    seed(
+        store,
+        source="aihot",
+        title="低分甲",
+        url="https://aihot/a",
+        first_seen=IN_WINDOW_PM,
+        scores={"value": 1},
+    )
+    seed(
+        store,
+        source="aihot",
+        title="低分乙",
+        url="https://aihot/b",
+        first_seen=IN_WINDOW_PM,
+        scores={"value": 2},
+    )
+    engine = make_engine(
+        store,
+        options=report_options(
+            sections=[{"title": "AI 资讯", "sources": ["aihot"], "min_score": 3}]
+        ),
+    )
+    items = run(engine.fetch())
+    assert len(items) == 1
+    item = items[0]
+    markdown = item["report_markdown"]
+    assert "低分甲" not in markdown
+    assert "低分乙" not in markdown
+    assert "AI 资讯" in markdown  # 分区不算空:标题 + 折叠行即内容
+    assert "   ……(另有 2 条低价值条目,价值分<3)" in markdown
+    assert item["report_entries"] == 0
+    assert item["report_sections"] == [{"title": "AI 资讯", "entries": 0, "low_value": 2}]
+    assert engine.last_skip_reason is None
+    assert FOOTER_TEMPLATE.format(time="20:30") in markdown
 
 
 def test_fetch_rejects_pagination_and_extract(store):
@@ -619,3 +832,38 @@ def test_daily_digest_plugin_loads_with_store_report():
         "AI 厂商官网",
         "游戏喜加一与折扣",
     }
+
+
+def test_daily_digest_yaml_min_score_on_ai_section(store):
+    """装载校验:AI 资讯分区配 min_score: 3,其余分区缺省不动;yaml 原样
+    options 端到端跑引擎——低分折叠、高分进正文."""
+    config = load_category_file(PLUGINS / "daily-digest.yaml")
+    options = config.sources[0].extra_params["engine_options"]["store_report"]
+    by_title = {section["title"]: section for section in options["sections"]}
+    assert by_title["AI 资讯"]["min_score"] == 3
+    for title, section in by_title.items():
+        if title != "AI 资讯":
+            assert section.get("min_score") is None, f"{title} 分区不应配门槛"
+
+    seed(
+        store,
+        source="aihot",
+        title="高分要闻",
+        url="https://aihot/hi",
+        first_seen=IN_WINDOW_PM,
+        scores={"value": 7},
+    )
+    seed(
+        store,
+        source="aihot",
+        title="低分闲闻",
+        url="https://aihot/lo",
+        first_seen=IN_WINDOW_PM,
+        scores={"value": 1},
+    )
+    engine = make_engine(store, options=options)
+    items = run(engine.fetch())
+    markdown = items[0]["report_markdown"]
+    assert "高分要闻" in markdown
+    assert "低分闲闻" not in markdown
+    assert "   ……(另有 1 条低价值条目,价值分<3)" in markdown

@@ -34,9 +34,11 @@ PM = 本地 12:00 起,``SLOT_BOUNDARY_HOUR`` 同一边界),按 ``sections``
 - **detail 分区** = 编号子标题 + 缩进明细行(``style: detail``;LLM 摘要
   条目的 content 逐行归一后缩进,markdown 结构符 ``#``/``-``/``**`` 剥除,
   防飞书 md 把缩进行渲染成标题/列表破坏版式);
-- **空分区整段跳过**(分隔线 ``--`` 只落在已渲染分区之间);**全部分区
-  无新条目 = 零条目 = 整条静默不发**(urlwatch「合法空态」判例 +
-  ``last_skip_reason`` 留痕);
+- **空分区整段跳过**(分隔线 ``--`` 只落在已渲染分区之间;分区配
+  ``min_score`` 且整区低于线时不算空——折叠行即内容,留痕照渲染);
+  **全部分区无新条目 = 零条目 = 整条静默不发**(urlwatch「合法空态」
+  判例 + ``last_skip_reason`` 留痕;过线条目为零但低价值留痕在场时
+  照发——窗不空,静默才是说谎);
 - 长度护栏交给通道层:feishu ``msg_form: text`` 的 post md rows 按
   :data:`~myssia.push.feishu_card.POST_SPLIT_THRESHOLD`(4000)行边界拆段,
   多段头尾 ``(i/N)``(组合铁律在案,不在本层重做)。
@@ -49,7 +51,7 @@ URL = 新去重键,同槽重跑幂等,跨槽必新。
 配置形状(``engine_options.store_report``):
 
 - ``sections``(必填):分区清单,每项 ``{title, sources, labels?, style?,
-  suffix_fields?, max_entries?, max_lines?}``;
+  suffix_fields?, max_entries?, max_lines?, min_score?}``;
   - ``title``(必填):分区标题;
   - ``sources``(必填):纳入该分区的**源名**清单(store items.source 的
     匹配键——分类器 category 对 builtin 关闭的品类恒 None,games/
@@ -62,7 +64,14 @@ URL = 新去重键,同槽重跑幂等,跨槽必新。
   - ``max_entries``(可选,缺省 :data:`DEFAULT_MAX_ENTRIES`):分区条目
   帽,超出以「另有 N 条省略」行留痕;
   - ``max_lines``(可选,缺省 :data:`DEFAULT_MAX_DETAIL_LINES`):detail
-  分区每条目的明细行帽;
+    分区每条目的明细行帽;
+  - ``min_score``(可选,缺省 ``None`` = 不过滤,现状语义):分区价值
+    门槛——enrich ``value`` 分(0-10 制)低于线的条目不进分区正文,
+    分区尾折叠一行「另有 N 条低价值条目(价值分<X)」留痕(主人判例
+    「有价值才进,不裸塞」)。**无分条目不拦**:精评未覆盖 ≠ 低价值,
+    不武断降级(路由层 ``score`` 休眠同口径);排序维持既有判例(store
+    newest-first + 源声明序,不加值排序);拦在 ``max_entries`` 帽之先
+    ——低价值条目不占正文席位;
 - ``title``(可选):总标题(缺省 = 源名);
 - ``timezone``(可选):槽位边界时区(IANA;缺省本地)——品类 YAML 的
   ``timezone`` 键引擎读不到(FetchContext 不带品类配置),报表窗口语义
@@ -99,6 +108,10 @@ LAYER = "STORE_REPORT"
 #: 分区词表:``list`` = 编号一句话;``detail`` = 编号子标题 + 缩进明细行。
 SECTION_STYLES = ("list", "detail")
 
+#: 价值分键(items ``scores`` JSON 里 enrich 精评的 value 维;push/digest
+#: 排序键同源同键,本引擎的 ``min_score`` 门槛读它)。
+SCORE_KEY = "value"
+
 #: 分区条目帽缺省(超长日报截断护栏;超出以「另有 N 条省略」留痕)。
 DEFAULT_MAX_ENTRIES = 12
 
@@ -131,6 +144,7 @@ __all__ = [
     "LAYER",
     "LINK_LABEL",
     "SECTION_STYLES",
+    "SCORE_KEY",
     "SKIP_WINDOW_EMPTY",
     "DigestEntry",
     "DigestSection",
@@ -138,6 +152,7 @@ __all__ = [
     "StoreReportEngine",
     "clip_title",
     "normalize_detail_line",
+    "record_value_score",
     "render_report",
     "slot_window",
 ]
@@ -189,6 +204,27 @@ def slot_window(
     return slot, window_start, window_start.strftime("%Y-%m-%d")
 
 
+def record_value_score(record: Mapping[str, Any]) -> float | None:
+    """store 条目的 enrich 价值分(``scores.value``);无分/非数值 → None.
+
+    判例对齐 :func:`myssia.push.digest._digest_order_key` 的取分口径:
+    ``scores`` 非映射、``value`` 缺席/bool/非数值都算**无分**——无分
+    条目 ``min_score`` 不拦(精评未覆盖 ≠ 低价值,不武断降级)。
+    """
+    scores = getattr(record, "scores", None)
+    if not isinstance(scores, Mapping):
+        return None
+    value = scores.get(SCORE_KEY)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _fmt_score(value: float | None) -> str:
+    """门槛展示:整数不带小数点(``3`` 而非 ``3.0``),小数原样。"""
+    return "?" if value is None else f"{value:g}"
+
+
 @dataclass
 class DigestEntry:
     """分区内的一个条目(渲染输入的一手形状)."""
@@ -208,6 +244,8 @@ class DigestSection:
     style: str = "list"
     entries: list[DigestEntry] = field(default_factory=list)
     omitted: int = 0  # 超过 max_entries 被省略的条数(渲染层留痕)
+    low_value: int = 0  # min_score 拦下的条数(分区尾折叠行留痕)
+    min_score: float | None = None  # 折叠行公示的门槛(None = 未配)
 
 
 def render_report(
@@ -222,13 +260,14 @@ def render_report(
 
     布局契约(主人截图 OCR):首行 = ``总标题 · 日期 · AM|PM``;分区标题行
     + 编号条目;分区之间 ``--`` 分隔线(只落在**已渲染**分区之间,空分区
-    整段跳过);末行尾戳 = ``HH:MM 实时爬取生成 · 全条目指纹去重 ·
-    无新内容自动静默``。全部分区空 → 空串(调用方静默不发)。
+    整段跳过——但 ``low_value`` 在场的分区不算空,折叠行即内容);末行
+    尾戳 = ``HH:MM 实时爬取生成 · 全条目指纹去重 · 无新内容自动静默``。
+    全部分区空 → 空串(调用方静默不发)。
     """
     lines: list[str] = [f"{title} · {date} · {slot.upper()}"]
     rendered_any = False
     for section in sections:
-        if not section.entries:
+        if not section.entries and not section.low_value:
             continue
         if rendered_any:
             lines.append("--")
@@ -248,6 +287,11 @@ def render_report(
                 lines.append(f"{index}. {head}")
         if section.omitted:
             lines.append(f"   ……(另有 {section.omitted} 条省略)")
+        if section.low_value:
+            lines.append(
+                "   ……(另有 "
+                f"{section.low_value} 条低价值条目,价值分<{_fmt_score(section.min_score)})"
+            )
         rendered_any = True
     if not rendered_any:
         return ""
@@ -315,7 +359,7 @@ class StoreReportEngine(BaseEngine):
                 )
             unknown = set(raw) - {
                 "title", "sources", "labels", "style", "suffix_fields",
-                "max_entries", "max_lines",
+                "max_entries", "max_lines", "min_score",
             }
             if unknown:
                 raise FetchError(
@@ -383,6 +427,18 @@ class StoreReportEngine(BaseEngine):
                     f"当前为 {max_lines!r}",
                     error_type="invalid_engine_options",
                 )
+            min_score = raw.get("min_score")
+            if min_score is not None and (
+                isinstance(min_score, bool)
+                or not isinstance(min_score, (int, float))
+                or not 0 <= min_score <= 10
+            ):
+                raise FetchError(
+                    f"engine_options.store_report.{path}.min_score 应为 0-10 数值"
+                    "(enrich value 0-10 制;缺省 None = 不过滤),"
+                    f"当前为 {min_score!r}",
+                    error_type="invalid_engine_options",
+                )
             sections.append(
                 {
                     "title": title.strip(),
@@ -392,6 +448,7 @@ class StoreReportEngine(BaseEngine):
                     "suffix_fields": suffix_fields,
                     "max_entries": max_entries,
                     "max_lines": max_lines,
+                    "min_score": min_score,
                 }
             )
         title = options.get("title", self.source.name)
@@ -460,9 +517,12 @@ class StoreReportEngine(BaseEngine):
             for section in spec.sections
         ]
         total = sum(len(section.entries) for section in sections)
-        if total == 0:
+        low_value_total = sum(section.low_value for section in sections)
+        if total == 0 and low_value_total == 0:
             # 全分区无新内容 = 整条静默(urlwatch 合法空态判例):零条目 +
             # skip 哨兵留痕(doctor 不误诊 degraded),绝不发「无内容」占位。
+            # 配了 min_score 的分区低价值留痕在场时不静默——窗口不空,
+            # 折叠行报表(零过线条目)是诚实信号,静默才是说谎。
             self.last_skip_reason = SKIP_WINDOW_EMPTY
             logger.info(
                 "store 报表窗口内无新条目,静默: date=%s slot=%s sources=%s",
@@ -490,9 +550,13 @@ class StoreReportEngine(BaseEngine):
             "report_entries": total,
             "report_window_start": window_start.isoformat(),
             "report_sections": [
-                {"title": section.title, "entries": len(section.entries)}
+                {
+                    "title": section.title,
+                    "entries": len(section.entries),
+                    "low_value": section.low_value,
+                }
                 for section in sections
-                if section.entries
+                if section.entries or section.low_value
             ],
         }
         logger.info(
@@ -537,11 +601,20 @@ class StoreReportEngine(BaseEngine):
         by_source: Mapping[str, list[Mapping[str, Any]]],
         max_chars: int,
     ) -> DigestSection:
-        """一个分区:按源声明序收条目(store 已 newest-first),编号帽截断."""
+        """一个分区:按源声明序收条目(store 已 newest-first);价值门槛
+        先拦(低于线计数留痕,无分不拦)、编号帽后截断(低价值不占席位).
+        """
+        min_score = section["min_score"]
         entries: list[DigestEntry] = []
+        low_value = 0
         for source_name in section["sources"]:
             labels = section["labels"]
             for record in by_source.get(source_name, ()):
+                if min_score is not None:
+                    score = record_value_score(record)
+                    if score is not None and score < min_score:
+                        low_value += 1
+                        continue
                 entries.append(
                     self._entry_from_record(record, source_name, labels, section, max_chars)
                 )
@@ -552,6 +625,8 @@ class StoreReportEngine(BaseEngine):
             style=section["style"],
             entries=entries[:max_entries],
             omitted=omitted,
+            low_value=low_value,
+            min_score=float(min_score) if min_score is not None else None,
         )
 
     def _entry_from_record(

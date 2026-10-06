@@ -77,6 +77,9 @@ sources:
               minimax-home-watch: MiniMax
               seed-home-watch: 字节Seed
             max_entries: 15        # 分区条目帽(超出「另有 N 条省略」留痕)
+            min_score: 3           # 价值门槛(enrich value 0-10 制):低于线不进
+                                  # 正文,分区尾「另有 N 条低价值条目(价值分<3)」
+                                  # 折叠留痕;无分条目不拦;口味可调,缺省不过滤
 
           # ── 分区二:AI 厂商官网观察(编号子标题 + 缩进明细行;LLM 摘要
           #    content 逐行归一缩进,markdown 结构符剥除防飞书 md 破版式)──
