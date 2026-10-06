@@ -4,8 +4,24 @@
  * 有序列表、代码围栏、引用、分隔线、段落;行内:**加粗**、`code`、裸
  * http(s) 链接。React 文本节点天然转义,不做 HTML 直插(安全面零让步);
  * 未覆盖的语法按原文呈现(degrade gracefully,日报可读性不破)。
+ *
+ * 链接出口(深审 F4):裸链接此前是 `preventDefault` 的死链(点击无路)。
+ * 现走 openInBrowser 受控门 —— plugin-shell open(capabilities 同「打开
+ * 原文」:scope 仅 https?://),与 feed 卡片原文链接同一纪律;正则只匹配
+ * http(s)://,门与词表同面。浏览器直开(vitest/预览)不加载壳包,点击才
+ * 动态 import(失败静默,不炸文档视图)。
  */
 import type { ReactNode } from "react";
+
+/** 受控开链(plugin-shell open;动态 import:浏览器直开零加载)。 */
+async function openLinkInBrowser(url: string): Promise<void> {
+  try {
+    const shell = await import("@tauri-apps/plugin-shell");
+    await shell.open(url);
+  } catch {
+    // 壳不可用(浏览器直开/门拒绝):静默 —— 文档视图不为开链炸渲染
+  }
+}
 
 /** 行内解析:**加粗** / `code` / 裸 http(s) 链接(其余原样文本节点) */
 function inlineNodes(text: string, keyPrefix: string): ReactNode[] {
@@ -38,7 +54,12 @@ function inlineNodes(text: string, keyPrefix: string): ReactNode[] {
           key={key}
           href={token}
           className="text-primary underline underline-offset-2 hover:text-primary/80"
-          onClick={(event) => event.preventDefault()}
+          data-md-link={token}
+          title={`在浏览器打开:${token}`}
+          onClick={(event) => {
+            event.preventDefault(); // webview 不导航(死链根因),走受控门
+            void openLinkInBrowser(token);
+          }}
         >
           {token}
         </a>,

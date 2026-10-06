@@ -602,13 +602,14 @@ describe("FeedScreen", () => {
     expect(screen.getByTestId("feed-search-scope").textContent).toContain("ai-news");
     expect(screen.getByTestId("feed-search-scope").textContent).toContain("openai-news");
 
-    // 面包屑回退:渠道 → 品类(L2 计数源 = 全局首页,source 摘除)→ 情报流 L1
+    // 面包屑回退:渠道 → 品类(深审 F1:L2 计数源 = 品类查询页,source 摘除,
+    // 概览面不带 query——搜索词只属 L3 流)→ 情报流 L1
     fireEvent.click(screen.getByTestId("feed-crumb-category"));
     await waitFor(() => {
       const last = storeItemsMock.mock.calls[storeItemsMock.mock.calls.length - 1][0] as StoreItemsParams;
       expect(last.source).toBeUndefined();
-      expect(last.category).toBeUndefined();
-      expect(last.query).toBe("GLM");
+      expect(last.category).toBe("ai-news");
+      expect(last.query).toBeUndefined();
     });
     // L2 头部可见(渠道行);回 L1:全局行在场
     expect(await screen.findByTestId("feed-drill-ch-openai-news")).toBeTruthy();
@@ -1061,18 +1062,21 @@ describe("FeedScreen", () => {
   });
 
   it("D4 加载态:贴形骨架(feed-loading)常驻至首页应答,应答后卸载", async () => {
-    let resolveItems: ((value: StoreItemsResult) => void) | undefined;
+    // F1 后挂载并发两路(全局流 + 按品类概览):全部挂起才不误卸骨架
+    const resolvers: Array<(value: StoreItemsResult) => void> = [];
     storeItemsMock.mockImplementation(
       () => new Promise<StoreItemsResult>((resolve) => {
-        resolveItems = resolve;
+        resolvers.push(resolve);
       }),
     );
     renderScreen();
 
     expect(await screen.findByTestId("feed-loading")).toBeTruthy();
     expect(screen.queryByTestId(/^feed-item-/)).toBeNull();
-    act(() => resolveItems?.(result([fixtureItem()])));
+    act(() => resolvers.splice(0).forEach((resolve) => resolve(result([fixtureItem()]))));
     fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    await waitFor(() => expect(resolvers.length).toBeGreaterThan(0));
+    act(() => resolvers.splice(0).forEach((resolve) => resolve(result([fixtureItem()]))));
     await screen.findByTestId("feed-item-1");
     expect(screen.queryByTestId("feed-loading")).toBeNull();
   });
@@ -1622,8 +1626,12 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
     // 就地翻转已加载行:默认「未读」过滤 0/2、卡片离场;不整页重拉
     await waitFor(() => expect(screen.getByText("0 / 2 条")).toBeTruthy());
     expect(screen.queryByTestId(/^feed-item-/)).toBeNull();
-    // L1 首页 + 下钻 L3-all 同参重查 = 2 发,mark_all 后不再整页重拉
-    expect(fresh.storeItemsMock).toHaveBeenCalledTimes(2);
+    // L1 首页 + 下钻 L3-all 同参重查 = 2 发流查询(F1 概览按品类另发,不计),
+    // mark_all 后不再整页重拉
+    const streamCalls = fresh.storeItemsMock.mock.calls.filter(
+      ([params]) => !(params as StoreItemsParams | undefined)?.category,
+    );
+    expect(streamCalls.length).toBe(2);
   });
 
   it("全部标未读失败:按调用前快照回滚(不瞎翻)+ feed-mark-error 明示", async () => {
@@ -1800,49 +1808,66 @@ describe("FeedScreen · read-state-server 能力门分流(未过门 = 旧通路�
 // ---------------------------------------------------------------------------
 
 describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", () => {
-  it("R1 L2 品类头「本品类全部已读」:以该 category 调 mark_all(精确等值,豁免确认)+ 就地翻转只落该品类计数", async () => {
+  it("R1 L2 品类头「本品类窗内已读」(深审 F3):逐键置位窗内已加载行(mark keys),不走全库 mark_all;UI 所见 = 实际作用域;反向出口同门", async () => {
     const fresh = await importFreshScreen();
     fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
-    fresh.markAllMock.mockResolvedValue({ updated: 5 });
+    fresh.markMock.mockResolvedValue({ updated: 2 });
+    const start = dayWindowStart();
     const techA = fixtureItem({ category: "tech", source: "t-a", title: "技甲" });
     const techB = fixtureItem({ category: "tech", source: "t-b", title: "技乙" });
-    const news = fixtureItem({ category: "news", source: "n-a", title: "闻丙" });
-    fresh.storeItemsMock.mockResolvedValue(result([techA, techB, news]));
+    const techStale = fixtureItem({
+      category: "tech",
+      source: "t-a",
+      title: "技窗外旧",
+      first_seen: new Date(start.getTime() - 3_600_000).toISOString(),
+    });
+    fresh.storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result([techA, techB, techStale].filter((item) => !params?.category || item.category === params.category))),
+    );
     render(
       <MemoryRouter>
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    // L1 → L2(tech):头部出「本品类全部已读」(三级下钻后品类批量入口迁驻 L2)
+    // L1 → L2(tech):头部出窗内批量钮(F3 作用域收窄后)
     fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
     const groupButton = await screen.findByTestId("feed-category-mark-all");
-    // 钮文案(R4):该品类全库(含未翻页)真话,品类名如实入文案
-    expect(groupButton.getAttribute("title")).toContain("全库");
-    expect(groupButton.getAttribute("title")).toContain("未翻页");
-    expect(groupButton.getAttribute("title")).toContain("tech");
-    expect(groupButton.getAttribute("aria-label")).toContain("全库");
-    // 未读计数可观察:L2 行先见 未读 2
+    const reverseButton = await screen.findByTestId("feed-category-mark-unread");
+    // 钮文案:作用域=当日窗内已加载行(title 如实,不再宣称全库)
+    expect(groupButton.getAttribute("title")).toContain("当日窗内已加载");
+    expect(groupButton.getAttribute("title")).toContain("2");
+    expect(groupButton.getAttribute("title")).not.toContain("全库");
+    expect(reverseButton.getAttribute("title")).toContain("反向出口");
+    // 未读计数可观察:L2 行先见 未读 2(窗外旧条目不计入行计数)
     expect(screen.getByTestId("feed-drill-ch-t-a").textContent).toContain("未读 1");
     expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 1");
 
-    // 豁免二次确认:一次点击即执行(确认钮簇不出场)
+    // 一次点击即执行:逐键置位**窗内两键**(窗外旧键不入),零 mark_all
     fireEvent.click(groupButton);
     await waitFor(() =>
-      expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: true, category: "tech" }),
+      expect(fresh.markMock).toHaveBeenCalledWith({ keys: [techA.dedup_key, techB.dedup_key], marker: "read", value: true }),
     );
+    expect(fresh.markAllMock).not.toHaveBeenCalled();
     expect(screen.queryByTestId("feed-confirm-all-group")).toBeNull();
-    // 就地翻转只落 tech 品类(计数归零,不整页重拉);news 品类不在本 L2 视图
+    // 就地翻转只落窗内行(渠道行未读归零)
     await waitFor(() => expect(screen.getByTestId("feed-drill-ch-t-a").textContent).toContain("未读 0"));
     expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 0");
+
+    // 反向出口:窗内未读逐键翻回(误触可逆)
+    fireEvent.click(reverseButton);
+    await waitFor(() =>
+      expect(fresh.markMock).toHaveBeenCalledWith({ keys: [techA.dedup_key, techB.dedup_key], marker: "read", value: false }),
+    );
+    await waitFor(() => expect(screen.getByTestId("feed-drill-ch-t-a").textContent).toContain("未读 1"));
   });
 
-  it("R1 L2 品类批量失败:按调用前快照回滚(计数回真值),feed-mark-error 在 L3 流区明示", async () => {
+  it("R1 L2 品类批量失败(深审 F3):按调用前快照回滚(窗内计数回真值),feed-mark-error 在 L3 流区明示", async () => {
     const fresh = await importFreshScreen();
     fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
-    let rejectAll: ((err: unknown) => void) | undefined;
-    fresh.markAllMock.mockImplementation(
+    let rejectMark: ((err: unknown) => void) | undefined;
+    fresh.markMock.mockImplementation(
       () => new Promise((_resolve, reject) => {
-        rejectAll = reject;
+        rejectMark = reject;
       }),
     );
     const techRead = fixtureItem({ category: "tech", source: "t-a", read: true, title: "技已读甲" });
@@ -1856,12 +1881,12 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
     fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
     fireEvent.click(await screen.findByTestId("feed-category-mark-all"));
     await waitFor(() =>
-      expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: true, category: "tech" }),
+      expect(fresh.markMock).toHaveBeenCalledWith({ keys: [techRead.dedup_key, techUnread.dedup_key], marker: "read", value: true }),
     );
-    // 乐观:tech 品类未读计数翻 0
+    // 乐观:窗内未读计数翻 0
     await waitFor(() => expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 0"));
     act(() =>
-      rejectAll?.(new SidecarRequestError({ code: "store_corrupt", path: "$", message: "库损坏" })),
+      rejectMark?.(new SidecarRequestError({ code: "store_corrupt", path: "$", message: "库损坏" })),
     );
     // 快照回滚:乙回未读(计数 1),甲本就已读不动
     await waitFor(() => expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 1"));
@@ -2019,24 +2044,37 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
 // ---------------------------------------------------------------------------
 
 describe("feed D4 纯函数(api.ts)", () => {
-  it("groupFeedItems:四桶按 今天/昨天/7天内/更早 边界落位,空桶不出组", () => {
+  it("groupFeedItems:四桶按 今天/昨天(上一窗口)/7天内/更早 边界落位(03:00 窗锚口径,深审 F7),空桶不出组", () => {
     const now = new Date(2026, 9, 3, 12, 0); // 2026-10-03 正午(本地时区)
     const at = (iso: string) => fixtureItem({ first_seen: iso });
     const items = [
-      at("2026-10-03T10:00:00"), // 今天
-      at("2026-10-03T00:00:00"), // 今天(0 点边界含)
-      at("2026-10-02T23:59:00"), // 昨天
+      at("2026-10-03T10:00:00"), // 今天(本窗 03:00 起)
+      at("2026-10-03T03:00:00"), // 今天(窗锚边界含)
+      at("2026-10-03T02:59:00"), // 昨天(上一窗口)—— 00:00-03:00 属上一窗
+      at("2026-10-02T12:00:00"), // 昨天(上一窗口)
       at("2026-09-30T10:00:00"), // 7 天内
-      at("2026-09-26T00:00:00"), // 7 天内(7 天窗下边界含)
-      at("2026-09-25T23:59:00"), // 更早
+      at("2026-09-26T03:00:00"), // 7 天内(窗锚 7 天下边界含:10-03T03:00 − 7d)
+      at("2026-09-26T02:59:00"), // 更早(7 天界外一分)
       at("不是时间"), // 更早(first_seen 无效归更早)
     ];
     const groups = groupFeedItems(items, now);
-    expect(groups.map((group) => group.label)).toEqual(["今天", "昨天", "7 天内", "更早"]);
+    expect(groups.map((group) => group.label)).toEqual(["今天", "昨天(上一窗口)", "7 天内", "更早"]);
     expect(groups[0].items).toHaveLength(2);
-    expect(groups[1].items).toHaveLength(1);
+    expect(groups[1].items).toHaveLength(2);
     expect(groups[2].items).toHaveLength(2);
     expect(groups[3].items).toHaveLength(2);
+  });
+
+  it("groupFeedItems:00:00-03:00 条目组头标「昨天(上一窗口)」(F7 口径修正 —— 03:00 清零语义下它们是昨窗尾段,日历「今天」是错标)", () => {
+    const now = new Date(2026, 9, 3, 14, 0); // 当天 14:00:当前窗 = 10-03 03:00 起
+    const at = (iso: string) => fixtureItem({ first_seen: iso });
+    const groups = groupFeedItems([at("2026-10-03T10:00:00"), at("2026-10-03T01:00:00")], now);
+    // 10:00 在本窗 → 「今天」;01:00(00:00-03:00 时段)→ 昨窗尾段,组头如实
+    expect(groups.map((group) => group.label)).toEqual(["今天", "昨天(上一窗口)"]);
+    // 凌晨视角(now 在窗前半段):昨日下午条目仍在**当前窗内**→「今天」,
+    // 组头与滚动窗所见一致(窗口对齐的另一面)
+    const lateNight = groupFeedItems([at("2026-10-02T20:00:00")], new Date(2026, 9, 3, 1, 30));
+    expect(lateNight.map((group) => group.label)).toEqual(["今天"]);
   });
 
   it("groupFeedItems:空桶过滤 + 桶内顺序保持(新→旧原序)", () => {
@@ -2504,11 +2542,13 @@ describe("FeedScreen · feed-channel-groups(渠道分组+差异化+实时滚动+
     });
     const existing = fixtureItem({ title: "旧行" });
     const fresh = fixtureItem({ title: "新行" });
-    // 前两发(L1 首页 + 下钻 L3-all 同参重查)只回旧行;事件后的 liveRefresh 才见新行
-    let served = 0;
-    storeItemsMock.mockImplementation(() => {
-      served += 1;
-      return Promise.resolve(result(served <= 2 ? [existing] : [fresh, existing]));
+    // 流查询(L1 首页 + 下钻 L3-all)前两发只回旧行;事件后的 liveRefresh 才见
+    // 新行(F1 概览按品类另发,不计流查询序 —— 概览恒回旧行不扰断言)
+    let streamServed = 0;
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) => {
+      if (params?.category) return Promise.resolve(result([existing]));
+      streamServed += 1;
+      return Promise.resolve(result(streamServed <= 2 ? [existing] : [fresh, existing]));
     });
     await renderStream();
     await screen.findByText("旧行");
@@ -2658,5 +2698,191 @@ describe("feed channel-groups 纯函数(api.ts)", () => {
     expect(merged.added).toBe(1);
     expect(merged.items.map((item) => item.title)).toEqual(["新一", "旧一", "旧二"]); // 前插保序
     expect(mergeFreshItems([old1], [old1]).added).toBe(0); // 无新键零扰动
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 深审修复批(feed 面):F1 L1/L2 按品类查询(假空态)/ F2 请求序号守卫 /
+// F4 markdown 链接受控门 / F5 价格键宽容解析 / F6 热键守卫补 <select>
+// (F3 作用域收窄并入 g9-read-all 批重写;F7 分组口径并入 D4 纯函数批)
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · 深审修复批(F1/F2/F4/F5/F6)", () => {
+  it("F1:L1 计数与 L2 渠道列表按品类查询 —— 全局首页外的长尾品类不再假空态/假零", async () => {
+    // 全局首页被 hot 品类占满;wool 品类有条目但一条都不进全局首页
+    healthMock.mockResolvedValue(
+      healthResult({
+        plugins: [
+          pluginEntry({ id: "ai-news", name: "AI资讯" }),
+          pluginEntry({ id: "wool", name: "羊毛情报" }),
+        ],
+      }),
+    );
+    const hot = [
+      fixtureItem({ category: "hot", source: "hot-a", title: "热一" }),
+      fixtureItem({ category: "hot", source: "hot-b", title: "热二" }),
+    ];
+    const woolA = fixtureItem({ category: "wool", source: "wool-a", title: "羊毛甲" });
+    const woolB = fixtureItem({ category: "wool", source: "wool-b", title: "羊毛乙" });
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(params?.category === "wool" ? [woolA, woolB] : hot)),
+    );
+    renderScreen();
+
+    // L1:wool 行计数来自品类查询页(旧实现只吃全局首页 → 假零「0 条」;
+    // waitFor 等概览页落地 —— 行渲染先于概览应答属正常竞态)
+    const woolRow = await screen.findByTestId("feed-drill-cat-wool");
+    await waitFor(() => expect(woolRow.textContent).toContain("2 条"));
+    expect(woolRow.textContent).toContain("2 渠道");
+    // 品类查询确实发出(store.items 带 category 游标,勿全量拉)
+    await waitFor(() =>
+      expect(storeItemsMock).toHaveBeenCalledWith({ limit: 50, category: "wool" }),
+    );
+
+    // L2:wool 渠道行在场(旧实现 = 过滤全局首页 → 假空态);行计数如实
+    fireEvent.click(woolRow);
+    const channelB = await screen.findByTestId("feed-drill-ch-wool-b");
+    expect(channelB.textContent).toContain("wool-b");
+    expect(channelB.textContent).toContain("今日 1 条");
+    expect(screen.getByTestId("feed-drill-ch-wool-a").textContent).toContain("今日 1 条");
+    expect(screen.queryByText("该品类暂无窗内条目")).toBeNull();
+    // 下钻渠道流:条目本尊可见(端到端:品类查询 → 渠道行 → 消息)
+    fireEvent.click(channelB);
+    expect(await screen.findByText("羊毛乙")).toBeTruthy();
+  });
+
+  it("F2 竞态一:refresh 慢应答不覆盖 liveRefresh 已并入的新行(请求序号守卫)", async () => {
+    let emitEvent: ((event: { type: string }) => void) | undefined;
+    onSidecarEventMock.mockImplementation((handler: (event: never) => void) => {
+      emitEvent = handler as (event: { type: string }) => void;
+      return Promise.resolve(() => {});
+    });
+    const existing = fixtureItem({ title: "旧行" });
+    const fresh = fixtureItem({ title: "新行" });
+    const deferreds: Array<(value: StoreItemsResult) => void> = [];
+    storeItemsMock.mockImplementation(
+      () => new Promise<StoreItemsResult>((resolve) => { deferreds.push(resolve); }),
+    );
+    renderScreen();
+    // L1 挂载(全局流 + 概览)全部应答旧行
+    await waitFor(() => expect(deferreds.length).toBeGreaterThan(0));
+    act(() => deferreds.splice(0).forEach((resolve) => resolve(result([existing]))));
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    await waitFor(() => expect(deferreds.length).toBeGreaterThan(0));
+    act(() => deferreds.splice(0).forEach((resolve) => resolve(result([existing]))));
+    await screen.findByText("旧行");
+    expect(screen.queryByText("新行")).toBeNull();
+
+    // 手点刷新(票 N,应答挂起)→ 事件 liveRefresh(票 N+1)先回,带回新行
+    fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+    const refreshDefer = deferreds.splice(0)[0];
+    act(() => emitEvent?.({ type: "cron.completed" }));
+    const liveDefer = deferreds.splice(0)[0];
+    act(() => liveDefer(result([fresh, existing])));
+    expect(await screen.findByText("新行")).toBeTruthy(); // liveRefresh 已并入
+
+    // refresh 的旧应答(无新行)回场:对票失败丢弃,不整页覆盖掉新行
+    act(() => refreshDefer(result([existing])));
+    await waitFor(() => expect(screen.getByText("新行")).toBeTruthy()); // 新行仍在场
+    expect(screen.getByText("旧行")).toBeTruthy();
+  });
+
+  it("F2 竞态二:切作用域后在途的旧域 liveRefresh 应答丢弃(全局行不混进渠道流)", async () => {
+    let emitEvent: ((event: { type: string }) => void) | undefined;
+    onSidecarEventMock.mockImplementation((handler: (event: never) => void) => {
+      emitEvent = handler as (event: { type: string }) => void;
+      return Promise.resolve(() => {});
+    });
+    const scoped = fixtureItem({ category: "tech", source: "t-a", title: "域内行" });
+    const foreign = fixtureItem({ title: "全局外性行" });
+    const deferreds: Array<(value: StoreItemsResult) => void> = [];
+    storeItemsMock.mockImplementation(
+      () => new Promise<StoreItemsResult>((resolve) => { deferreds.push(resolve); }),
+    );
+    renderScreen();
+    await waitFor(() => expect(deferreds.length).toBeGreaterThan(0));
+    act(() => deferreds.splice(0).forEach((resolve) => resolve(result([scoped]))));
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    await waitFor(() => expect(deferreds.length).toBeGreaterThan(0));
+    act(() => deferreds.splice(0).forEach((resolve) => resolve(result([scoped]))));
+    await screen.findByText("域内行");
+
+    // 事件 liveRefresh(全局域,票 N)在途未答 → 下钻渠道(refresh 票 N+1)
+    act(() => emitEvent?.({ type: "cron.completed" }));
+    const staleLiveDefer = deferreds.splice(0)[0];
+    fireEvent.click(screen.getByTestId("feed-crumb-home"));
+    await waitFor(() => expect(deferreds.length).toBeGreaterThan(0));
+    const l1RefreshDefer = deferreds.splice(0, 1)[0];
+    act(() => l1RefreshDefer(result([scoped])));
+    await screen.findByTestId("feed-drill-all");
+
+    // 旧域 liveRefresh 应答回场(带回全局外性行):对票失败丢弃,不混入
+    act(() => staleLiveDefer(result([foreign, scoped])));
+    // 回 L3 全局流验证:外性行未并入(仅 scoped 在场)
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    await screen.findByText("域内行");
+    await waitFor(() => expect(screen.queryByText("全局外性行")).toBeNull());
+  });
+
+  it("F4:markdown 文档链接走 openInBrowser 受控门(默认导航被拦,shell.open 收到 URL)", async () => {
+    healthMock.mockResolvedValue(
+      healthResult({
+        plugins: [pluginEntry({ id: "ai-vendor-watch", sources: [sourceEntry("ai-vendor-watch", "prompt")] })],
+      }),
+    );
+    storeItemsMock.mockResolvedValue(
+      result([
+        fixtureItem({
+          source: "ai-vendor-watch",
+          title: "AI 厂商日报",
+          content: "详见 https://example.com/full-report 全文",
+        }),
+      ]),
+    );
+    await renderStream();
+    const card = await screen.findByTestId("feed-item-1");
+    fireEvent.click(within(card).getByRole("button", { name: "展开条目" }));
+    const body = await within(card).findByTestId("feed-doc-body-1");
+    const link = within(body).getByTitle("在浏览器打开:https://example.com/full-report");
+    fireEvent.click(link);
+    await waitFor(() => expect(shellOpenMock).toHaveBeenCalledWith("https://example.com/full-report"));
+  });
+
+  it("F5:dealPriceView 数值键字符串形态宽容解析(final_price/original_price/discount_pct 三键)", () => {
+    // 字符串数值照常换算(旧实现 typeof number 严判 → 静默降级 null 不渲价格)
+    expect(
+      dealPriceView({ final_price: "1360", original_price: "6800", discount_pct: "80" }),
+    ).toEqual({ current: "¥13.60", original: "¥68.00", discount: 80, free: false });
+    // 字符串 0 / 100% 限免析取照常
+    expect(dealPriceView({ final_price: "0", discount_pct: "100" }).free).toBe(true);
+    // 布尔/空串/非数值不猜(null 语义保持;布尔绕过类型 = 运行时防御面)
+    expect(
+      dealPriceView({ discount_pct: true } as unknown as Parameters<typeof dealPriceView>[0]).discount,
+    ).toBeNull();
+    expect(dealPriceView({ final_price: "" }).current).toBeNull();
+    expect(dealPriceView({ final_price: "abc", original_price: "x" }).original).toBeNull();
+  });
+
+  it("F6:u/j/k 热键守卫补 <select> —— 下拉聚焦时敲 j 不巡游(无 focus 环)", async () => {
+    mockYamlSidecar();
+    storeItemsMock.mockResolvedValue(result([fixtureItem({ title: "甲" }), fixtureItem({ title: "乙" })]));
+    await renderStream();
+    const first = await screen.findByTestId("feed-item-1");
+    // 开卡内沉淀面板(目标 YAML <select> 在场)并聚焦
+    fireEvent.click(within(first).getByRole("button", { name: "沉淀为关键词" }));
+    const select = await screen.findByLabelText("目标品类 YAML");
+    fireEvent.focus(select);
+    fireEvent.keyDown(select, { key: "j" });
+    // 守卫生效:无任何卡进入键盘巡游态
+    await waitFor(() => {
+      const cards = screen.getAllByTestId(/^feed-item-/);
+      expect(cards.every((node) => node.getAttribute("data-nav-focused") === "false")).toBe(true);
+    });
+    // 对照:非输入目标上敲 j 正常巡游(首卡亮环)
+    fireEvent.keyDown(window, { key: "j" });
+    await waitFor(() => {
+      const cards = screen.getAllByTestId(/^feed-item-/);
+      expect(cards.some((node) => node.getAttribute("data-nav-focused") === "true")).toBe(true);
+    });
   });
 });

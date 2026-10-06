@@ -1111,6 +1111,18 @@ export function FeedScreen() {
   const [serverStateReady, setServerStateReady] = useState<boolean | null>(null);
   const useServerState = serverStateReady === true;
 
+  /** 请求序号守卫(深审 F2):流查询(refresh/liveRefresh/loadMore)每次
+   *  发包取新票,应答落地前对票 —— 旧应答(慢回包/切作用域后在途的旧域
+   *  包)一律丢弃:旧 refresh 覆盖掉 liveRefresh 已并入的新行、旧域
+   *  liveRefresh 把全局行混进品类/渠道流,两类竞态一并钉死。 */
+  const feedSeqRef = useRef(0);
+  const nextFeedSeq = useCallback(() => {
+    feedSeqRef.current += 1;
+    return feedSeqRef.current;
+  }, []);
+  /** L1/L2 概览查询的独立对票(与流查询互不失效:概览慢回包不废流,反之亦然)。 */
+  const overviewSeqRef = useRef(0);
+
   useEffect(() => {
     setLocalStates(loadFeedStates());
     setDisplay(loadFeedDisplay());
@@ -1177,6 +1189,7 @@ export function FeedScreen() {
   }, [searchInput, query]);
 
   const refresh = useCallback(async () => {
+    const seq = nextFeedSeq();
     setLoading(true);
     setError(null);
     try {
@@ -1187,6 +1200,7 @@ export function FeedScreen() {
         source: streamScope.source,
         query,
       });
+      if (seq !== feedSeqRef.current) return; // F2:旧应答丢弃( newer 包已在途/已落地)
       setItems(page.items);
       setCursor(page.nextCursor);
       setCursorId(page.nextCursorId);
@@ -1200,27 +1214,90 @@ export function FeedScreen() {
         }
       }
     } catch (err) {
+      if (seq !== feedSeqRef.current) return; // F2:旧域错误不污染新作用域
       setError(
         err instanceof SidecarRequestError
           ? err
           : new SidecarRequestError({ code: "transport_error", path: "$", message: String(err) }),
       );
     } finally {
+      // loading 无条件清:守卫化会把 loading 卡死在更晚的 liveRefresh 票上
       setLoading(false);
     }
     // 依赖含 scopeKey:下钻/回退切换作用域即重查(L3-all 与 L1 同参,重查幂等)
-  }, [streamScope.category, streamScope.source, scopeKey, query]);
+  }, [streamScope.category, streamScope.source, scopeKey, query, nextFeedSeq]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
+  /** L1/L2 概览数据(深审 F1):按品类查询的首页页 —— store.items 带
+   *  category 游标(每品类一页 50,勿全量拉),L1 行计数与 L2 渠道列表的
+   *  真数据源。此前两者只吃全局首页 50 条:长尾品类/渠道的全部条目落在
+   *  全局首页之外 = 假空态/假零计数(下钻进去明明有货)。查询不带 query
+   *  (L1/L2 是当日窗概览,搜索词只属 L3 流)。 */
+  const [categoryPages, setCategoryPages] = useState<Record<string, FeedItem[]>>({});
+  /** 概览词表键(稳定字符串):health 选项 ∪ 全局页条目品类 —— 词表外
+   *  品类(插件已卸/改名遗留数据)也出行,零计数如实(旧 L1 行为对齐)。
+   *  join 成串做依赖:字符串值比较,items 身份每轮刷新不触发概览重查。 */
+  const overviewCategoryKey = useMemo(() => {
+    const ids = new Set(categoryOptions.map((option) => option.id));
+    for (const item of items) {
+      if (item.category != null) ids.add(item.category);
+    }
+    return [...ids].sort().join("\n");
+  }, [categoryOptions, items]);
+  const refreshOverview = useCallback(async () => {
+    if (overviewCategoryKey === "") return;
+    overviewSeqRef.current += 1;
+    const seq = overviewSeqRef.current;
+    const ids = overviewCategoryKey.split("\n");
+    const settled = await Promise.allSettled(
+      ids.map((id) => fetchFeedPage({ cursor: null, cursorId: null, category: id, query: null })),
+    );
+    if (seq !== overviewSeqRef.current) return; // F2 同款对票:旧概览包丢弃
+    const next: Record<string, FeedItem[]> = {};
+    settled.forEach((outcome, index) => {
+      if (outcome.status === "fulfilled") next[ids[index]] = outcome.value.items;
+    });
+    setCategoryPages(next);
+  }, [overviewCategoryKey]);
+
+  // 概览随层级与词汇源变化重查(L3 流不查 —— 流本体即数据面)
+  useEffect(() => {
+    if (drill.level === 3) return;
+    void refreshOverview();
+  }, [drill.level, refreshOverview]);
+
+  // L2 定向补查:进层即取该品类页(概览未覆盖/词汇源迟到时保底;进层取新)
+  const l2Category = drill.level === 2 ? drill.category : null;
+  useEffect(() => {
+    if (l2Category === null) return;
+    let cancelled = false;
+    overviewSeqRef.current += 1;
+    const seq = overviewSeqRef.current;
+    void fetchFeedPage({ cursor: null, cursorId: null, category: l2Category, query: null })
+      .then((page) => {
+        if (!cancelled && seq === overviewSeqRef.current) {
+          setCategoryPages((current) => ({ ...current, [l2Category]: page.items }));
+        }
+      })
+      .catch(() => {
+        // 概览尽力而为:失败静默(L2 以已有页呈现,计数口径如实)
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [l2Category]);
+
   /** 实时滚动刷新(10-06 追加:主人令「情报流要不停地过信息日志」):
    *  静默拉首页 → mergeFreshItems 前插新键(已加载行与游标零扰动,新条目
    *  持续进流);失败静默(轮询尽力而为,不打错误卡——手点刷新钮才走
    *  错误路径)。触发面:completed / cron.completed 事件即时 + 30s 可见性
-   *  轮询兜底(CLI 独立跑的采集无事件;隐藏暂停不打 sidecar)。 */
+   *  轮询兜底(CLI 独立跑的采集无事件;隐藏暂停不打 sidecar)。
+   *  F2 对票 + L1/L2 顺带刷新概览(计数实时);L3 才并入流本体。 */
   const liveRefresh = useCallback(async () => {
+    const seq = nextFeedSeq();
     try {
       const page = await fetchFeedPage({
         cursor: null,
@@ -1229,11 +1306,13 @@ export function FeedScreen() {
         source: streamScope.source,
         query,
       });
+      if (seq !== feedSeqRef.current) return; // F2:旧应答丢弃(含切域后在途包)
       setItems((current) => mergeFreshItems(current, page.items).items);
+      if (drill.level !== 3) void refreshOverview();
     } catch {
       // 尽力而为:轮询失败静默(下一轮/事件/手点刷新再试)
     }
-  }, [streamScope.category, streamScope.source, query]);
+  }, [streamScope.category, streamScope.source, drill.level, query, nextFeedSeq, refreshOverview]);
 
   // 事件驱动即时刷新:桌面 run 终态(completed)+ cron 派发 run 落地
   // (cron.completed);与空流 CTA 的定向订阅并行,重复刷新幂等无害
@@ -1292,6 +1371,7 @@ export function FeedScreen() {
 
   const loadMore = useCallback(async () => {
     if (loadingMore || cursor === null) return;
+    const seq = nextFeedSeq();
     setLoadingMore(true);
     try {
       const page = await fetchFeedPage({
@@ -1301,6 +1381,7 @@ export function FeedScreen() {
         source: streamScope.source,
         query,
       });
+      if (seq !== feedSeqRef.current) return; // F2:refresh/liveRefresh 已接管,旧页不追加
       setCursor(page.nextCursor);
       setCursorId(page.nextCursorId);
       setItems((current) => {
@@ -1310,6 +1391,7 @@ export function FeedScreen() {
         return merged.items;
       });
     } catch (err) {
+      if (seq !== feedSeqRef.current) return;
       setError(
         err instanceof SidecarRequestError
           ? err
@@ -1318,7 +1400,7 @@ export function FeedScreen() {
     } finally {
       setLoadingMore(false);
     }
-  }, [cursor, cursorId, loadingMore, streamScope.category, streamScope.source, query]);
+  }, [cursor, cursorId, loadingMore, streamScope.category, streamScope.source, query, nextFeedSeq]);
 
   /** 未过门通路的本地态写入:置 state + localStorage 持久(过门后不走此路) */
   const updateStates = useCallback((next: FeedStateMap) => {
@@ -1514,7 +1596,10 @@ export function FeedScreen() {
       const target = event.target as HTMLElement | null;
       if (
         target &&
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" || // 深审 F6:下拉聚焦时敲键是选型操作(u/j/k 不抢)
+          target.isContentEditable)
       ) {
         return;
       }
@@ -1555,7 +1640,10 @@ export function FeedScreen() {
       const target = event.target as HTMLElement | null;
       if (
         target &&
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" || // 深审 F6:下拉内 Esc 归其自身语义
+          target.isContentEditable)
       ) {
         return;
       }
@@ -1669,8 +1757,9 @@ export function FeedScreen() {
 
   // ---------------------------------------------------------------------------
   // 三级下钻派生(10-06-feed-channel-groups):L1 品类行 / L2 渠道行的
-  // 计数与词表。计数源 = 当前已加载首页(50 条页)× 当日窗 —— L1/L2 是
-  // 「今日滚动窗」的概览,过窗条目不计入(title 注记口径,如实)。
+  // 计数与词表。计数源(深审 F1)= 按品类查询页(categoryPages,每品类
+  // 独立首页 50)× 当日窗 —— 不再吃全局首页 50 条(长尾品类假空态/假零);
+  // L1/L2 是「今日滚动窗」的概览,过窗条目不计入(title 注记口径,如实)。
   // ---------------------------------------------------------------------------
   const categoryLabelOf = useCallback(
     (id: string) => categoryOptions.find((option) => option.id === id)?.label ?? id,
@@ -1685,8 +1774,7 @@ export function FeedScreen() {
     [windowStart, states],
   );
 
-  /** L1 品类行数据:品类全集 = health 选项 ∪ 已加载条目品类(无数据品类
-   *  也列出,零计数如实);行计数 = 窗内今日 / 未读 / 渠道数。 */
+  /** 品类页条目 → 行计数累积(品类守卫:服务端已滤,防御共享 mock/旧包)。 */
   const l1Rows = useMemo(() => {
     const byCategory = new Map<string, { today: number; unread: number; channels: Set<string> }>();
     const touch = (id: string) => {
@@ -1697,13 +1785,15 @@ export function FeedScreen() {
       }
       return row;
     };
-    for (const item of items) {
-      if (item.category === null) continue;
-      if (!inWindowOrResurfaced(item)) continue;
-      const row = touch(item.category);
-      row.today += 1;
-      if (!(item.read === true)) row.unread += 1;
-      if (item.source) row.channels.add(item.source);
+    for (const [categoryId, pageItems] of Object.entries(categoryPages)) {
+      for (const item of pageItems) {
+        if (item.category === null || item.category !== categoryId) continue;
+        if (!inWindowOrResurfaced(item)) continue;
+        const row = touch(item.category);
+        row.today += 1;
+        if (!(item.read === true)) row.unread += 1;
+        if (item.source) row.channels.add(item.source);
+      }
     }
     const seen = new Set<string>();
     const rows: { id: string; label: string; today: number; unread: number; channels: number; color: string | null }[] = [];
@@ -1724,29 +1814,41 @@ export function FeedScreen() {
       rows.push({ id, label: id, today: row.today, unread: row.unread, channels: row.channels.size, color: categoryColor(id) });
     }
     return rows;
-  }, [items, categoryOptions, inWindowOrResurfaced]);
+  }, [categoryPages, categoryOptions, inWindowOrResurfaced]);
 
-  /** L1 全局行计数(全部条目 · 滚动流) */
+  /** L1 全局行计数(全部条目 · 滚动流)= 各品类页窗内计数之和 + 无品类
+   *  条目(全局首页页兜底;各品类页服务端互斥,无双重计)。 */
   const l1AllStats = useMemo(() => {
     let today = 0;
     let unread = 0;
     const channels = new Set<string>();
-    for (const item of items) {
-      if (!inWindowOrResurfaced(item)) continue;
+    const count = (item: FeedItem) => {
+      if (!inWindowOrResurfaced(item)) return;
       today += 1;
       if (!(item.read === true)) unread += 1;
       if (item.source) channels.add(item.source);
+    };
+    for (const pageItems of Object.values(categoryPages)) {
+      for (const item of pageItems) {
+        if (item.category == null) continue; // 无品类条目走全局页一面
+        count(item);
+      }
+    }
+    for (const item of items) {
+      if (item.category != null) continue; // 已在品类页计
+      count(item);
     }
     return { today, unread, channels: channels.size };
-  }, [items, inWindowOrResurfaced]);
+  }, [categoryPages, items, inWindowOrResurfaced]);
 
-  /** L2 渠道行数据:该品类下按渠道分组(首现顺序)+ 各行窗内计数 */
+  /** L2 渠道行数据(F1):该品类的**品类查询页**按渠道分组(首现顺序)+
+   *  各行窗内计数 —— 不再从全局首页过滤(长尾渠道假空态)。 */
   const l2Channels = useMemo(() => {
     if (drill.level !== 2) return [];
-    return groupFeedItemsByChannel(
-      items.filter((item) => item.category === drill.category),
-      engineBySource,
-    ).map((channel) => {
+    const pageItems = (categoryPages[drill.category] ?? []).filter(
+      (item) => item.category === drill.category,
+    );
+    return groupFeedItemsByChannel(pageItems, engineBySource).map((channel) => {
       const windowed = channel.items.filter(inWindowOrResurfaced);
       return {
         ...channel,
@@ -1754,7 +1856,53 @@ export function FeedScreen() {
         unread: windowed.filter((item) => !(item.read === true)).length,
       };
     });
-  }, [drill, items, engineBySource, inWindowOrResurfaced]);
+  }, [drill, categoryPages, engineBySource, inWindowOrResurfaced]);
+
+  /** L2 窗内已加载条目(F3 作用域面:豁免钮实际作用的 keys = 所见行)。 */
+  const l2WindowedItems = useMemo(
+    () =>
+      drill.level === 2
+        ? (categoryPages[drill.category] ?? [])
+            .filter((item) => item.category === drill.category)
+            .filter(inWindowOrResurfaced)
+        : [],
+    [drill, categoryPages, inWindowOrResurfaced],
+  );
+
+  /** F3 作用域收窄:L2 批量钮 = 当日窗内已加载品类页的**逐键置位**
+   *  (store.state.mark keys)—— UI 所见(窗内行)= 实际作用域,不再走
+   *  全库 mark_all(此前豁免钮作用域 = 该品类全库含未翻页,大于所见面);
+   *  未读反向出口同门(keys 置 false,误触可逆)。乐观翻品类页行,失败按
+   *  调用前快照回滚(仅作用域内行)。 */
+  const markWindowScoped = useCallback(
+    (value: boolean) => {
+      if (!useServerState || drill.level !== 2) return;
+      const keys = l2WindowedItems.map(itemKey);
+      if (keys.length === 0) return;
+      const keySet = new Set(keys);
+      const snapshot = new Map(
+        l2WindowedItems.map((item) => [itemKey(item), item.read === true]),
+      );
+      const rewrite = (readOf: (key: string) => boolean) =>
+        setCategoryPages((current) => ({
+          ...current,
+          [drill.category]: (current[drill.category] ?? []).map((item) =>
+            item.category === drill.category && keySet.has(itemKey(item))
+              ? { ...item, read: readOf(itemKey(item)) }
+              : item,
+          ),
+        }));
+      rewrite(() => value);
+      void api
+        .storeStateMark({ keys, marker: "read", value })
+        .then(() => setMarkError(null))
+        .catch((err) => {
+          rewrite((key) => snapshot.get(key) ?? false);
+          setMarkError(err instanceof SidecarRequestError ? `${err.code}: ${err.message}` : String(err));
+        });
+    },
+    [useServerState, drill, l2WindowedItems],
+  );
 
   /** 下钻导航动作 */
   const openAllStream = useCallback(() => {
@@ -1879,7 +2027,7 @@ export function FeedScreen() {
           <span
             className="text-2xs text-muted-foreground"
             data-testid="feed-day-window"
-            title={`当日窗:每天 03:00 清零滚动流(03:00 → 次日 03:00),过窗条目离场、视图从零累计;store 数据不清(retention 照旧),星标/稍后读跨窗可见;实时滚动 = 采集事件即时刷新 + 30s 可见性轮询;L1/L2 计数 = 已加载首页 × 当日窗`}
+            title={`当日窗:每天 03:00 清零滚动流(03:00 → 次日 03:00),过窗条目离场、视图从零累计;store 数据不清(retention 照旧),星标/稍后读跨窗可见;实时滚动 = 采集事件即时刷新 + 30s 可见性轮询;L1/L2 计数 = 按品类查询首页(每品类 50)× 当日窗`}
           >
             当日窗 03:00 起 · 实时滚动 · 今日 {l1AllStats.today} 条 / 未读 {l1AllStats.unread}
           </span>
@@ -2023,25 +2171,41 @@ export function FeedScreen() {
             <span
               className="text-2xs text-muted-foreground"
               data-testid="feed-day-window"
-              title="当日窗 03:00 → 次日 03:00;L2 计数 = 已加载首页 × 当日窗"
+              title="当日窗 03:00 → 次日 03:00;L2 计数 = 该品类查询首页(50 条页)× 当日窗"
             >
               当日窗 03:00 起 · 今日 {l2Channels.reduce((sum, channel) => sum + channel.today, 0)} 条
             </span>
-            {/* 品类批量入口(g9-read-all R1 迁驻):mark_all 带 category 精确等值
-                = 该品类全库(含未翻页);豁免二次确认(作用域小一级,title 如实);
-                只在过门时出现(未过门旧通路无品类作用域) */}
+            {/* 品类批量入口(g9-read-all R1 迁驻;深审 F3 作用域收窄):逐键置位
+                当日窗内已加载行(store.state.mark)—— UI 所见 = 实际作用域,不再
+                mark_all 全库越面;反向出口(窗内全部未读)同门,误触可逆;只在
+                过门时出现(未过门旧通路无品类作用域)。 */}
             {useServerState ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="px-2 text-xs text-muted-foreground"
-                data-testid="feed-category-mark-all"
-                aria-label={`将该品类「${drill.category}」全库条目(含未翻页)标为已读`}
-                title={`将该品类「${drill.category}」全库条目(含未翻页)标为已读(store.state.mark_all,服务端持久)`}
-                onClick={() => markAllRead(true, drill.category)}
-              >
-                本品类全部已读
-              </Button>
+              <span className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="px-2 text-xs text-muted-foreground"
+                  data-testid="feed-category-mark-all"
+                  aria-label={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条标为已读(作用域=所见行)`}
+                  title={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条标为已读(store.state.mark 逐键置位,作用域=所见行;历史/未翻页不动)`}
+                  disabled={l2WindowedItems.length === 0 || l2WindowedItems.every((item) => item.read === true)}
+                  onClick={() => markWindowScoped(true)}
+                >
+                  本品类窗内已读
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="px-2 text-muted-foreground"
+                  data-testid="feed-category-mark-unread"
+                  aria-label={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条恢复未读(反向出口)`}
+                  title={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条恢复未读(反向出口,误触可逆;作用域=所见行)`}
+                  disabled={l2WindowedItems.length === 0 || l2WindowedItems.every((item) => item.read !== true)}
+                  onClick={() => markWindowScoped(false)}
+                >
+                  窗内未读
+                </Button>
+              </span>
             ) : null}
           </div>
           {/* 置顶:该品类全部渠道合流 */}

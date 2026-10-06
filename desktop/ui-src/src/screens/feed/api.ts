@@ -467,7 +467,7 @@ export interface FeedGroup {
 
 const GROUP_LABELS: Record<FeedGroupKey, string> = {
   today: "今天",
-  yesterday: "昨天",
+  yesterday: "昨天(上一窗口)",
   week: "7 天内",
   earlier: "更早",
 };
@@ -475,20 +475,34 @@ const GROUP_LABELS: Record<FeedGroupKey, string> = {
 const DAY_MS = 86_400_000;
 
 /**
- * 分组时间轴(D4):按 first_seen 落 今天 / 昨天 / 7 天内 / 更早 四桶,
- * 保持传入顺序(新→旧),空桶不出组;first_seen 缺失/无效归「更早」。
- * `now` 注入以便测试(边界:今天 0 点、昨天 0 点、7 天窗)。
+ * 分组时间轴(D4):按 first_seen 落 今天 / 昨天(上一窗口)/ 7 天内 /
+ * 更早 四桶,保持传入顺序(新→旧),空桶不出组;first_seen 缺失/无效归
+ * 「更早」。`now` 注入以便测试。
+ *
+ * 桶口径与当日窗对齐(深审 F7):边界取 03:00 窗锚(= dayWindowStart),
+ * 非日历 0 点 —— 00:00-03:00 的条目属**上一窗**(03:00 清零语义下它们
+ * 是昨窗尾段),组头如实标「昨天(上一窗口)」;UI 所见(滚动窗)与
+ * 组头口径一致。DST 注记:上一窗起点用本地日历构造(月/日进位,DST 区
+ * 跨夏令时边界 ±1h;7 天界用毫秒算术同注)—— 运行时区 Shanghai 无
+ * DST,零影响(如实注记,不为不存在的影响加码)。
  */
-export function groupFeedItems(items: FeedItem[], now: Date = new Date()): FeedGroup[] {
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+export function groupFeedItems(
+  items: FeedItem[],
+  now: Date = new Date(),
+  anchorHour: number = DAY_WINDOW_ANCHOR_HOUR,
+): FeedGroup[] {
+  const startOfWindow = dayWindowStart(now, anchorHour).getTime();
+  const prevAnchor = dayWindowStart(now, anchorHour);
+  prevAnchor.setDate(prevAnchor.getDate() - 1);
+  const startOfPrevWindow = prevAnchor.getTime();
   const buckets: Record<FeedGroupKey, FeedItem[]> = { today: [], yesterday: [], week: [], earlier: [] };
   for (const item of items) {
     const seen = item.first_seen ? new Date(item.first_seen).getTime() : Number.NaN;
-    if (Number.isNaN(seen) || seen < startOfToday - 7 * DAY_MS) {
+    if (Number.isNaN(seen) || seen < startOfWindow - 7 * DAY_MS) {
       buckets.earlier.push(item);
-    } else if (seen >= startOfToday) {
+    } else if (seen >= startOfWindow) {
       buckets.today.push(item);
-    } else if (seen >= startOfToday - DAY_MS) {
+    } else if (seen >= startOfPrevWindow) {
       buckets.yesterday.push(item);
     } else {
       buckets.week.push(item);
@@ -726,10 +740,26 @@ export interface DealPriceView {
   free: boolean;
 }
 
+/**
+ * 数值键宽容解析(深审 F5):store 投影/旧 sidecar 可把数值键以字符串形态
+ * 送达(final_price: "1360")—— Number() 宽容解析;null/undefined/空串/
+ * 布尔/NaN → null(形态坏不猜,原 null 语义不变)。sale_price/normal_price/
+ * savings_pct 本就是字符串键,保持 parseFloat 既有路径。
+ */
+function lenientNumber(value: unknown): number | null {
+  if (value === null || value === undefined || typeof value === "boolean" || value === "") {
+    return null;
+  }
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function dealPriceView(
   item: Pick<FeedItem, "price_text" | "sale_price" | "normal_price" | "final_price" | "original_price" | "discount_pct" | "savings_pct">,
 ): DealPriceView {
-  const numericFinal = typeof item.final_price === "number" ? item.final_price : null;
+  const numericFinal = lenientNumber(item.final_price);
+  const numericOriginal = lenientNumber(item.original_price);
+  const numericDiscount = lenientNumber(item.discount_pct);
   const current =
     item.price_text != null && item.price_text !== ""
       ? item.price_text
@@ -741,13 +771,13 @@ export function dealPriceView(
   const original =
     item.normal_price != null && item.normal_price !== ""
       ? `$${item.normal_price}`
-      : typeof item.original_price === "number"
-        ? `¥${(item.original_price / 100).toFixed(2)}`
+      : numericOriginal !== null
+        ? `¥${(numericOriginal / 100).toFixed(2)}`
         : null;
   const savings = item.savings_pct != null ? Number.parseFloat(item.savings_pct) : Number.NaN;
   const discount =
-    typeof item.discount_pct === "number"
-      ? Math.round(item.discount_pct)
+    numericDiscount !== null
+      ? Math.round(numericDiscount)
       : Number.isFinite(savings)
         ? Math.round(savings)
         : null;

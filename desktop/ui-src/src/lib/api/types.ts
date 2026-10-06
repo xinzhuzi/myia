@@ -453,13 +453,14 @@ export interface FeedItem {
   /** 价格/优惠白名单七键(10-06-feed-channel-groups:游戏/羊毛渠道「价格/
    *  优惠行」;键名 = games 四源 extract 字段原样,异型/缺失后端置 None)。
    *  final_price 兼收 Epic·Steam 人民币分 int 与 CS·GOG 美元串别名
-   *  ("0.50"),换算归前端 dealPriceView。 */
+   *  ("0.50"),换算归前端 dealPriceView。original_price/discount_pct 同收
+   *  字符串数值形态(深审 F5:store 投影直出 raw 原文,Number() 宽容解析)。 */
   price_text?: string | null;
   sale_price?: string | null;
   normal_price?: string | null;
   final_price?: number | string | null;
-  original_price?: number | null;
-  discount_pct?: number | null;
+  original_price?: number | string | null;
+  discount_pct?: number | string | null;
   savings_pct?: string | null;
   /** urlwatch 变更事件两键(同批:官网监控渠道「变更事件样式」)。watch_event
    *  = new|changed;watch_page = 目标页真链(条目 url 是 #watch-<sha> 锚)。 */
