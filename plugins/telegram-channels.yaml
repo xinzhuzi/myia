@@ -67,7 +67,15 @@ dedup:
   key: "{url}"                    # 消息锚全期唯一,同条只进一次
 
 enrich:
-  enabled: false
+  enabled: true              # 价值筛(主人令「有价值才进,不裸塞」):GLM 打分→
+                              # 合并日报按分排序,低分沉底;频道源同律不豁免
+  model: glm-4-flash
+  scores: [value, relevance, credibility]
+  batch: 10
+  cache: true
+  budget_per_run: 20000
+  base_url: keychain:myia/llm/base_url
+  api_key: keychain:myia/image/api_key
 
 push:
   - channel: feishu_card
