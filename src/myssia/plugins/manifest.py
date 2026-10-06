@@ -26,8 +26,13 @@
   (endpoint + keychain token 引用)。模型直接复用品类顶层 plugin 节的
   :class:`myssia.schema.PluginModesConfig` —— 凭据规则(endpoint http(s)、
   token 只走 ``keychain:myia/<scope>/<name>``)一处定义零漂移;
-- ``install`` — 插件来源(``source``:git/https URL 或本地路径,供人与 agent
-  追溯;实际装卸走 ``myssia plugin install <目录>``)。
+- ``install`` — 插件来源声明(10-06 起升为内容寻址引用,旧式向后兼容):
+  ``source`` 资产定位 URL(新式 = per-plugin release 资产,字节由可选
+  ``sha256`` 钉死;旧式 = 插件仓库 https URL,仅人与 agent 溯源)、可选
+  ``sha256``(严格 64 位小写十六进制)与 ``size``(>0,预显/对账用)。
+  实际装卸走 ``myssia plugin install <目录>``;装机包远取的**机器事实源
+  是随包 ``plugins.lock.json``**(:mod:`myssia.plugins.remote`),本节
+  字段不放松装卸门。
 
 v1.1 源码型插件(PRD 10-02-v11-plugins-source-arch,样板 myssia-osint)新增
 两个**可选**节——旧包(纯 manifest/文档)不声明即缺省 ``None``,
@@ -79,6 +84,7 @@ __all__ = [
     "ManifestInstallConfig",
     "ManifestVendorConfig",
     "PluginManifest",
+    "SHA256_HEX_RE",
     "TIER_TOKENS",
     "find_manifest_file",
     "load_manifest",
@@ -106,6 +112,12 @@ _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.\-]+)?$")
 #: vendor.pin:git commit SHA(sha1 40 位 / sha256 仓库 64 位;允许缩写 ≥7 位)。
 _COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{7,64}$")
 
+#: install.sha256 与远取锁 assets.<id>.sha256 共用的字节钉形状(严格 64 位
+#: 小写十六进制;发布脚本 hashlib.sha256().hexdigest() 同口径,缩写/大写
+#: 一律拒——内容寻址的字节钉不认变体)。锁模块(remote.py)从此处复用,
+#: 两处校验零漂移。
+SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
+
 
 class _StrictManifestModel(BaseModel):
     """manifest 子模型基类:未知字段 fail-fast(与品类 schema 同一纪律)。"""
@@ -114,9 +126,35 @@ class _StrictManifestModel(BaseModel):
 
 
 class ManifestInstallConfig(_StrictManifestModel):
-    """插件的获取来源说明:``source`` 指向插件仓库/发行位置。"""
+    """插件的获取来源说明:``source`` 指向插件资产/仓库(内容寻址可选钉字节)。
+
+    10-06 分发规范起 ``source`` 语义从仓库 URL 升为**内容寻址引用**:
+
+    - 新式:``source`` = per-plugin release 资产 URL(``…/releases/download/
+      <tag>/plugin-<id>.tar.gz``)+ ``sha256`` 钉资产字节(可选 ``size``
+      预显/对账)——装出的每一件可追溯到钉死的字节(INV-5);
+    - 旧式(向后兼容读取,零迁移):``source`` = 插件仓库 https URL
+      (``sha256`` 缺省 None),仅人与 agent 溯源。
+
+    机器事实源是随包 ``plugins.lock.json``(:mod:`myssia.plugins.remote`);
+    本节字段供声明面/溯源,不放松任何装卸门。
+    """
 
     source: str = Field(min_length=1, max_length=512)
+    #: 内容寻址字节钉(可选;声明即校验形状,与远取校验同一 64hex 口径)。
+    sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    #: 资产字节数(可选;>0,预显/对账用)。
+    size: int | None = Field(default=None, gt=0)
+
+    @field_validator("sha256")
+    @classmethod
+    def _check_sha256(cls, value: str | None) -> str | None:
+        if value is not None and not SHA256_HEX_RE.match(value):
+            raise SchemaValueError(
+                "invalid_install_sha256",
+                f"install.sha256 应为 64 位小写十六进制 sha256(内容寻址字节钉),当前为 {value!r}",
+            )
+        return value
 
 
 def _safe_relative_path(value: str, *, field_name: str) -> str:

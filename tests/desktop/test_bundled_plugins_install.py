@@ -1,5 +1,5 @@
 """随包插件组件包发现/一键安装/卸载 + 品类 YAML 平铺安装(plugins.bundled.*,
-10-05-bundled-plugins-install + 10-05-bundled-plugins-batch2)。
+10-05-bundled-plugins-install + 10-05-bundled-plugins-batch2 + 10-06 远取批)。
 
 sidecar 方法族的协议单测(mock stdin/stdout 往返,同
 test_desktop_sidecar_protocol.py 的 rpc 手法;rpc helper 本文件独立一份,
@@ -16,23 +16,33 @@ test_desktop_sidecar_protocol.py 的 rpc 手法;rpc helper 本文件独立一份
   起含 remote 桩 myssia-firecrawl;批二 R4 后品类 10 件)对账,映射漂移
   即红);
 - env 未设/目录不存在 = 合法空表(dev 稳定契约);
-- install/uninstall 直调 InstalledPluginStore 同门(CLI
-  ``myssia plugin install/remove`` 零差异):manifest 校验→版本矩阵→
-  整目录拷贝/删绝不半装半卸;PluginStoreError code 原文透传;
+- install 三岔编排(10-06 分发规范:声明随包、源码远取):锁在+条目在 →
+  远取链(mock transport 全程真管线:拉资产→sha256→剥壳解包→同门落位);
+  锁缺/无条目但包内目录携带源码件(旧包形态,夹具 ``with_source=True``)→
+  包内直拷回退;声明件-only 且锁无条目 → ``plugin_lock_missing`` 结构化拒。
+  装卸殊途同归 InstalledPluginStore 同门(CLI ``myssia plugin install/remove``
+  零差异):manifest 校验→版本矩阵→整目录拷贝/删绝不半装半卸;
+  PluginStoreError code 原文透传(远取链失败 data 带定位信息);已装未
+  force 拒且**零网络**;已装旧件逐字节零扰动(INV-6);
 - category_install(批二 R3):品类 YAML 单文件平铺拷到数据根 plugins/
   (与 _seed_first_run 补种同落点);已存在未 force 拒、force 才覆盖。
 """
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import io
 import json
 import shutil
 import sys
+import tarfile
 from pathlib import Path
 
+import httpx
 import pytest
+
+from myssia.plugins import remote as remote_module
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENTRY_PATH = REPO_ROOT / "desktop" / "entry.py"
@@ -141,11 +151,19 @@ install:
 """
 
 
-def make_bundled_package(base: Path, plugin_id: str, manifest_text: str) -> Path:
-    """往随包目录树放一件组件包(manifest 文本原样写)。"""
+def make_bundled_package(base: Path, plugin_id: str, manifest_text: str, *, with_source: bool = True) -> Path:
+    """往随包目录树放一件组件包(manifest 文本原样写)。
+
+    ``with_source=True``(缺省)再放一个 ``adapter.py``——**旧包形态**(源码
+    随包,10-06 分发规范前的包;锁缺席时走包内直拷回退,D3)。新规范包
+    (声明随包、源码远取)只有 plugin.yaml+README,远取路径测试显式
+    ``with_source=False`` 造形。
+    """
     pkg = base / plugin_id
     pkg.mkdir(parents=True, exist_ok=True)
     (pkg / "plugin.yaml").write_text(manifest_text, encoding="utf-8")
+    if with_source:
+        (pkg / "adapter.py").write_text(f"# 旧包源码件(回退直拷夹具)\n", encoding="utf-8")
     return pkg
 
 
@@ -221,16 +239,17 @@ def test_list_rebuilt_installer_tree_yields_exactly_eleven_packages(monkeypatch,
         assert cat["schedule"]  # 品类必有合法 cron(schema 校验门)
 
 
-def test_bundled_package_files_are_fully_mapped_in_tauri_resources():
-    """反向对账(§12.1 复核轮补钉):仓库组件包分发件 ⊆ tauri resources 映射.
+def test_bundled_declaration_files_are_mapped_in_tauri_resources():
+    """反向对账(§12.1 复核轮补钉;10-06 分发规范翻案):仓库组件包**声明件**
+    ⊆ tauri resources 映射.
 
     正向(rebuild_bundled_tree / test_installer_resources)只验「映射→磁盘」
-    方向——从映射删行不红;本钉反向「磁盘→映射」:随包组件包目录里的分发件
-    (plugin.yaml/README/adapter/渲染 helper 等)漏登记 bundle.resources 时,
-    任何按清单的打包/刷新都会静默丢件(10-06 §12.1 HIGH 实录:装机
-    render_crawl4ai.py 被包刷新清出分发面 → render_helper_missing 错向排障)。
-    整目录映射(credhunter 子包)覆盖其下全部文件;__pycache__/loot 运行时
-    产物与非分发后缀不在随包面(rebuild_bundled_tree 同口径)不 demands。
+    方向——从映射删行不红;本钉反向「磁盘→映射」:随包组件包目录里的**声明
+    件**(plugin.yaml/README.md,新规范唯一随包分发面,INV-1)漏登记
+    bundle.resources 时,任何按清单的打包/刷新都会静默丢件(10-06 §12.1
+    HIGH 实录同款)。源码件(adapter.py 等)10-06 起设计上**不随包**(INV-2,
+    源码远取——负断言在 test_installer_resources.py 键空间门),不再 demand
+    映射;__pycache__/loot/vendor 运行时与上游件永不随包(同上不在面)。
     """
     dests = set(_conf_resources().values())  # 映射键=源路径(../../…),值=目标(plugins/…)
     bundled_pkgs = {
@@ -243,27 +262,18 @@ def test_bundled_package_files_are_fully_mapped_in_tauri_resources():
         dest
         for dest in dests
         if dest.startswith("plugins/") and not dest.endswith((".yaml", ".yml", ".py", ".md"))
-    }  # 整目录映射(如 plugins/myssia-credhunter/credhunter)
+    }  # 整目录映射(如过渡期的 plugins/myssia-credhunter/credhunter)
     for pkg in sorted(bundled_pkgs):
         pkg_dir = PLUGINS_DIR / pkg
         assert pkg_dir.is_dir(), f"映射指向不存在的组件包目录: {pkg_dir}"
-        for file in sorted(pkg_dir.rglob("*")):
-            if not file.is_file():
-                continue
-            rel = file.relative_to(PLUGINS_DIR).as_posix()
-            if (
-                "__pycache__" in file.parts
-                or "loot" in file.parts  # 运行时私有情报,永不随包
-                or "vendor" in file.parts  # gitlink 子模块=上游代码,设计上零随包分发
-                or file.suffix not in (".yaml", ".yml", ".py", ".md")
-            ):
-                continue
-            dest_rel = f"plugins/{rel}"  # 对齐映射目标前缀(plugins/<pkg>/<…>)
-            covered = dest_rel in dests or any(
-                dest_rel.startswith(dir_dest + "/") for dir_dest in dir_mappings
-            )
+        for declaration in ("plugin.yaml", "README.md"):
+            declaration_file = pkg_dir / declaration
+            if not declaration_file.is_file():
+                continue  # 个别件无 README 属实况,不 demand 存在,只 demand「在则必映射」
+            dest_rel = f"plugins/{pkg}/{declaration}"
+            covered = dest_rel in dests or any(dest_rel.startswith(dir_dest + "/") for dir_dest in dir_mappings)
             assert covered, (
-                f"{rel}: 组件包分发件未登记 tauri resources 映射——官方重打包"
+                f"{pkg}/{declaration}: 组件包声明件未登记 tauri resources 映射——官方重打包"
                 "会静默丢件(10-06 §12.1 HIGH 同款;补 bundle.resources 该文件行)"
             )
 
@@ -508,26 +518,345 @@ def test_install_locates_by_manifest_id_when_dir_name_differs(monkeypatch, tmp_p
 
 
 def test_bundled_methods_on_rebuilt_installer_tree_roundtrip(monkeypatch, tmp_path):
-    """装机树端到端:真 10 件上 install 一件官方件(myssia-proxy)→ list 已装态
-    对齐;再二装未 force already_installed 拒(装机包件的真实 manifest 走通
-    同门校验,零手写夹具)。"""
+    """装机树端到端(10-06 翻案为远取路径,真官方 manifest 零手写夹具):
+    resources 映射重建装机树 + 锁(资产字节 = 仓库 plugins/myssia-proxy 真件
+    打包)→ install 走远取链落位逐字节对账;再二装未 force already_installed
+    拒且零网络;list 已装态对齐。锁条目优先于包内目录形态——收窄前后
+    (包内有无源码)行为一致,不依赖打包线在途状态。
+    """
     root = rebuild_bundled_tree(tmp_path / "Resources")
+    # 资产 = 仓库真件(含 adapter.py 源码——远取面不分声明/源码,整包走)
+    repo_pkg = PLUGINS_DIR / "myssia-proxy"
+    repo_files = {
+        str(item.relative_to(repo_pkg)): item.read_bytes()
+        for item in sorted(repo_pkg.rglob("*"))
+        if item.is_file() and "__pycache__" not in item.parts
+    }
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
+        for rel, data in sorted(repo_files.items()):
+            info = tarfile.TarInfo(f"plugins/myssia-proxy/{rel}")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    tarball = buffer.getvalue()
+    write_plugins_lock(root, {"myssia-proxy": lock_entry_for(tarball, "myssia-proxy")})
+    patch_remote_transport(monkeypatch, serve(tarball))
     install_root = tmp_path / "install"
     monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
     monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
     _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.install",
                            "params": {"id": "myssia-proxy"}})
     assert responses[0].get("result", {}).get("ok") is True, f"官方件装机失败: {responses[0]}"
-    installed_manifest = install_root / "myssia-proxy" / "plugin.yaml"
-    assert installed_manifest.exists()
-    assert (install_root / "myssia-proxy" / "adapter.py").exists()  # 整目录拷贝(三件套)
+    installed = install_root / "myssia-proxy"
+    for rel, data in repo_files.items():
+        assert (installed / rel).read_bytes() == data, f"远取落位逐字节不符: {rel}"
     _, responses, _ = rpc({"id": 2, "method": "plugins.bundled.list", "params": {}})
     by_id = {plugin["id"]: plugin for plugin in responses[0]["result"]["plugins"]}
     assert by_id["myssia-proxy"]["installed"] is True
     assert by_id["myssia-media"]["installed"] is False
+    # 二装未 force:already_installed 且零网络(换一碰就炸的 transport 证不触发远取)
+    patch_remote_transport(monkeypatch, refuse_network())
     _, responses, _ = rpc({"id": 3, "method": "plugins.bundled.install",
                            "params": {"id": "myssia-proxy"}})
     assert responses[0]["error"]["code"] == "already_installed"
+
+
+# ---------------------------------------------------------------------------
+# 远取主路径(10-06 分发规范:声明随包、源码远取)——全 mock 零真网
+# ---------------------------------------------------------------------------
+
+#: 远取测试锁的固定上下文(与真锁同形:repo=现远端 shishi)。
+LOCK_REPO = "https://github.com/xinzhuzi/shishi"
+LOCK_TAG = "v0.0.2"
+
+
+def build_remote_tarball(plugin_id: str, manifest_text: str, extra: dict[str, bytes] | None = None) -> bytes:
+    """打包 ``plugins/<id>/`` 前缀 tar.gz(远取资产形态;发布脚本同前缀)。"""
+    files = {
+        "plugin.yaml": manifest_text.encode("utf-8"),
+        "README.md": "# 远取件 README\n".encode("utf-8"),
+        "adapter.py": b"print('remote adapter')\n",
+    }
+    files.update(extra or {})
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
+        for name, data in sorted(files.items()):
+            info = tarfile.TarInfo(f"plugins/{plugin_id}/{name}")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return buffer.getvalue()
+
+
+def write_plugins_lock(root: Path, assets: dict[str, dict]) -> None:
+    """往随包根写 plugins.lock.json(缺省自洽:url 按资产名规则拼)。"""
+    payload = {
+        "manifest_version": 1,
+        "repo": LOCK_REPO,
+        "tag": LOCK_TAG,
+        "generated_at": "2026-10-06T00:00:00+08:00",
+        "assets": assets,
+    }
+    (Path(root) / remote_module.LOCK_FILENAME).write_text(json.dumps(payload), encoding="utf-8")
+
+
+def lock_entry_for(tarball: bytes, plugin_id: str, *, sha256: str | None = None) -> dict:
+    """单件锁条目(缺省钉真 sha256/size)。"""
+    return {
+        "url": f"{LOCK_REPO}/releases/download/{LOCK_TAG}/plugin-{plugin_id}.tar.gz",
+        "sha256": sha256 or hashlib.sha256(tarball).hexdigest(),
+        "size": len(tarball),
+        "version": "1.0.0",
+    }
+
+
+def patch_remote_transport(monkeypatch, handler) -> None:
+    """把 entry.install_remote 包一层真实现 + 注入 MockTransport(端到端走真
+    远取管线:锁→拉取→校验→解包→store.install;零真网)。"""
+    real_install_remote = remote_module.install_remote
+
+    def fake(lock, plugin_id, store, *, force=False, **kwargs):
+        kwargs.setdefault("client_factory", lambda **ck: httpx.Client(transport=httpx.MockTransport(handler), **ck))
+        return real_install_remote(lock, plugin_id, store, force=force, **kwargs)
+
+    monkeypatch.setattr(entry, "install_remote", fake)
+
+
+def serve(payload: bytes, *, status: int = 200):
+    """固定应答 handler(2xx 恒回资产字节 / 非 2xx 回状态)。"""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, content=payload)
+    return handler
+
+
+def refuse_network(message: str = "远取不该被触发"):
+    """一碰就炸 handler:断言「零网络」用。"""
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(message)
+    return handler
+
+
+def make_declaration_package(base: Path, plugin_id: str, manifest_text: str) -> Path:
+    """新规范包形态:只有声明件 plugin.yaml+README(源码远取,INV-1)。"""
+    pkg = make_bundled_package(base, plugin_id, manifest_text, with_source=False)
+    (pkg / "README.md").write_text("# 声明件 README\n", encoding="utf-8")
+    return pkg
+
+
+def test_install_remote_path_via_lock_entry_end_to_end(monkeypatch, tmp_path):
+    """远取主路径端到端(锁在+条目在):拉资产→sha256 校验→剥壳解包→
+    InstalledPluginStore 同门落位;应答 {ok,dir,version} 契约不变;装后 list
+    installed=true 版本对;.staging 清残;随包声明件只读不动。"""
+    root = tmp_path / "bundled"
+    make_declaration_package(root, "myssia-remote", MINIMAL_MANIFEST.format(id="myssia-remote", name="远取件"))
+    tarball = build_remote_tarball("myssia-remote", MINIMAL_MANIFEST.format(id="myssia-remote", name="远取件"))
+    write_plugins_lock(root, {"myssia-remote": lock_entry_for(tarball, "myssia-remote")})
+    patch_remote_transport(monkeypatch, serve(tarball))
+    install_root = tmp_path / "install-root"
+    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+    _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-remote"}})
+    assert responses[0]["result"] == {
+        "ok": True,
+        "dir": str(install_root / "myssia-remote"),
+        "version": "1.0.0",
+    }, responses[0]
+    installed = install_root / "myssia-remote"
+    assert (installed / "plugin.yaml").read_text(encoding="utf-8") == MINIMAL_MANIFEST.format(id="myssia-remote", name="远取件")
+    assert (installed / "adapter.py").read_text(encoding="utf-8") == "print('remote adapter')\n"  # 源码经远取落位
+    staging = install_root / ".staging"
+    assert not staging.is_dir() or not any(staging.iterdir()), "暂存清残"
+    # 随包声明件只读不动(源码不来自包内)
+    assert sorted(p.name for p in (root / "myssia-remote").iterdir()) == ["README.md", "plugin.yaml"]
+    _, responses, _ = rpc({"id": 2, "method": "plugins.bundled.list", "params": {}})
+    plugin = responses[0]["result"]["plugins"][0]
+    assert plugin["installed"] is True
+    assert plugin["installed_version"] == "1.0.0"
+    # 已装未 force 二装:already_installed 结构化拒(同门,装后语义零漂移)
+    _, responses, _ = rpc({"id": 3, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-remote"}})
+    assert responses[0]["error"]["code"] == "already_installed"
+
+
+def test_install_declaration_only_without_lock_is_structured_refuse(monkeypatch, tmp_path):
+    """新包形态但锁缺席 → plugin_lock_missing 结构化拒(不静默不虚构;直拷
+    声明件会装出不能跑的空壳);零半装零残。"""
+    root = tmp_path / "bundled"
+    make_declaration_package(root, "myssia-nolock", MINIMAL_MANIFEST.format(id="myssia-nolock", name="无锁件"))
+    install_root = tmp_path / "install-root"
+    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+    _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-nolock"}})
+    error = responses[0]["error"]
+    assert error["code"] == "plugin_lock_missing"
+    assert error["path"] == "params.id"
+    assert error["data"]["lock_present"] is False
+    assert not (install_root / "myssia-nolock").exists()
+
+
+def test_install_lock_entry_missing_for_id_is_structured_refuse(monkeypatch, tmp_path):
+    """锁在但无该件条目 → plugin_lock_missing(data lock_present=True);
+    声明件照常在 list 可见(发现面不依赖锁)。"""
+    root = tmp_path / "bundled"
+    make_declaration_package(root, "myssia-orphan", MINIMAL_MANIFEST.format(id="myssia-orphan", name="锁外件"))
+    other_tarball = build_remote_tarball("myssia-other", MINIMAL_MANIFEST.format(id="myssia-other", name="他件"))
+    write_plugins_lock(root, {"myssia-other": lock_entry_for(other_tarball, "myssia-other")})
+    patch_remote_transport(monkeypatch, refuse_network())
+    install_root = tmp_path / "install-root"
+    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+    _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-orphan"}})
+    error = responses[0]["error"]
+    assert error["code"] == "plugin_lock_missing"
+    assert error["data"]["lock_present"] is True
+    assert not (install_root / "myssia-orphan").exists()
+    _, responses, _ = rpc({"id": 2, "method": "plugins.bundled.list", "params": {}})
+    assert responses[0]["result"]["plugins"][0]["id"] == "myssia-orphan"  # 发现面照常
+
+
+def test_install_remote_bad_hash_structured_with_digests(monkeypatch, tmp_path):
+    """坏 hash 拒:integrity_mismatch + data 带期望/实得与 url;零半装、
+    .staging 零残件(AC3)。"""
+    root = tmp_path / "bundled"
+    make_declaration_package(root, "myssia-badhash", MINIMAL_MANIFEST.format(id="myssia-badhash", name="坏钉件"))
+    tarball = build_remote_tarball("myssia-badhash", MINIMAL_MANIFEST.format(id="myssia-badhash", name="坏钉件"))
+    write_plugins_lock(root, {"myssia-badhash": lock_entry_for(tarball, "myssia-badhash", sha256="0" * 64)})
+    patch_remote_transport(monkeypatch, serve(b"tampered asset bytes"))
+    install_root = tmp_path / "install-root"
+    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+    _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-badhash"}})
+    error = responses[0]["error"]
+    assert error["code"] == "integrity_mismatch"
+    assert error["data"]["expected"] == "0" * 64
+    assert error["data"]["actual"] == hashlib.sha256(b"tampered asset bytes").hexdigest()
+    assert error["data"]["url"].endswith("/plugin-myssia-badhash.tar.gz")
+    assert not (install_root / "myssia-badhash").exists()
+    staging = install_root / ".staging"
+    assert not staging.is_dir() or not any(staging.iterdir())
+
+
+def test_install_remote_http_failure_structured_with_status(monkeypatch, tmp_path):
+    """网络失败拒:plugin_fetch_failed + data 带 HTTP 状态与 url;零半装。"""
+    root = tmp_path / "bundled"
+    make_declaration_package(root, "myssia-down", MINIMAL_MANIFEST.format(id="myssia-down", name="断网件"))
+    tarball = build_remote_tarball("myssia-down", MINIMAL_MANIFEST.format(id="myssia-down", name="断网件"))
+    write_plugins_lock(root, {"myssia-down": lock_entry_for(tarball, "myssia-down")})
+    patch_remote_transport(monkeypatch, serve(b"server boom", status=503))
+    install_root = tmp_path / "install-root"
+    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+    _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-down"}})
+    error = responses[0]["error"]
+    assert error["code"] == "plugin_fetch_failed"
+    assert error["data"]["status"] == 503
+    assert error["data"]["url"].endswith("/plugin-myssia-down.tar.gz")
+    assert not (install_root / "myssia-down").exists()
+
+
+def test_install_corrupt_lock_is_structured_invalid(monkeypatch, tmp_path):
+    """锁文件坏(非合法 JSON)→ plugin_lock_invalid 结构化拒(不静默走直拷
+    绕过内容寻址)。"""
+    root = tmp_path / "bundled"
+    root.mkdir()
+    (root / remote_module.LOCK_FILENAME).write_text("{corrupt lock", encoding="utf-8")
+    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(tmp_path / "install-root"))
+    _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-any"}})
+    assert responses[0]["error"]["code"] == "plugin_lock_invalid"
+
+
+def test_install_remote_already_installed_never_fetches(monkeypatch, tmp_path):
+    """已装未 force → already_installed 且零网络(已装件不触发远取;装卸
+    网络代价不花在注定拒绝的请求上)。"""
+    root = tmp_path / "bundled"
+    make_declaration_package(root, "myssia-prefetched", MINIMAL_MANIFEST.format(id="myssia-prefetched", name="预装件"))
+    tarball = build_remote_tarball("myssia-prefetched", MINIMAL_MANIFEST.format(id="myssia-prefetched", name="预装件"))
+    write_plugins_lock(root, {"myssia-prefetched": lock_entry_for(tarball, "myssia-prefetched")})
+    patch_remote_transport(monkeypatch, refuse_network())
+    install_root = tmp_path / "install-root"
+    preinstalled = install_root / "myssia-prefetched"
+    preinstalled.mkdir(parents=True)
+    (preinstalled / "plugin.yaml").write_text(
+        MINIMAL_MANIFEST.format(id="myssia-prefetched", name="预装件").replace("version: 1.0.0", "version: 0.9.0"),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+    _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-prefetched"}})
+    assert responses[0]["error"]["code"] == "already_installed"
+    assert (preinstalled / "plugin.yaml").read_text(encoding="utf-8").count("0.9.0") >= 1  # 已装件零扰动
+
+
+def test_install_legacy_installed_plugin_zero_disturbance_across_remote_ops(monkeypatch, tmp_path):
+    """INV-6 端到端:已装旧件在远取链任何操作(成功装他件/失败装他件/列表/
+    卸载他件)后逐字节不变;其卸载语义原样可用。"""
+
+    def tree_digest(target: Path) -> dict[str, bytes]:
+        return {str(p.relative_to(target)): p.read_bytes() for p in sorted(target.rglob("*")) if p.is_file()}
+
+    root = tmp_path / "bundled"
+    make_declaration_package(root, "myssia-newwave", MINIMAL_MANIFEST.format(id="myssia-newwave", name="新规件"))
+    tarball = build_remote_tarball("myssia-newwave", MINIMAL_MANIFEST.format(id="myssia-newwave", name="新规件"))
+    write_plugins_lock(root, {"myssia-newwave": lock_entry_for(tarball, "myssia-newwave")})
+    patch_remote_transport(monkeypatch, serve(tarball))
+    install_root = tmp_path / "install-root"
+    legacy = install_root / "myssia-legacy"
+    legacy.mkdir(parents=True)
+    (legacy / "plugin.yaml").write_text(
+        MINIMAL_MANIFEST.format(id="myssia-legacy", name="旧装件").replace("version: 1.0.0", "version: 0.8.0"),
+        encoding="utf-8",
+    )
+    (legacy / "adapter.py").write_text("# legacy adapter untouched\n", encoding="utf-8")
+    (legacy / "notes").mkdir()
+    (legacy / "notes" / "local.txt").write_text("user data\n", encoding="utf-8")
+    before = tree_digest(legacy)
+    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+    # 成功远取他件
+    _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-newwave"}})
+    assert responses[0]["result"]["ok"] is True
+    # 失败远取他件(坏钉)
+    write_plugins_lock(root, {"myssia-newwave": lock_entry_for(tarball, "myssia-newwave", sha256="1" * 64)})
+    _, responses, _ = rpc({"id": 2, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-newwave", "force": True}})
+    assert responses[0]["error"]["code"] == "integrity_mismatch"
+    # 列表/卸载他件
+    _, responses, _ = rpc({"id": 3, "method": "plugins.bundled.list", "params": {}})
+    _, responses, _ = rpc({"id": 4, "method": "plugins.bundled.uninstall",
+                           "params": {"id": "myssia-newwave"}})
+    assert responses[0]["result"]["ok"] is True
+    assert tree_digest(legacy) == before, "已装旧件必须逐字节零扰动"
+    # 旧件自身卸载照旧(安装根操作,语义零变化)
+    _, responses, _ = rpc({"id": 5, "method": "plugins.bundled.uninstall",
+                           "params": {"id": "myssia-legacy"}})
+    assert responses[0]["result"]["ok"] is True
+    assert not legacy.exists()
+
+
+def test_install_lock_present_source_carrying_dir_falls_back_to_direct_copy(monkeypatch, tmp_path):
+    """锁在场但该件无条目、而包内目录携带源码(过渡/旧包混锁形态)→ 直拷
+    回退自愈(D3 第二分支),不因锁缺席硬拒。"""
+    root = tmp_path / "bundled"
+    pkg = make_bundled_package(root, "myssia-transition", MINIMAL_MANIFEST.format(id="myssia-transition", name="过渡件"))
+    other_tarball = build_remote_tarball("myssia-other", MINIMAL_MANIFEST.format(id="myssia-other", name="他件"))
+    write_plugins_lock(root, {"myssia-other": lock_entry_for(other_tarball, "myssia-other")})
+    patch_remote_transport(monkeypatch, refuse_network())
+    install_root = tmp_path / "install-root"
+    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+    _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.install",
+                           "params": {"id": "myssia-transition"}})
+    assert responses[0]["result"]["ok"] is True
+    assert (install_root / "myssia-transition" / "adapter.py").exists()
+    assert (pkg / "adapter.py").exists()  # 包内原件只读
 
 
 # ---------------------------------------------------------------------------

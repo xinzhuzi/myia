@@ -418,6 +418,12 @@ from myssia.plugins.installed import (
     default_install_root,
 )
 from myssia.plugins.manifest import load_manifest_file
+from myssia.plugins.remote import (
+    LOCK_FILENAME,
+    PluginRemoteError,
+    install_remote,
+    load_plugins_lock,
+)
 from myssia.plugins.versioning import VersionRange, VersionSpecError
 from myssia.push import ChannelDirectory, DeliveryLedger, DirectoryDiscoverUnsupported, PushSendError
 from myssia.push.weixin import probe_bridge
@@ -1011,14 +1017,41 @@ def _m_plugins_bundled_list(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _bundled_dir_carries_source(pkg_dir: Path) -> bool:
+    """随包组件包目录是否携带源码/数据件(旧包形态判定,D3 回退门)。
+
+    新分发规范(10-06 INV-1/2)包内组件包只有声明件(plugin.yaml +
+    README.md);出现任意 ``*.py`` 或非隐藏子目录(如 credhunter/ 自有
+    子包)即旧包形态——锁缺席时按旧「包内直拷」路径回退自愈,零硬切。
+    """
+    for child in pkg_dir.rglob("*"):
+        if child.suffix == ".py":
+            return True
+        if child.is_dir() and not child.name.startswith("."):
+            return True
+    return False
+
+
 def _m_plugins_bundled_install(params: dict[str, Any]) -> dict[str, Any]:
     """``plugins.bundled.install {id, force?}``:随包组件包一键装进安装根。
 
-    装卸门零新增:id 过 ``_PLUGIN_ID_RE`` 同门(防穿越,manifest.py/installed.py
-    同源正则)→ 目录映射 → 直调 ``InstalledPluginStore.install``(与 CLI
-    ``myssia plugin install`` 同门:manifest 校验 → 版本矩阵 → 整目录拷贝
-    绝不半装;已装未 force/版本不兼容未 force 结构化拒,``PluginStoreError``
-    code 原文透传)。应答 ``{ok, dir, version}``。
+    10-06 分发规范起三岔编排(声明随包、源码远取):
+
+    1. **远取主路径**:随包 ``plugins.lock.json``(内容寻址锁)内有该件
+       条目 → ``install_remote`` 拉资产 → sha256 校验 → 安全解包暂存 →
+       ``InstalledPluginStore.install`` 同门落位;已装未 force 零网络先拒。
+    2. **旧包回退**(D3):锁缺席(或无条目)但包内目录携带源码件 → 现行
+       ``_locate_bundled_plugin_dir`` + ``store.install(source)`` 直拷,
+       零改动(旧装机包自愈)。
+    3. **结构化拒**:包内只有声明件而锁无条目 → ``plugin_lock_missing``
+       (不静默不虚构——直拷声明件会装出不能跑的空壳件)。
+
+    装卸门零新增:id 过 ``_PLUGIN_ID_RE`` 同门(防穿越,manifest.py/
+    installed.py 同源正则)→ 远取/直拷殊途同归 ``InstalledPluginStore.install``
+    (与 CLI ``myssia plugin install`` 同门:manifest 校验 → 版本矩阵 →
+    整目录拷贝绝不半装;已装未 force/版本不兼容未 force 结构化拒,
+    ``PluginStoreError`` code 原文透传,远取链失败额外带 data 定位信息
+    url/sha256 期望实得/HTTP status)。应答 ``{ok, dir, version}`` 契约不变。
     """
     root = _bundled_plugins_root()
     if root is None:
@@ -1037,16 +1070,31 @@ def _m_plugins_bundled_install(params: dict[str, Any]) -> dict[str, Any]:
     force = params.get("force", False)
     if not isinstance(force, bool):
         raise ProtocolError("invalid_params", "force 必须为布尔", path="params.force")
-    source = _locate_bundled_plugin_dir(root, plugin_id)
     store = InstalledPluginStore(_serve_context().install_root)
     try:
-        result = store.install(source, force=force)
+        lock = load_plugins_lock(root)
+        if lock is not None and plugin_id in lock.assets:
+            result = install_remote(lock, plugin_id, store, force=force)
+        else:
+            source = _locate_bundled_plugin_dir(root, plugin_id)
+            if _bundled_dir_carries_source(source):
+                result = store.install(source, force=force)
+            else:
+                raise PluginRemoteError(
+                    "plugin_lock_missing",
+                    f"随包插件 {plugin_id} 无可安装来源:包内只有声明件(源码远取规范),"
+                    f"而远取锁{'缺该件条目' if lock is not None else '缺失'}"
+                    f"({root / LOCK_FILENAME});请更新安装包或核对锁文件",
+                    data={"plugin_id": plugin_id, "lock": str(root / LOCK_FILENAME), "lock_present": lock is not None},
+                )
     except PluginStoreError as exc:
+        data: dict[str, Any] = {"errors": exc.errors} if exc.errors else {}
+        data.update(getattr(exc, "data", None) or {})
         raise ProtocolError(
             exc.code,
             f"随包插件安装失败: {exc}",
             path="params.id",
-            data={"errors": exc.errors} if exc.errors else None,
+            data=data or None,
         ) from exc
     return {"ok": True, "dir": result["path"], "version": result["version"]}
 
