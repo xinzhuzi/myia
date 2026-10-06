@@ -19,4 +19,4 @@
 ## Plugin
 
 - **任何 plugin 装不上,核心流水线必须照常跑通**(桌面工具的生死线)
-- plugin remote 凭据入钥匙链;compose 文件零明文凭据
+- plugin remote 凭据入钥匙链(设置页 remote 配置面板:endpoint 落数据根 `<home>/remote-plugins.json`,明文 token 只经 `secret.set` 入钥匙串,面板与配置零明文);~~compose 文件零明文凭据~~(插件 docker 模式 2026-10-06 已全删,compose 面不复存在,条款随删归档;判例 10-06-native-plugin-components)

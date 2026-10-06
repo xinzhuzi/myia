@@ -1,0 +1,166 @@
+=== AC8 零 Docker 终验 grep(2026-10-06,净室 HEAD 导出 + /Applications 装机件)===
+净室 = /tmp/myia-pkg-verify(git archive HEAD @ b7a45e8)
+装机件 = /Applications/世事.app(本日换装,sha f732802794d9b0d26bcb5ec404ae929a9477b00c29b9332625ba84f52f83aea0)
+
+--- [1] 净室全仓:docker 启动路径(docker compose|run / colima;排除 node_modules/target/vendor 等非仓库内容)---
+./docker/README.md:3:三形态之一:想在服务器/NAS 上 24h 跑的用户 `docker compose up`,同一份插件 YAML、同一个核心(容器内就是 APScheduler 定时,不引 n8n/Kestra 等编排平台)。
+./docker/README.md:23:docker compose -f docker/docker-compose.yml up -d --build
+./docker/README.md:26:docker compose -f docker/docker-compose.yml logs -f myssia
+./docker/README.md:27:docker compose -f docker/docker-compose.yml down
+./docker/README.md:30:首次运行验证:`docker compose ... run --rm myssia --version` 应输出 `myssia <版本>`。
+./docker/README.md:40:或用 `docker compose run --rm myssia run /config/plugins/wool.yaml --db /data/myssia.db` 手动单跑一次。
+./docker/README.md:80:docker compose -f docker/docker-compose.yml pull
+./docker/README.md:81:docker compose -f docker/docker-compose.yml up -d
+./docker/README.md:86:- 日志:`docker compose logs myssia`;`--json` 机器可读输出可用 `docker compose run --rm myssia run /config/plugins/stocks.yaml --db /data/myssia.db --json`。
+./docker/README.md:87:- 退出码契约:0 成功 / 1 配置错误(含凭据缺失)/ 2 采集全部失败 / 3 部分失败 —— `docker compose run` 场景下可用 `$?` 检查。
+./docker/docker-compose.yml:7:#   docker compose -f docker/docker-compose.yml up -d --build
+./docker/docker-compose.yml:24:    # `build:` block above and running `docker compose pull` first.
+./docs/launch/linuxdo.md:78:[docker compose](https://github.com/xinzhuzi/myia/blob/main/docker/docker-compose.yml)。
+./docs/launch/linuxdo-draft.md:91:[docker compose](https://github.com/xinzhuzi/myia/blob/main/docker/docker-compose.yml),
+./docs/launch/jike.md:45:MIT,纯 Python + SQLite 单文件,docker compose 也能跑,双语文档在仓库里。
+./docs/zh/getting-started.md:85:生产长跑可用服务器形态:`docker compose -f docker/docker-compose.yml up -d`(见
+./docs/zh/cron.md:132:### docker compose 常宿
+./docs/zh/cron.md:140:docker compose -f docker/docker-compose.yml run --rm myssia \
+./docs/en/getting-started.md:106:`docker compose -f docker/docker-compose.yml up -d` (see
+./docs/en/cron.md:148:### docker compose resident form
+./docs/en/cron.md:158:docker compose -f docker/docker-compose.yml run --rm myssia \
+./README.md:356:| v0.2 可用 | SQLite 存储 + 注册表 + 保留期、完整 CLI(init/test/list/doctor)、crawl4ai L3、LLM 精评 + 预算护栏、docker compose、Telegram、钥匙链凭据 | ✅ 已交付 |
+./README.md:757:| v0.2 usable | SQLite store + registry + retention, full CLI (init/test/list/doctor), crawl4ai L3, LLM enrich + budget guardrails, docker compose, Telegram, keychain secrets | ✅ shipped |
+./.trellis/tasks/archive/2026-10/10-01-v02-docker-compose/prd.md:1:# 服务端形态:docker compose
+./.trellis/tasks/archive/2026-10/10-01-v02-docker-compose/prd.md:5:三形态之一(规划第五节):想 24h 跑的用户 `docker compose up`,同一份 YAML、同一个核心。
+./.trellis/tasks/archive/2026-10/10-01-v02-docker-compose/prd.md:31:- AC『compose up 后按 schedule 自动触发并推送成功(手动验证记录)』未做:需主人在真实环境 docker compose up 并以真实凭据完成一次推送验证记录(涉真实凭据,不代跑)。
+./.trellis/tasks/archive/2026-10/10-01-v02-docker-compose/task.json:4:  "title": "服务端形态:docker compose",
+./.trellis/tasks/archive/2026-10/10-01-v03-plugin-market/prd.md:9:- plugin.yaml 规范:`id` / `requires` / `provides` / `modes.local`(docker compose)/ `modes.remote`(endpoint + keychain token)/ `install` / 版本矩阵(兼容 myia 版本范围)
+./.trellis/tasks/archive/2026-10/10-04-hermes-cron/implement.md:59:  - 复查修补 2026-10-04 落地:双语页 + README 双区文档表行 + tests/test_docs.py `BILINGUAL_PAGES` 收录(六页);docker compose 改 command 注记(Q7)随 §5 行为注记入页
+./.trellis/tasks/archive/2026-10/10-01-v01-pipeline-orchestrator/prd.md:25:- 服务端常驻(v0.2 docker compose)复用同一编排层,不另写调度
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/prd.md:24:   - docker compose 起本机 searxng(官方镜像);settings.yml 开 json
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/prd.md:103:      colima 共享路径坑;README 链外引擎行+开源致谢清单各 +1 行;
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/prd.md:125:- 问题:自托管 docker 前提。做法:主人整体放行,排队第 4;探查段用本机 docker compose 先行验证(不依赖主人服务器),部署上生产才需主人侧 docker;AGPL 服务消费判例在档。
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/evidence/2026-10-06-impl-realrun.md:3:实例:本机探查栈 http://127.0.0.1:8888(colima docker,searxng-core +
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/task.json:28:  "notes": "由 v12-backlog 池第 10 项拆出;硬前置=主人愿跑自托管 docker;不做公共实例代理(明禁 API 滥用) | 放行回执:问题:自托管 docker 前提。做法:主人整体放行,排队第 4;探查段用本机 docker compose 先行验证(不依赖主人服务器),部署上生产才需主人侧 docker;AGPL 服务消费判例在档。 | blocked 回执(2026-10-05 探查段):本机 docker 前置未满足——Docker.app 已卸载(/Applications 无应用,/usr/local/bin/docker 悬空符号链接,无 docker.sock/colima/podman/orbstack,逐项探查证据在 research.md §0),按 prd.md:63-64 AC 门控降级:research.md 已按官方文档取证写成草案(GitHub searxng/searxng master:settings.yml/webapp.py/webutils.py/result_types/limiter.py+官方 docs,接口形状/json 开启步骤/分页/错误三态/限流默认 false 口径全落,含两处 prd 纠偏:分页参数是 pageno 非 p、日期字段是 publishedDate 非 publisheddates),全程标注「未实测,docker 前置未满足」,真跑补齐清单在 research.md §8(装回 Docker Desktop 后照单执行);引擎实现零代码零提交未动(探查过了另批)。 | 探查段回执(2026-10-06,docker 解锁 colima 29.8.2 后 §8 清单全项真跑):①官方 compose 原样起栈(~/.searxng-probe,SEARXNG_PORT=8888,镜像 2026.10.4+d48c4b555)+healthz 200+/config(limiter 默认 false,261 引擎 82 启用);②缺省参数实快照两态=general 默认类 0 结果(全新实例弱池 9 引擎+本机出口受限,288 bytes 空态快照)/categories=web 55 条(71907 bytes 实快照,§2.2/§2.3 契约 23 键全中+images 附加键 6 个+publishedDate 全 null+template 过滤必要性实证);③三态全命中=format 未激活 403(Flask HTML 非 JSON,csv 同,零上游)/缺 q 400 {\"error\": \"No query\"}/引擎全灭空 results 200/pageno=2 增量 55→62 条(55 新 URL);④limiter 两态定案=默认 false 直连,开 true+valkey 后裸 curl 429(连 /config 都拦)、httpx 默认头 429、仅补 Accept-Language 即 200(python-httpx UA 不拦);⑤language=zh-CN 接受(全程 200,naver/google cse 中文结果);⑥四词示例集(舆情×2/竞品×1/事件×1=55/60/65/65 条)前 3 条脱敏落档;⑦20 条入库截图随实现批(prd.md:62-64 AC 门控)。evidence 六件:2026-10-06-probe-log/limiter-states/config-final/search-default-general-zero/search-web-zhcn/query-set。关键部署坑入档:colima 只共享家目录,/tmp 下 bind mount 是 VM 本地空目录→entrypoint 模板重建 settings→json 静默关→403(迁家目录即好)。挂点定案 research §9:请求形状加 categories=web+常发 Accept-Language 头+template=default.html 过滤+逐词 pageno=1+interval≥1800s 串行+去重走既有 url metric(实测同 URL 异标题会重出);结论=探查通过实现段就绪,续本档第二段不立新档,开工前置=registry.py 与 10-06-ai-news-sources 在途件错峰(urlwatch 注册行未提交,research §7 注记);生产部署留主人服务器(research §9-5:同法起栈+出口冒烟+MYIA 改 base_url/env 指向);本机实例留运行(终态 json 开+limiter 关+bing 启用)供实现批 20 条入库复用。 | 附笔(ad19a9a 后复核):探查批写作时 registry.py 带 10-06 在途 urlwatch 注册行未提交,提交时复核对方已收口(registry.py:130 已落库,工作树干净),错峰前置已满足,实现批可直接开工(动文件前例行 git status 复核共享工作树)。 | 实现段回执(2026-10-06,AC1-6 全勾,档维持 in_progress 待归档收口):engines/searxng.py 链外注册(registry ENGINE_REGISTRY+searxng 行,AUTO_CHAIN 不进;BaseEngine 形态,REQUIRES_EXTRACT=False+pagination 单页拒);请求形状=research §9-1 定案逐字(GET /search?q&format=json&language=zh-CN&safesearch=1&pageno=1&categories=web+常发 Accept-Language);base 三级解析=源级 searxng_base_url>env MYIA_SEARXNG_URL>缺省 http://127.0.0.1:8888(firecrawl 先例,明文非凭据);条目映射=template=default.html 过滤+缺 url/title 跳过+publishedDate 非空透传;错误面=403 指settings.yml/429 指limiter 口径/400 与5xx 透传 error 字段/transport=实例未起/坏JSON=json_decode+searxng_payload_malformed;礼貌=逐词串行+词间 query_delay 缺省 3s(engine_options 可覆写)+per-host 限速,run 间隔≥30min 建议落文档。schema:ENGINES/EngineName+searxng,SourceConfig 装载期 queries 必填校验(missing_searxng_queries/invalid_searxng_query 结构化)。plugins/searxng.yaml 骨架可载缺省不启用(不进装机 OFFICIAL_CATEGORY_YAMLS,头注含起栈+§9-5 生产注记)。UI 零改动零新面(引擎徽章=字符串动态渲染无枚举面,grep 全 UI 复核;装机徽章随下批)。测试 tests/engines/test_searxng_engine.py 19 用例(MockTransport 零外网,夹具=实快照 55 条形状);真跑 AC=临时品类 3 词两轮:轮1 127 条入库(items 表 127≥20)+轮2 fetch 122 净增 8(url 去重幂等实证),证据 evidence/2026-10-06-impl-realrun* 四件,临时件已收零生产污染。docs:zh/en zero-cost §5 新节(compose 模板实测口径+AGPL 边界+colima 坑)+zh/en schema.md 词表+SKILL.md 三处(词表/§4.1 链外段/源级扩展参数)+README 两处(链外引擎行+致谢清单)。gitnexus impact(动前):ENGINE_REGISTRY/EngineName 上游 impacted=0 均 LOW;detect-changes 例行未跑(提交流单文件 --only)。门禁:定向 pytest 1327 passed/39 skipped+ruff check 绿(format 漂移 registry/schema 两文件为 HEAD 基线既有非本流引入,如实记);vitest 未跑=UI 零改动。未尽:生产部署复验留主人服务器(research §9-5);桌面装机徽章像素随下批装机件。",
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/research.md:3:> **状态:已实测(2026-10-06 colima 解锁后 §8 清单真跑落 evidence,结案)。**
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/research.md:5:> §0 五步探查回执)→ 2026-10-06 docker 解锁(brew colima+docker+compose,
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/research.md:17:> = **2026.10.4+d48c4b555**(colima docker 29.8.2/29.5.2,aarch64)。
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/research.md:25:2026-10-05 深夜五步探针(receipt 在 81d5110 版 §0):docker/colima/podman/
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/research.md:27:docker 解锁后实测可用态:`docker info` Client 29.8.2(Context: colima)/
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/research.md:28:Server 29.5.2(colima VM aarch64,4CPU/8GiB/60GiB),`docker compose
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/research.md:31:**坑①(colima 部署陷阱,生产注记)**:最初按计划把 compose 目录放
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/research.md:32:`/tmp/searxng-probe`——bind mount 源路径在 macOS `/tmp`,而 **colima 默认
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/research.md:36:一切 `format=json` 403。迁移到 `~/.searxng-probe`(家目录=colima 默认
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/research.md:37:共享)后即刻正常。Docker Desktop 无此问题;凡 docker-in-VM(colima/
+./.trellis/tasks/archive/2026-10/10-05-source-searxng/research.md:57:docker compose up -d
+./.trellis/tasks/archive/2026-10/10-02-v11-low-plugins/prd.md:23:evidence: 条目 7:plugins/monitor.yaml:29 注释已如实改「MANUALLY kept in sync with plugin.modes.remote.endpoint above (no auto-resolve mechanism: two places to edit)」;条目 8:四 README 的 compose 命令已统一为 `docker compose -f docker/plugins/<id>/compose.yml`(docker/plugins/ 下四份 compose.yml 我 ls 实存,仓库根照抄可执行,优于原定 cd plugins/<id> 修法——PRD 依赖批注预见由 source-arch 代偿),maxun README:43 有 `cd docker/plugins/myia-maxun`;改动全为文档,插件测试 290 passed 佐证零运行时影响。
+./.trellis/tasks/archive/2026-10/10-01-myia-v02-usable/prd.md:39:- [ ] `docker compose up` 后按 schedule 自动跑并推送
+./.trellis/tasks/archive/2026-10/10-02-v11-plugins-source-arch/task.json:5:  "description": "主人 2026-10-02 定调:插件源码应经 git 链接下载进 plugins/ 并被桌面应用直接使用,而非 docker compose 包装;重新分级六场景件",
+./.trellis/tasks/10-06-ai-news-sources/prd.md:42:- 前置一:自部署 RSSHub(docker compose 在库)——本机 Docker 已卸载,主人装回 Docker Desktop 或指自有服务器;探查段可先文档取证(同 searxng 草案法)
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:5:把「Firecrawl 自托管兜底」从**设计默认**变成**实测在案**:docker compose
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:27:   - docker compose 起自托管实例(本机);健康探针;
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:60:      `docker compose up -d --build` 六容器全 Up(api 3002 就绪探针首探即
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:67:      `docker compose up -d`(镜像已建成)。
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:95:      双语的「本机未实测」标注已翻转为「2026-10-06 本机 colima docker
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:127:  无 colima/podman/lima/orbstack 任何替代运行时,仅剩 vmnetd 残留进程。
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:155:- **前置变化**:前序步骤完成 A 项 docker 解锁(brew 装 colima/docker/
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:156:  docker-compose 并 colima start);本轮 00:56 亲验 `docker info`(Client
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:157:  29.8.2/Server 29.5.2,context colima)+`colima status`(running,
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:164:  (docker-compose.yaml:33),三行模板仍有效;`docker compose up -d
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:168:  `docker compose down --remove-orphans` 清场零残留;镜像缓存+/tmp
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:195:  窗口续跑 `docker compose up -d --build` 可免重下。
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:201:- **路线**:按主人令走「镜像前缀拉取+docker tag 回原名」(零 daemon/colima
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/prd.md:204:  首拉 759s 未完系**并行 searxng 线 `colima stop` 连带停了共享 colima VM**
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/official-selfhost-sources.md:14:- 起法三步:装 Docker → 根目录建 `.env` → `docker compose build` +
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/official-selfhost-sources.md:15:  `docker compose up`;实例落在 `http://localhost:3002`。
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/selfhost-run-20261006.md:4:「镜像前缀拉取 + docker tag 回原名」路线(不动 daemon/colima 配置)完成起栈
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/selfhost-run-20261006.md:15:- `docker.1ms.run/library/golang:1.24`:首拉 759s 未完(12:15 colima VM 被并行
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/selfhost-run-20261006.md:16:  searxng 线 `colima stop` 连带停机——host agent 日志 SIGINT 优雅停机实锤,非崩
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/selfhost-run-20261006.md:27:- 12:19 `docker compose up -d --build` 首发(api 构建至 Step 14/41 挂:容器内
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/selfhost-run-20261006.md:60:  `docker compose up -d --force-recreate api playwright-service` 后同请求
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/selfhost-run-20261006.md:115:  均带注释与日期);.env 仍为官方三行模板。复验同法可直接 `docker compose
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/build-timeout-20261006.md:5:colima,compose 5.6.0),`colima status` = running(macOS
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/build-timeout-20261006.md:18:cd /tmp/firecrawl-e2e && docker compose up -d --build   # 后台 + exit 文件法
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/build-timeout-20261006.md:34:| 00:58:51 | `docker compose up -d --build` 后台起(build.start 时间戳) |
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/build-timeout-20261006.md:54:- 处置:TaskStop 终止;`docker compose down --remove-orphans`(exit=0,
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/build-timeout-20261006.md:57:  (含 .env 三行)均保留**——colima VM 不删,复验时 `docker compose
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/build-timeout-20261006.md:64:- 本轮新增事实:docker 前置已解锁(colima 在跑);瓶颈转为 docker hub
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/task.json:5:  "description": "grill 核查发现 engines/firecrawl.py 已默认自托管端点(127.0.0.1:3002)且在降级链——真实缺口=从未对真自托管实例跑通+无指引。本档=docker compose 真跑 3-5 站 vs Zenrows 基线+部署文档;预期零代码,缺口才另立适配档。AGPL 服务消费边界。",
+./.trellis/tasks/10-05-firecrawl-selfhost-verify/task.json:27:  "notes": "由 v12-backlog 池第 10 项缩水而来(池原口径『自托管面未探』半数已不成立);前置=可跑 docker | 放行回执:问题:自托管 docker 前提。做法:主人整体放行,排队第 5(验证型零代码预期);本机 compose 真跑先行,主人服务器复验 AC manual。 | 2026-10-05 实施回执:本机 docker 前置不满足(Docker Desktop 已卸尽=坏符号链接+无 socket+无替代运行时,五步探针录 evidence/docker-unavailable-probe.txt)→ 按档走 blocked 分支:AC3 指引面照写交付(README 双语节+zero-cost §4 双语镜像,官方 SELF_HOST.md 逐句模板+AGPL 边界句同 RSSHub 先例+cloud-only 缺口不美化,均标『本机未实测』,提交 8b40ac1);AC1/AC2 真跑与 vs Zenrows 对照留主人服务器(复验法=zero-cost §4 末注记);零代码零适配需求(引擎 /v1/scrape 与上游 index.ts app.use v1 源码级同构,佐证在档非真跑);AC4 按档内条款豁免全量代码门禁(纯文档+evidence),定向门禁亲跑 pytest test_docs+test_firecrawl 127 passed 1 skipped;doctor 连通项按『真跑证明有价值才加』未做。 | 2026-10-06 回执(docker 解锁后真跑尝试再受阻):前置已解锁——前序 A 项装 colima/docker/compose 并启动,本轮 00:56 亲验 docker info(Client 29.8.2/Server 29.5.2)+colima status running,blocked 原始理由消除,按 zero-cost §4 模板逐字起栈(官方仓 --depth 1 克隆 /tmp/firecrawl-e2e+.env 三行+compose up -d --build 后台+exit 文件法,上游漂移核对过:USE_DB_AUTHENTICATION=false 仍必设且 compose 引用在);45 分钟(时间盒 20+延长 20+缓冲 3+建栈)拉层未完=docker hub 大层 ~50KB/s 级,117 层完成含 foundationdb 1.53GB,node/rabbitmq/redis 完整,playwright 浏览器层 95.42/112.9MB 未完,api 本地 build 未及开始 → 按纪律 TaskStop+docker compose down --remove-orphans 清场零残留,镜像缓存+/tmp 克隆保留备复验续跑;AC1/AC2 真跑仍留主人服务器,档维持 blocked,瓶颈从『无 docker』迁移为『docker hub 拉层带宽』;站单四站+robots 亲取+两份临时品类 YAML 过 schema 真载(备复验直接用);Zenrows 凭据实查不在位(env 无 ZENROWS*+~/.myia/gates.yaml 不存在=saas.zenrows 门槛未开)→ vs Zenrows 对照无论实例起否均留主人;本轮零代码零产品文档改动,AC4 定向门禁复跑 uv run --no-sync pytest tests/test_docs.py tests/engines/test_firecrawl.py -q=127 passed 1 skipped 与基线一致;详录 evidence/build-timeout-20261006.md。 | 2026-10-06 回执三(镜像前缀路线真跑全绿,档置 review):按主人令走 CN 镜像前缀拉取+docker tag 回原名(零 daemon 配置改动)——docker.1ms.run 首个实测可用(postgres:17 166MB/5s≈33MB/s vs 上轮 docker hub ~50KB/s;golang:1.24 首拉 759s 未完系并行 searxng 线 colima stop 连带停共享 VM,复起续拉 17s 完);起栈三曲折全过(容器内 github TLS 瞬断重试过/无 buildx 走 classic builder 剥 Dockerfile --mount=/npm CDN 降速加 pnpm 耐心参数 780/780 过,均 /tmp 克隆内外科修零仓库改动);13:23 六容器全 Up+readiness 首探 200 {status:ok}。最大发现=宿主 clash fake-ip 在 TUN 层劫持所有 UDP53(容器强制 --dns 仍回 198.18.x.x),firecrawl 双 SSRF 守卫按 RFC 保留段拒连→全站 500;解法=alidns DoH 取真 IP+compose extra_hosts 钉给 api/playwright-service,force-recreate 后全通(主人服务器无 fake-ip 无此坑,对策已入 zero-cost §4 注记)。AC1 闭:MYIA_FIRECRAWL_URL 指实例 myssia test 四站全 ok(引擎零改动),JS 重站渲染内容 md/html 双证,五份全长样本落 evidence/scrape-samples/;AC2 闭(基线=static_html+trafilatura 非 Zenrows 按放行口径,Zenrows 数字对照留主人):JS 站 1574 字 vs 0 条/HN 18285 vs 4101/TC 20709 vs 305,免费链 crawl4ai 功能等位注记在档;API 兼容零缺口(v1 面参数+失败结构双向亲证)维持不另立适配档。README 双语节+zero-cost §4 双语「未实测」标注翻转为实测通过+国内网络三坑注记;定向门禁 127 passed 1 skipped 与基线逐字一致;收尾 compose down 六容器清场镜像 5.2GB+留存(复验 docker compose up -d 秒级)。详录 evidence/selfhost-run-20261006.md。",
+./.trellis/tasks/10-06-native-plugin-components/research/review-fixes.md:28:4. **MEDIUM zero-cost §5 docker compose 残留** → zh/en §5 照 §4 终裁口径改写:
+./.trellis/tasks/10-06-native-plugin-components/research/review-fixes.md:29:   删 curl/docker compose up 命令块、colima 实测句、docker-in-VM 注记;改两条路
+./.trellis/tasks/10-06-native-plugin-components/research/review-fixes.md:34:5. **LOW searxng 403 文案** → 删「docker compose restart core」,改部署形态
+./.trellis/tasks/10-06-native-plugin-components/research/review-fixes.md:36:   → 20 passed;`grep -rn 'docker compose restart' src plugins` 零命中。
+./.trellis/tasks/10-06-native-plugin-components/prd.md:21:| Docker 栈 | **已拆**:colima delete + 孤儿盘清除,回收 20G(926G 盘 86%→84%);10-05-firecrawl-selfhost-verify 的「复验留存镜像 5.2GB」随主人清理令同灭 | 本机 df 实测;该档 task.json 回执三 |
+./.trellis/tasks/10-06-native-plugin-components/prd.md:22:| 违例存量 | ①`plugins/searxng.yaml` 头部「本机 docker 起栈三步」指引(与新令冲突)②crawl4ai 装机态 `dependency_missing`(desktop lock extras 裁定悬置,llm 先例)③schema v1.7 plugin 双模式的 local docker compose 侧 | searxng.yaml:1-25;ai-news-sources 档 bc6dece;schema.py:1540-1600 |
+./.trellis/tasks/10-06-native-plugin-components/prd.md:70:- Docker Desktop 本就卸载(10-05 探针在案);colima 已删(2026-10-06)
+./.trellis/tasks/10-06-native-plugin-components/design.md:45:- `REQUIRES_TOKENS = ("docker",)` → `()`(机制保留词表空,未来新 token 零阻力);schema.py:25 的 v1.7「双模式 local docker compose / remote」描述同步改写。
+./.trellis/workspace/xinzhuzi/journal-1.md:616:- 全量门禁注记(收口在干净 worktree f64c0ef 重跑):pytest 全量 3964 passed/32 skipped/2 failed——两红均外来域如实分类不拦本批:①docker composes「恰好七件」断言红=plugin-market 批二 0195806/7df322b/66ace59 增三 compose 未随测试(该线修复正以未提交形态在主树,预期集恰增 crawlab/worldmonitor/webcheck);②SKILL.md 枚举表红=60e2f52 schema.ENGINES 增 zenrows/scraperapi 未随文档(该提交 stat 无 skill 文件)。白名单域全绿:tests/push 1088(15.12s exit 0)、ruff All checks passed、vitest 全量 23 文件 433 全过、npm run build(tsc+vite)exit 0。批内锚:d613310 收编时全量 3935 过。
+./.trellis/workspace/xinzhuzi/journal-1.md:725:- 五档落地(prd+task.json 双件,planning):`10-05-push-apprise`(P2:extras 通道+target 凭据引用多目标串+未装=send-time 结构化拒+doctor finding 不惊扰未配置用户+json:// 磁盘 sink 离线真跑验证法)/`10-05-push-bark`(P2:零依赖十行级,group=MYIA 防刷屏,自建 endpoint 可选,与 apprise 翻案条件互记)/`10-05-source-searxng`(P2:两段式探查先行=json 开启+接口快照+限流口径,AGPL 服务消费判例,queries 多词+礼貌间隔≥1800s+既有 url metric 去重)/`10-05-firecrawl-selfhost-verify`(P2:验证型零代码预期,docker compose 真跑 3-5 站 vs Zenrows 基线+cloud-only 缺口如实+部署指引)/`10-05-cron-heartbeat`(P1:告警族 cron_stale 类型=executions 账本只读+auto 阈值 2×期望间隔 fail-fast+冷静期/冷却沿 engine 既有零新状态机+协议加法可选零 bump+消息屏表单/fired 卡/跳 cron 屏,a11y 沿 ui-chore-batch spec 第 7 条)。
+./.trellis/workspace/xinzhuzi/journal-1.md:755:- 终态=完成 2/受阻 2(如实)/失败 0,四档全循 trellis(实施→脚本四门禁 world.run 分支→独立复核只读→发现修一轮→收口入档):**cron-heartbeat 接线批+复核处置批**(8be9904+b67dea8:entry 载荷门放行 kind/params+视图透传/pipeline._heartbeat_pass 账本解析器注入/协议文档加法注记零 bump;复核两条真发现全修=①job_id 精确模式此前「收而不用」被盯单任务停摆遭同品类健康掩蔽——解析器两参化+dedup 前缀带 job_id+文案点名任务+新 5 例,AC1 过度声明在档更正 ②executions.db 缺位时 _connect 自建库违反只读红线——db_path.exists() 守卫+目录清单前后一致零足迹断言);**push-bark 全量**(208a599+8ba0285:通道/注册/schema/UI 下拉+Device Key 预设位/13 用例/文档对账六件,review 态,真推 AC4 manual 留主人)。**searxng/firecrawl 双双 blocked 于 docker 前置**(本机 Docker Desktop 已卸尽:坏符号链接+无 socket+无 colima/podman/orbstack,五步探针在档)——searxng 产 research.md 草案全官方源取证并纠正 prd 两笔误(pageno/publishedDate);firecrawl 按档走 docs 分支(README 双语+zero-cost §4 镜像,官方模板+AGPL 边界+cloud-only 清单,均标本机未实测,8b40ac1+28ef46f),真跑留主人 docker 机器。
+./.trellis/workspace/xinzhuzi/journal-1.md:757:- 工程课:①工作流复核修一轮后不重跑全量门禁=脚本盲区,收官主会话亲跑补上;②禁触清单运行时动态取经受住考验(并行线同窗又落 dashboard-glance 两笔+residual-sweep,零撞);③docker 前置探查要全链(命令不在 PATH≠没装:坏符号链接/socket/colima/orbstack 逐项)。
+./.trellis/workspace/xinzhuzi/journal-1.md:765:- **并行线同窗大进展(不属本流,如实记)**:colima/docker 已装!searxng-core/valkey 容器在跑(source-searxng 档推进中);firecrawl 档再尝试=45 分钟拉层 ~50KB/s 未完降级清场(blocked 理由从「无 docker」迁移为「docker hub 带宽」,已拉 2.4GB 层缓存备续跑);urlwatch 内容过滤根治(ca7efc0)+ai-news 测试轮(2f0e17d:12 源 953 条/enrich 装机缺 openai extras 缺口实证/推送凭据双空=装机件从未推成——owner_left 新增)。未推 4 笔均并行线在途,不代推。
+./.trellis/workspace/xinzhuzi/journal-1.md:771:- 四流终态:①**docker 解锁**(零仓库改动)=brew 用户态零 sudo 装 lima 2.2.1+colima 0.10.3+docker 29.8.2+compose 5.6.0(compose 5.x=v2 系插件架构后继,流程若硬编码 grep 'v2' 会误判,记档),VM 4C/8G/60G 稀疏盘实占 1.4G;四冒烟判据亲跑全过(colima running/docker info Server 29.5.2 Ubuntu 24.04.4/hello-world「Hello from Docker!」/compose version);插曲=镜像内置 resolv.conf 悬空符号链接 DNS 拒绝,colima --dns 实测不落 guest,VM 内写实修复(可弃 VM 内零宿主 sudo;colima delete 重建需重做,一行命令在回执)。②**apprise 独立验证**(本流零写仓)=对方并行流已自行交付 65e1b96+0d9380b,本流转验证:prd 五维亲读全符+离线真跑补强(/tmp/apprise-e2e venv 装成 extras,本地 listener 收双 json:// 目标 2 份 POST:card_title 映射+bark 版式+多目标广播);定向 pytest/ruff/vitest 双轮亲绿;全量唯一红 test_skill_doc 枚举表缺 urlwatch=对方在途瞬态,归因在档。③**firecrawl 真跑再试**(ea95886,档维持 blocked)=docker 解锁后按 zero-cost §4 逐字起栈,45 分钟拉层 ~50KB/s 未完按纪律 TaskStop 降级+compose down 清场零容器残留;瓶颈从「无 docker」迁为「docker hub 带宽」;镜像缓存 2.4GB+/tmp 克隆保留备续跑免重下;AC4 定向门禁 127 passed 1 skipped 与基线逐字一致。④**searxng 探查段结案**(ad19a9a+edecfd0,fetch 后亲核已在 origin/main)=~/.searxng-probe 官方栈 §8 清单全项真跑(healthz/config 261 引擎 82 启用/契约骨架 23 键全中/categories=web 55 条/pageno=2 增量/三态全命中/limiter 定案=常发 Accept-Language+template 过滤/zh-CN 接受面/四词 55-65 条脱敏);关键坑=colima 只共享家目录,/tmp bind mount 空目录致 json 静默关 403;research.md 已实测结案+task.json in_progress,实现段续本档不立新档;实例留跑供实现批复用。
+./.trellis/workspace/xinzhuzi/journal-1.md:788:- 清场:searxng 探查栈 compose down、colima VM stop(续跑 firecrawl 时 colima start 即回,resolv.conf 写实跨 stop/start 保留)、三个心跳沙盘残留 serve 进程精确按库路径击杀(生产 sidecar 零误伤)。
+./src/myssia/schema.py:1582:    docker compose 交付形态;删除面已核零迁移 —— 全部 manifest 零使用
+
+--- [2] 装机件(Resources=myssia-src+plugins+resources):同型 docker 启动路径 ---
+Binary file /Applications/世事.app/Contents/Resources/myssia-src/myssia/__pycache__/schema.cpython-312.pyc matches
+/Applications/世事.app/Contents/Resources/myssia-src/myssia/schema.py:1582:    docker compose 交付形态;删除面已核零迁移 —— 全部 manifest 零使用
+
+--- [3] plugins/ 内 compose: 字段(AC5 判据)---
+(零命中)
+装机件 plugins:
+(零命中)
+
+--- [4] docker/plugins/ 目录(AC5 判据:应不存在)---
+README.md
+docker-compose.yml
+env.example
+ls: /tmp/myia-pkg-verify/docker/plugins: No such file or directory
+
+--- [5] schema REQUIRES_TOKENS 词表(应为空)---
+250:REQUIRES_TOKENS: tuple[str, ...] = ()
+250:REQUIRES_TOKENS: tuple[str, ...] = ()
+
+--- [6] 白名单:产品自身 server 形态(不属插件面,保留;README 节已拆)---
+-rw-r--r--  1 zhengbingjin  wheel  3335 Oct  6 19:49 /tmp/myia-pkg-verify/docker/docker-compose.yml
+1:# Docker 部署(世事 服务端形态)
+3:三形态之一:想在服务器/NAS 上 24h 跑的用户 `docker compose up`,同一份插件 YAML、同一个核心(容器内就是 APScheduler 定时,不引 n8n/Kestra 等编排平台)。
+5:> v1.1 插件层架构转向:桌面路径(默认)**零 docker** —— 插件以源码/
+8:> (docker-compose.yml + Dockerfile);插件一律不提供 docker 模式
+15:# 1. 准备凭据文件(docker/.env 已被 .gitignore 忽略,严禁提交)
+16:cp docker/env.example docker/.env
+17:vi docker/.env                      # 填入 FEISHU_* 等;按需增删条目
+23:docker compose -f docker/docker-compose.yml up -d --build
+
+--- [7] searxng.yaml 头部(本机 docker 三步指引应已退役)---
+# plugins/searxng.yaml — SearXNG 关键词日报示例骨架(10-05-source-searxng)。
+#
+# 【缺省不启用】本件是示例骨架,不在装机包随包清单(自托管服务属主人
+# 运维面,同 RSSHub/Firecrawl 判例):装机不会把它补种到数据根,只有你
+# 显式 `myssia run plugins/searxng.yaml`(或手动复制到数据根并按需改)
+# 才会跑。跑之前必须先有一个开了 json 接口的自托管 SearXNG 实例 ——
+# 公共实例明禁 API 滥用(robots /*?*q=* 全禁搜索请求),只走自托管。
+#
+# 【实例从哪来(插件零 docker 模式,终裁 2026-10-06)】两条路,按部署形态二选一:
+# ① 本机原生服务组件(2026-10-06 已落地,壳服务轨):设置 → Python 运行环境 →
+#   可选组件「关键词日报(SearXNG)」行装组件后「启动」——服务监听
+#   127.0.0.1:8888(json 接口已由壳生成的 settings.yml 开启,随机 secret
+#   自动落盘),缺省 base 无需改任何配置即可用;装好默认停,启停只走设置卡
+#   按钮,引擎跑源未启动会结构化提示去设置页(不隐式拉起)。
+# ② 外部已部署实例(主人服务器/自有机器):源级 `searxng_base_url` 或 env
+#   `MYIA_SEARXNG_URL` 指过去即可。自己部署 SearXNG 属主人运维面,配方与
+#   步骤一律见上游官方文档(https://docs.searxng.org/ 运维项由上游文档负责,
+#   我方不复刻配方;json 接口开启的关键是 settings.yml 的
+#   `search.formats: [html, json]` 覆盖,详见上游 docs)。
+#
+
+--- [8] 判读结论(2026-10-06 装机验证轮)---
+插件面(src/ plugins/ desktop/ docs/README 产品交付面)docker 启动路径:零命中 ✓
+  · schema.py:1582 = compose 字段「已删」的 docstring 说明文字,非启动路径
+  · plugins/ `compose:` 零命中(净室+装机件双验)
+  · docker/plugins/ 目录不存在(docker/ 下仅 README.md、docker-compose.yml、env.example)
+  · REQUIRES_TOKENS = ()(净室 schema.py:250 与装机件 schema.py:250 一致)
+  · searxng.yaml 头部 = 本机原生服务组件(设置卡启停)+ 外部实例 remote 两条路,docker 三步指引已退役
+装机件唯一 docker 字样 = schema.py 删除说明 docstring + 其运行时 pyc(19:59 本轮 sidecar 从新源编译产生,strings 仅 docstring 字串;净室源树经 clean:pycache 零 pycache,tauri beforeBuildCommand 亲证)
+白名单(服务器配方,语义已改,保留):
+  · docker/README.md + docker/docker-compose.yml + docker/Dockerfile = 产品自身 server 形态;README 头部明示「桌面路径(默认)零 docker」「插件一律不提供 docker 模式」
+  · docs/zh|en/getting-started、cron、launch/*、README 特性表 = 服务器/NAS 部署形态指引(指向 docker/docker-compose.yml),非本机插件面
+  · .trellis/tasks/** 与 workspace 期刊 = 任务历史档/过程记录(含本档 prd/design 自身),非产品交付面

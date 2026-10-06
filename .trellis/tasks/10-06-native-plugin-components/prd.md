@@ -35,15 +35,17 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 归面总表在档:全插件 ×(旧形态/新形态/动作/验证法),零游离项
-- [ ] AC2 searxng 原生通路:装机态真源 json 查询真跑通,状态在设置卡/doctor 可见
-- [ ] AC3 crawl4ai 收编:装机态 render 链真跑,`dependency_missing` 消除
-- [ ] AC4 firecrawl remote 归面:市场/doctor/文档三处一致,本机零 Node 服务端、零进程残留
-- [ ] AC5 插件 docker 模式全删落地:schema compose 侧/词表/配方/注释/文档五处一致,`grep -r 'compose:' plugins/` 零命中、`docker/plugins/` 目录不存在;产品 server 形态保留未动
-- [ ] AC6 门禁:pytest / vitest / tsc / build / docs 全绿
-- [ ] AC7 装机包刷新 + 静默换装 + 像素级验证(doctor/组件卡截图证据,local-ocr 链)
-- [ ] AC8 零 Docker 终验:全仓 + 装机件 grep 无本机 docker 启动路径(服务器配方除外,语义已改)
-- [ ] AC9 设置页四轨可操:轨A/B/C/D 各至少一件在装机 UI 亲验(装/卸/启停/remote 配置+探活),像素证据并入 AC7;桌面路径零 CLI 依赖
+- [x] AC1 归面总表在档:全插件 ×(旧形态/新形态/动作/验证法),零游离项
+- [x] AC2 searxng 原生通路:装机态真源 json 查询真跑通,状态在设置卡/doctor 可见
+- [x] AC3 crawl4ai 收编:装机态 render 链真跑,`dependency_missing` 消除
+- [x] AC4 firecrawl remote 归面:市场/doctor/文档三处一致,本机零 Node 服务端、零进程残留
+- [x] AC5 插件 docker 模式全删落地:schema compose 侧/词表/配方/注释/文档五处一致,`grep -r 'compose:' plugins/` 零命中、`docker/plugins/` 目录不存在;产品 server 形态保留未动
+- [x] AC6 门禁:pytest / vitest / tsc / build / docs 全绿
+- [x] AC7 装机包刷新 + 静默换装 + 像素级验证(doctor/组件卡截图证据,local-ocr 链)
+- [x] AC8 零 Docker 终验:全仓 + 装机件 grep 无本机 docker 启动路径(服务器配方除外,语义已改)
+- [x] AC9 设置页四轨可操:轨A/B/C/D 各至少一件在装机 UI 亲验(装/卸/启停/remote 配置+探活),像素证据并入 AC7;桌面路径零 CLI 依赖
+
+> 勾选回执(2026-10-06 收尾轮):AC1-AC9 全勾,逐条证据与命令回执见 `reports/run-report.md`(收尾轮亲跑:全量门禁六路、AC5/AC8 grep 净室+装机件、五条实流程;阶段轮回执:阶段1-4 commits + evidence/ 装机证据链)。
 
 ## 决议(2026-10-06 主人终裁,原 grill 五问)
 

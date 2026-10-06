@@ -1,0 +1,15 @@
+转录：
+
+渲染抓取后端(Firecrawl) myssia-firecrawl 1.0.0 remote 未装
+能力:render_fetch
+
+remote 端点配置(云端或自有服务器;写数据根,经 env 通道桥接给引擎) 未配置
+https://api.firecrawl.dev 或 https:///<你的服务器>
+API 键(留空 = 保持现值;保存即入系统钥匙串)
+保存配置 探活
+
+凭据只入系统钥匙串(keychain:myia/firecrawl/api-key),配置与日志零明文;env MYIA_FIRECRAWL_URL 保留为开发后门(显式设置恒优先)。
+
+结论：
+
+无文字重叠、溢出卡片边界或行尾截断。底部最下一行文字“显式设置恒优先)。”完整显示，未被窗口边缘切掉。
