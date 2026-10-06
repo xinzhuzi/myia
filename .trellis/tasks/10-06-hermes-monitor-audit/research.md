@@ -47,3 +47,23 @@
 - 生产实跑旁证:app 内调度器今晨 08:00:44 真实触发 AI资讯 job 并 08:02:41 完成(账本/ticker 戳亲核)——cron 系统**非沙盘、在装机态真实运转**;坍缩补发/账本/心跳戳与沙盘结论一致。
 - 残留 heartbeat-evidence serve 复查:5 进程在跑(并行会话在途,非本档产物,维持不动)。
 - 沙盘未覆盖两项如实重申:时钟回拨注入(审计缺陷 3)、flock>30s 降级并发写(缺陷 4)——修缺陷时一并做,不单独模拟。
+
+## §5 九缺陷处置表(2026-10-06 主人令「做完剩下的问题」;处置主体=并行 Hermes 流,本流让行后验证收编)
+
+> 让行记:本流开工探针(12:22)即见 cron 面在途改动引用本任务编号体系 → 按并行协调协议零编辑让行,mtime+git-status 双探针 150s 节奏监测;对方 12:30:21 最后前进、12:45:22 达 15 分钟安静阈值后本流转收编验证岗。九条**全部**由并行流交付(代码 e8d7801,回执另落 prd.md 尾 a2cf49e,门禁垫片 4e97a40),本流对照 §2 逐条亲核代码+亲跑门禁,无遗留缺口需本流补。
+
+| # | 处置 | 测试 | 提交 | 交付方 |
+|---|------|------|------|--------|
+| 1 | **已修**:per-writer 心跳戳集 `ticker_writers/<host>-<pid>`(jobs.py),任一同机活写者即活+顺手清死同胞/24h 超期戳,age 取全写者最新鲜;遗留单 marker 回落兼容,cli.py status 判读零改自动受益(pid 存活+新鲜窗方向) | test_cron_jobs.py 3 例:双写者死一活一判活/清死同胞保异机/最新鲜龄 | e8d7801 | 并行交付,本流验证 |
+| 2 | **已修**:claim_is_live 负时长容忍(−FIRE_CLAIM_TTL 300s 容差内视为活);远未来仍 stale「永不楔死」红线不变,owner 证死仍立失效 | test_cron_jobs.py 2 例:回拨 −4min 认领保持/远未来 1h 仍可回收 | e8d7801 | 并行交付,本流验证 |
+| 3 | **已修(双管)**:store.py 临界区读基线+落盘戳不匹配 ⇒ 字段级 3-way 合并(我方 diff 覆写/他方未触字段保留/整行恢复照旧/同字段我方赢);jobs.py 认领心跳写节流(TTL/2=150s,60s 节奏 2-3 跳落一次盘)削写放大 | test_cron_store.py 4 例(他方字段存活/同字段我方赢/删除不复活/整行恢复)+ test_cron_jobs.py 节流 1 例,owner_scoped 随契约更新 | e8d7801 | 并行交付,本流验证 |
+| 4 | **注记收口**:tick() docstring 就地落「锁覆盖同步派发期/长 job 他宿主静默/坍缩为一发 F1.4」设计语义知悉,不做异步派发翻修(主人令允许缓解+文档) | —(文档) | e8d7801 | 并行交付,本流验证 |
+| 5 | **注记收口**:fail-open 取向保留;WARNING+exc_info 留痕于 HEAD 既有(occurrences.py `Cannot check completed occurrence`),docstring 补裁决依据(重发代价=多跑一轮幂等管线,反向=射点无声消失) | 既有面由 test_cron_occurrences.py 覆盖 | e8d7801 | 并行交付,本流验证 |
+| 6 | **注记收口(defer)**:无活宿主时无人杀孤儿子进程属定义性边界;收紧需子进程侧 ppid/death-signal 自监视(pipeline 域,darwin 无可移植 death-signal),cron 域不翻修;新宿主首 tick killpg+账本 unknown 是现存兜底 | —(文档) | e8d7801 | 并行交付,本流验证 |
+| 7 | **已修**:Stage A no-op 占位桩移除,缺 `execute_job` 的 `tick()`/`run_ticker_loop()` 一律 ValueError(serve/CLI/sidecar 三宿主均已注入 CronRunner);假成功面归零 | test_cron_tick.py 2 例:缺 runner 契约(无假成功/预算不耗/槽不吞/账本空)+循环 fail fast;原桩契约测试随之更新 | e8d7801 | 并行交付,本流验证 |
+| 8 | **最小修+注记**:手编垃圾 claimed_at 的 julianday→NULL 失序,列表/游标/窗口三处 COALESCE(-1) 定序为确定「最老」;全表删旧与窗口子查询按 1000 行终态帽注记知悉(排序面钉死亚毫秒) | test_cron_executions.py 1 例:垃圾戳恒垫底+游标翻页可达+窗口 latest 不受染 | e8d7801 | 并行交付,本流验证 |
+| 9 | **已修**:扫描失败写专用 `heartbeat_scan_last_error` marker(与 ticker_last_error 死活面分立互不染),成功一扫即清;`cron status` JSON 键 `heartbeat_scan_error`+人读告警行双面可见 | test_cron_jobs.py 生命周期 1 例+test_cron_tick.py 循环隔离/清面 2 例+test_cli.py CLI 契约 1 例 | e8d7801 | 并行交付,本流验证 |
+
+**本流验证门禁(2026-10-06 12:47 亲跑)**:`uv run --all-extras pytest tests/cron tests/alerts tests/cli/test_cli.py -q` → **463 passed in 29.44s**;`uv run --all-extras ruff check src/myssia/cron/ src/myssia/cli.py tests/cron/ tests/cli/test_cli.py` → All checks passed;`ruff format --check` 同面 12 文件会重排,与 HEAD~1 基线计数**完全一致**(e8d7801 零新增格式漂移,沿 2022bd9 在案先例)。
+
+**本流操作事故披露(已闭环)**:基线比对期间一次 `git stash --keep-index --include-untracked` 误卷并行会话在途件;逐文件比对后全部复原——push 面 7 文件 stash 内容与 f299432 已提交内容逐字节一致(零丢失)、ai-news.yaml 未提交块恢复原位(` M` 态回归并行国产流预期形态)、hermes 流垫片 package.json 恢复后与 4e97a40 HEAD 一致(零损伤);stash 栈已清空。
