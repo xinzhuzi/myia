@@ -3,7 +3,7 @@
   "name": "telegram-telethon",
   "title": "Telegram 接入:Telethon 原生+链接者架构",
   "description": "主人令(2026-10-06):①GitHub TG 件调研全记录(PTB 29.5k★ bot API 线/Telethon 11k★ MTProto userbot 线/TrendRadar 62k★ 同物种对标/tgcf 过滤转发/RSSHub 路由),均有参考意义;②尤其 Telethon=本软件要做:userbot 引擎(账号 session 读任意已加入群,bot 进不去的群也覆盖),凭据入钥匙串;③其他插件一律走「设置里下载组件→配置→使用」(照自管 Python 环境/插件市场组件轨既有判例),不改上游源码——主人架构定调:「我们做链接者,不做源码修改者」;④公开频道 t.me/s 线已就绪(telegram-channels.yaml)。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "research.md(四类件调研+链接者定调)与 prd.md(三阶段:bot 线手搓/Telethon 原生/组件化件+AC5+边界)齐;等主人三决策点(bot 四步/小号验证码/TrendRadar 拆解)后 start。",
+  "notes": "Grill 七决议全按推荐回写(Q1=B1-B3 立即开工/Q2 首群 mihomo/Q5 即时≥8分/Q6 桌面常驻优先);执行代理已派 B1-B3;主人前置=bot 四步与(可选)小号验证码。",
   "meta": {}
 }
