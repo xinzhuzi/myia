@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/python/error-handling.md", "reason": "远取失败词表(plugin_fetch_failed/integrity_mismatch 等)的结构化错误形态照此规范"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "plugins.bundled.* RPC 契约面;批2 改 _m_plugins_bundled_install 三岔编排须守协议形态"}
+{"file": ".trellis/spec/domain/security-baseline.md", "reason": "sha256 校验/tar 解包防穿越/暂存清残的安全基线"}
+{"file": ".trellis/spec/python/quality.md", "reason": "新核心模块 src/myssia/plugins/remote.py 的质量与全 mock 测试纪律"}
