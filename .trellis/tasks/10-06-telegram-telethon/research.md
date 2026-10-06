@@ -43,3 +43,12 @@ RSSHub(46k★)telegram 路由(与 X 线共用同一部署,一鱼两吃);RSS-Brid
 - 公开频道线:plugins/telegram-channels.yaml(t.me/s 网页预览,durov 样例已真跑 20 条入库;等频道清单挂调度);
 - 合并日报「Telegram 频道」分区已配(daily-digest.yaml);
 - 情报流渠道分组+分型呈现 UI 在途(10-06-feed-channel-groups)。
+
+## §4 TrendRadar 专项拆解启示(2026-10-06,全文见 10-06-trendradar-scan/prd.md)
+
+> §1-③ 点名的 62k★ 同物种件已专项拆解(zread 亲读 config/frequency_words.txt/timeline.yaml/fetcher.py/pyproject.toml/LICENSE + gh api 双验)。对本档的直接启示:
+
+1. **TG 在 TrendRadar 只是推送出口,不是采集源**:telegram 仅出现在 `config.yaml notification.channels`(bot_token/chat_id,Bot API);依赖清单零 telethon/pyrogram,采集面= newsnow 热榜聚合 API + RSS(feedparser)两类。→ **「TG 群/频道作为情报来源」在头部竞品是空位,Telethon 引擎级(本档主线)是差异化能力,无对标可抄,D1/D2 自定调设计无翻案压力**。
+2. 它把 TG Bot 当推送通道的形态(多账号分号分隔、token/chat_id 配对)——MYIA `push/telegram.py` 已有等价物,push 渠道 ~40 对其 9,零增量。
+3. **许可证红线**:TrendRadar = GPL-3.0(LICENSE 亲读),MYIA = MIT——**一行代码都不能借**(GPL 传染 + 链接者铁律双重禁);可借的只有设计思想(其热榜源清单/关键词 DSL/三态报告节奏已拆解落 trendradar-scan 档)。
+4. **旁路可链**:其热榜真上游 newsnow(ourongxing/newsnow,22k★)是 **MIT**——未来若扩热榜品类,链 newsnow API/自部署即可,不必碰 GPL 的 TrendRadar。
