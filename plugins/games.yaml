@@ -130,9 +130,10 @@ sources:
         #    仍只属限免——GOG 限免判定继续走 sale_price/normal_price 析取;
         # 3. 基线:numeric_value 拒 str(只收 int/float),美元字符串不写
         #    final_price 人民币分基线,vs_yesterday 不受污染。
-        # 已知代价(与大折扣规则对 CS 条目的既有噪音同类,可接受):digest
-        # 路由 when `final_price > 0` 对字符串 TypeError → 按不命中 → 保守
-        # 缺省 digest,落点与今天完全一致,仅逐条 WARNING 日志。
+        # 路由类型守卫(10-06 日志降噪轮):digest 路由 when 原裸
+        # `final_price > 0` 对字符串 TypeError → 按不命中 → 逐条 WARNING 刷
+        # 屏(实测单轮 142 条警告的主体);已改 float(final_price or 0)——
+        # 落点逐条等价(美元串>0 命中 digest、缺失落保守缺省),求值不再抛。
         final_price: "$[*].salePrice"   # 美元元字符串("0.50"),仅作 dedup 键价格态;显示/规则/基线均不消费(见上论证)
     # 无 pagination:pageSize=20 单请求全量(每日 1 请求,不需要 {page} 翻页)
     rate_limit:                 # 礼貌档(同 Epic/Steam)
@@ -229,20 +230,24 @@ classify:                       # 零 token 第一漏斗;游戏标题不落七�
     # 到正式免费日被吞,限免 immediate 失效;修法=dedup 键带价格态,免费日
     # final_price 变 0 即新键入库,immediate 照常落地。预告不是现在能领的,
     # 路由不设 immediate(final_price>0 天然落 digest)。
+    # 类型守卫(10-06 日志降噪轮,照「限免」规则既有写法):缺失字段/异型
+    # 值在 None→0、缺 savings→-1 后干净求值,落点与原先「求值失败按不命中」
+    # 逐条等价——差在全期每条 WARNING 刷屏消失(实测 142 条警告的主体)。
     - name: 下周免费
-      when: "upcoming_pct >= 100"
+      when: "(upcoming_pct or 0) >= 100"
       tag: 下周免费
     - name: 大折扣
-      when: "discount_pct >= 50"
+      when: "(discount_pct or 0) >= 50"
       tag: 半价+
     # v3 决议④:CheapShark 美元折扣源——savings 是字符串 %("97.057092"),
-    # float() 是规则白名单函数;缺字段整条让路(float(None) 求值失败按
-    # 不命中),Epic/Steam 条目无 savings_pct 天然无感,零归一成本共存。
+    # float() 是规则白名单函数;缺字段走 or "-1" 让路(与原 float(None)
+    # 求值失败按不命中同落点),Epic/Steam 条目无 savings_pct 天然无感,
+    # 零归一成本共存。
     # 路由不加 immediate:CS 全落 digest(digest 无 items 排序,日报顺序=
     # 源到达序,跳楼价排在 Epic/Steam 之后,并非置顶);immediate 仍只属
     # 限免(决议④路由零改动)。
     - name: 多店大折扣
-      when: "float(savings_pct) >= 50"
+      when: 'float(savings_pct or "-1") >= 50'
       tag: 多店半价+
 
 dedup:
@@ -282,7 +287,7 @@ push:
       # when 与 classify 限免规则逐字一致(None 守卫 rationale 见彼处注释)
       - when: 'final_price == 0 or (discount_pct or 0) >= 100 or (float(sale_price or "-1") == 0 and float(normal_price or "-1") > 0)'   # 喜加一即推
         mode: immediate
-      - when: "final_price > 0"                           # 普通折扣进日报
+      - when: "float(final_price or 0) > 0"               # 普通折扣进日报(守卫:美元串/缺失干净求值,落点同旧)
         mode: digest
     # 四源字段形态并存(wrap):价格优先 price_text(Epic "¥60.00"/"0" 直出),
     # Steam 无该字段退 final_price/100(分 → 元),CS/GOG 条目走美元段
@@ -317,7 +322,7 @@ push:
       # (when 逐字与 classify 限免规则一致,None 守卫 rationale 见彼处注释)
       - when: 'final_price == 0 or (discount_pct or 0) >= 100 or (float(sale_price or "-1") == 0 and float(normal_price or "-1") > 0)'   # 喜加一即推
         mode: immediate
-      - when: "final_price > 0"                           # 普通折扣进日报
+      - when: "float(final_price or 0) > 0"               # 普通折扣进日报(守卫:美元串/缺失干净求值,落点同旧)
         mode: digest
     template: |
       游戏情报 · {{ date }}
