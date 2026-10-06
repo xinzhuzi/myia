@@ -54,7 +54,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 
 | schema 常量 | 取值 |
 |---|---|
-| `ENGINES` | `auto` `direct_api` `static_html` `crawl4ai` `firecrawl` `scrapling` `stealth_browser` `llm_browser` `credhunter` `scraperapi` `zenrows` `reddit` `urlwatch` |
+| `ENGINES` | `auto` `direct_api` `static_html` `crawl4ai` `firecrawl` `scrapling` `stealth_browser` `llm_browser` `credhunter` `scraperapi` `zenrows` `reddit` `urlwatch` `searxng` |
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
@@ -97,7 +97,9 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `retry` | `3` | 瞬时错误重试预算(0-10) |
 
 源级扩展参数:未知键(如 `symbols: [NVDA, AAPL]`)原样传给引擎——URL 里的
-`{symbol}` 占位符按列表逐值扇出(一值一请求);`engine_options.<引擎名>` 是
+`{symbol}` 占位符按列表逐值扇出(一值一请求);`engine: searxng` 的源级
+`queries: [关键词列表]` 是其根配置(装载期强制非空字符串列表,逐词一页构
+成关键词日报);`engine_options.<引擎名>` 是
 引擎旋钮命名空间(如 `engine_options.firecrawl.endpoint`、
 `engine_options.static_html.extract_fallback`(trafilatura 兜底单源开关,
 布尔,非布尔值 fetch 期结构化拒))。扩展参数里的凭据类键同样禁明文。
@@ -341,6 +343,22 @@ client_secret` 走 `env:`/`keychain:` 引用,未配 = 该源显式空态
 `ua_username`(Reddit 条款 UA 建议段;缺省不带,隐私取舍)。robots 面说明:
 Reddit 两宿主 robots 全禁爬虫,但官方口径 robots.txt 面向搜索引擎、不适用
 Data API 授权用户——引擎不查 robots,`.rss`/`.json` 直抓路线仍被禁(勿配)。
+
+**链外自托管搜索引擎 `searxng`**(不在上表层级里):SearXNG 自托管元搜索
+聚合的**关键词日报**——与订阅式源互补的搜索式情报(竞品名+发布/事件词+
+进展)。源级 `queries: [关键词列表]` 逐词一页(`GET {base}/search?q=<词>
+&format=json&language=zh-CN&safesearch=1&pageno=1&categories=web`,
+`categories=web` 是实测定案的大池);只收 `template=default.html` 行,
+缺 url/title 坏行跳过;去重走 `{url}`(同 URL 不同标题实测会重复出现);
+extract/pagination 一律不收(单页语义)。**不参与 auto 降级链**(显式
+`engine: searxng` 才生效);零凭据(queries 明文非凭据可直接落 YAML)。
+base 三级解析:源级 `searxng_base_url` > env `MYIA_SEARXNG_URL` > 缺省
+`http://127.0.0.1:8888`(源 url 仅身份标识不参与请求)。**只走自托管
+实例**(公共实例 robots `/*?*q=*` 全禁搜索请求,明禁 API 滥用);起栈
+= 官方 compose 三步 + settings.yml 开 `search.formats: [html, json]`
+(模板见 `plugins/searxng.yaml` 头注与 docs/zero-cost §5)。礼貌:逐词
+串行+词间 3s 引擎内置,run 间隔建议 ≥30 分钟;错误面 403=实例未开 json
+format(查 settings.yml)、连接拒绝=实例未起,均为源级结构化失败。
 
 经验法则:先看页面源码——搜得到数据写 L2,搜不到找 API 走 L1,都 JS 化才 L3;
 拿不准就 `engine: auto`,用 `myssia test --json` 看实际选中引擎(`engine` 字段)。

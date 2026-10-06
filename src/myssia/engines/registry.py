@@ -128,6 +128,12 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # myssia-urlwatch 场景件 adapter(快照对比),changed/new→条目、
     # unchanged=合法空态;单页语义拒 pagination;只支持 proxy: direct。
     "urlwatch": lambda: _load("urlwatch", "UrlwatchEngine"),
+    # 自托管元搜索引擎(10-05-source-searxng):链外同 credhunter 先例 ——
+    # 显式 engine: searxng 才生效,auto 永不路过;关键词日报(源级
+    # queries 列表逐词一页),base 三级解析(源级 searxng_base_url /
+    # env MYIA_SEARXNG_URL / 缺省 127.0.0.1:8888),零凭据;只消费自托管
+    # 实例的 json 接口(公共实例明禁 API 滥用,robots 红线在档)。
+    "searxng": lambda: _load("searxng", "SearxngEngine"),
 }
 
 # Static typing view of the registry (class names resolved lazily at runtime).

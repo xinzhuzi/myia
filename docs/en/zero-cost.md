@@ -233,6 +233,68 @@ Boundaries, stated plainly:
   deploying, run `uv run myssia test <category>.yaml --json` against one
   JS-heavy site; a healthy response completes the re-verification.
 
+## 5. Self-hosted SearXNG: keyword digests (zero dollars)
+
+Search-style intelligence (competitor + launch, event + progress) rides the
+off-chain `searxng` engine — a self-hosted
+[SearXNG](https://github.com/searxng/searxng) metasearch aggregate, one
+official docker compose stack (core + valkey, ~340MB of images combined),
+zero dollars, search traffic aggregated through your own instance.
+**Self-hosted only**: public instances' robots.txt bans every search
+request (`/*?*q=*`) and API abuse is explicitly forbidden. This section's
+template was verified locally on 2026-10-06 (colima docker, instance
+2026.10.4; a 55-result web-pool snapshot is on file).
+
+```bash
+mkdir -p ./searxng/core-config/ && cd ./searxng/
+curl -fsSL -O https://raw.githubusercontent.com/searxng/searxng/master/container/docker-compose.yml \
+           -O https://raw.githubusercontent.com/searxng/searxng/master/container/.env.example
+cp -i .env.example .env && echo 'SEARXNG_PORT=8888' >> .env
+# ./core-config/settings.yml (search.formats is the ONLY addition over the template):
+#   use_default_settings: true
+#   search:  { formats: [html, json] }
+#   server:  { secret_key: "<random string>" }  # limiter stays default-off (recommended for a dedicated instance)
+docker compose up -d
+curl http://127.0.0.1:8888/healthz        # OK = alive; format=json answering 403 = settings.yml not in effect
+```
+
+MYIA wiring needs zero changes: the engine's built-in default base is
+`http://127.0.0.1:8888`; point it elsewhere only for a remote instance
+(environment variable, or the per-source `searxng_base_url`):
+
+```bash
+export MYIA_SEARXNG_URL=http://127.0.0.1:8888   # the default value; only needed for non-standard ports / remote hosts
+```
+
+A keyword-digest category (queries are plaintext non-credentials — safe in YAML):
+
+```yaml
+id: zero-cost-searxng
+name: self-hosted search digest demo
+schedule: "0 8 * * *"
+sources:
+  - name: keyword-watch
+    engine: searxng
+    url: "http://127.0.0.1:8888"    # identity only; the request base comes from searxng_base_url / the env var
+    queries:
+      - "artificial intelligence regulation"
+      - "data breach disclosure"
+push:
+  - channel: stdout
+```
+
+Honest boundaries: the **AGPL boundary** follows the Firecrawl/RSSHub
+precedent — MYIA consumes it purely as a service (HTTP API calls), zero
+source copying; its code must never be vendored into this repository (MIT).
+For docker-in-VM setups (colima/lima), the compose directory must live on a
+path the daemon shares (the macOS home directory; a `/tmp` mount silently
+loses settings.yml, json silently turns off, and every format=json answers
+403). Politeness: serial per-query fetching with a built-in 3s inter-query
+delay; keep run intervals ≥30 minutes. Politeness toward the upstream
+search providers is borne by the SearXNG aggregation layer (its own
+circuit breaking). Full deployment notes and a skeleton live in the
+`plugins/searxng.yaml` header comment.
+
 ## Red lines and habits
 
 - **Quotas move**: every number above is a snapshot from 2026-10-03 —

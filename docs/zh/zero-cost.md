@@ -194,6 +194,60 @@ push:
   docker)——服务器部署后 `uv run myssia test <品类>.yaml --json` 挑一个
   JS 重站跑一遍,应答正常即为复验通过。
 
+## 5. 自托管 SearXNG:关键词日报(零美元)
+
+搜索式情报(竞品名+发布、事件词+进展)走链外 `searxng` 引擎——自托管
+[SearXNG](https://github.com/searxng/searxng) 元搜索聚合,官方 docker
+compose 一套(core+valkey,镜像合计 ~340MB),零美元、搜索流量经你自己的
+实例聚合。**只走自托管**:公共实例 robots `/*?*q=*` 全禁搜索请求、明禁
+API 滥用。本节模板 2026-10-06 在本机 colima docker 实测通过(实例
+2026.10.4,55 条 web 池实快照在档)。
+
+```bash
+mkdir -p ./searxng/core-config/ && cd ./searxng/
+curl -fsSL -O https://raw.githubusercontent.com/searxng/searxng/master/container/docker-compose.yml \
+           -O https://raw.githubusercontent.com/searxng/searxng/master/container/.env.example
+cp -i .env.example .env && echo 'SEARXNG_PORT=8888' >> .env
+# ./core-config/settings.yml(官方模板基础上只加 search.formats——json 开启就这一处):
+#   use_default_settings: true
+#   search:  { formats: [html, json] }
+#   server:  { secret_key: "<随机串>" }     # limiter 不写 = 默认关(自托管专用建议保持)
+docker compose up -d
+curl http://127.0.0.1:8888/healthz        # OK 即活;format=json 若 403 = settings.yml 未生效
+```
+
+世事 接线零改动:引擎内置缺省 base 就是 `http://127.0.0.1:8888`,部署到
+远程机器才需要指环境变量(或源级 `searxng_base_url`):
+
+```bash
+export MYIA_SEARXNG_URL=http://127.0.0.1:8888   # 即缺省值,仅非标准口/远程机需要
+```
+
+关键词日报品类(queries 明文非凭据,可直接落 YAML):
+
+```yaml
+id: zero-cost-searxng
+name: 自托管搜索日报演示
+schedule: "0 8 * * *"
+sources:
+  - name: keyword-watch
+    engine: searxng
+    url: "http://127.0.0.1:8888"    # 身份标识;实际请求 base 见 searxng_base_url / 环境变量
+    queries:
+      - "人工智能 监管"
+      - "数据泄露 事件 通报"
+push:
+  - channel: stdout
+```
+
+边界如实记:**AGPL 边界**同 Firecrawl/RSSHub 先例——世事 只以服务消费
+(HTTP API 调用)接入,零源码复制;不可把其代码 vendor 进本仓库(MIT)。
+docker-in-VM(colima/lima 类)注意 compose 目录必须放守护进程可见共享路径
+(macOS 家目录;`/tmp` 挂载会静默丢 settings.yml,json 静默关闭一切
+format=json 403)。礼貌:逐词串行+词间 3s 引擎内置,run 间隔建议
+≥30 分钟;上游搜索源的礼貌由 SearXNG 聚合层统一承担(自带熔断)。完整
+部署注记与示例骨架见 `plugins/searxng.yaml` 头注。
+
 ## 红线与习惯
 
 - **额度会变**:上表所有数字为快照 2026-10-03,以各官网为准。免费层是营销手段,

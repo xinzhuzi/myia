@@ -169,6 +169,10 @@ ENGINES = (
     # 官网页面变更监控引擎(10-06-ai-news-sources):链外 + 零凭据;显式
     # engine: urlwatch 才生效,消费 myssia-urlwatch 场景件(快照对比)。
     "urlwatch",
+    # 自托管元搜索引擎(10-05-source-searxng):链外 + 零凭据;显式
+    # engine: searxng 才生效,源级 queries 列表逐词一页(关键词日报),
+    # base 三级解析(searxng_base_url / env MYIA_SEARXNG_URL / 缺省)。
+    "searxng",
 )
 PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
@@ -233,6 +237,7 @@ EngineName = Literal[
     "zenrows", "scraperapi",
     "reddit",
     "urlwatch",
+    "searxng",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]
 ExtractType = Literal["list", "item", "json_path", "rss"]
@@ -872,6 +877,34 @@ class SourceConfig(BaseModel):
                     f"未知字段 {key!r} 疑似已知字段 {close[0]!r} 的拼写错误"
                     f"(源级扩展参数保留,但已知字段拼错会被引擎静默忽略)",
                     path_suffix=str(key),
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _check_searxng_queries(self) -> "SourceConfig":
+        """``engine: searxng`` 的源级 ``queries`` 必填校验(10-05-source-searxng).
+
+        关键词日报的查询词列表是本引擎的根配置(prd:逐词一页);漏写的话
+        运行期才结构化失败,不如装载期即拒。逐词校验非空字符串 —— 空词/
+        空白词发到实例只会换一个 400。其余引擎不受影响(``queries`` 是开放
+        扩展命名空间的一员,URL 模板占位符等既有消费照旧)。
+        """
+        if self.engine != "searxng":
+            return self
+        queries = (self.model_extra or {}).get("queries")
+        if not isinstance(queries, list) or not queries:
+            raise SchemaValueError(
+                "missing_searxng_queries",
+                "engine 为 searxng 时必须提供源级 queries: [关键词列表]"
+                "(非空字符串列表;逐词一页构成关键词日报)",
+                path_suffix="queries",
+            )
+        for index, item in enumerate(queries):
+            if not isinstance(item, str) or not item.strip():
+                raise SchemaValueError(
+                    "invalid_searxng_query",
+                    f"queries[{index}] 应为非空字符串关键词,当前为 {item!r}",
+                    path_suffix=f"queries[{index}]",
                 )
         return self
 

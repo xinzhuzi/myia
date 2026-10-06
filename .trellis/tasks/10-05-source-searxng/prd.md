@@ -68,12 +68,51 @@
 
 - [x] AC1 探查:research.md 含接口快照+json 开启步骤+限流口径(真跑)。
       (勾选依据见尾部「探查段收口注记」——research §1/§2.3/§5/§8 全真跑)
-- [ ] AC2 引擎:六用例绿;去重走既有 metric;礼貌间隔在位。
-- [ ] AC3 schema/YAML:queries 校验;示例骨架缺省不启用。
-- [ ] AC4 UI:徽章+模板+文案像素回执。
-- [ ] AC5 门禁:pytest/vitest/ruff 全绿;协议对账零漂移(零 sidecar 面)。
-- [ ] AC6 部署指引:README/zero-cost 一节一句话+compose 模板(服务消费
+- [x] AC2 引擎:六用例绿;去重走既有 metric;礼貌间隔在位。
+      (实现段 2026-10-06:tests/engines/test_searxng_engine.py 19 用例全绿
+      ——六用例底=55 条实快照形状解析(70=2 词×35 default.html)/空态
+      不炸/固定 pageno=1+pagination 拒/坏 JSON 结构化错(403 文案指
+      settings.yml+json_decode+payload_malformed)/base 三级解析缺省
+      127.0.0.1:8888+env 覆盖/礼貌参数(逐词串行+词间 3s delay 断言);
+      去重真跑实证=轮 2 fetch 122 条净增仅 8(url metric 短路);礼貌=
+      词间 delay+per-host 限速引擎内置,run 间隔 ≥30 分钟建议落 YAML 注释
+      与文档。)
+- [x] AC3 schema/YAML:queries 校验;示例骨架缺省不启用。
+      (schema.ENGINES/EngineName +searxng;SourceConfig 装载期校验
+      engine=searxng 时 queries 必填非空字符串列表(LoadError 结构化
+      missing_searxng_queries/invalid_searxng_query);plugins/searxng.yaml
+      骨架可载、不进装机包 OFFICIAL_CATEGORY_YAMLS 清单=缺省不启用,
+      头注含起栈三步+research §9-5 生产注记。)
+- [x] AC4 UI:徽章+模板+文案像素回执。
+      (grep 全 UI 面:源管理引擎「徽章」=引擎字符串动态渲染
+      (sources-table.tsx font-mono,reddit/urlwatch/credhunter 均无专属
+      枚举面),searxng 自动显示零改动;yaml-editor 模板面=后端最小品类
+      模板单一来源,无按引擎模板列表既有面——**按任务令「勿造新面」零
+      UI 改动**,人话文案落 plugins/searxng.yaml 注释与 SKILL/zero-cost;
+      桌面装机徽章随下批(同 prd「装机件:装机包随下批」口径)。)
+- [x] AC5 门禁:pytest/vitest/ruff 全绿;协议对账零漂移(零 sidecar 面)。
+      (定向门禁:pytest tests/engines+test_schema+test_skill_doc+
+      test_docs+tests/plugins=1327 passed/39 skipped;ruff check 全绿
+      (format 漂移两文件为基线 HEAD 既有,非本流引入,如实记不卷入);
+      vitest 未跑=UI 零改动零新面;文档守卫 test_skill_doc/test_docs 135
+      绿=SKILL/zh/en 词表同步零漂移。)
+- [x] AC6 部署指引:README/zero-cost 一节一句话+compose 模板(服务消费
       零代码复用,AGPL 边界声明同 RSSHub 先例)。
+      (docs/zh+en zero-cost.md 新增 §5 自托管 SearXNG:compose 模板
+      (2026-10-06 本机实测口径)+接线零改动+可载示例 YAML+AGPL 边界+
+      colima 共享路径坑;README 链外引擎行+开源致谢清单各 +1 行;
+      SKILL.md §4.1 链外引擎段+§2.1 词表+源级扩展参数段三处同步;
+      zh/en schema.md ENGINES 词表 +searxng。)
+
+## 真跑回执(实现段,2026-10-06)
+
+- 本机探查栈复用(127.0.0.1:8888,healthz OK);临时品类(3 查询词)
+  `myssia run --db <临时库>` 真跑两轮:轮 1 **item_count=127 条入库**
+  (items 表 127,≥20 AC 门过,零 failures);轮 2 fetch 122 条净增 8
+  ={url} 去重幂等实证。证据四件:evidence/2026-10-06-impl-realrun.md
+  (-1.json 78KB 全量/-2-dedup.json/-category.yaml);截图口径=--json
+  机器输出+items 计数替代(UI 零新面,装机徽章随下批)。临时品类/库
+  已收,零生产污染。
 
 ## 边界与红线
 

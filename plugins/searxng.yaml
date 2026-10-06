@@ -1,0 +1,76 @@
+# plugins/searxng.yaml — SearXNG 关键词日报示例骨架(10-05-source-searxng)。
+#
+# 【缺省不启用】本件是示例骨架,不在装机包随包清单(自托管服务属主人
+# 运维面,同 RSSHub/Firecrawl 判例):装机不会把它补种到数据根,只有你
+# 显式 `myssia run plugins/searxng.yaml`(或手动复制到数据根并按需改)
+# 才会跑。跑之前必须先有一个开了 json 接口的自托管 SearXNG 实例 ——
+# 公共实例明禁 API 滥用(robots /*?*q=* 全禁搜索请求),只走自托管。
+#
+# 【自托管起栈(本机 docker,官方 compose 三步)】
+#   mkdir -p ./searxng/core-config/ && cd ./searxng/
+#   curl -fsSL -O https://raw.githubusercontent.com/searxng/searxng/master/container/docker-compose.yml \
+#              -O https://raw.githubusercontent.com/searxng/searxng/master/container/.env.example
+#   cp -i .env.example .env && echo 'SEARXNG_PORT=8888' >> .env
+#   # ./core-config/settings.yml 两行关键覆盖(其余继承官方默认):
+#   #   use_default_settings: true
+#   #   search: { formats: [html, json] }   # json 开启就这一处
+#   #   server: { secret_key: "<随机串>" }  # limiter 不写 = 默认关(自托管专用建议保持)
+#   docker compose up -d          # core(8888)+valkey 两容器,~1-2 分钟
+#   curl http://127.0.0.1:8888/healthz   # OK 即活;format=json 返回 403 = settings 没生效
+#
+# 【生产部署注记(主人服务器,research §9-5)】同法起栈即可;docker-in-VM
+# (colima/lima 类)注意 compose 目录必须放守护进程可见共享路径(macOS
+# 家目录,Docker Desktop 无此限制 —— /tmp 挂载会静默丢 settings.yml,
+# json 静默关闭一切 format=json 403);服务器出口与本机不同,起栈后用
+# healthz + /config + 一条 categories=web 查询冒烟即可交付;MYIA 侧只改
+# searxng_base_url(或 env MYIA_SEARXNG_URL)指向服务器实例。
+#
+# 语义:自己跑的聚合搜索,按关键词天天给你一页结果差集(去重走 {url},
+# 同 URL 只推一次)。礼貌:run 间隔建议 ≥30 分钟(schedule 已按每日设,
+# 调密也别低于 30 分钟);逐词串行 + 词间延时由引擎内置,上游元搜索的
+# 礼貌由 SearXNG 聚合层承担(其自带熔断),MYIA 不放大。
+
+id: searxng-daily
+name: 关键词日报
+
+# 关键词日报语义:每天一跑,早间一卡;--loop 常驻时生效,桌面单跑不看它。
+schedule: "37 8 * * *"
+timezone: Asia/Shanghai
+
+sources:
+  # 引擎固定打 GET {base}/search?q=<词>&format=json&language=zh-CN
+  # &safesearch=1&pageno=1&categories=web(探查实测定案:categories=web 才是
+  # 大池,缺省 general 类弱引擎弱网可全灭);源 url 是身份标识不参与请求,
+  # 请求 base 三级解析:源级 searxng_base_url > env MYIA_SEARXNG_URL >
+  # 内置缺省 http://127.0.0.1:8888 —— 换实例只改一处,queries 不动。
+  - name: searxng-watch
+    engine: searxng
+    url: "http://127.0.0.1:8888"    # 身份标识;实际请求 base 见 searxng_base_url
+    # searxng_base_url: "http://192.168.1.10:8888"   # 服务器部署后启用此行
+    queries:                          # 关键词列表(明文非凭据,可放心落 YAML)
+      - "人工智能 监管"
+      - "数据泄露 事件 通报"
+      # - "竞品名 发布"
+      # - "事件词 进展"
+    # engine_options:
+    #   searxng:
+    #     query_delay: 3        # 词间延时秒(缺省 3;礼貌垫层,一般不动)
+    rate_limit:
+      qps: 0.5
+      jitter: "2s"
+      backoff: exponential
+    proxy: direct
+    retry: 3
+
+classify:
+  builtin: false                # 搜索结果页不属于七大论坛类,关掉内置扫描直通
+
+dedup:
+  key: "{url}"                  # 同 URL 不同标题会重复出现(实测),url 键去重
+
+push:
+  - channel: stdout             # 零凭据通道起步;接飞书等再改 target
+
+storage:
+  retention: 90d
+  vacuum: monthly

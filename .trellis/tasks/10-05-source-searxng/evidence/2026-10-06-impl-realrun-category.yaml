@@ -1,0 +1,26 @@
+id: searxng-ac
+name: SearXNG 实现段真跑
+schedule: "41 8 * * *"
+timezone: Asia/Shanghai
+sources:
+  - name: searxng-watch
+    engine: searxng
+    url: "http://127.0.0.1:8888"
+    queries:
+      - "人工智能 监管"
+      - "数据泄露 事件 通报"
+      - "苹果 发布会 10月"
+    rate_limit:
+      qps: 0.5
+      jitter: "2s"
+    proxy: direct
+    retry: 3
+classify:
+  builtin: false
+dedup:
+  key: "{url}"
+push:
+  - channel: stdout
+storage:
+  retention: 90d
+  vacuum: monthly
