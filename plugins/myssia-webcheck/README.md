@@ -8,8 +8,9 @@
 
 ## 接入路径(remote:填 endpoint)
 
-1. 自部署:`docker/plugins/myssia-webcheck/compose.yml`(官方镜像
-   `lissy93/web-check`,单服务零凭据,127.0.0.1:3000 回环绑定);
+1. 自部署:按上游仓库 [Lissy93/web-check](https://github.com/Lissy93/web-check)
+   官方部署文档操作(官方镜像 `lissy93/web-check`,单服务零凭据;
+   部署属主人运维面,插件不提供 docker 模式,我方不复刻配方);
 2. 实例地址填进 endpoint(`plugin.modes.remote.endpoint`);
 3. 上游自部署形态无内建鉴权——回环/内网部署自担边界,要暴露到不受信
    网络请自行加反代鉴权(本件不带 token 声明,凭据自管)。

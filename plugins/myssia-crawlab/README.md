@@ -11,9 +11,9 @@ Crawlab 本身就是采集编排平台,与 MYIA 同生态位(盘点表 d 路判�
 不收,收录的唯一形态是「你已有自部署实例要接」的例外通道。门槛 = 自有
 实例,不是物种本身拒绝:
 
-1. 自部署:`docker/plugins/myssia-crawlab/compose.yml`(官方镜像
-   `crawlabteam/crawlab` 官方 quickstart 等价:master+mongo 两服务,
-   127.0.0.1:8080 回环绑定);
+1. 自部署(按上游官方 quickstart/部署文档,官方镜像
+   `crawlabteam/crawlab`;部署属主人运维面,插件不提供 docker 模式,
+   我方不复刻配方);
 2. **实例地址与凭据都填进桌面 设置→门槛件→自有实例 表单**——落点不是
    品类 YAML,是全局 gates.yaml 的 `platforms.crawlab.endpoint` / `token`
    (部署侧启用 API token/反代鉴权才需要凭据;键走设置面规范名

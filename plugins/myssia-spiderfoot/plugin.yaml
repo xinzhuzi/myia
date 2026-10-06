@@ -3,8 +3,8 @@
 # 上游 MIT;但上游不在 PyPI(2026-10-05 实测 no solution)且产品形态是
 # Web 服务(自带 UI+SQLite+扫描任务队列),不可进程化 —— 故本插件只以
 # manifest 声明依赖与文档引用接入(10-05-plugin-market-batch 首批;盘点
-# 表原判 b 路后改判 c 路,理由记档),可用形态 = 已部署实例按 remote 接入,
-# 服务端部署 compose 在仓库 docker/plugins/myssia-spiderfoot/。
+# 表原判 b 路后改判 c 路,理由记档),可用形态 = 任意已部署实例按 remote
+# 接入(部署按上游官方文档,我方不复刻配方)。
 id: myssia-spiderfoot
 name: OSINT 聚合查询台(SpiderFoot)
 version: 1.0.0

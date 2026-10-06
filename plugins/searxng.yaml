@@ -6,24 +6,14 @@
 # 才会跑。跑之前必须先有一个开了 json 接口的自托管 SearXNG 实例 ——
 # 公共实例明禁 API 滥用(robots /*?*q=* 全禁搜索请求),只走自托管。
 #
-# 【自托管起栈(本机 docker,官方 compose 三步)】
-#   mkdir -p ./searxng/core-config/ && cd ./searxng/
-#   curl -fsSL -O https://raw.githubusercontent.com/searxng/searxng/master/container/docker-compose.yml \
-#              -O https://raw.githubusercontent.com/searxng/searxng/master/container/.env.example
-#   cp -i .env.example .env && echo 'SEARXNG_PORT=8888' >> .env
-#   # ./core-config/settings.yml 两行关键覆盖(其余继承官方默认):
-#   #   use_default_settings: true
-#   #   search: { formats: [html, json] }   # json 开启就这一处
-#   #   server: { secret_key: "<随机串>" }  # limiter 不写 = 默认关(自托管专用建议保持)
-#   docker compose up -d          # core(8888)+valkey 两容器,~1-2 分钟
-#   curl http://127.0.0.1:8888/healthz   # OK 即活;format=json 返回 403 = settings 没生效
-#
-# 【生产部署注记(主人服务器,research §9-5)】同法起栈即可;docker-in-VM
-# (colima/lima 类)注意 compose 目录必须放守护进程可见共享路径(macOS
-# 家目录,Docker Desktop 无此限制 —— /tmp 挂载会静默丢 settings.yml,
-# json 静默关闭一切 format=json 403);服务器出口与本机不同,起栈后用
-# healthz + /config + 一条 categories=web 查询冒烟即可交付;MYIA 侧只改
-# searxng_base_url(或 env MYIA_SEARXNG_URL)指向服务器实例。
+# 【实例从哪来(插件零 docker 模式,终裁 2026-10-06)】本机不再起 docker
+# 栈:已部署好的任意实例(主人服务器/自有机器)把地址填给引擎即可 ——
+# 源级 `searxng_base_url` 或 env `MYIA_SEARXNG_URL` 指过去。自己部署
+# SearXNG 属主人运维面,配方与步骤一律见上游官方容器文档
+# (https://docs.searxng.org/ 运维项由上游文档负责,我方不复刻配方;
+# json 接口开启的关键是 settings.yml 的 `search.formats: [html, json]`
+# 覆盖,详见上游 docs)。本机原生(零 Docker)服务组件形态规划中(壳
+# 服务轨,见任务档 10-06-native-plugin-components),落地后此处同步改写。
 #
 # 语义:自己跑的聚合搜索,按关键词天天给你一页结果差集(去重走 {url},
 # 同 URL 只推一次)。礼貌:run 间隔建议 ≥30 分钟(schedule 已按每日设,

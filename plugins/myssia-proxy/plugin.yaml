@@ -3,9 +3,9 @@
 # v1.1 分级 desktop(桌面默认集):适配器 adapter.py 参照上游「fetch → 校验
 # → 取用」思路自实现精简版 —— 进程内一次抓取公开免费代理 + 逐个测活,
 # 零 Redis 零 docker(`myssia proxy --json`);本仓库不复制、不 vendored 上游
-# 任何源码。完整 proxy_pool 服务形态(定时抓取+Redis 池+HTTP API)是服务端
-# 可选路径:compose 在仓库 docker/plugins/myssia-proxy/;已部署实例按 remote
-# 模式填 endpoint。
+# 任何源码。完整 proxy_pool 服务形态(定时抓取+Redis 池+HTTP API)属
+# 服务端部署面:任意已部署实例按 remote 模式填 endpoint(部署按上游
+# 官方文档,插件不提供 docker 模式,我方不复刻配方)。
 #
 # 市场插件包 = 一个目录:plugin.yaml(manifest,规范见 src/myssia/plugins/manifest.py)
 # + README + adapter.py(MYIA 侧适配器)。核心仓库只装声明与文档,装不上

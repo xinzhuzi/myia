@@ -162,38 +162,17 @@ not been verified, so this doc makes no promise about it.
 
 The three paths above cover LLM endpoints; on the fetch side, JS-heavy
 sources riding the L3 `firecrawl` engine can point at a self-hosted backend
-too — one docker compose stack from the official
+too — zero dollars, and rendering traffic never leaves your machine. The
+engine talks plain HTTP (`POST {endpoint}/v1/scrape`), so a running instance
+is a ready L3 rung on the degrade chain.
+
+**Deployment steps and the recipe live in the upstream official
 [self-host guide](https://github.com/firecrawl/firecrawl/blob/master/SELF_HOST.md)
-(API + Playwright rendering + Redis/PostgreSQL/RabbitMQ queues), zero
-dollars, and rendering traffic never leaves your machine. The engine talks
-plain HTTP (`POST {endpoint}/v1/scrape`), so a running instance is a ready
-L3 rung on the degrade chain.
-
-> The template in this section comes verbatim from the official self-host
-  docs and **was verified locally on 2026-10-06** (colima docker: full
-  stack up, readiness probe 200, four sites scraped through the engine —
-  samples and the comparison table live in
-  `.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/selfhost-run-20261006.md`).
-  CN-network notes: when docker hub layer pulls crawl, use the
-  "mirror-prefix pull + `docker tag` back" route (e.g.
-  `docker pull docker.1ms.run/library/node:22-slim` — no daemon config
-  change; measured 33MB/s locally); on hosts without the buildx plugin the
-  classic builder chokes on the Dockerfile's `--mount=type=cache` lines
-  (strip them temporarily — they only speed up repeat builds).
-
-```bash
-git clone https://github.com/firecrawl/firecrawl.git && cd firecrawl
-cat > .env <<'EOF'
-PORT=3002
-HOST=0.0.0.0
-USE_DB_AUTHENTICATION=false   # self-host runs with auth off (trusted networks only); API keys are cloud-only
-EOF
-docker compose up -d --build
-curl http://127.0.0.1:3002/v0/health/readiness   # readiness probe → {"status":"ok"}
-```
-
-Wiring 世事 needs zero code: the engine's built-in default endpoint is the
-standard port `http://127.0.0.1:3002`; set the variable only for a
+(SELF_HOST.md: an API + Playwright rendering + Redis/PostgreSQL/RabbitMQ
+queue stack) — we do not replicate the recipe here** (server-side deployment
+is the owner's ops domain; the upstream doc is the single authoritative
+source). Wiring 世事 needs zero code: the engine's built-in default endpoint
+is the standard port `http://127.0.0.1:3002`; set the variable only for a
 non-standard port or a remote machine:
 
 ```bash
@@ -233,15 +212,13 @@ Boundaries, stated plainly:
   features. Basic scrape (Fetch + Playwright rendering → markdown/html) is
   in the stack and exactly covers what the L3 fallback needs (the engine
   consumes only those two formats).
-- **Resources and re-verification**: the official stack caps the api
-  container at 4 CPUs / 8GB RAM — size lighter machines accordingly; the
-  default stack ships no auth and no TLS, so a public deployment needs
-  hardening (reverse proxy + strong PostgreSQL credentials + a changed
-  `BULL_AUTH_KEY`). This section was verified locally on 2026-10-06
-  (colima docker; `uv run myssia test <category>.yaml --json` green across
-  four sites including a JS-heavy one). On fake-ip proxy setups, pin real
-  IPs via `extra_hosts` on api/playwright-service — see
-  evidence/selfhost-run-20261006.md §3 for the playbook.
+- **Resources and hardening**: the official stack caps the api container at
+  4 CPUs / 8GB RAM — size lighter machines accordingly; the default stack
+  ships no auth and no TLS, so a public deployment needs hardening (reverse
+  proxy + strong PostgreSQL credentials + a changed `BULL_AUTH_KEY`). The
+  degrade-chain contract (dead service degrades gracefully, cloud/self-host
+  drop-in) is documented and evidenced in the
+  `src/myssia/engines/firecrawl.py` module docstring.
 
 ## 5. Self-hosted SearXNG: keyword digests (zero dollars)
 

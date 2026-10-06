@@ -8,9 +8,9 @@
 
 > v1.1 瘦身:MYIA 的**内置变更指纹**(ETag/Last-Modified/内容哈希 +
 > L1-L4 降级链)已覆盖桌面主场景 —— 不装本插件,品类照常跑(铁律)。
-> 本插件只是把 watch 托管、变更历史与推送决策交给一张自托管
-> changedetection.io 实例的可选集成;本地 compose 已撤,实例部署走仓库
-> `docker/plugins/myssia-monitor/`(服务端可选)。
+> 本插件只是把 watch 托管、变更历史与推送决策交给一张已部署的
+> changedetection.io 实例的可选集成;实例部署按上游官方文档(插件
+> 不提供 docker 模式,我方不复刻配方)。
 
 ## 桌面路径(默认,零 Docker)
 
@@ -42,18 +42,13 @@ myssia secret set myia/monitor/token     # 粘贴 API access key(UI Settings →
   经 L1 `direct_api` 调 `GET /api/v1/watch`(鉴权头 `X-Api-Key`)。
 - 实例不可达/token 缺失 → 结构化 warning,品类照常跑(铁律)。
 
-## 服务端形态(可选,不在桌面路径)
+## 实例从哪来(部署属主人运维面,我方不复刻配方)
 
-自托管 changedetection.io 实例是**服务端可选**部署:compose 在仓库
-`docker/plugins/myssia-monitor/`,桌面用户不需要它。从仓库根执行:
-
-```bash
-docker compose -f docker/plugins/myssia-monitor/compose.yml up -d
-open http://127.0.0.1:5000    # Web 控制台(UI 里 Settings → API 开启 access key)
-```
-
-- watch 数据在 `changedetection-data` 卷;`docker compose down` 不丢,
-  `down -v` 才清。compose 零明文凭据。
+MYIA 不携带任何插件部署配方(终裁 2026-10-06:插件 docker 模式全删)。
+自备 changedetection.io 实例按上游仓库官方部署文档操作(单容器、Web
+控制台默认 5000 口,UI 里 Settings → API 开启 access key);部署好后
+按上一节 remote 模式接入。watch 数据的持久化与备份在上游部署侧自管
+(容器卷/反代/TLS 均为上游部署面事项)。
 
 ## 凭据红线
 

@@ -3,8 +3,8 @@
 # 上游 Apache-2.0;本插件只以声明依赖与文档引用接入,不复制上游源码。
 # v1.1 瘦身与分级 remote(桌面可选):MYIA 内置变更指纹 + L1-L4 降级链已
 # 覆盖桌面主场景(零插件照常跑),本插件的 changedetection.io 集成降为
-# 可选 —— 仅经 remote 模式接入已部署实例(零 docker);本仓库不再携带
-# 本地部署 compose,服务端部署走仓库 docker/plugins/myssia-monitor/。
+# 可选 —— 仅经 remote 模式接入已部署实例(零 docker);任意已部署实例按
+# remote 接入,部署按上游官方文档(插件不提供 docker 模式,我方不复刻配方)。
 # 品类侧示例:plugins/monitor.yaml(顶层 plugin: 节)。
 id: myssia-monitor
 name: 变更监控(changedetection.io)

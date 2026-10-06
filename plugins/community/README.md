@@ -5,8 +5,9 @@
 作者自己的仓库(与官方六件 `plugins/myssia-*/` 同一套市场规范,manifest 校验
 见 `src/myssia/plugins/manifest.py`)。
 
-v1.1 起插件层桌面优先:**源码/进程内能力优先,零 docker**;本地部署
-compose 一律不放插件目录(官方六件的部署文件集中在仓库 `docker/plugins/`)。
+v1.1 起插件层桌面优先:**源码/进程内能力优先,零 docker**;插件不提供
+docker 模式(终裁 2026-10-06)——MYIA 仓库不携带任何插件部署配方,
+上游服务的部署按上游官方文档操作,部署好的任意实例按 remote 接入。
 
 ## 铁律(与全市场一致)
 
@@ -32,12 +33,12 @@ compose 一律不放插件目录(官方六件的部署文件集中在仓库 `doc
    - token/cookie/口令零明文,manifest 里只允许
      `keychain:myia/<scope>/<name>` 引用;
    - endpoint/地址一律用占位域(`example.com`);内网地址零容忍
-     (127.0.0.1 作为 compose 端口绑定除外);
+     (127.0.0.1 作为回环端点示例除外);
    - 生产语料、私有系统痕迹零入库。
 5. **许可**:上游项目按其 license 以「声明依赖 + 文档引用(源码型另加
    git submodule 指针)」接入;GPL/AGPL 类上游**不复制其源码进本仓库**;
-   本地部署 compose 放作者自己的仓库或 `docker/plugins/`(随收录 PR 说明),
-   插件目录内不出现 docker 部署文件。
+   插件一律不携带 docker 部署文件(部署配方归上游官方文档,我方不复刻,
+   收录 PR 里也不放部署配方),插件目录内不出现任何 docker 部署内容。
 6. **版本矩阵**:`compatible` 声明兼容的 myssia 版本范围(如 `">=0.0.1,<0.1"`,
    与根 pyproject 依赖窗同款);不兼容在 install 期结构化拒绝,已装的降级为 warning。
 

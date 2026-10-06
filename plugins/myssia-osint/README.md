@@ -34,24 +34,19 @@ myssia osint https://example.com --json
   品类 run/doctor 照常(测试钉在 `tests/test_osint_plugin.py`)。
 - 靶点纪律:只对**合法授权的公开目标**使用;默认目标 example.com 即演示用途。
 
-## 服务端形态(可选,不在桌面路径)
+## remote 占位形态(可选,不在桌面路径)
 
-Photon 是 CLI 工具(无服务形态);compose 在仓库 `docker/plugins/myssia-osint/`,
-直接从上游 git 仓库构建,本仓库不 vendored:
-
-```bash
-docker compose -f docker/plugins/myssia-osint/compose.yml build photon
-docker compose -f docker/plugins/myssia-osint/compose.yml run --rm photon -u https://example.com -o /Photon/loot
-```
-
-自建一层 HTTP 包装(把 Photon 跑成 API)后,品类 YAML 填
+Photon 是 CLI 工具(上游无服务形态);插件不提供 docker 模式(终裁
+2026-10-06,MYIA 不携带任何插件部署配方)。若你自建一层 HTTP 包装
+(把 Photon 跑成 API;包装层的部署属主人运维面,按你自选的上游运行
+方式),品类 YAML 填
 `plugin.modes.remote.endpoint: https://photon-wrapper.example.com`
 (换成你的包装层地址)。上游无鉴权;若你的包装层加了 token,走钥匙链引用
 (`myssia secret set myia/osint/<name>` 后按 `keychain:myia/osint/<name>` 填)。
 
 ## 凭据红线
 
-compose 零明文凭据;仓库即公开,侦察目标只用公开域名做示例。
+本插件全部文件零明文凭据;仓库即公开,侦察目标只用公开域名做示例。
 
 ## 安装 / 移除
 

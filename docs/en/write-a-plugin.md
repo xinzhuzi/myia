@@ -289,9 +289,10 @@ Common findings and repairs:
 
 - **Scenario plugins** (v0.3, slimmed in v1.1): `myssia plugin list / install /
   remove`; a category YAML declares its dependency in the top-level `plugin:`
-  section (`remote` endpoint + keychain token; the `local` docker compose mode
-  remains valid schema but official plugins no longer ship local compose files —
-  server-side deployments live under `docker/plugins/`); a plugin that cannot
+  section (`remote` endpoint + keychain token; the `local` mode declares a
+  native install command only — plugins offer no docker mode, the repo carries
+  no plugin deployment recipes; any already-deployed instance is wired in via
+  `remote`); a plugin that cannot
   install never blocks the core pipeline (security baseline). The community
   directory lives in `plugins/community/README.md`.
 - **Source-type / in-process plugins** (v1.1, desktop-first): official

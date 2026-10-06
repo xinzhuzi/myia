@@ -6,9 +6,10 @@
 
 ## 接入路径(remote:填 endpoint)
 
-1. 自部署:`docker/plugins/myssia-spiderfoot/compose.yml`(官方镜像
-   `spiderfoot/spiderfoot`,数据卷持久化);远程访问口令经
-   `SPIDERFOOT_PASSWORD` 注入并写入钥匙串:
+1. 自部署:按上游仓库 [smicallef/SpiderFoot](https://github.com/smicallef/spiderfoot)
+   官方部署文档操作(官方镜像 `spiderfoot/spiderfoot`,数据卷持久化;
+   部署属主人运维面,插件不提供 docker 模式,我方不复刻配方)。远程访问
+   口令经上游部署面的 `SPIDERFOOT_PASSWORD` 注入并写入钥匙串:
    `myssia secret set myia/spiderfoot/password`;
 2. 实例地址填进 endpoint;扫描任务经其 REST API 发起
    (`POST /api/spiderfoot/start` 一族),结果轮询回读;

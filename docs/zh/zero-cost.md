@@ -133,33 +133,15 @@ export MYIA_LLM_KEY=<你的 AI Studio API key>
 ## 4. 自托管 Firecrawl:渲染后端兜底(零美元)
 
 上面三条路径管 LLM 端点;采集侧的 JS 重渲染站走 L3 `firecrawl` 引擎时,
-后端同样可以自托管——官方
+后端同样可以自托管(零美元、渲染流量不出你的机器)。引擎只按 HTTP API
+调用(`POST {endpoint}/v1/scrape`),实例一起就是降级链上现成的 L3 梯级。
+
+**部署步骤与配方见上游官方
 [self-host 文档](https://github.com/firecrawl/firecrawl/blob/master/SELF_HOST.md)
-的 docker compose 一套(api + Playwright 渲染 + Redis/PostgreSQL/RabbitMQ
-队列),零美元、渲染流量不出你的机器。引擎只按 HTTP API 调用(`POST
-{endpoint}/v1/scrape`),实例一起就是降级链上现成的 L3 梯级。
-
-> 本节模板逐句来自官方 self-host 文档,**2026-10-06 已在本机 colima docker
-> 实测通过**(六容器起栈、就绪探针 200、四站引擎真跑,样本与对照表在
-> `.trellis/tasks/10-05-firecrawl-selfhost-verify/evidence/selfhost-run-20261006.md`)。
-> 国内网络注记:docker hub 拉层慢时可用「镜像前缀拉取 + `docker tag` 回原名」
-> (如 `docker pull docker.1ms.run/library/node:22-slim`,不动 daemon 配置,
-> 本机实测 33MB/s);构建在无 buildx 插件的环境走 classic builder 会卡
-> Dockerfile 的 `--mount=type=cache` 行(临时剥掉即可,不影响功能)。
-
-```bash
-git clone https://github.com/firecrawl/firecrawl.git && cd firecrawl
-cat > .env <<'EOF'
-PORT=3002
-HOST=0.0.0.0
-USE_DB_AUTHENTICATION=false   # 自托管关鉴权(仅可信网络);API key 只有云端才需要
-EOF
-docker compose up -d --build
-curl http://127.0.0.1:3002/v0/health/readiness   # 就绪探针 → {"status":"ok"}
-```
-
-世事 接线零改动:引擎内置缺省端点就是标准口 `http://127.0.0.1:3002`,
-换了端口或部署在远程机器才需要指环境变量:
+(SELF_HOST.md:api + Playwright 渲染 + Redis/PostgreSQL/RabbitMQ 队列的一套
+栈)——我方不复刻配方**(插件/服务端部署属主人运维面,上游文档是唯一
+权威来源)。世事 侧的接线零改动:引擎内置缺省端点就是标准口
+`http://127.0.0.1:3002`,换了端口或部署在远程机器才需要指环境变量:
 
 ```bash
 export MYIA_FIRECRAWL_URL=http://127.0.0.1:3002   # 即缺省值,仅非标准口/远程机需要
@@ -193,12 +175,11 @@ push:
   操作类格式不可用;LLM 结构化抽取要自带 OpenAI 兼容端点;agent /
   browser / interact 是云端功能。基础 scrape(Fetch + Playwright 渲染 →
   markdown/html)在栈内,恰好覆盖 L3 兜底所需(引擎只消费这两种格式)。
-- **资源与复验**:官方栈给 api 容器配的上限是 4 CPU / 8GB 内存,轻量
+- **资源与加固**:官方栈给 api 容器配的上限是 4 CPU / 8GB 内存,轻量
   机器量力而行;默认栈无鉴权无 TLS,公网部署须自行加固(反代 + 强
-  PostgreSQL 凭据 + 更换 `BULL_AUTH_KEY`)。本节 2026-10-06 在本机
-  colima docker 实测通过(`uv run myssia test <品类>.yaml --json` 四站
-  真跑全 ok,含 JS 重站;fake-ip 代理环境需给 api/playwright-service 加
-  `extra_hosts` 钉真实 IP,详见 evidence/selfhost-run-20261006.md §③)。
+  PostgreSQL 凭据 + 更换 `BULL_AUTH_KEY`)。降级链契约
+  (服务死=优雅降级、cloud/自托管 drop-in)在
+  `src/myssia/engines/firecrawl.py` 头注有实证记录。
 
 ## 5. 自托管 SearXNG:关键词日报(零美元)
 

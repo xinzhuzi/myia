@@ -252,8 +252,9 @@ myssia doctor --json                    # 缺省体检 plugins/ 全部插件;也
 
 - **场景插件**(v0.3,v1.1 瘦身):`myssia plugin list / install / remove`;
   品类 YAML 用顶层 `plugin:` 节声明依赖(`remote` 端点+钥匙链 token;
-  `local` docker compose 仍是合法 schema,但官方插件不再携带本地部署
-  文件 —— 服务端部署统一在 `docker/plugins/`);插件装不上不拦核心流水线
+  `local` 侧只收原生安装命令 `install` —— 插件不提供 docker 模式,
+  仓库不携带任何插件部署配方,任意已部署实例按 `remote` 接入);
+  插件装不上不拦核心流水线
   (安全基线铁律)。社区插件目录见 `plugins/community/README.md`。
 - **源码/进程内插件**(v1.1,桌面优先):官方包声明 `tier` 分级
   (`desktop` 桌面默认集 / `remote` 桌面可选 / `server-only` 服务端可选),

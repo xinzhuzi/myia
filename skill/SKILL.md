@@ -357,9 +357,11 @@ extract/pagination 一律不收(单页语义)。**不参与 auto 降级链**(显
 `engine: searxng` 才生效);零凭据(queries 明文非凭据可直接落 YAML)。
 base 三级解析:源级 `searxng_base_url` > env `MYIA_SEARXNG_URL` > 缺省
 `http://127.0.0.1:8888`(源 url 仅身份标识不参与请求)。**只走自托管
-实例**(公共实例 robots `/*?*q=*` 全禁搜索请求,明禁 API 滥用);起栈
-= 官方 compose 三步 + settings.yml 开 `search.formats: [html, json]`
-(模板见 `plugins/searxng.yaml` 头注与 docs/zero-cost §5)。礼貌:逐词
+实例**(公共实例 robots `/*?*q=*` 全禁搜索请求,明禁 API 滥用);实例从
+哪来 = 任意已部署实例按 remote 指地址(部署属主人运维面,按上游官方
+容器文档,我方不复刻配方;json 开启关键是 settings.yml 的
+`search.formats: [html, json]`,要点见 `plugins/searxng.yaml` 头注)。
+礼貌:逐词
 串行+词间 3s 引擎内置,run 间隔建议 ≥30 分钟;错误面 403=实例未开 json
 format(查 settings.yml)、连接拒绝=实例未起,均为源级结构化失败。
 

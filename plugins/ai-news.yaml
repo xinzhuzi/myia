@@ -319,18 +319,17 @@ sources:
 
   # ──────────────────────────────────────────────────────────────────────
   # X(Twitter)监控位(10-06-ai-news-sources S3)——注释态,reddit-ml 同款
-  # 「先决条件入 YAML」先例。通道=自部署 RSSHub(myssia-rsshub 件,
-  # docker/plugins/myssia-rsshub/compose.yml;twitter 路由需给实例配
-  # TWITTER_AUTH_TOKEN —— 官方环境变量表实锤,zread DIYgod/RSSHub
-  # 2026-10-06)。启用三步:
-  #   1. docker compose -f docker/plugins/myssia-rsshub/compose.yml up -d
-  #      (compose 环境注入 TWITTER_AUTH_TOKEN=<自己的 X auth_token>)
+  # 「先决条件入 YAML」先例。通道=已部署实例上的 RSSHub 路由(myssia-rsshub
+  # 件,任意已部署实例按 remote 接入;部署按上游官方文档,twitter 路由需给
+  # 实例配 TWITTER_AUTH_TOKEN —— 官方环境变量表实锤,zread DIYgod/RSSHub
+  # 2026-10-06;本机不起 docker 栈,实例属主人运维面)。启用三步:
+  #   1. 备好一个已部署的 RSSHub 实例(twitter 路由生效、鉴权按需)
   #   2. 把下方 <rsshub-host> 换成实例地址(如 http://127.0.0.1:1200)
   #   3. 按主人圈选的账号清单取消注释(下方为候选示范)
   # 诚实注记:twitter 路由上游脆弱在案(RSSHub 官方文档:/twitter/keyword
   # 2025-08 起失效,GraphQL 端点持续漂移),实例日志里 4xx/空产出属正常
-  # 降级面,doctor 可见;本机 Docker 未装(10-05-source-searxng §0)是当前
-  # 硬前置。
+  # 降级面,doctor 可见;没有现成实例 = 当前硬前置(部署配方见上游官方
+  # 文档,我方不复刻)。
   # ──────────────────────────────────────────────────────────────────────
   # - name: x-openai
   #   engine: static_html

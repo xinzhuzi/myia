@@ -7,8 +7,10 @@
 
 ## 接入路径(remote:填 endpoint)
 
-1. 自部署优先(零第三方):`docker/plugins/myssia-rsshub/compose.yml` 起一套
-   (官方镜像 `diygod/rsshub`;启用访问控制时 `RSSHUB_ACCESS_KEY` 注入);
+1. 自部署优先(零第三方):按上游 [RSSHub 官方部署文档](https://docs.rsshub.app/)
+   起一套(官方镜像 `diygod/rsshub`;启用访问控制时注入
+   `RSSHUB_ACCESS_KEY`)——部署属主人运维面,插件不提供 docker 模式,
+   我方不复刻配方;
 2. 把实例地址填进 endpoint(品类 YAML 的 `plugin.modes.remote.endpoint`);
    启用访问控制的部署再把键写入钥匙串:
    `myssia secret set myia/rsshub/access-key`;

@@ -13,9 +13,9 @@ MIT)的代码:参照其「fetch → 校验 → 取用」思路自实现的精简
    结构化 JSON 结果(``myssia proxy --json`` 的 AI 消费路径)。
 
 精简边界(诚实声明):无定时抓取、无存储池、无 HTTP API —— 完整 proxy_pool
-服务形态(定时 + Redis 池 + API)是**服务端可选**路径,compose 在仓库
-``docker/plugins/myssia-proxy/``(桌面零 docker;已部署实例按 remote 模式填
-endpoint,见本插件 README)。
+服务形态(定时 + Redis 池 + API)是**服务端**部署路径(部署按上游官方文档,
+插件不提供 docker 模式,我方不复刻配方;桌面零 docker;任意已部署实例按
+remote 模式填 endpoint,见本插件 README)。
 
 错误契约(.trellis/spec/python/error-handling):所有失败都抛
 :class:`ProxyAdapterError`(code + message + 结构化 details,``to_dict()``

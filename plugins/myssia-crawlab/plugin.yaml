@@ -8,8 +8,8 @@
 # 启用徽标+doctor info→ok),不落品类 YAML。
 #
 # 许可:上游 BSD-3-Clause(gh api LICENSE 原文核,2026-10-05);本插件只以
-# manifest 声明依赖与文档引用接入,不复制其源码。服务端部署 compose 在仓库
-# docker/plugins/myssia-crawlab/。
+# manifest 声明依赖与文档引用接入,不复制其源码。任意已部署实例按 remote
+# 接入(插件不提供 docker 模式;部署按上游官方文档,我方不复刻配方)。
 id: myssia-crawlab
 name: 分布式爬虫管理台(Crawlab)
 version: 1.0.0

@@ -2,8 +2,8 @@
 #
 # 上游 Apache-2.0;本插件只以声明依赖与文档引用接入,不复制上游源码。
 # v1.1 分级 server-only(桌面默认集移出):上游是重 Web 服务(浏览器渲染
-# + 多容器栈),不可进程化,桌面路径不携带;可用形态 = 已部署实例按 remote
-# 模式接入(零 docker),服务端部署 compose 在仓库 docker/plugins/myssia-douyin/。
+# + 多容器栈),不可进程化,桌面路径不携带;可用形态 = 任意已部署实例按
+# remote 模式接入(零 docker;插件不提供 docker 模式,部署按上游官方文档)。
 id: myssia-douyin
 name: 抖音/TikTok 数据 API(Douyin_TikTok_Download_API)
 version: 1.1.0

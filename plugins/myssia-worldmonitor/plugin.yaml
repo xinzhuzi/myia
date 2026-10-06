@@ -10,8 +10,8 @@
 #
 # 许可注意:上游 AGPL-3.0(gh api LICENSE 原文核,2026-10-05)—— 本插件
 # **只桩不抄**:仅以 manifest 声明依赖与文档引用接入,不复制其任何源码进
-# 本仓库;部署 compose 的构建上下文直指上游 git(AGPL 义务留在上游构建产物
-# 侧),见仓库 docker/plugins/myssia-worldmonitor/。
+# 本仓库;任意已部署实例按 remote 接入(部署按上游官方文档——AGPL 义务留
+# 在上游部署侧,我方不复刻配方)。
 id: myssia-worldmonitor
 name: 全球情报监控台(World Monitor)
 version: 1.0.0

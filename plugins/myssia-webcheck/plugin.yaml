@@ -5,8 +5,8 @@
 # (credhunter 查凭证泄露,web-check 查站点本身的曝面)。上游 MIT(gh api
 # 核,2026-10-05;35k 星,极活跃),官方镜像自部署 = 零成本零第三方
 # (P0 本地执行硬规则的「自有实例」形态),**无门槛件**(普通 remote 桩,
-# 不声明 gate)。本插件只以 manifest 声明依赖与文档引用接入;服务端部署
-# compose 在仓库 docker/plugins/myssia-webcheck/。
+# 不声明 gate)。本插件只以 manifest 声明依赖与文档引用接入;任意已部署
+# 实例按 remote 接入(部署按上游官方文档,我方不复刻配方)。
 id: myssia-webcheck
 name: 网站全息体检台(web-check)
 version: 1.0.0

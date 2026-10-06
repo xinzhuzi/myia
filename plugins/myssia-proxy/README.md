@@ -25,7 +25,7 @@ myssia proxy --timeout 15    # 单代理测活超时(秒)
 - **装不上不拦核心流水线(铁律)**:适配器缺失/抓取失败只影响本命令,品类
   run/doctor 照常(测试钉在 `tests/test_proxy_plugin.py`)。
 - 诚实边界:免费公开代理质量不稳、寿命短,本路径适合应急与演示;生产采集
-  用付费代理,或部署完整 proxy_pool(见下)后按 remote 接入。
+  用付费代理,或自备完整 proxy_pool 实例(见下)后按 remote 接入。
 
 ## remote 模式(零 Docker)
 
@@ -48,18 +48,13 @@ API)时,直接填地址:
 上游 proxy_pool 本身无 API 鉴权;若你在前面加了带 token 的网关,把 token
 写入钥匙链后按 `keychain:myia/<scope>/<name>` 引用(见下节红线)。
 
-## 服务端形态(可选,不在桌面路径)
+## 实例从哪来(部署属主人运维面,我方不复刻配方)
 
-完整 proxy_pool 服务形态(定时抓取 + Redis 池 + HTTP API `127.0.0.1:5010`)
-是**服务端可选**部署:compose 在仓库 `docker/plugins/myssia-proxy/`,桌面用户
-不需要它。从仓库根执行:
-
-```bash
-docker compose -f docker/plugins/myssia-proxy/compose.yml up -d
-curl "http://127.0.0.1:5010/get"    # 随机取一个可用代理 {"proxy": "..."}
-```
-
-- API 默认绑回环;对外暴露请自行加反向代理与鉴权。compose 零明文凭据。
+MYIA 不携带任何插件部署配方(终裁 2026-10-06:插件 docker 模式全删)。
+完整 proxy_pool 服务形态(定时抓取 + Redis 池 + HTTP API)是**服务端**
+部署:自备实例按上游仓库 [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool)
+官方部署文档操作(默认 API 绑回环;对外暴露请自行加反向代理与鉴权)。
+部署好后,按上一节 remote 模式接入即可。
 
 ## 凭据红线
 

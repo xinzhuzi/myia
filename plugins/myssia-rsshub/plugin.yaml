@@ -1,11 +1,11 @@
 # myssia-rsshub — 官方场景件:万物转 RSS 源扩容(封装 DIYgod/RSSHub)。
 #
 # 许可注意:上游 RSSHub 为 AGPL-3.0 —— 本插件只以 manifest 声明依赖与文档
-# 引用的方式接入,**不复制其任何源码进本仓库**;可用形态 = 已部署实例按
-# remote 模式接入(服务端部署 compose 在仓库 docker/plugins/myssia-rsshub/)。
+# 引用的方式接入,**不复制其任何源码进本仓库**;可用形态 = 任意已部署实例
+# 按 remote 模式接入(部署按上游官方文档,我方不复刻配方)。
 #
 # tier=remote(10-05-plugin-market-batch 首批;AGPL 只桩不抄):自部署优先
-# (本机/自有服务器 docker compose 起 RSSHub,零第三方);公共实例
+# (自有服务器按上游官方文档起 RSSHub,零第三方);公共实例
 # rsshub.app 可用但属第三方服务器——查询路由经对方,有留痕与限速,按
 # P0 本地执行硬规则不作为缺省推荐。
 id: myssia-rsshub

@@ -15,9 +15,11 @@
 
 ## 接入路径(remote:填 endpoint)
 
-1. 自部署:上游自带 compose 部署栈(app+selenium 网格,栈较重,本件
-   **不随仓库分发 compose**——`docker/plugins/` 只有零凭据薄封装的轻件,
-   social-analyzer 请直接用上游仓库的部署文件);
+1. 自部署:上游自带部署栈(app+selenium 网格,栈较重),部署按
+   [qeeqbox/social-analyzer](https://github.com/qeeqbox/social-analyzer)
+   上游仓库的部署文档操作——MYIA 不携带任何插件部署配方(终裁
+   2026-10-06:插件 docker 模式全删;上游栈重不适合薄封装,本件本就
+   只桩);
 2. 实例地址填进 endpoint(`plugin.modes.remote.endpoint`);
 3. 上游自部署 Web/API 面无内建鉴权——回环/内网部署自担边界(本件不带
    token 声明,凭据自管)。

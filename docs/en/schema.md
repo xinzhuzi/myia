@@ -43,7 +43,7 @@ entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
 | `ENRICH_SCORES` | `value` `relevance` `credibility` |
 | `VACUUM_CADENCES` | `daily` `weekly` `monthly` `never` |
 | `BASELINE_WINDOWS` | `day` `week` |
-| `REQUIRES_TOKENS` | `docker` |
+| `REQUIRES_TOKENS` | (empty — plugins declare no host capability) |
 | `CREDENTIAL_KEY_SUFFIXES` | `cookie` `authorization` `token` `secret` `password` `passwd` `apikey` `session` |
 
 ## Credential reference syntax
@@ -331,8 +331,8 @@ running (security-baseline rule).
 | Field | Default | Semantics |
 |---|---|---|
 | `id` | required | Plugin id (lowercase letters/digits/hyphens/underscores, alphanumeric first; convention `myssia-<name>`) |
-| `requires` | `[]` | Host-capability vocabulary (currently `docker` only); string or list both accepted |
-| `modes` | required | At least one mode: `local` (a compose file path and/or an install command) or `remote` (endpoint required; token **must** be a `keychain:myia/<scope>/<name>` reference — even `env:` is refused) |
+| `requires` | `[]` | Host-capability vocabulary (**currently empty** — the plugin docker mode is gone, the `docker` token is retired, any non-empty value is refused); string or list both accepted |
+| `modes` | required | At least one mode: `local` (a native install command `install`; zero Docker on this machine) or `remote` (endpoint required; token **must** be a `keychain:myia/<scope>/<name>` reference — even `env:` is refused). Plugins offer no docker mode (final ruling 2026-10-06) |
 
 ```yaml
 id: site-watch
@@ -343,7 +343,7 @@ plugin:                           # scenario plugin declaration (official packag
   id: myssia-monitor
   requires: []
   modes:
-    remote:                       # point at an already-deployed instance (desktop: zero Docker); local compose is still valid schema — official deployment files live under docker/plugins/
+    remote:                       # point at an already-deployed instance (desktop: zero Docker); the local side accepts a native install command only — plugins offer no docker mode
       endpoint: https://my-monitor.example.com
       token: keychain:myia/monitor/token    # myssia secret set myia/monitor/token
 sources:

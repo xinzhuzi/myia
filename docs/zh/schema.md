@@ -39,7 +39,7 @@
 | `ENRICH_SCORES` | `value` `relevance` `credibility` |
 | `VACUUM_CADENCES` | `daily` `weekly` `monthly` `never` |
 | `BASELINE_WINDOWS` | `day` `week` |
-| `REQUIRES_TOKENS` | `docker` |
+| `REQUIRES_TOKENS` | (空,插件不声明宿主能力) |
 | `CREDENTIAL_KEY_SUFFIXES` | `cookie` `authorization` `token` `secret` `password` `passwd` `apikey` `session` |
 
 ## 凭据引用语法
@@ -287,8 +287,8 @@ finding,品类照常跑(安全基线铁律)。
 | 字段 | 缺省 | 语义 |
 |---|---|---|
 | `id` | `必填` | 插件 id(小写字母/数字/连字符/下划线,字母数字开头,惯例 `myssia-<名称>`) |
-| `requires` | `[]` | 宿主能力词表(当前仅 `docker`);字符串或列表皆可 |
-| `modes` | `必填` | 双模式至少声明一个:`local`(compose 文件路径 / install 命令至少其一)或 `remote`(endpoint 必填;token **必须** `keychain:myia/<scope>/<name>` 引用,`env:` 也不行) |
+| `requires` | `[]` | 宿主能力词表(**当前为空**——插件 docker 模式已删,`docker` 词退役,任何非空值拒载);字符串或列表皆可 |
+| `modes` | `必填` | 双模式至少声明一个:`local`(原生安装命令 `install`,本机零 Docker)或 `remote`(endpoint 必填;token **必须** `keychain:myia/<scope>/<name>` 引用,`env:` 也不行)。插件不提供 docker 模式(终裁 2026-10-06) |
 
 ```yaml
 id: site-watch
@@ -299,7 +299,7 @@ plugin:                           # 场景插件声明(v1.1 起官方包为 remo
   id: myssia-monitor
   requires: []
   modes:
-    remote:                       # 指向已部署实例(桌面零 Docker);local compose 仍是合法 schema,官方部署文件在 docker/plugins/
+    remote:                       # 指向已部署实例(桌面零 Docker;local 侧只收原生安装命令 install,插件不提供 docker 模式)
       endpoint: https://my-monitor.example.com
       token: keychain:myia/monitor/token    # myssia secret set myia/monitor/token
 sources:
