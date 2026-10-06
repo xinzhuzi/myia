@@ -83,7 +83,9 @@ class RecordingChannel:
     async def send(self, items, context) -> None:
         if self.fail:
             raise PushSendError("http_error", "模拟通道故障")
-        self.calls.append({"items": [item_view(item) for item in items], "context": context})
+        self.calls.append(
+            {"items": [item_view(item) for item in items], "context": context}
+        )
 
 
 class FlakyChannel:
@@ -130,8 +132,12 @@ def _mock_feishu(capture: dict, payload: dict | None = None) -> httpx.MockTransp
 
 
 def test_resolve_route_score_ge_8_returns_immediate():
-    assert resolve_route({"score": 8, "title": "a"}, CANONICAL_RULES).mode == "immediate"
-    assert resolve_route({"score": 9.5, "title": "a"}, CANONICAL_RULES).mode == "immediate"
+    assert (
+        resolve_route({"score": 8, "title": "a"}, CANONICAL_RULES).mode == "immediate"
+    )
+    assert (
+        resolve_route({"score": 9.5, "title": "a"}, CANONICAL_RULES).mode == "immediate"
+    )
 
 
 def test_resolve_route_score_between_5_and_8_returns_digest():
@@ -140,7 +146,9 @@ def test_resolve_route_score_between_5_and_8_returns_digest():
 
 
 def test_resolve_route_score_below_5_returns_archive():
-    assert resolve_route({"score": 4.9, "title": "c"}, CANONICAL_RULES).mode == "archive"
+    assert (
+        resolve_route({"score": 4.9, "title": "c"}, CANONICAL_RULES).mode == "archive"
+    )
     assert resolve_route({"score": 0, "title": "c"}, CANONICAL_RULES).mode == "archive"
 
 
@@ -175,7 +183,9 @@ def test_resolve_route_without_score_immediate_categories_map_immediate(category
     assert decision.reason == "category_default"
 
 
-@pytest.mark.parametrize("category", ["ai-news", "server", "token", "credit-card", "channel"])
+@pytest.mark.parametrize(
+    "category", ["ai-news", "server", "token", "credit-card", "channel"]
+)
 def test_resolve_route_without_score_digest_categories_map_digest(category):
     decision = resolve_route({"category": category}, [])
     assert decision.mode == "digest"
@@ -223,7 +233,9 @@ def test_resolve_route_score_rule_takes_precedence_over_category_mapping():
 
 def test_resolve_route_score_rules_stay_dormant_without_score(caplog):
     with caplog.at_level(logging.WARNING):
-        decision = resolve_route({"category": "server", "title": "示例"}, CANONICAL_RULES)
+        decision = resolve_route(
+            {"category": "server", "title": "示例"}, CANONICAL_RULES
+        )
     assert decision.mode == "digest"
     assert decision.reason == "category_default"
     assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
@@ -236,7 +248,9 @@ def test_resolve_route_with_score_and_no_rules_defaults_immediate():
 
 
 def test_resolve_route_with_score_and_unmatched_rules_defaults_conservative_digest():
-    decision = resolve_route({"score": 3}, [RouteRule(when="score > 100", mode="immediate")])
+    decision = resolve_route(
+        {"score": 3}, [RouteRule(when="score > 100", mode="immediate")]
+    )
     assert decision.mode == "digest"
     assert decision.reason == "conservative_default"
 
@@ -294,9 +308,14 @@ def test_renderer_stocks_example_template_snapshot():
         {"symbol": "TSLA", "change_pct": -4.1, "price": 245.0},
     ]
     rendered = TemplateRenderer().render(
-        STOCKS_EXAMPLE_TEMPLATE, items, SendContext(slot="pm", date="2026-10-01", category="stocks")
+        STOCKS_EXAMPLE_TEMPLATE,
+        items,
+        SendContext(slot="pm", date="2026-10-01", category="stocks"),
     )
-    assert rendered == "**股票异动 · 2026-10-01**\nNVDA 3.2% 现价 132.5\nTSLA -4.1% 现价 245.0"
+    assert (
+        rendered
+        == "**股票异动 · 2026-10-01**\nNVDA 3.2% 现价 132.5\nTSLA -4.1% 现价 245.0"
+    )
 
 
 def test_renderer_sandbox_blocks_dunder_attribute_access():
@@ -310,7 +329,9 @@ def test_renderer_sandbox_blocks_dunder_attribute_access():
 def test_renderer_undefined_variable_raises_template_render_error():
     with pytest.raises(TemplateRenderError, match="渲染失败"):
         TemplateRenderer().render(
-            "{{ item.price }}", [{"symbol": "NVDA"}], SendContext(slot="am", date="2026-10-01")
+            "{{ item.price }}",
+            [{"symbol": "NVDA"}],
+            SendContext(slot="am", date="2026-10-01"),
         )
 
 
@@ -349,12 +370,19 @@ def test_feishu_send_posts_interactive_card_with_expected_body(monkeypatch):
     monkeypatch.setenv("MYIA_TEST_CHAT_ID", "oc_demo_123")
     capture: dict = {}
     client = httpx.AsyncClient(transport=_mock_feishu(capture))
-    channel = FeishuCardChannel(target="env:MYIA_TEST_CHAT_ID", token="test-token", client=client)
-    items = [{"title": "公开示例福利", "url": "https://example.com/a", "category": "freebie"}]
+    channel = FeishuCardChannel(
+        target="env:MYIA_TEST_CHAT_ID", token="test-token", client=client
+    )
+    items = [
+        {"title": "公开示例福利", "url": "https://example.com/a", "category": "freebie"}
+    ]
     try:
         asyncio.run(
             channel.send(
-                items, SendContext(slot="am", date="2026-10-01", category="羊毛", kind="digest")
+                items,
+                SendContext(
+                    slot="am", date="2026-10-01", category="羊毛", kind="digest"
+                ),
             )
         )
     finally:
@@ -368,7 +396,10 @@ def test_feishu_send_posts_interactive_card_with_expected_body(monkeypatch):
     card = json.loads(body["content"])
     assert card["header"]["template"] == "blue"
     assert card["header"]["title"]["content"] == "📡 羊毛日报 10-01 · 上午摘要"
-    assert "**[公开示例福利](https://example.com/a)**" in card["elements"][0]["text"]["content"]
+    assert (
+        "**[公开示例福利](https://example.com/a)**"
+        in card["elements"][0]["text"]["content"]
+    )
     assert card["elements"][-1]["tag"] == "note"
 
 
@@ -380,7 +411,10 @@ def test_feishu_send_resolves_bot_token_from_env(monkeypatch):
     channel = FeishuCardChannel(target="env:MYIA_TEST_CHAT_ID", client=client)
     try:
         asyncio.run(
-            channel.send([{"title": "t"}], SendContext(slot="pm", date="2026-10-01", kind="immediate"))
+            channel.send(
+                [{"title": "t"}],
+                SendContext(slot="pm", date="2026-10-01", kind="immediate"),
+            )
         )
     finally:
         asyncio.run(client.aclose())
@@ -394,7 +428,10 @@ def test_feishu_send_template_renders_into_single_markdown_div(monkeypatch):
     capture: dict = {}
     client = httpx.AsyncClient(transport=_mock_feishu(capture))
     channel = FeishuCardChannel(
-        target="env:MYIA_TEST_CHAT_ID", token="t", template=STOCKS_EXAMPLE_TEMPLATE, client=client
+        target="env:MYIA_TEST_CHAT_ID",
+        token="t",
+        template=STOCKS_EXAMPLE_TEMPLATE,
+        client=client,
     )
     try:
         asyncio.run(
@@ -416,7 +453,9 @@ def test_feishu_send_api_error_raises_push_send_error(monkeypatch):
     client = httpx.AsyncClient(
         transport=_mock_feishu({}, {"code": 99991663, "msg": "invalid access token"})
     )
-    channel = FeishuCardChannel(target="env:MYIA_TEST_CHAT_ID", token="t", client=client)
+    channel = FeishuCardChannel(
+        target="env:MYIA_TEST_CHAT_ID", token="t", client=client
+    )
     with pytest.raises(PushSendError) as excinfo:
         asyncio.run(
             channel.send([{"title": "t"}], SendContext(slot="am", date="2026-10-01"))
@@ -432,7 +471,9 @@ def test_feishu_send_http_failure_wraps_original_error(monkeypatch):
         raise httpx.ConnectError("connection refused")
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    channel = FeishuCardChannel(target="env:MYIA_TEST_CHAT_ID", token="t", client=client)
+    channel = FeishuCardChannel(
+        target="env:MYIA_TEST_CHAT_ID", token="t", client=client
+    )
     with pytest.raises(PushSendError) as excinfo:
         asyncio.run(
             channel.send([{"title": "t"}], SendContext(slot="am", date="2026-10-01"))
@@ -507,7 +548,9 @@ def test_digest_flush_merges_pool_into_one_card_per_channel():
     channel = RecordingChannel()
     aggregator = DigestAggregator(channels=[channel], tz=TIMEZONE)
     for index in range(3):
-        aggregator.add({"title": f"示例条目{index}", "url": f"https://example.com/{index}"})
+        aggregator.add(
+            {"title": f"示例条目{index}", "url": f"https://example.com/{index}"}
+        )
     reports = asyncio.run(aggregator.flush(now=local_dt(9), category="羊毛"))
     assert len(channel.calls) == 1  # 三条目合并一张卡(一次调用)
     assert [v["title"] for v in channel.calls[0]["items"]] == [
@@ -516,18 +559,63 @@ def test_digest_flush_merges_pool_into_one_card_per_channel():
         "示例条目2",
     ]
     context = channel.calls[0]["context"]
-    assert (context.slot, context.kind, context.date) == (SLOT_AM, "digest", "2026-10-01")
+    assert (context.slot, context.kind, context.date) == (
+        SLOT_AM,
+        "digest",
+        "2026-10-01",
+    )
     assert len(reports) == 1
     assert reports[0].ok is True and reports[0].item_count == 3
     assert len(aggregator) == 0
 
 
+def test_digest_flush_orders_scored_items_first_desc():
+    """日报可读性排序(10-06-ai-news-sources 质询轮):enrich value 降序在前,
+    无分条目按到达序殿后——论坛闲聊不再淹没厂商要闻;同分段保到达序。"""
+    channel = RecordingChannel()
+    aggregator = DigestAggregator(channels=[channel], tz=TIMEZONE)
+    aggregator.add({"title": "论坛闲聊A", "url": "https://example.com/a"})
+    aggregator.add(
+        {"title": "厂商要闻7分", "url": "https://example.com/b", "scores": {"value": 7}}
+    )
+    aggregator.add({"title": "论坛闲聊B", "url": "https://example.com/c"})
+    aggregator.add(
+        {
+            "title": "厂商要闻9分",
+            "url": "https://example.com/d",
+            "scores": {"value": 9, "relevance": 8},
+        }
+    )
+    aggregator.add(
+        {"title": "低分3", "url": "https://example.com/e", "scores": {"value": 3}}
+    )
+    aggregator.add(
+        {"title": "坏分形状", "url": "https://example.com/f", "scores": {"value": "高"}}
+    )
+    reports = asyncio.run(aggregator.flush(now=local_dt(9), category="AI资讯"))
+    assert [v["title"] for v in channel.calls[0]["items"]] == [
+        "厂商要闻9分",
+        "厂商要闻7分",
+        "低分3",
+        "论坛闲聊A",
+        "论坛闲聊B",
+        "坏分形状",
+    ]
+    assert reports[0].ok is True and reports[0].item_count == 6
+
+
 def test_digest_flush_suppresses_same_slot_repush_shared_registry(registry):
     channel = RecordingChannel()
     aggregator = DigestAggregator(channels=[channel], registry=registry, tz=TIMEZONE)
-    aggregator.add({"title": "示例", "url": "https://example.com/a"}, dedup_key="https://example.com/a")
+    aggregator.add(
+        {"title": "示例", "url": "https://example.com/a"},
+        dedup_key="https://example.com/a",
+    )
     asyncio.run(aggregator.flush(now=local_dt(9)))
-    aggregator.add({"title": "示例", "url": "https://example.com/a"}, dedup_key="https://example.com/a")
+    aggregator.add(
+        {"title": "示例", "url": "https://example.com/a"},
+        dedup_key="https://example.com/a",
+    )
     reports = asyncio.run(aggregator.flush(now=local_dt(10, 30)))
     assert reports == []  # 同槽位拦截,不再发送
     assert len(channel.calls) == 1
@@ -537,9 +625,13 @@ def test_digest_flush_suppresses_same_slot_repush_shared_registry(registry):
 def test_digest_flush_releases_across_slots_pm_after_am(registry):
     channel = RecordingChannel()
     aggregator = DigestAggregator(channels=[channel], registry=registry, tz=TIMEZONE)
-    aggregator.add({"title": "示例", "url": "https://example.com/a"}, dedup_key="k-cross")
+    aggregator.add(
+        {"title": "示例", "url": "https://example.com/a"}, dedup_key="k-cross"
+    )
     asyncio.run(aggregator.flush(now=local_dt(9)))
-    aggregator.add({"title": "示例", "url": "https://example.com/a"}, dedup_key="k-cross")
+    aggregator.add(
+        {"title": "示例", "url": "https://example.com/a"}, dedup_key="k-cross"
+    )
     asyncio.run(aggregator.flush(now=local_dt(13)))
     assert len(channel.calls) == 2
     assert channel.calls[1]["context"].slot == SLOT_PM
@@ -548,7 +640,9 @@ def test_digest_flush_releases_across_slots_pm_after_am(registry):
 def test_digest_flush_records_push_slot_in_registry(registry):
     channel = RecordingChannel()
     aggregator = DigestAggregator(channels=[channel], registry=registry, tz=TIMEZONE)
-    aggregator.add({"title": "示例", "url": "https://example.com/a"}, dedup_key="k-slot")
+    aggregator.add(
+        {"title": "示例", "url": "https://example.com/a"}, dedup_key="k-slot"
+    )
     asyncio.run(aggregator.flush(now=local_dt(9)))
     entry = registry.get_entry("k-slot")
     assert entry is not None
@@ -568,7 +662,9 @@ def test_digest_flush_partial_failure_reports_and_clears_pool():
     bad = RecordingChannel(fail=True)
     ok = RecordingChannel()
     aggregator = DigestAggregator(channels=[bad, ok], registry=None, tz=TIMEZONE)
-    aggregator.add({"title": "示例", "url": "https://example.com/a"}, dedup_key="k-partial")
+    aggregator.add(
+        {"title": "示例", "url": "https://example.com/a"}, dedup_key="k-partial"
+    )
     reports = asyncio.run(aggregator.flush(now=local_dt(14)))
     assert [r.ok for r in reports] == [False, True]
     assert reports[0].error is not None and reports[0].error.startswith("[http_error]")
@@ -607,7 +703,12 @@ def test_send_immediate_sends_each_item_and_records_push(registry):
     ]
     reports = asyncio.run(
         send_immediate(
-            items, channels=[channel], registry=registry, tz=TIMEZONE, now=local_dt(10), category="羊毛"
+            items,
+            channels=[channel],
+            registry=registry,
+            tz=TIMEZONE,
+            now=local_dt(10),
+            category="羊毛",
         )
     )
     assert len(reports) == 2 and all(r.ok for r in reports)
@@ -620,7 +721,10 @@ def test_send_immediate_sends_each_item_and_records_push(registry):
 def test_send_immediate_continues_after_channel_failure():
     bad = RecordingChannel(fail=True)
     ok = RecordingChannel()
-    items = [{"title": "a", "url": "https://example.com/1"}, {"title": "b", "url": "https://example.com/2"}]
+    items = [
+        {"title": "a", "url": "https://example.com/1"},
+        {"title": "b", "url": "https://example.com/2"},
+    ]
     reports = asyncio.run(
         send_immediate(items, channels=[bad, ok], tz=TIMEZONE, now=local_dt(10))
     )
@@ -633,17 +737,25 @@ def test_send_immediate_skips_same_slot_repush(registry):
     channel = RecordingChannel()
     item = {"title": "示例", "url": "https://example.com/a"}
     asyncio.run(
-        send_immediate([item], channels=[channel], registry=registry, tz=TIMEZONE, now=local_dt(10))
+        send_immediate(
+            [item], channels=[channel], registry=registry, tz=TIMEZONE, now=local_dt(10)
+        )
     )
     again = asyncio.run(
         send_immediate(
-            [item], channels=[channel], registry=registry, tz=TIMEZONE, now=local_dt(10, 30)
+            [item],
+            channels=[channel],
+            registry=registry,
+            tz=TIMEZONE,
+            now=local_dt(10, 30),
         )
     )
     assert again == []  # 同槽位已发过 → 跳过并记日志
     assert len(channel.calls) == 1
     cross = asyncio.run(
-        send_immediate([item], channels=[channel], registry=registry, tz=TIMEZONE, now=local_dt(13))
+        send_immediate(
+            [item], channels=[channel], registry=registry, tz=TIMEZONE, now=local_dt(13)
+        )
     )
     assert all(r.ok for r in cross)
     assert len(channel.calls) == 2
@@ -656,7 +768,9 @@ def test_send_immediate_skips_same_slot_repush(registry):
 
 def test_item_view_merges_metadata_without_overriding_top_level():
     obj = SimpleNamespace(
-        url="https://example.com/x", title="顶层标题", metadata={"symbol": "NVDA", "title": "元数据标题"}
+        url="https://example.com/x",
+        title="顶层标题",
+        metadata={"symbol": "NVDA", "title": "元数据标题"},
     )
     view = item_view(obj)
     assert view["title"] == "顶层标题"  # 顶层字段优先
@@ -675,7 +789,9 @@ def test_send_context_rejects_unknown_slot_or_kind():
 
 def test_feishu_and_stdout_channels_conform_to_channel_protocol(monkeypatch):
     monkeypatch.setenv("MYIA_TEST_CHAT_ID", "oc_demo")
-    assert isinstance(FeishuCardChannel(target="env:MYIA_TEST_CHAT_ID", token="t"), Channel)
+    assert isinstance(
+        FeishuCardChannel(target="env:MYIA_TEST_CHAT_ID", token="t"), Channel
+    )
     assert isinstance(StdoutChannel(), Channel)
     assert isinstance(TelegramChannel(), Channel)
     assert isinstance(WebhookChannel(), Channel)
@@ -771,7 +887,9 @@ def test_feishu_template_render_error_wrapped_as_push_send_error(monkeypatch):
 
 def test_stdout_template_render_error_wrapped_as_push_send_error():
     """stdout 通道与 feishu 同契约:渲染失败包装为结构化 PushSendError。"""
-    channel = StdoutChannel(template="{% for item in items %}")  # 语法错误(schema 在真实链路加载期拒)
+    channel = StdoutChannel(
+        template="{% for item in items %}"
+    )  # 语法错误(schema 在真实链路加载期拒)
     with pytest.raises(PushSendError) as excinfo:
         asyncio.run(
             channel.send(

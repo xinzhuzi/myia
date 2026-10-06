@@ -158,3 +158,11 @@ round1 脚本 `probe_vendors.py` 的 `sniff()` 写了 `"<html" in head`(str in b
 **[LOW] docstring 引号前提无强制——属实,入口显式拒**:`build_render_command` docstring 声称「三段不含引号」但校验链不拒 `"`(adapter._checked_http_url 只拒空白/控制/超长,ord('"')=34 放行;且引擎构命令先于 adapter 校验)——win32 三段无条件引号会被 URL 裸双引号闭合破坏。修=本入口(声明所在处)对三段任一含 `"` 即结构化拒 `invalid_render_command`(Posix 的 shlex.quote 本可安全处理,统一拒保契约单口径;词表入模块 Raises);参数化三用例(python/helper/URL 各含 `"` 形态)钉死。
 
 **门禁(回改后)**:ruff check 绿(format:urlwatch.py 落定;test_bundled_plugins_install.py 第 60 行为既有基线漂移零触碰,2022bd9 先例);定向七件(engine/plugin/helper/plugin_packages/bundled_install/pyenv_resources/installer_resources)457 passed 24 skipped;全量 pytest **4532 passed / 0 failed / 0 errors**。装机:urlwatch.py 引擎件再外科直更+重签(SIGNATURE VALID,render_crawl4ai.py 在位复验)。
+
+## §13 三轮深扫质询轮(主人:「还有更多的问题你没有查到吧?」)
+
+**发现 A(已修)**:摘要池零排序零筛选——flush 按到达序直出,cocoloop 论坛闲聊(日产 46+ 条)淹没厂商要闻,日报主目的受损。修=flush 稳定排序(`_digest_order_key`:enrich value 降序在前,无分条目到达序殿后,坏分形状归无分段);测试 test_digest_flush_orders_scored_items_first_desc(9/7/3 分+两闲聊+坏分形状六条目序钉死),tests/push 62/62;同槽位拦截/合并卡等既有语义零变化(无分条目到达序被既有测试钉住,稳定排序保绿)。
+
+**发现 B(在档待修,证据充分)**:aihot 每轮 3-5 张「作者精选卡」被静默丢弃——实证(14:1x 探针):无 h3 的卡片是编辑精选的 X 帖摘要(实测卡:Rohan Paul「Anthropic 计划未来数年在云计算上支出 5180 亿美元…」/「A16Z 第七版 Top 100 消费级 AI 应用解读」/「Google 等机构论文提出 insecure reporting 现象」),卡内有 /items/<id> 链接但不在 h3 下,extract 的 url:"h3 a@href" 取不到→invalid_item。**恰是主人最初要的「X 上面的监控」信号,每轮丢 3-5 条高质量内容**。修法方向:提取 DSL 验证逗号并集选择器(h3 a@href, a@href)+标题回退的语义(需读 static_html 提取字段实现后定,本轮查改分家不盲动);卡片 id 样本 nnl0kba78980jig0szh0hkfop 等。
+**发现 C(已实证未修)**:watch 选择器失效=静默死亡——假选择器两跑 R1 new(空快照)→R2 unchanged(空==空),此后恒 unchanged 零告警,站点改版即触发且无任何可见痕迹。修法方向:shim 事件附带快照字节数,引擎对 unchanged-and-近零字节出 WARNING(选择器疑似失效)——小改,待令。
+**其他核过无恙**:今晨 immediate 4=freebie/buying-agent 类目路由(非分数路,YAML 设计);打分直方 1-7 无异常;摘要模板渲染可读;调度心跳新鲜。操作依赖重申:**20:00 跑要求 app 保持运行**(调度器活在 app 进程里)。

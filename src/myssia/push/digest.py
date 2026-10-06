@@ -58,6 +58,24 @@ class PendingDigestItem:
     targets: list[str] | None = None
 
 
+def _digest_order_key(pending: "PendingDigestItem") -> tuple[int, float]:
+    """flush 排序键:enrich value 降序在前,无分条目殿后(稳定排序).
+
+    item 是 :meth:`Item.view` 平铺 dict,``scores`` 为 dict 或 None;
+    非 dict/缺 value 视为无分。返回 (0, -value) / (1, 0.0) 两段键。
+    """
+    scores = None
+    getter = getattr(pending.item, "get", None)
+    if callable(getter):
+        scores = getter("scores")
+    if not isinstance(scores, dict):
+        return (1, 0.0)
+    value = scores.get("value")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return (1, 0.0)
+    return (0, -float(value))
+
+
 def _local_now(now: datetime | None, tz: tzinfo | None) -> datetime:
     """Resolve ``now`` into ``tz`` (naive input interpreted in tz; default now)."""
     zone = tz or datetime.now().astimezone().tzinfo
@@ -87,23 +105,42 @@ async def _send_via(
         await channel.send(items, context)
     except PushSendError as exc:
         logger.warning(
-            "通道发送失败(继续其余通道): channel=%s code=%s error=%s", channel.name, exc.code, exc
+            "通道发送失败(继续其余通道): channel=%s code=%s error=%s",
+            channel.name,
+            exc.code,
+            exc,
         )
         if retry_ledger is not None:
             retry_ledger.enqueue_failure(
-                channel=channel.name, items=items, target_spec=None, error=exc, kind=context.kind
-            )
-        return SendReport(channel.name, ok=False, item_count=len(items), error=f"[{exc.code}] {exc}")
-    except Exception as exc:  # noqa: BLE001 - 部分失败语义要求隔离未知异常
-        logger.error(
-            "通道发送未知异常(需要介入): channel=%s error=%s", channel.name, exc, exc_info=True
-        )
-        if retry_ledger is not None:
-            retry_ledger.enqueue_failure(
-                channel=channel.name, items=items, target_spec=None, error=exc, kind=context.kind
+                channel=channel.name,
+                items=items,
+                target_spec=None,
+                error=exc,
+                kind=context.kind,
             )
         return SendReport(
-            channel.name, ok=False, item_count=len(items), error=f"[unexpected] {type(exc).__name__}: {exc}"
+            channel.name, ok=False, item_count=len(items), error=f"[{exc.code}] {exc}"
+        )
+    except Exception as exc:  # noqa: BLE001 - 部分失败语义要求隔离未知异常
+        logger.error(
+            "通道发送未知异常(需要介入): channel=%s error=%s",
+            channel.name,
+            exc,
+            exc_info=True,
+        )
+        if retry_ledger is not None:
+            retry_ledger.enqueue_failure(
+                channel=channel.name,
+                items=items,
+                target_spec=None,
+                error=exc,
+                kind=context.kind,
+            )
+        return SendReport(
+            channel.name,
+            ok=False,
+            item_count=len(items),
+            error=f"[unexpected] {type(exc).__name__}: {exc}",
         )
     return SendReport(channel.name, ok=True, item_count=len(items))
 
@@ -128,7 +165,9 @@ async def _send_via_channel_targets(
     reports: list[SendReport] = []
     for channel in channels:
         if not specs:
-            reports.append(await _send_via(channel, items, context, retry_ledger=retry_ledger))
+            reports.append(
+                await _send_via(channel, items, context, retry_ledger=retry_ledger)
+            )
             continue
         if directory is None:
             logger.error(
@@ -189,10 +228,16 @@ class DigestAggregator:
         return len(self._pool)
 
     def add(
-        self, item: Any, *, dedup_key: str | None = None, targets: list[str] | None = None
+        self,
+        item: Any,
+        *,
+        dedup_key: str | None = None,
+        targets: list[str] | None = None,
     ) -> None:
         """Append one item to the digest pool (``dedup_key`` enables suppression)."""
-        self._pool.append(PendingDigestItem(item=item, dedup_key=dedup_key, targets=targets))
+        self._pool.append(
+            PendingDigestItem(item=item, dedup_key=dedup_key, targets=targets)
+        )
 
     def current_slot(self, now: datetime | None = None) -> str:
         """The AM/PM slot containing ``now`` (local 12:00 boundary, grill Q3)."""
@@ -227,13 +272,22 @@ class DigestAggregator:
         local_now = _local_now(now, self._tz)
         slot = _slot_of(local_now)
         context = SendContext(
-            slot=slot, date=local_now.strftime("%Y-%m-%d"), category=category, kind="digest"
+            slot=slot,
+            date=local_now.strftime("%Y-%m-%d"),
+            category=category,
+            kind="digest",
         )
         keep = self._drop_suppressed(local_now)
         self._pool = []
         if not keep:
-            logger.info("摘要槽位无待发条目,跳过发送: slot=%s date=%s", slot, context.date)
+            logger.info(
+                "摘要槽位无待发条目,跳过发送: slot=%s date=%s", slot, context.date
+            )
             return []
+        # 日报可读性排序(10-06-ai-news-sources 质询轮):有 enrich 分的条目
+        # 按 value 降序在前(厂商要闻浮上来),无分条目按到达序殿后(论坛
+        # 闲聊不再淹没资讯);稳定排序保同分段到达序,零分/缺分语义不变。
+        keep.sort(key=_digest_order_key)
         legacy_items = [pending.item for pending in keep if not pending.targets]
         targeted = [pending for pending in keep if pending.targets]
         reports: list[SendReport] = []
@@ -307,8 +361,12 @@ class DigestAggregator:
                 continue
             keep.append(pending)
         if blocked:
-            logger.info("摘要去重拦截(同槽位已发过): slot=%s 拦截=%d 保留=%d",
-                        _slot_of(now), blocked, len(keep))
+            logger.info(
+                "摘要去重拦截(同槽位已发过): slot=%s 拦截=%d 保留=%d",
+                _slot_of(now),
+                blocked,
+                len(keep),
+            )
         return keep
 
 
@@ -370,7 +428,11 @@ async def send_immediate(
         ):
             logger.info("立即推送跳过(同槽位已发过): key=%s slot=%s", key, context.slot)
             continue
-        specs = item_specs[index] if item_specs is not None and index < len(item_specs) else None
+        specs = (
+            item_specs[index]
+            if item_specs is not None and index < len(item_specs)
+            else None
+        )
         item_reports = await _send_via_channel_targets(
             [item],
             specs=list(specs) if specs else None,
