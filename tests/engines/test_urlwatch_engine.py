@@ -22,6 +22,7 @@
 
 from __future__ import annotations
 
+import os
 import types
 
 import httpx
@@ -863,3 +864,28 @@ def test_build_render_command_rejects_double_quote_parts(
     with pytest.raises(FetchError, match="双引号") as excinfo:
         urlwatch_engine_module.build_render_command(python_executable, helper, url)
     assert excinfo.value.error_type == "invalid_render_command"
+
+
+def test_render_channel_aligns_browsers_env_before_subprocess(
+    patched_adapter, render_seams, monkeypatch, tmp_path
+):
+    """复审修复(10-06-native-plugin-components):桌面组件装完后常驻 sidecar
+    无需重启——渲染通道起子进程前按 <MYIA_HOME>/playwright-browsers 在场
+    即时对齐 PLAYWRIGHT_BROWSERS_PATH(ShellJob shell=True 继承本进程 env)。"""
+    browsers = tmp_path / "playwright-browsers"
+    browsers.mkdir()
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)
+    patched_adapter(
+        fake_adapter(events=[changed_event(diff="+ render env aligned")], calls=[])
+    )
+    engine = UrlwatchEngine(
+        urlwatch_source(engine_options={"urlwatch": {"render": "crawl4ai"}}),
+        urlwatch_context(),
+    )
+    try:
+        items = run(engine.fetch())
+        assert len(items) == 1
+        assert os.environ["PLAYWRIGHT_BROWSERS_PATH"] == str(browsers)
+    finally:
+        monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)

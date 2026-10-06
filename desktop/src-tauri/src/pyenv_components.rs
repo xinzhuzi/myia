@@ -666,18 +666,33 @@ fn service_group_alive(pid: u32) -> bool {
     service_pid_alive(pid)
 }
 
-/// 孤儿服务进程身份复核(防 pid 复用误杀无辜进程组):`ps -p <pid> -o
-/// command=` 的 argv 必须同时含自管 python 绝对路径与 start_cmd 首尾 token
-/// (三锚点侧写;本会话 spawn 的子进程不走此复核——Child 句柄即身份证明)。
-/// 复核不过 = 状态戳的 pid 已被系统复用,不动它(戳如实转 stopped)。
-pub fn pid_command_matches_service(
-    pid: u32,
+/// 孤儿服务进程身份复核的三锚点判定(平台无关纯函数,双平台测试共用):
+/// 取到的进程命令行 argv 必须同时含自管 python 绝对路径与 start_cmd 首尾
+/// token(三锚点侧写;本会话 spawn 的子进程不走此复核——Child 句柄即身份
+/// 证明)。复核不过 = 状态戳的 pid 已被系统复用,不动它(戳如实转 stopped)。
+fn command_line_matches_service(
+    command: &str,
     python_bin: &Path,
     start_cmd: &[String],
 ) -> bool {
     let Some((head, tail)) = start_cmd.first().zip(start_cmd.last()) else {
         return false;
     };
+    let trimmed = command.trim();
+    !trimmed.is_empty()
+        && trimmed.contains(python_bin.to_string_lossy().as_ref())
+        && trimmed.contains(head.as_str())
+        && trimmed.contains(tail.as_str())
+}
+
+/// 孤儿服务进程身份复核(unix):`ps -p <pid> -o command=` 取 argv 交纯函数
+/// 判定;ps 不可用/非零退出 = 取不到真相,按复核不过处理(不动进程)。
+#[cfg(unix)]
+pub fn pid_command_matches_service(
+    pid: u32,
+    python_bin: &Path,
+    start_cmd: &[String],
+) -> bool {
     let Ok(output) = std::process::Command::new("ps")
         .args(["-p", &pid.to_string(), "-o", "command="])
         .output()
@@ -688,12 +703,35 @@ pub fn pid_command_matches_service(
         return false;
     }
     let command = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if command.is_empty() {
+    command_line_matches_service(&command, python_bin, start_cmd)
+}
+
+/// 孤儿服务进程身份复核(windows;复审修复 10-06-native-plugin-components:
+/// 原先只有 unix ps 版,Windows 上复核恒 false——跨壳重启的孤儿服务永远
+/// 停不掉,状态戳却照转 stopped,8888 端口被占后 app 内无恢复路径)。
+/// 取 argv 走 PowerShell `Get-CimInstance Win32_Process` 的 CommandLine
+/// (wmic 在新 Win11 已弃用/移除,不作主路),判定与 unix 同一三锚点纯函数;
+/// powershell 不可用/非零退出/空命令行 = 复核不过(不动进程,与 unix 同语义)。
+#[cfg(windows)]
+pub fn pid_command_matches_service(
+    pid: u32,
+    python_bin: &Path,
+    start_cmd: &[String],
+) -> bool {
+    let script = format!(
+        "(Get-CimInstance Win32_Process -Filter \"ProcessId={pid}\").CommandLine"
+    );
+    let Ok(output) = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .output()
+    else {
+        return false;
+    };
+    if !output.status.success() {
         return false;
     }
-    command.contains(python_bin.to_string_lossy().as_ref())
-        && command.contains(head.as_str())
-        && command.contains(tail.as_str())
+    let command = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    command_line_matches_service(&command, python_bin, start_cmd)
 }
 
 /// 健康探测(health_url 2xx = 健康;reqwest 阻塞栈复用既有依赖,连接拒绝
@@ -798,8 +836,12 @@ pub(crate) fn start_service_process(
                     },
                 );
                 return Err(format!(
-                    "服务进程启动后即退出(退出码 {code:?};日志尾部见 {})",
-                    log_path.display()
+                    "服务进程启动后即退出(退出码 {code:?};日志尾部见 {})。\
+                     若退出码为 1 且日志含端口占用:可能是失管的旧服务进程仍在监听 \
+                     {}(状态戳丢失/写失败时 app 内不可见)——请检查该端口占用并\
+                     结束旧进程后重试(失管孤儿兜底发现见任务档 risks)",
+                    log_path.display(),
+                    svc.port
                 ));
             }
             Ok(None) => {}
@@ -1406,7 +1448,9 @@ pub async fn service_start(app: AppHandle, id: String) -> Result<ServiceStatus, 
         ));
     }
     // 护栏:pip 变异进行中(主链/组件安装)不启服务——site-packages 正在被写,
-    // 此时起服务读到的是半套环境(与安装侧反向护栏对称的轻量前置)。
+    // 此时起服务读到的是半套环境。注意这是**单向前置**(pip 在跑→不启服务);
+    // 反向(服务在跑→pip 装组件)暂未拦截——pip 在活服务脚下增删共享依赖的
+    // 触发面窄(UI 侧两开关不同行),见任务档 risks,勿读作双向闭合护栏。
     if app
         .state::<crate::pyenv::PyenvManager>()
         .installing
@@ -1634,6 +1678,51 @@ mod tests {
         assert!(a
             .chars()
             .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+    }
+
+    /// 孤儿身份复核三锚点纯函数(平台无关,unix ps / windows Get-CimInstance
+    /// 两路取 argv 后共用同一判定——复审修复 10-06-native-plugin-components:
+    /// 原先无 windows 实现,Windows 上跨壳重启孤儿永不可停)。
+    #[test]
+    fn command_line_matches_service_requires_all_three_anchors() {
+        let python = Path::new("/opt/myia/python/bin/python3");
+        let start_cmd: Vec<String> = vec![
+            "-m".into(),
+            "granian".into(),
+            "--host".into(),
+            "127.0.0.1".into(),
+            "--port".into(),
+            "8888".into(),
+        ];
+        let full = "/opt/myia/python/bin/python3 -m granian --host 127.0.0.1 --port 8888 searx.webserver";
+        assert!(command_line_matches_service(full, python, &start_cmd));
+        // 首尾空白容忍(取 argv 的两路输出都先 trim 过,纯函数自身再守一道)
+        assert!(command_line_matches_service(
+            &format!("  {full}  "),
+            python,
+            &start_cmd
+        ));
+        // pid 复用成无关进程(argv 全不同)→ 不过
+        assert!(!command_line_matches_service("/bin/sleep 30", python, &start_cmd));
+        // python 路径不同(系统 python 冒充)→ 不过
+        assert!(!command_line_matches_service(
+            "/usr/bin/python3 -m granian --host 127.0.0.1 --port 8888",
+            python,
+            &start_cmd
+        ));
+        // 尾 token 不同(端口变了)→ 不过
+        assert!(!command_line_matches_service(
+            &full.replace("8888", "9999"),
+            python,
+            &start_cmd
+        ));
+        // 空命令行/纯空白 → 不过
+        assert!(!command_line_matches_service("", python, &start_cmd));
+        assert!(!command_line_matches_service("   ", python, &start_cmd));
+        // start_cmd 空 → 不过;单 token(首尾同锚,-m 在 argv)→ 过(既有语义)
+        assert!(!command_line_matches_service(full, python, &[]));
+        let single: Vec<String> = vec!["-m".into()];
+        assert!(command_line_matches_service(full, python, &single));
     }
 
     /// 空白 spec 串(全空白可过注册表非空滤)→ run_pip_spec 拒跑,

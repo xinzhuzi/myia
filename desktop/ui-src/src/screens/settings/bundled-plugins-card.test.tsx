@@ -455,6 +455,8 @@ function installRemoteIpc(options: {
   doctorFirecrawl?: Record<string, unknown> | undefined | null;
   /** secret.set 可编程失败 */
   secretSetError?: Record<string, unknown>;
+  /** plugins.remote.save 可编程失败(secret.set 已成功的部分成功场景) */
+  remoteSaveError?: Record<string, unknown>;
 }) {
   const seen: { method: string; params: unknown }[] = [];
   const state = {
@@ -476,6 +478,7 @@ function installRemoteIpc(options: {
       return { id: params.id, ...state.remoteConfig };
     }
     if (method === "plugins.remote.save") {
+      if (options.remoteSaveError) throw JSON.stringify(options.remoteSaveError);
       const endpoint = params.endpoint as string;
       state.remoteConfig = { endpoint, token: (params.token as string | undefined) ?? state.remoteConfig.token, known: true };
       return { ok: true, id: params.id, path: "/home/MYIA/remote-plugins.json", endpoint };
@@ -598,7 +601,7 @@ describe("装机组件:轨D remote 配置面板(阶段3)", () => {
     render(<BundledPluginsCard />);
 
     await screen.findByTestId("bundled-remote-panel-myssia-firecrawl");
-    for (const bad of ["env:MYIA_FIRECRAWL_URL", "keychain:myia/firecrawl/api-key", "not-a-url", " "]) {
+    for (const bad of ["env:MYIA_FIRECRAWL_URL", "keychain:myia/firecrawl/api-key", "not-a-url", " ", "https://"]) {
       fireEvent.change(screen.getByTestId("bundled-remote-panel-myssia-firecrawl-endpoint"), { target: { value: bad } });
       fireEvent.click(screen.getByTestId("bundled-remote-panel-myssia-firecrawl-save"));
       expect(await screen.findByTestId("bundled-remote-panel-myssia-firecrawl-endpoint-error")).toBeDefined();
@@ -633,6 +636,74 @@ describe("装机组件:轨D remote 配置面板(阶段3)", () => {
       expect(screen.getByRole("alert").textContent).toContain("invalid_secret_name");
     });
     expect(seen.find((call) => call.method === "plugins.remote.save")).toBeUndefined();
+  });
+
+  it("部分成功披露(复审修复):secret.set 已入钥匙串后 remote.save 被拒 → 孤立凭据如实可见", async () => {
+    const { seen } = installRemoteIpc({
+      plugins: [FIRECRAWL_ENTRY()],
+      remoteSaveError: { code: "remote_config_unavailable", path: "$", message: "remote 插件配置属桌面数据根(dev 形态无 MYIA_HOME)" },
+    });
+    render(<BundledPluginsCard />);
+
+    await screen.findByTestId("bundled-remote-panel-myssia-firecrawl");
+    fireEvent.change(screen.getByTestId("bundled-remote-panel-myssia-firecrawl-endpoint"), {
+      target: { value: "https://fc.example.org" },
+    });
+    fireEvent.change(screen.getByTestId("bundled-remote-panel-myssia-firecrawl-token"), {
+      target: { value: "some-secret" },
+    });
+    fireEvent.click(screen.getByTestId("bundled-remote-panel-myssia-firecrawl-save"));
+
+    // 保存错误 + 「键已入钥匙串」披露双上屏(部分成功不留暗账)
+    await waitFor(() => {
+      const alerts = screen.getAllByRole("alert");
+      expect(alerts.some((el) => el.textContent?.includes("remote_config_unavailable"))).toBe(true);
+    });
+    await waitFor(() => {
+      const alerts = screen.getAllByRole("alert");
+      expect(alerts.some((el) => el.textContent?.includes("已先行写入系统钥匙串"))).toBe(true);
+    });
+    // secret.set 先行执行过(顺序如实:凭据先行,save 后拒)
+    expect(seen.find((call) => call.method === "secret.set")).toBeDefined();
+  });
+
+  it("dev 形态(remote.get 拒 remote_config_unavailable)→ 保存预判禁用,secret.set 零触达", async () => {
+    const { seen } = installRemoteIpc({ plugins: [FIRECRAWL_ENTRY()], remoteConfig: null });
+    render(<BundledPluginsCard />);
+
+    await screen.findByTestId("bundled-remote-panel-myssia-firecrawl");
+    const save = await screen.findByTestId("bundled-remote-panel-myssia-firecrawl-save");
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(true));
+    // 禁存使「secret.set 已入钥匙串而 save 恒拒」的部分成功在 dev 形态不发生
+    expect(seen.find((call) => call.method === "secret.set")).toBeUndefined();
+    expect(seen.find((call) => call.method === "plugins.remote.save")).toBeUndefined();
+  });
+
+  it("端点草稿防覆写(复审修复):载入应答晚于用户输入时不覆写已改草稿", async () => {
+    let resolveGet: ((value: unknown) => void) | null = null;
+    mocks.invoke.mockImplementation(async (_command: string, args?: { method?: string; params?: unknown }) => {
+      const method = args?.method ?? "";
+      if (method === "plugins.bundled.list") return wireList([FIRECRAWL_ENTRY()]);
+      if (method === "plugins.remote.get") {
+        return await new Promise((resolve) => {
+          resolveGet = () => resolve({ id: "myssia-firecrawl", endpoint: "https://old.example.org", token: null, known: true });
+        });
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "method", message: `未知方法 ${method}` });
+    });
+    render(<BundledPluginsCard />);
+
+    const input = (await screen.findByTestId(
+      "bundled-remote-panel-myssia-firecrawl-endpoint",
+    )) as HTMLInputElement;
+    // 载入应答未达(mount→IPC 窗口)用户已开始输入
+    fireEvent.change(input, { target: { value: "https://draft.example.org" } });
+    resolveGet?.({});
+    // 应答到达:草稿不被旧配置覆写;徽章如实翻「已配置」
+    await waitFor(() =>
+      expect(screen.getByTestId("bundled-remote-panel-myssia-firecrawl-state").textContent).toBe("已配置"),
+    );
+    expect(input.value).toBe("https://draft.example.org");
   });
 
   it("探活三态:连通 / 不可达 / 未配置(未配置不红)", async () => {

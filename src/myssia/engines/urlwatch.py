@@ -65,6 +65,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from myssia.engines.crawl4ai import ensure_playwright_browsers_env
 from myssia.engines.fetch_base import BaseEngine, FetchContext, FetchError
 from myssia.schema import SourceConfig
 
@@ -380,6 +381,11 @@ class UrlwatchEngine(BaseEngine):
             # 哪个环境就由哪个环境跑(装机 python 缺后端=结构化
             # dependency_missing,同 llm extras 先例归主人收编)。
             helper = self._render_helper(options["render"])
+            # 桌面组件浏览器目录自解析(复审修复,与 crawl4ai 引擎同源):
+            # 渲染 helper 子进程经 ShellJob(shell=True)继承本进程 env——
+            # 装完组件后常驻 sidecar 无需重启,起子进程前即时对齐
+            # PLAYWRIGHT_BROWSERS_PATH(已设原样尊重,目录在场才注)。
+            ensure_playwright_browsers_env()
             job = {
                 "name": self.source.name,
                 "user_visible_url": url,

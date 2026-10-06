@@ -1163,3 +1163,57 @@ def test_broken_install_import_error_is_structured(monkeypatch):
         load_crawl4ai()
     assert excinfo.value.error_type == "dependency_missing"
     assert "pip install myssia[crawl4ai]" in str(excinfo.value)
+
+
+class TestEnsurePlaywrightBrowsersEnv:
+    """桌面组件浏览器目录自解析(复审修复 10-06-native-plugin-components)。
+
+    谓词与壳侧 should_inject_browsers_env 同一子集:用户已设原样尊重 >
+    MYIA_HOME 在场且 ``<MYIA_HOME>/playwright-browsers`` 目录在才注入 >
+    否则零动作(未装组件/CLI 直跑零行为差)。
+    """
+
+    ENV = "PLAYWRIGHT_BROWSERS_PATH"
+    HOME = "MYIA_HOME"
+
+    def test_user_set_env_wins_even_with_dir_present(self, monkeypatch, tmp_path):
+        """已显式设 PLAYWRIGHT_BROWSERS_PATH → 原样尊重,绝不夺权(壳同款惯例)。"""
+        (tmp_path / "playwright-browsers").mkdir()
+        monkeypatch.setenv(self.HOME, str(tmp_path))
+        monkeypatch.setenv(self.ENV, "/custom/browsers")
+        assert crawl4ai_module.ensure_playwright_browsers_env() == "/custom/browsers"
+        assert os.environ[self.ENV] == "/custom/browsers"
+
+    def test_injects_when_myia_home_and_dir_present(self, monkeypatch, tmp_path):
+        """MYIA_HOME 在场且浏览器目录在 → 注入 <home>/playwright-browsers。"""
+        browsers = tmp_path / "playwright-browsers"
+        browsers.mkdir()
+        monkeypatch.setenv(self.HOME, str(tmp_path))
+        monkeypatch.delenv(self.ENV, raising=False)
+        assert crawl4ai_module.ensure_playwright_browsers_env() == str(browsers)
+        assert os.environ[self.ENV] == str(browsers)
+
+    def test_idempotent_second_call_returns_same_value(self, monkeypatch, tmp_path):
+        """幂等:重复调用(第二次走「已设」分支)返回同一值,不重复写。"""
+        browsers = tmp_path / "playwright-browsers"
+        browsers.mkdir()
+        monkeypatch.setenv(self.HOME, str(tmp_path))
+        monkeypatch.delenv(self.ENV, raising=False)
+        first = crawl4ai_module.ensure_playwright_browsers_env()
+        assert (
+            crawl4ai_module.ensure_playwright_browsers_env() == first == str(browsers)
+        )
+
+    def test_noop_without_myia_home(self, monkeypatch, tmp_path):
+        """CLI 直跑(MYIA_HOME 未设)→ 不注入,playwright 各回自家缺省。"""
+        monkeypatch.delenv(self.HOME, raising=False)
+        monkeypatch.delenv(self.ENV, raising=False)
+        assert crawl4ai_module.ensure_playwright_browsers_env() is None
+        assert self.ENV not in os.environ
+
+    def test_noop_when_browsers_dir_absent(self, monkeypatch, tmp_path):
+        """MYIA_HOME 在场但组件未装(目录缺位)→ 不注入(存量零行为差)。"""
+        monkeypatch.setenv(self.HOME, str(tmp_path))
+        monkeypatch.delenv(self.ENV, raising=False)
+        assert crawl4ai_module.ensure_playwright_browsers_env() is None
+        assert self.ENV not in os.environ

@@ -89,6 +89,11 @@ const STATE_BANNER_CLS: Record<PyenvState, string> = {
   deps_stale: "border-l-2 border-l-warning/60",
 };
 
+/** 慢启动健康对账轮询参数(复审修复:回执「稍后以状态对账为准」的兑现面)。
+ *  每 5s 一次 × 上限 24 次 ≈ 2 分钟——绿即停,超限放弃(真故障看日志)。 */
+const SERVICE_HEALTH_POLL_INTERVAL_MS = 5_000;
+const SERVICE_HEALTH_POLL_MAX_ATTEMPTS = 24;
+
 /** 状态机五阶段中文标(design §3:downloading→…→selfcheck)。 */
 const PHASE_LABEL: Record<PyenvPhase, string> = {
   downloading: "下载运行时",
@@ -370,13 +375,15 @@ export function PyenvCard() {
   const [serviceError, setServiceError] = useState<SidecarRequestError | null>(null);
   const [serviceNote, setServiceNote] = useState<{ text: string; ok: boolean } | null>(null);
 
-  const refreshServiceStatus = useCallback(async (id: string) => {
+  const refreshServiceStatus = useCallback(async (id: string): Promise<ServiceStatus | null> => {
     try {
       const next = await serviceStatus(id);
       setServiceStates((prev) => ({ ...prev, [id]: next }));
+      return next;
     } catch (raw) {
       // 探测失败不拦渲染(按钮仍可用;错误如实给一次,不覆写动作回执)
       setServiceError(asSidecarError(raw));
+      return null;
     }
   }, []);
 
@@ -390,20 +397,58 @@ export function PyenvCard() {
     }
   }, [status, refreshServiceStatus]);
 
+  /**
+   * 慢启动健康对账轮询(复审修复 10-06-native-plugin-components):启动回包
+   * running+healthy=false 时,回执承诺「稍后以状态对账为准」但原先无任何自动
+   * 触发源——健康点滞留黄闪直到用户切屏重挂载。本轮询每 5s 对账一次,绿即停,
+   * 上限 24 次(约 2 分钟)自动放弃(持续未绿 = 实例真故障,日志指引已在回执)。
+   */
+  const [healthPoll, setHealthPoll] = useState<{ id: string; attempts: number } | null>(null);
+
+  useEffect(() => {
+    if (healthPoll === null) return;
+    if (healthPoll.attempts >= SERVICE_HEALTH_POLL_MAX_ATTEMPTS) {
+      setHealthPoll(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void refreshServiceStatus(healthPoll.id).then((next) => {
+        if (cancelled) return;
+        // 绿即停;stopped(预热失败退出)/探测失败 → 继续按次计,至上限
+        if (next?.state === "running" && next.healthy) {
+          setHealthPoll(null);
+        } else {
+          setHealthPoll((prev) =>
+            prev && prev.id === healthPoll.id ? { ...prev, attempts: prev.attempts + 1 } : prev,
+          );
+        }
+      });
+    }, SERVICE_HEALTH_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [healthPoll, refreshServiceStatus]);
+
   /** 服务启停(G-Q5:显式动作;回包如实翻态 + 回执,不伪造进度)。 */
   const handleServiceToggle = useCallback(
     async (component: PyenvComponent, start: boolean) => {
       setServiceBusy(component.id);
       setServiceError(null);
       setServiceNote(null);
+      setHealthPoll(null); // 新动作重置旧轮询(对账口径以最新动作回包为准)
       try {
         const outcome = start ? await serviceStart(component.id) : await serviceStop(component.id);
         setServiceStates((prev) => ({ ...prev, [component.id]: outcome }));
+        if (start && outcome.state === "running" && !outcome.healthy) {
+          setHealthPoll({ id: component.id, attempts: 0 }); // 慢启动:起轮询对账
+        }
         setServiceNote(
           start
             ? outcome.state === "running" && outcome.healthy
               ? { text: `服务 ${component.id} 已启动且健康检查通过(进程 pid=${outcome.pid})。`, ok: true }
-              : { text: `服务 ${component.id} 已拉起(pid=${outcome.pid})但健康端点尚未通过——实例可能在预热,稍后以状态对账为准;持续未绿请查数据根 services/${component.id}/service.log。`, ok: false }
+              : { text: `服务 ${component.id} 已拉起(pid=${outcome.pid})但健康端点尚未通过——实例可能在预热,本页每 ${SERVICE_HEALTH_POLL_INTERVAL_MS / 1000}s 自动对账一次(转绿即停);持续未绿请查数据根 services/${component.id}/service.log。`, ok: false }
             : { text: `服务 ${component.id} 已停止(进程组退出,零残留)。`, ok: true },
         );
       } catch (raw) {

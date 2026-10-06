@@ -502,6 +502,56 @@ describe("PyenvCard:服务组件行(启停按钮 + 健康绿点 + 状态对账)"
     expect(screen.getByTestId("pyenv-service-searxng-health").className).toContain("bg-warning");
   });
 
+  it("启动回包 healthy=false(慢启动)→ 起轮询对账,转绿即停——回执承诺自动兑现", async () => {
+    // 复审修复 10-06-native-plugin-components:回执承诺「稍后以状态对账为准」
+    // 原先无任何自动触发源(黄点滞留直到切屏重挂载);现每 5s 自动对账。
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const slowStart = {
+        ...serviceStatusFixture("searxng", "running", false),
+        pid: 4242,
+      };
+      let statusCalls = 0;
+      mocks.invoke.mockImplementation(async (command: string, args?: unknown) => {
+        const { id } = (args ?? {}) as { id: string };
+        if (command === "service_start" && id === "searxng") return slowStart;
+        if (command === "service_status") {
+          statusCalls += 1;
+          // 第 1 次 = 挂载对账(停态);轮询对账起回绿(慢启动转绿形态)
+          return statusCalls <= 1
+            ? serviceStatusFixture()
+            : serviceStatusFixture("searxng", "running", true);
+        }
+        if (command === "pyenv_get_status")
+          return wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] });
+        throw new Error(`未预期的 IPC 命令: ${command}`);
+      });
+      installListen();
+      render(<PyenvCard />);
+      await screen.findByTestId("pyenv-service-searxng-start");
+
+      fireEvent.click(screen.getByTestId("pyenv-service-searxng-start"));
+      await waitFor(() =>
+        expect(screen.getByTestId("pyenv-service-searxng-health").className).toContain("bg-warning"),
+      );
+      const callsBeforePoll = statusCalls;
+
+      // 5s 后第一次轮询对账 → 黄点转绿
+      await vi.advanceTimersByTimeAsync(5_000);
+      await waitFor(() =>
+        expect(screen.getByTestId("pyenv-service-searxng-health").className).toContain("bg-ok"),
+      );
+      const callsAtGreen = statusCalls;
+      expect(callsAtGreen).toBe(callsBeforePoll + 1);
+
+      // 绿即停:再推 20s 不再对账(轮询已终止)
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(statusCalls).toBe(callsAtGreen);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("启动失败(结构化错误:启动后即退出)→ ErrorBox 上屏,行保持已停止", async () => {
     installServiceIpc(
       wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] }),

@@ -53,6 +53,8 @@ from __future__ import annotations
 import asyncio
 import importlib
 import logging
+import os
+from pathlib import Path
 from typing import Any
 
 from myssia.engines.fetch_base import (
@@ -89,6 +91,52 @@ INSTALL_COMMAND = "pip install myssia[crawl4ai]"
 #: absent — JS 渲染页比静态页慢,默认预算宽于管线 HTTP 默认 30s。
 DEFAULT_PAGE_TIMEOUT_SECONDS = 60.0
 
+#: 桌面组件浏览器目录名(与壳侧 ``pyenv_components.rs`` 的
+#: ``PLAYWRIGHT_BROWSERS_DIR`` 同名——装与用必须指向同一目录)。
+PLAYWRIGHT_BROWSERS_DIR = "playwright-browsers"
+
+#: 组件装的 playwright 浏览器目录 env 名(playwright 官方发现变量)。
+PLAYWRIGHT_BROWSERS_PATH_ENV = "PLAYWRIGHT_BROWSERS_PATH"
+
+
+def ensure_playwright_browsers_env() -> str | None:
+    """把桌面组件装的浏览器目录对齐进本进程 env(幂等;返回生效值)。
+
+    复审修复(10-06-native-plugin-components):壳侧只在 spawn sidecar 时刻按
+    目录在场注入一次 ``PLAYWRIGHT_BROWSERS_PATH``(main.rs),组件装完后已在
+    跑的常驻 sidecar 及其子进程拿不到——装机标准流程「先起 sidecar 后装
+    crawl4ai 组件」全链报「浏览器二进制缺失」。本函数是 Python 侧自解析兜底:
+    每次真正要用浏览器前(本引擎 fetch / urlwatch 渲染通道起子进程前)按
+    ``<MYIA_HOME>/playwright-browsers`` 在场即时补 env,装与用时刻对齐,
+    不依赖进程重启。
+
+    判定与壳侧 :rust:func:`should_inject_browsers_env` 同一谓词子集:
+
+    - 用户已显式设 ``PLAYWRIGHT_BROWSERS_PATH`` → 原样尊重,绝不夺权
+      (壳「已设原样继承」同款惯例);
+    - ``MYIA_HOME`` env 在场(桌面 sidecar 被壳 spawn 时必注入;CLI 直跑
+      未设则不注——playwright 各回自家缺省位置,零行为差;不在此复刻平台
+      数据根解析,防三处同源逻辑漂移)且其下 ``playwright-browsers/`` 目录
+      在(组件装过浏览器)→ ``os.environ.setdefault`` 语义注入;
+    - 目录缺位 → 不注(未装组件的存量零行为差,含 uvx 自管型
+      stealth_browser 的浏览器发现面)。
+
+    Returns:
+        注入后(或用户已设时原有的)``PLAYWRIGHT_BROWSERS_PATH`` 值;
+        未注入(any 上述条件不满足)时 ``None``。
+    """
+    if PLAYWRIGHT_BROWSERS_PATH_ENV in os.environ:
+        return os.environ[PLAYWRIGHT_BROWSERS_PATH_ENV]
+    home = os.environ.get("MYIA_HOME")
+    if not home:
+        return None
+    browsers_dir = Path(home).expanduser() / PLAYWRIGHT_BROWSERS_DIR
+    if not browsers_dir.is_dir():
+        return None
+    value = str(browsers_dir)
+    os.environ[PLAYWRIGHT_BROWSERS_PATH_ENV] = value
+    return value
+
 #: Engine-owned BrowserConfig keys — semantic knobs whose value the engine
 #: derives itself (headless 校验 / proxy 解析+脱敏 / headers 凭据解析+脱敏日志);
 #: passthrough ``browser_options`` may not override them (单一来源,冲突即拒).
@@ -107,7 +155,10 @@ __all__ = [
     "LAYER",
     "DEFAULT_PAGE_TIMEOUT_SECONDS",
     "INSTALL_COMMAND",
+    "PLAYWRIGHT_BROWSERS_DIR",
+    "PLAYWRIGHT_BROWSERS_PATH_ENV",
     "Crawl4AIEngine",
+    "ensure_playwright_browsers_env",
 ]
 
 
@@ -218,6 +269,9 @@ class Crawl4AIEngine(BaseEngine):
         run_extra = self._passthrough_options(
             "run_options", reserved=_RESERVED_RUN_KEYS, error_type="invalid_run_options"
         )
+        # 桌面组件浏览器目录自解析(复审修复):装完组件后常驻 sidecar 无需
+        # 重启——fetch 前按 <MYIA_HOME>/playwright-browsers 在场即时对齐 env。
+        ensure_playwright_browsers_env()
         crawl4ai = load_crawl4ai()
         # 代理与 headers 必须真的到达浏览器:源配 pool: 代理时基座已在
         # _prepare_proxy_transport 解析出具体 upstream(_active_proxy_url),
@@ -339,7 +393,11 @@ class Crawl4AIEngine(BaseEngine):
         lowered = message.lower()
         hint = ""
         if "executable" in lowered or "playwright install" in lowered or "crawl4ai-setup" in lowered:
-            hint = "(浏览器二进制缺失?请执行 crawl4ai-setup 安装 playwright 浏览器;详见 doctor 诊断)"
+            hint = (
+                "(浏览器二进制缺失?桌面端在「设置 → Python 运行环境」装/已装 crawl4ai 组件"
+                "即可——装完即生效,无需重启,浏览器落数据根受管目录;自管环境才需手动执行 "
+                "crawl4ai-setup;详见 doctor 诊断)"
+            )
         return FetchError(
             f"crawl4ai 浏览器启动/运行失败: {message}{hint}",
             error_type="crawl4ai_error",

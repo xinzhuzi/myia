@@ -341,7 +341,8 @@ class SearxngEngine(BaseEngine):
                 detail = f": {body['error']}"
         hints = {
             403: "(部署侧未开 json format:实例 settings.yml 的 search.formats "
-            "加 json 后 docker compose restart core)",
+            "加 json 后重启实例生效;本机壳服务组件实例的 settings.yml 已由壳"
+            "生成开启 json,重启走设置卡「启动/停止」按钮)",
             429: "(limiter 拦截:客户端已常发 Accept-Language;仍拦请核对实例 "
             "limiter/ip_lists 口径或改走自托管专用实例)",
         }

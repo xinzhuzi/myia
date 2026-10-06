@@ -179,7 +179,7 @@ trafilatura 正文兜底同样缺装不拦链(无规则源照旧 `extract_requir
 
 L3 `firecrawl` 引擎的渲染后端不必买云端——也可以自托管(零美元,
 渲染流量不出你的机器):部署步骤与配方见上游官方
-[self-host 文档](https://github.com/firecrawl/firecrawl/blob/master/SELF_HOST.md)
+[self-host 文档](https://github.com/firecrawl/firecrawl/blob/main/SELF_HOST.md)
 (SELF_HOST.md;我方不复刻配方)。引擎内置缺省端点就是标准口
 `http://127.0.0.1:3002`,非标准口或远程机才设 `MYIA_FIRECRAWL_URL`;
 自托管关鉴权,`MYIA_FIRECRAWL_API_KEY` 不设(云端 `api.firecrawl.dev`
@@ -578,7 +578,7 @@ the [schema reference](docs/en/schema.md).
 The L3 `firecrawl` engine's rendering backend doesn't have to be a cloud
 purchase — a self-hosted stack works too (zero dollars, and rendering
 traffic never leaves your machine): deployment steps and the recipe live
-in the upstream official [self-host guide](https://github.com/firecrawl/firecrawl/blob/master/SELF_HOST.md)
+in the upstream official [self-host guide](https://github.com/firecrawl/firecrawl/blob/main/SELF_HOST.md)
 (we do not replicate the recipe here). The engine's built-in default endpoint is
 the standard port `http://127.0.0.1:3002`; set `MYIA_FIRECRAWL_URL` only for
 a non-standard port or a remote machine. Self-host runs with auth off, so

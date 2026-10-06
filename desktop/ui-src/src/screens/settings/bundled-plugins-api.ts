@@ -415,8 +415,11 @@ export async function remotePluginSave(params: {
 /**
  * 轨D 探活:跑一次 doctor 取 firecrawl 连通项(doctor 应答加法键;旧 sidecar
  * 无该键 → parseRemoteDoctorSection 宽容 null = 面板「诊断无连通项」降级)。
+ * 复审修复(过渡收窄):显式传 probe_timeout=5 使探活单次 GET 的等待上限从
+ * CLI 缺省 10s 收窄到 5s(不可达时按钮 spinner 至少少转一半;doctor 仍全量
+ * 跑——sidecar 轻量单项探活方法见任务档 risks,entry.py 在途绕行)。
  */
 export async function remoteDoctorProbe(): Promise<RemoteDoctorSection | null> {
-  const raw = (await bundledRequest("doctor", {})) as Record<string, unknown>;
+  const raw = (await bundledRequest("doctor", { probe_timeout: 5 })) as Record<string, unknown>;
   return parseRemoteDoctorSection(raw.firecrawl);
 }

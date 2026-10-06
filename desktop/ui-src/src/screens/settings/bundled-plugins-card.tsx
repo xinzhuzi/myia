@@ -1,5 +1,5 @@
 import { Check, Download, FileText, Globe, KeyRound, Layers, PackageOpen, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,6 +77,16 @@ interface InstallOutcome {
 /** 轨D 探活按钮覆盖的插件件(id → doctor 连通项;现役 = firecrawl,后件扩表)。 */
 const REMOTE_DOCTOR_PROBE_IDS: ReadonlySet<string> = new Set(["myssia-firecrawl"]);
 
+/**
+ * 轨D env 桥接件(sidecar `_REMOTE_ENGINE_BRIDGE` 表的 UI 镜像;复审修复
+ * 10-06-native-plugin-components:回执/标题按件区分,非桥接件不再谎称「经
+ * env 通道桥接即时生效」——纯品类 YAML 消费的 remote 件(rsshub/webcheck
+ * 等)保存即落盘,无引擎 env 通道)。**同步规约:entry.py `_REMOTE_ENGINE_
+ * BRIDGE` 增删件时本表必须同步**(UI 与 sidecar 两处硬编码,暂未经
+ * bundled.list 面向 UI 暴露,见任务档 risks)。
+ */
+const REMOTE_ENV_BRIDGE_IDS: ReadonlySet<string> = new Set(["myssia-firecrawl"]);
+
 /** 轨D remote 配置面板状态的小聚合(成功回执与结构化错误分槽,同上惯例)。 */
 interface RemotePanelNote {
   text: string;
@@ -109,35 +119,52 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
   const [actionError, setActionError] = useState<SidecarRequestError | null>(null);
   const [note, setNote] = useState<RemotePanelNote | null>(null);
   const [probe, setProbe] = useState<RemotePanelNote | null>(null);
+  /** 用户已手改端点草稿(复审修复):异步回填不再覆写,防打断输入(镜像
+   *  草稿防覆写同款保护);保存成功后回读才回填刚保存的值。 */
+  const [endpointDirty, setEndpointDirty] = useState(false);
+  /** dev 形态(remote 配置属桌面数据根,无 MYIA_HOME 恒拒)→ 预判禁存,使
+   *  「remote.save 拒但 secret.set 已先行入钥匙串」的部分成功不发生。 */
+  const [devBlocked, setDevBlocked] = useState(false);
 
   const pluginId = plugin.id ?? plugin.dir_name;
   const tokenRef = remoteTokenRef(pluginId);
+  const envBridged = REMOTE_ENV_BRIDGE_IDS.has(pluginId);
 
   const reload = useCallback(async () => {
     setLoadHint(null);
     try {
       const config = await remotePluginGet(pluginId);
       setConfigured(config.known);
-      setEndpoint(config.endpoint ?? "");
+      setDevBlocked(false);
+      // 用户已手改草稿:异步应答不覆写(防打断输入);初拉/保存回读才回填
+      setEndpoint((prev) => (endpointDirtyRef.current ? prev : config.endpoint ?? ""));
     } catch (raw) {
       // dev 形态/旧 sidecar:面板如实提示(method_not_found = 旧壳无轨D方法)
+      const error = asSidecarError(raw);
       setConfigured(null);
-      setLoadHint(asSidecarError(raw).message);
+      setLoadHint(error.message);
+      setDevBlocked(error.code === "remote_config_unavailable");
     }
   }, [pluginId]);
+
+  // dirty 经 ref 读(reload 回调不因 dirty 变化而换引用;语义即「当前草稿态」)
+  const endpointDirtyRef = useRef(endpointDirty);
+  endpointDirtyRef.current = endpointDirty;
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
-  /** 端点前端同口径校验(schema/协议侧同语义先挡一道)。 */
+  /** 端点前端同口径校验(schema/协议侧同语义先挡一道;\S+ 对齐后端
+   *  entry.py `^https?://\S+$`——「https://」空余部形态在此即拒,不再放行
+   *  到 secret.set 之后的后端拒绝)。 */
   const validateEndpoint = (value: string): string | null => {
     const trimmed = value.trim();
     if (!trimmed) return "端点必填(http(s) 地址)";
     if (/^(env|keychain):/i.test(trimmed)) {
       return "端点不收 env:/keychain: 引用(引用属品类 YAML/env 开发后门;此处填具体地址)";
     }
-    if (!/^https?:\/\//i.test(trimmed)) return "端点必须是 http(s) 地址";
+    if (!/^https?:\/\/\S+$/i.test(trimmed)) return "端点必须是 http(s) 地址(含主机名)";
     return null;
   };
 
@@ -149,11 +176,13 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
     setProbe(null);
     if (error) return; // 校验不过零 IPC
     setBusy("save");
+    let secretWritten = false; // secret.set 是否已成功(部分成功披露的判定依据)
     try {
       // 凭据先行入钥匙串(secret.set = myssia secret set 同一道门;值只过
       // 协议,不进配置不落盘);配置只存 keychain: 引用。
       if (token.trim()) {
         await api.secretSet({ name: tokenRef.replace(/^keychain:/, ""), value: token.trim() });
+        secretWritten = true;
       }
       const result = await remotePluginSave({
         id: pluginId,
@@ -161,17 +190,29 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
         ...(token.trim() ? { token: tokenRef } : {}),
       });
       setToken(""); // 保存即清(明文不留输入态)
+      setEndpointDirty(false); // 回读回填刚保存的值(与用户输入一致,良性)
       setNote({
-        text: `${pluginId} remote 配置已保存 → ${result.path}(端点即时生效,经 env 通道桥接)`,
+        text: envBridged
+          ? `${pluginId} remote 配置已保存 → ${result.path}(端点即时生效,经 env 通道桥接)`
+          : `${pluginId} remote 配置已保存 → ${result.path}(该件端点经品类 YAML 消费,面板值暂无引擎 env 通道)`,
         ok: true,
       });
       await reload();
     } catch (raw) {
       setActionError(asSidecarError(raw));
+      // 部分成功披露(复审修复):secret.set 成功而后续 remote.save 被拒时,
+      // 凭据已孤立入钥匙串——如实提示(可见可删),不留用户不知情的残留;
+      // secret.set 自身失败则未写入,零披露。
+      if (secretWritten) {
+        setNote({
+          text: `注意:保存被拒,但 API 键已先行写入系统钥匙串(${tokenRef};凭据面可见,secret 可删)`,
+          ok: false,
+        });
+      }
     } finally {
       setBusy(null);
     }
-  }, [endpoint, pluginId, reload, token, tokenRef]);
+  }, [endpoint, envBridged, pluginId, reload, token, tokenRef]);
 
   const handleProbe = useCallback(async () => {
     setBusy("probe");
@@ -208,7 +249,9 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
     >
       <div className="flex flex-wrap items-center gap-1.5">
         <Globe className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="text-2xs font-medium text-foreground">remote 端点配置(云端或自有服务器;写数据根,经 env 通道桥接给引擎)</span>
+        <span className="text-2xs font-medium text-foreground">
+          remote 端点配置(云端或自有服务器;写数据根{envBridged ? ",经 env 通道桥接给引擎" : ";该件经品类 YAML 消费,暂无引擎 env 通道"})
+        </span>
         <Badge variant={configured !== false && configured !== true ? "outline" : configured ? "ok" : "warning"} data-testid={`bundled-remote-panel-${plugin.dir_name}-state`}>
           {configured === undefined ? "读取中" : configured === null ? "读取失败" : configured ? "已配置" : "未配置"}
         </Badge>
@@ -216,7 +259,10 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
       <div className="flex flex-wrap items-center gap-2">
         <Input
           value={endpoint}
-          onChange={(event) => setEndpoint(event.target.value)}
+          onChange={(event) => {
+            setEndpoint(event.target.value);
+            setEndpointDirty(true);
+          }}
           placeholder="https://api.firecrawl.dev 或 https://<你的服务器>"
           aria-label={`${plugin.name ?? pluginId} remote 端点`}
           data-testid={`bundled-remote-panel-${plugin.dir_name}-endpoint`}
@@ -236,9 +282,13 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
           <Button
             size="sm"
             variant="secondary"
-            disabled={busy !== null}
+            disabled={busy !== null || devBlocked}
             data-testid={`bundled-remote-panel-${plugin.dir_name}-save`}
-            title="端点落数据根配置;填了 API 键则先入系统钥匙串(secret.set 同门),配置只存 keychain: 引用"
+            title={
+              devBlocked
+                ? "dev 形态无桌面数据根:remote 配置不落盘(开发后门 = 显式 env,如 MYIA_FIRECRAWL_URL);禁存防「secret.set 已入钥匙串而 save 恒拒」的部分成功"
+                : "端点落数据根配置;填了 API 键则先入系统钥匙串(secret.set 同门),配置只存 keychain: 引用"
+            }
             onClick={() => void handleSave()}
           >
             <KeyRound className={busy === "save" ? "size-3.5 animate-pulse" : "size-3.5"} />
@@ -250,7 +300,7 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
               variant="outline"
               disabled={busy !== null}
               data-testid={`bundled-remote-panel-${plugin.dir_name}-probe`}
-              title="跑一次 doctor 的 firecrawl 连通项(未配置不红;配置了才探活)"
+              title="跑一次完整 doctor 取 firecrawl 连通项(全量诊断含插件装载/凭据探测,约数秒占用;探活单次 GET 超时 5s)"
               onClick={() => void handleProbe()}
             >
               <RefreshCw className={busy === "probe" ? "size-3.5 animate-spin" : "size-3.5"} />

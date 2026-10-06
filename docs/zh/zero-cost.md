@@ -137,7 +137,7 @@ export MYIA_LLM_KEY=<你的 AI Studio API key>
 调用(`POST {endpoint}/v1/scrape`),实例一起就是降级链上现成的 L3 梯级。
 
 **部署步骤与配方见上游官方
-[self-host 文档](https://github.com/firecrawl/firecrawl/blob/master/SELF_HOST.md)
+[self-host 文档](https://github.com/firecrawl/firecrawl/blob/main/SELF_HOST.md)
 (SELF_HOST.md:api + Playwright 渲染 + Redis/PostgreSQL/RabbitMQ 队列的一套
 栈)——我方不复刻配方**(插件/服务端部署属主人运维面,上游文档是唯一
 权威来源)。世事 侧的接线零改动:引擎内置缺省端点就是标准口
@@ -184,27 +184,27 @@ push:
 ## 5. 自托管 SearXNG:关键词日报(零美元)
 
 搜索式情报(竞品名+发布、事件词+进展)走链外 `searxng` 引擎——自托管
-[SearXNG](https://github.com/searxng/searxng) 元搜索聚合,官方 docker
-compose 一套(core+valkey,镜像合计 ~340MB),零美元、搜索流量经你自己的
-实例聚合。**只走自托管**:公共实例 robots `/*?*q=*` 全禁搜索请求、明禁
-API 滥用。本节模板 2026-10-06 在本机 colima docker 实测通过(实例
-2026.10.4,55 条 web 池实快照在档)。
+[SearXNG](https://github.com/searxng/searxng) 元搜索聚合,零美元、搜索
+流量经你自己的实例聚合。**只走自托管**:公共实例 robots `/*?*q=*` 全禁
+搜索请求、明禁 API 滥用。
 
-```bash
-mkdir -p ./searxng/core-config/ && cd ./searxng/
-curl -fsSL -O https://raw.githubusercontent.com/searxng/searxng/master/container/docker-compose.yml \
-           -O https://raw.githubusercontent.com/searxng/searxng/master/container/.env.example
-cp -i .env.example .env && echo 'SEARXNG_PORT=8888' >> .env
-# ./core-config/settings.yml(官方模板基础上只加 search.formats——json 开启就这一处):
-#   use_default_settings: true
-#   search:  { formats: [html, json] }
-#   server:  { secret_key: "<随机串>" }     # limiter 不写 = 默认关(自托管专用建议保持)
-docker compose up -d
-curl http://127.0.0.1:8888/healthz        # OK 即活;format=json 若 403 = settings.yml 未生效
-```
+实例从哪来(插件零 docker 模式,终裁 2026-10-06)两条路,按部署形态二选一:
 
-世事 接线零改动:引擎内置缺省 base 就是 `http://127.0.0.1:8888`,部署到
-远程机器才需要指环境变量(或源级 `searxng_base_url`):
+- **路①本机原生服务组件(推荐,零 Docker,2026-10-06 已落地)**:设置 →
+  Python 运行环境 → 可选组件「关键词日报(SearXNG)」行装组件后
+  「启动」——pip 原生装进自管 Python 环境,`settings.yml` 由壳生成
+  (json 接口已开启,随机 secret 自动落盘),服务监听
+  `127.0.0.1:8888`,缺省 base 无需改任何配置即可用;装好默认停,启停
+  只走设置卡按钮,引擎跑源未启动会结构化提示去设置页(不隐式拉起)。
+- **路②外部已部署实例(自有服务器)**:源级 `searxng_base_url` 或环境
+  变量 `MYIA_SEARXNG_URL` 指过去即可。自己部署 SearXNG 属主人运维面,
+  配方与步骤一律见[上游官方文档](https://docs.searxng.org/)(我方不复
+  刻;json 接口开启的关键是实例 `settings.yml` 的
+  `search.formats: [html, json]` 覆盖,缺了它 API 查询一律 403)。
+
+世事 接线零改动:引擎内置缺省 base 就是 `http://127.0.0.1:8888`
+(路①组件同端口),部署到远程机器才需要指环境变量(或源级
+`searxng_base_url`):
 
 ```bash
 export MYIA_SEARXNG_URL=http://127.0.0.1:8888   # 即缺省值,仅非标准口/远程机需要
@@ -229,11 +229,9 @@ push:
 
 边界如实记:**AGPL 边界**同 Firecrawl/RSSHub 先例——世事 只以服务消费
 (HTTP API 调用)接入,零源码复制;不可把其代码 vendor 进本仓库(MIT)。
-docker-in-VM(colima/lima 类)注意 compose 目录必须放守护进程可见共享路径
-(macOS 家目录;`/tmp` 挂载会静默丢 settings.yml,json 静默关闭一切
-format=json 403)。礼貌:逐词串行+词间 3s 引擎内置,run 间隔建议
-≥30 分钟;上游搜索源的礼貌由 SearXNG 聚合层统一承担(自带熔断)。完整
-部署注记与示例骨架见 `plugins/searxng.yaml` 头注。
+礼貌:逐词串行+词间 3s 引擎内置,run 间隔建议
+≥30 分钟;上游搜索源的礼貌由 SearXNG 聚合层统一承担(自带熔断)。两条
+路说明与实例来源约定见 `plugins/searxng.yaml` 头注。
 
 ## 红线与习惯
 
