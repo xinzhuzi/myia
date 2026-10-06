@@ -22,14 +22,14 @@
 
 ## 批2 screen 消费层 + 既有断言翻新(提交点②)
 
-- [ ] `refreshTrend` 两调用点换 `chartWindowDays`(`dashboard-screen.tsx:817` effect、`:947` 刷新钮)
-- [ ] 图窗标签 `chartWindowLabel = \`近 ${chartWindowDays(overviewWindow)} 天\``;替换面**仅限趋势卡内**:aria `:1064`、卡脚 `:1078`、成功率空态 `:1110`、成功率 aria `:1122`/`:1124`、成功率摘要 `:1135`。概览四格 note 与 verdict 文案**一字不动**
-- [ ] D8 全零刻度守卫:趋势卡 `yLabels={trendPeak === 0 ? undefined : [`${trendPeak}`, `${Math.round(trendPeak / 2)}`, "0"]}`(`TrendChart` 元组类型硬取三位,不可传部分数组;缺省=刻度列不渲染)
-- [ ] D6 同窗切换守卫:Select `onValueChange` 仅 `chartWindowDays(next) !== chartWindowDays(overviewWindow)` 时 `setTrend(null)`/`setOutcomes(null)`(effect 同参重拉保留兜底;14/30 切换照旧弃旧窗)
-- [ ] 注释改写:screen `:759-762` 头注、`:783-791` refreshTrend 注、`:914-915` Select 注(「今日档 = 1 天趋势窗(单点…如实画)」句作废,改图窗下限语义)
-- [ ] 既有断言翻新:design §4 清单七行逐条落(含 verdict 四档「预期零改动」行——只核对,不碰)
-- [ ] 新增 AC1/AC3 组件断言:默认渲染 mock 多日 trend → 轴行首末日不同、`trend-total`「近 7 天共 N 条」、aria 含「近 7 天」;rate 区序列随 7 天 mock;全零窗(7 日皆 0)无 y 刻度列 + 「共 0 条 · 峰值 0 条/日」;今日↔7 天切换后 `trend-total` 仍在文档(无骨架屏闪)且 `storeTrend` 同参重发
-- 验证:`npx vitest run src/screens/dashboard` + `npx tsc --noEmit -p tsconfig.app.json`
+- [x] `refreshTrend` 两调用点换 `chartWindowDays`(`dashboard-screen.tsx:817` effect、`:947` 刷新钮)
+- [x] 图窗标签 `chartWindowLabel = \`近 ${chartWindowDays(overviewWindow)} 天\``;替换面**仅限趋势卡内**:aria `:1064`、卡脚 `:1078`、成功率空态 `:1110`、成功率 aria `:1122`/`:1124`、成功率摘要 `:1135`。概览四格 note 与 verdict 文案**一字不动**(注:屏内 `windowLabel` 变量原本只被趋势卡五处消费,五处换 `chartWindowLabel` 后失去消费方遂删——概览面「今日/近 N 天」一直是各自内联三元与 `buildVerdict` 拼词,零文案变化;`overviewTrendDays` 屏内 import 同步移除,api 导出面不动)
+- [x] D8 全零刻度守卫:趋势卡 `yLabels={trendPeak === 0 ? undefined : [\`${trendPeak}\`, \`${Math.round(trendPeak / 2)}\`, "0"]}`(`TrendChart` 元组类型硬取三位,不可传部分数组;缺省=刻度列不渲染)
+- [x] D6 同窗切换守卫:Select `onValueChange` 仅 `chartWindowDays(next) !== chartWindowDays(overviewWindow)` 时 `setTrend(null)`/`setOutcomes(null)`(effect 同参重拉保留兜底;14/30 切换照旧弃旧窗)
+- [x] 注释改写:screen `:759-762` 头注、`:783-791` refreshTrend 注、`:914-915` Select 注(「今日档 = 1 天趋势窗(单点…如实画)」句作废,改图窗下限语义)
+- [x] 既有断言翻新:design §4 清单七行逐条落(含 verdict 四档「预期零改动」行——只核对,不碰:verdict 用例 :409-494 稀疏单日 mock,切片后仍取当日行,零改动亲核)
+- [x] 新增 AC1/AC3 组件断言:默认渲染 mock 多日 trend → 轴行首末日不同、`trend-total`「近 7 天共 N 条」、aria 含「近 7 天」;rate 区序列随 7 天 mock;全零窗(7 日皆 0)无 y 刻度列 + 「共 0 条 · 峰值 0 条/日」;今日↔7 天切换后 `trend-total` 仍在文档(无骨架屏闪)且 `storeTrend` 同参重发
+- 验证(亲跑双绿):`npx vitest run src/screens/dashboard` = 75 passed(1 file,EXIT=0;批1 后 73 + 新增 2 例:全零窗 D8 / D6 同窗切换)+ `npx tsc --noEmit -p tsconfig.app.json` EXIT=0
 - **提交点②**
 
 ## 批3 全量门禁 + 像素验收(提交点③)

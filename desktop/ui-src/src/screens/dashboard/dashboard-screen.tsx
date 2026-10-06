@@ -32,6 +32,7 @@ import {
   buildOverviewStats,
   buildSourceHealthCards,
   buildVerdict,
+  chartWindowDays,
   cumulativeOutcomeSummary,
   fetchOutcomeWindow,
   fetchTrendWindow,
@@ -40,7 +41,6 @@ import {
   formatSuccessRate,
   loadDashboardData,
   OVERVIEW_WINDOW_DEFAULT,
-  overviewTrendDays,
   runItemCount,
   runPushFailureText,
   successRateSeries,
@@ -757,8 +757,9 @@ export function DashboardScreen() {
   const [outcomeError, setOutcomeError] = useState<SidecarRequestError | null>(null);
   const [trendLoading, setTrendLoading] = useState(true);
   // 统一时间窗(补批四,联动合一):概览头 Select = 全屏唯一时间窗,驱动概览
-  // 四格 + 采集量趋势 + 成功率两折线(趋势卡自有 Select 已删);今日档 = 1 天
-  // 趋势窗(单点,sparkline 单值居中已有处理,如实画)
+  // 四格 + 采集量趋势 + 成功率两折线(趋势卡自有 Select 已删);两折线拉数走
+  // 图窗 chartWindowDays(10-07:今日档下限 7 天补零窗成线,不再单点;图窗 ⊇
+  // 概览窗恒成立,概览四格按概览窗客户端切片)
   const [overviewWindow, setOverviewWindow] = useState<OverviewWindow>(OVERVIEW_WINDOW_DEFAULT);
   // 源健康度折叠正常源(补批五):坏源照旧铺开,ok 源进折叠组默认收起
   const [okSourcesExpanded, setOkSourcesExpanded] = useState(false);
@@ -781,11 +782,12 @@ export function DashboardScreen() {
 
   const trendSeq = useRef(0);
   /**
-   * 双趋势同窗并发拉取(统一时间窗后单窗口单拉数):采集量(store.trend)与
+   * 双趋势同图窗并发拉取(统一时间窗后单窗口单拉数):采集量(store.trend)与
    * 成功率(runs.trend)allSettled 分流 —— 一条失败另一条照画,各自错误各自
-   * 降级(fbbaaa7 分区降级判例,勿用会一败俱败的 Promise.all);概览采集格
-   * 同吃 trend(趋势卡与概览四格共用一窗数据,不再另拉一份)。迟响应护栏
-   * (复审 low):序号过期的旧窗慢回整笔丢弃,不用旧窗和冒充新窗。
+   * 降级(fbbaaa7 分区降级判例,勿用会一败俱败的 Promise.all);days = 图窗
+   * chartWindowDays(今日档下限 7)。概览采集格同吃 trend(趋势卡与概览四格
+   * 共用一份数据,不再另拉;四格按概览窗切片,不虚增)。迟响应护栏(复审
+   * low):序号过期的旧窗慢回整笔丢弃,不用旧窗和冒充新窗。
    */
   const refreshTrend = useCallback(async (days: number) => {
     const seq = ++trendSeq.current;
@@ -812,9 +814,9 @@ export function DashboardScreen() {
     void refresh();
   }, [refresh]);
 
-  // 统一时间窗:概览窗直接驱动两折线(今日档 = 1 天窗,overviewTrendDays 换算)
+  // 统一时间窗:概览窗驱动两折线的图窗(chartWindowDays,今日档下限 7 天补零窗)
   useEffect(() => {
-    void refreshTrend(overviewTrendDays(overviewWindow));
+    void refreshTrend(chartWindowDays(overviewWindow));
   }, [refreshTrend, overviewWindow]);
 
   const healthCounts: SourceHealthCounts | null = data?.doctor ? summarizeSourceHealth(data.doctor) : null;
@@ -825,8 +827,10 @@ export function DashboardScreen() {
   const overview: OverviewStats | null = data
     ? buildOverviewStats(data.doctor, data.runs, trend, utcToday(), overviewWindow)
     : null;
-  /** 统一窗口人话前缀(可见文案与 aria 同词):今日 / 近 N 天 */
-  const windowLabel = overviewWindow === "today" ? "今日" : `近 ${overviewWindow} 天`;
+  /** 图窗标签(D5 两分法,10-07):趋势卡内一切(两图 aria/卡脚/成功率摘要与
+   *  空态)= 图窗口径,今日档 = 「近 7 天」;概览四格与 verdict 仍概览窗
+   *  口径(今日/近 N 天,各处内联三元与 buildVerdict 拼词,一字不动) */
+  const chartWindowLabel = `近 ${chartWindowDays(overviewWindow)} 天`;
 
   const counts = trend ? trendCounts(trend) : [];
   const trendTotal = counts.reduce((sum, count) => sum + count, 0);
@@ -912,9 +916,14 @@ export function DashboardScreen() {
                   value === "today" ? "today" : (Number(value) as TrendWindowDays);
                 if (next === overviewWindow) return;
                 // 统一时间窗:切窗即弃旧窗趋势数据(不用旧窗和冒充新窗),
-                // effect 按新窗重查补新;概览四格与两折线同步换窗
-                setTrend(null);
-                setOutcomes(null);
+                // effect 按新窗重查补新;概览四格与两折线同步换窗。D6(10-07):
+                // 仅图窗变了才弃 —— today↔7 天两档图窗同为 7,弃旧窗只会闪一下
+                // 骨架屏再显出一模一样的图;不弃则旧图原地保留,effect 同参重拉
+                // 兜底刷新,四格靠概览窗切片立即换口径
+                if (chartWindowDays(next) !== chartWindowDays(overviewWindow)) {
+                  setTrend(null);
+                  setOutcomes(null);
+                }
                 setOverviewWindow(next);
               }}
             >
@@ -944,7 +953,7 @@ export function DashboardScreen() {
               disabled={loading}
               onClick={() => {
                 void refresh();
-                void refreshTrend(overviewTrendDays(overviewWindow));
+                void refreshTrend(chartWindowDays(overviewWindow));
               }}
             >
               <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
@@ -1058,10 +1067,12 @@ export function DashboardScreen() {
                 <TrendChart
                   values={counts}
                   className="h-20"
-                  yLabels={[`${trendPeak}`, `${Math.round(trendPeak / 2)}`, "0"]}
+                  // D8(10-07):全零窗不渲染 y 刻度列(「0/0/0」三零叠刻度冗余,
+                  // 居中平线+卡脚已说尽);元组类型不可传部分数组,缺省=刻度列整体不渲染
+                  yLabels={trendPeak === 0 ? undefined : [`${trendPeak}`, `${Math.round(trendPeak / 2)}`, "0"]}
                   data-testid="dashboard-sparkline"
                   pulse={collecting}
-                  aria-label={`${windowLabel}采集量趋势,共 ${trendTotal} 条,峰值 ${trendPeak} 条`}
+                  aria-label={`${chartWindowLabel}采集量趋势,共 ${trendTotal} 条,峰值 ${trendPeak} 条`}
                 />
                 {trend !== null && trend.length > 0 ? (
                   <p
@@ -1075,7 +1086,7 @@ export function DashboardScreen() {
                 ) : null}
                 <p className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
                   <span data-testid="trend-total">
-                    {windowLabel}共 {trendTotal} 条 · 峰值 {trendPeak} 条/日
+                    {chartWindowLabel}共 {trendTotal} 条 · 峰值 {trendPeak} 条/日
                   </span>
                   <Badge variant="outline">UTC 逐日</Badge>
                 </p>
@@ -1107,7 +1118,7 @@ export function DashboardScreen() {
                 />
               ) : rateSeries.length === 0 ? (
                 <p className="text-xs text-muted-foreground" data-testid="dashboard-rate-empty">
-                  {windowLabel}无已完结采集——成功率无从谈起,先跑一轮再说
+                  {chartWindowLabel}无已完结采集——成功率无从谈起,先跑一轮再说
                 </p>
               ) : (
                 <>
@@ -1119,9 +1130,9 @@ export function DashboardScreen() {
                     data-testid="dashboard-rate-sparkline"
                     aria-label={
                       outcomeSummary && outcomeSummary.rate !== null
-                        ? `${windowLabel}累计成功率 ${formatSuccessRate(outcomeSummary.rate)}` +
+                        ? `${chartWindowLabel}累计成功率 ${formatSuccessRate(outcomeSummary.rate)}` +
                           `(${outcomeSummary.success}/${outcomeSummary.finished} 次成功),无完结采集的日子不入线`
-                        : `${windowLabel}成功率趋势,无完结采集的日子不入线`
+                        : `${chartWindowLabel}成功率趋势,无完结采集的日子不入线`
                     }
                   />
                   <p className="flex items-center justify-between pl-11 font-mono text-2xs text-muted-foreground">
@@ -1132,7 +1143,7 @@ export function DashboardScreen() {
                   {outcomeSummary && outcomeSummary.rate !== null ? (
                     <p className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
                       <span data-testid="rate-summary">
-                        {windowLabel}累计成功率 {formatSuccessRate(outcomeSummary.rate)}(
+                        {chartWindowLabel}累计成功率 {formatSuccessRate(outcomeSummary.rate)}(
                         {outcomeSummary.success}/{outcomeSummary.finished} 次成功)
                       </span>
                       <Badge variant="outline">零完结日不入线</Badge>

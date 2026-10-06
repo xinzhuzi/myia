@@ -6,7 +6,8 @@
  * (D3 双口径触发 + 补批一 key 去重 + 补批三全局 finding 行)/ 概览条
  * (D4 四格,口径 note 收 ⓘ 悬停 R3;补批二错误不藏 hover)/ 统一时间窗
  * (补批四:概览头 Select 驱动四格+两折线,趋势卡自有 Select 已删)/
- * 采集量趋势(自绘 sparkline,今日档单点)/ 源健康度卡网格(四态 +
+ * 采集量趋势(自绘 sparkline;10-07:今日档图窗下限 7 天补零窗、全零窗无
+ * y 刻度列 D8、today↔7 天同窗切换不弃旧窗 D6)/ 源健康度卡网格(四态 +
  * 异常优先 + 相对时间锚 + 补批五正常源折叠组)/ 品类状态卡(含载入失败)/
  * 源健康度四态计数 / 最近采集成功率(runs.list 历史行 + run.status 活跃
  * 叠加,C3)/ 错误与空态。10-06 补:推送失败徽章(RecentRunRow 行内
@@ -992,7 +993,7 @@ describe("DashboardScreen", () => {
     expect(screen.getByTestId("stat-window-push").textContent).toContain("2"); // 2 次 ok 推送
     expect(screen.getByTestId("stat-alerts").textContent).toContain("2"); // error+warning 各一
     expect(screen.getByTestId("dashboard-overview")).toBeTruthy();
-    expect(storeTrendMock).toHaveBeenCalledWith({ days: 1 }); // 统一时间窗:默认今日 = 1 天窗(趋势卡同窗)
+    expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 }); // 统一时间窗:默认今日 = 图窗下限 7 天(趋势卡同窗;采集格值仍当日行,切片不虚增)
   });
 
   it("统一时间窗切 7 天:采集格=窗口求和、推送格吃窗口内 run;活跃源/告警保持快照并注记", async () => {
@@ -1079,12 +1080,14 @@ describe("DashboardScreen", () => {
     const today = new Date().toISOString().slice(0, 10);
     mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
     runsTrendMock.mockResolvedValue({ days: [] });
-    // 手控 deferred:切 7 天的请求挂起不回;今日窗照常即时回
-    let resolveSeven: (value: { days: TrendDay[] }) => void = () => {};
+    // 手控 deferred:切 14 天的请求挂起不回;今日窗照常即时回。10-07 后今日档
+    // 图窗 = 7 天,today↔7 两档同参测不出弃旧(design §4),改 today↔14 对;
+    // 迟响应护栏(trendSeq)逻辑零改动
+    let resolveFourteen: (value: { days: TrendDay[] }) => void = () => {};
     storeTrendMock.mockImplementation((params) => {
-      if (params?.days === 7) {
+      if (params?.days === 14) {
         return new Promise((resolve) => {
-          resolveSeven = resolve;
+          resolveFourteen = resolve;
         });
       }
       return Promise.resolve({ days: [{ date: today, count: 5 }] });
@@ -1092,8 +1095,8 @@ describe("DashboardScreen", () => {
     render(<DashboardScreen />);
     await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("5"));
 
-    // 切 7 天(请求挂起)→ 切回今日(先回,格值 5)
-    for (const label of ["7 天", "今日(UTC)"]) {
+    // 切 14 天(请求挂起)→ 切回今日(先回,格值 5)
+    for (const label of ["14 天", "今日(UTC)"]) {
       fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
         button: 0,
         ctrlKey: false,
@@ -1101,20 +1104,20 @@ describe("DashboardScreen", () => {
       });
       fireEvent.click(await screen.findByRole("option", { name: label }));
     }
-    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 }));
-    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 1 }));
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 14 }));
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 })); // 今日档图窗 = 7
     await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("5"));
 
-    // 7 天迟回(128 条):序号过期整笔丢弃,今日窗格值不被旧窗覆盖冒充
+    // 14 天迟回(128 条):序号过期整笔丢弃,今日窗格值不被旧窗覆盖冒充
     await act(async () => {
-      resolveSeven({ days: [{ date: today, count: 128 }] });
+      resolveFourteen({ days: [{ date: today, count: 128 }] });
       await Promise.resolve();
     });
     expect(screen.getByTestId("stat-window-items").textContent).toContain("5");
     expect(screen.getByTestId("stat-window-items").textContent).not.toContain("128");
   });
 
-  it("趋势(补批四统一时间窗):默认今日 = 1 天窗单点如实画,概览 Select 切 14 天 → 补零 14 点重查;趋势卡无自有 Select", async () => {
+  it("趋势(补批四统一时间窗):默认今日 = 图窗下限 7 天补零窗(AC1/AC3),概览 Select 切 14 天 → 补零 14 点重查;趋势卡无自有 Select", async () => {
     const today = new Date().toISOString().slice(0, 10);
     mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
     storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 3 }] });
@@ -1122,9 +1125,15 @@ describe("DashboardScreen", () => {
 
     const spark = await screen.findByTestId("dashboard-sparkline");
     const polyline = spark.querySelector("polyline");
-    expect(polyline?.getAttribute("points")?.trim().split(/\s+/)).toHaveLength(1); // 单点居中
-    expect(screen.getByTestId("trend-total").textContent).toContain("今日共 3 条");
-    expect(storeTrendMock).toHaveBeenCalledWith({ days: 1 }); // 默认今日 = 1 天窗
+    expect(polyline?.getAttribute("points")?.trim().split(/\s+/)).toHaveLength(7); // 7 天补零窗 ≥2 点成线(单点退化不再)
+    // AC1:轴行首末日不同(7 天窗铺满,首 = 今天−6、末 = 今天)
+    const axisSpans = screen.getByTestId("trend-axis").querySelectorAll("span");
+    expect(axisSpans[axisSpans.length - 1].textContent).not.toBe(axisSpans[0].textContent);
+    expect(screen.getByTestId("trend-total").textContent).toContain("近 7 天共 3 条");
+    expect(spark.getAttribute("aria-label")).toContain("近 7 天"); // AC3:aria = 图窗标签(D5)
+    // 非全零窗 y 刻度列照常(D8 守卫只砍全零窗):顶档 = 峰值 3
+    expect(spark.parentElement?.previousElementSibling?.textContent).toContain("3");
+    expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 }); // 默认今日 = 图窗下限 7 天
     // 趋势卡自有 Select 已删(统一时间窗,窗口只在概览头)
     expect(screen.queryByRole("combobox", { name: "趋势时间范围" })).toBeNull();
 
@@ -1142,7 +1151,60 @@ describe("DashboardScreen", () => {
         screen.getByTestId("dashboard-sparkline").querySelector("polyline")?.getAttribute("points")?.trim().split(/\s+/),
       ).toHaveLength(14), // 补零 = 等长序列
     );
-    expect(screen.getByTestId("trend-total").textContent).toContain("近 14 天共 3 条");
+    expect(screen.getByTestId("trend-total").textContent).toContain("近 14 天共 3 条"); // 7/14/30 档文案与现状逐字一致(AC3)
+  });
+
+  it("全零窗(D8,10-07):7 日皆 0 → 无 y 刻度列 + 居中平线 + 卡脚如实「共 0 条 · 峰值 0 条/日」", async () => {
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    storeTrendMock.mockResolvedValue({ days: [] }); // 空库/零采集 → 补零 7 天图窗(装机首屏必经态)
+    render(<DashboardScreen />);
+
+    const spark = await screen.findByTestId("dashboard-sparkline");
+    // y 刻度列不渲染:「0/0/0」三零叠刻度冗余;图域成为 TrendChart 根首子元素(无前置刻度列)
+    expect(spark.parentElement?.previousElementSibling).toBeNull();
+    // 居中平线(domainMax=0 → 全点 y=24.0),7 点等长
+    const ys = spark
+      .querySelector("polyline")
+      ?.getAttribute("points")
+      ?.trim()
+      .split(/\s+/)
+      .map((point) => point.split(",")[1]);
+    expect(ys).toHaveLength(7);
+    expect(ys?.every((y) => y === "24.0")).toBe(true);
+    expect(screen.getByTestId("trend-total").textContent).toContain("近 7 天共 0 条 · 峰值 0 条/日");
+  });
+
+  it("D6 同窗切换(10-07):今日↔7 天图窗同参 → 不弃旧窗无骨架屏闪、storeTrend 同参重发;14 天切换仍弃旧窗", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
+    storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 6 }] });
+    render(<DashboardScreen />);
+
+    await screen.findByTestId("trend-total"); // 默认今日档已显图
+    const callsWithDays7 = () => storeTrendMock.mock.calls.filter(([params]) => params?.days === 7).length;
+
+    // 切 7 天:两档图窗同参 7 → 不弃旧窗(trend-total 一直在文档,同步拍即查无骨架屏闪)
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("option", { name: "7 天" }));
+    expect(screen.getByTestId("trend-total")).toBeTruthy(); // 未卸载(若弃旧窗,此刻已是骨架屏)
+    expect(screen.getByTestId("trend-total").textContent).toContain("近 7 天共 6 条");
+    // effect 同参重拉保留兜底刷新:默认一拉 + 切档重拉 = 2 次 {days:7}
+    await waitFor(() => expect(callsWithDays7()).toBe(2));
+
+    // 切 14 天:图窗变参 → 照旧弃旧窗(骨架屏接管)再按新窗重查
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    fireEvent.click(await screen.findByRole("option", { name: "14 天" }));
+    expect(screen.queryByTestId("trend-total")).toBeNull(); // 旧窗已弃
+    await waitFor(() => expect(storeTrendMock).toHaveBeenCalledWith({ days: 14 }));
+    expect(await screen.findByTestId("trend-total")).toBeTruthy();
   });
 
   it("趋势独立降级:store.trend 拒绝 → 趋势卡显错、概览采集格如实 — 且注记错误码,doctor 区块照常", async () => {
@@ -1331,7 +1393,16 @@ describe("DashboardScreen", () => {
     });
     render(<DashboardScreen />);
 
-    // 统一时间窗:默认今日 = 1 天窗,切 14 天拉满窗口再断言三点序列
+    // 默认今日档先断(10-07:图窗 = 7 天):runs.trend {days:7} + 序列随 7 天
+    // mock 重算(前天零完结不入线 → 昨/今 2 点)+ 摘要 = 图窗标签「近 7 天」(D5)
+    await screen.findByTestId("dashboard-rate-sparkline");
+    expect(runsTrendMock).toHaveBeenCalledWith({ days: 7 });
+    expect(
+      screen.getByTestId("dashboard-rate-sparkline").querySelector("polyline")?.getAttribute("points")?.trim().split(/\s+/),
+    ).toHaveLength(2);
+    expect(screen.getByTestId("rate-summary").textContent).toContain("近 7 天累计成功率 67%(10/15 次成功)");
+
+    // 切 14 天拉满窗口再断言刻度真值
     fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
       button: 0,
       ctrlKey: false,
@@ -1353,7 +1424,7 @@ describe("DashboardScreen", () => {
     expect(runsTrendMock).toHaveBeenCalledWith({ days: 14 }); // 与采集量同窗(统一时间窗)
   });
 
-  it("统一时间窗(补批四):概览 Select 切 7 天 → runs.trend 与 store.trend 同窗重查(默认今日 = 1 天窗)", async () => {
+  it("统一时间窗(补批四):概览 Select 切 7 天 → runs.trend 与 store.trend 同窗重查(默认今日 = 图窗 7 天)", async () => {
     const today = new Date().toISOString().slice(0, 10);
     mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
     storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 3 }] });
@@ -1362,8 +1433,8 @@ describe("DashboardScreen", () => {
     });
     render(<DashboardScreen />);
     await screen.findByTestId("dashboard-rate-sparkline");
-    expect(storeTrendMock).toHaveBeenCalledWith({ days: 1 }); // 默认今日窗
-    expect(runsTrendMock).toHaveBeenCalledWith({ days: 1 });
+    expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 }); // 默认今日窗(10-07:图窗下限 7)
+    expect(runsTrendMock).toHaveBeenCalledWith({ days: 7 });
 
     fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
       button: 0,
