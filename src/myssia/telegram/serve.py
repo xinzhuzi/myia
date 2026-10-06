@@ -38,6 +38,7 @@ import httpx
 from myssia.engines.telegram import (
     API_ORIGIN,
     mask_bot_url,
+    mask_token_text,
     message_text,
     updates_to_items,
 )
@@ -117,8 +118,11 @@ class TelegramPoller:
                 url, timeout=self._request_timeout
             )
         except httpx.TransportError as exc:
+            # 深审 F10:httpx 异常 str 自带完整 URL(含 token path 段),拼进
+            # 错误消息前过 mask_token_text(engines.telegram 同款纪律)。
             raise TelegramPollError(
-                f"telegram 长轮询网络失败 endpoint={_MASKED_ENDPOINT}: {exc}",
+                f"telegram 长轮询网络失败 endpoint={_MASKED_ENDPOINT}: "
+                f"{mask_token_text(str(exc))}",
                 reason="transport",
             ) from exc
         if response.status_code == 401:
@@ -145,7 +149,8 @@ class TelegramPoller:
             payload = response.json()
         except ValueError as exc:
             raise TelegramPollError(
-                f"telegram 长轮询响应不是 JSON endpoint={_MASKED_ENDPOINT}: {exc}",
+                f"telegram 长轮询响应不是 JSON endpoint={_MASKED_ENDPOINT}: "
+                f"{mask_token_text(str(exc))}",
                 reason="malformed",
             ) from exc
         result = payload.get("result") if isinstance(payload, dict) else None
@@ -155,6 +160,13 @@ class TelegramPoller:
                 reason="malformed",
             )
         return [update for update in result if isinstance(update, dict)]
+
+    async def aclose(self) -> None:
+        """关闭所持 HTTP 客户端(深审 F14:CLI/desktop 装配的专属客户端由
+        poller 持有并在宿主退出路径统一收尾;httpx aclose 幂等,二次关闭
+        无害)。测试注入的 fake poller 无本方法,宿主收尾走 getattr 软探。
+        """
+        await self._client.aclose()
 
 
 @dataclass
@@ -187,6 +199,9 @@ class TelegramServeHost:
         offsets: 确认游标持久化(:class:`OffsetStore`)。
         ledger: 事件账本(:class:`TelegramEventLedger`)。
         push_high_value: 高价值合并单条的推送 sink(async;一轮至多一次)。
+            返回 **bool**:True = 真实送达;False = 通道未配(深审 F14:
+            虚账修正 —— 未配通道不再计 pushed、账本记 ``no_channel``,
+            条目已入库由日报兜底)。
         store_item: 条目入库 sink(sync;返回 True = 新入库,False = 去重
             跳过;批量档管线 ``_stage_dedup`` 同语义由 CLI 装配)。
         sleep: 异步 sleep 注入(测试 fake 记录退避)。
@@ -200,7 +215,7 @@ class TelegramServeHost:
         bindings: Mapping[str, TelegramSourceBinding],
         offsets: OffsetStore,
         ledger: TelegramEventLedger,
-        push_high_value: Callable[[dict[str, Any]], Awaitable[None]],
+        push_high_value: Callable[[dict[str, Any]], Awaitable[bool]],
         store_item: Callable[[dict[str, Any]], bool],
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         should_stop: Callable[[], bool] | None = None,
@@ -213,6 +228,10 @@ class TelegramServeHost:
         self._store = store_item
         self._sleep = sleep
         self._should_stop = should_stop
+        #: 媒体组跨轮记忆(深审 F13):上一轮铸锚的 ``chat:media_group_id``
+        #: 复合键 —— 跨轮保留一轮,后到的同组带 caption 成员按并入吞掉,
+        #: 不再重复出条(每轮分派完滚动更新)。
+        self._media_group_memory: set[str] = set()
         #: 宿主生命周期观测(CLI 横幅/doctor 消费)。
         self.rounds = 0
         self.backoff_seconds = BACKOFF_BASE_SECONDS
@@ -220,7 +239,14 @@ class TelegramServeHost:
     # ------------------------------------------------------------------ loop
 
     async def run_forever(self) -> None:
-        """主循环:阻塞至 should_stop/取消;致命 poll 错误上抛(Ctrl-C 干净停)."""
+        """主循环:阻塞至 should_stop/取消;致命 poll 错误上抛(Ctrl-C 干净停).
+
+        退出路径收尾(深审 F14):poller 的 HTTP 客户端 aclose(fake poller
+        无 aclose 时软探跳过;httpx aclose 幂等,与装配侧收尾双关闭无害)。
+        账本连接的关闭归**装配方**(CLI finally / desktop bundle close)——
+        宿主退出后观测面(host._ledger.counts 等)仍可读,资源纪律不与
+        可观测性打架。
+        """
         logger.info(
             "telegram serve 已启动 chats=%s long_poll=%.0fs backoff=%.0f-%.0fs",
             sorted(self._bindings),
@@ -246,7 +272,20 @@ class TelegramServeHost:
         except asyncio.CancelledError:
             logger.info("telegram serve 收到取消,正在退出")
             raise
+        finally:
+            await self._shutdown_resources()
         logger.info("telegram serve 已退出 rounds=%s", self.rounds)
+
+    async def _shutdown_resources(self) -> None:
+        """宿主退出路径的资源收尾(poller 客户端;失败只留痕)."""
+        poller_aclose = getattr(self._poller, "aclose", None)
+        if callable(poller_aclose):
+            try:
+                await poller_aclose()
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "telegram serve poller 客户端关闭失败(忽略)", exc_info=True
+                )
 
     async def _backoff(self, exc: TelegramPollError) -> float:
         """指数退避一步(返回下一档;帽后恒定重试 —— 常驻不放弃)."""
@@ -278,6 +317,8 @@ class TelegramServeHost:
     async def _dispatch(self, updates: list[dict[str, Any]]) -> None:
         """一轮新消息:分拣到绑定 → 过滤 → 入库/推送 → 记账."""
         stats = _DispatchStats(updates=len(updates))
+        # 本轮铸锚的媒体组(F13 跨轮记忆滚动面:分派完替换上一轮记忆)。
+        anchored_now: set[str] = set()
         # 先按绑定分拣(消息面共用 engines.telegram 的分拣/聚合/锚语义)。
         buckets: dict[str, list[dict[str, Any]]] = {
             chat_id: [] for chat_id in self._bindings
@@ -311,10 +352,27 @@ class TelegramServeHost:
             if not chat_updates:
                 continue
             binding = self._bindings[chat_id]
+            # 深审 F13:上一轮铸锚的媒体组前缀跨轮保留一轮 —— 后到的同组
+            # 成员(相册被长轮询分批切开)按并入吞掉,不再重复出条。
+            prefix = f"{chat_id}:"
+            skip_groups = {
+                key[len(prefix):]
+                for key in self._media_group_memory
+                if key.startswith(prefix)
+            }
             items = updates_to_items(
-                chat_updates, chat_id, source_url=binding.source_url
+                chat_updates,
+                chat_id,
+                source_url=binding.source_url,
+                skip_groups=skip_groups,
             )
             stats.items += len(items)
+            anchored_now.update(
+                f"{chat_id}:{item['media_group_id']}"
+                for item in items
+                if isinstance(item, dict)
+                and isinstance(item.get("media_group_id"), str)
+            )
             # update_id ↔ message_id 映射(条目级记账回填主键面)。
             update_id_by_mid: dict[int, int] = {}
             for update in chat_updates:
@@ -339,6 +397,8 @@ class TelegramServeHost:
                         outcome="dropped_textless",
                     )
             await self._filter_and_emit(binding, items, update_id_by_mid, stats)
+        # F13 跨轮记忆滚动:只保留本轮铸锚的组(上一轮记忆本轮已消费即弃)。
+        self._media_group_memory = anchored_now
         logger.info(
             "telegram serve 分派完成 updates=%s items=%s stored=%s pushed=%s"
             " ledger_failed=%s",
@@ -405,9 +465,9 @@ class TelegramServeHost:
         merged["source"] = binding.source_name
         if self._safe_store(merged):
             stats.stored += 1
+        first = outcome.high_value[0] if outcome.high_value else None
         try:
-            await self._push(merged)
-            stats.pushed += 1
+            pushed = bool(await self._push(merged))
         except Exception as exc:  # noqa: BLE001 - 推送失败:条目已入库,账本记 error
             logger.error(
                 "telegram serve 高价值推送失败(条目已入库,日报兜底) url=%s: %s",
@@ -422,8 +482,25 @@ class TelegramServeHost:
                 detail=str(exc)[:200],
             )
             return
+        if not pushed:
+            # 深审 F14 虚账修正:推送 sink 返回 False = 通道未配 —— 条目已
+            # 入库(日报兜底),但不再计 pushed/记 pushed 账;首条记
+            # no_channel,同轮并入的其余条目按 stored(同「一轮一推」口径)。
+            logger.info(
+                "telegram serve 高价值条目仅入库(品类未配 push 通道) url=%s",
+                merged.get("url"),
+            )
+            for item in outcome.high_value:
+                self._record_for_item(
+                    stats,
+                    item,
+                    update_id_by_mid,
+                    outcome="no_channel" if item is first else "stored",
+                    score=item.get("score"),
+                )
+            return
+        stats.pushed += 1
         # 账本口径:同轮并入合并的条目里,首条记 pushed(一轮一推),其余 stored。
-        first = outcome.high_value[0] if outcome.high_value else None
         for item in outcome.high_value:
             self._record_for_item(
                 stats,

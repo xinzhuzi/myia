@@ -492,6 +492,93 @@ def test_confirm_failure_is_warning_not_source_failure(caplog):
     assert BOT_TOKEN not in caplog.text
 
 
+# ---------------------------------------------------------------------------
+# 深审修复批(F9 校验时序 / F10 文本净化导出 / F13 跨轮媒体组前缀)
+# ---------------------------------------------------------------------------
+
+
+def test_filter_config_validation_precedes_any_io():
+    """F9 时序:过滤面配置错 → 任何 I/O 之前结构化拒(尤其零确认请求 ——
+    确认是全 bot 不可逆语义,校验晚于确认 = 消息已丢弃才报错,静默丢单)."""
+    captured: list = []
+    client = telegram_client(captured)
+    context = telegram_context(client)
+    source = make_telegram_source(
+        engine_options={
+            "telegram": {"chat_id": str(CHAT_ID), "keywords": 123}  # 词表型错
+        }
+    )
+    engine = TelegramEngine(source, context)
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "invalid_engine_options"
+    assert "keywords" in str(excinfo.value)
+    assert captured == []  # 零请求:窗口拉取与确认都没发生
+
+
+def test_filter_config_validation_precedes_confirm_specifically():
+    """F9 定向:配置合法时确认在过滤前跑(对照钉序),非法时不跑确认."""
+    captured: list = []
+    client = telegram_client(
+        captured,
+        window_response=httpx.Response(
+            200, json=updates_payload(message_update(11, 101, "免费文本"))
+        ),
+    )
+    context = telegram_context(client)
+    # score_threshold 半配形态的过滤键错(lookback 等主键合法,证明过滤面独立拒)
+    source = make_telegram_source(
+        engine_options={
+            "telegram": {
+                "chat_id": str(CHAT_ID),
+                "llm_base_url": "env:MISSING",  # 半配(无 llm_api_key)
+            }
+        }
+    )
+    engine = TelegramEngine(source, context)
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "invalid_engine_options"
+    assert "成对" in str(excinfo.value)
+    confirm_calls = [req for req in captured if "offset=" in str(req.url)]
+    assert confirm_calls == []  # 确认请求未发出(主断言)
+
+
+def test_mask_token_text_sanitizes_exception_strings():
+    """F10:mask_token_text 公开导出 —— 异常 str 里的 token path 段打码."""
+    from myssia.engines.telegram import mask_token_text
+
+    raw = (
+        f"[Errno 8] Connection failed: "
+        f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset=1"
+    )
+    masked = mask_token_text(raw)
+    assert BOT_TOKEN not in masked
+    assert "/bot***/getUpdates" in masked
+    assert mask_token_text(123) == "123"  # 非字符串原样 str 化
+
+
+def test_updates_to_items_skip_groups_absorbs_late_members():
+    """F13:skip_groups 前缀 —— 上一轮铸锚的组,本轮后到带 caption 成员并入."""
+    from myssia.engines.telegram import updates_to_items
+
+    updates = [
+        message_update(12, 102, "相册第二段 caption", media_group_id="mg-x"),
+        message_update(13, 103, "独立消息"),
+    ]
+    items = updates_to_items(
+        updates, str(CHAT_ID), source_url=SOURCE_URL, skip_groups={"mg-x"}
+    )
+    assert [item["url"] for item in items] == [
+        f"{SOURCE_URL}#tg-{CHAT_ID}-103"
+    ]  # mg-x 后到成员被吞;不带 skip 时会重复出条(对照)
+    without_skip = updates_to_items(updates, str(CHAT_ID), source_url=SOURCE_URL)
+    assert [item["url"] for item in without_skip] == [
+        f"{SOURCE_URL}#tg-{CHAT_ID}-102",
+        f"{SOURCE_URL}#tg-{CHAT_ID}-103",
+    ]
+
+
 def test_default_lookback_limit_is_hundred():
     """lookback_limit 缺省 = 100(getUpdates 硬顶;窗口宁可多拉靠锚点去重)."""
     captured: list = []

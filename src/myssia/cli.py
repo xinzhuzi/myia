@@ -95,6 +95,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import getpass
 import json
 import logging
@@ -2170,13 +2171,15 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
         registry.mark_seen(key)
         return True
 
-    async def _push_high_value(item: dict) -> None:
+    async def _push_high_value(item: dict) -> bool:
+        # 深审 F14:返回 bool —— False = 通道未配(宿主不虚计 pushed,账本记
+        # no_channel);True = 真实送达。
         if push_channel is None:
             logger.warning(
                 "telegram serve 品类未配 push 通道,高价值条目仅入库 url=%s",
                 item.get("url"),
             )
-            return
+            return False
         now = datetime.now(config.timezone)
         context = SendContext(
             slot="am" if now.hour < 12 else "pm",
@@ -2185,13 +2188,21 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
             kind="immediate",
         )
         await push_channel.send([item], context)
+        return True
 
     telegram_dir = data_root / "telegram"
+    ledger = TelegramEventLedger(
+        telegram_dir / "events.db", bot_token=bot_token
+    )
     host = TelegramServeHost(
         poller=TelegramPoller(httpx.AsyncClient(), bot_token),
         bindings=bindings,
-        offsets=OffsetStore(telegram_dir / "offsets.json"),
-        ledger=TelegramEventLedger(telegram_dir / "events.db"),
+        # 深审 F8:offsets/events 按 bot token 指纹分键(offsets-<sha8>.json /
+        # events-<sha8>.db)—— 多 bot 双宿主共享同一数据根时各 bot 各游标
+        # 各账本,单键交叉污染(update_id 是 per-bot 序列,越前游标 = 静默
+        # 丢单)不再可能;旧单键 offsets.json 由 OffsetStore 采纳一次即删。
+        offsets=OffsetStore(telegram_dir / "offsets.json", bot_token=bot_token),
+        ledger=ledger,
         push_high_value=_push_high_value,
         store_item=_store_item,
     )
@@ -2213,6 +2224,10 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
         )
         exit_code = EXIT_CONFIG_ERROR
     finally:
+        # 深审 F14:装配面收尾 —— 账本连接与 store 同批关闭(HTTP 客户端由
+        # 宿主 run_forever 退出路径的 poller.aclose 收)。
+        with contextlib.suppress(Exception):
+            ledger.close()
         store.close()
     return exit_code
 

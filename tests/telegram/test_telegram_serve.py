@@ -84,6 +84,7 @@ def message_update(
     text: str | None,
     *,
     chat_id: int = CHAT_ID,
+    media_group_id: str | None = None,
 ) -> dict:
     message: dict = {
         "message_id": message_id,
@@ -92,6 +93,8 @@ def message_update(
     }
     if text is not None:
         message["text"] = text
+    if media_group_id is not None:
+        message["media_group_id"] = media_group_id
     return {"update_id": update_id, "message": message}
 
 
@@ -123,9 +126,12 @@ class FakePoller:
 
 
 class Recorder:
-    def __init__(self) -> None:
+    """出仓 sink 双面记录;push 返回 bool(F14:True = 真实送达)."""
+
+    def __init__(self, *, push_result: bool = True) -> None:
         self.stored: list[dict] = []
         self.pushed: list[dict] = []
+        self._push_result = push_result
 
     def store(self, item: dict) -> bool:
         seen = any(old["url"] == item["url"] for old in self.stored)
@@ -134,8 +140,9 @@ class Recorder:
         self.stored.append(item)
         return True
 
-    async def push(self, item: dict) -> None:
+    async def push(self, item: dict) -> bool:
         self.pushed.append(item)
+        return self._push_result
 
 
 def build_host(*args, **kwargs):  # pragma: no cover - 兼容占位(见 _wire)
@@ -450,6 +457,166 @@ def test_host_no_llm_config_stores_all(tmp_path):
     run(host.run_forever())
     assert len(recorder.stored) == 1
     assert recorder.pushed == []
+
+
+# ---------------------------------------------------------------------------
+# 深审修复批(F8 指纹分键 / F10 transport 净化 / F11 保留帽 / F13 跨轮媒体组 /
+# F14 no_channel 虚账 + 资源收尾)
+# ---------------------------------------------------------------------------
+
+BOT_TOKEN_B = "8000000002:AA_another-bot-token"
+
+
+def test_offset_store_bot_fingerprint_isolation(tmp_path):
+    """F8:同目录双 bot 各指纹文件各游标 —— 交叉污染(静默丢单)不再可能."""
+    from myssia.telegram.offsets import bot_fingerprint
+
+    base = tmp_path / "telegram" / "offsets.json"
+    store_a = OffsetStore(base, bot_token=BOT_TOKEN)
+    store_b = OffsetStore(base, bot_token=BOT_TOKEN_B)
+    assert store_a.path != store_b.path
+    assert store_a.path.name == f"offsets-{bot_fingerprint(BOT_TOKEN)}.json"
+    # 并发交替写:各存各读,互不覆盖不串台
+    store_a.save(101)
+    store_b.save(7)
+    assert store_a.load() == 101
+    assert store_b.load() == 7
+    store_a.save(102)
+    assert store_b.load() == 7  # B 的游标不被 A 的推进顶掉
+    assert store_a.load() == 102
+    assert not base.exists()  # 旧单键路径全程未被触碰
+
+
+def test_offset_store_migrates_legacy_once_then_deletes(tmp_path):
+    """F8 迁移:旧单键文件被首个指纹宿主采纳一次即删;后来 bot 从 0 续拉."""
+    base = tmp_path / "telegram" / "offsets.json"
+    base.parent.mkdir(parents=True)
+    base.write_text(json.dumps({"offset": 42}), encoding="utf-8")
+    store_a = OffsetStore(base, bot_token=BOT_TOKEN)
+    assert store_a.load() == 42  # 采纳旧值(单 bot 升级不断点)
+    assert store_a.path.exists()
+    assert not base.exists()  # 删除旧键:后来 bot 不会误采他人游标
+    assert store_a.load() == 42  # 此后读自己的指纹文件
+    store_b = OffsetStore(base, bot_token=BOT_TOKEN_B)
+    assert store_b.load() == 0  # 第二 bot:无旧键可采,从 0(重放安全)
+
+
+def test_event_ledger_bot_dimension(tmp_path):
+    """F8:账本同指纹分键 —— 双 bot counts 不混计;no_channel 在词表."""
+    base = tmp_path / "telegram" / "events.db"
+    ledger_a = TelegramEventLedger(base, bot_token=BOT_TOKEN)
+    ledger_b = TelegramEventLedger(base, bot_token=BOT_TOKEN_B)
+    assert ledger_a._path != ledger_b._path
+    assert ledger_a.record(update_id=1, outcome="stored")
+    assert ledger_a.record(update_id=2, outcome="no_channel")  # F14 新词
+    assert ledger_b.record(update_id=1, outcome="pushed")
+    assert ledger_a.counts() == {"stored": 1, "no_channel": 1}
+    assert ledger_b.counts() == {"pushed": 1}
+    assert not base.exists()  # 旧单库路径未建
+    ledger_a.close()
+    ledger_b.close()
+
+
+def test_event_ledger_prunes_to_cap(tmp_path):
+    """F11:每写一裁到 1000 行帽(最旧出列);帽内显式 prune 零删."""
+    from myssia.telegram.events import MAX_EVENTS
+
+    ledger = TelegramEventLedger(tmp_path / "events.db")
+    for index in range(MAX_EVENTS + 5):
+        assert ledger.record(update_id=index, outcome="stored")
+    counts = ledger.counts()
+    assert counts["stored"] == MAX_EVENTS
+    tail_ids = [row["update_id"] for row in ledger.tail(limit=500)]
+    assert max(tail_ids) == MAX_EVENTS + 4  # 最新在
+    assert min(tail_ids) == 505  # 可见窗最旧 = 505:0-4 已裁(帽 1000,窗 500)
+    assert ledger.prune() == 0  # 帽内显式裁剪零删
+    ledger.close()
+
+
+def test_poller_transport_error_masks_token():
+    """F10:transport 异常 str 带完整 URL(含 token)—— 净化后零外显."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError(
+            f"[Errno 8] Connection failed: {request.url}", request=request
+        )
+
+    poller = TelegramPoller(make_client(handler), BOT_TOKEN)
+    with pytest.raises(TelegramPollError) as excinfo:
+        run(poller.poll(0))
+    assert excinfo.value.reason == "transport"
+    assert BOT_TOKEN not in str(excinfo.value)  # token path 段打码
+    assert "/bot***/" in str(excinfo.value)
+
+
+def test_host_media_group_cross_round_absorbed(tmp_path):
+    """F13:相册切两轮 —— 第二轮后到的同组带 caption 成员并入首轮锚,不重复出条."""
+    host, recorder = _wire(
+        tmp_path,
+        rounds=[
+            [message_update(11, 101, "相册说明:免费节点截图", media_group_id="mg-x")],
+            [message_update(12, 102, "相册第二段 caption", media_group_id="mg-x")],
+            [message_update(13, 103, "第三轮免费独立消息")],
+        ],
+    )
+    run(host.run_forever())
+    urls = [item["url"] for item in recorder.stored]
+    assert urls == [
+        f"{SOURCE_URL}#tg-{CHAT_ID}-101",  # 首轮组锚
+        f"{SOURCE_URL}#tg-{CHAT_ID}-103",  # 第三轮独立条目
+    ]  # 第二轮 102 被跨轮记忆吞掉(并入 mg-x,不重复出条)
+    counts = host._ledger.counts()
+    assert counts.get("stored") == 2
+    assert counts.get("dropped_textless") == 1  # 并入成员按口径记 dropped_textless
+
+
+def test_host_no_push_channel_no_virtual_accounting(tmp_path):
+    """F14:推送 sink 返 False(通道未配)—— 账本记 no_channel,pushed 不虚增."""
+    completer = FakeCompleter({1: 10})
+    recorder = Recorder(push_result=False)
+    host, recorder = _wire(
+        tmp_path,
+        rounds=[[message_update(21, 201, "免费大羊毛")]],
+        completer=completer,
+        recorder=recorder,
+    )
+    run(host.run_forever())
+    assert len(recorder.stored) == 1  # 条目已入库(日报兜底)
+    assert len(recorder.pushed) == 1  # sink 被调用过(留痕在 sink 侧)
+    counts = host._ledger.counts()
+    assert counts.get("no_channel") == 1  # 如实记通道未配
+    assert "pushed" not in counts  # 不虚记 pushed
+    assert "stored" not in counts  # 首条走 no_channel,不重复记 stored
+
+
+def test_host_shutdown_closes_poller_client_and_keeps_ledger_readable(tmp_path):
+    """F14:宿主退出路径收尾 —— poller 客户端 aclose(fake 无 aclose 软探兼容);
+    账本连接归装配方关闭(宿主退出后观测面 counts/tail 仍可读)。"""
+
+    class ClosablePoller(FakePoller):
+        def __init__(self, rounds):
+            super().__init__(rounds)
+            self.closed = False
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+    poller = ClosablePoller([[message_update(31, 301, "免费 a")]])
+    ledger = TelegramEventLedger(tmp_path / "events.db")
+    host = TelegramServeHost(
+        poller=poller,
+        bindings={str(CHAT_ID): make_binding()},
+        offsets=OffsetStore(tmp_path / "telegram" / "offsets.json"),
+        ledger=ledger,
+        push_high_value=Recorder().push,
+        store_item=Recorder().store,
+        sleep=_RecordingSleep(),
+        should_stop=lambda: not poller.rounds,
+    )
+    run(host.run_forever())
+    assert poller.closed is True
+    assert ledger.counts().get("stored") == 1  # 退出后观测面仍可读(装配方再关)
+    ledger.close()  # 装配方(CLI finally / desktop bundle close)的收尾动作
 
 
 # ---------------------------------------------------------------------------

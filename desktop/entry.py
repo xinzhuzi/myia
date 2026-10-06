@@ -1602,6 +1602,13 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
     query = params.get("query")
     if query is not None and not isinstance(query, str):
         raise ProtocolError("invalid_params", "query 必须为字符串", path="params.query")
+    # 深审 F6 校验对称:category 与 source 同门强校验(非空字符串;省略 =
+    # 不过滤)—— 此前 category 只靠 store 层兜底,协议面错误码/路径不对称。
+    category = params.get("category")
+    if category is not None and (not isinstance(category, str) or not category):
+        raise ProtocolError(
+            "invalid_params", "category 必须为非空字符串(品类精确等值)", path="params.category"
+        )
     source = params.get("source")
     if source is not None and (not isinstance(source, str) or not source):
         raise ProtocolError("invalid_params", "source 必须为非空字符串(源名精确等值)", path="params.source")
@@ -1614,7 +1621,7 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
         raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
     try:
         items = store.list_items(
-            category=params.get("category"), source=source, since=since, before=before,
+            category=category, source=source, since=since, before=before,
             before_id=before_id, query=query or None, limit=limit,
         )
     except ValueError as exc:  # store 层参数校验(空 category/source 等)
@@ -5833,14 +5840,16 @@ def _assemble_telegram_host(
         registry.mark_seen(key)
         return True
 
-    async def _push_high_value(item: dict) -> None:
+    async def _push_high_value(item: dict) -> bool:
         # CLI 同款:品类 push 首条通道;未配 push = 仅入库留痕(日报兜底)。
+        # 深审 F14:返回 bool —— False = 通道未配,宿主不虚计 pushed(账本
+        # 记 no_channel);True = 真实送达。
         if push_channel is None:
             _ring_append(
                 None, "stderr",
                 f"sidecar: telegram 高价值条目仅入库(品类未配 push 通道) url={item.get('url')}",
             )
-            return
+            return False
         now = datetime.now(config.timezone)
         context = SendContext(
             slot="am" if now.hour < 12 else "pm",
@@ -5849,14 +5858,21 @@ def _assemble_telegram_host(
             kind="immediate",
         )
         await push_channel.send([item], context)
+        return True
 
     telegram_dir = data_root / "telegram"
     client = httpx.AsyncClient()
+    ledger = TelegramEventLedger(
+        telegram_dir / "events.db", bot_token=bot_token
+    )
     host = TelegramServeHost(
         poller=TelegramPoller(client, bot_token),
         bindings=bindings,
-        offsets=OffsetStore(telegram_dir / "offsets.json"),
-        ledger=TelegramEventLedger(telegram_dir / "events.db"),
+        # 深审 F8:offsets/events 按 bot token 指纹分键 —— 桌面宿主与 CLI
+        # serve(可能不同 bot)共享同一数据根时各 bot 各游标各账本;旧单键
+        # offsets.json 由 OffsetStore 采纳一次即删。
+        offsets=OffsetStore(telegram_dir / "offsets.json", bot_token=bot_token),
+        ledger=ledger,
         push_high_value=_push_high_value,
         store_item=_store_item,
         should_stop=stop.is_set,
@@ -5870,6 +5886,10 @@ def _assemble_telegram_host(
                 await client.aclose()
 
     def _close() -> None:
+        # 深审 F14:装配面收尾 —— 账本连接与 store 同批关闭(HTTP 客户端由
+        # _run 的 finally + 宿主退出路径 poller.aclose 双保险收)。
+        with contextlib.suppress(Exception):
+            ledger.close()
         with contextlib.suppress(Exception):
             store.close()
 

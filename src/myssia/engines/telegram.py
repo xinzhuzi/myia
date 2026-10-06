@@ -25,7 +25,9 @@
 {url}`` 同条消息只进一次(编辑消息重投同 id → 同锚 → 天然吞掉;锚不改变
 落点)。**媒体组聚合**:同 ``media_group_id`` 的多条消息(相册/多图)聚合
 为一条 —— 取组内首条有 text/caption 的消息铸锚,纯媒体无文本整组跳过
-(零文本无可筛面)。
+(零文本无可筛面)。跨轮/跨窗口切组的残余重复面:serve 档由调用方传
+``skip_groups``(上一轮铸锚组前缀保留一轮,深审 F13);批量档窗口重拉
+自带未确认重叠,残余概率面由锚点去重兜底(如实注记,不引跨轮状态)。
 
 **凭据三态**(reddit 判例,核心决议:凭据可选,绝不拦核心):
 
@@ -125,6 +127,7 @@ __all__ = [
     "TITLE_SNIPPET_CHARS",
     "TelegramEngine",
     "mask_bot_url",
+    "mask_token_text",
 ]
 
 
@@ -133,11 +136,20 @@ def mask_bot_url(url: str) -> str:
     return _TOKEN_PATH_RE.sub("/bot***/", url)
 
 
-def _mask_text(value: Any) -> str:
-    """异常/消息文本净化:字符串里的 bot token path 段一律打码."""
+def mask_token_text(value: Any) -> str:
+    """异常/消息文本净化:字符串里的 bot token path 段一律打码.
+
+    公开导出(深审 F10):serve 档 poller 与本引擎共用同一净化纪律 ——
+    httpx 异常 str 自带完整 URL(含 token path),拼进错误消息前必须过
+    本门(引擎/serve 两档同款,不再是引擎私有件)。
+    """
     if not isinstance(value, str):
         return str(value)
     return _TOKEN_PATH_RE.sub("/bot***/", value)
+
+
+#: 引擎内部旧名(mask_token_text 的私有别名;既有调用面零扰动)。
+_mask_text = mask_token_text
 
 
 def message_text(message: dict[str, Any]) -> str | None:
@@ -264,12 +276,17 @@ class TelegramEngine(BaseEngine):
     async def _fetch_impl(self) -> list[dict]:
         self._parse_source_url()
         options = self._options()
+        # 深审 F9:过滤面配置校验前移到任何 I/O 之前 —— 尤其必须早于
+        # _confirm_updates(确认是全 bot 不可逆语义:服务器丢弃 ≤offset 的
+        # 已处理更新;校验迟到一步 = 消息已被确认丢弃后才抛配置错,静默
+        # 丢单。零 I/O 纯校验,提前到取数前还顺带省一轮无谓请求)。
+        filter_config = self._filter_options()
         token = self._bot_token()
         if token is None:
             self.last_skip_reason = "credential_missing"
             logger.info(
                 "telegram 引擎未配凭据,显式空态 source=%s(本轮零请求;"
-                "主人四步:BotFather 建 bot → /setprivacy 关隐私模式(否则看不到"
+                "主人四步:BotFather 建 bot → /setprivacy 关闭隐私模式(否则看不到"
                 "普通消息)→ myssia secret set myia/telegram/bot-token → 拉进目标群;"
                 "chat_id=%s)",
                 self.source.name,
@@ -280,7 +297,7 @@ class TelegramEngine(BaseEngine):
         updates = self._extract_updates(payload)
         items = self._updates_to_items(updates, options["chat_id"])
         await self._confirm_updates(token, updates)
-        final_items = await self._apply_filter(items)
+        final_items = await self._apply_filter(items, filter_config)
         logger.info(
             "telegram 窗口取得 source=%s chat_id=%s updates=%s items=%s"
             " (粗筛后出仓 %s)",
@@ -292,7 +309,9 @@ class TelegramEngine(BaseEngine):
         )
         return final_items
 
-    async def _apply_filter(self, items: list[dict]) -> list[dict]:
+    async def _apply_filter(
+        self, items: list[dict], filter_config: TelegramFilterConfig | None = None
+    ) -> list[dict]:
         """过滤管线挂点(B2):粗筛 → LLM 精筛 → 高价值合并单条(组合铁律).
 
         零命中 / 降级纯粗筛均不拦出仓路径;高价值组经 :func:`merge_high_value`
@@ -300,11 +319,14 @@ class TelegramEngine(BaseEngine):
         一轮至多推一条),普通条目带 score 逐条出仓(archive 入库,合并日报
         「Telegram 群」分区承载)。精筛端点未配 = 降级纯粗筛(INFO 留痕,
         条目照常入库)—— 过滤是增强件,不是硬前置。
+
+        ``filter_config``:_fetch_impl 已在确认请求前校验过的配置直传
+        (深审 F9 时序);None = 此处再取(独立调用面兼容)。
         """
         if not items:
             return []
         pipeline = TelegramFilterPipeline(
-            self._filter_options(),
+            filter_config if filter_config is not None else self._filter_options(),
             completer=self._completer,
             keychain_backend=self.context.keychain_backend,
         )
@@ -558,13 +580,23 @@ def filter_config_from_options(
     # --------------------------------------------------------------- mapping
 
 def updates_to_items(
-    updates: list[dict[str, Any]], chat_id: str, *, source_url: str
+    updates: list[dict[str, Any]],
+    chat_id: str,
+    *,
+    source_url: str,
+    skip_groups: set[str] | None = None,
 ) -> list[dict]:
     """更新流 → 管线 items(群分拣/媒体组聚合/#tg- 锚;引擎与 serve 共用).
 
     B3 抽出为模块级函数:批量引擎(``engine: telegram``)与常驻宿主
     (``myssia telegram serve``)共用同一分拣/聚合/锚语义 —— 两档只差
     取数形态(窗口拉取 vs 长轮询),消息面语义一份(design D1)。
+
+    ``skip_groups``(深审 F13):调用方持有的「已铸锚媒体组」前缀。长轮询
+    分批边界会把同一 media_group_id(相册/多图)切到两轮 —— 轮内缓存对
+    跨轮后到成员失效,后到的带 caption 成员会再出一条重复条目;serve 宿主
+    把上一轮铸锚的组传入,后到成员按「并入首条」吞掉。批量档窗口重拉
+    自带未确认重叠,无需传入(跨窗口重复面由锚点去重兜底,如实注记)。
     """
     # 群分拣:只留目标 chat 的消息(单 bot 多群 = 每群一源,各配 chat_id)。
     messages: list[dict[str, Any]] = []
@@ -577,7 +609,7 @@ def updates_to_items(
             continue
         messages.append(message)
     # 媒体组聚合:同 media_group_id 取首条有文本的铸锚,整组出一条。
-    seen_groups: set[str] = set()
+    seen_groups: set[str] = set(skip_groups or ())
     items: list[dict] = []
     for message in messages:
         media_group_id = message.get("media_group_id")

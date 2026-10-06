@@ -19,9 +19,11 @@
    其余 = 普通逐条出仓带 score(route archive 入库,合并日报「Telegram
    群」分区承载)。
 
-合并锚点:高价值合并条目 URL = ``<源url>#tg-hv-<chat_id>-<min_msg_id>-
-<max_msg_id>``(区间由本轮组内消息 id 决定)—— 同窗口重拉同批消息 → 同
-区间 → 同锚 → 管线 dedup 拦截,批量档重跑幂等。
+合并锚点:高价值合并条目 URL = 组内按 url 字典序首条的原 url 加
+``-hv<组内条数>-<尾 message_id>`` 后缀 —— 措辞修正(深审 F12):后缀只含
+**一个**尾 id,不是 ``<chat_id>-<min>-<max>`` 区间对;组内消息 id 的数值序
+min/max 全量记录在 ``merged_message_ids`` metadata(观测与账本面)。同
+窗口重拉同批消息 → 排序确定 → 同锚 → 管线 dedup 拦截,批量档重跑幂等。
 
 降级语义(保守方向永远是不推):
 
@@ -398,8 +400,9 @@ def merge_high_value(
 
     合并条目:
 
-    - ``url`` = 首条 url 加 ``-hv<n>-<尾 message_id>`` 后缀(组内消息 id
-      区间决定 → 同窗口重拉同批 → 同锚 → dedup 幂等;锚不改变落点);
+    - ``url`` = 首条 url 加 ``-hv<n>-<尾 message_id>`` 后缀(首/尾取组内
+      按 url 字典序排序的首末条 → 同窗口重拉同批同序 → 同锚 → dedup
+      幂等;锚不改变落点;数值序 id 全量在 ``merged_message_ids``);
     - ``title`` = 「Telegram 高价值 N 条(score≥8)」;
     - ``content`` = 逐条 markdown 列表(分数/作者/文本截断);
     - ``score`` = 组内最高分(route ``score >= 8 → immediate`` 直接过);

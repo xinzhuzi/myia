@@ -490,6 +490,37 @@ def test_store_items_seeded_db_with_filters(tmp_path):
     assert result["count"] == 1 and result["items"][0]["category"] == "proto-demo"
 
 
+def test_store_items_category_validation_symmetric(tmp_path):
+    """深审 F6 校验对称:category 与 source 同门协议级强校验(非空字符串;
+    省略 = 不过滤)—— 空串/非字符串 category 结构化 invalid_params,
+    错误路径锚 params.category(与 source 对称,不再只靠 store 层兜底)。"""
+    db = tmp_path / "sym.db"
+    store = SQLiteStore(str(db))
+    from datetime import datetime, timezone
+
+    from myssia.store.models import ItemRecord
+    store.save_item(ItemRecord(
+        url="https://example.com/a", dedup_key="a", title="甲",
+        first_seen=datetime(2026, 10, 1, tzinfo=timezone.utc),
+    ))
+    store.close()
+    for bad in ("", 123):
+        code, responses, _ = rpc({"id": 1, "method": "store.items",
+                                  "params": {"db": str(db), "category": bad}})
+        error = responses[0]["error"]
+        assert code == 1 or error is not None
+        assert error["code"] == "invalid_params"
+        assert error["path"] == "params.category"
+    # source 同门(既有行为,对照钉对称)
+    code, responses, _ = rpc({"id": 2, "method": "store.items",
+                              "params": {"db": str(db), "source": ""}})
+    assert responses[0]["error"]["code"] == "invalid_params"
+    assert responses[0]["error"]["path"] == "params.source"
+    # 合法面:省略两键 = 不过滤,照常出全量
+    code, responses, _ = rpc({"id": 3, "method": "store.items", "params": {"db": str(db)}})
+    assert responses[0]["result"]["count"] == 1
+
+
 def test_store_items_projects_image_ocr_scalar(tmp_path):
     """store.items 图析投影:vision 环四键白名单出面,raw 整包不出面。
 
@@ -3369,8 +3400,14 @@ def test_telegram_host_assembly_builds_real_host(tmp_path, monkeypatch):
     assert bundle is not None
     assert isinstance(bundle.host, TelegramServeHost)
     assert "tg-proto" in bundle.label and "telegram" in bundle.label
-    # 数据根面:事件账本库真建在 <home>/telegram/(装配即建库,same as CLI)
-    assert (tmp_path / "telegram" / "events.db").exists()
+    # 数据根面:事件账本库真建在 <home>/telegram/(装配即建库,same as CLI);
+    # 深审 F8:按 bot token 指纹分键(events-<sha8>.db),旧单键路径不再建
+    from myssia.telegram.offsets import bot_fingerprint
+
+    fp = bot_fingerprint("fake-bot-token")
+    assert (tmp_path / "telegram" / f"events-{fp}.db").exists()
+    assert not (tmp_path / "telegram" / "events.db").exists()
+    assert bundle.host._offsets.path.name == f"offsets-{fp}.json"
     bundle.close()
     # stop 注入面:should_stop 已挂 stop Event(轮间检查点生效)
     assert bundle.host._should_stop is not None
