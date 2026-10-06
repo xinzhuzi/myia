@@ -1,0 +1,9 @@
+{"file": ".trellis/spec/python/quality.md", "reason": "测试约定:引擎测试 mock 零真网/CI 红线 pytest 全绿才可并——B1-B3 三批门禁口径"}
+{"file": ".trellis/spec/python/error-handling.md", "reason": "验收口径:结构化错误字段路径+错误类/退出码契约(致命 1)——B3 CLI 与凭据空态的检查依据"}
+{"file": ".trellis/spec/domain/security-baseline.md", "reason": "AC5 验收红线:凭据零外显——测试断言 BOT_TOKEN 不外显、token 净化 bot*** 的依据"}
+{"file": ".trellis/tasks/10-06-telegram-telethon/prd.md", "reason": "AC1-5 对照基准:终局收尾员终验全留未勾,缺口如实(AC1 锁主人 token/AC2 锁小号/AC3 B5/AC4 像素验证留桌面批)"}
+{"file": "tests/engines/test_telegram_engine.py", "reason": "B1 门禁 31 例:四态矩阵(空态零请求/结构化拒/开启态往返含 401/409 指引+净化)/注册表"}
+{"file": "tests/telegram/test_telegram_filter.py", "reason": "B2 门禁 25 例:粗筛/精筛/降级/合并锚幂等/同轮 5 条恰 1 条合并端到端+引擎集成 mock getUpdates"}
+{"file": "tests/telegram/test_telegram_serve.py", "reason": "B3 门禁 21 例(全 mock):offsets 往返/账本词表/poller URL 形状+401/409/坏载荷/宿主一轮恰 1 推/退避翻倍归零/致命上抛/CLI 装配三例"}
+{"file": "docs/zh/schema.md", "reason": "test_docs 词表同步校验面:zh 侧 engine 词表行"}
+{"file": "docs/en/schema.md", "reason": "test_docs 词表同步校验面:en 侧 engine 词表行(双语对照一致性)"}

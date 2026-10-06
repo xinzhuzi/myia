@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "Grill 七决议全按推荐回写(Q1=B1-B3 立即开工/Q2 首群 mihomo/Q5 即时≥8分/Q6 桌面常驻优先);执行代理已派 B1-B3;主人前置=bot 四步与(可选)小号验证码。| 终局收尾员 2026-10-06 终验:B1-B3 已交(0b15e09)+装机外科(587f49b)复核通过+数据根 daily-digest Telegram 分区补同步;留 in_progress 缺口=AC1 真发(锁主人 token 四步)/AC2 B4 Telethon(锁小号)/AC3 组件化一例(B5)/AC4 像素验证(锁桌面接线批);门禁亲跑全绿(pytest 4711 passed/vitest 570/tsc 0 错)。",
+  "notes": "Grill 七决议全按推荐回写(Q1=B1-B3 立即开工/Q2 首群 mihomo/Q5 即时≥8分/Q6 桌面常驻优先);执行代理已派 B1-B3;主人前置=bot 四步与(可选)小号验证码。| 终局收尾员 2026-10-06 终验:B1-B3 已交(0b15e09)+装机外科(587f49b)复核通过+数据根 daily-digest Telegram 分区补同步;留 in_progress 缺口=AC1 真发(锁主人 token 四步)/AC2 B4 Telethon(锁小号)/AC3 组件化一例(B5)/AC4 像素验证(锁桌面接线批);门禁亲跑全绿(pytest 4711 passed/vitest 570/tsc 0 错)。| start 门禁补正员 2026-10-06:两 jsonl 补真实条目(implement.jsonl 23 行/check.jsonl 9 行,B1-B3 的 spec/research/源码/测试路径逐一锚盘核验);jsonl 已补策展(直改 task.json 绕过 start 的既成事实如实保留)。",
   "meta": {}
 }

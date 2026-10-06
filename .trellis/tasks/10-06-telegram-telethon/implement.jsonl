@@ -1,0 +1,23 @@
+{"file": ".trellis/spec/guides/search-sop.md", "reason": "搜索 SOP 先读铁律:热路径/rg+fd 纪律/GitNexus -r shishi,本任务定位与核验全程遵守"}
+{"file": ".trellis/spec/domain/security-baseline.md", "reason": "凭据红线:bot token/session 只入钥匙串三态、YAML 禁明文、日志零外显——B1 token URL path 净化 bot*** 与 AC5 的依据"}
+{"file": ".trellis/spec/domain/yaml-schema.md", "reason": "品类 YAML 硬规则:engine_options 源参数语义/未知字段 fail-fast/凭据禁明文——telegram-groups.yaml 示范件与 schema 词表两行的依据"}
+{"file": ".trellis/spec/domain/connector-selection.md", "reason": "云端连接器选型门禁:授权 Bot API 通道的免费路径口径与链接者定调(research §2)互证"}
+{"file": ".trellis/spec/python/error-handling.md", "reason": "结构化错误与退出码契约:credential_missing 三态显式空态、401/409 致命上抛退码 1、fail-fast 于配置——B1/B3 错误面依据"}
+{"file": ".trellis/spec/python/logging.md", "reason": "日志约定:凭据值禁入日志、skip 原因必须可见——粗筛零痕迹跳过与 token 零外显的口径"}
+{"file": ".trellis/tasks/10-06-telegram-telethon/prd.md", "reason": "本档 PRD:三层能力/AC1-5/组合铁律出口(高价值合并单条+普通入合并日报)/过程段 B1-B3 执行流水"}
+{"file": ".trellis/tasks/10-06-telegram-telethon/research.md", "reason": "本档调研:四类 TG 件星数与借鉴点/隐私模式坑/链接者架构定调/TrendRadar GPL 红线——B4 前置与源名规约的事实源"}
+{"file": ".trellis/tasks/10-06-telegram-telethon/design.md", "reason": "本档技术设计:D1 双宿主(批量引擎+常驻 serve)/D2 引擎宿主契约/D5 全 mock 测试设计——B1-B3 实现蓝图"}
+{"file": ".trellis/tasks/10-06-telegram-telethon/implement.md", "reason": "本档执行计划:批次 B1-B5 划分与批间门禁,先档后行三段纪律的档"}
+{"file": "src/myssia/engines/telegram.py", "reason": "B1 批量引擎:getUpdates 批量窗口/chat_id 群分拣/媒体组聚合/锚 #tg-<chat>-<msg> 幂等/凭据三态;B3 抽出 updates_to_items/message_to_item/filter_config_from_options 共享面"}
+{"file": "src/myssia/telegram/filter.py", "reason": "B2 过滤管线(批量与 serve 两档共用):DEFAULT_COARSE_KEYWORDS 三层词表/LLM 精筛 OpenAICompatClient 复用/merge_high_value 同轮高价值合并单条"}
+{"file": "src/myssia/telegram/serve.py", "reason": "B3 常驻宿主 TelegramServeHost:长轮询 25s/offset 推进/指数退避 1s→300s/401/409 致命上抛/sink 全注入零 pipeline 依赖,桌面 sidecar 接线位"}
+{"file": "src/myssia/telegram/offsets.py", "reason": "B3 offset 持久化:数据根 telegram/offsets.json 原子写,重启断点续拉"}
+{"file": "src/myssia/telegram/events.py", "reason": "B3 事件账本:telegram_events 表 executions 形态,outcome 七词表(stored/pushed/dropped_coarse/dropped_chat/dropped_textless/dropped_other/error)消息级记账"}
+{"file": "src/myssia/telegram/__init__.py", "reason": "telegram 包出口:filter/serve/offsets/events 模块面组装"}
+{"file": "src/myssia/schema.py", "reason": "B1 词表两行:ENGINES 与 EngineName 增 telegram(hunk 收窄判例)"}
+{"file": "src/myssia/engines/registry.py", "reason": "B1 引擎注册:telegram 链外显式注册(同 reddit 先例,auto 永不路过)"}
+{"file": "src/myssia/cli.py", "reason": "B3 CLI 装配:myssia telegram serve 子命令——品类装配/chat_id 唯一/单 bot token 校验/推送+入库 sink/Ctrl-C 干净停/致命退码 1"}
+{"file": "plugins/telegram-groups.yaml", "reason": "B1 品类示范件:源 telegram-mihomo_party_group 活源待 token 空态(credential_missing 零请求),chat_id 占位待实填"}
+{"file": "plugins/daily-digest.yaml", "reason": "B2 出口接线:合并日报增「Telegram 群」分区(与 telegram-groups.yaml 同步维护),普通条目进日报的落点"}
+{"file": "docs/zh/schema.md", "reason": "B1 文档同步:engine 词表行 zh 侧(schema.md 双语对照铁律)"}
+{"file": "docs/en/schema.md", "reason": "B1 文档同步:engine 词表行 en 侧(改一侧须同步另一侧)"}
