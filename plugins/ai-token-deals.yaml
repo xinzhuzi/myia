@@ -1,0 +1,66 @@
+# plugins/ai-token-deals.yaml — AI token 白嫖/模型优惠守望(prompt 引擎专项)。
+#
+# 主人令(2026-10-06):「找一些有价值的,免费白嫖 token,AI token 模型优惠」。
+# 原始优惠帖信号已在羊毛件(linux.sb/bbs.bt.sb/nodeloc 等社区)采集,本件用
+# prompt 引擎做 AI 专项精筛:逐站扫当日帖,只提取「AI token 白嫖/免费额度/
+# API 优惠/模型折扣」类目,按价值排序成一份「值得动手清单」——LLM 判断
+# 「有价值」正是 prompt 任务的形态(照 ai-vendor-watch 样板)。
+# 日报层降噪:push=archive 仅入库,由 plugins/daily-digest.yaml 的羊毛分区
+# 合并发送;单独看产出可 `myssia run plugins/ai-token-deals.yaml --dry-run`。
+
+id: ai-token-deals
+name: AI优惠守望
+
+schedule: "0 8 * * *"          # 每天 08:00(与羊毛件同槽,合并日报 08:05 承载)
+timezone: Asia/Shanghai
+
+sources:
+  - name: ai-token-deals
+    engine: prompt
+    url: "https://linux.sb/"   # 锚 URL(条目落点+去重锚)
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    engine_options:
+      prompt:
+        title: "AI 白嫖与模型优惠"
+        instructions: |
+          逐个看下列社区站的最新帖列表,只挑「AI token 白嫖/免费额度/新用户
+          送额度/API 优惠/模型折扣/低价 API 中转」类目的帖子,整理成中文清单:
+          - 每条一行:什么优惠(平台+额度/折扣)+ 一句话怎么领 + 帖子链接;
+          - 按价值排序(免费大额>长期白嫖>限时折扣>小额);
+          - 明显是骗子/倒卖风险高的标注「⚠️谨慎」;看不出可信度的如实标「未验证」;
+          - 全部站点都没有相关帖时,如实说「今日无 AI 优惠线索」,不要编造;
+          - 结尾附一行「来源:linux.sb/bbs.bt.sb/nodeloc 最新帖」。
+        urls:
+          - "https://linux.sb/"                 # 社区最新帖(羊毛件已验证通路)
+          - "https://bbs.bt.sb/latest"
+          - "https://www.nodeloc.com/latest"
+        model: glm-4-flash
+        base_url: keychain:myia/llm/base_url
+        api_key: keychain:myia/image/api_key
+        max_chars_per_url: 6000
+        timeout: 180
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+classify:
+  builtin: false
+  rules: []
+
+dedup:
+  key: "{url}"                 # 引擎铸 #prompt-<日期> 锚:每天新条目,同日幂等
+
+push:
+  - channel: feishu_card
+    target: env:FEISHU_CHAT_ID
+    route:
+      - when: "url != ''"      # 日报层降噪:仅入库,合并日报羊毛分区承载
+        mode: archive
+    template: |
+      {% for item in items %}{{ item.prompt_summary }}
+      {% endfor %}
+
+storage:
+  retention: 90d
+  vacuum: monthly
