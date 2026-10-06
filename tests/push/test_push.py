@@ -418,10 +418,12 @@ def test_feishu_send_resolves_bot_token_from_env(monkeypatch):
         )
     finally:
         asyncio.run(client.aclose())
-        assert capture["auth"] == "Bearer env-token-xyz"
-        card = json.loads(capture["body"]["content"])
-        # 组合铁律(10-06-hermes-align):immediate 头=类目+条数(单条也带计数)
-        assert card["header"]["title"]["content"] == "🔔 情报 · 10-01 · 1条"
+    # 断言在 finally 之外(复核条目⑤):finally 内断言失败会用
+    # AssertionError 顶掉 send 的原始异常,遮蔽真实失败原因。
+    assert capture["auth"] == "Bearer env-token-xyz"
+    card = json.loads(capture["body"]["content"])
+    # 组合铁律(10-06-hermes-align):immediate 头=类目+条数(单条也带计数)
+    assert card["header"]["title"]["content"] == "🔔 情报 · 10-01 · 1条"
 
 
 def test_feishu_send_template_renders_into_single_markdown_div(monkeypatch):

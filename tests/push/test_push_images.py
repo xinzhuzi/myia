@@ -29,8 +29,12 @@ from myssia.push.feishu_card import (
 from myssia.push.telegram import CAPTION_LIMIT, build_photo_caption
 
 TIMEZONE = timezone(timedelta(hours=8))
-DIGEST_CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="digest")
-IMMEDIATE_CONTEXT = SendContext(slot="am", date="2026-10-03", category="羊毛", kind="immediate")
+DIGEST_CONTEXT = SendContext(
+    slot="am", date="2026-10-03", category="羊毛", kind="digest"
+)
+IMMEDIATE_CONTEXT = SendContext(
+    slot="am", date="2026-10-03", category="羊毛", kind="immediate"
+)
 #: 伪 PNG 字节(mock 端点不校验内容;后缀驱动 mimetypes → image/png)。
 FAKE_PNG = b"\x89PNG\r\n\x1a\nfake-image-bytes-for-mock"
 
@@ -48,7 +52,9 @@ def _image(tmp_path, name: str = "pic.png") -> str:
     return str(path)
 
 
-def _item(image_path: str, *, caption: str = "图析摘要:一张示意图", missing: str | None = None) -> dict:
+def _item(
+    image_path: str, *, caption: str = "图析摘要:一张示意图", missing: str | None = None
+) -> dict:
     files = [image_path] + ([missing] if missing else [])
     return {
         "title": "公开示例羊毛",
@@ -61,7 +67,9 @@ def _item(image_path: str, *, caption: str = "图析摘要:一张示意图", mis
 class _Recorder:
     """MockTransport 双端点录音:JSON 体与 multipart 原始字节都留档。"""
 
-    def __init__(self, calls: list[dict], photo_ok: bool = True, upload_ok: bool = True) -> None:
+    def __init__(
+        self, calls: list[dict], photo_ok: bool = True, upload_ok: bool = True
+    ) -> None:
         self.calls = calls
         self.photo_ok = photo_ok
         self.upload_ok = upload_ok
@@ -82,14 +90,26 @@ class _Recorder:
         if request.url.path.endswith("sendPhoto"):
             if not self.photo_ok:
                 return httpx.Response(
-                    400, json={"ok": False, "error_code": 400, "description": "Bad Request: file too big"}
+                    400,
+                    json={
+                        "ok": False,
+                        "error_code": 400,
+                        "description": "Bad Request: file too big",
+                    },
                 )
             return httpx.Response(200, json={"ok": True, "result": {"message_id": 7}})
         if str(request.url).startswith(IMAGES_API_URL):
             if not self.upload_ok:
-                return httpx.Response(200, json={"code": 99991672, "msg": "no im:resource scope"})
+                return httpx.Response(
+                    200, json={"code": 99991672, "msg": "no im:resource scope"}
+                )
             return httpx.Response(
-                200, json={"code": 0, "msg": "success", "data": {"image_key": "img_v2_mock_key"}}
+                200,
+                json={
+                    "code": 0,
+                    "msg": "success",
+                    "data": {"image_key": "img_v2_mock_key"},
+                },
             )
         if request.url.host == "open.feishu.cn":
             return httpx.Response(200, json={"code": 0, "msg": "success", "data": {}})
@@ -135,12 +155,16 @@ def test_item_images_reads_metadata_merges_and_filters_missing_files(tmp_path):
     existing = _image(tmp_path)
     missing = str(tmp_path / "gone.png")
     info = item_images(_item(existing, missing=missing))
-    assert info == ItemImages(paths=(existing,), declared=2, caption="图析摘要:一张示意图")
+    assert info == ItemImages(
+        paths=(existing,), declared=2, caption="图析摘要:一张示意图"
+    )
 
 
 def test_item_images_supports_object_items_with_metadata_attr(tmp_path):
     existing = _image(tmp_path, "obj.png")
-    item = SimpleNamespace(title="t", metadata={"image_files": [existing], "image_caption": " 摘要 "})
+    item = SimpleNamespace(
+        title="t", metadata={"image_files": [existing], "image_caption": " 摘要 "}
+    )
     info = item_images(item)
     assert info is not None
     assert info.paths == (existing,) and info.declared == 1 and info.caption == "摘要"
@@ -157,13 +181,17 @@ def test_item_images_supports_object_items_with_metadata_attr(tmp_path):
     ],
 )
 def test_item_images_returns_none_for_absent_or_malformed(metadata):
-    item = {"title": "t", "metadata": metadata} if metadata is not None else {"title": "t"}
+    item = (
+        {"title": "t", "metadata": metadata} if metadata is not None else {"title": "t"}
+    )
     assert item_images(item) is None
 
 
 def test_item_images_non_string_caption_degrades_to_empty(tmp_path):
     existing = _image(tmp_path)
-    info = item_images({"title": "t", "metadata": {"image_files": [existing], "image_caption": 42}})
+    info = item_images(
+        {"title": "t", "metadata": {"image_files": [existing], "image_caption": 42}}
+    )
     assert info is not None and info.caption == ""
 
 
@@ -215,7 +243,10 @@ def test_telegram_immediate_sends_photo_first_then_message(tmp_path):
     assert photo["content_type"].startswith("multipart/form-data")
     body = photo["body"]
     assert b'name="chat_id"' in body and b"424242" in body
-    assert b'name="caption"' in body and "公开示例羊毛\n图析摘要:一张示意图".encode() in body
+    assert (
+        b'name="caption"' in body
+        and "公开示例羊毛\n图析摘要:一张示意图".encode() in body
+    )
     assert b'name="photo"' in body and b'filename="pic.png"' in body
     assert b"image/png" in body and FAKE_PNG in body
     message = calls[1]
@@ -232,12 +263,17 @@ def test_telegram_immediate_via_send_immediate_dispatch(tmp_path):
 
     reports = asyncio.run(
         send_immediate(
-            [_item(image_path)], channels=[channel], tz=TIMEZONE,
-            now=datetime(2026, 10, 3, 9, 0, tzinfo=TIMEZONE), category="羊毛",
+            [_item(image_path)],
+            channels=[channel],
+            tz=TIMEZONE,
+            now=datetime(2026, 10, 3, 9, 0, tzinfo=TIMEZONE),
+            category="羊毛",
         )
     )
     assert [r.ok for r in reports] == [True]
-    assert calls[0]["url"].endswith("/sendPhoto") and calls[1]["url"].endswith("/sendMessage")
+    assert calls[0]["url"].endswith("/sendPhoto") and calls[1]["url"].endswith(
+        "/sendMessage"
+    )
 
 
 def test_telegram_immediate_missing_image_falls_back_to_text_only(tmp_path, caplog):
@@ -260,7 +296,10 @@ def test_telegram_photo_api_failure_still_sends_text_message(tmp_path):
 
     asyncio.run(channel.send([_item(image_path)], IMMEDIATE_CONTEXT))
 
-    assert [call["url"].rsplit("/", 1)[-1] for call in calls] == ["sendPhoto", "sendMessage"]
+    assert [call["url"].rsplit("/", 1)[-1] for call in calls] == [
+        "sendPhoto",
+        "sendMessage",
+    ]
 
 
 def test_telegram_digest_with_images_never_sends_photo(tmp_path):
@@ -446,3 +485,109 @@ def test_feishu_digest_with_images_card_is_byte_identical(tmp_path):
     expected = build_card(items, title="📡 羊毛日报 10-03 · 上午摘要")
     assert len(calls) == 1  # 无上传调用
     assert _sent_card(calls[0]) == expected
+
+
+# ---------------------------------------------------------------------------
+# 组合铁律(10-06-hermes-align 复核条目②):多条目 immediate 轮不再静默丢图
+# ---------------------------------------------------------------------------
+
+
+def test_feishu_multi_item_immediate_attaches_image_notes_per_item(tmp_path):
+    """飞书多条目合并轮:带图条目图析行入卡(逐条目挂),不上传、无 img。
+
+    单条目轮的 img 上传/图析降级两路径由既有用例钉死;本用例钉组合后
+    的常态——同轮 ≥2 条命中时带图条目的图析信息不丢。
+    """
+    image_path = _image(tmp_path)
+    calls: list[dict] = []
+    recorder = _Recorder(calls)
+    channel = _feishu_channel(recorder)
+    with_image = _item(image_path)
+    plain = {"title": "无图条目", "url": "https://example.com/b"}
+
+    asyncio.run(channel.send([with_image, plain], IMMEDIATE_CONTEXT))
+
+    assert len(calls) == 1  # 一条消息(组合铁律)+ 零上传调用
+    assert not str(calls[0]["url"]).startswith(IMAGES_API_URL)
+    card = _sent_card(calls[0])
+    divs = [
+        element
+        for element in card["elements"]
+        if element.get("tag") == "div" and element["text"].get("tag") == "lark_md"
+    ]
+    assert len(divs) == 2  # 内置布局:条目 div 数 == 条目数
+    assert "图析: 图析摘要:一张示意图" in divs[0]["text"]["content"]
+    assert "[配图 1 张未附]" in divs[0]["text"]["content"]
+    assert "图析" not in divs[1]["text"]["content"]  # 无图条目不挂行
+    assert not any(element.get("tag") == "img" for element in card["elements"])
+
+
+def test_feishu_multi_item_immediate_all_items_with_images_each_noted(tmp_path):
+    """多条目全带图:每条目各挂图析行(仍不上传混排)。"""
+    calls: list[dict] = []
+    recorder = _Recorder(calls)
+    channel = _feishu_channel(recorder)
+    items = [_image(tmp_path, f"p{i}.png") for i in range(2)]
+    batch = [_item(path) for path in items]
+
+    asyncio.run(channel.send(batch, IMMEDIATE_CONTEXT))
+
+    card = _sent_card(calls[0])
+    divs = [
+        element
+        for element in card["elements"]
+        if element.get("tag") == "div" and element["text"].get("tag") == "lark_md"
+    ]
+    assert all("[配图 1 张未附]" in div["text"]["content"] for div in divs)
+    assert not any(element.get("tag") == "img" for element in card["elements"])
+
+
+def test_feishu_multi_item_immediate_template_path_leaves_card_untouched(tmp_path):
+    """用户模板单 div 卡无从定位条目行:多条目轮不附图析行(记档取舍)。"""
+    image_path = _image(tmp_path)
+    calls: list[dict] = []
+    recorder = _Recorder(calls)
+    channel = FeishuCardChannel(
+        token="t",
+        target="env:MYIA_TEST_FEISHU_CHAT",
+        template="{% for i in items %}{{ i.title }}\n{% endfor %}",
+        client=httpx.AsyncClient(transport=httpx.MockTransport(recorder.handler)),
+    )
+
+    asyncio.run(channel.send([_item(image_path), {"title": "b"}], IMMEDIATE_CONTEXT))
+
+    text = _sent_card(calls[0])["elements"][0]["text"]["content"]
+    assert "图析" not in text
+
+
+def test_telegram_multi_item_immediate_carries_image_note_in_text(tmp_path):
+    """TG 多条目合并轮:不 sendPhoto,图析行并入正文(HTML 转义防吃)。"""
+    image_path = _image(tmp_path)
+    calls: list[dict] = []
+    recorder = _Recorder(calls)
+    channel = _tg_channel(recorder)
+    tricky = _item(image_path, caption="摘要带<b>标签</b>与&amp;符")
+    plain = {"title": "无图条目", "url": "https://example.com/b"}
+
+    asyncio.run(channel.send([tricky, plain], IMMEDIATE_CONTEXT))
+
+    assert not any(
+        str(call["url"]).endswith("sendPhoto") for call in calls
+    )  # 多条目不发图
+    assert len(calls) == 1  # 一条 sendMessage(组合铁律)
+    text = calls[0]["json"]["text"]
+    assert "图析: 摘要带&lt;b&gt;标签&lt;/b&gt;与&amp;amp;符(配图 1 张未附)" in text
+    assert "无图条目" in calls[0]["json"]["text"]
+
+
+def test_telegram_multi_item_digest_keeps_legacy_layout(tmp_path):
+    """digest 多条目带图:版式零变化(图析行仅属 immediate 多条目轮)。"""
+    image_path = _image(tmp_path)
+    calls: list[dict] = []
+    recorder = _Recorder(calls)
+    channel = _tg_channel(recorder)
+
+    asyncio.run(channel.send([_item(image_path), {"title": "b"}], DIGEST_CONTEXT))
+
+    text = calls[0]["json"]["text"]
+    assert "图析" not in text and "配图" not in text

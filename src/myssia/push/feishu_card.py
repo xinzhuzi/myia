@@ -81,7 +81,11 @@ adapter.py:3925-3970``,NousResearch/Hermes-Agent,MIT)与
 :func:`card_title` 的 immediate 支带「N 条」后缀,正文=逐条标题+链接
 (:func:`_item_markdown` 行);② 文本日报单条消息承载全部条目,仅真超
 :data:`POST_SPLIT_THRESHOLD` 才按序续条并头尾标注 ``(i/N)``(拆条是
-不得已,不是默认)。
+不得已,不是默认)。带图裁量(复核条目②重审 vision-v2「恰一条目」
+定案):卡片形态 immediate 不再要求恰一条目——单条目轮 img 上传/
+图析降级两路径逐字节不变;多条目合并轮带图条目以图析摘要行承载
+(不上传混排,见 :meth:`_attach_card_image`);text 形态不带图
+(img/图析属卡片组装层,克制取舍)。
 
 文本消息形态(10-06-hermes-align 批次1,``msg_form: text``):日报照
 Hermes 形态发 **markdown 文本**而非交互卡片——``msg_type="post"`` 的
@@ -859,64 +863,107 @@ class FeishuCardChannel(TrendAwareChannel):
         items: Sequence[Any],
         context: SendContext,
     ) -> dict[str, Any]:
-        """Immediate 单条目带图组装:img 元素(上传成功)或图析摘要行(降级)。
+        """Immediate 带图组装:img 元素(单条目上传成功)或图析摘要行。
 
-        仅 ``kind="immediate"`` 且恰一条目生效(digest 批量不带图,PRD
-        10-03-vision-v2 定案);``metadata.image_files`` 缺席 → 卡片原样返回,
-        零行为变化。两条路径:
+        vision-v2「恰一条目带图」定案按组合铁律(10-06-hermes-align 复核
+        条目②重审)修正:门只看 ``kind="immediate"``,不再要求恰一条目
+        ——组合后同轮 ≥2 条命中是常态,多条目轮的带图条目以**图析摘要
+        行**承载,不再静默丢图:
 
-        - 上传成功:条目 div 之后插入 ``img`` 元素(``img_key`` + alt=图析
-          摘要截断,无摘要退回标题),内文布局不动;
-        - 上传失败 / 文件缺失:降级「图析摘要卡」文本形态——lark_md 附
-          「图析: …」摘要行 + 「配图 N 张未附」注记,只告警不阻投递。
+        - 单条目(len==1):两路径逐字节不变——上传成功 → 条目 div 后插
+          ``img`` 元素(``img_key`` + alt=图析摘要截断,无摘要退回标题),
+          内文布局不动;上传失败/文件缺失 → 降级「图析摘要卡」独立 div
+          行(历史形状,只告警不阻投递)。
+        - 多条目(len>1):每个带图条目在其 lark_md div 的 content 尾追加
+          「图析: …」+「配图 N 张未附」行(不上传真图——多条目合并消息
+          的图文混排未经 vision-v2 设计,克制;信息保真靠图析摘要)。
+          仅内置布局(条目 div 数 == 条目数)挂行;用户模板单 div 卡无从
+          定位条目行,不挂(与 text 形态不带图同口径的记档取舍)。
+          digest 语义零变化。
 
-        多图只上 ``paths[0]``;alt/摘要行均截断到
-        :data:`CAPTION_EXCERPT_CHARS`;摘要行入 lark_md 前经
-        :func:`escape_lark_md` 字面化(``[``/``]``/``<``),alt 回退 title 时
-        同样截断。
+        ``metadata.image_files`` 缺席 → 卡片原样返回。多图只上
+        ``paths[0]``;alt/摘要行均截断到 :data:`CAPTION_EXCERPT_CHARS`;
+        摘要行入 lark_md 前经 :func:`escape_lark_md` 字面化,alt 回退
+        title 时同样截断。
         """
-        if context.kind != "immediate" or len(items) != 1:
-            return card
-        info = item_images(items[0])
-        if info is None:
+        if context.kind != "immediate":
             return card
         elements = card.get("elements")
         if not isinstance(elements, list) or not elements:
             return card  # 防御:非预期卡片形态不动(elements 恒非空,见 build_card)
-        image_key: str | None = None
-        if info.paths:
-            try:
-                image_key = await self._upload_image(token, info.paths[0])
-            except (PushSendError, OSError) as exc:
-                logger.warning("飞书图片上传失败,降级图析摘要卡(不阻推送): %s", exc)
-        excerpt = clip_text(info.caption, CAPTION_EXCERPT_CHARS) if info.caption else ""
-        if image_key is not None:
-            # alt 是 plain_text(零解析),但回退 title 时同样截断到 CAPTION 上限
-            # —— 超长标题会让 alt 失去「一眼可读」的辅助语义。
-            alt = excerpt or clip_text(
-                str(item_view(items[0]).get("title") or ""), CAPTION_EXCERPT_CHARS
-            )
+        if len(items) == 1:
+            info = item_images(items[0])
+            if info is None:
+                return card
+            image_key: str | None = None
+            if info.paths:
+                try:
+                    image_key = await self._upload_image(token, info.paths[0])
+                except (PushSendError, OSError) as exc:
+                    logger.warning("飞书图片上传失败,降级图析摘要卡(不阻推送): %s", exc)
+            excerpt = clip_text(info.caption, CAPTION_EXCERPT_CHARS) if info.caption else ""
+            if image_key is not None:
+                # alt 是 plain_text(零解析),但回退 title 时同样截断到 CAPTION 上限
+                # —— 超长标题会让 alt 失去「一眼可读」的辅助语义。
+                alt = excerpt or clip_text(
+                    str(item_view(items[0]).get("title") or ""), CAPTION_EXCERPT_CHARS
+                )
+                elements.insert(
+                    1,
+                    {
+                        "tag": "img",
+                        "img_key": image_key,
+                        "alt": {"tag": "plain_text", "content": alt},
+                    },
+                )
+                return card
+            # lark_md 行:caption 是模型产物,[]< 序列先字面化再插入(防飞书
+            # 误解析成链接/标签把摘要吃掉);「配图 N 张未附」是自产注记,原样。
+            lines = [f"　└ 图析: {escape_lark_md(excerpt)}"] if excerpt else []
+            lines.append(f"　└ [配图 {info.declared} 张未附]")
             elements.insert(
-                1,
-                {
-                    "tag": "img",
-                    "img_key": image_key,
-                    "alt": {"tag": "plain_text", "content": alt},
-                },
+                1, {"tag": "div", "text": {"tag": "lark_md", "content": "\n".join(lines)}}
+            )
+            logger.info(
+                "飞书卡片采用图析摘要文本形态: 声明 %d 图,本机存在 %d",
+                info.declared,
+                len(info.paths),
             )
             return card
-        # lark_md 行:caption 是模型产物,[]< 序列先字面化再插入(防飞书
-        # 误解析成链接/标签把摘要吃掉);「配图 N 张未附」是自产注记,原样。
-        lines = [f"　└ 图析: {escape_lark_md(excerpt)}"] if excerpt else []
-        lines.append(f"　└ [配图 {info.declared} 张未附]")
-        elements.insert(
-            1, {"tag": "div", "text": {"tag": "lark_md", "content": "\n".join(lines)}}
-        )
-        logger.info(
-            "飞书卡片采用图析摘要文本形态: 声明 %d 图,本机存在 %d",
-            info.declared,
-            len(info.paths),
-        )
+        # 多条目合并轮(组合铁律常态):逐带图条目挂图析行(不上传混排,
+        # 见 docstring);内置布局判定 = lark_md div 数与条目数对齐(模板卡
+        # 单 div → 不挂)。
+        item_divs = [
+            element
+            for element in elements
+            if isinstance(element, dict)
+            and element.get("tag") == "div"
+            and isinstance(element.get("text"), dict)
+            and element["text"].get("tag") == "lark_md"
+        ]
+        if len(item_divs) != len(items):
+            logger.debug(
+                "飞书多条目卡非内置布局(模板/异常形态),不附图析行: divs=%d items=%d",
+                len(item_divs),
+                len(items),
+            )
+            return card
+        noted = 0
+        for item_div, item in zip(item_divs, items):
+            info = item_images(item)
+            if info is None:
+                continue
+            excerpt = clip_text(info.caption, CAPTION_EXCERPT_CHARS) if info.caption else ""
+            lines = [f"　└ 图析: {escape_lark_md(excerpt)}"] if excerpt else []
+            lines.append(f"　└ [配图 {info.declared} 张未附]")
+            item_div["text"]["content"] += "\n" + "\n".join(lines)
+            noted += 1
+        if noted:
+            logger.info(
+                "飞书合并消息附图析摘要行(多条目不上传混排): 带图条目=%d/%d",
+                noted,
+                len(items),
+            )
         return card
 
     async def _upload_image(self, token: str, image_path: str) -> str:

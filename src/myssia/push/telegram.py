@@ -77,6 +77,7 @@ from myssia.schema import CredentialResolveError
 
 __all__ = [
     "CAPTION_LIMIT",
+    "CAPTION_EXCERPT_CHARS",
     "CHAT_ID_RE",
     "DEFAULT_TARGET_ENV_REF",
     "DEFAULT_TOKEN_ENV_REF",
@@ -103,6 +104,9 @@ DEFAULT_TARGET_ENV_REF = "env:TELEGRAM_CHAT_ID"
 MESSAGE_LIMIT = 4096
 #: Bot API sendPhoto caption limit: 0-1024 characters per caption.
 CAPTION_LIMIT = 1024
+#: 图析摘要在正文图析行内的截断长度(与飞书 :data:`CAPTION_EXCERPT_CHARS`
+#: 同值同论证:保持消息可读;本地定值,不跨通道 import)。
+CAPTION_EXCERPT_CHARS = 240
 #: Built-in layout caps one item line well below ``MESSAGE_LIMIT`` so newline
 #: splitting never has to cut inside HTML tags (a >4096-char title/URL would
 #: otherwise hard-split into invalid HTML and Telegram would reject the chunk).
@@ -183,7 +187,13 @@ def _item_line(view: Mapping[str, Any]) -> str:
         link = f'<a href="{href}">{title}</a>'
         if len(prefix) + len(link) + len(suffix) <= MAX_ITEM_LINE_LENGTH:
             return f"{prefix}{link}{suffix}"
-        fixed = len(prefix) + len(f'<a href="{href}">') + len("</a>") + len(suffix) + len(ellipsis)
+        fixed = (
+            len(prefix)
+            + len(f'<a href="{href}">')
+            + len("</a>")
+            + len(suffix)
+            + len(ellipsis)
+        )
         room = MAX_ITEM_LINE_LENGTH - fixed
         if room >= 1:
             shown = _clip(title[:room])
@@ -243,6 +253,37 @@ def build_message(items: Sequence[Any], context: SendContext) -> str:
     合并单卡条目额外携带一行「另见 N 源」(v0.4 事件聚合);每行独立受限,
     换行边界切割安全性与单条目布局一致。
     """
+    return "\n".join(_body_lines(items, context))
+
+
+def _image_note_line(view: Mapping[str, Any]) -> str:
+    """多条目 immediate 轮的条目图析行(组合铁律裁量,复核条目②)。
+
+    单条目轮的图走 sendPhoto(photo-first,见 :meth:`_send_item_photo`);
+    多条目合并轮 sendPhoto 单图 API 只配单条目语义,带图条目的图析信息
+    改由正文行承载(「图析: …(配图 N 张未附)」),不再静默丢。无图条目
+    返回空串。摘要是模型产物,入 HTML 版式前经 ``html.escape`` 字面化
+    (caption 在 parse_mode=HTML 消息里裸出会被当标签吃掉)。
+    """
+    info = item_images(view)
+    if info is None:
+        return ""
+    excerpt = clip_text(info.caption, CAPTION_EXCERPT_CHARS) if info.caption else ""
+    if excerpt:
+        escaped = html.escape(excerpt, quote=False)
+        return f"　└ 图析: {escaped}(配图 {info.declared} 张未附)"
+    return f"　└ [配图 {info.declared} 张未附]"
+
+
+def _body_lines(
+    items: Sequence[Any], context: SendContext, *, with_image_notes: bool = False
+) -> list[str]:
+    """内置版式行组装(build_message 的逐行本体)。
+
+    ``with_image_notes``(immediate 多条目轮由 :meth:`_compose` 置 True):
+    每个带图条目行后附 :func:`_image_note_line` 图析行;digest 与单条目
+    immediate 版式零变化(单条目图走 sendPhoto)。
+    """
     lines = [card_title(context)]
     for item in items:
         view = item_view(item)
@@ -250,7 +291,11 @@ def build_message(items: Sequence[Any], context: SendContext) -> str:
         also_line = _item_also_line(view)
         if also_line:
             lines.append(also_line)
-    return "\n".join(lines)
+        if with_image_notes:
+            note = _image_note_line(view)
+            if note:
+                lines.append(note)
+    return lines
 
 
 def build_photo_caption(view: Mapping[str, Any], image_caption: str) -> str:
@@ -370,19 +415,34 @@ class TelegramChannel(TrendAwareChannel):
             len(parts),
         )
 
-    def _compose(self, items: Sequence[Any], context: SendContext) -> tuple[list[str], str | None]:
+    def _compose(
+        self, items: Sequence[Any], context: SendContext
+    ) -> tuple[list[str], str | None]:
         """Message text chunks plus the parse mode to declare (None = plain)."""
         if self._template is not None:
             # 契约:send 只抛 PushSendError —— 渲染失败包装为结构化的
             # template_render_error(语法错误已在加载期被 schema 拒绝)。
             try:
-                text = self._renderer.render(self._template, items, context, **self.trend_render_kwargs())
+                text = self._renderer.render(
+                    self._template, items, context, **self.trend_render_kwargs()
+                )
             except TemplateRenderError as exc:
                 raise PushSendError(
                     "template_render_error", f"push[].template 渲染失败: {exc}"
                 ) from exc
             return split_message(text), None
-        return split_message(build_message(items, context)), "HTML"
+        # 组合铁律裁量(复核条目②):immediate 多条目轮图析信息由正文行
+        # 承载(sendPhoto 单图只配单条目语义);单条目轮图走 sendPhoto、
+        # digest 不带图,版式均零变化。模板路径无从定位条目行,不附。
+        with_image_notes = context.kind == "immediate" and len(items) > 1
+        return (
+            split_message(
+                "\n".join(
+                    _body_lines(items, context, with_image_notes=with_image_notes)
+                )
+            ),
+            "HTML",
+        )
 
     def _resolve_token(self) -> str:
         if self._token is not None:
@@ -391,7 +451,9 @@ class TelegramChannel(TrendAwareChannel):
             # 10-05-push-credential-journey:env 缺失回退钥匙链规范名
             # myia/push/TELEGRAM_BOT_TOKEN(设置→推送 表单存入位)。
             return resolve_channel_credential(
-                DEFAULT_TOKEN_ENV_REF, env_key="TELEGRAM_BOT_TOKEN", label="telegram bot token"
+                DEFAULT_TOKEN_ENV_REF,
+                env_key="TELEGRAM_BOT_TOKEN",
+                label="telegram bot token",
             )
         except CredentialResolveError as exc:
             raise PushSendError(exc.code, f"telegram bot 凭据解析失败: {exc}") from exc
@@ -415,7 +477,8 @@ class TelegramChannel(TrendAwareChannel):
             return
         if not info.paths:
             logger.warning(
-                "telegram sendPhoto 回退纯文本: 条目声明 %d 图但本机无一存在", info.declared
+                "telegram sendPhoto 回退纯文本: 条目声明 %d 图但本机无一存在",
+                info.declared,
             )
             return
         caption = build_photo_caption(item_view(items[0]), info.caption)
@@ -550,7 +613,9 @@ class TelegramChannel(TrendAwareChannel):
                     exc,
                 )
                 await self._sleep(delay)
-        raise AssertionError("unreachable: retry loop must return or raise")  # pragma: no cover
+        raise AssertionError(
+            "unreachable: retry loop must return or raise"
+        )  # pragma: no cover
 
     def _api_retry_delay(self, error: PushSendError, attempt: int) -> float | None:
         """API 层失败的退避秒数;``None`` = 终局不重试(蓝本 ``_telegram_retry_delay``
@@ -584,7 +649,9 @@ class TelegramChannel(TrendAwareChannel):
         if not isinstance(data, Mapping) or data.get("ok") is not True:
             error_code = data.get("error_code") if isinstance(data, Mapping) else None
             description = (
-                data.get("description") if isinstance(data, Mapping) else response.text[:200]
+                data.get("description")
+                if isinstance(data, Mapping)
+                else response.text[:200]
             )
             error = PushSendError(
                 "telegram_api_error",
@@ -592,10 +659,14 @@ class TelegramChannel(TrendAwareChannel):
             )
             # R2:结构化错误码 / retry_after / HTTP 状态,供
             # :meth:`_api_retry_delay` 退避判定(429 携 retry_after 优先)。
-            error.telegram_error_code = error_code if isinstance(error_code, int) else None  # type: ignore[attr-defined]
+            error.telegram_error_code = (
+                error_code if isinstance(error_code, int) else None
+            )  # type: ignore[attr-defined]
             parameters = data.get("parameters") if isinstance(data, Mapping) else None
             error.telegram_retry_after = (  # type: ignore[attr-defined]
-                parameters.get("retry_after") if isinstance(parameters, Mapping) else None
+                parameters.get("retry_after")
+                if isinstance(parameters, Mapping)
+                else None
             )
             error.http_status = response.status_code  # type: ignore[attr-defined]
             raise error
