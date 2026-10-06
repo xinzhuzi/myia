@@ -20,6 +20,14 @@
   槽位防重发免费获得——route immediate 先发则告警被拦,反向亦然);品类
   未配该类型 = 降级 WARNING + ``degraded_no_channel``,禁止跨品类借凭据。
   tag = ``item.add_tags``(内存)+ ``store.update_item_tags``(回写)两步。
+- 组合投递(10-06-hermes-align 复核条目③,主人组合铁律「逐条单发的
+  任何路径都是本轮要消灭的对象」):push 动作**先占坑攒桶、批末按通道
+  合并一条**——同一轮求值/扫描命中 N 条规则,同通道只发**一条**消息
+  (``send_immediate`` 组合语义:头=类目+条数,正文=逐条标题+链接);
+  事件语义逐规则零变化:``record_fired`` 占坑 / UNIQUE 时间桶冷却 /
+  mute / tag / 降级判定都在入桶前即时完成,合批只发生在传输层。
+  桶内同进退(合并消息原子送达):任一报告 ok 即全员 ``sent``,全失败
+  即全员 ``send_failed``;跨通道/跨品类不合桶(凭据与消息头隔离)。
 
 依赖方向:engine 只依赖 classifier Rule(经 rule.py 编译)、push
 send_immediate、store 协议;**不 import Pipeline**——mute 词表 / 通道解析器 /
@@ -127,22 +135,37 @@ class AlertEngine:
         at-most-once),再执行动作并回填 ``action_status`` 终态。动作执行
         自身的失败已按降级语义编码进状态(降级/发送失败),本方法不向调用方
         抛条目级错误。
+
+        组合投递(复核条目③):push 命中**入批桶**(占坑已即时完成),批末
+        :meth:`_flush_push_buckets` 按通道合并一条;tag/降级即时回终态。
+        返回序相应变化:tag/降级行按求值序,push 行按桶序殿后(内容语义
+        不变,消费方按行字段读不依赖顺序)。
         """
         compiled = compile_rules(rules)  # 读库构造门:坏行 WARNING 跳过(隔离)
         fired_rows: list[AlertFired] = []
+        # 组合铁律批桶:键=通道**类型名**(产线 resolver 每次新建实例,
+        # 实例作键会让同通道永不合并——名字才是稳定投递面;specs 细分由
+        # send_immediate 的 item_specs 组合语义自理)。
+        push_buckets: dict[
+            str, list[tuple[CompiledAlertRule, Any, AlertFired, Channel]]
+        ] = {}
         for item in items:
             hit_word = mute_hit(item.title, self._mute_words)
             if hit_word:
                 logger.info(
                     "告警 mute 预筛命中(跳过全部规则求值) word=%s title=%r",
-                    hit_word, item.title,
+                    hit_word,
+                    item.title,
                 )
                 continue
             view = alert_view(item)
             for compiled_rule in compiled:
                 if compiled_rule.rule.kind != ALERT_RULE_KIND_ITEM:
                     continue  # cron_stale 不进条目求值路径(heartbeat_pass 专属)
-                await self._evaluate_one(compiled_rule, item, view, fired_rows)
+                await self._evaluate_one(
+                    compiled_rule, item, view, fired_rows, push_buckets
+                )
+        await self._flush_push_buckets(push_buckets, fired_rows)
         return fired_rows
 
     async def _evaluate_one(
@@ -151,6 +174,9 @@ class AlertEngine:
         item: Any,
         view: dict[str, Any],
         fired_rows: list[AlertFired],
+        push_buckets: dict[
+            str, list[tuple[CompiledAlertRule, Any, AlertFired, Channel]]
+        ],
     ) -> None:
         if not compiled_rule.applies_to_scope(view.get("category")):
             return  # 品类 scope 钉死:非本品类条目不求值
@@ -172,20 +198,95 @@ class AlertEngine:
         )
         if fired is None:
             return  # UNIQUE 冲突:占坑失败,跳过动作(at-most-once 门闩)
-        status = await self._execute_action(compiled_rule, item, key)
-        self._store.mark_alert_fired_status(fired.id, status)
-        fired.action_status = status
-        fired_rows.append(fired)
+        if rule.action == ALERT_ACTION_TAG:
+            status = self._execute_tag(compiled_rule, item, key)
+        else:
+            # push:入批桶(组合投递);降级(无通道)即时终态。
+            status = self._enqueue_push(compiled_rule, item, fired, push_buckets)
+        if status is not None:
+            self._store.mark_alert_fired_status(fired.id, status)
+            fired.action_status = status
+            fired_rows.append(fired)
+        # None = 已入批桶:终态(sent/send_failed)由 _flush_push_buckets 回填。
 
-    async def _execute_action(
+    def _enqueue_push(
+        self,
+        compiled_rule: CompiledAlertRule,
+        item: Any,
+        fired: AlertFired,
+        push_buckets: dict[
+            str, list[tuple[CompiledAlertRule, Any, AlertFired, Channel]]
+        ],
+    ) -> str | None:
+        """push 动作入批桶(组合铁律);返回 None=已入桶,降级串=即时终态。
+
+        降级判定与原 ``_execute_push_with`` 逐字同门:通道解析失败即
+        WARNING + ``degraded_no_channel``,禁止跨品类借凭据,本次不发。
+        """
+        channel_name = compiled_rule.channel or ""
+        resolve = self._channel_resolver
+        channel = resolve(channel_name) if resolve else None
+        if channel is None:
+            logger.warning(
+                "告警 push 降级(当前品类 push[] 未配置 %r 类型通道,禁止跨品类"
+                "借凭据,本次不发) rule=%s",
+                channel_name,
+                compiled_rule.name,
+            )
+            return ALERT_STATUS_DEGRADED_NO_CHANNEL
+        push_buckets.setdefault(channel_name, []).append(
+            (compiled_rule, item, fired, channel)
+        )
+        return None
+
+    async def _flush_push_buckets(
+        self,
+        push_buckets: dict[
+            str, list[tuple[CompiledAlertRule, Any, AlertFired, Channel]]
+        ],
+        fired_rows: list[AlertFired],
+    ) -> None:
+        """批末合并投递:同通道本轮全部告警**一条**消息(组合铁律).
+
+        每桶一次 ``send_immediate``(组内 item_specs 逐条,targets 细分由
+        其组合语义自理);桶内同进退——任一报告 ok 即全员 ``sent``
+        (合并消息原子送达),全失败即全员 ``send_failed``。事件语义零
+        变化:占坑 / UNIQUE 冷却 / 槽位防重发都在入桶前逐规则完成。
+        """
+        for _name, hits in push_buckets.items():
+            channel = hits[0][3]  # 桶内首实例即投递面(键=名字,实例仅发送用)
+            reports = await self._send(
+                [item for _, item, _, _ in hits],
+                channels=[channel],
+                registry=self._registry,
+                tz=self._tz,
+                now=self._now,
+                category=self._category,
+                item_specs=[
+                    list(rule.targets) if rule.targets else None
+                    for rule, _, _, _ in hits
+                ],
+            )
+            if not reports:
+                # 同槽位防重发拦截(route immediate 先发)或零定向对象:
+                # 零报告 = 未送达(§7.1 字面),如实注记。
+                logger.info(
+                    "告警推送未产生任何发送报告(同槽位防重发拦截或零对象): rules=%s",
+                    [rule.name for rule, _, _, _ in hits],
+                )
+            status = (
+                ALERT_STATUS_SENT
+                if any(r.ok for r in reports)
+                else ALERT_STATUS_SEND_FAILED
+            )
+            for _rule, _item, fired, _channel in hits:
+                self._store.mark_alert_fired_status(fired.id, status)
+                fired.action_status = status
+                fired_rows.append(fired)
+
+    def _execute_tag(
         self, compiled_rule: CompiledAlertRule, item: Any, key: str
     ) -> str:
-        """执行单条规则的动作,返回终态状态(§2.1 枚举);不抛条目级错误."""
-        if compiled_rule.rule.action == ALERT_ACTION_TAG:
-            return self._execute_tag(compiled_rule, item, key)
-        return await self._execute_push(compiled_rule, item)
-
-    def _execute_tag(self, compiled_rule: CompiledAlertRule, item: Any, key: str) -> str:
         # 两步(design §7.2):内存合并(add_tags 保序去重)+ items.tags 回写
         # (否则标签只在当批内存对象,库行不带走)。
         item.add_tags(compiled_rule.tags)
@@ -194,44 +295,11 @@ class AlertEngine:
         if not updated:
             logger.warning(
                 "告警 tag 回写未命中(items 行可能已被 retention 剪枝,标签只在"
-                "当批内存对象) key=%s tags=%s", key, compiled_rule.tags,
+                "当批内存对象) key=%s tags=%s",
+                key,
+                compiled_rule.tags,
             )
         return ALERT_STATUS_TAGGED
-
-    async def _execute_push(self, compiled_rule: CompiledAlertRule, item: Any) -> str:
-        return await self._execute_push_with(compiled_rule, item)
-
-    async def _execute_push_with(
-        self, compiled_rule: CompiledAlertRule, item: Any, resolver: ChannelResolver | None = None
-    ) -> str:
-        channel_name = compiled_rule.channel or ""
-        resolve = resolver or self._channel_resolver
-        channel = resolve(channel_name) if resolve else None
-        if channel is None:
-            logger.warning(
-                "告警 push 降级(当前品类 push[] 未配置 %r 类型通道,禁止跨品类"
-                "借凭据,本次不发) rule=%s", channel_name, compiled_rule.name,
-            )
-            return ALERT_STATUS_DEGRADED_NO_CHANNEL
-        reports = await self._send(
-            [item],
-            channels=[channel],
-            registry=self._registry,
-            tz=self._tz,
-            now=self._now,
-            category=self._category,
-            item_specs=[list(compiled_rule.targets) if compiled_rule.targets else None],
-        )
-        if any(report.ok for report in reports):
-            return ALERT_STATUS_SENT
-        if not reports:
-            # 同槽位防重发拦截(route immediate 先发)或零定向对象:零报告 =
-            # 未送达(§7.1 字面:any(ok) → sent,否则 send_failed),如实注记。
-            logger.info(
-                "告警推送未产生任何发送报告(同槽位防重发拦截或零对象): rule=%s",
-                compiled_rule.name,
-            )
-        return ALERT_STATUS_SEND_FAILED
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +318,9 @@ class _HeartbeatNotice:
     依赖方向红线见模块头注)。url 用 myssia-alert: 伪协议如实标注来源,
     不伪装成可点链接。"""
 
-    def __init__(self, *, category: str, title: str, content: str, dedup_key: str) -> None:
+    def __init__(
+        self, *, category: str, title: str, content: str, dedup_key: str
+    ) -> None:
         self.url = f"myssia-alert://heartbeat/{category}"
         self.title = title
         self.source = "cron-heartbeat"
@@ -261,8 +331,15 @@ class _HeartbeatNotice:
         self.metadata: dict = {}
 
     def view(self) -> dict:
-        return dict(self.metadata, url=self.url, title=self.title, source=self.source,
-                    category=self.category, scores=self.scores, dedup_key=self.dedup_key)
+        return dict(
+            self.metadata,
+            url=self.url,
+            title=self.title,
+            source=self.source,
+            category=self.category,
+            scores=self.scores,
+            dedup_key=self.dedup_key,
+        )
 
     def add_tags(self, tags) -> None:  # tag 动作鸭子面(items 行不在库,回写由调用方注记)
         for tag in tags:
@@ -311,6 +388,12 @@ async def heartbeat_pass(
     """
     compiled_all = compile_rules(rules)
     fired_rows: list = []
+    # 组合铁律批桶(复核条目③):键=(规则品类, 通道**类型名**)——品类定
+    # 消息头与凭据隔离,通道名定投递面(产线 resolver 每次新建实例,名字才
+    # 是稳定键);桶内 item_specs 逐条(send 组合语义自理)。
+    push_buckets: dict[
+        tuple[str, str], list[tuple[CompiledAlertRule, Any, Any, Channel]]
+    ] = {}
     for compiled_rule in compiled_all:
         rule = compiled_rule.rule
         if rule.kind != ALERT_RULE_KIND_CRON_STALE:
@@ -329,7 +412,9 @@ async def heartbeat_pass(
                 logger.warning(
                     "心跳规则 auto 阈值观测不足(账本节奏不可得),本轮跳过"
                     "(fail-fast 不猜): rule=%s category=%s job_id=%s",
-                    rule.name, category, job_id,
+                    rule.name,
+                    category,
+                    job_id,
                 )
                 continue
             threshold_hours = min(
@@ -344,7 +429,9 @@ async def heartbeat_pass(
         identity = f"{category}:{job_id}" if job_id else category
         if stale:
             key = f"cron-stale:{identity}:{bucket}"
-            subject = f"品类 {category} 的任务 {job_id}" if job_id else f"品类 {category}"
+            subject = (
+                f"品类 {category} 的任务 {job_id}" if job_id else f"品类 {category}"
+            )
             title = f"心跳:{subject} 已 {silent_hours:.0f} 小时无成功采集"
             content = (
                 f"规则 {rule.name}:距最近一次成功执行已超过阈值 {threshold_hours:.1f} 小时。"
@@ -364,19 +451,27 @@ async def heartbeat_pass(
             if not stale_recent or recovered_recent:
                 continue  # 近两桶无 stale 告警,或恢复已通知过:无事发生
             key = f"cron-recovered:{identity}:{bucket}"
-            subject = f"品类 {category} 的任务 {job_id}" if job_id else f"品类 {category}"
+            subject = (
+                f"品类 {category} 的任务 {job_id}" if job_id else f"品类 {category}"
+            )
             title = f"心跳恢复:{subject} 采集已恢复"
-            content = f"规则 {rule.name}:观测目标已重新出现成功执行,此前的心跳告警解除。"
-        notice = _HeartbeatNotice(category=category, title=title, content=content, dedup_key=key)
-        fired = store.record_fired(AlertFired(
-            rule_id=rule.id,
-            rule_name=rule.name,
-            item_id=None,
-            dedup_key=key,
-            title=title,
-            category=category,
-            action=rule.action,
-        ))
+            content = (
+                f"规则 {rule.name}:观测目标已重新出现成功执行,此前的心跳告警解除。"
+            )
+        notice = _HeartbeatNotice(
+            category=category, title=title, content=content, dedup_key=key
+        )
+        fired = store.record_fired(
+            AlertFired(
+                rule_id=rule.id,
+                rule_name=rule.name,
+                item_id=None,
+                dedup_key=key,
+                title=title,
+                category=category,
+                action=rule.action,
+            )
+        )
         if fired is None:
             continue  # UNIQUE 冲突:本桶已告警过(冷却门闩)
         if rule.action == ALERT_ACTION_TAG:
@@ -391,27 +486,46 @@ async def heartbeat_pass(
             if channel is None:
                 logger.warning(
                     "心跳 push 降级(规则品类 %r 的 push[] 未配置 %r 类型通道,"
-                    "禁止跨品类借凭据): rule=%s", category, compiled_rule.channel, rule.name,
+                    "禁止跨品类借凭据): rule=%s",
+                    category,
+                    compiled_rule.channel,
+                    rule.name,
                 )
                 status = ALERT_STATUS_DEGRADED_NO_CHANNEL
             else:
-                reports = await send(
-                    [notice],
-                    channels=[channel],
-                    registry=registry,
-                    tz=tz,
-                    now=now,
-                    category=category,
-                    item_specs=[list(compiled_rule.targets) if compiled_rule.targets else None],
-                )
-                status = (
-                    ALERT_STATUS_SENT
-                    if any(report.ok for report in reports)
-                    else ALERT_STATUS_SEND_FAILED
-                )
-        store.mark_alert_fired_status(fired.id, status)
-        fired.action_status = status
-        fired_rows.append(fired)
+                # 组合投递(复核条目③):占坑已即时(record_fired 在上),
+                # 通知攒桶批末按(品类,通道名)合并一条;终态由批末回填。
+                push_buckets.setdefault(
+                    (category, compiled_rule.channel or ""), []
+                ).append((compiled_rule, notice, fired, channel))
+                status = None  # 哨兵:入桶未终态
+        if status is not None:
+            store.mark_alert_fired_status(fired.id, status)
+            fired.action_status = status
+            fired_rows.append(fired)
+    # 批末合并投递:同(品类,通道名)本轮全部心跳通知一条消息(组合铁律)。
+    for (category, _channel_name), hits in push_buckets.items():
+        channel = hits[0][3]  # 桶内首实例即投递面(键=名字,实例仅发送用)
+        reports = await send(
+            [notice for _, notice, _, _ in hits],
+            channels=[channel],
+            registry=registry,
+            tz=tz,
+            now=now,
+            category=category,
+            item_specs=[
+                list(rule.targets) if rule.targets else None for rule, _, _, _ in hits
+            ],
+        )
+        status = (
+            ALERT_STATUS_SENT
+            if any(r.ok for r in reports)
+            else ALERT_STATUS_SEND_FAILED
+        )
+        for _rule, _notice, fired, _channel in hits:
+            store.mark_alert_fired_status(fired.id, status)
+            fired.action_status = status
+            fired_rows.append(fired)
     return fired_rows
 
 

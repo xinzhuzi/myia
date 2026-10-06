@@ -177,7 +177,9 @@ def test_v6_database_upgrades_to_current_idempotent_zero_data_migration(tmp_path
     rule = reopened.save_alert_rule(push_rule())
     assert rule.id is not None
 
-    reopened.conn.execute("UPDATE store_meta SET value = '6' WHERE key = 'schema_version'")
+    reopened.conn.execute(
+        "UPDATE store_meta SET value = '6' WHERE key = 'schema_version'"
+    )
     reopened.conn.commit()
     reopened.close()
     again = SQLiteStore(path)  # 幂等重放:已有形状上再放一遍迁移
@@ -276,7 +278,9 @@ def test_record_fired_unique_gate_and_status_backfill(tmp_path):
     with pytest.raises(ValueError, match="dedup_key 不能为空"):
         store.has_fired(rule.id, "")
     with pytest.raises(ValueError, match="dedup_key 不能为空"):
-        store.record_fired(AlertFired(rule_id=1, rule_name="x", dedup_key="", action="push"))
+        store.record_fired(
+            AlertFired(rule_id=1, rule_name="x", dedup_key="", action="push")
+        )
     store.close()
 
 
@@ -337,7 +341,9 @@ def test_update_item_tags_writeback(tmp_path):
     store = make_store(tmp_path)
     from myssia.store import ItemRecord
 
-    store.save_item(ItemRecord(url="https://x/a", dedup_key="k1", title="T", tags=["old"]))
+    store.save_item(
+        ItemRecord(url="https://x/a", dedup_key="k1", title="T", tags=["old"])
+    )
     assert store.update_item_tags(dedup_key="k1", tags=["old", "watch"]) is True
     row = store.get_item_by_dedup_key("k1")
     assert row.tags == ["old", "watch"]  # JSON 数组列回写
@@ -365,7 +371,10 @@ def test_update_item_tags_writeback(tmp_path):
         (push_rule(when=""), "when_expr 无效"),
         (push_rule(action_config={}), "channel 必须是"),  # push 缺 channel
         (push_rule(action_config={"channel": "nope"}), "channel 必须是"),
-        (push_rule(action_config={"channel": "stdout", "targets": "feishu:x"}), "targets"),
+        (
+            push_rule(action_config={"channel": "stdout", "targets": "feishu:x"}),
+            "targets",
+        ),
         (push_rule(action_config={"channel": "stdout", "extra": 1}), "未知键"),
         (tag_rule(action_config={}), "tags 必须"),  # tag 缺 tags
         (tag_rule(action_config={"tags": []}), "tags 必须"),  # 空列表
@@ -386,8 +395,17 @@ def test_compile_accepts_known_shapes_and_scope_vocabulary():
     compiled_tag = compile_rule(tag_rule(action_config={"tags": ["a", "b"]}))
     assert compiled_tag.tags == ["a", "b"]
     assert ALERT_SCOPES == frozenset(
-        {"global", "freebie", "proxy-node", "buying-agent", "ai-news", "server",
-         "token", "credit-card", "channel"}
+        {
+            "global",
+            "freebie",
+            "proxy-node",
+            "buying-agent",
+            "ai-news",
+            "server",
+            "token",
+            "credit-card",
+            "channel",
+        }
     )
 
 
@@ -464,8 +482,13 @@ def test_scope_pins_category(tmp_path):
     assert store.list_fired() == []  # 非本品类不求值
     asyncio.run(
         AlertEngine(store=store).run_pass(
-            [make_item(url="https://api.demo.local/b", dedup_key="key-b",
-                       category="freebie")],
+            [
+                make_item(
+                    url="https://api.demo.local/b",
+                    dedup_key="key-b",
+                    category="freebie",
+                )
+            ],
             [scoped],
         )
     )
@@ -493,7 +516,8 @@ def test_push_action_sent(tmp_path):
     calls: list[Any] = []
     channel = FakeChannel()
     engine = AlertEngine(
-        store=store, channel_resolver=lambda name: channel if name == "stdout" else None,
+        store=store,
+        channel_resolver=lambda name: channel if name == "stdout" else None,
         send=ok_send(calls),
     )
     fired = asyncio.run(engine.run_pass([make_item()], [rule]))
@@ -512,8 +536,9 @@ def test_push_action_passes_rule_targets(tmp_path):
         push_rule(action_config={"channel": "stdout", "targets": ["feishu:群A"]})
     )
     calls: list[Any] = []
-    engine = AlertEngine(store=store, channel_resolver=lambda _: FakeChannel(),
-                         send=ok_send(calls))
+    engine = AlertEngine(
+        store=store, channel_resolver=lambda _: FakeChannel(), send=ok_send(calls)
+    )
     asyncio.run(engine.run_pass([make_item()], [rule]))
     assert calls[0]["kwargs"]["item_specs"] == [["feishu:群A"]]
     store.close()
@@ -523,8 +548,9 @@ def test_push_action_send_failed(tmp_path):
     store = make_store(tmp_path)
     rule = store.save_alert_rule(push_rule())
     calls: list[Any] = []
-    engine = AlertEngine(store=store, channel_resolver=lambda _: FakeChannel(),
-                         send=failing_send(calls))
+    engine = AlertEngine(
+        store=store, channel_resolver=lambda _: FakeChannel(), send=failing_send(calls)
+    )
     fired = asyncio.run(engine.run_pass([make_item()], [rule]))
     assert [row.action_status for row in fired] == ["send_failed"]
     store.close()
@@ -554,13 +580,18 @@ def test_tag_action_two_step_writeback(tmp_path):
     from myssia.store import ItemRecord
 
     store = make_store(tmp_path)
-    store.save_item(ItemRecord(url="https://api.demo.local/a", dedup_key="key-a",
-                               title="T", tags=["old"]))
+    store.save_item(
+        ItemRecord(
+            url="https://api.demo.local/a", dedup_key="key-a", title="T", tags=["old"]
+        )
+    )
     rule = store.save_alert_rule(
         tag_rule(action_config={"tags": ["watch", "old", "fin"]})  # old 已在 → 去重
     )
     engine = AlertEngine(store=store)
-    fired = asyncio.run(engine.run_pass([make_item(metadata={"tags": ["old"]})], [rule]))
+    fired = asyncio.run(
+        engine.run_pass([make_item(metadata={"tags": ["old"]})], [rule])
+    )
     assert [row.action_status for row in fired] == ["tagged"]
     assert store.get_item_by_dedup_key("key-a").tags == ["old", "watch", "fin"]
     store.close()
@@ -584,8 +615,9 @@ def test_at_most_once_second_pass_skips_action(tmp_path):
     store = make_store(tmp_path)
     rule = store.save_alert_rule(push_rule())
     calls: list[Any] = []
-    engine = AlertEngine(store=store, channel_resolver=lambda _: FakeChannel(),
-                         send=ok_send(calls))
+    engine = AlertEngine(
+        store=store, channel_resolver=lambda _: FakeChannel(), send=ok_send(calls)
+    )
     first = asyncio.run(engine.run_pass([make_item()], [rule]))
     second = asyncio.run(engine.run_pass([make_item()], [rule]))
     assert len(first) == 1 and second == []
@@ -603,7 +635,9 @@ def test_bidirectional_suppression_route_first(tmp_path):
     item = make_item()
     registry.record_push("key-a")  # route immediate 已在本槽位发过
     engine = AlertEngine(
-        store=store, channel_resolver=lambda _: channel, registry=registry,
+        store=store,
+        channel_resolver=lambda _: channel,
+        registry=registry,
     )
     fired = asyncio.run(engine.run_pass([item], [rule]))
     assert [row.action_status for row in fired] == ["send_failed"]  # 未送达(§7.1 字面)
@@ -618,7 +652,9 @@ def test_bidirectional_suppression_alert_first_blocks_digest(tmp_path):
     channel = FakeChannel()
     registry = DedupRegistry(store)
     engine = AlertEngine(
-        store=store, channel_resolver=lambda _: channel, registry=registry,
+        store=store,
+        channel_resolver=lambda _: channel,
+        registry=registry,
     )
     fired = asyncio.run(engine.run_pass([make_item()], [rule]))
     assert [row.action_status for row in fired] == ["sent"]
@@ -702,7 +738,8 @@ def test_pipeline_zero_rules_zero_surprise(tmp_path, engine_spy):
     """零惊扰第一用例:不配规则 → 一次空表 SELECT 后短路,引擎不构造."""
     store = make_store(tmp_path)
     pipeline = make_pipeline(
-        make_config(), handler=make_handler(
+        make_config(),
+        handler=make_handler(
             [{"title": "免费送 NAS 券", "url": "https://api.demo.local/a"}]
         ),
         store=store,
@@ -719,7 +756,8 @@ def test_pipeline_dry_run_short_circuits_alert_pass(tmp_path, engine_spy):
     store = make_store(tmp_path)
     store.save_alert_rule(push_rule(when="'免费送' in title"))
     pipeline = make_pipeline(
-        make_config(), handler=make_handler(
+        make_config(),
+        handler=make_handler(
             [{"title": "免费送 NAS 券", "url": "https://api.demo.local/a"}]
         ),
         store=store,
@@ -774,7 +812,8 @@ def test_pipeline_alert_push_sends_when_route_archives(tmp_path, monkeypatch):
         push=[{"channel": "stdout", "route": [{"when": "title", "mode": "archive"}]}],
     )
     pipeline = make_pipeline(
-        config, handler=make_handler(
+        config,
+        handler=make_handler(
             [{"title": "免费送 NAS 券", "url": "https://api.demo.local/a"}]
         ),
         store=store,
@@ -804,7 +843,8 @@ def test_pipeline_route_immediate_first_suppresses_alert(tmp_path, monkeypatch):
 
     monkeypatch.setattr(pipeline_module, "CHANNELS", {"stdout": Capturing})
     pipeline = make_pipeline(
-        make_config(), handler=make_handler(
+        make_config(),
+        handler=make_handler(
             [{"title": "免费送 NAS 券", "url": "https://api.demo.local/a"}]
         ),
         store=store,
@@ -823,7 +863,9 @@ def test_pipeline_route_immediate_first_suppresses_alert(tmp_path, monkeypatch):
 def test_pipeline_tag_rule_two_step_writeback_without_push_channels(tmp_path):
     """品类未配 push 通道:tag-only 规则照常命中(独立附加步,不并入 push 收尾)."""
     store = make_store(tmp_path)
-    store.save_alert_rule(tag_rule(when="'融资' in title", action_config={"tags": ["fin"]}))
+    store.save_alert_rule(
+        tag_rule(when="'融资' in title", action_config={"tags": ["fin"]})
+    )
     pipeline = make_pipeline(
         make_config(classify={"builtin": False, "rules": []}, push=[]),
         handler=make_handler(
@@ -879,7 +921,9 @@ def test_pipeline_feedback_mute_word_joins_suppression(tmp_path):
     store.close()
 
 
-def test_pipeline_alert_pass_failure_isolated_from_run_status(tmp_path, monkeypatch, caplog):
+def test_pipeline_alert_pass_failure_isolated_from_run_status(
+    tmp_path, monkeypatch, caplog
+):
     """附加步自身失败 = WARNING 隔离,不影响 run 终态(design §6.1)."""
     store = make_store(tmp_path)
     store.save_alert_rule(push_rule())
@@ -893,7 +937,8 @@ def test_pipeline_alert_pass_failure_isolated_from_run_status(tmp_path, monkeypa
 
     monkeypatch.setattr(pipeline_module, "AlertEngine", ExplodingEngine)
     pipeline = make_pipeline(
-        make_config(), handler=make_handler(
+        make_config(),
+        handler=make_handler(
             [{"title": "免费送 NAS 券", "url": "https://api.demo.local/a"}]
         ),
         store=store,
@@ -902,4 +947,104 @@ def test_pipeline_alert_pass_failure_isolated_from_run_status(tmp_path, monkeypa
         result = asyncio.run(pipeline.run())
     assert result.status == "success"  # run 终态不被附加步拖垮
     assert any("告警附加步失败" in record.message for record in caplog.records)
+    store.close()
+
+
+# ---------------------------------------------------------------------------
+# 组合投递(10-06-hermes-align 复核条目③):同轮 push 命中按通道合并一条
+# ---------------------------------------------------------------------------
+
+
+def test_push_hits_same_channel_merge_into_single_send(tmp_path):
+    """组合铁律:同轮 2 条命中同通道 → send 恰 1 次载 2 条,全员 sent。
+
+    事件语义零变化锚:UNIQUE 占坑仍逐规则(两行 fired 各自入库)。
+    """
+    store = make_store(tmp_path)
+    rules = [
+        store.save_alert_rule(push_rule(name="规则甲", when="'甲' in title")),
+        store.save_alert_rule(push_rule(name="规则乙", when="'乙' in title")),
+    ]
+    channel = FakeChannel()
+    calls: list[Any] = []
+    engine = AlertEngine(
+        store=store,
+        channel_resolver=lambda name: channel if name == "stdout" else None,
+        send=ok_send(calls),
+    )
+    items = [
+        make_item(title="甲事件命中", dedup_key="key-a"),
+        make_item(title="乙事件命中", dedup_key="key-b"),
+    ]
+    fired = asyncio.run(engine.run_pass(items, rules))
+    assert len(calls) == 1  # 同通道一轮恰一条(逐条单发已消灭)
+    assert len(calls[0]["args"][0]) == 2  # 两条目同载一条消息
+    assert calls[0]["kwargs"]["item_specs"] == [None, None]
+    assert [row.action_status for row in fired] == ["sent", "sent"]  # 桶内同进退
+    assert len(store.list_fired()) == 2  # 占坑仍逐规则
+    store.close()
+
+
+def test_push_hits_different_channels_stay_isolated(tmp_path):
+    """跨通道不合桶:不同通道各自一条(凭据/投递面隔离)。"""
+    store = make_store(tmp_path)
+    stdout = FakeChannel(name="stdout")
+    tg = FakeChannel(name="telegram")
+    rules = [
+        store.save_alert_rule(
+            push_rule(
+                name="规则甲", when="'甲' in title", action_config={"channel": "stdout"}
+            )
+        ),
+        store.save_alert_rule(
+            push_rule(
+                name="规则乙",
+                when="'乙' in title",
+                action_config={"channel": "telegram"},
+            )
+        ),
+    ]
+    calls: list[Any] = []
+
+    async def send(items, **kwargs):
+        calls.append(
+            {"args": list(items), "kwargs": kwargs, "channels": kwargs["channels"]}
+        )
+        return [SendReport(kwargs["channels"][0].name, ok=True, item_count=len(items))]
+
+    engine = AlertEngine(
+        store=store,
+        channel_resolver=lambda name: {"stdout": stdout, "telegram": tg}[name],
+        send=send,
+    )
+    items = [
+        make_item(title="甲事件命中", dedup_key="key-a"),
+        make_item(title="乙事件命中", dedup_key="key-b"),
+    ]
+    asyncio.run(engine.run_pass(items, rules))
+    assert len(calls) == 2  # 两通道各一条
+    assert [c["channels"][0].name for c in calls] == ["stdout", "telegram"]
+    store.close()
+
+
+def test_push_merged_batch_failure_marks_all_send_failed(tmp_path):
+    """桶内同进退:合并批失败 → 组内全员 send_failed(合并消息原子性)。"""
+    store = make_store(tmp_path)
+    rules = [
+        store.save_alert_rule(push_rule(name="规则甲", when="'甲' in title")),
+        store.save_alert_rule(push_rule(name="规则乙", when="'乙' in title")),
+    ]
+    calls: list[Any] = []
+    engine = AlertEngine(
+        store=store,
+        channel_resolver=lambda _: FakeChannel(),
+        send=failing_send(calls),
+    )
+    items = [
+        make_item(title="甲事件命中", dedup_key="key-a"),
+        make_item(title="乙事件命中", dedup_key="key-b"),
+    ]
+    fired = asyncio.run(engine.run_pass(items, rules))
+    assert len(calls) == 1
+    assert [row.action_status for row in fired] == ["send_failed", "send_failed"]
     store.close()

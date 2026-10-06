@@ -53,8 +53,13 @@ def make_store(tmp_path) -> SQLiteStore:
 
 def make_heartbeat_rule(**overrides) -> AlertRule:
     base = dict(
-        name="ai-news 心跳", when="true", action="tag", action_config={"tags": ["hb"]},
-        kind="cron_stale", params={"threshold_hours": 6}, scope="ai-news",
+        name="ai-news 心跳",
+        when="true",
+        action="tag",
+        action_config={"tags": ["hb"]},
+        kind="cron_stale",
+        params={"threshold_hours": 6},
+        scope="ai-news",
         created_at=NOW - timedelta(hours=30),
     )
     base.update(overrides)
@@ -69,6 +74,7 @@ def run(coro):
 # store:v8 → v9 迁移 + kind/params 往返
 # ---------------------------------------------------------------------------
 
+
 def _make_v8_database(path) -> None:
     """手工造一个 v8 形态的旧库(无 kind/params 列,schema_version=8)."""
     conn = sqlite3.connect(path)
@@ -80,9 +86,7 @@ def _make_v8_database(path) -> None:
              when_expr TEXT NOT NULL, action TEXT NOT NULL, action_config TEXT NOT NULL,
              created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"""
     )
-    conn.execute(
-        "INSERT INTO store_meta (key, value) VALUES ('schema_version', '8')"
-    )
+    conn.execute("INSERT INTO store_meta (key, value) VALUES ('schema_version', '8')")
     conn.execute(
         "INSERT INTO alert_rules (name, when_expr, action, action_config,"
         " created_at, updated_at) VALUES ('旧规则', 'true', 'tag', '{\"tags\": [\"x\"]}',"
@@ -100,9 +104,7 @@ def test_migration_v8_to_v9_upgrades_existing_rules(tmp_path):
     assert len(rules) == 1
     assert rules[0].kind == "item"  # 既有行零漂移:缺省 kind
     assert rules[0].params is None
-    columns = {
-        row[1] for row in store.conn.execute("PRAGMA table_info(alert_rules)")
-    }
+    columns = {row[1] for row in store.conn.execute("PRAGMA table_info(alert_rules)")}
     assert {"kind", "params"} <= columns
 
 
@@ -121,6 +123,7 @@ def test_heartbeat_rule_roundtrip_insert_and_update(tmp_path):
 # 构造门:cron_stale 形态
 # ---------------------------------------------------------------------------
 
+
 def test_compile_accepts_three_legal_forms():
     compile_rule(make_heartbeat_rule())  # explicit
     compile_rule(make_heartbeat_rule(params={"auto": True}))  # auto
@@ -130,15 +133,15 @@ def test_compile_accepts_three_legal_forms():
 @pytest.mark.parametrize(
     "overrides",
     [
-        dict(scope="global"),                                   # 心跳必须钉品类
-        dict(when="score > 3"),                                 # when 恒占位 true
-        dict(params=None),                                      # params 必须是映射
-        dict(params={"threshold_hours": 6, "nope": 1}),         # 未知键
-        dict(params={"threshold_hours": 6, "auto": True}),      # 阈值二选一
-        dict(params={}),                                        # 阈值必须给一个
-        dict(params={"threshold_hours": -1}),                   # 正数
-        dict(params={"threshold_hours": True}),                 # bool 非数
-        dict(params={"auto": True, "job_id": ""}),              # job_id 非空
+        dict(scope="global"),  # 心跳必须钉品类
+        dict(when="score > 3"),  # when 恒占位 true
+        dict(params=None),  # params 必须是映射
+        dict(params={"threshold_hours": 6, "nope": 1}),  # 未知键
+        dict(params={"threshold_hours": 6, "auto": True}),  # 阈值二选一
+        dict(params={}),  # 阈值必须给一个
+        dict(params={"threshold_hours": -1}),  # 正数
+        dict(params={"threshold_hours": True}),  # bool 非数
+        dict(params={"auto": True, "job_id": ""}),  # job_id 非空
     ],
 )
 def test_compile_rejects_bad_cron_stale_shapes(overrides):
@@ -148,25 +151,38 @@ def test_compile_rejects_bad_cron_stale_shapes(overrides):
 
 def test_compile_rejects_item_rule_with_params_and_bad_kind():
     with pytest.raises(AlertConfigError, match="params 仅 cron_stale"):
-        compile_rule(AlertRule(
-            name="x", when="true", action="tag", action_config={"tags": ["t"]},
-            params={"auto": True},
-        ))
+        compile_rule(
+            AlertRule(
+                name="x",
+                when="true",
+                action="tag",
+                action_config={"tags": ["t"]},
+                params={"auto": True},
+            )
+        )
     with pytest.raises(AlertConfigError, match="kind"):
-        compile_rule(AlertRule(
-            name="x", when="true", action="tag", action_config={"tags": ["t"]},
-            kind="webhook",
-        ))
+        compile_rule(
+            AlertRule(
+                name="x",
+                when="true",
+                action="tag",
+                action_config={"tags": ["t"]},
+                kind="webhook",
+            )
+        )
 
 
 # ---------------------------------------------------------------------------
 # heartbeat_pass 语义
 # ---------------------------------------------------------------------------
 
+
 def test_fires_when_never_succeeded_past_grace_period(tmp_path):
     store = make_store(tmp_path)
     rule = store.save_alert_rule(make_heartbeat_rule())  # 规则年龄 30h > 6h
-    fired = run(heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: None, now=NOW))
+    fired = run(
+        heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: None, now=NOW)
+    )
     assert len(fired) == 1
     assert "ai-news" in fired[0].title and "30" in fired[0].title
     assert fired[0].action_status == "tagged"
@@ -177,21 +193,29 @@ def test_cooldown_same_bucket_is_at_most_once(tmp_path):
     store = make_store(tmp_path)
     rule = store.save_alert_rule(make_heartbeat_rule())
     run(heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: None, now=NOW))
-    fired_again = run(heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: None, now=NOW))
+    fired_again = run(
+        heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: None, now=NOW)
+    )
     assert fired_again == []  # UNIQUE 门闩 = 每桶一条
 
 
 def test_fresh_category_stays_silent(tmp_path):
     store = make_store(tmp_path)
     rule = store.save_alert_rule(make_heartbeat_rule())
-    fired = run(heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: NOW, now=NOW))
+    fired = run(
+        heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: NOW, now=NOW)
+    )
     assert fired == []
 
 
 def test_young_rule_without_history_waitGrace(tmp_path):
     store = make_store(tmp_path)
-    rule = store.save_alert_rule(make_heartbeat_rule(created_at=NOW - timedelta(hours=2)))
-    fired = run(heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: None, now=NOW))
+    rule = store.save_alert_rule(
+        make_heartbeat_rule(created_at=NOW - timedelta(hours=2))
+    )
+    fired = run(
+        heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: None, now=NOW)
+    )
     assert fired == []  # 冷静期:规则年龄 2h < 阈值 6h
 
 
@@ -199,78 +223,137 @@ def test_stale_then_recovered_notifies_once_per_incident(tmp_path):
     store = make_store(tmp_path)
     rule = store.save_alert_rule(make_heartbeat_rule())
     run(heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: None, now=NOW))
-    recovered = run(heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: NOW, now=NOW))
+    recovered = run(
+        heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: NOW, now=NOW)
+    )
     assert len(recovered) == 1 and "恢复" in recovered[0].title
-    again = run(heartbeat_pass(store, [rule], last_success_at=lambda c, j=None: NOW, now=NOW + timedelta(hours=1)))
+    again = run(
+        heartbeat_pass(
+            store,
+            [rule],
+            last_success_at=lambda c, j=None: NOW,
+            now=NOW + timedelta(hours=1),
+        )
+    )
     assert again == []  # 同事故不重发(近两桶恢复行在场即压制)
 
 
-def test_auto_threshold_uses_doubled_cadence_and_skips_without_observation(tmp_path, caplog):
+def test_auto_threshold_uses_doubled_cadence_and_skips_without_observation(
+    tmp_path, caplog
+):
     store = make_store(tmp_path)
-    rule = store.save_alert_rule(make_heartbeat_rule(params={"auto": True}, scope="server"))
-    fired = run(heartbeat_pass(
-        store, [rule], last_success_at=lambda c, j=None: None, now=NOW,
-        cadence_hours=lambda c, j=None: 10 if c == "server" else None,
-    ))
+    rule = store.save_alert_rule(
+        make_heartbeat_rule(params={"auto": True}, scope="server")
+    )
+    fired = run(
+        heartbeat_pass(
+            store,
+            [rule],
+            last_success_at=lambda c, j=None: None,
+            now=NOW,
+            cadence_hours=lambda c, j=None: 10 if c == "server" else None,
+        )
+    )
     assert len(fired) == 1  # 2×10=20h,规则年龄 30h > 20h
     with caplog.at_level("WARNING"):
-        skipped = run(heartbeat_pass(
-            store, [rule], last_success_at=lambda c, j=None: None, now=NOW, cadence_hours=lambda c, j=None: None,
-        ))
+        skipped = run(
+            heartbeat_pass(
+                store,
+                [rule],
+                last_success_at=lambda c, j=None: None,
+                now=NOW,
+                cadence_hours=lambda c, j=None: None,
+            )
+        )
     assert skipped == [] and any("观测不足" in r.message for r in caplog.records)
 
 
 def test_unsaved_rule_is_skipped_with_warning(tmp_path):
     store = make_store(tmp_path)
-    fired = run(heartbeat_pass(store, [make_heartbeat_rule()], last_success_at=lambda c, j=None: None, now=NOW))
+    fired = run(
+        heartbeat_pass(
+            store,
+            [make_heartbeat_rule()],
+            last_success_at=lambda c, j=None: None,
+            now=NOW,
+        )
+    )
     assert fired == []  # 无 id 无法占坑:跳过不猜
 
 
 def test_push_action_resolves_channel_for_rule_category(tmp_path):
     store = make_store(tmp_path)
-    rule = store.save_alert_rule(make_heartbeat_rule(
-        action="push", action_config={"channel": "stdout"},
-    ))
+    rule = store.save_alert_rule(
+        make_heartbeat_rule(
+            action="push",
+            action_config={"channel": "stdout"},
+        )
+    )
     seen: list[str] = []
 
     async def fake_send(items, **kwargs):
         seen.append(kwargs.get("category"))
         return [SendReport(channel="stdout", ok=True, item_count=1)]
 
-    fired = run(heartbeat_pass(
-        store, [rule], last_success_at=lambda c, j=None: None, now=NOW,
-        channel_resolver_for=lambda category, channel: (
-            seen.append(f"resolve:{category}:{channel}") or object()
-        ),
-        send=fake_send,
-    ))
+    fired = run(
+        heartbeat_pass(
+            store,
+            [rule],
+            last_success_at=lambda c, j=None: None,
+            now=NOW,
+            channel_resolver_for=lambda category, channel: (
+                seen.append(f"resolve:{category}:{channel}") or object()
+            ),
+            send=fake_send,
+        )
+    )
     assert len(fired) == 1 and fired[0].action_status == "sent"
-    assert "resolve:ai-news:stdout" in seen and seen[-1] == "ai-news"  # 按规则品类+通道名解析
+    assert (
+        "resolve:ai-news:stdout" in seen and seen[-1] == "ai-news"
+    )  # 按规则品类+通道名解析
 
 
 def test_push_action_degrades_without_channel_for_rule_category(tmp_path):
     store = make_store(tmp_path)
-    rule = store.save_alert_rule(make_heartbeat_rule(
-        action="push", action_config={"channel": "telegram"},
-    ))
-    fired = run(heartbeat_pass(
-        store, [rule], last_success_at=lambda c, j=None: None, now=NOW,
-        channel_resolver_for=lambda category, channel: None,
-    ))
+    rule = store.save_alert_rule(
+        make_heartbeat_rule(
+            action="push",
+            action_config={"channel": "telegram"},
+        )
+    )
+    fired = run(
+        heartbeat_pass(
+            store,
+            [rule],
+            last_success_at=lambda c, j=None: None,
+            now=NOW,
+            channel_resolver_for=lambda category, channel: None,
+        )
+    )
     assert fired[0].action_status == "degraded_no_channel"
 
 
 def test_item_rules_ignored_by_heartbeat_and_cron_stale_ignored_by_item_pass(tmp_path):
     store = make_store(tmp_path)
     heartbeat_rule = store.save_alert_rule(make_heartbeat_rule())
-    item_rule = store.save_alert_rule(AlertRule(
-        name="条目规则", when="'快讯' in title", action="tag",
-        action_config={"tags": ["flash"]}, scope="ai-news",
-    ))
+    item_rule = store.save_alert_rule(
+        AlertRule(
+            name="条目规则",
+            when="'快讯' in title",
+            action="tag",
+            action_config={"tags": ["flash"]},
+            scope="ai-news",
+        )
+    )
     # 心跳路径只吃 cron_stale
-    fired = run(heartbeat_pass(
-        store, [heartbeat_rule, item_rule], last_success_at=lambda c, j=None: NOW, now=NOW,
-    ))
+    fired = run(
+        heartbeat_pass(
+            store,
+            [heartbeat_rule, item_rule],
+            last_success_at=lambda c, j=None: NOW,
+            now=NOW,
+        )
+    )
     assert fired == []
     # 条目路径只吃 item(run_pass 对 cron_stale 零求值)
     item = Item(url="https://example.org/a", title="快讯:某事", category="ai-news")
@@ -283,6 +366,7 @@ def test_item_rules_ignored_by_heartbeat_and_cron_stale_ignored_by_item_pass(tmp
 # ---------------------------------------------------------------------------
 # 账本只读查询
 # ---------------------------------------------------------------------------
+
 
 def _seed_ledger(tmp_path, completions: list[int]) -> ExecutionLedger:
     ledger = ExecutionLedger(tmp_path / "cron-root")
@@ -315,12 +399,15 @@ def test_ledger_gap_needs_two_completions(tmp_path):
 # 管线挂点(第二批接线):_alert_pass 尾挂 heartbeat_pass,账本解析器注入
 # ---------------------------------------------------------------------------
 
+
 def _heartbeat_handler(payloads):
     """direct_api 源的 mock 传输(test_alert_rules.make_handler 同款)."""
+
     def handler(request):
         if request.url.path == "/robots.txt":
             return httpx.Response(404, text="")
         return httpx.Response(200, json=payloads)
+
     return handler
 
 
@@ -361,7 +448,9 @@ def _heartbeat_data(category_id: str, **overrides) -> dict:
 def _write_category_yaml(path, data: dict) -> None:
     """把品类 data 落成可再载入的 YAML(``load_category_file`` 同门可读)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    path.write_text(
+        yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
 
 
 def _wire_cron(tmp_path, *, yaml_path, completions: dict):
@@ -370,11 +459,20 @@ def _wire_cron(tmp_path, *, yaml_path, completions: dict):
     时刻,测试直改)。completions:job_id → 距今小时数。"""
     jobs_store = CronJobStore(tmp_path)
     with jobs_store.jobs_lock():
-        jobs_store.save_jobs([{
-            "id": job_id, "name": f"定时采集 {job_id}", "schedule": "0 * * * *",
-            "category": str(yaml_path), "enabled": True,
-            "next_run_at": (NOW + timedelta(hours=1)).isoformat(),
-        } for job_id in completions], replace=True)
+        jobs_store.save_jobs(
+            [
+                {
+                    "id": job_id,
+                    "name": f"定时采集 {job_id}",
+                    "schedule": "0 * * * *",
+                    "category": str(yaml_path),
+                    "enabled": True,
+                    "next_run_at": (NOW + timedelta(hours=1)).isoformat(),
+                }
+                for job_id in completions
+            ],
+            replace=True,
+        )
     ledger = ExecutionLedger(tmp_path)
     for job_id, hours_ago in completions.items():
         record = ledger.create_execution(job_id, source="tick")
@@ -395,15 +493,27 @@ def test_pipeline_heartbeat_wires_jobs_ledger_and_channel(tmp_path):
     ai_news_yaml = tmp_path / "plugins" / "ai-news.yaml"
     _write_category_yaml(ai_news_yaml, _heartbeat_data("ai-news"))
     _wire_cron(tmp_path, yaml_path=ai_news_yaml, completions={"job-1": 30})
-    store.save_alert_rule(AlertRule(
-        name="ai-news 心跳", when="true", action="push",
-        action_config={"channel": "stdout"}, kind="cron_stale",
-        params={"threshold_hours": 6}, scope="ai-news",
-    ))
+    store.save_alert_rule(
+        AlertRule(
+            name="ai-news 心跳",
+            when="true",
+            action="push",
+            action_config={"channel": "stdout"},
+            kind="cron_stale",
+            params={"threshold_hours": 6},
+            scope="ai-news",
+        )
+    )
     host = make_pipeline(
-        load_category(_heartbeat_data("server", push=[])),  # 宿主品类零 push:借不到任何通道
-        handler=_heartbeat_handler([{"title": "某服务器新闻", "url": "https://api.demo.local/a"}]),
-        store=store, db_path=db, wall_clock=lambda: NOW,
+        load_category(
+            _heartbeat_data("server", push=[])
+        ),  # 宿主品类零 push:借不到任何通道
+        handler=_heartbeat_handler(
+            [{"title": "某服务器新闻", "url": "https://api.demo.local/a"}]
+        ),
+        store=store,
+        db_path=db,
+        wall_clock=lambda: NOW,
     )
     result = asyncio.run(host.run())
     assert result.status == "success"  # 附加步失败也不拖垮 run;这里应全绿
@@ -422,15 +532,25 @@ def test_pipeline_heartbeat_fresh_completion_stays_silent(tmp_path):
     ai_news_yaml = tmp_path / "plugins" / "ai-news.yaml"
     _write_category_yaml(ai_news_yaml, _heartbeat_data("ai-news"))
     _wire_cron(tmp_path, yaml_path=ai_news_yaml, completions={"job-1": 1})
-    store.save_alert_rule(AlertRule(
-        name="ai-news 心跳", when="true", action="tag",
-        action_config={"tags": ["hb"]}, kind="cron_stale",
-        params={"threshold_hours": 6}, scope="ai-news",
-    ))
+    store.save_alert_rule(
+        AlertRule(
+            name="ai-news 心跳",
+            when="true",
+            action="tag",
+            action_config={"tags": ["hb"]},
+            kind="cron_stale",
+            params={"threshold_hours": 6},
+            scope="ai-news",
+        )
+    )
     host = make_pipeline(
         load_category(_heartbeat_data("server", push=[])),
-        handler=_heartbeat_handler([{"title": "某服务器新闻", "url": "https://api.demo.local/a"}]),
-        store=store, db_path=db, wall_clock=lambda: NOW,
+        handler=_heartbeat_handler(
+            [{"title": "某服务器新闻", "url": "https://api.demo.local/a"}]
+        ),
+        store=store,
+        db_path=db,
+        wall_clock=lambda: NOW,
     )
     result = asyncio.run(host.run())
     assert result.status == "success"
@@ -443,14 +563,22 @@ def test_pipeline_without_heartbeat_rules_never_touches_cron(tmp_path):
     不给从未用过 cron 的部署留写入足迹)."""
     db = tmp_path / "myssia.db"
     store = SQLiteStore(db)
-    store.save_alert_rule(AlertRule(
-        name="条目规则", when="'快讯' in title", action="tag",
-        action_config={"tags": ["flash"]},
-    ))
+    store.save_alert_rule(
+        AlertRule(
+            name="条目规则",
+            when="'快讯' in title",
+            action="tag",
+            action_config={"tags": ["flash"]},
+        )
+    )
     host = make_pipeline(
         load_category(_heartbeat_data("server", push=[])),
-        handler=_heartbeat_handler([{"title": "快讯:某事", "url": "https://api.demo.local/a"}]),
-        store=store, db_path=db, wall_clock=lambda: NOW,
+        handler=_heartbeat_handler(
+            [{"title": "快讯:某事", "url": "https://api.demo.local/a"}]
+        ),
+        store=store,
+        db_path=db,
+        wall_clock=lambda: NOW,
     )
     result = asyncio.run(host.run())
     assert result.status == "success"
@@ -464,25 +592,34 @@ def test_pipeline_without_heartbeat_rules_never_touches_cron(tmp_path):
 # 零足迹(「评估只读账本零写入」红线的窄边)
 # ---------------------------------------------------------------------------
 
+
 def test_job_id_precise_mode_not_masked_by_healthy_sibling(tmp_path):
     """⑦ job_id 精确模式:观测按 (品类, job_id) 取——被盯任务停摆 30h 照报,
     同品类健康任务掩蔽不了它;新鲜目标静默;dedup 身份与文案都点名 job_id。"""
     store = make_store(tmp_path)
-    stale_rule = store.save_alert_rule(make_heartbeat_rule(
-        params={"threshold_hours": 6, "job_id": "job-b"},
-    ))
-    healthy_rule = store.save_alert_rule(make_heartbeat_rule(
-        name="job-a 心跳", params={"threshold_hours": 6, "job_id": "job-a"},
-    ))
+    stale_rule = store.save_alert_rule(
+        make_heartbeat_rule(
+            params={"threshold_hours": 6, "job_id": "job-b"},
+        )
+    )
+    healthy_rule = store.save_alert_rule(
+        make_heartbeat_rule(
+            name="job-a 心跳",
+            params={"threshold_hours": 6, "job_id": "job-a"},
+        )
+    )
     observations = {
-        ("ai-news", "job-a"): NOW,                    # 健康任务:1 分钟前刚成功
+        ("ai-news", "job-a"): NOW,  # 健康任务:1 分钟前刚成功
         ("ai-news", "job-b"): NOW - timedelta(hours=30),  # 被盯任务:停摆 30h
     }
-    fired = run(heartbeat_pass(
-        store, [stale_rule, healthy_rule],
-        last_success_at=lambda c, j=None: observations.get((c, j)),
-        now=NOW,
-    ))
+    fired = run(
+        heartbeat_pass(
+            store,
+            [stale_rule, healthy_rule],
+            last_success_at=lambda c, j=None: observations.get((c, j)),
+            now=NOW,
+        )
+    )
     assert len(fired) == 1  # 只有 job-b 的规则 fire;job-a 新鲜静默
     assert fired[0].rule_name == "ai-news 心跳"
     assert fired[0].dedup_key.startswith("cron-stale:ai-news:job-b:")
@@ -507,18 +644,25 @@ def test_job_id_category_aggregation_masks_stale_job_by_contrast(tmp_path):
         values = [v for (cat, _), v in observations.items() if cat == category]
         return max(values) if values else None
 
-    fired = run(heartbeat_pass(
-        store, [rule], last_success_at=aggregating_last, now=NOW,
-    ))
+    fired = run(
+        heartbeat_pass(
+            store,
+            [rule],
+            last_success_at=aggregating_last,
+            now=NOW,
+        )
+    )
     assert fired == []  # 聚合视角:品类「新鲜」,job-b 的停摆被掩蔽
 
 
 def test_job_id_recovery_uses_precise_identity(tmp_path):
     """精确模式的恢复通知按 job 身份去重(近两桶精确查 cron-stale:品类:job)。"""
     store = make_store(tmp_path)
-    rule = store.save_alert_rule(make_heartbeat_rule(
-        params={"threshold_hours": 6, "job_id": "job-b"},
-    ))
+    rule = store.save_alert_rule(
+        make_heartbeat_rule(
+            params={"threshold_hours": 6, "job_id": "job-b"},
+        )
+    )
     observations = {"job-b": None}  # 先停摆(从未成功走规则年龄 30h > 6h)
 
     def last(category, job_id=None):
@@ -527,7 +671,11 @@ def test_job_id_recovery_uses_precise_identity(tmp_path):
     run(heartbeat_pass(store, [rule], last_success_at=last, now=NOW))
     observations["job-b"] = NOW  # 单任务恢复
     recovered = run(heartbeat_pass(store, [rule], last_success_at=last, now=NOW))
-    assert len(recovered) == 1 and "job-b" in recovered[0].title and "恢复" in recovered[0].title
+    assert (
+        len(recovered) == 1
+        and "job-b" in recovered[0].title
+        and "恢复" in recovered[0].title
+    )
     assert recovered[0].dedup_key.startswith("cron-recovered:ai-news:job-b:")
 
 
@@ -538,17 +686,26 @@ def test_pipeline_heartbeat_job_id_precise_not_masked(tmp_path):
     store = SQLiteStore(db)
     ai_news_yaml = tmp_path / "plugins" / "ai-news.yaml"
     _write_category_yaml(ai_news_yaml, _heartbeat_data("ai-news"))
-    _wire_cron(tmp_path, yaml_path=ai_news_yaml,
-               completions={"job-1": 1, "job-2": 30})
-    store.save_alert_rule(AlertRule(
-        name="job-2 心跳", when="true", action="tag",
-        action_config={"tags": ["hb"]}, kind="cron_stale",
-        params={"threshold_hours": 6, "job_id": "job-2"}, scope="ai-news",
-    ))
+    _wire_cron(tmp_path, yaml_path=ai_news_yaml, completions={"job-1": 1, "job-2": 30})
+    store.save_alert_rule(
+        AlertRule(
+            name="job-2 心跳",
+            when="true",
+            action="tag",
+            action_config={"tags": ["hb"]},
+            kind="cron_stale",
+            params={"threshold_hours": 6, "job_id": "job-2"},
+            scope="ai-news",
+        )
+    )
     host = make_pipeline(
         load_category(_heartbeat_data("server", push=[])),
-        handler=_heartbeat_handler([{"title": "某服务器新闻", "url": "https://api.demo.local/a"}]),
-        store=store, db_path=db, wall_clock=lambda: NOW,
+        handler=_heartbeat_handler(
+            [{"title": "某服务器新闻", "url": "https://api.demo.local/a"}]
+        ),
+        store=store,
+        db_path=db,
+        wall_clock=lambda: NOW,
     )
     result = asyncio.run(host.run())
     assert result.status == "success"
@@ -570,22 +727,40 @@ def test_pipeline_heartbeat_missing_ledger_leaves_no_footprint(tmp_path):
     _write_category_yaml(ai_news_yaml, _heartbeat_data("ai-news"))
     jobs_store = CronJobStore(tmp_path)  # 只种 jobs.json,不进账本(不触发建库)
     with jobs_store.jobs_lock():
-        jobs_store.save_jobs([{
-            "id": "job-1", "name": "定时采集 job-1", "schedule": "0 * * * *",
-            "category": str(ai_news_yaml), "enabled": True,
-            "next_run_at": (NOW + timedelta(hours=1)).isoformat(),
-        }], replace=True)
+        jobs_store.save_jobs(
+            [
+                {
+                    "id": "job-1",
+                    "name": "定时采集 job-1",
+                    "schedule": "0 * * * *",
+                    "category": str(ai_news_yaml),
+                    "enabled": True,
+                    "next_run_at": (NOW + timedelta(hours=1)).isoformat(),
+                }
+            ],
+            replace=True,
+        )
     before = sorted(path.name for path in (tmp_path / "cron").iterdir())
     assert "executions.db" not in before and "jobs.json" in before
-    store.save_alert_rule(AlertRule(
-        name="ai-news 心跳", when="true", action="tag",
-        action_config={"tags": ["hb"]}, kind="cron_stale",
-        params={"threshold_hours": 6}, scope="ai-news",
-    ))
+    store.save_alert_rule(
+        AlertRule(
+            name="ai-news 心跳",
+            when="true",
+            action="tag",
+            action_config={"tags": ["hb"]},
+            kind="cron_stale",
+            params={"threshold_hours": 6},
+            scope="ai-news",
+        )
+    )
     host = make_pipeline(
         load_category(_heartbeat_data("server", push=[])),
-        handler=_heartbeat_handler([{"title": "某服务器新闻", "url": "https://api.demo.local/a"}]),
-        store=store, db_path=db, wall_clock=lambda: NOW,
+        handler=_heartbeat_handler(
+            [{"title": "某服务器新闻", "url": "https://api.demo.local/a"}]
+        ),
+        store=store,
+        db_path=db,
+        wall_clock=lambda: NOW,
     )
     result = asyncio.run(host.run())
     assert result.status == "success"
@@ -600,6 +775,7 @@ def test_pipeline_heartbeat_missing_ledger_leaves_no_footprint(tmp_path):
 # 不再漏评(依赖被评对象跑批成功的评估不是停摆检测)
 # ---------------------------------------------------------------------------
 
+
 def test_ticker_scan_fires_without_any_run(tmp_path, capsys):
     """工厂闭环:规则+账本就位,**零品类 run**(搭车路径根本不在场)→
     同步 scan() 即 fire 且走 stdout 通道(action_status=sent);同桶 UNIQUE
@@ -609,11 +785,17 @@ def test_ticker_scan_fires_without_any_run(tmp_path, capsys):
     ai_news_yaml = tmp_path / "plugins" / "ai-news.yaml"
     _write_category_yaml(ai_news_yaml, _heartbeat_data("ai-news"))
     _wire_cron(tmp_path, yaml_path=ai_news_yaml, completions={"job-1": 30})
-    store.save_alert_rule(AlertRule(
-        name="ai-news 心跳", when="true", action="push",
-        action_config={"channel": "stdout"}, kind="cron_stale",
-        params={"threshold_hours": 6}, scope="ai-news",
-    ))
+    store.save_alert_rule(
+        AlertRule(
+            name="ai-news 心跳",
+            when="true",
+            action="push",
+            action_config={"channel": "stdout"},
+            kind="cron_stale",
+            params={"threshold_hours": 6},
+            scope="ai-news",
+        )
+    )
     store.close()
 
     scan = make_cron_heartbeat_scan(db)
@@ -640,3 +822,54 @@ def test_ticker_scan_missing_db_leaves_no_footprint(tmp_path):
     make_cron_heartbeat_scan(missing)()
     assert not missing.exists()
     assert list(tmp_path.iterdir()) == []  # 数据根整体零足迹
+
+
+# ---------------------------------------------------------------------------
+# 组合投递(10-06-hermes-align 复核条目③):同轮心跳通知按(品类,通道)合并一条
+# ---------------------------------------------------------------------------
+
+
+def test_push_notices_same_category_channel_merge_into_single_send(tmp_path):
+    """组合铁律:同轮 2 条 stale(品类级+精确级,同品类同通道)→ send 恰 1 次载 2 条。
+
+    事件语义零变化锚:UNIQUE 时间桶占坑仍逐规则(identity 前缀不同,两行
+    fired 各自入库),合批只发生在传输层。
+    """
+    store = make_store(tmp_path)
+    rules = [
+        store.save_alert_rule(
+            make_heartbeat_rule(
+                action="push",
+                action_config={"channel": "stdout"},
+            )
+        ),
+        store.save_alert_rule(
+            make_heartbeat_rule(
+                name="ai-news 单任务心跳",
+                action="push",
+                action_config={"channel": "stdout"},
+                params={"threshold_hours": 6, "job_id": "job-1"},
+            )
+        ),
+    ]
+    calls: list[dict] = []
+
+    async def fake_send(items, **kwargs):
+        calls.append({"items": list(items), "kwargs": kwargs})
+        return [SendReport(channel="stdout", ok=True, item_count=len(items))]
+
+    fired = run(
+        heartbeat_pass(
+            store,
+            rules,
+            last_success_at=lambda c, j=None: None,
+            now=NOW,
+            channel_resolver_for=lambda category, channel: object(),
+            send=fake_send,
+        )
+    )
+    assert len(calls) == 1  # 同(品类,通道)一轮恰一条(逐条单发已消灭)
+    assert len(calls[0]["items"]) == 2  # 品类级+精确级通知同载一条
+    assert len(fired) == 2 and all(row.action_status == "sent" for row in fired)
+    assert len(store.list_fired()) == 2  # 占坑仍逐规则(UNIQUE identity 各异)
+    store.close()
