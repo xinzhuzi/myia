@@ -86,6 +86,8 @@
 | 64 | `plugins.bundled.install` | `_m_plugins_bundled_install` | 随包组件包一键装:`{id, force?}` → `{ok, dir, version}`(id 过 `_PLUGIN_ID_RE` 同门防穿越 → 目录映射 → 直调 `InstalledPluginStore.install` 与 CLI `myssia plugin install` 同门:manifest 校验→版本矩阵→整目录拷贝绝不半装;已装未 force/版本不兼容未 force → PluginStoreError code 原文透传 already_installed/incompatible_version 等;env 不可用 `bundled_plugins_unavailable`、id 不在目录 `bundled_plugin_not_found`;10-05-bundled-plugins-install) |
 | 65 | `plugins.bundled.uninstall` | `_m_plugins_bundled_uninstall` | 随包组件包卸载:`{id}` → `{ok, id, path}`(id 过 `_PLUGIN_ID_RE` 同门 → 直调 `InstalledPluginStore.remove` 与 CLI `myssia plugin remove` 同门:删安装根 `<install_root>/<id>` 整目录,绝不半删;**随包原件只读永不删**,卸载后可随时经 #64 重装;**不依赖 bundled root**——卸载是安装根操作,`MYIA_BUNDLED_PLUGINS` 未设的 dev 形态/旧包同样可卸已装件,如实;PluginStoreError code 原文透传 not_installed/io_error;10-05-bundled-plugins-batch2 R2) |
 | 66 | `plugins.bundled.category_install` | `_m_plugins_bundled_category_install` | 随包品类 YAML 平铺安装:`{id, force?}` → `{ok, file, path}`(与组件包安装语义刻意不同:品类=单文件平铺拷到 `<plugins_dir>/<源文件名>`,与 `_seed_first_run` 补种同落点;id 过 `CATEGORY_ID_RE`(schema 同源防穿越)→ 定位(文件名 stem 直配 > YAML id 字段兜底)→ `load_category_file` 校验通过才装(坏件 `category_invalid` 拒零拷贝)→ tmp+rename 原子拷贝;**已有同名文件未 force → `category_exists` 结构化拒如实「已存在」不覆盖**——与补种幂等补缺对齐不打架:补种=自动补缺永不覆盖,本面=显式知情,force 才覆盖;**id/冲突定义**:品类 id = YAML `id:` 字段(CATEGORY_ID_RE),冲突 = 数据根 plugins/ 下同名文件存在(文件级,内容同否不判);与组件包零冲突(子目录 vs 平铺文件两种形状互不占据);env 不可用 `bundled_plugins_unavailable`、id 合形不在目录 `bundled_category_not_found`;品类无卸载面(补种只补不删,删文件走 yaml-editor 屏);10-05-bundled-plugins-batch2 R3) |
+| 67 | `plugins.remote.get` | `_m_plugins_remote_get` | 轨D remote 声明配置读:`{id}` → `{id, endpoint, token, known}`(id 过 `_PLUGIN_ID_RE` 同门;配置落数据根 `<home>/remote-plugins.json`,缺文件/缺条目 = endpoint/token null + known=false 如实;token 是 keychain 引用名,值永不出协议面——只有 secret.set 写入/secret.list 可见名;dev 形态无 MYIA_HOME → `remote_config_unavailable` 结构化拒(开发后门=显式 env);坏 JSON → `remote_config_invalid`;10-06-native-plugin-components 阶段3 G-Q1/R7) |
+| 68 | `plugins.remote.save` | `_m_plugins_remote_save` | 轨D remote 声明配置写:`{id, endpoint, token?}` → `{ok, id, path, endpoint}`(endpoint 必填 http(s) 具体地址——env:/keychain: 引用属品类 YAML/env 通道不走本面板,违者 invalid_params;token 可选、给定必须是 keychain: 规范引用(secrets 名门同源校验),明文凭据只经 secret.set 入钥匙串永不落本配置,不传=保持现值;tmp+rename 原子写;写后即时 env 桥接——`_apply_remote_env_bridge` 把 firecrawl 端点/键桥进 `MYIA_FIRECRAWL_URL`/`MYIA_FIRECRAWL_API_KEY`(引擎零改动的通道;显式 env=开发后门恒优先,`_BRIDGED_ENV` 记账防覆写);10-06-native-plugin-components 阶段3) |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+
@@ -152,6 +154,19 @@ YAML 平铺安装,与补种同落点;已存在未 force 拒,force 才覆盖—�
 发现键(`count` 语义不变)。**同样不 bump v10**:循本族「地基路」先例——
 旧壳+新 UI 组合下卸载钮/品类分区经 method_not_found 结构化降级不白屏,
 新增应答键(`categories`)旧 UI 忽略零回归;注册表 66 行。
+native-plugin-components 阶段3(task 10-06-native-plugin-components,
+G-Q1/R7 轨D)新增 2:67-68 `plugins.remote.get`/`save`(remote 插件件
+端点/凭据引用配置,落数据根 `<home>/remote-plugins.json`;设置屏「随包
+官方插件件」卡条目详情区 remote 配置面板消费)。**不 bump v10**:两方法
+加法,旧壳+新 UI 组合经 method_not_found 结构化降级(面板区静默不渲染),
+循 bundled 族先例;注册表 68 行。连带两处既有面扩展(零新方法):①
+serve 启动 `_startup_remote_env` 把数据根 remote 配置桥接进 env
+(`MYIA_FIRECRAWL_URL`/`MYIA_FIRECRAWL_API_KEY`,setdefault 语义=显式 env
+开发后门恒优先;firecrawl 桌面态端点由面板提供、引擎代码零改动);②
+`doctor`(#4)应答增 `firecrawl` 键(cli.py `_doctor_firecrawl`:未配置
+`{configured:false,probe:null}` 零 finding 不红;配置了才 GET 端点根探活,
+不可达 warning `firecrawl_unreachable`,消息只含展示形态不落解析值)——
+应答加法旧 UI 忽略零回归,同样不 bump。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成

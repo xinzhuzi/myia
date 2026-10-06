@@ -19,6 +19,10 @@
    市场知识面+README 非商业警示即全部,仅捆 plugin.yaml+README.md 两件);
    myssia-credhunter 额外捆自有 ``credhunter/`` 子包(adapter compile+exec
    自举依赖,漏捆即交付坏件)。
+   **remote 桩件**(10-06-native-plugin-components 阶段3 G-Q1):
+   myssia-firecrawl 桩两件随包(REMOTE_STUB_PACKAGES)——零 adapter 零
+   运行时,随包仅为装机「随包官方插件件」卡出现该条目(轨D remote 配置
+   面板挂点),桩形状同 mediacrawler。
    **刻意不捆**:vendor/ 外来 submodule(GPL Photon / theHarvester,随包
    分发越许可红线;装机上 vendor 缺失走 adapter 既有结构化
    ``vendor_missing`` 指引,tests/plugins/test_osint_plugin.py 等已钉)、
@@ -86,6 +90,17 @@ DESKTOP_TIER_PACKAGES = (
 #: adapter/零程序面,收录=市场知识面)——无三件套可捆,按桩形状只钉
 #: manifest+README 两件;上游物零复制(非商业学习许可,README 级警示)。
 STUB_ONLY_PACKAGES = ("myssia-mediacrawler",)
+
+#: remote tier 桩件随包(10-06-native-plugin-components 阶段3 G-Q1):
+#: tier: remote、零 adapter 零运行时——随包的唯一目的是让装机「随包官方
+#: 插件件」卡出现该条目,作轨D remote 配置面板的挂点(endpoint 输入+凭据
+#: 入钥匙串+doctor 探活,设置页统一操控面 R7);桩形状同 mediacrawler
+#: 只钉 manifest+README 两件。首件 = myssia-firecrawl(云端/自有服务器
+#: 均接,AGPL 只消费不 vendor)。
+REMOTE_STUB_PACKAGES = ("myssia-firecrawl",)
+
+#: remote 桩件随包的两件面(manifest 市场知识面 + 接入文档;无 adapter.py)。
+REMOTE_STUB_SOURCE_FILES = ("plugin.yaml", "README.md")
 
 #: 桩件随包的两件面(manifest 市场知识面 + 上游警示文档;无 adapter.py)。
 STUB_SOURCE_FILES = ("plugin.yaml", "README.md")
@@ -173,6 +188,24 @@ def test_stub_package_source_file_bundled(package: str, filename: str) -> None:
     resources = _conf_resources()
     assert resources.get(source) == dest, (
         f"desktop 桩件源码面未随包: {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
+    )
+    assert (SRC_TAURI / source).is_file(), f"映射源不存在: {source}"
+
+
+@pytest.mark.parametrize("package", REMOTE_STUB_PACKAGES)
+@pytest.mark.parametrize("filename", REMOTE_STUB_SOURCE_FILES)
+def test_remote_stub_package_source_file_bundled(package: str, filename: str) -> None:
+    """remote 桩件(firecrawl):仅 manifest+README 两件随包,零 adapter。
+
+    阶段3 G-Q1:remote 桩随包的目的不是装运行时(零运行时),而是让装机
+    「随包官方插件件」卡出现该条目——轨D remote 配置面板的挂点;桩形状与
+    mediacrawler 同款两件面(捆 adapter.py 映射反而失真:源不存在)。
+    """
+    source = f"../../plugins/{package}/{filename}"
+    dest = f"plugins/{package}/{filename}"
+    resources = _conf_resources()
+    assert resources.get(source) == dest, (
+        f"remote 桩件源码面未随包: {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
     )
     assert (SRC_TAURI / source).is_file(), f"映射源不存在: {source}"
 

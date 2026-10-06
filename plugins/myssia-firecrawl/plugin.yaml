@@ -1,0 +1,27 @@
+# myssia-firecrawl — 官方场景件:重渲染站抓取后端(封装 mendableai/firecrawl)。
+#
+# 许可注意:上游 firecrawl 为 AGPL-3.0 —— 本插件只以 manifest 声明依赖与文档
+# 引用的方式接入,**不复制其任何源码进本仓库**(RSSHub 同判例:AGPL 只消费
+# 不 vendor);桌面本机不装 Node 服务端,引擎(MYIA 侧 firecrawl.py 纯 HTTP
+# 客户端)按 remote 形态消费已部署实例,云端与自有服务器均接(部署按上游
+# 官方文档,我方不复刻配方)。
+#
+# tier=remote(10-06-native-plugin-components G-Q1 定裁,轨D):端点与凭据经
+# 设置页「随包官方插件件」卡的 remote 配置面板提供(endpoint 写数据根插件
+# 配置、API 键只入系统钥匙串);env MYIA_FIRECRAWL_URL/MYIA_FIRECRAWL_API_KEY
+# 保留为开发后门,桌面态不依赖。未配置 = 缺省降级链既有行为不变(引擎契约:
+# dead service degrades cleanly)。
+id: myssia-firecrawl
+name: 渲染抓取后端(Firecrawl)
+version: 1.0.0
+compatible: ">=0.0.1,<0.1"
+tier: remote
+requires: []
+provides: [render_fetch]
+modes:
+  remote:
+    endpoint: https://firecrawl.example.com   # 云端 api.firecrawl.dev 或你的自有服务器
+    # 云端 API 键 / 自托管启用鉴权时的访问键(自托管关鉴权可不写)。
+    token: keychain:myia/firecrawl/api-key   # myssia secret set myia/firecrawl/api-key
+install:
+  source: https://github.com/xinzhuzi/myia.git

@@ -638,6 +638,91 @@ class TestDoctor:
         finding = next(f for f in payload["findings"] if f["scope"] == "proxy:main")
         assert finding["severity"] == "warning"
 
+    # ------------------------------------------------------------------
+    # firecrawl 连通项(10-06-native-plugin-components 阶段3,轨D):
+    # 未配置不红;配置了才探活;探测只判「有没有起来」(任何 HTTP 应答=已起)
+    # ------------------------------------------------------------------
+
+    def test_firecrawl_unconfigured_is_not_red(self, tmp_path, capsys, monkeypatch):
+        """未配置:configured=false + probe=null,零 finding 不翻 healthy
+        (缺省未配 = 降级链既有行为,firecrawl 契约 dead service degrades
+        cleanly——「未配置」不是病)。"""
+        monkeypatch.delenv("MYIA_FIRECRAWL_URL", raising=False)
+        monkeypatch.delenv("MYIA_FIRECRAWL_API_KEY", raising=False)
+        db = tmp_path / "myssia.db"
+        SQLiteStore(str(db)).close()
+        yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
+
+        code = main(["doctor", yaml_path, "--db", str(db), "--json"])
+        assert code == EXIT_OK
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["firecrawl"] == {
+            "configured": False,
+            "endpoint_display": None,
+            "api_key_configured": False,
+            "probe": None,
+        }
+        assert not [f for f in payload["findings"] if f["scope"] == "firecrawl"]
+        assert payload["healthy"] is True
+
+    def test_firecrawl_configured_probe_any_http_response_is_up(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """配置了才探活:GET 端点根,任何 HTTP 应答(含 404)= 已起
+        (健康/鉴权语义归消费方,同 searxng healthz 先例);键只报存在性。"""
+        monkeypatch.setenv("MYIA_FIRECRAWL_URL", "https://fc.doctor.example.org")
+        monkeypatch.setenv("MYIA_FIRECRAWL_API_KEY", "fc-key-value")
+        seen: list[str] = []
+
+        def responder(request: httpx.Request) -> httpx.Response:
+            seen.append(str(request.url))
+            return httpx.Response(404, json={"error": "not found"})
+
+        monkeypatch.setattr(cli_module, "_build_async_client", mock_client_factory(responder))
+        db = tmp_path / "myssia.db"
+        SQLiteStore(str(db)).close()
+        yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
+
+        main(["doctor", yaml_path, "--db", str(db), "--json"])
+        payload = json.loads(capsys.readouterr().out)
+        firecrawl = payload["firecrawl"]
+        assert firecrawl["configured"] is True
+        assert firecrawl["endpoint_display"] == "env:MYIA_FIRECRAWL_URL"
+        assert firecrawl["api_key_configured"] is True
+        assert firecrawl["probe"] == {
+            "ok": True, "http_status": 404, "message": "HTTP 404", "error_type": None,
+        }
+        assert seen == ["https://fc.doctor.example.org"], "探测 GET 端点根一次"
+        assert not [f for f in payload["findings"] if f["scope"] == "firecrawl"]
+        # API 键值零回显(只有存在性);解析端点不落 findings
+        assert "fc-key-value" not in capsys.readouterr().out
+
+    def test_firecrawl_unreachable_is_warning_without_endpoint_leak(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        """不可达 = warning(后端挂 ≠ 源死,代理池同语义);消息只含展示形态
+        env:MYIA_FIRECRAWL_URL,httpx 异常携带的解析端点零泄漏。"""
+        monkeypatch.setenv("MYIA_FIRECRAWL_URL", "https://fc-secret.example.org")
+
+        def responder(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError(
+                "refused https://fc-secret.example.org", request=request
+            )
+
+        monkeypatch.setattr(cli_module, "_build_async_client", mock_client_factory(responder))
+        db = tmp_path / "myssia.db"
+        SQLiteStore(str(db)).close()
+        yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
+
+        main(["doctor", yaml_path, "--db", str(db), "--json"])
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["firecrawl"]["probe"]["ok"] is False
+        finding = next(f for f in payload["findings"] if f["scope"] == "firecrawl")
+        assert finding["severity"] == "warning"
+        assert finding["code"] == "firecrawl_unreachable"
+        assert payload["healthy"] is True  # warning 不翻 healthy
+        assert "fc-secret.example.org" not in json.dumps(payload, ensure_ascii=False)
+
     def test_scans_plugins_dir_by_default(self, tmp_path, capsys):
         """缺省扫描 --plugins-dir:明文插件与健康插件同场体检。"""
         directory = tmp_path / "plugins"

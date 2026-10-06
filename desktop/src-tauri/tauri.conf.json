@@ -79,6 +79,8 @@
       "../../plugins/myssia-yake/adapter.py": "plugins/myssia-yake/adapter.py",
       "../../plugins/myssia-mediacrawler/plugin.yaml": "plugins/myssia-mediacrawler/plugin.yaml",
       "../../plugins/myssia-mediacrawler/README.md": "plugins/myssia-mediacrawler/README.md",
+      "../../plugins/myssia-firecrawl/plugin.yaml": "plugins/myssia-firecrawl/plugin.yaml",
+      "../../plugins/myssia-firecrawl/README.md": "plugins/myssia-firecrawl/README.md",
       "../../src/myssia": "myssia-src/myssia",
       "../entry.py": "myssia-src/entry.py",
       "../myssia_desktop_entry": "myssia-src/myssia_desktop_entry",

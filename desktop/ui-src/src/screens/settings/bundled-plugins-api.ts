@@ -1,8 +1,9 @@
 /**
- * 随包插件组件包发现/一键装/卸载 + 品类 YAML 平铺装 IPC 封装
- * (10-05-bundled-plugins-install + 批二 10-05-bundled-plugins-batch2)。
+ * 随包插件组件包发现/一键装/卸载 + 品类 YAML 平铺装 + 轨D remote 配置 IPC 封装
+ * (10-05-bundled-plugins-install + 批二 10-05-bundled-plugins-batch2 + 阶段3
+ * 10-06-native-plugin-components)。
  *
- * 数据面 = sidecar 协议方法(entry.py `_HANDLERS` 63-66):
+ * 数据面 = sidecar 协议方法(entry.py `_HANDLERS` 63-66 + 67-68):
  *   plugins.bundled.list   → 枚举 env MYIA_BUNDLED_PLUGINS 目录下含 plugin.yaml
  *                             的子目录(env 未设/目录不存在 = 合法空表,dir=null 如实)
  *                             + 平铺品类 YAML 发现视图(categories,批二 R3)
@@ -19,6 +20,13 @@
  *                             (批二 R3:品类 YAML 单文件平铺拷到数据根
  *                              plugins/,与补种同落点;已存在未 force →
  *                              category_exists 拒,force 才覆盖)
+ *   plugins.remote.get     → {id} → {id, endpoint, token, known}(阶段3 轨D:
+ *                             remote 插件件端点/凭据引用配置读,落数据根
+ *                             remote-plugins.json;未配置 = null/null/false 如实)
+ *   plugins.remote.save    → {id, endpoint, token?} → {ok, id, path, endpoint}
+ *                             (阶段3 轨D:写配置 + 即时 env 桥接;token 只收
+ *                              keychain: 引用——明文凭据经 secret.set 另门入
+ *                              钥匙串,UI 永不把明文写进配置)
  *
  * 屏私有封装面(spec 变更纪律第 3 条):invoke("sidecar_request") 直连 +
  * 错误归一化走 ./api 的 asSidecarError(与 yaml-editor/api.ts、settings/api.ts
@@ -99,6 +107,42 @@ export interface BundledCategoryInstallResult {
   file: string;
   /** 落点(数据根 plugins/<file> 平铺,与补种同落点) */
   path: string;
+}
+
+/** plugins.remote.get 应答(阶段3 轨D;契约四键钉死)。 */
+export interface RemotePluginConfig {
+  id: string;
+  /** 已配置端点(http(s) 具体地址;未配置 = null 如实) */
+  endpoint: string | null;
+  /** 凭据的 keychain 引用名(值永不出协议面;未配置 = null) */
+  token: string | null;
+  /** 该件在数据根配置里有条目(false = 未配置,面板「未配置」态) */
+  known: boolean;
+}
+
+/** plugins.remote.save 应答(阶段3 轨D;契约四键钉死)。 */
+export interface RemotePluginSaveResult {
+  ok: boolean;
+  id: string;
+  /** 配置落点(数据根 remote-plugins.json) */
+  path: string;
+  endpoint: string;
+}
+
+/** 轨D doctor 连通项的探测结果(doctor 应答 firecrawl 键的 probe 子形状)。 */
+export interface RemoteProbeResult {
+  ok: boolean;
+  http_status: number | null;
+  message: string;
+  error_type: string | null;
+}
+
+/** doctor 应答的 firecrawl 连通项形状(阶段3 轨D;探活按钮消费)。 */
+export interface RemoteDoctorSection {
+  configured: boolean;
+  endpoint_display: string | null;
+  api_key_configured: boolean;
+  probe: RemoteProbeResult | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -213,6 +257,64 @@ export function parseBundledCategoryInstall(raw: unknown): BundledCategoryInstal
   return { ok: true, file: record.file, path: record.path };
 }
 
+/** wire 载荷 → RemotePluginConfig(阶段3 轨D;TS 侧守门,同上口径)。 */
+export function parseRemotePluginConfig(raw: unknown): RemotePluginConfig {
+  if (typeof raw !== "object" || raw === null) {
+    throw new TypeError(`remote 插件配置载荷不是对象: ${String(raw)}`);
+  }
+  const record = raw as Record<string, unknown>;
+  if (typeof record.id !== "string" || typeof record.known !== "boolean") {
+    throw new TypeError(`remote 插件配置非契约形态({id, endpoint, token, known}): ${String(raw)}`);
+  }
+  return {
+    id: record.id,
+    endpoint: asStringOrNone(record.endpoint),
+    token: asStringOrNone(record.token),
+    known: record.known,
+  };
+}
+
+/** wire 载荷 → RemotePluginSaveResult(阶段3 轨D;TS 侧守门,同上口径)。 */
+export function parseRemotePluginSave(raw: unknown): RemotePluginSaveResult {
+  if (typeof raw !== "object" || raw === null) {
+    throw new TypeError(`remote 插件配置保存结果载荷不是对象: ${String(raw)}`);
+  }
+  const record = raw as Record<string, unknown>;
+  if (record.ok !== true || typeof record.id !== "string" || typeof record.path !== "string" || typeof record.endpoint !== "string") {
+    throw new TypeError(`remote 插件配置保存结果非契约形态({ok, id, path, endpoint}): ${String(raw)}`);
+  }
+  return { ok: true, id: record.id, path: record.path, endpoint: record.endpoint };
+}
+
+/**
+ * doctor 应答 → firecrawl 连通项(阶段3 轨D;宽容守门):firecrawl 键缺失/
+ * 非对象(旧 sidecar 无 doctor 连通项)= null 如实——旧壳+新 UI 组合下面板
+ * 探活降级为「诊断无连通项」,不炸卡(与 categories 缺键宽容同口径)。
+ */
+export function parseRemoteDoctorSection(raw: unknown): RemoteDoctorSection | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const record = raw as Record<string, unknown>;
+  if (typeof record.configured !== "boolean") return null;
+  const probe = record.probe;
+  return {
+    configured: record.configured,
+    endpoint_display: asStringOrNone(record.endpoint_display),
+    api_key_configured: record.api_key_configured === true,
+    probe:
+      typeof probe === "object" && probe !== null
+        ? {
+            ok: (probe as Record<string, unknown>).ok === true,
+            http_status:
+              typeof (probe as Record<string, unknown>).http_status === "number"
+                ? ((probe as Record<string, unknown>).http_status as number)
+                : null,
+            message: asStringOrNone((probe as Record<string, unknown>).message) ?? "",
+            error_type: asStringOrNone((probe as Record<string, unknown>).error_type),
+          }
+        : null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // 封装(invoke sidecar_request 直连;错误归一化 SidecarRequestError)
 // ---------------------------------------------------------------------------
@@ -271,4 +373,50 @@ export async function bundledCategoryInstall(params: {
       ...(params.force ? { force: true } : {}),
     }),
   );
+}
+
+// ---------------------------------------------------------------------------
+// 轨D remote 声明配置(阶段3,10-06-native-plugin-components G-Q1/R7)
+// ---------------------------------------------------------------------------
+
+/**
+ * 轨D 凭据规范名:keychain:myia/<scope>/api-key(scope = 插件 id 去 myssia-
+ * 前缀;与 manifest token 声明、sidecar env 桥接表 `_REMOTE_ENGINE_BRIDGE`
+ * 三处同源)。UI 永不把明文写进配置——值只经 secret.set 入钥匙串,本引用名
+ * 落 remote-plugins.json(keychain-only 判例同规)。
+ */
+export function remoteTokenRef(pluginId: string): string {
+  return `keychain:myia/${pluginId.replace(/^myssia-/, "")}/api-key`;
+}
+
+/** remote 插件件当前配置读(未配置 = known=false 如实;dev 形态结构化拒)。 */
+export async function remotePluginGet(pluginId: string): Promise<RemotePluginConfig> {
+  return parseRemotePluginConfig(await bundledRequest("plugins.remote.get", { id: pluginId }));
+}
+
+/**
+ * remote 插件件配置写:endpoint 具体地址 + token 只收 keychain 引用
+ * (不传 token = 保持现值);写后 sidecar 即时 env 桥接(引擎零改动通道)。
+ */
+export async function remotePluginSave(params: {
+  id: string;
+  endpoint: string;
+  token?: string;
+}): Promise<RemotePluginSaveResult> {
+  return parseRemotePluginSave(
+    await bundledRequest("plugins.remote.save", {
+      id: params.id,
+      endpoint: params.endpoint,
+      ...(params.token ? { token: params.token } : {}),
+    }),
+  );
+}
+
+/**
+ * 轨D 探活:跑一次 doctor 取 firecrawl 连通项(doctor 应答加法键;旧 sidecar
+ * 无该键 → parseRemoteDoctorSection 宽容 null = 面板「诊断无连通项」降级)。
+ */
+export async function remoteDoctorProbe(): Promise<RemoteDoctorSection | null> {
+  const raw = (await bundledRequest("doctor", {})) as Record<string, unknown>;
+  return parseRemoteDoctorSection(raw.firecrawl);
 }

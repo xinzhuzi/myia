@@ -2492,12 +2492,14 @@ def test_method_registry_allowed_matches_handlers():
     bundled-plugins-install 批(plugins.bundled.list/install 两方法,
     10-05-bundled-plugins-install;随包组件包发现/一键装)+
     bundled-plugins-batch2 批(plugins.bundled.uninstall/category_install
-    两方法,10-05-bundled-plugins-batch2;卸载+品类 YAML 平铺安装)
-    后 = 66。"""
+    两方法,10-05-bundled-plugins-batch2;卸载+品类 YAML 平铺安装)+
+    native-plugin-components 阶段3 批(plugins.remote.get/save 两方法,
+    10-06-native-plugin-components 轨D remote 配置面板数据面)
+    后 = 68。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 66
+    assert len(allowed) == 68
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",
@@ -2510,7 +2512,8 @@ def test_method_registry_allowed_matches_handlers():
                    "cron.runs", "store.state.mark", "store.state.mark_all",
                    "store.state.import", "gates.get", "gates.save",
                    "plugins.bundled.list", "plugins.bundled.install",
-                   "plugins.bundled.uninstall", "plugins.bundled.category_install"):
+                   "plugins.bundled.uninstall", "plugins.bundled.category_install",
+                   "plugins.remote.get", "plugins.remote.save"):
         assert method in allowed
 
 

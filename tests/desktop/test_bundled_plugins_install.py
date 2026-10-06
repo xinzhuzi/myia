@@ -12,7 +12,8 @@ test_desktop_sidecar_protocol.py 的 rpc 手法;rpc helper 本文件独立一份
   展开后 Resources/plugins/ 的忠实模拟——resources 是随包面的单一事实源,
   本测试不经「手写件清单」二手复述:list 断言数从映射动态派生,与
   test_installer_resources.py 的守卫常量(DESKTOP_TIER_PACKAGES 9 +
-  STUB_ONLY_PACKAGES 1 = 10 组件包;批二 R4 后品类 10 件)对账,映射漂移
+  STUB_ONLY_PACKAGES 1 + REMOTE_STUB_PACKAGES 1 = 11 组件包,10-06 阶段3
+  起含 remote 桩 myssia-firecrawl;批二 R4 后品类 10 件)对账,映射漂移
   即红);
 - env 未设/目录不存在 = 合法空表(dev 稳定契约);
 - install/uninstall 直调 InstalledPluginStore 同门(CLI
@@ -43,17 +44,20 @@ _spec = importlib.util.spec_from_file_location("desktop_entry_bundled", ENTRY_PA
 entry = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(entry)
 
-# 与 test_installer_resources.py 同源守卫常量(随包组件包 10 件 + 品类 10 件
+# 与 test_installer_resources.py 同源守卫常量(随包组件包 11 件 + 品类 10 件
 # 单一事实源;跨文件 import 常量——两侧清单漂移时参数化对不上即红,人工对账
 # 口径同彼处)。
 from test_installer_resources import (  # noqa: E402
     DESKTOP_TIER_PACKAGES,
     OFFICIAL_CATEGORY_YAMLS,
+    REMOTE_STUB_PACKAGES,
     STUB_ONLY_PACKAGES,
 )
 
-#: 随包组件包全集(恰 10 件;恰对 tauri.conf resources 组件包目录映射)。
-BUNDLED_PACKAGES = DESKTOP_TIER_PACKAGES + STUB_ONLY_PACKAGES
+#: 随包组件包全集(恰 11 件;恰对 tauri.conf resources 组件包目录映射;
+#: 10-06 阶段3 起含 remote 桩件 myssia-firecrawl——随包为装机「随包官方
+#: 插件件」卡的轨D remote 配置面板挂点,零 adapter 零运行时)。
+BUNDLED_PACKAGES = DESKTOP_TIER_PACKAGES + STUB_ONLY_PACKAGES + REMOTE_STUB_PACKAGES
 
 #: 随包品类 YAML 全集(恰 10 件;批二 R4 后 = OFFICIAL_CATEGORY_YAMLS 同源,
 #: 7 官方 + demo + monitor/credentials 两场景件)。
@@ -171,9 +175,10 @@ def test_list_env_points_to_missing_dir_is_also_empty(monkeypatch, tmp_path):
     }
 
 
-def test_list_rebuilt_installer_tree_yields_exactly_ten_packages(monkeypatch, tmp_path):
-    """装机态对账:resources 映射重建目录树 → 组件包恰 10 件、品类恰 10 件
-    (与 test_installer_resources 守卫常量同源;映射漂移即红,不硬编码孤数)。"""
+def test_list_rebuilt_installer_tree_yields_exactly_eleven_packages(monkeypatch, tmp_path):
+    """装机态对账:resources 映射重建目录树 → 组件包恰 11 件(10 desktop +
+    myssia-firecrawl remote 桩)、品类恰 10 件(与 test_installer_resources
+    守卫常量同源;映射漂移即红,不硬编码孤数)。"""
     root = rebuild_bundled_tree(tmp_path / "Resources")
     monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
     # home 沙箱:categories 的 exists 检查 plugins_dir 干净(dev 回退根是仓库
@@ -183,7 +188,7 @@ def test_list_rebuilt_installer_tree_yields_exactly_ten_packages(monkeypatch, tm
     assert code == 0
     result = responses[0]["result"]
     assert result["dir"] == str(root)
-    assert result["count"] == len(BUNDLED_PACKAGES) == 10
+    assert result["count"] == len(BUNDLED_PACKAGES) == 11
     assert {plugin["id"] for plugin in result["plugins"]} == set(BUNDLED_PACKAGES)
     # 逐件摘要键集恰为契约面(id/name/version/tier/gate/requires/provides +
     # 兼容判定 + 已装态 + findings;manifest schema 无 description,如实不带)
@@ -193,7 +198,10 @@ def test_list_rebuilt_installer_tree_yields_exactly_ten_packages(monkeypatch, tm
             "compatible", "compatible_current", "requires", "provides",
             "installed", "installed_version", "findings",
         }, f"{plugin['id']} 摘要键集漂移"
-        assert plugin["tier"] == "desktop"
+        # 10-06 阶段3:随包面 = 10 件 desktop + remote 桩件(tier 如实,轨D
+        # 面板据此渲染 remote 配置区)
+        expected_tier = "remote" if plugin["id"] in REMOTE_STUB_PACKAGES else "desktop"
+        assert plugin["tier"] == expected_tier
         assert plugin["compatible_current"] is True  # 官方件 compatible 全兼容当前
         assert plugin["installed"] is False  # 全新安装根零预装
         assert plugin["findings"] == []  # 官方件 manifest 全部可读

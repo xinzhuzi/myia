@@ -392,6 +392,7 @@ from myssia.cron.ticker import (
 )
 from myssia.enrich import EnrichConfigError, EnrichSettings, LLMEnricher
 from myssia.enrich.scoring import mute_hit
+from myssia.engines.firecrawl import ENV_FIRECRAWL_API_KEY, ENV_FIRECRAWL_URL
 from myssia.feedback import (
     FeedbackTuner,
     TuningPolicy,
@@ -430,7 +431,14 @@ from myssia.gates import (
     load_gates_fail_closed,
     save_gates_config,
 )
-from myssia.secrets import SecretError, delete_secret, list_secrets, set_secret
+from myssia.secrets import (
+    SecretError,
+    delete_secret,
+    get_secret,
+    list_secrets,
+    set_secret,
+    validate_secret_name,
+)
 from myssia.store import FEEDBACK_CHANNEL_DESKTOP, SQLiteStore, StoreSchemaError
 from myssia.store.models import ALERT_RULE_KIND_ITEM, AlertRule
 from myssia.vision import (
@@ -1191,6 +1199,214 @@ def _m_plugins_bundled_category_install(params: dict[str, Any]) -> dict[str, Any
             path="params.id",
         ) from exc
     return {"ok": True, "file": source.name, "path": str(target)}
+
+
+# ---------------------------------------------------------------------------
+# 轨D remote 声明配置(10-06-native-plugin-components 阶段3,G-Q1/R7):
+# tier=remote 插件件的端点/凭据引用读写 —— 设置页「随包官方插件件」卡条目
+# 详情区 remote 配置面板的数据面。配置落数据根(remote-plugins.json),
+# 引擎侧零改动:本层把配置桥接进 env 通道(引擎 firecrawl.py 既有解析),
+# env 显式设置 = 开发后门恒优先(setdefault 语义)。
+# ---------------------------------------------------------------------------
+
+#: 数据根下的 remote 插件配置文件名(机器写面,JSON;人读人改走文件本身)。
+REMOTE_PLUGINS_CONFIG = "remote-plugins.json"
+
+#: 轨D 引擎桥接表:插件 id → (端点 env 名, API 键 env 名, 凭据规范名)。
+#: 只列「引擎经 env 通道消费端点」的 remote 件;纯品类 YAML 消费的 remote 件
+#: (rsshub/webcheck 等)不走 env,不在表内。env 名与引擎常量同源(firecrawl.py
+#: 零改动的桥接点)。
+_REMOTE_ENGINE_BRIDGE: dict[str, tuple[str, str, str]] = {
+    "myssia-firecrawl": (ENV_FIRECRAWL_URL, ENV_FIRECRAWL_API_KEY, "myia/firecrawl/api-key"),
+}
+
+#: 本层已桥接写入的 env 值(变量名 → 我方写入值)。save 后再桥接时,只有
+#: 「未设置 == 我方上次写值」的变量才允许更新——用户/开发者显式设置的 env
+#: (开发后门)永不被配置面板覆写。
+_BRIDGED_ENV: dict[str, str] = {}
+
+
+def _remote_plugins_config_path() -> Path | None:
+    """remote 插件配置路径(home 模式 ``<home>/remote-plugins.json``;dev 无)。"""
+    ctx = _serve_context()
+    if ctx.home is None:
+        return None
+    return ctx.home / REMOTE_PLUGINS_CONFIG
+
+
+def _load_remote_plugins_config(path: Path) -> dict[str, dict[str, Any]]:
+    """读 remote 插件配置(缺文件 = 空表;坏 JSON = 结构化拒,不静默吞)。"""
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ProtocolError(
+            "remote_config_invalid",
+            f"remote 插件配置不可读({path}): {exc}",
+            path="params.id",
+        ) from exc
+    if not isinstance(data, dict):
+        raise ProtocolError(
+            "remote_config_invalid",
+            f"remote 插件配置顶层必须是对象({path})",
+            path="params.id",
+        )
+    # 条目级宽容:非对象条目跳过(文件被手改出杂键不拦整个配置面)
+    return {key: value for key, value in data.items() if isinstance(value, dict)}
+
+
+def _save_remote_plugins_config(path: Path, data: dict[str, dict[str, Any]]) -> None:
+    """原子写 remote 插件配置(tmp+rename;中途失败不留半截)。"""
+    tmp = path.with_name(f".{path.name}.tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError as exc:
+        tmp.unlink(missing_ok=True)
+        raise ProtocolError(
+            "io_error",
+            f"remote 插件配置写入失败({path}): {exc}",
+            path="params.id",
+        ) from exc
+
+
+def _apply_remote_env_bridge(plugin_id: str, record: dict[str, Any]) -> None:
+    """把一件 remote 配置桥接进 env(引擎零改动的通道;setdefault 语义)。
+
+    - 端点:配置 endpoint(具体 http(s) 地址)→ ``os.environ.setdefault``;
+      env 已设(开发后门)恒优先,不覆写;
+    - API 键:配置 token 是 keychain 引用时,经钥匙串解析成值再入 env(引擎
+      env 通道只认具体值;解析失败 = 跳过并留痕,引擎侧按「未配键」降级)。
+
+    只动 ``_BRIDGED_ENV`` 记账内的自有值;save 后的再桥接同门(防覆写显式 env)。
+    """
+    bridge = _REMOTE_ENGINE_BRIDGE.get(plugin_id)
+    if bridge is None:
+        return  # 非引擎消费件:配置面存读即可,无 env 通道
+    url_var, key_var, token_name = bridge
+    endpoint = record.get("endpoint")
+    if isinstance(endpoint, str) and endpoint.strip():
+        value = endpoint.strip()
+        if url_var not in os.environ or os.environ.get(url_var) == _BRIDGED_ENV.get(url_var):
+            os.environ[url_var] = value
+            _BRIDGED_ENV[url_var] = value
+    token = record.get("token")
+    if isinstance(token, str) and token.startswith("keychain:"):
+        try:
+            api_key = get_secret(token.removeprefix("keychain:"))
+        except SecretError as exc:
+            _ring_append(None, "stderr", f"sidecar: {plugin_id} API 键桥接跳过: {exc}")
+            return
+        if key_var not in os.environ or os.environ.get(key_var) == _BRIDGED_ENV.get(key_var):
+            os.environ[key_var] = api_key
+            _BRIDGED_ENV[key_var] = api_key
+
+
+def _startup_remote_env() -> None:
+    """serve 启动的一次性 env 桥接;失败只留痕,绝不拦服务起来。
+
+    firecrawl 桌面态端点由配置面板提供(写数据根配置),本函数在启动时把
+    配置读进 env —— 引擎/doctor(同进程)即按既有 env 通道消费,桌面态零
+    env 依赖;显式 env(开发后门)setdefault 语义恒优先。
+    """
+    try:
+        path = _remote_plugins_config_path()
+        if path is None:
+            return
+        for plugin_id, record in _load_remote_plugins_config(path).items():
+            _apply_remote_env_bridge(plugin_id, record)
+    except Exception as exc:  # noqa: BLE001 — 桥接是增强,不是依赖
+        print(f"sidecar: remote 插件配置 env 桥接失败(忽略): {exc}", file=sys.stderr)
+
+
+def _remote_plugin_id(params: dict[str, Any]) -> str:
+    """params.id 的形状门(与 plugins.bundled.* 同门防穿越)。"""
+    plugin_id = params.get("id")
+    if not isinstance(plugin_id, str) or not _PLUGIN_ID_RE.match(plugin_id):
+        raise ProtocolError(
+            "invalid_params",
+            "缺少合法字符串字段 id(插件 id 应为小写字母/数字开头,可含连字符/下划线,2-64 字符)",
+            path="params.id",
+        )
+    return plugin_id
+
+
+def _m_plugins_remote_get(params: dict[str, Any]) -> dict[str, Any]:
+    """``plugins.remote.get {id}``:读一件 remote 插件的端点/凭据引用配置。
+
+    应答 ``{id, endpoint, token, known}``:未配置 = endpoint/token null +
+    known=false(如实,不虚构);``token`` 是 keychain 引用名(值永不出协议
+    面,只有 secret.set 写入、secret.list 可见)。dev 形态(无数据根)→
+    ``remote_config_unavailable`` 结构化拒(开发后门 = env,面板是桌面态面)。
+    """
+    path = _remote_plugins_config_path()
+    if path is None:
+        raise ProtocolError(
+            "remote_config_unavailable",
+            "remote 插件配置属桌面数据根(dev 形态无 MYIA_HOME);开发后门 = 显式 env(如 MYIA_FIRECRAWL_URL)",
+            path="params.id",
+        )
+    plugin_id = _remote_plugin_id(params)
+    record = _load_remote_plugins_config(path).get(plugin_id, {})
+    return {
+        "id": plugin_id,
+        "endpoint": record.get("endpoint"),
+        "token": record.get("token"),
+        "known": bool(record),
+    }
+
+
+def _m_plugins_remote_save(params: dict[str, Any]) -> dict[str, Any]:
+    """``plugins.remote.save {id, endpoint, token?}``:写一件 remote 插件配置。
+
+    校验(与 schema keychain-only 判例同规,配置面禁明文凭据):
+    - ``endpoint`` 必填,具体 http(s) 地址(env:/keychain: 引用不是端点,
+      引用属品类 YAML/env 开发后门);
+    - ``token`` 可选;给定则必须是 keychain: 规范引用(明文经面板只在
+      secret.set 通道入钥匙串,永不落本配置;不传 = 保持现值)。
+
+    写后即时再桥接 env(引擎同进程消费,无需重启壳);显式 env(开发后门)
+    恒优先不被覆写(``_BRIDGED_ENV`` 记账)。应答 ``{ok, id, path, endpoint}``。
+    """
+    path = _remote_plugins_config_path()
+    if path is None:
+        raise ProtocolError(
+            "remote_config_unavailable",
+            "remote 插件配置属桌面数据根(dev 形态无 MYIA_HOME);开发后门 = 显式 env(如 MYIA_FIRECRAWL_URL)",
+            path="params.id",
+        )
+    plugin_id = _remote_plugin_id(params)
+    endpoint = params.get("endpoint")
+    if not isinstance(endpoint, str) or not re.match(r"^https?://\S+$", endpoint.strip()):
+        raise ProtocolError(
+            "invalid_params",
+            "endpoint 必须是 http(s) 地址(env:/keychain: 引用属品类 YAML/env 通道,不走本面板)",
+            path="params.endpoint",
+        )
+    endpoint = endpoint.strip()
+    token = params.get("token")
+    if token is not None:
+        if not isinstance(token, str) or not token.startswith("keychain:"):
+            raise ProtocolError(
+                "invalid_params",
+                "token 必须是 keychain: 引用(明文凭据经 secret.set 入钥匙串,配置面只存引用)",
+                path="params.token",
+            )
+        try:
+            validate_secret_name(token.removeprefix("keychain:"))
+        except SecretError as exc:
+            raise ProtocolError(exc.code, str(exc), path="params.token") from exc
+    data = _load_remote_plugins_config(path)
+    record = dict(data.get(plugin_id, {}))
+    record["endpoint"] = endpoint
+    if token is not None:
+        record["token"] = token
+    data[plugin_id] = record
+    _save_remote_plugins_config(path, data)
+    _apply_remote_env_bridge(plugin_id, record)  # 即时生效(显式 env 优先不被覆写)
+    return {"ok": True, "id": plugin_id, "path": str(path), "endpoint": endpoint}
 
 
 def _m_doctor(params: dict[str, Any]) -> dict[str, Any]:
@@ -5287,6 +5503,8 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "plugins.bundled.install": _m_plugins_bundled_install,
     "plugins.bundled.uninstall": _m_plugins_bundled_uninstall,
     "plugins.bundled.category_install": _m_plugins_bundled_category_install,
+    "plugins.remote.get": _m_plugins_remote_get,
+    "plugins.remote.save": _m_plugins_remote_save,
     "doctor": _m_doctor,
     "run.start": _m_run_start,
     "run.status": _m_run_status,
@@ -5402,6 +5620,7 @@ def serve(stdin: Any | None = None, stdout: Any | None = None) -> int:
     global _OUT
     _OUT = stdout if stdout is not None else sys.stdout
     _startup_seed()
+    _startup_remote_env()
     # cron ticker(10-04-hermes-cron B3):就绪后起、EOF 关停;lifetime =
     # serve。daemon 线程绝不占本线程(B10 队头阻塞);home 模式才起,
     # 失败只留痕不拦服务。

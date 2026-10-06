@@ -131,6 +131,7 @@ from myssia.engines.fetch_base import (
     load_proxy_pools_file,
     mask_proxy_url,
 )
+from myssia.engines.firecrawl import ENV_FIRECRAWL_API_KEY, ENV_FIRECRAWL_URL
 from myssia.engines.registry import fetch_source
 from myssia.feedback import (
     DEFAULT_WINDOW_DAYS as DEFAULT_TUNING_WINDOW_DAYS,
@@ -812,7 +813,8 @@ def _add_doctor_parser(sub: argparse._SubParsersAction) -> None:
             "诊断完成即退出 0;发现的问题全部落在 findings(healthy=false)。"
             "覆盖:插件加载(含明文凭据拒载)、源健康度、engine_hints、凭据引用"
             "(env: 存在性 + keychain: 引用存在性)、代理连通性(--config)、下次触发时间、enrich 预算/缓存;"
-            "市场面门槛件(未启用 = info 级 finding,用户没开是正常态不是故障;坏 gates.yaml = warning)。"
+            "市场面门槛件(未启用 = info 级 finding,用户没开是正常态不是故障;坏 gates.yaml = warning);"
+            "firecrawl 后端连通项(未配置不红,配置了才探活)。"
         ),
     )
     doctor.add_argument(
@@ -3047,6 +3049,79 @@ def _proxy_findings(
         )
 
 
+# ---------------------------------------------------------------------------
+# firecrawl 连通项(10-06-native-plugin-components 阶段3,轨D doctor 探活)
+# ---------------------------------------------------------------------------
+
+
+async def _probe_firecrawl(endpoint: str, *, timeout: float) -> dict[str, Any]:
+    """firecrawl 后端连通探测:GET 端点根,任何 HTTP 应答 = 已起(语义同
+    searxng /healthz 先例:探测只判「有没有起来」,健康/鉴权语义归消费方;
+    桌面 sidecar 的 remote 配置面板「探活」按钮即本探测)。
+
+    消息只含状态码/异常分类 —— httpx 异常 str 内嵌解析 URL,直接透传会把
+    后端端点带进 findings 与日志(解析值不落日志契约,firecrawl.py 同款)。
+    """
+    client = _build_async_client(timeout=timeout)
+    try:
+        response = await client.get(endpoint)
+    except Exception as exc:  # noqa: BLE001 - 连通性诊断:一切异常归结构化结果
+        return {
+            "ok": False,
+            "http_status": None,
+            "message": f"连接失败({classify_exception(exc)})",
+            "error_type": classify_exception(exc),
+        }
+    finally:
+        await client.aclose()
+    return {
+        "ok": True,
+        "http_status": response.status_code,
+        "message": f"HTTP {response.status_code}",
+        "error_type": None,
+    }
+
+
+def _doctor_firecrawl(args: argparse.Namespace, findings: list[dict[str, Any]]) -> dict[str, Any]:
+    """firecrawl 诊断段(轨D remote 面板的 doctor 连通项)。
+
+    端点解析与引擎同源同序(firecrawl.py 零改动):``MYIA_FIRECRAWL_URL``
+    env 通道 —— 桌面 sidecar 在 serve 启动/面板保存时把数据根 remote 配置
+    桥接进该 env(显式 env = 开发后门恒优先),CLI 直跑则读用户 env。
+    **未配置 ≠ 红**:无端点 → ``configured=false`` 零 finding(缺省未配 =
+    降级链既有行为,firecrawl 契约 dead service degrades cleanly);配置了
+    才探活,不可达 = warning(后端挂 ≠ 源死,同代理池语义)。``api_key_
+    configured`` 只报存在性(env 已设),值零回显。
+    """
+    endpoint = os.environ.get(ENV_FIRECRAWL_URL, "").strip()
+    api_key = os.environ.get(ENV_FIRECRAWL_API_KEY, "").strip()
+    if not endpoint:
+        return {
+            "configured": False,
+            "endpoint_display": None,
+            "api_key_configured": bool(api_key),
+            "probe": None,
+        }
+    probe = asyncio.run(_probe_firecrawl(endpoint, timeout=args.probe_timeout))
+    if not probe["ok"]:
+        _finding(
+            findings,
+            severity="warning",
+            scope="firecrawl",
+            code="firecrawl_unreachable",
+            message=(
+                f"firecrawl 后端不可达(endpoint={ENV_FIRECRAWL_URL}): {probe['message']}"
+                "(源级降级不拦管线;检查设置页 remote 配置面板端点/服务状态)"
+            ),
+        )
+    return {
+        "configured": True,
+        "endpoint_display": f"env:{ENV_FIRECRAWL_URL}",
+        "api_key_configured": bool(api_key),
+        "probe": probe,
+    }
+
+
 def _telegram_poll_conflict_findings(
     loaded: Sequence[tuple[str, CategoryConfig]], findings: list[dict[str, Any]]
 ) -> None:
@@ -3229,6 +3304,17 @@ def _print_human_doctor(payload: dict[str, Any]) -> None:
     for item in gates.get("gated") or []:
         state = "已启用" if item["enabled"] else "未启用(正常态,知情后 myssia gates set 可开启)"
         print(f"  门槛件 {item['id']}[{item['gate']}] — {state}")
+    firecrawl = payload.get("firecrawl") or {}
+    if firecrawl.get("configured"):
+        probe = firecrawl.get("probe") or {}
+        state = "连通" if probe.get("ok") else "失败"
+        key = ",API 键已设" if firecrawl.get("api_key_configured") else ""
+        print(
+            f"  firecrawl 后端 {firecrawl.get('endpoint_display')} — {state}"
+            f" {probe.get('message', '')}{key}"
+        )
+    else:
+        print("  firecrawl 后端 — 未配置(缺省降级,不拦管线)")
     for item in payload["findings"]:
         print(
             f"  [{item['severity']}] {item['scope']} {item['code']}: {item['message']}"
@@ -3272,6 +3358,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     _apprise_component_findings(loaded, findings)
     proxy_section = _doctor_proxy(args, backend, findings)
     gates_section = _doctor_gates(args, findings)
+    firecrawl_section = _doctor_firecrawl(args, findings)
     payload = _doctor_payload(
         args,
         plugins=plugins,
@@ -3280,6 +3367,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
         credential_entries=credential_entries,
         proxy_section=proxy_section,
         gates_section=gates_section,
+        firecrawl_section=firecrawl_section,
         findings=findings,
     )
     if as_json:
@@ -3300,6 +3388,7 @@ def _doctor_payload(
     credential_entries: list[dict[str, Any]],
     proxy_section: dict[str, Any],
     gates_section: dict[str, Any],
+    firecrawl_section: dict[str, Any],
     findings: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Assemble the doctor report (healthy = 无 error 级 finding;info 不计病)."""
@@ -3318,6 +3407,7 @@ def _doctor_payload(
         },
         "proxy": proxy_section,
         "gates": gates_section,
+        "firecrawl": firecrawl_section,
         "findings": findings,
         "summary": {
             "plugins": len(plugins),

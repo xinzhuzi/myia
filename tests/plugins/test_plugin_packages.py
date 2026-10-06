@@ -84,6 +84,10 @@ OFFICIAL_PACKAGES = (
     "myssia-snownlp",
     "myssia-yake",
     "myssia-mediacrawler",
+    # 10-06-native-plugin-components 阶段3(G-Q1):firecrawl 市场桩——tier:
+    # remote,零 adapter 零运行时,轨D 设置页 remote 配置面板的挂点(RSSHub
+    # 桩同款先例;AGPL 只消费不 vendor)。
+    "myssia-firecrawl",
 )
 
 #: v1.1 定级建议(PRD 10-02-v11-plugins-source-arch 复核表)钉死的期望分级。
@@ -111,6 +115,8 @@ EXPECTED_TIERS = {
     "myssia-snownlp": "desktop",
     "myssia-yake": "desktop",
     "myssia-mediacrawler": "desktop",
+    # 阶段3(G-Q1):firecrawl 引擎的 remote 后端桩(云端/自有服务器均接)。
+    "myssia-firecrawl": "remote",
 }
 
 #: 批二(D5,10-05-plugin-market-batch)门槛声明期望表:``gate`` 与 ``tier``
