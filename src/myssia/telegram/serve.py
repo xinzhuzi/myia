@@ -18,11 +18,11 @@ B2 同一份)→ 高价值合并单条即时推(组合铁律)/ 普通入库(合�
   CLI 装配真实通道与 store,测试装 fake —— 宿主本体零 myssia.pipeline 依赖
   (依赖方向红线:telegram 包不反向依赖管线大件)。
 
-桌面接线位(design D1 双宿主;grill Q6 桌面为主):本类即 sidecar 的嵌入
-单元 —— ``desktop/entry.py`` 可照 ``_CRON_TICKER`` 先例持
-``TelegramServeHost`` 于常驻线程(asyncio.run + daemon thread + stop
-Event),凭证/装配与 CLI 同门;sidecar 方法位(``telegram.serve.status``
-等)留待桌面批实装(entry.py 现由并行任务持有,接线位在档)。
+桌面接线(design D1 双宿主;grill Q6 桌面为主)已落(10-06 桌面接线批):
+``desktop/entry.py`` 照 ``_CRON_TICKER`` 判例持本类于常驻 daemon 线程
+(asyncio.run + stop Event 注入 ``should_stop``),装配与 CLI 同门
+(``_assemble_telegram_host``);凭据缺失 = graceful 不启动仅留痕。sidecar
+观测方法位(``telegram.serve.status`` 等)仍留待后续批实装。
 """
 
 from __future__ import annotations

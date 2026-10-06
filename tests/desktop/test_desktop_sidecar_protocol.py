@@ -8,6 +8,7 @@ http.server(安全底线明示例外);凭据方法 monkeypatch,不触碰真实�
 
 from __future__ import annotations
 
+import asyncio
 import http.server
 import importlib.util
 import io
@@ -122,6 +123,8 @@ def _reset_sidecar_state(monkeypatch):
     # 置 stop + 有界 join + 模块级句柄复位(ground-truth B12 ⚠️ 防测试线程
     # 泄漏;dev 用例此调用是幂等 no-op,home 模式用例才真正起过线程)。
     entry._stop_cron_ticker()
+    # telegram-telethon 桌面接线批:同款拆线(幂等;dev 用例 no-op)。
+    entry._stop_telegram_host()
 
 
 class _SecretCapture:
@@ -3205,6 +3208,233 @@ def test_serve_starts_and_stops_cron_ticker(tmp_path, monkeypatch):
     assert seen["supervisor_alive"] and seen["ticker_alive"]
     # EOF:serve 返回前已关停(idle ticker 即醒即退,interval 已注入 0.05s)
     assert entry._CRON_SUPERVISOR is None and entry._CRON_TICKER is None
+
+
+# ---------------------------------------------------------------------------
+# telegram serve 常驻宿主(10-06-telegram-telethon 桌面接线批:生命周期 +
+# graceful 空态 + 真装配件;全 mock 零外网 —— 真宿主只装配不跑)
+# ---------------------------------------------------------------------------
+
+#: 最小 telegram 品类夹具(telegram-groups.yaml 同形裁剪:单源单群,无
+#: push/enrich 节 —— 装配路径足够,LLM 键缺省走纯粗筛降级)。
+TELEGRAM_YAML = """
+id: tg-proto
+name: TG 群协议夹具
+schedule: "*/30 * * * *"
+timezone: Asia/Shanghai
+sources:
+  - name: telegram-proto_group
+    engine: telegram
+    url: "https://api.telegram.org"
+    engine_options:
+      telegram:
+        chat_id: "-1001234567890"
+        keywords: [免费, 白嫖]
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    retry: 3
+watchlist:
+  keywords: []
+  mute: []
+dedup:
+  key: "{url}"
+"""
+
+
+def _fake_telegram_bundle(
+    stop: threading.Event, trace: dict[str, Any]
+) -> entry._TelegramHostBundle:
+    """可控假宿主:``run`` 阻塞到 stop 置位(5ms 步进);``close`` 记账。"""
+
+    async def _run() -> None:
+        trace["run_started"] = True
+        while not stop.is_set():
+            await asyncio.sleep(0.005)
+        trace["run_stopped"] = True
+
+    def _close() -> None:
+        trace["closed"] = True
+
+    return entry._TelegramHostBundle(
+        host=None, run=_run, close=_close, label="fake-tg"
+    )
+
+
+def _ring_lines() -> list[str]:
+    """日志环的 stderr 文本行(留痕断言面)。"""
+    return [e["line"] for e in entry._LOG_RING if e.get("stream") == "stderr"]
+
+
+def test_telegram_host_lifecycle_home_mode(tmp_path, monkeypatch):
+    """宿主起停干净(home 模式):daemon 线程跑 asyncio.run(run())(不占
+    serve 线程)、stop 后线程退出 + 句柄复位 + close 收尾;幂等(在跑重复
+    start 不叠线程、重复 stop 干净、已停重起 = 重入 serve 语义)。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    trace: dict[str, Any] = {}
+    monkeypatch.setattr(
+        entry, "_assemble_telegram_host", lambda ctx, stop: _fake_telegram_bundle(stop, trace)
+    )
+    entry._start_telegram_host()
+    thread = entry._TELEGRAM_THREAD
+    assert thread is not None and thread.is_alive()
+    assert entry._TELEGRAM_STOP is not None
+    assert thread.daemon is True and thread.name == "telegram-serve-host"
+    deadline = time.time() + 2.0
+    while time.time() < deadline and not trace.get("run_started"):
+        time.sleep(0.005)
+    assert trace.get("run_started") is True  # asyncio.run 真把 run() 跑起来了
+
+    entry._start_telegram_host()  # 已在跑:幂等 no-op,同一句柄不叠线程
+    assert entry._TELEGRAM_THREAD is thread
+
+    entry._stop_telegram_host(join_timeout=2.0)
+    assert entry._TELEGRAM_THREAD is None and entry._TELEGRAM_STOP is None
+    thread.join(2.0)
+    assert not thread.is_alive()
+    assert trace.get("run_stopped") is True  # stop Event 走 should_stop 注入面
+    assert trace.get("closed") is True  # 线程收尾真关了 store 面
+
+    entry._stop_telegram_host()  # 幂等:重复 stop 干净
+    entry._start_telegram_host()  # 已停后重起(lifetime = serve,重入重起)
+    assert entry._TELEGRAM_THREAD is not None and entry._TELEGRAM_THREAD.is_alive()
+    entry._stop_telegram_host(join_timeout=2.0)
+    assert entry._TELEGRAM_THREAD is None
+    assert any("telegram 宿主已起" in line for line in _ring_lines())
+
+
+def test_telegram_host_dev_mode_not_started(monkeypatch):
+    """dev 回退(home=None)不起宿主也不触装配:数据根落 cwd,起真宿主会在
+    仓库建 telegram/ 目录污染;dev 常宿形态 = ``myssia telegram serve``
+    (design D1 双宿主的 CLI 档)。"""
+
+    def _fail_assemble(ctx, stop):
+        raise AssertionError("dev 模式不得触装配")
+
+    monkeypatch.setattr(entry, "_assemble_telegram_host", _fail_assemble)
+    entry._start_telegram_host()
+    assert entry._TELEGRAM_THREAD is None
+    assert entry._TELEGRAM_STOP is None
+
+
+def test_telegram_host_credential_missing_graceful(tmp_path, monkeypatch):
+    """凭据缺失 = graceful 不启动仅留痕(批铁律):真装配件 + resolve 强制
+    CredentialResolveError —— 无线程、无异常、留痕含四步指引。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    plugins = tmp_path / "plugins"
+    plugins.mkdir()
+    (plugins / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
+
+    def _deny(value, *, backend=None):
+        from myssia.schema import CredentialResolveError
+
+        raise CredentialResolveError("secret_not_found", f"系统钥匙链中未找到凭据 {value!r}")
+
+    monkeypatch.setattr("myssia.schema.resolve_credential", _deny)
+    entry._start_telegram_host()
+    assert entry._TELEGRAM_THREAD is None  # graceful:不起线程
+    assert entry._TELEGRAM_STOP is None
+    traces = [line for line in _ring_lines() if "telegram 宿主未起" in line]
+    assert traces and "bot token 未配" in traces[-1]
+    assert "myssia secret set myia/telegram/bot-token" in traces[-1]  # 四步指引在痕
+
+
+def test_telegram_host_category_missing_graceful(tmp_path, monkeypatch):
+    """品类缺失 = graceful 不启动仅留痕:不起线程、留痕指名文件。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    (tmp_path / "plugins").mkdir()  # 空 plugins:无 telegram-groups.yaml
+    monkeypatch.setattr(
+        "myssia.schema.resolve_credential",
+        lambda value, *, backend=None: "never-reached",
+    )
+    entry._start_telegram_host()
+    assert entry._TELEGRAM_THREAD is None
+    assert any("品类缺失 telegram-groups.yaml" in line for line in _ring_lines())
+
+
+def test_telegram_host_assembly_builds_real_host(tmp_path, monkeypatch):
+    """装配校验(真装配件,零网络):假 token 解析 → 真 TelegramServeHost
+    (绑定/stop 注入面就位)+ offsets/events 落数据根 telegram/ + close 收
+    store;宿主只装配不跑(poller 持 client 但零请求)。"""
+    from myssia.telegram.serve import TelegramServeHost
+
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    plugins = tmp_path / "plugins"
+    plugins.mkdir()
+    (plugins / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
+    monkeypatch.setattr(
+        "myssia.schema.resolve_credential",
+        lambda value, *, backend=None: "fake-bot-token",
+    )
+    stop = threading.Event()
+    bundle = entry._assemble_telegram_host(entry._serve_context(), stop)
+    assert bundle is not None
+    assert isinstance(bundle.host, TelegramServeHost)
+    assert "tg-proto" in bundle.label and "telegram" in bundle.label
+    # 数据根面:事件账本库真建在 <home>/telegram/(装配即建库,same as CLI)
+    assert (tmp_path / "telegram" / "events.db").exists()
+    bundle.close()
+    # stop 注入面:should_stop 已挂 stop Event(轮间检查点生效)
+    assert bundle.host._should_stop is not None
+    stop.set()
+    assert bundle.host._should_stop() is True
+
+
+def test_telegram_host_fatal_error_exits_with_trace(tmp_path, monkeypatch):
+    """致命错误(401/409 形)线程自退留痕、不自动重排(D4:重启由人决定):
+    run 上抛 → 线程退出 + 留痕 + close 收尾;句柄复位留给 stop/下次 start
+    的查-占(is_alive 判死,重入 serve 可重起)。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    trace: dict[str, Any] = {}
+
+    async def _boom() -> None:
+        raise RuntimeError("http_409: 同 token 的其他 getUpdates 消费者在跑")
+
+    def _close() -> None:
+        trace["closed"] = True
+
+    monkeypatch.setattr(
+        entry, "_assemble_telegram_host",
+        lambda ctx, stop: entry._TelegramHostBundle(
+            host=None, run=_boom, close=_close, label="boom"
+        ),
+    )
+    entry._start_telegram_host()
+    thread = entry._TELEGRAM_THREAD
+    assert thread is not None
+    thread.join(2.0)
+    assert not thread.is_alive()  # 自退:无 supervisor 复活
+    assert trace.get("closed") is True
+    fatal = [line for line in _ring_lines() if "telegram 宿主退出" in line]
+    assert fatal and "http_409" in fatal[-1]
+    entry._stop_telegram_host()  # 死线程的句柄收尾:幂等干净
+    assert entry._TELEGRAM_THREAD is None
+
+
+def test_serve_starts_and_stops_telegram_host(tmp_path, monkeypatch):
+    """serve() 接线:home 模式请求处理期宿主线程在跑(不占 serve 线程);
+    serve EOF 关停 + 句柄复位 + run/close 走完(lifetime = serve;cron 同款)。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    monkeypatch.setattr(entry, "CRON_TICK_INTERVAL_SECONDS", 0.05)  # cron 侧同测规约
+    trace: dict[str, Any] = {}
+    monkeypatch.setattr(
+        entry, "_assemble_telegram_host", lambda ctx, stop: _fake_telegram_bundle(stop, trace)
+    )
+    seen: dict[str, Any] = {}
+    original = entry._handle_line
+
+    def spy(line: str) -> None:
+        # 捕获「请求处理那一刻」的活性(serve EOF 会关停,事后验对象必是死的)
+        seen["alive"] = (
+            entry._TELEGRAM_THREAD is not None and entry._TELEGRAM_THREAD.is_alive()
+        )
+        original(line)
+
+    monkeypatch.setattr(entry, "_handle_line", spy)
+    code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
+    assert code == 0
+    assert seen["alive"] is True
+    # EOF:serve 返回前已关停(假宿主 5ms 步进,join 窗内即醒即退)
+    assert entry._TELEGRAM_THREAD is None and entry._TELEGRAM_STOP is None
+    assert trace.get("run_stopped") is True and trace.get("closed") is True
 
 
 # ---------------------------------------------------------------------------

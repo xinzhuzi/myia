@@ -339,6 +339,16 @@ cron.runs          (ExecutionLedger.list_executions) 执行账本尾查(新→�
   delivery_error, summary, ts}``:fire 完成(摘要 = runner 随执行行落账的
   ``run_summary_json``,零二次解析;账本写失败时 summary=null 如实)。
 
+- telegram serve 常驻宿主(10-06-telegram-telethon 桌面接线批,零新方法
+  纯生命周期件):serve 就绪后持 ``TelegramServeHost`` 于 daemon 线程
+  (asyncio.run;**home 模式才起**,dev/测试回退 ``myssia telegram serve``),
+  装配与 CLI 同门(品类 = ``<plugins>/telegram-groups.yaml`` → 绑定 →
+  keychain token → 入库/推送 sink → offsets/events 落数据根 ``telegram/``);
+  凭据缺失 = graceful 不启动仅留痕(主人四步配好重启即活)。EOF 即停
+  (stop Event + 有界 join,长轮询挂起窗内 daemon 兜底)。与 CLI serve 的
+  双宿主互斥靠 Bot API 同 token 409(telegram/serve.py 设计 D1);致命
+  错误(401/409)线程自退留痕、不自动重排(D4 重启由人决定)。
+
 铁律:凭据只进系统钥匙链(``secret.set`` 薄包装 myssia.secrets,值不落日志/协议流);
 桌面零 Docker;任何插件装不上不拦核心(doctor/list 只产 findings)。
 
@@ -5651,6 +5661,300 @@ def _handle_line(line: str) -> None:
         _respond(rid, result)
 
 
+# ---------------------------------------------------------------------------
+# telegram serve 常驻宿主(10-06-telegram-telethon 桌面接线批,AC4 前置)
+# (cron ticker 同款双宿主判例:serve 生命周期 daemon 线程,home 模式才起,
+# 起不来只留痕不拦服务;能力 = myssia.telegram 包,装配与 CLI
+# ``myssia telegram serve`` 同门。零新协议方法——``telegram.serve.status``
+# 等观测面留待后续批)
+# ---------------------------------------------------------------------------
+
+#: 桌面档品类文件名(CLI ``myssia telegram serve`` 默认 ``plugins/telegram-groups.yaml``
+#: 同门单文件;多 bot/多品类拆档各起宿主走 CLI serve,不在此扩)。
+_TELEGRAM_CATEGORY_FILENAME = "telegram-groups.yaml"
+
+_TELEGRAM_HOST_LOCK = threading.Lock()
+#: 宿主线程句柄(asyncio.run + daemon;测试夹具拆线防线程泄漏,cron 同款)。
+_TELEGRAM_THREAD: threading.Thread | None = None
+#: 停止 Event(注入宿主 ``should_stop``;轮间检查点生效,挂起窗 daemon 兜底)。
+_TELEGRAM_STOP: threading.Event | None = None
+
+
+class _TelegramHostBundle(NamedTuple):
+    """装配产物:``host`` = 宿主本体(观测面/测试锚),``run`` = async 主程
+    (宿主 run_forever + client 收尾),``close`` = sync 收尾(store 关闭),
+    ``label`` = 启动留痕摘要。"""
+
+    host: Any
+    run: Any
+    close: Any
+    label: str
+
+
+def _assemble_telegram_host(
+    ctx: ServeContext, stop: threading.Event
+) -> _TelegramHostBundle | None:
+    """桌面档装配:与 CLI ``_cmd_telegram_serve`` 同门(逐句对照移植)。
+
+    品类(plugins/telegram-groups.yaml)→ 每 chat_id 一绑定(过滤管线同引擎
+    配置)→ 单 bot token(keychain 解析)→ 推送 sink(品类 push 首条通道)/
+    入库 sink(SQLiteStore + DedupRegistry,{url} 锚幂等)→ offsets/events
+    落数据根 ``telegram/``。
+
+    返回 None = graceful 空态(已留痕,**不拦服务**):品类缺失/装载失败、
+    含非 telegram 引擎源、chat_id 缺失或被占、多 token 引用、凭据未配
+    (``CredentialResolveError`` —— 主人四步未完成时的常态,配好重启即活)。
+    重量依赖(httpx/telegram 包)函数内惰性导入:dev 直通模式零加载成本。
+    """
+    category_path = Path(ctx.plugins_dir) / _TELEGRAM_CATEGORY_FILENAME
+    if not category_path.exists():
+        _ring_append(
+            None, "stderr",
+            f"sidecar: telegram 宿主未起(品类缺失 {category_path.name};"
+            "telegram serve 常驻监控待品类就绪后重启生效)",
+        )
+        return None
+    try:
+        config = load_category_file(category_path)
+    except Exception as exc:  # noqa: BLE001 — 装载失败留痕收空态
+        _ring_append(None, "stderr", f"sidecar: telegram 宿主未起(品类装载失败 {category_path.name}): {exc}")
+        return None
+    non_telegram = [s.name for s in config.sources if s.engine != "telegram"]
+    if non_telegram:
+        _ring_append(
+            None, "stderr",
+            f"sidecar: telegram 宿主未起(品类含非 telegram 引擎源: {', '.join(non_telegram)};批量采集走 run)",
+        )
+        return None
+
+    import httpx
+
+    from myssia.dedup import DedupRegistry
+    from myssia.engines.fetch_base import FetchError
+    from myssia.engines.telegram import filter_config_from_options
+    from myssia.pipeline import _build_push_channel
+    from myssia.push.base import SendContext
+    from myssia.schema import CredentialResolveError, resolve_credential
+    from myssia.secrets import get_backend
+    from myssia.store.models import ItemRecord
+    from myssia.telegram.events import TelegramEventLedger
+    from myssia.telegram.filter import TelegramFilterPipeline
+    from myssia.telegram.offsets import OffsetStore
+    from myssia.telegram.serve import (
+        TelegramPoller,
+        TelegramServeHost,
+        TelegramSourceBinding,
+    )
+
+    bindings: dict[str, TelegramSourceBinding] = {}
+    token_ref: str | None = None
+    try:
+        backend = get_backend()
+        for source in config.sources:
+            options = (source.extra_params.get("engine_options") or {}).get(
+                "telegram", {}
+            )
+            chat_id = options.get("chat_id")
+            if not isinstance(chat_id, (str, int)):
+                _ring_append(
+                    None, "stderr",
+                    f"sidecar: telegram 宿主未起(源 {source.name} 缺 engine_options.telegram.chat_id)",
+                )
+                return None
+            chat_key = str(chat_id).strip()
+            if chat_key in bindings:
+                _ring_append(
+                    None, "stderr",
+                    f"sidecar: telegram 宿主未起(chat_id {chat_key} 被多源占用: "
+                    f"{bindings[chat_key].source_name} / {source.name})",
+                )
+                return None
+            ref = options.get("bot_token", "keychain:myia/telegram/bot-token")
+            if token_ref is None:
+                token_ref = str(ref)
+            elif str(ref) != token_ref:
+                _ring_append(
+                    None, "stderr",
+                    "sidecar: telegram 宿主未起(单宿主只支持单 bot token;多 bot 请拆品类走 CLI serve)",
+                )
+                return None
+            bindings[chat_key] = TelegramSourceBinding(
+                chat_id=chat_key,
+                source_name=source.name,
+                source_url=source.url,
+                pipeline=TelegramFilterPipeline(
+                    filter_config_from_options(options), keychain_backend=backend
+                ),
+            )
+    except FetchError as exc:  # filter_config_from_options 的结构化拒
+        _ring_append(None, "stderr", f"sidecar: telegram 宿主未起(过滤配置拒): {exc}")
+        return None
+
+    try:
+        bot_token = resolve_credential(token_ref or "", backend=backend)
+    except CredentialResolveError as exc:
+        _ring_append(
+            None, "stderr",
+            f"sidecar: telegram 宿主未起(bot token 未配 {token_ref}): {exc}\n"
+            "主人四步:BotFather 建 bot → /setprivacy 关隐私模式 → "
+            "myssia secret set myia/telegram/bot-token → 拉进目标群(配好重启即活)",
+        )
+        return None
+
+    db_path = Path(ctx.db)
+    data_root = db_path.parent
+    store = SQLiteStore(db_path)
+    registry = DedupRegistry(store, tz=config.timezone)
+    push_channel = None
+    if config.push:
+        push_channel = _build_push_channel(config.push[0], data_root=data_root)
+
+    def _store_item(item: dict) -> bool:
+        # CLI ``_cmd_telegram_serve`` 同款:dedup key={url} 锚幂等,metadata
+        # 收余键,seen 双写(store + registry)。
+        key = str(item.get("url") or "")
+        if not key or registry.is_seen(key):
+            return False
+        metadata = {
+            k: v
+            for k, v in item.items()
+            if k not in ("url", "title", "content", "source")
+        }
+        store.save_item(
+            ItemRecord(
+                url=key,
+                dedup_key=key,
+                title=str(item.get("title") or ""),
+                source=item.get("source"),
+                content=item.get("content"),
+                raw=metadata,
+            )
+        )
+        registry.mark_seen(key)
+        return True
+
+    async def _push_high_value(item: dict) -> None:
+        # CLI 同款:品类 push 首条通道;未配 push = 仅入库留痕(日报兜底)。
+        if push_channel is None:
+            _ring_append(
+                None, "stderr",
+                f"sidecar: telegram 高价值条目仅入库(品类未配 push 通道) url={item.get('url')}",
+            )
+            return
+        now = datetime.now(config.timezone)
+        context = SendContext(
+            slot="am" if now.hour < 12 else "pm",
+            date=now.strftime("%Y-%m-%d"),
+            category=config.name,
+            kind="immediate",
+        )
+        await push_channel.send([item], context)
+
+    telegram_dir = data_root / "telegram"
+    client = httpx.AsyncClient()
+    host = TelegramServeHost(
+        poller=TelegramPoller(client, bot_token),
+        bindings=bindings,
+        offsets=OffsetStore(telegram_dir / "offsets.json"),
+        ledger=TelegramEventLedger(telegram_dir / "events.db"),
+        push_high_value=_push_high_value,
+        store_item=_store_item,
+        should_stop=stop.is_set,
+    )
+
+    async def _run() -> None:
+        try:
+            await host.run_forever()
+        finally:
+            with contextlib.suppress(Exception):
+                await client.aclose()
+
+    def _close() -> None:
+        with contextlib.suppress(Exception):
+            store.close()
+
+    label = (
+        f"品类 {config.id},群 {sorted(bindings) or '待实填 chat_id'},"
+        f"数据根 {data_root}"
+    )
+    return _TelegramHostBundle(host=host, run=_run, close=_close, label=label)
+
+
+def _start_telegram_host() -> None:
+    """serve() 就绪后起 telegram 宿主:cron ticker 同款判例 + 两处刻意不同。
+
+    同款:daemon 线程绝不占 serve 线程;幂等(锁内查-占,serve EOF 后重入
+    serve 会重起);home 模式才起(dev/测试数据根落 cwd,常宿形态 =
+    ``myssia telegram serve``);起动失败只留痕绝不拦服务。
+
+    刻意不同(telegram/serve.py 设计 D1/D4):无 supervisor 重排 —— 宿主
+    自带断线指数退避(transport/5xx 不崩),致命错误(401 token 失效 /
+    409 双宿主互斥)是配置态问题,蒙头重启只会复读失败,线程自退留痕、
+    重启由人决定。与 CLI serve 的并存互斥 = Bot API 同 token 409。
+    """
+    global _TELEGRAM_THREAD, _TELEGRAM_STOP
+    with _TELEGRAM_HOST_LOCK:
+        if _TELEGRAM_THREAD is not None and _TELEGRAM_THREAD.is_alive():
+            return
+        try:
+            ctx = _serve_context()
+        except ProtocolError as exc:
+            _ring_append(None, "stderr", f"sidecar: telegram 宿主未起({exc.code}: {exc.message})")
+            return
+        if ctx.home is None:
+            return
+        stop = threading.Event()
+        try:
+            bundle = _assemble_telegram_host(ctx, stop)
+        except Exception as exc:  # noqa: BLE001 — 增强件,装配炸不拦服务
+            _ring_append(None, "stderr", f"sidecar: telegram 宿主装配失败(不拦服务): {exc}")
+            return
+        if bundle is None:
+            return  # 空态已在装配函数留痕
+        run, close = bundle.run, bundle.close
+
+        def _thread_main() -> None:
+            try:
+                asyncio.run(run())
+            except Exception as exc:  # noqa: BLE001 — D4:致命上抛到线程边界留痕
+                _ring_append(
+                    None, "stderr",
+                    f"sidecar: telegram 宿主退出({type(exc).__name__}: {exc};"
+                    "401/409 属配置态,调整后重启应用生效)",
+                )
+            finally:
+                close()
+
+        thread = threading.Thread(
+            target=_thread_main, daemon=True, name="telegram-serve-host"
+        )
+        thread.start()
+        _TELEGRAM_THREAD, _TELEGRAM_STOP = thread, stop
+        _ring_append(
+            None, "stderr",
+            f"sidecar: telegram 宿主已起({bundle.label};退出即停)",
+        )
+
+
+def _stop_telegram_host(join_timeout: float = 2.0) -> None:
+    """关停 telegram 宿主(serve EOF / 测试夹具):置 stop → 有界 join。
+
+    幂等;先摘全局引用再 join(重入安全)。宿主的 stop 在轮间检查点生效,
+    长轮询挂起窗(至多 25s)内 join 超时即返回 —— daemon 语义兜底(线程
+    下一轮自退/随进程退出),绝不为等宿主阻塞调用方(cron mid-fire 同
+    哲学;offsets 逐轮持久,中途死零损坏,重拉由锚点去重兜底)。
+    """
+    global _TELEGRAM_THREAD, _TELEGRAM_STOP
+    with _TELEGRAM_HOST_LOCK:
+        stop = _TELEGRAM_STOP
+        thread = _TELEGRAM_THREAD
+        _TELEGRAM_THREAD = _TELEGRAM_STOP = None
+    if stop is not None:
+        stop.set()
+    if thread is not None and thread.is_alive():
+        thread.join(join_timeout)
+
+
 def serve(stdin: Any | None = None, stdout: Any | None = None) -> int:
     """RPC 服务循环:逐行读请求、写应答/事件;stdin EOF = 干净退出 0。
 
@@ -5670,11 +5974,15 @@ def serve(stdin: Any | None = None, stdout: Any | None = None) -> int:
     # serve。daemon 线程绝不占本线程(B10 队头阻塞);home 模式才起,
     # 失败只留痕不拦服务。
     _start_cron_ticker()
+    # telegram 宿主(10-06-telegram-telethon 桌面接线批):同款生命周期
+    # 判例;凭据缺失 graceful 不启动仅留痕(见 _start_telegram_host)。
+    _start_telegram_host()
     source = stdin if stdin is not None else sys.stdin
     while True:
         raw = source.readline()
         if not raw:  # EOF:壳侧关闭管道 = 正常关停
             _stop_cron_ticker(join_timeout=1.0)
+            _stop_telegram_host()
             return 0
         line = raw.strip()
         if line:
