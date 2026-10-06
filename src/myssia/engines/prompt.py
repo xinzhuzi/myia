@@ -457,18 +457,19 @@ class PromptEngine(BaseEngine):
             sections.append(f"## 目标页面 {url}\n\n{_FAILED_URL_NOTE}")
         user_message = "\n\n".join(sections)
 
+        own_client: OpenAICompatClient | None = None
         if self._completer is not None:
             completer = self._completer
         else:
-            client = OpenAICompatClient(
+            own_client = OpenAICompatClient(
                 endpoint[0],
                 endpoint[1],
                 timeout_seconds=options["timeout"],
                 max_output_tokens=options["max_output_tokens"],
             )
-            completer = client.complete
+            completer = own_client.complete
             try:
-                client._ensure_async_client()  # noqa: SLF001 - 提前触发 openai 惰性 import
+                own_client._ensure_async_client()  # noqa: SLF001 - 提前触发 openai 惰性 import
             except EnrichConfigError as exc:
                 raise FetchError(
                     f"openai 依赖未安装(prompt 引擎 LLM 调用需要):{INSTALL_COMMAND}",
@@ -491,6 +492,19 @@ class PromptEngine(BaseEngine):
                 f" model={options['model']}: {type(exc).__name__}: {exc}",
                 error_type="prompt_llm_failed",
             ) from exc
+        finally:
+            # 资源卫生(复核条目④:每轮自建的 AsyncOpenAI/httpx 连接必关)——
+            # 长驻宿主(cron ticker/sidecar)每日多源运行不再累积待 GC 客户端;
+            # 关闭失败只告警,绝不顶掉真实结果/异常。
+            if own_client is not None:
+                try:
+                    await own_client.aclose()
+                except Exception:  # noqa: BLE001 - 清理失败不污染真实结果
+                    logger.warning(
+                        "prompt 引擎 LLM 客户端关闭失败(忽略) source=%s",
+                        self.source.name,
+                        exc_info=True,
+                    )
         markdown = str(getattr(completion, "text", "") or "").strip()
         if not markdown:
             raise FetchError(

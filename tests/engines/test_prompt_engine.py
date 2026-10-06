@@ -386,6 +386,62 @@ def test_llm_empty_output_is_structured(monkeypatch):
     assert excinfo.value.error_type == "prompt_llm_failed"
 
 
+class FakeLLMClient:
+    """OpenAICompatClient 替身(自建路径用):记录 complete/aclose 调用."""
+
+    instances: list["FakeLLMClient"] = []
+
+    def __init__(self, base_url: str, api_key: str, **_kw: Any) -> None:
+        self.base_url = base_url
+        self.closed = False
+        self.completed = False
+        FakeLLMClient.instances.append(self)
+
+    def _ensure_async_client(self) -> None:  # openai 惰性 import 的替身(恒可用)
+        pass
+
+    async def complete(self, *, model: str, system: str, user: str) -> Any:
+        self.completed = True
+        return SimpleNamespace(text=MARKDOWN, total_tokens=7)
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+
+def test_own_client_closed_after_completion(monkeypatch):
+    """资源卫生(复核条目④):completer 未注入时每轮自建 LLM 客户端,完成即 aclose."""
+    FakeLLMClient.instances = []
+    monkeypatch.setattr(
+        "myssia.engines.prompt.OpenAICompatClient", FakeLLMClient
+    )
+    engine, _, _ = prompt_engine(monkeypatch=monkeypatch)
+    engine._completer = None  # 强制走自建路径(helper 默认注入 fake completer)
+    items = run(engine.fetch())
+    assert len(items) == 1
+    assert len(FakeLLMClient.instances) == 1
+    client = FakeLLMClient.instances[0]
+    assert client.completed and client.closed
+
+
+def test_own_client_closed_on_llm_failure(monkeypatch):
+    """LLM 失败路径同样关闭客户端(清理绝不顶掉真实异常)."""
+
+    class FailingClient(FakeLLMClient):
+        async def complete(self, *, model: str, system: str, user: str) -> Any:
+            self.completed = True
+            raise RuntimeError("endpoint boom")
+
+    FakeLLMClient.instances = []
+    monkeypatch.setattr("myssia.engines.prompt.OpenAICompatClient", FailingClient)
+    engine, _, _ = prompt_engine(monkeypatch=monkeypatch)
+    engine._completer = None
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "prompt_llm_failed"
+    assert "endpoint boom" in str(excinfo.value)
+    assert FakeLLMClient.instances[0].closed
+
+
 # ---------------------------------------------------------------------- 8
 
 
