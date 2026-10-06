@@ -8,8 +8,11 @@
 
 from __future__ import annotations
 
+import datetime
 import http.server
+import io
 import json
+import logging
 import socketserver
 import threading
 import time
@@ -20,6 +23,7 @@ import pytest
 
 import myssia.vision.models as models
 import myssia.vision.server as vserver
+from myssia import log as unified_log
 from myssia.vision.settings import VisionConfig, load_vision_config
 
 PNG_HEAD = b"\x89PNG\r\n\x1a\n"
@@ -400,15 +404,25 @@ class TestServerStatus:
 
 class FakeProc:
     """Popen 桩:poll 可编排(缺省 None = 活着);terminate/wait/kill 记录调用
-    (超窗孤儿收尾断言用,wait 缺省即时返回)。"""
+    (超窗孤儿收尾断言用,wait 缺省即时返回);stdout/stderr 可选管道流
+    (10-07-unified-logging 批1:子进程输出泵断言用,缺省无 = 不泵)。"""
 
-    def __init__(self, exit_code: int | None = None):
+    def __init__(
+        self,
+        exit_code: int | None = None,
+        *,
+        stderr: io.BytesIO | None = None,
+        stdout: io.BytesIO | None = None,
+    ):
         self.exit_code = exit_code
         self.returncode = exit_code
         self.poll_count = 0
         self.terminated = False
         self.killed = False
         self.wait_count = 0
+        # 迭代完即 EOF 的管道桩(真 Popen 行为);None 属性 = 无管道(旧桩形态零差)
+        self.stderr = iter(stderr.getvalue().splitlines(keepends=True)) if stderr else None
+        self.stdout = iter(stdout.getvalue().splitlines(keepends=True)) if stdout else None
 
     def poll(self) -> int | None:
         self.poll_count += 1
@@ -535,13 +549,13 @@ class TestEnsureServer:
         assert excinfo.value.code == "spawn_failed"
         assert "uvx" in str(excinfo.value)
 
-    def test_log_path_is_appended_not_devnull(self, tmp_path, monkeypatch):
+    def test_data_root_anchor_healthy_short_circuit_no_files(self, tmp_path, monkeypatch):
+        """data_root 锚点透传(10-07-unified-logging 批1):健康短路零 spawn
+        零自举零落盘——参数只在 spawn 路径消费,不炸不建文件。"""
         monkeypatch.setattr(vserver, "_probe", lambda url, timeout=2.0: (True, True))
-        # 健康短路不触 spawn;log_path 只在 spawn 路径消费,这里验证参数透传不炸
-        result = vserver.ensure_vision_server(
-            _cfg(tmp_path), log_path=tmp_path / "vision-server.log"
-        )
+        result = vserver.ensure_vision_server(_cfg(tmp_path), data_root=tmp_path)
         assert result["started"] is False
+        assert not (tmp_path / "logs").exists()  # 健康路径零落盘
 
     def test_concurrent_ensure_locks_and_double_checks(self, tmp_path, monkeypatch):
         """并发互斥:①健康短路(锁外首探)不碰锁直接返,对等持锁也不排队;
@@ -581,31 +595,49 @@ class TestEnsureServer:
         assert spawns == []
         assert waited >= 0.15  # 确实阻塞等了锁(不是绕过)
 
-    def test_oversized_log_rotated_before_open(self, tmp_path, monkeypatch):
-        """>5MB 日志打开前轮转成 .1(旧代覆盖);小日志不动。"""
-        probes = [(False, False), (False, False)]
-        monkeypatch.setattr(
-            vserver, "_probe", lambda url, timeout=2.0: probes.pop(0) if probes else (False, False)
-        )
-        log = tmp_path / "vision-server.log"
-        huge = b"v" * (vserver.SERVER_LOG_ROTATE_BYTES + 1)
-        log.write_bytes(huge)
-        (tmp_path / "vision-server.log.1").write_bytes(b"old-generation")
-        with pytest.raises(vserver.VisionServerError):
-            vserver.ensure_vision_server(  # 超窗上抛只为走到 open+轮转路径
-                _cfg(tmp_path), log_path=log, _spawn=lambda cmd, **k: FakeProc(),
-                health_wait=0.02, poll_interval=0.01,
+    def test_spawn_output_pumped_to_unified_log_proc_vision(self, tmp_path, monkeypatch):
+        """决议③(10-07-unified-logging 批1):子进程 stdout/stderr 管道泵入
+        统一 ``<data_root>/logs/myssia-*.jsonl`` 的 proc=vision 行(独立调用
+        形态经 data_root 锚点惰性自举);vision-server.log 及其 .1 轮转形态
+        退役——本目录零新面。"""
+        monkeypatch.setattr(vserver, "_probe", lambda url, timeout=2.0: (False, False))
+        # 统一日志隔离(批0 tests/test_log.py 同款纪律:root handlers+工厂快照)
+        saved_handlers = logging.getLogger().handlers[:]
+        saved_factory = logging.getLogRecordFactory()
+        unified_log._reset_module_state()
+        try:
+            with pytest.raises(vserver.VisionServerError):
+                vserver.ensure_vision_server(  # 超窗上抛只为走到 spawn+泵路径
+                    _cfg(tmp_path), data_root=tmp_path,
+                    _spawn=lambda cmd, **k: FakeProc(
+                        stderr=io.BytesIO("Traceback: boom\n".encode()),
+                        stdout=io.BytesIO("INFO: mlx server up\n".encode()),
+                    ),
+                    health_wait=0.02, poll_interval=0.01,
+                )
+            log_file = (
+                tmp_path / "logs" / f"myssia-{datetime.datetime.now():%Y%m%d}.jsonl"
             )
-        assert log.stat().st_size == 0  # 轮转后新开空文件(子进程桩不写字节)
-        assert (tmp_path / "vision-server.log.1").read_bytes() == huge  # 旧代被覆盖
-
-        # 小文件:不轮转,原样追加打开
-        probes.extend([(False, False), (False, False)])
-        log.write_bytes(b"small")
-        with pytest.raises(vserver.VisionServerError):
-            vserver.ensure_vision_server(
-                _cfg(tmp_path), log_path=log, _spawn=lambda cmd, **k: FakeProc(),
-                health_wait=0.02, poll_interval=0.01,
+            deadline = time.monotonic() + 5.0  # 泵线程异步,有界等行到位
+            lines: list[dict] = []
+            while time.monotonic() < deadline:
+                if log_file.exists():
+                    lines = [
+                        json.loads(x) for x in log_file.read_text().splitlines() if x.strip()
+                    ]
+                    if len(lines) >= 2:
+                        break
+                time.sleep(0.02)
+            assert {e["proc"] for e in lines} == {"vision"}
+            assert any(
+                e["stream"] == "stderr" and "Traceback: boom" in e["line"] for e in lines
+            )  # 崩溃 traceback 不丢(design §2)
+            assert any(
+                e["stream"] == "stdout" and "mlx server up" in e["line"] for e in lines
             )
-        assert log.read_bytes() == b"small"
-        assert (tmp_path / "vision-server.log.1").read_bytes() == huge
+            assert not (tmp_path / "vision-server.log").exists()
+            assert not (tmp_path / "vision-server.log.1").exists()
+        finally:
+            unified_log._reset_module_state()
+            logging.getLogger().handlers[:] = saved_handlers
+            logging.setLogRecordFactory(saved_factory)

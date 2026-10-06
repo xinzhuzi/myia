@@ -293,8 +293,8 @@ cron.runs          (ExecutionLedger.list_executions) 执行账本尾查(新→�
   status?, error?, ts}`` 事件(ok 时 status = status+``{started}``;
   并发第二单 ``ensure_busy``;错误族 ``no_local_model`` /
   ``model_dir_missing`` / ``spawn_failed`` / ``server_died`` /
-  ``server_start_failed`` 以事件 error 收口,日志落
-  ``<home>/vision-server.log``,>5MB 打开前轮转);``image.files.purge
+  ``server_start_failed`` 以事件 error 收口,子进程输出泵入统一日志
+  ``<home>/logs/myssia-*.jsonl`` 的 proc=vision 行,决议③);``image.files.purge
   {days}`` → ``{deleted, bytes_freed}``。模型与 server 能力实现在
   ``myssia.vision.models`` / ``myssia.vision.server``(重依赖惰性,
   huggingface-hub 在 extras ``myssia[vision]``)。
@@ -382,13 +382,13 @@ import signal
 import subprocess
 import sys
 import threading
-from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, NamedTuple
 
 import myssia
 import yaml
+from myssia import log as myssia_log
 from myssia import push as myssia_push
 from myssia.alerts import AlertConfigError, CompiledAlertRule, alert_view, compile_rule
 from myssia.cli import DEFAULT_DB_PATH, DEFAULT_PLUGINS_DIR, main as cli_main
@@ -472,7 +472,6 @@ from myssia.vision.models import (
     list_models as vision_list_models,
 )
 from myssia.vision.server import (
-    SERVER_LOG_NAME,
     VisionServerError,
     ensure_vision_server,
     vision_server_status,
@@ -499,8 +498,6 @@ from myssia.vision.server import (
 #: store.items 投影补 read/starred/later 三键;G9,10-04-read-state-server;
 #: 开工实读 v9 后 +1——hermes-cron 已先合入,竞速条款顺延本批 v10)。
 PROTOCOL_VERSION = 10
-#: 日志环形缓冲容量(行);logs.tail 的硬上限。
-LOG_RING_CAPACITY = 4000
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
 STATUS_BY_EXIT = {0: "success", 1: "config_error", 2: "failed", 3: "partial"}
 
@@ -661,7 +658,7 @@ def _seed_first_run(ctx: ServeContext) -> bool:
         marker = ctx.home / SEED_MARKER
         if not marker.exists():
             marker.write_text(_now_iso() + "\n", encoding="utf-8")
-        _ring_append(
+        myssia_log.stream_line(
             None, "stderr", f"sidecar: 品类补种 {len(copied)} 件 -> {plugins_dir}"
         )
     return bool(copied)
@@ -689,14 +686,11 @@ class ProtocolError(Exception):
 
 
 # ---------------------------------------------------------------------------
-# 输出与日志环形缓冲(serve 线程 + run 工作线程共用;单写锁串行化)
+# 输出与统一日志(serve 线程 + run 工作线程共用;单写锁串行化)
 # ---------------------------------------------------------------------------
 
 _OUT: io.TextIOBase | None = None
 _WRITE_LOCK = threading.Lock()
-_RING_LOCK = threading.Lock()
-_LOG_RING: deque[dict[str, Any]] = deque(maxlen=LOG_RING_CAPACITY)
-_LOG_SEQ = 0
 
 
 def _now_iso() -> str:
@@ -722,13 +716,28 @@ def _error(rid: Any, code: str, message: str, *, path: str = "$", data: Any = No
     _write_line({"id": rid, "error": error})
 
 
-def _ring_append(run_id: int | None, stream: str, line: str) -> dict[str, Any]:
-    global _LOG_SEQ
-    with _RING_LOCK:
-        _LOG_SEQ += 1
-        entry = {"seq": _LOG_SEQ, "ts": _now_iso(), "run_id": run_id, "stream": stream, "line": line}
-        _LOG_RING.append(entry)
-        return entry
+def _configure_serve_logging(*, backfill: bool = False) -> None:
+    """serve 形态统一日志(10-07-unified-logging 批1;design §2 sidecar 行)。
+
+    ``myssia.log.configure(mode="serve", ring=True, proc="sidecar")``:ring =
+    logs.tail 数据面,文件 = ``<home>/logs/myssia-*.jsonl``(home 缺省 dev
+    形态 data_root=None,仅 ring+stderr,与旧行为零差);stderr 门 WARNING
+    (子进程行 INFO 不重复上进程 stderr)。``backfill=True`` 仅 serve 启动
+    用一次(会话冷启动:先清环形再盘尾回填,design §5——serve 可重入,
+    不清会把上一会话已入环形的行再 seed 一遍);内嵌 CLI 窗口后的恢复
+    不带 backfill(环形已活,重复 seed 会翻倍)。home 解析失败(不可建)
+    不拦服务:降级 data_root=None 照常起(与 _startup_seed 同哲学)。
+    """
+    try:
+        home = _serve_context().home
+    except ProtocolError:
+        home = None
+    myssia_log.configure(mode="serve", data_root=home, ring=True, proc="sidecar")
+    if backfill and home is not None:
+        # 会话冷启动(home 形态):先清环形再盘尾回填(历史由盘接管,重入
+        # 不重复 seed);dev 形态无盘可回填,环形保留 = 旧行为零差。
+        myssia_log.reset_ring()
+        myssia_log.backfill(home)
 
 
 # ---------------------------------------------------------------------------
@@ -739,18 +748,30 @@ def _ring_append(run_id: int | None, stream: str, line: str) -> dict[str, Any]:
 def _cli_json(argv: list[str]) -> tuple[int, dict[str, Any] | None]:
     """跑一次 CLI 子命令,捕获其 ``--json`` 单份文档与退出码。
 
-    stderr(WARNING+ 结构化日志)入环形缓冲(run_id=null),供 logs.tail 诊断。
+    统一日志改造后(10-07-unified-logging 批1,design §3):cli_main 里
+    ``_configure_logging`` 转调幂等 ``myssia.log.configure``——CLI 的
+    logging 行在调用期间已由 ring handler 直入缓冲(force 互踩从根上
+    消失,R4),被捕获 err 里只剩**裸 print**。窗口纪律:
+    ``suspend_stderr`` 摘 stderr handler(cli_main 内的重配也不复挂,
+    双份防线贯穿窗口)→ logging 行只走 ring+盘;窗口结束 ``resume_stderr``
+    复挂通路 + 恢复 serve 形态配置(mode/proc/盘/ring 全回正,把 CLI
+    残留的 human 级 stderr 门收回 WARNING);err 里的裸 print 行沿旧路
+    ``stream_line`` 入流保「CLI 诊断可见」语义(run_id=null,stderr)。
     仅在 serve 循环线程调用;run 工作线程不经此路(无 stdout 重定向竞争)。
     """
     out, err = io.StringIO(), io.StringIO()
     try:
+        myssia_log.suspend_stderr()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             code = cli_main(argv)
     except SystemExit as exc:  # 防御:--help/--version 类参数不可达,兜底不穿协议流
         raise ProtocolError("internal_error", f"CLI 异常退出: {exc.code}") from exc
+    finally:
+        myssia_log.resume_stderr()  # 窗口收口:复挂 stderr 通路(suspended 复位)
+        _configure_serve_logging()  # serve 形态全恢复(mode/proc/盘/ring 重钉)
     for line in err.getvalue().splitlines():
         if line.strip():
-            _ring_append(None, "stderr", line)
+            myssia_log.stream_line(None, "stderr", line)
     return code, _last_json(out.getvalue())
 
 
@@ -1356,7 +1377,7 @@ def _apply_remote_env_bridge(plugin_id: str, record: dict[str, Any]) -> None:
         try:
             api_key = get_secret(token.removeprefix("keychain:"))
         except SecretError as exc:
-            _ring_append(None, "stderr", f"sidecar: {plugin_id} API 键桥接跳过: {exc}")
+            myssia_log.stream_line(None, "stderr", f"sidecar: {plugin_id} API 键桥接跳过: {exc}")
             return
         if key_var not in os.environ or os.environ.get(key_var) == _BRIDGED_ENV.get(key_var):
             os.environ[key_var] = api_key
@@ -3309,15 +3330,21 @@ def _emit_progress(run_id: int, line: str) -> None:
 
 
 def _pump_stream(run_id: int, stream_obj: Any, stream_name: str) -> None:
-    """逐行转发子进程输出:log 事件 + 环形缓冲;stderr 兼做进度信号源。"""
+    """逐行转发子进程输出:统一漏斗(ring+盘)+ log 事件;stderr 兼做进度信号源。
+
+    ``stream_line`` 返回的条目与环形同 seq 同 ts——事件直接复用其 line/ts,
+    条目在两处的可见性一致(10-07-unified-logging 批1)。"""
     for raw in stream_obj:
         line = raw.rstrip("\n")
         if not line.strip():
             continue
-        _ring_append(run_id, stream_name, line)
-        _write_line({"type": "log", "run_id": run_id, "stream": stream_name, "line": line, "ts": _now_iso()})
+        entry = myssia_log.stream_line(run_id, stream_name, line)
+        _write_line({
+            "type": "log", "run_id": run_id, "stream": stream_name,
+            "line": entry["line"], "ts": entry["ts"],
+        })
         if stream_name == "stderr":
-            _emit_progress(run_id, line)
+            _emit_progress(run_id, entry["line"])
 
 
 def _run_record_dict(record: Any) -> dict[str, Any]:
@@ -3777,18 +3804,20 @@ def _m_store_trend(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _m_logs_tail(params: dict[str, Any]) -> dict[str, Any]:
-    """环形缓冲尾部;lines 上限 = 缓冲容量,run_id 可选过滤。"""
+    """环形缓冲尾部;lines 上限 = 缓冲容量,run_id 可选过滤。
+
+    数据面切到统一模块环形(``myssia.log.ring_snapshot``,批1):语义
+    逐字对齐旧实现(run_id 过滤 + 尾部截取);serve 启动的盘尾回填
+    (design §5)让重启后这里也能翻到上一程历史——请求/响应形状零变化。
+    """
     lines = params.get("lines", 200)
     if not isinstance(lines, int) or lines < 1:
         raise ProtocolError("invalid_params", "lines 必须为正整数", path="params.lines")
-    lines = min(lines, LOG_RING_CAPACITY)
+    lines = min(lines, myssia_log.CAPACITY)
     run_id = params.get("run_id")
-    with _RING_LOCK:
-        snapshot = list(_LOG_RING)
-    if run_id is not None:
-        snapshot = [entry for entry in snapshot if entry["run_id"] == run_id]
+    snapshot = myssia_log.ring_snapshot(run_id=run_id, lines=lines)
     return {
-        "lines": snapshot[-lines:],
+        "lines": snapshot,
         "total": len(snapshot),
         "truncated": len(snapshot) > lines,
     }
@@ -3997,10 +4026,10 @@ def _image_models_download_worker(
             vision_download_model(repo, models_root, name=name, on_progress=_on_progress)
         except VisionModelError as exc:
             error = exc.code
-            _ring_append(None, "stderr", f"sidecar: 模型下载失败 {repo}: [{exc.code}] {exc}")
+            myssia_log.stream_line(None, "stderr", f"sidecar: 模型下载失败 {repo}: [{exc.code}] {exc}")
         except Exception as exc:  # noqa: BLE001 — 事件必须可见,错误收口为完成事件
             error = type(exc).__name__
-            _ring_append(None, "stderr", f"sidecar: 模型下载未预期异常 {repo}: {exc}")
+            myssia_log.stream_line(None, "stderr", f"sidecar: 模型下载未预期异常 {repo}: {exc}")
         completed: dict[str, Any] = {
             "type": "image.models.completed",
             "job_id": job_id,
@@ -4070,7 +4099,8 @@ def _m_image_server_ensure(params: dict[str, Any]) -> dict[str, Any]:
     ``{running, base_url, model, healthy, started:false, ensuring:true, job_id}``,
     终态走 ``image.server.completed {job_id, ok, status?, error?, ts}`` 事件
     (ok 时 status = status+{started});并发第二单 = ``ensure_busy`` 结构化拒。
-    日志落 ``<home>/vision-server.log``(>5MB 打开前轮转,见 server.py)。
+    子进程输出经统一日志管道落 ``<home>/logs/myssia-*.jsonl`` 的 proc=vision
+    行(决议③;vision-server.log 已退役,见 vision/server.py)。
     """
     global _SERVER_ENSURE_ACTIVE_JOB, _SERVER_ENSURE_NEXT_JOB_ID
     ctx = _serve_context()
@@ -4090,25 +4120,25 @@ def _m_image_server_ensure(params: dict[str, Any]) -> dict[str, Any]:
         _SERVER_ENSURE_ACTIVE_JOB = job_id
     threading.Thread(
         target=_image_server_ensure_worker,
-        args=(job_id, config, _vision_yaml_path(ctx).parent / SERVER_LOG_NAME),
+        args=(job_id, config, _vision_yaml_path(ctx).parent),
         daemon=True,
     ).start()
     return {**snapshot, "started": False, "ensuring": True, "job_id": job_id}
 
 
-def _image_server_ensure_worker(job_id: int, config: VisionConfig, log_path: Path) -> None:
+def _image_server_ensure_worker(job_id: int, config: VisionConfig, data_root: Path) -> None:
     """后台线程:ensure_vision_server → image.server.completed 事件(不阻 serve 循环)。"""
     global _SERVER_ENSURE_ACTIVE_JOB
     error: str | None = None
     status: dict[str, Any] | None = None
     try:
-        status = ensure_vision_server(config, log_path=log_path)
+        status = ensure_vision_server(config, data_root=data_root)
     except VisionServerError as exc:
         error = exc.code
-        _ring_append(None, "stderr", f"sidecar: vision server ensure 失败: [{exc.code}] {exc}")
+        myssia_log.stream_line(None, "stderr", f"sidecar: vision server ensure 失败: [{exc.code}] {exc}")
     except Exception as exc:  # noqa: BLE001 — 事件必须可见,错误收口为完成事件
         error = type(exc).__name__
-        _ring_append(None, "stderr", f"sidecar: vision server ensure 未预期异常: {exc}")
+        myssia_log.stream_line(None, "stderr", f"sidecar: vision server ensure 未预期异常: {exc}")
     completed: dict[str, Any] = {
         "type": "image.server.completed",
         "job_id": job_id,
@@ -5145,9 +5175,11 @@ def _cron_emit_event(payload: dict[str, Any]) -> None:
         if _OUT is not None:
             _write_line(payload)
         else:
-            _ring_append(None, "stderr", f"sidecar: cron 事件丢弃(_OUT 未就绪): {payload.get('type')}")
+            myssia_log.stream_line(
+                None, "stderr", f"sidecar: cron 事件丢弃(_OUT 未就绪): {payload.get('type')}"
+            )
     except Exception as exc:  # noqa: BLE001 — 观测面失败只留痕
-        _ring_append(None, "stderr", f"sidecar: cron 事件发送失败: {exc}")
+        myssia_log.stream_line(None, "stderr", f"sidecar: cron 事件发送失败: {exc}")
 
 
 def _cron_dispatch_gate(job: dict[str, Any]) -> bool:
@@ -5233,7 +5265,7 @@ def _start_cron_ticker() -> None:
         try:
             ctx = _serve_context()
         except ProtocolError as exc:
-            _ring_append(None, "stderr", f"sidecar: cron ticker 未起({exc.code}: {exc.message})")
+            myssia_log.stream_line(None, "stderr", f"sidecar: cron ticker 未起({exc.code}: {exc.message})")
             return
         if ctx.home is None:
             return
@@ -5271,7 +5303,7 @@ def _start_cron_ticker() -> None:
         )
         supervisor.start()
         _CRON_TICKER, _CRON_SUPERVISOR, _CRON_STOP = ticker, supervisor, stop
-        _ring_append(
+        myssia_log.stream_line(
             None, "stderr",
             f"sidecar: cron ticker 已起(数据根 {cron.store.data_root},interval={interval:.0f}s)",
         )
@@ -5764,7 +5796,7 @@ def _assemble_telegram_host(
     """
     category_path = Path(ctx.plugins_dir) / _TELEGRAM_CATEGORY_FILENAME
     if not category_path.exists():
-        _ring_append(
+        myssia_log.stream_line(
             None, "stderr",
             f"sidecar: telegram 宿主未起(品类缺失 {category_path.name};"
             "telegram serve 常驻监控待品类就绪后重启生效)",
@@ -5773,11 +5805,14 @@ def _assemble_telegram_host(
     try:
         config = load_category_file(category_path)
     except Exception as exc:  # noqa: BLE001 — 装载失败留痕收空态
-        _ring_append(None, "stderr", f"sidecar: telegram 宿主未起(品类装载失败 {category_path.name}): {exc}")
+        myssia_log.stream_line(
+            None, "stderr",
+            f"sidecar: telegram 宿主未起(品类装载失败 {category_path.name}): {exc}",
+        )
         return None
     non_telegram = [s.name for s in config.sources if s.engine != "telegram"]
     if non_telegram:
-        _ring_append(
+        myssia_log.stream_line(
             None, "stderr",
             f"sidecar: telegram 宿主未起(品类含非 telegram 引擎源: {', '.join(non_telegram)};批量采集走 run)",
         )
@@ -5812,14 +5847,14 @@ def _assemble_telegram_host(
             )
             chat_id = options.get("chat_id")
             if not isinstance(chat_id, (str, int)):
-                _ring_append(
+                myssia_log.stream_line(
                     None, "stderr",
                     f"sidecar: telegram 宿主未起(源 {source.name} 缺 engine_options.telegram.chat_id)",
                 )
                 return None
             chat_key = str(chat_id).strip()
             if chat_key in bindings:
-                _ring_append(
+                myssia_log.stream_line(
                     None, "stderr",
                     f"sidecar: telegram 宿主未起(chat_id {chat_key} 被多源占用: "
                     f"{bindings[chat_key].source_name} / {source.name})",
@@ -5829,7 +5864,7 @@ def _assemble_telegram_host(
             if token_ref is None:
                 token_ref = str(ref)
             elif str(ref) != token_ref:
-                _ring_append(
+                myssia_log.stream_line(
                     None, "stderr",
                     "sidecar: telegram 宿主未起(单宿主只支持单 bot token;多 bot 请拆品类走 CLI serve)",
                 )
@@ -5843,13 +5878,15 @@ def _assemble_telegram_host(
                 ),
             )
     except FetchError as exc:  # filter_config_from_options 的结构化拒
-        _ring_append(None, "stderr", f"sidecar: telegram 宿主未起(过滤配置拒): {exc}")
+        myssia_log.stream_line(
+            None, "stderr", f"sidecar: telegram 宿主未起(过滤配置拒): {exc}"
+        )
         return None
 
     try:
         bot_token = resolve_credential(token_ref or "", backend=backend)
     except CredentialResolveError as exc:
-        _ring_append(
+        myssia_log.stream_line(
             None, "stderr",
             f"sidecar: telegram 宿主未起(bot token 未配 {token_ref}): {exc}\n"
             "主人四步:BotFather 建 bot → /setprivacy 关隐私模式 → "
@@ -5894,7 +5931,7 @@ def _assemble_telegram_host(
         # 深审 F14:返回 bool —— False = 通道未配,宿主不虚计 pushed(账本
         # 记 no_channel);True = 真实送达。
         if push_channel is None:
-            _ring_append(
+            myssia_log.stream_line(
                 None, "stderr",
                 f"sidecar: telegram 高价值条目仅入库(品类未配 push 通道) url={item.get('url')}",
             )
@@ -5968,7 +6005,9 @@ def _start_telegram_host() -> None:
         try:
             ctx = _serve_context()
         except ProtocolError as exc:
-            _ring_append(None, "stderr", f"sidecar: telegram 宿主未起({exc.code}: {exc.message})")
+            myssia_log.stream_line(
+                None, "stderr", f"sidecar: telegram 宿主未起({exc.code}: {exc.message})"
+            )
             return
         if ctx.home is None:
             return
@@ -5976,7 +6015,9 @@ def _start_telegram_host() -> None:
         try:
             bundle = _assemble_telegram_host(ctx, stop)
         except Exception as exc:  # noqa: BLE001 — 增强件,装配炸不拦服务
-            _ring_append(None, "stderr", f"sidecar: telegram 宿主装配失败(不拦服务): {exc}")
+            myssia_log.stream_line(
+                None, "stderr", f"sidecar: telegram 宿主装配失败(不拦服务): {exc}"
+            )
             return
         if bundle is None:
             return  # 空态已在装配函数留痕
@@ -5986,7 +6027,7 @@ def _start_telegram_host() -> None:
             try:
                 asyncio.run(run())
             except Exception as exc:  # noqa: BLE001 — D4:致命上抛到线程边界留痕
-                _ring_append(
+                myssia_log.stream_line(
                     None, "stderr",
                     f"sidecar: telegram 宿主退出({type(exc).__name__}: {exc};"
                     "401/409 属配置态,调整后重启应用生效)",
@@ -5999,7 +6040,7 @@ def _start_telegram_host() -> None:
         )
         thread.start()
         _TELEGRAM_THREAD, _TELEGRAM_STOP = thread, stop
-        _ring_append(
+        myssia_log.stream_line(
             None, "stderr",
             f"sidecar: telegram 宿主已起({bundle.label};退出即停)",
         )
@@ -6037,6 +6078,10 @@ def serve(stdin: Any | None = None, stdout: Any | None = None) -> int:
     """
     global _OUT
     _OUT = stdout if stdout is not None else sys.stdout
+    # 统一日志(10-07-unified-logging 批1):serve 形态 configure(ring+盘+
+    # stderr WARNING)+ 盘尾冷回填(design §5)——重启后 logs.tail 可翻上一程
+    # 历史;必须先于任何 stream_line 消费者(种子/桥接/cron/telegram)。
+    _configure_serve_logging(backfill=True)
     _startup_seed()
     _startup_remote_env()
     # cron ticker(10-04-hermes-cron B3):就绪后起、EOF 关停;lifetime =

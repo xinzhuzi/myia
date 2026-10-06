@@ -13,18 +13,19 @@ import http.server
 import importlib.util
 import io
 import json
+import logging
 import shutil
 import socketserver
 import subprocess
 import sys
 import threading
 import time
-from collections import deque
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from myssia import log as myssia_log
 from myssia.secrets import InMemoryKeychainBackend
 from myssia.store import SQLiteStore
 
@@ -89,7 +90,13 @@ API_JSON = {"data": [{"title": "协议条目一", "url": "https://example.com/p1
 
 @pytest.fixture(autouse=True)
 def _reset_sidecar_state(monkeypatch):
-    """每个测试独立的 sidecar 内存态(run 注册表/日志环/钥匙链后端)。"""
+    """每个测试独立的 sidecar 内存态(run 注册表/统一日志模块态/钥匙链后端)。
+
+    10-07-unified-logging 批1:日志环/seq 退役,改统一模块隔离复位
+    (root handlers + LogRecordFactory 快照恢复;批0 tests/test_log.py 同款
+    纪律 design §1.2——serve() 现在会 configure root,不隔离会泄漏到
+    邻域测试)。
+    """
     monkeypatch.setattr(entry, "_RUNS", {})
     monkeypatch.setattr(entry, "_ACTIVE_RUN_ID", None)
     monkeypatch.setattr(entry, "_NEXT_RUN_ID", 0)
@@ -99,8 +106,9 @@ def _reset_sidecar_state(monkeypatch):
     monkeypatch.setattr(entry, "_TEST_NEXT_JOB_ID", 0)
     monkeypatch.setattr(entry, "_MODELS_DL_ACTIVE_JOB", None)
     monkeypatch.setattr(entry, "_MODELS_DL_NEXT_JOB_ID", 0)
-    monkeypatch.setattr(entry, "_LOG_RING", deque(maxlen=entry.LOG_RING_CAPACITY))
-    monkeypatch.setattr(entry, "_LOG_SEQ", 0)
+    saved_handlers = logging.getLogger().handlers[:]
+    saved_factory = logging.getLogRecordFactory()
+    myssia_log._reset_module_state()
     # v1.1.1 上下文隔离:ambient MYIA_HOME 不得影响任何用例(dev 模式是默认前提)
     monkeypatch.delenv("MYIA_HOME", raising=False)
     monkeypatch.delenv("MYIA_PLUGIN_DIR", raising=False)
@@ -125,6 +133,10 @@ def _reset_sidecar_state(monkeypatch):
     entry._stop_cron_ticker()
     # telegram-telethon 桌面接线批:同款拆线(幂等;dev 用例 no-op)。
     entry._stop_telegram_host()
+    # 统一日志拆线(批1):模块态清零 + root handlers/工厂快照恢复。
+    myssia_log._reset_module_state()
+    logging.getLogger().handlers[:] = saved_handlers
+    logging.setLogRecordFactory(saved_factory)
 
 
 class _SecretCapture:
@@ -3291,8 +3303,10 @@ def _fake_telegram_bundle(
 
 
 def _ring_lines() -> list[str]:
-    """日志环的 stderr 文本行(留痕断言面)。"""
-    return [e["line"] for e in entry._LOG_RING if e.get("stream") == "stderr"]
+    """统一模块环形快照的 stderr 文本行(留痕断言面;批1 改道 myssia.log)。"""
+    return [
+        e["line"] for e in myssia_log.ring_snapshot() if e.get("stream") == "stderr"
+    ]
 
 
 def test_telegram_host_lifecycle_home_mode(tmp_path, monkeypatch):
@@ -3300,6 +3314,7 @@ def test_telegram_host_lifecycle_home_mode(tmp_path, monkeypatch):
     serve 线程)、stop 后线程退出 + 句柄复位 + close 收尾;幂等(在跑重复
     start 不叠线程、重复 stop 干净、已停重起 = 重入 serve 语义)。"""
     monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    entry._configure_serve_logging()  # 批1:直调内部函数的用例模拟 serve 已配置
     trace: dict[str, Any] = {}
     monkeypatch.setattr(
         entry, "_assemble_telegram_host", lambda ctx, stop: _fake_telegram_bundle(stop, trace)
@@ -3352,6 +3367,7 @@ def test_telegram_host_credential_missing_graceful(tmp_path, monkeypatch):
     monkeypatch.setenv("MYIA_HOME", str(tmp_path))
     plugins = tmp_path / "plugins"
     plugins.mkdir()
+    entry._configure_serve_logging()  # 批1:直调内部函数的用例模拟 serve 已配置
     (plugins / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
 
     def _deny(value, *, backend=None):
@@ -3381,6 +3397,7 @@ def test_telegram_host_category_missing_graceful(tmp_path, monkeypatch):
     """品类缺失 = graceful 不启动仅留痕:不起线程、留痕指名文件。"""
     monkeypatch.setenv("MYIA_HOME", str(tmp_path))
     (tmp_path / "plugins").mkdir()  # 空 plugins:无 telegram-groups.yaml
+    entry._configure_serve_logging()  # 批1:直调内部函数的用例模拟 serve 已配置
     monkeypatch.setattr(
         "myssia.schema.resolve_credential",
         lambda value, *, backend=None: "never-reached",
@@ -3437,6 +3454,7 @@ def test_telegram_host_fatal_error_exits_with_trace(tmp_path, monkeypatch):
     run 上抛 → 线程退出 + 留痕 + close 收尾;句柄复位留给 stop/下次 start
     的查-占(is_alive 判死,重入 serve 可重起)。"""
     monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    entry._configure_serve_logging()  # 批1:直调内部函数的用例模拟 serve 已配置
     trace: dict[str, Any] = {}
 
     async def _boom() -> None:

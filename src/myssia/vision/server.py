@@ -12,7 +12,8 @@
   首载慢是常态,不是故障);失败结构化上抛(:class:`VisionServerError`)。
   三条自守纪律:并发 ensure 互斥(:data:`_ENSURE_LOCK`,锁内重探健康防双
   spawn);超健康窗先杀子进程再上抛(孤儿不留,:func:`_terminate_proc`);
-  日志文件超 5MB 打开前轮转成 ``.1``(:func:`_rotate_log_if_huge`)。
+  子进程 stdout/stderr 管道泵入统一日志流(10-07-unified-logging 批1
+  决议③:落 ``myssia-*.jsonl`` 的 proc=vision 行,vision-server.log 退役)。
 
 调用方:管线侧 collect 环 ``vl:local`` 前 ensure 一次(失败沿用
 ``vl_skipped_error`` 降级,绝不阻管线,见 :mod:`myssia.pipeline`);协议侧
@@ -20,9 +21,11 @@
 
 纪律:零重依赖(httpx + subprocess,均为核心依赖面);spawn 用
 ``start_new_session=True``(setsid = nohup 语义:脱离终端、不受壳退出
-SIGHUP 波及),stdout/stderr 落日志文件(缺省 DEVNULL)——serve 进程的
-stdout 是协议流,子进程输出绝不裸穿。健康等待跑在调用方线程
-(pipeline 经 ``asyncio.to_thread``,协议层同步等待)。
+SIGHUP 波及),子进程输出走 stdout/stderr 管道 → daemon 泵线程逐行
+:func:`myssia.log.stream_line`(崩溃 traceback 不丢;serve 进程的 stdout
+是协议流,子进程输出绝不裸穿)——泵线程随进程退出,setsid 子进程在
+泵线程死后写满管道缓冲属可接受终态(server 死→管道读端全关)。健康
+等待跑在调用方线程(pipeline 经 ``asyncio.to_thread``,协议层同步等待)。
 """
 
 from __future__ import annotations
@@ -37,14 +40,13 @@ from urllib.parse import urlparse
 
 import httpx
 
+from myssia import log as unified_log
 from myssia.vision.settings import VisionConfig
 
 __all__ = [
     "HEALTH_POLL_INTERVAL_SECONDS",
     "HEALTH_WAIT_SECONDS",
     "PROBE_TIMEOUT_SECONDS",
-    "SERVER_LOG_NAME",
-    "SERVER_LOG_ROTATE_BYTES",
     "TERMINATE_GRACE_SECONDS",
     "VisionServerError",
     "ensure_vision_server",
@@ -58,10 +60,6 @@ PROBE_TIMEOUT_SECONDS = 2.0
 HEALTH_WAIT_SECONDS = 120.0
 #: 健康轮询间隔(秒)。
 HEALTH_POLL_INTERVAL_SECONDS = 2.0
-#: 代管 server 的日志文件名(落数据根,与 vision.yaml 同目录)。
-SERVER_LOG_NAME = "vision-server.log"
-#: 打开日志前的轮转阈值(字节;>5MB 先 rename 成 ``.1``,防无限增长)。
-SERVER_LOG_ROTATE_BYTES = 5 * 1024 * 1024
 #: 超窗孤儿进程的 SIGTERM 宽限秒数(到期 SIGKILL;run.cancel 同款纪律)。
 TERMINATE_GRACE_SECONDS = 2.0
 
@@ -148,20 +146,49 @@ def _server_command(model_path: str, port: int) -> list[str]:
     ]
 
 
-def _rotate_log_if_huge(log_path: Path) -> None:
-    """打开前轮转:> :data:`SERVER_LOG_ROTATE_BYTES` 先 rename ``.1``。
+def _ensure_unified_logging(data_root: Path | None) -> None:
+    """进程级惰性自举(10-07-unified-logging 批1,design §2 vision 行)。
 
-    只留一代(``.1`` 覆盖旧 ``.1``);轮转失败只吞不阻 —— spawn 照常追加
-    打开,日志膨胀治理是 best-effort,不该挡住 server 起来。
+    root 已有统一模块 handler(sidecar/CLI 进程内)→ no-op——尤其 sidecar
+    的 ring 是 logs.tail 数据面,绝不能被 vision 的 configure 摘掉;独立调用
+    形态才自行 ``configure(mode="serve", ring=False, proc="vision")``。
+    ``data_root`` 为 None 时同样 no-op:未配置进程里 stream_line 的 INFO 无
+    handler 可达,行为同旧 DEVNULL(决议②裸跑零落盘)。
     """
-    try:
-        if log_path.exists() and log_path.stat().st_size > SERVER_LOG_ROTATE_BYTES:
-            rotated = log_path.with_name(log_path.name + ".1")
-            with contextlib.suppress(OSError):
-                rotated.unlink(missing_ok=True)
-            log_path.rename(rotated)
-    except OSError:
-        pass  # 竞态(并发删/权限):追加路径自会重建
+    if data_root is None or unified_log.is_configured():
+        return
+    unified_log.configure(mode="serve", data_root=data_root, ring=False, proc="vision")
+
+
+def _pump_output(stream_obj: Any, stream_name: str) -> None:
+    """逐行泵子进程管道输出 → 统一日志流(proc=vision;design §2)。
+
+    daemon 线程跑:server 活多久泵多久(ensure 返回后照常),父进程退出
+    随之退出;行 decode 容错(uvicorn 启动 banner 偶非 UTF-8 字节)。
+    """
+    for raw in stream_obj:
+        if isinstance(raw, bytes):
+            line = raw.decode("utf-8", errors="replace").rstrip("\n")
+        else:
+            line = str(raw).rstrip("\n")
+        if line.strip():
+            unified_log.stream_line(None, stream_name, line, proc="vision")
+
+
+def _attach_output_pumps(proc: Any) -> None:
+    """给 spawn 出的子进程挂输出泵(测试替身无管道属性 = 零动作)。"""
+    stderr = getattr(proc, "stderr", None)
+    stdout = getattr(proc, "stdout", None)
+    if stderr is not None:
+        threading.Thread(
+            target=_pump_output, args=(stderr, "stderr"),
+            daemon=True, name="vision-server-stderr-pump",
+        ).start()
+    if stdout is not None:
+        threading.Thread(
+            target=_pump_output, args=(stdout, "stdout"),
+            daemon=True, name="vision-server-stdout-pump",
+        ).start()
 
 
 def _terminate_proc(proc: subprocess.Popen, *, grace: float = TERMINATE_GRACE_SECONDS) -> None:
@@ -187,7 +214,7 @@ def _terminate_proc(proc: subprocess.Popen, *, grace: float = TERMINATE_GRACE_SE
 def ensure_vision_server(
     config: VisionConfig,
     *,
-    log_path: Path | str | None = None,
+    data_root: Path | str | None = None,
     timeout: float = PROBE_TIMEOUT_SECONDS,
     health_wait: float = HEALTH_WAIT_SECONDS,
     poll_interval: float = HEALTH_POLL_INTERVAL_SECONDS,
@@ -197,6 +224,12 @@ def ensure_vision_server(
 
     前置门槛(不满足 = 结构化拒绝,不盲目 spawn):``local.model`` 已配且
     目录存在 —— 配置缺失是用户态问题,不是本函数该掩盖的。
+
+    日志(10-07-unified-logging 批1,决议③):子进程 stdout/stderr 走管道,
+    daemon 泵线程逐行 ``myssia.log.stream_line(proc="vision")`` 落统一
+    ``myssia-*.jsonl``(崩溃 traceback 不丢);``data_root`` 是数据根锚点
+    (= 旧 ``log_path`` 的父目录语义),进程未配置统一日志且给了锚点时
+    惰性自举(:func:`_ensure_unified_logging`)。
 
     并发互斥:spawn + 健康等待全程持 :data:`_ENSURE_LOCK`(拿不到就等
     对等调用收尾,≤health_wait);锁内**重探健康**再 spawn —— 并发窗口里
@@ -233,6 +266,8 @@ def ensure_vision_server(
             f"local.model 目录不存在: {model_dir}",
             details={"model": str(model_dir)},
         )
+    root = Path(data_root) if data_root is not None else None
+    _ensure_unified_logging(root)
     port = _parse_port(config.local_base_url)
     cmd = _server_command(str(model_dir), port)
     spawn = _spawn or subprocess.Popen
@@ -243,29 +278,20 @@ def ensure_vision_server(
         if status["healthy"]:
             return {**status, "started": False}
         try:
-            if log_path is not None:
-                log_file = Path(log_path)
-                _rotate_log_if_huge(log_file)
-                sink = open(log_file, "ab")  # noqa: SIM115 - 子进程持有 fd,父进程 close 在 finally
-            else:
-                sink = None
-            try:
-                proc = spawn(
-                    cmd,
-                    stdout=sink if sink is not None else subprocess.DEVNULL,
-                    stderr=sink if sink is not None else subprocess.DEVNULL,
-                    stdin=subprocess.DEVNULL,
-                    start_new_session=True,  # setsid = nohup 语义:脱离终端,壳退出不波及
-                )
-            finally:
-                if sink is not None:
-                    sink.close()
+            proc = spawn(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
+                start_new_session=True,  # setsid = nohup 语义:脱离终端,壳退出不波及
+            )
         except OSError as exc:
             raise VisionServerError(
                 "spawn_failed",
                 f"无法拉起 mlx_vlm.server(uvx 可用吗?brew install uv): {type(exc).__name__}: {exc}",
                 details={"cmd": cmd, "port": port},
             ) from exc
+        _attach_output_pumps(proc)  # 管道泵 → myssia-*.jsonl(proc=vision)
         _LAST_PROC = proc  # 模块级登记:诊断/孤儿定位(赋值原子;serve 单写)
         deadline = time.monotonic() + health_wait
         while time.monotonic() < deadline:
@@ -273,9 +299,8 @@ def ensure_vision_server(
                 raise VisionServerError(
                     "server_died",
                     f"mlx_vlm.server 子进程提前退出(exit={proc.returncode};常见:模型与权重"
-                    f"不匹配 / 端口被占 / mlx-vlm 未装)",
-                    details={"exit_code": proc.returncode, "port": port,
-                             "log": str(log_path) if log_path else None},
+                    f"不匹配 / 端口被占 / mlx-vlm 未装;输出已泵入统一日志 proc=vision 行)",
+                    details={"exit_code": proc.returncode, "port": port},
                 )
             running, healthy = _probe(config.local_base_url, timeout=timeout)
             if healthy:
@@ -292,7 +317,6 @@ def ensure_vision_server(
         raise VisionServerError(
             "server_start_failed",
             f"{health_wait:.0f}s 内 {config.local_base_url}/models 未就绪,子进程已收尾"
-            f"(Metal JIT 首载慢,可稍后重试 image.server.ensure)",
-            details={"port": port, "log": str(log_path) if log_path else None,
-                     "cmd": cmd},
+            f"(Metal JIT 首载慢,可稍后重试 image.server.ensure;输出已泵入统一日志 proc=vision 行)",
+            details={"port": port, "cmd": cmd},
         )

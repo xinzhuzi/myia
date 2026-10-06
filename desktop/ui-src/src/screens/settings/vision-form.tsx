@@ -419,7 +419,7 @@ export function VisionModelsCard() {
           setEnsureError(new SidecarRequestError({
             code: event.error ?? "unknown",
             path: "$",
-            message: `确保启动失败(${event.error ?? "未知错误"});可稍后重试或查看 vision-server.log`,
+            message: `确保启动失败(${event.error ?? "未知错误"});可稍后重试,详情见日志屏或数据根 logs/myssia-*.jsonl 的 proc=vision 行`,
           }));
         }
       }

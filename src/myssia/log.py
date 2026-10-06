@@ -37,6 +37,8 @@ __all__ = [
     "RETENTION_DAYS",
     "backfill",
     "configure",
+    "is_configured",
+    "reset_ring",
     "resume_stderr",
     "ring_snapshot",
     "stream_line",
@@ -327,6 +329,11 @@ def configure(
     - ``proc``:本进程条目的 proc 缺省值(sidecar/cli/cron/vision,决议③)。
 
     重配摘下的旧 handler 会被 close(文件句柄不泄漏)。
+
+    **挂起窗跨重配存续**(批1 design §3):``suspend_stderr()`` 打开的窗口内
+    即使再次 configure(如 sidecar 内嵌 cli_main 的重配),新 stderr handler
+    也不挂回 root——窗口语义由「窗口方」负责收口(resume 或恢复配置),
+    窗口内任何重配不得把 logging 行漏进被捕获的 stderr(双份防线)。
     """
     _install_factory()
     root = logging.getLogger()
@@ -339,7 +346,6 @@ def configure(
     _STATE.mode = mode
     _STATE.proc = proc
     _STATE.data_root = data_root
-    _STATE.stderr_suspended = False
     if data_root is not None:
         logs_dir = data_root / "logs"
         file_handler = JsonlFileHandler(logs_dir)
@@ -352,17 +358,24 @@ def configure(
         root.addHandler(ring_handler)
     stderr_handler = _build_stderr_handler(mode)
     setattr(stderr_handler, _HANDLER_TAG, True)
-    root.addHandler(stderr_handler)
     _STATE.stderr_handler = stderr_handler
+    if not _STATE.stderr_suspended:
+        root.addHandler(stderr_handler)
 
 
-def stream_line(run_id: int | None, stream: str, line: str) -> dict[str, Any]:
+def stream_line(
+    run_id: int | None, stream: str, line: str, *, proc: str | None = None
+) -> dict[str, Any]:
     """子进程一行输出 → 同一漏斗;返回入环形的条目供协议事件发射。
 
     经 ``myssia.stream`` logger INFO + extra 注入走 root 三 handler:ring+盘
     必得;stderr 因 INFO 不过 WARNING 门(与今天子进程行只进 ring+事件的
     现状一致,design §1)。返回条目与环形同 seq 同 ts——调用方(entry.py
     pump)用它发射协议 ``type:"log"`` 事件,协议事件仍属 sidecar 层。
+
+    ``proc``:显式进程标注(sidecar 进程内转发的 vision 子进程行传
+    ``"vision"``,决议③——本进程缺省值会把它错标成 sidecar);缺省用
+    configure 时定的本进程 proc。
     """
     logger = logging.getLogger(_STREAM_LOGGER)
     record = logger.makeRecord(
@@ -373,7 +386,11 @@ def stream_line(run_id: int | None, stream: str, line: str) -> dict[str, Any]:
         line,
         None,
         None,
-        extra={"run_id": run_id, "stream": stream, "proc": _STATE.proc},
+        extra={
+            "run_id": run_id,
+            "stream": stream,
+            "proc": proc if proc is not None else _STATE.proc,
+        },
     )
     logger.handle(record)
     return _entry_from_record(record)
@@ -386,6 +403,30 @@ def ring_snapshot(run_id: int | None = None, lines: int = CAPACITY) -> list[dict
     if run_id is not None:
         snapshot = [entry for entry in snapshot if entry.get("run_id") == run_id]
     return snapshot[-lines:] if lines > 0 else []
+
+
+def is_configured() -> bool:
+    """root 上是否已有本模块 handler(进程级「统一日志已配置」判定)。
+
+    供 vision server 的惰性自举(批1 design §2):sidecar/CLI 进程内已有
+    配置(尤其 sidecar 的 ring 必须保住)时 no-op,仅独立调用形态才自行
+    configure。
+    """
+    return any(
+        getattr(handler, _HANDLER_TAG, False) for handler in logging.getLogger().handlers
+    )
+
+
+def reset_ring() -> None:
+    """清环形缓冲(serve 会话冷启动;批1)。
+
+    serve() 可重入(entry.py「lifetime = serve」)——重入即新会话,语义
+    对齐新进程冷启动:旧会话行已落盘,由 ``backfill`` 从盘尾拉回接管
+    历史;不清则 backfill 会把上一会话已入环形的行再 seed 一遍(重复)。
+    进程内普通重配(``configure``)不清环形(既有契约,design §1)。
+    """
+    with _RING_LOCK:
+        _RING.clear()
 
 
 def backfill(data_root: Path) -> list[dict[str, Any]]:

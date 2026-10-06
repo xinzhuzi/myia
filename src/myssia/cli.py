@@ -116,6 +116,7 @@ from urllib.parse import urlsplit
 import httpx
 
 import myssia
+from myssia import log as myssia_log
 from myssia.cron.jobs import AmbiguousJobReference, CronJobs
 from myssia.cron.runner import CronRunner
 from myssia.cron.tick import tick as cron_tick_scan
@@ -1309,12 +1310,23 @@ def _add_osint_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _configure_logging(as_json: bool) -> None:
-    """stderr 上的结构化日志;--json 模式收敛到 WARNING,保 stdout 纯净。"""
-    logging.basicConfig(
-        stream=sys.stderr,
-        level=logging.WARNING if as_json else logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        force=True,
+    """统一日志薄壳(10-07-unified-logging 批1):转调 ``myssia.log.configure``。
+
+    行为对齐旧 ``basicConfig``:stderr 格式 ``%(asctime)s %(levelname)s
+    %(name)s: %(message)s`` 原样;``--json`` 收敛 WARNING(human=INFO)保
+    stdout 纯净。落盘条件(决议②):仅 ``MYIA_HOME`` 已设 →
+    ``<MYIA_HOME>/logs``(与 ``_cron_default_db`` 「无 env 终端行为不变」
+    同判例,防 ``logs/`` 建进仓库);裸 repo 终端跑 = data_root=None 仅
+    stderr。ring=True:sidecar 内嵌 cli_main 窗口里 CLI 诊断行仍直入环形
+    (design §3「恰一份」);独立 CLI 进程内 ring 无消费者,零行为差。
+    幂等 configure 替代 force=True——sidecar 的 ring handler 不再被拆(R4)。
+    """
+    home = os.environ.get("MYIA_HOME")
+    myssia_log.configure(
+        mode="json" if as_json else "human",
+        data_root=Path(home).expanduser() if home else None,
+        ring=True,
+        proc="cli",
     )
 
 

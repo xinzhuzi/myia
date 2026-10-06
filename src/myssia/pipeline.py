@@ -191,7 +191,7 @@ from myssia.vision.collect import (
     detail_request_headers,
     process_item_images,
 )
-from myssia.vision.server import SERVER_LOG_NAME, ensure_vision_server
+from myssia.vision.server import ensure_vision_server
 from myssia.vision.settings import (
     VISION_FILE_NAME,
     VisionConfig,
@@ -1997,10 +1997,11 @@ class Pipeline:
                 "vision.yaml 拒载,图片处理环按 VL 不可用降级(OCR 照常): %s", exc
             )
             vision_cfg = VisionConfig()
-        # server 代管(10-03-vision-v2):本轮任何源可能走 vl:local 时,先
-        # ensure 一次本地 mlx_vlm.server(未跑则 nohup 自启,健康等待跑线程
-        # 池防卡事件循环)。失败只告警 —— VL 环稍后照常按 vl_skipped_error
-        # 降级不阻管线,语义与手工 nohup 失联的今天完全一致。
+        # server 代管(10-03-vision-v2;日志 10-07-unified-logging 批1 决议③):
+        # 本轮任何源可能走 vl:local 时,先 ensure 一次本地 mlx_vlm.server(未跑
+        # 则 nohup 自启,健康等待跑线程池防卡事件循环);子进程输出管道泵入统一
+        # myssia-*.jsonl(proc=vision)。失败只告警 —— VL 环稍后照常按
+        # vl_skipped_error 降级不阻管线,语义与手工 nohup 失联的今天完全一致。
         if images_cfg.vl == "local" or any(
             (source.extra_params or {}).get("images_vl") == "local"
             for source in self.config.sources
@@ -2009,7 +2010,7 @@ class Pipeline:
                 await asyncio.to_thread(
                     ensure_vision_server,
                     vision_cfg,
-                    log_path=Path(self._db_path).parent / SERVER_LOG_NAME,
+                    data_root=Path(self._db_path).parent,
                 )
             except Exception as exc:  # noqa: BLE001 - 代管失败 = VL 降级,不阻 run
                 logger.warning("本地 vision server 自启失败(VL 照常降级): %s", exc)
