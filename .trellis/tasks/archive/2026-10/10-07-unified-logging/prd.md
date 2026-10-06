@@ -95,3 +95,7 @@
 - **独立复查两 medium 发现已修并入库**(47b4672),复查无未处置遗留。
 - **诚实注记**:①evidence 三张 PNG(01-03)在档但收尾代理模型无图像输入未目验像素,留主人过目;②ErrorBoundary/console 兜底装机冒烟无独立回执——webview→shell.log 管道由 updater 行装机证通,兜底行为由 vitest 16 例钉死;③独立 `myia cron serve` 进程 proc=cli(design §2 表写 proc="cron"——实现沿 cli.py 入口未另设标识,spec 3a21377 已按实态入档,如需细分属后续小改)。
 - **遗留**:UI 日志进日志屏=决议④明留后续可选项(协议语义扩展另立项);vision-server.out/.err 中继 sink 为复查修复新增产物面(5MB 截断帽,spec 侧随 #41 行语义覆盖)。
+
+## 勘误补记(2026-10-07 深检;原文勾选不改历史,见 run-report.md §8)
+
+- AC6/AC9 中「日志屏翻/可翻上一程历史」半句**像素层不成立**:03-logs-screen.png PaddleOCR 补验=空态(运行历史 0/0 轮);根因=运行历史为 sidecar 会话级注册表,重启即空,空态门控盖整卡使 logs.tail(回填已生效)不可达。协议层回填与文件留存证据维持;产品面收口移交 **10-07-logs-restart-visibility**(运行历史 DB 合流跨重启可见+两 low 顺手修),主人令「按照你的建议去做」已批。

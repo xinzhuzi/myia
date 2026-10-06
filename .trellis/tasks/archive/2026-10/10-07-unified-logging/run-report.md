@@ -49,7 +49,7 @@
 | ② | 数据根出现当日 myssia+壳(+vision 若触发)日志文件,内容可读 | `04-shell-log-snapshot.txt`(shell.log:setup done ×6+webview updater 两行)+`05-myssia-jsonl-head.txt`(proc=sidecar/proc=cli 行,字段 ts/run_id/stream/line/proc 齐全无 seq) | **亲核**✅;vision 行未触发(看图流未走)——测试钉死(§4-2 sink 断言) |
 | ③ | UI 层:console+错误兜底冒烟验 shell 文件收行 | `04` 行 4-5:webview target `updater: 检查更新开始`/`检查完成: 已是最新(v0.0.1)`(03:18)——webview→shell.log 管道装机证通 | **亲核**✅;onerror/ErrorBoundary 装机冒烟无独立回执(行为由 vitest log.test.ts 7 例+error-boundary 3 例钉死)如实记 |
 | ④ | updater 检查一次验埋点落盘 | `02-settings-system-after-updater-check.png`(设置页)+`04` updater 两行 | 同①③:文本亲核✅/截图在档未目验 |
-| ⑤ | 重启 App→文件仍在、日志屏翻上一程历史(回填生效) | `04`(setup done 03:01/03:09/03:14/03:18/03:19/03:24=六次进程起落同一 shell.log 留存)+`05`(19:01:54Z 与 19:02:50Z 两会话行同文件)+`03-logs-screen.png`(日志屏) | 文件留存**亲核**✅;日志屏翻页=03 截图在档未目验像素 |
+| ⑤ | 重启 App→文件仍在、日志屏翻上一程历史(回填生效) | `04`(setup done 03:01/03:09/03:14/03:18/03:19/03:24=六次进程起落同一 shell.log 留存)+`05`(19:01:54Z 与 19:02:50Z 两会话行同文件)+`03-logs-screen.png`(日志屏) | 文件留存**亲核**✅;日志屏翻页=03 截图**已补验(§8 勘误):像素层为空态,「翻上一程」未成立**,后续任务 10-07-logs-restart-visibility 跟进 |
 
 ## 6. AC 对账总表(明细注记见 prd §Acceptance Criteria 行尾)
 
@@ -64,7 +64,7 @@
 | AC6 冷启动回填 | ✅ | backfill 2 例+truncated 语义例+装机跨重启留存 |
 | AC7 降级 | ✅ | test_degraded_readonly_root |
 | AC8 门禁全绿 | ✅ | 收尾轮亲跑 §3 双 EXIT=0 |
-| AC9 装机亲验 | ✅ | evidence 六件(文本亲核/截图在档未目验);vision 未触发如实记 |
+| AC9 装机亲验 | ✅ | evidence 六件(文本亲核/截图在档未目验);vision 未触发如实记;**§8 勘误:03 截图补验后「日志屏可翻」半句不成立** |
 | AC10 UI 日志落盘 | ✅ | vitest 16 例+装机 04 webview updater 行 |
 | AC11 八层对账 | ✅ | prd §关键日志面清单凭据列逐层回填 |
 
@@ -75,3 +75,9 @@
 3. **cron 独立 serve 进程 proc=cli**:design §2 表原写 proc="cron",实现沿 cli.py 入口未另设标识(spec `3a21377` 已按实态入档);如需细分属后续小改(一行参数)。
 4. **ErrorBoundary 回退 UI 审美裁决**(决议⑥):截图留主人过目(01-03 在 evidence)。
 5. **vision-server.out/.err 中继 sink**:复查修复新增产物面(5MB 截断帽自管),非目标面扩展已随 #41 行 spec 语义覆盖;如需纳入保留清理窗属后续小改。
+
+## 8. 勘误补记(2026-10-07 主会话深检,主人令「按照你的建议去做」前轮)
+
+1. **§5-⑤「日志屏翻上一程历史(回填生效)」措辞超证**:03-logs-screen.png 经 PaddleOCR 补验(avg_conf 0.94)实为**空态**——「运行历史 0/0 轮」「还没有采集记录」,屏上无任何日志行。机制:运行历史数据源=sidecar 会话级内存注册表(`run.status`→`_m_run_status`),重启即空;空态盖整卡(logs-screen.tsx:812),而 `logs.tail` 按运行行展开才惰性拉取——列表空则永不调用。**回填在协议层真实生效**(test_run_logs_survive_restart/test_backfill_budget_and_seq 钉死,logs.tail 确能吐上一程),但重启后 UI 无门可见。AC6/AC9 的勾选维持(协议层与文件留存证据成立),「日志屏可翻」半句以本勘误为准。
+2. **归档时「截图未目验留主人过目」的欠账已由主会话清偿**:01/02/03 三张 PaddleOCR 补验(01 仪表盘真数据 134/25/40 ✓;02 设置页「已连接·检测于 03:18:13」与 shell.log updater 时间线吻合 ✓;03 见上)。教训入册:无图像输入的收尾代理,像素复核必须由主会话或 local-ocr 链补位,不许留主人。
+3. **两 low(独立 cron serve proc=cli / feishu_callback 入口未统一)不再「留后续」**:随主人令转后续任务 10-07-logs-restart-visibility 一并执行(含 R1 运行历史跨重启可见=上条勘误的产品面收口)。
