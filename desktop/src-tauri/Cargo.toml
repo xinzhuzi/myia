@@ -11,6 +11,10 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
+# log:统一日志面壳半(10-07-unified-logging 批2)——Rust 壳与 UI(webview
+# console 劫持经 plugin JS API)同汇 `<数据根>/logs/shell.log`(按大小轮转
+# KeepAll+归档名时间戳,壳启动自清 >7 天;格式沿 plugin 默认=grill 决议⑤)。
+tauri-plugin-log = "2"
 # dialog:看图屏系统文件选择器(拖/贴零权限,选图需插件;10-03-image-input)
 tauri-plugin-dialog = "2"
 # updater:官方更新插件(签名校验 + 静默安装);process:安装后 relaunch。
@@ -19,6 +23,9 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# 壳侧 log:: 宏门面(10-07-unified-logging 批2):打点经 tauri-plugin-log
+# 挂的全局 logger 落 shell.log;版本随锁内(fern/plugin 同源)0.4 线。
+log = "0.4"
 # 自管 Python 环境(10-05 第 2 步):依赖清单指纹;第 3 步安装链的运行时
 # sha256 校验共用同 crate(design §3「下载:HTTPS + sha256 校验」)。
 sha2 = "0.10"

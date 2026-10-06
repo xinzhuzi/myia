@@ -356,7 +356,7 @@ fn write_component_stamp(data_root: &Path, id: &str, stamp: &ComponentStamp) {
         .and_then(|()| std::fs::rename(&tmp, component_stamp_path(data_root, id)))
         .is_err()
     {
-        eprintln!("desktop: 组件 {id} 指纹戳写入失败(不影响安装结果回包)");
+        log::warn!("desktop: 组件 {id} 指纹戳写入失败(不影响安装结果回包)");
     }
 }
 
@@ -482,7 +482,7 @@ fn write_service_stamp(data_root: &Path, id: &str, stamp: &ServiceStamp) {
         .and_then(|()| std::fs::rename(&tmp, service_stamp_path(data_root, id)))
         .is_err()
     {
-        eprintln!("desktop: 服务组件 {id} 状态戳写入失败(不影响启停结果回包)");
+        log::warn!("desktop: 服务组件 {id} 状态戳写入失败(不影响启停结果回包)");
     }
 }
 
@@ -814,7 +814,7 @@ pub(crate) fn start_service_process(
             last_exit: prior_exit,
         },
     );
-    eprintln!(
+    log::info!(
         "desktop: 服务组件 {} 已拉起(pid={pid},日志 {};健康端点 {})",
         spec.id,
         log_path.display(),
@@ -894,7 +894,7 @@ pub(crate) fn start_service_process(
             ));
         }
         if Instant::now() >= deadline {
-            eprintln!(
+            log::warn!(
                 "desktop: 服务组件 {} 启动后 {}s 内健康端点未绿(进程存活;如实回 \
                  running+healthy=false,实例内部故障/慢启动见日志 {})",
                 spec.id,
@@ -932,7 +932,7 @@ pub(crate) fn stop_service_process(
     if let Some(mut child) = owned {
         // 本会话亲生:句柄即身份证明,直接组停 + waitpid 回收退出码。
         let pid = child.id();
-        eprintln!(
+        log::info!(
             "desktop: 服务组件 {} 停止中(SIGTERM 进程组 -{pid})",
             spec.id
         );
@@ -950,7 +950,7 @@ pub(crate) fn stop_service_process(
             };
         }
         if exit_status.is_none() {
-            eprintln!(
+            log::warn!(
                 "desktop: 服务组件 {} 优雅停超时({}ms),升级 SIGKILL 进程组",
                 spec.id,
                 SERVICE_STOP_GRACE.as_millis()
@@ -961,7 +961,7 @@ pub(crate) fn stop_service_process(
         if let Some(status) = exit_status {
             last_exit = exit_code_of(&status);
         }
-        eprintln!(
+        log::info!(
             "desktop: 服务组件 {} 已停(组 -{pid} 零残留;退出观测 {:?})",
             spec.id, last_exit
         );
@@ -969,7 +969,7 @@ pub(crate) fn stop_service_process(
     {
         let pid = prior.pid.expect("is_some_and 已核");
         if pid_command_matches_service(pid, python_bin, &svc.start_cmd) {
-            eprintln!(
+            log::info!(
                 "desktop: 服务组件 {} 孤儿进程停止中(壳重启前拉起;SIGTERM 进程组 -{pid})",
                 spec.id
             );
@@ -986,12 +986,12 @@ pub(crate) fn stop_service_process(
                 }
             }
             // 非亲生 waitpid 不可及:退出码无法观测,last_exit 保持 None 如实
-            eprintln!(
+            log::info!(
                 "desktop: 服务组件 {} 孤儿进程已停(组 -{pid} 零残留;跨会话退出码不可观测,last_exit=None 如实)",
                 spec.id
             );
         } else {
-            eprintln!(
+            log::warn!(
                 "desktop: 服务组件 {} 状态戳记 running(pid={})但 argv 复核不过(疑 pid 复用),\
                  不对它发组信号;戳如实转 stopped",
                 spec.id, pid
@@ -1084,7 +1084,7 @@ pub(crate) fn reconcile_service_status(
                     last_exit: None,
                 });
             }
-            eprintln!(
+            log::warn!(
                 "desktop: 服务组件 {} 状态戳记 running 但 pid={} 已不在(运行期间死亡),\
                  戳纠偏转 stopped(退出码不可观测,保持上次已知值)",
                 spec.id, pid

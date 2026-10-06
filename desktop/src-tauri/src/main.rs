@@ -21,8 +21,23 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Listener, Manager, State};
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
+
+// ---------------------------------------------------------------------------
+// 壳日志(10-07-unified-logging 批2;design §6)
+// ---------------------------------------------------------------------------
+
+/// 壳/UI 共用日志文件名(tauri-plugin-log;活动文件恒 `shell.log`,按大小
+/// 轮转归档 `shell_<YYYY-MM-DD_HH-MM-SS>.log`——源码 LOG_DATE_FORMAT/
+/// rename_file_to_dated 真名复核,UseLocal 本地墙钟)。
+const SHELL_LOG_FILE_NAME: &str = "shell";
+/// 壳日志单文件上限(决议⑥:5MB;plugin 默认 40_000 字节过小必调)。
+const SHELL_LOG_MAX_FILE_SIZE: u128 = 5 * 1024 * 1024;
+/// 壳归档保留天数(design §4:与 Python 侧 RETENTION_DAYS=7 同值各持一份,
+/// 不加 UI/env 旋钮)。
+const SHELL_LOG_RETENTION_DAYS: u64 = 7;
 
 /// 流式事件转发到前端所用的事件名。
 const SIDECAR_EVENT: &str = "sidecar://event";
@@ -104,7 +119,7 @@ fn handle_stdout_line(app: &AppHandle, line: &str) {
     let parsed: Value = match serde_json::from_str(line) {
         Ok(value) => value,
         Err(e) => {
-            eprintln!("sidecar stdout 非 JSON 行(忽略): {e}: {line}");
+            log::warn!("sidecar stdout 非 JSON 行(忽略): {e}: {line}");
             return;
         }
     };
@@ -125,8 +140,10 @@ fn handle_stdout_line(app: &AppHandle, line: &str) {
         } else {
             // 迟到应答:请求已超时移除(sidecar_timeout 已回前端)。不留痕的
             // 静默丢弃会掩盖「壳超时 < sidecar 实际耗时」的配置问题,大声说出来。
-            eprintln!("sidecar 迟到应答(请求已超时移除,丢弃) id={id} method={:?}",
-                parsed.get("method").and_then(Value::as_str).unwrap_or("?"));
+            log::warn!(
+                "sidecar 迟到应答(请求已超时移除,丢弃) id={id} method={:?}",
+                parsed.get("method").and_then(Value::as_str).unwrap_or("?")
+            );
         }
     }
 }
@@ -139,11 +156,17 @@ fn pump_task(app: AppHandle, mut rx: tauri::async_runtime::Receiver<CommandEvent
                     handle_stdout_line(&app, &String::from_utf8_lossy(&bytes));
                 }
                 CommandEvent::Stderr(bytes) => {
-                    eprintln!("sidecar stderr: {}", String::from_utf8_lossy(&bytes));
+                    // sidecar stderr(模块 WARNING+/崩溃 traceback)在装机件上的
+                    // 唯一落点:批2 design §6 钉死 warn 级落 shell.log。
+                    log::warn!("sidecar stderr: {}", String::from_utf8_lossy(&bytes));
                 }
-                CommandEvent::Error(message) => eprintln!("sidecar 错误: {message}"),
+                CommandEvent::Error(message) => log::warn!("sidecar 错误: {message}"),
                 CommandEvent::Terminated(payload) => {
-                    eprintln!("sidecar 退出: code={:?} signal={:?}", payload.code, payload.signal);
+                    log::warn!(
+                        "sidecar 退出: code={:?} signal={:?}",
+                        payload.code,
+                        payload.signal
+                    );
                     let state = app.state::<Sidecar>();
                     *state.child.lock().unwrap() = None;
                     // drop(child 关闭管道 = stdin EOF,serve 循环干净退出;
@@ -249,11 +272,17 @@ fn schedule_respawn(app: AppHandle) {
                     SIDECAR_STATE_EVENT,
                     json!({"state": "dead", "attempt": attempt - 1}),
                 );
-                eprintln!("desktop: sidecar 自动 respawn 超限(连续 {}/{RESPAWN_MAX_ATTEMPTS}),转手动拉起", attempt - 1);
+                log::warn!(
+                    "desktop: sidecar 自动 respawn 超限(连续 {}/{RESPAWN_MAX_ATTEMPTS}),转手动拉起",
+                    attempt - 1
+                );
                 return;
             }
             let _ = app.emit(SIDECAR_STATE_EVENT, json!({"state": "respawning", "attempt": attempt}));
-            eprintln!("desktop: sidecar 将在 {:?} 后自动 respawn(第 {attempt} 次)", backoff_delay(attempt));
+            log::warn!(
+                "desktop: sidecar 将在 {:?} 后自动 respawn(第 {attempt} 次)",
+                backoff_delay(attempt)
+            );
             tokio::time::sleep(backoff_delay(attempt)).await;
             {
                 let state = app.state::<Sidecar>();
@@ -272,16 +301,16 @@ fn schedule_respawn(app: AppHandle) {
                             // pyenv 空态事件才是此刻的真相,拉起按钮救不了环境)。
                             let _ = app.emit(pyenv::PYENV_STATUS_EVENT, &not_ready.0);
                             let _ = app.emit(pyenv::PYENV_NOT_READY_EVENT, &not_ready.0);
-                            eprintln!("desktop: {not_ready};停止自动 respawn");
+                            log::warn!("desktop: {not_ready};停止自动 respawn");
                             return;
                         }
-                        eprintln!("desktop: sidecar respawn 失败(第 {attempt} 次): {error}");
+                        log::warn!("desktop: sidecar respawn 失败(第 {attempt} 次): {error}");
                         continue; // attempts 已 +1,下一轮更长退避直至 dead
                     }
                 }
             }
             let _ = app.emit(SIDECAR_STATE_EVENT, json!({"state": "online", "respawned": true}));
-            eprintln!("desktop: sidecar 自动 respawn 成功(第 {attempt} 次)");
+            log::info!("desktop: sidecar 自动 respawn 成功(第 {attempt} 次)");
             // 稳定计时:存活满 10s → attempts 归零(又死则 Terminated 走更长退避)。
             // *guard == attempt 复核:稳定窗口内若又死(Terminated 已 +1)或手动
             // 拉起已归零,本任务不得抢先归零(防两代 respawn 任务交错重置)。
@@ -341,15 +370,171 @@ fn data_root(app: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
 /// 的路径解析一处定案;sidecar 自带 .app bundle 探测作双保险。
 fn myssia_home_dir(app: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let home = app.path().home_dir()?;
-    let dir = if cfg!(target_os = "macos") {
-        home.join("Library/Application Support/MYIA")
-    } else if cfg!(target_os = "windows") {
-        home.join("AppData").join("Roaming").join("MYIA")
-    } else {
-        home.join(".myia")
-    };
+    let dir = home.join(platform_data_root_suffix());
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
+}
+
+/// 平台数据根后缀(相对用户 home):`myssia_home_dir`(AppHandle 路径解析)
+/// 与启动期日志目录解析(`data_root_before_app`,plugin 注册前无 AppHandle)
+/// 共用同一拼装规则——不引第二套路径规则(design §2 单一职责)。
+fn platform_data_root_suffix() -> PathBuf {
+    if cfg!(target_os = "macos") {
+        PathBuf::from("Library/Application Support/MYIA")
+    } else if cfg!(target_os = "windows") {
+        PathBuf::from("AppData").join("Roaming").join("MYIA")
+    } else {
+        PathBuf::from(".myia")
+    }
+}
+
+/// 启动期数据根解析(tauri builder 之前,无 AppHandle 可用):与 `data_root`
+/// 同规则——显式 `MYIA_HOME` 尊重原样继承;未设按平台根。home 目录来源 =
+/// `HOME`/`USERPROFILE` env(acquire_instance_lock 同款惯例;tauri path
+/// resolver 的 home 同源于此,极端 home 覆写形态两者一致漂移,可接受)。
+fn data_root_before_app() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    if let Some(home) = std::env::var_os("MYIA_HOME") {
+        return Ok(PathBuf::from(home));
+    }
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .ok_or("用户 home 目录不可解析(HOME/USERPROFILE 均未设)")?;
+    Ok(PathBuf::from(home).join(platform_data_root_suffix()))
+}
+
+/// 壳日志目录解析 + 预建:`<数据根>/logs/`(与 Python 侧统一日志同目录,
+/// design §0)。不可解析/不可建 → None(降级仅 Stdout,不阻启动——plugin 的
+/// Folder target 在目录不可建时会硬失败阻起壳,故预建前置在此吸收)。
+fn resolve_shell_logs_dir() -> Option<PathBuf> {
+    let dir = data_root_before_app().ok()?.join("logs");
+    std::fs::create_dir_all(&dir).is_ok().then_some(dir)
+}
+
+/// 组装 tauri-plugin-log builder(design §6 配置包):
+/// - targets:Folder(`<数据根>/logs/shell.log`)+ Stdout 双写(装机件无人读
+///   stdout 亦无害;dev 终端可见);降级态(目录不可建)仅 Stdout;
+/// - max_file_size 5MB(决议⑥)+ KeepAll(归档名时间戳,>7 天由壳启动
+///   自清 `clean_stale_shell_archives`,plugin 自身无按天保留);
+/// - timezone UseLocal(归档名/行时间戳本地时区)。⚠️ 该调用会重置 formatter
+///   ——决议⑤壳格式沿 plugin 默认(不自造 format),故不再另设 format,
+///   「timezone 在前 format 在后」顺序坑在此不触发,留注防后人踩;
+/// - level Info(壳生命周期/安装链/respawn 留痕面;DEBUG 噪音不进装机件)。
+fn shell_log_plugin(logs_dir: Option<&std::path::Path>) -> tauri_plugin_log::Builder {
+    let builder = tauri_plugin_log::Builder::new()
+        .level(log::LevelFilter::Info)
+        .max_file_size(SHELL_LOG_MAX_FILE_SIZE)
+        .rotation_strategy(RotationStrategy::KeepAll)
+        .timezone_strategy(TimezoneStrategy::UseLocal);
+    match logs_dir {
+        Some(dir) => builder.targets([
+            Target::new(TargetKind::Folder {
+                path: dir.to_path_buf(),
+                file_name: Some(SHELL_LOG_FILE_NAME.into()),
+            }),
+            Target::new(TargetKind::Stdout),
+        ]),
+        None => builder.targets([Target::new(TargetKind::Stdout)]),
+    }
+}
+
+/// 解析壳归档名时间戳:`shell_YYYY-MM-DD_HH-MM-SS.log` → (年,月,日,时,分,秒)
+/// (plugin LOG_DATE_FORMAT 逐位严格解析,分隔符位不符/越界值 None;活动
+/// `shell.log` 与 `.bak` 碰撞形态天然不匹配)。
+fn parse_shell_archive_timestamp(file_name: &str) -> Option<(i64, u32, u32, u32, u32, u32)> {
+    let stem = file_name.strip_prefix("shell_")?.strip_suffix(".log")?;
+    let bytes = stem.as_bytes();
+    if bytes.len() != 19 {
+        return None;
+    }
+    let sep_at = |i: usize, expected: u8| bytes.get(i).is_some_and(|b| *b == expected);
+    if !(sep_at(4, b'-')
+        && sep_at(7, b'-')
+        && sep_at(10, b'_')
+        && sep_at(13, b'-')
+        && sep_at(16, b'-'))
+    {
+        return None;
+    }
+    let num = |range: std::ops::Range<usize>| -> Option<u32> {
+        let s = stem.get(range)?;
+        s.chars().all(|c| c.is_ascii_digit()).then_some(())?;
+        s.parse().ok()
+    };
+    let (year, month, day) = (num(0..4)?, num(5..7)?, num(8..10)?);
+    let (hour, minute, second) = (num(11..13)?, num(14..16)?, num(17..19)?);
+    if !(1..=12).contains(&month)
+        || !(1..=31).contains(&day)
+        || hour > 23
+        || minute > 59
+        || second > 59
+    {
+        return None;
+    }
+    Some((year as i64, month, day, hour, minute, second))
+}
+
+/// 墙钟时间 → 线性秒(「当作 UTC」的天数换算;Hinnant days_from_civil,
+/// 1970-01-01=0)。归档时间戳(UseLocal 本地墙钟)与截止值同法比较,时区
+/// 偏移在两侧相消(±UTC 偏移 ≤14h,对 7 天保留窗无感,如实取舍)。
+fn naive_wall_clock_epoch(
+    year: i64,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+) -> i64 {
+    let y = if month <= 2 { year - 1 } else { year };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let mp = (i64::from(month) + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + i64::from(day) - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    (era * 146097 + doe - 719468) * 86400
+        + i64::from(hour) * 3600
+        + i64::from(minute) * 60
+        + i64::from(second)
+}
+
+/// 壳归档保留清理(design §4/批2 2.6):启动时把 `logs/` 下归档名时间戳
+/// **早于截止值**的 `shell_<时间戳>.log` 删除。红线:前缀钉死逐名解析,
+/// 绝不整目录清理——活动 `shell.log`、名形不符件(`.bak` 碰撞形态)、
+/// Python 侧 `myssia-*.jsonl`、旧 `vision-server.log`、`cron/output` 等
+/// 邻居零触碰。回执 = 删除数(日志留痕用)。
+fn clean_stale_shell_archives_with_cutoff(
+    logs_dir: &std::path::Path,
+    cutoff_epoch: i64,
+) -> usize {
+    let Ok(entries) = std::fs::read_dir(logs_dir) else {
+        return 0;
+    };
+    let mut removed = 0;
+    for entry in entries.flatten() {
+        let file_name = entry.file_name();
+        let Some(name) = file_name.to_str() else {
+            continue;
+        };
+        let Some((y, m, d, h, mi, s)) = parse_shell_archive_timestamp(name) else {
+            continue;
+        };
+        if naive_wall_clock_epoch(y, m, d, h, mi, s) < cutoff_epoch {
+            if std::fs::remove_file(entry.path()).is_ok() {
+                removed += 1;
+            }
+        }
+    }
+    removed
+}
+
+/// 启动期保留清理入口:`shell_<时间戳>.log` 归档 > 7 天删除(截止值 =
+/// 当前 unix epoch − 7 天,同法「当 UTC」比较)。
+fn clean_stale_shell_archives(logs_dir: &std::path::Path) -> usize {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let cutoff = now - SHELL_LOG_RETENTION_DAYS as i64 * 86400;
+    clean_stale_shell_archives_with_cutoff(logs_dir, cutoff)
 }
 
 /// 沙箱窗标题(10-05-ui-chore-batch,池档 v12-backlog 第 9 项):显式
@@ -457,7 +642,7 @@ fn show_main_window_deferred<R: tauri::Runtime>(app: &impl Manager<R>, focus: bo
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(SHOW_FALLBACK).await;
         if let Some(focus) = take_pending_show() {
-            eprintln!("desktop: ui-ready 未至,亮窗兜底触发(可能未渲染完)");
+            log::warn!("desktop: ui-ready 未至,亮窗兜底触发(可能未渲染完)");
             show_window_now(&handle, focus);
         }
     });
@@ -502,6 +687,9 @@ fn main() {
     match acquire_instance_lock() {
         Some(lock) => std::mem::forget(lock),
         None => {
+            // 保留 eprintln(pre-logger 通道):此分支发生在 tauri builder 之前,
+            // log plugin 尚未挂全局 logger,log::warn! 会被静默丢弃;本进程
+            // 随即退出,终端 stderr 是唯一可见面。
             eprintln!("desktop: 已有 MYIA 实例在跑(单实例锁),转激活既有实例后退出");
             let _ = std::process::Command::new("/bin/sh")
                 .args(["-c", "sleep 0.5; exec /usr/bin/open -b com.myssia.app"])
@@ -510,6 +698,24 @@ fn main() {
         }
     }
     let builder = tauri::Builder::default();
+    // 壳日志(批2 design §6):plugin 注册前先解析 `<数据根>/logs/`(既有
+    // 数据根规则;不可建 → 降级仅 Stdout 不阻启动)+ 归档自清(>7 天,红线
+    // 前缀钉死)。plugin 的全局 logger 在其 setup 挂起——setup 早于本壳一切
+    // 业务留痕(pump/respawn/安装链),此后 log:: 宏全走 shell.log。
+    let logs_dir = resolve_shell_logs_dir();
+    if let Some(dir) = &logs_dir {
+        let removed = clean_stale_shell_archives(dir);
+        if removed > 0 {
+            // 此刻 logger 未挂(log:: 会丢),用 eprintln 打一条启动期回执
+            // (与单实例锁同款「pre-logger 通道」;dev 终端可见)。
+            eprintln!(
+                "desktop: 壳日志归档自清: 删除 {removed} 个 >{SHELL_LOG_RETENTION_DAYS} 天归档({})",
+                dir.display()
+            );
+        }
+    } else {
+        eprintln!("desktop: 壳日志目录不可建(数据根不可解析/不可写),降级仅 Stdout");
+    }
     // Windows 二实例唤出(10-05-win-second-instance-show):发布包主窗
     // visible:false 出厂,macOS 有 Dock Reopen 亮窗,Windows 无 Dock 无托盘
     // ——普通用户双击图标永无窗口(10-05-win-local-build evidence §8 坑 4)。
@@ -520,13 +726,16 @@ fn main() {
     #[cfg(target_os = "windows")]
     let builder = builder.plugin(tauri_plugin_single_instance::init(
         |app, argv, _cwd| {
-            eprintln!(
+            log::info!(
                 "desktop: 第二实例启动(argv={argv:?}),唤出既有实例主窗后其自退"
             );
             show_main_window(app);
         },
     ));
     let app = builder
+        // log:壳/UI 统一日志(批2;注册序在 single-instance 之后——Windows
+        // 侧官方要求 single-instance 居首位不动,log 次位;macOS/Linux 居首)。
+        .plugin(shell_log_plugin(logs_dir.as_deref()).build())
         .plugin(tauri_plugin_shell::init())
         // updater:前端经 @tauri-apps/plugin-updater 检查/下载/安装;签名公钥见 tauri.conf.json
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -579,7 +788,7 @@ fn main() {
                 *app.state::<Sidecar>().child.lock().unwrap() = Some(child);
             } else {
                 let _ = app.emit(pyenv::PYENV_NOT_READY_EVENT, &status);
-                eprintln!(
+                log::warn!(
                     "desktop: Python 运行环境未就绪(state={:?}),不 spawn sidecar;UI 走引导空态",
                     status.state
                 );
@@ -600,10 +809,10 @@ fn main() {
                 if allowed {
                     match crate::pyenv_install::start_install_thread(app.handle().clone(), false) {
                         Ok(()) => {
-                            eprintln!("desktop: MYIA_PYENV_AUTOSETUP={mode} 冒烟钩子已拉起安装链")
+                            log::info!("desktop: MYIA_PYENV_AUTOSETUP={mode} 冒烟钩子已拉起安装链")
                         }
                         Err(err) => {
-                            eprintln!("desktop: MYIA_PYENV_AUTOSETUP 拉起安装链失败: {err}")
+                            log::warn!("desktop: MYIA_PYENV_AUTOSETUP 拉起安装链失败: {err}")
                         }
                     }
                 }
@@ -683,7 +892,7 @@ fn main() {
                 #[cfg(target_os = "macos")]
                 yield_focus_after_silent_start(app.handle().clone());
             }
-            eprintln!(
+            log::info!(
                 "desktop: setup done in {} ms(sidecar {})",
                 started.elapsed().as_millis(),
                 if pyenv::spawnable(status.state) { "spawned" } else { "skipped(环境未就绪)" }
@@ -779,5 +988,117 @@ mod tests {
     #[test]
     fn sandbox_title_passthrough_when_myia_home_unset() {
         assert_eq!(sandbox_title("世事", None), "世事");
+    }
+
+    // -----------------------------------------------------------------------
+    // 壳日志(10-07-unified-logging 批2;AC4/AC5 壳半)
+    // -----------------------------------------------------------------------
+
+    /// MYIA_HOME 环境变量互斥:env 是进程全局,env 触面测试之间串行,
+    /// 防并行测试互踩(cargo test 默认多线程)。
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// 显式 MYIA_HOME → `<root>/logs` 拼装 + 目录预建;根不可建(父路径
+    /// 是普通文件)→ None 降级(仅 Stdout,不阻启动)。
+    #[test]
+    fn shell_logs_dir_resolves_and_degrades() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let previous = std::env::var_os("MYIA_HOME");
+        // 可建根:logs 目录被预建
+        let root = tempfile::tempdir().expect("临时数据根创建失败");
+        std::env::set_var("MYIA_HOME", root.path());
+        let logs = resolve_shell_logs_dir().expect("可建根应解析出 logs 目录");
+        assert_eq!(logs, root.path().join("logs"));
+        assert!(logs.is_dir(), "logs 目录应被预建(plugin Folder 依赖)");
+        // 不可建根:MYIA_HOME 指到普通文件之下 → create_dir_all 失败 → None
+        let blocker = tempfile::tempdir().expect("临时目录创建失败");
+        let file = blocker.path().join("plain-file");
+        std::fs::write(&file, b"x").expect("占位普通文件写入失败");
+        std::env::set_var("MYIA_HOME", file.join("under").join("logs-parent"));
+        assert!(
+            resolve_shell_logs_dir().is_none(),
+            "根不可建应降级 None(仅 Stdout)"
+        );
+        match previous {
+            Some(value) => std::env::set_var("MYIA_HOME", value),
+            None => std::env::remove_var("MYIA_HOME"),
+        }
+    }
+
+    /// 归档名时间戳解析(plugin LOG_DATE_FORMAT 真名复核):合法形态全字段;
+    /// 活动 shell.log / .bak 碰撞形态 / 名形不符 / 越界值一律 None。
+    #[test]
+    fn shell_archive_timestamp_parses_plugin_name_shape() {
+        assert_eq!(
+            parse_shell_archive_timestamp("shell_2026-10-07_09-30-45.log"),
+            Some((2026, 10, 7, 9, 30, 45))
+        );
+        // 名形不符(红线:前缀钉死,别的一切不匹配)
+        assert_eq!(parse_shell_archive_timestamp("shell.log"), None);
+        assert_eq!(parse_shell_archive_timestamp("shell_2026-10-07_09-30-45.log.bak"), None);
+        assert_eq!(parse_shell_archive_timestamp("shell_20261007_093045.log"), None);
+        assert_eq!(parse_shell_archive_timestamp("myssia-20261007.jsonl"), None);
+        assert_eq!(parse_shell_archive_timestamp("shell_2026-1x-07_09-30-45.log"), None);
+        // 越界字段(月 13 / 时 24):形态合法但值不合法 → None(不误删)
+        assert_eq!(parse_shell_archive_timestamp("shell_2026-13-01_00-00-00.log"), None);
+        assert_eq!(parse_shell_archive_timestamp("shell_2026-10-07_24-00-00.log"), None);
+    }
+
+    /// 墙钟线性秒(Hinnant days_from_civil):对照 datetime 同口径参考值
+    /// (2026-10-07 亲算:1791365445;闰日 2000-02-29:951825600)。
+    #[test]
+    fn naive_wall_clock_epoch_matches_reference() {
+        assert_eq!(naive_wall_clock_epoch(1970, 1, 1, 0, 0, 0), 0);
+        assert_eq!(naive_wall_clock_epoch(2000, 2, 29, 12, 0, 0), 951825600);
+        assert_eq!(naive_wall_clock_epoch(2026, 10, 7, 9, 30, 45), 1791365445);
+        assert_eq!(naive_wall_clock_epoch(2024, 1, 1, 0, 0, 0), 1704067200);
+    }
+
+    /// 归档保留清理(AC5 壳半):>截止值的归档删;新归档/活动 shell.log/
+    /// 邻居(Python myssia-*.jsonl、旧 vision-server.log、.bak 碰撞形态、
+    /// cron 产物)零触碰——负断言钉死「绝不整目录清理」红线。
+    #[test]
+    fn stale_shell_archives_purged_and_neighbors_untouched() {
+        let logs = tempfile::tempdir().expect("临时 logs 目录创建失败");
+        let write = |name: &str| std::fs::write(logs.path().join(name), b"log line\n")
+            .unwrap_or_else(|e| panic!("{name} 写入失败: {e}"));
+        // 截止值 = 2026-01-01 00:00:00(naive 同法)
+        let cutoff = naive_wall_clock_epoch(2026, 1, 1, 0, 0, 0);
+        write("shell_2025-12-25_00-00-00.log"); // 超期 → 删
+        write("shell_2024-06-01_08-00-00.log"); // 远超期 → 删
+        write("shell_2026-06-01_00-00-00.log"); // 期内 → 留
+        write("shell.log"); // 活动文件永不动 → 留
+        write("shell_2025-12-25_00-00-00.log.bak"); // 碰撞形态不匹配 → 留
+        write("myssia-20251225.jsonl"); // Python 侧单前缀 → 留
+        write("vision-server.log"); // 升级场景旧文件 → 留
+        write("cron-job-output.log"); // cron 每跑次产物 → 留
+
+        let removed = clean_stale_shell_archives_with_cutoff(logs.path(), cutoff);
+
+        assert_eq!(removed, 2, "恰删两个超期归档");
+        assert!(!logs.path().join("shell_2025-12-25_00-00-00.log").exists());
+        assert!(!logs.path().join("shell_2024-06-01_08-00-00.log").exists());
+        for kept in [
+            "shell_2026-06-01_00-00-00.log",
+            "shell.log",
+            "shell_2025-12-25_00-00-00.log.bak",
+            "myssia-20251225.jsonl",
+            "vision-server.log",
+            "cron-job-output.log",
+        ] {
+            assert!(
+                logs.path().join(kept).exists(),
+                "邻居/期内件 {kept} 不得被清理(红线)"
+            );
+        }
+    }
+
+    /// 目录缺位(数据根被整体清走等极端态)→ 零动作零 panic(与 Python 侧
+    /// 「无文件静默通过」同语义)。
+    #[test]
+    fn stale_shell_archive_cleanup_missing_dir_is_noop() {
+        let base = tempfile::tempdir().expect("临时目录创建失败");
+        let missing = base.path().join("no-such-logs");
+        assert_eq!(clean_stale_shell_archives_with_cutoff(&missing, 0), 0);
     }
 }

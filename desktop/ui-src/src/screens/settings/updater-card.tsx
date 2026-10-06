@@ -23,6 +23,11 @@ import { ErrorBox } from "./error-box";
  * check() → 无更新回显当前版本 / 有更新展示 version+notes →
  * downloadAndInstall()(Rust 侧验签 + passive 安装)→ relaunch()。
  * 失败统一包装成结构化错误走 ErrorBox,如实展示不吞错。
+ *
+ * 日志埋点(10-07-unified-logging 批2,design §6):检查开始/结果、下载
+ * 里程碑(Started/25/50/75%/Finished)、安装与重启请求、失败——`updater:`
+ * 前缀经(劫持后的)console.info/warn/error 落 shell.log;事件流与 UI
+ * 形态零改动,只加埋点。
  */
 type UpdaterPhase =
   | "idle" // 未检查
@@ -49,6 +54,7 @@ export function UpdaterCard() {
   const handleCheck = useCallback(async () => {
     setPhase("checking");
     setError(null);
+    console.info("updater: 检查更新开始");
     try {
       // 当前版本仅用于回显;取不到(异常环境)不拦检查流程
       const [found, version] = await Promise.all([
@@ -58,7 +64,13 @@ export function UpdaterCard() {
       setAppVersion(version);
       setUpdate(found);
       setPhase(found ? "available" : "up-to-date");
+      console.info(
+        found
+          ? `updater: 检查完成: 发现新版本 v${found.version}(当前 v${found.currentVersion || version || "?"})`
+          : `updater: 检查完成: 已是最新(v${version || "?"})`,
+      );
     } catch (raw) {
+      console.warn(`updater: 检查失败: ${raw instanceof Error ? raw.message : String(raw)}`);
       setError(toUpdaterError(raw, "updater_check_failed"));
       setPhase("idle");
     }
@@ -68,11 +80,42 @@ export function UpdaterCard() {
     if (!update) return;
     setPhase("installing");
     setError(null);
+    console.info(`updater: 开始下载并安装 v${update.version}`);
     try {
-      await update.downloadAndInstall();
+      // 下载里程碑:Started 记总量,Progress 按 25/50/75% 阈值各记一条
+      // (逐 chunk 全记是噪音,决议⑥之外的裁量;Finished 记收尾)。
+      let received = 0;
+      let total: number | null = null;
+      let nextMilestone = 0.25;
+      await update.downloadAndInstall((event) => {
+        if (event.event === "Started") {
+          total = event.data.contentLength ?? null;
+          if (total !== null) {
+            console.info(`updater: 下载开始(总量 ${total} B)`);
+          } else {
+            console.info("updater: 下载开始(总量未知)");
+          }
+        } else if (event.event === "Progress") {
+          received += event.data.chunkLength;
+          // 里程碑 25/50/75%(恰一份/档;100% 不另记——Finished 行带总量收尾)
+          if (total !== null && total > 0 && nextMilestone <= 0.75) {
+            const ratio = received / total;
+            if (ratio >= nextMilestone) {
+              console.info(
+                `updater: 下载进度 ${Math.min(100, Math.round(ratio * 100))}%(${received}/${total} B)`,
+              );
+              nextMilestone += 0.25;
+            }
+          }
+        } else {
+          console.info(`updater: 下载完成(${received} B),请求安装`);
+        }
+      });
+      console.info("updater: 安装完成,已请求重启");
       setPhase("restarting");
       await relaunch();
     } catch (raw) {
+      console.error(`updater: 下载安装失败: ${raw instanceof Error ? raw.message : String(raw)}`);
       setError(toUpdaterError(raw, "updater_install_failed"));
       setPhase("available");
     }

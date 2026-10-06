@@ -357,7 +357,7 @@ impl<'a> Runner<'a> {
             steps: self.steps.clone(),
         };
         if let Err(err) = write_stamp(&self.cfg.data_root, &stamp) {
-            eprintln!("desktop: 安装链进度戳写入失败(继续执行): {err}");
+            log::warn!("desktop: 安装链进度戳写入失败(继续执行): {err}");
         }
     }
 
@@ -390,7 +390,7 @@ impl<'a> Runner<'a> {
             steps: self.steps.clone(),
         };
         if let Err(err) = write_stamp(&self.cfg.data_root, &stamp) {
-            eprintln!("desktop: 安装链终态戳写入失败: {err}");
+            log::warn!("desktop: 安装链终态戳写入失败: {err}");
         }
     }
 
@@ -450,7 +450,7 @@ fn setup_failure(
         steps: steps.clone(),
     };
     if let Err(err) = write_stamp(&cfg.data_root, &stamp) {
-        eprintln!("desktop: 安装链终态戳写入失败: {err}");
+        log::warn!("desktop: 安装链终态戳写入失败: {err}");
     }
     on_update(&steps);
     ChainOutcome {
@@ -510,7 +510,7 @@ fn download_runtime(
     let _ = file.sync_all();
     drop(file);
     fs::rename(&part, dest).map_err(|e| (classify_io(&e), format!("下载收尾改名失败: {e}")))?;
-    eprintln!("desktop: 运行时包下载完成({copied}B)← {url}");
+    log::info!("desktop: 运行时包下载完成({copied}B)← {url}");
     Ok(())
 }
 
@@ -610,7 +610,7 @@ fn extract_runtime(
         )
     })?;
     let _ = fs::remove_dir_all(&staging); // 暂存残壳清理,失败不拦(下次自清)
-    eprintln!("desktop: 运行时解压就位: {}", target.display());
+    log::info!("desktop: 运行时解压就位: {}", target.display());
     Ok(())
 }
 
@@ -883,7 +883,7 @@ pub(crate) fn selfcheck_version_ping(
         ));
     }
     wait_with_grace(&mut child, SELFCHECK_EXIT_GRACE);
-    eprintln!(
+    log::info!(
         "desktop: 自检 version ping 通过({})",
         reply
             .pointer("/result/version")
@@ -924,7 +924,7 @@ pub(crate) fn run_chain(cfg: &ChainConfig, on_update: &dyn Fn(&[PyenvStep])) -> 
             } else {
                 "未知 panic".to_string()
             };
-            eprintln!("desktop: 安装链线程 panic: {detail}");
+            log::error!("desktop: 安装链线程 panic: {detail}");
             let mut steps = pyenv::read_stamp(&cfg.data_root)
                 .map(|stamp| stamp.steps)
                 .unwrap_or_default();
@@ -949,7 +949,7 @@ pub(crate) fn run_chain(cfg: &ChainConfig, on_update: &dyn Fn(&[PyenvStep])) -> 
                 steps: steps.clone(),
             };
             if let Err(err) = write_stamp(&cfg.data_root, &stamp) {
-                eprintln!("desktop: panic 兜底终态戳写入失败: {err}");
+                log::warn!("desktop: panic 兜底终态戳写入失败: {err}");
             }
             ChainOutcome {
                 success: false,
@@ -1346,7 +1346,7 @@ fn install_thread_main(
         // 就绪即拉起常驻 sidecar(AC1 主链:安装完成 → 服务可用,不等前端动作;
         // 幂等:进程健在不动作,绝不杀活进程)。
         if let Err(err) = crate::spawn_sidecar_if_idle(&app) {
-            eprintln!("desktop: 安装链就绪但常驻 sidecar 拉起失败(可手动拉起): {err}");
+            log::warn!("desktop: 安装链就绪但常驻 sidecar 拉起失败(可手动拉起): {err}");
         }
     } else if let Ok(status) = status {
         let _ = app.emit(pyenv::PYENV_NOT_READY_EVENT, &status);
@@ -1358,15 +1358,13 @@ fn install_thread_main(
         .find(|step| step.status == PyenvStepStatus::Failed)
         .and_then(|step| step.error.clone())
         .unwrap_or_default();
-    eprintln!(
-        "desktop: 安装链终态: {}(deps_only={deps_only}){}",
-        if outcome.success { "ready" } else { "error" },
-        if failure_note.is_empty() {
-            String::new()
-        } else {
-            format!(" : {failure_note}")
-        },
-    );
+    if outcome.success {
+        log::info!("desktop: 安装链终态: ready(deps_only={deps_only})");
+    } else {
+        log::warn!(
+            "desktop: 安装链终态: error(deps_only={deps_only}): {failure_note}"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
