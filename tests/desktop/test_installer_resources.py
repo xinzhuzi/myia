@@ -1,36 +1,32 @@
-"""装机包 resources 面守卫(10-05-plugin-market-batch AC5,批三)。
+"""装机包 resources 面守卫(10-06-plugin-src-remote-fetch 批3,规范反转)。
 
-钉两件事(全部离线,零外网、零构建):
+分发规范(主人原话 2026-10-06:**「是这些源码不能随包,但是这些配置可以」**;
+档 .trellis/tasks/10-06-plugin-src-remote-fetch/prd.md §1)不变量:
 
-1. **官方品类全量捆绑**:tauri.conf.json resources 必须含全部 7 个官方
-   品类 YAML(README「7 official categories」口径:ai-news/wool/stocks/
-   gpu-prices/games/news/exposure)+ demo 件 + 场景品类件
-   monitor/credentials(10-05-bundled-plugins-batch2 R4 进包,安全裁定见
-   OFFICIAL_CATEGORY_YAMLS 注)——AC5 挂账根因即「只捆 4/7
-   (games/news/exposure 缺)」,补齐后本文件把品类面钉死,回退即红。
-2. **desktop tier 插件包源码面随包**(AC5 市场面包裁决):desktop 分级
-   全件(EXPECTED_TIERS 口径,与 tests/plugins/test_plugin_packages.py
-   同源;跨目录不 import,清单漂移由两侧参数化对不上时人工对账)——含
-   adapter 的件逐件捆 manifest+README+adapter.py 三件套(首批 7 件
-   proxy/osint/credhunter/media/maigret/theharvester/urlwatch + 批三分析
-   件 snownlp/yake,2026-10-05 批三复审补齐:两清单曾漂移,分析件收录
-   (c43144b)晚于随包面(60fff33)未跟上);**myssia-mediacrawler 例外
-   =警示型文档桩**(design §7.3 D10-3:零 adapter/零程序面,manifest
-   市场知识面+README 非商业警示即全部,仅捆 plugin.yaml+README.md 两件);
-   myssia-credhunter 额外捆自有 ``credhunter/`` 子包(adapter compile+exec
-   自举依赖,漏捆即交付坏件)。
-   **remote 桩件**(10-06-native-plugin-components 阶段3 G-Q1):
-   myssia-firecrawl 桩两件随包(REMOTE_STUB_PACKAGES)——零 adapter 零
-   运行时,随包仅为装机「随包官方插件件」卡出现该条目(轨D remote 配置
-   面板挂点),桩形状同 mediacrawler。
-   **刻意不捆**:vendor/ 外来 submodule(GPL Photon / theHarvester,随包
-   分发越许可红线;装机上 vendor 缺失走 adapter 既有结构化
-   ``vendor_missing`` 指引,tests/plugins/test_osint_plugin.py 等已钉)、
-   docker/(服务端件面)、__pycache__(逐文件映射天然排除,断言兜底)。
+1. **INV-1 声明随包**:11 个随包组件包目录**只准携带** ``plugin.yaml`` +
+   ``README.md`` 两件——Resources/plugins/<id>/ 下出现其余任何文件即违例。
+2. **INV-2 源码不进包**:adapter.py、场景件(如 render_crawl4ai.py)一律
+   不得出现在 resources 映射——源码经发布链 per-plugin release 资产
+   (tar.gz + plugins.lock.json 内容寻址)远取安装,装机侧
+   tests/desktop/test_bundled_plugins_install.py + src/myssia/plugins/remote.py。
+3. **INV-3 数据件不进包**:vendor/(submodule 上游 GPL 源码,零分发红线
+   沿既有裁定)、__pycache__ 缓存、自有子包(credhunter/)整目录。
 
-与 tests/desktop/test_pyenv_resources.py 的分工:彼管自管 Python 环境
-五映射 + 种子映射「不被挤掉」;此管 AC5 补齐面(品类 7/7 + 桌面件源码面
-+ 排除断言)。两文件都只断「在」,不断「仅有」,互不牵连。
+**规范反转留痕**:本文件曾钉「desktop tier 源码面随包(三件套)」
+(10-05-plugin-market-batch AC5 → 10-06-native-plugin-components §12.1
+反向对账),10-06-plugin-src-remote-fetch 批3 按新规范全面翻案——断言从
+「manifest+README+adapter 三件套必须在」反转为「两声明必须在 + 其余
+必须在键空间不存在」。随包源码的历史理由(装机直拷安装链)由远取链
+接管;仓库 plugins/ 源树不动(远取资产的打包源),仅装机包映射收窄。
+
+**锁件注**:远取锁 plugins.lock.json 随发布链(批4 release-plugins)
+产真锁后落包,其门禁(11 件全覆盖 + sha256/url 自洽)随批4 落,本文件
+不锁锁件。
+
+品类面(官方 7 + demo + 场景 monitor/credentials)属「配置可随包」,
+维持随包不变,断言原样保留。与 tests/desktop/test_pyenv_resources.py
+的分工:彼管 Python 运行时五映射「不被挤掉」;此管随包插件面
+(品类在 + 组件包两声明在且**仅有** + 源码/数据件不在)。
 """
 
 from __future__ import annotations
@@ -47,11 +43,9 @@ TAURI_CONF = SRC_TAURI / "tauri.conf.json"
 PLUGINS_DIR = REPO_ROOT / "plugins"
 
 #: 官方 7 品类(README zh/en「7 official categories」口径)+ demo 件;
-#: AC5 前 resources 只捆前 4,games/news/exposure 为本批补齐件。
 #: monitor/credentials(10-05-bundled-plugins-batch2 R4):场景品类随包
 #: (安全裁定=纯 keychain:/env: 引用模板 + example.com 占位,零明文凭据,
-#: 亲读全文物证);入列后启动补种会自动补到用户数据根(品类全量补缺既有
-#: 语义;无凭据时如实空态,credhunter 无 token 该源不启用)。
+#: 亲读全文物证;物证钉死见本文件 §4)。品类是「配置」,新规范下照旧随包。
 OFFICIAL_CATEGORY_YAMLS = (
     "ai-news.yaml",
     "wool.yaml",
@@ -68,12 +62,9 @@ OFFICIAL_CATEGORY_YAMLS = (
     "credentials.yaml",
 )
 
-#: desktop tier 三件套件全件(EXPECTED_TIERS 同源清单;市场面 AC5 裁决:
-#: desktop 件零 docker、进程内/子进程形态,源码面可随包分发)。批三复审
-#: 补齐:c43144b 收录的分析件 snownlp/yake(tier: desktop)并入——与
-#: 首批 7 件(60fff33)同口径,装机包=官方件全集的措辞自此名实相符。
-#: EXPECTED_TIERS 的 desktop 件中仅 myssia-mediacrawler 不在此(零 adapter
-#: 警示桩,桩形清单见 STUB_ONLY_PACKAGES)。
+#: desktop tier 源码件全件(EXPECTED_TIERS 同源清单;新规范下这些件的
+#: adapter.py/场景件**不再随包**——源码远取,本清单只剩「哪些目录存在」
+#: 的发现面口径)。与 STUB_ONLY_PACKAGES/REMOTE_STUB_PACKAGES 合计 11 组件包。
 DESKTOP_TIER_PACKAGES = (
     "myssia-proxy",
     "myssia-osint",
@@ -87,29 +78,28 @@ DESKTOP_TIER_PACKAGES = (
 )
 
 #: desktop tier 警示型文档桩件(design §7.3 D10-3:tier: desktop 但零
-#: adapter/零程序面,收录=市场知识面)——无三件套可捆,按桩形状只钉
-#: manifest+README 两件;上游物零复制(非商业学习许可,README 级警示)。
+#: adapter/零程序面,收录=市场知识面)——桩形状本就只有两声明件。
 STUB_ONLY_PACKAGES = ("myssia-mediacrawler",)
 
-#: remote tier 桩件随包(10-06-native-plugin-components 阶段3 G-Q1):
+#: remote tier 桩件(10-06-native-plugin-components 阶段3 G-Q1):
 #: tier: remote、零 adapter 零运行时——随包的唯一目的是让装机「随包官方
-#: 插件件」卡出现该条目,作轨D remote 配置面板的挂点(endpoint 输入+凭据
-#: 入钥匙串+doctor 探活,设置页统一操控面 R7);桩形状同 mediacrawler
-#: 只钉 manifest+README 两件。首件 = myssia-firecrawl(云端/自有服务器
-#: 均接,AGPL 只消费不 vendor)。
+#: 插件件」卡出现该条目,作轨D remote 配置面板的挂点;桩形状同 mediacrawler。
 REMOTE_STUB_PACKAGES = ("myssia-firecrawl",)
 
-#: remote 桩件随包的两件面(manifest 市场知识面 + 接入文档;无 adapter.py)。
-REMOTE_STUB_SOURCE_FILES = ("plugin.yaml", "README.md")
+#: 随包组件包全集(恰 11 件 = DESKTOP_TIER 9 + 桩 1 + remote 桩 1;与
+#: tests/desktop/test_bundled_plugins_install.py 的 BUNDLED_PACKAGES 同源
+#: 合成式——该文件跨目录 import 上述三清单常量,清单漂移两侧参数化对不上
+#: 即红)。
+ALL_BUNDLED_PACKAGES = DESKTOP_TIER_PACKAGES + STUB_ONLY_PACKAGES + REMOTE_STUB_PACKAGES
 
-#: 桩件随包的两件面(manifest 市场知识面 + 上游警示文档;无 adapter.py)。
-STUB_SOURCE_FILES = ("plugin.yaml", "README.md")
+#: INV-1 口径:每个随包组件包目录**只准**携带的两件声明(发现面靠
+#: plugin.yaml,署名/警示文档靠 README.md;manifest schema 见
+#: src/myssia/plugins/manifest.py)。
+DECLARATION_FILES = ("plugin.yaml", "README.md")
 
-#: 每个桌面件必备的三件套源码面(manifest 规范 + 上游署名文档 + 适配器)。
-PACKAGE_SOURCE_FILES = ("plugin.yaml", "README.md", "adapter.py")
-
-#: myssia-credhunter 自有子包(adapter.py compile+exec 自举加载
-#: credhunter/*.py 与 data/ 数据文件;零上游复制,可随包)。
+#: myssia-credhunter 自有子包(INV-3:adapter compile+exec 自举加载
+#: credhunter/*.py 与 data/ 数据文件)——源码子包不再随包,远取资产整树
+#: 打包(发布链 git archive,批4),装机按锁拉回。
 CREDHUNTER_SUBPACKAGE = "credhunter"
 
 
@@ -121,7 +111,7 @@ def _conf_resources() -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# 1. 官方品类 7/7 + demo 全捆
+# 1. 官方品类 7/7 + demo 全捆(「配置可随包」,新规范不变)
 # ---------------------------------------------------------------------------
 
 
@@ -146,89 +136,95 @@ def test_demo_yaml_still_bundled() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 2. desktop tier 插件包源码面(三件套 + credhunter 子包)
+# 2. 组件包两声明必须在(INV-1 正面)+ 目录内「仅有」两件(INV-1 反面)
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("package", DESKTOP_TIER_PACKAGES)
-@pytest.mark.parametrize("filename", PACKAGE_SOURCE_FILES)
-def test_desktop_package_source_file_bundled(package: str, filename: str) -> None:
-    """每桌面件 × 三件套:映射在 + 源在盘(manifest 校验由包契约测试另行钉)。"""
+@pytest.mark.parametrize("package", ALL_BUNDLED_PACKAGES)
+@pytest.mark.parametrize("filename", DECLARATION_FILES)
+def test_bundled_package_declaration_file_mapped(package: str, filename: str) -> None:
+    """每组件包 × 两声明件:映射在 + 源在盘(远取安装后以实拉 manifest
+    校验为准,但发现面/署名面必须随包离线可见)。"""
     source = f"../../plugins/{package}/{filename}"
     dest = f"plugins/{package}/{filename}"
     resources = _conf_resources()
     assert resources.get(source) == dest, (
-        f"desktop 件源码面未随包: {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
+        f"组件包声明件未随包: {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
     )
     assert (SRC_TAURI / source).is_file(), f"映射源不存在: {source}"
 
 
-def test_credhunter_subpackage_bundled() -> None:
-    """credhunter/ 自有子包随包(adapter 自举依赖;整目录映射)。"""
-    source = f"../../plugins/myssia-credhunter/{CREDHUNTER_SUBPACKAGE}"
-    dest = f"plugins/myssia-credhunter/{CREDHUNTER_SUBPACKAGE}"
-    assert _conf_resources().get(source) == dest
-    assert (SRC_TAURI / source).is_dir(), f"映射源目录不存在: {source}"
-    # 自举依赖的最小实况:入口模块与数据目录在(缺一则装机件必坏)。
-    assert (SRC_TAURI / source / "findings.py").is_file()
-    assert (SRC_TAURI / source / "data").is_dir()
-
-
-@pytest.mark.parametrize("package", STUB_ONLY_PACKAGES)
-@pytest.mark.parametrize("filename", STUB_SOURCE_FILES)
-def test_stub_package_source_file_bundled(package: str, filename: str) -> None:
-    """警示文档桩件(mediacrawler):仅 manifest+README 两件随包,零 adapter。
-
-    design §7.3 D10-3:零 adapter/零程序面——桩的全部交付面就是市场知识面
-    (plugin.yaml+非商业警示 README),「包内有什么」与「市场有什么」一致
-    的 AC5 口径对桩件止于这两件(捆 adapter.py 映射反而失真:源不存在)。
-    """
-    source = f"../../plugins/{package}/{filename}"
-    dest = f"plugins/{package}/{filename}"
+@pytest.mark.parametrize("package", ALL_BUNDLED_PACKAGES)
+def test_bundled_package_dir_maps_declarations_only(package: str) -> None:
+    """INV-1 键空间精确断言:该组件包前缀下的映射**恰为**两声明件——
+    多出任何一件(adapter.py/场景件/子目录/缓存)即红,少一件也红
+    (与 §2 正面参数化互为正反,本断言额外拦「未清单化的多余件」)。"""
     resources = _conf_resources()
-    assert resources.get(source) == dest, (
-        f"desktop 桩件源码面未随包: {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
+    prefix = f"../../plugins/{package}/"
+    actual = {src: dest for src, dest in resources.items() if src.startswith(prefix)}
+    expected = {
+        f"{prefix}{filename}": f"plugins/{package}/{filename}" for filename in DECLARATION_FILES
+    }
+    assert actual == expected, (
+        f"{package} 随包面违 INV-1(只准 {list(DECLARATION_FILES)},"
+        f"实得映射 {sorted(actual)});源码/数据件应走远取,声明件补映射"
     )
-    assert (SRC_TAURI / source).is_file(), f"映射源不存在: {source}"
-
-
-@pytest.mark.parametrize("package", REMOTE_STUB_PACKAGES)
-@pytest.mark.parametrize("filename", REMOTE_STUB_SOURCE_FILES)
-def test_remote_stub_package_source_file_bundled(package: str, filename: str) -> None:
-    """remote 桩件(firecrawl):仅 manifest+README 两件随包,零 adapter。
-
-    阶段3 G-Q1:remote 桩随包的目的不是装运行时(零运行时),而是让装机
-    「随包官方插件件」卡出现该条目——轨D remote 配置面板的挂点;桩形状与
-    mediacrawler 同款两件面(捆 adapter.py 映射反而失真:源不存在)。
-    """
-    source = f"../../plugins/{package}/{filename}"
-    dest = f"plugins/{package}/{filename}"
-    resources = _conf_resources()
-    assert resources.get(source) == dest, (
-        f"remote 桩件源码面未随包: {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
-    )
-    assert (SRC_TAURI / source).is_file(), f"映射源不存在: {source}"
 
 
 # ---------------------------------------------------------------------------
-# 3. 排除断言:vendor / docker / __pycache__ 绝不入包
+# 3. 排除断言:源码 / vendor / 子包 / docker / __pycache__ 绝不入包
+#    (INV-2/INV-3,负断言遍历全 map 键空间)
 # ---------------------------------------------------------------------------
+
+
+def test_no_plugin_python_source_mapped() -> None:
+    """INV-2:plugins/ 键空间下零 ``*.py`` 映射——adapter.py、场景件
+    (render_crawl4ai.py 等)源码一律远取,不随包分发。
+
+    注意口径:只拦 ``../../plugins/`` 前缀(myssia-src/ 产品本体 Python
+    源码随包是 INV-4 既有面,不在本守卫列)。"""
+    resources = _conf_resources()
+    offenders = [
+        src for src in resources if src.startswith("../../plugins/") and src.endswith(".py")
+    ]
+    assert not offenders, f"插件源码不得随包(INV-2,远取链接管): {offenders}"
+
+
+def test_credhunter_subpackage_not_bundled() -> None:
+    """INV-3:credhunter/ 自有子包(adapter compile+exec 自举依赖)不再
+    整目录随包——远取资产整树打包,装机按锁拉回后子包随安装根落位。
+
+    源树仍在仓库(远取资产的打包源,发布链 git archive HEAD plugins/<id>
+    取的就是这棵树):自举最小实况(入口模块 + 数据目录)在盘断言,
+    源树被误删时此处红,远取资产即断供。"""
+    subpackage = f"myssia-credhunter/{CREDHUNTER_SUBPACKAGE}"
+    resources = _conf_resources()
+    offenders = [
+        src for src in resources if f"/{CREDHUNTER_SUBPACKAGE}" in src or src.endswith(
+            f"/{subpackage}"
+        )
+    ]
+    assert not offenders, f"credhunter/ 子包不得随包(INV-3,远取资产接管): {offenders}"
+    repo_subpkg = PLUGINS_DIR / subpackage
+    assert repo_subpkg.is_dir(), f"仓库源树子包缺失(远取资产断供): {repo_subpkg}"
+    assert (repo_subpkg / "findings.py").is_file()
+    assert (repo_subpkg / "data").is_dir()
 
 
 def test_no_vendor_submodule_bundled() -> None:
-    """vendor/ 外来 submodule(GPL Photon / theHarvester)不随包:许可红线。
-
-    装机上 vendor 缺失走 adapter 既有结构化 ``vendor_missing`` 指引
-    (tests/plugins/test_osint_plugin.py、test_theharvester_plugin.py 已钉),
-    不在 resources 面补。
-    """
+    """INV-3:vendor/ 外来 submodule(GPL Photon / theHarvester)不随包:
+    许可红线沿既有裁定(新规范下组件包源码本就整体远取,vendor 亦不进
+    远取资产——design D5)。装机上 vendor 缺失走 adapter 既有结构化
+    ``vendor_missing`` 指引(tests/plugins/test_osint_plugin.py 等已钉)。"""
     resources = _conf_resources()
     vendor_sources = [src for src in resources if "/vendor" in src or src.endswith("/vendor")]
     assert not vendor_sources, f"vendor/ 不得随包分发(许可红线): {vendor_sources}"
 
 
 def test_no_docker_or_pycache_bundled() -> None:
-    """docker/(服务端件面)与 __pycache__ 不得出现在任何映射键里。"""
+    """INV-3:docker/(服务端件面)与 __pycache__ 不得出现在任何映射键里
+    (逐文件映射天然排除,beforeBuildCommand clean:pycache 纵深防御,
+    本断言兜底)。"""
     resources = _conf_resources()
     offenders = [
         src for src in resources if "docker" in src.split("/") or "__pycache__" in src.split("/")
@@ -237,7 +233,7 @@ def test_no_docker_or_pycache_bundled() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 4. 场景品类件安全裁定守卫(10-05-bundled-plugins-batch2 R4)
+# 4. 场景品类件安全裁定守卫(10-05-bundled-plugins-batch2 R4,原样保留)
 # ---------------------------------------------------------------------------
 
 #: 承载凭据的键(R4 物证核对面):这些键的值只允许 keychain:/env: 引用
