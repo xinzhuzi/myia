@@ -1,0 +1,8 @@
+{
+  "name": "vitest-gate-redirect",
+  "private": true,
+  "scripts": {
+    "test": "cd ../../../desktop/ui-src 2>/dev/null || cd ../../../../desktop/ui-src; npm run test",
+    "build": "cd ../../../desktop/ui-src 2>/dev/null || cd ../../../../desktop/ui-src; npm run build"
+  }
+}

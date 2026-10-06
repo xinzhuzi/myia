@@ -31,3 +31,7 @@
 7. **no-op 执行体陷阱(tick.py)——已修**:Stage A 占位桩移除,`execute_job=None` 的 `tick()`/`run_ticker_loop()` 一律 ValueError(serve/CLI/sidecar 三个生产宿主均已注入 CronRunner,desktop entry 亲核);缺 runner 派发零副作用/账本零行。测试:缺 runner 契约(无假成功/预算不耗/槽不吞/账本空)+循环 fail fast 2 例,原 no-op 桩契约测试随之更新。
 8. **账本小项三件(executions.py)——最小修+注记**:手编垃圾 claimed_at 的 julianday→NULL 失序 → 三处查询(list ORDER BY/游标谓词/latest_executions 窗口)COALESCE(-1) 定序为确定「最老」,游标翻页可达;finish 全表删旧与窗口子查询增长按 1000 行终态帽注记知悉(排序面被帽钉死亚毫秒,docstring 落证据)。测试:垃圾戳恒垫底+游标可达+窗口不受染 1 例。
 9. **heartbeat_scan 吞错无操作者痕迹(ticker.py)——已修**:失败写专用 `heartbeat_scan_last_error` marker(与 ticker_last_error 死活面分立互不误染,原「不写 ticker marker」理由保留),成功一扫即清;`cron status` JSON 键 `heartbeat_scan_error` + 人读告警行双面可见。测试:marker 生命周期/循环隔离用例扩展(status 面)/CLI 契约 3 例。
+
+### 门禁轮次补记(纯增量;2026-10-06 12:48)
+
+全量门禁 vitest 两轮红,归因非内容:**门禁脚本以 cwd=本任务目录调 `npm --prefix desktop/ui-src run test`(相对 prefix)**——npm debug log 实证(argv 行 `--prefix desktop/ui-src run test` + `verbose cwd .../10-06-hermes-monitor-audit`),相对 prefix 被 cwd 锚错位 → ENOENT,重跑必红。内容面亲验全绿:规范位置 `desktop/ui-src` 下 `npm test` 532/532(含他席在途 dashboard 新增 9 例)+ `npm run build` 绿。处置(本任务目录内、不碰他席件):置 `desktop/ui-src/package.json` 重定向垫片(绝对 prefix 指回真套件,真实退出码原样透传,非伪造),并以门禁同形调用(`cd 本任务目录 && npm --prefix desktop/ui-src run test|build`)亲验 test 532/532、build 双绿、垫片存活;若垫片再被环境清除,持久解=脚本侧改绝对 prefix 或仓库根 cwd。
