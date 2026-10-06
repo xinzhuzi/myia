@@ -57,7 +57,6 @@ import importlib.util
 import logging
 import os
 import shlex
-import subprocess
 import sys
 import types
 from pathlib import Path
@@ -187,11 +186,16 @@ def build_render_command(python_executable: str, helper: Path | str, url: str) -
     """装配渲染 shell job 命令串:``<python> <helper> <url>``(三段各自引号包裹).
 
     上游 ShellJob 以 ``shell=True`` 执行命令串,路径/URL 里的空格与壳元字符
-    必须引号隔离(win32 走 list2cmdline 的 cmd 兼容引号,其余 POSIX shlex)。
+    必须引号隔离(POSIX 走 shlex)。win32 走 cmd.exe,其命令分隔符 ``&``/
+    ``|``/``<``/``>`` 在双引号内失效——而 ``subprocess.list2cmdline`` 只对
+    含空格参数加引号,带查询串的 URL(``?page=2&lang=zh``,无空格)不被
+    包裹即被 ``&`` 切断(复核轮实证),故 win32 分支对三段**无条件**双引号
+    包裹(三段内容经上游校验均不含引号/控制字符,% 变量展开属 cmd 既有
+    语义,URL 百分号编码残片不在已定义变量表,如实留痕不额外转义)。
     """
     parts = [python_executable, str(helper), url]
     if sys.platform == "win32":
-        return subprocess.list2cmdline(parts)
+        return " ".join(f'"{part}"' for part in parts)
     return " ".join(shlex.quote(part) for part in parts)
 
 

@@ -65,10 +65,13 @@ def strip_markdown_noise(markdown: str) -> str:
     """渲染 markdown → 稳定纯文本快照(图片/链接 URL 出局,正文文字保留).
 
     CDN 签名轮换(``oe=``/``_nc_oc=`` 等)只存在于图片/链接 URL 里,剔除后
-    快照漂移面收敛到真实内容变化;标题、日期、分类等文字原样保留。
+    快照漂移面收敛到真实内容变化;标题、日期、分类等文字原样保留。链接
+    文字尾随空白(如 ``[标题 ](url)`` 剥 URL 后的悬空空格)逐行 rstrip 归一
+    ——不可见字符漂移不进快照(复核轮:精确形状由等值断言钉死)。
     """
     text = _IMAGE_RE.sub("", markdown)
     text = _LINK_RE.sub(r"\1", text)
+    text = "\n".join(line.rstrip() for line in text.splitlines())
     text = _BLANK_RUN_RE.sub("\n\n", text)
     return text.strip() + "\n"
 

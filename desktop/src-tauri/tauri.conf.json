@@ -70,6 +70,7 @@
       "../../plugins/myssia-urlwatch/plugin.yaml": "plugins/myssia-urlwatch/plugin.yaml",
       "../../plugins/myssia-urlwatch/README.md": "plugins/myssia-urlwatch/README.md",
       "../../plugins/myssia-urlwatch/adapter.py": "plugins/myssia-urlwatch/adapter.py",
+      "../../plugins/myssia-urlwatch/render_crawl4ai.py": "plugins/myssia-urlwatch/render_crawl4ai.py",
       "../../plugins/myssia-snownlp/plugin.yaml": "plugins/myssia-snownlp/plugin.yaml",
       "../../plugins/myssia-snownlp/README.md": "plugins/myssia-snownlp/README.md",
       "../../plugins/myssia-snownlp/adapter.py": "plugins/myssia-snownlp/adapter.py",

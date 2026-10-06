@@ -36,16 +36,25 @@ The latest AI news from Meta
 [FEATURED ![cover](https://y.fbcdn.net/cover.png?_nc_oc=Cd34&oe=6ADE5678)](https://ai.meta.com/blog/introducing-muse-spark/)
 Research
 [Introducing Muse Spark 1.1 ](https://ai.meta.com/blog/introducing-muse-spark/)
+[带标题链接](https://ai.meta.com/blog/x "link title")
 July 9, 2026
 """
 
-MARKDOWN_B = """Meta
-The latest AI news from Meta
+MARKDOWN_B = """The latest AI news from Meta
 FEATURED
 Research
 Introducing Muse Spark 1.1
+带标题链接
 July 9, 2026
-"""  # 与 A 同内容、但图片/链接 URL 全部剔除后的期望形
+"""  # A 的期望归一形:图片(含其 alt 文字)与链接 URL 全剔除、链接文字保留、
+# 行尾空白归一;A 首行「链接文字=图片本体」形态归一为空行,被首尾 strip 收走
+
+
+def test_strip_markdown_noise_exact_shape():
+    """精确形状钉死(复核轮):归一化输出 == MARKDOWN_B,不只子串存在性——
+    正则残片(如带 title 的链接形态只被部分替换)在等值断言下无所遁形."""
+    helper = load_helper()
+    assert helper.strip_markdown_noise(MARKDOWN_A) == MARKDOWN_B
 
 
 def test_strip_markdown_noise_removes_images_and_link_urls():

@@ -754,13 +754,17 @@ def test_build_render_command_quotes_shell_metacharacters():
 
 
 def test_build_render_command_win32_variant(monkeypatch):
-    """win32 走 list2cmdline(cmd 兼容引号):仅含空格/元字符参数被引号包裹."""
+    """win32 走 cmd.exe:三段无条件双引号包裹(list2cmdline 只引含空格参数,
+    带查询串 URL 的 ``&`` 不被包裹即被 cmd 切断——复核轮实证,故强制引号)."""
     monkeypatch.setattr(urlwatch_engine_module.sys, "platform", "win32")
     command = urlwatch_engine_module.build_render_command(
         r"C:\Python312\python.exe",
         r"C:\Program Files\helper.py",
-        "https://ai.meta.com/blog",
+        "https://example.com/blog?page=2&lang=zh",
     )
-    assert command.startswith("C:\\Python312\\python.exe")
-    assert '"C:\\Program Files\\helper.py"' in command
-    assert command.endswith(" https://ai.meta.com/blog")
+    assert command == (
+        '"C:\\Python312\\python.exe"'
+        ' "C:\\Program Files\\helper.py"'
+        ' "https://example.com/blog?page=2&lang=zh"'
+    )
+    assert command.count('"') == 6  # 三段×首尾,无裸露元字符
