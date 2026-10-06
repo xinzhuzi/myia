@@ -25,7 +25,7 @@
 | 3 | `plugins.list` | `_m_plugins_list` | 已装市场插件 + findings |
 | 4 | `doctor` | `_m_doctor` | 结构化诊断(问题全在 findings,完成即 0);可选布尔 `config_auto`(缺省 false 现行为不变;G10 10-05-g10-proxy-probe):`config` 缺省且 true → 发现 `<数据根>/pools.yaml`,命中才带 `--config`(路径经既有 `proxy.config` 回显,零新应答键;未命中/dev 无 home = 只看现状 `proxy.config=null`;手填 `config` 永远赢;非布尔 `invalid_params`) |
 | 5 | `run.start` | `_m_run_start` | 启动 run 子进程,立即返回 run_id;单飞 `run_busy` |
-| 6 | `run.status` | `_m_run_status` | run 注册表查询;未知 id = 结构化 404 |
+| 6 | `run.status` | `_m_run_status` | run 注册表查询;未知 id = 结构化 404;缺省 `run_id` 全量视图 = 会话注册表(新→旧,行形状逐字节不变)在前 + DB runs 表「上一程」历史行接续(重启后日志屏翻得到上一程;10-07-logs-restart-visibility R1)——历史行 = RunEntry 键全在场超集:`history:true` 徽标 + `log_run_id` 会话对齐键(展开走既有 `logs.tail?run_id=<log_run_id>` 回填,零新协议;`yaml`/`exit_code` 无库源置 null、`dry` 恒 false、`state` 恒 done;`log_run_id` 旧库行 null = 无法对齐如实降级);同跑次按 `record.run_id` 去重不双列(会话计数器与 DB 自增两编号空间不同源,裸 run_id 必撞号),历史上限 50;无 `finished_at` 僵尸行不进历史(徽标下冒充运行中会说谎);库打不开/读失败降级仅注册表视图(run.cancel/单飞锁语义活在注册表侧);空库应答形状与现状全同;**形状兼容**:历史行只加徽标/对齐新键,旧前端忽略照跑,PROTOCOL_VERSION 不 bump(加法可选字段先例) |
 | 7 | `run.cancel` | `_m_run_cancel` | 取消进行中 run:killpg(SIGTERM→5s→SIGKILL);信号终局 status=cancelled(v112 批 C2) |
 | 8 | `runs.list` | `_m_runs_list` | runs 表直读(新→旧,limit 钳制 [1,200]);重启后历史可达(v112 批 C3) |
 | 9 | `logs.tail` | `_m_logs_tail` | 环形缓冲尾部日志,run_id 可选过滤;数据面 = 统一日志模块 `myssia.log.ring_snapshot`(批1 切道,语义逐字对齐旧实现:run_id 过滤+尾部截取,lines 钳制 ≤ 环形帽 4000);serve 冷启动 `backfill` 盘尾回填(预算 2000 行:当日 `logs/myssia-*.jsonl` 尾+不足补前一文件尾,坏行跳过,按读入顺序 seed 环形重发 seq;壳 respawn 后崩溃前日志可达日志屏)——**params/result 形状零变化**、前端 `screens/logs/` 零改;`type:"log"` 事件发射点集合与旧实现逐点相同(10-07-unified-logging design §5) |

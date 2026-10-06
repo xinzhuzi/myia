@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/10-07-logs-restart-visibility/prd.md", "reason": "AC1-AC6 逐条对账,尤其 AC6 并行安全(不碰 dashboard 域)"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "核验 run.status 形状兼容声明与 DB 合流语义已入档"}
