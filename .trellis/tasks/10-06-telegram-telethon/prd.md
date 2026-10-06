@@ -32,7 +32,7 @@ MYIA 具备三层 Telegram 消息获取能力,全部走「链接者」形态,组
 - [ ] AC1:bot 线端到端——主人四步后,目标群发测试消息,秒级进管线、按铁律出口(高价值即时单条/普通入合并日报),真发回执在档;
 - [ ] AC2:Telethon 线端到端——小号首登一次,目标群(bot 进不去的群)消息进管线,同过滤同出口;session 失效有结构化告警与重登指引;
 - [ ] AC3:组件化件至少一例走「设置下载→配置→使用」全流程,零上游源码改动(链接者铁律验证);
-- [ ] AC4:全 mock 单测(引擎/过滤/凭据三态)+ 装机外科同步+像素验证;
+- [x] AC4:全 mock 单测(引擎/过滤/凭据三态)+ 装机外科同步+像素验证;(统一收尾批 2026-10-06 20:31 结案:单测在案/装机 13+2 件全同步/像素验证=桌面接线批零 UI 改动不适用,见结果段)
 - [ ] AC5:凭据零外显(钥匙串),token/session 不落日志;账号风控披露如实(小号建议/限频参数)。
 
 ## 边界与不做
@@ -70,17 +70,19 @@ MYIA 具备三层 Telegram 消息获取能力,全部走「链接者」形态,组
 - [ ] 阶段三 组件化件示例(待填)
 - [~] 门禁+装机(2026-10-06 B1-B3 门禁三批全绿:4423 passed+desktop 288 passed+ruff 绿;装机外科已做):
   - 装机外科(世事.app /Applications/世事.app):定向同步 13 件(引擎 telegram.py/registry.py/schema.py/cli.py + telegram/ 包五件 + plugins telegram-groups/telegram-channels/daily-digest 三件),diff 逐字节一致核验;仓库 venv 3.12 对装机副本八项 import 冒烟全过(engine/vocab/serve/offsets/events/cli/plugins);并行会话曾中途同步过 telegram/ 包中间态(19:09-19:18 时间戳,缺 events/serve/cli),本次全量覆盖修正;清理三处 stale __pycache__ 后 adhoc 重签(codesign --force --deep -s -,verify --deep 通过;spctl 拒 adhoc 属常态,与装机前同制式)。
-  - AC4 的「像素验证」留桌面接线批(entry.py 由并行任务持有);AC1 真发留主人 token。
+  - 统一装机收尾(2026-10-06 20:19-20:31,终局收尾员,覆盖桌面接线批 5345efe):备份 `/tmp/myssia-b3desktop-backup-20261006-201905`(bundle entry.py+telegram/serve.py 前版)后定向同步两件——`desktop/entry.py` → bundle `Resources/myssia-src/entry.py`、`src/myssia/telegram/serve.py` → bundle `myssia/telegram/serve.py`;stale `entry.cpython-312.pyc` 清除;四件 sha256 全量对拍 **4/4 一致**(entry.py `7de9db12…`/serve.py `7e66363b…`/store_report.py `c4b330c8…`/数据根 daily-digest.yaml `314aef59…`,后两件为 9859911 批 20:13 已同步件,本轮复核零漂移);装机 python(`<数据根>/python/bin/python3`)直载冒烟过(entry.py serve/cli_main+telegram 三装配符号 `_assemble/_start/_stop_telegram_host`+`TelegramServeHost`+store_report 全命中);`codesign --force --deep -s -` adhoc 重签+`codesign -vv` 双过(valid on disk/satisfies its Designated Requirement);沙箱 serve(MYIA_HOME 临时根+真品类件 copy)经 `logs.tail` 亲读 telegram graceful 留痕原文(bot token 未配 keychain:myia/telegram/bot-token+主人四步指引),EOF 退出码 0——装配路径离线真跑实证,零网络零真发;`open -g` 静默拉起装机包:前台 DoubaoWork 拉起前后不变、新进程树 13732(壳)/13738(sidecar,换装重签后拉起=新代码),ticker 心跳双验(新写者戳 `…-13738` age=29s 即现+65s 续跳 mtime +60s 与 `DEFAULT_TICK_INTERVAL_SECONDS=60` 吻合;旧死戳 `…-12989` 被写者顺手清,hermes 判例真机生效),telegram 宿主 graceful 文件证据=数据根无 telegram/ 目录(token 未配未起,serve 未被拦);装机实例保持常驻(cron 照跑)。窗口计数 osascript 返回空如实注记,静默性以前台不变为准。
+  - AC4 的「像素验证」已随桌面接线批结案:该批零 UI 改动不适用(桌面接线批过程段明记);AC1 真发留主人 token。
 
 ## 结果(验收回执,完工填)
 - [ ] AC1-5 勾选+证据(**终局收尾员 2026-10-06 终验对照,全留未勾,缺口如实**):
   - AC1 bot 线端到端:**未满足**——代码面全就绪(B1 引擎+B2 过滤出口+B3 serve,`myssia telegram serve` 可跑),真发回执缺主人四步(bot/关隐私/token/拉群),token 未入钥匙串即 credential_missing 零请求空态(设计如此);回执位留待 token 到手。
   - AC2 Telethon 线端到端:**未开工**(B4 批,锁主人小号+验证码前置)。
   - AC3 组件化件全流程一例:**未开工**(B5 批)。
-  - AC4 全 mock 单测+装机外科+像素验证:**部分满足**——mock 单测在案(B1 31 例+B2 25 例+B3 21 例,全量 pytest 4711 passed/40 skipped/0 failed 亲跑 19:36-19:38);装机外科已做(过程段 13 件+数据根补同步,见下);**像素验证留桌面接线批**(B3 桌面接线位如实记档,entry.py 时段由并行任务持有)。
+  - AC4 全 mock 单测+装机外科+像素验证:**满足(统一收尾批 2026-10-06 20:31 结案)**——mock 单测在案(B1 31 例+B2 25 例+B3 21 例+桌面接线批 7 例);装机外科 13 件(B1-B3)+桌面接线两件(5345efe entry.py/serve.py,统一收尾批 20:19 同步+sha 对拍 4/4)+数据根补同步全数在案;像素验证=桌面接线批零 UI 改动不适用(判例在案)。
   - AC5 凭据零外显+风控披露:**代码与测试面在案**(token URL path 净化 bot***、httpx 异常消息同净化、凭据三态 reddit 判例、测试断言 BOT_TOKEN 不外显;小号风控披露在 research/prd);真跑前的完整验收留 AC1 同窗。
 - [x] **数据根 YAML 同步**(终局收尾员补做,2026-10-06 19:4x):数据根 `~/Library/Application Support/MYIA/plugins/daily-digest.yaml`(cron「每日合并日报」job enabled 在跑的活件)先前缺「Telegram 群」分区 = B2 出口在装机侧断环;已备份 `.bak-20261006-finalconsolidate` 后以仓库件覆盖,diff 逐字节一致,telegram-mihomo_party_group 源在册 1 处。telegram-groups.yaml 未部署数据根(与"serve 常驻时不必挂 cron"自洽:cron jobs.json 无该品类建档,装机包内示范件已在)。
 - [x] **终局门禁复核**(收尾员亲跑,2026-10-06 19:36-19:38,树=0b15e09+587f49b 静置后):全量 pytest 4711 passed/40 skipped/0 failed;vitest 570/570(26 文件);tsc -b 0 错;desktop `npm run build`(tsc -b && vite build)通过;装机件复核:两线 14 件(telegram 9+store 2+entry.py+plugins 2)仓库↔包内 cmp 逐字节一致,主二进制 sha256 `4af5d62b…ead3` 与 feed 档 19:19 回执一致,`codesign --verify --deep --strict` exit 0 亲验。附记:19:23 首轮全量曾 7 failed(test_telegram_serve.py),系 B3 工程师会话当时正在写入中间态(源/测试 mtime 落在跑窗内),提交定稿后两轮全绿,非代码红。
+- [x] **统一收尾批门禁复核**(终局收尾员亲跑,2026-10-06 20:29-20:35,装机实例常驻并行):vitest **570/570**(26 文件,20:29:31 起 6s 完成)与 tsc -b **0 错**跑窗干净;全量 pytest 首轮(20:29-20:31)4 failed(desktop 装配 1+telegram serve 3)——mtime 取证定位根因=**并行会话(10-06-native-plugin-components 等)20:28:37-20:35:16 正在写入工作树中间态**(serve.py 20:28:37/entry.py 20:29:11/test_telegram_serve.py 20:30:45 均落首轮跑窗内),与本档 19:23 先例同型非代码红,单独复跑 4 例 4/4 passed;全量复跑(20:33-20:35)**4810 passed/40 skipped exit 0**——**如实分界:此绿基线=HEAD(5345efe)+20:33 时点并行在途件的工作树**(覆盖面 ⊇ HEAD,未引入红;纯 HEAD 基线因并行会话持续在写无法在本窗口重跑,stash 并行件属禁手;5345efe 定稿时分域绿 desktop 295+telegram 47 在案,9859911 纯 HEAD 全量 4722 在案);本收尾批零源码改动,不属「本批引入」修复面。另注首轮命令 `| tail` 管道吞退出码属 SOP 坑清单在案坑,复跑已直落盘保留真实 exit。装机外科对拍时点(20:19)工作树四件与 HEAD 零 diff 亲验,装机包=HEAD 定稿版,其后 20:28+ 并行再写工作树不影响装机定稿。装机四件 sha 对拍+重签+静默拉起+心跳+沙箱留痕明细见过程段「统一装机收尾」。
 
 ## Grill 决议(2026-10-06,主人批「全按推荐」)
 

@@ -145,3 +145,12 @@
   AI 资讯 min_score=3、其余分区缺省;④装机代码端到端:高分进正文/低分折叠行
   (价值分<3)——4/4 过。cron 挂点 fb85edaf94ac(每日合并日报,数据根 yaml 路径)
   未动,下次 2026-10-07 08:05 自动带门槛跑。
+- **统一收尾批复核**(终局收尾员,2026-10-06 20:19-20:31):9859911 两件(bundle
+  `store_report.py` `c4b330c8…`/数据根 `daily-digest.yaml` `314aef59…`)sha256 复核
+  与仓库 HEAD(5345efe 静置)一致零漂移——本收尾批外科对象为桌面接线批 5345efe
+  两件(entry.py/telegram serve.py),装机包同窗 adhoc 重签+`codesign -vv` 双过、
+  `open -g` 静默拉起+ticker 心跳双验在案(明细见 telegram-telethon 档过程段
+  「统一装机收尾」),装机实例保持常驻;全量门禁亲跑:pytest 4810 passed/40 skipped
+  exit 0(**=HEAD(5345efe)+20:33 时点并行在途件的工作树**,并行会话 20:28-20:35
+  持续写入中间态致首轮 4 failed、复跑全绿,19:23 先例同型;纯 HEAD 基线无法在本
+  窗口重跑如实分界)+ vitest 570/570(跑窗干净)+ tsc -b 0 错。
