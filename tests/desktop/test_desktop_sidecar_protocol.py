@@ -3360,12 +3360,21 @@ def test_telegram_host_credential_missing_graceful(tmp_path, monkeypatch):
         raise CredentialResolveError("secret_not_found", f"系统钥匙链中未找到凭据 {value!r}")
 
     monkeypatch.setattr("myssia.schema.resolve_credential", _deny)
-    entry._start_telegram_host()
-    assert entry._TELEGRAM_THREAD is None  # graceful:不起线程
-    assert entry._TELEGRAM_STOP is None
-    traces = [line for line in _ring_lines() if "telegram 宿主未起" in line]
-    assert traces and "bot token 未配" in traces[-1]
-    assert "myssia secret set myia/telegram/bot-token" in traces[-1]  # 四步指引在痕
+    # 钥匙串隔离(CI 复现钉死):装配路径先 get_backend() 再 resolve ——
+    # 无系统钥匙链环境(CI Linux)会先断在 SecretError,留痕面漂成
+    # 「装配失败」而非「bot token 未配」。注入假件才走到被测的 resolve 拒。
+    from myssia import secrets as secrets_store
+
+    secrets_store.set_backend(secrets_store.InMemoryKeychainBackend())
+    try:
+        entry._start_telegram_host()
+        assert entry._TELEGRAM_THREAD is None  # graceful:不起线程
+        assert entry._TELEGRAM_STOP is None
+        traces = [line for line in _ring_lines() if "telegram 宿主未起" in line]
+        assert traces and "bot token 未配" in traces[-1]
+        assert "myssia secret set myia/telegram/bot-token" in traces[-1]  # 四步指引在痕
+    finally:
+        secrets_store.reset_backend()
 
 
 def test_telegram_host_category_missing_graceful(tmp_path, monkeypatch):
@@ -3395,24 +3404,32 @@ def test_telegram_host_assembly_builds_real_host(tmp_path, monkeypatch):
         "myssia.schema.resolve_credential",
         lambda value, *, backend=None: "fake-bot-token",
     )
-    stop = threading.Event()
-    bundle = entry._assemble_telegram_host(entry._serve_context(), stop)
-    assert bundle is not None
-    assert isinstance(bundle.host, TelegramServeHost)
-    assert "tg-proto" in bundle.label and "telegram" in bundle.label
-    # 数据根面:事件账本库真建在 <home>/telegram/(装配即建库,same as CLI);
-    # 深审 F8:按 bot token 指纹分键(events-<sha8>.db),旧单键路径不再建
-    from myssia.telegram.offsets import bot_fingerprint
+    # 钥匙串隔离(同 credential_missing 用例):CI 无系统钥匙链,不注入
+    # get_backend() 直接抛 SecretError,装配根本到不了解析步。
+    from myssia import secrets as secrets_store
 
-    fp = bot_fingerprint("fake-bot-token")
-    assert (tmp_path / "telegram" / f"events-{fp}.db").exists()
-    assert not (tmp_path / "telegram" / "events.db").exists()
-    assert bundle.host._offsets.path.name == f"offsets-{fp}.json"
-    bundle.close()
-    # stop 注入面:should_stop 已挂 stop Event(轮间检查点生效)
-    assert bundle.host._should_stop is not None
-    stop.set()
-    assert bundle.host._should_stop() is True
+    secrets_store.set_backend(secrets_store.InMemoryKeychainBackend())
+    try:
+        stop = threading.Event()
+        bundle = entry._assemble_telegram_host(entry._serve_context(), stop)
+        assert bundle is not None
+        assert isinstance(bundle.host, TelegramServeHost)
+        assert "tg-proto" in bundle.label and "telegram" in bundle.label
+        # 数据根面:事件账本库真建在 <home>/telegram/(装配即建库,same as CLI);
+        # 深审 F8:按 bot token 指纹分键(events-<sha8>.db),旧单键路径不再建
+        from myssia.telegram.offsets import bot_fingerprint
+
+        fp = bot_fingerprint("fake-bot-token")
+        assert (tmp_path / "telegram" / f"events-{fp}.db").exists()
+        assert not (tmp_path / "telegram" / "events.db").exists()
+        assert bundle.host._offsets.path.name == f"offsets-{fp}.json"
+        bundle.close()
+        # stop 注入面:should_stop 已挂 stop Event(轮间检查点生效)
+        assert bundle.host._should_stop is not None
+        stop.set()
+        assert bundle.host._should_stop() is True
+    finally:
+        secrets_store.reset_backend()
 
 
 def test_telegram_host_fatal_error_exits_with_trace(tmp_path, monkeypatch):
