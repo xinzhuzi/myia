@@ -16,12 +16,12 @@
 # (引擎把 markdown 同时放 content=档案 与 prompt_summary=模板键,零 push 层改动)。
 #
 # 挂上 cron 即成「每天 8 点」:
-#   myssia cron create --category ai-vendor-watch \
-#     --config plugins/ai-vendor-watch.yaml --schedule "0 8 * * *" \
-#     --deliver feishu_card:env:FEISHU_CHAT_ID
-# (cron 调度/账本/deliver 全复用现成件;品类内 push 节与 cron deliver 二选一,
-# 本件演示品类 push 通道——跑一次 `myssia run plugins/ai-vendor-watch.yaml`
-# 即时可见。)
+#   myssia cron create --category plugins/ai-vendor-watch.yaml \
+#     --schedule "0 8 * * *" --deliver feishu:群名
+# (cron --category 收品类 YAML 路径,完整装载校验早失败;调度/账本/deliver/
+# 孤儿回收全复用现成件——job spawn `myssia run <yaml> --json` 子进程。品类内
+# push 节与 cron deliver 二选一,本件演示品类 push 通道——跑一次
+# `myssia run plugins/ai-vendor-watch.yaml` 即时可见。)
 
 id: ai-vendor-watch
 name: AI厂商官网观察
