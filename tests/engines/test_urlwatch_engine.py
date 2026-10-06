@@ -768,3 +768,23 @@ def test_build_render_command_win32_variant(monkeypatch):
         ' "https://example.com/blog?page=2&lang=zh"'
     )
     assert command.count('"') == 6  # 三段×首尾,无裸露元字符
+
+
+@pytest.mark.parametrize(
+    "python_executable, helper, url",
+    [
+        ('py"thon', "/h.py", "https://x.example/a"),
+        ("python", '/h"elp.py', "https://x.example/a"),
+        # 复核二轮实证:adapter 的 URL 校验不拒 "(ord 34 非空白非控制),
+        # 引擎构命令又先于 adapter 校验——本入口是唯一强制点
+        ("python", "/h.py", 'https://x.example/a?x="inject'),
+    ],
+)
+def test_build_render_command_rejects_double_quote_parts(
+    python_executable, helper, url
+):
+    """docstring 契约(三段不含双引号)被入口强制:任一段含 " 即结构化拒
+    (win32 三段引号包裹会被闭合破坏;POSIX 统一同拒保契约单口径)."""
+    with pytest.raises(FetchError, match="双引号") as excinfo:
+        urlwatch_engine_module.build_render_command(python_executable, helper, url)
+    assert excinfo.value.error_type == "invalid_render_command"

@@ -150,3 +150,11 @@ round1 脚本 `probe_vendors.py` 的 `sniff()` 写了 `"<html" in head`(str in b
 **[LOW] MARKDOWN_B 零引用——属实,已启用等值断言并当场抓出夹具错**:`strip_markdown_noise(MARKDOWN_A) == MARKDOWN_B` 等值断言入测(夹具补 `[带标题链接](url "title")` 形态);首跑即抓出我原夹具推导错——A 首行是「链接文字=图片本体」形态(`[![Meta](img)](link)`),图片剔除后该行归一为**空**(非 `Meta`),原子串断言对此无感。helper 同步补逐行 rstrip 归一(链接文字悬空尾空格不进快照)。
 
 **门禁(回改后)**:ruff check 绿+format 净;定向五件(engine/plugin/helper/插件包守卫/tauri resources 钉件)383 passed 24 skipped;全量 pytest **4528 passed / 0 failed / 0 errors**。装机复核三验:目录四件在位、SIGNATURE VALID、装机 python 真路径 `_render_helper` → dependency_missing。
+
+### §12.2 复核二轮处置(2026-10-06 傍晚,两发现全涉本流,已回改)
+
+**[MEDIUM] resources 枚举行无回归守卫——属实,补反向对账钉并变异验证**:复核员实证「从 tauri.conf.json 删 render_crawl4ai.py 行后全部测试仍绿」(rebuild_bundled_tree 只做映射→磁盘正向、pyenv_resources 只钉自管环境五映射、plugin_packages 只钉仓库目录文件集)——§12.1 门禁段写「tauri resources 钉件」名实不符(所引五件对该行零覆盖),此处更正:彼时无钉,本钉落定后口径才成立。新钉 `test_bundled_package_files_are_fully_mapped_in_tauri_resources`(tests/desktop/test_bundled_plugins_install.py):**磁盘→映射反向对账**——随包组件包目录(映射派生包集,与 BUNDLED_PACKAGES 守卫常量同源对账)内分发件(.yaml/.yml/.py/.md)逐文件必须被 bundle.resources 精确登记或落在整目录映射(credhunter 子包先例)之下;__pycache__/loot(运行时产物)与 vendor(gitlink 子模块=上游代码,设计上零随包)排除。**变异亲验**(复核员同款手法):删 render_crawl4ai.py 行 → 红,消息精确点名 `myssia-urlwatch/render_crawl4ai.py: 组件包分发件未登记`;还原 → 绿。守卫自检过程修掉两处实现 bug(键/值方向、dest 前缀对齐),并在本机 osint vendor 已 init 的实况下收窄排除面。
+
+**[LOW] docstring 引号前提无强制——属实,入口显式拒**:`build_render_command` docstring 声称「三段不含引号」但校验链不拒 `"`(adapter._checked_http_url 只拒空白/控制/超长,ord('"')=34 放行;且引擎构命令先于 adapter 校验)——win32 三段无条件引号会被 URL 裸双引号闭合破坏。修=本入口(声明所在处)对三段任一含 `"` 即结构化拒 `invalid_render_command`(Posix 的 shlex.quote 本可安全处理,统一拒保契约单口径;词表入模块 Raises);参数化三用例(python/helper/URL 各含 `"` 形态)钉死。
+
+**门禁(回改后)**:ruff check 绿(format:urlwatch.py 落定;test_bundled_plugins_install.py 第 60 行为既有基线漂移零触碰,2022bd9 先例);定向七件(engine/plugin/helper/plugin_packages/bundled_install/pyenv_resources/installer_resources)457 passed 24 skipped;全量 pytest **4532 passed / 0 failed / 0 errors**。装机:urlwatch.py 引擎件再外科直更+重签(SIGNATURE VALID,render_crawl4ai.py 在位复验)。

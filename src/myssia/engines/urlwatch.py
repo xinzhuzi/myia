@@ -46,7 +46,9 @@ Raises:
     FetchError: 源 URL 非 http/https、proxy 非 direct、pagination 配置、
         engine_options 类型错、adapter 缺失、子进程失败/超时、目标页
         error 事件、robots 全禁、渲染通道的 helper 件缺失
-        (``render_helper_missing``)或渲染后端未安装(``dependency_missing``)。
+        (``render_helper_missing``)、渲染后端未安装
+        (``dependency_missing``)或渲染命令段含双引号
+        (``invalid_render_command``)。
 """
 
 from __future__ import annotations
@@ -190,10 +192,25 @@ def build_render_command(python_executable: str, helper: Path | str, url: str) -
     ``|``/``<``/``>`` 在双引号内失效——而 ``subprocess.list2cmdline`` 只对
     含空格参数加引号,带查询串的 URL(``?page=2&lang=zh``,无空格)不被
     包裹即被 ``&`` 切断(复核轮实证),故 win32 分支对三段**无条件**双引号
-    包裹(三段内容经上游校验均不含引号/控制字符,% 变量展开属 cmd 既有
-    语义,URL 百分号编码残片不在已定义变量表,如实留痕不额外转义)。
+    包裹(% 变量展开属 cmd 既有语义,URL 百分号编码残片不在已定义变量表,
+    如实留痕不额外转义)。
+
+    引号包裹的安全前提是**被入口强制**而非口头声明(复核二轮:adapter 的
+    URL 校验不拒 ``"``——ord 34 非空白非控制字符,且引擎构命令先于 adapter
+    校验):三段任一含双引号即结构化拒 ``invalid_render_command``,不让
+    win32 的三段引号被闭合破坏(darwin 的 shlex.quote 本可安全处理,统一
+    拒是为了契约单口径)。
+
+    Raises:
+        FetchError: 任一段含双引号(``invalid_render_command``)。
     """
     parts = [python_executable, str(helper), url]
+    for part in parts:
+        if '"' in part:
+            raise FetchError(
+                f"渲染命令段含双引号(win32 三段引号包裹会被闭合破坏):{part[:80]!r}",
+                error_type="invalid_render_command",
+            )
     if sys.platform == "win32":
         return " ".join(f'"{part}"' for part in parts)
     return " ".join(shlex.quote(part) for part in parts)

@@ -213,6 +213,53 @@ def test_list_rebuilt_installer_tree_yields_exactly_ten_packages(monkeypatch, tm
         assert cat["schedule"]  # 品类必有合法 cron(schema 校验门)
 
 
+def test_bundled_package_files_are_fully_mapped_in_tauri_resources():
+    """反向对账(§12.1 复核轮补钉):仓库组件包分发件 ⊆ tauri resources 映射.
+
+    正向(rebuild_bundled_tree / test_installer_resources)只验「映射→磁盘」
+    方向——从映射删行不红;本钉反向「磁盘→映射」:随包组件包目录里的分发件
+    (plugin.yaml/README/adapter/渲染 helper 等)漏登记 bundle.resources 时,
+    任何按清单的打包/刷新都会静默丢件(10-06 §12.1 HIGH 实录:装机
+    render_crawl4ai.py 被包刷新清出分发面 → render_helper_missing 错向排障)。
+    整目录映射(credhunter 子包)覆盖其下全部文件;__pycache__/loot 运行时
+    产物与非分发后缀不在随包面(rebuild_bundled_tree 同口径)不 demands。
+    """
+    dests = set(_conf_resources().values())  # 映射键=源路径(../../…),值=目标(plugins/…)
+    bundled_pkgs = {
+        dest.split("/")[1]
+        for dest in dests
+        if dest.startswith("plugins/") and len(dest.split("/")) >= 3
+    }  # plugins/<pkg>/<file|dir> 形;平铺品类 plugins/<name>.yaml 不在列
+    assert bundled_pkgs == set(BUNDLED_PACKAGES), "映射组件包集与守卫常量漂移"
+    dir_mappings = {
+        dest
+        for dest in dests
+        if dest.startswith("plugins/") and not dest.endswith((".yaml", ".yml", ".py", ".md"))
+    }  # 整目录映射(如 plugins/myssia-credhunter/credhunter)
+    for pkg in sorted(bundled_pkgs):
+        pkg_dir = PLUGINS_DIR / pkg
+        assert pkg_dir.is_dir(), f"映射指向不存在的组件包目录: {pkg_dir}"
+        for file in sorted(pkg_dir.rglob("*")):
+            if not file.is_file():
+                continue
+            rel = file.relative_to(PLUGINS_DIR).as_posix()
+            if (
+                "__pycache__" in file.parts
+                or "loot" in file.parts  # 运行时私有情报,永不随包
+                or "vendor" in file.parts  # gitlink 子模块=上游代码,设计上零随包分发
+                or file.suffix not in (".yaml", ".yml", ".py", ".md")
+            ):
+                continue
+            dest_rel = f"plugins/{rel}"  # 对齐映射目标前缀(plugins/<pkg>/<…>)
+            covered = dest_rel in dests or any(
+                dest_rel.startswith(dir_dest + "/") for dir_dest in dir_mappings
+            )
+            assert covered, (
+                f"{rel}: 组件包分发件未登记 tauri resources 映射——官方重打包"
+                "会静默丢件(10-06 §12.1 HIGH 同款;补 bundle.resources 该文件行)"
+            )
+
+
 def test_list_bad_manifest_is_entry_level_finding_not_table_failure(monkeypatch, tmp_path):
     """坏 manifest 条目级 finding(manifest_invalid)不整表炸(yaml.list 先例):
     坏件 id=None/摘要空 + findings 带首行原因;好件照常在列。"""
