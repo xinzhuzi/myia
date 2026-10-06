@@ -112,3 +112,15 @@ round1 脚本 `probe_vendors.py` 的 `sniff()` 写了 `"<html" in head`(str in b
 **生产复测(全要素)**:零新条目=七家 RSS 全部变更检测短路(hash_match/not_modified/validators_match)+watch 两家过滤基线静默重建(watch_baseline_seeded)——系统稳态,明早 08:00 首个正式调度跑。
 
 **推送凭据终局**:shell env 与 keychain(service myia 仅 myia/image/api_key+myia/llm/base_url 两键)双空——飞书/电报凭据从未录入,装机件与 CLI 均从未真推过;**唯一留主人的动作:设置→推送 录一次飞书凭据**。
+
+## §11 复查轮(主人质询「没有其他问题了吗」,python-env 拉齐档同款纪律)
+
+**真跑新证据(上午自动发生)**:08:00:44 首个正式调度跑(app 内调度器)已完成——**11/11 源零失败、采集 1625/留存 30、enrich 真出分(immediate 4 条=score≥9 命中,llm 修复生产实证)、watch 两家零条目(过滤生效真安静)**、时长 116.7s;唯一红=推送(凭据仍缺,与采集无关);下一射点 20:00(jobs.json 亲核 enabled/scheduled)。
+
+**本轮新发现并当场修复**:Windows uv 兜底路径缺口——原 `_KNOWN_UV_PATHS` 全按 POSIX 名,win32 下 `~/.local/bin/uv`(无 .exe)永不命中、/opt/homebrew 在 win 误占位;修=win32 首候选 `uv.exe`(官方安装器落位)+/opt/homebrew 收窄 darwin 专属,win32 用例入测(重装载按 platform 重建元组两态断言);装机外科直更+重签。
+
+**门禁亲验(编辑落定后)**:pytest 全量 **4395/0**(首轮 4392+2 failed=与在途编辑撞中间态,复跑净绿);vitest **523/523×2 连续稳绿**(中途 1 挂为并行在途编辑瞬时态,两连清复验);tsc 0 错;定向 urlwatch 69+engine 41+desktop 52 全绿;ruff 绿。
+
+**定性结案**:aihot invalid_item×5/run=YAML 注释写明的设计跳过路径(无标题锚卡片零产出记录,日志噪声非缺陷);装机 python openai 3.22.1 在位;外科三件(adapter×2 轮+engine+yaml+lock)全部亲验在位。
+
+**复查后仍开的口子(全部已知且各有归属)**:①推送凭据(唯一硬前置,主人一步);②依赖指纹戳(主人一键官方重装收绿,不影响运行);③Hermes 九缺陷(主人裁决修否);④Hermes 沙盘时钟回拨/降级锁两项未模拟(档内记);⑤Meta 重接需 JS 通道(另立档);⑥国产 SPA 五家待过滤能力。

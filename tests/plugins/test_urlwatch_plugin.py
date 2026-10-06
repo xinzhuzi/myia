@@ -402,6 +402,23 @@ class TestUrlwatchAdapter:
         assert captured["command"][0] == str(fake_uv)
         assert result["status"] == "success"
 
+    def test_uv_fallback_paths_win32_variant(self, monkeypatch):
+        """Windows 官方落位是 uv.exe(复查轮补):win32 下首候选名带后缀;
+        /opt/homebrew 专属位在非 darwin 平台退不存在路径,不误命中。"""
+        import sys as _sys
+
+        monkeypatch.setattr(_sys, "platform", "win32")
+        adapter = load_adapter()  # load_adapter 每次重装载,元组按 platform 重建
+        first = adapter._KNOWN_UV_PATHS[0]
+        assert first.name == "uv.exe"
+        assert first.parent == Path.home() / ".local" / "bin"
+        assert all("/opt/homebrew" not in str(p) for p in adapter._KNOWN_UV_PATHS)
+
+        monkeypatch.setattr(_sys, "platform", "darwin")
+        adapter = load_adapter()
+        assert adapter._KNOWN_UV_PATHS[0].name == "uv"
+        assert adapter._KNOWN_UV_PATHS[1] == Path("/opt/homebrew/bin/uv")
+
     def test_url_invalid_raises_before_any_process(self, tmp_path):
         adapter = load_adapter()
 

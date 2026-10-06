@@ -44,6 +44,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -113,10 +114,14 @@ def plugin_dir() -> Path:
 
 #: GUI 态 PATH 常缺的 uv 已知落位(桌面壳 spawn sidecar 只注入 PYTHONPATH
 #: 不补 PATH;Finder/Dock 启动的 app PATH 无 /opt/homebrew/bin 等——which
-#: 未命中时按序探测这些绝对路径兜底,本机实测两处双在位)。
+#: 未命中时按序探测这些绝对路径兜底,本机实测两处双在位)。Windows 官方
+#: 安装器落 %USERPROFILE%\.local\bin\uv.exe(winget/scoop 另有 PATH 注入,
+#: GUI 态兜底仍取官方位)。
 _KNOWN_UV_PATHS: tuple[Path, ...] = (
-    Path.home() / ".local" / "bin" / "uv",
-    Path("/opt/homebrew/bin/uv"),
+    Path.home() / ".local" / "bin" / ("uv.exe" if sys.platform == "win32" else "uv"),
+    Path("/opt/homebrew/bin/uv")
+    if sys.platform == "darwin"
+    else Path("/nonexistent/uv"),
     Path("/usr/local/bin/uv"),
 )
 
