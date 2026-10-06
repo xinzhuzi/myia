@@ -147,6 +147,11 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # 零凭据零 HTTP,数据面 = FetchContext.store(注入缺席 = 结构化
     # store_not_available);单报表语义拒 pagination。
     "store_report": lambda: _load("store_report", "StoreReportEngine"),
+    # Telegram Bot API 窗口引擎(10-06-telegram-telethon B1):链外同 reddit
+    # 先例 —— 显式 engine: telegram 才生效,auto 永不路过;凭据可选(未配
+    # = credential_missing 显式空态零请求);getUpdates 批量窗口 + #tg- 锚
+    # 幂等 + 媒体组聚合;常驻长轮询是 telegram serve 档(另文件)的形态。
+    "telegram": lambda: _load("telegram", "TelegramEngine"),
 }
 
 # Static typing view of the registry (class names resolved lazily at runtime).

@@ -48,7 +48,11 @@ MYIA 具备三层 Telegram 消息获取能力,全部走「链接者」形态,组
 3. TrendRadar 拆解要不要排(一句话立档)。
 
 ## 过程(执行流水,开工逐项回填)
-- [ ] 阶段一 bot 线引擎+测试(待填)
+- [~] 阶段一 bot 线引擎+测试(B1 已落,2026-10-06):
+  - B1 引擎:`src/myssia/engines/telegram.py`(engine: telegram 链外,reddit/urlwatch/prompt 判例)——getUpdates 批量窗口(零长轮询,25s 挂起属 B3 serve 档)+chat_id 群分拣+媒体组聚合(同 media_group_id 取首条有 text/caption 铸锚)+锚 `#tg-<chat_id>-<message_id>` 全期幂等+确认请求(offset=max+1 best-effort,多群共 bot 确认互偷已记档);凭据三态 reddit 判例(未配/解析失败/占位值=credential_missing 显式空态零请求,四步人话指引);token 零外显(URL path 净化 `bot***`,httpx 异常消息同净化);robots 豁免同 reddit 口径(授权 Bot API 通道);pagination 拒(单轮窗口语义)。
+  - 词表/注册/schema 两行(ENGINES+EngineName,hunk 收窄)+docs zh/en schema.md 词表行同步;示范件 `plugins/telegram-groups.yaml`(源 telegram-mihomo_party_group 活源待 token 空态——schema sources min_length=1 故非注释态,token 未写钥匙串即 credential_missing 零请求;chat_id 占位待实填)。
+  - 测试 `tests/engines/test_telegram_engine.py` 31 例全绿(四态矩阵:空态零请求/结构化拒/开启态往返含 401/409 指引+净化/注册表),tests/engines+test_schema+test_docs 计 765 passed;ruff 绿。
+  - AC1 真发留给主人 token 到手(如实记档);B2 过滤+B3 serve 续。
 - [ ] 阶段二 Telethon 组件依赖+session 流程+引擎(待填)
 - [ ] 阶段三 组件化件示例(待填)
 - [ ] 门禁+装机(待填)

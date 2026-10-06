@@ -1,0 +1,93 @@
+# plugins/telegram-groups.yaml — Telegram 群消息监控(路线二:bot 线,10-06-telegram-telethon B1)。
+#
+# 机制(engine: telegram 链外引擎,reddit/urlwatch/prompt 判例):
+#   getUpdates 批量窗口拉取 → 按 chat_id 分拣 → 媒体组聚合 →
+#   锚 #tg-<chat_id>-<message_id> 全期幂等(dedup key = {url})。
+#   凭据三态:token 未配 = credential_missing 显式空态(零请求不报错、
+#   不拦品类),配好即活 —— 源保持「待 token」空态,四步后只改 chat_id。
+#
+# 主人前置四步(缺一不可,PRD 阶段一):
+#   1. BotFather(/newbot)建 bot;
+#   2. /setprivacy 选 Disabled(关隐私模式 —— 否则 bot 在群里看不到普通消息);
+#   3. token 入钥匙串:myssia secret set myia/telegram/bot-token;
+#   4. 把 bot 拉进目标群(mihomo_party_group)。
+#   chat_id 实填:bot 进群发条消息后跑
+#   myssia run --category plugins/telegram-groups.yaml --json,引擎日志带
+#   群分拣计数;或把群里任一消息转发给 @userinfobot 问它。
+#
+# 命名规约(主人 2026-10-06 令):源名 = telegram-<群原名>,全局唯一;
+# 是合并日报「Telegram 群」分区的匹配键(daily-digest.yaml 同步维护)。
+#
+# 出口(10-06-telegram-telethon B2,Grill Q5):
+#   粗筛词表(keywords,零成本)→ 命中 → LLM 精筛打分(glm-4-flash)→
+#   score ≥ 8 即时(同轮多条高价值由过滤管线合并单条=组合铁律)→
+#   其余 archive 入库,进每日合并日报「Telegram 群」分区。
+#   LLM 端点未配(llm_base_url/llm_api_key 缺)= 降级纯粗筛,全部入库。
+#
+# 未挂 cron(不跑不影响);常驻秒级过滤走 myssia telegram serve(B3),
+# 批量档与 serve 档同 token 互斥(409),二选一。
+
+id: telegram-groups
+name: Telegram群消息监控
+
+schedule: "*/30 * * * *"          # 挂上后每半小时窗口拉取(serve 常驻时不必挂)
+timezone: Asia/Shanghai
+
+sources:
+  # ── 首群(Grill Q2:仅 mihomo_party_group,稳后扩)── 待 token 空态:
+  #    钥匙串无 myia/telegram/bot-token 即 credential_missing 零请求;
+  #    四步后实填 chat_id 即活。
+  - name: telegram-mihomo_party_group
+    engine: telegram
+    url: "https://api.telegram.org"     # 锚(铸 #tg- 去重键用;请求端点引擎自构)
+    engine_options:
+      telegram:
+        chat_id: "-1000000000000"       # 占位:四步后按日志/@userinfobot 实填
+        # bot_token: keychain:myia/telegram/bot-token   # 缺省键,省略即此
+        lookback_limit: 100             # 单轮窗口帽(getUpdates 硬顶)
+        keywords: [免费, 白嫖, 羊毛, token, 额度, 优惠, coupon, free, 折扣]  # 粗筛词表(B2;省略=内置缺省词表)
+        llm_base_url: keychain:myia/llm/base_url        # LLM 精筛端点(enrich 同契约,B2;缺=降级纯粗筛)
+        llm_api_key: keychain:myia/llm/api_key
+        # model: glm-4-flash            # 缺省即此(prompt/enrich 同款)
+        # score_threshold: 8            # ≥8 分即时(Grill Q5;缺省 8)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct                       # api.telegram.org 出海按需改 pool:<名称>
+    retry: 3
+
+  # ── 你的群往这里加(一个群一个源,chat_id 各配各的)────────────────
+  # 注意:多群共用同一 bot 时,批量档的窗口确认是全 bot 语义(A 群源的确认
+  # 会丢弃 B 群未处理更新)——多群请走 myssia telegram serve(offset 持久)。
+
+# 粗筛词表默认值内置在引擎里(免费/token/额度/优惠/白嫖等);源级
+# engine_options.telegram.keywords 覆盖。品类 watchlist 仅作 mute 面。
+watchlist:
+  keywords: []
+  mute: []
+
+classify:
+  builtin: false
+  rules: []
+
+dedup:
+  key: "{url}"                    # #tg-<chat_id>-<message_id> 锚:同条消息全期只进一次
+
+enrich:
+  enabled: false                  # 精筛在引擎内(B2 挂点,只对粗筛命中耗 token);品类级 enrich 不开
+
+push:
+  - channel: feishu_card
+    target: env:FEISHU_CHAT_ID
+    route:
+      - when: "score >= 8"        # 高价值即时(过滤管线已合并单条,一轮至多一条)
+        mode: immediate
+      - when: "url != ''"         # 普通=入库,合并日报「Telegram 群」分区承载
+        mode: archive
+    template: |
+      **TG 群速报 · {{ date }}**
+      {% for item in items %}
+      - {{ item.title }}
+      {% endfor %}
+
+storage:
+  retention: 90d                  # Grill Q7:90d 照旧可配;敏感群可单源改短
+  vacuum: monthly

@@ -34,7 +34,7 @@ entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
 
 | schema constant | values |
 |---|---|
-| `ENGINES` | `auto` `direct_api` `static_html` `crawl4ai` `firecrawl` `scrapling` `stealth_browser` `llm_browser` `credhunter` `scraperapi` `zenrows` `reddit` `urlwatch` `searxng` `prompt` `store_report` |
+| `ENGINES` | `auto` `direct_api` `static_html` `crawl4ai` `firecrawl` `scrapling` `stealth_browser` `llm_browser` `credhunter` `scraperapi` `zenrows` `reddit` `urlwatch` `searxng` `prompt` `store_report` `telegram` |
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |

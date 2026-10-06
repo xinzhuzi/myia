@@ -1,10 +1,10 @@
 # implement.md — 10-06-telegram-telethon 执行计划(先档后行,批间门禁)
 
-## 批次 B1:bot 批量引擎(无前置,可先动)
-1. `src/myssia/engines/telegram.py`(engine: telegram,设计 D2 契约)+ schema 词表两行(ENGINES/EngineName,收窄 hunk 判例)+ registry 注册;
-2. 测试 `tests/engines/test_telegram_engine.py`(D5 引擎面);
-3. 品类示范件 `plugins/telegram-groups.yaml`(源名规约 telegram-<群名>,注释态待主人拉群);
-4. 门禁:定向 pytest+ruff;提交①。
+## 批次 B1:bot 批量引擎(无前置,可先动)——✅ 2026-10-06 完(提交①)
+1. ✅ `src/myssia/engines/telegram.py`(engine: telegram,设计 D2 契约)+ schema 词表两行(ENGINES/EngineName,收窄 hunk 判例)+ registry 注册;
+2. ✅ 测试 `tests/engines/test_telegram_engine.py`(D5 引擎面,31 例);
+3. ✅ 品类示范件 `plugins/telegram-groups.yaml`(源名规约 telegram-<群名>;schema sources min_length=1 → 活源待 token 空态而非注释态,token 未配=credential_missing 零请求);
+4. ✅ 门禁:定向 pytest(765 passed 含 engines/schema/docs)+ruff 绿;docs zh/en schema.md 词表行同步。
 
 ## 批次 B2:过滤管线与出口接线
 1. 粗筛词表配置化(品类 YAML watchlist 复用判定)+ LLM 精筛挂点(enrich 客户端复用);

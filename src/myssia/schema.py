@@ -183,6 +183,11 @@ ENGINES = (
     # Hermes 版式渲染跨品类合并日报(唯一日报出口;既有品类 digest 路由
     # 同批降噪为 archive,报表从库面收口)。
     "store_report",
+    # Telegram Bot API 引擎(10-06-telegram-telethon B1):链外 + 凭据可选;
+    # 显式 engine: telegram 才生效,getUpdates 批量窗口拉取,锚
+    # #tg-<chat_id>-<message_id> 全期幂等(未配 token = credential_missing
+    # 显式空态零请求,reddit 判例)。
+    "telegram",
 )
 PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
@@ -253,6 +258,7 @@ EngineName = Literal[
     "searxng",
     "prompt",
     "store_report",
+    "telegram",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]
 ExtractType = Literal["list", "item", "json_path", "rss"]
