@@ -166,3 +166,7 @@ round1 脚本 `probe_vendors.py` 的 `sniff()` 写了 `"<html" in head`(str in b
 **发现 B(在档待修,证据充分)**:aihot 每轮 3-5 张「作者精选卡」被静默丢弃——实证(14:1x 探针):无 h3 的卡片是编辑精选的 X 帖摘要(实测卡:Rohan Paul「Anthropic 计划未来数年在云计算上支出 5180 亿美元…」/「A16Z 第七版 Top 100 消费级 AI 应用解读」/「Google 等机构论文提出 insecure reporting 现象」),卡内有 /items/<id> 链接但不在 h3 下,extract 的 url:"h3 a@href" 取不到→invalid_item。**恰是主人最初要的「X 上面的监控」信号,每轮丢 3-5 条高质量内容**。修法方向:提取 DSL 验证逗号并集选择器(h3 a@href, a@href)+标题回退的语义(需读 static_html 提取字段实现后定,本轮查改分家不盲动);卡片 id 样本 nnl0kba78980jig0szh0hkfop 等。
 **发现 C(已实证未修)**:watch 选择器失效=静默死亡——假选择器两跑 R1 new(空快照)→R2 unchanged(空==空),此后恒 unchanged 零告警,站点改版即触发且无任何可见痕迹。修法方向:shim 事件附带快照字节数,引擎对 unchanged-and-近零字节出 WARNING(选择器疑似失效)——小改,待令。
 **其他核过无恙**:今晨 immediate 4=freebie/buying-agent 类目路由(非分数路,YAML 设计);打分直方 1-7 无异常;摘要模板渲染可读;调度心跳新鲜。操作依赖重申:**20:00 跑要求 app 保持运行**(调度器活在 app 进程里)。
+
+## §14 推送链终验(2026-10-06 14:54,主人指路 Hermes 蓝本)
+
+主人提示「Hermes 配置里有飞书,2 个机器人」——蓝本部署在 ~/.hermes/hermes-agent,.env 内全套凭据:FEISHU_APP_ID(20)+FEISHU_APP_SECRET(32)+FEISHU_HOME_CHANNEL(35,oc_ 群 chat id)。按 MYIA 钥匙串规范代录三键(myia/push/FEISHU_APP_ID/APP_SECRET/CHAT_ID,值走管道零外显,用完建议主人轮换)。**R5 生产真跑:feishu_card ok=True,6 条日报真发**(tenant token 自动续期路径,首个端到端推送成功——全链至此闭环)。第二个机器人未动(暂无需,留档知会)。meta dependency_missing 维持 partial 属预期(owner 裁决项)。20:00 起每日双槽日报。
