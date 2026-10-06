@@ -1,0 +1,32 @@
+{
+  "probe": "crawl4ai-render-ai-meta-blog",
+  "url": "https://ai.meta.com/blog",
+  "crawl4ai_version": "0.9.4",
+  "env_proxy": {
+    "http_proxy": null,
+    "https_proxy": null,
+    "all_proxy": null,
+    "no_proxy": null
+  },
+  "success": true,
+  "status_code": 301,
+  "elapsed_seconds": 7.3,
+  "error_message": null,
+  "html_chars": 209466,
+  "markdown_chars": 17345,
+  "blog_slug_links_in_markdown": [
+    "/blog/assistive-robotics-university-of-pittsburgh-sam-dino",
+    "/blog/brain2qwerty-brain-ai-human-communication",
+    "/blog/genesis-mission-lawrence-berkeley-national-laboratory-segment-anything-dino",
+    "/blog/introducing-muse-image-muse-video-msl",
+    "/blog/introducing-muse-spark-meta-model-api"
+  ],
+  "blog_slug_link_count": 5,
+  "marker_hits": {
+    "Llama": 0,
+    "AI at Meta": 0,
+    "Meta AI": 3,
+    "model": 2,
+    "research": 8
+  }
+}
