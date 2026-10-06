@@ -15,9 +15,14 @@ name: TG频道监控
 schedule: "0 8 * * *"            # 挂上后每天早跑(改时点随手调)
 timezone: Asia/Shanghai
 
+# 命名规约(主人 2026-10-06 令「名字要写全面,防渠道重复」):
+#   源名 = <平台>-<渠道标识>,一律带平台前缀且用渠道原名,如 tg-durov、
+#   tg-openai_news;源名是合并日报的分区匹配键与账本锚,**全局唯一**,
+#   裸名(durov/news)以后加其他渠道必撞——发现裸名即按此规约改全。
+
 sources:
   # ── 活样例(机制验证用,可删可换)──────────────────────────
-  - name: durov-tg
+  - name: tg-durov
     engine: static_html
     url: "https://t.me/s/durov"
     method: GET
