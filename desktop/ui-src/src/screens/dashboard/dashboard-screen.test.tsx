@@ -9,7 +9,9 @@
  * 采集量趋势(自绘 sparkline,今日档单点)/ 源健康度卡网格(四态 +
  * 异常优先 + 相对时间锚 + 补批五正常源折叠组)/ 品类状态卡(含载入失败)/
  * 源健康度四态计数 / 最近采集成功率(runs.list 历史行 + run.status 活跃
- * 叠加,C3)/ 错误与空态。
+ * 叠加,C3)/ 错误与空态。10-06 补:推送失败徽章(RecentRunRow 行内
+ * failures 文案 + dry 首 Badge 顺序锚)+ windowPushFailed 升态(纯函数
+ * runPushFailureText/hasPushFailure 与 buildVerdict/buildOverviewStats)。
  */
 import { cleanup, fireEvent, render, screen, waitFor, act } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -61,7 +63,9 @@ import {
   cumulativeOutcomeSummary,
   fillDailyCounts,
   fillDailyOutcomes,
+  hasPushFailure,
   overviewTrendDays,
+  runPushFailureText,
   shiftUtcDate,
   successRateSeries,
   toSparklinePoints,
@@ -799,6 +803,85 @@ describe("DashboardScreen", () => {
     expect(badge?.getAttribute("title")).toBe("dry run(不落库)");
   });
 
+  it("推送失败徽章:失败通道带 failures 文案 → destructive 徽章显错误原文,title 悬停全文", async () => {
+    const errorText =
+      "[env_var_missing] 飞书 bot 凭据解析失败: 环境变量 FEISHU_BOT_TOKEN 未设置,钥匙链规范名 myia/push/FEISHU_BOT_TOKEN 亦未录入;到 设置→推送 填一次即可(或设置环境变量 FEISHU_BOT_TOKEN)——飞书 tenant token";
+    mockSidecar(
+      Promise.resolve(fixtureDoctor({ plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })] })),
+      Promise.resolve({
+        runs: [
+          fixtureHistoryRun({
+            stats: {
+              items_retained: 12,
+              push: [
+                {
+                  channel: "feishu_card",
+                  ok: false,
+                  immediate: 12,
+                  digest: 0,
+                  archive: 0,
+                  failures: [{ error: errorText, count: 1 }],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+    );
+    render(<DashboardScreen />);
+
+    const row = await screen.findByTestId("recent-run-1");
+    // 非 dry 行的行内唯一 Badge = 推送失败徽章:错误原文 + title 全文(截断仅 CSS 层)
+    const badge = row.querySelector('[data-slot="badge"]');
+    expect(badge?.getAttribute("title")).toBe(errorText);
+    expect(badge?.textContent).toContain("设置→推送"); // 指引原文在行内直接可见
+    expect(badge?.className).toContain("bg-destructive/15"); // destructive 变体
+  });
+
+  it("推送失败徽章不抢 dry 首位:dry 活跃行带失败 stats → 首 Badge 仍 dry title,verdict 升「推送失败」", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    mockSidecar(
+      Promise.resolve(fixtureDoctor({ plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })] })),
+      Promise.resolve({
+        runs: [
+          // 表内 running 行与注册表活跃 run 合并 → 同一行 active+dry 且带失败 stats
+          fixtureHistoryRun({
+            status: "running",
+            started_at: `${today}T08:00:00+00:00`,
+            stats: {
+              items_retained: 3,
+              push: [
+                {
+                  channel: "telegram",
+                  ok: false,
+                  immediate: 3,
+                  digest: 0,
+                  archive: 0,
+                  failures: [
+                    { error: "[env_var_missing] telegram bot 凭据解析失败: 到 设置→推送 填一次即可", count: 1 },
+                  ],
+                },
+              ],
+            },
+          }),
+        ],
+      }),
+      Promise.resolve({ runs: [fixtureRegistryRun({ dry: true })] }),
+    );
+    render(<DashboardScreen />);
+
+    const row = await screen.findByTestId("recent-run-1");
+    const badges = row.querySelectorAll('[data-slot="badge"]');
+    expect(badges).toHaveLength(2); // 试跑 + 推送失败
+    expect(badges[0].getAttribute("title")).toBe("dry run(不落库)"); // 首位仍是 dry(既有断言锚)
+    expect(badges[1].getAttribute("title")).toContain("设置→推送");
+    // verdict 联动升态:窗口内 run 推送全挂不再报「一切正常」
+    await waitFor(() =>
+      expect(screen.getByTestId("dashboard-verdict").textContent).toContain("推送失败"),
+    );
+    expect(screen.getByTestId("dashboard-verdict").textContent).not.toContain("一切正常");
+  });
+
   it("刷新数据钮:嵌概览卡头(不占独立行),点击重拉 doctor/run.status/趋势,loading 期自转", async () => {
     mockSidecar(Promise.resolve(fixtureDoctor()), Promise.resolve({ runs: [] }));
     // 第二次 doctor 应答挂起(手放行),冻结 loading 态供自转/禁用断言
@@ -1487,6 +1570,22 @@ describe("buildOverviewStats 窗口语义(A-dash 纯函数;两格随窗两格快
     expect(stats.windowPushOk).toBe(2); // 窗外 9 次不入
   });
 
+  it("windowPushFailed(10-06):窗口内任一 run 有失败通道 → true;全 ok → false;窗口内无 run = null 不虚构", () => {
+    const withFailure: DashboardRun = {
+      ...dashRun(6, "2026-10-04T08:00:00+00:00", 1),
+      stats: { push: [{ channel: "tg", ok: true }, { channel: "feishu_card", ok: false }] },
+    };
+    expect(buildOverviewStats(doctor, [withFailure], trendToday, today).windowPushFailed).toBe(true);
+    expect(
+      buildOverviewStats(doctor, [dashRun(7, "2026-10-04T08:00:00+00:00", 2)], trendToday, today)
+        .windowPushFailed,
+    ).toBe(false);
+    // 失败 run 在窗口外(8 天前)且窗口内无 run → null(与 windowPushOk 同窗同源)
+    const outOfWindow = { ...withFailure, startedAt: "2026-09-26T08:00:00+00:00" };
+    expect(buildOverviewStats(doctor, [outOfWindow], trendToday, today).windowPushFailed).toBeNull();
+    expect(buildOverviewStats(doctor, [], trendToday, today).windowPushFailed).toBeNull();
+  });
+
   it("快照格不随窗:activeSources/totalSources/alerts 两档一致;trend=null → 采集格 null", () => {
     const todayStats = buildOverviewStats(doctor, [], trendToday, today);
     const weekStats = buildOverviewStats(doctor, [], trend7, today, 7);
@@ -1503,6 +1602,53 @@ describe("buildOverviewStats 窗口语义(A-dash 纯函数;两格随窗两格快
   });
 });
 
+describe("推送失败文案纯函数(10-06 push 失败可见性;stats_dict failures 键)", () => {
+  /** 带 stats.push 的最小历史行(push 形状由各用例自造) */
+  const run = (stats: Record<string, unknown> | null): DashboardRun => ({
+    runId: 1,
+    category: "tech",
+    status: "success",
+    startedAt: "2026-10-06T00:08:00+00:00",
+    finishedAt: "2026-10-06T00:09:00+00:00",
+    stats,
+    active: false,
+    dry: false,
+    durationMs: 60_000,
+  });
+  const credError = "[env_var_missing] 飞书 bot 凭据解析失败: 到 设置→推送 填一次即可";
+  /** 旧 run 行五字段形态(后端加 failures 键之前落库的行) */
+  const legacyEntry = { channel: "feishu_card", ok: false, immediate: 12, digest: 0, archive: 0 };
+  const failingEntry = { ...legacyEntry, failures: [{ error: credError, count: 1 }] };
+
+  it("旧 run 行五字段无 failures 键 → 文案 null(不虚构);hasPushFailure 仍认出失败通道", () => {
+    expect(runPushFailureText(run({ push: [legacyEntry] }))).toBeNull();
+    expect(hasPushFailure(run({ push: [legacyEntry] }))).toBe(true);
+  });
+
+  it("失败通道带 failures 文案 → 返回首条错误原文(指引可见)", () => {
+    expect(runPushFailureText(run({ push: [failingEntry] }))).toBe(credError);
+  });
+
+  it("首失败条目无 failures(旧形态)而次条目有 → 取首个有文案者,不误判 null", () => {
+    const push = [legacyEntry, { ...legacyEntry, channel: "telegram", failures: [{ error: credError, count: 1 }] }];
+    expect(runPushFailureText(run({ push }))).toBe(credError);
+  });
+
+  it("防卫:Array.isArray 同款口径——stats 缺 push / push 非数组 / 全 ok → null 且无失败", () => {
+    expect(runPushFailureText(run(null))).toBeNull();
+    expect(hasPushFailure(run(null))).toBe(false);
+    expect(runPushFailureText(run({ push: "not-array" }))).toBeNull();
+    expect(runPushFailureText(run({ push: [{ channel: "tg", ok: true }] }))).toBeNull();
+    expect(hasPushFailure(run({ push: [{ channel: "tg", ok: true }] }))).toBe(false);
+  });
+
+  it("failures[0].error 空串 → 该条目让位,继续找后续失败条目", () => {
+    const emptyText = { ...legacyEntry, failures: [{ error: "", count: 1 }] };
+    expect(runPushFailureText(run({ push: [emptyText] }))).toBeNull();
+    expect(runPushFailureText(run({ push: [emptyText, failingEntry] }))).toBe(credError);
+  });
+});
+
 describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
   const stats = (over: Partial<OverviewStats> = {}): OverviewStats => ({
     window: "today",
@@ -1510,6 +1656,7 @@ describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
     activeSources: 12,
     totalSources: 14,
     windowPushOk: 3,
+    windowPushFailed: false, // 10-06 新键:窗口内有 run 无失败(与 windowPushOk=3 同场景)
     alerts: 0,
     ...over,
   });
@@ -1596,6 +1743,58 @@ describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
         doctorFailed: false,
       })?.headline,
     ).toBe("2 品类异常");
+  });
+
+  it("推送失败升态(10-06):windowPushFailed=true → warning 拼「推送失败」;false/null → ok 不变;dead 仍最坏优先", () => {
+    // 与告警/退化同屏:段序 告警 · 退化 · 推送失败
+    expect(
+      buildVerdict({
+        overview: stats({ alerts: 3, windowPushFailed: true }),
+        health: health({ degraded: 2 }),
+        categories: [category("ok")],
+        runSummary: runs(),
+        doctorFailed: false,
+      })?.headline,
+    ).toBe("3 项告警 · 2 个源退化 · 推送失败");
+    // 仅推送失败也单独成段:推送全挂不再「一切正常」与行内失败徽章自相矛盾
+    expect(
+      buildVerdict({
+        overview: stats({ windowPushFailed: true }),
+        health: health(),
+        categories: [category("ok")],
+        runSummary: runs(),
+        doctorFailed: false,
+      })?.headline,
+    ).toBe("推送失败");
+    // false / null(窗口内无 run)→ ok 态不变
+    expect(
+      buildVerdict({
+        overview: stats({ windowPushFailed: false }),
+        health: health(),
+        categories: [category("ok")],
+        runSummary: runs(),
+        doctorFailed: false,
+      })?.headline,
+    ).toBe("一切正常");
+    expect(
+      buildVerdict({
+        overview: stats({ windowPushFailed: null }),
+        health: health(),
+        categories: [category("ok")],
+        runSummary: runs(),
+        doctorFailed: false,
+      })?.headline,
+    ).toBe("一切正常");
+    // dead 仍最坏优先(压过推送失败,分支序未动)
+    expect(
+      buildVerdict({
+        overview: stats({ windowPushFailed: true }),
+        health: health({ dead: 1 }),
+        categories: [],
+        runSummary: runs(),
+        doctorFailed: false,
+      })?.headline,
+    ).toBe("1 个源失效");
   });
 
   it("dead:dead>0 最坏优先(压过告警/退化)", () => {

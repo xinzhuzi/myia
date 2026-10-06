@@ -16,6 +16,7 @@ import type {
   RunEntry,
   RunOutcomeDay,
   RunRecord,
+  RunStatsPushEntry,
   SourceHealthState,
   StoreTrendResult,
   TrendDay,
@@ -454,6 +455,9 @@ export interface OverviewStats {
   totalSources: number | null;
   /** 推送格:窗口内(UTC)启动 run 的 stats.push[].ok=true 计数;窗口内无 run = null(不虚构 0) */
   windowPushOk: number | null;
+  /** 窗口内任一 run 的 stats.push 存在失败通道(ok!==true 即计,与 windowPushOk 同源
+   *  互补;verdict 升态输入,全通道失败不再报「一切正常」);窗口内无 run = null */
+  windowPushFailed: boolean | null;
   /** 告警:doctor findings 的 error+warning 计数(info 级不入告警——cli 实况
    *  gate_disabled/analysis_lane_disabled/third_party_trace 等 info 明写「正常态,
    *  不是故障」且默认装机即有,计入会把正常态播报成告警;doctor 分区失败 =
@@ -468,6 +472,34 @@ export function countPushOk(run: DashboardRun): number {
   return push.filter(
     (entry) => typeof entry === "object" && entry !== null && (entry as { ok?: unknown }).ok === true,
   ).length;
+}
+
+/** run 的 stats.push[] 是否存在失败通道(ok!==true;与 ok 字段同源口径,skipped
+ *  未尝试的报告也算——是否「有失败」与「失败文案是什么」两层分离,见下) */
+export function hasPushFailure(run: DashboardRun): boolean {
+  const push = run.stats?.["push"];
+  if (!Array.isArray(push)) return false;
+  return push.some(
+    (entry) => typeof entry === "object" && entry !== null && (entry as { ok?: unknown }).ok !== true,
+  );
+}
+
+/**
+ * run 的首个推送失败文案(stats.push[].failures[0].error,后端已按错误原文
+ * 去重封顶 3 条):逐条扫描失败通道(ok!==true),首个带非空 failures[].error
+ * 的条目即返回其文案;首个失败条目无 failures 键(旧 run 行 / 全 skipped
+ * 未尝试)时继续找后续失败条目;无 → null(调用方不渲染徽章,不虚构)。
+ */
+export function runPushFailureText(run: DashboardRun): string | null {
+  const push = run.stats?.["push"];
+  if (!Array.isArray(push)) return null;
+  for (const entry of push) {
+    if (typeof entry !== "object" || entry === null) continue;
+    if ((entry as { ok?: unknown }).ok === true) continue;
+    const error = (entry as RunStatsPushEntry).failures?.[0]?.error;
+    if (typeof error === "string" && error !== "") return error;
+  }
+  return null;
 }
 
 /** ISO 串的 UTC 日(YYYY-MM-DD);缺失/不可解析 = null */
@@ -504,6 +536,7 @@ export function buildOverviewStats(
     activeSources: health ? health.ok + health.degraded : null,
     totalSources: health ? health.ok + health.degraded + health.dead + health.unknown : null,
     windowPushOk: windowRuns.length > 0 ? windowRuns.reduce((sum, run) => sum + countPushOk(run), 0) : null,
+    windowPushFailed: windowRuns.length > 0 ? windowRuns.some(hasPushFailure) : null,
     // 告警只计 error+warning(info 级 = cli 明示的正常态注记,默认装机即有,
     // 不入告警——与 AlertList 行口径/verdict 升态三面同源,不留「格>0 清单空」缝)
     alerts:
@@ -533,9 +566,10 @@ export interface DashboardVerdict {
 
 /**
  * 语气阶梯(最坏优先,纯函数可测):doctorFailed → unknown「数据不全」级;
- * dead>0 → dead 失效;alerts>0 / degraded>0 / 品类 dead tone → warning
- * (缺段省略);否则 ok。返回 null = 不渲染(overview 与 runSummary 同源于
- * data,任一 null 即数据整体不可达——整屏错误卡已负责,不双报;加载态同)。
+ * dead>0 → dead 失效;alerts>0 / degraded>0 / 推送失败(windowPushFailed)/
+ * 品类 dead tone → warning(缺段省略;推送全挂不再报「一切正常」与行内失败
+ * 徽章自相矛盾);否则 ok。返回 null = 不渲染(overview 与 runSummary 同源
+ * 于 data,任一 null 即数据整体不可达——整屏错误卡已负责,不双报;加载态同)。
  * facts 所有态都拼(grill Q1:采集随概览窗与四格同窗同数;running>0 才拼)。
  */
 export function buildVerdict(input: {
@@ -578,12 +612,18 @@ export function buildVerdict(input: {
   }
   const alerts = overview.alerts ?? 0;
   const degraded = health?.degraded ?? 0;
-  if (alerts > 0 || degraded > 0 || categories.some((category) => category.tone === "dead")) {
+  if (
+    alerts > 0 ||
+    degraded > 0 ||
+    overview.windowPushFailed === true ||
+    categories.some((category) => category.tone === "dead")
+  ) {
     const segments: string[] = [];
     if (alerts > 0) segments.push(`${alerts} 项告警`);
     if (degraded > 0) segments.push(`${degraded} 个源退化`);
-    // 兜底段仅在 alerts/degraded 双零而品类 dead tone 触发时出现(理论缺口:
-    // 品类载入失败未产 finding;词表取品类节注三态同源,不自造)
+    if (overview.windowPushFailed === true) segments.push("推送失败");
+    // 兜底段仅在 alerts/degraded/推送失败皆零而品类 dead tone 触发时出现(理论
+    // 缺口:品类载入失败未产 finding;词表取品类节注三态同源,不自造)
     if (segments.length === 0) {
       segments.push(`${categories.filter((category) => category.tone === "dead").length} 品类异常`);
     }

@@ -155,6 +155,7 @@ from myssia.push import (
     routes_from_config,
     send_immediate,
 )
+from myssia.push.base import clip_text
 from myssia.push.directory import REFRESH_STALE_SECONDS, ChannelDirectory, ChannelEntry
 from myssia.push.retry_ledger import PushRetryLedger
 from myssia.push.wecom import TOKEN_CACHE_FILENAME as WECOM_TOKEN_CACHE_FILENAME
@@ -590,6 +591,7 @@ class RunResult:
                     "immediate": push.immediate,
                     "digest": push.digest,
                     "archive": push.archive,
+                    "failures": _push_failure_digest(push),
                 }
                 for push in self.pushes
             ],
@@ -620,6 +622,30 @@ class RunResult:
             "maintenance": self.maintenance,
             "feedback_tuning": self.feedback_tuning,
         }
+
+
+def _push_failure_digest(
+    push: ChannelPushReport, *, limit: int = 3, clip: int = 300
+) -> list[dict[str, Any]]:
+    """push 段失败明细:真失败报告的错误原文精确去重(首现序)→ 封顶
+    ``limit`` 条 → 单条 ``clip_text`` 截 ``clip``(runs 表 stats 列有体积
+    预算:每通道最多 ``limit`` 条 × ``clip`` 字符,防膨胀)。
+
+    skipped 报告(死信/对象未解析,发送**未尝试**)与真失败同口径排除:
+    其文案(如「[dead_target] 跳过…」)混入会顶掉凭据指引文案,而后者
+    恰是落库要带给主人的「到 设置→推送 填一次即可」。注意 ``ok`` 既有
+    口径(含 skipped)不变——可能出现 ``ok=False`` 而 failures 为空的通道,
+    属如实呈现。
+    """
+    counts: dict[str, int] = {}
+    for report in push.reports:
+        if report.ok or report.skipped or report.error is None:
+            continue
+        counts[report.error] = counts.get(report.error, 0) + 1
+    return [
+        {"error": clip_text(error, clip), "count": count}
+        for error, count in list(counts.items())[:limit]
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -2741,6 +2767,16 @@ class Pipeline:
         if failed:
             logger.warning(
                 "通道存在发送失败 channel=%s failed=%s/%s", push.channel, len(failed), len(reports)
+            )
+        # 失败文案上屏(采集日志屏是装机件主人看得到指引的唯一日志面):
+        # skipped「未尝试」报告与 _push_failure_digest 同口径排除——死信/
+        # 未解析文案会顶掉凭据指引;全为 skipped 时维持上方计数 warning 即可。
+        failed_real = [r for r in failed if not r.skipped]
+        if failed_real:
+            logger.error(
+                "推送失败原因 channel=%s error=%s",
+                push.channel,
+                clip_text(failed_real[0].error or "(无错误文案)", 300),
             )
         logger.info(
             "推送完成 channel=%s immediate=%s digest=%s archive=%s ok=%s",

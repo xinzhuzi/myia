@@ -2175,7 +2175,30 @@ def test_runs_list_reads_table_newest_first(tmp_path):
     store = SQLiteStore(str(db))
     for category in ("proto-demo", "proto-demo", "other"):
         run_id = store.start_run(category)
-        store.finish_run(run_id, status="success", stats={"items_retained": 1})
+        store.finish_run(
+            run_id,
+            status="success",
+            stats={
+                "items_retained": 1,
+                # stats_dict 新键(push 段失败明细)入夹具:钉死 sidecar 透传
+                # 不滤键,runs.list 应答原样带回(前端失败徽章的数据面)。
+                "push": [
+                    {
+                        "channel": "feishu_card",
+                        "ok": False,
+                        "immediate": 1,
+                        "digest": 0,
+                        "archive": 0,
+                        "failures": [
+                            {
+                                "error": "[env_var_missing] 到 设置→推送 填一次即可",
+                                "count": 1,
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
     store.close()
     code, responses, _ = rpc({"id": 1, "method": "runs.list", "params": {"db": str(db)}})
     result = responses[0]["result"]
@@ -2185,6 +2208,10 @@ def test_runs_list_reads_table_newest_first(tmp_path):
     assert set(result["runs"][0]) == {
         "run_id", "category", "status", "started_at", "finished_at", "stats", "steps", "error",
     }
+    # push 段失败明细经 JSON 落库 → 回读 → 应答全程不被滤掉
+    assert result["runs"][0]["stats"]["push"][0]["failures"] == [
+        {"error": "[env_var_missing] 到 设置→推送 填一次即可", "count": 1}
+    ]
     code, responses, _ = rpc({"id": 2, "method": "runs.list",
                               "params": {"db": str(db), "category": "proto-demo", "limit": 1}})
     assert responses[0]["result"]["count"] == 1

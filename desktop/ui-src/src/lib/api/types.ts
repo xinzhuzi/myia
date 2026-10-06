@@ -997,6 +997,20 @@ export interface CronRunSummaryPush {
   archive: number;
 }
 
+/** run 记录 stats.push[] 条目(pipeline.py `stats_dict` push 段,runs 表
+ *  落库原形;与 CronRunSummaryPush 不同源——那是 cron summarize_run 的归约
+ *  镜像,本接口带失败明细)。failures = 后端真失败报告(排除 skipped 未尝试)
+ *  的错误去重明细(封顶 3 条);可选键 = 旧 run 行无此键,读取方按可选处理 */
+export interface RunStatsPushEntry {
+  channel: string;
+  ok: boolean;
+  immediate: number;
+  digest: number;
+  archive: number;
+  /** 真失败报告(排除 skipped 未尝试)的错误去重明细;旧 run 行无此键 */
+  failures?: { error: string; count: number }[];
+}
+
 export interface CronRunSummary {
   job: CronRunSummaryJob;
   run: CronRunSummaryRun;

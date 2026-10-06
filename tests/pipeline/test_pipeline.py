@@ -679,6 +679,170 @@ def test_digest_all_failed_retries_on_next_run(tmp_path, monkeypatch):
     real_store.close()
 
 
+def test_stats_push_failures_dedup_cap_and_clip(tmp_path, monkeypatch, caplog):
+    """stats_dict push 段失败明细:同错去重计数、封顶 3 条、超长截断、
+    ok 通道空列表;真失败文案进 ERROR 日志;failures 经 finish_run 落库
+    → list_runs 回读全链存活(仪表盘失败徽章的数据面)。
+    """
+    from myssia.push.base import clip_text
+
+    real_store = SQLiteStore(tmp_path / "push-failures.db")
+    # 通道名必须在 schema 字面量白名单内;CHANNELS 注册表整体换测试替身
+    config = make_config(push=[{"channel": "stdout"}, {"channel": "ntfy", "target": "env:NTFY_TOPIC"}])
+    items = [
+        {"title": f"免费送 第{i}期", "url": f"https://api.demo.local/{i}"} for i in range(5)
+    ]
+    # 一次 send = 一条 immediate 卡 = 一条报告;长文案 ×2(去重计 2)+
+    # 三条不同短文案(封顶后仅前两条入桶)
+    long_detail = "凭据解析失败: 环境变量 X 未设置,到 设置→推送 填一次即可" + "补" * 400
+    errors = [long_detail, "短错二", long_detail, "短错三", "短错四"]
+
+    class SequencedFailureChannel(RecordingChannel):
+        name = "stdout"
+
+        async def send(self, items, context) -> None:
+            from myssia.push import PushSendError
+
+            raise PushSendError("env_var_missing", errors.pop(0))
+
+    class SilentOkChannel(RecordingChannel):
+        name = "ntfy"
+
+    monkeypatch.setattr(
+        pipeline_module,
+        "CHANNELS",
+        {"stdout": SequencedFailureChannel, "ntfy": SilentOkChannel},
+    )
+    pipeline, _clock = make_pipeline(config, handler=make_handler(items), store=real_store)
+
+    with caplog.at_level("WARNING", logger="myssia.pipeline"):
+        result = asyncio.run(pipeline.run())
+
+    assert result.pushes[0].ok is False
+    assert result.status == "partial"
+    push_stats = result.stats_dict()["push"]
+    # 既有五字段一字不动,failures 为加法第六键
+    failing, ok_channel = push_stats
+    assert set(failing) == {
+        "channel",
+        "ok",
+        "immediate",
+        "digest",
+        "archive",
+        "failures",
+    }
+    assert failing["channel"] == "stdout" and failing["immediate"] == 5
+    long_error = f"[env_var_missing] {long_detail}"
+    assert failing["failures"] == [
+        {"error": clip_text(long_error, 300), "count": 2},  # 同错两报告去重计 2
+        {"error": "[env_var_missing] 短错二", "count": 1},
+        {"error": "[env_var_missing] 短错三", "count": 1},  # 封顶 3,短错四出局
+    ]
+    clipped = failing["failures"][0]["error"]
+    assert (
+        len(clipped) == 300
+        and clipped.endswith("…")
+        and clipped.startswith("[env_var_missing] 凭据")
+    )
+    # ok 通道恒带 failures 键(空列表,旧消费方按可选字段读)
+    assert ok_channel["ok"] is True and ok_channel["failures"] == []
+    # ERROR 日志含首条真失败文案(采集日志屏的指引露出面)
+    error_logs = [
+        r for r in caplog.records
+        if r.levelname == "ERROR" and "推送失败原因" in r.message
+    ]
+    assert len(error_logs) == 1
+    assert "channel=stdout" in error_logs[0].message and clipped in error_logs[0].message
+    # store 往返:finish_run 落库 → list_runs 回读,失败明细原样存活
+    stored_stats = real_store.list_runs()[0].stats
+    assert stored_stats["push"][0]["failures"] == failing["failures"]
+    real_store.close()
+
+
+def test_stats_push_failures_skipped_report_not_polluting_guidance(
+    tmp_path, monkeypatch, caplog
+):
+    """skipped「未尝试」报告(死信)不入 failures、不顶掉真失败指引文案:
+    dead_target 在前时,stats failures 与 ERROR 日志仍显凭据指引。
+    """
+    from myssia.push import SendReport
+
+    real_store = SQLiteStore(tmp_path / "skipped-mix.db")
+    config = make_config(push=[{"channel": "stdout"}])
+    guidance = "[env_var_missing] 飞书 bot 凭据解析失败: 到 设置→推送 填一次即可"
+
+    async def fake_send_immediate(items, **kwargs):
+        return [
+            SendReport(
+                channel="stdout", ok=False, item_count=1,
+                error="[dead_target] 跳过此前确认不可达的对象", skipped=True,
+            ),
+            SendReport(channel="stdout", ok=False, item_count=1, error=guidance),
+        ]
+
+    monkeypatch.setattr(pipeline_module, "send_immediate", fake_send_immediate)
+    pipeline, _clock = make_pipeline(
+        config,
+        handler=make_handler([{"title": "免费送 NAS 券", "url": "https://api.demo.local/a"}]),
+        store=real_store,
+    )
+
+    with caplog.at_level("WARNING", logger="myssia.pipeline"):
+        result = asyncio.run(pipeline.run())
+
+    assert result.pushes[0].ok is False  # ok 口径含 skipped,既有行为不动
+    failures = result.stats_dict()["push"][0]["failures"]
+    assert failures == [{"error": guidance, "count": 1}]  # dead_target 未入桶
+    error_logs = [
+        r for r in caplog.records
+        if r.levelname == "ERROR" and "推送失败原因" in r.message
+    ]
+    assert len(error_logs) == 1 and guidance in error_logs[0].message
+    assert "dead_target" not in error_logs[0].message
+    real_store.close()
+
+
+def test_stats_push_all_skipped_failures_empty_and_no_error_log(
+    tmp_path, monkeypatch, caplog
+):
+    """全 skipped 通道:ok=False 如实呈现,但 failures 为空、不打 ERROR
+    (无「发送失败文案」可指,只保留既有计数 warning)——文档别把空
+    failures 读成 ok。"""
+    from myssia.push import SendReport
+
+    real_store = SQLiteStore(tmp_path / "all-skipped.db")
+    config = make_config(push=[{"channel": "stdout"}])
+
+    async def fake_send_immediate(items, **kwargs):
+        return [
+            SendReport(
+                channel="stdout", ok=False, item_count=1,
+                error="[targeting_not_configured] 定向条目缺少通道目录(管线未接线)",
+                skipped=True,
+            ),
+        ]
+
+    monkeypatch.setattr(pipeline_module, "send_immediate", fake_send_immediate)
+    pipeline, _clock = make_pipeline(
+        config,
+        handler=make_handler([{"title": "免费送 NAS 券", "url": "https://api.demo.local/a"}]),
+        store=real_store,
+    )
+
+    with caplog.at_level("WARNING", logger="myssia.pipeline"):
+        result = asyncio.run(pipeline.run())
+
+    assert result.pushes[0].ok is False
+    assert result.stats_dict()["push"][0]["failures"] == []
+    assert not any(
+        "推送失败原因" in r.message for r in caplog.records
+    )  # 无 ERROR 文案行
+    assert any(
+        r.levelname == "WARNING" and "通道存在发送失败" in r.message for r in caplog.records
+    )  # 既有计数 warning 照打
+    real_store.close()
+
+
 # ---------------------------------------------------------------------------
 # Cron + timezone
 # ---------------------------------------------------------------------------

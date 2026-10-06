@@ -42,6 +42,7 @@ import {
   OVERVIEW_WINDOW_DEFAULT,
   overviewTrendDays,
   runItemCount,
+  runPushFailureText,
   successRateSeries,
   summarizeRuns,
   summarizeSourceHealth,
@@ -265,6 +266,7 @@ function CategoryCard({
 function RecentRunRow({ run }: { run: DashboardRun }) {
   const badge = runStatusBadge(run);
   const itemCount = runItemCount(run);
+  const pushFailureText = runPushFailureText(run);
   return (
     <div
       data-testid={`recent-run-${run.runId}`}
@@ -277,6 +279,13 @@ function RecentRunRow({ run }: { run: DashboardRun }) {
       {run.dry ? (
         <Badge variant="outline" title="dry run(不落库)">
           试跑
+        </Badge>
+      ) : null}
+      {/* 推送失败明细(凭据指引到主人眼前):错误原文单行截断,title 悬停全文;
+          保持在 dry 试跑徽章之后(行内首个 Badge 的既有断言锚定 dry title) */}
+      {pushFailureText !== null ? (
+        <Badge variant="destructive" title={pushFailureText} className="max-w-56 truncate font-normal">
+          {pushFailureText}
         </Badge>
       ) : null}
       <span className="flex shrink-0 items-center gap-3 text-2xs text-muted-foreground">
