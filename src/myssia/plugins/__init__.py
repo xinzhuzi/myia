@@ -15,7 +15,7 @@
   (token 钥匙链存在性 + opt-in 端点探测),品类节与 manifest 两用。
 
 分层:cli → plugins → schema → secrets,单向依赖;双模式的字段模型
-(local compose / remote endpoint+keychain token)定义在
+(local 原生安装 / remote endpoint+keychain token)定义在
 :mod:`myssia.schema`(品类 plugin 节与 manifest 共用,规则零漂移)。
 """
 

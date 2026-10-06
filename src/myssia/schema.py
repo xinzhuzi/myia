@@ -22,8 +22,9 @@ human message in Chinese) so ``myssia doctor`` (v0.2) and repairing agents can
 consume them programmatically.
 
 Scenario plugin sidecar (v0.3 plugin market): a category may also carry an
-optional top-level ``plugin:`` section (v1.7 双模式声明:local docker compose /
-remote endpoint + keychain token), validated against
+optional top-level ``plugin:`` section (v1.7 双模式声明:local 原生安装命令 /
+remote endpoint + keychain token;插件 docker 模式已删,本机零 Docker —— 终裁
+2026-10-06), validated against
 :class:`CategoryPluginConfig` at :func:`load_category` and attached to
 :attr:`CategoryConfig.plugin`. It is deliberately *not* one of the twelve
 sections (the documented 12-section contract is locked field-for-field by
@@ -232,8 +233,11 @@ VACUUM_CADENCES = ("daily", "weekly", "monthly", "never")
 #: 错即拒载并列出合法值,而不是静默跳过一个从不生效的窗口。
 BASELINE_WINDOWS = ("day", "week")
 #: 场景插件 ``requires`` 的封闭词表(宿主能力)。封闭 = AI 拼错即拒载并列出
-#: 合法值,而不是静默带过一个装不出来的依赖。
-REQUIRES_TOKENS = ("docker",)
+#: 合法值,而不是静默带过一个装不出来的依赖。**词表当前为空**(插件 docker
+#: 模式删除,终裁 2026-10-06):``docker`` 词已退役 —— 插件在本机原生运行,
+#: 不声明宿主能力要求;机制与校验链保留,未来出现新宿主能力 token 时零阻力
+#: 扩词表(此处 + docs zh/en schema.md 同步即可)。
+REQUIRES_TOKENS: tuple[str, ...] = ()
 
 EngineName = Literal[
     "auto", "direct_api", "static_html", "crawl4ai", "firecrawl", "scrapling", "stealth_browser", "llm_browser",
@@ -1534,8 +1538,10 @@ class ImagesConfig(_StrictModel):
 def normalize_plugin_requires(value: Any) -> list[str]:
     """Normalize ``requires`` from bare string or list; validate vocabulary.
 
-    品类 plugin 节写 ``requires: docker``、市场 manifest 写 ``requires: [docker]``
+    品类 plugin 节写裸字符串、市场 manifest 写列表(如 ``requires: []``)
     ——两种写法都收,归一后统一校验词表与重复(两处共用此函数,规则零漂移)。
+    词表当前为空(REQUIRES_TOKENS:插件 docker 模式删除,``docker`` 词退役),
+    除空值外任何 token 都拒载。
 
     Raises:
         SchemaValueError: 非字符串(列表)、未知词表项或重复项。
@@ -1556,21 +1562,25 @@ def normalize_plugin_requires(value: Any) -> list[str]:
 
 
 class PluginLocalModeConfig(_StrictModel):
-    """plugin 双模式的 local 侧:本机 Docker compose 交付。
+    """plugin 双模式的 local 侧:原生安装命令(本机零 Docker).
 
-    ``compose`` 是插件目录内的 compose 文件路径;``install`` 是安装/启动命令
-    (如 ``docker compose up -d``)。至少声明其一。
+    ``install`` 是安装/启动命令(如 ``myssia plugin install <目录>``
+    credhunter 先例,纯进程内源码件)。**``compose`` 字段已删**(插件
+    docker 模式全删,终裁 2026-10-06):插件在本机原生运行,不提供
+    docker compose 交付形态;删除面已核零迁移 —— 全部 manifest 零使用
+    ``local.compose``,未知字段 fail-fast 使其无法再被声明。
     """
 
-    compose: str | None = Field(default=None, min_length=1)
-    install: str | None = Field(default=None, min_length=1)
+    install: str = Field(min_length=1)
 
     @model_validator(mode="after")
     def _check_has_content(self) -> PluginLocalModeConfig:
-        if self.compose is None and self.install is None:
+        # install 必填(min_length=1 即空串拒载);校验器保留作为
+        # 「local 侧至少声明一种接入形态」的结构钉子,未来扩字段时零漂移。
+        if not self.install:
             raise SchemaValueError(
                 "missing_local_mode_content",
-                "modes.local 至少要声明 compose(文件路径)或 install(安装命令)之一",
+                "modes.local 必须声明 install(原生安装命令;插件不提供 docker 模式)",
             )
         return self
 
@@ -1616,7 +1626,7 @@ class PluginRemoteModeConfig(_StrictModel):
 
 
 class PluginModesConfig(_StrictModel):
-    """双模式集合:local(本机 Docker)与 remote(已部署服务)至少声明一个。"""
+    """双模式集合:local(原生安装)与 remote(已部署服务)至少声明一个。"""
 
     local: PluginLocalModeConfig | None = None
     remote: PluginRemoteModeConfig | None = None

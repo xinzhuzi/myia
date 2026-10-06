@@ -4906,7 +4906,8 @@ def _add_proxy_parser(sub: argparse._SubParsersAction) -> None:
             "桌面路径(默认):定位 <plugins-dir>/myssia-proxy(适配器 adapter.py),"
             "进程内抓取公开免费代理列表并逐个测活(经代理请求校验目标),输出结构化"
             "结果。零 Redis 零 docker;完整 proxy_pool 服务形态(定时抓取+池化+API)"
-            "见 docker/plugins/ 下的可选服务端部署。全部源抓取失败或测活零可用 → "
+            "属服务端部署,任意已部署实例按 remote 接入(部署按上游官方文档)。"
+            "全部源抓取失败或测活零可用 → "
             "结构化错误退 2;适配器缺失/用法错误退 1;任何失败都不影响核心品类"
             "流水线(铁律)。"
         ),

@@ -1,6 +1,6 @@
 """插件市场 manifest(plugin.yaml)规范:pydantic 模型 + fail-fast 加载校验.
 
-一个市场插件 = 一个目录,根下放 ``plugin.yaml``(README、compose 等随目录
+一个市场插件 = 一个目录,根下放 ``plugin.yaml``(README、适配器等随目录
 分发;实现与重依赖全部留在插件侧,核心仓库只装市场目录与加载器)。manifest
 字段(PRD 10-01-v03-plugin-market):
 
@@ -13,7 +13,8 @@
   (经已部署服务接入,零 docker,不进默认集);``server-only`` 桌面默认集
   移出(仅服务端可选部署,如重 Web 服务/不可进程化上游);
 - ``requires`` — 宿主能力要求(封闭词表 :data:`myssia.schema.REQUIRES_TOKENS`,
-  当前只有 ``docker``;``requires: docker`` 与 ``[docker]`` 两种写法都收);
+  **词表当前为空**——插件 docker 模式删除,``docker`` 词退役;裸字符串与
+  列表两种写法都收,非空值一律 fail-fast 拒载);
 - ``gate`` — 批二门槛机制(D4/D5,task 10-05-plugin-market-batch)的可选
   **激活策略**字段(缺省不声明 = 无门槛件):``paid`` 付费知情 /
   ``trace`` 第三方留痕 / ``platform`` 自有实例 / ``stale`` 停更知情。与
@@ -21,7 +22,7 @@
   ``tier: remote`` + ``gate: platform``);状态开关落全局 ``gates.yaml``
   (:mod:`myssia.gates`),不落品类 YAML;
 - ``provides`` — 提供的能力名(小写标识符,品类侧与目录索引引用它);
-- ``modes`` — v1.7 双模式:``local``(本机 Docker compose)/ ``remote``
+- ``modes`` — v1.7 双模式:``local``(原生安装命令,本机零 Docker)/ ``remote``
   (endpoint + keychain token 引用)。模型直接复用品类顶层 plugin 节的
   :class:`myssia.schema.PluginModesConfig` —— 凭据规则(endpoint http(s)、
   token 只走 ``keychain:myia/<scope>/<name>``)一处定义零漂移;
@@ -29,7 +30,7 @@
   追溯;实际装卸走 ``myssia plugin install <目录>``)。
 
 v1.1 源码型插件(PRD 10-02-v11-plugins-source-arch,样板 myssia-osint)新增
-两个**可选**节——旧包(纯 manifest/文档/compose)不声明即缺省 ``None``,
+两个**可选**节——旧包(纯 manifest/文档)不声明即缺省 ``None``,
 向后兼容;新包声明后 fail-fast 校验:
 
 - ``vendor`` — 上游源码的 vendor 声明:``source``(上游公开 git 仓库

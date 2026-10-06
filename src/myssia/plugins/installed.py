@@ -19,7 +19,7 @@
 装卸(:meth:`InstalledPluginStore.install` / ``remove``)是唯一 fail-fast 的
 操作面:manifest 坏 / 版本矩阵不兼容 / 已装 / 未装都结构化拒绝
 (:class:`PluginStoreError`,CLI 退出码 1),绝不半装半卸。凭据红线:安装即
-原样拷贝目录,compose 文件零明文凭据;remote token 只以 keychain 引用存在。
+原样拷贝目录,插件包内零明文凭据;remote token 只以 keychain 引用存在。
 """
 
 from __future__ import annotations

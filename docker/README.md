@@ -4,8 +4,10 @@
 
 > v1.1 插件层架构转向:桌面路径(默认)**零 docker** —— 插件以源码/
 > 进程内(submodule + 适配器)或 remote 已部署服务接入,见
-> `plugins/myssia-*/README.md`。docker 目录只承载两类可选部署:世事 核心的
-> 服务端形态(本文件)与场景件的服务端形态(`plugins/` 下的子目录)。
+> `plugins/myssia-*/README.md`。本目录只承载**世事 核心自身的服务端形态**
+> (docker-compose.yml + Dockerfile);插件一律不提供 docker 模式
+> (终裁 2026-10-06:插件任意已部署实例按 remote 接入,上游部署配方归
+> 上游官方文档,我方不复刻)。
 
 ## 快速开始
 
@@ -49,22 +51,13 @@ MYIA_PLUGIN=ai-news.yaml
 
 `docker/.env` 不挂载、不进镜像;它只在 `up` 时被 compose 读成环境变量。
 
-## 场景件的服务端形态(plugins/ 子目录)
+## 场景件的服务端形态(已移除)
 
-官方场景件的本地部署文件统一收在 `docker/plugins/<id>/compose.yml`(插件
-目录 `plugins/myssia-*/` 内零 docker 内容;桌面用户不需要这些):
-
-| 插件 | 分级(tier) | compose | 说明 |
-|---|---|---|---|
-| myssia-proxy | desktop | `docker/plugins/myssia-proxy/compose.yml` | 完整 proxy_pool 服务形态(定时抓取+Redis 池+API);桌面已有进程内轻量路径 `myssia proxy` |
-| myssia-osint | desktop | `docker/plugins/myssia-osint/compose.yml` | Photon 的容器化跑法(CLI 工具,非服务) |
-| myssia-monitor | remote | `docker/plugins/myssia-monitor/compose.yml` | changedetection.io 实例;桌面内置变更指纹已覆盖主场景,实例为可选 |
-| myssia-douyin | server-only | `docker/plugins/myssia-douyin/compose.yml` | 抖音/TikTok 数据 API 单容器快速通道 |
-| myssia-maxun | server-only | `docker/plugins/myssia-maxun/compose.yml` | Maxun 多容器栈;先在该目录建 `.env`(口令自生成,零明文入库) |
-
-```bash
-docker compose -f docker/plugins/myssia-monitor/compose.yml up -d
-```
+插件不提供 docker 模式(终裁 2026-10-06):本仓库**不再携带任何插件
+compose 配方**(原 `docker/plugins/<id>/compose.yml` 十件已删)。上游服务的
+部署属主人运维面,配方与步骤一律见各插件上游官方文档(RSSHub 官方 docs、
+changedetection.io 官方 docs 等);部署好的任意实例按 remote 模式接入
+(`plugin.modes.remote.endpoint`,见各 `plugins/myssia-*/README.md`)。
 
 ## 凭据与安全底线
 

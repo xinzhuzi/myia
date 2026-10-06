@@ -16,9 +16,12 @@ urlwatch/rsshub/spiderfoot,批二增 crawlab/worldmonitor/webcheck/socialanalyze
    与 Pipeline 构造完全无感(与 tests/test_plugins_system.py 同一铁律,
    这里在真实插件包的尺度上再钉一遍)。
 
-v1.1 架构转向(桌面优先,零 docker):官方包 manifest 不再声明 local
-compose 模式,``plugins/`` 目录零 compose 文件;场景件的本地部署文件统一
-收在 ``docker/plugins/<id>/compose.yml``(服务端可选路径,凭据红线照钉)。
+v1.1 架构转向(桌面优先,零 docker)+ **插件 docker 模式全删**(终裁
+2026-10-06,task 10-06-native-plugin-components 阶段 4):官方包 manifest
+不再声明 local compose 模式(schema ``modes.local.compose`` 字段已删,
+``requires`` 词表清空),``plugins/`` 目录与整个仓库零插件部署配方
+(``docker/plugins/`` 目录已删;上游部署归上游官方文档,任意已部署实例按
+remote 接入)。
 
 测试纪律:零真实网络、零真实钥匙串(InMemoryKeychainBackend)、每测独立
 tmp_path。
@@ -33,7 +36,6 @@ from urllib.parse import urlparse
 
 import httpx
 import pytest
-import yaml
 
 from myssia import __version__ as myssia_version
 from myssia.pipeline import Pipeline
@@ -47,8 +49,7 @@ from myssia.secrets import set_backend as set_keychain_backend
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGINS_DIR = REPO_ROOT / "plugins"
-#: 场景件的服务端可选部署(v1.1 起迁出插件目录):docker/plugins/<id>/compose.yml。
-DOCKER_PLUGINS_DIR = REPO_ROOT / "docker" / "plugins"
+DOCKER_DIR = REPO_ROOT / "docker"
 
 #: 官方场景件(目录名 == manifest id)。myssia-credhunter 于
 #: 10-03-aipocket-fusion 接线段加入:进程内三 lane 凭证猎手(desktop);
@@ -58,7 +59,7 @@ DOCKER_PLUGINS_DIR = REPO_ROOT / "docker" / "plugins"
 #: 批二(步骤 13+14)加入:同物种门槛桩 ×2(crawlab/worldmonitor,
 #: ``tier: remote`` + ``gate: platform``,D5 正交组合)+ 分析件 ×2
 #: (webcheck/socialanalyzer,remote 普通桩,不声明 gate;social-analyzer
-#: AGPL 只桩不携 compose)。
+#: AGPL 只桩不抄)。
 OFFICIAL_PACKAGES = (
     "myssia-proxy",
     "myssia-osint",
@@ -154,8 +155,9 @@ class TestPackageManifests:
 
     @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)
     def test_requires_stays_inside_closed_vocabulary(self, package: str):
+        """词表空(插件 docker 模式删除,2026-10-06 终裁):全部官方件零声明。"""
         manifest = load_package(package)
-        assert set(manifest.requires) <= {"docker"}
+        assert manifest.requires == []
         assert manifest.provides, "provides 为空 = 品类侧无从引用"
 
     @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)
@@ -187,20 +189,18 @@ class TestPackageManifests:
         assert manifest.gate == EXPECTED_GATES.get(package)
 
     @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)
-    def test_no_manifest_declares_local_compose_anymore(self, package: str):
-        """桌面优先(v1.1):manifest 不再声明 local compose 模式。
+    def test_manifest_raw_text_never_mentions_compose_key(self, package: str):
+        """铁钉(插件 docker 模式全删):manifest 原文零 ``compose:`` 键。
 
-        10-03-aipocket-fusion 起 myssia-credhunter 是例外形状:纯进程内源码件
-        声明 ``modes.local.install``(市场安装命令,**无 compose**)——禁的是
-        插件目录携带本地部署 compose,不是禁 local 安装形态本身。
+        schema 层 ``modes.local.compose`` 字段已删(未知字段 fail-fast),
+        声明即拒载;此处在**原文**尺度再钉一遍 —— 防止注释态文档或未来的
+        手改 manifest 把 compose 交付口径带回来(AC5 grep 三验之一)。
         """
-        manifest = load_package(package)
-        if manifest.modes.local is not None:
-            assert manifest.modes.local.compose is None, (
-                f"{package}: v1.1 起插件目录不携带本地部署 compose,manifest 不得声明 modes.local.compose"
-            )
-        else:
-            return
+        text = (package_dir(package) / "plugin.yaml").read_text(encoding="utf-8")
+        assert "compose:" not in text, (
+            f"{package}: manifest 原文出现 compose: 键(插件不提供 docker 模式,"
+            "部署配方归上游官方文档,我方不复刻)"
+        )
 
     def test_plugins_dir_holds_no_compose_files(self):
         """铁验收:plugins/ 目录 grep 不到 docker-compose,也没有任何 compose 文件."""
@@ -217,27 +217,17 @@ class TestPackageManifests:
             if "vendor" in path.relative_to(PLUGINS_DIR).parts:
                 continue
             assert "docker-compose" not in path.read_text(encoding="utf-8"), (
-                f"{path}: 文档提及 docker-compose(部署文件应指向 docker/plugins/)"
+                f"{path}: 文档提及 docker-compose(插件不提供 docker 模式,部署配方归上游官方文档)"
             )
 
-    def test_docker_plugins_dir_holds_exactly_the_official_compose_set(self):
-        """迁出的部署文件落在 docker/plugins/<id>/compose.yml,十件不多不少
-        (首批 +rsshub/+spiderfoot 两 remote 桩;批二 +crawlab/+worldmonitor
-        门槛桩 +webcheck 分析件——social-analyzer AGPL 只桩不携 compose)。"""
-        expected = {
-            "myssia-proxy",
-            "myssia-osint",
-            "myssia-monitor",
-            "myssia-douyin",
-            "myssia-maxun",
-            "myssia-rsshub",
-            "myssia-spiderfoot",
-            "myssia-crawlab",
-            "myssia-worldmonitor",
-            "myssia-webcheck",
-        }
-        found = {path.parent.name for path in DOCKER_PLUGINS_DIR.glob("*/compose.yml")}
-        assert found == expected
+    def test_docker_plugins_dir_no_longer_exists(self):
+        """铁钉(插件 docker 模式全删,2026-10-06 终裁):``docker/plugins/``
+        目录不存在(AC5 grep 三验之二;产品自身 server 形态的
+        docker-compose.yml/Dockerfile 在 ``docker/`` 根下,不属插件面)。"""
+        assert not (DOCKER_DIR / "plugins").exists(), (
+            "docker/plugins/ 目录应已整目录删除(插件 docker 模式全删;"
+            "产品自身 server 形态保留在 docker/ 根)"
+        )
 
     @pytest.mark.parametrize("package", OFFICIAL_PACKAGES)
     def test_readme_documents_desktop_first(self, package: str):
@@ -317,35 +307,6 @@ class TestPackageManifests:
         assert name.split("/")[1] == package.removeprefix("myssia-"), (
             "token scope 应与插件名对应"
         )
-
-
-def _docker_compose_fixtures() -> list[Path]:
-    if not DOCKER_PLUGINS_DIR.is_dir():
-        return []
-    return sorted(DOCKER_PLUGINS_DIR.glob("*/compose.yml"))
-
-
-@pytest.mark.parametrize("compose_path", _docker_compose_fixtures())
-def test_plugin_compose_parses_and_holds_no_plaintext_secrets(compose_path: Path):
-    """服务端 compose(已迁 docker/plugins/)可解析、凭据形键必须 ${VAR} 注入."""
-    compose = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
-    assert isinstance(compose, dict) and compose.get("services"), (
-        "compose 必须声明 services"
-    )
-    suspicious = re.compile(
-        r"password|secret|token|api[-_]?key|authorization|cookie", re.IGNORECASE
-    )
-    for service in compose["services"].values():
-        assert isinstance(service, dict)
-        for key, value in service.items():
-            if (
-                suspicious.search(str(key))
-                and isinstance(value, str)
-                and value.strip()
-            ):
-                assert "${" in value, (
-                    f"{compose_path}: {key} 疑似明文凭据(应为 ${{VAR}} 注入)"
-                )
 
 
 # ---------------------------------------------------------------------------
@@ -643,7 +604,7 @@ def test_official_packages_never_reference_their_upstream_by_copying_files():
             if path.name in source_type_extra or path.name == "__pycache__":
                 continue
             assert path.suffix in allowed_suffixes, (
-                f"{package}/{path.name}: 插件包只许 manifest/文档/compose,上游代码零入库"
+                f"{package}/{path.name}: 插件包只许 manifest/文档,上游代码零入库"
             )
 
 

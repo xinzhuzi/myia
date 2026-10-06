@@ -56,12 +56,11 @@ id: myssia-monitor
 name: 变更监控(changedetection.io)
 version: 1.0.0
 compatible: ">=0.0.1,<0.1"
-requires: docker
+requires: []
 provides: [changedetection]
 modes:
   local:
-    compose: docker-compose.yml
-    install: docker compose up -d
+    install: myssia plugin install ./myssia-monitor
   remote:
     endpoint: https://my-monitor.example.com
     token: keychain:myia/monitor/token
@@ -86,7 +85,7 @@ push:
   - channel: stdout
 plugin:
   id: myssia-monitor
-  requires: docker
+  requires: []
   modes:
     remote:
       endpoint: https://my-monitor.example.com
@@ -99,12 +98,12 @@ ANY_MYIA = ">=0.0.1,<0.1"
 
 
 def write_plugin_dir(tmp_path: Path, name: str = "myssia-monitor", manifest_text: str = VALID_MANIFEST_YAML) -> Path:
-    """一个带 manifest/README/compose 的完整插件来源目录(装卸测试的夹具)。"""
+    """一个带 manifest/README/说明文件的完整插件来源目录(装卸测试的夹具)。"""
     source = tmp_path / "source" / name
     source.mkdir(parents=True, exist_ok=True)
     (source / "plugin.yaml").write_text(manifest_text, encoding="utf-8")
     (source / "README.md").write_text("# myssia-monitor\n", encoding="utf-8")
-    (source / "docker-compose.yml").write_text("services: {}\n", encoding="utf-8")
+    (source / "NOTES.md").write_text("# 随包说明文件\n", encoding="utf-8")
     return source
 
 
@@ -238,14 +237,14 @@ class TestVersionMatrix:
 
 class TestManifestSchema:
     def test_manifest_roundtrip_all_fields(self):
-        """全字段往返:requires 裸字符串归一为列表,双模式完整保留。"""
+        """全字段往返:requires 空列表(词表空),双模式完整保留。"""
         manifest = load_manifest(yaml.safe_load(VALID_MANIFEST_YAML))
         assert manifest.id == "myssia-monitor"
         assert manifest.version == "1.0.0"
         assert manifest.compatible == ">=0.0.1,<0.1"
-        assert manifest.requires == ["docker"]
+        assert manifest.requires == []
         assert manifest.provides == ["changedetection"]
-        assert manifest.modes.local.install == "docker compose up -d"
+        assert manifest.modes.local.install == "myssia plugin install ./myssia-monitor"
         assert manifest.modes.remote.endpoint == "https://my-monitor.example.com"
         assert manifest.modes.remote.token == "keychain:myia/monitor/token"
         assert manifest.install.source.endswith(".git")
@@ -280,18 +279,21 @@ class TestManifestSchema:
             load_manifest(data)
         assert excinfo.value.errors[0].error_type == "invalid_version_range"
 
-    def test_manifest_normalizes_bare_string_requires(self):
+    def test_manifest_requires_stays_inside_empty_vocabulary(self):
+        """词表空(插件 docker 模式删除,``docker`` 词退役):[] 合法,非空一律拒。"""
         data = yaml.safe_load(VALID_MANIFEST_YAML)
-        assert load_manifest(data).requires == ["docker"]
+        assert load_manifest(data).requires == []
 
-    def test_manifest_rejects_unknown_requires_token(self):
+    @pytest.mark.parametrize("token", ["docker", "quantum_computer"])
+    def test_manifest_rejects_unknown_requires_token(self, token: str):
+        """回归钉:退役的 ``docker`` 词与新造词一样,加载期即拒(词表空)。"""
         data = yaml.safe_load(VALID_MANIFEST_YAML)
-        data["requires"] = ["docker", "quantum_computer"]
+        data["requires"] = [token]
         with pytest.raises(LoadError) as excinfo:
             load_manifest(data)
         detail = excinfo.value.errors[0]
         assert detail.error_type == "unknown_requires_token"
-        assert "docker" in detail.message
+        assert token in detail.message
 
     def test_manifest_rejects_duplicate_provides(self):
         data = yaml.safe_load(VALID_MANIFEST_YAML)
@@ -307,12 +309,27 @@ class TestManifestSchema:
             load_manifest(data)
         assert excinfo.value.errors[0].error_type == "missing_plugin_mode"
 
-    def test_manifest_rejects_local_mode_without_content(self):
+    @pytest.mark.parametrize(
+        ("local_value", "code"),
+        [
+            ({}, "missing_field"),
+            ({"install": ""}, "string_too_short"),
+            ({"compose": "docker-compose.yml"}, "unknown_field"),
+        ],
+        ids=["empty", "empty-install", "retired-compose-key"],
+    )
+    def test_manifest_rejects_local_mode_without_install_command(
+        self, local_value: dict[str, str], code: str
+    ):
+        """local 侧只收原生安装命令(插件 docker 模式删除):install 必填且
+        非空;退役的 ``compose`` 键以 unknown_field fail-fast。"""
         data = yaml.safe_load(VALID_MANIFEST_YAML)
-        data["modes"] = {"local": {}}
+        data["modes"] = {"local": local_value}
         with pytest.raises(LoadError) as excinfo:
             load_manifest(data)
-        assert excinfo.value.errors[0].error_type == "missing_local_mode_content"
+        # {compose: …} 形态会同时报 missing_field(install 缺)与
+        # unknown_field(compose 键退役)两条 —— 集合断言覆盖单条与双条。
+        assert code in {error.error_type for error in excinfo.value.errors}
 
     @pytest.mark.parametrize(
         ("token", "code"),
@@ -371,7 +388,7 @@ class TestManifestSchema:
         source = write_plugin_dir(tmp_path)
         manifest = load_manifest_file(source / "plugin.yaml")
         assert manifest.id == "myssia-monitor"
-        assert manifest.modes.local.compose == "docker-compose.yml"
+        assert manifest.modes.local.install == "myssia plugin install ./myssia-monitor"
 
 
 # ---------------------------------------------------------------------------
@@ -392,7 +409,7 @@ class TestInstalledStore:
         installed = Path(result["path"])
         assert (installed / "plugin.yaml").is_file()
         assert (installed / "README.md").is_file()
-        assert (installed / "docker-compose.yml").is_file()
+        assert (installed / "NOTES.md").is_file()
         (entry,) = store.entries()
         assert entry.plugin_id == "myssia-monitor"
         assert entry.compatible_current is True
@@ -685,7 +702,7 @@ class TestCategoryPluginSection:
     def test_monitor_yaml_remote_optin_section_loads(self):
         """回归钉:monitor.yaml 的 plugin: 节必须过真实加载入口(曾整文件拒载).
 
-        v1.1 迁移后 monitor.yaml 是 remote 可选接入形态(无 local compose,
+        v1.1 迁移后 monitor.yaml 是 remote 可选接入形态(无 local 安装形态,
         requires 清空 —— 内置变更指纹覆盖桌面主场景,铁律不依赖插件)。
         """
         config = load_category_file(REPO_ROOT / "plugins" / "monitor.yaml")
@@ -717,9 +734,15 @@ class TestCategoryPluginSection:
         paths = {detail.path for detail in excinfo.value.errors}
         assert "$.schedule" in paths and "$.plugin.bogus" in paths
 
-    def test_plugin_section_requires_normalizes_bare_string(self):
-        config = load_category(yaml.safe_load(CATEGORY_WITH_PLUGIN_YAML))
-        assert config.plugin is not None and config.plugin.requires == ["docker"]
+    def test_plugin_section_requires_empty_vocabulary_rejects_retired_docker_token(self):
+        """回归钉(插件 docker 模式删除,2026-10-06 终裁):词表空,``docker``
+        词退役 —— 品类 plugin 节写 ``requires: docker`` 加载期即拒。"""
+        data = yaml.safe_load(CATEGORY_WITH_PLUGIN_YAML)
+        assert isinstance(data, dict)
+        data["plugin"]["requires"] = "docker"
+        with pytest.raises(LoadError) as excinfo:
+            load_category(data)
+        assert excinfo.value.errors[0].error_type == "unknown_requires_token"
 
     def test_plugin_section_null_treated_as_absent(self):
         data = yaml.safe_load(CATEGORY_WITH_PLUGIN_YAML)

@@ -700,7 +700,7 @@ plugin:
   id: myssia-demo
   modes:
     local:
-      compose: docker-compose.yml
+      install: myssia plugin install ./myssia-demo
 """
 
 
@@ -2056,7 +2056,7 @@ def test_push_write_mid_file_block_and_template_roundtrip(tmp_path, monkeypatch)
             '  id: myssia-mid\n'
             '  modes:\n'
             '    local:\n'
-            '      compose: docker-compose.yml\n'
+            '      install: myssia plugin install ./myssia-mid\n'
         ),
     )
     yaml_path = home / "plugins" / "messaging-demo.yaml"

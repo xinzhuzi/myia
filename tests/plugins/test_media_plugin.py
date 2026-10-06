@@ -110,7 +110,6 @@ class TestMediaManifest:
         # 上游是 CLI 库:无 remote endpoint,market 面走 local 安装命令。
         assert manifest.modes.remote is None
         assert manifest.modes.local is not None
-        assert manifest.modes.local.compose is None
         assert manifest.modes.local.install.startswith("myssia plugin install")
 
 
