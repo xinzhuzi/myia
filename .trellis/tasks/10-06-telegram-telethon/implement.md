@@ -6,10 +6,10 @@
 3. ✅ 品类示范件 `plugins/telegram-groups.yaml`(源名规约 telegram-<群名>;schema sources min_length=1 → 活源待 token 空态而非注释态,token 未配=credential_missing 零请求);
 4. ✅ 门禁:定向 pytest(765 passed 含 engines/schema/docs)+ruff 绿;docs zh/en schema.md 词表行同步。
 
-## 批次 B2:过滤管线与出口接线
-1. 粗筛词表配置化(品类 YAML watchlist 复用判定)+ LLM 精筛挂点(enrich 客户端复用);
-2. 出口:高价值即时**合并单条**(组合铁律)/普通入库进合并日报(daily-digest 增「Telegram 群」分区);
-3. 测试:同轮 N 条高价值恰一条(mock 通道);门禁+提交②。
+## 批次 B2:过滤管线与出口接线——✅ 2026-10-06 完(提交②)
+1. ✅ 粗筛词表配置化(源级 engine_options.telegram.keywords > 内置缺省 DEFAULT_COARSE_KEYWORDS,口味配置化)+ LLM 精筛挂点(enrich OpenAICompatClient 复用,glm-4-flash,llm_base_url/llm_api_key 成对引用;未配=降级纯粗筛);
+2. ✅ 出口:高价值即时**合并单条**(merge_high_value,组合铁律,锚随消息 id 区间幂等)/普通入库进合并日报(daily-digest 已增「Telegram 群」分区);
+3. ✅ 测试:tests/telegram/test_telegram_filter.py 25 例(同轮恰 1 条端到端+引擎集成);门禁 681 passed+ruff 绿。
 
 ## 批次 B3:常驻宿主 telegram serve(每时每刻)
 1. `src/myssia/telegram/`(serve 循环/offset 持久/退避/事件账本,mock 可测);

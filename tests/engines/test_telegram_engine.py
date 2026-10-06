@@ -288,8 +288,8 @@ def test_window_pull_builds_items_with_tg_anchor():
         window_response=httpx.Response(
             200,
             json=updates_payload(
-                message_update(11, 101, "mihomo 新版本发布了"),
-                message_update(12, 102, "闲聊灌水" * 60),
+                message_update(11, 101, "mihomo party 免费节点更新"),
+                message_update(12, 102, "羊毛闲聊灌水" * 60),
             ),
         ),
     )
@@ -302,14 +302,16 @@ def test_window_pull_builds_items_with_tg_anchor():
     assert len(items) == 2
     first = items[0]
     assert first["url"] == f"{SOURCE_URL}#tg-{CHAT_ID}-101"
-    assert first["title"] == "mihomo 新版本发布了"
-    assert first["content"] == "mihomo 新版本发布了"
+    assert first["title"] == "mihomo party 免费节点更新"
+    assert first["content"] == "mihomo party 免费节点更新"
     assert first["published"] == "2025-10-20T22:40:00+00:00"
     assert first["author"] == "@alice"
     assert first["chat_title"] == "mihomo_party_group"
+    assert first["chat_id"] == CHAT_ID
+    assert first["message_id"] == 101
     # 超长文本:title 截断至 100,content 全文
     assert len(items[1]["title"]) == 100
-    assert len(items[1]["content"]) == 240
+    assert len(items[1]["content"]) == 360  # 6 字 × 60
     # 请求序列:窗口拉取 + 确认(offset=max+1);token 在 path,请求不落日志
     assert len(captured) == 2
     assert "/bot" in str(captured[0].url)
@@ -323,8 +325,8 @@ def test_chat_filtering_keeps_only_configured_chat():
         window_response=httpx.Response(
             200,
             json=updates_payload(
-                message_update(11, 101, "本群消息", chat_id=CHAT_ID),
-                message_update(12, 201, "别群消息", chat_id=OTHER_CHAT_ID),
+                message_update(11, 101, "本群免费消息", chat_id=CHAT_ID),
+                message_update(12, 201, "别群优惠消息", chat_id=OTHER_CHAT_ID),
             ),
         ),
     )
@@ -346,7 +348,7 @@ def test_textless_messages_skipped():
             200,
             json=updates_payload(
                 message_update(11, 101, None, username=None),
-                message_update(12, 102, "有文本"),
+                message_update(12, 102, "有免费文本"),
             ),
         ),
     )
@@ -369,7 +371,7 @@ def test_media_group_aggregates_to_single_item():
                 message_update(11, 101, None, media_group_id="mg-1"),
                 message_update(12, 102, "相册说明:免费节点截图", media_group_id="mg-1"),
                 message_update(13, 103, None, media_group_id="mg-1"),
-                message_update(14, 104, "独立消息"),
+                message_update(14, 104, "独立优惠消息"),
             ),
         ),
     )
@@ -391,7 +393,7 @@ def test_edited_message_updates_consumed_with_same_anchor():
     captured: list = []
     edited = {
         "update_id": 21,
-        "edited_message": message_update(0, 301, "编辑后的文本")["message"],
+        "edited_message": message_update(0, 301, "编辑后的免费文本")["message"],
     }
     client = telegram_client(
         captured, window_response=httpx.Response(200, json=updates_payload(edited))
@@ -475,7 +477,7 @@ def test_confirm_failure_is_warning_not_source_failure(caplog):
     client = telegram_client(
         captured,
         window_response=httpx.Response(
-            200, json=updates_payload(message_update(11, 101, "文本"))
+            200, json=updates_payload(message_update(11, 101, "免费文本"))
         ),
         confirm_status=500,
     )

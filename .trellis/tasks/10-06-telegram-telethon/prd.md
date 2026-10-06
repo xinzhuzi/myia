@@ -53,6 +53,11 @@ MYIA 具备三层 Telegram 消息获取能力,全部走「链接者」形态,组
   - 词表/注册/schema 两行(ENGINES+EngineName,hunk 收窄)+docs zh/en schema.md 词表行同步;示范件 `plugins/telegram-groups.yaml`(源 telegram-mihomo_party_group 活源待 token 空态——schema sources min_length=1 故非注释态,token 未写钥匙串即 credential_missing 零请求;chat_id 占位待实填)。
   - 测试 `tests/engines/test_telegram_engine.py` 31 例全绿(四态矩阵:空态零请求/结构化拒/开启态往返含 401/409 指引+净化/注册表),tests/engines+test_schema+test_docs 计 765 passed;ruff 绿。
   - AC1 真发留给主人 token 到手(如实记档);B2 过滤+B3 serve 续。
+- [~] 阶段一 B2 过滤与出口(2026-10-06):
+  - `src/myssia/telegram/` 包落地:`telegram/filter.py` 过滤管线(批量引擎与 B3 serve 两档共用,design D1)——粗筛词表三层(源级 `engine_options.telegram.keywords` > 内置缺省 `DEFAULT_COARSE_KEYWORDS`:免费/白嫖/羊毛/token/额度/优惠/折扣/赠送/福利/激活码/兑换码/促销/coupon/free/giveaway;ASCII 大小写不敏感,显式空表=关闭)→ 粗筛未命中零痕迹跳过(不占库不占日报);LLM 精筛挂点(enrich `OpenAICompatClient` 复用,缺省 glm-4-flash,凭据 `llm_base_url`/`llm_api_key` 成对引用 prompt 契约明文拒;端点未配=降级纯粗筛零 token,失败/解析坏=降级全部普通出仓,宁漏推不误推);阈值 `score_threshold` 缺省 8(Grill Q5)可配 1-10。
+  - 出口=组合铁律:`merge_high_value()` 同轮多条高价值合并**单条**(score=组内最高,route `score>=8 → immediate` 一轮至多推一条;合并锚 `<源url>#tg-<chat>-<min>-hv<n>-<max>` 随消息 id 区间稳定→批量档重拉幂等);普通条目带 score 逐条出仓走 archive 入库;daily-digest.yaml 增「Telegram 群」分区(sources: telegram-mihomo_party_group,与 telegram-groups.yaml 同步维护)。
+  - 引擎接线:`engines/telegram.py` 增 `completer` 注入口(prompt 判例)+`_filter_options()`(keywords/threshold/model/llm refs/timeout 校验,半配/明文/越界=invalid_engine_options)+`_apply_filter()`(高价值合并单条+普通出仓);条目增 `chat_id`/`message_id` 观测键(合并锚区间与 B3 账本面)。
+  - 测试 `tests/telegram/test_telegram_filter.py` 25 例(粗筛/精筛/降级/合并锚幂等/**同轮 5 条恰 1 条合并**端到端+引擎集成 mock getUpdates+fake completer 恰 1 合并条目);tests/telegram+tests/engines+test_schema 计 681 passed;ruff 绿。
 - [ ] 阶段二 Telethon 组件依赖+session 流程+引擎(待填)
 - [ ] 阶段三 组件化件示例(待填)
 - [ ] 门禁+装机(待填)

@@ -74,6 +74,14 @@ from myssia.engines.fetch_base import (
     classify_exception,
 )
 from myssia.schema import CredentialResolveError, SourceConfig, resolve_credential
+from myssia.telegram.filter import (
+    DEFAULT_COARSE_KEYWORDS,
+    DEFAULT_LLM_TIMEOUT_SECONDS,
+    DEFAULT_SCORE_THRESHOLD,
+    TelegramFilterConfig,
+    TelegramFilterPipeline,
+    merge_high_value,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +164,18 @@ class TelegramEngine(BaseEngine):
     REQUIRES_EXTRACT = False
     SUPPORTED_EXTRACT_TYPES = ()
 
+    def __init__(
+        self,
+        source: SourceConfig,
+        context: FetchContext,
+        *,
+        completer: Any | None = None,
+    ) -> None:
+        super().__init__(source, context)
+        #: LLM 精筛完成层注入口(测试 fake;缺省过滤管线自建
+        #: OpenAICompatClient,每轮一建一关 —— prompt 引擎资源卫生判例)。
+        self._completer = completer
+
     # -------------------------------------------------------------- options
 
     def _options(self) -> dict[str, Any]:
@@ -191,6 +211,112 @@ class TelegramEngine(BaseEngine):
             "lookback_limit": lookback,
             "bot_token": bot_token.strip(),
         }
+
+    def _filter_options(self) -> TelegramFilterConfig:
+        """过滤面配置(engine_options.telegram 过滤键;错型即结构化拒).
+
+        - ``keywords``:粗筛词表(缺省内置 :data:`DEFAULT_COARSE_KEYWORDS`;
+          显式空列表 = 关闭粗筛面 —— 有意静默,与缺省区分);
+        - ``score_threshold``:1-10 整数(缺省 8,grill Q5);
+        - ``model``:非空模型名(缺省 glm-4-flash,enrich 同款);
+        - ``llm_base_url``/``llm_api_key``:OpenAI 兼容端点引用,**成对**
+          (半配 = 配置错误结构化拒;全缺 = 降级纯粗筛,合法形态);
+        - ``timeout``:正数秒。
+
+        Raises:
+            FetchError: ``invalid_engine_options``(类型/半配/引用形态)。
+        """
+        from myssia.schema import parse_secret_value
+
+        options = self.engine_options()
+        keywords_option = options.get("keywords")
+        if keywords_option is None:
+            keywords = DEFAULT_COARSE_KEYWORDS
+        elif isinstance(keywords_option, (list, tuple)):
+            keywords_list: list[str] = []
+            for word in keywords_option:
+                if not isinstance(word, str) or not word.strip():
+                    raise FetchError(
+                        f"engine_options.telegram.keywords 元素应为非空字符串,"
+                        f"当前为 {word!r}",
+                        error_type="invalid_engine_options",
+                    )
+                keywords_list.append(word.strip())
+            keywords = tuple(keywords_list)
+        else:
+            raise FetchError(
+                f"engine_options.telegram.keywords 应为字符串列表(缺省内置"
+                f"免费情报词表;空列表 = 关闭粗筛),当前为 {keywords_option!r}",
+                error_type="invalid_engine_options",
+            )
+        threshold = options.get("score_threshold", DEFAULT_SCORE_THRESHOLD)
+        if (
+            isinstance(threshold, bool)
+            or not isinstance(threshold, int)
+            or not 1 <= threshold <= 10
+        ):
+            raise FetchError(
+                f"engine_options.telegram.score_threshold 应为 1-10 整数"
+                f"(缺省 {DEFAULT_SCORE_THRESHOLD},grill Q5),当前为 {threshold!r}",
+                error_type="invalid_engine_options",
+            )
+        model = options.get("model")
+        if model is None:
+            model_str = None
+        elif isinstance(model, str) and model.strip():
+            model_str = model.strip()
+        else:
+            raise FetchError(
+                f"engine_options.telegram.model 应为非空模型名,当前为 {model!r}",
+                error_type="invalid_engine_options",
+            )
+        timeout = options.get("timeout")
+        if timeout is not None and (
+            isinstance(timeout, bool)
+            or not isinstance(timeout, (int, float))
+            or timeout <= 0
+        ):
+            raise FetchError(
+                f"engine_options.telegram.timeout 应为正数秒,当前为 {timeout!r}",
+                error_type="invalid_engine_options",
+            )
+        base_ref = options.get("llm_base_url")
+        key_ref = options.get("llm_api_key")
+        if (base_ref is None) != (key_ref is None):
+            raise FetchError(
+                "engine_options.telegram.llm_base_url 与 llm_api_key 须成对配置"
+                "(env:/keychain: 引用;全缺 = 降级纯粗筛的合法形态):当前 "
+                f"llm_base_url={'已配' if base_ref is not None else '缺'} / "
+                f"llm_api_key={'已配' if key_ref is not None else '缺'}",
+                error_type="invalid_engine_options",
+            )
+        for label, ref in (("llm_base_url", base_ref), ("llm_api_key", key_ref)):
+            if ref is None:
+                continue
+            if not isinstance(ref, str) or not ref.strip():
+                raise FetchError(
+                    f"engine_options.telegram.{label} 应为 env:/keychain: 凭据引用"
+                    "字符串(prompt 引擎/enrich 同契约,明文拒)",
+                    error_type="invalid_engine_options",
+                )
+            try:
+                parse_secret_value(ref, label=f"engine_options.telegram.{label}")
+            except Exception as exc:
+                raise FetchError(
+                    f"engine_options.telegram.{label} 必须是纯 env:/keychain:"
+                    f" 凭据引用(明文拒绝):{exc}",
+                    error_type="invalid_engine_options",
+                ) from exc
+        return TelegramFilterConfig(
+            keywords=keywords,
+            score_threshold=threshold,
+            model=model_str or TelegramFilterConfig.model,  # 缺省 = glm-4-flash
+            llm_base_url=base_ref.strip() if isinstance(base_ref, str) else None,
+            llm_api_key=key_ref.strip() if isinstance(key_ref, str) else None,
+            timeout=float(timeout)
+            if timeout is not None
+            else DEFAULT_LLM_TIMEOUT_SECONDS,
+        )
 
     # ------------------------------------------------------- url & credentials
 
@@ -256,14 +382,39 @@ class TelegramEngine(BaseEngine):
         updates = self._extract_updates(payload)
         items = self._updates_to_items(updates, options["chat_id"])
         await self._confirm_updates(token, updates)
+        final_items = await self._apply_filter(items)
         logger.info(
-            "telegram 窗口取得 source=%s chat_id=%s updates=%s items=%s",
+            "telegram 窗口取得 source=%s chat_id=%s updates=%s items=%s"
+            " (粗筛后出仓 %s)",
             self.source.name,
             options["chat_id"],
             len(updates),
             len(items),
+            len(final_items),
         )
-        return items
+        return final_items
+
+    async def _apply_filter(self, items: list[dict]) -> list[dict]:
+        """过滤管线挂点(B2):粗筛 → LLM 精筛 → 高价值合并单条(组合铁律).
+
+        零命中 / 降级纯粗筛均不拦出仓路径;高价值组经 :func:`merge_high_value`
+        合并为**单条**(score=组内最高,route ``score >= 8 → immediate``
+        一轮至多推一条),普通条目带 score 逐条出仓(archive 入库,合并日报
+        「Telegram 群」分区承载)。精筛端点未配 = 降级纯粗筛(INFO 留痕,
+        条目照常入库)—— 过滤是增强件,不是硬前置。
+        """
+        if not items:
+            return []
+        pipeline = TelegramFilterPipeline(
+            self._filter_options(),
+            completer=self._completer,
+            keychain_backend=self.context.keychain_backend,
+        )
+        outcome = await pipeline.process(items)
+        merged = merge_high_value(
+            outcome.high_value, threshold=pipeline.config.score_threshold
+        )
+        return ([merged] if merged is not None else []) + outcome.normal
 
     async def _fetch_updates(self, token: str, lookback_limit: int) -> dict[str, Any]:
         """GET getUpdates(未确认窗口,零长轮询;限速 + 重试 + 消息净化).
@@ -430,6 +581,9 @@ class TelegramEngine(BaseEngine):
             item["chat_title"] = chat_title.strip()
         if isinstance(message.get("media_group_id"), str):
             item["media_group_id"] = message["media_group_id"]
+        # 观测键(B2/B3 消费):高价值合并锚区间与事件账本按消息 id 记账。
+        item["chat_id"] = chat.get("id")
+        item["message_id"] = message_id
         return item
 
     @staticmethod
