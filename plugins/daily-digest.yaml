@@ -91,6 +91,17 @@ sources:
             suffix_fields: [price_text, sale_price]   # "¥0.00" / "0.00"(美元)
             max_entries: 10
 
+          # ── 分区四:AI 白嫖与模型优惠(prompt 精筛,编号一句话)──
+          - title: AI 白嫖与优惠
+            sources: [ai-token-deals]
+            max_entries: 10
+
+          # ── 分区五:Telegram 公开频道(编号一句话;源名规约 telegram-<频道
+          #    原名>,加频道时 telegram-channels.yaml 与本清单同步加一行)──
+          - title: Telegram 频道
+            sources: [telegram-durov]
+            max_entries: 10
+
     # 合法空集声明(gog-free 判例):全分区无新条目 = 零产出 = 静默不发,
     # 不是源退化;引擎另留 skip 哨兵(store_report_window_empty)供 doctor。
     empty_ok: true
