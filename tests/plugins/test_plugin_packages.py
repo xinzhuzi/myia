@@ -616,7 +616,9 @@ SOURCE_TYPE_PACKAGES = {
     "myssia-theharvester": {"adapter.py", "vendor"},
     # 10-05-plugin-market-batch 首批:MYIA 侧适配器 + 隔离环境薄 shim 常量
     # (BSD-3-Clause 上游零 vendored,uv 临时环境经 Python API 结构化取事件)。
-    "myssia-urlwatch": {"adapter.py"},
+    # 10-06 §12 起 +render_crawl4ai.py:MYIA 侧渲染 helper(crawl4ai 可选
+    # extras 经宿主解释器执行,上游 urlwatch 仍零 vendored)。
+    "myssia-urlwatch": {"adapter.py", "render_crawl4ai.py"},
     # 批三(D10-3):分析 lane 两 adapter 件。snownlp = MIT 上游 uv 隔离子进程
     # 钉版(0.12.3)+ MYIA 薄 shim 常量;yake = AGPL 上游进程内惰性 import,
     # 零 vendored(pip 运行时自装不构成分发,research 第五波裁定)。

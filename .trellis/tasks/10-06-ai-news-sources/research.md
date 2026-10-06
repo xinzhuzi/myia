@@ -125,4 +125,18 @@ round1 脚本 `probe_vendors.py` 的 `sniff()` 写了 `"<html" in head`(str in b
 
 **定性结案**:aihot invalid_item×5/run=YAML 注释写明的设计跳过路径(无标题锚卡片零产出记录,日志噪声非缺陷);装机 python openai 3.22.1 在位;外科三件(adapter×2 轮+engine+yaml+lock)全部亲验在位。
 
-**复查后仍开的口子(全部已知且各有归属)**:①推送凭据(唯一硬前置,主人一步);②依赖指纹戳(2026-10-06 12:12 已手工收绿,官方同款算法实算写戳+原值备份 /tmp,详见 §10 追记;不影响运行);③Hermes 九缺陷(主人裁决修否);④Hermes 沙盘时钟回拨/降级锁两项未模拟(档内记);⑤Meta 重接需 JS 通道(另立档);⑥国产 SPA 五家待过滤能力。
+**复查后仍开的口子(全部已知且各有归属)**:①推送凭据(唯一硬前置,主人一步);②依赖指纹戳(2026-10-06 12:12 已手工收绿,官方同款算法实算写戳+原值备份 /tmp,详见 §10 追记;不影响运行);③Hermes 九缺陷(主人裁决修否);④Hermes 沙盘时钟回拨/降级锁两项未模拟(档内记);⑤Meta 重接需 JS 通道(→§12 已接);⑥国产 SPA 五家待过滤能力。
+
+## §12 Meta 博客重接:render: crawl4ai 渲染通道(2026-10-06,口子⑤收口)
+
+**探查定案(evidence/probe6-log.md + probe6-meta-crawl4ai.\*)**:crawl4ai 0.9.4 无头渲染 `ai.meta.com/blog` 单次零压力 **7.3s/markdown 17345 字/5 条博文 slug 可读**(标题+日期+分类完整;静态通道六选择器全零的判死不变);RSSHub 有 `/meta/ai/blog` 路由(私有 GraphQL doc_id 机理,S3 邻近选项记档)但同受 Docker 前置阻塞且 doc_id 漂移脆弱——**走自渲染通道**。涉网仅此一次;robots 复用 §4 在案取合(可一句话删源翻案)。
+
+**实现(克制面)**:urlwatch 上游 ShellJob 契约亲验(2.29 实测 `user_visible_url` 即事件 location/guid,引擎事件匹配零改动)——`engine_options.urlwatch.render: crawl4ai` 时 job 换 `{name, command, user_visible_url}` 形态,命令=宿主解释器跑场景件 `render_crawl4ai.py`(归一化纯文本:图片/链接 URL 出局,fbcdn `oe=`/`_nc_oc=` 轮换签名噪声实证出局),快照对比/diff/锚点语义全在上游复用。离线端到端三跑(new/unchanged/changed+diff)零目标网实证。与 `selector` 互斥;helper 件缺失/后端未装=结构化 `render_helper_missing`/`dependency_missing`。ai-news 终态 meta-ai-blog-watch 重挂(announce_new: false,timeout: 150)。
+
+**门禁**:ruff 绿;定向三件 96/96+插件包守卫 262/262(豁免清单+helper 件);**全量 pytest 4527/0/0**(首轮 1 败=守卫豁免缺项当场修、1 败+2 ERROR=并行会话在途编辑中间态,复跑两连清)。gitnexus impact:normalize_urls 实跑 LOW;索引 WAL 态读路径失效,引擎符号以 rg 普查替代(仅 registry 惰性注册+测试引用,接口零变)。
+
+**并行协调记档**:本档同刻有「国产五家 watch」流在途(其 probe5 系证据+ai-news.yaml 未提交块);本流 YAML 改动(仅 meta 块)已入工作树但**不随本流提交**——`--only` 按文件粒度提交会吞并行流未提交块,ai-news.yaml 的提交归国产流收口或主人;数据根 YAML(装机活配置)已外科只加 meta 块(不部署其在途源)。本流探查文件定名 probe6 系(其 probe5 编号先占)。**共享暂存区 receipt(§6 第四案同款)**:本流三个探查证据件(probe6-meta-crawl4ai.py/.json/.markdown.txt)staged 后被并行冒烟窗归档提交 b207289 顺带入库(其 add 面扫了 .trellis;内容纯本流产物,本提交的 research §12+probe6-log.md 即其索引)——归属链在此记档,git 史可溯。
+
+**装机同步(外科直更+重签)**:engine urlwatch.py + adapter.py + render_crawl4ai.py 三件 cp 至 `/Applications/世事.app/Contents/Resources/{myssia-src/myssia/engines/,plugins/myssia-urlwatch/}`,codesign ad-hoc 重签。
+
+**owner_left(新增一项,同 llm extras 先例)**:装机 python 无 crawl4ai(随包 requirements-lock.txt 亲核无该包)→ 装机态 meta-ai-blog-watch 每 run 结构化 `dependency_missing`(不拦品类内其余源);仓库 CLI(venv 全 extras)即刻可用。收编路径=desktop lock 扩 crawl4ai extras(涉依赖指纹变更,主人裁定)+设置页一键重装;playwright 浏览器二进制走用户级缓存 `~/Library/Caches/ms-playwright`(与仓库 venv 共享,装机装同版 playwright 无需重复下载浏览器)。

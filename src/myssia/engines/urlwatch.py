@@ -23,6 +23,17 @@
   点击仍落原页面(锚点不改变落点)。
 - 代理边界:子进程直连抓取(场景件零第三方铁律),源 ``proxy`` 非
   ``direct`` 即结构化拒(不做「配了代理池却悄悄直连」的出口错配)。
+- **渲染通道**(10-06-ai-news-sources §12):``engine_options.urlwatch.render:
+  crawl4ai`` 时监控目标交给渲染 helper(场景件 ``render_crawl4ai.py``,
+  crawl4ai 无头渲染取归一化纯文本),job 换上游 ShellJob 形态
+  ``{name, command, user_visible_url}``——命令 stdout 即快照对象,快照
+  对比/diff/重试语义全在上游原样复用;``user_visible_url`` 锚住事件
+  location 与 guid,引擎事件匹配零改动。渲染 helper 以 ``sys.executable``
+  运行(crawl4ai 装在哪个环境就由哪个环境跑;uv 临时 urlwatch 环境不背
+  浏览器重依赖),后端缺失/件缺失都是结构化失败(``dependency_missing``
+  /``render_helper_missing``)。纯客户端渲染页(ai.meta.com/blog 实证,
+  静态通道六选择器全零)是本通道的目标面;``render`` 与 ``selector``
+  互斥(前者快照是归一化纯文本,CSS 过滤只适用于静态 HTML 快照)。
 - robots:目标页抓取不经引擎 HTTP 栈,但礼貌面照走 —— fetch 前经
   ``_ensure_robots_allowed`` 查一次目标 URL(``respect_robots`` 缺省真,
   官网监控属授权目标的礼貌自查,robots 全禁页面如实结构化拒)。
@@ -34,15 +45,20 @@
 Raises:
     FetchError: 源 URL 非 http/https、proxy 非 direct、pagination 配置、
         engine_options 类型错、adapter 缺失、子进程失败/超时、目标页
-        error 事件、robots 全禁。
+        error 事件、robots 全禁、渲染通道的 helper 件缺失
+        (``render_helper_missing``)或渲染后端未安装(``dependency_missing``)。
 """
 
 from __future__ import annotations
 
 import asyncio
 import hashlib
+import importlib.util
 import logging
 import os
+import shlex
+import subprocess
+import sys
 import types
 from pathlib import Path
 from typing import Any
@@ -65,13 +81,25 @@ DEFAULT_TIMEOUT_SECONDS = 120.0
 #: content 里 diff 的截断上限(上游事件已截 4000,引擎层再收窄到人读量级)。
 DEFAULT_CONTENT_MAX_CHARS = 1500
 
+#: 渲染通道后端词表(``engine_options.urlwatch.render`` 合法值;词表式收窄,
+#: 新后端=改这里+helper 件,不是自由字符串)。
+RENDER_BACKENDS = ("crawl4ai",)
+
+#: 渲染 helper 件名(场景件目录内,与 adapter.py 同分发面)。
+RENDER_HELPER_FILENAME = "render_crawl4ai.py"
+
 __all__ = [
     "DEFAULT_CONTENT_MAX_CHARS",
     "DEFAULT_PLUGINS_DIR",
     "DEFAULT_TIMEOUT_SECONDS",
     "LAYER",
+    "RENDER_BACKENDS",
+    "RENDER_HELPER_FILENAME",
     "UrlwatchEngine",
+    "build_render_command",
     "import_urlwatch_adapter",
+    "render_backend_available",
+    "render_helper_path",
 ]
 
 
@@ -115,6 +143,56 @@ def import_urlwatch_adapter(
         f"urlwatch 适配器不存在:{candidates[0]}(场景件应随仓库 plugins/ 分发;"
         "桌面端=myssia plugin install plugins/myssia-urlwatch)"
     )
+
+
+def render_helper_path(plugins_dir: str | Path = DEFAULT_PLUGINS_DIR) -> Path:
+    """定位渲染 helper 件(候选装载路径与 :func:`import_urlwatch_adapter` 同序).
+
+    1. ``plugins_dir``(缺省 cwd 相对 ``plugins``,CLI/桌面 home 模式同约定);
+    2. ``MYIA_BUNDLED_PLUGINS`` 环境变量(桌面壳 release 态 Resources/plugins);
+    3. 源码树布局兜底(包文件 → 仓库根 ``plugins/``)。
+
+    Raises:
+        FileNotFoundError: 三处都缺(渲染通道场景件分发不完整)。
+    """
+    candidates = [
+        Path(plugins_dir) / "myssia-urlwatch" / RENDER_HELPER_FILENAME,
+    ]
+    bundled = os.environ.get("MYIA_BUNDLED_PLUGINS")
+    if bundled:
+        candidates.append(Path(bundled) / "myssia-urlwatch" / RENDER_HELPER_FILENAME)
+    here = Path(__file__).resolve()
+    if len(here.parents) > 3:
+        candidates.append(
+            here.parents[3] / "plugins" / "myssia-urlwatch" / RENDER_HELPER_FILENAME
+        )
+    for helper_file in candidates:
+        if helper_file.is_file():
+            return helper_file
+    raise FileNotFoundError(
+        f"urlwatch 渲染 helper 不存在:{candidates[0]}"
+        "(场景件应随仓库 plugins/ 分发,与 adapter.py 同分发面)"
+    )
+
+
+def render_backend_available(backend: str) -> bool:
+    """渲染后端可导入性(find_spec 探测,不执行包导入;测试注入口)."""
+    try:
+        return importlib.util.find_spec(backend) is not None
+    except (ImportError, ValueError):  # 残缺发行版/命名空间边缘:按不可用处理
+        return False
+
+
+def build_render_command(python_executable: str, helper: Path | str, url: str) -> str:
+    """装配渲染 shell job 命令串:``<python> <helper> <url>``(三段各自引号包裹).
+
+    上游 ShellJob 以 ``shell=True`` 执行命令串,路径/URL 里的空格与壳元字符
+    必须引号隔离(win32 走 list2cmdline 的 cmd 兼容引号,其余 POSIX shlex)。
+    """
+    parts = [python_executable, str(helper), url]
+    if sys.platform == "win32":
+        return subprocess.list2cmdline(parts)
+    return " ".join(shlex.quote(part) for part in parts)
 
 
 class UrlwatchEngine(BaseEngine):
@@ -197,6 +275,25 @@ class UrlwatchEngine(BaseEngine):
                 f"当前为 {selector!r}",
                 error_type="invalid_engine_options",
             )
+        render = options.get("render")
+        if render is not None and (
+            not isinstance(render, str) or render.strip() not in RENDER_BACKENDS
+        ):
+            raise FetchError(
+                f"engine_options.urlwatch.render 应为渲染后端名"
+                f"{list(RENDER_BACKENDS)} 之一,当前为 {render!r}",
+                error_type="invalid_engine_options",
+            )
+        if isinstance(render, str):
+            render = render.strip() or None
+        if render and selector:
+            raise FetchError(
+                "engine_options.urlwatch.render 与 selector 互斥:渲染通道的"
+                "快照是 helper 归一化后的纯文本(CDN 签名噪声已出局),CSS 选择器"
+                "过滤只适用于静态通道的 HTML 快照(纯客户端渲染页选不出正文,"
+                "正是 render 通道存在的理由)",
+                error_type="invalid_engine_options",
+            )
         return {
             "timeout": float(timeout),
             "announce_new": announce_new,
@@ -204,7 +301,30 @@ class UrlwatchEngine(BaseEngine):
             "cache_file": cache_file,
             "label": (label or self.source.name).strip(),
             "selector": selector.strip() if isinstance(selector, str) else None,
+            "render": render,
         }
+
+    def _render_helper(self, backend: str) -> Path:
+        """渲染通道前置:helper 件在位 + 渲染后端可导入,缺一即结构化拒.
+
+        Raises:
+            FetchError: ``render_helper_missing``(场景件分发不完整)或
+                ``dependency_missing``(运行环境无渲染后端;装机 python 缺
+                crawl4ai 属依赖面,归主人 lock 收编,同 llm extras 先例)。
+        """
+        try:
+            helper = render_helper_path()
+        except FileNotFoundError as exc:
+            raise FetchError(str(exc), error_type="render_helper_missing") from exc
+        if not render_backend_available(backend):
+            raise FetchError(
+                f"渲染后端 {backend} 未安装(渲染通道由运行 myssia 的解释器"
+                f"({sys.executable or 'python3'})执行 helper 取正文):"
+                f"pip install myssia[{backend}];装机端待 desktop lock 收编该"
+                f"extras 后设置页一键重装",
+                error_type="dependency_missing",
+            )
+        return helper
 
     # ----------------------------------------------------------------- fetch
 
@@ -226,24 +346,47 @@ class UrlwatchEngine(BaseEngine):
         # 礼貌自查:目标页抓取虽在子进程,robots 面照查(缺省 respect_robots 真)。
         await self._ensure_robots_allowed(url)
 
-        job: dict[str, Any] = {"name": self.source.name, "url": url}
-        if options["selector"]:
-            # 内容过滤(框架噪声根治):CSS 选择器圈正文区并剔除 script/
-            # style 等噪声节点,快照与 diff 只看正文 HTML 而非整页 ——
-            # meta/cohere 实证的全页 diff 全是 React/Next 构建产物漂移
-            # (research §8/§9)。上游 css 过滤器实证形状:method 仅 html/
-            # xml、exclude 剔除选区内子树(10-06 探针亲验 anthropic 425KB
-            # →main 20KB 正文)。注意:纯客户端渲染页(meta 实证)选不出
-            # 正文,此类站点不适用本引擎(静态通道取不到内容)。
-            job["filter"] = [
-                {
-                    "css": {
-                        "selector": options["selector"],
-                        "exclude": "script, style, noscript, template, svg",
-                        "method": "html",
+        job: dict[str, Any]
+        if options["render"]:
+            # 渲染通道(§12):shell 型 job,命令 stdout(渲染 helper 的归一化
+            # 纯文本)即快照对象;user_visible_url 锚住事件 location/guid,
+            # 事件映射零改动。helper 以 sys.executable 运行——crawl4ai 装在
+            # 哪个环境就由哪个环境跑(装机 python 缺后端=结构化
+            # dependency_missing,同 llm extras 先例归主人收编)。
+            helper = self._render_helper(options["render"])
+            job = {
+                "name": self.source.name,
+                "user_visible_url": url,
+                "command": build_render_command(
+                    sys.executable or "python3", helper, url
+                ),
+            }
+            logger.info(
+                "urlwatch 渲染通道就绪 source=%s url=%s backend=%s helper=%s",
+                self.source.name,
+                url,
+                options["render"],
+                helper,
+            )
+        else:
+            job = {"name": self.source.name, "url": url}
+            if options["selector"]:
+                # 内容过滤(框架噪声根治):CSS 选择器圈正文区并剔除 script/
+                # style 等噪声节点,快照与 diff 只看正文 HTML 而非整页 ——
+                # meta/cohere 实证的全页 diff 全是 React/Next 构建产物漂移
+                # (research §8/§9)。上游 css 过滤器实证形状:method 仅 html/
+                # xml、exclude 剔除选区内子树(10-06 探针亲验 anthropic 425KB
+                # →main 20KB 正文)。注意:纯客户端渲染页(meta 实证)选不出
+                # 正文 —— 那是 render 渲染通道的目标面,本过滤不适用。
+                job["filter"] = [
+                    {
+                        "css": {
+                            "selector": options["selector"],
+                            "exclude": "script, style, noscript, template, svg",
+                            "method": "html",
+                        }
                     }
-                }
-            ]
+                ]
         jobs = [job]
         adapter = self._adapter()
         result: dict | None = None

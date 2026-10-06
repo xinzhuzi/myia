@@ -168,6 +168,107 @@ class TestUrlwatchAdapter:
             {"name": "example.com/x", "url": "https://example.com/x"}
         ]
 
+    # ------------------------------------------------- shell 型 job(§12)
+
+    def test_normalize_urls_accepts_shell_command_jobs(self):
+        """shell 型 job(渲染通道):{name, command, user_visible_url} 透传;
+
+        user_visible_url 锚住上游 get_location()/guid(2.29 装包实测),
+        缺它事件 location 会变成命令串、调用方按 URL 匹配静默失配——必填。
+        """
+        adapter = load_adapter()
+        jobs = adapter.normalize_urls(
+            [
+                {
+                    "name": "meta 渲染",
+                    "command": "python render_crawl4ai.py 'https://ai.meta.com/blog'",
+                    "user_visible_url": "https://ai.meta.com/blog",
+                }
+            ]
+        )
+        assert jobs == [
+            {
+                "name": "meta 渲染",
+                "command": "python render_crawl4ai.py 'https://ai.meta.com/blog'",
+                "user_visible_url": "https://ai.meta.com/blog",
+            }
+        ]
+
+    def test_normalize_urls_shell_job_derives_name_from_user_visible_url(self):
+        adapter = load_adapter()
+        jobs = adapter.normalize_urls(
+            [
+                {
+                    "command": "python h.py u",
+                    "user_visible_url": "https://ai.meta.com/blog",
+                }
+            ]
+        )
+        assert jobs[0]["name"] == "ai.meta.com/blog"
+
+    def test_normalize_urls_shell_job_dedupes_by_user_visible_url(self):
+        adapter = load_adapter()
+        jobs = adapter.normalize_urls(
+            [
+                {
+                    "command": "python h.py u",
+                    "user_visible_url": "https://ai.meta.com/blog",
+                },
+                {
+                    "command": "python other.py u",
+                    "user_visible_url": "https://ai.meta.com/blog",
+                },
+                # 同目标 url 型与 shell 型互斥形态:同 location 只留首个
+                "https://ai.meta.com/blog",
+            ]
+        )
+        assert len(jobs) == 1
+        assert "command" in jobs[0]
+
+    @pytest.mark.parametrize(
+        "item",
+        [
+            {"command": "echo hi"},  # 缺 user_visible_url
+            {
+                "command": "echo hi",
+                "user_visible_url": "ftp://example.com/x",
+            },  # 非 http/https
+            {
+                "command": "echo hi",
+                "user_visible_url": "https://example.com/ oops",
+            },  # 含空白
+            {"command": "", "user_visible_url": "https://example.com/x"},
+            {"command": 42, "user_visible_url": "https://example.com/x"},
+            {
+                "command": "echo 'a'\necho 'b'",
+                "user_visible_url": "https://example.com/x",
+            },  # 控制字符(换行)
+            {
+                "command": "x" * 5000,
+                "user_visible_url": "https://example.com/x",
+            },  # 超上限
+        ],
+    )
+    def test_normalize_urls_rejects_invalid_shell_jobs(self, item):
+        adapter = load_adapter()
+        with pytest.raises(adapter.UrlwatchAdapterError) as exc_info:
+            adapter.normalize_urls([item])
+        assert exc_info.value.code == "url_invalid"
+
+    def test_normalize_urls_shell_job_passes_through_filter_chain(self):
+        adapter = load_adapter()
+        flt = [{"css": {"selector": "main", "method": "html"}}]
+        jobs = adapter.normalize_urls(
+            [
+                {
+                    "command": "python h.py u",
+                    "user_visible_url": "https://example.com/s",
+                    "filter": flt,
+                }
+            ]
+        )
+        assert jobs[0]["filter"] == flt
+
     @pytest.mark.parametrize(
         "urls",
         [

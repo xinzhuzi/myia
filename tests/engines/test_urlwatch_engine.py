@@ -229,6 +229,9 @@ def test_non_direct_proxy_rejected_in_fetch_impl():
         {"label": "  "},
         {"selector": 123},
         {"selector": " "},
+        {"render": "playwright"},
+        {"render": 123},
+        {"render": "crawl4ai", "selector": "main"},
     ],
 )
 def test_engine_options_type_guard(options):
@@ -645,3 +648,119 @@ def test_fetch_source_changed_flows_items(patched_adapter):
     assert outcome.skipped is False
     assert len(outcome.items) == 1
     assert outcome.items[0]["url"].startswith(PAGE_URL + "#watch-")
+
+
+# ---------------------------------------------------------------------------
+# 渲染通道(10-06-ai-news-sources §12:纯客户端渲染页经 crawl4ai 取正文)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def render_seams(monkeypatch, tmp_path):
+    """渲染通道两注入口:helper 路径与后端可导入性(测试不依赖本机依赖)."""
+    helper = tmp_path / "render_crawl4ai.py"
+    helper.write_text("# fake helper\n", encoding="utf-8")
+    monkeypatch.setattr(urlwatch_engine_module, "render_helper_path", lambda: helper)
+    monkeypatch.setattr(
+        urlwatch_engine_module, "render_backend_available", lambda backend: True
+    )
+    return helper
+
+
+def test_render_builds_shell_job(patched_adapter, render_seams):
+    """render: crawl4ai → job 换 ShellJob 形态(user_visible_url 锚事件定位)."""
+    calls: list[dict] = []
+    patched_adapter(
+        fake_adapter(events=[changed_event(diff="+ Muse Spark 1.2")], calls=calls)
+    )
+    engine = UrlwatchEngine(
+        urlwatch_source(engine_options={"urlwatch": {"render": "crawl4ai"}}),
+        urlwatch_context(),
+    )
+    items = run(engine.fetch())
+    assert len(items) == 1  # 事件映射零改动:location 仍=页面 URL
+    assert items[0]["url"].startswith(PAGE_URL + "#watch-")
+    job = calls[0]["urls"][0]
+    assert job["name"] == "demo"
+    assert job["user_visible_url"] == PAGE_URL
+    assert "url" not in job and "filter" not in job  # shell 型,非 url 型
+    assert str(render_seams) in job["command"]
+    assert PAGE_URL in job["command"]
+
+
+def test_render_helper_missing_is_structured(patched_adapter, monkeypatch):
+    def missing():
+        raise FileNotFoundError("urlwatch 渲染 helper 不存在:plugins/…")
+
+    monkeypatch.setattr(urlwatch_engine_module, "render_helper_path", missing)
+    engine = UrlwatchEngine(
+        urlwatch_source(engine_options={"urlwatch": {"render": "crawl4ai"}}),
+        urlwatch_context(),
+    )
+    with pytest.raises(FetchError, match="渲染 helper 不存在") as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "render_helper_missing"
+
+
+def test_render_backend_missing_is_dependency_missing(
+    patched_adapter, monkeypatch, tmp_path
+):
+    helper = tmp_path / "render_crawl4ai.py"
+    helper.write_text("# fake helper\n", encoding="utf-8")
+    monkeypatch.setattr(urlwatch_engine_module, "render_helper_path", lambda: helper)
+    monkeypatch.setattr(
+        urlwatch_engine_module, "render_backend_available", lambda backend: False
+    )
+    engine = UrlwatchEngine(
+        urlwatch_source(engine_options={"urlwatch": {"render": "crawl4ai"}}),
+        urlwatch_context(),
+    )
+    with pytest.raises(FetchError, match="crawl4ai") as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "dependency_missing"
+
+
+def test_render_helper_path_reads_bundled_plugins_env(tmp_path, monkeypatch):
+    """MYIA_BUNDLED_PLUGINS(桌面壳 Resources/plugins)是 helper 候选路径."""
+    bundled_root = tmp_path / "Resources" / "plugins"
+    plugin_dir = bundled_root / "myssia-urlwatch"
+    plugin_dir.mkdir(parents=True)
+    (plugin_dir / "render_crawl4ai.py").write_text("# bundled\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)  # cwd 相对 plugins/ 落空
+    monkeypatch.setenv("MYIA_BUNDLED_PLUGINS", str(bundled_root))
+    resolved = urlwatch_engine_module.render_helper_path()
+    assert resolved == plugin_dir / "render_crawl4ai.py"
+
+
+def test_render_helper_path_source_tree_fallback(tmp_path, monkeypatch):
+    """cwd 无件、锚点环境变量缺省 → 源码树兜底命中真实 helper(cwd 无关)."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("MYIA_BUNDLED_PLUGINS", raising=False)
+    resolved = urlwatch_engine_module.render_helper_path()
+    assert resolved.name == "render_crawl4ai.py"
+    assert resolved.is_file()  # 仓库树内场景件真实在位
+
+
+def test_build_render_command_quotes_shell_metacharacters():
+    """命令串三段各自引号隔离(上游 ShellJob shell=True;路径空格/URL 元字符)."""
+    command = urlwatch_engine_module.build_render_command(
+        "/opt/tools/my python",
+        "/tmp/some dir/render_crawl4ai.py",
+        "https://ai.meta.com/blog?a=1&b=2",
+    )
+    assert "'/opt/tools/my python'" in command
+    assert "'/tmp/some dir/render_crawl4ai.py'" in command
+    assert "'https://ai.meta.com/blog?a=1&b=2'" in command  # & 在引号内,无裸露
+
+
+def test_build_render_command_win32_variant(monkeypatch):
+    """win32 走 list2cmdline(cmd 兼容引号):仅含空格/元字符参数被引号包裹."""
+    monkeypatch.setattr(urlwatch_engine_module.sys, "platform", "win32")
+    command = urlwatch_engine_module.build_render_command(
+        r"C:\Python312\python.exe",
+        r"C:\Program Files\helper.py",
+        "https://ai.meta.com/blog",
+    )
+    assert command.startswith("C:\\Python312\\python.exe")
+    assert '"C:\\Program Files\\helper.py"' in command
+    assert command.endswith(" https://ai.meta.com/blog")

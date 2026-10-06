@@ -14,8 +14,11 @@
 - shim 复用上游 ``worker.run_jobs`` 主循环(抓取/过滤/对比/重试语义原样),
   只把 ``report`` 换成 JSON collector(``new``/``changed``/``unchanged``/
   ``error`` 事件;上游 Report 是鸭子类型,collector 同形);
-- jobs 文件是上游 ``UrlsYaml`` 多文档 YAML(每 doc 一个 ``{name, url}``
-  映射,JSON 即合法 YAML 流映射);快照缓存走 ``CacheMiniDBStorage``
+- jobs 文件是上游 ``UrlsYaml`` 多文档 YAML(每 doc 一个 ``{name, url}`` 映射
+  或 10-06 §12 起的 shell 型 ``{name, command, user_visible_url}``——上游
+  ShellJob 以命令 stdout 为监控对象,JS 渲染通道由渲染 helper 喂文本;
+  JSON 即合法 YAML 流映射,2.29 装包实测 shell 型 user_visible_url 即事件
+  location);快照缓存走 ``CacheMiniDBStorage``
   (minidb 文件,跨 run 持久——**首次跑全部 new**,之后才有 changed 判定);
 - URL 去重语义在上游是硬错(重复 guid 抛 ValueError),适配器侧预去重
   (保序,首个胜出)避免整跑报废。
@@ -149,14 +152,93 @@ def _default_name(url: str) -> str:
     return name or url
 
 
-def normalize_urls(urls: Any) -> list[dict[str, str]]:
-    """校验并规整输入 URL 清单:统一为 ``[{name, url}]`` job 描述.
+def _checked_http_url(url: str) -> str:
+    """单条 http/https URL 校验(两种 job 形态共用):strip/长度/无空白控制符/scheme.
 
-    接受:单个 URL 字符串,或其序列;元素为字符串或 ``{"name":…, "url":…}``
-    映射(name 可省,缺省从 URL 派生)。校验:仅 http/https、无空白/控制
-    字符、长度 ≤2048、总数 ≤:data:`MAX_URLS_PER_RUN`(空清单拒绝——监控
-    什么都不监控没有意义)。重复 URL 去重保序(上游对重复 guid 是硬错,
-    这里预去重避免整跑报废)。
+    Raises:
+        UrlwatchAdapterError: ``url_invalid``(任一不过)。
+    """
+    url = url.strip()
+    if len(url) > _MAX_URL_LENGTH or any(ch.isspace() or ord(ch) < 32 for ch in url):
+        raise UrlwatchAdapterError(
+            "url_invalid",
+            f"URL 非法(含空白/控制字符或超 {_MAX_URL_LENGTH} 字符):{url[:80]!r}",
+        )
+    if urlparse(url).scheme not in _ALLOWED_SCHEMES:
+        raise UrlwatchAdapterError(
+            "url_invalid",
+            f"URL 仅支持 http/https:{url[:80]!r}",
+        )
+    return url
+
+
+def _checked_job_filter(job_filter: Any) -> list[dict[str, Any]]:
+    """可选内容过滤链的浅层形状校验(两种 job 形态共用).
+
+    Raises:
+        UrlwatchAdapterError: ``url_invalid``(非「非空子过滤器映射列表」)。
+    """
+    # 上游 UrlsYaml 原生 filter 链,如
+    #   filter: [{"css": {"selector": "main", "format": "text"}}]
+    # css 过滤器需 cssselect(URLWATCH_DEPENDENCIES 随带);形状校验只做
+    # 浅层(非空列表/子键映射),具体过滤器参数由上游装载期校验。
+    if (
+        not isinstance(job_filter, list)
+        or not job_filter
+        or not all(isinstance(sub, dict) and sub for sub in job_filter)
+    ):
+        raise UrlwatchAdapterError(
+            "url_invalid",
+            f"job 的 filter 应为非空子过滤器映射列表(上游 UrlsYaml 形态),"
+            f"当前为 {job_filter!r}",
+        )
+    return job_filter
+
+
+#: shell 型 job 的 ``command`` 上限(上游 ShellJob 以 shell 字符串执行;
+#: 引擎装配的形状是 ``<python> <helper> <url>``,4096 是宽松上界)。
+_MAX_COMMAND_LENGTH = 4096
+
+
+def _checked_command(command: Any) -> str:
+    """shell 型 job 的 command 校验:非空字符串、无控制字符、长度有界.
+
+    Raises:
+        UrlwatchAdapterError: ``url_invalid``(任一不过)。
+    """
+    if not isinstance(command, str) or not command.strip():
+        raise UrlwatchAdapterError(
+            "url_invalid",
+            f"shell 型 job 的 command 应为非空字符串,当前为 {command!r}",
+        )
+    if len(command) > _MAX_COMMAND_LENGTH or any(
+        ord(ch) < 32 and ch != " " for ch in command
+    ):
+        raise UrlwatchAdapterError(
+            "url_invalid",
+            f"shell 型 job 的 command 非法(含控制字符或超 {_MAX_COMMAND_LENGTH} 字符):"
+            f"{command[:80]!r}",
+        )
+    return command.strip()
+
+
+def normalize_urls(urls: Any) -> list[dict[str, str]]:
+    """校验并规整输入监控目标清单:统一为上游 UrlsYaml job 描述列表.
+
+    两种 job 形态(10-06-ai-news-sources §12 起双轨):
+
+    - **url 型**(缺省):``{"name":…, "url":…}``(或裸 URL 字符串);
+    - **shell 型**(JS 渲染通道):``{"name":…, "command":…,
+      "user_visible_url":…}`` —— 上游 ShellJob 以命令 stdout 为监控对象,
+      ``user_visible_url`` 是上游 ``get_location()`` 的取值(事件定位/快照
+      guid 都锚在它上,shell job 必带,否则事件 location 变成命令串、调用
+      方按 URL 匹配事件会静默失配)。
+
+    接受:单个项,或其序列;元素为字符串或上述映射(name 可省,缺省从
+    URL 派生)。校验:仅 http/https、无空白/控制字符、长度 ≤2048
+    (command ≤4096)、总数 ≤:data:`MAX_URLS_PER_RUN`(空清单拒绝——
+    监控什么都不监控没有意义)。重复目标去重保序(url 型按 url、shell 型
+    按 user_visible_url;上游对重复 guid 是硬错,这里预去重避免整跑报废)。
 
     Raises:
         UrlwatchAdapterError: ``url_invalid``(任一校验不过)。
@@ -180,31 +262,24 @@ def normalize_urls(urls: Any) -> list[dict[str, str]]:
     jobs: list[dict[str, Any]] = []
     seen: set[str] = set()
     for item in items:
-        url = (
-            item
-            if isinstance(item, str)
-            else (item.get("url") if isinstance(item, dict) else None)
+        is_shell = isinstance(item, dict) and "command" in item
+        location = (
+            item.get("user_visible_url")
+            if is_shell
+            else (
+                item
+                if isinstance(item, str)
+                else (item.get("url") if isinstance(item, dict) else None)
+            )
         )
-        if not isinstance(url, str) or not url.strip():
+        if not isinstance(location, str) or not location.strip():
             raise UrlwatchAdapterError(
                 "url_invalid",
-                f"URL 项非法:{item!r}(须为字符串或含 url 键的映射)",
+                f"URL 项非法:{item!r}(须为字符串、含 url 键、或含 command+user_visible_url 键的映射)",
             )
-        url = url.strip()
-        if len(url) > _MAX_URL_LENGTH or any(
-            ch.isspace() or ord(ch) < 32 for ch in url
-        ):
-            raise UrlwatchAdapterError(
-                "url_invalid",
-                f"URL 非法(含空白/控制字符或超 {_MAX_URL_LENGTH} 字符):{url[:80]!r}",
-            )
-        if urlparse(url).scheme not in _ALLOWED_SCHEMES:
-            raise UrlwatchAdapterError(
-                "url_invalid",
-                f"URL 仅支持 http/https:{url[:80]!r}",
-            )
+        url = _checked_http_url(location)
         if url in seen:
-            continue  # 重复 URL 去重保序(上游重复 guid 是硬错)
+            continue  # 重复目标去重保序(上游重复 guid 是硬错)
         seen.add(url)
         name = None
         job_filter = None
@@ -213,24 +288,14 @@ def normalize_urls(urls: Any) -> list[dict[str, str]]:
             job_filter = item.get("filter")
         if not isinstance(name, str) or not name.strip():
             name = _default_name(url)
-        job: dict[str, Any] = {"name": name.strip(), "url": url}
-        # 可选内容过滤(10-06-ai-news-sources:官网页 watch 的框架噪声根治)
-        # ——上游 UrlsYaml 原生 filter 链,如
-        #   filter: [{"css": {"selector": "main", "format": "text"}}]
-        # css 过滤器需 cssselect(URLWATCH_DEPENDENCIES 随带);形状校验只做
-        # 浅层(非空列表/子键映射),具体过滤器参数由上游装载期校验。
+        job: dict[str, Any] = {"name": name.strip()}
+        if is_shell:
+            job["command"] = _checked_command(item.get("command"))
+            job["user_visible_url"] = url
+        else:
+            job["url"] = url
         if job_filter is not None:
-            if (
-                not isinstance(job_filter, list)
-                or not job_filter
-                or not all(isinstance(sub, dict) and sub for sub in job_filter)
-            ):
-                raise UrlwatchAdapterError(
-                    "url_invalid",
-                    f"job 的 filter 应为非空子过滤器映射列表(上游 UrlsYaml 形态),"
-                    f"当前为 {job_filter!r}",
-                )
-            job["filter"] = job_filter
+            job["filter"] = _checked_job_filter(job_filter)
         jobs.append(job)
     return jobs
 

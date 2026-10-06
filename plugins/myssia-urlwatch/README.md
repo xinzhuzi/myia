@@ -26,7 +26,19 @@ adapter.run(["https://example.com/a", {"name": "示例", "url": "https://example
   换路径(测试/多租户隔离);
 - `timeout` 是整个子进程 wall-clock 预算(缺省 300s);上游逐 job 请求
   超时缺省 60s;
-- 输入只收 `http://`/`https://` URL(≤64 条/次,重复自动去重保序)。
+- 输入收 `http://`/`https://` URL(≤64 条/次,重复自动去重保序),以及
+  10-06 §12 起的 shell 型 job(`{name, command, user_visible_url}`;
+  `user_visible_url` 必填且锚住事件 location/guid)。
+
+## 渲染通道(纯客户端渲染页,10-06 §12)
+
+`render_crawl4ai.py`(本目录)是 JS 渲染页的取正文体:urlwatch 引擎配
+`engine_options.urlwatch.render: crawl4ai` 时,job 换上游 ShellJob 形态,
+命令 stdout 即快照对象——helper 用 crawl4ai 无头渲染目标页,把正文归一成
+纯文本(图片/链接 URL 剔除,CDN 签名轮换噪声出局)打印 stdout。适用面:
+静态通道 CSS 选择器取不到正文的纯客户端渲染页(ai.meta.com/blog 实证,
+六选择器全零);与 `selector` 互斥。前置:运行 myssia 的解释器环境需装
+crawl4ai(缺=引擎结构化 `dependency_missing`)。
 
 ## 输出形状(`run()` 返回)
 
