@@ -67,7 +67,9 @@ MYIA 具备三层 Telegram 消息获取能力,全部走「链接者」形态,组
   - 注:telegram serve CLI 的端到端真跑(AC1 前置)留主人 token 到手;桌面 entry.py 接线待并行任务落地后另批。
 - [ ] 阶段二 Telethon 组件依赖+session 流程+引擎(待填)
 - [ ] 阶段三 组件化件示例(待填)
-- [ ] 门禁+装机(待填)
+- [~] 门禁+装机(2026-10-06 B1-B3 门禁三批全绿:4423 passed+desktop 288 passed+ruff 绿;装机外科已做):
+  - 装机外科(世事.app /Applications/世事.app):定向同步 13 件(引擎 telegram.py/registry.py/schema.py/cli.py + telegram/ 包五件 + plugins telegram-groups/telegram-channels/daily-digest 三件),diff 逐字节一致核验;仓库 venv 3.12 对装机副本八项 import 冒烟全过(engine/vocab/serve/offsets/events/cli/plugins);并行会话曾中途同步过 telegram/ 包中间态(19:09-19:18 时间戳,缺 events/serve/cli),本次全量覆盖修正;清理三处 stale __pycache__ 后 adhoc 重签(codesign --force --deep -s -,verify --deep 通过;spctl 拒 adhoc 属常态,与装机前同制式)。
+  - AC4 的「像素验证」留桌面接线批(entry.py 由并行任务持有);AC1 真发留主人 token。
 
 ## 结果(验收回执,完工填)
 - [ ] AC1-5 勾选+证据(待填)
