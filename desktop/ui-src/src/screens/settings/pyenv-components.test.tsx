@@ -8,7 +8,7 @@
 //   注册表缺位回空表,前端不渲染组件行)
 // 组件面(R4):「表格还原」开关 = 装/状态回读;卸载本期不做(on→off 只提示,
 // 不发卸载调用);主链未配置/安装中开关禁用(壳侧同门)。
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -505,7 +505,9 @@ describe("PyenvCard:服务组件行(启停按钮 + 健康绿点 + 状态对账)"
   it("启动回包 healthy=false(慢启动)→ 起轮询对账,转绿即停——回执承诺自动兑现", async () => {
     // 复审修复 10-06-native-plugin-components:回执承诺「稍后以状态对账为准」
     // 原先无任何自动触发源(黄点滞留直到切屏重挂载);现每 5s 自动对账。
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // 确定性时序:纯假时钟 + act 冲刷 + 同步断言——waitFor 搭 shouldAdvanceTime
+    // 在慢 CI 上会漂(黄点断言曾在 GitHub runner 翻车,本地绿属时序运气)。
+    vi.useFakeTimers();
     try {
       const slowStart = {
         ...serviceStatusFixture("searxng", "running", false),
@@ -528,24 +530,34 @@ describe("PyenvCard:服务组件行(启停按钮 + 健康绿点 + 状态对账)"
       });
       installListen();
       render(<PyenvCard />);
-      await screen.findByTestId("pyenv-service-searxng-start");
+      // 冲刷挂载对账链(pyenv_get_status → service_status 第 1 次);两轮防微任务级联
+      for (let i = 0; i < 2; i += 1) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0);
+        });
+      }
 
       fireEvent.click(screen.getByTestId("pyenv-service-searxng-start"));
-      await waitFor(() =>
-        expect(screen.getByTestId("pyenv-service-searxng-health").className).toContain("bg-warning"),
-      );
+      // 冲刷 start 回包落态:运行中 + 黄点,同步断言(零 waitFor)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(screen.getByTestId("pyenv-service-searxng-run-state").textContent).toBe("运行中");
+      expect(screen.getByTestId("pyenv-service-searxng-health").className).toContain("bg-warning");
       const callsBeforePoll = statusCalls;
 
       // 5s 后第一次轮询对账 → 黄点转绿
-      await vi.advanceTimersByTimeAsync(5_000);
-      await waitFor(() =>
-        expect(screen.getByTestId("pyenv-service-searxng-health").className).toContain("bg-ok"),
-      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+      expect(screen.getByTestId("pyenv-service-searxng-health").className).toContain("bg-ok");
       const callsAtGreen = statusCalls;
       expect(callsAtGreen).toBe(callsBeforePoll + 1);
 
       // 绿即停:再推 20s 不再对账(轮询已终止)
-      await vi.advanceTimersByTimeAsync(20_000);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_000);
+      });
       expect(statusCalls).toBe(callsAtGreen);
     } finally {
       vi.useRealTimers();
