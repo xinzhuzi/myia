@@ -10,6 +10,9 @@
  * G7:run 行重跑(骑 run.start 回放 yaml/dry/db + 触发反馈 + 列表刷新 + 错误
  * 反馈)/ 品类·状态过滤(过滤后空态 + 清除)/ 日志搜索(输入即过滤 + 命中
  * 高亮 + 命中计数 + 无命中文案)。
+ * 10-07-logs-restart-visibility R1:「上一程」历史行(run.status 合流 DB runs
+ * 重启后可达)——徽标/渲染序/展开按 log_run_id 会话对齐号走既有 logs.tail
+ * 惰性拉取/旧行无对齐号如实降级/会话号与 DB 号撞号防混/空态零回归。
  */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -52,6 +55,7 @@ const runStartMock = vi.mocked(api.runStart);
 
 import { LogsScreen } from "./logs-screen";
 import { eventToRow } from "./api";
+import type { LogsRunEntry, RunHistoryEntry } from "./api";
 
 // ---------------------------------------------------------------------------
 // 夹具(形状严格对齐 types.ts:RunEntry / LogsTailResult / 三类事件)
@@ -107,8 +111,39 @@ const tailFixture = {
   truncated: false,
 };
 
-function mockSidecar(runs: RunEntry[]) {
-  runStatusMock.mockResolvedValue({ runs });
+// 「上一程」历史行夹具(形状严格对齐 run.status 合流后的 DB 历史行:entry.py
+// _history_run_rows——yaml/exit_code 无库源置 null、dry 恒 false、state=done、
+// history=true、log_run_id=会话对齐号;run_id 是 DB 自增号,与会话号两空间)
+const histRun5: RunHistoryEntry = {
+  run_id: 5,
+  yaml: null,
+  db: "myssia.db",
+  dry: false,
+  state: "done",
+  exit_code: null,
+  status: "success",
+  started_at: "2026-10-01T09:00:00+00:00",
+  finished_at: "2026-10-01T09:00:03+00:00",
+  duration_ms: 3000,
+  record: {
+    run_id: 5,
+    category: "科技早报",
+    status: "success",
+    started_at: "2026-10-01T09:00:00+00:00",
+    finished_at: "2026-10-01T09:00:03+00:00",
+    stats: { items_retained: 8 },
+    steps: null,
+    error: null,
+  },
+  history: true,
+  log_run_id: 9,
+};
+
+function mockSidecar(runs: LogsRunEntry[]) {
+  // wire 真形已含「上一程」历史行(RunEntry 超集);共享 RunStatusResult 仍
+  // 建模注册表行契约(不 widen 的决策见 ./api.ts RunHistoryEntry 注),测试
+  // 边界处一次性收窄断言,屏内 loadRuns 按联合类型消费
+  runStatusMock.mockResolvedValue({ runs: runs as RunEntry[] });
   logsTailMock.mockResolvedValue(tailFixture);
 }
 
@@ -477,6 +512,111 @@ describe("LogsScreen", () => {
     await screen.findAllByTestId("log-row");
     emit(alertsFiredFixture);
     expect(screen.queryByText(/告警命中/)).toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
+  // 10-07-logs-restart-visibility R1:「上一程」历史行(重启后跨会话可见)
+  // -------------------------------------------------------------------------
+
+  it("上一程行渲染:徽标 + 同款统计面;协议给的注册表在前/历史接后顺序直渲;历史行无重跑钮", async () => {
+    mockSidecar([run2Running, run1Success, histRun5]);
+    render(<LogsScreen />);
+
+    // 历史行组头:品类(record.category)/耗时/条数/状态芯片同款统计面
+    const histHeader = await screen.findByTestId("run-group-header-h5");
+    expect(histHeader.textContent).toContain("科技早报");
+    expect(histHeader.textContent).toContain("3.0s");
+    expect(histHeader.textContent).toContain("8 条");
+    expect(histHeader.textContent).toContain("成功");
+    expect(screen.getByTestId("run-status-chip-h5").textContent).toContain("成功");
+
+    // 「上一程」徽标:outline 同试跑徽标槽位,title 留技术注
+    const badge = histHeader.querySelector('[data-testid="run-history-badge-h5"]');
+    expect(badge?.textContent).toContain("上一程");
+    expect(badge?.getAttribute("title")).toContain("重启前");
+
+    // 注册表行不带上一程徽标
+    expect(
+      screen.getByTestId("run-group-header-2").querySelector('[data-testid^="run-history-badge-"]'),
+    ).toBeNull();
+
+    // 新→旧:协议回包顺序直渲(注册表在前、DB 历史接后),前端不重排
+    const order = screen
+      .getAllByTestId(/^run-group-header-/)
+      .map((el) => el.getAttribute("data-testid"));
+    expect(order).toEqual(["run-group-header-2", "run-group-header-1", "run-group-header-h5"]);
+
+    // 历史行无重跑钮(yaml 无库源,run.start 无从回放);注册表行照常
+    expect(screen.queryByTestId("run-rerun-h5")).toBeNull();
+    expect(screen.getByTestId("run-rerun-2")).toBeTruthy();
+  });
+
+  it("展开历史行:logs.tail 按 log_run_id 会话对齐号拉取(非 DB 号);折叠再展开走缓存不重拉", async () => {
+    mockSidecar([histRun5]); // 重启后注册表空 → 历史行接管列表
+    render(<LogsScreen />);
+
+    // 首行自动跟随展开(现有策略不变——重启后最新一行就是上一程)
+    const header = await screen.findByTestId("run-group-header-h5");
+    expect(header.getAttribute("aria-expanded")).toBe("true");
+
+    // 惰性 tail:run_id=log_run_id(9,会话号),不是 DB 号 5——两编号空间不混用
+    await waitFor(() => expect(logsTailMock).toHaveBeenLastCalledWith({ lines: 400, run_id: 9 }));
+    expect(screen.getByTestId("run-log-meta-h5").textContent).toContain("run_id=9");
+    expect(await within(screen.getByTestId("run-log-h5")).findAllByTestId("log-row")).toHaveLength(5);
+
+    // 折叠 → 再展开:缓存命中不重拉
+    fireEvent.click(screen.getByTestId("run-group-header-h5"));
+    expect(screen.getByTestId("run-group-header-h5").getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(screen.getByTestId("run-group-header-h5"));
+    expect(await within(screen.getByTestId("run-log-h5")).findAllByTestId("log-row")).toHaveLength(5);
+    expect(logsTailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("旧行无对齐号(log_run_id=null):不拉取,日志体如实降级(早于日志对齐落库)", async () => {
+    mockSidecar([{ ...histRun5, log_run_id: null }]);
+    render(<LogsScreen />);
+
+    // 自动跟随展开了该行,但无会话号可对齐 → 零请求,如实文案
+    expect(await screen.findByTestId("run-log-h5")).toBeTruthy();
+    expect(screen.getByTestId("run-log-h5").textContent).toContain("无可回看的日志");
+    expect(logsTailMock).not.toHaveBeenCalled();
+    // 元信息条来源标记如实报「未对齐」而非谎报查询号
+    expect(screen.getByTestId("run-log-meta-h5").textContent).toContain("run_id=—");
+  });
+
+  it("撞号防混:注册表会话 5 与历史 DB 5 同屏,两行分立;实时事件只进注册表行,历史行按对齐号拉取", async () => {
+    const run5Running: RunEntry = { ...run2Running, run_id: 5 };
+    const histDb5: RunHistoryEntry = { ...histRun5, run_id: 5 }; // DB 号同 5,log_run_id=9
+    mockSidecar([run5Running, histDb5]);
+    render(<LogsScreen />);
+
+    // 同号两行并存(会话号与 DB 号两编号空间),DOM id/testid 靠 h 前缀分立
+    expect(await screen.findByTestId("run-group-header-5")).toBeTruthy();
+    expect(screen.getByTestId("run-group-header-h5")).toBeTruthy();
+
+    // 注册表行自动展开按会话号 5 拉取
+    await waitFor(() => expect(logsTailMock).toHaveBeenLastCalledWith({ lines: 400, run_id: 5 }));
+
+    // 实时事件(run_id=5 会话号)只续播进注册表行;历史行仍折叠
+    emit({ type: "log", run_id: 5, stream: "stdout", line: "实时行-注册表5", ts: "t6" });
+    expect(await within(screen.getByTestId("run-log-5")).findByText(/实时行-注册表5/)).toBeTruthy();
+    expect(screen.queryByTestId("run-log-h5")).toBeNull();
+
+    // 展开历史行 → 按对齐号 9 拉取;两体内容互不串
+    fireEvent.click(screen.getByTestId("run-group-header-h5"));
+    await waitFor(() => expect(logsTailMock).toHaveBeenLastCalledWith({ lines: 400, run_id: 9 }));
+    const histText = screen.getByTestId("run-log-h5").textContent ?? "";
+    const regText = screen.getByTestId("run-log-5").textContent ?? "";
+    expect(regText).toContain("实时行-注册表5");
+    expect(histText).not.toContain("实时行-注册表5");
+  });
+
+  it("空态零回归:无注册表行且无历史行时,空态形状与现状全同", async () => {
+    mockSidecar([]);
+    render(<LogsScreen />);
+
+    expect(await screen.findByText(/还没有采集记录/)).toBeTruthy();
+    expect(screen.queryAllByTestId(/^run-group-header-/)).toHaveLength(0);
   });
 });
 

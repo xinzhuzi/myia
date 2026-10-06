@@ -2,7 +2,9 @@
  * 采集日志数据装配(本屏私有 api 模块;共享客户端 @/lib/api 只读不动)。
  *
  * 数据面 = sidecar 协议三通道:
- *   run.status    → run 列表(新→旧;状态/耗时/条目数,entry.py `_m_run_status`);
+ *   run.status    → run 列表(新→旧;状态/耗时/条目数,entry.py `_m_run_status`;
+ *                   10-07-logs-restart-visibility R1 起合流 DB runs 历史——
+ *                   重启后「上一程」行可达,展开走 logs.tail 惰性回填);
  *   logs.tail     → 环形缓冲历史(可按 run_id 过滤,`_m_logs_tail`);
  *   sidecar://event → log/progress/completed 流式事件(壳转发,`_pump_stream`)。
  * 流式渲染 = tail 打底 + 事件续播;错误行按 stderr 通道 + 关键词双信号高亮。
@@ -21,8 +23,57 @@ import type {
 } from "@/lib/api";
 
 // ---------------------------------------------------------------------------
-// run 列表
+// run 列表(注册表行 + 「上一程」历史行)
 // ---------------------------------------------------------------------------
+
+/**
+ * 「上一程」历史行(run.status 合流 DB runs 表;entry.py `_history_run_rows`
+ * 是 wire 真源):RunEntry 键全在场的超集——yaml/exit_code 无库源置 null、
+ * dry 恒 false(dry run 不落库)、state 恒 done、started_at 沿库可空、
+ * `history: true` 徽标、`log_run_id` = 会话注册表号(JSONL 日志行打的号,
+ * 展开 `logs.tail?run_id=` 的对齐键;旧库行 null = 不可回看,如实降级)。
+ *
+ * 共享类型 `RunEntry` 不 widen(yaml: string 仍是注册表行契约;dashboard 域
+ * 同吃该类型且并行任务在途,`active.yaml.split` 撞 null 崩编译)——历史行
+ * 形状在本屏私有类型收口,dashboard/yaml-editor 侧只按 state=running 过滤
+ * 消费注册表行,历史行(state=done)天然不进其路径。
+ */
+export interface RunHistoryEntry {
+  run_id: number;
+  yaml: null;
+  db: string;
+  dry: false;
+  state: "done";
+  exit_code: null;
+  status: RunExitStatus | null;
+  started_at: string | null;
+  finished_at: string | null;
+  duration_ms: number | null;
+  record: RunRecord | null;
+  error?: string;
+  history: true;
+  log_run_id: number | null;
+}
+
+/** 本屏消费的 run.status 行:会话注册表行(RunEntry)或 DB 历史行 */
+export type LogsRunEntry = RunEntry | RunHistoryEntry;
+
+/** wire 上历史行携带的增补键(共享 RunEntry 未建模;见 RunHistoryEntry 注) */
+interface RunHistoryMarks {
+  history?: boolean;
+  log_run_id?: number | null;
+}
+
+/** 历史行判别:history === true(一次性结构收窄,后续访问走 RunHistoryEntry 面) */
+export function isHistoryRun(run: LogsRunEntry): run is RunHistoryEntry {
+  return (run as RunHistoryMarks).history === true;
+}
+
+/** 行唯一键:会话注册表号与 DB 自增号是两个编号空间,裸 run_id 必撞号
+ *  (同屏双 #N);React key 与屏内 Set/Map 一律用此键防串 */
+export function runRowKey(run: { run_id: number; history?: boolean }): string {
+  return run.history === true ? `hist:${run.run_id}` : `run:${run.run_id}`;
+}
 
 export interface RunRowModel {
   runId: number;
@@ -30,13 +81,21 @@ export interface RunRowModel {
   category: string;
   status: RunExitStatus | null;
   state: RunEntry["state"];
-  /** 重跑参数面(G7):run.start 需要的 yaml/dry/db 三件,原样回放该 run */
-  yaml: string;
+  /** 重跑参数面(G7):run.start 需要的 yaml/dry/db 三件,原样回放该 run;
+   *  历史行无库源 yaml=null → 重跑钮不渲染(无从回放) */
+  yaml: string | null;
   db: string;
   dry: boolean;
   durationText: string;
   /** record.stats.items_retained(pipeline.py `stats_dict`);无记录为 null */
   itemCount: number | null;
+  /** 「上一程」行(run.status 合流 DB runs 历史;重启后跨会话可见) */
+  history: boolean;
+  /** logs.tail 的 run_id:历史行 = log_run_id 会话对齐号(旧行 null=不可回看),
+   *  注册表行 = 自身 run_id */
+  logRunId: number | null;
+  /** 行唯一键(run:N / hist:N,见 runRowKey) */
+  rowKey: string;
 }
 
 /** 毫秒 → "830ms" / "1.2s" / "2m3s";null/非法 → "—"(本屏私有格式化) */
@@ -48,8 +107,9 @@ export function formatDuration(ms: number | null): string {
   return `${Math.floor(seconds / 60)}m${Math.round(seconds % 60)}s`;
 }
 
-export function runCategory(run: RunEntry): string {
+export function runCategory(run: LogsRunEntry): string {
   if (run.record?.category) return run.record.category;
+  if (run.yaml === null) return "未知品类"; // 历史行 yaml 无库源且 record 缺品类:如实兜底
   const file = run.yaml.split(/[\\/]/).pop() ?? run.yaml;
   return file.replace(/\.ya?ml$/i, "");
 }
@@ -59,21 +119,29 @@ function itemsRetained(record: RunRecord | null): number | null {
   return typeof raw === "number" ? raw : null;
 }
 
-export function buildRunRows(runs: RunEntry[]): RunRowModel[] {
-  return runs.map((run) => ({
-    runId: run.run_id,
-    category: runCategory(run),
-    status: run.status,
-    state: run.state,
-    yaml: run.yaml,
-    db: run.db,
-    dry: run.dry,
-    durationText: formatDuration(run.duration_ms),
-    itemCount: itemsRetained(run.record),
-  }));
+export function buildRunRows(runs: LogsRunEntry[]): RunRowModel[] {
+  return runs.map((run) => {
+    const history = isHistoryRun(run);
+    return {
+      runId: run.run_id,
+      category: runCategory(run),
+      status: run.status,
+      state: run.state,
+      yaml: run.yaml,
+      db: run.db,
+      dry: run.dry,
+      durationText: formatDuration(run.duration_ms),
+      itemCount: itemsRetained(run.record),
+      history,
+      logRunId: history ? (run.log_run_id ?? null) : run.run_id,
+      rowKey: runRowKey(run),
+    };
+  });
 }
 
-export async function loadRuns(): Promise<RunEntry[]> {
+export async function loadRuns(): Promise<LogsRunEntry[]> {
+  // wire 上历史行(yaml=null 等)超出共享 RunEntry 契约(注册表行),本屏按
+  // 合流视图消费——联合类型在此收口(见 RunHistoryEntry 注)
   return (await api.runStatus()).runs;
 }
 
@@ -81,8 +149,9 @@ export async function loadRuns(): Promise<RunEntry[]> {
  * 重跑(G7):骑 G4 手动触发通道 run.start,不新增协议方法——把该 run 的
  * yaml/dry/db 原样回放(dry run 重跑仍是 dry);成功返回新 run_id,终态与
  * 日志经既有 completed 事件 + run.status 列表刷新可见。
+ * 历史行 yaml=null 无从回放,调用方不渲染重跑钮(签名收窄 yaml: string)。
  */
-export function rerunRun(run: Pick<RunRowModel, "yaml" | "dry" | "db">): Promise<RunStartResult> {
+export function rerunRun(run: { yaml: string; dry: boolean; db: string }): Promise<RunStartResult> {
   return api.runStart({ yaml: run.yaml, dry: run.dry, db: run.db });
 }
 

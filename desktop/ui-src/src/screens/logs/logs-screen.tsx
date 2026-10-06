@@ -24,7 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SidecarRequestError } from "@/lib/api";
-import type { RunEntry, SidecarEvent, UnlistenFn } from "@/lib/api";
+import type { SidecarEvent, UnlistenFn } from "@/lib/api";
 
 import {
   buildRunRows,
@@ -40,7 +40,7 @@ import {
   subscribeRunEvents,
   tailToRows,
 } from "./api";
-import type { LogRow, RunFilterStatus, RunRowModel } from "./api";
+import type { LogRow, LogsRunEntry, RunFilterStatus, RunRowModel } from "./api";
 
 /**
  * 采集日志(D4 结构性重做;10-04-ui-kestra-anchor 重锚 Kestra):
@@ -55,6 +55,9 @@ import type { LogRow, RunFilterStatus, RunRowModel } from "./api";
  * 功能面零改动 R5);Gantt 逐任务时间条(协议无 taskRunList 时间轴,造假数据
  * 违反像素双真源)。
  * 数据面不变:run.status + logs.tail(展开时惰性拉取,缓存)+ sidecar://event 续播。
+ * 10-07-logs-restart-visibility R1:run.status 已合流 DB runs 历史——重启后
+ * 「上一程」历史行落瀑布(「上一程」Badge,新→旧序不变),展开按 log_run_id
+ * 会话对齐号走既有 logs.tail 惰性拉取(零新协议);旧行无对齐号如实降级。
  *
  * G7 三件:①run 行重跑(骑 G4 手动触发通道 run.start,不新增协议;成功反馈
  * 新 run_id,新 run 经列表刷新自动展开跟随);②品类·状态过滤条(与源管理
@@ -73,7 +76,7 @@ const STATUS_FILTER_OPTIONS: Array<{ value: RunFilterStatus; label: string }> = 
 
 /** run 状态 → 状态芯片模型(Kestra KsExecutionStatus 解剖:图标+文案+状态色;
  * 退出码语义 0/1/2/3 + cancelled,见 types.ts RunExitStatus) */
-function runBadge(status: RunEntry["status"], state: RunEntry["state"]) {
+function runBadge(status: RunRowModel["status"], state: RunRowModel["state"]) {
   if (state === "running" || status === null) {
     return { variant: "default" as const, label: "运行中", icon: CirclePlay };
   }
@@ -120,9 +123,15 @@ function StatusChip({
   );
 }
 
+/** testid/DOM id 后缀:历史行加 h 前缀——会话号与 DB 号两编号空间撞号
+ *  (同屏双 #N)时保 DOM id/testid 唯一(行语义区分交给「上一程」徽标) */
+function domIdOf(run: Pick<RunRowModel, "runId" | "history">): string {
+  return run.history ? `h${run.runId}` : `${run.runId}`;
+}
+
 /** 相对开始时间(Kestra KsDateAgo inverted 同义:列表里读「多久前」比绝对时间快;
- * title 挂绝对时间补全语义) */
-function formatRelative(iso: string | undefined): string {
+ * title 挂绝对时间补全语义;历史行 started_at 沿库可空 → 「—」) */
+function formatRelative(iso: string | null | undefined): string {
   if (!iso) return "—";
   const ms = Date.now() - new Date(iso).getTime();
   if (!Number.isFinite(ms) || ms < 0) return "—";
@@ -216,21 +225,22 @@ function RunGroupHeader({
   run: RunRowModel;
   badge: { variant: "default" | "ok" | "warning" | "destructive" | "unknown"; label: string; icon: typeof CircleCheck };
   errorCount: number;
-  startedAt: string | undefined;
+  startedAt: string | null | undefined;
   expanded: boolean;
-  onToggle: (runId: number) => void;
+  onToggle: (run: RunRowModel) => void;
   rerun: RerunState | undefined;
   onRerun: (run: RunRowModel) => void;
 }) {
   const starting = rerun?.phase === "starting";
+  const domId = domIdOf(run);
   return (
     <div className="flex min-h-11 items-center gap-1 pr-2 transition-colors duration-(--duration-fast) hover:bg-accent/60">
       <button
         type="button"
-        data-testid={`run-group-header-${run.runId}`}
+        data-testid={`run-group-header-${domId}`}
         aria-expanded={expanded}
-        aria-controls={`run-group-body-${run.runId}`}
-        onClick={() => onToggle(run.runId)}
+        aria-controls={`run-group-body-${domId}`}
+        onClick={() => onToggle(run)}
         className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-left"
       >
         <ChevronDown
@@ -247,9 +257,17 @@ function RunGroupHeader({
             试跑
           </Badge>
         ) : null}
+        {/* 「上一程」徽标(10-07-logs-restart-visibility R1):run.status 合流 DB
+            runs 历史行——重启后跨会话可见的上一程跑次;与试跑徽标同 variant=outline
+            并排槽位(历史行 dry 恒 false,两者不并存) */}
+        {run.history ? (
+          <Badge variant="outline" data-testid={`run-history-badge-${domId}`} title="重启前会话的跑次(run.status 合流运行历史库)">
+            上一程
+          </Badge>
+        ) : null}
         <span className="ml-auto flex shrink-0 items-center gap-3 text-2xs text-muted-foreground">
           {errorCount > 0 ? (
-            <span data-testid={`run-error-count-${run.runId}`} className="w-[64px] shrink-0 text-right font-medium text-[#ff6b70]">
+            <span data-testid={`run-error-count-${domId}`} className="w-[64px] shrink-0 text-right font-medium text-[#ff6b70]">
               {/* #ff6b70 而非 text-dead:组头 hover 底 accent/60 上 4.35<4.5,#ff6b70 实算 5.5+(WCAG) */}
               {errorCount} 错误行
             </span>
@@ -268,12 +286,12 @@ function RunGroupHeader({
           </span>
           {/* Duration:mono 定宽右对齐 */}
           <span className="w-[56px] shrink-0 text-right font-mono">{run.durationText}</span>
-          <StatusChip badge={badge} testId={`run-status-chip-${run.runId}`} />
+          <StatusChip badge={badge} testId={`run-status-chip-${domId}`} />
         </span>
       </button>
       {rerun?.phase === "triggered" ? (
         <span
-          data-testid={`run-rerun-ok-${run.runId}`}
+          data-testid={`run-rerun-ok-${domId}`}
           className="shrink-0 text-2xs font-medium text-ok"
           title={`新 run #${rerun.runId} 已启动,正在展开跟随`}
         >
@@ -282,29 +300,32 @@ function RunGroupHeader({
       ) : null}
       {rerun?.phase === "error" ? (
         <span
-          data-testid={`run-rerun-err-${run.runId}`}
+          data-testid={`run-rerun-err-${domId}`}
           className="max-w-44 shrink-0 truncate text-2xs text-destructive"
           title={rerun.message}
         >
           {rerun.message}
         </span>
       ) : null}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-6 shrink-0 text-muted-foreground"
-        data-testid={`run-rerun-${run.runId}`}
-        aria-label={`重跑采集 #${run.runId}`}
-        title={`重跑该 run(run.start 回放 ${run.yaml}${run.dry ? ",dry" : ""})`}
-        disabled={starting}
-        onClick={() => onRerun(run)}
-      >
-        {starting ? (
-          <Loader2 aria-hidden className="size-3.5 animate-spin" />
-        ) : (
-          <RotateCcw aria-hidden className="size-3.5" />
-        )}
-      </Button>
+      {/* 重跑钮只挂注册表行:历史行 yaml 无库源,run.start 无从回放 */}
+      {run.yaml !== null ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6 shrink-0 text-muted-foreground"
+          data-testid={`run-rerun-${domId}`}
+          aria-label={`重跑采集 #${run.runId}`}
+          title={`重跑该 run(run.start 回放 ${run.yaml}${run.dry ? ",dry" : ""})`}
+          disabled={starting}
+          onClick={() => onRerun(run)}
+        >
+          {starting ? (
+            <Loader2 aria-hidden className="size-3.5 animate-spin" />
+          ) : (
+            <RotateCcw aria-hidden className="size-3.5" />
+          )}
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -318,7 +339,7 @@ function RunGroupHeader({
  * 摘要报「命中 X / Y 行」。
  */
 function RunLogBody({
-  runId,
+  row,
   rows,
   durationText,
   truncated,
@@ -327,7 +348,7 @@ function RunLogBody({
   live,
   needle,
 }: {
-  runId: number;
+  row: RunRowModel;
   rows: LogRow[] | undefined;
   durationText: string;
   truncated: boolean;
@@ -336,6 +357,8 @@ function RunLogBody({
   live: boolean;
   needle: string;
 }) {
+  const domId = domIdOf(row);
+  const rowKey = row.rowKey;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [copied, setCopied] = useState<null | { ok: boolean; count: number }>(null);
   const searching = needle !== "";
@@ -349,7 +372,7 @@ function RunLogBody({
   useEffect(() => {
     const el = scrollRef.current;
     if (el !== null) el.scrollTop = el.scrollHeight;
-  }, [shownRows, runId]);
+  }, [shownRows, rowKey]);
 
   /** 复制日志(Gantt copyAllLogs 同位):复制该 run 全部行(不受搜索过滤影响);
    *  无头/无焦点环境 clipboard 可能拒绝,失败如实回显 */
@@ -368,12 +391,13 @@ function RunLogBody({
   }, [copied]);
 
   return (
-    <div id={`run-group-body-${runId}`} data-testid={`run-log-${runId}`} className="border-t border-border bg-sidebar">
+    <div id={`run-group-body-${domId}`} data-testid={`run-log-${domId}`} className="border-t border-border bg-sidebar">
       <div
-        data-testid={`run-log-meta-${runId}`}
+        data-testid={`run-log-meta-${domId}`}
         className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2 text-2xs text-muted-foreground"
       >
-        {/* Gantt 卡头摘要组:label 弱色 + value,「/」分隔 */}
+        {/* Gantt 卡头摘要组:label 弱色 + value,「/」分隔;来源标记如实报
+            logs.tail 实际查询号(历史行=会话对齐号,旧行无号=未调用) */}
         <span className="flex min-w-0 items-center gap-2">
           <span className="shrink-0">
             <span className="mr-1">总耗时</span>
@@ -388,13 +412,13 @@ function RunLogBody({
             </>
           ) : null}
           <span aria-hidden className="text-muted-foreground/50">/</span>
-          <span className="min-w-0 truncate font-mono">logs.tail run_id={runId}</span>
+          <span className="min-w-0 truncate font-mono">logs.tail run_id={row.logRunId ?? "—"}</span>
         </span>
         <span className="flex shrink-0 items-center gap-2.5">
           {truncated ? <Badge variant="outline">缓冲截断</Badge> : null}
           {shownRows !== undefined ? (
             searching ? (
-              <span data-testid={`run-log-hits-${runId}`} className="font-mono">
+              <span data-testid={`run-log-hits-${domId}`} className="font-mono">
                 命中 {shownRows.length} / {rows?.length ?? 0} 行
               </span>
             ) : null
@@ -402,7 +426,7 @@ function RunLogBody({
           {running ? <Badge variant={live ? "ok" : "unknown"}>{live ? "实时跟踪中" : "未跟踪"}</Badge> : null}
           <button
             type="button"
-            data-testid={`run-log-copy-${runId}`}
+            data-testid={`run-log-copy-${domId}`}
             onClick={copyLogs}
             disabled={rows === undefined || rows.length === 0}
             className="inline-flex shrink-0 items-center gap-1 rounded-sm text-2xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
@@ -426,6 +450,12 @@ function RunLogBody({
           <p className="text-dead">
             <span className="mr-1.5">●</span>日志加载失败({loadError})
           </p>
+        ) : row.logRunId === null ? (
+          /* 「上一程」旧行(早于日志对齐字段落库):无会话号可对齐,不拉取,
+             如实降级——比拉一个必空的 run_id 再说「暂无日志」诚实 */
+          <p className="text-muted-foreground">
+            <span className="text-brand-from">▍</span> 该跑次早于日志对齐落库,无可回看的日志(旧 runs 行未记会话号)
+          </p>
         ) : rows === undefined ? (
           <p className="text-muted-foreground">
             <span className="text-brand-from">▍</span> 正在拉取 logs.tail…
@@ -447,47 +477,52 @@ function RunLogBody({
 }
 
 export function LogsScreen() {
-  const [runs, setRuns] = useState<RunEntry[]>([]);
-  /** 逐 run 日志行:展开时 tail 打底 + 事件续播(未加载的 run 先缓冲,加载时合并) */
-  const [rowsByRun, setRowsByRun] = useState<Record<number, LogRow[]>>({});
-  const [truncatedByRun, setTruncatedByRun] = useState<Record<number, boolean>>({});
+  const [runs, setRuns] = useState<LogsRunEntry[]>([]);
+  /** 逐 run 日志行(键=rowKey):展开时 tail 打底 + 事件续播(未加载的 run 先缓冲,加载时合并) */
+  const [rowsByRun, setRowsByRun] = useState<Record<string, LogRow[]>>({});
+  const [truncatedByRun, setTruncatedByRun] = useState<Record<string, boolean>>({});
   /** 逐 run tail 拉取失败(code:message);成功即清除,重展开可重试 */
-  const [loadErrors, setLoadErrors] = useState<Record<number, string>>({});
-  const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
+  const [loadErrors, setLoadErrors] = useState<Record<string, string>>({});
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const [live, setLive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<SidecarRequestError | null>(null);
   const eventSeq = useRef(0);
-  /** 已成功 tail 打底的 run(重展开不重拉,缓存驻屏) */
-  const loadedRunsRef = useRef<Set<number>>(new Set());
-  /** 拉取在途的 run(防双发) */
-  const fetchingRef = useRef<Set<number>>(new Set());
-  /** 已见过的 run_id(自动跟随=新出现的 running run 才展开,不打扰用户折叠态) */
-  const knownRunIdsRef = useRef<Set<number>>(new Set());
+  /** 已成功 tail 打底的 run(键=rowKey;重展开不重拉,缓存驻屏) */
+  const loadedRunsRef = useRef<Set<string>>(new Set());
+  /** 拉取在途的 run(键=rowKey;防双发) */
+  const fetchingRef = useRef<Set<string>>(new Set());
+  /** 已见过的行(键=rowKey;自动跟随=新出现的 running run 才展开,不打扰用户折叠态;
+   *  会话号与 DB 号两空间靠 rowKey 区分,历史行不顶掉同号新 run 的跟随资格) */
+  const knownRowKeysRef = useRef<Set<string>>(new Set());
 
   /** 展开 run 的日志惰性加载(Kestra 步骤展开同款):首次展开才 logs.tail;
+   *  历史行按 logRunId 会话对齐号拉(旧行 null=不拉,渲染层如实降级);
    *  加载期间到达的事件行已在缓冲,合并时排在 tail 历史之后(事件比快照新) */
-  const ensureTail = useCallback((runId: number) => {
-    if (loadedRunsRef.current.has(runId) || fetchingRef.current.has(runId)) return;
-    fetchingRef.current.add(runId);
-    void loadRunLogs(runId)
+  const ensureTail = useCallback((run: Pick<RunRowModel, "rowKey" | "logRunId">) => {
+    const key = run.rowKey;
+    if (loadedRunsRef.current.has(key) || fetchingRef.current.has(key)) return;
+    const tailRunId = run.logRunId;
+    if (tailRunId === null) return;
+    fetchingRef.current.add(key);
+    void loadRunLogs(tailRunId)
       .then((tail) => {
-        loadedRunsRef.current.add(runId);
-        setRowsByRun((prev) => ({ ...prev, [runId]: [...tailToRows(tail), ...(prev[runId] ?? [])] }));
-        setTruncatedByRun((prev) => ({ ...prev, [runId]: tail.truncated }));
+        loadedRunsRef.current.add(key);
+        setRowsByRun((prev) => ({ ...prev, [key]: [...tailToRows(tail), ...(prev[key] ?? [])] }));
+        setTruncatedByRun((prev) => ({ ...prev, [key]: tail.truncated }));
         setLoadErrors((prev) => {
-          if (!(runId in prev)) return prev;
+          if (!(key in prev)) return prev;
           const next = { ...prev };
-          delete next[runId];
+          delete next[key];
           return next;
         });
       })
       .catch((err) => {
         const message = err instanceof SidecarRequestError ? `${err.code} · ${err.message}` : String(err);
-        setLoadErrors((prev) => ({ ...prev, [runId]: message }));
+        setLoadErrors((prev) => ({ ...prev, [key]: message }));
       })
       .finally(() => {
-        fetchingRef.current.delete(runId);
+        fetchingRef.current.delete(key);
       });
   }, []);
 
@@ -495,22 +530,23 @@ export function LogsScreen() {
     try {
       const list = await loadRuns();
       setRuns(list);
-      // 跟随策略(Crawlab 活动任务跟踪同款):初次进屏展开最新 run;
-      // 之后仅新出现的 running run 自动展开跟随,用户折叠过的不强扒
-      const known = knownRunIdsRef.current;
-      let followId: number | null = null;
-      if (known.size === 0 && list.length > 0) {
-        followId = list[0].run_id;
+      // 跟随策略(Crawlab 活动任务跟踪同款):初次进屏展开最新 run(重启后注册表
+      // 空 → 最新历史行接管,「上一程」立即可见可展开);之后仅新出现的 running
+      // run 自动展开跟随,用户折叠过的不强扒
+      const known = knownRowKeysRef.current;
+      const rows = buildRunRows(list);
+      let follow: RunRowModel | null = null;
+      if (known.size === 0 && rows.length > 0) {
+        follow = rows[0];
       } else {
-        const newcomer = list.find((run) => run.state === "running" && !known.has(run.run_id));
-        followId = newcomer ? newcomer.run_id : null;
+        follow = rows.find((run) => run.state === "running" && !known.has(run.rowKey)) ?? null;
       }
-      if (followId !== null) {
-        const target = followId;
+      if (follow !== null) {
+        const target = follow.rowKey;
         setExpanded((prev) => (prev.has(target) ? prev : new Set(prev).add(target)));
-        ensureTail(target);
+        ensureTail(follow);
       }
-      knownRunIdsRef.current = new Set(list.map((run) => run.run_id));
+      knownRowKeysRef.current = new Set(rows.map((run) => run.rowKey));
     } catch (err) {
       setError(
         err instanceof SidecarRequestError
@@ -541,10 +577,13 @@ export function LogsScreen() {
       }
       eventSeq.current += 1;
       const row = eventToRow(event, eventSeq.current);
-      // run 域事件必带 run_id;null 分支仅为类型穷尽(提取局部量以保持闭包内收窄)
+      // run 域事件必带 run_id;null 分支仅为类型穷尽(提取局部量以保持闭包内收窄)。
+      // 事件 run_id = 本会话注册表号 → 行键取 `run:` 前缀空间(历史行走 `hist:`,
+      // 两编号空间撞号也不串体)
       const runId = row.runId;
       if (runId === null) return;
-      setRowsByRun((prev) => ({ ...prev, [runId]: [...(prev[runId] ?? []), row] }));
+      const key = `run:${runId}`;
+      setRowsByRun((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), row] }));
     }).then((fn) => {
       if (!cancelled) setLive(true);
       return fn;
@@ -560,12 +599,12 @@ export function LogsScreen() {
   }, [refreshRuns]);
 
   const handleToggle = useCallback(
-    (runId: number) => {
-      if (!expanded.has(runId)) ensureTail(runId);
+    (run: RunRowModel) => {
+      if (!expanded.has(run.rowKey)) ensureTail(run);
       setExpanded((prev) => {
         const next = new Set(prev);
-        if (next.has(runId)) next.delete(runId);
-        else next.add(runId);
+        if (next.has(run.rowKey)) next.delete(run.rowKey);
+        else next.add(run.rowKey);
         return next;
       });
     },
@@ -574,17 +613,20 @@ export function LogsScreen() {
 
   const runRows = useMemo(() => buildRunRows(runs), [runs]);
   /** run_id → started_at(相对时间用;不进 RunRowModel——api.ts 属数据层,
-   *  展示派生留视图层) */
-  const startedAtById = useMemo(() => new Map(runs.map((run) => [run.run_id, run.started_at])), [runs]);
+   *  展示派生留视图层;历史行沿库可空,formatRelative 自兜「—」) */
+  const startedAtById = useMemo(
+    () => new Map(runs.map((run) => [run.run_id, run.started_at] as const)),
+    [runs],
+  );
 
   // ---- G7:过滤(品类·状态)+ 搜索 + 重跑 ---------------------------------
 
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<RunFilterStatus | "all">("all");
   const [query, setQuery] = useState("");
-  /** 逐 run 重跑反馈(starting/triggered/error;8s 自动隐去) */
-  const [rerunByRun, setRerunByRun] = useState<Record<number, RerunState>>({});
-  const rerunTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+  /** 逐 run 重跑反馈(键=rowKey;starting/triggered/error;8s 自动隐去) */
+  const [rerunByRun, setRerunByRun] = useState<Record<string, RerunState>>({});
+  const rerunTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const needle = query.trim().toLowerCase();
   const categories = useMemo(() => Array.from(new Set(runRows.map((row) => row.category))).sort(), [runRows]);
@@ -594,25 +636,25 @@ export function LogsScreen() {
   );
   const filtering = categoryFilter !== "all" || statusFilter !== "all";
 
-  const clearRerunFeedback = useCallback((runId: number) => {
+  const clearRerunFeedback = useCallback((key: string) => {
     setRerunByRun((prev) => {
-      if (!(runId in prev)) return prev;
+      if (!(key in prev)) return prev;
       const next = { ...prev };
-      delete next[runId];
+      delete next[key];
       return next;
     });
   }, []);
 
   /** 反馈 8s 自动隐去(定时器挂 ref,卸载统一清) */
-  const scheduleRerunClear = useCallback((runId: number) => {
+  const scheduleRerunClear = useCallback((key: string) => {
     const timers = rerunTimersRef.current;
-    const previous = timers.get(runId);
+    const previous = timers.get(key);
     if (previous !== undefined) clearTimeout(previous);
     timers.set(
-      runId,
+      key,
       setTimeout(() => {
-        timers.delete(runId);
-        clearRerunFeedback(runId);
+        timers.delete(key);
+        clearRerunFeedback(key);
       }, 8000),
     );
   }, [clearRerunFeedback]);
@@ -632,17 +674,19 @@ export function LogsScreen() {
    */
   const handleRerun = useCallback(
     (run: RunRowModel) => {
-      setRerunByRun((prev) => ({ ...prev, [run.runId]: { phase: "starting" } }));
-      void rerunRun(run)
+      // 历史行 yaml=null 无从回放(按钮本就不渲染,此为类型收窄守卫)
+      if (run.yaml === null) return;
+      setRerunByRun((prev) => ({ ...prev, [run.rowKey]: { phase: "starting" } }));
+      void rerunRun({ yaml: run.yaml, dry: run.dry, db: run.db })
         .then((started) => {
-          setRerunByRun((prev) => ({ ...prev, [run.runId]: { phase: "triggered", runId: started.run_id } }));
-          scheduleRerunClear(run.runId);
+          setRerunByRun((prev) => ({ ...prev, [run.rowKey]: { phase: "triggered", runId: started.run_id } }));
+          scheduleRerunClear(run.rowKey);
           void refreshRuns();
         })
         .catch((err) => {
           const message = err instanceof SidecarRequestError ? `${err.code} · ${err.message}` : String(err);
-          setRerunByRun((prev) => ({ ...prev, [run.runId]: { phase: "error", message } }));
-          scheduleRerunClear(run.runId);
+          setRerunByRun((prev) => ({ ...prev, [run.rowKey]: { phase: "error", message } }));
+          scheduleRerunClear(run.rowKey);
         });
     },
     [refreshRuns, scheduleRerunClear],
@@ -834,12 +878,12 @@ export function LogsScreen() {
           ) : (
             visibleRunRows.map((run) => {
               const badge = runBadge(run.status, run.state);
-              const rows = rowsByRun[run.runId];
+              const rows = rowsByRun[run.rowKey];
               const errorCount = rows?.filter(isRowError).length ?? 0;
               return (
                 <div
-                  key={run.runId}
-                  data-testid={`run-group-${run.runId}`}
+                  key={run.rowKey}
+                  data-testid={`run-group-${domIdOf(run)}`}
                   className="overflow-hidden rounded-lg border border-border bg-card animate-fade-in"
                 >
                   <RunGroupHeader
@@ -847,18 +891,18 @@ export function LogsScreen() {
                     badge={badge}
                     errorCount={errorCount}
                     startedAt={startedAtById.get(run.runId)}
-                    expanded={expanded.has(run.runId)}
+                    expanded={expanded.has(run.rowKey)}
                     onToggle={handleToggle}
-                    rerun={rerunByRun[run.runId]}
+                    rerun={rerunByRun[run.rowKey]}
                     onRerun={handleRerun}
                   />
-                  {expanded.has(run.runId) ? (
+                  {expanded.has(run.rowKey) ? (
                     <RunLogBody
-                      runId={run.runId}
+                      row={run}
                       rows={rows}
                       durationText={run.durationText}
-                      truncated={truncatedByRun[run.runId] ?? false}
-                      loadError={loadErrors[run.runId] ?? null}
+                      truncated={truncatedByRun[run.rowKey] ?? false}
+                      loadError={loadErrors[run.rowKey] ?? null}
                       running={run.state === "running"}
                       live={live}
                       needle={needle}
