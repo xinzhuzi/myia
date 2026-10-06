@@ -1,0 +1,18 @@
+=== DOCTOR AFTER ===
+源健康度: {'ok': 23, 'degraded': 6, 'unknown': 1}
+findings(error+warning): 14
+findings(info): 0
+  [warning] plugin:plugins/ai-news.yaml/source:anthropic-news-watch/source_degraded: 指纹未跳过却产出 0 条(页面结构变化/反爬升级疑似,run 级 success 不得掩盖)
+  [warning] plugin:plugins/ai-news.yaml/source:cohere-blog-watch/source_degraded: 指纹未跳过却产出 0 条(页面结构变化/反爬升级疑似,run 级 success 不得掩盖)
+  [warning] plugin:plugins/credentials.yaml/source:aipocket/source_degraded: 最新一轮采集失败(未满连续 3 次的死线)
+  [warning] plugin:plugins/games.yaml/source:gog-free/source_degraded: 指纹未跳过却产出 0 条(页面结构变化/反爬升级疑似,run 级 success 不得掩盖)
+  [warning] plugin:plugins/gpu-prices.yaml/source:zol/source_degraded: 指纹未跳过却产出 0 条(页面结构变化/反爬升级疑似,run 级 success 不得掩盖)
+  [warning] plugin:plugins/monitor.yaml/source:changedetection-watches/source_degraded: 最新一轮采集失败(未满连续 3 次的死线)
+  [warning] credentials/env_ref_missing: 环境变量 FEISHU_CHAT_ID 未设置(引用于 ai-news:$.push[0].target; games:
+  [warning] credentials/env_ref_missing: 环境变量 TELEGRAM_CHAT_ID 未设置(引用于 games:$.push[1].target; news:$
+  [error] credentials/keychain_ref_missing: 钥匙链中不存在凭据 myia/credentials/token(引用于 credentials:$.sources[1
+  [error] credentials/keychain_ref_missing: 钥匙链中不存在凭据 myia/credhunter/fofa-key(引用于 exposure:$.sources[0]
+  [error] credentials/keychain_ref_missing: 钥匙链中不存在凭据 myia/credhunter/github-token(引用于 credentials:$.sou
+  [error] credentials/keychain_ref_missing: 钥匙链中不存在凭据 myia/credhunter/shodan-key(引用于 exposure:$.sources[
+  [error] credentials/keychain_ref_missing: 钥匙链中不存在凭据 myia/monitor/token(引用于 monitor:$.sources[0].header
+  [warning] feedback/telegram_token_poll_conflict: 2 个品类共享同一 bot token(env:TELEGRAM_BOT_TOKEN)且都配置了 telegram 通道

@@ -249,3 +249,9 @@ vl_check11.py 可复跑件+vl_check11.exit 回执;mock-bridge.py 增 cred/doctor
   被丢弃,格值稳 5)。
 - 门禁:全量 vitest 517/517(26 文件)+npm run build(tsc -b && vite)绿;
   pytest 未重跑(本笔纯 UI 零 python 触碰,如实注记)。
+
+## 收尾三件回执(2026-10-06,主人令「都做完」;归档后纯增量注记)
+
+- **①types.ts info 契约**:Finding.severity 补「info」+JSDoc;诊断屏徽标三元化(info→提示/unknown,此前错标「警告」);窄断言 cast 移除;523/523+build 绿 → 提交 5be6b6c。
+- **②跑活 30 源**:十品类 myssia run --once 全 EXIT=0(ai-news 20 分钟余者秒级);源健康度 5/21(20 未知)→ **ok 23/degraded 6/unknown 1/dead 0**;留主人=7 项凭据缺口(keychain:credentials/token、credhunter/fofa|github|shodan、monitor/token;env:FEISHU_CHAT_ID、TELEGRAM_CHAT_ID)+TG 共享 token 告警+6 退化源(反爬/失败一轮,连败 3 轮自然转 dead);feishu 推送失败系凭据缺口,补齐下轮自愈。证据=evidence/20-runall-*。
+- **③审美目验(AI 侧)**:VL 宏观评审过检(层级/对齐/色彩三优,三条品味级建议不修,见 evidence/21-vl-aesthetic.md);装机件本轮未再闪窗截屏(主人在用机,静默铁律让位于冒烟整页帧评审;功能像素验证仍以 10/19 号帧+冒烟 18 帧为准)。

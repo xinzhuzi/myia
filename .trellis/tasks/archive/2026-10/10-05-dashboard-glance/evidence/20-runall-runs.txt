@@ -1,0 +1,20 @@
+=== RUN plugins/ai-news.yaml 11:55:36 ===
+EXIT=0
+=== RUN plugins/credentials.yaml 12:15:35 ===
+EXIT=0
+=== RUN plugins/exposure.yaml 12:15:35 ===
+EXIT=0
+=== RUN plugins/games.yaml 12:15:35 ===
+EXIT=0
+=== RUN plugins/gpu-prices.yaml 12:15:39 ===
+EXIT=0
+=== RUN plugins/monitor.yaml 12:15:40 ===
+EXIT=0
+=== RUN plugins/myssia-demo.yaml 12:15:40 ===
+EXIT=0
+=== RUN plugins/news.yaml 12:15:45 ===
+EXIT=0
+=== RUN plugins/stocks.yaml 12:15:46 ===
+EXIT=0
+=== RUN plugins/wool.yaml 12:15:57 ===
+EXIT=0
