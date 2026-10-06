@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "复查:检查单 #5(断言与屏同笔、scoped vitest+tsc 口径)、#6 协议红线零变更;反 AI 审美红线过一遍"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "验证零协议波及:UI 层改动不得触发 sidecar 协议变更(方法增删/版本 bump)"}
