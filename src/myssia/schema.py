@@ -173,6 +173,10 @@ ENGINES = (
     # engine: searxng 才生效,源级 queries 列表逐词一页(关键词日报),
     # base 三级解析(searxng_base_url / env MYIA_SEARXNG_URL / 缺省)。
     "searxng",
+    # prompt 任务引擎(10-06-hermes-align 批次3):链外 + LLM 端点凭据必配
+    # (engine_options.prompt.base_url/api_key 引用);显式 engine: prompt
+    # 才生效,一轮「抓正文→LLM 摘要」产条目(Hermes chat -Q 最小等价物)。
+    "prompt",
 )
 PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
@@ -238,6 +242,7 @@ EngineName = Literal[
     "reddit",
     "urlwatch",
     "searxng",
+    "prompt",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]
 ExtractType = Literal["list", "item", "json_path", "rss"]

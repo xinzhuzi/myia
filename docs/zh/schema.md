@@ -30,7 +30,7 @@
 
 | schema 常量 | 取值 |
 |---|---|
-| `ENGINES` | `auto` `direct_api` `static_html` `crawl4ai` `firecrawl` `scrapling` `stealth_browser` `llm_browser` `credhunter` `scraperapi` `zenrows` `reddit` `urlwatch` `searxng` |
+| `ENGINES` | `auto` `direct_api` `static_html` `crawl4ai` `firecrawl` `scrapling` `stealth_browser` `llm_browser` `credhunter` `scraperapi` `zenrows` `reddit` `urlwatch` `searxng` `prompt` |
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
@@ -107,6 +107,16 @@ crawl4ai 的 `BrowserConfig` / `CrawlerRunConfig`,打开其余配置面;透传�
 run 侧 `cache_mode` / `page_timeout`——代理解析、凭据脱敏、缓存旁路与预算护栏
 均由引擎单一来源推导),冲突即 fetch 期结构化报错 `invalid_browser_options` /
 `invalid_run_options`)。扩展参数里的凭据类键同样禁明文。
+
+**prompt 任务引擎**(`engine: prompt`,链外):一句话定义监控——
+`engine_options.prompt` 的 `instructions`(任务指令)+ `urls`(目标清单,
+缺省 `[源 url]`);引擎对每个 URL 走既有礼貌面抓正文(HTML 页 trafilatura、
+XML feed 走 feedparser),喂**一轮** OpenAI 兼容 LLM(`base_url` / `api_key`
+必配引用,enrich 节同契约),markdown 回答直接做条目 `content` 进 push
+(模板键 `{{ item.prompt_summary }}`);条目 URL 铸 `#prompt-<日期>` 锚点,
+每日新条目、同日重跑幂等。失败全部结构化(凭据/依赖/抓取/LLM 四类),
+部分 URL 抓取失败降级继续。示范件 `plugins/ai-vendor-watch.yaml`,
+extras 需 `myssia[trafilatura]` + `myssia[llm]`。
 
 ### 全局配置 pools(代理池,`--config`)
 

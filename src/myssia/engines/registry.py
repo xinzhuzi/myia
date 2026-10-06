@@ -134,6 +134,13 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # env MYIA_SEARXNG_URL / 缺省 127.0.0.1:8888),零凭据;只消费自托管
     # 实例的 json 接口(公共实例明禁 API 滥用,robots 红线在档)。
     "searxng": lambda: _load("searxng", "SearxngEngine"),
+    # prompt 任务引擎(10-06-hermes-align 批次3):链外同 credhunter 先例 ——
+    # 显式 engine: prompt 才生效,auto 永不路过;自然语言监控任务
+    # (instructions+urls → trafilatura 抓正文 → 一轮 LLM → markdown 摘要
+    # 条目,myssia[trafilatura]/myssia[llm] extras 缺装=结构化
+    # dependency_missing);LLM 端点凭据经 engine_options.prompt 的
+    # base_url/api_key 引用(enrich 同契约,明文拒)。
+    "prompt": lambda: _load("prompt", "PromptEngine"),
 }
 
 # Static typing view of the registry (class names resolved lazily at runtime).

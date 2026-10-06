@@ -1,0 +1,81 @@
+# plugins/ai-vendor-watch.yaml — prompt 任务示范件(10-06-hermes-align 批次3):
+# 一句话监控的最小等价物(MYIA 版 hermes chat -Q)——「每天 8 点看看这几家
+# AI 公司官网有什么新闻,整理成日报发群里」整句话就是下面这一个源:
+#
+#   engine: prompt + engine_options.prompt.{instructions, urls}
+#     → 引擎对每个 URL 走既有礼貌面抓页面(robots/限速/重试)
+#     → trafilatura 抽正文(extras myssia[trafilatura])
+#     → 一轮 OpenAI 兼容 LLM(extras myssia[llm];凭据=engine_options.prompt
+#       的 base_url/api_key 引用,enrich 节同契约,明文拒)
+#     → LLM 的 markdown 回答直接做条目 content 进 push(零选择器工程)。
+#
+# 条目 URL 铸日期锚点 <源url>#prompt-<YYYYMMDD>(urlwatch #watch- 判例):
+# 品类 dedup {url} 因此「每天一个新条目、同日重跑幂等」,不会被全期去重吞掉。
+# classify builtin 关闭:摘要条目不走关键词预过滤(prompt 已是精筛)。
+# push 模板经 item_view 的 metadata 合并直接渲染 {{ item.prompt_summary }}
+# (引擎把 markdown 同时放 content=档案 与 prompt_summary=模板键,零 push 层改动)。
+#
+# 挂上 cron 即成「每天 8 点」:
+#   myssia cron create --category ai-vendor-watch \
+#     --config plugins/ai-vendor-watch.yaml --schedule "0 8 * * *" \
+#     --deliver feishu_card:env:FEISHU_CHAT_ID
+# (cron 调度/账本/deliver 全复用现成件;品类内 push 节与 cron deliver 二选一,
+# 本件演示品类 push 通道——跑一次 `myssia run plugins/ai-vendor-watch.yaml`
+# 即时可见。)
+
+id: ai-vendor-watch
+name: AI厂商官网观察
+
+schedule: "0 8 * * *"          # 每天 08:00(cron 挂点同款语义)
+timezone: Asia/Shanghai
+
+sources:
+  - name: ai-vendor-watch
+    engine: prompt             # 链外引擎:显式选择才生效,auto 永不路过
+    url: "https://www.anthropic.com/news"  # 锚 URL(条目落点+去重锚;SSR 可抓)
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    engine_options:
+      prompt:
+        title: "AI 厂商官网日报"          # 条目标题(缺省=源名)
+        instructions: |
+          逐个看下列 AI 公司官网页面的正文,找出「新发布或重大更新」
+          (新模型/新产品/重大研究/重要政策),整理成一份中文日报:
+          - 每条更新一行:厂商 + 一句话摘要(+正文里可查的链接);
+          - 没有新动态的厂商在末尾用一行「无明显动态」带过;
+          - 全部页面都没有新动态时,如实说「今日无明显动态」,
+            不要编造;结尾附一行「来源:OpenAI/Anthropic/DeepMind 官网」。
+        urls:                              # 监控目标清单(上限 8;缺省=[源 url])
+          - "https://www.anthropic.com/news"       # SSR HTML(trafilatura 通路)
+          - "https://openai.com/news/rss.xml"      # 官网 RSS(feedparser 通路;
+          - "https://deepmind.google/blog/rss.xml" # HTML 页=CF 403/JS 壳,feed 放行)
+        model: glm-4-flash                 # 缺省同 schema DEFAULT_ENRICH_MODEL
+        base_url: keychain:myia/llm/base_url    # 智谱 PAAS v4 端点(ai-news
+        api_key: keychain:myia/image/api_key    # enrich 同链既有 GLM 凭据)
+        max_chars_per_url: 6000            # 每页正文进 prompt 的截断(token 护栏)
+        timeout: 180                       # LLM 单轮超时秒
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct                          # direct/pool:<名称> 均可(走引擎 HTTP 栈)
+    retry: 3
+
+# 摘要条目不做关键词预过滤(prompt 本身已是任务级精筛;builtin 开着会把
+# 标题不含关键词的日报整条丢掉)。
+classify:
+  builtin: false
+  rules: []
+
+dedup:
+  key: "{url}"                 # 引擎已铸 #prompt-<日期> 锚点:每天新条目,同日幂等
+
+push:
+  - channel: feishu_card
+    target: env:FEISHU_CHAT_ID
+    route:
+      - when: "url != ''"      # 永真:每日一条日报,跑完即发(immediate)
+        mode: immediate
+    template: |
+      **AI 厂商官网日报 · {{ date }}**
+      {% if items %}{{ items[0].prompt_summary }}{% endif %}
+
+storage:
+  retention: 90d

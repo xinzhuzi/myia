@@ -34,7 +34,7 @@ entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
 
 | schema constant | values |
 |---|---|
-| `ENGINES` | `auto` `direct_api` `static_html` `crawl4ai` `firecrawl` `scrapling` `stealth_browser` `llm_browser` `credhunter` `scraperapi` `zenrows` `reddit` `urlwatch` `searxng` |
+| `ENGINES` | `auto` `direct_api` `static_html` `crawl4ai` `firecrawl` `scrapling` `stealth_browser` `llm_browser` `credhunter` `scraperapi` `zenrows` `reddit` `urlwatch` `searxng` `prompt` |
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
@@ -126,6 +126,20 @@ single-sourced by the engine), a collision fails the fetch with the
 structured error `invalid_browser_options` / `invalid_run_options`).
 Credential-like keys inside extension parameters are plaintext-refused as
 well.
+
+**Prompt-task engine** (`engine: prompt`, off-chain): define a monitor in
+one sentence — `engine_options.prompt` carries `instructions` (the task) and
+`urls` (targets, default `[source url]`); the engine fetches every URL
+through the shared politeness layer (trafilatura for HTML pages,
+feedparser for XML feeds), feeds them to **one** OpenAI-compatible LLM call
+(`base_url` / `api_key` as required references, same contract as the
+`enrich` section), and the markdown answer becomes the item `content` pushed
+out (template key `{{ item.prompt_summary }}`); the item URL carries a
+`#prompt-<date>` anchor so each day is a new item and same-day reruns dedupe.
+All failures are structured (credentials / dependencies / fetch / LLM);
+partial URL failures degrade and continue. See
+`plugins/ai-vendor-watch.yaml`; extras `myssia[trafilatura]` +
+`myssia[llm]` required.
 
 ### Global config pools (proxy pools, `--config`)
 
