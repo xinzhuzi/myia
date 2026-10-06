@@ -1,4 +1,4 @@
-# plugins/tg-channels.yaml — Telegram 公开频道监控(路线一:网页预览,零凭据)。
+# plugins/telegram-channels.yaml — Telegram 公开频道监控(路线一:网页预览,零凭据)。
 #
 # 写法要点(照 durov 频道 2026-10-06 实测选择器):
 #   url = https://t.me/s/<频道名>   ← 多一个 /s/ 就是消息流网页版
@@ -9,8 +9,8 @@
 # 消息流的);群组(如 mihomo_party_group)预览页是空的,走 bot 线(另档)。
 # 未挂 cron(不跑不影响);要跑时一句话挂上,产出进每日合并日报。
 
-id: tg-channels
-name: TG频道监控
+id: telegram-channels
+name: Telegram频道监控
 
 schedule: "0 8 * * *"            # 挂上后每天早跑(改时点随手调)
 timezone: Asia/Shanghai
