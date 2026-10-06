@@ -429,9 +429,10 @@ export function runItemCount(run: DashboardRun): number | null {
 // D4 概览条(10-03-ui-deep-imitation;teardown-vercel-dashboard #2:一行四格
 // = 小标签(大写+弱色)+ 大数字(tnum)):采集 / 活跃源 / 推送成功 / 告警。
 // 统一时间窗(10-05 补批四,联动合一):概览头 Select(今日(UTC)/7/14/30 天)
-// = 全屏唯一时间窗,驱动概览四格与采集量/成功率两折线(趋势卡自有 Select 已
-// 删);今日档 = 1 天趋势窗。活跃源/告警 = doctor 点快照,无时间序列,不随窗
-// (硬切 = 伪窗口),卡面注记口径。
+// = 全屏唯一窗控件;两词分立(10-07-dashboard-trend-today-fix)——「概览窗」
+// 驱动四格与 verdict 口径(今日 = UTC 单日),「图窗」驱动采集量/成功率两折线
+// (chartWindowDays,今日档下限 7 天补零窗,不再单点;图窗 ⊇ 概览窗恒成立)。
+// 活跃源/告警 = doctor 点快照,无时间序列,不随窗(硬切 = 伪窗口),卡面注记口径。
 // ---------------------------------------------------------------------------
 
 /** 概览窗口档位:今日(UTC)单日,或近 N 天(档位与趋势卡同门;默认今日) */
@@ -443,11 +444,19 @@ export function overviewTrendDays(window: OverviewWindow): number {
   return window === "today" ? 1 : window;
 }
 
+/** 图窗天数下限(10-07-dashboard-trend-today-fix):取 TREND_WINDOW_DAYS 最小档 —— ≥2 点即成线,7 天保「今天 vs 近几天」基线语境 */
+export const CHART_WINDOW_MIN_DAYS = 7;
+
+/** 概览窗 → 两图(采集量/成功率)图窗天数:下限 7,组合 overviewTrendDays 不复制其换算(图窗 ⊇ 概览窗恒成立;今日档 = 近 7 天补零窗) */
+export function chartWindowDays(window: OverviewWindow): number {
+  return Math.max(overviewTrendDays(window), CHART_WINDOW_MIN_DAYS);
+}
+
 /** 概览条四格视图模型(全部零协议改动:既有 doctor/runs.list/store.trend 装配) */
 export interface OverviewStats {
   /** 装配窗口(口径回显;今日 = UTC 单日) */
   window: OverviewWindow;
-  /** 采集格:窗口内入库条目数(今日档 = 当日;窗口档 = 窗口求和);趋势不可达 = null */
+  /** 采集格:概览窗内入库条目数(trend 按概览窗切片求和,今日档 = 当日行;窗口档 = 整窗和);趋势不可达 = null */
   windowItems: number | null;
   /** 活跃源 = 健康度活着(ok + degraded;dead/unknown 不计);doctor 分区失败 = null(点快照,不随窗) */
   activeSources: number | null;
@@ -510,8 +519,11 @@ export function utcDateOf(iso: string | null): string | null {
 }
 
 /**
- * 概览条装配:doctor(源/告警快照)+ runs(窗口内推送)+ trend 窗口(采集)。
- * trend 即趋势卡同份数据(统一时间窗,一窗一拉;补批四前概览另拉一份,已并)。
+ * 概览条装配:doctor(源/告警快照)+ runs(概览窗内推送)+ trend 窗口(采集)。
+ * trend 即趋势卡同份数据(一窗一拉);输入契约(10-07 图窗解耦后放宽):trend
+ * 窗 ⊇ 概览窗、右端 = today(fillDailyCounts 保证)。采集格先按
+ * [windowStart..today] 概览窗切片再求和(D4:今日档 = 当日行,窗口档 = 整窗和,
+ * 图窗放宽不虚增四格);切片空(理论不发生)= 0 如实。
  * trend 不可达 = null → 采集格显 —,不拖垮整屏;today 显式传入(纯函数可测)。
  * 窗口内推送 = startedAt 的 UTC 日落在 [today−(N−1), today](今日档即单日);
  * runs 为 runs.list 上限 20 条的快照,窗口口径如实注记由卡面负责。
@@ -530,9 +542,12 @@ export function buildOverviewStats(
     return date !== null && date >= windowStart && date <= today;
   });
   const trendKnown = trend !== null && trend.length > 0;
+  const windowTrend = trendKnown
+    ? trend.filter((day) => day.date >= windowStart && day.date <= today)
+    : null;
   return {
     window,
-    windowItems: trendKnown ? trend.reduce((sum, day) => sum + day.count, 0) : null,
+    windowItems: windowTrend !== null ? windowTrend.reduce((sum, day) => sum + day.count, 0) : null,
     activeSources: health ? health.ok + health.degraded : null,
     totalSources: health ? health.ok + health.degraded + health.dead + health.unknown : null,
     windowPushOk: windowRuns.length > 0 ? windowRuns.reduce((sum, run) => sum + countPushOk(run), 0) : null,

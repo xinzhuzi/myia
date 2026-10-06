@@ -5,18 +5,19 @@
 
 ## 批0 基线(不动码)
 
-- [ ] `cd desktop/ui-src && npx vitest run src/screens/dashboard` —— 全绿基线,记 passed 数(翻新前后对照用)
-- [ ] `npx tsc --noEmit -p tsconfig.app.json` 零错基线
+- [x] `cd desktop/ui-src && npx vitest run src/screens/dashboard` —— 全绿基线,记 passed 数(翻新前后对照用)
+  - 回执(脚本跑,04:20:27):exit 0,Duration 1.51s(transform 142ms / import 250ms / tests 914ms / environment 256ms);回执未带 passed 数,批1 后同文件 73 passed − 新增 2 例 ⇒ 基线 71
+- [x] `npx tsc --noEmit -p tsconfig.app.json` 零错基线(实现代理自跑:EXIT=0)
 
 ## 批1 api.ts 纯函数层(提交点①,可独立 revert)
 
-- [ ] `CHART_WINDOW_MIN_DAYS = 7` + `chartWindowDays(window)`(组合 `overviewTrendDays`,勿复制其逻辑)
-- [ ] `buildOverviewStats` 采集格概览窗切片:输入 `trend` 先过滤 `[windowStart..today]` 再求和;`trend` 为 null → `windowItems` 仍 null(拉取失败显「—」语义不变);切片空(理论不发生,fillDailyCounts 保证右端=today)→ 和 0 如实
-- [ ] api.ts `:431-435` 统一时间窗注释块更新(概览窗 vs 图窗两词分立)
-- [ ] 新增纯函数断言(design §4 矩阵 AC2/AC4 行):
+- [x] `CHART_WINDOW_MIN_DAYS = 7` + `chartWindowDays(window)`(组合 `overviewTrendDays`,勿复制其逻辑)
+- [x] `buildOverviewStats` 采集格概览窗切片:输入 `trend` 先过滤 `[windowStart..today]` 再求和;`trend` 为 null → `windowItems` 仍 null(拉取失败显「—」语义不变);切片空(理论不发生,fillDailyCounts 保证右端=today)→ 和 0 如实
+- [x] api.ts `:431-435` 统一时间窗注释块更新(概览窗 vs 图窗两词分立)
+- [x] 新增纯函数断言(design §4 矩阵 AC2/AC4 行):
   - `chartWindowDays` 四档:today→7、7→7、14→14、30→30
   - `buildOverviewStats`:7 日 trend 输入 + today 档 → `windowItems` = 当日行数(非 7 日和);7 日档 → 整窗和;trend null → null
-- 验证:`npx vitest run src/screens/dashboard` + `npx tsc --noEmit -p tsconfig.app.json`
+- 验证(亲跑双绿):`npx vitest run src/screens/dashboard` = 73 passed(1 file,EXIT=0)+ `npx tsc --noEmit -p tsconfig.app.json` EXIT=0
 - **提交点①**(此时 screen 仍传 `overviewTrendDays`,今日档行为未变,纯函数已就位——中间态自洽可过全量)
 
 ## 批2 screen 消费层 + 既有断言翻新(提交点②)

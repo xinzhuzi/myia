@@ -60,6 +60,7 @@ import { Sparkline } from "./sparkline";
 import {
   buildOverviewStats,
   buildVerdict,
+  chartWindowDays,
   cumulativeOutcomeSummary,
   fillDailyCounts,
   fillDailyOutcomes,
@@ -1599,6 +1600,32 @@ describe("buildOverviewStats 窗口语义(A-dash 纯函数;两格随窗两格快
     expect(overviewTrendDays("today")).toBe(1);
     expect(overviewTrendDays(7)).toBe(7);
     expect(overviewTrendDays(30)).toBe(30);
+  });
+
+  it("chartWindowDays 图窗下限(10-07 AC4/D3):组合 overviewTrendDays —— today→7、7→7、14→14、30→30", () => {
+    expect(chartWindowDays("today")).toBe(7);
+    expect(chartWindowDays(7)).toBe(7);
+    expect(chartWindowDays(14)).toBe(14);
+    expect(chartWindowDays(30)).toBe(30);
+  });
+
+  it("采集格概览窗切片(10-07 AC2/D4):7 天 trend 输入 + 今日档 → 当日行(非 7 天和);7 天档 → 整窗和;trend null → null", () => {
+    const trend7Filled: TrendDay[] = [
+      { date: "2026-09-28", count: 1 },
+      { date: "2026-09-29", count: 0 },
+      { date: "2026-09-30", count: 2 },
+      { date: "2026-10-01", count: 0 },
+      { date: "2026-10-02", count: 3 },
+      { date: "2026-10-03", count: 0 },
+      { date: today, count: 5 },
+    ];
+    // 今日档:图窗拉 7 天,采集格仍概览窗口径 —— 切片 [today..today] = 当日行 5(非整窗和 11)
+    expect(buildOverviewStats(doctor, [], trend7Filled, today).windowItems).toBe(5);
+    // 7 天档:整窗和(既有行为回归锚,防切片误伤)
+    expect(buildOverviewStats(doctor, [], trend7Filled, today, 7).windowItems).toBe(11);
+    // trend 不可达 → null(拉取失败显 —,两档同语义)
+    expect(buildOverviewStats(doctor, [], null, today).windowItems).toBeNull();
+    expect(buildOverviewStats(doctor, [], null, today, 7).windowItems).toBeNull();
   });
 });
 
