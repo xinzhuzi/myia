@@ -1,0 +1,101 @@
+================================================================================
+10-06-hermes-monitor-audit 沙盘补测 Sim2:降级锁并发写(审计缺陷 4,§2 清单序号 3)
+日期:2026-10-06 13:39-13:43 | 执行环境:macOS darwin 25.4.0 arm64 | 沙盘 /tmp/hermes-sim2
+代码态:HEAD 3a71315(含 e8d7801 修复面,research §5 缺陷 3 处置)
+前置探针:git status --porcelain -- src/myssia/cron/ 为空(无并行在途改动),测稳定树
+================================================================================
+
+【方法】真进程沙盘:holder 进程以 fcntl.flock LOCK_EX 占
+/tmp/hermes-sim2/cron/.jobs.lock 整 75s,并在 T+10s 于锁内重写 jobs.json
+给 job-a 改名(模拟持锁 ticker/serve 宿主的锁内心跳字段写);CLI 为另一
+写者,逐条跑 cron pause / cron edit(--db /tmp/hermes-sim2/myssia.db)。
+观察:降级告警(JOBS_LOCK_TIMEOUT_SECONDS=30,store.py:53-56)、等待时长、
+写行为(降级写是否碾掉持锁者的字段)、锁释放后恢复。
+
+【时间线(epoch 差,2026-10-06 13:41-13:42 亲跑)】
+ holder   HELD 265.044 → HOLDER_WROTE 275.046(锁内改名 alpha→alpha-renamed-by-holder)
+          → RELEASED 340.050(持锁 75.0s)
+ CLI-1    cron pause alpha:起 267.055 → 降级 297.300(等锁 30.245s)→ exit 0
+          stderr:2026-10-06 13:41:37,300 ERROR myssia.cron.store: Timed out after
+          30s waiting for the cron jobs lock (/tmp/hermes-sim2/cron/.jobs.lock) —
+          another process is holding it. Proceeding with in-process locking only
+          so the scheduler stays alive.
+ CLI-1 后 jobs.json 快照:job-a=(alpha-renamed-by-holder, enabled=False,
+          state=paused)——持锁者在 CLI 等锁期间落下的改名**存活**,CLI 的
+          pause 字段同时落地(降级写不盲覆写磁盘)
+ CLI-2    cron edit beta --name beta-edited:起 297.410 → 降级 327.647
+          (等锁 30.237s)→ exit 0,同名 ERROR 告警,改名落地(holder 仍持锁,
+          第二轮真降级)
+ CLI-3    (holder 释放后)cron edit beta-edited --name beta-post-release:
+          起 340.098 → 完成 340.344(0.246s,零告警)——锁路径即刻恢复
+ 终态     job-a=改名+paused 共存;job-b=beta-post-release;updated_at=CLI 最后写
+
+【结论】缺陷 3(§2 序号;§4/任务令称缺陷 4)缓解生效,与 research §5 声明一致:
+1) 降级不死等不永阻塞:两轮 CLI 各 ~30.2s 后降级直写(store.py:328-337
+   logger.error 告警原文落 stderr,cli.py:1264-1271 basicConfig stderr 可见);
+2) 降级写不碾持锁者字段:CLI 等锁 30s 期间 holder 的锁内写(改名)在 CLI
+   降级后的落盘结果中存活,pause/edit 字段同时生效;
+3) 锁释放后首写 0.246s 无告警,正常 flock 路径恢复;
+4) 写节流(CLAIM_REFRESH_MIN_AGE_SECONDS=TTL/2,jobs.py:145)与临界区中窗
+   (CLI load 与 save 之间)字段级 3-way 合并:CLI 临界区毫秒级,真进程沙盘
+   无法确定性命中中窗——该面由单元测试钉死(test_cron_store.py
+   test_degraded_concurrent_field_update_survives / test_three_way_merge_ours_
+   wins_on_same_field / test_three_way_merge_deleted_keys_stay_deleted /
+   test_three_way_merge_row_recovery_still_works + 写节流 test_cron_jobs.py
+   test_heartbeat_fire_claim_write_throttled),2026-10-06 同日亲跑
+   `uv run --all-extras pytest tests/cron/test_cron_jobs.py tests/cron/test_cron_store.py -q`
+   → 130 passed in 0.89s 全绿。
+
+【行为观察(非缺陷,如实记档)】
+- paused_at=13:41:07.249 是 CLI-1 **请求时刻**(进程起点 267.055≈13:41:07),
+  而落盘在降级后的 13:41:37——pause_job 在进锁前取 now(jobs.py:1179),
+  降级等锁 30s 会拉开请求戳与提交戳的距离;与代码读得形状一致,暂停语义
+  (请求时刻)不受影响。
+- 首跑事故(本沙盘脚本 bug,已披露):holder v1 按裸列表迭代 jobs.json,
+  实盘形状是 {"jobs":[...],"updated_at":...} 信封 → dict 迭代出字符串 →
+  AttributeError 于 T+10s 崩溃 → 进程退出 fd 关闭即释放 flock → 首跑 CLI-1
+  仅 8.06s(排队等锁至 holder 死,非降级,stderr 无 Timed out),未踩降级
+  路径;v2 修信封后重跑即为上表有效数据。首跑顺带实证:锁竞争排队正常、
+  持锁进程死亡锁随 fd 内核回收(与 research §1 第 3 行 kill -9 结论互证)。
+
+【复现脚本(沙盘原件全文内嵌)】
+--------------------------------------------------------------------------------
+# holder.py(v2;v1 缺信封处理即首跑事故根因)
+import fcntl, json, os, sys, time
+lock_path, hold_seconds, jobs_path, target_id = (
+    sys.argv[1], float(sys.argv[2]), sys.argv[3], sys.argv[4])
+fd = open(lock_path, "a+")
+fcntl.flock(fd, fcntl.LOCK_EX)
+print(f"HELD epoch={time.time():.3f}", flush=True)
+time.sleep(10.0)  # 让 CLI 先进入等锁窗口
+with open(jobs_path, encoding="utf-8") as f:
+    doc = json.load(f)
+jobs = doc["jobs"] if isinstance(doc, dict) else doc
+hit = False
+for job in jobs:
+    if job.get("id") == target_id:
+        job["name"] = "alpha-renamed-by-holder"
+        hit = True
+with open(jobs_path, "w", encoding="utf-8") as f:
+    json.dump(doc, f, ensure_ascii=False, indent=2)
+    f.flush(); os.fsync(f.fileno())
+print(f"HOLDER_WROTE epoch={time.time():.3f} target_found={hit}", flush=True)
+time.sleep(max(0.0, hold_seconds - 10.0))
+fcntl.flock(fd, fcntl.LOCK_UN)
+print(f"RELEASED epoch={time.time():.3f}", flush=True)
+--------------------------------------------------------------------------------
+# sim2_orchestrate.sh(zsh;播种另用 CronJobStore.for_db 直落 2 job:alpha/beta)
+ROOT=/tmp/hermes-sim2; DB=$ROOT/myssia.db; LOG=$ROOT/sim2-run.log
+MYIA=/Users/zhengbingjin/Project/Github/MYIA
+uv run --project $MYIA python $ROOT/holder.py $ROOT/cron/.jobs.lock 75 \
+    $ROOT/cron/jobs.json sim2-job-a > $ROOT/holder.log 2>&1 &   # 后台持锁 75s
+sleep 2
+uv run --project $MYIA --all-extras myssia cron pause alpha --db $DB --json \
+    >> $LOG 2>$ROOT/pause-stderr.txt          # CLI-1:等 30.2s 降级直写
+uv run --project $MYIA --all-extras myssia cron edit beta --name beta-edited \
+    --db $DB --json >> $LOG 2>$ROOT/edit-stderr.txt   # CLI-2:再等 30.2s 降级
+wait; cat $ROOT/cron/jobs.json >> $LOG        # 终态:holder 改名+pause/edit 共存
+uv run --project $MYIA --all-extras myssia cron edit beta-edited \
+    --name beta-post-release --db $DB --json  # CLI-3:释放后 0.25s 无告警
+--------------------------------------------------------------------------------
+完整逐行日志:沙盘 /tmp/hermes-sim2/sim2-run.log(本档时间线即其摘录)。

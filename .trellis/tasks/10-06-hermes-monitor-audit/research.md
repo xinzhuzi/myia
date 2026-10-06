@@ -48,6 +48,19 @@
 - 残留 heartbeat-evidence serve 复查:5 进程在跑(并行会话在途,非本档产物,维持不动)。
 - 沙盘未覆盖两项如实重申:时钟回拨注入(审计缺陷 3)、flock>30s 降级并发写(缺陷 4)——修缺陷时一并做,不单独模拟。
 
+### §4.1 两项补测回执(2026-10-06 13:44,主人令补齐;代码态=HEAD 3a71315 含 e8d7801 修复面)
+
+> 编号口径:本节所引「缺陷 3/4」沿 §4 行文(即 §2 清单序号 **2/3**);沙盘测前探针
+> `git status --porcelain -- src/myssia/cron/` 为空(稳定树)。沙盘根 /tmp/hermes-sim2,
+> 证据 evidence/clock-rollback-sim-20261006.txt + evidence/degraded-lock-sim-20261006.txt。
+
+| 补测 | 方法 | 结果 |
+|------|------|------|
+| 时钟回拨/未来戳(§2 缺陷 2) | 沙盘级回拨需 root → 按令改**单元级注入**(可拨 Clock 经 now_fn 注入 CronJobs,构造回拨/未来戳 fire_claim;夹具与 tests/cron 同款) | **修复行为钉住,6/6 绿**:容差内回拨(-240s/恰-300s)活认领不清扫、重认领被拒(无双跑窗);-300.5s 超容差仍可回收(永不楔死);远未来 +1h 即使属主活着也回收;回拨救不了同机死属主;心跳回拨下属主对→True/错→False。旁证:`pytest tests/cron/test_cron_jobs.py tests/cron/test_cron_store.py -q` 130 passed(0.89s) |
+| 降级锁并发写(§2 缺陷 3) | **真进程沙盘**:holder 以 flock LOCK_EX 占 `<数据根>/cron/.jobs.lock` 整 75s(T+10s 锁内改 job 名模拟持锁 ticker 写),同时跑 CLI `cron pause`/`cron edit` | **缓解生效**:两轮 CLI 各等 30.2s 降级直写不死等(ERROR「Timed out after 30s … Proceeding with in-process locking only」原文落 stderr);**持锁者等锁期间落下的改名在降级写结果中存活**+pause/edit 字段同时生效(不盲覆写);释放后首写 0.246s 零告警恢复。中窗(load↔save 毫秒窗)3-way 合并与写节流由单测钉死(上项 130 passed 含 test_cron_store 降级合并 4 例+节流 1 例),真进程无法确定性命中中窗——如实分界 |
+
+两个如实记档的观察(非缺陷):①降级等锁 30s 期间 `paused_at` 记**请求时刻**而非提交时刻(pause_job 进锁前取 now,jobs.py:1179),语义不受影响;②首跑 holder 脚本误按裸列表迭代 jobs.json 信封而崩,进程死即释放 flock,首跑 CLI 8.06s 属排队非降级(顺带互证 §1「锁随 fd 内核回收」);v2 修信封后重跑为有效数据,事故已在证据档披露。
+
 ## §5 九缺陷处置表(2026-10-06 主人令「做完剩下的问题」;处置主体=并行 Hermes 流,本流让行后验证收编)
 
 > 让行记:本流开工探针(12:22)即见 cron 面在途改动引用本任务编号体系 → 按并行协调协议零编辑让行,mtime+git-status 双探针 150s 节奏监测;对方 12:30:21 最后前进、12:45:22 达 15 分钟安静阈值后本流转收编验证岗。九条**全部**由并行流交付(代码 e8d7801,回执另落 prd.md 尾 a2cf49e,门禁垫片 4e97a40),本流对照 §2 逐条亲核代码+亲跑门禁,无遗留缺口需本流补。

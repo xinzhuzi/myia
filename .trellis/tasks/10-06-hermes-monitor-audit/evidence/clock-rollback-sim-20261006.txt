@@ -1,0 +1,171 @@
+================================================================================
+10-06-hermes-monitor-audit 沙盘补测 Sim1:时钟回拨/未来戳(审计缺陷 3,§2 清单序号 2)
+日期:2026-10-06 13:35-13:38 | 执行环境:macOS darwin 25.4.0 arm64 | 沙盘 /tmp/hermes-sim2
+代码态:HEAD 3a71315(含 e8d7801 修复面,research §5 缺陷 2 处置)
+前置探针:git status --porcelain -- src/myssia/cron/ 为空(无并行在途改动),测稳定树
+================================================================================
+
+【方法】沙盘级回拨系统时钟需 root,按任务令改用单元级注入:可拨动 Clock 以
+now_fn 注入 CronJobs(与 tests/cron/test_cron_jobs.py 同款夹具形态),构造
+回拨/未来时间戳的 fire_claim,直测 claim_is_live 与清扫(重认领/心跳)路径。
+
+【被测代码面】
+- src/myssia/cron/jobs.py:190-211 claim_is_live:负窗容差
+  [-FIRE_CLAIM_TTL_SECONDS(-300s), ttl) 闭开区间;残缺/远未来 stale;死属主立即失效
+- src/myssia/cron/constants.py FIRE_CLAIM_TTL_SECONDS=300
+- 清扫路径=重认领:jobs.py:1675-1676 claim_is_live→False 才放行重认领,
+  1716 覆写新 claim(活认领 → return False 拒绝,无双跑窗)
+- 心跳保活:jobs.py:1544-1555 _refresh_claim(属主校验+写节流)
+
+【场景与结果(6/6 PASSED,2026-10-06 13:36 亲跑)】
+1. claim_is_live 年龄矩阵(属主恒活):
+   +100s→live | 回拨-240s→live | 恰-300s(闭边界)→live |
+   -300.5s→stale | 远未来-3600s→stale | 正龄+301s(超TTL)→stale
+2. 回拨-4min 后他宿主重认领被拒(claim_job_for_fire→False)——缺陷 2 修复后行为钉住
+3. 回拨-301s(超容差)→可回收重认领(→True)——「永不楔死 job」红线保持
+4. 远未来+1h 戳、属主活着(本机活 pid)→仍 stale 可回收(→True)
+5. 回拨-4min 但属主=同机已死已收尸 pid → 立即失效可回收(回拨救不了死属主)
+6. 回拨-2min 后心跳:属主正确→True(keeper 不被回拨误杀);属主错误→False
+   (回拨不免除属主校验)
+
+【命令与输出】
+$ uv run --all-extras pytest /tmp/hermes-sim2/sim1_clock_rollback.py -v \
+    --basetemp=/tmp/hermes-sim2/pytest-tmp
+→ 6 passed in 0.03s(逐条 PASSED 清单见 /tmp/hermes-sim2/sim1-run.log)
+
+套件级旁证(仓库已钉该修复面的定向件,同日亲跑):
+$ uv run --all-extras pytest tests/cron/test_cron_jobs.py tests/cron/test_cron_store.py -q
+→ 130 passed in 0.89s
+(含 test_fire_claim_clock_backstep_stays_live / test_fire_claim_far_future_stamp_still_stale /
+ test_heartbeat_fire_claim_write_throttled / 降级 3-way 合并 4 例 /
+ test_cross_process_flock_timeout_degrades)
+
+【结论】缺陷 2(§2 序号;§4/任务令称缺陷 3)修复行为钉住:容差内回拨不清扫
+活认领(消除双跑窗),超容差仍可回收(永不楔死),死属主不被回拨豁免,
+心跳保活回拨下不误杀。与 research §5 处置表声明一致,无出入。
+
+【复现脚本(沙盘原件 /tmp/hermes-sim2/sim1_clock_rollback.py,全文内嵌)】
+--------------------------------------------------------------------------------
+# -*- coding: utf-8 -*-
+# 10-06-hermes-monitor-audit 沙盘补测 Sim1:时钟回拨/未来戳(单元级注入)
+from __future__ import annotations
+
+import os
+import socket
+import subprocess
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import pytest
+
+from myssia.cron.constants import FIRE_CLAIM_TTL_SECONDS
+from myssia.cron.jobs import CronJobs, claim_is_live
+
+TZ = ZoneInfo("Asia/Shanghai")
+BASE = datetime(2026, 10, 6, 14, 0, tzinfo=TZ)
+LIVE_OWNER = f"{socket.gethostname()}:{os.getpid()}"
+
+
+class Clock:
+    def __init__(self, at: datetime) -> None:
+        self.now = at
+
+    def __call__(self) -> datetime:
+        return self.now
+
+    def tick(self, **delta: float) -> None:
+        self.now = self.now + timedelta(**delta)
+
+
+@pytest.fixture()
+def clock() -> Clock:
+    return Clock(BASE)
+
+
+@pytest.fixture()
+def jobs(tmp_path: Path, clock: Clock) -> CronJobs:
+    return CronJobs(tmp_path, now_fn=clock)
+
+
+def raw_of(jobs_api: CronJobs, job_id: str) -> dict:
+    return next(j for j in jobs_api.store.load_jobs() if j.get("id") == job_id)
+
+
+@pytest.fixture()
+def dead_pid() -> int:
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    child.kill()
+    child.wait()
+    return child.pid
+
+
+def test_sim1_claim_is_live_age_matrix(clock: Clock) -> None:
+    claim = {"at": BASE.isoformat(), "by": LIVE_OWNER}
+    cases = [
+        (timedelta(seconds=100), True),
+        (timedelta(seconds=-240), True),
+        (timedelta(seconds=-300), True),
+        (timedelta(seconds=-300.5), False),
+        (timedelta(seconds=-3600), False),
+        (timedelta(seconds=301), False),
+    ]
+    for delta, expected in cases:
+        clock.now = BASE + delta
+        got = claim_is_live(claim, clock.now, FIRE_CLAIM_TTL_SECONDS)
+        assert got is expected, f"elapsed={delta}: claim_is_live={got}, want {expected}"
+
+
+def test_sim1_rollback_within_tolerance_blocks_reclaim(
+    jobs: CronJobs, clock: Clock
+) -> None:
+    job = jobs.create_job("plugins/news.yaml", "every 5m")
+    assert jobs.claim_job_for_fire(job["id"]) is True
+    clock.tick(minutes=-4)
+    assert jobs.claim_job_for_fire(job["id"]) is False
+
+
+def test_sim1_beyond_tolerance_reclaimable(jobs: CronJobs, clock: Clock) -> None:
+    job = jobs.create_job("plugins/news.yaml", "every 5m")
+    jobs.claim_job_for_fire(job["id"])
+    clock.now = BASE + timedelta(seconds=-301)
+    assert jobs.claim_job_for_fire(job["id"]) is True
+
+
+def test_sim1_far_future_stamp_reclaimable_even_live_owner(jobs: CronJobs) -> None:
+    job = jobs.create_job("plugins/news.yaml", "every 5m")
+    raw = raw_of(jobs, job["id"])
+    raw["fire_claim"] = {
+        "at": (BASE + timedelta(hours=1)).isoformat(),
+        "by": LIVE_OWNER,
+    }
+    with jobs.store.jobs_lock():
+        jobs.store.save_jobs([raw], replace=True)
+    assert jobs.claim_job_for_fire(job["id"]) is True
+
+
+def test_sim1_rollback_does_not_save_dead_owner(
+    jobs: CronJobs, clock: Clock, dead_pid: int
+) -> None:
+    job = jobs.create_job("plugins/news.yaml", "every 5m")
+    raw = raw_of(jobs, job["id"])
+    raw["fire_claim"] = {
+        "at": BASE.isoformat(),
+        "by": f"{socket.gethostname()}:{dead_pid}",
+    }
+    with jobs.store.jobs_lock():
+        jobs.store.save_jobs([raw], replace=True)
+    clock.tick(minutes=-4)
+    assert jobs.claim_job_for_fire(job["id"]) is True
+
+
+def test_sim1_heartbeat_survives_rollback(jobs: CronJobs, clock: Clock) -> None:
+    job = jobs.create_job("plugins/news.yaml", "every 5m")
+    jobs.claim_job_for_fire(job["id"])
+    owner = raw_of(jobs, job["id"])["fire_claim"]["by"]
+    clock.tick(minutes=-2)
+    assert jobs.heartbeat_fire_claim(job["id"], expected_owner=owner) is True
+    assert jobs.heartbeat_fire_claim(job["id"], expected_owner="not-me:1:x") is False
+--------------------------------------------------------------------------------
+(沙盘原件与真实断言文案/注释一致;此处略去 docstring 便于阅读,行为面等同)
