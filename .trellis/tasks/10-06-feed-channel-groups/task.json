@@ -3,7 +3,7 @@
   "name": "feed-channel-groups",
   "title": "情报流渠道级分组",
   "description": "主人令「情报流也要分渠道」+「不同渠道表现的方式不一样」:情报流在品类下按渠道(源名全称规约)分组,且按渠道类型差异化呈现——telegram-* 消息卡样式(聊天感)、RSS 新闻标题+链接列表、urlwatch 官网监控=变更事件(有更新+时间)、prompt 日报=markdown 文档视图、游戏/羊毛=价格优惠行;形态按既有 feed 屏风格与 Kestra 紫设计语言定。 | 主人追加(10-06):情报流实时滚动不停过日志(自动刷新),每日凌晨 03:00 视图清零(当日窗 03:00-次日 03:00,store 不动)继续过滤——与 telegram 持续监控线呼应。 | 主人再精化:情报流做二级界面分类一层层点击进去——L1 品类列表→L2 渠道列表→L3 渠道消息流(分型呈现主场);分组=可下钻信息架构非平铺;AC 补三级路径。",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -15,12 +15,12 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "8957d95",
   "pr_url": null,
   "subtasks": [],
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "终局收尾员 2026-10-06 终验置 review:AC1-8 全勾证据在 prd(装机与冒烟回执:21/21 无头冒烟+截图 OCR 交叉核对);门禁复核亲跑=全量 pytest 4711 passed/40 skipped/0 failed+vitest 570/570+tsc -b 0 错+desktop npm run build 通过;装机件 14 件 cmp 逐字节一致+主二进制 sha 4af5d62b…ead3 与 19:19 回执一致+codesign verify exit 0。主提交 8957d95;并行线(native-plugin-components)在途件未触碰。",
   "meta": {}
 }

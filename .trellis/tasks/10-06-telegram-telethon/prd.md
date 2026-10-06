@@ -72,7 +72,14 @@ MYIA 具备三层 Telegram 消息获取能力,全部走「链接者」形态,组
   - AC4 的「像素验证」留桌面接线批(entry.py 由并行任务持有);AC1 真发留主人 token。
 
 ## 结果(验收回执,完工填)
-- [ ] AC1-5 勾选+证据(待填)
+- [ ] AC1-5 勾选+证据(**终局收尾员 2026-10-06 终验对照,全留未勾,缺口如实**):
+  - AC1 bot 线端到端:**未满足**——代码面全就绪(B1 引擎+B2 过滤出口+B3 serve,`myssia telegram serve` 可跑),真发回执缺主人四步(bot/关隐私/token/拉群),token 未入钥匙串即 credential_missing 零请求空态(设计如此);回执位留待 token 到手。
+  - AC2 Telethon 线端到端:**未开工**(B4 批,锁主人小号+验证码前置)。
+  - AC3 组件化件全流程一例:**未开工**(B5 批)。
+  - AC4 全 mock 单测+装机外科+像素验证:**部分满足**——mock 单测在案(B1 31 例+B2 25 例+B3 21 例,全量 pytest 4711 passed/40 skipped/0 failed 亲跑 19:36-19:38);装机外科已做(过程段 13 件+数据根补同步,见下);**像素验证留桌面接线批**(B3 桌面接线位如实记档,entry.py 时段由并行任务持有)。
+  - AC5 凭据零外显+风控披露:**代码与测试面在案**(token URL path 净化 bot***、httpx 异常消息同净化、凭据三态 reddit 判例、测试断言 BOT_TOKEN 不外显;小号风控披露在 research/prd);真跑前的完整验收留 AC1 同窗。
+- [x] **数据根 YAML 同步**(终局收尾员补做,2026-10-06 19:4x):数据根 `~/Library/Application Support/MYIA/plugins/daily-digest.yaml`(cron「每日合并日报」job enabled 在跑的活件)先前缺「Telegram 群」分区 = B2 出口在装机侧断环;已备份 `.bak-20261006-finalconsolidate` 后以仓库件覆盖,diff 逐字节一致,telegram-mihomo_party_group 源在册 1 处。telegram-groups.yaml 未部署数据根(与"serve 常驻时不必挂 cron"自洽:cron jobs.json 无该品类建档,装机包内示范件已在)。
+- [x] **终局门禁复核**(收尾员亲跑,2026-10-06 19:36-19:38,树=0b15e09+587f49b 静置后):全量 pytest 4711 passed/40 skipped/0 failed;vitest 570/570(26 文件);tsc -b 0 错;desktop `npm run build`(tsc -b && vite build)通过;装机件复核:两线 14 件(telegram 9+store 2+entry.py+plugins 2)仓库↔包内 cmp 逐字节一致,主二进制 sha256 `4af5d62b…ead3` 与 feed 档 19:19 回执一致,`codesign --verify --deep --strict` exit 0 亲验。附记:19:23 首轮全量曾 7 failed(test_telegram_serve.py),系 B3 工程师会话当时正在写入中间态(源/测试 mtime 落在跑窗内),提交定稿后两轮全绿,非代码红。
 
 ## Grill 决议(2026-10-06,主人批「全按推荐」)
 
