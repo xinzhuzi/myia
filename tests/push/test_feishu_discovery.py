@@ -201,11 +201,24 @@ class TestRateLimitAndAuthErrors:
         assert "99991663" in str(excinfo.value)
 
     def test_missing_token_env_raises_credential_error(self, monkeypatch):
-        monkeypatch.delenv("FEISHU_BOT_TOKEN", raising=False)
-        channel = FeishuCardChannel()  # 无注入 token/client:凭据路径走到 env
-        with pytest.raises(PushSendError) as excinfo:
-            _run(channel.discover_directory())
-        assert excinfo.value.code == "env_var_missing"
+        """三级凭据全缺 → env_var_missing。
+
+        隔离钥匙串(10-06-hermes-align 补强):产线钥匙串已录
+        ``myia/push/FEISHU_APP_ID``/``APP_SECRET``(生产真发在用),不隔离
+        会让本用例真 mint 出 tenant token——既违反零真网,也让断言漂移。
+        """
+        from myssia import secrets as secrets_store
+
+        for var in ("FEISHU_BOT_TOKEN", "FEISHU_APP_ID", "FEISHU_APP_SECRET"):
+            monkeypatch.delenv(var, raising=False)
+        secrets_store.set_backend(secrets_store.InMemoryKeychainBackend())
+        try:
+            channel = FeishuCardChannel()  # 无注入 token/client:凭据路径走到 env
+            with pytest.raises(PushSendError) as excinfo:
+                _run(channel.discover_directory())
+            assert excinfo.value.code == "env_var_missing"
+        finally:
+            secrets_store.reset_backend()
 
     def test_non_json_response_raises_invalid_response(self):
         def handler(request: httpx.Request) -> httpx.Response:

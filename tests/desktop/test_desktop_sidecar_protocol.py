@@ -3199,7 +3199,7 @@ def test_schedule_preview_refusals(tmp_path, monkeypatch):
     assert responses[0]["error"]["code"] == "source_file_unreadable"
 
 
-def test_push_test_stdout_preview_and_refusals():
+def test_push_test_stdout_preview_and_refusals(monkeypatch):
     """G5 push.test:stdout 通道真跑(卡片入应答 preview,协议流零污染);
     channel 未知名拒;凭据缺失走通道结构化错误原文(feishu 默认 env 链)。"""
     code, responses, events = rpc({"id": 1, "method": "push.test",
@@ -3213,9 +3213,19 @@ def test_push_test_stdout_preview_and_refusals():
     assert responses[0]["error"]["code"] == "invalid_params"
 
     # 凭据缺失 = 通道既有错误分类直传(feishu 未配 target → 默认 env 引用链
-    # 先在 bot token 处断:env_var_missing)
-    code, responses, _ = rpc({"id": 3, "method": "push.test", "params": {"channel": "feishu_card"}})
-    assert responses[0]["error"]["code"] == "env_var_missing"
+    # 先在 bot token 处断:env_var_missing)。钥匙串隔离(10-06-hermes-align
+    # 补强):产线钥匙串已录 FEISHU_APP_ID/APP_SECRET(生产真发在用),不隔离
+    # 会真 mint 出 token,断言漂成 missing_target 且违反零真网。
+    from myssia import secrets as secrets_store
+
+    for var in ("FEISHU_BOT_TOKEN", "FEISHU_APP_ID", "FEISHU_APP_SECRET"):
+        monkeypatch.delenv(var, raising=False)
+    secrets_store.set_backend(secrets_store.InMemoryKeychainBackend())
+    try:
+        code, responses, _ = rpc({"id": 3, "method": "push.test", "params": {"channel": "feishu_card"}})
+        assert responses[0]["error"]["code"] == "env_var_missing"
+    finally:
+        secrets_store.reset_backend()
 
 
 def test_push_test_sends_via_channel_with_target(monkeypatch):

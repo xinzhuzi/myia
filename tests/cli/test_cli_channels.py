@@ -93,8 +93,16 @@ class TestChannelsRefresh:
     def test_refresh_missing_credential_reports_structured_error_keeps_old_bucket(
         self, tmp_path, monkeypatch, capsys
     ):
-        """凭据缺失:结构化报错(退出码 1),旧目录保留(prd 需求 2)。"""
-        monkeypatch.delenv("FEISHU_BOT_TOKEN", raising=False)
+        """凭据缺失:结构化报错(退出码 1),旧目录保留(prd 需求 2)。
+
+        钥匙串隔离(10-06-hermes-align 补强):产线钥匙串已录 FEISHU_APP_ID/
+        APP_SECRET(生产真发在用),不隔离会让 refresh 真 mint 目录发现。
+        """
+        from myssia import secrets as secrets_store
+
+        for var in ("FEISHU_BOT_TOKEN", "FEISHU_APP_ID", "FEISHU_APP_SECRET"):
+            monkeypatch.delenv(var, raising=False)
+        secrets_store.set_backend(secrets_store.InMemoryKeychainBackend())
         # 旧目录预置:失败后必须原样保留
         old = json.dumps({
             "updated_at": "2026-10-01T00:00:00",
@@ -104,7 +112,10 @@ class TestChannelsRefresh:
         }, ensure_ascii=False)
         (tmp_path / "channel_directory.json").write_text(old, encoding="utf-8")
 
-        code, out, err = _run_cli(["channels", "refresh", "feishu", "--json"], capsys, monkeypatch, tmp_path)
+        try:
+            code, out, err = _run_cli(["channels", "refresh", "feishu", "--json"], capsys, monkeypatch, tmp_path)
+        finally:
+            secrets_store.reset_backend()
 
         assert code == 1
         payload = json.loads(out)

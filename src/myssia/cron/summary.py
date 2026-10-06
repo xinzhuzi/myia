@@ -343,6 +343,24 @@ def deliver_run_summary(
       :data:`myssia.push.PLATFORMS` 直构(凭据走通道默认 env/keychain 引用链,
       §8.1),``send_batch_to_targets`` 逐对象发送 + 死信语义;SendContext
       ``kind="cron_summary"``(grill Q3)、slot/date 按 *now* 本地。
+
+    deliver 语义对照(10-06-hermes-align 批次1b 研读定档,**不改缺省**):
+    Hermes 的 deliver 缺省同样是 ``local``(``cron/scheduler_delivery.py``
+    L1076 ``job.get("deliver", "local")`` + ``_normalize_deliver_value``
+    L1000-1005:falsy → ``"local"``)——「home 缺省」实为**裸平台 token**
+    (如 ``deliver: feishu``)解析到该平台 home channel、及 origin 缺席时
+    回落 home 的解析语义,不是字段缺省值。MYIA 两侧字面一致(runner
+    ``str(job.get("deliver") or "local")``),无需照抄任何缺省改动。
+
+    **双发陷阱**(品类自带 push 的 job 配平台 deliver 即踩中):MYIA 品类
+    管线的 push 阶段已把 digest 卡投到目标群,job 再配 ``deliver:
+    feishu:<同群>`` 会让该群每 run 收**两条**消息(digest 卡 + 运行摘要
+    卡,内容不同但同群双响)。Hermes 无此陷阱是结构性的:其 cron job 无
+    push 阶段,agent 输出经 deliver 是唯一出口。建议形态:日常摘要不配
+    deliver(缺省 local,摘要落 run 输出文档);要远端可见性配
+    ``failure_deliver``(缺省回落 deliver,显式 ``none`` 关闭——
+    :func:`myssia.cron.jobs.resolve_failure_deliver`)只收失败告警,与
+    push digest 日常不同路。
     """
     spec_text = str(spec or "").strip()
     if not spec_text or spec_text.lower() == "local":

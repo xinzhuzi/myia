@@ -418,9 +418,10 @@ def test_feishu_send_resolves_bot_token_from_env(monkeypatch):
         )
     finally:
         asyncio.run(client.aclose())
-    assert capture["auth"] == "Bearer env-token-xyz"
-    card = json.loads(capture["body"]["content"])
-    assert card["header"]["title"]["content"] == "🔔 情报 · 10-01"
+        assert capture["auth"] == "Bearer env-token-xyz"
+        card = json.loads(capture["body"]["content"])
+        # 组合铁律(10-06-hermes-align):immediate 头=类目+条数(单条也带计数)
+        assert card["header"]["title"]["content"] == "🔔 情报 · 10-01 · 1条"
 
 
 def test_feishu_send_template_renders_into_single_markdown_div(monkeypatch):
@@ -483,15 +484,23 @@ def test_feishu_send_http_failure_wraps_original_error(monkeypatch):
 
 
 def test_feishu_send_missing_env_token_raises_structured_error(monkeypatch):
+    """三级凭据全缺 → env_var_missing;隔离钥匙串(真钥匙串有产线凭据会走 mint)。"""
+    from myssia import secrets as secrets_store
+
     monkeypatch.setenv("MYIA_TEST_CHAT_ID", "oc_demo")
-    monkeypatch.delenv("FEISHU_BOT_TOKEN", raising=False)
-    channel = FeishuCardChannel(target="env:MYIA_TEST_CHAT_ID")
-    with pytest.raises(PushSendError) as excinfo:
-        asyncio.run(
-            channel.send([{"title": "t"}], SendContext(slot="am", date="2026-10-01"))
-        )
-    assert excinfo.value.code == "env_var_missing"
-    assert "FEISHU_BOT_TOKEN" in str(excinfo.value)
+    for var in ("FEISHU_BOT_TOKEN", "FEISHU_APP_ID", "FEISHU_APP_SECRET"):
+        monkeypatch.delenv(var, raising=False)
+    secrets_store.set_backend(secrets_store.InMemoryKeychainBackend())
+    try:
+        channel = FeishuCardChannel(target="env:MYIA_TEST_CHAT_ID")
+        with pytest.raises(PushSendError) as excinfo:
+            asyncio.run(
+                channel.send([{"title": "t"}], SendContext(slot="am", date="2026-10-01"))
+            )
+        assert excinfo.value.code == "env_var_missing"
+        assert "FEISHU_BOT_TOKEN" in str(excinfo.value)
+    finally:
+        secrets_store.reset_backend()
 
 
 def test_feishu_send_noncanonical_keychain_target_raises_structured_error():
@@ -696,6 +705,7 @@ def test_digest_slot_boundary_follows_local_noon():
 
 
 def test_send_immediate_sends_each_item_and_records_push(registry):
+    """组合铁律(10-06-hermes-align):同轮多条命中合并为**一条**消息/通道。"""
     channel = RecordingChannel()
     items = [
         {"title": "示例一", "url": "https://example.com/1"},
@@ -711,11 +721,12 @@ def test_send_immediate_sends_each_item_and_records_push(registry):
             category="羊毛",
         )
     )
-    assert len(reports) == 2 and all(r.ok for r in reports)
-    assert len(channel.calls) == 2  # 一条目一张卡
-    assert all(len(c["items"]) == 1 for c in channel.calls)
+    assert len(reports) == 1 and reports[0].ok and reports[0].item_count == 2
+    assert len(channel.calls) == 1  # 同轮合并一条(逐条单发已消灭)
+    assert len(channel.calls[0]["items"]) == 2
     assert channel.calls[0]["context"].kind == "immediate"
     assert registry.get_entry("https://example.com/1").last_push_slot == SLOT_AM
+    assert registry.get_entry("https://example.com/2").last_push_slot == SLOT_AM
 
 
 def test_send_immediate_continues_after_channel_failure():
@@ -728,15 +739,19 @@ def test_send_immediate_continues_after_channel_failure():
     reports = asyncio.run(
         send_immediate(items, channels=[bad, ok], tz=TIMEZONE, now=local_dt(10))
     )
-    assert len(reports) == 4  # 2 条目 × 2 通道
-    assert [r.ok for r in reports] == [False, True, False, True]
-    assert len(ok.calls) == 2  # 单通道失败不中断整批
+    assert len(reports) == 2  # 1 合并组 × 2 通道
+    assert [r.ok for r in reports] == [False, True]
+    assert [r.item_count for r in reports] == [2, 2]
+    assert len(ok.calls) == 1  # 单通道失败不中断整批;ok 通道也合并一条
+    assert len(ok.calls[0]["items"]) == 2
 
 
-def test_send_immediate_aggregates_same_cause_failures(caplog):
-    """批内同因聚合(10-06-log-health-batch ④):逐条同因失败只留一条明细 + 批末一行汇总。
+def test_send_immediate_merged_failure_logs_single_detail(caplog):
+    """组合铁律后的刷屏收口(承接 10-06-log-health-batch ④的意图):
 
-    wool 实测 31 条同错 WARNING 刷屏的收口;SendReport 逐条语义零变化。
+    同轮多条合并成一组后,每(组×通道)至多一次 ``_send_via``——同因 N 条
+    刷屏(wool 实测 31 条)被**结构性**消灭:一条明细即全部,无需聚合行。
+    (聚合机制本身仍在,由 ``test_send_via_same_cause_aggregation`` 单元层钉住。)
     """
     bad = RecordingChannel(fail=True)
     items = [
@@ -746,11 +761,28 @@ def test_send_immediate_aggregates_same_cause_failures(caplog):
         reports = asyncio.run(
             send_immediate(items, channels=[bad], tz=TIMEZONE, now=local_dt(10))
         )
-    assert [r.ok for r in reports] == [False, False, False]  # 每条仍各自成败
+    assert [r.ok for r in reports] == [False] and reports[0].item_count == 3
     details = [r for r in caplog.records if "继续其余通道" in r.getMessage()]
     summary = [r for r in caplog.records if "本批同因聚合" in r.getMessage()]
-    assert len(details) == 1  # 首条明细
-    assert len(summary) == 1 and "次数=3" in summary[0].getMessage()
+    assert len(details) == 1  # 一组合并 = 一条明细(31 条刷屏不再可能)
+    assert summary == []  # 单次调用无同因复现,聚合行不触发
+
+
+def test_send_via_same_cause_aggregation():
+    """④ 聚合机制单元层钉死:``log_tally`` 在场时同 (channel, code) 只留首条明细。"""
+    from myssia.push.digest import _send_via
+
+    channel = RecordingChannel(fail=True)
+    context = SendContext(slot="am", date="2026-10-06", kind="immediate")
+    tally: dict[tuple[str, str], int] = {}
+    report_one = asyncio.run(
+        _send_via(channel, [{"title": "a", "url": "u1"}], context, log_tally=tally)
+    )
+    report_two = asyncio.run(
+        _send_via(channel, [{"title": "b", "url": "u2"}], context, log_tally=tally)
+    )
+    assert report_one.ok is False and report_two.ok is False
+    assert tally == {("recording", "http_error"): 2}
 
 
 def test_send_immediate_skips_same_slot_repush(registry):

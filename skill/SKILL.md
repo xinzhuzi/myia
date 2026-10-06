@@ -211,6 +211,8 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `wecom_agentid` | `null` | 企微自建应用 AgentId 引用(数值串);省略走 `env:WECOM_AGENTID`(仅 `wecom` 可配) |
 | `weixin_hermes_bin` | `null` | 本机 Hermes CLI 路径覆写(缺省 `~/.hermes/hermes-agent/.hermes/bin/hermes`);本地路径**非凭据**,不走 env:/keychain: 引用,myssia 对微信零凭据(仅 `weixin` 可配) |
 | `bark_endpoint` | `null` | Bark(iOS 推送)服务端端点;**非凭据**,可落 YAML。留空 = 官方服务 `https://api.day.app`;自建填主机地址(如 `http://<host>:8080`,docker `finb/bark-server`);须 http(s) 形态(仅 `bark` 可配) |
+| `msg_form` | `null` | 飞书消息形态(10-06-hermes-align 批次1):`text` = markdown 文本日报(post md rows 经 `im/v1/messages`,Hermes 日报形态,超 4000 字按行边界续条并头尾 `(i/N)` 标注);`card` = 交互卡片;留空 = `card` 向后兼容(仅 `feishu_card` 可配) |
+| `bot` | `null` | 飞书出站机器人档案(10-06-hermes-align 批次2):`analyst` = 二号机器人(Hermes ai-analyst profile 独立应用),凭据走 `env:FEISHU2_APP_ID`/`FEISHU2_APP_SECRET` 或钥匙链规范名 `myia/push/FEISHU2_*`;留空 = 主机器人;chat id 沿用本条目 `target` 不随 bot 切换(仅 `feishu_card` 可配) |
 
 各通道凭据约定:`feishu_card` 的 target = 收件/群 ID(如 `env:FEISHU_CHAT_ID`),
 机器人 token 从 `env:FEISHU_BOT_TOKEN` 读;`telegram` 的 target = chat id

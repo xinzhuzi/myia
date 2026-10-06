@@ -1125,6 +1125,19 @@ class PushConfig(_StrictModel):
     #: 缺省 = 官方端点 ``https://api.day.app``(常量定值在 myssia.push.bark,
     #: schema 不反依赖 push 层);自建同构服务填 ``http://<host>:8080``。
     bark_endpoint: str | None = None
+    # ---- 飞书通道可选字段(10-06-hermes-align 批次1/2)----
+    #: 日报消息形态(批次1):``text`` = markdown 文本消息(Hermes 日报形态:
+    #: post ``md`` tag rows 经 ``im/v1/messages`` 发送);``card`` = 交互卡片
+    #: (既有形态)。缺省 card 向后兼容。
+    msg_form: Literal["text", "card"] | None = None
+    #: 出站机器人(批次2):``analyst`` = 二号机器人(Hermes ai-analyst
+    #: profile 的独立飞书应用;凭据位 = env/钥匙链规范名
+    #: ``FEISHU2_APP_ID``/``FEISHU2_APP_SECRET``);缺省 None = 主机器人
+    #: (``FEISHU_APP_ID``/``FEISHU_APP_SECRET``)。chat id 沿用本条目
+    #: ``target`` 解析(缺省主群,不随 bot 切换)。词表与
+    #: ``myssia.push.feishu_card.BOT_APP_CREDENTIAL_KEYS`` 人工同步
+    #: (schema 不反依赖 push 层,本地定值;bark_endpoint 先例)。
+    bot: Literal["analyst"] | None = None
 
     #: 各通道专属可选凭据字段的合法宿主(仅本通道可配;与 timeout/retries
     #: 仅 webhook 同一 fail-fast 哲学,不留静默忽略)。
@@ -1134,6 +1147,7 @@ class PushConfig(_StrictModel):
         "wecom": ("wecom_corpid", "wecom_corpsecret", "wecom_agentid"),
         "weixin": ("weixin_hermes_bin",),
         "bark": ("bark_endpoint",),
+        "feishu_card": ("msg_form", "bot"),
     }
 
     @model_validator(mode="before")

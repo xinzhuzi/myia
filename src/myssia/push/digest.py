@@ -180,7 +180,11 @@ async def _send_via_channel_targets(
         if not specs:
             reports.append(
                 await _send_via(
-                    channel, items, context, retry_ledger=retry_ledger, log_tally=log_tally
+                    channel,
+                    items,
+                    context,
+                    retry_ledger=retry_ledger,
+                    log_tally=log_tally,
                 )
             )
             continue
@@ -399,30 +403,41 @@ async def send_immediate(
     retry_ledger: "PushRetryLedger | None" = None,
     slot_dedup: bool = True,
 ) -> list[SendReport]:
-    """Push immediate-bucket items right away, one card per item per channel.
+    """Push immediate-bucket items right away — 同轮命中合并为一条消息/通道.
+
+    组合优先铁律(10-06-hermes-align,主人 10-06 令「要组合到一起再发送,
+    而不是一条一条的发送」):同一轮的 immediate 命中**绝不逐条单发**——
+    先过同槽位防重发闸门,再按有效定向 specs 分组,每组经通道发**一条**
+    消息(legacy 无 specs 条目并成一组;分组防跨对象串台——不同对象各收
+    各的合并消息)。消息头=类目+条数由通道渲染层兑现(feishu
+    :func:`~myssia.push.feishu_card.card_title` 的 immediate 支带「N 条」)。
 
     Items whose dedup key (``dedup_key`` field, falling back to ``url`` —
     the schema default dedup key) was already pushed inside the current slot
-    window are skipped and logged (与摘要共享 AM/PM 防重发注册表). A channel
-    failing on one item never stops the remaining items (partial failure).
+    window are skipped and logged (与摘要共享 AM/PM 防重发注册表). 合并组内
+    条目同进退:组报告任一 ok 即逐条 record_push(组内条目共享同一批发送,
+    「任一成功=已投出」与既有 per-item any-ok 语义同构);全失败则整组
+    交失败报告/重试账本,不留下「组内半发」的模糊态。A channel failing on
+    one group never stops the remaining groups (partial failure).
 
     定向条目(10-03-messaging-core):``item_specs`` 与 ``items`` 按位对齐,
-    非空 specs 的条目逐对象派发(每对象一张卡);缺省 None/空 = 全 legacy
-    路径,行为逐字节不变。``directory`` 在场才启用定向。
+    非空 specs 的条目按 spec 元组分组逐对象派发(每对象一条合并消息);
+    缺省 None/空 = 全 legacy 路径。``directory`` 在场才启用定向。
 
     R1 接线(10-05-push-reliability-batch):``retry_ledger`` 在场时,瞬态
     失败(非死信/非配置级)入投递重试账本(at-least-once;digest 无此忧
-    ——全通道失败有留池)。管线重投冲账复用本函数但不传 ``retry_ledger``
-    (结转由冲账侧统一处理,避免二次入账),且带 ``slot_dedup=False``
-    (换眼复审修复):防重发键是**条目级**、不分子通道/子目标——多通道/
-    多目标部分成功即 record_push,失败侧的到期重投再过同槽位闸门会被
-    拦成零报告,冲账侧无从与「真已投出」区分(曾致静默丢失);重投条目
-    本身即防重单元(认领即计次、投出即出队),罕见重复由 at-least-once
-    承担(蓝本「may be a duplicate」同款取舍);成功后照常 record_push,
-    不放大跨槽位重复。
+    ——全通道失败有留池;合并组按组入账,重投侧同组同投)。管线重投冲账
+    复用本函数但不传 ``retry_ledger``(结转由冲账侧统一处理,避免二次
+    入账),且带 ``slot_dedup=False``(换眼复审修复):防重发键是**条目
+    级**、不分子通道/子目标——多通道/多目标部分成功即 record_push,失败
+    侧的到期重投再过同槽位闸门会被拦成零报告,冲账侧无从与「真已投出」
+    区分(曾致静默丢失);重投条目本身即防重单元(认领即计次、投出即
+    出队),罕见重复由 at-least-once 承担(蓝本「may be a duplicate」同款
+    取舍);成功后照常 record_push,不放大跨槽位重复。
 
     Returns:
-        One :class:`SendReport` per item × channel(定向条目为 item × 对象)。
+        One :class:`SendReport` per group × channel(定向组为 group × 对象;
+        ``item_count`` = 组内条目数)。
     """
     local_now = _local_now(now, tz)
     context = SendContext(
@@ -432,9 +447,10 @@ async def send_immediate(
         kind="immediate",
     )
     reports: list[SendReport] = []
-    # 批内同因聚合(④):逐条即时推送同因全灭时,首条打明细、其余只计数,
-    # 批末一行汇总——SendReport 逐条语义零变化。
+    # 批内同因聚合(④):同因全灭时,首组打明细、其余只计数,批末一行汇总
+    # ——SendReport 逐组语义零变化(组合铁律后「逐条」升为「逐组」)。
     failure_tally: dict[tuple[str, str], int] = {}
+    kept: list[tuple[Any, list[str] | None]] = []
     for index, item in enumerate(items):
         view = item_view(item)
         key = view.get("dedup_key") or view.get("url")
@@ -451,9 +467,17 @@ async def send_immediate(
             if item_specs is not None and index < len(item_specs)
             else None
         )
-        item_reports = await _send_via_channel_targets(
-            [item],
-            specs=list(specs) if specs else None,
+        kept.append((item, list(specs) if specs else None))
+    # 组合铁律:按有效 specs 分组(组序=首见序),每组一条消息/通道——
+    # legacy 条目(无 specs)并成一组;不同 specs 元组各自成组,绝不跨
+    # 对象串台。组就是「一轮运行」在派发层的最小合并单元。
+    groups: dict[tuple[str, ...] | None, list[Any]] = {}
+    for item, specs in kept:
+        groups.setdefault(tuple(specs) if specs else None, []).append(item)
+    for group_specs, group_items in groups.items():
+        group_reports = await _send_via_channel_targets(
+            group_items,
+            specs=list(group_specs) if group_specs else None,
             channels=channels,
             context=context,
             directory=directory,
@@ -461,9 +485,13 @@ async def send_immediate(
             retry_ledger=retry_ledger,
             log_tally=failure_tally,
         )
-        reports.extend(item_reports)
-        if registry is not None and key and any(report.ok for report in item_reports):
-            registry.record_push(key, now=local_now)
+        reports.extend(group_reports)
+        if registry is not None and any(report.ok for report in group_reports):
+            for group_item in group_items:
+                view = item_view(group_item)
+                key = view.get("dedup_key") or view.get("url")
+                if key:
+                    registry.record_push(key, now=local_now)
     for (failed_channel, failed_code), times in failure_tally.items():
         if times > 1:
             logger.warning(

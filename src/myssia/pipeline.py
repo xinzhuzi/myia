@@ -204,7 +204,9 @@ logger = logging.getLogger(__name__)
 #: W2 平台可选凭据字段 → 通道构造参数(10-03-messaging-w2-platforms
 #: design D2;schema 已保证字段只在宿主通道出现,这里只做下传)。weixin 行
 #: 随 10-03-messaging-weixin-bridge 增(非凭据:本地 bin 路径,同款下传);
-#: bark 行随 10-05-push-bark 增(非凭据:服务端端点 URL,同款下传)。
+#: bark 行随 10-05-push-bark 增(非凭据:服务端端点 URL,同款下传);
+#: feishu_card 行随 10-06-hermes-align 增(非凭据:消息形态 text|card 与
+#: 出站机器人档案名,同款下传)。
 _W2_CHANNEL_FIELD_KWARGS: dict[str, tuple[tuple[str, str], ...]] = {
     "ntfy": (("ntfy_token", "token_ref"),),
     "dingtalk": (("dingtalk_secret", "secret_ref"),),
@@ -215,6 +217,7 @@ _W2_CHANNEL_FIELD_KWARGS: dict[str, tuple[tuple[str, str], ...]] = {
     ),
     "weixin": (("weixin_hermes_bin", "hermes_bin"),),
     "bark": (("bark_endpoint", "bark_endpoint"),),
+    "feishu_card": (("msg_form", "msg_form"), ("bot", "bot")),
 }
 
 __all__ = [

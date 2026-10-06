@@ -384,7 +384,8 @@ async def send_batch_to_targets(
     入重试账本(at-least-once;门槛与预算由账本自理)。
 
     Args:
-        items: 本卡携带的条目(digest=整批,immediate=单条)。
+        items: 本卡携带的条目(digest=整批,immediate=同轮合并组——组合
+            铁律 10-06-hermes-align:同轮命中按 specs 分组后整组一条)。
         specs: 对象 spec 列表(schema 加载期已保证格式与同平台约束)。
         channel: 通道实例;**必须支持寻址**(``supports_targeting``),否则
             整批失败报告(绝不回落 legacy 单 target——那会误投)。

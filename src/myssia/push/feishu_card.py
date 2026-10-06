@@ -74,6 +74,53 @@ adapter.py:3925-3970``,NousResearch/Hermes-Agent,MIT)与
   单行自身超阈值时独占一卡(不截断——截断会吃条目、硬切会断 lark_md 链
   接语法;蓝本 8000 硬截断仅适用上游纯文本,卡片版刻意不取)。
 
+组合优先铁律(10-06-hermes-align,主人 10-06 令,最高优先):一轮运行
+产出的多条目必须**组合成一条消息**发,绝不逐条单发——① immediate 路由
+同轮多条命中的合并发生在派发层(:func:`myssia.push.digest.send_immediate`
+按定向 specs 分组、每组一条),消息头=类目+条数由本层兑现:
+:func:`card_title` 的 immediate 支带「N 条」后缀,正文=逐条标题+链接
+(:func:`_item_markdown` 行);② 文本日报单条消息承载全部条目,仅真超
+:data:`POST_SPLIT_THRESHOLD` 才按序续条并头尾标注 ``(i/N)``(拆条是
+不得已,不是默认)。
+
+文本消息形态(10-06-hermes-align 批次1,``msg_form: text``):日报照
+Hermes 形态发 **markdown 文本**而非交互卡片——``msg_type="post"`` 的
+``md`` tag rows 经 ``im/v1/messages`` 发群。蓝本锚(NousResearch/
+Hermes-Agent,MIT):
+
+- rows 构建 = 上游 ``_build_markdown_post_rows``(``plugins/platforms/
+  feishu/adapter.py:449-481``)直译:无 code fence → 整段单 row;有 fence
+  → 每个 fenced code block 独占一 row,fence 前后的 prose 各自成 row
+  (上游注释:大元素内混 fence 会被飞书 md 渲染器吞尾部内容);载荷 =
+  ``{"zh_cn": {"content": rows}}``(上游 ``_build_markdown_post_payload``,
+  443-446 行)。
+- 4000 字拆分 = 上游 ``_SPLIT_THRESHOLD = 4000`` 预拆口径(上游 1295 行:
+  贴近飞书 ~4096 字符客户端分片线;MYIA 侧 :data:`POST_SPLIT_THRESHOLD`
+  与卡片阈值同值同论证),按**行边界**贪心装箱(:func:`_split_post_markdown`
+  ——行完整性是卡片版行切分纪律的文本对应物;单行超线独占一段,不截断)。
+  多段时每段头尾加 ``(i/N)`` 段指示——组合优先铁律(主人 10-06 令「要
+  组合到一起再发送,而不是一条一条的发送」):单条消息承载全部条目是
+  默认,拆条是不得已的续条,头尾标注让读者知道这是同一条日报的第几段;
+  蓝本同款 = 上游 ``truncate_message`` 的 ``(1/3)`` 段指示
+  (``gateway/platforms/base.py:4874``,NousResearch/Hermes-Agent,MIT)。
+  【上游对 post 载荷被拒时回退纯文本(``_POST_CONTENT_INVALID_RE``,
+  adapter.py:1683-1691)不移植:MYIA 把 ``feishu_api_error`` 交死信/
+  重试账本如实可见,不做静默降级】
+- markdown 来源:用户 ``template`` 渲染,或内置文本版式(标题行 +
+  :func:`_item_markdown` 条目行——lark_md 的 ``**bold**``/``[t](u)``
+  与标准 markdown 同形);footer 注记随末段。text 形态不带图
+  (:meth:`_attach_card_image` 的 img/图析摘要能力属卡片组装层;
+  immediate 带图与 text 形态组合如实不带图,克制取舍)。
+
+双机器人(10-06-hermes-align 批次2,``bot: analyst``):同一通道类支持
+第二套飞书应用凭据——蓝本 = Hermes multiplex 双 profile(主 agent
+``~/.hermes/.env`` + ``ai-analyst`` profile 独立 ``FEISHU_APP_ID``,
+research.md §1 实证);MYIA 落法 = push 条目 ``bot`` 字段选凭据档案
+(:data:`BOT_APP_CREDENTIAL_KEYS`,二号 = env/钥匙链规范名
+``FEISHU2_APP_ID``/``FEISHU2_APP_SECRET``),tenant token 缓存按 app_id
+分键天然隔离;chat id 沿用本条目 ``target`` 解析(缺省主群,不随 bot
+切换——蓝本双 profile 同投 FEISHU_HOME_CHANNEL 主群的分工形态)。
+
 Credentials stay references until send time (security baseline: 凭据零明文):
 the bot token comes from ``env:FEISHU_BOT_TOKEN`` (or an injected value for
 tests). Errors carry reference names only, never resolved values.
@@ -114,6 +161,7 @@ from myssia.schema import CredentialResolveError
 
 __all__ = [
     "API_URL",
+    "BOT_APP_CREDENTIAL_KEYS",
     "CAPTION_EXCERPT_CHARS",
     "CARD_SPLIT_THRESHOLD",
     "CHATS_API_URL",
@@ -124,6 +172,10 @@ __all__ = [
     "FEISHU_REPLY_FALLBACK_CODES",
     "FeishuCardChannel",
     "IMAGES_API_URL",
+    "MARKDOWN_FENCE_CLOSE_RE",
+    "MARKDOWN_FENCE_OPEN_RE",
+    "MSG_FORMS",
+    "POST_SPLIT_THRESHOLD",
     "SEND_ATTEMPTS",
     "TENANT_TOKEN_CACHE",
     "THREAD_ID_RE",
@@ -133,6 +185,8 @@ __all__ = [
     "TRANSIENT_STATUS_CODES",
     "build_card",
     "build_markdown_card",
+    "build_post_payload",
+    "build_post_rows",
     "card_title",
     "escape_lark_md",
     "thread_reply_url",
@@ -218,6 +272,39 @@ TRANSIENT_API_CODES = frozenset({99991400})
 #: 版不截断只拆分,故单取 4000 预拆线。
 CARD_SPLIT_THRESHOLD = 4000
 
+# ------------------------------------------------- 文本消息形态(批次1)
+
+#: 文本形态消息可选值:``card``(缺省,交互卡片)/ ``text``(markdown 文本,
+#: post md rows)。构造期校验(schema Literal 是第一道门,这里是直构路径
+#: 的纵深防御——cron summary 直构先例)。
+MSG_FORMS = ("card", "text")
+#: 文本形态拆分阈值(字符数):markdown 按行边界贪心装箱,单段 ≤ 本值。
+#: 蓝本锚:上游 ``_SPLIT_THRESHOLD = 4000``(``plugins/platforms/feishu/
+#: adapter.py:1295``,NousResearch/Hermes-Agent,MIT——贴近飞书 ~4096 字符
+#: 客户端分片线);与 :data:`CARD_SPLIT_THRESHOLD` 同值同论证。
+POST_SPLIT_THRESHOLD = 4000
+#: code fence 开栏形态(上游 ``_MARKDOWN_FENCE_OPEN_RE`` 同款,adapter.py:110):
+#: 行首三反引号 + 语言名(可空),行尾允余空白。
+MARKDOWN_FENCE_OPEN_RE = re.compile(r"^```([^\n`]*)\s*$")
+#: code fence 闭栏形态(上游 ``_MARKDOWN_FENCE_CLOSE_RE`` 同款,adapter.py:111):
+#: 行首三反引号、无语言名(闭栏行带语言名不合法)。
+MARKDOWN_FENCE_CLOSE_RE = re.compile(r"^```\s*$")
+
+# ------------------------------------------------- 双机器人凭据档案(批次2)
+
+#: bot 名 → (app_id env 键, app_secret env 键)。缺省(无 bot 字段)= 主
+#: 机器人 ``FEISHU_APP_ID``/``FEISHU_APP_SECRET``;``analyst`` = 二号机器人
+#: (Hermes ai-analyst profile 的独立飞书应用),凭据位 env/钥匙链规范名
+#: ``myia/push/FEISHU2_APP_ID``/``myia/push/FEISHU2_APP_SECRET``
+#: (:func:`myssia.push.base.resolve_channel_credential` 的 env→钥匙链回退
+#: 同链)。词表与 schema ``push[].bot`` Literal 人工同步(schema 不反依赖
+#: push 层)。蓝本锚:Hermes multiplex 双 profile 各持独立 FEISHU_APP_ID
+#: (research.md §1 实证);chat id 不随 bot 切换(蓝本双 profile 同投
+#: 主群 FEISHU_HOME_CHANNEL 的分工形态)。
+BOT_APP_CREDENTIAL_KEYS: dict[str, tuple[str, str]] = {
+    "analyst": ("FEISHU2_APP_ID", "FEISHU2_APP_SECRET"),
+}
+
 
 def thread_reply_url(thread_id: str) -> str:
     """话题回复端点 ``im/v1/messages/{root_id}/reply``(root_id = 话题根消息 id)。
@@ -239,12 +326,21 @@ def escape_lark_md(text: str) -> str:
     return text.replace("[", "\\[").replace("]", "\\]").replace("<", "\\<")
 
 
-def card_title(context: SendContext) -> str:
-    """Production-style card title: 📡 聚合日报 / 🔔 立即推送 / ⏱ 定时摘要."""
+def card_title(context: SendContext, *, count: int | None = None) -> str:
+    """Production-style card title: 📡 聚合日报 / 🔔 立即推送 / ⏱ 定时摘要.
+
+    ``count``(组合铁律,10-06-hermes-align):immediate 支带「N 条」后缀
+    ——同轮合并一条后,消息头=类目+条数是主人令「组合到一起再发送」的
+    头部形态;缺省 None 全形态逐字节不变(telegram ``build_message`` 等
+    既有调用方零感知)。
+    """
     subject = context.category or "情报"
     day = context.date[5:] if len(context.date) >= 10 else context.date
     if context.kind == "immediate":
-        return f"🔔 {subject} · {day}"
+        title = f"🔔 {subject} · {day}"
+        if count is not None:
+            title += f" · {count}条"
+        return title
     if context.kind == "cron_summary":
         # 定时任务运行摘要卡(10-04-hermes-cron grill Q3 受控扩值):一次性
         # 运行报告,无槽位聚合概念,不挂 slot_label。
@@ -358,9 +454,13 @@ def _split_item_cards(
     chunks: list[list[Any]] = []
     current: list[Any] = []
     for item in items:
-        if current and _card_payload_chars(
-            build_card([*current, item], title=title)  # footer 缺省即 CARD_FOOTER
-        ) > threshold:
+        if (
+            current
+            and _card_payload_chars(
+                build_card([*current, item], title=title)  # footer 缺省即 CARD_FOOTER
+            )
+            > threshold
+        ):
             chunks.append(current)
             current = [item]
         else:
@@ -370,7 +470,11 @@ def _split_item_cards(
     if not chunks:  # 空批次保住占位卡(「本槽位没有待推送条目」,行为不变)
         chunks = [[]]
     return [
-        build_card(chunk, title=title, footer=(CARD_FOOTER if index == len(chunks) - 1 else None))
+        build_card(
+            chunk,
+            title=title,
+            footer=(CARD_FOOTER if index == len(chunks) - 1 else None),
+        )
         for index, chunk in enumerate(chunks)
     ]
 
@@ -389,9 +493,13 @@ def _split_markdown_cards(
     chunks: list[list[str]] = []
     current: list[str] = []
     for line in lines:
-        if current and _card_payload_chars(
-            build_markdown_card("\n".join([*current, line]), title=title)
-        ) > threshold:
+        if (
+            current
+            and _card_payload_chars(
+                build_markdown_card("\n".join([*current, line]), title=title)
+            )
+            > threshold
+        ):
             chunks.append(current)
             current = [line]
         else:
@@ -406,6 +514,89 @@ def _split_markdown_cards(
         )
         for index, chunk in enumerate(chunks)
     ]
+
+
+# ------------------------------------------------ 文本消息形态(批次1)
+
+
+def build_post_rows(markdown: str) -> list[list[dict[str, str]]]:
+    """markdown → post ``md`` tag rows(蓝本 ``_build_markdown_post_rows`` 直译)。
+
+    上游锚:``plugins/platforms/feishu/adapter.py:449-481``
+    (NousResearch/Hermes-Agent,MIT)。形状:每个 row 是元素列表,本函数
+    恒产单元素 ``[{"tag": "md", "text": segment}]`` row(上游同款——row 的
+    多元素位留给富文本 image/a 混排,MYIA 文本形态不涉)。分行为**code
+    fence 边界**:大 md 元素内混 fence 会被飞书 md 渲染器吞掉 fence 之后的
+    尾部内容,故 fence 前的 prose、fence 自身(整块代码)、fence 后的
+    prose 各自成 row;空段(纯空白)跳过。无 fence / 空内容 → 单 row 整段。
+    """
+    if not markdown:
+        return [[{"tag": "md", "text": ""}]]
+    if "```" not in markdown:
+        return [[{"tag": "md", "text": markdown}]]
+
+    rows: list[list[dict[str, str]]] = []
+    current: list[str] = []
+
+    def _flush_current() -> None:
+        nonlocal current
+        segment = "\n".join(current)
+        if segment.strip():
+            rows.append([{"tag": "md", "text": segment}])
+        current = []
+
+    in_code_block = False
+    for raw_line in markdown.splitlines():
+        fence_re = MARKDOWN_FENCE_CLOSE_RE if in_code_block else MARKDOWN_FENCE_OPEN_RE
+        is_fence = bool(fence_re.match(raw_line.strip()))
+        if is_fence and not in_code_block:
+            # 开栏:fence 之前的 prose 自成一 row。
+            _flush_current()
+        current.append(raw_line)
+        if is_fence:
+            in_code_block = not in_code_block
+            if not in_code_block:
+                # 闭栏:整个 code block 自成一 row。
+                _flush_current()
+    _flush_current()
+    return rows or [[{"tag": "md", "text": markdown}]]
+
+
+def build_post_payload(markdown: str) -> str:
+    """markdown → post 消息 ``content`` JSON 串(蓝本同构)。
+
+    上游锚:``_build_markdown_post_payload``(adapter.py:443-446)——
+    ``{"zh_cn": {"content": rows}}``,``ensure_ascii=False``(中文按字面
+    入串,与卡片 content 同口径)。经 ``im/v1/messages`` 以
+    ``msg_type="post"`` 发送。
+    """
+    return json.dumps(
+        {"zh_cn": {"content": build_post_rows(markdown)}}, ensure_ascii=False
+    )
+
+
+def _split_post_markdown(markdown: str, *, threshold: int) -> list[str]:
+    """文本形态长度护栏:markdown 按**行边界**贪心装箱,单段 ≤ threshold 字符。
+
+    行完整性是卡片版行切分(:func:`_split_markdown_cards`)纪律的文本对应
+    物——行是模板产物最近似的完整单元,硬切会断 markdown 链接/列表语法;
+    单行自身超阈值时独占一段(不截断,如实超线发送)。蓝本锚:上游
+    ``_SPLIT_THRESHOLD = 4000`` 预拆口径(adapter.py:1295);拆分实现取
+    MYIA 行边界贪心(上游 ``truncate_message`` 是 8000 字符预算硬拆,偏离
+    注记见模块 docstring「文本消息形态」节)。
+    """
+    lines = markdown.split("\n")
+    chunks: list[list[str]] = []
+    current: list[str] = []
+    for line in lines:
+        if current and len("\n".join([*current, line])) > threshold:
+            chunks.append(current)
+            current = [line]
+        else:
+            current.append(line)
+    if current:
+        chunks.append(current)
+    return ["\n".join(chunk) for chunk in chunks] or [""]
 
 
 def _is_transient_send_error(error: PushSendError) -> bool:
@@ -453,8 +644,16 @@ class FeishuCardChannel(TrendAwareChannel):
         timeout: per-send timeout in seconds for the self-managed client.
         sleep: awaitable backoff sleeper(10-05 R2 发送护栏,构造注入);
             defaults to :func:`asyncio.sleep`,测试钉零等待。
+        msg_form: 消息形态(批次1,缺省 ``"card"`` 交互卡片):``"text"`` =
+            markdown 文本消息(post md rows 经 ``im/v1/messages``,蓝本
+            Hermes 日报形态,见模块 docstring「文本消息形态」节)。
+        bot: 出站机器人凭据档案(批次2,缺省 None = 主机器人):
+            ``"analyst"`` = 二号机器人(`:data:`BOT_APP_CREDENTIAL_KEYS``
+            的 FEISHU2_* 凭据位);chat id 不随 bot 切换。
 
     Raises:
+        ValueError: ``msg_form``/``bot`` 不在词表内(直构路径的纵深防御;
+            YAML 路径第一道门在 schema Literal)。
         PushSendError: credential resolution failed, HTTP transport failed
             after the :data:`SEND_ATTEMPTS` transient-retry budget,
             non-JSON response, or Feishu answered a non-zero ``code``
@@ -482,7 +681,18 @@ class FeishuCardChannel(TrendAwareChannel):
         client: httpx.AsyncClient | None = None,
         timeout: float = DEFAULT_SEND_TIMEOUT_SECONDS,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        msg_form: str = "card",
+        bot: str | None = None,
     ) -> None:
+        if msg_form not in MSG_FORMS:
+            raise ValueError(
+                f"msg_form 必须是 {MSG_FORMS} 之一(消息形态),当前为 {msg_form!r}"
+            )
+        if bot is not None and bot not in BOT_APP_CREDENTIAL_KEYS:
+            raise ValueError(
+                f"bot 必须是 {sorted(BOT_APP_CREDENTIAL_KEYS)} 之一(出站机器人"
+                f"凭据档案),当前为 {bot!r}"
+            )
         self._target = target
         self._template = template
         self._token = token
@@ -490,6 +700,8 @@ class FeishuCardChannel(TrendAwareChannel):
         self._client = client
         self._timeout = timeout
         self._sleep = sleep
+        self._msg_form = msg_form
+        self._bot = bot
 
     async def send(self, items: Sequence[Any], context: SendContext) -> None:
         """Render and POST one or more interactive cards carrying ``items``.
@@ -502,6 +714,11 @@ class FeishuCardChannel(TrendAwareChannel):
         估算载荷超 :data:`CARD_SPLIT_THRESHOLD` 拆多卡(:meth:`_build_cards`),
         每卡经 :meth:`_send_with_retry` 发送包(瞬态退避 + 话题锚失效降级,
         降级后后续卡直发 create)。
+
+        ``msg_form="text"``(批次1)改走文本消息形态:markdown → post
+        ``md`` rows 按 :data:`POST_SPLIT_THRESHOLD` 行边界拆段,逐段
+        ``msg_type="post"`` 经同一 :meth:`_send_with_retry` 发送包(护栏
+        复用;蓝本锚见模块 docstring「文本消息形态」节)。
 
         Raises:
             PushSendError: on any credential/transport/API failure (callers
@@ -518,6 +735,40 @@ class FeishuCardChannel(TrendAwareChannel):
             if context.target is not None
             else None
         )
+        if self._msg_form == "text":
+            # 文本消息形态(批次1):markdown → post md rows,逐段经同一
+            # 发送包(瞬态退避 + 话题锚失效降级,R2 护栏零变化);footer
+            # 注记随末段(卡片版「footer 只挂末卡」的同款纪律)。多段时
+            # 每段头尾加 ``(i/N)`` 段指示(组合铁律:拆条是不得已,标注
+            # 让读者知道这是同一条日报的续段;上游 truncate_message 的
+            # ``(1/3)`` 指示同款,base.py:4874——头尾各一处,群内折叠
+            # 展示时任一端可见)。text 形态不带图(img/图析摘要能力属卡片
+            # 组装层,见模块 docstring)。
+            segments = self._build_post_segments(items, context)
+            total = len(segments)
+            for index, segment in enumerate(segments):
+                if total > 1:
+                    marker = f"({index + 1}/{total})"
+                    segment = f"{marker}\n{segment}\n{marker}"
+                if index == total - 1 and CARD_FOOTER:
+                    segment = f"{segment}\n\n{CARD_FOOTER}"
+                body = {
+                    "receive_id": chat_id,
+                    "msg_type": "post",
+                    "content": build_post_payload(segment),
+                }
+                thread_id = await self._send_with_retry(
+                    token, body, thread_id=thread_id
+                )
+            logger.debug(
+                "飞书文本消息已提交: segments=%d slot=%s kind=%s count=%d target=%s",
+                len(segments),
+                context.slot,
+                context.kind,
+                len(items),
+                context.target,
+            )
+            return
         cards = self._build_cards(items, context)
         for index, card in enumerate(cards):
             # immediate 带图(看图 v2):先建卡(模板渲染错误在 _build_cards
@@ -550,7 +801,7 @@ class FeishuCardChannel(TrendAwareChannel):
         行边界切(:func:`_split_markdown_cards`);不超阈值时单卡,产物与
         历史单卡逐字节同形(含 footer)。
         """
-        title = card_title(context)
+        title = card_title(context, count=len(items))
         if self._template is not None:
             # 契约:send 只抛 PushSendError —— 模板渲染失败(未定义变量/沙箱
             # 拦截等运行期错误;语法错误已在加载期被 schema 拒绝)包装为
@@ -567,6 +818,37 @@ class FeishuCardChannel(TrendAwareChannel):
                 markdown, title=title, threshold=CARD_SPLIT_THRESHOLD
             )
         return _split_item_cards(items, title=title, threshold=CARD_SPLIT_THRESHOLD)
+
+    # ------------------------------------------------ 文本消息形态(批次1)
+
+    def _build_post_segments(
+        self, items: Sequence[Any], context: SendContext
+    ) -> list[str]:
+        """组装文本形态发送段:markdown → 行边界拆段(:data:`POST_SPLIT_THRESHOLD`)。
+
+        markdown 来源两条(与卡片路径同构):用户 ``template`` 渲染(渲染
+        失败包 ``template_render_error``,同一契约)或内置文本版式——标题行
+        (:func:`card_title`,与卡片同源)+ :func:`_item_markdown` 条目行
+        (lark_md 的 ``**bold**``/``[t](u)`` 与标准 markdown 同形,直用);
+        空批次保「本槽位没有待推送条目」占位行(卡片版同款)。footer 注记
+        由 :meth:`send` 随末段追加,不在此处。
+        """
+        if self._template is not None:
+            try:
+                markdown = self._renderer.render(
+                    self._template, items, context, **self.trend_render_kwargs()
+                )
+            except TemplateRenderError as exc:
+                raise PushSendError(
+                    "template_render_error", f"push[].template 渲染失败: {exc}"
+                ) from exc
+        else:
+            lines = [f"**{card_title(context, count=len(items))}**"]
+            lines.extend(_item_markdown(item_view(item)) for item in items)
+            if not items:
+                lines.append("本槽位没有待推送条目")
+            markdown = "\n".join(lines)
+        return _split_post_markdown(markdown, threshold=POST_SPLIT_THRESHOLD)
 
     # ------------------------------------------------- immediate 带图(看图 v2)
 
@@ -697,15 +979,36 @@ class FeishuCardChannel(TrendAwareChannel):
         在场则自 mint + 进程缓存(过期前 ``TOKEN_REFRESH_LEAD_SECONDS`` 重
         mint)。三级全缺 → ``env_var_missing`` 指引设置→推送。
 
+        双机器人(批次2):``bot=`` 档案在场时**不走**主机器人三级链,直接
+        按 :data:`BOT_APP_CREDENTIAL_KEYS` 的 env/钥匙链键位解析二号应用
+        凭据 mint(二号无 BOT_TOKEN 手工路径;缓存按 app_id 分键天然隔离);
+        缺任一键 → ``env_var_missing`` 指引对应键位。chat id 解析不受影响
+        (沿用 ``target``/``targets``,缺省主群)。
+
         Raises:
             PushSendError: 三级全缺(``env_var_missing``)或 mint 失败
-                (``feishu_token_mint_failed``)。
+            (``feishu_token_mint_failed``);bot 档案凭据缺
+            (``env_var_missing``,文案带二号键位指引)。
         """
         if self._token is not None:
             return self._token
+        if self._bot is not None:
+            app_id_env, app_secret_env = BOT_APP_CREDENTIAL_KEYS[self._bot]
+            app_id = self._resolve_app_credential(app_id_env)
+            app_secret = self._resolve_app_credential(app_secret_env)
+            if app_id is None or app_secret is None:
+                raise PushSendError(
+                    "env_var_missing",
+                    f"飞书 bot={self._bot} 凭据未录入:需要 {app_id_env} 与 "
+                    f"{app_secret_env}(环境变量,或钥匙链规范名 "
+                    f"myia/push/{app_id_env} / myia/push/{app_secret_env})",
+                )
+            return await self._mint_tenant_token(app_id, app_secret)
         try:
             return resolve_channel_credential(
-                DEFAULT_TOKEN_ENV_REF, env_key="FEISHU_BOT_TOKEN", label="飞书 tenant token"
+                DEFAULT_TOKEN_ENV_REF,
+                env_key="FEISHU_BOT_TOKEN",
+                label="飞书 tenant token",
             )
         except CredentialResolveError as bot_token_miss:
             app_id = self._resolve_app_credential("FEISHU_APP_ID")
@@ -754,7 +1057,10 @@ class FeishuCardChannel(TrendAwareChannel):
                 "(核对 app_id/app_secret 与应用发布状态)",
             )
         lifetime = expire if isinstance(expire, (int, float)) else 0
-        TENANT_TOKEN_CACHE[app_id] = (token, time.monotonic() + max(lifetime - TOKEN_REFRESH_LEAD_SECONDS, 0.0))
+        TENANT_TOKEN_CACHE[app_id] = (
+            token,
+            time.monotonic() + max(lifetime - TOKEN_REFRESH_LEAD_SECONDS, 0.0),
+        )
         return token
 
     def _resolve_target(self) -> str:
@@ -824,7 +1130,9 @@ class FeishuCardChannel(TrendAwareChannel):
                 attempt += 1
             else:
                 return thread_id
-        raise AssertionError("unreachable: retry loop must return or raise")  # pragma: no cover
+        raise AssertionError(
+            "unreachable: retry loop must return or raise"
+        )  # pragma: no cover
 
     async def _post(
         self, token: str, body: dict[str, Any], *, thread_id: str | None = None

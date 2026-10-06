@@ -846,7 +846,10 @@ class TestPipelineAggregateStage:
         merged_urls = {item.url for item in result.items if item.metadata.get("merged_sources")}
         assert merged_urls == {"https://s1.demo.local/post/1"}
         assert result.pushes[0].immediate == 2
-        assert len(result.pushes[0].reports) == 2  # 2 张卡,不是 3 张也不是 1 张
+        # 组合铁律(10-06-hermes-align):同轮 2 条 immediate 合并**一条**消息
+        # (聚合判定精度不变——既不是 3 条(零误合并)也不逐条单发,是 1 条载 2 目)
+        reports = result.pushes[0].reports
+        assert len(reports) == 1 and reports[0].item_count == 2
 
     def test_aggregate_disabled_keeps_v03_stage_list(self, tmp_path, endpoint_env):
         config = make_category()  # 无 aggregate 节

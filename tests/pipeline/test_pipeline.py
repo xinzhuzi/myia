@@ -192,11 +192,13 @@ def test_pipeline_stage_order_and_item_handoff(tmp_path):
     assert all(item.dedup_key for item in result.items)
     assert len(store.list_items()) == 2
     # stdout 通道真正收到 immediate 桶(freebie -> 大类缺省 immediate);
-    # send_immediate 每条目一张卡 → 2 条报告
+    # 组合铁律(10-06-hermes-align):同轮 2 条合并成**一条** → 1 条报告
     assert result.pushes[0].channel == "stdout"
     assert result.pushes[0].immediate == 2
     assert result.pushes[0].ok is True
-    assert [report.ok for report in result.pushes[0].reports] == [True, True]
+    reports = result.pushes[0].reports
+    assert [report.ok for report in reports] == [True]
+    assert reports[0].item_count == 2
     store.close()
 
 
@@ -683,7 +685,12 @@ def test_stats_push_failures_dedup_cap_and_clip(tmp_path, monkeypatch, caplog):
     """stats_dict push 段失败明细:同错去重计数、封顶 3 条、超长截断、
     ok 通道空列表;真失败文案进 ERROR 日志;failures 经 finish_run 落库
     → list_runs 回读全链存活(仪表盘失败徽章的数据面)。
+
+    组合铁律(10-06-hermes-align)后同轮命中合并成一条,单通道单轮至多
+    一条失败报告——多报告流经 fake ``send_immediate`` 注入(先例:下方
+    skipped 两用例),统计面去重/封顶/截断语义不变照测。
     """
+    from myssia.push import SendReport
     from myssia.push.base import clip_text
 
     real_store = SQLiteStore(tmp_path / "push-failures.db")
@@ -692,27 +699,27 @@ def test_stats_push_failures_dedup_cap_and_clip(tmp_path, monkeypatch, caplog):
     items = [
         {"title": f"免费送 第{i}期", "url": f"https://api.demo.local/{i}"} for i in range(5)
     ]
-    # 一次 send = 一条 immediate 卡 = 一条报告;长文案 ×2(去重计 2)+
-    # 三条不同短文案(封顶后仅前两条入桶)
+    # 旧世界逐条单发的五报告流:长文案 ×2(去重计 2)+ 三条不同短文案
+    # (封顶后仅前两条入桶);合并世界里该形态来自多通道/多组,语义同构
     long_detail = "凭据解析失败: 环境变量 X 未设置,到 设置→推送 填一次即可" + "补" * 400
     errors = [long_detail, "短错二", long_detail, "短错三", "短错四"]
 
-    class SequencedFailureChannel(RecordingChannel):
-        name = "stdout"
+    async def fake_send_immediate(batch_items, **kwargs):
+        channels = kwargs.get("channels") or []
+        channel_name = channels[0].name if channels else "stdout"
+        if channel_name == "ntfy":
+            return [SendReport(channel="ntfy", ok=True, item_count=len(batch_items))]
+        return [
+            SendReport(
+                channel="stdout",
+                ok=False,
+                item_count=1,
+                error=f"[env_var_missing] {error}",
+            )
+            for error in errors
+        ]
 
-        async def send(self, items, context) -> None:
-            from myssia.push import PushSendError
-
-            raise PushSendError("env_var_missing", errors.pop(0))
-
-    class SilentOkChannel(RecordingChannel):
-        name = "ntfy"
-
-    monkeypatch.setattr(
-        pipeline_module,
-        "CHANNELS",
-        {"stdout": SequencedFailureChannel, "ntfy": SilentOkChannel},
-    )
+    monkeypatch.setattr(pipeline_module, "send_immediate", fake_send_immediate)
     pipeline, _clock = make_pipeline(config, handler=make_handler(items), store=real_store)
 
     with caplog.at_level("WARNING", logger="myssia.pipeline"):

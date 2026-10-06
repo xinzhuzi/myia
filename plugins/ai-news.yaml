@@ -415,6 +415,10 @@ enrich:
 push:
   - channel: feishu_card
     target: env:FEISHU_CHAT_ID  # bot token comes from env:FEISHU_BOT_TOKEN
+    msg_form: text              # 10-06-hermes-align 批次1:日报走 markdown
+                                # 文本消息(Hermes 日报形态,post md rows +
+                                # 4000 字行边界拆段,经 im/v1/messages),
+                                # 弃交互卡片;缺省 card 向后兼容。
     route:
       - when: "score >= 9"      # v0.2 slot: only breakout news (scored) pushes now
         mode: immediate
