@@ -882,6 +882,10 @@ def test_registry_resolves_stealth_engine_and_schedule_table_empty(monkeypatch):
 def test_auto_chain_first_five_fail_degrade_to_stealth(monkeypatch, engine_store):
     """链序集成:L1/L2 无 extract 拒载 → crawl4ai/firecrawl/scrapling 假引擎失败 →
     stealth_browser(假 MCP)兜底成功,hint 回写."""
+    # 链序断言钉在 L2 兜底开关缺省关(extract_required 拒载)上:剥外部会话
+    # 可能带的 MYIA_EXTRACT_FALLBACK=1(README.en.md launchctl 启用法),
+    # 与 CI 缺省态对齐(test_static_html.py 同款隔离)。
+    monkeypatch.delenv("MYIA_EXTRACT_FALLBACK", raising=False)
     monkeypatch.setitem(registry.ENGINE_REGISTRY, "crawl4ai", lambda: make_fail_engine("crawl4ai", "crawl4ai_down"))
     monkeypatch.setitem(registry.ENGINE_REGISTRY, "firecrawl", lambda: make_fail_engine("firecrawl", "firecrawl_down"))
     monkeypatch.setitem(registry.ENGINE_REGISTRY, "scrapling", lambda: make_fail_engine("scrapling", "scrapling_down"))

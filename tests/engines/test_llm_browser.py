@@ -889,6 +889,10 @@ def test_registry_resolves_llm_engine():
 def test_auto_chain_first_six_fail_llm_browser_rescues(monkeypatch, engine_store):
     """七层终测:L1-L2 无 extract 拒载 + 四层假引擎失败 → llm_browser(mock
     skyvern)链尾兜底成功,hint 回写."""
+    # 链序断言钉在 L2 兜底开关缺省关(extract_required 拒载)上:剥外部会话
+    # 可能带的 MYIA_EXTRACT_FALLBACK=1(README.en.md launchctl 启用法),
+    # 与 CI 缺省态对齐(test_static_html.py 同款隔离)。
+    monkeypatch.delenv("MYIA_EXTRACT_FALLBACK", raising=False)
     install_fail_engines(
         monkeypatch,
         {
@@ -931,6 +935,8 @@ def test_auto_chain_first_six_fail_llm_browser_rescues(monkeypatch, engine_store
 
 def test_llm_browser_failure_terminates_chain_structured(monkeypatch, engine_store):
     """链尾终止语义:llm_browser 也失败 -> 链耗尽,结构化上报,无「下一层」."""
+    # 同上:剥 MYIA_EXTRACT_FALLBACK 保 L2 extract_required 拒载缺省态。
+    monkeypatch.delenv("MYIA_EXTRACT_FALLBACK", raising=False)
     install_fail_engines(
         monkeypatch,
         {
@@ -991,6 +997,8 @@ def test_explicit_llm_browser_source_runs_alone_and_writes_hint(engine_store):
 def test_auto_hint_llm_browser_first_then_cleared_and_chain_walks_rest(monkeypatch, engine_store):
     """hint=llm_browser 失败:hint 清除,链按 canonical 序走完其余六层(hint 重排
     已把 llm_browser 提到链首,本轮不再重试第二次 —— registry 既有 hint 语义)."""
+    # 同上:剥 MYIA_EXTRACT_FALLBACK 保 L2 extract_required 拒载缺省态。
+    monkeypatch.delenv("MYIA_EXTRACT_FALLBACK", raising=False)
     install_fail_engines(
         monkeypatch,
         {
