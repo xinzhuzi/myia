@@ -1,0 +1,30 @@
+{
+  "id": "win-second-instance-raise",
+  "name": "win-second-instance-raise",
+  "title": "Windows 二实例唤出主窗",
+  "description": "复核线:Windows 静默启动双击无窗缺口经查已由 10-05-win-second-instance-show(729b8f2)以同款二实例唤出方案落地,本档记录裁决与域内门禁复核,零代码改动",
+  "status": "review",
+  "dev_type": null,
+  "scope": "desktop-rust-shell",
+  "package": "desktop",
+  "priority": "P2",
+  "creator": "xinzhuzi",
+  "assignee": "xinzhuzi",
+  "createdAt": "2026-10-07",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "729b8f2",
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "desktop/src-tauri/src/main.rs",
+    "desktop/src-tauri/Cargo.toml",
+    "desktop/src-tauri/Cargo.lock"
+  ],
+  "notes": "复核线零代码改动:缺口已由 10-05-win-second-instance-show 代码笔 729b8f2 以同款官方 single-instance 方案落地(commit 字段指向该代码笔);本线探查确认在位后亲跑域内门禁 cargo check --locked exit 0 + cargo test --locked 85 passed 0 failed 1 ignored 全绿;Windows 真机行为验证归冒烟线",
+  "meta": {}
+}
