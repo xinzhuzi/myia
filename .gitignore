@@ -115,3 +115,10 @@ Thumbs.db
 # ---- 装机包冒烟(e2e package smoke)运行产物 ----
 # package_smoke.py 的截图/日志输出目录(运行态证据,不入库;脚本本体在库)
 desktop/ui-src/e2e/artifacts/
+
+# ---- Trellis 任务 evidence(验收证据:截图/回执等,主人 2026-10-07 令留盘外)----
+# 只挡未跟踪新增;库里既有已跟踪 evidence 不受影响(gitignore 不作用于已跟踪文件)。
+# archive 侧实际路径带月份层(archive/<YYYY-MM>/<task>/evidence/),故用 ** 盖任意深度
+# (指令字面 .trellis/tasks/archive/*/evidence/ 的 * 只匹配一层,实测盖不住两层路径)。
+.trellis/tasks/*/evidence/
+.trellis/tasks/archive/**/evidence/
