@@ -23,7 +23,8 @@
 产真锁后落包,其门禁(11 件全覆盖 + sha256/url 自洽)随批4 落,本文件
 不锁锁件。
 
-品类面(官方 7 + demo + 场景 monitor/credentials)属「配置可随包」,
+品类面(官方 7 + demo + 场景 monitor/credentials + telegram 三件与
+daily-digest,10-08 查漏批③后 14 件)属「配置可随包」,
 维持随包不变,断言原样保留。与 tests/desktop/test_pyenv_resources.py
 的分工:彼管 Python 运行时五映射「不被挤掉」;此管随包插件面
 (品类在 + 组件包两声明在且**仅有** + 源码/数据件不在)。
@@ -60,6 +61,13 @@ OFFICIAL_CATEGORY_YAMLS = (
     # 2026-10-05 批二进包:随包 plugins 面自此 10 组件包 + 10 品类 = 20 件。
     "monitor.yaml",
     "credentials.yaml",
+    # telegram 三件 + daily-digest(2026-10-08 10-08-tg-web-line 查漏批③
+    # G5/G9 入种子:telegram-groups/telegram-channels 存量两件补映射,
+    # telegram-web 新示范件,daily-digest 合并日报)——随包品类面自此 14 件。
+    "telegram-groups.yaml",
+    "telegram-channels.yaml",
+    "telegram-web.yaml",
+    "daily-digest.yaml",
 )
 
 #: desktop tier 源码件全件(EXPECTED_TIERS 同源清单;新规范下这些件的
@@ -119,7 +127,7 @@ def _conf_resources() -> dict[str, str]:
     "yaml_name", [name for name in OFFICIAL_CATEGORY_YAMLS if name != "myssia-demo.yaml"]
 )
 def test_official_category_yaml_bundled(yaml_name: str) -> None:
-    """品类 YAML 逐一(官方 7 + 场景 2,monitor/credentials 见常量注):
+    """品类 YAML 逐一(官方 7 + 场景 2 + telegram/日报 4,见常量注):
     resources 有映射,且映射源在仓库 plugins/ 实况存在。"""
     source = f"../../plugins/{yaml_name}"
     dest = f"plugins/{yaml_name}"

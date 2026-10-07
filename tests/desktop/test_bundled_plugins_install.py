@@ -13,7 +13,7 @@ test_desktop_sidecar_protocol.py 的 rpc 手法;rpc helper 本文件独立一份
   本测试不经「手写件清单」二手复述:list 断言数从映射动态派生,与
   test_installer_resources.py 的守卫常量(DESKTOP_TIER_PACKAGES 9 +
   STUB_ONLY_PACKAGES 1 + REMOTE_STUB_PACKAGES 1 = 11 组件包,10-06 阶段3
-  起含 remote 桩 myssia-firecrawl;批二 R4 后品类 10 件)对账,映射漂移
+  起含 remote 桩 myssia-firecrawl;10-08 查漏批③后品类 14 件)对账,映射漂移
   即红);
 - env 未设/目录不存在 = 合法空表(dev 稳定契约);
 - install 三岔编排(10-06 分发规范:声明随包、源码远取):锁在+条目在 →
@@ -54,7 +54,7 @@ _spec = importlib.util.spec_from_file_location("desktop_entry_bundled", ENTRY_PA
 entry = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(entry)
 
-# 与 test_installer_resources.py 同源守卫常量(随包组件包 11 件 + 品类 10 件
+# 与 test_installer_resources.py 同源守卫常量(随包组件包 11 件 + 品类 14 件
 # 单一事实源;跨文件 import 常量——两侧清单漂移时参数化对不上即红,人工对账
 # 口径同彼处)。
 from test_installer_resources import (  # noqa: E402
@@ -69,8 +69,9 @@ from test_installer_resources import (  # noqa: E402
 #: 插件件」卡的轨D remote 配置面板挂点,零 adapter 零运行时)。
 BUNDLED_PACKAGES = DESKTOP_TIER_PACKAGES + STUB_ONLY_PACKAGES + REMOTE_STUB_PACKAGES
 
-#: 随包品类 YAML 全集(恰 10 件;批二 R4 后 = OFFICIAL_CATEGORY_YAMLS 同源,
-#: 7 官方 + demo + monitor/credentials 两场景件)。
+#: 随包品类 YAML 全集(恰 14 件;= OFFICIAL_CATEGORY_YAMLS 同源,7 官方 +
+#: demo + monitor/credentials 两场景件 + telegram 三件与 daily-digest,
+#: 10-08 查漏批③ G5/G9 入种子)。
 BUNDLED_CATEGORY_IDS = tuple(name.removesuffix(".yaml") for name in OFFICIAL_CATEGORY_YAMLS)
 
 
@@ -168,7 +169,7 @@ def make_bundled_package(base: Path, plugin_id: str, manifest_text: str, *, with
 
 
 # ---------------------------------------------------------------------------
-# list:发现面 / 空态 / 坏 manifest 条目 / 装机态 10 件对账
+# list:发现面 / 空态 / 坏 manifest 条目 / 装机态对账(11 组件包 + 14 品类)
 # ---------------------------------------------------------------------------
 
 
@@ -195,7 +196,7 @@ def test_list_env_points_to_missing_dir_is_also_empty(monkeypatch, tmp_path):
 
 def test_list_rebuilt_installer_tree_yields_exactly_eleven_packages(monkeypatch, tmp_path):
     """装机态对账:resources 映射重建目录树 → 组件包恰 11 件(10 desktop +
-    myssia-firecrawl remote 桩)、品类恰 10 件(与 test_installer_resources
+    myssia-firecrawl remote 桩)、品类恰 14 件(与 test_installer_resources
     守卫常量同源;映射漂移即红,不硬编码孤数)。"""
     root = rebuild_bundled_tree(tmp_path / "Resources")
     monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
@@ -226,9 +227,9 @@ def test_list_rebuilt_installer_tree_yields_exactly_eleven_packages(monkeypatch,
     # credhunter 件 credhunter/ 子包(整目录映射)不单独成条目——按 manifest 计
     ids = sorted(plugin["id"] for plugin in result["plugins"])
     assert ids == sorted(BUNDLED_PACKAGES)
-    # 品类发现面(批二 R3):重建树平铺 YAML 恰 10 件,id 集与守卫常量同源;
+    # 品类发现面(批二 R3;批③后 14 件):重建树平铺 YAML,id 集与守卫常量同源;
     # exists 对齐数据根实况(隔离空沙箱 → 全 False);官方件全可读零 finding。
-    assert len(result["categories"]) == len(BUNDLED_CATEGORY_IDS) == 10
+    assert len(result["categories"]) == len(BUNDLED_CATEGORY_IDS) == 14
     assert {cat["id"] for cat in result["categories"]} == set(BUNDLED_CATEGORY_IDS)
     for cat in result["categories"]:
         assert set(cat) == {"file", "path", "id", "name", "schedule", "exists", "findings"}, (
@@ -1132,7 +1133,7 @@ def test_category_install_locates_by_yaml_id_when_file_name_differs(monkeypatch,
 def test_category_install_and_seed_semantics_aligned(monkeypatch, tmp_path):
     """与 _seed_first_run 幂等补缺对齐不打架(批二 R3 红线):
 
-    - serve 启动补种自动补缺:10 件官方品类全落数据根(list exists 全翻真);
+    - serve 启动补种自动补缺:14 件随包品类全落数据根(list exists 全翻真);
     - 补种绝不覆盖已存在文件:手改件逐字节保留(再跑一轮补种不动它);
     - 安装面对已存在件(补种拷的)未 force → category_exists 拒——两通道
       语义同向:自动面永不覆盖,显式面知情 force 才覆盖。
@@ -1144,8 +1145,8 @@ def test_category_install_and_seed_semantics_aligned(monkeypatch, tmp_path):
     monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: root)
     _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.list", "params": {}})
     categories = responses[0]["result"]["categories"]
-    assert len(categories) == 10
-    assert all(cat["exists"] for cat in categories), "serve 启动补种应已把 10 件补齐"
+    assert len(categories) == 14
+    assert all(cat["exists"] for cat in categories), "serve 启动补种应已把 14 件补齐"
     seeded = home / "plugins" / "ai-news.yaml"
     assert seeded.exists()
     # 手改件不被补种覆盖(幂等补缺,逐字节保留)
