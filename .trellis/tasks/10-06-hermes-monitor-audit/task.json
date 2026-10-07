@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "排查+模拟双线全交付:沙盘七项全过(三形态触发/双 serve at-most-once 实证/kill-9 坍缩补发/独立账本/deliver local/CLI 面/cron_stale 心跳实弹 fired);审计九条潜在缺陷入 research §2(本轮不修,风险排序留主人裁决,当前单宿主形态风险低);秒级粒度被拒与 scope/channel 封闭词表为词表行为非缺陷;沙盘残留两组 heartbeat-evidence serve 疑似并行会话在途未动。;九缺陷处置回执入 prd.md 尾(主人令都做完:e8d7801 六修三注——①per-writer 心跳戳集②回拨负时长容忍③降级锁 3-way 字段合并+心跳写节流⑦缺 runner 即 raise⑨扫描专用错误 marker status 可见⑧垃圾戳 COALESCE 定序;④⑤⑥⑧a/c 按档内取向注记收口;定向 pytest 671+198 全绿 ruff 零告警)。",
+  "notes": "排查+模拟双线全交付:沙盘七项全过(三形态触发/双 serve at-most-once 实证/kill-9 坍缩补发/独立账本/deliver local/CLI 面/cron_stale 心跳实弹 fired);审计九条潜在缺陷入 research §2(本轮不修,风险排序留主人裁决,当前单宿主形态风险低);秒级粒度被拒与 scope/channel 封闭词表为词表行为非缺陷;沙盘残留两组 heartbeat-evidence serve 疑似并行会话在途未动。;九缺陷处置回执入 prd.md 尾(主人令都做完:e8d7801 六修三注——①per-writer 心跳戳集②回拨负时长容忍③降级锁 3-way 字段合并+心跳写节流⑦缺 runner 即 raise⑨扫描专用错误 marker status 可见⑧垃圾戳 COALESCE 定序;④⑤⑥⑧a/c 按档内取向注记收口;定向 pytest 671+198 全绿 ruff 零告警)。;2026-10-07 复核轮:九条逐条判定=全部已被并行线处置(六修+三注 e8d7801),当前 HEAD 代码面行号亲核在位(jobs.py per-writer 戳集/claim_is_live 容差、store.py 3-way、tick.py ValueError+④⑥注记、occurrences.py ⑤注记、executions.py COALESCE、ticker.py+cli.py ⑨双面);无低风险遗留,本轮零新修不硬修(④⑤⑥真修推荐与量级入 prd 尾注记);域内门禁亲跑 pytest tests/cron+alerts/test_heartbeat+cli/test_cli 417 passed;维持 review。",
   "meta": {}
 }

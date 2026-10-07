@@ -35,3 +35,28 @@
 ### 门禁轮次补记(纯增量;2026-10-06 12:48)
 
 全量门禁 vitest 两轮红,归因非内容:**门禁脚本以 cwd=本任务目录调 `npm --prefix desktop/ui-src run test`(相对 prefix)**——npm debug log 实证(argv 行 `--prefix desktop/ui-src run test` + `verbose cwd .../10-06-hermes-monitor-audit`),相对 prefix 被 cwd 锚错位 → ENOENT,重跑必红。内容面亲验全绿:规范位置 `desktop/ui-src` 下 `npm test` 532/532(含他席在途 dashboard 新增 9 例)+ `npm run build` 绿。处置(本任务目录内、不碰他席件):置 `desktop/ui-src/package.json` 重定向垫片(绝对 prefix 指回真套件,真实退出码原样透传,非伪造),并以门禁同形调用(`cd 本任务目录 && npm --prefix desktop/ui-src run test|build`)亲验 test 532/532、build 双绿、垫片存活;若垫片再被环境清除,持久解=脚本侧改绝对 prefix 或仓库根 cwd。
+
+### 九缺陷复核轮(2026-10-07,处置流到岗逐条判定;零新修)
+
+> 缘起:主人令「处置 hermes 审计九缺陷」。到岗先 ls 确认档在(review 态、已被并行线动过:prd 尾处置回执 a2cf49e+research §5 处置表 4150b9b+§4.1 补测 7ae485e)。逐条判定不采信自述,直接核**当前 HEAD**(0b9ad6e)代码面+亲跑域内门禁,结论:**九条全部已被并行 Hermes 流处置完毕(六修+三注,代码 e8d7801),无低风险遗留项,本轮修 0 条不硬修**。
+
+| # | 判定 | 当前 HEAD 亲核证据(行号) |
+|---|------|--------------------------|
+| 1 | 已被并行线修掉 | jobs.py:313 `TICKER_WRITERS_DIRNAME`+:602 `_ticker_writers_dir`+:621 `_prune_ticker_writers`+:668 `ticker_heartbeat_writer_alive`(per-writer 戳集族全在位) |
+| 2 | 已被并行线修掉 | jobs.py:190-206 `claim_is_live` docstring 负时长窗 `[-FIRE_CLAIM_TTL_SECONDS, ttl)` 容差在位 |
+| 3 | 已被并行线修掉(双管) | store.py:401-406 `_record_load_baseline`+3-way 字段合并族;jobs.py:145 `CLAIM_REFRESH_MIN_AGE_SECONDS = FIRE_CLAIM_TTL_SECONDS / 2` 写节流 |
+| 4 | 已按档内取向注记收口 | tick.py:315-316 docstring「覆盖整个派发期(同步等子进程 run_timeout)——长 job 期间他宿主全静默,积压坍缩为一发(F1.4)」 |
+| 5 | 已按档内取向注记收口 | occurrences.py:59-62 docstring「fail-open 是裁决过的取向(宁重发不吞调度)+WARNING+exc_info 留痕」 |
+| 6 | 已按档内取向注记收口 | tick.py:188-197 `_maybe_reap_dead_owners` docstring 落「收紧属 pipeline 域(ppid/death-signal;darwin 无可移植 death-signal)+新宿主首 tick killpg 兜底」边界 |
+| 7 | 已被并行线修掉 | tick.py:323-324+ticker.py:187-188 缺 `execute_job` 一律 ValueError |
+| 8 | 已被并行线最小修 | executions.py:485/486/498/541 列表/游标/窗口三处 `COALESCE(julianday(claimed_at), -1)` 定序 |
+| 9 | 已被并行线修掉 | ticker.py:134-148 专用 marker 写入+成功即清;cli.py:1870/1890 JSON 键 `heartbeat_scan_error`+:1919-1920 人读告警行 |
+
+**域内门禁亲跑(2026-10-07)**:`uv run --all-extras pytest tests/cron tests/alerts/test_heartbeat.py tests/cli/test_cli.py -q` → **417 passed in 21.32s**(九条修复的钉死测试在当前 HEAD 仍全绿,未被后续提交破坏;较 prd 回执 463 差=当时跑 alerts 全目录而本次按核验面取 test_heartbeat.py)。
+
+**④⑤⑥若未来真修的推荐与量级**(主人裁决后再动,本轮不碰):
+- **④ tick 锁覆盖派发期**:真修=派发/执行两段式(先落 fire_claim 交执行器异步跑,锁只护派发段)——动 tick.py 核心 at-most-once 语义+崩溃恢复重设计,量级中(~200-400 行+大量并发测试);当前单宿主形态风险低,**建议维持注记**,双 serve 常态化再动(research §3 同结论)。
+- **⑤ 去重闸 fail-open**:真修=账本瞬断改 fail-close 或 last-occurrence 本地缓存副本——单点改动量级小-中(~50-100 行),但「宁重发不吞调度」系已裁决取向,反向修改需主人重新裁决,**不建议动**。
+- **⑥ 死属主孤儿子进程**:真修=子进程侧 ppid 自监视/death-signal,涉 pipeline 域 runner 启动路径+darwin 分平台,量级中-大(~150-300 行);无活宿主时无人可杀属定义性边界,新宿主首 tick killpg 已兜底,**建议维持**。
+
+task.json 维持 review 原状(零修),notes 追加本复核轮注记。
