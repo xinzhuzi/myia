@@ -2122,11 +2122,13 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
             as_json=False,
         )
         return EXIT_CONFIG_ERROR
-    non_telegram = [s.name for s in config.sources if s.engine != "telegram"]
+    non_telegram = [
+        s.name for s in config.sources if s.engine not in ("telegram", "tg_web")
+    ]
     if non_telegram:
         _emit_generic_error(
             "telegram_serve_config",
-            f"telegram serve 只消费 engine: telegram 源,品类含其它引擎源:"
+            f"telegram serve 只消费 engine: telegram / tg_web 源,品类含其它引擎源:"
             f"{', '.join(non_telegram)}(批量采集请走 myssia run)",
             as_json=False,
         )
@@ -2137,6 +2139,8 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
     try:
         backend = get_backend()
         for source in config.sources:
+            if source.engine == "tg_web":
+                continue  # web 线源走 assemble_web_manager(账号×群绑定,下方)
             options = (source.extra_params.get("engine_options") or {}).get(
                 "telegram", {}
             )
@@ -2273,7 +2277,20 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
     if user_note:
         logger.info("telegram serve telethon 用户线未起:%s", user_note)
 
-    if bot_host is None and user_host is None:
+    # TG 网页线(C 线,W3;engine: tg_web 源按账号分组,帽 max_accounts 缺省 3;
+    # 键超帽/无 tg_web 源 = 留痕零阻塞 —— web 线是增强线,不动摇其余两线)。
+    web_manager, web_note = _assemble_telegram_web_line(
+        config.sources,
+        telegram_dir=telegram_dir,
+        data_root=data_root,
+        backend=backend,
+        store_item=_store_item,
+        push_high_value=_push_high_value,
+    )
+    if web_note:
+        logger.info("telegram serve TG 网页线未起:%s", web_note)
+
+    if bot_host is None and user_host is None and web_manager is None:
         _emit_generic_error(
             "telegram_serve_credential",
             f"bot token 与 telethon session 双缺,serve 无线可起。\n"
@@ -2283,13 +2300,23 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
             "telethon 用户线:session 未首登 —— myssia secret set "
             "myia/telegram/api-id 与 myssia secret set myia/telegram/api-hash"
             "(my.telegram.org 取值)后 myssia telegram login(手机号+验证码,"
-            "建议挂小号)。",
+            "建议挂小号)。\n"
+            "TG 网页线:配置档未首登 —— myssia telegram web-login "
+            "--account telegram-<标识>(零凭据,页面内输手机号+验证码)。",
             as_json=False,
         )
         store.close()
         return EXIT_CONFIG_ERROR
 
-    lines = [name for name, on in (("bot", bot_host), ("telethon", user_host)) if on]
+    lines = [
+        name
+        for name, on in (
+            ("bot", bot_host),
+            ("telethon", user_host),
+            ("web", web_manager),
+        )
+        if on
+    ]
     logger.info(
         "myssia telegram serve:常驻宿主启动(线=%s,数据根 %s,品类 %s,群 %s,"
         "Ctrl-C 停)",
@@ -2300,10 +2327,12 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
     )
     exit_code = EXIT_OK
     try:
-        asyncio.run(_run_telegram_hosts(bot_host, user_host))
+        asyncio.run(
+            _run_telegram_hosts(bot_host, user_host, web_manager)
+        )
     except KeyboardInterrupt:
         logger.info(
-            "telegram serve 已按 Ctrl-C 停止 rounds=%s", 
+            "telegram serve 已按 Ctrl-C 停止 rounds=%s",
             bot_host.rounds if bot_host is not None else 0,
         )
     except (TelegramPollError, TelethonLineError) as exc:
@@ -2314,11 +2343,15 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
         exit_code = EXIT_CONFIG_ERROR
     finally:
         # 深审 F14:装配面收尾 —— 账本连接与 store 同批关闭(HTTP 客户端由
-        # 宿主 run_forever 退出路径的 poller.aclose 收)。
+        # 宿主 run_forever 退出路径的 poller.aclose 收;web manager 各键
+        # 账本由其 close 统一收)。
         for ledger in (bot_ledger, user_ledger):
             if ledger is not None:
                 with contextlib.suppress(Exception):
                     ledger.close()
+        if web_manager is not None:
+            with contextlib.suppress(Exception):
+                web_manager.close()
         store.close()
     return exit_code
 
@@ -2339,14 +2372,43 @@ def _assemble_telegram_user_line(
     )
 
 
-async def _run_telegram_hosts(bot_host: Any, user_host: Any) -> None:
-    """双线并跑:一线致命不拖另一线(致命者留痕上抛,健康线继续服务)。
+def _assemble_telegram_web_line(
+    sources: list[Any],
+    *,
+    telegram_dir: Path,
+    data_root: Path,
+    backend: Any,
+    store_item: Any,
+    push_high_value: Any,
+) -> tuple[Any, str | None]:
+    """TG 网页线装配(W3;薄委托 :func:`assemble_web_manager` 工厂,
+    CLI 与桌面 entry 同一份 —— 多账号分组/max_accounts 帽/分键账本/
+    哨兵告警面语义见工厂文档)。"""
+    from myssia.telegram.web_host import assemble_web_manager
 
-    gather(return_exceptions):单线致命(401/session 失效)不取消另一线
+    return assemble_web_manager(
+        sources,
+        telegram_dir=telegram_dir,
+        data_root=data_root,
+        backend=backend,
+        store_item=store_item,
+        push_high_value=push_high_value,
+    )
+
+
+async def _run_telegram_hosts(
+    bot_host: Any, user_host: Any, web_manager: Any = None
+) -> None:
+    """三线并跑:一线致命不拖其余线(致命者留痕上抛,健康线继续服务)。
+
+    gather(return_exceptions):单线致命(401/session 失效)不取消其余线
     —— 运行期以 WARNING 留痕每线结局,最后把首个非取消异常上抛(退出码 1
-    语义保留);Ctrl-C 由 asyncio.run 的取消机制统一传达。
+    语义保留);web 线(manager)自带单键失效隔离(哨兵告警不退出),
+    manager 的致命面只剩装配后未预期的异常;Ctrl-C 由 asyncio.run 的
+    取消机制统一传达。
     """
-    tasks = [host.run_forever() for host in (bot_host, user_host) if host is not None]
+    hosts = [host for host in (bot_host, user_host, web_manager) if host is not None]
+    tasks = [host.run_forever() for host in hosts]
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for result in results:
         if isinstance(result, BaseException) and not isinstance(

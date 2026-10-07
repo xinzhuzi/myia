@@ -5914,11 +5914,13 @@ def _assemble_telegram_host(
             f"sidecar: telegram 宿主未起(品类装载失败 {category_path.name}): {exc}",
         )
         return None
-    non_telegram = [s.name for s in config.sources if s.engine != "telegram"]
+    non_telegram = [
+        s.name for s in config.sources if s.engine not in ("telegram", "tg_web")
+    ]
     if non_telegram:
         myssia_log.stream_line(
             None, "stderr",
-            f"sidecar: telegram 宿主未起(品类含非 telegram 引擎源: {', '.join(non_telegram)};批量采集走 run)",
+            f"sidecar: telegram 宿主未起(品类含非 telegram/tg_web 引擎源: {', '.join(non_telegram)};批量采集走 run)",
         )
         return None
 
@@ -5946,6 +5948,8 @@ def _assemble_telegram_host(
     try:
         backend = get_backend()
         for source in config.sources:
+            if source.engine == "tg_web":
+                continue  # web 线源走 assemble_web_manager(账号×群绑定,下方)
             options = (source.extra_params.get("engine_options") or {}).get(
                 "telegram", {}
             )
@@ -6087,23 +6091,42 @@ def _assemble_telegram_host(
         myssia_log.stream_line(
             None, "stderr", f"sidecar: telegram telethon 用户线未起({user_note})"
         )
-    if bot_host is None and user_host is None:
+
+    # TG 网页线(C 线,W3;engine: tg_web 源按账号分组,帽/隔离/哨兵语义
+    # 见 web_host 工厂;键超帽/未首登 = 留痕零阻塞,不动摇其余两线)。
+    from myssia.telegram.web_host import assemble_web_manager
+
+    web_manager, web_note = assemble_web_manager(
+        config.sources,
+        telegram_dir=telegram_dir,
+        data_root=data_root,
+        backend=backend,
+        store_item=_store_item,
+        push_high_value=_push_high_value,
+        should_stop=stop.is_set,
+    )
+    if web_note:
+        myssia_log.stream_line(
+            None, "stderr", f"sidecar: telegram TG 网页线未起({web_note})"
+        )
+    if bot_host is None and user_host is None and web_manager is None:
         myssia_log.stream_line(
             None, "stderr",
             "sidecar: telegram 宿主未起(bot token 与 telethon session 双缺;"
-            "配好任一线后重启即活)",
+            "配好任一线后重启即活;TG 网页线 = myssia telegram web-login 零凭据开线)",
         )
         with contextlib.suppress(Exception):
             store.close()
         return None
 
     async def _run() -> None:
-        # 双线并跑:一线致命不拖另一线(CLI ``_run_telegram_hosts`` 同门;
-        # 致命者留痕上抛到线程边界,健康线继续服务)。
+        # 三线并跑:一线致命不拖其余线(CLI ``_run_telegram_hosts`` 同门;
+        # 致命者留痕上抛到线程边界,健康线继续服务;web manager 自带单键
+        # 失效隔离 —— 哨兵告警停单键不退出)。
         try:
             tasks = [
                 host.run_forever()
-                for host in (bot_host, user_host)
+                for host in (bot_host, user_host, web_manager)
                 if host is not None
             ]
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -6123,15 +6146,27 @@ def _assemble_telegram_host(
 
     def _close() -> None:
         # 深审 F14:装配面收尾 —— 账本连接与 store 同批关闭(HTTP 客户端由
-        # _run 的 finally + 宿主退出路径 poller.aclose 双保险收)。
+        # _run 的 finally + 宿主退出路径 poller.aclose 双保险收;web
+        # manager 各键账本由其 close 统一收)。
         for ledger in (bot_ledger, user_ledger):
             if ledger is not None:
                 with contextlib.suppress(Exception):
                     ledger.close()
+        if web_manager is not None:
+            with contextlib.suppress(Exception):
+                web_manager.close()
         with contextlib.suppress(Exception):
             store.close()
 
-    lines = [name for name, on in (("bot", bot_host), ("telethon", user_host)) if on]
+    lines = [
+        name
+        for name, on in (
+            ("bot", bot_host),
+            ("telethon", user_host),
+            ("web", web_manager),
+        )
+        if on
+    ]
     label = (
         f"品类 {config.id},线 {'+'.join(lines)},群 {sorted(bindings) or '待实填 chat_id'},"
         f"数据根 {data_root}"
