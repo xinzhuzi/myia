@@ -208,6 +208,11 @@ const COMPONENT_META: Record<string, { label: string; description: string }> = {
     description:
       "JS 渲染抓取引擎 crawl4ai(L3,进程内无头浏览器;闭包与 extras myssia[crawl4ai] 同源,窗 >=0.9,<0.10):解锁纯客户端渲染源与 urlwatch 渲染通道、images 品类 L3 兜底。开关开 = pip 装闭包后自动下载 playwright chromium 浏览器二进制(下载约 300MB 级、落盘约 600MB,沙箱实测 557MB;走 Playwright CDN,耗时数分钟);浏览器落数据根 playwright-browsers/ 目录(PLAYWRIGHT_BROWSERS_PATH),不散落系统缓存区,卸载组件/清理数据根即整目录回收;chromium 拉取失败会在下方示错可重试(重试幂等)",
   },
+  telethon: {
+    label: "Telegram 用户线(telethon)",
+    description:
+      "Telegram 账号 session 消息线(MTProto,读 bot 进不去的已加入群;闭包与 extras myssia[telethon] 同源,窗 >=1.36,<2,纯 Python 轻依赖,无浏览器量级下载)。桌面锁已随包收录本闭包,此卡是就绪检查与手动补装入口(重装幂等);使用前置一次性:钥匙串写入 api-id/api-hash(my.telegram.org 取值)→ 终端 myssia telegram login(手机号+验证码,建议挂小号),session 落数据根 telegram/(0600);缺装时用户线结构化降级不影响 bot 线,本线只读无发送能力",
+  },
   searxng: {
     label: "关键词日报(SearXNG)",
     description:

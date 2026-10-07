@@ -20,6 +20,12 @@
       "description": "JS 渲染抓取引擎 crawl4ai(L3,进程内驱动无头浏览器):解锁纯客户端渲染源与 urlwatch 渲染通道(myssia-urlwatch 的 render_crawl4ai 场景件)、images 品类 L3 兜底;缺装时引擎报 dependency_missing 结构化降级,不影响其余流水线。体积与落点:装完 pip 闭包后安装链还会自动下载 playwright chromium 浏览器二进制,下载约 300MB 级、落盘约 600MB(chromium+headless shell+ffmpeg,沙箱实测 557MB;走 Playwright CDN,耗时数分钟);浏览器落数据根 playwright-browsers/ 目录(PLAYWRIGHT_BROWSERS_PATH),不散落系统缓存区,卸载组件或清理数据根即整目录回收。chromium 拉取失败 = 组件卡 error 态可见可重试(重试幂等:pip 已装自动跳过);闭包与 extras myssia[crawl4ai] 同源(crawl4ai 自带 playwright 依赖;窗 >=0.9,<0.10 = 本仓实测 0.9.x 线,0.10+ 未验不冒进)"
     },
     {
+      "id": "telethon",
+      "pip_spec": "telethon>=1.36,<2",
+      "label": "Telegram 用户线(telethon)",
+      "description": "Telegram 账号 session 消息线(MTProto,userbot):读任意已加入群(覆盖 bot 进不去的群),serve 常驻宿主的 telethon 事件线与品类源 engine_options.telegram.mode: user 批量档共用;闭包与 extras myssia[telethon] 同源(窗 >=1.36,<2,本仓 uv.lock 实测 1.45.0;纯 Python 轻依赖 telethon/pyaes/rsa/pyasn1,无浏览器/大二进制下载,首装需联网,PyPI 镜像覆盖生效)。桌面锁(requirements-lock.txt)已随包收录本闭包,此卡是就绪检查与手动补装入口(重装幂等:pip 已装自动跳过)。使用前置(一次性,CLI 交互):myssia secret set myia/telegram/api-id 与 myssia secret set myia/telegram/api-hash(my.telegram.org → API development tools 取值)→ myssia telegram login(手机号+验证码,建议挂小号风控隔离);session 文件落数据根 telegram/ 目录(权限 0600),清理数据根即回收。缺装时用户线结构化 dependency_missing 不影响 bot 线;本线只读(收消息),无发送能力"
+    },
+    {
       "id": "searxng",
       "kind": "service",
       "pip_spec": "-r https://raw.githubusercontent.com/searxng/searxng/d48c4b555421e824342c51d68482dd0898e54d0f/requirements.txt granian==2.8.3 setuptools>=75 wheel>=0.45",

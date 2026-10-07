@@ -461,19 +461,22 @@ def _add_run_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_telegram_parser(sub: argparse._SubParsersAction) -> None:
-    """``myssia telegram``:Telegram bot 线常驻宿主(10-06-telegram-telethon B3)."""
+    """``myssia telegram``:Telegram 双线宿主 + 用户线首登(10-06-telegram-telethon)."""
     telegram = sub.add_parser(
         "telegram",
-        help="Telegram 群消息常驻监控(长轮询→过滤→即时/入库)",
+        help="Telegram 群消息常驻监控(bot+telethon 双线;长轮询/事件→过滤→即时/入库)",
         description=(
-            "serve 常驻宿主:getUpdates 长轮询(25s)→ 粗筛→LLM 精筛 → "
-            "高价值合并单条即时推、普通入库进合并日报;offset 持久断点续拉。"
+            "serve 常驻宿主(双线):bot 线 getUpdates 长轮询(25s)+ telethon "
+            "用户线事件监听(账号 session,读 bot 进不去的群)→ 粗筛→LLM 精筛 "
+            "→ 高价值合并单条即时推、普通入库进合并日报。bot 线 offset 持久断点"
+            "续拉;用户线断点由 telethon session 自持。login(B4)是 telethon "
+            "用户线的一次性首登(手机号+验证码交互,session 落数据根 0600)。"
             "桌面接线位:TelegramServeHost 可嵌入 sidecar(详 telegram/serve.py)。"
         ),
     )
     telegram_sub = telegram.add_subparsers(dest="telegram_command", required=True)
     telegram_serve = telegram_sub.add_parser(
-        "serve", help="常驻宿主:长轮询收群消息,秒级过滤推送(Ctrl-C 干净停)"
+        "serve", help="常驻宿主:bot+telethon 双线收群消息,秒级过滤推送(Ctrl-C 干净停)"
     )
     telegram_serve.add_argument(
         "--category",
@@ -484,6 +487,20 @@ def _add_telegram_parser(sub: argparse._SubParsersAction) -> None:
         "--db",
         default=_cron_default_db(),
         help=f"存储路径(定数据根 = db 父目录;默认 $MYIA_HOME 下 {DEFAULT_DB_PATH})",
+    )
+    telegram_login = telegram_sub.add_parser(
+        "login",
+        help="telethon 用户线一次性首登(手机号→验证码→(2FA);session 落数据根 0600)",
+    )
+    telegram_login.add_argument(
+        "--db",
+        default=_cron_default_db(),
+        help=f"存储路径(定数据根 = db 父目录;默认 $MYIA_HOME 下 {DEFAULT_DB_PATH})",
+    )
+    telegram_login.add_argument(
+        "--force",
+        action="store_true",
+        help="删除已有 session 强制重登(session 失效/换号时用)",
     )
 
 
@@ -2065,6 +2082,7 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
         TelegramServeHost,
         TelegramSourceBinding,
     )
+    from myssia.telegram.telethon_line import TelethonLineError
 
     category_path = Path(args.category)
     if not category_path.exists():
@@ -2142,17 +2160,13 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
         _emit_generic_error("telegram_serve_config", str(exc), as_json=False)
         return EXIT_CONFIG_ERROR
 
+    bot_token: str | None = None
     try:
         bot_token = resolve_credential(token_ref or "", backend=backend)
-    except CredentialResolveError as exc:
-        _emit_generic_error(
-            "telegram_serve_credential",
-            f"bot token 引用解析失败({token_ref}):{exc}\n"
-            "主人四步:BotFather 建 bot → /setprivacy 关隐私模式 → "
-            "myssia secret set myia/telegram/bot-token → 拉进目标群",
-            as_json=False,
-        )
-        return EXIT_CONFIG_ERROR
+    except CredentialResolveError:
+        # 是否致命取决于 telethon 用户线在不在(session 已首登则单线起,
+        # 双缺才是配置未完成态 —— 下方统一判)。
+        bot_token = None
 
     db_path = Path(args.db).resolve()
     data_root = db_path.parent
@@ -2206,52 +2220,172 @@ def _cmd_telegram_serve(args: argparse.Namespace) -> int:
         return True
 
     telegram_dir = data_root / "telegram"
-    ledger = TelegramEventLedger(
-        telegram_dir / "events.db", bot_token=bot_token
+
+    # bot 线(token 在才起;F8 指纹分键 offsets/events)。
+    bot_host: TelegramServeHost | None = None
+    bot_ledger: TelegramEventLedger | None = None
+    if bot_token is not None:
+        bot_ledger = TelegramEventLedger(
+            telegram_dir / "events.db", bot_token=bot_token
+        )
+        bot_host = TelegramServeHost(
+            poller=TelegramPoller(httpx.AsyncClient(), bot_token),
+            bindings=bindings,
+            # 深审 F8:offsets/events 按 bot token 指纹分键(offsets-<sha8>.json /
+            # events-<sha8>.db)—— 多 bot 双宿主共享同一数据根时各 bot 各游标
+            # 各账本,单键交叉污染(update_id 是 per-bot 序列,越前游标 = 静默
+            # 丢单)不再可能;旧单键 offsets.json 由 OffsetStore 采纳一次即删。
+            offsets=OffsetStore(telegram_dir / "offsets.json", bot_token=bot_token),
+            ledger=bot_ledger,
+            push_high_value=_push_high_value,
+            store_item=_store_item,
+        )
+    else:
+        logger.info(
+            "telegram serve bot token 未配(%s),bot 线不起", token_ref
+        )
+
+    # telethon 用户线(B4;session 已首登才试 —— 未首登是常态,INFO 零阻塞)。
+    user_host, user_ledger, user_note = _assemble_telegram_user_line(
+        telegram_dir, bindings, backend, _store_item, _push_high_value
     )
-    host = TelegramServeHost(
-        poller=TelegramPoller(httpx.AsyncClient(), bot_token),
-        bindings=bindings,
-        # 深审 F8:offsets/events 按 bot token 指纹分键(offsets-<sha8>.json /
-        # events-<sha8>.db)—— 多 bot 双宿主共享同一数据根时各 bot 各游标
-        # 各账本,单键交叉污染(update_id 是 per-bot 序列,越前游标 = 静默
-        # 丢单)不再可能;旧单键 offsets.json 由 OffsetStore 采纳一次即删。
-        offsets=OffsetStore(telegram_dir / "offsets.json", bot_token=bot_token),
-        ledger=ledger,
-        push_high_value=_push_high_value,
-        store_item=_store_item,
-    )
+    if user_note:
+        logger.info("telegram serve telethon 用户线未起:%s", user_note)
+
+    if bot_host is None and user_host is None:
+        _emit_generic_error(
+            "telegram_serve_credential",
+            f"bot token 与 telethon session 双缺,serve 无线可起。\n"
+            f"bot 线:{token_ref} 未解析(bot token 引用未写入钥匙串)——"
+            "主人四步:BotFather 建 bot → /setprivacy 关闭隐私模式 → "
+            "myssia secret set myia/telegram/bot-token → 拉进目标群。\n"
+            "telethon 用户线:session 未首登 —— myssia secret set "
+            "myia/telegram/api-id 与 myssia secret set myia/telegram/api-hash"
+            "(my.telegram.org 取值)后 myssia telegram login(手机号+验证码,"
+            "建议挂小号)。",
+            as_json=False,
+        )
+        store.close()
+        return EXIT_CONFIG_ERROR
+
+    lines = [name for name, on in (("bot", bot_host), ("telethon", user_host)) if on]
     logger.info(
-        "myssia telegram serve:常驻宿主启动(数据根 %s,品类 %s,群 %s,"
+        "myssia telegram serve:常驻宿主启动(线=%s,数据根 %s,品类 %s,群 %s,"
         "Ctrl-C 停)",
+        "+".join(lines),
         data_root,
         config.id,
         sorted(bindings),
     )
     exit_code = EXIT_OK
     try:
-        asyncio.run(host.run_forever())
+        asyncio.run(_run_telegram_hosts(bot_host, user_host))
     except KeyboardInterrupt:
-        logger.info("telegram serve 已按 Ctrl-C 停止 rounds=%s", host.rounds)
-    except TelegramPollError as exc:
+        logger.info(
+            "telegram serve 已按 Ctrl-C 停止 rounds=%s", 
+            bot_host.rounds if bot_host is not None else 0,
+        )
+    except (TelegramPollError, TelethonLineError) as exc:
+        reason = getattr(exc, "reason", None) or type(exc).__name__
         _emit_generic_error(
-            "telegram_serve_fatal", f"{exc.reason}: {exc}", as_json=False
+            "telegram_serve_fatal", f"{reason}: {exc}", as_json=False
         )
         exit_code = EXIT_CONFIG_ERROR
     finally:
         # 深审 F14:装配面收尾 —— 账本连接与 store 同批关闭(HTTP 客户端由
         # 宿主 run_forever 退出路径的 poller.aclose 收)。
-        with contextlib.suppress(Exception):
-            ledger.close()
+        for ledger in (bot_ledger, user_ledger):
+            if ledger is not None:
+                with contextlib.suppress(Exception):
+                    ledger.close()
         store.close()
     return exit_code
 
 
+def _assemble_telegram_user_line(
+    telegram_dir: Path,
+    bindings: dict[str, Any],
+    backend: Any,
+    store_item: Any,
+    push_high_value: Any,
+) -> tuple[Any, Any, str | None]:
+    """telethon 用户线装配(B4;薄委托 :func:`assemble_user_host` 工厂,
+    CLI 与桌面 entry 同一份 —— 三态与账本分键语义见工厂文档)。"""
+    from myssia.telegram.telethon_line import assemble_user_host
+
+    return assemble_user_host(
+        telegram_dir, bindings, backend, store_item, push_high_value
+    )
+
+
+async def _run_telegram_hosts(bot_host: Any, user_host: Any) -> None:
+    """双线并跑:一线致命不拖另一线(致命者留痕上抛,健康线继续服务)。
+
+    gather(return_exceptions):单线致命(401/session 失效)不取消另一线
+    —— 运行期以 WARNING 留痕每线结局,最后把首个非取消异常上抛(退出码 1
+    语义保留);Ctrl-C 由 asyncio.run 的取消机制统一传达。
+    """
+    tasks = [host.run_forever() for host in (bot_host, user_host) if host is not None]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    for result in results:
+        if isinstance(result, BaseException) and not isinstance(
+            result, asyncio.CancelledError
+        ):
+            logger.error(
+                "telegram serve 一线致命退出(其余线已先留痕): %s", result
+            )
+            raise result
+
+
+def _cmd_telegram_login(args: argparse.Namespace) -> int:
+    """``myssia telegram login``:telethon 用户线一次性首登(B4).
+
+    手机号 → 验证码 →(2FA 密码)交互;session 落数据根 ``telegram/``
+    0600;已有 session 直接复用(``--force`` 删旧重登)。api_id/api_hash
+    预先入钥匙串(指引在错误消息)。手机号/验证码/密码零落日志。
+    """
+    from pathlib import Path
+
+    from myssia.telegram.telethon_line import (
+        TelethonLineError,
+        TelethonLoginFlow,
+    )
+
+    try:
+        from myssia.secrets import get_backend
+
+        backend = get_backend()
+    except Exception as exc:  # noqa: BLE001 - SecretError:无钥匙串后端
+        _emit_generic_error(
+            "telegram_login_backend",
+            f"钥匙串后端不可用(api_id/api_hash 只入钥匙串):{exc}\n"
+            "Linux 服务器等无钥匙串环境请用 env: 引用形态(engine_options."
+            "telegram.api_id/env:MYIA_TG_API_ID 等)",
+            as_json=False,
+        )
+        return EXIT_CONFIG_ERROR
+    data_root = Path(args.db).resolve().parent
+    flow = TelethonLoginFlow(backend=backend)
+    try:
+        path = asyncio.run(flow.run(data_root, force=bool(args.force)))
+    except TelethonLineError as exc:
+        _emit_generic_error(
+            f"telegram_login_{exc.reason}", str(exc), as_json=False
+        )
+        return EXIT_CONFIG_ERROR
+    except KeyboardInterrupt:
+        logger.info("telegram login 已取消(可随时重新执行)")
+        return EXIT_OK
+    logger.info("telegram login 完成 session=%s", path)
+    return EXIT_OK
+
+
 def _cmd_telegram(args: argparse.Namespace) -> int:
-    """``myssia telegram <子命令>`` 分发(serve 一员,B3)。"""
+    """``myssia telegram <子命令>`` 分发(serve/login,B3+B4)。"""
     _configure_logging(as_json=getattr(args, "as_json", False))
     handlers: dict[str, Any] = {
         "serve": _cmd_telegram_serve,
+        "login": _cmd_telegram_login,
     }
     handler = handlers.get(args.telegram_command)
     if handler is None:  # pragma: no cover - argparse required=True 兜底

@@ -512,6 +512,67 @@ def test_searxng_component_row_gq6_disclosures() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 1e. telethon 组件行 + 桌面锁收录(10-06-telegram-telethon B4):extras 同源
+#     窗 + 双轨收录(桌面锁随 llm extras 判例扩 --extra telethon;组件卡照
+#     crawl4ai 判例 = 就绪检查/手动补装入口,重装幂等)。
+# ---------------------------------------------------------------------------
+
+#: telethon 组件闭包(与 pyproject extras ``myssia[telethon]`` 逐字符同字串;
+#: 窗 >=1.36,<2 = uv.lock 实测 1.45.0 所在线,<2 防 v2 破坏性漂移)。
+TELETHON_COMPONENT_PIP_SPEC = "telethon>=1.36,<2"
+
+
+def _telethon_extras_raw() -> str:
+    pyproject = tomllib.loads(
+        (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    extras_raw = list(pyproject["project"]["optional-dependencies"]["telethon"])
+    assert len(extras_raw) == 1, f"telethon extras 应为单件闭包: {extras_raw!r}"
+    return extras_raw[0]
+
+
+def test_telethon_component_row_matches_extras() -> None:
+    """telethon 组件行:注册表在册 + pip_spec 与 extras 逐字符同字串
+    (trafilatura 判例:比较原文不经 Requirement 归一化 —— 它会把 >=1.36,<2
+    重排成 <2,>=1.36;单件窗组件不引入第三种钉版口径)+ 使用前置三披露
+    (api-id/api-hash 钥匙串 → login 交互 → session 落数据根)+ 只读边界。"""
+    registry = json.loads(
+        (RESOURCES_DIR / "components.json").read_text(encoding="utf-8")
+    )
+    entry = next(e for e in registry["components"] if e["id"] == "telethon")
+    assert entry["pip_spec"] == TELETHON_COMPONENT_PIP_SPEC == _telethon_extras_raw(), (
+        f"telethon 闭包须与 extras 逐字符同字串: 注册表 {entry['pip_spec']!r}"
+        f" vs extras {_telethon_extras_raw()!r}"
+    )
+    assert "post_install" not in entry, "telethon 是纯 pip 组件,无安装钩子"
+    description = entry["description"]
+    assert "myssia telegram login" in description, "须写明首登 CLI 指引"
+    assert "api-id" in description and "api-hash" in description, (
+        "须写明钥匙串前置(myssia secret set)"
+    )
+    assert "只读" in description, "须披露只读边界(无发送能力)"
+    assert "小号" in description, "须披露小号风控建议"
+
+
+def test_telethon_covered_by_desktop_lock() -> None:
+    """桌面锁收录 telethon(llm extras 判例):装机态 serve 双线的 telethon
+    用户线依赖在锁内,钉版满足 extras 约束 —— 缺席 = 装机侧用户线起死。"""
+    pins = _lock_pins()
+    requirement = Requirement(_telethon_extras_raw())
+    pinned = pins.get("telethon")
+    assert pinned is not None, (
+        "requirements-lock.txt 缺 telethon(B4 桌面锁扩 --extra telethon)"
+    )
+    assert SpecifierSet(str(requirement.specifier)).contains(pinned), (
+        f"telethon 钉版 {pinned} 不满足 extras 约束 {requirement.specifier}"
+    )
+    # 闭包伴生件(pyaes/rsa/pyasn1)同在锁内 —— 裸装主件会让 telethon
+    # import 失败,依赖门形同虚设。
+    for companion in ("pyaes", "rsa", "pyasn1"):
+        assert pins.get(companion), f"requirements-lock.txt 缺 {companion}(telethon 闭包)"
+
+
+# ---------------------------------------------------------------------------
 # 2. runtime-manifest.json:钉版 URL + 实算 sha256 + 解压布局
 # ---------------------------------------------------------------------------
 

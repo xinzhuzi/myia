@@ -5887,14 +5887,16 @@ def _assemble_telegram_host(
     """桌面档装配:与 CLI ``_cmd_telegram_serve`` 同门(逐句对照移植)。
 
     品类(plugins/telegram-groups.yaml)→ 每 chat_id 一绑定(过滤管线同引擎
-    配置)→ 单 bot token(keychain 解析)→ 推送 sink(品类 push 首条通道)/
+    配置)→ **双线**(B4 起):bot 线(单 bot token,keychain 解析,长轮询)
+    + telethon 用户线(账号 session 事件监听,``assemble_user_host`` 工厂,
+    session 未首登/凭据缺 = 留痕零阻塞)→ 推送 sink(品类 push 首条通道)/
     入库 sink(SQLiteStore + DedupRegistry,{url} 锚幂等)→ offsets/events
-    落数据根 ``telegram/``。
+    落数据根 ``telegram/``(按线分键,F8)。
 
     返回 None = graceful 空态(已留痕,**不拦服务**):品类缺失/装载失败、
-    含非 telegram 引擎源、chat_id 缺失或被占、多 token 引用、凭据未配
-    (``CredentialResolveError`` —— 主人四步未完成时的常态,配好重启即活)。
-    重量依赖(httpx/telegram 包)函数内惰性导入:dev 直通模式零加载成本。
+    含非 telegram 引擎源、chat_id 缺失或被占、多 token 引用、双线凭据全缺
+    (bot token 未配且 telethon session 未首登)。重量依赖(httpx/telegram
+    包)函数内惰性导入:dev 直通模式零加载成本。
     """
     category_path = Path(ctx.plugins_dir) / _TELEGRAM_CATEGORY_FILENAME
     if not category_path.exists():
@@ -5987,14 +5989,16 @@ def _assemble_telegram_host(
 
     try:
         bot_token = resolve_credential(token_ref or "", backend=backend)
-    except CredentialResolveError as exc:
+    except CredentialResolveError:
+        # bot token 未配 = bot 线不起(四步未完成的常态;是否还有救看 telethon
+        # 用户线 —— session 已首登则单线起,双缺才整体空态,CLI 同门)。
         myssia_log.stream_line(
             None, "stderr",
-            f"sidecar: telegram 宿主未起(bot token 未配 {token_ref}): {exc}\n"
-            "主人四步:BotFather 建 bot → /setprivacy 关隐私模式 → "
+            f"sidecar: telegram bot 线未起(bot token 未配 {token_ref})\n"
+            "主人四步:BotFather 建 bot → /setprivacy 关闭隐私模式 → "
             "myssia secret set myia/telegram/bot-token → 拉进目标群(配好重启即活)",
         )
-        return None
+        bot_token = None
 
     db_path = Path(ctx.db)
     data_root = db_path.parent
@@ -6049,43 +6053,95 @@ def _assemble_telegram_host(
         return True
 
     telegram_dir = data_root / "telegram"
-    client = httpx.AsyncClient()
-    ledger = TelegramEventLedger(
-        telegram_dir / "events.db", bot_token=bot_token
+
+    # bot 线(token 在才起;F8 指纹分键 offsets/events)。
+    bot_host = None
+    bot_ledger = None
+    client = None
+    if bot_token is not None:
+        client = httpx.AsyncClient()
+        bot_ledger = TelegramEventLedger(
+            telegram_dir / "events.db", bot_token=bot_token
+        )
+        bot_host = TelegramServeHost(
+            poller=TelegramPoller(client, bot_token),
+            bindings=bindings,
+            # 深审 F8:offsets/events 按 bot token 指纹分键 —— 桌面宿主与 CLI
+            # serve(可能不同 bot)共享同一数据根时各 bot 各游标各账本;旧单键
+            # offsets.json 由 OffsetStore 采纳一次即删。
+            offsets=OffsetStore(telegram_dir / "offsets.json", bot_token=bot_token),
+            ledger=bot_ledger,
+            push_high_value=_push_high_value,
+            store_item=_store_item,
+            should_stop=stop.is_set,
+        )
+
+    # telethon 用户线(B4;session 已首登才试 —— 未首登是常态,留痕零阻塞)。
+    from myssia.telegram.telethon_line import assemble_user_host
+
+    user_host, user_ledger, user_note = assemble_user_host(
+        telegram_dir, bindings, backend, _store_item, _push_high_value,
+        data_root=data_root,
     )
-    host = TelegramServeHost(
-        poller=TelegramPoller(client, bot_token),
-        bindings=bindings,
-        # 深审 F8:offsets/events 按 bot token 指纹分键 —— 桌面宿主与 CLI
-        # serve(可能不同 bot)共享同一数据根时各 bot 各游标各账本;旧单键
-        # offsets.json 由 OffsetStore 采纳一次即删。
-        offsets=OffsetStore(telegram_dir / "offsets.json", bot_token=bot_token),
-        ledger=ledger,
-        push_high_value=_push_high_value,
-        store_item=_store_item,
-        should_stop=stop.is_set,
-    )
+    if user_note:
+        myssia_log.stream_line(
+            None, "stderr", f"sidecar: telegram telethon 用户线未起({user_note})"
+        )
+    if bot_host is None and user_host is None:
+        myssia_log.stream_line(
+            None, "stderr",
+            "sidecar: telegram 宿主未起(bot token 与 telethon session 双缺;"
+            "配好任一线后重启即活)",
+        )
+        with contextlib.suppress(Exception):
+            store.close()
+        return None
 
     async def _run() -> None:
+        # 双线并跑:一线致命不拖另一线(CLI ``_run_telegram_hosts`` 同门;
+        # 致命者留痕上抛到线程边界,健康线继续服务)。
         try:
-            await host.run_forever()
+            tasks = [
+                host.run_forever()
+                for host in (bot_host, user_host)
+                if host is not None
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for result in results:
+                if isinstance(result, BaseException) and not isinstance(
+                    result, asyncio.CancelledError
+                ):
+                    myssia_log.stream_line(
+                        None, "stderr",
+                        f"sidecar: telegram 一线致命退出(其余线已先留痕): {result}",
+                    )
+                    raise result
         finally:
-            with contextlib.suppress(Exception):
-                await client.aclose()
+            if client is not None:
+                with contextlib.suppress(Exception):
+                    await client.aclose()
 
     def _close() -> None:
         # 深审 F14:装配面收尾 —— 账本连接与 store 同批关闭(HTTP 客户端由
         # _run 的 finally + 宿主退出路径 poller.aclose 双保险收)。
-        with contextlib.suppress(Exception):
-            ledger.close()
+        for ledger in (bot_ledger, user_ledger):
+            if ledger is not None:
+                with contextlib.suppress(Exception):
+                    ledger.close()
         with contextlib.suppress(Exception):
             store.close()
 
+    lines = [name for name, on in (("bot", bot_host), ("telethon", user_host)) if on]
     label = (
-        f"品类 {config.id},群 {sorted(bindings) or '待实填 chat_id'},"
+        f"品类 {config.id},线 {'+'.join(lines)},群 {sorted(bindings) or '待实填 chat_id'},"
         f"数据根 {data_root}"
     )
-    return _TelegramHostBundle(host=host, run=_run, close=_close, label=label)
+    return _TelegramHostBundle(
+        host=bot_host if bot_host is not None else user_host,
+        run=_run,
+        close=_close,
+        label=label,
+    )
 
 
 def _start_telegram_host() -> None:
@@ -6097,8 +6153,9 @@ def _start_telegram_host() -> None:
 
     刻意不同(telegram/serve.py 设计 D1/D4):无 supervisor 重排 —— 宿主
     自带断线指数退避(transport/5xx 不崩),致命错误(401 token 失效 /
-    409 双宿主互斥)是配置态问题,蒙头重启只会复读失败,线程自退留痕、
-    重启由人决定。与 CLI serve 的并存互斥 = Bot API 同 token 409。
+    409 双宿主互斥 / B4 起 telethon 线 session 失效)是配置态问题,蒙头
+    重启只会复读失败,线程自退留痕、重启由人决定。与 CLI serve 的并存
+    互斥 = Bot API 同 token 409。
     """
     global _TELEGRAM_THREAD, _TELEGRAM_STOP
     with _TELEGRAM_HOST_LOCK:

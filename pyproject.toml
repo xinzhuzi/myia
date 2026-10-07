@@ -70,6 +70,15 @@ trafilatura = ["trafilatura>=2.3,<3", "selectolax<1"]
 # (不惊扰未配置用户,没配该通道 = 正常态零提示)。钉版 >=1.9,<2:
 # 1.9 起本通道消费面(Apprise 单例 add/notify)稳定,<2 防破坏性漂移。
 apprise = ["apprise>=1.9,<2"]
+# Telegram 用户线(10-06-telegram-telethon B4):Telethon(LonamiWebs,
+# MIT,~11k★)账号 session 走 MTProto 读任意已加入群(bot 进不去的群);
+# 链接者铁律——只依赖不改其源码。惰性 import(telethon_line.py 依赖门),
+# 缺装 = 结构化 dependency_missing 带安装命令,不影响 bot 线与其余流水
+# 线。钉版 >=1.36,<2:1.36 起本线消费面(TelegramClient connect/sign_in/
+# iter_messages/add_event_handler)稳定,<2 防 v2 破坏性漂移。桌面锁随
+# llm extras 同款手法扩 --extra telethon(装机态 serve 双线起);另设
+# 置页组件卡同步收录(crawl4ai 组件轨判例,缺装可见可装)。
+telethon = ["telethon>=1.36,<2"]
 all = ["crawl4ai", "scrapling", "firecrawl-py", "skyvern", "openai>=1.30", "huggingface-hub>=0.23"]
 
 [project.scripts]

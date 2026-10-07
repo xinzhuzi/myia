@@ -4,9 +4,11 @@
 ``ENGINE_REGISTRY`` 在册、``AUTO_CHAIN`` 不在,auto 永不路过;显式选择 =
 单级链,失败/空态都是源级结构化结果,品类内其余源不受影响(铁律)。
 
-通道形态(阶段一 bot 线,PRD 10-06-telegram-telethon;httpx 直调零依赖,
-**不引 PTB/aiogram** —— 调研 §1:python-telegram-bot 29.5k★ 只借其分层思
-想,MYIA 手搓同 Hermes 网关手法):
+通道形态(design D2 双模式):
+
+**bot 模式**(缺省,阶段一 bot 线;PRD 10-06-telegram-telethon;httpx 直调
+零依赖,**不引 PTB/aiogram** —— 调研 §1:python-telegram-bot 29.5k★ 只借其
+分层思想,MYIA 手搓同 Hermes 网关手法):
 
 1. GET ``https://api.telegram.org/bot<token>/getUpdates?limit=N&timeout=0``
    (不带 offset = 未确认窗口从头拉;批量档不做长轮询 —— 25s 挂起属 serve
@@ -28,6 +30,29 @@
 (零文本无可筛面)。跨轮/跨窗口切组的残余重复面:serve 档由调用方传
 ``skip_groups``(上一轮铸锚组前缀保留一轮,深审 F13);批量档窗口重拉
 自带未确认重叠,残余概率面由锚点去重兜底(如实注记,不引跨轮状态)。
+
+**user 模式**(B4,``engine_options.telegram.mode: user``):Telethon 账号
+session(MTProto)拉同一群的窗口消息 —— bot 进不去的群由已加入的账号读
+(PRD 阶段二)。语义与 bot 模式同一份:同一 ``#tg-`` 锚(同群两模式消息 id
+同命名空间)、同一媒体组聚合、同一过滤挂点;差别只在取数通道 ——
+``iter_messages`` 单轮窗口(``lookback_limit`` 同帽),**无确认请求**
+(offset 确认是 Bot API 独有语义)。凭据三态(bot 判例 + 两件):
+
+- telethon 缺装 → 结构化 ``dependency_missing``(extras ``myssia[telethon]``
+  组件轨,crawl4ai 判例);
+- api_id/api_hash 引用缺/解析失败 → ``credential_missing`` 显式空态零请求
+  (指引 my.telegram.org + ``myssia secret set``);
+- session 文件缺(未首登)→ ``session_missing`` 显式空态零请求(指引
+  ``myssia telegram login``;主人小号+验证码的一次性前置);
+- session 在而登录态失效 → 结构化 ``session_expired``(重登指引
+  ``myssia telegram login --force`` —— 不静默,design D4)。
+
+只读边界(user 模式):引擎只 ``connect``/``is_user_authorized``/
+``iter_messages``/``disconnect``,零写接口;限频走 telethon 内建 FloodWait
+服从(引擎面捕获后结构化 ``telegram_flood_wait`` 带服务器指定秒数)。
+session 路径确定性派生(``$MYIA_HOME`` 或 cwd 下 ``telegram/telethon.session``,
+``myssia telegram login`` 的落点)—— 不入 YAML(「session」是 schema 凭据
+后缀词,路径明文会被凭据扫描拒)。
 
 **凭据三态**(reddit 判例,核心决议:凭据可选,绝不拦核心):
 
@@ -61,6 +86,7 @@ Raises:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from datetime import datetime, timezone
@@ -99,6 +125,12 @@ API_ORIGIN = "https://api.telegram.org"
 #: 钥匙串缺省键(与 PRD/示范件一致;``myssia secret set`` 的落点)。
 DEFAULT_TOKEN_KEY = "keychain:myia/telegram/bot-token"
 
+#: user 模式 api_id/api_hash 缺省引用(B4;``myssia telegram login`` 的
+#: 指引与 ``telethon_line`` 同源 —— 常量定义在本模块,telethon_line 反向
+#: 复用(serve→engine 依赖方向已定,反引会成环)。
+DEFAULT_API_ID_REF = "keychain:myia/telegram/api-id"
+DEFAULT_API_HASH_REF = "keychain:myia/telegram/api-hash"
+
 #: 单轮窗口帽(getUpdates limit 硬顶 100;缺省即顶 —— 群消息窗口宁可多拉
 #: 靠锚点去重,不可漏)。
 DEFAULT_LOOKBACK_LIMIT = 100
@@ -120,6 +152,8 @@ _TEXT_FIELDS = ("text", "caption")
 __all__ = [
     "API_HOST",
     "API_ORIGIN",
+    "DEFAULT_API_HASH_REF",
+    "DEFAULT_API_ID_REF",
     "DEFAULT_LOOKBACK_LIMIT",
     "DEFAULT_TOKEN_KEY",
     "LAYER",
@@ -193,6 +227,13 @@ class TelegramEngine(BaseEngine):
     def _options(self) -> dict[str, Any]:
         """engine_options.telegram 校验与缺省化(错型即结构化拒)."""
         options = self.engine_options()
+        mode = options.get("mode", "bot")
+        if mode not in ("bot", "user"):
+            raise FetchError(
+                "engine_options.telegram.mode 应为 bot(Bot API,getUpdates)"
+                f"或 user(Telethon 账号 session,MTProto),当前为 {mode!r}",
+                error_type="invalid_engine_options",
+            )
         chat_id = options.get("chat_id")
         if isinstance(chat_id, bool) or not isinstance(chat_id, (str, int)):
             raise FetchError(
@@ -211,18 +252,35 @@ class TelegramEngine(BaseEngine):
                 f"1-{MAX_LOOKBACK_LIMIT} 整数(getUpdates 硬顶),当前为 {lookback!r}",
                 error_type="invalid_engine_options",
             )
-        bot_token = options.get("bot_token", DEFAULT_TOKEN_KEY)
-        if not isinstance(bot_token, str) or not bot_token.strip():
-            raise FetchError(
-                "engine_options.telegram.bot_token 应为 env:/keychain: 凭据引用"
-                f"(缺省 {DEFAULT_TOKEN_KEY}),当前为 {bot_token!r}",
-                error_type="invalid_engine_options",
-            )
-        return {
+        result: dict[str, Any] = {
+            "mode": mode,
             "chat_id": str(chat_id).strip(),
             "lookback_limit": lookback,
-            "bot_token": bot_token.strip(),
         }
+        if mode == "bot":
+            bot_token = options.get("bot_token", DEFAULT_TOKEN_KEY)
+            if not isinstance(bot_token, str) or not bot_token.strip():
+                raise FetchError(
+                    "engine_options.telegram.bot_token 应为 env:/keychain: 凭据引用"
+                    f"(缺省 {DEFAULT_TOKEN_KEY}),当前为 {bot_token!r}",
+                    error_type="invalid_engine_options",
+                )
+            result["bot_token"] = bot_token.strip()
+        else:
+            # user 模式凭据引用(api_id/api_hash;bot_token 不参与)。
+            for key, default_ref in (
+                ("api_id", DEFAULT_API_ID_REF),
+                ("api_hash", DEFAULT_API_HASH_REF),
+            ):
+                ref = options.get(key, default_ref)
+                if not isinstance(ref, str) or not ref.strip():
+                    raise FetchError(
+                        f"engine_options.telegram.{key} 应为 env:/keychain: 凭据引用"
+                        f"(缺省 {default_ref}),当前为 {ref!r}",
+                        error_type="invalid_engine_options",
+                    )
+                result[key] = ref.strip()
+        return result
 
     def _filter_options(self) -> TelegramFilterConfig:
         """过滤面配置(engine_options.telegram 过滤键;错型即结构化拒)."""
@@ -281,6 +339,8 @@ class TelegramEngine(BaseEngine):
         # 已处理更新;校验迟到一步 = 消息已被确认丢弃后才抛配置错,静默
         # 丢单。零 I/O 纯校验,提前到取数前还顺带省一轮无谓请求)。
         filter_config = self._filter_options()
+        if options["mode"] == "user":
+            return await self._fetch_impl_user(options, filter_config)
         token = self._bot_token()
         if token is None:
             self.last_skip_reason = "credential_missing"
@@ -335,6 +395,136 @@ class TelegramEngine(BaseEngine):
             outcome.high_value, threshold=pipeline.config.score_threshold
         )
         return ([merged] if merged is not None else []) + outcome.normal
+
+    async def _fetch_impl_user(
+        self, options: dict[str, Any], filter_config: TelegramFilterConfig
+    ) -> list[dict]:
+        """user 模式窗口:Telethon ``iter_messages`` → 共用消息面(模块文档).
+
+        凭据三态与错误面见模块文档(user 模式段);只读边界 = connect/
+        is_user_authorized/iter_messages/disconnect 四面。session 路径 =
+        ``$MYIA_HOME``(或 cwd)下 ``telegram/telethon.session``,与
+        ``myssia telegram login`` 落点同口径。
+        """
+        from myssia.telegram.telethon_line import (
+            TelethonLineError,
+            default_data_root,
+            flood_wait_seconds,
+            require_telethon,
+            resolve_api_credentials,
+            session_path,
+            telethon_message_to_update,
+        )
+
+        # 三态序:凭据/首登的显式空态(零请求,常设前置)先于依赖门 ——
+        # 未配置用户拿到的是人话指引而不是安装命令;依赖门只拦「想用而未装」。
+        try:
+            api_id, api_hash = resolve_api_credentials(
+                options["api_id"], options["api_hash"],
+                backend=self.context.keychain_backend,
+            )
+        except TelethonLineError as exc:
+            if exc.reason != "api_credentials_missing":
+                raise FetchError(str(exc), error_type="invalid_engine_options") from exc
+            self.last_skip_reason = "credential_missing"
+            logger.info(
+                "telegram user 模式 api_id/api_hash 未配,显式空态 source=%s"
+                "(本轮零请求;取值:my.telegram.org → API development tools →"
+                " myssia secret set myia/telegram/api-id 与"
+                " myssia secret set myia/telegram/api-hash;"
+                "my.telegram.org 不可达时可临时写 login 兜底同款公开示例对"
+                "(2040 / b18441a1ff607e10f989894a5137bdb9,限速风险)",
+                self.source.name,
+            )
+            return []
+        session = session_path(default_data_root())
+        if not session.exists():
+            self.last_skip_reason = "session_missing"
+            logger.info(
+                "telegram user 模式 session 未首登,显式空态 source=%s"
+                "(零请求;一次性前置:myssia telegram login 交互输入手机号+"
+                "验证码,建议挂小号风控隔离)",
+                self.source.name,
+            )
+            return []
+        try:
+            telethon = require_telethon()
+        except TelethonLineError as exc:
+            raise FetchError(str(exc), error_type="dependency_missing") from exc
+        client = telethon.TelegramClient(str(session), api_id, api_hash)
+        updates: list[dict[str, Any]] = []
+        try:
+            await client.connect()
+            if not await client.is_user_authorized():
+                raise FetchError(
+                    "telethon session 未授权/已失效(session 文件在但登录态不在,"
+                    "常见于被 Telegram 侧吊销或账号在别处登出);"
+                    "重登:myssia telegram login --force",
+                    error_type="session_expired",
+                )
+            # iter_messages 新→旧吐;倒序归一到 Bot API 的时间序(锚与聚合
+            # 对序不敏感,排序只为与 bot 线同观感)。
+            async for message in client.iter_messages(
+                int(options["chat_id"]), limit=options["lookback_limit"]
+            ):
+                updates.append(telethon_message_to_update(message))
+            updates.reverse()
+        except FetchError:
+            raise
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - telethon errors 家族统一收
+            raise self._map_user_fetch_error(exc) from exc
+        finally:
+            disconnect = getattr(client, "disconnect", None)
+            if callable(disconnect):
+                try:
+                    result = disconnect()
+                    if hasattr(result, "__await__"):
+                        await result
+                except Exception:  # noqa: BLE001 - 收尾失败不污染主结果
+                    logger.warning("telethon 客户端断开失败(忽略)", exc_info=True)
+        items = self._updates_to_items(updates, options["chat_id"])
+        final_items = await self._apply_filter(items, filter_config)
+        logger.info(
+            "telegram user 窗口取得 source=%s chat_id=%s messages=%s items=%s"
+            " (粗筛后出仓 %s)",
+            self.source.name,
+            options["chat_id"],
+            len(updates),
+            len(items),
+            len(final_items),
+        )
+        return final_items
+
+    @staticmethod
+    def _map_user_fetch_error(exc: BaseException) -> FetchError:
+        """user 模式取数异常 → 结构化 FetchError(FloodWait/失效/其余)."""
+        from myssia.telegram.telethon_line import (
+            SESSION_DEAD_EXCEPTION_NAMES,
+            flood_wait_seconds,
+        )
+
+        seconds = flood_wait_seconds(exc)
+        if seconds is not None:
+            return FetchError(
+                f"telethon FloodWait:服务器要求等待 {seconds:.0f} 秒"
+                "(服从退避;批量档下轮排程自然重试,锚点去重兜底)",
+                error_type="telegram_flood_wait",
+            )
+        name = type(exc).__name__
+        if name in SESSION_DEAD_EXCEPTION_NAMES:
+            return FetchError(
+                f"telethon session 失效({name});"
+                "重登:myssia telegram login --force",
+                error_type="session_expired",
+            )
+        # MTProto 面:异常文本不含 token/api_hash(协议层凭据不在消息面),
+        # 实体解析类失败(如账号未打开过该会话)如实透出便于排障。
+        return FetchError(
+            f"telethon user 模式拉取失败({name}): {exc}",
+            error_type="telegram_user_failed",
+        )
 
     async def _fetch_updates(self, token: str, lookback_limit: int) -> dict[str, Any]:
         """GET getUpdates(未确认窗口,零长轮询;限速 + 重试 + 消息净化).

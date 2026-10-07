@@ -23,6 +23,11 @@ B2 同一份)→ 高价值合并单条即时推(组合铁律)/ 普通入库(合�
 (asyncio.run + stop Event 注入 ``should_stop``),装配与 CLI 同门
 (``_assemble_telegram_host``);凭据缺失 = graceful 不启动仅留痕。sidecar
 观测方法位(``telegram.serve.status`` 等)仍留待后续批实装。
+
+telethon 用户线(B4)::meth:`TelegramServeHost.dispatch_once` 把单批分派
+语义(分拣/过滤/出口/账本/F14)开放给
+:class:`~myssia.telegram.telethon_line.TelethonUserHost` 逐事件消费 ——
+bot 线与用户线的消息面是同一份实现(design D1「两档共用」)。
 """
 
 from __future__ import annotations
@@ -302,6 +307,26 @@ class TelegramServeHost:
 
     # -------------------------------------------------------------- dispatch
 
+    async def dispatch_once(
+        self,
+        updates: list[dict[str, Any]],
+        *,
+        skip_groups: set[str] | None = None,
+    ) -> set[str]:
+        """单批分派的公开入口(telethon 用户线消费面,B4).
+
+        bot 线走 :meth:`run_forever` 主循环(长轮询自驱);用户线的事件
+        到达是**逐条推送**,由 :class:`~myssia.telegram.telethon_line.
+        TelethonUserHost` 每事件调本方法一次 —— 分拣/过滤/出口/账本语义
+        与 bot 线完全同一份(``_dispatch`` 单实现)。
+
+        ``skip_groups``:调用方持有的额外「已铸锚媒体组」(``chat:gid``
+        复合键;用户线的跨事件相册记忆 —— 分派器自身滚动记忆只保上一批,
+        单条批会在无锚定成员处清空,长记忆归调用方)。返回本轮铸锚的
+        ``chat:gid`` 键集(调用方滚动自己的记忆)。
+        """
+        return await self._dispatch(updates, extra_skip_groups=skip_groups)
+
     def _persist_offset(self, updates: list[dict[str, Any]]) -> None:
         max_update_id = max(
             (
@@ -314,8 +339,16 @@ class TelegramServeHost:
         if max_update_id > 0:
             self._offsets.save(max_update_id + 1)
 
-    async def _dispatch(self, updates: list[dict[str, Any]]) -> None:
-        """一轮新消息:分拣到绑定 → 过滤 → 入库/推送 → 记账."""
+    async def _dispatch(
+        self,
+        updates: list[dict[str, Any]],
+        *,
+        extra_skip_groups: set[str] | None = None,
+    ) -> set[str]:
+        """一轮新消息:分拣到绑定 → 过滤 → 入库/推送 → 记账.
+
+        返回本轮铸锚的媒体组键集(``chat:gid``;B4 起 dispatch_once 消费)。
+        """
         stats = _DispatchStats(updates=len(updates))
         # 本轮铸锚的媒体组(F13 跨轮记忆滚动面:分派完替换上一轮记忆)。
         anchored_now: set[str] = set()
@@ -354,10 +387,12 @@ class TelegramServeHost:
             binding = self._bindings[chat_id]
             # 深审 F13:上一轮铸锚的媒体组前缀跨轮保留一轮 —— 后到的同组
             # 成员(相册被长轮询分批切开)按并入吞掉,不再重复出条。
+            # B4:extra_skip_groups = 调用方(telethon 用户线)的跨事件长
+            # 记忆,与自身滚动记忆并集(键同 ``chat:gid`` 复合形)。
             prefix = f"{chat_id}:"
             skip_groups = {
                 key[len(prefix):]
-                for key in self._media_group_memory
+                for key in (*self._media_group_memory, *(extra_skip_groups or ()))
                 if key.startswith(prefix)
             }
             items = updates_to_items(
@@ -408,6 +443,7 @@ class TelegramServeHost:
             stats.pushed,
             stats.ledger_failed,
         )
+        return anchored_now
 
     async def _filter_and_emit(
         self,

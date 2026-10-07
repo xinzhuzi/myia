@@ -3554,9 +3554,16 @@ def test_telegram_host_credential_missing_graceful(tmp_path, monkeypatch):
         entry._start_telegram_host()
         assert entry._TELEGRAM_THREAD is None  # graceful:不起线程
         assert entry._TELEGRAM_STOP is None
-        traces = [line for line in _ring_lines() if "telegram 宿主未起" in line]
-        assert traces and "bot token 未配" in traces[-1]
-        assert "myssia secret set myia/telegram/bot-token" in traces[-1]  # 四步指引在痕
+        # B4 双线契约:bot 线留痕(bot token 未配 + 四步指引)、telethon 用户线
+        # 留痕(session 未首登 + login 指引)、整体空态留痕(双缺)。
+        bot_traces = [line for line in _ring_lines() if "bot 线未起" in line]
+        assert bot_traces and "bot token 未配" in bot_traces[-1]
+        assert "myssia secret set myia/telegram/bot-token" in bot_traces[-1]  # 四步指引在痕
+        user_traces = [line for line in _ring_lines() if "telethon 用户线未起" in line]
+        assert user_traces and "session 未首登" in user_traces[-1]
+        assert "myssia telegram login" in user_traces[-1]  # 首登指引在痕
+        idle = [line for line in _ring_lines() if "宿主未起" in line]
+        assert idle and "双缺" in idle[-1]
     finally:
         secrets_store.reset_backend()
 
@@ -3613,6 +3620,68 @@ def test_telegram_host_assembly_builds_real_host(tmp_path, monkeypatch):
         assert bundle.host._should_stop is not None
         stop.set()
         assert bundle.host._should_stop() is True
+    finally:
+        secrets_store.reset_backend()
+
+
+def test_telegram_host_user_line_assembly(tmp_path, monkeypatch):
+    """B4 用户线装配:bot token 缺 + session 在(假 telethon 模块注入)→
+    单用户线 bundle(host = TelethonUserHost,label 含 telethon);账本按
+    ``telethon-user:<api_id>`` 指纹分键(与任何 bot 账本分文件);close 收
+    store。session 未首登的世界另有 credential_missing 用例覆盖。"""
+    import sys as _sys
+    import types as _types
+
+    from myssia.telegram.telethon_line import TelethonUserHost, session_path
+
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    plugins = tmp_path / "plugins"
+    plugins.mkdir()
+    (plugins / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
+    # session 已首登(文件在);假 telethon 模块(TelegramClient 工厂返回哨兵)。
+    session = session_path(tmp_path)
+    session.parent.mkdir(parents=True, exist_ok=True)
+    session.write_bytes(b"fake")
+
+    sentinel_client = object()
+
+    def _factory(session_str, api_id, api_hash):
+        return sentinel_client
+
+    fake_telethon = _types.ModuleType("telethon")
+    fake_telethon.TelegramClient = _factory
+    fake_telethon.events = _types.SimpleNamespace(NewMessage=lambda: object())
+    monkeypatch.setitem(_sys.modules, "telethon", fake_telethon)
+
+    from myssia import secrets as secrets_store
+    from myssia.schema import CredentialResolveError
+
+    def _deny_bot_only(value, *, backend=None):
+        # bot token 拒(逼 bot 线空态);api_id/api_hash 答真值(用户线路径)。
+        if "bot-token" in str(value):
+            raise CredentialResolveError(
+                "secret_not_found", f"系统钥匙链中未找到凭据 {value!r}"
+            )
+        return {
+            "keychain:myia/telegram/api-id": "1234567",
+            "keychain:myia/telegram/api-hash": "0123456789abcdef",
+        }.get(str(value), "unreachable")
+
+    secrets_store.set_backend(secrets_store.InMemoryKeychainBackend())
+    monkeypatch.setattr("myssia.schema.resolve_credential", _deny_bot_only)
+    try:
+        stop = threading.Event()
+        bundle = entry._assemble_telegram_host(entry._serve_context(), stop)
+        assert bundle is not None
+        assert isinstance(bundle.host, TelethonUserHost)
+        assert "telethon" in bundle.label and "bot" not in bundle.label.split("群")[0]
+        # 账本分键(F8 判例):telethon-user:<api_id> 指纹,与 bot 线分文件。
+        from myssia.telegram.offsets import bot_fingerprint
+
+        fp = bot_fingerprint("telethon-user:1234567")
+        assert (tmp_path / "telegram" / f"events-{fp}.db").exists()
+        assert bundle.host._client is sentinel_client
+        bundle.close()
     finally:
         secrets_store.reset_backend()
 

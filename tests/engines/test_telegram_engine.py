@@ -104,10 +104,14 @@ def telegram_context(
     client: httpx.AsyncClient, *, with_token: bool = True
 ) -> FetchContext:
     context, _ = make_context(client)
+    # 始终注入内存钥匙串(2026-10-08 B4 修复):with_token=False 原先不注入
+    # 后端 → 解析落到**系统钥匙串**,主人真配了 bot token 的开发机上该用例
+    # 环境红(HEAD 实证)。空态语义 = 「钥匙串无 token」,注入空后端才是该
+    # 意图的确定性实现(与 CI/无钥匙串环境行为一致)。
+    backend = InMemoryKeychainBackend()
     if with_token:
-        backend = InMemoryKeychainBackend()
         backend.set_password(SECRET_SERVICE, "myia/telegram/bot-token", BOT_TOKEN)
-        context.keychain_backend = backend
+    context.keychain_backend = backend
     return context
 
 

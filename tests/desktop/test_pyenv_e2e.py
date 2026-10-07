@@ -177,6 +177,34 @@ def wheels_dir(pinned_runtime: Path) -> Path:
                 "锁版 wheels 缓存缺失且 pip download 失败(首跑需网络): "
                 f"{result.stderr[-800:]}"
             )
+        # 构建后端本地化(10-06-telegram-telethon B4):锁版清单自此含
+        # sdist-only 件(pyaes —— telethon 闭包,PyPI 无轮),pip 装它走
+        # build isolation 要在**本索引**里解 setuptools/wheel(隔离子进程
+        # 与主进程同 --index-url)。不种这对轮,sdist 构建在离线沙箱必炸
+        # (实测 2026-10-08:Could not find setuptools>=40.8.0)。
+        result = subprocess.run(
+            [
+                python_bin,
+                "-m",
+                "pip",
+                "download",
+                "--no-input",
+                "--disable-pip-version-check",
+                "--no-deps",
+                "setuptools",
+                "wheel",
+                "-d",
+                str(out),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        if result.returncode != 0:
+            pytest.skip(
+                "构建后端 wheels(setuptools/wheel,sdist-only 锁件的构建前提)"
+                f"缓存缺失且 pip download 失败(首跑需网络): {result.stderr[-800:]}"
+            )
     marker.write_text(lock_sha + "\n")
     return out
 
