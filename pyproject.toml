@@ -78,7 +78,11 @@ apprise = ["apprise>=1.9,<2"]
 # iter_messages/add_event_handler)稳定,<2 防 v2 破坏性漂移。桌面锁随
 # llm extras 同款手法扩 --extra telethon(装机态 serve 双线起);另设
 # 置页组件卡同步收录(crawl4ai 组件轨判例,缺装可见可装)。
-telethon = ["telethon>=1.36,<2"]
+# python-socks(2026-10-08 G2 固化,主人手装过的件入锁):Telethon 走
+# SOCKS/HTTP 代理连接的官方推荐件(import python_socks;非 telethon 传递
+# 依赖,必须显式声明)。钉版 >=1.2.4,<3:1.2.4 起 sync+asyncio 双形态
+# 稳定,<3 防破坏性漂移。桌面锁同轮固化(增量 4 轮→5 轮)。
+telethon = ["telethon>=1.36,<2", "python-socks>=1.2.4,<3"]
 all = ["crawl4ai", "scrapling", "firecrawl-py", "skyvern", "openai>=1.30", "huggingface-hub>=0.23"]
 
 [project.scripts]

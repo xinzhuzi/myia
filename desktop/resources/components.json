@@ -23,7 +23,7 @@
       "id": "telethon",
       "pip_spec": "telethon>=1.36,<2",
       "label": "Telegram 用户线(telethon)",
-      "description": "Telegram 账号 session 消息线(MTProto,userbot):读任意已加入群(覆盖 bot 进不去的群),serve 常驻宿主的 telethon 事件线与品类源 engine_options.telegram.mode: user 批量档共用;闭包与 extras myssia[telethon] 同源(窗 >=1.36,<2,本仓 uv.lock 实测 1.45.0;纯 Python 轻依赖 telethon/pyaes/rsa/pyasn1,无浏览器/大二进制下载,首装需联网,PyPI 镜像覆盖生效)。桌面锁(requirements-lock.txt)已随包收录本闭包,此卡是就绪检查与手动补装入口(重装幂等:pip 已装自动跳过)。使用前置(一次性,CLI 交互):myssia secret set myia/telegram/api-id 与 myssia secret set myia/telegram/api-hash(my.telegram.org → API development tools 取值)→ myssia telegram login(手机号+验证码,建议挂小号风控隔离);session 文件落数据根 telegram/ 目录(权限 0600),清理数据根即回收。缺装时用户线结构化 dependency_missing 不影响 bot 线;本线只读(收消息),无发送能力"
+      "description": "Telegram 账号 session 消息线(MTProto,userbot):读任意已加入群(覆盖 bot 进不去的群),serve 常驻宿主的 telethon 事件线与品类源 engine_options.telegram.mode: user 批量档共用;闭包与 extras myssia[telethon] 同源(窗 >=1.36,<2,本仓 uv.lock 实测 1.45.0;纯 Python 轻依赖 telethon/pyaes/rsa/pyasn1/python-socks(代理连接件),无浏览器/大二进制下载,首装需联网,PyPI 镜像覆盖生效)。桌面锁(requirements-lock.txt)已随包收录本闭包,此卡是就绪检查与手动补装入口(重装幂等:pip 已装自动跳过)。使用前置(一次性,CLI 交互):myssia secret set myia/telegram/api-id 与 myssia secret set myia/telegram/api-hash(my.telegram.org → API development tools 取值)→ myssia telegram login(手机号+验证码,建议挂小号风控隔离);session 文件落数据根 telegram/ 目录(权限 0600),清理数据根即回收。缺装时用户线结构化 dependency_missing 不影响 bot 线;本线只读(收消息),无发送能力"
     },
     {
       "id": "searxng",

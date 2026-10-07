@@ -2,8 +2,11 @@
 # 10-06-ai-news-sources 二段扩 llm extras:装机态 enrich 依赖 openai,核心流水线
 # 评分面在桌面起死——增量仅 6 轮 openai 系,核心 6 依赖红线不动;
 # 10-06-telegram-telethon B4 三段扩 telethon extras:装机态 serve 双线的 telethon
-# 用户线依赖,增量仅 4 轮 telethon 系(telethon/pyaes/rsa/pyasn1,纯 Python 轻),
-# 既有条目零漂移——diff 实证)
+# 用户线依赖,增量 telethon 系 5 轮(telethon/pyaes/rsa/pyasn1/python-socks,
+# 纯 Python 轻),既有条目零漂移——diff 实证;
+# 2026-10-08 tg-web-line 查漏修复批① G2:+python-socks(Telethon 走 SOCKS/HTTP
+# 代理连接的官方推荐件,主人手装过的件入锁;非 telethon 传递依赖须显式声明,
+# 增量恰 +1 轮,既有条目零漂移——diff 实证)
 # 来源 = pyproject [project] dependencies + extras[llm] + extras[telethon] 经 uv.lock 冻结解析:
 #   uv export --frozen --no-dev --no-emit-project --no-hashes --extra llm --extra telethon
 # 唯一手改:workspace 成员 myssia-classifier 由 `-e ./myssia-classifier` 行钉为
@@ -95,6 +98,8 @@ pydantic==2.13.5
     #   openai
 pydantic-core==2.46.5
     # via pydantic
+python-socks==2.8.2
+    # via myssia
 pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
     # via keyring
 pyyaml==6.0.3

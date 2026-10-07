@@ -517,32 +517,40 @@ def test_searxng_component_row_gq6_disclosures() -> None:
 #     crawl4ai 判例 = 就绪检查/手动补装入口,重装幂等)。
 # ---------------------------------------------------------------------------
 
-#: telethon 组件闭包(与 pyproject extras ``myssia[telethon]`` 逐字符同字串;
-#: 窗 >=1.36,<2 = uv.lock 实测 1.45.0 所在线,<2 防 v2 破坏性漂移)。
+#: telethon 组件闭主件窗(与 pyproject extras ``myssia[telethon]`` 主件逐字符
+#: 同字串;窗 >=1.36,<2 = uv.lock 实测 1.45.0 所在线,<2 防 v2 破坏性漂移)。
+#: 2026-10-08 G2:extras 增 python-socks(Telethon 代理连接件,非 telethon
+#: 传递依赖,主人手装过的件入锁)—— 组件卡仍以主件为窗,python-socks 经
+#: 桌面锁钉版断言把关(test_telethon_covered_by_desktop_lock)。
 TELETHON_COMPONENT_PIP_SPEC = "telethon>=1.36,<2"
 
 
-def _telethon_extras_raw() -> str:
+def _telethon_extras_raw_list() -> list[str]:
+    """telethon extras 原文清单(首件 = 组件窗主件;伴生件随其后)。"""
     pyproject = tomllib.loads(
         (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     )
     extras_raw = list(pyproject["project"]["optional-dependencies"]["telethon"])
-    assert len(extras_raw) == 1, f"telethon extras 应为单件闭包: {extras_raw!r}"
-    return extras_raw[0]
+    assert extras_raw and extras_raw[0].startswith("telethon"), (
+        f"telethon extras 主件须为 telethon: {extras_raw!r}"
+    )
+    return extras_raw
 
 
 def test_telethon_component_row_matches_extras() -> None:
-    """telethon 组件行:注册表在册 + pip_spec 与 extras 逐字符同字串
+    """telethon 组件行:注册表在册 + pip_spec 与 extras 主件逐字符同字串
     (trafilatura 判例:比较原文不经 Requirement 归一化 —— 它会把 >=1.36,<2
-    重排成 <2,>=1.36;单件窗组件不引入第三种钉版口径)+ 使用前置三披露
+    重排成 <2,>=1.36;单件窗组件不引入第三种钉版口径;G2 后 extras 双件,
+    组件窗仍钉主件,伴生件走锁断言)+ 使用前置三披露
     (api-id/api-hash 钥匙串 → login 交互 → session 落数据根)+ 只读边界。"""
     registry = json.loads(
         (RESOURCES_DIR / "components.json").read_text(encoding="utf-8")
     )
     entry = next(e for e in registry["components"] if e["id"] == "telethon")
-    assert entry["pip_spec"] == TELETHON_COMPONENT_PIP_SPEC == _telethon_extras_raw(), (
-        f"telethon 闭包须与 extras 逐字符同字串: 注册表 {entry['pip_spec']!r}"
-        f" vs extras {_telethon_extras_raw()!r}"
+    extras_main = _telethon_extras_raw_list()[0]
+    assert entry["pip_spec"] == TELETHON_COMPONENT_PIP_SPEC == extras_main, (
+        f"telethon 闭包须与 extras 主件逐字符同字串: 注册表 {entry['pip_spec']!r}"
+        f" vs extras {extras_main!r}"
     )
     assert "post_install" not in entry, "telethon 是纯 pip 组件,无安装钩子"
     description = entry["description"]
@@ -556,16 +564,21 @@ def test_telethon_component_row_matches_extras() -> None:
 
 def test_telethon_covered_by_desktop_lock() -> None:
     """桌面锁收录 telethon(llm extras 判例):装机态 serve 双线的 telethon
-    用户线依赖在锁内,钉版满足 extras 约束 —— 缺席 = 装机侧用户线起死。"""
+    用户线依赖在锁内,钉版满足 extras 约束 —— 缺席 = 装机侧用户线起死。
+    G2:extras 双件逐件对锁(python-socks 代理件同守,缺席 = 装机代理连
+    接缺件)。"""
     pins = _lock_pins()
-    requirement = Requirement(_telethon_extras_raw())
-    pinned = pins.get("telethon")
-    assert pinned is not None, (
-        "requirements-lock.txt 缺 telethon(B4 桌面锁扩 --extra telethon)"
-    )
-    assert SpecifierSet(str(requirement.specifier)).contains(pinned), (
-        f"telethon 钉版 {pinned} 不满足 extras 约束 {requirement.specifier}"
-    )
+    for raw in _telethon_extras_raw_list():
+        requirement = Requirement(raw)
+        pinned = pins.get(requirement.name)
+        assert pinned is not None, (
+            f"requirements-lock.txt 缺 {requirement.name}"
+            f"(telethon extras 件: {raw!r})"
+        )
+        assert SpecifierSet(str(requirement.specifier)).contains(pinned), (
+            f"{requirement.name} 钉版 {pinned} 不满足 extras 约束 "
+            f"{requirement.specifier}"
+        )
     # 闭包伴生件(pyaes/rsa/pyasn1)同在锁内 —— 裸装主件会让 telethon
     # import 失败,依赖门形同虚设。
     for companion in ("pyaes", "rsa", "pyasn1"):
