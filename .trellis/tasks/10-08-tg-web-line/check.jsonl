@@ -6,3 +6,6 @@
 {"file": ".trellis/tasks/10-06-telegram-telethon/prd.md", "reason": "B4 决议失效注记对照:批① G1 在 B4「零凭据兜底」段追加失效注记并改 AC2 指引——跨档一致性检查"}
 {"file": "tests/desktop/test_pyenv_resources.py", "reason": "G2 把守测试:_telethon_extras_raw_list 双件逐件对锁钉版约束,python-socks 缺席即红——extras/uv.lock/桌面锁三处一致性的守门员"}
 {"file": "tests/telegram/test_telethon_line.py", "reason": "G1/G3 回归面:零凭据结构化失败用例/CLI 烟测零示例对残留断言/复用提示未验证授权态把守——修复批改动的主测试床"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "装机收尾检查口径:§4 三件套之装机包刷新判定+§1 读 exit 文件不信回显——build exit 0/对拍 17 件全 MATCH/重签 -vv+strict 双验/心跳只读戳零拉起的判据来源"}
+{"file": ".trellis/tasks/10-08-tg-web-line/prd.md", "reason": "W5 装机外科程序复用对照(sha 对拍/备份+ditto 换装/codesign 双验/装机 python 直载含 71 handlers/心跳 +60s 双验/零拉起复用在跑实例)——本批逐步照其口径执行,差异仅对拍面扩至 17 件"}
+{"file": "desktop/src-tauri/tauri.conf.json", "reason": "装机收尾对账依据:resources 映射=对拍路径换算(10 同步件+W5 回归 8 件全 MATCH;四种子旧包 ABSENT→新包在位;装机位复核 10/10)"}

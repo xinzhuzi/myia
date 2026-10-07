@@ -25,3 +25,13 @@
 {"file": "pyproject.toml", "reason": "修复批① G2 extras telethon 增 python-socks>=1.2.4,<3 声明处(注释含理由)"}
 {"file": "uv.lock", "reason": "修复批① G2 uv lock 钉 python-socks 2.8.2(diff 恰 11 行纯增零漂移亲验)"}
 {"file": "desktop/resources/requirements-lock.txt", "reason": "修复批① G2 桌面锁重导出:uv export --frozen --extra llm --extra telethon,头注释 4 轮→5 轮,增量恰 +1 轮零漂移"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "装机收尾批依据:§1 长任务后台+exit 文件落盘(tauri build 零 sleep 轮询)+§4 交付完成判定三件套——装机包已刷新=完成判据,重打包+备份+ditto 静默换装为 AI 侧标准动作"}
+{"file": "desktop/src-tauri/tauri.conf.json", "reason": "装机收尾批:G5 后资源清单事实源(单件种子 14 品类+src/myssia→myssia-src/myssia 映射+resources 双件),repo↔bundle 对拍路径换算基准;批③入库后本批首次吃进净装机包"}
+{"file": "src/myssia/telegram/telethon_line.py", "reason": "装机收尾批同步件:批①G1 死兜底对移除+批②G3 复用提示诚实化装机落位(装机位 sha e7f47515 与 HEAD 对拍 MATCH;telethon 全机未装 G7 归主人,装机 python py_compile 过)"}
+{"file": "src/myssia/telegram/__init__.py", "reason": "装机收尾批同步件:批①质询回改第七处包 docstring 同口径化装机落位(装机位 sha 50d96e3f MATCH,装机 python 直载 myssia.telegram 过)"}
+{"file": "src/myssia/engines/telegram.py", "reason": "装机收尾批同步件:批①G1 空态日志去兜底化装机落位(装机位 sha ca78c68b MATCH,装机 python 直载过)"}
+{"file": "src/myssia/telegram/web_dom.py", "reason": "装机收尾批同步件:批③跨线不互去重注记(锚命名空间两线独立)装机落位(装机位 sha fdc5ff51 MATCH,装机 python 直载过)"}
+{"file": "plugins/telegram-web.yaml", "reason": "装机收尾批种子件:G9 示范源随 G5 清单首次入净装机包(装机位 sha f5e0e35b MATCH;旧包 ABSENT 亲证=B4 重打包洗掉件根修闭环)"}
+{"file": "plugins/daily-digest.yaml", "reason": "装机收尾批种子件:分区六双线共用注释装机落位(装机位 sha d1cc2a58 MATCH;旧包 ABSENT,同上根修)"}
+{"file": "desktop/resources/requirements-lock.txt", "reason": "装机收尾批同步件(二次入账=装机落位):G2 桌面锁 5 轮含 python-socks==2.8.2 装机落位(装机位 sha 740fe3d5 MATCH;G7 主人一键同步吃此锁)"}
+{"file": "desktop/resources/components.json", "reason": "装机收尾批同步件:G2 telethon 行 description 补 python-socks 装机落位(装机位 sha d7441075 MATCH;旧包 1fed38d5 为 G2 前版亲证)"}
