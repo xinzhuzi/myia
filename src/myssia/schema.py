@@ -188,6 +188,11 @@ ENGINES = (
     # #tg-<chat_id>-<message_id> 全期幂等(未配 token = credential_missing
     # 显式空态零请求,reddit 判例)。
     "telegram",
+    # TG 网页会话引擎(10-08-tg-web-line C 线):链外 + 凭据零(登录态在
+    # Playwright 配置档);显式 engine: tg_web 才生效,自管 Chromium 读
+    # 群消息 DOM → bot 线 update 同形全复用(配置档缺 = session_missing
+    # 显式空态零浏览器,web-login 一次性前置)。
+    "tg_web",
 )
 PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
@@ -259,6 +264,7 @@ EngineName = Literal[
     "prompt",
     "store_report",
     "telegram",
+    "tg_web",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]
 ExtractType = Literal["list", "item", "json_path", "rss"]

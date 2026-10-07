@@ -100,6 +100,7 @@ __all__ = [
     "TelegramWebLoginFlow",
     "WEB_ORIGIN",
     "check_logged_in",
+    "default_data_root",
     "harden_profile_permissions",
     "list_accounts",
     "login_marker_path",
@@ -162,6 +163,16 @@ def validate_account_key(account: str) -> str:
             fatal=True,
         )
     return key
+
+
+def default_data_root() -> Path:
+    """引擎/登录流的数据根缺省(``$MYIA_HOME`` 或 cwd;telethon 线与 CLI
+    ``_cron_default_db`` 同口径 —— serve 装配的数据根 = ``--db`` 父目录,
+    两口径在桌面/沙箱一致)。"""
+    import os
+
+    home = os.environ.get("MYIA_HOME")
+    return Path(home) if home else Path.cwd()
 
 
 def profile_root(data_root: str | Path) -> Path:

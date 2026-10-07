@@ -152,6 +152,12 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # = credential_missing 显式空态零请求);getUpdates 批量窗口 + #tg- 锚
     # 幂等 + 媒体组聚合;常驻长轮询是 telegram serve 档(另文件)的形态。
     "telegram": lambda: _load("telegram", "TelegramEngine"),
+    # TG 网页会话引擎(10-08-tg-web-line C 线):链外同 telegram 先例 ——
+    # 显式 engine: tg_web 才生效,auto 永不路过;凭据零(登录态在
+    # Playwright 配置档,web-login 一次性前置);自管 Chromium 读群消息
+    # DOM → bot 线 update 同形全复用(#tg- 锚/过滤/合并出口);常驻实时
+    # 监控是 telegram serve 的 web 线(telegram/web_host.py)的形态。
+    "tg_web": lambda: _load("tg_web", "TelegramWebEngine"),
 }
 
 # Static typing view of the registry (class names resolved lazily at runtime).
