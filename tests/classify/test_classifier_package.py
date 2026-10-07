@@ -33,7 +33,7 @@ def test_keyword_data_file_ships_inside_the_package():
 
 def test_distribution_metadata_version_and_trove_classifiers():
     dist = metadata.metadata("myssia-classifier")
-    assert myssia_classifier.__version__ == "0.0.1"
+    assert myssia_classifier.__version__ == "0.0.3"
     assert metadata.version("myssia-classifier") == myssia_classifier.__version__
     assert dist["License"] == "MIT"
     assert "License :: OSI Approved :: MIT License" in dist.get_all("Classifier") or []

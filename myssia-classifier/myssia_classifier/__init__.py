@@ -64,7 +64,7 @@ __all__ = [
     "rules_from_config",
 ]
 
-__version__ = "0.0.1"
+__version__ = "0.0.3"
 
 logger = logging.getLogger(__name__)
 
