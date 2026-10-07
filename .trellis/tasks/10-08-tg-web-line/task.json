@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "C 线立档(三段齐);登录 UX 决议=设置页 Telegram 组件卡(理由在 prd);开工待主人令(或直接批)。",
+  "notes": "三件齐(research 并入 prd 背景链/design D1-D6 执行级含多账号治理/implement W1-W5);W5 真登录锁主人验证码一次,其余零前置;开工待令。",
   "meta": {}
 }
