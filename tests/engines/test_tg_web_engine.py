@@ -369,3 +369,22 @@ def test_source_validates_in_schema() -> None:
     source = make_tg_web_source()
     assert source.engine == "tg_web"
     assert source.extra_params["engine_options"]["tg_web"]["account"] == ACCOUNT
+
+
+def test_sample_plugin_yaml_ships_valid_tg_web_source() -> None:
+    """示范件把守(G9):plugins/telegram-web.yaml 过 schema 全装载,源形态
+    与 D4 对齐(account 全称律/chat/lookback 窗口帽);源名与 bot 线同名复用
+    (锚命名空间一致双线互去重,daily-digest 分区六按源名自动承载两线)."""
+    from myssia.schema import load_category_file
+
+    repo_root = Path(__file__).resolve().parents[2]
+    cfg = load_category_file(repo_root / "plugins" / "telegram-web.yaml")
+    assert cfg.id == "telegram-web"
+    src = cfg.sources[0]
+    assert src.engine == "tg_web"
+    opts = src.extra_params["engine_options"]["tg_web"]
+    assert opts["account"].startswith("telegram-")  # 账号键全称律
+    assert opts["chat"] == CHAT
+    assert 1 <= opts["lookback_limit"] <= 100  # 窗口帽域
+    groups = load_category_file(repo_root / "plugins" / "telegram-groups.yaml")
+    assert src.name in {s.name for s in groups.sources}  # 与 bot 线同名复用

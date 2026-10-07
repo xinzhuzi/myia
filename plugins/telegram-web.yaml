@@ -1,0 +1,88 @@
+# plugins/telegram-web.yaml — Telegram 网页线监控(10-08-tg-web-line C 线,
+# engine: tg_web,零外部凭据零群权限的桥:自管无头浏览器读已登录网页版)。
+#
+# 机制(engine: tg_web 链外引擎,schema 词表/registry 已注册):
+#   Playwright persistent 配置档(<数据根>/telegram-web/<账号键>/,0700/0600)
+#   开 web.telegram.org 群页 → MutationObserver 新消息节点 → Bot API 同形
+#   update → bot 线分拣/过滤(#tg-<chat>-<mid> 锚全期幂等)/出口全复用。
+#   批量档=开页读当前窗口(排程采集);常驻实时档=myssia telegram serve
+#   (每账号×群一 Watcher 页,失效隔离+max_accounts 帽)。
+#
+# 前置(一次性,零 api 凭据):
+#   myssia telegram web-login --account telegram-alt1( headed 窗口输手机号
+#   +验证码一次,登录态存配置档);或设置页「Telegram 监控」卡「+添加账号」。
+#   配置档缺 = session_missing 显式空态(零浏览器零请求不报错),登录即活。
+#
+# 诚实披露(PRD 钉死,设置卡文案同款):DOM 改版跟修(哨兵 tg_web_dom_stale
+#   结构化告警不装死)/登录建议小号(风控隔离)/登录态=配置档文件(0600,
+#   非加密);api_id 到手建议切回 Telethon 正统线,本线退役或备份。
+#
+# 源名与 bot 线同名复用(决议 G9):telegram-mihomo_party_group 与
+#   telegram-groups.yaml(bot 线)同名 —— 同一个群两条采集线,锚同形互去重
+#   (防双线同消息重复进库),日报「Telegram 群」分区自动承载两线 archive
+#   条目(分区按源名匹配,零双行维护)。
+#
+# 未挂 cron(不跑不影响);account 键全称律 telegram-<标识>(目录名即键)。
+
+id: telegram-web
+name: TG网页线监控
+
+schedule: "*/30 * * * *"          # 批量档窗口读取(serve 常驻时不必挂)
+timezone: Asia/Shanghai
+
+sources:
+  # ── 首群(mihomo_party_group;W5 真跑目标群)── 待登录空态:
+  #    配置档 <数据根>/telegram-web/telegram-alt1/ 缺即 session_missing
+  #    零浏览器;web-login 一次后即活。
+  - name: telegram-mihomo_party_group
+    engine: tg_web
+    url: "https://web.telegram.org"     # 锚(铸 #tg- 去重键用;引擎按键开配置档)
+    engine_options:
+      tg_web:
+        account: telegram-alt1          # 账号键(归属声明,全称律 telegram-<标识>)
+        chat: mihomo_party_group        # 群用户名或 -100 数字 id
+        lookback_limit: 50              # 单轮窗口帽 1-100(缺省 50)
+        keywords: [免费, 白嫖, 羊毛, token, 额度, 优惠, coupon, free, 折扣]  # 粗筛词表(与 bot 线同面,省略=内置缺省)
+        llm_base_url: keychain:myia/llm/base_url        # LLM 精筛端点(缺=降级纯粗筛)
+        llm_api_key: keychain:myia/llm/api_key
+        # model: glm-4-flash            # 缺省即此
+        # score_threshold: 8            # ≥8 分即时(缺省 8)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct                       # chromium 走系统网络(mihomo 出口按需系统级配)
+    retry: 3
+
+  # ── 你的群往这里加(一个群一个源,chat 各配各的;跨账号群按 account 归属
+  #    分组,max_accounts 帽缺省 3 源级可调 engine_options.tg_web 同级)────
+
+# 粗筛词表默认值与 bot 线同一份(引擎内置);源级 keywords 覆盖。
+watchlist:
+  keywords: []
+  mute: []
+
+classify:
+  builtin: false
+  rules: []
+
+dedup:
+  key: "{url}"                    # #tg-<chat_id>-<message_id> 锚:与 bot 线同形,双线互去重
+
+enrich:
+  enabled: false                  # 精筛在引擎内(与 bot 线同挂点,只对粗筛命中耗 token)
+
+push:
+  - channel: feishu_card
+    target: env:FEISHU_CHAT_ID
+    route:
+      - when: "score >= 8"        # 高价值即时(过滤管线已合并单条)
+        mode: immediate
+      - when: "url != ''"         # 普通=入库,日报「Telegram 群」分区承载(与 bot 线共区)
+        mode: archive
+    template: |
+      **TG 网页速报 · {{ date }}**
+      {% for item in items %}
+      - {{ item.title }}
+      {% endfor %}
+
+storage:
+  retention: 90d                  # 照 bot 线判例;敏感群可单源改短
+  vacuum: monthly
