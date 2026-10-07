@@ -13,9 +13,11 @@
   桌面 sidecar 接线位(TelegramServeHost 可嵌入,详 serve 模块文档)。
 - :mod:`myssia.telegram.telethon_line`(B4)—— telethon 用户线:账号
   session(MTProto)读任意已加入群(bot 进不去的群)。session 首登 CLI 流
-  (``myssia telegram login``,手机号→验证码→(2FA),零凭据兜底文档公开
-  示例对)/ Telethon Message → Bot API 同形消息适配(锚/聚合/过滤/出口全
-  复用 bot 线)/ 事件宿主(TelethonUserHost,dispatch_once 同一份分派
+  (``myssia telegram login``,手机号→验证码→(2FA);api_id/api_hash 缺 =
+  结构化失败(``api_credentials_missing``)带 my.telegram.org 恢复/换出口
+  再取自有对指引 —— 文档公开示例对已被服务端拒,兜底已移除,2026-10-08
+  G1)/ Telethon Message → Bot API 同形消息适配(锚/聚合/过滤/出口全
+  复用 bot 线)/ 事件宿主(TelegramUserHost,dispatch_once 同一份分派
   语义;FloodWait 服从;只读零写接口)。依赖走 extras
   ``myssia[telethon]`` 组件轨(惰性 import,缺装结构化降级)。
 
