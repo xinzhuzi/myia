@@ -182,63 +182,94 @@ sources:
     retry: 3
 
   # ──────────────────────────────────────────────────────────────────────
-  # 官网变更监控(10-06-ai-news-sources S2,engine: urlwatch 链外引擎)。
-  # 消费 myssia-urlwatch 场景件(快照对比,缓存 ~/.myia/urlwatch/cache.db
-  # 跨 run 持久);页面有变更才产条目(条目 url 带变更指纹锚点 #watch-<hash>,
-  # 同页面第二次变更不会被 dedup {url} 吞掉),零变更=合法空态。
-  # announce_new: false = 首跑只建快照基线零条目(冷启动不刷屏),之后只报
-  # 变更;上游重试语义自带,不配 retry。
+  # 厂商无 RSS 官网源(10-06 S2 落地 urlwatch 变更监控;10-07-ai-news-
+  # degraded-revive 三源复活:anthropic/cohere/meta 毕业为列表抽取——变更
+  # 监控「零变更=0 条」与健康度词表(watch 系哨兵未收编 FINGERPRINT_
+  # UNCHANGED_REASONS)相撞,恒被误诊 degraded「指纹未跳过却产出 0 条」;
+  # 三页实证均可结构化抽卡,列表源每轮真产出 N 条,健康度口径自然回 ok。
+  # 证据矩阵+根因:.trellis/tasks/10-07-ai-news-degraded-revive/(fetch 面
+  # 全健康:anthropic 200/428KB、cohere 200/1038KB、选择器仿真 14.5K/86K
+  # 字节快照;meta 静态面 400/403 指纹墙判死,渲染通道为唯一活路)。
+  # urlwatch 形态仍在册(zhipu/moonshot/minimax/seed 四家首页 watch 用)。
   # ──────────────────────────────────────────────────────────────────────
 
-  - name: anthropic-news-watch   # Anthropic 新闻页(无 RSS,探查实证 200 html;
-    engine: urlwatch             # robots: User-agent: * Allow /)
+  # Anthropic 新闻页(SSR 实证 200/428KB,robots: User-agent: * Allow /)。
+  # 无 RSS;10-07 起走 L2 静态列表抽取(原 urlwatch watch 形态退役)。
+  # 选择器验证(引擎真实 extract_html 路径,2026-10-07):14 条=新闻列表
+  # 卡 11 + 特写卡 3(/claude-* 产品发布卡,标题 h2;两形态同构整卡单链)。
+  # CSS-module 哈希类(FEATUREDGRID-…__W1FYDW)不押,只押 __title 语义
+  # 后缀与 h2/h4 标签——哈希随构建轮换,语义后缀来自 SCSS 源名。
+  - name: anthropic-news-watch   # 名保留 -watch 尾(daily-digest 引用零动)
+    engine: static_html
     url: "https://www.anthropic.com/news"
     method: GET
-    engine_options:
-      urlwatch:
-        label: "Anthropic 新闻页"    # 条目标题用的人话名(缺省=源名)
-        announce_new: false          # 首跑建基线,之后只报变更
-        timeout: 90                  # 单页子进程预算秒(缺省 120)
-        selector: main               # 正文区过滤:425KB 全页→20KB 正文,
-                                    # script/style 剔除,框架噪声出局
-                                    # (10-06 背靠背实证 unchanged;diff=正文 HTML)
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: list
+      item: "main a[href^='/news/'], main a[href^='/claude-']"
+      fields:
+        title: "h2, h4, [class*='__title']"   # 特写卡 h2/新闻卡 h4/列表卡
+                                              # __title 后缀,三形态通吃
+        url: "@href"                          # item 即锚(自引用取属性);
+                                              # 相对路径 urljoin
+        published: "time"                     # 卡内日期文本(Oct 6, 2026)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct                   # urlwatch 引擎只支持 direct(子进程直连)
+    proxy: direct
+    retry: 3
 
-  # Meta AI 博客(10-06 §12 重接):纯客户端渲染页,静态通道六种选择器
-  # 全零判死(ca7efc0 移除)——本源走渲染通道 render: crawl4ai:场景件
-  # render_crawl4ai.py 无头渲染取博文列表纯文本(图片/链接 URL 剔除,
-  # CDN 签名轮换噪声出局),喂 urlwatch shell job 对比(命令 stdout 即
-  # 快照对象;user_visible_url 锚住事件定位)。probe6 实测 7.3s/17345 字/
-  # 5 条博文 slug 可读。前置=运行环境需装 crawl4ai(仓库 venv 有;装机
-  # python 待 desktop lock 收编该 extras,缺则本源每 run 结构化
-  # dependency_missing,同 llm extras 先例归主人)。robots * 段允许
-  # /blog 的取合记档在 research §4(可一句话删源翻案)。
+  # Meta AI 博客(纯客户端渲染:静态面 10-06 六选择器全零判死,10-07 复测
+  # curl 400/sitemap 403 = 非浏览器指纹升级拦截,静态通道彻底死)。无 RSS。
+  # 10-07 起走 L3 crawl4ai 渲染 + 列表抽取(原 urlwatch render 形态退役):
+  # 真浏览器过指纹墙,渲染后 DOM 抽 aria-label 锚(渲染页类名全混淆哈希
+  # _8xix/_8xm6,aria-label 是唯一稳定语义面;实测 8 锚/4 独立最新帖,
+  # title 带 "Read " 前缀——抽取层无 transform,如实保留)。覆盖面如实记:
+  # 最新 News 区 4 帖;特写 hero 与底部 Learn More 区无稳定语义面不覆盖。
+  # 前置=运行环境需装 crawl4ai(仓库 venv 有;装机 python 走设置页
+  # 「Python 运行环境」装 crawl4ai 组件即活——desktop/resources/components.
+  # json 已声明,缺则本源每 run 结构化 dependency_missing,同 llm extras
+  # 先例归主人)。robots * 段允许 /blog(10-06 research §4 取合判例沿用)。
   - name: meta-ai-blog-watch
-    engine: urlwatch
+    engine: crawl4ai
     url: "https://ai.meta.com/blog"
     method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
     engine_options:
-      urlwatch:
-        label: "Meta AI 博客"
-        announce_new: false         # 首跑建基线,之后只报变更
-        timeout: 150                # 渲染整页 ~8s + uv 环境开销,宽于静态 90
-        render: crawl4ai            # 渲染通道(与 selector 互斥)
+      crawl4ai:
+        timeout: 90                 # 渲染整页实测 ~8s,宽预算防慢日
+    extract:
+      type: list
+      item: "a[aria-label][href^='https://ai.meta.com/blog/']"
+      fields:
+        title: "@aria-label"        # 无障碍标签=完整标题(Read <title>);
+                                    # item 即锚(自引用取属性)
+        url: "@href"                # 渲染后即绝对地址
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
     proxy: direct
+    retry: 3
 
-  - name: cohere-blog-watch      # Cohere 博客(无 RSS;robots Allow /)
-    engine: urlwatch
+  # Cohere 博客(SSR 实证 200/1038KB,robots Allow /,blog 路径不在
+  # Disallow 列)。无 RSS;10-07 起走 L2 静态列表抽取(原 urlwatch watch
+  # 形态退役)。文字卡 = a.flex(卡壳图片锚 aria-label 形态与本文锚并存,
+  # 押 Tailwind 语义类 flex 的文字锚——22 卡实测,/blog/tag/ 药丸类名
+  # inline-flex 不同 token 天然排除;首 p=标题,eyebrow 类 p=日期)。
+  - name: cohere-blog-watch
+    engine: static_html
     url: "https://cohere.com/blog"
     method: GET
-    engine_options:
-      urlwatch:
-        label: "Cohere 博客"
-        announce_new: false
-        timeout: 90
-        selector: main               # 正文区过滤(同上,实证稳定)
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: list
+      item: "main a.flex[href^='/blog/']"
+      fields:
+        title: "p"                  # 文字卡内首个 p=标题(次 p=摘要)
+        url: "@href"                # item 即锚(自引用取属性);相对路径 urljoin
+        published: "p[class*='eyebrow']"   # 日期行(Sep 10, 2026)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
     proxy: direct
+    retry: 3
 
   # ──────────────────────────────────────────────────────────────────────
   # 国产厂商官网 watch(10-06-ai-news-sources research §2 暂缓面翻案,

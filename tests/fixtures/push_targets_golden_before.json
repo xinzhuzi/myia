@@ -9,7 +9,7 @@
   },
   "enrich": {
    "api_key": "keychain:myia/image/api_key",
-   "base_url": "env:MYIA_LLM_BASE_URL",
+   "base_url": "keychain:myia/llm/base_url",
    "batch": 10,
    "budget_per_run": 50000,
    "cache": true,
@@ -25,8 +25,11 @@
   "name": "AI资讯",
   "push": [
    {
+    "bark_endpoint": null,
+    "bot": null,
     "channel": "feishu_card",
     "dingtalk_secret": null,
+    "msg_form": "text",
     "ntfy_token": null,
     "retries": 2,
     "retry_backoff_seconds": 1.0,
@@ -40,8 +43,12 @@
       "when": "category in ['freebie', 'proxy-node', 'buying-agent']"
      },
      {
-      "mode": "digest",
+      "mode": "archive",
       "when": "category == 'ai-news'"
+     },
+     {
+      "mode": "archive",
+      "when": "url != ''"
      }
     ],
     "target": "env:FEISHU_CHAT_ID",
@@ -56,12 +63,13 @@
   "schedule": "0 8,20 * * *",
   "sources": [
    {
+    "empty_ok": false,
     "engine": "auto",
     "extract": {
      "fields": {
       "image": "img@src",
-      "title": "h3",
-      "url": "h3 a@href"
+      "title": "h3, a",
+      "url": "a@href"
      },
      "item": "article[data-item-id]",
      "type": "list",
@@ -85,6 +93,7 @@
     "url": "https://aihot.news/"
    },
    {
+    "empty_ok": false,
     "engine": "static_html",
     "extract": {
      "fields": {
@@ -116,6 +125,404 @@
     },
     "retry": 3,
     "url": "https://www.cocoloop.cn/latest?page={page}"
+   },
+   {
+    "empty_ok": false,
+    "engine": "static_html",
+    "extract": {
+     "fields": {
+      "published": "published",
+      "title": "title",
+      "url": "link"
+     },
+     "item": null,
+     "type": "rss",
+     "url_template": null
+    },
+    "headers": {},
+    "method": "GET",
+    "name": "openai-news",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://openai.com/news/rss.xml"
+   },
+   {
+    "empty_ok": false,
+    "engine": "static_html",
+    "extract": {
+     "fields": {
+      "published": "published",
+      "title": "title",
+      "url": "link"
+     },
+     "item": null,
+     "type": "rss",
+     "url_template": null
+    },
+    "headers": {},
+    "method": "GET",
+    "name": "deepmind-blog",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://deepmind.google/blog/rss.xml"
+   },
+   {
+    "empty_ok": false,
+    "engine": "static_html",
+    "extract": {
+     "fields": {
+      "published": "published",
+      "title": "title",
+      "url": "link"
+     },
+     "item": null,
+     "type": "rss",
+     "url_template": null
+    },
+    "headers": {},
+    "method": "GET",
+    "name": "google-research",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://research.google/blog/rss/"
+   },
+   {
+    "empty_ok": false,
+    "engine": "static_html",
+    "extract": {
+     "fields": {
+      "published": "published",
+      "title": "title",
+      "url": "link"
+     },
+     "item": null,
+     "type": "rss",
+     "url_template": null
+    },
+    "headers": {},
+    "method": "GET",
+    "name": "microsoft-research",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://www.microsoft.com/en-us/research/feed/"
+   },
+   {
+    "empty_ok": false,
+    "engine": "static_html",
+    "extract": {
+     "fields": {
+      "published": "published",
+      "title": "title",
+      "url": "link"
+     },
+     "item": null,
+     "type": "rss",
+     "url_template": null
+    },
+    "headers": {},
+    "method": "GET",
+    "name": "hf-blog",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://huggingface.co/blog/feed.xml"
+   },
+   {
+    "empty_ok": false,
+    "engine": "static_html",
+    "extract": {
+     "fields": {
+      "published": "published",
+      "title": "title",
+      "url": "link"
+     },
+     "item": null,
+     "type": "rss",
+     "url_template": null
+    },
+    "headers": {},
+    "method": "GET",
+    "name": "mistral-news",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://mistral.ai/news/rss"
+   },
+   {
+    "empty_ok": false,
+    "engine": "static_html",
+    "extract": {
+     "fields": {
+      "published": "published",
+      "title": "title",
+      "url": "link"
+     },
+     "item": null,
+     "type": "rss",
+     "url_template": null
+    },
+    "headers": {},
+    "method": "GET",
+    "name": "qwen-blog",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://qwenlm.github.io/blog/index.xml"
+   },
+   {
+    "empty_ok": false,
+    "engine": "static_html",
+    "extract": {
+     "fields": {
+      "published": "time",
+      "title": "h2, h4, [class*='__title']",
+      "url": "@href"
+     },
+     "item": "main a[href^='/news/'], main a[href^='/claude-']",
+     "type": "list",
+     "url_template": null
+    },
+    "headers": {
+     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    },
+    "method": "GET",
+    "name": "anthropic-news-watch",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://www.anthropic.com/news"
+   },
+   {
+    "empty_ok": false,
+    "engine": "crawl4ai",
+    "engine_options": {
+     "crawl4ai": {
+      "timeout": 90
+     }
+    },
+    "extract": {
+     "fields": {
+      "title": "@aria-label",
+      "url": "@href"
+     },
+     "item": "a[aria-label][href^='https://ai.meta.com/blog/']",
+     "type": "list",
+     "url_template": null
+    },
+    "headers": {
+     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    },
+    "method": "GET",
+    "name": "meta-ai-blog-watch",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://ai.meta.com/blog"
+   },
+   {
+    "empty_ok": false,
+    "engine": "static_html",
+    "extract": {
+     "fields": {
+      "published": "p[class*='eyebrow']",
+      "title": "p",
+      "url": "@href"
+     },
+     "item": "main a.flex[href^='/blog/']",
+     "type": "list",
+     "url_template": null
+    },
+    "headers": {
+     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    },
+    "method": "GET",
+    "name": "cohere-blog-watch",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://cohere.com/blog"
+   },
+   {
+    "empty_ok": false,
+    "engine": "urlwatch",
+    "engine_options": {
+     "urlwatch": {
+      "announce_new": false,
+      "label": "智谱新闻页",
+      "selector": "main",
+      "timeout": 90
+     }
+    },
+    "extract": null,
+    "headers": {},
+    "method": "GET",
+    "name": "zhipu-news-watch",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://www.zhipuai.cn/news"
+   },
+   {
+    "empty_ok": false,
+    "engine": "urlwatch",
+    "engine_options": {
+     "urlwatch": {
+      "announce_new": false,
+      "label": "月之暗面首页",
+      "selector": "#root",
+      "timeout": 90
+     }
+    },
+    "extract": null,
+    "headers": {},
+    "method": "GET",
+    "name": "moonshot-home-watch",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://www.moonshot.cn/"
+   },
+   {
+    "empty_ok": false,
+    "engine": "urlwatch",
+    "engine_options": {
+     "urlwatch": {
+      "announce_new": false,
+      "label": "MiniMax 首页",
+      "selector": "main",
+      "timeout": 90
+     }
+    },
+    "extract": null,
+    "headers": {},
+    "method": "GET",
+    "name": "minimax-home-watch",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://www.minimaxi.com/"
+   },
+   {
+    "empty_ok": false,
+    "engine": "urlwatch",
+    "engine_options": {
+     "urlwatch": {
+      "announce_new": false,
+      "label": "字节 Seed 首页",
+      "selector": "main",
+      "timeout": 90
+     }
+    },
+    "extract": null,
+    "headers": {},
+    "method": "GET",
+    "name": "seed-home-watch",
+    "pagination": null,
+    "post_body": null,
+    "proxy": "direct",
+    "rate_limit": {
+     "backoff": "exponential",
+     "jitter": 2.0,
+     "qps": 0.5,
+     "respect_robots": true
+    },
+    "retry": 3,
+    "url": "https://seed.bytedance.com/"
    }
   ],
   "storage": {
@@ -164,8 +571,11 @@
   "name": "凭证猎手",
   "push": [
    {
+    "bark_endpoint": null,
+    "bot": null,
     "channel": "stdout",
     "dingtalk_secret": null,
+    "msg_form": null,
     "ntfy_token": null,
     "retries": 2,
     "retry_backoff_seconds": 1.0,
@@ -195,6 +605,7 @@
   "schedule": "0 */2 * * *",
   "sources": [
    {
+    "empty_ok": false,
     "engine": "credhunter",
     "engine_options": {
      "credhunter": {
@@ -222,6 +633,7 @@
     "url": "https://api.github.com"
    },
    {
+    "empty_ok": false,
     "engine": "direct_api",
     "extract": {
      "fields": {
@@ -312,8 +724,11 @@
   "name": "游戏情报",
   "push": [
    {
+    "bark_endpoint": null,
+    "bot": null,
     "channel": "feishu_card",
     "dingtalk_secret": null,
+    "msg_form": null,
     "ntfy_token": null,
     "retries": 2,
     "retry_backoff_seconds": 1.0,
@@ -336,8 +751,11 @@
     "weixin_hermes_bin": null
    },
    {
+    "bark_endpoint": null,
+    "bot": null,
     "channel": "telegram",
     "dingtalk_secret": null,
+    "msg_form": null,
     "ntfy_token": null,
     "retries": 2,
     "retry_backoff_seconds": 1.0,
@@ -363,6 +781,7 @@
   "schedule": "0 11 * * *",
   "sources": [
    {
+    "empty_ok": false,
     "engine": "direct_api",
     "extract": {
      "fields": {
@@ -397,6 +816,7 @@
     "url": "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions?locale=zh-CN&country=CN&allowCountries=CN"
    },
    {
+    "empty_ok": false,
     "engine": "direct_api",
     "extract": {
      "fields": {
@@ -429,6 +849,7 @@
     "url": "https://store.steampowered.com/api/featuredcategories?cc=cn"
    },
    {
+    "empty_ok": false,
     "engine": "direct_api",
     "extract": {
      "fields": {
@@ -462,6 +883,7 @@
     "url": "https://www.cheapshark.com/api/1.0/deals?storeID=7,11,15&sortBy=Savings&pageSize=20"
    },
    {
+    "empty_ok": false,
     "engine": "direct_api",
     "extract": {
      "fields": {
@@ -549,8 +971,11 @@
   "name": "显卡行情",
   "push": [
    {
+    "bark_endpoint": null,
+    "bot": null,
     "channel": "feishu_card",
     "dingtalk_secret": null,
+    "msg_form": null,
     "ntfy_token": null,
     "retries": 2,
     "retry_backoff_seconds": 1.0,
@@ -576,6 +1001,7 @@
   "schedule": "0 10 * * *",
   "sources": [
    {
+    "empty_ok": false,
     "engine": "static_html",
     "extract": {
      "fields": {
@@ -652,8 +1078,11 @@
   "name": "变更监控",
   "push": [
    {
+    "bark_endpoint": null,
+    "bot": null,
     "channel": "feishu_card",
     "dingtalk_secret": null,
+    "msg_form": null,
     "ntfy_token": null,
     "retries": 2,
     "retry_backoff_seconds": 1.0,
@@ -683,6 +1112,7 @@
   "schedule": "*/15 * * * *",
   "sources": [
    {
+    "empty_ok": false,
     "engine": "direct_api",
     "extract": {
      "fields": {
@@ -748,8 +1178,11 @@
   "name": "游戏资讯",
   "push": [
    {
+    "bark_endpoint": null,
+    "bot": null,
     "channel": "feishu_card",
     "dingtalk_secret": null,
+    "msg_form": null,
     "ntfy_token": null,
     "retries": 2,
     "retry_backoff_seconds": 1.0,
@@ -772,8 +1205,11 @@
     "weixin_hermes_bin": null
    },
    {
+    "bark_endpoint": null,
+    "bot": null,
     "channel": "telegram",
     "dingtalk_secret": null,
+    "msg_form": null,
     "ntfy_token": null,
     "retries": 2,
     "retry_backoff_seconds": 1.0,
@@ -799,6 +1235,7 @@
   "schedule": "0 11 * * *",
   "sources": [
    {
+    "empty_ok": false,
     "engine": "static_html",
     "extract": {
      "fields": {
@@ -876,8 +1313,11 @@
   "name": "股票情报",
   "push": [
    {
+    "bark_endpoint": null,
+    "bot": null,
     "channel": "feishu_card",
     "dingtalk_secret": null,
+    "msg_form": null,
     "ntfy_token": null,
     "retries": 2,
     "retry_backoff_seconds": 1.0,
@@ -907,6 +1347,7 @@
   "schedule": "0 9,15 * * 1-5",
   "sources": [
    {
+    "empty_ok": false,
     "engine": "direct_api",
     "extract": {
      "fields": {
@@ -992,8 +1433,11 @@
   "name": "羊毛情报",
   "push": [
    {
+    "bark_endpoint": null,
+    "bot": null,
     "channel": "feishu_card",
     "dingtalk_secret": null,
+    "msg_form": null,
     "ntfy_token": null,
     "retries": 2,
     "retry_backoff_seconds": 1.0,
@@ -1023,6 +1467,7 @@
   "schedule": "0 8,20 * * *",
   "sources": [
    {
+    "empty_ok": false,
     "engine": "static_html",
     "extract": {
      "fields": {
@@ -1051,6 +1496,7 @@
     "url": "https://linux.sb/"
    },
    {
+    "empty_ok": false,
     "engine": "static_html",
     "extract": {
      "fields": {
@@ -1079,6 +1525,7 @@
     "url": "https://bbs.bt.sb/latest"
    },
    {
+    "empty_ok": false,
     "engine": "static_html",
     "extract": {
      "fields": {
@@ -1111,6 +1558,7 @@
     "url": "https://www.nodeloc.com/latest?page={page}"
    },
    {
+    "empty_ok": false,
     "engine": "static_html",
     "extract": {
      "fields": {
@@ -1143,6 +1591,7 @@
     "url": "https://www.cocoloop.cn/latest?page={page}"
    },
    {
+    "empty_ok": false,
     "engine": "static_html",
     "extract": {
      "fields": {
@@ -1223,8 +1672,11 @@
   "name": "股票情报",
   "push": [
    {
+    "bark_endpoint": null,
+    "bot": null,
     "channel": "feishu_card",
     "dingtalk_secret": null,
+    "msg_form": null,
     "ntfy_token": null,
     "retries": 2,
     "retry_backoff_seconds": 1.0,
@@ -1254,6 +1706,7 @@
   "schedule": "0 9,15 * * 1-5",
   "sources": [
    {
+    "empty_ok": false,
     "engine": "auto",
     "extract": {
      "fields": {

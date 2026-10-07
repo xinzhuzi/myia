@@ -1,9 +1,12 @@
-# plugins/ai-news.yaml — AI news digest: aggregator hot feed + AI forums.
+# plugins/ai-news.yaml — AI news digest: aggregator hot feed + vendor
+# official sources + official-site change watch + AI forums.
 #
 # Section semantics are documented once, fully, in plugins/stocks.yaml (the
 # schema showcase). This file adds the patterns that file does not show:
 # a firecrawl-backend source, Discourse list extraction with pagination,
-# and a login-walled placeholder source.
+# a login-walled placeholder source, vendor RSS feeds (extract.type: rss,
+# news.yaml gcores 判例同通路) and urlwatch change-watch sources
+# (engine: urlwatch, 10-06-ai-news-sources S2).
 
 id: ai-news
 name: AI资讯
@@ -30,14 +33,21 @@ sources:
     method: GET
     headers:
       User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
-    extract:                      # verified against the 2026-10 SSR markup
+    extract:                      # verified against the 2026-10 SSR markup.
       type: list
-      item: "article[data-item-id]"   # cards without a title anchor are
-                                      # skipped automatically (zero-hit records)
+      item: "article[data-item-id]"   # 卡片两形态(10-06 发现 B 修复):标题卡
+                                      # (h3 内锚)与作者精选卡(无 h3)——两形态
+                                      # 实证均为整卡单链接且同指 /items/<id>,
+                                      # url 直取卡内 a 即两态通吃;标题逗号并
+                                      # 集按文档序取首个(普通卡 h3 先命中行为
+                                      # 不变,作者卡回退链接文本=正文摘要)。
+                                      # 此前 url 只认 h3 a,每轮静默丢 3-5 条
+                                      # 编辑精选 X 帖(算力承诺/A16Z 报告等恰
+                                      # 是 X 监控信号)。
       fields:
-        title: "h3"                 # headline text
-        url: "h3 a@href"            # /items/<id>, resolved against the page URL
-        image: "img@src"            # card cover image, urljoin'ed against the
+        title: "h3, a"            # 作者精选卡标题回退=链接文本(正文摘要)
+        url: "a@href"             # 整卡单链接(两形态同指 /items,实证)
+        image: "img@src"          # card cover image, urljoin'ed against the
                                     # page URL; lands in metadata["image"] for
                                     # the images: ring below (cards without a
                                     # cover simply omit the field)
@@ -85,6 +95,287 @@ sources:
     # 每请求间隔 ≥1s、单页超时 10s;品类级缺省 false,仅本源示范。
     images_detail_fetch: true
 
+  # ──────────────────────────────────────────────────────────────────────
+  # 厂商官方 RSS 源(10-06-ai-news-sources S1)。探查证据(2026-10-06,直连
+  # 单次+robots 先行,honest UA):.trellis/tasks/10-06-ai-news-sources/
+  # evidence/probe{,2,3}-log.md + probe4-*.json —— 七家全部 200 RSS 且
+  # robots 对 feed 路径 Allow;走 news.yaml gcores 同一 rss 通路
+  # (static_html 收文本 + extract.type: rss 的 feedparser 映射)。
+  # 每源条目量 20-50/次,dedup {url} 全期拦截同条重推。
+  # ──────────────────────────────────────────────────────────────────────
+
+  - name: openai-news            # OpenAI 官方新闻 feed(robots: User-agent: * Allow /)
+    engine: static_html
+    url: "https://openai.com/news/rss.xml"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: deepmind-blog          # Google DeepMind 官方博客 feed
+    engine: static_html
+    url: "https://deepmind.google/blog/rss.xml"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: google-research        # Google Research 官方博客 feed
+    engine: static_html
+    url: "https://research.google/blog/rss/"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: microsoft-research     # Microsoft Research 官方 feed(WordPress /feed/;
+    engine: static_html          # robots 154 行 Disallow 逐一对照,无一命中本路径)
+    url: "https://www.microsoft.com/en-us/research/feed/"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: hf-blog                # Hugging Face 官方博客 feed
+    engine: static_html
+    url: "https://huggingface.co/blog/feed.xml"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: mistral-news           # Mistral AI 官方新闻 feed(/rss.xml 302 落此)
+    engine: static_html
+    url: "https://mistral.ai/news/rss"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: qwen-blog              # Qwen 官方博客 feed(博客页 autodiscovery 实探:
+    engine: static_html          # qwenlm.github.io/blog/index.xml,Hugo 风格路径)
+    url: "https://qwenlm.github.io/blog/index.xml"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  # ──────────────────────────────────────────────────────────────────────
+  # 厂商无 RSS 官网源(10-06 S2 落地 urlwatch 变更监控;10-07-ai-news-
+  # degraded-revive 三源复活:anthropic/cohere/meta 毕业为列表抽取——变更
+  # 监控「零变更=0 条」与健康度词表(watch 系哨兵未收编 FINGERPRINT_
+  # UNCHANGED_REASONS)相撞,恒被误诊 degraded「指纹未跳过却产出 0 条」;
+  # 三页实证均可结构化抽卡,列表源每轮真产出 N 条,健康度口径自然回 ok。
+  # 证据矩阵+根因:.trellis/tasks/10-07-ai-news-degraded-revive/(fetch 面
+  # 全健康:anthropic 200/428KB、cohere 200/1038KB、选择器仿真 14.5K/86K
+  # 字节快照;meta 静态面 400/403 指纹墙判死,渲染通道为唯一活路)。
+  # urlwatch 形态仍在册(zhipu/moonshot/minimax/seed 四家首页 watch 用)。
+  # ──────────────────────────────────────────────────────────────────────
+
+  # Anthropic 新闻页(SSR 实证 200/428KB,robots: User-agent: * Allow /)。
+  # 无 RSS;10-07 起走 L2 静态列表抽取(原 urlwatch watch 形态退役)。
+  # 选择器验证(引擎真实 extract_html 路径,2026-10-07):14 条=新闻列表
+  # 卡 11 + 特写卡 3(/claude-* 产品发布卡,标题 h2;两形态同构整卡单链)。
+  # CSS-module 哈希类(FEATUREDGRID-…__W1FYDW)不押,只押 __title 语义
+  # 后缀与 h2/h4 标签——哈希随构建轮换,语义后缀来自 SCSS 源名。
+  - name: anthropic-news-watch   # 名保留 -watch 尾(daily-digest 引用零动)
+    engine: static_html
+    url: "https://www.anthropic.com/news"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: list
+      item: "main a[href^='/news/'], main a[href^='/claude-']"
+      fields:
+        title: "h2, h4, [class*='__title']"   # 特写卡 h2/新闻卡 h4/列表卡
+                                              # __title 后缀,三形态通吃
+        url: "@href"                          # item 即锚(自引用取属性);
+                                              # 相对路径 urljoin
+        published: "time"                     # 卡内日期文本(Oct 6, 2026)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  # Meta AI 博客(纯客户端渲染:静态面 10-06 六选择器全零判死,10-07 复测
+  # curl 400/sitemap 403 = 非浏览器指纹升级拦截,静态通道彻底死)。无 RSS。
+  # 10-07 起走 L3 crawl4ai 渲染 + 列表抽取(原 urlwatch render 形态退役):
+  # 真浏览器过指纹墙,渲染后 DOM 抽 aria-label 锚(渲染页类名全混淆哈希
+  # _8xix/_8xm6,aria-label 是唯一稳定语义面;实测 8 锚/4 独立最新帖,
+  # title 带 "Read " 前缀——抽取层无 transform,如实保留)。覆盖面如实记:
+  # 最新 News 区 4 帖;特写 hero 与底部 Learn More 区无稳定语义面不覆盖。
+  # 前置=运行环境需装 crawl4ai(仓库 venv 有;装机 python 走设置页
+  # 「Python 运行环境」装 crawl4ai 组件即活——desktop/resources/components.
+  # json 已声明,缺则本源每 run 结构化 dependency_missing,同 llm extras
+  # 先例归主人)。robots * 段允许 /blog(10-06 research §4 取合判例沿用)。
+  - name: meta-ai-blog-watch
+    engine: crawl4ai
+    url: "https://ai.meta.com/blog"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    engine_options:
+      crawl4ai:
+        timeout: 90                 # 渲染整页实测 ~8s,宽预算防慢日
+    extract:
+      type: list
+      item: "a[aria-label][href^='https://ai.meta.com/blog/']"
+      fields:
+        title: "@aria-label"        # 无障碍标签=完整标题(Read <title>);
+                                    # item 即锚(自引用取属性)
+        url: "@href"                # 渲染后即绝对地址
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  # Cohere 博客(SSR 实证 200/1038KB,robots Allow /,blog 路径不在
+  # Disallow 列)。无 RSS;10-07 起走 L2 静态列表抽取(原 urlwatch watch
+  # 形态退役)。文字卡 = a.flex(卡壳图片锚 aria-label 形态与本文锚并存,
+  # 押 Tailwind 语义类 flex 的文字锚——22 卡实测,/blog/tag/ 药丸类名
+  # inline-flex 不同 token 天然排除;首 p=标题,eyebrow 类 p=日期)。
+  - name: cohere-blog-watch
+    engine: static_html
+    url: "https://cohere.com/blog"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: list
+      item: "main a.flex[href^='/blog/']"
+      fields:
+        title: "p"                  # 文字卡内首个 p=标题(次 p=摘要)
+        url: "@href"                # item 即锚(自引用取属性);相对路径 urljoin
+        published: "p[class*='eyebrow']"   # 日期行(Sep 10, 2026)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  # ──────────────────────────────────────────────────────────────────────
+  # 国产厂商官网 watch(10-06-ai-news-sources research §2 暂缓面翻案,
+  # §7 兑现:urlwatch css 内容过滤落地后重探)。探查证据(2026-10-06,
+  # 单次零压力、robots 先行、honest UA):.trellis/tasks/10-06-ai-news-
+  # sources/evidence/probe5-log.md + probe5-results.json + probe5b-
+  # readable-excerpt.txt —— robots 五家对目标路径全允许(deepseek robots
+  # 本轮补档:User-agent: * Allow: /;moonshot robots 404=默认允许);
+  # 四家过滤后正文 848-2171 字、可读、背靠背双跑 R2=unchanged(框架
+  # 噪声出局,anthropic/cohere 同判例)。deepseek 记死:www.deepseek.com
+  # 的 main 过滤后仅 395 字/body 490 字 <500 字判定线(营销壳页,research
+  # §2「首页 watch 价值低」维持;若后续出 /news 类列表页再探)。
+  # ──────────────────────────────────────────────────────────────────────
+
+  - name: zhipu-news-watch       # 智谱新闻页(SSR /news 列表;robots: * Allow /)
+    engine: urlwatch
+    url: "https://www.zhipuai.cn/news"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "智谱新闻页"          # 条目标题用的人话名(缺省=源名)
+        announce_new: false          # 首跑建基线,之后只报变更
+        timeout: 90
+        selector: main               # 177KB html/2138 字正文;「最新动态」
+                                    # 新闻列表在内(业绩发布/CogAgent-9B
+                                    # 开源等条目可读);hero 营销位同区,
+                                    # 漂移面待 12h 观察窗
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct                   # urlwatch 引擎只支持 direct(子进程直连)
+
+  - name: moonshot-home-watch    # 月之暗面首页(无独立新闻页;robots 404)
+    engine: urlwatch
+    url: "https://www.moonshot.cn/"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "月之暗面首页"
+        announce_new: false
+        timeout: 90
+        selector: "#root"            # 唯一有正文的选择器(main/#app/
+                                    # #__next/[role=main]/article 全零):
+                                    # 35KB html/848 字,「最新研究」条目
+                                    # (Kimi K3/PerceptionBench 等)在内;
+                                    # 注意首页 Doodle 轮换区随月份漂移属
+                                    # 真实内容变更(低资讯价值,非误报)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  - name: minimax-home-watch     # MiniMax 首页(robots: * Allow /,禁 /api/
+    engine: urlwatch               # 与 /_next/,目标页 / 不命中)
+    url: "https://www.minimaxi.com/"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "MiniMax 首页"
+        announce_new: false
+        timeout: 90
+        selector: main               # 48KB html/1348 字;「最新研究」区
+                                    # (Music 3.0/H3/M3 条目带日期)在内
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  - name: seed-home-watch        # 字节 Seed 首页(robots: * Allow /)
+    engine: urlwatch
+    url: "https://seed.bytedance.com/"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "字节 Seed 首页"
+        announce_new: false
+        timeout: 90
+        selector: main               # 132KB html/2171 字;「最新动态」列表
+                                    # (SeedRealtime/Seedance 2.5 等)信号
+                                    # 最强一家;SSR 区块有重复输出,变更
+                                    # diff 仍可读(纯文本归一后稳定)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  # ──────────────────────────────────────────────────────────────────────
+  # X(Twitter)监控位(10-06-ai-news-sources S3)——注释态,reddit-ml 同款
+  # 「先决条件入 YAML」先例。通道=已部署实例上的 RSSHub 路由(myssia-rsshub
+  # 件,任意已部署实例按 remote 接入;部署按上游官方文档,twitter 路由需给
+  # 实例配 TWITTER_AUTH_TOKEN —— 官方环境变量表实锤,zread DIYgod/RSSHub
+  # 2026-10-06;本机不起 docker 栈,实例属主人运维面)。启用三步:
+  #   1. 备好一个已部署的 RSSHub 实例(twitter 路由生效、鉴权按需)
+  #   2. 把下方 <rsshub-host> 换成实例地址(如 http://127.0.0.1:1200)
+  #   3. 按主人圈选的账号清单取消注释(下方为候选示范)
+  # 诚实注记:twitter 路由上游脆弱在案(RSSHub 官方文档:/twitter/keyword
+  # 2025-08 起失效,GraphQL 端点持续漂移),实例日志里 4xx/空产出属正常
+  # 降级面,doctor 可见;没有现成实例 = 当前硬前置(部署配方见上游官方
+  # 文档,我方不复刻)。
+  # ──────────────────────────────────────────────────────────────────────
+  # - name: x-openai
+  #   engine: static_html
+  #   url: "https://<rsshub-host>/twitter/user/OpenAI"
+  #   method: GET
+  #   extract:
+  #     type: rss
+  #     fields: {title: title, url: link, published: published}
+  #   rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+  #   proxy: direct
+  #   retry: 3
+  # 候选账号(圈选后复制上面条目改 url 尾):OpenAI / AnthropicAI /
+  #   GoogleDeepMind / xai / karpathy / OfficialLoganG / _akhaliq / simonw
+  #   —— 清单终稿属主人决策(research.md §5)。
+
   # linux.do — placeholder for a login-walled Discourse source. stealth_browser
   # (L5) is implemented and sits at the auto chain's tail carrying login state:
   # it needs an invisible_playwright_mcp service (engine_options.stealth_browser);
@@ -100,6 +391,26 @@ sources:
   #       url: "a.raw-topic-link@href"
   #   headers:
   #     Cookie: env:LINUXDO_COOKIE  # login state via env reference only
+
+  # Reddit 官方 Data API 通道(10-05-reddit-official-engine;链外引擎:显式
+  # engine: reddit 才生效,auto 永不路过)。凭据**可选**:未配 = 显式空态
+  # credential_missing(本轮零请求,写好钥匙串即恢复产出);配好即活。
+  # 先决人肉步骤(主人,2026-10-31 前):reddit.com/prefs/apps 注册 script 型
+  # app(redirect uri 占位 http://localhost:8080)→ myssia secret set
+  # myia/reddit/client-id 与 myia/reddit/client-secret(值走 stdin)。
+  # robots 面说明:oauth/www 两宿主 robots 全禁,但官方一手声明 robots.txt
+  # 面向搜索引擎、不适用 Data API 授权通道 —— 引擎不查 robots(.rss/.json
+  # 直抓路线仍被封死,勿动)。
+  # - name: reddit-ml
+  #   engine: reddit
+  #   url: "https://oauth.reddit.com/r/MachineLearning/new"   # r/<sub>/<listing>
+  #   engine_options:
+  #     reddit:
+  #       client_id: keychain:myia/reddit/client-id        # env:/keychain: 引用
+  #       client_secret: keychain:myia/reddit/client-secret
+  #       limit: 25                # 单页条目帽,1-100(缺省 25,礼貌小页)
+  #       # ua_username: ~        # Reddit 条款 UA 建议含 (by /u/<name>) 段;
+  #                               # 缺省不带(隐私取舍;要带填 Reddit 用户名)
 
 watchlist:
   keywords: [LLM, Agent, 开源模型, AI芯片, 大模型, 多模态]
@@ -123,23 +434,32 @@ enrich:
                               # 10 条留足余量,mini-batch(≤2 条)~6s 实证
   cache: true
   budget_per_run: 50000
-  base_url: env:MYIA_LLM_BASE_URL   # 智谱 PAAS v4:export MYIA_LLM_BASE_URL=\
-                                # https://open.bigmodel.cn/api/paas/v4
-                                # (docs/zh/zero-cost.md §enrich、docker/env.example
-                                # 同名条目;容器走 docker/.env,CLI 走 shell 导出)
+  base_url: keychain:myia/llm/base_url   # 智谱 PAAS v4:https://open.bigmodel.cn/api/paas/v4
+                                # (值非密钥;10-03 桌面零 env 化:自 env:MYIA_LLM_BASE_URL
+                                # 迁入钥匙链——桌面 sidecar 无 shell env,env: 引用会在
+                                # 桌面 run 构造期 fail-fast;CLI/桌面同链录入:
+                                # myssia secret set myia/llm/base_url,或桌面端凭据页)
   api_key: keychain:myia/image/api_key   # 既有 GLM key(与 vision.yaml cloud 同链;
                                 # myssia secret set myia/image/api_key 录入)
 
 push:
   - channel: feishu_card
     target: env:FEISHU_CHAT_ID  # bot token comes from env:FEISHU_BOT_TOKEN
+    msg_form: text              # 10-06-hermes-align 批次1:日报走 markdown
+                                # 文本消息(Hermes 日报形态,post md rows +
+                                # 4000 字行边界拆段,经 im/v1/messages),
+                                # 弃交互卡片;缺省 card 向后兼容。
     route:
       - when: "score >= 9"      # v0.2 slot: only breakout news (scored) pushes now
         mode: immediate
       - when: "category in ['freebie', 'proxy-node', 'buying-agent']"   # v0.1:
         mode: immediate         # give-aways inside AI communities go out now
-      - when: "category == 'ai-news'"   # v0.1: the daily digest bucket
-        mode: digest
+      - when: "category == 'ai-news'"   # 日报层降噪(10-06-hermes-align 批次4):
+        mode: archive           # 仅入库,由 plugins/daily-digest.yaml 合并日报
+                                # 唯一出口收口(原 digest 槽位汇总卡退役)
+      - when: "url != ''"       # 兜底封边:规则未命中的其余分类(server/token/
+        mode: archive           # channel 等)同样仅入库——route 层保守缺省是
+                                # digest,不封边会残留逐品类日报单发出口
     template: |
       **AI 资讯 · {{ date }}**
       {% for item in items %}
