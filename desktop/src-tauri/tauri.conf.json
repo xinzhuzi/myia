@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "世事",
   "mainBinaryName": "MYIA",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "identifier": "com.myssia.app",
   "build": {
     "beforeBuildCommand": "npm run clean:pycache && npm run build",
