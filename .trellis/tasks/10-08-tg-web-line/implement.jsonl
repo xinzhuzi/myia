@@ -1,0 +1,27 @@
+{"file": ".trellis/spec/guides/search-sop.md", "reason": "搜索 SOP 先读铁律:热路径/rg+fd/中文路径勿手拼/GitNexus -r shishi,W1-W5 与查漏修复批全程定位核验遵守"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "工程纪律:长任务监控(后台+exit 文件禁 sleep 轮询)/先报量再动手/高星参考——W1 Playwright persistent 与 W5 真跑标定的方法论依据"}
+{"file": ".trellis/spec/domain/security-baseline.md", "reason": "凭据/登录态红线:配置档 0700+内件 0600 硬化、手机号验证码零落日志、session 只报位置形状——W1 权限硬化与 AC5 的依据"}
+{"file": ".trellis/spec/domain/yaml-schema.md", "reason": "品类 YAML 硬规则:engine 词表/schema 两行 hunk 判例/未知字段 fail-fast——W2 tg_web 引擎与 D4 源形态的依据"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用思维:C 线零独立消息语义,dom_message_to_update → updates_to_items、过滤面 TelegramFilterPipeline 同一份、dispatch_once 全语义复用 bot 线的设计依据"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "跨层思维:cli.py/entry.py 双接线同门、sidecar 三方法+前端卡+协议文档三层对账——W3/W4 装配面的依据"}
+{"file": ".trellis/spec/python/error-handling.md", "reason": "结构化错误契约:哨兵词表 tg_web_logged_out/tg_web_dom_stale、fatal 隔离单键不拖全群、显式空态零装死——W2/W3 错误面的依据"}
+{"file": ".trellis/spec/python/logging.md", "reason": "日志纪律:哨兵三面留痕(内存态+日志+账本 error 行)、值零外显——W3 Watcher 告警面的依据"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "sidecar 协议事实源=_HANDLERS:W4 三方法(telegram.status/web.login/web.delete)注册表 68→71 行与对账测试的依据"}
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "前端规范:组件卡=状态+动作+修复聚合位判例(Python 环境卡)——W4 Telegram 总卡三段设计的依据"}
+{"file": ".trellis/tasks/10-08-tg-web-line/design.md", "reason": "D1-D6 设计决议:D1 两档共用 bot 线语义/D4 tg_web 源 YAML 形态(account/chat/lookback_limit)/账号键全称律/分键账本 web-events-<sha8>.db——W1-W4 实现的决议基准"}
+{"file": ".trellis/tasks/10-08-tg-web-line/prd.md", "reason": "本档自引:AC1-5/诚实披露三条/多账号一等能力决议(独立配置档/失效隔离/max_accounts 帽资源披露)——各批验收口径"}
+{"file": "src/myssia/telegram/web_line.py", "reason": "W1 登录器:Playwright persistent context/账号键全称律校验/配置档权限硬化/TelegramWebLoginFlow headed 流/check_logged_in 无头探针——W5 标定批升级可见性口径"}
+{"file": "src/myssia/telegram/web_dom.py", "reason": "W1 DOM 面标定件:选择器表 2026-10-08.v1 七面多候选/MutationObserver 四 JS 注入件/dom_message_to_update 同形映射/login_state_probe_js 共享探针(W5 收敛四处消费面)"}
+{"file": "src/myssia/engines/tg_web.py", "reason": "W2 批量档窗口引擎:session_missing 显式空态/playwright 依赖门/双哨兵/chat_not_found 分词/窗口读取进 bot 线管线/robots 豁免钉授权第一方面"}
+{"file": "src/myssia/telegram/web_host.py", "reason": "W3 常驻宿主:TelegramWebWatcher 每(账号×群)一页/TelegramWebAccountHost 每键一 context/TelegramWebManager 多键失效隔离+max_accounts 帽"}
+{"file": "src/myssia/telegram/serve.py", "reason": "bot 线分派事实源:dispatch_once 消息面语义(分拣/过滤/出口/账本/F13 媒体组)——W3 Watcher 全语义复用的读源"}
+{"file": "desktop/entry.py", "reason": "桌面装配:_assemble_telegram_host 同门逐句对齐 cli.py 第三线/telegram.status 三线快照/web.login 后台 daemon 线程/web.delete 整档删除——W3/W4 接线面"}
+{"file": "desktop/ui-src/src/screens/settings/telegram-card.tsx", "reason": "W4 Telegram 总卡:bot/session/web 三段+账号列表行(状态灯/重登/删除/+添加)+披露三条常驻文案+登录窗 5s×24 轮询对账"}
+{"file": "tests/telegram/test_web_line.py", "reason": "W1 测试 29 例:键校验/权限/复用/force/超时结构化/依赖门/DOM 映射进 bot 线管线铁证"}
+{"file": "tests/engines/test_tg_web_engine.py", "reason": "W2 测试 21 例:注册表/词表/配置错误 7 形/显式空态/依赖门/双哨兵/开群失败 3 形/锚+粗筛复用"}
+{"file": "tests/telegram/test_web_host.py", "reason": "W3 测试 17 例:Watcher 分派/哨兵×3/多键隔离/未知异常告警/装配分组+分键账本/帽拒+可调/CLI 第三线路由"}
+{"file": "src/myssia/telegram/telethon_line.py", "reason": "修复批① G1 死兜底对移除(常量/回落/指引文案六处+guidance 人话化)+批② G3 复用提示诚实化(未验证授权态限定)的改动面"}
+{"file": "src/myssia/engines/telegram.py", "reason": "修复批① G1 空态日志去兜底化(勿用文档示例对警示)的改动面"}
+{"file": "pyproject.toml", "reason": "修复批① G2 extras telethon 增 python-socks>=1.2.4,<3 声明处(注释含理由)"}
+{"file": "uv.lock", "reason": "修复批① G2 uv lock 钉 python-socks 2.8.2(diff 恰 11 行纯增零漂移亲验)"}
+{"file": "desktop/resources/requirements-lock.txt", "reason": "修复批① G2 桌面锁重导出:uv export --frozen --extra llm --extra telethon,头注释 4 轮→5 轮,增量恰 +1 轮零漂移"}

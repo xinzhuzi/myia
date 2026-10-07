@@ -428,11 +428,14 @@ class TelethonLoginFlow:
         api_id, api_hash = resolve_api_credentials(backend=self._backend)
         target = session_path(data_root)
         if target.exists() and not force:
-            # 复用检查零依赖:session 在 = 已登录态,提示即出(未装 telethon
-            # 也能答「你已经登录了」;真要用时引擎/宿主的依赖门会给出指引)。
+            # 复用检查零依赖:文件在 = 大概率已登录,提示即出(未装 telethon
+            # 也能答);授权态由装配/宿主真探针把关 —— 半成品文件(上次登录
+            # 未完成)会在那里 session_expired 结构化暴露,此处措辞不给
+            # 「已登录」过度承诺(G3:数据根半成品清理的连带诚实化)。
             self._print(
-                f"已有 telethon session({target}),直接复用;"
-                "失效重登:myssia telegram login --force"
+                f"已有 telethon session 文件({target}),按已登录复用"
+                "(零依赖未验证授权态;若上次登录未完成或已失效:"
+                "myssia telegram login --force 重登)"
             )
             return target
         if target.exists():

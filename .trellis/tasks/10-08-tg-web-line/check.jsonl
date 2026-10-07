@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/python/quality.md", "reason": "测试约定:全 mock 零真网/pytest 全绿红线——W1-W4 各批门禁与查漏修复批①②定向门禁的口径"}
+{"file": ".trellis/spec/python/error-handling.md", "reason": "结构化错误验收:reason 词表/fatal 语义/退出码契约——双哨兵与 credential_missing 空态的检查依据"}
+{"file": ".trellis/spec/domain/security-baseline.md", "reason": "AC5 红线复查:登录态 0600/凭据零外显/session 与 DOM 内容零读取——W1 权限断言与查漏侦察员只报形状纪律的依据"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "sidecar 协议对账:三方法注册表 71 行与文档三行同步——W4 协议测试过的依据"}
+{"file": ".trellis/tasks/10-08-tg-web-line/prd.md", "reason": "查漏节自引(2026-10-08 03:17):GapList 11 条 G1-G11 证据与修法/在途边界钉死/无缺口面存证——修复批①②(G1-G4)的缺口来源与验收对照"}
+{"file": ".trellis/tasks/10-06-telegram-telethon/prd.md", "reason": "B4 决议失效注记对照:批① G1 在 B4「零凭据兜底」段追加失效注记并改 AC2 指引——跨档一致性检查"}
+{"file": "tests/desktop/test_pyenv_resources.py", "reason": "G2 把守测试:_telethon_extras_raw_list 双件逐件对锁钉版约束,python-socks 缺席即红——extras/uv.lock/桌面锁三处一致性的守门员"}
+{"file": "tests/telegram/test_telethon_line.py", "reason": "G1/G3 回归面:零凭据结构化失败用例/CLI 烟测零示例对残留断言/复用提示未验证授权态把守——修复批改动的主测试床"}

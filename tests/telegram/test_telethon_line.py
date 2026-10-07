@@ -449,7 +449,8 @@ def make_flow(tmp_path: Path, client: FakeLoginClient, backend: Any = None) -> T
 
 
 def test_login_existing_session_reused_without_client(tmp_path: Path) -> None:
-    """已有 session = 直接复用提示,零连接零交互。"""
+    """已有 session 文件 = 复用提示,零连接零交互;措辞不给「已登录」
+    过度承诺(G3:零依赖面未验证授权态,半成品文件也会走到此提示)。"""
     target = session_path(tmp_path)
     target.parent.mkdir(parents=True)
     target.write_bytes(b"existing")
@@ -459,15 +460,20 @@ def test_login_existing_session_reused_without_client(tmp_path: Path) -> None:
         def __call__(self, *args):  # pragma: no cover - 不应触
             raise AssertionError("复用路径不得构造客户端")
 
+    lines: list[str] = []
     flow = TelethonLoginFlow(
         input_fn=lambda p: pytest.fail("复用路径不得读输入"),
         client_factory=_Boom(),
         backend=make_backend(),
-        print_fn=lambda t: None,
+        print_fn=lines.append,
     )
     path = run(flow.run(tmp_path))
     assert path == target
     assert client.calls == []
+    joined = "\n".join(lines)
+    assert "未验证授权态" in joined  # 诚实化:零依赖面不承诺已登录(G3)
+    assert "myssia telegram login --force" in joined  # 半成品/失效出路
+    assert "直接复用" not in joined  # 旧过度承诺措辞零残留
 
 
 def test_login_interactive_success_and_permissions(tmp_path: Path) -> None:
