@@ -45,11 +45,13 @@
 - 装机像素级验证(装机验证者,05:31-05:5x):just build-desktop 重打包(HEAD=d02812d,产物含 R1 合流码+前端「上一程」)→ 备份换装+清 WKWebView 缓存 → 会话一直跑二进制(无焦点纪律)跑一次采集(run 30 落库,log_run_id=1,schema v9→v10 实迁)→ quit 退净 → 会话二重启进日志屏 → 截图七帧+PaddleOCR 实读两帧 → 复原核(env 旗均空/工作树零源码改动);过程帧 WKWebView 欠栅格化现象如实注记(合成器行为非产品缺陷,大 resize 后像素层齐)。
 - 独立复查(独立复查者,冷审):五提交 diff 全读+定向测试亲跑复验(AC1 六例/store 三例/AC3 五例/金丝雀 136 例/前端 logs 21 例全绿);核心正确性八项成立(去重键同编号空间/上限与排序/空库零回归/proc 双向/spec 逐条对齐/run_id 闭环到 ring_snapshot/越界零触碰/前端防撞号);**零 medium+ 发现**,两 low 见 run-report §复查处置。
 - 收尾(本批):全量 `just test`+`just check` 亲跑双绿(回执 run-report §门禁)→ 回填本档 → run-report.md → task.json 直改 review → docs(task) 收尾 commit(外科 pathspec,只提交不推送)。
+- 归档:6921c97(19:52)——判活 idle(该线最后提交 7f02a31 距今>30min+工作树该档零未提交改动)后 tasks→archive/2026-10 归档移动,task.json 置 completed+completedAt=2026-10-07;evidence/ 留盘外不入 git。
+- low①②处置批 843a5a6(19:56,归档后 wrap 补笔):low① 僵尸行余量窗实修——`_history_run_rows` 改递增扩窗(首窗=limit+排除数,收不满翻倍续拉,consumed 只走增量,收满 50 或行尽止;上限/排序/去重键/行形状/故障降级全不变),测试 test_run_status_history_cap_fifty_with_zombie_margin 钉死(顶 10 僵尸+55 收口仍收满 50,僵尸零入历史);同笔顺带清偿邻线遗留 vision sink 清理窗——vision-server.out/.err 中继 sink(47b4672 落)纳入 `_purge_stale` mtime 清理面(该笔提交信息按 vision 复查②编号称 low②,非本档复查 low②),测试 test_purge_vision_sink_by_mtime;spec python/logging.md 轮转保留段补 sink mtime 一句;门禁回执(提交信息)=gitnexus impact 两符号均 LOW(_m_run_status/configure)+detect-changes staged=5 文件 12 符号 risk low+TZ=Asia/Shanghai 定向 tests/test_log.py+tests/desktop/test_desktop_sidecar_protocol.py 190 passed+ruff 全绿。
 
 ## 结果(验收回执,完工填)
 
 - AC1-AC6 全勾(证据逐条见上);R1-R4 全落地,四需求各有实现锚点+测试钉死+spec 入档。
 - 门禁终态:定向各批全绿(见过程);收尾全量 `just test`=pytest 4922 passed, 40 skipped+vitest 598 passed(28 files)、`just check`=ruff+tsc/vite build+cargo check 全绿,均 exit=0。
 - 装机终态:重启后日志屏「上一程」行+展开回填日志行均经 PaddleOCR 实读(OCR 文字与置信度存 evidence/)。
-- 复查终态:零 medium+;两 low——①僵尸行占拉取余量窗(entry.py:3594/3603,合格历史行可能少列不超限)遗留观察项;②AC5 全量门禁无回执+收尾批未落——**本批已偿**(全量双绿+本回填+task.json 置 review)。
-- 状态:review(休止,不 archive——归档留 wrap);未推送(待主人令)。
+- 复查终态:零 medium+;两 low 双闭环——①僵尸行占拉取余量窗(entry.py:3594/3603,合格历史行可能少列不超限)收尾时点原裁「遗留观察项不修」,归档后 wrap 批 **843a5a6 已实修**(递增扩窗机制与测试见§过程,合格历史行僵尸密集时也收满 50);②AC5 全量门禁无回执+收尾批未落——**收尾已偿**(7f02a31 批:全量双绿回执+AC1-AC6 勾档+task.json 置 review)。
+- 状态:completed(6921c97 归档置 completed+completedAt=2026-10-07;low①② 处置笔 843a5a6 落后 task.json commit 更新为 843a5a6);未推送(待主人令)。

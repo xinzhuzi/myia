@@ -15,12 +15,12 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": "d02812d",
+  "commit": "843a5a6",
   "pr_url": null,
   "subtasks": [],
   "children": [],
   "parent": "10-07-unified-logging",
   "relatedFiles": [],
-  "notes": "并行会话 10-07-dashboard-trend-today-fix 在途:全程不碰 task.py start/finish/archive 指针(状态直改 task.json),提交外科 pathspec,不碰 dashboard/trend 域文件。收尾态=review 休止,归档留 wrap。",
+  "notes": "并行会话 10-07-dashboard-trend-today-fix 在途:全程不碰 task.py start/finish/archive 指针(状态直改 task.json),提交外科 pathspec,不碰 dashboard/trend 域文件。收尾态=review 休止,归档留 wrap。2026-10-07 深夜 wrap 批补记:归档=6921c97;low① 僵尸行余量已修+vision sink 清理窗补笔=843a5a6,commit 字段随更指向该笔;并行 dashboard 档已自行归档(0b9ad6e)。",
   "meta": {}
 }
