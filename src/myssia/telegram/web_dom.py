@@ -40,17 +40,19 @@ logger = logging.getLogger(__name__)
 #: 选择器表标定版本(改版跟修只动本模块 + 升本注记)。
 SELECTOR_REVISION = "2026-10-08.v1"
 
-#: 登录成功标志(左栏会话列表;命中任一 = 已登录)。Web K:聊天列表容器
-#: ``.chatlist-container``;Web A:``.chat-list`` 一族。多候选兜底。
+#: 登录成功标志(左栏会话列表;**可见性口径** —— W5 真跑标定在案实证:
+#: Web K 登录页的隐藏壳里 ``.chatlist-container`` 也在 DOM,纯在场会
+#: 假阳性「已登录」;判据 = getClientRects 可见)。多候选兜底。
 CHAT_LIST_SELECTORS: tuple[str, ...] = (
     ".chatlist-container",  # Web K
     ".chat-list",  # Web A
     "ul.chatlist",
 )
 
-#: 登出态标志(登录表单在场)。Web K 手机号输入 ``.login-form`` 一族;
-#: Web A ``input[name='phone']``(部分版本 ``#phone-number``)。
+#: 登出态标志(W5 真跑标定:登录页 body 挂 ``has-auth-pages`` 类,稳定;
+#: 表单选择器做次级候选 —— 首跑 JS 渲染窗内可能迟到,类标记先行)。
 LOGGED_OUT_SELECTORS: tuple[str, ...] = (
+    "body.has-auth-pages",  # Web K 登录页 body 类(标定 2026-10-08)
     ".login-form",  # Web K 登录卡片
     "input[name='phone']",  # Web A 手机号输入
     "#phone-number",
@@ -114,6 +116,7 @@ __all__ = [
     "drain_observer_js",
     "extract_message_js",
     "install_observer_js",
+    "login_state_probe_js",
     "open_chat_js",
 ]
 
@@ -127,6 +130,36 @@ def combined_selectors(chat_list: str, logged_out: str) -> dict[str, list[str]]:
         "chat_list": [s.strip() for s in chat_list.split(",") if s.strip()],
         "logged_out": [s.strip() for s in logged_out.split(",") if s.strip()],
     }
+
+
+def login_state_probe_js(
+    *,
+    chat_list_selectors: tuple[str, ...] = CHAT_LIST_SELECTORS,
+    logged_out_selectors: tuple[str, ...] = LOGGED_OUT_SELECTORS,
+) -> str:
+    """登录态探测件(登录流/引擎/宿主/哨兵共用一份;选择器表烙进 JS).
+
+    判据序(W5 真跑标定口径):① 登出标志(body.has-auth-pages 类或可见
+    登录表单)→ ``logged_out``;② 会话列表**可见**(getClientRects,隐藏
+    壳不算)→ ``logged_in``;③ 全不中 → ``unknown``(DOM 失配面,哨兵
+    ``tg_web_dom_stale`` 词汇)。返回 ``{state}``。
+    """
+    import json
+
+    return (
+        f"const CHAT_LIST = {json.dumps(list(chat_list_selectors))};\n"
+        f"const LOGGED_OUT = {json.dumps(list(logged_out_selectors))};\n"
+        + """() => {
+    const visible = (sel) => Array.from(document.querySelectorAll(sel))
+        .some((el) => el.getClientRects().length > 0);
+    const loggedOut = document.body.classList.contains('has-auth-pages')
+        || LOGGED_OUT.some(visible);
+    if (loggedOut) return {state: 'logged_out'};
+    if (CHAT_LIST.some(visible)) return {state: 'logged_in'};
+    return {state: 'unknown'};
+}
+"""
+    )
 
 
 def chat_url(chat: str) -> str:

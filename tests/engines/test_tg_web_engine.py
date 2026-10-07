@@ -64,7 +64,7 @@ class FakePage:
 
     async def evaluate(self, script: Any, arg: Any = None) -> Any:
         js = script if isinstance(script, str) else ""
-        if "chat_list.find" in js:
+        if "has-auth-pages" in js:  # login_state_probe_js(W5 标定口径)
             return {"state": self.login_state}
         if "search_box_missing" in js:
             return self.open_outcome

@@ -68,12 +68,11 @@ from myssia.telegram.filter import (
     merge_high_value,
 )
 from myssia.telegram.web_dom import (
-    CHAT_LIST_SELECTORS,
-    LOGGED_OUT_SELECTORS,
     MAX_DOM_MESSAGES,
     SELECTOR_REVISION,
     chat_url,
     collect_window_updates,
+    login_state_probe_js,
     open_chat_js,
 )
 
@@ -245,20 +244,9 @@ class TelegramWebEngine(BaseEngine):
             )
             page = context.pages[0] if context.pages else await context.new_page()
             await page.goto(chat_url(options["chat"]), wait_until="domcontentloaded")
-            login_state = await page.evaluate(
-                """(selectors) => {
-                    const hit = selectors.chat_list.find(
-                        (s) => document.querySelector(s) !== null);
-                    if (hit) return {state: 'logged_in'};
-                    const out = selectors.logged_out.find(
-                        (s) => document.querySelector(s) !== null);
-                    return {state: out ? 'logged_out' : 'unknown'};
-                }""",
-                {
-                    "chat_list": list(CHAT_LIST_SELECTORS),
-                    "logged_out": list(LOGGED_OUT_SELECTORS),
-                },
-            )
+            from myssia.telegram.web_dom import login_state_probe_js
+
+            login_state = await page.evaluate(login_state_probe_js())
             state = (
                 login_state.get("state")
                 if isinstance(login_state, dict)

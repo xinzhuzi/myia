@@ -273,27 +273,15 @@ class TelegramWebWatcher:
             self._anchored_groups.popitem(last=False)
 
     async def _health_probe(self) -> None:
-        """周期哨兵:登录表单重现 = 登出;会话列表+观察器全失 = DOM 失配."""
-        from myssia.telegram.web_dom import (
-            CHAT_LIST_SELECTORS,
-            LOGGED_OUT_SELECTORS,
-        )
+        """周期哨兵:登录表单重现 = 登出;会话列表+观察器全失 = DOM 失配.
 
-        state = await self._page.evaluate(
-            """(selectors) => {
-                const out = selectors.logged_out.find(
-                    (s) => document.querySelector(s) !== null);
-                if (out) return {state: 'logged_out'};
-                const chat = selectors.chat_list.find(
-                    (s) => document.querySelector(s) !== null);
-                const observer = Boolean(window.__myssiaTgWebObserver);
-                return {state: chat ? 'logged_in' : 'unknown', observer};
-            }""",
-            {
-                "chat_list": list(CHAT_LIST_SELECTORS),
-                "logged_out": list(LOGGED_OUT_SELECTORS),
-            },
-        )
+        登录态判据 = ``web_dom.login_state_probe_js``(可见性口径,W5 真跑
+        标定;登录流/引擎/哨兵同一份);观察器面在本探针后独立查
+        (``window.__myssiaTgWebObserver`` 在 install 时置位)。
+        """
+        from myssia.telegram.web_dom import login_state_probe_js
+
+        state = await self._page.evaluate(login_state_probe_js())
         if not isinstance(state, dict):
             state = {"state": "unknown"}
         if state.get("state") == "logged_out":
@@ -304,7 +292,10 @@ class TelegramWebWatcher:
                 reason=SENTINEL_LOGGED_OUT,
                 fatal=True,
             )
-        if state.get("state") == "unknown" or not state.get("observer"):
+        observer_alive = await self._page.evaluate(
+            "() => Boolean(window.__myssiaTgWebObserver)"
+        )
+        if state.get("state") == "unknown" or not observer_alive:
             raise TelegramWebError(
                 f"TG 网页线页面健康面失配 account={self._account}"
                 f" chat={self._binding.chat_id}(会话列表/观察器全不中);"
@@ -386,30 +377,13 @@ class TelegramWebAccountHost:
             require_playwright()
         except TelegramWebError:
             raise
-        from myssia.telegram.web_dom import (
-            CHAT_LIST_SELECTORS,
-            LOGGED_OUT_SELECTORS,
-            chat_url,
-        )
+        from myssia.telegram.web_dom import chat_url, login_state_probe_js
 
         handle, context = await self._launch()
         try:
             page = context.pages[0] if context.pages else await context.new_page()
             await page.goto(chat_url(""), wait_until="domcontentloaded")
-            state = await page.evaluate(
-                """(selectors) => {
-                    const hit = selectors.chat_list.find(
-                        (s) => document.querySelector(s) !== null);
-                    if (hit) return {state: 'logged_in'};
-                    const out = selectors.logged_out.find(
-                        (s) => document.querySelector(s) !== null);
-                    return {state: out ? 'logged_out' : 'unknown'};
-                }""",
-                {
-                    "chat_list": list(CHAT_LIST_SELECTORS),
-                    "logged_out": list(LOGGED_OUT_SELECTORS),
-                },
-            )
+            state = await page.evaluate(login_state_probe_js())
             login_state = (
                 state.get("state") if isinstance(state, dict) else "unknown"
             )

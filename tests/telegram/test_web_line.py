@@ -79,8 +79,14 @@ class FakeChromium:
 
 
 class FakeStarted:
+    """``handle.start()`` 产物(Playwright 实例形态:chromium + stop)."""
+
     def __init__(self, chromium: FakeChromium) -> None:
         self.chromium = chromium
+        self.stopped = False
+
+    async def stop(self) -> None:
+        self.stopped = True
 
 
 class FakeHandle:
@@ -102,6 +108,14 @@ def make_factory(
     context = FakeContext(page)
     handle = FakeHandle(context)
     return (lambda: handle), handle, context, page
+
+
+def _started_of(handle: FakeHandle) -> FakeStarted:
+    """launch_persistent_context 返回的 started 实例(收尾断言面)."""
+    import asyncio
+
+    started = asyncio.run(handle.start())
+    return started
 
 
 # ------------------------------------------------------------- 账号键与路径
@@ -205,7 +219,8 @@ def test_login_success_flow_writes_marker_and_hardens(
 
     directory = asyncio.run(flow.run(tmp_path, "telegram-alt1"))
     assert page.goto_calls == ["https://web.telegram.org"]
-    assert handle.stopped and context.closed
+    started = _started_of(handle)
+    assert started.stopped and context.closed
     marker = read_login_marker(directory)
     assert marker is not None and marker.get("line") == "tg_web"
     assert (directory.stat().st_mode & 0o777) == PROFILE_DIR_MODE
@@ -243,7 +258,7 @@ def test_login_timeout_is_structured(tmp_path: Path) -> None:
         asyncio.run(flow.run(tmp_path, "telegram-alt1"))
     assert exc_info.value.reason == "login_timeout"
     assert exc_info.value.fatal is True
-    assert handle.stopped  # 超时路径资源也收尾
+    assert _started_of(handle).stopped  # 超时路径资源也收尾
 
 
 def test_login_invalid_account_never_launches(tmp_path: Path) -> None:

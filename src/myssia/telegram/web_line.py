@@ -267,6 +267,10 @@ async def launch_persistent_context(
     else:
         api = require_playwright()
         handle = api.async_playwright()
+    # ⚠ 返回 handle.start() 的产物(Playwright 实例,带 .stop())而非上下文
+    # 管理器本体 —— PlaywrightContextManager 只有 start(),stop 在实例上;
+    # 返回错对象会让一切收尾路径 AttributeError(playwright node 进程泄漏,
+    # W5 真跑标定在案实证)。
     started = await handle.start()
     context = await started.chromium.launch_persistent_context(
         str(directory),
@@ -275,7 +279,7 @@ async def launch_persistent_context(
         args=["--disable-blink-features=AutomationControlled"],
     )
     context.set_default_timeout(int(page_timeout_seconds * 1000))
-    return handle, context, None
+    return started, context, None
 
 
 async def _wait_for_login(
@@ -283,45 +287,34 @@ async def _wait_for_login(
     *,
     timeout_seconds: float,
     poll_interval: float = LOGIN_POLL_INTERVAL_SECONDS,
-    chat_list_selector: str,
-    logged_out_selector: str,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    **_legacy: Any,
 ) -> str:
-    """轮询登录成功标志到会话列表出现;返回命中选择器.
+    """轮询登录成功标志到会话列表出现;返回命中态.
+
+    探测件 = ``web_dom.login_state_probe_js``(可见性口径,W5 真跑标定);
+    登录表单重现/会话列表可见由同一份判据序裁决(登录流/引擎/哨兵共用)。
 
     Raises:
         TelegramWebError: ``login_timeout``(超时,人速窗内没等到会话列表)。
     """
-    from myssia.telegram.web_dom import combined_selectors
+    from myssia.telegram.web_dom import login_state_probe_js
 
-    selectors = combined_selectors(chat_list_selector, logged_out_selector)
     deadline = asyncio.get_event_loop().time() + timeout_seconds
-    last_logged_out = False
+    last_state = "unknown"
     while asyncio.get_event_loop().time() < deadline:
         try:
-            found = await page.evaluate(
-                """(selectors) => {
-                    const hit = selectors.chat_list.find((s) =>
-                        document.querySelector(s) !== null);
-                    if (hit) return {state: 'logged_in', hit};
-                    const out = selectors.logged_out.find((s) =>
-                        document.querySelector(s) !== null);
-                    if (out) return {state: 'logged_out', hit: out};
-                    return {state: 'unknown', hit: null};
-                }""",
-                selectors,
-            )
+            found = await page.evaluate(login_state_probe_js())
         except Exception:  # noqa: BLE001 - 页面导航间隙的 evaluate 异常按 unknown 重试
-            found = {"state": "unknown", "hit": None}
+            found = {"state": "unknown"}
         state = found.get("state") if isinstance(found, dict) else "unknown"
         if state == "logged_in":
-            return str(found.get("hit"))
-        if state == "logged_out":
-            last_logged_out = True
+            return state
+        last_state = state
         await sleep(poll_interval)
     hint = (
         "页面停在登录表单(手机号/验证码未完成或被刷新)"
-        if last_logged_out
+        if last_state == "logged_out"
         else "页面未出现会话列表(DOM 改版或网络受限,哨兵面见 web_dom 模块)"
     )
     raise TelegramWebError(
@@ -369,11 +362,6 @@ async def check_logged_in(
     不读消息只看标志;DOM 失配(选择器全不中)如实报 ``dom_stale`` note
     (哨兵同词表),不装死。
     """
-    from myssia.telegram.web_dom import (
-        CHAT_LIST_SELECTORS,
-        LOGGED_OUT_SELECTORS,
-    )
-
     directory = profile_dir(data_root, account)
     if not directory.is_dir():
         return False, "profile_missing"
@@ -393,8 +381,6 @@ async def check_logged_in(
                 page,
                 timeout_seconds=timeout_seconds,
                 poll_interval=1.0,
-                chat_list_selector=", ".join(CHAT_LIST_SELECTORS),
-                logged_out_selector=", ".join(LOGGED_OUT_SELECTORS),
             )
         except TelegramWebError:
             # 超时 = 会话列表未出现:登出页在 = 真登出;全不中 = DOM 失配面。
@@ -471,11 +457,6 @@ class TelegramWebLoginFlow:
                 f"--account {key} --force"
             )
             return directory
-        from myssia.telegram.web_dom import (
-            CHAT_LIST_SELECTORS,
-            LOGGED_OUT_SELECTORS,
-        )
-
         handle, context, _ = await launch_persistent_context(
             directory,
             headless=False,
@@ -499,8 +480,6 @@ class TelegramWebLoginFlow:
                 page,
                 timeout_seconds=self._timeout,
                 sleep=self._sleep,
-                chat_list_selector=", ".join(CHAT_LIST_SELECTORS),
-                logged_out_selector=", ".join(LOGGED_OUT_SELECTORS),
             )
         finally:
             for closer in (context.close, handle.stop):

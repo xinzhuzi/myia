@@ -34,10 +34,30 @@ DOM 改版跟修(哨兵在)/ToS 灰色同 userbot,登录**建议小号**/api_id 
 - [x] 引擎 tg_web(W2 批②,2026-10-08):`src/myssia/engines/tg_web.py`(批量档窗口引擎:配置档缺=`session_missing` 显式空态零浏览器/playwright 依赖门/登录态探针→`tg_web_logged_out` 与 `tg_web_dom_stale` 两哨兵结构化/开群失败分词表 `tg_web_chat_not_found`/窗口读取→`updates_to_items` bot 线全语义/过滤面 `TelegramFilterPipeline` 同一份且 tg_web 源过滤键与 bot 线 `engine_options.telegram` 兼容并集/单轮窗口拒 pagination/robots 豁免钉 web.telegram.org 授权第一方面,合规面走 PRD 披露)+ schema 两行 hunk(`ENGINES` 元组+`EngineName` Literal)+ registry 注册(链外判例,AUTO_CHAIN 七层原样)+ docs zh/en schema.md 词表行同步;测试 `tests/engines/test_tg_web_engine.py` 21 例全绿(注册表/词表/配置错误 7 形/显式空态/依赖门/登出哨兵/DOM 失配哨兵/开群失败 3 形/锚+粗筛复用/安静群合法空态),连带 schema+registry+docs 回归 339 全绿,ruff 绿。
 - [x] 常驻 Watcher 与哨兵(W3 批③,2026-10-08):`src/myssia/telegram/web_host.py`(`TelegramWebWatcher` 每(账号×群)一页:page.evaluate 注入 MutationObserver→页内事件队列→轮询取走→单条抽取→`dom_message_to_update`→bot 线 `dispatch_once` 全语义复用(分拣/过滤/出口/账本/F13 媒体组记忆);`TelegramWebAccountHost` 每键一无头 context 多 Watcher 页,启动序=配置档门→依赖门→登录探针→开群挂 Watcher;`TelegramWebManager` 多键并跑+失效隔离(单键 fatal=记哨兵告警停该键不复活不退出,重启全量拉起由人)+`max_accounts` 帽缺省 3 源级可调+超帽结构化拒带 150-300MB/键资源披露+分键账本 `web-events-<sha8(tg-web:键)>.db`;哨兵两词表 `tg_web_logged_out`/`tg_web_dom_stale` 观察器安装失败/健康巡检 60s 双触发面,内存态+日志+账本 error 行三面留痕)+ serve 集成(cli.py `_cmd_telegram_serve` 引擎门收 tg_web 源+`_assemble_telegram_web_line` 第三线+`_run_telegram_hosts` 三线 gather;desktop/entry.py `_assemble_telegram_host` 同门逐句对齐,web manager close 收尾双面)。测试 `tests/telegram/test_web_host.py` 17 例全绿(Watcher 分派/哨兵×3/多键隔离/未知异常告警/装配分组+分键账本/帽拒+可调/CLI 第三线路由+web-login 在册),telegram+desktop+cli 646 全绿,ruff 绿;detect-changes 低风险(cli.py/entry.py 符号面与预期一致)。
 - [x] 组件卡 UI+装配+测试(W4 批④,2026-10-08):sidecar 三方法(desktop/entry.py `telegram.status` 三线快照/`telegram.web.login` 后台 daemon 线程拉起 headed 登录窗,手机号+验证码全在页面内 sidecar 零读取零落日志/`telegram.web.delete` 整档删除;`_resolve_credential_probe` 注入缝;注册表 68→71 行,sidecar-protocol.md 三行同步对账测试过)+ 前端三件(`telegram-api.ts` IPC 封装/`telegram-card.tsx` Telegram 总卡:bot 段 token 状态灯+四步指引、session 段 telethon 首登态、web 段账号列表行(键+状态灯+重登 force+删除)+「+添加账号」键名校验前置+登录窗 5s×24 轮询对账+披露三条文案常驻 AC5;settings-screen 新分区「Telegram 监控」+SECTION_FIELD_TERMS 词面+渲染接线)。测试:vitest `telegram-card.test.tsx` 10 例全绿(全量 608/608,tsc -b 0 错,无 jest-dom 原生断言口径);无头 Playwright 冒烟 `desktop/scripts/tg-card-smoke.py`(vite build 产物+静态服务+`__TAURI_INTERNALS__.invoke` 注入夹具,程序化断言 9 项:三段/账号行/披露/添加动作链+busy/删除动作链,截图 /tmp/myssia-tg-card-smoke.png;chromium 二进制=playwright 缺省缓存与组件轨同源);desktop 协议测试 +4 例(状态三线/bot 未配空态/键校验+线程启动/删除),python 671 全绿 ruff 绿。
-- [ ] 装机/真跑(待填)
+- [x] 装机/真跑+门禁(W5 批⑤,2026-10-08):
+  - **W5 真跑标定与修复**:真开 web.telegram.org(无头沙箱配置档)标定选择器表——两处硬发现:①Web K 登录页隐藏壳里 `.chatlist-container` 也在 DOM(纯在场判据会假阳性「已登录」)→ 判据改**可见性口径**(`getClientRects`)+ 登出标志改 `body.has-auth-pages` 类,新共享探测件 `web_dom.login_state_probe_js`(登录流/引擎/宿主/哨兵同一份,四处消费面统一改接);②`launch_persistent_context` 原返 PlaywrightContextManager(只有 start 无 stop)→ 改返 `start()` 产物(Playwright 实例带 stop),修真跑收尾 AttributeError(node 进程泄漏面);连带 skill/SKILL.md 枚举表同步(词表对账测试红→补→绿)。真跑三证(全无头):探针 12 轮全 `logged_out`(真实登出态识别);引擎真网络 fetch 配置档缺=`session_missing` 显式空态零浏览器;配置档在但登出=`tg_web_logged_out` 结构化拒绝带重登指引零装死。**主人紧急纠偏令(03:1x):停止一切 GUI 弹出**——真登录窗拉起留主人(两条路径见结果段),本批零弹窗零 open,已在跑实例直接复用。
+  - **装机外科**(零拉起口径):`npm run build`+`npx tauri build` exit 0(世事.app 20.24MiB+DMG 0.0.3);新包 sha256 对拍 **8/8 MATCH**(web_line/web_dom/web_host/tg_web.py/entry.py/cli.py/schema.py/registry.py);UI 卡件实证在包(index-*.js 含 telegram-web-account);备份 `/tmp/myssia-tgweb-backup-20261008-031523` 后 ditto 换装 /Applications/世事.app;`codesign --force --deep -s -`+`-vv` 双过+strict verify exit 0;装机 python 直载冒烟过(web 三件+引擎+registry+schema+entry 71 handlers 全命中);心跳双验复用**已在跑实例**(pid 91929/写者戳 …-91934,mtime 03:15:21→03:16:21 精确 +60s)——按纠偏令零拉起(查漏侦察员 03:17 所记 G6「装机包落后」扫描窗在换装前,本 swap 后已解);新代码待主人下次重启 app 生效。
+  - **终局门禁**:全量 pytest **5030 passed/40 skipped/0 failed**;vitest **608/608**(29 文件);`tsc -b` 0 错;ruff 全绿。
 
 ## 结果(验收回执,完工填)
-- [ ] AC 逐条勾+证据(待填)
+- [~] **AC1** web-login 一次登录→无头常驻读群→管线出口:**代码面全就绪,真登录锁主人一次验证码**——登录器/引擎/常驻 Watcher 全 mock+真网络无头双验(真实登出态识别/显式空态/结构化拒绝);无头常驻读到消息→出口的全链路在 mock 测试铁证(`test_web_host.py` Watcher 分派→`#tg-` 锚入库;`test_tg_web_engine.py` 锚+粗筛复用),真登录后的真发回执留主人登录同窗(路径见下)。
+- [x] **AC2** 组件卡三态+登录按钮:W4 已交——bot/session/web 三段+账号列表(状态灯/重登/删除/+添加),vitest 10 例+无头 Playwright 冒烟 9 断言全绿(截图 /tmp/myssia-tg-card-smoke.png;登录窗拉起动作 = 主人点击,sidecar 后台线程+5s 轮询翻绿逻辑在测)。
+- [x] **AC3** engine: tg_web 装载+锚幂等+哨兵:W2/W3 已交——21+17 例全 mock(session_missing 空态/`tg_web_logged_out`/`tg_web_dom_stale` 结构化/锚 `#tg-<chat>-<mid>` 进 bot 线 `updates_to_items` 铁证/多键隔离/max_accounts 帽)。
+- [~] **AC4** 装机外科+重签+心跳:**已做**(8/8 sha 对拍+ditto 换装+adhoc 重签 strict verify 过+装机 python 直载冒烟+心跳 +60s 双验);`open -g` 拉起按主人紧急纠偏令(03:1x「停止一切 GUI 弹出」)**未执行**——复用已在跑实例(pid 91929)零拉起,新代码待主人下次重启生效。
+- [x] **AC5** 档三段回填+披露三条卡面可见:开始/过程/结果三段齐;披露三条(DOM 跟修哨兵/建议小号/api_id 到手切正统)+登录态非加密注记在 `telegram-card.tsx` 常驻文案,vitest 断言在案。
+
+### 主人下一步:真登录(差的那一次验证码)
+
+**路径一(推荐,图形面)**:重启世事.app(新代码生效)→ 设置 → 「Telegram 监控」分区 → 「添加账号」:键名填 `telegram-alt1`(规约 `telegram-<标识>`,小写)→ 点「添加账号」→ 弹出的浏览器窗口里输手机号 → 验证码(TG 发你手机 App 内信或短信;如有两步验证再输密码)→ 卡面行转绿即成。之后把 mihomo 群源写成品类 YAML(engine: tg_web,见 design D4)或等 W5 真发批,`myssia telegram serve` 的 web 线无头常驻读群。
+
+**路径二(终端,服务器场景同款)**:
+```bash
+cd /Users/zhengbingjin/Project/Github/MYIA
+MYIA_HOME="$HOME/Library/Application Support/MYIA" .venv/bin/python -m myssia.cli \
+  telegram web-login --account telegram-alt1        # 弹浏览器登录窗(手机号+验证码在页面内输)
+# 失效重登加 --force;登录态落 ~/Library/Application Support/MYIA/telegram-web/telegram-alt1/(0600)
+```
+两条路径同一配置档(数据根 `telegram-web/<键>/`);登录后账号行/CLI 复用提示都会翻绿。
 
 > 决议追加(主人问「多个账号登录,你能把控吗」):**多账号为一等能力**——①每账号独立 Playwright 配置档(数据根 telegram-web/<账号键>/,0600,cookie/登录态零共享);②每账号独立无头实例,源 YAML 以 account: 键声明归属(A 账号读群1/2,B 账号读群3);③组件卡账号列表化(每行状态灯+重登按钮+「+添加账号」);④失效隔离(单账号掉线仅其源受累,其他不牵连);⑤资源披露(每实例 ~150-300MB 内存,并发帽可配,建议≤3);⑥风控披露(同机同出口多账号可被 TG 关联,只读监控风险低,数量克制);⑦账号键命名规约同全称律:telegram-<标识>。Telethon 线 session 分文件、bot 线分键(F8 修复)同理多账号。
 

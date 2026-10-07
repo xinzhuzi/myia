@@ -3,7 +3,7 @@
   "name": "tg-web-line",
   "title": "TG 网页会话线:自管无头浏览器登录与抓取",
   "description": "C 线(主人 2026-10-08 批准方向):my.telegram.org 限流+api_id 兜底死锁后,以 MYIA 自管无头 Chromium(数据根 playwright 配置档,crawl4ai 组件轨既有件)登 web.telegram.org 一次、无头常驻读群消息 DOM→喂既有粗筛/LLM 精筛/合并出口管线;新源类型 engine: tg_web;登录 UX 放设置页 Telegram 组件卡(设计决议待回写);诚实披露:DOM 改版跟修哨兵/ToS 灰色建议小号/api_id 到手切回 Telethon 正统线、网页线退役或备份。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "三件齐(research 并入 prd 背景链/design D1-D6 执行级含多账号治理/implement W1-W5);W5 真登录锁主人验证码一次,其余零前置;开工待令。",
+  "notes": "W1-W4 已交(bac74e9/e53dc64/26b4cb7/49ab005);W5 装机+真跑批在途收尾(真网络无头三证+装机外科 8/8+重签 strict 过+心跳零拉起复用;主人纠偏令后零 GUI)。锁主人:真登录一次验证码(两路径见 prd 结果段)。",
   "meta": {}
 }

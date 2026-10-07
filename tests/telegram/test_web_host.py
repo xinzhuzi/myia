@@ -49,6 +49,7 @@ class ScriptedPage:
         self.drains = list(drains or [])
         self.extracts = extracts or {}
         self.health_states = list(health_states or [])
+        self._last_health: dict = {"state": "logged_in", "observer": True}
         self.evaluate_scripts: list[str] = []
 
     async def evaluate(self, script: Any, arg: Any = None) -> Any:
@@ -60,12 +61,16 @@ class ScriptedPage:
             return self.drains.pop(0) if self.drains else []
         if "data-mid" in js and "querySelector(`[data-mid" in js:
             return self.extracts.get(arg, {})
-        if "__myssiaTgWebObserver" in js or "logged_out.find" in js:
-            return (
+        if "__myssiaTgWebObserver" in js:
+            # 观察器活性探针:回最近一次健康态的 observer 键(缺省 True)
+            return self._last_health.get("observer", True)
+        if "has-auth-pages" in js:
+            self._last_health = (
                 self.health_states.pop(0)
                 if self.health_states
                 else {"state": "logged_in", "observer": True}
             )
+            return self._last_health
         raise AssertionError(f"意外 evaluate 面:{js[:80]}")
 
 
@@ -326,7 +331,7 @@ class HostPage(ScriptedPage):
 
     async def evaluate(self, script: Any, arg: Any = None) -> Any:
         js = script if isinstance(script, str) else ""
-        if "chat_list.find" in js:
+        if "has-auth-pages" in js:  # login_state_probe_js(W5 标定口径)
             return {"state": self._login_state}
         if "search_box_missing" in js:
             return {"ok": True, "reason": "opened", "title": "群"}
