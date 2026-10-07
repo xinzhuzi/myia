@@ -5737,6 +5737,187 @@ def _m_cron_runs(params: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Telegram 监控状态与网页线账号管理(10-08-tg-web-line W4;设置页总卡消费)
+# 三方法:telegram.status(bot token 在册/telethon session 在场/网页线账号
+# 列表)、telegram.web.login(后台线程拉起 headed 登录窗,凭据零外显 ——
+# 手机号+验证码全在浏览器页面内)、telegram.web.delete(删配置档)。
+# ---------------------------------------------------------------------------
+
+#: 网页线登录线程的内存态(账号键 → {phase, note, started_at};进程内有效)。
+_TELEGRAM_WEB_LOGIN_STATE: dict[str, dict[str, Any]] = {}
+_TELEGRAM_WEB_LOGIN_LOCK = threading.Lock()
+
+
+def _telegram_data_root() -> Path:
+    """telegram 面的数据根(serve 上下文 home;dev 回退 cwd —— web_line
+    ``default_data_root`` 同口径,登录流与状态面落同一根)。"""
+    ctx = _serve_context()
+    return Path(ctx.home) if ctx.home is not None else Path.cwd()
+
+
+def _resolve_credential_probe(ref: str, backend: Any | None = None) -> str:
+    """凭据存在性探针(只回值给 configured 判定,值本身零落日志零回显;
+    独立模块级函数 = 协议测试的注入缝)。"""
+    from myssia.schema import resolve_credential
+
+    return resolve_credential(ref, backend=backend)
+
+
+def _m_telegram_status(params: dict[str, Any]) -> dict[str, Any]:
+    """``telegram.status``:三线状态快照(bot/telethon/web;只读零副作用)."""
+    data_root = _telegram_data_root()
+    bot_configured = False
+    bot_error: str | None = None
+    try:
+        token = _resolve_credential_probe("keychain:myia/telegram/bot-token")
+        bot_configured = bool(token.strip()) and token.strip() not in {
+            "token",
+            "changeme",
+        }
+    except Exception as exc:  # noqa: BLE001 - 凭据解析失败如实回显(值不回显)
+        bot_error = f"{type(exc).__name__}"
+    session_path = data_root / "telegram" / "telethon.session"
+    web_accounts: list[dict[str, Any]] = []
+    try:
+        from myssia.telegram.web_line import (
+            list_accounts,
+            profile_dir,
+            read_login_marker,
+        )
+
+        for account in list_accounts(data_root):
+            marker = read_login_marker(profile_dir(data_root, account))
+            with _TELEGRAM_WEB_LOGIN_LOCK:
+                login_state = _TELEGRAM_WEB_LOGIN_STATE.get(account)
+            web_accounts.append(
+                {
+                    "account": account,
+                    "logged_in": marker is not None,
+                    "logged_in_at": (
+                        marker.get("logged_in_at") if marker else None
+                    ),
+                    "login_in_progress": bool(
+                        login_state and login_state.get("phase") == "running"
+                    ),
+                    "login_note": (
+                        login_state.get("note") if login_state else None
+                    ),
+                }
+            )
+    except Exception as exc:  # noqa: BLE001 - 状态面炸不拦协议,如实带 error
+        web_accounts = []
+        bot_error = bot_error or f"web_accounts_failed:{type(exc).__name__}"
+    return {
+        "bot": {"configured": bot_configured, "error": bot_error},
+        "session": {"exists": session_path.exists()},
+        "web": {"accounts": web_accounts},
+    }
+
+
+def _m_telegram_web_login(params: dict[str, Any]) -> dict[str, Any]:
+    """``telegram.web.login``:后台线程拉起 headed 登录窗(零交互面在侧).
+
+    手机号+验证码(+2FA)全在浏览器页面内由用户输入,sidecar 零读取零
+    落日志;同键登录已在跑 = 幂等拒;完成/失败落内存态供 status 回读。
+    """
+    from myssia.telegram.web_line import (
+        TelegramWebError,
+        TelegramWebLoginFlow,
+        validate_account_key,
+    )
+
+    account = params.get("account")
+    if not isinstance(account, str):
+        raise ProtocolError(
+            "invalid_params", "account 必须是字符串(账号键)", path="params.account"
+        )
+    try:
+        key = validate_account_key(account)
+    except TelegramWebError as exc:
+        raise ProtocolError("invalid_params", str(exc), path="params.account") from exc
+    force = params.get("force", False)
+    if not isinstance(force, bool):
+        raise ProtocolError(
+            "invalid_params", "force 必须是布尔", path="params.force"
+        )
+    with _TELEGRAM_WEB_LOGIN_LOCK:
+        current = _TELEGRAM_WEB_LOGIN_STATE.get(key)
+        if current is not None and current.get("phase") == "running":
+            return {"started": False, "note": "该账号登录窗已在进行中"}
+        _TELEGRAM_WEB_LOGIN_STATE[key] = {
+            "phase": "running",
+            "note": None,
+            "started_at": _now_iso(),
+        }
+
+    def _thread_main() -> None:
+        data_root = _telegram_data_root()
+        try:
+            asyncio.run(TelegramWebLoginFlow().run(data_root, key, force=force))
+            with _TELEGRAM_WEB_LOGIN_LOCK:
+                _TELEGRAM_WEB_LOGIN_STATE[key] = {
+                    "phase": "done",
+                    "note": "登录完成(登录态已落配置档)",
+                    "started_at": _now_iso(),
+                }
+        except TelegramWebError as exc:
+            with _TELEGRAM_WEB_LOGIN_LOCK:
+                _TELEGRAM_WEB_LOGIN_STATE[key] = {
+                    "phase": "failed",
+                    "note": f"{exc.reason}: {exc}",
+                    "started_at": _now_iso(),
+                }
+        except Exception as exc:  # noqa: BLE001 - 线程边界留痕
+            with _TELEGRAM_WEB_LOGIN_LOCK:
+                _TELEGRAM_WEB_LOGIN_STATE[key] = {
+                    "phase": "failed",
+                    "note": f"{type(exc).__name__}: {exc}",
+                    "started_at": _now_iso(),
+                }
+
+    thread = threading.Thread(
+        target=_thread_main, daemon=True, name=f"tg-web-login-{key}"
+    )
+    thread.start()
+    return {"started": True, "account": key}
+
+
+def _m_telegram_web_delete(params: dict[str, Any]) -> dict[str, Any]:
+    """``telegram.web.delete``:删账号配置档(登录态随档消失;幂等)."""
+    import shutil
+
+    from myssia.telegram.web_line import (
+        TelegramWebError,
+        profile_dir,
+        validate_account_key,
+    )
+
+    account = params.get("account")
+    if not isinstance(account, str):
+        raise ProtocolError(
+            "invalid_params", "account 必须是字符串(账号键)", path="params.account"
+        )
+    try:
+        key = validate_account_key(account)
+    except TelegramWebError as exc:
+        raise ProtocolError("invalid_params", str(exc), path="params.account") from exc
+    directory = profile_dir(_telegram_data_root(), key)
+    with _TELEGRAM_WEB_LOGIN_LOCK:
+        current = _TELEGRAM_WEB_LOGIN_STATE.get(key)
+        if current is not None and current.get("phase") == "running":
+            raise ProtocolError(
+                "login_in_progress",
+                f"账号 {key} 登录窗正在进行中,关闭登录窗后再删除",
+                path="params.account",
+            )
+    if directory.exists():
+        shutil.rmtree(directory)
+    with _TELEGRAM_WEB_LOGIN_LOCK:
+        _TELEGRAM_WEB_LOGIN_STATE.pop(key, None)
+    return {"deleted": True, "account": key, "existed": True}
+
+
+# ---------------------------------------------------------------------------
 # 分发与 serve 循环
 # ---------------------------------------------------------------------------
 
@@ -5809,6 +5990,11 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "cron.remove": _m_cron_remove,
     "cron.status": _m_cron_status,
     "cron.runs": _m_cron_runs,
+    # Telegram 监控总卡面(10-08-tg-web-line W4):三线状态/网页线账号
+    # 登录(headed 后台线程)/配置档删除。
+    "telegram.status": _m_telegram_status,
+    "telegram.web.login": _m_telegram_web_login,
+    "telegram.web.delete": _m_telegram_web_delete,
 }
 
 

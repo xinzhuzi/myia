@@ -61,6 +61,7 @@ import { ErrorBox } from "./error-box";
 import { FieldInput } from "./field-input";
 import { PyenvCard } from "./pyenv-card";
 import { SettingRow } from "./settings-row";
+import { TelegramCard } from "./telegram-card";
 import { UpdaterCard } from "./updater-card";
 import { VisionForm } from "./vision-form";
 
@@ -164,6 +165,9 @@ const SECTIONS: SettingsSection[] = [
   // 批二(10-05-bundled-plugins-batch2):+卸载(uninstall)与品类 YAML
   // 平铺装(category_install/categories)。
   { id: "installer-plugins", label: "装机组件", icon: Layers, title: "装机组件", description: "随包官方插件件:发现 / 安装 / 重装 / 卸载 + 品类配置平铺装(manifest 校验;品类与补种同落点)" },
+  // 10-08-tg-web-line W4:Telegram 监控总卡(bot/session/web 三段 + 网页线
+  // 账号列表:添加/重登/删除;登录窗 = 壳拉起的系统浏览器窗口)。
+  { id: "telegram", label: "Telegram 监控", icon: Send, title: "Telegram 监控", description: "三条消息线(bot / 用户 session / 网页登录):状态灯 + 网页线账号列表(添加 / 重登 / 删除)" },
   // 10-05-desktop-managed-py-env 第 4 步(D1/D2):Python 运行环境自管区块,
   // 也是 D2 引导空态「一键跳设置」的深链落点(#/settings?section=python-env)
   { id: "python-env", label: "Python 环境", icon: Cpu, title: "Python 运行环境", description: "运行时与依赖按需下载:开始配置 / 双镜像覆盖 / 安装明细 / 同步依赖" },
@@ -192,6 +196,8 @@ const SECTION_FIELD_TERMS: Record<string, string> = {
   vision: "看图 通道 ocr 引擎 vision rapidocr mlx base_url 本地模型路径 云端模型 云端 api key 模型管理 服务",
   gates: "门槛 付费 saas 采集引擎 zenrows 自有实例 平台 token 分析件 停更 知情 启用",
   "installer-plugins": "装机 官方插件 发现 安装 重装 卸载 品类配置 平铺 manifest 补种",
+  telegram:
+    "telegram 监控 bot token session telethon 网页登录 tg_web 账号 添加账号 重登 删除 验证码 小号 群消息",
   "python-env": "python 运行时 依赖 下载源 安装路径 使用路径 镜像 pypi 安装明细 同步",
   system: "sidecar 连接 状态 更新 版本 凭据 钥匙链 secret 删除 危险区",
 };
@@ -1542,6 +1548,14 @@ export function SettingsScreen() {
           {activeSection.id === "installer-plugins" ? (
             <Searchable terms={SECTION_FIELD_TERMS["installer-plugins"]}>
               <BundledPluginsCard />
+            </Searchable>
+          ) : null}
+
+          {/* Telegram 监控(10-08-tg-web-line W4:三线状态 + 网页线账号列表;
+              IPC 契约见 telegram-api.ts)。② 同上整件显隐 */}
+          {activeSection.id === "telegram" ? (
+            <Searchable terms={SECTION_FIELD_TERMS.telegram}>
+              <TelegramCard />
             </Searchable>
           ) : null}
 

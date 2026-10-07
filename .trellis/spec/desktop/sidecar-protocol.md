@@ -16,7 +16,7 @@
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 68 行;代码 `_HANDLERS` 现值 68,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 71 行;代码 `_HANDLERS` 现值 71,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -88,6 +88,9 @@
 | 66 | `plugins.bundled.category_install` | `_m_plugins_bundled_category_install` | 随包品类 YAML 平铺安装:`{id, force?}` → `{ok, file, path}`(与组件包安装语义刻意不同:品类=单文件平铺拷到 `<plugins_dir>/<源文件名>`,与 `_seed_first_run` 补种同落点;id 过 `CATEGORY_ID_RE`(schema 同源防穿越)→ 定位(文件名 stem 直配 > YAML id 字段兜底)→ `load_category_file` 校验通过才装(坏件 `category_invalid` 拒零拷贝)→ tmp+rename 原子拷贝;**已有同名文件未 force → `category_exists` 结构化拒如实「已存在」不覆盖**——与补种幂等补缺对齐不打架:补种=自动补缺永不覆盖,本面=显式知情,force 才覆盖;**id/冲突定义**:品类 id = YAML `id:` 字段(CATEGORY_ID_RE),冲突 = 数据根 plugins/ 下同名文件存在(文件级,内容同否不判);与组件包零冲突(子目录 vs 平铺文件两种形状互不占据);env 不可用 `bundled_plugins_unavailable`、id 合形不在目录 `bundled_category_not_found`;品类无卸载面(补种只补不删,删文件走 yaml-editor 屏);10-05-bundled-plugins-batch2 R3) |
 | 67 | `plugins.remote.get` | `_m_plugins_remote_get` | 轨D remote 声明配置读:`{id}` → `{id, endpoint, token, known}`(id 过 `_PLUGIN_ID_RE` 同门;配置落数据根 `<home>/remote-plugins.json`,缺文件/缺条目 = endpoint/token null + known=false 如实;token 是 keychain 引用名,值永不出协议面——只有 secret.set 写入/secret.list 可见名;dev 形态无 MYIA_HOME → `remote_config_unavailable` 结构化拒(开发后门=显式 env);坏 JSON → `remote_config_invalid`;10-06-native-plugin-components 阶段3 G-Q1/R7) |
 | 68 | `plugins.remote.save` | `_m_plugins_remote_save` | 轨D remote 声明配置写:`{id, endpoint, token?}` → `{ok, id, path, endpoint}`(endpoint 必填 http(s) 具体地址——env:/keychain: 引用属品类 YAML/env 通道不走本面板,违者 invalid_params;token 可选、给定必须是 keychain: 规范引用(secrets 名门同源校验),明文凭据只经 secret.set 入钥匙串永不落本配置,不传=保持现值;tmp+rename 原子写;写后即时 env 桥接——`_apply_remote_env_bridge` 把 firecrawl 端点/键桥进 `MYIA_FIRECRAWL_URL`/`MYIA_FIRECRAWL_API_KEY`(引擎零改动的通道;显式 env=开发后门恒优先,`_BRIDGED_ENV` 记账防覆写);10-06-native-plugin-components 阶段3) |
+| 69 | `telegram.status` | `_m_telegram_status` | 三线状态快照(只读零副作用,设置页 Telegram 总卡初拉):`{}` → `{bot:{configured,error}, session:{exists}, web:{accounts:[{account, logged_in, logged_in_at, login_in_progress, login_note}]}}`;bot.configured = `_resolve_credential_probe("keychain:myia/telegram/bot-token")` 探查(值零回显,占位值视同未配);session.exists = 数据根 `telegram/telethon.session` 在场;web.accounts = `telegram-web/` 下合法键目录 + 登录标记回读 + 登录线程内存态(进程内);数据根 = serve 上下文 home(dev 回退 cwd);10-08-tg-web-line W4) |
+| 70 | `telegram.web.login` | `_m_telegram_web_login` | 网页线登录窗拉起:`{account, force?}` → `{started, account?}`(account 过 `validate_account_key` 全称律,违者 invalid_params;同键登录窗在跑 → `{started:false}` 幂等回执);后台 daemon 线程 `asyncio.run(TelegramWebLoginFlow.run)` 起 headed Chromium 开 web.telegram.org——**手机号+验证码(+2FA)全在浏览器页面内由用户输入,sidecar 零读取零落日志**;完成/失败落 `_TELEGRAM_WEB_LOGIN_STATE` 内存态供 status 回读(登录态落配置档 0700/0600);10-08-tg-web-line W4) |
+| 71 | `telegram.web.delete` | `_m_telegram_web_delete` | 删网页线账号配置档:`{account}` → `{deleted, account, existed}`(键同门校验;登录窗在跑 → `login_in_progress` 结构化拒;`shutil.rmtree` 整档删除,登录态随档消失;内存态同清;幂等——档缺同样 `{deleted:true}`;源 YAML 引用该键的 tg_web 源此后显式空态;10-08-tg-web-line W4) |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+

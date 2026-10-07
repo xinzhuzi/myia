@@ -2820,12 +2820,14 @@ def test_method_registry_allowed_matches_handlers():
     bundled-plugins-batch2 批(plugins.bundled.uninstall/category_install
     两方法,10-05-bundled-plugins-batch2;卸载+品类 YAML 平铺安装)+
     native-plugin-components 阶段3 批(plugins.remote.get/save 两方法,
-    10-06-native-plugin-components 轨D remote 配置面板数据面)
-    后 = 68。"""
+    10-06-native-plugin-components 轨D remote 配置面板数据面)+
+    tg-web-line W4 批(telegram.status/web.login/web.delete 三方法,
+    10-08-tg-web-line 设置页 Telegram 总卡数据面)
+    后 = 71。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 68
+    assert len(allowed) == 71
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",
@@ -2839,7 +2841,8 @@ def test_method_registry_allowed_matches_handlers():
                    "store.state.import", "gates.get", "gates.save",
                    "plugins.bundled.list", "plugins.bundled.install",
                    "plugins.bundled.uninstall", "plugins.bundled.category_install",
-                   "plugins.remote.get", "plugins.remote.save"):
+                   "plugins.remote.get", "plugins.remote.save",
+                   "telegram.status", "telegram.web.login", "telegram.web.delete"):
         assert method in allowed
 
 
@@ -5366,3 +5369,95 @@ def test_gates_get_broken_file_fail_closed_then_save_repairs(tmp_path, monkeypat
     result = responses[0]["result"]
     assert result["error"] is None
     assert result["config"]["saas"]["zenrows"]["enabled"] is True
+
+
+# ---------------------------------------------------------------------------
+# Telegram 监控三方法(10-08-tg-web-line W4:telegram.status / web.login /
+# web.delete;全 mock —— 登录窗线程不真起,状态面走沙箱数据根)
+# ---------------------------------------------------------------------------
+
+
+def test_telegram_status_three_lines(tmp_path, monkeypatch):
+    """telegram.status:bot(token 探查 mock)/session(数据根在场)/web 账号行."""
+    home = tmp_path / "home"
+    (home / "telegram-web" / "telegram-alt1").mkdir(parents=True)
+    (home / "telegram-web" / "telegram-alt1" / "myssia-login.json").write_text(
+        '{"logged_in_at": "2026-10-08T02:30:00+00:00", "line": "tg_web"}',
+        encoding="utf-8",
+    )
+    (home / "telegram").mkdir(parents=True, exist_ok=True)
+    (home / "telegram" / "telethon.session").write_bytes(b"session")
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    monkeypatch.setattr(
+        entry, "_resolve_credential_probe",
+        lambda ref, backend=None: "8000000001:AA-probe-token",
+    )
+    code, responses, _ = rpc({"id": 1, "method": "telegram.status", "params": {}})
+    assert code == 0
+    result = responses[0]["result"]
+    assert result["bot"]["configured"] is True
+    assert result["session"]["exists"] is True
+    accounts = result["web"]["accounts"]
+    assert [row["account"] for row in accounts] == ["telegram-alt1"]
+    assert accounts[0]["logged_in"] is True
+    assert accounts[0]["logged_in_at"] == "2026-10-08T02:30:00+00:00"
+
+
+def test_telegram_status_bot_unconfigured_is_false(tmp_path, monkeypatch):
+    """bot token 未配:configured=False(空态如实,不抛)."""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home2"))
+    from myssia.schema import CredentialResolveError
+
+    def refuse(ref, backend=None):
+        raise CredentialResolveError("未配")
+
+    monkeypatch.setattr(entry, "_resolve_credential_probe", refuse)
+    code, responses, _ = rpc({"id": 2, "method": "telegram.status", "params": {}})
+    assert code == 0
+    result = responses[0]["result"]
+    assert result["bot"]["configured"] is False
+    assert result["web"]["accounts"] == []
+
+
+def test_telegram_web_login_validates_account_and_starts_thread(tmp_path, monkeypatch):
+    """web.login:键校验拒坏键;好键返回 started=True(mock 登录线程面零浏览器)."""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home3"))
+
+    started: dict[str, Any] = {}
+
+    async def fake_flow_run(data_root, account, *, force=False):
+        started["account"] = account
+        started["force"] = force
+        return tmp_path / "profile"
+
+    fake_flow = type("FakeFlow", (), {"run": staticmethod(fake_flow_run)})()
+
+    import myssia.telegram.web_line as web_line
+
+    monkeypatch.setattr(web_line, "TelegramWebLoginFlow", lambda: fake_flow)
+    code, responses, _ = rpc(
+        {"id": 3, "method": "telegram.web.login", "params": {"account": "bad-key"}}
+    )
+    assert responses[0]["error"]["code"] == "invalid_params"
+    code, responses, _ = rpc(
+        {"id": 4, "method": "telegram.web.login", "params": {"account": "telegram-alt1"}}
+    )
+    assert code == 0
+    assert responses[0]["result"]["started"] is True
+
+
+def test_telegram_web_delete_removes_profile(tmp_path, monkeypatch):
+    """web.delete:配置档整档删除 + 状态面不再列出."""
+    home = tmp_path / "home4"
+    profile = home / "telegram-web" / "telegram-alt1"
+    profile.mkdir(parents=True)
+    (profile / "Cookies").write_text("{}")
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    code, responses, _ = rpc(
+        {"id": 5, "method": "telegram.web.delete", "params": {"account": "telegram-alt1"}}
+    )
+    assert code == 0
+    assert responses[0]["result"]["deleted"] is True
+    assert not profile.exists()
+    code, responses, _ = rpc({"id": 6, "method": "telegram.status", "params": {}})
+    assert responses[0]["result"]["web"]["accounts"] == []
