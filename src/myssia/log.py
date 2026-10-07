@@ -56,6 +56,10 @@ BACKFILL_BUDGET = 2000
 _FILE_PREFIX = "myssia"
 #: 文件名形状 myssia-YYYYMMDD.jsonl——清理 glob 钉死此前缀,绝不整目录清理(design §4 红线)。
 _FILE_NAME_RE = re.compile(rf"^{_FILE_PREFIX}-(\d{{8}})\.jsonl$")
+#: 中继 sink 文件名(vision server 子进程 stdout/stderr;事实源 vision/server.py
+#: SERVER_SINK_OUT_NAME/ERR_NAME——对侧 import 本模块,反向引用即环,故字面
+#: 钉死由测试背书)。无日期名 → 保留清理按 mtime 折算本地日判超期(low②)。
+_SINK_NAMES = ("vision-server.out", "vision-server.err")
 #: 子进程行落点 logger(run_id/stream/proc 经 extra 注入,design §1 stream_line)。
 _STREAM_LOGGER = "myssia.stream"
 #: 单行上限(字节):单行单次 write + O_APPEND 的 POSIX 行级原子前提(design §0;
@@ -158,10 +162,11 @@ def _install_factory() -> None:
 
 
 def _purge_stale(logs_dir: Path) -> None:
-    """超期清理(design §4):仅 ``myssia-YYYYMMDD.jsonl`` 单前缀,名形不合不碰。
+    """超期清理(design §4):``myssia-YYYYMMDD.jsonl`` 按名内日期 + 中继 sink
+    ``vision-server.out|.err`` 按 mtime(无日期名),名形不合不碰。
 
-    cutoff = 本地今天 − RETENTION_DAYS;清理失败静默(只读根/竞态删除),
-    保留策略失守不破主链。
+    cutoff = 本地今天 − RETENTION_DAYS(sink 的 mtime 折算本地日后比较,与
+    名内日期同口径);清理失败静默(只读根/竞态删除),保留策略失守不破主链。
     """
     try:
         cutoff = _today() - timedelta(days=RETENTION_DAYS)
@@ -175,6 +180,13 @@ def _purge_stale(logs_dir: Path) -> None:
                 continue
             if day < cutoff:
                 path.unlink(missing_ok=True)
+        for name in _SINK_NAMES:
+            path = logs_dir / name
+            try:
+                if datetime.fromtimestamp(path.stat().st_mtime).date() < cutoff:
+                    path.unlink(missing_ok=True)
+            except OSError:
+                continue  # 缺位/竞态消失:静默,下一 sink 名不受牵连
     except Exception:
         pass
 

@@ -21,7 +21,7 @@
 
 **文件形状**:数据根 `logs/myssia-YYYYMMDD.jsonl` 单前缀单文件,条目 `{ts, run_id, stream, line, proc}`;文件行**不落 seq**——seq 是环形内存概念(LogRecordFactory 盖章,进程内单调),多进程并发 append 同一文件时各进程计数器独立必冲突;回填时按读入顺序重发恢复单调。单行上限 64KB 截断(单行单次 write + `O_APPEND` 的行级原子前提)。
 
-**轮转保留**:按天 = date-in-filename + `O_APPEND` 每进程自开当日文件、**无 rename**(stdlib `TimedRotatingFileHandler` 的 rename 轮转在多进程同写场景丢行,不用——cron CLI 子进程与 sidecar serve 同写当日文件是常态);`RETENTION_DAYS=7`,configure 时按 `myssia-*.jsonl` 单前缀 glob 清超期(名形不合/假日期跳过),**绝不整目录清理**(cron 产物/壳归档零触碰)。
+**轮转保留**:按天 = date-in-filename + `O_APPEND` 每进程自开当日文件、**无 rename**(stdlib `TimedRotatingFileHandler` 的 rename 轮转在多进程同写场景丢行,不用——cron CLI 子进程与 sidecar serve 同写当日文件是常态);`RETENTION_DAYS=7`,configure 时按 `myssia-*.jsonl` 单前缀 glob 清超期(名形不合/假日期跳过),**绝不整目录清理**(cron 产物/壳归档零触碰);同一清理窗纳入中继 sink `vision-server.out|.err`——无日期名按 mtime 折算本地日判超期(10-07-logs-restart-visibility low②),退役旧件 `vision-server.log` 仍留原地不删。
 
 **降级语义**:文件路首错 → 向环形追加一条提示并永久禁用,主链不破、绝不向上抛;`handleError` 静默 override——日志模块自身故障不经 logging 通路放大。
 

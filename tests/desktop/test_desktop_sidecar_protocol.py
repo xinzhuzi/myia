@@ -581,6 +581,30 @@ def test_run_status_history_cap_fifty(tmp_path):
     assert [row["run_id"] for row in runs] == list(range(60, 10, -1))  # 60..11
 
 
+def test_run_status_history_cap_fifty_with_zombie_margin(tmp_path):
+    """low①僵尸行余量:顶 10 僵尸(finished_at None)不占收口余量——
+    55 条收口行仍收满 50(新→旧),不足额时递增扩窗拉到行尽。"""
+    db = tmp_path / "zombie-margin.db"
+    store = SQLiteStore(str(db))
+    finished_ids = []
+    try:
+        for _ in range(55):
+            run_id = store.start_run("hist-demo")
+            store.finish_run(run_id, status="success")
+            finished_ids.append(run_id)
+        for _ in range(10):  # 僵尸后插 → id 最大 → 新→旧顶 10 位占满首窗
+            store.start_run("hist-demo")
+    finally:
+        store.close()
+    code, responses, _ = rpc({"id": 1, "method": "run.status", "params": {"db": str(db)}})
+    assert code == 0
+    runs = responses[0]["result"]["runs"]
+    assert len(runs) == entry._RUN_HISTORY_LIMIT == 50  # 首窗 50 被僵尸挤剩 40 → 扩窗收满
+    assert [row["run_id"] for row in runs] == sorted(finished_ids, reverse=True)[:50]
+    assert all(row["history"] is True for row in runs)
+    assert all(row["status"] == "success" for row in runs)  # 僵尸行一条不漏进历史
+
+
 def test_run_status_empty_db_zero_regression(tmp_path):
     """空库 + 空注册表:应答形状与现状全同({"runs": []}),空态不破。"""
     db = tmp_path / "empty.db"

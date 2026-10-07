@@ -20,7 +20,7 @@ import os
 import subprocess
 import sys
 from collections import Counter
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
@@ -333,6 +333,34 @@ class TestRetentionPurge:
         for survivor in (garbage, fake_date, shell_archive, shell_live, old_vision, cron_output):
             assert survivor.exists(), f"邻居被误删:{survivor}"
             assert survivor.read_text(encoding="utf-8") == "keep\n"
+
+    def test_purge_vision_sink_by_mtime(self, isolated, tmp_path, monkeypatch):
+        """low②sink 清理窗:中继 sink 无日期名按 mtime 判超期——过期删、
+        未过期/边界留、邻居(退役 vision-server.log 即便超期)零触碰。"""
+        monkeypatch.setattr(myssia_log, "_today", lambda: date(2026, 10, 7))
+        logs = tmp_path / "logs"
+        logs.mkdir(parents=True)
+
+        def sink_at(name: str, day: date) -> Path:
+            path = logs / name
+            path.write_text("sink\n", encoding="utf-8")
+            ts = datetime(day.year, day.month, day.day, 12, 0, 0).timestamp()
+            os.utime(path, (ts, ts))
+            return path
+
+        stale_out = sink_at("vision-server.out", date(2026, 9, 29))  # < cutoff → 删
+        fresh_err = sink_at("vision-server.err", date(2026, 10, 1))  # 期内 → 留
+        retired = sink_at("vision-server.log", date(2026, 9, 1))  # 退役旧件 → 留
+
+        configure(mode="serve", data_root=tmp_path, ring=True, proc="sidecar")
+
+        assert not stale_out.exists()  # mtime 折算本地日 < cutoff(2026-09-30)
+        assert fresh_err.exists()
+        assert retired.exists()  # 名字钉死:清理面只有 out/.err 两名
+        # 边界 == cutoff 与 jsonl 同口径:含边界保留
+        boundary = sink_at("vision-server.out", date(2026, 9, 30))
+        configure(mode="serve", data_root=tmp_path, ring=True, proc="sidecar")
+        assert boundary.exists()
 
 
 # ---------------------------------------------------------------------------

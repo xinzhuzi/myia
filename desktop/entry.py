@@ -3578,7 +3578,10 @@ def _history_run_rows(db: str, exclude_db_ids: set[int], limit: int) -> list[dic
     - 去重:``exclude_db_ids`` = 注册表行 record.run_id 集(同跑次不双列;
       裸 run_id 是两个编号空间,耐久身份只有 record.run_id,dry run 缺位即
       无从去重——DB 无 dry 行,天然不撞);
-    - 上限 ``limit``(防长列表);为给去重留余量,拉取量 = limit + 排除数;
+    - 上限 ``limit``(防长列表);僵尸行与去重行**不占余量**:递增拉取窗
+      (首窗 = limit + 排除数,收不满即翻倍扩窗续拉尾段)直到收满 ``limit``
+      条合格历史或行尽(low①;``ORDER BY id DESC`` 前缀稳定,扩窗后旧窗
+      前段不重扫,``consumed`` 只走增量);
     - 行形状 = 注册表条目超集:RunEntry 键全在场(yaml/exit_code 无库源,置
       None;dry 恒 False——dry run 不落库)+ ``history: True`` 徽标 +
       ``log_run_id``(展开历史行调 ``logs.tail?run_id=`` 的对齐键,旧库行
@@ -3590,36 +3593,45 @@ def _history_run_rows(db: str, exclude_db_ids: set[int], limit: int) -> list[dic
         store = SQLiteStore(db)
     except (StoreSchemaError, sqlite3.Error, OSError):
         return []
+    rows: list[dict[str, Any]] = []
     try:
-        records = store.list_runs(limit=limit + len(exclude_db_ids))
+        window = limit + len(exclude_db_ids)
+        consumed = 0
+        while True:
+            records = store.list_runs(limit=window)
+            for record in records[consumed:]:
+                if len(rows) >= limit:
+                    break
+                if record.id in exclude_db_ids or record.finished_at is None:
+                    continue
+                duration_ms = None
+                if record.started_at is not None:
+                    duration_ms = int(
+                        (record.finished_at - record.started_at).total_seconds() * 1000
+                    )
+                rows.append({
+                    "run_id": record.id,
+                    "yaml": None,
+                    "db": db,
+                    "dry": False,
+                    "state": "done",
+                    "exit_code": None,
+                    "status": record.status,
+                    "started_at": record.started_at.isoformat() if record.started_at else None,
+                    "finished_at": record.finished_at.isoformat(),
+                    "duration_ms": duration_ms,
+                    "record": _run_record_dict(record),
+                    "history": True,
+                    "log_run_id": getattr(record, "log_run_id", None),
+                })
+            if len(rows) >= limit or len(records) < window:
+                break  # 收满 limit 条 或 DB 行尽(返回量 < 拉取窗)
+            consumed = len(records)
+            window *= 2
     except (sqlite3.Error, OSError, ValueError):
         return []
     finally:
         store.close()
-    rows: list[dict[str, Any]] = []
-    for record in records:
-        if len(rows) >= limit:
-            break
-        if record.id in exclude_db_ids or record.finished_at is None:
-            continue
-        duration_ms = None
-        if record.started_at is not None:
-            duration_ms = int((record.finished_at - record.started_at).total_seconds() * 1000)
-        rows.append({
-            "run_id": record.id,
-            "yaml": None,
-            "db": db,
-            "dry": False,
-            "state": "done",
-            "exit_code": None,
-            "status": record.status,
-            "started_at": record.started_at.isoformat() if record.started_at else None,
-            "finished_at": record.finished_at.isoformat(),
-            "duration_ms": duration_ms,
-            "record": _run_record_dict(record),
-            "history": True,
-            "log_run_id": getattr(record, "log_run_id", None),
-        })
     return rows
 
 
