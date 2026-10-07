@@ -30,7 +30,7 @@ DOM 改版跟修(哨兵在)/ToS 灰色同 userbot,登录**建议小号**/api_id 
 - [ ] AC5 档三段回填;披露三条在设置卡文案可见(建议小号)。
 
 ## 过程(执行流水,随批回填)
-- [ ] 部件:Playwright persistent 登录器+DOM 监听器(待填)
+- [x] 部件:Playwright persistent 登录器(W1 批①,2026-10-08):`src/myssia/telegram/web_line.py`(账号键全称律校验/配置档 `<数据根>/telegram-web/<键>/` 0700+内件 0600 硬化/登录标记复用/`TelegramWebLoginFlow` headed 流 + `_wait_for_login` 轮询会话列表/无头探针 `check_logged_in`/`launch_persistent_context` 工厂含 `ensure_playwright_browsers_env` 同源注入 + playwright 惰性依赖门 `myssia[crawl4ai]` 组件轨)+ `src/myssia/telegram/web_dom.py`(选择器表标定件 v1 `2026-10-08.v1`:登录/登出/消息列/文本/发送者/时间戳/媒体七面多候选;MutationObserver 安装/清空/单条抽取/窗口读取四 JS 注入件;`dom_message_to_update` → Bot API update 同形,`#tg-` 锚直进 bot 线 `updates_to_items` 铁证在测)+ CLI `myssia telegram web-login --account <键> [--force]`(`cli.py` `_cmd_telegram_web_login`);DOM 监听器本体在 W3 宿主批。测试 `tests/telegram/test_web_line.py` 29 例全绿(键校验/权限/复用/force/超时结构化/依赖门/DOM 映射进 bot 线管线/JS 件形态),ruff 绿。
 - [ ] 引擎 tg_web+schema+registry(待填)
 - [ ] 组件卡 UI+装配(待填)
 - [ ] 测试/门禁(待填)

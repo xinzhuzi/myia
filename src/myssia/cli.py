@@ -502,6 +502,27 @@ def _add_telegram_parser(sub: argparse._SubParsersAction) -> None:
         action="store_true",
         help="删除已有 session 强制重登(session 失效/换号时用)",
     )
+    # TG 网页线(C 线,10-08-tg-web-line W1):零外部凭据的自管 Chromium
+    # 登录器 —— headed 弹窗,手机号+验证码在页面内输(本 CLI 零读取)。
+    telegram_web_login = telegram_sub.add_parser(
+        "web-login",
+        help="TG 网页线一次性登录(headed 浏览器输手机号+验证码;登录态落 telegram-web/<账号键>/ 0600)",
+    )
+    telegram_web_login.add_argument(
+        "--account",
+        required=True,
+        help="账号键(全称律 telegram-<标识>,如 telegram-alt1;多账号各键各配置档)",
+    )
+    telegram_web_login.add_argument(
+        "--db",
+        default=_cron_default_db(),
+        help=f"存储路径(定数据根 = db 父目录;默认 $MYIA_HOME 下 {DEFAULT_DB_PATH})",
+    )
+    telegram_web_login.add_argument(
+        "--force",
+        action="store_true",
+        help="删除该账号配置档强制重登(登录态失效/换号时用)",
+    )
 
 
 def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
@@ -2380,12 +2401,43 @@ def _cmd_telegram_login(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_telegram_web_login(args: argparse.Namespace) -> int:
+    """``myssia telegram web-login``:TG 网页线一次性登录(C 线,W1).
+
+    headed 弹窗开 web.telegram.org,手机号+验证码(+2FA)全在页面内输
+    (本 CLI 零读取零落日志);登录态落 ``telegram-web/<账号键>/``
+    (0700/0600)。已有登录标记 → 复用提示零浏览器;``--force`` 删档重登。
+    """
+    from myssia.telegram.web_line import (
+        TelegramWebError,
+        TelegramWebLoginFlow,
+    )
+
+    data_root = Path(args.db).resolve().parent
+    flow = TelegramWebLoginFlow()
+    try:
+        directory = asyncio.run(
+            flow.run(data_root, args.account, force=bool(args.force))
+        )
+    except TelegramWebError as exc:
+        _emit_generic_error(
+            f"telegram_web_login_{exc.reason}", str(exc), as_json=False
+        )
+        return EXIT_CONFIG_ERROR
+    except KeyboardInterrupt:
+        logger.info("telegram web-login 已取消(可随时重新执行)")
+        return EXIT_OK
+    logger.info("telegram web-login 完成 account=%s profile=%s", args.account, directory)
+    return EXIT_OK
+
+
 def _cmd_telegram(args: argparse.Namespace) -> int:
-    """``myssia telegram <子命令>`` 分发(serve/login,B3+B4)。"""
+    """``myssia telegram <子命令>`` 分发(serve/login/web-login,B3+B4+C 线)."""
     _configure_logging(as_json=getattr(args, "as_json", False))
     handlers: dict[str, Any] = {
         "serve": _cmd_telegram_serve,
         "login": _cmd_telegram_login,
+        "web-login": _cmd_telegram_web_login,
     }
     handler = handlers.get(args.telegram_command)
     if handler is None:  # pragma: no cover - argparse required=True 兜底
