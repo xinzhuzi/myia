@@ -34,8 +34,12 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 真跑产出:`uv run --no-sync myssia test plugins/ai-news.yaml --source <源>` 逐源真跑,三源 item_count > 0(试抓不入库零持久化副作用)。
-- [ ] AC2 golden 同步:`--refreeze` 重产后 `tests/push/test_push_schema_targets.py` 黄金回归绿,冻结副本与活库 JSON 同步。
-- [ ] AC3 域内门禁:相关 pytest 域全绿(plugins 域 + golden 域 + schema 装载面),`myssia doctor plugins/ai-news.yaml` 装载检查零新增 finding。
-- [ ] AC4 档+yaml+golden pathspec 一并提交(feat(plugins) 前缀),task.json 置 review;evidence/ 不入 git。
-- [ ] AC5 判死条款:若某源真跑仍 0 条且无解,如实记根因、回退该源改动、档内推荐替代源,不硬编假产出。
+- [x] AC1 真跑产出:`uv run --no-sync myssia test plugins/ai-news.yaml --source <源>` 逐源真跑,三源 item_count > 0(试抓不入库零持久化副作用)。
+  ——过(2026-10-07 亲跑):anthropic-news-watch **14 条**(static_html)/ cohere-blog-watch **22 条**(static_html)/ meta-ai-blog-watch **8 条**(crawl4ai 渲染链),三轮 `状态:success`。
+- [x] AC2 golden 同步:`--refreeze` 重产后 `tests/push/test_push_schema_targets.py` 黄金回归绿,冻结副本与活库 JSON 同步。
+  ——过:`--refreeze` 重产 + 同源自检幂等复验(连跑两遍零漂移);非本线七份冻结副本外科回退 HEAD 不卷入;golden JSON 顺带归位「HEAD JSON 与冻结副本既有失配」漂移(先存问题,regen 是唯一权威通道)。
+- [x] AC3 域内门禁:相关 pytest 域全绿(plugins 域 + golden 域 + schema 装载面),`myssia doctor plugins/ai-news.yaml` 装载检查零新增 finding。
+  ——过:`pytest tests/push/test_push_schema_targets.py tests/plugins/` = **778 passed 31 skipped**;邻接面 `tests/alerts/ + tests/store/test_store_dedup.py + tests/desktop/test_bundled_plugins_install.py` = **172 passed**;doctor healthy=true,装载面零新增 finding(两条 source_degraded 为旧 run 史存量观测,新列表源下一轮自然翻绿);gitnexus detect-changes -r shishi --scope staged = 零符号漂移(纯配置线,impact 不适用)。
+- [x] AC4 档+yaml+golden pathspec 一并提交(feat(plugins) 前缀),task.json 置 review;evidence/ 不入 git。
+  ——过:feat 提交 **ae48853**(六件:档 prd+implement.jsonl+check.jsonl+plugins/ai-news.yaml+golden 冻结副本+golden JSON);收尾提交置 review+commit=ae48853;evidence/ 五件(probe-log+三快照+渲染文本)留盘外。
+- [x] AC5 判死条款:未触发——无判死源。meta 桌面面留档:设置页「Python 运行环境」装 crawl4ai 组件(desktop/resources/components.json 已声明)即活,归主人;仓库 venv 验证道已全绿。遗留推荐:watch 系哨兵(watch_unchanged 等)收编健康度词表(zhipu/moonshot/minimax/seed 四源同型误诊仍在,涉 cli.py 域另行立档)。
