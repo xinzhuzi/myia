@@ -432,8 +432,8 @@ class TelegramEngine(BaseEngine):
                 "(本轮零请求;取值:my.telegram.org → API development tools →"
                 " myssia secret set myia/telegram/api-id 与"
                 " myssia secret set myia/telegram/api-hash;"
-                "my.telegram.org 不可达时可临时写 login 兜底同款公开示例对"
-                "(2040 / b18441a1ff607e10f989894a5137bdb9,限速风险)",
+                "站点不可达时等恢复或换出口网络再取,"
+                "勿用网上流传的文档示例对(已被服务端拒)",
                 self.source.name,
             )
             return []

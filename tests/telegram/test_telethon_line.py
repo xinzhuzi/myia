@@ -494,45 +494,30 @@ def test_login_interactive_success_and_permissions(tmp_path: Path) -> None:
     joined = "\n".join(flow._printed)
     assert "+8613800138000" not in joined  # 手机号零回显
     assert "12345" not in joined  # 验证码零回显
-    assert "默认凭据" not in joined  # 自有对:无兜底披露
+    assert "默认凭据" not in joined  # 兜底已移除:成功回执绝无默认凭据字样
     assert "myssia telegram serve" in joined  # 下一步指引
 
 
-def test_login_zero_credential_falls_back_to_documented_pair(tmp_path: Path) -> None:
-    """零凭据兜底(2026-10-08 主人令):api_id/api_hash 未配钥匙串 → 文档
-    公开示例对登录成功 + 限速风险披露;my.telegram.org 裸 ERROR 也能登。"""
-    from myssia.telegram.telethon_line import (
-        DEFAULT_FALLBACK_API_HASH,
-        DEFAULT_FALLBACK_API_ID,
-    )
-
-    target = session_path(tmp_path)
-    client = FakeLoginClient(target)
-    factory_args: list[tuple] = []
-
-    def _factory(session: str, api_id: int, api_hash: str) -> FakeLoginClient:
-        factory_args.append((session, api_id, api_hash))
-        return client
-
+def test_login_zero_credential_structured_failure(tmp_path: Path) -> None:
+    """api_id/api_hash 未配钥匙串 = 结构化失败(2026-10-08 G1 移除兜底:
+    文档公开示例对已被服务端 ApiIdInvalidError 拒,不可用)—— 零交互零
+    客户端构造,指引 my.telegram.org 恢复/换出口后取自有对,消息零示例对残留。"""
     flow = TelethonLoginFlow(
-        input_fn=lambda p: {"手机号": "+8613800138000", "验证码": "54321"}[p[:3]],
-        password_fn=lambda p: "pw",
-        print_fn=lambda t: None,
-        client_factory=_factory,
+        input_fn=lambda p: pytest.fail("凭据缺失不得进入交互段"),
+        client_factory=lambda *a: pytest.fail("凭据缺失不得构造客户端"),
         backend=make_backend(api_id=None, api_hash=None),
+        print_fn=lambda t: None,
     )
-    lines: list[str] = []
-    flow._print = lines.append  # type: ignore[method-assign]
-    path = run(flow.run(tmp_path))
-    assert path == target and target.exists()
-    assert factory_args == [
-        (str(target), DEFAULT_FALLBACK_API_ID, DEFAULT_FALLBACK_API_HASH)
-    ]
-    assert client.received["code"] == "54321"
-    joined = "\n".join(lines)
-    assert "默认凭据" in joined and "限速" in joined  # 风险如实披露
-    assert "myssia secret set myia/telegram/api-id" in joined  # 换自有对指引
-    assert "login --force" in joined  # 重登指引
+    with pytest.raises(TelethonLineError) as excinfo:
+        run(flow.run(tmp_path))
+    assert excinfo.value.reason == "api_credentials_missing"
+    assert excinfo.value.fatal is True
+    message = str(excinfo.value)
+    assert "my.telegram.org" in message
+    assert "myssia secret set myia/telegram/api-id" in message
+    assert "换出口" in message  # 恢复/换出口的人话出路
+    assert "2040" not in message  # 死兜底对零残留
+    assert "b18441a1" not in message
 
 
 def test_login_force_deletes_stale_session(tmp_path: Path) -> None:
@@ -582,7 +567,7 @@ def test_login_flood_wait_disclosed(tmp_path: Path) -> None:
 
 
 def test_login_api_credentials_invalid_still_structured(tmp_path: Path) -> None:
-    """api_id 非数字(配了但坏)不属「缺」—— 结构化失败,不走兜底。"""
+    """api_id 非数字(配了但坏)→ api_credentials_invalid 结构化失败。"""
     flow = TelethonLoginFlow(
         input_fn=lambda p: "",
         client_factory=lambda *a: pytest.fail("坏凭据不得构造客户端"),
@@ -757,9 +742,9 @@ def test_cli_telegram_login_parser_registered():
 def test_cli_telegram_login_structured_failure_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
-    """CLI 装配烟测:空钥匙串走零凭据兜底继续;未装 telethon(本仓 mock 纪律
-    下的常态)→ dependency_missing 结构化退出 1;装了则空手机号 → login_failed
-    退出 1 —— 两世界都收敛在结构化错误退出,零交互挂死。"""
+    """CLI 装配烟测:空钥匙串 → api_credentials_missing 结构化退出 1
+    (凭据解析先于依赖门:凭据指引在场、安装指引不出现;兜底已移除
+    G1,消息零示例对残留)—— 零交互挂死。"""
     from myssia.cli import EXIT_CONFIG_ERROR, main
     from myssia.secrets import InMemoryKeychainBackend
 
@@ -767,14 +752,17 @@ def test_cli_telegram_login_structured_failure_path(
     monkeypatch.setattr("myssia.secrets.get_backend", lambda: InMemoryKeychainBackend())
     monkeypatch.setattr("builtins.input", lambda prompt: "")
     monkeypatch.setattr("getpass.getpass", lambda prompt: "")
-    # 零网纪律:钉死依赖缺失世界(venv 真装了 telethon 的开发机上,真
-    # TelegramClient 连真端点,测试缝必须确定性拦)。
+    # 零网纪律:拦依赖门世界(venv 真装了 telethon 的开发机上,真
+    # TelegramClient 连真端点,测试缝必须确定性拦)—— 本用例凭据缺在
+    # 依赖门之前上抛,拦截只是防御。
     block_telethon_import(monkeypatch)
     code = main(["telegram", "login", "--db", str(tmp_path / "myssia.db")])
     assert code == EXIT_CONFIG_ERROR
     captured = capsys.readouterr()
     combined = captured.out + captured.err
-    assert "myssia[telethon]" in combined  # 安装指引结构化在场
+    assert "myssia secret set myia/telegram/api-id" in combined  # 凭据指引在场
+    assert "2040" not in combined  # 死兜底对零残留
+    assert "b18441a1" not in combined
 
 
 # ---------------------------------------------------------------------------

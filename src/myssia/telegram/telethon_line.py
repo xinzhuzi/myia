@@ -11,11 +11,10 @@ Telethon ~11k★,MIT;extras ``myssia[telethon]`` 组件轨,**不改其源码**�
    → session 文件落数据根 ``telegram/telethon.session``(0600);已有
    session = 直接复用提示(``--force`` 删旧重登)。一次性交互,session
    持久后引擎/宿主零交互复用。**小号建议**(风控隔离,research §2)如实
-   披露在 login 指引里。**零凭据兜底**(2026-10-08 主人令):api_id/
-   api_hash 未配钥匙串时自动回落 Telethon 文档公开示例对
-   (:data:`DEFAULT_FALLBACK_API_ID`/:data:`DEFAULT_FALLBACK_API_HASH`)
-   —— my.telegram.org 持续裸 ERROR 也能登(限速风险如实披露);钥匙串
-   配了自有对则永远走自有对。
+   披露在 login 指引里。api_id/api_hash 未配钥匙串 = 结构化失败
+   (``api_credentials_missing``)带人话指引(my.telegram.org 恢复/换出口
+   再取自有对;2026-10-08 实证:文档公开示例对 2040 已被服务端
+   ApiIdInvalidError 拒,不可用,兜底路径已移除)。
 2. **消息面适配**(:func:`telethon_message_to_update`):Telethon Message
    → Bot API update 形状 dict —— 分拣/聚合/锚(``updates_to_items``)/过滤
    管线/出口/幂等锚全复用 bot 线同一份语义(design D1「两档共用」),本线
@@ -76,16 +75,6 @@ TELETHON_PACKAGE = "telethon"
 #: 安装命令(dependency_missing 错误消息附带;simplex 判例)。
 INSTALL_COMMAND = "pip install 'myssia[telethon]'  # 或 uv add 'myssia[telethon]'"
 
-#: 零凭据兜底对(2026-10-08 主人令:my.telegram.org 持续裸 ERROR,常见于
-#: 部分出口 IP,社区多报)—— Telethon 文档示例长期公开使用的共享 api 对。
-#: 实测注记:Telethon v1.x(含 1.45)**不再内置**该对(``api_id`` 空即
-#: ValueError,v1.0-1.45 源码亲验),「文档允许直接使用」的即是这对公开
-#: 示例值;共享对有限速风险(略慢),作为**登录流程零凭据可跑通**的兜底
-#: (:class:`TelethonLoginFlow` 专用),正式使用建议换自有对
-#: (``myssia secret set`` 后 ``--force`` 重登)。
-DEFAULT_FALLBACK_API_ID = 2040
-DEFAULT_FALLBACK_API_HASH = "b18441a1ff607e10f989894a5137bdb9"
-
 #: 数据根下 session 目录名(bot 线 offsets/events 同目录,文件名分键)。
 SESSION_DIR_NAME = "telegram"
 
@@ -118,8 +107,6 @@ SESSION_DEAD_EXCEPTION_NAMES = frozenset(
 __all__ = [
     "DEFAULT_API_HASH_REF",
     "DEFAULT_API_ID_REF",
-    "DEFAULT_FALLBACK_API_HASH",
-    "DEFAULT_FALLBACK_API_ID",
     "IDLE_TICK_SECONDS",
     "INSTALL_COMMAND",
     "MEDIA_GROUP_MEMORY_CAP",
@@ -219,7 +206,9 @@ def resolve_api_credentials(
         "取值:my.telegram.org 登录 → API development tools → Create new "
         "application → App api_id/api_hash;写入:"
         "myssia secret set myia/telegram/api-id 与 "
-        "myssia secret set myia/telegram/api-hash"
+        "myssia secret set myia/telegram/api-hash;"
+        "站点不可达(裸 ERROR/限流)时等恢复或换出口网络后重取自有对 —— "
+        "勿用网上流传的文档示例对(2026-10-08 实证已被服务端拒)"
     )
     try:
         api_id_raw = resolve_credential(api_id_ref, backend=backend)
@@ -364,8 +353,8 @@ def assemble_user_host(
         return None, None, (
             f"session 未首登({session};一次性前置:myssia secret set "
             "myia/telegram/api-id 与 myssia secret set myia/telegram/api-hash"
-            "(my.telegram.org 取值;不可达时可临时写 login 兜底同款公开示例对"
-            " 2040 / b18441a1ff607e10f989894a5137bdb9)后 myssia telegram login,"
+            "(my.telegram.org 取自有对;站点不可达时等恢复或换出口网络再取,"
+            "勿用网上流传的文档示例对——已被服务端拒)后 myssia telegram login,"
             "建议挂小号)"
         )
     try:
@@ -393,9 +382,9 @@ class TelethonLoginFlow:
     全输入面注入(``input_fn``/``password_fn``/``print_fn``/``client_factory``)
     —— 测试零交互零网络零真 telethon。交互序列:
 
-    1. api_id/api_hash 钥匙串解析:缺 = **零凭据兜底**(文档公开示例对,
-       限速风险在成功回执披露;主人令 2026-10-08,my.telegram.org 裸 ERROR
-       时的登录通路);配了 = 自有对主路径;引用解析坏(非「缺」)仍结构化失败;
+    1. api_id/api_hash 钥匙串解析:缺 = 结构化失败(``api_credentials_missing``
+       ,带 my.telegram.org 恢复/换出口再取自有对的人话指引;文档示例对已被
+       服务端拒,兜底已移除);引用解析坏(非「缺」)同样结构化失败;
     2. 依赖门(require_telethon);
     3. session 已在(且未 ``--force``)→ 复用提示退出 0;``--force`` 删旧重登;
     4. connect → 已授权(竞态下 session 已活)→ 复用;
@@ -434,18 +423,9 @@ class TelethonLoginFlow:
             TelethonLineError: 依赖/凭据/交互各面结构化失败(reason 词表
                 见类文档;交互取消(inputempty)按 ``login_failed`` 收)。
         """
-        used_default_creds = False
-        try:
-            api_id, api_hash = resolve_api_credentials(backend=self._backend)
-        except TelethonLineError as exc:
-            if exc.reason != "api_credentials_missing":
-                raise
-            # 零凭据兜底(2026-10-08 主人令):my.telegram.org 裸 ERROR 时的
-            # 登录通路 —— 文档公开示例对(限速风险如实披露);钥匙串配了
-            # 自有对则永远走自有对(上方主路径)。
-            api_id = DEFAULT_FALLBACK_API_ID
-            api_hash = DEFAULT_FALLBACK_API_HASH
-            used_default_creds = True
+        # 凭据缺/坏 = 结构化失败上抛(api_credentials_missing 带 my.telegram.org
+        # 恢复/换出口再取自有对指引;文档示例对已被服务端拒,无兜底 —— G1 移除)。
+        api_id, api_hash = resolve_api_credentials(backend=self._backend)
         target = session_path(data_root)
         if target.exists() and not force:
             # 复用检查零依赖:session 在 = 已登录态,提示即出(未装 telethon
@@ -490,15 +470,6 @@ class TelethonLoginFlow:
             "下一步:myssia telegram serve(bot+user 双线常驻;user 线读任意"
             "已加入群),或品类源 engine_options.telegram.mode: user 批量采集"
         )
-        if used_default_creds:
-            self._print(
-                "注意:本次登录使用 Telethon 文档公开示例默认凭据对"
-                "(略慢/有限速风险,共享对)。正式使用请取自有对写入:"
-                "myssia secret set myia/telegram/api-id 与 "
-                "myssia secret set myia/telegram/api-hash"
-                "(my.telegram.org 可达时;恢复后重试/换出口网络均可),"
-                "然后 myssia telegram login --force 重登"
-            )
         return target
 
     @staticmethod
