@@ -109,9 +109,11 @@ sources:
           #    本分区承载;高价值 ≥8 分已即时单条推出,同日报全量窗口语义
           #    再现——与 AI 资讯 immediate(score≥9)同口径,不重复即时,
           #    日报留档可回看。加群时 telegram-groups.yaml 与本清单同步加一行。
-          #    双线共用(G9 决议 2026-10-08):tg_web 线(telegram-web.yaml)
-          #    源名与 bot 线同名 —— 分区按源名匹配自动承载两线 archive 条目,
-          #    #tg- 锚同形双线互去重,零双行维护;tg_web 独有新群名仍同步加行)──
+          #    双线共用(G9 决议 2026-10-08,质询回改):tg_web 线
+          #    (telegram-web.yaml)源名与 bot 线同名 —— 分区按源名匹配承载
+          #    两线 archive 条目;#tg- 锚命名空间独立(url 前缀+chat 形两线
+          #    必不同),双线同跑同群同消息会双条,同一群建议只跑一线;
+          #    tg_web 独有新群名仍同步加行)──
           - title: Telegram 群
             sources: [telegram-mihomo_party_group]
             max_entries: 10

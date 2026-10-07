@@ -372,9 +372,13 @@ def test_source_validates_in_schema() -> None:
 
 
 def test_sample_plugin_yaml_ships_valid_tg_web_source() -> None:
-    """示范件把守(G9):plugins/telegram-web.yaml 过 schema 全装载,源形态
-    与 D4 对齐(account 全称律/chat/lookback 窗口帽);源名与 bot 线同名复用
-    (锚命名空间一致双线互去重,daily-digest 分区六按源名自动承载两线)."""
+    """示范件把守(G9,质询回改):plugins/telegram-web.yaml 过 schema 全装载,
+    源形态与 D4 对齐(account 全称律/chat/lookback 窗口帽);源名与 bot 线
+    同名(daily-digest 分区六按源名承载两线 archive);**锚命名空间独立**——
+    #tg- 锚含源 url 前缀+chat.id,两线 url 必不同(web vs api)且 tg_web
+    chat 按源配置原样注入(用户名形≠bot 线数字形),双线同跑同群同消息双条;
+    断言两线示范件同消息锚串不等(未来若做锚归一改动,此断言红=提示同步
+    四处文档口径)."""
     from myssia.schema import load_category_file
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -387,4 +391,12 @@ def test_sample_plugin_yaml_ships_valid_tg_web_source() -> None:
     assert opts["chat"] == CHAT
     assert 1 <= opts["lookback_limit"] <= 100  # 窗口帽域
     groups = load_category_file(repo_root / "plugins" / "telegram-groups.yaml")
-    assert src.name in {s.name for s in groups.sources}  # 与 bot 线同名复用
+    bot_src = next(s for s in groups.sources if s.name == src.name)  # 同名复用
+    # 锚命名空间独立把守(质询实证):同一条消息两线铸的锚必不同——
+    # url 前缀(web.telegram.org vs api.telegram.org)+chat 形(用户名 vs
+    # 数字)双差异;若有人改配置成 url 同值+同数字 id(互去重理论成立条件),
+    # 此断言红 = 逼同步文档口径,防「互去重」失真声明再溜入。
+    web_anchor = f"{src.url}#tg-{opts['chat']}-123"
+    bot_opts = bot_src.extra_params["engine_options"]["telegram"]
+    bot_anchor = f"{bot_src.url}#tg-{bot_opts['chat_id']}-123"
+    assert web_anchor != bot_anchor

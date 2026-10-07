@@ -16,8 +16,9 @@ web.telegram.org 是客户端渲染 SPA(GramJS 前端,``/k/`` 与 ``/a/`` 两版
 updates_to_items` 全语义复用):
 
 - ``message_id`` = ``data-mid``(Web K/A 两版的消息 DOM 节点均带;数字
-  形态,与 Bot API 消息 id 同命名空间 —— 同群同锚,网页线与 bot 线消息
-  不重复进库);
+  形态,与 Bot API 消息 id 同命名空间 —— 同线内同群同锚;**跨线与 bot 线
+  不互去重**:锚还含源 url 前缀与 chat.id(本线由调用方按源配置注入,
+  用户名形与 bot 线数字形不同),两线同跑同群同消息会双条,如实注记);
 - ``text`` = 消息文本节点(纯文本拼接,媒体 caption 同面);
 - ``from`` = 发送者名(显示名,@username 网页 DOM 拿不到就不给 —— 观测
   键 best-effort,不为此加请求);
