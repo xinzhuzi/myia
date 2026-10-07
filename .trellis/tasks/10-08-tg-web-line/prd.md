@@ -40,3 +40,39 @@ DOM 改版跟修(哨兵在)/ToS 灰色同 userbot,登录**建议小号**/api_id 
 - [ ] AC 逐条勾+证据(待填)
 
 > 决议追加(主人问「多个账号登录,你能把控吗」):**多账号为一等能力**——①每账号独立 Playwright 配置档(数据根 telegram-web/<账号键>/,0600,cookie/登录态零共享);②每账号独立无头实例,源 YAML 以 account: 键声明归属(A 账号读群1/2,B 账号读群3);③组件卡账号列表化(每行状态灯+重登按钮+「+添加账号」);④失效隔离(单账号掉线仅其源受累,其他不牵连);⑤资源披露(每实例 ~150-300MB 内存,并发帽可配,建议≤3);⑥风控披露(同机同出口多账号可被 TG 关联,只读监控风险低,数量克制);⑦账号键命名规约同全称律:telegram-<标识>。Telethon 线 session 分文件、bot 线分键(F8 修复)同理多账号。
+
+## 查漏(2026-10-08 03:17,查漏侦察员;基线=HEAD 49ab005[W4 已交]+W5 在途脏工作树)
+
+**方法与证据**:全部结论来自本窗亲跑(rg/fd/wc/shasum/ls/pytest/importlib.metadata,逐条注脚);两档 AC 对照以两 PRD 原文为准;装机面以 `/Applications/世事.app/Contents/Resources` 与数据根 `~/Library/Application Support/MYIA/` 实物为据;session 文件只报位置/形状/大小,内容零读取。
+
+### 在途界定(本节不计缺口,只钉边界)
+
+- **W5 在途(批⑤,扫描窗内活跃写)**:工作树脏 7 件 mtime 03:08-03:12(git status 亲取)——`src/myssia/telegram/web_line.py`/`web_dom.py`(docstring 已见「W5 真跑标定口径」)/`web_host.py`、`src/myssia/engines/tg_web.py` + 三测试件;另 `desktop/entry.py`、`desktop/ui-src/src/screens/settings/`(settings-screen.tsx/telegram-api.ts/telegram-card.tsx/telegram-card.test.tsx)、`desktop/scripts/tg-card-smoke.py`、`tests/desktop/test_desktop_sidecar_protocol.py`、`.trellis/spec/desktop/sidecar-protocol.md`。
+- **测试面如实注记**:本窗首两轮 pytest 亲见红(三件套 5 failed / tests/telegram 2 failed),跑窗与上述并行写入窗重叠=在途中间态(判例同 10-06 档 19:23/20:29 先例);在途定稿后同命令 **10 连绿**(三件套 189/189×5、tests/telegram 133/133×5;`tests/engines/test_tg_web_engine.py` 单独 21 passed、`tests/engines/test_telegram_engine.py` 35 passed)。非代码红,不入 GapList。
+
+### AC vs 现状速照(详证在各档,此处只对账)
+
+- **本档**:AC1-5 全未勾;W1-W4 已交(bac74e9/e53dc64/26b4cb7/49ab005),AC1/AC4 后半/AC5=W5 装机真跑批承载(在途)。
+- **10-06-telegram-telethon**:AC1 真发回执缺(→G8 chat_id 占位);AC2 真登缺(→G1 死兜底对+G3 半成品 session+G7 装机未同步,三缺连锁);AC3 阶段三未开工(→G11);AC4 已勾在案;AC5 代码/测试面在案,真跑验收留 AC1 同窗。
+
+### GapList(fixable=false 注归属)
+
+| id | 缺口 | 面 | 严重度 | fixable | 证据与修法 |
+|---|---|---|---|---|---|
+| G1 | **死兜底对仍在产线**(ApiIdInvalidError 实证,主人令修) | 源码 | high | ✅ | 常量 `src/myssia/telegram/telethon_line.py:86-87`+登录回落使用 `:446-448`+指引文案两处(`telethon_line.py:368`、`engines/telegram.py:436`)+PRD 决议记录(10-06 prd.md B4「零凭据兜底」段)+测试四引用(`tests/telegram/test_telethon_line.py:497/502/585/760`)。**推荐修法:移除常量与回落路径**,api 凭据缺=结构化失败带人话指引(my.telegram.org 恢复/换出口再取自有对;文档示例对 2040 已被服务端拒,不可用);PRD 决议追加失效注记同批 |
+| G2 | **telethon extras 缺 python-socks**(主人手装过,须 extras+lock 固化) | 依赖 | high | ✅ | `pyproject.toml:81` extras 仅 `telethon>=1.36,<2`;uv.lock 全文无 python-socks(rg `name = "python-socks"` 0 命中;telethon 1.45.0 依赖仅 pyaes/rsa,uv.lock:4068-4072,非传递可覆盖);桌面锁 `desktop/resources/requirements-lock.txt` 同缺(装机包内件亲读:telethon==1.45.0 在、python-socks 无)。修=extras 增 `python-socks`+`uv lock`+桌面锁 `uv export --extra llm --extra telethon` 重导出(锁头注释「增量仅 4 轮」须同步)。手装位未定位:repo .venv 与装机 python(`<数据根>/python/bin/python3`)2026-10-08 亲测均 NOT-INSTALLED——固化后随锁走,不依赖手装 |
+| G3 | **数据根 session 未授权半成品未处置**(设计二选一须落实) | 数据 | medium | ✅(清理动作) | `~/Library/Application Support/MYIA/telegram/telethon.session`(28672B,10-08 02:16 落盘;10-06 prd.md B4 装机段注记来历=主人真机 login 尝试,钥匙串无 api 对→兜底对→必拒)。连带代码面:login 零依赖复用检查 `telethon_line.py:450-457` 把「文件在」当「已登录」,半成品会得「直接复用」误导提示。**推荐处置:清理**(rm 该 session;--force 覆盖在真对到手前不可行);bot 线账本 events-69e1a1d5.db 保留不动 |
+| G4 | **本档 jsonl 双空**(策展补) | 档案 | low | ✅ | check.jsonl/implement.jsonl 均 0 行(wc -l 亲测;对照 10-06 档 23+9 行,条目形 `{"file","reason"}`)。策展范围:W1-W4 批上下文(search-sop/security-baseline/yaml-schema 等 spec+本档 design D1-D6+web_line/web_dom/tg_web/web_host/桌面卡源与测试)+本查漏节自引 |
+| G5 | **tauri 种子清单缺 telegram 三件 YAML** | 装机 | medium | ✅ | `desktop/src-tauri/tauri.conf.json:39-78` resources 枚举无 telegram-groups/telegram-channels/daily-digest → B4 批 `npx tauri build` 全新重生成 Resources 已把 B1 手拷件洗掉(装机包 Resources/plugins/ 亲 ls:三件+daily-digest 全缺席;数据根活件不受影响)。修=resources 补三行,净装机种子才齐、重打包不再丢 |
+| G6 | 装机包整体落后 W1-W4(bundle 缺 web 三件/tg_web 引擎/cli 新版/schema+registry 词表) | 装机 | — | ❌ **在途代理(W5 装机批)** | 包内 telegram/ 仅 6 件(缺 web_line/web_dom/web_host)、engines/ 仅 telegram.py(缺 tg_web.py)、cli.py sha `eb14df8…`≠HEAD `71ef4c6…`、entry.py=B4 版。W5 外科+重签范畴,如实注记 |
+| G7 | 装机自管 python 未吃 telethon 轮(用户线装机态死) | 装机 | medium | ❌ **主人**(一键动作) | `<数据根>/python/bin/python3` 亲测 telethon/pyaes/rsa/python-socks/playwright 全 NOT-INSTALLED(B4 留痕口径一致)。动作=设置页一键同步依赖+重启;**建议等 G2 合流后做**,一次吃到 python-socks,免二次同步 |
+| G8 | chat_id 仍占位(仓库+数据根双占位;AC1 真发前置) | 配置 | medium | ❌ **主人**(实填真值) | 仓库 `plugins/telegram-groups.yaml:50` 与数据根件 `:47` 均 `"-1000000000000"`;B4 装机留痕 bot 线已起但群占位→消息全量 dropped_chat。动作=bot 已在群发条消息/@userinfobot 取真 id,仓库+数据根两处回填;AC1 真发回执同窗 |
+| G9 | tg_web 无示范源 YAML(设计 D4 形态在、plugins/ 零例;W5 真跑前置) | 配置 | low | ✅ | design.md:19-28 已定形态(account/chat/lookback_limit);W5 mihomo 真跑需源件——W5 批顺带落或查漏修复批补(落件时决议是否进 daily-digest 分区) |
+| G10 | pyproject `all` extra 未收纳 telethon(同缺 simplex/apprise/vision 件,既有滞后面) | 依赖 | low | ✅(可选) | `pyproject.toml:82`。顺 G2 一行同批或另批,非阻塞 |
+| G11 | 10-06 阶段三「组件化件一例」未开工(AC3) | 范围 | low | ❌ **主人**(排期决策) | 10-06 prd.md:78「待填」;TrendRadar 拆解小档已独立在案(`.trellis/tasks/10-06-trendradar-scan/`),组件化本体(tgcf/RSSHub 轨)未动 |
+
+### 无缺口面(核过即录)
+
+- 源码面:schema/registry/docs zh+en 词表 `tg_web` 四处在案(schema.py:195/267、registry.py:160、docs zh/en schema.md:33/37);telegram 域零 TODO/FIXME;cli.py W3 面(web-login+第三线装配 4 处)在 HEAD;`telethon_line.py`/`engines/telegram.py`/`cli.py` 相对 HEAD 零 diff(git diff --stat 亲验)。
+- 组件卡:`desktop/resources/components.json` telethon 行在且 repo↔装机包 sha 一致(`1fed38d5…`);UI 总卡=W4 已交(49ab005)。
+- 数据根:daily-digest.yaml 两分区(频道 :102-105/群 :111-113)与仓库件同步;telegram-web/ 尚无配置档(W5 真登录前置,符合预期);tg_web 线零凭据设计,数据根无凭据落痕。
