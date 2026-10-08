@@ -3,7 +3,7 @@
   "name": "tg-channel-card",
   "title": "TG渠道卡:情报流内按渠道聚合,点击进渠道详情",
   "description": "情报流消息流(T3 全部条目/品类流)中,telegram 渠道的消息不再逐条铺卡,按渠道聚合为一张渠道卡(频道名+今日条数+未读+最新预览);点击渠道卡进入该渠道消息详情(复用 source 作用域 L3 流)。主人 10-08 晚令。",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
