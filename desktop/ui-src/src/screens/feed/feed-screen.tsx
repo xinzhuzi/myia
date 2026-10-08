@@ -87,6 +87,7 @@ import {
   LATER_RESURFACE_DAYS,
   listYamlTargets,
   LIVE_POLL_INTERVAL_MS,
+  COUNT_PROTOCOL,
   loadFeedDisplay,
   loadFeedStates,
   mergeFreshItems,
@@ -404,7 +405,13 @@ function FeedCard({
       <ContextMenuTrigger asChild>
         {/* 三级密度卡(D4):13px 标题/正文、11px 元信息;hover 行背景 accent/50
             (teardown-linear-activity #5);品类色条/未读 accent 竖条(#6/D4)。
-            j/k 键盘聚焦 = ring 环(A-feed;hover 只置 current 不亮环,Linear 式)。 */}
+            j/k 键盘聚焦 = ring 环(A-feed;hover 只置 current 不亮环,Linear 式)。
+            P2-3 拉出泡根(10-09-tg-category-entry,v4 深检遗留翻案):telegram
+            卡根只留布局(w-fit 窄泡/min-w/max-w/relative 定位锚)与 data-*,
+            底色 = 中性卡底(bg-card,展开态富块落点);未读/已读着色底收编进
+            气泡 div —— 富块(OCR/图说/图文件/enrich/沉淀面板)作为泡外兄弟
+            节点,不再渲染在着色泡内呈双泡观感。悬停操作簇(absolute 根锚)/
+            右键/j-k 定位(root data-item-key)不动。 */}
         <div
           data-testid={`feed-item-${rowKey}`}
           data-item-key={key}
@@ -417,9 +424,7 @@ function FeedCard({
           onFocus={() => onCurrent(key)}
           className={`group/feed-item relative transition-colors duration-(--duration-fast) ease-out-expo ${
             kind === "telegram"
-              ? `w-fit min-w-[13rem] max-w-[min(100%,640px)] rounded-2xl rounded-tl-md border py-2 pl-3 pr-3 ${
-                  state.read ? "border-border/40 bg-muted/25 hover:bg-muted/40" : "border-primary/25 bg-primary/10 hover:bg-primary/15"
-                }`
+              ? "w-fit min-w-[13rem] max-w-[min(100%,640px)] rounded-md border border-border/40 bg-card py-2 pl-3 pr-3"
               : `rounded-md border py-2 pr-3 pl-4 hover:bg-accent/50 ${
                   state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
                 }`
@@ -451,7 +456,9 @@ function FeedCard({
         <>
           {/* 聊天主页风格(10-09,主人令「做成 tg 的聊天主页风格」):
               频道名入泡顶(非节内语境),时间收泡底右下,窄泡左对齐;
-              点击正文/摘要 = 详情弹窗(弹开即记已读)。 */}
+              点击正文/摘要 = 详情弹窗(弹开即记已读)。P2-3:着色底收编于此
+              (未读亮泡 primary/10 / 已读降档 muted,v4 AC12 口径不变,仅从
+              根容器下移;hover 提亮随 group/feed-item 联动,观感同前)。 */}
           {!inChannelSection ? (
             <div className="flex items-center gap-1 text-2xs font-medium text-link">
               <Send aria-hidden className="size-3 shrink-0" />
@@ -459,7 +466,11 @@ function FeedCard({
             </div>
           ) : null}
           <div
-            className="mt-0.5 rounded-2xl rounded-tl-md border border-border/30 bg-background/40 px-3 py-2"
+            className={`mt-0.5 rounded-2xl rounded-tl-md border px-3 py-2 transition-colors duration-(--duration-fast) ease-out-expo ${
+              state.read
+                ? "border-border/40 bg-muted/25 group-hover/feed-item:bg-muted/40"
+                : "border-primary/25 bg-primary/10 group-hover/feed-item:bg-primary/15"
+            }`}
             data-testid={`feed-tg-bubble-${rowKey}`}
           >
             <button
@@ -1168,13 +1179,17 @@ function TgSectionHeader({
  *  最新预览/计数/chevron)。
  *
  *  10-08 审计追加:F2 计数口径注记(hasMore 时「已加载 N 条」+ title 补
- *  「首页 50 截断」,与 L1 行 title 同门,不再静默低估);F5 键盘巡游
+ *  「首页 50 截断」,与 L1 行 title 同门,不再静默低估;10-09-tg-category-entry
+ *  F2 根治:过 COUNT_PROTOCOL 门改「已加载 X · 共 T 条」,T = store.items
+ *  with_total 同 WHERE 全量计数);F5 键盘巡游
  *  (墙卡带 data-item-key/data-nav-focused 入 j/k 巡游集,U/Enter 进详情);
- *  F10 墙卡内次级概览行(大类内 top3 源,streamKindSubRows 复用聚合)。 */
+ *  F10 墙卡内次级概览行(im 卡 top3 频道 = telegramChannelCards 聚合,
+ *  web 卡 top3 源 = streamKindSubRows,均 displayItems 现算零新 RPC)。 */
 function SourceKindCard({
   card,
   onOpen,
   truncated = false,
+  total = null,
   subRows = [],
   navFocused = false,
   onCurrent,
@@ -1184,6 +1199,10 @@ function SourceKindCard({
   /** 计数口径注记(F2):true = 可见条目只是已加载首页(FEED_PAGE_SIZE 截断),
    *  词面改「已加载 N 条」+ title 注记,不再以全量词面静默低估 */
   truncated?: boolean;
+  /** 同条件全量计数(F2 根治,10-09-tg-category-entry;store.items with_total,
+   *  过 COUNT_PROTOCOL 门才非 null):截断且在值 → 词面「已加载 X · 共 T 条」,
+   *  title 补口径注记;null(未过门/旧 sidecar 无 total 字段)= 回落旧词面 */
+  total?: number | null;
   /** 次级概览行(F10):大类内 top3 源(名称/条数/未读) */
   subRows?: StreamKindSubRow[];
   /** j/k 键盘巡游聚焦(F5):focus 环呈现与否 */
@@ -1195,6 +1214,7 @@ function SourceKindCard({
   const preview = (card.latest.title || card.latest.url).replace(/\s+/g, " ").trim();
   const Icon = card.key === "im" ? Send : Globe;
   const digest = cardDigest(card.latest);
+  const hasTotal = total !== null && total > card.count;
   return (
     <button
       type="button"
@@ -1205,7 +1225,7 @@ function SourceKindCard({
       onFocus={onCurrent}
       onClick={onOpen}
       className={`group/kind-card relative w-full overflow-hidden rounded-md border border-border bg-card px-3 py-2.5 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:border-primary/40 hover:bg-accent/40${navFocused ? " ring-1 ring-primary/60" : ""}`}
-      title={`打开「${card.label}」详情:${card.count} 条 · 未读 ${card.unread}(口径 = 当前视图 ∪ 当日窗可见条目${truncated ? `;首页 ${FEED_PAGE_SIZE} 条截断,更早条目未计入` : ""})`}
+      title={`打开「${card.label}」详情:${card.count} 条 · 未读 ${card.unread}(口径 = 当前视图 ∪ 当日窗可见条目${hasTotal ? `;共 ${total} 条 = 当前过滤同口径全量计数,含未翻页` : truncated ? `;首页 ${FEED_PAGE_SIZE} 条截断,更早条目未计入` : ""})`}
     >
       {card.unread > 0 ? (
         <span aria-hidden data-testid={`feed-kind-card-unread-${card.key}`} className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-[#9869f7]" />
@@ -1230,7 +1250,11 @@ function SourceKindCard({
         </span>
       ) : null}
       <span className="mt-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
-        {truncated ? `已加载 ${card.count} 条` : `${card.count} 条`}
+        {hasTotal
+          ? `已加载 ${card.count} · 共 ${total} 条`
+          : truncated
+            ? `已加载 ${card.count} 条`
+            : `${card.count} 条`}
         {card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
         <ChevronRight
           aria-hidden
@@ -1546,6 +1570,10 @@ export function FeedScreen() {
    *  = sidecar 三方法支持 source_kind → L3 走卡片墙;未过门 = v1 形态原样
    *  (TG 频道卡区 + 消息列表)。与 serverStateReady 同一次 version 调用合流。 */
   const [sourceKindReady, setSourceKindReady] = useState(false);
+  /** 计数口径能力门(10-09-tg-category-entry F2 根治):protocol ≥
+   *  COUNT_PROTOCOL = store.items 支持 with_total → 首页查询带全量计数,
+   *  词面「已加载 N · 共 T 条」;未过门/应答无 total = 回落「已加载 N 条」。 */
+  const [countReady, setCountReady] = useState(false);
   /** L3 查询作用域(drill 派生;L1/L2 = 全局首页,计数源)。kind 仅在过门
    *  且未定源时随参(source 精确等值视图不需要大类过滤)。 */
   const streamScope =
@@ -1576,6 +1604,10 @@ export function FeedScreen() {
   /** 复合游标第二键(同刻条目翻页不跳不重;C1) */
   const [cursorId, setCursorId] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
+  /** 同条件全量计数(F2 根治;过 COUNT_PROTOCOL 门且应答带 total 才非 null):
+   *  「已加载 N · 共 T 条」的 T。随 refresh/liveRefresh 整页重查刷新(loadMore
+   *  游标翻页不改 total —— 同 WHERE 计数与翻页无关);切作用域重查自然重置。 */
+  const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<SidecarRequestError | null>(null);
@@ -1660,7 +1692,8 @@ export function FeedScreen() {
   }, []);
 
   // 能力门探测(挂载一次):低版本/探测失败 → false(旧 localStorage 通路);
-  // 同一次应答顺带置源大类门(10-08-tg-channel-card v2,零新 RPC)
+  // 同一次应答顺带置源大类门(10-08-tg-channel-card v2)与计数口径门
+  // (F2 根治,零新 RPC)
   useEffect(() => {
     let cancelled = false;
     void api
@@ -1670,12 +1703,14 @@ export function FeedScreen() {
           const protocol = typeof info?.protocol === "number" ? info.protocol : -1;
           setServerStateReady(protocol >= READ_STATE_PROTOCOL);
           setSourceKindReady(protocol >= SOURCE_KIND_PROTOCOL);
+          setCountReady(protocol >= COUNT_PROTOCOL);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setServerStateReady(false);
           setSourceKindReady(false);
+          setCountReady(false);
         }
       });
     return () => {
@@ -1703,12 +1738,16 @@ export function FeedScreen() {
         source: streamScope.source,
         sourceKind: streamScope.sourceKind,
         query,
+        // F2 根治:过计数门才带 with_total(旧 sidecar 忽略未知参数属预期,
+        // 应答无 total = 回落「已加载 N 条」词面,不为旧面报错)。
+        withTotal: countReady,
       });
       if (seq !== feedSeqRef.current) return; // F2:旧应答丢弃( newer 包已在途/已落地)
       setItems(page.items);
       setCursor(page.nextCursor);
       setCursorId(page.nextCursorId);
       setHasMore(page.hasMore);
+      setTotal(page.total);
       if (page.items.length === 0) {
         // 空结果才追问 health(一次 RPC):空态文案按有无插件分叉
         try {
@@ -1728,8 +1767,10 @@ export function FeedScreen() {
       // loading 无条件清:守卫化会把 loading 卡死在更晚的 liveRefresh 票上
       setLoading(false);
     }
-    // 依赖含 scopeKey:下钻/回退切换作用域即重查(L3-all 与 L1 同参,重查幂等)
-  }, [streamScope.category, streamScope.source, scopeKey, query, nextFeedSeq]);
+    // 依赖含 scopeKey:下钻/回退切换作用域即重查(L3-all 与 L1 同参,重查幂等);
+    // 含 countReady:计数门探测晚于首页查询时(version 异步竞速)门翻转即补一查,
+    // total 不缺场 —— 仅新 sidecar(protocol ≥ 13)多一次首页查询,旧面零增。
+  }, [streamScope.category, streamScope.source, scopeKey, query, countReady, nextFeedSeq]);
 
   useEffect(() => {
     void refresh();
@@ -1810,14 +1851,16 @@ export function FeedScreen() {
         source: streamScope.source,
         sourceKind: streamScope.sourceKind,
         query,
+        withTotal: countReady, // F2 根治:实时滚动顺带刷新 total(新条目落地 T 随动)
       });
       if (seq !== feedSeqRef.current) return; // F2:旧应答丢弃(含切域后在途包)
       setItems((current) => mergeFreshItems(current, page.items).items);
+      setTotal(page.total);
       if (drill.level !== 3) void refreshOverview();
     } catch {
       // 尽力而为:轮询失败静默(下一轮/事件/手点刷新再试)
     }
-  }, [streamScope.category, streamScope.source, drill.level, query, nextFeedSeq, refreshOverview]);
+  }, [streamScope.category, streamScope.source, drill.level, query, countReady, nextFeedSeq, refreshOverview]);
 
   // 事件驱动即时刷新:桌面 run 终态(completed)+ cron 派发 run 落地
   // (cron.completed);与空流 CTA 的定向订阅并行,重复刷新幂等无害
@@ -3266,17 +3309,32 @@ export function FeedScreen() {
                 );
               })}
             </div>
-            {/* 计数口径(10-08 审计 F2):hasMore(服务端返回满页)时「共/N 条」
-                的全量词面是静默低估 —— 改「已加载 N 条」如实;未截断才可说
-                「共」。根治(sidecar 窗内 count)待协议侧,前端先不再说满话 */}
-            <span className="text-2xs text-muted-foreground" data-testid="feed-count">
-              {hasMore
+            {/* 计数口径(10-08 审计 F2,10-09-tg-category-entry 根治):
+                过 COUNT_PROTOCOL 门(protocol ≥ 13)且应答带 total → 截断时
+                「已加载 X · 共 T 条」,T = 同 WHERE 全量计数(store.items
+                with_total),首页截断不再静默低估也不再无 T 空转;未过门/无
+                total 字段(旧 sidecar 忽略未知参数属预期,不为旧面报错)=
+                回落 F2 半程词面「已加载 N 条」。title 注记口径。 */}
+            <span
+              className="text-2xs text-muted-foreground"
+              data-testid="feed-count"
+              title={
+                total !== null && total > items.length
+                  ? `共 ${total} 条 = 当前过滤条件(store.items 同 WHERE)全量计数,含未翻页;已加载 ${items.length} 条为当日窗视图首页`
+                  : undefined
+              }
+            >
+              {total !== null && total > items.length
                 ? filter === "all"
-                  ? `已加载 ${items.length} 条(首页截断,更早条目未计入)`
-                  : `已加载 ${visible.length} / ${items.length} 条`
-                : filter === "all"
-                  ? `共 ${items.length} 条`
-                  : `${visible.length} / ${items.length} 条`}
+                  ? `已加载 ${items.length} · 共 ${total} 条`
+                  : `已加载 ${visible.length} / ${items.length} · 共 ${total} 条`
+                : hasMore
+                  ? filter === "all"
+                    ? `已加载 ${items.length} 条(首页截断,更早条目未计入)`
+                    : `已加载 ${visible.length} / ${items.length} 条`
+                  : filter === "all"
+                    ? `共 ${items.length} 条`
+                    : `${visible.length} / ${items.length} 条`}
             </span>
             {/* 当日窗知会(滚动流语义;仅未读/全部两档受窗,星标/稍后读跨窗可见) */}
             {filter === "unread" || filter === "all" ? (
@@ -3599,7 +3657,21 @@ export function FeedScreen() {
                       card={card}
                       onOpen={() => openKind(card.key)}
                       truncated={hasMore}
-                      subRows={streamKindSubRows(displayItems, states, card.key)}
+                      /* total 仅在作用域真截断时透传(total > 已加载):作用域已
+                          取尽时单卡计数本就完整,「已加载 X」词面会失义 */
+                      total={hasMore && total !== null && total > items.length ? total : null}
+                      /* 次级概览行(F10,displayItems 现算零新 RPC):im 卡 =
+                          telegramChannelCards 聚合 top3(频道名+未读数,与第二层
+                          节头同源同序——最新消息新→旧,聊天列表惯例);web 卡 =
+                          streamKindSubRows top3(源名+条数,channelDisplayName
+                          词表)。行 display-only:整卡点击仍进第二层。 */
+                      subRows={
+                        card.key === "im"
+                          ? telegramChannelCards(displayItems, states)
+                              .slice(0, 3)
+                              .map(({ key, label, count, unread }) => ({ key, label, count, unread }))
+                          : streamKindSubRows(displayItems, states, "web")
+                      }
                       navFocused={currentKey === `kind:${card.key}` && navByKeyboard}
                       onCurrent={() => onCurrentCard(`kind:${card.key}`)}
                     />

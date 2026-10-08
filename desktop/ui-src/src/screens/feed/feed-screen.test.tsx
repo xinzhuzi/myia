@@ -68,6 +68,7 @@ import {
   categoryColor,
   categoryOptionsFromHealth,
   channelDisplayName,
+  COUNT_PROTOCOL,
   channelKindOf,
   dayWindowStart,
   DEFAULT_FEED_DISPLAY,
@@ -3197,10 +3198,11 @@ describe("feed 内置浏览器预览 纯函数(api.ts,10-09-tg-category-entry v3
 });
 
 describe("FeedScreen · 聊天主页风格形态锚(10-09 v4)", () => {
-  it("TG 气泡形态:w-fit 窄泡+未读亮泡+无竖条+无元信息行;节头圆头像;泡底展开钮+时间同排", async () => {
+  it("TG 气泡形态:w-fit 窄泡+未读亮泡在气泡 div+根中性卡底+无竖条+无元信息行;泡底展开钮+时间同排;展开态富块不在着色泡内(P2-3)", async () => {
     // 条目数组造在实现外(mockImplementation 每调用重造会让 id 漂移,查
-    // feed-item-1 永远落空——10-09 形态锚用例踩坑实录)
-    const chatItems = [fixtureItem({ source: "telegram-durov", title: "消息甲", content: "摘要甲", tags: ["ai"] })];
+    // feed-item-1 永远落空——10-09 形态锚用例踩坑实录);image_ocr 备展开态
+    // 富块(OCR 块,P2-3 断言锚)
+    const chatItems = [fixtureItem({ source: "telegram-durov", title: "消息甲", content: "摘要甲", tags: ["ai"], image_ocr: "配图文字" })];
     storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
       Promise.resolve(
         result(chatItems.filter((item) => !params?.source || item.source === params.source)),
@@ -3211,7 +3213,12 @@ describe("FeedScreen · 聊天主页风格形态锚(10-09 v4)", () => {
     const card = await screen.findByTestId("feed-item-1");
     expect(card.className).toContain("w-fit");
     expect(card.className).toContain("max-w-");
-    expect(card.className).toContain("bg-primary/10");
+    // P2-3 拉出泡根:着色底(bg-primary/10)收编到气泡 div,根 = 中性卡底
+    // (bg-card,展开态富块落点),根不再带未读着色
+    const bubble = within(card).getByTestId("feed-tg-bubble-1");
+    expect(bubble.className).toContain("bg-primary/10");
+    expect(card.className).not.toContain("bg-primary/10");
+    expect(card.className).toContain("bg-card");
     expect(within(card).queryByTestId("feed-strip-1")).toBeNull();
     expect(within(card).queryByText("ai")).toBeNull();
     const footer = within(card).getByText("刚刚").closest("div");
@@ -3219,6 +3226,12 @@ describe("FeedScreen · 聊天主页风格形态锚(10-09 v4)", () => {
     // 内联展开钮在泡底行:点击翻转为「收起条目」(与详情弹窗并存)
     fireEvent.click(within(footer as HTMLElement).getByRole("button", { name: "展开条目" }));
     expect(within(footer as HTMLElement).getByRole("button", { name: "收起条目" })).toBeTruthy();
+    // P2-3:展开态富块(OCR 全文块)是泡外兄弟节点,落在根卡底色上,
+    // 不在着色泡内(双泡观感根除;正文/标题仍在泡内)
+    const ocrBlock = within(card).getByTestId("feed-image-ocr-1");
+    expect(bubble.contains(ocrBlock)).toBe(false);
+    expect(card.contains(ocrBlock)).toBe(true);
+    expect(within(bubble as HTMLElement).queryByTestId("feed-image-ocr-1")).toBeNull();
   });
 
   it("日期胶囊:TG 单频道流分组头走居中胶囊(rounded-full+mx-auto),非 TG 保持 sticky 组头", async () => {
@@ -3649,8 +3662,10 @@ describe("FeedScreen · 消息详情弹窗(点击信息弹出详情)", () => {
 
 describe("FeedScreen · 审计整改批(F2/F3/F5/F6/F10)", () => {
   /** v2 夹具:IM 两条(同渠道,较新)+ 网页两条(两源,较旧);刻度显式给,
-   *  卡序/巡游序确定(first_seen 新→旧,im 卡在前)。 */
-  function mockStoreV12(options: { webExtra?: number } = {}) {
+   *  卡序/巡游序确定(first_seen 新→旧,im 卡在前)。options.total = 模拟
+   *  sidecar v13 with_total 应答的 total(仅请求带 with_total 才回带,与
+   *  旧 sidecar 忽略未知参数同门;缺省不回带 = F2 半程词面路径)。 */
+  function mockStoreV12(options: { webExtra?: number; total?: number } = {}) {
     // 时间戳相对刻度 + 当日窗锚地板钳制(10-09 教训:硬编码日期在 03:00
     // 翻面后出窗;纯 now-N 小时在 03:00-05:00 跑同样出窗 —— 以
     // dayWindowStart()+递增分钟为地板,永在窗内且 t2>t1 保序)。
@@ -3668,22 +3683,24 @@ describe("FeedScreen · 审计整改批(F2/F3/F5/F6/F10)", () => {
         fixtureItem({ source: "hnrss-frontpage", title: `HN 条目 ${index + 1}`, category: "tech", first_seen: t1 }),
       ),
     ];
-    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
-      Promise.resolve(
-        result(
-          items.filter((item) => {
-            if (params?.category && item.category !== params.category) return false;
-            if (params?.source && item.source !== params.source) return false;
-            if (params?.source_kind) {
-              const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
-              if (params.source_kind === "im" && !im) return false;
-              if (params.source_kind === "web" && im) return false;
-            }
-            return true;
-          }),
-        ),
-      ),
-    );
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) => {
+      const rows = items.filter((item) => {
+        if (params?.category && item.category !== params.category) return false;
+        if (params?.source && item.source !== params.source) return false;
+        if (params?.source_kind) {
+          const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
+          if (params.source_kind === "im" && !im) return false;
+          if (params.source_kind === "web" && im) return false;
+        }
+        return true;
+      });
+      return Promise.resolve({
+        ...result(rows),
+        // v13 同门:仅 with_total 请求回带 total;options.total 缺省 = 同 WHERE
+        // 行数(语义忠实),显式给值则模拟「库里有未加载条目」的截断场景
+        ...(params?.with_total ? { total: options.total ?? rows.length } : {}),
+      });
+    });
   }
 
   async function renderWall() {
@@ -3744,6 +3761,40 @@ describe("FeedScreen · 审计整改批(F2/F3/F5/F6/F10)", () => {
     expect(screen.getByTestId("feed-count").textContent).not.toContain("共 53 条");
   });
 
+  it("F2 根治(protocol ≥ 13):with_total 应答在场 → 工具条与墙卡改「已加载 X · 共 T 条」+ title 注记口径", async () => {
+    // 过 COUNT_PROTOCOL 门(protocol 13)→ 首页查询带 with_total;total(103)
+    // > 已加载(53)→ T 在词面;旧 sidecar(v12)回落上一用例的半程词面
+    mockStoreV12({ webExtra: 51, total: 103 });
+    versionMock.mockResolvedValue(versionResult(COUNT_PROTOCOL));
+    renderScreen();
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    await screen.findByTestId("feed-kind-wall");
+    // 工具条:「已加载 53 / 53 · 共 103 条」(缺省未读过滤档,X = 可见/已加载,
+    // T = 同 WHERE 全量;53 条全未读故可见=已加载)
+    const count = await screen.findByTestId("feed-count");
+    await waitFor(() => expect(count.textContent).toContain("已加载 53 / 53 · 共 103 条"));
+    expect(count.getAttribute("title")).toContain("全量计数");
+    // 墙卡词面与 title 口径注记同步(im 卡同式;共 T = 作用域全量,注记说明)
+    const webCard = screen.getByTestId("feed-kind-card-web");
+    await waitFor(() => expect(webCard.textContent).toContain("已加载 51 · 共 103 条"));
+    expect(webCard.getAttribute("title")).toContain("共 103 条 = 当前过滤同口径全量计数,含未翻页");
+    expect(screen.getByTestId("feed-kind-card-im").textContent).toContain("已加载 2 · 共 103 条");
+    // 请求面实锤:过门后 store.items 确带 with_total(F2 根治的数据源)
+    expect(storeItemsMock.mock.calls.some((call) => (call[0] as StoreItemsParams | undefined)?.with_total === true)).toBe(true);
+  });
+
+  it("F2 根治回落面:未过 COUNT_PROTOCOL 门(protocol 12)不发 with_total、total 态不出现", async () => {
+    mockStoreV12({ webExtra: 51, total: 103 });
+    await renderWall(); // versionMock = SOURCE_KIND_PROTOCOL(12)
+    await screen.findByTestId("feed-kind-card-web");
+    // 门未过 → 请求零 with_total(sidecar v12 忽略未知参数属预期,不报错;
+    // 应答自然无 total 键 → UI 不采信不存在的数据)
+    expect(storeItemsMock.mock.calls.some((call) => (call[0] as StoreItemsParams | undefined)?.with_total === true)).toBe(false);
+    // 词面维持 F2 半程:截断如实,无「共 T」全量词面
+    await waitFor(() => expect(screen.getByTestId("feed-kind-card-web").textContent).toContain("已加载 51 条"));
+    expect(screen.getByTestId("feed-kind-card-web").textContent).not.toContain("共 103 条");
+  });
+
   it("F3:TG 节头细条不复述最新消息(无 preview/digest),气泡照旧;节头点进单频道动线不变", async () => {
     mockStoreV12();
     await renderWall();
@@ -3781,6 +3832,53 @@ describe("FeedScreen · 审计整改批(F2/F3/F5/F6/F10)", () => {
     const imSubs = screen.getByTestId("feed-kind-subs-im");
     expect(imSubs.textContent).toContain("mihomo_party_group");
     expect(imSubs.textContent).toContain("未读 2");
+  });
+
+  it("F10 补充:im 卡概览聚合源 = telegramChannelCards(top3 频道按最新消息新→旧,与第二层节头同序;未读数随行);web 卡聚合不随动", async () => {
+    // β 渠道 1 条较新 > α 渠道 2 条较旧:top3 序 = β 在前(telegramChannelCards
+    // 最新消息排序,聊天列表惯例;非条数排序 —— streamKindSubRows 的 web 榜口径)
+    const anchor = dayWindowStart().getTime();
+    const inWindow = (ms: number, floorMin: number) =>
+      new Date(Math.max(ms, anchor + floorMin * 60_000)).toISOString();
+    const tNew = inWindow(Date.now() - 1 * 3_600_000, 1);
+    const tOld = inWindow(Date.now() - 5 * 3_600_000, 2);
+    const items = [
+      fixtureItem({ source: "telegram-beta", title: "β 新消息", first_seen: tNew }),
+      fixtureItem({ source: "telegram-alpha", title: "α 旧消息一", first_seen: tOld }),
+      fixtureItem({ source: "telegram-alpha", title: "α 旧消息二", first_seen: tOld }),
+      fixtureItem({ source: "openai-news", title: "网页丙", category: "tech", first_seen: tOld }),
+    ];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(
+          items.filter((item) => {
+            if (params?.category && item.category !== params.category) return false;
+            if (params?.source && item.source !== params.source) return false;
+            if (params?.source_kind) {
+              const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
+              if (params.source_kind === "im" && !im) return false;
+              if (params.source_kind === "web" && im) return false;
+            }
+            return true;
+          }),
+        ),
+      ),
+    );
+    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
+    renderScreen();
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    const imSubs = await screen.findByTestId("feed-kind-subs-im");
+    const rows = Array.from(imSubs.children).map((row) => row.textContent ?? "");
+    expect(rows).toHaveLength(2); // 两频道都出(top3 内)
+    expect(rows[0]).toContain("beta");
+    expect(rows[0]).toContain("未读 1");
+    expect(rows[1]).toContain("alpha");
+    expect(rows[1]).toContain("未读 2");
+    // web 卡概览走 streamKindSubRows(源名+条数),不随 im 聚合切换
+    expect(screen.getByTestId("feed-kind-subs-web").textContent).toContain("openai-news");
+    // 行 display-only:点击行落点仍是整卡(进第二层),行自身非按钮
+    expect(imSubs.closest("button")).toBe(screen.getByTestId("feed-kind-card-im"));
+    expect(imSubs.querySelector("button")).toBeNull();
   });
 });
 

@@ -35,6 +35,9 @@ export interface FeedPageRequest {
   sourceKind?: "web" | "im" | null;
   /** 服务端搜索词(G1:title/content/source 三列 LIKE NOCASE,随游标透传) */
   query?: string | null;
+  /** 同条件全量计数(F2 计数口径根治,仅过 COUNT_PROTOCOL 门时传):
+   *  true = store.items 带 with_total → 应答 total 透出 FeedPage.total */
+  withTotal?: boolean;
 }
 
 export interface FeedPage {
@@ -45,6 +48,9 @@ export interface FeedPage {
   /** 下页游标 = 本页最旧条目的 (first_seen, id)(空页为 null) */
   nextCursor: string | null;
   nextCursorId: number | null;
+  /** 同条件全量计数(F2;仅 withTotal 且 sidecar 回带 total 键时非 null,
+   *  形状坏/缺键 = null → UI 回落「已加载 N 条」词面,不猜不报错) */
+  total: number | null;
 }
 
 export async function fetchFeedPage(request: FeedPageRequest): Promise<FeedPage> {
@@ -58,6 +64,7 @@ export async function fetchFeedPage(request: FeedPageRequest): Promise<FeedPage>
     ...(request.source ? { source: request.source } : {}),
     ...(request.sourceKind ? { source_kind: request.sourceKind } : {}),
     ...(request.query ? { query: request.query } : {}),
+    ...(request.withTotal ? { with_total: true } : {}),
   });
   const items = result.items;
   const oldest = items.length > 0 ? items[items.length - 1] : null;
@@ -66,6 +73,7 @@ export async function fetchFeedPage(request: FeedPageRequest): Promise<FeedPage>
     hasMore: items.length >= pageSize,
     nextCursor: oldest?.first_seen ?? null,
     nextCursorId: oldest?.id ?? null,
+    total: typeof result.total === "number" ? result.total : null,
   };
 }
 
@@ -349,6 +357,16 @@ export const READ_STATE_PROTOCOL = 10;
  *  支持 source_kind(web/im)→ 情报流 L3 走卡片墙(网页一张 + 每通讯软件
  *  一张,点卡进第二层详情);未过门 = v1 形态原样(TG 频道卡区 + 消息列表)。 */
 export const SOURCE_KIND_PROTOCOL = 12;
+
+/**
+ * 计数口径能力门(10-09-tg-category-entry F2 计数口径根治,READ_STATE 同款
+ * 模式):protocol ≥ 13 = store.items 支持可选 `with_total` → 应答带 `total`
+ * (同 WHERE 不分页全量计数)→ 工具条/墙卡词面「已加载 X · 共 T 条」;
+ * 未过门 / 应答无 total 字段(旧 sidecar 忽略未知参数属预期,不报错)=
+ * 回落「已加载 N 条」词面(F2 半程:如实不说满话,但 T 缺位)。取值与
+ * entry.py `PROTOCOL_VERSION` 同笔维护:本批 = 13,后端 bump 时此处同批跟改。
+ */
+export const COUNT_PROTOCOL = 13;
 
 /**
  * 条目 → FeedStateMap(过门后的状态源):read/starred/later 投影三键按

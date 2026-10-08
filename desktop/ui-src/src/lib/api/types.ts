@@ -425,6 +425,9 @@ export interface StoreItemsParams {
   query?: string;
   /** 条数上限(正整数) */
   limit?: number;
+  /** 同条件全量计数(F2 计数口径根治,protocol ≥ 13;10-09-tg-category-entry):
+   *  true 时应答补 `total` = 同 WHERE 不分页行数;省略/false = 应答无 total 键 */
+  with_total?: boolean;
 }
 
 /** OCR 逐行结果(myssia.vision.ocr OcrLine 投影;conf 0-1,两引擎刻度不可互比) */
@@ -486,6 +489,9 @@ export interface StoreItemsResult {
   db: string;
   count: number;
   items: FeedItem[];
+  /** 同 WHERE 全量计数(仅请求带 with_total: true 时出现;F2 计数口径根治,
+   *  protocol ≥ 13)。旧 sidecar 无此键 = undefined,消费侧回落「已加载 N 条」。 */
+  total?: number;
 }
 
 // ---------------------------------------------------------------------------

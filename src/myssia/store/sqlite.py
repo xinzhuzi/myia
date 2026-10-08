@@ -863,35 +863,25 @@ class SQLiteStore:
         )
         return _row_to_item(row) if row is not None else None
 
-    def list_items(
+    def _items_filter_sql(
         self,
         *,
-        category: str | None = None,
-        source: str | None = None,
-        source_kind: str | None = None,
-        since: datetime | None = None,
-        before: datetime | None = None,
-        before_id: int | None = None,
-        query: str | None = None,
-        limit: int | None = None,
-    ) -> list[ItemRecord]:
-        """List items, newest first(桌面情报流分页的查询面).
+        category: str | None,
+        source: str | None,
+        source_kind: str | None,
+        since: datetime | None,
+        before: datetime | None,
+        before_id: int | None,
+        query: str | None,
+    ) -> tuple[str, list[object]]:
+        """条目过滤的 WHERE 构造(:meth:`list_items` / :meth:`count_items`
+        共用底座,F2 计数口径根治 10-09-tg-category-entry)。
 
-        游标参数(10-03-v112-desktop-batch C1,与 feed-ux G1 合流形状):
-        ``before`` = first_seen 严格小于;``before_id`` 与 ``before`` 组成
-        ``(first_seen, id)`` 元组比较 —— 同刻(相同 first_seen)条目数超过
-        单页 limit 时,单靠 ``before`` 会把同刻更旧条目整批跳过,复合游标
-        才能推进直至取尽。``query`` = title/content/source 三列 LIKE
-        (NOCASE,无索引单机万级可接受,如实注记)。``source`` = 源名精确
-        等值(10-06-feed-channel-groups 三级下钻 L3 渠道消息流;与
-        ``category`` 同门精确等值,非 LIKE)。``source_kind`` = 源大类过滤
-        (10-08-tg-channel-card v2 卡片墙;``"im"`` = 通讯软件源,``"web"``
-        = 其余含无源条目;与 UI 前缀判定同一词表,LIKE ASCII 不区分大小写
-        —— UI 正则要求分隔符 [-._],LIKE 'telegram-%' 对 'telegramX' 形
-        近似多中,源名为系统生成规约名,差异面为零,如实注记)。
+        参数校验与词义同 :meth:`list_items`(游标复合键/三列 LIKE/源大类
+        词表)—— 两方法吃同一组过滤参数必然产出同一 WHERE,``total`` 才与
+        ``items`` 严格同口径。返回 ``(where 子句, 绑定参数)``;无条件时
+        where 为空串。
         """
-        if limit is not None and limit < 0:
-            raise ValueError(f"字段校验失败: limit 不能为负数,得到 {limit}")
         if before is None and before_id is not None:
             raise ValueError("字段校验失败: before_id 需与 before 同传(复合游标)")
         # 深审 F6 校验对称:category 与 source 同门强校验(非空字符串;None =
@@ -903,7 +893,6 @@ class SQLiteStore:
             raise ValueError("字段校验失败: source 过滤需要非空字符串(不过滤请传 None)")
         if source_kind is not None and source_kind not in ("web", "im"):
             raise ValueError("字段校验失败: source_kind 只接受 web/im(不过滤请传 None)")
-        sql = "SELECT * FROM items"
         conditions: list[str] = []
         params: list[object] = []
         if category is not None:
@@ -938,13 +927,77 @@ class SQLiteStore:
                 " OR source LIKE ? ESCAPE '\\' COLLATE NOCASE)"
             )
             params.extend([like, like, like])
-        if conditions:
-            sql += " WHERE " + " AND ".join(conditions)
-        sql += " ORDER BY first_seen DESC, id DESC"
+        where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+        return where, params
+
+    def list_items(
+        self,
+        *,
+        category: str | None = None,
+        source: str | None = None,
+        source_kind: str | None = None,
+        since: datetime | None = None,
+        before: datetime | None = None,
+        before_id: int | None = None,
+        query: str | None = None,
+        limit: int | None = None,
+    ) -> list[ItemRecord]:
+        """List items, newest first(桌面情报流分页的查询面).
+
+        游标参数(10-03-v112-desktop-batch C1,与 feed-ux G1 合流形状):
+        ``before`` = first_seen 严格小于;``before_id`` 与 ``before`` 组成
+        ``(first_seen, id)`` 元组比较 —— 同刻(相同 first_seen)条目数超过
+        单页 limit 时,单靠 ``before`` 会把同刻更旧条目整批跳过,复合游标
+        才能推进直至取尽。``query`` = title/content/source 三列 LIKE
+        (NOCASE,无索引单机万级可接受,如实注记)。``source`` = 源名精确
+        等值(10-06-feed-channel-groups 三级下钻 L3 渠道消息流;与
+        ``category`` 同门精确等值,非 LIKE)。``source_kind`` = 源大类过滤
+        (10-08-tg-channel-card v2 卡片墙;``"im"`` = 通讯软件源,``"web"``
+        = 其余含无源条目;与 UI 前缀判定同一词表,LIKE ASCII 不区分大小写
+        —— UI 正则要求分隔符 [-._],LIKE 'telegram-%' 对 'telegramX' 形
+        近似多中,源名为系统生成规约名,差异面为零,如实注记)。
+        """
+        if limit is not None and limit < 0:
+            raise ValueError(f"字段校验失败: limit 不能为负数,得到 {limit}")
+        where, params = self._items_filter_sql(
+            category=category, source=source, source_kind=source_kind, since=since,
+            before=before, before_id=before_id, query=query,
+        )
+        sql = f"SELECT * FROM items{where} ORDER BY first_seen DESC, id DESC"
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
         return [_row_to_item(row) for row in self._query_all(sql, tuple(params))]
+
+    def count_items(
+        self,
+        *,
+        category: str | None = None,
+        source: str | None = None,
+        source_kind: str | None = None,
+        since: datetime | None = None,
+        before: datetime | None = None,
+        before_id: int | None = None,
+        query: str | None = None,
+    ) -> int:
+        """Count items matching the same filters as :meth:`list_items`
+        (同 WHERE 不分页的全量计数,F2 计数口径根治,10-09-tg-category-entry)。
+
+        ``store.items`` 的 ``with_total`` 底座:与 :meth:`list_items` 同参
+        同 WHERE(经 :meth:`_items_filter_sql` 单点构造,词义漂移即测试红),
+        不含 ORDER/LIMIT —— 返回该过滤条件下的匹配行数,即 UI「已加载 N ·
+        共 T 条」的 T。游标键(before/before_id)原样接受:游标本就是过滤
+        条件的一部分,带游标计数 = 「该页之后的余量」口径。
+
+        Raises:
+            ValueError: 参数校验(词义同 :meth:`list_items`)。
+        """
+        where, params = self._items_filter_sql(
+            category=category, source=source, source_kind=source_kind, since=since,
+            before=before, before_id=before_id, query=query,
+        )
+        row = self._query_one(f"SELECT COUNT(*) FROM items{where}", tuple(params))
+        return int(row[0]) if row is not None else 0
 
     def set_item_states(self, dedup_keys: list[str], marker: str, value: bool) -> int:
         """置位一批 dedup_key 的读态标记(G9,store.state.mark 底座)。

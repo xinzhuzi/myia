@@ -193,6 +193,13 @@ LIKE NOCASE,%/_ 按字面转义)。旧调用零感知。v10(read-state-server �
 `_item_dict` 投影随行带 `read`/`starred`/`later` 三布尔键(G9 读态迁服务端:
 采集管线永不携带读态,置位只走 `store.state.*`;旧 UI 忽略新键零回归);
 `feed.export` JSONL 共用同一投影连带多三键(加法变化),CSV 固定列集不变。
+v13(feed 计数口径根治批,10-09-tg-category-entry F2)起 `store.items` 增可选
+布尔 `with_total`:true 时同一 WHERE 跑 `SQLiteStore.count_items`(store 层
+`_items_filter_sql` 单点构造,与 `list_items` 严格同口径),应答补 `total` =
+该过滤条件全量行数(不含 limit 分页)——feed 屏「已加载 N · 共 T 条」的 T,
+首页截断不再静默低估;缺省/false 应答无 `total` 键(旧调用零感知,旧 sidecar
++ 新 UI 组合 UI 回落「已加载 N 条」词面)。**bump v13**(UI 能力门
+COUNT_PROTOCOL = 13)。
 
 **feed-ux 批三方法参数(task 10-03-feed-ux,契约钉死于任务档 design.md §1)**:
 `feed.export {format: jsonl|csv, path: 绝对路径, category?, query?}` →

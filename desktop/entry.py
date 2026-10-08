@@ -505,7 +505,10 @@ from myssia.vision.server import (
 #: v12 = tg-channel-card v2 批(store.items / store.state.mark_all /
 #: feed.export 三方法增可选 source_kind(web/im)源大类过滤,卡片墙与
 #: 第二层作用域查询;10-08-tg-channel-card)。
-PROTOCOL_VERSION = 12
+#: v13 = feed 计数口径根治批(store.items 增可选 with_total → 应答补
+#: ``total`` = 同 WHERE 不分页全量计数,UI「已加载 N · 共 T 条」词面的
+#: 数据源,能力门 COUNT_PROTOCOL = 13;10-09-tg-category-entry F2)。
+PROTOCOL_VERSION = 13
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
 STATUS_BY_EXIT = {0: "success", 1: "config_error", 2: "failed", 3: "partial"}
 
@@ -1657,6 +1660,12 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
     limit 也能推进直至取尽);``query`` = title/content/source 三列 LIKE
     NOCASE。``source`` = 源名精确等值(10-06-feed-channel-groups 三级下钻
     L3 渠道消息流;与 ``category`` 同门)。全部可选,旧调用零感知。
+
+    ``with_total``(bool,可选;F2 计数口径根治,10-09-tg-category-entry,
+    UI 能力门 protocol ≥ 13):true 时同一 WHERE 跑
+    :meth:`SQLiteStore.count_items`(不分页全量计数),应答补 ``total`` 键
+    —— feed 屏「已加载 N · 共 T 条」的 T,首页截断不再静默低估。缺省/false
+    = 应答无 ``total`` 键(旧调用零感知;UI 未过门回落「已加载 N 条」词面)。
     """
     db = params.get("db") or _serve_context().db
 
@@ -1700,6 +1709,9 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
     limit = params.get("limit")
     if limit is not None and (not isinstance(limit, int) or limit < 1):
         raise ProtocolError("invalid_params", "limit 必须为正整数", path="params.limit")
+    with_total = params.get("with_total")
+    if with_total is not None and not isinstance(with_total, bool):
+        raise ProtocolError("invalid_params", "with_total 必须为布尔", path="params.with_total")
     try:
         store = SQLiteStore(db)
     except StoreSchemaError as exc:
@@ -1709,11 +1721,25 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
             category=category, source=source, source_kind=source_kind, since=since,
             before=before, before_id=before_id, query=query or None, limit=limit,
         )
+        # F2 计数口径根治:同一 WHERE 跑 COUNT(count_items 与 list_items 经
+        # store 层单点 _items_filter_sql 构造,词义漂移即测试红),total =
+        # 该过滤条件全量行数(不含 limit 分页)。
+        total = (
+            store.count_items(
+                category=category, source=source, source_kind=source_kind, since=since,
+                before=before, before_id=before_id, query=query or None,
+            )
+            if with_total
+            else None
+        )
     except ValueError as exc:  # store 层参数校验(空 category/source 等)
         raise ProtocolError("invalid_params", str(exc), path="params") from exc
     finally:
         store.close()
-    return {"db": str(db), "count": len(items), "items": [_item_dict(item) for item in items]}
+    result = {"db": str(db), "count": len(items), "items": [_item_dict(item) for item in items]}
+    if with_total:
+        result["total"] = total
+    return result
 
 
 def _m_store_state_mark(params: dict[str, Any]) -> dict[str, Any]:

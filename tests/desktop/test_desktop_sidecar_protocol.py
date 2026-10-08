@@ -667,6 +667,52 @@ def test_store_items_seeded_db_with_filters(tmp_path):
     assert result["count"] == 1 and result["items"][0]["category"] == "proto-demo"
 
 
+def test_store_items_with_total_same_where_count(tmp_path):
+    """F2 计数口径根治(10-09-tg-category-entry):store.items 可选 with_total
+    三态 —— 缺省/False = 应答无 total 键(旧调用零感知);True = 同 WHERE
+    不分页全量计数(limit 截断下 total > count 才是根治意义所在),且随
+    category/source_kind 过滤同口径收窄;非布尔 with_total 结构化拒。"""
+    db = tmp_path / "total.db"
+    store = SQLiteStore(str(db))
+    from datetime import datetime, timezone
+
+    from myssia.store.models import ItemRecord
+    for index in range(7):
+        store.save_item(ItemRecord(
+            url=f"https://example.com/{index}", dedup_key=f"k{index}", title=f"条目{index}",
+            source="telegram-demo" if index < 3 else "rss-news",
+            category="proto-demo",
+            first_seen=datetime(2026, 10, 1, tzinfo=timezone.utc),
+        ))
+    store.close()
+    # 态①:缺省 → 无 total 键
+    code, responses, _ = rpc({"id": 1, "method": "store.items",
+                              "params": {"db": str(db), "limit": 2}})
+    result = responses[0]["result"]
+    assert result["count"] == 2 and "total" not in result
+    # 态②:with_total=False → 同缺省,无 total 键
+    code, responses, _ = rpc({"id": 2, "method": "store.items",
+                              "params": {"db": str(db), "limit": 2, "with_total": False}})
+    assert "total" not in responses[0]["result"]
+    # 态③:with_total=True → total = 同 WHERE 全量(7),count 仍 = limit 页 2
+    code, responses, _ = rpc({"id": 3, "method": "store.items",
+                              "params": {"db": str(db), "limit": 2, "with_total": True}})
+    result = responses[0]["result"]
+    assert result["count"] == 2 and result["total"] == 7
+    # 同 WHERE:过滤随行收窄(source_kind=im → 全量 3;category 命中 7)
+    code, responses, _ = rpc({"id": 4, "method": "store.items",
+                              "params": {"db": str(db), "limit": 5,
+                                         "source_kind": "im", "with_total": True}})
+    result = responses[0]["result"]
+    assert result["count"] == 3 and result["total"] == 3
+    # 非布尔 → invalid_params 锚 params.with_total
+    code, responses, _ = rpc({"id": 5, "method": "store.items",
+                              "params": {"db": str(db), "with_total": "yes"}})
+    error = responses[0]["error"]
+    assert error["code"] == "invalid_params"
+    assert error["path"] == "params.with_total"
+
+
 def test_store_items_category_validation_symmetric(tmp_path):
     """深审 F6 校验对称:category 与 source 同门协议级强校验(非空字符串;
     省略 = 不过滤)—— 空串/非字符串 category 结构化 invalid_params,
@@ -2873,9 +2919,12 @@ def test_protocol_version_bumped_for_feed_ux():
     移除,10-08-browser-module)→ v11;
     tg-channel-card v2 批(store.items / store.state.mark_all / feed.export
     三方法增可选 source_kind(web/im),10-08-tg-channel-card)→ v12
-    (UI 卡片墙能力门 = protocol ≥ 12,未过门回落 v1 形态)。"""
+    (UI 卡片墙能力门 = protocol ≥ 12,未过门回落 v1 形态);
+    feed 计数口径根治批(store.items 增可选 with_total → 应答补 total
+    同 WHERE 全量计数,UI 能力门 COUNT_PROTOCOL = 13,
+    10-09-tg-category-entry F2)→ v13。"""
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
-    assert responses[0]["result"]["protocol"] == 12
+    assert responses[0]["result"]["protocol"] == 13
 
 
 # ---------------------------------------------------------------------------
@@ -3429,8 +3478,9 @@ def test_serve_starts_and_stops_cron_ticker(tmp_path, monkeypatch):
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
     assert code == 0
     # v9 = hermes-cron 批;v10 = read-state-server 批;v11 = browser-module 批;
-    # v12 = tg-channel-card v2(source_kind 三方法)
-    assert responses[0]["result"]["protocol"] == 12
+    # v12 = tg-channel-card v2(source_kind 三方法);v13 = feed 计数口径根治
+    # (store.items with_total)
+    assert responses[0]["result"]["protocol"] == 13
     assert seen["supervisor_alive"] and seen["ticker_alive"]
     # EOF:serve 返回前已关停(idle ticker 即醒即退,interval 已注入 0.05s)
     assert entry._CRON_SUPERVISOR is None and entry._CRON_TICKER is None
