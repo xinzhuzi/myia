@@ -415,19 +415,28 @@ function FeedCard({
           data-nav-focused={navFocused ? "true" : "false"}
           onMouseEnter={() => onCurrent(key)}
           onFocus={() => onCurrent(key)}
-          className={`group/feed-item relative rounded-md border py-2 pr-3 pl-4 transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/50 ${
-            state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
+          className={`group/feed-item relative transition-colors duration-(--duration-fast) ease-out-expo ${
+            kind === "telegram"
+              ? `w-fit max-w-[min(100%,640px)] rounded-2xl rounded-tl-md border py-2 pl-3 pr-3 ${
+                  state.read ? "border-border/40 bg-muted/25 hover:bg-muted/40" : "border-primary/25 bg-primary/10 hover:bg-primary/15"
+                }`
+              : `rounded-md border py-2 pr-3 pl-4 hover:bg-accent/50 ${
+                  state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
+                }`
           }${navFocused ? " ring-1 ring-primary/60" : ""}`}
         >
       {/* 左缘竖条:未读 = 2px 品牌紫亮档 #9869f7(primary-300;10-08 验收:
           #631bf3 卡底 2.30:1 不达非文字 3:1,提一档 4.40:1);已读 = 统一
           降饱和灰(10-08 审计 F4:品类色散列可落紫系与未读 accent 同色相,
           读态竖条通道失效——已读改走 muted 灰档,品类色只承担品类徽章通道) */}
+      {/* TG 聊天气泡不带竖条(10-09 聊天主页风格:未读走泡底色/文字档) */}
+      {kind !== "telegram" ? (
       <span
         aria-hidden
         data-testid={`feed-strip-${rowKey}`}
         className={`absolute top-2 bottom-2 left-0 w-0.5 rounded-full ${state.read ? "bg-muted-foreground/40" : "bg-[#9869f7]"}`}
       />
+      ) : null}
 
       {/* ═══ 渠道差异化头区(10-06-feed-channel-groups)═══
           news/deal = 现状标题行形态(回归安全);telegram = 频道名行 +
@@ -440,28 +449,17 @@ function FeedCard({
           操作簇(#5);等宽数字(mono)——VL 指认时间戳与正文无视觉区分 */}
       {kind === "telegram" ? (
         <>
-          <div className="flex items-center gap-1.5 pr-1">
-            {/* 频道语境(分节详情节内):节头细条已标频道名,卡头不再重复
-                (10-08 验收:同名同屏 3 次)—— 只留相对时间,归位不动 */}
-            {!inChannelSection ? (
-              <>
-                <Send aria-hidden className="size-3 shrink-0 text-primary" />
-                <span className="min-w-0 truncate text-2xs font-medium text-foreground/80">
-                  {channelDisplayName(item.source)}
-                </span>
-              </>
-            ) : null}
-            <time
-              dateTime={item.first_seen ?? undefined}
-              className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground transition-opacity duration-(--duration-fast) ease-out-expo group-hover/feed-item:opacity-0"
-            >
-              {time}
-            </time>
-          </div>
-          {/* 消息气泡:正文即消息(title = 消息文本,telegram-channels 提取
-              契约);点击开详情弹窗(弹开即记已读,与新闻卡标题同门) */}
+          {/* 聊天主页风格(10-09,主人令「做成 tg 的聊天主页风格」):
+              频道名入泡顶(非节内语境),时间收泡底右下,窄泡左对齐;
+              点击正文/摘要 = 详情弹窗(弹开即记已读)。 */}
+          {!inChannelSection ? (
+            <div className="flex items-center gap-1 text-2xs font-medium text-link">
+              <Send aria-hidden className="size-3 shrink-0" />
+              <span className="min-w-0 truncate">{channelDisplayName(item.source)}</span>
+            </div>
+          ) : null}
           <div
-            className="mt-1 rounded-2xl rounded-tl-md border border-primary/20 bg-primary/10 px-3 py-2"
+            className="mt-0.5 rounded-2xl rounded-tl-md border border-border/30 bg-background/40 px-3 py-2"
             data-testid={`feed-tg-bubble-${rowKey}`}
           >
             <button
@@ -489,6 +487,32 @@ function FeedCard({
                 </p>
               )
             ) : null}
+            {/* 泡底右下:展开钮(内联路径与详情弹窗并存,10-08 弹窗批语义)+
+                时间(聊天惯例,等宽数字) */}
+            <div className="mt-1 flex items-center justify-end gap-1">
+              {expandable ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-5"
+                  aria-label={expanded ? "收起条目" : "展开条目"}
+                  aria-expanded={expanded}
+                  onClick={() => setExpanded((current) => !current)}
+                >
+                  {expanded ? (
+                    <ChevronDown className="size-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="size-3.5 text-muted-foreground" />
+                  )}
+                </Button>
+              ) : null}
+              <time
+                dateTime={item.first_seen ?? undefined}
+                className="font-mono text-2xs text-muted-foreground"
+              >
+                {time}
+              </time>
+            </div>
           </div>
         </>
       ) : kind === "watch" ? (
@@ -699,6 +723,7 @@ function FeedCard({
         </Button>
       </div>
 
+      {kind !== "telegram" ? (
       <div className="mt-1 flex flex-wrap items-center gap-1.5">
         {expandable ? (
           <Button
@@ -729,9 +754,7 @@ function FeedCard({
         {/* telegram 渠道源名已在气泡头(channelDisplayName)——元信息行不重复;
             F9:其余渠道源名同走 channelDisplayName 词表(剥协议载体前缀),
             与 L2 渠道行/渠道卡同一套可读词,不再直出内部源 id */}
-        {kind !== "telegram" ? (
-          <span className="text-2xs text-muted-foreground">{channelDisplayName(item.source)}</span>
-        ) : null}
+        <span className="text-2xs text-muted-foreground">{channelDisplayName(item.source)}</span>
         {item.tags.slice(0, 4).map((tag) => (
           <Badge key={tag} variant="outline" className="text-2xs">
             {tag}
@@ -749,6 +772,7 @@ function FeedCard({
           </Badge>
         ) : null}
       </div>
+      ) : null}
 
       {/* ═══ 正文块(渠道差异化,10-06-feed-channel-groups)═══
           telegram 正文在气泡内(头区已渲染)此处跳过;document = markdown
@@ -1121,8 +1145,10 @@ function TgSectionHeader({
       className="group/tg-head flex w-full items-center gap-2 rounded-md border border-transparent px-2 py-1 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:border-border hover:bg-accent/40"
       title={`打开 ${card.label} 的消息流:${card.count} 条 · 未读 ${card.unread}`}
     >
-      <Send aria-hidden className="size-3 shrink-0 text-primary" />
-      <span className="min-w-0 truncate text-xs font-medium text-foreground/90">{card.label}</span>
+      <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15">
+        <Send className="size-3.5 text-primary" />
+      </span>
+      <span className="min-w-0 truncate text-sm font-medium text-foreground">{card.label}</span>
       <span className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground">
         {card.count} 条{card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
       </span>
@@ -2061,6 +2087,13 @@ export function FeedScreen() {
   const imDetailLayout =
     sourceKindReady && drill.level === 3 && drill.source === null && drill.kind === "im";
   const legacyStreamLayout = drill.level === 3 && drill.source === null && !sourceKindReady;
+  /** 聊天视图(10-09 聊天主页风格):TG 消息流(im 分节/单频道/TG 品类
+   *  历史态)日期分隔走居中胶囊,消息气泡贴聊天语言。 */
+  const chatStyleGroups =
+    drill.level === 3 &&
+    (drill.kind === "im" ||
+      (drill.source ?? "").startsWith("telegram") ||
+      (drill.history === true && (drill.category ?? "").startsWith("telegram")));
   /** TG 品类渠道页(10-09-tg-category-entry):品类 id telegram 前缀 = 该页
    *  顶部出「网页线监控台」卡(登录/监控状态 + 历史入口)。 */
   const isTelegramCategory = drill.level === 2 && drill.category.startsWith("telegram");
@@ -3675,11 +3708,21 @@ export function FeedScreen() {
                       <section key={group.key} aria-label={`时间分组:${group.label}`}>
                         <div
                           data-testid={`feed-group-${group.label}`}
-                          className="sticky top-0 z-10 -mx-6 flex items-center gap-2 bg-background/95 px-6 py-2.5 backdrop-blur-sm"
+                          className={
+                            chatStyleGroups
+                              ? "mx-auto w-fit rounded-full bg-muted/60 px-3 py-1 text-2xs text-muted-foreground"
+                              : "sticky top-0 z-10 -mx-6 flex items-center gap-2 bg-background/95 px-6 py-2.5 backdrop-blur-sm"
+                          }
                         >
-                          <span className="text-2xs font-medium text-muted-foreground">{group.label}</span>
-                          <span className="text-2xs text-muted-foreground">{group.items.length} 条</span>
-                          <span aria-hidden className="h-px flex-1 bg-border/70" />
+                          {chatStyleGroups ? (
+                            `${group.label} · ${group.items.length} 条`
+                          ) : (
+                            <>
+                              <span className="text-2xs font-medium text-muted-foreground">{group.label}</span>
+                              <span className="text-2xs text-muted-foreground">{group.items.length} 条</span>
+                              <span aria-hidden className="h-px flex-1 bg-border/70" />
+                            </>
+                          )}
                         </div>
                         {/* 组内行距 6px(Kestra 列表密度档) */}
                         <div className="flex flex-col gap-1.5">{group.items.map(renderCard)}</div>

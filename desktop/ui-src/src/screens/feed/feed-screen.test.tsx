@@ -3571,7 +3571,8 @@ describe("FeedScreen · 消息详情弹窗(点击信息弹出详情)", () => {
 
     // 气泡标题点击 → 弹窗(标题全文 + 正文全文)
     const bubble = within(card).getByTestId("feed-tg-bubble-1");
-    fireEvent.click(within(bubble).getByRole("button"));
+    const bubbleTitle = "消息正文甲";
+    fireEvent.click(within(bubble).getByRole("button", { name: bubbleTitle }));
     expect(screen.getByTestId("feed-detail-dialog")).toBeTruthy();
     expect(screen.getByTestId("feed-detail-title").textContent).toContain("消息正文甲");
     expect(screen.getByTestId("feed-detail-content").textContent).toContain("气泡内摘要");
@@ -3856,7 +3857,7 @@ describe("FeedScreen · 验收整改批(正文去重/节内省频道名/弹窗�
     await renderStream();
     fireEvent.click(await screen.findByTestId("feed-tg-channel-card-telegram-durov"));
     fireEvent.click(await screen.findByTestId("feed-item-1"));
-    fireEvent.click(within(screen.getByTestId("feed-tg-bubble-1")).getByRole("button"));
+    fireEvent.click(within(screen.getByTestId("feed-tg-bubble-1")).getByRole("button", { name: "🎉 Clash Party v2 发布" }));
     const dialog = screen.getByTestId("feed-detail-dialog");
     // 弹窗正文只剩独有信息,标题词面全弹窗仅 DialogTitle 1 处(04/05 图病灶)
     expect(within(dialog).getAllByText(/🎉 Clash Party v2 发布/)).toHaveLength(1);
