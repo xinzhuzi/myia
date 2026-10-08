@@ -4,6 +4,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Copy,
   Download,
   ExternalLink,
   FileText,
@@ -37,6 +38,12 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -53,6 +60,7 @@ import {
   appendFeedPage,
   appendWatchlistKeyword,
   applyFeedFilter,
+  bodyWithoutTitleDup,
   categoryColor,
   categoryOptionsFromHealth,
   cardDigest,
@@ -64,6 +72,7 @@ import {
   defaultExportName,
   engineMapFromHealth,
   exportFeedView,
+  FEED_PAGE_SIZE,
   fetchFeedPage,
   formatRelativeTime,
   groupFeedItems,
@@ -92,6 +101,7 @@ import {
   SOURCE_KIND_PROTOCOL,
   statesFromItems,
   streamKindCards,
+  streamKindSubRows,
   telegramChannelCards,
   toggleMarker,
   type ChannelKind,
@@ -99,6 +109,7 @@ import {
   type FeedCategoryOption,
   type FeedDisplayOptions,
   type StreamKindCardData,
+  type StreamKindSubRow,
   type TelegramChannelCardData,
   type YamlTargetFile,
 } from "./api";
@@ -141,7 +152,7 @@ const EMPTY_TEXT: Record<FeedFilter, { title: string; description: string }> = {
     title: "稍后读还是空的",
     description: `点击书签按钮把条目放入稍后读;放入超过 ${LATER_RESURFACE_DAYS} 天会自动回到未读`,
   },
-  all: { title: "情报流还是空的", description: "数据源为 store.items(新→旧);先跑一次采集" },
+  all: { title: "情报流还是空的", description: "新采集的条目会按新→旧出现在这里;先跑一次采集" },
 };
 
 /** 搜索防抖(G1):输入停顿 300ms 提交;Enter 立即提交 */
@@ -236,11 +247,12 @@ function FeedCard({
   current,
   navFocused,
   kind,
+  inChannelSection = false,
   onCurrent,
-  onMarkRead,
   onToggle,
   onOpenError,
   onEnriched,
+  onOpenDetail,
 }: {
   item: FeedItem;
   state: { read?: boolean; starred?: boolean; later?: boolean };
@@ -250,12 +262,17 @@ function FeedCard({
   navFocused: boolean;
   /** 渠道类型(10-06-feed-channel-groups:五档差异化呈现,判定见 api.ts) */
   kind: ChannelKind;
+  /** 频道语境(10-08 验收:TG 分节详情的节内卡)——节头已标频道名,
+   *  卡头不再重复渲染,只留相对时间;单频道流/source 作用域不在内 */
+  inChannelSection?: boolean;
   onCurrent: (key: string) => void;
-  onMarkRead: (item: FeedItem) => void;
   onToggle: (item: FeedItem, marker: "starred" | "later" | "read") => void;
   onOpenError: (message: string) => void;
   /** G8 精评成功回传(FeedScreen 把 scores 并回列表,分数徽标即时刷新) */
   onEnriched: (item: FeedItem, result: FeedEnrichResult) => void;
+  /** 主人令「点击信息,弹出详情」(10-08):标题/气泡/正文区点击 = 开详情
+   *  弹窗(弹开即记已读);「展开条目」内联路径并存不废。 */
+  onOpenDetail: (item: FeedItem) => void;
 }) {
   // 展开态属卡片本地(每次进屏重置;不与已读/星标本地态混存)
   const [expanded, setExpanded] = useState(false);
@@ -274,6 +291,9 @@ function FeedCard({
   const rowKey = item.id ?? itemKey(item);
   const key = itemKey(item);
   const expandable = Boolean(item.content) || hasImageDetails(item);
+  /** 收起态正文预览(10-08 验收:与标题重复的开头剥除,v3 cardDigest 同门;
+   *  正文整段 = 标题时 null,预览行不渲染 —— 不再同屏读两遍) */
+  const bodyPreview = bodyWithoutTitleDup(item);
 
   /** G8:单条精评(feed.enrich;item 传 dedup_key,resolve 口径同 feedback.mark)。
    *  无配置(enrich_not_configured)/超时/失败都走 error 态结构化明示,可重试。 */
@@ -395,30 +415,38 @@ function FeedCard({
             state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
           }${navFocused ? " ring-1 ring-primary/60" : ""}`}
         >
-      {/* 左缘竖条:未读 = 2px accent(teardown #6);已读 = 品类色 70%(D4 品类色条) */}
-      {(!state.read || color !== null) && (
-        <span
-          aria-hidden
-          data-testid={`feed-strip-${rowKey}`}
-          className={`absolute top-2 bottom-2 left-0 w-0.5 rounded-full ${state.read ? "opacity-70" : "bg-primary"}`}
-          style={state.read && color ? { backgroundColor: color } : undefined}
-        />
-      )}
+      {/* 左缘竖条:未读 = 2px 品牌紫亮档 #9869f7(primary-300;10-08 验收:
+          #631bf3 卡底 2.30:1 不达非文字 3:1,提一档 4.40:1);已读 = 统一
+          降饱和灰(10-08 审计 F4:品类色散列可落紫系与未读 accent 同色相,
+          读态竖条通道失效——已读改走 muted 灰档,品类色只承担品类徽章通道) */}
+      <span
+        aria-hidden
+        data-testid={`feed-strip-${rowKey}`}
+        className={`absolute top-2 bottom-2 left-0 w-0.5 rounded-full ${state.read ? "bg-muted-foreground/40" : "bg-[#9869f7]"}`}
+      />
 
       {/* ═══ 渠道差异化头区(10-06-feed-channel-groups)═══
           news/deal = 现状标题行形态(回归安全);telegram = 频道名行 +
           消息气泡(聊天感:正文气泡+时间+频道名);watch = 「有更新」徽标 +
-          标题 + 目标页链接;document = 文档头(FileText + 标题)。 */}
+          标题 + 目标页链接;document = 文档头(FileText + 标题)。
+          10-08:标题/气泡点击 = 开详情弹窗(弹开即记已读);hover 用
+          --link 文字档(F1:品牌紫文字档不达 AA);已读标题降 muted 档(F4)。*/}
 
       {/* 相对时间(公共件):右对齐灰色(teardown #4),hover 让位浮现的
           操作簇(#5);等宽数字(mono)——VL 指认时间戳与正文无视觉区分 */}
       {kind === "telegram" ? (
         <>
           <div className="flex items-center gap-1.5 pr-1">
-            <Send aria-hidden className="size-3 shrink-0 text-primary" />
-            <span className="min-w-0 truncate text-2xs font-medium text-foreground/80">
-              {channelDisplayName(item.source)}
-            </span>
+            {/* 频道语境(分节详情节内):节头细条已标频道名,卡头不再重复
+                (10-08 验收:同名同屏 3 次)—— 只留相对时间,归位不动 */}
+            {!inChannelSection ? (
+              <>
+                <Send aria-hidden className="size-3 shrink-0 text-primary" />
+                <span className="min-w-0 truncate text-2xs font-medium text-foreground/80">
+                  {channelDisplayName(item.source)}
+                </span>
+              </>
+            ) : null}
             <time
               dateTime={item.first_seen ?? undefined}
               className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground transition-opacity duration-(--duration-fast) ease-out-expo group-hover/feed-item:opacity-0"
@@ -427,27 +455,33 @@ function FeedCard({
             </time>
           </div>
           {/* 消息气泡:正文即消息(title = 消息文本,telegram-channels 提取
-              契约);点击标记已读与新闻卡标题同门 */}
+              契约);点击开详情弹窗(弹开即记已读,与新闻卡标题同门) */}
           <div
             className="mt-1 rounded-2xl rounded-tl-md border border-primary/20 bg-primary/10 px-3 py-2"
             data-testid={`feed-tg-bubble-${rowKey}`}
           >
             <button
               type="button"
-              className="w-full min-w-0 text-left text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground hover:text-primary"
-              onClick={() => onMarkRead(item)}
-              title={`点击标记已读:${item.title || item.url}`}
+              className={`w-full min-w-0 text-left text-sm leading-relaxed break-words whitespace-pre-wrap hover:text-link ${state.read ? "text-muted-foreground" : "text-foreground"}`}
+              onClick={() => onOpenDetail(item)}
+              title={`点击查看详情:${item.title || item.url}`}
             >
               {item.title || item.url}
             </button>
-            {item.content ? (
+            {/* 收起正文行:经 bodyWithoutTitleDup 去标题重复开头(10-08 验收
+                「正文复述标题,同屏读两遍」);无独有信息 = 行消失;展开态 =
+                全文位,保留原文 */}
+            {item.content && bodyPreview !== null ? (
               expanded ? (
                 <p className="mt-1.5 text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground/90">
                   {item.content}
                 </p>
               ) : (
-                <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                  {item.content}
+                <p
+                  className="mt-1 line-clamp-2 cursor-pointer text-sm leading-relaxed text-muted-foreground hover:text-foreground/90"
+                  onClick={() => onOpenDetail(item)}
+                >
+                  {bodyPreview}
                 </p>
               )
             ) : null}
@@ -473,9 +507,9 @@ function FeedCard({
               )}
               <button
                 type="button"
-                className="min-w-0 truncate text-left text-sm font-medium text-foreground hover:text-primary"
-                onClick={() => onMarkRead(item)}
-                title={`点击标记已读:${item.title || item.url}`}
+                className={`min-w-0 truncate text-left text-sm font-medium hover:text-link ${state.read ? "text-muted-foreground" : "text-foreground"}`}
+                onClick={() => onOpenDetail(item)}
+                title={`点击查看详情:${item.title || item.url}`}
               >
                 {item.title || item.url}
               </button>
@@ -487,11 +521,12 @@ function FeedCard({
               {time}
             </time>
           </div>
-          {/* 目标页链接(watch_page 真链;受控 shell open 与「打开原文」同门) */}
+          {/* 目标页链接(watch_page 真链;受控 shell open 与「打开原文」同门;
+              F1:文字档走 --link,品牌紫链接 2.30:1 不达 AA) */}
           {watchHref !== null && watchHostname !== null ? (
             <button
               type="button"
-              className="mt-0.5 inline-flex w-fit items-center gap-1 text-2xs text-primary hover:underline"
+              className="mt-0.5 inline-flex w-fit items-center gap-1 text-2xs text-link hover:underline"
               data-testid={`feed-watch-target-${rowKey}`}
               title={`打开目标页:${watchHref}`}
               onClick={() =>
@@ -512,9 +547,9 @@ function FeedCard({
               <FileText aria-hidden className="size-3.5 shrink-0 text-primary/80" />
               <button
                 type="button"
-                className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:text-primary"
-                onClick={() => onMarkRead(item)}
-                title={`点击标记已读:${item.title || item.url}`}
+                className={`min-w-0 truncate text-left text-sm font-semibold hover:text-link ${state.read ? "text-muted-foreground" : "text-foreground"}`}
+                onClick={() => onOpenDetail(item)}
+                title={`点击查看详情:${item.title || item.url}`}
               >
                 {item.title || item.url}
               </button>
@@ -522,9 +557,9 @@ function FeedCard({
           ) : (
             <button
               type="button"
-              className="min-w-0 truncate text-left text-sm font-semibold text-foreground hover:text-primary"
-              onClick={() => onMarkRead(item)}
-              title={`点击标记已读:${item.title || item.url}`}
+              className={`min-w-0 truncate text-left text-sm font-semibold hover:text-link ${state.read ? "text-muted-foreground" : "text-foreground"}`}
+              onClick={() => onOpenDetail(item)}
+              title={`点击查看详情:${item.title || item.url}`}
             >
               {item.title || item.url}
             </button>
@@ -687,9 +722,11 @@ function FeedCard({
         ) : item.category ? (
           <Badge variant="secondary">{item.category}</Badge>
         ) : null}
-        {/* telegram 渠道源名已在气泡头(channelDisplayName)——元信息行不重复 */}
+        {/* telegram 渠道源名已在气泡头(channelDisplayName)——元信息行不重复;
+            F9:其余渠道源名同走 channelDisplayName 词表(剥协议载体前缀),
+            与 L2 渠道行/渠道卡同一套可读词,不再直出内部源 id */}
         {kind !== "telegram" ? (
-          <span className="text-2xs text-muted-foreground">{item.source ?? "未知来源"}</span>
+          <span className="text-2xs text-muted-foreground">{channelDisplayName(item.source)}</span>
         ) : null}
         {item.tags.slice(0, 4).map((tag) => (
           <Badge key={tag} variant="outline" className="text-2xs">
@@ -722,11 +759,14 @@ function FeedCard({
               {item.pushed_at ? ` · 已推送 ${formatAbsoluteTime(item.pushed_at)}` : ""}
             </p>
           </div>
-        ) : (
-          <p className="mt-1.5 line-clamp-1 text-sm leading-relaxed text-muted-foreground">
-            {item.content.replace(/\s+/g, " ").trim()}
+        ) : bodyPreview !== null ? (
+          <p
+            className="mt-1.5 cursor-pointer line-clamp-1 text-sm leading-relaxed text-muted-foreground hover:text-foreground/90"
+            onClick={() => onOpenDetail(item)}
+          >
+            {bodyPreview.replace(/\s+/g, " ").trim()}
           </p>
-        )
+        ) : null
       ) : item.content && kind === "watch" ? (
         expanded ? (
           <div className="mt-1.5" data-testid={`feed-watch-diff-${rowKey}`}>
@@ -738,11 +778,14 @@ function FeedCard({
               首见 {formatAbsoluteTime(item.first_seen)}
             </p>
           </div>
-        ) : (
-          <p className="mt-1.5 line-clamp-1 font-mono text-xs leading-relaxed text-muted-foreground">
-            {item.content.replace(/\s+/g, " ").trim()}
+        ) : bodyPreview !== null ? (
+          <p
+            className="mt-1.5 cursor-pointer line-clamp-1 font-mono text-xs leading-relaxed text-muted-foreground hover:text-foreground/90"
+            onClick={() => onOpenDetail(item)}
+          >
+            {bodyPreview.replace(/\s+/g, " ").trim()}
           </p>
-        )
+        ) : null
       ) : item.content && kind !== "telegram" ? (
         expanded ? (
           // 展开态:全文 + 元信息(G2:C9 消号——正文与原文链接都在卡内)
@@ -756,10 +799,16 @@ function FeedCard({
               {openable ? ` · ${item.url}` : ""}
             </p>
           </div>
-        ) : (
-          // 收起态摘要:正文 13px(D4 三级密度的正文级)
-          <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{item.content}</p>
-        )
+        ) : bodyPreview !== null ? (
+          // 收起态摘要:正文 13px(D4 三级密度的正文级),去标题重复开头
+          // (10-08 验收:不再复述标题);点击 = 详情弹窗
+          <p
+            className="mt-1.5 cursor-pointer line-clamp-2 text-sm leading-relaxed text-muted-foreground hover:text-foreground/90"
+            onClick={() => onOpenDetail(item)}
+          >
+            {bodyPreview}
+          </p>
+        ) : null
       ) : null}
 
       {imageOcrSummary(item.image_ocr) ? (
@@ -1014,7 +1063,7 @@ function TgChannelCard({
       title={`打开 ${card.label} 的消息流:${card.count} 条 · 未读 ${card.unread}(口径 = 当前视图 ∪ 当日窗可见条目)`}
     >
       {card.unread > 0 ? (
-        <span aria-hidden data-testid={`feed-tg-channel-unread-${card.key}`} className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-primary" />
+        <span aria-hidden data-testid={`feed-tg-channel-unread-${card.key}`} className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-[#9869f7]" />
       ) : null}
       <span className="flex items-center gap-1.5">
         <Send aria-hidden className="size-3.5 shrink-0 text-primary" />
@@ -1029,7 +1078,7 @@ function TgChannelCard({
       <span className="mt-0.5 block truncate text-sm leading-relaxed text-muted-foreground">{preview}</span>
       {digest !== null ? (
         <span
-          className="mt-0.5 block truncate text-2xs leading-relaxed text-muted-foreground/80"
+          className="mt-0.5 block truncate text-2xs leading-relaxed text-muted-foreground"
           data-testid={`feed-tg-channel-digest-${card.key}`}
         >
           {digest}
@@ -1046,18 +1095,71 @@ function TgChannelCard({
   );
 }
 
+/**
+ * TG 分节节头(10-08 审计 F3):通讯软件详情层的节头退化版 —— 频道名 +
+ * 条数/未读 + chevron 的细条,去 preview/digest 大卡形制。此前节头卡复用
+ * TgChannelCard(带最新条目预览/摘要),与节内首条气泡背靠背重复同一消息,
+ * 看似两条消息;细条与消息卡拉开视觉档位,点击进单频道过滤的动线不变
+ * (testid 沿用 feed-tg-channel-card-*,面包屑/键盘语义零变化)。
+ */
+function TgSectionHeader({
+  card,
+  onOpen,
+}: {
+  card: TelegramChannelCardData;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={`feed-tg-channel-card-${card.key}`}
+      onClick={onOpen}
+      className="group/tg-head flex w-full items-center gap-2 rounded-md border border-transparent px-2 py-1 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:border-border hover:bg-accent/40"
+      title={`打开 ${card.label} 的消息流:${card.count} 条 · 未读 ${card.unread}`}
+    >
+      <Send aria-hidden className="size-3 shrink-0 text-primary" />
+      <span className="min-w-0 truncate text-xs font-medium text-foreground/90">{card.label}</span>
+      <span className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground">
+        {card.count} 条{card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
+      </span>
+      <ChevronRight
+        aria-hidden
+        className="size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-(--duration-fast) ease-out-expo group-hover/tg-head:translate-x-0.5"
+      />
+    </button>
+  );
+}
+
 /** 源大类卡(10-08-tg-channel-card v2,主人令「网页集中在一起,其他通讯软件
  *  一个通讯软件一个卡片,点击进入第二层才是详情展示」):L3 多渠道作用域
  *  第一层的卡片墙本体 —— 网页一张(Globe)/ 每通讯软件一张(Telegram =
  *  Send),散条目卡不再出现在第一层;点击进第二层详情(网页 = 条目平铺,
  *  通讯软件 = 按频道分节全铺)。形制与 TgChannelCard 同语言(未读竖条/
- *  最新预览/计数/chevron)。 */
+ *  最新预览/计数/chevron)。
+ *
+ *  10-08 审计追加:F2 计数口径注记(hasMore 时「已加载 N 条」+ title 补
+ *  「首页 50 截断」,与 L1 行 title 同门,不再静默低估);F5 键盘巡游
+ *  (墙卡带 data-item-key/data-nav-focused 入 j/k 巡游集,U/Enter 进详情);
+ *  F10 墙卡内次级概览行(大类内 top3 源,streamKindSubRows 复用聚合)。 */
 function SourceKindCard({
   card,
   onOpen,
+  truncated = false,
+  subRows = [],
+  navFocused = false,
+  onCurrent,
 }: {
   card: StreamKindCardData;
   onOpen: () => void;
+  /** 计数口径注记(F2):true = 可见条目只是已加载首页(FEED_PAGE_SIZE 截断),
+   *  词面改「已加载 N 条」+ title 注记,不再以全量词面静默低估 */
+  truncated?: boolean;
+  /** 次级概览行(F10):大类内 top3 源(名称/条数/未读) */
+  subRows?: StreamKindSubRow[];
+  /** j/k 键盘巡游聚焦(F5):focus 环呈现与否 */
+  navFocused?: boolean;
+  /** hover/focus 进入 = 置键盘「当前卡」(F5 巡游集口径) */
+  onCurrent?: () => void;
 }) {
   const time = formatRelativeTime(card.latest.first_seen);
   const preview = (card.latest.title || card.latest.url).replace(/\s+/g, " ").trim();
@@ -1067,12 +1169,16 @@ function SourceKindCard({
     <button
       type="button"
       data-testid={`feed-kind-card-${card.key}`}
+      data-item-key={`kind:${card.key}`}
+      data-nav-focused={navFocused ? "true" : "false"}
+      onMouseEnter={onCurrent}
+      onFocus={onCurrent}
       onClick={onOpen}
-      className="group/kind-card relative w-full overflow-hidden rounded-md border border-border bg-card px-3 py-2.5 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:border-primary/40 hover:bg-accent/40"
-      title={`打开「${card.label}」详情:${card.count} 条 · 未读 ${card.unread}(口径 = 当前视图 ∪ 当日窗可见条目)`}
+      className={`group/kind-card relative w-full overflow-hidden rounded-md border border-border bg-card px-3 py-2.5 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:border-primary/40 hover:bg-accent/40${navFocused ? " ring-1 ring-primary/60" : ""}`}
+      title={`打开「${card.label}」详情:${card.count} 条 · 未读 ${card.unread}(口径 = 当前视图 ∪ 当日窗可见条目${truncated ? `;首页 ${FEED_PAGE_SIZE} 条截断,更早条目未计入` : ""})`}
     >
       {card.unread > 0 ? (
-        <span aria-hidden data-testid={`feed-kind-card-unread-${card.key}`} className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-primary" />
+        <span aria-hidden data-testid={`feed-kind-card-unread-${card.key}`} className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-[#9869f7]" />
       ) : null}
       <span className="flex items-center gap-1.5">
         <Icon aria-hidden className="size-3.5 shrink-0 text-primary" />
@@ -1087,20 +1193,216 @@ function SourceKindCard({
       <span className="mt-0.5 block truncate text-sm leading-relaxed text-muted-foreground">{preview}</span>
       {digest !== null ? (
         <span
-          className="mt-0.5 block truncate text-2xs leading-relaxed text-muted-foreground/80"
+          className="mt-0.5 block truncate text-2xs leading-relaxed text-muted-foreground"
           data-testid={`feed-kind-digest-${card.key}`}
         >
           {digest}
         </span>
       ) : null}
       <span className="mt-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
-        {card.count} 条{card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
+        {truncated ? `已加载 ${card.count} 条` : `${card.count} 条`}
+        {card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
         <ChevronRight
           aria-hidden
           className="ml-auto size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-(--duration-fast) ease-out-expo group-hover/kind-card:translate-x-0.5"
         />
       </span>
+      {/* 次级概览行(F10):大类内谁在出料(top3 源 + 条数/未读) */}
+      {subRows.length > 0 ? (
+        <span
+          className="mt-1 flex flex-col gap-0.5 border-t border-border/50 pt-1"
+          data-testid={`feed-kind-subs-${card.key}`}
+        >
+          {subRows.map((row) => (
+            <span key={row.key} className="flex items-center gap-1.5 text-2xs text-muted-foreground">
+              <span aria-hidden className="size-1 shrink-0 rounded-full bg-muted-foreground/60" />
+              <span className="min-w-0 truncate">{row.label}</span>
+              <span className="ml-auto shrink-0 font-mono tabular-nums">
+                {row.count}
+                {row.unread > 0 ? ` · 未读 ${row.unread}` : ""}
+              </span>
+            </span>
+          ))}
+        </span>
+      ) : null}
     </button>
+  );
+}
+
+/**
+ * 消息详情弹窗(主人令「点击信息,弹出详情」,10-08):标题全文 + 元信息簇
+ * (来源渠道/品类/时间/精评评分/图析)+ 正文与图析全文 + 动作簇(👍👎 反馈
+ * 复用 FeedCardFeedback,打开原文/复制链接/星标/稍后读/已读切换复用卡内
+ * 既有实现)。Esc 与遮罩点击关闭由 ui/dialog.tsx 基件承担;「展开条目」
+ * 内联路径并存不废(卡内就地展开仍是正文快读路径)。
+ */
+function FeedItemDetail({
+  item,
+  state,
+  kind,
+  onClose,
+  onToggle,
+  onOpenError,
+}: {
+  item: FeedItem;
+  state: { read?: boolean; starred?: boolean; later?: boolean };
+  kind: ChannelKind;
+  onClose: () => void;
+  onToggle: (item: FeedItem, marker: "starred" | "later" | "read") => void;
+  onOpenError: (message: string) => void;
+}) {
+  const score = primaryScore(item);
+  const color = categoryColor(item.category);
+  const openable = isOpenableUrl(item.url);
+  const kindMeta = CHANNEL_KIND_META[kind];
+  const KindIcon = kindMeta.Icon;
+  return (
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent className="max-w-xl gap-3" data-testid="feed-detail-dialog">
+        <DialogHeader>
+          {/* 标题全文(卡面 truncate 的反面:弹窗内不截断) */}
+          <DialogTitle
+            className="pr-6 text-base leading-relaxed break-words whitespace-pre-wrap"
+            data-testid="feed-detail-title"
+          >
+            {item.title || item.url}
+          </DialogTitle>
+          {/* 元信息簇:来源渠道(词表名)+ 品类 + 时间(相对+绝对 title)+
+              精评评分 + 图析在场徽标 */}
+          <div
+            className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground"
+            data-testid="feed-detail-meta"
+          >
+            <span className="inline-flex items-center gap-1">
+              <KindIcon aria-hidden className={`size-3 shrink-0 ${kindMeta.className}`} />
+              {channelDisplayName(item.source)}
+            </span>
+            {item.category && color ? (
+              <span
+                className="inline-flex w-fit shrink-0 items-center justify-center rounded-sm border px-1.5 py-0.5 text-2xs font-medium"
+                style={{ color, backgroundColor: `${color}14`, borderColor: `${color}59` }}
+              >
+                {item.category}
+              </span>
+            ) : item.category ? (
+              <Badge variant="secondary">{item.category}</Badge>
+            ) : null}
+            <time
+              dateTime={item.first_seen ?? undefined}
+              title={`首见 ${formatAbsoluteTime(item.first_seen)}`}
+              className="font-mono"
+            >
+              {formatRelativeTime(item.first_seen)}
+            </time>
+            {item.pushed_at ? (
+              <span title={`已推送 ${formatAbsoluteTime(item.pushed_at)}`}>
+                推送 {formatRelativeTime(item.pushed_at)}
+              </span>
+            ) : null}
+            {score !== null ? (
+              <Badge variant="default" className="border-primary/40 font-mono tabular-nums" title="精评分数(维度最高分)">
+                {score.toFixed(2)}
+              </Badge>
+            ) : null}
+            {hasImageDetails(item) ? (
+              <Badge variant="outline" title="图析:配图 OCR/图说全文在下方">
+                图
+              </Badge>
+            ) : null}
+          </div>
+        </DialogHeader>
+        {/* 正文(去标题重复开头,10-08 验收「标题下正文首段再次复述」;
+            正文整段 = 标题时零渲染;超高内滚不 line-clamp) */}
+        {(() => {
+          const body = bodyWithoutTitleDup(item);
+          return body !== null ? (
+            <p
+              className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90"
+              data-testid="feed-detail-content"
+            >
+              {body}
+            </p>
+          ) : null;
+        })()}
+        {/* 图析全文:OCR 全文 + VL 图说(10-03-vision-v2 同一套字段) */}
+        {item.image_ocr ? (
+          <div className="flex flex-col gap-1" data-testid="feed-detail-ocr">
+            <span className="text-2xs text-muted-foreground">配图 OCR 全文</span>
+            <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border/60 bg-muted/30 px-2.5 py-2 font-mono text-xs leading-relaxed text-foreground/90">
+              {item.image_ocr}
+            </pre>
+          </div>
+        ) : null}
+        {item.image_caption ? (
+          <div className="flex flex-col gap-1" data-testid="feed-detail-caption">
+            <span className="text-2xs text-muted-foreground">配图描述(VL caption)</span>
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
+              {item.image_caption}
+            </p>
+          </div>
+        ) : null}
+        {/* 动作簇(复用卡内既有实现;10-08 验收权重理顺):打开原文 = 唯一
+            实底主钮(品牌紫大面积底 = F1 保留档),其余全 ghost 同档次 ——
+            👍👎 反馈 / 复制链接 / 星标 / 稍后读 / 已读切换 */}
+        <div
+          className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-3"
+          data-testid="feed-detail-actions"
+        >
+          <FeedCardFeedback item={item} />
+          {openable ? (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() =>
+                void openInBrowser(item.url).catch((err) =>
+                  onOpenError(err instanceof Error ? err.message : String(err)),
+                )
+              }
+            >
+              <ExternalLink className="size-3.5" />
+              打开原文
+            </Button>
+          ) : null}
+          <Button variant="ghost" size="sm" onClick={() => copyLink(item.url)}>
+            <Copy className="size-3.5" />
+            复制链接
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-pressed={state.starred === true}
+            onClick={() => onToggle(item, "starred")}
+          >
+            <Star className={state.starred ? "size-3.5 fill-warning text-warning" : "size-3.5"} />
+            星标
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-pressed={state.later === true}
+            title={
+              state.later
+                ? `稍后读中:超过 ${LATER_RESURFACE_DAYS} 天自动回到未读;再点取消`
+                : `放入稍后读;超过 ${LATER_RESURFACE_DAYS} 天自动回到未读`
+            }
+            onClick={() => onToggle(item, "later")}
+          >
+            <Bookmark className={state.later ? "size-3.5 fill-primary text-primary" : "size-3.5"} />
+            稍后读
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-pressed={state.read === true}
+            title="弹开详情即记已读;此钮在已读/未读间切换(误开撤销口)"
+            onClick={() => onToggle(item, "read")}
+          >
+            <Inbox className="size-3.5" />
+            {state.read ? "标记未读" : "标记已读"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1176,6 +1478,17 @@ function SourceKindCard({
  *  j/k 巡游与 U 键吃 streamItems(不落未渲染卡);全 TG 流不误现空态
  *  (空态门仍按 visible,渠道卡区在 ternary 之前独立呈现)。聚合纯函数
  *  telegramChannelCards / 展示词 channelDisplayName 收编 api.ts。
+ *
+ * tg-channel-card v2.1(10-08,主人令「点击信息,弹出详情」+ 审计 F1-F10
+ *  逐项整改):消息详情弹窗(FeedItemDetail,标题全文+元信息簇+动作簇,
+ *  复用卡内动作实现;Esc/遮罩关闭走 ui/dialog.tsx 基件;弹开即记已读,
+ *  「展开条目」内联路径并存)/ F1 文字档全走 --link(品牌紫只留按钮底/
+ *  焦点环/竖条等非文字件)/ F2 hasMore 时「已加载 N 条」词面 + 墙卡截断
+ *  注记 / F3 TG 节头退化细条(去 preview/digest 重复形制)/ F4 已读降档
+ *  (标题 muted + 竖条统一降饱和灰)/ F5 墙卡入 j/k 巡游集(U/Enter 进
+ *  详情)/ F6 streamTitle 可见化 + 面包屑终端段 / F7 协议词出 tooltip /
+ *  F8 品类色板避语义色域且全档过 4.5:1 / F9 源名词表一词一源 / F10 墙卡
+ *  内 top3 源次级概览(streamKindSubRows)。
  */
 export function FeedScreen() {
   const navigate = useNavigate();
@@ -1633,6 +1946,26 @@ export function FeedScreen() {
     );
   }, []);
 
+  /** 消息详情弹窗(主人令「点击信息,弹出详情」,10-08):存 itemKey 而非
+   *  条目对象 —— 刷新/巡游换来的新对象按 key 重新命中,读态/星标翻转到哪版
+   *  条目,弹窗就吃到哪版(弹窗内动作即时回显)。条目被过滤离场不关弹窗
+   *  (items 是已加载全集,命中仍在);条目彻底不在集内(理论上仅作用域
+   *  切换,弹窗开着时交互被遮罩挡住)则 detailItem 为 null 零渲染。 */
+  const [detailKey, setDetailKey] = useState<string | null>(null);
+  const detailItem = useMemo(
+    () => (detailKey === null ? null : items.find((candidate) => itemKey(candidate) === detailKey) ?? null),
+    [detailKey, items],
+  );
+  /** 开详情 = 记已读(邮件式语义:点开即读)+ 置弹窗键 */
+  const openDetail = useCallback(
+    (item: FeedItem) => {
+      setDetailKey(itemKey(item));
+      markRead(item);
+    },
+    [markRead],
+  );
+  const closeDetail = useCallback(() => setDetailKey(null), []);
+
   /** G9 批量:全部标已读/未读(可选 category = 品类分组组头入口;可选
    *  sourceKind = 源大类作用域,10-08-tg-channel-card v2 卡片墙第二层)——
    *  过门后 store.state.mark_all 单 UPDATE:category/source_kind 缺省 =
@@ -1781,62 +2114,6 @@ export function FeedScreen() {
     setNavByKeyboard(false);
   }, []);
 
-  // U = 当前卡已读/未读切换;j/k = 当前卡上/下移(Linear Inbox 惯例;输入框/
-  // 可编辑目标内敲不触发,守卫与既有 U 键同源,不引外部 hook——feed 本地惯例);
-  // Mod+F(macOS ⌘F / Win·Linux Ctrl+F)= 拦截浏览器查找,聚焦内联搜索框并
-  // 全选词面(可直接改写;fe-gap-census R1,linear-activity #8)
-  useEffect(() => {
-    // 三级下钻(10-06):巡游/搜索快捷键只属 L3 消息流(L1/L2 无卡无搜索框)
-    if (drill.level !== 3) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      const pressed = event.key.toLowerCase();
-      if ((event.metaKey || event.ctrlKey) && pressed === "f") {
-        event.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-        return;
-      }
-      if (pressed !== "u" && pressed !== "j" && pressed !== "k") return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" || // 深审 F6:下拉聚焦时敲键是选型操作(u/j/k 不抢)
-          target.isContentEditable)
-      ) {
-        return;
-      }
-      if (pressed === "u") {
-        if (currentKey === null) return;
-        const item = items.find((candidate) => itemKey(candidate) === currentKey);
-        if (item) toggle(item, "read");
-        return;
-      }
-      // j/k:展示序上/下移;边界钳制不回绕(首卡 k / 末卡 j 原地不动),
-      // 未选中时 j 落首卡、k 落末卡(当前卡被过滤离场同此路径)。
-      // 10-08-tg-channel-card:v1 形态吃 streamItems(TG 折叠进渠道卡区);
-      // v2 卡片墙无消息卡(巡游空转),第二层详情/单频道吃 displayItems
-      // (全部真实渲染,含 TG 分节);渠道卡本体不参与巡游(点击直达)。
-      const keys = wallLayout ? [] : (legacyStreamLayout ? streamItems : displayItems).map(itemKey);
-      if (keys.length === 0) return;
-      const index = currentKey === null ? -1 : keys.indexOf(currentKey);
-      const next =
-        pressed === "j"
-          ? keys[index < 0 ? 0 : Math.min(index + 1, keys.length - 1)]
-          : keys[index < 0 ? keys.length - 1 : Math.max(index - 1, 0)];
-      setCurrentKey(next);
-      setNavByKeyboard(true);
-      // 巡游卡滚入视口(最近侧;jsdom 无 scrollIntoView 实现时静默跳过)
-      const escaped =
-        typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(next) : next;
-      const node = document.querySelector<HTMLElement>(`[data-item-key="${escaped}"]`);
-      if (node && typeof node.scrollIntoView === "function") node.scrollIntoView({ block: "nearest" });
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [drill.level, currentKey, items, toggle, streamItems, wallLayout, legacyStreamLayout, displayItems]);
 
   // R2:全库批量确认态在屏期间 Esc 全局收口(焦点在确认钮簇内/外都退出确认);
   //  输入框/可编辑目标内按 Esc 归其自身语义(如搜索框 R1 即时清空),不抢确认
@@ -1862,7 +2139,8 @@ export function FeedScreen() {
   }, [confirmAllMark]);
 
   /** 单卡渲染(分组/平铺两路共用;右键菜单随卡在 FeedCard 内;渠道类型
-   *  随卡判定 —— 五档差异化呈现,engine 词表源 = health 装配的源名映射) */
+   *  随卡判定 —— 五档差异化呈现,engine 词表源 = health 装配的源名映射;
+   *  TG 分节详情语境下卡头省频道名行,频道归属由节头承担) */
   const renderCard = (entry: FeedItem) => (
     <FeedCard
       key={itemKey(entry)}
@@ -1871,11 +2149,12 @@ export function FeedScreen() {
       current={currentKey === itemKey(entry)}
       navFocused={currentKey === itemKey(entry) && navByKeyboard}
       kind={channelKindOf(entry, engineBySource)}
+      inChannelSection={imDetailLayout}
       onCurrent={onCurrentCard}
-      onMarkRead={markRead}
       onToggle={toggle}
       onOpenError={setOpenError}
       onEnriched={onEnriched}
+      onOpenDetail={openDetail}
     />
   );
 
@@ -1951,7 +2230,9 @@ export function FeedScreen() {
   /** G9 批量两钮 title(双路真话;R2 确认态确认钮沿用同一支)。三级下钻
    *  (10-06)后按作用域分档:全库流(无品类)= 全库真话;品类流 = 该品类
    *  全库真话(mark_all 带 category 精确等值);渠道流不出钮(feed.export/
-   *  mark_all 无 source 参数,范围不实则不出现)。 */
+   *  mark_all 无 source 参数,范围不实则不出现)。10-08 审计 F7:协议方法名
+   *  (store.state.mark_all / source_kind)不再进用户面 tooltip,人话说清
+   *  范围与持久性即可,协议细节归开发者文档/日志。 */
   const bulkScopeCategory = drill.level === 3 ? drill.category : null;
   /** 源大类批量作用域(v2:第二层详情传 source_kind,卡片墙/单频道不传) */
   const bulkScopeKind =
@@ -1961,17 +2242,17 @@ export function FeedScreen() {
   const markAllReadTitle = !useServerState
     ? `把已加载的 ${items.length} 条(未读 ${unreadLoaded})全部标记为已读;本地态,未翻页条目不含`
     : bulkScopeKind !== undefined
-      ? `把${bulkKindLabel}范围${bulkScopeCategory !== null ? `·品类「${bulkScopeCategory}」` : ""}全库条目(含未翻页)标记为已读(store.state.mark_all source_kind=${bulkScopeKind},服务端持久)`
+      ? `把${bulkKindLabel}范围${bulkScopeCategory !== null ? `·品类「${bulkScopeCategory}」` : ""}的全部条目(含未翻页)标记为已读,服务端持久`
       : bulkScopeCategory !== null
-        ? `把品类「${bulkScopeCategory}」全库条目(含未翻页)标记为已读(store.state.mark_all 品类精确等值,服务端持久)`
-        : "把全库所有条目(含未翻页)标记为已读(store.state.mark_all,服务端持久)";
+        ? `把品类「${bulkScopeCategory}」的全库条目(含未翻页)标记为已读,服务端持久`
+        : "把全库所有条目(含未翻页)标记为已读,服务端持久";
   const markAllUnreadTitle = !useServerState
     ? `把已加载的 ${items.length} 条(已读 ${items.length - unreadLoaded})全部恢复未读;本地态`
     : bulkScopeKind !== undefined
-      ? `把${bulkKindLabel}范围${bulkScopeCategory !== null ? `·品类「${bulkScopeCategory}」` : ""}全库条目(含未翻页)恢复为未读(store.state.mark_all source_kind=${bulkScopeKind},服务端持久)`
+      ? `把${bulkKindLabel}范围${bulkScopeCategory !== null ? `·品类「${bulkScopeCategory}」` : ""}的全部条目(含未翻页)恢复为未读,服务端持久`
       : bulkScopeCategory !== null
-        ? `把品类「${bulkScopeCategory}」全库条目(含未翻页)恢复为未读(store.state.mark_all 品类精确等值,服务端持久)`
-        : "把全库所有条目(含未翻页)恢复为未读(store.state.mark_all,服务端持久)";
+        ? `把品类「${bulkScopeCategory}」的全库条目(含未翻页)恢复为未读,服务端持久`
+        : "把全库所有条目(含未翻页)恢复为未读,服务端持久";
 
   // ---------------------------------------------------------------------------
   // 三级下钻派生(10-06-feed-channel-groups):L1 品类行 / L2 渠道行的
@@ -2070,6 +2351,9 @@ export function FeedScreen() {
       const windowed = channel.items.filter(inWindowOrResurfaced);
       return {
         ...channel,
+        // F9:渠道行展示名走 channelDisplayName 词表(与卡面/渠道卡同一套),
+        // key 仍是源名全称(下钻作用域词,testid 同源不受影响)
+        label: channelDisplayName(channel.key),
         today: windowed.length,
         unread: windowed.filter((item) => !(item.read === true)).length,
       };
@@ -2185,6 +2469,100 @@ export function FeedScreen() {
     setDrill((current) => (current.level === 3 && current.category !== null ? { level: 2, category: current.category } : { level: 1 }));
   }, []);
 
+  // U = 当前卡已读/未读切换;j/k = 当前卡上/下移(Linear Inbox 惯例;输入框/
+  // 可编辑目标内敲不触发,守卫与既有 U 键同源,不引外部 hook——feed 本地惯例);
+  // Mod+F(macOS ⌘F / Win·Linux Ctrl+F)= 拦截浏览器查找,聚焦内联搜索框并
+  // 全选词面(可直接改写;fe-gap-census R1,linear-activity #8)。
+  // 10-08:F5 墙卡(kind:web / kind:im)纳入巡游集,U/Enter 语义对齐进大类
+  // 详情;Enter 在消息卡 = 开详情弹窗(与点击同门,详情弹窗开着时巡游键让位)。
+  // (本 effect 置于下钻导航动作之后:闭包引用 openKind/openDetail。)
+  useEffect(() => {
+    // 三级下钻(10-06):巡游/搜索快捷键只属 L3 消息流(L1/L2 无卡无搜索框)
+    if (drill.level !== 3) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const pressed = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && pressed === "f") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+      // 详情弹窗开着:巡游/置位键让位(防焦点绕过遮罩在背后卡上移动)
+      if (detailKey !== null) return;
+      if (pressed !== "u" && pressed !== "j" && pressed !== "k" && pressed !== "enter") return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" || // 深审 F6:下拉聚焦时敲键是选型操作(u/j/k 不抢)
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      // Enter 命中本就是点击语义的控件(button/link)时归其原生行为,不双触发
+      if (pressed === "enter" && target && (target.tagName === "BUTTON" || target.tagName === "A")) {
+        return;
+      }
+      // 墙卡作用域(F5):currentKey = kind:web / kind:im,U/Enter = 进大类详情;
+      // j/k 不拦截,落下方巡游段(墙层 keys 即墙卡)
+      if (currentKey !== null && currentKey.startsWith("kind:") && (pressed === "u" || pressed === "enter")) {
+        const kindKey = currentKey.slice("kind:".length);
+        if (kindKey === "web" || kindKey === "im") openKind(kindKey);
+        return;
+      }
+      if (pressed === "u") {
+        if (currentKey === null) return;
+        const item = items.find((candidate) => itemKey(candidate) === currentKey);
+        if (item) toggle(item, "read");
+        return;
+      }
+      if (pressed === "enter") {
+        if (currentKey === null) return;
+        const item = items.find((candidate) => itemKey(candidate) === currentKey);
+        if (item) openDetail(item);
+        return;
+      }
+      // j/k:展示序上/下移;边界钳制不回绕(首卡 k / 末卡 j 原地不动),
+      // 未选中时 j 落首卡、k 落末卡(当前卡被过滤离场同此路径)。
+      // v1 形态吃 streamItems(TG 折叠进渠道卡区);第二层详情/单频道吃
+      // displayItems(全部真实渲染,含 TG 分节);卡片墙吃墙卡(F5:
+      // kind:web / kind:im 入巡游集,墙层不再静默空转)。
+      const keys = wallLayout
+        ? wallCards.map((card) => `kind:${card.key}`)
+        : (legacyStreamLayout ? streamItems : displayItems).map(itemKey);
+      if (keys.length === 0) return;
+      const index = currentKey === null ? -1 : keys.indexOf(currentKey);
+      const next =
+        pressed === "j"
+          ? keys[index < 0 ? 0 : Math.min(index + 1, keys.length - 1)]
+          : keys[index < 0 ? keys.length - 1 : Math.max(index - 1, 0)];
+      setCurrentKey(next);
+      setNavByKeyboard(true);
+      // 巡游卡滚入视口(最近侧;jsdom 无 scrollIntoView 实现时静默跳过)
+      const escaped =
+        typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(next) : next;
+      const node = document.querySelector<HTMLElement>(`[data-item-key="${escaped}"]`);
+      if (node && typeof node.scrollIntoView === "function") node.scrollIntoView({ block: "nearest" });
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    drill.level,
+    currentKey,
+    items,
+    toggle,
+    streamItems,
+    wallLayout,
+    legacyStreamLayout,
+    displayItems,
+    wallCards,
+    detailKey,
+    openDetail,
+    openKind,
+  ]);
+
   /** L3 流头部作用域文案 */
   const streamTitle =
     drill.level !== 3
@@ -2270,6 +2648,17 @@ export function FeedScreen() {
           <span className="px-1 py-0.5 text-foreground">Telegram</span>
         </>
       ) : null}
+      {/* 作用域终端段(10-08 审计 F6):卡片墙/滚动流/品类合流三层此前没有
+          终端词,面包屑只剩孤零零「情报流」—— 补可见当前位置词(streamTitle
+          同源,墙层 = 「全部条目 · 卡片墙」) */}
+      {drill.level === 3 && drill.source === null && drill.kind === null ? (
+        <>
+          <ChevronRight aria-hidden className="size-3" />
+          <span className="px-1 py-0.5 text-foreground" data-testid="feed-crumb-current">
+            {streamTitle}
+          </span>
+        </>
+      ) : null}
       {drill.level === 2 ? (
         <>
           <ChevronRight aria-hidden className="size-3" />
@@ -2344,7 +2733,7 @@ export function FeedScreen() {
                     <p className="text-sm font-medium text-warning">{error.message}</p>
                     <a
                       href="#/settings?section=python-env"
-                      className="w-fit text-xs text-primary underline underline-offset-2 hover:text-primary/80"
+                      className="w-fit text-xs text-link underline underline-offset-2 hover:text-link/80"
                     >
                       前往设置 →「Python 环境」完成配置(就绪后情报流自动恢复)
                     </a>
@@ -2490,7 +2879,7 @@ export function FeedScreen() {
                   className="px-2 text-xs text-muted-foreground"
                   data-testid="feed-category-mark-all"
                   aria-label={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条标为已读(作用域=所见行)`}
-                  title={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条标为已读(store.state.mark 逐键置位,作用域=所见行;历史/未翻页不动)`}
+                  title={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条标为已读(作用域=所见行,服务端持久;历史/未翻页不动)`}
                   disabled={l2WindowedItems.length === 0 || l2WindowedItems.every((item) => item.read === true)}
                   onClick={() => markWindowScoped(true)}
                 >
@@ -2502,7 +2891,7 @@ export function FeedScreen() {
                   className="px-2 text-muted-foreground"
                   data-testid="feed-category-mark-unread"
                   aria-label={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条恢复未读(反向出口)`}
-                  title={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条恢复未读(反向出口,误触可逆;作用域=所见行)`}
+                  title={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条恢复未读(反向出口,误触可逆;作用域=所见行,服务端持久)`}
                   disabled={l2WindowedItems.length === 0 || l2WindowedItems.every((item) => item.read !== true)}
                   onClick={() => markWindowScoped(false)}
                 >
@@ -2553,6 +2942,12 @@ export function FeedScreen() {
               (品类下拉退役 —— 品类选择 = L1/L2 层级本体;source 作用域下
               导出不出钮,feed.export 无 source 参数范围不实) */}
           <div className="flex flex-wrap items-center gap-2 px-6" data-testid="feed-toolbar">
+            {/* 作用域标题(10-08 审计 F6):streamTitle 此前只进 sr-only,墙层
+                用户看不到任何当前位置词 —— 提为工具条左侧可见文案(sr-only
+                aria-live 保留,播报语义不变) */}
+            <span className="text-xs font-medium text-foreground" data-testid="feed-stream-title">
+              {streamTitle}
+            </span>
             {/* 读态分段(KsFilter 范式):微填充容器 + 内钮 h-7,激活 = bg-accent */}
             <div
               role="group"
@@ -2585,8 +2980,17 @@ export function FeedScreen() {
                 );
               })}
             </div>
-            <span className="text-2xs text-muted-foreground">
-              {filter === "all" ? `共 ${items.length} 条` : `${visible.length} / ${items.length} 条`}
+            {/* 计数口径(10-08 审计 F2):hasMore(服务端返回满页)时「共/N 条」
+                的全量词面是静默低估 —— 改「已加载 N 条」如实;未截断才可说
+                「共」。根治(sidecar 窗内 count)待协议侧,前端先不再说满话 */}
+            <span className="text-2xs text-muted-foreground" data-testid="feed-count">
+              {hasMore
+                ? filter === "all"
+                  ? `已加载 ${items.length} 条(首页截断,更早条目未计入)`
+                  : `已加载 ${visible.length} / ${items.length} 条`
+                : filter === "all"
+                  ? `共 ${items.length} 条`
+                  : `${visible.length} / ${items.length} 条`}
             </span>
             {/* 当日窗知会(滚动流语义;仅未读/全部两档受窗,星标/稍后读跨窗可见) */}
             {filter === "unread" || filter === "all" ? (
@@ -2746,7 +3150,7 @@ export function FeedScreen() {
                 size="icon"
                 className="size-8"
                 aria-label="刷新"
-                title="重发 store.items 查询(当前品类 × 渠道 × 搜索词)"
+                title="重新拉取当前作用域的条目(品类 × 渠道 × 搜索词)"
                 onClick={() => void refresh()}
                 disabled={loading}
               >
@@ -2824,7 +3228,7 @@ export function FeedScreen() {
                       <p className="text-sm font-medium text-warning">{error.message}</p>
                       <a
                         href="#/settings?section=python-env"
-                        className="w-fit text-xs text-primary underline underline-offset-2 hover:text-primary/80"
+                        className="w-fit text-xs text-link underline underline-offset-2 hover:text-link/80"
                       >
                         前往设置 →「Python 环境」完成配置(就绪后情报流自动恢复)
                       </a>
@@ -2900,20 +3304,29 @@ export function FeedScreen() {
               wallCards.length > 0 ? (
                 <section aria-label="来源卡片墙" data-testid="feed-kind-wall" className="flex flex-col gap-1.5">
                   {wallCards.map((card) => (
-                    <SourceKindCard key={card.key} card={card} onOpen={() => openKind(card.key)} />
+                    <SourceKindCard
+                      key={card.key}
+                      card={card}
+                      onOpen={() => openKind(card.key)}
+                      truncated={hasMore}
+                      subRows={streamKindSubRows(displayItems, states, card.key)}
+                      navFocused={currentKey === `kind:${card.key}` && navByKeyboard}
+                      onCurrent={() => onCurrentCard(`kind:${card.key}`)}
+                    />
                   ))}
                 </section>
               ) : null
             ) : imDetailLayout ? (
               /* ═══ Telegram 分节详情(v2 第二层,决议「按频道分节全铺」):
-                  频道卡降为节头(仍可点进单频道过滤),节内消息全量平铺 ——
-                  不点也能同屏看完全部消息 ═══ */
+                  节头 = 细条节头(F3:频道名+条数/未读+chevron,不再复述最新
+                  一条 —— 此前节头大卡与节内首条气泡背靠背重复同一消息),
+                  节内消息全量平铺,不点也能同屏看完全部消息 ═══ */
               imDetailCards.length > 0 ? (
                 <div className="flex flex-col gap-4" data-testid="feed-im-sections">
                   {imDetailCards.map((card) => (
                     <section key={card.key} aria-label={`Telegram 频道:${card.label}`}>
-                      <TgChannelCard card={card} onOpen={() => openChannelFromStream(card.key)} />
-                      <div className="mt-1.5 flex flex-col gap-1.5">
+                      <TgSectionHeader card={card} onOpen={() => openChannelFromStream(card.key)} />
+                      <div className="mt-1 flex flex-col gap-1.5">
                         {displayItems
                           .filter((item) => item.source === card.key)
                           .map(renderCard)}
@@ -2976,6 +3389,19 @@ export function FeedScreen() {
           </div>
         </>
       )}
+
+      {/* 消息详情弹窗(主人令「点击信息,弹出详情」):Portal 渲染,Esc/遮罩
+          点击关闭(ui/dialog.tsx 基件);动作簇复用卡内既有实现 */}
+      {detailItem !== null ? (
+        <FeedItemDetail
+          item={detailItem}
+          state={states[itemKey(detailItem)] ?? {}}
+          kind={channelKindOf(detailItem, engineBySource)}
+          onClose={closeDetail}
+          onToggle={toggle}
+          onOpenError={setOpenError}
+        />
+      ) : null}
     </div>
   );
 }

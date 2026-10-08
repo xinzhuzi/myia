@@ -9,7 +9,10 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-primary/25 bg-primary/15 text-primary",
+        // F1(10-08 情报流审计):文字档用 --link(#cdb6fb,primary/15 徽章底上
+        // 8.47:1)——品牌紫 #631bf3 文字实测 2.15~2.53:1 不达 AA,只保留给
+        // 按钮底/焦点环等非文字件;底/描边仍走 primary 通道(徽章家族视觉不变)
+        default: "border-primary/25 bg-primary/15 text-link",
         secondary: "border-transparent bg-secondary text-secondary-foreground",
         outline: "border-border text-muted-foreground",
         // destructive 文字用提亮红(WCAG 实算):#e5484d 在 destructive/15 底上

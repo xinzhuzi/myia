@@ -64,6 +64,7 @@ import type {
 import {
   applyFeedFilter,
   appendWatchlistKeyword,
+  bodyWithoutTitleDup,
   categoryColor,
   categoryOptionsFromHealth,
   channelDisplayName,
@@ -89,6 +90,7 @@ import {
   statesFromItems,
   imAppOf,
   streamKindCards,
+  streamKindSubRows,
   telegramChannelCards,
 } from "./api";
 
@@ -406,8 +408,11 @@ describe("FeedScreen", () => {
     await renderStream();
     await screen.findByText("条目 1");
 
-    // 点标题 → 已读 → 默认「未读」过滤下消失
+    // 点标题 → 详情弹窗(弹开即记已读)→ Esc 关闭 → 已读卡在「未读」过滤下消失
     fireEvent.click(screen.getByText("条目 1"));
+    expect(screen.getByTestId("feed-detail-dialog")).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("feed-detail-dialog")).toBeNull());
     await waitFor(() => expect(screen.queryByText("条目 1")).toBeNull());
     expect(screen.getByText("2 / 3 条")).toBeTruthy();
 
@@ -468,7 +473,8 @@ describe("FeedScreen", () => {
     await renderStream();
 
     const loadMore = await screen.findByRole("button", { name: "加载更早的条目" });
-    expect(screen.getByText("50 / 50 条")).toBeTruthy(); // 默认「未读」过滤:计数 50/50
+    // F2:hasMore(满页)时词面如实「已加载 N 条」,不再以全量词面静默低估
+    expect(screen.getByTestId("feed-count").textContent).toContain("已加载 50 / 50 条");
     fireEvent.click(loadMore);
 
     // 翻页请求带上页最旧条目的 (first_seen, id) 复合游标(C1:同刻条目也能推进;
@@ -973,7 +979,7 @@ describe("FeedScreen", () => {
   // U 快捷键 / 三态(贴形骨架、错误重试);teardown-linear-activity #4/5/6/11
   // -------------------------------------------------------------------------
 
-  it("D4 品类色条与未读竖条:未读 = accent 竖条,已读 = 品类色(inline),已读无品类零色件", async () => {
+  it("D4 品类色条与未读竖条(F4 修后口径):未读 = accent 竖条;已读 = 统一降饱和灰(品类色不再落竖条,只留品类徽章通道)", async () => {
     // jsdom 把 inline 的 #rrggbb 规范化为 rgb() —— 断言前同法换算期望值
     const asRgb = (hex: string) => {
       const value = Number.parseInt(hex.slice(1), 16);
@@ -994,26 +1000,31 @@ describe("FeedScreen", () => {
     await screen.findByText("条目 1");
     fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
 
-    // 未读卡:data-unread=true,竖条 = accent(bg-primary),无 inline 色
+    // 未读卡:data-unread=true,竖条 = 品牌紫亮档 #9869f7(primary-300,卡底
+    // 4.40:1 过非文字 3:1;#631bf3 2.30:1 验收挑刺后提档),无 inline 色
     const unreadCard = screen.getByTestId(`feed-item-${unread.id}`);
     expect(unreadCard.getAttribute("data-unread")).toBe("true");
     const unreadStrip = screen.getByTestId(`feed-strip-${unread.id}`);
-    expect(unreadStrip.className).toContain("bg-primary");
+    expect(unreadStrip.className).toContain("bg-[#9869f7]");
     expect(unreadStrip.style.backgroundColor).toBe("");
 
-    // 已读卡:竖条 = 品类色(opacity-70 + inline backgroundColor)
+    // 已读卡(F4):竖条 = 统一降饱和灰(bg-muted-foreground/40),品类色散列
+    // 可落紫系与未读 accent 同色相 —— 读态不再吃品类色
     const readCard = screen.getByTestId(`feed-item-${read.id}`);
     expect(readCard.getAttribute("data-unread")).toBe("false");
     const readStrip = screen.getByTestId(`feed-strip-${read.id}`);
-    expect(readStrip.className).toContain("opacity-70");
-    expect(readStrip.style.backgroundColor).toBe(asRgb(categoryColor("stocks") as string));
+    expect(readStrip.className).toContain("bg-muted-foreground/40");
+    expect(readStrip.style.backgroundColor).toBe("");
+    // 已读标题降档(F4):与未读纯白拉开
+    const readTitleBtn = within(readCard).getByText("条目 2").closest("button");
+    expect(readTitleBtn?.className).toContain("text-muted-foreground");
 
-    // 品类徽标着色同源(色条与徽标一色)
+    // 品类徽标着色同源(色条通道退役后,品类色只承担徽章)
     const chip = screen.getByText("ai-news");
     expect(chip.style.color).toBe(asRgb(categoryColor("ai-news") as string));
 
-    // 已读且无品类:零色件(无竖条)
-    expect(screen.queryByTestId(`feed-strip-${readNoCategory.id}`)).toBeNull();
+    // 已读且无品类:竖条恒在(统一灰档,不再按品类有无而消失)
+    expect(screen.getByTestId(`feed-strip-${readNoCategory.id}`).className).toContain("bg-muted-foreground/40");
   });
 
   it("D4 hover 浮现操作:行背景 accent/50,操作簇 opacity-0→hover 显(focus-within 可达),time 让位", async () => {
@@ -2931,12 +2942,19 @@ describe("feed tg-channel-card 纯函数(api.ts,10-08-tg-channel-card)", () => {
     expect(streamKindCards([], {})).toEqual([]);
   });
 
-  it("channelDisplayName:去 telegram-/tg- 前缀(含 _ . 形)显频道本名;空残余回源名;null = 未知来源", () => {
+  it("channelDisplayName:去 telegram-/tg- 前缀(含 _ . 形)显频道本名;F9 起 rss-/hnrss-/urlwatch-/engine- 协议载体前缀同剥;词表外全称直出;null = 未知来源", () => {
     expect(channelDisplayName("telegram-durov")).toBe("durov");
     expect(channelDisplayName("tg-openai_news")).toBe("openai_news");
     expect(channelDisplayName("telegram_mihomo")).toBe("mihomo");
     expect(channelDisplayName("telegram-")).toBe("telegram-"); // 前缀后空,不猜
-    expect(channelDisplayName("openai-news")).toBe("openai-news"); // 非 TG 源全称直出
+    // F9:协议载体前缀家族同剥(网页卡源名行 / L2 渠道行共用此词表)
+    expect(channelDisplayName("rss-economist")).toBe("economist");
+    expect(channelDisplayName("hnrss-frontpage")).toBe("frontpage");
+    expect(channelDisplayName("urlwatch-blog")).toBe("blog");
+    expect(channelDisplayName("engine_prompt_daily")).toBe("prompt_daily");
+    // 词表外不猜:非前缀源全称直出
+    expect(channelDisplayName("openai-news")).toBe("openai-news");
+    expect(channelDisplayName("steam-specials")).toBe("steam-specials");
     expect(channelDisplayName(null)).toBe("未知来源");
   });
 
@@ -3160,3 +3178,432 @@ describe("FeedScreen · 深审修复批(F1/F2/F4/F5/F6)", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// 消息详情弹窗(主人令「点击信息,弹出详情」,10-08 v2.1):标题/气泡/正文区
+// 点击开模态(标题全文 + 元信息簇 + 动作簇复用卡内实现),Esc/遮罩关闭;
+// 「展开条目」内联路径并存。dialog.tsx 为自研基件(无 Radix dialog 依赖),
+// jsdom 无需额外指针桩(beforeAll 既有桩即够)。
+// ---------------------------------------------------------------------------
+
+/** 关详情弹窗:Esc 关闭 + 等离场卸载(dialog.tsx EXIT_UNMOUNT_MS=120ms) */
+async function closeDetailDialog() {
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+  await waitFor(() => expect(screen.queryByTestId("feed-detail-dialog")).toBeNull());
+}
+
+describe("FeedScreen · 消息详情弹窗(点击信息弹出详情)", () => {
+  it("点标题开弹窗:标题全文 / 元信息簇(来源/品类/时间/评分)/ 动作簇齐;弹开即记已读", async () => {
+    const item = fixtureItem({ source: "openai-news", category: "tech", scores: { tech: 0.92 } });
+    storeItemsMock.mockResolvedValue(result([item]));
+    await renderStream();
+    fireEvent.click(await screen.findByText("条目 1"));
+
+    const dialog = screen.getByTestId("feed-detail-dialog");
+    expect(within(dialog).getByTestId("feed-detail-title").textContent).toContain("条目 1");
+    const meta = within(dialog).getByTestId("feed-detail-meta");
+    expect(meta.textContent).toContain("openai-news"); // 来源渠道
+    expect(meta.textContent).toContain("tech"); // 品类
+    expect(meta.textContent).toContain("0.92"); // 精评评分
+    // 动作簇:复用卡内既有实现(👍👎 反馈/打开原文/复制链接/星标/稍后读/
+    // 已读切换);弹开即记已读 → 已读钮呈「标记未读」向
+    for (const name of ["好评", "差评", "打开原文", "复制链接", "星标", "稍后读", "标记未读"]) {
+      expect(within(dialog).getByRole("button", { name })).toBeTruthy();
+    }
+    // 弹开即记已读:关闭后卡在「未读」过滤下离场
+    await closeDetailDialog();
+    await waitFor(() => expect(screen.queryByText("条目 1")).toBeNull());
+  });
+
+  it("Esc 与遮罩点击两条关闭路都通;关闭后列表回归", async () => {
+    storeItemsMock.mockResolvedValue(result([fixtureItem(), fixtureItem()]));
+    await renderStream();
+    fireEvent.click(await screen.findByText("条目 1"));
+    expect(screen.getByTestId("feed-detail-dialog")).toBeTruthy();
+    await closeDetailDialog(); // Esc 路
+
+    // 遮罩点击路(mousedown 落在 overlay 本尊)
+    fireEvent.click(await screen.findByText("条目 2"));
+    fireEvent.mouseDown(document.querySelector('[data-slot="dialog-overlay"]') as Element);
+    await waitFor(() => expect(screen.queryByTestId("feed-detail-dialog")).toBeNull());
+  });
+
+  it("弹窗内动作生效:星标翻转即时回显(aria-pressed),与卡面同一状态源", async () => {
+    storeItemsMock.mockResolvedValue(result([fixtureItem(), fixtureItem()]));
+    await renderStream();
+    fireEvent.click(await screen.findByText("条目 1")); // 弹开即已读,卡离场,弹窗驻留
+    const dialog = screen.getByTestId("feed-detail-dialog");
+    const star = within(dialog).getByRole("button", { name: "星标" });
+    expect(star.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(star);
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "星标" }).getAttribute("aria-pressed")).toBe("true"),
+    );
+  });
+
+  it("TG 气泡/收起态正文区点击同门开弹窗;「展开条目」内联路径并存不弹窗", async () => {
+    storeItemsMock.mockResolvedValue(
+      result([fixtureItem({ source: "telegram-durov", title: "消息正文甲", content: "气泡内摘要" })]),
+    );
+    await renderStream();
+    fireEvent.click(await screen.findByTestId("feed-tg-channel-card-telegram-durov"));
+    const card = await screen.findByTestId("feed-item-1");
+
+    // 内联展开条目:就地展开正文(TG 展开正文在气泡内),零弹窗(v2.1 明确保留并存)
+    fireEvent.click(within(card).getByRole("button", { name: "展开条目" }));
+    expect(within(card).getByRole("button", { name: "收起条目" })).toBeTruthy();
+    expect(screen.queryByTestId("feed-detail-dialog")).toBeNull();
+
+    // 气泡标题点击 → 弹窗(标题全文 + 正文全文)
+    const bubble = within(card).getByTestId("feed-tg-bubble-1");
+    fireEvent.click(within(bubble).getByRole("button"));
+    expect(screen.getByTestId("feed-detail-dialog")).toBeTruthy();
+    expect(screen.getByTestId("feed-detail-title").textContent).toContain("消息正文甲");
+    expect(screen.getByTestId("feed-detail-content").textContent).toContain("气泡内摘要");
+    await closeDetailDialog();
+  });
+
+  it("图析条目弹窗:OCR 全文与 VL 图说在场(卡面摘要行的全文面)", async () => {
+    storeItemsMock.mockResolvedValue(
+      result([fixtureItem({ image_ocr: "GPT-5 发布会\n关键数字 42", image_caption: "发布会主视觉" })]),
+    );
+    await renderStream();
+    fireEvent.click(await screen.findByText("条目 1"));
+    expect(screen.getByTestId("feed-detail-ocr").textContent).toContain("关键数字 42");
+    expect(screen.getByTestId("feed-detail-caption").textContent).toContain("发布会主视觉");
+    await closeDetailDialog();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 审计整改批(10-08 v2.1):F2 计数口径 / F3 节头细条 / F5 墙层巡游 /
+// F6 可见作用域标题 / F10 墙卡次级概览
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · 审计整改批(F2/F3/F5/F6/F10)", () => {
+  /** v2 夹具:IM 两条(同渠道,较新)+ 网页两条(两源,较旧);刻度显式给,
+   *  卡序/巡游序确定(first_seen 新→旧,im 卡在前)。 */
+  function mockStoreV12(options: { webExtra?: number } = {}) {
+    const t1 = new Date("2026-10-08T09:00:00").toISOString();
+    const t2 = new Date("2026-10-08T11:00:00").toISOString();
+    const total = 2 + (options.webExtra ?? 0);
+    const items = [
+      fixtureItem({ source: "telegram-mihomo_party_group", title: "🎉 Clash Party Dev Build 开发版本发布", content: "基于版本: 1.9.5", first_seen: t2 }),
+      fixtureItem({ source: "telegram-mihomo_party_group", title: "🎉 Clash Party 1.9.4", first_seen: t2 }),
+      fixtureItem({ source: "openai-news", title: "新闻标题丙", category: "tech", first_seen: t1 }),
+      ...Array.from({ length: total - 3 }, (_, index) =>
+        fixtureItem({ source: "hnrss-frontpage", title: `HN 条目 ${index + 1}`, category: "tech", first_seen: t1 }),
+      ),
+    ];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(
+          items.filter((item) => {
+            if (params?.category && item.category !== params.category) return false;
+            if (params?.source && item.source !== params.source) return false;
+            if (params?.source_kind) {
+              const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
+              if (params.source_kind === "im" && !im) return false;
+              if (params.source_kind === "web" && im) return false;
+            }
+            return true;
+          }),
+        ),
+      ),
+    );
+  }
+
+  async function renderWall() {
+    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
+    renderScreen();
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    await screen.findByTestId("feed-kind-wall");
+  }
+
+  it("F5:墙层 j/k 巡游墙卡(data-nav-focused 环),U 进大类详情 —— 不再静默空转", async () => {
+    mockStoreV12();
+    await renderWall();
+    // j 未选中落首卡(im,较新)→ 再 j 落 web
+    fireEvent.keyDown(window, { key: "j" });
+    await waitFor(() =>
+      expect(screen.getByTestId("feed-kind-card-im").getAttribute("data-nav-focused")).toBe("true"),
+    );
+    fireEvent.keyDown(window, { key: "j" });
+    await waitFor(() =>
+      expect(screen.getByTestId("feed-kind-card-web").getAttribute("data-nav-focused")).toBe("true"),
+    );
+    expect(screen.getByTestId("feed-kind-card-im").getAttribute("data-nav-focused")).toBe("false");
+    // U 语义对齐 = 进详情(此前 U 在墙层无作用目标)
+    fireEvent.keyDown(window, { key: "u" });
+    expect(await screen.findByTestId("feed-item-3")).toBeTruthy(); // 网页详情(条目平铺)
+    expect(screen.queryByTestId("feed-kind-wall")).toBeNull();
+    expect(screen.getByTestId("feed-stream-title").textContent).toContain("网页");
+  });
+
+  it("F5 补充:消息卡上 Enter = 开详情弹窗(与点击同门;button 聚焦时 Enter 归原生)", async () => {
+    mockStoreV12();
+    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
+    markMock.mockResolvedValue({ updated: 1 }); // Enter 开详情即记已读,走服务端置位
+    await renderWall();
+    fireEvent.click(await screen.findByTestId("feed-kind-card-web"));
+    await screen.findByTestId("feed-item-3");
+    // 等作用域重查落地(全局 3 条 → 网页 1 条),巡游集才与所见一致
+    await waitFor(() => expect(screen.queryByTestId("feed-item-1")).toBeNull());
+    const card = screen.getByTestId("feed-item-3");
+    fireEvent.keyDown(window, { key: "j" }); // 未选中落首卡
+    await waitFor(() => expect(card.getAttribute("data-nav-focused")).toBe("true"));
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(screen.getByTestId("feed-detail-dialog")).toBeTruthy();
+    expect(screen.getByTestId("feed-detail-title").textContent).toContain("新闻标题丙");
+    await closeDetailDialog();
+  });
+
+  it("F2:hasMore 时墙卡词面「已加载 N 条」+ title 补「首页 50 条截断」注记(与 L1 同门)", async () => {
+    // 网页侧 51 条(1+50):全局首页 53 条满页 → hasMore;墙卡计数此前以
+    // 全量词面静默低估
+    mockStoreV12({ webExtra: 51 });
+    await renderWall();
+    const webCard = await screen.findByTestId("feed-kind-card-web");
+    expect(webCard.textContent).toContain("已加载 51 条");
+    expect(webCard.getAttribute("title")).toContain("首页 50 条截断");
+    // 工具条同步如实(未读过滤档)
+    expect(screen.getByTestId("feed-count").textContent).toContain("已加载");
+    expect(screen.getByTestId("feed-count").textContent).not.toContain("共 53 条");
+  });
+
+  it("F3:TG 节头细条不复述最新消息(无 preview/digest),气泡照旧;节头点进单频道动线不变", async () => {
+    mockStoreV12();
+    await renderWall();
+    fireEvent.click(await screen.findByTestId("feed-kind-card-im"));
+    await screen.findByTestId("feed-im-sections");
+    const head = screen.getByTestId("feed-tg-channel-card-telegram-mihomo_party_group");
+    // 节头不再与节内首条气泡背靠背重复同一消息
+    expect(head.textContent).not.toContain("🎉 Clash Party Dev Build 开发版本发布");
+    expect(head.textContent).not.toContain("基于版本");
+    expect(head.textContent).toContain("2 条");
+    // 节内消息全量平铺(首条气泡仍在,信息不丢)
+    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
+    expect(screen.getByTestId("feed-tg-bubble-2")).toBeTruthy();
+    // 节头点进单频道动线保留
+    fireEvent.click(head);
+    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
+    expect(screen.getByTestId("feed-crumb-im")).toBeTruthy();
+  });
+
+  it("F6:墙层可见作用域标题(工具条)+ 面包屑终端段「全部条目 · 卡片墙」;下钻随域切换", async () => {
+    mockStoreV12();
+    await renderWall();
+    expect(screen.getByTestId("feed-stream-title").textContent).toContain("全部条目 · 卡片墙");
+    expect(screen.getByTestId("feed-crumb-current").textContent).toContain("全部条目 · 卡片墙");
+    fireEvent.click(await screen.findByTestId("feed-kind-card-web"));
+    expect(screen.getByTestId("feed-stream-title").textContent).toContain("网页");
+  });
+
+  it("F10:墙卡次级概览行 = 大类内 top3 源(名称走 F9 词表 + 条数/未读)", async () => {
+    mockStoreV12({ webExtra: 2 }); // 网页侧 openai-news×1 + hnrss-frontpage×1
+    await renderWall();
+    const webSubs = screen.getByTestId("feed-kind-subs-web");
+    expect(webSubs.textContent).toContain("openai-news");
+    expect(webSubs.textContent).toContain("frontpage"); // hnrss-frontpage 剥前缀(F9 同门)
+    const imSubs = screen.getByTestId("feed-kind-subs-im");
+    expect(imSubs.textContent).toContain("mihomo_party_group");
+    expect(imSubs.textContent).toContain("未读 2");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 审计整改 纯函数(api.ts,10-08 v2.1):F8 色板 / F9 词表 / F10 次级聚合
+// ---------------------------------------------------------------------------
+
+describe("feed 审计整改 纯函数(api.ts)", () => {
+  it("F8:tech 落淡紫档 #cdb6fb(卡底 9.02:1 过 AA)——不再落 #8b5cf6(3.83:1 欠档)", () => {
+    expect(categoryColor("tech")).toBe("#cdb6fb");
+    // 色板全体仍非空、稳定:同品类恒同色
+    expect(categoryColor("tech")).toBe(categoryColor("tech"));
+  });
+
+  it("F10:streamKindSubRows 大类内按源聚合 top N(条数多者前,同数最新前,再源名);label 走词表", () => {
+    const t0 = new Date("2026-10-08T08:00:00").toISOString();
+    const t1 = new Date("2026-10-08T11:00:00").toISOString();
+    const a1 = fixtureItem({ source: "openai-news", title: "甲", first_seen: t1 });
+    const b1 = fixtureItem({ source: "openai-news", title: "乙", first_seen: t0 });
+    const c1 = fixtureItem({ source: "hnrss-frontpage", title: "丙", first_seen: t1 });
+    const tg = fixtureItem({ source: "telegram-durov", title: "TG 不混入网页榜", first_seen: t1 });
+    const rows = streamKindSubRows([a1, b1, c1, tg], {}, "web");
+    expect(rows.map((row) => row.key)).toEqual(["openai-news", "hnrss-frontpage"]);
+    expect(rows[0].count).toBe(2);
+    expect(rows[0].unread).toBe(2);
+    expect(rows[1].label).toBe("frontpage"); // F9 词表同门
+    // im 榜:只收通讯软件源
+    const imRows = streamKindSubRows([a1, tg], {}, "im");
+    expect(imRows.map((row) => row.key)).toEqual(["telegram-durov"]);
+    expect(streamKindSubRows([], {}, "web")).toEqual([]);
+    // 未读口径:已读条目不计未读
+    const rowsRead = streamKindSubRows([a1, b1], { [a1.dedup_key]: { read: true } }, "web");
+    expect(rowsRead[0].count).toBe(2);
+    expect(rowsRead[0].unread).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 验收挑刺整改批(10-08 v2.2):①正文复述标题(bodyWithoutTitleDup 一门
+// 四处消费)② TG 分节节内卡省频道名行 ③ 未读竖条提亮 primary-300
+// ⑤ 弹窗动作簇权重理顺(④ 墙层满宽密度 = 设计取向,记录备审不动码)
+// ---------------------------------------------------------------------------
+
+describe("feed 验收整改 纯函数(api.ts)", () => {
+  it("bodyWithoutTitleDup:剥与标题逐字重复的开头(含冒号),正文整段 = 标题 → null,无标题/不重复 → 原文,保换行原格式", () => {
+    // TG 消息形态:title = 首行,content = 全文
+    expect(
+      bodyWithoutTitleDup({ title: "发布 v2", content: "发布 v2\n基于版本: 1.9.5" }),
+    ).toBe("基于版本: 1.9.5");
+    // 中文冒号衔接同剥
+    expect(bodyWithoutTitleDup({ title: "发布", content: "发布：正文内容" })).toBe("正文内容");
+    // 正文整段 = 标题 → null(无独有信息,消费侧不渲染重复行)
+    expect(bodyWithoutTitleDup({ title: "同文", content: "同文" })).toBeNull();
+    expect(bodyWithoutTitleDup({ title: "同文", content: "  同文  " })).toBeNull();
+    // 不以标题开头 → 原文原样(保换行)
+    expect(bodyWithoutTitleDup({ title: "甲", content: "乙\n丙" })).toBe("乙\n丙");
+    // 无标题 / 空正文
+    expect(bodyWithoutTitleDup({ title: "", content: "正文" })).toBe("正文");
+    expect(bodyWithoutTitleDup({ title: "甲", content: "  " })).toBeNull();
+    expect(bodyWithoutTitleDup({ title: "甲", content: null })).toBeNull();
+  });
+
+  it("cardDigest 与 bodyWithoutTitleDup 同门(v3 去重语义不回归):去重后压平取头、超长省略号", () => {
+    const tg = fixtureItem({
+      source: "telegram-a",
+      title: "🎉 Clash Party Dev Build 开发版本发布",
+      content: "🎉 Clash Party Dev Build 开发版本发布 基于版本: 1.9.5",
+    });
+    expect(cardDigest(tg)).toBe("基于版本: 1.9.5");
+    // 正文整段 = 标题:digest 落 null(不回事件词;watch 词仅 content 全空)
+    expect(cardDigest(fixtureItem({ source: "telegram-a", title: "同文", content: "同文" }))).toBeNull();
+  });
+});
+
+describe("FeedScreen · 验收整改批(正文去重/节内省频道名/弹窗权重)", () => {
+  it("① TG 气泡收起正文行不再复述标题;正文整段 = 标题时正文行消失;展开态仍全文", async () => {
+    storeItemsMock.mockResolvedValue(
+      result([
+        fixtureItem({
+          source: "telegram-durov",
+          title: "🎉 Clash Party v2 发布",
+          content: "🎉 Clash Party v2 发布\n基于版本: 1.9.5",
+        }),
+      ]),
+    );
+    await renderStream();
+    fireEvent.click(await screen.findByTestId("feed-tg-channel-card-telegram-durov"));
+    const card = await screen.findByTestId("feed-item-1");
+    const bubble = within(card).getByTestId("feed-tg-bubble-1");
+    // 收起态:正文行只剩独有信息(版本号),标题不复述 —— 全文词面仅标题按钮 1 处
+    expect(within(bubble).getAllByText("🎉 Clash Party v2 发布")).toHaveLength(1);
+    expect(within(bubble).getByText("基于版本: 1.9.5")).toBeTruthy();
+    // 展开态 = 全文位:原文整体在场(含复述,展开是显式要全文)
+    fireEvent.click(within(card).getByRole("button", { name: "展开条目" }));
+    expect(within(bubble).getAllByText(/🎉 Clash Party v2 发布/)).toHaveLength(2);
+  });
+
+  it("① 收起摘要行(新闻卡)去标题前缀;正文整段 = 标题 → 摘要行不渲染", async () => {
+    storeItemsMock.mockResolvedValue(
+      result([
+        fixtureItem({ title: "OpenAI 发布 G-6", content: "OpenAI 发布 G-6 详见官网公告与模型卡。", source: "openai-news" }),
+        fixtureItem({ title: "复读机条目", content: "复读机条目", source: "openai-news" }),
+      ]),
+    );
+    await renderStream();
+    const card1 = await screen.findByTestId("feed-item-1");
+    // 摘要行只剩独有信息;标题词面全卡仅标题按钮 1 处
+    expect(within(card1).getAllByText(/OpenAI 发布 G-6/)).toHaveLength(1);
+    expect(within(card1).getByText(/详见官网公告与模型卡/)).toBeTruthy();
+    // 正文 = 标题:无摘要行(标题词面 1 处),不再同屏读两遍
+    const card2 = await screen.findByTestId("feed-item-2");
+    expect(within(card2).getAllByText("复读机条目")).toHaveLength(1);
+  });
+
+  it("① 详情弹窗正文去标题重复开头;正文整段 = 标题 → 正文块零渲染", async () => {
+    storeItemsMock.mockResolvedValue(
+      result([
+        fixtureItem({
+          source: "telegram-durov",
+          title: "🎉 Clash Party v2 发布",
+          content: "🎉 Clash Party v2 发布\n基于版本: 1.9.5",
+        }),
+      ]),
+    );
+    await renderStream();
+    fireEvent.click(await screen.findByTestId("feed-tg-channel-card-telegram-durov"));
+    fireEvent.click(await screen.findByTestId("feed-item-1"));
+    fireEvent.click(within(screen.getByTestId("feed-tg-bubble-1")).getByRole("button"));
+    const dialog = screen.getByTestId("feed-detail-dialog");
+    // 弹窗正文只剩独有信息,标题词面全弹窗仅 DialogTitle 1 处(04/05 图病灶)
+    expect(within(dialog).getAllByText(/🎉 Clash Party v2 发布/)).toHaveLength(1);
+    expect(within(dialog).getByTestId("feed-detail-content").textContent).toBe("基于版本: 1.9.5");
+    await closeDetailDialog();
+  });
+
+  it("② TG 分节详情:节内消息卡省频道名行(全屏频道名只节头 1 次),相对时间保留;单频道流不受影响", async () => {
+    mockStoreV12Acceptance();
+    await renderWallAcceptance();
+    fireEvent.click(await screen.findByTestId("feed-kind-card-im"));
+    await screen.findByTestId("feed-im-sections");
+    const section = screen.getByTestId("feed-im-sections");
+    // 频道名只出现在节头细条(此前节头 1 + 两卡头 = 3 次)
+    expect(within(section).getAllByText("mihomo_party_group")).toHaveLength(1);
+    // 节内卡头时间仍在(省的是频道名,不是时间)
+    expect(within(section).getAllByText(/分钟前|刚刚/).length).toBeGreaterThanOrEqual(2);
+    // 节头点进单频道:该视图频道名行照旧(动线终点保留完整频道头)
+    fireEvent.click(screen.getByTestId("feed-tg-channel-card-telegram-mihomo_party_group"));
+    const singleCard = await screen.findByTestId("feed-item-1");
+    expect(within(singleCard).getByText("mihomo_party_group")).toBeTruthy();
+  });
+
+  it("⑤ 弹窗动作簇:打开原文 = 唯一实底主钮(default),复制链接/星标/稍后读/标记未读 = ghost 同档", async () => {
+    storeItemsMock.mockResolvedValue(result([fixtureItem()]));
+    await renderStream();
+    fireEvent.click(await screen.findByText("条目 1"));
+    const actions = within(screen.getByTestId("feed-detail-dialog")).getByTestId("feed-detail-actions");
+    expect(within(actions).getByRole("button", { name: "打开原文" }).className).toContain("bg-primary");
+    for (const name of ["复制链接", "星标", "稍后读", "标记未读"]) {
+      const button = within(actions).getByRole("button", { name });
+      expect(button.className).not.toContain("bg-primary");
+      expect(button.className).toContain("hover:bg-accent"); // ghost 同档标记
+    }
+    // 「标记未读」是弹开即已读的撤销口:title 语义明示
+    expect(within(actions).getByRole("button", { name: "标记未读" }).getAttribute("title")).toContain("撤销");
+    await closeDetailDialog();
+  });
+});
+
+/** 验收批 v2 夹具(与 tg-channel-card v2 同门:两 TG 同渠道 + 一网页) */
+function mockStoreV12Acceptance() {
+  const items = [
+    fixtureItem({ source: "telegram-mihomo_party_group", title: "🎉 甲", content: "甲正文" }),
+    fixtureItem({ source: "telegram-mihomo_party_group", title: "🎉 乙", content: "乙正文" }),
+    fixtureItem({ source: "openai-news", title: "新闻标题丙", category: "tech" }),
+  ];
+  storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+    Promise.resolve(
+      result(
+        items.filter((item) => {
+          if (params?.category && item.category !== params.category) return false;
+          if (params?.source && item.source !== params.source) return false;
+          if (params?.source_kind) {
+            const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
+            if (params.source_kind === "im" && !im) return false;
+            if (params.source_kind === "web" && im) return false;
+          }
+          return true;
+        }),
+      ),
+    ),
+  );
+}
+
+async function renderWallAcceptance() {
+  versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
+  renderScreen();
+  fireEvent.click(await screen.findByTestId("feed-drill-all"));
+  await screen.findByTestId("feed-kind-wall");
+}

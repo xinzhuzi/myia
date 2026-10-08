@@ -441,16 +441,22 @@ export function formatRelativeTime(iso: string | null, now: Date = new Date()): 
 
 // ---- D4(10-03-ui-deep-imitation):品类色 + 分组时间轴 ----
 
-/** 品类色板:品牌青/紫领衔的 8 色邻位环(暗面可读、饱和度同档;Linear label 式) */
+/** 品类色板:8 色邻位环(暗面可读、饱和度同档;Linear label 式)。
+ *  10-08 审计 F8:色板避开语义色(ok 绿 #43f6b6 / warning 橙 #ff8b61 /
+ *  dead 红 #ff6a6c)的色相带 —— 品类徽章不再与「限免」琥珀、OCR 高置信绿、
+ *  源健康度互相污染语义;被替三档旧值与实测对比(卡底 #1e202a,WCAG):
+ *  #8b5cf6 3.83 ✗ → #cdb6fb 9.02(primary-200,--link 同源);
+ *  #3dd68c(ok 绿系)→ #818cf8 5.44(indigo-400);#f5b544(琥珀系)→
+ *  #94a3b8 6.32(slate-400)。全表现档 ≥4.5:1,11px 徽章文字过筛。 */
 const CATEGORY_PALETTE = [
-  "#22d3ee", // 品牌青
-  "#8b5cf6", // 品牌紫
-  "#3dd68c", // ok 绿
-  "#f5b544", // warning 琥珀
-  "#60a5fa", // 蓝
-  "#f472b6", // 粉
-  "#2dd4bf", // 青绿
-  "#fb7185", // 玫红
+  "#22d3ee", // 品牌青(8.97)
+  "#cdb6fb", // 淡紫(primary-200;替旧品牌紫 #8b5cf6 不达 AA)
+  "#818cf8", // 靛蓝(替旧 ok 绿 #3dd68c)
+  "#94a3b8", // 冷灰(替旧 warning 琥珀 #f5b544)
+  "#60a5fa", // 蓝(6.38)
+  "#f472b6", // 粉(6.12)
+  "#2dd4bf", // 青绿(8.71;色相独立于 --ok)
+  "#fb7185", // 玫红(6.02)
 ] as const;
 
 /** djb2 字符串散列(稳定无依赖:同品类恒同色,跨会话/跨端不变) */
@@ -739,12 +745,18 @@ export function groupFeedItemsByChannel(
   return groups;
 }
 
-/** 源名展示词(telegram-<频道> 规约:去平台前缀显频道本名;其余源名全称直出。
- *  10-08-tg-channel-card 自 feed-screen 收编入 api —— 渠道卡视图模型与卡面
- *  头区共用同一词表,聚合函数返回的 label 即成品词)。 */
+/** 源名前缀展示词表(10-08 审计 F9 一屏一词:卡面与 L2 渠道行共用本函数;
+ *  telegram-<频道> 去 platform 前缀显本名,rss-/hnrss-/urlwatch-/engine-
+ *  同为「协议载体前缀」一并剥除;其余源名全称直出,不猜)。 */
+const SOURCE_DISPLAY_PREFIX_RE = /^(telegram|tg|rss|hnrss|urlwatch|engine)[-_.]/i;
+
+/** 源名展示词(去协议载体前缀显可读本名;未匹配词表 = 源名全称原样;
+ *  前缀后空残余回源名,不猜。10-08-tg-channel-card 自 feed-screen 收编入
+ *  api —— 渠道卡视图模型与卡面头区共用同一词表,聚合函数返回的 label 即
+ *  成品词;F9 起网页卡源名行与 L2 渠道行同门)。 */
 export function channelDisplayName(source: string | null): string {
   if (source === null) return "未知来源";
-  const stripped = source.replace(/^(telegram|tg)[-_.]/i, "");
+  const stripped = source.replace(SOURCE_DISPLAY_PREFIX_RE, "");
   return stripped === "" ? source : stripped;
 }
 
@@ -780,14 +792,32 @@ function firstSeenValue(iso: string | null | undefined): number {
  *  之处」):一行摘要的硬截断位,CSS truncate 再兜底视觉一行。 */
 export const CARD_DIGEST_MAX_CHARS = 72;
 
+/**
+ * 正文去标题重复开头(10-08 验收:标题行下正文复述标题,同屏读两遍)。
+ * TG 消息 title=首行、content=全文,正文常逐字复述标题 —— 四处消费同一
+ * 去重门:条目卡收起摘要 / 详情弹窗正文 / TG 气泡收起正文行 / 墙卡
+ * cardDigest。返回**原格式**(保换行,消费侧 whitespace-pre-wrap/行钳);
+ * 正文整段与标题相同 = null(无独有信息,不渲染重复行);无标题/不以
+ * 标题开头 = 原文原样。 */
+export function bodyWithoutTitleDup(item: Pick<FeedItem, "title" | "content">): string | null {
+  const content = item.content ?? "";
+  if (content.trim() === "") return null;
+  const title = (item.title ?? "").trim();
+  if (title === "") return content;
+  const body = content.replace(/^\s+/, "");
+  if (!body.startsWith(title)) return content;
+  const rest = body.slice(title.length).replace(/^[\s:：]+/, "");
+  return rest === "" ? null : rest;
+}
+
 /** 卡片摘要(v3):为卡片描述行产出「内容里的特殊之处」,精炼一行 ——
  *  ① 优惠:价格片段即特殊之处(dealPriceView:限免/现价/原价/折扣);
- *  ② 其余:正文压平取头,且**先去掉与标题重复的开头**(TG 消息正文常
- *     复述标题,不去重则摘要行空转、版本号等独有信息被挤出);
+ *  ② 其余:正文压平取头,且**先经 bodyWithoutTitleDup 去掉与标题重复的
+ *     开头**(TG 消息正文常复述标题,不去重则摘要行空转、版本号等独有
+ *     信息被挤出;10-08 验收起与条目卡/弹窗/气泡正文行同一去重门);
  *  ③ 无正文回事件词(watch 首纳/有更新);全空 = null(消费侧不渲染
  *     空行)。超长 `…` 收尾。 */
 export function cardDigest(item: FeedItem): string | null {
-  const title = (item.title ?? "").trim();
   if (item.price_text != null || item.final_price != null || item.sale_price != null) {
     const deal = dealPriceView(item);
     const bits: string[] = [];
@@ -797,15 +827,15 @@ export function cardDigest(item: FeedItem): string | null {
     if (deal.discount !== null && !deal.free) bits.push(`-${deal.discount}%`);
     if (bits.length > 0) return bits.join(" · ");
   }
-  const body = (item.content ?? "").replace(/\s+/g, " ").trim();
-  const deduped = title !== "" && body.startsWith(title) ? body.slice(title.length).trim() : body;
+  const deduped = bodyWithoutTitleDup(item);
   const text =
-    deduped ||
-    (item.watch_event != null
-      ? item.watch_event === "new"
-        ? "首次纳入监控"
-        : "目标页有更新"
-      : "");
+    deduped !== null
+      ? deduped.replace(/\s+/g, " ").trim()
+      : item.watch_event != null
+        ? item.watch_event === "new"
+          ? "首次纳入监控"
+          : "目标页有更新"
+        : "";
   if (text === "") return null;
   if (text.length <= CARD_DIGEST_MAX_CHARS) return text;
   return `${text.slice(0, CARD_DIGEST_MAX_CHARS)}…`;
@@ -892,6 +922,49 @@ export function streamKindCards(
       const diff = firstSeenValue(b.latest.first_seen) - firstSeenValue(a.latest.first_seen);
       return diff !== 0 ? diff : a.key.localeCompare(b.key);
     });
+}
+
+/** 墙卡次级概览行(10-08 审计 F10):大类内部按源聚合 top N(名称/条数/
+ *  未读)—— 卡片墙层不再只有 1-2 张大类卡 + 整屏留白,大类里谁在出料一眼
+ *  可见。口径与 streamKindCards 相同:输入 = 调用方过滤后的可见条目;排序 =
+ *  条数多者前,同数按最新新→旧,再按源名稳定 tiebreak;label 走
+ *  channelDisplayName(卡面与 L2 渠道行同一词表)。 */
+export interface StreamKindSubRow {
+  /** 源名全称(下钻作用域键) */
+  key: string;
+  /** 展示名(channelDisplayName 同词表) */
+  label: string;
+  count: number;
+  unread: number;
+}
+
+export function streamKindSubRows(
+  items: FeedItem[],
+  states: FeedStateMap,
+  kind: "web" | "im",
+  limit = 3,
+): StreamKindSubRow[] {
+  const bySource = new Map<string, { count: number; unread: number; latest: number }>();
+  for (const item of items) {
+    const isIm = imAppOf(item.source) !== null;
+    if ((kind === "im") !== isIm) continue;
+    const key = item.source ?? "";
+    if (key === "") continue;
+    const read = states[itemKey(item)]?.read === true;
+    const seen = firstSeenValue(item.first_seen);
+    const row = bySource.get(key);
+    if (row) {
+      row.count += 1;
+      if (!read) row.unread += 1;
+      if (seen > row.latest) row.latest = seen;
+    } else {
+      bySource.set(key, { count: 1, unread: read ? 0 : 1, latest: seen });
+    }
+  }
+  return [...bySource.entries()]
+    .map(([key, row]) => ({ key, label: channelDisplayName(key), ...row }))
+    .sort((a, b) => b.count - a.count || b.latest - a.latest || a.key.localeCompare(b.key))
+    .slice(0, limit);
 }
 
 /** 价格/优惠行的展示视图(games 四源字段形态并存,push 模板 elif 链同款
