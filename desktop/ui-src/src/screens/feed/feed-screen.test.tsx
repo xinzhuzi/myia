@@ -39,6 +39,12 @@
  *  (滚动流受窗,星标/稍后读跨窗);纯函数 channelKindOf /
  *  engineMapFromHealth / groupFeedItemsByChannel / dealPriceView /
  *  dayWindowStart / inDayWindow / mergeFreshItems。
+ * tg-channel-card 批(10-08,主人令「TG 渠道要单独做界面……单独一个卡片,
+ *  点击进去才是详情」):流内(全部条目/品类流)TG 条目按渠道聚合置顶渠道
+ *  卡区(频道名+最新预览+条数/未读+未读竖条),TG 消息卡不再逐条进流;点
+ *  卡进 source 作用域消息流(气泡详情),面包屑「全部条目」中间层一键回流;
+ *  全 TG 流不误现空态;j/k 巡游只落真实渲染卡;纯函数 telegramChannelCards /
+ *  channelDisplayName。
  */
 import { cleanup, fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -60,6 +66,7 @@ import {
   appendWatchlistKeyword,
   categoryColor,
   categoryOptionsFromHealth,
+  channelDisplayName,
   channelKindOf,
   dayWindowStart,
   DEFAULT_FEED_DISPLAY,
@@ -78,6 +85,7 @@ import {
   setMarkerBulk,
   sortUnreadFirst,
   statesFromItems,
+  telegramChannelCards,
 } from "./api";
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -2420,21 +2428,69 @@ describe("FeedScreen · feed-channel-groups(渠道分组+差异化+实时滚动+
     expect(screen.queryByText("闻丁")).toBeNull();
   });
 
-  it("telegram 消息卡:气泡 + 频道名(去平台前缀)+ 时间;元信息行不重复源名", async () => {
+  it("TG 渠道卡(10-08):流内按渠道聚合置顶,点击进该渠道消息流(气泡详情),面包屑一键回流", async () => {
     storeItemsMock.mockResolvedValue(
       result([fixtureItem({ source: "telegram-durov", title: "消息正文甲", content: "气泡内摘要" })]),
     );
     await renderStream();
-    const card = await screen.findByTestId("feed-item-1");
-    expect(card.getAttribute("data-kind")).toBe("telegram");
-    // 气泡在场(testid 挂气泡容器),正文在气泡内
-    const bubble = within(card).getByTestId("feed-tg-bubble-1");
+
+    // 流内:渠道卡区置顶,卡片 = 频道名(去前缀)+ 最新一条预览 + 计数/未读 + 未读竖条
+    const section = await screen.findByTestId("feed-tg-channels");
+    expect(section).toBeTruthy();
+    const card = within(section).getByTestId("feed-tg-channel-card-telegram-durov");
+    expect(within(card).getByText("durov")).toBeTruthy();
+    expect(within(card).getByText("消息正文甲")).toBeTruthy();
+    expect(card.textContent).toContain("1 条");
+    expect(card.textContent).toContain("未读 1");
+    expect(within(card).getByTestId("feed-tg-channel-unread-telegram-durov")).toBeTruthy();
+    // TG 消息卡不再逐条进流(聚合语义本体)
+    expect(screen.queryByTestId("feed-item-1")).toBeNull();
+
+    // 点击渠道卡 → 该渠道消息流(详情):气泡逐条 + 面包屑「全部条目」中间层
+    fireEvent.click(card);
+    const detailCard = await screen.findByTestId("feed-item-1");
+    expect(detailCard.getAttribute("data-kind")).toBe("telegram");
+    const bubble = within(detailCard).getByTestId("feed-tg-bubble-1");
     expect(within(bubble).getByText("消息正文甲")).toBeTruthy();
     // 频道名行:去 telegram- 前缀显频道本名;元信息行不重复源名
-    expect(within(card).getByText("durov")).toBeTruthy();
-    expect(within(card).queryByText("telegram-durov")).toBeNull();
-    // 时间在频道名行(等宽相对时间)
-    expect(within(card).getAllByText(/刚刚|分钟前|小时前|天前|\d{4}-/).length).toBeGreaterThan(0);
+    expect(within(detailCard).getByText("durov")).toBeTruthy();
+    expect(within(detailCard).queryByText("telegram-durov")).toBeNull();
+    expect(screen.getByTestId("feed-crumb-all-stream")).toBeTruthy();
+
+    // 面包屑回流:一键返回全部条目流,渠道卡区复现
+    fireEvent.click(screen.getByTestId("feed-crumb-all-stream"));
+    expect(await screen.findByTestId("feed-tg-channel-card-telegram-durov")).toBeTruthy();
+  });
+
+  it("TG 渠道卡不误伤其他类型:TG 折叠进卡区,news 卡照旧;全 TG 流不误现空态", async () => {
+    storeItemsMock.mockResolvedValue(
+      result([
+        fixtureItem({ source: "telegram-durov", title: "消息正文甲" }),
+        fixtureItem({ source: "Example", title: "新闻标题乙", category: "tech" }),
+      ]),
+    );
+    await renderStream();
+    // 渠道卡在场 + news 消息卡照旧 + TG 消息卡离场
+    expect(await screen.findByTestId("feed-tg-channel-card-telegram-durov")).toBeTruthy();
+    const newsCard = await screen.findByTestId("feed-item-2");
+    expect(newsCard.getAttribute("data-kind")).toBe("news");
+    expect(within(newsCard).getByText("新闻标题乙")).toBeTruthy();
+    expect(screen.queryByTestId("feed-item-1")).toBeNull();
+    // 时间分组组头只计列表本体(1 条,不含已折叠 TG)
+    expect(screen.getByTestId("feed-group-今天").textContent).toContain("1 条");
+
+    // 全 TG 流(截图场景):渠道卡呈现,不给「没有未读条目」空态
+    cleanup();
+    nextItemId = 0;
+    storeItemsMock.mockResolvedValue(
+      result([
+        fixtureItem({ source: "telegram-durov", title: "消息正文甲" }),
+        fixtureItem({ source: "telegram-durov", title: "消息正文乙" }),
+      ]),
+    );
+    await renderStream();
+    expect(await screen.findByTestId("feed-tg-channel-card-telegram-durov")).toBeTruthy();
+    expect(screen.queryByText("没有未读条目")).toBeNull();
   });
 
   it("urlwatch 变更事件(engine 映射):「有更新」徽标 + 目标页链接(watch_page)+ 展开 diff 明细", async () => {
@@ -2700,6 +2756,51 @@ describe("feed channel-groups 纯函数(api.ts)", () => {
     expect(merged.added).toBe(1);
     expect(merged.items.map((item) => item.title)).toEqual(["新一", "旧一", "旧二"]); // 前插保序
     expect(mergeFreshItems([old1], [old1]).added).toBe(0); // 无新键零扰动
+  });
+});
+
+describe("feed tg-channel-card 纯函数(api.ts,10-08-tg-channel-card)", () => {
+  it("channelDisplayName:去 telegram-/tg- 前缀(含 _ . 形)显频道本名;空残余回源名;null = 未知来源", () => {
+    expect(channelDisplayName("telegram-durov")).toBe("durov");
+    expect(channelDisplayName("tg-openai_news")).toBe("openai_news");
+    expect(channelDisplayName("telegram_mihomo")).toBe("mihomo");
+    expect(channelDisplayName("telegram-")).toBe("telegram-"); // 前缀后空,不猜
+    expect(channelDisplayName("openai-news")).toBe("openai-news"); // 非 TG 源全称直出
+    expect(channelDisplayName(null)).toBe("未知来源");
+  });
+
+  it("telegramChannelCards:按渠道聚合条数/未读,最新一条取 first_seen 最大,卡按最新新→旧排序", () => {
+    const t0 = new Date("2026-10-08T10:00:00").toISOString();
+    const t1 = new Date("2026-10-08T11:00:00").toISOString();
+    const t2 = new Date("2026-10-08T12:00:00").toISOString();
+    const a1 = fixtureItem({ source: "telegram-a", title: "a-旧", first_seen: t1 });
+    const a2 = fixtureItem({ source: "telegram-a", title: "a-新", first_seen: t2 });
+    const b1 = fixtureItem({ source: "telegram-b", title: "b-中", first_seen: t0 });
+    const news = fixtureItem({ source: "Example", title: "新闻", first_seen: t2 });
+    const states = { [a2.dedup_key]: { read: true } };
+    const cards = telegramChannelCards([a1, a2, b1, news], states);
+    // 非 TG 不入卡;排序 = 最新消息新→旧(a 最新 t2 > b t0)
+    expect(cards.map((card) => card.key)).toEqual(["telegram-a", "telegram-b"]);
+    expect(cards[0].label).toBe("a");
+    expect(cards[0].count).toBe(2);
+    expect(cards[0].unread).toBe(1); // a-新 已读, a-旧 未读
+    expect(cards[0].latest.title).toBe("a-新");
+    expect(cards[1].count).toBe(1);
+    expect(cards[1].unread).toBe(1);
+    expect(cards[1].label).toBe("b");
+  });
+
+  it("telegramChannelCards:全已读未读归 0;first_seen 缺失/非法沉底;空输入空卡", () => {
+    const t0 = new Date("2026-10-08T10:00:00").toISOString();
+    const ok = fixtureItem({ source: "telegram-a", title: "有刻", first_seen: t0 });
+    const missing = fixtureItem({ source: "telegram-b", title: "缺刻", first_seen: null });
+    const invalid = fixtureItem({ source: "telegram-c", title: "坏刻", first_seen: "not-a-date" });
+    const allRead = telegramChannelCards([ok], { [ok.dedup_key]: { read: true } });
+    expect(allRead[0].unread).toBe(0);
+    // 缺失/非法刻沉底:有刻卡在前
+    const cards = telegramChannelCards([missing, invalid, ok], {});
+    expect(cards.map((card) => card.key)).toEqual(["telegram-a", "telegram-b", "telegram-c"]);
+    expect(telegramChannelCards([], {})).toEqual([]);
   });
 });
 

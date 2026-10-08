@@ -723,6 +723,70 @@ export function groupFeedItemsByChannel(
   return groups;
 }
 
+/** 源名展示词(telegram-<频道> 规约:去平台前缀显频道本名;其余源名全称直出。
+ *  10-08-tg-channel-card 自 feed-screen 收编入 api —— 渠道卡视图模型与卡面
+ *  头区共用同一词表,聚合函数返回的 label 即成品词)。 */
+export function channelDisplayName(source: string | null): string {
+  if (source === null) return "未知来源";
+  const stripped = source.replace(/^(telegram|tg)[-_.]/i, "");
+  return stripped === "" ? source : stripped;
+}
+
+/** TG 渠道卡(10-08-tg-channel-card,主人令「渠道单独一个卡片,点击进去才是
+ *  详情」):把可见集里的 telegram 条目按渠道聚合为渠道卡视图模型 —— 每渠道
+ *  一卡(频道名/条数/未读/最新一条),消息卡不再逐条进流,点卡进该渠道
+ *  source 作用域消息流(详情)。
+ *
+ *  口径:输入 = 调用方过滤后的可见条目(当前读态过滤 ∪ 当日窗),计数即
+ *  视图诚实计数;排序 = 最新消息新→旧(聊天列表惯例),first_seen 缺失/
+ *  非法沉底,同刻按源名稳定 tiebreak。telegram 判定复用 channelKindOf
+ *  (源名前缀档,engine 词表无关该档,零依赖)。 */
+export interface TelegramChannelCardData {
+  /** 源名全称(items.source;下钻作用域键) */
+  key: string;
+  /** 频道显示名(去 telegram- 前缀本名) */
+  label: string;
+  /** 可见条数 */
+  count: number;
+  /** 其中未读数(states 读态;server/local 两通路同语义) */
+  unread: number;
+  /** 最新一条(first_seen 最大;预览与相对时间源) */
+  latest: FeedItem;
+}
+
+function firstSeenValue(iso: string | null | undefined): number {
+  if (!iso) return Number.NEGATIVE_INFINITY;
+  const value = new Date(iso).getTime();
+  return Number.isNaN(value) ? Number.NEGATIVE_INFINITY : value;
+}
+
+export function telegramChannelCards(
+  items: FeedItem[],
+  states: FeedStateMap,
+): TelegramChannelCardData[] {
+  const bySource = new Map<string, { count: number; unread: number; latest: FeedItem }>();
+  for (const item of items) {
+    if (channelKindOf(item) !== "telegram") continue;
+    const key = item.source ?? "";
+    if (key === "") continue;
+    const read = states[itemKey(item)]?.read === true;
+    const row = bySource.get(key);
+    if (row) {
+      row.count += 1;
+      if (!read) row.unread += 1;
+      if (firstSeenValue(item.first_seen) > firstSeenValue(row.latest.first_seen)) row.latest = item;
+    } else {
+      bySource.set(key, { count: 1, unread: read ? 0 : 1, latest: item });
+    }
+  }
+  return [...bySource.entries()]
+    .map(([key, row]) => ({ key, label: channelDisplayName(key), ...row }))
+    .sort((a, b) => {
+      const diff = firstSeenValue(b.latest.first_seen) - firstSeenValue(a.latest.first_seen);
+      return diff !== 0 ? diff : a.key.localeCompare(b.key);
+    });
+}
+
 /** 价格/优惠行的展示视图(games 四源字段形态并存,push 模板 elif 链同款
  *  优先序:price_text(Epic 直出)→ sale_price(CS·GOG 美元串,配
  *  normal_price 原价)→ final_price 数值分 ÷100(Steam/Epic);折扣徽标

@@ -54,6 +54,7 @@ import {
   applyFeedFilter,
   categoryColor,
   categoryOptionsFromHealth,
+  channelDisplayName,
   channelKindOf,
   dayWindowStart,
   DEFAULT_FEED_DISPLAY,
@@ -86,11 +87,13 @@ import {
   setMarkerBulk,
   sortUnreadFirst,
   statesFromItems,
+  telegramChannelCards,
   toggleMarker,
   type ChannelKind,
   type ExportFormat,
   type FeedCategoryOption,
   type FeedDisplayOptions,
+  type TelegramChannelCardData,
   type YamlTargetFile,
 } from "./api";
 import type { FeedFilter, FeedStateMap } from "./api";
@@ -122,13 +125,8 @@ const CHANNEL_KIND_META: Record<ChannelKind, { label: string; Icon: typeof Rss; 
   news: { label: "新闻", Icon: Rss, className: "text-muted-foreground" },
 };
 
-/** 源名展示词(telegram-<频道> 规约:子组头去掉平台前缀显频道本名,气泡
- *  头同款;其余源名全称直出)。 */
-function channelDisplayName(source: string | null): string {
-  if (source === null) return "未知来源";
-  const stripped = source.replace(/^(telegram|tg)[-_.]/i, "");
-  return stripped === "" ? source : stripped;
-}
+/** 源名展示词 channelDisplayName(telegram-<频道> 规约)已收编 api.ts
+ *  (10-08-tg-channel-card):渠道卡聚合 label 与卡面头区共用同一词表。 */
 
 const EMPTY_TEXT: Record<FeedFilter, { title: string; description: string }> = {
   unread: { title: "没有未读条目", description: "新采集的条目会按新→旧出现在这里" },
@@ -987,6 +985,52 @@ function FeedCard({
   );
 }
 
+/** TG 渠道卡(10-08-tg-channel-card,主人令「渠道单独一个卡片,点击进去才是
+ *  详情」):流内按渠道聚合的摘要卡,聊天列表形态 —— 频道名 + 最新一条预览 +
+ *  条数/未读 + 最新相对时间;未读 >0 带左缘 accent 竖条(与消息卡未读竖条
+ *  同语言)。点击进该渠道 source 作用域消息流(详情本体,气泡逐条)。 */
+function TgChannelCard({
+  card,
+  onOpen,
+}: {
+  card: TelegramChannelCardData;
+  onOpen: () => void;
+}) {
+  const time = formatRelativeTime(card.latest.first_seen);
+  const preview = (card.latest.title || card.latest.url).replace(/\s+/g, " ").trim();
+  return (
+    <button
+      type="button"
+      data-testid={`feed-tg-channel-card-${card.key}`}
+      onClick={onOpen}
+      className="group/tg-card relative w-full overflow-hidden rounded-md border border-border bg-card px-3 py-2.5 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:border-primary/40 hover:bg-accent/40"
+      title={`打开 ${card.label} 的消息流:${card.count} 条 · 未读 ${card.unread}(口径 = 当前视图 ∪ 当日窗可见条目)`}
+    >
+      {card.unread > 0 ? (
+        <span aria-hidden data-testid={`feed-tg-channel-unread-${card.key}`} className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-primary" />
+      ) : null}
+      <span className="flex items-center gap-1.5">
+        <Send aria-hidden className="size-3.5 shrink-0 text-primary" />
+        <span className="min-w-0 truncate text-sm font-medium text-foreground">{card.label}</span>
+        <time
+          dateTime={card.latest.first_seen ?? undefined}
+          className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground"
+        >
+          {time}
+        </time>
+      </span>
+      <span className="mt-0.5 block truncate text-sm leading-relaxed text-muted-foreground">{preview}</span>
+      <span className="mt-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
+        {card.count} 条{card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
+        <ChevronRight
+          aria-hidden
+          className="ml-auto size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-(--duration-fast) ease-out-expo group-hover/tg-card:translate-x-0.5"
+        />
+      </span>
+    </button>
+  );
+}
+
 /**
  * 情报流:条目卡片列表 + 未读/星标/稍后读三态(本地态,localStorage 持久)
  * + 游标分页加载(见 ./api 的协议缺口注记)+ 服务端搜索(G1,防抖/Enter
@@ -1047,6 +1091,18 @@ function FeedCard({
  *  已加载行与游标零扰动);每日 03:00 清零 = 视图层当日窗(03:00 → 次日
  *  03:00,窗口锚写死),滚动流(未读/全部)过窗离场、视图从零累计,
  *  store 数据不动(retention 照旧),星标/稍后读与 later 到期重现跨窗可见。
+ *
+ * tg-channel-card(10-08,主人令「TG 渠道要单独做界面……要单独一个卡片,
+ *  点击进去才是详情」+ 拍板「情报流这个界面上面都放置这种卡片渠道」/「只
+ *  TG」):多渠道作用域流(全部条目/品类流)中 telegram 条目按渠道聚合为
+ *  置顶渠道卡区(TgChannelCard:频道名 + 最新一条预览 + 条数/未读 + 未读
+ *  accent 竖条;计数口径 = 当前过滤视图 ∪ 当日窗可见条目,title 注记),
+ *  TG 消息卡不再逐条进流(时间分组/平铺吃 streamItems,组头计数如实);
+ *  点卡进该渠道 source 作用域消息流(详情本体零变化),面包屑增「全部条目」
+ *  中间层一键回流(category=null 时原 backToL2 只能落 L1,动线断裂);
+ *  j/k 巡游与 U 键吃 streamItems(不落未渲染卡);全 TG 流不误现空态
+ *  (空态门仍按 visible,渠道卡区在 ternary 之前独立呈现)。聚合纯函数
+ *  telegramChannelCards / 展示词 channelDisplayName 收编 api.ts。
  */
 export function FeedScreen() {
   const navigate = useNavigate();
@@ -1541,11 +1597,30 @@ export function FeedScreen() {
     [display.unreadFirst, visible, states],
   );
 
+  /** TG 渠道卡派生(10-08-tg-channel-card):仅多渠道作用域(全部条目/品类
+   *  流,source===null)聚合 —— 渠道详情(source 作用域)本身就是逐条消息
+   *  流,不聚合。消息列表本体 = 可见条目剔除 telegram(渠道卡区承载),
+   *  其余类型卡照旧;计数/预览随过滤视图与实时刷新派生,零新订阅。 */
+  const streamScopeMulti = drill.level === 3 && drill.source === null;
+  const tgCards = useMemo<TelegramChannelCardData[]>(
+    () => (streamScopeMulti ? telegramChannelCards(displayItems, states) : []),
+    [streamScopeMulti, displayItems, states],
+  );
+  const streamItems = useMemo(
+    () =>
+      streamScopeMulti
+        ? displayItems.filter((item) => channelKindOf(item, engineBySource) !== "telegram")
+        : displayItems,
+    [streamScopeMulti, displayItems, engineBySource],
+  );
+
   /** 分组(L3 显示选项):时间四桶(D4 缺省)/ 不分组(平铺)。三级下钻
    *  (10-06-feed-channel-groups)后品类维度 = L1/L2 层级本体,L3 组内不再
    *  出品类分组;历史本地存储的 groupMode="category" 就地映射回时间四桶
    *  (loadFeedDisplay 兼容旧值,不丢用户其余选项)。
-   *  category 字段恒 null(时间桶无品类组头;品类批量入口移驻 L2 头部)。 */
+   *  category 字段恒 null(时间桶无品类组头;品类批量入口移驻 L2 头部)。
+   *  10-08-tg-channel-card:分组/平铺吃 streamItems(TG 条目已折叠进渠道
+   *  卡区,组头计数如实反映列表本体)。 */
   const groups = useMemo<
     {
       key: string;
@@ -1556,14 +1631,14 @@ export function FeedScreen() {
     }[] | null
   >(() => {
     if (display.groupMode === "none") return null;
-    return groupFeedItems(displayItems).map((group) => ({
+    return groupFeedItems(streamItems).map((group) => ({
       key: group.key,
       label: group.label,
       items: group.items,
       color: null,
       category: null,
     }));
-  }, [display.groupMode, displayItems]);
+  }, [display.groupMode, streamItems]);
 
   /** 键盘「当前卡」(U/j/k 快捷键作用目标;hover/focus 进入卡时置位) */
   const [currentKey, setCurrentKey] = useState<string | null>(null);
@@ -1610,8 +1685,10 @@ export function FeedScreen() {
         return;
       }
       // j/k:展示序上/下移;边界钳制不回绕(首卡 k / 末卡 j 原地不动),
-      // 未选中时 j 落首卡、k 落末卡(当前卡被过滤离场同此路径)
-      const keys = displayItems.map(itemKey);
+      // 未选中时 j 落首卡、k 落末卡(当前卡被过滤离场同此路径)。
+      // 10-08-tg-channel-card:吃 streamItems(TG 条目已折叠进渠道卡区,
+      // 巡游不落到未渲染的卡);渠道卡本体不参与巡游(点击直达详情)。
+      const keys = streamItems.map(itemKey);
       if (keys.length === 0) return;
       const index = currentKey === null ? -1 : keys.indexOf(currentKey);
       const next =
@@ -1628,7 +1705,7 @@ export function FeedScreen() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [drill.level, currentKey, items, toggle, displayItems]);
+  }, [drill.level, currentKey, items, toggle, streamItems]);
 
   // R2:全库批量确认态在屏期间 Esc 全局收口(焦点在确认钮簇内/外都退出确认);
   //  输入框/可编辑目标内按 Esc 归其自身语义(如搜索框 R1 即时清空),不抢确认
@@ -1922,6 +1999,23 @@ export function FeedScreen() {
     setDrill((current) => (current.level === 2 ? { level: 3, category: current.category, source } : current));
     setCurrentKey(null);
   }, []);
+  /** 渠道卡点击(10-08-tg-channel-card):流内(全部条目/品类流)进该渠道
+   *  消息流(详情),保留当前品类作用域(全部条目流 category=null,详情
+   *  面包屑由「全部条目」中间层回流)。 */
+  const openChannelFromStream = useCallback((source: string) => {
+    setDrill((current) =>
+      current.level === 3 && current.source === null
+        ? { level: 3, category: current.category, source }
+        : current,
+    );
+    setCurrentKey(null);
+    setNavByKeyboard(false);
+  }, []);
+  /** 渠道详情 → 回所在流(全部条目;10-08 面包屑中间层同门) */
+  const backToStreamAll = useCallback(() => {
+    setDrill({ level: 3, category: null, source: null });
+    setCurrentKey(null);
+  }, []);
   const backToL1 = useCallback(() => setDrill({ level: 1 }), []);
   const backToL2 = useCallback(() => {
     setDrill((current) => (current.level === 3 && current.category !== null ? { level: 2, category: current.category } : { level: 1 }));
@@ -1958,6 +2052,21 @@ export function FeedScreen() {
             onClick={drill.level === 3 ? backToL2 : backToL1}
           >
             {categoryLabelOf(drill.category)}
+          </button>
+        </>
+      ) : null}
+      {/* 全部条目中间层(10-08-tg-channel-card):渠道卡从全部条目流点进,
+          回流一键返流(原 backToL2 对 category=null 只能落 L1,动线断裂) */}
+      {drill.level === 3 && drill.category === null && drill.source !== null ? (
+        <>
+          <ChevronRight aria-hidden className="size-3" />
+          <button
+            type="button"
+            className="rounded-sm px-1 py-0.5 hover:text-foreground"
+            data-testid="feed-crumb-all-stream"
+            onClick={backToStreamAll}
+          >
+            全部条目
           </button>
         </>
       ) : null}
@@ -2590,30 +2699,48 @@ export function FeedScreen() {
                 </Card>
               )
             ) : (
-              /* 时间分组头(D4):sticky 组头 + 组内卡片(渠道分型呈现) */
-              groups !== null ? (
-                <div className="flex flex-col gap-4">
-                  {groups.map((group) => (
-                    <section key={group.key} aria-label={`时间分组:${group.label}`}>
-                      <div
-                        data-testid={`feed-group-${group.label}`}
-                        className="sticky top-0 z-10 -mx-6 flex items-center gap-2 bg-background/95 px-6 py-2.5 backdrop-blur-sm"
-                      >
-                        <span className="text-2xs font-medium text-muted-foreground">{group.label}</span>
-                        <span className="text-2xs text-muted-foreground">{group.items.length} 条</span>
-                        <span aria-hidden className="h-px flex-1 bg-border/70" />
-                      </div>
-                      {/* 组内行距 6px(Kestra 列表密度档) */}
-                      <div className="flex flex-col gap-1.5">{group.items.map(renderCard)}</div>
-                    </section>
-                  ))}
-                </div>
-              ) : (
-                // 不分组:平铺(行距同组内 6px 密度档)
-                <div className="flex flex-col gap-1.5" data-testid="feed-flat-list">
-                  {displayItems.map(renderCard)}
-                </div>
-              )
+              <>
+                {/* TG 渠道卡区(10-08-tg-channel-card,主人令「上面都放置
+                    这种卡片渠道」):可见集含 TG 条目时置顶呈现,每渠道一卡;
+                    消息列表本体不再逐条铺 TG 卡。 */}
+                {tgCards.length > 0 ? (
+                  <section aria-label="TG 频道" data-testid="feed-tg-channels" className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2 py-0.5">
+                      <span className="text-2xs font-medium text-muted-foreground">TG 频道</span>
+                      <span className="text-2xs text-muted-foreground">{tgCards.length} 个</span>
+                      <span aria-hidden className="h-px flex-1 bg-border/70" />
+                    </div>
+                    {tgCards.map((card) => (
+                      <TgChannelCard key={card.key} card={card} onOpen={() => openChannelFromStream(card.key)} />
+                    ))}
+                  </section>
+                ) : null}
+                {/* 时间分组头(D4):sticky 组头 + 组内卡片(渠道分型呈现);
+                    10-08 起 TG 条目折叠进渠道卡区,分组吃 streamItems */}
+                {groups !== null ? (
+                  <div className="flex flex-col gap-4">
+                    {groups.map((group) => (
+                      <section key={group.key} aria-label={`时间分组:${group.label}`}>
+                        <div
+                          data-testid={`feed-group-${group.label}`}
+                          className="sticky top-0 z-10 -mx-6 flex items-center gap-2 bg-background/95 px-6 py-2.5 backdrop-blur-sm"
+                        >
+                          <span className="text-2xs font-medium text-muted-foreground">{group.label}</span>
+                          <span className="text-2xs text-muted-foreground">{group.items.length} 条</span>
+                          <span aria-hidden className="h-px flex-1 bg-border/70" />
+                        </div>
+                        {/* 组内行距 6px(Kestra 列表密度档) */}
+                        <div className="flex flex-col gap-1.5">{group.items.map(renderCard)}</div>
+                      </section>
+                    ))}
+                  </div>
+                ) : (
+                  // 不分组:平铺(行距同组内 6px 密度档)
+                  <div className="flex flex-col gap-1.5" data-testid="feed-flat-list">
+                    {streamItems.map(renderCard)}
+                  </div>
+                )}
+              </>
             )}
 
             {hasMore && !loading ? (
