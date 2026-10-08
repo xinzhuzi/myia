@@ -39,7 +39,7 @@
 - [x] AC7 监控台上到**品类渠道页顶部**(用户实际点击落点):未登录=扫码登录钮(browser.open 单入口);已登录=●监控中+账号+管理跳转;【看全部历史消息】直达历史态。(v2.1 修:状态快照 effect deps 补 isTelegramCategory——L1→L2 钻入时快照从不拉取,监控台永不出现的真 bug)
 - [x] AC8 历史态:绕过当日窗看该品类全部入库条目,知会词「含历史 · 不限当日窗」;TG 品类空态改「监控在线,窗内暂无新消息」,不再甩「先跑一轮采集」死胡同。
 - [x] AC9 测试修复:当日窗 03:00 翻面暴露的时间炸弹(硬编码日期夹具出窗致一批墙层用例齐红)全部改相对刻度+窗锚地板钳制(纯 now-N 小时在 03:00-05:00 跑仍出窗,实测教训);监控台/折叠用例齐;L1 词汇源用例 waitFor 放宽 3s(整文件连跑负载偶发超时 2/9);feed-screen 全文件 143 绿(×4 连跑),盖戳 pytest 3 例绿,tsc -b 零错;全量门禁由工作流脚本统一复核。
-- [ ] AC10 打包覆盖安装 + 换装双实锤 + app 还原常驻;入库 pathspec 提交。(后续批次:打包/装机在本整合批次范围外)
+- [x] AC10 打包覆盖安装 + 换装双实锤 + app 还原常驻;入库 pathspec 提交。(后续批次:打包/装机在本整合批次范围外)
 
 ### 在途交接(工作流起点)
 
@@ -61,3 +61,10 @@
 - [x] `test_bundled_plugins_install.py`:守卫常量 `BUNDLED_CATEGORY_IDS` 实为文件名 stem 清单(件数口径 14),旧世界 stem==id 恰好重合,归一后 id 集 = 12(telegram 三件同 id)——改名 `BUNDLED_CATEGORY_STEMS` 如实,新增 `BUNDLED_CATEGORY_ID_SET` 归一映射断言;补 AC6 实锚(恰三条 id='telegram' 且 file 各异,散装回归即红);归一三件合法携带恰一条 `id_mismatch` warning(stem≠id 如实透出,双路定位兜底;UI 源管理面据此披露「文件名区分、id 归一」),其余件仍零 finding。
 - [x] `test_telegram_engine.py::test_category_plugin_yaml_loads` / `test_tg_web_engine.py::test_sample_plugin_yaml_ships_valid_tg_web_source`:种子示范件守卫的 id 断言随归一改 `'telegram'`(源名/engine/锚独立等其余断言不动)。
 - [x] 全量 pytest 复跑:`5056 passed, 40 skipped`(修复前同刻度 = 2 failed,含原报 bundled 红)。产品代码零改动——`plugins.bundled.list` 的 id 随 config.id 实读本就是 AC6 想要的行为;`category_install` 按 id 兜底装排序首件在三件同 id 下有轻微不精确(手动删单件重装场景),正常装机走 `_seed_first_run` 按文件名补缺不受影响,如实注记不动。
+
+## v3 终局注记(2026-10-09 凌晨,工作流 dwfrun-8bdf6a95 全绿交付,1h10m/5 阶段/24 步)
+
+- 提交 6060922(12 files,+516/−81,打包安装员 pathspec 提交,树净已复核):三 yaml 归一 id=telegram + name=Telegram 监控(.bak-20261009 各留)、AC11 内置浏览器预览(feed-screen tgPreviewUrl 推导 + telegramMirrorUrlOf 纯函数 + WebviewWindow 开窗;capabilities 仅 allow-create-webview-window 单权限,预览窗 URL 固定 t.me/s、零 IPC ACL——安全注记在 capabilities description)、历史态第二跳修复。
+- 门禁:build/feed vitest/pytest desktop 全绿;深度轮 pytest(store+desktop) 首跑 1 红 → 整合师当轮修复 → 复测全绿;full vitest 全绿;无头冒烟绿。
+- 主人自判三条全部过:①首页只见一个「Telegram 监控」;②点进落点 = 监控台(扫码/监控中/历史直达),死胡同空态已换「监控在线,窗内暂无新消息」;③内置浏览器预览钮在台上有单测覆盖,点亮 app 即见真窗(t.me/s 公开镜像;私有频道按钮如实置灰)。
+- 装机换装双实锤:新 chunk index-BoCoYM0_(旧件零命中)+ 装机 sidecar source_categories=3;WKWebView 缓存清;app 常驻 PID 82636。
