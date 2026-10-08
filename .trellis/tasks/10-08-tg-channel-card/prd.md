@@ -31,3 +31,26 @@
 - 不动后端(store.items 的 category/source 独立可选已支持,entry.py:1680-1689 已核)。
 - 不动 L1/L2 层级(品类行/渠道行照旧);渠道详情(source 作用域 L3)呈现零变化。
 - 非 telegram 渠道类型五档呈现零变化。
+
+## v2 追加(2026-10-08 晚,主人二令「网页集中在一起,其他通讯软件一个通讯软件一个卡片,点击进入第二层才是详情展示」)
+
+grill 两决议:①第一层 = 卡片墙——「网页」一张(新闻/监控/优惠/日报等一切非通讯软件源)+「Telegram」一张(全部频道聚合),今后新接通讯软件各一张;不再出散条目卡。②「Telegram」卡第二层 = 按频道分节全量铺开(频道卡降为小节头,仍可点进单频道过滤);不点同屏看完全部消息。「网页」卡第二层 = 网页条目平铺,现有分型呈现(新闻标题/优惠价格行/监控 diff/日报文档)照旧。
+
+### v2 验收标准
+
+- [x] AC7 第一层(多渠道作用域流,过能力门 protocol ≥ 12):只有「网页」+「Telegram」两卡(各按最新排序/最新一条预览/条数·未读/未读竖条),散条目卡与 TG 频道卡区不再出现;计数口径同 v2 前注记。
+- [x] AC8 「网页」卡进第二层:网页条目平铺(分型呈现/时间分组/工具条照旧);「Telegram」卡进第二层:按频道分节全铺,小节头可点进单频道(即既有 source 作用域视图);面包屑均可回流。
+- [x] AC9 后端 `store.items` / `store.state.mark_all` / `feed.export` 增可选 `source_kind`(web/im),三处同门过滤(im = 源名 telegram/tg 前缀,web = 其余含无源);协议 bump 12,UI 能力门分流:未过门 = v1 行为原样(频道卡区+消息列表),零破坏。
+- [x] AC10 工具条语义诚实:卡片墙上批量=全库/品类语义照旧、导出照旧;第二层(web/im 作用域)批量与导出走 source_kind 参数(作用域=所见大类),单频道视图照旧隐藏(无 source 参数)。
+- [x] AC11 门禁:vitest 全量 + pytest store/entry 定向 + tsc + build 全绿;无头冒烟更新为卡片墙断言。
+
+### v2 边界
+
+- 未过能力门(旧 sidecar)保持 v1 形态(=今日已交付件),双形态共存一门之隔。
+- L1/L2 层级、单频道视图、本地读态通路零变化。
+
+## v2 终局注记(2026-10-08 晚)
+
+- 提交 69180c3(v2 代码);门禁 pytest 5053 passed(含 pyenv e2e——顺修其漏网的第三处 protocol 断言)+ vitest 627 + tsc + vite build 全绿;无头冒烟 v2 动线 21 断言全过(卡片墙/双详情/层层回流),截图 evidence/。
+- 装机换装双实锤:新 chunk `index-BV0lMAke` + 装机件 Resources/myssia-src 携 v2 sidecar 源(source_kind);WKWebView 缓存清;app 已还原常驻(open -g)。装机像素终验同 v1 注记:后台 WKWebView 不合成,主人下次点亮即见卡片墙。
+- 实施中抓出并修掉的三处自伤:v1 频道卡 keys 数组被 v2 重写时丢了 `.map(itemKey)`(j/k 巡游全挂)、卡片键 `telegram` 未映射 kind `im`、refresh/loadMore 漏传 sourceKind——均被新增用例钉死回归。

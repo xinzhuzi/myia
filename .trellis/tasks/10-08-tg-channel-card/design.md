@@ -49,3 +49,44 @@ export function telegramChannelCards(items: FeedItem[], states: FeedStateMap): T
 ## 4. 回滚
 
 单 commit;回滚 = revert 该 commit(无数据迁移、无协议变化、无本地存储键变化)。
+
+---
+
+# Design v2:源大类卡片墙(网页一张 + 每通讯软件一张)
+
+## 0. 能力门(双形态共存)
+
+- sidecar `PROTOCOL_VERSION` 11 → **12**;UI 新门 `SOURCE_KIND_PROTOCOL = 12`(api.ts,read-state-server 同款模式)。
+- `sourceKindReady = protocol ≥ 12`:过门走卡片墙 + source_kind 查询;未过门 = **v1 形态原样**(TG 频道卡区 + 消息列表,今日已交付件),既有测试(缺省 protocol=9)全部走旧路径零扰动。
+
+## 1. 后端(三方法同一 WHERE 门)
+
+- `SQLiteStore.list_items` 增 `source_kind: str | None`:`"im"` = `source LIKE 'telegram-%' OR source LIKE 'tg-%'`(LIKE ASCII 不区分大小写,与 UI 前缀正则近似等价,源名为系统生成小写,差异面为零,注释如实);`"web"` = `NOT(im) OR source IS NULL`;非法值 ValueError。
+- `store.state.mark_all`、`feed.export` 同参同门(export 走 list_items 复用)。
+- `entry.py`:`_m_store_items`/`_m_store_state_mark_all`/`_m_feed_export` 参数校验(∈ {web, im} | None)。
+
+## 2. 前端(api.ts)
+
+- `SOURCE_KIND_PROTOCOL = 12`;`StoreItemsParams/StoreStateMarkAllParams/FeedExportParams` 增 `source_kind?`。
+- `imAppOf(source): "telegram" | null`(前缀判定,与 channelKindOf 同一词表;今后新 IM 在此扩)。
+- `streamKindCards(items, states): StreamKindCard[]` 纯函数:web 一卡(key "web",label 网页,Globe 图标位)+ 每 IM 应用一卡(key "telegram",label Telegram);各带 count/unread/latest;按 latest 新→旧排序,缺失沉底。
+
+## 3. 前端(feed-screen.tsx)
+
+- drill L3 增 `kind: "web" | "im" | null`(仅过门时有意义):null=卡片墙;web=网页详情;im+source=null=TG 分节详情;im+source=单频道(既有)。
+- 查询作用域:`streamScope.sourceKind = kind`,fetch/storeStateMarkAll/export 随参(kind 作用域才传)。
+- 卡片墙(kind=null 且过门):`streamKindCards` 渲染 `SourceKindCard`(Globe/Send 图标+label+最新预览+条数·未读+未读竖条+chevron,点击 `openKind(kind)`);**无消息列表**;批量(全库/品类语义)与导出照旧(语义与今日 L3-all 相同);空态门 = 无卡。
+- 网页详情(kind=web):fetch source_kind=web,渲染 = 现有消息管线(renderCard + 时间分组,j/k/U 照旧);批量/导出带 source_kind=web。
+- TG 分节详情(kind=im, source=null):fetch source_kind=im → `groupFeedItemsByChannel` 分节;节头 = TgChannelCard(点击 → openChannel 进单频道);节内消息气泡平铺;j/U 覆盖全部节内消息;批量/导出带 source_kind=im。
+- 面包屑:`全部条目 / 品类 > 网页|Telegram`(> 单频道);回流语义沿 v1(backToStreamAll / backToL2)。
+- streamTitle/sr-only 随作用域:「… · 卡片墙」/「网页」/「Telegram」/频道名。
+
+## 4. 测试
+
+- pytest:store list_items source_kind 三态(im/web/None)+ mark_all 同门 + entry 参数校验;协议 12 断言。
+- vitest:既有用例(缺省 protocol 9)= v1 路径零改;新 describe(protocol 12):卡片墙两卡断言 / 网页详情平铺 / TG 分节详情+小节头点击 / 面包屑回流 / 未过门回落 v1;纯函数 streamKindCards 直测。
+- 无头冒烟 feed-card-smoke.py:version protocol 改 12,断言改卡片墙 + 双详情动线。
+
+## 5. 回滚
+
+v1/v2 同一 feature 线,v2 单独 commit;revert 即回 v1 形态(能力门缺省关)。
