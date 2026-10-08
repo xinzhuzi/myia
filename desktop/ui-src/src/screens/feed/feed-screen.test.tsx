@@ -3217,8 +3217,8 @@ describe("FeedScreen · 聊天主页风格形态锚(10-09 v4)", () => {
     const footer = within(card).getByText("刚刚").closest("div");
     expect(footer?.className).toContain("justify-end");
     // 内联展开钮在泡底行:点击翻转为「收起条目」(与详情弹窗并存)
-    fireEvent.click(within(footer).getByRole("button", { name: "展开条目" }));
-    expect(within(footer).getByRole("button", { name: "收起条目" })).toBeTruthy();
+    fireEvent.click(within(footer as HTMLElement).getByRole("button", { name: "展开条目" }));
+    expect(within(footer as HTMLElement).getByRole("button", { name: "收起条目" })).toBeTruthy();
   });
 
   it("日期胶囊:TG 单频道流分组头走居中胶囊(rounded-full+mx-auto),非 TG 保持 sticky 组头", async () => {
