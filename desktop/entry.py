@@ -6376,6 +6376,27 @@ def _handle_line(line: str) -> None:
 #: 同门单文件;多 bot/多品类拆档各起宿主走 CLI serve,不在此扩)。
 _TELEGRAM_CATEGORY_FILENAME = "telegram-groups.yaml"
 
+
+def _telegram_source_categories(*configs: Any) -> dict[str, str]:
+    """源名 → 品类 id 映射(telegram 三线落库盖戳用,10-09-tg-category-entry).
+
+    此前 telegram 三线(bot 长轮询/telethon/网页线)落库都不带 category ——
+    条目在情报流 L1 品类层隐身,只混进「全部条目」总数(TG 群监控装了像没
+    装)。本映射按品类文件的 sources 词表把条目归行:主品类 telegram-groups
+    与专用件 telegram-web 各归各行;同名源先到先得(与装配侧「同一群只跑
+    一线」判例同门);未登记源 = 不入映射,落库 None 不猜。
+    """
+    mapping: dict[str, str] = {}
+    for config in configs:
+        if config is None:
+            continue
+        config_id = str(getattr(config, "id", "") or "")
+        for source in getattr(config, "sources", []) or []:
+            name = str(getattr(source, "name", "") or "")
+            if name and config_id and name not in mapping:
+                mapping[name] = config_id
+    return mapping
+
 _TELEGRAM_HOST_LOCK = threading.Lock()
 #: 宿主线程句柄(asyncio.run + daemon;测试夹具拆线防线程泄漏,cron 同款)。
 _TELEGRAM_THREAD: threading.Thread | None = None
@@ -6527,7 +6548,10 @@ def _assemble_telegram_host(
 
     def _store_item(item: dict) -> bool:
         # CLI ``_cmd_telegram_serve`` 同款:dedup key={url} 锚幂等,metadata
-        # 收余键,seen 双写(store + registry)。
+        # 收余键,seen 双写(store + registry)。category = 源名→品类映射盖戳
+        # (10-09-tg-category-entry:三线共用本 sink;主品类 telegram-groups
+        # 与专用件 telegram-web 各归各行,未登记源 = None 不猜)。映射变量
+        # 在装配段稍后赋值,闭包晚绑定,宿主首条入库前必已就位。
         key = str(item.get("url") or "")
         if not key or registry.is_seen(key):
             return False
@@ -6543,6 +6567,7 @@ def _assemble_telegram_host(
                 title=str(item.get("title") or ""),
                 source=item.get("source"),
                 content=item.get("content"),
+                category=source_categories.get(str(item.get("source") or "")),
                 raw=metadata,
             )
         )
@@ -6615,6 +6640,7 @@ def _assemble_telegram_host(
 
     web_sources = [s for s in config.sources if s.engine == "tg_web"]
     web_category_path = Path(ctx.plugins_dir) / "telegram-web.yaml"
+    web_config = None  # 专用件缺位 = 无 C 线正户(映射只有主品类侧;先绑定防 UnboundLocal)
     if web_category_path.exists():
         try:
             web_config = load_category_file(web_category_path)
@@ -6644,6 +6670,9 @@ def _assemble_telegram_host(
                 else:
                     web_sources.append(source)
                     group_names.add(source.name)
+    # 源→品类映射(落库盖戳用;主品类在前 = 同名源主品类侧优先,与上方
+    # 「同一群只跑一线」去重同序)。
+    source_categories = _telegram_source_categories(config, web_config)
     web_manager, web_note = assemble_web_manager(
         web_sources,
         telegram_dir=telegram_dir,

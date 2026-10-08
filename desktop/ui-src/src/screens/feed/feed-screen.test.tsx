@@ -639,10 +639,14 @@ describe("FeedScreen", () => {
     storeItemsMock.mockResolvedValue(result([fixtureItem({ category: "tech" })]));
     const first = renderScreen();
 
-    // 缺省 health(单插件 ai-news)+ 已加载条目品类 tech:L1 两行(选项序在前)
+    // 缺省 health(单插件 ai-news)+ 已加载条目品类 tech:tech 有货直出;
+    // ai-news 零计数折叠进「今日未更新」(10-09-tg-category-entry),点开可见
     const rowIds = () =>
       screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"));
-    await waitFor(() => expect(rowIds()).toEqual(["feed-drill-cat-ai-news", "feed-drill-cat-tech"]));
+    await waitFor(() => expect(rowIds()).toEqual(["feed-drill-cat-tech"]));
+    expect(screen.getByTestId("feed-l1-idle-toggle").textContent).toContain("今日未更新 · 1 个品类");
+    fireEvent.click(screen.getByTestId("feed-l1-idle-toggle"));
+    await waitFor(() => expect(rowIds()).toEqual(["feed-drill-cat-tech", "feed-drill-cat-ai-news"]));
     expect(screen.getByTestId("feed-drill-cat-ai-news").textContent).toContain("AI资讯"); // 名称回显
     first.unmount();
 
@@ -658,11 +662,20 @@ describe("FeedScreen", () => {
       }),
     );
     const second = renderScreen();
+    // 折叠口径:tech 有货直出;ai-news/stocks 零计数折叠(同 id 去重/null id
+    // 不入同门),点开后按选项序出现在闲置区
+    await waitFor(() =>
+      expect(screen.getByTestId("feed-l1-idle-toggle").textContent).toContain("今日未更新 · 2 个品类"),
+    );
+    expect(screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"))).toEqual([
+      "feed-drill-cat-tech",
+    ]);
+    fireEvent.click(screen.getByTestId("feed-l1-idle-toggle"));
     await waitFor(() =>
       expect(screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"))).toEqual([
+        "feed-drill-cat-tech",
         "feed-drill-cat-ai-news",
         "feed-drill-cat-stocks",
-        "feed-drill-cat-tech",
       ]),
     );
     expect(screen.getByTestId("feed-drill-cat-stocks").textContent).toContain("stocks"); // name 缺省回 id
@@ -2876,6 +2889,112 @@ describe("FeedScreen · tg-channel-card v2(源大类卡片墙,protocol ≥ 12)",
     expect(await screen.findByTestId("feed-tg-channels")).toBeTruthy();
     expect(await screen.findByTestId("feed-item-3")).toBeTruthy(); // 网页卡照旧在列
     expect(screen.queryByTestId("feed-kind-wall")).toBeNull();
+  });
+});
+
+describe("FeedScreen · tg-category-entry(品类折叠 + 网页线状态条,10-09)", () => {
+  it("L1 零计数品类折叠:有货行在前,「今日未更新 · N 个品类」缺省收起,点开才见", async () => {
+    healthMock.mockResolvedValue(
+      healthResult({
+        plugins: [
+          pluginEntry({ id: "ai-news", name: "AI资讯" }),
+          pluginEntry({ id: "idle-cat", name: "闲置品类" }),
+        ],
+      }),
+    );
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(
+          [fixtureItem({ category: "ai-news", source: "a" }), fixtureItem({ category: "ai-news", source: "b" })].filter(
+            (item) => !params?.category || item.category === params.category,
+          ),
+        ),
+      ),
+    );
+    renderScreen();
+    // 有货行直出;闲置行折叠
+    const activeRow = await screen.findByTestId("feed-drill-cat-ai-news");
+    expect(activeRow.textContent).toContain("今日 2 条");
+    const toggle = screen.getByTestId("feed-l1-idle-toggle");
+    expect(toggle.textContent).toContain("今日未更新 · 1 个品类");
+    expect(screen.queryByTestId("feed-drill-cat-idle-cat")).toBeNull();
+    fireEvent.click(toggle);
+    const idleRow = screen.getByTestId("feed-drill-cat-idle-cat");
+    expect(idleRow.textContent).toContain("今日 0 条");
+    fireEvent.click(screen.getByTestId("feed-l1-idle-toggle"));
+    expect(screen.queryByTestId("feed-drill-cat-idle-cat")).toBeNull();
+  });
+
+  it("Telegram 分节详情网页线状态条:已登录=监控中;未登录=扫码登录(浏览器单入口)", async () => {
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(
+          [
+            fixtureItem({ source: "telegram-mihomo_party_group", title: "消息甲", category: "telegram-groups" }),
+            fixtureItem({ source: "openai-news", title: "新闻乙", category: "tech" }),
+          ].filter((item) => {
+            if (params?.category && item.category !== params.category) return false;
+            if (params?.source && item.source !== params.source) return false;
+            if (params?.source_kind) {
+              const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
+              if (params.source_kind === "im" && !im) return false;
+              if (params.source_kind === "web" && im) return false;
+            }
+            return true;
+          }),
+        ),
+      ),
+    );
+    const statusFactory = (loggedIn: boolean, inProgress = false) => ({
+      bot: { configured: false, error: null },
+      session: { exists: false },
+      web: {
+        accounts: [
+          { account: "telegram-alt1", logged_in: loggedIn, logged_in_at: loggedIn ? "2026-10-09T01:00:00" : null, login_in_progress: inProgress, login_note: null },
+        ],
+      },
+    });
+    let status = statusFactory(true);
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string; params?: Record<string, unknown> }) => {
+      const method = args?.method;
+      if (method === "telegram.status") return status;
+      if (method === "browser.open") {
+        status = statusFactory(false, true); // 拉起登录窗后:登录中
+        return { started: true, op_id: String(args?.params?.session_key ?? ""), kind: args?.params?.kind };
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `测试未 mock 方法:${method}` });
+    });
+    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
+    renderScreen();
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    fireEvent.click(await screen.findByTestId("feed-kind-card-im"));
+    await screen.findByTestId("feed-im-sections");
+    // 已登录:监控中 + 管理跳转,无登录钮
+    const strip = await screen.findByTestId("feed-tg-webline-strip");
+    expect(within(strip).getByTestId("feed-tg-webline-live").textContent).toContain("监控中 · telegram-alt1");
+    expect(screen.queryByTestId("feed-tg-webline-login")).toBeNull();
+
+    // 未登录:扫码登录钮 → 点击走 browser.open(单入口)→ 登录中态
+    cleanup();
+    status = statusFactory(false);
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string; params?: Record<string, unknown> }) => {
+      const method = args?.method;
+      if (method === "telegram.status") return status;
+      if (method === "browser.open") {
+        status = statusFactory(false, true);
+        return { started: true, op_id: String(args?.params?.session_key ?? ""), kind: args?.params?.kind };
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `测试未 mock 方法:${method}` });
+    });
+    renderScreen();
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    fireEvent.click(await screen.findByTestId("feed-kind-card-im"));
+    const login = await screen.findByTestId("feed-tg-webline-login");
+    expect(login.textContent).toContain("扫码登录(telegram-alt1)");
+    fireEvent.click(login);
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("sidecar_request", { method: "browser.open", params: { kind: "tg_web_login", session_key: "telegram-alt1", force: false } }));
+    const loginBtn = await screen.findByTestId("feed-tg-webline-login");
+    await waitFor(() => expect(loginBtn.textContent).toContain("登录中…"));
   });
 });
 

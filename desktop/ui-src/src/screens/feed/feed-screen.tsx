@@ -114,6 +114,8 @@ import {
   type YamlTargetFile,
 } from "./api";
 import type { FeedFilter, FeedStateMap } from "./api";
+import { telegramGetStatus, telegramWebLogin, type TelegramStatus } from "@/screens/settings/telegram-api";
+
 import { FeedCardFeedback } from "./feed-card-feedback";
 import { MarkdownLite } from "./markdown-lite";
 
@@ -1566,6 +1568,10 @@ export function FeedScreen() {
    *  才执行;Esc / 失焦 / 「取消」退出)。品类组头钮豁免(作用域小一级,
    *  即时执行 + title 如实)。 */
   const [confirmAllMark, setConfirmAllMark] = useState<"read" | "unread" | null>(null);
+  /** L1 闲置品类折叠(10-09-tg-category-entry,主人令零计数行降噪):缺省收起 */
+  const [idleOpen, setIdleOpen] = useState(false);
+  const [tgWebline, setTgWebline] = useState<TelegramStatus | null>(null);
+  const [tgLoginBusy, setTgLoginBusy] = useState(false);
 
   /** G9 能力门:null = 探测中(按未过门处理,走旧通路);true = sidecar
    *  protocol ≥ READ_STATE_PROTOCOL → 服务端读态通路。直调 api.version,
@@ -2075,6 +2081,23 @@ export function FeedScreen() {
     () => (imDetailLayout ? telegramChannelCards(displayItems, states) : []),
     [imDetailLayout, displayItems, states],
   );
+  /** TG 网页线快照(10-09-tg-category-entry:进 Telegram 分节详情拉一次;
+   *  失败静默 = 不出状态条,不拦浏览)。放在派生之后(imDetailLayout 在
+   *  上方派生链产出,提前引用会踩 TDZ)。 */
+  useEffect(() => {
+    if (!imDetailLayout) return;
+    let cancelled = false;
+    void telegramGetStatus()
+      .then((status) => {
+        if (!cancelled) setTgWebline(sanitizeTelegramStatus(status));
+      })
+      .catch(() => {
+        if (!cancelled) setTgWebline(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [imDetailLayout]);
 
   /** 分组(L3 显示选项):时间四桶(D4 缺省)/ 不分组(平铺)。三级下钻
    *  (10-06-feed-channel-groups)后品类维度 = L1/L2 层级本体,L3 组内不再
@@ -2457,6 +2480,27 @@ export function FeedScreen() {
     );
     setCurrentKey(null);
   }, []);
+  /** 异形应答不进状态条(旧 sidecar/测试桩可能缺 web 段;null = 条不出) */
+  const sanitizeTelegramStatus = useCallback((status: TelegramStatus | null | undefined) => {
+    return status && Array.isArray(status?.web?.accounts) ? status : null;
+  }, []);
+  /** 网页线扫码登录(10-09-tg-category-entry):浏览器模块统一入口,同操
+   *  作在跑 = started:false 幂等;拉起后重拉状态对账(登录窗完成态由轮询
+   *  /手动刷新对账,此处一次性)。失败静默,条内可再点。 */
+  const startWebLogin = useCallback(async () => {
+    const account = tgWebline?.web.accounts[0]?.account;
+    if (!account) return;
+    setTgLoginBusy(true);
+    try {
+      await telegramWebLogin(account);
+      const next = await telegramGetStatus();
+      setTgWebline(sanitizeTelegramStatus(next));
+    } catch {
+      // 尽力而为:失败态在设置 · Telegram 总卡有完整台账,条内不弹错
+    } finally {
+      setTgLoginBusy(false);
+    }
+  }, [tgWebline]);
   /** 回卡片墙(第二层详情回流;面包屑「全部条目/品类」同门) */
   const backToStreamAll = useCallback(() => {
     setDrill((current) =>
@@ -2842,16 +2886,54 @@ export function FeedScreen() {
                 color: null,
               })}
               <div className="flex flex-col gap-1.5" data-testid="feed-l1-categories">
-                {l1Rows.map((row) =>
-                  drillRow({
-                    testId: `feed-drill-cat-${row.id}`,
-                    onOpen: () => openCategory(row.id),
-                    icon: null,
-                    label: row.label,
-                    meta: `今日 ${row.today} 条 · 未读 ${row.unread} · ${row.channels} 渠道`,
-                    color: row.color,
-                  }),
-                )}
+                {/* 10-09-tg-category-entry:今日有货的品类行在前,零计数行折叠
+                    进「今日未更新」(缺省收起)——零计数如实但不再刷屏 */}
+                {l1Rows
+                  .filter((row) => row.today > 0)
+                  .map((row) =>
+                    drillRow({
+                      testId: `feed-drill-cat-${row.id}`,
+                      onOpen: () => openCategory(row.id),
+                      icon: null,
+                      label: row.label,
+                      meta: `今日 ${row.today} 条 · 未读 ${row.unread} · ${row.channels} 渠道`,
+                      color: row.color,
+                    }),
+                  )}
+                {l1Rows.some((row) => row.today === 0) ? (
+                  <>
+                    <button
+                      type="button"
+                      data-testid="feed-l1-idle-toggle"
+                      onClick={() => setIdleOpen((current) => !current)}
+                      className="flex w-fit items-center gap-1 rounded-sm px-1 py-0.5 text-2xs text-muted-foreground hover:text-foreground"
+                      aria-expanded={idleOpen}
+                    >
+                      {idleOpen ? (
+                        <ChevronDown aria-hidden className="size-3" />
+                      ) : (
+                        <ChevronRight aria-hidden className="size-3" />
+                      )}
+                      今日未更新 · {l1Rows.filter((row) => row.today === 0).length} 个品类
+                    </button>
+                    {idleOpen ? (
+                      <div className="flex flex-col gap-1.5 opacity-60" data-testid="feed-l1-idle-categories">
+                        {l1Rows
+                          .filter((row) => row.today === 0)
+                          .map((row) =>
+                            drillRow({
+                              testId: `feed-drill-cat-${row.id}`,
+                              onOpen: () => openCategory(row.id),
+                              icon: null,
+                              label: row.label,
+                              meta: `今日 ${row.today} 条 · 未读 ${row.unread} · ${row.channels} 渠道`,
+                              color: row.color,
+                            }),
+                          )}
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
               </div>
             </>
           )}
@@ -3323,6 +3405,63 @@ export function FeedScreen() {
                   节内消息全量平铺,不点也能同屏看完全部消息 ═══ */
               imDetailCards.length > 0 ? (
                 <div className="flex flex-col gap-4" data-testid="feed-im-sections">
+                  {/* 网页线监控状态条(10-09-tg-category-entry,主人令「扫码
+                      登录,一直监控网页上的数据」入口打通):已登录 = 监控中
+                      +管理跳转;未登录 = 扫码登录直达(浏览器模块统一入口);
+                      快照拉取失败 = 条不出,不拦浏览。 */}
+                  {tgWebline !== null ? (
+                    <div
+                      data-testid="feed-tg-webline-strip"
+                      className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-2xs text-muted-foreground"
+                    >
+                      <span className="font-medium text-foreground/80">网页线监控</span>
+                      {tgWebline.web.accounts.length === 0 ? (
+                        <>
+                          <span>尚未配置网页线账号</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-1.5 text-2xs"
+                            onClick={() => navigate("/settings?section=telegram")}
+                          >
+                            前往设置 · Telegram
+                          </Button>
+                        </>
+                      ) : tgWebline.web.accounts.some((a) => a.logged_in) ? (
+                        <>
+                          <span className="inline-flex items-center gap-1 text-ok" data-testid="feed-tg-webline-live">
+                            ● 监控中 · {tgWebline.web.accounts.filter((a) => a.logged_in).map((a) => a.account).join("、")}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 px-1.5 text-2xs"
+                            onClick={() => navigate("/settings?section=telegram")}
+                          >
+                            管理 → 设置 · Telegram
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-warning">未登录 —— 扫码登录后即常驻监控,随时随地带数据</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-5 px-1.5 text-2xs"
+                            data-testid="feed-tg-webline-login"
+                            disabled={tgLoginBusy || tgWebline.web.accounts[0].login_in_progress}
+                            onClick={() => void startWebLogin()}
+                          >
+                            {tgWebline.web.accounts[0].login_in_progress
+                              ? "登录中…"
+                              : tgLoginBusy
+                                ? "拉起中…"
+                                : `扫码登录(${tgWebline.web.accounts[0].account})`}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  ) : null}
                   {imDetailCards.map((card) => (
                     <section key={card.key} aria-label={`Telegram 频道:${card.label}`}>
                       <TgSectionHeader card={card} onOpen={() => openChannelFromStream(card.key)} />

@@ -105,6 +105,17 @@ INJECT_SCRIPT = r"""
         });
         return { db: "smoke.db", count: filtered.length, items: filtered };
       }
+      if (method === "telegram.status") {
+        return {
+          bot: { configured: false, error: null },
+          session: { exists: false },
+          web: {
+            accounts: [
+              { account: "telegram-alt1", logged_in: true, logged_in_at: "2026-10-09T01:00:00+00:00", login_in_progress: false, login_note: null },
+            ],
+          },
+        };
+      }
       if (method === "store.state.import") return { imported: 0, skipped: 0 };
       if (method === "store.state.mark") return { updated: params?.keys?.length ?? 0 };
       if (method === "store.state.mark_all") return { updated: 0 };
@@ -203,6 +214,9 @@ async def main() -> int:
             expect("节内气泡 1", (await page.locator('[data-testid="feed-tg-bubble-1"]').count()) == 1)
             expect("节内气泡 2", (await page.locator('[data-testid="feed-tg-bubble-2"]').count()) == 1)
             expect("网页条目不混入", (await page.locator('[data-testid="feed-item-3"]').count()) == 0)
+            strip = page.locator('[data-testid="feed-tg-webline-strip"]')
+            expect("网页线状态条在场", (await strip.count()) == 1)
+            expect("状态条显监控中", "监控中" in ((await strip.text_content()) or ""))
             await page.screenshot(path="/tmp/myssia-feed-card-smoke-detail.png", full_page=True)
             # 节头 → 单频道过滤(既有 source 作用域),面包屑 Telegram 中间层回分节
             await page.locator('[data-testid="feed-tg-channel-card-telegram-mihomo_party_group"]').click()
