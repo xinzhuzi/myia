@@ -63,6 +63,7 @@ DOM 改版跟修(哨兵在)/ToS 灰色同 userbot,登录**建议小号**/api_id 
   - **sidecar 并入装配(装机常驻缺口补)**:桌面 `_assemble_telegram_host` 原只装 telegram-groups.yaml 单品类,专用件 tg_web 源不进 app 内 web 线(交接提示词①「进 telegram-groups.yaml **或**专用件」的歧义面)——补并入逻辑(telegram-web.yaml 存在则装载并合并 tg_web 源;**主品类同名 tg_web 源赢防双跑**;专用件坏档/非 tg_web 源留痕不拦);同文件同名双源方案被写档手术守卫(entry.py sources 重名拒)+引擎装载断言双红否决,如实撤回改走跨文件并入(G9 同名跨文件合法)。
   - **装机外科②**:7 件对拍全 MATCH(entry.py/web_line/web_dom/web_host/tg_web.py/telegram-groups.yaml/telegram-web.yaml)+数据根两 yaml 同步+adhoc 重签 strict verify 过+装机态真跑冒烟(bundle 代码+装机 python,run success 窗口真读零错)。
   - 门禁:全量 pytest **4982 passed 40 skipped 0 failed**;ruff 全绿;vitest/tsc/cargo 未触(UI/rust 零改动面);测试增量=引擎瞬态回归 1(登录态序列 FakePage)+宿主开群正路 1(受信点击+Watcher 挂载)+sidecar 并入 2(合并/同名去重)+JS 形状件改形+yaml 示范源断言跟标定值。
+- [x] 追批·装机实跑暴露面(2026-10-08 晚,app 首启后):**事件账本跨线程写失败**(sidecar 装配线程建账本、serve 线程写行,CLI 单线程验证不触发;条目库不受累=check_same_thread=False 早有)——events.py 连接补同款参数+跨线程回归 1 例;装机包同步+重签(下次重启生效);门禁全量 4983/0;提交 f04e428。首启即见 web 线在跑(chromium 常驻面 5 进程),账本修复属观测面非功能面。
 
 ## 结果(验收回执,完工填)
 - [x] **AC1** web-login 一次登录→无头常驻读群→管线出口:**真跑回执在案(2026-10-08 晚)**——登录 17:51:50 落档(0700/0600);批量档窗口真读 20 条(run45 真词表全滤零错;run46/47 关键词验证 13 条目入库 20 个 `#tg-` 锚+feishu archive ok);serve 常驻 Watcher 挂上(观察器已注入+哨兵 100s 零误杀+分键账本落档);常驻期**实时新消息**捕获留生产期首条自证(频道窗口期无新帖;捕获语义 17 例单测铁证,观察器注入活页实证)。
