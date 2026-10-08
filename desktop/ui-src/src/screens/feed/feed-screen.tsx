@@ -417,7 +417,7 @@ function FeedCard({
           onFocus={() => onCurrent(key)}
           className={`group/feed-item relative transition-colors duration-(--duration-fast) ease-out-expo ${
             kind === "telegram"
-              ? `w-fit max-w-[min(100%,640px)] rounded-2xl rounded-tl-md border py-2 pl-3 pr-3 ${
+              ? `w-fit min-w-[13rem] max-w-[min(100%,640px)] rounded-2xl rounded-tl-md border py-2 pl-3 pr-3 ${
                   state.read ? "border-border/40 bg-muted/25 hover:bg-muted/40" : "border-primary/25 bg-primary/10 hover:bg-primary/15"
                 }`
               : `rounded-md border py-2 pr-3 pl-4 hover:bg-accent/50 ${
@@ -2087,8 +2087,8 @@ export function FeedScreen() {
   const imDetailLayout =
     sourceKindReady && drill.level === 3 && drill.source === null && drill.kind === "im";
   const legacyStreamLayout = drill.level === 3 && drill.source === null && !sourceKindReady;
-  /** 聊天视图(10-09 聊天主页风格):TG 消息流(im 分节/单频道/TG 品类
-   *  历史态)日期分隔走居中胶囊,消息气泡贴聊天语言。 */
+  /** 聊天视图(10-09 聊天主页风格):TG 单频道流(含历史态)日期分隔走
+   *  居中胶囊(im 分节层以频道为节、无日期分组,子句保持判定对称)。 */
   const chatStyleGroups =
     drill.level === 3 &&
     (drill.kind === "im" ||

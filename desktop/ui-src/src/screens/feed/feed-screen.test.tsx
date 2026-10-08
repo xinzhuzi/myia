@@ -2854,8 +2854,10 @@ describe("FeedScreen · tg-channel-card v2(源大类卡片墙,protocol ≥ 12)",
     await renderWall();
     fireEvent.click(await screen.findByTestId("feed-kind-card-im"));
     await screen.findByTestId("feed-im-sections");
-    // 分节:节头卡 + 节内气泡全量平铺
-    expect(screen.getByTestId("feed-tg-channel-card-telegram-mihomo_party_group")).toBeTruthy();
+    // 分节:聊天头(圆头像 + 频道名 + 计数)+ 节内气泡全量平铺
+    const sectionHead = screen.getByTestId("feed-tg-channel-card-telegram-mihomo_party_group");
+    expect(sectionHead.querySelector(".rounded-full.bg-primary\\/15")).toBeTruthy();
+    expect(sectionHead.textContent).toContain("mihomo_party_group");
     expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
     expect(screen.getByTestId("feed-tg-bubble-2")).toBeTruthy();
     expect(screen.queryByTestId("feed-item-3")).toBeNull(); // 网页条目不混入
@@ -3191,6 +3193,55 @@ describe("feed 内置浏览器预览 纯函数(api.ts,10-09-tg-category-entry v3
     expect(telegramMirrorUrlOf("https://example.com/item-1")).toBeNull();
     expect(telegramMirrorUrlOf("")).toBeNull();
     expect(telegramMirrorUrlOf(null)).toBeNull();
+  });
+});
+
+describe("FeedScreen · 聊天主页风格形态锚(10-09 v4)", () => {
+  it("TG 气泡形态:w-fit 窄泡+未读亮泡+无竖条+无元信息行;节头圆头像;泡底展开钮+时间同排", async () => {
+    // 条目数组造在实现外(mockImplementation 每调用重造会让 id 漂移,查
+    // feed-item-1 永远落空——10-09 形态锚用例踩坑实录)
+    const chatItems = [fixtureItem({ source: "telegram-durov", title: "消息甲", content: "摘要甲", tags: ["ai"] })];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(chatItems.filter((item) => !params?.source || item.source === params.source)),
+      ),
+    );
+    await renderStream();
+    fireEvent.click(await screen.findByTestId("feed-tg-channel-card-telegram-durov"));
+    const card = await screen.findByTestId("feed-item-1");
+    expect(card.className).toContain("w-fit");
+    expect(card.className).toContain("max-w-");
+    expect(card.className).toContain("bg-primary/10");
+    expect(within(card).queryByTestId("feed-strip-1")).toBeNull();
+    expect(within(card).queryByText("ai")).toBeNull();
+    const footer = within(card).getByText("刚刚").closest("div");
+    expect(footer?.className).toContain("justify-end");
+    // 内联展开钮在泡底行:点击翻转为「收起条目」(与详情弹窗并存)
+    fireEvent.click(within(footer).getByRole("button", { name: "展开条目" }));
+    expect(within(footer).getByRole("button", { name: "收起条目" })).toBeTruthy();
+  });
+
+  it("日期胶囊:TG 单频道流分组头走居中胶囊(rounded-full+mx-auto),非 TG 保持 sticky 组头", async () => {
+    const chipItems = [
+      fixtureItem({ source: "telegram-durov", title: "消息甲", category: "telegram-groups" }),
+      fixtureItem({ source: "openai-news", title: "新闻乙", category: "tech" }),
+    ];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(chipItems.filter((item) => !params?.category || item.category === params.category)),
+      ),
+    );
+    await renderStream();
+    fireEvent.click(await screen.findByTestId("feed-tg-channel-card-telegram-durov"));
+    const chip = await screen.findByTestId("feed-group-今天");
+    expect(chip.className).toContain("rounded-full");
+    expect(chip.className).toContain("mx-auto");
+    fireEvent.click(screen.getByTestId("feed-crumb-home"));
+    fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
+    fireEvent.click(await screen.findByTestId("feed-drill-cat-all"));
+    const plain = await screen.findByTestId("feed-group-今天");
+    expect(plain.className).toContain("sticky");
+    expect(plain.className).not.toContain("rounded-full");
   });
 });
 
