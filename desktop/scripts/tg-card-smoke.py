@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""TG 监控总卡无头冒烟(10-08-tg-web-line W4;程序化验证,禁屏控).
+"""TG 监控总卡无头冒烟(10-08-tg-web-line W4;程序化验证,禁屏控;
+10-08-browser-module 接线:登录动作 mock 面改 browser.open)。
 
 面板与注入:
 - 静态服务 ``desktop/ui`` 构建产物(``npm run build``,HashRouter 免服务端);
 - Playwright chromium 无头(浏览器二进制 = playwright 缺省缓存,与
   crawl4ai 组件轨同源;CLI 直跑仓 ``.venv``);
 - IPC 注入:``add_init_script`` 定义 ``__TAURI_INTERNALS__.invoke``,按
-  ``sidecar_request`` 的 method 应答 telegram.* 三方法夹具 —— 卡片三段 +
-  账号行 + 添加/删除动作全链路渲染冒烟(零真实壳零真实网络零屏控)。
+  ``sidecar_request`` 的 method 应答 telegram.status / telegram.web.delete /
+  browser.open(登录动作经浏览器模块统一入口,单入口铁律)三方法夹具
+  —— 卡片三段 + 账号行 + 添加/删除动作全链路渲染冒烟(零真实壳零真实
+  网络零屏控)。
 
 断言面:总卡渲染 / bot·session·web 三段 / 账号行 / 披露文案(建议小号)/
 添加账号动作链(新行 + busy 态)/ 删除动作链(行消失);截图落 /tmp 备查。
@@ -64,8 +67,8 @@ INJECT_SCRIPT = r"""
       }
       const { method, params } = args ?? {};
       if (method === "telegram.status") return current;
-      if (method === "telegram.web.login") {
-        const account = String(params?.account ?? "");
+      if (method === "browser.open") {
+        const account = String(params?.session_key ?? "");
         const accounts = current.web.accounts.map((row) =>
           row.account === account ? { ...row, login_in_progress: true } : row,
         );
@@ -79,7 +82,7 @@ INJECT_SCRIPT = r"""
           });
         }
         current = { ...current, web: { accounts } };
-        return { started: true, account };
+        return { started: true, op_id: account, kind: params?.kind };
       }
       if (method === "telegram.web.delete") {
         const account = String(params?.account ?? "");

@@ -2821,13 +2821,15 @@ def test_method_registry_allowed_matches_handlers():
     两方法,10-05-bundled-plugins-batch2;卸载+品类 YAML 平铺安装)+
     native-plugin-components 阶段3 批(plugins.remote.get/save 两方法,
     10-06-native-plugin-components 轨D remote 配置面板数据面)+
-    tg-web-line W4 批(telegram.status/web.login/web.delete 三方法,
-    10-08-tg-web-line 设置页 Telegram 总卡数据面)
-    后 = 71。"""
+    tg-web-line W4 批(telegram.status/web.delete 两方法,10-08-tg-web-line
+    设置页 Telegram 总卡数据面)+
+    browser-module 批(browser.open/list/focus/close 四方法 + 移除
+    telegram.web.login(单入口铁律:登录改走浏览器模块),10-08-browser-module)
+    后 = 74。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 71
+    assert len(allowed) == 74
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",
@@ -2842,8 +2844,13 @@ def test_method_registry_allowed_matches_handlers():
                    "plugins.bundled.list", "plugins.bundled.install",
                    "plugins.bundled.uninstall", "plugins.bundled.category_install",
                    "plugins.remote.get", "plugins.remote.save",
-                   "telegram.status", "telegram.web.login", "telegram.web.delete"):
+                   "telegram.status", "telegram.web.delete",
+                   "browser.open", "browser.list", "browser.focus",
+                   "browser.close"):
         assert method in allowed
+    # 单入口铁律(10-08-browser-module):telegram.web.login 已移除 ——
+    # 登录必经浏览器模块,禁止旁路直启 Chromium。
+    assert "telegram.web.login" not in allowed
 
 
 def test_protocol_version_bumped_for_feed_ux():
@@ -2862,9 +2869,10 @@ def test_protocol_version_bumped_for_feed_ux():
     10-05-plugin-market-batch 第 11 步)**未随批 bump**——地基路定案维持
     v10(两方法在 v10 内交付,注册表 62 行;gates UI 无 protocol 版本能力门,
     旧壳+新 UI 组合经 method_not_found 结构化降级不白屏)。若后续补 bump,
-    本断言随迁。"""
+    本断言随迁。browser-module 批(browser.* 四方法 + telegram.web.login
+    移除,10-08-browser-module)→ v11。"""
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
-    assert responses[0]["result"]["protocol"] == 10
+    assert responses[0]["result"]["protocol"] == 11
 
 
 # ---------------------------------------------------------------------------
@@ -3417,8 +3425,8 @@ def test_serve_starts_and_stops_cron_ticker(tmp_path, monkeypatch):
     monkeypatch.setattr(entry, "_handle_line", spy)
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
     assert code == 0
-    # v9 = hermes-cron 批;v10 = read-state-server 批(版本实读 +1 顺延)
-    assert responses[0]["result"]["protocol"] == 10
+    # v9 = hermes-cron 批;v10 = read-state-server 批;v11 = browser-module 批
+    assert responses[0]["result"]["protocol"] == 11
     assert seen["supervisor_alive"] and seen["ticker_alive"]
     # EOF:serve 返回前已关停(idle ticker 即醒即退,interval 已注入 0.05s)
     assert entry._CRON_SUPERVISOR is None and entry._CRON_TICKER is None
@@ -5419,31 +5427,282 @@ def test_telegram_status_bot_unconfigured_is_false(tmp_path, monkeypatch):
     assert result["web"]["accounts"] == []
 
 
-def test_telegram_web_login_validates_account_and_starts_thread(tmp_path, monkeypatch):
-    """web.login:键校验拒坏键;好键返回 started=True(mock 登录线程面零浏览器)."""
-    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home3"))
+# ---------------------------------------------------------------------------
+# 浏览器专用模块四方法(10-08-browser-module 案甲:browser.open/list/
+# focus/close;PRD 单入口铁律 = 一切浏览器操作必经模块,原
+# telegram.web.login 已移除)。全 mock —— 登录线程不真起浏览器,登录器
+# 经 web_line.TelegramWebLoginFlow 注入缝替换(fake_flow 收注入件)。
+# ---------------------------------------------------------------------------
 
-    started: dict[str, Any] = {}
 
-    async def fake_flow_run(data_root, account, *, force=False):
-        started["account"] = account
-        started["force"] = force
-        return tmp_path / "profile"
+class _FakeBrowserFlow:
+    """登录器替身:记录注入件(kwargs_sink)+ 可编排行为(mode)。"""
 
-    fake_flow = type("FakeFlow", (), {"run": staticmethod(fake_flow_run)})()
+    def __init__(self, kwargs_sink: list[dict], mode: str = "done") -> None:
+        self._kwargs = dict(kwargs_sink[-1]) if kwargs_sink else {}
+        self._kwargs_sink = kwargs_sink
+        self._mode = mode
 
+    async def run(self, data_root, account, *, force=False):  # noqa: ANN001
+        self._kwargs_sink.append({"account": account, "force": force})
+        if self._mode == "hang":
+            # 真登录流形态:等注入 sleep(会被 browser.close 的停令打断)
+            await self._kwargs["sleep"](600.0)
+        if self._mode == "fail":
+            from myssia.telegram.web_line import TelegramWebError
+
+            raise TelegramWebError("登录等待超时", reason="login_timeout")
+        return Path(str(data_root)) / "telegram-web" / str(account)
+
+
+def _fake_flow_factory(kwargs_sink: list[dict], mode: str = "done"):
+    def _factory(**kwargs: Any) -> _FakeBrowserFlow:
+        kwargs_sink.append(kwargs)
+        return _FakeBrowserFlow(kwargs_sink, mode)
+
+    return _factory
+
+
+def _browser_ledger_cleanup() -> None:
+    """测试间清台账:先置停一切在跑操作(防线程泄漏),再清空。"""
+    with entry._BROWSER_OPS_LOCK:
+        for record in entry._BROWSER_OPS.values():
+            stop = record.get("stop_event")
+            if isinstance(stop, threading.Event):
+                stop.set()
+        entry._BROWSER_OPS.clear()
+
+
+def _wait_op_phase(op_id: str, phases: set[str], timeout: float = 10.0) -> dict:
+    """轮询台账至 op_id 进入指定 phase 集(线程收尾是异步的)。"""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        with entry._BROWSER_OPS_LOCK:
+            record = dict(entry._BROWSER_OPS.get(op_id) or {})
+        if record.get("phase") in phases:
+            return record
+        time.sleep(0.05)
+    raise AssertionError(f"操作 {op_id} 未在 {timeout}s 内进入 {phases}(现态 {record.get('phase')!r})")
+
+
+def test_browser_open_registry_validation_and_done_lifecycle(tmp_path, monkeypatch):
+    """open:类别/会话键校验 + 好键拉起 → 台账 running→done,日志尾巴在
+    (登录器经注入缝复用:print_fn/sleep/on_page_opened 全注入)。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home-b1"))
     import myssia.telegram.web_line as web_line
 
-    monkeypatch.setattr(web_line, "TelegramWebLoginFlow", lambda: fake_flow)
-    code, responses, _ = rpc(
-        {"id": 3, "method": "telegram.web.login", "params": {"account": "bad-key"}}
+    kwargs_sink: list[dict] = []
+    monkeypatch.setattr(
+        web_line, "TelegramWebLoginFlow", _fake_flow_factory(kwargs_sink, "done")
     )
-    assert responses[0]["error"]["code"] == "invalid_params"
-    code, responses, _ = rpc(
-        {"id": 4, "method": "telegram.web.login", "params": {"account": "telegram-alt1"}}
+    try:
+        # 未登记类别结构化拒(单入口铁律:allowed 词表带出)
+        code, responses, _ = rpc(
+            {"id": 1, "method": "browser.open",
+             "params": {"kind": "raw_chromium", "session_key": "x"}}
+        )
+        error = responses[0]["error"]
+        assert error["code"] == "invalid_params"
+        assert error["data"]["allowed"] == ["tg_web_login"]
+        # 会话键违全称律拒
+        code, responses, _ = rpc(
+            {"id": 2, "method": "browser.open",
+             "params": {"kind": "tg_web_login", "session_key": "bad-key"}}
+        )
+        assert responses[0]["error"]["code"] == "invalid_params"
+        # 好键:started=True,台账 running → done
+        code, responses, _ = rpc(
+            {"id": 3, "method": "browser.open",
+             "params": {"kind": "tg_web_login", "session_key": "telegram-alt1"}}
+        )
+        assert code == 0
+        assert responses[0]["result"]["started"] is True
+        assert responses[0]["result"]["op_id"] == "telegram-alt1"
+        record = _wait_op_phase("telegram-alt1", {"done"})
+        assert record["note"] is not None and "登录完成" in record["note"]
+        assert record["log"], "日志尾巴应含操作登记与登录器回执行"
+        # 登录器注入件核验(案甲:复用既有登录器,窗口管理面三注入)
+        assert kwargs_sink, "登录器应经注入缝构造"
+        injected = kwargs_sink[0]
+        assert callable(injected.get("print_fn"))
+        assert callable(injected.get("sleep"))
+        assert callable(injected.get("on_page_opened"))
+        # 台账方法:list 投影含该操作(kinds 词表同出)
+        code, responses, _ = rpc({"id": 4, "method": "browser.list", "params": {}})
+        result = responses[0]["result"]
+        assert result["kinds"] == {"tg_web_login": entry._BROWSER_KINDS["tg_web_login"]}
+        ops = {row["op_id"]: row for row in result["operations"]}
+        assert ops["telegram-alt1"]["phase"] == "done"
+        assert ops["telegram-alt1"]["log_tail"]
+        assert "stop_event" not in ops["telegram-alt1"]  # 线程内句柄不外泄
+    finally:
+        _browser_ledger_cleanup()
+
+
+def test_browser_open_dependency_missing_visible_error(tmp_path, monkeypatch):
+    """AC2 钉死:拔依赖 → browser.open 同步结构化拒,人话+修复指引可见
+    (静默失败=反模式;不等后台线程,零浏览器零台账残留)。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home-b2"))
+    import myssia.telegram.web_line as web_line
+
+    def refuse():
+        raise web_line.TelegramWebError(
+            "TG 网页线依赖 playwright 未安装", reason="dependency_missing", fatal=True
+        )
+
+    monkeypatch.setattr(web_line, "require_playwright", refuse)
+    try:
+        code, responses, _ = rpc(
+            {"id": 1, "method": "browser.open",
+             "params": {"kind": "tg_web_login", "session_key": "telegram-alt1"}}
+        )
+        error = responses[0]["error"]
+        assert error["code"] == "dependency_missing"
+        assert "playwright" in error["message"]
+        assert "同步依赖" in error["message"]  # 修复指引人话在场
+        assert "install_command" in error["data"]
+        with entry._BROWSER_OPS_LOCK:
+            assert not entry._BROWSER_OPS  # 拒绝即零台账残留
+    finally:
+        _browser_ledger_cleanup()
+
+
+def test_browser_open_failure_humanized_with_fix_hint(tmp_path, monkeypatch):
+    """线程内失败(登录超时族)→ 台账 failed + 人话 note + 修复指引
+    fix_hint(卡面/模块页消费);telegram.status 联动上浮 login_note。"""
+    home = tmp_path / "home-b3"
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    import myssia.telegram.web_line as web_line
+
+    # 配置档目录在场(真登录流起步即 mkdir;status 的账号列表来源)
+    (home / "telegram-web" / "telegram-alt1").mkdir(parents=True)
+    kwargs_sink: list[dict] = []
+    monkeypatch.setattr(
+        web_line, "TelegramWebLoginFlow", _fake_flow_factory(kwargs_sink, "fail")
     )
-    assert code == 0
-    assert responses[0]["result"]["started"] is True
+    try:
+        code, responses, _ = rpc(
+            {"id": 1, "method": "browser.open",
+             "params": {"kind": "tg_web_login", "session_key": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["started"] is True
+        record = _wait_op_phase("telegram-alt1", {"failed"})
+        assert record["fix_hint"], "失败必须带修复指引(AC2)"
+        # 卡面联动:telegram.status 的 web 行回读失败 note(login_in_progress=False)
+        code, responses, _ = rpc({"id": 2, "method": "telegram.status", "params": {}})
+        accounts = responses[0]["result"]["web"]["accounts"]
+        row = next(item for item in accounts if item["account"] == "telegram-alt1")
+        assert row["login_in_progress"] is False
+        assert row["login_note"] and "登录等待超时" in row["login_note"]
+    finally:
+        _browser_ledger_cleanup()
+
+
+def test_browser_close_stops_running_op(tmp_path, monkeypatch):
+    """close:对进行中操作置停令 → 注入 sleep 抛收尾异常 → 台账转 closed
+    (窗口收尾由登录流 finally 关 context,零重写)。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home-b4"))
+    import myssia.telegram.web_line as web_line
+
+    kwargs_sink: list[dict] = []
+    monkeypatch.setattr(
+        web_line, "TelegramWebLoginFlow", _fake_flow_factory(kwargs_sink, "hang")
+    )
+    try:
+        code, responses, _ = rpc(
+            {"id": 1, "method": "browser.open",
+             "params": {"kind": "tg_web_login", "session_key": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["started"] is True
+        _wait_op_phase("telegram-alt1", {"running"})
+        code, responses, _ = rpc(
+            {"id": 2, "method": "browser.close", "params": {"op_id": "telegram-alt1"}}
+        )
+        assert code == 0
+        assert responses[0]["result"]["closed"] is True
+        record = _wait_op_phase("telegram-alt1", {"closed"})
+        assert "已关闭" in record["note"]
+    finally:
+        _browser_ledger_cleanup()
+
+
+def test_browser_focus_and_close_guards(tmp_path, monkeypatch):
+    """focus/close 的台账守卫:未知操作 / 终态操作 = 结构化 window 族错误。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home-b5"))
+    import myssia.telegram.web_line as web_line
+
+    kwargs_sink: list[dict] = []
+    monkeypatch.setattr(
+        web_line, "TelegramWebLoginFlow", _fake_flow_factory(kwargs_sink, "done")
+    )
+    try:
+        code, responses, _ = rpc(
+            {"id": 1, "method": "browser.open",
+             "params": {"kind": "tg_web_login", "session_key": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["started"] is True
+        _wait_op_phase("telegram-alt1", {"done"})
+        # 终态聚焦/关闭:window_not_active(进行中才有效)
+        code, responses, _ = rpc(
+            {"id": 2, "method": "browser.focus", "params": {"op_id": "telegram-alt1"}}
+        )
+        assert responses[0]["error"]["code"] == "window_not_active"
+        code, responses, _ = rpc(
+            {"id": 3, "method": "browser.close", "params": {"op_id": "telegram-alt1"}}
+        )
+        assert responses[0]["error"]["code"] == "window_not_active"
+        # 未知操作:unknown_operation
+        code, responses, _ = rpc(
+            {"id": 4, "method": "browser.focus", "params": {"op_id": "nope"}}
+        )
+        assert responses[0]["error"]["code"] == "unknown_operation"
+    finally:
+        _browser_ledger_cleanup()
+
+
+def test_telegram_web_delete_blocked_while_browser_op_running(tmp_path, monkeypatch):
+    """web.delete × 浏览器模块联动:登录窗在跑 = login_in_progress 侧拒
+    (指引去「浏览器」模块关窗);终态后可删,台账同键一并清。"""
+    home = tmp_path / "home-b6"
+    profile = home / "telegram-web" / "telegram-alt1"
+    profile.mkdir(parents=True)
+    (profile / "Cookies").write_text("{}")
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    import myssia.telegram.web_line as web_line
+
+    kwargs_sink: list[dict] = []
+    monkeypatch.setattr(
+        web_line, "TelegramWebLoginFlow", _fake_flow_factory(kwargs_sink, "hang")
+    )
+    try:
+        code, responses, _ = rpc(
+            {"id": 1, "method": "browser.open",
+             "params": {"kind": "tg_web_login", "session_key": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["started"] is True
+        _wait_op_phase("telegram-alt1", {"running"})
+        code, responses, _ = rpc(
+            {"id": 2, "method": "telegram.web.delete",
+             "params": {"account": "telegram-alt1"}}
+        )
+        error = responses[0]["error"]
+        assert error["code"] == "login_in_progress"
+        assert "浏览器" in error["message"]
+        # 关窗后删除放行,台账同键清空
+        code, responses, _ = rpc(
+            {"id": 3, "method": "browser.close", "params": {"op_id": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["closed"] is True
+        _wait_op_phase("telegram-alt1", {"closed"})
+        code, responses, _ = rpc(
+            {"id": 4, "method": "telegram.web.delete",
+             "params": {"account": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["deleted"] is True
+        with entry._BROWSER_OPS_LOCK:
+            assert "telegram-alt1" not in entry._BROWSER_OPS
+    finally:
+        _browser_ledger_cleanup()
 
 
 def test_telegram_web_delete_removes_profile(tmp_path, monkeypatch):

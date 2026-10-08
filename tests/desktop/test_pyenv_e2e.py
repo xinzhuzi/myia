@@ -703,7 +703,7 @@ def test_fresh_sandbox_full_chain(
         try:
             version_result = client.call(1, "version")
             assert version_result["name"] == "myssia"
-            assert version_result["protocol"] == 10
+            assert version_result["protocol"] == 11  # v11 = browser-module 批
             assert version_result["app_version"] == "0.0.1"
             smoke_methods = [
                 ("health", 2),  # 源管理:插件清单 + 源健康度聚合

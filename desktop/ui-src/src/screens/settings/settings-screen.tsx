@@ -2,6 +2,7 @@ import { useSidecarStatus } from "@/hooks/use-sidecar-status";
 import {
   Activity,
   ShieldAlert,
+  AppWindow,
   Cpu,
   Eye,
   KeyRound,
@@ -55,6 +56,7 @@ import {
   verifyWithDoctor,
 } from "./api";
 import type { DoctorVerify, EnrichView, SecretSaveRecord } from "./api";
+import { BrowserModuleCard } from "./browser-module";
 import { BundledPluginsCard } from "./bundled-plugins-card";
 import { DoctorVerifyPanel } from "./doctor-verify";
 import { ErrorBox } from "./error-box";
@@ -166,8 +168,13 @@ const SECTIONS: SettingsSection[] = [
   // 平铺装(category_install/categories)。
   { id: "installer-plugins", label: "装机组件", icon: Layers, title: "装机组件", description: "随包官方插件件:发现 / 安装 / 重装 / 卸载 + 品类配置平铺装(manifest 校验;品类与补种同落点)" },
   // 10-08-tg-web-line W4:Telegram 监控总卡(bot/session/web 三段 + 网页线
-  // 账号列表:添加/重登/删除;登录窗 = 壳拉起的系统浏览器窗口)。
+  // 账号列表:添加/重登/删除;登录动作自 10-08-browser-module 起改调浏览器
+  // 模块统一入口 browser.open,两侧状态同源联动)。
   { id: "telegram", label: "Telegram 监控", icon: Send, title: "Telegram 监控", description: "三条消息线(bot / 用户 session / 网页登录):状态灯 + 网页线账号列表(添加 / 重登 / 删除)" },
+  // 10-08-browser-module 案甲:浏览器专用模块(设置树一级分区;单入口
+  // 铁律 = 一切浏览器操作必经本模块):操作台账(登录中/完成/失败+重试)
+  // + 每操作窗口管理(聚焦/关闭)+ 日志尾巴。
+  { id: "browser", label: "浏览器", icon: AppWindow, title: "浏览器", description: "浏览器专用模块:一切浏览器操作的统一入口与台账(登录窗管理 / 失败重试 / 日志尾巴)" },
   // 10-05-desktop-managed-py-env 第 4 步(D1/D2):Python 运行环境自管区块,
   // 也是 D2 引导空态「一键跳设置」的深链落点(#/settings?section=python-env)
   { id: "python-env", label: "Python 环境", icon: Cpu, title: "Python 运行环境", description: "运行时与依赖按需下载:开始配置 / 双镜像覆盖 / 安装明细 / 同步依赖" },
@@ -198,6 +205,8 @@ const SECTION_FIELD_TERMS: Record<string, string> = {
   "installer-plugins": "装机 官方插件 发现 安装 重装 卸载 品类配置 平铺 manifest 补种",
   telegram:
     "telegram 监控 bot token session telethon 网页登录 tg_web 账号 添加账号 重登 删除 验证码 小号 群消息",
+  browser:
+    "浏览器 模块 操作 台账 登录中 完成 失败 重试 窗口 聚焦 关闭 日志 尾巴 chromium playwright 授权 验证码 核验",
   "python-env": "python 运行时 依赖 下载源 安装路径 使用路径 镜像 pypi 安装明细 同步",
   system: "sidecar 连接 状态 更新 版本 凭据 钥匙链 secret 删除 危险区",
 };
@@ -1242,7 +1251,7 @@ export function SettingsScreen() {
           </nav>
           {visibleSections.length === 0 ? (
             <span data-testid="settings-section-filter-empty" className="px-2.5 text-2xs text-muted-foreground">
-              无匹配分区(通用/推送/视觉/门槛件/装机组件/Python 环境/系统)
+              无匹配分区({SECTIONS.map((section) => section.label).join("/")})
             </span>
           ) : null}
         </div>
@@ -1552,10 +1561,19 @@ export function SettingsScreen() {
           ) : null}
 
           {/* Telegram 监控(10-08-tg-web-line W4:三线状态 + 网页线账号列表;
-              IPC 契约见 telegram-api.ts)。② 同上整件显隐 */}
+              登录动作自 10-08-browser-module 起改调浏览器模块统一入口)。
+              ② 同上整件显隐 */}
           {activeSection.id === "telegram" ? (
             <Searchable terms={SECTION_FIELD_TERMS.telegram}>
               <TelegramCard />
+            </Searchable>
+          ) : null}
+
+          {/* 浏览器专用模块(10-08-browser-module 案甲:操作台账/窗口管理/
+              日志尾巴;单入口铁律 = 一切浏览器操作必经本模块)。② 同上 */}
+          {activeSection.id === "browser" ? (
+            <Searchable terms={SECTION_FIELD_TERMS.browser}>
+              <BrowserModuleCard />
             </Searchable>
           ) : null}
 

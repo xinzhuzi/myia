@@ -231,6 +231,30 @@ def test_login_success_flow_writes_marker_and_hardens(
     assert launched["directory"] == str(directory)
 
 
+def test_login_on_page_opened_hook_receives_page_before_goto(
+    tmp_path: Path,
+) -> None:
+    """on_page_opened 注入缝(10-08-browser-module 案甲):页面取得后、
+    goto 前同步回调恰一次(浏览器模块窗口管理面句柄;缺省 None 零行为差,
+    既有调用方不受影响)。"""
+    factory, handle, context, page = make_factory(
+        [{"state": "logged_in", "hit": ".chatlist-container"}]
+    )
+    seen: list[tuple[Any, list[str]]] = []
+    flow = TelegramWebLoginFlow(
+        print_fn=lambda _: None,
+        playwright_factory=factory,
+        on_page_opened=lambda opened: seen.append((opened, list(opened.goto_calls))),
+    )
+    import asyncio
+
+    asyncio.run(flow.run(tmp_path, "telegram-alt1"))
+    assert len(seen) == 1 and seen[0][0] is page
+    assert seen[0][1] == [], "钩子在 goto 前触发(句柄就位时未导航)"
+    assert page.goto_calls == ["https://web.telegram.org"]  # 导航照常
+    assert _started_of(handle).stopped and context.closed  # 收尾不受钩子影响
+
+
 def test_login_force_deletes_stale_profile(tmp_path: Path) -> None:
     directory = profile_dir(tmp_path, "telegram-alt1")
     stale = directory / "Default" / "Cookies"

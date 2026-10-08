@@ -500,7 +500,9 @@ from myssia.vision.server import (
 #: v10 = read-state-server 批(store.state.mark/mark_all/import 三方法 +
 #: store.items 投影补 read/starred/later 三键;G9,10-04-read-state-server;
 #: 开工实读 v9 后 +1——hermes-cron 已先合入,竞速条款顺延本批 v10)。
-PROTOCOL_VERSION = 10
+#: v11 = browser-module 批(browser.open/list/focus/close 四方法 + 移除
+#: telegram.web.login(单入口铁律:登录改走浏览器模块);10-08-browser-module)。
+PROTOCOL_VERSION = 11
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
 STATUS_BY_EXIT = {0: "success", 1: "config_error", 2: "failed", 3: "partial"}
 
@@ -5738,14 +5740,34 @@ def _m_cron_runs(params: dict[str, Any]) -> dict[str, Any]:
 
 # ---------------------------------------------------------------------------
 # Telegram 监控状态与网页线账号管理(10-08-tg-web-line W4;设置页总卡消费)
-# 三方法:telegram.status(bot token 在册/telethon session 在场/网页线账号
-# 列表)、telegram.web.login(后台线程拉起 headed 登录窗,凭据零外显 ——
-# 手机号+验证码全在浏览器页面内)、telegram.web.delete(删配置档)。
+# + 浏览器专用模块(10-08-browser-module 案甲,PRD 单入口铁律):
+#
+# telegram.* 两方法:telegram.status(bot token 在册/telethon session 在场/
+# 网页线账号列表;web 段登录态与浏览器模块操作台账联动)、
+# telegram.web.delete(删配置档)。原 telegram.web.login 已**移除**——一切
+# 浏览器操作(登录打头)必经浏览器模块统一入口,禁止任何功能旁路直启
+# Chromium(主人令:这个功能就要调用起来专用浏览器模块)。
+#
+# browser.* 四方法(浏览器模块 = 浏览器操作的唯一治理位:窗口生命周期/
+# 错误上浮/操作台账集中):browser.open(kind+session_key,后台线程拉起
+# headed 登录窗,复用 web_line 登录器零重写)、browser.list(操作台账+
+# 日志尾巴)、browser.focus / browser.close(每操作窗口管理)。
 # ---------------------------------------------------------------------------
 
-#: 网页线登录线程的内存态(账号键 → {phase, note, started_at};进程内有效)。
-_TELEGRAM_WEB_LOGIN_STATE: dict[str, dict[str, Any]] = {}
-_TELEGRAM_WEB_LOGIN_LOCK = threading.Lock()
+#: 浏览器操作台账(op_id → 记录;进程内有效 —— 操作是会话态,重启即清,
+#: 登录态落配置档不受影响)。op_id = 会话键(首役 kind=tg_web_login 一键
+#: 一操作,重登覆盖旧记录;未来新类别以 `<kind>:<键>` 命名空间隔离)。
+_BROWSER_OPS: dict[str, dict[str, Any]] = {}
+_BROWSER_OPS_LOCK = threading.Lock()
+
+#: 每操作日志尾巴容量(环形;登录器 print 回执逐行入账,超量裁头)。
+_BROWSER_OP_LOG_LINES = 60
+
+#: browser.open 已登记的操作类别(单入口铁律的登记面:新浏览器需求须在
+#: 此登记后才可经模块拉窗,未登记类别结构化拒)。
+_BROWSER_KINDS: dict[str, str] = {
+    "tg_web_login": "TG 网页线登录(web.telegram.org;复用 web_line 登录器)",
+}
 
 
 def _telegram_data_root() -> Path:
@@ -5787,8 +5809,11 @@ def _m_telegram_status(params: dict[str, Any]) -> dict[str, Any]:
 
         for account in list_accounts(data_root):
             marker = read_login_marker(profile_dir(data_root, account))
-            with _TELEGRAM_WEB_LOGIN_LOCK:
-                login_state = _TELEGRAM_WEB_LOGIN_STATE.get(account)
+            # 卡面 ↔ 模块联动(10-08-browser-module):登录中/失败态真源 =
+            # 浏览器模块操作台账(op_id = 账号键);无操作 = 静稳态。
+            with _BROWSER_OPS_LOCK:
+                op = _BROWSER_OPS.get(account)
+            op_phase = op.get("phase") if op is not None else None
             web_accounts.append(
                 {
                     "account": account,
@@ -5796,11 +5821,9 @@ def _m_telegram_status(params: dict[str, Any]) -> dict[str, Any]:
                     "logged_in_at": (
                         marker.get("logged_in_at") if marker else None
                     ),
-                    "login_in_progress": bool(
-                        login_state and login_state.get("phase") == "running"
-                    ),
+                    "login_in_progress": op_phase == "running",
                     "login_note": (
-                        login_state.get("note") if login_state else None
+                        op.get("note") if op is not None else None
                     ),
                 }
             )
@@ -5814,72 +5837,346 @@ def _m_telegram_status(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _m_telegram_web_login(params: dict[str, Any]) -> dict[str, Any]:
-    """``telegram.web.login``:后台线程拉起 headed 登录窗(零交互面在侧).
+class _BrowserWindowClosed(Exception):
+    """browser.close 置停令后注入 sleep 抛出 —— 登录流尽快收尾(窗已关)."""
 
-    手机号+验证码(+2FA)全在浏览器页面内由用户输入,sidecar 零读取零
-    落日志;同键登录已在跑 = 幂等拒;完成/失败落内存态供 status 回读。
-    """
-    from myssia.telegram.web_line import (
-        TelegramWebError,
-        TelegramWebLoginFlow,
-        validate_account_key,
+
+def _browser_log(op_id: str, line: str) -> None:
+    """操作日志入账(环形;登录器 print 回执逐行带时间戳进台账)."""
+    with _BROWSER_OPS_LOCK:
+        record = _BROWSER_OPS.get(op_id)
+        if record is None:
+            return
+        log: list[str] = record["log"]
+        log.append(f"{_now_iso()} {line}")
+        if len(log) > _BROWSER_OP_LOG_LINES:
+            del log[: len(log) - _BROWSER_OP_LOG_LINES]
+
+
+def _browser_op_public(record: dict[str, Any]) -> dict[str, Any]:
+    """台账记录 → 协议投影(掐掉线程内句柄 stop_event/page/loop,只留面)."""
+    return {
+        "op_id": record["op_id"],
+        "kind": record["kind"],
+        "session_key": record["session_key"],
+        "url": record["url"],
+        "phase": record["phase"],
+        "note": record["note"],
+        "fix_hint": record["fix_hint"],
+        "started_at": record["started_at"],
+        "finished_at": record["finished_at"],
+        "log_tail": list(record["log"][-20:]),
+    }
+
+
+def _browser_humanize_failure(exc: Exception) -> tuple[str, str]:
+    """失败 → (人话 note, 修复指引)。静默失败=反模式(PRD AC2):依赖缺/
+    浏览器二进制缺/登录超时,每类失败都带可见出路,不装死。"""
+    from myssia.telegram.web_line import TelegramWebError
+
+    if isinstance(exc, TelegramWebError):
+        if exc.reason == "dependency_missing":
+            return (
+                f"登录窗拉起失败:playwright 未安装({exc})",
+                "设置 →「Python 环境」→ 同步依赖(桌面锁已收录 playwright);"
+                "或终端执行 pip install 'myssia[browser]'",
+            )
+        if exc.reason == "login_timeout":
+            return (
+                f"登录等待超时:{exc}",
+                "重新点「添加账号 / 重新登录」再试;反复超时查网络/代理出口",
+            )
+        return (f"{exc.reason}: {exc}", "重试;反复失败展开日志尾巴定位")
+    text = str(exc)
+    lowered = text.lower()
+    if "executable doesn't exist" in lowered or "playwright install" in lowered:
+        return (
+            "浏览器二进制缺失(Chromium 未下载):"
+            + text[:300],
+            "设置 →「Python 环境」→ 安装「JS 渲染抓取(crawl4ai)」组件"
+            "(含 Chromium 下载,落数据根 playwright-browsers);"
+            "或终端执行 playwright install chromium",
+        )
+    return (
+        f"{type(exc).__name__}: {text[:400]}",
+        "重试;反复失败展开日志尾巴定位",
     )
 
-    account = params.get("account")
-    if not isinstance(account, str):
-        raise ProtocolError(
-            "invalid_params", "account 必须是字符串(账号键)", path="params.account"
-        )
+
+def _browser_make_sleep(op_id: str, stop_event: threading.Event):
+    """注入登录流的 sleep:细粒度可中断(≤0.25s 检查停令)+ 顺带捕获登录
+    线程事件循环(browser.focus 经 run_coroutine_threadsafe 回该循环调度
+    page.bring_to_front —— Playwright async 对象只能在其归属循环上动)。"""
+
+    async def _sleep(seconds: float) -> None:
+        loop = asyncio.get_running_loop()
+        with _BROWSER_OPS_LOCK:
+            record = _BROWSER_OPS.get(op_id)
+            if record is not None:
+                record["loop"] = loop
+        deadline = loop.time() + max(0.0, float(seconds))
+        while True:
+            if stop_event.is_set():
+                raise _BrowserWindowClosed(
+                    f"操作 {op_id} 窗口已由用户关闭(browser.close)"
+                )
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return
+            await asyncio.sleep(min(0.25, remaining))
+
+    return _sleep
+
+
+def _browser_thread_main(
+    op_id: str, session_key: str, force: bool
+) -> None:
+    """操作线程:跑既有登录器(web_line.TelegramWebLoginFlow,零重写),
+    print 回执进日志尾巴,收尾写台账(running → done/failed/closed)."""
+    from myssia.telegram.web_line import TelegramWebLoginFlow
+
+    with _BROWSER_OPS_LOCK:
+        record = _BROWSER_OPS.get(op_id)
+        if record is None:  # pragma: no cover - 删除竞态防御
+            return
+        stop_event: threading.Event = record["stop_event"]
+        kind: str = record["kind"]
+
+    def _print(message: str) -> None:
+        _browser_log(op_id, message)
+
+    def _on_page_opened(page: Any) -> None:
+        with _BROWSER_OPS_LOCK:
+            current = _BROWSER_OPS.get(op_id)
+            if current is not None:
+                current["page"] = page
+        _browser_log(op_id, "浏览器窗口已就位(页面打开)")
+
+    def _finish(phase: str, note: str, fix_hint: str | None) -> None:
+        with _BROWSER_OPS_LOCK:
+            current = _BROWSER_OPS.get(op_id)
+            if current is None:  # pragma: no cover - 删除竞态防御
+                return
+            current["phase"] = phase
+            current["note"] = note
+            current["fix_hint"] = fix_hint
+            current["finished_at"] = _now_iso()
+            current["page"] = None
+            current["loop"] = None
+
+    if kind != "tg_web_login":  # pragma: no cover - 词表单键,新类别接入时扩
+        _finish("failed", f"类别 {kind} 未接线", None)
+        return
     try:
-        key = validate_account_key(account)
-    except TelegramWebError as exc:
-        raise ProtocolError("invalid_params", str(exc), path="params.account") from exc
+        asyncio.run(
+            TelegramWebLoginFlow(
+                print_fn=_print,
+                sleep=_browser_make_sleep(op_id, stop_event),
+                on_page_opened=_on_page_opened,
+            ).run(_telegram_data_root(), session_key, force=force)
+        )
+    except _BrowserWindowClosed as exc:
+        _browser_log(op_id, str(exc))
+        _finish("closed", f"窗口已关闭:{exc}", None)
+        return
+    except Exception as exc:  # noqa: BLE001 - 一切失败人话上浮(AC2)
+        note, fix_hint = _browser_humanize_failure(exc)
+        _browser_log(op_id, note)
+        _finish("failed", note, fix_hint)
+        return
+    _finish("done", "登录完成(登录态已落配置档,0700/0600)", None)
+
+
+def _m_browser_open(params: dict[str, Any]) -> dict[str, Any]:
+    """``browser.open``:浏览器操作统一入口(PRD 单入口铁律;首役 tg_web
+    登录,复用 web_line 登录器;手机号+验证码全在浏览器页面内,零读取)."""
+    kind = params.get("kind")
+    if not isinstance(kind, str) or kind not in _BROWSER_KINDS:
+        raise ProtocolError(
+            "invalid_params",
+            "kind 必须是浏览器模块已登记的操作类别:"
+            f"{sorted(_BROWSER_KINDS)}(新浏览器需求须先在模块登记,"
+            "禁止旁路直启 Chromium)",
+            path="params.kind",
+            data={"allowed": sorted(_BROWSER_KINDS)},
+        )
+    session_key = params.get("session_key")
+    if not isinstance(session_key, str):
+        raise ProtocolError(
+            "invalid_params", "session_key 必须是字符串", path="params.session_key"
+        )
+    url = params.get("url")
+    if url is not None and not isinstance(url, str):
+        raise ProtocolError(
+            "invalid_params", "url 可选,须为字符串", path="params.url"
+        )
     force = params.get("force", False)
     if not isinstance(force, bool):
         raise ProtocolError(
             "invalid_params", "force 必须是布尔", path="params.force"
         )
-    with _TELEGRAM_WEB_LOGIN_LOCK:
-        current = _TELEGRAM_WEB_LOGIN_STATE.get(key)
-        if current is not None and current.get("phase") == "running":
-            return {"started": False, "note": "该账号登录窗已在进行中"}
-        _TELEGRAM_WEB_LOGIN_STATE[key] = {
-            "phase": "running",
-            "note": None,
-            "started_at": _now_iso(),
-        }
+    if kind == "tg_web_login":
+        from myssia.telegram.web_line import (
+            INSTALL_COMMAND,
+            WEB_ORIGIN,
+            TelegramWebError,
+            require_playwright,
+            validate_account_key,
+        )
 
-    def _thread_main() -> None:
-        data_root = _telegram_data_root()
         try:
-            asyncio.run(TelegramWebLoginFlow().run(data_root, key, force=force))
-            with _TELEGRAM_WEB_LOGIN_LOCK:
-                _TELEGRAM_WEB_LOGIN_STATE[key] = {
-                    "phase": "done",
-                    "note": "登录完成(登录态已落配置档)",
-                    "started_at": _now_iso(),
-                }
+            key = validate_account_key(session_key)
         except TelegramWebError as exc:
-            with _TELEGRAM_WEB_LOGIN_LOCK:
-                _TELEGRAM_WEB_LOGIN_STATE[key] = {
-                    "phase": "failed",
-                    "note": f"{exc.reason}: {exc}",
-                    "started_at": _now_iso(),
-                }
-        except Exception as exc:  # noqa: BLE001 - 线程边界留痕
-            with _TELEGRAM_WEB_LOGIN_LOCK:
-                _TELEGRAM_WEB_LOGIN_STATE[key] = {
-                    "phase": "failed",
-                    "note": f"{type(exc).__name__}: {exc}",
-                    "started_at": _now_iso(),
-                }
+            raise ProtocolError(
+                "invalid_params", str(exc), path="params.session_key"
+            ) from exc
+        if url is None:
+            url = WEB_ORIGIN
+        # 依赖前置检查(AC2:拔依赖 → 点按钮立即可见错误+修复指引,
+        # 不等后台线程失败;真装态此调用零副作用只是 import 探针)。
+        try:
+            require_playwright()
+        except TelegramWebError as exc:
+            raise ProtocolError(
+                "dependency_missing",
+                "登录窗拉不起来:playwright 库未安装。修复:设置 →"
+                "「Python 环境」→ 同步依赖(桌面锁已收录 playwright),"
+                f"或终端执行 {INSTALL_COMMAND}",
+                path="params.kind",
+                data={"kind": kind, "install_command": INSTALL_COMMAND},
+            ) from exc
+        session_key = key
+        op_id = key
+    else:  # pragma: no cover - 词表单键;新类别在此接线
+        raise ProtocolError(
+            "invalid_params", f"类别 {kind} 未接线", path="params.kind"
+        )
 
+    with _BROWSER_OPS_LOCK:
+        current = _BROWSER_OPS.get(op_id)
+        if current is not None and current.get("phase") == "running":
+            return {
+                "started": False,
+                "op_id": op_id,
+                "note": "该操作的浏览器窗口已在进行中(到「浏览器」模块聚焦/关闭)",
+            }
+        _BROWSER_OPS[op_id] = {
+            "op_id": op_id,
+            "kind": kind,
+            "session_key": session_key,
+            "url": url,
+            "phase": "running",
+            "note": "登录窗拉起中(浏览器窗口即将弹出)",
+            "fix_hint": None,
+            "started_at": _now_iso(),
+            "finished_at": None,
+            "log": [
+                f"{_now_iso()} 操作登记:{kind} 会话 {session_key}"
+                f"(force={force})"
+            ],
+            "stop_event": threading.Event(),
+            "page": None,
+            "loop": None,
+        }
     thread = threading.Thread(
-        target=_thread_main, daemon=True, name=f"tg-web-login-{key}"
+        target=_browser_thread_main,
+        args=(op_id, session_key, force),
+        daemon=True,
+        name=f"browser-op-{op_id}",
     )
     thread.start()
-    return {"started": True, "account": key}
+    return {"started": True, "op_id": op_id, "kind": kind, "url": url}
+
+
+def _m_browser_list(params: dict[str, Any]) -> dict[str, Any]:
+    """``browser.list``:操作台账(最新在前;phase=running/done/failed/
+    closed,带人话 note/修复指引/日志尾巴)。"""
+    with _BROWSER_OPS_LOCK:
+        records = sorted(
+            _BROWSER_OPS.values(),
+            key=lambda record: str(record.get("started_at")),
+            reverse=True,
+        )
+        operations = [_browser_op_public(record) for record in records]
+    return {"operations": operations, "kinds": dict(_BROWSER_KINDS)}
+
+
+def _m_browser_focus(params: dict[str, Any]) -> dict[str, Any]:
+    """``browser.focus``:把进行中操作的浏览器窗口带到前台(bring_to_front,
+    经登录线程事件循环调度)。"""
+    op_id = params.get("op_id")
+    if not isinstance(op_id, str):
+        raise ProtocolError(
+            "invalid_params", "op_id 必须是字符串", path="params.op_id"
+        )
+    with _BROWSER_OPS_LOCK:
+        record = _BROWSER_OPS.get(op_id)
+        phase = record.get("phase") if record is not None else None
+        page = record.get("page") if record is not None else None
+        loop = record.get("loop") if record is not None else None
+    if record is None:
+        raise ProtocolError(
+            "unknown_operation",
+            f"操作 {op_id} 不在台账(进程重启后会清空,重开操作即可)",
+            path="params.op_id",
+        )
+    if phase != "running":
+        raise ProtocolError(
+            "window_not_active",
+            f"操作 {op_id} 窗口不在运行中(当前态:{phase});"
+            "聚焦只对进行中的窗口有效",
+            path="params.op_id",
+        )
+    if page is None or loop is None:
+        raise ProtocolError(
+            "window_not_active",
+            f"操作 {op_id} 的浏览器窗口还没就位(刚拉起),稍等片刻再聚焦",
+            path="params.op_id",
+        )
+    try:
+        future = asyncio.run_coroutine_threadsafe(page.bring_to_front(), loop)
+        future.result(timeout=10.0)
+    except Exception as exc:  # noqa: BLE001 - 跨线程调度失败如实上浮
+        raise ProtocolError(
+            "focus_failed",
+            f"聚焦失败:{type(exc).__name__}: {exc}",
+            path="params.op_id",
+        ) from exc
+    return {"focused": True, "op_id": op_id}
+
+
+def _m_browser_close(params: dict[str, Any]) -> dict[str, Any]:
+    """``browser.close``:请求关闭进行中操作的浏览器窗口(置停令 → 注入
+    sleep 抛收尾异常 → 登录流 finally 关 context;台账转 closed)。"""
+    op_id = params.get("op_id")
+    if not isinstance(op_id, str):
+        raise ProtocolError(
+            "invalid_params", "op_id 必须是字符串", path="params.op_id"
+        )
+    with _BROWSER_OPS_LOCK:
+        record = _BROWSER_OPS.get(op_id)
+        phase = record.get("phase") if record is not None else None
+        stop_event = record.get("stop_event") if record is not None else None
+    if record is None:
+        raise ProtocolError(
+            "unknown_operation",
+            f"操作 {op_id} 不在台账(进程重启后会清空,重开操作即可)",
+            path="params.op_id",
+        )
+    if phase != "running" or not isinstance(stop_event, threading.Event):
+        raise ProtocolError(
+            "window_not_active",
+            f"操作 {op_id} 窗口不在运行中(当前态:{phase});"
+            "关闭只对进行中的窗口有效",
+            path="params.op_id",
+        )
+    stop_event.set()
+    _browser_log(op_id, "已收到关闭请求(窗口收尾中)")
+    return {
+        "closed": True,
+        "op_id": op_id,
+        "note": "已请求关闭:窗口收尾后台账转「已关闭」(刷新可见)",
+    }
 
 
 def _m_telegram_web_delete(params: dict[str, Any]) -> dict[str, Any]:
@@ -5902,18 +6199,20 @@ def _m_telegram_web_delete(params: dict[str, Any]) -> dict[str, Any]:
     except TelegramWebError as exc:
         raise ProtocolError("invalid_params", str(exc), path="params.account") from exc
     directory = profile_dir(_telegram_data_root(), key)
-    with _TELEGRAM_WEB_LOGIN_LOCK:
-        current = _TELEGRAM_WEB_LOGIN_STATE.get(key)
-        if current is not None and current.get("phase") == "running":
-            raise ProtocolError(
-                "login_in_progress",
-                f"账号 {key} 登录窗正在进行中,关闭登录窗后再删除",
-                path="params.account",
-            )
+    with _BROWSER_OPS_LOCK:
+        op = _BROWSER_OPS.get(key)
+        op_running = op is not None and op.get("phase") == "running"
+    if op_running:
+        raise ProtocolError(
+            "login_in_progress",
+            f"账号 {key} 登录窗正在进行中:先到「浏览器」模块关闭登录窗,"
+            "再回来删除配置档",
+            path="params.account",
+        )
     if directory.exists():
         shutil.rmtree(directory)
-    with _TELEGRAM_WEB_LOGIN_LOCK:
-        _TELEGRAM_WEB_LOGIN_STATE.pop(key, None)
+    with _BROWSER_OPS_LOCK:
+        _BROWSER_OPS.pop(key, None)
     return {"deleted": True, "account": key, "existed": True}
 
 
@@ -5991,10 +6290,16 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "cron.status": _m_cron_status,
     "cron.runs": _m_cron_runs,
     # Telegram 监控总卡面(10-08-tg-web-line W4):三线状态/网页线账号
-    # 登录(headed 后台线程)/配置档删除。
+    # 配置档删除。登录动作已改走浏览器模块(10-08-browser-module 单入口
+    # 铁律:telegram.web.login 移除,browser.* 四方法为唯一浏览器入口)。
     "telegram.status": _m_telegram_status,
-    "telegram.web.login": _m_telegram_web_login,
     "telegram.web.delete": _m_telegram_web_delete,
+    # 浏览器专用模块(10-08-browser-module 案甲):统一入口 open + 操作
+    # 台账 list + 窗口管理 focus/close;一切浏览器操作必经此处。
+    "browser.open": _m_browser_open,
+    "browser.list": _m_browser_list,
+    "browser.focus": _m_browser_focus,
+    "browser.close": _m_browser_close,
 }
 
 

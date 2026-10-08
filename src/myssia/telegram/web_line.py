@@ -407,8 +407,8 @@ async def check_logged_in(
 class TelegramWebLoginFlow:
     """网页线一次性登录流(``myssia telegram web-login``;headed).
 
-    全依赖面注入(``playwright_factory``/``print_fn``/``sleep``)—— 测试
-    零交互零网络零真 playwright。流程:
+    全依赖面注入(``playwright_factory``/``print_fn``/``sleep``/``on_page_opened``)
+    —— 测试零交互零网络零真 playwright。流程:
 
     1. 账号键校验 + 配置档目录就位(0700);
     2. 登录标记在(且未 ``--force``)→ 复用提示退出零浏览器;
@@ -417,6 +417,10 @@ class TelegramWebLoginFlow:
        **用户页面内**输手机号+验证码(+2FA;本流零读取零落日志);
     4. 轮询会话列表出现(LOGIN_TIMEOUT 秒人速窗)→ 落标记 + 权限硬化
        → 成功回执(含披露三条:DOM 跟修哨兵/建议小号/api_id 到手切正统)。
+
+    ``on_page_opened``(10-08-browser-module 案甲):页面取得后、goto 前的
+    同步回调(注入缝 = 浏览器模块的窗口管理面:聚焦经 page.bring_to_front);
+    缺省 None 零行为差,既有调用方(CLI/引擎/宿主/测试)不受影响。
 
     Raises:
         TelegramWebError: ``invalid_account``/``dependency_missing``/
@@ -430,11 +434,13 @@ class TelegramWebLoginFlow:
         playwright_factory: Callable[[], Any] | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         timeout_seconds: float = LOGIN_TIMEOUT_SECONDS,
+        on_page_opened: Callable[[Any], None] | None = None,
     ) -> None:
         self._print = print_fn
         self._playwright_factory = playwright_factory
         self._sleep = sleep
         self._timeout = timeout_seconds
+        self._on_page_opened = on_page_opened
 
     async def run(
         self, data_root: str | Path, account: str, *, force: bool = False
@@ -469,6 +475,9 @@ class TelegramWebLoginFlow:
                 if context.pages
                 else await context.new_page()
             )
+            if self._on_page_opened is not None:
+                # 同步回调(goto 前注入页面句柄;浏览器模块窗口管理面消费)
+                self._on_page_opened(page)
             await page.goto(WEB_ORIGIN, wait_until="domcontentloaded")
             self._print(
                 f"登录窗口已打开({WEB_ORIGIN};账号 {key})。\n"

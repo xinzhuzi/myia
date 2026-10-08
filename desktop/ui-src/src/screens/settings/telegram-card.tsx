@@ -1,5 +1,6 @@
 /**
- * 「Telegram 监控」总卡(10-08-tg-web-line W4;PRD 登录 UX 决议)。
+ * 「Telegram 监控」总卡(10-08-tg-web-line W4;PRD 登录 UX 决议;
+ * 10-08-browser-module 接线:登录动作改调浏览器模块统一入口)。
  *
  * 卡面三段(PRD「bot/session/web 三态行」)+ 账号列表化(PRD 多账号决议 ③):
  *
@@ -7,8 +8,9 @@
  * - **session 段**:telethon 用户线 session(绿 = 已首登;灰 = 未首登,
  *   CLI login 指引);
  * - **web 段**:网页线账号列表(每行:键 + 状态灯 + 重登 + 删除)+
- *   「+添加账号」(起键名 → 拉起系统浏览器登录窗;登录窗 = 壳拉起的
- *   headed Chromium,非前端内嵌 —— MYIA_SHOW_ON_START 直跑判例家族)。
+ *   「+添加账号」(起键名 → **经浏览器模块**拉起 MYIA 自管 Chromium 登录
+ *   窗;单入口铁律 = 一切浏览器操作必经 browser.open,窗口台账/错误上浮
+ *   集中在设置 →「浏览器」分区,卡面登录中/失败态与模块操作台账同源联动)。
  *
  * 诚实披露三条在卡面文案常驻(PRD AC5):DOM 改版跟修哨兵在/ToS 灰色
  * 建议小号(同机同出口多账号可被关联)/api_id 到手切回 Telethon 正统线。
@@ -140,12 +142,12 @@ export function TelegramCard() {
         const outcome = await telegramWebLogin(account, force);
         if (outcome.started) {
           setNote(
-            `账号 ${account} 登录窗已拉起:请在弹出的浏览器窗口里输入手机号 → 验证码(验证码在你手机 TG 里;如有两步验证再输密码)。登录态会自动落档,本页每 ${LOGIN_POLL_INTERVAL_MS / 1000}s 自动对账(转绿即完成)。`,
+            `账号 ${account} 登录窗已拉起(经浏览器模块):请在弹出的浏览器窗口里输入手机号 → 验证码(验证码在你手机 TG 里;如有两步验证再输密码)。登录态会自动落档,本页每 ${LOGIN_POLL_INTERVAL_MS / 1000}s 自动对账(转绿即完成);窗口管理(聚焦/关闭)在设置 →「浏览器」分区。`,
           );
           setLoginPoll(1);
           setStatus(await telegramGetStatus());
         } else {
-          setNote(outcome.note ?? `账号 ${account} 登录窗已在进行中。`);
+          setNote(outcome.note ?? `账号 ${account} 登录窗已在进行中(到「浏览器」分区管理窗口)。`);
         }
       } catch (raw) {
         setActionError(asSidecarError(raw));
