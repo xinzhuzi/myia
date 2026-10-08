@@ -411,6 +411,9 @@ export interface StoreItemsParams {
   /** 按源名过滤(精确等值;10-06-feed-channel-groups 三级下钻 L3 渠道
    *  消息流——源名全称如 telegram-durov,非 LIKE) */
   source?: string;
+  /** 源大类过滤(10-08-tg-channel-card v2,protocol ≥ 12):im = 通讯
+   *  软件源(telegram-/tg- 前缀),web = 其余含无源;省略 = 不过滤 */
+  source_kind?: "web" | "im";
   /** ISO 时间下界(first_seen ≥,含边界) */
   since?: string;
   /** 翻页游标(first_seen 严格小于;与 before_id 组成复合游标) */
@@ -516,6 +519,9 @@ export interface StoreStateMarkAllParams {
   marker: ItemStateMarker;
   value: boolean;
   category?: string;
+  /** 源大类作用域(10-08-tg-channel-card v2,protocol ≥ 12):与
+   *  store.items 同词表;省略 = 全库/品类语义 */
+  source_kind?: "web" | "im";
   db?: string;
 }
 
@@ -547,6 +553,9 @@ export interface FeedExportParams {
   path: string;
   /** 当前过滤视图的品类(与 store.items 同一查询面) */
   category?: string;
+  /** 源大类作用域(10-08-tg-channel-card v2,protocol ≥ 12):与
+   *  store.items 同词表;省略 = 不过滤 */
+  source_kind?: "web" | "im";
   /** 当前过滤视图的搜索词(title/content/source 三列 LIKE NOCASE) */
   query?: string;
   db?: string;

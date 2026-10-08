@@ -7,6 +7,7 @@ import {
   Download,
   ExternalLink,
   FileText,
+  Globe,
   Inbox,
   Percent,
   Play,
@@ -66,6 +67,7 @@ import {
   formatRelativeTime,
   groupFeedItems,
   groupFeedItemsByChannel,
+  imAppOf,
   importLocalFeedStates,
   inDayWindow,
   isLaterResurface,
@@ -86,13 +88,16 @@ import {
   saveYamlRaw,
   setMarkerBulk,
   sortUnreadFirst,
+  SOURCE_KIND_PROTOCOL,
   statesFromItems,
+  streamKindCards,
   telegramChannelCards,
   toggleMarker,
   type ChannelKind,
   type ExportFormat,
   type FeedCategoryOption,
   type FeedDisplayOptions,
+  type StreamKindCardData,
   type TelegramChannelCardData,
   type YamlTargetFile,
 } from "./api";
@@ -1031,6 +1036,55 @@ function TgChannelCard({
   );
 }
 
+/** 源大类卡(10-08-tg-channel-card v2,主人令「网页集中在一起,其他通讯软件
+ *  一个通讯软件一个卡片,点击进入第二层才是详情展示」):L3 多渠道作用域
+ *  第一层的卡片墙本体 —— 网页一张(Globe)/ 每通讯软件一张(Telegram =
+ *  Send),散条目卡不再出现在第一层;点击进第二层详情(网页 = 条目平铺,
+ *  通讯软件 = 按频道分节全铺)。形制与 TgChannelCard 同语言(未读竖条/
+ *  最新预览/计数/chevron)。 */
+function SourceKindCard({
+  card,
+  onOpen,
+}: {
+  card: StreamKindCardData;
+  onOpen: () => void;
+}) {
+  const time = formatRelativeTime(card.latest.first_seen);
+  const preview = (card.latest.title || card.latest.url).replace(/\s+/g, " ").trim();
+  const Icon = card.key === "im" ? Send : Globe;
+  return (
+    <button
+      type="button"
+      data-testid={`feed-kind-card-${card.key}`}
+      onClick={onOpen}
+      className="group/kind-card relative w-full overflow-hidden rounded-md border border-border bg-card px-3 py-2.5 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:border-primary/40 hover:bg-accent/40"
+      title={`打开「${card.label}」详情:${card.count} 条 · 未读 ${card.unread}(口径 = 当前视图 ∪ 当日窗可见条目)`}
+    >
+      {card.unread > 0 ? (
+        <span aria-hidden data-testid={`feed-kind-card-unread-${card.key}`} className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-primary" />
+      ) : null}
+      <span className="flex items-center gap-1.5">
+        <Icon aria-hidden className="size-3.5 shrink-0 text-primary" />
+        <span className="min-w-0 truncate text-sm font-medium text-foreground">{card.label}</span>
+        <time
+          dateTime={card.latest.first_seen ?? undefined}
+          className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground"
+        >
+          {time}
+        </time>
+      </span>
+      <span className="mt-0.5 block truncate text-sm leading-relaxed text-muted-foreground">{preview}</span>
+      <span className="mt-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
+        {card.count} 条{card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
+        <ChevronRight
+          aria-hidden
+          className="ml-auto size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-(--duration-fast) ease-out-expo group-hover/kind-card:translate-x-0.5"
+        />
+      </span>
+    </button>
+  );
+}
+
 /**
  * 情报流:条目卡片列表 + 未读/星标/稍后读三态(本地态,localStorage 持久)
  * + 游标分页加载(见 ./api 的协议缺口注记)+ 服务端搜索(G1,防抖/Enter
@@ -1113,14 +1167,34 @@ export function FeedScreen() {
   const [drill, setDrill] = useState<
     | { level: 1 }
     | { level: 2; category: string }
-    | { level: 3; category: string | null; source: string | null }
+    | {
+        level: 3;
+        category: string | null;
+        source: string | null;
+        /** 源大类作用域(10-08-tg-channel-card v2,仅过 SOURCE_KIND_PROTOCOL
+         *  门时有值):null = 卡片墙第一层;web = 网页详情;im = 通讯软件
+         *  详情(source=null 分节全铺 / source=单频道过滤)。 */
+        kind: "web" | "im" | null;
+      }
   >({ level: 1 });
-  /** L3 查询作用域(drill 派生;L1/L2 = 全局首页,计数源) */
+  /** 源大类能力门(10-08-tg-channel-card v2):protocol ≥ SOURCE_KIND_PROTOCOL
+   *  = sidecar 三方法支持 source_kind → L3 走卡片墙;未过门 = v1 形态原样
+   *  (TG 频道卡区 + 消息列表)。与 serverStateReady 同一次 version 调用合流。 */
+  const [sourceKindReady, setSourceKindReady] = useState(false);
+  /** L3 查询作用域(drill 派生;L1/L2 = 全局首页,计数源)。kind 仅在过门
+   *  且未定源时随参(source 精确等值视图不需要大类过滤)。 */
   const streamScope =
-    drill.level === 3 ? { category: drill.category, source: drill.source } : { category: null, source: null };
+    drill.level === 3
+      ? {
+          category: drill.category,
+          source: drill.source,
+          sourceKind:
+            sourceKindReady && drill.source === null ? (drill.kind ?? null) : null,
+        }
+      : { category: null, source: null, sourceKind: null };
   /** 下钻作用域键(refresh/loadMore/liveRefresh 依赖;变化即重查) */
   const scopeKey =
-    drill.level === 3 ? `3:${drill.category ?? "*"}:${drill.source ?? "*"}` : "root";
+    drill.level === 3 ? `3:${drill.category ?? "*"}:${drill.source ?? "*"}:${drill.kind ?? "*"}` : "root";
   /** 品类下拉选项(health().plugins 派生,挂载一次;L1 品类列表词汇源) */
   const [categoryOptions, setCategoryOptions] = useState<FeedCategoryOption[]>([]);
   /** 源名→engine 映射(10-06-feed-channel-groups:渠道类型判定的词表源;
@@ -1216,20 +1290,24 @@ export function FeedScreen() {
     return () => window.clearInterval(timer);
   }, []);
 
-  // 能力门探测(挂载一次):低版本/探测失败 → false(旧 localStorage 通路)
+  // 能力门探测(挂载一次):低版本/探测失败 → false(旧 localStorage 通路);
+  // 同一次应答顺带置源大类门(10-08-tg-channel-card v2,零新 RPC)
   useEffect(() => {
     let cancelled = false;
     void api
       .version()
       .then((info) => {
         if (!cancelled) {
-          setServerStateReady(
-            typeof info?.protocol === "number" && info.protocol >= READ_STATE_PROTOCOL,
-          );
+          const protocol = typeof info?.protocol === "number" ? info.protocol : -1;
+          setServerStateReady(protocol >= READ_STATE_PROTOCOL);
+          setSourceKindReady(protocol >= SOURCE_KIND_PROTOCOL);
         }
       })
       .catch(() => {
-        if (!cancelled) setServerStateReady(false);
+        if (!cancelled) {
+          setServerStateReady(false);
+          setSourceKindReady(false);
+        }
       });
     return () => {
       cancelled = true;
@@ -1254,6 +1332,7 @@ export function FeedScreen() {
         cursorId: null,
         category: streamScope.category,
         source: streamScope.source,
+        sourceKind: streamScope.sourceKind,
         query,
       });
       if (seq !== feedSeqRef.current) return; // F2:旧应答丢弃( newer 包已在途/已落地)
@@ -1360,6 +1439,7 @@ export function FeedScreen() {
         cursorId: null,
         category: streamScope.category,
         source: streamScope.source,
+        sourceKind: streamScope.sourceKind,
         query,
       });
       if (seq !== feedSeqRef.current) return; // F2:旧应答丢弃(含切域后在途包)
@@ -1435,6 +1515,7 @@ export function FeedScreen() {
         cursorId,
         category: streamScope.category,
         source: streamScope.source,
+        sourceKind: streamScope.sourceKind,
         query,
       });
       if (seq !== feedSeqRef.current) return; // F2:refresh/liveRefresh 已接管,旧页不追加
@@ -1533,18 +1614,23 @@ export function FeedScreen() {
     );
   }, []);
 
-  /** G9 批量:全部标已读/未读(可选 category = 品类分组组头入口)—— 过门后
-   *  store.state.mark_all 单 UPDATE:category 缺省 = 全库(含未翻页/未加载
-   *  条目),传 category = 该品类全库精确等值(协议不收 query,决议 Q3.2);
-   *  就地翻转已加载行内作用域条目即时反馈,不整页重拉,失败按调用前快照回滚
-   *  (只回滚作用域内行,域外行不动);未过门 = 旧本地批量(作用域 = 已加载
-   *  条目,无品类入口 —— 品类组头钮只在过门时出现,title 如实注明)。 */
+  /** G9 批量:全部标已读/未读(可选 category = 品类分组组头入口;可选
+   *  sourceKind = 源大类作用域,10-08-tg-channel-card v2 卡片墙第二层)——
+   *  过门后 store.state.mark_all 单 UPDATE:category/source_kind 缺省 =
+   *  全库(含未翻页/未加载条目),传 category = 该品类全库精确等值(协议
+   *  不收 query,决议 Q3.2),传 sourceKind = 大类全库(web/im,与 category
+   *  可叠加);就地翻转已加载行内作用域条目即时反馈,不整页重拉,失败按
+   *  调用前快照回滚(只回滚作用域内行,域外行不动);未过门 = 旧本地批量
+   *  (作用域 = 已加载条目,无品类/大类入口,title 如实注明)。 */
   const markAllRead = useCallback(
-    (value: boolean, category?: string) => {
+    (value: boolean, category?: string, sourceKind?: "web" | "im") => {
       if (useServerState) {
-        // 作用域谓词:全库 = 全部已加载行;品类 = 该 category 精确等值行
+        // 作用域谓词:全库 = 全部已加载行;品类 = 该 category 精确等值行;
+        // 大类 = im(通讯软件前缀源)/ web(其余含无源)
         const inScope = (candidate: FeedItem) =>
-          category === undefined || candidate.category === category;
+          (category === undefined || candidate.category === category) &&
+          (sourceKind === undefined ||
+            (sourceKind === "im" ? imAppOf(candidate.source) !== null : imAppOf(candidate.source) === null));
         const snapshot = new Map(
           items.filter(inScope).map((candidate) => [itemKey(candidate), candidate.read === true]),
         );
@@ -1552,9 +1638,12 @@ export function FeedScreen() {
           current.map((candidate) => (inScope(candidate) ? { ...candidate, read: value } : candidate)),
         );
         void api
-          .storeStateMarkAll(
-            category === undefined ? { marker: "read", value } : { marker: "read", value, category },
-          )
+          .storeStateMarkAll({
+            marker: "read",
+            value,
+            ...(category !== undefined ? { category } : {}),
+            ...(sourceKind !== undefined ? { source_kind: sourceKind } : {}),
+          })
           .then(() => setMarkError(null))
           .catch((err) => {
             setItems((current) =>
@@ -1597,21 +1686,42 @@ export function FeedScreen() {
     [display.unreadFirst, visible, states],
   );
 
-  /** TG 渠道卡派生(10-08-tg-channel-card):仅多渠道作用域(全部条目/品类
-   *  流,source===null)聚合 —— 渠道详情(source 作用域)本身就是逐条消息
-   *  流,不聚合。消息列表本体 = 可见条目剔除 telegram(渠道卡区承载),
-   *  其余类型卡照旧;计数/预览随过滤视图与实时刷新派生,零新订阅。 */
-  const streamScopeMulti = drill.level === 3 && drill.source === null;
+  /** 三层作用域派生(10-08-tg-channel-card v2):wallLayout = 卡片墙第一层
+   *  (网页一张 + 每通讯软件一张,散条目卡退场);webDetailLayout = 网页
+   *  详情(条目平铺);imDetailLayout = 通讯软件分节详情(频道卡降为节头,
+   *  节内消息全量平铺)。legacyStreamLayout = 未过源大类门的多渠道流 = v1
+   *  形态原样(TG 频道卡区 + 消息列表,双形态一门之隔)。 */
+  const wallLayout =
+    sourceKindReady && drill.level === 3 && drill.source === null && drill.kind === null;
+  const imDetailLayout =
+    sourceKindReady && drill.level === 3 && drill.source === null && drill.kind === "im";
+  const legacyStreamLayout = drill.level === 3 && drill.source === null && !sourceKindReady;
+
+  /** v1 形态派生(未过门回落;过门后恒空 = 零渲染):渠道卡区 + 消息列表
+   *  剔除 telegram。 */
   const tgCards = useMemo<TelegramChannelCardData[]>(
-    () => (streamScopeMulti ? telegramChannelCards(displayItems, states) : []),
-    [streamScopeMulti, displayItems, states],
+    () => (legacyStreamLayout ? telegramChannelCards(displayItems, states) : []),
+    [legacyStreamLayout, displayItems, states],
   );
   const streamItems = useMemo(
     () =>
-      streamScopeMulti
+      legacyStreamLayout
         ? displayItems.filter((item) => channelKindOf(item, engineBySource) !== "telegram")
         : displayItems,
-    [streamScopeMulti, displayItems, engineBySource],
+    [legacyStreamLayout, displayItems, engineBySource],
+  );
+
+  /** 卡片墙(v2 第一层):网页/通讯软件大类卡,计数口径 = 当前视图可见条目。 */
+  const wallCards = useMemo<StreamKindCardData[]>(
+    () => (wallLayout ? streamKindCards(displayItems, states) : []),
+    [wallLayout, displayItems, states],
+  );
+
+  /** TG 分节详情(v2 第二层):频道节头卡(含节内 count/unread/latest,
+   *  点击进单频道过滤视图 = 既有 source 作用域)。 */
+  const imDetailCards = useMemo<TelegramChannelCardData[]>(
+    () => (imDetailLayout ? telegramChannelCards(displayItems, states) : []),
+    [imDetailLayout, displayItems, states],
   );
 
   /** 分组(L3 显示选项):时间四桶(D4 缺省)/ 不分组(平铺)。三级下钻
@@ -1620,7 +1730,8 @@ export function FeedScreen() {
    *  (loadFeedDisplay 兼容旧值,不丢用户其余选项)。
    *  category 字段恒 null(时间桶无品类组头;品类批量入口移驻 L2 头部)。
    *  10-08-tg-channel-card:分组/平铺吃 streamItems(TG 条目已折叠进渠道
-   *  卡区,组头计数如实反映列表本体)。 */
+   *  卡区,组头计数如实反映列表本体)。10-08 v2:卡片墙与 TG 分节详情无
+   *  时间分组(墙无消息卡;分节详情以频道为节)。 */
   const groups = useMemo<
     {
       key: string;
@@ -1630,7 +1741,7 @@ export function FeedScreen() {
       category: string | null;
     }[] | null
   >(() => {
-    if (display.groupMode === "none") return null;
+    if (display.groupMode === "none" || wallLayout || imDetailLayout) return null;
     return groupFeedItems(streamItems).map((group) => ({
       key: group.key,
       label: group.label,
@@ -1638,7 +1749,7 @@ export function FeedScreen() {
       color: null,
       category: null,
     }));
-  }, [display.groupMode, streamItems]);
+  }, [display.groupMode, streamItems, wallLayout, imDetailLayout]);
 
   /** 键盘「当前卡」(U/j/k 快捷键作用目标;hover/focus 进入卡时置位) */
   const [currentKey, setCurrentKey] = useState<string | null>(null);
@@ -1686,9 +1797,10 @@ export function FeedScreen() {
       }
       // j/k:展示序上/下移;边界钳制不回绕(首卡 k / 末卡 j 原地不动),
       // 未选中时 j 落首卡、k 落末卡(当前卡被过滤离场同此路径)。
-      // 10-08-tg-channel-card:吃 streamItems(TG 条目已折叠进渠道卡区,
-      // 巡游不落到未渲染的卡);渠道卡本体不参与巡游(点击直达详情)。
-      const keys = streamItems.map(itemKey);
+      // 10-08-tg-channel-card:v1 形态吃 streamItems(TG 折叠进渠道卡区);
+      // v2 卡片墙无消息卡(巡游空转),第二层详情/单频道吃 displayItems
+      // (全部真实渲染,含 TG 分节);渠道卡本体不参与巡游(点击直达)。
+      const keys = wallLayout ? [] : (legacyStreamLayout ? streamItems : displayItems).map(itemKey);
       if (keys.length === 0) return;
       const index = currentKey === null ? -1 : keys.indexOf(currentKey);
       const next =
@@ -1705,7 +1817,7 @@ export function FeedScreen() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [drill.level, currentKey, items, toggle, streamItems]);
+  }, [drill.level, currentKey, items, toggle, streamItems, wallLayout, legacyStreamLayout, displayItems]);
 
   // R2:全库批量确认态在屏期间 Esc 全局收口(焦点在确认钮簇内/外都退出确认);
   //  输入框/可编辑目标内按 Esc 归其自身语义(如搜索框 R1 即时清空),不抢确认
@@ -1756,6 +1868,8 @@ export function FeedScreen() {
       const outcome = await exportFeedView({
         format: exportFormat,
         category: drill.level === 3 ? drill.category : null,
+        sourceKind:
+          drill.level === 3 && drill.source === null ? (drill.kind ?? null) : null,
         query,
       });
       if (outcome.path !== null) {
@@ -1820,17 +1934,25 @@ export function FeedScreen() {
    *  全库真话(mark_all 带 category 精确等值);渠道流不出钮(feed.export/
    *  mark_all 无 source 参数,范围不实则不出现)。 */
   const bulkScopeCategory = drill.level === 3 ? drill.category : null;
+  /** 源大类批量作用域(v2:第二层详情传 source_kind,卡片墙/单频道不传) */
+  const bulkScopeKind =
+    drill.level === 3 && drill.source === null ? (drill.kind ?? undefined) : undefined;
+  const bulkKindLabel = bulkScopeKind === "web" ? "网页" : "Telegram";
   const bulkHidden = drill.level === 3 && drill.source !== null;
   const markAllReadTitle = !useServerState
     ? `把已加载的 ${items.length} 条(未读 ${unreadLoaded})全部标记为已读;本地态,未翻页条目不含`
-    : bulkScopeCategory !== null
-      ? `把品类「${bulkScopeCategory}」全库条目(含未翻页)标记为已读(store.state.mark_all 品类精确等值,服务端持久)`
-      : "把全库所有条目(含未翻页)标记为已读(store.state.mark_all,服务端持久)";
+    : bulkScopeKind !== undefined
+      ? `把${bulkKindLabel}范围${bulkScopeCategory !== null ? `·品类「${bulkScopeCategory}」` : ""}全库条目(含未翻页)标记为已读(store.state.mark_all source_kind=${bulkScopeKind},服务端持久)`
+      : bulkScopeCategory !== null
+        ? `把品类「${bulkScopeCategory}」全库条目(含未翻页)标记为已读(store.state.mark_all 品类精确等值,服务端持久)`
+        : "把全库所有条目(含未翻页)标记为已读(store.state.mark_all,服务端持久)";
   const markAllUnreadTitle = !useServerState
     ? `把已加载的 ${items.length} 条(已读 ${items.length - unreadLoaded})全部恢复未读;本地态`
-    : bulkScopeCategory !== null
-      ? `把品类「${bulkScopeCategory}」全库条目(含未翻页)恢复为未读(store.state.mark_all 品类精确等值,服务端持久)`
-      : "把全库所有条目(含未翻页)恢复为未读(store.state.mark_all,服务端持久)";
+    : bulkScopeKind !== undefined
+      ? `把${bulkKindLabel}范围${bulkScopeCategory !== null ? `·品类「${bulkScopeCategory}」` : ""}全库条目(含未翻页)恢复为未读(store.state.mark_all source_kind=${bulkScopeKind},服务端持久)`
+      : bulkScopeCategory !== null
+        ? `把品类「${bulkScopeCategory}」全库条目(含未翻页)恢复为未读(store.state.mark_all 品类精确等值,服务端持久)`
+        : "把全库所有条目(含未翻页)恢复为未读(store.state.mark_all,服务端持久)";
 
   // ---------------------------------------------------------------------------
   // 三级下钻派生(10-06-feed-channel-groups):L1 品类行 / L2 渠道行的
@@ -1983,7 +2105,7 @@ export function FeedScreen() {
 
   /** 下钻导航动作 */
   const openAllStream = useCallback(() => {
-    setDrill({ level: 3, category: null, source: null });
+    setDrill({ level: 3, category: null, source: null, kind: null });
     setCurrentKey(null);
     setNavByKeyboard(false);
   }, []);
@@ -1992,28 +2114,51 @@ export function FeedScreen() {
     setCurrentKey(null);
   }, []);
   const openCategoryStream = useCallback(() => {
-    setDrill((current) => (current.level === 2 ? { level: 3, category: current.category, source: null } : current));
+    setDrill((current) =>
+      current.level === 2 ? { level: 3, category: current.category, source: null, kind: null } : current,
+    );
     setCurrentKey(null);
   }, []);
   const openChannel = useCallback((source: string) => {
-    setDrill((current) => (current.level === 2 ? { level: 3, category: current.category, source } : current));
+    setDrill((current) =>
+      current.level === 2 ? { level: 3, category: current.category, source, kind: "im" } : current,
+    );
     setCurrentKey(null);
   }, []);
-  /** 渠道卡点击(10-08-tg-channel-card):流内(全部条目/品类流)进该渠道
-   *  消息流(详情),保留当前品类作用域(全部条目流 category=null,详情
-   *  面包屑由「全部条目」中间层回流)。 */
+  /** 渠道卡点击(v1 频道卡区 / v2 TG 分节节头共用):进该渠道消息流,
+   *  保留当前品类与源大类作用域(卡片墙进 TG 详情后点节头 = 单频道过滤)。 */
   const openChannelFromStream = useCallback((source: string) => {
     setDrill((current) =>
       current.level === 3 && current.source === null
-        ? { level: 3, category: current.category, source }
+        ? { level: 3, category: current.category, source, kind: current.kind }
         : current,
     );
     setCurrentKey(null);
     setNavByKeyboard(false);
   }, []);
-  /** 渠道详情 → 回所在流(全部条目;10-08 面包屑中间层同门) */
+  /** 卡片墙点击(v2):进源大类第二层详情(网页=条目平铺 / 通讯软件=分节全铺)。 */
+  const openKind = useCallback((kind: "web" | "im") => {
+    setDrill((current) =>
+      current.level === 3 && current.source === null && current.kind === null
+        ? { level: 3, category: current.category, source: null, kind }
+        : current,
+    );
+    setCurrentKey(null);
+    setNavByKeyboard(false);
+  }, []);
+  /** 单频道 → 回 TG 分节详情(v2 面包屑「Telegram」中间层同门;openKind 的
+   *  守卫只认卡片墙起点,这里从 source 作用域回流)。 */
+  const backToImDetail = useCallback(() => {
+    setDrill((current) =>
+      current.level === 3 ? { level: 3, category: current.category, source: null, kind: "im" } : current,
+    );
+    setCurrentKey(null);
+  }, []);
+  /** 回卡片墙(第二层详情回流;面包屑「全部条目/品类」同门) */
   const backToStreamAll = useCallback(() => {
-    setDrill({ level: 3, category: null, source: null });
+    setDrill((current) =>
+      current.level === 3 ? { level: 3, category: current.category, source: null, kind: null } : current,
+    );
     setCurrentKey(null);
   }, []);
   const backToL1 = useCallback(() => setDrill({ level: 1 }), []);
@@ -2027,9 +2172,15 @@ export function FeedScreen() {
       ? ""
       : drill.source !== null
         ? channelDisplayName(drill.source)
-        : drill.category !== null
-          ? `${categoryLabelOf(drill.category)} · 全部渠道`
-          : "全部条目 · 滚动流";
+        : drill.kind === "web"
+          ? `${drill.category !== null ? `${categoryLabelOf(drill.category)} · ` : ""}网页`
+          : drill.kind === "im"
+            ? `${drill.category !== null ? `${categoryLabelOf(drill.category)} · ` : ""}Telegram`
+            : drill.category !== null
+              ? `${categoryLabelOf(drill.category)} · 全部渠道`
+              : sourceKindReady
+                ? "全部条目 · 卡片墙"
+                : "全部条目 · 滚动流";
 
   /** 面包屑(L2/L3):情报流 / 品类 / 渠道 —— 屏内既有交互语言,零新基件 */
   const breadcrumb = drill.level === 1 ? null : (
@@ -2055,9 +2206,9 @@ export function FeedScreen() {
           </button>
         </>
       ) : null}
-      {/* 全部条目中间层(10-08-tg-channel-card):渠道卡从全部条目流点进,
-          回流一键返流(原 backToL2 对 category=null 只能落 L1,动线断裂) */}
-      {drill.level === 3 && drill.category === null && drill.source !== null ? (
+      {/* 全部条目中间层(10-08-tg-channel-card):第二层详情/单频道从全部
+          条目作用域点进,回流一键返卡片墙(v2)/滚动流(v1) */}
+      {drill.level === 3 && drill.category === null && (drill.source !== null || drill.kind !== null) ? (
         <>
           <ChevronRight aria-hidden className="size-3" />
           <button
@@ -2070,10 +2221,34 @@ export function FeedScreen() {
           </button>
         </>
       ) : null}
+      {/* Telegram 中间层(v2):单频道视图从 TG 分节详情点进,一键回分节 */}
+      {drill.level === 3 && drill.kind === "im" && drill.source !== null ? (
+        <>
+          <ChevronRight aria-hidden className="size-3" />
+          <button
+            type="button"
+            className="rounded-sm px-1 py-0.5 hover:text-foreground"
+            data-testid="feed-crumb-im"
+            onClick={backToImDetail}
+          >
+            Telegram
+          </button>
+        </>
+      ) : null}
       {drill.level === 3 && drill.source !== null ? (
         <>
           <ChevronRight aria-hidden className="size-3" />
           <span className="px-1 py-0.5 text-foreground">{channelDisplayName(drill.source)}</span>
+        </>
+      ) : drill.level === 3 && drill.kind === "web" ? (
+        <>
+          <ChevronRight aria-hidden className="size-3" />
+          <span className="px-1 py-0.5 text-foreground">网页</span>
+        </>
+      ) : drill.level === 3 && drill.kind === "im" ? (
+        <>
+          <ChevronRight aria-hidden className="size-3" />
+          <span className="px-1 py-0.5 text-foreground">Telegram</span>
         </>
       ) : null}
       {drill.level === 2 ? (
@@ -2408,7 +2583,8 @@ export function FeedScreen() {
               <span className="text-2xs text-muted-foreground" data-testid="feed-search-scope">
                 服务端搜索「{query}」
                 {streamScope.category ? ` × 品类 ${categoryLabelOf(streamScope.category)}` : ""}
-                {streamScope.source ? ` × 渠道 ${streamScope.source}` : ""} × 本地
+                {streamScope.source ? ` × 渠道 ${streamScope.source}` : ""}
+                {streamScope.sourceKind ? ` × ${streamScope.sourceKind === "web" ? "网页" : "Telegram"}` : ""} × 本地
                 {FILTERS.find((entry) => entry.key === filter)?.label}过滤
               </span>
             ) : null}
@@ -2458,7 +2634,7 @@ export function FeedScreen() {
                   onClick={() => {
                     const value = confirmAllMark === "read";
                     setConfirmAllMark(null);
-                    markAllRead(value, bulkScopeCategory ?? undefined);
+                    markAllRead(value, bulkScopeCategory ?? undefined, bulkScopeKind);
                   }}
                 >
                   {confirmAllMark === "read" ? "确认全部标已读" : "确认全部标未读"}
@@ -2698,11 +2874,40 @@ export function FeedScreen() {
                   </CardContent>
                 </Card>
               )
+            ) : wallLayout ? (
+              /* ═══ 卡片墙(v2 第一层,主人令「网页集中在一起,其他通讯软件
+                  一个通讯软件一个卡片,点击进入第二层才是详情展示」):
+                  网页一张 + 每通讯软件一张,散条目卡退场 ═══ */
+              wallCards.length > 0 ? (
+                <section aria-label="来源卡片墙" data-testid="feed-kind-wall" className="flex flex-col gap-1.5">
+                  {wallCards.map((card) => (
+                    <SourceKindCard key={card.key} card={card} onOpen={() => openKind(card.key)} />
+                  ))}
+                </section>
+              ) : null
+            ) : imDetailLayout ? (
+              /* ═══ Telegram 分节详情(v2 第二层,决议「按频道分节全铺」):
+                  频道卡降为节头(仍可点进单频道过滤),节内消息全量平铺 ——
+                  不点也能同屏看完全部消息 ═══ */
+              imDetailCards.length > 0 ? (
+                <div className="flex flex-col gap-4" data-testid="feed-im-sections">
+                  {imDetailCards.map((card) => (
+                    <section key={card.key} aria-label={`Telegram 频道:${card.label}`}>
+                      <TgChannelCard card={card} onOpen={() => openChannelFromStream(card.key)} />
+                      <div className="mt-1.5 flex flex-col gap-1.5">
+                        {displayItems
+                          .filter((item) => item.source === card.key)
+                          .map(renderCard)}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              ) : null
             ) : (
               <>
-                {/* TG 渠道卡区(10-08-tg-channel-card,主人令「上面都放置
-                    这种卡片渠道」):可见集含 TG 条目时置顶呈现,每渠道一卡;
-                    消息列表本体不再逐条铺 TG 卡。 */}
+                {/* TG 渠道卡区(10-08-tg-channel-card v1 形态,未过源大类门
+                    时回落;过门后 tgCards 恒空 = 零渲染):可见集含 TG 条目时
+                    置顶呈现,每渠道一卡;消息列表本体不再逐条铺 TG 卡。 */}
                 {tgCards.length > 0 ? (
                   <section aria-label="TG 频道" data-testid="feed-tg-channels" className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2 py-0.5">
@@ -2716,7 +2921,8 @@ export function FeedScreen() {
                   </section>
                 ) : null}
                 {/* 时间分组头(D4):sticky 组头 + 组内卡片(渠道分型呈现);
-                    10-08 起 TG 条目折叠进渠道卡区,分组吃 streamItems */}
+                    10-08 起 TG 条目折叠进渠道卡区(v1)/网页详情平铺(v2),
+                    分组吃 streamItems */}
                 {groups !== null ? (
                   <div className="flex flex-col gap-4">
                     {groups.map((group) => (

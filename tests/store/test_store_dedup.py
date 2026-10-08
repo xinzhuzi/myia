@@ -357,6 +357,29 @@ def test_list_items_since_filters_first_seen(store):
     assert keys == ["late"]
 
 
+def test_list_items_source_kind_filters_im_vs_web(store):
+    """source_kind 源大类过滤(10-08-tg-channel-card v2,卡片墙第二层查询面):
+    im = 通讯软件前缀源(telegram-/tg-),web = 其余含无源;None 不过滤,
+    与 category 可叠加。"""
+    store.save_item(make_item(dedup_key="tg1", source="telegram-durov"))
+    store.save_item(make_item(dedup_key="tg2", source="tg-openai_news"))
+    store.save_item(make_item(dedup_key="web1", source="openai-news"))
+    store.save_item(make_item(dedup_key="nosrc", source=None))
+    assert [i.dedup_key for i in store.list_items(source_kind="im")] == ["tg2", "tg1"]
+    assert [i.dedup_key for i in store.list_items(source_kind="web")] == ["nosrc", "web1"]
+    assert len(store.list_items(source_kind=None)) == 4
+    # 与 category 叠加(卡片墙品类流第二层同参)
+    store.save_item(make_item(dedup_key="tg3", source="telegram-x", category="token"))
+    assert [i.dedup_key for i in store.list_items(category="token", source_kind="im")] == ["tg3"]
+
+
+def test_list_items_source_kind_validation(store):
+    with pytest.raises(ValueError, match="source_kind"):
+        store.list_items(source_kind="bogus")
+    with pytest.raises(ValueError, match="source_kind"):
+        store.list_items(source_kind="")
+
+
 # ----------------------------------------------------------------------- runs
 
 

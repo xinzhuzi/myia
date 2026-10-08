@@ -2870,9 +2870,12 @@ def test_protocol_version_bumped_for_feed_ux():
     v10(两方法在 v10 内交付,注册表 62 行;gates UI 无 protocol 版本能力门,
     旧壳+新 UI 组合经 method_not_found 结构化降级不白屏)。若后续补 bump,
     本断言随迁。browser-module 批(browser.* 四方法 + telegram.web.login
-    移除,10-08-browser-module)→ v11。"""
+    移除,10-08-browser-module)→ v11;
+    tg-channel-card v2 批(store.items / store.state.mark_all / feed.export
+    三方法增可选 source_kind(web/im),10-08-tg-channel-card)→ v12
+    (UI 卡片墙能力门 = protocol ≥ 12,未过门回落 v1 形态)。"""
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
-    assert responses[0]["result"]["protocol"] == 11
+    assert responses[0]["result"]["protocol"] == 12
 
 
 # ---------------------------------------------------------------------------
@@ -3425,8 +3428,9 @@ def test_serve_starts_and_stops_cron_ticker(tmp_path, monkeypatch):
     monkeypatch.setattr(entry, "_handle_line", spy)
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
     assert code == 0
-    # v9 = hermes-cron 批;v10 = read-state-server 批;v11 = browser-module 批
-    assert responses[0]["result"]["protocol"] == 11
+    # v9 = hermes-cron 批;v10 = read-state-server 批;v11 = browser-module 批;
+    # v12 = tg-channel-card v2(source_kind 三方法)
+    assert responses[0]["result"]["protocol"] == 12
     assert seen["supervisor_alive"] and seen["ticker_alive"]
     # EOF:serve 返回前已关停(idle ticker 即醒即退,interval 已注入 0.05s)
     assert entry._CRON_SUPERVISOR is None and entry._CRON_TICKER is None

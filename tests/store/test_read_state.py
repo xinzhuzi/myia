@@ -333,6 +333,33 @@ class TestSetAllItemStates:
         with pytest.raises(ValueError, match="category"):
             store.set_all_item_states("read", True, category="")  # 空串 ≠ 全库
 
+    def test_source_kind_filter_is_prefix_gate(self, store):
+        """source_kind 作用域(10-08-tg-channel-card v2,卡片墙第二层批量):
+        im = telegram/tg 前缀源,web = 其余含无源;非法值 ValueError。"""
+        store.save_item(
+            ItemRecord(url="https://im/1", dedup_key="im1", title="条目", source="telegram-durov")
+        )
+        store.save_item(
+            ItemRecord(url="https://im/2", dedup_key="im2", title="条目", source="tg-openai_news")
+        )
+        store.save_item(
+            ItemRecord(url="https://web/1", dedup_key="web1", title="条目", source="openai-news")
+        )
+        store.save_item(ItemRecord(url="https://web/2", dedup_key="web2", title="条目", source=None))
+
+        assert store.set_all_item_states("read", True, source_kind="im") == 2
+        by_key = {item.dedup_key: item for item in store.list_items()}
+        assert by_key["im1"].read is True
+        assert by_key["im2"].read is True
+        assert by_key["web1"].read is False
+        assert by_key["web2"].read is False
+
+        assert store.set_all_item_states("read", True, source_kind="web") == 2
+        assert all(item.read for item in store.list_items())
+
+        with pytest.raises(ValueError, match="source_kind"):
+            store.set_all_item_states("read", True, source_kind="bogus")
+
 
 # ---------------------------------------------------------------------------
 # import_item_states:localStorage 快照一次性搬迁(key 三分 + 整键覆盖)

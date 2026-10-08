@@ -502,7 +502,10 @@ from myssia.vision.server import (
 #: 开工实读 v9 后 +1——hermes-cron 已先合入,竞速条款顺延本批 v10)。
 #: v11 = browser-module 批(browser.open/list/focus/close 四方法 + 移除
 #: telegram.web.login(单入口铁律:登录改走浏览器模块);10-08-browser-module)。
-PROTOCOL_VERSION = 11
+#: v12 = tg-channel-card v2 批(store.items / store.state.mark_all /
+#: feed.export 三方法增可选 source_kind(web/im)源大类过滤,卡片墙与
+#: 第二层作用域查询;10-08-tg-channel-card)。
+PROTOCOL_VERSION = 12
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
 STATUS_BY_EXIT = {0: "success", 1: "config_error", 2: "failed", 3: "partial"}
 
@@ -1687,6 +1690,13 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
     source = params.get("source")
     if source is not None and (not isinstance(source, str) or not source):
         raise ProtocolError("invalid_params", "source 必须为非空字符串(源名精确等值)", path="params.source")
+    # 源大类过滤(10-08-tg-channel-card v2 卡片墙):im = 通讯软件源,
+    # web = 其余含无源;词表与 store 层同门,非法值协议面即拒。
+    source_kind = params.get("source_kind")
+    if source_kind is not None and source_kind not in ("web", "im"):
+        raise ProtocolError(
+            "invalid_params", "source_kind 只接受 web/im(不过滤请省略)", path="params.source_kind"
+        )
     limit = params.get("limit")
     if limit is not None and (not isinstance(limit, int) or limit < 1):
         raise ProtocolError("invalid_params", "limit 必须为正整数", path="params.limit")
@@ -1696,8 +1706,8 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
         raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
     try:
         items = store.list_items(
-            category=category, source=source, since=since, before=before,
-            before_id=before_id, query=query or None, limit=limit,
+            category=category, source=source, source_kind=source_kind, since=since,
+            before=before, before_id=before_id, query=query or None, limit=limit,
         )
     except ValueError as exc:  # store 层参数校验(空 category/source 等)
         raise ProtocolError("invalid_params", str(exc), path="params") from exc
@@ -1770,13 +1780,19 @@ def _m_store_state_mark_all(params: dict[str, Any]) -> dict[str, Any]:
         raise ProtocolError(
             "invalid_params", "category 必须为非空字符串(全库请省略)", path="params.category"
         )
+    # 源大类作用域(10-08-tg-channel-card v2):与 store.items 同词表同门。
+    source_kind = params.get("source_kind")
+    if source_kind is not None and source_kind not in ("web", "im"):
+        raise ProtocolError(
+            "invalid_params", "source_kind 只接受 web/im(全库请省略)", path="params.source_kind"
+        )
     db = params.get("db") or _serve_context().db
     try:
         store = SQLiteStore(db)
     except StoreSchemaError as exc:
         raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
     try:
-        updated = store.set_all_item_states(marker, value, category)
+        updated = store.set_all_item_states(marker, value, category, source_kind)
     except ValueError as exc:
         raise ProtocolError("invalid_params", str(exc), path="params") from exc
     finally:
@@ -1909,6 +1925,12 @@ def _m_feed_export(params: dict[str, Any]) -> dict[str, Any]:
     query = params.get("query")
     if query is not None and not isinstance(query, str):
         raise ProtocolError("invalid_params", "query 必须为字符串", path="params.query")
+    # 源大类作用域(10-08-tg-channel-card v2):与 store.items 同词表同门。
+    source_kind = params.get("source_kind")
+    if source_kind is not None and source_kind not in ("web", "im"):
+        raise ProtocolError(
+            "invalid_params", "source_kind 只接受 web/im(不过滤请省略)", path="params.source_kind"
+        )
 
     db = params.get("db") or _serve_context().db
     try:
@@ -1916,7 +1938,7 @@ def _m_feed_export(params: dict[str, Any]) -> dict[str, Any]:
     except StoreSchemaError as exc:
         raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
     try:
-        items = store.list_items(category=category, query=query or None)
+        items = store.list_items(category=category, source_kind=source_kind, query=query or None)
     except ValueError as exc:
         raise ProtocolError("invalid_params", str(exc), path="params") from exc
     finally:

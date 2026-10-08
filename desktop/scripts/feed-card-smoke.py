@@ -9,11 +9,10 @@
   health / store.items(按 category+source 精确等值过滤夹具)/
   store.state.import·mark·mark_all。
 
-断言面(装机无头证据;vitest jsdom 之外的真实 Chromium 一层):
-渠道卡区置顶 / 渠道卡三行(频道名去前缀+最新一条预览+条数·未读)/
-未读 accent 竖条 / TG 消息卡离场+news 卡照旧 / 时间组头只计列表本体 /
-点卡进渠道详情(气泡逐条+news 不混入)→ 面包屑「全部条目」一键回流;
-截图落 /tmp 备查。退出码 0 = 冒烟通过。
+断言面(装机无头证据;vitest jsdom 之外的真实 Chromium 一层;v2 卡片墙):
+卡片墙 = 网页一张 + Telegram 一张(计数/最新预览/未读竖条),散条目卡退场
+/ Telegram 第二层按频道分节全铺(节头点进单频道,面包屑回流)/ 网页第二层
+条目平铺 / 面包屑层层回流;截图落 /tmp 备查。退出码 0 = 冒烟通过。
 
 用法(仓库根):``.venv/bin/python desktop/scripts/feed-card-smoke.py``
 """
@@ -78,7 +77,7 @@ INJECT_SCRIPT = r"""
       }
       const { method, params } = args ?? {};
       if (method === "version") {
-        return { name: "myssia", version: "smoke", protocol: 10, app_version: null };
+        return { name: "myssia", version: "smoke", protocol: 12, app_version: null };
       }
       if (method === "health") {
         return {
@@ -94,9 +93,16 @@ INJECT_SCRIPT = r"""
         };
       }
       if (method === "store.items") {
-        const filtered = items.filter((item) =>
-          (!params?.category || item.category === params.category) &&
-          (!params?.source || item.source === params.source));
+        const filtered = items.filter((item) => {
+          if (params?.category && item.category !== params.category) return false;
+          if (params?.source && item.source !== params.source) return false;
+          if (params?.source_kind) {
+            const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
+            if (params.source_kind === "im" && !im) return false;
+            if (params.source_kind === "web" && im) return false;
+          }
+          return true;
+        });
         return { db: "smoke.db", count: filtered.length, items: filtered };
       }
       if (method === "store.state.import") return { imported: 0, skipped: 0 };
@@ -158,48 +164,65 @@ async def main() -> int:
             page = await browser.new_page()
             await page.add_init_script(INJECT_SCRIPT)
             await page.goto(f"http://127.0.0.1:{port}/#/feed", wait_until="networkidle")
-            # L1 挂载 → 下钻「全部条目 · 滚动流」
+            # L1 挂载 → 下钻「全部条目」→ 卡片墙(v2 第一层)
             await page.wait_for_selector('[data-testid="feed-drill-all"]', timeout=10_000)
             await page.locator('[data-testid="feed-drill-all"]').click()
 
-            # 渠道卡区置顶;渠道卡三行(频道名/最新预览/条数·未读)+ 未读竖条
-            await page.wait_for_selector('[data-testid="feed-tg-channels"]', timeout=10_000)
-            expect("渠道卡区置顶", True)
-            card = page.locator('[data-testid="feed-tg-channel-card-telegram-mihomo_party_group"]')
-            expect("渠道卡在场", (await card.count()) == 1)
-            text = await card.text_content()
-            expect("频道名去前缀", "mihomo_party_group" in (text or ""))
-            expect("最新一条预览", "Clash Party Dev Build 开发版本发布" in (text or ""))
-            expect("条数计数 2 条", "2 条" in (text or ""))
-            expect("未读计数 未读 2", "未读 2" in (text or ""))
+            # 卡片墙:网页一张 + Telegram 一张(计数/预览/未读竖条),散条目卡退场
+            await page.wait_for_selector('[data-testid="feed-kind-wall"]', timeout=10_000)
+            expect("卡片墙呈现", True)
+            web_card = page.locator('[data-testid="feed-kind-card-web"]')
+            expect("网页卡在场", (await web_card.count()) == 1)
+            expect("网页卡预览", "新闻标题丙" in ((await web_card.text_content()) or ""))
+            tg_card = page.locator('[data-testid="feed-kind-card-im"]')
+            expect("Telegram 卡在场", (await tg_card.count()) == 1)
+            tg_text = (await tg_card.text_content()) or ""
+            expect("TG 卡预览", "Clash Party Dev Build 开发版本发布" in tg_text)
+            expect("TG 卡计数 2 条 · 未读 2", "2 条" in tg_text and "未读 2" in tg_text)
             expect(
-                "未读 accent 竖条",
-                (await page.locator('[data-testid="feed-tg-channel-unread-telegram-mihomo_party_group"]').count()) == 1,
+                "TG 卡未读竖条",
+                (await page.locator('[data-testid="feed-kind-card-unread-im"]').count()) == 1,
             )
-            # TG 消息卡离场,news 卡照旧;无假空态;组头只计列表本体
-            expect("TG 消息卡 1 离场", (await page.locator('[data-testid="feed-item-1"]').count()) == 0)
-            expect("TG 消息卡 2 离场", (await page.locator('[data-testid="feed-item-2"]').count()) == 0)
-            expect("news 卡照旧", (await page.locator('[data-testid="feed-item-3"]').count()) == 1)
-            expect("无假空态", (await page.get_by_text("没有未读条目").count()) == 0)
-            group = await page.locator('[data-testid="feed-group-今天"]').text_content()
-            expect("时间组头只计列表本体 1 条", "1 条" in (group or ""))
+            expect("散条目卡退场", (await page.locator('[data-testid="feed-item-1"]').count()) == 0)
+            expect("v1 渠道卡区退场", (await page.locator('[data-testid="feed-tg-channels"]').count()) == 0)
 
             await page.screenshot(path="/tmp/myssia-feed-card-smoke.png", full_page=True)
 
-            # 点卡进渠道详情(气泡逐条),面包屑「全部条目」一键回流
-            await card.click()
-            await page.wait_for_selector('[data-testid="feed-tg-bubble-1"]', timeout=10_000)
-            expect("渠道详情:气泡 1 渲染", True)
-            expect("渠道详情:气泡 2 渲染", (await page.locator('[data-testid="feed-tg-bubble-2"]').count()) == 1)
-            expect("渠道详情:news 卡不混入", (await page.locator('[data-testid="feed-item-3"]').count()) == 0)
-            crumb = page.locator('[data-testid="feed-crumb-all-stream"]')
-            expect("面包屑「全部条目」中间层", (await crumb.count()) == 1)
-            await crumb.click()
-            await page.wait_for_selector(
-                '[data-testid="feed-tg-channel-card-telegram-mihomo_party_group"]', timeout=10_000
+            # Telegram 卡第二层 = 按频道分节全铺;节头点进单频道;面包屑回流
+            await tg_card.click()
+            await page.wait_for_selector('[data-testid="feed-im-sections"]', timeout=10_000)
+            expect("TG 分节详情呈现", True)
+            expect(
+                "频道节头在场",
+                (await page.locator('[data-testid="feed-tg-channel-card-telegram-mihomo_party_group"]').count()) == 1,
             )
-            expect("一键回流:渠道卡区复现", True)
+            expect("节内气泡 1", (await page.locator('[data-testid="feed-tg-bubble-1"]').count()) == 1)
+            expect("节内气泡 2", (await page.locator('[data-testid="feed-tg-bubble-2"]').count()) == 1)
+            expect("网页条目不混入", (await page.locator('[data-testid="feed-item-3"]').count()) == 0)
             await page.screenshot(path="/tmp/myssia-feed-card-smoke-detail.png", full_page=True)
+            # 节头 → 单频道过滤(既有 source 作用域),面包屑 Telegram 中间层回分节
+            await page.locator('[data-testid="feed-tg-channel-card-telegram-mihomo_party_group"]').click()
+            await page.wait_for_selector('[data-testid="feed-tg-bubble-1"]', timeout=10_000)
+            expect("单频道视图:气泡在", True)
+            expect("面包屑 Telegram 中间层", (await page.locator('[data-testid="feed-crumb-im"]').count()) == 1)
+            await page.locator('[data-testid="feed-crumb-im"]').click()
+            await page.wait_for_selector('[data-testid="feed-im-sections"]', timeout=10_000)
+            expect("回分节详情", True)
+
+            # 网页卡第二层 = 条目平铺;面包屑回流卡片墙
+            await page.locator('[data-testid="feed-crumb-all-stream"]').click()
+            await page.wait_for_selector('[data-testid="feed-kind-wall"]', timeout=10_000)
+            await page.locator('[data-testid="feed-kind-card-web"]').click()
+            news_card = await page.wait_for_selector('[data-testid="feed-item-3"]', timeout=10_000)
+            expect("网页详情:新闻卡在", news_card is not None)
+            expect("网页详情:TG 气泡不混入", (await page.locator('[data-testid="feed-tg-bubble-1"]').count()) == 0)
+            expect(
+                "面包屑「网页」层",
+                "网页" in (await page.locator('[data-testid="feed-breadcrumb"]').text_content()),
+            )
+            await page.locator('[data-testid="feed-crumb-all-stream"]').click()
+            await page.wait_for_selector('[data-testid="feed-kind-wall"]', timeout=10_000)
+            expect("回流卡片墙", True)
             print("screenshot: /tmp/myssia-feed-card-smoke.png")
     except Exception as exc:  # noqa: BLE001 - 冒烟异常如实报
         failures.append(f"异常: {exc}")

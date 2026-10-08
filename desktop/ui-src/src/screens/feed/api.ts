@@ -30,6 +30,9 @@ export interface FeedPageRequest {
   /** 源名过滤(null = 不传参;10-06-feed-channel-groups:L3 渠道作用域,
    *  store.items source 精确等值) */
   source?: string | null;
+  /** 源大类过滤(null = 不传参;10-08-tg-channel-card v2 卡片墙第二层,
+   *  仅过 SOURCE_KIND_PROTOCOL 门才传) */
+  sourceKind?: "web" | "im" | null;
   /** 服务端搜索词(G1:title/content/source 三列 LIKE NOCASE,随游标透传) */
   query?: string | null;
 }
@@ -53,6 +56,7 @@ export async function fetchFeedPage(request: FeedPageRequest): Promise<FeedPage>
       : {}),
     ...(request.category ? { category: request.category } : {}),
     ...(request.source ? { source: request.source } : {}),
+    ...(request.sourceKind ? { source_kind: request.sourceKind } : {}),
     ...(request.query ? { query: request.query } : {}),
   });
   const items = result.items;
@@ -142,7 +146,12 @@ export interface ExportOutcome {
  * 对话框函数注入以便测试;生产缺省 = @tauri-apps/plugin-dialog 的 save。
  */
 export async function exportFeedView(
-  options: { format: ExportFormat; category?: string | null; query?: string | null },
+  options: {
+    format: ExportFormat;
+    category?: string | null;
+    sourceKind?: "web" | "im" | null;
+    query?: string | null;
+  },
   saveDialog: SaveDialogFn = defaultSaveDialog,
 ): Promise<ExportOutcome> {
   const path = await saveDialog({
@@ -157,6 +166,7 @@ export async function exportFeedView(
     format: options.format,
     path,
     ...(options.category ? { category: options.category } : {}),
+    ...(options.sourceKind ? { source_kind: options.sourceKind } : {}),
     ...(options.query ? { query: options.query } : {}),
   });
   return { path: result.path, count: result.count, bytes: result.bytes };
@@ -333,6 +343,12 @@ export function applyFeedFilter(
  * 批 = 10(含 hermes-cron 竞速顺延,开工实读;后端 bump 时此处同批跟改)。
  */
 export const READ_STATE_PROTOCOL = 10;
+
+/** 源大类能力门(10-08-tg-channel-card v2,read-state-server 同款模式):
+ *  protocol ≥ 12 = store.items / store.state.mark_all / feed.export 三方法
+ *  支持 source_kind(web/im)→ 情报流 L3 走卡片墙(网页一张 + 每通讯软件
+ *  一张,点卡进第二层详情);未过门 = v1 形态原样(TG 频道卡区 + 消息列表)。 */
+export const SOURCE_KIND_PROTOCOL = 12;
 
 /**
  * 条目 → FeedStateMap(过门后的状态源):read/starred/later 投影三键按
@@ -781,6 +797,62 @@ export function telegramChannelCards(
   }
   return [...bySource.entries()]
     .map(([key, row]) => ({ key, label: channelDisplayName(key), ...row }))
+    .sort((a, b) => {
+      const diff = firstSeenValue(b.latest.first_seen) - firstSeenValue(a.latest.first_seen);
+      return diff !== 0 ? diff : a.key.localeCompare(b.key);
+    });
+}
+
+/** 源名 → 通讯软件应用标识(10-08-tg-channel-card v2 卡片墙「每通讯软件
+ *  一张卡」;与 channelKindOf 同一词表 —— telegram-/tg- 前缀 = telegram。
+ *  今后新接入的通讯软件在此扩一词,卡片墙自动多一张软件卡)。 */
+export function imAppOf(source: string | null | undefined): "telegram" | null {
+  if (!source) return null;
+  return /^(telegram|tg)[-_.]/i.test(source) ? "telegram" : null;
+}
+
+/** 卡片墙视图模型(10-08-tg-channel-card v2,主人令「网页集中在一起,其他
+ *  通讯软件一个通讯软件一个卡片,点击进入第二层才是详情展示」):L3 多渠道
+ *  作用域的第一层只有大类卡 —— 网页一张(一切非通讯软件源)+ 每通讯软件
+ *  应用一张(Telegram 等),散条目卡不再出现在第一层。
+ *
+ *  口径与 telegramChannelCards 相同:输入 = 调用方过滤后的可见条目,计数即
+ *  视图诚实计数;排序 = 最新消息新→旧(网页/软件卡同榜竞争),first_seen
+ *  缺失/非法沉底,同刻按 key 稳定 tiebreak。 */
+export interface StreamKindCardData {
+  /** 卡片作用域键 = 源大类(drill.kind 同词表):"web" = 网页卡(详情查询
+   *  source_kind=web);"im" = 通讯软件卡(详情查询 source_kind=im) */
+  key: "web" | "im";
+  /** 卡面词(网页 / Telegram;新 IM 应用在此补词) */
+  label: string;
+  /** 可见条数 */
+  count: number;
+  /** 其中未读数 */
+  unread: number;
+  /** 最新一条(预览与相对时间源) */
+  latest: FeedItem;
+}
+
+export function streamKindCards(
+  items: FeedItem[],
+  states: FeedStateMap,
+): StreamKindCardData[] {
+  const byKey = new Map<"web" | "im", { count: number; unread: number; latest: FeedItem }>();
+  for (const item of items) {
+    const key: "web" | "im" = imAppOf(item.source) !== null ? "im" : "web";
+    const read = states[itemKey(item)]?.read === true;
+    const row = byKey.get(key);
+    if (row) {
+      row.count += 1;
+      if (!read) row.unread += 1;
+      if (firstSeenValue(item.first_seen) > firstSeenValue(row.latest.first_seen)) row.latest = item;
+    } else {
+      byKey.set(key, { count: 1, unread: read ? 0 : 1, latest: item });
+    }
+  }
+  const labels: Record<StreamKindCardData["key"], string> = { web: "网页", im: "Telegram" };
+  return [...byKey.entries()]
+    .map(([key, row]) => ({ key, label: labels[key], ...row }))
     .sort((a, b) => {
       const diff = firstSeenValue(b.latest.first_seen) - firstSeenValue(a.latest.first_seen);
       return diff !== 0 ? diff : a.key.localeCompare(b.key);

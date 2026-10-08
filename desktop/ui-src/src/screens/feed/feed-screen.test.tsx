@@ -84,7 +84,10 @@ import {
   saveFeedDisplay,
   setMarkerBulk,
   sortUnreadFirst,
+  SOURCE_KIND_PROTOCOL,
   statesFromItems,
+  imAppOf,
+  streamKindCards,
   telegramChannelCards,
 } from "./api";
 
@@ -2759,7 +2762,140 @@ describe("feed channel-groups 纯函数(api.ts)", () => {
   });
 });
 
+describe("FeedScreen · tg-channel-card v2(源大类卡片墙,protocol ≥ 12)", () => {
+  /** v2 夹具:2 条 TG(同渠道)+ 1 条网页新闻;store.items mock 按三参
+   *  (category/source/source_kind)精确过滤,与 sidecar v12 同门。 */
+  function mockStoreV12() {
+    const items = [
+      fixtureItem({
+        source: "telegram-mihomo_party_group",
+        title: "🎉 Clash Party Dev Build 开发版本发布",
+        content: "基于版本: 1.9.5",
+      }),
+      fixtureItem({ source: "telegram-mihomo_party_group", title: "🎉 Clash Party 1.9.4" }),
+      fixtureItem({ source: "openai-news", title: "新闻标题丙", category: "tech" }),
+    ];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(
+          items.filter((item) => {
+            if (params?.category && item.category !== params.category) return false;
+            if (params?.source && item.source !== params.source) return false;
+            if (params?.source_kind) {
+              const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
+              if (params.source_kind === "im" && !im) return false;
+              if (params.source_kind === "web" && im) return false;
+            }
+            return true;
+          }),
+        ),
+      ),
+    );
+  }
+
+  async function renderWall() {
+    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
+    renderScreen();
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+  }
+
+  it("卡片墙:网页一张 + Telegram 一张(计数/预览/未读竖条),散条目卡退场", async () => {
+    mockStoreV12();
+    await renderWall();
+    await screen.findByTestId("feed-kind-wall");
+    const webCard = await screen.findByTestId("feed-kind-card-web");
+    expect(within(webCard).getByText("网页")).toBeTruthy();
+    expect(within(webCard).getByText("新闻标题丙")).toBeTruthy();
+    expect(webCard.textContent).toContain("1 条");
+    const tgCard = await screen.findByTestId("feed-kind-card-im");
+    expect(within(tgCard).getByText("Telegram")).toBeTruthy();
+    expect(within(tgCard).getByText("🎉 Clash Party Dev Build 开发版本发布")).toBeTruthy();
+    expect(tgCard.textContent).toContain("2 条");
+    expect(tgCard.textContent).toContain("未读 2");
+    expect(screen.getByTestId("feed-kind-card-unread-im")).toBeTruthy();
+    // 散条目卡与 v1 渠道卡区都退场
+    expect(screen.queryByTestId("feed-item-1")).toBeNull();
+    expect(screen.queryByTestId("feed-item-3")).toBeNull();
+    expect(screen.queryByTestId("feed-tg-channels")).toBeNull();
+  });
+
+  it("Telegram 卡第二层 = 按频道分节全铺;节头点进单频道,面包屑可回分节/卡片墙", async () => {
+    mockStoreV12();
+    await renderWall();
+    fireEvent.click(await screen.findByTestId("feed-kind-card-im"));
+    await screen.findByTestId("feed-im-sections");
+    // 分节:节头卡 + 节内气泡全量平铺
+    expect(screen.getByTestId("feed-tg-channel-card-telegram-mihomo_party_group")).toBeTruthy();
+    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
+    expect(screen.getByTestId("feed-tg-bubble-2")).toBeTruthy();
+    expect(screen.queryByTestId("feed-item-3")).toBeNull(); // 网页条目不混入
+    // 节头点进单频道(既有 source 作用域),面包屑 Telegram 中间层回流
+    fireEvent.click(screen.getByTestId("feed-tg-channel-card-telegram-mihomo_party_group"));
+    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
+    expect(screen.getByTestId("feed-tg-bubble-2")).toBeTruthy();
+    expect(screen.getByTestId("feed-crumb-im")).toBeTruthy();
+    expect(screen.getByTestId("feed-crumb-all-stream")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("feed-crumb-im"));
+    await screen.findByTestId("feed-im-sections");
+  });
+
+  it("网页卡第二层 = 条目平铺(新闻卡照旧,TG 不混入);面包屑回流卡片墙", async () => {
+    mockStoreV12();
+    await renderWall();
+    fireEvent.click(await screen.findByTestId("feed-kind-card-web"));
+    const newsCard = await screen.findByTestId("feed-item-3");
+    expect(newsCard.getAttribute("data-kind")).toBe("news");
+    expect(within(newsCard).getByText("新闻标题丙")).toBeTruthy();
+    expect(screen.queryByTestId("feed-tg-bubble-1")).toBeNull();
+    expect(screen.queryByTestId("feed-kind-wall")).toBeNull();
+    expect(screen.getByTestId("feed-breadcrumb").textContent).toContain("网页");
+    fireEvent.click(screen.getByTestId("feed-crumb-all-stream"));
+    expect(await screen.findByTestId("feed-kind-wall")).toBeTruthy();
+  });
+
+  it("未过源大类门(protocol 11):v1 形态原样(TG 渠道卡区 + 消息列表),无卡片墙", async () => {
+    mockStoreV12();
+    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL - 1));
+    renderScreen();
+    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    expect(await screen.findByTestId("feed-tg-channels")).toBeTruthy();
+    expect(await screen.findByTestId("feed-item-3")).toBeTruthy(); // 网页卡照旧在列
+    expect(screen.queryByTestId("feed-kind-wall")).toBeNull();
+  });
+});
+
 describe("feed tg-channel-card 纯函数(api.ts,10-08-tg-channel-card)", () => {
+  it("imAppOf:telegram-/tg- 前缀 = telegram(通讯软件卡),其余/null = web 归网页卡", () => {
+    expect(imAppOf("telegram-durov")).toBe("telegram");
+    expect(imAppOf("tg-openai_news")).toBe("telegram");
+    expect(imAppOf("openai-news")).toBeNull();
+    expect(imAppOf(null)).toBeNull();
+    expect(imAppOf(undefined)).toBeNull();
+  });
+
+  it("streamKindCards:网页一张 + 每通讯软件一张,按最新新→旧混排;计数/未读/latest 同口径", () => {
+    const t0 = new Date("2026-10-08T10:00:00").toISOString();
+    const t1 = new Date("2026-10-08T11:00:00").toISOString();
+    const t2 = new Date("2026-10-08T12:00:00").toISOString();
+    const tg1 = fixtureItem({ source: "telegram-a", title: "tg-旧", first_seen: t1 });
+    const tg2 = fixtureItem({ source: "telegram-a", title: "tg-新", first_seen: t2 });
+    const news = fixtureItem({ source: "openai-news", title: "网页新", first_seen: t1, category: "tech" });
+    const doc = fixtureItem({ source: "daily-digest", title: "网页旧", first_seen: t0, category: "tech" });
+    const states = { [tg2.dedup_key]: { read: true } };
+    const cards = streamKindCards([tg1, tg2, news, doc], states);
+    // 两卡:telegram(latest=t2)> web(latest=t1)
+    expect(cards.map((card) => card.key)).toEqual(["im", "web"]);
+    expect(cards[0].label).toBe("Telegram");
+    expect(cards[0].count).toBe(2);
+    expect(cards[0].unread).toBe(1);
+    expect(cards[0].latest.title).toBe("tg-新");
+    expect(cards[1].label).toBe("网页");
+    expect(cards[1].count).toBe(2);
+    expect(cards[1].unread).toBe(2);
+    expect(cards[1].latest.title).toBe("网页新");
+    expect(streamKindCards([], {})).toEqual([]);
+  });
+
   it("channelDisplayName:去 telegram-/tg- 前缀(含 _ . 形)显频道本名;空残余回源名;null = 未知来源", () => {
     expect(channelDisplayName("telegram-durov")).toBe("durov");
     expect(channelDisplayName("tg-openai_news")).toBe("openai_news");

@@ -868,6 +868,7 @@ class SQLiteStore:
         *,
         category: str | None = None,
         source: str | None = None,
+        source_kind: str | None = None,
         since: datetime | None = None,
         before: datetime | None = None,
         before_id: int | None = None,
@@ -883,7 +884,11 @@ class SQLiteStore:
         才能推进直至取尽。``query`` = title/content/source 三列 LIKE
         (NOCASE,无索引单机万级可接受,如实注记)。``source`` = 源名精确
         等值(10-06-feed-channel-groups 三级下钻 L3 渠道消息流;与
-        ``category`` 同门精确等值,非 LIKE)。
+        ``category`` 同门精确等值,非 LIKE)。``source_kind`` = 源大类过滤
+        (10-08-tg-channel-card v2 卡片墙;``"im"`` = 通讯软件源,``"web"``
+        = 其余含无源条目;与 UI 前缀判定同一词表,LIKE ASCII 不区分大小写
+        —— UI 正则要求分隔符 [-._],LIKE 'telegram-%' 对 'telegramX' 形
+        近似多中,源名为系统生成规约名,差异面为零,如实注记)。
         """
         if limit is not None and limit < 0:
             raise ValueError(f"字段校验失败: limit 不能为负数,得到 {limit}")
@@ -896,6 +901,8 @@ class SQLiteStore:
             raise ValueError("字段校验失败: category 过滤需要非空字符串(不过滤请传 None)")
         if source is not None and (not isinstance(source, str) or not source):
             raise ValueError("字段校验失败: source 过滤需要非空字符串(不过滤请传 None)")
+        if source_kind is not None and source_kind not in ("web", "im"):
+            raise ValueError("字段校验失败: source_kind 只接受 web/im(不过滤请传 None)")
         sql = "SELECT * FROM items"
         conditions: list[str] = []
         params: list[object] = []
@@ -905,6 +912,12 @@ class SQLiteStore:
         if source is not None:
             conditions.append("source = ?")
             params.append(source)
+        if source_kind == "im":
+            conditions.append("(source LIKE 'telegram-%' OR source LIKE 'tg-%')")
+        elif source_kind == "web":
+            conditions.append(
+                "(source IS NULL OR (source NOT LIKE 'telegram-%' AND source NOT LIKE 'tg-%'))"
+            )
         if since is not None:
             conditions.append("first_seen >= ?")
             params.append(_to_iso(since))
@@ -962,29 +975,49 @@ class SQLiteStore:
         )
         return int(cursor.rowcount)
 
-    def set_all_item_states(self, marker: str, value: bool, category: str | None = None) -> int:
-        """全库(可选 category)置位(G9,store.state.mark_all 底座)。
+    def set_all_item_states(
+        self,
+        marker: str,
+        value: bool,
+        category: str | None = None,
+        source_kind: str | None = None,
+    ) -> int:
+        """全库(可选 category / source_kind)置位(G9,store.state.mark_all 底座)。
 
-        单条 ``UPDATE items SET <marker> = ? [WHERE category = ?]``;category
-        词义与 :meth:`list_items` 同参(精确等值,非 LIKE;不收 query——
-        决议 Q3.2 钉死:LIKE 进 UPDATE 是范围蠕变)。None = 全库所有条目
-        (含未翻页/未加载),这是「全部标已读」的全库语义来源。
+        单条 ``UPDATE items SET <marker> = ? [WHERE ...]``;category 词义与
+        :meth:`list_items` 同参(精确等值,非 LIKE;不收 query——决议 Q3.2
+        钉死:LIKE 进 UPDATE 是范围蠕变)。None = 全库所有条目(含未翻页/
+        未加载),这是「全部标已读」的全库语义来源。``source_kind`` = 源大类
+        作用域(10-08-tg-channel-card v2,卡片墙第二层的批量语义;词义同
+        :meth:`list_items`,与 category 可叠加)。
 
         Returns:
             rowcount(口径同 :meth:`set_item_states`:匹配行数,如实回传)。
 
         Raises:
-            ValueError: marker 非法 / category 空串(None 表全库,空串是入参错误)。
+            ValueError: marker 非法 / category 空串(None 表全库,空串是入参
+                错误)/ source_kind 非法。
         """
         column = _item_state_column(marker)
         if category is not None and not category:
             raise ValueError("字段校验失败: category 不能为空串(全库请传 None)")
+        if source_kind is not None and source_kind not in ("web", "im"):
+            raise ValueError("字段校验失败: source_kind 只接受 web/im(全库请传 None)")
         sql = f"UPDATE items SET {column} = ?"
-        params: tuple = (1 if value else 0,)
+        conditions: list[str] = []
+        params: list[object] = [1 if value else 0]
         if category is not None:
-            sql += " WHERE category = ?"
-            params = (1 if value else 0, category)
-        cursor = self._write(sql, params)
+            conditions.append("category = ?")
+            params.append(category)
+        if source_kind == "im":
+            conditions.append("(source LIKE 'telegram-%' OR source LIKE 'tg-%')")
+        elif source_kind == "web":
+            conditions.append(
+                "(source IS NULL OR (source NOT LIKE 'telegram-%' AND source NOT LIKE 'tg-%'))"
+            )
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        cursor = self._write(sql, tuple(params))
         return int(cursor.rowcount)
 
     def import_item_states(self, states: dict[str, dict[str, bool]]) -> tuple[int, int]:
