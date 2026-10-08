@@ -103,6 +103,7 @@ import {
   streamKindCards,
   streamKindSubRows,
   telegramChannelCards,
+  telegramMirrorUrlOf,
   toggleMarker,
   type ChannelKind,
   type ExportFormat,
@@ -115,6 +116,7 @@ import {
 } from "./api";
 import type { FeedFilter, FeedStateMap } from "./api";
 import { telegramGetStatus, telegramWebLogin, type TelegramStatus } from "@/screens/settings/telegram-api";
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 import { FeedCardFeedback } from "./feed-card-feedback";
 import { MarkdownLite } from "./markdown-lite";
@@ -1509,6 +1511,9 @@ export function FeedScreen() {
          *  门时有值):null = 卡片墙第一层;web = 网页详情;im = 通讯软件
          *  详情(source=null 分节全铺 / source=单频道过滤)。 */
         kind: "web" | "im" | null;
+        /** 含历史态(10-09-tg-category-entry,监控台入口):绕过当日窗,
+         *  展示该作用域全部入库条目(监控台「看全部历史消息」专用)。 */
+        history: boolean;
       }
   >({ level: 1 });
   /** 源大类能力门(10-08-tg-channel-card v2):protocol ≥ SOURCE_KIND_PROTOCOL
@@ -2030,13 +2035,15 @@ export function FeedScreen() {
   //  过窗即离场(视图层清零);later 到期重现条目是显式留存,窗后照现。
   const visible = useMemo(() => {
     const filtered = applyFeedFilter(items, states, filter, new Date());
+    // 历史态(10-09-tg-category-entry 监控台入口):绕过当日窗,全部入库条目可见
+    if (drill.level === 3 && drill.history) return filtered;
     if (filter !== "unread" && filter !== "all") return filtered;
     return filtered.filter(
       (item) =>
         inDayWindow(item.first_seen, windowStart) ||
         isLaterResurface(item, states[itemKey(item)]),
     );
-  }, [items, states, filter, windowStart]);
+  }, [items, states, filter, windowStart, drill]);
 
   /** 展示序(A-feed):过滤结果 → 未读优先(可选;未读浮前,两类各自稳定保序) */
   const displayItems = useMemo(
@@ -2054,6 +2061,9 @@ export function FeedScreen() {
   const imDetailLayout =
     sourceKindReady && drill.level === 3 && drill.source === null && drill.kind === "im";
   const legacyStreamLayout = drill.level === 3 && drill.source === null && !sourceKindReady;
+  /** TG 品类渠道页(10-09-tg-category-entry):品类 id telegram 前缀 = 该页
+   *  顶部出「网页线监控台」卡(登录/监控状态 + 历史入口)。 */
+  const isTelegramCategory = drill.level === 2 && drill.category.startsWith("telegram");
 
   /** v1 形态派生(未过门回落;过门后恒空 = 零渲染):渠道卡区 + 消息列表
    *  剔除 telegram。 */
@@ -2081,11 +2091,13 @@ export function FeedScreen() {
     () => (imDetailLayout ? telegramChannelCards(displayItems, states) : []),
     [imDetailLayout, displayItems, states],
   );
-  /** TG 网页线快照(10-09-tg-category-entry:进 Telegram 分节详情拉一次;
-   *  失败静默 = 不出状态条,不拦浏览)。放在派生之后(imDetailLayout 在
-   *  上方派生链产出,提前引用会踩 TDZ)。 */
+  /** TG 网页线快照(10-09-tg-category-entry:进 Telegram 分节详情或品类
+   *  渠道页拉一次;失败静默 = 不出状态条,不拦浏览)。放在派生之后
+   *  (imDetailLayout 在上方派生链产出,提前引用会踩 TDZ)。deps 必须含
+   *  isTelegramCategory——L1→L2 钻入时只有它翻转(imDetailLayout 恒
+   *  false),漏掉 = 监控台永远等不到快照(v2 在途改动实测踩坑)。 */
   useEffect(() => {
-    if (!imDetailLayout) return;
+    if (!imDetailLayout && !isTelegramCategory) return;
     let cancelled = false;
     void telegramGetStatus()
       .then((status) => {
@@ -2097,7 +2109,7 @@ export function FeedScreen() {
     return () => {
       cancelled = true;
     };
-  }, [imDetailLayout]);
+  }, [imDetailLayout, isTelegramCategory]);
 
   /** 分组(L3 显示选项):时间四桶(D4 缺省)/ 不分组(平铺)。三级下钻
    *  (10-06-feed-channel-groups)后品类维度 = L1/L2 层级本体,L3 组内不再
@@ -2431,7 +2443,7 @@ export function FeedScreen() {
 
   /** 下钻导航动作 */
   const openAllStream = useCallback(() => {
-    setDrill({ level: 3, category: null, source: null, kind: null });
+    setDrill({ level: 3, category: null, source: null, kind: null, history: false });
     setCurrentKey(null);
     setNavByKeyboard(false);
   }, []);
@@ -2441,13 +2453,13 @@ export function FeedScreen() {
   }, []);
   const openCategoryStream = useCallback(() => {
     setDrill((current) =>
-      current.level === 2 ? { level: 3, category: current.category, source: null, kind: null } : current,
+      current.level === 2 ? { level: 3, category: current.category, source: null, kind: null, history: false } : current,
     );
     setCurrentKey(null);
   }, []);
   const openChannel = useCallback((source: string) => {
     setDrill((current) =>
-      current.level === 2 ? { level: 3, category: current.category, source, kind: "im" } : current,
+      current.level === 2 ? { level: 3, category: current.category, source, kind: "im", history: false } : current,
     );
     setCurrentKey(null);
   }, []);
@@ -2456,17 +2468,30 @@ export function FeedScreen() {
   const openChannelFromStream = useCallback((source: string) => {
     setDrill((current) =>
       current.level === 3 && current.source === null
-        ? { level: 3, category: current.category, source, kind: current.kind }
+        ? { level: 3, category: current.category, source, kind: current.kind, history: current.history }
         : current,
     );
     setCurrentKey(null);
     setNavByKeyboard(false);
   }, []);
-  /** 卡片墙点击(v2):进源大类第二层详情(网页=条目平铺 / 通讯软件=分节全铺)。 */
+  /** 监控台历史入口(10-09-tg-category-entry):TG 品类渠道页「看全部历史
+   *  消息」——L3 历史态绕过当日窗,展示该品类全部入库条目。 */
+  const openCategoryHistory = useCallback(() => {
+    setDrill((current) =>
+      current.level === 2
+        ? { level: 3, category: current.category, source: null, kind: null, history: true }
+        : current,
+    );
+    setCurrentKey(null);
+  }, []);
+  /** 卡片墙点击(v2):进源大类第二层详情(网页=条目平铺 / 通讯软件=分节全铺)。
+   *  history 透传(10-09 v2.2 验收员主发现:历史卡片墙点 Telegram 卡此前
+   *  硬编码 history:false —— 当日窗回魂,老条目本体在分节详情消失,历史
+   *  只剩墙卡计数;与 openChannelFromStream 的透传同门)。 */
   const openKind = useCallback((kind: "web" | "im") => {
     setDrill((current) =>
       current.level === 3 && current.source === null && current.kind === null
-        ? { level: 3, category: current.category, source: null, kind }
+        ? { level: 3, category: current.category, source: null, kind, history: current.history }
         : current,
     );
     setCurrentKey(null);
@@ -2476,7 +2501,9 @@ export function FeedScreen() {
    *  守卫只认卡片墙起点,这里从 source 作用域回流)。 */
   const backToImDetail = useCallback(() => {
     setDrill((current) =>
-      current.level === 3 ? { level: 3, category: current.category, source: null, kind: "im" } : current,
+      current.level === 3
+        ? { level: 3, category: current.category, source: null, kind: "im", history: current.history }
+        : current,
     );
     setCurrentKey(null);
   }, []);
@@ -2501,10 +2528,48 @@ export function FeedScreen() {
       setTgLoginBusy(false);
     }
   }, [tgWebline]);
-  /** 回卡片墙(第二层详情回流;面包屑「全部条目/品类」同门) */
+  /** 内置浏览器预览(10-09-tg-category-entry v3 AC11,主人令「是否加载了
+   *  内置浏览器界面,展示 tg 内容」):取该品类最新条目 url 推导频道公开
+   *  镜像 t.me/s/<频道名>,WebviewWindow 应用内窗口直开(免二次登录)。
+   *  职责分离:数据入库仍由后台 watcher 登录会话负责,本窗口**仅内容展示**,
+   *  不做任何采集/登录动作;推导不出(私有频道/无 t.me 链)= 按钮置灰,
+   *  title 如实;开窗失败(tauri://error)= 条内出说明,不装死。 */
+  const [tgPreviewNote, setTgPreviewNote] = useState<string | null>(null);
+  const tgPreviewUrl = useMemo(() => {
+    const category = drill.level === 2 ? drill.category : null;
+    if (category === null || !category.startsWith("telegram")) return null;
+    for (const item of categoryPages[category] ?? []) {
+      const mirror = telegramMirrorUrlOf(item.url);
+      if (mirror) return mirror;
+    }
+    return null;
+  }, [categoryPages, drill]);
+  const openTgPreview = useCallback((mirror: string) => {
+    setTgPreviewNote(null);
+    try {
+      // 标签带时间戳 = 每次点击新窗,不与既有窗撞 label(撞了也走 error 注记)
+      const win = new WebviewWindow(`tg-preview-${Date.now()}`, {
+        url: mirror,
+        title: "Telegram 预览(内置浏览器)",
+        width: 460,
+        height: 780,
+      });
+      void win.once("tauri://error", () => {
+        setTgPreviewNote(
+          "预览窗打开失败(镜像不可达或窗口创建被拒;私有频道无公开预览)——条目「打开原文」仍可系统浏览器直看。",
+        );
+      });
+    } catch {
+      setTgPreviewNote("预览窗打开失败(窗口创建异常)——条目「打开原文」仍可系统浏览器直看。");
+    }
+  }, []);
+  /** 回卡片墙(第二层详情回流;面包屑「全部条目/品类」同门)。history 透传
+   *  (10-09 v2.2:历史分节详情回墙不丢历史态,与 openKind 同门)。 */
   const backToStreamAll = useCallback(() => {
     setDrill((current) =>
-      current.level === 3 ? { level: 3, category: current.category, source: null, kind: null } : current,
+      current.level === 3
+        ? { level: 3, category: current.category, source: null, kind: null, history: current.history }
+        : current,
     );
     setCurrentKey(null);
   }, []);
@@ -2706,7 +2771,9 @@ export function FeedScreen() {
       {drill.level === 2 ? (
         <>
           <ChevronRight aria-hidden className="size-3" />
-          <span className="px-1 py-0.5 text-foreground">{categoryLabelOf(drill.category)}</span>
+          {/* 终端词 = 「渠道页」而非品类名复读(10-09 v2.2 验收员挑刺:
+              「Telegram 监控 → Telegram 监控」同词重复;品类词已在上一段) */}
+          <span className="px-1 py-0.5 text-foreground">渠道页</span>
         </>
       ) : null}
     </nav>
@@ -2982,6 +3049,96 @@ export function FeedScreen() {
               </span>
             ) : null}
           </div>
+          {/* Telegram 监控台(10-09-tg-category-entry,主人令「点进 Telegram
+              监控 = 浏览器网页扫码登录 + 持续监控」;AC6 归一后品类名 =
+              Telegram 监控,台名随动):TG 品类渠道页顶部大卡——未登录给
+              扫码入口,已登录显监控中;历史消息一跳直达。 */}
+          {isTelegramCategory && tgWebline !== null ? (
+            <div
+              data-testid="feed-tg-console"
+              className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-foreground">Telegram 监控台</span>
+                {tgWebline.web.accounts.some((a) => a.logged_in) ? (
+                  <span
+                    className="inline-flex items-center gap-1 text-2xs text-ok"
+                    data-testid="feed-tg-console-live"
+                  >
+                    ● 监控中 · {tgWebline.web.accounts.filter((a) => a.logged_in).map((a) => a.account).join("、")}
+                    {tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at
+                      ? ` · 自 ${formatAbsoluteTime(tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at ?? null)}`
+                      : ""}
+                  </span>
+                ) : (
+                  <span className="text-2xs text-warning">
+                    未登录 —— 扫码登录网页版 telegram,登录后 7×24 监控,新消息自动入库
+                  </span>
+                )}
+                <span className="ml-auto flex items-center gap-1">
+                  {!tgWebline.web.accounts.some((a) => a.logged_in) &&
+                  tgWebline.web.accounts.length > 0 ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-2 text-2xs"
+                      data-testid="feed-tg-console-login"
+                      disabled={tgLoginBusy || tgWebline.web.accounts[0].login_in_progress}
+                      onClick={() => void startWebLogin()}
+                    >
+                      {tgWebline.web.accounts[0].login_in_progress
+                        ? "登录中…"
+                        : tgLoginBusy
+                          ? "拉起中…"
+                          : "扫码登录网页版"}
+                    </Button>
+                  ) : null}
+                  {/* 内置浏览器预览(AC11):应用内 WebviewWindow 直开频道公开
+                      镜像;推导不出 = 置灰 + title 如实(不装死) */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-2xs"
+                    data-testid="feed-tg-console-preview"
+                    disabled={tgPreviewUrl === null}
+                    title={
+                      tgPreviewUrl === null
+                        ? "暂无可推导的 t.me 公开链接(私有频道或条目无链接),内置预览不可用"
+                        : `内置浏览器预览:${tgPreviewUrl}`
+                    }
+                    onClick={() => tgPreviewUrl && openTgPreview(tgPreviewUrl)}
+                  >
+                    内置浏览器预览
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-1.5 text-2xs"
+                    onClick={() => navigate("/settings?section=telegram")}
+                  >
+                    管理
+                  </Button>
+                </span>
+              </div>
+              <button
+                type="button"
+                data-testid="feed-tg-console-history"
+                onClick={openCategoryHistory}
+                className="mt-1.5 inline-flex items-center gap-1 text-2xs text-primary hover:underline"
+              >
+                <Inbox aria-hidden className="size-3" />
+                看全部历史消息(不限当日窗)
+              </button>
+              {tgPreviewNote ? (
+                <span
+                  className="mt-1 block text-2xs text-warning"
+                  data-testid="feed-tg-console-preview-note"
+                >
+                  {tgPreviewNote}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           {/* 置顶:该品类全部渠道合流 */}
           {drillRow({
             testId: "feed-drill-cat-all",
@@ -2992,14 +3149,28 @@ export function FeedScreen() {
             color: categoryColor(drill.category),
           })}
           {l2Channels.length === 0 ? (
-            <Card>
-              <CardContent className="p-0">
-                <EmptyState
-                  title="该品类暂无窗内条目"
-                  description={`「${categoryLabelOf(drill.category)}」在当日窗(03:00 起)内没有条目;先跑一轮采集,或到「全部条目 · 滚动流」看历史。`}
-                />
-              </CardContent>
-            </Card>
+            isTelegramCategory ? (
+              /* TG 品类空态(10-09-tg-category-entry):不再甩「先跑采集」
+                  死胡同——监控在线给「新消息即时入库」预期 + 历史直达;
+                  AC6 归一后口径 = 「Telegram 监控」,不再专属网页线一词 */
+              <Card>
+                <CardContent className="p-0">
+                  <EmptyState
+                    title="监控在线,窗内暂无新消息"
+                    description="Telegram 监控在线,新消息入库即出现在这里;更早的入库记录点「看全部历史消息」直达。"
+                  />
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="p-0">
+                  <EmptyState
+                    title="该品类暂无窗内条目"
+                    description={`「${categoryLabelOf(drill.category)}」在当日窗(03:00 起)内没有条目;先跑一轮采集,或到「全部条目 · 滚动流」看历史。`}
+                  />
+                </CardContent>
+              </Card>
+            )
           ) : (
             <div className="flex flex-col gap-1.5" data-testid="feed-l2-channels">
               {l2Channels.map((channel) => {
@@ -3079,9 +3250,13 @@ export function FeedScreen() {
               <span
                 className="text-2xs text-muted-foreground"
                 data-testid="feed-day-window"
-                title={`当日窗:每天 03:00 清零滚动流(03:00 → 次日 03:00),过窗条目离场、视图从零累计;store 数据不清(retention 照旧),星标/稍后读跨窗可见;实时滚动 = 采集事件即时刷新 + 30s 可见性轮询`}
+                title={
+                  drill.level === 3 && drill.history
+                    ? "历史态:显示该作用域全部入库条目(不限当日窗);返回渠道页可回到滚动流。"
+                    : `当日窗:每天 03:00 清零滚动流(03:00 → 次日 03:00),过窗条目离场、视图从零累计;store 数据不清(retention 照旧),星标/稍后读跨窗可见;实时滚动 = 采集事件即时刷新 + 30s 可见性轮询`
+                }
               >
-                当日窗 03:00 起 · 实时滚动
+                {drill.level === 3 && drill.history ? "含历史 · 不限当日窗" : "当日窗 03:00 起 · 实时滚动"}
               </span>
             ) : null}
             {searchActive ? (
@@ -3414,7 +3589,7 @@ export function FeedScreen() {
                       data-testid="feed-tg-webline-strip"
                       className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-2xs text-muted-foreground"
                     >
-                      <span className="font-medium text-foreground/80">网页线监控</span>
+                      <span className="font-medium text-foreground/80">Telegram 监控 · 网页线</span>
                       {tgWebline.web.accounts.length === 0 ? (
                         <>
                           <span>尚未配置网页线账号</span>

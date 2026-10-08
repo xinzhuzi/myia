@@ -9,8 +9,8 @@
 # 消息流的);群组(如 mihomo_party_group)预览页是空的,走 bot 线(另档)。
 # 未挂 cron(不跑不影响);要跑时一句话挂上,产出进每日合并日报。
 
-id: telegram-channels
-name: Telegram频道监控
+id: telegram
+name: Telegram 监控
 
 schedule: "0 8 * * *"            # 挂上后每天早跑(改时点随手调)
 timezone: Asia/Shanghai

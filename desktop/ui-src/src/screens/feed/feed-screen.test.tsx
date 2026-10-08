@@ -92,6 +92,7 @@ import {
   streamKindCards,
   streamKindSubRows,
   telegramChannelCards,
+  telegramMirrorUrlOf,
 } from "./api";
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -119,6 +120,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
 vi.mock("@tauri-apps/plugin-shell", () => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+// AC11 内置浏览器预览:开窗面整体 mock(零真实窗口;断言只认构造调用)
+vi.mock("@tauri-apps/api/webviewWindow", () => ({ WebviewWindow: vi.fn() }));
 
 const { api, onSidecarEvent } = await import("@/lib/api");
 const storeItemsMock = vi.mocked(api.storeItems);
@@ -135,6 +138,8 @@ const shellOpenMock = vi.mocked((await import("@tauri-apps/plugin-shell")).open)
 const dialogSaveMock = vi.mocked((await import("@tauri-apps/plugin-dialog")).save);
 // invoke 分发 mock(untyped Mock,惯例同 settings.test.tsx 的 mocks.invoke)
 const invokeMock = (await import("@tauri-apps/api/core")).invoke as unknown as import("vitest").Mock;
+const WebviewWindowMock = (await import("@tauri-apps/api/webviewWindow"))
+  .WebviewWindow as unknown as import("vitest").Mock;
 
 import { FeedScreen } from "./feed-screen";
 
@@ -636,17 +641,21 @@ describe("FeedScreen", () => {
   });
 
   it("L1 品类行词汇源:health().plugins id 去重 + 名称回显 + null id 不入;health 失败仍列已加载条目品类", async () => {
+    // 连挂三屏(health 正常/换清单/拒连),默认 1s waitFor 在整文件连跑负载
+    // 下偶发超时(03:39 实测 2/9)—— 统一放宽到 3s,只放宽等待不改断言。
+    const rowIds = () =>
+      screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"));
+    const waitRows = (expected: string[]) =>
+      waitFor(() => expect(rowIds()).toEqual(expected), { timeout: 3000 });
     storeItemsMock.mockResolvedValue(result([fixtureItem({ category: "tech" })]));
     const first = renderScreen();
 
     // 缺省 health(单插件 ai-news)+ 已加载条目品类 tech:tech 有货直出;
     // ai-news 零计数折叠进「今日未更新」(10-09-tg-category-entry),点开可见
-    const rowIds = () =>
-      screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"));
-    await waitFor(() => expect(rowIds()).toEqual(["feed-drill-cat-tech"]));
+    await waitRows(["feed-drill-cat-tech"]);
     expect(screen.getByTestId("feed-l1-idle-toggle").textContent).toContain("今日未更新 · 1 个品类");
     fireEvent.click(screen.getByTestId("feed-l1-idle-toggle"));
-    await waitFor(() => expect(rowIds()).toEqual(["feed-drill-cat-tech", "feed-drill-cat-ai-news"]));
+    await waitRows(["feed-drill-cat-tech", "feed-drill-cat-ai-news"]);
     expect(screen.getByTestId("feed-drill-cat-ai-news").textContent).toContain("AI资讯"); // 名称回显
     first.unmount();
 
@@ -664,31 +673,24 @@ describe("FeedScreen", () => {
     const second = renderScreen();
     // 折叠口径:tech 有货直出;ai-news/stocks 零计数折叠(同 id 去重/null id
     // 不入同门),点开后按选项序出现在闲置区
-    await waitFor(() =>
-      expect(screen.getByTestId("feed-l1-idle-toggle").textContent).toContain("今日未更新 · 2 个品类"),
+    await waitFor(
+      () => expect(screen.getByTestId("feed-l1-idle-toggle").textContent).toContain("今日未更新 · 2 个品类"),
+      { timeout: 3000 },
     );
-    expect(screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"))).toEqual([
-      "feed-drill-cat-tech",
-    ]);
+    // tech 行随「概览二跳」落地(换清单后 tech 不在新选项词表,靠 items 品类
+    // 并入 → 概览按新键重查)——health 先落/tech 页后落是合法瞬态,曾致
+    // 1/8 偶发红(实测 03:50 抓现场:idle 已显 2 品类而 tech 页未回)。等稳定
+    // 态,不测中间态。
+    await waitRows(["feed-drill-cat-tech"]);
     fireEvent.click(screen.getByTestId("feed-l1-idle-toggle"));
-    await waitFor(() =>
-      expect(screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"))).toEqual([
-        "feed-drill-cat-tech",
-        "feed-drill-cat-ai-news",
-        "feed-drill-cat-stocks",
-      ]),
-    );
+    await waitRows(["feed-drill-cat-tech", "feed-drill-cat-ai-news", "feed-drill-cat-stocks"]);
     expect(screen.getByTestId("feed-drill-cat-stocks").textContent).toContain("stocks"); // name 缺省回 id
     second.unmount();
 
     // health 失败:不拦情报流,品类行收敛为已加载条目品类(选项词表空)
     healthMock.mockRejectedValue(new Error("sidecar 未连接"));
     renderScreen();
-    await waitFor(() =>
-      expect(screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"))).toEqual([
-        "feed-drill-cat-tech",
-      ]),
-    );
+    await waitRows(["feed-drill-cat-tech"]);
   });
 
   it("工具条一行收纳(KsFilter):品类下拉 + 读态分段 + 搜索 + 刷新同容器;刷新钮(KsFilter refresh 位,自页头迁入)重发查询", async () => {
@@ -2998,6 +3000,200 @@ describe("FeedScreen · tg-category-entry(品类折叠 + 网页线状态条,10-0
   });
 });
 
+describe("FeedScreen · tg-category-entry 监控台(TG 品类渠道页,10-09)", () => {
+  const statusPayload = (loggedIn: boolean) => ({
+    bot: { configured: false, error: null },
+    session: { exists: false },
+    web: {
+      accounts: [
+        { account: "telegram-alt1", logged_in: loggedIn, logged_in_at: loggedIn ? "2026-10-09T01:00:00" : null, login_in_progress: false, login_note: null },
+      ],
+    },
+  });
+
+  /** 归一后世界(AC6):品类 id = telegram 单分类,今日零条目 → L1 行折叠
+   *  进「今日未更新」,点开折叠才能进品类渠道页(主人点名死胡同的修正线)。 */
+  function mockConsoleWorld(items: FeedItem[]) {
+    healthMock.mockResolvedValue(
+      healthResult({
+        plugins: [
+          pluginEntry({ id: "telegram", name: "Telegram 监控" }),
+          pluginEntry({ id: "tech", name: "科技" }),
+        ],
+      }),
+    );
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(items.filter((item) => !params?.category || item.category === params.category)),
+      ),
+    );
+  }
+
+  async function drillTelegramViaIdleToggle() {
+    // telegram 今日零条目 = 折叠行:先点开「今日未更新」再进品类(AC6/AC3)
+    fireEvent.click(await screen.findByTestId("feed-l1-idle-toggle"));
+    fireEvent.click(await screen.findByTestId("feed-drill-cat-telegram"));
+  }
+
+  it("TG 品类渠道页顶部 = 监控台:未登录给扫码入口(浏览器单入口),已登录显监控中;非 TG 品类无此卡", async () => {
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") return statusPayload(false);
+      if (args?.method === "browser.open") return { started: true, op_id: "op-1", kind: "tg_web_login" };
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    // tech 今日一条(行直显);telegram 零条目(折叠,走 idle toggle 进)
+    mockConsoleWorld([
+      fixtureItem({ category: "tech", source: "tech-source", title: "科技今日一条" }),
+    ]);
+    renderScreen();
+    await drillTelegramViaIdleToggle();
+    // 监控台:未登录 → 扫码入口
+    const consoleCard = await screen.findByTestId("feed-tg-console");
+    expect(within(consoleCard).queryByTestId("feed-tg-console-login")).toBeTruthy();
+    // 内置浏览器预览:品类零条目 → 推导不出 t.me 链 = 置灰 + title 如实
+    const previewBtn = within(consoleCard).getByTestId("feed-tg-console-preview");
+    expect(previewBtn.getAttribute("disabled")).not.toBeNull();
+    expect(previewBtn.getAttribute("title")).toContain("无可推导");
+    fireEvent.click(within(consoleCard).getByTestId("feed-tg-console-login"));
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith(
+        "sidecar_request",
+        expect.objectContaining({ method: "browser.open" }),
+      ),
+    );
+    // 空态 TG 化:不再甩「先跑一轮采集」
+    expect(await screen.findByText("监控在线,窗内暂无新消息")).toBeTruthy();
+    expect(screen.queryByText("该品类暂无窗内条目")).toBeNull();
+
+    // 已登录口径:重挂载换应答,显「监控中」且无登录钮
+    cleanup();
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") return statusPayload(true);
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    renderScreen();
+    await drillTelegramViaIdleToggle();
+    expect((await screen.findByTestId("feed-tg-console-live")).textContent).toContain("监控中 · telegram-alt1");
+    expect(screen.queryByTestId("feed-tg-console-login")).toBeNull();
+
+    // 非 TG 品类:无监控台卡(tech 今日有货,行直显)
+    fireEvent.click(screen.getByTestId("feed-crumb-home"));
+    fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
+    expect(screen.queryByTestId("feed-tg-console")).toBeNull();
+  });
+
+  it("监控台历史入口:绕过当日窗,3 天前的入库条目可见,知会词换「含历史」", async () => {
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") return statusPayload(true);
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    const oldItem = fixtureItem({
+      category: "telegram",
+      source: "telegram-some",
+      title: "三天前的入库",
+      first_seen: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+    });
+    mockConsoleWorld([oldItem]);
+    renderScreen();
+    await drillTelegramViaIdleToggle();
+    fireEvent.click(await screen.findByTestId("feed-tg-console-history"));
+    // 历史态:过窗条目可见(未绕窗则被当日窗滤掉)
+    expect(await screen.findByText("三天前的入库")).toBeTruthy();
+    expect(screen.getByTestId("feed-day-window").textContent).toContain("含历史");
+  });
+
+  it("内置浏览器预览(AC11):最新条目 url 推导 t.me/s 镜像 → WebviewWindow 应用内开窗;窗口仅展示,入库归后台 watcher", async () => {
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") return statusPayload(true);
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    // telegram 今日有货 → L1 行直显(不走折叠);url 带消息锚可推导
+    mockConsoleWorld([
+      fixtureItem({
+        category: "telegram",
+        source: "telegram-mihomo_party",
+        title: "频道最新一条",
+        url: "https://t.me/mihomo_party/1201",
+        first_seen: new Date(dayWindowStart().getTime() + 3 * 60_000).toISOString(),
+      }),
+      fixtureItem({ category: "tech", source: "tech-source", title: "科技今日一条" }),
+    ]);
+    WebviewWindowMock.mockClear();
+    WebviewWindowMock.mockImplementation(() => ({ once: vi.fn() }));
+    renderScreen();
+    fireEvent.click(await screen.findByTestId("feed-drill-cat-telegram"));
+    const consoleCard = await screen.findByTestId("feed-tg-console");
+    const previewBtn = within(consoleCard).getByTestId("feed-tg-console-preview");
+    expect(previewBtn.getAttribute("disabled")).toBeNull();
+    fireEvent.click(previewBtn);
+    // 开窗断言:label 时间戳前缀 + 推导出的公开镜像 url(应用内窗,免二次登录)
+    expect(WebviewWindowMock).toHaveBeenCalledTimes(1);
+    expect(WebviewWindowMock).toHaveBeenCalledWith(
+      expect.stringMatching(/^tg-preview-/),
+      expect.objectContaining({ url: "https://t.me/s/mihomo_party" }),
+    );
+  });
+
+  it("历史态第二跳不丢历史(验收员主发现回归):历史卡片墙 → Telegram 卡进分节详情,老条目本体可见且仍「含历史」", async () => {
+    // 过源大类门(SOURCE_KIND_PROTOCOL)= 历史态落卡片墙(此前 openKind 在
+    // 这里硬编码 history:false,当日窗回魂、老条目本体消失,只在墙卡计数
+    // 里出现 —— 03 双 FAIL 实锤);修复 = history 随下钻透传。
+    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") return statusPayload(true);
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    const anchor = dayWindowStart().getTime();
+    mockConsoleWorld([
+      fixtureItem({
+        category: "telegram",
+        source: "telegram-mihomo_party",
+        title: "三天前的入库",
+        first_seen: new Date(anchor - 3 * 86_400_000).toISOString(),
+      }),
+      fixtureItem({
+        category: "telegram",
+        source: "telegram-mihomo_party",
+        title: "今天的新消息",
+        first_seen: new Date(anchor + 3 * 60_000).toISOString(),
+      }),
+    ]);
+    renderScreen();
+    fireEvent.click(await screen.findByTestId("feed-drill-cat-telegram"));
+    fireEvent.click(await screen.findByTestId("feed-tg-console-history"));
+    // 第一跳:历史卡片墙,工具栏「含历史」;墙卡计数含老条目(2 条)
+    await screen.findByTestId("feed-kind-wall");
+    expect(screen.getByTestId("feed-day-window").textContent).toContain("含历史");
+    expect(screen.getByTestId("feed-kind-card-im").textContent).toContain("2 条");
+    // 第二跳(修复点):点 Telegram 卡进分节详情,历史态透传——
+    // 老条目本体在列表,不再当日窗回魂
+    fireEvent.click(screen.getByTestId("feed-kind-card-im"));
+    await screen.findByTestId("feed-im-sections");
+    expect(await screen.findByText("三天前的入库")).toBeTruthy();
+    expect(screen.getByText("今天的新消息")).toBeTruthy();
+    expect(screen.getByTestId("feed-day-window").textContent).toContain("含历史");
+  });
+});
+
+describe("feed 内置浏览器预览 纯函数(api.ts,10-09-tg-category-entry v3)", () => {
+  it("telegramMirrorUrlOf:消息锚/预览链/纯频道链 → t.me/s/<频道名>;邀请链/非 t.me/空 = null 不猜", () => {
+    // bot/网页线消息锚(AC11 主例:mihomo_party 最新条目)
+    expect(telegramMirrorUrlOf("https://t.me/mihomo_party/1201")).toBe("https://t.me/s/mihomo_party");
+    // 已是预览链(带消息 id)→ 剥回频道根
+    expect(telegramMirrorUrlOf("https://t.me/s/durov/548")).toBe("https://t.me/s/durov");
+    // 纯频道链
+    expect(telegramMirrorUrlOf("https://t.me/durov")).toBe("https://t.me/s/durov");
+    expect(telegramMirrorUrlOf("https://t.me/durov/")).toBe("https://t.me/s/durov");
+    // http + query 照样认
+    expect(telegramMirrorUrlOf("http://t.me/s/mihomo_party?single")).toBe("https://t.me/s/mihomo_party");
+    // 不猜:私有邀请链 / 非 t.me 域 / 空刻
+    expect(telegramMirrorUrlOf("https://t.me/+AbCdEf_123")).toBeNull();
+    expect(telegramMirrorUrlOf("https://example.com/item-1")).toBeNull();
+    expect(telegramMirrorUrlOf("")).toBeNull();
+    expect(telegramMirrorUrlOf(null)).toBeNull();
+  });
+});
+
 describe("feed tg-channel-card 纯函数(api.ts,10-08-tg-channel-card)", () => {
   it("imAppOf:telegram-/tg- 前缀 = telegram(通讯软件卡),其余/null = web 归网页卡", () => {
     expect(imAppOf("telegram-durov")).toBe("telegram");
@@ -3403,8 +3599,14 @@ describe("FeedScreen · 审计整改批(F2/F3/F5/F6/F10)", () => {
   /** v2 夹具:IM 两条(同渠道,较新)+ 网页两条(两源,较旧);刻度显式给,
    *  卡序/巡游序确定(first_seen 新→旧,im 卡在前)。 */
   function mockStoreV12(options: { webExtra?: number } = {}) {
-    const t1 = new Date("2026-10-08T09:00:00").toISOString();
-    const t2 = new Date("2026-10-08T11:00:00").toISOString();
+    // 时间戳相对刻度 + 当日窗锚地板钳制(10-09 教训:硬编码日期在 03:00
+    // 翻面后出窗;纯 now-N 小时在 03:00-05:00 跑同样出窗 —— 以
+    // dayWindowStart()+递增分钟为地板,永在窗内且 t2>t1 保序)。
+    const anchor = dayWindowStart().getTime();
+    const inWindow = (ms: number, floorMin: number) =>
+      new Date(Math.max(ms, anchor + floorMin * 60_000)).toISOString();
+    const t1 = inWindow(Date.now() - 2 * 3_600_000, 1); // 网页侧,较旧
+    const t2 = inWindow(Date.now() - 1 * 3_600_000, 2); // IM 侧,较新
     const total = 2 + (options.webExtra ?? 0);
     const items = [
       fixtureItem({ source: "telegram-mihomo_party_group", title: "🎉 Clash Party Dev Build 开发版本发布", content: "基于版本: 1.9.5", first_seen: t2 }),

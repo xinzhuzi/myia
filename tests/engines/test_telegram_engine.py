@@ -648,6 +648,6 @@ def test_category_plugin_yaml_loads():
     if not path.exists():  # pragma: no cover - 仓库布局守卫
         pytest.skip("plugins/telegram-groups.yaml 不在本测试布局内")
     config = load_category_file(path)
-    assert config.id == "telegram-groups"
+    assert config.id == "telegram"  # 10-09 AC6 归一:三件同 id,文件名区分三线
     assert [source.name for source in config.sources] == ["telegram-mihomo_party_group"]
     assert all(source.engine == "telegram" for source in config.sources)

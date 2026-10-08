@@ -876,6 +876,24 @@ export function imAppOf(source: string | null | undefined): "telegram" | null {
   return /^(telegram|tg)[-_.]/i.test(source) ? "telegram" : null;
 }
 
+/** TG 频道公开镜像推导(10-09-tg-category-entry v3 AC11 内置浏览器预览):
+ *  从该品类最新条目 url 还原 `https://t.me/s/<频道名>` 公开预览页 ——
+ *  t.me 的 /s/ 路径 = 无需登录的消息流网页版(telegram-channels.yaml
+ *  采集线同款入口),应用内 WebviewWindow 直开即看。
+ *
+ *  认得三种形态:`https://t.me/<频道>/<消息id>`(bot/网页线消息锚)、
+ *  `https://t.me/s/<频道>(/<id>)`(已是预览链)、`https://t.me/<频道>`(纯频道链)。
+ *  不猜(一律 null,按钮置灰如实):`t.me/+邀请链`(私有,无公开镜像)、
+ *  非 t.me 域、空 url。频道名口径 = t.me 用户名(字母开头,字母/数字/下划线)。
+ */
+export function telegramMirrorUrlOf(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const match = /^https?:\/\/t\.me\/(?:s\/)?([A-Za-z][A-Za-z0-9_]{2,})(?:\/\d+)?\/?(?:[?#].*)?$/.exec(
+    url.trim(),
+  );
+  return match ? `https://t.me/s/${match[1]}` : null;
+}
+
 /** 卡片墙视图模型(10-08-tg-channel-card v2,主人令「网页集中在一起,其他
  *  通讯软件一个通讯软件一个卡片,点击进入第二层才是详情展示」):L3 多渠道
  *  作用域的第一层只有大类卡 —— 网页一张(一切非通讯软件源)+ 每通讯软件

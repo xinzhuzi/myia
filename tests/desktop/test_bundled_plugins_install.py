@@ -72,7 +72,15 @@ BUNDLED_PACKAGES = DESKTOP_TIER_PACKAGES + STUB_ONLY_PACKAGES + REMOTE_STUB_PACK
 #: 随包品类 YAML 全集(恰 14 件;= OFFICIAL_CATEGORY_YAMLS 同源,7 官方 +
 #: demo + monitor/credentials 两场景件 + telegram 三件与 daily-digest,
 #: 10-08 查漏批③ G5/G9 入种子)。
-BUNDLED_CATEGORY_IDS = tuple(name.removesuffix(".yaml") for name in OFFICIAL_CATEGORY_YAMLS)
+#: 名实注(10-09 AC6 归一):这是**文件名 stem 清单**(件数口径),不再是
+#: id 清单 —— telegram 三件归一后 id 均为 'telegram'(文件名仍区分三线),
+#: id 集断言须走下方 BUNDLED_CATEGORY_ID_SET 的归一映射。
+BUNDLED_CATEGORY_STEMS = tuple(name.removesuffix(".yaml") for name in OFFICIAL_CATEGORY_YAMLS)
+
+#: 期望品类 id 集(= stem 归一映射:telegram- 前缀三件 → 'telegram';共 12 个)。
+BUNDLED_CATEGORY_ID_SET = {
+    "telegram" if stem.startswith("telegram-") else stem for stem in BUNDLED_CATEGORY_STEMS
+}
 
 
 @pytest.fixture(autouse=True)
@@ -227,16 +235,32 @@ def test_list_rebuilt_installer_tree_yields_exactly_eleven_packages(monkeypatch,
     # credhunter 件 credhunter/ 子包(整目录映射)不单独成条目——按 manifest 计
     ids = sorted(plugin["id"] for plugin in result["plugins"])
     assert ids == sorted(BUNDLED_PACKAGES)
-    # 品类发现面(批二 R3;批③后 14 件):重建树平铺 YAML,id 集与守卫常量同源;
-    # exists 对齐数据根实况(隔离空沙箱 → 全 False);官方件全可读零 finding。
-    assert len(result["categories"]) == len(BUNDLED_CATEGORY_IDS) == 14
-    assert {cat["id"] for cat in result["categories"]} == set(BUNDLED_CATEGORY_IDS)
+    # 品类发现面(批二 R3;批③后 14 件;10-09 AC6 归一 id 口径):重建树
+    # 平铺 YAML = 每件一条(件数口径 14 不变),id 经 load_category_file
+    # 实读随 config.id —— telegram 三件归一后同 id 'telegram',id 集 = 12;
+    # 散装回归(任一件 id 改回 telegram-groups/channels/web)在此即红。
+    assert len(result["categories"]) == len(BUNDLED_CATEGORY_STEMS) == 14
+    assert {cat["id"] for cat in result["categories"]} == BUNDLED_CATEGORY_ID_SET
+    # AC6 归一实锚:恰好三条 id='telegram' 且 file 各异(文件名区分三线)
+    assert sorted(cat["file"] for cat in result["categories"] if cat["id"] == "telegram") == [
+        "telegram-channels.yaml",
+        "telegram-groups.yaml",
+        "telegram-web.yaml",
+    ]
     for cat in result["categories"]:
         assert set(cat) == {"file", "path", "id", "name", "schedule", "exists", "findings"}, (
             f"{cat['file']} 品类视图键集漂移"
         )
         assert cat["exists"] is False
-        assert cat["findings"] == []
+        if cat["file"].startswith("telegram-"):
+            # 归一件合法携带恰一条 id_mismatch warning(stem≠id 如实透出,
+            # 双路定位兜底可达;UI 源管理面以此披露「文件名区分、id 归一」)
+            assert [finding["code"] for finding in cat["findings"]] == ["id_mismatch"], (
+                f"{cat['file']} 归一件 findings 漂移"
+            )
+            assert all(finding["severity"] == "warning" for finding in cat["findings"])
+        else:
+            assert cat["findings"] == []
         assert cat["schedule"]  # 品类必有合法 cron(schema 校验门)
 
 

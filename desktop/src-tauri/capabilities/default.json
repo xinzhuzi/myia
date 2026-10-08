@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "desktop 最小权限:核心事件 + updater/process + dialog(看图屏系统文件选择器,dialog:default 仅含打开/保存/消息对话框,无 fs 权限)+ shell 受控 open(10-03-feed-ux G2「打开原文」:scope 仅 https?://,经系统默认浏览器;依旧零 shell:execute —— 不给 webview 任何 shell 执行授权,v1.1 评审:args 全通配 = 被攻破的 webview 可任意参数驱动 myssia-core 二进制)。sidecar 由 Rust 侧 app.shell().sidecar() 拉起(不经 webview ACL) + log:default(10-07-unified-logging 批2:UI console 劫持经 @tauri-apps/plugin-log JS fn invoke plugin:log|log 汇入 shell.log 的唯一权限面;Rust 侧 log:: 宏不经 webview ACL 零权限)",
+  "description": "desktop 最小权限:核心事件 + updater/process + dialog(看图屏系统文件选择器,dialog:default 仅含打开/保存/消息对话框,无 fs 权限)+ shell 受控 open(10-03-feed-ux G2「打开原文」:scope 仅 https?://,经系统默认浏览器;依旧零 shell:execute —— 不给 webview 任何 shell 执行授权,v1.1 评审:args 全通配 = 被攻破的 webview 可任意参数驱动 myssia-core 二进制)。sidecar 由 Rust 侧 app.shell().sidecar() 拉起(不经 webview ACL) + log:default(10-07-unified-logging 批2:UI console 劫持经 @tauri-apps/plugin-log JS fn invoke plugin:log|log 汇入 shell.log 的唯一权限面;Rust 侧 log:: 宏不经 webview ACL 零权限) + webview-window 建窗(10-09-tg-category-entry v3 AC11 内置浏览器预览:情报流监控台开 WebviewWindow 展示 t.me/s 公开镜像;仅 allow-create-webview-window 单权限,新窗 URL 固定 t.me/s/... 且不在 windows 列表 = 零 ACL 授权,预览页拿不到任何 IPC 能力;数据入库仍由后台 watcher 负责,窗口仅内容展示)",
   "windows": [
     "main"
   ],
@@ -11,6 +11,7 @@
     "process:allow-restart",
     "dialog:default",
     "log:default",
+    "core:webview:allow-create-webview-window",
     {
       "identifier": "shell:allow-open",
       "allow": [

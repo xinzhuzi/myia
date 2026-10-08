@@ -450,7 +450,7 @@ def test_sample_plugin_yaml_ships_valid_tg_web_source() -> None:
 
     repo_root = Path(__file__).resolve().parents[2]
     cfg = load_category_file(repo_root / "plugins" / "telegram-web.yaml")
-    assert cfg.id == "telegram-web"
+    assert cfg.id == "telegram"  # 10-09 AC6 归一:三件同 id,文件名区分三线
     src = cfg.sources[0]
     assert src.engine == "tg_web"
     opts = src.extra_params["engine_options"]["tg_web"]

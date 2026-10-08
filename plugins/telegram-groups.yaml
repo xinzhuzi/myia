@@ -29,8 +29,8 @@
 # +offset 持久+断线退避+事件账本;桌面接线位见 telegram/serve.py 文档),
 # 批量档与 serve 档同 token 互斥(409),二选一。
 
-id: telegram-groups
-name: Telegram群消息监控
+id: telegram
+name: Telegram 监控
 
 schedule: "*/30 * * * *"          # 挂上后每半小时窗口拉取(serve 常驻时不必挂)
 timezone: Asia/Shanghai

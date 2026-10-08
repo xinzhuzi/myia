@@ -30,8 +30,8 @@
 #
 # 未挂 cron(不跑不影响);account 键全称律 telegram-<标识>(目录名即键)。
 
-id: telegram-web
-name: TG网页线监控
+id: telegram
+name: Telegram 监控
 
 schedule: "*/30 * * * *"          # 批量档窗口读取(serve 常驻时不必挂)
 timezone: Asia/Shanghai
