@@ -30,3 +30,17 @@
 
 - 门禁抓出真 bug 一枚:telegram-web.yaml 缺位路径 web_config 未绑定(UnboundLocalError)——提升默认值修复,正好是「专用件缺位」这一此前从未走过的装配路径。
 - 数据口径说明:历史 TG 条目 category 为空的根因 = telegram 三线落库 sink 不带品类;本批后新条目自动归 telegram-groups。
+
+## v2 追加(2026-10-09 凌晨,主人令「Telegram 集中一下,这是 1 个大分类,不要搞七搞八」+「用动态工作流做好」+点名批评「点进 Telegram 频道监控仍是暂无条目死胡同」)
+
+主人在途验收点名的缺口:监控入口埋错层(塞进了分节详情,用户点品类落点是渠道页死胡同)+ TG 三品类(telegram-groups/telegram-channels/telegram-web)散装。v2 收敛为:
+
+- [ ] AC6 **Telegram 归一大分类**:三个插件品类文件(telegram-groups/channels/web.yaml)统一 `id: telegram`、`name: Telegram 监控`(文件仍各自持源,L1/品类层只出一条);存量数据回填(telegram-groups/channels/web → telegram);盖戳映射随 config.id 自动归一;前端 `startsWith("telegram")` 判定与文案随动;设置·源管理的三文件展示如实(文件名区分)。
+- [x] AC7 监控台上到**品类渠道页顶部**(用户实际点击落点):未登录=扫码登录钮(browser.open 单入口);已登录=●监控中+账号+管理跳转;【看全部历史消息】直达历史态。
+- [x] AC8 历史态:绕过当日窗看该品类全部入库条目,知会词「含历史 · 不限当日窗」;TG 品类空态改「监控在线,窗内暂无新消息」,不再甩「先跑一轮采集」死胡同。
+- [ ] AC9 测试修复:当日窗 03:00 翻面暴露的时间炸弹(硬编码日期夹具出窗致一批墙层用例齐红)全部改相对刻度;监控台/折叠用例齐;门禁全绿。
+- [ ] AC10 打包覆盖安装 + 换装双实锤 + app 还原常驻;入库 pathspec 提交。
+
+### 在途交接(工作流起点)
+
+工作树未提交改动 = 品类盖戳(entry.py _telegram_source_categories/_store_item + 存量已回填 telegram-groups)、监控台/历史态(feed-screen.tsx drill.history + L2 控制台 + TG 空态)、测试(盖戳 3 例 + 折叠/状态条/监控台用例)。已知红:4+ 用例(监控台两例种子/断言待调、审计批 F5/F5补充 疑似仍有时间炸弹或墙层回归待诊)。
