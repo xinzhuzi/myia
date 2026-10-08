@@ -776,6 +776,41 @@ function firstSeenValue(iso: string | null | undefined): number {
   return Number.isNaN(value) ? Number.NEGATIVE_INFINITY : value;
 }
 
+/** 卡片摘要字符上限(v3,主人令「精炼,不能过长,也不能展示不出来特殊
+ *  之处」):一行摘要的硬截断位,CSS truncate 再兜底视觉一行。 */
+export const CARD_DIGEST_MAX_CHARS = 72;
+
+/** 卡片摘要(v3):为卡片描述行产出「内容里的特殊之处」,精炼一行 ——
+ *  ① 优惠:价格片段即特殊之处(dealPriceView:限免/现价/原价/折扣);
+ *  ② 其余:正文压平取头,且**先去掉与标题重复的开头**(TG 消息正文常
+ *     复述标题,不去重则摘要行空转、版本号等独有信息被挤出);
+ *  ③ 无正文回事件词(watch 首纳/有更新);全空 = null(消费侧不渲染
+ *     空行)。超长 `…` 收尾。 */
+export function cardDigest(item: FeedItem): string | null {
+  const title = (item.title ?? "").trim();
+  if (item.price_text != null || item.final_price != null || item.sale_price != null) {
+    const deal = dealPriceView(item);
+    const bits: string[] = [];
+    if (deal.free) bits.push("限免");
+    if (deal.current !== null) bits.push(deal.current);
+    if (deal.original !== null) bits.push(`原价 ${deal.original}`);
+    if (deal.discount !== null && !deal.free) bits.push(`-${deal.discount}%`);
+    if (bits.length > 0) return bits.join(" · ");
+  }
+  const body = (item.content ?? "").replace(/\s+/g, " ").trim();
+  const deduped = title !== "" && body.startsWith(title) ? body.slice(title.length).trim() : body;
+  const text =
+    deduped ||
+    (item.watch_event != null
+      ? item.watch_event === "new"
+        ? "首次纳入监控"
+        : "目标页有更新"
+      : "");
+  if (text === "") return null;
+  if (text.length <= CARD_DIGEST_MAX_CHARS) return text;
+  return `${text.slice(0, CARD_DIGEST_MAX_CHARS)}…`;
+}
+
 export function telegramChannelCards(
   items: FeedItem[],
   states: FeedStateMap,

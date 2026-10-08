@@ -183,6 +183,10 @@ async def main() -> int:
                 "TG 卡未读竖条",
                 (await page.locator('[data-testid="feed-kind-card-unread-im"]').count()) == 1,
             )
+            # v3 摘要行:TG 卡显正文独有信息(版本号),不复述标题
+            tg_digest_el = page.locator('[data-testid="feed-kind-digest-im"]')
+            expect("TG 卡摘要行在场", (await tg_digest_el.count()) == 1)
+            expect("TG 卡摘要含版本特殊之处", "基于版本: 1.9.5" in ((await tg_digest_el.text_content()) or ""))
             expect("散条目卡退场", (await page.locator('[data-testid="feed-item-1"]').count()) == 0)
             expect("v1 渠道卡区退场", (await page.locator('[data-testid="feed-tg-channels"]').count()) == 0)
 

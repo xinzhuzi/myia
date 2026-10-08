@@ -55,6 +55,7 @@ import {
   applyFeedFilter,
   categoryColor,
   categoryOptionsFromHealth,
+  cardDigest,
   channelDisplayName,
   channelKindOf,
   dayWindowStart,
@@ -1003,6 +1004,7 @@ function TgChannelCard({
 }) {
   const time = formatRelativeTime(card.latest.first_seen);
   const preview = (card.latest.title || card.latest.url).replace(/\s+/g, " ").trim();
+  const digest = cardDigest(card.latest);
   return (
     <button
       type="button"
@@ -1025,6 +1027,14 @@ function TgChannelCard({
         </time>
       </span>
       <span className="mt-0.5 block truncate text-sm leading-relaxed text-muted-foreground">{preview}</span>
+      {digest !== null ? (
+        <span
+          className="mt-0.5 block truncate text-2xs leading-relaxed text-muted-foreground/80"
+          data-testid={`feed-tg-channel-digest-${card.key}`}
+        >
+          {digest}
+        </span>
+      ) : null}
       <span className="mt-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
         {card.count} 条{card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
         <ChevronRight
@@ -1052,6 +1062,7 @@ function SourceKindCard({
   const time = formatRelativeTime(card.latest.first_seen);
   const preview = (card.latest.title || card.latest.url).replace(/\s+/g, " ").trim();
   const Icon = card.key === "im" ? Send : Globe;
+  const digest = cardDigest(card.latest);
   return (
     <button
       type="button"
@@ -1074,6 +1085,14 @@ function SourceKindCard({
         </time>
       </span>
       <span className="mt-0.5 block truncate text-sm leading-relaxed text-muted-foreground">{preview}</span>
+      {digest !== null ? (
+        <span
+          className="mt-0.5 block truncate text-2xs leading-relaxed text-muted-foreground/80"
+          data-testid={`feed-kind-digest-${card.key}`}
+        >
+          {digest}
+        </span>
+      ) : null}
       <span className="mt-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
         {card.count} 条{card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
         <ChevronRight

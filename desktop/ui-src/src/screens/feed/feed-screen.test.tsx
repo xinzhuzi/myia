@@ -83,6 +83,7 @@ import {
   READ_STATE_PROTOCOL,
   saveFeedDisplay,
   setMarkerBulk,
+  cardDigest,
   sortUnreadFirst,
   SOURCE_KIND_PROTOCOL,
   statesFromItems,
@@ -2813,6 +2814,9 @@ describe("FeedScreen · tg-channel-card v2(源大类卡片墙,protocol ≥ 12)",
     expect(tgCard.textContent).toContain("2 条");
     expect(tgCard.textContent).toContain("未读 2");
     expect(screen.getByTestId("feed-kind-card-unread-im")).toBeTruthy();
+    // v3 摘要行:TG 卡显正文独有信息(版本号),不复述标题
+    const tgDigest = (await screen.getByTestId("feed-kind-digest-im").textContent) ?? "";
+    expect(tgDigest).toContain("基于版本: 1.9.5");
     // 散条目卡与 v1 渠道卡区都退场
     expect(screen.queryByTestId("feed-item-1")).toBeNull();
     expect(screen.queryByTestId("feed-item-3")).toBeNull();
@@ -2871,6 +2875,37 @@ describe("feed tg-channel-card 纯函数(api.ts,10-08-tg-channel-card)", () => {
     expect(imAppOf("openai-news")).toBeNull();
     expect(imAppOf(null)).toBeNull();
     expect(imAppOf(undefined)).toBeNull();
+  });
+
+  it("cardDigest(v3):TG 正文去标题重复取头显版本;优惠出价格片段;watch 回事件词;超长省略号;全空 null", () => {
+    // TG 消息正文复述标题:去重后「基于版本」独有信息浮出
+    const tg = fixtureItem({
+      source: "telegram-a",
+      title: "🎉 Clash Party Dev Build 开发版本发布",
+      content: "🎉 Clash Party Dev Build 开发版本发布 基于版本: 1.9.5-d0510.92f21d0 提交哈希: 92f21d0",
+    });
+    expect(cardDigest(tg)).toBe("基于版本: 1.9.5-d0510.92f21d0 提交哈希: 92f21d0");
+    // 优惠:价格片段即特殊之处(限免析取)
+    const deal = fixtureItem({
+      source: "epic-free",
+      title: "某游戏",
+      content: null,
+      price_text: "¥0.00",
+      final_price: 0,
+      original_price: 3900,
+      discount_pct: 100,
+    });
+    expect(cardDigest(deal)).toBe("限免 · ¥0.00 · 原价 ¥39.00");
+    // watch 无正文:事件词回填
+    const watchNew = fixtureItem({ source: "w", title: "官网", content: null, watch_event: "new" });
+    expect(cardDigest(watchNew)).toBe("首次纳入监控");
+    // 超长:CARD_DIGEST_MAX_CHARS 截断 + 省略号
+    const long = fixtureItem({ source: "s", title: "标题", content: "很".repeat(100) });
+    const digest = cardDigest(long) ?? "";
+    expect(digest.length).toBe(72 + 1);
+    expect(digest.endsWith("…")).toBe(true);
+    // 全空:null(不渲染空行)
+    expect(cardDigest(fixtureItem({ source: "s", title: "标题", content: null }))).toBeNull();
   });
 
   it("streamKindCards:网页一张 + 每通讯软件一张,按最新新→旧混排;计数/未读/latest 同口径", () => {
