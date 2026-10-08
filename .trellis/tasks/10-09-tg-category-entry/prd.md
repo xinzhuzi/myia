@@ -79,3 +79,9 @@
 - P2 处置:P2-1 窄泡悬停簇左溢 → 卡根 min-w-[13rem](已修);P2-2 胶囊生效面注释收敛(真实生效=单频道 TG 流含历史;im 分节以频道为节无日期分组)(已修);D 六条断言空白 → 补「聊天形态锚」两例(已修);P2-3 展开态富块着色泡根内双泡观感 → 接受现状(媒体附着形态)留档。
 - 深检连带揪出并修掉:**测试时间炸弹**(当日窗 03:00 翻面 × 硬编码日期夹具,墙层用例齐红——夹具全改相对 now)、**夹具惰性数组**(mockImplementation 内造条目致 id 漂移,feed-item-1 永查空)、footer 可空(tsc -b 连测试文件查,装机门禁抓)。
 - 教训入册:**后台/连续命令的 cwd 漂移会打腰换装脚本**(rm -rf /Applications 成功后 ditto 相对路径失败,app 短暂缺失)——换装脚本必须整段绝对路径,已当场按绝对路径抢修恢复(chunk index---kOFCeC 命中,app 自 /Applications 干净重启 PID 37752)。
+
+## v5 终局注记(2026-10-09 凌晨,工作流 dwfrun-2fc9e9ea 全绿交付,P2 打磨三件)
+
+- 提交 03058da(整合师在环内 pathspec 入库,12+ 文件):F2 计数口径根治(store 层 with_total + 协议 v13 + COUNT_PROTOCOL 门,词面「已加载 X · 共 T 条」)、F10 墙层次级概览(im 卡 top3 频道/未读、web 卡 top3 源,数据从 displayItems 现算零新 RPC)、P2-3 富块拉出泡根(着色底收进气泡 div,富块落卡底色,形态锚用例随新结构更新)。
+- 门禁全绿(build/feed vitest/pytest desktop+store/全量 vitest/无头冒烟);换人验收员三动线截图通过;换装双实锤(新 chunk index-CpHYxhY6 旧件零命中;装机 sidecar with_total=7)+ WKWebView 缓存清 + app 常驻 PID 71041(打包安装员全程绝对路径,昨日 cwd 事故教训已贯彻)。
+- 至此本档 F2/F10/P2-3 三项 P2 全数关闭;遗留仅「装机像素终验」(主人点亮即验)。
