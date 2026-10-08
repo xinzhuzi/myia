@@ -710,3 +710,22 @@ def test_cli_telegram_serve_help_registered():
     parser = build_parser()
     ns = parser.parse_args(["telegram", "serve"])
     assert ns.telegram_command == "serve"
+
+
+def test_ledger_cross_thread_write(tmp_path):
+    """账本跨线程写回归(2026-10-08 装机实跑暴露):sidecar 装配线程建、
+    serve 线程写 —— check_same_thread=False(store/sqlite.py 同款)守装机面;
+    CLI serve 单线程不受影响。"""
+    import threading
+
+    ledger = TelegramEventLedger(tmp_path / "events.db")
+    outcome: dict[str, object] = {}
+
+    def _write() -> None:
+        outcome["ok"] = ledger.record(update_id=1, outcome="stored")
+
+    worker = threading.Thread(target=_write)
+    worker.start()
+    worker.join()
+    assert outcome["ok"] is True
+    assert ledger.counts().get("stored") == 1

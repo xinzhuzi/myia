@@ -118,7 +118,10 @@ class TelegramEventLedger:
             )
         self._path = path
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self._path)
+        # check_same_thread=False(store/sqlite.py 同款):桌面 sidecar 在装配
+        # 线建账本、serve 线写行(2026-10-08 装机实跑暴露);CLI serve 单线
+        # 程不受影响。写面单一(serve 事件循环),无并发写者。
+        self._conn = sqlite3.connect(self._path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         with self._conn:
             self._conn.executescript(_SCHEMA)
