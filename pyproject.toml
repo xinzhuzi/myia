@@ -83,7 +83,17 @@ apprise = ["apprise>=1.9,<2"]
 # 依赖,必须显式声明)。钉版 >=1.2.4,<3:1.2.4 起 sync+asyncio 双形态
 # 稳定,<3 防破坏性漂移。桌面锁同轮固化(增量 4 轮→5 轮)。
 telethon = ["telethon>=1.36,<2", "python-socks>=1.2.4,<3"]
-all = ["crawl4ai", "scrapling", "firecrawl-py", "skyvern", "openai>=1.30", "huggingface-hub>=0.23"]
+# 浏览器专用模块(10-08-browser-module 案甲):Playwright 库本体 ——
+# 浏览器模块统一入口(browser.open)/tg_web 登录线的自管 Chromium 驱动
+# (web_line 惰性 import,缺装 = 结构化 dependency_missing 带人话修复指引,
+# PRD AC2 静默失败=反模式;G7 装机缺件的根治位)。钉版 >=1.63,<2:
+# 下限 1.63 = uv.lock 解析与本仓真跑标定线(W5 无头探针/登录窗),<2 防
+# 破坏性漂移。浏览器二进制(Chromium)不走本 extras —— 复用 crawl4ai
+# 组件轨(post_install=playwright-chromium 钩子下载数据根
+# playwright-browsers,PLAYWRIGHT_BROWSERS_PATH 同源注入);桌面锁随
+# llm/telethon 判例扩 --extra browser(装机态「添加账号」即拉得起窗)。
+browser = ["playwright>=1.63,<2"]
+all = ["crawl4ai", "scrapling", "firecrawl-py", "skyvern", "openai>=1.30", "huggingface-hub>=0.23", "playwright>=1.63,<2"]
 
 [project.scripts]
 myssia = "myssia.cli:main"

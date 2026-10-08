@@ -2081,11 +2081,15 @@ all = [
     { name = "firecrawl-py" },
     { name = "huggingface-hub" },
     { name = "openai" },
+    { name = "playwright" },
     { name = "scrapling" },
     { name = "skyvern" },
 ]
 apprise = [
     { name = "apprise" },
+]
+browser = [
+    { name = "playwright" },
 ]
 crawl4ai = [
     { name = "crawl4ai" },
@@ -2149,6 +2153,8 @@ requires-dist = [
     { name = "openai", marker = "extra == 'all'", specifier = ">=1.30" },
     { name = "openai", marker = "extra == 'llm'", specifier = ">=1.30" },
     { name = "openai", marker = "extra == 'vision'", specifier = ">=1.30" },
+    { name = "playwright", marker = "extra == 'all'", specifier = ">=1.63,<2" },
+    { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.63,<2" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "python-socks", marker = "extra == 'telethon'", specifier = ">=1.2.4,<3" },
     { name = "pyyaml", specifier = ">=6.0.1" },
@@ -2166,7 +2172,7 @@ requires-dist = [
     { name = "trafilatura", marker = "extra == 'trafilatura'", specifier = ">=2.3,<3" },
     { name = "websockets", marker = "extra == 'simplex'", specifier = ">=12" },
 ]
-provides-extras = ["crawl4ai", "scrapling", "firecrawl", "skyvern", "simplex", "llm", "vision", "table", "trafilatura", "apprise", "telethon", "all"]
+provides-extras = ["crawl4ai", "scrapling", "firecrawl", "skyvern", "simplex", "llm", "vision", "table", "trafilatura", "apprise", "telethon", "browser", "all"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "pytest", specifier = ">=8.0" }]

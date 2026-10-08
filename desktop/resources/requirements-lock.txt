@@ -6,9 +6,14 @@
 # 纯 Python 轻),既有条目零漂移——diff 实证;
 # 2026-10-08 tg-web-line 查漏修复批① G2:+python-socks(Telethon 走 SOCKS/HTTP
 # 代理连接的官方推荐件,主人手装过的件入锁;非 telethon 传递依赖须显式声明,
-# 增量恰 +1 轮,既有条目零漂移——diff 实证)
-# 来源 = pyproject [project] dependencies + extras[llm] + extras[telethon] 经 uv.lock 冻结解析:
-#   uv export --frozen --no-dev --no-emit-project --no-hashes --extra llm --extra telethon
+# 增量恰 +1 轮,既有条目零漂移——diff 实证);
+# 2026-10-08 browser-module 四段扩 browser extras:装机态「添加账号」拉起登录窗
+# 依赖 playwright 库(G7 装机缺件根治——缺装=登录静默失败反模式,本批 AC2
+# 拔依赖=可见错误+本锁根治双管)。增量恰 3 轮(playwright/greenlet/pyee,
+# G7 临时解锁 pip 直装三件的同源固化),既有条目零漂移——diff 实证。
+# 来源 = pyproject [project] dependencies + extras[llm] + extras[telethon]
+#   + extras[browser] 经 uv.lock 冻结解析:
+#   uv export --frozen --no-dev --no-emit-project --no-hashes --extra llm --extra telethon --extra browser
 # 唯一手改:workspace 成员 myssia-classifier 由 `-e ./myssia-classifier` 行钉为
 #   PyPI 版 `myssia-classifier==0.0.1`(uv.lock 解析版本即 0.0.1,PyPI 已发布同名
 #   版本,满足 pyproject 约束 >=0.0.1,<0.1;tests/desktop 锁版一致性测试把关)。
@@ -16,6 +21,9 @@
 #   (PyPI index 可被设置页镜像覆盖,D3;清单本身钉版不受镜像影响)。
 # 平台/版本标记按通用解析保留(linux / <3.12 / emscripten 条目在 mac/win 的
 #   3.12.7 运行时上自然不触发;win32 条目(keyring 后端)按平台生效)。
+# 浏览器二进制(Chromium)不在本清单:走 crawl4ai 组件轨 post_install 钩子
+#   下载至数据根 playwright-browsers(components.json;PLAYWRIGHT_BROWSERS_PATH
+#   同源注入)——装「JS 渲染抓取」组件或 playwright install chromium。
 myssia-classifier==0.0.1
     # via myssia
 annotated-types==0.8.0
@@ -41,6 +49,8 @@ feedparser==6.0.14
     # via myssia
 feedparser-sgmllib==2.1.0
     # via feedparser
+greenlet==3.5.6
+    # via playwright
 h11==0.16.0
     # via
     #   httpcore
@@ -86,6 +96,8 @@ more-itertools==11.1.0
     #   jaraco-functools
 openai==3.22.1
     # via myssia
+playwright==1.63.0
+    # via myssia
 pyaes==1.6.1
     # via telethon
 pyasn1==0.6.4
@@ -98,6 +110,8 @@ pydantic==2.13.5
     #   openai
 pydantic-core==2.46.5
     # via pydantic
+pyee==13.0.1
+    # via playwright
 python-socks==2.8.2
     # via myssia
 pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
@@ -127,6 +141,7 @@ typing-extensions==4.16.0
     #   openai
     #   pydantic
     #   pydantic-core
+    #   pyee
     #   typing-inspection
 typing-inspection==0.4.4
     # via pydantic

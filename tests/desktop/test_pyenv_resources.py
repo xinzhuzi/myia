@@ -586,6 +586,50 @@ def test_telethon_covered_by_desktop_lock() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 1f. 浏览器模块 extras + 桌面锁收录(10-08-browser-module G7 根治):
+#     装机自管 python 缺 playwright = 「添加账号」登录静默失败的根因
+#     (PRD 修复面①);browser extras(extras[browser] = playwright 库本体)
+#     入锁,设置页一键「同步依赖」吃进,告别人工 pip。
+# ---------------------------------------------------------------------------
+
+
+def _browser_extras_raw_list() -> list[str]:
+    """browser extras 原文清单(10-08-browser-module:playwright 库本体;
+    浏览器二进制走 crawl4ai 组件轨 post_install 钩子,不进本 extras)。"""
+    pyproject = tomllib.loads(
+        (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    extras_raw = list(pyproject["project"]["optional-dependencies"]["browser"])
+    assert extras_raw and _pep503(str(Requirement(extras_raw[0]).name)) == "playwright", (
+        f"browser extras 主件须为 playwright: {extras_raw!r}"
+    )
+    return extras_raw
+
+
+def test_browser_covered_by_desktop_lock() -> None:
+    """桌面锁收录 browser extras(10-08-browser-module AC3):playwright
+    逐件在锁内且钉版满足 extras 约束 —— 缺席 = 装机侧「添加账号」拉不起
+    登录窗(G7 静默失败在案实证,反模式;本批起 browser.open 同步结构化
+    dependency_missing 兜底,双管)。伴生件(greenlet/pyee,playwright 传递
+    闭包)同守:裸装主件 import 失败。"""
+    pins = _lock_pins()
+    for raw in _browser_extras_raw_list():
+        requirement = Requirement(raw)
+        pinned = pins.get(requirement.name)
+        assert pinned is not None, (
+            f"requirements-lock.txt 缺 {requirement.name}"
+            f"(browser extras 件: {raw!r};G7 装机静默失败根因)"
+        )
+        assert SpecifierSet(str(requirement.specifier)).contains(pinned), (
+            f"{requirement.name} 钉版 {pinned} 不满足 extras 约束 "
+            f"{requirement.specifier}"
+        )
+    # 闭包伴生件同在锁内(playwright → greenlet + pyee → typing-extensions)。
+    for companion in ("greenlet", "pyee", "typing-extensions"):
+        assert pins.get(companion), f"requirements-lock.txt 缺 {companion}(browser 闭包)"
+
+
+# ---------------------------------------------------------------------------
 # 2. runtime-manifest.json:钉版 URL + 实算 sha256 + 解压布局
 # ---------------------------------------------------------------------------
 
