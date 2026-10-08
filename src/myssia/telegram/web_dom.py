@@ -39,7 +39,7 @@ from typing import Any, Mapping
 logger = logging.getLogger(__name__)
 
 #: 选择器表标定版本(改版跟修只动本模块 + 升本注记)。
-SELECTOR_REVISION = "2026-10-08.v1"
+SELECTOR_REVISION = "2026-10-08.v2"
 
 #: 登录成功标志(左栏会话列表;**可见性口径** —— W5 真跑标定在案实证:
 #: Web K 登录页的隐藏壳里 ``.chatlist-container`` 也在 DOM,纯在场会
@@ -117,8 +117,10 @@ __all__ = [
     "drain_observer_js",
     "extract_message_js",
     "install_observer_js",
+    "LOCATE_SEARCH_JS",
+    "LOCATE_SIDEBAR_JS",
     "login_state_probe_js",
-    "open_chat_js",
+    "VERIFY_CHAT_OPEN_JS",
 ]
 
 
@@ -173,45 +175,90 @@ def chat_url(chat: str) -> str:
     return "https://web.telegram.org/k/"
 
 
-#: 打开目标群的注入 JS(搜索框 → 输入 → 点首条结果;标定件 v1)。
-#: 参数:``{chat, chatOpenSelectors, pollStepMs}``;返回
-#: ``{ok, reason, title?}``。
-OPEN_CHAT_JS = """
+#: 侧栏定位件(2026-10-08.v2 活页重标定):目标匹配 = data-peer-id 全等
+#: (chat 为 -数字形态)或会话标题含 chat(大小写不敏感);返回宿主侧
+#: 受信点击坐标。**Web K 只认受信事件** —— 合成 ``el.click()`` 无效
+#: (真跑实证:稳 4s 后合成点击仍不开群,page.mouse.click 即开),
+#: 故本件只定位不点击,真点击在 ``web_line.open_chat_flow``(宿主侧)。
+LOCATE_SIDEBAR_JS = """
+(args) => {
+    const dialogs = Array.from(document.querySelectorAll('.chatlist-chat'));
+    if (!dialogs.length) return {ok: false, reason: 'dialogs_missing'};
+    const wanted = String(args.chat || '').toLowerCase();
+    const numeric = /^-?\\d+$/.test(wanted);
+    const hit = dialogs.find((el) => {
+        if (numeric) return el.getAttribute('data-peer-id') === wanted;
+        const title = el.querySelector('.dialog-title');
+        return title && title.textContent.toLowerCase().includes(wanted);
+    });
+    if (!hit) return {ok: false, reason: 'chat_not_found'};
+    const rect = hit.getBoundingClientRect();
+    const title = hit.querySelector('.dialog-title');
+    return {
+        ok: true, reason: 'sidebar_match',
+        x: rect.x + rect.width / 2,
+        y: rect.y + Math.min(rect.height / 2, 24),
+        title: title ? title.textContent.trim() : null,
+        peerId: hit.getAttribute('data-peer-id'),
+    };
+}
+"""
+
+
+#: 搜索兜底定位件(目标不在侧栏可见窗时;标定 v2):输入框真身 =
+#: ``input.input-search-input``(type=text,v1 三候选全不中)。原生 setter
+#: + InputEvent 驱动;服务端搜索窗 ``pollStepMs * 10``。仍只定位不点击。
+LOCATE_SEARCH_JS = """
 async (args) => {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    const alreadyOpen = args.chatOpenSelectors.find(
-        (s) => document.querySelector(s) !== null);
-    if (alreadyOpen) return {ok: true, reason: 'already_open'};
     const input = document.querySelector(
-        'input.search-input, input[type="search"], .search .input-search');
+        'input.input-search-input, input.search-input, ' +
+        'input[type="search"], .search .input-search');
     if (!input) return {ok: false, reason: 'search_box_missing'};
     input.focus();
-    input.value = args.chat;
+    const setNative = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype, 'value').set;
+    setNative.call(input, args.chat);
     input.dispatchEvent(new Event('input', {bubbles: true}));
     await sleep(args.pollStepMs * 10);
     const result = document.querySelector(
         '.chatlist-chat .dialog-title, .search-results .chat-item, ' +
         '.found-chats .chatlist-chat, ul.chatlist a');
     if (!result) return {ok: false, reason: 'chat_not_found'};
-    result.click();
-    for (let i = 0; i < 40; i += 1) {
-        await sleep(args.pollStepMs);
-        const opened = args.chatOpenSelectors.find(
-            (s) => document.querySelector(s) !== null);
-        if (opened) {
-            const titleEl = document.querySelector('.topbar .peer-title, .chat-info .peer-title');
-            return {ok: true, reason: 'opened',
-                    title: titleEl ? titleEl.textContent.trim() : null};
-        }
-    }
-    return {ok: false, reason: 'open_timeout'};
+    const row = result.closest('.chatlist-chat, a') || result;
+    const rect = row.getBoundingClientRect();
+    return {
+        ok: true, reason: 'search_match',
+        x: rect.x + rect.width / 2,
+        y: rect.y + Math.min(rect.height / 2, 24),
+        title: result.textContent.trim(),
+    };
 }
 """
 
 
-def open_chat_js() -> str:
-    """群打开注入件(搜索交互;标定 v1,失配走 tg_web_dom_stale 哨兵)."""
-    return OPEN_CHAT_JS
+#: 开群验证件(点击后轮询):消息节点在场 = 开成;顺带回报容器链
+#: (Watcher 的 MutationObserver 挂载面标定用)。
+VERIFY_CHAT_OPEN_JS = """
+() => {
+    const nodes = Array.from(document.querySelectorAll('[data-mid]'));
+    if (!nodes.length) return {ok: false, midCount: 0};
+    const chain = [];
+    let el = nodes[0];
+    for (let i = 0; i < 4 && el; i += 1) {
+        el = el.parentElement;
+        if (el) chain.push(String(el.className).slice(0, 60));
+    }
+    const topTitle = document.querySelector(
+        '.topbar .peer-title, .chat-info .peer-title');
+    return {
+        ok: true, midCount: nodes.length,
+        bubbles: document.querySelectorAll('.bubbles').length,
+        containerChain: chain,
+        title: topTitle ? topTitle.textContent.trim() : null,
+    };
+}
+"""
 
 
 #: MutationObserver 安装件(常驻 Watcher 用):新消息节点 → 事件队列。

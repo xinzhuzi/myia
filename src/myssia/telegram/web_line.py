@@ -81,6 +81,24 @@ LOGIN_POLL_INTERVAL_SECONDS = 2.0
 #: 无头登录态探针的页面预算(秒;探针只看会话列表在不在,不读消息)。
 CHECK_TIMEOUT_SECONDS = 45.0
 
+#: goto 后登录态稳态窗(秒):/k/ SPA 冷启动先渲染 auth 页再恢复会话
+#: (真跑实证 2026-10-08:0.4s logged_out → 2.9s logged_in),单探会把瞬态
+#: 误判 tg_web_logged_out —— 引擎/宿主启动探针走稳态复探,窗尽才定终态。
+LOGIN_SETTLE_SECONDS = 8.0
+
+#: 稳态复探步长(秒)。
+LOGIN_SETTLE_POLL_SECONDS = 0.5
+
+#: 开群流:侧栏会话就绪轮询帽(秒;Web K 会话列表懒渲染,真跑实证迟到)。
+OPEN_CHAT_DIALOGS_TIMEOUT_SECONDS = 20.0
+
+#: 开群流:定位后点击前稳态(秒;Web K 监听挂载窗,真跑实证 <4s 点击
+#: 即丢事件 —— 合成 click 全程无效,page.mouse 待稳态后即开)。
+OPEN_CHAT_SETTLE_SECONDS = 4.0
+
+#: 开群流:真点击后消息节点出现轮询帽(秒;含服务端历史拉取窗)。
+OPEN_CHAT_VERIFY_TIMEOUT_SECONDS = 20.0
+
 #: 配置档目录/内件权限(登录态 = 凭据面;telethon session 判例)。
 PROFILE_DIR_MODE = 0o700
 PROFILE_FILE_MODE = 0o600
@@ -91,7 +109,12 @@ __all__ = [
     "INSTALL_COMMAND",
     "LOGIN_MARKER_NAME",
     "LOGIN_POLL_INTERVAL_SECONDS",
+    "LOGIN_SETTLE_POLL_SECONDS",
+    "LOGIN_SETTLE_SECONDS",
     "LOGIN_TIMEOUT_SECONDS",
+    "OPEN_CHAT_DIALOGS_TIMEOUT_SECONDS",
+    "OPEN_CHAT_SETTLE_SECONDS",
+    "OPEN_CHAT_VERIFY_TIMEOUT_SECONDS",
     "PLAYWRIGHT_PACKAGE",
     "PROFILE_DIR_MODE",
     "PROFILE_FILE_MODE",
@@ -104,6 +127,8 @@ __all__ = [
     "harden_profile_permissions",
     "list_accounts",
     "login_marker_path",
+    "open_chat_flow",
+    "probe_login_state_settled",
     "profile_dir",
     "profile_root",
     "read_login_marker",
@@ -323,6 +348,124 @@ async def _wait_for_login(
         reason="login_timeout",
         fatal=True,
     )
+
+
+async def probe_login_state_settled(
+    page: Any,
+    *,
+    settle_seconds: float | None = None,
+    poll_seconds: float = LOGIN_SETTLE_POLL_SECONDS,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> str:
+    """goto 后稳态登录态探测(引擎/宿主启动探针共用).
+
+    /k/ SPA 冷启动先渲染 auth 页再恢复会话(瞬态 ``logged_out``,见
+    ``LOGIN_SETTLE_SECONDS`` 标定注记)—— 单探误杀。本助手:``logged_in``
+    即返(零加时);瞬态 ``logged_out``/``unknown`` 宽窗内复探,窗尽返
+    **终态**(调用方按词表定错误语义,不在此抛)。
+
+    ``settle_seconds=None`` → 运行时取模块常量(测试 monkeypatch 面);
+    ``0`` → 单探测零等待。
+    """
+    import time as _time
+
+    from myssia.telegram.web_dom import login_state_probe_js
+
+    if settle_seconds is None:
+        settle_seconds = LOGIN_SETTLE_SECONDS
+    deadline = _time.monotonic() + max(0.0, float(settle_seconds))
+    while True:
+        try:
+            found = await page.evaluate(login_state_probe_js())
+        except Exception:  # noqa: BLE001 - 页面导航间隙 evaluate 异常按 unknown 复探
+            found = {"state": "unknown"}
+        state = found.get("state") if isinstance(found, dict) else "unknown"
+        if state == "logged_in" or _time.monotonic() >= deadline:
+            return state
+        await sleep(poll_seconds)
+
+
+async def open_chat_flow(
+    page: Any,
+    chat: str,
+    *,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+) -> dict[str, Any]:
+    """开目标群到当前页(引擎批量档/宿主 Watcher 共用;2026-10-08.v2 重构).
+
+    Web K 交互三定律(真跑实证 2026-10-08,详见 ``web_dom`` 标定注记):
+    合成 ``el.click()`` 不受信全程无效;监听挂载有 ~4s 稳态窗,过早
+    点击即丢;侧栏定位可用 ``data-peer-id`` 全等或标题包含。故本流 =
+    JS 定位(侧栏匹配,搜索兜底)→ 宿主侧 ``page.mouse`` 受信点击 →
+    轮询消息节点出现。
+
+    Returns:
+        ``{ok, reason, ...}`` —— 成功带 ``midCount``/``title``/容器链;
+        失败 reason 词表 = ``dialogs_missing``/``chat_not_found``/
+        ``search_box_missing``/``open_timeout``(引擎按词表映射错误型)。
+    """
+    import time as _time
+
+    from myssia.telegram.web_dom import (
+        LOCATE_SEARCH_JS,
+        LOCATE_SIDEBAR_JS,
+        VERIFY_CHAT_OPEN_JS,
+    )
+
+    # 1) 侧栏就绪 + 目标定位(懒渲染迟到容忍;chat_not_found 也复探 ——
+    #    会话列表增量渲染,目标可能晚于前几条出现)
+    deadline = _time.monotonic() + OPEN_CHAT_DIALOGS_TIMEOUT_SECONDS
+    located: dict[str, Any] | None = None
+    last: dict[str, Any] = {"ok": False, "reason": "dialogs_missing"}
+    while True:
+        try:
+            found = await page.evaluate(LOCATE_SIDEBAR_JS, {"chat": chat})
+        except Exception:  # noqa: BLE001 - 页面导航间隙 evaluate 异常重试
+            found = None
+        if isinstance(found, dict):
+            last = found
+            if found.get("ok"):
+                located = found
+                break
+            if found.get("reason") == "search_box_missing":
+                break  # 页面异常态(侧栏在而输入框缺),早退走兜底
+        if _time.monotonic() >= deadline:
+            break
+        await sleep(1.0)
+    # 2) 搜索兜底(侧栏全窗无目标;一次性,服务端搜索窗内嵌于注入件)。
+    #    兜底失败面(search_box_missing 等特异 reason)优先于侧栏的
+    #    chat_not_found 回报 —— 更具体的跟修指引。
+    if located is None and last.get("reason") != "dialogs_missing":
+        try:
+            via_search = await page.evaluate(
+                LOCATE_SEARCH_JS, {"chat": chat, "pollStepMs": 250}
+            )
+        except Exception:  # noqa: BLE001 - 兜底面异常不掩盖主因
+            via_search = None
+        if isinstance(via_search, dict) and via_search.get("ok"):
+            located = via_search
+        elif isinstance(via_search, dict):
+            last = via_search
+    if located is None:
+        return last
+    # 3) 稳态(监听挂载窗)→ 受信真点击 → 验证消息节点
+    await sleep(OPEN_CHAT_SETTLE_SECONDS)
+    await page.mouse.click(located["x"], located["y"])
+    deadline = _time.monotonic() + OPEN_CHAT_VERIFY_TIMEOUT_SECONDS
+    while True:
+        try:
+            verified = await page.evaluate(VERIFY_CHAT_OPEN_JS)
+        except Exception:  # noqa: BLE001 - 开群重渲染间隙异常重试
+            verified = None
+        if isinstance(verified, dict) and verified.get("ok"):
+            return verified
+        if _time.monotonic() >= deadline:
+            return {
+                "ok": False,
+                "reason": "open_timeout",
+                **{k: v for k, v in located.items() if k in ("title", "peerId")},
+            }
+        await sleep(1.0)
 
 
 def _write_login_marker(directory: Path) -> None:

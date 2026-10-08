@@ -37,16 +37,17 @@ schedule: "*/30 * * * *"          # 批量档窗口读取(serve 常驻时不必�
 timezone: Asia/Shanghai
 
 sources:
-  # ── 首群(mihomo_party_group;W5 真跑目标群)── 待登录空态:
-  #    配置档 <数据根>/telegram-web/telegram-alt1/ 缺即 session_missing
-  #    零浏览器;web-login 一次后即活。
+  # ── 首源(telegram-alt1 首真跑 2026-10-08 标定:账号可达会话四件,
+  #    对口目标 = Clash-Party channel,mihomo/Clash 生态频道;data-peer-id
+  #    -2349572233 实测可达。chat 支持 -数字(侧栏 data-peer-id 全等)或
+  #    标题包含匹配;加入讨论群后可再挂群源)──
   - name: telegram-mihomo_party_group
     engine: tg_web
     url: "https://web.telegram.org"     # 锚(铸 #tg- 去重键用;引擎按键开配置档)
     engine_options:
       tg_web:
         account: telegram-alt1          # 账号键(归属声明,全称律 telegram-<标识>)
-        chat: mihomo_party_group        # 群用户名或 -100 数字 id
+        chat: "-2349572233"             # Clash-Party channel(data-peer-id 全等;或标题片段)
         lookback_limit: 50              # 单轮窗口帽 1-100(缺省 50)
         keywords: [免费, 白嫖, 羊毛, token, 额度, 优惠, coupon, free, 折扣]  # 粗筛词表(与 bot 线同面,省略=内置缺省)
         llm_base_url: keychain:myia/llm/base_url        # LLM 精筛端点(缺=降级纯粗筛)

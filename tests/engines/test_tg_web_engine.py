@@ -44,20 +44,37 @@ ACCOUNT = "telegram-alt1"
 CHAT = "mihomo_party_group"
 
 
+class FakeMouse:
+    """受信点击 fake:记录坐标(open_chat_flow 宿主侧 page.mouse 消费面)."""
+
+    def __init__(self) -> None:
+        self.clicks: list[tuple[float, float]] = []
+
+    async def click(self, x: float, y: float, **_: Any) -> None:
+        self.clicks.append((x, y))
+
+
 class FakePage:
-    """evaluate 按 JS 体内容分发的 fake(登录探针/开群/窗口读取三面)."""
+    """evaluate 按 JS 体内容分发的 fake(登录探针/侧栏定位/搜索兜底/验证/窗口读取)."""
 
     def __init__(
         self,
         *,
         login_state: str = "logged_in",
+        login_state_sequence: list[str] | None = None,
         open_outcome: dict[str, Any] | None = None,
         window: list[dict[str, Any]] | None = None,
     ) -> None:
         self.login_state = login_state
-        self.open_outcome = open_outcome or {"ok": True, "reason": "opened", "title": "mihomo 群"}
+        # 稳态复探回归件(2026-10-08 真跑:冷启动 0.4s logged_out → 2.9s
+        # logged_in):非空时逐探弹出,弹尽回落 login_state
+        self.login_state_sequence = list(login_state_sequence or [])
+        # None = 开群全链成功面;{ok:False,...} = 定位/验证失败注入口
+        self.open_outcome = open_outcome
         self.window = window if window is not None else []
         self.goto_calls: list[str] = []
+        self.probe_count = 0
+        self.mouse = FakeMouse()
 
     async def goto(self, url: str, **_: Any) -> None:
         self.goto_calls.append(url)
@@ -65,12 +82,39 @@ class FakePage:
     async def evaluate(self, script: Any, arg: Any = None) -> Any:
         js = script if isinstance(script, str) else ""
         if "has-auth-pages" in js:  # login_state_probe_js(W5 标定口径)
+            self.probe_count += 1
+            if self.login_state_sequence:
+                state = self.login_state_sequence.pop(0)
+                return {"state": state}
             return {"state": self.login_state}
-        if "search_box_missing" in js:
-            return self.open_outcome
-        if "querySelectorAll" in js:
+        if "data-peer-id" in js:  # LOCATE_SIDEBAR_JS
+            if self.open_outcome is not None:
+                return dict(self.open_outcome)
+            return {"ok": True, "reason": "sidebar_match", "x": 1.0, "y": 2.0,
+                    "title": "mihomo 群", "peerId": "-1001"}
+        if "input-search-input" in js:  # LOCATE_SEARCH_JS(兜底)
+            if self.open_outcome is not None:
+                return dict(self.open_outcome)
+            return {"ok": True, "reason": "search_match", "x": 3.0, "y": 4.0,
+                    "title": "mihomo 群"}
+        if "containerChain" in js:  # VERIFY_CHAT_OPEN_JS
+            if self.open_outcome is not None and not self.open_outcome.get("ok"):
+                return {"ok": False, "midCount": 0}
+            return {"ok": True, "midCount": max(len(self.window), 1),
+                    "bubbles": 1, "containerChain": ["bubbles"],
+                    "title": "mihomo 群"}
+        if "bubble[data-mid]" in js:
             return self.window
         raise AssertionError(f"意外 evaluate 面:{js[:80]}")
+
+
+@pytest.fixture(autouse=True)
+def _fast_open_chat_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """稳态/轮询窗全归零(真值交互窗的单测零等待;真跑标定值在 web_line)."""
+    monkeypatch.setattr(web_line, "LOGIN_SETTLE_SECONDS", 0.0)
+    monkeypatch.setattr(web_line, "OPEN_CHAT_DIALOGS_TIMEOUT_SECONDS", 0.0)
+    monkeypatch.setattr(web_line, "OPEN_CHAT_SETTLE_SECONDS", 0.0)
+    monkeypatch.setattr(web_line, "OPEN_CHAT_VERIFY_TIMEOUT_SECONDS", 0.0)
 
 
 class FakeContext:
@@ -280,10 +324,33 @@ def test_dom_stale_sentinel(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     assert "web_dom" in str(exc_info.value)  # 跟修指引
 
 
+def test_logged_out_transient_settled_passes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """/k/ 冷启动瞬态回归(2026-10-08 真跑实证):前两探 logged_out →
+    logged_in,稳态复探后采集照常,不误杀 tg_web_logged_out。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    # 瞬态回归需要真实稳态窗(覆盖 autouse 归零;序列推进靠 0.5s 复探步长)
+    monkeypatch.setattr(web_line, "LOGIN_SETTLE_SECONDS", 2.0)
+    (tmp_path / "telegram-web" / ACCOUNT).mkdir(parents=True)
+    page = FakePage(
+        login_state="logged_in",
+        login_state_sequence=["logged_out", "logged_out", "logged_in"],
+        window=[],
+    )
+    patch_browser(monkeypatch, page)
+    engine = TelegramWebEngine(make_tg_web_source(), tg_web_context())
+    items = run(engine.fetch())
+    assert items == []
+    assert engine.last_skip_reason is None
+    assert page.probe_count == 3
+
+
 @pytest.mark.parametrize(
     ("open_outcome", "expected_type"),
     [
         ({"ok": False, "reason": "chat_not_found"}, "tg_web_chat_not_found"),
+        ({"ok": False, "reason": "dialogs_missing"}, "tg_web_dom_stale"),
         ({"ok": False, "reason": "search_box_missing"}, "tg_web_dom_stale"),
         ({"ok": False, "reason": "open_timeout"}, "tg_web_dom_stale"),
     ],
@@ -388,7 +455,9 @@ def test_sample_plugin_yaml_ships_valid_tg_web_source() -> None:
     assert src.engine == "tg_web"
     opts = src.extra_params["engine_options"]["tg_web"]
     assert opts["account"].startswith("telegram-")  # 账号键全称律
-    assert opts["chat"] == CHAT
+    # 首真跑标定(2026-10-08):账号可达对口目标 = Clash-Party channel,
+    # chat 落 data-peer-id 全等形态(见 plugins/telegram-web.yaml 源注记)
+    assert opts["chat"] == "-2349572233"
     assert 1 <= opts["lookback_limit"] <= 100  # 窗口帽域
     groups = load_category_file(repo_root / "plugins" / "telegram-groups.yaml")
     bot_src = next(s for s in groups.sources if s.name == src.name)  # 同名复用

@@ -3635,6 +3635,147 @@ def test_telegram_host_assembly_builds_real_host(tmp_path, monkeypatch):
         secrets_store.reset_backend()
 
 
+def test_telegram_host_web_line_merges_dedicated_category(tmp_path, monkeypatch):
+    """C 线 sidecar 并入装配(首真跑补 2026-10-08):plugins/telegram-web.yaml
+    的 tg_web 源并入 web 线(G9 同名跨文件);主品类同名 tg_web 源在时专用
+    件侧跳过(同一群只跑一线);专用件坏档/非 tg_web 源留痕不拦装配。"""
+    from myssia.telegram import web_host
+
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    plugins = tmp_path / "plugins"
+    plugins.mkdir()
+    (plugins / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
+    (plugins / "telegram-web.yaml").write_text(
+        """
+id: telegram-web
+name: TG网页线监控夹具
+schedule: "*/30 * * * *"
+timezone: Asia/Shanghai
+sources:
+  - name: telegram-clash_party_channel
+    engine: tg_web
+    url: "https://web.telegram.org"
+    engine_options:
+      tg_web:
+        account: telegram-alt1
+        chat: "-2349572233"
+  - name: telegram-proto_group          # 与主品类 bot 源同名但引擎不同 → 并入
+    engine: tg_web
+    url: "https://web.telegram.org"
+    engine_options:
+      tg_web:
+        account: telegram-alt1
+        chat: "other_chat"
+dedup:
+  key: "{url}"
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "myssia.schema.resolve_credential",
+        lambda value, *, backend=None: "fake-bot-token",
+    )
+    from myssia import secrets as secrets_store
+
+    secrets_store.set_backend(secrets_store.InMemoryKeychainBackend())
+
+    captured: dict[str, list] = {}
+    real_factory = web_host.assemble_web_manager
+
+    def _spy(sources, **kwargs):
+        captured["sources"] = list(sources)
+        return real_factory(sources, **kwargs)
+
+    monkeypatch.setattr(web_host, "assemble_web_manager", _spy)
+    try:
+        stop = threading.Event()
+        bundle = entry._assemble_telegram_host(entry._serve_context(), stop)
+        assert bundle is not None
+        web_engines = [
+            (s.name, s.engine)
+            for s in captured["sources"]
+            if s.engine == "tg_web"
+        ]
+        # bot 源(telegram 引擎)不进 web 面;专用件两 tg_web 源全并入
+        assert web_engines == [
+            ("telegram-clash_party_channel", "tg_web"),
+            ("telegram-proto_group", "tg_web"),
+        ]
+        bundle.close()
+    finally:
+        secrets_store.reset_backend()
+
+
+def test_telegram_host_web_line_dedup_prefers_groups_category(
+    tmp_path, monkeypatch
+):
+    """同名 tg_web 源在主品类与专用件双在:主品类侧保留,专用件侧跳过
+    (同一群只跑一线;装配零重复源)。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    plugins = tmp_path / "plugins"
+    plugins.mkdir()
+    (plugins / "telegram-groups.yaml").write_text(
+        TELEGRAM_YAML.replace(
+            'engine: telegram',
+            "engine: tg_web",
+        ).replace(
+            "      telegram:",
+            "      tg_web:",
+        ).replace(
+            "        chat_id:",
+            "        account: telegram-alt1\n        chat:",
+        ),
+        encoding="utf-8",
+    )
+    (plugins / "telegram-web.yaml").write_text(
+        """
+id: telegram-web
+name: TG网页线监控夹具
+schedule: "*/30 * * * *"
+timezone: Asia/Shanghai
+sources:
+  - name: telegram-proto_group
+    engine: tg_web
+    url: "https://web.telegram.org"
+    engine_options:
+      tg_web:
+        account: telegram-alt1
+        chat: "from_dedicated_file"
+dedup:
+  key: "{url}"
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "myssia.schema.resolve_credential",
+        lambda value, *, backend=None: "fake-bot-token",
+    )
+    from myssia import secrets as secrets_store
+    from myssia.telegram import web_host
+
+    secrets_store.set_backend(secrets_store.InMemoryKeychainBackend())
+    captured: dict[str, list] = {}
+    real_factory = web_host.assemble_web_manager
+
+    def _spy(sources, **kwargs):
+        captured["sources"] = list(sources)
+        return real_factory(sources, **kwargs)
+
+    monkeypatch.setattr(web_host, "assemble_web_manager", _spy)
+    try:
+        stop = threading.Event()
+        bundle = entry._assemble_telegram_host(entry._serve_context(), stop)
+        assert bundle is not None
+        tg_web_sources = [s for s in captured["sources"] if s.engine == "tg_web"]
+        assert len(tg_web_sources) == 1  # 专用件同名源被跳过,零重复
+        # 主品类侧源赢得装配(其 chat 未被专用件值覆盖)
+        chat = tg_web_sources[0].extra_params["engine_options"]["tg_web"]["chat"]
+        assert chat == '"-1001234567890"' or chat == "-1001234567890"
+        bundle.close()
+    finally:
+        secrets_store.reset_backend()
+
+
 def test_telegram_host_user_line_assembly(tmp_path, monkeypatch):
     """B4 用户线装配:bot token 缺 + session 在(假 telethon 模块注入)→
     单用户线 bundle(host = TelethonUserHost,label 含 telethon);账本按

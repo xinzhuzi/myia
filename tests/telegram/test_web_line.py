@@ -417,10 +417,12 @@ def test_dom_update_feeds_bot_line_updates_to_items() -> None:
 
 def test_observer_js_shapes() -> None:
     from myssia.telegram.web_dom import (
+        LOCATE_SEARCH_JS,
+        LOCATE_SIDEBAR_JS,
+        VERIFY_CHAT_OPEN_JS,
         drain_observer_js,
         extract_message_js,
         install_observer_js,
-        open_chat_js,
     )
 
     install_js = install_observer_js()
@@ -433,9 +435,16 @@ def test_observer_js_shapes() -> None:
     assert "data-mid" in extract
     assert "has_media" in extract
     assert "TEXT_SELECTORS" in extract  # 选择器表烙进 JS 体
-    opened = open_chat_js()
-    assert "search_box_missing" in opened
-    assert "chat_not_found" in opened
+    # 开群 v2 契约(2026-10-08 重标定):JS 只定位,受信真点击在宿主侧
+    sidebar_js = LOCATE_SIDEBAR_JS
+    assert "data-peer-id" in sidebar_js  # peer id 全等匹配面
+    assert "chat_not_found" in sidebar_js
+    assert "dialogs_missing" in sidebar_js
+    search_js = LOCATE_SEARCH_JS
+    assert "input-search-input" in search_js  # 搜索框真身(v2 标定)
+    assert "search_box_missing" in search_js
+    verify_js = VERIFY_CHAT_OPEN_JS
+    assert "containerChain" in verify_js  # 容器链回报(Watcher 挂载面标定)
 
 
 def test_collect_window_updates_via_fake_evaluate(tmp_path: Path) -> None:

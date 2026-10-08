@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from myssia.telegram import web_host
+from myssia.telegram import web_line as web_line_module
 from myssia.telegram.events import TelegramEventLedger
 from myssia.telegram.serve import TelegramSourceBinding
 from myssia.telegram.web_host import (
@@ -34,8 +35,18 @@ from myssia.telegram.web_host import (
 # --------------------------------------------------------------------- fakes
 
 
+class FakeMouse:
+    """受信点击 fake(open_chat_flow 宿主侧 page.mouse 消费面)."""
+
+    def __init__(self) -> None:
+        self.clicks: list[tuple[float, float]] = []
+
+    async def click(self, x: float, y: float, **_: Any) -> None:
+        self.clicks.append((x, y))
+
+
 class ScriptedPage:
-    """evaluate 按 JS 体内容路由的 fake 页(观察器/抽取/健康三面)."""
+    """evaluate 按 JS 体内容路由的 fake 页(观察器/抽取/健康/定位/验证面)."""
 
     def __init__(
         self,
@@ -51,6 +62,11 @@ class ScriptedPage:
         self.health_states = list(health_states or [])
         self._last_health: dict = {"state": "logged_in", "observer": True}
         self.evaluate_scripts: list[str] = []
+        self.mouse = FakeMouse()
+        self.goto_calls: list[str] = []
+
+    async def goto(self, url: str, **_: Any) -> None:
+        self.goto_calls.append(url)
 
     async def evaluate(self, script: Any, arg: Any = None) -> Any:
         js = script if isinstance(script, str) else ""
@@ -71,6 +87,14 @@ class ScriptedPage:
                 else {"state": "logged_in", "observer": True}
             )
             return self._last_health
+        if "data-peer-id" in js:  # LOCATE_SIDEBAR_JS(open_chat_flow v2)
+            return {"ok": True, "reason": "sidebar_match", "x": 1.0, "y": 2.0,
+                    "title": "mihomo 群", "peerId": "-1001"}
+        if "input-search-input" in js:  # LOCATE_SEARCH_JS(兜底)
+            return {"ok": False, "reason": "chat_not_found"}
+        if "containerChain" in js:  # VERIFY_CHAT_OPEN_JS
+            return {"ok": True, "midCount": 1, "bubbles": 1,
+                    "containerChain": ["bubbles"], "title": "mihomo 群"}
         raise AssertionError(f"意外 evaluate 面:{js[:80]}")
 
 
@@ -193,10 +217,14 @@ def test_watcher_dom_stale_sentinel_on_install_failure() -> None:
     assert "web_dom" in str(exc_info.value)
 
 
-def test_watcher_logged_out_sentinel_on_health_probe() -> None:
+def test_watcher_logged_out_sentinel_on_health_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     store_fn, push_fn, stored, pushed = make_sinks()
+    monkeypatch.setattr(web_line_module, "LOGIN_SETTLE_SECONDS", 0.0)  # 零宽窗
     page = ScriptedPage(
-        health_states=[{"state": "logged_out"}],
+        # 两条:首探 + 稳态复核各一(瞬态豁免判据,见 _health_probe)
+        health_states=[{"state": "logged_out"}, {"state": "logged_out"}],
     )
     watcher = TelegramWebWatcher(
         page=page,
@@ -333,8 +361,6 @@ class HostPage(ScriptedPage):
         js = script if isinstance(script, str) else ""
         if "has-auth-pages" in js:  # login_state_probe_js(W5 标定口径)
             return {"state": self._login_state}
-        if "search_box_missing" in js:
-            return {"ok": True, "reason": "opened", "title": "群"}
         return await super().evaluate(script, arg)
 
 
@@ -387,7 +413,11 @@ def test_account_host_session_missing_is_structured(tmp_path: Path) -> None:
     assert "web-login" in str(exc_info.value)
 
 
-def test_account_host_logged_out_raises_sentinel(tmp_path: Path) -> None:
+def test_account_host_logged_out_raises_sentinel(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(web_line_module, "LOGIN_SETTLE_SECONDS", 0.0)  # 零宽窗
     host, context = make_account_host(tmp_path, "telegram-alt1", login_state="logged_out")
     with pytest.raises(web_host.TelegramWebError) as exc_info:
         asyncio.run(host.run_forever())
@@ -395,8 +425,41 @@ def test_account_host_logged_out_raises_sentinel(tmp_path: Path) -> None:
     assert context.closed
 
 
-def test_manager_isolates_failed_account_and_keeps_running(tmp_path: Path) -> None:
+def test_account_host_opens_chat_page_and_installs_watcher(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """开群正路(v2 契约):登录探针过 → 新页开群(受信真点击)→ Watcher 挂上."""
+    monkeypatch.setattr(web_line_module, "OPEN_CHAT_DIALOGS_TIMEOUT_SECONDS", 0.0)
+    monkeypatch.setattr(web_line_module, "OPEN_CHAT_SETTLE_SECONDS", 0.0)
+    monkeypatch.setattr(web_line_module, "OPEN_CHAT_VERIFY_TIMEOUT_SECONDS", 0.0)
+    monkeypatch.setattr(web_host, "IDLE_TICK_SECONDS", 0.02)
+    host, context = make_account_host(tmp_path, "telegram-alt1")
+    stop = threading_Event()
+    host._should_stop = stop.is_set  # type: ignore[assignment]
+
+    async def scenario() -> None:
+        task = asyncio.ensure_future(host.run_forever())
+        for _ in range(100):
+            await asyncio.sleep(0.02)
+            if host.watchers:
+                break
+        assert host.watchers, "开群挂 Watcher 未发生"
+        assert context.new_pages, "宿主未为新群开页"
+        assert context.new_pages[0].mouse.clicks, "受信真点击未发生"
+        stop.set()
+        await asyncio.wait_for(task, timeout=3.0)
+
+    asyncio.run(scenario())
+    assert context.closed
+
+
+def test_manager_isolates_failed_account_and_keeps_running(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
     """多键失效隔离(design D5):一键死 → 记告警停该键;manager 与健康键不退."""
+    monkeypatch.setattr(web_line_module, "LOGIN_SETTLE_SECONDS", 0.0)  # 零宽窗
     good_host, _ = make_account_host(tmp_path, "telegram-a")
     dead_host, _ = make_account_host(tmp_path, "telegram-b", login_state="logged_out")
     # 健康键的宿主循环需可退出:注入 stop 事件

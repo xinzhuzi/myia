@@ -280,10 +280,15 @@ class TelegramWebWatcher:
         (``window.__myssiaTgWebObserver`` 在 install 时置位)。
         """
         from myssia.telegram.web_dom import login_state_probe_js
+        from myssia.telegram.web_line import probe_login_state_settled
 
         state = await self._page.evaluate(login_state_probe_js())
         if not isinstance(state, dict):
             state = {"state": "unknown"}
+        if state.get("state") in ("logged_out", "unknown"):
+            # 周期哨兵同款瞬态豁免:页面重渲染间隙单探可能抓到 auth 页残影
+            # (冷启动实证 2026-10-08),宽窗复核终态再定生死。
+            state = {"state": await probe_login_state_settled(self._page)}
         if state.get("state") == "logged_out":
             raise TelegramWebError(
                 f"TG 网页线账号 {self._account} 登录态丢失(登录表单重现 —— "
@@ -377,16 +382,16 @@ class TelegramWebAccountHost:
             require_playwright()
         except TelegramWebError:
             raise
-        from myssia.telegram.web_dom import chat_url, login_state_probe_js
+        from myssia.telegram.web_dom import chat_url
+        from myssia.telegram.web_line import probe_login_state_settled
 
         handle, context = await self._launch()
         try:
             page = context.pages[0] if context.pages else await context.new_page()
             await page.goto(chat_url(""), wait_until="domcontentloaded")
-            state = await page.evaluate(login_state_probe_js())
-            login_state = (
-                state.get("state") if isinstance(state, dict) else "unknown"
-            )
+            # 稳态探测:/k/ 冷启动瞬态 logged_out 真跑实证 2026-10-08
+            # (web_line.LOGIN_SETTLE_SECONDS 标定注记),单探误杀 → 宽窗复探。
+            login_state = await probe_login_state_settled(page)
             if login_state == "logged_out":
                 raise TelegramWebError(
                     f"TG 网页线账号 {self.account} 登录态失效(登出页在);重登:"
@@ -437,18 +442,12 @@ class TelegramWebAccountHost:
         self, context: Any, chat_id: str, binding: TelegramSourceBinding
     ) -> None:
         """开一页到目标群并挂 Watcher(开群失败 = 本键 fatal 上抛)."""
-        from myssia.telegram.web_dom import chat_url, open_chat_js
+        from myssia.telegram.web_dom import chat_url
+        from myssia.telegram.web_line import open_chat_flow
 
         page = await context.new_page()
         await page.goto(chat_url(chat_id), wait_until="domcontentloaded")
-        opened = await page.evaluate(
-            open_chat_js(),
-            {
-                "chat": chat_id,
-                "chatOpenSelectors": [".bubbles", ".messages-container"],
-                "pollStepMs": 250,
-            },
-        )
+        opened = await open_chat_flow(page, chat_id)
         if not (isinstance(opened, dict) and opened.get("ok")):
             reason = (
                 opened.get("reason")

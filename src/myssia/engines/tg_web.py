@@ -73,7 +73,6 @@ from myssia.telegram.web_dom import (
     chat_url,
     collect_window_updates,
     login_state_probe_js,
-    open_chat_js,
 )
 
 logger = logging.getLogger(__name__)
@@ -244,14 +243,11 @@ class TelegramWebEngine(BaseEngine):
             )
             page = context.pages[0] if context.pages else await context.new_page()
             await page.goto(chat_url(options["chat"]), wait_until="domcontentloaded")
-            from myssia.telegram.web_dom import login_state_probe_js
+            from myssia.telegram.web_line import probe_login_state_settled
 
-            login_state = await page.evaluate(login_state_probe_js())
-            state = (
-                login_state.get("state")
-                if isinstance(login_state, dict)
-                else "unknown"
-            )
+            # 稳态探测:/k/ 冷启动先渲染 auth 页再恢复会话(瞬态 logged_out,
+            # 真跑实证 2026-10-08),单探误杀 → 宽窗复探,窗尽才定终态。
+            state = await probe_login_state_settled(page)
             if state == "logged_out":
                 raise FetchError(
                     f"tg_web 账号 {options['account']} 登录态失效(登出页在 —— "
@@ -266,14 +262,9 @@ class TelegramWebEngine(BaseEngine):
                     f"(当前标定 {SELECTOR_REVISION})",
                     error_type="tg_web_dom_stale",
                 )
-            opened = await page.evaluate(
-                open_chat_js(),
-                {
-                    "chat": options["chat"],
-                    "chatOpenSelectors": [".bubbles", ".messages-container"],
-                    "pollStepMs": 250,
-                },
-            )
+            from myssia.telegram.web_line import open_chat_flow
+
+            opened = await open_chat_flow(page, options["chat"])
             if not (isinstance(opened, dict) and opened.get("ok")):
                 reason = (
                     opened.get("reason")
@@ -281,6 +272,7 @@ class TelegramWebEngine(BaseEngine):
                     else type(opened).__name__
                 )
                 hint = {
+                    "dialogs_missing": "侧栏会话列表未渲染(网络受限或 DOM 改版面)",
                     "chat_not_found": "账号未加入该群或群名不符(先在 TG 客户端加入)",
                     "search_box_missing": "搜索框选择器失配(DOM 改版面)",
                     "open_timeout": "点击后消息列未出现(DOM 改版面)",
@@ -288,7 +280,7 @@ class TelegramWebEngine(BaseEngine):
                 error_type = (
                     "tg_web_dom_stale"
                     if str(reason)
-                    in ("search_box_missing", "open_timeout")
+                    in ("dialogs_missing", "search_box_missing", "open_timeout")
                     else "tg_web_chat_not_found"
                 )
                 raise FetchError(

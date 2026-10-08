@@ -54,23 +54,30 @@ DOM 改版跟修(哨兵在)/ToS 灰色同 userbot,登录**建议小号**/api_id 
   - 把守测试+端到端:test_tg_web_engine.py +1 例 test_sample_plugin_yaml_ships_valid_tg_web_source(schema 全装载/account 全称律/chat/lookback 帽域/与 bot 线同名复用断言);MYIA_HOME 沙箱 dry-run 真跑示范件亲证 `skip=session_missing` 零浏览器+web-login 人话指引+status=success(零网络;首跑 `--category` 旗标不存在系 usage 错误,items=0 为错误 JSON 假象,已纠正为位置参数重跑取证,如实记)。
   - 门禁:pytest tests/engines/test_tg_web_engine.py(22 例含新把守)+tests/plugins/ 全量 **762 passed 31 skipped 0 failed**;ruff check 绿;load_category_file 双件装载+十二节 model_fields_set 亲验无缺;`git commit --only` 定向提交。
 - [x] 查漏修复批④(门禁补丁,2026-10-08 门禁修理工):**批③ G5/G9 四件品类入种子面后守卫未同步,全量 pytest 两红**——`test_bundled_plugins_install.py::test_list_rebuilt_installer_tree_yields_exactly_eleven_packages`(品类对账 14≠10)与 `::test_category_install_and_seed_semantics_aligned`(补种对账 14≠10);根因=批③门禁只跑定向(engines+plugins 762)漏 tests/desktop 全量,`test_installer_resources.py::OFFICIAL_CATEGORY_YAMLS` 守卫常量与装机态精确计数未随种子面 10→14 同步。修=常量补 telegram-groups/telegram-channels/telegram-web/daily-digest 四件(参数化守卫自动 +4 例逐件钉映射在+源在盘)+两红测试计数三处与口径注释同步;四件 id 与文件名 stem 同值、schedule 非空亲验,精确集断言成立。**同轮全量另见 `test_proxy_transport.py::test_doctor_pool_probes_run_concurrently_in_declared_order` 一次时序红(0.33s vs 阈 0.30s)**:单测隔离 9/9 绿+跨池 `asyncio.gather` 并行实现在案(cli.py:3034),判全量负载飘红未改,如实记。门禁:定向两件 **90 passed**;全量 pytest **5037 passed 40 skipped 0 failed**;ruff@0.16.10 两件绿;detect-changes staged 低风险(测试面);`git commit --only` 定向提交。
+- [x] 首真跑终局批(2026-10-08 晚,主会话直做;主人令「看会话交接再去做」;登录由 CLI 官方入口拉窗+主人页内输验证码完成):
+  - **真登录完成**:`myssia telegram web-login --account telegram-alt1`(装机自管 python+PYTHONPATH=包内 myssia-src+MYIA_HOME=数据根)拉起 headed 窗,主人输手机号+验证码,**17:51:50 登录标记落档**(配置档 0700/0600 硬化,CLI exit 0)。13:10 主人在 UI 上 8 连「添加账号」全灭=**换装前旧包**时代(13:30 才外科换装浏览器模块新包,报错只上浮 UI 卡面未进日志,疑死于 playwright 未装旧态),新包登录路径本批首验即通。
+  - **两根因修复(首活登录态暴露,全为 W5 盲标定——此前从未有活配置档可测)**:①**登录态瞬态误杀**——/k/ SPA 冷启动先渲染 auth 页再恢复会话(独立探针轨迹实证 0.4s logged_out → 2.9s logged_in),引擎 domcontentloaded 后单探即判=误报 tg_web_logged_out;修=`web_line.probe_login_state_settled` 稳态探测件(LOGIN_SETTLE_SECONDS=8 宽窗复探,logged_in 即返零加时)+三消费面接换(引擎 fetch/宿主启动探针/周期哨兵失败分支宽窗复核)。②**开群交互链全灭**——Web K 只认受信事件(合成 el.click() 稳 4s 后仍无效,25s 轮询实证)+监听挂载 ~4s 稳态窗(过早点击丢事件)+搜索框真身 `input.input-search-input`(v1 三候选全不中);修=开群契约重构:`web_dom` 新三注入件(LOCATE_SIDEBAR_JS=data-peer-id 全等或标题包含定位/LOCATE_SEARCH_JS=原生 setter+InputEvent 兜底/VERIFY_CHAT_OPEN_JS=消息节点+容器链回报)+`web_line.open_chat_flow`(JS 只定位返坐标,宿主 `page.mouse` 受信点击,4s 稳态+20s 验证窗,do-while 首探即判保测试窗可归零),引擎与宿主 `_open_chat_page` 双消费面接换;SELECTOR_REVISION 升 `2026-10-08.v2`;旧 OPEN_CHAT_JS 移除。
+  - **首真跑标定(活 DOM dump+本机 VL 截图互证)**:telegram-alt1 可达会话恰四件(手游源码/Telegram/**Clash-Party channel**/百度网盘),设计假设的 mihomo_party_group 用户名态**不存在**;对口目标=Clash-Party channel(mihomo/Clash 生态频道,15,655 订阅,data-peer-id=-2349572233);telegram-web.yaml `chat` 落实为 peer-id 全等形态(**源名不变**=分区六承载键与 bot 线同名复用决议均不动)。
+  - **端到端真跑回执**:run45(真词表)=窗口真读 20 条全粗筛滤零错误(发版公告无词表命中,合法空态);run46/47(临时关键词 [Clash] 验证,数据根配置跑完即还原)=20 条真读→**13 条目入库、20 个 `#tg-` 锚**(`web.telegram.org#tg--2349572233-<mid>`,跨 run 去重实证:run46 入 7+run47 入 13)→feishu push archive ok;LLM 精筛在 agent CLI 沙箱降级纯粗筛(keychain 上下文不可见如实注记;app 内有钥匙链访问不受影响)。
+  - **常驻 serve 验证(两形态,验毕即停避与 app 内宿主 409)**:telegram-web 品类(线=web)与 telegram-groups 品类(线=bot+web)双起,manager 启动 accounts=['telegram-alt1'],**Watcher 挂 chat=-2349572233(观察器已注入)**,100+s 哨兵零误杀,分键账本 `web-events-ccae3451.db` 落数据根。
+  - **sidecar 并入装配(装机常驻缺口补)**:桌面 `_assemble_telegram_host` 原只装 telegram-groups.yaml 单品类,专用件 tg_web 源不进 app 内 web 线(交接提示词①「进 telegram-groups.yaml **或**专用件」的歧义面)——补并入逻辑(telegram-web.yaml 存在则装载并合并 tg_web 源;**主品类同名 tg_web 源赢防双跑**;专用件坏档/非 tg_web 源留痕不拦);同文件同名双源方案被写档手术守卫(entry.py sources 重名拒)+引擎装载断言双红否决,如实撤回改走跨文件并入(G9 同名跨文件合法)。
+  - **装机外科②**:7 件对拍全 MATCH(entry.py/web_line/web_dom/web_host/tg_web.py/telegram-groups.yaml/telegram-web.yaml)+数据根两 yaml 同步+adhoc 重签 strict verify 过+装机态真跑冒烟(bundle 代码+装机 python,run success 窗口真读零错)。
+  - 门禁:全量 pytest **4982 passed 40 skipped 0 failed**;ruff 全绿;vitest/tsc/cargo 未触(UI/rust 零改动面);测试增量=引擎瞬态回归 1(登录态序列 FakePage)+宿主开群正路 1(受信点击+Watcher 挂载)+sidecar 并入 2(合并/同名去重)+JS 形状件改形+yaml 示范源断言跟标定值。
 
 ## 结果(验收回执,完工填)
-- [~] **AC1** web-login 一次登录→无头常驻读群→管线出口:**代码面全就绪,真登录锁主人一次验证码**——登录器/引擎/常驻 Watcher 全 mock+真网络无头双验(真实登出态识别/显式空态/结构化拒绝);无头常驻读到消息→出口的全链路在 mock 测试铁证(`test_web_host.py` Watcher 分派→`#tg-` 锚入库;`test_tg_web_engine.py` 锚+粗筛复用),真登录后的真发回执留主人登录同窗(路径见下)。
+- [x] **AC1** web-login 一次登录→无头常驻读群→管线出口:**真跑回执在案(2026-10-08 晚)**——登录 17:51:50 落档(0700/0600);批量档窗口真读 20 条(run45 真词表全滤零错;run46/47 关键词验证 13 条目入库 20 个 `#tg-` 锚+feishu archive ok);serve 常驻 Watcher 挂上(观察器已注入+哨兵 100s 零误杀+分键账本落档);常驻期**实时新消息**捕获留生产期首条自证(频道窗口期无新帖;捕获语义 17 例单测铁证,观察器注入活页实证)。
 - [x] **AC2** 组件卡三态+登录按钮:W4 已交——bot/session/web 三段+账号列表(状态灯/重登/删除/+添加),vitest 10 例+无头 Playwright 冒烟 9 断言全绿(截图 /tmp/myssia-tg-card-smoke.png;登录窗拉起动作 = 主人点击,sidecar 后台线程+5s 轮询翻绿逻辑在测)。
-- [x] **AC3** engine: tg_web 装载+锚幂等+哨兵:W2/W3 已交——21+17 例全 mock(session_missing 空态/`tg_web_logged_out`/`tg_web_dom_stale` 结构化/锚 `#tg-<chat>-<mid>` 进 bot 线 `updates_to_items` 铁证/多键隔离/max_accounts 帽)。
-- [~] **AC4** 装机外科+重签+心跳:**已做**(8/8 sha 对拍+ditto 换装+adhoc 重签 strict verify 过+装机 python 直载冒烟+心跳 +60s 双验);`open -g` 拉起按主人紧急纠偏令(03:1x「停止一切 GUI 弹出」)**未执行**——复用已在跑实例(pid 91929)零拉起,新代码待主人下次重启生效。
+- [x] **AC3** engine: tg_web 装载+锚幂等+哨兵:W2/W3 已交——21+17 例全 mock(session_missing 空态/`tg_web_logged_out`/`tg_web_dom_stale` 结构化/锚 `#tg-<chat>-<mid>` 进 bot 线 `updates_to_items` 铁证/多键隔离/max_accounts 帽);首真跑终局批另补瞬态回归/开群正路/并入装配 4 例。
+- [x] **AC4** 装机外科+重签+心跳:**已做**(批⑤ 8/8 sha 对拍+ditto 换装+adhoc 重签 strict verify 过+装机 python 直载冒烟+心跳 +60s 双验;`open -g` 按主人纠偏令零拉起);**追记外科②(首真跑终局批)**:7 件对拍全 MATCH+重签 strict 过+装机态真跑冒烟(run success 窗口真读零错);app 未在跑,新码待主人下次启动生效。
 - [x] **AC5** 档三段回填+披露三条卡面可见:开始/过程/结果三段齐;披露三条(DOM 跟修哨兵/建议小号/api_id 到手切正统)+登录态非加密注记在 `telegram-card.tsx` 常驻文案,vitest 断言在案。
 
-### 主人下一步:真登录(差的那一次验证码)
+### 主人下一步:开 app 即活 + 两个可选
 
-**路径一(推荐,图形面)**:重启世事.app(新代码生效)→ 设置 → 「Telegram 监控」分区 → 「添加账号」:键名填 `telegram-alt1`(规约 `telegram-<标识>`,小写)→ 点「添加账号」→ 弹出的浏览器窗口里输手机号 → 验证码(TG 发你手机 App 内信或短信;如有两步验证再输密码)→ 卡面行转绿即成。之后把 mihomo 群源写成品类 YAML(engine: tg_web,见 design D4)或等 W5 真发批,`myssia telegram serve` 的 web 线无头常驻读群。
+**常驻已就绪,零手动**:下次启动世事 app,sidecar 自动装配 telegram 宿主(线=bot+web)——web 线用 telegram-alt1 无头常驻读 Clash-Party channel(专用件 telegram-web.yaml 已并入 sidecar 装配面);bot 线 token 在钥匙串(盯占位 chat 待 G8 实填)。
 
-**路径二(终端,服务器场景同款)**:
-```bash
-cd /Users/zhengbingjin/Project/Github/MYIA
-MYIA_HOME="$HOME/Library/Application Support/MYIA" .venv/bin/python -m myssia.cli \
-  telegram web-login --account telegram-alt1        # 弹浏览器登录窗(手机号+验证码在页面内输)
+**可选一(讨论群,推荐)**:小号会话列表四件=手游源码/Telegram/Clash-Party channel/百度网盘——**不在 mihomo 讨论群里**(频道页有「加入讨论群」入口)。要收群内实时聊天(机场羊毛主战场),用小号在 TG 客户端加讨论群后知会一声,同流程挂新源(chat=群 peer-id)。
+
+**可选二(bot 线)**:管理员拉 @myia_sentry_bot 进群后按交接清单③(读真实 chat_id 回填 telegram-groups.yaml 两处占位)。
 # 失效重登加 --force;登录态落 ~/Library/Application Support/MYIA/telegram-web/telegram-alt1/(0600)
 ```
 两条路径同一配置档(数据根 `telegram-web/<键>/`);登录后账号行/CLI 复用提示都会翻绿。

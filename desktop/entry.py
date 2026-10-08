@@ -6585,10 +6585,45 @@ def _assemble_telegram_host(
 
     # TG 网页线(C 线,W3;engine: tg_web 源按账号分组,帽/隔离/哨兵语义
     # 见 web_host 工厂;键超帽/未首登 = 留痕零阻塞,不动摇其余两线)。
+    # 首真跑补(2026-10-08):sidecar 装配面并入专用件 plugins/telegram-web.yaml
+    # 的 tg_web 源 —— 专用件是 C 线正户(G9 同名复用跨文件合法,重名唯一性
+    # 按文件把守);主品类同名 tg_web 源在时专用件同名源跳过(同一群只跑
+    # 一线判例);专用件装载失败/含非 tg_web 源 = 留痕不拦主品类源装配)。
     from myssia.telegram.web_host import assemble_web_manager
 
+    web_sources = [s for s in config.sources if s.engine == "tg_web"]
+    web_category_path = Path(ctx.plugins_dir) / "telegram-web.yaml"
+    if web_category_path.exists():
+        try:
+            web_config = load_category_file(web_category_path)
+        except Exception as exc:  # noqa: BLE001 — 专用件坏档不拦主品类源
+            myssia_log.stream_line(
+                None, "stderr",
+                f"sidecar: telegram-web.yaml 装载失败(web 线按 telegram-groups"
+                f" 源装配): {exc}",
+            )
+            web_config = None
+        if web_config is not None:
+            group_names = {s.name for s in web_sources}
+            for source in web_config.sources:
+                if source.engine != "tg_web":
+                    myssia_log.stream_line(
+                        None, "stderr",
+                        f"sidecar: telegram-web.yaml 含非 tg_web 源 {source.name}"
+                        "(已忽略;批量采集走 myssia run)",
+                    )
+                elif source.name in group_names:
+                    myssia_log.stream_line(
+                        None, "stderr",
+                        f"sidecar: telegram-web.yaml 源 {source.name} 与"
+                        " telegram-groups.yaml tg_web 源同名(主品类侧保留,"
+                        "专用件侧跳过 —— 同一群只跑一线)",
+                    )
+                else:
+                    web_sources.append(source)
+                    group_names.add(source.name)
     web_manager, web_note = assemble_web_manager(
-        config.sources,
+        web_sources,
         telegram_dir=telegram_dir,
         data_root=data_root,
         backend=backend,

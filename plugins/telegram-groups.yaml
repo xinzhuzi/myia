@@ -56,6 +56,10 @@ sources:
     proxy: direct                       # api.telegram.org 出海按需改 pool:<名称>
     retry: 3
 
+  # ── C 线 web 源不在此件:桌面 sidecar 的 web 线自动并入装配
+  #    plugins/telegram-web.yaml(G9 同名复用,锚命名空间独立;本文件
+  #    同名双源会被写档手术守卫拒——重名唯一性按文件把守)──
+
   # ── 你的群往这里加(一个群一个源,chat_id 各配各的)────────────────
   # 注意:多群共用同一 bot 时,批量档的窗口确认是全 bot 语义(A 群源的确认
   # 会丢弃 B 群未处理更新)——多群请走 myssia telegram serve(offset 持久)。
