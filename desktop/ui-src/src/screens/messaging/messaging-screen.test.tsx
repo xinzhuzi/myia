@@ -902,8 +902,12 @@ describe("消息:详情栏出站凭据指南(唯一入口)", () => {
       </MemoryRouter>,
     );
     const overview = await screen.findByTestId("platform-overview");
-    // 缺省选中 feishu:指南直接在详情栏,不再需要「点开卡片」
-    const guide = within(overview).getByTestId("platform-guide-feishu");
+    // 缺省选中 feishu:指南直接在详情栏,不再需要「点开卡片」。
+    // findBy 而非 getBy:platform-overview 包裹层在 loading 骨架态即渲染
+    // (platform-overview.tsx 「status==="loading"」分支),指南仅在加载
+    // 完成分支经 PlatformDetailPanel 落地——满载门禁下首查即中的是骨架
+    // 态 overview,同步 getBy 撞上未完成重渲染即红(门禁第 1 轮实红)。
+    const guide = await within(overview).findByTestId("platform-guide-feishu");
     expect(guide.textContent).toContain("FEISHU_APP_ID");
     expect(guide.textContent).toContain("FEISHU_APP_SECRET");
     expect(guide.textContent).toContain("im:message:send_as_bot");
