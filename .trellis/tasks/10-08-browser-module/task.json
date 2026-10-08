@@ -15,12 +15,12 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "8467f3a+617c680",
   "pr_url": null,
   "subtasks": [],
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "主人令:tg_web 登录必须调用浏览器模块(单入口铁律入 prd);建设批已派(模块案甲+卡改调模块+错误上浮+lock 根治+装机程序化验证)。",
+  "notes": "主人令:tg_web 登录必须调用浏览器模块(单入口铁律入 prd);建设批已交付(提交 8467f3a 模块+接线+AC2、617c680 锁根治 AC3):browser.* 四方法+操作台账+设置树「浏览器」一级分区,telegram.web.login 移除(协议 v11),装机已换装(4/4 sha 对拍+7/7 UI 锚点+重签双验+恰一次 open -g 心跳);剩 AC1 主人真跑(输验证码)即收口。",
   "meta": {}
 }
