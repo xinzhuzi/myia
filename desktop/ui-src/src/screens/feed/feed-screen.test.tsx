@@ -3034,6 +3034,24 @@ describe("feed 内置浏览器预览 纯函数(api.ts,10-09-tg-category-entry v3
   });
 });
 
+describe("FeedScreen · 搜索全库检索(10-09)", () => {
+  it("搜索态绕过当日窗与读态过滤:昨日 TG 卡搜「Tg」即出,词面显「搜索中 · 全库检索」", async () => {
+    const oldTg = fixtureItem({
+      source: "telegram-durov",
+      title: "昨日 TG 消息",
+      first_seen: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+    });
+    storeItemsMock.mockResolvedValue(result([oldTg]));
+    await renderStream();
+    const input = screen.getByLabelText("搜索条目");
+    fireEvent.change(input, { target: { value: "Tg" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    // 未读页签 + 当日窗本会滤掉 3 天前的条目;搜索态必须直出
+    expect(await screen.findByText("昨日 TG 消息")).toBeTruthy();
+    expect(screen.getByTestId("feed-day-window").textContent).toContain("搜索中");
+  });
+});
+
 describe("FeedScreen · 聊天主页风格形态锚(10-09 v4)", () => {
   it("TG 气泡形态:w-fit 窄泡+未读亮泡在气泡 div+根中性卡底+无竖条+无元信息行;泡底展开钮+时间同排;展开态富块不在着色泡内(P2-3)", async () => {
     // 条目数组造在实现外(mockImplementation 每调用重造会让 id 漂移,查

@@ -1860,16 +1860,19 @@ export function FeedScreen() {
   // ② 当日窗(10-06 追加):滚动流(未读/全部)只显 03:00 窗内条目 ——
   //  过窗即离场(视图层清零);later 到期重现条目是显式留存,窗后照现。
   const visible = useMemo(() => {
-    const filtered = applyFeedFilter(items, states, filter, new Date());
+    // 搜索态(10-09,主人令「搜索 Tg 要把 telegram 相关卡片都展示出来」):
+    // 检索 = 显式全库取回,绕过当日窗与读态过滤,新→旧全量直出
+    if (query !== "") return items;
     // 历史态(10-09-tg-category-entry 监控台入口):绕过当日窗,全部入库条目可见
-    if (scope.history) return filtered;
+    if (scope.history) return items;
+    const filtered = applyFeedFilter(items, states, filter, new Date());
     if (filter !== "unread" && filter !== "all") return filtered;
     return filtered.filter(
       (item) =>
         inDayWindow(item.first_seen, windowStart) ||
         isLaterResurface(item, states[itemKey(item)]),
     );
-  }, [items, states, filter, windowStart, scope.history]);
+  }, [items, query, scope.history, filter, states, windowStart]);
 
   /** 展示序(A-feed):过滤结果 → 未读优先(可选;未读浮前,两类各自稳定保序) */
   const displayItems = useMemo(
@@ -2402,7 +2405,11 @@ export function FeedScreen() {
                 : `当日窗:每天 03:00 清零滚动流(03:00 → 次日 03:00),过窗条目离场、视图从零累计;store 数据不清(retention 照旧),星标/稍后读跨窗可见;实时滚动 = 采集事件即时刷新 + 30s 可见性轮询`
             }
           >
-            {scope.history ? "含历史 · 不限当日窗" : "当日窗 03:00 起 · 实时滚动"}
+            {query !== ""
+              ? "搜索中 · 全库检索(不限当日窗)"
+              : scope.history
+                ? "含历史 · 不限当日窗"
+                : "当日窗 03:00 起 · 实时滚动"}
           </span>
         ) : null}
         {scope.history ? (
