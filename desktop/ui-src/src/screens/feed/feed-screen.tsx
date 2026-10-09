@@ -239,7 +239,7 @@ function formatAbsoluteTime(iso: string | null): string {
 /** React.memo:悬停 onCurrent 只改 currentKey,未记忆化时整墙 50+ 卡全量
  *  重渲染(CSS columns 下放大为主人实测的悬停闪动);state 空对象用
  *  模块级常量保身份稳定,marked 卡仅在 toggle 时换身份。 */
-const FEED_CARD_NO_STATE: FeedCardProps["state"] = {};
+const FEED_CARD_NO_STATE: { read?: boolean; starred?: boolean; later?: boolean } = {};
 
 const FeedCard = memo(function FeedCard({
   item,
