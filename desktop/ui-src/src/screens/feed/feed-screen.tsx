@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bookmark,
   Check,
@@ -236,7 +236,12 @@ function formatAbsoluteTime(iso: string | null): string {
   return `${then.getFullYear()}-${pad(then.getMonth() + 1)}-${pad(then.getDate())} ${pad(then.getHours())}:${pad(then.getMinutes())}`;
 }
 
-function FeedCard({
+/** React.memo:悬停 onCurrent 只改 currentKey,未记忆化时整墙 50+ 卡全量
+ *  重渲染(CSS columns 下放大为主人实测的悬停闪动);state 空对象用
+ *  模块级常量保身份稳定,marked 卡仅在 toggle 时换身份。 */
+const FEED_CARD_NO_STATE: FeedCardProps["state"] = {};
+
+const FeedCard = memo(function FeedCard({
   item,
   state,
   current,
@@ -412,7 +417,7 @@ function FeedCard({
           data-nav-focused={navFocused ? "true" : "false"}
           onMouseEnter={() => onCurrent(key)}
           onFocus={() => onCurrent(key)}
-          className={`group/feed-item relative transition-colors duration-(--duration-fast) ease-out-expo ${
+          className={`group/feed-item relative ${
             kind === "telegram"
               ? "w-fit min-w-[13rem] max-w-[min(100%,640px)] rounded-md border border-border/40 bg-card py-2 pl-3 pr-3"
               : `rounded-md border py-2 pr-3 pl-4 hover:bg-accent/50 ${
@@ -456,7 +461,7 @@ function FeedCard({
             </div>
           ) : null}
           <div
-            className={`mt-0.5 rounded-2xl rounded-tl-md border px-3 py-2 transition-colors duration-(--duration-fast) ease-out-expo ${
+            className={`mt-0.5 rounded-2xl rounded-tl-md border px-3 py-2 ${
               state.read
                 ? "border-border/40 bg-muted/25 group-hover/feed-item:bg-muted/40"
                 : "border-primary/25 bg-primary/10 group-hover/feed-item:bg-primary/15"
@@ -1067,7 +1072,7 @@ function FeedCard({
       </ContextMenuContent>
     </ContextMenu>
   );
-}
+});
 
 /** TG 渠道卡(10-08-tg-channel-card,主人令「渠道单独一个卡片,点击进去才是
  *  详情」):流内按渠道聚合的摘要卡,聊天列表形态 —— 频道名 + 最新一条预览 +
@@ -1965,7 +1970,7 @@ export function FeedScreen() {
     <FeedCard
       key={itemKey(entry)}
       item={entry}
-      state={states[itemKey(entry)] ?? {}}
+      state={states[itemKey(entry)] ?? FEED_CARD_NO_STATE}
       current={currentKey === itemKey(entry)}
       navFocused={currentKey === itemKey(entry) && navByKeyboard}
       kind={channelKindOf(entry, engineBySource)}
