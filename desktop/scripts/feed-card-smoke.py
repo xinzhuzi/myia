@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""TG 渠道卡无头冒烟(10-08-tg-channel-card;程序化验证,禁屏控)。
+"""TG 渠道卡无头冒烟(v6 渠道瀑布流信息架构,10-09;程序化验证,禁屏控)。
 
 面板与注入(同 tg-card-smoke.py 骨架):
 - 静态服务 ``desktop/ui`` 构建产物(与装机件同一构建链产物,HashRouter);
-- Playwright chromium 无头直达 ``#/feed``(v5:落地即瀑布流首屏,无导航中转);
+- Playwright chromium 无头直达 ``#/feed``(v6:落地即**渠道瀑布流**首屏,
+  一卡一信息获取渠道,无导航中转);
 - IPC 注入 ``add_init_script`` 定义 ``__TAURI_INTERNALS__.invoke``,按
   ``sidecar_request`` 的 method 应答 version(protocol 13 过服务端读态 + 计数
-  口径门)/ health(telegram + tech 双品类)/ store.items(按 category+source
-  精确等值过滤夹具,with_total 回带)/ telegram.status(已登录)/
-  store.state.import·mark·mark_all。
+  口径门)/ health(telegram + tech 插件,携 sources 词表:tg_web/static_html/
+  prompt 三引擎)/ store.items(按 source 精确等值过滤夹具,with_total 回带)/
+  telegram.status(已登录)/ store.state.import·mark·mark_all。
 
-断言面(装机无头证据;vitest jsdom 之外的真实 Chromium 一层;v5 瀑布流
-信息架构):首屏 = 瀑布流卡片墙(内容卡直出,TG = 聊天气泡卡;旧导航面
-feed-drill-*/feed-kind-wall/feed-tg-channels/面包屑退场)/ 筛选 chips(全部 +
-telegram + tech,零计数不出;渠道 chips 选定品类后出现)/ TG 品类激活 =
-监控台钉墙顶 + TG 频道 chip = 聊天视图(日期胶囊 + 气泡)/ 全部渠道/tech
-品类/渠道 chips 作用域切换 / 搜索框改 query 结果即瀑布流 / 点击卡片 = 详情
-弹窗(Esc 关);截图落 /tmp 备查。退出码 0 = 冒烟通过。
+断言面(装机无头证据;vitest jsdom 之外的真实 Chromium 一层;v6 渠道瀑布流
+信息架构):首屏 = 渠道墙(TG/网站/日报三类型徽标卡,零条目渠道出卡显今日 0;
+旧面 feed-chips/feed-kind-wall/feed-drill-all/feed-tg-channels/面包屑退场)/
+搜索框搜「Tg」= 过滤渠道卡(TG 渠道卡直出,类型别名同门)/ 点 TG 渠道卡 =
+渠道详情(监控台钉顶 + 聊天时间线:日期胶囊 + 气泡)/ j+Enter = 条目详情
+弹窗(Esc 关)/ 返回钮回渠道墙。截图落 /tmp 备查。退出码 0 = 冒烟通过。
 
 用法(仓库根):``.venv/bin/python desktop/scripts/feed-card-smoke.py``
 """
@@ -63,7 +63,7 @@ INJECT_SCRIPT = r"""
       source: "telegram-mihomo_party_group",
       content: "基于版本: 1.9.4-d0426.9ea9da7",
       tags: ["proxy"], category: "telegram", scores: null, pushed_at: null, push_slot: null,
-      first_seen: iso(now - 70 * 60_000), read: false, starred: false, later: false,
+      first_seen: iso(now - 20 * 60_000), read: false, starred: false, later: false,
     },
     {
       id: 3, url: "https://openai.com/blog/x", dedup_key: "dk-3",
@@ -91,15 +91,31 @@ INJECT_SCRIPT = r"""
             {
               file: "/home/plugins/telegram.yaml", id: "telegram", name: "Telegram 监控",
               schedule: null, timezone: null, push_channels: [], loaded: true,
-              load_errors: null, sources: [],
+              load_errors: null,
+              sources: [
+                { name: "telegram-mihomo_party_group", url: "https://t.me/s/mihomo_party",
+                  engine: "tg_web", engine_hint: null,
+                  health: { state: "unknown", reason: "无观测", observed: 0, latest: null, baseline: null },
+                  fingerprint_skips: { observed: 0, skipped: 0 } },
+              ],
             },
             {
               file: "/home/plugins/tech.yaml", id: "tech", name: "科技",
               schedule: null, timezone: null, push_channels: [], loaded: true,
-              load_errors: null, sources: [],
+              load_errors: null,
+              sources: [
+                { name: "openai-news", url: "https://openai.com/blog",
+                  engine: "static_html", engine_hint: null,
+                  health: { state: "unknown", reason: "无观测", observed: 0, latest: null, baseline: null },
+                  fingerprint_skips: { observed: 0, skipped: 0 } },
+                { name: "daily-digest", url: "https://example.com/daily",
+                  engine: "prompt", engine_hint: null,
+                  health: { state: "unknown", reason: "无观测", observed: 0, latest: null, baseline: null },
+                  fingerprint_skips: { observed: 0, skipped: 0 } },
+              ],
             },
           ],
-          summary: { plugins: 2, sources: 0, ok: 0, degraded: 0, dead: 0, unknown: 0 },
+          summary: { plugins: 2, sources: 3, ok: 0, degraded: 0, dead: 0, unknown: 0 },
           healthy: true, first_run: false, exit_code: 0,
         };
       }
@@ -186,49 +202,71 @@ async def main() -> int:
             await page.add_init_script(INJECT_SCRIPT)
             await page.goto(f"http://127.0.0.1:{port}/#/feed", wait_until="networkidle")
 
-            # ═══ 首屏 = 瀑布流卡片墙(v5 AC13:落地即内容卡,无导航中转)═══
-            await page.wait_for_selector('[data-testid="feed-waterfall"]', timeout=10_000)
-            expect("瀑布流容器在场", True)
+            # ═══ 首屏 = 渠道瀑布流(v6 AC20:一卡一信息获取渠道)═══
+            await page.wait_for_selector('[data-testid="feed-channel-wall"]', timeout=10_000)
+            expect("渠道墙容器在场", True)
             expect(
-                "瀑布流多列 class(columns-1 起档)",
-                "columns-1" in (await page.locator('[data-testid="feed-waterfall"]').get_attribute("class") or ""),
+                "渠道墙多列 class(columns-1 起档)",
+                "columns-1" in (await page.locator('[data-testid="feed-channel-wall"]').get_attribute("class") or ""),
             )
-            news_card = page.locator('[data-testid="feed-item-3"]')
-            expect("网页新闻卡直出", (await news_card.count()) == 1)
-            expect("新闻卡 data-kind=news", (await news_card.get_attribute("data-kind")) == "news")
+            tg_card = page.locator('[data-testid="feed-channel-telegram-mihomo_party_group"]')
+            expect("TG 渠道卡直出(engine tg_web → 类型徽标 TG)", (await tg_card.get_attribute("data-channel-kind")) == "tg")
+            expect("TG 卡带未读竖条(未读 >0)", (await tg_card.get_attribute("data-unread")) == "true")
             expect(
-                "TG 气泡卡直出(数据 id=1)",
-                (await page.locator('[data-testid="feed-tg-bubble-1"]').count()) == 1,
+                "TG 卡今日计数词(已加载口径)",
+                "今日" in ((await page.locator('[data-testid="feed-channel-count-telegram-mihomo_party_group"]').text_content()) or ""),
             )
-            # 旧信息架构面随 AC17 撤销
-            for gone in ("feed-kind-wall", "feed-drill-all", "feed-tg-channels", "feed-breadcrumb", "feed-l1", "feed-l2"):
+            web_card = page.locator('[data-testid="feed-channel-openai-news"]')
+            expect("网站渠道卡直出(static_html → 网站)", (await web_card.get_attribute("data-channel-kind")) == "site")
+            daily_card = page.locator('[data-testid="feed-channel-daily-digest"]')
+            expect("零条目日报渠道出卡(prompt → 日报)", (await daily_card.get_attribute("data-channel-kind")) == "daily")
+            daily_text = (await daily_card.text_content()) or ""
+            expect("零条目渠道显今日 0", "今日 0 条" in daily_text)
+            expect("零条目渠道给知会词(不空转)", "今日暂无新条目" in daily_text)
+            expect(
+                "计数词面 = 渠道数",
+                "3 个渠道" in ((await page.locator('[data-testid="feed-count"]').text_content()) or ""),
+            )
+            # 旧信息架构面随 AC23 撤销
+            for gone in ("feed-chips", "feed-chip-cat-all", "feed-kind-wall", "feed-drill-all", "feed-tg-channels", "feed-breadcrumb"):
                 expect(f"旧面退场:{gone}", (await page.locator(f'[data-testid="{gone}"]').count()) == 0)
-
-            # ═══ 筛选 chips 替代导航(AC15):全部 + telegram + tech ═══
-            await page.wait_for_selector('[data-testid="feed-chip-cat-telegram"]', timeout=10_000)
-            expect("品类 chip:全部", (await page.locator('[data-testid="feed-chip-cat-all"]').count()) == 1)
-            tg_chip = page.locator('[data-testid="feed-chip-cat-telegram"]')
-            expect("TG chip 计数 2", "2" in ((await tg_chip.text_content()) or ""))
-            expect("tech chip 在场", (await page.locator('[data-testid="feed-chip-cat-tech"]').count()) == 1)
-            # 未选品类:渠道 chips 不出现
-            expect("渠道 chips 未选品类不出", (await page.locator('[data-testid="feed-chip-src-all"]').count()) == 0)
-
-            # ═══ TG 品类激活:监控台钉墙顶 + 渠道 chip 进聊天视图(AC16)═══
             await page.screenshot(path="/tmp/myssia-feed-card-smoke-wall.png", full_page=True)
             print("screenshot: /tmp/myssia-feed-card-smoke-wall.png")
-            await tg_chip.click()
+
+            # ═══ 搜索过滤渠道卡(v6 AC21,主人实测「搜 Tg」)═══
+            search = page.get_by_label("搜索渠道")
+            await search.fill("Tg")
+            await search.press("Enter")
+            expect(
+                "搜索作用域词在",
+                (await page.locator('[data-testid="feed-search-scope"]').count()) == 1,
+            )
+            await page.wait_for_selector('[data-testid="feed-channel-telegram-mihomo_party_group"]', timeout=10_000)
+            expect("搜 Tg:TG 渠道卡直出", True)
+            expect(
+                "搜 Tg:网站/日报渠道卡不混",
+                (await page.locator('[data-testid="feed-channel-openai-news"]').count()) == 0
+                and (await page.locator('[data-testid="feed-channel-daily-digest"]').count()) == 0,
+            )
+            expect(
+                "命中计数词面",
+                "命中 1 / 3" in ((await page.locator('[data-testid="feed-count"]').text_content()) or ""),
+            )
+            await search.press("Escape")
+            await page.wait_for_selector('[data-testid="feed-channel-daily-digest"]', timeout=10_000)
+            expect("清空搜索恢复全量", True)
+
+            # ═══ 点 TG 渠道卡 = 渠道详情(AC22:监控台钉顶 + 聊天时间线)═══
+            await tg_card.click()
             console_card = page.locator('[data-testid="feed-tg-console"]')
             await console_card.wait_for(timeout=10_000)
-            expect("监控台钉墙顶", (await console_card.count()) == 1)
+            expect("监控台钉在渠道详情顶部", (await console_card.count()) == 1)
             expect(
                 "监控台显监控中",
                 "监控中" in ((await page.locator('[data-testid="feed-tg-console-live"]').text_content()) or ""),
             )
-            src_chip = page.locator('[data-testid="feed-chip-src-telegram-mihomo_party_group"]')
-            await src_chip.wait_for(timeout=10_000)
-            await src_chip.click()
             await page.wait_for_selector('[data-testid="feed-chat-timeline"]', timeout=10_000)
-            expect("TG 频道 chip = 聊天视图", True)
+            expect("TG 渠道详情 = 聊天时间线", True)
             expect(
                 "日期胶囊在场",
                 (await page.locator('[data-testid="feed-group-今天"]').count()) == 1,
@@ -238,45 +276,25 @@ async def main() -> int:
                 (await page.locator('[data-testid="feed-tg-bubble-1"]').count()) == 1,
             )
             expect("网页条目不混入", (await page.locator('[data-testid="feed-item-3"]').count()) == 0)
+            expect(
+                "作用域词 = 渠道名",
+                "mihomo_party_group" in ((await page.locator('[data-testid="feed-stream-title"]').text_content()) or ""),
+            )
+            expect(
+                "详情内无搜索框(渠道内检索本轮不做)",
+                (await page.get_by_label("搜索渠道").count()) == 0,
+            )
             await page.screenshot(path="/tmp/myssia-feed-card-smoke-chat.png", full_page=True)
 
-            # ═══ 全部渠道 chip 回品类瀑布流;tech 品类 + 渠道 chips ═══
-            await page.locator('[data-testid="feed-chip-src-all"]').click()
-            await page.wait_for_selector('[data-testid="feed-item-1"]', timeout=10_000)
-            expect("全部渠道回品类瀑布流", True)
-            await page.locator('[data-testid="feed-chip-cat-tech"]').click()
-            news_in_scope = page.locator('[data-testid="feed-item-3"]')
-            await news_in_scope.wait_for(timeout=10_000)
-            expect("tech 品类作用域:新闻卡在", (await news_in_scope.count()) == 1)
-            expect("TG 气泡不混入", (await page.locator('[data-testid="feed-tg-bubble-1"]').count()) == 0)
-            await page.locator('[data-testid="feed-chip-src-openai-news"]').wait_for(timeout=10_000)
-            expect("tech 渠道 chip 在场", True)
-
-            # ═══ 搜索(AC14):首屏搜索框即改 query,结果即瀑布流 ═══
-            await page.get_by_label("搜索条目").fill("OpenAI")
-            await page.get_by_label("搜索条目").press("Enter")
-            await page.wait_for_selector('[data-testid="feed-search-scope"]', timeout=10_000)
-            expect("搜索作用域词在", True)
-            # 计数词面随动(F2):tech 作用域首页取尽(total=同 WHERE 行数)
-            # →「1 / 1 条」全量词面;截断时升「已加载 X · 共 T 条」
-            await page.wait_for_selector('[data-testid="feed-count"]', timeout=10_000)
-            count_text = (await page.locator('[data-testid="feed-count"]').text_content()) or ""
-            expect("F2 计数词面随动(1 / 1 条)", "1 / 1 条" in count_text)
-            await page.get_by_label("搜索条目").press("Escape")
-            await page.wait_for_selector('[data-testid="feed-item-3"]', timeout=10_000)
-            expect("清空搜索恢复", True)
-
-            # ═══ 点击卡片 = 详情弹窗(AC13;弹开即记已读)═══
-            # 走键盘动线(j 巡游落首卡 + Enter 开详情;与点击同门)—— 真实
-            # 浏览器里标题钮居中点击会被右上悬停操作簇(opacity-0 仍拦截指针)
-            # 截走;先 blur 搜索框(Esc 清空后焦点仍在框内,j/Enter 守卫会让位)
-            await page.get_by_label("搜索条目").blur()
+            # ═══ j + Enter = 条目详情弹窗;Esc 关(AC22 条目点击动线)═══
+            # 点击渠道卡后焦点在卡根(DIV),键盘守卫放行 j/Enter;真浏览器
+            # 标题钮居中点击会被右上悬停操作簇截走,键盘动线最稳。
             await page.keyboard.press("j")
             await page.keyboard.press("Enter")
             await page.wait_for_selector('[data-testid="feed-detail-dialog"]', timeout=10_000)
             expect(
-                "详情弹窗标题",
-                "OpenAI" in ((await page.locator('[data-testid="feed-detail-title"]').text_content()) or ""),
+                "详情弹窗标题(TG 消息)",
+                "Clash Party" in ((await page.locator('[data-testid="feed-detail-title"]').text_content()) or ""),
             )
             # Esc 走 dialog 元素本尊(locator.press 先聚焦再派发):dialog 基件的
             # 关闭线挂 overlay onKeyDown(事件冒泡),初始聚焦是 rAF 异步落——
@@ -286,6 +304,16 @@ async def main() -> int:
             await page.get_by_role("dialog").press("Escape")
             await page.wait_for_selector('[data-testid="feed-detail-dialog"]', state="detached", timeout=10_000)
             expect("Esc 关详情弹窗", True)
+
+            # ═══ 返回钮 = 回渠道墙(动线回环)═══
+            await page.locator('[data-testid="feed-back-to-wall"]').click()
+            await page.wait_for_selector('[data-testid="feed-channel-openai-news"]', timeout=10_000)
+            expect("返回钮回渠道墙", True)
+            expect(
+                "作用域词复原渠道瀑布流",
+                "渠道瀑布流" in ((await page.locator('[data-testid="feed-stream-title"]').text_content()) or ""),
+            )
+            expect("聊天时间线退场", (await page.locator('[data-testid="feed-chat-timeline"]').count()) == 0)
 
             await page.screenshot(path="/tmp/myssia-feed-card-smoke.png", full_page=True)
             print("screenshot: /tmp/myssia-feed-card-smoke.png")

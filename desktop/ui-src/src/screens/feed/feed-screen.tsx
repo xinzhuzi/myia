@@ -57,12 +57,12 @@ import type { FeedEnrichResult, FeedItem, UnlistenFn } from "@/lib/api";
 
 import {
   appendFeedPage,
-  CATEGORY_DISPLAY_NAMES,
   appendWatchlistKeyword,
   applyFeedFilter,
   bodyWithoutTitleDup,
+  cardDigest,
   categoryColor,
-  categoryOptionsFromHealth,
+  channelCardKindOf,
   channelDisplayName,
   channelKindOf,
   dayWindowStart,
@@ -71,13 +71,12 @@ import {
   defaultExportName,
   engineMapFromHealth,
   exportFeedView,
+  feedChannelCards,
   fetchFeedPage,
+  filterChannelsByQuery,
   formatRelativeTime,
   groupFeedItems,
-  groupFeedItemsByChannel,
   importLocalFeedStates,
-  inDayWindow,
-  isLaterResurface,
   isOpenableUrl,
   itemKey,
   KEYWORD_MAX_CHARS,
@@ -99,9 +98,10 @@ import {
   statesFromItems,
   telegramMirrorUrlOf,
   toggleMarker,
+  type ChannelCardKind,
   type ChannelKind,
   type ExportFormat,
-  type FeedCategoryOption,
+  type FeedChannelCardData,
   type FeedDisplayOptions,
   type YamlTargetFile,
 } from "./api";
@@ -135,6 +135,14 @@ const CHANNEL_KIND_META: Record<ChannelKind, { label: string; Icon: typeof Rss; 
   document: { label: "日报", Icon: FileText, className: "text-primary/80" },
   deal: { label: "优惠", Icon: Percent, className: "text-ok" },
   news: { label: "新闻", Icon: Rss, className: "text-muted-foreground" },
+};
+
+/** 渠道卡类型元(v6 渠道墙):三档徽标词/图标/色调(条目级 CHANNEL_KIND_META
+ *  的渠道级姊妹; TG = Send 品牌紫 / 网站 = Rss 灰 / 日报 = FileText 淡紫) */
+const CHANNEL_CARD_META: Record<ChannelCardKind, { label: string; Icon: typeof Rss; className: string }> = {
+  tg: { label: "TG", Icon: Send, className: "text-primary" },
+  site: { label: "网站", Icon: Rss, className: "text-muted-foreground" },
+  daily: { label: "日报", Icon: FileText, className: "text-primary/80" },
 };
 
 /** 源名展示词 channelDisplayName(telegram-<频道> 规约)已收编 api.ts
@@ -1074,10 +1082,110 @@ const FeedCard = memo(function FeedCard({
   );
 });
 
-/** TG 渠道卡(10-08-tg-channel-card,主人令「渠道单独一个卡片,点击进去才是
- *  详情」):流内按渠道聚合的摘要卡,聊天列表形态 —— 频道名 + 最新一条预览 +
- *  条数/未读 + 最新相对时间;未读 >0 带左缘 accent 竖条(与消息卡未读竖条
- *  同语言)。点击进该渠道 source 作用域消息流(详情本体,气泡逐条)。 */
+/**
+ * 渠道卡(v6 AC20,主人三次纠偏后的最终定调「卡片 = 信息获取渠道」):
+ * 一卡一渠道 —— 类型徽标(engine 词表:tg_web/telegram→TG;prompt/
+ * store_report→日报;其余→网站)+ 渠道名(channelDisplayName 词表)+
+ * 最新一条预览(cardDigest)+ 今日 N 条 · 未读 M;零条目渠道也出卡
+ * (今日 0,预览位给知会词)。点击 = 进该渠道条目流详情(AC22);
+ * 未读 >0 带左缘 accent 竖条(与条目卡未读竖条同语言);j/k 巡游集成员
+ * (data-item-key 与条目卡同门,Enter = 进详情)。计数 title 注明
+ * 「已加载口径」(首屏铺底 = store.items 首页 50,更早条目未计入)。
+ * memo 同 FeedCard(hover onCurrent 只改 currentKey,墙级不整屏重渲)。
+ */
+const ChannelCard = memo(function ChannelCard({
+  card,
+  current,
+  navFocused,
+  onCurrent,
+  onOpen,
+}: {
+  card: FeedChannelCardData;
+  /** 键盘「当前卡」(j/k 巡游作用目标;hover/focus 进入时置位) */
+  current: boolean;
+  /** j/k 键盘巡游聚焦(focus 环呈现与否) */
+  navFocused: boolean;
+  onCurrent: (key: string) => void;
+  onOpen: (key: string) => void;
+}) {
+  const meta = CHANNEL_CARD_META[card.kind];
+  const KindIcon = meta.Icon;
+  const digest = card.latest ? cardDigest(card.latest) : null;
+  // 深检 F6:短消息(TG 入库常态,title==content≤100 字)经 bodyWithoutTitleDup
+  // 去重后 digest = null —— 回退渲染标题作预览,「最新一条预览」不因同文形态
+  // 整行消失(仅零条目渠道才落知会词)。
+  const preview =
+    digest ?? (card.latest ? card.latest.title || card.latest.url : null);
+  const time = card.latest ? formatRelativeTime(card.latest.first_seen) : null;
+  return (
+    <div
+      data-testid={`feed-channel-${card.key}`}
+      data-item-key={card.key}
+      data-channel-kind={card.kind}
+      data-unread={card.unread > 0 ? "true" : "false"}
+      data-current={current ? "true" : "false"}
+      data-nav-focused={navFocused ? "true" : "false"}
+      role="button"
+      tabIndex={0}
+      aria-label={`打开渠道:${card.label}`}
+      onMouseEnter={() => onCurrent(card.key)}
+      onFocus={() => onCurrent(card.key)}
+      onClick={() => onOpen(card.key)}
+      onKeyDown={(event) => {
+        // 深检 F5:role="button" 的 ARIA 双键激活语义 —— Space 与 Enter 同门
+        // (preventDefault 防页滚;Enter 另有全局巡游通路,此处就地消费防双触)
+        if (event.key === " " || event.key === "Enter") {
+          event.preventDefault();
+          onOpen(card.key);
+        }
+      }}
+      className={`relative cursor-pointer rounded-md border py-2 pr-3 pl-4 hover:bg-accent/50 ${
+        card.unread > 0 ? "border-border bg-card" : "border-border/50 bg-muted/20"
+      }${navFocused ? " ring-1 ring-primary/60" : ""}`}
+    >
+      {/* 未读左缘竖条:与条目卡未读竖条同语言(品牌紫亮档 #9869f7) */}
+      {card.unread > 0 ? (
+        <span
+          aria-hidden
+          data-testid={`feed-channel-strip-${card.key}`}
+          className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-[#9869f7]"
+        />
+      ) : null}
+      <div className="flex items-center gap-1.5 pr-1">
+        <KindIcon aria-hidden className={`size-3.5 shrink-0 ${meta.className}`} />
+        <span className="min-w-0 truncate text-sm font-medium text-foreground" title={card.key}>
+          {card.label}
+        </span>
+        <Badge variant="outline" className="ml-auto shrink-0 text-2xs">
+          {meta.label}
+        </Badge>
+      </div>
+      {/* 最新一条预览(cardDigest;同文短消息回退标题,F6;零条目给知会词) */}
+      {preview !== null ? (
+        <p className="mt-1 line-clamp-2 text-xs leading-relaxed break-words text-muted-foreground">
+          {preview}
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-muted-foreground">今日暂无新条目</p>
+      )}
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <span
+          className="font-mono text-2xs text-muted-foreground tabular-nums"
+          data-testid={`feed-channel-count-${card.key}`}
+          title="已加载口径:今日 = 当日窗(03:00 起)内已加载条数;未读 = 已加载条目中的未读(不限今日)。首屏铺底为全库首页 50 条,更早条目未计入。"
+        >
+          今日 {card.today} 条 · 未读 {card.unread}
+        </span>
+        {time !== null ? (
+          <time dateTime={card.latest?.first_seen ?? undefined} className="shrink-0 font-mono text-2xs text-muted-foreground">
+            {time}
+          </time>
+        ) : null}
+      </div>
+    </div>
+  );
+});
+
 /**
  * 消息详情弹窗(主人令「点击信息,弹出详情」,10-08):标题全文 + 元信息簇
  * (来源渠道/品类/时间/精评评分/图析)+ 正文与图析全文 + 动作簇(👍👎 反馈
@@ -1261,17 +1369,20 @@ function FeedItemDetail({
  * 提交,query 随游标透传)+ 屏内品类下拉服务端过滤(10-04-topbar-cleanup
  * 归位)+ 卡片展开/打开原文(G2)+ 导出当前视图(G3,dialog.save → feed.export)。
  *
- * v5 瀑布流信息架构(10-09-tg-category-entry,主人令「做成瀑布流卡片,并且
- * 可以搜索的界面……不要乱七八糟的展示性内容,一切以瀑布流卡片点击进去再
- * 展示」):落地即内容瀑布流(Tailwind columns 多列 + break-inside-avoid,
- * AC13),分类/渠道从「导航页」降级为「墙顶筛选 chips」(AC15:品类 chips =
- * health 词表 ∪ 已加载品类,零计数不出 chip;渠道 chips 选定品类后出现);
- * 工具条搜索保留首屏,结果即瀑布流(AC14);TG 品类激活时监控台卡钉在墙顶,
- * TG 频道 chip = 既有聊天视图(AC16);历史态出口收编工具条。旧三级下钻
- * (L1 品类行 / L2 渠道行 / 源大类卡片墙与分节详情)代码路径按 AC17 撤销,
- * SOURCE_KIND_PROTOCOL 门随之退役(查询不再携 source_kind,低版本 sidecar
- * 回退 = 与新面同构仅少 total 词面);F2 计数词面/详情弹窗/操作簇/右键/
- * 键盘巡游/能力门(读态/计数)全数保留。
+ * v6 渠道瀑布流信息架构(10-09-tg-category-entry,主人三次纠偏后的最终
+ * 定调:「每条情报流中的卡片表示一种情报支持性渠道」「从哪种渠道中获取
+ * 信息,才是能集中到一个卡片里面的」「点击卡片进入这个情报获取的详情」):
+ * **卡片 = 信息获取渠道**(一个网站/一个 TG 频道/一个日报源),不是单条
+ * 消息也不是分类——首屏 = 渠道瀑布流(AC20:全集 = health sources ∪ 已加载
+ * 条目 source 去重,零条目渠道也出卡;卡面 = 类型徽标 + 渠道名 + 最新一条
+ * cardDigest 预览 + 今日 N · 未读 M,计数 title 注明已加载口径);搜索 =
+ * 客户端过滤渠道卡(AC21:渠道名/源 id 包含匹配,清空恢复);点渠道卡 =
+ * 该渠道条目流详情(AC22:复用 source 作用域查询,TG = 聊天气泡时间线,
+ * 网站/日报 = 条目卡瀑布流,加载更早照旧,条目点击 = 详情弹窗;TG 渠道
+ * 详情顶部保留监控台)。v5 的消息瀑布流首屏/品类·渠道筛选 chips/搜索全库
+ * 检索随 AC23 退场;读态分段/刷新/导出/显示选项/键盘 j-k-U-Enter 保留并随
+ * 新 IA 归位(读态分段与显示选项 = 渠道详情内条目流语义;U 在渠道墙上
+ * 降级为无操作——渠道卡无单键读态语义,Enter = 进详情)。
  *
  * D4 结构性重做(10-03-ui-deep-imitation,对标 teardown-linear-activity
  * #4/#5/#6/#11):三级信息密度(13px 标题/正文 + 11px 元信息)、品类色条、
@@ -1353,37 +1464,28 @@ function FeedItemDetail({
  */
 export function FeedScreen() {
   const navigate = useNavigate();
-  /** v5 瀑布流信息架构(10-09-tg-category-entry,主人令「做成瀑布流卡片,
-   *  并且可以搜索的界面……一切以瀑布流卡片点击进去再展示」):落地即内容
-   *  瀑布流,分类/渠道从「导航页」降级为「筛选 chips」—— 作用域 = 双维
-   *  {category, source}(可空 = 全部)+ history 历史态;查询走既有
-   *  store.items category+source 精确等值 + 游标;TG 频道作用域 = 既有
-   *  聊天视图(气泡时间线)。旧三级下钻(L1 品类行/L2 渠道行)按 AC17
-   *  随本批撤销。 */
+  /** v6 渠道瀑布流信息架构:视图 = 双态 —— 渠道墙(source = null,首屏
+   *  渠道瀑布流)/ 渠道详情(source = 渠道 key,该渠道条目流,复用既有
+   *  source 作用域查询)+ history 历史态(TG 监控台「看全部历史消息」,
+   *  绕过当日窗)。品类维度随 AC23 退场(渠道卡是唯一导航本体)。 */
   const [scope, setScope] = useState<{
-    category: string | null;
+    /** null = 渠道墙(首屏);非 null = 该渠道条目流详情 */
     source: string | null;
-    /** 含历史态(10-09-tg-category-entry,监控台入口):绕过当日窗,
-     *  展示该作用域全部入库条目(监控台「看全部历史消息」专用)。 */
+    /** 含历史态(监控台入口):绕过当日窗,展示该渠道全部入库条目 */
     history: boolean;
-  }>({ category: null, source: null, history: false });
+  }>({ source: null, history: false });
+  /** 渠道墙态(v6 AC20/AC21 的派生总开关) */
+  const wallMode = scope.source === null;
   /** 计数口径能力门(10-09-tg-category-entry F2 根治):protocol ≥
-   *  COUNT_PROTOCOL = store.items 支持 with_total → 首页查询带全量计数,
+   *  COUNT_PROTOCOL = store.items 支持 with_total → 渠道详情查询带全量计数,
    *  词面「已加载 N · 共 T 条」;未过门/应答无 total = 回落「已加载 N 条」。
    *  SOURCE_KIND_PROTOCOL 门随 v5 信息架构退役:web/im 源大类视图撤销,
    *  查询不再携 source_kind —— 低版本 sidecar 的回退语义 = 与新面同构,
    *  仅少 total 词面(version 探测与读态/计数门保留,合流同一次调用)。 */
   const [countReady, setCountReady] = useState(false);
-  /** 查询作用域(scope 派生;history 不进查询词,当日窗过滤在视图层) */
-  const streamScope = useMemo(
-    () => ({ category: scope.category, source: scope.source }),
-    [scope.category, scope.source],
-  );
-  /** 品类下拉选项(health().plugins 派生,挂载一次;L1 品类列表词汇源) */
-  const [categoryOptions, setCategoryOptions] = useState<FeedCategoryOption[]>([]);
-  /** 源名→engine 映射(10-06-feed-channel-groups:渠道类型判定的词表源;
-   *  同一次 health 调用顺带装配,零新 RPC;health 失败 = 空映射,渠道判定
-   *  退化为前缀+品类+字段三级) */
+  /** 源名→engine 映射(v6 渠道墙的渠道全集词表源 + 类型徽标判定;
+   *  health().plugins 派生,挂载一次,零新 RPC;health 失败 = 空映射,
+   *  渠道全集退化为已加载条目 source、类型退化为源名前缀判定) */
   const [engineBySource, setEngineBySource] = useState<Map<string, string>>(new Map());
   const [items, setItems] = useState<FeedItem[]>([]);
   /** 未过门通路的本地态(localStorage 持久;过门后状态源 = 条目派生,不再读写) */
@@ -1440,30 +1542,25 @@ export function FeedScreen() {
     feedSeqRef.current += 1;
     return feedSeqRef.current;
   }, []);
-  /** L1/L2 概览查询的独立对票(与流查询互不失效:概览慢回包不废流,反之亦然)。 */
-  const overviewSeqRef = useRef(0);
 
   useEffect(() => {
     setLocalStates(loadFeedStates());
     setDisplay(loadFeedDisplay());
   }, []);
 
-  // 品类下拉选项 + 源名→engine 映射(挂载一次):health().plugins → id 去重
-  // + 名称回显(同旧顶栏纪律)+ sources[].name→engine(渠道类型判定词表源,
-  // 10-06-feed-channel-groups);失败静默收敛为仅「全部品类」+ 空映射 —— 不拦
-  // 情报流,选中过滤自然空态,渠道判定退化前缀+品类+字段
+  // 源名→engine 映射(挂载一次):health().plugins → sources[].name→engine
+  // —— v6 渠道墙的渠道全集词表源(零条目渠道也出卡的 health 半边)+ 类型
+  // 徽标判定;失败静默收敛为空映射(渠道全集退化为已加载条目 source,
+  // 不拦情报流)
   useEffect(() => {
     let cancelled = false;
     void api
       .health()
       .then((health) => {
-        if (!cancelled) {
-          setCategoryOptions(categoryOptionsFromHealth(health.plugins));
-          setEngineBySource(engineMapFromHealth(health.plugins));
-        }
+        if (!cancelled) setEngineBySource(engineMapFromHealth(health.plugins));
       })
       .catch(() => {
-        if (!cancelled) setCategoryOptions([]);
+        if (!cancelled) setEngineBySource(new Map());
       });
     return () => {
       cancelled = true;
@@ -1521,11 +1618,10 @@ export function FeedScreen() {
       const page = await fetchFeedPage({
         cursor: null,
         cursorId: null,
-        category: streamScope.category,
-        source: streamScope.source,
-        query,
+        source: scope.source,
         // F2 根治:过计数门才带 with_total(旧 sidecar 忽略未知参数属预期,
         // 应答无 total = 回落「已加载 N 条」词面,不为旧面报错)。
+        // v6:query 不再进服务端查询(搜索 = 客户端过滤渠道卡,AC21)。
         withTotal: countReady,
       });
       if (seq !== feedSeqRef.current) return; // F2:旧应答丢弃( newer 包已在途/已落地)
@@ -1553,77 +1649,37 @@ export function FeedScreen() {
       // loading 无条件清:守卫化会把 loading 卡死在更晚的 liveRefresh 票上
       setLoading(false);
     }
-    // 依赖含作用域双维:chips 切换作用域即重查(全部 = 全局首页,重查幂等);
+    // 依赖含作用域:渠道墙 ⇄ 渠道详情切换即重查(墙 = 全库首页铺底,幂等);
     // 含 countReady:计数门探测晚于首页查询时(version 异步竞速)门翻转即补一查,
     // total 不缺场 —— 仅新 sidecar(protocol ≥ 13)多一次首页查询,旧面零增。
-  }, [streamScope.category, streamScope.source, query, countReady, nextFeedSeq]);
+  }, [scope.source, countReady, nextFeedSeq]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
-
-  /** 品类概览数据(深审 F1 沿用,v5 = 品类/渠道 chips 计数的真数据源):
-   *  按品类查询的首页页 —— store.items 带 category 游标(每品类一页 50,
-   *  勿全量拉)。此前导航行只吃全局首页 50 条:长尾品类/渠道的全部条目落
-   *  在全局首页之外 = 假空态/假零计数。查询不带 query(chips 计数是当日窗
-   *  概览,搜索词只属内容流)。 */
-  const [categoryPages, setCategoryPages] = useState<Record<string, FeedItem[]>>({});
-  /** 概览词表键(稳定字符串):health 选项 ∪ 全局页条目品类 —— 词表外
-   *  品类(插件已卸/改名遗留数据)也入 chips 词表,零计数如实。
-   *  join 成串做依赖:字符串值比较,items 身份每轮刷新不触发概览重查。 */
-  const overviewCategoryKey = useMemo(() => {
-    const ids = new Set(categoryOptions.map((option) => option.id));
-    for (const item of items) {
-      if (item.category != null) ids.add(item.category);
-    }
-    return [...ids].sort().join("\n");
-  }, [categoryOptions, items]);
-  const refreshOverview = useCallback(async () => {
-    if (overviewCategoryKey === "") return;
-    overviewSeqRef.current += 1;
-    const seq = overviewSeqRef.current;
-    const ids = overviewCategoryKey.split("\n");
-    const settled = await Promise.allSettled(
-      ids.map((id) => fetchFeedPage({ cursor: null, cursorId: null, category: id, query: null })),
-    );
-    if (seq !== overviewSeqRef.current) return; // F2 同款对票:旧概览包丢弃
-    const next: Record<string, FeedItem[]> = {};
-    settled.forEach((outcome, index) => {
-      if (outcome.status === "fulfilled") next[ids[index]] = outcome.value.items;
-    });
-    setCategoryPages(next);
-  }, [overviewCategoryKey]);
-
-  // 概览随词汇源变化重查(chips 计数是常驻数据面,挂载即查)
-  useEffect(() => {
-    void refreshOverview();
-  }, [refreshOverview]);
 
   /** 实时滚动刷新(10-06 追加:主人令「情报流要不停地过信息日志」):
    *  静默拉首页 → mergeFreshItems 前插新键(已加载行与游标零扰动,新条目
    *  持续进流);失败静默(轮询尽力而为,不打错误卡——手点刷新钮才走
    *  错误路径)。触发面:completed / cron.completed 事件即时 + 30s 可见性
    *  轮询兜底(CLI 独立跑的采集无事件;隐藏暂停不打 sidecar)。
-   *  F2 对票 + 顺带刷新概览(chips 计数实时);新行并入流本体。 */
+   *  F2 对票;渠道墙态下新行并入铺底,渠道卡计数随之实时。 */
   const liveRefresh = useCallback(async () => {
     const seq = nextFeedSeq();
     try {
       const page = await fetchFeedPage({
         cursor: null,
         cursorId: null,
-        category: streamScope.category,
-        source: streamScope.source,
-        query,
+        source: scope.source,
         withTotal: countReady, // F2 根治:实时滚动顺带刷新 total(新条目落地 T 随动)
       });
       if (seq !== feedSeqRef.current) return; // F2:旧应答丢弃(含切域后在途包)
       setItems((current) => mergeFreshItems(current, page.items).items);
       setTotal(page.total);
-      void refreshOverview();
     } catch {
       // 尽力而为:轮询失败静默(下一轮/事件/手点刷新再试)
     }
-  }, [streamScope.category, streamScope.source, query, countReady, nextFeedSeq, refreshOverview]);
+  }, [scope.source, countReady, nextFeedSeq]);
 
   // 事件驱动即时刷新:桌面 run 终态(completed)+ cron 派发 run 落地
   // (cron.completed);与空流 CTA 的定向订阅并行,重复刷新幂等无害
@@ -1688,9 +1744,7 @@ export function FeedScreen() {
       const page = await fetchFeedPage({
         cursor,
         cursorId,
-        category: streamScope.category,
-        source: streamScope.source,
-        query,
+        source: scope.source,
       });
       if (seq !== feedSeqRef.current) return; // F2:refresh/liveRefresh 已接管,旧页不追加
       setCursor(page.nextCursor);
@@ -1711,7 +1765,7 @@ export function FeedScreen() {
     } finally {
       setLoadingMore(false);
     }
-  }, [cursor, cursorId, loadingMore, streamScope.category, streamScope.source, query, nextFeedSeq]);
+  }, [cursor, cursorId, loadingMore, scope.source, nextFeedSeq]);
 
   /** 未过门通路的本地态写入:置 state + localStorage 持久(过门后不走此路) */
   const updateStates = useCallback((next: FeedStateMap) => {
@@ -1808,39 +1862,28 @@ export function FeedScreen() {
   );
   const closeDetail = useCallback(() => setDetailKey(null), []);
 
-  /** G9 批量:全部标已读/未读(可选 category = 品类 chips 作用域,v5 起
-   *  品类批量入口 = 工具条钮随作用域收窄;源大类 source_kind 作用域随 v5
-   *  信息架构退役)—— 过门后 store.state.mark_all 单 UPDATE:category
-   *  缺省 = 全库(含未翻页/未加载条目),传 category = 该品类全库精确等值
-   *  (协议不收 query,决议 Q3.2);就地翻转已加载行内作用域条目即时反馈,
-   *  不整页重拉,失败按调用前快照回滚(只回滚作用域内行,域外行不动);
-   *  未过门 = 旧本地批量(作用域 = 已加载条目,title 如实注明)。 */
+  /** G9 批量:全部标已读/未读(v6 渠道墙工具条入口 = 全库语义;品类作用域
+   *  与源大类 source_kind 作用域随 IA 退场,渠道详情内不出钮 —— mark_all
+   *  无 source 参数,范围不实则不出现)—— 过门后 store.state.mark_all 单
+   *  UPDATE 全库(含未翻页/未加载条目);就地翻转已加载行即时反馈,不整页
+   *  重拉,失败按调用前快照回滚;未过门 = 旧本地批量(作用域 = 已加载条目,
+   *  title 如实注明)。 */
   const markAllRead = useCallback(
-    (value: boolean, category?: string) => {
+    (value: boolean) => {
       if (useServerState) {
-        // 作用域谓词:全库 = 全部已加载行;品类 = 该 category 精确等值行
-        const inScope = (candidate: FeedItem) =>
-          category === undefined || candidate.category === category;
-        const snapshot = new Map(
-          items.filter(inScope).map((candidate) => [itemKey(candidate), candidate.read === true]),
-        );
+        const snapshot = new Map(items.map((candidate) => [itemKey(candidate), candidate.read === true]));
         setItems((current) =>
-          current.map((candidate) => (inScope(candidate) ? { ...candidate, read: value } : candidate)),
+          current.map((candidate) => ({ ...candidate, read: value })),
         );
         void api
-          .storeStateMarkAll({
-            marker: "read",
-            value,
-            ...(category !== undefined ? { category } : {}),
-          })
+          .storeStateMarkAll({ marker: "read", value })
           .then(() => setMarkError(null))
           .catch((err) => {
             setItems((current) =>
-              current.map((candidate) =>
-                inScope(candidate)
-                  ? { ...candidate, read: snapshot.get(itemKey(candidate)) ?? false }
-                  : candidate,
-              ),
+              current.map((candidate) => ({
+                ...candidate,
+                read: snapshot.get(itemKey(candidate)) ?? false,
+              })),
             );
             setMarkError(err instanceof SidecarRequestError ? `${err.code}: ${err.message}` : String(err));
           });
@@ -1860,19 +1903,15 @@ export function FeedScreen() {
   // ② 当日窗(10-06 追加):滚动流(未读/全部)只显 03:00 窗内条目 ——
   //  过窗即离场(视图层清零);later 到期重现条目是显式留存,窗后照现。
   const visible = useMemo(() => {
-    // 搜索态(10-09,主人令「搜索 Tg 要把 telegram 相关卡片都展示出来」):
-    // 检索 = 显式全库取回,绕过当日窗与读态过滤,新→旧全量直出
-    if (query !== "") return items;
-    // 历史态(10-09-tg-category-entry 监控台入口):绕过当日窗,全部入库条目可见
+    // 历史态(监控台「看全部历史消息」/空态「看全部条目」入口):读态过滤
+    // 也豁免,已读未读全显。
     if (scope.history) return items;
-    const filtered = applyFeedFilter(items, states, filter, new Date());
-    if (filter !== "unread" && filter !== "all") return filtered;
-    return filtered.filter(
-      (item) =>
-        inDayWindow(item.first_seen, windowStart) ||
-        isLaterResurface(item, states[itemKey(item)]),
-    );
-  }, [items, query, scope.history, filter, states, windowStart]);
+    // 深检 F1 根治(10-10):渠道详情 = 该渠道**全量**条目流(AC22「新→旧
+    // 全量、含加载更早」)—— 当日窗只在渠道墙计数(卡面「今日 N 条」)生效,
+    // 不再裁剪详情流:「加载更早」翻页加载的窗外条目所见即所得,不再出现
+    // 「点了加载、计数涨了、卡片不现身」的窗界互斥。读态过滤照走。
+    return applyFeedFilter(items, states, filter, new Date());
+  }, [items, scope.history, filter, states]);
 
   /** 展示序(A-feed):过滤结果 → 未读优先(可选;未读浮前,两类各自稳定保序) */
   const displayItems = useMemo(
@@ -1880,20 +1919,38 @@ export function FeedScreen() {
     [display.unreadFirst, visible, states],
   );
 
-  /** 渲染形态派生(v5 双形态):默认 = 瀑布流卡片墙(AC13,内容卡直出,
-   *  TG 条目以聊天气泡卡入列);chatView = TG 频道作用域(既有聊天视图,
-   *  气泡时间线 + 日期胶囊,AC16)。源大类视图(web/im 墙与分节)随 v5
-   *  信息架构退役。 */
-  const chatView = (scope.source ?? "").startsWith("telegram");
-  /** TG 品类激活(监控台钉墙顶判定):品类 id telegram 前缀。 */
-  const isTelegramCategory = (scope.category ?? "").startsWith("telegram");
+  // ---------------------------------------------------------------------------
+  // 渠道墙派生(v6 AC20/AC21):渠道全集 = health sources ∪ 已加载条目 source
+  // 去重(feedChannelCards,零条目渠道也出卡);搜索 = 客户端渠道名/源 id
+  // 包含匹配(filterChannelsByQuery,大小写不敏感,清空恢复全量)。
+  // ---------------------------------------------------------------------------
+  const channelCards = useMemo(
+    () => feedChannelCards(items, states, engineBySource, windowStart),
+    [items, states, engineBySource, windowStart],
+  );
+  const visibleChannels = useMemo(
+    () => filterChannelsByQuery(channelCards, query),
+    [channelCards, query],
+  );
 
-  /** TG 网页线快照(10-09-tg-category-entry:TG 品类激活时拉一次,监控台
-   *  卡呈现;失败静默 = 不出状态条,不拦浏览)。deps 必须含
-   *  isTelegramCategory——chips 激活 TG 品类时只有它翻转,漏掉 = 监控台
-   *  永远等不到快照(v2 在途改动实测踩坑)。 */
+  /** 渲染形态派生(v6 双形态):渠道墙 = 渠道卡瀑布流(AC20);渠道详情 =
+   *  该渠道条目流 —— TG 渠道 = 聊天视图(气泡时间线 + 日期胶囊),网站/
+   *  日报渠道 = 条目卡瀑布流。TG 判定走渠道卡同一 engine 词表
+   *  (channelCardKindOf:tg_web/telegram 引擎 → 前缀规约兜底)。 */
+  const activeChannelKind =
+    scope.source !== null ? channelCardKindOf(scope.source, engineBySource.get(scope.source)) : null;
+  const chatView = activeChannelKind === "tg";
+  /** TG 渠道详情(监控台钉顶判定,v6 = TG 渠道卡进入的详情视图)。 */
+  const isTgChannel = chatView;
+
+  /** TG 网页线快照(10-09-tg-category-entry:TG 渠道详情时拉一次,监控台
+   *  卡呈现;失败 = setTgWebline(null),监控台与「监控在线」断言一起缺席
+   *  —— 深检 F2:空态文案按快照三态分叉,不再无条件称「在线」)。deps 必须
+   *  含 isTgChannel——进入 TG 渠道详情时只有它翻转,漏掉 = 监控台永远等
+   *  不到快照(v2 在途改动实测踩坑);tgStatusTick = 空态「重试」钮触发重拉。 */
+  const [tgStatusTick, setTgStatusTick] = useState(0);
   useEffect(() => {
-    if (!isTelegramCategory) return;
+    if (!isTgChannel) return;
     let cancelled = false;
     void telegramGetStatus()
       .then((status) => {
@@ -1905,7 +1962,12 @@ export function FeedScreen() {
     return () => {
       cancelled = true;
     };
-  }, [isTelegramCategory]);
+  }, [isTgChannel, tgStatusTick]);
+  /** 空态重试(深检 F2):先落 null(旧台与「在线」话术即时退场)再重拉 */
+  const retryTgStatus = useCallback(() => {
+    setTgWebline(null);
+    setTgStatusTick((tick) => tick + 1);
+  }, []);
 
   /** 分组(显示选项,仅聊天视图):TG 频道作用域的日期胶囊分组走时间四桶
    *  (v4 聊天主页风格);不分组 = 平铺。瀑布流卡片墙(AC13)恒平铺多列
@@ -1930,6 +1992,19 @@ export function FeedScreen() {
       category: null,
     }));
   }, [chatView, display.groupMode, displayItems]);
+
+  /** 深检 F7:详情内 Mod+F → 回墙后补聚焦搜索框(输入框随墙异步挂载,
+   *  keydown 现场拿不到 ref;effect 见墙态 + 挂件即聚焦全选并清旗) */
+  const [searchFocusPending, setSearchFocusPending] = useState(false);
+  useEffect(() => {
+    if (!searchFocusPending || wallMode === false) return;
+    const input = searchInputRef.current;
+    if (input) {
+      input.focus();
+      input.select();
+      setSearchFocusPending(false);
+    }
+  }, [searchFocusPending, wallMode]);
 
   /** 键盘「当前卡」(U/j/k 快捷键作用目标;hover/focus 进入卡时置位) */
   const [currentKey, setCurrentKey] = useState<string | null>(null);
@@ -1985,16 +2060,13 @@ export function FeedScreen() {
     />
   );
 
-  /** G3 导出当前视图:dialog.save → feed.export;回显 path/count(取消 = 静默) */
+  /** G3 导出(v6 口径):dialog.save → feed.export 全库直出(渠道过滤属
+   *  首屏视图语义,feed.export 无 source/query 参数,词面如实);取消 = 静默 */
   const exportCurrentView = useCallback(async () => {
     setExporting(true);
     setExportNote(null);
     try {
-      const outcome = await exportFeedView({
-        format: exportFormat,
-        category: scope.category,
-        query,
-      });
+      const outcome = await exportFeedView({ format: exportFormat });
       if (outcome.path !== null) {
         setExportNote(`已导出 ${outcome.count} 条 → ${outcome.path}(${outcome.bytes} 字节)`);
       }
@@ -2005,7 +2077,7 @@ export function FeedScreen() {
     } finally {
       setExporting(false);
     }
-  }, [exportFormat, scope.category, query]);
+  }, [exportFormat]);
 
   /** 空流 CTA:health 取第一个可加载插件 → run.start(yaml 绝对路径,与 sources.write 同口径) */
   const startFirstPlugin = useCallback(async () => {
@@ -2052,117 +2124,37 @@ export function FeedScreen() {
 
   const searchActive = query !== "";
 
-  /** 品类显示名(health 词表名优先,词表外桶 id 走 v6 显示名词表兜底,
-   *  不裸奔内部 id):chips 行/作用域词/批量 title 共用同一词表。 */
-  const categoryLabelOf = useCallback(
-    (id: string) =>
-      categoryOptions.find((option) => option.id === id)?.label ??
-      CATEGORY_DISPLAY_NAMES[id] ??
-      id,
-    [categoryOptions],
-  );
-
-  /** G9 批量两钮 title(双路真话;R2 确认态确认钮沿用同一支)。v5 起按
-   *  chips 作用域分档:全部(无品类)= 全库真话;品类 chip 激活 = 该品类
-   *  全库真话(mark_all 带 category 精确等值);渠道 chip 激活不出钮
-   *  (feed.export/mark_all 无 source 参数,范围不实则不出现)。 */
-  const bulkScopeCategory = scope.category;
+  /** G9 批量两钮 title(双路真话;R2 确认态确认钮沿用同一支)。v6 渠道墙
+   *  入口 = 全库语义(无品类维度);渠道详情内不出钮(feed.export/mark_all
+   *  无 source 参数,范围不实则不出现)。 */
   const bulkHidden = scope.source !== null;
-  const bulkScopeLabel =
-    bulkScopeCategory !== null ? categoryLabelOf(bulkScopeCategory) : null;
   const markAllReadTitle = !useServerState
     ? `把已加载的 ${items.length} 条(未读 ${unreadLoaded})全部标记为已读;本地态,未翻页条目不含`
-    : bulkScopeCategory !== null
-      ? `把品类「${bulkScopeLabel}」的全库条目(含未翻页)标记为已读,服务端持久`
-      : "把全库所有条目(含未翻页)标记为已读,服务端持久";
+    : "把全库所有条目(含未翻页)标记为已读,服务端持久";
   const markAllUnreadTitle = !useServerState
     ? `把已加载的 ${items.length} 条(已读 ${items.length - unreadLoaded})全部恢复未读;本地态`
-    : bulkScopeCategory !== null
-      ? `把品类「${bulkScopeLabel}」的全库条目(含未翻页)恢复为未读,服务端持久`
-      : "把全库所有条目(含未翻页)恢复为未读,服务端持久";
+    : "把全库所有条目(含未翻页)恢复为未读,服务端持久";
 
-  // ---------------------------------------------------------------------------
-  // chips 派生(v5 AC15:品类/渠道从导航页降级为墙顶筛选 chips)。
-  // 计数源(深审 F1 沿用)= 按品类查询页(categoryPages,每品类独立首页
-  // 50)× 当日窗 —— 不吃全局首页 50 条(长尾品类假零);chips 是「今日
-  // 滚动窗」的概览,过窗条目不计入(title 注记口径,如实)。
-  // ---------------------------------------------------------------------------
-  /** 窗内谓词(chips 计数用;later 到期重现条目视同显式留存,计回窗) */
-  const inWindowOrResurfaced = useCallback(
-    (item: FeedItem) =>
-      inDayWindow(item.first_seen, windowStart) ||
-      isLaterResurface(item, states[itemKey(item)]),
-    [windowStart, states],
-  );
-
-  /** 品类 chips:health 词表 ∪ 已加载品类(categoryPages 键即并集落地面),
-   *  按品类查询页 × 当日窗计数;零计数品类不出 chip(AC15,L1 折叠逻辑
-   *  自然消亡);label 走 categoryLabelOf(health 名优先,名词表兜底);
-   *  排序按 id 稳定。 */
-  const categoryChips = useMemo(() => {
-    const counts = new Map<string, { today: number; unread: number }>();
-    for (const [categoryId, pageItems] of Object.entries(categoryPages)) {
-      for (const item of pageItems) {
-        if (item.category !== categoryId) continue; // 品类守卫:服务端已滤,防御共享 mock/旧包
-        if (!inWindowOrResurfaced(item)) continue;
-        const row = counts.get(categoryId) ?? { today: 0, unread: 0 };
-        row.today += 1;
-        if (!(item.read === true)) row.unread += 1;
-        counts.set(categoryId, row);
-      }
-    }
-    return [...counts.entries()]
-      .map(([id, row]) => ({
-        id,
-        label: categoryLabelOf(id),
-        today: row.today,
-        unread: row.unread,
-        color: categoryColor(id),
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id));
-  }, [categoryPages, categoryLabelOf, inWindowOrResurfaced]);
-
-  /** 渠道 chips(选定品类后出现):该品类查询页按渠道分组 × 当日窗计数
-   *  (零窗内计数渠道不出 chip,与品类 chips 同门);label 走
-   *  channelDisplayName 词表(F9 一词一源);无源名(null)渠道不可作用域
-   *  (source 过滤词必须字符串),不出 chip。 */
-  const channelChips = useMemo(() => {
-    if (scope.category === null) return [];
-    const pageItems = (categoryPages[scope.category] ?? []).filter(
-      (item) => item.category === scope.category,
-    );
-    return groupFeedItemsByChannel(pageItems, engineBySource)
-      .map((channel) => {
-        const windowed = channel.items.filter(inWindowOrResurfaced);
-        return {
-          key: channel.key,
-          label: channelDisplayName(channel.key),
-          today: windowed.length,
-          unread: windowed.filter((item) => !(item.read === true)).length,
-        };
-      })
-      .filter((channel) => channel.key !== null && channel.today > 0);
-  }, [scope.category, categoryPages, engineBySource, inWindowOrResurfaced]);
-
-  /** chips 作用域动作:品类切换 = 重置渠道与历史(跨品类历史无意义);
-   *  渠道切换 = 保留历史(历史浏览中途下钻单频道,语义延续,v2.2 透传同门)。 */
-  const setCategoryScope = useCallback((category: string | null) => {
-    setScope({ category, source: null, history: false });
+  /** 渠道详情作用域动作(v6 AC22):点渠道卡进该渠道条目流;返回钮回渠道墙
+   *  (搜索词保留 —— 回墙后渠道过滤仍生效,清空即恢复全量)。 */
+  const openChannel = useCallback((key: string) => {
+    setScope({ source: key, history: false });
     setCurrentKey(null);
     setNavByKeyboard(false);
   }, []);
-  const setSourceScope = useCallback((source: string | null) => {
-    setScope((current) => ({ ...current, source }));
+  const backToWall = useCallback(() => {
+    setScope({ source: null, history: false });
     setCurrentKey(null);
     setNavByKeyboard(false);
   }, []);
-  /** 监控台历史入口(10-09-tg-category-entry):「看全部历史消息」——
-   *  历史态绕过当日窗,展示该作用域全部入库条目。 */
+  /** 历史入口(监控台「看全部历史消息」/ 空态「看全部条目」):历史态 =
+   *  该渠道全部入库条目、已读未读全显(深检 F1 后详情默认已无当日窗,
+   *  历史态的增量语义 = 读态过滤豁免)。 */
   const openHistory = useCallback(() => {
     setScope((current) => ({ ...current, history: true }));
     setCurrentKey(null);
   }, []);
-  /** 退出历史(v5:面包屑随三级页撤销,历史出口改工具条钮) */
+  /** 退出历史(历史出口收编工具条钮) */
   const exitHistory = useCallback(() => {
     setScope((current) => ({ ...current, history: false }));
   }, []);
@@ -2189,21 +2181,21 @@ export function FeedScreen() {
     }
   }, [tgWebline]);
   /** 内置浏览器预览(10-09-tg-category-entry v3 AC11,主人令「是否加载了
-   *  内置浏览器界面,展示 tg 内容」):取该品类最新条目 url 推导频道公开
+   *  内置浏览器界面,展示 tg 内容」):取该渠道最新条目 url 推导频道公开
    *  镜像 t.me/s/<频道名>,WebviewWindow 应用内窗口直开(免二次登录)。
    *  职责分离:数据入库仍由后台 watcher 登录会话负责,本窗口**仅内容展示**,
    *  不做任何采集/登录动作;推导不出(私有频道/无 t.me 链)= 按钮置灰,
    *  title 如实;开窗失败(tauri://error)= 条内出说明,不装死。 */
   const [tgPreviewNote, setTgPreviewNote] = useState<string | null>(null);
   const tgPreviewUrl = useMemo(() => {
-    const category = scope.category;
-    if (category === null || !category.startsWith("telegram")) return null;
-    for (const item of categoryPages[category] ?? []) {
+    if (scope.source === null || !isTgChannel) return null;
+    for (const item of items) {
+      if (item.source !== scope.source) continue;
       const mirror = telegramMirrorUrlOf(item.url);
       if (mirror) return mirror;
     }
     return null;
-  }, [categoryPages, scope.category]);
+  }, [items, scope.source, isTgChannel]);
   const openTgPreview = useCallback((mirror: string) => {
     setTgPreviewNote(null);
     try {
@@ -2228,16 +2220,25 @@ export function FeedScreen() {
   // 可编辑目标内敲不触发,守卫与既有 U 键同源,不引外部 hook——feed 本地惯例);
   // Mod+F(macOS ⌘F / Win·Linux Ctrl+F)= 拦截浏览器查找,聚焦内联搜索框并
   // 全选词面(可直接改写;fe-gap-census R1,linear-activity #8)。
-  // Enter 在消息卡 = 开详情弹窗(与点击同门,详情弹窗开着时巡游键让位)。
-  // v5:巡游集 = 展示序全集(瀑布流/聊天时间线两形态都全量渲染卡,墙卡
-  // kind: 前缀随源大类视图退役)。
+  // Enter 在渠道墙 = 打开当前渠道卡(v6);在条目卡 = 开详情弹窗(与点击
+  // 同门,详情弹窗开着时巡游键让位)。
+  // v6:巡游集随形态归位 —— 渠道墙 = 渠道卡全集(过滤后),渠道详情 =
+  // 展示序条目全集(瀑布流/聊天时间线两形态都全量渲染卡)。U 在渠道墙上
+  // 降级为无操作(渠道卡无单键读态语义;标记已读在渠道详情内照常)。
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const pressed = event.key.toLowerCase();
       if ((event.metaKey || event.ctrlKey) && pressed === "f") {
         event.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          searchInputRef.current.select();
+        } else {
+          // 深检 F7:搜索框仅渠道墙渲染,详情内不拦截后无落点 —— 回墙再聚焦
+          // (输入框挂载后由 searchFocusPending effect 补焦)
+          backToWall();
+          setSearchFocusPending(true);
+        }
         return;
       }
       // 详情弹窗开着:巡游/置位键让位(防焦点绕过遮罩在背后卡上移动)
@@ -2255,25 +2256,31 @@ export function FeedScreen() {
         return;
       }
       // Enter 命中本就是点击语义的控件(button/link)时归其原生行为,不双触发
+      // (渠道卡根是 div[role=button],Enter 归全局巡游语义,不在此列)
       if (pressed === "enter" && target && (target.tagName === "BUTTON" || target.tagName === "A")) {
         return;
       }
+      // 巡游集随形态:v6 渠道墙 = 渠道卡;渠道详情 = 展示序条目卡
+      const keys = wallMode ? visibleChannels.map((card) => card.key) : displayItems.map(itemKey);
       if (pressed === "u") {
-        if (currentKey === null) return;
+        // 渠道墙降级:U 无单键读态语义(AC23 处置注记),直接让位
+        if (wallMode || currentKey === null) return;
         const item = items.find((candidate) => itemKey(candidate) === currentKey);
         if (item) toggle(item, "read");
         return;
       }
       if (pressed === "enter") {
         if (currentKey === null) return;
+        if (wallMode) {
+          if (keys.includes(currentKey)) openChannel(currentKey);
+          return;
+        }
         const item = items.find((candidate) => itemKey(candidate) === currentKey);
         if (item) openDetail(item);
         return;
       }
-      // j/k:展示序上/下移;边界钳制不回绕(首卡 k / 末卡 j 原地不动),
+      // j/k:巡游序上/下移;边界钳制不回绕(首卡 k / 末卡 j 原地不动),
       // 未选中时 j 落首卡、k 落末卡(当前卡被过滤离场同此路径)。
-      // 巡游集 = displayItems(瀑布流/聊天时间线两形态都全量渲染卡)。
-      const keys = displayItems.map(itemKey);
       if (keys.length === 0) return;
       const index = currentKey === null ? -1 : keys.indexOf(currentKey);
       const next =
@@ -2295,25 +2302,16 @@ export function FeedScreen() {
     items,
     toggle,
     displayItems,
+    visibleChannels,
+    wallMode,
     detailKey,
     openDetail,
+    openChannel,
+    backToWall,
   ]);
 
   /** 作用域文案(工具条左侧可见词;sr-only aria-live 同源播报) */
-  const streamTitle =
-    scope.source !== null
-      ? channelDisplayName(scope.source)
-      : scope.category !== null
-        ? `${categoryLabelOf(scope.category)} · 全部渠道`
-        : "全部条目 · 瀑布流";
-
-  /** chips 单选样式(激活 = accent 实底;品类色点随 chip 左缘) */
-  const chipClass = (active: boolean) =>
-    `inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors duration-(--duration-fast) ease-out-expo ${
-      active
-        ? "border-primary/40 bg-accent font-medium text-foreground"
-        : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
-    }`;
+  const streamTitle = wallMode ? "渠道瀑布流" : channelDisplayName(scope.source);
 
   return (
     /* 满高容器(10-04-ui-kestra-anchor:Kestra 列表密度——内容区内滚,
@@ -2321,20 +2319,39 @@ export function FeedScreen() {
     <div className="flex h-full min-h-0 flex-col gap-4">
       <PageHeader
         title="情报流"
-        description={`瀑布流卡片墙 · 品类/渠道筛选 chips(${
-          useServerState ? "服务端持久,随库同步" : "本地态,随浏览器存储持久"
+        description={`渠道瀑布流 · 一卡一信息获取渠道,点卡进条目流(${
+          useServerState ? "读态服务端持久,随库同步" : "读态本地态,随浏览器存储持久"
         })`}
       />
 
-      {/* 工具条(首屏常驻,KsFilter 范式):作用域词 + 读态分段 + 计数/批量 +
-          右侧显示选项/搜索/刷新/导出。搜索框(服务端)在首屏即可用,输入即改
-          query,结果即瀑布流(v5 AC14);F2 计数词面语义随动。 */}
+      {/* 工具条(首屏常驻,KsFilter 范式):返回钮(仅渠道详情)+ 作用域词 +
+          读态分段(仅渠道详情,条目流语义)+ 计数/批量 + 右侧显示选项(仅
+          渠道详情)/搜索(仅渠道墙,过滤渠道卡)/刷新/导出。v6 AC21:搜索 =
+          客户端过滤渠道卡,不发服务端查询。 */}
       <div className="flex flex-wrap items-center gap-2 px-6" data-testid="feed-toolbar">
+        {/* 渠道详情返回钮(v6 AC22 动线回环:渠道详情 ⇄ 渠道墙) */}
+        {!wallMode ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="px-2 text-xs"
+            data-testid="feed-back-to-wall"
+            title="返回渠道瀑布流"
+            onClick={backToWall}
+          >
+            <ChevronDown className="size-3.5 rotate-90" />
+            渠道墙
+          </Button>
+        ) : null}
         {/* 作用域标题(10-08 审计 F6 沿用):可见当前位置词 */}
         <span className="text-xs font-medium text-foreground" data-testid="feed-stream-title">
           {streamTitle}
         </span>
-        {/* 读态分段(KsFilter 范式):微填充容器 + 内钮 h-7,激活 = bg-accent */}
+        {/* 读态分段(KsFilter 范式):微填充容器 + 内钮 h-7,激活 = bg-accent。
+            v6 归位:读态过滤属渠道详情内的条目流(渠道卡无读态语义),渠道
+            墙不渲染 —— 过滤态保留,回墙再进详情仍是原档。深检 F4:历史态
+            (已读未读全显)读态过滤不生效,分段随之隐藏,不给死控件。 */}
+        {!wallMode && !scope.history ? (
         <div
           role="group"
           aria-label="读态过滤"
@@ -2350,7 +2367,7 @@ export function FeedScreen() {
                 aria-pressed={active}
                 title={
                   entry.key === "unread"
-                    ? "未读过滤会隐藏已加载行全已读的分组;切「全部」可恢复"
+                    ? "未读过滤会隐藏已读条目(到期稍后读除外);切「全部」可恢复"
                     : undefined
                 }
                 onClick={() => setFilter(entry.key)}
@@ -2366,12 +2383,24 @@ export function FeedScreen() {
             );
           })}
         </div>
-        {/* 计数口径(10-08 审计 F2,10-09-tg-category-entry 根治):
-            过 COUNT_PROTOCOL 门(protocol ≥ 13)且应答带 total → 截断时
-            「已加载 X · 共 T 条」,T = 同 WHERE 全量计数(store.items
-            with_total),首页截断不再静默低估也不再无 T 空转;未过门/无
-            total 字段(旧 sidecar 忽略未知参数属预期,不为旧面报错)=
-            回落 F2 半程词面「已加载 N 条」。title 注记口径。 */}
+        ) : null}
+        {/* 计数词面(v6 双态):渠道墙 = 渠道数(搜索时「命中 M / N 个渠道」);
+            渠道详情 = 既有 F2 口径 —— 过 COUNT_PROTOCOL 门(protocol ≥ 13)
+            且应答带 total → 截断时「已加载 X · 共 T 条」,T = 同 WHERE 全量
+            计数(store.items with_total);未过门/无 total 字段(旧 sidecar
+            忽略未知参数属预期,不为旧面报错)= 回落 F2 半程词面「已加载 N 条」。
+            title 注记口径。 */}
+        {wallMode ? (
+          <span
+            className="text-2xs text-muted-foreground"
+            data-testid="feed-count"
+            title={`渠道全集 = 插件 health 源 ∪ 已加载条目来源;计数为已加载口径(全库首页 50 条铺底)`}
+          >
+            {searchActive
+              ? `命中 ${visibleChannels.length} / ${channelCards.length} 个渠道`
+              : `${channelCards.length} 个渠道`}
+          </span>
+        ) : (
         <span
           className="text-2xs text-muted-foreground"
           data-testid="feed-count"
@@ -2393,43 +2422,42 @@ export function FeedScreen() {
                 ? `共 ${items.length} 条`
                 : `${visible.length} / ${items.length} 条`}
         </span>
-        {/* 当日窗/历史知会(仅未读/全部两档受窗,星标/稍后读跨窗可见);
-            历史态给退出钮(v5:面包屑随三级页撤销,历史出口收编工具条) */}
-        {filter === "unread" || filter === "all" ? (
-          <span
-            className="text-2xs text-muted-foreground"
-            data-testid="feed-day-window"
-            title={
-              scope.history
-                ? "历史态:显示该作用域全部入库条目(不限当日窗);点「退出历史」回到当日窗滚动视图。"
-                : `当日窗:每天 03:00 清零滚动流(03:00 → 次日 03:00),过窗条目离场、视图从零累计;store 数据不清(retention 照旧),星标/稍后读跨窗可见;实时滚动 = 采集事件即时刷新 + 30s 可见性轮询`
-            }
-          >
-            {query !== ""
-              ? "搜索中 · 全库检索(不限当日窗)"
-              : scope.history
-                ? "含历史 · 不限当日窗"
-                : "当日窗 03:00 起 · 实时滚动"}
-          </span>
-        ) : null}
+        )}
+        {/* 知会词:渠道墙 = 卡面「今日 N 条」的当日窗口径注记;渠道详情 =
+            全量流(深检 F1:当日窗不裁剪详情,加载更早所见即所得);历史态 =
+            读态豁免(已读未读全显),给退出钮(历史出口收编工具条) */}
+        <span
+          className="text-2xs text-muted-foreground"
+          data-testid="feed-day-window"
+          title={
+            scope.history
+              ? "历史态:该渠道全部入库条目,已读未读全显(读态过滤豁免);点「退出历史」回到读态视图。"
+              : wallMode
+                ? "渠道卡「今日 N 条」= 当日窗(03:00 → 次日 03:00)内已加载条数;store 数据不清(retention 照旧)"
+                : "渠道详情 = 该渠道全部入库条目(新→旧,当日窗不裁剪,加载更早翻页取尽);读态分段过滤未读/星标/稍后读"
+          }
+        >
+          {scope.history
+            ? "全部历史 · 已读未读全显"
+            : wallMode
+              ? "今日口径 · 当日窗 03:00 起"
+              : "全量 · 新→旧 · 实时滚动"}
+        </span>
         {scope.history ? (
           <Button
             variant="ghost"
             size="sm"
             className="px-2 text-xs text-muted-foreground"
             data-testid="feed-history-exit"
-            title="退出历史态:回到当日窗滚动视图"
+            title="退出历史态:回到读态过滤视图(未读/星标/稍后读/全部)"
             onClick={exitHistory}
           >
             退出历史
           </Button>
         ) : null}
-        {searchActive ? (
+        {searchActive && wallMode ? (
           <span className="text-2xs text-muted-foreground" data-testid="feed-search-scope">
-            服务端搜索「{query}」
-            {streamScope.category ? ` × 品类 ${categoryLabelOf(streamScope.category)}` : ""}
-            {streamScope.source ? ` × 渠道 ${channelDisplayName(streamScope.source)}` : ""} × 本地
-            {FILTERS.find((entry) => entry.key === filter)?.label}过滤
+            渠道过滤「{query}」· 按渠道名 / 源 id 包含匹配
           </span>
         ) : null}
         {!bulkHidden && confirmAllMark === null ? (
@@ -2478,7 +2506,7 @@ export function FeedScreen() {
               onClick={() => {
                 const value = confirmAllMark === "read";
                 setConfirmAllMark(null);
-                markAllRead(value, bulkScopeCategory ?? undefined);
+                markAllRead(value);
               }}
             >
               {confirmAllMark === "read" ? "确认全部标已读" : "确认全部标未读"}
@@ -2494,7 +2522,9 @@ export function FeedScreen() {
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-2">
-          {/* 显示选项:未读优先 + 分组维度(分组仅聊天视图生效,瀑布流恒平铺) */}
+          {/* 显示选项(仅渠道详情,条目流语义):未读优先 + 分组维度(分组仅
+              聊天视图生效,条目瀑布流恒平铺) */}
+          {!wallMode ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -2541,7 +2571,10 @@ export function FeedScreen() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {/* KsFilter 搜索位:前导图标入框,Mod+F 聚焦与 Esc 即时清空保留 */}
+          ) : null}
+          {/* KsFilter 搜索位(仅渠道墙,v6 AC21):过滤渠道卡(渠道名/源 id
+              包含匹配,客户端);前导图标入框,Mod+F 聚焦与 Esc 即时清空保留 */}
+          {wallMode ? (
           <div className="relative">
             <Search
               aria-hidden
@@ -2551,8 +2584,8 @@ export function FeedScreen() {
               ref={searchInputRef}
               type="search"
               value={searchInput}
-              aria-label="搜索条目"
-              placeholder="搜索标题 / 摘要 / 来源(服务端,当前作用域)"
+              aria-label="搜索渠道"
+              placeholder="搜索渠道(名称 / 源 id,如 Tg)"
               className="w-64 pl-8 text-xs"
               onChange={(event) => setSearchInput(event.target.value)}
               onKeyDown={(event) => {
@@ -2564,21 +2597,23 @@ export function FeedScreen() {
               }}
             />
           </div>
-          {/* KsFilter refresh 位:重发当前 品类 × 渠道 × 搜索词 的查询 */}
+          ) : null}
+          {/* KsFilter refresh 位:重发当前作用域查询(墙 = 全库首页铺底,
+              详情 = 该渠道条目流) */}
           <Button
             variant="ghost"
             size="icon"
             className="size-8"
             aria-label="刷新"
-            title="重新拉取当前作用域的条目(品类 × 渠道 × 搜索词)"
+            title={wallMode ? "重新拉取渠道墙铺底(全库首页)" : "重新拉取该渠道条目流"}
             onClick={() => void refresh()}
             disabled={loading}
           >
             <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
           </Button>
-          {/* G3 导出组(仅渠道未定作用域:feed.export 无 source 参数,
-              渠道作用域不出钮防范围不实) */}
-          {streamScope.source === null ? (
+          {/* G3 导出组(仅渠道墙:feed.export 无 source 参数,渠道详情不出钮
+              防范围不实;导出 = 全库条目直出) */}
+          {wallMode ? (
             <div className="flex items-center gap-2">
               <div
                 role="group"
@@ -2611,85 +2646,19 @@ export function FeedScreen() {
                 size="sm"
                 onClick={() => void exportCurrentView()}
                 disabled={exporting}
-                title="导出当前过滤视图(品类 × 搜索词)为本地文件"
+                title="导出全库条目为本地文件"
               >
                 <Download className={exporting ? "size-3.5 animate-pulse" : "size-3.5"} />
-                {exporting ? "导出中…" : "导出当前视图"}
+                {exporting ? "导出中…" : "导出全库"}
               </Button>
             </div>
           ) : null}
         </div>
       </div>
 
-      {/* 筛选 chips 行(v5 AC15:品类/渠道从导航页降级为墙顶筛选 chips):
-          品类 chips = health 词表 ∪ 已加载品类(零计数不出 chip);选定品类
-          后追加渠道 chips(该品类数据源名);单选高亮,选择即改查询作用域。 */}
-      <div className="flex flex-col gap-1.5 px-6" data-testid="feed-chips">
-        <div role="group" aria-label="品类筛选" className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            data-testid="feed-chip-cat-all"
-            aria-pressed={scope.category === null}
-            title="全部品类(全局瀑布流)"
-            onClick={() => setCategoryScope(null)}
-            className={chipClass(scope.category === null)}
-          >
-            全部
-          </button>
-          {categoryChips.map((chip) => (
-            <button
-              key={chip.id}
-              type="button"
-              data-testid={`feed-chip-cat-${chip.id}`}
-              aria-pressed={scope.category === chip.id}
-              title={`${chip.label} · 今日 ${chip.today} 条 · 未读 ${chip.unread}(当日窗概览,每品类首页 50 条口径)`}
-              onClick={() => setCategoryScope(chip.id)}
-              className={chipClass(scope.category === chip.id)}
-            >
-              {chip.color !== null ? (
-                <span
-                  aria-hidden
-                  className="size-1.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: chip.color }}
-                />
-              ) : null}
-              {chip.label}
-              <span className="font-mono tabular-nums opacity-70">{chip.today}</span>
-            </button>
-          ))}
-        </div>
-        {scope.category !== null ? (
-          <div role="group" aria-label="渠道筛选" className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              data-testid="feed-chip-src-all"
-              aria-pressed={scope.source === null}
-              title="该品类全部渠道合流"
-              onClick={() => setSourceScope(null)}
-              className={chipClass(scope.source === null)}
-            >
-              全部渠道
-            </button>
-            {channelChips.map((channel) => (
-              <button
-                key={channel.key}
-                type="button"
-                data-testid={`feed-chip-src-${channel.key}`}
-                aria-pressed={scope.source === channel.key}
-                title={`${channel.label} · 今日 ${channel.today} 条 · 未读 ${channel.unread}`}
-                onClick={() => setSourceScope(channel.key)}
-                className={chipClass(scope.source === channel.key)}
-              >
-                {channel.label}
-                <span className="font-mono tabular-nums opacity-70">{channel.today}</span>
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      {/* 内容区(内滚):TG 监控台钉墙顶(TG 品类激活时,AC15/AC16)+
-          瀑布流卡片墙(AC13)/ TG 聊天视图(AC16)/ 导出与错误回执 */}
+      {/* 内容区(内滚):渠道墙(v6 AC20 渠道卡瀑布流)/ TG 监控台(TG 渠道
+          详情顶部,AC22)/ 渠道详情条目流(TG 聊天视图 / 条目瀑布流)/ 导出
+          与错误回执 */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-6" data-testid="feed-wall">
         <span className="sr-only" aria-live="polite">{streamTitle}</span>
         {exportNote ? (
@@ -2744,10 +2713,10 @@ export function FeedScreen() {
           </Card>
         ) : null}
 
-        {/* Telegram 监控台(10-09-tg-category-entry;v5 落位:TG 品类激活时
-            钉在墙顶,AC15/AC16)—— 未登录给扫码入口,已登录显监控中;历史
-            消息一跳直达;内置浏览器预览(AC11)。 */}
-        {isTelegramCategory && tgWebline !== null ? (
+        {/* Telegram 监控台(v6 AC22:TG 渠道详情顶部保留,既有组件原样)——
+            未登录给扫码入口,已登录显监控中;历史消息一跳直达;内置浏览器
+            预览(AC11)。渠道墙不渲染(监控入口归渠道卡动线)。 */}
+        {isTgChannel && tgWebline !== null ? (
           <div
             data-testid="feed-tg-console"
             className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5"
@@ -2821,7 +2790,7 @@ export function FeedScreen() {
               className="mt-1.5 inline-flex items-center gap-1 text-2xs text-primary hover:underline"
             >
               <Inbox aria-hidden className="size-3" />
-              看全部历史消息(不限当日窗)
+              看全部历史消息(含已读)
             </button>
             {tgPreviewNote ? (
               <span
@@ -2853,30 +2822,20 @@ export function FeedScreen() {
               </div>
             ))}
           </div>
-        ) : !error && visible.length === 0 ? (
-          // 空态四支:搜索空 / TG 品类监控在线 / 首跑 / 空流 CTA / 读态过滤空
-          searchActive && items.length === 0 ? (
-            <Card data-testid="feed-search-empty">
-              <CardContent className="p-0">
-                <EmptyState
-                  title="没有匹配的条目"
-                  description={`服务端搜索「${query}」零命中;换个关键词,或清空搜索看全部条目。`}
-                />
-              </CardContent>
-            </Card>
-          ) : isTelegramCategory ? (
-            /* TG 品类空态(10-09-tg-category-entry):不再甩「先跑采集」
-                死胡同——监控在线给「新消息即时入库」预期 + 监控台历史直达 */
-            <Card>
-              <CardContent className="p-0">
-                <EmptyState
-                  title="监控在线,窗内暂无新消息"
-                  description="Telegram 监控在线,新消息入库即出现在这里;更早的入库记录点监控台「看全部历史消息」直达。"
-                />
-              </CardContent>
-            </Card>
-          ) : items.length === 0 ? (
-            firstRun ? (
+        ) : !error && (wallMode ? visibleChannels.length === 0 : visible.length === 0) ? (
+          // 空态(v6 双态):墙 = 搜索零命中渠道 / 首跑 / 空流 CTA;
+          // 详情 = TG 监控在线 / 零条目渠道 / 读态过滤空(带历史直达)
+          wallMode ? (
+            searchActive ? (
+              <Card data-testid="feed-search-empty">
+                <CardContent className="p-0">
+                  <EmptyState
+                    title="没有匹配的渠道"
+                    description={`搜索「${query}」零命中渠道(按渠道名 / 源 id 包含匹配);换个关键词,或清空搜索看全部渠道。`}
+                  />
+                </CardContent>
+              </Card>
+            ) : firstRun ? (
               <Card data-testid="feed-first-run">
                 <CardContent className="p-0">
                   <EmptyState
@@ -2926,15 +2885,105 @@ export function FeedScreen() {
                 </CardContent>
               </Card>
             )
+          ) : isTgChannel && tgWebline === null ? (
+            /* TG 渠道空态 · 状态未知(深检 F2):telegram.status 拉取失败
+                (监控台同门缺席)——不称「在线」、不指路不存在的监控台,
+                给重试拉状态。 */
+            <Card data-testid="feed-tg-status-unknown">
+              <CardContent className="p-0">
+                <EmptyState
+                  title="监控状态未知"
+                  description="暂时拿不到 Telegram 监控状态(状态服务未就绪或请求失败);是否登录、新消息是否入库以「设置 · Telegram」的台账为准。"
+                  action={
+                    <Button variant="outline" size="sm" onClick={retryTgStatus}>
+                      重试拉取状态
+                    </Button>
+                  }
+                />
+              </CardContent>
+            </Card>
+          ) : isTgChannel && tgWebline !== null && !tgWebline.web.accounts.some((a) => a.logged_in) ? (
+            /* TG 渠道空态 · 未登录(深检 F2):如实说未登录,指路监控台
+                (此分支监控台必在场——同以 tgWebline !== null 为门)。 */
+            <Card>
+              <CardContent className="p-0">
+                <EmptyState
+                  title="未登录,暂无新消息入库"
+                  description="上方监控台扫码登录网页版 telegram 后,7×24 监控自动入库,新消息即出现在这里;「全部」页签可看已入库的已读条目。"
+                />
+              </CardContent>
+            </Card>
+          ) : isTgChannel ? (
+            /* TG 渠道空态 · 监控在线:不再甩「先跑采集」死胡同——给「新
+                消息即时入库」预期 + 监控台(顶部)「看全部历史消息」直达 */
+            <Card>
+              <CardContent className="p-0">
+                <EmptyState
+                  title="监控在线,暂无未读新消息"
+                  description="Telegram 监控在线,新消息入库即出现在这里;已读条目切「全部」页签或点监控台「看全部历史消息(含已读)」直达。"
+                />
+              </CardContent>
+            </Card>
+          ) : items.length === 0 ? (
+            /* 零条目渠道详情:不空转,给回流动线 */
+            <Card data-testid="feed-channel-empty">
+              <CardContent className="p-0">
+                <EmptyState
+                  title="该渠道暂无入库条目"
+                  description="采集到该渠道的条目后会出现在这里;可先回渠道墙看其他渠道。"
+                  action={
+                    <Button variant="outline" size="sm" onClick={backToWall}>
+                      返回渠道墙
+                    </Button>
+                  }
+                />
+              </CardContent>
+            </Card>
           ) : (
             <Card>
               <CardContent className="p-0">
-                <EmptyState title={EMPTY_TEXT[filter].title} description={EMPTY_TEXT[filter].description} />
+                <EmptyState
+                  title={EMPTY_TEXT[filter].title}
+                  description={EMPTY_TEXT[filter].description}
+                  action={
+                    !scope.history ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        data-testid="feed-empty-history"
+                        onClick={openHistory}
+                      >
+                        看全部条目(含已读)
+                      </Button>
+                    ) : undefined
+                  }
+                />
               </CardContent>
             </Card>
           )
+        ) : wallMode ? (
+          /* ═══ 渠道墙(v6 首屏,AC20):Tailwind columns 多列瀑布流(沿用
+              既有 masonry 容器类),一卡一信息获取渠道 —— 类型徽标(TG/网站/
+              日报)+ 渠道名 + 最新一条预览 + 今日 N · 未读 M;零条目渠道也
+              出卡;点击卡片 = 进该渠道条目流详情(AC22),j-k-Enter 随卡 ═══ */
+          <div
+            data-testid="feed-channel-wall"
+            className="columns-1 gap-3 sm:columns-2 lg:columns-3 xl:columns-4"
+          >
+            {visibleChannels.map((card) => (
+              <div key={card.key} className="mb-3 break-inside-avoid">
+                <ChannelCard
+                  card={card}
+                  current={currentKey === card.key}
+                  navFocused={currentKey === card.key && navByKeyboard}
+                  onCurrent={onCurrentCard}
+                  onOpen={openChannel}
+                />
+              </div>
+            ))}
+          </div>
         ) : chatView ? (
-          /* ═══ TG 聊天视图(AC16 既有,v5 由 TG 频道 chip 激活):气泡时间线,
+          /* ═══ TG 聊天视图(AC22 既有,v6 由 TG 渠道卡进入):气泡时间线,
               日期分隔走居中胶囊(v4 聊天主页风格);含历史态照旧 ═══ */
           groups !== null ? (
             <div className="flex flex-col gap-4" data-testid="feed-chat-timeline">
@@ -2957,11 +3006,9 @@ export function FeedScreen() {
             </div>
           )
         ) : (
-          /* ═══ 瀑布流卡片墙(v5 首屏,AC13):Tailwind columns 多列瀑布流,
-              子项 break-inside-avoid——内容卡直出(TG = 聊天气泡卡),卡面 =
-              类型徽标 + 标题 + cardDigest 摘要 + 来源渠道 + 相对时间 + 未读
-              标记(deal 价格行/watch「有更新」徽标随卡);点击卡片 = 详情
-              弹窗,悬停操作簇/右键/j-k-U-Enter 随卡保留 ═══ */
+          /* ═══ 渠道详情条目流(网站/日报渠道,AC22):Tailwind columns 多列
+              瀑布流,内容卡直出(deal 价格行/watch「有更新」徽标随卡);点击
+              卡片 = 详情弹窗,悬停操作簇/右键/j-k-U-Enter 随卡保留 ═══ */
           <div
             data-testid="feed-waterfall"
             className="columns-1 gap-3 sm:columns-2 lg:columns-3 xl:columns-4"
@@ -2974,7 +3021,7 @@ export function FeedScreen() {
           </div>
         )}
 
-        {hasMore && !loading ? (
+        {hasMore && !loading && !wallMode ? (
           <Button variant="outline" size="sm" className="self-center" onClick={() => void loadMore()} disabled={loadingMore}>
             {loadingMore ? "加载中…" : "加载更早的条目"}
           </Button>

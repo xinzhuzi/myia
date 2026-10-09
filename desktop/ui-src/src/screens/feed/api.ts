@@ -25,16 +25,10 @@ export interface FeedPageRequest {
   /** 复合游标第二键(与 cursor 同源:同刻条目翻页不跳不重) */
   cursorId: number | null;
   pageSize?: number;
-  /** 品类过滤(null = 不传参 = 全部品类;10-06 三级下钻:L3 品类作用域) */
-  category?: string | null;
-  /** 源名过滤(null = 不传参;10-06-feed-channel-groups:L3 渠道作用域,
-   *  store.items source 精确等值) */
+  /** 源名过滤(null = 不传参;v6 渠道详情作用域,store.items source 精确
+   *  等值。category/source_kind/query 三参随 v5 chips/源大类与 v6.1 全库
+   *  检索信息架构退役,已摘除) */
   source?: string | null;
-  /** 源大类过滤(null = 不传参;10-08-tg-channel-card v2 卡片墙第二层,
-   *  仅过 SOURCE_KIND_PROTOCOL 门才传) */
-  sourceKind?: "web" | "im" | null;
-  /** 服务端搜索词(G1:title/content/source 三列 LIKE NOCASE,随游标透传) */
-  query?: string | null;
   /** 同条件全量计数(F2 计数口径根治,仅过 COUNT_PROTOCOL 门时传):
    *  true = store.items 带 with_total → 应答 total 透出 FeedPage.total */
   withTotal?: boolean;
@@ -60,10 +54,7 @@ export async function fetchFeedPage(request: FeedPageRequest): Promise<FeedPage>
     ...(request.cursor
       ? { before: request.cursor, ...(request.cursorId !== null ? { before_id: request.cursorId } : {}) }
       : {}),
-    ...(request.category ? { category: request.category } : {}),
     ...(request.source ? { source: request.source } : {}),
-    ...(request.sourceKind ? { source_kind: request.sourceKind } : {}),
-    ...(request.query ? { query: request.query } : {}),
     ...(request.withTotal ? { with_total: true } : {}),
   });
   const items = result.items;
@@ -83,44 +74,6 @@ export async function fetchFeedPage(request: FeedPageRequest): Promise<FeedPage>
 // 等值同口径 —— 入库时条目记 config.id(pipeline.py `category=self.config.id`),
 // 选项 value 即 plugin.id,label 显名称)
 // ---------------------------------------------------------------------------
-
-/** 品类下拉选项(id = 服务端过滤词;label = 回显名) */
-export interface FeedCategoryOption {
-  id: string;
-  label: string;
-}
-
-/**
- * health().plugins → 品类下拉选项:id 去重(目录内同 id 多文件时首现优先)
- * + 名称回显(name 缺省回 id);装不上的插件 id=null 不入选项(选了也无数据
- * 可滤);排序稳定(id localeCompare)。与旧顶栏下拉同构(拆下归位零语义变化)。
- */
-/** 分类显示名词表(10-09:主人令「看不懂你这个分类」)——分类引擎
- *  (myssia-classifier)把新闻/群帖分拣进主题桶,桶 id 裸奔成分类行不可读;
- *  此处给已知桶以权威显示名(label 取自分拣器 data/keywords.json 的
- *  label 字段,单一事实源)。health 词表内插件品类不受此表影响。 */
-export const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
-  freebie: "🎁 羊毛",
-  "credit-card": "💳 信用卡",
-  "proxy-node": "🪄 节点",
-  "buying-agent": "🛒 代买",
-  server: "🖥️ 服务器",
-  channel: "💰 渠道",
-  token: "🔑 token",
-  "ai-news": "🤖 AI 信息",
-};
-
-export function categoryOptionsFromHealth(plugins: HealthResult["plugins"]): FeedCategoryOption[] {
-  const seen = new Map<string, string>();
-  for (const plugin of plugins) {
-    if (plugin.id && !seen.has(plugin.id)) {
-      seen.set(plugin.id, plugin.name ?? plugin.id);
-    }
-  }
-  return [...seen.entries()]
-    .map(([id, label]) => ({ id, label }))
-    .sort((a, b) => a.id.localeCompare(b.id));
-}
 
 // ---------------------------------------------------------------------------
 // 导出当前视图(G3,10-03-feed-ux):dialog.save 选路径 → sidecar 直写;
@@ -171,9 +124,6 @@ export interface ExportOutcome {
 export async function exportFeedView(
   options: {
     format: ExportFormat;
-    category?: string | null;
-    sourceKind?: "web" | "im" | null;
-    query?: string | null;
   },
   saveDialog: SaveDialogFn = defaultSaveDialog,
 ): Promise<ExportOutcome> {
@@ -185,13 +135,8 @@ export async function exportFeedView(
         : [{ name: "CSV", extensions: ["csv"] }],
   });
   if (path === null) return { path: null, count: 0, bytes: 0 };
-  const result = await api.feedExport({
-    format: options.format,
-    path,
-    ...(options.category ? { category: options.category } : {}),
-    ...(options.sourceKind ? { source_kind: options.sourceKind } : {}),
-    ...(options.query ? { query: options.query } : {}),
-  });
+  // v6:全库直出(category/source_kind/query 随信息架构退役,已摘除)
+  const result = await api.feedExport({ format: options.format, path });
   return { path: result.path, count: result.count, bytes: result.bytes };
 }
 
@@ -366,12 +311,6 @@ export function applyFeedFilter(
  * 批 = 10(含 hermes-cron 竞速顺延,开工实读;后端 bump 时此处同批跟改)。
  */
 export const READ_STATE_PROTOCOL = 10;
-
-/** 源大类能力门(10-08-tg-channel-card v2,read-state-server 同款模式):
- *  protocol ≥ 12 = store.items / store.state.mark_all / feed.export 三方法
- *  支持 source_kind(web/im)→ 情报流 L3 走卡片墙(网页一张 + 每通讯软件
- *  一张,点卡进第二层详情);未过门 = v1 形态原样(TG 频道卡区 + 消息列表)。 */
-export const SOURCE_KIND_PROTOCOL = 12;
 
 /**
  * 计数口径能力门(10-09-tg-category-entry F2 计数口径根治,READ_STATE 同款
@@ -640,37 +579,6 @@ export function sortUnreadFirst(items: FeedItem[], states: FeedStateMap): FeedIt
   );
 }
 
-/** 品类分组(A-feed):组头色点与卡片品类色条同源(categoryColor) */
-export interface FeedCategoryGroup {
-  /** 品类值(无品类 = null,作 React key 时由消费侧兜底) */
-  key: string | null;
-  /** 组头文案(中文界面;无品类 = 未分类) */
-  label: string;
-  /** 品类色(categoryColor 同源;无品类 = null 不渲色点) */
-  color: string | null;
-  items: FeedItem[];
-}
-
-/**
- * 按品类分组(A-feed):品类按首次出现顺序出组(稳定、可预期),组内保持
- * 传入顺序;无品类条目归「未分类」组(排在首次出现处,不强制沉底)。
- */
-export function groupFeedItemsByCategory(items: FeedItem[]): FeedCategoryGroup[] {
-  const groups: FeedCategoryGroup[] = [];
-  const byCategory = new Map<string | null, FeedCategoryGroup>();
-  for (const item of items) {
-    const key = item.category ?? null;
-    let group = byCategory.get(key);
-    if (!group) {
-      group = { key, label: key ?? "未分类", color: categoryColor(key), items: [] };
-      byCategory.set(key, group);
-      groups.push(group);
-    }
-    group.items.push(item);
-  }
-  return groups;
-}
-
 // ---------------------------------------------------------------------------
 // 渠道级分组与渠道类型判定(10-06-feed-channel-groups:主人令「情报流也要
 // 分渠道」+「不同渠道表现的方式不一样」)。品类分组下再按渠道(items.source
@@ -742,42 +650,6 @@ export function engineMapFromHealth(plugins: HealthResult["plugins"]): Map<strin
   return engines;
 }
 
-/** 渠道分组(品类分组下的二级分组):渠道按首次出现顺序出组(与品类分组
- *  同纪律:稳定、可预期),组内保持传入顺序;无源名条目归「未知来源」组。 */
-export interface FeedChannelGroup {
-  /** 源名(items.source;无源名 = null,React key 由消费侧兜底) */
-  key: string | null;
-  /** 组头文案(源名全称;无源名 = 未知来源) */
-  label: string;
-  /** 渠道类型(组内首条判定;同源同渠道,组内一致) */
-  kind: ChannelKind;
-  items: FeedItem[];
-}
-
-export function groupFeedItemsByChannel(
-  items: FeedItem[],
-  engineOfSource?: ReadonlyMap<string, string>,
-): FeedChannelGroup[] {
-  const groups: FeedChannelGroup[] = [];
-  const bySource = new Map<string | null, FeedChannelGroup>();
-  for (const item of items) {
-    const key = item.source ?? null;
-    let group = bySource.get(key);
-    if (!group) {
-      group = {
-        key,
-        label: key ?? "未知来源",
-        kind: channelKindOf(item, engineOfSource),
-        items: [],
-      };
-      bySource.set(key, group);
-      groups.push(group);
-    }
-    group.items.push(item);
-  }
-  return groups;
-}
-
 /** 源名前缀展示词表(10-08 审计 F9 一屏一词:卡面与 L2 渠道行共用本函数;
  *  telegram-<频道> 去 platform 前缀显本名,rss-/hnrss-/urlwatch-/engine-
  *  同为「协议载体前缀」一并剥除;其余源名全称直出,不猜)。 */
@@ -793,28 +665,7 @@ export function channelDisplayName(source: string | null): string {
   return stripped === "" ? source : stripped;
 }
 
-/** TG 渠道卡(10-08-tg-channel-card,主人令「渠道单独一个卡片,点击进去才是
- *  详情」):把可见集里的 telegram 条目按渠道聚合为渠道卡视图模型 —— 每渠道
- *  一卡(频道名/条数/未读/最新一条),消息卡不再逐条进流,点卡进该渠道
- *  source 作用域消息流(详情)。
- *
- *  口径:输入 = 调用方过滤后的可见条目(当前读态过滤 ∪ 当日窗),计数即
- *  视图诚实计数;排序 = 最新消息新→旧(聊天列表惯例),first_seen 缺失/
- *  非法沉底,同刻按源名稳定 tiebreak。telegram 判定复用 channelKindOf
- *  (源名前缀档,engine 词表无关该档,零依赖)。 */
-export interface TelegramChannelCardData {
-  /** 源名全称(items.source;下钻作用域键) */
-  key: string;
-  /** 频道显示名(去 telegram- 前缀本名) */
-  label: string;
-  /** 可见条数 */
-  count: number;
-  /** 其中未读数(states 读态;server/local 两通路同语义) */
-  unread: number;
-  /** 最新一条(first_seen 最大;预览与相对时间源) */
-  latest: FeedItem;
-}
-
+/** first_seen 数值化(缺失/非法 = 负无穷,排序沉底;feedChannelCards 消费) */
 function firstSeenValue(iso: string | null | undefined): number {
   if (!iso) return Number.NEGATIVE_INFINITY;
   const value = new Date(iso).getTime();
@@ -874,41 +725,6 @@ export function cardDigest(item: FeedItem): string | null {
   return `${text.slice(0, CARD_DIGEST_MAX_CHARS)}…`;
 }
 
-export function telegramChannelCards(
-  items: FeedItem[],
-  states: FeedStateMap,
-): TelegramChannelCardData[] {
-  const bySource = new Map<string, { count: number; unread: number; latest: FeedItem }>();
-  for (const item of items) {
-    if (channelKindOf(item) !== "telegram") continue;
-    const key = item.source ?? "";
-    if (key === "") continue;
-    const read = states[itemKey(item)]?.read === true;
-    const row = bySource.get(key);
-    if (row) {
-      row.count += 1;
-      if (!read) row.unread += 1;
-      if (firstSeenValue(item.first_seen) > firstSeenValue(row.latest.first_seen)) row.latest = item;
-    } else {
-      bySource.set(key, { count: 1, unread: read ? 0 : 1, latest: item });
-    }
-  }
-  return [...bySource.entries()]
-    .map(([key, row]) => ({ key, label: channelDisplayName(key), ...row }))
-    .sort((a, b) => {
-      const diff = firstSeenValue(b.latest.first_seen) - firstSeenValue(a.latest.first_seen);
-      return diff !== 0 ? diff : a.key.localeCompare(b.key);
-    });
-}
-
-/** 源名 → 通讯软件应用标识(10-08-tg-channel-card v2 卡片墙「每通讯软件
- *  一张卡」;与 channelKindOf 同一词表 —— telegram-/tg- 前缀 = telegram。
- *  今后新接入的通讯软件在此扩一词,卡片墙自动多一张软件卡)。 */
-export function imAppOf(source: string | null | undefined): "telegram" | null {
-  if (!source) return null;
-  return /^(telegram|tg)[-_.]/i.test(source) ? "telegram" : null;
-}
-
 /** TG 频道公开镜像推导(10-09-tg-category-entry v3 AC11 内置浏览器预览):
  *  从该品类最新条目 url 还原 `https://t.me/s/<频道名>` 公开预览页 ——
  *  t.me 的 /s/ 路径 = 无需登录的消息流网页版(telegram-channels.yaml
@@ -927,95 +743,135 @@ export function telegramMirrorUrlOf(url: string | null | undefined): string | nu
   return match ? `https://t.me/s/${match[1]}` : null;
 }
 
-/** 卡片墙视图模型(10-08-tg-channel-card v2,主人令「网页集中在一起,其他
- *  通讯软件一个通讯软件一个卡片,点击进入第二层才是详情展示」):L3 多渠道
- *  作用域的第一层只有大类卡 —— 网页一张(一切非通讯软件源)+ 每通讯软件
- *  应用一张(Telegram 等),散条目卡不再出现在第一层。
- *
- *  口径与 telegramChannelCards 相同:输入 = 调用方过滤后的可见条目,计数即
- *  视图诚实计数;排序 = 最新消息新→旧(网页/软件卡同榜竞争),first_seen
- *  缺失/非法沉底,同刻按 key 稳定 tiebreak。 */
-export interface StreamKindCardData {
-  /** 卡片作用域键 = 源大类(drill.kind 同词表):"web" = 网页卡(详情查询
-   *  source_kind=web);"im" = 通讯软件卡(详情查询 source_kind=im) */
-  key: "web" | "im";
-  /** 卡面词(网页 / Telegram;新 IM 应用在此补词) */
-  label: string;
-  /** 可见条数 */
-  count: number;
-  /** 其中未读数 */
-  unread: number;
-  /** 最新一条(预览与相对时间源) */
-  latest: FeedItem;
+// ---------------------------------------------------------------------------
+// 渠道卡(v6 渠道瀑布流,10-09 主人三次纠偏后的最终定调:「卡片 = 信息获取
+// 渠道」——一个网站/一个 TG 频道/一个日报源,不是单条消息也不是分类):
+// 类型三档判定 + 渠道全集聚合 + 搜索过滤,三件纯函数收编 api 与卡面同源。
+// ---------------------------------------------------------------------------
+
+/** 渠道卡类型三档(v6 AC20 类型徽标;engine 词表映射) */
+export type ChannelCardKind = "tg" | "site" | "daily";
+
+/** TG 线引擎词表:tg_web(网页线)/ telegram(bot·telethon 线仓内实名);
+ *  telethon/bot 为同族别名预留。 */
+const TG_ENGINES = new Set(["tg_web", "telegram", "telethon", "bot"]);
+
+/** 日报引擎词表(prompt 生成日报 / store_report 链外日报) */
+const DAILY_ENGINES = new Set(["prompt", "store_report"]);
+
+/**
+ * 渠道卡类型判定:engine 词表(tg_web/telethon/bot/telegram → TG;
+ * prompt/store_report → 日报;urlwatch/rss 类与其余 engine → 网站)。
+ * health 词表外的源(纯条目侧发现,engine 缺席)退化为源名前缀判定
+ * (telegram-/tg- 命名规约,同 channelKindOf 的 telegram 档)。
+ */
+export function channelCardKindOf(source: string, engine?: string | null): ChannelCardKind {
+  const normalized = (engine ?? "").trim().toLowerCase();
+  if (TG_ENGINES.has(normalized)) return "tg";
+  if (DAILY_ENGINES.has(normalized)) return "daily";
+  if (normalized === "") return TELEGRAM_SOURCE_RE.test(source) ? "tg" : "site";
+  return "site";
 }
 
-export function streamKindCards(
-  items: FeedItem[],
-  states: FeedStateMap,
-): StreamKindCardData[] {
-  const byKey = new Map<"web" | "im", { count: number; unread: number; latest: FeedItem }>();
-  for (const item of items) {
-    const key: "web" | "im" = imAppOf(item.source) !== null ? "im" : "web";
-    const read = states[itemKey(item)]?.read === true;
-    const row = byKey.get(key);
-    if (row) {
-      row.count += 1;
-      if (!read) row.unread += 1;
-      if (firstSeenValue(item.first_seen) > firstSeenValue(row.latest.first_seen)) row.latest = item;
-    } else {
-      byKey.set(key, { count: 1, unread: read ? 0 : 1, latest: item });
-    }
-  }
-  const labels: Record<StreamKindCardData["key"], string> = { web: "网页", im: "Telegram" };
-  return [...byKey.entries()]
-    .map(([key, row]) => ({ key, label: labels[key], ...row }))
-    .sort((a, b) => {
-      const diff = firstSeenValue(b.latest.first_seen) - firstSeenValue(a.latest.first_seen);
-      return diff !== 0 ? diff : a.key.localeCompare(b.key);
-    });
-}
-
-/** 墙卡次级概览行(10-08 审计 F10):大类内部按源聚合 top N(名称/条数/
- *  未读)—— 卡片墙层不再只有 1-2 张大类卡 + 整屏留白,大类里谁在出料一眼
- *  可见。口径与 streamKindCards 相同:输入 = 调用方过滤后的可见条目;排序 =
- *  条数多者前,同数按最新新→旧,再按源名稳定 tiebreak;label 走
- *  channelDisplayName(卡面与 L2 渠道行同一词表)。 */
-export interface StreamKindSubRow {
-  /** 源名全称(下钻作用域键) */
+/** 渠道卡视图模型(v6 AC20):渠道全集一卡一渠道 */
+export interface FeedChannelCardData {
+  /** 源名全称(items.source / health sources[].name;渠道详情作用域键) */
   key: string;
-  /** 展示名(channelDisplayName 同词表) */
+  /** 展示名(channelDisplayName 词表) */
   label: string;
-  count: number;
+  /** 类型三档(类型徽标;TG 详情 = 聊天时间线,其余 = 条目卡列表) */
+  kind: ChannelCardKind;
+  /** 今日条数(当日窗 03:00 起;已加载口径) */
+  today: number;
+  /** 未读数(已加载条目中的未读,不限今日 —— 过窗未读也该亮) */
   unread: number;
+  /** 最新一条(first_seen 最大;cardDigest 预览与相对时间源;零条目 = null) */
+  latest: FeedItem | null;
 }
 
-export function streamKindSubRows(
+/**
+ * 渠道全集 → 渠道卡(v6 AC20):全集 = health 词表源(engineBySource 的键,
+ * **零条目渠道也出卡**显今日 0)∪ 已加载条目 source,去重。计数从已加载
+ * 条目聚合(首屏铺底 = store.items 首页 50,消费侧 title 注明「已加载口径」):
+ * today 按 当日窗(03:00 窗锚;later 到期重现视同显式留存计回),unread
+ * 不限窗。latest = first_seen 最大者(缺失/非法刻沉底)。排序 = 有最新
+ * 条目的渠道按最新新→旧,零条目渠道沉底(按 key 稳定 tiebreak)。now 注入
+ * 以便测试(later 到期判定)。
+ */
+export function feedChannelCards(
   items: FeedItem[],
   states: FeedStateMap,
-  kind: "web" | "im",
-  limit = 3,
-): StreamKindSubRow[] {
-  const bySource = new Map<string, { count: number; unread: number; latest: number }>();
+  engineOfSource: ReadonlyMap<string, string>,
+  windowStart: Date,
+  now: Date = new Date(),
+): FeedChannelCardData[] {
+  const keys = new Set<string>(engineOfSource.keys());
   for (const item of items) {
-    const isIm = imAppOf(item.source) !== null;
-    if ((kind === "im") !== isIm) continue;
-    const key = item.source ?? "";
-    if (key === "") continue;
-    const read = states[itemKey(item)]?.read === true;
-    const seen = firstSeenValue(item.first_seen);
-    const row = bySource.get(key);
-    if (row) {
-      row.count += 1;
-      if (!read) row.unread += 1;
-      if (seen > row.latest) row.latest = seen;
-    } else {
-      bySource.set(key, { count: 1, unread: read ? 0 : 1, latest: seen });
-    }
+    if (item.source) keys.add(item.source);
   }
-  return [...bySource.entries()]
-    .map(([key, row]) => ({ key, label: channelDisplayName(key), ...row }))
-    .sort((a, b) => b.count - a.count || b.latest - a.latest || a.key.localeCompare(b.key))
-    .slice(0, limit);
+  const rows: FeedChannelCardData[] = [];
+  for (const key of keys) {
+    if (key === "") continue;
+    let latest: FeedItem | null = null;
+    let today = 0;
+    let unread = 0;
+    for (const item of items) {
+      if (item.source !== key) continue;
+      if (latest === null || firstSeenValue(item.first_seen) > firstSeenValue(latest.first_seen)) {
+        latest = item;
+      }
+      if (
+        inDayWindow(item.first_seen, windowStart) ||
+        isLaterResurface(item, states[itemKey(item)], now)
+      ) {
+        today += 1;
+      }
+      if (!(states[itemKey(item)]?.read === true)) unread += 1;
+    }
+    rows.push({
+      key,
+      label: channelDisplayName(key),
+      kind: channelCardKindOf(key, engineOfSource.get(key)),
+      today,
+      unread,
+      latest,
+    });
+  }
+  return rows.sort((a, b) => {
+    const diff =
+      firstSeenValue(b.latest?.first_seen ?? null) - firstSeenValue(a.latest?.first_seen ?? null);
+    return diff !== 0 ? diff : a.key.localeCompare(b.key);
+  });
+}
+
+/** 渠道类型别名词表(TG 是平台俗名:搜「Tg」须直出全部 TG 渠道卡 ——
+ *  字面包含匹配碰不到 "telegram"(t、g 不相邻),v6.1 服务端全文检索靠的
+ *  是条目正文里的 TG 字样,渠道卡过滤没有正文可搜,类型别名补上这条主人
+ *  实测主路径;网站/日报同构一词)。 */
+const CHANNEL_KIND_ALIASES: Record<ChannelCardKind, string[]> = {
+  tg: ["tg", "telegram"],
+  site: ["web", "网站", "网址"],
+  daily: ["daily", "日报"],
+};
+
+/**
+ * 渠道卡搜索过滤(v6 AC21,主人实测「搜 Tg 出不来 telegram 卡片」的渠道版
+ * 直答):query 按渠道名(label)/源 id(key)**包含匹配**,大小写不敏感;
+ * 渠道类型别名同认(query 是该渠道类型的别名或其前缀也算命中,「Tg」直出
+ * 全部 TG 渠道卡)。空串 = 全量原样。客户端过滤,不发服务端查询。
+ */
+export function filterChannelsByQuery(
+  cards: FeedChannelCardData[],
+  query: string,
+): FeedChannelCardData[] {
+  const q = query.trim().toLowerCase();
+  if (q === "") return cards;
+  return cards.filter((card) => {
+    if (`${card.key} ${card.label}`.toLowerCase().includes(q)) return true;
+    return (CHANNEL_KIND_ALIASES[card.kind] ?? []).some(
+      (alias) => alias === q || alias.startsWith(q),
+    );
+  });
 }
 
 /** 价格/优惠行的展示视图(games 四源字段形态并存,push 模板 elif 链同款
