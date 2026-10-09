@@ -85,3 +85,10 @@
 - 提交 03058da(整合师在环内 pathspec 入库,12+ 文件):F2 计数口径根治(store 层 with_total + 协议 v13 + COUNT_PROTOCOL 门,词面「已加载 X · 共 T 条」)、F10 墙层次级概览(im 卡 top3 频道/未读、web 卡 top3 源,数据从 displayItems 现算零新 RPC)、P2-3 富块拉出泡根(着色底收进气泡 div,富块落卡底色,形态锚用例随新结构更新)。
 - 门禁全绿(build/feed vitest/pytest desktop+store/全量 vitest/无头冒烟);换人验收员三动线截图通过;换装双实锤(新 chunk index-CpHYxhY6 旧件零命中;装机 sidecar with_total=7)+ WKWebView 缓存清 + app 常驻 PID 71041(打包安装员全程绝对路径,昨日 cwd 事故教训已贯彻)。
 - 至此本档 F2/F10/P2-3 三项 P2 全数关闭;遗留仅「装机像素终验」(主人点亮即验)。
+
+## v6 追加(2026-10-09 晨,主人令「看不懂你这个分类」)
+
+- 根因:分类引擎(myssia-classifier)把新闻/群帖分拣进主题桶,桶 id(channel/freebie/proxy-node/server/token/buying-agent/credit-card)裸奔成 L1 分类行。
+- 修复:CATEGORY_DISPLAY_NAMES 显示名词表(label 权威来源 = 分拣器 keywords.json 的 label 字段:🎁羊毛/💳信用卡/🪄节点/🛒代买/🖥️服务器/💰渠道/🔑token/🤖AI 信息);插件健康词表名优先,名词表只兜底词表外桶 id。
+- 清理:遗留 CLI telegram serve(pid 1187,10-08 起旧代码写者+长轮询占位)已停。
+- 门禁:vitest 661 + build + 冒烟全绿;换装(chunk 随 v6 构建更新)+ app 还原。
