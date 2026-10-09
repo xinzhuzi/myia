@@ -8,7 +8,6 @@ import {
   Download,
   ExternalLink,
   FileText,
-  Globe,
   Inbox,
   Percent,
   Play,
@@ -64,7 +63,6 @@ import {
   bodyWithoutTitleDup,
   categoryColor,
   categoryOptionsFromHealth,
-  cardDigest,
   channelDisplayName,
   channelKindOf,
   dayWindowStart,
@@ -73,12 +71,10 @@ import {
   defaultExportName,
   engineMapFromHealth,
   exportFeedView,
-  FEED_PAGE_SIZE,
   fetchFeedPage,
   formatRelativeTime,
   groupFeedItems,
   groupFeedItemsByChannel,
-  imAppOf,
   importLocalFeedStates,
   inDayWindow,
   isLaterResurface,
@@ -100,20 +96,13 @@ import {
   saveYamlRaw,
   setMarkerBulk,
   sortUnreadFirst,
-  SOURCE_KIND_PROTOCOL,
   statesFromItems,
-  streamKindCards,
-  streamKindSubRows,
-  telegramChannelCards,
   telegramMirrorUrlOf,
   toggleMarker,
   type ChannelKind,
   type ExportFormat,
   type FeedCategoryOption,
   type FeedDisplayOptions,
-  type StreamKindCardData,
-  type StreamKindSubRow,
-  type TelegramChannelCardData,
   type YamlTargetFile,
 } from "./api";
 import type { FeedFilter, FeedStateMap } from "./api";
@@ -1084,206 +1073,6 @@ function FeedCard({
  *  详情」):流内按渠道聚合的摘要卡,聊天列表形态 —— 频道名 + 最新一条预览 +
  *  条数/未读 + 最新相对时间;未读 >0 带左缘 accent 竖条(与消息卡未读竖条
  *  同语言)。点击进该渠道 source 作用域消息流(详情本体,气泡逐条)。 */
-function TgChannelCard({
-  card,
-  onOpen,
-}: {
-  card: TelegramChannelCardData;
-  onOpen: () => void;
-}) {
-  const time = formatRelativeTime(card.latest.first_seen);
-  const preview = (card.latest.title || card.latest.url).replace(/\s+/g, " ").trim();
-  const digest = cardDigest(card.latest);
-  return (
-    <button
-      type="button"
-      data-testid={`feed-tg-channel-card-${card.key}`}
-      onClick={onOpen}
-      className="group/tg-card relative w-full overflow-hidden rounded-md border border-border bg-card px-3 py-2.5 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:border-primary/40 hover:bg-accent/40"
-      title={`打开 ${card.label} 的消息流:${card.count} 条 · 未读 ${card.unread}(口径 = 当前视图 ∪ 当日窗可见条目)`}
-    >
-      {card.unread > 0 ? (
-        <span aria-hidden data-testid={`feed-tg-channel-unread-${card.key}`} className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-[#9869f7]" />
-      ) : null}
-      <span className="flex items-center gap-1.5">
-        <Send aria-hidden className="size-3.5 shrink-0 text-primary" />
-        <span className="min-w-0 truncate text-sm font-medium text-foreground">{card.label}</span>
-        <time
-          dateTime={card.latest.first_seen ?? undefined}
-          className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground"
-        >
-          {time}
-        </time>
-      </span>
-      <span className="mt-0.5 block truncate text-sm leading-relaxed text-muted-foreground">{preview}</span>
-      {digest !== null ? (
-        <span
-          className="mt-0.5 block truncate text-2xs leading-relaxed text-muted-foreground"
-          data-testid={`feed-tg-channel-digest-${card.key}`}
-        >
-          {digest}
-        </span>
-      ) : null}
-      <span className="mt-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
-        {card.count} 条{card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
-        <ChevronRight
-          aria-hidden
-          className="ml-auto size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-(--duration-fast) ease-out-expo group-hover/tg-card:translate-x-0.5"
-        />
-      </span>
-    </button>
-  );
-}
-
-/**
- * TG 分节节头(10-08 审计 F3):通讯软件详情层的节头退化版 —— 频道名 +
- * 条数/未读 + chevron 的细条,去 preview/digest 大卡形制。此前节头卡复用
- * TgChannelCard(带最新条目预览/摘要),与节内首条气泡背靠背重复同一消息,
- * 看似两条消息;细条与消息卡拉开视觉档位,点击进单频道过滤的动线不变
- * (testid 沿用 feed-tg-channel-card-*,面包屑/键盘语义零变化)。
- */
-function TgSectionHeader({
-  card,
-  onOpen,
-}: {
-  card: TelegramChannelCardData;
-  onOpen: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      data-testid={`feed-tg-channel-card-${card.key}`}
-      onClick={onOpen}
-      className="group/tg-head flex w-full items-center gap-2 rounded-md border border-transparent px-2 py-1 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:border-border hover:bg-accent/40"
-      title={`打开 ${card.label} 的消息流:${card.count} 条 · 未读 ${card.unread}`}
-    >
-      <span aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15">
-        <Send className="size-3.5 text-primary" />
-      </span>
-      <span className="min-w-0 truncate text-sm font-medium text-foreground">{card.label}</span>
-      <span className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground">
-        {card.count} 条{card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
-      </span>
-      <ChevronRight
-        aria-hidden
-        className="size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-(--duration-fast) ease-out-expo group-hover/tg-head:translate-x-0.5"
-      />
-    </button>
-  );
-}
-
-/** 源大类卡(10-08-tg-channel-card v2,主人令「网页集中在一起,其他通讯软件
- *  一个通讯软件一个卡片,点击进入第二层才是详情展示」):L3 多渠道作用域
- *  第一层的卡片墙本体 —— 网页一张(Globe)/ 每通讯软件一张(Telegram =
- *  Send),散条目卡不再出现在第一层;点击进第二层详情(网页 = 条目平铺,
- *  通讯软件 = 按频道分节全铺)。形制与 TgChannelCard 同语言(未读竖条/
- *  最新预览/计数/chevron)。
- *
- *  10-08 审计追加:F2 计数口径注记(hasMore 时「已加载 N 条」+ title 补
- *  「首页 50 截断」,与 L1 行 title 同门,不再静默低估;10-09-tg-category-entry
- *  F2 根治:过 COUNT_PROTOCOL 门改「已加载 X · 共 T 条」,T = store.items
- *  with_total 同 WHERE 全量计数);F5 键盘巡游
- *  (墙卡带 data-item-key/data-nav-focused 入 j/k 巡游集,U/Enter 进详情);
- *  F10 墙卡内次级概览行(im 卡 top3 频道 = telegramChannelCards 聚合,
- *  web 卡 top3 源 = streamKindSubRows,均 displayItems 现算零新 RPC)。 */
-function SourceKindCard({
-  card,
-  onOpen,
-  truncated = false,
-  total = null,
-  subRows = [],
-  navFocused = false,
-  onCurrent,
-}: {
-  card: StreamKindCardData;
-  onOpen: () => void;
-  /** 计数口径注记(F2):true = 可见条目只是已加载首页(FEED_PAGE_SIZE 截断),
-   *  词面改「已加载 N 条」+ title 注记,不再以全量词面静默低估 */
-  truncated?: boolean;
-  /** 同条件全量计数(F2 根治,10-09-tg-category-entry;store.items with_total,
-   *  过 COUNT_PROTOCOL 门才非 null):截断且在值 → 词面「已加载 X · 共 T 条」,
-   *  title 补口径注记;null(未过门/旧 sidecar 无 total 字段)= 回落旧词面 */
-  total?: number | null;
-  /** 次级概览行(F10):大类内 top3 源(名称/条数/未读) */
-  subRows?: StreamKindSubRow[];
-  /** j/k 键盘巡游聚焦(F5):focus 环呈现与否 */
-  navFocused?: boolean;
-  /** hover/focus 进入 = 置键盘「当前卡」(F5 巡游集口径) */
-  onCurrent?: () => void;
-}) {
-  const time = formatRelativeTime(card.latest.first_seen);
-  const preview = (card.latest.title || card.latest.url).replace(/\s+/g, " ").trim();
-  const Icon = card.key === "im" ? Send : Globe;
-  const digest = cardDigest(card.latest);
-  const hasTotal = total !== null && total > card.count;
-  return (
-    <button
-      type="button"
-      data-testid={`feed-kind-card-${card.key}`}
-      data-item-key={`kind:${card.key}`}
-      data-nav-focused={navFocused ? "true" : "false"}
-      onMouseEnter={onCurrent}
-      onFocus={onCurrent}
-      onClick={onOpen}
-      className={`group/kind-card relative w-full overflow-hidden rounded-md border border-border bg-card px-3 py-2.5 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:border-primary/40 hover:bg-accent/40${navFocused ? " ring-1 ring-primary/60" : ""}`}
-      title={`打开「${card.label}」详情:${card.count} 条 · 未读 ${card.unread}(口径 = 当前视图 ∪ 当日窗可见条目${hasTotal ? `;共 ${total} 条 = 当前过滤同口径全量计数,含未翻页` : truncated ? `;首页 ${FEED_PAGE_SIZE} 条截断,更早条目未计入` : ""})`}
-    >
-      {card.unread > 0 ? (
-        <span aria-hidden data-testid={`feed-kind-card-unread-${card.key}`} className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-[#9869f7]" />
-      ) : null}
-      <span className="flex items-center gap-1.5">
-        <Icon aria-hidden className="size-3.5 shrink-0 text-primary" />
-        <span className="min-w-0 truncate text-sm font-medium text-foreground">{card.label}</span>
-        <time
-          dateTime={card.latest.first_seen ?? undefined}
-          className="ml-auto shrink-0 font-mono text-2xs text-muted-foreground"
-        >
-          {time}
-        </time>
-      </span>
-      <span className="mt-0.5 block truncate text-sm leading-relaxed text-muted-foreground">{preview}</span>
-      {digest !== null ? (
-        <span
-          className="mt-0.5 block truncate text-2xs leading-relaxed text-muted-foreground"
-          data-testid={`feed-kind-digest-${card.key}`}
-        >
-          {digest}
-        </span>
-      ) : null}
-      <span className="mt-1 flex items-center gap-1.5 text-2xs text-muted-foreground">
-        {hasTotal
-          ? `已加载 ${card.count} · 共 ${total} 条`
-          : truncated
-            ? `已加载 ${card.count} 条`
-            : `${card.count} 条`}
-        {card.unread > 0 ? ` · 未读 ${card.unread}` : ""}
-        <ChevronRight
-          aria-hidden
-          className="ml-auto size-3.5 shrink-0 text-muted-foreground/70 transition-transform duration-(--duration-fast) ease-out-expo group-hover/kind-card:translate-x-0.5"
-        />
-      </span>
-      {/* 次级概览行(F10):大类内谁在出料(top3 源 + 条数/未读) */}
-      {subRows.length > 0 ? (
-        <span
-          className="mt-1 flex flex-col gap-0.5 border-t border-border/50 pt-1"
-          data-testid={`feed-kind-subs-${card.key}`}
-        >
-          {subRows.map((row) => (
-            <span key={row.key} className="flex items-center gap-1.5 text-2xs text-muted-foreground">
-              <span aria-hidden className="size-1 shrink-0 rounded-full bg-muted-foreground/60" />
-              <span className="min-w-0 truncate">{row.label}</span>
-              <span className="ml-auto shrink-0 font-mono tabular-nums">
-                {row.count}
-                {row.unread > 0 ? ` · 未读 ${row.unread}` : ""}
-              </span>
-            </span>
-          ))}
-        </span>
-      ) : null}
-    </button>
-  );
-}
-
 /**
  * 消息详情弹窗(主人令「点击信息,弹出详情」,10-08):标题全文 + 元信息簇
  * (来源渠道/品类/时间/精评评分/图析)+ 正文与图析全文 + 动作簇(👍👎 反馈
@@ -1467,6 +1256,18 @@ function FeedItemDetail({
  * 提交,query 随游标透传)+ 屏内品类下拉服务端过滤(10-04-topbar-cleanup
  * 归位)+ 卡片展开/打开原文(G2)+ 导出当前视图(G3,dialog.save → feed.export)。
  *
+ * v5 瀑布流信息架构(10-09-tg-category-entry,主人令「做成瀑布流卡片,并且
+ * 可以搜索的界面……不要乱七八糟的展示性内容,一切以瀑布流卡片点击进去再
+ * 展示」):落地即内容瀑布流(Tailwind columns 多列 + break-inside-avoid,
+ * AC13),分类/渠道从「导航页」降级为「墙顶筛选 chips」(AC15:品类 chips =
+ * health 词表 ∪ 已加载品类,零计数不出 chip;渠道 chips 选定品类后出现);
+ * 工具条搜索保留首屏,结果即瀑布流(AC14);TG 品类激活时监控台卡钉在墙顶,
+ * TG 频道 chip = 既有聊天视图(AC16);历史态出口收编工具条。旧三级下钻
+ * (L1 品类行 / L2 渠道行 / 源大类卡片墙与分节详情)代码路径按 AC17 撤销,
+ * SOURCE_KIND_PROTOCOL 门随之退役(查询不再携 source_kind,低版本 sidecar
+ * 回退 = 与新面同构仅少 total 词面);F2 计数词面/详情弹窗/操作簇/右键/
+ * 键盘巡游/能力门(读态/计数)全数保留。
+ *
  * D4 结构性重做(10-03-ui-deep-imitation,对标 teardown-linear-activity
  * #4/#5/#6/#11):三级信息密度(13px 标题/正文 + 11px 元信息)、品类色条、
  * 分组时间轴(今天/昨天/7 天内/更早,sticky 组头)、hover 浮现操作簇 +
@@ -1547,48 +1348,32 @@ function FeedItemDetail({
  */
 export function FeedScreen() {
   const navigate = useNavigate();
-  /** 三级下钻(10-06-feed-channel-groups 主人令「二级界面分类,一层一层
-   *  点击进去」):L1 品类列表(挂载缺省)→ L2 渠道列表 → L3 消息流(分型
-   *  呈现主场)。L3 作用域 = {category, source}(可空 = 全部);查询走
-   *  store.items category+source 精确等值 + 游标;返回经面包屑。 */
-  const [drill, setDrill] = useState<
-    | { level: 1 }
-    | { level: 2; category: string }
-    | {
-        level: 3;
-        category: string | null;
-        source: string | null;
-        /** 源大类作用域(10-08-tg-channel-card v2,仅过 SOURCE_KIND_PROTOCOL
-         *  门时有值):null = 卡片墙第一层;web = 网页详情;im = 通讯软件
-         *  详情(source=null 分节全铺 / source=单频道过滤)。 */
-        kind: "web" | "im" | null;
-        /** 含历史态(10-09-tg-category-entry,监控台入口):绕过当日窗,
-         *  展示该作用域全部入库条目(监控台「看全部历史消息」专用)。 */
-        history: boolean;
-      }
-  >({ level: 1 });
-  /** 源大类能力门(10-08-tg-channel-card v2):protocol ≥ SOURCE_KIND_PROTOCOL
-   *  = sidecar 三方法支持 source_kind → L3 走卡片墙;未过门 = v1 形态原样
-   *  (TG 频道卡区 + 消息列表)。与 serverStateReady 同一次 version 调用合流。 */
-  const [sourceKindReady, setSourceKindReady] = useState(false);
+  /** v5 瀑布流信息架构(10-09-tg-category-entry,主人令「做成瀑布流卡片,
+   *  并且可以搜索的界面……一切以瀑布流卡片点击进去再展示」):落地即内容
+   *  瀑布流,分类/渠道从「导航页」降级为「筛选 chips」—— 作用域 = 双维
+   *  {category, source}(可空 = 全部)+ history 历史态;查询走既有
+   *  store.items category+source 精确等值 + 游标;TG 频道作用域 = 既有
+   *  聊天视图(气泡时间线)。旧三级下钻(L1 品类行/L2 渠道行)按 AC17
+   *  随本批撤销。 */
+  const [scope, setScope] = useState<{
+    category: string | null;
+    source: string | null;
+    /** 含历史态(10-09-tg-category-entry,监控台入口):绕过当日窗,
+     *  展示该作用域全部入库条目(监控台「看全部历史消息」专用)。 */
+    history: boolean;
+  }>({ category: null, source: null, history: false });
   /** 计数口径能力门(10-09-tg-category-entry F2 根治):protocol ≥
    *  COUNT_PROTOCOL = store.items 支持 with_total → 首页查询带全量计数,
-   *  词面「已加载 N · 共 T 条」;未过门/应答无 total = 回落「已加载 N 条」。 */
+   *  词面「已加载 N · 共 T 条」;未过门/应答无 total = 回落「已加载 N 条」。
+   *  SOURCE_KIND_PROTOCOL 门随 v5 信息架构退役:web/im 源大类视图撤销,
+   *  查询不再携 source_kind —— 低版本 sidecar 的回退语义 = 与新面同构,
+   *  仅少 total 词面(version 探测与读态/计数门保留,合流同一次调用)。 */
   const [countReady, setCountReady] = useState(false);
-  /** L3 查询作用域(drill 派生;L1/L2 = 全局首页,计数源)。kind 仅在过门
-   *  且未定源时随参(source 精确等值视图不需要大类过滤)。 */
-  const streamScope =
-    drill.level === 3
-      ? {
-          category: drill.category,
-          source: drill.source,
-          sourceKind:
-            sourceKindReady && drill.source === null ? (drill.kind ?? null) : null,
-        }
-      : { category: null, source: null, sourceKind: null };
-  /** 下钻作用域键(refresh/loadMore/liveRefresh 依赖;变化即重查) */
-  const scopeKey =
-    drill.level === 3 ? `3:${drill.category ?? "*"}:${drill.source ?? "*"}:${drill.kind ?? "*"}` : "root";
+  /** 查询作用域(scope 派生;history 不进查询词,当日窗过滤在视图层) */
+  const streamScope = useMemo(
+    () => ({ category: scope.category, source: scope.source }),
+    [scope.category, scope.source],
+  );
   /** 品类下拉选项(health().plugins 派生,挂载一次;L1 品类列表词汇源) */
   const [categoryOptions, setCategoryOptions] = useState<FeedCategoryOption[]>([]);
   /** 源名→engine 映射(10-06-feed-channel-groups:渠道类型判定的词表源;
@@ -1632,8 +1417,6 @@ export function FeedScreen() {
    *  才执行;Esc / 失焦 / 「取消」退出)。品类组头钮豁免(作用域小一级,
    *  即时执行 + title 如实)。 */
   const [confirmAllMark, setConfirmAllMark] = useState<"read" | "unread" | null>(null);
-  /** L1 闲置品类折叠(10-09-tg-category-entry,主人令零计数行降噪):缺省收起 */
-  const [idleOpen, setIdleOpen] = useState(false);
   const [tgWebline, setTgWebline] = useState<TelegramStatus | null>(null);
   const [tgLoginBusy, setTgLoginBusy] = useState(false);
 
@@ -1693,8 +1476,8 @@ export function FeedScreen() {
   }, []);
 
   // 能力门探测(挂载一次):低版本/探测失败 → false(旧 localStorage 通路);
-  // 同一次应答顺带置源大类门(10-08-tg-channel-card v2)与计数口径门
-  // (F2 根治,零新 RPC)
+  // 同一次应答顺带置计数口径门(F2 根治,零新 RPC;源大类门随 v5 信息架构
+  // 退役,见 scope 注记)
   useEffect(() => {
     let cancelled = false;
     void api
@@ -1703,14 +1486,12 @@ export function FeedScreen() {
         if (!cancelled) {
           const protocol = typeof info?.protocol === "number" ? info.protocol : -1;
           setServerStateReady(protocol >= READ_STATE_PROTOCOL);
-          setSourceKindReady(protocol >= SOURCE_KIND_PROTOCOL);
           setCountReady(protocol >= COUNT_PROTOCOL);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setServerStateReady(false);
-          setSourceKindReady(false);
           setCountReady(false);
         }
       });
@@ -1737,7 +1518,6 @@ export function FeedScreen() {
         cursorId: null,
         category: streamScope.category,
         source: streamScope.source,
-        sourceKind: streamScope.sourceKind,
         query,
         // F2 根治:过计数门才带 with_total(旧 sidecar 忽略未知参数属预期,
         // 应答无 total = 回落「已加载 N 条」词面,不为旧面报错)。
@@ -1768,23 +1548,23 @@ export function FeedScreen() {
       // loading 无条件清:守卫化会把 loading 卡死在更晚的 liveRefresh 票上
       setLoading(false);
     }
-    // 依赖含 scopeKey:下钻/回退切换作用域即重查(L3-all 与 L1 同参,重查幂等);
+    // 依赖含作用域双维:chips 切换作用域即重查(全部 = 全局首页,重查幂等);
     // 含 countReady:计数门探测晚于首页查询时(version 异步竞速)门翻转即补一查,
     // total 不缺场 —— 仅新 sidecar(protocol ≥ 13)多一次首页查询,旧面零增。
-  }, [streamScope.category, streamScope.source, scopeKey, query, countReady, nextFeedSeq]);
+  }, [streamScope.category, streamScope.source, query, countReady, nextFeedSeq]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  /** L1/L2 概览数据(深审 F1):按品类查询的首页页 —— store.items 带
-   *  category 游标(每品类一页 50,勿全量拉),L1 行计数与 L2 渠道列表的
-   *  真数据源。此前两者只吃全局首页 50 条:长尾品类/渠道的全部条目落在
-   *  全局首页之外 = 假空态/假零计数(下钻进去明明有货)。查询不带 query
-   *  (L1/L2 是当日窗概览,搜索词只属 L3 流)。 */
+  /** 品类概览数据(深审 F1 沿用,v5 = 品类/渠道 chips 计数的真数据源):
+   *  按品类查询的首页页 —— store.items 带 category 游标(每品类一页 50,
+   *  勿全量拉)。此前导航行只吃全局首页 50 条:长尾品类/渠道的全部条目落
+   *  在全局首页之外 = 假空态/假零计数。查询不带 query(chips 计数是当日窗
+   *  概览,搜索词只属内容流)。 */
   const [categoryPages, setCategoryPages] = useState<Record<string, FeedItem[]>>({});
   /** 概览词表键(稳定字符串):health 选项 ∪ 全局页条目品类 —— 词表外
-   *  品类(插件已卸/改名遗留数据)也出行,零计数如实(旧 L1 行为对齐)。
+   *  品类(插件已卸/改名遗留数据)也入 chips 词表,零计数如实。
    *  join 成串做依赖:字符串值比较,items 身份每轮刷新不触发概览重查。 */
   const overviewCategoryKey = useMemo(() => {
     const ids = new Set(categoryOptions.map((option) => option.id));
@@ -1809,39 +1589,17 @@ export function FeedScreen() {
     setCategoryPages(next);
   }, [overviewCategoryKey]);
 
-  // 概览随层级与词汇源变化重查(L3 流不查 —— 流本体即数据面)
+  // 概览随词汇源变化重查(chips 计数是常驻数据面,挂载即查)
   useEffect(() => {
-    if (drill.level === 3) return;
     void refreshOverview();
-  }, [drill.level, refreshOverview]);
-
-  // L2 定向补查:进层即取该品类页(概览未覆盖/词汇源迟到时保底;进层取新)
-  const l2Category = drill.level === 2 ? drill.category : null;
-  useEffect(() => {
-    if (l2Category === null) return;
-    let cancelled = false;
-    overviewSeqRef.current += 1;
-    const seq = overviewSeqRef.current;
-    void fetchFeedPage({ cursor: null, cursorId: null, category: l2Category, query: null })
-      .then((page) => {
-        if (!cancelled && seq === overviewSeqRef.current) {
-          setCategoryPages((current) => ({ ...current, [l2Category]: page.items }));
-        }
-      })
-      .catch(() => {
-        // 概览尽力而为:失败静默(L2 以已有页呈现,计数口径如实)
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [l2Category]);
+  }, [refreshOverview]);
 
   /** 实时滚动刷新(10-06 追加:主人令「情报流要不停地过信息日志」):
    *  静默拉首页 → mergeFreshItems 前插新键(已加载行与游标零扰动,新条目
    *  持续进流);失败静默(轮询尽力而为,不打错误卡——手点刷新钮才走
    *  错误路径)。触发面:completed / cron.completed 事件即时 + 30s 可见性
    *  轮询兜底(CLI 独立跑的采集无事件;隐藏暂停不打 sidecar)。
-   *  F2 对票 + L1/L2 顺带刷新概览(计数实时);L3 才并入流本体。 */
+   *  F2 对票 + 顺带刷新概览(chips 计数实时);新行并入流本体。 */
   const liveRefresh = useCallback(async () => {
     const seq = nextFeedSeq();
     try {
@@ -1850,18 +1608,17 @@ export function FeedScreen() {
         cursorId: null,
         category: streamScope.category,
         source: streamScope.source,
-        sourceKind: streamScope.sourceKind,
         query,
         withTotal: countReady, // F2 根治:实时滚动顺带刷新 total(新条目落地 T 随动)
       });
       if (seq !== feedSeqRef.current) return; // F2:旧应答丢弃(含切域后在途包)
       setItems((current) => mergeFreshItems(current, page.items).items);
       setTotal(page.total);
-      if (drill.level !== 3) void refreshOverview();
+      void refreshOverview();
     } catch {
       // 尽力而为:轮询失败静默(下一轮/事件/手点刷新再试)
     }
-  }, [streamScope.category, streamScope.source, drill.level, query, countReady, nextFeedSeq, refreshOverview]);
+  }, [streamScope.category, streamScope.source, query, countReady, nextFeedSeq, refreshOverview]);
 
   // 事件驱动即时刷新:桌面 run 终态(completed)+ cron 派发 run 落地
   // (cron.completed);与空流 CTA 的定向订阅并行,重复刷新幂等无害
@@ -1928,7 +1685,6 @@ export function FeedScreen() {
         cursorId,
         category: streamScope.category,
         source: streamScope.source,
-        sourceKind: streamScope.sourceKind,
         query,
       });
       if (seq !== feedSeqRef.current) return; // F2:refresh/liveRefresh 已接管,旧页不追加
@@ -2047,23 +1803,19 @@ export function FeedScreen() {
   );
   const closeDetail = useCallback(() => setDetailKey(null), []);
 
-  /** G9 批量:全部标已读/未读(可选 category = 品类分组组头入口;可选
-   *  sourceKind = 源大类作用域,10-08-tg-channel-card v2 卡片墙第二层)——
-   *  过门后 store.state.mark_all 单 UPDATE:category/source_kind 缺省 =
-   *  全库(含未翻页/未加载条目),传 category = 该品类全库精确等值(协议
-   *  不收 query,决议 Q3.2),传 sourceKind = 大类全库(web/im,与 category
-   *  可叠加);就地翻转已加载行内作用域条目即时反馈,不整页重拉,失败按
-   *  调用前快照回滚(只回滚作用域内行,域外行不动);未过门 = 旧本地批量
-   *  (作用域 = 已加载条目,无品类/大类入口,title 如实注明)。 */
+  /** G9 批量:全部标已读/未读(可选 category = 品类 chips 作用域,v5 起
+   *  品类批量入口 = 工具条钮随作用域收窄;源大类 source_kind 作用域随 v5
+   *  信息架构退役)—— 过门后 store.state.mark_all 单 UPDATE:category
+   *  缺省 = 全库(含未翻页/未加载条目),传 category = 该品类全库精确等值
+   *  (协议不收 query,决议 Q3.2);就地翻转已加载行内作用域条目即时反馈,
+   *  不整页重拉,失败按调用前快照回滚(只回滚作用域内行,域外行不动);
+   *  未过门 = 旧本地批量(作用域 = 已加载条目,title 如实注明)。 */
   const markAllRead = useCallback(
-    (value: boolean, category?: string, sourceKind?: "web" | "im") => {
+    (value: boolean, category?: string) => {
       if (useServerState) {
-        // 作用域谓词:全库 = 全部已加载行;品类 = 该 category 精确等值行;
-        // 大类 = im(通讯软件前缀源)/ web(其余含无源)
+        // 作用域谓词:全库 = 全部已加载行;品类 = 该 category 精确等值行
         const inScope = (candidate: FeedItem) =>
-          (category === undefined || candidate.category === category) &&
-          (sourceKind === undefined ||
-            (sourceKind === "im" ? imAppOf(candidate.source) !== null : imAppOf(candidate.source) === null));
+          category === undefined || candidate.category === category;
         const snapshot = new Map(
           items.filter(inScope).map((candidate) => [itemKey(candidate), candidate.read === true]),
         );
@@ -2075,7 +1827,6 @@ export function FeedScreen() {
             marker: "read",
             value,
             ...(category !== undefined ? { category } : {}),
-            ...(sourceKind !== undefined ? { source_kind: sourceKind } : {}),
           })
           .then(() => setMarkError(null))
           .catch((err) => {
@@ -2106,14 +1857,14 @@ export function FeedScreen() {
   const visible = useMemo(() => {
     const filtered = applyFeedFilter(items, states, filter, new Date());
     // 历史态(10-09-tg-category-entry 监控台入口):绕过当日窗,全部入库条目可见
-    if (drill.level === 3 && drill.history) return filtered;
+    if (scope.history) return filtered;
     if (filter !== "unread" && filter !== "all") return filtered;
     return filtered.filter(
       (item) =>
         inDayWindow(item.first_seen, windowStart) ||
         isLaterResurface(item, states[itemKey(item)]),
     );
-  }, [items, states, filter, windowStart, drill]);
+  }, [items, states, filter, windowStart, scope.history]);
 
   /** 展示序(A-feed):过滤结果 → 未读优先(可选;未读浮前,两类各自稳定保序) */
   const displayItems = useMemo(
@@ -2121,60 +1872,20 @@ export function FeedScreen() {
     [display.unreadFirst, visible, states],
   );
 
-  /** 三层作用域派生(10-08-tg-channel-card v2):wallLayout = 卡片墙第一层
-   *  (网页一张 + 每通讯软件一张,散条目卡退场);webDetailLayout = 网页
-   *  详情(条目平铺);imDetailLayout = 通讯软件分节详情(频道卡降为节头,
-   *  节内消息全量平铺)。legacyStreamLayout = 未过源大类门的多渠道流 = v1
-   *  形态原样(TG 频道卡区 + 消息列表,双形态一门之隔)。 */
-  const wallLayout =
-    sourceKindReady && drill.level === 3 && drill.source === null && drill.kind === null;
-  const imDetailLayout =
-    sourceKindReady && drill.level === 3 && drill.source === null && drill.kind === "im";
-  const legacyStreamLayout = drill.level === 3 && drill.source === null && !sourceKindReady;
-  /** 聊天视图(10-09 聊天主页风格):TG 单频道流(含历史态)日期分隔走
-   *  居中胶囊(im 分节层以频道为节、无日期分组,子句保持判定对称)。 */
-  const chatStyleGroups =
-    drill.level === 3 &&
-    (drill.kind === "im" ||
-      (drill.source ?? "").startsWith("telegram") ||
-      (drill.history === true && (drill.category ?? "").startsWith("telegram")));
-  /** TG 品类渠道页(10-09-tg-category-entry):品类 id telegram 前缀 = 该页
-   *  顶部出「网页线监控台」卡(登录/监控状态 + 历史入口)。 */
-  const isTelegramCategory = drill.level === 2 && drill.category.startsWith("telegram");
+  /** 渲染形态派生(v5 双形态):默认 = 瀑布流卡片墙(AC13,内容卡直出,
+   *  TG 条目以聊天气泡卡入列);chatView = TG 频道作用域(既有聊天视图,
+   *  气泡时间线 + 日期胶囊,AC16)。源大类视图(web/im 墙与分节)随 v5
+   *  信息架构退役。 */
+  const chatView = (scope.source ?? "").startsWith("telegram");
+  /** TG 品类激活(监控台钉墙顶判定):品类 id telegram 前缀。 */
+  const isTelegramCategory = (scope.category ?? "").startsWith("telegram");
 
-  /** v1 形态派生(未过门回落;过门后恒空 = 零渲染):渠道卡区 + 消息列表
-   *  剔除 telegram。 */
-  const tgCards = useMemo<TelegramChannelCardData[]>(
-    () => (legacyStreamLayout ? telegramChannelCards(displayItems, states) : []),
-    [legacyStreamLayout, displayItems, states],
-  );
-  const streamItems = useMemo(
-    () =>
-      legacyStreamLayout
-        ? displayItems.filter((item) => channelKindOf(item, engineBySource) !== "telegram")
-        : displayItems,
-    [legacyStreamLayout, displayItems, engineBySource],
-  );
-
-  /** 卡片墙(v2 第一层):网页/通讯软件大类卡,计数口径 = 当前视图可见条目。 */
-  const wallCards = useMemo<StreamKindCardData[]>(
-    () => (wallLayout ? streamKindCards(displayItems, states) : []),
-    [wallLayout, displayItems, states],
-  );
-
-  /** TG 分节详情(v2 第二层):频道节头卡(含节内 count/unread/latest,
-   *  点击进单频道过滤视图 = 既有 source 作用域)。 */
-  const imDetailCards = useMemo<TelegramChannelCardData[]>(
-    () => (imDetailLayout ? telegramChannelCards(displayItems, states) : []),
-    [imDetailLayout, displayItems, states],
-  );
-  /** TG 网页线快照(10-09-tg-category-entry:进 Telegram 分节详情或品类
-   *  渠道页拉一次;失败静默 = 不出状态条,不拦浏览)。放在派生之后
-   *  (imDetailLayout 在上方派生链产出,提前引用会踩 TDZ)。deps 必须含
-   *  isTelegramCategory——L1→L2 钻入时只有它翻转(imDetailLayout 恒
-   *  false),漏掉 = 监控台永远等不到快照(v2 在途改动实测踩坑)。 */
+  /** TG 网页线快照(10-09-tg-category-entry:TG 品类激活时拉一次,监控台
+   *  卡呈现;失败静默 = 不出状态条,不拦浏览)。deps 必须含
+   *  isTelegramCategory——chips 激活 TG 品类时只有它翻转,漏掉 = 监控台
+   *  永远等不到快照(v2 在途改动实测踩坑)。 */
   useEffect(() => {
-    if (!imDetailLayout && !isTelegramCategory) return;
+    if (!isTelegramCategory) return;
     let cancelled = false;
     void telegramGetStatus()
       .then((status) => {
@@ -2186,16 +1897,13 @@ export function FeedScreen() {
     return () => {
       cancelled = true;
     };
-  }, [imDetailLayout, isTelegramCategory]);
+  }, [isTelegramCategory]);
 
-  /** 分组(L3 显示选项):时间四桶(D4 缺省)/ 不分组(平铺)。三级下钻
-   *  (10-06-feed-channel-groups)后品类维度 = L1/L2 层级本体,L3 组内不再
-   *  出品类分组;历史本地存储的 groupMode="category" 就地映射回时间四桶
-   *  (loadFeedDisplay 兼容旧值,不丢用户其余选项)。
-   *  category 字段恒 null(时间桶无品类组头;品类批量入口移驻 L2 头部)。
-   *  10-08-tg-channel-card:分组/平铺吃 streamItems(TG 条目已折叠进渠道
-   *  卡区,组头计数如实反映列表本体)。10-08 v2:卡片墙与 TG 分节详情无
-   *  时间分组(墙无消息卡;分节详情以频道为节)。 */
+  /** 分组(显示选项,仅聊天视图):TG 频道作用域的日期胶囊分组走时间四桶
+   *  (v4 聊天主页风格);不分组 = 平铺。瀑布流卡片墙(AC13)恒平铺多列
+   *  (break-inside-avoid 瀑布布局与 sticky 组头互斥,时间语义由卡面相对
+   *  时间承担)。历史本地存储的 groupMode="category" 就地映射回时间四桶
+   *  (loadFeedDisplay 兼容旧值,不丢用户其余选项)。 */
   const groups = useMemo<
     {
       key: string;
@@ -2205,15 +1913,15 @@ export function FeedScreen() {
       category: string | null;
     }[] | null
   >(() => {
-    if (display.groupMode === "none" || wallLayout || imDetailLayout) return null;
-    return groupFeedItems(streamItems).map((group) => ({
+    if (!chatView || display.groupMode === "none") return null;
+    return groupFeedItems(displayItems).map((group) => ({
       key: group.key,
       label: group.label,
       items: group.items,
       color: null,
       category: null,
     }));
-  }, [display.groupMode, streamItems, wallLayout, imDetailLayout]);
+  }, [chatView, display.groupMode, displayItems]);
 
   /** 键盘「当前卡」(U/j/k 快捷键作用目标;hover/focus 进入卡时置位) */
   const [currentKey, setCurrentKey] = useState<string | null>(null);
@@ -2250,9 +1958,9 @@ export function FeedScreen() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [confirmAllMark]);
 
-  /** 单卡渲染(分组/平铺两路共用;右键菜单随卡在 FeedCard 内;渠道类型
-   *  随卡判定 —— 五档差异化呈现,engine 词表源 = health 装配的源名映射;
-   *  TG 分节详情语境下卡头省频道名行,频道归属由节头承担) */
+  /** 单卡渲染(瀑布流/聊天时间线两路共用;右键菜单随卡在 FeedCard 内;
+   *  渠道类型随卡判定 —— 五档差异化呈现,engine 词表源 = health 装配的
+   *  源名映射;TG 卡带频道名行,瀑布流里卡片自带来源渠道语义) */
   const renderCard = (entry: FeedItem) => (
     <FeedCard
       key={itemKey(entry)}
@@ -2261,7 +1969,6 @@ export function FeedScreen() {
       current={currentKey === itemKey(entry)}
       navFocused={currentKey === itemKey(entry) && navByKeyboard}
       kind={channelKindOf(entry, engineBySource)}
-      inChannelSection={imDetailLayout}
       onCurrent={onCurrentCard}
       onToggle={toggle}
       onOpenError={setOpenError}
@@ -2277,9 +1984,7 @@ export function FeedScreen() {
     try {
       const outcome = await exportFeedView({
         format: exportFormat,
-        category: drill.level === 3 ? drill.category : null,
-        sourceKind:
-          drill.level === 3 && drill.source === null ? (drill.kind ?? null) : null,
+        category: scope.category,
         query,
       });
       if (outcome.path !== null) {
@@ -2292,7 +1997,7 @@ export function FeedScreen() {
     } finally {
       setExporting(false);
     }
-  }, [exportFormat, drill, query]);
+  }, [exportFormat, scope.category, query]);
 
   /** 空流 CTA:health 取第一个可加载插件 → run.start(yaml 绝对路径,与 sources.write 同口径) */
   const startFirstPlugin = useCallback(async () => {
@@ -2339,39 +2044,8 @@ export function FeedScreen() {
 
   const searchActive = query !== "";
 
-  /** G9 批量两钮 title(双路真话;R2 确认态确认钮沿用同一支)。三级下钻
-   *  (10-06)后按作用域分档:全库流(无品类)= 全库真话;品类流 = 该品类
-   *  全库真话(mark_all 带 category 精确等值);渠道流不出钮(feed.export/
-   *  mark_all 无 source 参数,范围不实则不出现)。10-08 审计 F7:协议方法名
-   *  (store.state.mark_all / source_kind)不再进用户面 tooltip,人话说清
-   *  范围与持久性即可,协议细节归开发者文档/日志。 */
-  const bulkScopeCategory = drill.level === 3 ? drill.category : null;
-  /** 源大类批量作用域(v2:第二层详情传 source_kind,卡片墙/单频道不传) */
-  const bulkScopeKind =
-    drill.level === 3 && drill.source === null ? (drill.kind ?? undefined) : undefined;
-  const bulkKindLabel = bulkScopeKind === "web" ? "网页" : "Telegram";
-  const bulkHidden = drill.level === 3 && drill.source !== null;
-  const markAllReadTitle = !useServerState
-    ? `把已加载的 ${items.length} 条(未读 ${unreadLoaded})全部标记为已读;本地态,未翻页条目不含`
-    : bulkScopeKind !== undefined
-      ? `把${bulkKindLabel}范围${bulkScopeCategory !== null ? `·品类「${bulkScopeCategory}」` : ""}的全部条目(含未翻页)标记为已读,服务端持久`
-      : bulkScopeCategory !== null
-        ? `把品类「${bulkScopeCategory}」的全库条目(含未翻页)标记为已读,服务端持久`
-        : "把全库所有条目(含未翻页)标记为已读,服务端持久";
-  const markAllUnreadTitle = !useServerState
-    ? `把已加载的 ${items.length} 条(已读 ${items.length - unreadLoaded})全部恢复未读;本地态`
-    : bulkScopeKind !== undefined
-      ? `把${bulkKindLabel}范围${bulkScopeCategory !== null ? `·品类「${bulkScopeCategory}」` : ""}的全部条目(含未翻页)恢复为未读,服务端持久`
-      : bulkScopeCategory !== null
-        ? `把品类「${bulkScopeCategory}」的全库条目(含未翻页)恢复为未读,服务端持久`
-        : "把全库所有条目(含未翻页)恢复为未读,服务端持久";
-
-  // ---------------------------------------------------------------------------
-  // 三级下钻派生(10-06-feed-channel-groups):L1 品类行 / L2 渠道行的
-  // 计数与词表。计数源(深审 F1)= 按品类查询页(categoryPages,每品类
-  // 独立首页 50)× 当日窗 —— 不再吃全局首页 50 条(长尾品类假空态/假零);
-  // L1/L2 是「今日滚动窗」的概览,过窗条目不计入(title 注记口径,如实)。
-  // ---------------------------------------------------------------------------
+  /** 品类显示名(health 词表名优先,词表外桶 id 走 v6 显示名词表兜底,
+   *  不裸奔内部 id):chips 行/作用域词/批量 title 共用同一词表。 */
   const categoryLabelOf = useCallback(
     (id: string) =>
       categoryOptions.find((option) => option.id === id)?.label ??
@@ -2380,7 +2054,32 @@ export function FeedScreen() {
     [categoryOptions],
   );
 
-  /** 窗内谓词(L1/L2 计数用;later 到期重现条目视同显式留存,计回窗) */
+  /** G9 批量两钮 title(双路真话;R2 确认态确认钮沿用同一支)。v5 起按
+   *  chips 作用域分档:全部(无品类)= 全库真话;品类 chip 激活 = 该品类
+   *  全库真话(mark_all 带 category 精确等值);渠道 chip 激活不出钮
+   *  (feed.export/mark_all 无 source 参数,范围不实则不出现)。 */
+  const bulkScopeCategory = scope.category;
+  const bulkHidden = scope.source !== null;
+  const bulkScopeLabel =
+    bulkScopeCategory !== null ? categoryLabelOf(bulkScopeCategory) : null;
+  const markAllReadTitle = !useServerState
+    ? `把已加载的 ${items.length} 条(未读 ${unreadLoaded})全部标记为已读;本地态,未翻页条目不含`
+    : bulkScopeCategory !== null
+      ? `把品类「${bulkScopeLabel}」的全库条目(含未翻页)标记为已读,服务端持久`
+      : "把全库所有条目(含未翻页)标记为已读,服务端持久";
+  const markAllUnreadTitle = !useServerState
+    ? `把已加载的 ${items.length} 条(已读 ${items.length - unreadLoaded})全部恢复未读;本地态`
+    : bulkScopeCategory !== null
+      ? `把品类「${bulkScopeLabel}」的全库条目(含未翻页)恢复为未读,服务端持久`
+      : "把全库所有条目(含未翻页)恢复为未读,服务端持久";
+
+  // ---------------------------------------------------------------------------
+  // chips 派生(v5 AC15:品类/渠道从导航页降级为墙顶筛选 chips)。
+  // 计数源(深审 F1 沿用)= 按品类查询页(categoryPages,每品类独立首页
+  // 50)× 当日窗 —— 不吃全局首页 50 条(长尾品类假零);chips 是「今日
+  // 滚动窗」的概览,过窗条目不计入(title 注记口径,如实)。
+  // ---------------------------------------------------------------------------
+  /** 窗内谓词(chips 计数用;later 到期重现条目视同显式留存,计回窗) */
   const inWindowOrResurfaced = useCallback(
     (item: FeedItem) =>
       inDayWindow(item.first_seen, windowStart) ||
@@ -2388,207 +2087,78 @@ export function FeedScreen() {
     [windowStart, states],
   );
 
-  /** 品类页条目 → 行计数累积(品类守卫:服务端已滤,防御共享 mock/旧包)。 */
-  const l1Rows = useMemo(() => {
-    const byCategory = new Map<string, { today: number; unread: number; channels: Set<string> }>();
-    const touch = (id: string) => {
-      let row = byCategory.get(id);
-      if (!row) {
-        row = { today: 0, unread: 0, channels: new Set() };
-        byCategory.set(id, row);
-      }
-      return row;
-    };
+  /** 品类 chips:health 词表 ∪ 已加载品类(categoryPages 键即并集落地面),
+   *  按品类查询页 × 当日窗计数;零计数品类不出 chip(AC15,L1 折叠逻辑
+   *  自然消亡);label 走 categoryLabelOf(health 名优先,名词表兜底);
+   *  排序按 id 稳定。 */
+  const categoryChips = useMemo(() => {
+    const counts = new Map<string, { today: number; unread: number }>();
     for (const [categoryId, pageItems] of Object.entries(categoryPages)) {
       for (const item of pageItems) {
-        if (item.category === null || item.category !== categoryId) continue;
+        if (item.category !== categoryId) continue; // 品类守卫:服务端已滤,防御共享 mock/旧包
         if (!inWindowOrResurfaced(item)) continue;
-        const row = touch(item.category);
+        const row = counts.get(categoryId) ?? { today: 0, unread: 0 };
         row.today += 1;
         if (!(item.read === true)) row.unread += 1;
-        if (item.source) row.channels.add(item.source);
+        counts.set(categoryId, row);
       }
     }
-    const seen = new Set<string>();
-    // 词表外桶 id 的行标签走显示名词表(10-09:分类行不再裸奔内部 id)
-    const displayLabel = (id: string, fallback: string) => CATEGORY_DISPLAY_NAMES[id] ?? fallback;
-    const rows: { id: string; label: string; today: number; unread: number; channels: number; color: string | null }[] = [];
-    for (const option of categoryOptions) {
-      seen.add(option.id);
-      const row = byCategory.get(option.id);
-      rows.push({
-        id: option.id,
-        label: option.label,
-        today: row?.today ?? 0,
-        unread: row?.unread ?? 0,
-        channels: row?.channels.size ?? 0,
-        color: categoryColor(option.id),
-      });
-    }
-    for (const [id, row] of byCategory) {
-      if (seen.has(id)) continue;
-      rows.push({ id, label: displayLabel(id, id), today: row.today, unread: row.unread, channels: row.channels.size, color: categoryColor(id) });
-    }
-    return rows;
-  }, [categoryPages, categoryOptions, inWindowOrResurfaced]);
+    return [...counts.entries()]
+      .map(([id, row]) => ({
+        id,
+        label: categoryLabelOf(id),
+        today: row.today,
+        unread: row.unread,
+        color: categoryColor(id),
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }, [categoryPages, categoryLabelOf, inWindowOrResurfaced]);
 
-  /** L1 全局行计数(全部条目 · 滚动流)= 各品类页窗内计数之和 + 无品类
-   *  条目(全局首页页兜底;各品类页服务端互斥,无双重计)。 */
-  const l1AllStats = useMemo(() => {
-    let today = 0;
-    let unread = 0;
-    const channels = new Set<string>();
-    const count = (item: FeedItem) => {
-      if (!inWindowOrResurfaced(item)) return;
-      today += 1;
-      if (!(item.read === true)) unread += 1;
-      if (item.source) channels.add(item.source);
-    };
-    for (const pageItems of Object.values(categoryPages)) {
-      for (const item of pageItems) {
-        if (item.category == null) continue; // 无品类条目走全局页一面
-        count(item);
-      }
-    }
-    for (const item of items) {
-      if (item.category != null) continue; // 已在品类页计
-      count(item);
-    }
-    return { today, unread, channels: channels.size };
-  }, [categoryPages, items, inWindowOrResurfaced]);
-
-  /** L2 渠道行数据(F1):该品类的**品类查询页**按渠道分组(首现顺序)+
-   *  各行窗内计数 —— 不再从全局首页过滤(长尾渠道假空态)。 */
-  const l2Channels = useMemo(() => {
-    if (drill.level !== 2) return [];
-    const pageItems = (categoryPages[drill.category] ?? []).filter(
-      (item) => item.category === drill.category,
+  /** 渠道 chips(选定品类后出现):该品类查询页按渠道分组 × 当日窗计数
+   *  (零窗内计数渠道不出 chip,与品类 chips 同门);label 走
+   *  channelDisplayName 词表(F9 一词一源);无源名(null)渠道不可作用域
+   *  (source 过滤词必须字符串),不出 chip。 */
+  const channelChips = useMemo(() => {
+    if (scope.category === null) return [];
+    const pageItems = (categoryPages[scope.category] ?? []).filter(
+      (item) => item.category === scope.category,
     );
-    return groupFeedItemsByChannel(pageItems, engineBySource).map((channel) => {
-      const windowed = channel.items.filter(inWindowOrResurfaced);
-      return {
-        ...channel,
-        // F9:渠道行展示名走 channelDisplayName 词表(与卡面/渠道卡同一套),
-        // key 仍是源名全称(下钻作用域词,testid 同源不受影响)
-        label: channelDisplayName(channel.key),
-        today: windowed.length,
-        unread: windowed.filter((item) => !(item.read === true)).length,
-      };
-    });
-  }, [drill, categoryPages, engineBySource, inWindowOrResurfaced]);
+    return groupFeedItemsByChannel(pageItems, engineBySource)
+      .map((channel) => {
+        const windowed = channel.items.filter(inWindowOrResurfaced);
+        return {
+          key: channel.key,
+          label: channelDisplayName(channel.key),
+          today: windowed.length,
+          unread: windowed.filter((item) => !(item.read === true)).length,
+        };
+      })
+      .filter((channel) => channel.key !== null && channel.today > 0);
+  }, [scope.category, categoryPages, engineBySource, inWindowOrResurfaced]);
 
-  /** L2 窗内已加载条目(F3 作用域面:豁免钮实际作用的 keys = 所见行)。 */
-  const l2WindowedItems = useMemo(
-    () =>
-      drill.level === 2
-        ? (categoryPages[drill.category] ?? [])
-            .filter((item) => item.category === drill.category)
-            .filter(inWindowOrResurfaced)
-        : [],
-    [drill, categoryPages, inWindowOrResurfaced],
-  );
-
-  /** F3 作用域收窄:L2 批量钮 = 当日窗内已加载品类页的**逐键置位**
-   *  (store.state.mark keys)—— UI 所见(窗内行)= 实际作用域,不再走
-   *  全库 mark_all(此前豁免钮作用域 = 该品类全库含未翻页,大于所见面);
-   *  未读反向出口同门(keys 置 false,误触可逆)。乐观翻品类页行,失败按
-   *  调用前快照回滚(仅作用域内行)。 */
-  const markWindowScoped = useCallback(
-    (value: boolean) => {
-      if (!useServerState || drill.level !== 2) return;
-      const keys = l2WindowedItems.map(itemKey);
-      if (keys.length === 0) return;
-      const keySet = new Set(keys);
-      const snapshot = new Map(
-        l2WindowedItems.map((item) => [itemKey(item), item.read === true]),
-      );
-      const rewrite = (readOf: (key: string) => boolean) =>
-        setCategoryPages((current) => ({
-          ...current,
-          [drill.category]: (current[drill.category] ?? []).map((item) =>
-            item.category === drill.category && keySet.has(itemKey(item))
-              ? { ...item, read: readOf(itemKey(item)) }
-              : item,
-          ),
-        }));
-      rewrite(() => value);
-      void api
-        .storeStateMark({ keys, marker: "read", value })
-        .then(() => setMarkError(null))
-        .catch((err) => {
-          rewrite((key) => snapshot.get(key) ?? false);
-          setMarkError(err instanceof SidecarRequestError ? `${err.code}: ${err.message}` : String(err));
-        });
-    },
-    [useServerState, drill, l2WindowedItems],
-  );
-
-  /** 下钻导航动作 */
-  const openAllStream = useCallback(() => {
-    setDrill({ level: 3, category: null, source: null, kind: null, history: false });
+  /** chips 作用域动作:品类切换 = 重置渠道与历史(跨品类历史无意义);
+   *  渠道切换 = 保留历史(历史浏览中途下钻单频道,语义延续,v2.2 透传同门)。 */
+  const setCategoryScope = useCallback((category: string | null) => {
+    setScope({ category, source: null, history: false });
     setCurrentKey(null);
     setNavByKeyboard(false);
   }, []);
-  const openCategory = useCallback((id: string) => {
-    setDrill({ level: 2, category: id });
-    setCurrentKey(null);
-  }, []);
-  const openCategoryStream = useCallback(() => {
-    setDrill((current) =>
-      current.level === 2 ? { level: 3, category: current.category, source: null, kind: null, history: false } : current,
-    );
-    setCurrentKey(null);
-  }, []);
-  const openChannel = useCallback((source: string) => {
-    setDrill((current) =>
-      current.level === 2 ? { level: 3, category: current.category, source, kind: "im", history: false } : current,
-    );
-    setCurrentKey(null);
-  }, []);
-  /** 渠道卡点击(v1 频道卡区 / v2 TG 分节节头共用):进该渠道消息流,
-   *  保留当前品类与源大类作用域(卡片墙进 TG 详情后点节头 = 单频道过滤)。 */
-  const openChannelFromStream = useCallback((source: string) => {
-    setDrill((current) =>
-      current.level === 3 && current.source === null
-        ? { level: 3, category: current.category, source, kind: current.kind, history: current.history }
-        : current,
-    );
+  const setSourceScope = useCallback((source: string | null) => {
+    setScope((current) => ({ ...current, source }));
     setCurrentKey(null);
     setNavByKeyboard(false);
   }, []);
-  /** 监控台历史入口(10-09-tg-category-entry):TG 品类渠道页「看全部历史
-   *  消息」——L3 历史态绕过当日窗,展示该品类全部入库条目。 */
-  const openCategoryHistory = useCallback(() => {
-    setDrill((current) =>
-      current.level === 2
-        ? { level: 3, category: current.category, source: null, kind: null, history: true }
-        : current,
-    );
+  /** 监控台历史入口(10-09-tg-category-entry):「看全部历史消息」——
+   *  历史态绕过当日窗,展示该作用域全部入库条目。 */
+  const openHistory = useCallback(() => {
+    setScope((current) => ({ ...current, history: true }));
     setCurrentKey(null);
   }, []);
-  /** 卡片墙点击(v2):进源大类第二层详情(网页=条目平铺 / 通讯软件=分节全铺)。
-   *  history 透传(10-09 v2.2 验收员主发现:历史卡片墙点 Telegram 卡此前
-   *  硬编码 history:false —— 当日窗回魂,老条目本体在分节详情消失,历史
-   *  只剩墙卡计数;与 openChannelFromStream 的透传同门)。 */
-  const openKind = useCallback((kind: "web" | "im") => {
-    setDrill((current) =>
-      current.level === 3 && current.source === null && current.kind === null
-        ? { level: 3, category: current.category, source: null, kind, history: current.history }
-        : current,
-    );
-    setCurrentKey(null);
-    setNavByKeyboard(false);
+  /** 退出历史(v5:面包屑随三级页撤销,历史出口改工具条钮) */
+  const exitHistory = useCallback(() => {
+    setScope((current) => ({ ...current, history: false }));
   }, []);
-  /** 单频道 → 回 TG 分节详情(v2 面包屑「Telegram」中间层同门;openKind 的
-   *  守卫只认卡片墙起点,这里从 source 作用域回流)。 */
-  const backToImDetail = useCallback(() => {
-    setDrill((current) =>
-      current.level === 3
-        ? { level: 3, category: current.category, source: null, kind: "im", history: current.history }
-        : current,
-    );
-    setCurrentKey(null);
-  }, []);
+
   /** 异形应答不进状态条(旧 sidecar/测试桩可能缺 web 段;null = 条不出) */
   const sanitizeTelegramStatus = useCallback((status: TelegramStatus | null | undefined) => {
     return status && Array.isArray(status?.web?.accounts) ? status : null;
@@ -2618,14 +2188,14 @@ export function FeedScreen() {
    *  title 如实;开窗失败(tauri://error)= 条内出说明,不装死。 */
   const [tgPreviewNote, setTgPreviewNote] = useState<string | null>(null);
   const tgPreviewUrl = useMemo(() => {
-    const category = drill.level === 2 ? drill.category : null;
+    const category = scope.category;
     if (category === null || !category.startsWith("telegram")) return null;
     for (const item of categoryPages[category] ?? []) {
       const mirror = telegramMirrorUrlOf(item.url);
       if (mirror) return mirror;
     }
     return null;
-  }, [categoryPages, drill]);
+  }, [categoryPages, scope.category]);
   const openTgPreview = useCallback((mirror: string) => {
     setTgPreviewNote(null);
     try {
@@ -2645,31 +2215,15 @@ export function FeedScreen() {
       setTgPreviewNote("预览窗打开失败(窗口创建异常)——条目「打开原文」仍可系统浏览器直看。");
     }
   }, []);
-  /** 回卡片墙(第二层详情回流;面包屑「全部条目/品类」同门)。history 透传
-   *  (10-09 v2.2:历史分节详情回墙不丢历史态,与 openKind 同门)。 */
-  const backToStreamAll = useCallback(() => {
-    setDrill((current) =>
-      current.level === 3
-        ? { level: 3, category: current.category, source: null, kind: null, history: current.history }
-        : current,
-    );
-    setCurrentKey(null);
-  }, []);
-  const backToL1 = useCallback(() => setDrill({ level: 1 }), []);
-  const backToL2 = useCallback(() => {
-    setDrill((current) => (current.level === 3 && current.category !== null ? { level: 2, category: current.category } : { level: 1 }));
-  }, []);
 
   // U = 当前卡已读/未读切换;j/k = 当前卡上/下移(Linear Inbox 惯例;输入框/
   // 可编辑目标内敲不触发,守卫与既有 U 键同源,不引外部 hook——feed 本地惯例);
   // Mod+F(macOS ⌘F / Win·Linux Ctrl+F)= 拦截浏览器查找,聚焦内联搜索框并
   // 全选词面(可直接改写;fe-gap-census R1,linear-activity #8)。
-  // 10-08:F5 墙卡(kind:web / kind:im)纳入巡游集,U/Enter 语义对齐进大类
-  // 详情;Enter 在消息卡 = 开详情弹窗(与点击同门,详情弹窗开着时巡游键让位)。
-  // (本 effect 置于下钻导航动作之后:闭包引用 openKind/openDetail。)
+  // Enter 在消息卡 = 开详情弹窗(与点击同门,详情弹窗开着时巡游键让位)。
+  // v5:巡游集 = 展示序全集(瀑布流/聊天时间线两形态都全量渲染卡,墙卡
+  // kind: 前缀随源大类视图退役)。
   useEffect(() => {
-    // 三级下钻(10-06):巡游/搜索快捷键只属 L3 消息流(L1/L2 无卡无搜索框)
-    if (drill.level !== 3) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const pressed = event.key.toLowerCase();
       if ((event.metaKey || event.ctrlKey) && pressed === "f") {
@@ -2696,13 +2250,6 @@ export function FeedScreen() {
       if (pressed === "enter" && target && (target.tagName === "BUTTON" || target.tagName === "A")) {
         return;
       }
-      // 墙卡作用域(F5):currentKey = kind:web / kind:im,U/Enter = 进大类详情;
-      // j/k 不拦截,落下方巡游段(墙层 keys 即墙卡)
-      if (currentKey !== null && currentKey.startsWith("kind:") && (pressed === "u" || pressed === "enter")) {
-        const kindKey = currentKey.slice("kind:".length);
-        if (kindKey === "web" || kindKey === "im") openKind(kindKey);
-        return;
-      }
       if (pressed === "u") {
         if (currentKey === null) return;
         const item = items.find((candidate) => itemKey(candidate) === currentKey);
@@ -2717,12 +2264,8 @@ export function FeedScreen() {
       }
       // j/k:展示序上/下移;边界钳制不回绕(首卡 k / 末卡 j 原地不动),
       // 未选中时 j 落首卡、k 落末卡(当前卡被过滤离场同此路径)。
-      // v1 形态吃 streamItems(TG 折叠进渠道卡区);第二层详情/单频道吃
-      // displayItems(全部真实渲染,含 TG 分节);卡片墙吃墙卡(F5:
-      // kind:web / kind:im 入巡游集,墙层不再静默空转)。
-      const keys = wallLayout
-        ? wallCards.map((card) => `kind:${card.key}`)
-        : (legacyStreamLayout ? streamItems : displayItems).map(itemKey);
+      // 巡游集 = displayItems(瀑布流/聊天时间线两形态都全量渲染卡)。
+      const keys = displayItems.map(itemKey);
       if (keys.length === 0) return;
       const index = currentKey === null ? -1 : keys.indexOf(currentKey);
       const next =
@@ -2740,240 +2283,588 @@ export function FeedScreen() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
-    drill.level,
     currentKey,
     items,
     toggle,
-    streamItems,
-    wallLayout,
-    legacyStreamLayout,
     displayItems,
-    wallCards,
     detailKey,
     openDetail,
-    openKind,
   ]);
 
-  /** L3 流头部作用域文案 */
+  /** 作用域文案(工具条左侧可见词;sr-only aria-live 同源播报) */
   const streamTitle =
-    drill.level !== 3
-      ? ""
-      : drill.source !== null
-        ? channelDisplayName(drill.source)
-        : drill.kind === "web"
-          ? `${drill.category !== null ? `${categoryLabelOf(drill.category)} · ` : ""}网页`
-          : drill.kind === "im"
-            ? `${drill.category !== null ? `${categoryLabelOf(drill.category)} · ` : ""}Telegram`
-            : drill.category !== null
-              ? `${categoryLabelOf(drill.category)} · 全部渠道`
-              : sourceKindReady
-                ? "全部条目 · 卡片墙"
-                : "全部条目 · 滚动流";
+    scope.source !== null
+      ? channelDisplayName(scope.source)
+      : scope.category !== null
+        ? `${categoryLabelOf(scope.category)} · 全部渠道`
+        : "全部条目 · 瀑布流";
 
-  /** 面包屑(L2/L3):情报流 / 品类 / 渠道 —— 屏内既有交互语言,零新基件 */
-  const breadcrumb = drill.level === 1 ? null : (
-    <nav aria-label="情报流导航" className="flex flex-wrap items-center gap-1 px-6 text-xs text-muted-foreground" data-testid="feed-breadcrumb">
-      <button
-        type="button"
-        className="rounded-sm px-1 py-0.5 hover:text-foreground"
-        data-testid="feed-crumb-home"
-        onClick={backToL1}
-      >
-        情报流
-      </button>
-      {drill.category !== null ? (
-        <>
-          <ChevronRight aria-hidden className="size-3" />
-          <button
-            type="button"
-            className="rounded-sm px-1 py-0.5 hover:text-foreground"
-            data-testid="feed-crumb-category"
-            onClick={drill.level === 3 ? backToL2 : backToL1}
-          >
-            {categoryLabelOf(drill.category)}
-          </button>
-        </>
-      ) : null}
-      {/* 全部条目中间层(10-08-tg-channel-card):第二层详情/单频道从全部
-          条目作用域点进,回流一键返卡片墙(v2)/滚动流(v1) */}
-      {drill.level === 3 && drill.category === null && (drill.source !== null || drill.kind !== null) ? (
-        <>
-          <ChevronRight aria-hidden className="size-3" />
-          <button
-            type="button"
-            className="rounded-sm px-1 py-0.5 hover:text-foreground"
-            data-testid="feed-crumb-all-stream"
-            onClick={backToStreamAll}
-          >
-            全部条目
-          </button>
-        </>
-      ) : null}
-      {/* Telegram 中间层(v2):单频道视图从 TG 分节详情点进,一键回分节 */}
-      {drill.level === 3 && drill.kind === "im" && drill.source !== null ? (
-        <>
-          <ChevronRight aria-hidden className="size-3" />
-          <button
-            type="button"
-            className="rounded-sm px-1 py-0.5 hover:text-foreground"
-            data-testid="feed-crumb-im"
-            onClick={backToImDetail}
-          >
-            Telegram
-          </button>
-        </>
-      ) : null}
-      {drill.level === 3 && drill.source !== null ? (
-        <>
-          <ChevronRight aria-hidden className="size-3" />
-          <span className="px-1 py-0.5 text-foreground">{channelDisplayName(drill.source)}</span>
-        </>
-      ) : drill.level === 3 && drill.kind === "web" ? (
-        <>
-          <ChevronRight aria-hidden className="size-3" />
-          <span className="px-1 py-0.5 text-foreground">网页</span>
-        </>
-      ) : drill.level === 3 && drill.kind === "im" ? (
-        <>
-          <ChevronRight aria-hidden className="size-3" />
-          <span className="px-1 py-0.5 text-foreground">Telegram</span>
-        </>
-      ) : null}
-      {/* 作用域终端段(10-08 审计 F6):卡片墙/滚动流/品类合流三层此前没有
-          终端词,面包屑只剩孤零零「情报流」—— 补可见当前位置词(streamTitle
-          同源,墙层 = 「全部条目 · 卡片墙」) */}
-      {drill.level === 3 && drill.source === null && drill.kind === null ? (
-        <>
-          <ChevronRight aria-hidden className="size-3" />
-          <span className="px-1 py-0.5 text-foreground" data-testid="feed-crumb-current">
-            {streamTitle}
-          </span>
-        </>
-      ) : null}
-      {drill.level === 2 ? (
-        <>
-          <ChevronRight aria-hidden className="size-3" />
-          {/* 终端词 = 「渠道页」而非品类名复读(10-09 v2.2 验收员挑刺:
-              「Telegram 监控 → Telegram 监控」同词重复;品类词已在上一段) */}
-          <span className="px-1 py-0.5 text-foreground">渠道页</span>
-        </>
-      ) : null}
-    </nav>
-  );
-
-  /** L1/L2 概览行公共骨架(下钻行:图标 + 名称 + 类型词 + 计数 + chevron) */
-  const drillRow = (options: {
-    testId: string;
-    onOpen: () => void;
-    icon: React.ReactNode;
-    label: string;
-    meta: React.ReactNode;
-    color: string | null;
-  }) => (
-    <button
-      key={options.testId}
-      type="button"
-      data-testid={options.testId}
-      onClick={options.onOpen}
-      className="group/row flex w-full items-center gap-2.5 rounded-md border border-border/60 bg-card px-3 py-2.5 text-left transition-colors duration-(--duration-fast) ease-out-expo hover:border-primary/40 hover:bg-accent/40"
-    >
-      {options.color !== null ? (
-        <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: options.color }} />
-      ) : null}
-      {options.icon}
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-foreground">{options.label}</span>
-        <span className="mt-0.5 block text-2xs text-muted-foreground">{options.meta}</span>
-      </span>
-      <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground/70 transition-transform duration-(--duration-fast) ease-out-expo group-hover/row:translate-x-0.5" />
-    </button>
-  );
+  /** chips 单选样式(激活 = accent 实底;品类色点随 chip 左缘) */
+  const chipClass = (active: boolean) =>
+    `inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors duration-(--duration-fast) ease-out-expo ${
+      active
+        ? "border-primary/40 bg-accent font-medium text-foreground"
+        : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+    }`;
 
   return (
-    /* 满高列表容器(10-04-ui-kestra-anchor:Kestra Executions 列表密度——列表区
-     * 内滚、过滤条/组头常驻;页面级 gap-block 滚动让位) */
+    /* 满高容器(10-04-ui-kestra-anchor:Kestra 列表密度——内容区内滚,
+     * 工具条/chips 行常驻;页面级 gap-block 滚动让位) */
     <div className="flex h-full min-h-0 flex-col gap-4">
       <PageHeader
         title="情报流"
-        description={
-          drill.level === 1
-            ? `品类 → 渠道 → 消息流 三级下钻(${
-                useServerState ? "服务端持久,随库同步" : "本地态,随浏览器存储持久"
-              })`
-            : undefined
-        }
+        description={`瀑布流卡片墙 · 品类/渠道筛选 chips(${
+          useServerState ? "服务端持久,随库同步" : "本地态,随浏览器存储持久"
+        })`}
       />
-      {breadcrumb}
 
-      {drill.level === 1 ? (
-        /* ═══ L1 品类列表(10-06 三级下钻首页):全部条目滚动流(置顶)+ 品类行 ═══ */
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-6" data-testid="feed-l1">
-          {/* 当日窗知会(全局):滚动流语义一眼可见 */}
+      {/* 工具条(首屏常驻,KsFilter 范式):作用域词 + 读态分段 + 计数/批量 +
+          右侧显示选项/搜索/刷新/导出。搜索框(服务端)在首屏即可用,输入即改
+          query,结果即瀑布流(v5 AC14);F2 计数词面语义随动。 */}
+      <div className="flex flex-wrap items-center gap-2 px-6" data-testid="feed-toolbar">
+        {/* 作用域标题(10-08 审计 F6 沿用):可见当前位置词 */}
+        <span className="text-xs font-medium text-foreground" data-testid="feed-stream-title">
+          {streamTitle}
+        </span>
+        {/* 读态分段(KsFilter 范式):微填充容器 + 内钮 h-7,激活 = bg-accent */}
+        <div
+          role="group"
+          aria-label="读态过滤"
+          className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5"
+        >
+          {FILTERS.map((entry) => {
+            const active = filter === entry.key;
+            return (
+              <button
+                key={entry.key}
+                type="button"
+                aria-label={`过滤:${entry.label}`}
+                aria-pressed={active}
+                title={
+                  entry.key === "unread"
+                    ? "未读过滤会隐藏已加载行全已读的分组;切「全部」可恢复"
+                    : undefined
+                }
+                onClick={() => setFilter(entry.key)}
+                className={
+                  "h-7 rounded-md px-2.5 text-xs transition-colors duration-(--duration-fast) ease-out-expo " +
+                  (active
+                    ? "bg-accent font-medium text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground")
+                }
+              >
+                {entry.label}
+              </button>
+            );
+          })}
+        </div>
+        {/* 计数口径(10-08 审计 F2,10-09-tg-category-entry 根治):
+            过 COUNT_PROTOCOL 门(protocol ≥ 13)且应答带 total → 截断时
+            「已加载 X · 共 T 条」,T = 同 WHERE 全量计数(store.items
+            with_total),首页截断不再静默低估也不再无 T 空转;未过门/无
+            total 字段(旧 sidecar 忽略未知参数属预期,不为旧面报错)=
+            回落 F2 半程词面「已加载 N 条」。title 注记口径。 */}
+        <span
+          className="text-2xs text-muted-foreground"
+          data-testid="feed-count"
+          title={
+            total !== null && total > items.length
+              ? `共 ${total} 条 = 当前过滤条件(store.items 同 WHERE)全量计数,含未翻页;已加载 ${items.length} 条为当日窗视图首页`
+              : undefined
+          }
+        >
+          {total !== null && total > items.length
+            ? filter === "all"
+              ? `已加载 ${items.length} · 共 ${total} 条`
+              : `已加载 ${visible.length} / ${items.length} · 共 ${total} 条`
+            : hasMore
+              ? filter === "all"
+                ? `已加载 ${items.length} 条(首页截断,更早条目未计入)`
+                : `已加载 ${visible.length} / ${items.length} 条`
+              : filter === "all"
+                ? `共 ${items.length} 条`
+                : `${visible.length} / ${items.length} 条`}
+        </span>
+        {/* 当日窗/历史知会(仅未读/全部两档受窗,星标/稍后读跨窗可见);
+            历史态给退出钮(v5:面包屑随三级页撤销,历史出口收编工具条) */}
+        {filter === "unread" || filter === "all" ? (
           <span
             className="text-2xs text-muted-foreground"
             data-testid="feed-day-window"
-            title={`当日窗:每天 03:00 清零滚动流(03:00 → 次日 03:00),过窗条目离场、视图从零累计;store 数据不清(retention 照旧),星标/稍后读跨窗可见;实时滚动 = 采集事件即时刷新 + 30s 可见性轮询;L1/L2 计数 = 按品类查询首页(每品类 50)× 当日窗`}
+            title={
+              scope.history
+                ? "历史态:显示该作用域全部入库条目(不限当日窗);点「退出历史」回到当日窗滚动视图。"
+                : `当日窗:每天 03:00 清零滚动流(03:00 → 次日 03:00),过窗条目离场、视图从零累计;store 数据不清(retention 照旧),星标/稍后读跨窗可见;实时滚动 = 采集事件即时刷新 + 30s 可见性轮询`
+            }
           >
-            当日窗 03:00 起 · 实时滚动 · 今日 {l1AllStats.today} 条 / 未读 {l1AllStats.unread}
+            {scope.history ? "含历史 · 不限当日窗" : "当日窗 03:00 起 · 实时滚动"}
           </span>
-
-          {error ? (
-            <Card data-testid="feed-error">
-              <CardContent className="flex flex-col gap-1.5 pt-1">
-                {error.code === "pyenv_not_ready" ? (
-                  /* D2/AC2:环境未就绪非重试可救——人话引导进设置(10-05 收尾) */
-                  <>
-                    <p className="text-sm font-medium text-warning">{error.message}</p>
-                    <a
-                      href="#/settings?section=python-env"
-                      className="w-fit text-xs text-link underline underline-offset-2 hover:text-link/80"
-                    >
-                      前往设置 →「Python 环境」完成配置(就绪后情报流自动恢复)
-                    </a>
-                  </>
+        ) : null}
+        {scope.history ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="px-2 text-xs text-muted-foreground"
+            data-testid="feed-history-exit"
+            title="退出历史态:回到当日窗滚动视图"
+            onClick={exitHistory}
+          >
+            退出历史
+          </Button>
+        ) : null}
+        {searchActive ? (
+          <span className="text-2xs text-muted-foreground" data-testid="feed-search-scope">
+            服务端搜索「{query}」
+            {streamScope.category ? ` × 品类 ${categoryLabelOf(streamScope.category)}` : ""}
+            {streamScope.source ? ` × 渠道 ${channelDisplayName(streamScope.source)}` : ""} × 本地
+            {FILTERS.find((entry) => entry.key === filter)?.label}过滤
+          </span>
+        ) : null}
+        {!bulkHidden && confirmAllMark === null ? (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-2 text-xs text-muted-foreground"
+              aria-label="全部标已读"
+              title={markAllReadTitle}
+              onClick={() => setConfirmAllMark("read")}
+              disabled={items.length === 0 || unreadLoaded === 0}
+            >
+              全部标已读
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-2 text-xs text-muted-foreground"
+              aria-label="全部标未读"
+              title={markAllUnreadTitle}
+              onClick={() => setConfirmAllMark("unread")}
+              disabled={items.length - unreadLoaded === 0}
+            >
+              全部标未读
+            </Button>
+          </>
+        ) : null}
+        {!bulkHidden && confirmAllMark !== null ? (
+          <span
+            data-testid="feed-confirm-all-group"
+            className="flex items-center gap-0.5"
+            onBlur={(event) => {
+              const next = event.relatedTarget;
+              if (next instanceof Node && event.currentTarget.contains(next)) return;
+              setConfirmAllMark(null);
+            }}
+          >
+            <Button
+              variant="destructive"
+              size="sm"
+              className="px-2 text-xs"
+              autoFocus
+              aria-label={confirmAllMark === "read" ? "确认全部标已读" : "确认全部标未读"}
+              title={confirmAllMark === "read" ? markAllReadTitle : markAllUnreadTitle}
+              onClick={() => {
+                const value = confirmAllMark === "read";
+                setConfirmAllMark(null);
+                markAllRead(value, bulkScopeCategory ?? undefined);
+              }}
+            >
+              {confirmAllMark === "read" ? "确认全部标已读" : "确认全部标未读"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-2 text-xs text-muted-foreground"
+              onClick={() => setConfirmAllMark(null)}
+            >
+              取消
+            </Button>
+          </span>
+        ) : null}
+        <div className="ml-auto flex items-center gap-2">
+          {/* 显示选项:未读优先 + 分组维度(分组仅聊天视图生效,瀑布流恒平铺) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label="显示选项"
+                title="显示选项:未读优先 / 分组维度(本地记忆)"
+              >
+                <SlidersHorizontal className="size-3.5" />
+                显示
+                <ChevronDown className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>显示</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => updateDisplay({ ...display, unreadFirst: !display.unreadFirst })}
+                title="未读条目浮到列表前(未读/已读各自稳定保序)"
+              >
+                {display.unreadFirst ? (
+                  <Check className="size-3.5" />
                 ) : (
-                  <>
-                    <p className="text-sm font-medium text-destructive">
-                      情报流不可用(sidecar 错误码 {error.code})
-                    </p>
-                    <p className="text-xs text-muted-foreground">{error.message}</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-fit"
-                      onClick={() => void refresh()}
-                      disabled={loading}
-                    >
-                      <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
-                      重试
-                    </Button>
-                  </>
+                  <span className="size-3.5" aria-hidden />
                 )}
+                未读优先
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>分组</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => updateDisplay({ ...display, groupMode: "time" })}>
+                {display.groupMode !== "none" ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <span className="size-3.5" aria-hidden />
+                )}
+                时间分组(今天 / 昨天 / 7 天内 / 更早)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => updateDisplay({ ...display, groupMode: "none" })}>
+                {display.groupMode === "none" ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <span className="size-3.5" aria-hidden />
+                )}
+                不分组(平铺)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {/* KsFilter 搜索位:前导图标入框,Mod+F 聚焦与 Esc 即时清空保留 */}
+          <div className="relative">
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
+            />
+            <Input
+              ref={searchInputRef}
+              type="search"
+              value={searchInput}
+              aria-label="搜索条目"
+              placeholder="搜索标题 / 摘要 / 来源(服务端,当前作用域)"
+              className="w-64 pl-8 text-xs"
+              onChange={(event) => setSearchInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") setQuery(searchInput.trim());
+                if (event.key === "Escape") {
+                  setSearchInput("");
+                  setQuery("");
+                }
+              }}
+            />
+          </div>
+          {/* KsFilter refresh 位:重发当前 品类 × 渠道 × 搜索词 的查询 */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            aria-label="刷新"
+            title="重新拉取当前作用域的条目(品类 × 渠道 × 搜索词)"
+            onClick={() => void refresh()}
+            disabled={loading}
+          >
+            <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
+          </Button>
+          {/* G3 导出组(仅渠道未定作用域:feed.export 无 source 参数,
+              渠道作用域不出钮防范围不实) */}
+          {streamScope.source === null ? (
+            <div className="flex items-center gap-2">
+              <div
+                role="group"
+                aria-label="导出格式"
+                className="flex items-center gap-0.5 rounded-md border border-(--control-border) bg-(--control-bg) p-0.5"
+              >
+                <Button
+                  variant={exportFormat === "jsonl" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-6 gap-0 px-2 text-xs"
+                  aria-pressed={exportFormat === "jsonl"}
+                  title={`JSON Lines 格式(默认文件名 ${defaultExportName("jsonl")})`}
+                  onClick={() => setExportFormat("jsonl")}
+                >
+                  JSONL
+                </Button>
+                <Button
+                  variant={exportFormat === "csv" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-6 gap-0 px-2 text-xs"
+                  aria-pressed={exportFormat === "csv"}
+                  title={`CSV 格式(默认文件名 ${defaultExportName("csv")})`}
+                  onClick={() => setExportFormat("csv")}
+                >
+                  CSV
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void exportCurrentView()}
+                disabled={exporting}
+                title="导出当前过滤视图(品类 × 搜索词)为本地文件"
+              >
+                <Download className={exporting ? "size-3.5 animate-pulse" : "size-3.5"} />
+                {exporting ? "导出中…" : "导出当前视图"}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* 筛选 chips 行(v5 AC15:品类/渠道从导航页降级为墙顶筛选 chips):
+          品类 chips = health 词表 ∪ 已加载品类(零计数不出 chip);选定品类
+          后追加渠道 chips(该品类数据源名);单选高亮,选择即改查询作用域。 */}
+      <div className="flex flex-col gap-1.5 px-6" data-testid="feed-chips">
+        <div role="group" aria-label="品类筛选" className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            data-testid="feed-chip-cat-all"
+            aria-pressed={scope.category === null}
+            title="全部品类(全局瀑布流)"
+            onClick={() => setCategoryScope(null)}
+            className={chipClass(scope.category === null)}
+          >
+            全部
+          </button>
+          {categoryChips.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              data-testid={`feed-chip-cat-${chip.id}`}
+              aria-pressed={scope.category === chip.id}
+              title={`${chip.label} · 今日 ${chip.today} 条 · 未读 ${chip.unread}(当日窗概览,每品类首页 50 条口径)`}
+              onClick={() => setCategoryScope(chip.id)}
+              className={chipClass(scope.category === chip.id)}
+            >
+              {chip.color !== null ? (
+                <span
+                  aria-hidden
+                  className="size-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: chip.color }}
+                />
+              ) : null}
+              {chip.label}
+              <span className="font-mono tabular-nums opacity-70">{chip.today}</span>
+            </button>
+          ))}
+        </div>
+        {scope.category !== null ? (
+          <div role="group" aria-label="渠道筛选" className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              data-testid="feed-chip-src-all"
+              aria-pressed={scope.source === null}
+              title="该品类全部渠道合流"
+              onClick={() => setSourceScope(null)}
+              className={chipClass(scope.source === null)}
+            >
+              全部渠道
+            </button>
+            {channelChips.map((channel) => (
+              <button
+                key={channel.key}
+                type="button"
+                data-testid={`feed-chip-src-${channel.key}`}
+                aria-pressed={scope.source === channel.key}
+                title={`${channel.label} · 今日 ${channel.today} 条 · 未读 ${channel.unread}`}
+                onClick={() => setSourceScope(channel.key)}
+                className={chipClass(scope.source === channel.key)}
+              >
+                {channel.label}
+                <span className="font-mono tabular-nums opacity-70">{channel.today}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      {/* 内容区(内滚):TG 监控台钉墙顶(TG 品类激活时,AC15/AC16)+
+          瀑布流卡片墙(AC13)/ TG 聊天视图(AC16)/ 导出与错误回执 */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-6" data-testid="feed-wall">
+        <span className="sr-only" aria-live="polite">{streamTitle}</span>
+        {exportNote ? (
+          <p className="text-xs text-muted-foreground" data-testid="feed-export-result">
+            {exportNote}
+          </p>
+        ) : null}
+        {openError ? (
+          <p className="text-xs text-destructive" data-testid="feed-open-error">
+            打开原文失败:{openError}
+          </p>
+        ) : null}
+        {markError ? (
+          <p className="text-xs text-destructive" data-testid="feed-mark-error">
+            标记状态失败(已回滚):{markError}
+          </p>
+        ) : null}
+
+        {error ? (
+          <Card data-testid="feed-error">
+            <CardContent className="flex flex-col gap-1.5 pt-1">
+              {error.code === "pyenv_not_ready" ? (
+                /* D2/AC2:环境未就绪非重试可救——人话引导进设置(10-05 收尾) */
+                <>
+                  <p className="text-sm font-medium text-warning">{error.message}</p>
+                  <a
+                    href="#/settings?section=python-env"
+                    className="w-fit text-xs text-link underline underline-offset-2 hover:text-link/80"
+                  >
+                    前往设置 →「Python 环境」完成配置(就绪后情报流自动恢复)
+                  </a>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-destructive">
+                    情报流不可用(sidecar 错误码 {error.code})
+                  </p>
+                  <p className="text-xs text-muted-foreground">{error.message}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => void refresh()}
+                    disabled={loading}
+                  >
+                    <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
+                    重试
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {/* Telegram 监控台(10-09-tg-category-entry;v5 落位:TG 品类激活时
+            钉在墙顶,AC15/AC16)—— 未登录给扫码入口,已登录显监控中;历史
+            消息一跳直达;内置浏览器预览(AC11)。 */}
+        {isTelegramCategory && tgWebline !== null ? (
+          <div
+            data-testid="feed-tg-console"
+            className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-foreground">Telegram 监控台</span>
+              {tgWebline.web.accounts.some((a) => a.logged_in) ? (
+                <span
+                  className="inline-flex items-center gap-1 text-2xs text-ok"
+                  data-testid="feed-tg-console-live"
+                >
+                  ● 监控中 · {tgWebline.web.accounts.filter((a) => a.logged_in).map((a) => a.account).join("、")}
+                  {tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at
+                    ? ` · 自 ${formatAbsoluteTime(tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at ?? null)}`
+                    : ""}
+                </span>
+              ) : (
+                <span className="text-2xs text-warning">
+                  未登录 —— 扫码登录网页版 telegram,登录后 7×24 监控,新消息自动入库
+                </span>
+              )}
+              <span className="ml-auto flex items-center gap-1">
+                {!tgWebline.web.accounts.some((a) => a.logged_in) &&
+                tgWebline.web.accounts.length > 0 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2 text-2xs"
+                    data-testid="feed-tg-console-login"
+                    disabled={tgLoginBusy || tgWebline.web.accounts[0].login_in_progress}
+                    onClick={() => void startWebLogin()}
+                  >
+                    {tgWebline.web.accounts[0].login_in_progress
+                      ? "登录中…"
+                      : tgLoginBusy
+                        ? "拉起中…"
+                        : "扫码登录网页版"}
+                  </Button>
+                ) : null}
+                {/* 内置浏览器预览(AC11):应用内 WebviewWindow 直开频道公开
+                    镜像;推导不出 = 置灰 + title 如实(不装死) */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-2xs"
+                  data-testid="feed-tg-console-preview"
+                  disabled={tgPreviewUrl === null}
+                  title={
+                    tgPreviewUrl === null
+                      ? "暂无可推导的 t.me 公开链接(私有频道或条目无链接),内置预览不可用"
+                      : `内置浏览器预览:${tgPreviewUrl}`
+                  }
+                  onClick={() => tgPreviewUrl && openTgPreview(tgPreviewUrl)}
+                >
+                  内置浏览器预览
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-1.5 text-2xs"
+                  onClick={() => navigate("/settings?section=telegram")}
+                >
+                  管理
+                </Button>
+              </span>
+            </div>
+            <button
+              type="button"
+              data-testid="feed-tg-console-history"
+              onClick={openHistory}
+              className="mt-1.5 inline-flex items-center gap-1 text-2xs text-primary hover:underline"
+            >
+              <Inbox aria-hidden className="size-3" />
+              看全部历史消息(不限当日窗)
+            </button>
+            {tgPreviewNote ? (
+              <span
+                className="mt-1 block text-2xs text-warning"
+                data-testid="feed-tg-console-preview-note"
+              >
+                {tgPreviewNote}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
+        {loading && items.length === 0 ? (
+          // 三态(frontend-ui-engineering):骨架块贴卡三级形状
+          <div className="flex flex-col gap-1.5" data-testid="feed-loading" aria-busy="true" aria-label="情报流加载中">
+            {[0, 1, 2, 3].map((row) => (
+              <div key={row} className="rounded-md border border-border/50 px-3 py-2">
+                <div className="flex items-center justify-between gap-2 pr-1">
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3 w-14" />
+                </div>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-12" />
+                </div>
+                <Skeleton className="mt-1.5 h-4 w-full" />
+                <Skeleton className="mt-1 h-4 w-4/5" />
+              </div>
+            ))}
+          </div>
+        ) : !error && visible.length === 0 ? (
+          // 空态四支:搜索空 / TG 品类监控在线 / 首跑 / 空流 CTA / 读态过滤空
+          searchActive && items.length === 0 ? (
+            <Card data-testid="feed-search-empty">
+              <CardContent className="p-0">
+                <EmptyState
+                  title="没有匹配的条目"
+                  description={`服务端搜索「${query}」零命中;换个关键词,或清空搜索看全部条目。`}
+                />
               </CardContent>
             </Card>
-          ) : null}
-
-          {loading && items.length === 0 ? (
-            <div className="flex flex-col gap-1.5" data-testid="feed-loading" aria-busy="true" aria-label="情报流加载中">
-              {[0, 1, 2, 3].map((row) => (
-                <div key={row} className="rounded-md border border-border/50 px-3 py-2.5">
-                  <Skeleton className="h-4 w-2/5" />
-                  <Skeleton className="mt-1.5 h-3 w-1/4" />
-                </div>
-              ))}
-            </div>
-          ) : !error && items.length === 0 ? (
-            /* 空态三支(L1 原样收编):搜索空 / 首跑 / 空流 CTA(质检件:!error 门) */
-            searchActive ? (
-              <Card data-testid="feed-search-empty">
-                <CardContent className="p-0">
-                  <EmptyState
-                    title="没有匹配的条目"
-                    description={`服务端全库搜索「${query}」零命中;换个关键词,或清空搜索看全部条目。`}
-                  />
-                </CardContent>
-              </Card>
-            ) : firstRun ? (
+          ) : isTelegramCategory ? (
+            /* TG 品类空态(10-09-tg-category-entry):不再甩「先跑采集」
+                死胡同——监控在线给「新消息即时入库」预期 + 监控台历史直达 */
+            <Card>
+              <CardContent className="p-0">
+                <EmptyState
+                  title="监控在线,窗内暂无新消息"
+                  description="Telegram 监控在线,新消息入库即出现在这里;更早的入库记录点监控台「看全部历史消息」直达。"
+                />
+              </CardContent>
+            </Card>
+          ) : items.length === 0 ? (
+            firstRun ? (
               <Card data-testid="feed-first-run">
                 <CardContent className="p-0">
                   <EmptyState
@@ -3024,806 +2915,59 @@ export function FeedScreen() {
               </Card>
             )
           ) : (
-            <>
-              {/* 置顶:全部条目滚动流(全局 L3;主人令「不停地过信息日志」的窗口) */}
-              {drillRow({
-                testId: "feed-drill-all",
-                onOpen: openAllStream,
-                icon: <Inbox aria-hidden className="size-4 shrink-0 text-primary" />,
-                label: "全部条目 · 滚动流",
-                meta: `今日 ${l1AllStats.today} 条 · 未读 ${l1AllStats.unread} · ${l1AllStats.channels} 渠道(跨品类全局流)`,
-                color: null,
-              })}
-              <div className="flex flex-col gap-1.5" data-testid="feed-l1-categories">
-                {/* 10-09-tg-category-entry:今日有货的品类行在前,零计数行折叠
-                    进「今日未更新」(缺省收起)——零计数如实但不再刷屏 */}
-                {l1Rows
-                  .filter((row) => row.today > 0)
-                  .map((row) =>
-                    drillRow({
-                      testId: `feed-drill-cat-${row.id}`,
-                      onOpen: () => openCategory(row.id),
-                      icon: null,
-                      label: row.label,
-                      meta: `今日 ${row.today} 条 · 未读 ${row.unread} · ${row.channels} 渠道`,
-                      color: row.color,
-                    }),
-                  )}
-                {l1Rows.some((row) => row.today === 0) ? (
-                  <>
-                    <button
-                      type="button"
-                      data-testid="feed-l1-idle-toggle"
-                      onClick={() => setIdleOpen((current) => !current)}
-                      className="flex w-fit items-center gap-1 rounded-sm px-1 py-0.5 text-2xs text-muted-foreground hover:text-foreground"
-                      aria-expanded={idleOpen}
-                    >
-                      {idleOpen ? (
-                        <ChevronDown aria-hidden className="size-3" />
-                      ) : (
-                        <ChevronRight aria-hidden className="size-3" />
-                      )}
-                      今日未更新 · {l1Rows.filter((row) => row.today === 0).length} 个品类
-                    </button>
-                    {idleOpen ? (
-                      <div className="flex flex-col gap-1.5 opacity-60" data-testid="feed-l1-idle-categories">
-                        {l1Rows
-                          .filter((row) => row.today === 0)
-                          .map((row) =>
-                            drillRow({
-                              testId: `feed-drill-cat-${row.id}`,
-                              onOpen: () => openCategory(row.id),
-                              icon: null,
-                              label: row.label,
-                              meta: `今日 ${row.today} 条 · 未读 ${row.unread} · ${row.channels} 渠道`,
-                              color: row.color,
-                            }),
-                          )}
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
-            </>
-          )}
-        </div>
-      ) : drill.level === 2 ? (
-        /* ═══ L2 渠道列表:品类内按渠道分组,渠道卡片带类型基因 ═══ */
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-6" data-testid="feed-l2">
-          <div className="flex items-center justify-between gap-2">
-            <span
-              className="text-2xs text-muted-foreground"
-              data-testid="feed-day-window"
-              title="当日窗 03:00 → 次日 03:00;L2 计数 = 该品类查询首页(50 条页)× 当日窗"
-            >
-              当日窗 03:00 起 · 今日 {l2Channels.reduce((sum, channel) => sum + channel.today, 0)} 条
-            </span>
-            {/* 品类批量入口(g9-read-all R1 迁驻;深审 F3 作用域收窄):逐键置位
-                当日窗内已加载行(store.state.mark)—— UI 所见 = 实际作用域,不再
-                mark_all 全库越面;反向出口(窗内全部未读)同门,误触可逆;只在
-                过门时出现(未过门旧通路无品类作用域)。 */}
-            {useServerState ? (
-              <span className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="px-2 text-xs text-muted-foreground"
-                  data-testid="feed-category-mark-all"
-                  aria-label={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条标为已读(作用域=所见行)`}
-                  title={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条标为已读(作用域=所见行,服务端持久;历史/未翻页不动)`}
-                  disabled={l2WindowedItems.length === 0 || l2WindowedItems.every((item) => item.read === true)}
-                  onClick={() => markWindowScoped(true)}
-                >
-                  本品类窗内已读
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="px-2 text-muted-foreground"
-                  data-testid="feed-category-mark-unread"
-                  aria-label={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条恢复未读(反向出口)`}
-                  title={`把「${categoryLabelOf(drill.category)}」当日窗内已加载的 ${l2WindowedItems.length} 条恢复未读(反向出口,误触可逆;作用域=所见行,服务端持久)`}
-                  disabled={l2WindowedItems.length === 0 || l2WindowedItems.every((item) => item.read !== true)}
-                  onClick={() => markWindowScoped(false)}
-                >
-                  窗内未读
-                </Button>
-              </span>
-            ) : null}
-          </div>
-          {/* Telegram 监控台(10-09-tg-category-entry,主人令「点进 Telegram
-              监控 = 浏览器网页扫码登录 + 持续监控」;AC6 归一后品类名 =
-              Telegram 监控,台名随动):TG 品类渠道页顶部大卡——未登录给
-              扫码入口,已登录显监控中;历史消息一跳直达。 */}
-          {isTelegramCategory && tgWebline !== null ? (
-            <div
-              data-testid="feed-tg-console"
-              className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-foreground">Telegram 监控台</span>
-                {tgWebline.web.accounts.some((a) => a.logged_in) ? (
-                  <span
-                    className="inline-flex items-center gap-1 text-2xs text-ok"
-                    data-testid="feed-tg-console-live"
-                  >
-                    ● 监控中 · {tgWebline.web.accounts.filter((a) => a.logged_in).map((a) => a.account).join("、")}
-                    {tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at
-                      ? ` · 自 ${formatAbsoluteTime(tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at ?? null)}`
-                      : ""}
-                  </span>
-                ) : (
-                  <span className="text-2xs text-warning">
-                    未登录 —— 扫码登录网页版 telegram,登录后 7×24 监控,新消息自动入库
-                  </span>
-                )}
-                <span className="ml-auto flex items-center gap-1">
-                  {!tgWebline.web.accounts.some((a) => a.logged_in) &&
-                  tgWebline.web.accounts.length > 0 ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-6 px-2 text-2xs"
-                      data-testid="feed-tg-console-login"
-                      disabled={tgLoginBusy || tgWebline.web.accounts[0].login_in_progress}
-                      onClick={() => void startWebLogin()}
-                    >
-                      {tgWebline.web.accounts[0].login_in_progress
-                        ? "登录中…"
-                        : tgLoginBusy
-                          ? "拉起中…"
-                          : "扫码登录网页版"}
-                    </Button>
-                  ) : null}
-                  {/* 内置浏览器预览(AC11):应用内 WebviewWindow 直开频道公开
-                      镜像;推导不出 = 置灰 + title 如实(不装死) */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-2xs"
-                    data-testid="feed-tg-console-preview"
-                    disabled={tgPreviewUrl === null}
-                    title={
-                      tgPreviewUrl === null
-                        ? "暂无可推导的 t.me 公开链接(私有频道或条目无链接),内置预览不可用"
-                        : `内置浏览器预览:${tgPreviewUrl}`
-                    }
-                    onClick={() => tgPreviewUrl && openTgPreview(tgPreviewUrl)}
-                  >
-                    内置浏览器预览
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-1.5 text-2xs"
-                    onClick={() => navigate("/settings?section=telegram")}
-                  >
-                    管理
-                  </Button>
-                </span>
-              </div>
-              <button
-                type="button"
-                data-testid="feed-tg-console-history"
-                onClick={openCategoryHistory}
-                className="mt-1.5 inline-flex items-center gap-1 text-2xs text-primary hover:underline"
-              >
-                <Inbox aria-hidden className="size-3" />
-                看全部历史消息(不限当日窗)
-              </button>
-              {tgPreviewNote ? (
-                <span
-                  className="mt-1 block text-2xs text-warning"
-                  data-testid="feed-tg-console-preview-note"
-                >
-                  {tgPreviewNote}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-          {/* 置顶:该品类全部渠道合流 */}
-          {drillRow({
-            testId: "feed-drill-cat-all",
-            onOpen: openCategoryStream,
-            icon: <Inbox aria-hidden className="size-4 shrink-0 text-primary" />,
-            label: "全部渠道",
-            meta: `品类 ${categoryLabelOf(drill.category)} · 今日 ${l2Channels.reduce((sum, channel) => sum + channel.today, 0)} 条 · 未读 ${l2Channels.reduce((sum, channel) => sum + channel.unread, 0)}`,
-            color: categoryColor(drill.category),
-          })}
-          {l2Channels.length === 0 ? (
-            isTelegramCategory ? (
-              /* TG 品类空态(10-09-tg-category-entry):不再甩「先跑采集」
-                  死胡同——监控在线给「新消息即时入库」预期 + 历史直达;
-                  AC6 归一后口径 = 「Telegram 监控」,不再专属网页线一词 */
-              <Card>
-                <CardContent className="p-0">
-                  <EmptyState
-                    title="监控在线,窗内暂无新消息"
-                    description="Telegram 监控在线,新消息入库即出现在这里;更早的入库记录点「看全部历史消息」直达。"
-                  />
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="p-0">
-                  <EmptyState
-                    title="该品类暂无窗内条目"
-                    description={`「${categoryLabelOf(drill.category)}」在当日窗(03:00 起)内没有条目;先跑一轮采集,或到「全部条目 · 滚动流」看历史。`}
-                  />
-                </CardContent>
-              </Card>
-            )
-          ) : (
-            <div className="flex flex-col gap-1.5" data-testid="feed-l2-channels">
-              {l2Channels.map((channel) => {
-                const kindMeta = CHANNEL_KIND_META[channel.kind];
-                const KindIcon = kindMeta.Icon;
-                return drillRow({
-                  testId: `feed-drill-ch-${channel.key ?? "unknown"}`,
-                  onOpen: () => channel.key !== null && openChannel(channel.key),
-                  icon: <KindIcon aria-hidden className={`size-4 shrink-0 ${kindMeta.className}`} />,
-                  label: channel.label,
-                  meta: `${kindMeta.label}渠道 · 今日 ${channel.today} 条 · 未读 ${channel.unread}`,
-                  color: null,
-                });
-              })}
-            </div>
-          )}
-        </div>
-      ) : (
-        /* ═══ L3 消息流(分型呈现主场):工具条 + 列表区 ═══ */
-        <>
-          {/* 工具条:读态分段 + 计数/批量 + 右侧显示选项/搜索/刷新/导出
-              (品类下拉退役 —— 品类选择 = L1/L2 层级本体;source 作用域下
-              导出不出钮,feed.export 无 source 参数范围不实) */}
-          <div className="flex flex-wrap items-center gap-2 px-6" data-testid="feed-toolbar">
-            {/* 作用域标题(10-08 审计 F6):streamTitle 此前只进 sr-only,墙层
-                用户看不到任何当前位置词 —— 提为工具条左侧可见文案(sr-only
-                aria-live 保留,播报语义不变) */}
-            <span className="text-xs font-medium text-foreground" data-testid="feed-stream-title">
-              {streamTitle}
-            </span>
-            {/* 读态分段(KsFilter 范式):微填充容器 + 内钮 h-7,激活 = bg-accent */}
-            <div
-              role="group"
-              aria-label="读态过滤"
-              className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5"
-            >
-              {FILTERS.map((entry) => {
-                const active = filter === entry.key;
-                return (
-                  <button
-                    key={entry.key}
-                    type="button"
-                    aria-label={`过滤:${entry.label}`}
-                    aria-pressed={active}
-                    title={
-                      entry.key === "unread"
-                        ? "未读过滤会隐藏已加载行全已读的分组;切「全部」可恢复"
-                        : undefined
-                    }
-                    onClick={() => setFilter(entry.key)}
-                    className={
-                      "h-7 rounded-md px-2.5 text-xs transition-colors duration-(--duration-fast) ease-out-expo " +
-                      (active
-                        ? "bg-accent font-medium text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground")
-                    }
-                  >
-                    {entry.label}
-                  </button>
-                );
-              })}
-            </div>
-            {/* 计数口径(10-08 审计 F2,10-09-tg-category-entry 根治):
-                过 COUNT_PROTOCOL 门(protocol ≥ 13)且应答带 total → 截断时
-                「已加载 X · 共 T 条」,T = 同 WHERE 全量计数(store.items
-                with_total),首页截断不再静默低估也不再无 T 空转;未过门/无
-                total 字段(旧 sidecar 忽略未知参数属预期,不为旧面报错)=
-                回落 F2 半程词面「已加载 N 条」。title 注记口径。 */}
-            <span
-              className="text-2xs text-muted-foreground"
-              data-testid="feed-count"
-              title={
-                total !== null && total > items.length
-                  ? `共 ${total} 条 = 当前过滤条件(store.items 同 WHERE)全量计数,含未翻页;已加载 ${items.length} 条为当日窗视图首页`
-                  : undefined
-              }
-            >
-              {total !== null && total > items.length
-                ? filter === "all"
-                  ? `已加载 ${items.length} · 共 ${total} 条`
-                  : `已加载 ${visible.length} / ${items.length} · 共 ${total} 条`
-                : hasMore
-                  ? filter === "all"
-                    ? `已加载 ${items.length} 条(首页截断,更早条目未计入)`
-                    : `已加载 ${visible.length} / ${items.length} 条`
-                  : filter === "all"
-                    ? `共 ${items.length} 条`
-                    : `${visible.length} / ${items.length} 条`}
-            </span>
-            {/* 当日窗知会(滚动流语义;仅未读/全部两档受窗,星标/稍后读跨窗可见) */}
-            {filter === "unread" || filter === "all" ? (
-              <span
-                className="text-2xs text-muted-foreground"
-                data-testid="feed-day-window"
-                title={
-                  drill.level === 3 && drill.history
-                    ? "历史态:显示该作用域全部入库条目(不限当日窗);返回渠道页可回到滚动流。"
-                    : `当日窗:每天 03:00 清零滚动流(03:00 → 次日 03:00),过窗条目离场、视图从零累计;store 数据不清(retention 照旧),星标/稍后读跨窗可见;实时滚动 = 采集事件即时刷新 + 30s 可见性轮询`
-                }
-              >
-                {drill.level === 3 && drill.history ? "含历史 · 不限当日窗" : "当日窗 03:00 起 · 实时滚动"}
-              </span>
-            ) : null}
-            {searchActive ? (
-              <span className="text-2xs text-muted-foreground" data-testid="feed-search-scope">
-                服务端搜索「{query}」
-                {streamScope.category ? ` × 品类 ${categoryLabelOf(streamScope.category)}` : ""}
-                {streamScope.source ? ` × 渠道 ${streamScope.source}` : ""}
-                {streamScope.sourceKind ? ` × ${streamScope.sourceKind === "web" ? "网页" : "Telegram"}` : ""} × 本地
-                {FILTERS.find((entry) => entry.key === filter)?.label}过滤
-              </span>
-            ) : null}
-            {!bulkHidden && confirmAllMark === null ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="px-2 text-xs text-muted-foreground"
-                  aria-label="全部标已读"
-                  title={markAllReadTitle}
-                  onClick={() => setConfirmAllMark("read")}
-                  disabled={items.length === 0 || unreadLoaded === 0}
-                >
-                  全部标已读
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="px-2 text-xs text-muted-foreground"
-                  aria-label="全部标未读"
-                  title={markAllUnreadTitle}
-                  onClick={() => setConfirmAllMark("unread")}
-                  disabled={items.length - unreadLoaded === 0}
-                >
-                  全部标未读
-                </Button>
-              </>
-            ) : null}
-            {!bulkHidden && confirmAllMark !== null ? (
-              <span
-                data-testid="feed-confirm-all-group"
-                className="flex items-center gap-0.5"
-                onBlur={(event) => {
-                  const next = event.relatedTarget;
-                  if (next instanceof Node && event.currentTarget.contains(next)) return;
-                  setConfirmAllMark(null);
-                }}
-              >
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="px-2 text-xs"
-                  autoFocus
-                  aria-label={confirmAllMark === "read" ? "确认全部标已读" : "确认全部标未读"}
-                  title={confirmAllMark === "read" ? markAllReadTitle : markAllUnreadTitle}
-                  onClick={() => {
-                    const value = confirmAllMark === "read";
-                    setConfirmAllMark(null);
-                    markAllRead(value, bulkScopeCategory ?? undefined, bulkScopeKind);
-                  }}
-                >
-                  {confirmAllMark === "read" ? "确认全部标已读" : "确认全部标未读"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="px-2 text-xs text-muted-foreground"
-                  onClick={() => setConfirmAllMark(null)}
-                >
-                  取消
-                </Button>
-              </span>
-            ) : null}
-            <div className="ml-auto flex items-center gap-2">
-              {/* 显示选项:未读优先 + 分组维度(时间/不分组;品类维度 = L1/L2
-                  层级本体,L3 不再重复) */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label="显示选项"
-                    title="显示选项:未读优先 / 分组维度(本地记忆)"
-                  >
-                    <SlidersHorizontal className="size-3.5" />
-                    显示
-                    <ChevronDown className="size-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>显示</DropdownMenuLabel>
-                  <DropdownMenuItem
-                    onClick={() => updateDisplay({ ...display, unreadFirst: !display.unreadFirst })}
-                    title="未读条目浮到列表前(未读/已读各自稳定保序)"
-                  >
-                    {display.unreadFirst ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <span className="size-3.5" aria-hidden />
-                    )}
-                    未读优先
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>分组</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => updateDisplay({ ...display, groupMode: "time" })}>
-                    {display.groupMode !== "none" ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <span className="size-3.5" aria-hidden />
-                    )}
-                    时间分组(今天 / 昨天 / 7 天内 / 更早)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => updateDisplay({ ...display, groupMode: "none" })}>
-                    {display.groupMode === "none" ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <span className="size-3.5" aria-hidden />
-                    )}
-                    不分组(平铺)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {/* KsFilter 搜索位:前导图标入框,Mod+F 聚焦与 Esc 即时清空保留 */}
-              <div className="relative">
-                <Search
-                  aria-hidden
-                  className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
-                />
-                <Input
-                  ref={searchInputRef}
-                  type="search"
-                  value={searchInput}
-                  aria-label="搜索条目"
-                  placeholder="搜索标题 / 摘要 / 来源(服务端,当前作用域)"
-                  className="w-64 pl-8 text-xs"
-                  onChange={(event) => setSearchInput(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") setQuery(searchInput.trim());
-                    if (event.key === "Escape") {
-                      setSearchInput("");
-                      setQuery("");
-                    }
-                  }}
-                />
-              </div>
-              {/* KsFilter refresh 位:重发当前 品类 × 渠道 × 搜索词 的查询 */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                aria-label="刷新"
-                title="重新拉取当前作用域的条目(品类 × 渠道 × 搜索词)"
-                onClick={() => void refresh()}
-                disabled={loading}
-              >
-                <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
-              </Button>
-              {/* G3 导出组(仅 source 未定作用域:feed.export 无 source 参数,
-                  渠道流不出钮防范围不实) */}
-              {streamScope.source === null ? (
-                <div className="flex items-center gap-2">
+            <Card>
+              <CardContent className="p-0">
+                <EmptyState title={EMPTY_TEXT[filter].title} description={EMPTY_TEXT[filter].description} />
+              </CardContent>
+            </Card>
+          )
+        ) : chatView ? (
+          /* ═══ TG 聊天视图(AC16 既有,v5 由 TG 频道 chip 激活):气泡时间线,
+              日期分隔走居中胶囊(v4 聊天主页风格);含历史态照旧 ═══ */
+          groups !== null ? (
+            <div className="flex flex-col gap-4" data-testid="feed-chat-timeline">
+              {groups.map((group) => (
+                <section key={group.key} aria-label={`时间分组:${group.label}`}>
                   <div
-                    role="group"
-                    aria-label="导出格式"
-                    className="flex items-center gap-0.5 rounded-md border border-(--control-border) bg-(--control-bg) p-0.5"
+                    data-testid={`feed-group-${group.label}`}
+                    className="mx-auto w-fit rounded-full bg-muted/60 px-3 py-1 text-2xs text-muted-foreground"
                   >
-                    <Button
-                      variant={exportFormat === "jsonl" ? "secondary" : "ghost"}
-                      size="sm"
-                      className="h-6 gap-0 px-2 text-xs"
-                      aria-pressed={exportFormat === "jsonl"}
-                      title={`JSON Lines 格式(默认文件名 ${defaultExportName("jsonl")})`}
-                      onClick={() => setExportFormat("jsonl")}
-                    >
-                      JSONL
-                    </Button>
-                    <Button
-                      variant={exportFormat === "csv" ? "secondary" : "ghost"}
-                      size="sm"
-                      className="h-6 gap-0 px-2 text-xs"
-                      aria-pressed={exportFormat === "csv"}
-                      title={`CSV 格式(默认文件名 ${defaultExportName("csv")})`}
-                      onClick={() => setExportFormat("csv")}
-                    >
-                      CSV
-                    </Button>
+                    {`${group.label} · ${group.items.length} 条`}
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void exportCurrentView()}
-                    disabled={exporting}
-                    title="导出当前过滤视图(品类 × 搜索词)为本地文件"
-                  >
-                    <Download className={exporting ? "size-3.5 animate-pulse" : "size-3.5"} />
-                    {exporting ? "导出中…" : "导出当前视图"}
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          {/* 列表区(内滚):导出回执/错误横幅/加载/空态/分组列表都在滚动面内 */}
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-6" data-testid="feed-l3">
-            <span className="sr-only" aria-live="polite">{streamTitle}</span>
-            {exportNote ? (
-              <p className="text-xs text-muted-foreground" data-testid="feed-export-result">
-                {exportNote}
-              </p>
-            ) : null}
-            {openError ? (
-              <p className="text-xs text-destructive" data-testid="feed-open-error">
-                打开原文失败:{openError}
-              </p>
-            ) : null}
-            {markError ? (
-              <p className="text-xs text-destructive" data-testid="feed-mark-error">
-                标记状态失败(已回滚):{markError}
-              </p>
-            ) : null}
-
-            {error ? (
-              <Card data-testid="feed-error">
-                <CardContent className="flex flex-col gap-1.5 pt-1">
-                  {error.code === "pyenv_not_ready" ? (
-                    <>
-                      <p className="text-sm font-medium text-warning">{error.message}</p>
-                      <a
-                        href="#/settings?section=python-env"
-                        className="w-fit text-xs text-link underline underline-offset-2 hover:text-link/80"
-                      >
-                        前往设置 →「Python 环境」完成配置(就绪后情报流自动恢复)
-                      </a>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm font-medium text-destructive">
-                        情报流不可用(sidecar 错误码 {error.code})
-                      </p>
-                      <p className="text-xs text-muted-foreground">{error.message}</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-fit"
-                        onClick={() => void refresh()}
-                        disabled={loading}
-                      >
-                        <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
-                        重试
-                      </Button>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            ) : null}
-
-            {loading && items.length === 0 ? (
-              // 三态(frontend-ui-engineering):骨架块贴新卡三级形状
-              <div className="flex flex-col gap-1.5" data-testid="feed-loading" aria-busy="true" aria-label="情报流加载中">
-                {[0, 1, 2, 3].map((row) => (
-                  <div key={row} className="rounded-md border border-border/50 px-3 py-2">
-                    <div className="flex items-center justify-between gap-2 pr-1">
-                      <Skeleton className="h-4 w-2/3" />
-                      <Skeleton className="h-3 w-14" />
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <Skeleton className="h-3 w-16" />
-                      <Skeleton className="h-3 w-20" />
-                      <Skeleton className="h-3 w-12" />
-                    </div>
-                    <Skeleton className="mt-1.5 h-4 w-full" />
-                    <Skeleton className="mt-1 h-4 w-4/5" />
-                  </div>
-                ))}
-              </div>
-            ) : !error && visible.length === 0 ? (
-              items.length === 0 && searchActive ? (
-                <Card data-testid="feed-search-empty">
-                  <CardContent className="p-0">
-                    <EmptyState
-                      title="没有匹配的条目"
-                      description={`服务端搜索「${query}」零命中;换个关键词,或清空搜索看全部条目。`}
-                    />
-                  </CardContent>
-                </Card>
-              ) : items.length === 0 ? (
-                <Card>
-                  <CardContent className="p-0">
-                    <EmptyState title={EMPTY_TEXT[filter].title} description={EMPTY_TEXT[filter].description} />
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="p-0">
-                    <EmptyState title={EMPTY_TEXT[filter].title} description={EMPTY_TEXT[filter].description} />
-                  </CardContent>
-                </Card>
-              )
-            ) : wallLayout ? (
-              /* ═══ 卡片墙(v2 第一层,主人令「网页集中在一起,其他通讯软件
-                  一个通讯软件一个卡片,点击进入第二层才是详情展示」):
-                  网页一张 + 每通讯软件一张,散条目卡退场 ═══ */
-              wallCards.length > 0 ? (
-                <section aria-label="来源卡片墙" data-testid="feed-kind-wall" className="flex flex-col gap-1.5">
-                  {wallCards.map((card) => (
-                    <SourceKindCard
-                      key={card.key}
-                      card={card}
-                      onOpen={() => openKind(card.key)}
-                      truncated={hasMore}
-                      /* total 仅在作用域真截断时透传(total > 已加载):作用域已
-                          取尽时单卡计数本就完整,「已加载 X」词面会失义 */
-                      total={hasMore && total !== null && total > items.length ? total : null}
-                      /* 次级概览行(F10,displayItems 现算零新 RPC):im 卡 =
-                          telegramChannelCards 聚合 top3(频道名+未读数,与第二层
-                          节头同源同序——最新消息新→旧,聊天列表惯例);web 卡 =
-                          streamKindSubRows top3(源名+条数,channelDisplayName
-                          词表)。行 display-only:整卡点击仍进第二层。 */
-                      subRows={
-                        card.key === "im"
-                          ? telegramChannelCards(displayItems, states)
-                              .slice(0, 3)
-                              .map(({ key, label, count, unread }) => ({ key, label, count, unread }))
-                          : streamKindSubRows(displayItems, states, "web")
-                      }
-                      navFocused={currentKey === `kind:${card.key}` && navByKeyboard}
-                      onCurrent={() => onCurrentCard(`kind:${card.key}`)}
-                    />
-                  ))}
+                  <div className="mt-1 flex flex-col gap-1.5">{group.items.map(renderCard)}</div>
                 </section>
-              ) : null
-            ) : imDetailLayout ? (
-              /* ═══ Telegram 分节详情(v2 第二层,决议「按频道分节全铺」):
-                  节头 = 细条节头(F3:频道名+条数/未读+chevron,不再复述最新
-                  一条 —— 此前节头大卡与节内首条气泡背靠背重复同一消息),
-                  节内消息全量平铺,不点也能同屏看完全部消息 ═══ */
-              imDetailCards.length > 0 ? (
-                <div className="flex flex-col gap-4" data-testid="feed-im-sections">
-                  {/* 网页线监控状态条(10-09-tg-category-entry,主人令「扫码
-                      登录,一直监控网页上的数据」入口打通):已登录 = 监控中
-                      +管理跳转;未登录 = 扫码登录直达(浏览器模块统一入口);
-                      快照拉取失败 = 条不出,不拦浏览。 */}
-                  {tgWebline !== null ? (
-                    <div
-                      data-testid="feed-tg-webline-strip"
-                      className="flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-2xs text-muted-foreground"
-                    >
-                      <span className="font-medium text-foreground/80">Telegram 监控 · 网页线</span>
-                      {tgWebline.web.accounts.length === 0 ? (
-                        <>
-                          <span>尚未配置网页线账号</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 px-1.5 text-2xs"
-                            onClick={() => navigate("/settings?section=telegram")}
-                          >
-                            前往设置 · Telegram
-                          </Button>
-                        </>
-                      ) : tgWebline.web.accounts.some((a) => a.logged_in) ? (
-                        <>
-                          <span className="inline-flex items-center gap-1 text-ok" data-testid="feed-tg-webline-live">
-                            ● 监控中 · {tgWebline.web.accounts.filter((a) => a.logged_in).map((a) => a.account).join("、")}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-5 px-1.5 text-2xs"
-                            onClick={() => navigate("/settings?section=telegram")}
-                          >
-                            管理 → 设置 · Telegram
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <span className="text-warning">未登录 —— 扫码登录后即常驻监控,随时随地带数据</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-5 px-1.5 text-2xs"
-                            data-testid="feed-tg-webline-login"
-                            disabled={tgLoginBusy || tgWebline.web.accounts[0].login_in_progress}
-                            onClick={() => void startWebLogin()}
-                          >
-                            {tgWebline.web.accounts[0].login_in_progress
-                              ? "登录中…"
-                              : tgLoginBusy
-                                ? "拉起中…"
-                                : `扫码登录(${tgWebline.web.accounts[0].account})`}
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  ) : null}
-                  {imDetailCards.map((card) => (
-                    <section key={card.key} aria-label={`Telegram 频道:${card.label}`}>
-                      <TgSectionHeader card={card} onOpen={() => openChannelFromStream(card.key)} />
-                      <div className="mt-1 flex flex-col gap-1.5">
-                        {displayItems
-                          .filter((item) => item.source === card.key)
-                          .map(renderCard)}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              ) : null
-            ) : (
-              <>
-                {/* TG 渠道卡区(10-08-tg-channel-card v1 形态,未过源大类门
-                    时回落;过门后 tgCards 恒空 = 零渲染):可见集含 TG 条目时
-                    置顶呈现,每渠道一卡;消息列表本体不再逐条铺 TG 卡。 */}
-                {tgCards.length > 0 ? (
-                  <section aria-label="TG 频道" data-testid="feed-tg-channels" className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 py-0.5">
-                      <span className="text-2xs font-medium text-muted-foreground">TG 频道</span>
-                      <span className="text-2xs text-muted-foreground">{tgCards.length} 个</span>
-                      <span aria-hidden className="h-px flex-1 bg-border/70" />
-                    </div>
-                    {tgCards.map((card) => (
-                      <TgChannelCard key={card.key} card={card} onOpen={() => openChannelFromStream(card.key)} />
-                    ))}
-                  </section>
-                ) : null}
-                {/* 时间分组头(D4):sticky 组头 + 组内卡片(渠道分型呈现);
-                    10-08 起 TG 条目折叠进渠道卡区(v1)/网页详情平铺(v2),
-                    分组吃 streamItems */}
-                {groups !== null ? (
-                  <div className="flex flex-col gap-4">
-                    {groups.map((group) => (
-                      <section key={group.key} aria-label={`时间分组:${group.label}`}>
-                        <div
-                          data-testid={`feed-group-${group.label}`}
-                          className={
-                            chatStyleGroups
-                              ? "mx-auto w-fit rounded-full bg-muted/60 px-3 py-1 text-2xs text-muted-foreground"
-                              : "sticky top-0 z-10 -mx-6 flex items-center gap-2 bg-background/95 px-6 py-2.5 backdrop-blur-sm"
-                          }
-                        >
-                          {chatStyleGroups ? (
-                            `${group.label} · ${group.items.length} 条`
-                          ) : (
-                            <>
-                              <span className="text-2xs font-medium text-muted-foreground">{group.label}</span>
-                              <span className="text-2xs text-muted-foreground">{group.items.length} 条</span>
-                              <span aria-hidden className="h-px flex-1 bg-border/70" />
-                            </>
-                          )}
-                        </div>
-                        {/* 组内行距 6px(Kestra 列表密度档) */}
-                        <div className="flex flex-col gap-1.5">{group.items.map(renderCard)}</div>
-                      </section>
-                    ))}
-                  </div>
-                ) : (
-                  // 不分组:平铺(行距同组内 6px 密度档)
-                  <div className="flex flex-col gap-1.5" data-testid="feed-flat-list">
-                    {streamItems.map(renderCard)}
-                  </div>
-                )}
-              </>
-            )}
-
-            {hasMore && !loading ? (
-              <Button variant="outline" size="sm" className="self-center" onClick={() => void loadMore()} disabled={loadingMore}>
-                {loadingMore ? "加载中…" : "加载更早的条目"}
-              </Button>
-            ) : null}
+              ))}
+            </div>
+          ) : (
+            // 不分组:平铺(行距 6px 密度档)
+            <div className="flex flex-col gap-1.5" data-testid="feed-flat-list">
+              {displayItems.map(renderCard)}
+            </div>
+          )
+        ) : (
+          /* ═══ 瀑布流卡片墙(v5 首屏,AC13):Tailwind columns 多列瀑布流,
+              子项 break-inside-avoid——内容卡直出(TG = 聊天气泡卡),卡面 =
+              类型徽标 + 标题 + cardDigest 摘要 + 来源渠道 + 相对时间 + 未读
+              标记(deal 价格行/watch「有更新」徽标随卡);点击卡片 = 详情
+              弹窗,悬停操作簇/右键/j-k-U-Enter 随卡保留 ═══ */
+          <div
+            data-testid="feed-waterfall"
+            className="columns-1 gap-3 sm:columns-2 lg:columns-3 xl:columns-4"
+          >
+            {displayItems.map((entry) => (
+              <div key={itemKey(entry)} className="mb-3 break-inside-avoid">
+                {renderCard(entry)}
+              </div>
+            ))}
           </div>
-        </>
-      )}
+        )}
+
+        {hasMore && !loading ? (
+          <Button variant="outline" size="sm" className="self-center" onClick={() => void loadMore()} disabled={loadingMore}>
+            {loadingMore ? "加载中…" : "加载更早的条目"}
+          </Button>
+        ) : null}
+      </div>
 
       {/* 消息详情弹窗(主人令「点击信息,弹出详情」):Portal 渲染,Esc/遮罩
           点击关闭(ui/dialog.tsx 基件);动作簇复用卡内既有实现 */}

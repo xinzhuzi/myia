@@ -180,15 +180,12 @@ function renderScreen() {
   );
 }
 
-/** 三级下钻(10-06):进入「全部条目 · 滚动流」L3(全局流 = 原平铺视图语义) */
-async function openAllStream() {
-  fireEvent.click(await screen.findByTestId("feed-drill-all"));
-}
-
-/** 惯用入口:渲染 L1 + 下钻全局滚动流(卡片/工具条用例的公共前置) */
+/** 惯用入口:渲染首屏(v5:落地即瀑布流,无导航中转;等首页查询落地
+ *  —— feed-loading 卸载即首查已应答,后续断言自等卡片/chips) */
 async function renderStream() {
   renderScreen();
-  await openAllStream();
+  await screen.findByTestId("feed-wall");
+  await waitFor(() => expect(screen.queryByTestId("feed-loading")).toBeNull());
 }
 
 /** 品类下拉选项用 PluginReport 夹具(形状对齐 types.ts;字段按需覆写) */
@@ -370,12 +367,12 @@ describe("FeedScreen", () => {
     storeItemsMock.mockResolvedValue(result([fixtureItem()]));
     await renderStream();
 
-    await screen.findByText("条目 1");
-    expect(screen.getByText(/Example/)).toBeTruthy();
-    expect(screen.getByText("tech")).toBeTruthy();
-    expect(screen.getByText("ai")).toBeTruthy();
-    expect(screen.getByText("0.87")).toBeTruthy();
-    expect(screen.getByText(/刚刚/)).toBeTruthy();
+    const card = await screen.findByTestId("feed-item-1");
+    expect(within(card).getByText(/Example/)).toBeTruthy();
+    expect(within(card).getByText("tech")).toBeTruthy();
+    expect(within(card).getByText("ai")).toBeTruthy();
+    expect(within(card).getByText("0.87")).toBeTruthy();
+    expect(within(card).getByText(/刚刚/)).toBeTruthy();
   });
 
   it("图析行:image_ocr 条目出「图」Badge + 单行摘要(空白压平),无图条目零渲染", async () => {
@@ -448,7 +445,6 @@ describe("FeedScreen", () => {
     const item = fixtureItem();
     storeItemsMock.mockResolvedValue(result([item]));
     const { unmount } = renderScreen();
-    await openAllStream();
     await screen.findByText("条目 1");
     const card = screen.getByTestId(`feed-item-${item.id}`);
     fireEvent.click(within(card).getByRole("button", { name: "星标" }));
@@ -582,7 +578,7 @@ describe("FeedScreen", () => {
   // G1 搜索 / G2 展开与打开原文 / G3 导出
   // -------------------------------------------------------------------------
 
-  it("三级下钻作用域(10-06):L1 品类 → L2 渠道 → L3 渠道流 = store.items 带 category+source 精确等值;面包屑回退复称全库", async () => {
+  it("chips 作用域(v5 AC15):品类 chip → 渠道 chip = store.items 带 category+source 精确等值;「全部渠道/全部」chips 回流", async () => {
     const newsA = fixtureItem({ category: "ai-news", source: "openai-news", title: "闻甲" });
     const newsB = fixtureItem({ category: "ai-news", source: "hf-blog", title: "闻乙" });
     storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
@@ -598,19 +594,19 @@ describe("FeedScreen", () => {
     );
     renderScreen();
 
-    // L1:品类行(health 词汇源回显名称)→ 点击进 L2
-    fireEvent.click(await screen.findByTestId("feed-drill-cat-ai-news"));
-    const channel = await screen.findByTestId("feed-drill-ch-openai-news");
-    expect(within(channel).getByText("openai-news")).toBeTruthy();
-    expect(within(channel).getByText(/新闻渠道/)).toBeTruthy();
+    // 品类 chip(health 词汇源回显名称)→ 激活后渠道 chips 出现
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-ai-news"));
+    const channel = await screen.findByTestId("feed-chip-src-openai-news");
+    expect(channel.textContent).toContain("openai-news");
+    expect(screen.getByTestId("feed-chip-src-all").textContent).toContain("全部渠道");
 
-    // L2 → L3:渠道流查询带 category+source 精确等值
+    // 渠道 chip → 内容流查询带 category+source 精确等值
     fireEvent.click(channel);
     await screen.findByText("闻甲");
     await waitFor(() =>
       expect(storeItemsMock).toHaveBeenLastCalledWith({ limit: 50, category: "ai-news", source: "openai-news" }),
     );
-    expect(screen.queryByText("闻乙")).toBeNull(); // 渠道流只回本渠道行
+    expect(screen.queryByText("闻乙")).toBeNull(); // 渠道作用域只回本渠道行
 
     // 渠道 × 搜索叠加:query 随游标透传,作用域行如实注明品类 × 渠道
     fireEvent.change(screen.getByLabelText("搜索条目"), { target: { value: "GLM" } });
@@ -626,41 +622,50 @@ describe("FeedScreen", () => {
     expect(screen.getByTestId("feed-search-scope").textContent).toContain("ai-news");
     expect(screen.getByTestId("feed-search-scope").textContent).toContain("openai-news");
 
-    // 面包屑回退:渠道 → 品类(深审 F1:L2 计数源 = 品类查询页,source 摘除,
-    // 概览面不带 query——搜索词只属 L3 流)→ 情报流 L1
-    fireEvent.click(screen.getByTestId("feed-crumb-category"));
+    // 「全部渠道」chip 回品类流(source 摘除,搜索词跨作用域保留);
+    // 「全部」品类 chip 回全局流
+    fireEvent.click(await screen.findByTestId("feed-chip-src-all"));
     await waitFor(() => {
       const last = storeItemsMock.mock.calls[storeItemsMock.mock.calls.length - 1][0] as StoreItemsParams;
       expect(last.source).toBeUndefined();
       expect(last.category).toBe("ai-news");
-      expect(last.query).toBeUndefined();
     });
-    // L2 头部可见(渠道行);回 L1:全局行在场
-    expect(await screen.findByTestId("feed-drill-ch-openai-news")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("feed-crumb-home"));
-    expect(await screen.findByTestId("feed-drill-all")).toBeTruthy();
+    expect(await screen.findByText("闻乙")).toBeTruthy();
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-all"));
+    await waitFor(() => {
+      const last = storeItemsMock.mock.calls[storeItemsMock.mock.calls.length - 1][0] as StoreItemsParams;
+      expect(last.category).toBeUndefined();
+    });
   });
 
-  it("L1 品类行词汇源:health().plugins id 去重 + 名称回显 + null id 不入;health 失败仍列已加载条目品类", async () => {
+  it("品类 chips 词汇源(v5):health().plugins id 去重 + 名称回显 + null id 不入;零计数不出 chip;health 失败仍列已加载条目品类", async () => {
     // 连挂三屏(health 正常/换清单/拒连),默认 1s waitFor 在整文件连跑负载
     // 下偶发超时(03:39 实测 2/9)—— 统一放宽到 3s,只放宽等待不改断言。
-    const rowIds = () =>
-      screen.getAllByTestId(/^feed-drill-cat-/).map((node) => node.getAttribute("data-testid"));
-    const waitRows = (expected: string[]) =>
-      waitFor(() => expect(rowIds()).toEqual(expected), { timeout: 3000 });
+    const chipIds = () =>
+      screen
+        .queryAllByTestId(/^feed-chip-cat-/)
+        .map((node) => node.getAttribute("data-testid"))
+        .filter((id) => id !== "feed-chip-cat-all"); // 「全部」恒在不计入词表断言
+    const waitChips = (expected: string[]) =>
+      waitFor(() => expect(chipIds()).toEqual(expected), { timeout: 3000 });
     storeItemsMock.mockResolvedValue(result([fixtureItem({ category: "tech" })]));
     const first = renderScreen();
 
-    // 缺省 health(单插件 ai-news)+ 已加载条目品类 tech:tech 有货直出;
-    // ai-news 零计数折叠进「今日未更新」(10-09-tg-category-entry),点开可见
-    await waitRows(["feed-drill-cat-tech"]);
-    expect(screen.getByTestId("feed-l1-idle-toggle").textContent).toContain("今日未更新 · 1 个品类");
-    fireEvent.click(screen.getByTestId("feed-l1-idle-toggle"));
-    await waitRows(["feed-drill-cat-tech", "feed-drill-cat-ai-news"]);
-    expect(screen.getByTestId("feed-drill-cat-ai-news").textContent).toContain("AI资讯"); // 名称回显
+    // 「全部」chip 恒在;有货品类出 chip;缺省 health(单插件 ai-news)零计数
+    // 不出 chip(AC15,L1 折叠逻辑自然消亡)
+    expect(await screen.findByTestId("feed-chip-cat-all")).toBeTruthy();
+    await waitChips(["feed-chip-cat-tech"]);
     first.unmount();
 
-    // 多插件(同 id 去重首现优先 / null id 不入 / name 缺省回 id):重挂载拉新清单
+    // 多插件(同 id 去重首现优先 / null id 不入 / name 缺省回 id):重挂载拉
+    // 新清单;ai-news 今日有货 → chip 在场且显词表名(AI资讯);stocks 零计数
+    // 不出 chip(词表只影响 label,不影响出现与否)
+    const vocabItems = [fixtureItem({ category: "tech" }), fixtureItem({ category: "ai-news", source: "a" })];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(vocabItems.filter((item) => !params?.category || item.category === params.category)),
+      ),
+    );
     healthMock.mockResolvedValue(
       healthResult({
         plugins: [
@@ -672,26 +677,19 @@ describe("FeedScreen", () => {
       }),
     );
     const second = renderScreen();
-    // 折叠口径:tech 有货直出;ai-news/stocks 零计数折叠(同 id 去重/null id
-    // 不入同门),点开后按选项序出现在闲置区
-    await waitFor(
-      () => expect(screen.getByTestId("feed-l1-idle-toggle").textContent).toContain("今日未更新 · 2 个品类"),
-      { timeout: 3000 },
-    );
-    // tech 行随「概览二跳」落地(换清单后 tech 不在新选项词表,靠 items 品类
-    // 并入 → 概览按新键重查)——health 先落/tech 页后落是合法瞬态,曾致
-    // 1/8 偶发红(实测 03:50 抓现场:idle 已显 2 品类而 tech 页未回)。等稳定
-    // 态,不测中间态。
-    await waitRows(["feed-drill-cat-tech"]);
-    fireEvent.click(screen.getByTestId("feed-l1-idle-toggle"));
-    await waitRows(["feed-drill-cat-tech", "feed-drill-cat-ai-news", "feed-drill-cat-stocks"]);
-    expect(screen.getByTestId("feed-drill-cat-stocks").textContent).toContain("stocks"); // name 缺省回 id
+    // chip 序 = id localeCompare 稳定序(tech 品类条目靠 items 品类并入概览
+    // 词表;health 先落/品类页后落是合法瞬态,等稳定态不测中间态)
+    await waitChips(["feed-chip-cat-ai-news", "feed-chip-cat-tech"]);
+    expect(screen.getByTestId("feed-chip-cat-ai-news").textContent).toContain("AI资讯"); // 名称回显
+    expect(screen.queryByTestId("feed-chip-cat-stocks")).toBeNull(); // 零计数不出 chip
     second.unmount();
 
-    // health 失败:不拦情报流,品类行收敛为已加载条目品类(选项词表空)
+    // health 失败:不拦情报流,品类 chips 收敛为已加载条目品类(选项词表空;
+    // 换回 tech-only 流查询,词表 = 条目品类一面)
+    storeItemsMock.mockResolvedValue(result([fixtureItem({ category: "tech" })]));
     healthMock.mockRejectedValue(new Error("sidecar 未连接"));
     renderScreen();
-    await waitRows(["feed-drill-cat-tech"]);
+    await waitChips(["feed-chip-cat-tech"]);
   });
 
   it("工具条一行收纳(KsFilter):品类下拉 + 读态分段 + 搜索 + 刷新同容器;刷新钮(KsFilter refresh 位,自页头迁入)重发查询", async () => {
@@ -1068,16 +1066,14 @@ describe("FeedScreen", () => {
     expect(time?.textContent).toContain("刚刚");
   });
 
-  it("D4 分组时间轴:今日条目落「今天」sticky 组头(计数如实,同组单头)", async () => {
+  it("瀑布流恒平铺(v5):根作用域零时间组头,columns 瀑布容器在场(时间语义由卡面相对时间承担)", async () => {
     const items = [fixtureItem(), fixtureItem()];
     storeItemsMock.mockResolvedValue(result(items));
     await renderStream();
 
-    const header = await screen.findByTestId("feed-group-今天");
-    expect(header.textContent).toContain("今天");
-    expect(header.textContent).toContain("2 条");
-    expect(header.className).toContain("sticky");
-    expect(screen.getAllByTestId("feed-group-今天")).toHaveLength(1);
+    expect(await screen.findByTestId("feed-item-1")).toBeTruthy();
+    expect(screen.queryByTestId(/^feed-group-/)).toBeNull();
+    expect(screen.getByTestId("feed-waterfall").className).toContain("columns-1");
   });
 
   it("D4 U 快捷键:hover 进入卡后按 U 切已读(未读过滤下离场);输入框内敲 u 不触发", async () => {
@@ -1113,9 +1109,6 @@ describe("FeedScreen", () => {
     expect(await screen.findByTestId("feed-loading")).toBeTruthy();
     expect(screen.queryByTestId(/^feed-item-/)).toBeNull();
     act(() => resolvers.splice(0).forEach((resolve) => resolve(result([fixtureItem()]))));
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
-    await waitFor(() => expect(resolvers.length).toBeGreaterThan(0));
-    act(() => resolvers.splice(0).forEach((resolve) => resolve(result([fixtureItem()]))));
     await screen.findByTestId("feed-item-1");
     expect(screen.queryByTestId("feed-loading")).toBeNull();
   });
@@ -1134,7 +1127,6 @@ describe("FeedScreen", () => {
     expect(screen.queryByTestId("feed-run-cta")).toBeNull();
     expect(screen.queryByText("情报流还是空的")).toBeNull();
     fireEvent.click(within(banner).getByRole("button", { name: "重试" }));
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByTestId("feed-item-1");
     expect(screen.queryByTestId("feed-error")).toBeNull();
   });
@@ -1472,33 +1464,23 @@ describe("FeedScreen · interaction-batch(A-feed)", () => {
     expect((persisted as { unreadFirst?: boolean }).unreadFirst).toBe(true);
   });
 
-  it("显示选项 · 分组维度:时间四桶(缺省)→ 按品类(色点同 categoryColor)→ 不分组(平铺)", async () => {
-    const tech1 = fixtureItem({ category: "tech", title: "技一" });
-    const news2 = fixtureItem({ category: "news", title: "闻二" });
-    const tech3 = fixtureItem({ category: "tech", title: "技三" });
-    const none4 = fixtureItem({ category: null, title: "无类四" });
-    storeItemsMock.mockResolvedValue(result([tech1, news2, tech3, none4]));
+  it("显示选项 · 分组维度(v5):瀑布流恒平铺零组头;时间/不分组两档持久(时间档在聊天视图出日期胶囊)", async () => {
+    storeItemsMock.mockResolvedValue(result([fixtureItem(), fixtureItem()]));
     await renderStream();
-    await screen.findByText("技一");
+    await screen.findByText("条目 1");
 
-    // 缺省 = 时间四桶(既有 D4 行为不动)
-    expect(screen.getByTestId("feed-group-今天").textContent).toContain("4 条");
+    // 瀑布流(v5 首屏)恒平铺:任何 groupMode 下根作用域零组头
+    expect(screen.queryByTestId(/^feed-group-/)).toBeNull();
 
-    // 三级下钻(10-06)后品类分组退役:菜单只有 时间/不分组 两档;品类维度
-    // = L1/L2 层级本体(见 L1/L2 下钻用例),组头色点随品类分组一并退役
+    // 菜单只有 时间/不分组 两档(品类维度随三级页退役,见 chips 用例)
     fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
     const menu = await screen.findByRole("menu");
     expect(within(menu).queryByRole("menuitem", { name: "按品类分组" })).toBeNull();
     expect(within(menu).getByRole("menuitem", { name: "时间分组(今天 / 昨天 / 7 天内 / 更早)" }).querySelector("svg")).not.toBeNull();
 
-    // 不分组:组头全消、四卡平铺
+    // 不分组:持久 groupMode = none(重开菜单勾选态同步)
     fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
     fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "不分组(平铺)" }));
-    await waitFor(() => expect(screen.queryByTestId(/^feed-group-/)).toBeNull());
-    expect(screen.getAllByTestId(/^feed-item-/)).toHaveLength(4);
-    expect(screen.getByTestId("feed-flat-list")).toBeTruthy();
-
-    // 持久:groupMode = none(重开菜单勾选态同步)
     const persisted: unknown = JSON.parse(localStorageStub.getItem("myssia.feed.display.v1") ?? "{}");
     expect((persisted as { groupMode?: string }).groupMode).toBe("none");
     fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
@@ -1587,7 +1569,6 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     const card = await screen.findByTestId("feed-item-1");
     // 过门生效的可见标志:批量按钮 title 换全库真话
     await waitFor(() =>
@@ -1618,7 +1599,6 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     const card = await screen.findByTestId("feed-item-1");
     const star = within(card).getByRole("button", { name: "星标" });
     fireEvent.click(star);
@@ -1645,7 +1625,6 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("条目 1");
     const readAll = screen.getByRole("button", { name: "全部标已读" });
     await waitFor(() => expect(readAll.getAttribute("title")).toContain("全库"));
@@ -1665,12 +1644,12 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
     // 就地翻转已加载行:默认「未读」过滤 0/2、卡片离场;不整页重拉
     await waitFor(() => expect(screen.getByText("0 / 2 条")).toBeTruthy());
     expect(screen.queryByTestId(/^feed-item-/)).toBeNull();
-    // L1 首页 + 下钻 L3-all 同参重查 = 2 发流查询(F1 概览按品类另发,不计),
+    // v5 单屏:挂载仅 1 发全局流查询(F1 概览按品类另发,不计),
     // mark_all 后不再整页重拉
     const streamCalls = fresh.storeItemsMock.mock.calls.filter(
       ([params]) => !(params as StoreItemsParams | undefined)?.category,
     );
-    expect(streamCalls.length).toBe(2);
+    expect(streamCalls.length).toBe(1);
   });
 
   it("全部标未读失败:按调用前快照回滚(不瞎翻)+ feed-mark-error 明示", async () => {
@@ -1691,7 +1670,6 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("未读乙");
     fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
     await screen.findByText("已读甲");
@@ -1736,7 +1714,6 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByTestId("feed-item-1"); // 第二次挂载完成渲染
     expect(fresh.importMock).toHaveBeenCalledTimes(1); // 会话哨位:双挂载只一发
     // 旧键保留不删(降级回旧 build 的回滚路径,Q2.3)
@@ -1752,7 +1729,6 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByTestId("feed-item-1");
     // 等能力门真正翻到服务端通路(title 现全库语义)再断言不发
     await waitFor(() =>
@@ -1785,7 +1761,6 @@ describe("FeedScreen · read-state-server(G9 服务端通路)", () => {
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     // 默认「未读」视图:两条都已读——到期条目重现,未到期不现;计数行如实
     await screen.findByText("到期稍后读条目");
     expect(screen.queryByText("未到期稍后读条目")).toBeNull();
@@ -1847,96 +1822,79 @@ describe("FeedScreen · read-state-server 能力门分流(未过门 = 旧通路�
 // ---------------------------------------------------------------------------
 
 describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", () => {
-  it("R1 L2 品类头「本品类窗内已读」(深审 F3):逐键置位窗内已加载行(mark keys),不走全库 mark_all;UI 所见 = 实际作用域;反向出口同门", async () => {
+  it("品类 chip 激活 → 工具条批量 = mark_all 带品类精确等值(v5 chips 断言迁移;title 真话 + 就地翻转)", async () => {
     const fresh = await importFreshScreen();
     fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
-    fresh.markMock.mockResolvedValue({ updated: 2 });
-    const start = dayWindowStart();
+    fresh.markAllMock.mockResolvedValue({ updated: 2 });
     const techA = fixtureItem({ category: "tech", source: "t-a", title: "技甲" });
     const techB = fixtureItem({ category: "tech", source: "t-b", title: "技乙" });
-    const techStale = fixtureItem({
-      category: "tech",
-      source: "t-a",
-      title: "技窗外旧",
-      first_seen: new Date(start.getTime() - 3_600_000).toISOString(),
-    });
     fresh.storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
-      Promise.resolve(result([techA, techB, techStale].filter((item) => !params?.category || item.category === params.category))),
+      Promise.resolve(result([techA, techB].filter((item) => !params?.category || item.category === params.category))),
     );
     render(
       <MemoryRouter>
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    // L1 → L2(tech):头部出窗内批量钮(F3 作用域收窄后)
-    fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
-    const groupButton = await screen.findByTestId("feed-category-mark-all");
-    const reverseButton = await screen.findByTestId("feed-category-mark-unread");
-    // 钮文案:作用域=当日窗内已加载行(title 如实,不再宣称全库)
-    expect(groupButton.getAttribute("title")).toContain("当日窗内已加载");
-    expect(groupButton.getAttribute("title")).toContain("2");
-    expect(groupButton.getAttribute("title")).not.toContain("全库");
-    expect(reverseButton.getAttribute("title")).toContain("反向出口");
-    // 未读计数可观察:L2 行先见 未读 2(窗外旧条目不计入行计数)
-    expect(screen.getByTestId("feed-drill-ch-t-a").textContent).toContain("未读 1");
-    expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 1");
-
-    // 一次点击即执行:逐键置位**窗内两键**(窗外旧键不入),零 mark_all
-    fireEvent.click(groupButton);
+    // 激活品类 chip:批量 title = 该品类全库真话(mark_all 带 category 精确等值)
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-tech"));
     await waitFor(() =>
-      expect(fresh.markMock).toHaveBeenCalledWith({ keys: [techA.dedup_key, techB.dedup_key], marker: "read", value: true }),
+      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("品类「tech」"),
     );
-    expect(fresh.markAllMock).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("feed-confirm-all-group")).toBeNull();
-    // 就地翻转只落窗内行(渠道行未读归零)
-    await waitFor(() => expect(screen.getByTestId("feed-drill-ch-t-a").textContent).toContain("未读 0"));
-    expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 0");
 
-    // 反向出口:窗内未读逐键翻回(误触可逆)
-    fireEvent.click(reverseButton);
+    // 二次确认后执行:mark_all 品类作用域(含未翻页);就地翻转已加载行
+    fireEvent.click(screen.getByRole("button", { name: "全部标已读" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认全部标已读" }));
     await waitFor(() =>
-      expect(fresh.markMock).toHaveBeenCalledWith({ keys: [techA.dedup_key, techB.dedup_key], marker: "read", value: false }),
+      expect(fresh.markAllMock).toHaveBeenCalledWith({ marker: "read", value: true, category: "tech" }),
     );
-    await waitFor(() => expect(screen.getByTestId("feed-drill-ch-t-a").textContent).toContain("未读 1"));
+    // 就地翻转可观察:未读过滤下两卡离场
+    await waitFor(() => expect(screen.queryByTestId(/^feed-item-/)).toBeNull());
   });
 
-  it("R1 L2 品类批量失败(深审 F3):按调用前快照回滚(窗内计数回真值),feed-mark-error 在 L3 流区明示", async () => {
+  it("品类批量失败(v5 迁移):mark_all 拒绝 → 按调用前快照回滚 + feed-mark-error 在内容区明示", async () => {
     const fresh = await importFreshScreen();
     fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
-    let rejectMark: ((err: unknown) => void) | undefined;
-    fresh.markMock.mockImplementation(
+    let rejectMarkAll: ((err: unknown) => void) | undefined;
+    fresh.markAllMock.mockImplementation(
       () => new Promise((_resolve, reject) => {
-        rejectMark = reject;
+        rejectMarkAll = reject;
       }),
     );
     const techRead = fixtureItem({ category: "tech", source: "t-a", read: true, title: "技已读甲" });
     const techUnread = fixtureItem({ category: "tech", source: "t-b", title: "技未读乙" });
-    fresh.storeItemsMock.mockResolvedValue(result([techRead, techUnread]));
+    fresh.storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result([techRead, techUnread].filter((item) => !params?.category || item.category === params.category))),
+    );
     render(
       <MemoryRouter>
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
-    fireEvent.click(await screen.findByTestId("feed-category-mark-all"));
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-tech"));
+    // 等作用域重查落地(乙卡在场),批量乐观翻转才有作用对象
+    await screen.findByText("技未读乙");
+    // 已读甲在「全部」视图可见,便于观察乐观翻转与回滚
+    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
+    fireEvent.click(screen.getByRole("button", { name: "全部标已读" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认全部标已读" }));
+    await waitFor(() => expect(fresh.markAllMock).toHaveBeenCalled());
+    // 乐观:未读乙就地翻转(已读)
     await waitFor(() =>
-      expect(fresh.markMock).toHaveBeenCalledWith({ keys: [techRead.dedup_key, techUnread.dedup_key], marker: "read", value: true }),
+      expect(screen.getByTestId(`feed-item-${techUnread.id}`).getAttribute("data-unread")).toBe("false"),
     );
-    // 乐观:窗内未读计数翻 0
-    await waitFor(() => expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 0"));
     act(() =>
-      rejectMark?.(new SidecarRequestError({ code: "store_corrupt", path: "$", message: "库损坏" })),
+      rejectMarkAll?.(new SidecarRequestError({ code: "store_corrupt", path: "$", message: "库损坏" })),
     );
-    // 快照回滚:乙回未读(计数 1),甲本就已读不动
-    await waitFor(() => expect(screen.getByTestId("feed-drill-ch-t-b").textContent).toContain("未读 1"));
-    expect(screen.getByTestId("feed-drill-ch-t-a").textContent).toContain("未读 0");
-    // 错误回执挂 L3 流区:面包屑回渠道流后可见(markError 在列表区渲染)
-    fireEvent.click(screen.getByTestId("feed-drill-ch-t-b"));
+    // 快照回滚:乙回未读,甲本就已读不动;错误回执在内容区明示
+    await waitFor(() =>
+      expect(screen.getByTestId(`feed-item-${techUnread.id}`).getAttribute("data-unread")).toBe("true"),
+    );
     const error = await screen.findByTestId("feed-mark-error");
     expect(error.textContent).toContain("store_corrupt");
   });
 
-  it("R1 组头入口只属品类分组模式:时间分组组头零批量钮;不分组无组头可挂", async () => {
+  it("批量入口唯一性(v5):瀑布流零组头可挂批量钮,入口只在工具条(全库真话不变)", async () => {
     const fresh = await importFreshScreen();
     fresh.versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
     fresh.markAllMock.mockResolvedValue({ updated: 1 });
@@ -1946,21 +1904,13 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("条目 1");
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
     );
 
-    // 缺省时间分组:组头只有文案/计数/分隔线,零批量钮(入口不属此模式)
-    const timeHeader = screen.getByTestId("feed-group-今天");
-    expect(within(timeHeader).queryByRole("button")).toBeNull();
-    expect(screen.queryByTestId(/^feed-group-mark-all-/)).toBeNull();
-
-    // 不分组:组头全消,无组头可挂批量钮
-    fireEvent.click(screen.getByRole("button", { name: "显示选项" }));
-    fireEvent.click(within(await screen.findByRole("menu")).getByRole("menuitem", { name: "不分组(平铺)" }));
-    await waitFor(() => expect(screen.queryByTestId(/^feed-group-/)).toBeNull());
+    // 瀑布流(v5)零组头:feed-group-* 不存在,组头批量入口无处可挂
+    expect(screen.queryByTestId(/^feed-group-/)).toBeNull();
     expect(screen.queryByTestId(/^feed-group-mark-all-/)).toBeNull();
     expect(fresh.markAllMock).not.toHaveBeenCalled();
   });
@@ -1975,7 +1925,6 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("条目 1");
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
@@ -2017,14 +1966,15 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
     await waitFor(() => expect(screen.getByText("0 / 2 条")).toBeTruthy());
   });
 
-  it("未过门:L2 品类头无批量入口(旧通路无品类作用域,store.state.* 零调用)", async () => {
+  it("未过门:批量钮走本地通路语义(title 本地态真话,store.state.mark_all 零调用;品类 chip 只改查询作用域)", async () => {
     versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL - 1));
     storeItemsMock.mockResolvedValue(result([fixtureItem({ category: "tech" })]));
     renderScreen();
-    fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
-    await screen.findByTestId("feed-l2");
-    // 未过门:L2 头部无「本品类全部已读」;store.state.* 全家零调用
-    expect(screen.queryByTestId("feed-category-mark-all")).toBeNull();
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-tech"));
+    // 未过门:工具条钮 title = 本地态真话(不宣称品类全库服务端持久)
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("本地态"),
+    );
     expect(markAllMock).not.toHaveBeenCalled();
   });
 
@@ -2038,7 +1988,6 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("条目 1");
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "全部标已读" }).getAttribute("title")).toContain("全库"),
@@ -2066,7 +2015,6 @@ describe("FeedScreen · g9-read-all(品类批量入口 + 全库二次确认)", (
         <fresh.FeedScreen />
       </MemoryRouter>,
     );
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await screen.findByText("条目 1");
     const unread = screen.getByRole("button", { name: "过滤:未读" });
     expect(unread.getAttribute("title")).toContain("全已读");
@@ -2410,7 +2358,7 @@ function sourceEntry(name: string, engine: string): HealthResult["plugins"][numb
 }
 
 describe("FeedScreen · feed-channel-groups(渠道分组+差异化+实时滚动+当日窗)", () => {
-  it("L1 品类计数 → L2 渠道行(类型词+计数)→ L3 渠道内卡片:三级路径逐层可用", async () => {
+  it("chips 三维动线(v5):品类 chips 计数 → 渠道 chips(选定品类后出现)→ 渠道作用域内容卡,逐层可用", async () => {
     const items = [
       fixtureItem({ category: "tech", source: "anthropic-news-watch", title: "闻甲" }),
       fixtureItem({ category: "tech", source: "openai-news", title: "闻乙" }),
@@ -2430,87 +2378,70 @@ describe("FeedScreen · feed-channel-groups(渠道分组+差异化+实时滚动+
     );
     renderScreen();
 
-    // L1:置顶全局行 + 品类行(tech/news,含今日计数)
-    const allRow = await screen.findByTestId("feed-drill-all");
-    // 计数随 store.items 异步应答补齐(行先以零计数渲染)——waitFor 等数据
-    // 落地再断(与 F1 用例同款竞态钉法);同批渲染的品类行计数随即可断。
-    await waitFor(() => expect(allRow.textContent).toContain("3 渠道")); // 4 条 × 3 渠道(anthropic/openai/linuxsb)
-    const techRow = await screen.findByTestId("feed-drill-cat-tech");
-    expect(techRow.textContent).toContain("3 条");
-    expect(screen.getByTestId("feed-drill-cat-news").textContent).toContain("1 条");
+    // 品类 chips:计数随概览应答补齐(tech 3 条 / news 1 条)
+    const techChip = await screen.findByTestId("feed-chip-cat-tech");
+    await waitFor(() => expect(techChip.textContent).toContain("3"));
+    expect(screen.getByTestId("feed-chip-cat-news").textContent).toContain("1");
 
-    // L2:tech 品类下两渠道(首现顺序),行带源名 + 类型词 + 窗内计数
-    fireEvent.click(techRow);
-    const channelA = await screen.findByTestId("feed-drill-ch-anthropic-news-watch");
+    // 激活 tech → 渠道 chips(该品类两渠道;零窗内计数渠道不出 chip)
+    fireEvent.click(techChip);
+    const channelA = await screen.findByTestId("feed-chip-src-anthropic-news-watch");
     expect(channelA.textContent).toContain("anthropic-news-watch");
-    expect(channelA.textContent).toContain("新闻渠道");
-    expect(channelA.textContent).toContain("1 条");
-    const channelB = screen.getByTestId("feed-drill-ch-openai-news");
-    expect(channelB.textContent).toContain("2 条");
-    expect(screen.queryByTestId("feed-drill-ch-linuxsb")).toBeNull(); // 他品类渠道不在场
-    // 置顶「全部渠道」行
-    expect(screen.getByTestId("feed-drill-cat-all")).toBeTruthy();
+    expect(channelA.textContent).toContain("1");
+    expect(screen.getByTestId("feed-chip-src-openai-news").textContent).toContain("2");
+    expect(screen.queryByTestId("feed-chip-src-linuxsb")).toBeNull(); // 他品类渠道不在场
+    expect(screen.getByTestId("feed-chip-src-all")).toBeTruthy();
 
-    // L3:点渠道行进该渠道消息流,卡片只落本渠道
-    fireEvent.click(channelB);
+    // 渠道 chip → 该渠道消息卡直出,他渠道行不混
+    fireEvent.click(await screen.findByTestId("feed-chip-src-openai-news"));
     expect(await screen.findByText("闻乙")).toBeTruthy();
     expect(screen.getByText("闻丙")).toBeTruthy();
     expect(screen.queryByText("闻甲")).toBeNull();
     expect(screen.queryByText("闻丁")).toBeNull();
   });
 
-  it("TG 渠道卡(10-08):流内按渠道聚合置顶,点击进该渠道消息流(气泡详情),面包屑一键回流", async () => {
-    storeItemsMock.mockResolvedValue(
-      result([fixtureItem({ source: "telegram-durov", title: "消息正文甲", content: "气泡内摘要" })]),
+  it("TG 条目瀑布流直出(v5):聊天气泡卡自带频道名行,品类 chip → TG 频道 chip = 聊天视图", async () => {
+    // 夹具造在实现外(mockImplementation 每调用重造会让 id 漂移,10-09 形态
+    // 锚用例踩坑实录);feed-item-1 断言依赖 id 稳定
+    const tgOnly = [fixtureItem({ source: "telegram-durov", title: "消息正文甲", content: "气泡内摘要" })];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(tgOnly.filter((item) => !params?.category || item.category === params.category)),
+      ),
     );
-    await renderStream();
+    renderScreen();
 
-    // 流内:渠道卡区置顶,卡片 = 频道名(去前缀)+ 最新一条预览 + 计数/未读 + 未读竖条
-    const section = await screen.findByTestId("feed-tg-channels");
-    expect(section).toBeTruthy();
-    const card = within(section).getByTestId("feed-tg-channel-card-telegram-durov");
-    expect(within(card).getByText("durov")).toBeTruthy();
+    // 瀑布流:TG 消息卡 = 聊天气泡(频道名行去前缀 + 气泡本尊),逐条直出
+    const card = await screen.findByTestId("feed-item-1");
+    expect(card.getAttribute("data-kind")).toBe("telegram");
     expect(within(card).getByText("消息正文甲")).toBeTruthy();
-    expect(card.textContent).toContain("1 条");
-    expect(card.textContent).toContain("未读 1");
-    expect(within(card).getByTestId("feed-tg-channel-unread-telegram-durov")).toBeTruthy();
-    // TG 消息卡不再逐条进流(聚合语义本体)
-    expect(screen.queryByTestId("feed-item-1")).toBeNull();
+    expect(within(card).getByText("durov")).toBeTruthy();
+    expect(within(card).queryByText("telegram-durov")).toBeNull();
+    expect(within(card).getByTestId("feed-tg-bubble-1")).toBeTruthy();
 
-    // 点击渠道卡 → 该渠道消息流(详情):气泡逐条 + 面包屑「全部条目」中间层
-    fireEvent.click(card);
-    const detailCard = await screen.findByTestId("feed-item-1");
-    expect(detailCard.getAttribute("data-kind")).toBe("telegram");
-    const bubble = within(detailCard).getByTestId("feed-tg-bubble-1");
-    expect(within(bubble).getByText("消息正文甲")).toBeTruthy();
-    // 频道名行:去 telegram- 前缀显频道本名;元信息行不重复源名
-    expect(within(detailCard).getByText("durov")).toBeTruthy();
-    expect(within(detailCard).queryByText("telegram-durov")).toBeNull();
-    expect(screen.getByTestId("feed-crumb-all-stream")).toBeTruthy();
-
-    // 面包屑回流:一键返回全部条目流,渠道卡区复现
-    fireEvent.click(screen.getByTestId("feed-crumb-all-stream"));
-    expect(await screen.findByTestId("feed-tg-channel-card-telegram-durov")).toBeTruthy();
+    // 激活品类 → TG 频道 chip → 聊天视图(气泡时间线,作用域词 = 频道名)
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-tech"));
+    fireEvent.click(await screen.findByTestId("feed-chip-src-telegram-durov"));
+    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
+    expect(screen.getByTestId("feed-stream-title").textContent).toContain("durov");
   });
 
-  it("TG 渠道卡不误伤其他类型:TG 折叠进卡区,news 卡照旧;全 TG 流不误现空态", async () => {
+  it("瀑布流五型共存(v5):TG 气泡卡与 news 卡同列直出;全 TG 流不误现空态", async () => {
     storeItemsMock.mockResolvedValue(
       result([
         fixtureItem({ source: "telegram-durov", title: "消息正文甲" }),
         fixtureItem({ source: "Example", title: "新闻标题乙", category: "tech" }),
       ]),
     );
-    await renderStream();
-    // 渠道卡在场 + news 消息卡照旧 + TG 消息卡离场
-    expect(await screen.findByTestId("feed-tg-channel-card-telegram-durov")).toBeTruthy();
+    renderScreen();
+    // 两形态同列:TG 气泡卡 + news 卡,互不挤占
+    const tgCard = await screen.findByTestId("feed-item-1");
+    expect(tgCard.getAttribute("data-kind")).toBe("telegram");
     const newsCard = await screen.findByTestId("feed-item-2");
     expect(newsCard.getAttribute("data-kind")).toBe("news");
     expect(within(newsCard).getByText("新闻标题乙")).toBeTruthy();
-    expect(screen.queryByTestId("feed-item-1")).toBeNull();
-    // 时间分组组头只计列表本体(1 条,不含已折叠 TG)
-    expect(screen.getByTestId("feed-group-今天").textContent).toContain("1 条");
 
-    // 全 TG 流(截图场景):渠道卡呈现,不给「没有未读条目」空态
+    // 全 TG 流(截图场景):气泡卡照常直出,不给「没有未读条目」空态
     cleanup();
     nextItemId = 0;
     storeItemsMock.mockResolvedValue(
@@ -2519,8 +2450,8 @@ describe("FeedScreen · feed-channel-groups(渠道分组+差异化+实时滚动+
         fixtureItem({ source: "telegram-durov", title: "消息正文乙" }),
       ]),
     );
-    await renderStream();
-    expect(await screen.findByTestId("feed-tg-channel-card-telegram-durov")).toBeTruthy();
+    renderScreen();
+    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
     expect(screen.queryByText("没有未读条目")).toBeNull();
   });
 
@@ -2631,13 +2562,13 @@ describe("FeedScreen · feed-channel-groups(渠道分组+差异化+实时滚动+
     });
     const existing = fixtureItem({ title: "旧行" });
     const fresh = fixtureItem({ title: "新行" });
-    // 流查询(L1 首页 + 下钻 L3-all)前两发只回旧行;事件后的 liveRefresh 才见
-    // 新行(F1 概览按品类另发,不计流查询序 —— 概览恒回旧行不扰断言)
+    // 流查询(挂载首发)只回旧行;事件后的 liveRefresh 才见新行(F1 概览按
+    // 品类另发,不计流查询序 —— 概览恒回旧行不扰断言)
     let streamServed = 0;
     storeItemsMock.mockImplementation((params?: StoreItemsParams) => {
       if (params?.category) return Promise.resolve(result([existing]));
       streamServed += 1;
-      return Promise.resolve(result(streamServed <= 2 ? [existing] : [fresh, existing]));
+      return Promise.resolve(result(streamServed <= 1 ? [existing] : [fresh, existing]));
     });
     await renderStream();
     await screen.findByText("旧行");
@@ -2790,9 +2721,10 @@ describe("feed channel-groups 纯函数(api.ts)", () => {
   });
 });
 
-describe("FeedScreen · tg-channel-card v2(源大类卡片墙,protocol ≥ 12)", () => {
-  /** v2 夹具:2 条 TG(同渠道)+ 1 条网页新闻;store.items mock 按三参
-   *  (category/source/source_kind)精确过滤,与 sidecar v12 同门。 */
+describe("FeedScreen · v5 瀑布流首屏(chips + waterfall,AC13/AC15/AC17)", () => {
+  /** v5 夹具:2 条 TG(同渠道)+ 1 条网页新闻;store.items mock 按
+   *  category/source 精确过滤(chips 作用域同门;source_kind 随源大类视图
+   *  退役,不再传)。 */
   function mockStoreV12() {
     const items = [
       fixtureItem({
@@ -2809,11 +2741,6 @@ describe("FeedScreen · tg-channel-card v2(源大类卡片墙,protocol ≥ 12)",
           items.filter((item) => {
             if (params?.category && item.category !== params.category) return false;
             if (params?.source && item.source !== params.source) return false;
-            if (params?.source_kind) {
-              const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
-              if (params.source_kind === "im" && !im) return false;
-              if (params.source_kind === "web" && im) return false;
-            }
             return true;
           }),
         ),
@@ -2821,84 +2748,63 @@ describe("FeedScreen · tg-channel-card v2(源大类卡片墙,protocol ≥ 12)",
     );
   }
 
-  async function renderWall() {
-    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
-    renderScreen();
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
-  }
-
-  it("卡片墙:网页一张 + Telegram 一张(计数/预览/未读竖条),散条目卡退场", async () => {
+  it("首屏瀑布流:内容卡直出(网页新闻卡 + TG 气泡卡同列),零导航行零大类卡", async () => {
     mockStoreV12();
-    await renderWall();
-    await screen.findByTestId("feed-kind-wall");
-    const webCard = await screen.findByTestId("feed-kind-card-web");
-    expect(within(webCard).getByText("网页")).toBeTruthy();
-    expect(within(webCard).getByText("新闻标题丙")).toBeTruthy();
-    expect(webCard.textContent).toContain("1 条");
-    const tgCard = await screen.findByTestId("feed-kind-card-im");
-    expect(within(tgCard).getByText("Telegram")).toBeTruthy();
-    expect(within(tgCard).getByText("🎉 Clash Party Dev Build 开发版本发布")).toBeTruthy();
-    expect(tgCard.textContent).toContain("2 条");
-    expect(tgCard.textContent).toContain("未读 2");
-    expect(screen.getByTestId("feed-kind-card-unread-im")).toBeTruthy();
-    // v3 摘要行:TG 卡显正文独有信息(版本号),不复述标题
-    const tgDigest = (await screen.getByTestId("feed-kind-digest-im").textContent) ?? "";
-    expect(tgDigest).toContain("基于版本: 1.9.5");
-    // 散条目卡与 v1 渠道卡区都退场
-    expect(screen.queryByTestId("feed-item-1")).toBeNull();
-    expect(screen.queryByTestId("feed-item-3")).toBeNull();
-    expect(screen.queryByTestId("feed-tg-channels")).toBeNull();
-  });
-
-  it("Telegram 卡第二层 = 按频道分节全铺;节头点进单频道,面包屑可回分节/卡片墙", async () => {
-    mockStoreV12();
-    await renderWall();
-    fireEvent.click(await screen.findByTestId("feed-kind-card-im"));
-    await screen.findByTestId("feed-im-sections");
-    // 分节:聊天头(圆头像 + 频道名 + 计数)+ 节内气泡全量平铺
-    const sectionHead = screen.getByTestId("feed-tg-channel-card-telegram-mihomo_party_group");
-    expect(sectionHead.querySelector(".rounded-full.bg-primary\\/15")).toBeTruthy();
-    expect(sectionHead.textContent).toContain("mihomo_party_group");
-    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
-    expect(screen.getByTestId("feed-tg-bubble-2")).toBeTruthy();
-    expect(screen.queryByTestId("feed-item-3")).toBeNull(); // 网页条目不混入
-    // 节头点进单频道(既有 source 作用域),面包屑 Telegram 中间层回流
-    fireEvent.click(screen.getByTestId("feed-tg-channel-card-telegram-mihomo_party_group"));
-    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
-    expect(screen.getByTestId("feed-tg-bubble-2")).toBeTruthy();
-    expect(screen.getByTestId("feed-crumb-im")).toBeTruthy();
-    expect(screen.getByTestId("feed-crumb-all-stream")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("feed-crumb-im"));
-    await screen.findByTestId("feed-im-sections");
-  });
-
-  it("网页卡第二层 = 条目平铺(新闻卡照旧,TG 不混入);面包屑回流卡片墙", async () => {
-    mockStoreV12();
-    await renderWall();
-    fireEvent.click(await screen.findByTestId("feed-kind-card-web"));
+    await renderStream();
+    // 瀑布流容器(columns 多列)+ 两形态卡同列(卡面 = 类型徽标/标题/摘要/
+    // 来源渠道/相对时间/未读标记,随 FeedCard 既有形制)
+    expect(screen.getByTestId("feed-waterfall").className).toContain("columns-1");
     const newsCard = await screen.findByTestId("feed-item-3");
     expect(newsCard.getAttribute("data-kind")).toBe("news");
     expect(within(newsCard).getByText("新闻标题丙")).toBeTruthy();
-    expect(screen.queryByTestId("feed-tg-bubble-1")).toBeNull();
+    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
+    // 旧 IA 面(导航行/源大类卡/渠道卡区/面包屑)随 AC17 撤销
     expect(screen.queryByTestId("feed-kind-wall")).toBeNull();
-    expect(screen.getByTestId("feed-breadcrumb").textContent).toContain("网页");
-    fireEvent.click(screen.getByTestId("feed-crumb-all-stream"));
-    expect(await screen.findByTestId("feed-kind-wall")).toBeTruthy();
+    expect(screen.queryByTestId("feed-drill-all")).toBeNull();
+    expect(screen.queryByTestId("feed-tg-channels")).toBeNull();
+    expect(screen.queryByTestId("feed-breadcrumb")).toBeNull();
+    // chips 行在场:「全部」+ tech(夹具品类,TG 条目 category 同 tech)
+    expect(screen.getByTestId("feed-chip-cat-all")).toBeTruthy();
+    expect(screen.getByTestId("feed-chip-cat-tech")).toBeTruthy();
   });
 
-  it("未过源大类门(protocol 11):v1 形态原样(TG 渠道卡区 + 消息列表),无卡片墙", async () => {
+  it("TG 频道 chip = 聊天视图(气泡时间线 + 日期胶囊);渠道 chips 只在品类激活后出现", async () => {
+    mockStoreV12();
+    renderScreen();
+    await screen.findByTestId("feed-waterfall");
+    // 未选品类:零渠道 chips(渠道筛选行不存在)
+    expect(screen.queryByTestId("feed-chip-src-all")).toBeNull();
+    // 激活 tech 品类 → 渠道 chips(TG 渠道 + 网页源)→ 点 TG 频道 chip
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-tech"));
+    fireEvent.click(await screen.findByTestId("feed-chip-src-telegram-mihomo_party_group"));
+    // 聊天视图:气泡时间线 + 居中日期胶囊;网页条目不混入
+    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
+    expect(screen.getByTestId("feed-tg-bubble-2")).toBeTruthy();
+    expect(screen.queryByTestId("feed-item-3")).toBeNull();
+    expect(screen.getByTestId("feed-group-今天").className).toContain("rounded-full");
+    // 「全部渠道」回流品类瀑布流(气泡卡照旧直出)
+    fireEvent.click(await screen.findByTestId("feed-chip-src-all"));
+    expect(await screen.findByTestId("feed-item-3")).toBeTruthy();
+  });
+
+  it("低版本 sidecar(protocol 11)回退语义:同构瀑布流,请求零 source_kind 零 with_total", async () => {
     mockStoreV12();
     versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL - 1));
     renderScreen();
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
-    expect(await screen.findByTestId("feed-tg-channels")).toBeTruthy();
-    expect(await screen.findByTestId("feed-item-3")).toBeTruthy(); // 网页卡照旧在列
-    expect(screen.queryByTestId("feed-kind-wall")).toBeNull();
+    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
+    expect(await screen.findByTestId("feed-item-3")).toBeTruthy();
+    // 回退 = 查询面不携新参数(source_kind/with_total 全零),UI 不报错不缺卡
+    expect(
+      storeItemsMock.mock.calls.every((call) => {
+        const params = call[0] as StoreItemsParams | undefined;
+        return params?.source_kind === undefined && params?.with_total === undefined;
+      }),
+    ).toBe(true);
   });
 });
 
-describe("FeedScreen · tg-category-entry(品类折叠 + 网页线状态条,10-09)", () => {
-  it("L1 零计数品类折叠:有货行在前,「今日未更新 · N 个品类」缺省收起,点开才见", async () => {
+describe("FeedScreen · tg-category-entry(v5 chips 落位:零计数不出 chip)", () => {
+  it("零计数品类不出 chip(AC15,L1 折叠逻辑自然消亡):有货品类直出带计数,闲置品类不出现", async () => {
     healthMock.mockResolvedValue(
       healthResult({
         plugins: [
@@ -2907,103 +2813,23 @@ describe("FeedScreen · tg-category-entry(品类折叠 + 网页线状态条,10-0
         ],
       }),
     );
+    const activeItems = [fixtureItem({ category: "ai-news", source: "a" }), fixtureItem({ category: "ai-news", source: "b" })];
     storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
       Promise.resolve(
-        result(
-          [fixtureItem({ category: "ai-news", source: "a" }), fixtureItem({ category: "ai-news", source: "b" })].filter(
-            (item) => !params?.category || item.category === params.category,
-          ),
-        ),
+        result(activeItems.filter((item) => !params?.category || item.category === params.category)),
       ),
     );
     renderScreen();
-    // 有货行直出;闲置行折叠
-    const activeRow = await screen.findByTestId("feed-drill-cat-ai-news");
-    expect(activeRow.textContent).toContain("今日 2 条");
-    const toggle = screen.getByTestId("feed-l1-idle-toggle");
-    expect(toggle.textContent).toContain("今日未更新 · 1 个品类");
-    expect(screen.queryByTestId("feed-drill-cat-idle-cat")).toBeNull();
-    fireEvent.click(toggle);
-    const idleRow = screen.getByTestId("feed-drill-cat-idle-cat");
-    expect(idleRow.textContent).toContain("今日 0 条");
-    fireEvent.click(screen.getByTestId("feed-l1-idle-toggle"));
-    expect(screen.queryByTestId("feed-drill-cat-idle-cat")).toBeNull();
-  });
-
-  it("Telegram 分节详情网页线状态条:已登录=监控中;未登录=扫码登录(浏览器单入口)", async () => {
-    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
-      Promise.resolve(
-        result(
-          [
-            fixtureItem({ source: "telegram-mihomo_party_group", title: "消息甲", category: "telegram-groups" }),
-            fixtureItem({ source: "openai-news", title: "新闻乙", category: "tech" }),
-          ].filter((item) => {
-            if (params?.category && item.category !== params.category) return false;
-            if (params?.source && item.source !== params.source) return false;
-            if (params?.source_kind) {
-              const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
-              if (params.source_kind === "im" && !im) return false;
-              if (params.source_kind === "web" && im) return false;
-            }
-            return true;
-          }),
-        ),
-      ),
-    );
-    const statusFactory = (loggedIn: boolean, inProgress = false) => ({
-      bot: { configured: false, error: null },
-      session: { exists: false },
-      web: {
-        accounts: [
-          { account: "telegram-alt1", logged_in: loggedIn, logged_in_at: loggedIn ? "2026-10-09T01:00:00" : null, login_in_progress: inProgress, login_note: null },
-        ],
-      },
-    });
-    let status = statusFactory(true);
-    invokeMock.mockImplementation(async (_command: string, args?: { method?: string; params?: Record<string, unknown> }) => {
-      const method = args?.method;
-      if (method === "telegram.status") return status;
-      if (method === "browser.open") {
-        status = statusFactory(false, true); // 拉起登录窗后:登录中
-        return { started: true, op_id: String(args?.params?.session_key ?? ""), kind: args?.params?.kind };
-      }
-      throw JSON.stringify({ code: "method_not_found", path: "$", message: `测试未 mock 方法:${method}` });
-    });
-    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
-    renderScreen();
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
-    fireEvent.click(await screen.findByTestId("feed-kind-card-im"));
-    await screen.findByTestId("feed-im-sections");
-    // 已登录:监控中 + 管理跳转,无登录钮
-    const strip = await screen.findByTestId("feed-tg-webline-strip");
-    expect(within(strip).getByTestId("feed-tg-webline-live").textContent).toContain("监控中 · telegram-alt1");
-    expect(screen.queryByTestId("feed-tg-webline-login")).toBeNull();
-
-    // 未登录:扫码登录钮 → 点击走 browser.open(单入口)→ 登录中态
-    cleanup();
-    status = statusFactory(false);
-    invokeMock.mockImplementation(async (_command: string, args?: { method?: string; params?: Record<string, unknown> }) => {
-      const method = args?.method;
-      if (method === "telegram.status") return status;
-      if (method === "browser.open") {
-        status = statusFactory(false, true);
-        return { started: true, op_id: String(args?.params?.session_key ?? ""), kind: args?.params?.kind };
-      }
-      throw JSON.stringify({ code: "method_not_found", path: "$", message: `测试未 mock 方法:${method}` });
-    });
-    renderScreen();
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
-    fireEvent.click(await screen.findByTestId("feed-kind-card-im"));
-    const login = await screen.findByTestId("feed-tg-webline-login");
-    expect(login.textContent).toContain("扫码登录(telegram-alt1)");
-    fireEvent.click(login);
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("sidecar_request", { method: "browser.open", params: { kind: "tg_web_login", session_key: "telegram-alt1", force: false } }));
-    const loginBtn = await screen.findByTestId("feed-tg-webline-login");
-    await waitFor(() => expect(loginBtn.textContent).toContain("登录中…"));
+    // 有货品类 chip 直出(计数 2);闲置品类零计数不出 chip,折叠钮/导航页消亡
+    const activeChip = await screen.findByTestId("feed-chip-cat-ai-news");
+    await waitFor(() => expect(activeChip.textContent).toContain("2"));
+    expect(screen.queryByTestId("feed-chip-cat-idle-cat")).toBeNull();
+    expect(screen.queryByTestId("feed-l1-idle-toggle")).toBeNull();
+    expect(screen.queryByTestId("feed-l1")).toBeNull();
   });
 });
 
-describe("FeedScreen · tg-category-entry 监控台(TG 品类渠道页,10-09)", () => {
+describe("FeedScreen · tg-category-entry 监控台(TG 品类钉墙顶,v5 chips 落位)", () => {
   const statusPayload = (loggedIn: boolean) => ({
     bot: { configured: false, error: null },
     session: { exists: false },
@@ -3014,9 +2840,14 @@ describe("FeedScreen · tg-category-entry 监控台(TG 品类渠道页,10-09)", 
     },
   });
 
-  /** 归一后世界(AC6):品类 id = telegram 单分类,今日零条目 → L1 行折叠
-   *  进「今日未更新」,点开折叠才能进品类渠道页(主人点名死胡同的修正线)。 */
+  /** 归一后世界(AC6):品类 id = telegram 单分类。v5 chips 动线:品类 chip
+   *  需「今日有货」才出现(零计数不出 chip,AC15),mockConsoleWorld 给一条
+   *  **已读**窗内 TG 种子条目 —— chip 在场(计数口径不读读态),缺省未读
+   *  过滤下内容流为空,监控台与 TG 空态照常验。 */
   function mockConsoleWorld(items: FeedItem[]) {
+    // 过服务端读态门:seed 的 read:true 才进状态派生(未过门通路只认
+    // localStorage,条目字段不参与过滤 —— fixture 注记同门)
+    versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
     healthMock.mockResolvedValue(
       healthResult({
         plugins: [
@@ -3025,35 +2856,42 @@ describe("FeedScreen · tg-category-entry 监控台(TG 品类渠道页,10-09)", 
         ],
       }),
     );
+    const seeded = [
+      fixtureItem({
+        category: "telegram",
+        source: "telegram-seed",
+        title: "今日已读种子(chip 计数锚)",
+        read: true,
+      }),
+      ...items,
+    ];
     storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
       Promise.resolve(
-        result(items.filter((item) => !params?.category || item.category === params.category)),
+        result(seeded.filter((item) => !params?.category || item.category === params.category)),
       ),
     );
   }
 
-  async function drillTelegramViaIdleToggle() {
-    // telegram 今日零条目 = 折叠行:先点开「今日未更新」再进品类(AC6/AC3)
-    fireEvent.click(await screen.findByTestId("feed-l1-idle-toggle"));
-    fireEvent.click(await screen.findByTestId("feed-drill-cat-telegram"));
+  async function openTelegramCategory() {
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-telegram"));
   }
 
-  it("TG 品类渠道页顶部 = 监控台:未登录给扫码入口(浏览器单入口),已登录显监控中;非 TG 品类无此卡", async () => {
+  it("TG 品类激活 → 监控台钉在墙顶:未登录给扫码入口(浏览器单入口),已登录显监控中;非 TG 品类无此卡", async () => {
     invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
       if (args?.method === "telegram.status") return statusPayload(false);
       if (args?.method === "browser.open") return { started: true, op_id: "op-1", kind: "tg_web_login" };
       throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
     });
-    // tech 今日一条(行直显);telegram 零条目(折叠,走 idle toggle 进)
+    // tech 今日一条(chip 在场);telegram 靠已读种子出 chip
     mockConsoleWorld([
       fixtureItem({ category: "tech", source: "tech-source", title: "科技今日一条" }),
     ]);
     renderScreen();
-    await drillTelegramViaIdleToggle();
+    await openTelegramCategory();
     // 监控台:未登录 → 扫码入口
     const consoleCard = await screen.findByTestId("feed-tg-console");
     expect(within(consoleCard).queryByTestId("feed-tg-console-login")).toBeTruthy();
-    // 内置浏览器预览:品类零条目 → 推导不出 t.me 链 = 置灰 + title 如实
+    // 内置浏览器预览:品类可推导条目缺 t.me 链 → 置灰 + title 如实
     const previewBtn = within(consoleCard).getByTestId("feed-tg-console-preview");
     expect(previewBtn.getAttribute("disabled")).not.toBeNull();
     expect(previewBtn.getAttribute("title")).toContain("无可推导");
@@ -3075,17 +2913,17 @@ describe("FeedScreen · tg-category-entry 监控台(TG 品类渠道页,10-09)", 
       throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
     });
     renderScreen();
-    await drillTelegramViaIdleToggle();
+    await openTelegramCategory();
     expect((await screen.findByTestId("feed-tg-console-live")).textContent).toContain("监控中 · telegram-alt1");
     expect(screen.queryByTestId("feed-tg-console-login")).toBeNull();
 
-    // 非 TG 品类:无监控台卡(tech 今日有货,行直显)
-    fireEvent.click(screen.getByTestId("feed-crumb-home"));
-    fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
+    // 非 TG 品类:无监控台卡(tech 今日有货,chip 直出)
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-all"));
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-tech"));
     expect(screen.queryByTestId("feed-tg-console")).toBeNull();
   });
 
-  it("监控台历史入口:绕过当日窗,3 天前的入库条目可见,知会词换「含历史」", async () => {
+  it("监控台历史入口:绕过当日窗,3 天前的入库条目可见,知会词换「含历史」;退出历史回当日窗", async () => {
     invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
       if (args?.method === "telegram.status") return statusPayload(true);
       throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
@@ -3098,11 +2936,15 @@ describe("FeedScreen · tg-category-entry 监控台(TG 品类渠道页,10-09)", 
     });
     mockConsoleWorld([oldItem]);
     renderScreen();
-    await drillTelegramViaIdleToggle();
+    await openTelegramCategory();
     fireEvent.click(await screen.findByTestId("feed-tg-console-history"));
     // 历史态:过窗条目可见(未绕窗则被当日窗滤掉)
     expect(await screen.findByText("三天前的入库")).toBeTruthy();
     expect(screen.getByTestId("feed-day-window").textContent).toContain("含历史");
+    // 退出历史(v5 工具条出口):当日窗回魂,过窗条目离场
+    fireEvent.click(screen.getByTestId("feed-history-exit"));
+    await waitFor(() => expect(screen.queryByText("三天前的入库")).toBeNull());
+    expect(screen.getByTestId("feed-day-window").textContent).toContain("当日窗");
   });
 
   it("内置浏览器预览(AC11):最新条目 url 推导 t.me/s 镜像 → WebviewWindow 应用内开窗;窗口仅展示,入库归后台 watcher", async () => {
@@ -3110,7 +2952,7 @@ describe("FeedScreen · tg-category-entry 监控台(TG 品类渠道页,10-09)", 
       if (args?.method === "telegram.status") return statusPayload(true);
       throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
     });
-    // telegram 今日有货 → L1 行直显(不走折叠);url 带消息锚可推导
+    // url 带消息锚可推导;已读种子(无 t.me 链)不挡推导(逐条找首条可推导)
     mockConsoleWorld([
       fixtureItem({
         category: "telegram",
@@ -3124,7 +2966,7 @@ describe("FeedScreen · tg-category-entry 监控台(TG 品类渠道页,10-09)", 
     WebviewWindowMock.mockClear();
     WebviewWindowMock.mockImplementation(() => ({ once: vi.fn() }));
     renderScreen();
-    fireEvent.click(await screen.findByTestId("feed-drill-cat-telegram"));
+    await openTelegramCategory();
     const consoleCard = await screen.findByTestId("feed-tg-console");
     const previewBtn = within(consoleCard).getByTestId("feed-tg-console-preview");
     expect(previewBtn.getAttribute("disabled")).toBeNull();
@@ -3137,11 +2979,7 @@ describe("FeedScreen · tg-category-entry 监控台(TG 品类渠道页,10-09)", 
     );
   });
 
-  it("历史态第二跳不丢历史(验收员主发现回归):历史卡片墙 → Telegram 卡进分节详情,老条目本体可见且仍「含历史」", async () => {
-    // 过源大类门(SOURCE_KIND_PROTOCOL)= 历史态落卡片墙(此前 openKind 在
-    // 这里硬编码 history:false,当日窗回魂、老条目本体消失,只在墙卡计数
-    // 里出现 —— 03 双 FAIL 实锤);修复 = history 随下钻透传。
-    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
+  it("历史态第二跳不丢历史(v2.2 主发现回归,v5 动线):历史瀑布流 → TG 频道 chip 进聊天视图,老条目本体可见且仍「含历史」", async () => {
     invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
       if (args?.method === "telegram.status") return statusPayload(true);
       throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
@@ -3162,16 +3000,15 @@ describe("FeedScreen · tg-category-entry 监控台(TG 品类渠道页,10-09)", 
       }),
     ]);
     renderScreen();
-    fireEvent.click(await screen.findByTestId("feed-drill-cat-telegram"));
+    await openTelegramCategory();
     fireEvent.click(await screen.findByTestId("feed-tg-console-history"));
-    // 第一跳:历史卡片墙,工具栏「含历史」;墙卡计数含老条目(2 条)
-    await screen.findByTestId("feed-kind-wall");
+    // 第一跳:历史瀑布流,工具栏「含历史」;老条目本体在场(不再只剩计数)
+    expect(await screen.findByText("三天前的入库")).toBeTruthy();
+    expect(screen.getByText("今天的新消息")).toBeTruthy();
     expect(screen.getByTestId("feed-day-window").textContent).toContain("含历史");
-    expect(screen.getByTestId("feed-kind-card-im").textContent).toContain("2 条");
-    // 第二跳(修复点):点 Telegram 卡进分节详情,历史态透传——
-    // 老条目本体在列表,不再当日窗回魂
-    fireEvent.click(screen.getByTestId("feed-kind-card-im"));
-    await screen.findByTestId("feed-im-sections");
+    // 第二跳(修复点):TG 频道 chip 进聊天视图,历史态透传——
+    // 老条目本体在时间线,不再当日窗回魂
+    fireEvent.click(await screen.findByTestId("feed-chip-src-telegram-mihomo_party"));
     expect(await screen.findByText("三天前的入库")).toBeTruthy();
     expect(screen.getByText("今天的新消息")).toBeTruthy();
     expect(screen.getByTestId("feed-day-window").textContent).toContain("含历史");
@@ -3209,7 +3046,7 @@ describe("FeedScreen · 聊天主页风格形态锚(10-09 v4)", () => {
       ),
     );
     await renderStream();
-    fireEvent.click(await screen.findByTestId("feed-tg-channel-card-telegram-durov"));
+    // v5:气泡卡即瀑布流首屏内容卡,无需进入聊天视图
     const card = await screen.findByTestId("feed-item-1");
     expect(card.className).toContain("w-fit");
     expect(card.className).toContain("max-w-");
@@ -3234,18 +3071,19 @@ describe("FeedScreen · 聊天主页风格形态锚(10-09 v4)", () => {
     expect(within(bubble as HTMLElement).queryByTestId("feed-image-ocr-1")).toBeNull();
   });
 
-  it("分类显示名词表(10-09):词表外桶 id 行显人话标签(proxy-node→🪄 节点),不再裸奔内部 id", async () => {
+  it("分类显示名词表(10-09):品类 chip 显人话标签(proxy-node→🪄 节点),不再裸奔内部 id", async () => {
     const bucketItem = fixtureItem({ source: "cocoloop", title: "节点情报", category: "proxy-node" });
     storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
       Promise.resolve(result([bucketItem].filter((item) => !params?.category || item.category === params.category))),
     );
+
     renderScreen();
-    const row = await screen.findByTestId("feed-drill-cat-proxy-node");
-    expect(within(row).getByText("🪄 节点")).toBeTruthy();
-    expect(within(row).queryByText("proxy-node")).toBeNull();
+    const chip = await screen.findByTestId("feed-chip-cat-proxy-node");
+    expect(within(chip).getByText("🪄 节点")).toBeTruthy();
+    expect(within(chip).queryByText("proxy-node")).toBeNull();
   });
 
-  it("日期胶囊:TG 单频道流分组头走居中胶囊(rounded-full+mx-auto),非 TG 保持 sticky 组头", async () => {
+  it("日期胶囊(v5):TG 频道 chip 聊天视图分组头走居中胶囊(rounded-full+mx-auto);瀑布流恒平铺无组头", async () => {
     const chipItems = [
       fixtureItem({ source: "telegram-durov", title: "消息甲", category: "telegram-groups" }),
       fixtureItem({ source: "openai-news", title: "新闻乙", category: "tech" }),
@@ -3255,17 +3093,17 @@ describe("FeedScreen · 聊天主页风格形态锚(10-09 v4)", () => {
         result(chipItems.filter((item) => !params?.category || item.category === params.category)),
       ),
     );
-    await renderStream();
-    fireEvent.click(await screen.findByTestId("feed-tg-channel-card-telegram-durov"));
+
+    renderScreen();
+    // 瀑布流(根作用域):零组头(时间语义由卡面相对时间承担)
+    await screen.findByTestId("feed-waterfall");
+    expect(screen.queryByTestId(/^feed-group-/)).toBeNull();
+    // TG 频道 chip → 聊天视图:居中日期胶囊
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-telegram-groups"));
+    fireEvent.click(await screen.findByTestId("feed-chip-src-telegram-durov"));
     const chip = await screen.findByTestId("feed-group-今天");
     expect(chip.className).toContain("rounded-full");
     expect(chip.className).toContain("mx-auto");
-    fireEvent.click(screen.getByTestId("feed-crumb-home"));
-    fireEvent.click(await screen.findByTestId("feed-drill-cat-tech"));
-    fireEvent.click(await screen.findByTestId("feed-drill-cat-all"));
-    const plain = await screen.findByTestId("feed-group-今天");
-    expect(plain.className).toContain("sticky");
-    expect(plain.className).not.toContain("rounded-full");
   });
 });
 
@@ -3390,7 +3228,7 @@ describe("feed tg-channel-card 纯函数(api.ts,10-08-tg-channel-card)", () => {
 // ---------------------------------------------------------------------------
 
 describe("FeedScreen · 深审修复批(F1/F2/F4/F5/F6)", () => {
-  it("F1:L1 计数与 L2 渠道列表按品类查询 —— 全局首页外的长尾品类不再假空态/假零", async () => {
+  it("F1:品类/渠道 chips 计数按品类查询 —— 全局首页外的长尾品类不再假零,渠道 chips 如实", async () => {
     // 全局首页被 hot 品类占满;wool 品类有条目但一条都不进全局首页
     healthMock.mockResolvedValue(
       healthResult({
@@ -3411,24 +3249,22 @@ describe("FeedScreen · 深审修复批(F1/F2/F4/F5/F6)", () => {
     );
     renderScreen();
 
-    // L1:wool 行计数来自品类查询页(旧实现只吃全局首页 → 假零「0 条」;
-    // waitFor 等概览页落地 —— 行渲染先于概览应答属正常竞态)
-    const woolRow = await screen.findByTestId("feed-drill-cat-wool");
-    await waitFor(() => expect(woolRow.textContent).toContain("2 条"));
-    expect(woolRow.textContent).toContain("2 渠道");
+    // wool chip 计数来自品类查询页(旧实现只吃全局首页 → 假零;waitFor 等
+    // 概览页落地 —— chip 先渲染后补计数属正常竞态)
+    const woolChip = await screen.findByTestId("feed-chip-cat-wool");
+    await waitFor(() => expect(woolChip.textContent).toContain("2"));
     // 品类查询确实发出(store.items 带 category 游标,勿全量拉)
     await waitFor(() =>
       expect(storeItemsMock).toHaveBeenCalledWith({ limit: 50, category: "wool" }),
     );
 
-    // L2:wool 渠道行在场(旧实现 = 过滤全局首页 → 假空态);行计数如实
-    fireEvent.click(woolRow);
-    const channelB = await screen.findByTestId("feed-drill-ch-wool-b");
+    // 激活 wool → 渠道 chips(两渠道窗内各 1 条;旧实现 = 过滤全局首页假空态)
+    fireEvent.click(woolChip);
+    const channelB = await screen.findByTestId("feed-chip-src-wool-b");
     expect(channelB.textContent).toContain("wool-b");
-    expect(channelB.textContent).toContain("今日 1 条");
-    expect(screen.getByTestId("feed-drill-ch-wool-a").textContent).toContain("今日 1 条");
-    expect(screen.queryByText("该品类暂无窗内条目")).toBeNull();
-    // 下钻渠道流:条目本尊可见(端到端:品类查询 → 渠道行 → 消息)
+    expect(channelB.textContent).toContain("1");
+    expect(screen.getByTestId("feed-chip-src-wool-a").textContent).toContain("1");
+    // 渠道 chip → 条目本尊可见(端到端:品类查询 → 渠道 chip → 消息)
     fireEvent.click(channelB);
     expect(await screen.findByText("羊毛乙")).toBeTruthy();
   });
@@ -3447,9 +3283,6 @@ describe("FeedScreen · 深审修复批(F1/F2/F4/F5/F6)", () => {
     );
     renderScreen();
     // L1 挂载(全局流 + 概览)全部应答旧行
-    await waitFor(() => expect(deferreds.length).toBeGreaterThan(0));
-    act(() => deferreds.splice(0).forEach((resolve) => resolve(result([existing]))));
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
     await waitFor(() => expect(deferreds.length).toBeGreaterThan(0));
     act(() => deferreds.splice(0).forEach((resolve) => resolve(result([existing]))));
     await screen.findByText("旧行");
@@ -3484,26 +3317,27 @@ describe("FeedScreen · 深审修复批(F1/F2/F4/F5/F6)", () => {
     renderScreen();
     await waitFor(() => expect(deferreds.length).toBeGreaterThan(0));
     act(() => deferreds.splice(0).forEach((resolve) => resolve(result([scoped]))));
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    // 条目落地后概览按新词表(∪tech)二轮重查:喂饱二轮页,chips 才渲染
     await waitFor(() => expect(deferreds.length).toBeGreaterThan(0));
     act(() => deferreds.splice(0).forEach((resolve) => resolve(result([scoped]))));
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-tech"));
+    await waitFor(() => expect(deferreds.length).toBeGreaterThan(0));
+    act(() => deferreds.splice(0, 1).forEach((resolve) => resolve(result([scoped]))));
     await screen.findByText("域内行");
 
-    // 事件 liveRefresh(全局域,票 N)在途未答 → 下钻渠道(refresh 票 N+1)
+    // 事件 liveRefresh(全局域,票 N)在途未答 → chips 切回「全部」(refresh 票 N+1)
     act(() => emitEvent?.({ type: "cron.completed" }));
     const staleLiveDefer = deferreds.splice(0)[0];
-    fireEvent.click(screen.getByTestId("feed-crumb-home"));
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-all"));
     await waitFor(() => expect(deferreds.length).toBeGreaterThan(0));
-    const l1RefreshDefer = deferreds.splice(0, 1)[0];
-    act(() => l1RefreshDefer(result([scoped])));
-    await screen.findByTestId("feed-drill-all");
-
-    // 旧域 liveRefresh 应答回场(带回全局外性行):对票失败丢弃,不混入
-    act(() => staleLiveDefer(result([foreign, scoped])));
-    // 回 L3 全局流验证:外性行未并入(仅 scoped 在场)
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
+    const allRefreshDefer = deferreds.splice(0, 1)[0];
+    act(() => allRefreshDefer(result([scoped])));
     await screen.findByText("域内行");
+
+    // 旧域 liveRefresh 应答回场(带回外性行):对票失败丢弃,不混入新作用域
+    act(() => staleLiveDefer(result([foreign, scoped])));
     await waitFor(() => expect(screen.queryByText("全局外性行")).toBeNull());
+    expect(screen.getByText("域内行")).toBeTruthy();
   });
 
   it("F4:markdown 文档链接走 openInBrowser 受控门(默认导航被拦,shell.open 收到 URL)", async () => {
@@ -3636,7 +3470,6 @@ describe("FeedScreen · 消息详情弹窗(点击信息弹出详情)", () => {
       result([fixtureItem({ source: "telegram-durov", title: "消息正文甲", content: "气泡内摘要" })]),
     );
     await renderStream();
-    fireEvent.click(await screen.findByTestId("feed-tg-channel-card-telegram-durov"));
     const card = await screen.findByTestId("feed-item-1");
 
     // 内联展开条目:就地展开正文(TG 展开正文在气泡内),零弹窗(v2.1 明确保留并存)
@@ -3671,11 +3504,11 @@ describe("FeedScreen · 消息详情弹窗(点击信息弹出详情)", () => {
 // F6 可见作用域标题 / F10 墙卡次级概览
 // ---------------------------------------------------------------------------
 
-describe("FeedScreen · 审计整改批(F2/F3/F5/F6/F10)", () => {
-  /** v2 夹具:IM 两条(同渠道,较新)+ 网页两条(两源,较旧);刻度显式给,
-   *  卡序/巡游序确定(first_seen 新→旧,im 卡在前)。options.total = 模拟
-   *  sidecar v13 with_total 应答的 total(仅请求带 with_total 才回带,与
-   *  旧 sidecar 忽略未知参数同门;缺省不回带 = F2 半程词面路径)。 */
+describe("FeedScreen · 审计整改批(F2/F5/F6,v5 词面落位)", () => {
+  /** v5 夹具:TG 两条(同渠道,较新)+ 网页两条(两源,较旧,category=tech);
+   *  刻度显式给,卡序确定(first_seen 新→旧)。options.total = 模拟 sidecar
+   *  v13 with_total 应答的 total(仅请求带 with_total 才回带,与旧 sidecar
+   *  忽略未知参数同门;缺省不回带 = F2 半程词面路径)。 */
   function mockStoreV12(options: { webExtra?: number; total?: number } = {}) {
     // 时间戳相对刻度 + 当日窗锚地板钳制(10-09 教训:硬编码日期在 03:00
     // 翻面后出窗;纯 now-N 小时在 03:00-05:00 跑同样出窗 —— 以
@@ -3698,11 +3531,6 @@ describe("FeedScreen · 审计整改批(F2/F3/F5/F6/F10)", () => {
       const rows = items.filter((item) => {
         if (params?.category && item.category !== params.category) return false;
         if (params?.source && item.source !== params.source) return false;
-        if (params?.source_kind) {
-          const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
-          if (params.source_kind === "im" && !im) return false;
-          if (params.source_kind === "web" && im) return false;
-        }
         return true;
       });
       return Promise.resolve({
@@ -3714,188 +3542,76 @@ describe("FeedScreen · 审计整改批(F2/F3/F5/F6/F10)", () => {
     });
   }
 
-  async function renderWall() {
-    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
-    renderScreen();
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
-    await screen.findByTestId("feed-kind-wall");
-  }
-
-  it("F5:墙层 j/k 巡游墙卡(data-nav-focused 环),U 进大类详情 —— 不再静默空转", async () => {
-    mockStoreV12();
-    await renderWall();
-    // j 未选中落首卡(im,较新)→ 再 j 落 web
-    fireEvent.keyDown(window, { key: "j" });
-    await waitFor(() =>
-      expect(screen.getByTestId("feed-kind-card-im").getAttribute("data-nav-focused")).toBe("true"),
-    );
-    fireEvent.keyDown(window, { key: "j" });
-    await waitFor(() =>
-      expect(screen.getByTestId("feed-kind-card-web").getAttribute("data-nav-focused")).toBe("true"),
-    );
-    expect(screen.getByTestId("feed-kind-card-im").getAttribute("data-nav-focused")).toBe("false");
-    // U 语义对齐 = 进详情(此前 U 在墙层无作用目标)
-    fireEvent.keyDown(window, { key: "u" });
-    expect(await screen.findByTestId("feed-item-3")).toBeTruthy(); // 网页详情(条目平铺)
-    expect(screen.queryByTestId("feed-kind-wall")).toBeNull();
-    expect(screen.getByTestId("feed-stream-title").textContent).toContain("网页");
-  });
-
   it("F5 补充:消息卡上 Enter = 开详情弹窗(与点击同门;button 聚焦时 Enter 归原生)", async () => {
     mockStoreV12();
     versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
     markMock.mockResolvedValue({ updated: 1 }); // Enter 开详情即记已读,走服务端置位
-    await renderWall();
-    fireEvent.click(await screen.findByTestId("feed-kind-card-web"));
-    await screen.findByTestId("feed-item-3");
-    // 等作用域重查落地(全局 3 条 → 网页 1 条),巡游集才与所见一致
-    await waitFor(() => expect(screen.queryByTestId("feed-item-1")).toBeNull());
-    const card = screen.getByTestId("feed-item-3");
-    fireEvent.keyDown(window, { key: "j" }); // 未选中落首卡
-    await waitFor(() => expect(card.getAttribute("data-nav-focused")).toBe("true"));
+    await renderStream();
+    // j 未选中落首卡(展示序首卡 = item-1),Enter 开详情
+    fireEvent.keyDown(window, { key: "j" });
+    await waitFor(() =>
+      expect(screen.getByTestId("feed-item-1").getAttribute("data-nav-focused")).toBe("true"),
+    );
     fireEvent.keyDown(window, { key: "Enter" });
     expect(screen.getByTestId("feed-detail-dialog")).toBeTruthy();
-    expect(screen.getByTestId("feed-detail-title").textContent).toContain("新闻标题丙");
+    expect(screen.getByTestId("feed-detail-title").textContent).toContain("🎉 Clash Party Dev Build 开发版本发布");
     await closeDetailDialog();
   });
 
-  it("F2:hasMore 时墙卡词面「已加载 N 条」+ title 补「首页 50 条截断」注记(与 L1 同门)", async () => {
-    // 网页侧 51 条(1+50):全局首页 53 条满页 → hasMore;墙卡计数此前以
-    // 全量词面静默低估
+  it("F2:hasMore 时工具条词面「已加载 N 条(首页截断)」(墙卡随 v5 退役,词面归工具条一手)", async () => {
+    // 网页侧 51 条(1+50):全局首页 53 条满页 → hasMore
     mockStoreV12({ webExtra: 51 });
-    await renderWall();
-    const webCard = await screen.findByTestId("feed-kind-card-web");
-    expect(webCard.textContent).toContain("已加载 51 条");
-    expect(webCard.getAttribute("title")).toContain("首页 50 条截断");
-    // 工具条同步如实(未读过滤档)
-    expect(screen.getByTestId("feed-count").textContent).toContain("已加载");
-    expect(screen.getByTestId("feed-count").textContent).not.toContain("共 53 条");
+    await renderStream();
+    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
+    const count = await screen.findByTestId("feed-count");
+    await waitFor(() =>
+      expect(count.textContent).toContain("已加载 53 条(首页截断,更早条目未计入)"),
+    );
+    expect(count.textContent).not.toContain("共 103 条");
   });
 
-  it("F2 根治(protocol ≥ 13):with_total 应答在场 → 工具条与墙卡改「已加载 X · 共 T 条」+ title 注记口径", async () => {
+  it("F2 根治(protocol ≥ 13):with_total 应答在场 → 工具条改「已加载 X · 共 T 条」+ title 注记口径", async () => {
     // 过 COUNT_PROTOCOL 门(protocol 13)→ 首页查询带 with_total;total(103)
     // > 已加载(53)→ T 在词面;旧 sidecar(v12)回落上一用例的半程词面
     mockStoreV12({ webExtra: 51, total: 103 });
     versionMock.mockResolvedValue(versionResult(COUNT_PROTOCOL));
     renderScreen();
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
-    await screen.findByTestId("feed-kind-wall");
+    await screen.findByTestId("feed-waterfall");
     // 工具条:「已加载 53 / 53 · 共 103 条」(缺省未读过滤档,X = 可见/已加载,
     // T = 同 WHERE 全量;53 条全未读故可见=已加载)
     const count = await screen.findByTestId("feed-count");
     await waitFor(() => expect(count.textContent).toContain("已加载 53 / 53 · 共 103 条"));
     expect(count.getAttribute("title")).toContain("全量计数");
-    // 墙卡词面与 title 口径注记同步(im 卡同式;共 T = 作用域全量,注记说明)
-    const webCard = screen.getByTestId("feed-kind-card-web");
-    await waitFor(() => expect(webCard.textContent).toContain("已加载 51 · 共 103 条"));
-    expect(webCard.getAttribute("title")).toContain("共 103 条 = 当前过滤同口径全量计数,含未翻页");
-    expect(screen.getByTestId("feed-kind-card-im").textContent).toContain("已加载 2 · 共 103 条");
     // 请求面实锤:过门后 store.items 确带 with_total(F2 根治的数据源)
     expect(storeItemsMock.mock.calls.some((call) => (call[0] as StoreItemsParams | undefined)?.with_total === true)).toBe(true);
   });
 
   it("F2 根治回落面:未过 COUNT_PROTOCOL 门(protocol 12)不发 with_total、total 态不出现", async () => {
     mockStoreV12({ webExtra: 51, total: 103 });
-    await renderWall(); // versionMock = SOURCE_KIND_PROTOCOL(12)
-    await screen.findByTestId("feed-kind-card-web");
+    await renderStream(); // versionMock = SOURCE_KIND_PROTOCOL(12)
     // 门未过 → 请求零 with_total(sidecar v12 忽略未知参数属预期,不报错;
     // 应答自然无 total 键 → UI 不采信不存在的数据)
     expect(storeItemsMock.mock.calls.some((call) => (call[0] as StoreItemsParams | undefined)?.with_total === true)).toBe(false);
     // 词面维持 F2 半程:截断如实,无「共 T」全量词面
-    await waitFor(() => expect(screen.getByTestId("feed-kind-card-web").textContent).toContain("已加载 51 条"));
-    expect(screen.getByTestId("feed-kind-card-web").textContent).not.toContain("共 103 条");
+    const count = await screen.findByTestId("feed-count");
+    await waitFor(() => expect(count.textContent).toContain("已加载 53 / 53 条"));
+    expect(count.textContent).not.toContain("共 103 条");
   });
 
-  it("F3:TG 节头细条不复述最新消息(无 preview/digest),气泡照旧;节头点进单频道动线不变", async () => {
+  it("F6:作用域标题随 chips 切换(全部条目 · 瀑布流 → 品类 · 全部渠道 → 渠道)", async () => {
     mockStoreV12();
-    await renderWall();
-    fireEvent.click(await screen.findByTestId("feed-kind-card-im"));
-    await screen.findByTestId("feed-im-sections");
-    const head = screen.getByTestId("feed-tg-channel-card-telegram-mihomo_party_group");
-    // 节头不再与节内首条气泡背靠背重复同一消息
-    expect(head.textContent).not.toContain("🎉 Clash Party Dev Build 开发版本发布");
-    expect(head.textContent).not.toContain("基于版本");
-    expect(head.textContent).toContain("2 条");
-    // 节内消息全量平铺(首条气泡仍在,信息不丢)
-    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
-    expect(screen.getByTestId("feed-tg-bubble-2")).toBeTruthy();
-    // 节头点进单频道动线保留
-    fireEvent.click(head);
-    expect(await screen.findByTestId("feed-tg-bubble-1")).toBeTruthy();
-    expect(screen.getByTestId("feed-crumb-im")).toBeTruthy();
-  });
-
-  it("F6:墙层可见作用域标题(工具条)+ 面包屑终端段「全部条目 · 卡片墙」;下钻随域切换", async () => {
-    mockStoreV12();
-    await renderWall();
-    expect(screen.getByTestId("feed-stream-title").textContent).toContain("全部条目 · 卡片墙");
-    expect(screen.getByTestId("feed-crumb-current").textContent).toContain("全部条目 · 卡片墙");
-    fireEvent.click(await screen.findByTestId("feed-kind-card-web"));
-    expect(screen.getByTestId("feed-stream-title").textContent).toContain("网页");
-  });
-
-  it("F10:墙卡次级概览行 = 大类内 top3 源(名称走 F9 词表 + 条数/未读)", async () => {
-    mockStoreV12({ webExtra: 2 }); // 网页侧 openai-news×1 + hnrss-frontpage×1
-    await renderWall();
-    const webSubs = screen.getByTestId("feed-kind-subs-web");
-    expect(webSubs.textContent).toContain("openai-news");
-    expect(webSubs.textContent).toContain("frontpage"); // hnrss-frontpage 剥前缀(F9 同门)
-    const imSubs = screen.getByTestId("feed-kind-subs-im");
-    expect(imSubs.textContent).toContain("mihomo_party_group");
-    expect(imSubs.textContent).toContain("未读 2");
-  });
-
-  it("F10 补充:im 卡概览聚合源 = telegramChannelCards(top3 频道按最新消息新→旧,与第二层节头同序;未读数随行);web 卡聚合不随动", async () => {
-    // β 渠道 1 条较新 > α 渠道 2 条较旧:top3 序 = β 在前(telegramChannelCards
-    // 最新消息排序,聊天列表惯例;非条数排序 —— streamKindSubRows 的 web 榜口径)
-    const anchor = dayWindowStart().getTime();
-    const inWindow = (ms: number, floorMin: number) =>
-      new Date(Math.max(ms, anchor + floorMin * 60_000)).toISOString();
-    const tNew = inWindow(Date.now() - 1 * 3_600_000, 1);
-    const tOld = inWindow(Date.now() - 5 * 3_600_000, 2);
-    const items = [
-      fixtureItem({ source: "telegram-beta", title: "β 新消息", first_seen: tNew }),
-      fixtureItem({ source: "telegram-alpha", title: "α 旧消息一", first_seen: tOld }),
-      fixtureItem({ source: "telegram-alpha", title: "α 旧消息二", first_seen: tOld }),
-      fixtureItem({ source: "openai-news", title: "网页丙", category: "tech", first_seen: tOld }),
-    ];
-    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
-      Promise.resolve(
-        result(
-          items.filter((item) => {
-            if (params?.category && item.category !== params.category) return false;
-            if (params?.source && item.source !== params.source) return false;
-            if (params?.source_kind) {
-              const im = /^(telegram|tg)[-_.]/i.test(item.source ?? "");
-              if (params.source_kind === "im" && !im) return false;
-              if (params.source_kind === "web" && im) return false;
-            }
-            return true;
-          }),
-        ),
-      ),
+    await renderStream();
+    expect(screen.getByTestId("feed-stream-title").textContent).toContain("全部条目 · 瀑布流");
+    fireEvent.click(await screen.findByTestId("feed-chip-cat-tech"));
+    await waitFor(() =>
+      expect(screen.getByTestId("feed-stream-title").textContent).toContain("· 全部渠道"),
     );
-    versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
-    renderScreen();
-    fireEvent.click(await screen.findByTestId("feed-drill-all"));
-    const imSubs = await screen.findByTestId("feed-kind-subs-im");
-    const rows = Array.from(imSubs.children).map((row) => row.textContent ?? "");
-    expect(rows).toHaveLength(2); // 两频道都出(top3 内)
-    expect(rows[0]).toContain("beta");
-    expect(rows[0]).toContain("未读 1");
-    expect(rows[1]).toContain("alpha");
-    expect(rows[1]).toContain("未读 2");
-    // web 卡概览走 streamKindSubRows(源名+条数),不随 im 聚合切换
-    expect(screen.getByTestId("feed-kind-subs-web").textContent).toContain("openai-news");
-    // 行 display-only:点击行落点仍是整卡(进第二层),行自身非按钮
-    expect(imSubs.closest("button")).toBe(screen.getByTestId("feed-kind-card-im"));
-    expect(imSubs.querySelector("button")).toBeNull();
+    fireEvent.click(await screen.findByTestId("feed-chip-src-openai-news"));
+    await waitFor(() =>
+      expect(screen.getByTestId("feed-stream-title").textContent).toContain("openai-news"),
+    );
   });
 });
-
-// ---------------------------------------------------------------------------
-// 审计整改 纯函数(api.ts,10-08 v2.1):F8 色板 / F9 词表 / F10 次级聚合
-// ---------------------------------------------------------------------------
 
 describe("feed 审计整改 纯函数(api.ts)", () => {
   it("F8:tech 落淡紫档 #cdb6fb(卡底 9.02:1 过 AA)——不再落 #8b5cf6(3.83:1 欠档)", () => {
@@ -3976,7 +3692,6 @@ describe("FeedScreen · 验收整改批(正文去重/节内省频道名/弹窗�
       ]),
     );
     await renderStream();
-    fireEvent.click(await screen.findByTestId("feed-tg-channel-card-telegram-durov"));
     const card = await screen.findByTestId("feed-item-1");
     const bubble = within(card).getByTestId("feed-tg-bubble-1");
     // 收起态:正文行只剩独有信息(版本号),标题不复述 —— 全文词面仅标题按钮 1 处
@@ -4015,7 +3730,6 @@ describe("FeedScreen · 验收整改批(正文去重/节内省频道名/弹窗�
       ]),
     );
     await renderStream();
-    fireEvent.click(await screen.findByTestId("feed-tg-channel-card-telegram-durov"));
     fireEvent.click(await screen.findByTestId("feed-item-1"));
     fireEvent.click(within(screen.getByTestId("feed-tg-bubble-1")).getByRole("button", { name: "🎉 Clash Party v2 发布" }));
     const dialog = screen.getByTestId("feed-detail-dialog");
@@ -4025,20 +3739,13 @@ describe("FeedScreen · 验收整改批(正文去重/节内省频道名/弹窗�
     await closeDetailDialog();
   });
 
-  it("② TG 分节详情:节内消息卡省频道名行(全屏频道名只节头 1 次),相对时间保留;单频道流不受影响", async () => {
+  it("② 瀑布流 TG 气泡卡自带频道名行(v5:节头随分节视图退役,频道归属回到每张卡),相对时间保留", async () => {
     mockStoreV12Acceptance();
-    await renderWallAcceptance();
-    fireEvent.click(await screen.findByTestId("feed-kind-card-im"));
-    await screen.findByTestId("feed-im-sections");
-    const section = screen.getByTestId("feed-im-sections");
-    // 频道名只出现在节头细条(此前节头 1 + 两卡头 = 3 次)
-    expect(within(section).getAllByText("mihomo_party_group")).toHaveLength(1);
-    // 节内卡头时间仍在(省的是频道名,不是时间)
-    expect(within(section).getAllByText(/分钟前|刚刚/).length).toBeGreaterThanOrEqual(2);
-    // 节头点进单频道:该视图频道名行照旧(动线终点保留完整频道头)
-    fireEvent.click(screen.getByTestId("feed-tg-channel-card-telegram-mihomo_party_group"));
-    const singleCard = await screen.findByTestId("feed-item-1");
-    expect(within(singleCard).getByText("mihomo_party_group")).toBeTruthy();
+    await renderStream();
+    // 每张 TG 气泡卡各带频道名行(词表名,2 张卡 = 2 次)
+    expect(screen.getAllByText("mihomo_party_group")).toHaveLength(2);
+    // 卡头时间仍在(卡面元信息不缺)
+    expect(screen.getAllByText(/分钟前|刚刚/).length).toBeGreaterThanOrEqual(2);
   });
 
   it("⑤ 弹窗动作簇:打开原文 = 唯一实底主钮(default),复制链接/星标/稍后读/标记未读 = ghost 同档", async () => {
@@ -4083,9 +3790,4 @@ function mockStoreV12Acceptance() {
   );
 }
 
-async function renderWallAcceptance() {
-  versionMock.mockResolvedValue(versionResult(SOURCE_KIND_PROTOCOL));
-  renderScreen();
-  fireEvent.click(await screen.findByTestId("feed-drill-all"));
-  await screen.findByTestId("feed-kind-wall");
-}
+
