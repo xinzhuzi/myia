@@ -95,6 +95,21 @@ export interface FeedCategoryOption {
  * + 名称回显(name 缺省回 id);装不上的插件 id=null 不入选项(选了也无数据
  * 可滤);排序稳定(id localeCompare)。与旧顶栏下拉同构(拆下归位零语义变化)。
  */
+/** 分类显示名词表(10-09:主人令「看不懂你这个分类」)——分类引擎
+ *  (myssia-classifier)把新闻/群帖分拣进主题桶,桶 id 裸奔成分类行不可读;
+ *  此处给已知桶以权威显示名(label 取自分拣器 data/keywords.json 的
+ *  label 字段,单一事实源)。health 词表内插件品类不受此表影响。 */
+export const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
+  freebie: "🎁 羊毛",
+  "credit-card": "💳 信用卡",
+  "proxy-node": "🪄 节点",
+  "buying-agent": "🛒 代买",
+  server: "🖥️ 服务器",
+  channel: "💰 渠道",
+  token: "🔑 token",
+  "ai-news": "🤖 AI 信息",
+};
+
 export function categoryOptionsFromHealth(plugins: HealthResult["plugins"]): FeedCategoryOption[] {
   const seen = new Map<string, string>();
   for (const plugin of plugins) {

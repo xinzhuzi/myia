@@ -3234,6 +3234,17 @@ describe("FeedScreen · 聊天主页风格形态锚(10-09 v4)", () => {
     expect(within(bubble as HTMLElement).queryByTestId("feed-image-ocr-1")).toBeNull();
   });
 
+  it("分类显示名词表(10-09):词表外桶 id 行显人话标签(proxy-node→🪄 节点),不再裸奔内部 id", async () => {
+    const bucketItem = fixtureItem({ source: "cocoloop", title: "节点情报", category: "proxy-node" });
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result([bucketItem].filter((item) => !params?.category || item.category === params.category))),
+    );
+    renderScreen();
+    const row = await screen.findByTestId("feed-drill-cat-proxy-node");
+    expect(within(row).getByText("🪄 节点")).toBeTruthy();
+    expect(within(row).queryByText("proxy-node")).toBeNull();
+  });
+
   it("日期胶囊:TG 单频道流分组头走居中胶囊(rounded-full+mx-auto),非 TG 保持 sticky 组头", async () => {
     const chipItems = [
       fixtureItem({ source: "telegram-durov", title: "消息甲", category: "telegram-groups" }),

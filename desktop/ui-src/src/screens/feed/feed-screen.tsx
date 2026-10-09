@@ -58,6 +58,7 @@ import type { FeedEnrichResult, FeedItem, UnlistenFn } from "@/lib/api";
 
 import {
   appendFeedPage,
+  CATEGORY_DISPLAY_NAMES,
   appendWatchlistKeyword,
   applyFeedFilter,
   bodyWithoutTitleDup,
@@ -2372,7 +2373,10 @@ export function FeedScreen() {
   // L1/L2 是「今日滚动窗」的概览,过窗条目不计入(title 注记口径,如实)。
   // ---------------------------------------------------------------------------
   const categoryLabelOf = useCallback(
-    (id: string) => categoryOptions.find((option) => option.id === id)?.label ?? id,
+    (id: string) =>
+      categoryOptions.find((option) => option.id === id)?.label ??
+      CATEGORY_DISPLAY_NAMES[id] ??
+      id,
     [categoryOptions],
   );
 
@@ -2406,6 +2410,8 @@ export function FeedScreen() {
       }
     }
     const seen = new Set<string>();
+    // 词表外桶 id 的行标签走显示名词表(10-09:分类行不再裸奔内部 id)
+    const displayLabel = (id: string, fallback: string) => CATEGORY_DISPLAY_NAMES[id] ?? fallback;
     const rows: { id: string; label: string; today: number; unread: number; channels: number; color: string | null }[] = [];
     for (const option of categoryOptions) {
       seen.add(option.id);
@@ -2421,7 +2427,7 @@ export function FeedScreen() {
     }
     for (const [id, row] of byCategory) {
       if (seen.has(id)) continue;
-      rows.push({ id, label: id, today: row.today, unread: row.unread, channels: row.channels.size, color: categoryColor(id) });
+      rows.push({ id, label: displayLabel(id, id), today: row.today, unread: row.unread, channels: row.channels.size, color: categoryColor(id) });
     }
     return rows;
   }, [categoryPages, categoryOptions, inWindowOrResurfaced]);
