@@ -85,6 +85,15 @@ function DropdownMenuTrigger({
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       setOpen(true);
+      return;
+    }
+    // Esc 关闭(焦点尚在触发器的窗口期):内容挂载后经 rAF 才抢焦,此窗内
+    // Esc 落在触发器上无人接管 —— 触发器持有 open 态,就地 preventDefault +
+    // 关闭(下游 window 级 Esc 语义按 defaultPrevented 让位,如 feed 屏
+    // 「Esc 清选中」;深检 C1 配套,防关菜单连带触发屏级 Esc 分支)。
+    if (open && event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
     }
   }
 

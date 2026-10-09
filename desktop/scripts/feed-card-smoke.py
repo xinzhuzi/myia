@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
-"""TG 渠道卡无头冒烟(v6 渠道瀑布流信息架构,10-09;程序化验证,禁屏控)。
+"""情报流双栏监控台无头冒烟(v7,10-10;程序化验证,禁屏控)。
 
 面板与注入(同 tg-card-smoke.py 骨架):
 - 静态服务 ``desktop/ui`` 构建产物(与装机件同一构建链产物,HashRouter);
-- Playwright chromium 无头直达 ``#/feed``(v6:落地即**渠道瀑布流**首屏,
-  一卡一信息获取渠道,无导航中转);
+- Playwright chromium 无头直达 ``#/feed``(v7:落地即**双栏监控台**——
+  右栏渠道/群组列表(导航本体,常驻)+ 左栏数据主区(未选中 = 引导空态),
+  主人定调「右侧是群组,左侧是群组中的数据」,群组列表在右);
 - IPC 注入 ``add_init_script`` 定义 ``__TAURI_INTERNALS__.invoke``,按
   ``sidecar_request`` 的 method 应答 version(protocol 13 过服务端读态 + 计数
   口径门)/ health(telegram + tech 插件,携 sources 词表:tg_web/static_html/
   prompt 三引擎)/ store.items(按 source 精确等值过滤夹具,with_total 回带)/
   telegram.status(已登录)/ store.state.import·mark·mark_all。
 
-断言面(装机无头证据;vitest jsdom 之外的真实 Chromium 一层;v6 渠道瀑布流
-信息架构):首屏 = 渠道墙(TG/网站/日报三类型徽标卡,零条目渠道出卡显今日 0;
-旧面 feed-chips/feed-kind-wall/feed-drill-all/feed-tg-channels/面包屑退场)/
-搜索框搜「Tg」= 过滤渠道卡(TG 渠道卡直出,类型别名同门)/ 点 TG 渠道卡 =
-渠道详情(监控台钉顶 + 聊天时间线:日期胶囊 + 气泡)/ j+Enter = 条目详情
-弹窗(Esc 关)/ 返回钮回渠道墙。截图落 /tmp 备查。退出码 0 = 冒烟通过。
+断言面(装机无头证据;vitest jsdom 之外的真实 Chromium 一层;v7 双栏信息
+架构):首屏 = 右栏行列表(TG/网站/日报三类型行,零条目渠道出行给知会词)+
+左栏总览引导空态(统计行)/ 搜索框搜「Tg」= 过滤右栏行(TG 行直出,类型
+别名同门)/ 点 TG 行 = 左栏数据(TG 监控台常驻条 + 聊天时间线:日期胶囊 +
+气泡;行选中高亮)/ Shift+J+Enter = 条目详情弹窗(Esc 关)/ 渠道切换(点
+网站行 = 条目单列,监控台退场)/ 总览钮回总览。截图落 /tmp 备查。
+退出码 0 = 冒烟通过。
 
 用法(仓库根):``.venv/bin/python desktop/scripts/feed-card-smoke.py``
 """
@@ -137,7 +139,7 @@ INJECT_SCRIPT = r"""
           session: { exists: false },
           web: {
             accounts: [
-              { account: "telegram-alt1", logged_in: true, logged_in_at: "2026-10-09T01:00:00+00:00", login_in_progress: false, login_note: null },
+              { account: "telegram-alt1", logged_in: true, logged_in_at: "2026-10-10T01:00:00+00:00", login_in_progress: false, login_note: null },
             ],
           },
         };
@@ -202,71 +204,77 @@ async def main() -> int:
             await page.add_init_script(INJECT_SCRIPT)
             await page.goto(f"http://127.0.0.1:{port}/#/feed", wait_until="networkidle")
 
-            # ═══ 首屏 = 渠道瀑布流(v6 AC20:一卡一信息获取渠道)═══
-            await page.wait_for_selector('[data-testid="feed-channel-wall"]', timeout=10_000)
-            expect("渠道墙容器在场", True)
+            # ═══ 首屏 = 双栏监控台(v7:右栏行列表 + 左栏总览引导空态)═══
+            await page.wait_for_selector('[data-testid="feed-channel-list"]', timeout=10_000)
+            expect("右栏行列表容器在场", True)
             expect(
-                "渠道墙多列 class(columns-1 起档)",
-                "columns-1" in (await page.locator('[data-testid="feed-channel-wall"]').get_attribute("class") or ""),
+                "左栏总览引导空态在场",
+                (await page.locator('[data-testid="feed-overview"]').count()) == 1,
             )
-            tg_card = page.locator('[data-testid="feed-channel-telegram-mihomo_party_group"]')
-            expect("TG 渠道卡直出(engine tg_web → 类型徽标 TG)", (await tg_card.get_attribute("data-channel-kind")) == "tg")
-            expect("TG 卡带未读竖条(未读 >0)", (await tg_card.get_attribute("data-unread")) == "true")
             expect(
-                "TG 卡今日计数词(已加载口径)",
-                "今日" in ((await page.locator('[data-testid="feed-channel-count-telegram-mihomo_party_group"]').text_content()) or ""),
+                "总览统计行(渠道数 · 今日 · 未读)",
+                "个渠道" in ((await page.locator('[data-testid="feed-overview-stats"]').text_content()) or ""),
             )
-            web_card = page.locator('[data-testid="feed-channel-openai-news"]')
-            expect("网站渠道卡直出(static_html → 网站)", (await web_card.get_attribute("data-channel-kind")) == "site")
-            daily_card = page.locator('[data-testid="feed-channel-daily-digest"]')
-            expect("零条目日报渠道出卡(prompt → 日报)", (await daily_card.get_attribute("data-channel-kind")) == "daily")
-            daily_text = (await daily_card.text_content()) or ""
-            expect("零条目渠道显今日 0", "今日 0 条" in daily_text)
-            expect("零条目渠道给知会词(不空转)", "今日暂无新条目" in daily_text)
+            tg_row = page.locator('[data-testid="feed-channel-row-telegram-mihomo_party_group"]')
+            expect("TG 行直出(engine tg_web → 类型 tg)", (await tg_row.get_attribute("data-channel-kind")) == "tg")
+            expect("TG 行带未读徽标(未读 >0)", (await tg_row.get_attribute("data-unread")) == "true")
+            web_row = page.locator('[data-testid="feed-channel-row-openai-news"]')
+            expect("网站行直出(static_html → site)", (await web_row.get_attribute("data-channel-kind")) == "site")
+            daily_row = page.locator('[data-testid="feed-channel-row-daily-digest"]')
+            expect("零条目日报出行(prompt → daily)", (await daily_row.get_attribute("data-channel-kind")) == "daily")
             expect(
-                "计数词面 = 渠道数",
+                "零条目渠道给知会词(不空转)",
+                "今日暂无新条目" in ((await daily_row.text_content()) or ""),
+            )
+            expect(
+                "脚注词面 = 渠道数(feed-count 右栏独占)",
                 "3 个渠道" in ((await page.locator('[data-testid="feed-count"]').text_content()) or ""),
             )
-            # 旧信息架构面随 AC23 撤销
-            for gone in ("feed-chips", "feed-chip-cat-all", "feed-kind-wall", "feed-drill-all", "feed-tg-channels", "feed-breadcrumb"):
+            expect(
+                "左栏未选中无条目卡(引导空态零流)",
+                (await page.locator('[data-testid^="feed-item-"]').count()) == 0,
+            )
+            # 旧信息架构面随双栏收编撤销
+            for gone in ("feed-chips", "feed-kind-wall", "feed-drill-all", "feed-tg-channels", "feed-breadcrumb", "feed-channel-wall", "feed-waterfall", "feed-back-to-wall"):
                 expect(f"旧面退场:{gone}", (await page.locator(f'[data-testid="{gone}"]').count()) == 0)
-            await page.screenshot(path="/tmp/myssia-feed-card-smoke-wall.png", full_page=True)
-            print("screenshot: /tmp/myssia-feed-card-smoke-wall.png")
+            await page.screenshot(path="/tmp/myssia-feed-card-smoke-overview.png", full_page=True)
+            print("screenshot: /tmp/myssia-feed-card-smoke-overview.png")
 
-            # ═══ 搜索过滤渠道卡(v6 AC21,主人实测「搜 Tg」)═══
+            # ═══ 搜索过滤右栏行(v6 AC21 语义迁址,主人实测「搜 Tg」)═══
             search = page.get_by_label("搜索渠道")
             await search.fill("Tg")
             await search.press("Enter")
             expect(
-                "搜索作用域词在",
+                "搜索作用域词在(右栏顶)",
                 (await page.locator('[data-testid="feed-search-scope"]').count()) == 1,
             )
-            await page.wait_for_selector('[data-testid="feed-channel-telegram-mihomo_party_group"]', timeout=10_000)
-            expect("搜 Tg:TG 渠道卡直出", True)
+            await page.wait_for_selector('[data-testid="feed-channel-row-telegram-mihomo_party_group"]', timeout=10_000)
+            expect("搜 Tg:TG 行直出", True)
             expect(
-                "搜 Tg:网站/日报渠道卡不混",
-                (await page.locator('[data-testid="feed-channel-openai-news"]').count()) == 0
-                and (await page.locator('[data-testid="feed-channel-daily-digest"]').count()) == 0,
+                "搜 Tg:网站/日报行不混",
+                (await page.locator('[data-testid="feed-channel-row-openai-news"]').count()) == 0
+                and (await page.locator('[data-testid="feed-channel-row-daily-digest"]').count()) == 0,
             )
             expect(
-                "命中计数词面",
+                "命中计数词面(脚注)",
                 "命中 1 / 3" in ((await page.locator('[data-testid="feed-count"]').text_content()) or ""),
             )
+            await page.screenshot(path="/tmp/myssia-feed-card-smoke-search.png", full_page=True)
             await search.press("Escape")
-            await page.wait_for_selector('[data-testid="feed-channel-daily-digest"]', timeout=10_000)
+            await page.wait_for_selector('[data-testid="feed-channel-row-daily-digest"]', timeout=10_000)
             expect("清空搜索恢复全量", True)
 
-            # ═══ 点 TG 渠道卡 = 渠道详情(AC22:监控台钉顶 + 聊天时间线)═══
-            await tg_card.click()
+            # ═══ 点 TG 行 = 左栏数据(AC26:监控台常驻条 + 聊天时间线)═══
+            await tg_row.click()
             console_card = page.locator('[data-testid="feed-tg-console"]')
             await console_card.wait_for(timeout=10_000)
-            expect("监控台钉在渠道详情顶部", (await console_card.count()) == 1)
+            expect("监控台常驻条(工具条下)", (await console_card.count()) == 1)
             expect(
                 "监控台显监控中",
                 "监控中" in ((await page.locator('[data-testid="feed-tg-console-live"]').text_content()) or ""),
             )
             await page.wait_for_selector('[data-testid="feed-chat-timeline"]', timeout=10_000)
-            expect("TG 渠道详情 = 聊天时间线", True)
+            expect("TG 左栏 = 聊天时间线", True)
             expect(
                 "日期胶囊在场",
                 (await page.locator('[data-testid="feed-group-今天"]').count()) == 1,
@@ -280,16 +288,26 @@ async def main() -> int:
                 "作用域词 = 渠道名",
                 "mihomo_party_group" in ((await page.locator('[data-testid="feed-stream-title"]').text_content()) or ""),
             )
+            expect("行选中高亮(data-selected)", (await tg_row.get_attribute("data-selected")) == "true")
             expect(
-                "详情内无搜索框(渠道内检索本轮不做)",
-                (await page.get_by_label("搜索渠道").count()) == 0,
+                "选中态条目计数(feed-stream-count)",
+                (await page.locator('[data-testid="feed-stream-count"]').count()) == 1,
+            )
+            expect(
+                "总览引导空态退场(选中态)",
+                (await page.locator('[data-testid="feed-overview"]').count()) == 0,
             )
             await page.screenshot(path="/tmp/myssia-feed-card-smoke-chat.png", full_page=True)
 
-            # ═══ j + Enter = 条目详情弹窗;Esc 关(AC22 条目点击动线)═══
-            # 点击渠道卡后焦点在卡根(DIV),键盘守卫放行 j/Enter;真浏览器
-            # 标题钮居中点击会被右上悬停操作簇截走,键盘动线最稳。
-            await page.keyboard.press("j")
+            # ═══ Shift+J + Enter = 条目详情弹窗;Esc 关(v7 双环:条目巡游 Shift 层)═══
+            # 点击行后焦点在行根(DIV),键盘守卫放行;真浏览器标题钮居中点击会被
+            # 右上悬停操作簇截走,键盘动线最稳。j/k 现在巡右栏行,条目巡游走 Shift 层。
+            await page.keyboard.press("Shift+J")
+            await page.wait_for_function(
+                "document.querySelector('[data-testid=\"feed-item-1\"]')?.getAttribute('data-nav-focused') === 'true'",
+                timeout=10_000,
+            )
+            expect("Shift+J 落首条目(条目环亮)", True)
             await page.keyboard.press("Enter")
             await page.wait_for_selector('[data-testid="feed-detail-dialog"]', timeout=10_000)
             expect(
@@ -305,15 +323,42 @@ async def main() -> int:
             await page.wait_for_selector('[data-testid="feed-detail-dialog"]', state="detached", timeout=10_000)
             expect("Esc 关详情弹窗", True)
 
-            # ═══ 返回钮 = 回渠道墙(动线回环)═══
-            await page.locator('[data-testid="feed-back-to-wall"]').click()
-            await page.wait_for_selector('[data-testid="feed-channel-openai-news"]', timeout=10_000)
-            expect("返回钮回渠道墙", True)
+            # ═══ 渠道切换:点网站行 = 条目单列(监控台退场)═══
+            await web_row.click()
+            await page.wait_for_selector('[data-testid="feed-stream-list"]', timeout=10_000)
+            expect("网站左栏 = 条目单列(feed-stream-list)", True)
             expect(
-                "作用域词复原渠道瀑布流",
-                "渠道瀑布流" in ((await page.locator('[data-testid="feed-stream-title"]').text_content()) or ""),
+                "监控台条退场(非 TG 渠道)",
+                (await page.locator('[data-testid="feed-tg-console"]').count()) == 0,
             )
-            expect("聊天时间线退场", (await page.locator('[data-testid="feed-chat-timeline"]').count()) == 0)
+            expect(
+                "网站条目在场(条目 3)",
+                (await page.locator('[data-testid="feed-item-3"]').count()) == 1,
+            )
+            expect(
+                "TG 气泡不混入",
+                (await page.locator('[data-testid="feed-tg-bubble-1"]').count()) == 0,
+            )
+            expect(
+                "行选中高亮随切换",
+                (await web_row.get_attribute("data-selected")) == "true"
+                and (await tg_row.get_attribute("data-selected")) == "false",
+            )
+            await page.screenshot(path="/tmp/myssia-feed-card-smoke-site.png", full_page=True)
+
+            # ═══ 总览钮 = 回总览(动线回环;右栏原地不动)═══
+            await page.locator('[data-testid="feed-back-to-overview"]').click()
+            await page.wait_for_selector('[data-testid="feed-overview"]', timeout=10_000)
+            expect("总览钮回总览(引导空态回归)", True)
+            expect(
+                "右栏行原地不动(不重挂)",
+                (await page.locator('[data-testid="feed-channel-row-telegram-mihomo_party_group"]').count()) == 1,
+            )
+            expect(
+                "作用域词复原全部情报",
+                "全部情报" in ((await page.locator('[data-testid="feed-stream-title"]').text_content()) or ""),
+            )
+            expect("行高亮退场", (await web_row.get_attribute("data-selected")) == "false")
 
             await page.screenshot(path="/tmp/myssia-feed-card-smoke.png", full_page=True)
             print("screenshot: /tmp/myssia-feed-card-smoke.png")
@@ -328,7 +373,7 @@ async def main() -> int:
     if failures:
         print(f"冒烟失败 {len(failures)} 项", file=sys.stderr)
         return 1
-    print("TG 渠道卡无头冒烟:全部通过")
+    print("情报流双栏监控台无头冒烟:全部通过")
     return 0
 
 
