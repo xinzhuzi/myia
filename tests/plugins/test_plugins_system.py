@@ -979,3 +979,32 @@ class TestPluginStoreIoGuards:
             assert not (plugin_root / "myssia-monitor").exists()
         finally:
             blocked.chmod(0o755)  # 还原,tearDown 的 tmp 清理不被权限卡住
+
+
+class TestScenarioFileCandidates:
+    """场景件候选表(10-10 装机态断链修复):urlwatch/credhunter 引擎装载面
+    的权威顺序 —— cwd 相对 → 随包锚点 → 组件安装根。"""
+
+    def test_order_dir_bundled_install_root(self, tmp_path, monkeypatch):
+        from myssia.plugins.installed import scenario_file_candidates
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("MYIA_BUNDLED_PLUGINS", str(tmp_path / "res" / "plugins"))
+        monkeypatch.setenv("MYIA_PLUGIN_DIR", str(tmp_path / "installed"))
+        candidates = scenario_file_candidates("myssia-urlwatch", "adapter.py")
+        assert candidates == [
+            Path("plugins") / "myssia-urlwatch" / "adapter.py",
+            tmp_path / "res" / "plugins" / "myssia-urlwatch" / "adapter.py",
+            tmp_path / "installed" / "myssia-urlwatch" / "adapter.py",
+        ]
+
+    def test_bundled_anchor_omitted_when_unset(self, tmp_path, monkeypatch):
+        from myssia.plugins.installed import scenario_file_candidates
+
+        monkeypatch.delenv("MYIA_BUNDLED_PLUGINS", raising=False)
+        monkeypatch.setenv("MYIA_PLUGIN_DIR", str(tmp_path / "installed"))
+        candidates = scenario_file_candidates("myssia-x", "render.py", "custom-dir")
+        assert candidates == [
+            Path("custom-dir") / "myssia-x" / "render.py",
+            tmp_path / "installed" / "myssia-x" / "render.py",
+        ]

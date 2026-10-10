@@ -401,8 +401,44 @@ def test_bundled_plugins_env_ignored_when_not_a_dir(tmp_path, monkeypatch):
     """锚点环境变量指向不存在的目录时静默跳过(源码树兜底照走)."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("MYIA_BUNDLED_PLUGINS", str(tmp_path / "nope"))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(tmp_path / "empty-install-root"))
     module = import_urlwatch_adapter()  # 源码树兜底命中
     assert hasattr(module, "run")
+
+
+def test_install_root_is_candidate_path(tmp_path, monkeypatch):
+    """组件安装根(MYIA_PLUGIN_DIR 覆盖)是装机态候选:cwd 相对路径与随包
+    锚点全空时,从设置页/``myssia plugin install`` 的落点装载(10-10 装机态
+    断链修复:组件装了却不在旧候选表上,每轮 urlwatch_adapter_missing)."""
+    install_root = tmp_path / "myia-plugins"
+    plugin_dir = install_root / "myssia-urlwatch"
+    plugin_dir.mkdir(parents=True)
+    (plugin_dir / "adapter.py").write_text(
+        "SENTINEL = 'installed-adapter'\n", encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)  # cwd 相对 plugins/ 落空
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+    module = import_urlwatch_adapter()
+    assert getattr(module, "SENTINEL", None) == "installed-adapter"
+
+
+def test_install_root_ranked_after_bundled_anchor(tmp_path, monkeypatch):
+    """候选顺序:随包锚点优先于组件安装根(锚点在 = 免安装前置语义不变)."""
+    bundled_root = tmp_path / "Resources" / "plugins"
+    bundled_dir = bundled_root / "myssia-urlwatch"
+    bundled_dir.mkdir(parents=True)
+    (bundled_dir / "adapter.py").write_text("SENTINEL = 'bundled'\n", encoding="utf-8")
+    install_root = tmp_path / "myia-plugins"
+    installed_dir = install_root / "myssia-urlwatch"
+    installed_dir.mkdir(parents=True)
+    (installed_dir / "adapter.py").write_text(
+        "SENTINEL = 'installed'\n", encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MYIA_BUNDLED_PLUGINS", str(bundled_root))
+    monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+    module = import_urlwatch_adapter()
+    assert getattr(module, "SENTINEL", None) == "bundled"
 
 
 # ---------------------------------------------------------------------------

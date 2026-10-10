@@ -62,6 +62,7 @@ __all__ = [
     "check_category_plugin",
     "check_remote_modes",
     "default_install_root",
+    "scenario_file_candidates",
 ]
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,34 @@ def default_install_root() -> Path:
     """解析安装根:环境变量 ``MYIA_PLUGIN_DIR`` 优先,否则 ``~/.myia/plugins``。"""
     override = os.environ.get(INSTALL_ROOT_ENV)
     return Path(override).expanduser() if override else DEFAULT_INSTALL_ROOT
+
+
+def scenario_file_candidates(
+    plugin_id: str,
+    filename: str,
+    plugins_dir: str | Path = "plugins",
+) -> list[Path]:
+    """场景件文件候选表(引擎装载面的权威顺序;10-10 装机态断链修复).
+
+    按序:
+
+    1. ``plugins_dir``(缺省 cwd 相对 ``plugins``,dev/CLI 仓内跑法);
+    2. ``MYIA_BUNDLED_PLUGINS`` 锚点(桌面壳 release 态注入 Resources/plugins;
+       10-06 声明件规范后随包通常只含 yaml/README,锚点语义保留);
+    3. 组件安装根(:func:`default_install_root`,设置页/``myssia plugin
+       install`` 的落点)—— 装机态发现链的正解:sidecar cwd 不在数据根、
+       随包目录无场景件时由此命中,不再出现「组件装了却找不到」。
+
+    调用方(urlwatch/credhunter 引擎)在候选表后自行追加形态特有兜底
+    (如源码树布局),装载手法(compile+exec)与报错文案仍归各引擎。
+    """
+    relative = Path(plugin_id) / filename
+    candidates = [Path(plugins_dir) / relative]
+    bundled = os.environ.get("MYIA_BUNDLED_PLUGINS")
+    if bundled:
+        candidates.append(Path(bundled) / relative)
+    candidates.append(default_install_root() / relative)
+    return candidates
 
 
 def myssia_version() -> str:

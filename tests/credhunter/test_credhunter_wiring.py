@@ -498,6 +498,23 @@ class TestAdapterContract:
     def adapter(self):
         return import_credhunter_adapter(REPO_ROOT / "plugins")
 
+    def test_install_root_is_candidate_path(self, tmp_path, monkeypatch):
+        """组件安装根(MYIA_PLUGIN_DIR 覆盖)是装机态候选(10-10 断链同修).
+
+        cwd 相对路径落空、无随包锚点时,从设置页安装落点装载——装机态
+        随包目录按声明件规范只有 yaml/README,组件在安装根。"""
+        install_root = tmp_path / "myia-plugins"
+        plugin_dir = install_root / "myssia-credhunter"
+        plugin_dir.mkdir(parents=True)
+        (plugin_dir / "adapter.py").write_text(
+            "SENTINEL = 'installed-credhunter'\n", encoding="utf-8"
+        )
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("MYIA_PLUGIN_DIR", str(install_root))
+        monkeypatch.delenv("MYIA_BUNDLED_PLUGINS", raising=False)
+        module = import_credhunter_adapter()
+        assert getattr(module, "SENTINEL", None) == "installed-credhunter"
+
     def test_dual_faces_present(self, adapter):
         for name in ("fetch", "fetch_hunt", "fetch_exposure", "run", "run_credhunt", "run_credcheck", "run_exposure"):
             assert callable(getattr(adapter, name, None)), f"适配器缺少入口 {name}"

@@ -43,11 +43,13 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import types
 from pathlib import Path
 from typing import Any
 
 from myssia.engines.fetch_base import BaseEngine, FetchError
+from myssia.plugins.installed import scenario_file_candidates
 from myssia.schema import CredentialResolveError, resolve_credential
 
 logger = logging.getLogger(__name__)
@@ -72,15 +74,26 @@ def import_credhunter_adapter(plugins_dir: str | Path = DEFAULT_PLUGINS_DIR) -> 
     importlib 的 SourceFileLoader(会在插件目录写 ``__pycache__`` 垃圾);
     核心仓库与插件零静态耦合。加载失败抛 OSError/SyntaxError,由引擎统一
     包成结构化 ``credhunter_adapter_missing`` FetchError。
+
+    候选装载路径由 :func:`myssia.plugins.installed.scenario_file_candidates`
+    权威给出(cwd 相对 → ``MYIA_BUNDLED_PLUGINS`` 锚点 → 组件安装根;
+    10-10 装机态断链与 urlwatch 引擎同修:随包目录按声明件规范无场景件,
+    设置页装的组件在安装根,必须在候选表上)。
     """
-    adapter_file = Path(plugins_dir) / "myssia-credhunter" / "adapter.py"
-    if not adapter_file.is_file():
-        raise FileNotFoundError(f"credhunter 适配器不存在:{adapter_file}(场景件应随仓库 plugins/ 分发)")
-    module = types.ModuleType("myssia_myssia_credhunter_adapter")
-    module.__file__ = str(adapter_file)
-    executable = compile(adapter_file.read_text(encoding="utf-8"), str(adapter_file), "exec")
-    exec(executable, module.__dict__)  # noqa: S102 - 仓库内受控插件代码,非任意输入
-    return module
+    candidates = scenario_file_candidates(
+        "myssia-credhunter", "adapter.py", plugins_dir
+    )
+    for adapter_file in candidates:
+        if adapter_file.is_file():
+            module = types.ModuleType("myssia_myssia_credhunter_adapter")
+            module.__file__ = str(adapter_file)
+            executable = compile(adapter_file.read_text(encoding="utf-8"), str(adapter_file), "exec")
+            exec(executable, module.__dict__)  # noqa: S102 - 仓库内受控插件代码,非任意输入
+            return module
+    raise FileNotFoundError(
+        f"credhunter 适配器不存在:{candidates[0]}"
+        "(场景件应随仓库 plugins/ 分发,桌面端=设置页安装 myssia-credhunter 组件)"
+    )
 
 
 class CredhunterEngine(BaseEngine):
