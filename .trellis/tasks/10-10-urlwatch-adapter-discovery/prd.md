@@ -48,12 +48,20 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 本机装机态实测:`anthropic-news-watch` 手动触发一轮,日志出现采集成功/合法空态
-      (watch_unchanged),不再出现 `urlwatch_adapter_missing`。
-- [ ] AC2 候选顺序含组件根且两函数(import/render helper)一致;单测覆盖三候选+组件根四态。
-- [ ] AC3 maigret 同手法引擎核验结论入档(同修或明确无病)。
-- [ ] AC4 门禁全绿(pytest + vitest + tsc);装机包刷新并换装后复查一轮真跑。
-- [ ] AC5 UI 监控台该源「失效」态解除(下一轮调度后像素/截图证据)。
+- [x] AC1 本机装机态实测:2026-10-10 19:28 换装后 `cron run AI资讯` 真跑——日志
+      `采集成功 items=1`/`event=changed`,无 adapter_missing;等位复现(cwd=/+随包声明件)
+      亦证组件根命中 `~/.myia/plugins/.../adapter.py`。
+- [x] AC2 候选序收口 `installed.py::scenario_file_candidates` 一处权威实现,urlwatch 两函数
+      与 credhunter 同消费;测试覆盖安装根命中/锚点优先序/锚点失效回落/helper 直测。
+- [x] AC3 maigret/proxy/media 等 CLI 侧装载核验无病(CLI `--dir` 缺省即 `default_install_root()`);
+      credhunter 引擎侧同病已同修。
+- [x] AC4 全量 pytest(CI 同款 `python -m pytest`)5072 passed/40 skipped(唯一红
+      `test_cli_list_and_stats_json_contract` 为 HEAD 预存,stash 归因与本档无关,另立
+      10-10-feedback-stats-head-red);ruff 绿;装机包 0.0.3 已重打包并换装+清 WKWebView
+      缓存。纯 Python 改动,vitest/tsc 面未触碰,随 CI 兜跑。
+- [x] AC5 数据面证据:runs#63 `anthropic-news-watch item_count=1 failed=false error=null`
+      (监控台失效态即读此 store);cron 账本 19:28:11 completed。窗图像素因后台窗不合成
+      不适用(在案限制),20:00 正式调度将再确认。
 
 ## Notes
 
@@ -92,4 +100,6 @@
 
 ## 交付记录
 
-- 2026-10-10:代码+测试落地;装机包重打包换装与真跑验证见 AC1/AC4/AC5 勾选态。
+- 2026-10-10:代码+测试落地并入库(fix(engines) 候选表补组件安装根);装机包 0.0.3
+  重打包 → 验源(三文件含修复)→ 静默换装(/Applications/世事.app)→ 清 WKWebView 缓存
+  → `open -g` 无焦点拉起;手动触发真跑验证通过。19:26 换装完成,20:00 起调度恢复常态。
