@@ -3,7 +3,7 @@
   "name": "urlwatch-adapter-discovery",
   "title": "urlwatch 场景件适配器装机态发现链断裂",
   "description": "桌面装机形态下 urlwatch 引擎找 adapter.py 的三条候选路径(cwd 相对 plugins/、MYIA_BUNDLED_PLUGINS、源码树)全落空:sidecar cwd=/、随包目录按声明件规范无 adapter、托管 Python 无源码树;真件在 ~/.myia/plugins 组件根但不在候选清单 → ai-news anthropic-news-watch 源 10-08 起连败 urlwatch_adapter_missing。修复=发现链补组件根候选(或壳层回落注入),maigret 同手法同病一并核",
-  "status": "planning",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
