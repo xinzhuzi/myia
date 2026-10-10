@@ -418,6 +418,8 @@ def test_account_host_logged_out_raises_sentinel(
     tmp_path: Path,
 ) -> None:
     monkeypatch.setattr(web_line_module, "LOGIN_SETTLE_SECONDS", 0.0)  # 零宽窗
+    # CI 裸 sync 无 playwright:依赖探针打桩(被测面=登录态哨兵,非库安装)
+    monkeypatch.setattr(web_host, "require_playwright", lambda: None)
     host, context = make_account_host(tmp_path, "telegram-alt1", login_state="logged_out")
     with pytest.raises(web_host.TelegramWebError) as exc_info:
         asyncio.run(host.run_forever())
@@ -434,6 +436,8 @@ def test_account_host_opens_chat_page_and_installs_watcher(
     monkeypatch.setattr(web_line_module, "OPEN_CHAT_SETTLE_SECONDS", 0.0)
     monkeypatch.setattr(web_line_module, "OPEN_CHAT_VERIFY_TIMEOUT_SECONDS", 0.0)
     monkeypatch.setattr(web_host, "IDLE_TICK_SECONDS", 0.02)
+    # CI 裸 sync 无 playwright:依赖探针打桩(被测面=开群/Watcher 挂装,非库安装)
+    monkeypatch.setattr(web_host, "require_playwright", lambda: None)
     host, context = make_account_host(tmp_path, "telegram-alt1")
     stop = threading_Event()
     host._should_stop = stop.is_set  # type: ignore[assignment]
@@ -460,6 +464,8 @@ def test_manager_isolates_failed_account_and_keeps_running(
 ) -> None:
     """多键失效隔离(design D5):一键死 → 记告警停该键;manager 与健康键不退."""
     monkeypatch.setattr(web_line_module, "LOGIN_SETTLE_SECONDS", 0.0)  # 零宽窗
+    # CI 裸 sync 无 playwright:依赖探针打桩(被测面=失效隔离,非库安装)
+    monkeypatch.setattr(web_host, "require_playwright", lambda: None)
     good_host, _ = make_account_host(tmp_path, "telegram-a")
     dead_host, _ = make_account_host(tmp_path, "telegram-b", login_state="logged_out")
     # 健康键的宿主循环需可退出:注入 stop 事件

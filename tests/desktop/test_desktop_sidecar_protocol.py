@@ -5732,6 +5732,9 @@ def test_browser_open_registry_validation_and_done_lifecycle(tmp_path, monkeypat
     monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home-b1"))
     import myssia.telegram.web_line as web_line
 
+    # CI 裸 sync 无 playwright:依赖探针打桩(同 5783 手法),被测面=协议/台账逻辑
+    monkeypatch.setattr(web_line, "require_playwright", lambda: None)
+
     kwargs_sink: list[dict] = []
     monkeypatch.setattr(
         web_line, "TelegramWebLoginFlow", _fake_flow_factory(kwargs_sink, "done")
@@ -5815,6 +5818,9 @@ def test_browser_open_failure_humanized_with_fix_hint(tmp_path, monkeypatch):
     monkeypatch.setenv("MYIA_HOME", str(home))
     import myssia.telegram.web_line as web_line
 
+    # CI 裸 sync 无 playwright:依赖探针打桩(同 5783 手法),被测面=失败人话面
+    monkeypatch.setattr(web_line, "require_playwright", lambda: None)
+
     # 配置档目录在场(真登录流起步即 mkdir;status 的账号列表来源)
     (home / "telegram-web" / "telegram-alt1").mkdir(parents=True)
     kwargs_sink: list[dict] = []
@@ -5845,6 +5851,9 @@ def test_browser_close_stops_running_op(tmp_path, monkeypatch):
     monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home-b4"))
     import myssia.telegram.web_line as web_line
 
+    # CI 裸 sync 无 playwright:依赖探针打桩(同 5783 手法),被测面=停令/台账面
+    monkeypatch.setattr(web_line, "require_playwright", lambda: None)
+
     kwargs_sink: list[dict] = []
     monkeypatch.setattr(
         web_line, "TelegramWebLoginFlow", _fake_flow_factory(kwargs_sink, "hang")
@@ -5871,6 +5880,9 @@ def test_browser_focus_and_close_guards(tmp_path, monkeypatch):
     """focus/close 的台账守卫:未知操作 / 终态操作 = 结构化 window 族错误。"""
     monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home-b5"))
     import myssia.telegram.web_line as web_line
+
+    # CI 裸 sync 无 playwright:依赖探针打桩(同 5783 手法),被测面=守卫面
+    monkeypatch.setattr(web_line, "require_playwright", lambda: None)
 
     kwargs_sink: list[dict] = []
     monkeypatch.setattr(
@@ -5910,6 +5922,9 @@ def test_telegram_web_delete_blocked_while_browser_op_running(tmp_path, monkeypa
     (profile / "Cookies").write_text("{}")
     monkeypatch.setenv("MYIA_HOME", str(home))
     import myssia.telegram.web_line as web_line
+
+    # CI 裸 sync 无 playwright:依赖探针打桩(同 5783 手法),被测面=删除联动守卫
+    monkeypatch.setattr(web_line, "require_playwright", lambda: None)
 
     kwargs_sink: list[dict] = []
     monkeypatch.setattr(
