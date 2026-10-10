@@ -488,10 +488,8 @@ const FeedCard = memo(function FeedCard({
             </div>
           ) : null}
           <div
-            className={`mt-0.5 rounded-2xl rounded-tl-md border px-3 py-2 ${
-              state.read
-                ? "border-border/40 bg-muted/25 group-hover/feed-item:bg-muted/40"
-                : "border-primary/25 bg-primary/10 group-hover/feed-item:bg-primary/15"
+            className={`mt-0.5 w-fit rounded-2xl rounded-bl-md px-3 py-2 ${
+              state.read ? "bg-muted/20 group-hover/feed-item:bg-muted/35" : "bg-muted/45 group-hover/feed-item:bg-muted/60"
             }`}
             data-testid={`feed-tg-bubble-${rowKey}`}
           >
@@ -3795,7 +3793,7 @@ export function FeedScreen() {
               /* ═══ TG 聊天视图(v4 全套原样):气泡时间线,日期分隔居中胶囊;
                   含历史态照旧 ═══ */
               groups !== null ? (
-                <div className="flex flex-col gap-4" data-testid="feed-chat-timeline">
+                <div className="mx-auto flex w-full max-w-[820px] flex-col gap-4" data-testid="feed-chat-timeline">
                   {groups.map((group) => (
                     <section key={group.key} aria-label={`时间分组:${group.label}`}>
                       <div
@@ -3810,14 +3808,14 @@ export function FeedScreen() {
                 </div>
               ) : (
                 // 不分组:平铺(行距 6px 密度档)
-                <div className="flex flex-col gap-1.5" data-testid="feed-flat-list">
+                <div className="mx-auto flex w-full max-w-[820px] flex-col gap-1.5" data-testid="feed-flat-list">
                   {displayItems.map(renderCard)}
                 </div>
               )
             ) : (
               /* ═══ 网站/日报渠道条目流(§3.1):单列纵向列表(Kestra 行密度),
                   内容卡直出;点击卡片 = 详情弹窗 ═══ */
-              <div className="flex flex-col gap-1.5" data-testid="feed-stream-list">
+              <div className="mx-auto flex w-full max-w-[820px] flex-col gap-1.5" data-testid="feed-stream-list">
                 {displayItems.map(renderCard)}
               </div>
             )}

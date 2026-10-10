@@ -1278,7 +1278,8 @@ describe("FeedScreen", () => {
     expect(screen.queryByTestId(/^feed-group-/)).toBeNull();
     // v6 columns 多列瀑布流降为单列列表(名实相符:feed-waterfall → feed-stream-list)
     const list = screen.getByTestId("feed-stream-list");
-    expect(list.className).toContain("flex flex-col");
+    expect(list.className).toContain("flex-col");
+    expect(list.className).toContain("mx-auto"); // v9:居中窄列(TG 网页版宽屏同款)
     expect(list.className).not.toContain("columns");
   });
 
@@ -3364,10 +3365,11 @@ describe("FeedScreen · 聊天主页风格形态锚(10-09 v4,v7 左栏落点)", 
     const card = await screen.findByTestId("feed-item-1");
     expect(card.className).toContain("w-fit");
     expect(card.className).toContain("max-w-");
-    // P2-3 拉出泡根:着色底(bg-primary/10)收编到气泡 div,根 = 中性卡底
-    // (bg-card,展开态富块落点),根不再带未读着色
+    // P2-3 拉出泡根 + v9 TG 网页版风:着色/圆角尾角收编到气泡 div
+    // (bg-muted/45 无边框+rounded-bl-md 尾角),根 = 中性布局层
     const bubble = within(card).getByTestId("feed-tg-bubble-1");
-    expect(bubble.className).toContain("bg-primary/10");
+    expect(bubble.className).toContain("bg-muted/45");
+    expect(bubble.className).toContain("rounded-bl-md");
     expect(card.className).not.toContain("bg-primary/10");
     expect(card.className).toContain("bg-card");
     expect(within(card).queryByTestId("feed-strip-1")).toBeNull();
