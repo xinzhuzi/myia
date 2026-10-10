@@ -13,6 +13,19 @@ tests/feedback/test_feedback.py::TestCliFeedback::test_cli_list_and_stats_json_c
   在 HEAD 树上同样红 → 预存,与该修复档无关。
 - 2026-10-10 全量门禁:5072 passed / 1 failed(即本例)/ 40 skipped。
 
+## 根因(2026-10-10 定谳)
+
+**测试时间炸弹,产品无病**:`test_cli_list_and_stats_json_contract` 种子反馈冻结在
+`NOW = 2026-10-02 12:00 UTC`,而被测的 CLI `feedback stats` 按 `tuner.stats` 缺省
+**真实墙钟**切 7 天窗口——2026-10-09 20:00(本地)起种子跌出窗口,bad 计数 0≠1,
+必红。该文件其余 tuner 测试全部显式注入 `now=NOW`(`apply(now=...)`)永确定性,
+唯此一例经 CLI 边界漏墙钟。
+
+## 修法
+
+种子改真实当下(`record_feedback` 缺省 `datetime.now(timezone.utc)`),并留注记
+说明为何此处不可用冻结 NOW。纯测试修复,不触及 `src/`,装机包无需重打。
+
 ## Requirements
 
 - TBD

@@ -649,7 +649,10 @@ class TestCliFeedback:
         db_path = tmp_path / "cli.db"
         seed = SQLiteStore(db_path)
         item = add_item(seed, url="https://x/stats", title="显卡促销", category="羊毛")
-        record_feedback(seed, verdict="bad", channel=FEEDBACK_CHANNEL_CLI, item=item, now=NOW)
+        # 种子必须落在真实当下的统计窗口内:CLI stats 走 tuner.stats 缺省
+        # 墙钟切窗,冻结 NOW 是时间炸弹(10-02 种子自 10-09 起跌出 7 天
+        # 窗口,bad 计数 0≠1,实证预存红);其余注入 now=NOW 的测试不受此害。
+        record_feedback(seed, verdict="bad", channel=FEEDBACK_CHANNEL_CLI, item=item)
         seed.close()
 
         assert cli_main(["feedback", "list", "--db", str(db_path), "--json"]) == 0
