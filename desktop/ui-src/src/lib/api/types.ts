@@ -495,6 +495,40 @@ export interface StoreItemsResult {
 }
 
 // ---------------------------------------------------------------------------
+// store.source_stats(v8 三级界面批,10-09-tg-category-entry:分源聚合,
+// 1 级类型卡统计与 2 级行计数覆写的全库真值源;与 entry.py
+// `_m_store_source_stats` / store/sqlite.py `source_stats` 互指;能力门常量
+// STATS_PROTOCOL = 14 在 screens/feed/api.ts)
+// ---------------------------------------------------------------------------
+
+export interface SourceStatsParams {
+  /** 当日窗锚 ISO(today = first_seen ≥ since 条数;省略 = today 恒 0,
+   *  「无窗无今日」如实) */
+  since?: string;
+  db?: string;
+}
+
+/** 每源一行(source = null 行 = 无源条目,归并口径在 UI) */
+export interface SourceStatsRow {
+  source: string | null;
+  /** 全库条数(不限窗) */
+  total: number;
+  /** 当日窗内条数(since 省略 = 0) */
+  today: number;
+  /** 未标已读条数(不含 later 到期重现加成) */
+  unread: number;
+  /** 该源最新一条入库时刻 */
+  latest_first_seen: string | null;
+  /** 该源最新一条标题(2 级行预览回退用) */
+  latest_title: string | null;
+}
+
+export interface SourceStatsResult {
+  db: string;
+  rows: SourceStatsRow[];
+}
+
+// ---------------------------------------------------------------------------
 // store.state.*(G9,10-04-read-state-server:读/星/稍后读三态迁服务端;与
 // entry.py `_m_store_state_mark` / `_m_store_state_mark_all` /
 // `_m_store_state_import` 互指;能力门常量 READ_STATE_PROTOCOL 在
@@ -1343,6 +1377,7 @@ export interface SidecarProtocol {
   "runs.trend": { params: RunsTrendParams; result: RunsTrendResult };
   "logs.tail": { params: LogsTailParams; result: LogsTailResult };
   "store.items": { params: StoreItemsParams; result: StoreItemsResult };
+  "store.source_stats": { params: SourceStatsParams; result: SourceStatsResult };
   "store.state.mark": { params: StoreStateMarkParams; result: StoreStateMarkResult };
   "store.state.mark_all": { params: StoreStateMarkAllParams; result: StoreStateMarkAllResult };
   "store.state.import": { params: StoreStateImportParams; result: StoreStateImportResult };

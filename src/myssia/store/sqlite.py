@@ -999,6 +999,70 @@ class SQLiteStore:
         row = self._query_one(f"SELECT COUNT(*) FROM items{where}", tuple(params))
         return int(row[0]) if row is not None else 0
 
+    def source_stats(self, *, since: datetime | None = None) -> list[dict]:
+        """分源聚合(source_stats,v8 三级界面 1 级类型卡统计底座,
+        10-09-tg-category-entry)。
+
+        一条 SQL 出全库真值,UI 按类型归并(类型卡今日/未读不能从「首页
+        50 条铺底」聚合——单源日增百条即可把首页吃满,其余类型落「今日 0」
+        截断假象;分源聚合一次直答,零截断)。每源一行:
+
+        - ``total``:全库条数(不限窗);
+        - ``today``:``first_seen >= since`` 的条数(当日窗 03:00 窗锚与
+          视图同源,UI 传 ``dayWindowStart().toISOString()``);**since 缺省
+          = today 恒 0**——「无窗无今日」如实,不猜自然日边界;
+        - ``unread``:未标已读(COALESCE(read,0)=0;与 feedChannelCards
+          的 unread 同义,不含 later 到期重现加成——重现条目极少数且多为
+          已读,偏差面由 UI 注记如实接受);
+        - ``latest_first_seen`` / ``latest_title``:最新一条的入库时刻与
+          标题(二遍逐源取,title 供 2 级行预览回退;分组行数 ~ 源数,
+          成本可忽略)。
+
+        NULL source 行(活库 0 条,schema 允许)照出一行 ``source: null``,
+        归并口径(计入「网站」卡的 today/unread、不计渠道数)是 UI 的职责,
+        store 层不裁剪。排序 = 最新入库源在前(与 UI 渠道行主序同向)。
+
+        Raises:
+            ValueError: since 与数据库时间列类型不符由 sqlite 层自然报错;
+            此处只做 None 直传,非法 ISO 由协议面(`_m_store_source_stats`
+            的 _parse_iso 同门)拦截。
+        """
+        if since is not None:
+            today_expr = "SUM(CASE WHEN first_seen >= ? THEN 1 ELSE 0 END)"
+            params: tuple = (_to_iso(since),)
+        else:
+            today_expr = "0"
+            params = ()
+        sql = (
+            "SELECT source, COUNT(*) AS total, "
+            f"{today_expr} AS today, "
+            "SUM(CASE WHEN COALESCE(read, 0) = 0 THEN 1 ELSE 0 END) AS unread, "
+            "MAX(first_seen) AS latest_first_seen "
+            "FROM items GROUP BY source ORDER BY MAX(first_seen) DESC"
+        )
+        stats: list[dict] = []
+        for row in self._query_all(sql, params):
+            source = row["source"]
+            latest_first_seen = row["latest_first_seen"]
+            # 二遍取每源最新一条 title(同刻多行取 id 最大 = 最晚入库的;
+            # source IS ? 对 NULL 同样成立,IS 比较不吃索引歧义)
+            title_row = self._query_one(
+                "SELECT title FROM items WHERE source IS ? AND first_seen = ? "
+                "ORDER BY id DESC LIMIT 1",
+                (source, latest_first_seen),
+            )
+            stats.append(
+                {
+                    "source": source,
+                    "total": int(row["total"]),
+                    "today": int(row["today"] or 0),
+                    "unread": int(row["unread"] or 0),
+                    "latest_first_seen": latest_first_seen,
+                    "latest_title": title_row["title"] if title_row is not None else None,
+                }
+            )
+        return stats
+
     def set_item_states(self, dedup_keys: list[str], marker: str, value: bool) -> int:
         """置位一批 dedup_key 的读态标记(G9,store.state.mark 底座)。
 

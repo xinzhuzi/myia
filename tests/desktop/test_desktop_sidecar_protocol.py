@@ -713,6 +713,49 @@ def test_store_items_with_total_same_where_count(tmp_path):
     assert error["path"] == "params.with_total"
 
 
+def test_store_source_stats_roundtrip_and_validation(tmp_path):
+    """v8 三级界面批(10-09-tg-category-entry):store.source_stats 分源聚合
+    协议面 —— 形状({db, rows:[{source,total,today,unread,latest_first_seen,
+    latest_title}]})+ since 窗锚语义(窗内计数,省略 = today 恒 0)+
+    非法 ISO → invalid_params 锚 params.since(_parse_iso 同门)。"""
+    db = tmp_path / "stats.db"
+    store = SQLiteStore(str(db))
+    from datetime import datetime, timezone
+
+    from myssia.store.models import ItemRecord
+    store.save_item(ItemRecord(
+        url="https://t.me/x/1", dedup_key="t1", title="TG 新",
+        source="telegram-demo",
+        first_seen=datetime(2026, 10, 10, 4, tzinfo=timezone.utc),
+    ))
+    store.save_item(ItemRecord(
+        url="https://example.com/old", dedup_key="w1", title="网站旧",
+        source="rss-news",
+        first_seen=datetime(2026, 10, 9, 4, tzinfo=timezone.utc),
+    ))
+    store.close()
+    # 带 since:窗锚之后 1 条(today=1),行形状六键全在
+    code, responses, _ = rpc({"id": 1, "method": "store.source_stats",
+                              "params": {"db": str(db), "since": "2026-10-10T03:00:00+00:00"}})
+    result = responses[0]["result"]
+    rows = {row["source"]: row for row in result["rows"]}
+    assert rows["telegram-demo"]["today"] == 1 and rows["telegram-demo"]["total"] == 1
+    assert rows["rss-news"]["today"] == 0 and rows["rss-news"]["total"] == 1
+    assert rows["telegram-demo"]["latest_title"] == "TG 新"
+    for row in rows.values():
+        assert set(row) == {"source", "total", "today", "unread",
+                            "latest_first_seen", "latest_title"}
+    # 省略 since:today 恒 0(无窗无今日)
+    code, responses, _ = rpc({"id": 2, "method": "store.source_stats", "params": {"db": str(db)}})
+    assert all(row["today"] == 0 for row in responses[0]["result"]["rows"])
+    # 非法 ISO → invalid_params 锚 params.since
+    code, responses, _ = rpc({"id": 3, "method": "store.source_stats",
+                              "params": {"db": str(db), "since": "not-an-iso"}})
+    error = responses[0]["error"]
+    assert error["code"] == "invalid_params"
+    assert error["path"] == "params.since"
+
+
 def test_store_items_category_validation_symmetric(tmp_path):
     """深审 F6 校验对称:category 与 source 同门协议级强校验(非空字符串;
     省略 = 不过滤)—— 空串/非字符串 category 结构化 invalid_params,
@@ -2871,11 +2914,12 @@ def test_method_registry_allowed_matches_handlers():
     设置页 Telegram 总卡数据面)+
     browser-module 批(browser.open/list/focus/close 四方法 + 移除
     telegram.web.login(单入口铁律:登录改走浏览器模块),10-08-browser-module)
-    后 = 74。"""
+    + feed v8 三级界面批(store.source_stats 分源聚合,
+    10-09-tg-category-entry v8)后 = 75。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 74
+    assert len(allowed) == 75
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",
@@ -2922,9 +2966,11 @@ def test_protocol_version_bumped_for_feed_ux():
     (UI 卡片墙能力门 = protocol ≥ 12,未过门回落 v1 形态);
     feed 计数口径根治批(store.items 增可选 with_total → 应答补 total
     同 WHERE 全量计数,UI 能力门 COUNT_PROTOCOL = 13,
-    10-09-tg-category-entry F2)→ v13。"""
+    10-09-tg-category-entry F2)→ v13;
+    feed v8 三级界面批(store.source_stats 分源聚合,UI 能力门
+    STATS_PROTOCOL = 14,10-09-tg-category-entry v8)→ v14。"""
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
-    assert responses[0]["result"]["protocol"] == 13
+    assert responses[0]["result"]["protocol"] == 14
 
 
 # ---------------------------------------------------------------------------
@@ -3479,8 +3525,8 @@ def test_serve_starts_and_stops_cron_ticker(tmp_path, monkeypatch):
     assert code == 0
     # v9 = hermes-cron 批;v10 = read-state-server 批;v11 = browser-module 批;
     # v12 = tg-channel-card v2(source_kind 三方法);v13 = feed 计数口径根治
-    # (store.items with_total)
-    assert responses[0]["result"]["protocol"] == 13
+    # (store.items with_total);v14 = feed v8 三级界面(store.source_stats)
+    assert responses[0]["result"]["protocol"] == 14
     assert seen["supervisor_alive"] and seen["ticker_alive"]
     # EOF:serve 返回前已关停(idle ticker 即醒即退,interval 已注入 0.05s)
     assert entry._CRON_SUPERVISOR is None and entry._CRON_TICKER is None

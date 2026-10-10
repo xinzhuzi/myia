@@ -81,6 +81,8 @@ import type {
   SourcesTestResult,
   StoreItemsParams,
   StoreItemsResult,
+  SourceStatsParams,
+  SourceStatsResult,
   StoreStateImportParams,
   StoreStateImportResult,
   StoreStateMarkAllParams,
@@ -213,6 +215,10 @@ export const api = {
   /** 情报流条目(新→旧;SQLite 单库直读;游标 before/before_id + query) */
   storeItems: (params: StoreItemsParams = {}): Promise<StoreItemsResult> =>
     request("store.items", params),
+  /** 分源聚合(v8 三级界面批;store.source_stats 每源 total/today/unread/
+   *  latest 一答直出,能力门 STATS_PROTOCOL = 14 在 screens/feed/api.ts) */
+  storeSourceStats: (params: SourceStatsParams = {}): Promise<SourceStatsResult> =>
+    request("store.source_stats", params),
   /** G9 读态单键置位(按 dedup_key,同键多行同置;feed 屏乐观更新的服务端真源) */
   storeStateMark: (params: StoreStateMarkParams): Promise<StoreStateMarkResult> =>
     request("store.state.mark", params),

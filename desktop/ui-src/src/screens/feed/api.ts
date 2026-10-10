@@ -14,7 +14,9 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import { api, SidecarRequestError } from "@/lib/api";
-import type { FeedItem, HealthResult, SidecarErrorShape } from "@/lib/api";
+import type { FeedItem, HealthResult, SidecarErrorShape, SourceStatsRow } from "@/lib/api";
+
+export type { SourceStatsRow };
 
 /** 单页条数(与卡片瀑布一屏量级匹配) */
 export const FEED_PAGE_SIZE = 50;
@@ -26,9 +28,13 @@ export interface FeedPageRequest {
   cursorId: number | null;
   pageSize?: number;
   /** 源名过滤(null = 不传参;v6 渠道详情作用域,store.items source 精确
-   *  等值。category/source_kind/query 三参随 v5 chips/源大类与 v6.1 全库
-   *  检索信息架构退役,已摘除) */
+   *  等值。category/source_kind 两参随 v5 chips/源大类信息架构退役不重挂
+   *  ——三级 IA 无「按类型查条目」动线;后端两参保留不删) */
   source?: string | null;
+  /** 渠道内检索(v8 3 级,重挂):store.items query 参透传(title/content/
+   *  source 三列 LIKE;共享客户端 types.ts 与后端全在,封装层一行)。检索态
+   *  语义 = 显式全量,绕读态过滤由 UI 裁;翻页游标与 query 同 WHERE */
+  query?: string | null;
   /** 同条件全量计数(F2 计数口径根治,仅过 COUNT_PROTOCOL 门时传):
    *  true = store.items 带 with_total → 应答 total 透出 FeedPage.total */
   withTotal?: boolean;
@@ -55,6 +61,7 @@ export async function fetchFeedPage(request: FeedPageRequest): Promise<FeedPage>
       ? { before: request.cursor, ...(request.cursorId !== null ? { before_id: request.cursorId } : {}) }
       : {}),
     ...(request.source ? { source: request.source } : {}),
+    ...(request.query ? { query: request.query } : {}),
     ...(request.withTotal ? { with_total: true } : {}),
   });
   const items = result.items;
@@ -321,6 +328,25 @@ export const READ_STATE_PROTOCOL = 10;
  * entry.py `PROTOCOL_VERSION` 同笔维护:本批 = 13,后端 bump 时此处同批跟改。
  */
 export const COUNT_PROTOCOL = 13;
+
+/**
+ * 分源统计能力门(v8 三级界面批,1 级类型卡统计的全库真值源):protocol ≥ 14
+ * = sidecar 有 `store.source_stats` 分源聚合(每源 total/today/unread/latest
+ * 一答直出)→ 类型卡/2 级行计数覆写为全库值;未过门(旧 sidecar 无此方法 /
+ * protocol<14)= 客户端 catalog 已加载口径 + title 词面如实,**不发 RPC
+ * 试错**(门先行,COUNT_PROTOCOL 同模式)。取值与 entry.py
+ * `PROTOCOL_VERSION` 同笔维护:本批 = 14,后端 bump 时此处同批跟改。
+ */
+export const STATS_PROTOCOL = 14;
+
+/** 分源统计拉取(v8 1 级类型卡统计底座;since = 当日窗锚 Date,省略 =
+ *  today 恒 0「无窗无今日」。应答 rows 原样透出,归并/覆写在纯函数侧) */
+export async function fetchSourceStats(since: Date | null): Promise<SourceStatsRow[]> {
+  const result = await api.storeSourceStats({
+    ...(since ? { since: since.toISOString() } : {}),
+  });
+  return result.rows;
+}
 
 /**
  * 条目 → FeedStateMap(过门后的状态源):read/starred/later 投影三键按
@@ -760,16 +786,20 @@ const TG_ENGINES = new Set(["tg_web", "telegram", "telethon", "bot"]);
 const DAILY_ENGINES = new Set(["prompt", "store_report"]);
 
 /**
- * 渠道卡类型判定:engine 词表(tg_web/telethon/bot/telegram → TG;
- * prompt/store_report → 日报;urlwatch/rss 类与其余 engine → 网站)。
- * health 词表外的源(纯条目侧发现,engine 缺席)退化为源名前缀判定
- * (telegram-/tg- 命名规约,同 channelKindOf 的 telegram 档)。
+ * 渠道卡类型判定(v8 §4.2 判定次序修正:**前缀优先**):源名前缀
+ * (telegram-/tg- 命名规约)先判 → tg;再 engine 词表(prompt/store_report
+ * → 日报;tg_web/telegram/telethon/bot → TG);其余 → 网站。与后端
+ * `source_kind="im"` 纯前缀词表和五档 channelKindOf 的前缀优先同门 ——
+ * v6 版 engine 先于前缀,telegram-durov(engine=static_html,t.me 公开
+ * 镜像采集线)被误判 site,2 级列表里 TG 频道混进网站(设计稿实锤),
+ * 本批翻正;api 纯函数用例钉「telegram-durov + static_html → tg」。health
+ * 词表外的源(engine 缺席)同样走前缀判定,词表漂移零风险。
  */
 export function channelCardKindOf(source: string, engine?: string | null): ChannelCardKind {
+  if (TELEGRAM_SOURCE_RE.test(source)) return "tg";
   const normalized = (engine ?? "").trim().toLowerCase();
-  if (TG_ENGINES.has(normalized)) return "tg";
   if (DAILY_ENGINES.has(normalized)) return "daily";
-  if (normalized === "") return TELEGRAM_SOURCE_RE.test(source) ? "tg" : "site";
+  if (TG_ENGINES.has(normalized)) return "tg";
   return "site";
 }
 
@@ -781,12 +811,18 @@ export interface FeedChannelCardData {
   label: string;
   /** 类型三档(类型徽标;TG 详情 = 聊天时间线,其余 = 条目卡列表) */
   kind: ChannelCardKind;
-  /** 今日条数(当日窗 03:00 起;已加载口径) */
+  /** 今日条数(当日窗 03:00 起;已加载口径,过 STATS 门被 applySourceStats
+   *  覆写为全库真值) */
   today: number;
-  /** 未读数(已加载条目中的未读,不限今日 —— 过窗未读也该亮) */
+  /** 未读数(已加载条目中的未读,不限今日;过 STATS 门同上覆写) */
   unread: number;
   /** 最新一条(first_seen 最大;cardDigest 预览与相对时间源;零条目 = null) */
   latest: FeedItem | null;
+  /** stats 回填(v8 §2.3,applySourceStats 落):该源最新标题/时刻全库真值
+   *  —— catalog 首页 50 外的活跃源行预览在 card.latest 缺席时用此显一行,
+   *  消灭「今日暂无新条目」假知会;未过 STATS 门 = 字段缺省 undefined */
+  statsLatestTitle?: string | null;
+  statsLatestSeen?: string | null;
 }
 
 /**
@@ -869,6 +905,161 @@ export function filterChannelsByQuery(
   return cards.filter((card) => {
     if (`${card.key} ${card.label}`.toLowerCase().includes(q)) return true;
     return (CHANNEL_KIND_ALIASES[card.kind] ?? []).some(
+      (alias) => alias === q || alias.startsWith(q),
+    );
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 类型卡(v8 三级界面 1 级):类型 = 渠道类型三档(tg/site/daily)的归并视图
+// —— 1 级回答媒介问题(从哪种渠道获取信息),渠道成员集合由 2 级展开;
+// 统计走 store.source_stats 分源聚合(全库真值,无首页 50 截断假象)。
+// ---------------------------------------------------------------------------
+
+/** 类型卡展示名(api 自持词表:类型管导航;feed-screen 的 CHANNEL_CARD_META
+ *  图标/色调随此 label,聚合层自持防 api↔screen 循环导入) */
+export const CHANNEL_CARD_LABELS: Record<ChannelCardKind, string> = {
+  tg: "TG",
+  site: "网站",
+  daily: "日报",
+};
+
+/** 类型卡固定序(词表序 tg → site → daily,稳定心智模型,不按计数跳动) */
+export const CHANNEL_CARD_ORDER: readonly ChannelCardKind[] = ["tg", "site", "daily"];
+
+/** 类型卡最新预览行(成员渠道按 latest_first_seen 降序取前 3) */
+export interface TypeCardPreview {
+  /** 成员渠道展示名(channelDisplayName 词表) */
+  channelLabel: string;
+  /** 该渠道最新一条标题(stats 全库真值优先,catalog 铺底回退;零条目 = null) */
+  latestTitle: string | null;
+  /** 该渠道最新入库时刻(排序键 + 相对时间源) */
+  firstSeen: string | null;
+}
+
+/** 类型卡视图模型(v8 1 级):一类型一卡 */
+export interface TypeCardData {
+  kind: ChannelCardKind;
+  /** 展示名(CHANNEL_CARD_LABELS) */
+  label: string;
+  /** 成员渠道数(health 枚举完整,无截断面) */
+  channels: number;
+  /** 今日条数(当日窗 03:00 起;过 STATS 门 = 全库真值,未过 = catalog 已加载口径) */
+  today: number;
+  /** 未读数(同上双口径) */
+  unread: number;
+  /** 最新预览 2-3 条(§1.2;零条目类型 = 空数组,卡内出知会词) */
+  previews: TypeCardPreview[];
+  /** stats 覆写是否在场(过 STATS 门且应答已落;计数 title 双口径词面用:
+   *  过门 = 「全库口径(store.source_stats 分源聚合)」,未过 = 「已加载口径」) */
+  statsApplied: boolean;
+}
+
+/**
+ * 渠道卡全集 + 分源统计 → 类型卡(v8 §5.2 聚合,诚实口径):
+ * - 类型以仓内现存源划分,零渠道类型不出卡(health 词表外类型不猜);
+ * - 计数优先取 sourceStats 行归并(全库真值);statsRows = null(未过门/
+ *   应答缺失)回退 catalog 已加载口径(statsApplied=false,title 如实);
+ * - NULL source 行(schema 允许,活库 0 条)计入「网站」卡的 today/unread、
+ *   **不计渠道数**(它不是渠道)——只把 site 档计入,null 行对 tg/daily 不沾;
+ * - previews = 成员源按 latest_first_seen 降序取 3(stats 的 latest_title/
+ *   latest_first_seen 优先,catalog 最新条目回退;两者皆缺 = 行不产)。
+ */
+export function aggregateTypeCards(
+  cards: FeedChannelCardData[],
+  statsRows: SourceStatsRow[] | null,
+): TypeCardData[] {
+  const result: TypeCardData[] = [];
+  for (const kind of CHANNEL_CARD_ORDER) {
+    const members = cards.filter((card) => card.kind === kind);
+    if (members.length === 0) continue;
+    const memberKeys = new Set(members.map((member) => member.key));
+    let today = 0;
+    let unread = 0;
+    if (statsRows !== null) {
+      for (const row of statsRows) {
+        // NULL source 行归「网站」(site 档),不计渠道数也不进 tg/daily
+        if (row.source === null) {
+          if (kind === "site") {
+            today += row.today;
+            unread += row.unread;
+          }
+          continue;
+        }
+        if (!memberKeys.has(row.source)) continue;
+        today += row.today;
+        unread += row.unread;
+      }
+    } else {
+      for (const member of members) {
+        today += member.today;
+        unread += member.unread;
+      }
+    }
+    const statsBySource = new Map(
+      (statsRows ?? []).filter((row) => row.source !== null).map((row) => [row.source as string, row]),
+    );
+    const previews = members
+      .map((member) => {
+        const row = statsBySource.get(member.key) ?? null;
+        const firstSeen = row?.latest_first_seen ?? member.latest?.first_seen ?? null;
+        const latestTitle = row?.latest_title ?? member.latest?.title ?? null;
+        return { channelLabel: member.label, latestTitle, firstSeen };
+      })
+      .filter((preview) => preview.firstSeen !== null || preview.latestTitle !== null)
+      .sort((a, b) => firstSeenValue(b.firstSeen) - firstSeenValue(a.firstSeen))
+      .slice(0, 3);
+    result.push({
+      kind,
+      label: CHANNEL_CARD_LABELS[kind],
+      channels: members.length,
+      today,
+      unread,
+      previews,
+      statsApplied: statsRows !== null,
+    });
+  }
+  return result;
+}
+
+/**
+ * 分源统计覆写(v8 §2.3/§5.2):2 级行集的 today/unread 覆写为全库真值,
+ * 并回填 statsLatestTitle/statsLatestSeen(catalog 首页 50 外的活跃源,
+ * card.latest 缺席时行预览用 stats 值显一行,消灭「今日暂无新条目」假知会)。
+ * 该源无 stats 行(零条目渠道)= 原样返回(0 值已是事实,无假知会面)。
+ * 未过 STATS 门时消费侧不调用本函数(catalog 口径原样)。
+ */
+export function applySourceStats(
+  cards: FeedChannelCardData[],
+  statsRows: SourceStatsRow[],
+): FeedChannelCardData[] {
+  const statsBySource = new Map(
+    statsRows.filter((row) => row.source !== null).map((row) => [row.source as string, row]),
+  );
+  return cards.map((card) => {
+    const row = statsBySource.get(card.key);
+    if (!row) return card;
+    return {
+      ...card,
+      today: row.today,
+      unread: row.unread,
+      statsLatestTitle: row.latest_title,
+      statsLatestSeen: row.latest_first_seen,
+    };
+  });
+}
+
+/**
+ * 类型卡搜索过滤(v8 1 级,§1.3):query 按类型名 + 别名词表**前缀命中**
+ * (搜「Tg」仅 TG 卡直出,v6.1 主人实测路径同门;词表 = CHANNEL_KIND_ALIASES
+ * 同源)。空串 = 全量原样。客户端过滤,不发服务端查询。
+ */
+export function filterTypesByQuery(types: TypeCardData[], query: string): TypeCardData[] {
+  const q = query.trim().toLowerCase();
+  if (q === "") return types;
+  return types.filter((type) => {
+    if (type.label.toLowerCase().includes(q)) return true;
+    return (CHANNEL_KIND_ALIASES[type.kind] ?? []).some(
       (alias) => alias === q || alias.startsWith(q),
     );
   });

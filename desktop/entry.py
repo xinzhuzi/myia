@@ -508,7 +508,11 @@ from myssia.vision.server import (
 #: v13 = feed 计数口径根治批(store.items 增可选 with_total → 应答补
 #: ``total`` = 同 WHERE 不分页全量计数,UI「已加载 N · 共 T 条」词面的
 #: 数据源,能力门 COUNT_PROTOCOL = 13;10-09-tg-category-entry F2)。
-PROTOCOL_VERSION = 13
+#: v14 = feed v8 三级界面批(store.source_stats 分源聚合:每源
+#: total/today/unread/latest_first_seen/latest_title 一答直出,1 级类型卡
+#: 统计与 2 级行计数覆写的全库真值源,能力门 STATS_PROTOCOL = 14;
+#: 10-09-tg-category-entry v8)。
+PROTOCOL_VERSION = 14
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
 STATUS_BY_EXIT = {0: "success", 1: "config_error", 2: "failed", 3: "partial"}
 
@@ -1740,6 +1744,40 @@ def _m_store_items(params: dict[str, Any]) -> dict[str, Any]:
     if with_total:
         result["total"] = total
     return result
+
+
+def _m_store_source_stats(params: dict[str, Any]) -> dict[str, Any]:
+    """分源聚合(v8 三级界面 1 级类型卡统计底座,10-09-tg-category-entry)。
+
+    ``{since?, db?}`` → ``{rows: [{source, total, today, unread,
+    latest_first_seen, latest_title}]}``;since = 当日窗锚 ISO(UI 传
+    ``dayWindowStart().toISOString()``,03:00 窗锚与视图同源;省略 = today
+    恒 0,「无窗无今日」如实)。非法 ISO → ``invalid_params``(_parse_iso
+    同门)。UI 能力门 STATS_PROTOCOL = 14(v8 注记);低版本 sidecar 无此
+    方法 → 客户端回落 catalog 已加载口径,**不发 RPC 试错**(门先行,
+    COUNT_PROTOCOL 同模式)。
+    """
+    db = params.get("db") or _serve_context().db
+
+    def _parse_iso(name: str) -> datetime | None:
+        raw = params.get(name)
+        if not raw:
+            return None
+        try:
+            return datetime.fromisoformat(str(raw))
+        except ValueError as exc:
+            raise ProtocolError("invalid_params", f"{name} 不是合法 ISO 时间: {raw}", path=f"params.{name}") from exc
+
+    since = _parse_iso("since")
+    try:
+        store = SQLiteStore(db)
+    except StoreSchemaError as exc:
+        raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
+    try:
+        rows = store.source_stats(since=since)
+    finally:
+        store.close()
+    return {"db": str(db), "rows": rows}
 
 
 def _m_store_state_mark(params: dict[str, Any]) -> dict[str, Any]:
@@ -6290,6 +6328,7 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "store.trend": _m_store_trend,
     "logs.tail": _m_logs_tail,
     "store.items": _m_store_items,
+    "store.source_stats": _m_store_source_stats,
     "store.state.mark": _m_store_state_mark,
     "store.state.mark_all": _m_store_state_mark_all,
     "store.state.import": _m_store_state_import,
