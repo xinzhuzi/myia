@@ -19,7 +19,10 @@
 卡 = 2 级行列(mihomo 行在场,openai/daily 不混;脚注渠道数)→ 点行 =
 3 级聊天时间线(日期胶囊 + 气泡)+ 监控台常驻条 + feed-stream-count → 裸
 j + Enter = 条目详情弹窗(Esc 关;三层单环,Shift 层退役)→ 返回钮/Esc
-逐级回退 3→2→1;退役 testid 零命中清单随 v7 先例更新。截图落 /tmp 备查。
+逐级回退 3→2→1;退役 testid 零命中清单随 v7 先例更新。v9 增锚(10-09
+tg-category-entry v9,design-v9 §6):3 级 TG 切换段 feed-tg-view-toggle
+在场、原生视图段可点、情报段缺省 active、预览钮词面含「原生」且 title 告知
+「首次需扫码登录一次」;网站渠道切换段整组不渲染。截图落 /tmp 备查。
 退出码 0 = 冒烟通过。
 
 用法(仓库根):``.venv/bin/python desktop/scripts/feed-card-smoke.py``
@@ -292,6 +295,26 @@ async def main() -> int:
                 "监控台显监控中",
                 "监控中" in ((await page.locator('[data-testid="feed-tg-console-live"]').text_content()) or ""),
             )
+            # ═══ v9 原生视图(design-v9 §6 冒烟锚):切换段在场 + 原生钮可点 +
+            # 预览钮词面升级(夹具条目带 t.me 链 = /k/ 深链可推导,双钮同活)═══
+            toggle = page.locator('[data-testid="feed-tg-view-toggle"]')
+            await toggle.wait_for(timeout=10_000)
+            expect("v9 切换段在场(3 级 TG 专属)", (await toggle.count()) == 1)
+            native_btn = page.locator('[data-testid="feed-tg-view-native"]')
+            expect(
+                "v9 原生视图段可点(条目 t.me 链可推导,未置灰)",
+                (await native_btn.get_attribute("disabled")) is None,
+            )
+            expect(
+                "v9 情报视图段缺省 active",
+                (await page.locator('[data-testid="feed-tg-view-intel"]').get_attribute("aria-pressed")) == "true",
+            )
+            preview_btn = page.locator('[data-testid="feed-tg-console-preview"]')
+            expect(
+                "v9 预览钮词面含「原生」+ title 如实告知扫码一次",
+                "原生" in ((await preview_btn.text_content()) or "")
+                and "首次需扫码登录一次" in ((await preview_btn.get_attribute("title")) or ""),
+            )
             await page.wait_for_selector('[data-testid="feed-chat-timeline"]', timeout=10_000)
             expect("TG 3 级 = 聊天时间线", True)
             expect(
@@ -363,6 +386,10 @@ async def main() -> int:
             expect(
                 "监控台条退场(非 TG 渠道)",
                 (await page.locator('[data-testid="feed-tg-console"]').count()) == 0,
+            )
+            expect(
+                "v9 切换段退场(网站渠道整组不渲染,如实无钮)",
+                (await page.locator('[data-testid="feed-tg-view-toggle"]').count()) == 0,
             )
             expect(
                 "网站条目在场(条目 3)",

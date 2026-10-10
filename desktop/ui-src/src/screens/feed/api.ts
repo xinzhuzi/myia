@@ -751,22 +751,43 @@ export function cardDigest(item: FeedItem): string | null {
   return `${text.slice(0, CARD_DIGEST_MAX_CHARS)}…`;
 }
 
-/** TG 频道公开镜像推导(10-09-tg-category-entry v3 AC11 内置浏览器预览):
- *  从该品类最新条目 url 还原 `https://t.me/s/<频道名>` 公开预览页 ——
- *  t.me 的 /s/ 路径 = 无需登录的消息流网页版(telegram-channels.yaml
- *  采集线同款入口),应用内 WebviewWindow 直开即看。
- *
- *  认得三种形态:`https://t.me/<频道>/<消息id>`(bot/网页线消息锚)、
- *  `https://t.me/s/<频道>(/<id>)`(已是预览链)、`https://t.me/<频道>`(纯频道链)。
- *  不猜(一律 null,按钮置灰如实):`t.me/+邀请链`(私有,无公开镜像)、
- *  非 t.me 域、空 url。频道名口径 = t.me 用户名(字母开头,字母/数字/下划线)。
+/** t.me 链 → 频道用户名共用提取器(v9 拆出,原 telegramMirrorUrlOf 捕获组
+ *  原样搬迁):认三种形态 —— `https://t.me/<频道>/<消息id>`(bot/网页线
+ *  消息锚)、`https://t.me/s/<频道>(/<id>)`(预览链)、`https://t.me/<频道>`
+ *  (纯频道链)。不猜(一律 null):`t.me/+邀请链`(私有)、非 t.me 域、
+ *  空 url。频道名口径 = t.me 用户名(字母开头,字母/数字/下划线)。
  */
-export function telegramMirrorUrlOf(url: string | null | undefined): string | null {
+export function telegramChannelNameOf(url: string | null | undefined): string | null {
   if (!url) return null;
   const match = /^https?:\/\/t\.me\/(?:s\/)?([A-Za-z][A-Za-z0-9_]{2,})(?:\/\d+)?\/?(?:[?#].*)?$/.exec(
     url.trim(),
   );
-  return match ? `https://t.me/s/${match[1]}` : null;
+  return match ? match[1] : null;
+}
+
+/**
+ * TG 频道公开镜像推导(10-09-tg-category-entry v3 AC11 内置浏览器预览):
+ * 从该品类最新条目 url 还原 `https://t.me/s/<频道名>` 公开预览页 ——
+ * t.me 的 /s/ 路径 = 无需登录的消息流网页版(telegram-channels.yaml
+ * 采集线同款入口)。v9 起预览主路已升级 /k/ 深链(telegramKUrlOf),本函数
+ * 保留 = 公开镜像仍是回退指引与测试行为学基线(重构共用提取器,行为零变)。
+ */
+export function telegramMirrorUrlOf(url: string | null | undefined): string | null {
+  const name = telegramChannelNameOf(url);
+  return name ? `https://t.me/s/${name}` : null;
+}
+
+/**
+ * t.me 链 → /k/ 原生页深链(v9 AC33 预览升级):`https://web.telegram.org/k/#@<频道名>`
+ * 是 Telegram Web /k/ 的官方深链形态,登录后自动落到该频道。
+ * URL 字面量与 Python 侧 watcher 的 WEB_ORIGIN(web_line.py)同源同锚,
+ * 但前端不 import Python 侧常量,落在此处自持(两套会话互不相通,见
+ * design-v9 §1.3 双会话披露)。频道名词表 [A-Za-z0-9_] 出自提取器,
+ * 无需编码;推导不出 = null(与 t.me/s 镜像同源死分支,按钮置灰如实)。
+ */
+export function telegramKUrlOf(url: string | null | undefined): string | null {
+  const name = telegramChannelNameOf(url);
+  return name ? `https://web.telegram.org/k/#@${name}` : null;
 }
 
 // ---------------------------------------------------------------------------

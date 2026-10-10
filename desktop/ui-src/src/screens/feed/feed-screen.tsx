@@ -101,7 +101,7 @@ import {
   sortUnreadFirst,
   STATS_PROTOCOL,
   statesFromItems,
-  telegramMirrorUrlOf,
+  telegramKUrlOf,
   toggleMarker,
   type ChannelCardKind,
   type ChannelKind,
@@ -114,10 +114,19 @@ import {
 } from "./api";
 import type { FeedFilter, FeedStateMap } from "./api";
 import { telegramGetStatus, telegramWebLogin, type TelegramStatus } from "@/screens/settings/telegram-api";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 import { FeedCardFeedback } from "./feed-card-feedback";
 import { MarkdownLite } from "./markdown-lite";
+import {
+  isNativeWindowOpen,
+  nativeViewFocusOf,
+  onNativeWindowDestroyed,
+  openOrFocusNative,
+  setNativeViewFocus,
+  tgNativeCreatedBeforeOf,
+  tgNativeKeyOf,
+  type NativeViewFocus,
+} from "./tg-native-window";
 
 /*
  * 10-04-ui-kestra-anchor(情报流):满高列表骨架与行距密度借自 Apache-2.0
@@ -2703,41 +2712,117 @@ export function FeedScreen() {
       setTgLoginBusy(false);
     }
   }, [tgWebline]);
-  /** 内置浏览器预览(10-09-tg-category-entry v3 AC11,主人令「是否加载了
-   *  内置浏览器界面,展示 tg 内容」):取该渠道最新条目 url 推导频道公开
-   *  镜像 t.me/s/<频道名>,WebviewWindow 应用内窗口直开(免二次登录)。
-   *  职责分离:数据入库仍由后台 watcher 登录会话负责,本窗口**仅内容展示**,
-   *  不做任何采集/登录动作;推导不出(私有频道/无 t.me 链)= 按钮置灰,
-   *  title 如实;开窗失败(tauri://error)= 条内出说明,不装死。 */
+  /** 原生网页预览(v9 AC33 升级,design-v9 照稿):取该渠道最新条目 url
+   *  推导 /k/ 深链 `https://web.telegram.org/k/#@<频道名>`(登录后自动落
+   *  该频道)。职责分离不变:数据入库仍由后台 watcher 登录会话负责,/k/ 窗
+   *  **仅内容展示**,不做任何采集动作;推导不出(私有频道/无 t.me 链)=
+   *  /k/ 与 t.me/s 同源死分支(都靠 t.me 链提频道名),预览钮与「原生视图」
+   *  段同置灰、title 如实(design-v9 §1.1,PRD「回退 t.me/s」的工程化澄清
+   *  已入档待验收);开窗失败 = 条内分档注记(§1.2),不装死。 */
   const [tgPreviewNote, setTgPreviewNote] = useState<string | null>(null);
   const tgPreviewUrl = useMemo(() => {
     if (viewSource === null || !isTgChannel) return null;
     for (const item of streamItems) {
       if (item.source !== viewSource) continue;
-      const mirror = telegramMirrorUrlOf(item.url);
-      if (mirror) return mirror;
+      const kUrl = telegramKUrlOf(item.url);
+      if (kUrl) return kUrl;
     }
     return null;
   }, [streamItems, viewSource, isTgChannel]);
-  const openTgPreview = useCallback((mirror: string) => {
-    setTgPreviewNote(null);
-    try {
-      // 标签带时间戳 = 每次点击新窗,不与既有窗撞 label(撞了也走 error 注记)
-      const win = new WebviewWindow(`tg-preview-${Date.now()}`, {
-        url: mirror,
-        title: "Telegram 预览(内置浏览器)",
-        width: 460,
-        height: 780,
-      });
-      void win.once("tauri://error", () => {
-        setTgPreviewNote(
-          "预览窗打开失败(镜像不可达或窗口创建被拒;私有频道无公开预览)——条目「打开原文」仍可系统浏览器直看。",
-        );
-      });
-    } catch {
-      setTgPreviewNote("预览窗打开失败(窗口创建异常)——条目「打开原文」仍可系统浏览器直看。");
+
+  /** 原生视图切换双态(v9 AC34,design-v9 §2.1,职责二分):tgViewFocus =
+   *  注意力「当前看哪张皮」(点击即换;模块级表会话内持久,3→2 返回/切渠道
+   *  再进不丢);tgNativeAlive = 原生窗存活(getByLabel 实时对账 + destroyed
+   *  订阅回落)=「原生视图」段的红点徽标。两信号分离的理由:回「情报视图」
+   *  不关窗(独立窗哲学,design-v9 §2.4「开了归用户管」),窗活着徽标就亮,
+   *  段 active 跟注意力走 —— 窗亡才整段回落情报视图(§2.1 词面)。
+   *  键口径 = tgNativeKeyOf(tgPreviewUrl) 的 t.me 频道名(与窗键同源,深检
+   *  F4:两源推导出同频道 = 同窗);窗亡的注意力表回收由注册表模块级单点
+   *  完成(不依赖本订阅者存活,深检 F1 —— 用户在别的渠道关窗,回进时照样
+   *  如实回落),此处订阅只负责即时 UI 镜像。 */
+  const [tgViewFocus, setTgViewFocus] = useState<NativeViewFocus>("intel");
+  const [tgNativeAlive, setTgNativeAlive] = useState(false);
+  useEffect(() => {
+    if (viewSource === null || !isTgChannel || tgPreviewUrl === null) {
+      setTgViewFocus("intel");
+      setTgNativeAlive(false);
+      return;
     }
-  }, []);
+    const nativeKey = tgNativeKeyOf(tgPreviewUrl);
+    if (nativeKey === null) {
+      // 理论不可达(tgPreviewUrl 是 telegramKUrlOf 产物);纵深防御同 F8 门
+      setTgViewFocus("intel");
+      setTgNativeAlive(false);
+      return;
+    }
+    setTgViewFocus(nativeViewFocusOf(nativeKey));
+    let cancelled = false;
+    void isNativeWindowOpen(tgPreviewUrl).then((open) => {
+      if (!cancelled) setTgNativeAlive(open);
+    });
+    const unlisten = onNativeWindowDestroyed((destroyedKey) => {
+      // 广播首参 = 注册键(t.me 频道名,与窗键同口径,深检 F4);键不匹配
+      // (别的频道窗亡)直接放过
+      if (destroyedKey !== nativeKey) return;
+      setTgNativeAlive(false);
+      // 段回落(design-v9 §2.1):窗亡 = 原生侧不可看,注意力随之落回情报视图
+      // (模块级焦点表已由注册表单点回收,此处只落本地镜像)
+      setTgViewFocus("intel");
+    });
+    return () => {
+      cancelled = true;
+      unlisten();
+    };
+  }, [isTgChannel, tgPreviewUrl, viewSource]);
+
+  /** 原生网页开窗统一入口(v9:AC33 预览钮 + AC34 段控件两入口收敛一个
+   *  窗口注册表 openOrFocusNative,design-v9 §0;旧 `tg-preview-<时间戳>`
+   *  直开退役):成功新建 = 首开注记如实披露「扫码一次 + 触发 TG 新设备登录
+   *  安全提醒」双会话事实(§1.3,watcher 的 Playwright 会话与 /k/ 窗的
+   *  WKWebView 会话互不相通、各扫一次)—— **仅本会话该频道首次建窗**出全量
+   *  披露(深检 F4b:关窗重开不再假预告「首次」,title 的「首次需扫码登录
+   *  一次」词面恒在);聚焦既有窗 = 不重复披露;上限 = 指引找窗不自动关
+   *  (§2.4);异步真失败 = 注册表单点清理存活态后回调出回退注记(深检 F2)。 */
+  const launchTgNative = useCallback(() => {
+    if (viewSource === null || tgPreviewUrl === null) return;
+    const nativeKey = tgNativeKeyOf(tgPreviewUrl);
+    if (nativeKey === null) return; // 理论不可达(tgPreviewUrl 是推导产物);纵深防御与 F8 同门
+    const firstOpen = !tgNativeCreatedBeforeOf(nativeKey);
+    setTgPreviewNote(null);
+    openOrFocusNative(tgPreviewUrl, {
+      title: `TG · ${channelDisplayName(viewSource)}`,
+      onCreateError: (resolved) => {
+        if (resolved === "focused") return; // 双击竞态兜底:窗已在,不误报失败
+        setTgPreviewNote(
+          "原生网页版打开失败——可稍后重试,或点条目「打开原文」用系统浏览器直看;私有频道无公开镜像。",
+        );
+      },
+    })
+      .then((result) => {
+        if (result === "capped") {
+          setTgPreviewNote(
+            "原生视图窗口已达上限 3——可在程序坞/「窗口」菜单找到既有窗口,关闭其一后再开。",
+          );
+          return;
+        }
+        setNativeViewFocus(nativeKey, "native");
+        setTgViewFocus("native");
+        if (result === "created") {
+          // 存活态写入跟「窗建成」走,不跟「首开披露」走(深检 N1:同视图内
+          // 关窗重开 = created && !firstOpen,窗活着红点必须亮,否则与段
+          // native active 自相矛盾,要等重进渠道才被对账纠正)
+          setTgNativeAlive(true);
+          if (firstOpen) {
+            setTgPreviewNote(
+              "网页版需扫码登录一次;登录会触发 TG 的「新设备登录」安全提醒(服务端推送,属预期,可在 TG 设置→设备里核对);登录态存本机 WKWebView,此后免扫、重启 app 仍有效。",
+            );
+          }
+        }
+      })
+      .catch(() => {
+        setTgPreviewNote("预览窗打开失败(窗口创建异常)——条目「打开原文」仍可系统浏览器直看。");
+      });
+  }, [tgPreviewUrl, viewSource]);
 
   // v8 键盘语义终案(§7,三层单环):j/k 巡**当前级**集合(1 级类型卡环/
   // 2 级渠道行环[v7 机件原样]/ 3 级条目环[集合 = displayItems]);Enter 开
@@ -3386,6 +3471,74 @@ export function FeedScreen() {
             <span className="text-xs font-medium text-foreground" data-testid="feed-stream-title">
               {streamTitle}
             </span>
+            {/* 原生视图切换(v9 AC34,design-v9 §2.1;仅 TG 渠道渲染,网站/日报
+                整组不出现 = 如实无钮,与监控台条同门 isTgChannel 零新判定面):
+                段 active 跟注意力(会话内持久),「原生视图」红点徽标 = 窗存活
+                (回情报视图不关窗);语义如实 = 开/聚焦独立窗 + 注意力标记,
+                应用内时间线永不卸载(两张数据皮互为冗余,§3)。推导不出 /k/
+                深链 = 原生段置灰(§1.1 同源死分支,与预览钮同门)。读态分段
+                样式基同门(KsFilter 范式)。 */}
+            {isTgChannel ? (
+              <div
+                role="group"
+                aria-label="视图切换"
+                data-testid="feed-tg-view-toggle"
+                className="flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5"
+              >
+                <button
+                  type="button"
+                  data-testid="feed-tg-view-intel"
+                  aria-pressed={tgViewFocus !== "native"}
+                  title="情报视图 = 应用内本地时间线,搜索/已读/导出/键盘全量照旧;切走不关原生窗(独立窗归用户管)"
+                  onClick={() => {
+                    // 注意力表键 = t.me 频道名(与读侧 nativeViewFocusOf(nativeKey)
+                    // 及原生侧写入同口径,深检 N2:键失配会让「情报视图」点击
+                    // 写进无人读取的源名垃圾键,intel 选择永不持久)
+                    const intelKey = tgPreviewUrl !== null ? tgNativeKeyOf(tgPreviewUrl) : null;
+                    if (intelKey === null) return;
+                    setNativeViewFocus(intelKey, "intel");
+                    setTgViewFocus("intel");
+                  }}
+                  className={
+                    "h-7 rounded-md px-2.5 text-xs transition-colors duration-(--duration-fast) ease-out-expo " +
+                    (tgViewFocus !== "native"
+                      ? "bg-accent font-medium text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground")
+                  }
+                >
+                  情报视图
+                </button>
+                <button
+                  type="button"
+                  data-testid="feed-tg-view-native"
+                  aria-pressed={tgViewFocus === "native"}
+                  disabled={tgPreviewUrl === null}
+                  title={
+                    tgPreviewUrl === null
+                      ? "暂无可推导的 t.me 公开链接(私有频道或条目无链接),原生视图与公开镜像均不可用"
+                      : tgNativeAlive
+                        ? `原生窗口存活中(程序坞/「窗口」菜单可唤回):${tgPreviewUrl}`
+                        : `开独立窗加载 Telegram 网页版(首次需扫码登录一次,登录会触发 TG 的新设备登录安全提醒,属预期):${tgPreviewUrl}`
+                  }
+                  onClick={launchTgNative}
+                  className={
+                    "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors duration-(--duration-fast) ease-out-expo " +
+                    (tgViewFocus === "native"
+                      ? "bg-accent font-medium text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground")
+                  }
+                >
+                  原生视图
+                  {tgNativeAlive ? (
+                    <span
+                      data-testid="feed-tg-view-native-live"
+                      className="size-1.5 rounded-full bg-destructive"
+                      aria-hidden
+                    />
+                  ) : null}
+                </button>
+              </div>
+            ) : null}
             {/* 读态分段(KsFilter 范式):检索态 = 显式全量(词面「不限读态」),
                 分段随之整体隐藏不失效(拷问 R1-Q2;历史态同门,v7 深检 F4) */}
             {!viewHistory && !streamSearchActive ? (
@@ -3567,6 +3720,18 @@ export function FeedScreen() {
             </div>
           </div>
 
+          {/* 原生视图注记(v9):testid 复用 feed-tg-console-preview-note;落位
+              在工具条下与监控台条同层,但 gate 只认 isTgChannel —— 监控台条被
+              telegram.status 在途/失败拉走(phase≠ok,tgWebline 缺席)时「原生
+              视图」段控件照常可点,写入的 capped/failed/首开注记必须可见,
+              不给静默丢(深检 F3:design-v9 §1.2「不装死」覆盖全部段控件
+              可点状态) */}
+          {isTgChannel && tgPreviewNote ? (
+            <p className="mx-5 mt-2 text-2xs text-warning" data-testid="feed-tg-console-preview-note">
+              {tgPreviewNote}
+            </p>
+          ) : null}
+
           {/* TG 监控台条(§3.1,v8 = 3 级专属:工具条下同构落位,1/2 级不出;
               条件 kind=tg && phase=ok && tgWebline;phase 机件/R2/预览/历史
               入口逐行原样) */}
@@ -3610,8 +3775,11 @@ export function FeedScreen() {
                           : "扫码登录网页版"}
                     </Button>
                   ) : null}
-                  {/* 内置浏览器预览(AC11):应用内 WebviewWindow 直开频道公开
-                      镜像;推导不出 = 置灰 + title 如实(不装死) */}
+                  {/* 原生网页预览(v9 AC33 升级,原「内置浏览器预览」t.me/s 直开
+                      退役):/k/ 深链 + 统一注册表开窗(与「原生视图」段同一窗,
+                      重复点击 = 聚焦);推导不出 = 置灰 + title 如实(不装死);
+                      title 如实告知登录前 QR 属预期(§1.3,监控台「未登录」词面
+                      说的是 watcher,两线词面不串台) */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -3620,12 +3788,12 @@ export function FeedScreen() {
                     disabled={tgPreviewUrl === null}
                     title={
                       tgPreviewUrl === null
-                        ? "暂无可推导的 t.me 公开链接(私有频道或条目无链接),内置预览不可用"
-                        : `内置浏览器预览:${tgPreviewUrl}`
+                        ? "暂无可推导的 t.me 公开链接(私有频道或条目无链接),原生预览与公开镜像均不可用"
+                        : `原生网页预览(首次需扫码登录一次;登录会触发 TG 的新设备登录安全提醒,属预期):${tgPreviewUrl}`
                     }
-                    onClick={() => tgPreviewUrl && openTgPreview(tgPreviewUrl)}
+                    onClick={launchTgNative}
                   >
-                    内置浏览器预览
+                    原生网页预览
                   </Button>
                   <Button
                     variant="ghost"
@@ -3646,14 +3814,6 @@ export function FeedScreen() {
                 <Inbox aria-hidden className="size-3" />
                 看全部历史消息(含已读)
               </button>
-              {tgPreviewNote ? (
-                <span
-                  className="mt-1 block text-2xs text-warning"
-                  data-testid="feed-tg-console-preview-note"
-                >
-                  {tgPreviewNote}
-                </span>
-              ) : null}
             </div>
           ) : null}
 

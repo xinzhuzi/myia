@@ -116,9 +116,11 @@ import {
   sortUnreadFirst,
   STATS_PROTOCOL,
   statesFromItems,
+  telegramKUrlOf,
   telegramMirrorUrlOf,
   type SourceStatsRow,
 } from "./api";
+import { resetTgNativeForTests } from "./tg-native-window";
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
@@ -146,8 +148,18 @@ vi.mock("@/lib/api", async (importOriginal) => {
 vi.mock("@tauri-apps/plugin-shell", () => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
-// AC11 内置浏览器预览:开窗面整体 mock(零真实窗口;断言只认构造调用)
-vi.mock("@tauri-apps/api/webviewWindow", () => ({ WebviewWindow: vi.fn() }));
+// AC11 内置浏览器预览(v9 升级原生视图注册表):开窗面整体 mock(零真实
+// 窗口;断言只认构造调用);注册表存在性对账走静态 getByLabel/getAll,
+// 一并给 mock(缺省 miss/空集 = 全部视作未开,用例内按需改写)
+vi.mock("@tauri-apps/api/webviewWindow", () => {
+  const WebviewWindow = vi.fn() as unknown as import("vitest").Mock & {
+    getByLabel: import("vitest").Mock;
+    getAll: import("vitest").Mock;
+  };
+  WebviewWindow.getByLabel = vi.fn(async () => null);
+  WebviewWindow.getAll = vi.fn(async () => []);
+  return { WebviewWindow };
+});
 
 const { api, onSidecarEvent } = await import("@/lib/api");
 const storeItemsMock = vi.mocked(api.storeItems);
@@ -167,6 +179,10 @@ const dialogSaveMock = vi.mocked((await import("@tauri-apps/plugin-dialog")).sav
 const invokeMock = (await import("@tauri-apps/api/core")).invoke as unknown as import("vitest").Mock;
 const WebviewWindowMock = (await import("@tauri-apps/api/webviewWindow"))
   .WebviewWindow as unknown as import("vitest").Mock;
+// 注册表静态面(v9):存在性对账唯一真相源,组件用例按场景改写应答
+const webviewGetByLabelMock = (WebviewWindowMock as unknown as { getByLabel: import("vitest").Mock })
+  .getByLabel;
+const webviewGetAllMock = (WebviewWindowMock as unknown as { getAll: import("vitest").Mock }).getAll;
 
 import { FeedScreen } from "./feed-screen";
 
@@ -3192,10 +3208,16 @@ describe("FeedScreen · tg-category-entry 监控台(v7:TG 选中左栏顶部常�
     // 监控台条:未登录 → 扫码入口
     const consoleCard = await screen.findByTestId("feed-tg-console");
     expect(within(consoleCard).queryByTestId("feed-tg-console-login")).toBeTruthy();
-    // 内置浏览器预览:该渠道条目缺 t.me 链 → 置灰 + title 如实
+    // 原生网页预览(v9):该渠道条目缺 t.me 链 → 置灰 + 新置灰词面
+    // (/k/ 与 t.me/s 镜像同源推导,频道名推导不出 = 两者同不可得,v9 §1.1)
     const previewBtn = within(consoleCard).getByTestId("feed-tg-console-preview");
     expect(previewBtn.getAttribute("disabled")).not.toBeNull();
     expect(previewBtn.getAttribute("title")).toContain("无可推导");
+    expect(previewBtn.getAttribute("title")).toContain("原生预览与公开镜像均不可用");
+    // 「原生视图」段同门置灰(同一推导);段控件本体在场(isTgChannel 渠道)
+    const viewToggle = screen.getByTestId("feed-tg-view-toggle");
+    expect(within(viewToggle).getByTestId("feed-tg-view-native").getAttribute("disabled")).not.toBeNull();
+    expect(within(viewToggle).getByTestId("feed-tg-view-native").getAttribute("title")).toContain("均不可用");
     fireEvent.click(within(consoleCard).getByTestId("feed-tg-console-login"));
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith(
@@ -3225,6 +3247,8 @@ describe("FeedScreen · tg-category-entry 监控台(v7:TG 选中左栏顶部常�
     fireEvent.click(await screen.findByTestId("feed-channel-row-tech-source"));
     await screen.findByText("科技今日一条");
     expect(screen.queryByTestId("feed-tg-console")).toBeNull();
+    // v9:网站渠道整组不渲染切换段(与监控台条同门 isTgChannel,如实无钮)
+    expect(screen.queryByTestId("feed-tg-view-toggle")).toBeNull();
   });
 
   it("R2 吸收:状态 RPC 首拉在途 = 监控台条与「状态未知」卡都不出(不闪现);应答落地才落条", async () => {
@@ -3299,7 +3323,7 @@ describe("FeedScreen · tg-category-entry 监控台(v7:TG 选中左栏顶部常�
     await waitFor(() => expect(statusCalls()).toBeGreaterThan(before));
   });
 
-  it("内置浏览器预览(AC11):该渠道最新条目 url 推导 t.me/s 镜像 → WebviewWindow 应用内开窗;窗口仅展示,入库归后台 watcher", async () => {
+  it("原生网页预览(v9 AC11 升级):最新条目 url 推导 /k/ 深链 → 注册表应用内开窗(label tg-native-*,title/尺寸定稿);窗口仅展示,入库归后台 watcher;首开注记如实披露扫码+安全提醒", async () => {
     invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
       if (args?.method === "telegram.status") return statusPayload(true);
       throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
@@ -3314,19 +3338,47 @@ describe("FeedScreen · tg-category-entry 监控台(v7:TG 选中左栏顶部常�
       }),
     ]);
     WebviewWindowMock.mockClear();
-    WebviewWindowMock.mockImplementation(() => ({ once: vi.fn() }));
+    // vitest 4:vi.fn(箭头实现)不可 new(注册表 realDeps.create 走真实构造,
+    // 不再吃旧 AC11「调用已记、构造异常被 try/catch 吞进注记」的巧合绿灯)
+    WebviewWindowMock.mockImplementation(function () {
+      return { once: vi.fn(async () => () => undefined) };
+    });
     renderScreen();
     await openTelegramChannel();
     const consoleCard = await screen.findByTestId("feed-tg-console");
     const previewBtn = within(consoleCard).getByTestId("feed-tg-console-preview");
     expect(previewBtn.getAttribute("disabled")).toBeNull();
+    // 词面升级(v9):钮面含「原生」,title 如实告知 QR 登录一次 + 安全提醒属预期
+    expect(previewBtn.textContent).toContain("原生");
+    expect(previewBtn.getAttribute("title")).toContain("首次需扫码登录一次");
+    expect(previewBtn.getAttribute("title")).toContain("安全提醒");
+    expect(previewBtn.getAttribute("title")).toContain("https://web.telegram.org/k/#@mihomo_party");
     fireEvent.click(previewBtn);
-    // 开窗断言:label 时间戳前缀 + 推导出的公开镜像 url(应用内窗,免二次登录)
-    expect(WebviewWindowMock).toHaveBeenCalledTimes(1);
+    // 开窗断言(v9 注册表):稳定 label = tg-native-<t.me 频道名>(深检 F4
+    // 键口径:与源名解耦,两源同频道聚焦复用同窗)+ /k/ 深链 + design-v9
+    // §2.2 方案 A 定稿参数(尺寸对齐 TG Web 桌面版;decorations 缺省)
+    await waitFor(() => expect(WebviewWindowMock).toHaveBeenCalledTimes(1));
     expect(WebviewWindowMock).toHaveBeenCalledWith(
-      expect.stringMatching(/^tg-preview-/),
-      expect.objectContaining({ url: "https://t.me/s/mihomo_party" }),
+      "tg-native-mihomo_party",
+      expect.objectContaining({
+        url: "https://web.telegram.org/k/#@mihomo_party",
+        title: "TG · seed",
+        width: 1100,
+        height: 780,
+        minWidth: 640,
+        minHeight: 480,
+      }),
     );
+    // 首开注记(design-v9 §1.3 双会话披露):扫码一次 + 触发安全提醒属预期
+    const note = await screen.findByTestId("feed-tg-console-preview-note");
+    expect(note.textContent).toContain("扫码登录一次");
+    expect(note.textContent).toContain("安全提醒");
+    expect(note.textContent).toContain("免扫");
+    // 段控件随开窗落「原生视图」active + 红点徽标(窗口存活)
+    await waitFor(() =>
+      expect(screen.getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("true"),
+    );
+    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy();
   });
 });
 
@@ -3346,6 +3398,429 @@ describe("feed 内置浏览器预览 纯函数(api.ts,10-09-tg-category-entry v3
     expect(telegramMirrorUrlOf("https://example.com/item-1")).toBeNull();
     expect(telegramMirrorUrlOf("")).toBeNull();
     expect(telegramMirrorUrlOf(null)).toBeNull();
+  });
+});
+
+describe("feed 原生视图 纯函数(api.ts,10-09-tg-category-entry v9)", () => {
+  it("telegramKUrlOf:三种 t.me 形态 → /k/#@<频道名> 深链(9 断言镜像 telegramMirrorUrlOf 用例表);邀请链/非 t.me/空 = null 不猜", () => {
+    // bot/网页线消息锚(v9 主例:mihomo_party 最新条目 → 登录后自动落频道)
+    expect(telegramKUrlOf("https://t.me/mihomo_party/1201")).toBe("https://web.telegram.org/k/#@mihomo_party");
+    // 已是预览链(带消息 id)→ 剥回频道根
+    expect(telegramKUrlOf("https://t.me/s/durov/548")).toBe("https://web.telegram.org/k/#@durov");
+    // 纯频道链
+    expect(telegramKUrlOf("https://t.me/durov")).toBe("https://web.telegram.org/k/#@durov");
+    expect(telegramKUrlOf("https://t.me/durov/")).toBe("https://web.telegram.org/k/#@durov");
+    // http + query 照样认(频道名词表 [A-Za-z0-9_],无需编码)
+    expect(telegramKUrlOf("http://t.me/s/mihomo_party?single")).toBe("https://web.telegram.org/k/#@mihomo_party");
+    // 不猜(与 t.me/s 镜像同源死分支:/k/ 与镜像都靠 t.me 链提频道名,推导不出两者同不可得)
+    expect(telegramKUrlOf("https://t.me/+AbCdEf_123")).toBeNull();
+    expect(telegramKUrlOf("https://example.com/item-1")).toBeNull();
+    expect(telegramKUrlOf("")).toBeNull();
+    expect(telegramKUrlOf(null)).toBeNull();
+  });
+});
+
+describe("FeedScreen · v9 原生视图切换(design-v9 照稿)", () => {
+  const statusPayload = (loggedIn: boolean) => ({
+    bot: { configured: false, error: null },
+    session: { exists: false },
+    web: {
+      accounts: [
+        { account: "telegram-alt1", logged_in: loggedIn, logged_in_at: loggedIn ? "2026-10-09T01:00:00" : null, login_in_progress: false, login_note: null },
+      ],
+    },
+  });
+
+  /** v9 世界 = 监控台世界同门 + 可推导 t.me 链条目(段控件/预览钮双活) */
+  function mockNativeWorld(items: FeedItem[]) {
+    versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    healthMock.mockResolvedValue(
+      healthResult({
+        plugins: [
+          pluginEntry({ id: "telegram", name: "Telegram 监控", sources: [sourceEntry("telegram-seed", "tg_web")] }),
+          pluginEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
+          pluginEntry({ id: "daily", name: "日报", sources: [sourceEntry("daily-digest", "prompt")] }),
+        ],
+      }),
+    );
+    const seeded = [
+      fixtureItem({ source: "tech-source", title: "科技今日一条" }),
+      fixtureItem({
+        source: "telegram-seed",
+        title: "频道最新一条",
+        url: "https://t.me/mihomo_party/1201",
+        first_seen: new Date(dayWindowStart().getTime() + 3 * 60_000).toISOString(),
+      }),
+      ...items,
+    ];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(seeded.filter((item) => !params?.source || item.source === params.source))),
+    );
+  }
+
+  function mockStatusOnly(loggedIn: boolean) {
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") return statusPayload(loggedIn);
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+  }
+
+  /** 假窗 once 捕获器:注册表建窗时登记事件回调,测试手动触发生命周期;
+   *  同时留存最后建出的句柄(活窗对账要把它喂给 getByLabel,见 destroyed
+   *  用例 —— 存活判定实时走系统查询,建窗后 mock 需自洽地「查得到」)。
+   *  function 实现 = vitest 4 下可 new,见 beforeEach 注记。 */
+  function captureOnceHandlers() {
+    const handlers = new Map<string, (event: unknown) => void>();
+    let lastHandle: Record<string, unknown> | null = null;
+    WebviewWindowMock.mockImplementation(function () {
+      lastHandle = {
+        label: "tg-native-mihomo_party",
+        once: vi.fn(async (event: string, handler: (event: unknown) => void) => {
+          handlers.set(event, handler);
+          return () => undefined;
+        }),
+        setFocus: vi.fn(async () => undefined),
+      };
+      return lastHandle;
+    });
+    return { handlers, handle: () => lastHandle };
+  }
+
+  beforeEach(() => {
+    // 注册表/注意力表挂模块级(v9 会话内持久语义),用例间复位互不牵连
+    resetTgNativeForTests();
+    WebviewWindowMock.mockReset();
+    // function 实现(非箭头):vi.fn(箭头)在 vitest 4 不可 new,注册表
+    // realDeps.create 走真实构造,箭头实现会让建窗链误入「窗口创建异常」
+    WebviewWindowMock.mockImplementation(function () {
+      return { once: vi.fn(async () => () => undefined) };
+    });
+    webviewGetByLabelMock.mockReset();
+    webviewGetByLabelMock.mockResolvedValue(null);
+    webviewGetAllMock.mockReset();
+    webviewGetAllMock.mockResolvedValue([]);
+  });
+
+  it("段控件仅 TG 渠道渲染(③ 如实无钮):网站/日报渠道详情 feed-tg-view-toggle 全空,TG 渠道在场且缺省「情报视图」active", async () => {
+    mockStatusOnly(true);
+    mockNativeWorld([]);
+    // 网站 3 级
+    await renderChannelDetail("tech-source", "site");
+    await screen.findByText("科技今日一条");
+    expect(screen.queryByTestId("feed-tg-view-toggle")).toBeNull();
+    expect(screen.queryByTestId("feed-tg-view-intel")).toBeNull();
+    expect(screen.queryByTestId("feed-tg-view-native")).toBeNull();
+    // 日报 3 级
+    cleanup();
+    await renderChannelDetail("daily-digest", "daily");
+    expect(screen.queryByTestId("feed-tg-view-toggle")).toBeNull();
+    // TG 3 级:段控件在场,缺省 intel active、原生段可点(条目带 t.me 链可推导)
+    cleanup();
+    await renderChannelDetail("telegram-seed", "tg");
+    const toggle = await screen.findByTestId("feed-tg-view-toggle");
+    expect(toggle.getAttribute("aria-label")).toBe("视图切换");
+    const intel = within(toggle).getByTestId("feed-tg-view-intel");
+    const native = within(toggle).getByTestId("feed-tg-view-native");
+    expect(intel.getAttribute("aria-pressed")).toBe("true");
+    expect(native.getAttribute("aria-pressed")).toBe("false");
+    expect(native.getAttribute("disabled")).toBeNull();
+    expect(native.getAttribute("title")).toContain("首次需扫码登录一次");
+    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeNull(); // 窗未开,徽标不亮
+  });
+
+  it("点「原生视图」→ openOrFocusNative 收 (源名, /k/ url):建窗 + 段落 native active + 红点徽标;切「情报视图」= 注意力回落但徽标不灭(不关窗,独立窗归用户管)", async () => {
+    mockStatusOnly(true);
+    mockNativeWorld([]);
+    renderScreen();
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggle = await screen.findByTestId("feed-tg-view-toggle");
+    fireEvent.click(within(toggle).getByTestId("feed-tg-view-native"));
+    await waitFor(() => expect(WebviewWindowMock).toHaveBeenCalledTimes(1));
+    expect(WebviewWindowMock).toHaveBeenCalledWith(
+      "tg-native-mihomo_party",
+      expect.objectContaining({ url: "https://web.telegram.org/k/#@mihomo_party" }),
+    );
+    await waitFor(() =>
+      expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("true"),
+    );
+    expect(within(toggle).getByTestId("feed-tg-view-intel").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy();
+    // 存活 title 分档(深检 F7d):窗活着 → 指引程序坞/「窗口」菜单唤回
+    await waitFor(() =>
+      expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("title")).toContain("原生窗口存活中"),
+    );
+    // 切「情报视图」:段回落,但窗不死 → 红点徽标仍在(两张数据皮互为冗余)
+    fireEvent.click(within(toggle).getByTestId("feed-tg-view-intel"));
+    expect(within(toggle).getByTestId("feed-tg-view-intel").getAttribute("aria-pressed")).toBe("true");
+    expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy();
+    // 活窗对账自洽(再进 effect 查 getByLabel,徽标不被冲掉)
+    webviewGetByLabelMock.mockResolvedValue({
+      label: "tg-native-mihomo_party",
+      once: vi.fn(async () => () => undefined),
+      setFocus: vi.fn(async () => undefined),
+    });
+    // 深检 N2:intel 点击写频道名键(与读侧/原生侧同口径)→ 3→2→3 再进
+    // intel 保持,不弹回 native(键失配时模块表残留 native 会赢)
+    fireEvent.click(screen.getByTestId("feed-back-to-channels"));
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggleReenter = await screen.findByTestId("feed-tg-view-toggle");
+    await waitFor(() =>
+      expect(within(toggleReenter).getByTestId("feed-tg-view-intel").getAttribute("aria-pressed")).toBe("true"),
+    );
+    expect(within(toggleReenter).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy(); // 窗活着,徽标存活
+  });
+
+  it("切换态会话内持久 + destroyed 回落:窗亡(tauri://destroyed)→ 徽标退场、段回落情报视图;3→2→3 再进注意力保持上次落点", async () => {
+    mockStatusOnly(true);
+    mockNativeWorld([]);
+    const captured = captureOnceHandlers();
+    renderScreen();
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggle = await screen.findByTestId("feed-tg-view-toggle");
+    fireEvent.click(within(toggle).getByTestId("feed-tg-view-native"));
+    await waitFor(() => expect(WebviewWindowMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("true"),
+    );
+    // 窗已活:存活对账自洽(注册表存在性真相 = getByLabel,查询应命中)
+    webviewGetByLabelMock.mockResolvedValue(captured.handle());
+    // 3→2 返回再进:注意力随模块级表恢复(会话内持久),徽标随对账恢复
+    fireEvent.click(screen.getByTestId("feed-back-to-channels"));
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggleAgain = await screen.findByTestId("feed-tg-view-toggle");
+    await waitFor(() =>
+      expect(within(toggleAgain).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("true"),
+    );
+    await waitFor(() => expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy());
+    // 窗亡:destroyed 回调(注册表建窗时登记)→ 徽标退场 + 段回落「情报视图」
+    await waitFor(() => expect(captured.handlers.has("tauri://destroyed")).toBe(true));
+    await act(async () => {
+      captured.handlers.get("tauri://destroyed")?.({ event: "tauri://destroyed", payload: null });
+    });
+    await waitFor(() =>
+      expect(within(toggleAgain).getByTestId("feed-tg-view-intel").getAttribute("aria-pressed")).toBe("true"),
+    );
+    expect(within(toggleAgain).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeNull();
+  });
+
+  it("重复点击 = 聚焦(getByLabel 命中):构造零次、setFocus 一次、段照常落 native 且无首开注记(不重复披露)", async () => {
+    mockStatusOnly(true);
+    mockNativeWorld([]);
+    webviewGetByLabelMock.mockResolvedValue({
+      label: "tg-native-mihomo_party",
+      once: vi.fn(async () => () => undefined),
+      setFocus: vi.fn(async () => undefined),
+    });
+    renderScreen();
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggle = await screen.findByTestId("feed-tg-view-toggle");
+    fireEvent.click(within(toggle).getByTestId("feed-tg-view-native"));
+    await waitFor(() =>
+      expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("true"),
+    );
+    expect(WebviewWindowMock).not.toHaveBeenCalled(); // 零重建
+    expect(webviewGetByLabelMock).toHaveBeenCalledWith("tg-native-mihomo_party");
+    expect(screen.queryByTestId("feed-tg-console-preview-note")).toBeNull(); // focused 不重复首开披露
+  });
+
+  it("上限 3(getAll 过 tg-native- 前缀对账,main 不计):第 4 窗拒开 → 注记指引找窗,零构造", async () => {
+    mockStatusOnly(true);
+    mockNativeWorld([]);
+    webviewGetAllMock.mockResolvedValue([
+      { label: "main" },
+      { label: "tg-native-a" },
+      { label: "tg-native-b" },
+      { label: "tg-native-c" },
+    ]);
+    renderScreen();
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggle = await screen.findByTestId("feed-tg-view-toggle");
+    fireEvent.click(within(toggle).getByTestId("feed-tg-view-native"));
+    await waitFor(() => expect(screen.getByTestId("feed-tg-console-preview-note").textContent).toContain("上限 3"));
+    expect(WebviewWindowMock).not.toHaveBeenCalled();
+  });
+
+  it("开窗失败(tauri://error + 复查 miss)→ 注记「原生网页版打开失败…」给打开原文回退指引,不自动改开镜像", async () => {
+    mockStatusOnly(true);
+    mockNativeWorld([]);
+    const captured = captureOnceHandlers();
+    renderScreen();
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggle = await screen.findByTestId("feed-tg-view-toggle");
+    fireEvent.click(within(toggle).getByTestId("feed-tg-view-native"));
+    await waitFor(() => expect(WebviewWindowMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(captured.handlers.has("tauri://error")).toBe(true));
+    await act(async () => {
+      captured.handlers.get("tauri://error")?.({ event: "tauri://error", payload: null });
+    });
+    // 复查 getByLabel 仍 miss(缺省 null)→ 真失败词面(design-v9 §1.2)
+    const note = await screen.findByTestId("feed-tg-console-preview-note");
+    expect(note.textContent).toContain("原生网页版打开失败");
+    expect(note.textContent).toContain("打开原文");
+    // 深检 F2/F7b:真失败不只出注记 —— 先行 created 落下的存活态被注册表
+    // 广播单点冲掉,不留「注记说失败、红点还亮、段还 native」矛盾同屏
+    await waitFor(() =>
+      expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("false"),
+    );
+    expect(within(toggle).getByTestId("feed-tg-view-intel").getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeNull();
+  });
+
+  it("深检 F7a/F1:窗亡发生在用户不在观期间(切走再关)→ 回进该渠道段控件如实回落情报视图,不亮残留 native", async () => {
+    mockStatusOnly(true);
+    mockNativeWorld([]);
+    const captured = captureOnceHandlers();
+    renderScreen();
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggle = await screen.findByTestId("feed-tg-view-toggle");
+    fireEvent.click(within(toggle).getByTestId("feed-tg-view-native"));
+    await waitFor(() => expect(WebviewWindowMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("true"),
+    );
+    // 切到网站渠道(注意力/存活镜像换道,destroyed 订阅由模块级持有不受
+    // 组件换道影响):回 1 级 → site 列表 → tech 渠道
+    fireEvent.click(screen.getByTestId("feed-back-to-channels"));
+    fireEvent.click(await screen.findByTestId("feed-back-to-types"));
+    await openChannelList("site");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-tech-source"));
+    await screen.findByText("科技今日一条");
+    // 不在观期间红绿灯关 A 窗:模块级清理(F1)回收注意力表并广播
+    webviewGetByLabelMock.mockResolvedValue(null); // 系统里窗已死,对账自洽
+    await act(async () => {
+      captured.handlers.get("tauri://destroyed")?.({ event: "tauri://destroyed", payload: null });
+    });
+    // 回进 A(网站详情 → 回 1 级 → tg 列表 → telegram-seed):
+    // 段控件读模块表 = intel,存活对账 = 不活 —— 两信号一致
+    fireEvent.click(screen.getByTestId("feed-back-to-channels"));
+    fireEvent.click(await screen.findByTestId("feed-back-to-types"));
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggleAgain = await screen.findByTestId("feed-tg-view-toggle");
+    await waitFor(() =>
+      expect(within(toggleAgain).getByTestId("feed-tg-view-intel").getAttribute("aria-pressed")).toBe("true"),
+    );
+    expect(within(toggleAgain).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeNull();
+  });
+
+  it("深检 F3/F7c:telegram.status 失败(监控台条缺席)时段控件仍可点,注记在独立节点可见(capped/failed 指引不静默丢)", async () => {
+    // status RPC 失败 → phase=error → 监控台条/预览钮都不出;段控件 gate 只认 isTgChannel
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") {
+        throw JSON.stringify({ code: "internal_error", path: "$", message: "状态服务未就绪" });
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    mockNativeWorld([]);
+    renderScreen();
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    // phase=error:监控台条与预览钮都不出(条 gate 严一档),空态在转
+    await waitFor(() => expect(storeItemsMock).toHaveBeenLastCalledWith(expect.objectContaining({ source: "telegram-seed" })));
+    expect(screen.queryByTestId("feed-tg-console")).toBeNull();
+    expect(screen.queryByTestId("feed-tg-console-preview")).toBeNull();
+    // 段控件 gate 只认 isTgChannel,照常可点
+    const toggle = await screen.findByTestId("feed-tg-view-toggle");
+    fireEvent.click(within(toggle).getByTestId("feed-tg-view-native"));
+    // 建窗成功 + 首开注记落在与监控台条同层的独立节点(gate 只认 isTgChannel)
+    await waitFor(() => expect(WebviewWindowMock).toHaveBeenCalledTimes(1));
+    const note = await screen.findByTestId("feed-tg-console-preview-note");
+    expect(note.textContent).toContain("扫码登录一次");
+  });
+
+  it("深检 F4b:同会话关窗重开不再假预告「首次」——二次 created 无全量扫码注记(title 词面恒在)", async () => {
+    mockStatusOnly(true);
+    mockNativeWorld([]);
+    const captured = captureOnceHandlers();
+    renderScreen();
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggle = await screen.findByTestId("feed-tg-view-toggle");
+    fireEvent.click(within(toggle).getByTestId("feed-tg-view-native"));
+    await waitFor(() => expect(WebviewWindowMock).toHaveBeenCalledTimes(1));
+    expect((await screen.findByTestId("feed-tg-console-preview-note")).textContent).toContain("扫码登录一次");
+    // 关窗(destroyed)→ 再点开:窗口重建但注意力记忆在,全量「首次」注记不重现
+    await act(async () => {
+      captured.handlers.get("tauri://destroyed")?.({ event: "tauri://destroyed", payload: null });
+    });
+    await waitFor(() =>
+      expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("false"),
+    );
+    fireEvent.click(within(toggle).getByTestId("feed-tg-view-native"));
+    await waitFor(() => expect(WebviewWindowMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("true"),
+    );
+    // 深检 N1:存活态跟「窗建成」走不跟「首开披露」走 —— 重开窗活着,红点必须亮
+    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy();
+    expect(screen.queryByTestId("feed-tg-console-preview-note")).toBeNull(); // 不重复披露
+  });
+
+  it("深检 F7f 组件层双击竞态:连点两发 → 第二发撞窗聚焦(created×1 + focused×1),不误报失败注记,存活态/段态收敛一致", async () => {
+    mockStatusOnly(true);
+    mockNativeWorld([]);
+    // 时序剧本(仿注册表 raceDeps):首查 miss(建窗)→ 第二发查命中(聚焦)。
+    // fireEvent 同步派发两 click,两发的 getByLabel 在任一 create 前依次发生:
+    // 第 1 发吃 Once(null),第 2 发读得 twin → 幂等视同聚焦
+    const twin = {
+      label: "tg-native-mihomo_party",
+      once: vi.fn(async () => () => undefined),
+      setFocus: vi.fn(async () => undefined),
+    };
+    WebviewWindowMock.mockImplementation(function () {
+      return {
+        label: "tg-native-mihomo_party",
+        once: vi.fn(async () => () => undefined),
+        setFocus: vi.fn(async () => undefined),
+      };
+    });
+    webviewGetByLabelMock.mockReset();
+    webviewGetByLabelMock.mockResolvedValueOnce(null);
+    webviewGetByLabelMock.mockResolvedValue(twin);
+    renderScreen();
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggle = await screen.findByTestId("feed-tg-view-toggle");
+    const nativeBtn = within(toggle).getByTestId("feed-tg-view-native");
+    fireEvent.click(nativeBtn);
+    fireEvent.click(nativeBtn); // 双击双触发
+    // 第 1 发 created(构造恰一次)+ 第 2 发 focused(零重建,聚焦一次)
+    await waitFor(() => expect(WebviewWindowMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(twin.setFocus).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(nativeBtn.getAttribute("aria-pressed")).toBe("true"),
+    );
+    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy();
+    // 不误报失败:首开披露在(created && firstOpen),但绝无「打开失败」词面
+    const note = await screen.findByTestId("feed-tg-console-preview-note");
+    expect(note.textContent).toContain("扫码登录一次");
+    expect(note.textContent).not.toContain("打开失败");
+  });
+
+  it("登录前(tgWebline accounts 全 logged_in:false)→ 首开注记含「扫码登录一次」与「安全提醒」词面(③ 披露钉进测试);监控台未登录词面与 /k/ 线不串台", async () => {
+    mockStatusOnly(false);
+    mockNativeWorld([]);
+    renderScreen();
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-channel-row-telegram-seed"));
+    const toggle = await screen.findByTestId("feed-tg-view-toggle");
+    fireEvent.click(within(toggle).getByTestId("feed-tg-view-native"));
+    const note = await screen.findByTestId("feed-tg-console-preview-note");
+    expect(note.textContent).toContain("扫码登录一次");
+    expect(note.textContent).toContain("安全提醒");
+    expect(note.textContent).toContain("属预期");
+    // 词面分工:监控台「未登录」警示只说 watcher 的 7×24 监控,不混 /k/ 语义
+    expect(screen.getByText(/未登录 —— 扫码登录网页版/).textContent).not.toContain("原生视图");
   });
 });
 
