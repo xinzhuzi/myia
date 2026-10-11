@@ -227,6 +227,9 @@ export const PLATFORM_ICON_SPECS: Record<string, PlatformIconSpec> = {
   a2a: { Icon: Bot, kind: "generic" },
   buzz: { Icon: MessageSquareText, kind: "generic" },
   raft: { Icon: MessageSquareText, kind: "generic" },
+  // 微信本机(10-11-wechat-ui-bridge F3):与微信同官方绿 #07C160(同一
+  // 品牌族),「本」monogram 区分本机桥与官方桥双卡(钉钉/企微同范式)。
+  weixin_local: { color: "#07C160", kind: "brand", monogram: "本" },
 };
 
 // ---------------------------------------------------------------------------

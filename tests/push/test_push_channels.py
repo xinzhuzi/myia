@@ -528,6 +528,10 @@ def test_new_channels_conform_to_channel_protocol_and_registry():
         "dingtalk",
         "wecom",
         "weixin",
+        # weixin-local(10-11-wechat-ui-bridge F1):微信本机桥(受管组件
+        # wechat-bridge;同机便捷补充,缺省关)。专测见
+        # tests/push/test_messaging_weixin_local.py。
+        "weixin-local",
         # bark(10-05-push-bark):iOS 即时推送零依赖小件;专测见
         # tests/push/test_bark.py。
         "bark",
@@ -591,19 +595,21 @@ class TestW3LongtailRegistry:
 
     def test_registry_counts_after_w3_wiring(self):
         # 通道计数如实:8 既有 + bark(10-05-push-bark)+ apprise
-        # (10-05-push-apprise)+ 22 长尾 = 32 通道;28 家支持目录寻址
-        # (webhook/stdout/bark/apprise 不支持——bark/apprise 无目录语义,
-        # 同 webhook;feishu_card 通道名经 schema 的 CHANNEL_PLATFORMS 映射到
-        # 平台名 feishu,其余平台名 = 通道名)。
+        # (10-05-push-apprise)+ 22 长尾 + weixin-local(10-11-wechat-ui-bridge
+        # F1,微信本机桥)= 33 通道;28 家支持目录寻址(webhook/stdout/bark/
+        # apprise/weixin-local 不支持——后四者无目录语义,weixin-local 无目录
+        # 寻址且通道 id 含连字符;feishu_card 通道名经 schema 的
+        # CHANNEL_PLATFORMS 映射到平台名 feishu,其余平台名 = 通道名)。
         from myssia.schema import CHANNEL_PLATFORMS
 
-        assert len(CHANNELS) == 32
+        assert len(CHANNELS) == 33
         assert len(PLATFORMS) == 28
         assert set(CHANNELS) - set(CHANNEL_PLATFORMS) == {
             "webhook",
             "stdout",
             "bark",
             "apprise",
+            "weixin-local",
         }
         assert set(CHANNEL_PLATFORMS.values()) == set(PLATFORMS)
 

@@ -33,7 +33,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-import { isDeadEntry, type BridgeStatusView, type ChannelEntry } from "./api";
+import { isDeadEntry, type BridgeStatusView, type ChannelEntry, type WechatLocalProbeView } from "./api";
 import { PlatformAvatar } from "./platform-icons";
 
 // ---------------------------------------------------------------------------
@@ -257,6 +257,33 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         },
         "推送规则 targets 直达写 weixin:<peer id>;常用对象可在数据根 channel_aliases.json 登记别名(微信无自动发现,直达/别名是仅有的两条寻址路)。",
         "注意:对方长期没给 bot 发过消息时,冷发送会得到「会话未就绪」指引(先让对方发条消息再推)——这是微信协议的固有限制,不是故障;修复后无需任何配置变更。",
+      ],
+    },
+  },
+  // 微信本机(10-11-wechat-ui-bridge F3;design §5.2 微信区双卡:本卡 =
+  // weixin-local 通道/受管组件 wechat-bridge,与上行官方桥卡三态独立不混用
+  // ——两张桥的健康度、降级原因不同)。本机三态真源 = wechat_local.probe
+  // 探针;只读会话入口与 AX 权限引导卡在本屏下方「微信本机」工作区。
+  {
+    id: "weixin_local",
+    name: "微信本机",
+    // wave 字段是注册表元数据(10-11 落地不在原 W1–W3 波次内,取 W3 档仅
+    // 为类型对齐;详情面板不展示已实装平台的 wave)。
+    wave: "W3",
+    discovery: "manual",
+    description:
+      "微信本机桥(task 10-11-wechat-ui-bridge 已实装):受管组件 wechat-bridge 直驱本机微信客户端——UI 读(会话/最近消息)+ 本地库只读(历史三域查询)。与左侧「微信」官方桥分工:本卡管「读自己账号」,出站仍归官方桥;状态独立不混用。",
+    guide: {
+      // keys 段为空是刻意事实:MYIA 对微信零凭据(账号登录态在本机微信
+      // 客户端与本地库;桥组件不持密钥——密钥途径按 D4 裁决,未豁免前
+      // 本地库只读如实 degraded)。
+      keys: [],
+      steps: [
+        "安装受管组件 wechat-bridge(组件下载链路,Phase B3 接线);本地库解密前置:brew install sqlcipher(缺依赖时组件安装器给明确指引,不静默半装)。",
+        "系统权限:本机桥需要「辅助功能」授权(系统设置 → 隐私与安全性 → 辅助功能,给 MYIA 授权);授权主体是 MYIA app 本体,本屏下方 AX 权限引导卡有分步指引。",
+        "静默边界如实:UI 通道全程不抢前台焦点、不合成鼠标点击、不激活微信窗口;窗口未开时 UI 通道降级(本地库查询不受影响)。",
+        "本地库只读的密钥途径:零内存方案实测不可推导(D4 裁决项)——未裁决前本地库查询如实报 key_unavailable(降级灰态,不是故障);UI 通道与探针不受影响。",
+        "ToS 披露:UI 自动化违反微信许可协议字面,封禁风险由腾讯裁量;本地库只读不碰网络与微信进程,账号侧零风险。两类风险不同源,本卡如实分开陈述。",
       ],
     },
   },
@@ -937,10 +964,12 @@ const UPCOMING_DESCRIPTION: Record<"W2" | "W3", string> = {
 // 三态派生(纯函数,零协议往返、零后端概念)
 // ---------------------------------------------------------------------------
 
-/** 平台卡四态:已连接 / 需要设置 / 即将支持 / 需本机 Hermes(微信桥接灰态,
+/** 平台卡五态:已连接 / 需要设置 / 即将支持 / 需本机 Hermes(微信桥接灰态,
  * task 10-03-messaging-weixin-bridge D4:微信凭据不在 MYIA 侧,黄态「按凭据
- * 指南录入」是误导,永黄不了——桥接探测可用=绿,否则=灰)。 */
-export type PlatformCardStatus = "connected" | "needs_setup" | "coming_soon" | "bridge_unavailable";
+ * 指南录入」是误导,永黄不了——桥接探测可用=绿,否则=灰)/ 降级(微信本机
+ * 卡专属,10-11-wechat-ui-bridge F3:探针 degraded——微信在跑但窗口未开或
+ * 本地库密钥不可得,部分能力可用,黄态如实标注不装死)。 */
+export type PlatformCardStatus = "connected" | "needs_setup" | "coming_soon" | "bridge_unavailable" | "degraded";
 
 /** 筛选档(R2):全部 / 已连接 / 未启用。 */
 export type PlatformFilter = "all" | "connected" | "disabled";
@@ -962,6 +991,9 @@ export interface PlatformCard {
   discovery?: PlatformDiscovery;
   /** 桥接探测结果(仅微信卡携带;null = 探测未完成/失败,如实按不可用呈现)。 */
   bridge: BridgeStatusView | null;
+  /** 微信本机探针(仅微信本机卡携带;null = 探测缺位/失败,如实灰态)。
+   * 与 bridge 独立不混用——两张桥的健康度、降级原因不同(design §5.2)。 */
+  localProbe: WechatLocalProbeView | null;
 }
 
 /**
@@ -1017,19 +1049,23 @@ const EXTRAS_SHELL_PLATFORM_IDS: ReadonlySet<string> = new Set([
   "raft",
 ]);
 
-/** 目录桶 + 钥匙链名单 + 微信桥接探测 → 全量平台卡(已实装在前,波次序在后)。
+/** 目录桶 + 钥匙链名单 + 微信桥接探测 + 微信本机探针 → 全量平台卡(已实装
+ * 在前,波次序在后)。
  *
  * 微信卡不走通用 deriveImplementedStatus(凭据不在 MYIA 侧,
  * 永黄不了):bridge.status available → connected,否则(含探测缺位/
- * 失败的 null)→ bridge_unavailable 灰态。extras 壳通道
- * (:data:`EXTRAS_SHELL_PLATFORM_IDS`)同不走通用派生:恒 needs_setup
- * (发送路待 extras,目录/钥匙链证据都不构成「可发送」)。第三参缺省
- * 不传 = 其余平台卡逐字段不变(向后兼容;微信按灰态呈现)。
+ * 失败的 null)→ bridge_unavailable 灰态。微信本机卡同不走通用派生:
+ * wechat_local.probe 三态直映射(ok → connected / degraded → 降级黄态 /
+ * null 或 bridge_unavailable → 灰态)。extras 壳通道
+ * (:data:`EXTRAS_SHELL_PLATFORM_IDS`)恒 needs_setup(发送路待 extras,
+ * 目录/钥匙链证据都不构成「可发送」)。第三/四参缺省不传 = 既有平台卡
+ * 逐字段不变(向后兼容;微信按灰态、微信本机按灰态呈现)。
  */
 export function buildPlatformCards(
   directory: Record<string, readonly ChannelEntry[]>,
   secretNames: readonly string[],
   bridgeStatus?: BridgeStatusView | null,
+  wechatLocalProbe?: WechatLocalProbeView | null,
 ): PlatformCard[] {
   return [
     ...IMPLEMENTED_PLATFORMS.map((platform) => {
@@ -1040,7 +1076,15 @@ export function buildPlatformCards(
         secretNames,
       );
       const isBridge = platform.id === "weixin";
+      const isWechatLocal = platform.id === "weixin_local";
       const isShell = EXTRAS_SHELL_PLATFORM_IDS.has(platform.id);
+      const localState = isWechatLocal
+        ? wechatLocalProbe?.state === "ok"
+          ? ("connected" as const)
+          : wechatLocalProbe?.state === "degraded"
+            ? ("degraded" as const)
+            : ("bridge_unavailable" as const)
+        : undefined;
       return {
         id: platform.id,
         name: platform.name,
@@ -1049,15 +1093,18 @@ export function buildPlatformCards(
           ? bridgeStatus?.available
             ? ("connected" as const)
             : ("bridge_unavailable" as const)
-          : isShell
-            ? ("needs_setup" as const)
-            : deriveImplementedStatus(bucket, matched),
+          : isWechatLocal
+            ? (localState as Exclude<typeof localState, undefined>)
+            : isShell
+              ? ("needs_setup" as const)
+              : deriveImplementedStatus(bucket, matched),
         directoryCount: bucket.length,
         matchedSecretNames: matched,
         guide: platform.guide,
         description: platform.description,
         discovery: platform.discovery,
         bridge: isBridge ? (bridgeStatus ?? null) : null,
+        localProbe: isWechatLocal ? (wechatLocalProbe ?? null) : null,
       };
     }),
     ...UPCOMING_PLATFORMS.map((platform) => ({
@@ -1071,6 +1118,7 @@ export function buildPlatformCards(
       description: UPCOMING_DESCRIPTION[platform.wave],
       discovery: undefined,
       bridge: null,
+      localProbe: null,
     })),
   ];
 }
@@ -1091,15 +1139,18 @@ const STATUS_LABEL: Record<PlatformCardStatus, string> = {
   needs_setup: "需要设置",
   coming_soon: "即将支持",
   bridge_unavailable: "需本机 Hermes",
+  degraded: "降级",
 };
 
 /** 状态点 tone(R3):绿 --ok / 黄 --warning / 灰 --muted-foreground,全走语义 token。
- * 桥接灰态(bridge_unavailable)复用 coming_soon 的 muted 组(D4 同款灰值)。 */
+ * 桥接灰态(bridge_unavailable)复用 coming_soon 的 muted 组(D4 同款灰值);
+ * 降级(微信本机)走 warning 黄——部分能力可用,如实区别于纯灰。 */
 const STATUS_DOT_TONE: Record<PlatformCardStatus, string> = {
   connected: "bg-ok",
   needs_setup: "bg-warning",
   coming_soon: "bg-muted-foreground/50",
   bridge_unavailable: "bg-muted-foreground/50",
+  degraded: "bg-warning",
 };
 
 /** 状态胶囊 tone(R3):与 Badge 语义色变体同源(border/bg/text 三段全 token)。 */
@@ -1108,6 +1159,7 @@ const STATE_PILL_TONE: Record<PlatformCardStatus, string> = {
   needs_setup: "border-warning/30 bg-warning/10 text-warning",
   coming_soon: "border-border bg-muted/50 text-muted-foreground",
   bridge_unavailable: "border-border bg-muted/50 text-muted-foreground",
+  degraded: "border-warning/30 bg-warning/10 text-warning",
 };
 
 /** 左卡描边 tone(R3):已连接绿框 / 需要设置黄框 / 即将支持中性灰框。
@@ -1119,6 +1171,7 @@ const CARD_BORDER_TONE: Record<PlatformCardStatus, string> = {
   needs_setup: "border-warning/30",
   coming_soon: "border-border/60",
   bridge_unavailable: "border-border/60",
+  degraded: "border-warning/30",
 };
 
 /** 筛选 tab 激活态 tone(R3):全部=品牌青 / 已连接=绿 / 未启用=黄(可行动子集)。 */
@@ -1151,6 +1204,8 @@ interface PlatformOverviewProps {
   dead: string[];
   /** bridge.status 探测(微信卡状态派生;null/缺省 = 灰态「需本机 Hermes」)。 */
   bridgeStatus?: BridgeStatusView | null;
+  /** wechat_local.probe 探测(微信本机卡三态派生;null/缺省 = 灰态)。 */
+  wechatLocalProbe?: WechatLocalProbeView | null;
 }
 
 /**
@@ -1163,14 +1218,15 @@ export function PlatformOverview({
   directory,
   secretNames,
   status,
+  wechatLocalProbe,
 }: PlatformOverviewProps) {
   const [filter, setFilter] = useState<PlatformFilter>("all");
   // 缺省选中第一张已实装卡(上游 platformIds[0] 同缺省);详情面板随之就位
   const [selectedId, setSelectedId] = useState<string>(IMPLEMENTED_PLATFORMS[0]?.id ?? "");
 
   const cards = useMemo(
-    () => buildPlatformCards(directory, secretNames, bridgeStatus),
-    [directory, secretNames, bridgeStatus],
+    () => buildPlatformCards(directory, secretNames, bridgeStatus, wechatLocalProbe),
+    [directory, secretNames, bridgeStatus, wechatLocalProbe],
   );
   const counts = useMemo(() => {
     const connected = cards.filter((card) => card.status === "connected").length;
@@ -1323,11 +1379,31 @@ function SectionTitle({ children }: { children: ReactNode }) {
   return <h4 className="text-2xs font-semibold tracking-wide text-muted-foreground">{children}</h4>;
 }
 
-/** 状态说明文案(四态证据来源;连接态列命中信号,缺配置态给下一步动作,
- * 桥接灰态带修复指引——R2「不装可用」的如实披露)。 */
+/** 状态说明文案(五态证据来源;连接态列命中信号,缺配置态给下一步动作,
+ * 桥接灰态带修复指引——R2「不装可用」的如实披露;微信本机卡按探针三态
+ * + 降级原因逐条披露,design §5.2 状态语义独立)。 */
 function statusExplanation(card: PlatformCard): string {
   if (card.status === "coming_soon") {
     return `${card.wave} 波次排期平台,尚未实装:无凭据可言,目录恒空;实装节奏见接入路线图。`;
+  }
+  if (card.localProbe) {
+    // 微信本机卡:探针是唯一真源,降级原因逐条上卡(码名 + 修复指引)。
+    if (card.status === "connected") {
+      return "已连接:本机桥探针全绿(微信在跑 + 辅助功能已授权 + 组件就绪)。只读会话入口与本 AX 指引见本屏下方「微信本机」工作区;出站(写)不在本卡——主出站口是左侧「微信」官方桥。";
+    }
+    if (card.status === "degraded") {
+      const reasons = card.localProbe.reasons
+        .map((reason) => `${reason.code}:${reason.fix_hint}`)
+        .join("; ");
+      return `降级:探针有未通过项(部分能力可用,不装死)。${reasons || "详见探针 checks。"}`;
+    }
+    const reasons = card.localProbe.reasons
+      .map((reason) => `${reason.code}:${reason.fix_hint}`)
+      .join("; ");
+    return `不可用:本机桥探针未通过(sidecar 未接线或组件缺席,不是故障)。${reasons || "装好组件并授权后回本屏刷新。"}`;
+  }
+  if (card.status === "bridge_unavailable" && card.id === "weixin_local") {
+    return "不可用:本机桥探针缺位(sidecar 未接线或探测失败)。到设置安装 wechat-bridge 组件后回本屏刷新;这是如实披露的边界,不是故障。";
   }
   if (card.bridge) {
     if (card.status === "connected") {
@@ -1405,7 +1481,16 @@ function PlatformDetailPanel({
         </section>
       ) : null}
 
-      {card.status === "connected" ? (
+      {card.status === "connected" && card.id === "weixin_local" ? (
+        <section className="flex flex-col gap-2">
+          <SectionTitle>只读入口</SectionTitle>
+          <p className="text-2xs leading-relaxed text-muted-foreground">
+            本平台无推送目录(对象走 legacy target 引用);只读会话入口与本地库查询在本屏下方「微信本机」工作区。
+          </p>
+        </section>
+      ) : null}
+
+      {card.status === "connected" && card.id !== "weixin_local" ? (
         <section className="flex flex-col gap-2">
           <SectionTitle>目录速览</SectionTitle>
           <DirectoryQuickView

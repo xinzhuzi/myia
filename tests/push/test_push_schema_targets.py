@@ -526,8 +526,8 @@ class TestW3LongtailSchema:
 
         assert set(W3_LONGTAIL_NAMES) <= set(PUSH_CHANNELS)
         # 8 既有 + bark(10-05-push-bark)+ apprise(10-05-push-apprise)
-        # + 22 长尾 = 32,计数如实
-        assert len(PUSH_CHANNELS) == 32
+        # + 22 长尾 + weixin-local(10-11-wechat-ui-bridge F1)= 33,计数如实
+        assert len(PUSH_CHANNELS) == 33
 
     def test_channel_platforms_rows_are_identity_for_w3(self):
         for name in W3_LONGTAIL_NAMES:

@@ -8,7 +8,7 @@
 // 平台总览(10-03-messaging-hermes-look):左平台卡网格 + 右详情面板双栏 ——
 // 三态(已连接绿/需要设置黄/即将支持灰,secret.list 凭据探测 + channels.list
 // 目录信号派生)、全部/已连接/未启用筛选(tone 呼应 + 切筛选带动选中)、
-// 28 平台头像芯片(见 platform-icons.test.tsx)、详情面板(描述/状态说明/
+// 29 平台头像芯片(见 platform-icons.test.tsx)、详情面板(描述/状态说明/
 // 出站凭据指南唯一入口/目录速览)、底部状态条(sidecar 健康 + 已连接平台
 // 计数)、入站项零出现(扫码/允许的用户 ID/webhook secret 不渲染)。
 // 告警规则子面板(10-04-alert-rules design §9/§11):列表行(启停 Switch =
@@ -522,12 +522,12 @@ describe("消息:空态与断连态", () => {
     expect(await screen.findByText("通道目录还是空的")).toBeTruthy();
     expect(screen.getByText(/先到「设置」录入平台凭据/)).toBeTruthy();
     expect(screen.getByText(/还没有品类 YAML/)).toBeTruthy();
-    // 状态条:目录空 = 已连接 0(28 张在册卡),sidecar 本身存活
+    // 状态条:目录空 = 已连接 0(29 张在册卡;weixin_local 10-11 入册),sidecar 本身存活
     const bar = await screen.findByTestId("messaging-statusbar");
     await waitFor(() => {
       expect(bar.textContent).toContain("sidecar 正常");
     });
-    expect(bar.textContent).toContain("已连接平台 0/28");
+    expect(bar.textContent).toContain("已连接平台 0/29");
   });
 
   it("sidecar 不可达 → 结构化错误(code/path)+ 重试;状态条同步转红", async () => {
@@ -560,7 +560,7 @@ describe("消息:空态与断连态", () => {
 // ---------------------------------------------------------------------------
 
 describe("消息:平台总览三态与头像卡", () => {
-  it("左卡网格 28 张全带头像;缺省选中 feishu,详情面板出已连接 + 目录速览(死信徽标)", async () => {
+  it("左卡网格 29 张全带头像;缺省选中 feishu,详情面板出已连接 + 目录速览(死信徽标)", async () => {
     const sidecar = okSidecar();
     installSidecar(sidecar.map, sidecar.record);
     render(
@@ -571,9 +571,9 @@ describe("消息:平台总览三态与头像卡", () => {
 
     const overview = await screen.findByTestId("platform-overview");
     const list = within(overview).getByTestId("platform-card-list");
-    // R1 验收:28 张平台卡全部带头像芯片(16 brand 精确标 + 11 无标全灰 + 1 通用标)
-    expect(within(list).getAllByRole("listitem")).toHaveLength(28);
-    expect(list.querySelectorAll("[data-testid^='platform-avatar-']")).toHaveLength(28);
+    // R1 验收:29 张平台卡全部带头像芯片(17 brand 精确标 + 11 无标全灰 + 1 通用标)
+    expect(within(list).getAllByRole("listitem")).toHaveLength(29);
+    expect(list.querySelectorAll("[data-testid^='platform-avatar-']")).toHaveLength(29);
     expect(within(list).getByTestId("platform-avatar-feishu")).toBeTruthy();
     expect(within(list).getByTestId("platform-avatar-telegram")).toBeTruthy();
 
@@ -606,7 +606,7 @@ describe("消息:平台总览三态与头像卡", () => {
     expect(within(detail).getByText("测试私聊")).toBeTruthy();
     expect(within(detail).queryByText("AI中转站合伙人群")).toBeNull();
     // 卡网格仍完整(选中只影响右栏)
-    expect(within(overview).getByTestId("platform-card-list").querySelectorAll("[data-testid^='platform-avatar-']")).toHaveLength(28);
+    expect(within(overview).getByTestId("platform-card-list").querySelectorAll("[data-testid^='platform-avatar-']")).toHaveLength(29);
   });
 
   it("凭据缺失(目录空且钥匙链无命中)→ 详情面板需要设置(说明含下一步动作)", async () => {
@@ -820,7 +820,7 @@ describe("消息:平台总览三态与头像卡", () => {
 });
 
 describe("消息:平台总览筛选 tabs", () => {
-  it("全部(28)/已连接/未启用 正确分组;tab 文案带计数;已连接档隐藏灰卡且选中不动", async () => {
+  it("全部(29)/已连接/未启用 正确分组;tab 文案带计数;已连接档隐藏灰卡且选中不动", async () => {
     const sidecar = okSidecar();
     installSidecar(sidecar.map, sidecar.record);
     render(
@@ -830,11 +830,13 @@ describe("消息:平台总览筛选 tabs", () => {
     );
     const overview = await screen.findByTestId("platform-overview");
 
-    // 缺省 = 全部:28 张卡 = 已连接 2(fixture 的 feishu/telegram)+ 已实装
+    // 缺省 = 全部:29 张卡 = 已连接 2(fixture 的 feishu/telegram)+ 已实装
     // 缺凭据(需要设置)+ 微信桥接灰态 1 + 未实装灰卡(批次数见注册表)
-    expect(within(overview).getByTestId("platform-filter-all").textContent).toBe("全部(28)");
+    expect(within(overview).getByTestId("platform-filter-all").textContent).toBe("全部(29)");
     expect(within(overview).getByTestId("platform-filter-connected").textContent).toBe("已连接(2)");
-    expect(within(overview).getByTestId("platform-filter-disabled").textContent).toBe("未启用(26)");
+    // 29 卡 = 已连接 2 + 未启用 27(需要设置 25 + 微信桥接灰 1 + 微信本机灰 1;
+    // weixin_local 10-11 入册,探针缺位 = 灰态,同归未启用档)
+    expect(within(overview).getByTestId("platform-filter-disabled").textContent).toBe("未启用(27)");
     expect(within(overview).getByTestId("platform-card-weixin")).toBeTruthy();
 
     // 已连接:只剩已实装且已连接的卡;选中(feishu)仍匹配筛选 → 详情栏不动
@@ -883,7 +885,7 @@ describe("消息:平台总览筛选 tabs", () => {
     );
     const overview = await screen.findByTestId("platform-overview");
     expect(within(overview).getByTestId("platform-filter-connected").textContent).toBe("已连接(0)");
-    expect(within(overview).getByTestId("platform-filter-disabled").textContent).toBe("未启用(28)");
+    expect(within(overview).getByTestId("platform-filter-disabled").textContent).toBe("未启用(29)");
     fireEvent.click(within(overview).getByTestId("platform-filter-disabled"));
     expect(within(overview).getByTestId("platform-card-feishu")).toBeTruthy();
     const detail = within(overview).getByTestId("platform-detail");
@@ -1077,7 +1079,7 @@ describe("消息:底部状态条(R4)", () => {
     await waitFor(() => {
       expect(bar.textContent).toContain("sidecar 正常");
     });
-    expect(bar.textContent).toContain("已连接平台 2/28");
+    expect(bar.textContent).toContain("已连接平台 2/29");
   });
 
   it("health 失败但目录视图可用 → 状态条如实转「sidecar 不可达」,计数照常派生", async () => {
@@ -1095,7 +1097,7 @@ describe("消息:底部状态条(R4)", () => {
     await waitFor(() => {
       expect(bar.textContent).toContain("sidecar 不可达");
     });
-    expect(bar.textContent).toContain("已连接平台 2/28");
+    expect(bar.textContent).toContain("已连接平台 2/29");
   });
 });
 
@@ -1124,11 +1126,12 @@ describe("消息:平台总览派生纯函数", () => {
 
   it("buildPlatformCards:已实装全缺凭据=需要设置(微信桥接灰态例外)+ 未实装全即将支持;灰卡无指南、id 唯一", () => {
     const cards = buildPlatformCards({}, []);
-    expect(cards).toHaveLength(28);
+    expect(cards).toHaveLength(29);
     // 计数锚在注册表长度(W3 长尾多会话并行转实装,字面量随批腐化):已实装
-    // 缺凭据 → needs_setup,唯一例外是微信桥接灰态;未实装 → coming_soon。
+    // 缺凭据 → needs_setup,例外两枚灰态卡(微信桥接 + 微信本机,均凭据不在
+    // MYIA 侧、needs_setup 是误导);未实装 → coming_soon。
     expect(cards.filter((card) => card.status === "needs_setup")).toHaveLength(
-      IMPLEMENTED_PLATFORMS.length - 1,
+      IMPLEMENTED_PLATFORMS.length - 2,
     );
     expect(cards.filter((card) => card.status === "coming_soon")).toHaveLength(
       UPCOMING_PLATFORMS.length,
@@ -1136,7 +1139,7 @@ describe("消息:平台总览派生纯函数", () => {
     // 微信桥接(10-03-messaging-weixin-bridge):不传 bridgeStatus = 灰态
     // 「需本机 Hermes」,永黄不了(凭据不在 MYIA 侧,needs_setup 是误导)
     expect(cards.find((c) => c.id === "weixin")!.status).toBe("bridge_unavailable");
-    expect(new Set(cards.map((card) => card.id)).size).toBe(28);
+    expect(new Set(cards.map((card) => card.id)).size).toBe(29);
     // W2 四平台已转实装:有指南、discovery=manual(无自动发现,蓝本事实)
     for (const id of ["ntfy", "dingtalk", "wecom", "weixin"]) {
       const card = cards.find((c) => c.id === id)!;

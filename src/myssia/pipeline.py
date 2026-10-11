@@ -216,6 +216,10 @@ _W2_CHANNEL_FIELD_KWARGS: dict[str, tuple[tuple[str, str], ...]] = {
         ("wecom_agentid", "agentid_ref"),
     ),
     "weixin": (("weixin_hermes_bin", "hermes_bin"),),
+    # weixin-local(10-11-wechat-ui-bridge F1):桥 bin 路径覆写下传(非凭据,
+    # weixin 行同款);weixin_local_enabled 是 schema 加载门(缺省拒),不进
+    # 构造参数。
+    "weixin-local": (("wechat_bridge_bin", "bridge_bin"),),
     "bark": (("bark_endpoint", "bark_endpoint"),),
     "feishu_card": (("msg_form", "msg_form"), ("bot", "bot")),
 }

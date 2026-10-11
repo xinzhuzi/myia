@@ -2918,11 +2918,13 @@ def test_method_registry_allowed_matches_handlers():
     10-09-tg-category-entry v8)后 = 75;
     平台账号批(platform_accounts.* 四方法,10-11-platform-account-config)
     + tg-manage-absorb 批(telegram.web.check,10-11-tg-manage-absorb)
-    后 = 80。"""
+    后 = 80;
+    wechat-ui-bridge F2 批(wechat_local.* 四方法,10-11-wechat-ui-bridge)
+    后 = 84。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 80
+    assert len(allowed) == 84
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",
@@ -2939,6 +2941,8 @@ def test_method_registry_allowed_matches_handlers():
                    "plugins.remote.get", "plugins.remote.save",
                    "telegram.status", "telegram.web.delete",
                    "telegram.web.check",
+                   "wechat_local.probe", "wechat_local.sessions",
+                   "wechat_local.messages", "wechat_local.query",
                    "browser.open", "browser.list", "browser.focus",
                    "browser.close"):
         assert method in allowed

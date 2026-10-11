@@ -290,6 +290,8 @@ structured `dependency_missing` and fallback to keyword-only scoring).
 | `dingtalk_secret` | `null` | Optional DingTalk signing secret reference (set = HMAC-SHA256 signed; omitted = bare webhook) (`dingtalk` only) |
 | `wecom_corpid` / `wecom_corpsecret` / `wecom_agentid` | `null` | WeCom self-built-app credential references; omitted falls back to env `WECOM_CORPID`/`WECOM_CORPSECRET`/`WECOM_AGENTID` (`wecom` only) |
 | `bark_endpoint` | `null` | Bark (iOS push) server endpoint; **not a credential**, safe in YAML: unset = the official service `https://api.day.app`, self-hosted = host address (e.g. `http://<host>:8080`); must be http(s) (`bark` only) |
+| `wechat_bridge_bin` | `null` | Path override for the managed wechat-bridge component binary (default `~/.myia/plugins/wechat-bridge/bin/wechat-bridge`); a local path, **not a credential** — no env:/keychain: reference (`weixin-local` only) |
+| `weixin_local_enabled` | `null` | Explicit enable switch for the local WeChat bridge: a `weixin-local` entry must carry `true` explicitly to load (default off — same-machine convenience; the primary outbound = the `weixin` official bridge); off = channel not registered (`weixin-local` only) |
 
 route rules:
 

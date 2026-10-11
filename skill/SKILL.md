@@ -58,7 +58,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `PAGINATION_MODES` | `template` `selector` `scroll` |
 | `EXTRACT_TYPES` | `list` `item` `json_path` `rss` |
 | `BACKOFF_POLICIES` | `exponential` `linear` `none` |
-| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `bark` `apprise` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` |
+| `PUSH_CHANNELS` | `feishu_card` `telegram` `ntfy` `dingtalk` `wecom` `weixin` `webhook` `stdout` `bark` `apprise` `slack` `discord` `whatsapp_cloud` `line` `qqbot` `google_chat` `teams` `msgraph_webhook` `matrix` `mattermost` `irc` `simplex` `signal` `bluebubbles` `email` `sms` `homeassistant` `a2a` `yuanbao` `buzz` `photon` `raft` `weixin-local` |
 | `ROUTE_MODES` | `immediate` `digest` `archive` |
 | `ENRICH_SCORES` | `value` `relevance` `credibility` |
 | `VACUUM_CADENCES` | `daily` `weekly` `monthly` `never` |
@@ -213,6 +213,8 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `bark_endpoint` | `null` | Bark(iOS 推送)服务端端点;**非凭据**,可落 YAML。留空 = 官方服务 `https://api.day.app`;自建填主机地址(如 `http://<host>:8080`,docker `finb/bark-server`);须 http(s) 形态(仅 `bark` 可配) |
 | `msg_form` | `null` | 飞书消息形态(10-06-hermes-align 批次1):`text` = markdown 文本日报(post md rows 经 `im/v1/messages`,Hermes 日报形态,超 4000 字按行边界续条并头尾 `(i/N)` 标注);`card` = 交互卡片;留空 = `card` 向后兼容(仅 `feishu_card` 可配) |
 | `bot` | `null` | 飞书出站机器人档案(10-06-hermes-align 批次2):`analyst` = 二号机器人(Hermes ai-analyst profile 独立应用),凭据走 `env:FEISHU2_APP_ID`/`FEISHU2_APP_SECRET` 或钥匙链规范名 `myia/push/FEISHU2_*`;留空 = 主机器人;chat id 沿用本条目 `target` 不随 bot 切换(仅 `feishu_card` 可配) |
+| `wechat_bridge_bin` | `null` | 受管组件 wechat-bridge 的 bin 路径覆写(缺省 `~/.myia/plugins/wechat-bridge/bin/wechat-bridge`);本地路径**非凭据**,不走 env:/keychain: 引用(仅 `weixin-local` 可配;10-11-wechat-ui-bridge) |
+| `weixin_local_enabled` | `null` | 微信本机桥显式启用开关:`weixin-local` 条目必须显式 `true` 才能通过加载(缺省关——同机便捷补充,主出站口 = `weixin` 官方桥);关闭 = 通道不注册(仅 `weixin-local` 可配) |
 
 各通道凭据约定:`feishu_card` 的 target = 收件/群 ID(如 `env:FEISHU_CHAT_ID`),
 机器人 token 从 `env:FEISHU_BOT_TOKEN` 读;`telegram` 的 target = chat id

@@ -430,6 +430,10 @@ from myssia.plugins.remote import (
 from myssia.plugins.versioning import VersionRange, VersionSpecError
 from myssia.push import ChannelDirectory, DeliveryLedger, DirectoryDiscoverUnsupported, PushSendError
 from myssia.push.weixin import probe_bridge
+from myssia.wechat_local_sidecar import (
+    WechatLocalSidecarError,
+    handle_wechat_local,
+)
 from myssia.schema import (
     CATEGORY_ID_RE,
     CHANNEL_PLATFORMS,
@@ -520,6 +524,10 @@ from myssia.vision.server import (
 #: telegram.status 行新可选键(last_verified_at/alive/check_in_progress/
 #: check_note)—— 循 run.status 历史行批的加法可选字段先例不 bump:旧壳
 #: 遇新方法 method_not_found 结构化降级不白屏,旧 UI 忽略新键照跑。
+#: v15 后纯加法批二(10-11-wechat-ui-bridge F2):wechat_local.probe/
+#: sessions/messages/query 四方法(微信本机桥三态探针 + 只读命令族)——
+#: 同上不 bump:新方法全部自带结构化错误面,旧壳组合下 UI method_not_found
+#: 降级灰态即正确行为;注册表 84 行。
 PROTOCOL_VERSION = 15
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
 STATUS_BY_EXIT = {0: "success", 1: "config_error", 2: "failed", 3: "partial"}
@@ -4659,6 +4667,67 @@ def _m_bridge_status(params: dict[str, Any]) -> dict[str, Any]:
     return probe_bridge(hermes_bin).to_payload()
 
 
+# ---------------------------------------------------------------------------
+# 微信本机桥面(10-11-wechat-ui-bridge F2;design §1「local-db 通道:CLI +
+# sidecar handler 挂载」):探针三态 + 只读命令族(sessions/messages/query)。
+# 实现本体在 myssia.wechat_local_sidecar(随包打包),这里只做薄壳转接 ——
+# ``WechatLocalSidecarError`` → ``ProtocolError`` 换轨,桥具名错误族(design
+# §6)原样上抛;桥本体职责(频控 G6 / AX 静默铁律 / 私有数据红线)全在
+# 受管组件 wechat-bridge 内,sidecar 层零复制。聊天内容/密钥材料只在应答
+# 载荷(stdout 契约),薄壳不落日志不落盘。
+# ---------------------------------------------------------------------------
+
+
+def _wechat_local_shell(action: str, params: dict[str, Any]) -> dict[str, Any]:
+    """公共转接:分发进 myssia 层,结构化错误换轨协议错误。"""
+    try:
+        return handle_wechat_local(action, params)
+    except WechatLocalSidecarError as exc:
+        raise ProtocolError(exc.code, exc.message, path=exc.path, data=exc.data) from exc
+
+
+def _m_wechat_local_probe(params: dict[str, Any]) -> dict[str, Any]:
+    """微信本机桥三态探针(#81,10-11-wechat-ui-bridge F2)。
+
+    {} → 桥 ``--probe`` 载荷原样(ok/state/checks/wechat_version/
+    bridge_version/reasons[,config])。健康面自健康:组件缺席/超时/
+    应答不可解析都是同形合成载荷(state 恒 bridge_unavailable),永不抛;
+    UI「微信本机」卡三态派生的唯一真源。
+    """
+    return _wechat_local_shell("probe", params)
+
+
+def _m_wechat_local_sessions(params: dict[str, Any]) -> dict[str, Any]:
+    """微信本机会话列表(#82,10-11-wechat-ui-bridge F4;只读入口第一步)。
+
+    {limit?} → 桥 ``sessions list --json`` 载荷({sessions:[{id,name,unread}]}
+    ,首版 N=20)。只读浏览面:不经目录、不落 store;桥 Phase C 未落地时
+    如实 ``not_implemented``。
+    """
+    return _wechat_local_shell("sessions", params)
+
+
+def _m_wechat_local_messages(params: dict[str, Any]) -> dict[str, Any]:
+    """微信本机最近消息(#83,10-11-wechat-ui-bridge F4;G2 读回展示)。
+
+    {chat_id, count?} → 桥 ``messages read`` 载荷({messages:[{ts,sender,
+    type,text?,media_placeholder?}]});读回仅展示不入情报管线(G3:零
+    store/dedup/分类接线)。媒体类 = 类型 + 占位描述,内容不识别(prd R1a)。
+    """
+    return _wechat_local_shell("messages", params)
+
+
+def _m_wechat_local_query(params: dict[str, Any]) -> dict[str, Any]:
+    """微信本机本地库查询(#84,10-11-wechat-ui-bridge F2;E 段三域只读)。
+
+    {chat_id, since_days?} → 桥 ``localdb query --since Nd --json`` 载荷
+    ({chat_id,since_days,messages,display_name,sessions,domains,copy})。
+    G4:message/session/contact 三域;密钥途径未闭合时如实 ``key_unavailable``
+    (exit 21,D4 语义)。
+    """
+    return _wechat_local_shell("query", params)
+
+
 #: push.write 重序列化行宽(官方 YAML 阅读宽一致;模板长行不被硬拆)。
 _PUSH_DUMP_WIDTH = 100
 
@@ -6923,6 +6992,13 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "push.write": _m_push_write,
     "push.test": _m_push_test,
     "bridge.status": _m_bridge_status,
+    # 微信本机桥面(10-11-wechat-ui-bridge F2/F4):探针三态 + 只读命令族
+    # (sessions/messages/query);薄壳转接 myssia.wechat_local_sidecar,
+    # 桥具名错误族原样上抛(design §6),读回不入 store/dedup(G3)。
+    "wechat_local.probe": _m_wechat_local_probe,
+    "wechat_local.sessions": _m_wechat_local_sessions,
+    "wechat_local.messages": _m_wechat_local_messages,
+    "wechat_local.query": _m_wechat_local_query,
     "platform_accounts.status": _m_platform_accounts_status,
     "platform_accounts.feishu.authorize": _m_platform_accounts_feishu_authorize,
     "platform_accounts.feishu.delete": _m_platform_accounts_feishu_delete,

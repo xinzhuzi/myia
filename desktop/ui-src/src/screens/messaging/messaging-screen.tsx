@@ -39,6 +39,7 @@ import {
   parseCsvList,
   pushWrite,
   targetSpec,
+  wechatLocalProbe,
 } from "./api";
 import type {
   AlertRuleKind,
@@ -55,8 +56,10 @@ import type {
   ChannelsView,
   PushRuleEntry,
   PushRuleFile,
+  WechatLocalProbeView,
 } from "./api";
 import { buildPlatformCards, PlatformOverview } from "./platform-overview";
+import { WechatLocalSection } from "./wechat-local";
 
 interface LoadState {
   status: "loading" | "error" | "ready";
@@ -117,11 +120,27 @@ export function MessagingScreen() {
   /** 微信桥接探测(bridge.status;失败降级 null = 灰态「需本机 Hermes」,
    * 不挡整屏目录视图——发送期的结构化错误是通道层的事)。 */
   const [bridge, setBridge] = useState<BridgeStatusView | null>(null);
+  /** 微信本机探针(wechat_local.probe;失败降级 null = 灰态,「微信本机」
+   * 卡与本屏工作区共用同一真源,10-11-wechat-ui-bridge F3)。 */
+  const [localProbe, setLocalProbe] = useState<WechatLocalProbeView | null>(null);
+  const [localProbeError, setLocalProbeError] = useState<SidecarRequestError | null>(null);
   /** R4 状态条:sidecar 健康(health 一来一回成功即 true;null = 检测中)。 */
   const [sidecarHealthy, setSidecarHealthy] = useState<boolean | null>(null);
 
+  /** 微信本机探针拉取(永不 reject:错误落 localProbeError,区降级呈现)。 */
+  const reloadLocalProbe = useCallback(async () => {
+    try {
+      setLocalProbe(await wechatLocalProbe());
+      setLocalProbeError(null);
+    } catch (error) {
+      setLocalProbe(null);
+      setLocalProbeError(asSidecarError(error));
+    }
+  }, []);
+
   const reload = useCallback(async () => {
     setState({ status: "loading", data: null, error: null });
+    void reloadLocalProbe();
     try {
       const [data, names, healthy, bridgeProbe] = await Promise.all([
         channelsList(),
@@ -146,7 +165,7 @@ export function MessagingScreen() {
       setSidecarHealthy(false);
       setState({ status: "error", data: null, error: asSidecarError(error) });
     }
-  }, []);
+  }, [reloadLocalProbe]);
 
   useEffect(() => {
     void reload();
@@ -295,8 +314,8 @@ export function MessagingScreen() {
 
   /** R4 状态条信号二:已连接平台计数(与平台总览同一纯函数派生,不另立口径)。 */
   const cards = useMemo(
-    () => buildPlatformCards(data?.platforms ?? {}, secretNames, bridge),
-    [data, secretNames, bridge],
+    () => buildPlatformCards(data?.platforms ?? {}, secretNames, bridge, localProbe),
+    [data, secretNames, bridge, localProbe],
   );
   const connectedCount = useMemo(
     () => cards.filter((card) => card.status === "connected").length,
@@ -375,6 +394,17 @@ export function MessagingScreen() {
         secretNames={secretNames}
         dead={data?.dead ?? []}
         bridgeStatus={bridge}
+        wechatLocalProbe={localProbe}
+      />
+
+      {/* ---------------- 微信本机工作区(10-11-wechat-ui-bridge F3/F4:
+          AX 权限引导卡 + 只读会话入口 + 本地库查询;状态与上区「微信本机」
+          卡共用同一探针真源) ---------------- */}
+      <WechatLocalSection
+        probe={localProbe}
+        probeError={localProbeError}
+        refreshing={state.status === "loading"}
+        onRefresh={() => void reloadLocalProbe()}
       />
 
       {/* ---------------- 上区:通道目录(按平台分组) ---------------- */}

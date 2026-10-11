@@ -16,7 +16,7 @@
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 80 行;代码 `_HANDLERS` 现值 80,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 84 行;代码 `_HANDLERS` 现值 84,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -100,6 +100,10 @@
 | 78 | `platform_accounts.feishu.delete` | `_m_platform_accounts_feishu_delete` | 删飞书账号:`{account}` → `{deleted, account}`(钥匙链两 token 项 + 账号目录;授权进行中 → `account_delete_in_progress` 拒;键同门校验;镜像 telegram.web.delete 口径;10-11-platform-account-config) |
 | 79 | `platform_accounts.feishu.probe` | `_m_platform_accounts_feishu_probe` | 刷新闭环探针:`{account}` → `{account, refresh_ok, refreshed_at?|reason?}`(refresh 可成功 = 绿且新 token 对回写钥匙链 = 续期闭环;失败是**状态**不是异常:`refresh_ok:false`+`reason` 置灰;无 refresh_token = `feishu_refresh_token_missing` 同形态指引重授权;UI「重新检查」钮 + 授权回调成功后自动一发;10-11-platform-account-config) |
 | 80 | `telegram.web.check` | `_m_telegram_web_check` | 账号登录态体检(10-11-tg-manage-absorb AC1):`{account}` → `{started, account, note}`;键同门校验(`invalid_account`)/配置档缺 `profile_missing` 同步拒/依赖前置探针 `dependency_missing`(判例 browser.open)/登录窗在跑 `login_in_progress` 拒(判例 telegram.web.delete)/同键体检在跑 → `{started:false}` 幂等回执。**分层并发相处**(三占用者共用 profile_dir,Chromium 单实例锁使第二开者必败):常态面(TG 监控主使用态)= 读常驻哨兵真源零新浏览器 —— manager 单实例槽 `_TELEGRAM_WEB_MANAGER`(装配挂/_close 摘)`status()` 该键 running 且无告警 = 活(note 带 `web_monitor_sentry`;哨兵 60s 周期在查),哨兵已记 `tg_web_logged_out` = 死(note 带哨兵 detail)→ `web_line.record_verification` 落标记 + 台账 done,毫秒级秒回不起线程;槽空/dev/serve 未起 = 无常驻占用走探针路径:daemon 线程 `asyncio.run(check_logged_in)`(每线程新 loop,≤45s)→ 结论 `record_verification` 落标记 + 台账 done;探针异常(含 TelegramWebError re-raise 面)/`probe_failed:*` = 台账 **failed** + note 人话「常驻 web 线/登录窗/批量采集占用配置档时探针会冲突失败;先停监控或关登录窗再测」(批量采集独立进程无法感知,只能人话兜底)—— 整体 try/except 兜底绝不卡 running(否则同键永久幂等拒 + status 行 check_in_progress 永真);结果面经 `telegram.status` 行小字回读(last_verified_at/alive/check_note) |
+| 81 | `wechat_local.probe` | `_m_wechat_local_probe` | 微信本机桥三态探针(10-11-wechat-ui-bridge F2):`{}` → 桥 `--probe` 载荷原样(`{ok, state, checks, wechat_version, bridge_version, reasons[, config]}`,三态 = ok/degraded/bridge_unavailable,判据矩阵在桥内);实现本体 `myssia.wechat_local_sidecar`(随包),薄壳换轨 `WechatLocalSidecarError`→`ProtocolError`;**健康面自健康**——组件缺席/超时/应答不可解析都返回同形合成载荷(state 恒 bridge_unavailable,reasons 带 component_missing/probe_timeout/probe_unparseable),永不抛;探针零成本零读取(不读消息内容);UI「微信本机」卡三态派生唯一真源 |
+| 82 | `wechat_local.sessions` | `_m_wechat_local_sessions` | 微信本机会话列表(10-11-wechat-ui-bridge F4 只读入口第一步):`{limit?}` → 桥 `sessions list --json` 载荷(`{sessions:[{id,name,unread}]}`,首版 N=20,limit 1..100);只读浏览面不经目录不落 store;桥 Phase C 未落地如实 `not_implemented`(exit 1 过渡码原样透传,不谎报具名族);bin 缺失 `component_missing`、超时 `bridge_timeout`(60s kill 兜底) |
+| 83 | `wechat_local.messages` | `_m_wechat_local_messages` | 微信本机最近消息(10-11-wechat-ui-bridge F4;G2 读回展示):`{chat_id, count?}` → 桥 `messages read` 载荷(`{messages:[{ts,sender,type,text?,media_placeholder?}]}`,缺省 K=50,count 1..200);**读回仅展示不入情报管线**(G3:零 store/dedup/分类接线);媒体类 = 类型+占位描述不识别内容(prd R1a);参数门 invalid_params(path 精确到 params.chat_id/params.count) |
+| 84 | `wechat_local.query` | `_m_wechat_local_query` | 微信本机本地库查询(10-11-wechat-ui-bridge F2;E 段三域只读):`{chat_id, since_days?}` → 桥 `localdb query --since Nd --json` 载荷(`{chat_id, since_days, messages, display_name, sessions, domains, copy}`);G4 message/session/contact 三域;since_days 缺省 30(design §7 limits.history_days 同值)、上界 3650 防呆;密钥途径未闭合如实 `key_unavailable`(exit 21,D4 语义)/副本缺 `decrypt_failed`(exit 22)/定位失败 `db_not_found`(exit 20);聊天内容只在应答载荷(stdout 契约),sidecar 层零日志零落盘(红线 6) |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+
@@ -197,6 +201,14 @@ web 行新可选键(last_verified_at/alive/check_in_progress/check_note)。
 **不 bump v15**:循 gates/run.status 历史行批「地基路」纯加法先例 ——
 新方法旧壳经 method_not_found 结构化降级不白屏,新键旧 UI 忽略照跑;
 注册表 80 行。
+wechat-ui-bridge F2 批(task 10-11-wechat-ui-bridge)新增 4:81-84
+`wechat_local.probe`(微信本机桥三态探针)/ `wechat_local.sessions` /
+`wechat_local.messages`(只读命令族,F4 消息屏只读入口数据面)/
+`wechat_local.query`(本地库三域查询)。实现本体 = `myssia.
+wechat_local_sidecar`(随包打包),entry.py 只留四枚三行薄壳;桥具名
+错误族(design §6 码表)原样透传。**不 bump v15**:同上地基路纯加法
+先例(新方法旧壳 method_not_found 结构化降级,消息屏「微信本机」卡
+按灰态呈现即正确行为);注册表 84 行。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成

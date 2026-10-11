@@ -871,6 +871,10 @@ def test_feishu_and_stdout_channels_conform_to_channel_protocol(monkeypatch):
         # apprise(10-05-push-apprise):统一推送 extras 可选通道(专测
         # tests/push/test_apprise.py)。
         "apprise",
+        # weixin-local(10-11-wechat-ui-bridge F1):微信本机桥(受管组件
+        # wechat-bridge;同机便捷补充,缺省关。专测
+        # tests/push/test_messaging_weixin_local.py)。
+        "weixin-local",
         # ---- W3 长尾(10-03-messaging-w3-longtail)----
         "slack",
         "discord",

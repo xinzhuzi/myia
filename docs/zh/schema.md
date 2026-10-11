@@ -250,6 +250,8 @@ rate_limit:
 | `dingtalk_secret` | `null` | 钉钉可选加签密钥引用(配即 HMAC-SHA256 加签;省略 = 裸 webhook)(仅 `dingtalk` 可配) |
 | `wecom_corpid` / `wecom_corpsecret` / `wecom_agentid` | `null` | 企微自建应用三凭据引用;省略走缺省 env `WECOM_CORPID`/`WECOM_CORPSECRET`/`WECOM_AGENTID`(仅 `wecom` 可配) |
 | `bark_endpoint` | `null` | Bark(iOS 推送)服务端端点;**非凭据**可落 YAML:留空 = 官方服务 `https://api.day.app`,自建填主机地址(如 `http://<host>:8080`);须 http(s) 形态(仅 `bark` 可配) |
+| `wechat_bridge_bin` | `null` | 受管组件 wechat-bridge 的 bin 路径覆写(缺省 `~/.myia/plugins/wechat-bridge/bin/wechat-bridge`);本地路径**非凭据**,不走 env:/keychain: 引用(仅 `weixin-local` 可配) |
+| `weixin_local_enabled` | `null` | 微信本机桥显式启用开关:`weixin-local` 条目必须显式 `true` 才能通过加载(缺省关——同机便捷补充,主出站口 = `weixin` 官方桥);关闭 = 通道不注册(仅 `weixin-local` 可配) |
 
 route 规则:
 

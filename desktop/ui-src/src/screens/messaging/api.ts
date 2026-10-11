@@ -402,12 +402,130 @@ export async function alertsTest(params: AlertsTestParams): Promise<AlertTestRes
 }
 
 // ---------------------------------------------------------------------------
+// 微信本机桥(task 10-11-wechat-ui-bridge F2/F4;受管组件 wechat-bridge)
+// ---------------------------------------------------------------------------
+
+/** wechat_local.probe 应答的单条降级原因(码名 + 修复指引;桥内判据矩阵行)。 */
+export interface WechatLocalProbeReason {
+  code: string;
+  fix_hint: string;
+}
+
+/**
+ * wechat_local.probe 应答(三态探针;形状对照 plugins/wechat-bridge
+ * probe.ProbeResult.to_payload / entry.py `_m_wechat_local_probe`)。
+ * `state` = ok / degraded / bridge_unavailable(「微信本机」卡三态唯一真源);
+ * 组件缺席/超时时 sidecar 返回同形合成载荷(state 恒 bridge_unavailable),
+ * UI 永远拿到可渲染三态。
+ */
+export interface WechatLocalProbeView {
+  ok: boolean;
+  state: "ok" | "degraded" | "bridge_unavailable";
+  checks: Record<string, string>;
+  wechat_version: string | null;
+  bridge_version: string | null;
+  reasons: WechatLocalProbeReason[];
+}
+
+/** wechat_local.sessions 应答的会话条目(design §6 契约;首版 N=20)。 */
+export interface WechatLocalSession {
+  id: string;
+  name: string;
+  unread: number;
+}
+
+/**
+ * 一条读回消息(design §6 契约):text 型带 `text`,媒体类落 `media_placeholder`
+ * (类型 + 占位描述,内容不识别,prd R1a);读回仅展示不入情报管线(G3)。
+ */
+export interface WechatLocalMessage {
+  ts: number;
+  sender: string;
+  type: string;
+  text?: string;
+  media_placeholder?: string;
+}
+
+/** wechat_local.query 应答(E 段三域只读;G4 message/session/contact)。 */
+export interface WechatLocalQueryView {
+  chat_id: string;
+  since_days: number;
+  messages: WechatLocalMessage[];
+  display_name: string | null;
+  sessions: Array<Record<string, unknown>>;
+  domains: Record<string, string>;
+  copy: Record<string, unknown>;
+}
+
+/**
+ * 微信本机桥三态探针(10-11-wechat-ui-bridge F2;屏私有封装,invoke 直连
+ * 不入共享门面——sidecar-protocol.md 变更纪律 3)。
+ *
+ * 探针是健康面:sidecar 层对组件缺席/超时都返回同形合成载荷,永不抛;
+ * 这里的 catch 兜底只剩传输层错误(壳不可达),由调用方降级呈现。
+ */
+export async function wechatLocalProbe(): Promise<WechatLocalProbeView> {
+  try {
+    return await invoke<WechatLocalProbeView>("sidecar_request", {
+      method: "wechat_local.probe",
+      params: {},
+    });
+  } catch (raw) {
+    throw asSidecarError(raw);
+  }
+}
+
+/** 只读会话列表(首版 N=20;G2 只读入口第一步,不经目录不落 store)。 */
+export async function wechatLocalSessions(limit?: number): Promise<{ sessions: WechatLocalSession[] }> {
+  try {
+    return await invoke<{ sessions: WechatLocalSession[] }>("sidecar_request", {
+      method: "wechat_local.sessions",
+      params: limit === undefined ? {} : { limit },
+    });
+  } catch (raw) {
+    throw asSidecarError(raw);
+  }
+}
+
+/** 只读最近消息(G2:选会话 → 拉最近消息展示;读回不入 store/dedup)。 */
+export async function wechatLocalMessages(
+  chatId: string,
+  count?: number,
+): Promise<{ messages: WechatLocalMessage[] }> {
+  try {
+    return await invoke<{ messages: WechatLocalMessage[] }>("sidecar_request", {
+      method: "wechat_local.messages",
+      params: count === undefined ? { chat_id: chatId } : { chat_id: chatId, count },
+    });
+  } catch (raw) {
+    throw asSidecarError(raw);
+  }
+}
+
+/** 本地库只读查询(E 段三域;G4:message/session/contact)。 */
+export async function wechatLocalQuery(
+  chatId: string,
+  sinceDays?: number,
+): Promise<WechatLocalQueryView> {
+  try {
+    return await invoke<WechatLocalQueryView>("sidecar_request", {
+      method: "wechat_local.query",
+      params:
+        sinceDays === undefined ? { chat_id: chatId } : { chat_id: chatId, since_days: sinceDays },
+    });
+  } catch (raw) {
+    throw asSidecarError(raw);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 告警表单辅助(纯函数:下拉选项 / 逗号分隔解析)
 // ---------------------------------------------------------------------------
 
 /**
- * push 动作 channel 下拉名集 = `myssia.push.CHANNELS` 键集镜像(30 条:
- * 8 核心 + W3 长尾 22;同步源 src/myssia/push/__init__.py:181-191)。
+ * push 动作 channel 下拉名集 = `myssia.push.CHANNELS` 键集镜像(31 条:
+ * 8 核心 + W3 长尾 22 + weixin-local(10-11-wechat-ui-bridge F1,微信本机
+ * 桥);同步源 src/myssia/push/__init__.py CHANNELS)。
  * UI 只做名集提示,凭据解析在执行期(品类 push[] 第一个此类型通道,
  * 未配置则降级不发 —— design §7.1)。
  */
@@ -442,6 +560,7 @@ export const ALERT_CHANNELS: string[] = [
   "buzz",
   "photon",
   "raft",
+  "weixin-local",
 ];
 
 /** scope 下拉的品类选项(yaml.list 的 parse_ok 且有 category_id 项)。 */

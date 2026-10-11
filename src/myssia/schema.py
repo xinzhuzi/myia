@@ -239,6 +239,10 @@ PUSH_CHANNELS = (
     # ~160 长尾目标;不进 CHANNEL_PLATFORMS——目标=Apprise 原生 URL 串,
     # 无目录语义,配 targets 即拒,同 webhook/bark)。
     "apprise",
+    # weixin-local 随 10-11-wechat-ui-bridge F1 增(微信本机桥,受管组件
+    # wechat-bridge;不进 CHANNEL_PLATFORMS——无目录寻址,targets 配即拒,
+    # 同 webhook/bark/apprise;weixin_local_enabled 显式开启才可加载)。
+    "weixin-local",
     *_W3_LONGTAIL,
 )
 ROUTE_MODES = ("immediate", "digest", "archive")
@@ -276,6 +280,9 @@ PushChannel = Literal[
     "msgraph_webhook", "matrix", "mattermost", "irc", "simplex", "signal",
     "bluebubbles", "email", "sms", "homeassistant", "a2a", "yuanbao", "buzz",
     "photon", "raft",
+    # weixin-local(10-11-wechat-ui-bridge F1;G7 命名):微信本机桥(受管
+    # 组件 wechat-bridge;同机便捷补充,weixin_local_enabled 显式开启才可加载)。
+    "weixin-local",
 ]
 RouteMode = Literal["immediate", "digest", "archive"]
 ScoreName = Literal["value", "relevance", "credibility"]
@@ -1142,6 +1149,17 @@ class PushConfig(_StrictModel):
     #: hermes``)。**本地路径,非凭据**——不走 env:/keychain: 引用体系,
     #: 也不含任何秘密;MYIA 对微信零凭据(登录态只存在 Hermes 侧)。
     weixin_hermes_bin: str | None = None
+    # ---- 微信本机通道可选字段(10-11-wechat-ui-bridge F1,design §7)----
+    #: 受管组件 wechat-bridge 的 bin 路径覆写(缺省
+    #: ``~/.myia/plugins/wechat-bridge/bin/wechat-bridge``)。本地路径非凭据
+    #: (weixin_hermes_bin 同款;仅 ``weixin-local`` 可配)。
+    wechat_bridge_bin: str | None = None
+    #: 显式启用开关(R2 定案:同机便捷补充,缺省关):``weixin-local`` 条目
+    #: 必须显式携带 true 才能通过加载(加载期 fail-fast,不留「配了却不发」
+    #: 的静默忽略路径);None/false = 关闭,通道不注册,UI 卡显灰。None 缺省
+    #: (非 False)是刻意事实:dump 序列化只容忍缺省为空的纯增字段
+    #: (test_push_schema_targets 黄金回归判据),False 会写进每个既有条目。
+    weixin_local_enabled: bool | None = None
     # ---- Bark(iOS 推送)可选字段(10-05-push-bark)----
     #: Bark 服务端端点(**非凭据**:官方公共服务或自建主机地址,可落 YAML)。
     #: 缺省 = 官方端点 ``https://api.day.app``(常量定值在 myssia.push.bark,
@@ -1168,6 +1186,7 @@ class PushConfig(_StrictModel):
         "dingtalk": ("dingtalk_secret",),
         "wecom": ("wecom_corpid", "wecom_corpsecret", "wecom_agentid"),
         "weixin": ("weixin_hermes_bin",),
+        "weixin-local": ("wechat_bridge_bin", "weixin_local_enabled"),
         "bark": ("bark_endpoint",),
         "feishu_card": ("msg_form", "bot"),
     }
@@ -1276,6 +1295,16 @@ class PushConfig(_StrictModel):
 
     @model_validator(mode="after")
     def _check_channel_target(self) -> "PushConfig":
+        if self.channel == "weixin-local" and self.weixin_local_enabled is not True:
+            # 显式可选门(10-11-wechat-ui-bridge F1,design §7):同机便捷
+            # 补充通道缺省关——写条目必带 weixin_local_enabled: true,否则
+            # 加载期拒(fail-fast,不留静默忽略);关闭 = 通道不注册。
+            raise SchemaValueError(
+                "weixin_local_disabled",
+                "channel 为 weixin-local 时必须显式配 weixin_local_enabled: true"
+                "(微信本机桥是同机便捷补充,缺省关;主出站口 = weixin 官方桥)",
+                path_suffix="weixin_local_enabled",
+            )
         platform = CHANNEL_PLATFORMS.get(self.channel)
         if self.channel == "stdout":
             if self.target is not None:

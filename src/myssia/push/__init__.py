@@ -113,6 +113,10 @@ from myssia.push.telegram_feedback import (
 )
 from myssia.push.wecom import WecomChannel
 from myssia.push.weixin import WeixinChannel
+# weixin-local(微信本机桥,10-11-wechat-ui-bridge F1;G7 命名):出站桥接
+# 受管组件 wechat-bridge(同机便捷补充,schema weixin_local_enabled 缺省关);
+# weixin 通道名保持归官方 Hermes 桥(出站主口),两通道语义独立不混用。
+from myssia.push.weixin_local import WeixinLocalChannel
 # W3 长尾三组(10-03-messaging-w3-longtail 终局接线:组一 Slack 系 8 家、
 # 组二 Matrix 系 8 家、组三长尾 6 家;集成会话一处收口注册)。
 from myssia.push.slack import SlackChannel
@@ -195,6 +199,11 @@ CHANNELS: dict[str, type] = {
     "dingtalk": DingTalkChannel,
     "wecom": WecomChannel,
     "weixin": WeixinChannel,
+    # weixin-local(10-11-wechat-ui-bridge F1;G7):微信本机桥(受管组件
+    # wechat-bridge)。不进 PLATFORMS(无目录寻址,schema 不入
+    # CHANNEL_PLATFORMS——targets 配即拒,同 webhook;通道 id 含连字符,
+    # targets spec 平台前缀词表 [a-z][a-z0-9_]* 也容不下)。
+    "weixin-local": WeixinLocalChannel,
     "webhook": WebhookChannel,
     "stdout": StdoutChannel,
     # bark(10-05-push-bark):iOS 即时推送 one-shot POST;不进 PLATFORMS
@@ -299,6 +308,7 @@ __all__ = [
     "WebhookChannel",
     "WecomChannel",
     "WeixinChannel",
+    "WeixinLocalChannel",
     # W3 长尾(10-03-messaging-w3-longtail)
     "A2aChannel",
     "BlueBubblesChannel",

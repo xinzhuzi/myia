@@ -21,13 +21,13 @@ afterEach(() => {
 });
 
 describe("平台头像:规格表全覆盖", () => {
-  it("28 平台全部有规格;已实装 28 家(16 brand 精确标 + 12 无标全灰档),未实装清零(signal 10-05 出壳)", () => {
+  it("29 平台全部有规格;已实装 29 家(17 brand 精确标 + 12 无标全灰档),未实装清零(signal 10-05 出壳;weixin_local 10-11 微信本机入册)", () => {
     const expected = [
       ...IMPLEMENTED_PLATFORMS.map((p) => p.id),
       ...UPCOMING_PLATFORMS.map((p) => p.id),
     ];
     expect(Object.keys(PLATFORM_ICON_SPECS).sort()).toEqual([...expected].sort());
-    expect(Object.keys(PLATFORM_ICON_SPECS)).toHaveLength(28);
+    expect(Object.keys(PLATFORM_ICON_SPECS)).toHaveLength(29);
     // W2 转实装的四家(ntfy/钉钉/企微/微信)已从 UPCOMING 移入 IMPLEMENTED
     expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("ntfy");
     expect(IMPLEMENTED_PLATFORMS.map((p) => p.id)).toContain("weixin");

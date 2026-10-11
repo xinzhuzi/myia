@@ -192,6 +192,7 @@ push:
 - `dingtalk`:`target` = 自定义机器人 webhook URL(`env:DINGTALK_WEBHOOK_URL`),可选加签密钥配 `dingtalk_secret` 字段(不配 = 裸 webhook)。
 - `wecom`:`target` = touser userid(`env:WECOM_TUSER`),自建应用三凭据从`env:WECOM_CORPID` / `env:WECOM_CORPSECRET` / `env:WECOM_AGENTID` 读。
 - `weixin`:可选桥接通道——出站经本机 Hermes-Agent CLI(路径可用 `weixin_hermes_bin` 覆写),登录态只存 Hermes 侧、myssia 零凭据;`target` = 会话 peer id(`env:WEIXIN_PEER_ID`,定向写 `weixin:<peer id>`),无 Hermes 环境时发送返回 `bridge_unavailable` 结构化错误(配置照常加载)。
+- `weixin-local`(微信本机桥,同机便捷补充、缺省关):`target` = 会话 id 引用(如 `env:WEIXIN_LOCAL_CHAT_ID`);条目必须显式配 `weixin_local_enabled: true` 才能通过加载(关闭 = 通道不注册);出站经受管组件 wechat-bridge(路径可用 `wechat_bridge_bin` 覆写)的一次性 `send_text` 子进程,发送频控(单条、硬间隔 ≥10s)在桥内硬编码不可配置;桥/微信环境缺失时发送返回 `bridge_unavailable`/`bridge_degraded` 结构化错误,一切错误都不标死信;主出站口仍是 `weixin` 官方桥。
 - `webhook`:`target` = 端点 URL 引用(如 `env:MYIA_WEBHOOK_URL`)。
 - `bark`(iOS 即时推送):`target` = device key 引用(`env:BARK_DEVICE_KEY`,在 iPhone Bark App 里复制);端点**非凭据**——`bark_endpoint` 留空 = 官方服务 `https://api.day.app`,自建填主机地址(如 `http://<host>:8080`,docker `finb/bark-server`);通知固定按 `MYIA` 分组;无目录语义,不能配 `targets`。
 - `apprise`(统一推送):`target` = Apprise 目标串引用(`env:APPRISE_URL`,值为一个或多个 Apprise 原生 URL,如 `bark://…`、`pushover://…`,逗号/换行分隔多目标——一个引用推多处);需装可选组件 `pip install "myssia[apprise]"`(或 `uv sync --extra apprise`),未装时发送结构化报 `apprise_unavailable`、`myssia doctor` 出 `apprise_not_installed` 提示(从不惊扰未配置该通道的用户);无目录语义,不能配 `targets`。
