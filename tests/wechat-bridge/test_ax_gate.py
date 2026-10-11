@@ -50,7 +50,8 @@ class TestPreconditionGate:
         assert ensure_ui_preconditions() is None  # 过窗门放行(门只挡 10/11/12)
 
     def test_all_green_gate_passes_and_stub_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """前置全绿 = 门放行(None);实现层(骨架桩)才以 not_implemented 应答。"""
+        """前置全绿 = 门放行(None);未落地实现层(Phase D 写通道桩)以
+        not_implemented 应答。C1/C2 已落像素链,stub 断言改指 send_text。"""
         _gate(monkeypatch, process=True, ax=True, window=True)
         assert ensure_ui_preconditions() is None
         with pytest.raises(BridgeError) as excinfo:
@@ -60,11 +61,11 @@ class TestPreconditionGate:
 
 
 def _raise_stub() -> None:
-    """实现层骨架桩的最小复刻(list_sessions 本体即此形状;直呼保真)。"""
-    from wechat_bridge.ax import list_sessions
+    """实现层骨架桩的最小复刻(send_text 本体即此形状;直呼保真)。"""
+    from wechat_bridge.ax import send_text
     from wechat_bridge.config import BridgeConfig
 
-    list_sessions(BridgeConfig(), None)
+    send_text(BridgeConfig(), "filehelper", "正文")
 
 
 class TestNotImplementedDiscipline:

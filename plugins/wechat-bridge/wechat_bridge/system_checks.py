@@ -28,6 +28,7 @@ __all__ = [
     "CHECK_TIMEOUT_SECONDS",
     "WECHAT_BUNDLE_PATH",
     "WECHAT_PROCESS_NAME",
+    "WECHAT_OWNER_NAMES",
     "wechat_process_running",
     "wechat_version",
     "ax_permission_trusted",
@@ -39,6 +40,10 @@ __all__ = [
 
 #: 微信进程名(pgrep -x 精确匹配;2026-10-11 本机实测形态)。
 WECHAT_PROCESS_NAME = "WeChat"
+#: 微信窗口属主名(CGWindowList kCGWindowOwnerName 实测两种形态:zh-CN 系统为
+#: 「微信」,en 系统为 "WeChat"——只匹配后者会把 zh-CN 系统的窗口态恒判 False,
+#: 2026-10-11 实测踩中并修正)。pixel 层窗口定位同源对账。
+WECHAT_OWNER_NAMES = ("微信", "WeChat")
 #: 微信 app 缺省安装位(版本号读取;非 guessing——装在别处时如实 unknown)。
 WECHAT_BUNDLE_PATH = Path("/Applications/WeChat.app")
 #: 本地库数据根(prd Notes/research §7.1 实测布局;只读定位用)。
@@ -128,9 +133,14 @@ def sys_darwin() -> bool:
 def wechat_main_window_open() -> bool | None:
     """微信主窗口在否(CGWindowList 全量快照按属主过滤;零激活零枚举)。
 
+    「在」的语义(2026-10-11 D2 像素链实测定论后修订):CGWindowList 在册
+    即真——**ordered-off(托盘/后台)窗口同样可被 ``screencapture -l`` 截出
+    完整合成帧**(出图/黑图/失败三态判定的「出图」,证据
+    research/pixel-chain-e2e.md),像素读通道不要求窗口 ordered-on。
+
     Returns:
-        True = 至少一个属主为 WeChat 的窗口;False = 零窗口(托盘态);
-        None = 判定不可及(pyobjc 缺位/非 darwin)→ unknown 如实。
+        True = 至少一个属主为 微信/WeChat 的窗口(含 ordered-off);
+        False = 零窗口;None = 判定不可及(pyobjc 缺位/非 darwin)→ unknown 如实。
     """
     if not sys_darwin():
         return None
@@ -146,7 +156,7 @@ def wechat_main_window_open() -> bool | None:
         return None
     for window in window_list or []:
         owner = window.get(Quartz.kCGWindowOwnerName)
-        if owner == WECHAT_PROCESS_NAME:
+        if owner in WECHAT_OWNER_NAMES:
             return True
     return False
 

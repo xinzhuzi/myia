@@ -34,10 +34,14 @@ requires),exec `python -m wechat_bridge`;stdout 恒单 JSON 由桥包保证,
 - 频控状态:`<数据根>/wechat-localdb/send_state.json`(flock 防并发,design §2)。
 - 外部密钥(D4 裁决②):`<数据根>/wechat-localdb/keys.json`(600 权限;键 = 相对 `db_storage` 的库路径,值 = 该库 64-hex SQLCipher 密钥)。与组件密钥缓存**同位同权**:`localdb query` 消费前逐条 page1 HMAC 重验(`resolve_keys`),全量命中即一步闭合;密钥与库不匹配(如登录态轮换)如实 exit 21 并指明 keys.json 未命中。
 
-## 能力边界(Phase E 已落,E1 实测负结论如实)
+## 能力边界(Phase C1/C2 像素链已落;Phase E 已落,E1 实测负结论如实)
 
 - `--probe` 真实现:三态判据矩阵(design §2)照跑——进程/版本/AX 权限/主窗口/本地库落盘/密钥缓存,全只读零前台扰动;微信托盘态如实 `degraded(window_closed)`,进程不在如实 `bridge_unavailable`。
-- UI 子命令(sessions/messages/send_text):前置检查门真跑(§6 码序 fail-fast),实现层落位 Phase C/D,未落地时结构化应答 `not_implemented`(exit 1 过渡码,不谎报 §6 具名族)。
+- **UI 读通道 = 像素链(Phase C1/C2 已落地;D2 定论改写)**:A1 实测微信 4.1.15 聊天内容层对 AX 完全零暴露(证据 `research/ax-probe-4.1.15.md`)→ 读 = `screencapture -x -o -l`(静默零交互,ordered-off 托盘窗实测可出完整合成帧,证据 `research/pixel-chain-e2e.md`)→ VisionOCR(pyobjc/Vision 一级,毫秒级+逐行置信度)→ 结构化解析(几何全部数据驱动:会话行=时间锚/名字+预览对组两趟组装;零本机像素硬编码)→ VL 修字(127.0.0.1:8080 qwen3-vl-8b-mlx 二级,任一行 conf≤0.5 触发,**解析后只回填低置信行文本,几何永以一级 Vision 为准**;显式降采样路径:长边 >2048 先 LANCZOS)。C1 会话名+未读徽标(徽标不可见/漏读时 `unread: null` 如实)、C2 最近 K 条文本(ts=最近居中时间标记原文,side=左右气泡,发送者名为启发式)。
+  - **硬边界(静默铁律派生)**:桥不能点击切换会话(合成点击被禁)→ `messages read` 读的是**当前打开会话**,载荷 `chat.match` 如实回报请求 id 与可见标题匹配,`false` 时消费方自行取舍。
+  - **误差如实**:载荷 `ocr` 节带 engine/低置信行数/VL 是否参与/解析命中率;单个小徽标数字 Vision 常漏读、`999+` 可能读成 `999`(2026-10-11 实测形状)。像素层专属故障不谎报 §6 具名族:`screen_capture_failed`/`screen_capture_black`(后者典型=宿主缺「屏幕录制」TCC 授权)/`ocr_unavailable`(exit 1 过渡码,扩 §6 码表须先改 design)。
+  - 截图/裁剪件含聊天内容:全程 0700 私有临时目录、用后即清(红线 3)。
+- UI 写通道(send_text):Phase D 按 A1 第三案收口(官方 iLink 桥独任);前置检查门真跑(§6 码序 fail-fast),未落地实现层结构化应答 `not_implemented`(exit 1 过渡码,不谎报 §6 具名族)。
 - `localdb query`(Phase E,已落地):定位 db_storage → E1 密钥获取(零内存途径=key_info.db 材料→候选提取→page1 离线 HMAC-SHA512 校验,机制完整可单测)→ E2 sqlcipher 解密副本至 `<数据根>/wechat-localdb/decrypted/`(600/700 权限,TTL 24h+容量上限,失败重建)→ E3 message/session/contact 三域只读查询(列签名自适应,版本漂移如实降级)。**E1 实测结论(2026-10-11 真跑):零内存密钥途径不可推导**(候选全数 HMAC 未命中,与三方独立公开实测一致)→ 如实 `key_unavailable`(exit 21)+ D4 待主人裁决;密钥可得(外部引入或 D4 豁免后)即全链闭合。
 - `localdb key-scan`(D4 豁免执行件,主人 2026-10-11「全部解决」令):内存密钥批处理扫描——只读 vm_read 类系统调用(`task_for_pid`/`mach_vm_region`/`mach_vm_read_overwrite`)单遍遍历可写私有区 → 32 字节滑窗候选 → 复用 E1 校验器对 page1 离线 HMAC 校验 → 全量命中才落 `keys.json`(600,`localdb query` 一步闭合)。**三重门**:配置 `mem_search_enabled: true`(缺省关)+ root 提权 + 主人裁决在案;预算(单区 64MB/总 256MB)为模块常量;禁写内存/禁注入/禁调试器附加/禁重签名,守卫测试钉死。如实预告:微信为 hardened runtime 签名,root 亦可能被内核拒(`task_for_pid` KERN_FAILURE)——该拒绝即此路在本机不可达的如实信号。
 - 频控落盘模块(G6)已实现并可单测(时间注入,不真等 10 秒)。

@@ -1,19 +1,20 @@
-"""UI 通道 AX 层骨架(task 10-11-wechat-ui-bridge Phase C/D 落点位)。
+"""UI 通道实现层(task 10-11-wechat-ui-bridge Phase C/D 落点位)。
 
-本模块当前只承载**前置检查门**(:func:`ensure_ui_preconditions`)——进程
-在、AX 权限在、主窗口开,按 §6 码序 fail-fast;真正的 AX 树遍历/动作驱动
-归 Phase C(读)与 Phase D(写),到位于本文件扩展,**不另起模块路径**
-(MYIA 侧按 CLI 契约调用,内部模块布局是桥自己的事)。
+**Phase C 读通道已按 D2 定论改写为像素链**(A1 实测微信 4.1.15 聊天内容层
+对 AX 完全零暴露,证据 research/ax-probe-4.1.15.md):``sessions list`` /
+``messages read`` 委托 :mod:`.pixel`(截窗 → VisionOCR → VL 校对 → 结构化
+解析;静默铁律全套:零激活、零合成点击、零抢焦点)。原「AX 树遍历」实现
+整体作废,本模块保留前置检查门与写通道占位。
 
-实现层未落地时的应答纪律:结构化 :class:`BridgeError`(exit 1,通用失败
-段,``code="not_implemented"``)——**绝不谎报为任何 §6 具名族**(把「还没
-实现」伪装成 ax_tree_empty/window_closed 之类会把 MYIA 侧三态与修复指引
-带偏)。
+实现层未落地时的应答纪律(现仅剩 Phase D 写通道):结构化
+:class:`BridgeError`(exit 1,通用失败段,``code="not_implemented"``)——
+**绝不谎报为任何 §6 具名族**。
 
-静默铁律(prd 红线 4)对本模块的约束,落地 Phase C/D 时同样生效:
-只走 AX 属性读 + AXPress/AXConfirm 类动作;禁合成鼠标事件、禁激活窗口、
-禁抢前台焦点。像素链兜底(AX 空树 → 截屏 + local-ocr)属 Phase C3,同样
-不得违反静默铁律(screencapture 不需要窗口在前台)。
+静默铁律(prd 红线 4)对本模块的约束:
+读=像素链(screencapture -l 对后台窗口零交互,ordered-off 窗可截,
+2026-10-11 实测);写=AX 动作(AXPress/AXConfirm 类),禁合成鼠标事件、
+禁激活窗口、禁抢前台焦点——A1 实测 AX 写通道整体不可达,Phase D1 按
+「官方 iLink 桥独任」第三案收口,UI 写如实报不可用。
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ from .codes import (
 )
 from .config import BridgeConfig
 
-__all__ = ["ensure_ui_preconditions", "not_implemented"]
+__all__ = ["ensure_ui_preconditions", "not_implemented", "list_sessions", "read_messages", "send_text"]
 
 #: 骨架过渡码(design §6 表外唯一过渡态;Phase C/D 落地即消亡)。
 NOT_IMPLEMENTED_CODE = "not_implemented"
@@ -85,13 +86,26 @@ def not_implemented(operation: str, landing_phase: str) -> BridgeError:
 
 
 def list_sessions(config: BridgeConfig, limit: int | None = None) -> dict[str, object]:
-    """``sessions list`` 实现位(Phase C1:AX 读会话列表,名称+未读数)。"""
-    raise not_implemented("sessions list", "Phase C1")
+    """``sessions list`` 实现(Phase C1:D2 定论后 = 像素链,委托 :mod:`.pixel`)。
+
+    Returns:
+        §6 契约 ``{"sessions":[{"id","name","unread",…}]}`` + 附加诊断键
+        (window/capture/ocr;unread 在像素链下可为 None——徽标不可见时如实)。
+    """
+    from . import pixel
+
+    return pixel.list_sessions(config, limit)
 
 
 def read_messages(config: BridgeConfig, chat_id: str, k: int | None = None) -> dict[str, object]:
-    """``messages read`` 实现位(Phase C2:AX 读最近 K 条文本;媒体落类型占位)。"""
-    raise not_implemented("messages read", "Phase C2")
+    """``messages read`` 实现(Phase C2:D2 定论后 = 像素链,委托 :mod:`.pixel`)。
+
+    静默硬边界(像素链不能点击切换会话):读到的是**当前打开会话**,载荷
+    ``chat.match`` 如实回报请求 id 与可见标题匹配结果。
+    """
+    from . import pixel
+
+    return pixel.read_messages(config, chat_id, k)
 
 
 def send_text(config: BridgeConfig, chat_id: str, body: str) -> dict[str, object]:

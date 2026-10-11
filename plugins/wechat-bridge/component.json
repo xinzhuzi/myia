@@ -1,7 +1,7 @@
 {
   "id": "wechat-bridge",
   "name": "微信本机桥(UI 自动化 + 本地库只读)",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "kind": "bridge",
   "runtime": "native-python",
   "entry": "wechat_bridge/__main__.py",
@@ -17,7 +17,9 @@
       "accessibility": "辅助功能授权(授给 MYIA app 本体;responsible process 归责——design §5.1)"
     },
     "optional_python": {
-      "pyobjc": "AX 树驱动与 CGWindowList 快照(仓库 venv 已有 Quartz;ApplicationServices 走 ctypes 兜底)"
+      "pyobjc": "AX 树驱动与 CGWindowList 快照(仓库 venv 已有 Quartz;ApplicationServices 走 ctypes 兜底)",
+      "pyobjc_vision": "像素读链一级 VisionOCR(pyobjc-framework-Vision;缺位时 ocr_unavailable 如实,2026-10-11 Phase C1/C2)",
+      "pillow": "截窗三态判定(黑图检测)+ VL 显式降采样 + 聊天区裁剪(Phase C1/C2)"
     }
   },
   "cli_contract": {
