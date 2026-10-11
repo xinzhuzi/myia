@@ -15,6 +15,7 @@
 ### R2 写通道（自动发送）
 - 向指定会话发送文本消息；首个联调对象固定为「文件传输助手」（安全测试对象）。
 - 发送成功要有可验证回执（读回发送框/消息列表比对）。
+- **定位（2026-10-11 收束）**：程序化出站的合规位已由官方 iLink/ClawBot 通道站住（MYIA `weixin.py` 现有 Hermes 桥即此通道，见 research §4/§5）——UI 写通道定位为**同机便捷补充**，不做主出站口。
 
 ### R3 双线结构
 - **macOS 线（先行）**：AX 属性读 + AX 动作驱动本机微信客户端。
@@ -22,6 +23,16 @@
 
 ### R4 账号无关
 - 桥只操作「当前已登录账号」，不在桥内做账号管理/登录流程；小号 vs 主力号是主人侧运营决策（见开放决策 D1）。
+
+### R5 参考件地图（深度查找轮产出，均为外部件按链接者架构处理）
+
+| 线 | 参考件 | 用法 |
+|---|---|---|
+| macOS UI | **BiboyQG/WeChat-MCP**（275★,MIT,AX+截屏,pip 装） | AC1/D2 的机制参考与借力候选 |
+| macOS 本地库 | **yancongya/wechat-mcp-macos**（2026-08 活跃,「零 API 纯本地不改原库」） | AC7 密钥途径的源码级参考 |
+| Windows UI | cluic/wxauto-skill（wxautox4 RESTful）+ cluic/wxauto 本体 | AC6 备胎设计输入 |
+| Windows 本地库 | 1335907208/wechat-mcp-server（内存密钥→all_keys.json,只读原则） | 备胎线数据面参考 |
+| 官方通道对照 | bkmashiro/weixin-mcp（ClawBot MCP 封装） | 独立验证官方 iLink 通道的对照件 |
 
 ## 约束（红线）
 
@@ -46,7 +57,7 @@
 ## 开放决策（主人侧）
 
 - **D1 账号**：专用小号（爆炸半径隔离，代价：实名注册 + 新号风控更敏感） vs 主力号（省注册，风险直接落主力号）。桥实现账号无关，此决策不阻塞开发，只影响联调时挂哪个账号。
-- **D2 wxauto-mac 兼容性失败时的路径**：自研 AX 层 vs 借力 wechat-controller 思路（AC1 探查后裁决）。
+- **D2 wxauto-mac 兼容性失败时的路径**：自研 AX 层 vs 借力 BiboyQG/WeChat-MCP 机制（275★ 现成 macOS AX+截屏实现,AC1 探查后裁决;wechat-controller 已降为次选）。
 - **D3 Windows 备胎是否真启**：看 macOS 线探查与稳定性结果（AC6 判据）。
 - **D4 本地库密钥途径**（2026-10-11 新增）：零内存方案（key_info.db 材料 / 文件内密钥 / 派生）可用 → 直接用；不可用 → 内存密钥搜索是否豁免启用，主人裁决（涉及红线 1 边界）。
 
@@ -54,4 +65,4 @@
 
 - 本机已知事实（2026-10-11 实测）：微信 4.1.15 运行中但**主窗口未开**（托盘态，CGWindowList 全量 0 窗口）；会话宿主已有辅助功能权限（Dock/Finder AX 读取正常）；微信进程族含 WeChatAppEx + 5×Chromium Renderer helper → 聊天界面疑似 Web 渲染，AX 深探必须开窗后做（开窗涉及前台性，归执行段在主人知情下进行）。
 - 本地库事实（2026-10-11 实测）：数据根 `~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/`；当前账号目录 `wxid_oc2yhey1xkpw22_8253/db_storage/` 十四域分库（message/session/contact/sns/favorite/general…），message 域为分片库 + `-wal/-shm/-incremental.material` 增量件；`all_users/login/<wxid>/key_info.db`（活跃写入）为 D4 零内存密钥方案的头号探查对象；钥匙串无微信密钥条目（dump-keychain 元数据级核过，凭据红线内未深挖）。
-- 官方零风险通道（企微 W2 / apprise 五通道）与本桥互补不互斥，见 research 文档 §4。
+- 官方零风险通道（企微 W2 / apprise 五通道）与本桥互补不互斥，见 research 文档 §4/§5。
