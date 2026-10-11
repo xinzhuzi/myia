@@ -7,6 +7,13 @@
 ## Phase A 探查与裁决（先于一切实现）
 
 - [ ] A1 开窗 AX 探查（**须主人知情，微信开窗状态**）：AX 树能力清单——会话列表/消息文本/发送框可达性；Chromium 空树时测 AXManualAccessibility 激活；原始证据落 research/ax-probe-4.1.15.md。→ AC1 前半
+  - **操作手册（执行者照跑，勿自行发明）**：
+    1. 前置检查：CGWindowList 全量查 WeChat 窗口，0 窗口 → 终止并请主人开窗（勿自行激活微信）。
+    2. 粗探：`osascript` System Events——`count windows` / 逐层 `count UI elements`，得树深度概貌。
+    3. 深探：pyobjc（仓库 `.venv` 已有）`AXUIElementCopyAttributeValue` 递归遍历，输出 role/child 计数树（**只记结构计数与 role，不导出消息文本**）；脚本落 `research/ax-probe-script.py` 可复跑。
+    4. 空树分支：`AXUIElementSetAttributeValue(kAXManualAccessibility, true)` 后重遍历；仍空 → 像素链预研结论（screencapture + local-ocr）一并记档。
+    5. 定位三类目标节点并记录路径：会话列表 cell（含未读 badge 属性名）、消息区（文本节点形态）、输入框+发送按钮（AXConfirm 可用性）。
+    6. 证据格式：计数树 + 节点属性表 + 每步命令原文；结论段回答 AC1 三问（能读什么/需要什么激活/写通道是否需焦点）。
 - [ ] A2 wxauto-mac 快速冒烟（**G8：限 30 分钟**）：对 4.1.15 跑核心读路径，可用/部分/不可用三值结论即收；借力研读重心转 **BiboyQG/WeChat-MCP**（275★）机制。→ AC1 后半 + D2 输入
 - [ ] A3 密钥途径探查（**不依赖开窗，可先行**；结论落 research/key-path.md）：key_info.db 结构只读分析（schema/表/列形状，不导内容；**预期管理：它本身可能也是 sqlcipher 加密库——若是，零内存路径难度陡增，如实记录**）；yancongya/wechat-mcp-macos 源码读密钥获取段；结论 = 零内存方案可行性 + D4 裁决请求。
 - [ ] A4 裁决记录：D2（自研/借力 BiboyQG 机制）+ D4（密钥途径）回写 prd 开放决策段；**D1 已决（G1：主力号开发+小号并行注册）——联调挂主力号、操作对象限文件传输助手，小号注册并行推进**。

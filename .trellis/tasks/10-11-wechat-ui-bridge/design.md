@@ -77,3 +77,67 @@
 - 解密副本、查询结果 = 私有情报：不入 git、不入日志、不进上下文原文；外发先脱敏（security-baseline）。
 - 密钥材料不落明文日志；`all_keys.json` 类产物若产生，存数据根私有区并 600 权限。
 - AX 权限：MYIA/桥进程需辅助功能授权，设置页引导一次性授权（装机验证项）。
+
+## 6. 桥 CLI 契约（执行者零设计，照此实现）
+
+调用形态对齐 `weixin.py` 桥接 Hermes 惯例：一次性子进程、`--json` 机器可读应答、exit 三段语义。
+
+```
+wechat-bridge --probe                     # → {"ok":bool,"state":"ok|degraded|bridge_unavailable","checks":{...},"wechat_version":"4.1.15"}
+wechat-bridge sessions list --json        # → {"sessions":[{"id","name","unread":int}]}   首版 N=20
+wechat-bridge messages read <id> -k 50    # → {"messages":[{"ts","sender","type","text"?,"media_placeholder"?}]}
+wechat-bridge send_text <id> --file -     # 正文经 stdin（argv 不携带内容，日志可安全打 argv，对齐 weixin.py D0）
+wechat-bridge localdb query <chat> --since 7d --json
+```
+
+**错误码表**（exit code；MYIA 侧按码映射 UI 文案与三态）：
+
+| exit | 码名 | 语义 |
+|---|---|---|
+| 0 | — | 成功 |
+| 2 | usage | 参数/用法错 |
+| 10 | wechat_not_running | 微信进程不在 |
+| 11 | ax_permission_denied | 辅助功能权限缺失 |
+| 12 | window_closed | 主窗口未开（UI 通道专属，localdb 不受影响） |
+| 13 | ax_tree_empty | AX 树空/残缺（→像素链兜底或 degraded） |
+| 14 | send_rate_limited | 频控拒发（应答含 `retry_after_seconds`） |
+| 15 | send_ax_focus_required | AX 静默发送不可行（触发 AC4 冲突裁决） |
+| 20 | db_not_found | db_storage 定位失败 |
+| 21 | key_unavailable | 密钥不可得（D4 语义） |
+| 22 | decrypt_failed | 解密失败（→副本重建流程） |
+| 30 | timeout | 子进程超时（kill 兜底） |
+
+## 7. 配置面清单（执行者不发明配置键）
+
+**MYIA push 节**（对齐 `weixin_hermes_bin` 惯例）：
+- `wechat_bridge_bin`：桥路径覆写（缺省 `~/.myia/plugins/wechat-bridge/...`）
+- `weixin_local_enabled`：显式可选（R2 定位=便捷补充，缺省关；关闭=通道不注册，UI 卡显灰）
+
+**桥组件侧配置**（数据根私有区 `wechat-bridge/config.json`，全部有缺省、缺文件可用）：
+- `domains`：本地库域清单（G4 缺省 `["message","session","contact"]`）
+- `limits`：`{sessions:20, messages:50, history_days:30}`（AC2 参数化落点）
+- `copy_ttl_hours: 24`、`copy_capacity_mb`（G5）
+- **无频控键**（G6 硬编码，刻意不提供）
+
+## 8. 测试与 CI 策略（执行时最易踩的坑，预先写死）
+
+- **CI 无微信、无 AX 权限**：所有依赖真实客户端的测试必须环境门控（`MYIA_WECHAT_E2E=1` 才跑，CI 缺省跳过）——对齐「7 manual 全 CI 首跑」先例，严禁把真客户端测试裸放进 pytest 全量。
+- 桥单测：AX/localdb 层全 mock，**协议层测试用 fixture 录制**（真实应答脱敏后入 `tests/`，脱敏纪律红线 6）。
+- CLI JSON 应答配 **golden 基件**（对齐插件 golden 惯例：改契约必同步基件）。
+- MYIA 侧 `weixin_local.py` 通道测试：fake bridge 二进制脚本（echo 预录 JSON），对齐 `weixin.py` 「真实子进程冒烟仅两条」的克制口径。
+- 频控测试：直接测状态文件读写与 flock，不真等 10 秒（时间注入）。
+
+## 9. 执行依赖图（可并行处写明，执行者自行调度）
+
+```
+A1(AX探查)──→ C(UI读) ──→ D(UI写) ──┐
+A2(冒烟)  ──┘                      ├──→ F(MYIA装配) → 收尾
+A3(密钥)  ──→ E(本地库) ───────────┤      ↑ E 进 F 需 D4 已裁决
+B(骨架) ——— 独立,与 A 全段并行 ─────┘
+G(备胎占位) ——— 随时可写
+```
+
+- B 不依赖任何探查结论，可与 A 全段并行开工。
+- C 与 E 互不依赖；D 依赖 C（复用 AX 定位与回执读取）。
+- F2（entry.py）动手前核并行会话状态（⚠️ 已注记）。
+
