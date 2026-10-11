@@ -3,7 +3,7 @@
   "name": "yaml-editor-search-reveal",
   "title": "配置编辑屏:品类文件搜索 + 打开文件位置",
   "description": "配置编辑屏两功能:①左栏品类文件列表加搜索框(按品类名/文件名实时过滤,存量增长后仍可定位);②编辑区工具条「跑一次」旁加「打开文件位置」按钮,点击弹出当前配置文件所在文件夹(main.rs 新增 reveal 命令,校验 .yaml 存在后取父目录经 open/explorer/xdg-open 打开;不扩 shell:allow-open 授权)",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
