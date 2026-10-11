@@ -512,7 +512,11 @@ from myssia.vision.server import (
 #: total/today/unread/latest_first_seen/latest_title 一答直出,1 级类型卡
 #: 统计与 2 级行计数覆写的全库真值源,能力门 STATS_PROTOCOL = 14;
 #: 10-09-tg-category-entry v8)。
-PROTOCOL_VERSION = 14
+#: v15 = 平台账号批(platform_accounts.status / feishu.authorize /
+#: feishu.delete / feishu.probe 四方法:配置组「本身账号」面 —— 飞书
+#: user_access_token 授权态 + 微信桥三布尔;本身账号 ≠ 推送机器人,
+#: 机器人凭据仍归设置→推送;10-11-platform-account-config)。
+PROTOCOL_VERSION = 15
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
 STATUS_BY_EXIT = {0: "success", 1: "config_error", 2: "failed", 3: "partial"}
 
@@ -6335,6 +6339,306 @@ def _m_telegram_web_delete(params: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# 平台账号(10-11-platform-account-config):本身账号 ≠ 推送机器人 ——
+# 配置组管用户授权态(飞书 user_access_token),推送机器人凭据归设置→推送。
+# App 凭据复用推送区同一应用(env→钥匙链回退);微信段零新契约,直读
+# probe_bridge 三布尔(红线:永不读 Hermes 私有文件内容)。
+# ---------------------------------------------------------------------------
+
+#: OAuth 回调端点:端口固定(主人须在飞书开放平台应用安全设置登记
+#: ``http://127.0.0.1:8731/callback``,redirect_uri 与登记完全一致才放行)。
+_FEISHU_OAUTH_REDIRECT_PORT = 8731
+_FEISHU_OAUTH_REDIRECT_PATH = "/callback"
+#: 授权等待超时(秒):超时端点自停,op 留痕 expired。
+_FEISHU_OAUTH_TIMEOUT_SECONDS = 300.0
+#: 授权操作台账(state → op),镜像 _BROWSER_OPS 范式。
+_FEISHU_OAUTH_OPS: dict[str, dict[str, Any]] = {}
+_FEISHU_OAUTH_OPS_LOCK = threading.Lock()
+#: 回调服务器单实例槽(list 装箱便于整体置换;空 = 未起)。
+_FEISHU_OAUTH_SERVER: list[Any] = []
+
+
+def _accounts_data_root() -> Path:
+    """平台账号面的数据根(serve 上下文 home,dev 回退 cwd —— 与
+    ``_telegram_data_root`` 同口径,账号档目录落同一根)。"""
+    ctx = _serve_context()
+    return Path(ctx.home) if ctx.home is not None else Path.cwd()
+
+
+def _feishu_app_credentials() -> tuple[str, str]:
+    """飞书应用凭据解析(env → 钥匙链规范名 myia/push/<ENV_KEY>,与
+    push/base 回退口径一致):账号线**复用**推送区同一自建应用。"""
+    from myssia.secrets import get_secret
+
+    def _resolve(env_key: str) -> str:
+        value = os.environ.get(env_key)
+        if value:
+            return value
+        try:
+            return get_secret(f"myia/push/{env_key}")
+        except Exception:
+            return ""
+
+    app_id = _resolve("FEISHU_APP_ID")
+    app_secret = _resolve("FEISHU_APP_SECRET")
+    if not app_id or not app_secret:
+        raise ProtocolError(
+            "feishu_account_app_credential_missing",
+            "飞书应用凭据缺失:先到 设置→推送 选 feishu_card 录入 App ID 与 "
+            "App Secret(账号授权复用同一应用,无需重复注册)",
+            path="params",
+        )
+    return app_id, app_secret
+
+
+def _start_feishu_oauth_endpoint(app_id: str, app_secret: str) -> None:
+    """起本地 OAuth 回调端点(单实例;旧端点先停)。GET /callback?code&state
+    → state 台账对账 → 授权码换 token(同步跑在本回调线程)→ 入钥匙链 +
+    写标记 → 尽力探针刷一次 → 停端点。仅绑 127.0.0.1;超时自停。"""
+    import uuid
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from urllib.parse import parse_qs, urlparse
+
+    from myssia import feishu_account
+
+    _stop_feishu_oauth_endpoint()
+    redirect_uri = (
+        f"http://127.0.0.1:{_FEISHU_OAUTH_REDIRECT_PORT}{_FEISHU_OAUTH_REDIRECT_PATH}"
+    )
+
+    class _CallbackHandler(BaseHTTPRequestHandler):
+        def log_message(self, *_args: Any) -> None:  # 静音默认 stderr 访问日志
+            pass
+
+        def do_GET(self) -> None:  # noqa: N802(stdlib 命名)
+            parsed = urlparse(self.path)
+            if parsed.path != _FEISHU_OAUTH_REDIRECT_PATH:
+                self._reply(404, "<html><body>未知路径</body></html>")
+                return
+            query = parse_qs(parsed.query)
+            code = (query.get("code") or [""])[0]
+            state = (query.get("state") or [""])[0]
+            ok, title, detail = self._consume(code, state)
+            self._reply(200 if ok else 400, self._page(title, detail))
+
+        def _consume(self, code: str, state: str) -> tuple[bool, str, str]:
+            with _FEISHU_OAUTH_OPS_LOCK:
+                op = _FEISHU_OAUTH_OPS.get(state)
+                if op is None or op.get("phase") != "waiting":
+                    return False, "授权失败", "state 不匹配或已过期,请回到应用重新发起授权"
+                account_key = op["account_key"]
+                label = op.get("label") or ""
+            if not code:
+                with _FEISHU_OAUTH_OPS_LOCK:
+                    op.update(phase="failed", error="callback_missing_code")
+                    _FEISHU_OAUTH_OPS.pop(state, None)
+                return False, "授权失败", "回调缺 code 参数"
+            try:
+                tokens = asyncio.run(
+                    feishu_account.exchange_code(
+                        app_id, app_secret, code, redirect_uri
+                    )
+                )
+                feishu_account.store_account_tokens(
+                    account_key, tokens["access_token"], tokens["refresh_token"]
+                )
+                feishu_account.write_login_marker(
+                    feishu_account.account_dir(_accounts_data_root(), account_key),
+                    label=label,
+                    refresh_ok=None,
+                )
+                try:
+                    asyncio.run(
+                        feishu_account.probe_account(
+                            _accounts_data_root(),
+                            account_key,
+                            app_id,
+                            app_secret,
+                        )
+                    )
+                except Exception:
+                    pass  # 首刷失败是状态(refresh_ok=False),不拦授权成功
+            except feishu_account.FeishuAccountError as exc:
+                with _FEISHU_OAUTH_OPS_LOCK:
+                    _FEISHU_OAUTH_OPS.pop(state, None)
+                return False, "授权失败", f"{exc.code}: {exc}"
+            with _FEISHU_OAUTH_OPS_LOCK:
+                op.update(phase="done")
+                _FEISHU_OAUTH_OPS.pop(state, None)
+            _stop_feishu_oauth_endpoint()
+            return True, "授权成功", f"账号 {account_key} 已登录,可回到应用查看状态"
+
+        def _page(self, title: str, detail: str) -> str:
+            return (
+                "<html><head><meta charset='utf-8'><title>MYIA 平台账号授权"
+                f"</title></head><body style='font-family:sans-serif;padding:2em'>"
+                f"<h2>{title}</h2><p>{detail}</p>"
+                "<p style='color:#888'>本页可关闭,回到 MYIA 查看账号状态。</p>"
+                "</body></html>"
+            )
+
+        def _reply(self, status: int, html: str) -> None:
+            body = html.encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    try:
+        server = ThreadingHTTPServer(
+            ("127.0.0.1", _FEISHU_OAUTH_REDIRECT_PORT), _CallbackHandler
+        )
+    except OSError as exc:
+        raise ProtocolError(
+            "authorize_endpoint_unavailable",
+            f"本地回调端口 {_FEISHU_OAUTH_REDIRECT_PORT} 不可用({exc});"
+            "确认无残留进程占用后重试",
+            path="params",
+        ) from exc
+    server.daemon_threads = True
+    _FEISHU_OAUTH_SERVER.clear()
+    _FEISHU_OAUTH_SERVER.append(server)
+    watcher = threading.Thread(target=server.serve_forever, daemon=True)
+    # 平台无关超时:Timer 到点自停端点(授权页人没来 = 不留常驻口)。
+    timer = threading.Timer(_FEISHU_OAUTH_TIMEOUT_SECONDS, _stop_feishu_oauth_endpoint)
+    timer.daemon = True
+    timer.start()
+    watcher.start()
+
+
+def _stop_feishu_oauth_endpoint() -> None:
+    """停回调端点(幂等;serve_forever 线程随 shutdown 退出)。"""
+    if _FEISHU_OAUTH_SERVER:
+        server = _FEISHU_OAUTH_SERVER.pop()
+        try:
+            server.shutdown()
+            server.server_close()
+        except Exception:
+            pass
+
+
+def _m_platform_accounts_status(params: dict[str, Any]) -> dict[str, Any]:
+    """平台账号快照:feishu 账号数组(静态,探针显式触发)+ 微信桥三布尔
+    (零新契约直读 probe_bridge;探测缺位降级灰态不炸)。"""
+    from myssia import feishu_account
+
+    with _FEISHU_OAUTH_OPS_LOCK:
+        authorize_in_progress = any(
+            op.get("phase") == "waiting" for op in _FEISHU_OAUTH_OPS.values()
+        )
+    try:
+        weixin = _m_bridge_status({})
+    except Exception as exc:
+        weixin = {
+            "available": False,
+            "reason": "probe_failed",
+            "fix_hint": f"桥接探测失败:{exc}",
+        }
+    return {
+        "feishu": {
+            "accounts": feishu_account.list_accounts(_accounts_data_root()),
+            "authorize_in_progress": authorize_in_progress,
+        },
+        "weixin": weixin,
+    }
+
+
+def _m_platform_accounts_feishu_authorize(params: dict[str, Any]) -> dict[str, Any]:
+    """发起飞书账号授权:构造授权 URL(系统浏览器打开)+ 起本地回调端点。
+    同键授权中 → 结构化拒(镜像 login_in_progress 口径)。"""
+    import uuid
+
+    from myssia import feishu_account
+
+    account = params.get("account")
+    if not isinstance(account, str):
+        raise ProtocolError(
+            "invalid_params", "account 必须是字符串(账号键)", path="params.account"
+        )
+    try:
+        key = feishu_account.validate_account_key(account)
+    except feishu_account.FeishuAccountError as exc:
+        raise ProtocolError("invalid_params", str(exc), path="params.account") from exc
+    label = params.get("label")
+    label = label if isinstance(label, str) else ""
+    with _FEISHU_OAUTH_OPS_LOCK:
+        if any(
+            op.get("account_key") == key and op.get("phase") == "waiting"
+            for op in _FEISHU_OAUTH_OPS.values()
+        ):
+            raise ProtocolError(
+                "authorize_in_progress",
+                f"账号 {key} 授权正在进行中:完成或等超时(5 分钟)后再发起",
+                path="params.account",
+            )
+    app_id, app_secret = _feishu_app_credentials()
+    redirect_uri = (
+        f"http://127.0.0.1:{_FEISHU_OAUTH_REDIRECT_PORT}{_FEISHU_OAUTH_REDIRECT_PATH}"
+    )
+    state = uuid.uuid4().hex
+    _start_feishu_oauth_endpoint(app_id, app_secret)
+    with _FEISHU_OAUTH_OPS_LOCK:
+        _FEISHU_OAUTH_OPS[state] = {
+            "account_key": key,
+            "label": label,
+            "phase": "waiting",
+        }
+    return {
+        "authorize_url": feishu_account.authorize_url(app_id, redirect_uri, state),
+        "redirect_uri": redirect_uri,
+        "account": key,
+    }
+
+
+def _m_platform_accounts_feishu_delete(params: dict[str, Any]) -> dict[str, Any]:
+    """删除飞书账号(钥匙链两项 + 账号目录;授权中拒删)。"""
+    from myssia import feishu_account
+
+    account = params.get("account")
+    if not isinstance(account, str):
+        raise ProtocolError(
+            "invalid_params", "account 必须是字符串(账号键)", path="params.account"
+        )
+    try:
+        key = feishu_account.validate_account_key(account)
+    except feishu_account.FeishuAccountError as exc:
+        raise ProtocolError("invalid_params", str(exc), path="params.account") from exc
+    with _FEISHU_OAUTH_OPS_LOCK:
+        if any(
+            op.get("account_key") == key and op.get("phase") == "waiting"
+            for op in _FEISHU_OAUTH_OPS.values()
+        ):
+            raise ProtocolError(
+                "account_delete_in_progress",
+                f"账号 {key} 授权正在进行中:先完成或等超时,再删除",
+                path="params.account",
+            )
+    return feishu_account.delete_account(_accounts_data_root(), key)
+
+
+def _m_platform_accounts_feishu_probe(params: dict[str, Any]) -> dict[str, Any]:
+    """刷新闭环探针(refresh 可成功 = 账号态有效;新 token 回写 = 续期)。
+    失败是**状态**不是异常:refresh_ok=False + reason 回给 UI 置灰。"""
+    from myssia import feishu_account
+
+    account = params.get("account")
+    if not isinstance(account, str):
+        raise ProtocolError(
+            "invalid_params", "account 必须是字符串(账号键)", path="params.account"
+        )
+    key = feishu_account.validate_account_key(account)
+    app_id, app_secret = _feishu_app_credentials()
+    try:
+        result = asyncio.run(
+            feishu_account.probe_account(_accounts_data_root(), key, app_id, app_secret)
+        )
+    except feishu_account.FeishuAccountError as exc:
+        return {"account": key, "refresh_ok": False, "reason": exc.code}
+    return result
+
+
+# ---------------------------------------------------------------------------
 # 分发与 serve 循环
 # ---------------------------------------------------------------------------
 
@@ -6395,6 +6699,10 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "push.write": _m_push_write,
     "push.test": _m_push_test,
     "bridge.status": _m_bridge_status,
+    "platform_accounts.status": _m_platform_accounts_status,
+    "platform_accounts.feishu.authorize": _m_platform_accounts_feishu_authorize,
+    "platform_accounts.feishu.delete": _m_platform_accounts_feishu_delete,
+    "platform_accounts.feishu.probe": _m_platform_accounts_feishu_probe,
     "alerts.list": _m_alerts_list,
     "alerts.save": _m_alerts_save,
     "alerts.delete": _m_alerts_delete,

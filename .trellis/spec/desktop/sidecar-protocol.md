@@ -16,7 +16,7 @@
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 74 行;代码 `_HANDLERS` 现值 74,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 79 行;代码 `_HANDLERS` 现值 79,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -95,6 +95,10 @@
 | 73 | `browser.focus` | `_m_browser_focus` | 聚焦进行中操作的浏览器窗口:`{op_id}` → `{focused, op_id}`(经登录线程事件循环 `run_coroutine_threadsafe(page.bring_to_front)`——Playwright async 对象只能在其归属循环上动);未知操作 → `unknown_operation`;终态/窗口未就位 → `window_not_active`;跨线程调度失败 → `focus_failed`;10-08-browser-module 案甲) |
 | 74 | `browser.close` | `_m_browser_close` | 请求关闭进行中操作的浏览器窗口:`{op_id}` → `{closed, op_id, note}`(置停令 → 注入 sleep 抛 `_BrowserWindowClosed` → 登录流 finally 关 context,台账转 `closed`;登录态已落档的不受影响);未知操作/终态 → `unknown_operation`/`window_not_active` 同 focus;10-08-browser-module 案甲) |
 | 75 | `store.source_stats` | `_m_store_source_stats` | 分源聚合(v8 三级界面 1 级类型卡统计底座):`{since?, db?}` → `{db, rows:[{source, total, today, unread, latest_first_seen, latest_title}]}`(每源一行 GROUP BY source,新→旧按 MAX(first_seen) 排;today = `first_seen >= since` 条数,since = 当日窗锚 ISO(`dayWindowStart().toISOString()` 与视图同源),省略 = today 恒 0「无窗无今日」;unread = 未标已读 COALESCE(read,0)=0,不含 later 到期重现加成;latest_title 二遍逐源取同刻最新 id;NULL source 行照出 `source:null`,归并口径在 UI;非法 ISO = `invalid_params`;UI 能力门 STATS_PROTOCOL = 14 未过门不发 RPC 试错;10-09-tg-category-entry v8) |
+| 76 | `platform_accounts.status` | `_m_platform_accounts_status` | 平台账号快照(配置组「本身账号」面,裁定语义 = 本身账号 ≠ 推送机器人,机器人凭据仍归设置→推送;10-11-platform-account-config):`{}` → `{feishu:{accounts:[{account,label,authorized_at,refresh_ok,refreshed_at}], authorize_in_progress}, weixin: probe_bridge 七键}`;feishu 静态快照(目录即账号 `<数据根>/feishu-accounts/<键>/`,零网络),刷新探针显式走 feishu.probe;weixin 零新契约直读桥三布尔,探测缺位降级灰态不炸 |
+| 77 | `platform_accounts.feishu.authorize` | `_m_platform_accounts_feishu_authorize` | 发起飞书账号授权:`{account, label?}` → `{authorize_url, redirect_uri, account}`(user_access_token 授权码流;系统浏览器开授权页 + 本地回调端点 `127.0.0.1:8731/callback` 接 code → 换 token 对入钥匙链 `myia/<账号键>/user_access_token`+`/refresh_token` + 写标记 + 尽力首刷);键全称律 `feishu-<标识>`;同键授权中 → `authorize_in_progress`;App 凭据缺失(env→钥匙链 `myia/push/FEISHU_APP_ID/SECRET` 回退后仍无)→ `feishu_account_app_credential_missing`(指引设置→推送,账号线复用同一应用);端口占用 → `authorize_endpoint_unavailable`;端点仅绑 127.0.0.1,5 分钟超时自停(10-11-platform-account-config) |
+| 78 | `platform_accounts.feishu.delete` | `_m_platform_accounts_feishu_delete` | 删飞书账号:`{account}` → `{deleted, account}`(钥匙链两 token 项 + 账号目录;授权进行中 → `account_delete_in_progress` 拒;键同门校验;镜像 telegram.web.delete 口径;10-11-platform-account-config) |
+| 79 | `platform_accounts.feishu.probe` | `_m_platform_accounts_feishu_probe` | 刷新闭环探针:`{account}` → `{account, refresh_ok, refreshed_at?|reason?}`(refresh 可成功 = 绿且新 token 对回写钥匙链 = 续期闭环;失败是**状态**不是异常:`refresh_ok:false`+`reason` 置灰;无 refresh_token = `feishu_refresh_token_missing` 同形态指引重授权;UI「重新检查」钮 + 授权回调成功后自动一发;10-11-platform-account-config) |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+

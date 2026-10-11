@@ -2919,7 +2919,7 @@ def test_method_registry_allowed_matches_handlers():
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 75
+    assert len(allowed) == 79
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",
@@ -2970,7 +2970,7 @@ def test_protocol_version_bumped_for_feed_ux():
     feed v8 三级界面批(store.source_stats 分源聚合,UI 能力门
     STATS_PROTOCOL = 14,10-09-tg-category-entry v8)→ v14。"""
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
-    assert responses[0]["result"]["protocol"] == 14
+    assert responses[0]["result"]["protocol"] == 15
 
 
 # ---------------------------------------------------------------------------
@@ -3526,7 +3526,7 @@ def test_serve_starts_and_stops_cron_ticker(tmp_path, monkeypatch):
     # v9 = hermes-cron 批;v10 = read-state-server 批;v11 = browser-module 批;
     # v12 = tg-channel-card v2(source_kind 三方法);v13 = feed 计数口径根治
     # (store.items with_total);v14 = feed v8 三级界面(store.source_stats)
-    assert responses[0]["result"]["protocol"] == 14
+    assert responses[0]["result"]["protocol"] == 15
     assert seen["supervisor_alive"] and seen["ticker_alive"]
     # EOF:serve 返回前已关停(idle ticker 即醒即退,interval 已注入 0.05s)
     assert entry._CRON_SUPERVISOR is None and entry._CRON_TICKER is None
