@@ -52,3 +52,55 @@
 ## 6. 私有数据红线自查
 
 本档零聊天内容、零密钥材料;证据只含计数/schema/状态码/路径与时间戳。
+
+## 7. 组件装机回执(装机员子代理,2026-10-11 22:42;「全部解决」令装机端段)
+
+> 清零 §5 的 `component_missing` 灰态:把受管组件 wechat-bridge 装到本机。
+> `~/.myia/plugins` 是运行时目录不入 git;入库的只有组件源码侧改动。
+
+### 7.1 装机前补源码侧部署脚本(commit `e39d8c5`)
+
+- 实况:组件源码**缺 bin**——MYIA 消费点 `myssia.push.weixin_local.DEFAULT_BRIDGE_BIN` 指
+  `~/.myia/plugins/wechat-bridge/bin/wechat-bridge`(weixin_local.py:85),源侧此前只有
+  `entry: wechat_bridge/__main__.py` 包入口,无 bin 启动器。
+- 补齐:`plugins/wechat-bridge/bin/wechat-bridge`(纯转接启动器,零业务逻辑):解析组件根 →
+  `MYIA_WECHAT_BRIDGE_PYTHON` env > `<数据根>/python/bin/python3`(自管环境,数据根解析与
+  `wechat_bridge.config.myssia_home` 同序)> PATH `python3`,选首个 **Python ≥3.11**
+  (component.json requires)→ exec `python -m wechat_bridge`;失败 stderr+exit 2。
+  本机实选 = 自管 python 3.12.7(`~/Library/Application Support/MYIA/python`)。
+- component.json 补 `"bin": "bin/wechat-bridge"` 字段;README 补装机形态注记。
+- 门禁:`uv run --no-sync python -m pytest tests/wechat-bridge -q` = **119 passed / 4 skipped**;
+  `uvx ruff@0.16.10 check plugins/wechat-bridge tests/wechat-bridge` = All checks passed。
+
+### 7.2 前置检测(design §5.1)与装机
+
+- sqlcipher:**已装 4.19.0**(`/opt/homebrew/Cellar/sqlcipher/4.19.0`,localdb-e2e.md §2.1
+  同款)→ 按口径跳过安装;`/opt/homebrew/opt/sqlcipher/bin/sqlcipher --version` 实跑报
+  SQLCipher 4.19.0 community。
+- 装机:`rsync -a --exclude __pycache__` 源目录 → `~/.myia/plugins/wechat-bridge/`+
+  `chmod 755 bin/wechat-bridge`;装后 `diff -rq`(排 `__pycache__`)对源零差异。
+  installed 语义(本组件消费面)= bin 在场且可执行(weixin_local.py:222 / wechat_local_sidecar.py:117
+  的文件检查;pyenv_components 的 pip 指纹戳注册表不收录 bridge 类组件,不伪造戳文件)。
+
+### 7.3 probe 三态前后对照(通道级 = `myssia.wechat_local_sidecar.handle_wechat_local("probe",{})`,装机包同口径)
+
+| | 装机前(22:36 实跑) | 装机后(22:43 实跑) |
+|---|---|---|
+| state | `bridge_unavailable`(黄灰) | **`degraded`**(托盘态预期,非 unavailable) |
+| checks | `bridge_component: missing`,其余无 | `bridge_component/wechat_process/ax_permission/localdb_storage` 全 `ok`;`main_window/ax_tree` `unknown`;`localdb_key` `unavailable` |
+| versions | wechat/bridge 双 null | `wechat_version=4.1.15` / `bridge_version=0.2.0` |
+| reasons | `component_missing`(装组件指引) | `key_unavailable`(D4 裁决指引;E1 定论如实) |
+
+- 直跑 bin(`~/.myia/plugins/wechat-bridge/bin/wechat-bridge --probe`)exit=0,载荷与通道级一致;
+  `main_window=unknown` 因自管 python 无 pyobjc Quartz(组件可选依赖,system_checks 设计行为:unknown 如实上报)。
+- 补充取证:同 bin 以 `MYIA_WECHAT_BRIDGE_PYTHON=<仓库 venv>`(含 Quartz)实跑 →
+  `main_window=fail`,reasons = `window_closed + key_unavailable` → 仍 `degraded`——托盘态完整语义
+  (README「微信托盘态如实 degraded(window_closed)」)双路坐实。
+- 通道错误族一条(真桥):`handle_wechat_local("query",{"chat_id":"filehelper","since_days":7})` →
+  `WechatLocalSidecarError(code=key_unavailable)`,消息只含形状计数(行数=35 候选=5081 校验=101620
+  命中=0/20 库,与 localdb-e2e.md §1.1 E1 实测同值)+ fix_hint 指引 D4 两案——sidecar 错误映射
+  (exit 21 → 具名族)真机闭合。
+- 静默面:全程零合成点击、零窗口激活、零微信窗口开合;probe/query 全只读(query 即 E1 的
+  key_info.db 离线校验路径,零进程接触零出网)。
+- 未做(如实):桌面 UI 卡亮窗目验(不碰运行中 MYIA app 的前台,probe 为按调执行,下次卡刷新即吃新态);
+  localdb 真查询闭合仍挂 D4(keys.json 外部密钥引入即通,见 §7.3 错误族消息)。
