@@ -33,8 +33,9 @@ import { YamlEditorScreen } from "@/screens/yaml-editor/yaml-editor-screen";
  * 分组重排失真,一并更正);命名直白用「消息」,不用行话。
  * /cron = 定时任务(10-04-cron-ui):cron.* 九方法管理屏,位次=源管理之后
  * (与侧栏一致);与 CLI `myssia cron` 同一批 job 数据。
- * /tg-account = TG 账号(10-11-tg-multi-account-groups v10):Telegram 监控卡
- * 自设置屏抽出的独立屏,归侧栏「配置」组(位次=推送之后,与侧栏一致)。
+ * /tg-account = Telegram(10-11-tg-multi-account-groups v10;侧栏原「TG账号」,
+ * 56696b6 随主人令更名):Telegram 监控卡自设置屏抽出的独立屏,归侧栏
+ * 「配置」组(位次=推送之后,与侧栏一致)。
  */
 export default function App() {
   // 白窗修复握手(10-06-smoke-window-politeness R1):首屏挂载完成即通知壳层

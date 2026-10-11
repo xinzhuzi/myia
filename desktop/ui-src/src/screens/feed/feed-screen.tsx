@@ -3911,7 +3911,7 @@ export function FeedScreen() {
                   <CardContent className="p-0">
                     <EmptyState
                       title="监控状态未知"
-                      description="暂时拿不到 Telegram 监控状态(状态服务未就绪或请求失败);是否登录、新消息是否入库以「TG 账号」屏的台账为准。"
+                      description="暂时拿不到 Telegram 监控状态(状态服务未就绪或请求失败);是否登录、新消息是否入库以「Telegram」屏(侧栏「配置」组,原称「TG 账号」)的台账为准。"
                       action={
                         <Button variant="outline" size="sm" onClick={retryTgStatus}>
                           重试拉取状态
