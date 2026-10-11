@@ -1,0 +1,84 @@
+# 门禁 triage — 全量门禁红归因(修复工,2026-10-12)
+
+> 执行件:修复工(工作流子代理)。ask = 全量门禁红(pytest=1, vitest=1),只修与本任务
+> (10-11-wechat-ui-bridge)相关的失败;并行会话在途文件的失败不修、记 skipped 归因。
+> 本文零私有数据;证据只含计数/路径/命令/码值。
+
+## 0. 结论速览
+
+| 项 | 判定 |
+|---|---|
+| 153 failed + 6 errors(pytest 全量) | **零件属本任务**;全部归因并行会话 `plugins/ → config/` 布局迁移在途(25 个 staged rename + ~50 个 M 文件 + 新增 `src/myssia/config_layout.py`/`tests/test_config_layout.py`) |
+| 1 failed(vitest 全量) | 同上:`sources.test.tsx:401` 仍断言旧文案 vs `first-run-guide.tsx:102` 已改新文案,两件均在对方 M 集 |
+| 本任务面(组件 + MYIA 装配) | **全绿**:`tests/wechat-bridge` 165p/7s;`tests/desktop/test_wechat_local_handlers.py + tests/push/{test_messaging_weixin_local,test_push_channels,test_push}.py` 185p |
+| 修复动作 | **零**(无本任务相关失败可修);本档为唯一产出 |
+| 装机件(如实) | `~/.myia/plugins/wechat-bridge` 仍 **0.2.0**(无 `pixel.py`)——installed-visual-check.md §4.1 移交项未闭合,归主会话 |
+
+## 1. 门禁实跑(本会话亲跑,命令原样)
+
+| 门禁 | 命令 | 结果 |
+|---|---|---|
+| pytest 全量 | `uv run --no-sync python -m pytest -q --tb=short` | **153 failed / 5171 passed / 50 skipped / 6 errors**(130.21s,无 --maxfail) |
+| vitest 全量 | `npm --prefix desktop/ui-src run test` | **Test Files 1 failed / 34 passed(35);Tests 1 failed / 743 passed(744)** |
+| 本任务组件面 | `uv run --no-sync python -m pytest tests/wechat-bridge -q --tb=short` | **165 passed / 7 skipped**(skip=MYIA_WECHAT_E2E 门控真机,design §8 惯例) |
+| 本任务装配面 | `uv run --no-sync python -m pytest tests/desktop/test_wechat_local_handlers.py tests/push/test_messaging_weixin_local.py tests/push/test_push_channels.py tests/push/test_push.py -q --tb=short` | **185 passed** |
+
+ask 门禁摘要(30 failure 截断快照)与本文全量快照的失败数漂移
+(`test_installer_resources` 9→0、`test_desktop_sidecar_protocol` 12→6、
+`test_bundled_plugins_install` 2→7)= 对方会话在本文写作窗口内**仍在持续改码**,
+在途状态直接实锤。
+
+## 2. 失败全清单(按文件;全量无截断)
+
+```
+103 FAILED tests/plugins/test_plugins.py
+ 10 FAILED tests/engines/test_store_report_engine.py
+  8 FAILED tests/plugins/test_plugin_packages.py
+  7 FAILED tests/desktop/test_bundled_plugins_install.py      (M·对方)
+  6 FAILED tests/desktop/test_desktop_sidecar_protocol.py     (M·对方)
+  6 ERROR  tests/pipeline/test_baseline.py                    (fixture setup 级)
+  3 FAILED tests/plugins/test_demo_plugin.py
+  2 FAILED tests/plugins/test_{theharvester,proxy,osint,media,maigret}_plugin.py
+  1 FAILED tests/plugins/test_{urlwatch,plugins_system,analysis}_plugin.py
+  1 FAILED tests/pipeline/test_baseline.py
+  1 FAILED tests/engines/test_tg_web_engine.py
+  1 FAILED tests/cli/test_cli_full.py                         (M·对方)
+```
+
+vitest 唯一失败:`src/screens/sources/sources.test.tsx > 源管理:空态与错误态 >
+无插件 → 首跑引导态`(`sources.test.tsx:401`)。
+
+## 3. 归因证据(逐族根因)
+
+1. **品类 YAML 加载族(103+10+8+3+2×5+1×3+1+1 failed + 6 errors)**:根因全部同形
+   `FileNotFoundError: …/MYIA/plugins/<name>.yaml`(如 stocks/wool/gpu-prices;
+   `tests/pipeline/test_baseline.py` 6 errors 同为 fixture setup 期
+   `load_category_file(GPU_PRICES)` 撞同错)——staged rename
+   `plugins/*.yaml → config/*.yaml`(25 件,git index R)后,这批**尚未被对方改到**
+   的测试仍指 `PLUGINS_DIR`(如 `tests/plugins/test_plugins.py:84`)。
+2. **desktop sidecar/installer 族(7+6 failed)**:三件测试文件全在对方 M 集
+   (test_bundled_plugins_install / test_desktop_sidecar_protocol /
+   test_installer_resources),其被改测期望(`config_dir`、17 件清单、
+   `Resources/config/`)与对方同在途的 `desktop/entry.py`/`tauri.conf.json` 半程态
+   互相错位;sidecar telegram 族 5 例失败日志同证:
+   `telegram 宿主未起(品类缺失 telegram-groups.yaml…)`(补种源与宿主查找路径
+   两头都在迁)。例:`test_serve_context_myssia_home_env` 期望
+   `ctx.config_dir == home/"config"`(test 侧已改)vs entry.py 在途实现。
+3. **vitest 1 例**:`first-run-guide.tsx:102` 已渲染新文案
+   `配置目录(config)下没有可加载的品类 YAML…`,`sources.test.tsx:401` 仍断言旧
+   `/插件目录\(plugins\)下没有可加载的品类 YAML/`——同迁移的文案改名未同步,
+   两件均对方 M 集。
+4. **本任务零牵连**:FAILED/ERROR 全列表 `grep -ci 'wechat|weixin'` = **0**;
+   `tests/wechat-bridge`、`tests/desktop/test_wechat_local_handlers.py`、
+   `tests/push/*weixin_local*` 全绿(§1)。
+
+## 4. 处置(按 ask 纪律)
+
+- **不修**:153+1 全数 skipped 归因(§3);涉事文件要么对方 M 在途,要么是对方
+  staged rename 的待同步面——修复=混写对方迁移,违反 ask「并行会话在途文件不修」。
+- **零 commit 代码面**:本档外无任何自改文件;工作树 25R+50M 全归对方。
+- **移交主会话**(如实,均非本修复工范围):
+  1. 门禁转绿依赖对方 config 迁移收口(尤其 tests/plugins/test_plugins.py 等
+     尚未进入其 M 集的 PLUGINS_DIR 指涉面);
+  2. 装机件仍 0.2.0(缺 pixel.py),installed-visual-check.md §4.1 的
+     「刷新 0.3.0 + 复验两点」未闭合。
