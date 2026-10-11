@@ -2,7 +2,7 @@
  * 「Telegram 配置」总卡(10-08-tg-web-line W4;PRD 登录 UX 决议;
  * 10-08-browser-module 接线:登录动作改调浏览器模块统一入口;
  * 2026-10-11 主人令更名「Telegram 监控」→「Telegram 配置」,与侧栏
- * 「配置」组(YAML配置/TG账号)语义对齐;feed 分类显示名「Telegram 监控」
+ * 「配置」组(YAML配置/Telegram)语义对齐;feed 分类显示名「Telegram 监控」
  * 是另一语义,不动)。
  *
  * 卡面三段(PRD「bot/session/web 三态行」)+ 账号列表化(PRD 多账号决议 ③):

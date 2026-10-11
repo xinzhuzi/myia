@@ -90,11 +90,11 @@ describe("NAV_GROUPS 信息架构(v10 配置分组)", () => {
     expect(capture?.entries.map((entry) => entry.to)).toEqual(["/sources", "/cron", "/logs"]);
   });
 
-  it("「配置」组收 YAML配置(/yaml-editor 更名)+ TG账号(/tg-account 新屏)", () => {
+  it("「配置」组收 YAML配置(/yaml-editor 更名)+ Telegram(/tg-account 新屏;主人令更名)", () => {
     const config = NAV_GROUPS.find((group) => group.label === "配置");
     expect(config?.entries.map((entry) => [entry.to, entry.label])).toEqual([
       ["/yaml-editor", "YAML配置"],
-      ["/tg-account", "TG账号"],
+      ["/tg-account", "Telegram"],
     ]);
   });
 

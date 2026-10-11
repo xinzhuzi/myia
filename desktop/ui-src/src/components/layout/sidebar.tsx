@@ -53,13 +53,14 @@ export const NAV_GROUPS: NavGroup[] = [
  },
  // 10-11-tg-multi-account-groups v10(主人令「都放到配置逻辑下面,现在有
  // 采集,推送,再加个配置」):新增「配置」组,位次=推送之后、设置行之前。
- // YAML配置 = 原「配置编辑」更名(route /yaml-editor 不变);TG账号 =
- // 新独立屏 /tg-account(Telegram 监控卡自设置屏抽出;Send 图标=收发消息语义)。
+ // YAML配置 = 原「配置编辑」更名(route /yaml-editor 不变);Telegram =
+ // 新独立屏 /tg-account(Telegram 配置卡自设置屏抽出;Send 图标=收发消息
+ // 语义;2026-10-11 主人令侧栏「TG账号」更名「Telegram」)。
  {
   label: "配置",
   entries: [
    { to: "/yaml-editor", label: "YAML配置", icon: FileCode2, end: false },
-   { to: "/tg-account", label: "TG账号", icon: Send, end: false },
+   { to: "/tg-account", label: "Telegram", icon: Send, end: false },
   ],
  },
 ];
