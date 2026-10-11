@@ -877,6 +877,24 @@ fn main() {
                 // run loop 时序由事件/兜底定时器天然保证(均在事件循环起来后)。
                 show_main_window_deferred(&*app, false);
             }
+            // MYIA_TG_NATIVE_SMOKE 静默钩子(10-09-tg-category-entry v9 深检
+            // 实证用):值为完整 /k/ 深链(如 https://web.telegram.org/k/#-2349572233),
+            // 设置即 Rust 侧直建同款 WebviewWindow(与前端 tg-native-window.ts 同
+            // 一条 create_webview_window 命令链),验证远程 URL 建窗 + WKWebView
+            // 加载在真实 app 内成立;未设零行为变化。不 show 不 focus。
+            if let Ok(native_url) = std::env::var("MYIA_TG_NATIVE_SMOKE") {
+                let win = tauri::webview::WebviewWindowBuilder::new(
+                    app,
+                    "tg-native-smoke",
+                    tauri::WebviewUrl::External(native_url.parse().expect("MYIA_TG_NATIVE_SMOKE 非法 url")),
+                )
+                .title("TG 原生视图冒烟")
+                .inner_size(1100.0, 780.0)
+                .build();
+                if let Err(err) = win {
+                    log::error!("desktop: MYIA_TG_NATIVE_SMOKE 建窗失败: {err}");
+                }
+            }
             // 静默启动(10-03-quiet-launch):主窗口 visible:false 出厂,Dock 点击
             // (RunEvent::Reopen)或对运行中实例再 open -a 才亮出。dev 构建与
             // MYIA_SHOW_ON_START=1 例外照旧启动即显示(open 不透传 shell env,
