@@ -1,0 +1,52 @@
+#!/bin/bash
+# wechat-bridge 启动器(受管组件装机形态;task 10-11-wechat-ui-bridge)。
+#
+# 装机布局(design §1):组件整份目录落 ~/.myia/plugins/wechat-bridge/,
+# MYIA 侧消费点 = 本 bin(myssia.push.weixin_local.DEFAULT_BRIDGE_BIN);
+# 职责单一:解析自身所在组件根,选一个 Python >= 3.11,exec
+# `python -m wechat_bridge <argv>`。零业务逻辑——CLI 契约(design §6)、
+# 三态探针、G6 频控、静默铁律全在 wechat_bridge 包内(纯 stdlib);本脚本
+# 只管「找到能跑它的解释器」。stdout 零输出:success 路径 exec 换身,
+# 失败路径只写 stderr + exit 2(usage 段;MYIA 侧按契约归
+# probe_unparseable/不可用如实呈现,不静默装死)。
+#
+# 解释器候选序(首个版本合规者胜):
+#   1. $MYIA_WECHAT_BRIDGE_PYTHON —— 部署期显式覆写(装机面 escape hatch;
+#      非 design §7 配置键,与 MYIA 侧 wechat_bridge_bin 路径覆写同精神);
+#   2. <数据根>/python/bin/python3 —— MYIA 桌面自管环境(装机态主路;数据
+#      根解析序与 wechat_bridge.config.myssia_home 同源:MYIA_HOME env >
+#      darwin 缺省 ~/Library/Application Support/MYIA);
+#   3. PATH 上的 python3。
+# 候选全缺席/版本不合规(组件 requires.python >=3.11,component.json)→
+# stderr 指引 + exit 2。
+#
+# 依赖注记(design §5.1 / component.json):pyobjc(Quartz)为可选依赖,
+# 缺位时探针主窗口项如实 unknown(system_checks.wechat_main_window_open
+# 的设计行为),不拦截三态归位;sqlcipher 为 localdb 通道前置,缺装时
+# localdb 子命令结构化报错并给 brew 指引——两者都由包内处理,启动器不碰。
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+version_ok() {
+  "$1" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' >/dev/null 2>&1
+}
+
+# 数据根解析(与 wechat_bridge.config.myssia_home 同序同值)。
+DATA_ROOT="${MYIA_HOME:-$HOME/Library/Application Support/MYIA}"
+
+candidates=(
+  "${MYIA_WECHAT_BRIDGE_PYTHON:-}"
+  "$DATA_ROOT/python/bin/python3"
+  "$(command -v python3 || true)"
+)
+
+for candidate in "${candidates[@]}"; do
+  [ -n "$candidate" ] || continue
+  [ -x "$candidate" ] || continue
+  version_ok "$candidate" || continue
+  PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}" exec "$candidate" -m wechat_bridge "$@"
+done
+
+echo "wechat-bridge: 未找到 Python >= 3.11(候选序:MYIA_WECHAT_BRIDGE_PYTHON、<数据根>/python/bin/python3、PATH 上的 python3);组件要求见 component.json requires.python" >&2
+exit 2

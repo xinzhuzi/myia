@@ -11,12 +11,20 @@
 一次性子进程,stdout 恒单个 JSON 对象,exit 三段语义(0 成功 / 1 通用失败 / 2 用法;失败段按 §6 细化码值):
 
 ```console
-python -m wechat_bridge --probe                        # 三态探针(ok/degraded/bridge_unavailable)
+~/.myia/plugins/wechat-bridge/bin/wechat-bridge --probe          # 装机形态(下同;bin 启动器自选 Python ≥3.11)
+python -m wechat_bridge --probe                        # 开发形态(组件根上直跑;三态探针 ok/degraded/bridge_unavailable)
 python -m wechat_bridge sessions list --json           # 会话列表(Phase C1)
 python -m wechat_bridge messages read <id> -k 50       # 最近 K 条文本(Phase C2)
 python -m wechat_bridge send_text <id> --file -        # 正文经 stdin(G6 硬频控;Phase D)
 python -m wechat_bridge localdb query <chat> --since 7d --json   # 本地库只读(Phase E)
 ```
+
+`bin/wechat-bridge` = 装机启动器(纯转接,零业务逻辑):解析组件根 → 按
+`MYIA_WECHAT_BRIDGE_PYTHON` env > `<数据根>/python/bin/python3`(MYIA 桌面
+自管环境)> PATH `python3` 的序选首个 **Python ≥3.11**(component.json
+requires),exec `python -m wechat_bridge`;stdout 恒单 JSON 由桥包保证,
+启动器失败只写 stderr + exit 2。MYIA 侧消费点即此 bin
+(`myssia.push.weixin_local.DEFAULT_BRIDGE_BIN`)。
 
 ## 落点与配置
 

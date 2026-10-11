@@ -5,6 +5,7 @@
   "kind": "bridge",
   "runtime": "native-python",
   "entry": "wechat_bridge/__main__.py",
+  "bin": "bin/wechat-bridge",
   "task": "10-11-wechat-ui-bridge",
   "push_channel": "weixin-local",
   "wechat_version_baseline": "4.1.15",
