@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/domain/security-baseline.md", "reason": "私有数据红线:解密副本/查询结果/密钥材料的不入git不入日志不外发约束"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "检查段工程纪律:门禁全绿口径/装机包验证判例"}
