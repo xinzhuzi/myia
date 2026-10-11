@@ -1,4 +1,4 @@
-# plugins/stocks.yaml — stock intelligence over the public Yahoo chart API.
+# config/stocks.yaml — stock intelligence over the public Yahoo chart API.
 #
 # The 12-section schema showcase (v01-plugins-official): every section below
 # is explained inline so this file doubles as the "AI writes the YAML"

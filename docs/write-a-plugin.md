@@ -16,7 +16,7 @@
 | 2 | `name` | Human-readable category name. |
 | 3 | `schedule` | Cron expression for pipeline runs. |
 | 4 | `timezone` | IANA timezone for the schedule (defaults to the system timezone). |
-| 5 | `sources` | Fetch sources. Per source: `engine` (auto / direct_api / static_html / crawl4ai / firecrawl / scrapling / stealth_browser / llm_browser — all implemented; L4–L6 have optional-dependency or external-service prerequisites, see the engine guide; plus the off-chain source engine `credhunter` — the in-process myssia-credhunter scenario plugin assembles items itself and never joins the auto chain, explicit selection only), `url` (supports `{placeholder}` templates), `method` (GET/POST; POST takes `post_body`), `headers` (credential refs only), `pagination` (`template` / `selector` / `scroll` + `max_pages`; `scroll` is honored by L4 scrapling, other engines reject it structurally and the auto chain degrades to L4), `extract` (`list` / `item` / `json_path` plus field selectors; `extract.url_template` renders per-item URLs from `{field}` placeholders when the payload carries none — slug/appid-only APIs, see plugins/games.yaml), `rate_limit` (qps / jitter / backoff / respect_robots), `proxy` (direct / pool:name / residential:region), `retry`. |
+| 5 | `sources` | Fetch sources. Per source: `engine` (auto / direct_api / static_html / crawl4ai / firecrawl / scrapling / stealth_browser / llm_browser — all implemented; L4–L6 have optional-dependency or external-service prerequisites, see the engine guide; plus the off-chain source engine `credhunter` — the in-process myssia-credhunter scenario plugin assembles items itself and never joins the auto chain, explicit selection only), `url` (supports `{placeholder}` templates), `method` (GET/POST; POST takes `post_body`), `headers` (credential refs only), `pagination` (`template` / `selector` / `scroll` + `max_pages`; `scroll` is honored by L4 scrapling, other engines reject it structurally and the auto chain degrades to L4), `extract` (`list` / `item` / `json_path` plus field selectors; `extract.url_template` renders per-item URLs from `{field}` placeholders when the payload carries none — slug/appid-only APIs, see config/games.yaml), `rate_limit` (qps / jitter / backoff / respect_robots), `proxy` (direct / pool:name / residential:region), `retry`. |
 | 6 | `watchlist` | Relevance profile: `keywords` (boost) and `mute` (demote/archive); the baseline for the LLM relevance score. |
 | 7 | `classify` | First funnel: built-in seven-category keyword scan (`builtin`; unmatched titles drop) and/or custom `rules` (name / when expression / tag). Zero token. |
 | 8 | `dedup` | Dedup key template, e.g. `{symbol}-{date}` or `{url}`. Composite keys only — never title fingerprints. |
@@ -68,7 +68,7 @@ push:
         mode: archive
 ```
 
-See [plugins/stocks.yaml](../plugins/stocks.yaml) for the complete
+See [config/stocks.yaml](../config/stocks.yaml) for the complete
 12-section showcase.
 
 ## Credential rules
@@ -134,17 +134,17 @@ agent:  myssia init --json
         # reads the structured checklist: required inputs (identity /
         # schedule / sources), optional sections with their defaults, the
         # five hard rules and the recommended next steps
-agent:  writes plugins/repo-releases.yaml   # follows skill/SKILL.md §2 quick
+agent:  writes config/repo-releases.yaml   # follows skill/SKILL.md §2 quick
         # reference: direct_api source with {page} pagination, json_path
         # fields (url included), classify.builtin: false + one custom rule,
         # dedup {url}, feishu_card push with a three-tier route, env refs
         # for every credential slot
-agent:  myssia test plugins/repo-releases.yaml --json
+agent:  myssia test config/repo-releases.yaml --json
         # trial-fetches each source (no push, no storage); checks
         # items[].fields, items[].dedup_key and fingerprint.verdict
-agent:  myssia run plugins/repo-releases.yaml --dry-run --json
+agent:  myssia run config/repo-releases.yaml --dry-run --json
         # full rehearsal: stage in→out counts, skip reasons, route buckets
-agent:  myssia run plugins/repo-releases.yaml
+agent:  myssia run config/repo-releases.yaml
         # first real run; then myssia doctor --json until findings is empty
         # before handing the category to --loop scheduling
 user:   (receives the release card in Feishu)

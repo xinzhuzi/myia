@@ -139,7 +139,7 @@ export function useYamlFileEditor(options: UseYamlFileEditorOptions = {}) {
 
   /** 新建流后半段:stem 已过前端正则预检 → 取模板 → 回填 id → 未保存草稿态 */
   const createDraft = useCallback(
-    async (stem: string, pluginsDir: string) => {
+    async (stem: string, configDir: string) => {
       if (!confirmDiscardIfDirty()) return;
       const seq = ++docSeq.current;
       onOpenStart?.();
@@ -148,7 +148,7 @@ export function useYamlFileEditor(options: UseYamlFileEditorOptions = {}) {
         const template = await getYamlTemplate();
         if (seq !== docSeq.current) return;
         const content = template.content.replace("id: my-category", `id: ${stem}`);
-        const file = joinPath(pluginsDir || "plugins", `${stem}.yaml`);
+        const file = joinPath(configDir || "config", `${stem}.yaml`);
         setDoc({
           status: "ready",
           file,

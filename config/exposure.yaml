@@ -1,4 +1,4 @@
-# plugins/exposure.yaml — AI 基础设施曝面哨兵(FOFA/Shodan 发现 + L0 被动探测
+# config/exposure.yaml — AI 基础设施曝面哨兵(FOFA/Shodan 发现 + L0 被动探测
 # + 本地文本分诊),场景件 myssia-credhunter(10-03-aipocket-fusion R4/R3)。
 #
 # 授权边界(先读):仅用于已授权安全研究与自有/已授权资产的暴露面排查;

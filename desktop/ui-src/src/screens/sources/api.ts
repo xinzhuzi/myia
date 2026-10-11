@@ -61,8 +61,8 @@ export interface SourceRow {
 export interface SourcesData {
   rows: SourceRow[];
   summary: HealthSummary;
-  /** health 的 plugins_dir / db(空态文案里交代数据从哪来) */
-  pluginsDir: string;
+  /** health 的 config_dir / db(空态文案里交代数据从哪来) */
+  configDir: string;
   db: string;
   /** store 打不开时的结构化明细(如实展示,不伪装成「暂无数据」) */
   storeError: { error_type: string; message: string } | null;
@@ -100,7 +100,7 @@ export async function loadSourcesData(): Promise<SourcesData> {
   return {
     rows: flattenHealthPlugins(health.plugins),
     summary: health.summary,
-    pluginsDir: health.plugins_dir,
+    configDir: health.config_dir,
     db: health.db,
     storeError: health.store_error,
     plugins: health.plugins,

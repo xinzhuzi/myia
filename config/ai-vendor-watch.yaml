@@ -1,4 +1,4 @@
-# plugins/ai-vendor-watch.yaml — prompt 任务示范件(10-06-hermes-align 批次3):
+# config/ai-vendor-watch.yaml — prompt 任务示范件(10-06-hermes-align 批次3):
 # 一句话监控的最小等价物(MYIA 版 hermes chat -Q)——「每天 8 点看看这几家
 # AI 公司官网有什么新闻,整理成日报发群里」整句话就是下面这一个源:
 #

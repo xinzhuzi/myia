@@ -63,7 +63,7 @@ import type { LogsRunEntry, RunHistoryEntry } from "./api";
 
 const run2Running: RunEntry = {
   run_id: 2,
-  yaml: "/plugins/daily-tech.yaml",
+  yaml: "/config/daily-tech.yaml",
   db: "myssia.db",
   dry: false,
   state: "running",
@@ -77,7 +77,7 @@ const run2Running: RunEntry = {
 
 const run1Success: RunEntry = {
   run_id: 1,
-  yaml: "/plugins/tech.yaml",
+  yaml: "/config/tech.yaml",
   db: "myssia.db",
   dry: false,
   state: "done",
@@ -385,7 +385,7 @@ describe("LogsScreen", () => {
     runStartMock.mockResolvedValue({
       run_id: 3,
       state: "running",
-      yaml: "/plugins/tech.yaml",
+      yaml: "/config/tech.yaml",
       dry: false,
       db: "myssia.db",
     });
@@ -397,7 +397,7 @@ describe("LogsScreen", () => {
     fireEvent.click(screen.getByTestId("run-rerun-1"));
     // 回放原 run 三参数(dry/db 原样),不新增协议方法
     await waitFor(() =>
-      expect(runStartMock).toHaveBeenCalledWith({ yaml: "/plugins/tech.yaml", dry: false, db: "myssia.db" }),
+      expect(runStartMock).toHaveBeenCalledWith({ yaml: "/config/tech.yaml", dry: false, db: "myssia.db" }),
     );
     // 触发成功反馈:新 run_id 上屏(新 run 的展开跟随由列表刷新的 follow 策略承担)
     expect(await screen.findByTestId("run-rerun-ok-1").then((el) => el.textContent)).toContain("已触发 #3");

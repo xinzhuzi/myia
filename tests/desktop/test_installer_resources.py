@@ -24,7 +24,7 @@
 不锁锁件。
 
 品类面(官方 7 + demo + 场景 monitor/credentials + telegram 三件与
-daily-digest,10-08 查漏批③后 14 件)属「配置可随包」,
+daily-digest + 查漏 2,2026-10-11 起 16 件,随包 Resources/config/)属「配置可随包」,
 维持随包不变,断言原样保留。与 tests/desktop/test_pyenv_resources.py
 的分工:彼管 Python 运行时五映射「不被挤掉」;此管随包插件面
 (品类在 + 组件包两声明在且**仅有** + 源码/数据件不在)。
@@ -42,6 +42,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_TAURI = REPO_ROOT / "desktop" / "src-tauri"
 TAURI_CONF = SRC_TAURI / "tauri.conf.json"
 PLUGINS_DIR = REPO_ROOT / "plugins"
+#: 品类配置目录(2026-10-11 命名拆分:配置归 config,随包资源同步分居)。
+CONFIG_DIR = REPO_ROOT / "config"
 
 #: 官方 7 品类(README zh/en「7 official categories」口径)+ demo 件;
 #: monitor/credentials(10-05-bundled-plugins-batch2 R4):场景品类随包
@@ -63,11 +65,16 @@ OFFICIAL_CATEGORY_YAMLS = (
     "credentials.yaml",
     # telegram 三件 + daily-digest(2026-10-08 10-08-tg-web-line 查漏批③
     # G5/G9 入种子:telegram-groups/telegram-channels 存量两件补映射,
-    # telegram-web 新示范件,daily-digest 合并日报)——随包品类面自此 14 件。
+    # telegram-web 新示范件,daily-digest 合并日报)。
     "telegram-groups.yaml",
     "telegram-channels.yaml",
     "telegram-web.yaml",
     "daily-digest.yaml",
+    # 2026-10-11 config/ 命名拆分批:补齐两件预存缺口(仓库种子在册但
+    # 从未进 resources 映射,装机永不补种)——随包品类面自此 16 件。
+    # searxng.yaml 有意不随包(件头注:示例骨架、缺省不启用,自托管属主人)。
+    "ai-token-deals.yaml",
+    "ai-vendor-watch.yaml",
 )
 
 #: desktop tier 源码件全件(EXPECTED_TIERS 同源清单;新规范下这些件的
@@ -127,10 +134,10 @@ def _conf_resources() -> dict[str, str]:
     "yaml_name", [name for name in OFFICIAL_CATEGORY_YAMLS if name != "myssia-demo.yaml"]
 )
 def test_official_category_yaml_bundled(yaml_name: str) -> None:
-    """品类 YAML 逐一(官方 7 + 场景 2 + telegram/日报 4,见常量注):
-    resources 有映射,且映射源在仓库 plugins/ 实况存在。"""
-    source = f"../../plugins/{yaml_name}"
-    dest = f"plugins/{yaml_name}"
+    """品类 YAML 逐一(官方 7 + 场景 2 + telegram/日报 4 + 查漏 2,见常量注):
+    resources 有映射,且映射源在仓库 config/ 实况存在。"""
+    source = f"../../config/{yaml_name}"
+    dest = f"config/{yaml_name}"
     resources = _conf_resources()
     assert resources.get(source) == dest, (
         f"官方品类未随包捆绑: {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
@@ -140,7 +147,7 @@ def test_official_category_yaml_bundled(yaml_name: str) -> None:
 
 def test_demo_yaml_still_bundled() -> None:
     """demo 件维持随包(既有面;官方 7 之外的教程件)。"""
-    assert _conf_resources().get("../../plugins/myssia-demo.yaml") == "plugins/myssia-demo.yaml"
+    assert _conf_resources().get("../../config/myssia-demo.yaml") == "config/myssia-demo.yaml"
 
 
 # ---------------------------------------------------------------------------
@@ -258,7 +265,7 @@ def test_scenario_category_yaml_is_credential_template_only(yaml_name: str) -> N
     (``keychain:``/``env:`` + example.com 占位 endpoint),零明文凭据——
     两件入包(resources 映射)即成随包分发面,未来任何往里加明文密钥的
     改动在本测试即红(安全红线:入包即泄漏面)。"""
-    text = (PLUGINS_DIR / yaml_name).read_text(encoding="utf-8")
+    text = (CONFIG_DIR / yaml_name).read_text(encoding="utf-8")
     for match in _CREDENTIAL_BEARING_RE.finditer(text):
         raw = match.group(2)
         if raw.startswith("#"):

@@ -36,6 +36,8 @@ from myssia.schema import load_category_file
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGINS_DIR = REPO_ROOT / "plugins"
+#: 品类配置目录(2026-10-11 拆分;品类侧断言/核心无感证据吃这里)。
+CONFIG_DIR = REPO_ROOT / "config"
 SNOWNLP_DIR = PLUGINS_DIR / "myssia-snownlp"
 YAKE_DIR = PLUGINS_DIR / "myssia-yake"
 
@@ -295,7 +297,7 @@ class TestIronLaw:
     def test_core_pipeline_builds_regardless_of_analysis_plugins(self):
         """装不上不拦核心:两件失败态(uv 缺失/依赖缺失)下品类照常加载、
         Pipeline 可构造(lane 的降级注记钉在 tests/pipeline/test_analysis_lane.py)。"""
-        config = load_category_file(PLUGINS_DIR / "wool.yaml")
+        config = load_category_file(CONFIG_DIR / "wool.yaml")
         Pipeline(config)
 
 

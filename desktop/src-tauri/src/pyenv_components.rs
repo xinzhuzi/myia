@@ -59,7 +59,7 @@
 //! + 可选 `pre_start` 钩子(当前唯一值 searxng-settings:确保
 //! `<数据根>/services/searxng/settings.yml` 在场,缺则生成
 //! `use_default_settings: true` + `formats: [html, json]` + 随机 secret_key
-//! 两行关键覆盖机器化 + 随机 secret;plugins/searxng.yaml 头注原手工步骤的
+//! 两行关键覆盖机器化 + 随机 secret;config/searxng.yaml 头注原手工步骤的
 //! 壳侧接管);缺 kind = 既有库组件,老消费端零感知(宽容读取惯例)。
 //!
 //! 生命周期 IPC:`service_start/stop/status`(main.rs generate_handler
@@ -513,7 +513,7 @@ pub fn random_secret_key() -> String {
 /// `use_default_settings: true`(其余全取上游包内默认 settings.yml)+
 /// `search.formats: [html, json]`(json format 默认不开,开它是 MYIA 引擎
 /// 消费的硬前提——403 专项文案的根因位)+ 随机 `server.secret_key`
-/// (plugins/searxng.yaml 头注两行关键覆盖 + ultrasecretkey 替换的机器化)。
+/// (config/searxng.yaml 头注两行关键覆盖 + ultrasecretkey 替换的机器化)。
 pub fn searxng_settings_yaml(secret_key: &str) -> String {
     format!(
         "# MYIA 壳服务组件生成(SearXNG;10-06-native-plugin-components 轨B/G-Q5)\n\

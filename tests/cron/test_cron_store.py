@@ -39,7 +39,7 @@ def make_job(job_id: str, **overrides: Any) -> dict[str, Any]:
     base: dict[str, Any] = {
         "id": job_id,
         "name": f"job {job_id}",
-        "category": "plugins/news.yaml",
+        "category": "config/news.yaml",
         "schedule": {"kind": "interval", "minutes": 30, "display": "every 30m"},
         "schedule_display": "every 30m",
         "repeat": {"times": None, "completed": 0},
@@ -361,7 +361,7 @@ def test_atomic_write_leaves_no_tmp_litter(store: CronJobStore) -> None:
 def test_normalize_job_record_name_fallback_and_display() -> None:
     job = cron_store.normalize_job_record({
         "id": "x1",
-        "category": "plugins/news.yaml",
+        "category": "config/news.yaml",
         "schedule": {"kind": "cron", "expr": "0 9 * * *"},
         "enabled": True,
     })

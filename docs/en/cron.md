@@ -10,7 +10,7 @@
 ## 1. A job in thirty seconds
 
 ```bash
-myssia cron create "every 2h" --category plugins/news.yaml --deliver local
+myssia cron create "every 2h" --category config/news.yaml --deliver local
 myssia cron list
 myssia cron serve    # resident host, one tick per 60s; Ctrl-C to stop
 ```
@@ -152,9 +152,9 @@ change the `command:` line in `docker/docker-compose.yml` to
 `cron serve --db /data/myssia.db` (the image entrypoint is the `myssia` CLI) —
 jobs live in `/data/cron/jobs.json`, persisted with the volume. Create the
 jobs inside the container — category YAMLs are mounted read-only at
-`/config/plugins/`:
+`/config/`:
 
 ```bash
 docker compose -f docker/docker-compose.yml run --rm myssia \
-  cron create "every 2h" --category /config/plugins/news.yaml --db /data/myssia.db
+  cron create "every 2h" --category /config/news.yaml --db /data/myssia.db
 ```

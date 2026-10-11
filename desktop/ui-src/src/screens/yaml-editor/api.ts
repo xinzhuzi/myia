@@ -6,7 +6,7 @@
  * 数据面 = sidecar 协议 yaml.* 六方法(task 10-03-yaml-editor,契约钉死于
  * 任务档 design.md §1;Python 侧实现 = desktop/entry.py `_m_yaml_*` 六处理器,
  * 两侧注释互指):
- *   yaml.list     plugins 目录扫描(坏文件也入列,parse_ok=false 修好它是本屏核心用例)
+ *   yaml.list     config 目录扫描(坏文件也入列,parse_ok=false 修好它是本屏核心用例)
  *   yaml.read     原文直读(newline="" 逐字节保真,注释/顺序原样)
  *   yaml.validate 干跑校验(load_category 同门;findings 分级 error/warning,零写入)
  *   yaml.template 最小合法品类模板(id/name 占位,UI 回填)
@@ -51,7 +51,7 @@ export interface YamlFileEntry {
 }
 
 export interface YamlListResult {
-  plugins_dir: string;
+  config_dir: string;
   files: YamlFileEntry[];
 }
 

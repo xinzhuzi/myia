@@ -833,12 +833,12 @@ class TestPluginListGates:
 
 
 def run_doctor(capsys: pytest.CaptureFixture[str], tmp_path: Path, market: Path, gates_file: Path):
-    plugins_dir = tmp_path / "plugins"
-    plugins_dir.mkdir(exist_ok=True)
+    config_dir = tmp_path / "config"
+    config_dir.mkdir(exist_ok=True)
     return run_cli(
         capsys,
         "doctor",
-        "--plugins-dir", str(plugins_dir),
+        "--config-dir", str(config_dir),
         "--db", str(tmp_path / "myssia.db"),
         "--dir", str(market),
         "--gates-file", str(gates_file),

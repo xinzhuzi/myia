@@ -246,14 +246,14 @@ def test_version_roundtrip():
 
 def test_health_roundtrip_with_summary(tmp_path):
     """health:CLI list 同源数据 + 状态计数聚合 + healthy。"""
-    plugins_dir = tmp_path / "plugins"
-    plugins_dir.mkdir()
-    (plugins_dir / "demo.yaml").write_text(
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "demo.yaml").write_text(
         VALID_YAML.replace("{port}", "9"), encoding="utf-8"
     )
     db = tmp_path / "myssia.db"
     code, responses, _ = rpc({"id": 7, "method": "health",
-                              "params": {"plugins_dir": str(plugins_dir), "db": str(db)}})
+                              "params": {"config_dir": str(config_dir), "db": str(db)}})
     assert code == 0
     result = responses[0]["result"]
     assert "error" not in responses[0]
@@ -269,12 +269,12 @@ def test_health_roundtrip_with_summary(tmp_path):
 def test_health_missing_dir_structured_error(tmp_path):
     """health:目录不存在 → CLI 错误结构化透传(code=path/message 落位)。"""
     code, responses, _ = rpc({"id": 1, "method": "health",
-                              "params": {"plugins_dir": str(tmp_path / "nope")}})
+                              "params": {"config_dir": str(tmp_path / "nope")}})
     assert code == 0  # serve 进程不因单请求错误退出
     error = responses[0]["error"]
-    assert error["code"] == "plugins_dir"
+    assert error["code"] == "config_dir"
     assert "message" in error and error["path"] == "$"
-    assert error["data"]["error"] == "plugins_dir"
+    assert error["data"]["error"] == "config_dir"
 
 
 def test_plugins_list_roundtrip(tmp_path):
@@ -338,11 +338,11 @@ def test_doctor_config_auto_miss_and_dev_fallback(tmp_path, monkeypatch):
     proxy.config=null、pools=[]);dev 回退(home=None)同款不炸。
 
     hermetic(10-07-logs-restart-visibility 门禁修复):dev 腿的
-    plugins_dir="plugins" 按 CWD 相对解析,pytest 非仓根 CWD 时不存在即
-    plugins_dir 拒——chdir 沙箱 + 造空 plugins/ 后仓根/异 CWD 两跑同绿
+    config_dir="config" 按 CWD 相对解析,pytest 非仓根 CWD 时不存在即
+    config_dir 拒——chdir 沙箱 + 造空 config/ 后仓根/异 CWD 两跑同绿
     (父提交同 CWD 亦红 = 既有 CWD 敏感,非本批引入,此处一并收口)。"""
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "plugins").mkdir()
+    (tmp_path / "config").mkdir()
     monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
     code, responses, _ = rpc({"id": 1, "method": "doctor", "params": {"config_auto": True}})
     result = responses[0]["result"]
@@ -1182,7 +1182,7 @@ classify:
 
 
 def _fake_bundle(tmp_path: Path, *plugin_ids: str) -> Path:
-    bundle = tmp_path / "bundle" / "plugins"
+    bundle = tmp_path / "bundle" / "config"
     bundle.mkdir(parents=True, exist_ok=True)
     for pid in plugin_ids:
         (bundle / f"{pid}.yaml").write_text(OFFICIAL_TEMPLATE.format(pid=pid), encoding="utf-8")
@@ -1190,13 +1190,13 @@ def _fake_bundle(tmp_path: Path, *plugin_ids: str) -> Path:
 
 
 def test_serve_context_myssia_home_env(tmp_path, monkeypatch):
-    """MYIA_HOME env → home 模式:db/plugins 默认全落数据根(并即时建目录)。"""
+    """MYIA_HOME env → home 模式:db/config 默认全落数据根(并即时建目录)。"""
     home = tmp_path / "home"
     monkeypatch.setenv("MYIA_HOME", str(home))
     ctx = entry._serve_context()
     assert ctx.home == home
     assert ctx.db == str(home / "myssia.db")
-    assert ctx.plugins_dir == str(home / "plugins")
+    assert ctx.config_dir == str(home / "config")
     assert ctx.install_root == str(home / "plugins")
     assert home.is_dir()
 
@@ -1211,14 +1211,14 @@ def test_serve_context_plugin_dir_env_respected(tmp_path, monkeypatch):
 
 def test_serve_context_dev_fallback_unchanged(monkeypatch):
     """dev 回退:三项默认与 v1.1 CLI 常量逐字节一致(仓库内行为不回退)。"""
-    from myssia.cli import DEFAULT_DB_PATH, DEFAULT_PLUGINS_DIR
+    from myssia.cli import DEFAULT_CONFIG_DIR, DEFAULT_DB_PATH
     from myssia.plugins.installed import default_install_root
 
     monkeypatch.delattr(sys, "frozen", raising=False)
     ctx = entry._serve_context()
     assert ctx.home is None
     assert ctx.db == DEFAULT_DB_PATH
-    assert ctx.plugins_dir == DEFAULT_PLUGINS_DIR
+    assert ctx.config_dir == DEFAULT_CONFIG_DIR
     assert ctx.install_root == str(default_install_root())
 
 
@@ -1246,9 +1246,9 @@ def test_bundle_detection_requires_dot_app(tmp_path, monkeypatch):
     assert entry._serve_context().home is None
 
 
-def test_bundle_plugins_dir_managed_python_resource_tree(tmp_path, monkeypatch):
+def test_bundle_config_dir_managed_python_resource_tree(tmp_path, monkeypatch):
     """托管 Python 形态(非冻结,10-05-desktop-managed-py-env):资源树布局
-    Resources/myssia-src/entry.py → 按本文件相对定位旁级 Resources/plugins。
+    Resources/myssia-src/entry.py → 按本文件相对定位旁级 Resources/config。
 
     装机实测回归钉(2026-10-05 换装):冻结时代 ``sys.frozen`` 门 + exe 相对
     候选在 ``python -m myssia_desktop_entry`` 形态下恒 None,品类补种静默
@@ -1257,42 +1257,42 @@ def test_bundle_plugins_dir_managed_python_resource_tree(tmp_path, monkeypatch):
     src_tree = resources / "myssia-src"
     src_tree.mkdir(parents=True)
     shutil.copyfile(ENTRY_PATH, src_tree / "entry.py")
-    bundle = resources / "plugins"
+    bundle = resources / "config"
     bundle.mkdir()
     (bundle / "games.yaml").write_text(OFFICIAL_TEMPLATE.format(pid="games"), encoding="utf-8")
     monkeypatch.delattr(sys, "frozen", raising=False)
     spec = importlib.util.spec_from_file_location("managed_entry_probe", src_tree / "entry.py")
     managed = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(managed)
-    assert managed._bundle_plugins_dir() == bundle
+    assert managed._bundle_config_dir() == bundle
 
 
-def test_bundle_plugins_dir_dev_tree_stays_none(monkeypatch):
+def test_bundle_config_dir_dev_tree_stays_none(monkeypatch):
     """开发树(desktop/entry.py,父目录名非 myssia-src)且非冻结 → None,dev 行为零变化。"""
     monkeypatch.delattr(sys, "frozen", raising=False)
-    assert entry._bundle_plugins_dir() is None
+    assert entry._bundle_config_dir() is None
 
 
 def test_seed_copies_official_plugins_and_marks(tmp_path, monkeypatch):
-    """首跑补种:空 plugins → 拷官方四件套 + 写 .seeded;删件后重启补缺回。"""
+    """首跑补种:空 config → 拷官方四件套 + 写 .seeded;删件后重启补缺回。"""
     home = tmp_path / "home"
     bundle = _fake_bundle(tmp_path, "ai-news", "wool", "stocks", "gpu-prices")
-    monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: bundle)
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: bundle)
     ctx = entry.ServeContext(
         home=home, db=str(home / "myssia.db"),
-        plugins_dir=str(home / "plugins"), install_root=str(home / "plugins"),
+        config_dir=str(home / "config"), install_root=str(home / "plugins"),
     )
     assert entry._seed_first_run(ctx) is True
-    seeded = sorted(path.name for path in (home / "plugins").glob("*.yaml"))
+    seeded = sorted(path.name for path in (home / "config").glob("*.yaml"))
     assert seeded == ["ai-news.yaml", "gpu-prices.yaml", "stocks.yaml", "wool.yaml"]
     marker = home / entry.SEED_MARKER
     assert marker.exists()
 
     # 幂等补缺(AC5 语义):删一个插件后重启 → 该件补回,标志不重写。
-    (home / "plugins" / "wool.yaml").unlink()
+    (home / "config" / "wool.yaml").unlink()
     mtime_before = marker.stat().st_mtime_ns
     assert entry._seed_first_run(ctx) is True
-    assert (home / "plugins" / "wool.yaml").exists()
+    assert (home / "config" / "wool.yaml").exists()
     assert marker.stat().st_mtime_ns == mtime_before  # 首次补种时刻定格
 
 
@@ -1300,18 +1300,18 @@ def test_seed_skips_when_user_has_plugins(tmp_path, monkeypatch):
     """用户自建品类在场:原样保留零覆盖,bundle 缺件(官方位)照补。"""
     home = tmp_path / "home"
     bundle = _fake_bundle(tmp_path, "ai-news")
-    plugins = home / "plugins"
-    plugins.mkdir(parents=True)
+    config = home / "config"
+    config.mkdir(parents=True)
     mine = OFFICIAL_TEMPLATE.format(pid="mine")
-    (plugins / "mine.yaml").write_text(mine, encoding="utf-8")
-    monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: bundle)
+    (config / "mine.yaml").write_text(mine, encoding="utf-8")
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: bundle)
     ctx = entry.ServeContext(
         home=home, db=str(home / "myssia.db"),
-        plugins_dir=str(plugins), install_root=str(plugins),
+        config_dir=str(config), install_root=str(home / "plugins"),
     )
     assert entry._seed_first_run(ctx) is True  # 官方 ai-news 缺 → 补
-    assert (plugins / "mine.yaml").read_text(encoding="utf-8") == mine  # 用户件不动
-    assert sorted(path.name for path in plugins.glob("*.yaml")) == ["ai-news.yaml", "mine.yaml"]
+    assert (config / "mine.yaml").read_text(encoding="utf-8") == mine  # 用户件不动
+    assert sorted(path.name for path in config.glob("*.yaml")) == ["ai-news.yaml", "mine.yaml"]
     assert (home / entry.SEED_MARKER).exists()
 
 
@@ -1319,45 +1319,45 @@ def test_seed_does_not_overwrite_existing_games_yaml(tmp_path, monkeypatch):
     """AC5 补种:已存在 games.yaml(手改/旧版)→ 逐字节原样,绝不被 bundle 覆盖。"""
     home = tmp_path / "home"
     bundle = _fake_bundle(tmp_path, "games", "news")
-    plugins = home / "plugins"
-    plugins.mkdir(parents=True)
+    config = home / "config"
+    config.mkdir(parents=True)
     custom = OFFICIAL_TEMPLATE.format(pid="games-user-edited")
-    (plugins / "games.yaml").write_text(custom, encoding="utf-8")
-    monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: bundle)
+    (config / "games.yaml").write_text(custom, encoding="utf-8")
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: bundle)
     ctx = entry.ServeContext(
         home=home, db=str(home / "myssia.db"),
-        plugins_dir=str(plugins), install_root=str(plugins),
+        config_dir=str(config), install_root=str(home / "plugins"),
     )
     assert entry._seed_first_run(ctx) is True  # news 缺,补了一件
-    assert (plugins / "games.yaml").read_text(encoding="utf-8") == custom
-    assert sorted(path.name for path in plugins.glob("*.yaml")) == ["games.yaml", "news.yaml"]
+    assert (config / "games.yaml").read_text(encoding="utf-8") == custom
+    assert sorted(path.name for path in config.glob("*.yaml")) == ["games.yaml", "news.yaml"]
 
     # 零缺件再跑:幂等零动作(全量在位)。
     assert entry._seed_first_run(ctx) is False
-    assert (plugins / "games.yaml").read_text(encoding="utf-8") == custom
+    assert (config / "games.yaml").read_text(encoding="utf-8") == custom
 
 
 def test_seed_fills_missing_news_yaml_only(tmp_path, monkeypatch):
     """AC5 补种:缺 news.yaml 时只补 news.yaml;全量在位的首次启动零标志。"""
     home = tmp_path / "home"
     bundle = _fake_bundle(tmp_path, "ai-news", "news")
-    plugins = home / "plugins"
-    plugins.mkdir(parents=True)
+    config = home / "config"
+    config.mkdir(parents=True)
     for pid in ("ai-news", "news"):
-        (plugins / f"{pid}.yaml").write_text(OFFICIAL_TEMPLATE.format(pid=pid), encoding="utf-8")
-    monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: bundle)
+        (config / f"{pid}.yaml").write_text(OFFICIAL_TEMPLATE.format(pid=pid), encoding="utf-8")
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: bundle)
     ctx = entry.ServeContext(
         home=home, db=str(home / "myssia.db"),
-        plugins_dir=str(plugins), install_root=str(plugins),
+        config_dir=str(config), install_root=str(home / "plugins"),
     )
     # 从未缺件:零拷贝、零标志(「已做过一次补种」的记录无从谈起)。
     assert entry._seed_first_run(ctx) is False
     assert not (home / entry.SEED_MARKER).exists()
 
     # 缺 news.yaml → 只补 news.yaml,标志随之落盘。
-    (plugins / "news.yaml").unlink()
+    (config / "news.yaml").unlink()
     assert entry._seed_first_run(ctx) is True
-    assert (plugins / "news.yaml").exists()
+    assert (config / "news.yaml").exists()
     assert (home / entry.SEED_MARKER).exists()
 
 
@@ -1366,14 +1366,14 @@ def test_serve_startup_seeds_in_home_mode(tmp_path, monkeypatch):
     home = tmp_path / "home"
     bundle = _fake_bundle(tmp_path, "ai-news")
     monkeypatch.setenv("MYIA_HOME", str(home))
-    monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: bundle)
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: bundle)
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
     assert code == 0 and responses[0]["result"]["version"]
-    assert (home / "plugins" / "ai-news.yaml").exists()
+    assert (home / "config" / "ai-news.yaml").exists()
 
     monkeypatch.delenv("MYIA_HOME")
     monkeypatch.setattr(
-        entry, "_bundle_plugins_dir",
+        entry, "_bundle_config_dir",
         lambda: (_ for _ in ()).throw(AssertionError("dev 模式不得触发 bundle 探测")),
     )
     code, responses, _ = rpc({"id": 2, "method": "version", "params": {}})
@@ -1381,19 +1381,19 @@ def test_serve_startup_seeds_in_home_mode(tmp_path, monkeypatch):
 
 
 def test_health_first_run_flag_and_home_defaults(tmp_path, monkeypatch):
-    """health:home 模式 db/plugins 落数据根;零 yaml → first_run=true,种上即 false。"""
+    """health:home 模式 db/config 落数据根;零 yaml → first_run=true,种上即 false。"""
     home = tmp_path / "home"
     monkeypatch.setenv("MYIA_HOME", str(home))
     code, responses, _ = rpc({"id": 1, "method": "health", "params": {}})
     result = responses[0]["result"]
     assert code == 0
-    assert result["plugins_dir"] == str(home / "plugins")
+    assert result["config_dir"] == str(home / "config")
     assert result["db"] == str(home / "myssia.db")
     assert result["first_run"] is True
     assert result["healthy"] is True  # 空态是合法态,不是错误
 
-    (home / "plugins").mkdir(parents=True, exist_ok=True)
-    (home / "plugins" / "ai-news.yaml").write_text(
+    (home / "config").mkdir(parents=True, exist_ok=True)
+    (home / "config" / "ai-news.yaml").write_text(
         OFFICIAL_TEMPLATE.format(pid="ai-news"), encoding="utf-8"
     )
     code, responses, _ = rpc({"id": 2, "method": "health", "params": {}})
@@ -1405,13 +1405,13 @@ def test_health_first_run_flag_and_home_defaults(tmp_path, monkeypatch):
 def test_health_explicit_params_win_over_env(tmp_path, monkeypatch):
     """优先级之首:显式 params 永远赢过 MYIA_HOME(env 只供缺省)。"""
     monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
-    plugins_dir = tmp_path / "elsewhere"
-    plugins_dir.mkdir()
+    config_dir = tmp_path / "elsewhere"
+    config_dir.mkdir()
     code, responses, _ = rpc(
-        {"id": 1, "method": "health", "params": {"plugins_dir": str(plugins_dir)}},
+        {"id": 1, "method": "health", "params": {"config_dir": str(config_dir)}},
     )
     assert code == 0
-    assert responses[0]["result"]["plugins_dir"] == str(plugins_dir)
+    assert responses[0]["result"]["config_dir"] == str(config_dir)
 
 
 def test_store_items_and_run_default_db_follow_home(tmp_path, monkeypatch):
@@ -1547,8 +1547,8 @@ push:
 
 
 def _editor_plugins(tmp_path: Path, monkeypatch, *files: tuple[str, str]) -> Path:
-    """home 模式下的可控 plugins 目录:yaml.list 零参数,目录由 serve 上下文定。"""
-    plugins = tmp_path / "home" / "plugins"
+    """home 模式下的可控 config 目录:yaml.list 零参数,目录由 serve 上下文定。"""
+    plugins = tmp_path / "home" / "config"
     plugins.mkdir(parents=True, exist_ok=True)
     for name, text in files:
         (plugins / name).write_text(text, encoding="utf-8")
@@ -1594,7 +1594,7 @@ def test_yaml_list_broken_file_readable_and_fixable(tmp_path, monkeypatch):
     code, responses, _ = rpc({"id": 1, "method": "yaml.list"})
     result = responses[0]["result"]
     assert code == 0
-    assert result["plugins_dir"] == str(plugins)
+    assert result["config_dir"] == str(plugins)
     assert [item["name"] for item in result["files"]] == ["broken.yaml", "demo.yaml"]  # 按文件名排序
     good = result["files"][1]
     assert good["parse_ok"] is True and good["category_id"] == "editor-demo"
@@ -2016,10 +2016,10 @@ push:
 
 
 def _messaging_home(tmp_path: Path, monkeypatch, yaml_text: str | None = MESSAGING_YAML) -> Path:
-    """home 模式夹具:MYIA_HOME 指向 tmp home,plugins 内放消息屏品类 YAML。"""
+    """home 模式夹具:MYIA_HOME 指向 tmp home,config 内放消息屏品类 YAML。"""
     home = tmp_path / "home"
     monkeypatch.setenv("MYIA_HOME", str(home))
-    plugins = home / "plugins"
+    plugins = home / "config"
     plugins.mkdir(parents=True, exist_ok=True)
     if yaml_text is not None:
         (plugins / "messaging-demo.yaml").write_text(yaml_text, encoding="utf-8")
@@ -2271,7 +2271,7 @@ def test_push_write_full_replacement_roundtrip(tmp_path, monkeypatch):
     from myssia.schema import load_category_file
 
     home = _messaging_home(tmp_path, monkeypatch)
-    yaml_path = home / "plugins" / "messaging-demo.yaml"
+    yaml_path = home / "config" / "messaging-demo.yaml"
     before = yaml_path.read_text(encoding="utf-8")
 
     new_push = [
@@ -2300,7 +2300,7 @@ def test_push_write_full_replacement_roundtrip(tmp_path, monkeypatch):
     assert "builtin: false" in after
     assert after[: after.index("push:")] == before[: before.index("push:")]
     # .bak 留底 = 手术前原文
-    assert (home / "plugins" / "messaging-demo.yaml.bak").read_text(encoding="utf-8") == before
+    assert (home / "config" / "messaging-demo.yaml.bak").read_text(encoding="utf-8") == before
 
 
 def test_push_write_bad_targets_rejected_zero_write(tmp_path, monkeypatch):
@@ -2308,7 +2308,7 @@ def test_push_write_bad_targets_rejected_zero_write(tmp_path, monkeypatch):
     from myssia.schema import load_category_file  # noqa: F401 — 门禁语义锚点
 
     home = _messaging_home(tmp_path, monkeypatch)
-    yaml_path = home / "plugins" / "messaging-demo.yaml"
+    yaml_path = home / "config" / "messaging-demo.yaml"
     before = yaml_path.read_text(encoding="utf-8")
 
     bad_push = [
@@ -2326,7 +2326,7 @@ def test_push_write_bad_targets_rejected_zero_write(tmp_path, monkeypatch):
     assert details and details[0]["code"] == "platform_mismatch"
     # 拒写 = 零写入:文件与 .bak 均未变
     assert yaml_path.read_text(encoding="utf-8") == before
-    assert not (home / "plugins" / "messaging-demo.yaml.bak").exists()
+    assert not (home / "config" / "messaging-demo.yaml.bak").exists()
 
 
 def test_push_write_empty_array_removes_section(tmp_path, monkeypatch):
@@ -2334,7 +2334,7 @@ def test_push_write_empty_array_removes_section(tmp_path, monkeypatch):
     from myssia.schema import load_category_file
 
     home = _messaging_home(tmp_path, monkeypatch)
-    yaml_path = home / "plugins" / "messaging-demo.yaml"
+    yaml_path = home / "config" / "messaging-demo.yaml"
 
     code, responses, _ = rpc(
         {"id": 1, "method": "push.write",
@@ -2367,9 +2367,9 @@ def test_push_write_empty_array_removes_section(tmp_path, monkeypatch):
 
 
 def test_push_write_fence_and_param_refusals(tmp_path, monkeypatch):
-    """push.write 围栏与参数:越出 plugins 目录 / 缺 push 数组 / 文件不存在。"""
+    """push.write 围栏与参数:越出 config 目录 / 缺 push 数组 / 文件不存在。"""
     home = _messaging_home(tmp_path, monkeypatch)
-    yaml_path = home / "plugins" / "messaging-demo.yaml"
+    yaml_path = home / "config" / "messaging-demo.yaml"
 
     code, responses, _ = rpc(
         {"id": 1, "method": "push.write",
@@ -2386,7 +2386,7 @@ def test_push_write_fence_and_param_refusals(tmp_path, monkeypatch):
 
     code, responses, _ = rpc(
         {"id": 3, "method": "push.write",
-         "params": {"file": str(home / "plugins" / "nope.yaml"),
+         "params": {"file": str(home / "config" / "nope.yaml"),
                     "push": [{"channel": "stdout"}]}},
     )
     assert responses[0]["error"]["code"] == "file_not_found"
@@ -2426,7 +2426,7 @@ def test_push_write_mid_file_block_and_template_roundtrip(tmp_path, monkeypatch)
             '      install: myssia plugin install ./myssia-mid\n'
         ),
     )
-    yaml_path = home / "plugins" / "messaging-demo.yaml"
+    yaml_path = home / "config" / "messaging-demo.yaml"
     template = "**速报 · {{ date }}**\n{% for item in items %}\n- {{ item.title }}\n{% endfor %}\n"
     new_push = [
         {
@@ -3652,10 +3652,10 @@ def test_telegram_host_credential_missing_graceful(tmp_path, monkeypatch):
     """凭据缺失 = graceful 不启动仅留痕(批铁律):真装配件 + resolve 强制
     CredentialResolveError —— 无线程、无异常、留痕含四步指引。"""
     monkeypatch.setenv("MYIA_HOME", str(tmp_path))
-    plugins = tmp_path / "plugins"
-    plugins.mkdir()
+    config = tmp_path / "config"
+    config.mkdir()
     entry._configure_serve_logging()  # 批1:直调内部函数的用例模拟 serve 已配置
-    (plugins / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
+    (config / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
 
     def _deny(value, *, backend=None):
         from myssia.schema import CredentialResolveError
@@ -3690,7 +3690,7 @@ def test_telegram_host_credential_missing_graceful(tmp_path, monkeypatch):
 def test_telegram_host_category_missing_graceful(tmp_path, monkeypatch):
     """品类缺失 = graceful 不启动仅留痕:不起线程、留痕指名文件。"""
     monkeypatch.setenv("MYIA_HOME", str(tmp_path))
-    (tmp_path / "plugins").mkdir()  # 空 plugins:无 telegram-groups.yaml
+    (tmp_path / "config").mkdir()  # 空 config:无 telegram-groups.yaml
     entry._configure_serve_logging()  # 批1:直调内部函数的用例模拟 serve 已配置
     monkeypatch.setattr(
         "myssia.schema.resolve_credential",
@@ -3708,9 +3708,9 @@ def test_telegram_host_assembly_builds_real_host(tmp_path, monkeypatch):
     from myssia.telegram.serve import TelegramServeHost
 
     monkeypatch.setenv("MYIA_HOME", str(tmp_path))
-    plugins = tmp_path / "plugins"
-    plugins.mkdir()
-    (plugins / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
     monkeypatch.setattr(
         "myssia.schema.resolve_credential",
         lambda value, *, backend=None: "fake-bot-token",
@@ -3744,16 +3744,16 @@ def test_telegram_host_assembly_builds_real_host(tmp_path, monkeypatch):
 
 
 def test_telegram_host_web_line_merges_dedicated_category(tmp_path, monkeypatch):
-    """C 线 sidecar 并入装配(首真跑补 2026-10-08):plugins/telegram-web.yaml
+    """C 线 sidecar 并入装配(首真跑补 2026-10-08):config/telegram-web.yaml
     的 tg_web 源并入 web 线(G9 同名跨文件);主品类同名 tg_web 源在时专用
     件侧跳过(同一群只跑一线);专用件坏档/非 tg_web 源留痕不拦装配。"""
     from myssia.telegram import web_host
 
     monkeypatch.setenv("MYIA_HOME", str(tmp_path))
-    plugins = tmp_path / "plugins"
-    plugins.mkdir()
-    (plugins / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
-    (plugins / "telegram-web.yaml").write_text(
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
+    (config / "telegram-web.yaml").write_text(
         """
 id: telegram-web
 name: TG网页线监控夹具
@@ -3820,9 +3820,9 @@ def test_telegram_host_web_line_dedup_prefers_groups_category(
     """同名 tg_web 源在主品类与专用件双在:主品类侧保留,专用件侧跳过
     (同一群只跑一线;装配零重复源)。"""
     monkeypatch.setenv("MYIA_HOME", str(tmp_path))
-    plugins = tmp_path / "plugins"
-    plugins.mkdir()
-    (plugins / "telegram-groups.yaml").write_text(
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "telegram-groups.yaml").write_text(
         TELEGRAM_YAML.replace(
             'engine: telegram',
             "engine: tg_web",
@@ -3835,7 +3835,7 @@ def test_telegram_host_web_line_dedup_prefers_groups_category(
         ),
         encoding="utf-8",
     )
-    (plugins / "telegram-web.yaml").write_text(
+    (config / "telegram-web.yaml").write_text(
         """
 id: telegram-web
 name: TG网页线监控夹具
@@ -3895,9 +3895,9 @@ def test_telegram_host_user_line_assembly(tmp_path, monkeypatch):
     from myssia.telegram.telethon_line import TelethonUserHost, session_path
 
     monkeypatch.setenv("MYIA_HOME", str(tmp_path))
-    plugins = tmp_path / "plugins"
-    plugins.mkdir()
-    (plugins / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "telegram-groups.yaml").write_text(TELEGRAM_YAML, encoding="utf-8")
     # session 已首登(文件在);假 telethon 模块(TelegramClient 工厂返回哨兵)。
     session = session_path(tmp_path)
     session.parent.mkdir(parents=True, exist_ok=True)
@@ -4241,10 +4241,10 @@ def _inject_enrich_client(monkeypatch, client: _FakeCompletion) -> None:
 
 
 def _enrich_home(tmp_path: Path, monkeypatch, yaml_text: str = ENRICH_YAML) -> Path:
-    """MYIA_HOME 模式夹具:<home>/plugins 放品类 YAML(端点 env: 引用密闭)。"""
+    """MYIA_HOME 模式夹具:<home>/config 放品类 YAML(端点 env: 引用密闭)。"""
     home = tmp_path / "enrich-home"
-    (home / "plugins").mkdir(parents=True, exist_ok=True)  # 同测多次换 YAML 复用
-    (home / "plugins" / "demo.yaml").write_text(yaml_text, encoding="utf-8")
+    (home / "config").mkdir(parents=True, exist_ok=True)  # 同测多次换 YAML 复用
+    (home / "config" / "demo.yaml").write_text(yaml_text, encoding="utf-8")
     monkeypatch.setenv("MYIA_HOME", str(home))
     return home
 
@@ -4501,7 +4501,7 @@ def test_bridge_status_without_yaml_uses_default_bin_path(tmp_path, monkeypatch)
 def test_bridge_status_bad_yaml_does_not_block_probe(tmp_path, monkeypatch):
     """坏品类 YAML:跳过不阻塞探测(yaml.list 自会如实展示其错误)。"""
     home = _messaging_home(tmp_path, monkeypatch, yaml_text=None)
-    (home / "plugins" / "broken.yaml").write_text("id: [broken", encoding="utf-8")
+    (home / "config" / "broken.yaml").write_text("id: [broken", encoding="utf-8")
     monkeypatch.setenv("HERMES_HOME", str(home))
 
     code, responses, _ = rpc({"id": 1, "method": "bridge.status", "params": {}})
@@ -5263,11 +5263,11 @@ def test_alerts_test_stored_rule_and_item_forms(tmp_path, monkeypatch):
     invalid_params(互斥门).
 
     hermetic(10-07-logs-restart-visibility 门禁修复):_category_config_for_item
-    经 _yaml_files 探 plugins 目录,CWD 相对路径在非仓根 CWD 不存在即
-    source_dir_unreadable——chdir 沙箱 + 空 plugins/(config=None 本就容忍),
+    经 _yaml_files 探 config 目录,CWD 相对路径在非仓根 CWD 不存在即
+    source_dir_unreadable——chdir 沙箱 + 空 config/(config=None 本就容忍),
     仓根/异 CWD 两跑同绿(父提交同 CWD 亦红 = 既有 CWD 敏感,非本批引入)。"""
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "plugins").mkdir()
+    (tmp_path / "config").mkdir()
     from myssia.store.models import AlertFired
 
     db = tmp_path / "alerts.db"

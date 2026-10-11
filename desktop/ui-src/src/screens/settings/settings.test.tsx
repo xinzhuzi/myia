@@ -345,7 +345,7 @@ describe("设置:doctor 验证回显", () => {
     installSidecar(() =>
       doctorFixture({
         plugins: [
-          pluginFixture("plugins/stocks.yaml", {
+          pluginFixture("config/stocks.yaml", {
             enrich: enrichFixture("glm-4-flash"),
           }),
         ],
@@ -587,7 +587,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
       secrets: new Map<string, string>(),
       doctorImpl: () =>
         doctorFixture({
-          plugins: [pluginFixture("plugins/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
+          plugins: [pluginFixture("config/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
         }),
     };
     mocks.invoke.mockImplementation(
@@ -598,7 +598,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
           case "secret.list":
             return { names: [...state.secrets.keys()].sort() };
           case "yaml.read":
-            return { file: "plugins/stocks.yaml", content: SAMPLE_YAML, size: SAMPLE_YAML.length, mtime };
+            return { file: "config/stocks.yaml", content: SAMPLE_YAML, size: SAMPLE_YAML.length, mtime };
           case "yaml.save": {
             const params = args.params as { file: string; content: string; expected_mtime: number | null };
             if (params.expected_mtime !== mtime) {
@@ -615,7 +615,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
               file: params.file,
               written: true,
               created: false,
-              backed_up: "plugins/stocks.yaml.bak",
+              backed_up: "config/stocks.yaml.bak",
               mtime,
               warnings: [],
             };
@@ -635,7 +635,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
   it("挂载即渲染逐品类行(doctor enrich 节);budget 只读护栏明示", async () => {
     installYamlSidecar();
     renderScreen();
-    const row = await screen.findByTestId("enrich-row-plugins/stocks.yaml");
+    const row = await screen.findByTestId("enrich-row-config/stocks.yaml");
     expect(row.textContent).toContain("stocks.yaml");
     expect(row.textContent).toContain("budget_per_run = 40");
     expect(row.textContent).toContain("精评已启用");
@@ -644,11 +644,11 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
   it("停用开关(Switch 即时写回):yaml.read → 文本手术(enabled: true→false)→ yaml.save(mtime 锁)→ doctor 复核", async () => {
     const state = installYamlSidecar();
     renderScreen();
-    const toggle = await screen.findByRole("switch", { name: "精评开关 plugins/stocks.yaml" });
+    const toggle = await screen.findByRole("switch", { name: "精评开关 config/stocks.yaml" });
     fireEvent.click(toggle);
 
     await waitFor(() => expect(state.saved).not.toBeNull());
-    expect(state.saved?.file).toBe("plugins/stocks.yaml");
+    expect(state.saved?.file).toBe("config/stocks.yaml");
     expect(state.saved?.content).toContain("  enabled: false   # 精评开关(B3)");
     // enrich 节内 enabled 不再为 true(整行匹配;push 节内的同名键不受扰)
     expect(state.saved?.content).not.toMatch(/^  enabled: true/m);
@@ -664,7 +664,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
   it("model 写回:与现值一致禁用保存;改值后 yaml.save 带 mtime 锁", async () => {
     const state = installYamlSidecar();
     renderScreen();
-    const input = await screen.findByLabelText("精评模型 plugins/stocks.yaml");
+    const input = await screen.findByLabelText("精评模型 config/stocks.yaml");
     // 现值一致 → 保存禁用(本项目无 jest-dom,原生 disabled 直查)
     expect((screen.getByRole("button", { name: /保存 model/ }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(input, { target: { value: "glm-4.6" } });
@@ -691,7 +691,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
       },
     });
     renderScreen();
-    fireEvent.click(await screen.findByRole("switch", { name: "精评开关 plugins/stocks.yaml" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "精评开关 config/stocks.yaml" }));
     // 断言限定本卡(结构重做后 vision-form 仅在「视觉」分区挂载,本区唯一 alert)
     const card = screen.getByTestId("enrich-feedback-card");
     const box = await within(card).findByRole("alert");
@@ -705,16 +705,16 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
       async (_command: string, args: { method: string }) => {
         if (args.method === "doctor") {
           return doctorFixture({
-            plugins: [pluginFixture("plugins/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
+            plugins: [pluginFixture("config/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
           });
         }
         if (args.method === "secret.list") return { names: [] };
         if (args.method === "yaml.read") {
-          return { file: "plugins/stocks.yaml", content: noEnrichYaml, size: 10, mtime: 1 };
+          return { file: "config/stocks.yaml", content: noEnrichYaml, size: 10, mtime: 1 };
         }
         if (args.method === "yaml.save") {
           return {
-            file: "plugins/stocks.yaml",
+            file: "config/stocks.yaml",
             written: true,
             created: false,
             backed_up: null,
@@ -726,7 +726,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
       },
     );
     renderScreen();
-    fireEvent.click(await screen.findByRole("switch", { name: "精评开关 plugins/stocks.yaml" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "精评开关 config/stocks.yaml" }));
     const note = await screen.findByTestId("enrich-node-error");
     expect(note.textContent).toContain("缺少 enrich");
     expect(note.textContent).toContain("YAML配置");
@@ -1227,11 +1227,11 @@ describe("设置:高困惑字段 tooltip(预算护栏/池名/门槛件 API Key)"
   it("通用分区:预算护栏行(品类问号)+ 代理池池名 tooltip 挂通", async () => {
     installSidecar(() =>
       doctorFixture({
-        plugins: [pluginFixture("plugins/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
+        plugins: [pluginFixture("config/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
       }),
     );
     renderScreen();
-    await screen.findByTestId("enrich-row-plugins/stocks.yaml");
+    await screen.findByTestId("enrich-row-config/stocks.yaml");
 
     vi.useFakeTimers();
     // 预算护栏行:品类名旁问号,文案讲人话(只读回显为何改不了)

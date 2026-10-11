@@ -705,7 +705,7 @@ class TestCategoryPluginSection:
         v1.1 迁移后 monitor.yaml 是 remote 可选接入形态(无 local 安装形态,
         requires 清空 —— 内置变更指纹覆盖桌面主场景,铁律不依赖插件)。
         """
-        config = load_category_file(REPO_ROOT / "plugins" / "monitor.yaml")
+        config = load_category_file(REPO_ROOT / "config" / "monitor.yaml")
         assert config.plugin is not None
         assert config.plugin.id == "myssia-monitor"
         assert config.plugin.requires == []

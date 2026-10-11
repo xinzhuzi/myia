@@ -11,8 +11,8 @@ from pathlib import Path
 
 from myssia.schema import load_category_file
 
-PLUGINS_DIR = Path(__file__).resolve().parents[2] / "plugins"
-DEMO_YAML = PLUGINS_DIR / "myssia-demo.yaml"
+CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
+DEMO_YAML = CONFIG_DIR / "myssia-demo.yaml"
 
 
 def test_demo_plugin_loads_through_schema():

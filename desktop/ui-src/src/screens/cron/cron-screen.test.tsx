@@ -141,7 +141,7 @@ function listResult(jobs: CronJobRecord[]): CronListResult {
 }
 
 const YAML_LIST: YamlListResult = {
-  plugins_dir: "/p",
+  config_dir: "/p",
   files: [
     {
       file: "/p/news.yaml",
@@ -1163,9 +1163,9 @@ describe("#27 编辑示 id(G7;AC4)", () => {
 // 适配点:数据面经 health 取品类清单;终态不 reload(本屏无健康度面)。
 // ---------------------------------------------------------------------------
 
-const SCHED_FILE = "plugins/ai-news.yaml";
+const SCHED_FILE = "config/ai-news.yaml";
 
-/** 品类夹具(排程一览只吃 plugins 层,sources 一律空) */
+/** 品类夹具(排程一览只吃 health.plugins 层,sources 一律空) */
 function schedPlugin(file: string, id: string, schedule: string | null): PluginReport {
   return {
     file,
@@ -1183,7 +1183,7 @@ function schedPlugin(file: string, id: string, schedule: string | null): PluginR
 function schedHealth(plugins: PluginReport[]): HealthResult {
   return {
     command: "list",
-    plugins_dir: "plugins",
+    config_dir: "config",
     db: "myssia.db",
     store_error: null,
     plugins,
@@ -1201,7 +1201,7 @@ describe("排程一览(自源管理迁入)", () => {
       health: () =>
         schedHealth([
           schedPlugin(SCHED_FILE, "ai-news", "*/15 * * * *"),
-          schedPlugin("plugins/nosched.yaml", "nosched", null),
+          schedPlugin("config/nosched.yaml", "nosched", null),
         ]),
       "schedule.preview": (params) => {
         const { file } = params as { file: string };
@@ -1226,11 +1226,11 @@ describe("排程一览(自源管理迁入)", () => {
     expect(row.textContent).toContain("Asia/Shanghai");
     expect(row.textContent).toContain("09:00");
     // 无排程品类明示,不是错误
-    const nosched = screen.getByTestId("schedule-row-plugins/nosched.yaml");
+    const nosched = screen.getByTestId("schedule-row-config/nosched.yaml");
     expect(nosched.textContent).toContain("无排程");
     // 预览请求逐品类发出,且带 count(缺省 5)
     expect(invokedParams("schedule.preview")).toContainEqual({ file: SCHED_FILE, count: 5 });
-    expect(invokedParams("schedule.preview")).toContainEqual({ file: "plugins/nosched.yaml", count: 5 });
+    expect(invokedParams("schedule.preview")).toContainEqual({ file: "config/nosched.yaml", count: 5 });
   });
 
   it("单品类预览失败只塌该行(预览失败徽标 + code),整区仍出", async () => {
@@ -1238,7 +1238,7 @@ describe("排程一览(自源管理迁入)", () => {
       "cron.list": () => listResult([]),
       "cron.status": () => STATUS_OK,
       health: () =>
-        schedHealth([schedPlugin(SCHED_FILE, "ai-news", "0 9 * * *"), schedPlugin("plugins/bad.yaml", "bad", null)]),
+        schedHealth([schedPlugin(SCHED_FILE, "ai-news", "0 9 * * *"), schedPlugin("config/bad.yaml", "bad", null)]),
       "schedule.preview": (params) => {
         const { file } = params as { file: string };
         if (file.endsWith("bad.yaml")) {
@@ -1253,7 +1253,7 @@ describe("排程一览(自源管理迁入)", () => {
     });
     renderScreen();
 
-    const badRow = await screen.findByTestId("schedule-row-plugins/bad.yaml");
+    const badRow = await screen.findByTestId("schedule-row-config/bad.yaml");
     expect(badRow.textContent).toContain("预览失败");
     expect(badRow.textContent).toContain("source_file_unreadable");
     // 好品类照常出(allSettled 不塌整区)
@@ -1277,7 +1277,7 @@ describe("排程一览(自源管理迁入)", () => {
       "cron.list": () => listResult([]),
       "cron.status": () => STATUS_OK,
       health: () =>
-        schedHealth([schedPlugin(SCHED_FILE, "ai-news", "*/15 * * * *"), schedPlugin("plugins/weekly.yaml", "weekly", null)]),
+        schedHealth([schedPlugin(SCHED_FILE, "ai-news", "*/15 * * * *"), schedPlugin("config/weekly.yaml", "weekly", null)]),
       "schedule.preview": (params) => {
         const { file } = params as { file: string };
         return { file, schedule: "*/15 * * * *", timezone: "Asia/Shanghai", runs: ["2026-10-04T09:00:00+08:00"] };

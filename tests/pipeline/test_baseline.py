@@ -60,7 +60,7 @@ from myssia.store import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-GPU_PRICES = REPO_ROOT / "plugins" / "gpu-prices.yaml"
+GPU_PRICES = REPO_ROOT / "config" / "gpu-prices.yaml"
 
 # Fixed +08:00 (gpu-prices.yaml 的 schedule 时区):deterministic window math.
 TZ = timezone(timedelta(hours=8))

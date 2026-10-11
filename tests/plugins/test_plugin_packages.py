@@ -49,6 +49,8 @@ from myssia.secrets import set_backend as set_keychain_backend
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGINS_DIR = REPO_ROOT / "plugins"
+#: 品类配置目录(2026-10-11 拆分;品类↔包 manifest 对账面吃这里)。
+CONFIG_DIR = REPO_ROOT / "config"
 DOCKER_DIR = REPO_ROOT / "docker"
 
 #: 官方场景件(目录名 == manifest id)。myssia-credhunter 于
@@ -329,7 +331,7 @@ class TestCategoryWiring:
         self, category: str, package: str
     ):
         """品类 plugin: 节与市场包 manifest 同源:id/endpoint/token 一字不差。"""
-        config = load_category_file(PLUGINS_DIR / f"{category}.yaml")
+        config = load_category_file(CONFIG_DIR / f"{category}.yaml")
         manifest = load_package(package)
         assert config.plugin is not None
         assert config.plugin.id == manifest.id
@@ -347,7 +349,7 @@ class TestCategoryWiring:
         (纯源码进程内件,无 remote 端点)——id/requires/install 命令与
         manifest 一字不差。
         """
-        config = load_category_file(PLUGINS_DIR / "exposure.yaml")
+        config = load_category_file(CONFIG_DIR / "exposure.yaml")
         manifest = load_package("myssia-credhunter")
         assert config.plugin is not None
         assert config.plugin.id == manifest.id
@@ -358,7 +360,7 @@ class TestCategoryWiring:
         assert manifest.provides == ["credhunt", "credcheck", "exposure"]
 
     def test_credentials_source_header_reuses_package_token_ref(self):
-        config = load_category_file(PLUGINS_DIR / "credentials.yaml")
+        config = load_category_file(CONFIG_DIR / "credentials.yaml")
         manifest = load_package("myssia-credentials")
         source = next(s for s in config.sources if s.name == "aipocket")
         token = manifest.modes.remote.token
@@ -460,7 +462,7 @@ class TestIronLawOnRealPackages:
     ):
         store = InstalledPluginStore(tmp_path / "plugins")
         store.install(package_dir("myssia-monitor"))
-        config = load_category_file(PLUGINS_DIR / "monitor.yaml")
+        config = load_category_file(CONFIG_DIR / "monitor.yaml")
         assert config.plugin is not None
         # token 未写入 → warning,不抛、不拦:
         missing = check_category_plugin(config.plugin, store, backend=keychain_backend)
@@ -479,7 +481,7 @@ class TestIronLawOnRealPackages:
         (tmp_path / "plugins" / "myssia-monitor" / "plugin.yaml").write_text(
             "id: [unclosed\n", encoding="utf-8"
         )
-        config = load_category_file(PLUGINS_DIR / "monitor.yaml")
+        config = load_category_file(CONFIG_DIR / "monitor.yaml")
         assert config.plugin is not None
         findings = check_category_plugin(config.plugin, store)
         assert [finding.code for finding in findings] == ["manifest_invalid"]
@@ -489,7 +491,7 @@ class TestIronLawOnRealPackages:
         self, tmp_path: Path
     ):
         store = InstalledPluginStore(tmp_path / "plugins")
-        config = load_category_file(PLUGINS_DIR / "monitor.yaml")
+        config = load_category_file(CONFIG_DIR / "monitor.yaml")
         assert config.plugin is not None
         findings = check_category_plugin(config.plugin, store)
         assert [finding.code for finding in findings] == ["plugin_not_installed"]
@@ -498,19 +500,19 @@ class TestIronLawOnRealPackages:
 
     def test_category_without_plugin_section_keeps_core_unblocked(self):
         """「禁用」形态:品类不声明 plugin: 节 → 无插件、核心照常。"""
-        config = load_category_file(PLUGINS_DIR / "wool.yaml")
+        config = load_category_file(CONFIG_DIR / "wool.yaml")
         assert config.plugin is None
         self._assert_core_unblocked()
 
     @staticmethod
     def _assert_core_unblocked() -> None:
         """核心无感的最小可执行证据:全部顶层品类 YAML 可加载 + Pipeline 可构造。"""
-        category_files: list[Path] = sorted(PLUGINS_DIR.glob("*.yaml"))
+        category_files: list[Path] = sorted(CONFIG_DIR.glob("*.yaml"))
         assert category_files, "顶层品类示例不应为空"
         for path in category_files:
             config = load_category_file(path)
             assert config.sources, f"{path.name} 必须可加载且有源"
-        Pipeline(load_category_file(PLUGINS_DIR / "wool.yaml"))
+        Pipeline(load_category_file(CONFIG_DIR / "wool.yaml"))
 
 
 # ---------------------------------------------------------------------------

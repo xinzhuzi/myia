@@ -352,8 +352,8 @@ describe("装机组件:卸载钮(批二 R2)", () => {
 
 describe("装机组件:品类分区(批二 R3)", () => {
   const CATEGORIES = [
-    { file: "ai-news.yaml", path: "/app/Contents/Resources/plugins/ai-news.yaml", id: "ai-news", name: "AI资讯", schedule: "0 9 * * *", exists: true, findings: [] },
-    { file: "monitor.yaml", path: "/app/Contents/Resources/plugins/monitor.yaml", id: "monitor", name: "变更监控", schedule: "*/15 * * * *", exists: false, findings: [] },
+    { file: "ai-news.yaml", path: "/app/Contents/Resources/config/ai-news.yaml", id: "ai-news", name: "AI资讯", schedule: "0 9 * * *", exists: true, findings: [] },
+    { file: "monitor.yaml", path: "/app/Contents/Resources/config/monitor.yaml", id: "monitor", name: "变更监控", schedule: "*/15 * * * *", exists: false, findings: [] },
   ];
 
   it("品类行渲染:名称/排程/已存在徽章(已存在 ok/未装 outline)", async () => {
@@ -411,7 +411,7 @@ describe("装机组件:品类分区(批二 R3)", () => {
     const badCategories = [
       {
         file: "broken.yaml",
-        path: "/app/Contents/Resources/plugins/broken.yaml",
+        path: "/app/Contents/Resources/config/broken.yaml",
         id: null,
         name: null,
         schedule: null,
@@ -427,7 +427,7 @@ describe("装机组件:品类分区(批二 R3)", () => {
         throw JSON.stringify({
           code: "category_exists",
           path: "params.id",
-          message: "数据根已有同名品类文件 /home/myia/plugins/ai-news.yaml;确认覆盖请加 force",
+          message: "数据根已有同名品类文件 /home/myia/config/ai-news.yaml;确认覆盖请加 force",
         });
       }
       throw JSON.stringify({ code: "method_not_found", path: "method", message: "未知方法" });

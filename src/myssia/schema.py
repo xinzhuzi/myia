@@ -10,7 +10,7 @@ Two distinct phases (see PRD v01-yaml-schema):
   YAML -> :class:`CategoryConfig`. Credential *syntax* is checked here
   (plaintext in credential-like headers/targets is refused with
   :class:`LoadError`). ``keychain:`` references are valid syntax at this
-  phase -- the official ``plugins/stocks.yaml`` example uses one.
+  phase -- the official ``config/stocks.yaml`` example uses one.
 - **Resolve** (:func:`resolve_credential`): reference -> concrete value at
   fetch/push time. ``env:VAR`` reads the environment; ``keychain:NAME`` reads
   the system keychain through :mod:`myssia.secrets` (macOS Keychain / Windows

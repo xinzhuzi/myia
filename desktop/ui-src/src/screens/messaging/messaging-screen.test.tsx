@@ -39,7 +39,7 @@ import {
   UPCOMING_PLATFORMS,
 } from "./platform-overview";
 
-const FILE = "plugins/messaging-demo.yaml";
+const FILE = "config/messaging-demo.yaml";
 
 /** 已注册的 sidecar 事件 handler(供 emitSidecarEvent 注入事件)。 */
 const eventHandlers: Array<(payload: unknown) => void> = [];
@@ -256,7 +256,7 @@ function okSidecar() {
       };
     },
     "yaml.list": () => ({
-      plugins_dir: "/tmp/plugins",
+      config_dir: "/tmp/config",
       files: [
         {
           file: FILE,

@@ -84,7 +84,7 @@ myssia secret set myia/image/api_key < key.txt    # 值走 stdin,不落 shell hi
 完整品类示例(其余节取最小骨架,`enrich:` 节即主角):
 
 ```yaml
-id: zero-cost-demo                    # 存成 plugins/zero-cost-demo.yaml 即可跑
+id: zero-cost-demo                    # 存成 config/zero-cost-demo.yaml 即可跑
 name: 零成本精评演示
 schedule: "0 9 * * *"
 sources:
@@ -231,7 +231,7 @@ push:
 (HTTP API 调用)接入,零源码复制;不可把其代码 vendor 进本仓库(MIT)。
 礼貌:逐词串行+词间 3s 引擎内置,run 间隔建议
 ≥30 分钟;上游搜索源的礼貌由 SearXNG 聚合层统一承担(自带熔断)。两条
-路说明与实例来源约定见 `plugins/searxng.yaml` 头注。
+路说明与实例来源约定见 `config/searxng.yaml` 头注。
 
 ## 红线与习惯
 

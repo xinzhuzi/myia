@@ -27,7 +27,7 @@
 export interface SidecarErrorShape {
   /** 错误类:协议级 parse_error/invalid_request/invalid_params/method_not_found/internal_error;
    *  壳级 sidecar_not_running/sidecar_dropped/sidecar_timeout/sidecar_terminated;
-   *  业务级 config/plugins_dir/store_corrupt/invalid_secret_name/run_busy/run_not_found/… */
+   *  业务级 config/config_dir/store_corrupt/invalid_secret_name/run_busy/run_not_found/… */
   code: string;
   /** 字段路径(如 "$"、"params.since") */
   path: string;
@@ -59,8 +59,8 @@ export interface VersionResult {
 // ---------------------------------------------------------------------------
 
 export interface HealthParams {
-  /** 品类 YAML 目录(缺省 = 已装插件目录默认值) */
-  plugins_dir?: string;
+  /** 品类 YAML 目录(缺省 = 数据根 config 目录默认值) */
+  config_dir?: string;
   /** SQLite 库路径(缺省 = 默认库) */
   db?: string;
 }
@@ -134,7 +134,7 @@ export interface StoreErrorDetail {
 
 export interface HealthResult {
   command: "list";
-  plugins_dir: string;
+  config_dir: string;
   db: string;
   store_error: StoreErrorDetail | null;
   plugins: PluginReport[];
@@ -201,9 +201,9 @@ export interface PluginListResult {
 // ---------------------------------------------------------------------------
 
 export interface DoctorParams {
-  /** 显式指定要诊断的品类 YAML(缺省 = 扫描插件目录) */
+  /** 显式指定要诊断的品类 YAML(缺省 = 扫描 config 目录) */
   yamls?: string[];
-  plugins_dir?: string;
+  config_dir?: string;
   db?: string;
   /** 全局代理池 YAML(--config);与 config 互斥——config 缺省且 true 时由
    *  sidecar 发现 <数据根>/pools.yaml(G10 10-05-g10-proxy-probe,零新应答键) */
@@ -635,7 +635,7 @@ export interface FeedEnrichResult {
 // schedule.preview(G4,10-03-feed-ux:品类排程 Next runs 预览,纯计算零副作用;
 // 与 entry.py `_m_schedule_preview` 互指)
 export interface SchedulePreviewParams {
-  /** 品类 YAML 路径(围栏:必须位于 plugins 目录内) */
+  /** 品类 YAML 路径(围栏:必须位于 config 目录内) */
   file: string;
   /** 预览次数(缺省 5,服务端钳制 [1,20]) */
   count?: number;
@@ -702,7 +702,7 @@ export interface SecretDeleteResult {
 
 // sources.test(C13:试抓此源,异步 job;结果走 test.completed 事件)
 export interface SourcesTestParams {
-  /** 品类 YAML 路径(围栏:必须位于 plugins 目录内) */
+  /** 品类 YAML 路径(围栏:必须位于 config 目录内) */
   file: string;
   /** 缺省 = 全部源;UI 只用单源形态 */
   source?: string;
@@ -1128,7 +1128,7 @@ export interface CronRunsResult {
 // `_yaml_file_entry`(1995-2017)互指——本屏只读,坏文件照样入列即禁选判据)
 // ---------------------------------------------------------------------------
 
-/** plugins 目录品类 YAML 清单项;坏文件 parse_ok=false + error(禁选带标的判据) */
+/** config 目录品类 YAML 清单项;坏文件 parse_ok=false + error(禁选带标的判据) */
 export interface YamlFileEntry {
   /** 绝对路径 */
   file: string;
@@ -1141,7 +1141,7 @@ export interface YamlFileEntry {
 }
 
 export interface YamlListResult {
-  plugins_dir: string;
+  config_dir: string;
   files: YamlFileEntry[];
 }
 

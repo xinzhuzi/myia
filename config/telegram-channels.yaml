@@ -1,4 +1,4 @@
-# plugins/telegram-channels.yaml — Telegram 公开频道监控(路线一:网页预览,零凭据)。
+# config/telegram-channels.yaml — Telegram 公开频道监控(路线一:网页预览,零凭据)。
 #
 # 写法要点(照 durov 频道 2026-10-06 实测选择器):
 #   url = https://t.me/s/<频道名>   ← 多一个 /s/ 就是消息流网页版

@@ -38,11 +38,11 @@ function healthOf(
 ): HealthResult {
   return {
     command: "list",
-    plugins_dir: "/home/plugins",
+    config_dir: "/home/config",
     db: "/home/myssia.db",
     store_error: null,
     plugins: plugins.map((entry, index) => ({
-      file: `/home/plugins/${entry.id ?? `broken-${index}`}.yaml`,
+      file: `/home/config/${entry.id ?? `broken-${index}`}.yaml`,
       id: entry.id,
       name: entry.name,
       schedule: null,
@@ -255,7 +255,7 @@ describe("动作:导航 / 跑一次 / 刷新 / 切品类", () => {
     fireEvent.change(getInput(), { target: { value: "跑一次" } });
     fireEvent.keyDown(getInput(), { key: "Enter" });
     await waitFor(() =>
-      expect(mocks.runStart).toHaveBeenCalledWith({ yaml: "/home/plugins/ai-news.yaml" }),
+      expect(mocks.runStart).toHaveBeenCalledWith({ yaml: "/home/config/ai-news.yaml" }),
     );
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
@@ -268,7 +268,7 @@ describe("动作:导航 / 跑一次 / 刷新 / 切品类", () => {
     fireEvent.change(getInput(), { target: { value: "跑一次" } });
     fireEvent.keyDown(getInput(), { key: "Enter" });
     await waitFor(() =>
-      expect(mocks.runStart).toHaveBeenCalledWith({ yaml: "/home/plugins/ai-news.yaml" }),
+      expect(mocks.runStart).toHaveBeenCalledWith({ yaml: "/home/config/ai-news.yaml" }),
     );
   });
 

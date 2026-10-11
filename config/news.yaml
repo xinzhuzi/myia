@@ -1,4 +1,4 @@
-# plugins/news.yaml — official plugin: 游戏资讯 RSS 源(10-03-news-rss)
+# config/news.yaml — official plugin: 游戏资讯 RSS 源(10-03-news-rss)
 # v1 只接机核 gcores 一个源:探查实证(wrap 三路探查之资讯源结论,证据
 # .trellis/tasks/archive/2026-10/10-03-games-wrap/evidence/news-probe-*)
 # https://www.gcores.com/rss —— honest UA 200、robots 允许、中文游戏资讯

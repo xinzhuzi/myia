@@ -142,7 +142,7 @@ myssia secret set myia/reddit/client-secret < secret.txt
 ```
 
 然后在源 YAML 里配 `engine_options.reddit.client_id/client_secret` 引用
-(示例见 `plugins/ai-news.yaml` 注释块)。时效提醒:Reddit 官方新 API 申请
+(示例见 `config/ai-news.yaml` 注释块)。时效提醒:Reddit 官方新 API 申请
 窗口 2026-10-31 截止、公开 Data API 2027-03 起分阶段终结(RSS 通道
 2026-11-13 退役)—— 通道内源全部经 OAuth 授权调用,`.rss`/`.json` 直抓
 路线因 robots 全站禁抓被禁用。
@@ -155,7 +155,7 @@ myssia secret set myia/reddit/client-secret < secret.txt
 
 ## 3. 跑第一个品类
 
-零凭据、零成本的最小品类:把下面内容存成 `plugins/demo-min.yaml`
+零凭据、零成本的最小品类:把下面内容存成 `config/demo-min.yaml`
 (`url` 换成任何一个服务端渲染的列表页即可):
 
 ```yaml
@@ -181,9 +181,9 @@ push:
 三个命令走完「验证 → 演练 → 正式」:
 
 ```bash
-uv run myssia test plugins/demo-min.yaml --json            # 逐源试抓,不入库不推送
-uv run myssia run plugins/demo-min.yaml --dry-run --json   # 全链演练,不推送
-uv run myssia run plugins/demo-min.yaml                    # 正式跑一次
+uv run myssia test config/demo-min.yaml --json            # 逐源试抓,不入库不推送
+uv run myssia run config/demo-min.yaml --dry-run --json   # 全链演练,不推送
+uv run myssia run config/demo-min.yaml                    # 正式跑一次
 ```
 
 - `myssia test --json` 逐源看:`ok`(拿到数据没有)、`engine`(实际选中引擎)、
@@ -199,7 +199,7 @@ uv run myssia run plugins/demo-min.yaml                    # 正式跑一次
   `telegram_token_poll_conflict` 披露多品类共配时的这一单接收方语义。
 
 跑仓库里的官方品类(羊毛/美股/AI 资讯/显卡行情等)同理,例如
-`uv run myssia run plugins/wool.yaml`;官方插件用到的凭据位都写着
+`uv run myssia run config/wool.yaml`;官方插件用到的凭据位都写着
 `env:` / `keychain:` 引用,按第 2 节备好即可。
 
 也可以直接对 AI 说需求——agent 会读[插件开发指南](write-a-plugin.md)

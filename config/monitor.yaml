@@ -1,4 +1,4 @@
-# plugins/monitor.yaml — web-change monitoring via an optional changedetection.io instance.
+# config/monitor.yaml — web-change monitoring via an optional changedetection.io instance.
 #
 # v1.1 plugin slim-down: the built-in change fingerprint + the L1-L4 degrade
 # chain cover the desktop scenario with zero plugins; the `plugin:` node below

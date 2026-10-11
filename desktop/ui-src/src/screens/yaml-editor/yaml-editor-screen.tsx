@@ -22,7 +22,7 @@ import { sameFilePath, useYamlFileEditor } from "./use-yaml-file-editor";
 interface ListState {
   status: "loading" | "ready" | "error";
   files: YamlFileEntry[];
-  pluginsDir: string;
+  configDir: string;
   error: SidecarRequestError | null;
 }
 
@@ -50,7 +50,7 @@ const INITIAL_RUN: RunView = { starting: false, runId: null, error: null };
  * (不跳本屏);/yaml-editor 与 ?file= 深链保持可用(侧栏入口)。
  */
 export function YamlEditorScreen() {
-  const [list, setList] = useState<ListState>({ status: "loading", files: [], pluginsDir: "", error: null });
+  const [list, setList] = useState<ListState>({ status: "loading", files: [], configDir: "", error: null });
   const [run, setRun] = useState<RunView>(INITIAL_RUN);
   /** 删除等列表动作的结构化错误(列表整体仍可用,故不进 ListState.error) */
   const [actionError, setActionError] = useState<SidecarRequestError | null>(null);
@@ -58,12 +58,12 @@ export function YamlEditorScreen() {
   const [revealError, setRevealError] = useState<SidecarRequestError | null>(null);
 
   const reloadList = useCallback(async () => {
-    setList({ status: "loading", files: [], pluginsDir: "", error: null });
+    setList({ status: "loading", files: [], configDir: "", error: null });
     try {
       const result = await listYamlFiles();
-      setList({ status: "ready", files: result.files, pluginsDir: result.plugins_dir, error: null });
+      setList({ status: "ready", files: result.files, configDir: result.config_dir, error: null });
     } catch (error) {
-      setList({ status: "error", files: [], pluginsDir: "", error: asSidecarError(error) });
+      setList({ status: "error", files: [], configDir: "", error: asSidecarError(error) });
     }
   }, []);
 
@@ -244,7 +244,7 @@ export function YamlEditorScreen() {
               draftName={draftName}
               onSelect={(file) => void openFile(file)}
               onDelete={(entry) => void handleDelete(entry)}
-              onCreate={(stem) => void createDraft(stem, list.pluginsDir)}
+              onCreate={(stem) => void createDraft(stem, list.configDir)}
             />
           ) : null}
         </aside>

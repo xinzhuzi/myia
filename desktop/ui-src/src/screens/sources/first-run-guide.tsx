@@ -58,10 +58,10 @@ const GUIDE_CARDS: GuideCardSpec[] = [
  * 品牌光晕/MyssiaMark 是自有品牌层(非 Kestra 元素)。
  */
 export function FirstRunGuide({
-  pluginsDir,
+  configDir,
   onDemoCreated,
 }: {
-  pluginsDir: string | null;
+  configDir: string | null;
   onDemoCreated: () => void | Promise<void>;
 }) {
   const [phase, setPhase] = useState<DemoPhase>({ kind: "idle" });
@@ -69,7 +69,7 @@ export function FirstRunGuide({
   const runDemo = useCallback(async () => {
     setPhase({ kind: "busy", step: "creating" });
     try {
-      const dir = pluginsDir ?? "plugins";
+      const dir = configDir ?? "config";
       const file = dir.endsWith("/") ? `${dir}${DEMO_STEM}.yaml` : `${dir}/${DEMO_STEM}.yaml`;
       const template = await getYamlTemplate();
       const content = template.content.replace("id: my-category", `id: ${DEMO_STEM}`);
@@ -81,7 +81,7 @@ export function FirstRunGuide({
     } catch (error) {
       setPhase({ kind: "failed", error: asSidecarError(error) });
     }
-  }, [onDemoCreated, pluginsDir]);
+  }, [onDemoCreated, configDir]);
 
   const busy = phase.kind === "busy";
 
@@ -99,7 +99,7 @@ export function FirstRunGuide({
         <div className="flex max-w-sm flex-col gap-2">
           <h2 className="text-xl font-semibold text-foreground">还没有品类源</h2>
           <p className="text-sm leading-5 text-muted-foreground">
-            插件目录{pluginsDir ? `(${pluginsDir})` : ""}下没有可加载的品类 YAML——真·首跑。
+            配置目录{configDir ? `(${configDir})` : ""}下没有可加载的品类 YAML——真·首跑。
             一键用官方模板跑通第一个 demo 采集,或从指引开始手动建品类。
           </p>
         </div>

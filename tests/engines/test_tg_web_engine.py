@@ -439,7 +439,7 @@ def test_source_validates_in_schema() -> None:
 
 
 def test_sample_plugin_yaml_ships_valid_tg_web_source() -> None:
-    """示范件把守(G9,质询回改):plugins/telegram-web.yaml 过 schema 全装载,
+    """示范件把守(G9,质询回改):config/telegram-web.yaml 过 schema 全装载,
     源形态与 D4 对齐(account 全称律/chat/lookback 窗口帽);源名与 bot 线
     同名(daily-digest 分区六按源名承载两线 archive);**锚命名空间独立**——
     #tg- 锚含源 url 前缀+chat.id,两线 url 必不同(web vs api)且 tg_web
@@ -449,17 +449,17 @@ def test_sample_plugin_yaml_ships_valid_tg_web_source() -> None:
     from myssia.schema import load_category_file
 
     repo_root = Path(__file__).resolve().parents[2]
-    cfg = load_category_file(repo_root / "plugins" / "telegram-web.yaml")
+    cfg = load_category_file(repo_root / "config" / "telegram-web.yaml")
     assert cfg.id == "telegram"  # 10-09 AC6 归一:三件同 id,文件名区分三线
     src = cfg.sources[0]
     assert src.engine == "tg_web"
     opts = src.extra_params["engine_options"]["tg_web"]
     assert opts["account"].startswith("telegram-")  # 账号键全称律
     # 首真跑标定(2026-10-08):账号可达对口目标 = Clash-Party channel,
-    # chat 落 data-peer-id 全等形态(见 plugins/telegram-web.yaml 源注记)
+    # chat 落 data-peer-id 全等形态(见 config/telegram-web.yaml 源注记)
     assert opts["chat"] == "-2349572233"
     assert 1 <= opts["lookback_limit"] <= 100  # 窗口帽域
-    groups = load_category_file(repo_root / "plugins" / "telegram-groups.yaml")
+    groups = load_category_file(repo_root / "config" / "telegram-groups.yaml")
     bot_src = next(s for s in groups.sources if s.name == src.name)  # 同名复用
     # 锚命名空间独立把守(质询实证):同一条消息两线铸的锚必不同——
     # url 前缀(web.telegram.org vs api.telegram.org)+chat 形(用户名 vs

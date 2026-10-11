@@ -1,4 +1,4 @@
-# plugins/daily-digest.yaml — 跨品类合并日报(10-06-hermes-align 批次4):
+# config/daily-digest.yaml — 跨品类合并日报(10-06-hermes-align 批次4):
 # 主人截图 OCR 的 Hermes 产线版式——多品类合成**一条**飞书 markdown 文本
 # 消息(msg_form: text),分区 = 品类/报表,-- 分隔线,编号一句话条目,
 # 尾戳 = 生成时间 + 指纹去重 + 静默声明;全分区无新内容 = 整条静默不发。

@@ -1,4 +1,4 @@
-# plugins/telegram-groups.yaml — Telegram 群消息监控(路线二:bot 线,10-06-telegram-telethon B1)。
+# config/telegram-groups.yaml — Telegram 群消息监控(路线二:bot 线,10-06-telegram-telethon B1)。
 #
 # 机制(engine: telegram 链外引擎,reddit/urlwatch/prompt 判例):
 #   getUpdates 批量窗口拉取 → 按 chat_id 分拣 → 媒体组聚合 →

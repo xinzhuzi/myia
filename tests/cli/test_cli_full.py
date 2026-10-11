@@ -301,7 +301,7 @@ class TestSourceHealth:
         db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("success", [source_stats("api", item_count=0, skip_reason=None)])])
 
-        code = main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
+        code = main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         assert code == EXIT_OK
         payload = json.loads(capsys.readouterr().out)
         source = payload["plugins"][0]["sources"][0]
@@ -314,7 +314,7 @@ class TestSourceHealth:
         db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("success", [source_stats("api", item_count=0, skip_reason="not_modified")])])
 
-        main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
+        main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
         source = payload["plugins"][0]["sources"][0]
         assert source["health"]["state"] == "ok"
@@ -325,7 +325,7 @@ class TestSourceHealth:
         db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("success", [source_stats("api", item_count=7)])])
 
-        main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
+        main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
         assert payload["plugins"][0]["sources"][0]["health"]["state"] == "ok"
 
@@ -334,7 +334,7 @@ class TestSourceHealth:
         db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("failed", [source_stats("api", failed=True)]) for _ in range(3)])
 
-        main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
+        main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
         assert payload["plugins"][0]["sources"][0]["health"]["state"] == "dead"
 
@@ -343,7 +343,7 @@ class TestSourceHealth:
         db = tmp_path / "myssia.db"
         seed_runs(db, "demo", [("failed", [source_stats("api", failed=True)]) for _ in range(2)])
 
-        main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
+        main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
         assert payload["plugins"][0]["sources"][0]["health"]["state"] == "degraded"
 
@@ -354,7 +354,7 @@ class TestSourceHealth:
         histories.append(("success", [source_stats("api", item_count=3)]))
         seed_runs(db, "demo", histories)
 
-        main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
+        main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
         source = payload["plugins"][0]["sources"][0]
         # 5 个历史样本(不含被评判轮),基线 10.0,3 < 5.0 → degraded
@@ -369,7 +369,7 @@ class TestSourceHealth:
         histories.append(("success", [source_stats("api", item_count=5)]))  # 48.8% < 50%
         seed_runs(db, "demo", histories)
 
-        main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
+        main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
         source = payload["plugins"][0]["sources"][0]
         # 历史样本只有 4 个(<5)→ 基线判据不参与,只看 0 条判据 → ok
@@ -383,7 +383,7 @@ class TestSourceHealth:
         histories.append(("success", [source_stats("api", item_count=3)]))
         seed_runs(db, "demo", histories)
 
-        main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
+        main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
         assert payload["plugins"][0]["sources"][0]["health"]["state"] == "ok"
 
@@ -392,17 +392,17 @@ class TestSourceHealth:
         db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
 
-        main(["list", "--plugins-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
+        main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
         assert payload["plugins"][0]["sources"][0]["health"]["state"] == "unknown"
 
     def test_list_missing_dir_exit_one(self, tmp_path, capsys):
-        """插件目录不存在:结构化报错,退出码 1。"""
-        code = main(["list", "--plugins-dir", str(tmp_path / "nope"), "--json"])
+        """配置目录不存在:结构化报错,退出码 1。"""
+        code = main(["list", "--config-dir", str(tmp_path / "nope"), "--json"])
 
         assert code == EXIT_CONFIG_ERROR
         payload = json.loads(capsys.readouterr().out)
-        assert payload["error"] == "plugins_dir"
+        assert payload["error"] == "config_dir"
 
 
 # ---------------------------------------------------------------------------
@@ -723,16 +723,16 @@ class TestDoctor:
         assert payload["healthy"] is True  # warning 不翻 healthy
         assert "fc-secret.example.org" not in json.dumps(payload, ensure_ascii=False)
 
-    def test_scans_plugins_dir_by_default(self, tmp_path, capsys):
-        """缺省扫描 --plugins-dir:明文插件与健康插件同场体检。"""
-        directory = tmp_path / "plugins"
+    def test_scans_config_dir_by_default(self, tmp_path, capsys):
+        """缺省扫描 --config-dir:明文品类与健康品类同场体检。"""
+        directory = tmp_path / "config"
         directory.mkdir()
         (directory / "demo.yaml").write_text(VALID_YAML, encoding="utf-8")
         (directory / "bad.yaml").write_text(PLAINTEXT_YAML, encoding="utf-8")
         db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
 
-        main(["doctor", "--plugins-dir", str(directory), "--db", str(db), "--json"])
+        main(["doctor", "--config-dir", str(directory), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
         loaded = {plugin["file"]: plugin["loaded"] for plugin in payload["plugins"]}
         assert loaded == {str(directory / "bad.yaml"): False, str(directory / "demo.yaml"): True}
@@ -752,7 +752,7 @@ class TestDoctor:
         db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
 
-        code = main(["doctor", "--plugins-dir", str(directory), "--db", str(db), "--json"])
+        code = main(["doctor", "--config-dir", str(directory), "--db", str(db), "--json"])
         assert code == EXIT_OK
         payload = json.loads(capsys.readouterr().out)
         finding = next(f for f in payload["findings"] if f["code"] == "telegram_token_poll_conflict")
@@ -774,7 +774,7 @@ class TestDoctor:
         db = tmp_path / "myssia.db"
         SQLiteStore(str(db)).close()
 
-        main(["doctor", "--plugins-dir", str(directory), "--db", str(db), "--json"])
+        main(["doctor", "--config-dir", str(directory), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
         assert not any(
             f["code"] == "telegram_token_poll_conflict" for f in payload["findings"]
@@ -1103,7 +1103,7 @@ class TestJsonContract:
         db.write_bytes(b"this is not a sqlite database" * 10)
         yaml_path = write_plugin(tmp_path, "demo.yaml", VALID_YAML)
 
-        list_code = main(["list", "--plugins-dir", str(tmp_path), "--db", str(db), "--json"])
+        list_code = main(["list", "--config-dir", str(tmp_path), "--db", str(db), "--json"])
         list_payload = json.loads(capsys.readouterr().out)  # 双文档 → Extra data 崩
         assert list_code == EXIT_OK
         assert list_payload["store_error"]["error_type"] == "store_corrupt"

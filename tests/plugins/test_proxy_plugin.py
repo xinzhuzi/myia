@@ -44,6 +44,8 @@ from myssia.schema import load_category_file
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGINS_DIR = REPO_ROOT / "plugins"
+#: 品类配置目录(2026-10-11 拆分;品类侧断言/核心无感证据吃这里)。
+CONFIG_DIR = REPO_ROOT / "config"
 PLUGIN_DIR = PLUGINS_DIR / "myssia-proxy"
 
 
@@ -406,12 +408,12 @@ class TestIronLawProxyFailureNeverBlocksCore:
 
     @staticmethod
     def _assert_core_unblocked() -> None:
-        category_files = sorted(PLUGINS_DIR.glob("*.yaml"))
+        category_files = sorted(CONFIG_DIR.glob("*.yaml"))
         assert category_files, "顶层品类示例不应为空"
         for path in category_files:
             config = load_category_file(path)
             assert config.sources, f"{path.name} 必须可加载且有源"
-        Pipeline(load_category_file(PLUGINS_DIR / "wool.yaml"))
+        Pipeline(load_category_file(CONFIG_DIR / "wool.yaml"))
 
     def test_real_adapter_network_failure_keeps_core_unblocked(self, tmp_path):
         adapter = load_adapter()

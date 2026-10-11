@@ -33,6 +33,8 @@ from myssia.schema import load_category_file
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGINS_DIR = REPO_ROOT / "plugins"
+#: 品类配置目录(2026-10-11 拆分;品类侧断言/核心无感证据吃这里)。
+CONFIG_DIR = REPO_ROOT / "config"
 PLUGIN_DIR = PLUGINS_DIR / "myssia-urlwatch"
 PLUGIN_ADAPTER = PLUGIN_DIR / "adapter.py"
 
@@ -573,10 +575,10 @@ class TestIronLawAdapterNeverBlocksCore:
 
     @staticmethod
     def _assert_core_unblocked() -> None:
-        for path in sorted(PLUGINS_DIR.glob("*.yaml")):
+        for path in sorted(CONFIG_DIR.glob("*.yaml")):
             config = load_category_file(path)
             assert config.sources, f"{path.name} 必须可加载且有源"
-        Pipeline(load_category_file(PLUGINS_DIR / "wool.yaml"))
+        Pipeline(load_category_file(CONFIG_DIR / "wool.yaml"))
 
     def test_adapter_failures_keep_core_unblocked(self, tmp_path, monkeypatch):
         adapter = load_adapter()

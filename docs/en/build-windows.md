@@ -110,7 +110,7 @@ Verify three things: Task Manager shows both `MYIA.exe` and a `myssia-core` proc
 the window renders the dashboard; the `%APPDATA%\MYIA` data directory exists.
 
 (Optional) to smoke-test one level deeper: drop a minimal category into
-`plugins/smoke-local.yaml` (below) before building — after install, the dashboard
+`config/smoke-local.yaml` (below) before building — after install, the dashboard
 should list the category and the data directory should grow a `myssia.db`, proving
 the whole Python engine chain is alive:
 

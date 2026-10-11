@@ -25,7 +25,7 @@ vi.mock("@uiw/react-codemirror", () => ({
 import { YamlEditorDialog } from "./yaml-editor-dialog";
 import type { DoctorResult } from "@/lib/api";
 
-const FILE = "/repo/plugins/ai-news.yaml";
+const FILE = "/repo/config/ai-news.yaml";
 const CONTENT = `# 头注释:逐字节保真的原文\nid: ai-news\nname: AI 新闻\nschedule: "*/15 * * * *"\nsources:\n  - name: hacker-news\n    url: "https://example.com/news"\n`;
 
 // ---------------------------------------------------------------------------
@@ -176,7 +176,7 @@ describe("编辑弹窗:打开与读取", () => {
 
     await openAndWait();
     expect(screen.getByTestId("editor-title").textContent).toContain("ai-news.yaml");
-    // 决议 10:完整路径可见(dev 模式即仓库 plugins/…,透明自担)
+    // 决议 10:完整路径可见(dev 模式即仓库 config/…,透明自担)
     expect(screen.getByTestId("editor-path").textContent).toBe(FILE);
     expect(screen.getByTestId("editor-title").textContent).not.toContain("*"); // 干净态
   });
@@ -184,7 +184,7 @@ describe("编辑弹窗:打开与读取", () => {
   it("读取失败:结构化错误态 + 重试重读", async () => {
     const { map } = okSidecar();
     map["yaml.read"] = () => {
-      throw errJson("file_not_found", "文件不存在: /repo/plugins/ghost.yaml", "params.file");
+      throw errJson("file_not_found", "文件不存在: /repo/config/ghost.yaml", "params.file");
     };
     installSidecar(map);
     renderDialog();

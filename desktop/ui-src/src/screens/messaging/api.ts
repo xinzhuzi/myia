@@ -583,7 +583,7 @@ export async function listAlertCategories(): Promise<AlertCategoryOption[]> {
     category_id: string | null;
     category_name: string | null;
   }
-  const result = await invoke<{ plugins_dir: string; files: YamlFileEntry[] }>("sidecar_request", {
+  const result = await invoke<{ config_dir: string; files: YamlFileEntry[] }>("sidecar_request", {
     method: "yaml.list",
     params: {},
   });

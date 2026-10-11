@@ -22,7 +22,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENTRY_PATH = REPO_ROOT / "desktop" / "entry.py"
-PLUGINS_DIR = REPO_ROOT / "plugins"
+CONFIG_DIR = REPO_ROOT / "config"
 
 _spec = importlib.util.spec_from_file_location("desktop_entry_surgery", ENTRY_PATH)
 entry = importlib.util.module_from_spec(_spec)
@@ -754,7 +754,7 @@ def test_bak_still_written_as_second_belt(tmp_path):
 
 @pytest.mark.parametrize(
     "yaml_name",
-    sorted(p.name for p in PLUGINS_DIR.glob("*.yaml")) if PLUGINS_DIR.is_dir() else [],
+    sorted(p.name for p in CONFIG_DIR.glob("*.yaml")) if CONFIG_DIR.is_dir() else [],
 )
 def test_official_category_yaml_roundtrip(yaml_name):
     """对官方品类 YAML 的每个解析源各做一轮停用+启用:逐字节还原。
@@ -764,7 +764,7 @@ def test_official_category_yaml_roundtrip(yaml_name):
     """
     import yaml as yaml_mod
 
-    source = PLUGINS_DIR / yaml_name
+    source = CONFIG_DIR / yaml_name
     assert source.exists(), f"官方品类缺失: {source}"
     original = source.read_bytes()
     doc = yaml_mod.safe_load(original.decode("utf-8"))

@@ -219,7 +219,7 @@ Run your first category — a complete, zero-credential config in one small
 file:
 
 ```bash
-cat > plugins/demo-min.yaml <<'YAML'
+cat > config/demo-min.yaml <<'YAML'
 id: demo-min
 name: Minimal demo
 schedule: "0 9 * * *"
@@ -239,9 +239,9 @@ push:
   - channel: stdout              # zero-credential local verification
 YAML
 
-uv run myssia test plugins/demo-min.yaml --json            # trial fetch: no DB, no push
-uv run myssia run plugins/demo-min.yaml --dry-run --json   # full rehearsal, no push
-uv run myssia run plugins/demo-min.yaml                    # real run; add --loop for scheduling
+uv run myssia test config/demo-min.yaml --json            # trial fetch: no DB, no push
+uv run myssia run config/demo-min.yaml --dry-run --json   # full rehearsal, no push
+uv run myssia run config/demo-min.yaml                    # real run; add --loop for scheduling
 ```
 
 Full walk-through: [docs/en/getting-started.md](docs/en/getting-started.md).

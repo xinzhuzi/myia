@@ -59,14 +59,15 @@ PYENV_RESOURCE_MAP = {
     "../resources/requirements-lock.txt": "requirements-lock.txt",
 }
 
-#: 既有官方插件种子映射(首跑种子依赖,design.md §2 之前的既定面)。
+#: 既有官方品类种子映射(首跑补种依赖,design.md §2 之前的既定面;
+#: 2026-10-11 命名拆分后品类配置落 Resources/config)。
 SEED_RESOURCE_MAP = {
     "../fixture/plugin.yaml": "plugin.yaml",
-    "../../plugins/ai-news.yaml": "plugins/ai-news.yaml",
-    "../../plugins/wool.yaml": "plugins/wool.yaml",
-    "../../plugins/stocks.yaml": "plugins/stocks.yaml",
-    "../../plugins/gpu-prices.yaml": "plugins/gpu-prices.yaml",
-    "../../plugins/myssia-demo.yaml": "plugins/myssia-demo.yaml",
+    "../../config/ai-news.yaml": "config/ai-news.yaml",
+    "../../config/wool.yaml": "config/wool.yaml",
+    "../../config/stocks.yaml": "config/stocks.yaml",
+    "../../config/gpu-prices.yaml": "config/gpu-prices.yaml",
+    "../../config/myssia-demo.yaml": "config/myssia-demo.yaml",
 }
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -114,7 +115,7 @@ def test_myssia_resource_tree_shape() -> None:
 
 @pytest.mark.parametrize("source,dest", sorted(SEED_RESOURCE_MAP.items()))
 def test_seed_resources_untouched(source: str, dest: str) -> None:
-    """官方插件种子映射保持(首跑种子 _bundle_plugins_dir 依赖;不被重排挤掉)。"""
+    """官方品类种子映射保持(首跑补种 _bundle_config_dir 依赖;不被重排挤掉)。"""
     assert _conf_resources().get(source) == dest
 
 

@@ -190,12 +190,12 @@ import { FeedScreen } from "./feed-screen";
 function healthResult(overrides: Partial<HealthResult> = {}): HealthResult {
   return {
     command: "list",
-    plugins_dir: "/home/plugins",
+    config_dir: "/home/config",
     db: "/home/myssia.db",
     store_error: null,
     plugins: [
       {
-        file: "/home/plugins/ai-news.yaml",
+        file: "/home/config/ai-news.yaml",
         id: "ai-news",
         name: "AI资讯",
         schedule: "0 8,20 * * *",
@@ -296,7 +296,7 @@ async function freshScreenFind(
 /** 品类下拉选项用 PluginReport 夹具(形状对齐 types.ts;字段按需覆写) */
 function pluginEntry(overrides: Partial<HealthResult["plugins"][number]> = {}): HealthResult["plugins"][number] {
   return {
-    file: "/home/plugins/x.yaml",
+    file: "/home/config/x.yaml",
     id: "x",
     name: null,
     schedule: null,
@@ -364,14 +364,14 @@ async function importFreshScreen() {
 // G12 夹具:plugins 目录两个 YAML(一好一坏)+ 目标原文(流式 keywords)
 const G12_FILES = [
   {
-    file: "/home/plugins/ai-news.yaml",
+    file: "/home/config/ai-news.yaml",
     name: "ai-news.yaml",
     parse_ok: true,
     category_id: "ai-news",
     category_name: "AI资讯",
   },
   {
-    file: "/home/plugins/broken.yaml",
+    file: "/home/config/broken.yaml",
     name: "broken.yaml",
     parse_ok: false,
     category_id: null,
@@ -390,7 +390,7 @@ function mockYamlSidecar(options: { readContent?: string; saveImpl?: () => Promi
   invokeMock.mockImplementation(async (_command: string, args?: { method?: string; params?: Record<string, unknown> }) => {
     const method = args?.method;
     const params = args?.params ?? {};
-    if (method === "yaml.list") return { plugins_dir: "/home/plugins", files: G12_FILES };
+    if (method === "yaml.list") return { config_dir: "/home/config", files: G12_FILES };
     if (method === "yaml.read") return { file: params.file, content: readContent, mtime: 111 };
     if (method === "yaml.save") {
       saves.push({
@@ -403,7 +403,7 @@ function mockYamlSidecar(options: { readContent?: string; saveImpl?: () => Promi
         file: params.file,
         written: true as const,
         created: false,
-        backed_up: "/home/plugins/ai-news.yaml.bak",
+        backed_up: "/home/config/ai-news.yaml.bak",
         mtime: 222,
         warnings: [],
       };
@@ -653,7 +653,7 @@ describe("FeedScreen", () => {
   it("空流 CTA:点击 → health 取已加载插件 → run.start(yaml) → 采集中 → completed 刷新", async () => {
     storeItemsMock.mockResolvedValue(result([]));
     runStartMock.mockResolvedValue({
-      run_id: 3, state: "running", yaml: "/home/plugins/ai-news.yaml", dry: false, db: "/home/myssia.db",
+      run_id: 3, state: "running", yaml: "/home/config/ai-news.yaml", dry: false, db: "/home/myssia.db",
     });
     let emitEvent: ((event: { type: string; run_id: number }) => void) | undefined;
     onSidecarEventMock.mockImplementation((handler: (event: never) => void) => {
@@ -664,7 +664,7 @@ describe("FeedScreen", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /运行第一个插件/ }));
     await waitFor(() =>
-      expect(runStartMock).toHaveBeenCalledWith({ yaml: "/home/plugins/ai-news.yaml" }),
+      expect(runStartMock).toHaveBeenCalledWith({ yaml: "/home/config/ai-news.yaml" }),
     );
     expect(await screen.findByText(/采集中\(run #3\)/)).toBeTruthy();
 
@@ -1504,12 +1504,12 @@ describe("FeedScreen", () => {
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(invokeMock).toHaveBeenCalledWith("sidecar_request", {
       method: "yaml.read",
-      params: { file: "/home/plugins/ai-news.yaml" },
+      params: { file: "/home/config/ai-news.yaml" },
     });
     // 手术内容:keywords 闭括号前追加新词,注释/其余行(含 id 行)逐字节不动;
     // expected_mtime = read 带回的乐观锁基线
     expect(saves[0]).toEqual({
-      file: "/home/plugins/ai-news.yaml",
+      file: "/home/config/ai-news.yaml",
       content: "id: ai-news\nname: AI资讯\nwatchlist:\n  keywords: [LLM, Agent, GLM-5 发布]\n  mute: [广告]\n",
       expected_mtime: 111,
     });

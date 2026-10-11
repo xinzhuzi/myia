@@ -177,7 +177,7 @@ myssia secret set myia/reddit/client-secret < secret.txt
 ```
 
 …and reference them via `engine_options.reddit.client_id/client_secret` in
-the source YAML (see the commented example in `plugins/ai-news.yaml`).
+the source YAML (see the commented example in `config/ai-news.yaml`).
 Timing note: Reddit's new-API application window closes 2026-10-31 and the
 public Data API sunsets in phases from 2027-03 (the RSS channel retires
 2026-11-13) — in-channel sources all ride OAuth-authorized calls; the
@@ -196,7 +196,7 @@ and turns a missing one into a concrete repair action (e.g. run
 ## 3. Run your first category
 
 A minimal category with zero credentials and zero cost — save this as
-`plugins/demo-min.yaml` (point `url` at any server-rendered list page):
+`config/demo-min.yaml` (point `url` at any server-rendered list page):
 
 ```yaml
 id: demo-min
@@ -221,9 +221,9 @@ push:
 Three commands cover verify → rehearse → run:
 
 ```bash
-uv run myssia test plugins/demo-min.yaml --json            # trial-fetch each source, no push/storage
-uv run myssia run plugins/demo-min.yaml --dry-run --json   # full rehearsal, no push
-uv run myssia run plugins/demo-min.yaml                    # the first real run
+uv run myssia test config/demo-min.yaml --json            # trial-fetch each source, no push/storage
+uv run myssia run config/demo-min.yaml --dry-run --json   # full rehearsal, no push
+uv run myssia run config/demo-min.yaml                    # the first real run
 ```
 
 - `myssia test --json` reports per source: `ok` (did the chain get data),
@@ -244,7 +244,7 @@ uv run myssia run plugins/demo-min.yaml                    # the first real run
   `telegram_token_poll_conflict`.
 
 The official categories in the repo (freebies / stocks / AI news / GPU
-prices, …) work the same way, e.g. `uv run myssia run plugins/wool.yaml`;
+prices, …) work the same way, e.g. `uv run myssia run config/wool.yaml`;
 every credential slot in an official plugin is already an `env:` /
 `keychain:` reference — prepare the values as in section 2.
 

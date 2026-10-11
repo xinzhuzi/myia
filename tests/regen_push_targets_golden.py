@@ -2,7 +2,7 @@
 
 黄金回归(`tests/test_push_schema_targets.py::TestGoldenRegression`)只对
 ``tests/fixtures/push_targets_golden/`` 下的**冻结副本**断言,与活体
-``plugins/*.yaml`` 彻底解耦——并行会话合法演进自己品类的 push 配置不再
+``config/*.yaml`` 彻底解耦——并行会话合法演进自己品类的 push 配置不再
 误伤该测试,也因此**不再需要**随手"golden 同步"。
 
 本脚本是唯一的基线刷新通道,两档用法(都显式,绝不静默跟随活库):
@@ -17,7 +17,7 @@
     uv run --no-sync python tests/regen_push_targets_golden.py --refreeze
 
 MANIFEST 即黄金集清单:键为仓库根相对路径,冻结副本镜像同一路径落位
-(``GOLDEN_DIR / key``),故 plugins/stocks.yaml 与 tests/fixtures/stocks.yaml
+(``GOLDEN_DIR / key``),故 config/stocks.yaml 与 tests/fixtures/stocks.yaml
 两名冲突天然消解。
 """
 
@@ -39,14 +39,14 @@ GOLDEN_JSON = REPO / "tests" / "fixtures" / "push_targets_golden_before.json"
 # 黄金集:仓库根相对路径(与黄金 JSON 的键一一对应)。收编新品类或
 # 移除旧品类在此显式增删,不允许脚本自动扫描活库(那正是被治的病)。
 MANIFEST: tuple[str, ...] = (
-    "plugins/ai-news.yaml",
-    "plugins/credentials.yaml",
-    "plugins/games.yaml",
-    "plugins/gpu-prices.yaml",
-    "plugins/monitor.yaml",
-    "plugins/news.yaml",
-    "plugins/stocks.yaml",
-    "plugins/wool.yaml",
+    "config/ai-news.yaml",
+    "config/credentials.yaml",
+    "config/games.yaml",
+    "config/gpu-prices.yaml",
+    "config/monitor.yaml",
+    "config/news.yaml",
+    "config/stocks.yaml",
+    "config/wool.yaml",
     "tests/fixtures/stocks.yaml",
 )
 

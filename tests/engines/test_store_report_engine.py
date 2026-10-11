@@ -70,7 +70,7 @@ from myssia.schema import ENGINES, load_category_file
 from myssia.store import SQLiteStore
 from myssia.store.models import ItemRecord
 
-PLUGINS = Path(__file__).resolve().parents[2] / "plugins"
+CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
 TZ_SHANGHAI = ZoneInfo("Asia/Shanghai")
 NOW_PM = datetime(2026, 10, 6, 20, 30, tzinfo=TZ_SHANGHAI)  # PM 槽,窗口起 12:00
 NOW_AM = datetime(2026, 10, 6, 8, 5, tzinfo=TZ_SHANGHAI)  # AM 槽,窗口起 00:00
@@ -768,7 +768,7 @@ def test_long_report_splits_into_marker_segments(store, monkeypatch):
 
 
 def _routes_of(yaml_name: str, push_index: int = 0) -> list[Any]:
-    config = load_category_file(PLUGINS / f"{yaml_name}.yaml")
+    config = load_category_file(CONFIG_DIR / f"{yaml_name}.yaml")
     return routes_from_config(config.push[push_index].route)
 
 
@@ -814,15 +814,15 @@ def test_vendor_watch_route_noise_reduction():
 def test_no_digest_mode_left_in_daily_outlet_categories():
     """grep 面:三品类路由无 mode: digest 残留(daily-digest 是唯一日报出口)."""
     for name in ("ai-news", "games", "ai-vendor-watch"):
-        text = (PLUGINS / f"{name}.yaml").read_text(encoding="utf-8")
+        text = (CONFIG_DIR / f"{name}.yaml").read_text(encoding="utf-8")
         assert "mode: digest" not in text, f"{name}.yaml 仍有 digest 路由残留"
-        config = load_category_file(PLUGINS / f"{name}.yaml")
+        config = load_category_file(CONFIG_DIR / f"{name}.yaml")
         for push in config.push:
             assert all(rule.mode != "digest" for rule in routes_from_config(push.route))
 
 
 def test_daily_digest_plugin_loads_with_store_report():
-    config = load_category_file(PLUGINS / "daily-digest.yaml")
+    config = load_category_file(CONFIG_DIR / "daily-digest.yaml")
     assert config.id == "daily-digest"
     assert config.sources[0].engine == "store_report"
     assert config.push[0].msg_form == "text"
@@ -837,7 +837,7 @@ def test_daily_digest_plugin_loads_with_store_report():
 def test_daily_digest_yaml_min_score_on_ai_section(store):
     """装载校验:AI 资讯分区配 min_score: 3,其余分区缺省不动;yaml 原样
     options 端到端跑引擎——低分折叠、高分进正文."""
-    config = load_category_file(PLUGINS / "daily-digest.yaml")
+    config = load_category_file(CONFIG_DIR / "daily-digest.yaml")
     options = config.sources[0].extra_params["engine_options"]["store_report"]
     by_title = {section["title"]: section for section in options["sections"]}
     assert by_title["AI 资讯"]["min_score"] == 3

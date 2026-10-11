@@ -8,7 +8,7 @@
 ## 1. 三十秒建 job
 
 ```bash
-myssia cron create "every 2h" --category plugins/news.yaml --deliver local
+myssia cron create "every 2h" --category config/news.yaml --deliver local
 myssia cron list
 myssia cron serve    # 常驻宿主,60s 一轮 tick;Ctrl-C 停
 ```
@@ -134,9 +134,9 @@ cron 的 fire 是单次 run 子进程,不启动消息轮询,与 `run --loop` 常
 官方 compose 默认 `command: run … --loop`;要定时形态就把
 `docker/docker-compose.yml` 里的 command 改为 `cron serve --db /data/myssia.db`
 (镜像入口就是 `myssia` CLI),job 存进 `/data/cron/jobs.json` 随卷持久化。job
-在容器里建——品类 YAML 只读挂在 `/config/plugins/`:
+在容器里建——品类 YAML 只读挂在 `/config/`:
 
 ```bash
 docker compose -f docker/docker-compose.yml run --rm myssia \
-  cron create "every 2h" --category /config/plugins/news.yaml --db /data/myssia.db
+  cron create "every 2h" --category /config/news.yaml --db /data/myssia.db
 ```

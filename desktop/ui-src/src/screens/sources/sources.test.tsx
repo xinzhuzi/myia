@@ -32,7 +32,7 @@ vi.mock("@uiw/react-codemirror", () => ({
 import { SourcesScreen } from "./sources-screen";
 import type { DoctorResult, DoctorPluginReport, HealthResult, PluginReport, SourceReport, SourceHealthState } from "@/lib/api";
 
-const FILE = "plugins/ai-news.yaml";
+const FILE = "config/ai-news.yaml";
 /** 写回/复核/读原文断言用完整路径:pluginFile 是回传 sidecar 的协议键(yaml.read
  * 围栏/sources.write 直开都按路径解析;5c188c0 截短名曾致 path_outside_root 回归,
  * 2026-10-05 冒烟抓获后恢复绝对路径,显示层自行 split("/").pop()) */
@@ -81,7 +81,7 @@ function healthResult(plugins: PluginReport[]): HealthResult {
   }
   return {
     command: "list",
-    plugins_dir: "plugins",
+    config_dir: "config",
     db: "myssia.db",
     store_error: null,
     plugins,
@@ -398,7 +398,7 @@ describe("源管理:空态与错误态", () => {
     );
     /* 10-04-ui-kestra-anchor:零品类 YAML = 引导态,不再是死文案空态 */
     expect(await screen.findByText("还没有品类源")).toBeTruthy();
-    expect(screen.getByText(/插件目录\(plugins\)下没有可加载的品类 YAML/)).toBeTruthy();
+    expect(screen.getByText(/配置目录\(config\)下没有可加载的品类 YAML/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "一键跑 demo" })).toBeTruthy();
     expect(screen.getByTestId("first-run-guide")).toBeTruthy();
     expect(screen.getByText("需要指引?")).toBeTruthy();
@@ -853,10 +853,10 @@ describe("源管理:品类点簇筛选", () => {
           sourceReport("hn", "ok", "https://a.example.com/hn"),
           sourceReport("rsshub", "dead", "https://a.example.com/rsshub"),
         ]),
-        pluginReport("plugins/dev-tools.yaml", "dev-tools", [
+        pluginReport("config/dev-tools.yaml", "dev-tools", [
           sourceReport("tools-weekly", "ok", "https://b.example.com/tools"),
         ]),
-        pluginReport("plugins/games.yaml", "games", [
+        pluginReport("config/games.yaml", "games", [
           sourceReport("play-feed", "degraded", "https://c.example.com/play"),
           sourceReport("itch", "ok", "https://c.example.com/itch"),
         ]),

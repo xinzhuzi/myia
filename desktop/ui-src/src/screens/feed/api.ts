@@ -1264,7 +1264,7 @@ export interface YamlTargetFile {
 }
 
 export interface YamlTargetList {
-  plugins_dir: string;
+  config_dir: string;
   files: YamlTargetFile[];
 }
 

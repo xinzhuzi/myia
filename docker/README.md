@@ -31,13 +31,13 @@ docker compose -f docker/docker-compose.yml down
 
 ## 运行哪个插件?
 
-compose 的启动命令是 `myssia run /config/plugins/${MYIA_PLUGIN:-stocks.yaml} --loop --db /data/myssia.db`。要跑其他插件,在 `docker/.env` 加一行:
+compose 的启动命令是 `myssia run /config/${MYIA_PLUGIN:-stocks.yaml} --loop --db /data/myssia.db`。要跑其他插件,在 `docker/.env` 加一行:
 
 ```
 MYIA_PLUGIN=ai-news.yaml
 ```
 
-或用 `docker compose run --rm myssia run /config/plugins/wool.yaml --db /data/myssia.db` 手动单跑一次。
+或用 `docker compose run --rm myssia run /config/wool.yaml --db /data/myssia.db` 手动单跑一次。
 
 - `--loop`:常驻模式,按插件 YAML 的 `schedule`(cron)+ `timezone` 到点自动触发,由容器 `restart: unless-stopped` 保活。
 - `--db /data/myssia.db`:SQLite 落在挂载卷里,条目/去重注册表/engine_hints/run 历史重启不丢。
@@ -46,7 +46,7 @@ MYIA_PLUGIN=ai-news.yaml
 
 | 宿主机(仓库内) | 容器 | 说明 |
 |---|---|---|
-| `plugins/` | `/config/plugins`(只读) | 与本地 CLI **同一份** YAML,零修改复用 |
+| `config/` | `/config`(只读) | 与本地 CLI **同一份** 品类 YAML,零修改复用 |
 | `data/` | `/data` | SQLite 等持久状态;需 chown 1000:1000(或改 `MYIA_UID/MYIA_GID`) |
 
 `docker/.env` 不挂载、不进镜像;它只在 `up` 时被 compose 读成环境变量。
@@ -83,6 +83,6 @@ docker compose -f docker/docker-compose.yml up -d
 
 ## 排障
 
-- 日志:`docker compose logs myssia`;`--json` 机器可读输出可用 `docker compose run --rm myssia run /config/plugins/stocks.yaml --db /data/myssia.db --json`。
+- 日志:`docker compose logs myssia`;`--json` 机器可读输出可用 `docker compose run --rm myssia run /config/stocks.yaml --db /data/myssia.db --json`。
 - 退出码契约:0 成功 / 1 配置错误(含凭据缺失)/ 2 采集全部失败 / 3 部分失败 —— `docker compose run` 场景下可用 `$?` 检查。
 - 单源失败不拖垮整个品类;skip(变更指纹未变/去重拦截)是正常路径,日志可见原因。

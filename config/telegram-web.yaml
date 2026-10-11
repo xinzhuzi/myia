@@ -1,4 +1,4 @@
-# plugins/telegram-web.yaml — Telegram 网页线监控(10-08-tg-web-line C 线,
+# config/telegram-web.yaml — Telegram 网页线监控(10-08-tg-web-line C 线,
 # engine: tg_web,零外部凭据零群权限的桥:自管无头浏览器读已登录网页版)。
 #
 # 机制(engine: tg_web 链外引擎,schema 词表/registry 已注册):

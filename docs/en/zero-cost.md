@@ -105,7 +105,7 @@ free tier. Complete category example (every other section is a minimal
 skeleton — the `enrich:` section is the star):
 
 ```yaml
-id: zero-cost-demo                    # save as plugins/zero-cost-demo.yaml and run
+id: zero-cost-demo                    # save as config/zero-cost-demo.yaml and run
 name: Zero-cost enrich demo
 schedule: "0 9 * * *"
 sources:
@@ -284,7 +284,7 @@ Politeness: serial per-query fetching with a built-in 3s inter-query
 delay; keep run intervals ≥30 minutes. Politeness toward the upstream
 search providers is borne by the SearXNG aggregation layer (its own
 circuit breaking). The two-path statement and instance-source conventions
-live in the `plugins/searxng.yaml` header comment.
+live in the `config/searxng.yaml` header comment.
 
 ## Red lines and habits
 

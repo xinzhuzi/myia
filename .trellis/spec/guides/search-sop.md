@@ -61,6 +61,7 @@
 | 前端源码 | `desktop/ui-src/src` | `screens/` `components/`;`desktop/ui/` 是构建产物勿搜 |
 | 分类器 | `myia-classifier` | 随包数据在 `myia_classifier/data/` |
 | 场景插件 | `plugins` | 运行时产物 `plugins/**/loot/` 是私有情报,命中勿外传 |
+| 品类配置 | `config` | 品类/账号/凭据 YAML(2026-10-11 自 plugins/ 拆出);数据根同名为 `<home>/config` |
 | 文档 | `docs` | `zh/` `en/` 双语对照,改一侧须同步另一侧 |
 | 任务/规范 | `.trellis` | 隐藏目录:`rg` 默认跳过,必须加 `--hidden`(见「必守边界」) |
 | 技能 | `skill` | 仓库内技能定义 |

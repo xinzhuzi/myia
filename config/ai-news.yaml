@@ -1,4 +1,4 @@
-# plugins/ai-news.yaml — AI news digest: aggregator hot feed + vendor
+# config/ai-news.yaml — AI news digest: aggregator hot feed + vendor
 # official sources + official-site change watch + AI forums.
 #
 # Section semantics are documented once, fully, in plugins/stocks.yaml (the

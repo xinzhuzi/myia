@@ -189,7 +189,7 @@ class TestAppriseSend:
             "sources:\n  - name: example\n    url: https://example.com/list?page={page}\n",
             encoding="utf-8",
         )
-        assert main(["doctor", "--plugins-dir", str(directory), "--db", str(db), "--json"]) == EXIT_OK
+        assert main(["doctor", "--config-dir", str(directory), "--db", str(db), "--json"]) == EXIT_OK
         payload = json.loads(capsys.readouterr().out)
         codes = [f["code"] for f in payload["findings"]]
         assert "apprise_not_installed" in codes

@@ -1,5 +1,5 @@
 {
- "plugins/ai-news.yaml": {
+ "config/ai-news.yaml": {
   "classify": {
    "builtin": true,
    "rules": []
@@ -54,10 +54,12 @@
     "target": "env:FEISHU_CHAT_ID",
     "template": "**AI 资讯 · {{ date }}**\n{% for item in items %}\n- [{{ item.title }}]({{ item.url }})\n{% endfor %}\n",
     "timeout": 10.0,
+    "wechat_bridge_bin": null,
     "wecom_agentid": null,
     "wecom_corpid": null,
     "wecom_corpsecret": null,
-    "weixin_hermes_bin": null
+    "weixin_hermes_bin": null,
+    "weixin_local_enabled": null
    }
   ],
   "schedule": "0 8,20 * * *",
@@ -545,7 +547,7 @@
    ]
   }
  },
- "plugins/credentials.yaml": {
+ "config/credentials.yaml": {
   "classify": {
    "builtin": true,
    "rules": []
@@ -596,10 +598,12 @@
     "target": null,
     "template": "**新凭证情报 · {{ date }}**\n{% for item in items %}\n- {{ item.title }} ({{ item.url }})\n{% endfor %}\n",
     "timeout": 10.0,
+    "wechat_bridge_bin": null,
     "wecom_agentid": null,
     "wecom_corpid": null,
     "wecom_corpsecret": null,
-    "weixin_hermes_bin": null
+    "weixin_hermes_bin": null,
+    "weixin_local_enabled": null
    }
   ],
   "schedule": "0 */2 * * *",
@@ -677,7 +681,7 @@
    "mute": []
   }
  },
- "plugins/games.yaml": {
+ "config/games.yaml": {
   "classify": {
    "builtin": false,
    "rules": [
@@ -745,10 +749,12 @@
     "target": "env:FEISHU_CHAT_ID",
     "template": "**游戏情报 · {{ date }}**\n{% for item in items %}\n- [{{ item.title }}]({{ item.url }}) {% if item.price_text is defined %}{{ item.price_text }}{% elif item.sale_price is defined %}${{ item.sale_price }}(原价 {{ item.normal_price }}){% elif item.final_price is defined %}{{ item.final_price / 100 }}{% endif %}{% if item.discount_pct | default(0) > 0 %} -{{ item.discount_pct }}%{% endif %}{% if item.savings_pct | default(0) | float > 0 %} -{{ item.savings_pct | float | round | int }}%{% endif %}{% if item.upcoming_pct | default(0) >= 100 %} 📅{{ item.upcoming_start[:10] }}起免费{% endif %} {{ vs_yesterday(item, 'final_price') }}\n{% endfor %}\n",
     "timeout": 10.0,
+    "wechat_bridge_bin": null,
     "wecom_agentid": null,
     "wecom_corpid": null,
     "wecom_corpsecret": null,
-    "weixin_hermes_bin": null
+    "weixin_hermes_bin": null,
+    "weixin_local_enabled": null
    },
    {
     "bark_endpoint": null,
@@ -772,10 +778,12 @@
     "target": "env:TELEGRAM_CHAT_ID",
     "template": "游戏情报 · {{ date }}\n{% for item in items %}\n- {{ item.title }} {{ item.url }} {% if item.price_text is defined %}{{ item.price_text }}{% elif item.sale_price is defined %}${{ item.sale_price }}(原价 {{ item.normal_price }}){% elif item.final_price is defined %}{{ item.final_price / 100 }}{% endif %}{% if item.discount_pct | default(0) > 0 %} -{{ item.discount_pct }}%{% endif %}{% if item.savings_pct | default(0) | float > 0 %} -{{ item.savings_pct | float | round | int }}%{% endif %}{% if item.upcoming_pct | default(0) >= 100 %} 📅{{ item.upcoming_start[:10] }}起免费{% endif %} {{ vs_yesterday(item, 'final_price') }}\n{% endfor %}\n",
     "timeout": 10.0,
+    "wechat_bridge_bin": null,
     "wecom_agentid": null,
     "wecom_corpid": null,
     "wecom_corpsecret": null,
-    "weixin_hermes_bin": null
+    "weixin_hermes_bin": null,
+    "weixin_local_enabled": null
    }
   ],
   "schedule": "0 11 * * *",
@@ -939,7 +947,7 @@
    ]
   }
  },
- "plugins/gpu-prices.yaml": {
+ "config/gpu-prices.yaml": {
   "classify": {
    "builtin": false,
    "rules": [
@@ -992,10 +1000,12 @@
     "target": "env:FEISHU_CHAT_ID",
     "template": "**显卡行情 · {{ date }}**\n{% for item in items %}\n- [{{ item.title }}]({{ item.url }}) ¥{{ item.price }} {{ vs_msrp(item) }} {{ vs_yesterday(item, 'price') }} {{ vs_last_week(item, 'price') }}\n{% endfor %}\n{% if keyword_trends %}\n**关键词提及周环比**:{% for t in keyword_trends %}{{ t.word }} {{ t.count }} 条({{ t.change_text }}) {% endfor %}\n{% endif %}\n",
     "timeout": 10.0,
+    "wechat_bridge_bin": null,
     "wecom_agentid": null,
     "wecom_corpid": null,
     "wecom_corpsecret": null,
-    "weixin_hermes_bin": null
+    "weixin_hermes_bin": null,
+    "weixin_local_enabled": null
    }
   ],
   "schedule": "0 10 * * *",
@@ -1052,7 +1062,7 @@
    ]
   }
  },
- "plugins/monitor.yaml": {
+ "config/monitor.yaml": {
   "classify": {
    "builtin": true,
    "rules": []
@@ -1103,10 +1113,12 @@
     "target": "env:FEISHU_CHAT_ID",
     "template": "**页面变更 · {{ date }}**\n{% for item in items %}\n- [{{ item.title }}]({{ item.url }})\n{% endfor %}\n",
     "timeout": 10.0,
+    "wechat_bridge_bin": null,
     "wecom_agentid": null,
     "wecom_corpid": null,
     "wecom_corpsecret": null,
-    "weixin_hermes_bin": null
+    "weixin_hermes_bin": null,
+    "weixin_local_enabled": null
    }
   ],
   "schedule": "*/15 * * * *",
@@ -1152,7 +1164,7 @@
    "mute": []
   }
  },
- "plugins/news.yaml": {
+ "config/news.yaml": {
   "classify": {
    "builtin": false,
    "rules": []
@@ -1199,10 +1211,12 @@
     "target": "env:FEISHU_CHAT_ID",
     "template": "**游戏资讯 · {{ date }}**\n{% for item in items %}\n- [{{ item.title }}]({{ item.url }}){% if item.published is defined %} {{ item.published[:16] }}{% endif %}\n{% endfor %}\n",
     "timeout": 10.0,
+    "wechat_bridge_bin": null,
     "wecom_agentid": null,
     "wecom_corpid": null,
     "wecom_corpsecret": null,
-    "weixin_hermes_bin": null
+    "weixin_hermes_bin": null,
+    "weixin_local_enabled": null
    },
    {
     "bark_endpoint": null,
@@ -1226,10 +1240,12 @@
     "target": "env:TELEGRAM_CHAT_ID",
     "template": "游戏资讯 · {{ date }}\n{% for item in items %}\n- {{ item.title }} {{ item.url }}{% if item.published is defined %} {{ item.published[:16] }}{% endif %}\n{% endfor %}\n",
     "timeout": 10.0,
+    "wechat_bridge_bin": null,
     "wecom_agentid": null,
     "wecom_corpid": null,
     "wecom_corpsecret": null,
-    "weixin_hermes_bin": null
+    "weixin_hermes_bin": null,
+    "weixin_local_enabled": null
    }
   ],
   "schedule": "0 11 * * *",
@@ -1281,7 +1297,7 @@
    ]
   }
  },
- "plugins/stocks.yaml": {
+ "config/stocks.yaml": {
   "classify": {
    "builtin": false,
    "rules": [
@@ -1338,10 +1354,12 @@
     "target": "env:FEISHU_CHAT_ID",
     "template": "**股票情报 · {{ date }}**\n{% for item in items %}\n- {{ item.symbol }} {{ item.change_pct }}% 现价 {{ item.price }} {{ item.currency }}\n{% endfor %}\n",
     "timeout": 10.0,
+    "wechat_bridge_bin": null,
     "wecom_agentid": null,
     "wecom_corpid": null,
     "wecom_corpsecret": null,
-    "weixin_hermes_bin": null
+    "weixin_hermes_bin": null,
+    "weixin_local_enabled": null
    }
   ],
   "schedule": "0 9,15 * * 1-5",
@@ -1407,7 +1425,7 @@
    ]
   }
  },
- "plugins/wool.yaml": {
+ "config/wool.yaml": {
   "classify": {
    "builtin": true,
    "rules": []
@@ -1458,10 +1476,12 @@
     "target": "env:FEISHU_CHAT_ID",
     "template": "**羊毛速报 · {{ date }}**\n{% for item in items %}\n- [{{ item.title }}]({{ item.url }})\n{% endfor %}\n",
     "timeout": 10.0,
+    "wechat_bridge_bin": null,
     "wecom_agentid": null,
     "wecom_corpid": null,
     "wecom_corpsecret": null,
-    "weixin_hermes_bin": null
+    "weixin_hermes_bin": null,
+    "weixin_local_enabled": null
    }
   ],
   "schedule": "0 8,20 * * *",
@@ -1697,10 +1717,12 @@
     "target": "env:FEISHU_CHAT_ID",
     "template": "**股票异动 · {{ date }}**\n{% for item in items %}\n{{ item.symbol }} {{ item.change_pct }}% 现价 {{ item.price }}\n{% endfor %}\n",
     "timeout": 10.0,
+    "wechat_bridge_bin": null,
     "wecom_agentid": null,
     "wecom_corpid": null,
     "wecom_corpsecret": null,
-    "weixin_hermes_bin": null
+    "weixin_hermes_bin": null,
+    "weixin_local_enabled": null
    }
   ],
   "schedule": "0 9,15 * * 1-5",

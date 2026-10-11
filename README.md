@@ -190,7 +190,7 @@ Fire-engine 能力为云端专属,自托管栈不含。世事 侧接线(cloud/�
 跑第一个品类 —— 零凭据的完整配置就一个小文件:
 
 ```bash
-cat > plugins/demo-min.yaml <<'YAML'
+cat > config/demo-min.yaml <<'YAML'
 id: demo-min
 name: Minimal demo
 schedule: "0 9 * * *"
@@ -210,9 +210,9 @@ push:
   - channel: stdout              # zero-credential local verification
 YAML
 
-uv run myssia test plugins/demo-min.yaml --json            # 试抓:不入库、不推送
-uv run myssia run plugins/demo-min.yaml --dry-run --json   # 全链演练,不推送
-uv run myssia run plugins/demo-min.yaml                    # 正式跑;--loop 常驻调度
+uv run myssia test config/demo-min.yaml --json            # 试抓:不入库、不推送
+uv run myssia run config/demo-min.yaml --dry-run --json   # 全链演练,不推送
+uv run myssia run config/demo-min.yaml                    # 正式跑;--loop 常驻调度
 ```
 
 完整走读:[docs/zh/getting-started.md](docs/zh/getting-started.md)。

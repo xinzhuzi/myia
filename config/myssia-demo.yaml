@@ -1,4 +1,4 @@
-# plugins/myssia-demo.yaml — 开箱演示件(v1.1.1 随包第五件,grill Q3)。
+# config/myssia-demo.yaml — 开箱演示件(v1.1.1 随包第五件,grill Q3)。
 # 目的:装机首跑「运行第一个插件」第一次就出真数据,不撞 config_error;
 #      同时是 README 五屏截图的数据来源。
 # 铁律:零凭据(stdout 通道不需要 target)、零环境变量/钥匙串引用(fail-fast

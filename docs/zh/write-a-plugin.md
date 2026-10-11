@@ -47,7 +47,7 @@ YAML(或环境)→ 复验,用户只做决策。
 
 | 层 | 引擎 | 什么时候用 | 代价/前提 |
 |---|---|---|---|
-| L1 | `direct_api` | 数据有公开 JSON/REST API(行情、发版、社区 REST) | 最快最省;`extract.type: json_path`;先 curl 确认返回结构再写 fields;响应无页面 URL 时用 `extract.url_template` 从 `{field}` 渲染条目链接(见 `plugins/games.yaml`) |
+| L1 | `direct_api` | 数据有公开 JSON/REST API(行情、发版、社区 REST) | 最快最省;`extract.type: json_path`;先 curl 确认返回结构再写 fields;响应无页面 URL 时用 `extract.url_template` 从 `{field}` 渲染条目链接(见 `config/games.yaml`) |
 | L2 | `static_html` | 服务端渲染 HTML(论坛列表、新闻页) | 零依赖;`extract.type: list` + CSS 选择器 |
 | L3 | `crawl4ai` | JS 渲染页面,页面源码里搜不到数据 | 可选依赖 `myssia[crawl4ai]`,未装报 `dependency_missing` 并继续降级;无 `extract` 时自动结构化兜底 |
 | L3' | `firecrawl` | crawl4ai 的云端替代后端 | 需 endpoint+key(`MYIA_FIRECRAWL_URL` / `MYIA_FIRECRAWL_API_KEY`,或 `engine_options.firecrawl.endpoint/api_key` 引用);未配置该层失败并继续降级 |
@@ -141,8 +141,8 @@ storage:
 
 仓库 `plugins/` 下的官方品类(wool / stocks / ai-news / gpu-prices /
 monitor / credentials)是更完整的活例子,覆盖 sidecar 节的官方写法见
-[gpu-prices.yaml](../../plugins/gpu-prices.yaml)(baseline)与
-[monitor.yaml](../../plugins/monitor.yaml)(plugin 双模式)。
+[gpu-prices.yaml](../../config/gpu-prices.yaml)(baseline)与
+[monitor.yaml](../../config/monitor.yaml)(plugin 双模式)。
 
 ## 最小示例
 

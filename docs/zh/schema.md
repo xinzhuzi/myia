@@ -115,7 +115,7 @@ XML feed 走 feedparser),喂**一轮** OpenAI 兼容 LLM(`base_url` / `api_key`
 必配引用,enrich 节同契约),markdown 回答直接做条目 `content` 进 push
 (模板键 `{{ item.prompt_summary }}`);条目 URL 铸 `#prompt-<日期>` 锚点,
 每日新条目、同日重跑幂等。失败全部结构化(凭据/依赖/抓取/LLM 四类),
-部分 URL 抓取失败降级继续。示范件 `plugins/ai-vendor-watch.yaml`,
+部分 URL 抓取失败降级继续。示范件 `config/ai-vendor-watch.yaml`,
 extras 需 `myssia[trafilatura]` + `myssia[llm]`。
 
 ### 全局配置 pools(代理池,`--config`)
@@ -166,15 +166,15 @@ extract:
 选择器语法:L1/L2 用 CSS(条目内相对选择器,`a@href` 取属性,相对 URL 自动
 补全);`json_path` 用 `$` 路径(`$.chart.result[0].meta.price`、`$[*].keyword`
 通配)。响应没有页面 URL 只有 slug/appid 的 API(Epic/Steam 形态)用
-`url_template` 渲染条目链接(官方 `plugins/games.yaml` 即此写法);
+`url_template` 渲染条目链接(官方 `config/games.yaml` 即此写法);
 `json_path` 仍表达不了「条目 URL = 请求 URL」,此类 API 用稳定业务字段充当
-`url`(官方 `plugins/stocks.yaml` 即此写法)。
+`url`(官方 `config/stocks.yaml` 即此写法)。
 
 `rss`(10-03-news-rss)逐字段语义:
 
 - **映射形态**:`fields` 键=归一字段名,值=feedparser entry 属性名(白名单
   `title`/`link`/`published`/`updated`/`summary`/`author`);典型写法
-  `{title: title, url: link, published: published}`(官方 `plugins/news.yaml`)。
+  `{title: title, url: link, published: published}`(官方 `config/news.yaml`)。
 - **白名单**:封闭词表,拼错(如 `pubdate`)装载即拒(`invalid_rss_field`,
   path 指到 `fields.<键>`)——防运行期整源静默零产出。
 - **缺属性省略**:条目缺某属性 → 该字段逐条省略(同 `json_path` 逐条目语义);

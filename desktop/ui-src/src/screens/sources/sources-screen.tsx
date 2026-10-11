@@ -326,9 +326,9 @@ export function SourcesScreen() {
             />
           ) : (
             /* 首跑引导态(R4):零品类 YAML 时给 Kestra 式引导(一键跑 demo),
-               不再零蛋屏;pluginsDir 交代数据根 */
+               不再零蛋屏;configDir 交代数据根 */
             <FirstRunGuide
-              pluginsDir={state.data?.pluginsDir ?? null}
+              configDir={state.data?.configDir ?? null}
               onDemoCreated={() => void reload()}
             />
           )

@@ -138,7 +138,7 @@ out (template key `{{ item.prompt_summary }}`); the item URL carries a
 `#prompt-<date>` anchor so each day is a new item and same-day reruns dedupe.
 All failures are structured (credentials / dependencies / fetch / LLM);
 partial URL failures degrade and continue. See
-`plugins/ai-vendor-watch.yaml`; extras `myssia[trafilatura]` +
+`config/ai-vendor-watch.yaml`; extras `myssia[trafilatura]` +
 `myssia[llm]` required.
 
 ### Global config pools (proxy pools, `--config`)
@@ -197,10 +197,10 @@ Selector grammar: L1/L2 use CSS (relative to the item; `a@href` reads an
 attribute; relative URLs resolve against the page); `json_path` uses `$`
 paths (`$.chart.result[0].meta.price`, `$[*].keyword` wildcards). APIs whose
 payload has no page URL, only a slug or numeric id (the Epic/Steam shape),
-render item links via `url_template` (official `plugins/games.yaml` does
+render item links via `url_template` (official `config/games.yaml` does
 exactly this). Known gap: `json_path` cannot express "item URL = the request
 URL" — such APIs use a stable business field as `url` (official
-`plugins/stocks.yaml` does exactly this).
+`config/stocks.yaml` does exactly this).
 
 `rss` (10-03-news-rss), field by field:
 
@@ -208,7 +208,7 @@ URL" — such APIs use a stable business field as `url` (official
   feedparser entry attribute names (whitelist `title`/`link`/`published`/
   `updated`/`summary`/`author`); the typical form is
   `{title: title, url: link, published: published}` (official
-  `plugins/news.yaml`).
+  `config/news.yaml`).
 - **Whitelist**: a closed vocabulary — a typo (e.g. `pubdate`) is refused at
   load time (`invalid_rss_field`, path points at `fields.<key>`) instead of
   silently yielding zero items at run time.

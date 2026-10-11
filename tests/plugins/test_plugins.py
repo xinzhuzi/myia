@@ -60,7 +60,8 @@ from myssia.schema import (
 from myssia.secrets import InMemoryKeychainBackend
 from myssia.store import SQLiteStore
 
-PLUGINS_DIR = Path(__file__).resolve().parents[2] / "plugins"
+#: 品类配置目录(2026-10-11 自 plugins/ 拆出;本文件全量吃品类 YAML)。
+CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 # gpu-prices 补入(10-03-games-v2,grill 决议⑧):全套电池自 v0.4 起从未
 # 覆盖过它;zol 源现被反爬检查页拦(2026-10-03 实测),无 _SNIPPETS 录制
@@ -81,12 +82,12 @@ OFFICIAL_PLUGINS = ("stocks", "ai-news", "wool", "games", "gpu-prices", "news", 
 
 def _load(name: str):
     """Load one official plugin through the real schema entry point."""
-    return load_category_file(PLUGINS_DIR / f"{name}.yaml")
+    return load_category_file(CONFIG_DIR / f"{name}.yaml")
 
 
 def _raw(name: str) -> dict:
     """Parsed YAML mapping (for unknown-field mutation tests)."""
-    with open(PLUGINS_DIR / f"{name}.yaml", encoding="utf-8") as handle:
+    with open(CONFIG_DIR / f"{name}.yaml", encoding="utf-8") as handle:
         data = yaml.safe_load(handle)
     assert isinstance(data, dict), f"{name}.yaml must parse to a mapping"
     return data
@@ -181,7 +182,7 @@ def test_ai_news_images_ring_local_hint_comment_ships_startup_guide():
     """拍板⑨ → 10-03-vision-daily A1:`vl: local` 从注释示例转实配,且注释
     仍必须带本地服务启动指引一句(games 教训:官方插件声明面的注释也是
     agent 的 ground truth——vl 开了之后,服务怎么起就是日常 run 的活文档)。"""
-    text = (PLUGINS_DIR / "ai-news.yaml").read_text(encoding="utf-8")
+    text = (CONFIG_DIR / "ai-news.yaml").read_text(encoding="utf-8")
     assert "\n  vl: local" in text, "vl: local 必须是实配行,不是注释示例"
     assert "mlx_vlm.server" in text, "本地 VL 服务启动指引必须在注释里"
     # A2 端点注记同规(10-03 桌面零 env 化后):keychain: 引用的录入方法必须
@@ -195,7 +196,7 @@ def test_wool_declares_seven_source_slots():
     """Five live L2 sources + the two documented parked placeholders
     (linux.do: login-walled; v2ex: challenge-gated until a firecrawl backend
     exists — shipping it live meant a guaranteed failure every run)."""
-    text = (PLUGINS_DIR / "wool.yaml").read_text(encoding="utf-8")
+    text = (CONFIG_DIR / "wool.yaml").read_text(encoding="utf-8")
     assert "# - name: linuxdo" in text, "linux.do placeholder comment must stay"
     assert "# - name: v2ex" in text, "v2ex placeholder comment must stay"
     config = _load("wool")
@@ -317,7 +318,7 @@ def test_games_telegram_push_entry_mounted_per_v1_decision5():
     assert telegram.target == "env:TELEGRAM_CHAT_ID"
     assert [r.when for r in telegram.route] == [r.when for r in feishu.route], "路由 when 与 feishu 条目同款"
     # 批次4 日报层降噪:两级路由变三级(限免 immediate + 折扣/兜底 archive,
-    # digest 档退役——日报由 plugins/daily-digest.yaml 合并收口)。
+    # digest 档退役——日报由 config/daily-digest.yaml 合并收口)。
     assert [r.mode for r in telegram.route] == ["immediate", "archive", "archive"]
     assert telegram.template is not None
     assert "](" not in telegram.template, "纯文本通道:markdown 链接语法会原样露出,必须精简变体"
@@ -435,7 +436,7 @@ def test_games_cheapshark_deal_hits_rule_and_stays_archived():
     for push in config.push:
         assert resolve_route(cs_hit, routes_from_config(push.route)).mode == "archive", (
             "CS 条目必须落 archive(immediate 只属限免;批次4 后非限免一律仅入库,"
-            "日报由 plugins/daily-digest.yaml 合并收口)"
+            "日报由 config/daily-digest.yaml 合并收口)"
         )
 
 
@@ -1290,9 +1291,9 @@ def test_wool_live_source_smoke(source_name):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("path", sorted(PLUGINS_DIR.glob("*.yaml")), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", sorted(CONFIG_DIR.glob("*.yaml")), ids=lambda p: p.name)
 def test_every_top_level_plugin_yaml_loads(path):
-    """回归(monitor.yaml 曾整文件拒载):plugins/ 下的示例是 agent 的 ground
+    """回归(monitor.yaml 曾整文件拒载):config/ 下的示例是 agent 的 ground
     truth,yaml-schema 变更纪律要求它们永远跟 schema 同步——monitor 曾因 v0.3
     的 `plugin:` 节 + 扁平 keychain 名成为「唯一 keychain 示例却不可运行」。"""
     config = load_category_file(path)

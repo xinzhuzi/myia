@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 //
 // YAML配置屏组件测试:mock sidecar(壳命令 sidecar_request 的 JS 假实现,
-// 内存态模拟 plugins 目录)+ mock @uiw/react-codemirror(textarea 受控替身,
+// 内存态模拟 config 目录)+ mock @uiw/react-codemirror(textarea 受控替身,
 // 编辑器真实渲染的 jsdom 集成见 editor-pane.test.tsx)。覆盖(design §7 UI 清单):
 // list 渲染+坏文件徽标 / ?file= 预选读原文+完整路径 / 读取失败错误态 /
 // dirty 守卫(拦截切换 + SPA 路由离开) / 校验干跑 findings 分级 / 保存失败结构化错误 /
@@ -29,7 +29,7 @@ import { YamlEditorScreen } from "./yaml-editor-screen";
 import type { YamlFileEntry } from "./api";
 import type { DoctorResult } from "@/lib/api";
 
-const DIR = "/repo/plugins";
+const DIR = "/repo/config";
 const AI = `${DIR}/ai-news.yaml`;
 const BROKEN = `${DIR}/broken.yaml`;
 const AI_CONTENT = `# 头注释:逐字节保真的原文\nid: ai-news\nname: AI 新闻\nschedule: "*/15 * * * *"\nsources:\n  - name: hacker-news\n    url: "https://example.com/news"\n`;
@@ -104,7 +104,7 @@ function doctorOk(file: string, name: string, sources: number): DoctorResult {
 }
 
 // ---------------------------------------------------------------------------
-// mock sidecar:内存态 = plugins 目录的品类 YAML 清单与内容
+// mock sidecar:内存态 = config 目录的品类 YAML 清单与内容
 // ---------------------------------------------------------------------------
 
 type Handler = (params: never) => unknown;
@@ -129,7 +129,7 @@ function okSidecar() {
   };
   const map: SidecarMap = {
     "yaml.list": () => ({
-      plugins_dir: DIR,
+      config_dir: DIR,
       files: [...state.files].sort((a, b) => a.name.localeCompare(b.name)),
     }),
     "yaml.read": (params: never) => {
@@ -325,10 +325,10 @@ describe("YAML配置:文件列表与读取", () => {
   it("读取失败:结构化错误态 + 重试", async () => {
     const { map } = okSidecar();
     map["yaml.read"] = () => {
-      throw errJson("file_not_found", "文件不存在: /repo/plugins/ghost.yaml", "params.file");
+      throw errJson("file_not_found", "文件不存在: /repo/config/ghost.yaml", "params.file");
     };
     installSidecar(map);
-    renderScreen(`/yaml-editor?file=${encodeURIComponent("/repo/plugins/ghost.yaml")}`);
+    renderScreen(`/yaml-editor?file=${encodeURIComponent("/repo/config/ghost.yaml")}`);
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("文件不存在");
@@ -343,7 +343,7 @@ describe("YAML配置:文件列表与读取", () => {
 
   it("空目录:EmptyState + 「新建第一个品类」CTA(删光全部品类不是死胡同)", async () => {
     const { map } = okSidecar();
-    map["yaml.list"] = () => ({ plugins_dir: DIR, files: [] });
+    map["yaml.list"] = () => ({ config_dir: DIR, files: [] });
     installSidecar(map);
     renderScreen();
 
@@ -782,7 +782,7 @@ describe("YAML配置:品类文件搜索 + 打开位置(10-11-yaml-editor-search-
   it("AC3 打开位置失败:结构化错误进 findings 抽屉(ErrorBox 全量如实)", async () => {
     const { map } = okSidecar();
     map["reveal_yaml_dir"] = (() => {
-      throw errJson("file_not_found", "文件不存在或不可读: /repo/plugins/ai-news.yaml", "file");
+      throw errJson("file_not_found", "文件不存在或不可读: /repo/config/ai-news.yaml", "file");
     }) as never;
     installSidecar(map);
     renderScreen(`/yaml-editor?file=${encodeURIComponent(AI)}`);

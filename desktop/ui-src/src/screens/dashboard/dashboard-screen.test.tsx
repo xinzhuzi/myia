@@ -157,7 +157,7 @@ function fixtureHistoryRun(overrides: Partial<RunRecord> = {}): RunRecord {
 function fixtureRegistryRun(overrides: Partial<RunEntry> = {}): RunEntry {
   return {
     run_id: 9000,
-    yaml: "/plugins/tech.yaml",
+    yaml: "/config/tech.yaml",
     db: "myssia.db",
     dry: false,
     state: "running",

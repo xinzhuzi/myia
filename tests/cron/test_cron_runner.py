@@ -101,7 +101,7 @@ def make_job(**overrides: Any) -> dict[str, Any]:
     base: dict[str, Any] = {
         "id": "j1",
         "name": "早晚情报流",
-        "category": "/abs/plugins/news.yaml",
+        "category": "/abs/config/news.yaml",
         "db_path": None,
         "config_path": None,
         "run_timeout": None,
@@ -306,7 +306,7 @@ def test_job_command_assembles_argv(cron: CronJobs, tmp_path: Path) -> None:
     )
     cmd, env = job_command(cron, job)
     tail = cmd[cmd.index("run") :]
-    assert tail[:3] == ["run", "/abs/plugins/news.yaml", "--db"]
+    assert tail[:3] == ["run", "/abs/config/news.yaml", "--db"]
     assert tail[3] == str(tmp_path / "alt.db")
     assert "--json" in tail and "--dry-run" in tail
     assert tail[tail.index("--config") + 1] == "/etc/pools.yaml"

@@ -120,6 +120,7 @@ from myssia import log as myssia_log
 from myssia.cron.jobs import AmbiguousJobReference, CronJobs
 from myssia.cron.runner import CronRunner
 from myssia.cron.tick import tick as cron_tick_scan
+from myssia.config_layout import migrate_legacy_plugins_dir
 from myssia.cron.ticker import (
     DEFAULT_TICK_INTERVAL_SECONDS,
     SupervisedTickerThread,
@@ -220,6 +221,8 @@ _EXIT_BY_STATUS = {
 }
 
 DEFAULT_PLUGINS_DIR = "plugins"
+#: 品类/账号/凭据配置目录(2026-10-11 命名拆分:配置归 config,插件归 plugins)。
+DEFAULT_CONFIG_DIR = "config"
 DEFAULT_DB_PATH = "myssia.db"
 
 
@@ -387,7 +390,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="世事 — AI-native intelligence hub. 一个品类一份 YAML,fetch→classify→dedup→analyze→push。",
         epilog=(
             "退出码:0 成功 / 1 配置或用法错误 / 2 采集全部失败 / 3 部分失败。\n"
-            "示例:myssia run plugins/stocks.yaml --dry-run --json | jq .status\n"
+            "示例:myssia run config/stocks.yaml --dry-run --json | jq .status\n"
             "      myssia doctor --json | jq '.findings'"
         ),
     )
@@ -480,8 +483,8 @@ def _add_telegram_parser(sub: argparse._SubParsersAction) -> None:
     )
     telegram_serve.add_argument(
         "--category",
-        default="plugins/telegram-groups.yaml",
-        help="群消息品类 YAML(telegram-groups 判例;源 engine: telegram)",
+        default="config/telegram-groups.yaml",
+        help="群消息品类 YAML(config/telegram-groups.yaml 判例;源 engine: telegram)",
     )
     telegram_serve.add_argument(
         "--db",
@@ -878,9 +881,11 @@ def _add_list_parser(sub: argparse._SubParsersAction) -> None:
         description="健康度判据看源级条目数与 skip 原因,不看 run 级成败(静默 0 条不得被 success 掩盖)。",
     )
     listing.add_argument(
+        "--config-dir",
         "--plugins-dir",
-        default=DEFAULT_PLUGINS_DIR,
-        help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR})",
+        dest="config_dir",
+        default=DEFAULT_CONFIG_DIR,
+        help=f"品类配置目录(默认 ./{DEFAULT_CONFIG_DIR};旧名 --plugins-dir 兼容保留)",
     )
     listing.add_argument(
         "--db",
@@ -909,12 +914,14 @@ def _add_doctor_parser(sub: argparse._SubParsersAction) -> None:
         ),
     )
     doctor.add_argument(
-        "yaml", nargs="*", help="要体检的品类 YAML;缺省扫描 --plugins-dir 下全部插件"
+        "yaml", nargs="*", help="要体检的品类 YAML;缺省扫描 --config-dir 下全部品类"
     )
     doctor.add_argument(
+        "--config-dir",
         "--plugins-dir",
-        default=DEFAULT_PLUGINS_DIR,
-        help=f"插件目录(默认 ./{DEFAULT_PLUGINS_DIR})",
+        dest="config_dir",
+        default=DEFAULT_CONFIG_DIR,
+        help=f"品类配置目录(默认 ./{DEFAULT_CONFIG_DIR};旧名 --plugins-dir 兼容保留)",
     )
     doctor.add_argument(
         "--dir",
@@ -2031,6 +2038,24 @@ def _cmd_cron_runs(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _migrate_layout_best_effort(data_root: object) -> None:
+    """旧 ``<数据根>/plugins`` 平铺配置一次性迁 ``config/``;失败只留痕。
+
+    cron 宿主(serve/tick)的接线点:jobs.json 的 category 路径一并改写,
+    迁移不成就跑不了既有 job。副作用极小且幂等,与 sidecar 启动序列同款。
+    """
+    try:
+        report = migrate_legacy_plugins_dir(Path(str(data_root)))
+        if report.did_anything:
+            logger.warning(
+                "旧配置目录迁移 plugins/ -> config/:搬 %d 件,jobs 改写 %d 条",
+                len(report.moved),
+                report.jobs_rewritten,
+            )
+    except OSError as exc:
+        logger.warning("旧配置目录迁移失败(忽略): %s", exc)
+
+
 def _cmd_cron_serve(args: argparse.Namespace) -> int:
     """``cron serve``:阻塞常驻宿主(F2.1)。
 
@@ -2043,6 +2068,7 @@ def _cmd_cron_serve(args: argparse.Namespace) -> int:
     5 分钟一扫(``make_cron_heartbeat_scan`` 工厂,详 pipeline.py)。
     """
     cron = CronJobs.for_db(args.db)
+    _migrate_layout_best_effort(cron.store.data_root)
     interval = max(1.0, float(args.interval))
     stop_event = threading.Event()
     supervisor = SupervisedTickerThread(
@@ -2084,6 +2110,7 @@ def _cmd_cron_tick(args: argparse.Namespace) -> int:
     槽位。离线测试面由 test_cli.py 注入 spawn 替身承担。
     """
     cron = CronJobs.for_db(args.db)
+    _migrate_layout_best_effort(cron.store.data_root)
     try:
         fired = cron_tick_scan(
             cron, verbose=True, execute_job=CronRunner(cron).execute
@@ -3519,14 +3546,14 @@ def _cmd_list(args: argparse.Namespace) -> int:
     as_json = args.as_json
     _configure_logging(as_json=as_json)
     try:
-        files = _plugin_files(args.plugins_dir)
+        files = _plugin_files(args.config_dir)
     except NotADirectoryError as exc:
-        _emit_generic_error("plugins_dir", str(exc), as_json=as_json)
+        _emit_generic_error("config_dir", str(exc), as_json=as_json)
         return EXIT_CONFIG_ERROR
     store, store_error = _open_store(args.db, as_json=as_json)
     payload = {
         "command": "list",
-        "plugins_dir": str(args.plugins_dir),
+        "config_dir": str(args.config_dir),
         "db": str(args.db),
         "store_error": store_error,
         "plugins": [_plugin_report(path, store, store_error) for path in files],
@@ -4060,7 +4087,7 @@ def _doctor_targets(args: argparse.Namespace, *, as_json: bool) -> list[Path] | 
         (already reported as a structured usage error, exit code 1).
     """
     if not args.yaml:
-        return _plugin_files(args.plugins_dir)
+        return _plugin_files(args.config_dir)
     files = [Path(path) for path in args.yaml]
     missing = [str(path) for path in files if not path.is_file()]
     if missing:

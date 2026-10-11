@@ -1,4 +1,4 @@
-# plugins/gpu-prices.yaml — official plugin: GPU market watch over ZOL's
+# config/gpu-prices.yaml — official plugin: GPU market watch over ZOL's
 # server-rendered product list (L2), upgraded in v0.4 (PRD
 # 10-01-v04-trend-baseline) from raw listings into trend intelligence:
 # numeric price history per card + 「vs 昨日 / vs 上周」 comparisons + MSRP

@@ -13,7 +13,7 @@ test_desktop_sidecar_protocol.py 的 rpc 手法;rpc helper 本文件独立一份
   本测试不经「手写件清单」二手复述:list 断言数从映射动态派生,与
   test_installer_resources.py 的守卫常量(DESKTOP_TIER_PACKAGES 9 +
   STUB_ONLY_PACKAGES 1 + REMOTE_STUB_PACKAGES 1 = 11 组件包,10-06 阶段3
-  起含 remote 桩 myssia-firecrawl;10-08 查漏批③后品类 14 件)对账,映射漂移
+  起含 remote 桩 myssia-firecrawl;10-11 拆分批后品类 16 件)对账,映射漂移
   即红);
 - env 未设/目录不存在 = 合法空表(dev 稳定契约);
 - install 三岔编排(10-06 分发规范:声明随包、源码远取):锁在+条目在 →
@@ -54,7 +54,7 @@ _spec = importlib.util.spec_from_file_location("desktop_entry_bundled", ENTRY_PA
 entry = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(entry)
 
-# 与 test_installer_resources.py 同源守卫常量(随包组件包 11 件 + 品类 14 件
+# 与 test_installer_resources.py 同源守卫常量(随包组件包 11 件 + 品类 16 件
 # 单一事实源;跨文件 import 常量——两侧清单漂移时参数化对不上即红,人工对账
 # 口径同彼处)。
 from test_installer_resources import (  # noqa: E402
@@ -69,7 +69,7 @@ from test_installer_resources import (  # noqa: E402
 #: 插件件」卡的轨D remote 配置面板挂点,零 adapter 零运行时)。
 BUNDLED_PACKAGES = DESKTOP_TIER_PACKAGES + STUB_ONLY_PACKAGES + REMOTE_STUB_PACKAGES
 
-#: 随包品类 YAML 全集(恰 14 件;= OFFICIAL_CATEGORY_YAMLS 同源,7 官方 +
+#: 随包品类 YAML 全集(恰 16 件;= OFFICIAL_CATEGORY_YAMLS 同源,7 官方 +
 #: demo + monitor/credentials 两场景件 + telegram 三件与 daily-digest,
 #: 10-08 查漏批③ G5/G9 入种子)。
 #: 名实注(10-09 AC6 归一):这是**文件名 stem 清单**(件数口径),不再是
@@ -77,7 +77,7 @@ BUNDLED_PACKAGES = DESKTOP_TIER_PACKAGES + STUB_ONLY_PACKAGES + REMOTE_STUB_PACK
 #: id 集断言须走下方 BUNDLED_CATEGORY_ID_SET 的归一映射。
 BUNDLED_CATEGORY_STEMS = tuple(name.removesuffix(".yaml") for name in OFFICIAL_CATEGORY_YAMLS)
 
-#: 期望品类 id 集(= stem 归一映射:telegram- 前缀三件 → 'telegram';共 12 个)。
+#: 期望品类 id 集(= stem 归一映射:telegram- 前缀三件 → 'telegram';共 14 个)。
 BUNDLED_CATEGORY_ID_SET = {
     "telegram" if stem.startswith("telegram-") else stem for stem in BUNDLED_CATEGORY_STEMS
 }
@@ -118,15 +118,15 @@ def _conf_resources() -> dict[str, str]:
 
 
 def rebuild_bundled_tree(base: Path) -> Path:
-    """按 tauri.conf resources 的 plugins/ 映射逐键重建目录树(Tauri resources
-    展开后 Resources/plugins/ 的忠实模拟:源在仓库 plugins/<...>,目标
-    <base>/plugins/<...>;credhunter 子包映射亦照搬)。批二起平铺品类 YAML
-    (plugins/<name>.yaml 两段目标)一并照搬——装机 plugins 面 = 组件包子目录
-    + 品类平铺文件,与真包 Resources/plugins 布局一致。"""
+    """按 tauri.conf resources 映射逐键重建目录树(Tauri resources 展开后的
+    忠实模拟:源在仓库 plugins|config/<...>,目标 <base>/plugins|config/<...>;
+    credhunter 子包映射亦照搬)。2026-10-11 命名拆分起装机资源面 = 组件包子
+    目录(Resources/plugins)+ 品类平铺文件(Resources/config)分居,与真包
+    布局一致;返回组件包根(品类根 = 旁级 config,调用方按需取)。"""
     resources = _conf_resources()
     copied = 0
     for source, dest in resources.items():
-        if not dest.startswith("plugins/") or not dest.endswith((".yaml", ".yml", ".py", ".md", "credhunter")):
+        if not dest.startswith(("plugins/", "config/")) or not dest.endswith((".yaml", ".yml", ".py", ".md", "credhunter")):
             continue
         parts = dest.split("/")
         if len(parts) < 2:  # 防御:plugins/ 下至少还有一段文件/目录名
@@ -141,6 +141,7 @@ def rebuild_bundled_tree(base: Path) -> Path:
             shutil.copy2(source_path, target)
         copied += 1
     assert copied > 0, "resources 映射里没有组件包文件——重建树空了(守卫常量对不上)"
+    assert (base / "config").is_dir(), "config 资源根未随映射重建(品类面断供)"
     return base / "plugins"
 
 
@@ -204,12 +205,14 @@ def test_list_env_points_to_missing_dir_is_also_empty(monkeypatch, tmp_path):
 
 def test_list_rebuilt_installer_tree_yields_exactly_eleven_packages(monkeypatch, tmp_path):
     """装机态对账:resources 映射重建目录树 → 组件包恰 11 件(10 desktop +
-    myssia-firecrawl remote 桩)、品类恰 14 件(与 test_installer_resources
+    myssia-firecrawl remote 桩)、品类恰 16 件(与 test_installer_resources
     守卫常量同源;映射漂移即红,不硬编码孤数)。"""
     root = rebuild_bundled_tree(tmp_path / "Resources")
     monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
-    # home 沙箱:categories 的 exists 检查 plugins_dir 干净(dev 回退根是仓库
-    # cwd/plugins 实况,官方品类同名件在盘会把 exists 污成 True)
+    # 品类锚指重建树的 Resources/config(拆分后与组件包分居)
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: root.parent / "config")
+    # home 沙箱:categories 的 exists 检查 config_dir 干净(dev 回退根是仓库
+    # cwd/config 实况,官方品类同名件在盘会把 exists 污成 True)
     monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
     code, responses, _ = rpc({"id": 1, "method": "plugins.bundled.list", "params": {}})
     assert code == 0
@@ -235,11 +238,11 @@ def test_list_rebuilt_installer_tree_yields_exactly_eleven_packages(monkeypatch,
     # credhunter 件 credhunter/ 子包(整目录映射)不单独成条目——按 manifest 计
     ids = sorted(plugin["id"] for plugin in result["plugins"])
     assert ids == sorted(BUNDLED_PACKAGES)
-    # 品类发现面(批二 R3;批③后 14 件;10-09 AC6 归一 id 口径):重建树
-    # 平铺 YAML = 每件一条(件数口径 14 不变),id 经 load_category_file
-    # 实读随 config.id —— telegram 三件归一后同 id 'telegram',id 集 = 12;
+    # 品类发现面(批二 R3;10-11 拆分批后 16 件;10-09 AC6 归一 id 口径):重建树
+    # 平铺 YAML = 每件一条(件数口径 16 不变),id 经 load_category_file
+    # 实读随 config.id —— telegram 三件归一后同 id 'telegram',id 集 = 14;
     # 散装回归(任一件 id 改回 telegram-groups/channels/web)在此即红。
-    assert len(result["categories"]) == len(BUNDLED_CATEGORY_STEMS) == 14
+    assert len(result["categories"]) == len(BUNDLED_CATEGORY_STEMS) == 16
     assert {cat["id"] for cat in result["categories"]} == BUNDLED_CATEGORY_ID_SET
     # AC6 归一实锚:恰好三条 id='telegram' 且 file 各异(文件名区分三线)
     assert sorted(cat["file"] for cat in result["categories"] if cat["id"] == "telegram") == [
@@ -251,7 +254,7 @@ def test_list_rebuilt_installer_tree_yields_exactly_eleven_packages(monkeypatch,
         assert set(cat) == {"file", "path", "id", "name", "schedule", "exists", "findings"}, (
             f"{cat['file']} 品类视图键集漂移"
         )
-        assert cat["exists"] is False
+        assert cat["exists"] is True  # 补种与品类发现同锚:serve 首启已把随包件种进 <home>/config
         if cat["file"].startswith("telegram-"):
             # 归一件合法携带恰一条 id_mismatch warning(stem≠id 如实透出,
             # 双路定位兜底可达;UI 源管理面以此披露「文件名区分、id 归一」)
@@ -322,11 +325,17 @@ def test_list_bad_manifest_is_entry_level_finding_not_table_failure(monkeypatch,
     assert by_dir["myssia-bad"]["id"] is None  # manifest 坏:无从取 id,如实 None
     codes = [finding["code"] for finding in by_dir["myssia-bad"]["findings"]]
     assert "manifest_invalid" in codes
-    # 平铺品类 YAML 不是组件包(补种面已覆盖品类),不进组件包清单
+    # 平铺品类 YAML 不是组件包(拆分后品类面另居 config 锚),不进组件包清单
     (root / "ai-news.yaml").write_text("id: ai-news\n", encoding="utf-8")
     code, responses, _ = rpc({"id": 2, "method": "plugins.bundled.list", "params": {}})
     assert responses[0]["result"]["count"] == 2
-    # 但进品类发现面(批二 R3):坏 YAML 条目级 finding(id=None 如实)
+    assert responses[0]["result"]["categories"] == []  # 组件包根的散件不渗入品类面
+    # 品类发现面锚(Resources/config)内坏 YAML → 条目级 finding(id=None 如实)
+    config_root = tmp_path / "bundled-config"
+    config_root.mkdir()
+    (config_root / "ai-news.yaml").write_text("id: ai-news\nschedule: not-a-cron\n", encoding="utf-8")
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: config_root)
+    code, responses, _ = rpc({"id": 3, "method": "plugins.bundled.list", "params": {}})
     cats = {cat["file"]: cat for cat in responses[0]["result"]["categories"]}
     assert cats["ai-news.yaml"]["id"] is None
     assert "category_invalid" in [f["code"] for f in cats["ai-news.yaml"]["findings"]]
@@ -1017,7 +1026,7 @@ def test_uninstall_traversal_and_shape_are_rejected(monkeypatch, tmp_path):
 
 
 def _home_sandbox(monkeypatch, tmp_path) -> Path:
-    """品类组沙箱:MYIA_HOME 指一次性根(plugins_dir=<home>/plugins 干净,
+    """品类组沙箱:MYIA_HOME 指一次性根(config_dir=<home>/config 干净,
    品类安装落点 = 补种落点同款;dev 回退根是本机实况不净)。"""
     home = tmp_path / "home"
     monkeypatch.setenv("MYIA_HOME", str(home))
@@ -1031,7 +1040,8 @@ def test_categories_bad_yaml_is_entry_level_finding(monkeypatch, tmp_path):
     root.mkdir()
     (root / "good.yaml").write_text(_minimal_category_yaml("good"), encoding="utf-8")
     (root / "broken.yaml").write_text("id: 123\nschedule: not-a-cron\n", encoding="utf-8")
-    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: root)
+    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))  # 组件包视图锚(两视图互不渗入的对照面)
     _home_sandbox(monkeypatch, tmp_path)
     _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.list", "params": {}})
     result = responses[0]["result"]
@@ -1049,22 +1059,23 @@ def test_categories_bad_yaml_is_entry_level_finding(monkeypatch, tmp_path):
     assert {cat["file"] for cat in result["categories"]} == {"good.yaml", "broken.yaml"}
 
 
-def test_category_install_copies_flat_file_into_plugins_dir(monkeypatch, tmp_path):
-    """品类安装=单文件平铺拷贝:落 <home>/plugins/<源文件名>,内容逐字节一致,
+def test_category_install_copies_flat_file_into_config_dir(monkeypatch, tmp_path):
+    """品类安装=单文件平铺拷贝:落 <home>/config/<源文件名>,内容逐字节一致,
     应答 {ok,file,path};tmp 中转不残留(原子替换不留 .tmp 残件)。"""
     root = tmp_path / "bundled"
     root.mkdir()
     (root / "flat-cat.yaml").write_text(_minimal_category_yaml("flat-cat"), encoding="utf-8")
-    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: root)
     home = _home_sandbox(monkeypatch, tmp_path)
+    monkeypatch.setattr(entry, "_seed_first_run", lambda ctx: False)  # 本组只测安装面,补种语义由对齐测试专测
     _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.category_install",
                            "params": {"id": "flat-cat"}})
     assert responses[0]["result"] == {
-        "ok": True, "file": "flat-cat.yaml", "path": str(home / "plugins" / "flat-cat.yaml"),
+        "ok": True, "file": "flat-cat.yaml", "path": str(home / "config" / "flat-cat.yaml"),
     }
-    target = home / "plugins" / "flat-cat.yaml"
+    target = home / "config" / "flat-cat.yaml"
     assert target.read_text(encoding="utf-8") == (root / "flat-cat.yaml").read_text(encoding="utf-8")
-    assert not (home / "plugins" / ".flat-cat.yaml.tmp").exists()
+    assert not (home / "config" / ".flat-cat.yaml.tmp").exists()
     # 随包原件未动 + list categories exists 翻真
     assert (root / "flat-cat.yaml").exists()
     _, responses, _ = rpc({"id": 2, "method": "plugins.bundled.list", "params": {}})
@@ -1078,20 +1089,21 @@ def test_category_install_existing_without_force_rejected_force_overrides(monkey
     root = tmp_path / "bundled"
     root.mkdir()
     (root / "dup-cat.yaml").write_text(_minimal_category_yaml("dup-cat"), encoding="utf-8")
-    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: root)
     home = _home_sandbox(monkeypatch, tmp_path)
-    plugins = home / "plugins"
-    plugins.mkdir(parents=True)
-    (plugins / "dup-cat.yaml").write_text("# 用户自建同名文件\n", encoding="utf-8")
+    monkeypatch.setattr(entry, "_seed_first_run", lambda ctx: False)  # 本组只测安装面,补种语义由对齐测试专测
+    config = home / "config"
+    config.mkdir(parents=True)
+    (config / "dup-cat.yaml").write_text("# 用户自建同名文件\n", encoding="utf-8")
     _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.category_install",
                            "params": {"id": "dup-cat"}})
     assert responses[0]["error"]["code"] == "category_exists"
     assert responses[0]["error"]["path"] == "params.id"
-    assert (plugins / "dup-cat.yaml").read_text(encoding="utf-8") == "# 用户自建同名文件\n"  # 未覆盖
+    assert (config / "dup-cat.yaml").read_text(encoding="utf-8") == "# 用户自建同名文件\n"  # 未覆盖
     _, responses, _ = rpc({"id": 2, "method": "plugins.bundled.category_install",
                            "params": {"id": "dup-cat", "force": True}})
     assert responses[0]["result"]["ok"] is True
-    assert (plugins / "dup-cat.yaml").read_text(encoding="utf-8") == _minimal_category_yaml("dup-cat")
+    assert (config / "dup-cat.yaml").read_text(encoding="utf-8") == _minimal_category_yaml("dup-cat")
 
 
 def test_category_install_guards(monkeypatch, tmp_path):
@@ -1103,12 +1115,12 @@ def test_category_install_guards(monkeypatch, tmp_path):
     (root / "valid-cat.yaml").write_text(_minimal_category_yaml("valid-cat"), encoding="utf-8")
     (root / "bad-cat.yaml").write_text("id: bad-cat\nschedule: not-a-cron\n", encoding="utf-8")
     _home_sandbox(monkeypatch, tmp_path)
-    # env 未设(dev 形态/旧包)
-    monkeypatch.delenv(entry.BUNDLED_PLUGINS_ENV, raising=False)
+    monkeypatch.setattr(entry, "_seed_first_run", lambda ctx: False)  # 本组只测安装面,补种语义由对齐测试专测
+    # 品类锚缺席(dev 形态/旧包;_bundle_config_dir 布局探测在测试态恒 None)
     _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.category_install",
                            "params": {"id": "valid-cat"}})
     assert responses[0]["error"]["code"] == "bundled_plugins_unavailable"
-    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: root)
     # 穿越形(../x、大写、斜杠、前导连字符)与缺 id(CATEGORY_ID_RE 与
     # _PLUGIN_ID_RE 差异如实:品类门 1-64 字符,单字符 'x' 是合法形状归
     # not_found 组另断)
@@ -1127,7 +1139,7 @@ def test_category_install_guards(monkeypatch, tmp_path):
     _, responses, _ = rpc({"id": 5, "method": "plugins.bundled.category_install",
                            "params": {"id": "bad-cat"}})
     assert responses[0]["error"]["code"] == "category_invalid"
-    assert not (tmp_path / "home" / "plugins" / "bad-cat.yaml").exists()
+    assert not (tmp_path / "home" / "config" / "bad-cat.yaml").exists()
     # force 非布尔
     _, responses, _ = rpc({"id": 6, "method": "plugins.bundled.category_install",
                            "params": {"id": "valid-cat", "force": "yes"}})
@@ -1141,12 +1153,14 @@ def test_category_install_locates_by_yaml_id_when_file_name_differs(monkeypatch,
     root = tmp_path / "bundled"
     root.mkdir()
     (root / "renamed-file.yaml").write_text(_minimal_category_yaml("real-cat-id"), encoding="utf-8")
-    monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: root)
     home = _home_sandbox(monkeypatch, tmp_path)
+    monkeypatch.setattr(entry, "_seed_first_run", lambda ctx: False)  # 本组只测安装面,补种语义由对齐测试专测
+
     _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.category_install",
                            "params": {"id": "real-cat-id"}})
     assert responses[0]["result"]["file"] == "renamed-file.yaml"  # 按源文件名落
-    assert (home / "plugins" / "renamed-file.yaml").exists()
+    assert (home / "config" / "renamed-file.yaml").exists()
     # 发现面对该件如实透 id_mismatch warning
     _, responses, _ = rpc({"id": 2, "method": "plugins.bundled.list", "params": {}})
     cat = responses[0]["result"]["categories"][0]
@@ -1165,13 +1179,13 @@ def test_category_install_and_seed_semantics_aligned(monkeypatch, tmp_path):
     root = rebuild_bundled_tree(tmp_path / "Resources")
     home = _home_sandbox(monkeypatch, tmp_path)
     monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
-    # 补种源锚点指同一树(测试态 _bundle_plugins_dir 布局探测恒 None,如实替换)
-    monkeypatch.setattr(entry, "_bundle_plugins_dir", lambda: root)
+    # 补种源锚点指同一树的品类面(测试态 _bundle_config_dir 布局探测恒 None,如实替换)
+    monkeypatch.setattr(entry, "_bundle_config_dir", lambda: root.parent / "config")
     _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.list", "params": {}})
     categories = responses[0]["result"]["categories"]
-    assert len(categories) == 14
-    assert all(cat["exists"] for cat in categories), "serve 启动补种应已把 14 件补齐"
-    seeded = home / "plugins" / "ai-news.yaml"
+    assert len(categories) == 16
+    assert all(cat["exists"] for cat in categories), "serve 启动补种应已把 16 件补齐"
+    seeded = home / "config" / "ai-news.yaml"
     assert seeded.exists()
     # 手改件不被补种覆盖(幂等补缺,逐字节保留)
     seeded.write_text(seeded.read_text(encoding="utf-8") + "# local edit\n", encoding="utf-8")

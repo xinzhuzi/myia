@@ -1,4 +1,4 @@
-# plugins/games.yaml — official plugin: game deal intelligence (折扣/限免)
+# config/games.yaml — official plugin: game deal intelligence (折扣/限免)
 # over four public official APIs — Epic weekly freebies + Steam daily
 # specials + CheapShark multi-store deals(v3, task 10-03-games-v3;source
 # evidence 2026-10-03 in .trellis/tasks/10-03-games{,-v3}/evidence/)+ GOG

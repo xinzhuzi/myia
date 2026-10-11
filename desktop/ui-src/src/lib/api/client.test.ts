@@ -155,7 +155,7 @@ describe("cron-ui 批封装(cron.* + yaml.list)", () => {
 
   it("yamlList:零参调用 yaml.list;files 形状透传", async () => {
     mocks.invoke.mockResolvedValue({
-      plugins_dir: "/p",
+      config_dir: "/p",
       files: [{ file: "/p/news.yaml", name: "news.yaml", parse_ok: true, category_id: "news", category_name: "新闻", sources: 3, error: null }],
     });
     const result = await api.yamlList();

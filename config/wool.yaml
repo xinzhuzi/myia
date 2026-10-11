@@ -1,4 +1,4 @@
-# plugins/wool.yaml — freebie/deal intelligence over public community forums.
+# config/wool.yaml — freebie/deal intelligence over public community forums.
 #
 # Section semantics are documented once, fully, in plugins/stocks.yaml (the
 # schema showcase). This file is the many-sources example: six L2 list pages

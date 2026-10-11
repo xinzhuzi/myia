@@ -1,4 +1,4 @@
-# plugins/searxng.yaml — SearXNG 关键词日报示例骨架(10-05-source-searxng)。
+# config/searxng.yaml — SearXNG 关键词日报示例骨架(10-05-source-searxng)。
 #
 # 【缺省不启用】本件是示例骨架,不在装机包随包清单(自托管服务属主人
 # 运维面,同 RSSHub/Firecrawl 判例):装机不会把它补种到数据根,只有你

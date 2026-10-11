@@ -93,7 +93,7 @@ sources.write     (品类 YAML 源启停写回)          disable 摘出/enable �
 sources.test      ``myssia test <yaml> --source``  试抓此源,异步 job;结果走
                                                  test.completed 事件(同步实现
                                                  会撞壳层 120s 硬超时,禁)
-yaml.list         (plugins 目录扫描)              品类 YAML 清单(坏文件带
+yaml.list         (config 目录扫描)              品类 YAML 清单(坏文件带
                                                  error 入列,可读可修)
 yaml.read         (原文直读)                      UTF-8 原文(newline="" 逐
                                                  字节保真,≤1 MiB)
@@ -243,7 +243,7 @@ cron.runs          (ExecutionLedger.list_executions) 执行账本尾查(新→�
   回填 items 表 + enrich_cache 缓存语义复用,缓存命中零 token;async
   :meth:`~myssia.enrich.LLMEnricher.enrich` 在 handler 内 ``asyncio.run``
   同步应答,整段挂 ``EnrichSettings.timeout_seconds`` 超时帽)。品类未启用
-  enrich / 端点引用缺失 / 品类 YAML 不在 plugins 目录 =
+  enrich / 端点引用缺失 / 品类 YAML 不在 config 目录 =
   ``enrich_not_configured``(graceful,data.reason 三分);超时 =
   ``enrich_timeout``;条目未获分(预算耗尽/批次失败)= ``enrich_failed``;
   ``EnrichConfigError`` 的 code 原文透传(``credential_unresolved`` /
@@ -255,8 +255,8 @@ cron.runs          (ExecutionLedger.list_executions) 执行账本尾查(新→�
   (凭据引用)、``template?``;应答 ``{ok: true, channel, preview?}``(preview 仅
   stdout 通道);失败沿用通道 PushSendError code 原文直传。
 - ``run.status`` / ``logs.tail`` params:``run_id``(可省)/ ``lines``(tail 上限)。
-- ``health`` params:``plugins_dir``、``db``;``plugins.list`` params:``dir``;
-  ``doctor`` params:``yamls[]``、``plugins_dir``、``db``、``config``、``probe_timeout``。
+- ``health`` params:``config_dir``、``db``;``plugins.list`` params:``dir``;
+  ``doctor`` params:``yamls[]``、``config_dir``、``db``、``config``、``probe_timeout``。
 - ``sources.write`` params:``file``(必填)、``enable[]`` / ``disable[]``(至少
   其一);应答 ``enabled``/``disabled`` = 写回后的名字全集(往返一致由 UI 侧
   doctor 复核,存储形态见 :func:`_m_sources_write`)。
@@ -265,7 +265,7 @@ cron.runs          (ExecutionLedger.list_executions) 执行账本尾查(新→�
   ``yaml.read {file}``;``yaml.validate {content, file?}``;``yaml.template``
   零参数;``yaml.save {file, content, expected_mtime}``;
   ``yaml.delete {file}``。路径围栏(:func:`_fence_yaml_path`):后缀
-  ``.yaml/.yml`` + resolve 后必须位于 plugins 目录内(``os.path.commonpath``,
+  ``.yaml/.yml`` + resolve 后必须位于 config 目录内(``os.path.commonpath``,
   消解符号链接与 ``..`` 穿越)+ 新建 stem 过 :data:`CATEGORY_ID_RE` ——
   sidecar 是 UI 直连读写通道,不设围栏 = 桌面端任意文件读写原语。
 - ``image.config.*`` 两方法(10-03-vision-pipeline 拆四留二:看图交互屏整拆,
@@ -344,7 +344,7 @@ cron.runs          (ExecutionLedger.list_executions) 执行账本尾查(新→�
 - telegram serve 常驻宿主(10-06-telegram-telethon 桌面接线批,零新方法
   纯生命周期件):serve 就绪后持 ``TelegramServeHost`` 于 daemon 线程
   (asyncio.run;**home 模式才起**,dev/测试回退 ``myssia telegram serve``),
-  装配与 CLI 同门(品类 = ``<plugins>/telegram-groups.yaml`` → 绑定 →
+  装配与 CLI 同门(品类 = ``<config>/telegram-groups.yaml`` → 绑定 →
   keychain token → 入库/推送 sink → offsets/events 落数据根 ``telegram/``);
   凭据缺失 = graceful 不启动仅留痕(主人四步配好重启即活)。EOF 即停
   (stop Event + 有界 join,长轮询挂起窗内 daemon 兜底)。与 CLI serve 的
@@ -357,8 +357,8 @@ cron.runs          (ExecutionLedger.list_executions) 执行账本尾查(新→�
 serve 上下文路径解析(v1.1.1 统一,优先级):显式 params > ``MYIA_HOME`` env
 (Tauri 壳 spawn 时注入)> 冻结 .app bundle 探测(平台数据根
 ``~/Library/Application Support/MYIA`` / ``%APPDATA%\\MYIA`` / ``~/.myia``)>
-dev 回退 cwd(仓库内运行行为不变)。home 模式下 db/plugins 缺省
-``<home>/myssia.db``、``<home>/plugins``;serve 启动时品类补种 —— 随包
+dev 回退 cwd(仓库内运行行为不变)。home 模式下 db/config 缺省
+``<home>/myssia.db``、``<home>/config``;serve 启动时品类补种 —— 随包
 Resources 官方品类 YAML **缺哪件补哪件、绝不覆盖已存在文件**(每次启动
 幂等;标志 ``.seeded`` = 「已做过一次补种」的记录,不再是复种抑制器);
 health 应答附 ``first_run`` 供 UI 空态引导。
@@ -394,7 +394,8 @@ import yaml
 from myssia import log as myssia_log
 from myssia import push as myssia_push
 from myssia.alerts import AlertConfigError, CompiledAlertRule, alert_view, compile_rule
-from myssia.cli import DEFAULT_DB_PATH, DEFAULT_PLUGINS_DIR, main as cli_main
+from myssia.cli import DEFAULT_CONFIG_DIR, DEFAULT_DB_PATH, main as cli_main
+from myssia.config_layout import CONFIG_DIR_NAME, migrate_legacy_plugins_dir
 from myssia.classify.custom import RuleEvalError, evaluate_expression
 from myssia.cron.jobs import AmbiguousJobReference, CronJobs
 from myssia.cron.runner import CronRunner
@@ -566,15 +567,17 @@ def _inside_app_bundle() -> bool:
     return any(parent.suffix == ".app" for parent in Path(sys.executable).resolve().parents)
 
 
-def _bundle_plugins_dir() -> Path | None:
-    """随包官方插件目录(Tauri resources;dev 或无资源时 None)。
+def _bundle_config_dir() -> Path | None:
+    """随包品类配置目录(Tauri resources;dev 或无资源时 None)。
 
-    候选按平台资源布局:macOS .app 的 ``Contents/Resources/plugins``、
-    Windows/Linux 资源保持相对结构落在 exe 旁(``plugins/``);托管 Python
+    品类/账号/凭据 YAML 是配置不是插件 —— 随包落位 ``Resources/config``
+    (与组件包目录 ``Resources/plugins`` 平级分居,2026-10-11 命名拆分)。
+    候选按平台资源布局:macOS .app 的 ``Contents/Resources/config``、
+    Windows/Linux 资源保持相对结构落在 exe 旁(``config/``);托管 Python
     形态(10-05-desktop-managed-py-env:壳 spawn ``python -m
     myssia_desktop_entry``,真解释器非冻结,``sys.frozen`` 恒空)按本文件
     布局定位 —— 资源树本件在 ``Resources/myssia-src/`` 下,父级即
-    ``Resources``,随包 ``plugins`` 在其旁(与壳侧 pyenv.rs
+    ``Resources``,随包 ``config`` 在其旁(与壳侧 pyenv.rs
     ``RESOURCE_SRC_DIR`` 同名锚点)。开发树本件在 ``desktop/`` 下,目录名
     不命中,dev 形态行为零变化(仍 None)。
     """
@@ -583,13 +586,13 @@ def _bundle_plugins_dir() -> Path | None:
     # 不在 .app 内),资源树布局是唯一可靠锚点。
     src_root = Path(__file__).resolve().parent
     if src_root.name == "myssia-src":
-        candidates.append(src_root.parent / "plugins")
+        candidates.append(src_root.parent / CONFIG_DIR_NAME)
     if getattr(sys, "frozen", False):
         exe = Path(sys.executable).resolve()
         candidates += [
-            exe.parent.parent / "Resources" / "plugins",
-            exe.parent / "plugins",
-            exe.parent / "resources" / "plugins",
+            exe.parent.parent / "Resources" / CONFIG_DIR_NAME,
+            exe.parent / CONFIG_DIR_NAME,
+            exe.parent / "resources" / CONFIG_DIR_NAME,
         ]
     for candidate in candidates:
         if candidate.is_dir() and any(candidate.glob("*.yaml")):
@@ -606,21 +609,22 @@ class ServeContext(NamedTuple):
     """serve 请求的路径上下文:显式 params 永远赢,这里只供缺省。
 
     ``home=None`` 即 dev 回退(cwd 相对常量,仓库内行为与 v1.1 逐字节一致);
-    home 模式下 db/plugins 默认 ``<home>/myssia.db``、``<home>/plugins``,市场
-    安装根尊重既有 ``MYIA_PLUGIN_DIR`` env,否则同为 ``<home>/plugins``
-    (品类 YAML 平铺与市场插件子目录互不干扰:health 扫描非递归)。
+    home 模式下 db/config 默认 ``<home>/myssia.db``、``<home>/config``
+    (品类/账号/凭据 YAML;2026-10-11 起与插件安装根分居),市场安装根
+    尊重既有 ``MYIA_PLUGIN_DIR`` env,否则同为 ``<home>/plugins``
+    (安装根=真插件件,与配置目录不再同名混用)。
     NamedTuple 而非 dataclass:本模块经 importlib 直载(测试),dataclass
     的注解解析依赖 sys.modules 注册,此处没有。
     """
 
     home: Path | None
     db: str
-    plugins_dir: str
+    config_dir: str
     install_root: str
 
     def first_run(self) -> bool:
-        """首跑判定:home 模式且 plugins 目录内零品类 YAML(种子失败/被删光)。"""
-        return self.home is not None and not _has_category_yamls(Path(self.plugins_dir))
+        """首跑判定:home 模式且 config 目录内零品类 YAML(种子失败/被删光)。"""
+        return self.home is not None and not _has_category_yamls(Path(self.config_dir))
 
 
 def _serve_context() -> ServeContext:
@@ -640,14 +644,14 @@ def _serve_context() -> ServeContext:
         return ServeContext(
             home=None,
             db=DEFAULT_DB_PATH,
-            plugins_dir=DEFAULT_PLUGINS_DIR,
+            config_dir=DEFAULT_CONFIG_DIR,
             install_root=str(default_install_root()),
         )
     try:
         home.mkdir(parents=True, exist_ok=True)
-        # plugins 目录一并建:全新数据根上 health/doctor 要的是空态 OK,
+        # config 目录一并建:全新数据根上 health/doctor 要的是空态 OK,
         # 不是 NotADirectoryError(prd 探查矩阵的「无创建逻辑」根因)
-        (home / "plugins").mkdir(parents=True, exist_ok=True)
+        (home / CONFIG_DIR_NAME).mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         raise ProtocolError(
             "myssia_home_unwritable", f"应用数据根不可创建: {home} ({exc})", path=f"env.{MYIA_HOME_ENV}"
@@ -656,7 +660,7 @@ def _serve_context() -> ServeContext:
     return ServeContext(
         home=home,
         db=str(home / "myssia.db"),
-        plugins_dir=str(home / "plugins"),
+        config_dir=str(home / CONFIG_DIR_NAME),
         install_root=str(Path(install_root).expanduser()),
     )
 
@@ -672,15 +676,15 @@ def _seed_first_run(ctx: ServeContext) -> bool:
     仅 home 模式调用;dev 模式零动作。
     """
     assert ctx.home is not None
-    bundle = _bundle_plugins_dir()
+    bundle = _bundle_config_dir()
     if bundle is None:
         return False
-    plugins_dir = Path(ctx.plugins_dir)
-    plugins_dir.mkdir(parents=True, exist_ok=True)
+    config_dir = Path(ctx.config_dir)
+    config_dir.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
     for pattern in ("*.yaml", "*.yml"):
         for source in sorted(bundle.glob(pattern)):
-            target = plugins_dir / source.name
+            target = config_dir / source.name
             if target.exists():
                 continue  # 绝不覆盖已存在文件
             shutil.copy2(source, target)
@@ -690,16 +694,30 @@ def _seed_first_run(ctx: ServeContext) -> bool:
         if not marker.exists():
             marker.write_text(_now_iso() + "\n", encoding="utf-8")
         myssia_log.stream_line(
-            None, "stderr", f"sidecar: 品类补种 {len(copied)} 件 -> {plugins_dir}"
+            None, "stderr", f"sidecar: 品类补种 {len(copied)} 件 -> {config_dir}"
         )
     return bool(copied)
 
 
 def _startup_seed() -> None:
-    """serve 启动时的一次性种子入口;失败只留痕,绝不拦服务起来。"""
+    """serve 启动时的一次性种子入口;失败只留痕,绝不拦服务起来。
+
+    先跑旧布局迁移(``<home>/plugins`` 平铺配置 → ``<home>/config``,含
+    cron jobs.json 路径改写),再补种 —— 顺序不可倒:迁移件算「已存在」,
+    补种绝不覆盖用户既有文件。
+    """
     try:
         ctx = _serve_context()
         if ctx.home is not None:
+            report = migrate_legacy_plugins_dir(ctx.home)
+            if report.did_anything:
+                myssia_log.stream_line(
+                    None,
+                    "stderr",
+                    "sidecar: 旧配置目录迁移 plugins/ -> config/"
+                    f"(搬 {len(report.moved)} 件,jobs 改写 {report.jobs_rewritten} 条,"
+                    f"旧目录{'已移除' if report.legacy_dir_removed else '留有非配置件原样保留'})",
+                )
             _seed_first_run(ctx)
     except Exception as exc:  # noqa: BLE001 — 种子是增强,不是依赖
         print(f"sidecar: 首跑种子失败(忽略): {exc}", file=sys.stderr)
@@ -856,13 +874,13 @@ def _m_version(params: dict[str, Any]) -> dict[str, Any]:
 def _m_health(params: dict[str, Any]) -> dict[str, Any]:
     """``myssia list --json`` 等价:插件清单 + 源健康度 + 计数聚合。
 
-    plugins_dir/db 缺省走 serve 上下文(home 模式 = 数据根;dev = cwd 相对);
+    config_dir/db 缺省走 serve 上下文(home 模式 = 数据根;dev = cwd 相对);
     home 模式零品类 YAML 时附 ``first_run=true``(UI 空态引导,不报错)。
     """
     ctx = _serve_context()
     argv = [
         "list",
-        "--plugins-dir", str(params.get("plugins_dir") or ctx.plugins_dir),
+        "--config-dir", str(params.get("config_dir") or ctx.config_dir),
         "--db", str(params.get("db") or ctx.db),
         "--json",
     ]
@@ -1051,18 +1069,20 @@ def _m_plugins_bundled_list(params: dict[str, Any]) -> dict[str, Any]:
     合法空表**(dev 形态/旧包/未注入如实,``dir=null`` 不虚构)。坏 manifest
     条目级 finding 不整表炸(yaml.list 先例)。
 
-    批二(10-05-bundled-plugins-batch2 R3)增 ``categories`` 键:随包目录
-    平铺品类 YAML 发现视图(``_bundled_category_views``);``count`` 语义
-    不变(= 组件包数,兼容既有契约/UI),品类件数由 ``len(categories)``
-    自取。"""
+    批二(10-05-bundled-plugins-batch2 R3)增 ``categories`` 键:随包配置目录
+    平铺品类 YAML 发现视图(``_bundled_category_views``;2026-10-11 拆分起源
+    在 ``Resources/config``,与组件包目录分居);``count`` 语义不变
+    (= 组件包数,兼容既有契约/UI),品类件数由 ``len(categories)`` 自取。
+    两锚独立:组件包根缺席不吞品类视图(dev/旧包双空如实,不虚构)。"""
     root = _bundled_plugins_root()
-    if root is None:
+    config_root = _bundle_config_dir()
+    if root is None and config_root is None:
         return {"dir": None, "count": 0, "plugins": [], "categories": []}
     ctx = _serve_context()
-    plugins = _bundled_plugin_views(root, ctx.install_root)
-    categories = _bundled_category_views(root, ctx.plugins_dir)
+    plugins = _bundled_plugin_views(root, ctx.install_root) if root else []
+    categories = _bundled_category_views(config_root, ctx.config_dir) if config_root else []
     return {
-        "dir": str(root),
+        "dir": str(root) if root else None,
         "count": len(plugins),
         "plugins": plugins,
         "categories": categories,
@@ -1182,17 +1202,17 @@ def _m_plugins_bundled_uninstall(params: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "id": result["id"], "path": result["path"]}
 
 
-def _bundled_category_views(root: Path, plugins_dir: str) -> list[dict[str, Any]]:
-    """枚举随包目录平铺品类 YAML → 发现条目视图(批二 R3;零异常上抛)。
+def _bundled_category_views(root: Path, config_dir: str) -> list[dict[str, Any]]:
+    """枚举随包配置目录平铺品类 YAML → 发现条目视图(批二 R3;零异常上抛)。
 
     与 ``_seed_first_run`` 同款 glob 口径(非递归 ``*.yaml``/``*.yml``),
     装机态两视图所见 = 补种所拷。逐件:id/name/schedule 经
     ``load_category_file`` 实读(坏 YAML → id=None + 条目级 finding
     ``category_invalid``,不整表炸,沿 yaml.list 先例);``exists`` = 数据根
-    plugins/ 下同名文件在(= 补种/自建/本面已装,对齐补种落点);文件名 stem
+    config/ 下同名文件在(= 补种/自建/本面已装,对齐补种落点);文件名 stem
     与 id 不一致 → ``id_mismatch`` warning 如实透出(定位仍按 id 双路兜底)。
     """
-    target_dir = Path(plugins_dir)
+    target_dir = Path(config_dir)
     files = sorted([*root.glob("*.yaml"), *root.glob("*.yml")], key=lambda item: item.name)
     views: list[dict[str, Any]] = []
     for source in files:
@@ -1253,21 +1273,21 @@ def _locate_bundled_category_yaml(root: Path, category_id: str) -> Path:
 
 def _m_plugins_bundled_category_install(params: dict[str, Any]) -> dict[str, Any]:
     """``plugins.bundled.category_install {id, force?}``:随包品类 YAML 平铺
-    拷进数据根 plugins/(批二 R3)。
+    拷进数据根 config/(批二 R3)。
 
     与组件包安装语义刻意不同(组件包=整目录拷贝进安装根;品类=单文件平铺
-    到数据根,与 ``_seed_first_run`` 补种同落点):id 过 ``CATEGORY_ID_RE``
+    到数据根 config/,与 ``_seed_first_run`` 补种同落点):id 过 ``CATEGORY_ID_RE``
     (schema 同源防穿越)→ 定位 → ``load_category_file`` 校验通过才装(坏件
-    拒零拷贝)→ tmp+rename 原子拷到 ``<plugins_dir>/<源文件名>``。**已有同名
+    拒零拷贝)→ tmp+rename 原子拷到 ``<config_dir>/<源文件名>``。**已有同名
     文件未 force → ``category_exists`` 结构化拒(如实「已存在」不覆盖)**——
     与补种幂等补缺对齐不打架:补种=自动补缺永不覆盖,本面=显式知情操作,
     force 才覆盖。应答 ``{ok, file, path}``。
     """
-    root = _bundled_plugins_root()
+    root = _bundle_config_dir()
     if root is None:
         raise ProtocolError(
             "bundled_plugins_unavailable",
-            "随包插件目录不可用(dev 形态或旧包未注入 MYIA_BUNDLED_PLUGINS);无法安装品类",
+            "随包配置目录不可用(dev 形态或旧包未随带 config 资源);无法安装品类",
             path="params.id",
         )
     category_id = params.get("id")
@@ -1290,7 +1310,7 @@ def _m_plugins_bundled_category_install(params: dict[str, Any]) -> dict[str, Any
             f"随包品类校验失败({source}): {first}",
             path="params.id",
         ) from exc
-    target = Path(_serve_context().plugins_dir) / source.name
+    target = Path(_serve_context().config_dir) / source.name
     if target.exists() and not force:
         raise ProtocolError(
             "category_exists",
@@ -1535,7 +1555,7 @@ def _m_doctor(params: dict[str, Any]) -> dict[str, Any]:
     argv = ["doctor"]
     for yaml_path in params.get("yamls") or []:
         argv.append(str(yaml_path))
-    argv += ["--plugins-dir", str(params.get("plugins_dir") or ctx.plugins_dir)]
+    argv += ["--config-dir", str(params.get("config_dir") or ctx.config_dir)]
     argv += ["--db", str(params.get("db") or ctx.db)]
     argv += ["--dir", str(params.get("dir") or ctx.install_root)]
     argv += ["--gates-file", str(params.get("gates_file") or _gates_yaml_path(ctx))]
@@ -2080,8 +2100,8 @@ class _EnrichItemAdapter:
         self.tags = list(dict.fromkeys([*self.tags, *tags]))
 
 
-def _category_config_for_item(category: Any, plugins_dir: str) -> Any:
-    """条目所属品类的已装配置(plugins 目录扫描,品类 id 精确匹配)。
+def _category_config_for_item(category: Any, config_dir: str) -> Any:
+    """条目所属品类的已装配置(config 目录扫描,品类 id 精确匹配)。
 
     确定性同 :func:`_collect_category_ids`:同 id 多文件取字典序首个;
     坏文件(LoadError)不参与 id 空间 —— 装不起来的 YAML 供不了端点配置,
@@ -2089,7 +2109,7 @@ def _category_config_for_item(category: Any, plugins_dir: str) -> Any:
     """
     if not isinstance(category, str) or not category:
         return None
-    for path in _yaml_files(Path(plugins_dir)):
+    for path in _yaml_files(Path(config_dir)):
         try:
             config = load_category_file(path)
         except LoadError:
@@ -2115,7 +2135,7 @@ def _m_feed_enrich(params: dict[str, Any]) -> dict[str, Any]:
     的 per-completion wait_for,外层兜缓存读写/渲染的全程)。
 
     err:``enrich_not_configured``(graceful 明示无配置:品类未启用
-    enrich / 端点引用缺失 / 品类 YAML 不在 plugins 目录,``data.reason``
+    enrich / 端点引用缺失 / 品类 YAML 不在 config 目录,``data.reason``
     三分 ``enrich_disabled`` / ``endpoint_missing`` /
     ``category_yaml_not_found``)/ ``enrich_timeout`` / ``enrich_failed``
     (预算耗尽或批次失败条目未获分,degrade_reason + failures 入 data);
@@ -2139,12 +2159,12 @@ def _m_feed_enrich(params: dict[str, Any]) -> dict[str, Any]:
                 f"条目不存在: {item_ref!r}(可传 items.id 或 dedup_key/URL)",
                 path="params.item",
             )
-        config = _category_config_for_item(item.category, ctx.plugins_dir)
+        config = _category_config_for_item(item.category, ctx.config_dir)
         enrich_cfg = config.enrich if config is not None else None
         if enrich_cfg is None or not enrich_cfg.enabled:
             if config is None:
                 reason = "category_yaml_not_found"
-                detail = f"条目所属品类 {item.category!r} 的 YAML 不在 plugins 目录"
+                detail = f"条目所属品类 {item.category!r} 的 YAML 不在 config 目录"
             else:
                 reason = "enrich_disabled"
                 detail = f"品类 {item.category!r} 未启用 enrich(enabled=false)"
@@ -2800,10 +2820,10 @@ YAML_MAX_BYTES = 1024 * 1024
 #: 最小合法品类模板(yaml.template 应答原文;UI 只回填 id/name)。
 #: 协议侧维护 = schema 的家乡在此,模板随 schema 同仓演进,pytest 锁
 #: ``load_category(safe_load(template))`` 必过 —— schema 演进时模板不会静默腐烂。
-#: 完整 12 节权威示例见仓库 ``plugins/stocks.yaml``(头注释即指路标)。
+#: 完整 12 节权威示例见仓库 ``config/stocks.yaml``(头注释即指路标)。
 _CATEGORY_TEMPLATE = """# 最小品类模板:必填仅 id/name/schedule + sources[](源必填 name/url,
 # engine 缺省 auto、extract 缺省 L3 兜底、push 缺省空表)。
-# 完整 12 节示例与逐字段注释见 plugins/stocks.yaml(权威示例);
+# 完整 12 节示例与逐字段注释见 config/stocks.yaml(权威示例);
 # 凭据只允许 env:VAR / keychain:NAME 引用,明文即拒载(security-baseline)。
 id: my-category
 name: 我的品类
@@ -2815,14 +2835,14 @@ sources:
 
 
 def _fence_yaml_path(file_raw: Any) -> tuple[Path, ServeContext]:
-    """yaml.* 方法的路径围栏:后缀 + resolve 后必须位于 plugins 目录内。
+    """yaml.* 方法的路径围栏:后缀 + resolve 后必须位于 config 目录内。
 
     安全底线(task 10-03-yaml-editor design §1):sidecar 是 UI 直连的读写
     通道,不设围栏 = 桌面端任意文件读写原语。三道门:
 
     1. 后缀 ∈ {``.yaml``, ``.yml``} → 否则 ``not_yaml_suffix``;
     2. ``Path.resolve()``(消解符号链接与 ``..``)后 ``os.path.commonpath``
-       判定必须位于 serve 上下文 plugins 目录之下 → 否则 ``path_outside_root``
+       判定必须位于 serve 上下文 config 目录之下 → 否则 ``path_outside_root``
        (message 带两个路径,如实展示;不做字符串前缀比对,Windows 分隔符安全);
     3. 新建场景的 stem 检查在 :func:`_m_yaml_save` 内(file 不存在时才适用)。
 
@@ -2833,7 +2853,7 @@ def _fence_yaml_path(file_raw: Any) -> tuple[Path, ServeContext]:
     if not isinstance(file_raw, str) or not file_raw:
         raise ProtocolError("invalid_params", "缺少文件路径 file", path="params.file")
     ctx = _serve_context()
-    root = Path(ctx.plugins_dir).resolve()
+    root = Path(ctx.config_dir).resolve()
     path = Path(file_raw).expanduser()
     if path.suffix not in (".yaml", ".yml"):
         raise ProtocolError(
@@ -2847,24 +2867,24 @@ def _fence_yaml_path(file_raw: Any) -> tuple[Path, ServeContext]:
     if not inside:
         raise ProtocolError(
             "path_outside_root",
-            f"文件路径越出 plugins 目录: {resolved}(根: {root})",
+            f"文件路径越出 config 目录: {resolved}(根: {root})",
             path="params.file",
             data={"resolved": str(resolved), "root": str(root)},
         )
     return resolved, ctx
 
 
-def _yaml_files(plugins_dir: Path) -> list[Path]:
-    """plugins 目录内的品类 YAML 清单(``*.yaml``/``*.yml``,按文件名排序)。
+def _yaml_files(config_dir: Path) -> list[Path]:
+    """config 目录内的品类 YAML 清单(``*.yaml``/``*.yml``,按文件名排序)。
 
     非递归 glob:``.disabled.json``/``.bak``/``.seeded`` 天然不命中,
     ``myssia-*/plugin.yaml`` 市场子目录不入列(health 扫描同款约定)。
     """
-    if not plugins_dir.is_dir():
+    if not config_dir.is_dir():
         raise ProtocolError(
-            "source_dir_unreadable", f"plugins 目录不可读: {plugins_dir}", path="params"
+            "source_dir_unreadable", f"config 目录不可读: {config_dir}", path="params"
         )
-    files = {path for pattern in ("*.yaml", "*.yml") for path in plugins_dir.glob(pattern)}
+    files = {path for pattern in ("*.yaml", "*.yml") for path in config_dir.glob(pattern)}
     return sorted(files, key=lambda path: path.name)
 
 
@@ -2892,14 +2912,14 @@ def _yaml_file_entry(path: Path) -> dict[str, Any]:
     return item
 
 
-def _collect_category_ids(plugins_dir: Path, *, exclude: Path) -> dict[str, Path]:
+def _collect_category_ids(config_dir: Path, *, exclude: Path) -> dict[str, Path]:
     """目录扫描取 parse_ok 文件们的品类 id(yaml.save 跨文件查重用)。
 
     现状 loader 对重复 id 零守卫 —— 两个 ``id: stocks`` 会静默混品类,
     写盘门是唯一能拦的地方;同 id 多文件时取首个(字典序)保持确定性。
     """
     ids: dict[str, Path] = {}
-    for path in _yaml_files(plugins_dir):
+    for path in _yaml_files(config_dir):
         if path.resolve() == exclude:
             continue
         try:
@@ -2981,16 +3001,16 @@ def _validate_yaml_content(
 
 
 def _m_yaml_list(params: dict[str, Any]) -> dict[str, Any]:
-    """plugins 目录的品类 YAML 清单(目录由 serve 上下文定,不开放目录参数)。
+    """config 目录的品类 YAML 清单(目录由 serve 上下文定,不开放目录参数)。
 
     目录扫描而非取自 health:**坏文件也入列**(parse_ok=false + error)——
     编辑器的核心用例之一就是修好 health 加载不了的文件。
     """
     ctx = _serve_context()
-    plugins_dir = Path(ctx.plugins_dir)
+    config_dir = Path(ctx.config_dir)
     return {
-        "plugins_dir": str(plugins_dir),
-        "files": [_yaml_file_entry(path) for path in _yaml_files(plugins_dir)],
+        "config_dir": str(config_dir),
+        "files": [_yaml_file_entry(path) for path in _yaml_files(config_dir)],
     }
 
 
@@ -3073,7 +3093,7 @@ def _m_yaml_save(params: dict[str, Any]) -> dict[str, Any]:
     - 新建语义:file 不存在 + ``expected_mtime=null`` = 创建;file 不存在 +
       非 null mtime = ``file_not_found``(「想改却不存在」与「想建」分开,
       防路径手误建出影子文件)。新建 stem 必须过品类 id 同款正则
-      :data:`CATEGORY_ID_RE`,防 ``My Category.yaml`` 脏名进 plugins 目录。
+      :data:`CATEGORY_ID_RE`,防 ``My Category.yaml`` 脏名进 config 目录。
     - 乐观锁:yaml.read 带回 mtime,save 对照;不符即 ``mtime_conflict``
       (与 sources.write 两条写路径靠它互斥,不靠运气)。file 已存在 +
       null mtime = 新建意图撞上已有文件,同样 ``mtime_conflict`` —— 绝不
@@ -3146,7 +3166,7 @@ def _m_yaml_save(params: dict[str, Any]) -> dict[str, Any]:
             path="params.content",
             data={"errors": errors},
         )
-    conflict = _collect_category_ids(Path(ctx.plugins_dir), exclude=resolved).get(config.id)
+    conflict = _collect_category_ids(Path(ctx.config_dir), exclude=resolved).get(config.id)
     if conflict is not None:
         raise ProtocolError(
             "duplicate_category_id",
@@ -4433,7 +4453,7 @@ def _push_rules_view(ctx: ServeContext) -> list[dict[str, Any]]:
     可看见才能被修)。
     """
     rules: list[dict[str, Any]] = []
-    for path in _yaml_files(Path(ctx.plugins_dir)):
+    for path in _yaml_files(Path(ctx.config_dir)):
         item: dict[str, Any] = {
             "file": str(path),
             "category_id": None,
@@ -4653,7 +4673,7 @@ def _m_bridge_status(params: dict[str, Any]) -> dict[str, Any]:
     """
     ctx = _serve_context()
     hermes_bin: str | None = None
-    for path in _yaml_files(Path(ctx.plugins_dir)):
+    for path in _yaml_files(Path(ctx.config_dir)):
         try:
             config = load_category_file(path)
         except LoadError:
@@ -5381,7 +5401,7 @@ def _m_alerts_test(params: dict[str, Any]) -> dict[str, Any]:
             item = _alert_item_from_record(latest[0])
 
         # mute 词表:品类 watchlist + 反馈 0.0 权重词(_effective_watchlist 同门)
-        config = _category_config_for_item(item.category, ctx.plugins_dir)
+        config = _category_config_for_item(item.category, ctx.config_dir)
         tuning = load_active_tuning(store)
         mute_words = list(config.watchlist.mute) if config is not None else []
         for word in tuning.effective_mute_words():
@@ -7079,7 +7099,7 @@ def _handle_line(line: str) -> None:
 # 等观测面留待后续批)
 # ---------------------------------------------------------------------------
 
-#: 桌面档品类文件名(CLI ``myssia telegram serve`` 默认 ``plugins/telegram-groups.yaml``
+#: 桌面档品类文件名(CLI ``myssia telegram serve`` 默认 ``config/telegram-groups.yaml``
 #: 同门单文件;多 bot/多品类拆档各起宿主走 CLI serve,不在此扩)。
 _TELEGRAM_CATEGORY_FILENAME = "telegram-groups.yaml"
 
@@ -7127,7 +7147,7 @@ def _assemble_telegram_host(
 ) -> _TelegramHostBundle | None:
     """桌面档装配:与 CLI ``_cmd_telegram_serve`` 同门(逐句对照移植)。
 
-    品类(plugins/telegram-groups.yaml)→ 每 chat_id 一绑定(过滤管线同引擎
+    品类(config/telegram-groups.yaml)→ 每 chat_id 一绑定(过滤管线同引擎
     配置)→ **双线**(B4 起):bot 线(单 bot token,keychain 解析,长轮询)
     + telethon 用户线(账号 session 事件监听,``assemble_user_host`` 工厂,
     session 未首登/凭据缺 = 留痕零阻塞)→ 推送 sink(品类 push 首条通道)/
@@ -7139,7 +7159,7 @@ def _assemble_telegram_host(
     (bot token 未配且 telethon session 未首登)。重量依赖(httpx/telegram
     包)函数内惰性导入:dev 直通模式零加载成本。
     """
-    category_path = Path(ctx.plugins_dir) / _TELEGRAM_CATEGORY_FILENAME
+    category_path = Path(ctx.config_dir) / _TELEGRAM_CATEGORY_FILENAME
     if not category_path.exists():
         myssia_log.stream_line(
             None, "stderr",
@@ -7339,14 +7359,14 @@ def _assemble_telegram_host(
 
     # TG 网页线(C 线,W3;engine: tg_web 源按账号分组,帽/隔离/哨兵语义
     # 见 web_host 工厂;键超帽/未首登 = 留痕零阻塞,不动摇其余两线)。
-    # 首真跑补(2026-10-08):sidecar 装配面并入专用件 plugins/telegram-web.yaml
+    # 首真跑补(2026-10-08):sidecar 装配面并入专用件 config/telegram-web.yaml
     # 的 tg_web 源 —— 专用件是 C 线正户(G9 同名复用跨文件合法,重名唯一性
     # 按文件把守);主品类同名 tg_web 源在时专用件同名源跳过(同一群只跑
     # 一线判例);专用件装载失败/含非 tg_web 源 = 留痕不拦主品类源装配)。
     from myssia.telegram.web_host import assemble_web_manager
 
     web_sources = [s for s in config.sources if s.engine == "tg_web"]
-    web_category_path = Path(ctx.plugins_dir) / "telegram-web.yaml"
+    web_category_path = Path(ctx.config_dir) / "telegram-web.yaml"
     web_config = None  # 专用件缺位 = 无 C 线正户(映射只有主品类侧;先绑定防 UnboundLocal)
     if web_category_path.exists():
         try:

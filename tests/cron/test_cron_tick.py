@@ -103,7 +103,7 @@ def make_job(
     base: dict[str, Any] = {
         "id": job_id,
         "name": f"job {job_id}",
-        "category": "plugins/news.yaml",
+        "category": "config/news.yaml",
         "db_path": db_path,
         "schedule": {
             "kind": "interval",

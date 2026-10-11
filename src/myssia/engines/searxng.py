@@ -279,7 +279,7 @@ class SearxngEngine(BaseEngine):
                 ) from exc
             raise FetchError(
                 f"searxng 实例网络失败(常见=实例未起;base 见上文就绪行;"
-                f"起栈指引见 plugins/searxng.yaml 头注): {exc}",
+                f"起栈指引见 config/searxng.yaml 头注): {exc}",
                 error_type=classify_exception(exc),
             ) from exc
         logger.debug("searxng 就绪探测通过 base=%s(/healthz 有应答)", base)
@@ -307,7 +307,7 @@ class SearxngEngine(BaseEngine):
             # 「实例未起」,不挂死管线,源级结构化失败。
             raise FetchError(
                 f"searxng 实例网络失败(常见=实例未起;base 见上文就绪行;"
-                f"起栈指引见 plugins/searxng.yaml 头注): {exc}",
+                f"起栈指引见 config/searxng.yaml 头注): {exc}",
                 error_type=classify_exception(exc),
             ) from exc
         try:
