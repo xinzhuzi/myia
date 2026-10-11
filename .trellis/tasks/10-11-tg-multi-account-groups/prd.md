@@ -104,3 +104,17 @@ AC1-AC5 已全勾(2026-10-11 凌晨交付,ee687ea 前后链路):
 - [x] AC33 侧栏新增「配置」分组(位于 推送 之后、设置 之前):YAML配置(原配置编辑更名,route /yaml-editor 不变)+ TG账号(新路由 /tg-account,Telegram 监控卡+三线状态从设置屏抽为独立屏);采集组移除配置编辑。
 - [x] AC34 设置屏移除 Telegram 分区(分区导航/搜索词表同步);feed 3 级监控台「管理」钮改指 /tg-account。
 - [x] AC35 测试随动(sidebar 组/settings 抽除断言/新屏冒烟)+ 换装双实锤 + 入库。
+
+### v10 终局注记(2026-10-11,工作流 dwfrun-0b40c399 五段交付)
+
+- 交付 commit 94787ee(feat(desktop),10 files +118/−40;telegram-card.test.tsx→tg-account-screen.test.tsx 91% 重命名随迁;telegram-card.tsx 组件留在 settings/ 由新屏跨屏 import)。
+- 门禁:build + feed/settings/layout 三路 vitest exit=0(相关四文件 94/94)。
+- 换人深检 5 条 P2 全部留存待点单(工作流口径 P2 酌情,均不阻塞):
+  - F1 ⌘K 命令面板未随「八屏→九屏」同步:/tg-account 无命令入口,/yaml-editor 在面板仍标旧名「配置编辑」;command-palette.test.tsx:153-165 toEqual 精确钉 8 项,缺口测试抓不住(command-palette.tsx:49-59);
+  - F2 「配置编辑」→「YAML配置」更名只落侧栏与屏题,settings-screen.tsx(378/394/397/1384/1731)、settings/api.ts:104、messaging-screen.tsx(533/623)、cron-screen.tsx:638、sources 两处等十余处用户可见文案仍指旧名;App.tsx:27/30 注释失真;
+  - F3 /tg-account 路由接线零测试(App.tsx:56 新行无用例触达;仓内先例 cron-screen.test.tsx:249-266 挂 <App/> 断言可达未循);
+  - F4 feed 3 级监控台「管理」钮换靶(/settings?section=telegram → /tg-account,feed-screen.tsx:3823-3831)零断言;
+  - F5 侧栏「配置」组仅数据面断言(NAV_GROUPS/resolveNav),无 DOM 渲染锚(renderSidebar 断言组标题与两条 NavLink);resolveNav 生产代码零消费者。
+- 验收:换人验收员 headless 四动线截图通过(侧栏三组/YAML配置屏/TG账号屏/设置屏无 Telegram 分区)。
+- 换装:新 chunk index-CSSPkkY9 双实锤(新包命中 1、旧装 0→换装后 1);WKWebView 缓存已清;osascript 温和退净后 ditto 换装,app 后台还常驻(PID 73747,无抢焦)。
+- 遗留:真实数据装机像素截图待主人点亮 app 终验;alt1 会话重登(v3 遗留,哨兵告警在案)。
