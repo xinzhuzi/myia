@@ -126,3 +126,11 @@ AC1-AC5 已全勾(2026-10-11 凌晨交付,ee687ea 前后链路):
 - 验收:换人验收员 headless 四动线截图通过(侧栏三组/YAML配置屏/TG账号屏/设置屏无 Telegram 分区)。
 - 换装:新 chunk index-CSSPkkY9 双实锤(新包命中 1、旧装 0→换装后 1);WKWebView 缓存已清;osascript 温和退净后 ditto 换装,app 后台还常驻(PID 73747,无抢焦)。
 - 遗留:真实数据装机像素截图待主人点亮 app 终验;alt1 会话重登(v3 遗留,哨兵告警在案)。
+
+### v10.1 打磨终局(2026-10-11 午后,主人令「按照你的建议做完」=深检 5 P2 收口,工作流 dwfrun-f560b333)
+
+- **五件全部落地**:F1 命令面板九屏同步(新增 /tg-account 条目+YAML配置更名+两处测试钉同步)/F2 旧名「配置编辑」全树清扫(grep 归零,仅存更名注记)/F3 路由接线测试(tg-account-screen.test.tsx「路由接线」describe,挂真实 <App/> 断言可达)/F4 管理钮回归锚(feed-screen.test.tsx:3310,点击断言 navigate /tg-account)/F5 侧栏配置组 DOM 渲染锚(app-layout.test.tsx renderSidebar 断言组标题+两条 NavLink)。
+- **并行竞合如实注记**:工作流在途期间,并行线落了主人令更名与新线——56696b6 侧栏「TG账号」→「Telegram」(配置组=YAML配置/Telegram)、bf0d6bb Telegram 卡→「Telegram 配置」、d55bc17/960554c 平台账号屏 v15(「平台账号」条目入面板)、c881f4d 本任务 v4 身份面、e19ea17 协议钉 14→15。五件打磨的未提交改动被并行提交收编落 HEAD(共享树收编先例),打包安装员收尾时工作树已净、无可提交项——内容齐、提交归属混线,按 G1 不拆注记留档。
+- 门禁:build + 全量 vitest exit=0(收口时 710/710,含并行线新增用例);复核员换人归零(五件+测试钉全核);验收员三面取证过(⌘K 无旧名/各屏文案/侧栏组)。
+- 复核新抓 4 条 P2:三条旧称残留已收尾(commit 32e3f4b:browser-module.tsx:151、feed-screen.tsx:3914 两处用户可见「TG 账号」→「Telegram」,App.tsx:36 路由注记补更名出处);tg-account-screen.tsx 的 title="TG 账号" 与 describe 名是并行线文档化的语义锚(page-header 返 null 非用户可见),保留不动。一条全量 vitest 首跑 1 失败(702/703)四次复跑未复现,如实记为瞬态不归因。
+- 换装:v10.1 尾款(32e3f4b)后重建重换:index-DE839L2o 双实锤(新包 1/旧装 0→换装后 1),WKWebView 缓存已清,app 后台还常驻(PID 29135,无抢焦);其前打包安装员已验过一轮(index-C0cVCvAO,PID 22655)。
