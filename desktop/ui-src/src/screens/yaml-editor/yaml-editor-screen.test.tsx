@@ -198,10 +198,18 @@ function okSidecar() {
   return { map, state };
 }
 
-/** 安装 mock sidecar:所有 invoke("sidecar_request") 走此分派;未知方法=结构化 404 */
+/** 安装 mock sidecar:所有 invoke("sidecar_request") 走此分派;未知方法=结构化 404。
+ *  壳自有命令(如 reveal_yaml_dir)不经 sidecar 协议,按 command 名走同一张 map。 */
 function installSidecar(map: SidecarMap): void {
   mocks.invoke.mockImplementation(
-    async (_command: string, args: { method: string; params?: unknown }) => {
+    async (command: string, args: { method: string; params?: unknown }) => {
+      if (command !== "sidecar_request") {
+        const direct = map[command];
+        if (!direct) {
+          throw errJson("method_not_found", `未知方法 ${command}`, "method");
+        }
+        return direct(args as never);
+      }
       const handler = map[args.method];
       if (!handler) {
         throw errJson("method_not_found", `未知方法 ${args.method}`, "method");
@@ -209,6 +217,12 @@ function installSidecar(map: SidecarMap): void {
       return handler(args.params as never);
     },
   );
+}
+
+/** 断言用:壳自有命令的调用参数(reveal_yaml_dir 等;args 即 params 本体) */
+function lastDirectCall(command: string): Record<string, unknown> | undefined {
+  const calls = mocks.invoke.mock.calls.filter(([name]) => name === command);
+  return calls.at(-1)?.[1] as Record<string, unknown> | undefined;
 }
 
 function lastCall(method: string): { params: unknown } | undefined {
@@ -688,5 +702,96 @@ describe("配置编辑:删除动作", () => {
     });
     expect(screen.queryByText("AI 新闻")).toBeNull();
     expect(screen.getByText("未选择文件")).toBeTruthy();
+  });
+});
+
+describe("配置编辑:品类文件搜索 + 打开位置(10-11-yaml-editor-search-reveal)", () => {
+  it("AC1/AC2 搜索:品类名与文件名子串过滤(大小写不敏感),计数 (命中/总数),清空恢复全量", async () => {
+    installSidecar(okSidecar().map);
+    renderScreen();
+    await screen.findByText("品类文件(2)");
+    const box = screen.getByLabelText("搜索品类文件") as HTMLInputElement;
+
+    // 品类名子串(大小写混排):只留 AI 新闻
+    fireEvent.change(box, { target: { value: "AI 新" } });
+    expect(screen.getByText("品类文件(1/2)")).toBeTruthy();
+    expect(screen.getByText("AI 新闻")).toBeTruthy();
+    expect(screen.queryByText("broken.yaml")).toBeNull();
+
+    // 文件名子串(全大写查询):只留 broken(标签与等宽行两处同名,取全量断言)
+    fireEvent.change(box, { target: { value: "BROKEN" } });
+    expect(screen.getByText("品类文件(1/2)")).toBeTruthy();
+    expect(screen.getAllByText("broken.yaml").length).toBeGreaterThan(0);
+    expect(screen.queryByText("AI 新闻")).toBeNull();
+
+    // 清空恢复全量(未过滤计数原样)
+    fireEvent.change(box, { target: { value: "" } });
+    expect(screen.getByText("品类文件(2)")).toBeTruthy();
+    expect(screen.getByText("AI 新闻")).toBeTruthy();
+    expect(screen.getAllByText("broken.yaml").length).toBeGreaterThan(0);
+  });
+
+  it("AC2 搜索零命中:内联提示不吞列表,计数归零", async () => {
+    installSidecar(okSidecar().map);
+    renderScreen();
+    await screen.findByText("品类文件(2)");
+    fireEvent.change(screen.getByLabelText("搜索品类文件"), { target: { value: "不存在的品类" } });
+    expect(screen.getByText("品类文件(0/2)")).toBeTruthy();
+    expect(screen.getByTestId("file-search-empty").textContent).toContain("无匹配「不存在的品类」");
+  });
+
+  it("AC2 草稿伪条目不受过滤影响(未保存工作不被搜索藏没)", async () => {
+    const { map } = okSidecar();
+    installSidecar(map);
+    renderScreen();
+    await screen.findByText("AI 新闻");
+    // 走新建流造出草稿(my-cat.yaml)
+    fireEvent.click(screen.getByRole("button", { name: /新建/ }));
+    fireEvent.change(screen.getByLabelText("新建文件名"), { target: { value: "my-cat" } });
+    fireEvent.click(screen.getByRole("button", { name: "创建草稿" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("draft-entry").textContent).toContain("my-cat.yaml *");
+    });
+    // 过滤词不匹配草稿 → 草稿仍在列,不匹配项被滤走
+    fireEvent.change(screen.getByLabelText("搜索品类文件"), { target: { value: "broken" } });
+    expect(screen.getByText("品类文件(1/2)")).toBeTruthy();
+    expect(screen.getByTestId("draft-entry").textContent).toContain("my-cat.yaml *");
+    expect(screen.queryByText("AI 新闻")).toBeNull();
+  });
+
+  it("AC3 打开位置:选中文件后可用,点击触发 reveal_yaml_dir 携当前路径", async () => {
+    const { map } = okSidecar();
+    map["reveal_yaml_dir"] = (() => ({ opened: DIR })) as never;
+    installSidecar(map);
+    renderScreen();
+    // 未选文件:禁用
+    await screen.findByText("品类文件(2)");
+    expect(isDisabled(screen.getByRole("button", { name: "打开位置" }))).toBe(true);
+
+    await openByClick(AI);
+    await waitFor(() => {
+      expect(editor().value).toContain("id: ai-news");
+    });
+    expect(isDisabled(screen.getByRole("button", { name: "打开位置" }))).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "打开位置" }));
+    await waitFor(() => {
+      expect(lastDirectCall("reveal_yaml_dir")).toEqual({ file: AI });
+    });
+  });
+
+  it("AC3 打开位置失败:结构化错误进 findings 抽屉(ErrorBox 全量如实)", async () => {
+    const { map } = okSidecar();
+    map["reveal_yaml_dir"] = (() => {
+      throw errJson("file_not_found", "文件不存在或不可读: /repo/plugins/ai-news.yaml", "file");
+    }) as never;
+    installSidecar(map);
+    renderScreen(`/yaml-editor?file=${encodeURIComponent(AI)}`);
+    await waitFor(() => {
+      expect(editor().value).toContain("id: ai-news");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "打开位置" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("文件不存在或不可读");
+    expect(alert.textContent).toContain("file_not_found");
   });
 });

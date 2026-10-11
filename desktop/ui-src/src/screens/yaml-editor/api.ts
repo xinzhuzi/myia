@@ -196,3 +196,16 @@ export function saveYaml(file: string, content: string, expected_mtime: number |
 export function deleteYaml(file: string): Promise<YamlDeleteResult> {
   return yamlRequest<YamlDeleteResult>("yaml.delete", { file });
 }
+
+// ---------------------------------------------------------------------------
+// 壳自有命令直调(不经 sidecar 协议;错误为裸字符串,上层 asSidecarError 归一化)
+// ---------------------------------------------------------------------------
+
+/**
+ * 在系统文件管理器中打开品类 YAML 所在目录(壳命令 reveal_yaml_dir,实现见
+ * main.rs:围栏 = .yaml 后缀 + 文件存在 + 父目录在;macOS open / Windows
+ * explorer / Linux xdg-open,spawn 不等退出码)。不扩 shell:allow-open 授权。
+ */
+export function revealYamlDir(file: string): Promise<{ opened: string }> {
+  return invoke<{ opened: string }>("reveal_yaml_dir", { file });
+}

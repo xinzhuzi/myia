@@ -1,4 +1,4 @@
-import { Play, RefreshCw, Save, ShieldCheck } from "lucide-react";
+import { FolderOpen, Play, RefreshCw, Save, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useBlocker, useSearchParams } from "react-router-dom";
 
@@ -14,7 +14,7 @@ import { ErrorBox } from "./error-box";
 import { EditorPane } from "./editor-pane";
 import { FileList } from "./file-list";
 import { FindingsPanel } from "./findings-panel";
-import { asSidecarError, deleteYaml, listYamlFiles } from "./api";
+import { asSidecarError, deleteYaml, listYamlFiles, revealYamlDir } from "./api";
 import type { YamlFileEntry } from "./api";
 import { sameFilePath, useYamlFileEditor } from "./use-yaml-file-editor";
 
@@ -54,6 +54,8 @@ export function YamlEditorScreen() {
   const [run, setRun] = useState<RunView>(INITIAL_RUN);
   /** 删除等列表动作的结构化错误(列表整体仍可用,故不进 ListState.error) */
   const [actionError, setActionError] = useState<SidecarRequestError | null>(null);
+  /** 「打开位置」结构化错误(findings 抽屉展示;与列表动作错误分槽不互踩) */
+  const [revealError, setRevealError] = useState<SidecarRequestError | null>(null);
 
   const reloadList = useCallback(async () => {
     setList({ status: "loading", files: [], pluginsDir: "", error: null });
@@ -69,6 +71,7 @@ export function YamlEditorScreen() {
   const resetAux = useCallback(() => {
     setRun(INITIAL_RUN);
     setActionError(null);
+    setRevealError(null);
   }, []);
 
   const handleSaved = useCallback(() => {
@@ -150,6 +153,18 @@ export function YamlEditorScreen() {
     },
     [doc, invalidate, clear, reloadList, resetAux],
   );
+
+  /** 打开位置:弹当前文件所在文件夹(壳命令 reveal_yaml_dir)。dirty 也可用
+   *  ——磁盘上的既有文件与未保存缓冲互不相干;错误进 findings 抽屉。 */
+  const handleReveal = useCallback(async () => {
+    if (docReady === null) return;
+    setRevealError(null);
+    try {
+      await revealYamlDir(docReady.file);
+    } catch (error) {
+      setRevealError(asSidecarError(error));
+    }
+  }, [docReady]);
 
   // Cmd+S = 保存(preventDefault 防 webview 默认行为;编辑器无快捷键等于没腿)
   useEffect(() => {
@@ -270,6 +285,16 @@ export function YamlEditorScreen() {
               <Button
                 size="sm"
                 variant="outline"
+                disabled={docReady === null}
+                title="在文件管理器中打开本配置文件所在文件夹"
+                onClick={() => void handleReveal()}
+              >
+                <FolderOpen className="size-3.5" />
+                打开位置
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 disabled={docReady === null || dirty || run.starting}
                 title={dirty ? "先保存再运行" : "以当前品类发起一次采集(run.start)"}
                 onClick={() => void handleRunOnce()}
@@ -365,6 +390,7 @@ export function YamlEditorScreen() {
               </p>
             ) : null}
             {run.error ? <ErrorBox error={run.error} /> : null}
+            {revealError ? <ErrorBox error={revealError} /> : null}
           </div>
         </main>
       </div>

@@ -353,6 +353,47 @@ async fn sidecar_restart(app: AppHandle) -> Result<Value, String> {
     Ok(json!({ "restarted": restarted }))
 }
 
+/// 配置编辑「打开位置」(10-11-yaml-editor-search-reveal):在系统文件管理器
+/// 中打开品类 YAML 所在目录(macOS `open` / Windows `explorer` / Linux
+/// `xdg-open`)。围栏独立成纯函数 `yaml_dir_to_reveal`(单测面);拉起用
+/// `spawn()` 不等退出码——explorer.exe 成功也常回非零,等码必误报。壳自有
+/// 命令不经 capability 门,不扩 `shell:allow-open` 的 http/https 授权面。
+#[tauri::command]
+async fn reveal_yaml_dir(file: String) -> Result<Value, String> {
+    let dir = yaml_dir_to_reveal(&file)?;
+    let opened = dir.display().to_string();
+    let result = if cfg!(target_os = "macos") {
+        std::process::Command::new("open").arg(&dir).spawn()
+    } else if cfg!(target_os = "windows") {
+        std::process::Command::new("explorer").arg(&dir).spawn()
+    } else {
+        std::process::Command::new("xdg-open").arg(&dir).spawn()
+    };
+    match result {
+        Ok(_) => {
+            log::info!("desktop: 打开品类所在目录:{opened}(来源文件:{file})");
+            Ok(json!({ "opened": opened }))
+        }
+        Err(e) => Err(format!("打开文件夹失败:{e};目录:{opened}")),
+    }
+}
+
+/// `reveal_yaml_dir` 的围栏校验(纯函数):仅接受 `.yaml` 后缀、文件本体存在、
+/// 父目录在的路径,返回待打开的父目录;其余结构化报错零拉起。
+fn yaml_dir_to_reveal(file: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(file);
+    if path.extension().and_then(|e| e.to_str()) != Some("yaml") {
+        return Err(format!("仅支持打开品类 YAML 的所在目录(收到:{file})"));
+    }
+    if !path.is_file() {
+        return Err(format!("文件不存在或不可读:{file}"));
+    }
+    path.parent()
+        .filter(|dir| dir.is_dir())
+        .map(|dir| dir.to_path_buf())
+        .ok_or_else(|| format!("无法定位所在目录:{file}"))
+}
+
 /// 壳侧数据根解析(spawn 注入/自管环境探测共用,与 spawn 的 MYIA_HOME 注入
 /// 规则同源):显式 `MYIA_HOME` env 尊重用户设置原样继承(自动化/自定位数据根
 /// 的逃生口;entry.py `_serve_context` 同优先级链);未设才计算平台根并预建目录。
@@ -746,6 +787,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             sidecar_request,
             sidecar_restart,
+            reveal_yaml_dir,
             pyenv::pyenv_get_status,
             pyenv::pyenv_start_setup,
             pyenv::pyenv_sync_deps,
@@ -942,6 +984,30 @@ mod tests {
     fn smoke_geometry_full_form() {
         assert_eq!(parse_smoke_geometry("900x600+40+400"), Some((900, 600, 40, 400)));
         assert_eq!(parse_smoke_geometry(" 720x480 \n"), Some((720, 480, -1, -1)));
+    }
+
+    /// reveal 围栏(10-11-yaml-editor-search-reveal):合法回父目录;非 .yaml
+    /// 后缀/文件不存在/父目录缺失三道闸结构化拒绝。
+    #[test]
+    fn reveal_yaml_dir_fence() {
+        let tmp = std::env::temp_dir().join("myia-reveal-fence-test");
+        std::fs::create_dir_all(&tmp).unwrap();
+        let yaml = tmp.join("cat.yaml");
+        std::fs::write(&yaml, "id: cat\n").unwrap();
+        // 合法:.yaml 且存在 → 回父目录
+        assert_eq!(
+            yaml_dir_to_reveal(yaml.to_str().unwrap())
+                .unwrap()
+                .file_name(),
+            Some(std::ffi::OsStr::new("myia-reveal-fence-test"))
+        );
+        // 非 .yaml 后缀拒(.yml 也不放行)
+        let yml = tmp.join("cat.yml");
+        std::fs::write(&yml, "id: cat\n").unwrap();
+        assert!(yaml_dir_to_reveal(yml.to_str().unwrap()).is_err());
+        // 文件不存在拒
+        assert!(yaml_dir_to_reveal("/myia-不存在路径/nope.yaml").is_err());
+        std::fs::remove_dir_all(&tmp).ok();
     }
 
     #[test]

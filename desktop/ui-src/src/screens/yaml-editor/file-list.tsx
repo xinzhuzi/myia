@@ -25,11 +25,25 @@ interface FileListProps {
 /**
  * 左栏文件列表:品类名(坏文件回退文件名)+ 损坏徽标 + 选中态 + hover 删除;
  * 列表头「新建」(stem 正则预检失败即拦,不发请求)。
+ * 搜索(10-11-yaml-editor-search-reveal):列头下输入框按品类名/文件名/id
+ * 子串实时过滤(前端态,大小写不敏感);未过滤计数 `品类文件(N)` 原样,过滤中
+ * `(命中/总数)`,零命中内联提示;草稿伪条目不受过滤影响(未保存工作不可被
+ * 搜索藏没)。
  * 空目录 = 合法空态(用户删光全部品类):EmptyState + 「新建第一个品类」CTA,
  * 与 feed 空态引导同款闭环,不是死胡同。
  */
 export function FileList({ files, selectedFile, draftName, onSelect, onDelete, onCreate }: FileListProps) {
   const [creating, setCreating] = useState(false);
+  const [query, setQuery] = useState("");
+  const needle = query.trim().toLowerCase();
+  const filtered =
+    needle.length > 0
+      ? files.filter((entry) =>
+          (entry.category_name ?? entry.name).toLowerCase().includes(needle) ||
+          entry.name.toLowerCase().includes(needle) ||
+          (entry.category_id ?? "").toLowerCase().includes(needle),
+        )
+      : files;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2" data-testid="yaml-file-list">
@@ -37,7 +51,9 @@ export function FileList({ files, selectedFile, draftName, onSelect, onDelete, o
           「新建」按钮中线对齐(VL 指认未对齐:19px 行高文本 vs 28px 按钮
           的 items-center 视觉偏移,固定行高钉死) */}
       <div className="flex h-9 items-center justify-between gap-2">
-        <p className="text-sm leading-none font-medium text-foreground">品类文件({files.length})</p>
+        <p className="text-sm leading-none font-medium text-foreground">
+          {needle.length > 0 ? `品类文件(${filtered.length}/${files.length})` : `品类文件(${files.length})`}
+        </p>
         <Button
           size="sm"
           variant="outline"
@@ -49,6 +65,17 @@ export function FileList({ files, selectedFile, draftName, onSelect, onDelete, o
         </Button>
       </div>
 
+      {/* 搜索:品类文件多起来后的定位手段(主人令);空目录态不渲染 */}
+      {files.length > 0 ? (
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          aria-label="搜索品类文件"
+          placeholder="搜索品类 / 文件名"
+          className="h-8"
+        />
+      ) : null}
+
       {creating ? (
         <CreateFileForm
           onCancel={() => setCreating(false)}
@@ -57,6 +84,12 @@ export function FileList({ files, selectedFile, draftName, onSelect, onDelete, o
             onCreate(stem);
           }}
         />
+      ) : null}
+
+      {files.length > 0 && needle.length > 0 && filtered.length === 0 ? (
+        <p role="status" data-testid="file-search-empty" className="px-1 py-2 text-2xs text-muted-foreground">
+          无匹配「{query.trim()}」的品类文件
+        </p>
       ) : null}
 
       {files.length === 0 && draftName === null ? (
@@ -86,7 +119,7 @@ export function FileList({ files, selectedFile, draftName, onSelect, onDelete, o
               </span>
             </li>
           ) : null}
-          {files.map((entry) => {
+          {filtered.map((entry) => {
             const selected = entry.file === selectedFile;
             return (
               <li key={entry.file} className="group relative">
