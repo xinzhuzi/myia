@@ -104,6 +104,7 @@ AC1-AC5 已全勾(2026-10-11 凌晨交付,ee687ea 前后链路):
 - 实现:trellis-implement 代理(+116/+129 测试;账号区=区头「账号 · N」+账号行[备注名/键名·user_id/●○]+管理跳转+骨架与空态;telegramGetStatus 门拓至 2级tg 同源不重发)→ 拷问官七条:5 直接补 + 1 主人裁 + 1 欠账。
 - grill 二轮补批(f859b62):error 态拆支+重试钮(feed-tg-accounts-error,不再被「去添加账号」词面吞);登录中间态三档(监控中(自 t)/登录中…/未登录附 login_note 因);行身可点跳转(role=button+键盘,判例让位收口防双动作——**按推荐落地,主人可否决**);测试去 AC 号化+error 态/取数纪律(site 2 级零调用、2→3→2 恰 1 发)两件新断言;sr-only 登录态(a11y)。
 - 门禁:feed vitest **199/199** + tsc 全项目零错;像素取证 /tmp/myssia-tg-level2-accounts.png(账号区在群列表之上);换装同 10-11-tg-chat-two-pane(index-BwBiGnq0,PID 77515)。
+- **设计审查轮(主人三问触发)**:VL 审美初评(八条)+ web-design-reviewer 代码交叉(四实四噪)→ 3 条 S 修落地 9b77c2c(账号行密度对齐 ChannelRow px-2.5 py-2/区容器与错误空态 hover 几何归一 10px 栅格/区头同「监控会话」muted+tracking);修后换装 index-C7x3ovq_(PID 92533),回归截图 /tmp/myssia-tg-level2-polished.png。
 - **欠账(后议,L,跨 py/UI)**:「账号↔群」映射在数据模型不存在(FeedChannelCardData 无 account 字段,web.accounts 不挂群清单)——多账号落地时需 store 条目/health 源补 account 归属 → tgGroupCards 按账号聚合 → 账号行「展开该账号的群」同批;落点已注释钉在 tgGroupCards memo。
 
 ## v3 追加(2026-10-11,主人令「需要有一个账号模块,因为以后会有多个账号的」)
