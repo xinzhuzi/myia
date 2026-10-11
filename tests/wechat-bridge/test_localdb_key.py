@@ -25,7 +25,10 @@ from wechat_bridge.localdb import (
     locate_key_info_db,
     page1_targets,
     read_key_cache,
+    resolve_keys,
     verify_key_for_page,
+    verify_key_mapping,
+    write_key_cache,
 )
 
 PAGE_SZ = 4096
@@ -230,6 +233,114 @@ class TestPage1Targets:
         assert [rel for rel, _sz, _p1 in targets] == ["session/small.db", "message/big.db"]
 
 
+class TestVerifyMapping:
+    """密钥映射逐条重验(keys.json 消费前的放行门;宁缺毋假)。"""
+
+    def test_right_key_passes_wrong_key_dropped(self, tmp_path: Path) -> None:
+        key = bytes(range(32))
+        db_storage, _ = make_account(tmp_path, key)
+        verified = verify_key_mapping(
+            db_storage,
+            {
+                "message/message_0.db": key.hex(),
+                "message/other.db": ("ff" * 32),  # 库不在场 → 弃
+            },
+        )
+        assert verified == {"message/message_0.db": key.hex()}
+
+    def test_wrong_key_for_existing_db_dropped(self, tmp_path: Path) -> None:
+        db_storage, _ = make_account(tmp_path, bytes(range(32)))
+        assert verify_key_mapping(db_storage, {"message/message_0.db": "ab" * 32}) == {}
+
+    def test_non_hex_and_wrong_length_dropped(self, tmp_path: Path) -> None:
+        key = bytes(range(32))
+        db_storage, _ = make_account(tmp_path, key)
+        verified = verify_key_mapping(
+            db_storage,
+            {
+                "message/message_0.db": "not-hex!",
+                "message/message_0.db2": "aabb",  # 库不在场
+            },
+        )
+        assert verified == {}
+
+
+class TestResolveKeys:
+    """D4② 外部密钥消费通路(resolve_keys):keys.json 重验 → 零内存回落。"""
+
+    def test_external_keys_file_closes_chain_without_zero_memory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """主人放置 keys.json(全量验证命中)→ 一步闭合,零内存途径不触达。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        key = bytes(range(32))
+        db_storage, _ = make_account(tmp_path, key)
+        # 主人以任意手段放置(与缓存同位同权;组件 write_key_cache 同一路径)。
+        write_key_cache({"message/message_0.db": key.hex()}, data_root=tmp_path / "home")
+
+        def _must_not_run(*_a: object, **_k: object) -> dict[str, str]:
+            raise AssertionError("keys.json 全量命中后不应回落零内存途径")
+
+        monkeypatch.setattr("wechat_bridge.localdb.acquire_key", _must_not_run)
+        resolved = resolve_keys(db_storage, files_root=tmp_path)
+        assert resolved == {"message/message_0.db": key.hex()}
+
+    def test_wrong_keys_file_falls_through_with_honest_note(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """keys.json 在场但验证不过 → 回落零内存;exit 21 如实并入 keys.json 未命中。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, key_db = make_account(tmp_path, bytes(range(32)))
+        # 库 page1 用另一把 key → keys.json 错、零内存候选族也全不命中(真负结论)。
+        # 注:错 key 取 "cd"*32(b"\xcd"*32);不可取 "ab"*32 —— 它 hex 解码即
+        # b"\xab"*32,恰是 page1 的真 key,验证器放行是对的(宁缺毋假的反面教材)。
+        stale_page1 = make_page1(b"\xab" * 32, salt=bytes(range(16, 32)))
+        (db_storage / "message" / "message_0.db").write_bytes(stale_page1)
+        write_key_cache({"message/message_0.db": "cd" * 32}, data_root=tmp_path / "home")
+        with pytest.raises(BridgeError) as excinfo:
+            resolve_keys(db_storage, files_root=tmp_path, key_db=key_db)
+        err = excinfo.value
+        assert err.exit_code == 21
+        assert "keys.json" in str(err)
+        # 真 key / 其 hex 绝不入错误消息(红线 6)。
+        assert bytes(range(32)).hex() not in str(err)
+
+    def test_partial_keys_file_falls_to_zero_memory_full_hit(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """keys.json 只盖部分库 → 回落零内存途径;其全量命中照常放行。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        key = bytes(range(32))
+        db_storage, key_db = make_account(tmp_path, key)
+        second = db_storage / "session" / "session.db"
+        second.parent.mkdir(parents=True, exist_ok=True)
+        second.write_bytes(make_page1(key, salt=bytes(range(16, 32))))  # 同 key 交叉可用
+        write_key_cache({"message/message_0.db": key.hex()}, data_root=tmp_path / "home")
+        resolved = resolve_keys(db_storage, files_root=tmp_path, key_db=key_db)
+        assert resolved == {
+            "message/message_0.db": key.hex(),
+            "session/session.db": key.hex(),
+        }
+        # 零内存全量命中照常落缓存(缓存=全量验证子集)。
+        cache = read_key_cache(data_root=tmp_path / "home")
+        assert cache is not None and "session/session.db" in cache
+
+    def test_no_keys_file_keeps_zero_memory_exit21_untouched(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """keys.json 缺位 → 纯 E1 零内存负结论原样(exit 21;无 keys.json 并注)。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, key_db = make_account(tmp_path, bytes(range(32)))
+        stale_page1 = make_page1(b"\xab" * 32, salt=bytes(range(16, 32)))
+        (db_storage / "message" / "message_0.db").write_bytes(stale_page1)
+        with pytest.raises(BridgeError) as excinfo:
+            resolve_keys(db_storage, files_root=tmp_path, key_db=key_db)
+        err = excinfo.value
+        assert err.exit_code == 21
+        assert "keys.json" not in str(err)
+        assert "零内存途径" in str(err)
+
+
 class TestMemsearchShell:
     """内存搜索空壳(红线 1/3):默认关、恒拒绝、源码零进程 API。"""
 
@@ -255,8 +366,6 @@ class TestMemsearchShell:
 
     def test_cache_roundtrip_and_bad_json(self, tmp_path: Path) -> None:
         """缓存读写回环 + 坏 JSON 如实 None + 600 权限(红线 6)。"""
-        from wechat_bridge.localdb import write_key_cache
-
         assert read_key_cache(data_root=tmp_path) is None
         path = key_cache_path(data_root=tmp_path)
         path.parent.mkdir(parents=True, exist_ok=True)

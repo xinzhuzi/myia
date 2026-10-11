@@ -523,9 +523,10 @@ export async function wechatLocalQuery(
 // ---------------------------------------------------------------------------
 
 /**
- * push 动作 channel 下拉名集 = `myssia.push.CHANNELS` 键集镜像(31 条:
- * 8 核心 + W3 长尾 22 + weixin-local(10-11-wechat-ui-bridge F1,微信本机
- * 桥);同步源 src/myssia/push/__init__.py CHANNELS)。
+ * push 动作 channel 下拉名集 = `myssia.push.CHANNELS` 键集镜像(33 条:
+ * 8 核心 + bark/apprise(10-05 两批;存量缺漏 2026-10-11 审查补齐)+ W3
+ * 长尾 22 + weixin-local(10-11-wechat-ui-bridge F1,微信本机桥);同步源
+ * src/myssia/push/__init__.py CHANNELS)。
  * UI 只做名集提示,凭据解析在执行期(品类 push[] 第一个此类型通道,
  * 未配置则降级不发 —— design §7.1)。
  */
@@ -538,6 +539,8 @@ export const ALERT_CHANNELS: string[] = [
   "weixin",
   "webhook",
   "stdout",
+  "bark",
+  "apprise",
   "slack",
   "discord",
   "whatsapp_cloud",

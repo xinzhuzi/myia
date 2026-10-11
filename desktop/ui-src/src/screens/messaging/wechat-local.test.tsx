@@ -290,7 +290,7 @@ describe("微信本机:本地库查询", () => {
   it("空会话 id:前端轻预检拒(不发协议调用)", async () => {
     const calls: Array<{ method: string }> = [];
     installSidecar({
-      "wechat_local.query": (params: never) => {
+      "wechat_local.query": (_params: never) => {
         calls.push({ method: "wechat_local.query" });
         return {};
       },

@@ -262,7 +262,7 @@ class TestLocaldbWiring:
             return fake_payload
 
         monkeypatch.setattr(
-            "wechat_bridge.localdb.acquire_key", lambda storage: {"k": "v"}
+            "wechat_bridge.localdb.resolve_keys", lambda storage: {"k": "v"}
         )
         monkeypatch.setattr("wechat_bridge.localdb.query_history", fake_query_history)
         exit_code, payload = run_cli(
@@ -274,15 +274,15 @@ class TestLocaldbWiring:
         assert payload == fake_payload
         assert seen == {"chat_id": "filehelper", "days": 7, "domains": ["message", "session", "contact"]}
 
-    def test_acquire_error_maps_to_its_exit_code(
+    def test_resolve_error_maps_to_its_exit_code(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         from wechat_bridge.codes import KEY_UNAVAILABLE, BridgeError
 
-        def fake_acquire(storage):
+        def fake_resolve(storage):
             raise BridgeError(KEY_UNAVAILABLE, "本地库密钥不可得(注入)", fix_hint="D4")
 
-        monkeypatch.setattr("wechat_bridge.localdb.acquire_key", fake_acquire)
+        monkeypatch.setattr("wechat_bridge.localdb.resolve_keys", fake_resolve)
         exit_code, payload = run_cli(
             ["localdb", "query", "filehelper", "--since", "7d", "--json"],
             monkeypatch,

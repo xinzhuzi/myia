@@ -175,6 +175,15 @@ class TestReadCommands:
         wls.handle_wechat_local("sessions", {})
         assert calls[0]["timeout"] == wls._COMMAND_TIMEOUT_SECONDS
 
+    def test_query_timeout_bound_covers_first_copy_build(self, fake_bridge):
+        """query 超时独立于 60s 命令族:桥侧 sqlcipher 单库解密上界 300s,
+        多域副本首建累计可超 60s → 600s(2×单库上界)盖住,首查不被误杀。"""
+        calls, responses = fake_bridge
+        responses["localdb query"] = (0, json.dumps(QUERY_PAYLOAD))
+        wls.handle_wechat_local("query", {"chat_id": "filehelper"})
+        assert calls[0]["timeout"] == wls._QUERY_TIMEOUT_SECONDS == 600.0
+        assert wls._QUERY_TIMEOUT_SECONDS > wls._COMMAND_TIMEOUT_SECONDS
+
 
 # ---------------------------------------------------------------------------
 # 参数校验

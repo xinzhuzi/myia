@@ -13,7 +13,9 @@ E1 零内存密钥途径的**真实现 + 如实负结论**(2026-10-11 E1 真跑)
   (每次登录变),不是**数据库 key**,被机器专属密钥包裹、文件内不可推导)。
   故 :func:`acquire_key` 如实应答 §6 exit 21 ``key_unavailable`` + D4 裁决
   指引——**骨架语义已被真跑证据替换,不是占位**。校验机制本身完整可用
-  (单测以合成 page1 全链验证),D4 若裁决引入外部密钥,同一校验器直接复用。
+  (单测以合成 page1 全链验证),D4 裁决②的外部密钥消费通路已闭合:
+  :func:`resolve_keys` 先重验 ``keys.json``(缓存/外部同位,数据根私有区
+  600)再回落零内存途径,主人放置密钥产物后查询一步闭合。
 - 内存密钥搜索(prd 红线 1/3):独立空壳 :mod:`wechat_bridge.memsearch`,
   默认关,**绝不真跑**;本模块零进程接触。
 
@@ -53,8 +55,10 @@ __all__ = [
     "locate_db_storage",
     "locate_key_info_db",
     "verify_key_for_page",
+    "verify_key_mapping",
     "extract_key_candidates",
     "acquire_key",
+    "resolve_keys",
     "key_cache_path",
     "write_key_cache",
     "read_key_cache",
@@ -179,6 +183,38 @@ def verify_key_for_page(enc_key: bytes, db_page1: bytes) -> bool:
     hm = hmac.new(mac_key, hmac_data, hashlib.sha512)
     hm.update(struct.pack("<I", 1))
     return hmac.compare_digest(hm.digest(), stored_hmac)
+
+
+def verify_key_mapping(
+    db_storage: Path,
+    keys: dict[str, str],
+    *,
+    targets: list[tuple[str, int, bytes]] | None = None,
+) -> dict[str, str]:
+    """对密钥映射逐条离线 HMAC 重验(keys.json 消费前的唯一放行门)。
+
+    条目形状:键 = 相对 ``db_storage`` 的库路径,值 = 64-hex SQLCipher 密钥。
+    库不在场 / 非 hex / 长度非 32B / HMAC 不符的条目一律弃(宁缺毋假)——
+    缓存与外部供给同位同权(:func:`resolve_keys`),验证不过的 key 进不了
+    解密链(红线 6 同源纪律:假钥匙既解不开库,也不能制造半真状态)。
+
+    Returns:
+        验证通过的子集(相对路径 → key hex 原文)。
+    """
+    page_targets = targets if targets is not None else page1_targets(db_storage)
+    page1_by_rel = {rel: page1 for rel, _size, page1 in page_targets}
+    verified: dict[str, str] = {}
+    for rel, hex_key in keys.items():
+        page1 = page1_by_rel.get(rel)
+        if page1 is None:
+            continue  # 库不在场(账号切换/域漂移):条目弃,不硬配
+        try:
+            raw = bytes.fromhex(hex_key)
+        except ValueError:
+            continue  # 非 hex:条目弃
+        if len(raw) == KEY_SZ and verify_key_for_page(raw, page1):
+            verified[rel] = hex_key
+    return verified
 
 
 def _read_varint(buf: bytes, i: int) -> tuple[int, int]:
@@ -369,7 +405,8 @@ def acquire_key(
             "其余库的 key 不在零内存候选族内(D4 待裁决)",
             fix_hint=(
                 "D4 待主人裁决:豁免内存密钥搜索(默认关空壳 memsearch,启用须显式)"
-                "或引入外部密钥;已验证子集已缓存(数据根私有区 600)"
+                "或引入外部密钥(数据根私有区 wechat-localdb/keys.json,600 权限,"
+                "键=库相对路径/值=64-hex);部分命中不落缓存(缓存=全量验证子集)"
             ),
         )
     raise BridgeError(
@@ -380,7 +417,8 @@ def acquire_key(
         "(2026-10-11 E1 真跑 + 三方独立公开实测一致)",
         fix_hint=(
             "D4 待主人裁决:①豁免内存密钥搜索(默认关空壳 memsearch,显式开启才生效,"
-            "prd 红线 1/3)②或引入外部密钥(all_keys.json 类,600 权限私有区);"
+            "prd 红线 1/3)②或引入外部密钥:数据根私有区 wechat-localdb/keys.json"
+            "(600 权限,键=库相对路径,值=64-hex SQLCipher 密钥,查询前逐条重验);"
             "校验机制已就绪,密钥可得即全链闭合"
         ),
     )
@@ -423,6 +461,62 @@ def read_key_cache(*, data_root: Path | None = None) -> dict[str, str] | None:
     if not isinstance(raw, dict) or not raw:
         return None
     return {str(k): str(v) for k, v in raw.items()}
+
+
+def resolve_keys(
+    db_storage: Path,
+    *,
+    files_root: Path | None = None,
+    key_db: Path | None = None,
+    targets: list[tuple[str, int, bytes]] | None = None,
+    data_root: Path | None = None,
+) -> dict[str, str]:
+    """密钥解析全链(D4 裁决②「外部密钥引入即闭合」的消费通路;query 入口)。
+
+    顺序:① ``keys.json``(缓存与外部供给同位:既可能是组件全量验证后的
+    落盘,也可能是主人以任意可行手段提供的 all_keys.json 类产物)经
+    :func:`verify_key_mapping` 逐条 HMAC 重验,全量命中即放行——主人按
+    指引放置密钥产物后查询**一步闭合,无须再改代码**;② 回落 E1 零内存
+    途径(:func:`acquire_key`,当前如实负结论出口)。①未闭合会如实并入
+    exit 21 消息(放了 keys.json 却被弃的排查者不再被零内存措辞带偏)。
+
+    Returns:
+        dict: 加密库相对路径 → key hex(全部经 page1 离线验证)。
+
+    Raises:
+        BridgeError: exit 21(两源都未闭合;消息只承载形状,绝无材料)。
+    """
+    notes: list[str] = []
+    staged = read_key_cache(data_root=data_root)
+    if staged is not None:
+        targets = targets if targets is not None else page1_targets(db_storage)
+        verified = verify_key_mapping(db_storage, staged, targets=targets)
+        if targets and len(verified) == len(targets):
+            try:  # 主人自放产物权限规整到 600(design §5.3;失败不拦查询)
+                os.chmod(key_cache_path(data_root=data_root), 0o600)
+            except OSError:
+                pass
+            return verified
+        notes.append(
+            f"keys.json 在场({len(staged)}条)但全量验证未闭合:"
+            f"命中 {len(verified)}/{len(targets) if targets else 0}库"
+        )
+    try:
+        return acquire_key(
+            db_storage, files_root=files_root, key_db=key_db, targets=targets
+        )
+    except BridgeError as exc:
+        if not notes:
+            raise
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            f"{exc.message};另有:{'; '.join(notes)}",
+            fix_hint=(
+                "核对 keys.json:键=相对 db_storage 的库路径,值=该库的 64-hex "
+                "SQLCipher 密钥;逐条重验未命中说明密钥与库不匹配(登录态轮换后"
+                "旧 key 失效,G5),重取后覆盖重试"
+            ),
+        ) from exc
 
 
 # =====================================================================

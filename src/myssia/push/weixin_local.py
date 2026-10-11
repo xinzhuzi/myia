@@ -259,7 +259,7 @@ def probe_local_bridge(
             "wechat_version": None,
             "bridge_version": None,
             "reasons": [
-                {"code": "probe_unparseable", "fix_hint": "桥探针应答不是契约 JSON(exit={exit_code});重装或升级桥组件"}
+                {"code": "probe_unparseable", "fix_hint": f"桥探针应答不是契约 JSON(exit={exit_code});重装或升级桥组件"}
             ],
         }
     return payload

@@ -233,19 +233,30 @@ def main(argv: Sequence[str] | None = None) -> int:
                     EXIT_USAGE, "正文为空(stdin 无内容);拒发空消息", code="usage"
                 )
             ax.ensure_ui_preconditions()
-            # G6 频控门:检查零副作用;真发送成功后由实现层 record_send 落
-            # 时间戳(失败尝试不落,不吞重试窗口)。
-            SendRateState().check_send_allowed(now=_now())
-            ax.send_text(config, chat_id, body)  # Phase D1 落位
+            # G6 频控门(并发封闭):「检查+占位」同一 flock 临界区——并发
+            # 两个 send_text 子进程只有一个能过检占位(红线 ≥10s 硬间隔在
+            # 并发下成立,两段式 check/record 的 TOCTOU 缝不进发送路径)。
+            # BridgeError = 契约内失败(未发出)→ rollback_reserve 还原占位
+            # (失败不吞重试窗口);非契约异常不还原——宁可多吃 10s 窗口,
+            # 不冒「已发出却放开第二发」的二次发送风险(红线方向)。
+            rate_state = SendRateState()
+            now = _now()
+            previous = rate_state.reserve_send(now=now)
+            try:
+                ax.send_text(config, chat_id, body)  # Phase D1 落位
+            except BridgeError:
+                rate_state.rollback_reserve(now, previous)
+                raise
         elif args.group == "localdb" and args.localdb_cmd == "query":
             chat_id = _require_chat_id(args.chat_id)
             days = _parse_since_days(args.since)
             # 本地库通道不依赖 UI 前置(窗口未开不影响);失败族 = 20/21/22。
-            # E1 密钥获取(零内存途径,exit 21 = D4 语义如实)→ E2 副本 →
-            # E3 三域查询;成功在此 emit 契约载荷(消息内容属 stdout 契约,
-            # 不入日志;红线 6)。
+            # 密钥解析(D4 裁决②消费通路):keys.json(缓存/外部同位)逐条
+            # 重验 → 全量命中即放行;未闭合回落 E1 零内存途径(exit 21 =
+            # D4 语义如实)→ E2 副本 → E3 三域查询;成功在此 emit 契约载荷
+            # (消息内容属 stdout 契约,不入日志;红线 6)。
             storage = localdb.locate_db_storage()
-            keys = localdb.acquire_key(storage)
+            keys = localdb.resolve_keys(storage)
             _emit(localdb.query_history(config, storage, keys, chat_id, days))
             return EXIT_OK
         else:  # pragma: no cover - 子 parser required=True 已封住其余形态

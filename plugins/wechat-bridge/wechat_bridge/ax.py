@@ -96,6 +96,8 @@ def read_messages(config: BridgeConfig, chat_id: str, k: int | None = None) -> d
 
 def send_text(config: BridgeConfig, chat_id: str, body: str) -> dict[str, object]:
     """``send_text`` 实现位(Phase D1/D2:AX 定位发送框 → AXConfirm/AXPress +
-    回执验证;调用方已过频控门,本函数只在真发送成功后经 SendRateState.record_send
-    落时间戳)。"""
+    回执验证;调用方已过频控占位门——``SendRateState.reserve_send`` 检查+落戳
+    同临界区,并发封闭。本函数契约 = **只在未发出时**抛 BridgeError(调用方
+    据此 rollback_reserve 还原占位),发出即成功返回,失败不得发生在真实
+    AX 发送之后——否则还原占位会放开 10s 内的第二发,踩 G6 红线)。"""
     raise not_implemented("send_text", "Phase D1")

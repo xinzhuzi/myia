@@ -534,7 +534,8 @@ class TestProbeLocalBridge:
         assert payload["reasons"][0]["code"] == "probe_timeout"
 
     def test_probe_unparseable_stdout_synthesizes_unavailable(self, tmp_path):
-        """应答非契约 JSON(exit 非 0):合成 probe_unparseable。"""
+        """应答非契约 JSON(exit 非 0):合成 probe_unparseable(f-string 内插
+        真实 exit 码,不字面输出占位符)。"""
         script = tmp_path / "wechat-bridge-probe-bad"
         _write_executable(script, "#!/bin/sh\necho 'not-json'\nexit 3\n")
 
@@ -542,6 +543,8 @@ class TestProbeLocalBridge:
 
         assert payload["state"] == "bridge_unavailable"
         assert payload["reasons"][0]["code"] == "probe_unparseable"
+        assert "exit=3" in payload["reasons"][0]["fix_hint"]
+        assert "{exit_code}" not in payload["reasons"][0]["fix_hint"]
 
     def test_default_bin_path_constant(self):
         """缺省 bin 常量 = design §7 缺省(受管组件落点;B3 安装链路对齐)。"""

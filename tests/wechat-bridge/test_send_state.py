@@ -94,3 +94,88 @@ def test_record_then_check_roundtrip(tmp_path: Path) -> None:
     with pytest.raises(BridgeError):
         state.check_send_allowed(now=205.0)
     state.check_send_allowed(now=210.5)
+
+
+# ---------------------------------------------------------------------------
+# 占位原语(reserve/rollback):G6 红线间隔在并发下封闭
+# ---------------------------------------------------------------------------
+
+
+def test_reserve_send_stamps_and_returns_previous(tmp_path: Path) -> None:
+    """首次占位:检查+落戳同临界区,返回占位前值(None=从未发过)。"""
+    path = tmp_path / "wechat-localdb" / "send_state.json"
+    state = SendRateState(path)
+    assert state.reserve_send(now=1000.0) is None
+    assert load_last_send_epoch(path) == 1000.0
+    # 间隔内再次占位 → exit 14,状态零副作用(未被第二进程改写)。
+    with pytest.raises(BridgeError) as excinfo:
+        state.reserve_send(now=1005.0)
+    assert excinfo.value.exit_code == 14
+    assert excinfo.value.retry_after_seconds == pytest.approx(5.0)
+    assert load_last_send_epoch(path) == 1000.0
+    # 间隔外(≥10s)→ 过检占位成功。
+    assert state.reserve_send(now=1010.0) == 1000.0
+
+
+def test_rollback_reserve_restores_never_sent(tmp_path: Path) -> None:
+    """占位前从未发过:失败还原 = 删状态文件(重试窗口不被吞)。"""
+    path = tmp_path / "send_state.json"
+    state = SendRateState(path)
+    previous = state.reserve_send(now=100.0)
+    assert previous is None
+    assert state.rollback_reserve(100.0, previous) is True
+    assert load_last_send_epoch(path) is None
+    assert not path.exists()
+
+
+def test_rollback_reserve_restores_previous_epoch(tmp_path: Path) -> None:
+    """占位前已有更早发送:失败还原 = 精确写回占位前时刻。"""
+    path = tmp_path / "send_state.json"
+    state = SendRateState(path)
+    state.record_send(now=90.0)
+    previous = state.reserve_send(now=100.0)
+    assert previous == 90.0
+    assert state.rollback_reserve(100.0, previous) is True
+    assert load_last_send_epoch(path) == 90.0
+
+
+def test_rollback_reserve_noop_when_other_process_advanced(tmp_path: Path) -> None:
+    """他进程已更新状态(占位后真发成功)→ 不动、返回 False。"""
+    path = tmp_path / "send_state.json"
+    state = SendRateState(path)
+    state.reserve_send(now=100.0)
+    state.record_send(now=200.0)  # 模拟他进程的更新
+    assert state.rollback_reserve(100.0, None) is False
+    assert load_last_send_epoch(path) == 200.0
+
+
+def test_concurrent_reserve_only_one_passes(tmp_path: Path) -> None:
+    """并发两个 send_text 子进程占位:flock 串行化,只有一个过检(G6 红线
+    在并发下封闭——两段式 check/record 在此场景会双双过检)。"""
+    pytest.importorskip("fcntl")  # flock 并发语义是 posix 面;Windows 备胎另启
+    import threading
+
+    path = tmp_path / "wechat-localdb" / "send_state.json"
+    state = SendRateState(path)
+    start = threading.Barrier(2)
+    results: list[str] = []
+    lock = threading.Lock()
+
+    def worker() -> None:
+        start.wait()
+        try:
+            state.reserve_send(now=1000.0)
+            outcome = "reserved"
+        except BridgeError as exc:
+            outcome = f"rejected:{exc.exit_code}"
+        with lock:
+            results.append(outcome)
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    # 恰好一个占位成功,另一个被 exit 14 拒(实际间隔 <10s 不可能出现)。
+    assert sorted(results) == ["rejected:14", "reserved"]
+    assert load_last_send_epoch(path) == 1000.0

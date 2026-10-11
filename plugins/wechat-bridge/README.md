@@ -23,6 +23,7 @@ python -m wechat_bridge localdb query <chat> --since 7d --json   # 本地库只�
 - 组件源码(本目录)经受管链路落在 `~/.myia/plugins/wechat-bridge/`(design §1);MYIA 侧 `wechat_bridge_bin` 可覆写路径(Phase F)。
 - 桥配置:`<数据根>/wechat-bridge/config.json`(全部有缺省、**缺文件可用**,design §7):`domains`(G4 三域)、`limits`(AC2 参数化)、`copy_ttl_hours`/`copy_capacity_mb`(G5)。**无频控键**(G6 硬编码:单条、间隔 ≥10s、无批量、不可配置)。
 - 频控状态:`<数据根>/wechat-localdb/send_state.json`(flock 防并发,design §2)。
+- 外部密钥(D4 裁决②):`<数据根>/wechat-localdb/keys.json`(600 权限;键 = 相对 `db_storage` 的库路径,值 = 该库 64-hex SQLCipher 密钥)。与组件密钥缓存**同位同权**:`localdb query` 消费前逐条 page1 HMAC 重验(`resolve_keys`),全量命中即一步闭合;密钥与库不匹配(如登录态轮换)如实 exit 21 并指明 keys.json 未命中。
 
 ## 能力边界(Phase E 已落,E1 实测负结论如实)
 
@@ -42,6 +43,6 @@ python -m wechat_bridge localdb query <chat> --since 7d --json   # 本地库只�
 ## 测试
 
 ```console
-uv run --no-sync python -m pytest tests/wechat_bridge -q      # 全 mock,CI 全绿
-MYIA_WECHAT_E2E=1 uv run --no-sync python -m pytest tests/wechat_bridge -q  # 加跑真机探针(design §8)
+uv run --no-sync python -m pytest tests/wechat-bridge -q      # 全 mock,CI 全绿
+MYIA_WECHAT_E2E=1 uv run --no-sync python -m pytest tests/wechat-bridge -q  # 加跑真机探针(design §8)
 ```

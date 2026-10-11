@@ -97,6 +97,12 @@ hex 文本存密钥、密钥所在内存区 Mach VM 读不到——**技术上�
 ②外部密钥引入(all_keys.json 类,由主人以任意可行手段提供,600 权限私有区)→ 组件校验器即闭合全链——推荐;
 ③放弃本地库通道,桥以 degraded(key_unavailable)如实长灰——始终可选。
 
+> **2026-10-11 审查轮补记**:②的消费通路已落码——`localdb.resolve_keys`
+> 先对 `wechat-localdb/keys.json`(缓存/外部供给同位)逐条 page1 HMAC 重验,
+> 全量命中即放行查询,主人放置密钥产物后**无须再改代码**;未命中如实并入
+> exit 21 消息(`tests/wechat-bridge/test_localdb_key.py::TestResolveKeys`
+> 全链单测)。
+
 ## 4. 测试与门禁
 
 - 组件单测:`uv run --no-sync python -m pytest tests/wechat-bridge -q` → **107 passed, 4 skipped**

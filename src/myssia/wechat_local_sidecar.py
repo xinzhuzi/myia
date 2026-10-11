@@ -41,9 +41,16 @@ __all__ = [
     "handle_wechat_local",
 ]
 
-#: 桥命令族超时:probe 走探针专用上界;读命令(sessions/messages/query)
+#: 桥命令族超时:probe 走探针专用上界;读命令(sessions/messages)与发送
 #: 走发送同款 60s(本地单命令上界;超时 = 桥挂起,kill 兜底)。
 _COMMAND_TIMEOUT_SECONDS = DEFAULT_BRIDGE_TIMEOUT_SECONDS
+#: ``localdb query`` 专用上界(秒):桥侧 sqlcipher **单库**解密超时上限
+#: 300s(wechat_bridge.localdb ``SQLCIPHER_TIMEOUT_SECONDS``),D4 引入外部
+#: 密钥后首查大概率触发多域副本**首建**(design §7 缺省 3 域 4 库),累计
+#: 可超 60s——60s 会把首查误杀成 ``bridge_timeout``。取 2×单库上界盖住缺省
+#: 域首建;副本 kept 语义(G5)让超时 kill 后重试只补缺库,不推倒重来。
+#: 真超 600s 的解密已属异常,kill 兜底如实 ``bridge_timeout``。
+_QUERY_TIMEOUT_SECONDS = 600.0
 
 #: 协议参数上界(防一把梭全量拉取;桥内另有配置 limits 兜底)。
 _LIMIT_SESSIONS_MAX = 100
@@ -173,14 +180,15 @@ def _query(params: dict[str, Any]) -> dict[str, Any]:
     """``wechat_local.query`` {chat_id, since_days?} → 桥 ``localdb query``。
 
     since_days 缺省 30(design §7 limits.history_days 缺省同值);上界
-    3650 天是协议面防呆,不是业务约束。
+    3650 天是协议面防呆,不是业务约束。超时走 :data:`_QUERY_TIMEOUT_SECONDS`
+    (盖住桥侧多域副本首建,见该常量注记),不用 60s 命令族上界。
     """
     chat_id = _require_str(params, "chat_id")
     since_days = _optional_int(
         params, "since_days", default=30, maximum=_SINCE_DAYS_MAX
     )
     argv = [_BASE, "localdb", "query", chat_id, "--since", f"{since_days}d", "--json"]
-    return _run_bridge(argv, timeout=_COMMAND_TIMEOUT_SECONDS)
+    return _run_bridge(argv, timeout=_QUERY_TIMEOUT_SECONDS)
 
 
 #: 桥 bin 缺省落点(构造期展开一次;模块单测经 monkeypatch 换注入点)。
