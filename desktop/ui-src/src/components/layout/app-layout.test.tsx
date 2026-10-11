@@ -95,7 +95,8 @@ describe("NAV_GROUPS 信息架构(v10 配置分组)", () => {
     expect(config?.entries.map((entry) => [entry.to, entry.label])).toEqual([
       ["/yaml-editor", "YAML配置"],
       ["/tg-account", "Telegram"],
-      ["/platform-accounts", "平台账号"],
+      ["/feishu", "飞书"],
+      ["/weixin", "微信"],
     ]);
   });
 

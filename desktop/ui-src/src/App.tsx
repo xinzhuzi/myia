@@ -11,7 +11,8 @@ import { MessagingScreen } from "@/screens/messaging/messaging-screen";
 import { SettingsScreen } from "@/screens/settings/settings-screen";
 import { SourcesScreen } from "@/screens/sources/sources-screen";
 import { TgAccountScreen } from "@/screens/tg-account/tg-account-screen";
-import { PlatformAccountsScreen } from "@/screens/platform-accounts/platform-accounts-screen";
+import { FeishuAccountScreen } from "@/screens/feishu-account/feishu-account-screen";
+import { WeixinAccountScreen } from "@/screens/weixin-account/weixin-account-screen";
 import { YamlEditorScreen } from "@/screens/yaml-editor/yaml-editor-screen";
 
 /**
@@ -58,7 +59,8 @@ export default function App() {
         <Route path="messaging" element={<MessagingScreen />} />
         <Route path="logs" element={<LogsScreen />} />
         <Route path="tg-account" element={<TgAccountScreen />} />
-        <Route path="platform-accounts" element={<PlatformAccountsScreen />} />
+        <Route path="feishu" element={<FeishuAccountScreen />} />
+        <Route path="weixin" element={<WeixinAccountScreen />} />
         <Route path="settings" element={<SettingsScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
