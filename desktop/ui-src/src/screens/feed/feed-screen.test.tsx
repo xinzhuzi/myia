@@ -3480,8 +3480,9 @@ describe("FeedScreen · tg-chat-two-pane(3 级 TG 群对话式双栏,10-11)", ()
     await openTgGroup("telegram-clashv8");
 
     // 左栏在场;单群单行照常渲染,默认选中 = 当前深链渠道(AC1)
+    // (裁⑥:用户可见词 = 监控会话,testid 前缀 feed-tg-group-* 结构词不动)
     const pane = await screen.findByTestId("feed-tg-group-pane");
-    expect(pane.getAttribute("aria-label")).toBe("监控群列表");
+    expect(pane.getAttribute("aria-label")).toBe("监控会话列表");
     const row = screen.getByTestId("feed-channel-row-telegram-clashv8");
     expect(row.getAttribute("data-selected")).toBe("true");
     expect(row.getAttribute("data-channel-kind")).toBe("tg");
@@ -3591,9 +3592,9 @@ describe("FeedScreen · tg-chat-two-pane(3 级 TG 群对话式双栏,10-11)", ()
       resolveVersion?.(versionResult(COUNT_PROTOCOL));
     });
     const empty = await screen.findByTestId("feed-tg-group-empty");
-    expect(empty.textContent).toContain("还没有监控群");
+    expect(empty.textContent).toContain("还没有监控会话");
     expect(empty.textContent).toContain("Telegram");
-    expect(empty.textContent).toContain("添加监控群");
+    expect(empty.textContent).toContain("添加监控会话");
   });
 });
 
@@ -3723,6 +3724,182 @@ describe("FeedScreen · tg-multi-account-groups v5(2 级 Telegram 账号区)", (
     await waitFor(() =>
       expect(screen.getByTestId("location-probe").textContent).toBe("/tg-account"),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// tg-chat-two-pane 补批(grill 一轮 + 裁②/裁⑥):Enter 错位修复 / 历史出口
+// 就近 / 状态空窗头部化 / 切群滚动定位。
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · tg-chat-two-pane 补批(grill 一轮)", () => {
+  const statusPayload = (loggedIn: boolean) => ({
+    bot: { configured: false, error: null },
+    session: { exists: false },
+    web: {
+      accounts: [
+        { account: "telegram-alt1", logged_in: loggedIn, logged_in_at: loggedIn ? "2026-10-09T01:00:00" : null, login_in_progress: false, login_note: null },
+      ],
+    },
+  });
+
+  /** 补批世界:双群(缺省 clashv8 + alpha)或单群;status 行为可注(缺省已
+   *  登录应答;"pending"/"fail" 供补④)。 */
+  function mockGrillWorld(
+    items: FeedItem[],
+    groups: string[] = ["telegram-clashv8", "telegram-alpha"],
+    statusImpl?: () => Promise<unknown>,
+  ) {
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") {
+        if (statusImpl) return statusImpl();
+        return statusPayload(true);
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    healthMock.mockResolvedValue(
+      healthResult({
+        plugins: [
+          pluginEntry({
+            id: "telegram",
+            name: "Telegram 监控",
+            sources: groups.map((name) => sourceEntry(name, "tg_web")),
+          }),
+          pluginEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
+        ],
+      }),
+    );
+    const seeded = [
+      fixtureItem({ source: "tech-source", title: "科技今日一条" }),
+      ...items,
+    ];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(seeded.filter((item) => !params?.source || item.source === params.source))),
+    );
+  }
+
+  async function openTgGroup(key: string) {
+    fireEvent.click(await screen.findByTestId("feed-type-card-tg"));
+    fireEvent.click(await screen.findByTestId(`feed-channel-row-${key}`));
+  }
+
+  it("补①+裁② 焦点在左栏会话行按 Enter = 切群(不弹条目详情弹窗);j/k 环不进左栏集合", async () => {
+    const anchor = dayWindowStart().getTime();
+    mockGrillWorld([
+      fixtureItem({ source: "telegram-clashv8", title: "clashv8 群消息", first_seen: new Date(anchor + 60_000).toISOString() }),
+      fixtureItem({ source: "telegram-alpha", title: "alpha 群消息", first_seen: new Date(anchor + 30_000).toISOString() }),
+    ]);
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    await screen.findByText("clashv8 群消息");
+
+    // Tab 语义等价 = row.focus()(行根 div[role=button] tabIndex=0,裁②左栏
+    // 巡行面);Enter 归行内激活 = openChannel,不落全局条目详情弹窗
+    const alphaRow = screen.getByTestId("feed-channel-row-telegram-alpha");
+    alphaRow.focus();
+    expect(document.activeElement).toBe(alphaRow);
+    fireEvent.keyDown(window, { key: "Enter" });
+    await waitFor(() =>
+      expect(storeItemsMock).toHaveBeenLastCalledWith(expect.objectContaining({ source: "telegram-alpha" })),
+    );
+    expect(screen.queryByTestId("feed-detail-dialog")).toBeNull();
+    expect(await screen.findByText("alpha 群消息")).toBeTruthy();
+
+    // 裁②轻断言:j/k 巡游落右栏条目环,左栏行不进集合(navFocused 恒 false)
+    fireEvent.keyDown(window, { key: "j" });
+    await waitFor(() => expect(alphaRow.getAttribute("data-nav-focused")).toBe("false"));
+    expect(screen.queryByTestId("feed-detail-dialog")).toBeNull();
+  });
+
+  it("补③ 历史出口就近:非历史态词面照旧;进入历史 = 头部同钮转「退出历史」,点击即退场(知会词回全量)", async () => {
+    const anchor = dayWindowStart().getTime();
+    mockGrillWorld(
+      [fixtureItem({ source: "telegram-clashv8", title: "clashv8 群消息", first_seen: new Date(anchor + 60_000).toISOString() })],
+      ["telegram-clashv8"],
+    );
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    const histBtn = await screen.findByTestId("feed-tg-console-history");
+    expect(histBtn.textContent).toContain("看全部历史消息(含已读)");
+    // 进入历史(该条目已读 → 未读档外可达,历史态知会词换「全部历史」)
+    fireEvent.click(histBtn);
+    expect(await screen.findByText("clashv8 群消息")).toBeTruthy();
+    expect(screen.getByTestId("feed-day-window").textContent).toContain("全部历史");
+    // 出口就近:同一颗按钮词面转「退出历史」,点击即退场
+    await waitFor(() => expect(histBtn.textContent).toContain("退出历史"));
+    fireEvent.click(histBtn);
+    await waitFor(() => expect(histBtn.textContent).toContain("看全部历史消息(含已读)"));
+    await waitFor(() =>
+      expect(screen.getByTestId("feed-day-window").textContent).toContain("全量"),
+    );
+  });
+
+  it("补④ 状态空窗头部化(在途):占位词在场不空窗,压缩条不出;放行应答 = 占位词退场压缩条落位", async () => {
+    const anchor = dayWindowStart().getTime();
+    let resolveStatus: ((value: unknown) => void) | undefined;
+    mockGrillWorld(
+      [fixtureItem({ source: "telegram-clashv8", title: "clashv8 群消息", first_seen: new Date(anchor + 60_000).toISOString() })],
+      ["telegram-clashv8"],
+      () => new Promise((resolve) => { resolveStatus = resolve; }),
+    );
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    // 在途:头部占位词(不引 Skeleton),压缩条与「状态未知」卡都不出
+    expect(await screen.findByTestId("feed-tg-console-loading")).toBeTruthy();
+    expect(screen.queryByTestId("feed-tg-console")).toBeNull();
+    expect(screen.queryByTestId("feed-tg-status-unknown")).toBeNull();
+    // 放行已登录应答:占位词退场,压缩条落位
+    await act(async () => {
+      resolveStatus?.(statusPayload(true));
+    });
+    expect(await screen.findByTestId("feed-tg-console-live")).toBeTruthy();
+    expect(screen.queryByTestId("feed-tg-console-loading")).toBeNull();
+  });
+
+  it("补④ 状态空窗头部化(失败且条目在场):warning 行 + 就近重试真实重拉;零条目兜底卡不出、时间线不断", async () => {
+    const anchor = dayWindowStart().getTime();
+    const statusCalls = () =>
+      invokeMock.mock.calls.filter(([, args]) => (args as { method?: string })?.method === "telegram.status").length;
+    mockGrillWorld(
+      [fixtureItem({ source: "telegram-clashv8", title: "clashv8 群消息", first_seen: new Date(anchor + 60_000).toISOString() })],
+      ["telegram-clashv8"],
+      async () => {
+        throw JSON.stringify({ code: "internal_error", path: "$", message: "状态服务未就绪" });
+      },
+    );
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    // 失败但条目在场:头部 warning 行 + 重试钮;时间线照常(阅读不断),
+    // 零条目兜底卡(feed-tg-status-unknown)不出
+    const warn = await screen.findByTestId("feed-tg-console-unavailable");
+    expect(warn.textContent).toContain("监控状态暂时不可用");
+    expect(await screen.findByText("clashv8 群消息")).toBeTruthy();
+    expect(screen.queryByTestId("feed-tg-status-unknown")).toBeNull();
+    // 就近重试:真实重发 telegram.status
+    const before = statusCalls();
+    fireEvent.click(within(warn).getByRole("button", { name: "重试" }));
+    await waitFor(() => expect(statusCalls()).toBeGreaterThan(before));
+  });
+
+  it("补⑤ 切群滚动定位(可选断言):viewSource 变化 → 选中行 scrollIntoView(block:nearest)", async () => {
+    const anchor = dayWindowStart().getTime();
+    mockGrillWorld([
+      fixtureItem({ source: "telegram-clashv8", title: "clashv8 群消息", first_seen: new Date(anchor + 60_000).toISOString() }),
+      fixtureItem({ source: "telegram-alpha", title: "alpha 群消息", first_seen: new Date(anchor + 30_000).toISOString() }),
+    ]);
+    // jsdom 无滚动实现:beforeAll 的 no-op 桩上再 spy 记调用,finally 还原回桩
+    const spy = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
+    try {
+      renderScreen();
+      await openTgGroup("telegram-clashv8");
+      await screen.findByText("clashv8 群消息");
+      const callsBaseline = spy.mock.calls.length; // 进 3 级首次定位已发生
+      fireEvent.click(screen.getByTestId("feed-channel-row-telegram-alpha"));
+      await waitFor(() => expect(spy.mock.calls.length).toBeGreaterThan(callsBaseline));
+      expect(spy.mock.calls[spy.mock.calls.length - 1][0]).toEqual({ block: "nearest" });
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

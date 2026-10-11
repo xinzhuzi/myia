@@ -1158,6 +1158,11 @@ const ChannelRow = memo(function ChannelRow({
   current,
   navFocused,
   statsScope = "loaded",
+  /** 左栏群行专属标识(10-11 v5 补①/补⑤):true 时行根挂专属 data 属性
+   *  data-feed-group-row=<key> —— 全局 Enter 线据此把行内激活归 openChannel
+   *  (焦点错位修复)、viewSource 变化滚到选中行的定位锚;与右栏条目
+   *  data-item-key 不撞语义。2 级行不传(属性缺席,Enter 归全局环,零扰动)。 */
+  dataFeedGroupRow = false,
   onCurrent,
   onOpen,
 }: {
@@ -1173,6 +1178,7 @@ const ChannelRow = memo(function ChannelRow({
    *  词面,存量断言不破)/ "full"(stats 覆写后数字已是全库真值,词面必须
    *  随行,否则同徽标数字与 title 互相拆台) */
   statsScope?: "loaded" | "full";
+  dataFeedGroupRow?: boolean;
   onCurrent: (key: string) => void;
   onOpen: (key: string) => void;
 }) {
@@ -1195,6 +1201,8 @@ const ChannelRow = memo(function ChannelRow({
       data-testid={`feed-channel-row-${card.key}`}
       data-item-key={card.key}
       data-channel-kind={card.kind}
+      /* 左栏群行专属锚(补①/补⑤):2 级行不传 = 属性缺席 */
+      data-feed-group-row={dataFeedGroupRow ? card.key : undefined}
       data-selected={selected ? "true" : "false"}
       data-unread={card.unread > 0 ? "true" : "false"}
       data-current={current ? "true" : "false"}
@@ -1223,7 +1231,10 @@ const ChannelRow = memo(function ChannelRow({
       }${navFocused ? " ring-1 ring-primary/60" : ""}`}
     >
       <div className="flex items-start gap-2.5 px-2.5 py-2">
-        {/* 类型头像 chip:图标 + 色调按 CHANNEL_CARD_META 词表,底色同色系淡档 */}
+        {/* 类型头像 chip:图标 + 色调按 CHANNEL_CARD_META 词表,底色同色系淡档。
+            (⑨a 钉注:头像/时间/未读词面 = 产品自有词表一致性优先,非抄 TG
+            主题——借的是 TG 桌面列表的结构密度,配色与词面走 Kestra 紫暗色
+            + 本文件 CHANNEL_* 词表,UI 物种铁律的「借形不改语义」。) */}
         <span
           aria-hidden
           className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md ${CHANNEL_ROW_AVATAR_TONE[card.kind]}`}
@@ -2472,16 +2483,32 @@ export function FeedScreen() {
   /** TG 渠道详情(监控台钉顶判定,v8 = 3 级专属:1/2 级不出)。 */
   const isTgChannel = chatView;
 
-  /** 左栏监控群列表(10-11-tg-chat-two-pane,主人令「左侧是群列表,点击后
-   *  展示出来右侧的群内容」):数据源 = 渠道全集卡的 tg 档成员,与 2 级全渠道
-   *  列表同源(health 词表源 ∪ 已加载条目 source 去重,stats 门过 = 计数全库
-   *  真值);单群(当前实况 clashv8)照常渲染单行选中,零群给引导空态。
-   *  仅 TG 渠道 3 级渲染(网站/日报 3 级零变化)。落点判例:v7 双栏错在
-   *  2 级粒度(选中即数据),本次 3 级双栏是主人明令,不属翻案。 */
+  /** 左栏监控会话列表(10-11-tg-chat-two-pane,主人令「左侧是群列表,点击后
+   *  展示出来右侧的群内容」;裁⑥词面定案:用户可见词 = 「监控会话」,testid
+   *  前缀 feed-tg-group-* 为结构词不动):数据源 = 渠道全集卡的 tg 档成员,
+   *  与 2 级全渠道列表同源(health 词表源 ∪ 已加载条目 source 去重,stats
+   *  门过 = 计数全库真值);单群(当前实况 clashv8)照常渲染单行选中,零群
+   *  给引导空态。仅 TG 渠道 3 级渲染(网站/日报 3 级零变化)。落点判例:v7
+   *  双栏错在 2 级粒度(选中即数据),本次 3 级双栏是主人明令,不属翻案。
+   *  (⑧钉注:多账号分组的落点 = 此 memo——按账号聚合在此扩展,账号备注名/
+   *  user_id 词表 = telegram.status web.accounts 的 label/user_id,tg-account
+   *  屏与 2 级账号区已消费同一词表。) */
   const tgGroupCards = useMemo(
     () => (isTgChannel ? channelCardsWithStats.filter((card) => card.kind === "tg") : []),
     [isTgChannel, channelCardsWithStats],
   );
+
+  // 补⑤(grill 一轮):viewSource 变化 → 左栏选中会话行滚入视口(block:
+  // "nearest";jsdom 无 scrollIntoView 实现时静默跳过,惯例同键盘巡游线)。
+  // 定位锚 = 行根专属 data-feed-group-row(补①同源),不与右栏条目
+  // data-item-key 撞语义。
+  useEffect(() => {
+    if (viewSource === null || !chatView) return;
+    const escaped =
+      typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(viewSource) : viewSource;
+    const node = document.querySelector<HTMLElement>(`[data-feed-group-row="${escaped}"]`);
+    if (node && typeof node.scrollIntoView === "function") node.scrollIntoView({ block: "nearest" });
+  }, [viewSource, chatView]);
 
   /** TG 网页线快照(10-09-tg-category-entry:TG 渠道选中时拉一次,监控台条
    *  呈现)。v7 R2 吸收(v6 深检遗留):状态态拆三层 phase —— idle/loading/
@@ -2719,6 +2746,9 @@ export function FeedScreen() {
     // 语义保持现状)。判定读既有派生值 viewSource/viewHistory(类型已收窄,
     // 3 级才非 null/false;markItemState 同门:状态进依赖数组;keyStateRef
     // 逐渲染回写实时镜,键盘线永远拿到最新闭包,身份随级变化零影响)。
+    // (⑦定案,grill 一轮:切群时读态分段 filter 跨群存留 = 工作台态——
+    // 同一套未读/星标工作流跨群连续;渠道内检索 streamQuery 跨群清空 =
+    // 渠道内作用域,词随渠道走,二者刻意不对称。)
     if (viewSource === key && viewHistory !== true) return;
     setView({ level: 3, source: key, history: false });
     setListCurrentKey(key);
@@ -2898,6 +2928,11 @@ export function FeedScreen() {
   // contentEditable 内敲键不触发;Enter 命中 button/a 归原生(feed 本地惯例
   // 守卫,不引外部 hook)。
   //
+  // 裁②(10-11 v5 追批,主人定案「键盘模型 = 双区分工」):3 级左栏会话行 =
+  // Tab 巡行 + Enter/Space 切群(Enter 行内激活归 openChannel,补①;Space
+  // 为 ChannelRow 行内既有 ARIA 激活);右栏条目 = j/U/k 环,不进左栏集合。
+  // 真双环(左栏会话行进 j/k 集合)留多账号分组落地时再升级。
+  //
   // **实时状态镜(v7 双环真机实证修复机件,保留模式)**:window keydown 挂在
   // passive effect 里,effect 重挂滞后于 DOM commit —— 真实浏览器中快速键序
   // (4ms 键序实测)可踩到旧闭包;jsdom/act 同步刷新故单测永不复现。render
@@ -3018,6 +3053,19 @@ export function FeedScreen() {
         return;
       }
       if (pressed === "enter") {
+        // 补①(grill 一轮):焦点在左栏群行(行根 div[role=button] 带专属
+        // data-feed-group-row;右栏条目卡 data-kind 可区分,不会误中)→
+        // Enter 归行内激活语义 = openChannel(该行 key)切群,不落全局条目
+        // 弹窗(焦点错位修复)。行内刻意不加 onKeyDown Enter:2 级 ChannelRow
+        // 「行内 setState 同步 flush 抢先复位全局环」双触发竞态注释在案,
+        // Enter 归全局线同门。(裁②定案:左栏 = Tab 巡行 + Enter/Space 切群。)
+        const activeEl = document.activeElement;
+        const focusedGroupKey =
+          activeEl instanceof HTMLElement ? activeEl.getAttribute("data-feed-group-row") : null;
+        if (focusedGroupKey !== null && focusedGroupKey !== "") {
+          snapshot.openChannel(focusedGroupKey);
+          return;
+        }
         if (snapshot.viewLevel === 3) {
           if (snapshot.itemCurrentKey === null) return;
           const item = snapshot.allLoadedItems.find(
@@ -3631,23 +3679,25 @@ export function FeedScreen() {
           {chatView ? (
             <aside
               data-testid="feed-tg-group-pane"
-              aria-label="监控群列表"
+              aria-label="监控会话列表"
               className="flex w-72 shrink-0 flex-col border-r border-border/60"
             >
               <div className="flex items-center justify-between border-b border-border/40 px-3 py-2">
-                <span className="text-xs font-medium text-muted-foreground">监控群</span>
+                {/* 裁⑥词面定案:用户可见词 = 「监控会话」(testid 前缀
+                    feed-tg-group-* 为结构词,不动) */}
+                <span className="text-xs font-medium text-muted-foreground">监控会话</span>
                 {tgGroupCards.length > 0 ? (
                   <span className="text-2xs text-muted-foreground tabular-nums">{tgGroupCards.length}</span>
                 ) : null}
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto py-1" data-testid="feed-tg-group-list">
                 {tgGroupCards.length === 0 ? (
-                  /* 零监控群引导空态(AC4):正常动线下 3 级 TG 必有 ≥1 群
+                  /* 零监控会话引导空态(AC4):正常动线下 3 级 TG 必有 ≥1 群
                       (入口本身来自该列表),此态为防御位 + 语义自文档 */
                   <div className="px-3 py-8 text-center" data-testid="feed-tg-group-empty">
-                    <p className="text-xs font-medium text-foreground">还没有监控群</p>
+                    <p className="text-xs font-medium text-foreground">还没有监控会话</p>
                     <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">
-                      到「Telegram」屏(侧栏「配置」组)添加监控群并登录后,群消息会自动入库并出现在这里。
+                      到「Telegram」屏(侧栏「配置」组)添加监控会话并登录后,群消息会自动入库并出现在这里。
                     </p>
                   </div>
                 ) : (
@@ -3660,6 +3710,7 @@ export function FeedScreen() {
                       current={listCurrentKey === card.key}
                       navFocused={false}
                       statsScope={sourceStats !== null ? "full" : "loaded"}
+                      dataFeedGroupRow
                       onCurrent={onCurrentRow}
                       /* 切换语义(AC2):openChannel 原样复用 —— 置 view =
                           {level:3, source, history:false},viewSource 变更驱动
@@ -3754,17 +3805,52 @@ export function FeedScreen() {
                       >
                         管理
                       </Button>
+                      {/* 历史入口/出口(补③,grill 一轮「不给死控件」):历史态
+                          下词面转「退出历史」+ onClick 换 exitHistory(出口就近,
+                          不必去工具条);非历史态照旧看全部历史消息。 */}
                       <button
                         type="button"
                         data-testid="feed-tg-console-history"
-                        onClick={openHistory}
+                        onClick={viewHistory ? exitHistory : openHistory}
+                        title={
+                          viewHistory
+                            ? "退出历史态:回到读态过滤视图"
+                            : "查看该渠道全部入库条目(含已读)"
+                        }
                         className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-2xs text-primary hover:bg-accent/50 hover:underline"
                       >
-                        <Inbox aria-hidden className="size-3" />
-                        看全部历史消息(含已读)
+                        {viewHistory ? (
+                          <ChevronLeft aria-hidden className="size-3" />
+                        ) : (
+                          <Inbox aria-hidden className="size-3" />
+                        )}
+                        {viewHistory ? "退出历史" : "看全部历史消息(含已读)"}
                       </button>
                     </span>
                   </div>
+                ) : tgStatusPhase === "error" && streamItems.length > 0 ? (
+                  /* 补④(grill 一轮):status 失败但条目在场 = 头部行内明示 +
+                      就近重试(时间线阅读不断);零条目 error 走既有
+                      feed-tg-status-unknown 卡兜底不动(深检 F2 语义保持)。 */
+                  <span
+                    className="ml-auto flex items-center gap-1.5 text-2xs text-warning"
+                    data-testid="feed-tg-console-unavailable"
+                  >
+                    监控状态暂时不可用
+                    <Button variant="ghost" size="sm" className="h-6 px-1.5 text-2xs" onClick={retryTgStatus}>
+                      重试
+                    </Button>
+                  </span>
+                ) : tgStatusPhase === "idle" || tgStatusPhase === "loading" ? (
+                  /* 补④:首拉在途(idle/loading)——头部条占位词,不空窗一拍
+                      (不引 Skeleton;时间线骨架已在转)。error 且零条目不出
+                      占位词(答案落地前不误述),交给既有空态卡。 */
+                  <span
+                    className="ml-auto text-2xs text-muted-foreground"
+                    data-testid="feed-tg-console-loading"
+                  >
+                    正在拉取监控状态…
+                  </span>
                 ) : null}
               </div>
             ) : null}
