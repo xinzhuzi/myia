@@ -191,6 +191,7 @@ Claude / 非交互 shell 用原生 `rg` / `fd`,**不得假设** zsh 别名或函
 - ⚠️ **永远不要中断 `gitnexus analyze`**:被 kill 会损坏 WAL;若被中断,必须 `gitnexus analyze --force` 全量重建,不要只删 WAL。
 - ⚠️ **别用管道接 analyze 的退出码**:`analyze | tail` 会吞真实 exit code,原生崩溃被 exit 0 掩盖会留下脏 WAL。
 - ⚠️ **DB 单写者锁**:报 `Could not set lock on file` 时先 `ps aux | rg gitnexus` 查残留 analyze 进程,等它跑完勿杀;多会话并行时 analyze 可能撞并发墙 exit 1,重跑直至成功。
+- ⚠️ **WAL 恢复态静默空输出**(2026-10-11 实证):库带大 WAL 无 shadow 时,`impact`/`detect-changes` 可能只打一行 recovery 提示、**结果区空但不报错**(exit 0)——空输出≠无影响;先跑 `gitnexus analyze --index-only` 修复索引再查(实测 exit 0 后两命令恢复)。
 - 日常增量 analyze 不带 `--embeddings` 也会保留已有 embeddings(默认不丢);全量重建才需要 `--embeddings`。
 
 ---
