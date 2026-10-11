@@ -3597,6 +3597,135 @@ describe("FeedScreen · tg-chat-two-pane(3 级 TG 群对话式双栏,10-11)", ()
   });
 });
 
+// ---------------------------------------------------------------------------
+// tg-multi-account-groups v5 追批(10-11,主人令「TG 二级界面要展示账号列表,
+// 再展示群列表」,AC36-49):2 级 Telegram 页渠道列表区之上加账号区 ——
+// 数据 = telegram.status web.accounts(v4 身份面同源,3 级监控台共此一拉)。
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · tg-multi-account-groups v5(2 级 Telegram 账号区)", () => {
+  /** status 应答:两账号 —— 甲已登录(带备注名/user_id/自时间);乙未登录
+   *  (无备注/user_id,主显示回退键名、user_id 位给 —)。 */
+  const twoAccountPayload = {
+    bot: { configured: false, error: null },
+    session: { exists: false },
+    web: {
+      accounts: [
+        { account: "tg-alt1", logged_in: true, logged_in_at: "2026-10-09T01:00:00", label: "主力号", user_id: "10086", login_in_progress: false, login_note: null },
+        { account: "tg-alt2", logged_in: false, logged_in_at: null, label: null, user_id: null, login_in_progress: false, login_note: null },
+      ],
+    },
+  };
+  const zeroAccountPayload = {
+    bot: { configured: false, error: null },
+    session: { exists: false },
+    web: { accounts: [] },
+  };
+
+  /** 账号区世界:health 给 TG 源与 tech 网页源,条目两源各一(2 级用例,
+   *  不下钻 3 级)。 */
+  function mockAccountsWorld() {
+    healthMock.mockResolvedValue(
+      healthResult({
+        plugins: [
+          pluginEntry({ id: "telegram", name: "Telegram 监控", sources: [sourceEntry("telegram-seed", "tg_web")] }),
+          pluginEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
+        ],
+      }),
+    );
+    const seeded = [
+      fixtureItem({ source: "tech-source", title: "科技今日一条" }),
+      fixtureItem({ source: "telegram-seed", title: "seed 群消息" }),
+    ];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(seeded.filter((item) => !params?.source || item.source === params.source))),
+    );
+  }
+
+  function mockStatus(payload: unknown) {
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") return payload;
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+  }
+
+  it("AC37/AC38/AC40 账号区渲染:区头「账号 · N」贴群列表区头词面;行 = 备注名主显示/键名·user_id 小字/登录态●○/管理钮;群列表照旧;网站 2 级零变化", async () => {
+    mockAccountsWorld();
+    mockStatus(twoAccountPayload);
+    await renderOverview();
+    await openChannelList("tg");
+
+    // 区头:账号 · 2(词面风格 = 群列表区头「TG · N 个渠道」同款)
+    await screen.findByTestId("feed-tg-accounts");
+    expect(screen.getByTestId("feed-tg-accounts-title").textContent).toBe("账号 · 2");
+    // 行甲:备注名「主力号」主显示 + 内部键名·user_id 小字 + 已登录 ●(ok 档)
+    const rowA = await screen.findByTestId("feed-tg-account-row-tg-alt1");
+    expect(within(rowA).getByText("主力号")).toBeTruthy();
+    expect(rowA.textContent).toContain("tg-alt1 · 10086");
+    const dotA = within(rowA).getByText("●");
+    expect(dotA.className).toContain("text-ok");
+    expect(within(rowA).getByRole("button", { name: "管理 主力号" })).toBeTruthy();
+    // 行乙:无备注回退键名主显示,user_id 缺席给 —,未登录 ○
+    const rowB = screen.getByTestId("feed-tg-account-row-tg-alt2");
+    expect(within(rowB).getByText("tg-alt2")).toBeTruthy();
+    expect(rowB.textContent).toContain("tg-alt2 · —");
+    expect(within(rowB).getByText("○")).toBeTruthy();
+    expect(within(rowB).getByRole("button", { name: "管理 tg-alt2" })).toBeTruthy();
+    // 群列表区照旧零变化:搜索框/渠道行/未读徽标原样在场
+    expect(screen.getByLabelText("搜索渠道")).toBeTruthy();
+    expect(screen.getByTestId("feed-channel-row-telegram-seed")).toBeTruthy();
+    // 网站 2 级零变化:账号区仅 telegram 类型页(site 页整区不出)
+    fireEvent.click(screen.getByTestId("feed-back-to-types"));
+    await openChannelList("site");
+    expect(screen.queryByTestId("feed-tg-accounts")).toBeNull();
+  });
+
+  it("AC39 加载中不出空态:status 在途 = 骨架行(区头无计数),空态不出;零账号应答落地 = 引导空态 + 跳转钮", async () => {
+    mockAccountsWorld();
+    let resolveStatus: ((value: unknown) => void) | undefined;
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") {
+        return new Promise((resolve) => {
+          resolveStatus = resolve;
+        });
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    await renderOverview();
+    await openChannelList("tg");
+    // 在途:骨架在场,空态与计数词面都不出(不把加载中误述成没有)
+    expect(await screen.findByTestId("feed-tg-accounts-loading")).toBeTruthy();
+    expect(screen.queryByTestId("feed-tg-accounts-empty")).toBeNull();
+    expect(screen.queryByTestId("feed-tg-accounts-list")).toBeNull();
+    expect(screen.getByTestId("feed-tg-accounts-title").textContent).toBe("账号");
+    // 应答 = 零账号:引导空态(指路 Telegram 屏)+ 跳转钮 + 区头落计数
+    await act(async () => {
+      resolveStatus?.(zeroAccountPayload);
+    });
+    const empty = await screen.findByTestId("feed-tg-accounts-empty");
+    expect(empty.textContent).toContain("Telegram");
+    expect(within(empty).getByTestId("feed-tg-accounts-goto")).toBeTruthy();
+    expect(screen.getByTestId("feed-tg-accounts-title").textContent).toBe("账号 · 0");
+  });
+
+  it("AC36 行尾「管理」钮:真实路由落 /tg-account(消费方只读跳转,管理面不搬)", async () => {
+    mockAccountsWorld();
+    mockStatus(twoAccountPayload);
+    // 探针与屏同挂(裸 MemoryRouter 无 Routes;监控台「管理」钮用例同门)
+    render(
+      <MemoryRouter>
+        <LocationProbe />
+        <FeedScreen />
+      </MemoryRouter>,
+    );
+    await openChannelList("tg");
+    fireEvent.click(await screen.findByTestId("feed-tg-account-manage-tg-alt1"));
+    await waitFor(() =>
+      expect(screen.getByTestId("location-probe").textContent).toBe("/tg-account"),
+    );
+  });
+});
+
 describe("feed 内置浏览器预览 纯函数(api.ts,10-09-tg-category-entry v3)", () => {
   it("telegramMirrorUrlOf:消息锚/预览链/纯频道链 → t.me/s/<频道名>;邀请链/非 t.me/空 = null 不猜", () => {
     // bot/网页线消息锚(AC11 主例:mihomo_party 最新条目)

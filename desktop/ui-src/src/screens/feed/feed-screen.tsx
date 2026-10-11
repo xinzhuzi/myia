@@ -2488,14 +2488,20 @@ export function FeedScreen() {
    *  ok/error,替换 `tgWebline === null` 双态:首拉在途(loading)监控台条
    *  与「状态未知」卡都不出(时间线骨架已在转,不再闪现「状态未知」一拍);
    *  error(拉取失败/异形应答)才出「监控状态未知 + 重试」;ok 出监控台条
-   *  (旧 tgWebline 数据态保留在 phase=ok 内)。deps 必须含 isTgChannel
-   *  ——进入 TG 渠道时只有它翻转,漏掉 = 监控台永远等不到快照(v2 实测
-   *  踩坑);tgStatusTick = 空态「重试」钮触发重拉。 */
+   *  (旧 tgWebline 数据态保留在 phase=ok 内)。deps 必须含 tgStatusNeeded
+   *  ——进入 TG 语境(2 级 Telegram 页 / 3 级 TG 渠道)只有它翻转,漏掉 =
+   *  监控台/账号区永远等不到快照(v2 实测踩坑);tgStatusTick = 空态「重试」
+   *  钮触发重拉。 */
   type TgStatusPhase = "idle" | "loading" | "ok" | "error";
   const [tgStatusPhase, setTgStatusPhase] = useState<TgStatusPhase>("idle");
   const [tgStatusTick, setTgStatusTick] = useState(0);
+  /** 状态拉取门(v5 追批 AC36-49,主人令「TG 二级界面要展示账号列表,再展示
+   *  群列表」):2 级 Telegram 页账号区与 3 级监控台同源共此一拉(不另起请求
+   *  管线)—— TG 语境布尔,2↔3 往返恒真不重发;离开 TG 页回落 false,再进
+   *  重拉对账(与既有 3 级进出同节奏)。 */
+  const tgStatusNeeded = isTgChannel || (view.level === 2 && view.kind === "tg");
   useEffect(() => {
-    if (!isTgChannel) return;
+    if (!tgStatusNeeded) return;
     let cancelled = false;
     setTgStatusPhase("loading");
     void telegramGetStatus()
@@ -2513,11 +2519,16 @@ export function FeedScreen() {
     return () => {
       cancelled = true;
     };
-  }, [isTgChannel, tgStatusTick]);
+  }, [tgStatusNeeded, tgStatusTick]);
   /** 空态重试(深检 F2):重拉(效果内先落 loading,旧台与「在线」话术即时退场) */
   const retryTgStatus = useCallback(() => {
     setTgStatusTick((tick) => tick + 1);
   }, []);
+
+  /** 2 级账号区数据(v5 追批 AC36-49):status web.accounts 快照;未拉到
+   *  (idle/loading/error)= 空集,空态呈现由 phase 分支兜住(答案未落地
+   *  不出空态,不把加载中误述成没有)。 */
+  const tgAccounts = tgWebline?.web.accounts ?? [];
 
   /** 分组(显示选项,仅聊天视图):TG 频道作用域的日期胶囊分组走时间四桶
    *  (v4 聊天主页风格);不分组 = 平铺。瀑布流卡片墙(AC13)恒平铺多列
@@ -3445,6 +3456,106 @@ export function FeedScreen() {
               Telegram 桌面列表密度) */}
           <div className="min-h-0 flex-1 overflow-y-auto py-1" data-testid="feed-channel-list">
             <div className="mx-auto w-full max-w-3xl">
+              {/* 账号区(v5 追批 AC36-49,主人令「TG 二级界面要展示账号列表,
+                  再展示群列表」;仅 Telegram 类型页,网站/日报 2 级零变化):
+                  数据 = telegram.status web.accounts(v4 身份面同源,3 级监控台
+                  共此一拉,tgStatusNeeded 门 2↔3 往返不重发)。行 = 备注名主
+                  显示(label 缺席回退键名,不猜)+ 内部键名·user_id 小字 +
+                  登录态●/○ + 行尾「管理」钮(只读跳转,管理面不搬);区头词面
+                  贴群列表区头(「TG · N 个渠道」)风格。status 答案未落地
+                  (idle/loading)出骨架不出空态;零账号/不可用给引导空态 +
+                  跳转钮。不做折叠、不做按账号分组(留后议)。 */}
+              {view.kind === "tg" ? (
+                <section
+                  data-testid="feed-tg-accounts"
+                  aria-label="监控账号"
+                  className="border-b border-border/40 px-1.5 pb-1.5"
+                >
+                  <p
+                    className="py-1.5 text-xs font-medium text-foreground"
+                    data-testid="feed-tg-accounts-title"
+                  >
+                    {tgStatusPhase === "ok" ? `账号 · ${tgAccounts.length}` : "账号"}
+                  </p>
+                  {tgStatusPhase === "idle" || tgStatusPhase === "loading" ? (
+                    /* 答案未落地:骨架行,不出空态(不把加载中误述成没有) */
+                    <div
+                      className="flex items-center gap-2 rounded-md px-1 py-1.5"
+                      data-testid="feed-tg-accounts-loading"
+                      aria-busy="true"
+                      aria-label="监控账号加载中"
+                    >
+                      <Skeleton className="size-6 shrink-0 rounded-full" />
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="h-2.5 w-36" />
+                      </div>
+                    </div>
+                  ) : tgAccounts.length === 0 ? (
+                    /* 零账号(phase=ok 空集)/ status 不可用(error):引导空态 + 跳转 */
+                    <div className="py-1.5" data-testid="feed-tg-accounts-empty">
+                      <p className="text-2xs leading-relaxed text-muted-foreground">
+                        还没有监控账号(或状态暂不可用);到「Telegram」屏添加账号并登录后,其所在群的文本消息才会入库。
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-1.5 h-6 px-2 text-2xs"
+                        data-testid="feed-tg-accounts-goto"
+                        onClick={() => navigate("/tg-account")}
+                      >
+                        到 Telegram 屏添加账号
+                      </Button>
+                    </div>
+                  ) : (
+                    <ul className="flex flex-col" data-testid="feed-tg-accounts-list">
+                      {tgAccounts.map((acct) => (
+                        <li
+                          key={acct.account}
+                          data-testid={`feed-tg-account-row-${acct.account}`}
+                          className="flex items-center gap-2 rounded-md px-1 py-1.5"
+                        >
+                          {/* 登录态●/○:title 带自时间(复用 3 级监控台同源数据) */}
+                          <span
+                            aria-hidden
+                            className={`shrink-0 text-2xs leading-none ${
+                              acct.logged_in ? "text-ok" : "text-muted-foreground/60"
+                            }`}
+                            title={
+                              acct.logged_in
+                                ? `监控中${acct.logged_in_at ? `(自 ${formatAbsoluteTime(acct.logged_in_at)})` : ""}`
+                                : "未登录(到 Telegram 屏扫码登录后开始监控)"
+                            }
+                          >
+                            {acct.logged_in ? "●" : "○"}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            {/* 备注名主显示;无备注回退内部键名(不猜) */}
+                            <span className="block truncate text-sm text-foreground">
+                              {acct.label ?? acct.account}
+                            </span>
+                            {/* 内部键名·user_id 小字(user_id best-effort,缺席给 —) */}
+                            <span className="block truncate font-mono text-2xs text-muted-foreground">
+                              {`${acct.account} · ${acct.user_id ?? "—"}`}
+                            </span>
+                          </span>
+                          {/* 管理:消费方只读跳转,管理面在 /tg-account 不搬 */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 shrink-0 px-1.5 text-2xs"
+                            data-testid={`feed-tg-account-manage-${acct.account}`}
+                            aria-label={`管理 ${acct.label ?? acct.account}`}
+                            onClick={() => navigate("/tg-account")}
+                          >
+                            管理
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              ) : null}
               {catalogLoading && channelCards.length === 0 ? (
                 <div
                   className="flex flex-col gap-1 px-1.5"
