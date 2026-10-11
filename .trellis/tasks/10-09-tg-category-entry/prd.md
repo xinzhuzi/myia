@@ -200,3 +200,10 @@
 - 根因(库实锤):watcher 落库的 TG 条目 url 是内部形态 `https://web.telegram.org#tg-<chatId>-<msgId>`(web 域+chatId+msgId),telegramKUrlOf 只认 t.me 形态 → tgPreviewUrl 恒 null → 原生视图钮恒 **disabled**(点击零反应,非创建失败)。
 - 修复:telegramKUrlOf 补形(`#tg-<chatId>-<msgId>` → `/k/#<chatId>`,/k/ 官方支持按 chatId 深链);tg-native-window K_URL_RE 同步双形(@名 | -?chatId),捕获组不含 @(键口径稳定)。
 - 测试:watcher url 三形直测 + 非法形态 null;门禁 vitest 689 + build + 冒烟全绿;换装 chunk 随构建 + app 还原。
+
+## v9.1 深检追补(2026-10-10/11,主人实测「原生视图点击没用,没有弹窗」根因修复)
+
+- 根因(实证三连):①库/注册表/红点三证显示**窗口创建成功但从未上屏**——macOS 上 JS 侧(`create_webview_window` IPC)建窗不自动 orderFront,Rust 侧 WebviewWindowBuilder 建窗则正常上屏(Rust smoke 钩子实证:/k/ 登录页完整渲染截图);②部分真实条目 url 为 watcher 内部形态(`#tg-<chatId>-<msgId>`),telegramKUrlOf 旧版只认 t.me 形态 → tgPreviewUrl null → 按钮恒 disabled(与①叠加:修了也点不动)。
+- 修复:①创建成功后立即 `handle.show()`(orderFront 不抢焦点;capabilities 补 `core:window:allow-show` 单授权);②telegramKUrlOf 补 watcher 内部形态 → `/k/#<chatId>`;③tg-native-window 深链白名单双形、show 可选依赖(测试桩免实现)。
+- 门禁:vitest 689 + build + 冒烟全绿;测试新增 watcher url 三形 + 深链白名单双形断言。
+- MYIA_TG_NATIVE_SMOKE 静默钩子入库(main.rs,先例同款):Rust 侧直建 /k/ 窗,深检实证工具(截图证据:/k/ 登录页完整渲染)。
