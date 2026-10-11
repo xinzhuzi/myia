@@ -80,8 +80,8 @@
 
 ## 开放决策（主人侧，剩余——A 段探查已给出裁决输入，2026-10-11 工作流实测定论）
 
-- **D2（探查已定论，待主人认领路线）**：A1 实测微信 4.1.15 **聊天内容层对 AX 完全零暴露**（主窗在场态仅剩 chrome 三钮；AXManualAccessibility/-25205、AXEnhancedUserInterface/-25208 均拒；三类目标节点全未找到）——自研 AX 与借力 BiboyQG（同为 AX 路线）**双双不可行**，UI 读线正解 = **像素链（screencapture + local-ocr）为主**；写通道不可达且与焦点无关 → AC4 冲突裁决自动触发（证据 research/ax-probe-4.1.15.md）。后续路线（像素链读 + 出站仍归官方 iLink）待主人点头。
-- **D4（探查已定论，挂主人裁决）**：E1 真跑定论**零内存密钥途径不可行**——key_info.db 虽为明文 SQLite，35 行 → 5081 候选 → 对 20 库共 101,620 次离线 HMAC 校验全部 0 命中（与三方公开实测/0xlane 逆向一致）；唯一活路 lldb attach（踩红线 3，已拒）。exit 21 D4 语义已落地。是否豁免内存搜索路径，主人裁决。
+- **D2（✅ 已认领并执行完毕,2026-10-12「全部解决」批）**：A1 实测微信 4.1.15 **聊天内容层对 AX 完全零暴露**（主窗在场态仅剩 chrome 三钮；AXManualAccessibility/-25205、AXEnhancedUserInterface/-25208 均拒；三类目标节点全未找到）——自研 AX 与借力 BiboyQG（同为 AX 路线）**双双不可行**，UI 读线正解 = **像素链（screencapture + local-ocr）为主**；写通道不可达且与焦点无关 → AC4 冲突裁决自动触发（证据 research/ax-probe-4.1.15.md）。像素链已实现并真跑通过(C1 15 会话/C2 10 条,静默取证 frontmost 不变,证据 research/pixel-chain-e2e.md);出站归官方 iLink。
+- **D4（「全部解决」令=豁免裁决,已按边界执行;真跑留主人一条 sudo 命令,见 research/d4-memscan-e2e.md §5）**：E1 真跑定论**零内存密钥途径不可行**——key_info.db 虽为明文 SQLite，35 行 → 5081 候选 → 对 20 库共 101,620 次离线 HMAC 校验全部 0 命中（与三方公开实测/0xlane 逆向一致）；唯一活路 lldb attach（踩红线 3，已拒）。exit 21 D4 语义已落地。内存搜索路径已实现(只读 vm_read 单遍批处理,三重门:配置+提权+平台,写/注入/调试 API 源码级守卫钉死);sudo -n 不可用→真跑留主人提权命令;命中即 keys.json 600 私有区→localdb query 一步闭合 AC7(复审 medium 属主自坏已双保险修复 1453e65)。
 
 ## Notes
 
