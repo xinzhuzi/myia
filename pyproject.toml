@@ -119,6 +119,9 @@ packages = ["src/myssia"]
 # 其单测经 pytest 内建 pythonpath 导入 plugins/wechat-bridge 下的
 # wechat_bridge 包;不走 conftest sys.path 插桩(conftest 文件名会被仓库
 # 通用裸 `from conftest import` 模式抢注,实测踩全量)。
+# "." 必须同列:pythonpath 一旦显式设置,pytest 不再做 rootdir 隐式插入,
+# tests/desktop 的 `from desktop import entry`(namespace 包)会失解析
+# (实测收集期 ImportError,5350 收集 1 error)。
 [tool.pytest.ini_options]
 testpaths = ["tests", "myssia-classifier/tests"]
-pythonpath = ["plugins/wechat-bridge"]
+pythonpath = ["plugins/wechat-bridge", "."]

@@ -14,17 +14,17 @@
     4. 空树分支：`AXUIElementSetAttributeValue(kAXManualAccessibility, true)` 后重遍历；仍空 → 像素链预研结论（screencapture + local-ocr）一并记档。
     5. 定位三类目标节点并记录路径：会话列表 cell（含未读 badge 属性名）、消息区（文本节点形态）、输入框+发送按钮（AXConfirm 可用性）。
     6. 证据格式：计数树 + 节点属性表 + 每步命令原文；结论段回答 AC1 三问（能读什么/需要什么激活/写通道是否需焦点）。
-- [ ] A2 wxauto-mac 快速冒烟（**G8：限 30 分钟**）：对 4.1.15 跑核心读路径，可用/部分/不可用三值结论即收；借力研读重心转 **BiboyQG/WeChat-MCP**（275★）机制。→ AC1 后半 + D2 输入
-- [ ] A3 密钥途径探查（**不依赖开窗，可先行**；结论落 research/key-path.md）：key_info.db 结构只读分析（schema/表/列形状，不导内容；**预期管理：它本身可能也是 sqlcipher 加密库——若是，零内存路径难度陡增，如实记录**）；yancongya/wechat-mcp-macos 源码读密钥获取段；结论 = 零内存方案可行性 + D4 裁决请求。
-- [ ] A4 裁决记录：D2（自研/借力 BiboyQG 机制）+ D4（密钥途径）回写 prd 开放决策段；**D1 已决（G1：主力号开发+小号并行注册）——联调挂主力号、操作对象限文件传输助手，小号注册并行推进**。
+- [x] A2 wxauto-mac 快速冒烟（**G8：限 30 分钟**）：对 4.1.15 跑核心读路径，可用/部分/不可用三值结论即收；借力研读重心转 **BiboyQG/WeChat-MCP**（275★）机制。→ AC1 后半 + D2 输入
+- [x] A3 密钥途径探查（**不依赖开窗，可先行**；结论落 research/key-path.md）：key_info.db 结构只读分析（schema/表/列形状，不导内容；**预期管理：它本身可能也是 sqlcipher 加密库——若是，零内存路径难度陡增，如实记录**）；yancongya/wechat-mcp-macos 源码读密钥获取段；结论 = 零内存方案可行性 + D4 裁决请求。
+- [x] A4 裁决记录：D2（自研/借力 BiboyQG 机制）+ D4（密钥途径）回写 prd 开放决策段；**D1 已决（G1：主力号开发+小号并行注册）——联调挂主力号、操作对象限文件传输助手，小号注册并行推进**。
 
 **验证**：research 下两份探查记录有原始证据；A4 有主人裁决标记。
 
 ## Phase B 桥组件骨架
 
-- [ ] B1 组件目录（**组件名 `wechat-bridge`，G7**）+ 组件戳 + `--probe` 三态探针（对齐 weixin.py 桥接形态：子进程、JSON 应答、超时 kill 兜底）
-- [ ] B2 CLI 骨架：`sessions/messages/send_text/localdb` 四子命令空实现 + `--json` 机器可读
-- [ ] B3 组件下载/注册链路接设置页（受管组件惯例；**安装前置检测（design §5.1）：sqlcipher 库缺失时给明确指引，不静默半装**）
+- [x] B1 组件目录（**组件名 `wechat-bridge`，G7**）+ 组件戳 + `--probe` 三态探针（对齐 weixin.py 桥接形态：子进程、JSON 应答、超时 kill 兜底）
+- [x] B2 CLI 骨架：`sessions/messages/send_text/localdb` 四子命令空实现 + `--json` 机器可读
+- [x] B3 组件下载/注册链路接设置页（受管组件惯例；**安装前置检测（design §5.1）：sqlcipher 库缺失时给明确指引，不静默半装**）
 
 **验证**：probe 在无微信开窗时如实报 `bridge_unavailable/degraded`，不装可用。
 
@@ -45,9 +45,9 @@
 
 ## Phase E 本地库只读通道
 
-- [ ] E1 密钥模块（途径按 A4 裁决；内存搜索若豁免则独立模块+默认关）
-- [ ] E2 解密副本至数据根私有区（600 权限，红线 6 全套；**生命周期（G5）：TTL 24h + 容量上限，解密失败触发重建**）
-- [ ] E3 `localdb query`：指定会话最近 N 天文本消息（**G4：message/session/contact 三域**，域清单配置化）
+- [x] E1 密钥模块（途径按 A4 裁决；内存搜索若豁免则独立模块+默认关）
+- [x] E2 解密副本至数据根私有区（600 权限，红线 6 全套；**生命周期（G5）：TTL 24h + 容量上限，解密失败触发重建**）
+- [x] E3 `localdb query`：指定会话最近 N 天文本消息（**G4：message/session/contact 三域**，域清单配置化）
 
 **验证**：全链零出网（可加网络断言）；查询结果不入日志；形状级证据（库/表/行数）。→ AC7
 
@@ -61,7 +61,7 @@
 
 ## Phase G 备胎占位
 
-- [ ] G1 Windows 线接口对齐文档（桥 CLI/JSON 契约 ↔ wxautox4 RESTful 映射 + 启用判据）。→ AC6
+- [x] G1 Windows 线接口对齐文档（桥 CLI/JSON 契约 ↔ wxautox4 RESTful 映射 + 启用判据）。→ AC6
 
 ## 收尾
 
