@@ -3540,43 +3540,108 @@ export function FeedScreen() {
                       </div>
                     </div>
                   ) : tgAccounts.length === 0 ? (
-                    /* 零账号(phase=ok 空集)/ status 不可用(error):引导空态 + 跳转 */
-                    <div className="py-1.5" data-testid="feed-tg-accounts-empty">
-                      <p className="text-2xs leading-relaxed text-muted-foreground">
-                        还没有监控账号(或状态暂不可用);到「Telegram」屏添加账号并登录后,其所在群的文本消息才会入库。
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-1.5 h-6 px-2 text-2xs"
-                        data-testid="feed-tg-accounts-goto"
-                        onClick={() => navigate("/tg-account")}
-                      >
-                        到 Telegram 屏添加账号
-                      </Button>
-                    </div>
+                    tgStatusPhase === "error" ? (
+                      /* 补A(grill 二轮):error 态独立分支——「监控状态暂时
+                          不可用」+ 重试(接既有 retryTgStatus)+ 跳转钮并列;
+                          2 级不再全应用唯一 error 无重试的 TG 面。 */
+                      <div className="py-1.5" data-testid="feed-tg-accounts-error">
+                        <p className="text-2xs leading-relaxed text-warning">监控状态暂时不可用</p>
+                        <div className="mt-1.5 flex items-center gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-2xs"
+                            data-testid="feed-tg-accounts-retry"
+                            onClick={retryTgStatus}
+                          >
+                            重试
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-2xs"
+                            data-testid="feed-tg-accounts-goto"
+                            onClick={() => navigate("/tg-account")}
+                          >
+                            到 Telegram 屏添加账号
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* 零账号(phase=ok 空集):引导空态 + 跳转 */
+                      <div className="py-1.5" data-testid="feed-tg-accounts-empty">
+                        <p className="text-2xs leading-relaxed text-muted-foreground">
+                          还没有监控账号;到「Telegram」屏添加账号并登录后,其所在群的文本消息才会入库。
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-1.5 h-6 px-2 text-2xs"
+                          data-testid="feed-tg-accounts-goto"
+                          onClick={() => navigate("/tg-account")}
+                        >
+                          到 Telegram 屏添加账号
+                        </Button>
+                      </div>
+                    )
                   ) : (
                     <ul className="flex flex-col" data-testid="feed-tg-accounts-list">
-                      {tgAccounts.map((acct) => (
+                      {tgAccounts.map((acct) => {
+                        /* 补B(grill 二轮)登录态三档:logged_in → 监控中(自 t);
+                            login_in_progress → 登录中(契约字段,telegram-api.ts
+                            web.accounts);其余 → 未登录(login_note 在场附原因)。
+                            ●/○ 字形不动,登录中档点色 warning。 */
+                        const loginTitle = acct.logged_in
+                          ? `监控中${acct.logged_in_at ? `(自 ${formatAbsoluteTime(acct.logged_in_at)})` : ""}`
+                          : acct.login_in_progress
+                            ? "登录中…"
+                            : `未登录${acct.login_note ? `(${acct.login_note})` : ""}`;
+                        const loginWord = acct.logged_in
+                          ? "监控中"
+                          : acct.login_in_progress
+                            ? "登录中"
+                            : "未登录";
+                        return (
                         <li
                           key={acct.account}
                           data-testid={`feed-tg-account-row-${acct.account}`}
-                          className="flex items-center gap-2 rounded-md px-1 py-1.5"
+                          /* 补C(主人裁按推荐):行身可激活(与行尾管理钮同义,
+                              只读跳转,不破管理面唯一性);键盘 Enter/Space 同享
+                              —— preventDefault 让位收口,全局 Enter 线见
+                              defaultPrevented 即让位,防行内导航与 2 级环
+                              openChannel 双动作;事件源在管理钮内时让位归钮。 */
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`打开账号管理:${acct.label ?? acct.account}`}
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 hover:bg-accent/50"
+                          onClick={(event) => {
+                            if ((event.target as HTMLElement).closest("button")) return;
+                            navigate("/tg-account");
+                          }}
+                          onKeyDown={(event) => {
+                            if ((event.target as HTMLElement).closest("button")) return;
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              navigate("/tg-account");
+                            }
+                          }}
                         >
-                          {/* 登录态●/○:title 带自时间(复用 3 级监控台同源数据) */}
+                          {/* 登录态●/○:title 三档(补B);复用 3 级监控台同源数据 */}
                           <span
                             aria-hidden
                             className={`shrink-0 text-2xs leading-none ${
-                              acct.logged_in ? "text-ok" : "text-muted-foreground/60"
-                            }`}
-                            title={
                               acct.logged_in
-                                ? `监控中${acct.logged_in_at ? `(自 ${formatAbsoluteTime(acct.logged_in_at)})` : ""}`
-                                : "未登录(到 Telegram 屏扫码登录后开始监控)"
-                            }
+                                ? "text-ok"
+                                : acct.login_in_progress
+                                  ? "text-warning"
+                                  : "text-muted-foreground/60"
+                            }`}
+                            title={loginTitle}
                           >
                             {acct.logged_in ? "●" : "○"}
                           </span>
+                          {/* 补E:登录态读屏可达(点字形 aria-hidden,sr-only 词随行) */}
+                          <span className="sr-only">{loginWord}</span>
                           <span className="min-w-0 flex-1">
                             {/* 备注名主显示;无备注回退内部键名(不猜) */}
                             <span className="block truncate text-sm text-foreground">
@@ -3599,7 +3664,8 @@ export function FeedScreen() {
                             管理
                           </Button>
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   )}
                 </section>

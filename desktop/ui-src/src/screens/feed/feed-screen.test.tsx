@@ -3605,8 +3605,9 @@ describe("FeedScreen · tg-chat-two-pane(3 级 TG 群对话式双栏,10-11)", ()
 // ---------------------------------------------------------------------------
 
 describe("FeedScreen · tg-multi-account-groups v5(2 级 Telegram 账号区)", () => {
-  /** status 应答:两账号 —— 甲已登录(带备注名/user_id/自时间);乙未登录
-   *  (无备注/user_id,主显示回退键名、user_id 位给 —)。 */
+  /** status 应答:三账号 —— 甲已登录(带备注名/user_id/自时间);乙未登录
+   *  (无备注/user_id,主显示回退键名、user_id 位给 —);丙登录中
+   *  (login_in_progress,补B 第三档)。 */
   const twoAccountPayload = {
     bot: { configured: false, error: null },
     session: { exists: false },
@@ -3614,6 +3615,7 @@ describe("FeedScreen · tg-multi-account-groups v5(2 级 Telegram 账号区)", (
       accounts: [
         { account: "tg-alt1", logged_in: true, logged_in_at: "2026-10-09T01:00:00", label: "主力号", user_id: "10086", login_in_progress: false, login_note: null },
         { account: "tg-alt2", logged_in: false, logged_in_at: null, label: null, user_id: null, login_in_progress: false, login_note: null },
+        { account: "tg-alt3", logged_in: false, logged_in_at: null, label: null, user_id: null, login_in_progress: true, login_note: null },
       ],
     },
   };
@@ -3650,15 +3652,18 @@ describe("FeedScreen · tg-multi-account-groups v5(2 级 Telegram 账号区)", (
     });
   }
 
-  it("AC37/AC38/AC40 账号区渲染:区头「账号 · N」贴群列表区头词面;行 = 备注名主显示/键名·user_id 小字/登录态●○/管理钮;群列表照旧;网站 2 级零变化", async () => {
+  const statusCalls = () =>
+    invokeMock.mock.calls.filter(([, args]) => (args as { method?: string })?.method === "telegram.status").length;
+
+  it("v5 账号区渲染:区头「账号 · N」贴群列表区头词面;行 = 备注名主显示/键名·user_id 小字/登录态三档●○/行身可激活/管理钮;群列表照旧;网站 2 级零变化", async () => {
     mockAccountsWorld();
     mockStatus(twoAccountPayload);
     await renderOverview();
     await openChannelList("tg");
 
-    // 区头:账号 · 2(词面风格 = 群列表区头「TG · N 个渠道」同款)
+    // 区头:账号 · 3(词面风格 = 群列表区头「TG · N 个渠道」同款)
     await screen.findByTestId("feed-tg-accounts");
-    expect(screen.getByTestId("feed-tg-accounts-title").textContent).toBe("账号 · 2");
+    expect(screen.getByTestId("feed-tg-accounts-title").textContent).toBe("账号 · 3");
     // 行甲:备注名「主力号」主显示 + 内部键名·user_id 小字 + 已登录 ●(ok 档)
     const rowA = await screen.findByTestId("feed-tg-account-row-tg-alt1");
     expect(within(rowA).getByText("主力号")).toBeTruthy();
@@ -3672,6 +3677,15 @@ describe("FeedScreen · tg-multi-account-groups v5(2 级 Telegram 账号区)", (
     expect(rowB.textContent).toContain("tg-alt2 · —");
     expect(within(rowB).getByText("○")).toBeTruthy();
     expect(within(rowB).getByRole("button", { name: "管理 tg-alt2" })).toBeTruthy();
+    // 行丙(补B 第三档):登录中 —— 点色 warning + sr-only 态词,字形仍 ○
+    const rowC = screen.getByTestId("feed-tg-account-row-tg-alt3");
+    const dotC = within(rowC).getByText("○");
+    expect(dotC.className).toContain("text-warning");
+    expect(within(rowC).getByText("登录中", { selector: ".sr-only" })).toBeTruthy();
+    // 补C:行身可激活(role=button + tabIndex,行身点击/键盘 = 管理跳转同义)
+    expect(rowC.getAttribute("role")).toBe("button");
+    expect(rowC.getAttribute("tabindex")).toBe("0");
+    expect(within(rowC).getByText("登录中", { selector: ".sr-only" }).className).toContain("sr-only");
     // 群列表区照旧零变化:搜索框/渠道行/未读徽标原样在场
     expect(screen.getByLabelText("搜索渠道")).toBeTruthy();
     expect(screen.getByTestId("feed-channel-row-telegram-seed")).toBeTruthy();
@@ -3681,7 +3695,7 @@ describe("FeedScreen · tg-multi-account-groups v5(2 级 Telegram 账号区)", (
     expect(screen.queryByTestId("feed-tg-accounts")).toBeNull();
   });
 
-  it("AC39 加载中不出空态:status 在途 = 骨架行(区头无计数),空态不出;零账号应答落地 = 引导空态 + 跳转钮", async () => {
+  it("v5 账号区加载与空态:status 在途 = 骨架行(区头无计数),空态不出;零账号应答落地 = 引导空态 + 跳转钮", async () => {
     mockAccountsWorld();
     let resolveStatus: ((value: unknown) => void) | undefined;
     invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
@@ -3709,7 +3723,7 @@ describe("FeedScreen · tg-multi-account-groups v5(2 级 Telegram 账号区)", (
     expect(screen.getByTestId("feed-tg-accounts-title").textContent).toBe("账号 · 0");
   });
 
-  it("AC36 行尾「管理」钮:真实路由落 /tg-account(消费方只读跳转,管理面不搬)", async () => {
+  it("v5 账号区管理跳转:行尾「管理」钮真实路由落 /tg-account(消费方只读跳转,管理面不搬)", async () => {
     mockAccountsWorld();
     mockStatus(twoAccountPayload);
     // 探针与屏同挂(裸 MemoryRouter 无 Routes;监控台「管理」钮用例同门)
@@ -3724,6 +3738,50 @@ describe("FeedScreen · tg-multi-account-groups v5(2 级 Telegram 账号区)", (
     await waitFor(() =>
       expect(screen.getByTestId("location-probe").textContent).toBe("/tg-account"),
     );
+  });
+
+  it("v5 账号区 error 态:「监控状态暂时不可用」+ 重试真实重发 + 跳转钮并列(补A:2 级不再是唯一 error 无重试的 TG 面)", async () => {
+    mockAccountsWorld();
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") {
+        throw JSON.stringify({ code: "internal_error", path: "$", message: "状态服务未就绪" });
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    await renderOverview();
+    await openChannelList("tg");
+    // error 独立分支:词面 + 重试 + 跳转并列;ok-空态分支不出(词面不吞 error)
+    const err = await screen.findByTestId("feed-tg-accounts-error");
+    expect(err.textContent).toContain("监控状态暂时不可用");
+    expect(within(err).getByTestId("feed-tg-accounts-retry")).toBeTruthy();
+    expect(within(err).getByTestId("feed-tg-accounts-goto")).toBeTruthy();
+    expect(screen.queryByTestId("feed-tg-accounts-empty")).toBeNull();
+    // 重试真实重发 telegram.status
+    const before = statusCalls();
+    fireEvent.click(within(err).getByTestId("feed-tg-accounts-retry"));
+    await waitFor(() => expect(statusCalls()).toBeGreaterThan(before));
+  });
+
+  it("v5 账号区取数纪律:site 2 级 telegram.status 零调用;TG 2→3→2 跨级往返仅 1 发(同源共拉不另起)", async () => {
+    mockAccountsWorld();
+    mockStatus(twoAccountPayload);
+    await renderOverview();
+    // site 2 级:账号区不在场,status 零调用
+    await openChannelList("site");
+    expect(statusCalls()).toBe(0);
+    // TG 2 级:首拉恰 1 发
+    fireEvent.click(screen.getByTestId("feed-back-to-types"));
+    await openChannelList("tg");
+    await screen.findByTestId("feed-tg-accounts");
+    await waitFor(() => expect(statusCalls()).toBe(1));
+    // 2→3→2 跨级往返:tgStatusNeeded 恒真,deps 不翻转不重发
+    fireEvent.click(screen.getByTestId("feed-channel-row-telegram-seed"));
+    await waitFor(() =>
+      expect(storeItemsMock).toHaveBeenLastCalledWith(expect.objectContaining({ source: "telegram-seed" })),
+    );
+    fireEvent.click(screen.getByTestId("feed-back-to-channels"));
+    await waitFor(() => expect(screen.getByTestId("feed-channel-list")).toBeTruthy());
+    expect(statusCalls()).toBe(1);
   });
 });
 
