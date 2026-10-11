@@ -11,6 +11,7 @@ import { MessagingScreen } from "@/screens/messaging/messaging-screen";
 import { SettingsScreen } from "@/screens/settings/settings-screen";
 import { SourcesScreen } from "@/screens/sources/sources-screen";
 import { TgAccountScreen } from "@/screens/tg-account/tg-account-screen";
+import { PlatformAccountsScreen } from "@/screens/platform-accounts/platform-accounts-screen";
 import { YamlEditorScreen } from "@/screens/yaml-editor/yaml-editor-screen";
 
 /**
@@ -24,10 +25,12 @@ import { YamlEditorScreen } from "@/screens/yaml-editor/yaml-editor-screen";
  *
  * /image 看图屏已拆(10-03-vision-pipeline 拍板①:图片理解并入情报管线,
  * 配置面留在设置屏 VisionForm;feed 屏出「图析」行)。
- * /yaml-editor = 配置编辑(10-03-yaml-editor):品类 YAML 原文编辑屏,
+ * /yaml-editor = YAML配置(10-03-yaml-editor;原「配置编辑」,v10 随侧栏
+ * 配置分组更名):品类 YAML 原文编辑屏,
  * 源管理行「编辑」带 ?file= 预选(位次=源管理之后,与侧栏一致)。
  * /messaging = 消息(10-03-messaging-ui):通道目录 + 推送规则挑对象,
- * 位次=配置编辑之后(与侧栏一致);命名直白用「消息」,不用行话。
+ * 位次=采集之后、配置组之前(与侧栏一致;v10 原「配置编辑之后」注记随
+ * 分组重排失真,一并更正);命名直白用「消息」,不用行话。
  * /cron = 定时任务(10-04-cron-ui):cron.* 九方法管理屏,位次=源管理之后
  * (与侧栏一致);与 CLI `myssia cron` 同一批 job 数据。
  * /tg-account = TG 账号(10-11-tg-multi-account-groups v10):Telegram 监控卡
@@ -54,6 +57,7 @@ export default function App() {
         <Route path="messaging" element={<MessagingScreen />} />
         <Route path="logs" element={<LogsScreen />} />
         <Route path="tg-account" element={<TgAccountScreen />} />
+        <Route path="platform-accounts" element={<PlatformAccountsScreen />} />
         <Route path="settings" element={<SettingsScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

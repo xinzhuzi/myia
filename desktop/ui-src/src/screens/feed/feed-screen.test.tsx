@@ -70,7 +70,7 @@
  * Mod+F 直聚焦右栏搜索框;R1 吸收:feed-stream-count title 无「当日窗」残词。
  */
 import { cleanup, fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterAll, beforeAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SidecarRequestError } from "@/lib/api";
@@ -220,6 +220,14 @@ function renderScreen() {
       <FeedScreen />
     </MemoryRouter>,
   );
+}
+
+/** 路由探针(command-palette.test.tsx 同款惯例):读当前 pathname。本文件
+ *  无 useNavigate mock 先例,导航类断言走真实路由落点,不引 react-router
+ *  整体 mock。 */
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location-probe">{location.pathname}</div>;
 }
 
 /** v8 惯用入口:渲染 1 级类型卡墙(落地页;等类型卡形骨架卸载即铺底应答,
@@ -3299,6 +3307,27 @@ describe("FeedScreen · tg-category-entry 监控台(v7:TG 选中左栏顶部常�
     await waitFor(() => expect(screen.queryByText("三天前的已读入库")).toBeNull());
   });
 
+  it("监控台「管理」钮(v10):点击 → 真实路由落 /tg-account(管理入口随独立屏迁,回归锚)", async () => {
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") return statusPayload(true);
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    mockConsoleWorld([]);
+    // 探针与屏同挂(裸 MemoryRouter 无 Routes,FeedScreen 不因换路由卸载)
+    render(
+      <MemoryRouter>
+        <LocationProbe />
+        <FeedScreen />
+      </MemoryRouter>,
+    );
+    await openTelegramChannel();
+    const consoleCard = await screen.findByTestId("feed-tg-console");
+    fireEvent.click(within(consoleCard).getByRole("button", { name: "管理" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("location-probe").textContent).toBe("/tg-account"),
+    );
+  });
+
   it("telegram.status 拉取失败(深检 F8①/F2):监控台缺席,空态不称「在线」给重试拉状态", async () => {
     invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
       if (args?.method === "telegram.status") {
@@ -3559,7 +3588,9 @@ describe("FeedScreen · v9 原生视图切换(design-v9 照稿)", () => {
       expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("true"),
     );
     expect(within(toggle).getByTestId("feed-tg-view-intel").getAttribute("aria-pressed")).toBe("false");
-    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy();
+    // 徽标在 openOrFocusNative 完成回调入态,晚于点击态的 aria-pressed 一拍
+    // (全量并行高负载下不同 tick)——waitFor 钉住,窗真亡时依旧红(不掩盖回归)
+    await waitFor(() => expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy());
     // 存活 title 分档(深检 F7d):窗活着 → 指引程序坞/「窗口」菜单唤回
     await waitFor(() =>
       expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("title")).toContain("原生窗口存活中"),
@@ -3584,7 +3615,11 @@ describe("FeedScreen · v9 原生视图切换(design-v9 照稿)", () => {
       expect(within(toggleReenter).getByTestId("feed-tg-view-intel").getAttribute("aria-pressed")).toBe("true"),
     );
     expect(within(toggleReenter).getByTestId("feed-tg-view-native").getAttribute("aria-pressed")).toBe("false");
-    expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy(); // 窗活着,徽标存活
+    // 徽标依赖再进 effect 的 getByLabel 异步对账(上方 mock resolved),比段
+    // 状态晚一拍(全量并行下放大)——同上 waitFor;窗亡时徽标不亮照样红
+    await waitFor(() =>
+      expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy(), // 窗活着,徽标存活
+    );
   });
 
   it("切换态会话内持久 + destroyed 回落:窗亡(tauri://destroyed)→ 徽标退场、段回落情报视图;3→2→3 再进注意力保持上次落点", async () => {

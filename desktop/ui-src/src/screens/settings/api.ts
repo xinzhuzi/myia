@@ -78,7 +78,7 @@ export class CategoryNodeError extends Error {
 /**
  * 品类 YAML 顶层 enrich 节单字段文本手术(注释保真:只替换命中行的值段,
  * 其余原文逐字节不动;缩进按 schema 两空格约定)。
- * 找不到顶层 enrich 节或节内该字段行 = CategoryNodeError(去配置编辑屏补节)。
+ * 找不到顶层 enrich 节或节内该字段行 = CategoryNodeError(去YAML配置屏补节)。
  */
 export function mutateEnrichField(content: string, field: string, value: string): string {
   const lines = content.split("\n");
@@ -101,7 +101,7 @@ export function mutateEnrichField(content: string, field: string, value: string)
   if (!replaced) {
     throw new CategoryNodeError(
       "enrich_node_missing",
-      `品类 YAML 缺少 enrich.${field} 行(或整个 enrich 节);到「配置编辑」补齐后再切换。`,
+      `品类 YAML 缺少 enrich.${field} 行(或整个 enrich 节);到「YAML配置」补齐后再切换。`,
     );
   }
   return lines.join("\n");

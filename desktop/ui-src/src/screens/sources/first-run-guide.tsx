@@ -30,7 +30,7 @@ const GUIDE_CARDS: GuideCardSpec[] = [
   {
     icon: FilePlus2,
     title: "从模板新建品类",
-    description: "到「配置编辑」用最小模板起草品类 YAML:声明 sources、schedule 与 push",
+    description: "到「YAML配置」用最小模板起草品类 YAML:声明 sources、schedule 与 push",
     href: "#/yaml-editor",
   },
   {
@@ -125,7 +125,7 @@ export function FirstRunGuide({
           <p role="alert" className="max-w-sm text-xs text-destructive" data-testid="demo-failed">
             一键 demo 失败({phase.error.code}):{phase.error.message}
             <span className="mt-0.5 block text-muted-foreground">
-              目录里已有 {DEMO_STEM}.yaml 时不会覆盖(mtime 锁);先到「配置编辑」处理同名文件。
+              目录里已有 {DEMO_STEM}.yaml 时不会覆盖(mtime 锁);先到「YAML配置」处理同名文件。
             </span>
           </p>
         ) : null}

@@ -35,7 +35,7 @@ interface RunView {
 const INITIAL_RUN: RunView = { starting: false, runId: null, error: null };
 
 /**
- * 配置编辑第六屏:左文件列表 + 右 CodeMirror 原文编辑。
+ * YAML配置屏(九屏之一,v10;原「配置编辑第六屏」序数随九屏扩容弃):左文件列表 + 右 CodeMirror 原文编辑。
  *
  * 10-04-ui-kestra-anchor:IDE 满高框架对齐 Kestra 流编辑器(结构借自
  * Apache-2.0 kestra/ui/src/components/flows/FlowCreate.vue 的 full-container

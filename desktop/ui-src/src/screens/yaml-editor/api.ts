@@ -1,5 +1,5 @@
 /**
- * 配置编辑数据装配(本屏私有 api 模块;共享客户端 @/lib/api 只读不动,
+ * YAML配置数据装配(本屏私有 api 模块;共享客户端 @/lib/api 只读不动,
  * 惯例与 screens/sources/api.ts 同款:屏私有封装 + invoke("sidecar_request") +
  * asSidecarError 归一化)。
  *

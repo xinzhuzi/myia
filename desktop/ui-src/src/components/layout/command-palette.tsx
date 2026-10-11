@@ -1,19 +1,6 @@
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  Clock,
-  FileCode2,
-  Inbox,
-  LayoutDashboard,
-  Loader2,
-  MessageCircle,
-  Play,
-  RefreshCw,
-  Rss,
-  Search,
-  Settings,
-  Terminal,
-} from "lucide-react";
+import { Clock, FileCode2, Inbox, LayoutDashboard, Loader2, MessageCircle, Play, RefreshCw, Rss, Search, Send, Settings, Terminal, Globe } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -32,7 +19,7 @@ import { cn } from "@/lib/utils";
  *
  * 命令面(清单自含,不复用 sidebar 的 NAV_GROUPS,避免与 A-shell 跨批
  * 耦合,重复属有意取舍):
- * - 导航八屏(App.tsx 路由表口径);
+ * - 导航九屏(App.tsx 路由表口径);
  * - 跑一次:health → 第一个可加载插件 → run.start;
  * - 刷新:window.location.reload(自含,不逐屏发刷新事件)。
  *
@@ -46,13 +33,18 @@ import { cn } from "@/lib/utils";
 /** 与 --duration-fast(120ms)对应的离场卸载延迟,改 token 时同步改这里(dialog.tsx 同款) */
 const EXIT_UNMOUNT_MS = 120;
 
-/** 导航命令清单:App.tsx 路由表八屏(自含数据,不 import NAV_GROUPS) */
+/** 导航命令清单:App.tsx 路由表九屏(自含数据,不 import NAV_GROUPS) */
 const SCREENS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon; keywords: string }> = [
   { to: "/", label: "仪表盘", icon: LayoutDashboard, keywords: "dashboard home" },
   { to: "/feed", label: "情报流", icon: Inbox, keywords: "feed inbox" },
   { to: "/sources", label: "源管理", icon: Rss, keywords: "sources rss" },
   { to: "/cron", label: "定时任务", icon: Clock, keywords: "cron schedule timer jobs" },
-  { to: "/yaml-editor", label: "配置编辑", icon: FileCode2, keywords: "yaml editor config" },
+  { to: "/yaml-editor", label: "YAML配置", icon: FileCode2, keywords: "yaml editor config" },
+  // Telegram(v10 随侧栏「配置」组):紧随 YAML配置,与侧栏配置组条目序一致;
+  // label 随 2026-10-11 主人令更名(侧栏原「TG账号」→「Telegram」,56696b6)
+  { to: "/tg-account", label: "Telegram", icon: Send, keywords: "telegram account tg" },
+  // 平台账号(10-11-platform-account-config):微信/飞书本身账号(个人授权态),与 Telegram 账号并列配置组
+  { to: "/platform-accounts", label: "平台账号", icon: Globe, keywords: "platform account weixin feishu wechat" },
   { to: "/messaging", label: "消息", icon: MessageCircle, keywords: "messaging message push" },
   { to: "/logs", label: "采集日志", icon: Terminal, keywords: "logs terminal" },
   { to: "/settings", label: "设置", icon: Settings, keywords: "settings" },

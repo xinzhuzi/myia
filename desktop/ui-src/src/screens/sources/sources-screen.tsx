@@ -52,7 +52,7 @@ interface TestState {
  * 10-04-ui-kestra-anchor:布局对齐 Kestra Flows 列表(结构借自 Apache-2.0
  * kestra/ui/src/components/flows/Flows.vue + design-system KsDataTable/KsFilter,
  * 借结构改语义):顶栏主操作「新建品类」(NavBarAction primary 范式,指向
- * 既有配置编辑深链)、表格满高分区铺底(full-container,无卡包裹)、工具栏
+ * 既有YAML配置深链)、表格满高分区铺底(full-container,无卡包裹)、工具栏
  * = KSFilter 范式(搜索+分段筛选+刷新)、行点击开编辑(NON_NAVIGATING_TARGETS
  * 同款守卫)、动作列图标钮(KsIconButton)。不抄:执行统计迷你时序图(health
  * 协议无逐 run 历史面)、批量勾选(v1 无批量写回协议)、列显隐配置(列集固定)。
@@ -68,7 +68,7 @@ interface TestState {
  * 行话不上屏。结果只驻屏内,v1 不做跨屏留存(如实注记)。
  *
  * 行「编辑」:当场弹出 YAML 编辑对话框(不离开本屏;dirty 关闭守卫在弹窗
- * 内)。编辑内核与配置编辑屏共享(use-yaml-file-editor),深链 /yaml-editor
+ * 内)。编辑内核与YAML配置屏共享(use-yaml-file-editor),深链 /yaml-editor
  * ?file=… 仍可用(侧栏入口,本屏不再跳转)。
  *
  * 底部「排程一览」与品类行「跑一次」已迁至定时任务屏底部(2026-10-05,
@@ -237,9 +237,9 @@ export function SourcesScreen() {
               </div>
             ) : null}
             {/* Kestra Flows 顶栏范式(NavBarAction primary):主操作=新建,
-                指向既有配置编辑屏深链(纯导航,零新功能) */}
+                指向既有YAML配置屏深链(纯导航,零新功能) */}
             <Button size="sm" asChild>
-              <a href="#/yaml-editor" title="到配置编辑新建品类 YAML">
+              <a href="#/yaml-editor" title="到YAML配置新建品类 YAML">
                 <Plus className="size-3.5" />
                 新建品类
               </a>

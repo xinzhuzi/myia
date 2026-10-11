@@ -530,7 +530,7 @@ export function MessagingScreen() {
               <EmptyState
                 compact
                 title="还没有品类 YAML"
-                description="推送规则来自品类 YAML 的 push 节;先到「源管理/配置编辑」建品类。"
+                description="推送规则来自品类 YAML 的 push 节;先到「源管理/YAML配置」建品类。"
               />
             ) : (
               (data?.rules ?? []).map((ruleFile) => (
@@ -620,7 +620,7 @@ function RuleFileGroup({
       </div>
       {ruleFile.parse_ok ? null : (
         <p className="text-xs text-destructive" role="alert">
-          {ruleFile.error?.code}:{ruleFile.error?.message}(修好后此处自动恢复;去「配置编辑」处理)
+          {ruleFile.error?.code}:{ruleFile.error?.message}(修好后此处自动恢复;去「YAML配置」处理)
         </p>
       )}
       {ruleFile.parse_ok && ruleFile.entries.length === 0 ? (

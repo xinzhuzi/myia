@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, Clock, FileCode2, Inbox, LayoutDashboard, MessageCircle, Rss, Send, Settings, Terminal } from "lucide-react";
+import { ChevronDown, Clock, FileCode2, Globe, Inbox, LayoutDashboard, MessageCircle, Rss, Send, Settings, Terminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -61,6 +61,7 @@ export const NAV_GROUPS: NavGroup[] = [
   entries: [
    { to: "/yaml-editor", label: "YAML配置", icon: FileCode2, end: false },
    { to: "/tg-account", label: "Telegram", icon: Send, end: false },
+   { to: "/platform-accounts", label: "平台账号", icon: Globe, end: false },
   ],
  },
 ];

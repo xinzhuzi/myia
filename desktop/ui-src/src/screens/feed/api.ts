@@ -1373,7 +1373,7 @@ function keywordLiteral(entry: string): string {
  *      连 watchlist 都没有 → 文件末尾追加整个 watchlist 节(缺省即空表,
  *      补节不改变其余语义)
  * 词已在列表 → `already_present`(零写入);非常规排版(标量值等)→
- * `keywords_unparsed`(UI 引导去配置编辑,不硬猜)。最终守门仍是
+ * `keywords_unparsed`(UI 引导去YAML配置,不硬猜)。最终守门仍是
  * yaml.save 的 load_category 同门校验(坏结果结构化拒,零落盘)。
  */
 export function appendWatchlistKeyword(content: string, rawKeyword: string): KeywordAppendOutcome {
@@ -1419,7 +1419,7 @@ export function appendWatchlistKeyword(content: string, rawKeyword: string): Key
       }
       return { ok: true, content: lines.join("\n") };
     }
-    // 标量值等非常规排版:不硬猜,引导去配置编辑
+    // 标量值等非常规排版:不硬猜,引导去YAML配置
     return { ok: false, reason: "keywords_unparsed" };
   }
 

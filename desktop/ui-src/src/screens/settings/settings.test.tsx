@@ -822,7 +822,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
     expect(box.textContent).toContain("已被其他编辑改写");
   });
 
-  it("品类无 enrich 节:CategoryNodeError 行内指引(去配置编辑),不弹协议错误", async () => {
+  it("品类无 enrich 节:CategoryNodeError 行内指引(去YAML配置),不弹协议错误", async () => {
     const noEnrichYaml = "id: stocks\nname: 量化快讯\n";
     mocks.invoke.mockImplementation(
       async (_command: string, args: { method: string }) => {
@@ -852,14 +852,14 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
     fireEvent.click(await screen.findByRole("switch", { name: "精评开关 plugins/stocks.yaml" }));
     const note = await screen.findByTestId("enrich-node-error");
     expect(note.textContent).toContain("缺少 enrich");
-    expect(note.textContent).toContain("配置编辑");
+    expect(note.textContent).toContain("YAML配置");
   });
 
-  it("push 声明指引链接(在「推送」分区卡底)→ 配置编辑屏路由(HashRouter 锚点)", async () => {
+  it("push 声明指引链接(在「推送」分区卡底)→ YAML配置屏路由(HashRouter 锚点)", async () => {
     installYamlSidecar();
     renderScreen();
     await openSection("push");
-    const link = await screen.findByRole("link", { name: "去配置编辑改 push 声明" });
+    const link = await screen.findByRole("link", { name: "去YAML配置改 push 声明" });
     expect(link.getAttribute("href")).toBe("#/yaml-editor");
   });
 });
@@ -1408,7 +1408,7 @@ describe("设置:高困惑字段 tooltip(预算护栏/池名/门槛件 API Key)"
     const budgetTrigger = screen.getByRole("button", { name: "stocks.yaml说明" });
     const budget = hoverForTip(budgetTrigger);
     expect(budget.tip.textContent).toContain("预算护栏");
-    expect(budget.tip.textContent).toContain("配置编辑");
+    expect(budget.tip.textContent).toContain("YAML配置");
     expect(budget.describedby).toBe(budget.tip.id);
     closeTip(budgetTrigger);
 

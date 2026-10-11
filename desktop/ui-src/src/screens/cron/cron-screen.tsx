@@ -635,7 +635,7 @@ export function CronScreen() {
               <CardTitle>排程一览</CardTitle>
               <CardDescription>
                 每品类未来 5 次运行(schedule.preview 纯计算,品类 YAML schedule
-                节;无 cron job 的品类也在此见排程);改 schedule 节到「配置编辑」;
+                节;无 cron job 的品类也在此见排程);改 schedule 节到「YAML配置」;
                 行尾 ▶ 立即跑一次该品类。
               </CardDescription>
             </CardHeader>

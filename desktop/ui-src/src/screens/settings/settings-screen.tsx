@@ -375,7 +375,7 @@ function EnrichFeedbackCard({
         ) : null}
         {enrichSections.length === 0 ? (
           <span className="text-xs text-muted-foreground">
-            暂无带 enrich 节的品类(doctor 回显为准);到「配置编辑」为品类补 enrich 节。
+            暂无带 enrich 节的品类(doctor 回显为准);到「YAML配置」为品类补 enrich 节。
           </span>
         ) : (
           /* Kestra SettingRow 扁平化:逐品类 = 开关行 + model 行,行间细线,
@@ -391,10 +391,10 @@ function EnrichFeedbackCard({
                     label={
                       <LabelHint
                         label={pluginFile.split("/").pop() ?? pluginFile}
-                        tip="开 = 每条情报交给 AI 打个分再入库。预算护栏限制一轮采集最多花多少钱,超了就停;这里是只读回显,想改数额到「配置编辑」改品类文件里的 budget_per_run。"
+                        tip="开 = 每条情报交给 AI 打个分再入库。预算护栏限制一轮采集最多花多少钱,超了就停;这里是只读回显,想改数额到「YAML配置」改品类文件里的 budget_per_run。"
                       />
                     }
-                    description={`预算护栏 budget_per_run = ${enrich.budget_per_run}(只读,改值走「配置编辑」)`}
+                    description={`预算护栏 budget_per_run = ${enrich.budget_per_run}(只读,改值走「YAML配置」)`}
                   >
                     <span className="text-2xs text-muted-foreground">
                       {row.saving ? "写回中…" : enrich.enabled ? "精评已启用" : "精评已停用"}
@@ -1381,7 +1381,7 @@ export function SettingsScreen() {
               安全底线:任何凭据输入只经协议 secret.set 写入系统钥匙链(macOS Keychain /
               Windows DPAPI);配置文件出现明文凭据 = 启动即报错拒跑。model /
               enrich.enabled 经「通用 → 评分与反馈」写回品类 YAML(yaml.save,注释保真);
-              池 URL 结构写回顺延(待拍板落点),push 通道声明去「配置编辑」。
+              池 URL 结构写回顺延(待拍板落点),push 通道声明去「YAML配置」。
             </p>
             </Searchable>
             </>
@@ -1726,9 +1726,9 @@ export function SettingsScreen() {
                 </details>
                 <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2 text-2xs text-muted-foreground">
                   <span>推送通道声明(push: 节)与阈值路由在品类 YAML:</span>
-                  {/* HashRouter 路由:普通锚点即可跳配置编辑屏,不引 Router context 依赖 */}
+                  {/* HashRouter 路由:普通锚点即可跳YAML配置屏,不引 Router context 依赖 */}
                   <a href="#/yaml-editor" className="underline underline-offset-2 hover:text-foreground">
-                    去配置编辑改 push 声明
+                    去YAML配置改 push 声明
                   </a>
                 </div>
               </CardContent>

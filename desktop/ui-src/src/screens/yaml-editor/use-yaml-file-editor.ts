@@ -7,7 +7,7 @@ import { asSidecarError, getYamlTemplate, readYaml, saveYaml, validateYaml } fro
 import type { YamlFinding, YamlValidateResult } from "./api";
 
 /**
- * 单文件编辑内核(共享 hook):双栏配置编辑屏(yaml-editor-screen.tsx)与
+ * 单文件编辑内核(共享 hook):双栏YAML配置屏(yaml-editor-screen.tsx)与
  * 源管理弹窗(yaml-editor-dialog.tsx)共用,**不许出现第二份保存逻辑**。
  *
  * 状态机:读取 yaml.read(原文逐字节)→ dirty 跟踪(content !== savedContent)

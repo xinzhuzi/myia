@@ -6,7 +6,7 @@
 // 备案偏差②),本文件按白名单名建,测 Sidebar 折叠面经 AppLayout 骨架呈现。
 // 输入框守卫/修饰键口径归 use-hotkeys.test.tsx(底座 8 用例),此处不重复。
 // 键名 myssia.sidebar.v1 在用例内明写 = 改名即红(存储契约回归锚)。
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
@@ -84,7 +84,7 @@ function sidebarWidth(): string {
 // ---------------------------------------------------------------------------
 
 describe("NAV_GROUPS 信息架构(v10 配置分组)", () => {
-  it("组序 = 顶层直链/采集/推送/配置;采集组不再含配置编辑", () => {
+  it("组序 = 顶层直链/采集/推送/配置;采集组不再含 YAML配置(原「配置编辑」)", () => {
     expect(NAV_GROUPS.map((group) => group.label)).toEqual([null, "采集", "推送", "配置"]);
     const capture = NAV_GROUPS.find((group) => group.label === "采集");
     expect(capture?.entries.map((entry) => entry.to)).toEqual(["/sources", "/cron", "/logs"]);
@@ -95,6 +95,7 @@ describe("NAV_GROUPS 信息架构(v10 配置分组)", () => {
     expect(config?.entries.map((entry) => [entry.to, entry.label])).toEqual([
       ["/yaml-editor", "YAML配置"],
       ["/tg-account", "Telegram"],
+      ["/platform-accounts", "平台账号"],
     ]);
   });
 
@@ -102,6 +103,17 @@ describe("NAV_GROUPS 信息架构(v10 配置分组)", () => {
     expect(resolveNav("/tg-account")?.group).toBe("配置");
     expect(resolveNav("/yaml-editor")?.group).toBe("配置");
     expect(resolveNav("/settings")?.entry.label).toBe("设置");
+  });
+
+  it("「配置」组真实渲染:组标题钮 + YAML配置/Telegram 两条 NavLink(href)在 DOM", () => {
+    renderSidebar();
+    // 组标题(GroupSection 标题钮)真渲染,非仅 NAV_GROUPS 数据在位
+    expect(screen.getByRole("button", { name: "配置" })).toBeTruthy();
+    const nav = screen.getByRole("navigation", { name: "主导航" });
+    const yaml = within(nav).getByRole("link", { name: "YAML配置" });
+    const tg = within(nav).getByRole("link", { name: "Telegram" });
+    expect(yaml.getAttribute("href")).toBe("/yaml-editor");
+    expect(tg.getAttribute("href")).toBe("/tg-account");
   });
 });
 
@@ -188,7 +200,7 @@ describe("纯函数伴测(loadSidebarPrefs / saveSidebarPrefs)", () => {
 // ---------------------------------------------------------------------------
 // ⌘K 命令面板挂载(10-05 复活回归锚):无头布局整删 TopBar(d9ae353)曾把
 // 面板唯一渲染点连坐成不可达死 UI——组件单测全绿也测不出「没人挂它」,
-// 本节在布局层钉死:AppLayout 必须挂 CommandPalette,⌘K 必须唤得出八屏。
+// 本节在布局层钉死:AppLayout 必须挂 CommandPalette,⌘K 必须唤得出九屏。
 // ---------------------------------------------------------------------------
 
 describe("⌘K 命令面板挂载(复活回归锚)", () => {
@@ -204,13 +216,14 @@ describe("⌘K 命令面板挂载(复活回归锚)", () => {
     );
   }
 
-  it("AppLayout 直挂面板:⌘K 唤出导航八屏(含定时任务),再 ⌘K 关闭", async () => {
+  it("AppLayout 直挂面板:⌘K 唤出导航九屏(含定时任务),再 ⌘K 关闭", async () => {
     renderLayout();
     fireEvent.keyDown(window, { key: "k", metaKey: true });
     const options = await screen.findAllByRole("option");
     const labels = options.map((node) => node.textContent ?? "");
     expect(labels.some((t) => t.includes("定时任务"))).toBe(true);
-    expect(labels.length).toBeGreaterThanOrEqual(8);
+    // 九屏导航 + 跑一次/刷新 = 11(挂载级锚取松口径,精确清单钉在 command-palette.test)
+    expect(labels.length).toBeGreaterThanOrEqual(9);
     // toggle 关闭
     fireEvent.keyDown(window, { key: "k", metaKey: true });
     await waitFor(() => expect(screen.queryAllByRole("option")).toHaveLength(0));

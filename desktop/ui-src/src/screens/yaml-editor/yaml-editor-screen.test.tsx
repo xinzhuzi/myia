@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// 配置编辑屏组件测试:mock sidecar(壳命令 sidecar_request 的 JS 假实现,
+// YAML配置屏组件测试:mock sidecar(壳命令 sidecar_request 的 JS 假实现,
 // 内存态模拟 plugins 目录)+ mock @uiw/react-codemirror(textarea 受控替身,
 // 编辑器真实渲染的 jsdom 集成见 editor-pane.test.tsx)。覆盖(design §7 UI 清单):
 // list 渲染+坏文件徽标 / ?file= 预选读原文+完整路径 / 读取失败错误态 /
@@ -289,7 +289,7 @@ afterEach(() => {
 
 // ---------------------------------------------------------------------------
 
-describe("配置编辑:文件列表与读取", () => {
+describe("YAML配置:文件列表与读取", () => {
   it("list 渲染:品类名/源数/坏文件损坏徽标;选中态", async () => {
     installSidecar(okSidecar().map);
     renderScreen();
@@ -352,7 +352,7 @@ describe("配置编辑:文件列表与读取", () => {
   });
 });
 
-describe("配置编辑:dirty 守卫", () => {
+describe("YAML配置:dirty 守卫", () => {
   it("编辑未保存切换文件:confirm 取消留在当前文件;确认后丢弃并切换", async () => {
     installSidecar(okSidecar().map);
     renderScreen();
@@ -430,7 +430,7 @@ describe("配置编辑:dirty 守卫", () => {
   });
 });
 
-describe("配置编辑:校验干跑", () => {
+describe("YAML配置:校验干跑", () => {
   it("findings 分级:error 在前 warning 在后,message 逐条展示", async () => {
     const { map } = okSidecar();
     map["yaml.validate"] = () => ({
@@ -471,7 +471,7 @@ describe("配置编辑:校验干跑", () => {
   });
 });
 
-describe("配置编辑:保存流", () => {
+describe("YAML配置:保存流", () => {
   it("保存失败:结构化错误态,绝不假装成功", async () => {
     const { map } = okSidecar();
     map["yaml.save"] = () => {
@@ -564,7 +564,7 @@ describe("配置编辑:保存流", () => {
   });
 });
 
-describe("配置编辑:新建流", () => {
+describe("YAML配置:新建流", () => {
   it("stem 预检失败即拦(大写/空格):内联报因,不取模板;合法 stem → 模板草稿 → save(null mtime) → created", async () => {
     const { map, state } = okSidecar();
     installSidecar(map);
@@ -606,7 +606,7 @@ describe("配置编辑:新建流", () => {
   });
 });
 
-describe("配置编辑:跑一次与采集运行提示", () => {
+describe("YAML配置:跑一次与采集运行提示", () => {
   it("跑一次:dirty 禁用(title 提示先保存),保存后发起 run.start 并引导日志屏", async () => {
     const { map, state } = okSidecar();
     installSidecar(map);
@@ -670,7 +670,7 @@ describe("配置编辑:跑一次与采集运行提示", () => {
   });
 });
 
-describe("配置编辑:删除动作", () => {
+describe("YAML配置:删除动作", () => {
   it("confirm 文案含 .bak 留底与官方件重建提示;取消不发删除;确认后删文件+刷新列表+选中项回 idle", async () => {
     const { map, state } = okSidecar();
     installSidecar(map);
@@ -705,7 +705,7 @@ describe("配置编辑:删除动作", () => {
   });
 });
 
-describe("配置编辑:品类文件搜索 + 打开位置(10-11-yaml-editor-search-reveal)", () => {
+describe("YAML配置:品类文件搜索 + 打开位置(10-11-yaml-editor-search-reveal)", () => {
   it("AC1/AC2 搜索:品类名与文件名子串过滤(大小写不敏感),计数 (命中/总数),清空恢复全量", async () => {
     installSidecar(okSidecar().map);
     renderScreen();

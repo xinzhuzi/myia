@@ -21,9 +21,9 @@ interface YamlEditorDialogProps {
 /**
  * 源管理屏的当场编辑弹窗:不离开源管理屏,弹出模态对话框编辑既有品类文件。
  *
- * 编辑内核 = use-yaml-file-editor(与双栏配置编辑屏共用同一份保存逻辑:
+ * 编辑内核 = use-yaml-file-editor(与双栏YAML配置屏共用同一份保存逻辑:
  * 同门校验零写入 → mtime 乐观锁 → .bak → 原子落盘 → doctor 复核)。
- * 「跑一次/新建/删除」不进弹窗(留在配置编辑屏;弹窗 = 快速编辑既有文件)。
+ * 「跑一次/新建/删除」不进弹窗(留在YAML配置屏;弹窗 = 快速编辑既有文件)。
  * 零新 npm 依赖:手写 overlay(fixed 遮罩 + 居中面板,role=dialog aria-modal);
  * ESC / 遮罩点击 / 关闭按钮都走同一守卫:dirty 时先 window.confirm。
  * mtime_conflict 走 ErrorBox 惯例并给「重读」(不覆盖外部改动)。
