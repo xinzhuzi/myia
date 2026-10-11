@@ -3517,10 +3517,10 @@ export function FeedScreen() {
                 <section
                   data-testid="feed-tg-accounts"
                   aria-label="监控账号"
-                  className="border-b border-border/40 px-1.5 pb-1.5"
+                  className="border-b border-border/40 pb-3"
                 >
                   <p
-                    className="py-1.5 text-xs font-medium text-foreground"
+                    className="px-2.5 py-1.5 text-xs font-medium tracking-wider text-muted-foreground"
                     data-testid="feed-tg-accounts-title"
                   >
                     {tgStatusPhase === "ok" ? `账号 · ${tgAccounts.length}` : "账号"}
@@ -3528,7 +3528,7 @@ export function FeedScreen() {
                   {tgStatusPhase === "idle" || tgStatusPhase === "loading" ? (
                     /* 答案未落地:骨架行,不出空态(不把加载中误述成没有) */
                     <div
-                      className="flex items-center gap-2 rounded-md px-1 py-1.5"
+                      className="flex items-center gap-2 rounded-md px-2.5 py-2"
                       data-testid="feed-tg-accounts-loading"
                       aria-busy="true"
                       aria-label="监控账号加载中"
@@ -3544,7 +3544,7 @@ export function FeedScreen() {
                       /* 补A(grill 二轮):error 态独立分支——「监控状态暂时
                           不可用」+ 重试(接既有 retryTgStatus)+ 跳转钮并列;
                           2 级不再全应用唯一 error 无重试的 TG 面。 */
-                      <div className="py-1.5" data-testid="feed-tg-accounts-error">
+                      <div className="px-2.5 py-1.5" data-testid="feed-tg-accounts-error">
                         <p className="text-2xs leading-relaxed text-warning">监控状态暂时不可用</p>
                         <div className="mt-1.5 flex items-center gap-1.5">
                           <Button
@@ -3569,7 +3569,7 @@ export function FeedScreen() {
                       </div>
                     ) : (
                       /* 零账号(phase=ok 空集):引导空态 + 跳转 */
-                      <div className="py-1.5" data-testid="feed-tg-accounts-empty">
+                      <div className="px-2.5 py-1.5" data-testid="feed-tg-accounts-empty">
                         <p className="text-2xs leading-relaxed text-muted-foreground">
                           还没有监控账号;到「Telegram」屏添加账号并登录后,其所在群的文本消息才会入库。
                         </p>
@@ -3613,7 +3613,7 @@ export function FeedScreen() {
                           role="button"
                           tabIndex={0}
                           aria-label={`打开账号管理:${acct.label ?? acct.account}`}
-                          className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 hover:bg-accent/50"
+                          className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 hover:bg-accent/50"
                           onClick={(event) => {
                             if ((event.target as HTMLElement).closest("button")) return;
                             navigate("/tg-account");
