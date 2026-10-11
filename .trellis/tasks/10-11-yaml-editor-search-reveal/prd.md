@@ -32,7 +32,7 @@
 - [x] AC4 壳围栏:非 .yaml 后缀/文件不存在/无父目录 → 结构化报错不拉起进程;合法路径 → 平台文件管理器打开父目录(spawn 不等退出码)
 - [x] AC5 测试:前端(过滤/计数/零命中/按钮调用/禁用态/错误态)+ Rust(围栏校验单测)全绿
 - [x] AC6 门禁:vitest + tsc -b + cargo(测试/构建)+ npm run build 全绿
-- [ ] AC7 交付:入库 + 装机包已刷新换装(交付纪律)
+- [x] AC7 交付:入库 + 装机包已刷新换装(交付纪律)
 
 ## 边界
 
@@ -44,4 +44,5 @@
 - **代码 7bb8314**(5 文件,+249/−6):file-list.tsx 搜索框+过滤+计数+零命中态;yaml-editor-screen.tsx 工具条「打开位置」(FolderOpen,未选文件禁用)+ revealError 抽屉槽;api.ts revealYamlDir 壳命令封装;main.rs `reveal_yaml_dir` + `yaml_dir_to_reveal` 围栏纯函数 + generate_handler 注册 + 围栏单测。
 - **门禁**:本屏 vitest 22/22(含 5 新用例:过滤/计数切换/零命中/草稿不受滤/按钮调用/禁用态/错误态);全量 vitest 694/694(首轮 693/694,feed-screen 1 例并发 flake,单跑与复跑均全绿,与本改动无涉——diff 不触 feed 面);cargo test reveal_yaml_dir_fence 过;cargo build 过;tsc -b + vite build 过。
 - **GitNexus**:编辑前 impact(FileList/YamlEditorScreen)=LOW(唯一调用方本屏);提交前 detect-changes 报 HIGH 经甄别为**行号漂移伪影**(main.rs 纯插入 66 行零删改,伪报 data_root 等未触符号),diff --cached 实证唯一新增 fn 即围栏函数。
+- **装机(AC7)**:tauri build exit 0(世事.app 17.82MiB + DMG 0.0.3,12:11);换装前验源=新二进制字节 grep `reveal_yaml_dir` 命中;备份 `/tmp/myssia-yamleditor-backup-20261011-121329` 后 ditto 换装 /Applications/世事.app;`codesign --force --deep -s -`+`-vv --strict` 双过;WKWebView 缓存清理(仅 `~/Library/WebKit/com.myssia.app`,历史标识 myia-desktop/com.myia.desktop-spike 不动);装机二进制复核符号在案。**装机无头冒烟(package_smoke)全 PASS**:A0 预检清场/A1 open -g 静默启动/A2 主进程存活(pid 54647)/A4 CGWindowList 双窗/A5 数据根 .instance.lock/A6 安静退出全过;B 部分按自管 Python 架构治理 SKIP(行为面已在冻结期架构验证+本批 vitest 覆盖)。如实声明:「打开位置」的 Finder 弹出为系统交互,无头不可断言且实弹会弹 Finder 窗占主人屏,留主人下次启动 app 后顺手目验。
 
