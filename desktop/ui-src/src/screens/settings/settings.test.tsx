@@ -934,6 +934,16 @@ describe("设置:分区导航与危险区(D4 结构重做)", () => {
     expect(screen.queryByTestId("settings-danger-zone")).toBeNull(); // 危险区不在通用
   });
 
+  it("Telegram 分区已抽为独立屏(10-11-tg-multi-account-groups v10):导航无此项、卡不挂载;深链 ?section=telegram 按未知值回落通用", async () => {
+    installSidecar();
+    // 旧深链(feed 3 级监控台「管理」钮的旧落点)不白屏:分区已从 SECTIONS/
+    // SECTION_FIELD_TERMS 移除,telegram 成未知值 → 缺省通用分区
+    renderScreen("/settings?section=telegram");
+    expect(screen.queryByTestId("settings-nav-telegram")).toBeNull();
+    expect(screen.queryByTestId("telegram-card")).toBeNull();
+    expect(screen.getByTestId("settings-section-general")).toBeTruthy();
+  });
+
   it("点导航切区:右列换屏 + aria-current 随迁;视觉区挂 VisionForm 两卡所需表单", async () => {
     mocks.invoke.mockImplementation(async (_command: string, args: { method: string }) => {
       if (args.method === "secret.list") return { names: [] };

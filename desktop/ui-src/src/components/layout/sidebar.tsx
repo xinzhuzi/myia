@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, Clock, FileCode2, Inbox, LayoutDashboard, MessageCircle, Rss, Settings, Terminal } from "lucide-react";
+import { ChevronDown, Clock, FileCode2, Inbox, LayoutDashboard, MessageCircle, Rss, Send, Settings, Terminal } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -44,13 +44,23 @@ export const NAV_GROUPS: NavGroup[] = [
    // 定时任务(10-04-cron-ui):cron.* 管理屏,位次=源管理之后
    // (与 App.tsx 路由一致;Clock 图标=排程语义)
    { to: "/cron", label: "定时任务", icon: Clock, end: false },
-   { to: "/yaml-editor", label: "配置编辑", icon: FileCode2, end: false },
    { to: "/logs", label: "采集日志", icon: Terminal, end: false },
   ],
  },
  {
   label: "推送",
   entries: [{ to: "/messaging", label: "消息", icon: MessageCircle, end: false }],
+ },
+ // 10-11-tg-multi-account-groups v10(主人令「都放到配置逻辑下面,现在有
+ // 采集,推送,再加个配置」):新增「配置」组,位次=推送之后、设置行之前。
+ // YAML配置 = 原「配置编辑」更名(route /yaml-editor 不变);TG账号 =
+ // 新独立屏 /tg-account(Telegram 监控卡自设置屏抽出;Send 图标=收发消息语义)。
+ {
+  label: "配置",
+  entries: [
+   { to: "/yaml-editor", label: "YAML配置", icon: FileCode2, end: false },
+   { to: "/tg-account", label: "TG账号", icon: Send, end: false },
+  ],
  },
 ];
 

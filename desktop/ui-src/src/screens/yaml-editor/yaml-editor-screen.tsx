@@ -207,7 +207,7 @@ export function YamlEditorScreen() {
        铺底,不再双层卡嵌套 */
     <div className="flex h-full min-h-0 flex-col pb-4">
       <PageHeader
-        title="配置编辑"
+        title="YAML配置"
         description="品类 YAML 原文编辑:注释逐字节保真;保存经同门校验(坏内容零写入),成功后 doctor 复核"
         actions={
           <Button size="sm" variant="outline" disabled={list.status === "loading"} onClick={() => void reloadList()}>

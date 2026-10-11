@@ -3825,7 +3825,9 @@ export function FeedScreen() {
                     variant="ghost"
                     size="sm"
                     className="h-6 px-1.5 text-2xs"
-                    onClick={() => navigate("/settings?section=telegram")}
+                    // v10(10-11-tg-multi-account-groups):Telegram 监控分区已抽为
+                    // 独立屏 /tg-account(侧栏「配置」组),管理入口随迁
+                    onClick={() => navigate("/tg-account")}
                   >
                     管理
                   </Button>
@@ -3909,7 +3911,7 @@ export function FeedScreen() {
                   <CardContent className="p-0">
                     <EmptyState
                       title="监控状态未知"
-                      description="暂时拿不到 Telegram 监控状态(状态服务未就绪或请求失败);是否登录、新消息是否入库以「设置 · Telegram」的台账为准。"
+                      description="暂时拿不到 Telegram 监控状态(状态服务未就绪或请求失败);是否登录、新消息是否入库以「TG 账号」屏的台账为准。"
                       action={
                         <Button variant="outline" size="sm" onClick={retryTgStatus}>
                           重试拉取状态

@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 //
-// 「Telegram 监控」总卡 IPC 契约测试(10-08-tg-web-line W4;PRD AC2;
-// 10-08-browser-module 接线:登录动作改调浏览器模块统一入口)。
+// 「TG 账号」独立屏测试(10-11-tg-multi-account-groups v10:Telegram 监控
+// 分区自设置屏抽为独立屏 /tg-account,原 telegram-card.test.tsx 用例随迁,
+// 渲染面从裸卡换成整屏;testid 全部沿用——telegram-card / telegram-web-*,
+// 断言语义逐条保真零丢失)。
 // 契约方法(desktop/entry.py v11 对齐,全量 mock Tauri IPC 不触真实壳):
 // - sidecar_request {method: "telegram.status"} → {bot:{configured,error},
 //   session:{exists}, web:{accounts:[…]}}
@@ -21,7 +23,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
 
-import { TelegramCard } from "./telegram-card";
+import { TgAccountScreen } from "./tg-account-screen";
 
 function statusFixture(overrides?: {
   bot?: { configured: boolean; error?: string | null };
@@ -99,8 +101,8 @@ afterEach(() => {
   cleanup();
 });
 
-describe("TelegramCard 三段状态", () => {
-  it("初拉渲染 bot/session/web 三段与空账号态", async () => {
+describe("TG 账号屏:三段状态(v10 随迁用例,原 TelegramCard)", () => {
+  it("冒烟:整屏渲染,bot/session/web 三段与空账号态在位", async () => {
     installIpc(
       statusFixture({
         bot: { configured: true },
@@ -108,7 +110,7 @@ describe("TelegramCard 三段状态", () => {
         accounts: [],
       }),
     );
-    render(<TelegramCard />);
+    render(<TgAccountScreen />);
     expect(await screen.findByTestId("telegram-card")).not.toBeNull();
     expect(screen.getByText("bot 线(Bot API)")).not.toBeNull();
     expect(screen.getByText("token 已录")).not.toBeNull();
@@ -120,7 +122,7 @@ describe("TelegramCard 三段状态", () => {
 
   it("未配置面给指引(bot 四步/session 首登)", async () => {
     installIpc(statusFixture());
-    render(<TelegramCard />);
+    render(<TgAccountScreen />);
     await screen.findByTestId("telegram-card");
     expect(screen.getByText(/BotFather/)).not.toBeNull();
     expect(screen.getByText(/myssia telegram login/)).not.toBeNull();
@@ -128,7 +130,7 @@ describe("TelegramCard 三段状态", () => {
 
   it("披露三条在卡面文案可见(AC5)", async () => {
     installIpc(statusFixture());
-    render(<TelegramCard />);
+    render(<TgAccountScreen />);
     await screen.findByTestId("telegram-card");
     const cardText = screen.getByTestId("telegram-card").textContent ?? "";
     expect(cardText).toContain("跟修哨兵");
@@ -138,12 +140,12 @@ describe("TelegramCard 三段状态", () => {
 
   it("status 拉取失败给错误与重试面", async () => {
     mocks.invoke.mockRejectedValue(new Error("sidecar 未连"));
-    render(<TelegramCard />);
+    render(<TgAccountScreen />);
     expect(await screen.findByText(/sidecar 未连/)).not.toBeNull();
   });
 });
 
-describe("TelegramCard 账号列表与动作", () => {
+describe("TG 账号屏:账号列表与动作(v10 随迁用例,原 TelegramCard)", () => {
   it("账号行:状态灯 + 重登 + 删除 + 登录时间", async () => {
     installIpc(
       statusFixture({
@@ -158,7 +160,7 @@ describe("TelegramCard 账号列表与动作", () => {
         ],
       }),
     );
-    render(<TelegramCard />);
+    render(<TgAccountScreen />);
     expect(
       await screen.findByTestId("telegram-web-account-telegram-alt1"),
     ).not.toBeNull();
@@ -170,7 +172,7 @@ describe("TelegramCard 账号列表与动作", () => {
 
   it("添加账号:键名合法 → browser.open(模块统一入口)+ 回执指引(验证码在你手机 TG 里)", async () => {
     installIpc();
-    render(<TelegramCard />);
+    render(<TgAccountScreen />);
     await screen.findByTestId("telegram-card");
     const input = await screen.findByLabelText("新账号键名");
     fireEvent.change(input, { target: { value: "telegram-alt1" } });
@@ -189,7 +191,7 @@ describe("TelegramCard 账号列表与动作", () => {
 
   it("添加账号:拉起失败(拔依赖)→ 卡面人话错误+修复指引可见,零静默(AC2 钉死)", async () => {
     installIpc();
-    render(<TelegramCard />);
+    render(<TgAccountScreen />);
     await screen.findByTestId("telegram-card");
     // 服务侧拔依赖形态:browser.open 同步结构化拒(playwright 缺装;
     // 消息自带人话修复指引 —— 静默失败=反模式)
@@ -221,7 +223,7 @@ describe("TelegramCard 账号列表与动作", () => {
 
   it("添加账号:键名违全称律 → 前端先拦(零 IPC 往返)", async () => {
     installIpc();
-    render(<TelegramCard />);
+    render(<TgAccountScreen />);
     await screen.findByTestId("telegram-card");
     const input = await screen.findByLabelText("新账号键名");
     fireEvent.change(input, { target: { value: "bad-key" } });
@@ -244,7 +246,7 @@ describe("TelegramCard 账号列表与动作", () => {
         ],
       }),
     );
-    render(<TelegramCard />);
+    render(<TgAccountScreen />);
     await screen.findByTestId("telegram-web-account-telegram-alt1");
     fireEvent.click(screen.getByTestId("telegram-web-telegram-alt1-relogin"));
     await waitFor(() => {
@@ -271,7 +273,7 @@ describe("TelegramCard 账号列表与动作", () => {
         ],
       }),
     );
-    render(<TelegramCard />);
+    render(<TgAccountScreen />);
     await screen.findByTestId("telegram-web-account-telegram-alt1");
     fireEvent.click(screen.getByTestId("telegram-web-telegram-alt1-delete"));
     await waitFor(() => {
@@ -301,7 +303,7 @@ describe("TelegramCard 账号列表与动作", () => {
         ],
       }),
     );
-    render(<TelegramCard />);
+    render(<TgAccountScreen />);
     expect(await screen.findByTestId("telegram-web-telegram-alt1-busy")).not.toBeNull();
     expect(
       (screen.getByTestId("telegram-web-telegram-alt1-relogin") as HTMLButtonElement).disabled,

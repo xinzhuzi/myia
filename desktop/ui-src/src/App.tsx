@@ -10,10 +10,11 @@ import { LogsScreen } from "@/screens/logs/logs-screen";
 import { MessagingScreen } from "@/screens/messaging/messaging-screen";
 import { SettingsScreen } from "@/screens/settings/settings-screen";
 import { SourcesScreen } from "@/screens/sources/sources-screen";
+import { TgAccountScreen } from "@/screens/tg-account/tg-account-screen";
 import { YamlEditorScreen } from "@/screens/yaml-editor/yaml-editor-screen";
 
 /**
- * 八屏路由(HashRouter:桌面 webview 下免服务端回退,最稳)。
+ * 九屏路由(HashRouter:桌面 webview 下免服务端回退,最稳)。
  * 「/」= 仪表盘;未知路径一律回落仪表盘。
  *
  * 路由接的是 @/screens/* 真实实现(自带 health/doctor/run/logs 数据流)。
@@ -29,6 +30,8 @@ import { YamlEditorScreen } from "@/screens/yaml-editor/yaml-editor-screen";
  * 位次=配置编辑之后(与侧栏一致);命名直白用「消息」,不用行话。
  * /cron = 定时任务(10-04-cron-ui):cron.* 九方法管理屏,位次=源管理之后
  * (与侧栏一致);与 CLI `myssia cron` 同一批 job 数据。
+ * /tg-account = TG 账号(10-11-tg-multi-account-groups v10):Telegram 监控卡
+ * 自设置屏抽出的独立屏,归侧栏「配置」组(位次=推送之后,与侧栏一致)。
  */
 export default function App() {
   // 白窗修复握手(10-06-smoke-window-politeness R1):首屏挂载完成即通知壳层
@@ -50,6 +53,7 @@ export default function App() {
         <Route path="yaml-editor" element={<YamlEditorScreen />} />
         <Route path="messaging" element={<MessagingScreen />} />
         <Route path="logs" element={<LogsScreen />} />
+        <Route path="tg-account" element={<TgAccountScreen />} />
         <Route path="settings" element={<SettingsScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

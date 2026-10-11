@@ -63,7 +63,6 @@ import { ErrorBox } from "./error-box";
 import { FieldInput } from "./field-input";
 import { PyenvCard } from "./pyenv-card";
 import { SettingRow } from "./settings-row";
-import { TelegramCard } from "./telegram-card";
 import { UpdaterCard } from "./updater-card";
 import { VisionForm } from "./vision-form";
 
@@ -167,10 +166,9 @@ const SECTIONS: SettingsSection[] = [
   // 批二(10-05-bundled-plugins-batch2):+卸载(uninstall)与品类 YAML
   // 平铺装(category_install/categories)。
   { id: "installer-plugins", label: "装机组件", icon: Layers, title: "装机组件", description: "随包官方插件件:发现 / 安装 / 重装 / 卸载 + 品类配置平铺装(manifest 校验;品类与补种同落点)" },
-  // 10-08-tg-web-line W4:Telegram 监控总卡(bot/session/web 三段 + 网页线
-  // 账号列表:添加/重登/删除;登录动作自 10-08-browser-module 起改调浏览器
-  // 模块统一入口 browser.open,两侧状态同源联动)。
-  { id: "telegram", label: "Telegram 监控", icon: Send, title: "Telegram 监控", description: "三条消息线(bot / 用户 session / 网页登录):状态灯 + 网页线账号列表(添加 / 重登 / 删除)" },
+  // 10-11-tg-multi-account-groups v10:Telegram 监控分区抽为独立屏 /tg-account
+  // (侧栏「配置」组),此处不再设分区;浏览器分区仍留设置树(登录窗的
+  // 窗口台账/管理仍归浏览器模块)。
   // 10-08-browser-module 案甲:浏览器专用模块(设置树一级分区;单入口
   // 铁律 = 一切浏览器操作必经本模块):操作台账(登录中/完成/失败+重试)
   // + 每操作窗口管理(聚焦/关闭)+ 日志尾巴。
@@ -203,8 +201,6 @@ const SECTION_FIELD_TERMS: Record<string, string> = {
   vision: "看图 通道 ocr 引擎 vision rapidocr mlx base_url 本地模型路径 云端模型 云端 api key 模型管理 服务",
   gates: "门槛 付费 saas 采集引擎 zenrows 自有实例 平台 token 分析件 停更 知情 启用",
   "installer-plugins": "装机 官方插件 发现 安装 重装 卸载 品类配置 平铺 manifest 补种",
-  telegram:
-    "telegram 监控 bot token session telethon 网页登录 tg_web 账号 添加账号 重登 删除 验证码 小号 群消息",
   browser:
     "浏览器 模块 操作 台账 登录中 完成 失败 重试 窗口 聚焦 关闭 日志 尾巴 chromium playwright 授权 验证码 核验",
   "python-env": "python 运行时 依赖 下载源 安装路径 使用路径 镜像 pypi 安装明细 同步",
@@ -1560,14 +1556,8 @@ export function SettingsScreen() {
             </Searchable>
           ) : null}
 
-          {/* Telegram 监控(10-08-tg-web-line W4:三线状态 + 网页线账号列表;
-              登录动作自 10-08-browser-module 起改调浏览器模块统一入口)。
-              ② 同上整件显隐 */}
-          {activeSection.id === "telegram" ? (
-            <Searchable terms={SECTION_FIELD_TERMS.telegram}>
-              <TelegramCard />
-            </Searchable>
-          ) : null}
+          {/* Telegram 监控分区已抽为独立屏 /tg-account(10-11-tg-multi-account-groups
+              v10,侧栏「配置」组);设置树不再渲染该分区 */}
 
           {/* 浏览器专用模块(10-08-browser-module 案甲:操作台账/窗口管理/
               日志尾巴;单入口铁律 = 一切浏览器操作必经本模块)。② 同上 */}

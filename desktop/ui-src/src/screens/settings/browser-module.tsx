@@ -148,7 +148,7 @@ export function BrowserModuleCard() {
           <div data-testid="browser-operations" className="flex flex-col gap-2">
             {operations.length === 0 ? (
               <p data-testid="browser-operations-empty" className="text-xs text-muted-foreground">
-                尚无浏览器操作:到「Telegram 监控」分区点「添加账号 / 重新登录」即在本模块登记第一条操作
+                尚无浏览器操作:到「TG 账号」屏(侧栏「配置」组)点「添加账号 / 重新登录」即在本模块登记第一条操作
                 (登录窗与账号状态两侧联动);这里也是未来授权/验证码/手动核验窗口的统一台账。
               </p>
             ) : null}

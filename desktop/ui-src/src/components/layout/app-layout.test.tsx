@@ -20,7 +20,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 });
 
 import { AppLayout } from "@/components/layout/app-layout";
-import { Sidebar, loadSidebarPrefs, saveSidebarPrefs } from "@/components/layout/sidebar";
+import { NAV_GROUPS, Sidebar, loadSidebarPrefs, resolveNav, saveSidebarPrefs } from "@/components/layout/sidebar";
 import type { SidebarPrefs } from "@/components/layout/sidebar";
 
 /** 内存 Storage:node 25 + vitest 4 的 jsdom 环境下 window.localStorage 被
@@ -74,6 +74,36 @@ function sidebarWidth(): string {
   return (aside as HTMLElement).style.width;
 }
 
+
+// ---------------------------------------------------------------------------
+// 侧栏信息架构回归锚(10-11-tg-multi-account-groups v10,主人令「现在有
+// 采集,推送,再加个配置」):采集组移除配置编辑;新增「配置」组位于推送
+// 之后,收 YAML配置(原「配置编辑」更名,route 不变)+ TG账号(新独立屏)。
+// NAV_GROUPS 导出即测试口径(sidebar.tsx prd A-shell「顺手 export」的兑现);
+// 底部设置行(SETTINGS_ENTRY)不受重排影响,经 resolveNav 同口径钉死。
+// ---------------------------------------------------------------------------
+
+describe("NAV_GROUPS 信息架构(v10 配置分组)", () => {
+  it("组序 = 顶层直链/采集/推送/配置;采集组不再含配置编辑", () => {
+    expect(NAV_GROUPS.map((group) => group.label)).toEqual([null, "采集", "推送", "配置"]);
+    const capture = NAV_GROUPS.find((group) => group.label === "采集");
+    expect(capture?.entries.map((entry) => entry.to)).toEqual(["/sources", "/cron", "/logs"]);
+  });
+
+  it("「配置」组收 YAML配置(/yaml-editor 更名)+ TG账号(/tg-account 新屏)", () => {
+    const config = NAV_GROUPS.find((group) => group.label === "配置");
+    expect(config?.entries.map((entry) => [entry.to, entry.label])).toEqual([
+      ["/yaml-editor", "YAML配置"],
+      ["/tg-account", "TG账号"],
+    ]);
+  });
+
+  it("resolveNav 深链口径:/tg-account、/yaml-editor 落「配置」组;底部设置行不动", () => {
+    expect(resolveNav("/tg-account")?.group).toBe("配置");
+    expect(resolveNav("/yaml-editor")?.group).toBe("配置");
+    expect(resolveNav("/settings")?.entry.label).toBe("设置");
+  });
+});
 
 describe("[ 键切换(侧栏折叠)", () => {
   it("拖拽手柄在侧栏右缘(separator role)", () => {
