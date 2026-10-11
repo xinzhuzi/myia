@@ -53,6 +53,8 @@ export interface NativeWindowHandle {
   label: string;
   once(event: string, handler: (event: unknown) => void): Promise<unknown>;
   setFocus(): Promise<void>;
+  /** 创建后上屏(真实 WebviewWindow 具备;测试假窗可缺省) */
+  show?(): Promise<void>;
 }
 
 /** 窗口系统依赖缝(测试注入替身;真实实现绑 @tauri-apps/api webviewWindow) */
@@ -60,12 +62,15 @@ export interface NativeWindowDeps {
   getByLabel(label: string): Promise<NativeWindowHandle | null>;
   getAll(): Promise<{ label: string }[]>;
   create(label: string, options: Record<string, unknown>): NativeWindowHandle;
+  /** 创建后上屏(macOS JS 建窗不自动 orderFront);缺省 = 不 show(测试桩) */
+  show?(handle: NativeWindowHandle): Promise<void>;
 }
 
 const realDeps: NativeWindowDeps = {
   getByLabel: (label) => WebviewWindow.getByLabel(label) as Promise<NativeWindowHandle | null>,
   getAll: () => WebviewWindow.getAll(),
   create: (label, options) => new WebviewWindow(label, options) as unknown as NativeWindowHandle,
+  show: (handle) => handle.show?.() ?? Promise.resolve(),
 };
 
 /** 活窗登记(label → t.me 频道名)。仅作 bookkeeping,存在性判定一律实时走
@@ -216,6 +221,14 @@ export async function openOrFocusNative(
     minHeight: 480,
   });
   registry.set(label, key);
+  // 创建后立即上屏(macOS 实测:JS 建窗不自动 orderFront,窗在注册表活着但
+  // 永不上屏 = 主人实测「点击没用,没有弹窗」;show = orderFront 不抢焦点,
+  // 与能力 core:window:allow-show 单授权配套)
+  try {
+    void deps.show?.(handle).catch(() => undefined);
+  } catch {
+    // 尽力而为:show 失败不影响窗口已建事实
+  }
   void handle.once("tauri://destroyed", () => {
     // 模块级单点清理(F1):注意力表随窗亡回收,不依赖组件订阅者存活 ——
     // 用户在别的渠道/层级关窗,回进该频道时段控件如实回落情报视图

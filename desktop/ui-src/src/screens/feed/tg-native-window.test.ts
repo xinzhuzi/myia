@@ -270,6 +270,7 @@ describe("tg-native-window 注册表(v9 原生视图窗口管理)", () => {
       }),
       getAll: vi.fn(async () => []),
       create: vi.fn(),
+      show: vi.fn(async () => undefined),
     };
     await expect(isNativeWindowOpen(K_URL, badDeps)).resolves.toBe(false);
     await expect(isNativeWindowOpen("https://t.me/s/mihomo_party", deps)).resolves.toBe(false);
