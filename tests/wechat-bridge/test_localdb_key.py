@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
 import sqlite3
 import struct
 from pathlib import Path
@@ -582,3 +583,49 @@ class TestMemsearchShell:
         written = write_key_cache(write_map, data_root=tmp_path)
         assert (written.stat().st_mode & 0o777) == 0o600
         assert read_key_cache(data_root=tmp_path) == write_map
+
+    def test_sudo_write_restores_owner_to_invoking_user(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """sudo 会话(euid==0 + SUDO_UID/SUDO_GID)落盘属主归还发起用户。
+
+        D4 复审缺陷回归:门③只放行 root,root 写缓存建成 root 属主后,
+        用户侧 query 读不动(PermissionError 被 read_key_cache 如实 None
+        语义收编)→ resolve_keys 静默回落 E1,命中被谎报为零命中。
+        """
+        monkeypatch.setattr(os, "geteuid", lambda: 0)
+        monkeypatch.setenv("SUDO_UID", str(os.getuid()))
+        monkeypatch.setenv("SUDO_GID", str(os.getgid()))
+        chowns: list[tuple[str, int, int]] = []
+        monkeypatch.setattr(
+            os, "chown", lambda p, u, g, **_k: chowns.append((str(p), u, g))
+        )
+        write_key_cache({"a/b.db": "00" * 32}, data_root=tmp_path)
+        file_path = key_cache_path(data_root=tmp_path)
+        expected = (os.getuid(), os.getgid())
+        assert (str(file_path), *expected) in chowns
+        assert (str(file_path.parent), *expected) in chowns
+        assert (file_path.stat().st_mode & 0o777) == 0o600  # 600 权限语义不变
+
+    def test_root_without_sudo_env_no_chown(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """非 sudo 的 root 会话无从判定目标属主:不 chown,落盘不受影响。"""
+        monkeypatch.setattr(os, "geteuid", lambda: 0)
+        monkeypatch.delenv("SUDO_UID", raising=False)
+        monkeypatch.delenv("SUDO_GID", raising=False)
+        chowns: list[tuple[object, ...]] = []
+        monkeypatch.setattr(os, "chown", lambda *a, **k: chowns.append(a))
+        write_key_cache({"a/b.db": "00" * 32}, data_root=tmp_path)
+        assert chowns == []
+        assert read_key_cache(data_root=tmp_path) is not None
+
+    def test_sudo_uid_dirty_value_not_fatal(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """SUDO_UID 脏值(非数字):归还失败不拦落盘(文档尾部 chown 兜底)。"""
+        monkeypatch.setattr(os, "geteuid", lambda: 0)
+        monkeypatch.setenv("SUDO_UID", "not-a-number")
+        monkeypatch.setenv("SUDO_GID", "0")
+        write_key_cache({"a/b.db": "00" * 32}, data_root=tmp_path)
+        assert read_key_cache(data_root=tmp_path) is not None

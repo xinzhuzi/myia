@@ -437,8 +437,31 @@ def key_cache_path(data_root: Path | None = None) -> Path:
     return root / LOCALDB_PRIVATE_DIR / Path(LOCALDB_KEYS_REL_PATH).name
 
 
+def _restore_owner_for_sudo(path: Path) -> None:
+    """sudo 会话落盘把属主归还给发起 sudo 的用户(SUDO_UID/SUDO_GID)。
+
+    背景(D4 复审坐实):key-scan 门③只放行 euid==0(memsearch 提权门),
+    root 写 keys.json 会把缓存目录与文件建成 root 属主;此后用户侧
+    ``localdb query`` 读缓存 PermissionError(被 :func:`read_key_cache`
+    如实 None 语义收编)→ :func:`resolve_keys` 静默回落 E1 → 扫描实为
+    命中却被报成零命中,「一步闭合」自坏。sudo 会话自带 SUDO_UID/
+    SUDO_GID,即取即还;非 sudo 的 root 会话无从判定目标属主,保持原样
+    (文档命令尾部另有显式 chown 兜底)。
+    """
+    if os.geteuid() != 0:
+        return
+    uid = os.environ.get("SUDO_UID")
+    gid = os.environ.get("SUDO_GID")
+    if uid is None or gid is None:
+        return
+    try:
+        os.chown(path, int(uid), int(gid))
+    except (OSError, ValueError):
+        pass  # 归还失败不拦扫描本身;文档命令尾部显式 chown 兜底
+
+
 def write_key_cache(mapping: dict[str, str], *, data_root: Path | None = None) -> Path:
-    """写密钥缓存(仅验证通过的 key;600 权限;目录 700)。"""
+    """写密钥缓存(仅验证通过的 key;600 权限;目录 700;sudo 下属主归还)。"""
     import json
 
     path = key_cache_path(data_root)
@@ -446,6 +469,8 @@ def write_key_cache(mapping: dict[str, str], *, data_root: Path | None = None) -
     os.chmod(path.parent, 0o700)
     path.write_text(json.dumps(mapping, indent=1) + "\n", encoding="utf-8")
     os.chmod(path, 0o600)
+    _restore_owner_for_sudo(path.parent)
+    _restore_owner_for_sudo(path)
     return path
 
 

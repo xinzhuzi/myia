@@ -11,7 +11,8 @@
 - **sudo 非交互探测:不可用**(`sudo -n true` → `sudo: a password is required`,exit 1)
   → 按豁免令边界**不硬来**:真跑挂起,主人单条提权命令已备(§5),`keyObtained=false`(如实)。
 - **memsearch 空壳 → 配置可启真实现落地**(design §4 口径升级):只读 vm_read 单遍
-  批处理 + 32B 滑窗候选 + 复用 E1 离线 HMAC 校验器 + 全量命中才落 `keys.json`(600);
+  批处理 + 32B 滑窗候选 + 复用 E1 离线 HMAC 校验器 + 全量命中才落 `keys.json`
+  (600;sudo 会话属主自动归还发起用户,见 §5);
   开关 = 桥组件配置键 `mem_search_enabled`(**缺省关**),CLI 挂 `localdb key-scan`。
 - 合成内存全链单测全绿(命中/跨段拼接/预算截断/部分命中不落缓存/守卫钉死);
   实机扫描速率实测 **0.34 MiB/s**(4/8/16MiB 三档一致),256MiB 预算外推 ≈ **12.4 分钟**单遍。
@@ -46,7 +47,8 @@ sudo: a password is required        # exit=1
 - **预算**(模块常量,刻意无配置面——预算即边界,边界不给人调):
   单区 64 MiB / 单次批处理总预算 256 MiB / 段 1 MiB;耗尽如实标 `interrupted`。
 - **落盘纪律**:只在**全量命中**时 `write_key_cache`(数据根私有区
-  `wechat-localdb/keys.json`,600,目录 700);部分命中不落缓存(缓存=全量验证
+  `wechat-localdb/keys.json`,600,目录 700;sudo 会话属主归还发起用户,
+  SUDO_UID/SUDO_GID);部分命中不落缓存(缓存=全量验证
   子集,与 E1 同纪律);全部应答/消息只承载形状(pids/区数/字节/滑窗/校验次数)。
 - **只读红线源码级钉死**(tests/wechat-bridge/test_localdb_key.py
   `TestMemsearchShell::test_source_readonly_guards`):必需只读机械
@@ -86,22 +88,33 @@ E1 空壳期口径:「无配置键,启用唯一途径 = 代码层显式改 `MEMO
 ## 5. 主人单条提权命令(真跑待此;keyObtained=false 的闭合途径)
 
 ```sh
-mkdir -p "$HOME/Library/Application Support/MYIA/wechat-bridge" && printf '{"mem_search_enabled": true}\n' > "$HOME/Library/Application Support/MYIA/wechat-bridge/config.json" && sudo env MYIA_HOME="$HOME/Library/Application Support/MYIA" PYTHONPATH="/Users/zhengbingjin/Project/Github/MYIA/plugins/wechat-bridge" /Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python -m wechat_bridge localdb key-scan --json
+mkdir -p "$HOME/Library/Application Support/MYIA/wechat-bridge" && printf '{"mem_search_enabled": true}\n' > "$HOME/Library/Application Support/MYIA/wechat-bridge/config.json" && sudo env MYIA_HOME="$HOME/Library/Application Support/MYIA" PYTHONPATH="/Users/zhengbingjin/Project/Github/MYIA/plugins/wechat-bridge" /Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python -m wechat_bridge localdb key-scan --json; rc=$?; sudo chown -R "$(id -u):$(id -g)" "$HOME/Library/Application Support/MYIA/wechat-localdb" 2>/dev/null; (exit $rc)
 ```
 
 **机理与边界(一次性批处理式只读扫描)**:
 
 - 前半 = 显式开启开关(主人运行此命令即主人显式开启;事后还原 =
   `echo '{}' > "$HOME/Library/Application Support/MYIA/wechat-bridge/config.json"`
-  回全缺省即关);后半 = root 提权下**一次**遍历扫描,扫完进程即退,
-  零常驻、零轮询、零重试。
+  回全缺省即关);中段 = root 提权下**一次**遍历扫描,扫完进程即退,
+  零常驻、零轮询、零重试;尾部 = 属主归还(见下),`rc=$?` 先存扫描
+  退出码、chown 对不存在目录静默跳过、`(exit $rc)` 原样奉还——零命中
+  exit 21 等诚实退出码**不被 chown 吞掉**。
+- **属主归还(成功分支不自坏,2026-10-12 复审增补)**:key-scan 门③只放行
+  root,若 root 直接落 `keys.json`,缓存目录与文件即 root 属主,此后用户侧
+  `localdb query`/sidecar 读缓存 PermissionError(被 `read_key_cache` 如实
+  None 语义收编)→ `resolve_keys` 静默回落 E1 → **扫描实为命中却被报成
+  零命中**,「一步闭合」自坏。双保险:①组件侧 `write_key_cache` 在
+  euid==0 且 sudo 会话(SUDO_UID/SUDO_GID 在场)时自动把目录与文件属主
+  归还发起 sudo 的用户(本批复测钉死);②命令尾部显式 `sudo chown`
+  兜底(旧装机件/非 sudo root 会话场景)。
 - 对微信进程只做 vm_read 类只读系统调用;可写私有区 32B 滑窗 × 离线 HMAC;
   禁写内存/禁注入/禁调试器附加/禁重签名(源码守卫钉死,非口头约束)。
 - 预算:单区 64 MiB、总 256 MiB,实测速率外推全程 ≈12 分钟(期间微信零扰动、
   零前台操作;扫描器不触碰窗口/AX,纯内核只读调用)。
 - 密码语义:sudo 密码由主人按日常习惯亲自输入,**桥与子代理全程不索要、
   不读、不存密码**。
-- 命中 → `keys.json` 落数据根私有区(600)→ `localdb query` 一步闭合(AC7);
+- 命中 → `keys.json` 落数据根私有区(600,属主归还发起用户,见上)→
+  `localdb query` 一步闭合(AC7);
   零命中/部分命中/内核拒绝 → exit 21 形状如实,**诚实第一:扫不到就扫不到**。
 - **如实预告(不包装)**:本机微信为 hardened runtime 签名(codesign 实测
   `flags=0x10000(runtime)`,无 `get-task-allow`)——XNU 对 restricted 目标的
