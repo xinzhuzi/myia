@@ -103,6 +103,7 @@ import {
   statesFromItems,
   telegramKUrlOf,
   toggleMarker,
+  urlSegmentsOf,
   type ChannelCardKind,
   type ChannelKind,
   type ExportFormat,
@@ -517,6 +518,31 @@ const FeedCard = memo(function FeedCard({
               expanded ? (
                 <p className="mt-1.5 text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground/90">
                   {item.content}
+                </p>
+              ) : urlSegmentsOf(bodyPreview).some((seg) => seg.kind === "url") ? (
+                <p
+                  className="mt-1 line-clamp-2 cursor-pointer text-sm leading-relaxed text-muted-foreground hover:text-foreground/90"
+                  onClick={() => onOpenDetail(item)}
+                >
+                  {urlSegmentsOf(bodyPreview).map((seg, index) =>
+                    seg.kind === "url" ? (
+                      <a
+                        key={index}
+                        className="text-link underline"
+                        title={`在浏览器打开:${seg.value}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void openInBrowser(seg.value).catch((err) =>
+                            onOpenError(err instanceof Error ? err.message : String(err)),
+                          );
+                        }}
+                      >
+                        {seg.value}
+                      </a>
+                    ) : (
+                      <span key={`t${index}`}>{seg.value}</span>
+                    ),
+                  )}
                 </p>
               ) : (
                 <p

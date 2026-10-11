@@ -799,6 +799,29 @@ export function telegramKUrlOf(url: string | null | undefined): string | null {
   return null;
 }
 
+/** 文本 → 文本/URL 分段(10-09:clashv8 返回的订阅 URL 在消息正文里,
+ *  气泡内 URL 段渲染为可点链接 = 「返回给 URL,可以获取这个信息」的取用处)。
+ *  URL 词表:http(s) 起,至空白/全角标点止;无 URL = 纯文本单段。 */
+export interface UrlSegment {
+  kind: "text" | "url";
+  value: string;
+}
+
+export function urlSegmentsOf(text: string): UrlSegment[] {
+  const re = /https?:\/\/[^\s<>"'）】、]+/g;
+  const out: UrlSegment[] = [];
+  let last = 0;
+  for (const match of text.matchAll(re)) {
+    const idx = match.index ?? 0;
+    if (idx > last) out.push({ kind: "text", value: text.slice(last, idx) });
+    out.push({ kind: "url", value: match[0] });
+    last = idx + match[0].length;
+  }
+  if (out.length === 0) return [{ kind: "text", value: text }];
+  if (last < text.length) out.push({ kind: "text", value: text.slice(last) });
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // 渠道卡(v6 渠道瀑布流,10-09 主人三次纠偏后的最终定调:「卡片 = 信息获取
 // 渠道」——一个网站/一个 TG 频道/一个日报源,不是单条消息也不是分类):
