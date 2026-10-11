@@ -177,8 +177,9 @@ def run_probe(
             ProbeReason(
                 CODE_KEY_UNAVAILABLE_NAME,
                 "零内存密钥途径(key_info.db)实测不可推导(E1 真跑:候选全数"
-                "离线 HMAC 未命中;材料疑被机器专属密钥包裹);D4 待主人裁决:"
-                "豁免内存搜索(默认关空壳)或引入外部密钥",
+                "离线 HMAC 未命中;材料疑被机器专属密钥包裹);D4 途径:内存"
+                "扫描(localdb key-scan,配置 mem_search_enabled 显式开启"
+                "+提权,默认关)或引入外部密钥(keys.json,600)",
             )
         )
 

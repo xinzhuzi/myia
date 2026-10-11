@@ -38,6 +38,8 @@ class TestMissingFileUsable:
         assert config.domains == DEFAULT_DOMAINS
         assert (config.sessions, config.messages, config.history_days) == (20, 50, 30)
         assert (config.copy_ttl_hours, config.copy_capacity_mb) == (24, 512)
+        # D4 豁免开关缺省关(design §4:默认关,主人显式开启才生效)。
+        assert config.mem_search_enabled is False
 
     def test_default_path_under_data_root(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         """缺省路径 = <数据根>/wechat-bridge/config.json(design §7 原文)。"""
@@ -71,6 +73,43 @@ class TestLoadCustom:
         config = load_config(path)
         assert config.messages == 9
         assert config.sessions == 20  # 未声明键回落缺省
+
+    def test_mem_search_enabled_accepts_bool_only(self, tmp_path: Path) -> None:
+        """D4 豁免开关:布尔收下(true/false),其余形态 usage 拒。"""
+        path = tmp_path / "config.json"
+        path.write_text(json.dumps({"mem_search_enabled": True}), encoding="utf-8")
+        assert load_config(path).mem_search_enabled is True
+        path.write_text(json.dumps({"mem_search_enabled": False}), encoding="utf-8")
+        assert load_config(path).mem_search_enabled is False
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            '{"mem_search_enabled": 1}',
+            '{"mem_search_enabled": 0}',
+            '{"mem_search_enabled": "true"}',
+        ],
+    )
+    def test_mem_search_non_bool_rejected(self, tmp_path: Path, raw: str) -> None:
+        path = tmp_path / "config.json"
+        path.write_text(raw, encoding="utf-8")
+        with pytest.raises(BridgeError) as excinfo:
+            load_config(path)
+        assert excinfo.value.exit_code == EXIT_USAGE
+        assert "布尔" in excinfo.value.message
+
+    def test_mem_search_null_is_absent(self, tmp_path: Path) -> None:
+        """JSON null 与未声明同语义(本配置族 get-None 口径)→ 缺省关。"""
+        path = tmp_path / "config.json"
+        path.write_text('{"mem_search_enabled": null}', encoding="utf-8")
+        assert load_config(path).mem_search_enabled is False
+
+    def test_to_payload_exposes_switch_shape(self, tmp_path: Path) -> None:
+        """诊断面暴露开关形状(纯布尔,非敏感)。"""
+        path = tmp_path / "config.json"
+        path.write_text(json.dumps({"mem_search_enabled": True}), encoding="utf-8")
+        assert load_config(path).to_payload()["mem_search_enabled"] is True
+        assert BridgeConfig().to_payload()["mem_search_enabled"] is False
 
 
 class TestFailFast:

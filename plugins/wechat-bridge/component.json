@@ -21,13 +21,14 @@
     }
   },
   "cli_contract": {
-    "spec": "design §6(执行者零设计)",
+    "spec": "design §6(执行者零设计);key-scan 为 D4 豁免执行件(主人 2026-10-11「全部解决」令)",
     "commands": [
       "--probe",
       "sessions list --json",
       "messages read <id> -k 50",
       "send_text <id> --file -",
-      "localdb query <chat> --since 7d --json"
+      "localdb query <chat> --since 7d --json",
+      "localdb key-scan --json(内存密钥批处理扫描;默认关+须提权+只读单遍零常驻)"
     ],
     "exit_codes": {
       "0": "成功",
@@ -53,7 +54,8 @@
     "domains": ["message", "session", "contact"],
     "limits": { "sessions": 20, "messages": 50, "history_days": 30 },
     "copy_ttl_hours": 24,
-    "copy_capacity_mb": 512
+    "copy_capacity_mb": 512,
+    "mem_search_enabled": false
   },
   "private_paths": {
     "config": "<数据根>/wechat-bridge/config.json",
@@ -63,7 +65,7 @@
   },
   "redlines": [
     "静默后台:不抢前台焦点、不合成鼠标点击、不激活微信窗口(prd 红线 4)",
-    "不破解协议:禁逆向、禁 hook 注入;内存密钥搜索默认关且禁止真跑(prd 红线 1)",
+    "不破解协议:禁逆向、禁 hook 注入;内存密钥搜索默认关,仅 D4 豁免(主人 2026-10-11「全部解决」令)后配置显式开启 + 提权才生效,且只读 vm_read 单遍零常驻、禁写内存/禁注入/禁调试器附加/禁重签名(prd 红线 1)",
     "私有数据:聊天内容/密钥材料不入 git/日志/报告;证据只留形状(prd 红线 6)"
   ]
 }

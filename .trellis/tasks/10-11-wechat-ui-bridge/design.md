@@ -59,6 +59,7 @@
 - 组件版本锁（真锁惯例）：桥组件版本 + 适用微信版本范围记录在组件戳。
 - 回滚：桥下线 = MYIA 侧 `bridge_unavailable` 灰态（对齐 `weixin.py` 显式可选设计），MYIA 主功能零依赖桥。
 - 密钥途径若最终依赖内存搜索（D4 豁免）：单独成模块 + 开关默认关，主人显式开启才生效。
+  - **2026-10-11 豁免令落位**（主人「全部解决」）：开关 = 桥组件配置键 `mem_search_enabled`（缺省 `false`，§7 清单增补）；真实现落位 `wechat_bridge/memsearch.py`——只读 vm_read 单遍批处理（`task_for_pid`/`mach_vm_region`/`mach_vm_read_overwrite`，取数即离手），禁写内存/禁注入/禁调试器附加/禁重签名（守卫测试源码级钉死）；CLI 挂 `localdb key-scan`（§6 增补）；三重门 = 主人裁决在案 + 配置显式开启 + root 提权。证据 research/d4-memscan-e2e.md。
 
 ## 5. 执行前置与安全边界
 
@@ -88,6 +89,7 @@ wechat-bridge sessions list --json        # → {"sessions":[{"id","name","unrea
 wechat-bridge messages read <id> -k 50    # → {"messages":[{"ts","sender","type","text"?,"media_placeholder"?}]}
 wechat-bridge send_text <id> --file -     # 正文经 stdin（argv 不携带内容，日志可安全打 argv，对齐 weixin.py D0）
 wechat-bridge localdb query <chat> --since 7d --json
+wechat-bridge localdb key-scan --json     # → {"matched":{"count","total"},"scan":{...形状...},"cache":路径}（D4 豁免件增补）
 ```
 
 **错误码表**（exit code；MYIA 侧按码映射 UI 文案与三态）：
@@ -117,6 +119,7 @@ wechat-bridge localdb query <chat> --since 7d --json
 - `domains`：本地库域清单（G4 缺省 `["message","session","contact"]`）
 - `limits`：`{sessions:20, messages:50, history_days:30}`（AC2 参数化落点）
 - `copy_ttl_hours: 24`、`copy_capacity_mb`（G5）
+- `mem_search_enabled: false`（**D4 豁免件增补，2026-10-11**：内存密钥扫描开关，缺省关；显式 `true` + root 提权 + 主人裁决在案三重门齐才生效——design §4 原文「开关默认关，主人显式开启才生效」的配置化落位）
 - **无频控键**（G6 硬编码，刻意不提供）
 
 ## 8. 测试与 CI 策略（执行时最易踩的坑，预先写死）

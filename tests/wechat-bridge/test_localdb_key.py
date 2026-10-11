@@ -18,6 +18,7 @@ import pytest
 
 import wechat_bridge.memsearch as memsearch
 from wechat_bridge.codes import KEY_UNAVAILABLE, BridgeError
+from wechat_bridge.config import BridgeConfig
 from wechat_bridge.localdb import (
     acquire_key,
     extract_key_candidates,
@@ -342,27 +343,233 @@ class TestResolveKeys:
 
 
 class TestMemsearchShell:
-    """内存搜索空壳(红线 1/3):默认关、恒拒绝、源码零进程 API。"""
+    """内存搜索(D4 豁免执行件):缺省关、三重门、只读性钉死、合成内存全链。
 
-    def test_default_off_and_refuses(self) -> None:
-        assert memsearch.MEMORY_SEARCH_ENABLED is False
+    D4 豁免口径(主人 2026-10-11「全部解决」令):对微信进程只读内存
+    (vm_read 类),禁写/禁注入/禁调试器附加;真跑还须配置显式开启 +
+    提权,本类以注入段源全链验证,绝不触碰真实进程。
+    """
+
+    # —— 门:缺省关 + 逐门拒 ——
+    def test_default_off_and_refuses(self, tmp_path: Path) -> None:
+
         with pytest.raises(BridgeError) as excinfo:
-            memsearch.acquire_key_from_memory(anything=1)
-        assert excinfo.value.exit_code == 21
-        assert "默认关" in str(excinfo.value)
+            memsearch.acquire_key_from_memory(
+                tmp_path, config=BridgeConfig(), pids=[1]
+            )
+        err = excinfo.value
+        assert err.exit_code == 21
+        assert "默认关" in str(err)
+        assert "mem_search_enabled" in str(err)
 
-    def test_source_contains_no_process_api(self) -> None:
+    def test_enabled_but_not_elevated_refuses(self, tmp_path: Path) -> None:
+
+        with pytest.raises(BridgeError) as excinfo:
+            memsearch.acquire_key_from_memory(
+                tmp_path,
+                config=BridgeConfig(mem_search_enabled=True),
+                elevated=False,
+                pids=[1],
+            )
+        assert excinfo.value.exit_code == 21
+        assert "提权" in str(excinfo.value)
+        assert "密码" in excinfo.value.fix_hint  # 豁免令边界:绝不索要密码
+
+    def test_non_darwin_refuses(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+
+        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: False)
+        with pytest.raises(BridgeError) as excinfo:
+            memsearch.acquire_key_from_memory(
+                tmp_path,
+                config=BridgeConfig(mem_search_enabled=True),
+                elevated=True,
+                pids=[1],
+            )
+        assert excinfo.value.exit_code == 21
+        assert "darwin" in str(excinfo.value)
+
+    def test_pids_absent_is_exit10(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+
+        db_storage, _key_db = make_account(tmp_path, bytes(range(32)))
+        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
+        with pytest.raises(BridgeError) as excinfo:
+            memsearch.acquire_key_from_memory(
+                db_storage,
+                config=BridgeConfig(mem_search_enabled=True),
+                elevated=True,
+                pids=[],
+            )
+        assert excinfo.value.exit_code == 10
+
+    # —— 守卫:源码级红线钉死(只读机械在场;写/注入/调试 API 零引用)——
+    def test_source_readonly_guards(self) -> None:
         source = Path(memsearch.__file__).read_text(encoding="utf-8")
-        for token in (
-            "task_for_pid",
-            "OpenProcess",
+        # 只读机械必须真实在场(不是装样子的空壳)。
+        for required in ("task_for_pid", "mach_vm_region", "mach_vm_read_overwrite"):
+            assert required in source, f"只读机械缺位: {required}"
+        # 写/注入/调试类 API 一个字都不许出现(D4 豁免边界=只读)。
+        for forbidden in (
+            "vm_write",
+            "vm_protect",
+            "vm_copy",
             "ptrace",
-            "vm_read",
-            "ctypes",
-            "subprocess",
-            "task_read",
+            "task_set_",
+            "task_suspend",
+            "task_resume",
+            "thread_create",
+            "thread_set_",
+            "task_policy",
+            "OpenProcess",
+            "WriteProcessMemory",
         ):
-            assert token not in source, f"空壳不得出现进程级 API 引用: {token}"
+            assert forbidden not in source, f"只读模块不得出现: {forbidden}"
+
+    # —— 合成内存全链:命中 → 落缓存(600)→ 形状载荷 ——
+    def test_scan_finds_embedded_key_full_chain(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
+        key = bytes(range(32))
+        db_storage, _key_db = make_account(tmp_path, key)
+        targets = page1_targets(db_storage)
+        noise = bytes(128)
+        # 记账标记(滤除/超大区)放 key 段之前:全量命中即早退是既定语义,
+        # 其后未消费的段不再计数(单遍批处理,命中即收工)。
+        buffers = iter(
+            [
+                (0, "filtered", b""),  # 非堆区:滤除计数
+                (1, "cap", b""),  # 超大区:整区跳过计数
+                (2, "data", noise[:100] + key + noise[:50]),  # key 整窗横卧
+            ]
+        )
+        payload = memsearch.acquire_key_from_memory(
+            db_storage,
+            config=BridgeConfig(mem_search_enabled=True),
+            targets=targets,
+            elevated=True,
+            pids=[4242],
+            region_source=lambda pid: buffers,
+        )
+        assert payload["matched"] == {"count": 1, "total": 1}
+        scan = payload["scan"]
+        assert scan["regions_scanned"] == 1
+        assert scan["regions_filtered"] == 1
+        assert scan["regions_skipped_cap"] == 1
+        assert scan["interrupted"] is False
+        assert "pids" in scan and scan["pids"] == [4242]
+        # 缓存落盘且 600(resolve_keys 消费通路同位;keys.json 内容只进
+        # 数据根私有区,断言只看形状与可读性,不回显)。
+        cache = read_key_cache(data_root=tmp_path / "home")
+        assert cache is not None and set(cache.values()) == {key.hex()}
+        cache_path = tmp_path / "home" / "wechat-localdb" / "keys.json"
+        assert (cache_path.stat().st_mode & 0o777) == 0o600
+
+    def test_straddling_key_found_via_chunk_stitch(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """key 跨段横卧:31 字节重叠拼接恰好覆盖一次(换区即清)。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
+        key = bytes(range(32))
+        db_storage, _key_db = make_account(tmp_path, key)
+        first = bytes(100) + key[:20]  # key 只有一截在首段
+        second = key[20:] + bytes(64)  # 余截在次段(拼接头 31B 覆盖 20B 前缀)
+        buffers = iter([(0, "data", first), (0, "data", second)])
+        payload = memsearch.acquire_key_from_memory(
+            db_storage,
+            config=BridgeConfig(mem_search_enabled=True),
+            targets=page1_targets(db_storage),
+            elevated=True,
+            pids=[1],
+            region_source=lambda pid: buffers,
+        )
+        assert payload["matched"]["count"] == 1
+
+    def test_zero_hit_is_honest_exit21_shape(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
+        db_storage, _key_db = make_account(tmp_path, bytes(range(32)))
+        buffers = iter([(0, "data", bytes(4096))])
+        with pytest.raises(BridgeError) as excinfo:
+            memsearch.acquire_key_from_memory(
+                db_storage,
+                config=BridgeConfig(mem_search_enabled=True),
+                targets=page1_targets(db_storage),
+                elevated=True,
+                pids=[1],
+                region_source=lambda pid: buffers,
+            )
+        err = excinfo.value
+        assert err.exit_code == 21
+        assert "零命中" in str(err)
+        assert "滑窗" in str(err) and "校验" in str(err)
+        assert read_key_cache(data_root=tmp_path / "home") is None
+
+    def test_partial_hit_no_cache(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """两库一库命中:部分命中不落缓存(缓存=全量验证子集)。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
+        key_a, key_b = bytes(range(32)), bytes(range(32, 64))
+        account = tmp_path / "wxid_demo_8253"
+        (account / "db_storage" / "message").mkdir(parents=True)
+        (account / "db_storage" / "message" / "message_0.db").write_bytes(
+            make_page1(key_a)
+        )
+        (account / "db_storage" / "session").mkdir(parents=True)
+        (account / "db_storage" / "session" / "session.db").write_bytes(
+            make_page1(key_b)
+        )
+        buffers = iter([(0, "data", bytes(10) + key_a + bytes(10))])
+        with pytest.raises(BridgeError) as excinfo:
+            memsearch.acquire_key_from_memory(
+                account / "db_storage",
+                config=BridgeConfig(mem_search_enabled=True),
+                targets=page1_targets(account / "db_storage"),
+                elevated=True,
+                pids=[1],
+                region_source=lambda pid: buffers,
+            )
+        assert excinfo.value.exit_code == 21
+        assert "部分命中" in str(excinfo.value)
+        assert read_key_cache(data_root=tmp_path / "home") is None
+
+    def test_budget_interrupt_honest(self, tmp_path: Path) -> None:
+        """预算耗尽:如实标 interrupted,字节不超收。"""
+        key = bytes(range(32))
+        page1 = make_page1(key)
+        big = bytes(10_000) + key
+        matched, report = memsearch.scan_region_buffers(
+            [("message/message_0.db", len(page1), page1)],
+            [(0, "data", big)],
+            total_budget=1_000,
+        )
+        assert matched == {}
+        assert report.interrupted is True
+        assert report.bytes_scanned == 1_000
+
+    def test_scan_region_buffers_empty_targets(self) -> None:
+        matched, report = memsearch.scan_region_buffers([], iter([(0, "data", bytes(64))]))
+        assert matched == {} and report.windows == 0
+
+    def test_find_wechat_pids_parses_pgrep(self) -> None:
+        import subprocess as sp
+
+        class FakeResult:
+            returncode = 0
+            stdout = b"85172\n85173\n"
+
+        pids = memsearch.find_wechat_pids(runner=lambda argv: FakeResult())
+        assert pids == [85172, 85173]
+
+        class FailResult:
+            returncode = 1
+            stdout = b""
+        assert memsearch.find_wechat_pids(runner=lambda argv: FailResult()) == []
 
     def test_cache_roundtrip_and_bad_json(self, tmp_path: Path) -> None:
         """缓存读写回环 + 坏 JSON 如实 None + 600 权限(红线 6)。"""

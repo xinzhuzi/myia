@@ -8,7 +8,10 @@
   **缺文件可用**(设计原文);键封闭清单:
   ``domains``(G4 缺省 message/session/contact)、
   ``limits``(AC2 参数化:sessions=20/messages=50/history_days=30)、
-  ``copy_ttl_hours``(G5=24)/ ``copy_capacity_mb``(G5 容量上限,缺省 512)。
+  ``copy_ttl_hours``(G5=24)/ ``copy_capacity_mb``(G5 容量上限,缺省 512)、
+  ``mem_search_enabled``(D4 豁免开关,缺省关——design §4「开关默认关,
+  主人显式开启才生效」;2026-10-11 主人「全部解决」令授权以配置键落位,
+  替代 E1 空壳期的「无配置键」口径)。
   **无频控键**(G6 硬编码,刻意不提供——design §7 原文)。
 
 数据根解析与 MYIA 本体同源(desktop/entry.py ``myssia_home`` /
@@ -38,6 +41,7 @@ __all__ = [
     "DEFAULT_DOMAINS",
     "HISTORY_DAYS_DEFAULT",
     "LOCALDB_KEYS_REL_PATH",
+    "MEM_SEARCH_ENABLED_DEFAULT",
     "MESSAGES_DEFAULT",
     "MYIA_HOME_ENV",
     "SESSIONS_DEFAULT",
@@ -74,9 +78,12 @@ HISTORY_DAYS_DEFAULT = 30
 COPY_TTL_HOURS_DEFAULT = 24
 #: G5:解密副本容量上限(design §7 未钉数值,取 512MB 并随戳披露)。
 COPY_CAPACITY_MB_DEFAULT = 512
+#: D4 豁免开关缺省(design §4:内存密钥搜索开关默认关,主人显式开启才生效;
+#: 2026-10-11「全部解决」令把 E1 空壳期的「无配置键」口径改写为配置可启)。
+MEM_SEARCH_ENABLED_DEFAULT = False
 
 _ALLOWED_TOP_KEYS = frozenset(
-    {"domains", "limits", "copy_ttl_hours", "copy_capacity_mb"}
+    {"domains", "limits", "copy_ttl_hours", "copy_capacity_mb", "mem_search_enabled"}
 )
 _ALLOWED_LIMIT_KEYS = frozenset({"sessions", "messages", "history_days"})
 
@@ -105,6 +112,8 @@ class BridgeConfig:
     history_days: int = HISTORY_DAYS_DEFAULT
     copy_ttl_hours: int = COPY_TTL_HOURS_DEFAULT
     copy_capacity_mb: int = COPY_CAPACITY_MB_DEFAULT
+    #: D4 豁免开关(缺省关;真跑还须提权 + 主人裁决在案,三重门见 memsearch)。
+    mem_search_enabled: bool = MEM_SEARCH_ENABLED_DEFAULT
     #: 配置实际来源(None = 缺文件全缺省,health/诊断如实呈现)。
     source: str | None = None
 
@@ -119,6 +128,7 @@ class BridgeConfig:
             },
             "copy_ttl_hours": self.copy_ttl_hours,
             "copy_capacity_mb": self.copy_capacity_mb,
+            "mem_search_enabled": self.mem_search_enabled,
             "source": self.source,
         }
 
@@ -206,6 +216,14 @@ def load_config(path: Path | None = None, *, data_root: Path | None = None) -> B
                 EXIT_USAGE, f"桥配置 {key} 须为正整数,当前为 {value!r}", code="usage"
             )
         values[key] = value
+    mem_search_enabled = raw.get("mem_search_enabled")
+    if mem_search_enabled is not None and not isinstance(mem_search_enabled, bool):
+        raise BridgeError(
+            EXIT_USAGE,
+            f"桥配置 mem_search_enabled 须为布尔(true/false),当前为 {mem_search_enabled!r}",
+            code="usage",
+            fix_hint="D4 豁免开关只认布尔;开启 = true(真跑还须提权,memsearch 三重门)",
+        )
     return BridgeConfig(
         domains=[str(item).strip() for item in domains],
         sessions=values.get("sessions", SESSIONS_DEFAULT),
@@ -213,5 +231,10 @@ def load_config(path: Path | None = None, *, data_root: Path | None = None) -> B
         history_days=values.get("history_days", HISTORY_DAYS_DEFAULT),
         copy_ttl_hours=values.get("copy_ttl_hours", COPY_TTL_HOURS_DEFAULT),
         copy_capacity_mb=values.get("copy_capacity_mb", COPY_CAPACITY_MB_DEFAULT),
+        mem_search_enabled=(
+            MEM_SEARCH_ENABLED_DEFAULT
+            if mem_search_enabled is None
+            else mem_search_enabled
+        ),
         source=str(config_path),
     )

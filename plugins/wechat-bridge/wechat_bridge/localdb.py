@@ -16,8 +16,9 @@ E1 零内存密钥途径的**真实现 + 如实负结论**(2026-10-11 E1 真跑)
   (单测以合成 page1 全链验证),D4 裁决②的外部密钥消费通路已闭合:
   :func:`resolve_keys` 先重验 ``keys.json``(缓存/外部同位,数据根私有区
   600)再回落零内存途径,主人放置密钥产物后查询一步闭合。
-- 内存密钥搜索(prd 红线 1/3):独立空壳 :mod:`wechat_bridge.memsearch`,
-  默认关,**绝不真跑**;本模块零进程接触。
+- 内存密钥搜索(prd 红线 1/3;D4 豁免 2026-10-11「全部解决」令):独立
+  模块 :mod:`wechat_bridge.memsearch`,配置 ``mem_search_enabled`` 默认关,
+  显式开启 + 提权才生效;本模块零进程接触。
 
 E2 解密副本(G5 生命周期):
 
@@ -149,8 +150,9 @@ def locate_key_info_db(
             KEY_UNAVAILABLE,
             f"key_info.db 不在场(零内存密钥途径入口缺失): {login_dir}",
             fix_hint=(
-                "确认微信在本机登录过;D4 待主人裁决(密钥途径),"
-                "内存密钥搜索为默认关空壳、绝不真跑(prd 红线 1/3)"
+                "确认微信在本机登录过;D4 密钥途径:内存扫描(localdb key-scan,"
+                "配置 mem_search_enabled 显式开启+提权,默认关,prd 红线 1/3)"
+                "或引入外部密钥(keys.json,600 权限)"
             ),
         )
     account_name = db_storage.parent.name
@@ -404,9 +406,9 @@ def acquire_key(
             f"候选={len(candidates)} 校验={attempts}次 命中={len(matched)}/{len(targets)}库;"
             "其余库的 key 不在零内存候选族内(D4 待裁决)",
             fix_hint=(
-                "D4 待主人裁决:豁免内存密钥搜索(默认关空壳 memsearch,启用须显式)"
-                "或引入外部密钥(数据根私有区 wechat-localdb/keys.json,600 权限,"
-                "键=库相对路径/值=64-hex);部分命中不落缓存(缓存=全量验证子集)"
+                "D4 待主人裁决:豁免内存密钥搜索(配置 mem_search_enabled 显式开启,"
+                "memsearch 三重门)或引入外部密钥(数据根私有区 wechat-localdb/keys.json,"
+                "600 权限,键=库相对路径/值=64-hex);部分命中不落缓存(缓存=全量验证子集)"
             ),
         )
     raise BridgeError(
@@ -416,10 +418,10 @@ def acquire_key(
         f"命中=0/{len(targets)}库;密钥材料疑被机器专属密钥包裹、文件内不可推导"
         "(2026-10-11 E1 真跑 + 三方独立公开实测一致)",
         fix_hint=(
-            "D4 待主人裁决:①豁免内存密钥搜索(默认关空壳 memsearch,显式开启才生效,"
-            "prd 红线 1/3)②或引入外部密钥:数据根私有区 wechat-localdb/keys.json"
-            "(600 权限,键=库相对路径,值=64-hex SQLCipher 密钥,查询前逐条重验);"
-            "校验机制已就绪,密钥可得即全链闭合"
+            "D4 待主人裁决:①豁免内存密钥搜索(配置 mem_search_enabled 显式开启"
+            "+提权,memsearch 三重门,prd 红线 1/3)②或引入外部密钥:数据根私有区"
+            "wechat-localdb/keys.json(600 权限,键=库相对路径,值=64-hex SQLCipher "
+            "密钥,查询前逐条重验);校验机制已就绪,密钥可得即全链闭合"
         ),
     )
 

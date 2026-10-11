@@ -29,7 +29,7 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
-from . import __version__, ax, localdb
+from . import __version__, ax, localdb, memsearch
 from .codes import EXIT_OK, EXIT_USAGE, BridgeError
 from .config import BridgeConfig, load_config
 from .probe import run_probe
@@ -114,11 +114,26 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="Nd",
         help="历史窗口(天;形如 7d;窗口缺省参照配置 limits.history_days=30)",
     )
+    # D4 豁免执行件(主人 2026-10-11「全部解决」令):内存密钥批处理扫描。
+    # 默认关(配置 mem_search_enabled 显式开启)+ 须提权;只读单遍零常驻,
+    # 机制与边界见 memsearch 模块 docstring。
+    localdb_key_scan = localdb_sub.add_parser(
+        "key-scan", help="内存密钥批处理扫描(D4 豁免;默认关+须提权;只读单遍零常驻)"
+    )
 
     # §6 文样把 --json 放在子命令之后(sessions list --json)——全局旗标在
     # argparse 里必须逐层重注册才收得到;default=SUPPRESS 防子层缺省覆写
     # 顶层已解析值(--config 同款,覆写路径跟在子命令后是合法调用位)。
-    for node in (sessions, sessions_list, messages, messages_read, send, localdb_cmd, localdb_query):
+    for node in (
+        sessions,
+        sessions_list,
+        messages,
+        messages_read,
+        send,
+        localdb_cmd,
+        localdb_query,
+        localdb_key_scan,
+    ):
         node.add_argument(
             "--json",
             action="store_true",
@@ -216,7 +231,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     EXIT_USAGE, f"--limit 须为正整数,当前为 {args.limit}", code="usage"
                 )
             ax.ensure_ui_preconditions()
-            ax.list_sessions(config, args.limit)  # Phase C1 落位;骨架态结构化拒
+            _emit(ax.list_sessions(config, args.limit))  # Phase C1:像素链(§6 契约+诊断附加键)
+            return EXIT_OK
         elif args.group == "messages" and args.messages_cmd == "read":
             chat_id = _require_chat_id(args.chat_id)
             if args.count is not None and args.count <= 0:
@@ -224,7 +240,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     EXIT_USAGE, f"-k 须为正整数,当前为 {args.count}", code="usage"
                 )
             ax.ensure_ui_preconditions()
-            ax.read_messages(config, chat_id, args.count)  # Phase C2 落位
+            _emit(ax.read_messages(config, chat_id, args.count))  # Phase C2:像素链
+            return EXIT_OK
         elif args.group == "send_text":
             chat_id = _require_chat_id(args.chat_id)
             body = _read_body(args.file)
@@ -258,6 +275,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             storage = localdb.locate_db_storage()
             keys = localdb.resolve_keys(storage)
             _emit(localdb.query_history(config, storage, keys, chat_id, days))
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "key-scan":
+            # D4 豁免执行件(2026-10-11「全部解决」令):内存密钥批处理扫描。
+            # 三重门在 memsearch.acquire_key_from_memory 内逐门校验(配置/
+            # 提权/平台);只读单遍零常驻,命中全量验证才落 keys.json(600),
+            # 消息/载荷只承载形状(红线 6);拒绝与零命中如实 exit 21。
+            storage = localdb.locate_db_storage()
+            _emit(memsearch.acquire_key_from_memory(storage, config=config))
             return EXIT_OK
         else:  # pragma: no cover - 子 parser required=True 已封住其余形态
             parser.error("未知子命令形态")

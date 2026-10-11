@@ -106,6 +106,14 @@ def _collect_golden_payloads(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     assert exit_code == 20
     payloads["err_localdb_db_not_found"] = payload
 
+    # ⑦ 内存密钥扫描(D4 豁免件):配置门缺省关 → exit 21(默认关语义)
+    monkeypatch.setattr("wechat_bridge.localdb.WECHAT_FILES_ROOT", fake_root)
+    exit_code, payload = run_cli(
+        ["localdb", "key-scan", "--json"], monkeypatch, tmp_path
+    )
+    assert exit_code == 21
+    payloads["err_memsearch_default_off"] = payload
+
     return payloads
 
 
@@ -290,6 +298,64 @@ class TestLocaldbWiring:
         )
         assert exit_code == 21
         assert payload["error"]["code"] == "key_unavailable"
+
+
+class TestKeyScanCommand:
+    """localdb key-scan(D4 豁免执行件)CLI 装配:门语义 + 形状契约。"""
+
+    def _write_config(self, tmp_path: Path, enabled: bool) -> None:
+        config_dir = tmp_path / "wechat-bridge"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        (config_dir / "config.json").write_text(
+            json.dumps({"mem_search_enabled": enabled}), encoding="utf-8"
+        )
+
+    def test_scan_payload_emitted_and_exit_zero(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        self._write_config(tmp_path, enabled=True)
+        fake_payload = {
+            "matched": {"count": 1, "total": 1},
+            "scan": {"pids": [4242], "regions_scanned": 1, "bytes_scanned": 4096,
+                     "regions_skipped_cap": 0, "regions_filtered": 0,
+                     "windows": 4065, "verifies": 4065, "interrupted": False},
+            "cache": str(tmp_path / "wechat-localdb" / "keys.json"),
+        }
+
+        def fake_scan(storage, *, config):
+            assert config.mem_search_enabled is True
+            return fake_payload
+
+        monkeypatch.setattr("wechat_bridge.memsearch.acquire_key_from_memory", fake_scan)
+        exit_code, payload = run_cli(["localdb", "key-scan", "--json"], monkeypatch, tmp_path)
+        assert exit_code == 0
+        assert payload == fake_payload
+
+    def test_scan_gate_error_maps_to_its_exit_code(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from wechat_bridge.codes import WECHAT_NOT_RUNNING, BridgeError
+
+        self._write_config(tmp_path, enabled=True)
+
+        def fake_scan(storage, *, config):
+            raise BridgeError(WECHAT_NOT_RUNNING, "微信进程不在场(注入)")
+
+        monkeypatch.setattr("wechat_bridge.memsearch.acquire_key_from_memory", fake_scan)
+        exit_code, payload = run_cli(["localdb", "key-scan", "--json"], monkeypatch, tmp_path)
+        assert exit_code == 10
+        assert payload["error"]["code"] == "wechat_not_running"
+
+    def test_scan_storage_missing_maps_to_db_not_found(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        self._write_config(tmp_path, enabled=True)
+        monkeypatch.setattr(
+            "wechat_bridge.localdb.WECHAT_FILES_ROOT", tmp_path / "no-such-root"
+        )
+        exit_code, payload = run_cli(["localdb", "key-scan", "--json"], monkeypatch, tmp_path)
+        assert exit_code == 20
+        assert payload["error"]["code"] == "db_not_found"
 
 
 class TestProbeCli:

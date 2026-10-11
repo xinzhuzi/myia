@@ -13,6 +13,7 @@ from wechat_bridge.config import (
     COPY_TTL_HOURS_DEFAULT,
     DEFAULT_DOMAINS,
     HISTORY_DAYS_DEFAULT,
+    MEM_SEARCH_ENABLED_DEFAULT,
     MESSAGES_DEFAULT,
     SESSIONS_DEFAULT,
 )
@@ -62,8 +63,17 @@ class TestStampLock:
         }
         assert defaults["copy_ttl_hours"] == COPY_TTL_HOURS_DEFAULT
         assert defaults["copy_capacity_mb"] == COPY_CAPACITY_MB_DEFAULT
+        # D4 豁免开关缺省关(真锁:戳与 config.py 单一出处互钉)。
+        assert defaults["mem_search_enabled"] is MEM_SEARCH_ENABLED_DEFAULT
+        assert MEM_SEARCH_ENABLED_DEFAULT is False
         # defaults 只装真配置键;"无配置键"类声明(频控/路径)在 config 节。
-        assert set(defaults) == {"domains", "limits", "copy_ttl_hours", "copy_capacity_mb"}
+        assert set(defaults) == {
+            "domains",
+            "limits",
+            "copy_ttl_hours",
+            "copy_capacity_mb",
+            "mem_search_enabled",
+        }
         assert "G6" in _stamp()["config"]["rate_limit"]
 
     def test_redlines_documented(self) -> None:
