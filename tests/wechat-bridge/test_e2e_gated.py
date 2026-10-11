@@ -71,3 +71,35 @@ class TestRealProbe:
         if not sc.wechat_process_running():
             assert payload["state"] == "bridge_unavailable"
             assert payload["reasons"][0]["code"] == "wechat_not_running"
+
+
+def _run_localdb_query(chat: str = "filehelper") -> tuple[int, dict]:
+    result = subprocess.run(
+        [sys.executable, "-m", "wechat_bridge", "localdb", "query", chat, "--since", "7d", "--json"],
+        capture_output=True,
+        text=True,
+        timeout=600,
+        cwd=COMPONENT_SRC,
+        env={**os.environ},
+    )
+    return result.returncode, json.loads(result.stdout)
+
+
+class TestRealLocaldbNegative:
+    """真机 E1 负结论回归(2026-10-11 E1 实测:零内存途径不可推导)。
+
+    门控语义:真跑 E1 全链(读真 key_info.db + 真 db_storage page1 离线
+    HMAC 校验,数十秒级)——**零微信进程交互、零出网、零密钥材料落盘**;
+    期望 exit 21 + key_unavailable + D4 指引。若某天真命中(D4 已闭合/微信
+    改了密钥落盘),此测试如实失败,提醒刷新本档结论。
+    """
+
+    def test_query_reports_honest_key_unavailable(self) -> None:
+        exit_code, payload = _run_localdb_query()
+        if exit_code == 0:
+            pytest.fail("E1 零内存途径真机命中了密钥——刷新 research/localdb-e2e.md 与本测试")
+        err = payload["error"]
+        assert exit_code in (20, 21), f"非预期错误族: {err}"
+        if exit_code == 21:
+            assert err["code"] == "key_unavailable"
+            assert "D4" in (err.get("fix_hint") or "")

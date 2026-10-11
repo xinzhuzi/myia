@@ -242,6 +242,56 @@ class TestUsageErrors:
         assert payload["error"]["code"] == "usage"
 
 
+class TestLocaldbWiring:
+    """localdb query 的 E1→E2→E3 装配(monkeypatch 隔离;全链机器对账在
+    gated 真机测试)。"""
+
+    def test_success_payload_emitted_and_exit_zero(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        fake_payload = {
+            "chat_id": "filehelper",
+            "since_days": 7,
+            "messages": [],
+            "copy": {"dir": "<private>", "built": [], "kept": [], "skipped": [], "total_bytes": 0},
+        }
+        seen: dict = {}
+
+        def fake_query_history(config, storage, keys, chat_id, days, **kwargs):
+            seen["chat_id"], seen["days"], seen["domains"] = chat_id, days, config.domains
+            return fake_payload
+
+        monkeypatch.setattr(
+            "wechat_bridge.localdb.acquire_key", lambda storage: {"k": "v"}
+        )
+        monkeypatch.setattr("wechat_bridge.localdb.query_history", fake_query_history)
+        exit_code, payload = run_cli(
+            ["localdb", "query", "filehelper", "--since", "7d", "--json"],
+            monkeypatch,
+            tmp_path,
+        )
+        assert exit_code == 0
+        assert payload == fake_payload
+        assert seen == {"chat_id": "filehelper", "days": 7, "domains": ["message", "session", "contact"]}
+
+    def test_acquire_error_maps_to_its_exit_code(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from wechat_bridge.codes import KEY_UNAVAILABLE, BridgeError
+
+        def fake_acquire(storage):
+            raise BridgeError(KEY_UNAVAILABLE, "本地库密钥不可得(注入)", fix_hint="D4")
+
+        monkeypatch.setattr("wechat_bridge.localdb.acquire_key", fake_acquire)
+        exit_code, payload = run_cli(
+            ["localdb", "query", "filehelper", "--since", "7d", "--json"],
+            monkeypatch,
+            tmp_path,
+        )
+        assert exit_code == 21
+        assert payload["error"]["code"] == "key_unavailable"
+
+
 class TestProbeCli:
     def test_probe_exit_zero_even_when_degraded(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         """探针本体跑成 = exit 0;三态在载荷(消费方按 state 映射 UI)。"""

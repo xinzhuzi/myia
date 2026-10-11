@@ -37,6 +37,7 @@ __all__ = [
     "COPY_TTL_HOURS_DEFAULT",
     "DEFAULT_DOMAINS",
     "HISTORY_DAYS_DEFAULT",
+    "LOCALDB_KEYS_REL_PATH",
     "MESSAGES_DEFAULT",
     "MYIA_HOME_ENV",
     "SESSIONS_DEFAULT",
@@ -54,6 +55,9 @@ BRIDGE_CONFIG_DIR_NAME = "wechat-bridge"
 #: 频控状态目录名(design §2「数据根/wechat-localdb/send_state.json」——与
 #: 配置目录是两个名字,照设计原文,不擅自归一)。
 SEND_STATE_REL_PATH = "wechat-localdb/send_state.json"
+#: 本地库密钥缓存(Phase E1;design §5.3「all_keys.json 类产物存数据根私有
+#: 区并 600 权限」——仅验证通过的 key 落此,当前 E1 实测零命中故恒缺省)。
+LOCALDB_KEYS_REL_PATH = "wechat-localdb/keys.json"
 #: 桥配置文件相对数据根的路径。
 BRIDGE_CONFIG_REL_PATH = f"{BRIDGE_CONFIG_DIR_NAME}/config.json"
 

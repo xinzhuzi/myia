@@ -1,4 +1,5 @@
-"""本地库通道骨架单测:定位真跑(纯目录形状),密钥骨架态如实 21。"""
+"""本地库通道单测:定位真跑(纯目录形状);密钥获取 exit 21 的装配级对账
+(机制级单测见 test_localdb_key.py,E2 副本见 test_localdb_copy.py)。"""
 
 from __future__ import annotations
 
@@ -57,9 +58,9 @@ class TestLocate:
         assert located.name == "db_storage"
 
 
-class TestKeySkeleton:
+class TestKeyUnavailable:
     def test_acquire_key_is_honest_key_unavailable(self, tmp_path: Path) -> None:
-        """骨架态:密钥途径待 D4 → exit 21 + 指引(不伪造、不试内存搜索)。"""
+        """无 key_info.db 场景:exit 21 + D4 指引(不伪造、不试内存搜索)。"""
         account = _make_account(tmp_path)
         with pytest.raises(BridgeError) as excinfo:
             acquire_key(account / "db_storage")

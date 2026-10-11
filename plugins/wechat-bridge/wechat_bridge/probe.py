@@ -92,8 +92,9 @@ def run_probe(
 ) -> ProbeResult:
     """跑全部探针项并按判据矩阵归态(检查器全部可注入 = 单测主战场)。
 
-    ``key_available`` 缺省接本地库密钥模块的可用性自询(骨架态恒 False
-    ——密钥途径待 D4 裁决,如实 degraded,不谎报 ok)。
+    ``key_available`` 缺省接本地库密钥缓存的零成本自询(:func:`.system_checks.
+    localdb_key_available`——缓存只在密钥全量验证命中时落盘,故探针不谎报
+    ok;E1 实测零内存途径未闭合,如实 degraded)。
     """
     cfg = config if config is not None else load_config()
     process = process_running if process_running is not None else sc.wechat_process_running
@@ -175,7 +176,9 @@ def run_probe(
         reasons.append(
             ProbeReason(
                 CODE_KEY_UNAVAILABLE_NAME,
-                "本地库密钥途径待 D4 裁决(零内存方案探查归 Phase A3/A4)",
+                "零内存密钥途径(key_info.db)实测不可推导(E1 真跑:候选全数"
+                "离线 HMAC 未命中;材料疑被机器专属密钥包裹);D4 待主人裁决:"
+                "豁免内存搜索(默认关空壳)或引入外部密钥",
             )
         )
 

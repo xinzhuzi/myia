@@ -168,13 +168,26 @@ def localdb_storage_accounts(root: Path | None = None) -> int | None:
 
 
 def localdb_key_available() -> bool:
-    """本地库密钥可用性(骨架态恒 False;Phase E1 按 D4 裁决落地真判据)。
+    """本地库密钥可用性(Phase E1 真判据:验证通过的密钥缓存在场即真)。
 
-    这是「桥此刻拿不到密钥」的如实陈述(prd D4 未裁决),不是「密钥不存在」
-    的结论(A3 探查归 Phase A);探针据此给 degraded(key_unavailable),
-    localdb query 据此给 exit 21。
+    判据 = 数据根私有区 ``wechat-localdb/keys.json``(:data:`LOCALDB_KEYS_REL_PATH`,
+    600 权限)存在且含至少一条验证通过的 key——该缓存**只在** :func:
+    `wechat_bridge.localdb.acquire_key` 全量校验命中时落盘,故本检查零成本
+    (一个小文件存在性)且不谎报。E1 实测(2026-10-11):零内存途径 0 命中
+    → 缓存恒缺省 → False 如实(D4 待主人裁决)。
     """
-    return False
+    from .config import LOCALDB_KEYS_REL_PATH, myssia_home
+
+    path = myssia_home() / LOCALDB_KEYS_REL_PATH
+    if not path.is_file():
+        return False
+    try:
+        import json
+
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(raw, dict) and bool(raw)
 
 
 def check_summary(value: Any) -> str:

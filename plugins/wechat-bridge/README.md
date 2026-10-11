@@ -24,11 +24,13 @@ python -m wechat_bridge localdb query <chat> --since 7d --json   # 本地库只�
 - 桥配置:`<数据根>/wechat-bridge/config.json`(全部有缺省、**缺文件可用**,design §7):`domains`(G4 三域)、`limits`(AC2 参数化)、`copy_ttl_hours`/`copy_capacity_mb`(G5)。**无频控键**(G6 硬编码:单条、间隔 ≥10s、无批量、不可配置)。
 - 频控状态:`<数据根>/wechat-localdb/send_state.json`(flock 防并发,design §2)。
 
-## 骨架态(Phase B)能力边界
+## 能力边界(Phase E 已落,E1 实测负结论如实)
 
-- `--probe` 真实现:三态判据矩阵(design §2)照跑——进程/版本/AX 权限/主窗口/本地库落盘,全只读零前台扰动;微信托盘态如实 `degraded(window_closed)`,进程不在如实 `bridge_unavailable`。
-- 四子命令:前置检查门真跑(§6 码序 fail-fast),实现层落位 Phase C/D/E,未落地时结构化应答 `not_implemented`(exit 1 过渡码,不谎报 §6 具名族);`localdb query` 可真跑到「定位 db_storage」,密钥途径待 D4 裁决,如实 `key_unavailable`(exit 21)。
+- `--probe` 真实现:三态判据矩阵(design §2)照跑——进程/版本/AX 权限/主窗口/本地库落盘/密钥缓存,全只读零前台扰动;微信托盘态如实 `degraded(window_closed)`,进程不在如实 `bridge_unavailable`。
+- UI 子命令(sessions/messages/send_text):前置检查门真跑(§6 码序 fail-fast),实现层落位 Phase C/D,未落地时结构化应答 `not_implemented`(exit 1 过渡码,不谎报 §6 具名族)。
+- `localdb query`(Phase E,已落地):定位 db_storage → E1 密钥获取(零内存途径=key_info.db 材料→候选提取→page1 离线 HMAC-SHA512 校验,机制完整可单测)→ E2 sqlcipher 解密副本至 `<数据根>/wechat-localdb/decrypted/`(600/700 权限,TTL 24h+容量上限,失败重建)→ E3 message/session/contact 三域只读查询(列签名自适应,版本漂移如实降级)。**E1 实测结论(2026-10-11 真跑):零内存密钥途径不可推导**(候选全数 HMAC 未命中,与三方独立公开实测一致)→ 如实 `key_unavailable`(exit 21)+ D4 待主人裁决;密钥可得(外部引入或 D4 豁免后)即全链闭合。
 - 频控落盘模块(G6)已实现并可单测(时间注入,不真等 10 秒)。
+- 依赖:sqlcipher CLI(`brew install sqlcipher`,design §5.1 前置;缺装时解密步骤结构化报错并给指引)。
 
 ## 红线(违者返工)
 

@@ -241,16 +241,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             chat_id = _require_chat_id(args.chat_id)
             days = _parse_since_days(args.since)
             # 本地库通道不依赖 UI 前置(窗口未开不影响);失败族 = 20/21/22。
+            # E1 密钥获取(零内存途径,exit 21 = D4 语义如实)→ E2 副本 →
+            # E3 三域查询;成功在此 emit 契约载荷(消息内容属 stdout 契约,
+            # 不入日志;红线 6)。
             storage = localdb.locate_db_storage()
-            localdb.acquire_key(storage)  # Phase E1(D4)落位;骨架态 exit 21
-            localdb.query_history(chat_id, days)  # Phase E2/E3 落位
+            keys = localdb.acquire_key(storage)
+            _emit(localdb.query_history(config, storage, keys, chat_id, days))
+            return EXIT_OK
         else:  # pragma: no cover - 子 parser required=True 已封住其余形态
             parser.error("未知子命令形态")
     except BridgeError as exc:
         _emit({"error": exc.to_payload()})
         return exc.exit_code
-    # 实现层落地后各分支在此 emit §6 契约形状;骨架态 handler 恒 raise,
-    # 走到这里 = 实现层提前返回(契约漂移),按通用失败如实报。
+    # 实现层落地后各分支在此 emit §6 契约形状;UI 读/写通道尚未落地
+    # (Phase C/D),handler 恒 raise;localdb query 已emit 后提前 return。
     raise BridgeError(  # pragma: no cover - 防实现层静默无应答
         EXIT_USAGE, "命令执行完成但无应答载荷(实现层契约漂移)", code="usage"
     )
