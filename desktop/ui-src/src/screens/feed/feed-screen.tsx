@@ -1646,6 +1646,17 @@ function FeedErrorCard({
  *  双栏布局撤销,aside 升格 2 级、左栏升格 3 级,双缓冲/监控台 phase/能力
  *  门/行组件逐项收编(v8 §6 收编清单)。
  *
+ * tg-chat-two-pane(10-11,主人令「左侧是群列表,点击后,展示出来右侧的群
+ *  内容」+「UI 布局要按照 tg 的群对话方式进行布局」):3 级 TG「情报视图」
+ *  重排为群对话式双栏 —— 左栏 aside = 监控群列表(ChannelRow 复用,数据源与
+ *  2 级全渠道列表同源,selected = 当前深链渠道,单群照常/零群引导空态)+
+ *  右栏 = 聊天头(群名大字 + 监控台压缩条:状态行/扫码登录/原生网页预览/
+ *  管理/看全部历史消息,门与词面自 v8 大卡原样)+ 工具条(读态分段/检索/
+ *  显示/刷新原样)+ 聊天时间线(右栏内全宽)。切换 = openChannel 原样复用
+ *  (viewSource 驱动既有流式/读态/检索机件,不退出 3 级、不经过 2 级);
+ *  网站/日报 3 级布局与原生视图 tab、1/2 级零变化。落点判例:v7 双栏错在
+ *  2 级粒度,本次 3 级是主人明令。
+ *
  * v6 渠道瀑布流信息架构(10-09-tg-category-entry,主人三次纠偏后的最终
  * 定调:「每条情报流中的卡片表示一种情报支持性渠道」「从哪种渠道中获取
  * 信息,才是能集中到一个卡片里面的」「点击卡片进入这个情报获取的详情」):
@@ -2461,6 +2472,17 @@ export function FeedScreen() {
   /** TG 渠道详情(监控台钉顶判定,v8 = 3 级专属:1/2 级不出)。 */
   const isTgChannel = chatView;
 
+  /** 左栏监控群列表(10-11-tg-chat-two-pane,主人令「左侧是群列表,点击后
+   *  展示出来右侧的群内容」):数据源 = 渠道全集卡的 tg 档成员,与 2 级全渠道
+   *  列表同源(health 词表源 ∪ 已加载条目 source 去重,stats 门过 = 计数全库
+   *  真值);单群(当前实况 clashv8)照常渲染单行选中,零群给引导空态。
+   *  仅 TG 渠道 3 级渲染(网站/日报 3 级零变化)。落点判例:v7 双栏错在
+   *  2 级粒度(选中即数据),本次 3 级双栏是主人明令,不属翻案。 */
+  const tgGroupCards = useMemo(
+    () => (isTgChannel ? channelCardsWithStats.filter((card) => card.kind === "tg") : []),
+    [isTgChannel, channelCardsWithStats],
+  );
+
   /** TG 网页线快照(10-09-tg-category-entry:TG 渠道选中时拉一次,监控台条
    *  呈现)。v7 R2 吸收(v6 深检遗留):状态态拆三层 phase —— idle/loading/
    *  ok/error,替换 `tgWebline === null` 双态:首拉在途(loading)监控台条
@@ -2680,6 +2702,13 @@ export function FeedScreen() {
     setTgPreviewNote(null);
   }, []);
   const openChannel = useCallback((key: string) => {
+    // 真幂等(10-11 复审 P2 修②):3 级同渠道且非历史态 = 早退 —— 左栏重复
+    // 点当前行不再无条件清渠道内检索(此前 setView 同源重置 + 检索词清空是
+    // 静默丢词回归);history 态下重选仍放行(等价「退出历史 + 回读态」,
+    // 语义保持现状)。判定读既有派生值 viewSource/viewHistory(类型已收窄,
+    // 3 级才非 null/false;markItemState 同门:状态进依赖数组;keyStateRef
+    // 逐渲染回写实时镜,键盘线永远拿到最新闭包,身份随级变化零影响)。
+    if (viewSource === key && viewHistory !== true) return;
     setView({ level: 3, source: key, history: false });
     setListCurrentKey(key);
     setItemCurrentKey(null);
@@ -2687,7 +2716,7 @@ export function FeedScreen() {
     setStreamSearchInput("");
     setStreamQuery("");
     setTgPreviewNote(null);
-  }, []);
+  }, [viewSource, viewHistory]);
   const backLevel = useCallback(() => {
     setView((current) => {
       if (current.level === 3) return { level: 2, kind: channelCardKindOf(current.source, engineBySource.get(current.source)) };
@@ -3477,7 +3506,157 @@ export function FeedScreen() {
 
       {/* ═══════════ 3 级:渠道详情(§3,深度测试重点级)═══════════ */}
       {view.level === 3 ? (
-        <>
+        /* 10-11-tg-chat-two-pane(主人令「UI 布局要按照 tg 的群对话方式进行
+         *  布局」):3 级 = 横向双容器。TG 渠道(chatView)左栏 = 监控群列表
+         *  (镜像 TG 桌面聊天列表行,ChannelRow 复用)+ 右栏 = 聊天头 + 工具
+         *  条 + 聊天时间线;网站/日报渠道不出左栏不出聊天头,工具条+时间线
+         *  单列原样(AC5 零变化 —— 外层双容器对单列形态只是同向堆叠,视觉/
+         *  交互恒等)。落点判例:v7 双栏错粒度在 2 级(选中即数据),本次 3 级
+         *  双栏是主人明令,不属翻案。 */
+        <div className="flex min-h-0 flex-1">
+          {/* 左栏:监控群列表(TG 聊天列表行 = 渠道名/最近消息预览/相对时间/
+              未读徽标;选中态 bg-accent 高亮;w-72 固定宽内部自滚,flex-1 右栏
+              弹性占满) */}
+          {chatView ? (
+            <aside
+              data-testid="feed-tg-group-pane"
+              aria-label="监控群列表"
+              className="flex w-72 shrink-0 flex-col border-r border-border/60"
+            >
+              <div className="flex items-center justify-between border-b border-border/40 px-3 py-2">
+                <span className="text-xs font-medium text-muted-foreground">监控群</span>
+                {tgGroupCards.length > 0 ? (
+                  <span className="text-2xs text-muted-foreground tabular-nums">{tgGroupCards.length}</span>
+                ) : null}
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto py-1" data-testid="feed-tg-group-list">
+                {tgGroupCards.length === 0 ? (
+                  /* 零监控群引导空态(AC4):正常动线下 3 级 TG 必有 ≥1 群
+                      (入口本身来自该列表),此态为防御位 + 语义自文档 */
+                  <div className="px-3 py-8 text-center" data-testid="feed-tg-group-empty">
+                    <p className="text-xs font-medium text-foreground">还没有监控群</p>
+                    <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">
+                      到「Telegram」屏(侧栏「配置」组)添加监控群并登录后,群消息会自动入库并出现在这里。
+                    </p>
+                  </div>
+                ) : (
+                  tgGroupCards.map((card) => (
+                    <ChannelRow
+                      key={card.key}
+                      card={card}
+                      /* 选中态 = 当前深链渠道(AC1 默认选中;点他行即切换) */
+                      selected={card.key === viewSource}
+                      current={listCurrentKey === card.key}
+                      navFocused={false}
+                      statsScope={sourceStats !== null ? "full" : "loaded"}
+                      onCurrent={onCurrentRow}
+                      /* 切换语义(AC2):openChannel 原样复用 —— 置 view =
+                          {level:3, source, history:false},viewSource 变更驱动
+                          既有流式 useEffect 自动清流重拉(检索词随切换清空),
+                          不退出 3 级、不经过 2 级;重复点当前行幂等 */
+                      onOpen={openChannel}
+                    />
+                  ))
+                )}
+              </div>
+            </aside>
+          ) : null}
+          {/* 右栏:聊天头(TG)+ 工具条 + 时间线滚动区(网站/日报无头单列原样) */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {/* TG 聊天头(AC3,粘顶):群名大字(feed-stream-title 随迁于此,
+                工具条内小字位撤 —— 一词一源)+ 监控台压缩条(feed-tg-console
+                原大卡信息压缩,四态/词面/机件原样;门 = phase ok && tgWebline
+                与 v8 大卡同门:在途/失败整条缺席,R2 与深检 F3 语义随迁) */}
+            {chatView ? (
+              <div
+                data-testid="feed-tg-chat-header"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-5 py-2.5"
+              >
+                <h2
+                  className="min-w-0 truncate text-base font-semibold text-foreground"
+                  data-testid="feed-stream-title"
+                  title={viewSource ?? undefined}
+                >
+                  {streamTitle}
+                </h2>
+                {tgStatusPhase === "ok" && tgWebline !== null ? (
+                  <div
+                    data-testid="feed-tg-console"
+                    className="ml-auto flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+                  >
+                    {tgWebline.web.accounts.some((a) => a.logged_in) ? (
+                      <span
+                        className="inline-flex items-center gap-1 text-2xs text-ok"
+                        data-testid="feed-tg-console-live"
+                      >
+                        ● 监控中 · {tgWebline.web.accounts.filter((a) => a.logged_in).map((a) => a.account).join("、")}
+                        {tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at
+                          ? ` · 自 ${formatAbsoluteTime(tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at ?? null)}`
+                          : ""}
+                      </span>
+                    ) : (
+                      <span className="text-2xs text-warning">
+                        未登录 —— 扫码登录网页版 telegram,登录后 7×24 监控,新消息自动入库
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      {!tgWebline.web.accounts.some((a) => a.logged_in) &&
+                      tgWebline.web.accounts.length > 0 ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-2xs"
+                          data-testid="feed-tg-console-login"
+                          disabled={tgLoginBusy || tgWebline.web.accounts[0].login_in_progress}
+                          onClick={() => void startWebLogin()}
+                        >
+                          {tgWebline.web.accounts[0].login_in_progress
+                            ? "登录中…"
+                            : tgLoginBusy
+                              ? "拉起中…"
+                              : "扫码登录网页版"}
+                        </Button>
+                      ) : null}
+                      {/* 原生网页预览(v9 AC33 同门:disabled/title/onClick 原样) */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-2xs"
+                        data-testid="feed-tg-console-preview"
+                        disabled={tgPreviewUrl === null}
+                        title={
+                          tgPreviewUrl === null
+                            ? "暂无可推导的 t.me 公开链接(私有频道或条目无链接),原生预览与公开镜像均不可用"
+                            : `原生网页预览(首次需扫码登录一次;登录会触发 TG 的新设备登录安全提醒,属预期):${tgPreviewUrl}`
+                        }
+                        onClick={launchTgNative}
+                      >
+                        原生网页预览
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1.5 text-2xs"
+                        // v10(10-11-tg-multi-account-groups):Telegram 监控分区已抽为
+                        // 独立屏 /tg-account(侧栏「配置」组),管理入口随迁
+                        onClick={() => navigate("/tg-account")}
+                      >
+                        管理
+                      </Button>
+                      <button
+                        type="button"
+                        data-testid="feed-tg-console-history"
+                        onClick={openHistory}
+                        className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-2xs text-primary hover:bg-accent/50 hover:underline"
+                      >
+                        <Inbox aria-hidden className="size-3" />
+                        看全部历史消息(含已读)
+                      </button>
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           {/* 工具条(v7 左栏工具条升格,feed-toolbar 保留):返回钮(替代
               feed-back-to-overview)+ 渠道名 + 读态分段(隐藏条件 = 历史态 OR
               检索态,拷问 R1-Q2「不给死控件」)+ 计数词面 + 知会词 + 退出历史
@@ -3494,9 +3673,13 @@ export function FeedScreen() {
               <ChevronLeft className="size-3.5" />
               {activeChannelKind !== null ? CHANNEL_CARD_LABELS[activeChannelKind] : "渠道"}
             </Button>
-            <span className="text-xs font-medium text-foreground" data-testid="feed-stream-title">
-              {streamTitle}
-            </span>
+            {/* 渠道名小字仅网站/日报单列形态保留(TG 形态随迁聊天头大字,
+                一屏一词一源,不双写) */}
+            {!chatView ? (
+              <span className="text-xs font-medium text-foreground" data-testid="feed-stream-title">
+                {streamTitle}
+              </span>
+            ) : null}
             {/* 原生视图切换(v9 AC34,design-v9 §2.1;仅 TG 渠道渲染,网站/日报
                 整组不出现 = 如实无钮,与监控台条同门 isTgChannel 零新判定面):
                 段 active 跟注意力(会话内持久),「原生视图」红点徽标 = 窗存活
@@ -3758,92 +3941,9 @@ export function FeedScreen() {
             </p>
           ) : null}
 
-          {/* TG 监控台条(§3.1,v8 = 3 级专属:工具条下同构落位,1/2 级不出;
-              条件 kind=tg && phase=ok && tgWebline;phase 机件/R2/预览/历史
-              入口逐行原样) */}
-          {isTgChannel && tgStatusPhase === "ok" && tgWebline !== null ? (
-            <div
-              data-testid="feed-tg-console"
-              className="mx-5 mt-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2.5"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-foreground">Telegram 监控台</span>
-                {tgWebline.web.accounts.some((a) => a.logged_in) ? (
-                  <span
-                    className="inline-flex items-center gap-1 text-2xs text-ok"
-                    data-testid="feed-tg-console-live"
-                  >
-                    ● 监控中 · {tgWebline.web.accounts.filter((a) => a.logged_in).map((a) => a.account).join("、")}
-                    {tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at
-                      ? ` · 自 ${formatAbsoluteTime(tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at ?? null)}`
-                      : ""}
-                  </span>
-                ) : (
-                  <span className="text-2xs text-warning">
-                    未登录 —— 扫码登录网页版 telegram,登录后 7×24 监控,新消息自动入库
-                  </span>
-                )}
-                <span className="ml-auto flex items-center gap-1">
-                  {!tgWebline.web.accounts.some((a) => a.logged_in) &&
-                  tgWebline.web.accounts.length > 0 ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-6 px-2 text-2xs"
-                      data-testid="feed-tg-console-login"
-                      disabled={tgLoginBusy || tgWebline.web.accounts[0].login_in_progress}
-                      onClick={() => void startWebLogin()}
-                    >
-                      {tgWebline.web.accounts[0].login_in_progress
-                        ? "登录中…"
-                        : tgLoginBusy
-                          ? "拉起中…"
-                          : "扫码登录网页版"}
-                    </Button>
-                  ) : null}
-                  {/* 原生网页预览(v9 AC33 升级,原「内置浏览器预览」t.me/s 直开
-                      退役):/k/ 深链 + 统一注册表开窗(与「原生视图」段同一窗,
-                      重复点击 = 聚焦);推导不出 = 置灰 + title 如实(不装死);
-                      title 如实告知登录前 QR 属预期(§1.3,监控台「未登录」词面
-                      说的是 watcher,两线词面不串台) */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-6 px-2 text-2xs"
-                    data-testid="feed-tg-console-preview"
-                    disabled={tgPreviewUrl === null}
-                    title={
-                      tgPreviewUrl === null
-                        ? "暂无可推导的 t.me 公开链接(私有频道或条目无链接),原生预览与公开镜像均不可用"
-                        : `原生网页预览(首次需扫码登录一次;登录会触发 TG 的新设备登录安全提醒,属预期):${tgPreviewUrl}`
-                    }
-                    onClick={launchTgNative}
-                  >
-                    原生网页预览
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-1.5 text-2xs"
-                    // v10(10-11-tg-multi-account-groups):Telegram 监控分区已抽为
-                    // 独立屏 /tg-account(侧栏「配置」组),管理入口随迁
-                    onClick={() => navigate("/tg-account")}
-                  >
-                    管理
-                  </Button>
-                </span>
-              </div>
-              <button
-                type="button"
-                data-testid="feed-tg-console-history"
-                onClick={openHistory}
-                className="mt-1.5 inline-flex items-center gap-1 text-2xs text-primary hover:underline"
-              >
-                <Inbox aria-hidden className="size-3" />
-                看全部历史消息(含已读)
-              </button>
-            </div>
-          ) : null}
+          {/* TG 监控台大卡已撤销(10-11-tg-chat-two-pane):四态/词面/机件
+              (登录钮/预览/管理/历史入口)压缩进上方聊天头压缩条,门与测试
+              锚(feed-tg-console 系 testid)原样随迁。 */}
 
           {/* 时间线滚动区(§3.1):错误卡 → 骨架 → 空态阶梯 → 聊天气泡/单列
               → 加载更早;回执行(打开原文/标记)随滚动区走 */}
@@ -3926,7 +4026,7 @@ export function FeedScreen() {
                   <CardContent className="p-0">
                     <EmptyState
                       title="未登录,暂无新消息入库"
-                      description="上方监控台扫码登录网页版 telegram 后,7×24 监控自动入库,新消息即出现在这里;「全部」页签可看已入库的已读条目。"
+                      description="上方聊天头扫码登录网页版 telegram 后,7×24 监控自动入库,新消息即出现在这里;「全部」页签可看已入库的已读条目。"
                     />
                   </CardContent>
                 </Card>
@@ -3936,7 +4036,7 @@ export function FeedScreen() {
                   <CardContent className="p-0">
                     <EmptyState
                       title="监控在线,暂无未读新消息"
-                      description="Telegram 监控在线,新消息入库即出现在这里;已读条目切「全部」页签或点监控台「看全部历史消息(含已读)」直达。"
+                      description="Telegram 监控在线,新消息入库即出现在这里;已读条目切「全部」页签或点聊天头「看全部历史消息(含已读)」直达。"
                     />
                   </CardContent>
                 </Card>
@@ -3979,9 +4079,12 @@ export function FeedScreen() {
               )
             ) : chatView ? (
               /* ═══ TG 聊天视图(v4 全套原样):气泡时间线,日期分隔居中胶囊;
-                  含历史态照旧 ═══ */
+                  含历史态照旧。10-11 双栏:TG 右栏内全宽(TG 群对话方式,不再
+                  居中窄列留白;气泡自身 min/max-w 上限照旧,日期胶囊 mx-auto
+                  仍居中);网站/日报形态走 feed-stream-list 独立分支(居中窄
+                  列原样),不经此处 ═══ */
               groups !== null ? (
-                <div className="mx-auto flex w-full max-w-[820px] flex-col gap-4" data-testid="feed-chat-timeline">
+                <div className="flex w-full flex-col gap-4" data-testid="feed-chat-timeline">
                   {groups.map((group) => (
                     <section key={group.key} aria-label={`时间分组:${group.label}`}>
                       <div
@@ -3995,8 +4098,8 @@ export function FeedScreen() {
                   ))}
                 </div>
               ) : (
-                // 不分组:平铺(行距 6px 密度档)
-                <div className="mx-auto flex w-full max-w-[820px] flex-col gap-1.5" data-testid="feed-flat-list">
+                // 不分组:平铺(行距 6px 密度档;TG 右栏全宽同上)
+                <div className="flex w-full flex-col gap-1.5" data-testid="feed-flat-list">
                   {displayItems.map(renderCard)}
                 </div>
               )
@@ -4014,7 +4117,8 @@ export function FeedScreen() {
               </Button>
             ) : null}
           </div>
-        </>
+          </div>
+        </div>
       ) : null}
 
       {/* 消息详情弹窗(主人令「点击信息,弹出详情」):Portal 渲染,Esc/遮罩

@@ -3411,6 +3411,192 @@ describe("FeedScreen · tg-category-entry 监控台(v7:TG 选中左栏顶部常�
   });
 });
 
+// ---------------------------------------------------------------------------
+// tg-chat-two-pane(10-11,主人令「左侧是群列表,点击后,展示出来右侧的群
+// 内容」+「UI 布局要按照 tg 的群对话方式进行布局」):3 级 TG 情报视图 =
+// TG 群对话式双栏(左监控群列表 + 右聊天时间线)。落点判例:v7 双栏错粒度
+// 在 2 级,本次 3 级是主人明令,不属翻案。
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · tg-chat-two-pane(3 级 TG 群对话式双栏,10-11)", () => {
+  const statusPayload = (loggedIn: boolean) => ({
+    bot: { configured: false, error: null },
+    session: { exists: false },
+    web: {
+      accounts: [
+        { account: "telegram-alt1", logged_in: loggedIn, logged_in_at: loggedIn ? "2026-10-09T01:00:00" : null, login_in_progress: false, login_note: null },
+      ],
+    },
+  });
+
+  /** 双栏世界:health 给 TG 监控群(缺省两群:clashv8 = 主人装机实况主例 +
+   *  alpha)与 tech 网页渠道;storeItems 按参数分源过滤(v9 mockNativeWorld
+   *  同门)。单群退化 = groups 只传 clashv8(AC4①)。 */
+  function mockTwoPaneWorld(items: FeedItem[], groups: string[] = ["telegram-clashv8", "telegram-alpha"]) {
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "telegram.status") return statusPayload(true);
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    healthMock.mockResolvedValue(
+      healthResult({
+        plugins: [
+          pluginEntry({
+            id: "telegram",
+            name: "Telegram 监控",
+            sources: groups.map((name) => sourceEntry(name, "tg_web")),
+          }),
+          pluginEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
+        ],
+      }),
+    );
+    const seeded = [
+      fixtureItem({ source: "tech-source", title: "科技今日一条" }),
+      ...items,
+    ];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(seeded.filter((item) => !params?.source || item.source === params.source))),
+    );
+  }
+
+  /** 下钻入口:1 级 TG 类型卡 → 2 级行 → 3 级(群列表默认选中该渠道)。 */
+  async function openTgGroup(key: string) {
+    fireEvent.click(await screen.findByTestId("feed-type-card-tg"));
+    fireEvent.click(await screen.findByTestId(`feed-channel-row-${key}`));
+  }
+
+  it("AC1/AC4① 左栏渲染群行:单群(clashv8 实况)退化照常渲染单行并默认选中;行 = 渠道名/最近预览/相对时间/未读徽标", async () => {
+    const anchor = dayWindowStart().getTime();
+    mockTwoPaneWorld(
+      [
+        fixtureItem({
+          source: "telegram-clashv8",
+          title: "clashv8 群消息",
+          first_seen: new Date(anchor + 60_000).toISOString(),
+        }),
+      ],
+      ["telegram-clashv8"], // 单群退化态
+    );
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+
+    // 左栏在场;单群单行照常渲染,默认选中 = 当前深链渠道(AC1)
+    const pane = await screen.findByTestId("feed-tg-group-pane");
+    expect(pane.getAttribute("aria-label")).toBe("监控群列表");
+    const row = screen.getByTestId("feed-channel-row-telegram-clashv8");
+    expect(row.getAttribute("data-selected")).toBe("true");
+    expect(row.getAttribute("data-channel-kind")).toBe("tg");
+    // TG 聊天列表行四件套:渠道名 / 最近消息预览 / 相对时间 / 未读徽标
+    expect(row.textContent).toContain("clashv8");
+    expect(row.textContent).toContain("净化摘要内容");
+    expect(row.querySelector("time")).not.toBeNull();
+    expect(within(row).getByTestId("feed-channel-unread-telegram-clashv8").textContent).toBe("1");
+  });
+
+  it("AC2 点击左栏另一群 → viewSource 切换 + 流式重载(mock 断言),不退出 3 级、不经过 2 级;选中态迁移", async () => {
+    const anchor = dayWindowStart().getTime();
+    mockTwoPaneWorld([
+      fixtureItem({
+        source: "telegram-clashv8",
+        title: "clashv8 群消息",
+        first_seen: new Date(anchor + 60_000).toISOString(),
+      }),
+      fixtureItem({
+        source: "telegram-alpha",
+        title: "alpha 群消息",
+        first_seen: new Date(anchor + 30_000).toISOString(),
+      }),
+    ]);
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    expect(await screen.findByText("clashv8 群消息")).toBeTruthy();
+    expect(screen.getByTestId("feed-channel-row-telegram-alpha").getAttribute("data-selected")).toBe("false");
+
+    // 点左栏另一群:store.items 带 source 精确等值重发(既有流式机制复用)
+    fireEvent.click(screen.getByTestId("feed-channel-row-telegram-alpha"));
+    await waitFor(() =>
+      expect(storeItemsMock).toHaveBeenLastCalledWith(expect.objectContaining({ source: "telegram-alpha" })),
+    );
+    // 不退出 3 级、不经过 2 级:类型卡墙与 2 级行列表都不在场
+    expect(screen.queryByTestId("feed-types-wall")).toBeNull();
+    expect(screen.queryByTestId("feed-channel-list")).toBeNull();
+    // 右栏换成 alpha 时间线,旧群条目离场;左栏选中态迁移
+    expect(await screen.findByText("alpha 群消息")).toBeTruthy();
+    expect(screen.queryByText("clashv8 群消息")).toBeNull();
+    expect(screen.getByTestId("feed-channel-row-telegram-alpha").getAttribute("data-selected")).toBe("true");
+    expect(screen.getByTestId("feed-channel-row-telegram-clashv8").getAttribute("data-selected")).toBe("false");
+  });
+
+  it("AC3 聊天头:群名大字 + 监控状态行(监控中·账号·自时间)+ 三动作钮;工具条与时间线保留", async () => {
+    const anchor = dayWindowStart().getTime();
+    mockTwoPaneWorld(
+      [
+        fixtureItem({
+          source: "telegram-clashv8",
+          title: "clashv8 群消息",
+          url: "https://t.me/clashv8/101",
+          first_seen: new Date(anchor + 60_000).toISOString(),
+        }),
+      ],
+      ["telegram-clashv8"],
+    );
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+
+    // 聊天头:群名(feed-stream-title 随迁,大字段)
+    const header = await screen.findByTestId("feed-tg-chat-header");
+    expect(within(header).getByTestId("feed-stream-title").textContent).toContain("clashv8");
+    // 监控状态行:监控中 · 账号 · 自时间(原监控台状态行词面,来自 console 状态数据)
+    const live = within(header).getByTestId("feed-tg-console-live");
+    expect(live.textContent).toContain("监控中 · telegram-alt1");
+    expect(live.textContent).toContain("自 2026-10-09 01:00");
+    // 三动作钮:原生网页预览 / 管理 / 看全部历史消息(监控台大卡压缩条内)
+    expect(within(header).getByTestId("feed-tg-console-preview").getAttribute("disabled")).toBeNull();
+    expect(within(header).getByRole("button", { name: "管理" })).toBeTruthy();
+    expect(within(header).getByTestId("feed-tg-console-history")).toBeTruthy();
+    // 工具条保留可用:读态分段 / 渠道内检索 / 显示选项 / 刷新(AC3 后半)
+    const toolbar = screen.getByTestId("feed-toolbar");
+    expect(within(toolbar).getByRole("group", { name: "读态过滤" })).toBeTruthy();
+    expect(within(toolbar).getByLabelText("渠道内检索")).toBeTruthy();
+    expect(within(toolbar).getByRole("button", { name: "显示选项" })).toBeTruthy();
+    expect(within(toolbar).getByRole("button", { name: "刷新" })).toBeTruthy();
+    // 聊天时间线照常渲染
+    expect(await screen.findByTestId("feed-chat-timeline")).toBeTruthy();
+  });
+
+  it("AC4② 零监控群引导空态(防御位):引导到 Telegram 屏添加监控群", async () => {
+    // 可达路径构造:health 失败(engine 词表缺席,渠道全集退化为已加载条目
+    // source)+ version 挂起 → 下钻完成后放行 COUNT_PROTOCOL 门 → countReady
+    // 翻转触发 refreshCatalog 整页替换;此刻 catalog 域改答零条目 = 渠道全集
+    // 真清空(health 源在场则行恒在,无法达零),左栏落零群空态。正常动线
+    // 3 级 TG 必有 ≥1 群(入口来自该列表),此态为防御位 + 语义自文档。
+    let resolveVersion: ((value: VersionResult) => void) | undefined;
+    versionMock.mockImplementation(
+      () => new Promise<VersionResult>((resolve) => { resolveVersion = resolve; }),
+    );
+    mockTwoPaneWorld(
+      [fixtureItem({ source: "telegram-clashv8", title: "clashv8 群消息" })],
+      ["telegram-clashv8"],
+    );
+    healthMock.mockRejectedValue(new Error("sidecar 未连接"));
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    expect(await screen.findByTestId("feed-channel-row-telegram-clashv8")).toBeTruthy();
+
+    // 门翻转后的 catalog 重拉改答零条目(stream 域照常供流)
+    const streamItem = fixtureItem({ source: "telegram-clashv8", title: "clashv8 群消息" });
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(params?.source ? [streamItem] : [])),
+    );
+    await act(async () => {
+      resolveVersion?.(versionResult(COUNT_PROTOCOL));
+    });
+    const empty = await screen.findByTestId("feed-tg-group-empty");
+    expect(empty.textContent).toContain("还没有监控群");
+    expect(empty.textContent).toContain("Telegram");
+    expect(empty.textContent).toContain("添加监控群");
+  });
+});
+
 describe("feed 内置浏览器预览 纯函数(api.ts,10-09-tg-category-entry v3)", () => {
   it("telegramMirrorUrlOf:消息锚/预览链/纯频道链 → t.me/s/<频道名>;邀请链/非 t.me/空 = null 不猜", () => {
     // bot/网页线消息锚(AC11 主例:mihomo_party 最新条目)
