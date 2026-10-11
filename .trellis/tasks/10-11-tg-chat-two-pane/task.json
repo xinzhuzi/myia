@@ -3,7 +3,7 @@
   "name": "tg-chat-two-pane",
   "title": "情报视图 TG 群对话式双栏:左群列表+右聊天时间线",
   "description": "主人令(2026-10-11,附截图):情报视图这个地方,应该是左侧是群列表,点击后展示出来右侧的群内容,而不是现在这个格式排列,UI 布局要按照 TG 的群对话方式进行布局。范围=3 级 TG 渠道详情的「情报视图」tab 重排为双栏聊天工作台;原生视图 tab 与 1/2 级不动;网站类 3 级不动。",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "并行会话在场(wechat-ui-bridge in_progress),共享指针不动,task.json 直改;v7 双栏曾在 2 级被推翻(错粒度),本次落点是 3 级情报视图,主人明令。",
+  "notes": "三级双栏+grill一轮交付(9d00c08/63a1526,BwBiGnq0 换装);裁②双区分工/裁⑥监控会话",
   "meta": {}
 }

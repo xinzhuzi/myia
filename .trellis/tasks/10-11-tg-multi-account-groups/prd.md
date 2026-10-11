@@ -94,10 +94,17 @@ AC1-AC5 已全勾(2026-10-11 凌晨交付,ee687ea 前后链路):
 
 现状:2 级 Telegram 页 = 纯渠道平铺(TG · 3 个渠道 + 搜索 + 渠道行)。主人令:先展示**账号列表**,再展示**群列表**。
 
-- [ ] AC36 2 级 Telegram 页顶部新增「账号」区:账号行(备注名主显示 + 内部键名/user_id 小字 + 登录态●/○,数据 = telegram.status web.accounts,v4 身份面同源)+「管理」跳转 /tg-account(消费方只读,管理面唯一性判例不破);无账号给引导空态(去 Telegram 屏添加)。
-- [ ] AC37 账号区之下群列表照常(现有渠道行/搜索/未读徽标零变化);账号区折叠或后续按账号分组的扩展留后议,本轮不平铺强改。
-- [ ] AC38 测试随动:账号区渲染(mock accounts)/空态/管理跳转三件;既有 2 级用例零随迁或如实随迁。
-- [ ] AC39 门禁全绿 + 换装双实锤 + 入库;与 10-11-tg-chat-two-pane(3 级双栏)同文件分笔提交。
+- [x] AC36 2 级 Telegram 页顶部新增「账号」区:账号行(备注名主显示 + 内部键名/user_id 小字 + 登录态●/○,数据 = telegram.status web.accounts,v4 身份面同源)+「管理」跳转 /tg-account(消费方只读,管理面唯一性判例不破);无账号给引导空态(去 Telegram 屏添加)。
+- [x] AC37 账号区之下群列表照常(现有渠道行/搜索/未读徽标零变化);账号区折叠或后续按账号分组的扩展留后议,本轮不平铺强改。
+- [x] AC38 测试随动:账号区渲染(mock accounts)/空态/管理跳转三件;既有 2 级用例零随迁或如实随迁。
+- [x] AC39 门禁全绿 + 换装双实锤 + 入库;与 10-11-tg-chat-two-pane(3 级双栏)同文件分笔提交。
+
+### v5 终局注记(2026-10-11,交付链 7919e11 → f859b62,grill 二轮补批)
+
+- 实现:trellis-implement 代理(+116/+129 测试;账号区=区头「账号 · N」+账号行[备注名/键名·user_id/●○]+管理跳转+骨架与空态;telegramGetStatus 门拓至 2级tg 同源不重发)→ 拷问官七条:5 直接补 + 1 主人裁 + 1 欠账。
+- grill 二轮补批(f859b62):error 态拆支+重试钮(feed-tg-accounts-error,不再被「去添加账号」词面吞);登录中间态三档(监控中(自 t)/登录中…/未登录附 login_note 因);行身可点跳转(role=button+键盘,判例让位收口防双动作——**按推荐落地,主人可否决**);测试去 AC 号化+error 态/取数纪律(site 2 级零调用、2→3→2 恰 1 发)两件新断言;sr-only 登录态(a11y)。
+- 门禁:feed vitest **199/199** + tsc 全项目零错;像素取证 /tmp/myssia-tg-level2-accounts.png(账号区在群列表之上);换装同 10-11-tg-chat-two-pane(index-BwBiGnq0,PID 77515)。
+- **欠账(后议,L,跨 py/UI)**:「账号↔群」映射在数据模型不存在(FeedChannelCardData 无 account 字段,web.accounts 不挂群清单)——多账号落地时需 store 条目/health 源补 account 归属 → tgGroupCards 按账号聚合 → 账号行「展开该账号的群」同批;落点已注释钉在 tgGroupCards memo。
 
 ## v3 追加(2026-10-11,主人令「需要有一个账号模块,因为以后会有多个账号的」)
 
