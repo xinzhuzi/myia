@@ -29,7 +29,7 @@
 - **D1 首发范围**:飞书账号线 + 微信受限状态卡。QQ 不做(见 D2)。
 - **D2 QQ**:不接第三方 NTQQ 协议(封号风险 + 常驻双向风险面),QQ 只留官方机器人通道;若主人日后要接,翻案后挂独立档。
 - **D3 微信**:接受受限形态——桥接状态灯 + 账号档有无 + 登录指引(引导终端 `hermes gateway setup` 扫码);**不做**账号文件名列表(探查明示「列文件名是否越红线需裁决」,保守避开)、不做卡内登录/删除(等 Hermes 上游契约)。
-- **D4 UI**:侧栏「配置」组新增一张「平台账号」屏(`/platform-accounts`),内含飞书段+微信段;Telegram 独立屏(/tg-account)不动。
+- **D4 UI(2026-10-11 主人令渠道本名制推翻原总屏方案)**:「平台账号」这个抽象词不存在——渠道入口以本名呈现。侧栏「配置」组 = YAML配置 / Telegram / **飞书**(/feishu)/ **微信**(/weixin),各渠道独立屏与 Telegram 平级;协议面 platform_accounts.* 聚合快照不动(内部契约,不出 UI)。原「平台账号」总屏/总卡删除。
 
 ## Acceptance Criteria
 
@@ -54,3 +54,10 @@
 - **门禁**:pytest 全量 5089 passed(pyenv e2e 协议版本钉死 14→15 随批修正后过);协议注册表对账 178/178;vitest 全量 710/710(卡测 7 用例);tsc -b + vite build 绿;Rust 壳零改动。
 - **装机**:tauri build exit 0(世事.app 17.84MiB + DMG 0.0.3);备份 `/tmp/myssia-platform-accounts-backup-20260111-135918` 后 ditto 换装;strict verify 过;WKWebView 缓存清;包内 Python 源(`Resources/myssia-src/entry.py`)实证 `platform_accounts` 9 处命中;装机无头冒烟全 PASS(A0-A6)。
 - **如实声明**:①授权流的真实闭环(飞书页登录→回调换 token)需主人侧前置——飞书开放平台应用安全设置登记重定向 URL `http://127.0.0.1:8731/callback`(未登记授权页报 redirect_uri 不合法,卡面有指引),真机授权留主人;②微信段按 D3 为受限形态(状态灯+指引),账号列表/卡内登录待 Hermes 上游契约;③QQ 按 D2 未接第三方协议,留官方机器人。
+
+## 追记:渠道本名制落地(2026-10-11 晚,主人令)
+
+- **主人裁定**:「平台账号,没有这个渠道,飞书就是飞书,不能叫做平台账号」——渠道入口以本名呈现,不用抽象总类词。
+- **落地**(commit refactor 渠道本名制):总屏/总卡删除,拆为「飞书」(/feishu)+「微信」(/weixin)两张独立卡、独立屏,侧栏「配置」组 = YAML配置 / Telegram / 飞书 / 微信;命令面板与 IA 断言同步(导航十一屏)。协议面 platform_accounts.* 聚合快照不动(内部契约不出 UI)。
+- **门禁**:vitest 713/713(卡测拆分 10 用例)、tsc、vite build;pytest 未涉(零 Python 改动)。
+- **装机像素复验(无头桥真件)10/10 全 PASS**:飞书屏(空态/表单/8731 指引)、微信屏(**真实桥数据**:桥可用+CLI 真实路径+账号档已配置+gateway 在跑)、配置编辑(搜索 3/14 过滤+清空恢复+「打开位置」在场启用不真点)。截图 /tmp/verify-feishu.png、/tmp/verify-weixin.png、/tmp/verify-yaml-editor.png;换装备份 /tmp/myssia-rename2-backup-20261011-180441;装机冒烟全 PASS。
