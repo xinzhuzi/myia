@@ -1,0 +1,188 @@
+"""系统事实检查器(探针的原料;全部**只读**,零前台扰动)。
+
+静默铁律(prd 红线 4)在本模块的落法:
+
+- 进程存在性 = ``pgrep -x WeChat``(只查进程表);
+- 版本号 = ``plistlib`` 直读 ``/Applications/WeChat.app/Contents/Info.plist``
+  (纯文件读;不走 ``defaults`` 子进程也不碰 app 运行态);
+- AX 权限 = ``AXIsProcessTrusted``(ctypes 直呼 ApplicationServices;该 API
+  **永不弹框不抢焦点**——弹框语义在 ``AXIsProcessTrustedWithOptions`` 的
+  prompt 选项,本桥不碰它);
+- 主窗口 = ``CGWindowListCopyWindowInfo``(pyobjc Quartz;纯窗口列表快照,
+  不激活不枚举 AX 树);pyobjc 缺位 → ``unknown`` 如实上报,不臆测;
+- 本地库落盘 = 纯目录存在性 + 计数(只看形状,不进库不碰密钥材料)。
+
+每个检查器都是模块级函数 = 单测的注入点(tests 全 mock,CI 无微信全绿)。
+"""
+
+from __future__ import annotations
+
+import plistlib
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from .codes import TIMEOUT, BridgeError
+
+__all__ = [
+    "CHECK_TIMEOUT_SECONDS",
+    "WECHAT_BUNDLE_PATH",
+    "WECHAT_PROCESS_NAME",
+    "wechat_process_running",
+    "wechat_version",
+    "ax_permission_trusted",
+    "wechat_main_window_open",
+    "localdb_storage_accounts",
+    "localdb_key_available",
+    "WECHAT_FILES_ROOT",
+]
+
+#: 微信进程名(pgrep -x 精确匹配;2026-10-11 本机实测形态)。
+WECHAT_PROCESS_NAME = "WeChat"
+#: 微信 app 缺省安装位(版本号读取;非 guessing——装在别处时如实 unknown)。
+WECHAT_BUNDLE_PATH = Path("/Applications/WeChat.app")
+#: 本地库数据根(prd Notes/research §7.1 实测布局;只读定位用)。
+WECHAT_FILES_ROOT = (
+    Path.home()
+    / "Library"
+    / "Containers"
+    / "com.tencent.xinWeChat"
+    / "Data"
+    / "Documents"
+    / "xwechat_files"
+)
+#: 单个检查子进程的超时上限(§6 exit 30 的挂点;秒,模块常量不设配置口)。
+CHECK_TIMEOUT_SECONDS = 10.0
+
+
+def _run_command(argv: list[str], timeout: float = CHECK_TIMEOUT_SECONDS) -> subprocess.CompletedProcess[bytes]:
+    """带超时 kill 兜底的子进程运行(weixin.py ``run_bridge_command`` 同构的
+    同步版;超时 → :class:`BridgeError`(exit 30 timeout)。"""
+    try:
+        return subprocess.run(  # noqa: S603 - argv 白名单内字面量,无外壳
+            argv,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise BridgeError(
+            TIMEOUT,
+            f"检查子进程超时({' '.join(argv[:2])}…,{timeout:.0f}s 未退出,已 kill)",
+            fix_hint="重试;持续超时说明系统层挂起,先查进程表",
+        ) from exc
+
+
+def wechat_process_running() -> bool:
+    """微信进程存在性(``pgrep -x``;只查进程表,零窗口操作)。"""
+    result = _run_command(["pgrep", "-x", WECHAT_PROCESS_NAME])
+    return result.returncode == 0
+
+
+def wechat_version() -> str | None:
+    """微信版本号(plistlib 直读 Info.plist;缺位/不可读 → None 如实)。"""
+    plist = WECHAT_BUNDLE_PATH / "Contents" / "Info.plist"
+    if not plist.is_file():
+        return None
+    try:
+        with plist.open("rb") as handle:
+            data = plistlib.load(handle)
+    except (OSError, plistlib.InvalidFileException):
+        return None
+    version = data.get("CFBundleShortVersionString")
+    return str(version) if version else None
+
+
+def ax_permission_trusted() -> bool | None:
+    """辅助功能权限自检(``AXIsProcessTrusted``,无弹框语义)。
+
+    Returns:
+        True/False = 权限在/缺;None = 判定不可及(framework 加载失败,
+        非 darwin 等)——**unknown 如实上报**,不把「测不了」伪装成结论。
+    """
+    try:
+        import ctypes
+    except ImportError:  # pragma: no cover - CPython 恒有 ctypes,防御性
+        return None
+    if not sys_darwin():
+        return None
+    try:
+        framework = ctypes.CDLL(
+            "/System/Library/Frameworks/ApplicationServices.framework/"
+            "ApplicationServices"
+        )
+    except OSError:
+        return None
+    framework.AXIsProcessTrusted.restype = ctypes.c_bool
+    framework.AXIsProcessTrusted.argtypes = []
+    return bool(framework.AXIsProcessTrusted())
+
+
+def sys_darwin() -> bool:
+    """平台判定(独立小函数 = 单测注入点)。"""
+    import sys
+
+    return sys.platform == "darwin"
+
+
+def wechat_main_window_open() -> bool | None:
+    """微信主窗口在否(CGWindowList 全量快照按属主过滤;零激活零枚举)。
+
+    Returns:
+        True = 至少一个属主为 WeChat 的窗口;False = 零窗口(托盘态);
+        None = 判定不可及(pyobjc 缺位/非 darwin)→ unknown 如实。
+    """
+    if not sys_darwin():
+        return None
+    try:
+        import Quartz  # pyobjc;仓库 venv 在场,装机态属组件可选依赖
+    except ImportError:
+        return None
+    try:
+        window_list = Quartz.CGWindowListCopyWindowInfo(
+            Quartz.kCGWindowListOptionAll, Quartz.kCGNullWindowID
+        )
+    except Exception:  # noqa: BLE001 - 窗口快照失败按不可及处理,不臆测
+        return None
+    for window in window_list or []:
+        owner = window.get(Quartz.kCGWindowOwnerName)
+        if owner == WECHAT_PROCESS_NAME:
+            return True
+    return False
+
+
+def localdb_storage_accounts(root: Path | None = None) -> int | None:
+    """本地库落盘定位(纯目录计数:带 ``db_storage/`` 的账号目录数)。
+
+    只看目录形状,不进库、不碰密钥材料(prd 红线 6:证据只留形状)。
+    数据根本身缺位 → None(定位失败,§6 exit 20 的原料);有根无账号 → 0。
+    """
+    base = root if root is not None else WECHAT_FILES_ROOT
+    if not base.is_dir():
+        return None
+    count = 0
+    for child in base.iterdir():
+        if child.is_dir() and (child / "db_storage").is_dir():
+            count += 1
+    return count
+
+
+def localdb_key_available() -> bool:
+    """本地库密钥可用性(骨架态恒 False;Phase E1 按 D4 裁决落地真判据)。
+
+    这是「桥此刻拿不到密钥」的如实陈述(prd D4 未裁决),不是「密钥不存在」
+    的结论(A3 探查归 Phase A);探针据此给 degraded(key_unavailable),
+    localdb query 据此给 exit 21。
+    """
+    return False
+
+
+def check_summary(value: Any) -> str:
+    """检查值 → checks 字典的字符串态(ok/fail/unknown;probe 载荷形状)。"""
+    if value is True:
+        return "ok"
+    if value is False:
+        return "fail"
+    if value is None:
+        return "unknown"
+    return str(value)

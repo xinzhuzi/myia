@@ -114,5 +114,11 @@ packages = ["src/myssia"]
 # 双测试根(10-05-tests-module-grouping):主包 tests/ 已按 src/myssia 模块分组;
 # myssia-classifier 的语义测试随独立包走自己的 tests/,根 testpaths 一并纳入,
 # CI 单命令 `uv run --no-sync python -m pytest -q` 全量门禁不变。
+# pythonpath:wechat-bridge 组件源码根(10-11-wechat-ui-bridge Phase B)——
+# 组件非 workspace 成员(MYIA 只做子进程调用,不 vendor 不依赖,design §1),
+# 其单测经 pytest 内建 pythonpath 导入 plugins/wechat-bridge 下的
+# wechat_bridge 包;不走 conftest sys.path 插桩(conftest 文件名会被仓库
+# 通用裸 `from conftest import` 模式抢注,实测踩全量)。
 [tool.pytest.ini_options]
 testpaths = ["tests", "myssia-classifier/tests"]
+pythonpath = ["plugins/wechat-bridge"]

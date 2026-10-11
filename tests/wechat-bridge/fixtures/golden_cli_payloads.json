@@ -1,0 +1,78 @@
+{
+ "probe_tray": {
+  "ok": false,
+  "state": "degraded",
+  "checks": {
+   "bridge_component": "ok",
+   "wechat_process": "ok",
+   "ax_permission": "ok",
+   "main_window": "fail",
+   "localdb_storage": "ok",
+   "localdb_key": "unavailable",
+   "ax_tree": "unknown"
+  },
+  "wechat_version": "4.1.15",
+  "bridge_version": "0.1.0",
+  "reasons": [
+   {
+    "code": "window_closed",
+    "fix_hint": "打开微信主窗口(UI 通道恢复;本地库只读通道不受影响)"
+   },
+   {
+    "code": "key_unavailable",
+    "fix_hint": "本地库密钥途径待 D4 裁决(零内存方案探查归 Phase A3/A4)"
+   }
+  ],
+  "config": {
+   "domains": [
+    "message",
+    "session",
+    "contact"
+   ],
+   "limits": {
+    "sessions": 20,
+    "messages": 50,
+    "history_days": 30
+   },
+   "copy_ttl_hours": 24,
+   "copy_capacity_mb": 512,
+   "source": null
+  }
+ },
+ "err_window_closed": {
+  "error": {
+   "code": "window_closed",
+   "message": "微信主窗口未开(托盘态):UI 通道无窗口可读",
+   "fix_hint": "打开微信主窗口;本地库只读通道(localdb)不受此限"
+  }
+ },
+ "err_send_rate_limited": {
+  "error": {
+   "code": "send_rate_limited",
+   "message": "频控拒发(G6 硬间隔 10s):距上次发送尚差 7.00s",
+   "fix_hint": "等待剩余秒数后重试;桥不提供批量接口与频控配置(G6)",
+   "retry_after_seconds": 7.0
+  }
+ },
+ "err_not_implemented_send": {
+  "error": {
+   "code": "not_implemented",
+   "message": "send_text 的实现层尚未落地(Phase D1);当前为 Phase B 桥骨架,前置检查通过但无实现可执行",
+   "fix_hint": "等待 Phase D1 落地;期间可用通道:probe(三态)/ localdb(按 D4)"
+  }
+ },
+ "err_localdb_key_unavailable": {
+  "error": {
+   "code": "key_unavailable",
+   "message": "本地库密钥不可得:密钥途径(D4)未裁决,骨架态无获取实现",
+   "fix_hint": "等待 Phase A3/A4 零内存方案探查结论与主人 D4 裁决;内存密钥搜索为降级候选,默认关、启用须主人裁决(prd 红线 1)"
+  }
+ },
+ "err_localdb_db_not_found": {
+  "error": {
+   "code": "db_not_found",
+   "message": "微信本地库数据根不存在: <TMP>/no-such-root",
+   "fix_hint": "确认微信曾在本机登录并产生本地数据;桥不做登录流程(prd R4)"
+  }
+ }
+}

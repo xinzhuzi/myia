@@ -1,0 +1,40 @@
+{
+    "ok": false,
+    "state": "degraded",
+    "checks": {
+        "bridge_component": "ok",
+        "wechat_process": "ok",
+        "ax_permission": "ok",
+        "main_window": "fail",
+        "localdb_storage": "ok",
+        "localdb_key": "unavailable",
+        "ax_tree": "unknown"
+    },
+    "wechat_version": "4.1.15",
+    "bridge_version": "0.1.0",
+    "reasons": [
+        {
+            "code": "window_closed",
+            "fix_hint": "\u6253\u5f00\u5fae\u4fe1\u4e3b\u7a97\u53e3(UI \u901a\u9053\u6062\u590d;\u672c\u5730\u5e93\u53ea\u8bfb\u901a\u9053\u4e0d\u53d7\u5f71\u54cd)"
+        },
+        {
+            "code": "key_unavailable",
+            "fix_hint": "\u672c\u5730\u5e93\u5bc6\u94a5\u9014\u5f84\u5f85 D4 \u88c1\u51b3(\u96f6\u5185\u5b58\u65b9\u6848\u63a2\u67e5\u5f52 Phase A3/A4)"
+        }
+    ],
+    "config": {
+        "domains": [
+            "message",
+            "session",
+            "contact"
+        ],
+        "limits": {
+            "sessions": 20,
+            "messages": 50,
+            "history_days": 30
+        },
+        "copy_ttl_hours": 24,
+        "copy_capacity_mb": 512,
+        "source": null
+    }
+}
