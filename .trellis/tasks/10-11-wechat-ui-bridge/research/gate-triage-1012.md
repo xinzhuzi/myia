@@ -82,3 +82,23 @@ vitest 唯一失败:`src/screens/sources/sources.test.tsx > 源管理:空态与�
      尚未进入其 M 集的 PLUGINS_DIR 指涉面);
   2. 装机件仍 0.2.0(缺 pixel.py),installed-visual-check.md §4.1 的
      「刷新 0.3.0 + 复验两点」未闭合。
+
+## 5. 第二轮增量(同日复triage;ask 门禁快照=24f 截断版)
+
+| 门禁 | 命令(原样) | 结果 |
+|---|---|---|
+| pytest 全量 | `uv run --no-sync python -m pytest -q --tb=short` | **145 failed / 5195 passed / 49 skipped / 6 errors**(126.34s) |
+| vitest 全量 | `npm --prefix desktop/ui-src run test` | **Test Files 1 failed / 34 passed;Tests 1 failed / 743 passed** |
+| 本任务面(合跑) | `uv run --no-sync python -m pytest tests/wechat-bridge tests/desktop/test_wechat_local_handlers.py tests/push/test_messaging_weixin_local.py tests/push/test_push_channels.py tests/push/test_push.py -q --tb=short` | **350 passed / 7 skipped** |
+
+**对 §1/§2 的增量**:较第一轮全量净减 8 例——`test_bundled_plugins_install`(7)
+与 `test_cli_full`(1)已被对方修绿(两件均在其 M 集,已收敛);其余**分布与根因
+原样未动**:test_plugins.py 103 + engines/pipeline/plugins 零散 36 + 6 errors
+(抽样复核仍 `FileNotFoundError: …/plugins/gpu-prices.yaml`,该族测试文件
+`git status tests/plugins tests/engines tests/pipeline` = **零改动**,纯 staged
+rename 的待同步面)+ sidecar 6(telegram 宿主「品类缺失」族,仍在途)+ vitest 1
+(`sources.test.tsx:401` vs `first-run-guide.tsx:102` 文案错位原样,两件均 M)。
+FAILED/ERROR 全列表 grep `wechat|weixin` 仍 = **0**。
+装机件只读复核:`component.json` 仍 `"version": "0.2.0"`,
+`wechat_bridge/pixel.py` 仍不在装(§4 移交项维持)。**处置不变:零本任务失败,
+全数 skipped 归因,零代码 commit。**
