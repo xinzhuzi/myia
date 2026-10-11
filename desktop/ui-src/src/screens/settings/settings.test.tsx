@@ -3,7 +3,7 @@
 // 设置组件测试:mock sidecar(secret.set / secret.list / doctor 的 JS 假实现),
 // 覆盖:LLM 凭据保存(只经 secret.set 入钥匙链、值零回显、保存即清)/
 // env: 引用不经界面写 / 表单校验 / secret.set 失败结构化错误 /
-// doctor 回显(凭据存在性 + enrich 现值 + findings)/ 推送凭据保存 / 代理池探测。
+// doctor 回显(凭据存在性 + enrich 现值 + findings)/ 代理池探测。(推送凭据已随屏迁「机器人凭据」屏)
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -401,129 +401,6 @@ describe("设置:doctor 验证回显", () => {
   });
 });
 
-describe("设置:推送通道凭据", () => {
-  it("预设位:feishu 三字段逐条写 myia/push/<ENV_KEY>;保存即清值零回显", async () => {
-    const state = installSidecar();
-    renderScreen();
-    await openSection("push");
-    await typeByLabel("feishu_card App ID", "cli_test_app");
-    await typeByLabel("feishu_card App Secret", "sec_private_value");
-    await typeByLabel("feishu_card 群 chat_id", "oc_room123");
-    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
-
-    await screen.findByTestId("save-status");
-    expect(callsOf("secret.set")).toContainEqual({
-      name: "myia/push/FEISHU_APP_ID",
-      value: "cli_test_app",
-    });
-    expect(callsOf("secret.set")).toContainEqual({
-      name: "myia/push/FEISHU_APP_SECRET",
-      value: "sec_private_value",
-    });
-    expect(callsOf("secret.set")).toContainEqual({
-      name: "myia/push/FEISHU_CHAT_ID",
-      value: "oc_room123",
-    });
-    expect(document.body.textContent).not.toContain("sec_private_value");
-    expect((screen.getByLabelText("feishu_card App Secret") as HTMLInputElement).value).toBe("");
-    expect(state.secrets.get("myia/push/FEISHU_APP_SECRET")).toBe("sec_private_value");
-  });
-
-  it("预设位:空字段跳过;全空 → note 拦截零协议调用", async () => {
-    installSidecar();
-    renderScreen();
-    await openSection("push");
-    await typeByLabel("feishu_card App Secret", "only_secret");
-    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
-    await screen.findByTestId("save-status");
-    expect(callsOf("secret.set")).toEqual([
-      { name: "myia/push/FEISHU_APP_SECRET", value: "only_secret" },
-    ]);
-
-    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
-    expect(await screen.findByText(/至少填一个字段/)).toBeTruthy();
-    expect(callsOf("secret.set")).toHaveLength(1);
-  });
-
-  it("自定义凭据位(折叠区):按 scope+名字写 myia/<scope>/<name>", async () => {
-    const state = installSidecar();
-    renderScreen();
-    await openSection("push");
-    await typeByLabel("品类 scope", "stocks");
-    await typeByLabel("推送凭据名", "chat_id");
-    await typeByLabel("推送凭据值", "oc_abc123private");
-    fireEvent.click(screen.getByRole("button", { name: "保存自定义凭据位" }));
-
-    await screen.findByTestId("save-status");
-    expect(callsOf("secret.set")).toContainEqual({ name: "myia/stocks/chat_id", value: "oc_abc123private" });
-    expect(document.body.textContent).not.toContain("oc_abc123private");
-    expect(state.secrets.get("myia/stocks/chat_id")).toBe("oc_abc123private");
-  });
-
-  it("自定义凭据位:scope 非法 → 前端校验拦截,零协议调用", async () => {
-    installSidecar();
-    renderScreen();
-    await openSection("push");
-    await typeByLabel("品类 scope", "Stocks!");
-    await typeByLabel("推送凭据值", "whatever");
-    fireEvent.click(screen.getByRole("button", { name: "保存自定义凭据位" }));
-
-    expect(await screen.findByText(/scope 须为品类 id 规则/)).toBeTruthy();
-    expect(callsOf("secret.set")).toEqual([]);
-  });
-
-  // bark(10-05-push-bark):iOS 即时推送通道接入设置→推送表单
-  it("bark(iOS 推送):下拉可选;device key 入钥匙链 + 两处提示文案在位", async () => {
-    const state = installSidecar();
-    renderScreen();
-    await openSection("push");
-
-    // Radix Select(mouse 型 pointerDown 才开下拉,惯例同 feed 屏)
-    fireEvent.pointerDown(screen.getByRole("combobox", { name: "推送通道" }), { button: 0, pointerType: "mouse" });
-    fireEvent.click(await screen.findByRole("option", { name: "Bark(iOS 推送)" }));
-
-    // 提示一:device key 走 env:/keychain: 引用(在 Bark App 里复制)
-    expect(screen.getByText(/在 iPhone 的 Bark App 里复制/)).toBeTruthy();
-
-    await typeByLabel("bark Device Key", "devkey_from_app");
-    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
-    await screen.findByTestId("save-status");
-    expect(callsOf("secret.set")).toContainEqual({ name: "myia/push/BARK_DEVICE_KEY", value: "devkey_from_app" });
-    expect(state.secrets.get("myia/push/BARK_DEVICE_KEY")).toBe("devkey_from_app");
-
-    // 提示二:bark_endpoint 留空=官方服务;自建填主机地址(YAML 字段,非凭据)
-    const endpointHint = screen.getByTestId("bark-endpoint-hint").textContent ?? "";
-    expect(endpointHint).toContain("留空 = 官方服务");
-    expect(endpointHint).toContain("自建");
-  });
-
-  // apprise(10-05-push-apprise):统一推送通道接入设置→推送表单
-  it("apprise(统一推送):下拉可选;目标串入钥匙链 + 目标引用提示在位", async () => {
-    const state = installSidecar();
-    renderScreen();
-    await openSection("push");
-
-    // Radix Select(mouse 型 pointerDown 才开下拉,惯例同 bark 用例)
-    fireEvent.pointerDown(screen.getByRole("combobox", { name: "推送通道" }), { button: 0, pointerType: "mouse" });
-    fireEvent.click(await screen.findByRole("option", { name: "Apprise(统一推送)" }));
-
-    // 提示:目标走 env:/keychain: 引用,值为 Apprise 目标串(可逗号分隔多个)
-    const targetHint = screen.getByTestId("apprise-target-hint").textContent ?? "";
-    expect(targetHint).toContain("env:/keychain: 引用");
-    expect(targetHint).toContain("bark://");
-    expect(targetHint).toContain("逗号");
-
-    await typeByLabel("apprise Apprise 目标串", "json://sink/a,bark://key/DEFAULT");
-    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
-    await screen.findByTestId("save-status");
-    expect(callsOf("secret.set")).toContainEqual({
-      name: "myia/push/APPRISE_URL",
-      value: "json://sink/a,bark://key/DEFAULT",
-    });
-    expect(state.secrets.get("myia/push/APPRISE_URL")).toBe("json://sink/a,bark://key/DEFAULT");
-  });
-});
-
 describe("设置:代理池", () => {
   it("探测走 doctor(--config=路径),逐池回显连通性", async () => {
     const seen: Array<{ config?: string } | undefined> = [];
@@ -855,58 +732,11 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
     expect(note.textContent).toContain("YAML配置");
   });
 
-  it("push 声明指引链接(在「推送」分区卡底)→ YAML配置屏路由(HashRouter 锚点)", async () => {
-    installYamlSidecar();
-    renderScreen();
-    await openSection("push");
-    const link = await screen.findByRole("link", { name: "去YAML配置改 push 声明" });
-    expect(link.getAttribute("href")).toBe("#/yaml-editor");
-  });
 });
 
 // ---------------------------------------------------------------------------
 // 推送测试按钮(G5 前半,10-03-feed-ux):push.test 真发一条,行内回显
 // ---------------------------------------------------------------------------
-
-describe("设置:推送测试(G5)", () => {
-  it("target=预设位 keychain 引用(与真实推送同源解析);成功回显 ok 徽标", async () => {
-    installSidecar();
-    renderScreen();
-    await openSection("push");
-
-    fireEvent.click(screen.getByRole("button", { name: "发送测试" }));
-
-    await waitFor(() => expect(callsOf("push.test")).toHaveLength(1));
-    // channel 取表单当前选中(feishu_card);target = 预设凭据位(10-05-push-credential-journey)
-    expect(callsOf("push.test")).toContainEqual({
-      channel: "feishu_card",
-      target: "keychain:myia/push/FEISHU_CHAT_ID",
-    });
-    expect(await screen.findByText("通道连通")).toBeTruthy();
-    expect(screen.getByTestId("push-test-result").textContent).toContain("feishu_card");
-    // 状态行绝不出现凭据值(引用名不是秘密)
-    expect(document.body.textContent).not.toContain("keychain:myia/push/FEISHU_CHAT_ID");
-  });
-
-  it("失败结构化透传:env_var_missing → 通道失败徽标 + code:message 行内回显", async () => {
-    const state = installSidecar();
-    state.pushTest = () => {
-      throw JSON.stringify({
-        code: "env_var_missing",
-        path: "params.channel",
-        message: "环境变量 FEISHU_BOT_TOKEN 未设置",
-      });
-    };
-    renderScreen();
-    await openSection("push");
-
-    fireEvent.click(screen.getByRole("button", { name: "发送测试" }));
-    expect(await screen.findByText("通道失败")).toBeTruthy();
-    const note = screen.getByTestId("push-test-result");
-    expect(note.textContent).toContain("env_var_missing");
-    expect(note.textContent).toContain("FEISHU_BOT_TOKEN");
-  });
-});
 
 // ---------------------------------------------------------------------------
 // D4 结构重做(10-03-ui-deep-imitation,对照 teardown-linear-settings 第 1/2/5/6
@@ -915,12 +745,12 @@ describe("设置:推送测试(G5)", () => {
 // ---------------------------------------------------------------------------
 
 describe("设置:分区导航与危险区(D4 结构重做)", () => {
-  it("四分区导航齐(通用/推送/视觉/系统);缺省进通用,通用卡直见而他区卡不挂载", async () => {
+  it("四分区导航齐(通用/视觉/门槛件/系统);缺省进通用,通用卡直见而他区卡不挂载", async () => {
     installSidecar();
     renderScreen();
 
     // 79f7f7b 分区 6→4:general/push/vision/system(update/advanced 已并)
-    for (const id of ["general", "push", "vision", "system"]) {
+    for (const id of ["general", "vision", "gates", "system"]) {
       expect(screen.getByTestId(`settings-nav-${id}`)).toBeTruthy();
     }
     // 当前项高亮:aria-current 打在通用上
@@ -1057,19 +887,19 @@ describe("设置:分区过滤(census #7 补做,纯前端实时)", () => {
     installSidecar();
     renderScreen();
 
-    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "推" } });
-    expect(screen.getByTestId("settings-nav-push")).toBeTruthy();
-    for (const id of ["general", "vision", "update", "advanced"]) {
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "视觉" } });
+    expect(screen.getByTestId("settings-nav-vision")).toBeTruthy();
+    for (const id of ["general", "update", "advanced"]) {
       expect(screen.queryByTestId(`settings-nav-${id}`)).toBeNull();
     }
-    // 不切区:分区壳仍是通用;「推」不命中通用词面 → 卡全隐 + 空态行指路左侧
+    // 不切区:分区壳仍是通用;「视觉」不命中通用词面 → 卡全隐 + 空态行指路左侧
     expect(screen.getByTestId("settings-section-general")).toBeTruthy();
     expect(screen.queryByLabelText("base_url")).toBeNull();
-    expect(screen.getByTestId("settings-field-filter-empty").textContent).toContain("推");
+    expect(screen.getByTestId("settings-field-filter-empty").textContent).toContain("视觉");
     expect(screen.getByTestId("settings-field-filter-empty").textContent).toContain("为匹配分区");
   });
 
-  it("拉丁输入按 id 命中(vision→视觉)+ 大小写不敏感(PUSH 同命中)", async () => {
+  it("拉丁输入按 id 命中(vision→视觉)+ 大小写不敏感(GATES 同命中)", async () => {
     installSidecar();
     renderScreen();
 
@@ -1077,8 +907,8 @@ describe("设置:分区过滤(census #7 补做,纯前端实时)", () => {
     expect(screen.getByTestId("settings-nav-vision")).toBeTruthy();
     expect(screen.queryByTestId("settings-nav-general")).toBeNull();
 
-    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "PUSH" } });
-    expect(screen.getByTestId("settings-nav-push")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "GATES" } });
+    expect(screen.getByTestId("settings-nav-gates")).toBeTruthy();
     expect(screen.queryByTestId(`settings-nav-vision`)).toBeNull();
   });
 
@@ -1087,7 +917,7 @@ describe("设置:分区过滤(census #7 补做,纯前端实时)", () => {
     renderScreen();
 
     fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "xyz" } });
-    for (const id of ["general", "push", "vision", "system"]) {
+    for (const id of ["general", "vision", "gates", "system"]) {
       expect(screen.queryByTestId(`settings-nav-${id}`)).toBeNull();
     }
     expect(screen.getByTestId("settings-section-filter-empty").textContent).toContain("无匹配分区");
@@ -1097,7 +927,7 @@ describe("设置:分区过滤(census #7 补做,纯前端实时)", () => {
     expect(screen.getByTestId("settings-field-filter-empty").textContent).toContain("没有「xyz」");
 
     fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "" } });
-    for (const id of ["general", "push", "vision", "system"]) {
+    for (const id of ["general", "vision", "gates", "system"]) {
       expect(screen.getByTestId(`settings-nav-${id}`)).toBeTruthy();
     }
     expect(screen.queryByTestId("settings-section-filter-empty")).toBeNull();

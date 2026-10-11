@@ -63,6 +63,7 @@ export const NAV_GROUPS: NavGroup[] = [
    { to: "/tg-account", label: "Telegram", icon: Send, end: false },
    { to: "/feishu", label: "飞书", icon: MessageSquare, end: false },
    { to: "/weixin", label: "微信", icon: User, end: false },
+   { to: "/bot-credentials", label: "机器人凭据", icon: Send, end: false },
   ],
  },
 ];

@@ -13,6 +13,7 @@ import { SourcesScreen } from "@/screens/sources/sources-screen";
 import { TgAccountScreen } from "@/screens/tg-account/tg-account-screen";
 import { FeishuAccountScreen } from "@/screens/feishu-account/feishu-account-screen";
 import { WeixinAccountScreen } from "@/screens/weixin-account/weixin-account-screen";
+import { BotCredentialsScreen } from "@/screens/bot-credentials/bot-credentials-screen";
 import { YamlEditorScreen } from "@/screens/yaml-editor/yaml-editor-screen";
 
 /**
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="tg-account" element={<TgAccountScreen />} />
         <Route path="feishu" element={<FeishuAccountScreen />} />
         <Route path="weixin" element={<WeixinAccountScreen />} />
+        <Route path="bot-credentials" element={<BotCredentialsScreen />} />
         <Route path="settings" element={<SettingsScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

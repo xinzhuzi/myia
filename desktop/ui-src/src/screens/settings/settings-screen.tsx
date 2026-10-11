@@ -11,7 +11,6 @@ import {
   Lock,
   RefreshCw,
   Save,
-  Send,
   SlidersHorizontal,
   Stethoscope,
   Trash2,
@@ -31,7 +30,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { DoctorParams, GatesLoadErrorView, GatesView, SidecarRequestError } from "@/lib/api";
 import { api } from "@/lib/api";
@@ -45,14 +43,12 @@ import {
   listSecretNames,
   mutateEnrichField,
   proxySecretName,
-  pushSecretName,
   saveCategoryNode,
   saveSecret,
   SECRET_NAME_LLM_API_KEY,
   SECRET_NAME_LLM_BASE_URL,
   validateLlmForm,
   validateProxyForm,
-  validatePushForm,
   verifyWithDoctor,
 } from "./api";
 import type { DoctorVerify, EnrichView, SecretSaveRecord } from "./api";
@@ -88,64 +84,6 @@ import { VisionForm } from "./vision-form";
 // 承接无头化后 PageHeader 渲染 null 而丢失的「重新验证」入口。
 // ---------------------------------------------------------------------------
 
-/** 通道 → 规范凭据名缺省(target 语义:feishu 卡的 chat_id / tg 的 bot token / webhook 地址 / bark 的 device key / apprise 的目标串) */
-const PUSH_SECRET_NAME_BY_CHANNEL: Record<string, string> = {
-  feishu_card: "chat_id",
-  telegram: "token",
-  webhook: "url",
-  // bark(10-05-push-bark):target = device key(在 iPhone Bark App 里复制)
-  bark: "device_key",
-  // apprise(10-05-push-apprise):target = Apprise 目标串(bark://… 等多目标)
-  apprise: "targets",
-};
-type PushChannel = keyof typeof PUSH_SECRET_NAME_BY_CHANNEL;
-
-/**
- * 通道 → 预设凭据位(10-05-push-credential-journey:填一次即可真收推送)。
- * 键 = 环境变量名(钥匙链规范名 myia/push/<键> 与运行时 env: 回退同口径);
- * password 位只写不回显;optional 位留空不保存(不覆盖已录值)。
- */
-const PUSH_FIELDS_BY_CHANNEL: Record<
-  PushChannel,
-  { key: string; label: string; password?: boolean; optional?: boolean; hint: string }[]
-> = {
-  feishu_card: [
-    { key: "FEISHU_APP_ID", label: "App ID", hint: "飞书开放平台 → 开发者后台 → 应用详情" },
-    { key: "FEISHU_APP_SECRET", label: "App Secret", password: true, hint: "同应用详情页;保存后 token 自动续期,无需手工换" },
-    { key: "FEISHU_CHAT_ID", label: "群 chat_id", optional: true, hint: "可选;消息屏「刷新」列群目录可查;不填则按规则的推送对象" },
-  ],
-  telegram: [
-    { key: "TELEGRAM_BOT_TOKEN", label: "Bot Token", password: true, hint: "@BotFather 建 bot 后回复的令牌" },
-    { key: "TELEGRAM_CHAT_ID", label: "chat_id", optional: true, hint: "可选;给 bot 发条消息后消息屏目录自动记下会话" },
-  ],
-  webhook: [{ key: "MYIA_WEBHOOK_URL", label: "接收端点 URL", hint: "POST JSON 的接收端(自建服务 / n8n 等)" }],
-  // bark(10-05-push-bark):iOS 即时推送;唯一凭据位 = device key
-  bark: [
-    { key: "BARK_DEVICE_KEY", label: "Device Key", password: true, hint: "在 iPhone 的 Bark App 里复制;凭据走 env:/keychain: 引用(保存即入钥匙链)" },
-  ],
-  // apprise(10-05-push-apprise):统一推送;唯一凭据位 = Apprise 目标串
-  apprise: [
-    { key: "APPRISE_URL", label: "Apprise 目标串", password: true, hint: "Apprise 原生目标串,如 bark://… 或 pushover://…,逗号或换行分隔多个;凭据走 env:/keychain: 引用(保存即入钥匙链)" },
-  ],
-};
-
-/** 通道 → 「发送测试」的目标凭据键(push.test target = keychain:myia/push/<键>) */
-const PUSH_TEST_TARGET_KEY: Record<PushChannel, string> = {
-  feishu_card: "FEISHU_CHAT_ID",
-  telegram: "TELEGRAM_CHAT_ID",
-  webhook: "MYIA_WEBHOOK_URL",
-  bark: "BARK_DEVICE_KEY",
-  apprise: "APPRISE_URL",
-};
-/** 通道 → 下拉显示名(既有通道 = 原名零漂移;bark/apprise 带人话标注) */
-const PUSH_CHANNEL_LABELS: Record<PushChannel, string> = {
-  feishu_card: "feishu_card",
-  telegram: "telegram",
-  webhook: "webhook",
-  bark: "Bark(iOS 推送)",
-  apprise: "Apprise(统一推送)",
-};
-const PUSH_CHANNELS = Object.keys(PUSH_SECRET_NAME_BY_CHANNEL) as PushChannel[];
 
 /** 分区定义(拆解表第 1 条:通用/视觉/推送/更新/高级) */
 interface SettingsSection {
@@ -158,7 +96,6 @@ interface SettingsSection {
 
 const SECTIONS: SettingsSection[] = [
   { id: "general", label: "通用", icon: SlidersHorizontal, title: "通用", description: "LLM 精评与代理池凭据 + doctor 诊断" },
-  { id: "push", label: "推送", icon: Send, title: "推送", description: "通道凭据;发送测试验证连通" },
   { id: "vision", label: "视觉", icon: Eye, title: "视觉", description: "看图通道与 OCR + MLX 视觉模型" },
   { id: "gates", label: "门槛件", icon: Lock, title: "门槛件", description: "付费 SaaS / 自有实例 / 分析件:知情启用(fail-closed,缺省全关)" },
   // 10-05-bundled-plugins-install:装机组件分区(随包官方插件件发现/一键装;
@@ -197,7 +134,6 @@ const DEFAULT_SECTION = "general";
 const SECTION_FIELD_TERMS: Record<string, string> = {
   general:
     "llm 精评 base_url model api key 评分 反馈 enrich 预算 budget 代理池 池名 凭据值 pools yaml 路径 探测 doctor 保存后验证 回显 诊断",
-  push: "推送 通道 凭据 feishu 飞书 telegram webhook bark apprise chat_id token device_key targets 发送测试 自定义凭据位 scope",
   vision: "看图 通道 ocr 引擎 vision rapidocr mlx base_url 本地模型路径 云端模型 云端 api key 模型管理 服务",
   gates: "门槛 付费 saas 采集引擎 zenrows 自有实例 平台 token 分析件 停更 知情 启用",
   "installer-plugins": "装机 官方插件 发现 安装 重装 卸载 品类配置 平铺 manifest 补种",
@@ -229,12 +165,6 @@ interface LlmForm {
 }
 interface ProxyForm {
   pool: string;
-  value: string;
-}
-interface PushForm {
-  channel: PushChannel;
-  scope: string;
-  secretName: string;
   value: string;
 }
 
@@ -297,7 +227,7 @@ function CardSaveBar({
  * 写回品类节的反馈回路开关 = ``enrich.enabled`` + ``enrich.budget_per_run``
  * (LLM 精评/评分回路;design §6 拍板解释)。逐品类:enabled 开关行即时写回
  * (拆解表第 5 条:开关类自动保存无按钮,Linear docs 实证模式)+ model 显式
- * 保存 + budget 只读护栏;push 通道声明指引在「推送」分区; pools 全局配置
+ * 保存 + budget 只读护栏;push 通道声明指引在「机器人凭据」屏(配置组); pools 全局配置
  * 写回顺延(yaml-editor 待拍板 3 未定,维持只展示 + 探测)。
  */
 function EnrichFeedbackCard({
@@ -950,15 +880,10 @@ export function SettingsScreen() {
   const [proxy, setProxy] = useState<ProxyForm>({ pool: "", value: "" });
   const [proxyErrors, setProxyErrors] = useState<Partial<Record<"pool" | "value", string>>>({});
   const [probePath, setProbePath] = useState("");
-  const [push, setPush] = useState<PushForm>({ channel: "feishu_card", scope: "", secretName: "chat_id", value: "" });
-  const [pushErrors, setPushErrors] = useState<Partial<Record<"scope" | "secretName" | "value", string>>>({});
-  /** 预设凭据位值(10-05-push-credential-journey):{ENV_KEY: 值},按通道字段集读写 */
-  const [pushValues, setPushValues] = useState<Record<string, string>>({});
 
   /** 每卡独立保存态(D4:每区保存态反馈;替代旧全局横幅) */
   const [llmSave, setLlmSave] = useState<CardSaveState | null>(null);
   const [proxySave, setProxySave] = useState<CardSaveState | null>(null);
-  const [pushSave, setPushSave] = useState<CardSaveState | null>(null);
 
   const [verify, setVerify] = useState<DoctorVerify | null>(null);
   const [verifying, setVerifying] = useState(false);
@@ -1083,103 +1008,6 @@ export function SettingsScreen() {
     await runDoctor(path ? { config: path } : { config_auto: true });
   }, [probePath, runDoctor]);
 
-  const handlePushSave = useCallback(async () => {
-    const formError = validatePushForm(push);
-    if (formError === "scope_invalid") {
-      setPushErrors({ scope: "scope 须为品类 id 规则:小写字母/数字开头,可含连字符" });
-      return;
-    }
-    if (formError === "name_invalid") {
-      setPushErrors({ secretName: "凭据名段须为字母/数字开头,可含点/连字符/下划线" });
-      return;
-    }
-    if (formError === "value_empty") {
-      setPushErrors({ value: "凭据值必填" });
-      return;
-    }
-    setPushErrors({});
-    setPushSave({ kind: "saving" });
-    try {
-      const record = await saveSecret(pushSecretName(push.scope.trim(), push.secretName.trim()), push.value);
-      setPushSave({
-        kind: "saved",
-        names: [record.name],
-        note: "通道凭据已入钥匙链;品类 YAML push[].target 侧以 keychain:myia/<scope>/<name> 引用(通道声明写回属协议缺口)。",
-      });
-      setPush((prev) => ({ ...prev, value: "" }));
-      await runDoctor();
-      await refreshSecretNames();
-    } catch (error) {
-      setPushSave({ kind: "error", error: asSidecarError(error) });
-    }
-  }, [push, refreshSecretNames, runDoctor]);
-
-  /** G5 前半(10-03-feed-ux):push.test 真发一条测试消息(channel 取表单当前
-   *  选中;scope 已填则 target 引用 keychain:myia/<scope>/<secretName>,缺省
-   *  走通道默认 env 引用链)。结果行内回显:成功 ok 徽标 / 结构化错误。 */
-  const [pushTesting, setPushTesting] = useState(false);
-  const [pushTestNote, setPushTestNote] = useState<string | null>(null);
-  const [pushTestOk, setPushTestOk] = useState<boolean | null>(null);
-
-  const handlePushTest = useCallback(async (explicitTarget?: string) => {
-    setPushTesting(true);
-    setPushTestNote(null);
-    setPushTestOk(null);
-    // target 引用:显式传入(预设位)优先;否则自定义位 scope/凭据名齐全才组;
-    // 都无则让通道走默认 env 链(env 缺失时运行时自动回退钥匙链规范名)
-    let target = explicitTarget;
-    if (!target) {
-      const scope = push.scope.trim();
-      const name = push.secretName.trim() || PUSH_SECRET_NAME_BY_CHANNEL[push.channel] || "";
-      target = scope && name ? `keychain:myia/${scope}/${name}` : undefined;
-    }
-    try {
-      const result = await api.pushTest({ channel: push.channel, ...(target ? { target } : {}) });
-      setPushTestOk(true);
-      setPushTestNote(
-        result.preview
-          ? `测试消息已发(stdout 通道预览):${result.preview.slice(0, 200)}`
-          : `测试消息已发(${result.channel})——请到对应客户端查收。`,
-      );
-    } catch (error) {
-      const failure = asSidecarError(error);
-      setPushTestOk(false);
-      setPushTestNote(`发送失败(${failure.code}):${failure.message}`);
-    } finally {
-      setPushTesting(false);
-    }
-  }, [push.channel, push.scope, push.secretName]);
-
-  /** 预设凭据位保存(10-05-push-credential-journey):逐非空字段写
-   *  myia/push/<ENV_KEY>;空字段跳过不覆盖(清除走危险区 secret.delete)。 */
-  const handlePresetSave = useCallback(async () => {
-    const fields = PUSH_FIELDS_BY_CHANNEL[push.channel];
-    const entries = fields
-      .map((field) => ({ field, value: (pushValues[field.key] ?? "").trim() }))
-      .filter((entry) => entry.value !== "");
-    if (entries.length === 0) {
-      setPushSave({ kind: "note", note: "至少填一个字段再保存;留空的字段不会覆盖已录入的值。" });
-      return;
-    }
-    setPushSave({ kind: "saving" });
-    try {
-      const names: string[] = [];
-      for (const entry of entries) {
-        const record = await saveSecret(`myia/push/${entry.field.key}`, entry.value);
-        names.push(record.name);
-      }
-      setPushSave({
-        kind: "saved",
-        names,
-        note: "已入钥匙链;运行时 env 缺失会自动用这些值(发送测试与真实推送同源)。",
-      });
-      setPushValues({});
-      await runDoctor();
-      await refreshSecretNames();
-    } catch (error) {
-      setPushSave({ kind: "error", error: asSidecarError(error) });
-    }
-  }, [push.channel, pushValues, refreshSecretNames, runDoctor]);
 
   return (
     <SettingsSearchContext.Provider value={searchContext}>
@@ -1575,166 +1403,6 @@ export function SettingsScreen() {
             </Searchable>
           ) : null}
 
-          {activeSection.id === "push" ? (
-            <Searchable terms={SECTION_FIELD_TERMS.push}>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Send className="size-4 text-muted-foreground" />
-                  推送通道
-                </CardTitle>
-                <CardDescription>
-                  按通道填一次凭据(入钥匙链 myia/push/*),运行时自动解析;「发送测试」与真实推送同源;
-                  通道启停与阈值路由在品类 YAML push: 节
-                </CardDescription>
-              </CardHeader>
-                <CardContent className="flex flex-col gap-1">
-                  <div className="divide-y divide-border/60">
-                    <SettingRow label="通道" description="feishu_card / telegram / webhook / bark / apprise;通道启停与阈值路由在品类 YAML push: 节">
-                      <Select
-                        value={push.channel}
-                        onValueChange={(channel) =>
-                          setPush((prev) => ({
-                            ...prev,
-                            channel: channel as PushChannel,
-                            secretName: PUSH_SECRET_NAME_BY_CHANNEL[channel] ?? prev.secretName,
-                          }))
-                        }
-                      >
-                        <SelectTrigger aria-label="推送通道" className="w-64 min-w-0 flex-1 sm:flex-none">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PUSH_CHANNELS.map((channel) => (
-                            <SelectItem key={channel} value={channel}>
-                              {PUSH_CHANNEL_LABELS[channel]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </SettingRow>
-                    {PUSH_FIELDS_BY_CHANNEL[push.channel].map((field) => (
-                      <FieldInput
-                        key={field.key}
-                        label={field.label}
-                        aria-label={`${push.channel} ${field.label}`}
-                        type={field.password ? "password" : "text"}
-                        autoComplete="new-password"
-                        placeholder={`写入 myia/push/${field.key};永不回显`}
-                        value={pushValues[field.key] ?? ""}
-                        onChange={(event) =>
-                          setPushValues((prev) => ({ ...prev, [field.key]: event.target.value }))
-                        }
-                        hint={field.hint}
-                      />
-                    ))}
-                    {push.channel === "bark" ? (
-                      // bark 端点非凭据(不进钥匙链),引导写在品类 YAML;10-05-push-bark
-                      <p data-testid="bark-endpoint-hint" className="px-1 pb-1 text-2xs text-muted-foreground">
-                        推送端点 bark_endpoint:留空 = 官方服务(api.day.app);自建 bark-server
-                        填主机地址(如 http://192.168.1.10:8080)——写在品类 YAML push: 节
-                      </p>
-                    ) : null}
-                    {push.channel === "apprise" ? (
-                      // apprise 目标走凭据引用,值为目标串;10-05-push-apprise
-                      <p data-testid="apprise-target-hint" className="px-1 pb-1 text-2xs text-muted-foreground">
-                        目标走 env:/keychain: 引用,值为 Apprise 目标串(bark://…、pushover://…
-                        可逗号分隔多个);需装可选依赖(pip install "myssia[apprise]" 或
-                        uv sync --extra apprise),未装时发送会明确报错、不影响其他通道
-                      </p>
-                    ) : null}
-                  </div>
-                <CardSaveBar
-                  state={pushSave}
-                  savingLabel="保存中…"
-                  action={
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => void handlePresetSave()}
-                        disabled={pushSave?.kind === "saving" || pushTesting}
-                      >
-                        <Save className="size-3.5" />
-                        保存推送凭据
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          void handlePushTest(`keychain:myia/push/${PUSH_TEST_TARGET_KEY[push.channel]}`)
-                        }
-                        disabled={pushTesting}
-                        title="真发一条测试消息(push.test):目标=该通道预设凭据位,与真实推送同源解析"
-                      >
-                        <Send className={pushTesting ? "size-3.5 animate-pulse" : "size-3.5"} />
-                        {pushTesting ? "发送中…" : "发送测试"}
-                      </Button>
-                      {pushTestOk === true ? <Badge variant="ok">通道连通</Badge> : null}
-                      {pushTestOk === false ? <Badge variant="destructive">通道失败</Badge> : null}
-                    </div>
-                  }
-                />
-                {pushTestNote ? (
-                  <p
-                    role={pushTestOk === false ? "alert" : "status"}
-                    data-testid="push-test-result"
-                    className={pushTestOk === false ? "text-xs text-destructive" : "text-xs text-muted-foreground"}
-                  >
-                    {pushTestNote}
-                  </p>
-                ) : null}
-                <details className="border-t border-border/60 pt-2 text-2xs text-muted-foreground">
-                  <summary className="cursor-pointer select-none">
-                    自定义凭据位(品类 YAML 手写 keychain: 引用用;日常接入用上方预设位即可)
-                  </summary>
-                  <div className="mt-2 flex flex-col gap-2">
-                    <FieldInput
-                      label="品类 scope"
-                      aria-label="品类 scope"
-                      placeholder="stocks"
-                      value={push.scope}
-                      onChange={(event) => setPush((prev) => ({ ...prev, scope: event.target.value }))}
-                      error={pushErrors.scope}
-                      hint="凭据引用键段:myia/<scope>/<凭据名>"
-                    />
-                    <FieldInput
-                      label="凭据名段"
-                      aria-label="推送凭据名"
-                      placeholder={PUSH_SECRET_NAME_BY_CHANNEL[push.channel]}
-                      value={push.secretName}
-                      onChange={(event) => setPush((prev) => ({ ...prev, secretName: event.target.value }))}
-                      error={pushErrors.secretName}
-                      hint="通道目标凭据名(feishu 卡 chat_id / tg token / webhook url / bark device_key / apprise targets)"
-                    />
-                    <FieldInput
-                      label="凭据值"
-                      aria-label="推送凭据值"
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="写入 myia/<scope>/<name>;永不回显"
-                      value={push.value}
-                      onChange={(event) => setPush((prev) => ({ ...prev, value: event.target.value }))}
-                      error={pushErrors.value}
-                    />
-                    <div>
-                      <Button size="sm" variant="outline" onClick={() => void handlePushSave()}>
-                        <Save className="size-3.5" />
-                        保存自定义凭据位
-                      </Button>
-                    </div>
-                  </div>
-                </details>
-                <div className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-2 text-2xs text-muted-foreground">
-                  <span>推送通道声明(push: 节)与阈值路由在品类 YAML:</span>
-                  {/* HashRouter 路由:普通锚点即可跳YAML配置屏,不引 Router context 依赖 */}
-                  <a href="#/yaml-editor" className="underline underline-offset-2 hover:text-foreground">
-                    去YAML配置改 push 声明
-                  </a>
-                </div>
-              </CardContent>
-            </Card>
-            </Searchable>
-          ) : null}
         </section>
       </div>
     </div>

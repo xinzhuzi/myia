@@ -97,6 +97,7 @@ describe("NAV_GROUPS 信息架构(v10 配置分组)", () => {
       ["/tg-account", "Telegram"],
       ["/feishu", "飞书"],
       ["/weixin", "微信"],
+      ["/bot-credentials", "机器人凭据"],
     ]);
   });
 

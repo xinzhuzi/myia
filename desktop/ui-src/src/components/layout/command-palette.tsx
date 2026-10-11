@@ -46,6 +46,8 @@ const SCREENS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon; keyw
   // 渠道本名制(主人令 2026-10-11):飞书/微信各自独立入口,与 Telegram 并列配置组
   { to: "/feishu", label: "飞书", icon: MessageSquare, keywords: "feishu account lark" },
   { to: "/weixin", label: "微信", icon: User, keywords: "weixin wechat account" },
+  // 机器人凭据(10-11-bot-credentials-screen):推送通道机器人凭据(自设置→推送抽出),配置组收口
+  { to: "/bot-credentials", label: "机器人凭据", icon: Send, keywords: "bot credentials push token webhook bark apprise qqbot" },
   { to: "/messaging", label: "消息", icon: MessageCircle, keywords: "messaging message push" },
   { to: "/logs", label: "采集日志", icon: Terminal, keywords: "logs terminal" },
   { to: "/settings", label: "设置", icon: Settings, keywords: "settings" },
