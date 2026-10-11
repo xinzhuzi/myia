@@ -24,9 +24,23 @@
 
 **UI/存储范式(照 Telegram 模板)**:协议快照读(`*.status`)+ 浏览器模块单入口登录(`browser.open` kind 登记)+ 数据根目录即账号(`<数据根>/<platform>-web/<账号键>/`,0700/0600)+ 独立屏挂侧栏「配置」组;新增一张卡的成本 ≈ entry.py 两方法 + 一个领域模块 + 三个 UI 文件 + 四处注册行,**Rust 壳零改动**。
 
+## 决议(2026-10-11,AskUserQuestion 未答 → 按推荐自主开工,主人可随时翻案)
+
+- **D1 首发范围**:飞书账号线 + 微信受限状态卡。QQ 不做(见 D2)。
+- **D2 QQ**:不接第三方 NTQQ 协议(封号风险 + 常驻双向风险面),QQ 只留官方机器人通道;若主人日后要接,翻案后挂独立档。
+- **D3 微信**:接受受限形态——桥接状态灯 + 账号档有无 + 登录指引(引导终端 `hermes gateway setup` 扫码);**不做**账号文件名列表(探查明示「列文件名是否越红线需裁决」,保守避开)、不做卡内登录/删除(等 Hermes 上游契约)。
+- **D4 UI**:侧栏「配置」组新增一张「平台账号」屏(`/platform-accounts`),内含飞书段+微信段;Telegram 独立屏(/tg-account)不动。
+
 ## Acceptance Criteria
 
-- [ ] TBD(grill 后定稿;下方决议问题主人拍板后回写)
+- [ ] AC1 飞书账号·授权流:设置过 App ID/Secret(keychain 已在册)的前提下,「添加账号」= 构造飞书 OAuth 授权 URL(user_access_token 授权码流程)经系统浏览器打开 + sidecar 起本地 HTTP 回调端点(仅 127.0.0.1,镜像 feishu_callback 安全口径)接收 code → 换 user_access_token + refresh_token → 入钥匙链 `myia/feishu/<账号键>/user_access_token`、`/refresh_token`
+- [ ] AC2 飞书账号·存储与键规约:账号键全称律 `feishu-<标识>`(镜像 ACCOUNT_KEY_RE);label 存登录标记;删除=清该账号键全部钥匙链项(登录/刷新中拒删,镜像 telegram.web.delete 口径)
+- [ ] AC3 飞书账号·状态灯:探针=用 refresh_token 无感刷新可成功 → 绿;refresh 失效 → 灰(指引重授权);刷新出的新 token 对回写钥匙链(续期闭环)
+- [ ] AC4 微信段:桥接状态灯(bin_found/weixin_configured/gateway_alive 三布尔,复用 probe_bridge,零新契约)+「已配置账号档:有/无」+ 登录指引(命令展示+复制);诚实披露单活模型与红线
+- [ ] AC5 协议面:entry.py 新增 `platform_accounts.status`(feishu 账号数组+weixin 桥三布尔聚 aggregate)、`feishu_account.delete`、OAuth 回调端点生命周期管理(起/停);PROTOCOL_VERSION +1 并补版本史;Rust 壳零改动
+- [ ] AC6 UI:侧栏「配置」组加「平台账号」入口 + /platform-accounts 独立屏(镜像 tg-account 范式:PageHeader 无头、卡面段落、StatusDot、命令面板深链);添加授权流有轮询对账(镜像 telegram-card 5s×24)
+- [ ] AC7 测试与门禁:领域层(OAuth 换 token/刷新闭环/键规约/删除护栏)pytest;UI vitest(三态渲染/授权发起/删除护栏/微信段);全量 pytest+vitest+tsc+cargo build 绿
+- [ ] AC8 交付:入库 + 装机包刷新换装 + 无头冒烟;主人侧前置(飞书开放平台应用配置 OAuth 重定向 URL)与真机授权留指引
 
 ## Notes
 
