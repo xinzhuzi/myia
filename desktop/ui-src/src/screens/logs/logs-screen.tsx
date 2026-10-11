@@ -842,7 +842,10 @@ export function LogsScreen() {
           ))}
         </div>
         {/* run 瀑布:每 run 一段折叠组(Crawlab 运行瀑布 + Kestra 步骤折叠);
-            列表区内滚(full-container),组间 gap-grid 令牌 */}
+            列表区内滚(full-container),组间 gap-grid 令牌。
+            子组必须 shrink-0:子组自带 overflow-hidden → flex 自动最小尺寸
+            归零,行数超视口时整列被均匀压扁(10-11 实测 44px→6.5px 黑条)
+            且 scrollHeight 恒等于 clientHeight 永不出滚动条 */}
         <div className="flex min-h-0 flex-1 flex-col gap-grid overflow-y-auto pb-block" data-testid="run-waterfall">
           {loading && runs.length === 0 ? (
             <>
@@ -884,7 +887,7 @@ export function LogsScreen() {
                 <div
                   key={run.rowKey}
                   data-testid={`run-group-${domIdOf(run)}`}
-                  className="overflow-hidden rounded-lg border border-border bg-card animate-fade-in"
+                  className="shrink-0 overflow-hidden rounded-lg border border-border bg-card animate-fade-in"
                 >
                   <RunGroupHeader
                     run={run}
