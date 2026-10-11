@@ -14,15 +14,19 @@
 // 组件面:三段状态(bot/session/web)+ 账号列表行(状态灯/重登/删除)+
 // 添加账号(键名校验前置)+ 披露三条文案在卡面可见(AC5)。
 // 本项目无 jest-dom:DOM 断言走原生(queryByText/non-null/disabled)。
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
+  listen: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: mocks.listen }));
 
+import App from "@/App";
 import { TgAccountScreen } from "./tg-account-screen";
 
 function statusFixture(overrides?: {
@@ -95,6 +99,7 @@ function deleteCalls() {
 
 beforeEach(() => {
   mocks.invoke.mockReset();
+  mocks.listen.mockResolvedValue(() => undefined);
 });
 
 afterEach(() => {
@@ -168,6 +173,49 @@ describe("TG 账号屏:账号列表与动作(v10 随迁用例,原 TelegramCard)"
     expect(screen.getByTestId("telegram-web-telegram-alt1-relogin")).not.toBeNull();
     expect(screen.getByTestId("telegram-web-telegram-alt1-delete")).not.toBeNull();
     expect(screen.getByText(/登录于 2026-10-08T03:00:00\+00:00/)).not.toBeNull();
+  });
+
+  it("账号行身份面:备注名主显示,键名+TG id 退小字(2026-10-11 主人令)", async () => {
+    installIpc(
+      statusFixture({
+        accounts: [
+          {
+            account: "telegram-alt1",
+            logged_in: true,
+            logged_in_at: "2026-10-11T04:21:11+00:00",
+            label: "小号·尾号93105",
+            user_id: "8012674093",
+            login_in_progress: false,
+            login_note: null,
+          },
+        ],
+      }),
+    );
+    render(<TgAccountScreen />);
+    await screen.findByTestId("telegram-web-account-telegram-alt1");
+    // 备注名主显示
+    expect(screen.getByText("小号·尾号93105")).not.toBeNull();
+    // 键名+id 退小字(认不出键名也不迷路:机器名与 id 都在)
+    expect(screen.getByText(/telegram-alt1 · id 8012674093/)).not.toBeNull();
+  });
+
+  it("添加账号:备注名随 browser.open 透传(label 键仅在有值时在)", async () => {
+    installIpc();
+    render(<TgAccountScreen />);
+    await screen.findByTestId("telegram-card");
+    fireEvent.change(await screen.findByLabelText("新账号键名"), {
+      target: { value: "telegram-alt2" },
+    });
+    fireEvent.change(await screen.findByLabelText("新账号备注名"), {
+      target: { value: "大号·尾号8888" },
+    });
+    fireEvent.click(screen.getByTestId("telegram-web-add"));
+    await waitFor(() => {
+      expect(loginCalls()).toHaveLength(1);
+    });
+    expect(
+      (loginCalls()[0]?.[1] as { params: { label?: string } }).params.label,
+    ).toBe("大号·尾号8888");
   });
 
   it("添加账号:键名合法 → browser.open(模块统一入口)+ 回执指引(验证码在你手机 TG 里)", async () => {
@@ -311,5 +359,38 @@ describe("TG 账号屏:账号列表与动作(v10 随迁用例,原 TelegramCard)"
     expect(
       (screen.getByTestId("telegram-web-telegram-alt1-delete") as HTMLButtonElement).disabled,
     ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 路由接线(App.tsx /tg-account;循 cron-screen.test.tsx 先例:initialEntries
+// 走目标路由挂真实 <App/>,断言新屏可达 + 主导航链在位)
+// ---------------------------------------------------------------------------
+
+describe("路由接线(App.tsx /tg-account)", () => {
+  it("/tg-account 路由可达(无头布局:PageHeader 返 null,以 telegram-card 为锚)", async () => {
+    installIpc(
+      statusFixture({
+        bot: { configured: true },
+        session: { exists: true },
+        accounts: [],
+      }),
+    );
+    render(
+      <MemoryRouter initialEntries={["/tg-account"]}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    // 屏内容锚:TelegramCard 整卡在位(PageHeader 无头渲染 null,不可锚)
+    await waitFor(() => {
+      expect(screen.getByTestId("telegram-card")).toBeTruthy();
+    });
+    // 主导航链在位:「配置」组两条(侧栏口径,label 随 56696b6 主人令更名)+
+    // 采集组抽检一条,证明 AppLayout 骨架真实挂载
+    const nav = screen.getByRole("navigation", { name: "主导航" });
+    expect(within(nav).getByRole("link", { name: "Telegram" })).toBeTruthy();
+    expect(within(nav).getByRole("link", { name: "YAML配置" })).toBeTruthy();
+    expect(within(nav).getByRole("link", { name: "源管理" })).toBeTruthy();
   });
 });

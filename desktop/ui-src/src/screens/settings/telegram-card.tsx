@@ -95,6 +95,8 @@ export function TelegramCard() {
   const [note, setNote] = useState<string | null>(null);
   /** 新账号键草稿(+添加账号行) */
   const [newAccount, setNewAccount] = useState("");
+  /** 新账号备注名草稿(+添加账号行;人读,如「小号·尾号93105」)。 */
+  const [newAccountLabel, setNewAccountLabel] = useState("");
   const [busyAccount, setBusyAccount] = useState<string | null>(null);
   /** 登录窗轮询(拉起后启动;status 面无 running 即停,上限放弃) */
   const [loginPoll, setLoginPoll] = useState(0);
@@ -135,14 +137,19 @@ export function TelegramCard() {
     };
   }, [loginPoll]);
 
-  /** 拉起登录窗(新账号 = 草稿键;已有账号 = 重登,force 清档)。 */
+  /** 拉起登录窗(新账号 = 草稿键+可选备注名;已有账号 = 重登,force 清档
+   * —— 备注 label 由服务侧从旧标记随行,跨重登存续)。 */
   const startLogin = useCallback(
-    async (account: string, force: boolean) => {
+    async (account: string, force: boolean, label?: string) => {
       setBusyAccount(account);
       setActionError(null);
       setNote(null);
       try {
-        const outcome = await telegramWebLogin(account, force);
+        const outcome = await telegramWebLogin(
+          account,
+          force,
+          label !== undefined ? label : undefined,
+        );
         if (outcome.started) {
           setNote(
             `账号 ${account} 登录窗已拉起(经浏览器模块):请在弹出的浏览器窗口里输入手机号 → 验证码(验证码在你手机 TG 里;如有两步验证再输密码)。登录态会自动落档,本页每 ${LOGIN_POLL_INTERVAL_MS / 1000}s 自动对账(转绿即完成);窗口管理(聚焦/关闭)在设置 →「浏览器」分区。`,
@@ -174,9 +181,11 @@ export function TelegramCard() {
       );
       return;
     }
+    const label = newAccountLabel.trim() || undefined;
     setNewAccount("");
-    void startLogin(key, false);
-  }, [newAccount, startLogin]);
+    setNewAccountLabel("");
+    void startLogin(key, false, label);
+  }, [newAccount, newAccountLabel, startLogin]);
 
   const handleDelete = useCallback(
     async (account: string) => {
@@ -272,14 +281,24 @@ export function TelegramCard() {
                       className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2"
                     >
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="flex items-center gap-2 font-mono text-xs text-foreground">
+                        <span className="flex items-center gap-2 text-xs font-medium text-foreground">
                           <StatusDot
                             on={row.logged_in}
                             busy={row.login_in_progress}
                             label={row.account}
                           />
-                          {row.account}
+                          {row.label || row.account}
                         </span>
+                        {row.label ? (
+                          <span className="font-mono text-2xs text-muted-foreground">
+                            {row.account}
+                            {row.user_id ? ` · id ${row.user_id}` : ""}
+                          </span>
+                        ) : row.user_id ? (
+                          <span className="text-2xs text-muted-foreground">
+                            TG id {row.user_id}
+                          </span>
+                        ) : null}
                         {row.login_in_progress ? (
                           <span
                             role="status"
@@ -337,6 +356,15 @@ export function TelegramCard() {
                   onChange={(event) => setNewAccount(event.target.value)}
                   labelHint="全称律 telegram-<标识>(小写字母数字起头);每键独立浏览器配置档(0600),多账号互不相通。"
                   hint="起键名后点「添加账号」拉起浏览器登录窗"
+                />
+                <FieldInput
+                  label="备注名(可选)"
+                  aria-label="新账号备注名"
+                  placeholder="小号·尾号93105"
+                  value={newAccountLabel}
+                  onChange={(event) => setNewAccountLabel(event.target.value)}
+                  labelHint="人读的名字,登录后显示在账号列表(内部键名认不出是哪个号);不填就显示键名。"
+                  hint="与手机号/验证码无关,只是给你认号用的标签"
                 />
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <MessageCircle className="size-3.5 text-muted-foreground" />

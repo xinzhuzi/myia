@@ -523,6 +523,11 @@ def _add_telegram_parser(sub: argparse._SubParsersAction) -> None:
         action="store_true",
         help="删除该账号配置档强制重登(登录态失效/换号时用)",
     )
+    telegram_web_login.add_argument(
+        "--label",
+        default=None,
+        help="账号备注名(人读,如「小号·尾号93105」;随登录标记落盘,卡面主显示——内部键名认不出是哪个号)",
+    )
 
 
 def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
@@ -2477,9 +2482,28 @@ def _cmd_telegram_web_login(args: argparse.Namespace) -> int:
 
     data_root = Path(args.db).resolve().parent
     flow = TelegramWebLoginFlow()
+    label = str(getattr(args, "label", "") or "").strip() or None
+    if label is None:
+        # 重登(--force 删档)连旧标记清:先读旧 label 随行(备注名跨重登存续)
+        try:
+            from myssia.telegram.web_line import (
+                profile_dir,
+                read_login_marker,
+                validate_account_key,
+            )
+
+            old_marker = read_login_marker(
+                profile_dir(data_root, validate_account_key(args.account))
+            )
+            if old_marker:
+                label = old_marker.get("label") or None
+        except Exception:  # noqa: BLE001 - label 存续 best-effort
+            pass
     try:
         directory = asyncio.run(
-            flow.run(data_root, args.account, force=bool(args.force))
+            flow.run(
+                data_root, args.account, force=bool(args.force), label=label
+            )
         )
     except TelegramWebError as exc:
         _emit_generic_error(

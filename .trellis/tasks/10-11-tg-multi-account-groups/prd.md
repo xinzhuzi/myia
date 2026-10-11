@@ -82,6 +82,14 @@ AC1-AC5 已全勾(2026-10-11 凌晨交付,ee687ea 前后链路):
 - [x] 遗留 CLI telegram serve(pid 1187,旧代码写者+长轮询占位)清理。
 - [x] 换装(含链接化)+ app 还原;alt1 会话登出待重登(哨兵告警 tg_web_logged_out,重登后 clashv8 监控即活)。
 
+## v4 追批(2026-10-11 午后,主人令「telegram-alt1 这个名字不对…需要对的名字」——账号身份面)
+
+- [x] **label 备注名 + user_id 身份面全链**:登录流捕获 user_id(localStorage `user_auth` 观测键,凭据键零触碰,best-effort 不拦登录)+ label 人读备注名(CLI `--label` / 卡面「添加账号」备注名输入经 browser.open label 参数透传);**备注名跨重登存续**(browser.open/CLI 无显式 label 时先读旧标记随行——force 删档不清备注);标记文件 myssia-login.json 增 label/user_id 字段。
+- [x] **卡面身份显示**:账号行备注名主显示、内部键名+TG id 退小字(label 缺省回落键名);telegram.status 增 label/user_id 透传。
+- [x] **存量回填**:telegram-alt1 标记补 label「小号·尾号93105」+ user_id 8012674093(今日重登后活探针实测)。
+- [x] **换装与验证**:py 三件(web_line/cli/entry)+UI 集换装+WKWebView 缓存清+重签 strict 过;无头冒烟 **11/11**(含身份面两断言;顺修 v10 遗留:冒烟路由仍指 /#/settings?section=telegram(v10 搬屏后失效),改 /#/tg-account);门禁全量 pytest **5009/0**+vitest **703/703**+tsc 0+ruff 绿。
+- 背景注记:同日午前 tg_web 线两件事——telegram-alt1 服务端吊销后重登(12:21)+clashv8 源 url 锚形态修复(数据根 t.me→web.telegram.org,真跑 19 条入库);10-08-tg-web-line 档已归档,此类追补记本档。
+
 ## v3 追加(2026-10-11,主人令「需要有一个账号模块,因为以后会有多个账号的」)
 
 **核心设计定调:账号模块 = 一等公民实体。**

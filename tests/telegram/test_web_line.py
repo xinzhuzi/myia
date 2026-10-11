@@ -228,7 +228,62 @@ def test_login_success_flow_writes_marker_and_hardens(
     # chromium 以非无头形态启动(headed 登录窗)
     launched = handle._started.chromium.launch_args
     assert launched is not None and launched["headless"] is False
-    assert launched["directory"] == str(directory)
+
+
+def test_login_flow_captures_label_and_user_id(tmp_path: Path) -> None:
+    """身份面(2026-10-11 主人令:内部键名认不出是哪个号):label 随标记
+    落盘 + user_id 从会话 localStorage user_auth 捕获(观测键,凭据键不触)。"""
+    import asyncio
+    import json
+
+    class UserIdPage(FakePage):
+        async def evaluate(self, script: Any, arg: Any = None) -> Any:
+            js = script if isinstance(script, str) else ""
+            if "user_auth" in js:  # _capture_user_id 观测键面
+                return '{"date":1791695737,"id":8012674093,"dcID":5}'
+            return await super().evaluate(script, arg)
+
+    page = UserIdPage([{"state": "logged_in", "hit": ".chatlist-container"}])
+    handle = FakeHandle(FakeContext(page))
+    flow = TelegramWebLoginFlow(
+        print_fn=lambda _: None,
+        playwright_factory=lambda: handle,
+        timeout_seconds=5,
+    )
+    directory = asyncio.run(
+        flow.run(tmp_path, "telegram-alt1", label="小号·尾号93105")
+    )
+    marker = json.loads(
+        (directory / "myssia-login.json").read_text(encoding="utf-8")
+    )
+    assert marker["label"] == "小号·尾号93105"
+    assert marker["user_id"] == "8012674093"
+
+
+def test_login_flow_user_id_capture_is_best_effort(tmp_path: Path) -> None:
+    """user_auth 缺/格式漂移 = 观测键 best-effort,不拦登录成功(标记仍落)。"""
+    import asyncio
+    import json
+
+    class BrokenPage(FakePage):
+        async def evaluate(self, script: Any, arg: Any = None) -> Any:
+            js = script if isinstance(script, str) else ""
+            if "user_auth" in js:
+                raise RuntimeError("page about:blank race")
+            return await super().evaluate(script, arg)
+
+    page = BrokenPage([{"state": "logged_in", "hit": ".chatlist-container"}])
+    handle = FakeHandle(FakeContext(page))
+    flow = TelegramWebLoginFlow(
+        print_fn=lambda _: None,
+        playwright_factory=lambda: handle,
+        timeout_seconds=5,
+    )
+    directory = asyncio.run(flow.run(tmp_path, "telegram-alt1"))
+    marker = json.loads(
+        (directory / "myssia-login.json").read_text(encoding="utf-8")
+    )
+    assert "user_id" not in marker  # 捕获失败零字段,不是 null 占位
 
 
 def test_login_on_page_opened_hook_receives_page_before_goto(

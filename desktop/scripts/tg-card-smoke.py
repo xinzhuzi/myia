@@ -53,6 +53,8 @@ INJECT_SCRIPT = r"""
           account: "telegram-alt1",
           logged_in: true,
           logged_in_at: "2026-10-08T02:30:00+00:00",
+          label: "小号·尾号93105",
+          user_id: "8012674093",
           login_in_progress: false,
           login_note: null,
         },
@@ -152,7 +154,7 @@ async def main() -> int:
             page = await browser.new_page()
             await page.add_init_script(INJECT_SCRIPT)
             await page.goto(
-                f"http://127.0.0.1:{port}/#/settings?section=telegram",
+                f"http://127.0.0.1:{port}/#/tg-account",
                 wait_until="networkidle",
             )
             await page.wait_for_selector('[data-testid="telegram-card"]', timeout=10_000)
@@ -171,6 +173,15 @@ async def main() -> int:
                 await page.locator(
                     '[data-testid="telegram-web-account-telegram-alt1"]'
                 ).count()
+                == 1,
+            )
+            expect(
+                "身份面:备注名主显示(2026-10-11 主人令)",
+                await page.get_by_text("小号·尾号93105").count() == 1,
+            )
+            expect(
+                "身份面:键名+TG id 退小字",
+                await page.get_by_text("telegram-alt1 · id 8012674093").count()
                 == 1,
             )
             expect(

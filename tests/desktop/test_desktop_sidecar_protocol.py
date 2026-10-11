@@ -5631,7 +5631,8 @@ def test_telegram_status_three_lines(tmp_path, monkeypatch):
     home = tmp_path / "home"
     (home / "telegram-web" / "telegram-alt1").mkdir(parents=True)
     (home / "telegram-web" / "telegram-alt1" / "myssia-login.json").write_text(
-        '{"logged_in_at": "2026-10-08T02:30:00+00:00", "line": "tg_web"}',
+        '{"logged_in_at": "2026-10-08T02:30:00+00:00", "line": "tg_web",'
+        ' "label": "小号·尾号93105", "user_id": "8012674093"}',
         encoding="utf-8",
     )
     (home / "telegram").mkdir(parents=True, exist_ok=True)
@@ -5650,6 +5651,9 @@ def test_telegram_status_three_lines(tmp_path, monkeypatch):
     assert [row["account"] for row in accounts] == ["telegram-alt1"]
     assert accounts[0]["logged_in"] is True
     assert accounts[0]["logged_in_at"] == "2026-10-08T02:30:00+00:00"
+    # 身份面(2026-10-11 主人令):label/user_id 从标记透传到卡面
+    assert accounts[0]["label"] == "小号·尾号93105"
+    assert accounts[0]["user_id"] == "8012674093"
 
 
 def test_telegram_status_bot_unconfigured_is_false(tmp_path, monkeypatch):
@@ -5684,8 +5688,10 @@ class _FakeBrowserFlow:
         self._kwargs_sink = kwargs_sink
         self._mode = mode
 
-    async def run(self, data_root, account, *, force=False):  # noqa: ANN001
-        self._kwargs_sink.append({"account": account, "force": force})
+    async def run(self, data_root, account, *, force=False, label=None):  # noqa: ANN001
+        self._kwargs_sink.append(
+            {"account": account, "force": force, "label": label}
+        )
         if self._mode == "hang":
             # 真登录流形态:等注入 sleep(会被 browser.close 的停令打断)
             await self._kwargs["sleep"](600.0)
@@ -5779,6 +5785,57 @@ def test_browser_open_registry_validation_and_done_lifecycle(tmp_path, monkeypat
         assert ops["telegram-alt1"]["phase"] == "done"
         assert ops["telegram-alt1"]["log_tail"]
         assert "stop_event" not in ops["telegram-alt1"]  # 线程内句柄不外泄
+    finally:
+        _browser_ledger_cleanup()
+
+
+def test_browser_open_label_passthrough_and_persistence(tmp_path, monkeypatch):
+    """身份面(2026-10-11 主人令:内部键名认不出是哪个号):browser.open 带
+    label → 登录器收到;不带 label 且旧标记有 → 随行(备注名跨重登存续);
+    label 非字符串结构化拒。"""
+    home = tmp_path / "home-b3"
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    import myssia.telegram.web_line as web_line
+
+    monkeypatch.setattr(web_line, "require_playwright", lambda: None)
+    kwargs_sink: list[dict] = []
+    monkeypatch.setattr(
+        web_line, "TelegramWebLoginFlow", _fake_flow_factory(kwargs_sink, "done")
+    )
+    # 旧账号 telegram-b:已有标记带 label(重登前的存续源)
+    (home / "telegram-web" / "telegram-b").mkdir(parents=True)
+    (home / "telegram-web" / "telegram-b" / "myssia-login.json").write_text(
+        '{"logged_in_at": "2026-10-11T00:00:00+00:00", "line": "tg_web",'
+        ' "label": "旧备注B"}',
+        encoding="utf-8",
+    )
+    try:
+        # ① 显式 label 透传到登录器 run
+        rpc(
+            {"id": 1, "method": "browser.open",
+             "params": {"kind": "tg_web_login", "session_key": "telegram-a",
+                        "label": "小号A·尾号0001"}}
+        )
+        _wait_op_phase("telegram-a", {"done"})
+        # ② 无 label + 旧标记有 → 随行(force 重登也不丢备注)
+        rpc(
+            {"id": 2, "method": "browser.open",
+             "params": {"kind": "tg_web_login", "session_key": "telegram-b",
+                        "force": True}}
+        )
+        _wait_op_phase("telegram-b", {"done"})
+        run_calls = [k for k in kwargs_sink if "account" in k]
+        assert [c["label"] for c in run_calls] == [
+            "小号A·尾号0001",
+            "旧备注B",
+        ]
+        # ③ label 形状错结构化拒
+        code, responses, _ = rpc(
+            {"id": 3, "method": "browser.open",
+             "params": {"kind": "tg_web_login", "session_key": "telegram-c",
+                        "label": 123}}
+        )
+        assert responses[0]["error"]["code"] == "invalid_params"
     finally:
         _browser_ledger_cleanup()
 

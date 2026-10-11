@@ -25,6 +25,10 @@ export interface TelegramWebAccount {
   account: string;
   logged_in: boolean;
   logged_in_at: string | null;
+  /** 人读备注名(登录时起;主显示面——内部键名认不出是哪个号,2026-10-11) */
+  label?: string | null;
+  /** 登录会话捕获的 TG user id(观测键,best-effort) */
+  user_id?: string | null;
   login_in_progress: boolean;
   login_note: string | null;
 }
@@ -52,12 +56,17 @@ export function telegramGetStatus(): Promise<TelegramStatus> {
 /**
  * 拉起 headed 登录窗(浏览器模块统一入口;单入口铁律)。同操作在跑 =
  * started:false 幂等回执;依赖缺失等失败同步结构化拒(人话+修复指引)。
+ * label = 可选账号备注名(随登录标记落盘,卡面主显示)。
  */
 export function telegramWebLogin(
   account: string,
   force = false,
+  label?: string,
 ): Promise<BrowserOpenResult> {
-  return browserOpen("tg_web_login", account, { force });
+  return browserOpen("tg_web_login", account, {
+    force,
+    ...(label !== undefined ? { label } : {}),
+  });
 }
 
 /** 删除账号配置档(登录态随档消失;登录窗在跑会被侧拒 login_in_progress) */

@@ -60,13 +60,14 @@ async function browserRequest<R>(method: string, params: unknown): Promise<R> {
 export function browserOpen(
   kind: string,
   sessionKey: string,
-  options: { url?: string; force?: boolean } = {},
+  options: { url?: string; force?: boolean; label?: string } = {},
 ): Promise<BrowserOpenResult> {
   return browserRequest("browser.open", {
     kind,
     session_key: sessionKey,
     ...(options.url !== undefined ? { url: options.url } : {}),
     ...(options.force !== undefined ? { force: options.force } : {}),
+    ...(options.label !== undefined ? { label: options.label } : {}),
   });
 }
 

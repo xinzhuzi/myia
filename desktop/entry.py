@@ -5907,6 +5907,10 @@ def _m_telegram_status(params: dict[str, Any]) -> dict[str, Any]:
                     "logged_in_at": (
                         marker.get("logged_in_at") if marker else None
                     ),
+                    # 身份面(2026-10-11 主人令:内部键名认不出是哪个号):
+                    # label = 登录时起的备注名(主显示),user_id = 会话捕获
+                    "label": marker.get("label") if marker else None,
+                    "user_id": marker.get("user_id") if marker else None,
                     "login_in_progress": op_phase == "running",
                     "login_note": (
                         op.get("note") if op is not None else None
@@ -6015,7 +6019,7 @@ def _browser_make_sleep(op_id: str, stop_event: threading.Event):
 
 
 def _browser_thread_main(
-    op_id: str, session_key: str, force: bool
+    op_id: str, session_key: str, force: bool, label: str | None = None
 ) -> None:
     """操作线程:跑既有登录器(web_line.TelegramWebLoginFlow,零重写),
     print 回执进日志尾巴,收尾写台账(running → done/failed/closed)."""
@@ -6059,7 +6063,12 @@ def _browser_thread_main(
                 print_fn=_print,
                 sleep=_browser_make_sleep(op_id, stop_event),
                 on_page_opened=_on_page_opened,
-            ).run(_telegram_data_root(), session_key, force=force)
+            ).run(
+                _telegram_data_root(),
+                session_key,
+                force=force,
+                label=label,
+            )
         )
     except _BrowserWindowClosed as exc:
         _browser_log(op_id, str(exc))
@@ -6101,6 +6110,13 @@ def _m_browser_open(params: dict[str, Any]) -> dict[str, Any]:
         raise ProtocolError(
             "invalid_params", "force 必须是布尔", path="params.force"
         )
+    label = params.get("label")
+    if label is not None:
+        if not isinstance(label, str):
+            raise ProtocolError(
+                "invalid_params", "label 必须是字符串", path="params.label"
+            )
+        label = label.strip()[:48] or None
     if kind == "tg_web_login":
         from myssia.telegram.web_line import (
             INSTALL_COMMAND,
@@ -6133,6 +6149,22 @@ def _m_browser_open(params: dict[str, Any]) -> dict[str, Any]:
             ) from exc
         session_key = key
         op_id = key
+        if label is None:
+            # 重登(--force 删档)会连旧标记一起清:先读旧 label 随行,
+            # 备注名跨重登存续(主人起的认人名,不该因为重登丢)
+            try:
+                from myssia.telegram.web_line import (
+                    profile_dir,
+                    read_login_marker,
+                )
+
+                old_marker = read_login_marker(
+                    profile_dir(_telegram_data_root(), key)
+                )
+                if old_marker:
+                    label = old_marker.get("label") or None
+            except Exception:  # noqa: BLE001 - label 存续 best-effort
+                pass
     else:  # pragma: no cover - 词表单键;新类别在此接线
         raise ProtocolError(
             "invalid_params", f"类别 {kind} 未接线", path="params.kind"
@@ -6166,7 +6198,7 @@ def _m_browser_open(params: dict[str, Any]) -> dict[str, Any]:
         }
     thread = threading.Thread(
         target=_browser_thread_main,
-        args=(op_id, session_key, force),
+        args=(op_id, session_key, force, label),
         daemon=True,
         name=f"browser-op-{op_id}",
     )

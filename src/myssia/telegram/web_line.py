@@ -468,19 +468,28 @@ async def open_chat_flow(
         await sleep(1.0)
 
 
-def _write_login_marker(directory: Path) -> None:
-    """落登录成功标记(时间戳;零凭据面)。"""
+def _write_login_marker(
+    directory: Path, *, label: str | None = None, user_id: str | None = None
+) -> None:
+    """落登录成功标记(时间戳 + 可选身份面;零凭据).
+
+    ``label`` = 人读备注名(添加账号时主人起,UI 主显示面);``user_id`` =
+    登录会话自动捕获的 TG user id(localStorage ``user_auth``,观测键
+    best-effort,缺不拦)。两者都非凭据(凭据纪律:手机号/验证码全程
+    页面内,本流零读取)。
+    """
     marker = login_marker_path(directory)
+    payload: dict[str, Any] = {
+        "logged_in_at": datetime.now(timezone.utc).isoformat(),
+        "line": "tg_web",
+    }
+    if label:
+        payload["label"] = label[:48]
+    if user_id:
+        payload["user_id"] = str(user_id)[:24]
     try:
         marker.write_text(
-            json.dumps(
-                {
-                    "logged_in_at": datetime.now(timezone.utc).isoformat(),
-                    "line": "tg_web",
-                },
-                ensure_ascii=False,
-            ),
-            encoding="utf-8",
+            json.dumps(payload, ensure_ascii=False), encoding="utf-8"
         )
         marker.chmod(PROFILE_FILE_MODE)
     except OSError as exc:  # 标记写失败不废登录(复用检查退化为探针)
@@ -489,6 +498,24 @@ def _write_login_marker(directory: Path) -> None:
             marker,
             exc,
         )
+
+
+async def _capture_user_id(page: Any) -> str | None:
+    """登录后从会话 localStorage 捕获 TG user_id(观测键,best-effort).
+
+    ``user_auth`` 是 tweb/GramJS 的会话自述(``{"date","id","dcID"}``),
+    ``id`` 即账号 user id —— 不是凭据(凭据键 ``*_auth_key`` 不触不读)。
+    """
+    try:
+        raw = await page.evaluate(
+            "() => localStorage.getItem('user_auth')"
+        )
+        data = json.loads(raw) if isinstance(raw, str) and raw else None
+        uid = data.get("id") if isinstance(data, dict) else None
+        return str(uid) if uid else None
+    except Exception:  # noqa: BLE001 - 观测键缺/格式漂移不拦登录成功
+        logger.info("TG 网页线 user_id 捕获失败(观测键,忽略)", exc_info=True)
+        return None
 
 
 async def check_logged_in(
@@ -586,9 +613,18 @@ class TelegramWebLoginFlow:
         self._on_page_opened = on_page_opened
 
     async def run(
-        self, data_root: str | Path, account: str, *, force: bool = False
+        self,
+        data_root: str | Path,
+        account: str,
+        *,
+        force: bool = False,
+        label: str | None = None,
     ) -> Path:
-        """执行登录;成功返回配置档目录(已 0700/0600 硬化 + 标记在)."""
+        """执行登录;成功返回配置档目录(已 0700/0600 硬化 + 标记在).
+
+        ``label`` = 人读备注名(可选;随标记落盘,卡面主显示面 —— 内部键
+        名是配置档目录名,主人认不出是哪个号,2026-10-11 主人令)。
+        """
         key = validate_account_key(account)
         directory = profile_dir(data_root, key)
         if force and directory.exists():
@@ -612,6 +648,7 @@ class TelegramWebLoginFlow:
             page_timeout_seconds=max(60.0, self._timeout),
             playwright_factory=self._playwright_factory,
         )
+        user_id: str | None = None
         try:
             page = (
                 context.pages[0]
@@ -633,6 +670,8 @@ class TelegramWebLoginFlow:
                 timeout_seconds=self._timeout,
                 sleep=self._sleep,
             )
+            # 登录成功即捕获 user_id(观测键;context 关闭前页面还在)
+            user_id = await _capture_user_id(page)
         finally:
             for closer in (context.close, handle.stop):
                 try:
@@ -651,10 +690,17 @@ class TelegramWebLoginFlow:
                 reason="profile_unavailable",
                 fatal=True,
             )
-        _write_login_marker(directory)
+        _write_login_marker(directory, label=label, user_id=user_id)
         self._print(
             f"TG 网页线登录完成,登录态已落配置档(0700/0600):{directory}\n"
-            "下一步:myssia telegram serve(web 线常驻读群;bot/telethon/web "
+            + (
+                f"账号身份:备注「{label}」"
+                + (f" · user id {user_id}" if user_id else "")
+                + "\n"
+                if label or user_id
+                else ""
+            )
+            + "下一步:myssia telegram serve(web 线常驻读群;bot/telethon/web "
             "三线共用过滤出口),或品类源 engine: tg_web 批量采集。\n"
             "披露:①DOM 改版跟修风险 —— 哨兵 tg_web_dom_stale 在,失配即结构化"
             "告警不装死;②ToS 灰色同 userbot,建议专用小号(同机同出口多账号"
