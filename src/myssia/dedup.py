@@ -49,16 +49,30 @@ class DedupRegistry:
     immediate pushes.
     """
 
-    def __init__(self, store: Store, tz: tzinfo | None = None) -> None:
+    def __init__(self, store: Store, tz: tzinfo | str | None = None) -> None:
         """Bind the registry to a storage backend.
 
         Args:
             store: pluggable storage backend (default SQLiteStore).
             tz: timezone defining the 12:00 slot boundary — the category's
-                schedule timezone; defaults to the system local zone.
+                schedule timezone; ``str``(如品类 YAML 的 ``Asia/Shanghai``)
+                收编为 ``ZoneInfo``(telegram serve 两装配面 CLI:2221/桌面
+                entry 同传原串,2026-10-11 web 线首条真消息踩响实证);defaults
+                to the system local zone.坏串防御回落本地时区(加载期已校验)。
         """
+        resolved: tzinfo | None = None
+        if isinstance(tz, str):
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+            try:
+                resolved = ZoneInfo(tz)
+            except (ZoneInfoNotFoundError, ValueError, OSError):
+                logger.warning("DedupRegistry 时区串 %r 不可解析,回落本地时区", tz)
+                resolved = None
+        else:
+            resolved = tz
         self._store = store
-        self._tz = tz or datetime.now().astimezone().tzinfo
+        self._tz = resolved or datetime.now().astimezone().tzinfo
 
     # ------------------------------------------------------------- key building
 
