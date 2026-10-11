@@ -3412,6 +3412,20 @@ describe("feed 原生视图 纯函数(api.ts,10-09-tg-category-entry v9)", () =>
     expect(telegramKUrlOf("https://t.me/durov/")).toBe("https://web.telegram.org/k/#@durov");
     // http + query 照样认(频道名词表 [A-Za-z0-9_],无需编码)
     expect(telegramKUrlOf("http://t.me/s/mihomo_party?single")).toBe("https://web.telegram.org/k/#@mihomo_party");
+    // v9 深检补形:watcher 落库条目的内部形态 url(#tg-<chatId>-<msgId>)
+    // → /k/#<chatId>(主人在装机实机上点「原生视图」无反应的根因:此前
+    // 只认 t.me 形态,真实 TG 条目全部推导 null → 按钮恒 disabled)
+    expect(telegramKUrlOf("https://web.telegram.org#tg--2349572233-4294967408")).toBe(
+      "https://web.telegram.org/k/#-2349572233",
+    );
+    expect(telegramKUrlOf("https://web.telegram.org#tg--1001234567890-42")).toBe(
+      "https://web.telegram.org/k/#-1001234567890",
+    );
+    expect(telegramKUrlOf("https://web.telegram.org#tg-12345-7")).toBe(
+      "https://web.telegram.org/k/#12345",
+    );
+    expect(telegramKUrlOf("https://web.telegram.org#tg-bad")).toBeNull();
+    expect(telegramKUrlOf("https://web.telegram.org#tg--abc-def")).toBeNull();
     // 不猜(与 t.me/s 镜像同源死分支:/k/ 与镜像都靠 t.me 链提频道名,推导不出两者同不可得)
     expect(telegramKUrlOf("https://t.me/+AbCdEf_123")).toBeNull();
     expect(telegramKUrlOf("https://example.com/item-1")).toBeNull();

@@ -778,16 +778,25 @@ export function telegramMirrorUrlOf(url: string | null | undefined): string | nu
 }
 
 /**
- * t.me 链 → /k/ 原生页深链(v9 AC33 预览升级):`https://web.telegram.org/k/#@<频道名>`
- * 是 Telegram Web /k/ 的官方深链形态,登录后自动落到该频道。
+ * t.me 链 / watcher 内部链 → /k/ 原生页深链(v9 AC33 预览升级;10-09 深检
+ * 补形:watcher 落库条目的 url 是内部形态 `https://web.telegram.org#tg-<chatId>-<msgId>`,
+ * 并非 t.me 链——此前只认 t.me 形态导致「原生视图」按钮恒置灰,主人实测点
+ * 击无反应)。
+ * - t.me 形态:`https://t.me/<频道>/<id>` → `/k/#@<频道名>`(官方深链,登录后
+ *   自动落到该频道)。
+ * - watcher 内部形态:`#tg-<chatId>-<msgId>` → `/k/#<chatId>`(/k/ 同样支持按
+ *   chatId 深链;chatId 含频道负号,如 -2349572233)。
  * URL 字面量与 Python 侧 watcher 的 WEB_ORIGIN(web_line.py)同源同锚,
  * 但前端不 import Python 侧常量,落在此处自持(两套会话互不相通,见
- * design-v9 §1.3 双会话披露)。频道名词表 [A-Za-z0-9_] 出自提取器,
- * 无需编码;推导不出 = null(与 t.me/s 镜像同源死分支,按钮置灰如实)。
+ * design-v9 §1.3 双会话披露)。两者都推导不出 = null(按钮置灰如实)。
  */
 export function telegramKUrlOf(url: string | null | undefined): string | null {
+  if (!url) return null;
   const name = telegramChannelNameOf(url);
-  return name ? `https://web.telegram.org/k/#@${name}` : null;
+  if (name) return `https://web.telegram.org/k/#@${name}`;
+  const watcher = /^https?:\/\/web\.telegram\.org#tg-(-?\d+)-\d+$/.exec(url.trim());
+  if (watcher) return `https://web.telegram.org/k/#${watcher[1]}`;
+  return null;
 }
 
 // ---------------------------------------------------------------------------

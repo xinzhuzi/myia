@@ -95,18 +95,21 @@ export function onNativeWindowDestroyed(listener: DestroyedListener): () => void
   };
 }
 
-/** /k/ 深链整链锚定(词表与 api.telegramChannelNameOf 的捕获组同源:
- *  [A-Za-z][A-Za-z0-9_]{2,} = t.me 用户名词表 —— 深链本体即 telegramKUrlOf
- *  按该词表构造,键提取同词表 = 同源推导闭环;整链锚定杜绝 query/尾段注入) */
-const K_URL_RE = /^https:\/\/web\.telegram\.org\/k\/#@([A-Za-z][A-Za-z0-9_]{2,})$/;
+/** /k/ 深链整链锚定(两种官方深链形态,10-09 深检补形:watcher 落库条目
+ *  url 是内部形态 `#tg-<chatId>-<msgId>`,按 chatId 深链而非频道名):
+ *  - `#@<t.me 频道名>`(词表 [A-Za-z][A-Za-z0-9_]{2,},与 telegramKUrlOf
+ *    的提取器同源);
+ *  - `#-?<chatId>`(纯数字 id,频道为负值)。
+ *  整链锚定杜绝 query/尾段注入;键 = 深链主体本身(名或 id 字面)。 */
+const K_URL_RE = /^https:\/\/web\.telegram\.org\/k\/#(?:@([A-Za-z][A-Za-z0-9_]{2,})|(-?\d+))$/;
 
-/** /k/ 深链 → 注册键(锚内 t.me 频道名)。非本模块口径的 url 一律 null ——
- *  调用方(openOrFocusNative)对 null 同步 throw,白名单是代码约束不是
- *  注释约定(深检 F8)。 */
+/** /k/ 深链 → 注册键(锚内主体:@名 或 chatId 字面)。非本模块口径的 url
+ *  一律 null —— 调用方(openOrFocusNative)对 null 同步 throw,白名单是
+ *  代码约束不是注释约定(深检 F8)。 */
 export function tgNativeKeyOf(kUrl: string | null | undefined): string | null {
   if (!kUrl) return null;
   const match = K_URL_RE.exec(kUrl);
-  return match ? match[1] : null;
+  return match ? (match[1] ?? match[2]) : null;
 }
 
 /** 窗 label:键 → `tg-native-<t.me 频道名>`(design-v9 §2.3 词面)。
