@@ -37,12 +37,17 @@ wrapper、test-result-dialog 的 section 均为 `overflow: visible`,受自动
 
 ## Acceptance Criteria
 
-- [ ] AC1 冒烟:`.venv/bin/python desktop/scripts/logs-screen-smoke.py` 退出码 0
+- [x] AC1 冒烟:`.venv/bin/python desktop/scripts/logs-screen-smoke.py` 退出码 0
   (50 组行直出 / 行高 ≥40px / scrollHeight > clientHeight / 首组展开)。
-- [ ] AC2 组件回归:`npm --prefix desktop/ui-src run test` 零新红(logs 屏
+  实测:修前 FAIL(min 6.5px、scrollHeight 959==clientHeight 959)→ 修后全绿
+  (min 46px、scrollHeight 3150 > 959);截图 /tmp/myssia-logs-screen-smoke.png。
+- [x] AC2 组件回归:`npm --prefix desktop/ui-src run test` 零新红(logs 屏
   既有测试不回退;jsdom 无真实布局,布局断言由 AC1 冒烟承担)。
-- [ ] AC3 装机件:tauri build 重打包并静默换装;`desktop/ui` 构建产物与装机
+  实测:31 文件 694/694 绿;tsc -b 随 build 过。
+- [x] AC3 装机件:tauri build 重打包并静默换装;`desktop/ui` 构建产物与装机
   件同链,冒烟截图(`/tmp/myssia-logs-screen-smoke.png`)为像素证据。
+  实测:世事.app 0.0.3(二进制 12:13 新鲜)已换装 /Applications,com.myssia.app
+  WKWebView 缓存已清,open -g 后台拉起(sidecar serve PID 在,引导日志正常)。
 
 ## 边界
 

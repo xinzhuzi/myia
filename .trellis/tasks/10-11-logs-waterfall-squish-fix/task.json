@@ -3,7 +3,7 @@
   "name": "logs-waterfall-squish-fix",
   "title": "采集日志 run 瀑布流行高塌缩修复",
   "description": "日志屏 50 轮行数超视口时,run 组行被 flex 均匀压扁成 ~6.5px 细条、内容被 overflow-hidden 裁没、滚动条永不出现;补 shrink-0 根治并以无头 Chromium 布局哨兵冒烟固证。",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
