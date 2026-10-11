@@ -194,3 +194,9 @@
 - 装机换装双实锤:新 chunk index-CaPCjiVS(旧件零命中);缓存清(注:/k/ 登录态随之清,首次使用需扫码,属预期);app 常驻 PID 45010。
 - 待主人实机:点亮 → Telegram 监控 → 3 级详情切「原生视图」→ 内嵌页内扫码一次 → 自动落到 mihomo_party_group 原生完整消息。
 
+
+## v8.1 深检追补(2026-10-10,主人实测「原生视图点击没用」根因修复)
+
+- 根因(库实锤):watcher 落库的 TG 条目 url 是内部形态 `https://web.telegram.org#tg-<chatId>-<msgId>`(web 域+chatId+msgId),telegramKUrlOf 只认 t.me 形态 → tgPreviewUrl 恒 null → 原生视图钮恒 **disabled**(点击零反应,非创建失败)。
+- 修复:telegramKUrlOf 补形(`#tg-<chatId>-<msgId>` → `/k/#<chatId>`,/k/ 官方支持按 chatId 深链);tg-native-window K_URL_RE 同步双形(@名 | -?chatId),捕获组不含 @(键口径稳定)。
+- 测试:watcher url 三形直测 + 非法形态 null;门禁 vitest 689 + build + 冒烟全绿;换装 chunk 随构建 + app 还原。
