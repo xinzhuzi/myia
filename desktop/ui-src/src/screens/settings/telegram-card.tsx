@@ -10,16 +10,19 @@
  * - **bot 段**:token 状态灯(绿 = keychain 在册;灰 = 未配,四步指引);
  * - **session 段**:telethon 用户线 session(绿 = 已首登;灰 = 未首登,
  *   CLI login 指引);
- * - **web 段**:网页线账号列表(每行:键 + 状态灯 + 重登 + 删除)+
+ * - **web 段**:网页线账号列表(每行:键 + 状态灯 + 检测 + 重登 + 删除)+
  *   「+添加账号」(起键名 → **经浏览器模块**拉起 MYIA 自管 Chromium 登录
  *   窗;单入口铁律 = 一切浏览器操作必经 browser.open,窗口台账/错误上浮
  *   集中在设置 →「浏览器」分区,卡面登录中/失败态与模块操作台账同源联动)。
+ *   「检测」= 账号体检(10-11-tg-manage-absorb):常态读常驻哨兵真源秒回,
+ *   无常驻占用走无头探针后台线程;行小字「上次体检 · 活/死」由 status
+ *   轮询对账刷新(alive 与 logged_in 双键并存,死不自动清标记 → 引导重登)。
  *
  * 诚实披露三条在卡面文案常驻(PRD AC5):DOM 改版跟修哨兵在/ToS 灰色
  * 建议小号(同机同出口多账号可被关联)/api_id 到手切回 Telethon 正统线。
  * IPC 契约见 ./telegram-api.ts;凭据零外显(手机号+验证码全在登录窗内)。
  */
-import { Globe, MessageCircle, Plus, RefreshCw, Send, Trash2, User } from "lucide-react";
+import { Activity, Globe, MessageCircle, Plus, RefreshCw, Send, Trash2, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -27,12 +30,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SidecarRequestError, type SidecarRequestError as SidecarRequestErrorType } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { formatRelativeTime } from "@/screens/feed/api";
 
 import { asSidecarError } from "./api";
 import { ErrorBox } from "./error-box";
 import { FieldInput } from "./field-input";
 import {
   telegramGetStatus,
+  telegramWebCheck,
   telegramWebDelete,
   telegramWebLogin,
   type TelegramStatus,
@@ -114,7 +119,8 @@ export function TelegramCard() {
     void refresh();
   }, [refresh]);
 
-  /** 登录窗状态对账轮询(有账号 login_in_progress 时跑;完成即停)。 */
+  /** 登录窗/体检状态对账轮询(有账号 login_in_progress 或 check_in_progress
+   * 时跑;完成即停 —— 10-11-tg-manage-absorb 泛化复用,非第二套轮询)。 */
   useEffect(() => {
     if (loginPoll <= 0 || loginPoll > LOGIN_POLL_MAX_ATTEMPTS) {
       if (loginPoll > LOGIN_POLL_MAX_ATTEMPTS) setLoginPoll(0);
@@ -125,7 +131,9 @@ export function TelegramCard() {
       void telegramGetStatus().then((next) => {
         if (cancelled) return;
         setStatus(next);
-        const anyRunning = next.web.accounts.some((row) => row.login_in_progress);
+        const anyRunning = next.web.accounts.some(
+          (row) => row.login_in_progress || row.check_in_progress,
+        );
         setLoginPoll(anyRunning ? loginPoll + 1 : 0);
       }).catch(() => {
         if (!cancelled) setLoginPoll(loginPoll + 1);
@@ -152,7 +160,7 @@ export function TelegramCard() {
         );
         if (outcome.started) {
           setNote(
-            `账号 ${account} 登录窗已拉起(经浏览器模块):请在弹出的浏览器窗口里输入手机号 → 验证码(验证码在你手机 TG 里;如有两步验证再输密码)。登录态会自动落档,本页每 ${LOGIN_POLL_INTERVAL_MS / 1000}s 自动对账(转绿即完成);窗口管理(聚焦/关闭)在设置 →「浏览器」分区。`,
+            `账号 ${account} 登录窗已拉起(经浏览器模块):请在弹出的浏览器窗口里输入手机号 → 验证码(验证码在你手机 TG 里;如有两步验证再输密码;会话失效时登录页可直接用手机 Telegram 扫码登录,免等验证码)。登录态会自动落档,本页每 ${LOGIN_POLL_INTERVAL_MS / 1000}s 自动对账(转绿即完成);窗口管理(聚焦/关闭)在设置 →「浏览器」分区。`,
           );
           setLoginPoll(1);
           setStatus(await telegramGetStatus());
@@ -196,6 +204,34 @@ export function TelegramCard() {
         await telegramWebDelete(account);
         setNote(`账号 ${account} 配置档已删除(登录态随档消失;常驻 web 线重启后不再拉起该键)。`);
         setStatus(await telegramGetStatus());
+      } catch (raw) {
+        setActionError(asSidecarError(raw));
+      } finally {
+        setBusyAccount(null);
+      }
+    },
+    [],
+  );
+
+  /** 发起账号体检(10-11-tg-manage-absorb):常驻监控在跑时服务端读哨兵
+   * 真源秒回;无常驻占用走无头探针后台线程(≤45s),行小字(上次体检/
+   * 活死)由轮询对账刷新 —— 泛化 loginPoll,非第二套轮询。 */
+  const runCheck = useCallback(
+    async (account: string) => {
+      setBusyAccount(account);
+      setActionError(null);
+      setNote(null);
+      try {
+        const outcome = await telegramWebCheck(account);
+        if (outcome.started) {
+          setNote(
+            `账号 ${account} 体检已发起:常驻监控在跑时读哨兵秒回;否则无头探针至多约 45s 出结果(被占用会提示先停占用),本页每 ${LOGIN_POLL_INTERVAL_MS / 1000}s 自动对账(行小字见「上次体检 · 活/死」)。`,
+          );
+          setLoginPoll(1);
+          setStatus(await telegramGetStatus());
+        } else {
+          setNote(outcome.note ?? `账号 ${account} 体检正在进行中(稍候刷新看结果)。`);
+        }
       } catch (raw) {
         setActionError(asSidecarError(raw));
       } finally {
@@ -264,7 +300,9 @@ export function TelegramCard() {
                 </div>
                 <p className="text-2xs leading-4 text-muted-foreground">
                   零凭据通道:MYIA 自管无头 Chromium 登 web.telegram.org 一次,之后常驻读群消息 DOM
-                  → 与 bot 线同一套粗筛/精筛/推送。披露:DOM 改版有跟修哨兵(失配即结构化告警不装死);
+                  → 与 bot 线同一套粗筛/精筛/推送。登录时手机号+验证码在页面内输(验证码在你手机 TG
+                  里;会话失效时登录页可直接用手机 Telegram 扫码登录,免等验证码)。披露:DOM 改版有
+                  跟修哨兵(失配即结构化告警不装死);
                   ToS 灰色同 userbot,建议各键专用小号(同机同出口多账号可被关联,只读监控风险低,数量克制,缺省帽
                   3);api_id 到手建议切回 Telethon 正统线,本线退役或备份;登录态 = 配置档文件(0600,非加密)。
                 </p>
@@ -309,6 +347,45 @@ export function TelegramCard() {
                             登录窗进行中(页面内输手机号+验证码)…
                           </span>
                         ) : null}
+                        {row.check_in_progress ? (
+                          <span
+                            role="status"
+                            data-testid={`telegram-web-${row.account}-checkbusy`}
+                            className="flex items-center gap-1 text-2xs text-warning"
+                          >
+                            <RefreshCw className="size-3 animate-spin" />
+                            体检进行中(无头快查)…
+                          </span>
+                        ) : null}
+                        {row.check_note ? (
+                          <span
+                            role={
+                              row.check_note.includes("失败") || row.check_note.includes("failed")
+                                ? "alert"
+                                : "status"
+                            }
+                            data-testid={`telegram-web-${row.account}-checknote`}
+                            className="break-all text-2xs text-muted-foreground"
+                          >
+                            {row.check_note}
+                          </span>
+                        ) : null}
+                        {!row.check_in_progress ? (
+                          row.last_verified_at ? (
+                            <span
+                              data-testid={`telegram-web-${row.account}-verified`}
+                              className={cn(
+                                "text-2xs",
+                                row.alive === false ? "text-dead" : "text-muted-foreground",
+                              )}
+                            >
+                              上次体检 {formatRelativeTime(row.last_verified_at)} ·{" "}
+                              {row.alive === false ? "死(建议重登)" : "活"}
+                            </span>
+                          ) : (
+                            <span className="text-2xs text-muted-foreground">未体检</span>
+                          )
+                        ) : null}
                         {row.login_note ? (
                           <span
                             role={row.login_note.includes("失败") || row.login_note.includes("timeout") ? "alert" : "status"}
@@ -326,7 +403,22 @@ export function TelegramCard() {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={busyAccount === row.account || row.login_in_progress}
+                          disabled={
+                            busyAccount === row.account || row.login_in_progress || row.check_in_progress
+                          }
+                          onClick={() => void runCheck(row.account)}
+                          data-testid={`telegram-web-${row.account}-check`}
+                          title="登录态体检:常驻监控在跑时读哨兵秒回;探针路径下被占用会提示先停占用"
+                        >
+                          <Activity className="size-3.5" />
+                          检测
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            busyAccount === row.account || row.login_in_progress || row.check_in_progress
+                          }
                           onClick={() => void startLogin(row.account, true)}
                           data-testid={`telegram-web-${row.account}-relogin`}
                           title="清档重登(--force):拉起浏览器登录窗,手机号+验证码在页面内输"
@@ -336,7 +428,9 @@ export function TelegramCard() {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={busyAccount === row.account || row.login_in_progress}
+                          disabled={
+                            busyAccount === row.account || row.login_in_progress || row.check_in_progress
+                          }
                           onClick={() => void handleDelete(row.account)}
                           data-testid={`telegram-web-${row.account}-delete`}
                           title="删除该账号配置档(登录态随档消失;源 YAML 引用该键的 tg_web 源会显式空态)"

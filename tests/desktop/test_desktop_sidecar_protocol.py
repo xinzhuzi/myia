@@ -2915,11 +2915,14 @@ def test_method_registry_allowed_matches_handlers():
     browser-module 批(browser.open/list/focus/close 四方法 + 移除
     telegram.web.login(单入口铁律:登录改走浏览器模块),10-08-browser-module)
     + feed v8 三级界面批(store.source_stats 分源聚合,
-    10-09-tg-category-entry v8)后 = 75。"""
+    10-09-tg-category-entry v8)后 = 75;
+    平台账号批(platform_accounts.* 四方法,10-11-platform-account-config)
+    + tg-manage-absorb 批(telegram.web.check,10-11-tg-manage-absorb)
+    后 = 80。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 79
+    assert len(allowed) == 80
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",
@@ -2935,6 +2938,7 @@ def test_method_registry_allowed_matches_handlers():
                    "plugins.bundled.uninstall", "plugins.bundled.category_install",
                    "plugins.remote.get", "plugins.remote.save",
                    "telegram.status", "telegram.web.delete",
+                   "telegram.web.check",
                    "browser.open", "browser.list", "browser.focus",
                    "browser.close"):
         assert method in allowed
@@ -5627,12 +5631,14 @@ def test_gates_get_broken_file_fail_closed_then_save_repairs(tmp_path, monkeypat
 
 
 def test_telegram_status_three_lines(tmp_path, monkeypatch):
-    """telegram.status:bot(token 探查 mock)/session(数据根在场)/web 账号行."""
+    """telegram.status:bot(token 探查 mock)/session(数据根在场)/web 账号行
+    (含 10-11-tg-manage-absorb 体检投影新键)."""
     home = tmp_path / "home"
     (home / "telegram-web" / "telegram-alt1").mkdir(parents=True)
     (home / "telegram-web" / "telegram-alt1" / "myssia-login.json").write_text(
         '{"logged_in_at": "2026-10-08T02:30:00+00:00", "line": "tg_web",'
-        ' "label": "小号·尾号93105", "user_id": "8012674093"}',
+        ' "label": "小号·尾号93105", "user_id": "8012674093",'
+        ' "last_verified_at": "2026-10-11T01:00:00+00:00", "alive": true}',
         encoding="utf-8",
     )
     (home / "telegram").mkdir(parents=True, exist_ok=True)
@@ -5642,18 +5648,27 @@ def test_telegram_status_three_lines(tmp_path, monkeypatch):
         entry, "_resolve_credential_probe",
         lambda ref, backend=None: "8000000001:AA-probe-token",
     )
-    code, responses, _ = rpc({"id": 1, "method": "telegram.status", "params": {}})
-    assert code == 0
-    result = responses[0]["result"]
-    assert result["bot"]["configured"] is True
-    assert result["session"]["exists"] is True
-    accounts = result["web"]["accounts"]
-    assert [row["account"] for row in accounts] == ["telegram-alt1"]
-    assert accounts[0]["logged_in"] is True
-    assert accounts[0]["logged_in_at"] == "2026-10-08T02:30:00+00:00"
-    # 身份面(2026-10-11 主人令):label/user_id 从标记透传到卡面
-    assert accounts[0]["label"] == "小号·尾号93105"
-    assert accounts[0]["user_id"] == "8012674093"
+    try:
+        code, responses, _ = rpc({"id": 1, "method": "telegram.status", "params": {}})
+        assert code == 0
+        result = responses[0]["result"]
+        assert result["bot"]["configured"] is True
+        assert result["session"]["exists"] is True
+        accounts = result["web"]["accounts"]
+        assert [row["account"] for row in accounts] == ["telegram-alt1"]
+        assert accounts[0]["logged_in"] is True
+        assert accounts[0]["logged_in_at"] == "2026-10-08T02:30:00+00:00"
+        # 身份面(2026-10-11 主人令):label/user_id 从标记透传到卡面
+        assert accounts[0]["label"] == "小号·尾号93105"
+        assert accounts[0]["user_id"] == "8012674093"
+        # 体检面(10-11-tg-manage-absorb AC1 ⑧):结论从标记透传 + 台账联读
+        # (无操作 = 静稳态:check_in_progress False/note None)
+        assert accounts[0]["last_verified_at"] == "2026-10-11T01:00:00+00:00"
+        assert accounts[0]["alive"] is True
+        assert accounts[0]["check_in_progress"] is False
+        assert accounts[0]["check_note"] is None
+    finally:
+        _telegram_check_ledger_cleanup()
 
 
 def test_telegram_status_bot_unconfigured_is_false(tmp_path, monkeypatch):
@@ -5718,6 +5733,30 @@ def _browser_ledger_cleanup() -> None:
             if isinstance(stop, threading.Event):
                 stop.set()
         entry._BROWSER_OPS.clear()
+
+
+def _telegram_check_ledger_cleanup() -> None:
+    """体检台账测试间清理(镜像 _browser_ledger_cleanup):清 _TELEGRAM_CHECK_OPS
+    + 摘 _TELEGRAM_WEB_MANAGER 槽(进程内态泄漏会让下个用例同键幂等拒误红)。"""
+    with entry._TELEGRAM_CHECK_OPS_LOCK:
+        entry._TELEGRAM_CHECK_OPS.clear()
+    entry._TELEGRAM_WEB_MANAGER[:] = []
+
+
+def _wait_check_phase(account: str, phases: set[str], timeout: float = 10.0) -> dict:
+    """轮询体检台账至该键进入指定 phase 集(探针线程收尾是异步的;
+    镜像 _wait_op_phase,不睡固定值)。"""
+    deadline = time.monotonic() + timeout
+    record: dict = {}
+    while time.monotonic() < deadline:
+        with entry._TELEGRAM_CHECK_OPS_LOCK:
+            record = dict(entry._TELEGRAM_CHECK_OPS.get(account) or {})
+        if record.get("phase") in phases:
+            return record
+        time.sleep(0.05)
+    raise AssertionError(
+        f"体检 {account} 未在 {timeout}s 内进入 {phases}(现态 {record.get('phase')!r})"
+    )
 
 
 def _wait_op_phase(op_id: str, phases: set[str], timeout: float = 10.0) -> dict:
@@ -6033,3 +6072,286 @@ def test_telegram_web_delete_removes_profile(tmp_path, monkeypatch):
     assert not profile.exists()
     code, responses, _ = rpc({"id": 6, "method": "telegram.status", "params": {}})
     assert responses[0]["result"]["web"]["accounts"] == []
+
+
+# ---------------------------------------------------------------------------
+# telegram.web.check 账号体检(10-11-tg-manage-absorb AC1):常态读哨兵真源 /
+# 探针走后台线程 + failed 兜底;全 mock —— 探针经 web_line.check_logged_in
+# 注入缝替换,manager 槽塞 fake(哨兵真源面),零真浏览器零网络。
+# ---------------------------------------------------------------------------
+
+
+class _FakeWebManager:
+    """常驻 web 线 manager 替身:status() 回固定账号行(哨兵真源面)."""
+
+    def __init__(self, rows: list[dict]) -> None:
+        self._rows = rows
+
+    def status(self) -> dict:
+        return {"line": "tg_web", "started_at": None, "accounts": self._rows}
+
+
+def _seed_check_profile(home: Path, key: str = "telegram-alt1") -> Path:
+    """预置配置档 + 登录标记(体检前置:档缺即 profile_missing 同步拒;
+    标记在场 = record_verification 有 merge 面)."""
+    profile = home / "telegram-web" / key
+    profile.mkdir(parents=True, exist_ok=True)
+    (profile / "myssia-login.json").write_text(
+        '{"logged_in_at": "2026-10-11T00:00:00+00:00", "line": "tg_web"}',
+        encoding="utf-8",
+    )
+    return profile
+
+
+def test_telegram_web_check_probe_path_done(tmp_path, monkeypatch):
+    """① 探针路径:好键(槽空 = 无常驻占用)→ started:true + 台账
+    running→done + 结论落标记(last_verified_at/alive);check_in_progress/
+    check_note 经 telegram.status 行联读上浮。"""
+    home = tmp_path / "home-chk1"
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    profile = _seed_check_profile(home)
+    import myssia.telegram.web_line as web_line
+
+    monkeypatch.setattr(web_line, "require_playwright", lambda: None)
+
+    async def fake_check(data_root, account, **kw):  # noqa: ANN001, ANN003
+        return True, "ok"
+
+    monkeypatch.setattr(web_line, "check_logged_in", fake_check)
+    try:
+        code, responses, _ = rpc(
+            {"id": 1, "method": "telegram.web.check", "params": {"account": "telegram-alt1"}}
+        )
+        assert code == 0
+        assert responses[0]["result"]["started"] is True
+        assert responses[0]["result"]["account"] == "telegram-alt1"
+        record = _wait_check_phase("telegram-alt1", {"done"})
+        assert "体检通过" in record["note"]
+        marker = json.loads(
+            (profile / "myssia-login.json").read_text(encoding="utf-8")
+        )
+        assert marker["alive"] is True
+        assert marker["last_verified_at"]
+        # 行投影联读:结论(note 体检通过)在 status 面
+        code, responses, _ = rpc({"id": 2, "method": "telegram.status", "params": {}})
+        row = responses[0]["result"]["web"]["accounts"][0]
+        assert row["check_in_progress"] is False
+        assert "体检通过" in row["check_note"]
+        assert row["alive"] is True
+    finally:
+        _telegram_check_ledger_cleanup()
+
+
+def test_telegram_web_check_failed_transfer_and_retry(tmp_path, monkeypatch):
+    """② failed 转移(必补):check_logged_in 对 TelegramWebError 是 re-raise
+    面 —— fake 抛 RuntimeError → 台账 failed + note 人话含「占用」引导,
+    不卡 running;同键可再发起(幂等拒解除)后收 done。"""
+    home = tmp_path / "home-chk2"
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    _seed_check_profile(home)
+    import myssia.telegram.web_line as web_line
+
+    monkeypatch.setattr(web_line, "require_playwright", lambda: None)
+
+    async def refuse(data_root, account, **kw):  # noqa: ANN001, ANN003
+        raise RuntimeError("Target page, context or browser has been closed")
+
+    monkeypatch.setattr(web_line, "check_logged_in", refuse)
+    try:
+        code, responses, _ = rpc(
+            {"id": 1, "method": "telegram.web.check", "params": {"account": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["started"] is True
+        record = _wait_check_phase("telegram-alt1", {"failed"})
+        assert "占用" in record["note"] and "先停监控" in record["note"]
+        # 失败结论未知 ≠ 死:标记不落体检面
+        marker = json.loads(
+            (home / "telegram-web" / "telegram-alt1" / "myssia-login.json")
+            .read_text(encoding="utf-8")
+        )
+        assert "alive" not in marker
+        # 同键可再发起(台账 failed 不锁键):换 ok fake → 收 done
+        async def okay(data_root, account, **kw):  # noqa: ANN001, ANN003
+            return False, "logged_out_or_dom_stale"
+
+        monkeypatch.setattr(web_line, "check_logged_in", okay)
+        code, responses, _ = rpc(
+            {"id": 2, "method": "telegram.web.check", "params": {"account": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["started"] is True
+        record = _wait_check_phase("telegram-alt1", {"done"})
+        assert "体检不通过" in record["note"]
+    finally:
+        _telegram_check_ledger_cleanup()
+
+
+def test_telegram_web_check_sentry_truth_source(tmp_path, monkeypatch):
+    """③ 哨兵真源路径(必补,主场景):槽塞 fake manager —— 该键 running
+    且无告警 → 秒回 done + alive=true 且 check_logged_in **零调用**;
+    哨兵已记 tg_web_logged_out → done + alive=false(note 带哨兵 detail)。"""
+    home = tmp_path / "home-chk3"
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    profile = _seed_check_profile(home)
+    import myssia.telegram.web_line as web_line
+
+    monkeypatch.setattr(web_line, "require_playwright", lambda: None)
+    calls: list[tuple[Any, ...]] = []
+
+    async def spy_check(data_root, account, **kw):  # noqa: ANN001, ANN003
+        calls.append((data_root, account))
+        return True, "ok"
+
+    monkeypatch.setattr(web_line, "check_logged_in", spy_check)
+    try:
+        # 活:running=true + alert=None(哨兵 60s 周期在查且无告警)
+        entry._TELEGRAM_WEB_MANAGER[:] = [
+            _FakeWebManager(
+                [{"account": "telegram-alt1", "running": True, "chats": [], "alert": None}]
+            )
+        ]
+        code, responses, _ = rpc(
+            {"id": 1, "method": "telegram.web.check", "params": {"account": "telegram-alt1"}}
+        )
+        assert code == 0
+        result = responses[0]["result"]
+        assert result["started"] is True
+        assert "web_monitor_sentry" in result["note"]
+        with entry._TELEGRAM_CHECK_OPS_LOCK:
+            assert entry._TELEGRAM_CHECK_OPS["telegram-alt1"]["phase"] == "done"
+        marker = json.loads(
+            (profile / "myssia-login.json").read_text(encoding="utf-8")
+        )
+        assert marker["alive"] is True
+        # 死:哨兵已记 tg_web_logged_out(running 与否都判死)
+        entry._TELEGRAM_WEB_MANAGER[:] = [
+            _FakeWebManager(
+                [
+                    {
+                        "account": "telegram-alt1",
+                        "running": False,
+                        "chats": [],
+                        "alert": {
+                            "type": "tg_web_logged_out",
+                            "account": "telegram-alt1",
+                            "chat": None,
+                            "detail": "登录表单重现 —— 常见于被 Telegram 侧吊销",
+                            "created_at": "2026-10-11T00:00:00+00:00",
+                        },
+                    }
+                ]
+            )
+        ]
+        code, responses, _ = rpc(
+            {"id": 2, "method": "telegram.web.check", "params": {"account": "telegram-alt1"}}
+        )
+        result = responses[0]["result"]
+        assert result["started"] is True
+        with entry._TELEGRAM_CHECK_OPS_LOCK:
+            record = dict(entry._TELEGRAM_CHECK_OPS["telegram-alt1"])
+        assert record["phase"] == "done"
+        assert "吊销" in record["note"] and "重登" in record["note"]
+        marker = json.loads(
+            (profile / "myssia-login.json").read_text(encoding="utf-8")
+        )
+        assert marker["alive"] is False
+        # 哨兵真源路径零探针(锁冲突免疫的机制面)
+        assert calls == []
+    finally:
+        _telegram_check_ledger_cleanup()
+
+
+def test_telegram_web_check_idempotent_while_running(tmp_path, monkeypatch):
+    """④ 同键在跑再发 → started:false 幂等回执;释放后收 done(可再发起)."""
+    home = tmp_path / "home-chk4"
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    _seed_check_profile(home)
+    import myssia.telegram.web_line as web_line
+
+    monkeypatch.setattr(web_line, "require_playwright", lambda: None)
+    release = threading.Event()
+
+    async def hold(data_root, account, **kw):  # noqa: ANN001, ANN003
+        while not release.is_set():
+            await asyncio.sleep(0.05)
+        return True, "ok"
+
+    monkeypatch.setattr(web_line, "check_logged_in", hold)
+    try:
+        code, responses, _ = rpc(
+            {"id": 1, "method": "telegram.web.check", "params": {"account": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["started"] is True
+        code, responses, _ = rpc(
+            {"id": 2, "method": "telegram.web.check", "params": {"account": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["started"] is False
+        assert "正在进行中" in responses[0]["result"]["note"]
+        release.set()
+        record = _wait_check_phase("telegram-alt1", {"done"})
+        assert "体检通过" in record["note"]
+    finally:
+        release.set()
+        _telegram_check_ledger_cleanup()
+
+
+def test_telegram_web_check_guards(tmp_path, monkeypatch):
+    """⑤⑥⑦ 守卫面:配置档缺 profile_missing 同步拒 / 账号键违律
+    invalid_params / 登录窗在跑 login_in_progress(联测 _BROWSER_OPS)。"""
+    home = tmp_path / "home-chk5"
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    import myssia.telegram.web_line as web_line
+
+    monkeypatch.setattr(web_line, "require_playwright", lambda: None)
+    try:
+        # ⑤ 配置档缺(键合法)
+        code, responses, _ = rpc(
+            {"id": 1, "method": "telegram.web.check", "params": {"account": "telegram-alt1"}}
+        )
+        error = responses[0]["error"]
+        assert error["code"] == "profile_missing"
+        # ⑥ 账号键违全称律
+        code, responses, _ = rpc(
+            {"id": 2, "method": "telegram.web.check", "params": {"account": "bad-key"}}
+        )
+        assert responses[0]["error"]["code"] == "invalid_params"
+        with entry._TELEGRAM_CHECK_OPS_LOCK:
+            assert not entry._TELEGRAM_CHECK_OPS  # 拒绝即零台账残留
+        # ⑦ 登录窗在跑(_BROWSER_OPS 同键 running,hang 模式)→ 侧拒
+        _seed_check_profile(home)
+        kwargs_sink: list[dict] = []
+        monkeypatch.setattr(
+            web_line, "TelegramWebLoginFlow", _fake_flow_factory(kwargs_sink, "hang")
+        )
+        code, responses, _ = rpc(
+            {"id": 3, "method": "browser.open",
+             "params": {"kind": "tg_web_login", "session_key": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["started"] is True
+        _wait_op_phase("telegram-alt1", {"running"})
+        code, responses, _ = rpc(
+            {"id": 4, "method": "telegram.web.check", "params": {"account": "telegram-alt1"}}
+        )
+        error = responses[0]["error"]
+        assert error["code"] == "login_in_progress"
+        assert "浏览器" in error["message"]
+        with entry._TELEGRAM_CHECK_OPS_LOCK:
+            assert not entry._TELEGRAM_CHECK_OPS  # 侧拒零台账残留
+        # 关窗后体检放行(前置拒解除)
+        code, responses, _ = rpc(
+            {"id": 5, "method": "browser.close", "params": {"op_id": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["closed"] is True
+        _wait_op_phase("telegram-alt1", {"closed"})
+
+        async def okay(data_root, account, **kw):  # noqa: ANN001, ANN003
+            return True, "ok"
+
+        monkeypatch.setattr(web_line, "check_logged_in", okay)
+        code, responses, _ = rpc(
+            {"id": 6, "method": "telegram.web.check", "params": {"account": "telegram-alt1"}}
+        )
+        assert responses[0]["result"]["started"] is True
+        _wait_check_phase("telegram-alt1", {"done"})
+    finally:
+        _telegram_check_ledger_cleanup()
+        _browser_ledger_cleanup()

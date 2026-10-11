@@ -27,6 +27,7 @@ from myssia.telegram.web_line import (
     profile_dir,
     profile_root,
     read_login_marker,
+    record_verification,
     require_playwright,
     validate_account_key,
 )
@@ -182,6 +183,85 @@ def test_harden_profile_permissions(tmp_path: Path) -> None:
     assert (cookie.stat().st_mode & 0o777) == PROFILE_FILE_MODE
 
 
+# ----------------------------------------------------------- 体检标记
+# (10-11-tg-manage-absorb AC1:record_verification merge 面四例)
+
+
+def test_record_verification_merges_keeps_old_keys(tmp_path: Path) -> None:
+    """merge 保旧键:label/user_id/logged_in_at 等既有字段全存续,只补新。"""
+    directory = profile_dir(tmp_path, "telegram-alt1")
+    directory.mkdir(parents=True)
+    login_marker_path(directory).write_text(
+        json.dumps(
+            {
+                "logged_in_at": "2026-10-08T00:00:00+00:00",
+                "line": "tg_web",
+                "label": "小号·尾号93105",
+                "user_id": "8012674093",
+            }
+        ),
+        encoding="utf-8",
+    )
+    record_verification(directory, alive=False)
+    marker = read_login_marker(directory)
+    assert marker is not None
+    assert marker["label"] == "小号·尾号93105"
+    assert marker["user_id"] == "8012674093"
+    assert marker["logged_in_at"] == "2026-10-08T00:00:00+00:00"
+    assert marker["alive"] is False
+    assert isinstance(marker["last_verified_at"], str) and marker["last_verified_at"]
+    # 权限纪律随行(登录态目录内件 0600)
+    assert (login_marker_path(directory).stat().st_mode & 0o777) == PROFILE_FILE_MODE
+
+
+def test_record_verification_atomic_roundtrip_no_tmp_left(
+    tmp_path: Path,
+) -> None:
+    """原子写回读:tmp+os.replace 落位(无 .tmp 残留),JSON 可回读。"""
+    directory = profile_dir(tmp_path, "telegram-alt1")
+    directory.mkdir(parents=True)
+    login_marker_path(directory).write_text(
+        json.dumps({"logged_in_at": "2026-10-08T00:00:00+00:00"}), encoding="utf-8"
+    )
+    record_verification(directory, alive=True)
+    assert not list(directory.glob("*.tmp")), "原子写不得留 .tmp 残件"
+    payload = json.loads(login_marker_path(directory).read_text(encoding="utf-8"))
+    assert payload["alive"] is True
+
+
+def test_record_verification_missing_marker_creates_nothing(
+    tmp_path: Path,
+) -> None:
+    """标记缺不造文件:登录前体检属正常路径,只 debug 留痕零副作用。"""
+    directory = profile_dir(tmp_path, "telegram-alt1")
+    directory.mkdir(parents=True)
+    record_verification(directory, alive=True)
+    assert not login_marker_path(directory).exists()
+    assert list(directory.iterdir()) == []
+
+
+def test_record_verification_oserror_swallowed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OSError 吞留痕不抛(镜像 _write_login_marker 判例):标记写失败
+    不废体检结果,调用方零异常。"""
+    directory = profile_dir(tmp_path, "telegram-alt1")
+    directory.mkdir(parents=True)
+    login_marker_path(directory).write_text(
+        json.dumps({"logged_in_at": "2026-10-08T00:00:00+00:00"}), encoding="utf-8"
+    )
+
+    def refuse_write(self: Path, *args: Any, **kw: Any) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "write_text", refuse_write)
+    record_verification(directory, alive=True)  # 零异常上浮
+    # 旧标记原样保留(写失败不改既有面)
+    marker = read_login_marker(directory)
+    assert marker is not None and marker.get("logged_in_at") == "2026-10-08T00:00:00+00:00"
+    assert "alive" not in marker
+
+
 # --------------------------------------------------------------- 登录流
 
 
@@ -223,8 +303,14 @@ def test_login_success_flow_writes_marker_and_hardens(
     assert started.stopped and context.closed
     marker = read_login_marker(directory)
     assert marker is not None and marker.get("line") == "tg_web"
+    # 体检基线(10-11-tg-manage-absorb AC1 ③):登录即验证 —— alive 同刻
+    # 起步为 True,last_verified_at = logged_in_at 同刻(旧体检随整写消失)
+    assert marker.get("alive") is True
+    assert marker.get("last_verified_at") == marker.get("logged_in_at")
     assert (directory.stat().st_mode & 0o777) == PROFILE_DIR_MODE
     assert any("披露" in line for line in lines)  # 诚实披露在成功回执
+    # 扫码提示(AC2):开窗文案如实给免验证码通道(包含式断言,防披露扩段翻红)
+    assert any("扫码" in line for line in lines)
     # chromium 以非无头形态启动(headed 登录窗)
     launched = handle._started.chromium.launch_args
     assert launched is not None and launched["headless"] is False

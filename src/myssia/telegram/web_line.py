@@ -23,6 +23,10 @@ persistent context 配置档 ``<数据根>/telegram-web/<账号键>/``(0700 目�
 3. **登录态探针**(:func:`check_logged_in`):无头快查 —— 开配置档 goto
    后短窗内查会话列表选择器,返回 ``(logged_in, note)``;登出态/配置档
    缺如实报。设置页账号列表卡与本线哨兵共用。
+4. **体检标记**(:func:`record_verification`,10-11-tg-manage-absorb):探针/
+   哨兵结论 merge 进登录标记(``last_verified_at``/``alive``)—— 标记缺不造
+   文件(登录前体检属正常路径),写失败只留痕不废体检结果;登录成功即
+   验证(``_write_login_marker`` 同刻落基线,旧体检结果随整写消失)。
 
 浏览器二进制复用 crawl4ai 组件轨(:func:`ensure_playwright_browsers_env`
 同源注入 ``PLAYWRIGHT_BROWSERS_PATH``,桌面数据根 ``playwright-browsers/``
@@ -46,7 +50,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -103,6 +109,12 @@ OPEN_CHAT_VERIFY_TIMEOUT_SECONDS = 20.0
 PROFILE_DIR_MODE = 0o700
 PROFILE_FILE_MODE = 0o600
 
+#: 在跑探针登记(配置档目录字符串;进程内有效)。体检探针与登录收尾的
+#: 自动备份(web_backup)并发相处面:备份前查同键 —— 探针中的档是旧登录
+#: 态,备份无意义,跳过留痕下次登录再备(10-11-tg-manage-absorb AC3)。
+_ACTIVE_PROBES: set[str] = set()
+_ACTIVE_PROBES_LOCK = threading.Lock()
+
 __all__ = [
     "ACCOUNT_KEY_RE",
     "CHECK_TIMEOUT_SECONDS",
@@ -132,6 +144,7 @@ __all__ = [
     "profile_dir",
     "profile_root",
     "read_login_marker",
+    "record_verification",
     "require_playwright",
     "validate_account_key",
 ]
@@ -194,8 +207,6 @@ def default_data_root() -> Path:
     """引擎/登录流的数据根缺省(``$MYIA_HOME`` 或 cwd;telethon 线与 CLI
     ``_cron_default_db`` 同口径 —— serve 装配的数据根 = ``--db`` 父目录,
     两口径在桌面/沙箱一致)。"""
-    import os
-
     home = os.environ.get("MYIA_HOME")
     return Path(home) if home else Path.cwd()
 
@@ -245,6 +256,43 @@ def read_login_marker(directory: str | Path) -> dict[str, Any] | None:
     except (OSError, ValueError):
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def record_verification(directory: str | Path, *, alive: bool) -> None:
+    """体检结论落登录标记(merge ``last_verified_at``/``alive``;10-11 批).
+
+    读-改-写 merge:旧键(label/user_id/logged_in_at 等)全保;``alive``
+    与 ``logged_in`` 是并存的双键语义 —— 标记在场 = 复用快捷面,体检结果
+    只记录不覆盖。**标记缺不造文件**(登录前体检属正常路径,只 debug 留
+    痕);**OSError 吞留痕不抛**(镜像 :func:`_write_login_marker` 判例)
+    —— 标记写失败不废体检结果,台账/应答照报,下次体检再落。tmp +
+    ``os.replace`` 原子写(gates/offsets 判例):读侧永不读半截。
+    """
+    marker = login_marker_path(directory)
+    payload = read_login_marker(directory)
+    if payload is None:
+        logger.debug(
+            "TG 网页线体检标记留痕跳过(登录标记缺,登录前体检属正常路径)"
+            " path=%s",
+            marker,
+        )
+        return
+    payload["last_verified_at"] = datetime.now(timezone.utc).isoformat()
+    payload["alive"] = bool(alive)
+    tmp = marker.with_name(marker.name + ".tmp")
+    try:
+        tmp.write_text(
+            json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+        )
+        os.replace(tmp, marker)
+        marker.chmod(PROFILE_FILE_MODE)
+    except OSError as exc:  # 标记写失败不废体检结果(下次体检再落)
+        logger.warning(
+            "TG 网页线体检标记写入失败(体检结论只在台账/应答,不落盘)"
+            " path=%s: %s",
+            marker,
+            exc,
+        )
 
 
 def harden_profile_permissions(directory: str | Path) -> None:
@@ -471,16 +519,20 @@ async def open_chat_flow(
 def _write_login_marker(
     directory: Path, *, label: str | None = None, user_id: str | None = None
 ) -> None:
-    """落登录成功标记(时间戳 + 可选身份面;零凭据).
+    """落登录成功标记(时间戳 + 体检基线 + 可选身份面;零凭据).
 
     ``label`` = 人读备注名(添加账号时主人起,UI 主显示面);``user_id`` =
     登录会话自动捕获的 TG user id(localStorage ``user_auth``,观测键
     best-effort,缺不拦)。两者都非凭据(凭据纪律:手机号/验证码全程
-    页面内,本流零读取)。
+    页面内,本流零读取)。``last_verified_at``/``alive`` = 体检基线(登录
+    即验证:同刻起步;``--force`` 整写标记,旧体检结果随之消失)。
     """
     marker = login_marker_path(directory)
+    logged_in_at = datetime.now(timezone.utc).isoformat()
     payload: dict[str, Any] = {
-        "logged_in_at": datetime.now(timezone.utc).isoformat(),
+        "logged_in_at": logged_in_at,
+        "last_verified_at": logged_in_at,
+        "alive": True,
         "line": "tg_web",
     }
     if label:
@@ -537,6 +589,8 @@ async def check_logged_in(
         return False, "profile_missing"
     handle = None
     context = None
+    with _ACTIVE_PROBES_LOCK:
+        _ACTIVE_PROBES.add(str(directory))
     try:
         handle, context, _ = await launch_persistent_context(
             directory,
@@ -561,6 +615,8 @@ async def check_logged_in(
     except Exception as exc:  # noqa: BLE001 - 探针异常如实报,不装死
         return False, f"probe_failed:{type(exc).__name__}"
     finally:
+        with _ACTIVE_PROBES_LOCK:
+            _ACTIVE_PROBES.discard(str(directory))
         for closer in (
             lambda: context.close() if context is not None else None,
             lambda: handle.stop() if handle is not None else None,
@@ -662,7 +718,9 @@ class TelegramWebLoginFlow:
             self._print(
                 f"登录窗口已打开({WEB_ORIGIN};账号 {key})。\n"
                 "请在页面里输入手机号 → 验证码(TG 发手机 App 内信或短信;"
-                "如有两步验证再输密码)。本窗全程不读你的输入,只等会话列表出现;"
+                "如有两步验证再输密码);会话失效时登录页可直接用手机 "
+                "Telegram 扫码登录,免等验证码。本窗全程不读你的输入,"
+                "只等会话列表出现;"
                 f"{self._timeout:.0f} 秒内未完成将超时退出(可随时重跑)。"
             )
             await _wait_for_login(
@@ -691,6 +749,19 @@ class TelegramWebLoginFlow:
                 fatal=True,
             )
         _write_login_marker(directory, label=label, user_id=user_id)
+        # 登录收尾自动备份(10-11-tg-manage-absorb AC3):此点 context 已关/
+        # 权限已硬化/标记已落,打包时 Playwright 零写者;CLI web-login 与桌面
+        # browser.open 线程共用本 run(),挂一处全覆盖。best-effort —— 备份
+        # 失败只留痕绝不拦登录主流程。
+        try:
+            from myssia.telegram.web_backup import backup_profile
+
+            backup_profile(data_root, key)
+        except Exception:  # noqa: BLE001 - 备份是增强件,失败不拦登录成功
+            logger.warning(
+                "TG 网页线登录收尾自动备份失败(忽略;登录态已落配置档)",
+                exc_info=True,
+            )
         self._print(
             f"TG 网页线登录完成,登录态已落配置档(0700/0600):{directory}\n"
             + (
@@ -705,6 +776,8 @@ class TelegramWebLoginFlow:
             "披露:①DOM 改版跟修风险 —— 哨兵 tg_web_dom_stale 在,失配即结构化"
             "告警不装死;②ToS 灰色同 userbot,建议专用小号(同机同出口多账号"
             "可被关联,只读监控风险低,数量克制);③api_id 到手建议切回 "
-            "Telethon 正统线,本线退役或备份;④登录态=配置档文件(0600,非加密)。"
+            "Telethon 正统线,本线退役或备份;④登录态=配置档文件(0600,非加密);"
+            "⑤配置档已自动备份至 telegram-web/backups/(滚动留 3 份;0600/0700)"
+            "—— 本地损坏可回滚(删档→解包恢复),服务端吊销不救。"
         )
         return directory

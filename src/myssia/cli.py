@@ -528,6 +528,23 @@ def _add_telegram_parser(sub: argparse._SubParsersAction) -> None:
         default=None,
         help="账号备注名(人读,如「小号·尾号93105」;随登录标记落盘,卡面主显示——内部键名认不出是哪个号)",
     )
+    # 账号体检(10-11-tg-manage-absorb AC1):无头探针快查登录态 + 落体检
+    # 标记(last_verified_at/alive)。CLI 是独立进程,感知不到桌面 web 线/
+    # 登录窗 —— 监控常驻在跑时探针锁冲突必败(docstring 写明行为分叉点)。
+    telegram_check = telegram_sub.add_parser(
+        "check",
+        help="TG 网页线账号体检(无头快查登录态并落体检标记;活 0/死或失败 1)",
+    )
+    telegram_check.add_argument(
+        "--account",
+        required=True,
+        help="账号键(全称律 telegram-<标识>,如 telegram-alt1)",
+    )
+    telegram_check.add_argument(
+        "--db",
+        default=_cron_default_db(),
+        help=f"存储路径(定数据根 = db 父目录;默认 $MYIA_HOME 下 {DEFAULT_DB_PATH})",
+    )
 
 
 def _add_cron_parser(sub: argparse._SubParsersAction) -> None:
@@ -2517,13 +2534,75 @@ def _cmd_telegram_web_login(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_telegram_check(args: argparse.Namespace) -> int:
+    """``myssia telegram check``:TG 网页线账号体检(10-11-tg-manage-absorb AC1).
+
+    无头探针快查登录态 + 体检结论落登录标记(last_verified_at/alive)。
+    **CLI 是独立进程,感知不到桌面 web 线/登录窗** —— 监控常驻在跑
+    (myssia telegram serve 或桌面端)时探针会与常驻 Chromium 锁冲突失败:
+    先停监控再测,或改用桌面「检测」钮(读常驻哨兵真源,零冲突)—— 这是
+    与桌面路径的行为分叉点。退出码 1 是双重语义(死与 invalid_account/
+    dependency_missing 等结构化错共用 EXIT_CONFIG_ERROR),判因看 stdout
+    的 note 字段,勿只凭退出码断言「账号已死」。
+    """
+    from myssia.telegram.web_line import (
+        TelegramWebError,
+        check_logged_in,
+        profile_dir,
+        record_verification,
+        validate_account_key,
+    )
+
+    try:
+        validate_account_key(args.account)
+    except TelegramWebError as exc:
+        _emit_generic_error(
+            f"telegram_check_{exc.reason}", str(exc), as_json=False
+        )
+        return EXIT_CONFIG_ERROR
+    data_root = Path(args.db).resolve().parent
+    try:
+        logged_in, note = asyncio.run(check_logged_in(data_root, args.account))
+    except TelegramWebError as exc:
+        # check_logged_in 对 TelegramWebError 是 re-raise 面(依赖缺/启动炸)
+        _emit_generic_error(
+            f"telegram_check_{exc.reason}", str(exc), as_json=False
+        )
+        return EXIT_CONFIG_ERROR
+    record_verification(profile_dir(data_root, args.account), alive=logged_in)
+    if logged_in:
+        print(f"账号 {args.account} 体检:登录态活(note=ok)")
+        return EXIT_OK
+    if note == "profile_missing":
+        print(
+            f"账号 {args.account} 体检:配置档缺(未首登)—— 先登录:"
+            f"myssia telegram web-login --account {args.account}"
+        )
+        return EXIT_CONFIG_ERROR
+    if note.startswith("probe_failed"):
+        print(
+            f"账号 {args.account} 体检失败(note={note})—— 常驻 web 线/登录窗"
+            "/批量采集占用配置档时探针会冲突失败;先停监控(myssia telegram "
+            "serve 停或桌面重启)或关登录窗再测,或改用桌面「检测」钮"
+            "(读哨兵零冲突)"
+        )
+        return EXIT_CONFIG_ERROR
+    print(
+        f"账号 {args.account} 体检:登录态不活(note={note};登出页在或 "
+        "DOM 失配)—— 重登:myssia telegram web-login --account "
+        f"{args.account} --force"
+    )
+    return EXIT_CONFIG_ERROR
+
+
 def _cmd_telegram(args: argparse.Namespace) -> int:
-    """``myssia telegram <子命令>`` 分发(serve/login/web-login,B3+B4+C 线)."""
+    """``myssia telegram <子命令>`` 分发(serve/login/web-login/check,B3+B4+C 线)."""
     _configure_logging(as_json=getattr(args, "as_json", False))
     handlers: dict[str, Any] = {
         "serve": _cmd_telegram_serve,
         "login": _cmd_telegram_login,
         "web-login": _cmd_telegram_web_login,
+        "check": _cmd_telegram_check,
     }
     handler = handlers.get(args.telegram_command)
     if handler is None:  # pragma: no cover - argparse required=True 兜底

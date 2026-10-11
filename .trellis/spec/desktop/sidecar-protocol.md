@@ -16,7 +16,7 @@
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 79 行;代码 `_HANDLERS` 现值 79,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 80 行;代码 `_HANDLERS` 现值 80,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -88,7 +88,7 @@
 | 66 | `plugins.bundled.category_install` | `_m_plugins_bundled_category_install` | 随包品类 YAML 平铺安装:`{id, force?}` → `{ok, file, path}`(与组件包安装语义刻意不同:品类=单文件平铺拷到 `<plugins_dir>/<源文件名>`,与 `_seed_first_run` 补种同落点;id 过 `CATEGORY_ID_RE`(schema 同源防穿越)→ 定位(文件名 stem 直配 > YAML id 字段兜底)→ `load_category_file` 校验通过才装(坏件 `category_invalid` 拒零拷贝)→ tmp+rename 原子拷贝;**已有同名文件未 force → `category_exists` 结构化拒如实「已存在」不覆盖**——与补种幂等补缺对齐不打架:补种=自动补缺永不覆盖,本面=显式知情,force 才覆盖;**id/冲突定义**:品类 id = YAML `id:` 字段(CATEGORY_ID_RE),冲突 = 数据根 plugins/ 下同名文件存在(文件级,内容同否不判);与组件包零冲突(子目录 vs 平铺文件两种形状互不占据);env 不可用 `bundled_plugins_unavailable`、id 合形不在目录 `bundled_category_not_found`;品类无卸载面(补种只补不删,删文件走 yaml-editor 屏);10-05-bundled-plugins-batch2 R3) |
 | 67 | `plugins.remote.get` | `_m_plugins_remote_get` | 轨D remote 声明配置读:`{id}` → `{id, endpoint, token, known}`(id 过 `_PLUGIN_ID_RE` 同门;配置落数据根 `<home>/remote-plugins.json`,缺文件/缺条目 = endpoint/token null + known=false 如实;token 是 keychain 引用名,值永不出协议面——只有 secret.set 写入/secret.list 可见名;dev 形态无 MYIA_HOME → `remote_config_unavailable` 结构化拒(开发后门=显式 env);坏 JSON → `remote_config_invalid`;10-06-native-plugin-components 阶段3 G-Q1/R7) |
 | 68 | `plugins.remote.save` | `_m_plugins_remote_save` | 轨D remote 声明配置写:`{id, endpoint, token?}` → `{ok, id, path, endpoint}`(endpoint 必填 http(s) 具体地址——env:/keychain: 引用属品类 YAML/env 通道不走本面板,违者 invalid_params;token 可选、给定必须是 keychain: 规范引用(secrets 名门同源校验),明文凭据只经 secret.set 入钥匙串永不落本配置,不传=保持现值;tmp+rename 原子写;写后即时 env 桥接——`_apply_remote_env_bridge` 把 firecrawl 端点/键桥进 `MYIA_FIRECRAWL_URL`/`MYIA_FIRECRAWL_API_KEY`(引擎零改动的通道;显式 env=开发后门恒优先,`_BRIDGED_ENV` 记账防覆写);10-06-native-plugin-components 阶段3) |
-| 69 | `telegram.status` | `_m_telegram_status` | 三线状态快照(只读零副作用,设置页 Telegram 总卡初拉):`{}` → `{bot:{configured,error}, session:{exists}, web:{accounts:[{account, logged_in, logged_in_at, login_in_progress, login_note}]}}`;bot.configured = `_resolve_credential_probe("keychain:myia/telegram/bot-token")` 探查(值零回显,占位值视同未配);session.exists = 数据根 `telegram/telethon.session` 在场;web.accounts = `telegram-web/` 下合法键目录 + 登录标记回读 + **浏览器模块操作台账**联读(login_in_progress/login_note 真源 = `browser.open` 操作记录,卡面 ↔ 模块同源联动);数据根 = serve 上下文 home(dev 回退 cwd);10-08-tg-web-line W4;台账联读 10-08-browser-module) |
+| 69 | `telegram.status` | `_m_telegram_status` | 三线状态快照(只读零副作用,设置页 Telegram 总卡初拉):`{}` → `{bot:{configured,error}, session:{exists}, web:{accounts:[{account, logged_in, logged_in_at, label?, user_id?, last_verified_at?, alive?, login_in_progress, login_note, check_in_progress?, check_note?}]}}`;bot.configured = `_resolve_credential_probe("keychain:myia/telegram/bot-token")` 探查(值零回显,占位值视同未配);session.exists = 数据根 `telegram/telethon.session` 在场;web.accounts = `telegram-web/` 下合法键目录 + 登录标记回读 + **浏览器模块操作台账**联读(login_in_progress/login_note 真源 = `browser.open` 操作记录,卡面 ↔ 模块同源联动)+ **体检台账**联读(check_in_progress/check_note 真源 = telegram.web.check 操作记录)+ 体检结论透传(last_verified_at/alive 从登录标记 marker 读,与 logged_in 双键并存不覆盖 —— 标记在场 = 复用快捷面,死只引导重登不清标记);新键全可选,旧 UI 忽略照跑(PROTOCOL_VERSION 不 bump,加法可选字段先例);数据根 = serve 上下文 home(dev 回退 cwd);10-08-tg-web-line W4;台账联读 10-08-browser-module;体检面 10-11-tg-manage-absorb) |
 | 70 | `browser.open` | `_m_browser_open` | 浏览器操作统一入口(PRD 单入口铁律:一切浏览器操作必经浏览器模块,原 `telegram.web.login` 已随 v11 移除):`{kind, session_key, url?, force?}` → `{started, op_id, kind, url}`;kind 须在 `_BROWSER_KINDS` 登记词表(现役 `tg_web_login`,未登记类别 invalid_params+allowed——禁止旁路直启 Chromium);tg_web_login:session_key 过 `validate_account_key` 全称律、**依赖前置探针**(`require_playwright` 缺装 → `dependency_missing` 同步结构化拒,人话+修复指引,AC2 静默失败=反模式)、后台 daemon 线程跑既有 `TelegramWebLoginFlow`(注入 print_fn=日志尾巴/sleep=停令可中断/on_page_opened=窗口管理句柄,零重写)开 headed Chromium——**手机号+验证码(+2FA)全在浏览器页面内由用户输入,sidecar 零读取零落日志**;同 op 在跑 → `{started:false}` 幂等回执;op_id=会话键;10-08-browser-module 案甲) |
 | 71 | `telegram.web.delete` | `_m_telegram_web_delete` | 删网页线账号配置档:`{account}` → `{deleted, account, existed}`(键同门校验;登录窗在跑 → `login_in_progress` 结构化拒,指引去「浏览器」模块关窗;`shutil.rmtree` 整档删除,登录态随档消失;浏览器台账同键同清;幂等——档缺同样 `{deleted:true}`;源 YAML 引用该键的 tg_web 源此后显式空态;10-08-tg-web-line W4) |
 | 72 | `browser.list` | `_m_browser_list` | 浏览器操作台账(设置 →「浏览器」分区模块页):`{}` → `{operations:[{op_id, kind, session_key, url, phase, note, fix_hint, started_at, finished_at, log_tail[]}], kinds}`;phase = `running`/`done`/`failed`/`closed`,最新在前;失败行带人话 note + 修复指引 fix_hint(依赖缺失/浏览器二进制缺失/登录超时三族人话化);log_tail = 环形日志尾巴(60 行容量,投影最近 20);线程内句柄(stop_event/page/loop)不外泄;台账为进程内会话态,重启即清(登录态落配置档不受影响);10-08-browser-module 案甲) |
@@ -99,6 +99,7 @@
 | 77 | `platform_accounts.feishu.authorize` | `_m_platform_accounts_feishu_authorize` | 发起飞书账号授权:`{account, label?}` → `{authorize_url, redirect_uri, account}`(user_access_token 授权码流;系统浏览器开授权页 + 本地回调端点 `127.0.0.1:8731/callback` 接 code → 换 token 对入钥匙链 `myia/<账号键>/user_access_token`+`/refresh_token` + 写标记 + 尽力首刷);键全称律 `feishu-<标识>`;同键授权中 → `authorize_in_progress`;App 凭据缺失(env→钥匙链 `myia/push/FEISHU_APP_ID/SECRET` 回退后仍无)→ `feishu_account_app_credential_missing`(指引设置→推送,账号线复用同一应用);端口占用 → `authorize_endpoint_unavailable`;端点仅绑 127.0.0.1,5 分钟超时自停(10-11-platform-account-config) |
 | 78 | `platform_accounts.feishu.delete` | `_m_platform_accounts_feishu_delete` | 删飞书账号:`{account}` → `{deleted, account}`(钥匙链两 token 项 + 账号目录;授权进行中 → `account_delete_in_progress` 拒;键同门校验;镜像 telegram.web.delete 口径;10-11-platform-account-config) |
 | 79 | `platform_accounts.feishu.probe` | `_m_platform_accounts_feishu_probe` | 刷新闭环探针:`{account}` → `{account, refresh_ok, refreshed_at?|reason?}`(refresh 可成功 = 绿且新 token 对回写钥匙链 = 续期闭环;失败是**状态**不是异常:`refresh_ok:false`+`reason` 置灰;无 refresh_token = `feishu_refresh_token_missing` 同形态指引重授权;UI「重新检查」钮 + 授权回调成功后自动一发;10-11-platform-account-config) |
+| 80 | `telegram.web.check` | `_m_telegram_web_check` | 账号登录态体检(10-11-tg-manage-absorb AC1):`{account}` → `{started, account, note}`;键同门校验(`invalid_account`)/配置档缺 `profile_missing` 同步拒/依赖前置探针 `dependency_missing`(判例 browser.open)/登录窗在跑 `login_in_progress` 拒(判例 telegram.web.delete)/同键体检在跑 → `{started:false}` 幂等回执。**分层并发相处**(三占用者共用 profile_dir,Chromium 单实例锁使第二开者必败):常态面(TG 监控主使用态)= 读常驻哨兵真源零新浏览器 —— manager 单实例槽 `_TELEGRAM_WEB_MANAGER`(装配挂/_close 摘)`status()` 该键 running 且无告警 = 活(note 带 `web_monitor_sentry`;哨兵 60s 周期在查),哨兵已记 `tg_web_logged_out` = 死(note 带哨兵 detail)→ `web_line.record_verification` 落标记 + 台账 done,毫秒级秒回不起线程;槽空/dev/serve 未起 = 无常驻占用走探针路径:daemon 线程 `asyncio.run(check_logged_in)`(每线程新 loop,≤45s)→ 结论 `record_verification` 落标记 + 台账 done;探针异常(含 TelegramWebError re-raise 面)/`probe_failed:*` = 台账 **failed** + note 人话「常驻 web 线/登录窗/批量采集占用配置档时探针会冲突失败;先停监控或关登录窗再测」(批量采集独立进程无法感知,只能人话兜底)—— 整体 try/except 兜底绝不卡 running(否则同键永久幂等拒 + status 行 check_in_progress 永真);结果面经 `telegram.status` 行小字回读(last_verified_at/alive/check_note) |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+
@@ -190,6 +191,12 @@ Chromium)+ 新增 70 `browser.open` / 72 `browser.list` / 73 `browser.focus`
 web 段改为台账联读(应答形状零变)。**bump v11**:本批含**移除**——
 旧 UI(调 telegram.web.login)+ 新壳组合会 method_not_found,版本门
 是两侧对齐的唯一信号;注册表 74 行。
+tg-manage-absorb 批(task 10-11-tg-manage-absorb)新增 1:80
+`telegram.web.check`(账号体检;契约见注册表 80 行注)+ `telegram.status`
+web 行新可选键(last_verified_at/alive/check_in_progress/check_note)。
+**不 bump v15**:循 gates/run.status 历史行批「地基路」纯加法先例 ——
+新方法旧壳经 method_not_found 结构化降级不白屏,新键旧 UI 忽略照跑;
+注册表 80 行。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成

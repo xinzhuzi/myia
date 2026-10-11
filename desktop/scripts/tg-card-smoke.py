@@ -8,12 +8,14 @@
   crawl4ai 组件轨同源;CLI 直跑仓 ``.venv``);
 - IPC 注入:``add_init_script`` 定义 ``__TAURI_INTERNALS__.invoke``,按
   ``sidecar_request`` 的 method 应答 telegram.status / telegram.web.delete /
-  browser.open(登录动作经浏览器模块统一入口,单入口铁律)三方法夹具
-  —— 卡片三段 + 账号行 + 添加/删除动作全链路渲染冒烟(零真实壳零真实
-  网络零屏控)。
+  browser.open(登录动作经浏览器模块统一入口,单入口铁律)/
+  telegram.web.check(账号体检,10-11-tg-manage-absorb)四方法夹具
+  —— 卡片三段 + 账号行 + 添加/删除/检测动作全链路渲染冒烟(零真实壳零
+  真实网络零屏控)。
 
-断言面:总卡渲染 / bot·session·web 三段 / 账号行 / 披露文案(建议小号)/
-添加账号动作链(新行 + busy 态)/ 删除动作链(行消失);截图落 /tmp 备查。
+断言面:总卡渲染 / bot·session·web 三段 / 账号行 / 披露文案(建议小号/
+扫码提示)/ 添加账号动作链(新行 + busy 态)/ 体检动作链(上次体检小字)/
+删除动作链(行消失);截图落 /tmp 备查。
 退出码 0 = 冒烟通过。
 
 用法(仓库根):``.venv/bin/python desktop/scripts/tg-card-smoke.py``
@@ -30,7 +32,13 @@ import threading
 import urllib.parse
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-UI_DIR = REPO_ROOT / "desktop" / "ui"
+# UI 目录可注入(装机件冒烟:MYIA_SMOKE_UI_DIR=/Applications/世事.app/
+# Contents/Resources/ui 时验的就是装机包像素,判例=装机像素证据走无头冒烟)
+import os as _os
+
+UI_DIR = pathlib.Path(
+    _os.environ.get("MYIA_SMOKE_UI_DIR", str(REPO_ROOT / "desktop" / "ui"))
+)
 PORT = 4517
 
 MIME = {
@@ -57,6 +65,10 @@ INJECT_SCRIPT = r"""
           user_id: "8012674093",
           login_in_progress: false,
           login_note: null,
+          last_verified_at: null,
+          alive: null,
+          check_in_progress: false,
+          check_note: null,
         },
       ],
     },
@@ -95,6 +107,24 @@ INJECT_SCRIPT = r"""
           },
         };
         return { deleted: true, account };
+      }
+      if (method === "telegram.web.check") {
+        // 体检夹具(10-11-tg-manage-absorb):发起即翻完成态 —— 卡面立即
+        // 回读渲染「上次体检 · 活」小字(真实路径 = 台账收尾 + 5s 轮询回读)
+        const account = String(params?.account ?? "");
+        const accounts = current.web.accounts.map((row) =>
+          row.account === account
+            ? {
+                ...row,
+                check_in_progress: false,
+                last_verified_at: new Date().toISOString(),
+                alive: true,
+                check_note: "体检通过:登录态活(冒烟夹具)",
+              }
+            : row,
+        );
+        current = { ...current, web: { accounts } };
+        return { started: true, account, note: "体检完成(冒烟夹具)" };
       }
       if (method === "version") return { version: "smoke" };
       if (method === "health") return { ok: true };
@@ -188,6 +218,10 @@ async def main() -> int:
                 "披露文案可见(建议小号)",
                 await page.get_by_text("建议各键专用小号").count() >= 1,
             )
+            expect(
+                "扫码提示文案可见(AC2)",
+                await page.get_by_text("免等验证码").count() >= 1,
+            )
             # 添加账号动作链:填键名 → 点添加 → 新行 + busy 态(mock 置 in_progress)
             await page.get_by_label("新账号键名").fill("telegram-alt2")
             await page.locator('[data-testid="telegram-web-add"]').click()
@@ -199,6 +233,19 @@ async def main() -> int:
                 '[data-testid="telegram-web-telegram-alt2-busy"]', timeout=5_000
             )
             expect("新行登录中 busy 态", True)
+            # 体检动作链(10-11-tg-manage-absorb):点检测 → 立即回读翻完成态
+            # → 「上次体检 · 活」小字出现(mock telegram.web.check)
+            await page.locator(
+                '[data-testid="telegram-web-telegram-alt1-check"]'
+            ).click()
+            await page.wait_for_selector(
+                '[data-testid="telegram-web-telegram-alt1-verified"]', timeout=5_000
+            )
+            expect("体检后上次体检小字出现", True)
+            expect(
+                "体检小字判活",
+                await page.get_by_text("上次体检").count() >= 1,
+            )
             # 删除动作链:alt1 删除后行消失
             await page.locator(
                 '[data-testid="telegram-web-telegram-alt1-delete"]'

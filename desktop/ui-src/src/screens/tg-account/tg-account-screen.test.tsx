@@ -4,14 +4,17 @@
 // 分区自设置屏抽为独立屏 /tg-account,原 telegram-card.test.tsx 用例随迁,
 // 渲染面从裸卡换成整屏;testid 全部沿用——telegram-card / telegram-web-*,
 // 断言语义逐条保真零丢失)。
-// 契约方法(desktop/entry.py v11 对齐,全量 mock Tauri IPC 不触真实壳):
+// 契约方法(desktop/entry.py 对齐,全量 mock Tauri IPC 不触真实壳):
 // - sidecar_request {method: "telegram.status"} → {bot:{configured,error},
 //   session:{exists}, web:{accounts:[…]}}
 // - sidecar_request {method: "browser.open", params:{kind:"tg_web_login",
 //   session_key, force?}} → {started, op_id}(单入口铁律:登录必经浏览器
 //   模块;依赖缺失 = 结构化 dependency_missing,卡面人话+修复指引可见)
 // - sidecar_request {method: "telegram.web.delete", params:{account}}
-// 组件面:三段状态(bot/session/web)+ 账号列表行(状态灯/重登/删除)+
+// - sidecar_request {method: "telegram.web.check", params:{account}} →
+//   {started, account, note}(10-11-tg-manage-absorb 账号体检:结果经
+//   telegram.status 行小字回读,本回执只报发起)
+// 组件面:三段状态(bot/session/web)+ 账号列表行(状态灯/检测/重登/删除)+
 // 添加账号(键名校验前置)+ 披露三条文案在卡面可见(AC5)。
 // 本项目无 jest-dom:DOM 断言走原生(queryByText/non-null/disabled)。
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -74,6 +77,15 @@ function installIpc(initial: Record<string, unknown> = statusFixture()) {
       current = { ...current, web: { accounts } };
       return { deleted: true, account };
     }
+    if (method === "telegram.web.check") {
+      // 照 browser.open 分支:置进行中态(完成由 completeCheck 驱动,轮询回读)
+      const account = String(params?.account ?? "");
+      const accounts = (current.web as { accounts: Array<Record<string, unknown>> }).accounts.map(
+        (row) => (row.account === account ? { ...row, check_in_progress: true } : row),
+      );
+      current = { ...current, web: { accounts } };
+      return { started: true, account, note: "体检探针已起(无头快查)" };
+    }
     if (method === "version") return { version: "test" };
     if (method === "health") return { ok: true };
     throw new Error(`未预期的 sidecar 方法: ${method}`);
@@ -81,6 +93,22 @@ function installIpc(initial: Record<string, unknown> = statusFixture()) {
   return {
     get current() {
       return current;
+    },
+    /** 测试驱动面:把体检翻到完成态(真实路径 = 服务端台账收尾 + 5s 轮询回读) */
+    completeCheck(account: string, alive: boolean, checkNote: string | null = null) {
+      const accounts = (current.web as { accounts: Array<Record<string, unknown>> }).accounts.map(
+        (row) =>
+          row.account === account
+            ? {
+                ...row,
+                check_in_progress: false,
+                last_verified_at: new Date().toISOString(),
+                alive,
+                check_note: checkNote,
+              }
+            : row,
+      );
+      current = { ...current, web: { accounts } };
     },
   };
 }
@@ -94,6 +122,12 @@ function loginCalls() {
 function deleteCalls() {
   return mocks.invoke.mock.calls.filter(
     ([, args]) => (args as { method: string }).method === "telegram.web.delete",
+  );
+}
+
+function checkCalls() {
+  return mocks.invoke.mock.calls.filter(
+    ([, args]) => (args as { method: string }).method === "telegram.web.check",
   );
 }
 
@@ -235,6 +269,8 @@ describe("TG 账号屏:账号列表与动作(v10 随迁用例,原 TelegramCard)"
     const note = await screen.findByTestId("telegram-action-note");
     expect(note.textContent ?? "").toContain("验证码在你手机 TG 里");
     expect(note.textContent ?? "").toContain("经浏览器模块");
+    // 扫码提示(AC2):回执如实给免验证码通道
+    expect(note.textContent ?? "").toContain("扫码登录");
   });
 
   it("添加账号:拉起失败(拔依赖)→ 卡面人话错误+修复指引可见,零静默(AC2 钉死)", async () => {
@@ -359,6 +395,137 @@ describe("TG 账号屏:账号列表与动作(v10 随迁用例,原 TelegramCard)"
     expect(
       (screen.getByTestId("telegram-web-telegram-alt1-delete") as HTMLButtonElement).disabled,
     ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 账号体检(10-11-tg-manage-absorb AC1):检测钮 → telegram.web.check;
+// 行小字「上次体检 · 活/死」由 status 轮询回读;体检中三动作禁用;
+// failed check_note 人话展示(alive 与 logged_in 双键并存,死引导重登)。
+// ---------------------------------------------------------------------------
+
+describe("TG 账号屏:账号体检(10-11-tg-manage-absorb)", () => {
+  it("检测钮发出 telegram.web.check → 轮询对账后行小字「上次体检 · 活」", async () => {
+    const ipc = installIpc(
+      statusFixture({
+        accounts: [
+          {
+            account: "telegram-alt1",
+            logged_in: true,
+            logged_in_at: "2026-10-08T03:00:00+00:00",
+            login_in_progress: false,
+            login_note: null,
+          },
+        ],
+      }),
+    );
+    render(<TgAccountScreen />);
+    await screen.findByTestId("telegram-web-account-telegram-alt1");
+    fireEvent.click(screen.getByTestId("telegram-web-telegram-alt1-check"));
+    await waitFor(() => {
+      expect(checkCalls()).toHaveLength(1);
+    });
+    expect(
+      (checkCalls()[0]?.[1] as { params: { account: string } }).params,
+    ).toEqual({ account: "telegram-alt1" });
+    // 拉起后立即回读 = 体检中 busy 行(泛化轮询的 anyRunning 联动面)
+    await screen.findByTestId("telegram-web-telegram-alt1-checkbusy");
+    // 完成态由 5s 轮询对账回读(行小字由 status 回读刷新;勿缩短真定时器)
+    ipc.completeCheck("telegram-alt1", true);
+    const verified = await screen.findByTestId(
+      "telegram-web-telegram-alt1-verified",
+      {},
+      { timeout: 9_000 },
+    );
+    expect(verified.textContent ?? "").toContain("上次体检");
+    expect(verified.textContent ?? "").toContain("活");
+  }, 15_000);
+
+  it("体检中行:检测/重登/删除禁用 + busy 指示", async () => {
+    installIpc(
+      statusFixture({
+        accounts: [
+          {
+            account: "telegram-alt1",
+            logged_in: true,
+            logged_in_at: null,
+            login_in_progress: false,
+            login_note: null,
+            check_in_progress: true,
+            check_note: null,
+          },
+        ],
+      }),
+    );
+    render(<TgAccountScreen />);
+    expect(await screen.findByTestId("telegram-web-telegram-alt1-checkbusy")).not.toBeNull();
+    expect(
+      (screen.getByTestId("telegram-web-telegram-alt1-check") as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByTestId("telegram-web-telegram-alt1-relogin") as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByTestId("telegram-web-telegram-alt1-delete") as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it("体检判死:行小字「死(建议重登)」+ check_note 引导重登(双键并存:logged_in 灯仍绿)", async () => {
+    installIpc(
+      statusFixture({
+        accounts: [
+          {
+            account: "telegram-alt1",
+            logged_in: true,
+            logged_in_at: "2026-10-08T03:00:00+00:00",
+            login_in_progress: false,
+            login_note: null,
+            last_verified_at: "2026-10-11T05:00:00+00:00",
+            alive: false,
+            check_in_progress: false,
+            check_note:
+              "体检不通过:常驻哨兵已判死(服务端吊销或他处登出)。重登:「重新登录」钮(清档重来)",
+          },
+        ],
+      }),
+    );
+    render(<TgAccountScreen />);
+    const verified = await screen.findByTestId("telegram-web-telegram-alt1-verified");
+    expect(verified.textContent ?? "").toContain("死");
+    expect(verified.textContent ?? "").toContain("重登");
+    const note = await screen.findByTestId("telegram-web-telegram-alt1-checknote");
+    expect(note.textContent ?? "").toContain("重登");
+    // 双键语义:alive=false 不覆盖 logged_in(状态灯仍绿,重登引导不自动清标记)
+    expect(
+      (screen.getByTestId("telegram-web-telegram-alt1-relogin") as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
+  it("体检 failed:check_note 人话展示(占用引导,alert 角色)", async () => {
+    installIpc(
+      statusFixture({
+        accounts: [
+          {
+            account: "telegram-alt1",
+            logged_in: true,
+            logged_in_at: null,
+            login_in_progress: false,
+            login_note: null,
+            check_in_progress: false,
+            check_note:
+              "体检探针失败(probe_failed:Error)。常见原因:常驻 web 线/登录窗/批量采集" +
+              "占用配置档时探针会冲突失败;先停监控或关登录窗再测",
+          },
+        ],
+      }),
+    );
+    render(<TgAccountScreen />);
+    const note = await screen.findByTestId("telegram-web-telegram-alt1-checknote");
+    expect(note.getAttribute("role")).toBe("alert");
+    expect(note.textContent ?? "").toContain("占用");
+    expect(note.textContent ?? "").toContain("先停监控");
+    // 未体检过的旧档:failed 后仍无 last_verified_at → 「未体检」小字如实
+    expect(screen.getByText("未体检")).not.toBeNull();
   });
 });
 

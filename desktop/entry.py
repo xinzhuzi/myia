@@ -516,6 +516,10 @@ from myssia.vision.server import (
 #: feishu.delete / feishu.probe 四方法:配置组「本身账号」面 —— 飞书
 #: user_access_token 授权态 + 微信桥三布尔;本身账号 ≠ 推送机器人,
 #: 机器人凭据仍归设置→推送;10-11-platform-account-config)。
+#: v15 后纯加法批(10-11-tg-manage-absorb):telegram.web.check 新方法 +
+#: telegram.status 行新可选键(last_verified_at/alive/check_in_progress/
+#: check_note)—— 循 run.status 历史行批的加法可选字段先例不 bump:旧壳
+#: 遇新方法 method_not_found 结构化降级不白屏,旧 UI 忽略新键照跑。
 PROTOCOL_VERSION = 15
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
 STATUS_BY_EXIT = {0: "success", 1: "config_error", 2: "failed", 3: "partial"}
@@ -5904,6 +5908,13 @@ def _m_telegram_status(params: dict[str, Any]) -> dict[str, Any]:
             with _BROWSER_OPS_LOCK:
                 op = _BROWSER_OPS.get(account)
             op_phase = op.get("phase") if op is not None else None
+            # 体检面(10-11-tg-manage-absorb AC1):进行中/结果 note 真源 =
+            # 体检台账;体检结论(last_verified_at/alive)从登录标记透传
+            # (marker 透传判例 = label/user_id)。alive 与 logged_in 是并存
+            # 双键语义 —— 标记在场 = 复用快捷面,体检结果不覆盖它。
+            with _TELEGRAM_CHECK_OPS_LOCK:
+                check = _TELEGRAM_CHECK_OPS.get(account)
+            check_phase = check.get("phase") if check is not None else None
             web_accounts.append(
                 {
                     "account": account,
@@ -5915,9 +5926,17 @@ def _m_telegram_status(params: dict[str, Any]) -> dict[str, Any]:
                     # label = 登录时起的备注名(主显示),user_id = 会话捕获
                     "label": marker.get("label") if marker else None,
                     "user_id": marker.get("user_id") if marker else None,
+                    "last_verified_at": (
+                        marker.get("last_verified_at") if marker else None
+                    ),
+                    "alive": marker.get("alive") if marker else None,
                     "login_in_progress": op_phase == "running",
                     "login_note": (
                         op.get("note") if op is not None else None
+                    ),
+                    "check_in_progress": check_phase == "running",
+                    "check_note": (
+                        check.get("note") if check is not None else None
                     ),
                 }
             )
@@ -6339,6 +6358,211 @@ def _m_telegram_web_delete(params: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# telegram.web.check 账号体检(10-11-tg-manage-absorb AC1):登录态快查。
+# 三占用者(常驻 web 线/登录窗/批量采集)共用同一 profile_dir,Chromium
+# user-data-dir 单实例锁使第二开者必败 —— 分层相处:常态面(TG 监控主使用
+# 态)读常驻哨兵真源零新浏览器零锁冲突(manager 单实例槽 + status());
+# 无常驻占用时走无头探针后台 daemon 线程(≤45s);批量采集是独立进程
+# 短时占用无法感知,failed note 人话兜底。
+# ---------------------------------------------------------------------------
+
+#: 体检操作台账(账号键 → 记录;进程内有效,重启即清)。镜像 _BROWSER_OPS
+#: 范式:phase = running/done/failed;一键一操作,重发覆盖旧记录。
+_TELEGRAM_CHECK_OPS: dict[str, dict[str, Any]] = {}
+_TELEGRAM_CHECK_OPS_LOCK = threading.Lock()
+
+#: TG 网页线 manager 单实例槽(list 装箱便于整体置换;空 = 未起,判例 =
+#: _FEISHU_OAUTH_SERVER)。装配期挂、宿主 _close 摘 —— telegram.web.check
+#: 与 telegram.status 读哨兵真源用(manager 现是装配局部变量,不挂读不到)。
+_TELEGRAM_WEB_MANAGER: list[Any] = []
+
+
+def _finish_telegram_check(account: str, phase: str, note: str) -> None:
+    """体检台账收尾(running → done/failed;删除竞态防御 = 静默返)."""
+    with _TELEGRAM_CHECK_OPS_LOCK:
+        current = _TELEGRAM_CHECK_OPS.get(account)
+        if current is None:  # pragma: no cover - 删除竞态防御
+            return
+        current["phase"] = phase
+        current["note"] = note
+        current["finished_at"] = _now_iso()
+
+
+def _check_thread_main(account: str) -> None:
+    """体检探针线程:asyncio.run 跑 web_line.check_logged_in(每线程新
+    loop,判例 _browser_thread_main)→ record_verification 落标记 → 台账
+    收尾。**整体 try/except Exception 兜底**(check_logged_in 对
+    TelegramWebError 是 re-raise 不是返回值):任何异常 = 台账 failed +
+    人话 note —— 绝不卡 running(否则同键永久幂等拒 + status 行
+    check_in_progress 永真)。"""
+    import myssia.telegram.web_line as web_line
+
+    data_root = _telegram_data_root()
+    directory = web_line.profile_dir(data_root, account)
+    try:
+        logged_in, note = asyncio.run(web_line.check_logged_in(data_root, account))
+    except Exception as exc:  # noqa: BLE001 - 探针异常台账 failed,绝不卡 running
+        _finish_telegram_check(
+            account,
+            "failed",
+            f"体检探针异常:{type(exc).__name__}: {exc}。常见原因:常驻 "
+            "web 线/登录窗/批量采集占用配置档时探针会冲突失败;先停监控"
+            "(myssia telegram serve 停或桌面重启)或关登录窗再测",
+        )
+        return
+    if note.startswith("probe_failed"):
+        # 探针自身失败(浏览器拉不起/锁冲突等):结论未知 ≠ 死,不落标记。
+        _finish_telegram_check(
+            account,
+            "failed",
+            f"体检探针失败({note})。常见原因:常驻 web 线/登录窗/批量采集"
+            "占用配置档时探针会冲突失败;先停监控(myssia telegram serve 停"
+            "或桌面重启)或关登录窗再测",
+        )
+        return
+    web_line.record_verification(directory, alive=logged_in)
+    if logged_in:
+        _finish_telegram_check(
+            account, "done", "体检通过:登录态活(无头探针确认)"
+        )
+    else:
+        _finish_telegram_check(
+            account,
+            "done",
+            f"体检不通过(note={note};登出页在或 DOM 失配)。重登:「重新"
+            "登录」钮(清档重来)或 myssia telegram web-login --account "
+            f"{account} --force",
+        )
+
+
+def _m_telegram_web_check(params: dict[str, Any]) -> dict[str, Any]:
+    """``telegram.web.check``:账号登录态体检(常态读哨兵真源秒回,探针
+    走后台线程;协议 handler 同步段毫秒级返,不堵 _handle_line)."""
+    from myssia.telegram.web_line import (
+        INSTALL_COMMAND,
+        TelegramWebError,
+        profile_dir,
+        record_verification,
+        require_playwright,
+        validate_account_key,
+    )
+
+    account = params.get("account")
+    if not isinstance(account, str):
+        raise ProtocolError(
+            "invalid_params", "account 必须是字符串(账号键)", path="params.account"
+        )
+    try:
+        key = validate_account_key(account)
+    except TelegramWebError as exc:
+        raise ProtocolError("invalid_params", str(exc), path="params.account") from exc
+    data_root = _telegram_data_root()
+    directory = profile_dir(data_root, key)
+    if not directory.is_dir():
+        raise ProtocolError(
+            "profile_missing",
+            f"账号 {key} 配置档缺({directory});先添加账号完成登录,再体检",
+            path="params.account",
+        )
+    # 依赖前置探针(判例 browser.open:拔依赖 → 点按钮立即可见错误+修复
+    # 指引,不等后台线程失败;真装态此调用零副作用只是 import 探针)。
+    try:
+        require_playwright()
+    except TelegramWebError as exc:
+        raise ProtocolError(
+            "dependency_missing",
+            "体检探针拉不起来:playwright 库未安装。修复:设置 →"
+            "「Python 环境」→ 同步依赖(桌面锁已收录 playwright),"
+            f"或终端执行 {INSTALL_COMMAND}",
+            path="params.account",
+            data={"account": key, "install_command": INSTALL_COMMAND},
+        ) from exc
+    # 登录窗在跑(_BROWSER_OPS 同键 running):同档双开必锁冲突,前置拒
+    # (判例 telegram.web.delete 的 login_in_progress)。
+    with _BROWSER_OPS_LOCK:
+        op = _BROWSER_OPS.get(key)
+    if op is not None and op.get("phase") == "running":
+        raise ProtocolError(
+            "login_in_progress",
+            f"账号 {key} 登录窗正在进行中:先到「浏览器」模块关闭登录窗,"
+            "再回来体检",
+            path="params.account",
+        )
+    # 幂等拒(started:false,判例 browser.open):同键体检在跑不重发。
+    with _TELEGRAM_CHECK_OPS_LOCK:
+        current = _TELEGRAM_CHECK_OPS.get(key)
+        if current is not None and current.get("phase") == "running":
+            return {
+                "started": False,
+                "account": key,
+                "note": "该账号体检正在进行中(稍候刷新看结果)",
+            }
+        _TELEGRAM_CHECK_OPS[key] = {
+            "account": key,
+            "phase": "running",
+            "started_at": _now_iso(),
+            "finished_at": None,
+            "note": "体检进行中",
+        }
+    # 常态面主修:常驻 web 线在跑(单实例槽)→ 读哨兵真源同步裁决,零新
+    # 浏览器零锁冲突 —— 哨兵 _health_probe 60s 周期在查,running 且无告警
+    # = 活;哨兵已记 tg_web_logged_out = 死(服务端吊销/他处登出)。毫秒
+    # 级收尾,不起线程。其余态(alert 其他类型/已停无告警)= 哨兵无法
+    # 裁决,落探针路径。
+    if _TELEGRAM_WEB_MANAGER:
+        from myssia.telegram.web_host import SENTINEL_LOGGED_OUT
+
+        manager = _TELEGRAM_WEB_MANAGER[0]
+        try:
+            rows = manager.status().get("accounts") or []
+        except Exception:  # noqa: BLE001 - 观测面炸不拦体检,落探针路径
+            rows = []
+        row = next(
+            (
+                item
+                for item in rows
+                if isinstance(item, dict) and item.get("account") == key
+            ),
+            None,
+        )
+        if row is not None:
+            alert = row.get("alert")
+            if isinstance(alert, dict) and alert.get("type") == SENTINEL_LOGGED_OUT:
+                detail = str(alert.get("detail") or "")
+                record_verification(directory, alive=False)
+                note = (
+                    "体检不通过:常驻哨兵已判死(服务端吊销或他处登出;"
+                    f"哨兵 detail:{detail[:200]})。重登:「重新登录」钮"
+                    f"(清档重来)或 myssia telegram web-login --account {key}"
+                    " --force"
+                )
+                _finish_telegram_check(key, "done", note)
+                return {"started": True, "account": key, "note": note}
+            if row.get("running") and alert is None:
+                record_verification(directory, alive=True)
+                note = (
+                    "体检通过:登录态活(常驻哨兵在跑且无告警,"
+                    "web_monitor_sentry)"
+                )
+                _finish_telegram_check(key, "done", note)
+                return {"started": True, "account": key, "note": note}
+    # 探针路径:45s 无头快查全在 daemon 线程;应答只回执已发起。
+    thread = threading.Thread(
+        target=_check_thread_main,
+        args=(key,),
+        daemon=True,
+        name=f"telegram-check-{key}",
+    )
+    thread.start()
+    return {
+        "started": True,
+        "account": key,
+        "note": "体检探针已起(无头快查,至多约 45s 出结果;行小字/检测说明"
+        "刷新可见)",
+    }
+
+
+# ---------------------------------------------------------------------------
 # 平台账号(10-11-platform-account-config):本身账号 ≠ 推送机器人 ——
 # 配置组管用户授权态(飞书 user_access_token),推送机器人凭据归设置→推送。
 # App 凭据复用推送区同一应用(env→钥匙链回退);微信段零新契约,直读
@@ -6718,9 +6942,11 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "cron.runs": _m_cron_runs,
     # Telegram 监控总卡面(10-08-tg-web-line W4):三线状态/网页线账号
     # 配置档删除。登录动作已改走浏览器模块(10-08-browser-module 单入口
-    # 铁律:telegram.web.login 移除,browser.* 四方法为唯一浏览器入口)。
+    # 铁律:telegram.web.login 移除,browser.* 四方法为唯一浏览器入口);
+    # 体检 10-11-tg-manage-absorb AC1(常态读哨兵真源/探针走后台线程)。
     "telegram.status": _m_telegram_status,
     "telegram.web.delete": _m_telegram_web_delete,
+    "telegram.web.check": _m_telegram_web_check,
     # 浏览器专用模块(10-08-browser-module 案甲):统一入口 open + 操作
     # 台账 list + 窗口管理 focus/close;一切浏览器操作必经此处。
     "browser.open": _m_browser_open,
@@ -7091,6 +7317,10 @@ def _assemble_telegram_host(
         myssia_log.stream_line(
             None, "stderr", f"sidecar: telegram TG 网页线未起({web_note})"
         )
+    # manager 单实例槽(10-11-tg-manage-absorb AC1):telegram.web.check 常态
+    # 面读哨兵真源(manager.status())零新浏览器零锁冲突;_close 摘槽 ——
+    # 宿主退出后槽空 = 无常驻占用,体检自动退化为探针路径。
+    _TELEGRAM_WEB_MANAGER[:] = [web_manager] if web_manager is not None else []
     if bot_host is None and user_host is None and web_manager is None:
         myssia_log.stream_line(
             None, "stderr",
@@ -7127,7 +7357,7 @@ def _assemble_telegram_host(
                     await client.aclose()
 
     def _close() -> None:
-        # 深审 F14:装配面收尾 —— 账本连接与 store 同批关闭(HTTP 客户端由
+        # 深审 F14:装配面收尾 —— 账本连接与 store 同批关闭(HTTP 账本由
         # _run 的 finally + 宿主退出路径 poller.aclose 双保险收;web
         # manager 各键账本由其 close 统一收)。
         for ledger in (bot_ledger, user_ledger):
@@ -7137,6 +7367,8 @@ def _assemble_telegram_host(
         if web_manager is not None:
             with contextlib.suppress(Exception):
                 web_manager.close()
+        # 摘 manager 单实例槽(体检哨兵真源面随宿主下线;空 = 无常驻占用)。
+        _TELEGRAM_WEB_MANAGER[:] = []
         with contextlib.suppress(Exception):
             store.close()
 
