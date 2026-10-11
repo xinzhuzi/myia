@@ -29,7 +29,21 @@
 | 本地库读 | `localdb query <chat> --since <d>` | 定位 db_storage → 密钥（D4 途径）→ sqlcipher 解密**副本**至数据根私有区 → 只读 SQL（**G4：message/session/contact 三域，域清单配置可扩**） | 密钥不可得 → degraded + D4 升级主人裁决 |
 
 - 三态定义与 push 层现有惯例对齐：`ok / degraded / bridge_unavailable`。
+- 三态判据矩阵（probe 探测项 → 态映射）：
+
+| 探测结果 | 态 | 修复指引 |
+|---|---|---|
+| 组件未安装 / 版本不符 | `bridge_unavailable` | 设置页下载组件 |
+| 微信进程未运行 | `bridge_unavailable` | 启动微信客户端 |
+| AX 辅助功能权限缺失 | `bridge_unavailable` | 引导系统设置授权 |
+| 微信运行但主窗口未开（UI 通道） | `degraded`（localdb 不受影响） | 打开微信窗口 |
+| AX 树空/残缺 | `degraded`（像素链兜底启用） | — |
+| 本地库密钥不可得 | `degraded`（localdb 不可用） | D4 裁决项 |
+| 全部通过 | `ok` | — |
+
 - 探针零成本：进程存在性 + 版本号 + AX 可达性自检，不读消息内容。
+- **发送频控的跨进程状态（G6 实现修正）**：桥为一次性子进程，进程退出内存状态即失——频控时间戳**必须落盘** `数据根/wechat-localdb/send_state.json`（上次发送时刻，flock 防并发，非敏感元数据）；每次发送前检查 + 原子更新，间隔不足 10s 直接拒发并返回剩余等待秒数。
+- push 层内容版式对齐 `weixin.py` 惯例：TemplateRenderer 在场走模板，缺省内置纯文本版式，长文分块语义随桥（桥侧不预切）。
 
 ## 3. 关键设计取舍
 
@@ -46,7 +60,18 @@
 - 回滚：桥下线 = MYIA 侧 `bridge_unavailable` 灰态（对齐 `weixin.py` 显式可选设计），MYIA 主功能零依赖桥。
 - 密钥途径若最终依赖内存搜索（D4 豁免）：单独成模块 + 开关默认关，主人显式开启才生效。
 
-## 5. 安全边界汇总
+## 5. 执行前置与安全边界
+
+### 5.1 系统依赖（组件安装前置）
+
+- **sqlcipher**：本地库解密依赖 sqlcipher 库（`brew install sqlcipher` + Python 绑定 `sqlcipher3`/`pysqlcipher3` 编译链）。组件安装器须**检测前置并在缺依赖时给出明确指引**，不许静默装到一半失败。
+- AX 权限主体：macOS 按 responsible process 归责——桥作为 MYIA 子进程，授权授给 MYIA app 本体即可；**开发期 AI 侧探查走会话宿主授权（已验证在册）**，装机期走设置页引导（F5 验证项）。
+
+### 5.2 消息屏卡面组织（默认方案，UI 稿可翻案）
+
+微信区双卡并排：现有「微信」卡 = 官方 Hermes/iLink 桥（出站主口）；新增「微信本机」卡 = `weixin-local`（UI 收发 + 本地库，三态 + 只读入口）。状态语义独立不混合——两张桥的健康度、降级原因不同，混一张卡会互相污染。
+
+### 5.3 安全边界汇总
 
 - 零出网（本地库通道）；UI 通道仅微信客户端自身流量。
 - 解密副本、查询结果 = 私有情报：不入 git、不入日志、不进上下文原文；外发先脱敏（security-baseline）。

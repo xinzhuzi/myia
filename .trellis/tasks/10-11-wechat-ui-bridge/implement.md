@@ -1,12 +1,14 @@
 # implement — 微信桥：UI 自动化 + 本地库只读
 
 > 执行顺序 = 依赖序；每 Phase 独立成 commit（回滚点）。探查类动作的静默约束见 prd 红线 4。
+>
+> **报量（先报量纪律，2026-10-11）**：A 半天 / B 半天 / C 1–2 天 / D 半天–1 天 / E 1–2 天 / F 1 天 / G 0.5h——总计 **4–6 个工作日级**。C/E 是大头（AX 探明前的实现量与 schema 逆向量都不确定，探查后回填修正）。
 
 ## Phase A 探查与裁决（先于一切实现）
 
 - [ ] A1 开窗 AX 探查（**须主人知情，微信开窗状态**）：AX 树能力清单——会话列表/消息文本/发送框可达性；Chromium 空树时测 AXManualAccessibility 激活；原始证据落 research/ax-probe-4.1.15.md。→ AC1 前半
 - [ ] A2 wxauto-mac 快速冒烟（**G8：限 30 分钟**）：对 4.1.15 跑核心读路径，可用/部分/不可用三值结论即收；借力研读重心转 **BiboyQG/WeChat-MCP**（275★）机制。→ AC1 后半 + D2 输入
-- [ ] A3 密钥途径探查（**不依赖开窗，可先行**）：key_info.db 结构只读分析（schema/表/列形状，不导内容）；yancongya/wechat-mcp-macos 源码读密钥获取段；结论 = 零内存方案可行性 + D4 裁决请求。
+- [ ] A3 密钥途径探查（**不依赖开窗，可先行**；结论落 research/key-path.md）：key_info.db 结构只读分析（schema/表/列形状，不导内容；**预期管理：它本身可能也是 sqlcipher 加密库——若是，零内存路径难度陡增，如实记录**）；yancongya/wechat-mcp-macos 源码读密钥获取段；结论 = 零内存方案可行性 + D4 裁决请求。
 - [ ] A4 裁决记录：D2（自研/借力 BiboyQG 机制）+ D4（密钥途径）回写 prd 开放决策段；**D1 已决（G1：主力号开发+小号并行注册）——联调挂主力号、操作对象限文件传输助手，小号注册并行推进**。
 
 **验证**：research 下两份探查记录有原始证据；A4 有主人裁决标记。
@@ -15,7 +17,7 @@
 
 - [ ] B1 组件目录（**组件名 `wechat-bridge`，G7**）+ 组件戳 + `--probe` 三态探针（对齐 weixin.py 桥接形态：子进程、JSON 应答、超时 kill 兜底）
 - [ ] B2 CLI 骨架：`sessions/messages/send_text/localdb` 四子命令空实现 + `--json` 机器可读
-- [ ] B3 组件下载/注册链路接设置页（受管组件惯例）
+- [ ] B3 组件下载/注册链路接设置页（受管组件惯例；**安装前置检测（design §5.1）：sqlcipher 库缺失时给明确指引，不静默半装**）
 
 **验证**：probe 在无微信开窗时如实报 `bridge_unavailable/degraded`，不装可用。
 
@@ -29,7 +31,7 @@
 
 ## Phase D UI 写通道
 
-- [ ] D1 向「文件传输助手」发文本（AX 动作，禁合成鼠标；**桥内频控落地（G6）：单条、≥10s 硬间隔、无批量接口、不可配置**）
+- [ ] D1 向「文件传输助手」发文本（AX 动作，禁合成鼠标；**桥内频控落地（G6）：单条、≥10s 硬间隔、无批量接口、不可配置；频控时间戳落盘 `数据根/wechat-localdb/send_state.json` + flock（design §三态判据节）——子进程模型内存状态会随进程退出丢失，必须落盘**）
 - [ ] D2 回执验证（读回消息列表比对）+ 失败不重试语义
 
 **验证**：真实发送一条 + 回执核对 + 静默取证。→ AC3 + AC4 后半
@@ -45,10 +47,10 @@
 ## Phase F MYIA 装配
 
 - [ ] F1 push 层 `weixin_local.py` 通道注册（**通道 id `weixin-local`，G7**；三态 + 显式可选语义，对齐 weixin.py；`weixin` 通道名保持归官方 Hermes 桥）
-- [ ] F2 sidecar 协议 handler（`_HANDLERS` + 协议测试对账，sidecar-protocol 纪律）
-- [ ] F3 消息屏微信卡状态接入三态 + AX 权限引导卡
+- [ ] F2 sidecar 协议 handler（`_HANDLERS` + 协议测试对账，sidecar-protocol 纪律；**⚠️ 执行前核验：`desktop/entry.py` 有并行会话在途改动（2026-10-11 工作树 M 状态在案）——动手前确认对方已收口，混写按快照外科先例处理，勿裸改**）
+- [ ] F3 消息屏微信区双卡（design §5.2 默认方案：官方桥卡 + 「微信本机」卡，三态独立；UI 稿主人可翻案）+ AX 权限引导卡
 - [ ] F4 消息屏**只读会话入口**（G2：选会话 → 拉最近消息展示；读回消息不入 store/dedup，G3）
-- [ ] F5 门禁全绿（pytest 全量 + vitest + tauri build）+ 装机包刷新换装 + 装机件像素级验证（交付判例）
+- [ ] F5 门禁全绿（pytest 全量 + vitest + tauri build）+ 装机包刷新换装 + 装机件像素级验证（交付判例）**+ AX 权限引导真机走通（装机授权主体是 MYIA app 本体，与开发期宿主授权不同，design §5.1）**
 
 ## Phase G 备胎占位
 
