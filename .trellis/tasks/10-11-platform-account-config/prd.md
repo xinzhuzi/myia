@@ -13,15 +13,20 @@
 
 侧栏「配置」组下,除 Telegram 外补齐微信、QQ、飞书等平台的**本身账号**配置入口(范式对齐 Telegram 配置卡:账号列表/登录/删除/状态灯)。
 
-## 现状(2026-10-11 探查中)
+## 现状(2026-10-11 三路探查结论)
 
-- 配置组只有 Telegram 一家有账号卡(v10 已抽独立屏 /tg-account);
-- 微信/QQ/飞书目前只有**机器人**推送通道(push/ 下 feishu_card、qqbot、wecom、weixin 桥等,共 40+),入口在设置→推送——与本任务无关,仅作边界参照;
-- 各平台个人账号接入机制待探查定案(三个探查代理在途:微信 Hermes 桥/QQ 个人协议风险面/飞书 user_access_token)。
+| 平台 | 现有通道(机器人,不属本任务) | 本身账号接入途径 | 可行性 |
+|---|---|---|---|
+| Telegram | bot token | ✅ 已落地:网页线 tg_web(浏览器登录,MYIA 自持登录态)+ Telethon(待 api_id) | 已完成 |
+| 微信 | weixin 桥(Hermes iLink Bot) | 登录态全在 Hermes 私有域,**单活模型**(env 一组账号);MYIA 红线=不读私有内容/不写目录/不 vendor | 受限:不改上游只能做「账号档列表(只读文件名)+状态灯+引导终端扫码」;卡内登录/删除/多账号需上游新契约 |
+| QQ | qqbot(官方机器人 AppID+Secret) | 官方**无个人 API**;唯一途径=第三方 NTQQ 族(NapCat/LLOneBot/Lagrange → 本机 OneBot HTTP/WS)——违反 ToS,2025 起封号检测加严,且需常驻双向收发(风险高于 tg_web 只读) | 技术可对接(仓库零基础),**合规风险待主人裁定** |
+| 飞书 | feishu_card(自建应用 App ID/Secret) | user_access_token(OAuth 授权码/扫码;2h 有效+refresh 30 天无感续期)——但必须挂在自建应用下,语义是「用户对应用的授权态」;仓库零基础(OAuth 回调/刷新存储均无) | 可做,需新建 OAuth 面;凭据存储对齐钥匙链 `myia/feishu/<账号键>/…` |
+
+**UI/存储范式(照 Telegram 模板)**:协议快照读(`*.status`)+ 浏览器模块单入口登录(`browser.open` kind 登记)+ 数据根目录即账号(`<数据根>/<platform>-web/<账号键>/`,0700/0600)+ 独立屏挂侧栏「配置」组;新增一张卡的成本 ≈ entry.py 两方法 + 一个领域模块 + 三个 UI 文件 + 四处注册行,**Rust 壳零改动**。
 
 ## Acceptance Criteria
 
-- [ ] TBD(grill 后定稿;探查结论回填后与主人对齐范围与形态)
+- [ ] TBD(grill 后定稿;下方决议问题主人拍板后回写)
 
 ## Notes
 
