@@ -10,10 +10,10 @@
 
 <p>
 <a href="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-<img src="https://img.shields.io/badge/tests-1300%2B%20passing-2EA44F" alt="tests: 1300+ passing" />
+<img src="https://img.shields.io/badge/tests-5400%2B%20passing-2EA44F" alt="tests: 5400+ passing" />
 <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="python 3.11+" />
 <img src="https://img.shields.io/badge/license-MIT-3DA639" alt="MIT license" />
-<img src="https://img.shields.io/badge/status-0.0.1%20first%20release-2EA44F" alt="status: v0.0.1 first release" />
+<img src="https://img.shields.io/badge/status-0.0.3%20released-2EA44F" alt="status: v0.0.3 released" />
 </p>
 <p>
 <img src="https://img.shields.io/badge/fetch%20engines-6%20(L1%E2%80%93L6)-22D3EE" alt="6 fetch engines, L1–L6" />
@@ -126,7 +126,7 @@ not just a human.
 🔁 **A feedback loop that tunes itself**
 Mark pushed items valuable / not valuable (CLI today; in-card desktop
 buttons have landed on main in the desktop-parity batch and ship with the
-next release; Telegram/Feishu callback receivers are ready) —
+live in Releases; Telegram/Feishu callback receivers are ready) —
 negative feedback retunes watchlist weights and thresholds over time.
 
 </td>
@@ -155,7 +155,7 @@ daemon), retention + auto-VACUUM, in-process scheduling.
 git clone https://github.com/xinzhuzi/myia
 cd myssia
 uv sync                     # uv workspace (primary): installs myssia + myssia-classifier
-uv run myssia --version       # myssia 0.0.1
+uv run myssia --version       # myssia 0.0.3
 ```
 
 > This repo is a uv workspace (`myssia-classifier` is a workspace member): a bare
@@ -277,8 +277,8 @@ The macOS (Apple Silicon) installer ships via GitHub Releases:
    first setup needs network. See
    [Getting started §1.1](docs/en/getting-started.md).
 
-On Windows (x64) the flow is the same: the msi installer (shipping via
-Releases — see the roadmap note) downloads the `x86_64-pc-windows-msvc`
+On Windows (x64) the flow is the same: the msi installer (shipped via
+Releases since v0.0.3) downloads the `x86_64-pc-windows-msvc`
 equivalent of the same pinned runtime on first setup; the data root is
 `%APPDATA%\MYIA` with the managed Python under `python\`; upgrades go through
 "Check for updates" (silent passive msi install + restart, see
@@ -365,15 +365,13 @@ Agent-facing condensed reference: [`skill/SKILL.md`](skill/SKILL.md).
 
 ## Roadmap
 
-The core pipeline is implemented and tested — 1300+ tests run in CI, none of
+The core pipeline is implemented and tested — 5400+ tests run in CI, none of
 them touch the real network. The desktop app is ready for daily use
 (unified data paths, bundled official categories, an out-of-the-box demo, a
 signed update channel — shipping in Releases since v0.0.1); in-card
-feedback buttons, the settings feedback toggle and collection trends have
-landed on main in the desktop-parity batch and ship with the next release
-(the feedback loop already works via CLI); the Windows build did not ship
-in this release (no Windows installer in Releases yet; planned for a
-follow-up batch).
+feedback buttons, the settings feedback toggle and collection trends shipped
+in the desktop-parity batch (live in Releases); the Windows msi installer
+ships in Releases since v0.0.3.
 
 | Milestone | Scope | Status |
 |---|---|---|
@@ -382,7 +380,7 @@ follow-up batch).
 | v0.3 ecosystem | Agent Skill, plugin market (local/remote dual-mode), Scrapling L4, feedback loop (CLI + callback receivers) | ✅ shipped |
 | v0.4 deep water | stealth_browser L5, llm_browser L6, trend baselines, event aggregation | ✅ shipped |
 | v1.0 launch | Bilingual docs, demo assets, GitHub facade, public delivery | ✅ shipped |
-| v1.1 desktop-first | Tauri desktop shell (Python core as sidecar), five-screen UI, in-process plugin tier; in-card feedback buttons / settings feedback toggle / collection trends have landed in the desktop-parity batch and ship with the next release (feedback works via CLI today) | ✅ shipped |
+| v1.1 desktop-first | Tauri desktop shell (Python core as sidecar), five-screen UI, in-process plugin tier; in-card feedback buttons / settings feedback toggle / collection trends shipped in the desktop-parity batch (live in Releases) | ✅ shipped |
 | v1.1.1 data paths | Desktop data-path unification (MYIA_HOME / bundled official plugins / first-run seed), out-of-the-box demo plugin, signed update channel (check + install) | ✅ shipped |
 | Web UI | browser front-end on the same core | 📋 planned |
 

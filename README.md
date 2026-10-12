@@ -10,10 +10,10 @@
 
 <p>
 <a href="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-<img src="https://img.shields.io/badge/tests-1300%2B%20passing-2EA44F" alt="tests: 1300+ passing" />
+<img src="https://img.shields.io/badge/tests-5400%2B%20passing-2EA44F" alt="tests: 5400+ passing" />
 <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="python 3.11+" />
 <img src="https://img.shields.io/badge/license-MIT-3DA639" alt="MIT license" />
-<img src="https://img.shields.io/badge/status-0.0.1%20first%20release-2EA44F" alt="status: v0.0.1 first release" />
+<img src="https://img.shields.io/badge/status-0.0.3%20released-2EA44F" alt="status: v0.0.3 released" />
 </p>
 <p>
 <img src="https://img.shields.io/badge/fetch%20engines-6%20(L1%E2%80%93L6)-22D3EE" alt="6 fetch engines, L1–L6" />
@@ -112,8 +112,8 @@ URL 键去重注册表 + 早/晚摘要槽位 —— 生产验证过的语义;同
 <td width="50%" valign="top">
 
 🔁 **反馈闭环自我调优**
-对推送标记有价值 / 无价值(CLI 现已可用;桌面卡片内按钮已随桌面对齐批次
-落地 main、随下个发布版交付;Telegram/飞书回调接收已就绪)—— 负反馈持续
+对推送标记有价值 / 无价值(CLI 已可用;桌面卡片内按钮已交付(桌面对齐批次,已随
+Releases);Telegram/飞书回调接收已就绪)—— 负反馈持续
 回写,调优盯盘权重与阈值。
 
 </td>
@@ -140,7 +140,7 @@ URL 键去重注册表 + 早/晚摘要槽位 —— 生产验证过的语义;同
 git clone https://github.com/xinzhuzi/myia
 cd myssia
 uv sync                     # uv workspace(主口径):一并装好 myssia 与 myssia-classifier
-uv run myssia --version       # myssia 0.0.1
+uv run myssia --version       # myssia 0.0.3
 ```
 
 > 本仓是 uv workspace(`myssia-classifier` 是 workspace 成员):裸 `pip install -e .`
@@ -244,8 +244,7 @@ uv run myssia run config/demo-min.yaml                    # 正式跑;--loop 常
 
 ### Windows(x64)
 
-安装包(msi)将随 GitHub Releases 发布——Windows 构建流水线已就绪,首个
-Windows 版本随下个 Release 交付;交付前 Releases 页暂无 msi(见路线图注记):
+安装包(msi)已随 GitHub Releases 交付(v0.0.3 起挂 `myssia_<版本>_x64.msi`):
 
 1. 从 [Releases](https://github.com/xinzhuzi/myia/releases) 下载
    `myssia_<版本>_x64.msi`,双击安装(版本号随发布更替,以 Releases 页面
@@ -342,11 +341,11 @@ myssia doctor --json                        # 拿 findings;agent 自修后复查
 
 ## 路线图
 
-核心流水线已实现且有测试覆盖 —— 1300+ 测试跑在 CI 里,无一条碰真实网络。
+核心流水线已实现且有测试覆盖 —— 5400+ 测试跑在 CI 里,无一条碰真实网络。
 桌面端已可日常使用(数据通路统一、官方品类随包、开箱 demo、签名更新通道,
 v0.0.1 起随 Releases 交付);桌面卡片内反馈按钮、设置反馈开关、采集量趋势
-已随桌面对齐批次落地 main、随下个发布版交付(反馈闭环 CLI 现已可用);
-Windows 构建这版未通过,Release 暂无 Windows 安装包(后续批次计划补上)。
+已随桌面对齐批次交付;Windows 安装包(msi)已随 v0.0.3 挂上 Releases
+(构建流水线 10-04 首绿)。
 
 | 里程碑 | 范围 | 状态 |
 |---|---|---|
@@ -355,7 +354,7 @@ Windows 构建这版未通过,Release 暂无 Windows 安装包(后续批次计�
 | v0.3 生态 | Agent Skill、插件市场(本地/远端双模)、Scrapling L4、反馈闭环(CLI + 回调接收) | ✅ 已交付 |
 | v0.4 深水区 | stealth_browser L5、llm_browser L6、趋势基线、事件聚合 | ✅ 已交付 |
 | v1.0 发布 | 双语文档、演示物料、GitHub 门面、公开交付 | ✅ 已交付 |
-| v1.1 桌面优先 | Tauri 桌面壳(Python 核心以 sidecar 嵌入)、五屏 UI、进程内插件级;卡片内反馈按钮/settings 反馈开关/采集量趋势已随桌面对齐批次落地、随下个发布版交付(反馈 CLI 已可用) | ✅ 已交付 |
+| v1.1 桌面优先 | Tauri 桌面壳(Python 核心以 sidecar 嵌入)、五屏 UI、进程内插件级;卡片内反馈按钮/settings 反馈开关/采集量趋势已交付(桌面对齐批次落地,已随 Releases) | ✅ 已交付 |
 | v1.1.1 通路修复 | 桌面数据通路统一(MYIA_HOME/官方品类随包/首跑种子)、开箱 demo 品类、签名更新通道(检查更新 + 自动安装) | ✅ 已交付 |
 | Web UI | 同一核心上的浏览器前端 | 📋 规划中 |
 
