@@ -160,7 +160,7 @@ export function TelegramCard() {
         );
         if (outcome.started) {
           setNote(
-            `账号 ${account} 登录窗已拉起(经浏览器模块):请在弹出的浏览器窗口里输入手机号 → 验证码(验证码在你手机 TG 里;如有两步验证再输密码;会话失效时登录页可直接用手机 Telegram 扫码登录,免等验证码)。登录态会自动落档,本页每 ${LOGIN_POLL_INTERVAL_MS / 1000}s 自动对账(转绿即完成);窗口管理(聚焦/关闭)在设置 →「浏览器」分区。`,
+            `账号 ${account} 登录窗口已打开(经浏览器模块):请在弹出的浏览器窗口里输入手机号 → 验证码(验证码在你手机 TG 里;如有两步验证再输密码;会话失效时登录页可直接用手机 Telegram 扫码登录,免等验证码)。登录状态会自动保存,本页每 ${LOGIN_POLL_INTERVAL_MS / 1000}s 自动核对一次(状态变绿即完成);窗口管理(聚焦/关闭)在设置 →「浏览器」分区。`,
           );
           setLoginPoll(1);
           setStatus(await telegramGetStatus());
@@ -183,7 +183,7 @@ export function TelegramCard() {
         new SidecarRequestError({
           code: "invalid_account",
           path: "account",
-          message: `账号键应为全称律 telegram-<标识>(小写字母数字,如 telegram-alt1),当前为 ${JSON.stringify(key)}`,
+          message: `账号键须为 telegram-<标识> 形式(小写字母数字,如 telegram-alt1),当前为 ${JSON.stringify(key)}`,
           data: null,
         }),
       );
@@ -225,7 +225,7 @@ export function TelegramCard() {
         const outcome = await telegramWebCheck(account);
         if (outcome.started) {
           setNote(
-            `账号 ${account} 体检已发起:常驻监控在跑时读哨兵秒回;否则无头探针至多约 45s 出结果(被占用会提示先停占用),本页每 ${LOGIN_POLL_INTERVAL_MS / 1000}s 自动对账(行小字见「上次体检 · 活/死」)。`,
+            `账号 ${account} 检查已发起:常驻监控在跑时直接读其最新状态、秒回;否则后台检测至多约 45s 出结果(被占用会提示先停占用),本页每 ${LOGIN_POLL_INTERVAL_MS / 1000}s 自动核对(行小字见「上次检查 · 状态」)。`,
           );
           setLoginPoll(1);
           setStatus(await telegramGetStatus());
@@ -274,7 +274,7 @@ export function TelegramCard() {
                 missLabel="未配置"
                 hint={
                   status.bot.configured
-                    ? "钥匙串 myia/telegram/bot-token 在册;四步(BuildFather 建 bot → 关隐私模式 → 写 token → 拉进群)已完成。"
+                    ? "钥匙串 myia/telegram/bot-token 在册;四步(BotFather 建 bot → 关隐私模式 → 写 token → 拉进群)已完成。"
                     : "四步:BotFather 建 bot → /setprivacy 关闭隐私模式 → myssia secret set myia/telegram/bot-token → 拉进目标群(配置在推送凭据区与品类 YAML)。"
                 }
               />
@@ -286,7 +286,7 @@ export function TelegramCard() {
                 missLabel="未首登"
                 hint={
                   status.session.exists
-                    ? "数据根 telegram/telethon.session 在场;需要 api-id/api-hash(钥匙串)+ 组件已装,serve 常驻自动拉起。"
+                    ? "数据目录 telegram/telethon.session 在场;需要 api-id/api-hash(钥匙串)+ 组件已装,serve 常驻后自动启动。"
                     : "一次性首登:钥匙串写 api-id/api-hash(my.telegram.org 取值)后终端 myssia telegram login(手机号+验证码,建议挂小号);api_id 到手优先本线(正统)。"
                 }
               />
@@ -299,11 +299,11 @@ export function TelegramCard() {
                   </Badge>
                 </div>
                 <p className="text-2xs leading-4 text-muted-foreground">
-                  零凭据通道:MYIA 自管无头 Chromium 登 web.telegram.org 一次,之后常驻读群消息 DOM
-                  → 与 bot 线同一套粗筛/精筛/推送。登录时手机号+验证码在页面内输(验证码在你手机 TG
-                  里;会话失效时登录页可直接用手机 Telegram 扫码登录,免等验证码)。披露:DOM 改版有
-                  跟修哨兵(失配即结构化告警不装死);
-                  ToS 灰色同 userbot,建议各键专用小号(同机同出口多账号可被关联,只读监控风险低,数量克制,缺省帽
+                  零凭据通道:MYIA 托管的后台 Chromium 登录 web.telegram.org 一次,之后常驻读取群消息
+                  → 与 bot 线同一套消息过滤与推送。登录时手机号+验证码在页面内输(验证码在你手机 TG
+                  里;会话失效时登录页可直接用手机 Telegram 扫码登录,免等验证码)。说明:网页改版时有
+                  自动监测并跟进修复(失配会明确告警,不会无声失效);
+                  ToS 灰色同 userbot,建议各键专用小号(同机同出口多账号可被关联,只读监控风险低,数量克制,默认上限
                   3);api_id 到手建议切回 Telethon 正统线,本线退役或备份;登录态 = 配置档文件(0600,非加密)。
                 </p>
                 <div data-testid="telegram-web-accounts" className="flex flex-col gap-2">
@@ -379,8 +379,8 @@ export function TelegramCard() {
                                 row.alive === false ? "text-dead" : "text-muted-foreground",
                               )}
                             >
-                              上次体检 {formatRelativeTime(row.last_verified_at)} ·{" "}
-                              {row.alive === false ? "死(建议重登)" : "活"}
+                              上次检查 {formatRelativeTime(row.last_verified_at)} ·{" "}
+                              {row.alive === false ? "已失效(建议重新登录)" : "正常"}
                             </span>
                           ) : (
                             <span className="text-2xs text-muted-foreground">未体检</span>
@@ -408,7 +408,7 @@ export function TelegramCard() {
                           }
                           onClick={() => void runCheck(row.account)}
                           data-testid={`telegram-web-${row.account}-check`}
-                          title="登录态体检:常驻监控在跑时读哨兵秒回;探针路径下被占用会提示先停占用"
+                          title="检查登录状态:常驻监控在跑时直接读最新状态;后台检测中被占用会提示先停占用"
                         >
                           <Activity className="size-3.5" />
                           检测
@@ -421,7 +421,7 @@ export function TelegramCard() {
                           }
                           onClick={() => void startLogin(row.account, true)}
                           data-testid={`telegram-web-${row.account}-relogin`}
-                          title="清档重登(--force):拉起浏览器登录窗,手机号+验证码在页面内输"
+                          title="重新登录(--force):清除旧登录数据后打开浏览器登录窗,手机号+验证码在页面内输"
                         >
                           重新登录
                         </Button>
@@ -448,8 +448,8 @@ export function TelegramCard() {
                   placeholder="telegram-alt1"
                   value={newAccount}
                   onChange={(event) => setNewAccount(event.target.value)}
-                  labelHint="全称律 telegram-<标识>(小写字母数字起头);每键独立浏览器配置档(0600),多账号互不相通。"
-                  hint="起键名后点「添加账号」拉起浏览器登录窗"
+                  labelHint="键名格式:telegram-<标识>(小写字母数字起头);每键独立浏览器配置档(0600),多账号互不相通。"
+                  hint="输入键名后点「添加账号」,打开浏览器登录窗口"
                 />
                 <FieldInput
                   label="备注名(可选)"
@@ -467,7 +467,7 @@ export function TelegramCard() {
                     onClick={handleAdd}
                     disabled={busyAccount !== null}
                     data-testid="telegram-web-add"
-                    title="拉起 headed 浏览器登录窗(手机号+验证码在页面内输;验证码在你手机 TG 里)"
+                    title="打开浏览器登录窗口(手机号+验证码在页面内输;验证码在你手机 TG 里)"
                   >
                     <Plus className="size-3.5" />
                     添加账号

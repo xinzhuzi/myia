@@ -318,11 +318,11 @@ describe("设置 · 模型管理卡:本地 server 代管行", () => {
     render(<VisionModelsCard />);
     expect((await screen.findByTestId("vision-server-badge")).textContent).toBe("未运行");
 
-    fireEvent.click(screen.getByRole("button", { name: "确保启动" }));
+    fireEvent.click(screen.getByRole("button", { name: "启动服务" }));
 
     expect(mocks.invoke).toHaveBeenCalledWith("sidecar_request", { method: "image.server.ensure", params: {} });
     // 应答即返:等待态徽章(不再同步等 2 分钟健康窗)
-    await waitFor(() => expect(screen.getByTestId("vision-server-badge").textContent).toBe("确保启动中…"));
+    await waitFor(() => expect(screen.getByTestId("vision-server-badge").textContent).toBe("启动中…"));
 
     // 终态事件:ok=true + status(started=true = 本次自起)→ 徽章翻健康
     act(() => {
@@ -337,9 +337,9 @@ describe("设置 · 模型管理卡:本地 server 代管行", () => {
     expect((await screen.findByTestId("vision-server-badge")).textContent).toBe("运行中 · 健康");
     const status = await screen.findByTestId("vision-ensure-status");
     expect(status.getAttribute("role")).toBe("status");
-    expect(status.textContent).toContain("已自起");
+    expect(status.textContent).toContain("已启动并运行正常");
     expect(status.textContent).toContain("2 分钟");
-    expect(screen.getByRole("button", { name: "确保启动" })).toBeTruthy(); // 等待态解除
+    expect(screen.getByRole("button", { name: "启动服务" })).toBeTruthy(); // 等待态解除
   });
 
   it("确保启动(快路径):已健康 = 应答即终态,零事件直接翻徽章", async () => {
@@ -354,7 +354,7 @@ describe("设置 · 模型管理卡:本地 server 代管行", () => {
     render(<VisionModelsCard />);
     expect((await screen.findByTestId("vision-server-badge")).textContent).toBe("未运行");
 
-    fireEvent.click(screen.getByRole("button", { name: "确保启动" }));
+    fireEvent.click(screen.getByRole("button", { name: "启动服务" }));
 
     expect((await screen.findByTestId("vision-server-badge")).textContent).toBe("运行中 · 健康");
     await screen.findByTestId("vision-ensure-status");
@@ -373,8 +373,8 @@ describe("设置 · 模型管理卡:本地 server 代管行", () => {
     render(<VisionModelsCard />);
     await screen.findByTestId("vision-server-badge");
 
-    fireEvent.click(screen.getByRole("button", { name: "确保启动" }));
-    await waitFor(() => expect(screen.getByTestId("vision-server-badge").textContent).toBe("确保启动中…"));
+    fireEvent.click(screen.getByRole("button", { name: "启动服务" }));
+    await waitFor(() => expect(screen.getByTestId("vision-server-badge").textContent).toBe("启动中…"));
 
     act(() => {
       emitSidecarEvent?.({ type: "image.server.completed", job_id: 6, ok: false, error: "no_local_model", ts: "2026-10-03T00:00:00Z" });
@@ -383,7 +383,7 @@ describe("设置 · 模型管理卡:本地 server 代管行", () => {
     const box = await screen.findByRole("alert");
     expect(box.textContent).toContain("no_local_model");
     // 等待态解除(按钮回可点,事件已收口)
-    expect(screen.getByRole("button", { name: "确保启动" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "启动服务" })).toBeTruthy();
   });
 
   it("确保启动被拒(ensure_busy 单飞)→ 同步结构化错误上屏", async () => {
@@ -398,7 +398,7 @@ describe("设置 · 模型管理卡:本地 server 代管行", () => {
     render(<VisionModelsCard />);
     await screen.findByTestId("vision-server-badge");
 
-    fireEvent.click(screen.getByRole("button", { name: "确保启动" }));
+    fireEvent.click(screen.getByRole("button", { name: "启动服务" }));
 
     const box = await screen.findByRole("alert");
     expect(box.textContent).toContain("ensure_busy");

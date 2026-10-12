@@ -191,7 +191,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         id: "action-reload",
         group: "动作",
         label: "刷新",
-        hint: "重载界面",
+        hint: "重新加载界面",
         keywords: "reload refresh",
         icon: RefreshCw,
         run: () => {
@@ -346,7 +346,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         </div>
 
         <footer className="flex items-center gap-3 border-t border-border/60 px-4 py-2 text-2xs text-muted-foreground">
-          <span>↑↓ 巡游</span>
+          <span>↑↓ 选择</span>
           <span>↵ 执行</span>
           <span>esc 关闭</span>
           <span className="flex-1" />

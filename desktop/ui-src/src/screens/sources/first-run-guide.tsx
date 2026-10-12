@@ -41,8 +41,8 @@ const GUIDE_CARDS: GuideCardSpec[] = [
   },
   {
     icon: Send,
-    title: "精评与推送",
-    description: "LLM 精评凭据、推送通道(chat_id/bot token)在「设置」录入(只入钥匙链)",
+    title: "AI 评分与推送",
+    description: "AI 评分凭据(API Key)在「设置」录入;推送凭据(chat_id / bot token)在「配置 → 机器人凭据」录入(均只入钥匙串)",
     href: "#/settings",
   },
 ];

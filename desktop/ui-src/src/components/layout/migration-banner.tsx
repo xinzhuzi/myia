@@ -58,7 +58,7 @@ export function MigrationBanner() {
     >
       <Info className="mt-0.5 size-4 shrink-0 text-warning" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground">检测到旧版数据:新版改为自管 Python 环境,需一次性配置</p>
+        <p className="text-sm font-medium text-foreground">检测到旧版数据:新版改由应用自动管理 Python 环境,需一次性配置</p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           你的数据库、插件、模型与钥匙串凭据全部原样沿用,零迁移零丢失;首次使用前请在设置的「Python 环境」分区完成一次配置(运行时与依赖在线下载,首次运行需联网)。
         </p>

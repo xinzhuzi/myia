@@ -193,8 +193,8 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
       setEndpointDirty(false); // 回读回填刚保存的值(与用户输入一致,良性)
       setNote({
         text: envBridged
-          ? `${categoryId} remote 配置已保存 → ${result.path}(端点即时生效,经 env 通道桥接)`
-          : `${categoryId} remote 配置已保存 → ${result.path}(该件端点经品类 YAML 消费,面板值暂无引擎 env 通道)`,
+          ? `${categoryId} remote 配置已保存 → ${result.path}(端点保存后立即生效)`
+          : `${categoryId} remote 配置已保存 → ${result.path}(该插件的端点由品类配置文件读取,保存后需重启生效)`,
         ok: true,
       });
       await reload();
@@ -205,7 +205,7 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
       // secret.set 自身失败则未写入,零披露。
       if (secretWritten) {
         setNote({
-          text: `注意:保存被拒,但 API 键已先行写入系统钥匙串(${tokenRef};凭据面可见,secret 可删)`,
+          text: `注意:保存被拒,但 API Key 已先行写入系统钥匙串(${tokenRef};凭据面可见,secret 可删)`,
           ok: false,
         });
       }
@@ -226,7 +226,7 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
         setProbe({ text: "未配置(保存端点后可探活;未配置 = 降级链既有行为,不拦管线)", ok: true });
       } else if (section.probe?.ok) {
         setProbe({
-          text: `连通(${section.probe.message};${section.endpoint_display}${section.api_key_configured ? ",API 键已设" : ""})`,
+          text: `连通(${section.probe.message};${section.endpoint_display}${section.api_key_configured ? ",API Key 已设" : ""})`,
           ok: true,
         });
       } else {
@@ -250,7 +250,7 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
       <div className="flex flex-wrap items-center gap-1.5">
         <Globe className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="text-2xs font-medium text-foreground">
-          remote 端点配置(云端或自有服务器;写数据根{envBridged ? ",经 env 通道桥接给引擎" : ";该件经品类 YAML 消费,暂无引擎 env 通道"})
+          remote 端点配置(云端或自有服务器;保存在数据目录{envBridged ? ",自动传给引擎" : ";该组件经品类 YAML 消费,暂不自动传给引擎"})
         </span>
         <Badge variant={configured !== false && configured !== true ? "outline" : configured ? "ok" : "warning"} data-testid={`bundled-remote-panel-${plugin.dir_name}-state`}>
           {configured === undefined ? "读取中" : configured === null ? "读取失败" : configured ? "已配置" : "未配置"}
@@ -273,8 +273,8 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
           autoComplete="new-password"
           value={token}
           onChange={(event) => setToken(event.target.value)}
-          placeholder="API 键(留空 = 保持现值;保存即入系统钥匙串)"
-          aria-label={`${plugin.name ?? categoryId} API 键`}
+          placeholder="API Key(留空 = 保持现值;保存即写入系统钥匙串)"
+          aria-label={`${plugin.name ?? categoryId} API Key`}
           data-testid={`bundled-remote-panel-${plugin.dir_name}-token`}
           className="min-w-0 flex-1 font-mono text-2xs"
         />
@@ -286,8 +286,8 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
             data-testid={`bundled-remote-panel-${plugin.dir_name}-save`}
             title={
               devBlocked
-                ? "dev 形态无桌面数据根:remote 配置不落盘(开发后门 = 显式 env,如 MYIA_FIRECRAWL_URL);禁存防「secret.set 已入钥匙串而 save 恒拒」的部分成功"
-                : "端点落数据根配置;填了 API 键则先入系统钥匙串(secret.set 同门),配置只存 keychain: 引用"
+                ? "dev 形态无桌面数据目录:remote 配置不落盘(开发调试用显式 env,如 MYIA_FIRECRAWL_URL);禁存防「secret.set 已入钥匙串而 save 恒拒」的部分成功"
+                : "端点保存到数据目录;填了 API Key 则先入系统钥匙串(secret.set 同一套),配置只存 keychain: 引用"
             }
             onClick={() => void handleSave()}
           >
@@ -329,7 +329,7 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
         </p>
       ) : null}
       <p className="text-left text-2xs leading-4 text-muted-foreground">
-        凭据只入系统钥匙串({tokenRef}),配置与日志零明文;env MYIA_FIRECRAWL_URL 保留为开发后门(显式设置恒优先)。
+        凭据只入系统钥匙串({tokenRef}),配置与日志零明文;环境变量 MYIA_FIRECRAWL_URL 可覆盖此处配置(显式设置时优先,供开发调试用)。
       </p>
     </div>
   );
@@ -417,7 +417,7 @@ export function BundledPluginsCard() {
       if (category.id === null) return; // 坏 YAML 件:无可安装内容,按了也装不上
       if (category.exists) {
         const confirmed = window.confirm(
-          `覆盖品类文件 ${category.file}?\n\n数据根已有同名文件(补种或自建);覆盖将丢失其中的本地修改。`,
+          `覆盖品类文件 ${category.file}?\n\n数据目录已有同名文件(补种或自建);覆盖将丢失其中的本地修改。`,
         );
         if (!confirmed) return;
       }
@@ -449,7 +449,7 @@ export function BundledPluginsCard() {
         </CardTitle>
         <CardDescription>
           安装包内已随包分发的官方插件组件包:一键装/重装/卸载(整目录拷贝,manifest 校验 + 版本矩阵 + 绝不半装,与 CLI{" "}
-          <code>myssia plugin install/remove</code> 同一道门)。品类 YAML(羊毛/行情等)走启动补种自动补缺;本分区亦提供显式安装/覆盖(批二)。
+          <code>myssia plugin install/remove</code> 同一道门)。品类 YAML(羊毛/行情等)走启动补种自动补缺;本分区亦提供显式安装/覆盖。
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -573,7 +573,7 @@ export function BundledPluginsCard() {
                           plugin.id === null
                             ? "manifest 坏件:目录内 manifest 无法通过校验,不可安装(见上方 finding)"
                             : installBlocked
-                              ? "随包件要求更高版本 myssia,当前不可安装(请随壳更新;CLI 面可 --force 强制)"
+                              ? "随包组件要求更高版本 myssia,当前无法安装(请更新 MYIA 桌面应用后重试;命令行下可 --force 强制安装)"
                               : plugin.installed
                                 ? "覆盖重装(先清后拷;已装版本低于随包版本时即更新)"
                                 : "整目录拷贝装进插件根(manifest 校验 + 版本矩阵)"
@@ -698,7 +698,7 @@ export function BundledPluginsCard() {
                               category.id === null
                                 ? "品类 YAML 坏件:无法通过校验,不可安装(见上方 finding)"
                                 : category.exists
-                                  ? "覆盖数据根同名文件(本地修改会丢失;确认后执行)"
+                                  ? "覆盖数据目录同名文件(本地修改会丢失;确认后执行)"
                                   : "单文件平铺拷到插件根(与启动补种同落点)"
                             }
                             onClick={() => void handleCategoryInstall(category)}

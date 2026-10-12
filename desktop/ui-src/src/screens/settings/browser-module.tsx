@@ -106,7 +106,7 @@ export function BrowserModuleCard() {
 
   const handleClose = useCallback(
     (opId: string) =>
-      void runAction(opId, () => browserClose(opId), `已请求关闭操作 ${opId} 的浏览器窗口(收尾后台账转「已关闭」)。`),
+      void runAction(opId, () => browserClose(opId), `已请求关闭操作 ${opId} 的浏览器窗口(关闭后记录转为「已关闭」)。`),
     [runAction],
   );
 
@@ -116,7 +116,7 @@ export function BrowserModuleCard() {
       void runAction(
         opId,
         () => browserOpen(kind, sessionKey, { force: true }),
-        `操作 ${sessionKey} 已重新拉起浏览器窗口(清档重登)。`,
+        `操作 ${sessionKey} 已重新打开浏览器窗口(已清除旧登录数据)。`,
       ),
     [runAction],
   );
@@ -132,15 +132,15 @@ export function BrowserModuleCard() {
           浏览器操作
         </CardTitle>
         <CardDescription>
-          一切浏览器操作的统一入口与台账(单入口:窗口生命周期/错误上浮/操作审计集中在本模块;
-          登录窗 = MYIA 自管 Chromium,由你的点击触发拉起)。新浏览器需求(授权/验证码/核验)登记后同律接入。
+          一切浏览器操作的统一入口与记录(单入口:窗口生命周期/错误上浮/操作记录集中在本模块;
+          登录窗口 = MYIA 托管的 Chromium,由你的点击触发打开)。新浏览器需求(授权/验证码/核验)登记后同律接入。
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {loadError ? <ErrorBox error={loadError} onRetry={() => void refresh()} /> : null}
         {ledger === null && loadError === null ? (
           <span data-testid="browser-module-loading" className="py-2 text-xs text-muted-foreground">
-            操作台账装载中…
+            操作记录加载中…
           </span>
         ) : null}
 
@@ -148,8 +148,8 @@ export function BrowserModuleCard() {
           <div data-testid="browser-operations" className="flex flex-col gap-2">
             {operations.length === 0 ? (
               <p data-testid="browser-operations-empty" className="text-xs text-muted-foreground">
-                尚无浏览器操作:到「Telegram」屏(侧栏「配置」组;原称「TG 账号」,56696b6 随主人令更名)点「添加账号 / 重新登录」即在本模块登记第一条操作
-                (登录窗与账号状态两侧联动);这里也是未来授权/验证码/手动核验窗口的统一台账。
+                尚无浏览器操作:到「Telegram」屏(侧栏「配置」组)点「添加账号 / 重新登录」,即可在这里登记第一条操作
+                (登录窗与账号状态两侧联动);这里也是未来授权/验证码/手动核验窗口的统一入口。
               </p>
             ) : null}
             {operations.map((op) => {
@@ -206,7 +206,7 @@ export function BrowserModuleCard() {
                           disabled={busyOp === op.op_id}
                           onClick={() => handleRetry(op.op_id, op.kind, op.session_key)}
                           data-testid={`browser-op-${op.op_id}-retry`}
-                          title="清档重登:重新拉起该会话的浏览器窗口(force)"
+                          title="重新登录:清除该会话旧登录数据后重新打开浏览器窗口"
                         >
                           <RefreshCw className="size-3.5" />
                           重试
@@ -253,7 +253,7 @@ export function BrowserModuleCard() {
             </p>
           ) : null}
           <p className="text-2xs leading-4 text-muted-foreground">
-            台账为会话态(重启 app 后清空,已落档的登录态不受影响);登录窗由你的点击触发拉起,
+            记录仅本次会话内有效(重启应用后清空,已保存的登录状态不受影响);登录窗口由你的点击触发打开,
             手机号/验证码/两步验证全在浏览器页面内输入,本模块零读取零落日志。
           </p>
         </div>

@@ -198,7 +198,7 @@ describe("PyenvCard:设置屏「表格还原」组件开关", () => {
       expect(screen.getByTestId("pyenv-component-table-state").textContent).toBe("已装"),
     );
     expect(screen.getByRole("switch", { name: "组件开关 table" }).getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByTestId("pyenv-component-note").textContent).toContain("已装进自管环境");
+    expect(screen.getByTestId("pyenv-component-note").textContent).toContain("已装进应用管理的环境");
   });
 
   it("安装失败回包(outcome.error=pip_failed):alert 如实呈现,开关保持 off(回读未翻)", async () => {
@@ -229,7 +229,7 @@ describe("PyenvCard:设置屏「表格还原」组件开关", () => {
 
     await screen.findByTestId("pyenv-component-note");
     expect(callsOf("pyenv_install_component")).toEqual([]);
-    expect(screen.getByTestId("pyenv-component-note").textContent).toContain("卸载本期未提供");
+    expect(screen.getByTestId("pyenv-component-note").textContent).toContain("卸载将在后续版本提供");
     expect(screen.getByRole("switch", { name: "组件开关 table" }).getAttribute("aria-checked")).toBe("true");
   });
 

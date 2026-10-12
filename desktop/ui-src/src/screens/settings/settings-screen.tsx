@@ -95,7 +95,7 @@ interface SettingsSection {
 }
 
 const SECTIONS: SettingsSection[] = [
-  { id: "general", label: "通用", icon: SlidersHorizontal, title: "通用", description: "LLM 精评与代理池凭据 + doctor 诊断" },
+  { id: "general", label: "通用", icon: SlidersHorizontal, title: "通用", description: "AI 评分与代理池凭据 + 诊断" },
   { id: "vision", label: "视觉", icon: Eye, title: "视觉", description: "看图通道与 OCR + MLX 视觉模型" },
   { id: "gates", label: "门槛件", icon: Lock, title: "门槛件", description: "付费 SaaS / 自有实例 / 分析件:知情启用(fail-closed,缺省全关)" },
   // 10-05-bundled-plugins-install:装机组件分区(随包官方插件件发现/一键装;
@@ -140,7 +140,7 @@ const SECTION_FIELD_TERMS: Record<string, string> = {
   browser:
     "浏览器 模块 操作 台账 登录中 完成 失败 重试 窗口 聚焦 关闭 日志 尾巴 chromium playwright 授权 验证码 核验",
   "python-env": "python 运行时 依赖 下载源 安装路径 使用路径 镜像 pypi 安装明细 同步",
-  system: "sidecar 连接 状态 更新 版本 凭据 钥匙链 secret 删除 危险区",
+  system: "sidecar 连接 状态 更新 版本 凭据 钥匙串 钥匙链 secret 删除 危险区",
 };
 
 /** 搜索上下文:query = 过滤框词面(小写 trim);sectionNameMatched = 当前
@@ -204,7 +204,7 @@ function CardSaveBar({
         ) : null}
         {state?.kind === "saved" ? (
           <div role="status" data-testid="save-status" className="text-xs text-ok">
-            已写入钥匙链:{state.names.join("、")}(值不回显)
+            已写入钥匙串:{state.names.join("、")}(值不回显)
             {state.note ? <span className="mt-0.5 block text-2xs text-muted-foreground">{state.note}</span> : null}
           </div>
         ) : null}
@@ -288,7 +288,7 @@ function EnrichFeedbackCard({
           评分与反馈
         </CardTitle>
         <CardDescription>
-          逐品类 LLM 精评开关(enrich.enabled,切换即写回)+ 预算护栏 + model 写回;反馈的 👍/👎 标记在情报流卡片,统计在仪表盘
+          逐品类 AI 评分开关(enrich.enabled,切换即写回)+ 预算护栏 + model 写回;反馈的 👍/👎 标记在情报流卡片,统计在仪表盘
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -327,27 +327,27 @@ function EnrichFeedbackCard({
                     description={`预算护栏 budget_per_run = ${enrich.budget_per_run}(只读,改值走「YAML配置」)`}
                   >
                     <span className="text-2xs text-muted-foreground">
-                      {row.saving ? "写回中…" : enrich.enabled ? "精评已启用" : "精评已停用"}
+                      {row.saving ? "写回中…" : enrich.enabled ? "AI 评分已启用" : "AI 评分已停用"}
                     </span>
                     {/* 开关行:自动保存无按钮(拆解表第 5 条;Linear 开关即时生效模式) */}
                     <Switch
                       checked={enrich.enabled}
                       disabled={row.saving}
-                      aria-label={`精评开关 ${categoryFile}`}
+                      aria-label={`AI 评分开关 ${categoryFile}`}
                       title="切换即写回品类 YAML enrich.enabled(yaml.save,注释保真)"
                       onCheckedChange={() =>
                         void writeNode(
                           categoryFile,
                           "enabled",
                           enrich.enabled ? "false" : "true",
-                          `${categoryFile} 精评已${enrich.enabled ? "停用" : "启用"}(enrich.enabled 写回,doctor 已复核)。`,
+                          `${categoryFile} AI 评分已${enrich.enabled ? "停用" : "启用"}(enrich.enabled 写回,doctor 已复核)。`,
                         )
                       }
                     />
                   </SettingRow>
                   <FieldInput
                     label="enrich.model"
-                    aria-label={`精评模型 ${categoryFile}`}
+                    aria-label={`AI 评分模型 ${categoryFile}`}
                     placeholder={enrich.model}
                     value={modelValue}
                     hint="写回品类 YAML enrich.model(yaml.save;doctor 回显为现值)"
@@ -672,8 +672,8 @@ function GatesForm({
                 <div key={name} data-testid={`gates-saas-row-${name}`} className="flex flex-col">
                   <SettingRow label={official?.label ?? name} description={official?.note ?? "付费 SaaS 逐件开关(community 件;按页计费知情)"}>
                     {gate.enabled && secretNames !== null && !keyPresent ? (
-                      <Badge variant="destructive" title={`钥匙链缺 ${secretName};开启态调用会因凭据缺失失败`}>
-                        钥匙链缺键
+                      <Badge variant="destructive" title={`钥匙串缺 ${secretName};开启态调用会因凭据缺失失败`}>
+                        钥匙串缺键
                       </Badge>
                     ) : null}
                     <Switch
@@ -691,7 +691,7 @@ function GatesForm({
                     value={paidValues[name] ?? ""}
                     onChange={(event) => setPaidValues((prev) => ({ ...prev, [name]: event.target.value }))}
                     labelHint="密钥只存进系统钥匙串,配置文件里只存一个指名道姓的引用、不存明文。留空保存不会动已录过的旧密钥。"
-                    hint={`值只入钥匙链,配置侧存 ${gate.api_key ?? saasKeyRef(name)} 引用(明文引用会被拒载)`}
+                    hint={`值只入钥匙串,配置侧存 ${gate.api_key ?? saasKeyRef(name)} 引用(明文引用会被拒载)`}
                   />
                 </div>
               );
@@ -767,7 +767,7 @@ function GatesForm({
                       placeholder={`写入 ${tokenName};留空不覆盖`}
                       value={tokenValues[name] ?? ""}
                       onChange={(event) => setTokenValues((prev) => ({ ...prev, [name]: event.target.value }))}
-                      hint={`值只入钥匙链,配置侧存 ${gate.token ?? platformTokenRef(name)} 引用`}
+                      hint={`值只入钥匙串,配置侧存 ${gate.token ?? platformTokenRef(name)} 引用`}
                     />
                   ) : null}
                 </div>
@@ -951,7 +951,7 @@ export function SettingsScreen() {
         note = "base_url 是 env:/keychain: 引用:请把该引用直接写入品类 YAML enrich.base_url(品类 YAML 写回属协议缺口,见 openIssues)。";
       } else if (base) {
         saved.push(await saveSecret(SECRET_NAME_LLM_BASE_URL, base));
-        note = "base_url 值已入钥匙链;品类 YAML 侧以 keychain:myia/llm/base_url 引用(schema 只收引用,端点值不落盘)。";
+        note = "base_url 值已入钥匙串;品类 YAML 侧以 keychain:myia/llm/base_url 引用(schema 只收引用,端点值不落盘)。";
       }
       if (llm.key) {
         saved.push(await saveSecret(SECRET_NAME_LLM_API_KEY, llm.key));
@@ -987,7 +987,7 @@ export function SettingsScreen() {
       setProxySave({
         kind: "saved",
         names: [record.name],
-        note: "池凭据已入钥匙链;全局 pools YAML 侧以 keychain:myia/proxy/<pool> 引用(池 URL 结构写回属协议缺口)。",
+        note: "池凭据已入钥匙串;全局 pools YAML 侧以 keychain:myia/proxy/<pool> 引用(池 URL 结构写回属协议缺口)。",
       });
       setProxy((prev) => ({ ...prev, value: "" }));
       await runDoctor();
@@ -1140,7 +1140,7 @@ export function SettingsScreen() {
                 10-05 归位:79f7f7b 分区 6→4 收编时「高级」区被移除,此卡曾在
                 守卫 id==="advanced" 的死分支里 UI 不可达;系统分区描述与终态
                 合同本就写着「凭据管理」——钥匙链清单/删除的唯一入口在此落地 */}
-            <Searchable terms="凭据 钥匙链 secret 删除 危险区">
+            <Searchable terms="凭据 钥匙串 钥匙链 secret 删除 危险区">
             <Card
               data-testid="settings-danger-zone"
               className="border-destructive/40 bg-destructive/[0.04]"
@@ -1148,7 +1148,7 @@ export function SettingsScreen() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-destructive">
                   <ShieldAlert className="size-4" />
-                  危险区 · 钥匙链凭据(secret.list)
+                  危险区 · 钥匙串凭据(secret.list)
                 </CardTitle>
                 <CardDescription>
                   只有名字,值永不可读(secrets.py 契约);删除需二次确认,删除后引用该凭据的源将采集失败
@@ -1204,9 +1204,9 @@ export function SettingsScreen() {
             </Card>
             </Searchable>
 
-            <Searchable terms="凭据 钥匙链 secret 安全底线 keychain">
+            <Searchable terms="凭据 钥匙串 钥匙链 secret 安全底线 keychain">
             <p className="text-2xs text-muted-foreground">
-              安全底线:任何凭据输入只经协议 secret.set 写入系统钥匙链(macOS Keychain /
+              安全底线:任何凭据输入只经协议 secret.set 写入系统钥匙串(macOS Keychain /
               Windows DPAPI);配置文件出现明文凭据 = 启动即报错拒跑。model /
               enrich.enabled 经「通用 → 评分与反馈」写回品类 YAML(yaml.save,注释保真);
               池 URL 结构写回顺延(待拍板落点),push 通道声明去「YAML配置」。
@@ -1221,10 +1221,10 @@ export function SettingsScreen() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <KeyRound className="size-4 text-muted-foreground" />
-                    LLM 精评
+                    AI 评分
                   </CardTitle>
                   <CardDescription>
-                    base_url / key 属凭据类,只经 secret.set 入钥匙链;model 经下方「评分与反馈」写回品类 YAML(yaml.save)
+                    base_url / key 属凭据类,只经 secret.set 入钥匙串;model 经下方「评分与反馈」写回品类 YAML(yaml.save)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-1">
@@ -1236,7 +1236,7 @@ export function SettingsScreen() {
                       value={llm.baseUrl}
                       onChange={(event) => setLlm((prev) => ({ ...prev, baseUrl: event.target.value }))}
                       error={llmErrors.baseUrl}
-                      hint="http(s) 地址 → 值入钥匙链(myia/llm/base_url);env:/keychain: 引用 → 直接写 YAML,不经界面"
+                      hint="http(s) 地址 → 值入钥匙串(myia/llm/base_url);env:/keychain: 引用 → 直接写 YAML,不经界面"
                     />
                     <FieldInput
                       label="model"
@@ -1287,7 +1287,7 @@ export function SettingsScreen() {
                     <Globe className="size-4 text-muted-foreground" />
                     代理池
                   </CardTitle>
-                  <CardDescription>池凭据入钥匙链;池 URL 结构在全局 pools YAML(探测走 doctor --config)</CardDescription>
+                  <CardDescription>池凭据入钥匙串;池 URL 结构在全局 pools YAML(探测走 doctor --config)</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-1">
                   <div className="divide-y divide-border/60">
@@ -1314,10 +1314,10 @@ export function SettingsScreen() {
                     <FieldInput
                       label="全局 pools YAML 路径"
                       aria-label="pools YAML 路径"
-                      placeholder="留空=自动探测 <数据根>/pools.yaml"
+                      placeholder="留空=自动探测 <数据目录>/pools.yaml"
                       value={probePath}
                       onChange={(event) => setProbePath(event.target.value)}
-                      hint="留空自动探测数据根缺省文件;填写则用该路径探测"
+                      hint="留空自动探测数据目录缺省文件;填写则用该路径探测"
                       action={
                         <Button size="sm" variant="secondary" onClick={() => void handleProbe()} disabled={verifying}>
                           探测

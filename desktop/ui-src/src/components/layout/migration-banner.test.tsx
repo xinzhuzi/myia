@@ -111,7 +111,7 @@ describe("MigrationBanner:存量迁移一次性引导", () => {
     renderBanner();
 
     const banner = await screen.findByTestId("migration-banner");
-    expect(banner.textContent).toContain("自管 Python 环境");
+    expect(banner.textContent).toContain("自动管理 Python 环境");
     expect(banner.textContent).toContain("一次性配置");
     expect(banner.textContent).toContain("原样沿用");
     expect(screen.getByTestId("migration-banner-goto-settings")).toBeTruthy();

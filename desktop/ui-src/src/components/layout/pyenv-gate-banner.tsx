@@ -26,11 +26,11 @@ const GATE_TEXT: Partial<Record<PyenvState, { title: string; detail: string }>> 
   },
   installing: {
     title: "Python 运行环境安装中…",
-    detail: "下载 → 校验 → 解压 → 依赖 → 自检进行中,完成后本横幅自动消失;进度明细见设置页。",
+    detail: "下载 → 校验 → 解压 → 安装依赖 → 自检进行中,完成后本横幅自动消失;进度明细见设置页。",
   },
   error: {
     title: "Python 运行环境异常",
-    detail: "安装链失败或中断:请在设置的「Python 环境」分区查看明细并点「重新安装」重试(已装步骤会跳过)。",
+    detail: "安装失败或中断:请在设置的「Python 环境」分区查看明细并点「重新安装」重试(已装好的部分会跳过)。",
   },
 };
 

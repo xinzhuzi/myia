@@ -313,7 +313,7 @@ describe("PyenvCard:设置屏「Python 运行环境」区块", () => {
     installListen();
     render(<PyenvCard />);
     await screen.findByTestId("pyenv-state-badge");
-    expect(screen.getByTestId("pyenv-state-badge").textContent).toContain("依赖漂移");
+    expect(screen.getByTestId("pyenv-state-badge").textContent).toContain("依赖待更新");
 
     fireEvent.click(screen.getByTestId("pyenv-sync-deps"));
     await waitFor(() => expect(callsOf("pyenv_sync_deps").length).toBe(1));

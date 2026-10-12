@@ -638,13 +638,13 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
     const row = await screen.findByTestId("enrich-row-config/stocks.yaml");
     expect(row.textContent).toContain("stocks.yaml");
     expect(row.textContent).toContain("budget_per_run = 40");
-    expect(row.textContent).toContain("精评已启用");
+    expect(row.textContent).toContain("AI 评分已启用");
   });
 
   it("停用开关(Switch 即时写回):yaml.read → 文本手术(enabled: true→false)→ yaml.save(mtime 锁)→ doctor 复核", async () => {
     const state = installYamlSidecar();
     renderScreen();
-    const toggle = await screen.findByRole("switch", { name: "精评开关 config/stocks.yaml" });
+    const toggle = await screen.findByRole("switch", { name: "AI 评分开关 config/stocks.yaml" });
     fireEvent.click(toggle);
 
     await waitFor(() => expect(state.saved).not.toBeNull());
@@ -664,7 +664,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
   it("model 写回:与现值一致禁用保存;改值后 yaml.save 带 mtime 锁", async () => {
     const state = installYamlSidecar();
     renderScreen();
-    const input = await screen.findByLabelText("精评模型 config/stocks.yaml");
+    const input = await screen.findByLabelText("AI 评分模型 config/stocks.yaml");
     // 现值一致 → 保存禁用(本项目无 jest-dom,原生 disabled 直查)
     expect((screen.getByRole("button", { name: /保存 model/ }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(input, { target: { value: "glm-4.6" } });
@@ -691,7 +691,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
       },
     });
     renderScreen();
-    fireEvent.click(await screen.findByRole("switch", { name: "精评开关 config/stocks.yaml" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "AI 评分开关 config/stocks.yaml" }));
     // 断言限定本卡(结构重做后 vision-form 仅在「视觉」分区挂载,本区唯一 alert)
     const card = screen.getByTestId("enrich-feedback-card");
     const box = await within(card).findByRole("alert");
@@ -726,7 +726,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
       },
     );
     renderScreen();
-    fireEvent.click(await screen.findByRole("switch", { name: "精评开关 config/stocks.yaml" }));
+    fireEvent.click(await screen.findByRole("switch", { name: "AI 评分开关 config/stocks.yaml" }));
     const note = await screen.findByTestId("enrich-node-error");
     expect(note.textContent).toContain("缺少 enrich");
     expect(note.textContent).toContain("YAML配置");
@@ -871,7 +871,7 @@ describe("设置:分区导航与危险区(D4 结构重做)", () => {
     (releaseSave as (() => void) | null)?.();
     const status = await screen.findByTestId("save-status");
     expect(status.textContent).toContain("myia/llm/base_url");
-    expect(status.closest("[data-slot='card']")?.textContent).toContain("LLM 精评"); // 反馈留在本卡底栏
+    expect(status.closest("[data-slot='card']")?.textContent).toContain("AI 评分"); // 反馈留在本卡底栏
   });
 });
 

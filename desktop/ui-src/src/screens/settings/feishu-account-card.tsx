@@ -92,7 +92,7 @@ export function FeishuAccountCard() {
       // 动态 import:浏览器直开(vitest)不加载 Tauri 壳包,点击才触路。
       const shell = await import("@tauri-apps/plugin-shell");
       await shell.open(result.authorize_url);
-      setNote(`授权页已在系统浏览器打开(账号 ${key});完成授权后本卡自动对账。`);
+      setNote(`授权页已在系统浏览器打开(账号 ${key});完成授权后本卡自动核对。`);
       setNewAccount("");
       setNewAccountLabel("");
       const pollId = pollRef.current + 1;
@@ -139,7 +139,7 @@ export function FeishuAccountCard() {
   const handleDelete = useCallback(
     async (account: FeishuAccount) => {
       const label = account.label ?? account.account;
-      if (!window.confirm(`确定删除账号「${label}」(${account.account})?\n\n钥匙链中的授权 token 与账号记录将一并清除。`)) {
+      if (!window.confirm(`确定删除账号「${label}」(${account.account})?\n\n钥匙串中的授权 token 与账号记录将一并清除。`)) {
         return;
       }
       setActionError(null);
@@ -168,7 +168,7 @@ export function FeishuAccountCard() {
           飞书账号
         </CardTitle>
         <CardDescription>
-          本身账号(user_access_token 授权态)管理:与「推送机器人」凭据是两回事——机器人配置在 设置→推送
+          个人账号(user_access_token 授权)管理:与「推送机器人」凭据是两回事——机器人配置在 配置 → 机器人凭据
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -241,7 +241,7 @@ export function FeishuAccountCard() {
                   size="sm"
                   variant="outline"
                   disabled={busyAccount === entry.account}
-                  title="删除授权(钥匙链 token 与账号记录一并清除)"
+                  title="删除授权(钥匙串 token 与账号记录一并清除)"
                   onClick={() => void handleDelete(entry)}
                 >
                   <Trash2 className="size-3.5" />
@@ -257,7 +257,7 @@ export function FeishuAccountCard() {
         <div className="flex flex-col gap-1.5 rounded-md border border-border bg-muted/30 p-2">
           <p className="text-xs font-medium text-foreground">添加账号(键名)</p>
           <p className="text-2xs text-muted-foreground">
-            起键名点「发起授权」,系统浏览器打开飞书授权页,完成后本卡自动对账入列。
+            输入键名点「发起授权」,系统浏览器打开飞书授权页,完成后本卡自动核对入列。
           </p>
           <div className="flex items-center gap-1.5">
             <Input
@@ -288,7 +288,7 @@ export function FeishuAccountCard() {
           </div>
           {newAccount.trim().length > 0 && !FEISHU_KEY_RE.test(newAccount.trim()) ? (
             <p role="alert" className="text-2xs text-destructive">
-              键名不合规:全称律 feishu-{"<标识>"},小写字母/数字/-/_
+              键名格式不对:须为 feishu-{"<标识>"},小写字母/数字/-/_
             </p>
           ) : null}
         </div>

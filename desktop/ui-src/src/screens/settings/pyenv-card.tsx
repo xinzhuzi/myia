@@ -55,7 +55,7 @@ const STATE_META: Record<PyenvState, { label: string; badge: "outline" | "ok" | 
     label: "未配置",
     badge: "outline",
     hint:
-      "Python 运行时与依赖不随安装包分发(D1);点「开始配置」在线下载安装,全程状态见下方明细。首跑需联网,离线无法完成配置。",
+      "Python 运行时与依赖不随安装包分发;点「开始配置」在线下载安装,全程状态见下方明细。首次运行需联网,离线无法完成配置。",
   },
   installing: {
     label: "安装中",
@@ -73,7 +73,7 @@ const STATE_META: Record<PyenvState, { label: string; badge: "outline" | "ok" | 
     hint: "安装链失败或中断:查看下方明细的失败项,点「重新安装」重试(幂等,已完成的步骤会跳过)。",
   },
   deps_stale: {
-    label: "依赖漂移",
+    label: "依赖待更新",
     badge: "warning",
     hint:
       "应用更新后随包依赖清单已变(D4):点「同步依赖」幂等重跑安装链,已装依赖会跳过;期间不拦 sidecar 运行。",
@@ -98,7 +98,7 @@ const SERVICE_HEALTH_POLL_MAX_ATTEMPTS = 24;
 const PHASE_LABEL: Record<PyenvPhase, string> = {
   downloading: "下载运行时",
   verifying: "校验 sha256",
-  extracting: "解压到数据根",
+  extracting: "解压到数据目录",
   installing_deps: "pip 安装依赖(锁版清单)",
   selfcheck: "自检(sidecar version 握手)",
 };
@@ -196,22 +196,22 @@ const COMPONENT_META: Record<string, { label: string; description: string }> = {
   table: {
     label: "表格还原",
     description:
-      "截图表格(行情/比价/参数对比/榜单)还原成结构化 Markdown:rapid_table 3.x onnx 引擎(与 extras myssia[table] 同栈闭包,含 rapidocr 单元格文字;不引 Paddle)。开关开 = 往自管环境装组件(首装联网,PyPI 镜像覆盖生效;SLANET-plus 结构模型首用时自动从 modelscope 下载,之后离线复用);管线侧行为由品类配置 images.table 控制",
+      "截图表格(行情/比价/参数对比/榜单)还原成结构化 Markdown:rapid_table 3.x onnx 引擎(与 extras myssia[table] 同一套依赖,含 rapidocr 单元格文字;不引 Paddle)。开关开 = 往应用管理的环境装组件(首装联网,PyPI 镜像覆盖生效;SLANET-plus 结构模型首用时自动从 modelscope 下载,之后离线复用);管线侧行为由品类配置 images.table 控制",
   },
   trafilatura: {
     label: "正文抽取兜底",
     description:
-      "网页正文抽取兜底引擎,零配置:static_html 引擎抓到页面但正文抽取缺失或规则跑空时,自动用 trafilatura 补抽正文。缺省关——开关是环境变量 MYIA_EXTRACT_FALLBACK(设为 1 才启用),不设零行为差;缺装时兜底自动降级,不影响核心流水线(闭包与 extras myssia[trafilatura] 同源,selectolax 钉 <1 防解析器兼容墙)",
+      "网页正文抽取兜底引擎,零配置:static_html 引擎抓到页面但正文抽取缺失或规则跑空时,自动用 trafilatura 补抽正文。缺省关——开关是环境变量 MYIA_EXTRACT_FALLBACK(设为 1 才启用),不设置则行为完全不变;缺装时兜底自动降级,不影响核心流水线(与 extras myssia[trafilatura] 同源,固定 selectolax <1 以防解析器不兼容)",
   },
   crawl4ai: {
     label: "JS 渲染抓取(crawl4ai)",
     description:
-      "JS 渲染抓取引擎 crawl4ai(L3,进程内无头浏览器;闭包与 extras myssia[crawl4ai] 同源,窗 >=0.9,<0.10):解锁纯客户端渲染源与 urlwatch 渲染通道、images 品类 L3 兜底。开关开 = pip 装闭包后自动下载 playwright chromium 浏览器二进制(下载约 300MB 级、落盘约 600MB,沙箱实测 557MB;走 Playwright CDN,耗时数分钟);浏览器落数据根 playwright-browsers/ 目录(PLAYWRIGHT_BROWSERS_PATH),不散落系统缓存区,卸载组件/清理数据根即整目录回收;chromium 拉取失败会在下方示错可重试(重试幂等)",
+      "JS 渲染抓取引擎 crawl4ai(L3,进程内无头浏览器;与 extras myssia[crawl4ai] 同源,版本要求 >=0.9 且 <0.10):解锁纯客户端渲染源与 urlwatch 渲染通道、images 品类 L3 兜底。开关开 = pip 装闭包后自动下载 playwright chromium 浏览器二进制(下载约 300MB 级、落盘约 600MB,沙箱实测 557MB;走 Playwright CDN,耗时数分钟);浏览器存到数据目录 playwright-browsers/ 目录(PLAYWRIGHT_BROWSERS_PATH),不散落系统缓存区,卸载组件/清理数据目录即整目录回收;chromium 拉取失败会在下方示错可重试(重试幂等)",
   },
   telethon: {
     label: "Telegram 用户线(telethon)",
     description:
-      "Telegram 账号 session 消息线(MTProto,读 bot 进不去的已加入群;闭包与 extras myssia[telethon] 同源,窗 >=1.36,<2,纯 Python 轻依赖,无浏览器量级下载)。桌面锁已随包收录本闭包,此卡是就绪检查与手动补装入口(重装幂等);使用前置一次性:钥匙串写入 api-id/api-hash(my.telegram.org 取值)→ 终端 myssia telegram login(手机号+验证码,建议挂小号),session 落数据根 telegram/(0600);缺装时用户线结构化降级不影响 bot 线,本线只读无发送能力",
+      "Telegram 账号 session 消息线(MTProto,读 bot 进不去的已加入群;与 extras myssia[telethon] 同源,版本要求 >=1.36 且 <2,纯 Python 轻依赖,无浏览器量级下载)。桌面锁已随包收录本闭包,此卡是就绪检查与手动补装入口(重装幂等);使用前置一次性:钥匙串写入 api-id/api-hash(my.telegram.org 取值)→ 终端 myssia telegram login(手机号+验证码,建议挂小号),session 存到数据目录 telegram/(0600);缺装时用户线结构化降级不影响 bot 线,本线只读无发送能力",
   },
   "wechat-bridge": {
     label: "微信本机桥(wechat-bridge)",
@@ -221,7 +221,7 @@ const COMPONENT_META: Record<string, { label: string; description: string }> = {
   searxng: {
     label: "关键词日报(SearXNG)",
     description:
-      "自托管聚合搜索服务组件(显式 engine: searxng 源的关键词日报底座):装好默认停,此处按钮手动启停(G-Q5:状态记忆,引擎跑源未启动=结构化提示不隐式拉起)。服务监听本机 127.0.0.1:8888,健康端点 /healthz;闭包约 100MB 级落数据根(无浏览器量级下载;PyPI 走镜像),源码从 GitHub 钉 commit 装(需可及 github.com),服务数据(settings.yml + 日志)落数据根 services/searxng/,清数据根即整目录回收",
+      "自托管聚合搜索服务组件(显式 engine: searxng 源的关键词日报底座):装好默认停,此处按钮手动启停(状态记忆,引擎跑源未启动=结构化提示,不自动启动)。服务监听本机 127.0.0.1:8888,健康端点 /healthz;组件约 100MB 级,存到数据目录(无浏览器量级下载;PyPI 走镜像),源码从 GitHub 固定 commit 装(需可及 github.com),服务数据(settings.yml + 日志)存到数据目录 services/searxng/,清理数据目录即整目录回收",
   },
 };
 
@@ -349,7 +349,7 @@ export function PyenvCard() {
       if (!next) {
         setComponentError(null);
         setComponentNote({
-          text: "组件卸载本期未提供(档记后续):此处开关只管装进自管环境;停用组件行为请调整品类/源配置不再引用该组件(table 走 images.table,crawl4ai 走源 engine 改离 crawl4ai)。",
+          text: "组件卸载将在后续版本提供:此处开关只管装进应用管理的环境;停用组件行为请调整品类/源配置不再引用该组件(table 走 images.table,crawl4ai 走源 engine 改离 crawl4ai)。",
           ok: false,
         });
         return;
@@ -363,7 +363,7 @@ export function PyenvCard() {
           setComponentNote({ text: `组件 ${component.id} 安装失败:${outcome.error}`, ok: false });
         } else {
           setComponentNote({
-            text: `组件 ${component.id} 已装进自管环境(指纹已记;可重开幂等跳过)。`,
+            text: `组件 ${component.id} 已装进应用管理的环境(指纹已记;重开时自动跳过)。`,
             ok: true,
           });
         }
@@ -458,7 +458,7 @@ export function PyenvCard() {
           start
             ? outcome.state === "running" && outcome.healthy
               ? { text: `服务 ${component.id} 已启动且健康检查通过(进程 pid=${outcome.pid})。`, ok: true }
-              : { text: `服务 ${component.id} 已拉起(pid=${outcome.pid})但健康端点尚未通过——实例可能在预热,本页每 ${SERVICE_HEALTH_POLL_INTERVAL_MS / 1000}s 自动对账一次(转绿即停);持续未绿请查数据根 services/${component.id}/service.log。`, ok: false }
+              : { text: `服务 ${component.id} 已启动(pid=${outcome.pid})但健康端点尚未通过——实例可能在预热,本页每 ${SERVICE_HEALTH_POLL_INTERVAL_MS / 1000}s 自动核对一次(状态变绿即停);持续未绿请查数据目录 services/${component.id}/service.log。`, ok: false }
             : { text: `服务 ${component.id} 已停止(进程组退出,零残留)。`, ok: true },
         );
       } catch (raw) {
@@ -515,13 +515,13 @@ export function PyenvCard() {
               <PathField
                 testid="pyenv-install-path"
                 label="安装路径"
-                description="install_only 包解压即得(数据根下,与 models/ 并排;绝不写安装目录)"
+                description="install_only 包解压即得(数据目录下,与 models/ 并排;绝不写安装目录)"
                 value={status.install_path}
               />
               <PathField
                 testid="pyenv-python-path"
                 label="Python 使用路径"
-                description="sidecar spawn 源(壳侧拉起自管 Python 的二进制)"
+                description="sidecar spawn 源(桌面壳启动应用管理的 Python)"
                 value={status.python_path}
               />
             </section>
@@ -602,7 +602,7 @@ export function PyenvCard() {
             {status.components.length > 0 ? (
               <section aria-labelledby="pyenv-components-title" className="flex flex-col gap-3">
                 <h3 id="pyenv-components-title" className="text-2xs font-medium tracking-wide text-muted-foreground">
-                  可选组件(按需装进自管环境,零重打包)
+                  可选组件(按需安装,零重打包)
                 </h3>
                 <div
                   data-testid="pyenv-components"
@@ -631,7 +631,7 @@ export function PyenvCard() {
                             {display?.label ?? component.id}
                           </span>
                           <p className="text-2xs leading-4 text-muted-foreground">
-                            {display?.description ?? "自管环境可选组件(按需安装)"}
+                            {display?.description ?? "可选组件(按需安装)"}
                           </p>
                           {busy ? (
                             <span
@@ -675,7 +675,7 @@ export function PyenvCard() {
                                   running
                                     ? healthy
                                       ? "健康端点 /healthz 返回 2xx"
-                                      : "运行中但健康端点未过(实例内部故障/慢启动;日志见数据根 services 目录)"
+                                      : "运行中但健康端点未过(实例内部故障/慢启动;日志见数据目录 services 目录)"
                                     : "服务未运行(装好默认停;点「启动」拉起)"
                                 }
                                 aria-label={`服务健康 ${component.id}`}
@@ -709,8 +709,8 @@ export function PyenvCard() {
                                 envBlocked
                                   ? "Python 环境未就位/主链安装中:先完成「开始配置」再装组件"
                                   : component.installed
-                                    ? "已装进自管环境;卸载本期未提供(停用走品类/源配置不再引用该组件)"
-                                    : "往自管环境装该组件(pip,镜像覆盖生效)"
+                                    ? "已装进应用管理的环境;卸载将在后续版本提供(停用走品类/源配置不再引用该组件)"
+                                    : "把该组件装进应用管理的环境(pip,镜像覆盖生效)"
                               }
                               onCheckedChange={(checked) =>
                                 void handleToggleComponent(component, checked)
@@ -811,7 +811,7 @@ export function PyenvCard() {
                     onClick={() => void handleStartSetup()}
                     disabled={setupBusy || syncBusy || status.state === "installing"}
                     data-testid="pyenv-start-setup"
-                    title="D2:显式开始配置(下载→校验→解压→依赖→自检);安装中不可重复触发;已装步幂等跳过"
+                    title="开始配置(下载 → 校验 → 解压 → 安装依赖 → 自检);安装中不可重复触发;已完成的步骤自动跳过"
                   >
                     <Download className={setupBusy ? "size-4 animate-pulse" : "size-4"} />
                     {status.state === "error" ? "重新安装" : status.state === "installing" ? "安装中…" : "开始配置"}

@@ -99,7 +99,7 @@ describe("飞书账号卡:添加授权流", () => {
     render(<FeishuAccountCard />);
     await waitFor(() => expect(screen.getByTestId("feishu-account-card")).toBeTruthy());
     fireEvent.change(screen.getByLabelText("飞书账号键名"), { target: { value: "bad-key!" } });
-    expect(screen.getByRole("alert").textContent).toContain("键名不合规");
+    expect(screen.getByRole("alert").textContent).toContain("键名格式不对");
     expect(isDisabled(screen.getByRole("button", { name: /发起授权/ }))).toBe(true);
     const calls = mocks.invoke.mock.calls.filter(([, args]) => (args as { method: string }).method === "platform_accounts.feishu.authorize");
     expect(calls).toHaveLength(0);

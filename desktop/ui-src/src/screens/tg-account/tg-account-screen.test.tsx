@@ -313,7 +313,7 @@ describe("TG 账号屏:账号列表与动作(v10 随迁用例,原 TelegramCard)"
     fireEvent.change(input, { target: { value: "bad-key" } });
     fireEvent.click(screen.getByTestId("telegram-web-add"));
     expect(loginCalls()).toHaveLength(0);
-    expect(await screen.findByText(/全称律 telegram-/)).not.toBeNull();
+    expect(await screen.findByText(/须为 telegram-/)).not.toBeNull();
   });
 
   it("重登按钮走 force:true(拉起后行进入登录中态)", async () => {
@@ -437,8 +437,8 @@ describe("TG 账号屏:账号体检(10-11-tg-manage-absorb)", () => {
       {},
       { timeout: 9_000 },
     );
-    expect(verified.textContent ?? "").toContain("上次体检");
-    expect(verified.textContent ?? "").toContain("活");
+    expect(verified.textContent ?? "").toContain("上次检查");
+    expect(verified.textContent ?? "").toContain("正常");
   }, 15_000);
 
   it("体检中行:检测/重登/删除禁用 + busy 指示", async () => {
@@ -491,8 +491,8 @@ describe("TG 账号屏:账号体检(10-11-tg-manage-absorb)", () => {
     );
     render(<TgAccountScreen />);
     const verified = await screen.findByTestId("telegram-web-telegram-alt1-verified");
-    expect(verified.textContent ?? "").toContain("死");
-    expect(verified.textContent ?? "").toContain("重登");
+    expect(verified.textContent ?? "").toContain("已失效");
+    expect(verified.textContent ?? "").toContain("重新登录");
     const note = await screen.findByTestId("telegram-web-telegram-alt1-checknote");
     expect(note.textContent ?? "").toContain("重登");
     // 双键语义:alive=false 不覆盖 logged_in(状态灯仍绿,重登引导不自动清标记)

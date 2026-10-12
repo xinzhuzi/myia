@@ -147,7 +147,7 @@ export function VisionForm({ secretNames }: VisionFormProps) {
       setStatus(
         consistent
           ? "看图配置已保存(vision.yaml),重读复核一致"
-          : "已保存,但重读复核未确认 —— 请检查 sidecar 日志(配置可能被同门校验改写)",
+          : "已保存,但重读复核未确认 —— 请检查本地服务日志(配置可能在校验时被改写)",
       );
       if (consistent && isVisionConfigLike(rereadValue)) {
         setLoaded(rereadValue);
@@ -171,7 +171,7 @@ export function VisionForm({ secretNames }: VisionFormProps) {
           看图
         </CardTitle>
         <CardDescription>
-          二级看图通道与 OCR 引擎结构配置(落 MYIA_HOME/vision.yaml);云端 api_key 只入钥匙链
+          二级看图通道与 OCR 引擎结构配置(落 MYIA_HOME/vision.yaml);云端 api_key 只入系统钥匙串
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -248,11 +248,11 @@ export function VisionForm({ secretNames }: VisionFormProps) {
           placeholder="输入后才写入;保存即清,永不回显"
           value={apiKey}
           onChange={(event) => setApiKey(event.target.value)}
-          hint={`写入钥匙链 ${SECRET_NAME_IMAGE_API_KEY};未录时云端回落既有 LLM key(myia/llm/api_key)`}
+          hint={`写入钥匙串 ${SECRET_NAME_IMAGE_API_KEY};未录时云端回落既有 LLM key(myia/llm/api_key)`}
           action={
             secretNames !== null ? (
               keyInKeychain ? (
-                <Badge variant="ok">key 已在钥匙链</Badge>
+                <Badge variant="ok">key 已在钥匙串</Badge>
               ) : (
                 <Badge variant="outline">key 未录(云端回落 LLM key)</Badge>
               )
@@ -412,14 +412,14 @@ export function VisionModelsCard() {
           setServer(event.status);
           setEnsureStatus(
             event.status.started
-              ? `本地 server 已自起并达健康(${event.status.base_url};Metal JIT 首载最长约 2 分钟)`
-              : `本地 server 已在运行(${event.status.base_url}),无需自起`,
+              ? `本地服务已启动并运行正常(${event.status.base_url};Metal JIT 首载最长约 2 分钟)`
+              : `本地 server 已在运行(${event.status.base_url}),无需启动`,
           );
         } else {
           setEnsureError(new SidecarRequestError({
             code: event.error ?? "unknown",
             path: "$",
-            message: `确保启动失败(${event.error ?? "未知错误"});可稍后重试,详情见日志屏或数据根 logs/myssia-*.jsonl 的 proc=vision 行`,
+            message: `启动失败(${event.error ?? "未知错误"});可稍后重试,详情见「采集日志」或数据目录 logs/myssia-*.jsonl 的 proc=vision 行`,
           }));
         }
       }
@@ -507,7 +507,7 @@ export function VisionModelsCard() {
         // 慢路径:completed 可能先于本应答 resolve 到达(竞态)——pending 已
         // 被事件清掉时不重复置等待文案/等待态
         if (ensurePendingRef.current) {
-          setEnsureStatus("正在后台自起并等健康(Metal JIT 首载最长约 2 分钟),完成后自动更新…");
+          setEnsureStatus("正在后台启动并等待就绪(Metal JIT 首次加载最长约 2 分钟),完成后自动更新…");
         }
         return;
       }
@@ -516,8 +516,8 @@ export function VisionModelsCard() {
       setServer(result);
       setEnsureStatus(
         result.started
-          ? `本地 server 已自起并达健康(${result.base_url};Metal JIT 首载最长约 2 分钟)`
-          : `本地 server 已在运行(${result.base_url}),无需自起`,
+          ? `本地服务已启动并运行正常(${result.base_url};Metal JIT 首载最长约 2 分钟)`
+          : `本地 server 已在运行(${result.base_url}),无需启动`,
       );
     } catch (raw) {
       ensurePendingRef.current = false;
@@ -666,7 +666,7 @@ export function VisionModelsCard() {
               {job ? "下载中…" : "下载模型"}
             </Button>
             <span className="text-2xs text-muted-foreground">
-              磁盘预检不足收口 disk_insufficient;同名完整模型拒 model_exists(先删或换名),半成品同名续传
+              磁盘空间不足会报 disk_insufficient;已有同名完整模型会报 model_exists(请先删除或换名字);下载中断过的模型会断点续传
             </span>
           </div>
           {job ? (
@@ -712,7 +712,7 @@ export function VisionModelsCard() {
             <span className="text-xs text-muted-foreground">本地服务</span>
             {ensuring ? (
               <Badge variant="unknown" data-testid="vision-server-badge">
-                确保启动中…
+                启动中…
               </Badge>
             ) : server === null ? (
               serverError ? (
@@ -736,7 +736,7 @@ export function VisionModelsCard() {
               </Badge>
             )}
             <Button size="sm" variant="outline" onClick={() => void handleEnsure()} disabled={ensuring}>
-              {ensuring ? "确保启动中…(后台,最长约 2 分钟)" : "确保启动"}
+              {ensuring ? "启动中…(后台,最长约 2 分钟)" : "启动服务"}
             </Button>
             <Button size="sm" variant="ghost" aria-label="刷新服务状态" onClick={() => void refreshServer()} disabled={ensuring}>
               刷新
@@ -753,7 +753,7 @@ export function VisionModelsCard() {
               className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
               data-testid="vision-server-note"
             >
-              服务状态探测失败(code={serverError.code}:{serverError.message});「确保启动」仍可尝试。
+              服务状态探测失败(code={serverError.code}:{serverError.message});「启动服务」仍可尝试。
             </div>
           ) : null}
           {ensureStatus ? (

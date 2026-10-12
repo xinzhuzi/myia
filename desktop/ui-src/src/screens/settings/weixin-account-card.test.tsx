@@ -50,7 +50,7 @@ describe("微信账号卡:受限形态渲染", () => {
     expect(screen.getByText("不可用")).toBeTruthy();
     expect(screen.getByTestId("weixin-dot-bin").className).toContain("bg-muted-foreground");
     expect(screen.getByText(/Hermes CLI 未找到/)).toBeTruthy();
-    expect(screen.getByText(/微信账号档缺失/)).toBeTruthy();
+    expect(screen.getByText(/微信账号缺失/)).toBeTruthy();
   });
 
   it("复制指引:写入剪贴板 + note 回执", async () => {

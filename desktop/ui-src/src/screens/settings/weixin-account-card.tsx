@@ -91,7 +91,7 @@ export function WeixinAccountCard() {
           </li>
           <li className="flex items-center gap-1.5">
             <BridgeDot on={weixin?.weixin_configured === true} label="configured" />
-            微信账号档{weixin?.weixin_configured ? "已配置(扫码登录过)" : "缺失"}
+            微信账号{weixin?.weixin_configured ? "已配置(扫码登录过)" : "缺失"}
           </li>
           <li className="flex items-center gap-1.5">
             <BridgeDot on={weixin?.gateway_alive === true} label="gateway" />
@@ -123,7 +123,7 @@ export function WeixinAccountCard() {
         </p>
         <p className="text-2xs leading-4 text-muted-foreground" data-testid="weixin-disclosure">
           诚实披露:微信登录态由本机 Hermes-Agent 持有(单活:同一时刻生效账号一个);
-          MYIA 不读不写 Hermes 私有目录,账号档列表/卡内登录/删除待上游提供契约后开放。
+          MYIA 不读不写 Hermes 私有目录,账号列表/卡内登录/删除待后续版本开放。
         </p>
       </CardContent>
     </Card>
