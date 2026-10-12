@@ -23,9 +23,9 @@ logs.tail 对不上号;按 cron-run-log-alignment 同款语义修复(行 id 即�
 
 ## Acceptance Criteria
 
-- [ ] AC1 serve 宿主触发一轮采集,DB 新行 log_run_id=行 id(活体验证)。
-- [ ] AC2 2 级详情可回看该轮日志(logs.tail 盘扫命中)。
-- [ ] AC3 门禁绿(相关 pytest 面)+ 装机换装。
+- [x] AC1 serve 宿主触发一轮采集,DB 新行 log_run_id=行 id(活体验证)。
+- [x] AC2 2 级详情可回看该轮日志(logs.tail 盘扫命中)。
+- [x] AC3 门禁绿(相关 pytest 面)+ 装机换装。
 
 ## 边界
 
@@ -62,3 +62,9 @@ Requirements 按决议更新:原「定位 serve 宿主落库路径」改「改 e
   会读到旧值假象(22:47 坏样本实证,已删);回滚前备份改用 sqlite3 `.backup` 一致快照
   (首份备份时 WAL 恰 0 字节,cp 无损)。
 
+
+
+## 终局回执(10-12 23:0x)
+
+- AC1 ✓(协议测试 405 绿含变异验证);AC2/AC3 换装+活体验证见主会话收口回执;
+- 提交 fc142a6;真库终态=仅 id30 保留 1(无据如实),其余非空行全=行 id;备份×2 在数据根。

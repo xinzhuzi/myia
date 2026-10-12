@@ -18,7 +18,7 @@ logs-two-level-ui 复查留档的 4 条 low 一批收尾(全部复查员定位+�
 
 ## Acceptance Criteria
 
-- [ ] AC1 四项全修或逐项注明不修理由;vitest+build+冒烟全绿;装机换装。
+- [x] AC1 四项全修或逐项注明不修理由;vitest+build+冒烟全绿;装机换装。
 
 ## 边界
 
@@ -33,3 +33,8 @@ logs-two-level-ui 复查留档的 4 条 low 一批收尾(全部复查员定位+�
 | G3 | view 滞留弹回 | detailRun===null 时 effect setView({level:1}) 复位;vitest 补用例(行消失→回 L1,行重现不弹回) | 复查员修法 | 否 |
 | G4 | 时间 Map 撞号 | startedAtById/finishedAtById 键改 runRowKey(run);vitest 撞号用例已有(注册表5/历史5 同屏),补断言两行时间各自正确 | HEAD 平移旧账,顺手收 | 是 |
 | G5 | 门禁 | build/vitest/冒烟三件 + 全量 pytest(纯前端面理论零 py 影响,跑一次兜底) | — | 否 |
+
+
+## 终局回执(10-12 23:0x)
+
+- AC1 ✓(四项全落+判别力用例);提交 fc142a6;换装随档1。

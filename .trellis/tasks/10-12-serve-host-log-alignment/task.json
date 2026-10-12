@@ -3,7 +3,7 @@
   "name": "serve-host-log-alignment",
   "title": "serve 宿主跑次日志对齐(log_run_id 恒 1 修复)",
   "description": "实测:telegram/feishu serve 宿主落库行(runs 90/91/93-97)log_run_id 恒=1,CLI/cron 路径(92)已正确;10-12-cron-run-log-alignment 挂账项自然分晓=宿主路径绑定号错,2 级回看对不上。",
-  "status": "planning",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
