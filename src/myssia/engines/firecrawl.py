@@ -18,8 +18,10 @@ Raises:
     FetchError: plaintext endpoint/api_key, bad options, non-JSON payload,
         ``success: false`` scrape result, missing ``data`` section, HTTP >= 400
         (``http_<status>``;消息只记端点展示形态,解析值不落日志).
-    CredentialResolveError: keychain reference (NotSupported until v0.2) or
-        missing env var.
+    CredentialResolveError: unresolvable ``env:``/``keychain:`` reference or
+        missing env var. (``keychain:`` 实测已通——2026-10-13 云 API 接通
+        冒烟:keychain 双引用端到端 scrape 成功;注意 endpoint 也按凭据管
+        (禁明文),云地址同入钥匙链 myia/firecrawl/url。)
 """
 
 from __future__ import annotations

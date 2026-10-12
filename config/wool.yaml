@@ -143,12 +143,9 @@ sources:
   # v2ex — parked placeholder, same treatment as linux.do below. Cloudflare
   # fronts both the HTML and the JSON API: from v0.1's direct-only transport
   # a run gets challenged (403 "Just a moment"), and the auto chain ends on
-  # the firecrawl backend — without MYIA_FIRECRAWL_URL configured that source
-  # fails EVERY scheduled run (status partial / exit code 3 for the whole
-  # category), so shipping it live is a guaranteed daily false alarm. The
-  # extract follows v2ex's long-stable markup but could NOT be verified
-  # against the live site (challenge blocked probing). Uncomment + fill in
-  # when a firecrawl backend exists, and re-verify the extract on first run:
+  # the firecrawl backend — firecrawl 云 API 已配好(2026-10-13,钥匙链
+  # myia/firecrawl/api-key,复用本机 CLI 同款 key),解开下方注释前仍需
+  # 先真跑一次验证 extract(v2ex 的 Cloudflare 挑战是否真被云端过掉):
   # - name: v2ex
   #   engine: auto
   #   url: "https://www.v2ex.com/latest"
@@ -169,8 +166,8 @@ sources:
   #   proxy: direct
   #   retry: 3
   #   engine_options.firecrawl:            # needed to pass the challenge:
-  #     endpoint: env:MYIA_FIRECRAWL_URL   # cloud or self-host backend
-  #     api_key: env:MYIA_FIRECRAWL_API_KEY
+  #     endpoint: keychain:myia/firecrawl/url      # 引擎把 endpoint 也按凭据管
+  #     api_key: keychain:myia/firecrawl/api-key   # 已配(2026-10-13),解开即用
 
   # linux.do — placeholder for a login-walled Discourse source. stealth_browser
   # (L5) is implemented and sits at the auto chain's tail carrying login state:
