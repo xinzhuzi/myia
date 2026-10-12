@@ -19,9 +19,12 @@ Raises:
         ``success: false`` scrape result, missing ``data`` section, HTTP >= 400
         (``http_<status>``;消息只记端点展示形态,解析值不落日志).
     CredentialResolveError: unresolvable ``env:``/``keychain:`` reference or
-        missing env var. (``keychain:`` 实测已通——2026-10-13 云 API 接通
-        冒烟:keychain 双引用端到端 scrape 成功;注意 endpoint 也按凭据管
-        (禁明文),云地址同入钥匙链 myia/firecrawl/url。)
+        missing env var. (``keychain:`` 引用机制已验证可用——2026-10-13 云端
+        冒烟通过后即被主人裁决禁用云端:MYIA 引擎依赖走「禁云端 → 本地优先
+        → 缺则组件下载」三层配置原则,而 firecrawl 无本地库形态(SDK 是
+        纯 REST 客户端,本地跑需 Node 自托管服务端),故本引擎保持无配置
+        态——auto 链尾兜底由本地 crawl4ai(L3)承担。自托管接线留待
+        主人个案裁决后再配。)
 """
 
 from __future__ import annotations
