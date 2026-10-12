@@ -75,6 +75,10 @@ OFFICIAL_CATEGORY_YAMLS = (
     # searxng.yaml 有意不随包(件头注:示例骨架、缺省不启用,自托管属主人)。
     "ai-token-deals.yaml",
     "ai-vendor-watch.yaml",
+    # weixin(2026-10-12 10-12-weixin-feed-channel):微信品类入情报流(G3
+    # 翻案),缺省关同 telegram-web 先例——随包 = 装机补种后在册可启,
+    # 随包品类面自此 17 件。
+    "weixin.yaml",
 )
 
 #: desktop tier 源码件全件(EXPECTED_TIERS 同源清单;新规范下这些件的

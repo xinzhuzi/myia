@@ -52,6 +52,7 @@
       "../../config/telegram-channels.yaml": "config/telegram-channels.yaml",
       "../../config/telegram-groups.yaml": "config/telegram-groups.yaml",
       "../../config/telegram-web.yaml": "config/telegram-web.yaml",
+      "../../config/weixin.yaml": "config/weixin.yaml",
       "../../config/wool.yaml": "config/wool.yaml",
       "../../plugins/myssia-credhunter/README.md": "plugins/myssia-credhunter/README.md",
       "../../plugins/myssia-credhunter/plugin.yaml": "plugins/myssia-credhunter/plugin.yaml",
