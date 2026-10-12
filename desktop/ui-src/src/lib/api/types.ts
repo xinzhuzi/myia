@@ -562,6 +562,9 @@ export interface StoreStateMarkAllParams {
   /** 源大类作用域(10-08-tg-channel-card v2,protocol ≥ 12):与
    *  store.items 同词表;省略 = 全库/品类语义 */
   source_kind?: "web" | "im";
+  /** 源精确等值作用域(10-12-tg-session-read:进 TG 会话即已读;词义同
+   *  store.items 的 source 参;与 category/source_kind 可叠加) */
+  source?: string;
   db?: string;
 }
 

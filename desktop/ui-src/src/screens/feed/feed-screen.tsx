@@ -2524,6 +2524,55 @@ export function FeedScreen() {
     if (node && typeof node.scrollIntoView === "function") node.scrollIntoView({ block: "nearest" });
   }, [viewSource, chatView]);
 
+  // 进 TG 会话即已读(10-12-tg-session-read,主人令「点击进来,角标应该
+  // 变成 0」——TG 式进会话语义):viewSource 落到聊天会话 → 源级全量标
+  // 已读(store.state.mark_all 带 source,含未翻页/未加载,角标口径=
+  // source_stats 全库未读故必须全量)+ stats 重拉角标归零。乐观:就地翻
+  // catalogItems 已加载行,失败按快照回滚。只在服务端读态模式跑(未过门
+  // = 本地态,v1 判例面不扩);deps 只挂 viewSource/chatView —— 会话内
+  // 新到条目不自动清(TG 同款:新消息进来角标再亮,重进或 U 键清)。
+  useEffect(() => {
+    if (viewSource === null || !chatView || !useServerState) return;
+    const snapshot = new Map(
+      catalogItems
+        .filter((candidate) => candidate.source === viewSource)
+        .map((candidate) => [itemKey(candidate), candidate.read === true] as const),
+    );
+    let cancelled = false;
+    setCatalogItems((current) =>
+      current.map((candidate) =>
+        candidate.source === viewSource ? { ...candidate, read: true } : candidate,
+      ),
+    );
+    // 未读档随自动已读即时清空 = 「刚点进来的消息从眼前消失」反语义
+    // (TG 聊天语义:进来看到的就是历史)——若正处未读档,顺手切「全部」;
+    // 其他档位(星标/稍后读)不受打扰(⑦ 跨群工作台态定案不翻案)。
+    setFilter((current) => (current === "unread" ? "all" : current));
+    void Promise.resolve(
+      api.storeStateMarkAll({ marker: "read", value: true, source: viewSource }),
+    )
+      .then(() => {
+        if (cancelled) return;
+        setMarkError(null);
+        void refreshSourceStats();
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setCatalogItems((current) =>
+          current.map((candidate) =>
+            candidate.source === viewSource
+              ? { ...candidate, read: snapshot.get(itemKey(candidate)) ?? false }
+              : candidate,
+          ),
+        );
+        setMarkError(err instanceof SidecarRequestError ? `${err.code}: ${err.message}` : String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 快照/翻面依赖目录瞬态,只随会话切换触发
+  }, [viewSource, chatView]);
+
   /** TG 网页线快照(10-09-tg-category-entry:TG 渠道选中时拉一次,监控台条
    *  呈现)。v7 R2 吸收(v6 深检遗留):状态态拆三层 phase —— idle/loading/
    *  ok/error,替换 `tgWebline === null` 双态:首拉在途(loading)监控台条

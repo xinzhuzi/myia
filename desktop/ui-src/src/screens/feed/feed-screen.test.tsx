@@ -2965,6 +2965,9 @@ describe("FeedScreen · feed-channel-groups(渠道流差异化 + 实时滚动 + 
     // 退出历史:回读态视图(未读档下已读条目重新离场)
     fireEvent.click(screen.getByTestId("feed-history-exit"));
     await waitFor(() => expect(screen.queryByText("三天前的已读入库")).toBeNull());
+    // 回读态后显式切「全部」:已读条目回来(档位语义自洽,不依赖默认档)
+    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
+    await waitFor(() => expect(screen.getByText("三天前的已读入库")).toBeTruthy());
   });
 });
 
@@ -3294,6 +3297,31 @@ describe("FeedScreen · tg-category-entry 监控台(v7:TG 选中左栏顶部常�
     expect(screen.queryByTestId("feed-tg-status-unknown")).toBeNull();
   });
 
+  it("进会话即已读(10-12-tg-session-read):TG 会话选中 → mark_all 带 source 全量已读 + 未读档顺手切「全部」(刚点进来的消息不消失)", async () => {
+    invokeMock.mockImplementation(async (command: string, args?: { method?: string }) => {
+      if (command === "tg_native_open") return null;
+      if (args?.method === "telegram.status") return statusPayload(true);
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${command}/${args?.method}` });
+    });
+    markAllMock.mockResolvedValue({ updated: 3 });
+    mockConsoleWorld([
+      fixtureItem({
+        source: "telegram-seed",
+        title: "点进来的未读一条",
+        url: "https://t.me/mihomo_party/1202",
+        first_seen: new Date(dayWindowStart().getTime() + 5 * 60_000).toISOString(),
+      }),
+    ]);
+    renderScreen();
+    await openTelegramChannel();
+    // 源级全量已读(角标口径 = source_stats 全库未读,keys 级不清零)
+    await waitFor(() =>
+      expect(markAllMock).toHaveBeenCalledWith({ marker: "read", value: true, source: "telegram-seed" }),
+    );
+    // 未读档被切「全部」:刚读的消息留在时间线(TG 聊天语义)
+    await waitFor(() => expect(screen.getByText("点进来的未读一条")).toBeTruthy());
+  });
+
   it("监控台历史入口(深检 F1 后语义 = 已读未读全显):已读条目在未读档外可达,知会词换「全部历史」;退出回读态视图", async () => {
     invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
       if (args?.method === "telegram.status") return statusPayload(true);
@@ -3307,13 +3335,20 @@ describe("FeedScreen · tg-category-entry 监控台(v7:TG 选中左栏顶部常�
     mockConsoleWorld([oldReadItem]);
     renderScreen();
     await openTelegramChannel();
-    // 默认未读档:唯一条目已读 → 空态;监控台「看全部历史消息(含已读)」直达
+    // 进会话即已读(10-12-tg-session-read):入口自动全量标已读 + 未读档
+    // 顺手切「全部」(刚读的留在眼前)——历史语义的验收改为显式回未读档:
+    // 唯一条目已读 → 空态;监控台「看全部历史消息(含已读)」直达
+    fireEvent.click(await screen.findByRole("button", { name: "过滤:未读" }));
+    // 监控台「看全部历史消息(含已读)」直达(已读条目在未读档外可达)
     fireEvent.click(await screen.findByTestId("feed-tg-console-history"));
     expect(await screen.findByText("三天前的已读入库")).toBeTruthy();
     expect(screen.getByTestId("feed-day-window").textContent).toContain("全部历史");
     // 退出历史:回读态视图,已读条目重新离场
     fireEvent.click(screen.getByTestId("feed-history-exit"));
     await waitFor(() => expect(screen.queryByText("三天前的已读入库")).toBeNull());
+    // 回读态后显式切「全部」:已读条目回来(档位语义自洽,不依赖默认档)
+    fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
+    await waitFor(() => expect(screen.getByText("三天前的已读入库")).toBeTruthy());
   });
 
   it("监控台「管理」钮(v10):点击 → 真实路由落 /tg-account(管理入口随独立屏迁,回归锚)", async () => {

@@ -3168,6 +3168,33 @@ def test_store_state_mark_all_whole_library_and_category(tmp_path):
     # 不主动拒(与全协议风格一致,未知键静默忽略),不另设拒绝用例。
 
 
+def test_store_state_mark_all_source_scope(tmp_path):
+    """§6.1 追加(10-12-tg-session-read):mark_all 带 source 精确等值作用域
+    ——进 TG 会话即已读的源级批量;他源零误伤;空串拒绝(全库请省略)。"""
+    db = tmp_path / "markall-src.db"
+    _seed_items_for_export(db, [
+        ("甲", "telegram", "telegram-clashv8"),
+        ("乙", "telegram", "telegram-clashv8"),
+        ("丙", "news", "openai-news"),
+    ])
+
+    code, responses, _ = rpc({"id": 1, "method": "store.state.mark_all", "params": {
+        "db": str(db), "marker": "read", "value": True,
+        "source": "telegram-clashv8"}})
+    assert responses[0]["result"] == {"updated": 2}  # 只置该源两行
+
+    code, responses, _ = rpc({"id": 2, "method": "store.items", "params": {"db": str(db)}})
+    by_source: dict[str, list[dict]] = {}
+    for item in responses[0]["result"]["items"]:
+        by_source.setdefault(item["source"], []).append(item)
+    assert all(row["read"] for row in by_source["telegram-clashv8"])
+    assert all(row["read"] is False for row in by_source["openai-news"])  # 他源零误伤
+
+    code, responses, _ = rpc({"id": 3, "method": "store.state.mark_all", "params": {
+        "db": str(db), "marker": "read", "value": True, "source": ""}})
+    assert responses[0]["error"]["code"] == "invalid_params"  # 空串拒绝
+
+
 def test_store_state_import_three_key_forms(tmp_path):
     """§6.1-7 / AC4:import 三形态——dedup_key 直配置上 / id:<n> 映射置上 /
     id:<url> 计 skipped;快照只覆盖出现的标记键。"""

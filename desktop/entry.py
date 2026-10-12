@@ -1880,6 +1880,13 @@ def _m_store_state_mark_all(params: dict[str, Any]) -> dict[str, Any]:
         raise ProtocolError(
             "invalid_params", "category 必须为非空字符串(全库请省略)", path="params.category"
         )
+    # 源精确等值作用域(10-12-tg-session-read:进 TG 会话即已读的源级批量,
+    # 词义同 list_items 的 source 参;与 category/source_kind 可叠加)
+    source = params.get("source")
+    if source is not None and (not isinstance(source, str) or not source):
+        raise ProtocolError(
+            "invalid_params", "source 必须为非空字符串(全库请省略)", path="params.source"
+        )
     # 源大类作用域(10-08-tg-channel-card v2):与 store.items 同词表同门。
     source_kind = params.get("source_kind")
     if source_kind is not None and source_kind not in ("web", "im"):
@@ -1892,7 +1899,9 @@ def _m_store_state_mark_all(params: dict[str, Any]) -> dict[str, Any]:
     except StoreSchemaError as exc:
         raise ProtocolError(exc.code, str(exc), path="params.db", data=exc.details) from exc
     try:
-        updated = store.set_all_item_states(marker, value, category, source_kind)
+        updated = store.set_all_item_states(
+            marker, value, category, source_kind, source
+        )
     except ValueError as exc:
         raise ProtocolError("invalid_params", str(exc), path="params") from exc
     finally:

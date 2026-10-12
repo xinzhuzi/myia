@@ -907,6 +907,11 @@ class SQLiteStore:
             conditions.append(
                 "(source IS NULL OR (source NOT LIKE 'telegram-%' AND source NOT LIKE 'tg-%'))"
             )
+        if source is not None:
+            # 源精确等值(10-12-tg-session-read:进会话即已读的源级作用域;
+            # IS 对 NULL 同样成立,判例同 source_stats 二遍取 title)
+            conditions.append("source IS ?")
+            params.append(source)
         if since is not None:
             conditions.append("first_seen >= ?")
             params.append(_to_iso(since))
@@ -1098,6 +1103,7 @@ class SQLiteStore:
         value: bool,
         category: str | None = None,
         source_kind: str | None = None,
+        source: str | None = None,
     ) -> int:
         """全库(可选 category / source_kind)置位(G9,store.state.mark_all 底座)。
 
@@ -1132,6 +1138,11 @@ class SQLiteStore:
             conditions.append(
                 "(source IS NULL OR (source NOT LIKE 'telegram-%' AND source NOT LIKE 'tg-%'))"
             )
+        if source is not None:
+            # 源精确等值(10-12-tg-session-read:进会话即已读的源级作用域;
+            # IS 对 NULL 同样成立,判例同 source_stats 二遍取 title)
+            conditions.append("source IS ?")
+            params.append(source)
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
         cursor = self._write(sql, tuple(params))
