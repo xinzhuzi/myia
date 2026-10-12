@@ -250,7 +250,7 @@ function SessionReader() {
         <p className="min-w-0 break-words text-xs font-medium text-foreground">
           只读会话入口
           <span className="ml-2 text-2xs font-normal text-muted-foreground">
-            拉回的消息仅此处展示,不进情报流、不打标、不去重(G3)
+            此处为当前会话直读展示;入情报流的拉取是另一条通道(情报流「微信」品类,需在品类配置开启)
           </span>
         </p>
         <Button
