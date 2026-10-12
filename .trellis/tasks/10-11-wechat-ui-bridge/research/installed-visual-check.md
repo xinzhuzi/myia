@@ -112,3 +112,37 @@ PYTHONPATH=/Applications/世事.app/Contents/Resources/myssia-src <venv> python 
   'from myssia.wechat_local_sidecar import handle_wechat_local; print(handle_wechat_local("probe", {}))'
 # 5) 收尾:quit → open -g 复原 → launchctl getenv MYIA_* 六旗核空
 ```
+
+
+---
+
+## 附批:2026-10-12 15:31–15:40 「自己点」批像素补全(主会话直做,工作流 dwfrun-4adba09e 额度墙后降级)
+
+> 背景:子代理额度墙(GLM-5.3-Flash 5h 帽,15:42 重置)后按在案打法主会话直做;换装含 COMPONENT_META 修复(d8fd49d)的新包(18.19MiB,15:29 门禁全绿 pytest 5414/48skip+vitest 762 后重打)。
+
+### 验收点命中(消息屏首帧,/tmp 用后即清,本档只留 OCR 文本证据)
+
+| 验收点 | 判定 | OCR 证据(逐字) |
+|---|---|---|
+| 微信本机卡+分工文案 | 命中 | 「微信本机 / 本机桥只读面(选会话→拉最近消息展示;读回不入情报管线)+本地库三域查询;与上方『微信』官方桥分工,出站归官方桥」 |
+| 双卡共存 | 命中 | 同帧「3o 微信」(官方卡)与「微信本机」并列 |
+| 三态如实(沙箱语境) | 命中 | 「不可用」+原因全文「Python 运行环境未配置…(code=pyenv_not_ready)」——沙箱 MYIA_HOME 未配 env 的正确降级链,生产语境为 degraded(装机回执在案) |
+| AX 权限引导卡 | 命中 | 「系统权限引导:辅助功能(AX)…授权主体是 MYIA app 本体(装机一次性)…桥不抢前台焦点、不合成鼠标点击、不激活微信窗口(静默铁律)」 |
+| **只读会话入口钮(上批视口钳制未命中,本批命中)** | 命中 | 「只读会话入口 拉回的消息仅此处展示,不进情报流、不打标、不去重(G3)」 |
+| 本地库查询行 | 命中 | 「本地库查询(历史)解密副本只读,零出网零微信进程交互;密钥途径未裁决(D4)时如实报 key_unavailable」+会话 id 输入+30 天+「查询本地库」「拉取会话列表」双钮 |
+
+### 设置页新文案(COMPONENT_META)证据形态
+
+像素帧未取(SMOKE_ROUTE 复现不生效,769edce 缺口④ AX 失联现象本批再复现:窗口渲染内容但 System Events 零窗)——**以 vitest 契约测试为证据源**:pyenv-components.test.tsx 新增用例断言 wechat-bridge 行渲染「微信本机桥(wechat-bridge)」+「像素链读」+已装徽标(21 passed,d8fd49d)。
+
+### 事故与偏差(如实)
+
+1. **闪窗事故 ~16s(15:31)**:SMOKE 几何格式误用逗号形态(600,60,900,700)未生效→实例开全尺寸窗上屏;判例正确格式为 `WxH+X+Y`(900x700+600+60),修正后正常。主人 frontmost 全程未失(ZCode/微信侧)。
+2. **生产实例窗被带上屏(15:33)**:SMOKE 启动把生产主窗 ordered-in(单实例路由疑似),osascript visible=false 即还;收尾时生产进程已自退,open -g 复原。
+3. SMOKE_ROUTE=messaging 本批**生效**(与 769edce 批相反)——两批一正一反坐实「路由生效不稳定」,根因仍悬(webview 会话态时序假说),记档不深挖。
+4. 收尾核验:launchctl 六旗全空/世事在屏窗 0/临时件(/tmp 双 home+distverify venv)清空。
+
+### 附:本批两笔收口提交
+
+- d8fd49d COMPONENT_META 补行(自点批缺口①)
+- 105dfa9 install-receipt §8.3 勘误(缺口②;③④⑤ 记档级,无需代码)
