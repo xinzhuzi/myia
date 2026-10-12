@@ -53,32 +53,77 @@ sources:
   #    对口目标 = Clash-Party channel,mihomo/Clash 生态频道;data-peer-id
   #    -2349572233 实测可达。chat 支持 -数字(侧栏 data-peer-id 全等)或
   #    标题包含匹配;加入讨论群后可再挂群源)──
-  - name: telegram-mihomo_party_group
+  # ── 停订可回切(2026-10-11 主人令「clash-party 停订改监控 clashv8」;v10 判例)──
+  #   - name: telegram-mihomo_party_group
+  #     engine: tg_web
+  #     url: "https://web.telegram.org"     # 锚(铸 #tg- 去重键用;引擎按键开配置档)
+  #     engine_options:
+  #       tg_web:
+  #         account: telegram-alt1          # 账号键(归属声明,全称律 telegram-<标识>)
+  #         chat: "-2349572233"             # Clash-Party channel(data-peer-id 全等;或标题片段)
+  #         lookback_limit: 50              # 单轮窗口帽 1-100(缺省 50)
+  #         comments_max_threads: 3         # 评论线程档帽(0=off;缺省 3):带评论钮的
+  #                                         #   频道帖逐帖展开线程,回复走讨论群独立锚
+  #                                         #   命名空间+同一粗筛出口;预算不足自动跳过
+  #         comments_max_replies: 50        # 单线程回复读取帽 1-100(缺省 50)
+  #         fetch_timeout_seconds: 180      # 引擎预算推导帽输入(须与品类 timeouts.fetch 一致)
+  #         keywords: [免费, 白嫖, 羊毛, token, 额度, 优惠, coupon, free, 折扣]  # 粗筛词表(与 bot 线同面,省略=内置缺省)
+  #         llm_base_url: keychain:myia/llm/base_url        # LLM 精筛端点(缺=降级纯粗筛)
+  #         llm_api_key: keychain:myia/llm/api_key
+  #         # model: glm-4-flash            # 缺省即此
+  #         # score_threshold: 8            # ≥8 分即时(缺省 8)
+  #     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+  #     proxy: direct                       # chromium 走系统网络(mihomo 出口按需系统级配)
+  #     retry: 3
+  # 
+  # ── 生产正户:clashv8(免费VPN|机场|节点,讨论群 @xoxo8868;2026-10-11
+  #    主人令换源,2026-10-12 评论线程档上线)──
+  - name: telegram-clashv8
     engine: tg_web
-    url: "https://web.telegram.org"     # 锚(铸 #tg- 去重键用;引擎按键开配置档)
+    url: "https://web.telegram.org"     # 锚(引擎契约 web.telegram.org;频道正身 t.me/clashv8)
     engine_options:
       tg_web:
-        account: telegram-alt1          # 账号键(归属声明,全称律 telegram-<标识>)
-        chat: "-2349572233"             # Clash-Party channel(data-peer-id 全等;或标题片段)
-        lookback_limit: 50              # 单轮窗口帽 1-100(缺省 50)
-        comments_max_threads: 3         # 评论线程档帽(0=off;缺省 3):带评论钮的
-                                        #   频道帖逐帖展开线程,回复走讨论群独立锚
-                                        #   命名空间+同一粗筛出口;预算不足自动跳过
-        comments_max_replies: 50        # 单线程回复读取帽 1-100(缺省 50)
-        fetch_timeout_seconds: 180      # 引擎预算推导帽输入(须与品类 timeouts.fetch 一致)
-        keywords: [免费, 白嫖, 羊毛, token, 额度, 优惠, coupon, free, 折扣]  # 粗筛词表(与 bot 线同面,省略=内置缺省)
-        llm_base_url: keychain:myia/llm/base_url        # LLM 精筛端点(缺=降级纯粗筛)
+        account: telegram-alt1
+        chat: "免费VPN"                 # 标题包含匹配(频道名「免费VPN|机场|节点」;或 -3770098404)
+        lookback_limit: 50
+        comments_max_threads: 3         # 评论线程档:回复走讨论群独立锚+同一粗筛出口
+        comments_max_replies: 50
+        fetch_timeout_seconds: 180      # 与品类 timeouts.fetch 对齐
+        keywords: [订阅, 链接, 节点, 机场, 免费, http, https, url, URL, vless]  # v3 换源批词面+评论节点链接
+        llm_base_url: keychain:myia/llm/base_url
         llm_api_key: keychain:myia/llm/api_key
-        # model: glm-4-flash            # 缺省即此
-        # score_threshold: 8            # ≥8 分即时(缺省 8)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct                       # chromium 走系统网络(mihomo 出口按需系统级配)
+    proxy: direct
     retry: 3
 
   # ── 你的群往这里加(一个群一个源,chat 各配各的;跨账号群按 account 归属
   #    分组,max_accounts 帽缺省 3 源级可调 engine_options.tg_web 同级)────
 
 # 粗筛词表默认值与 bot 线同一份(引擎内置);源级 keywords 覆盖。
+  - name: telegram-handgame-src
+    engine: tg_web
+    url: "https://web.telegram.org"
+    engine_options:
+      tg_web:
+        account: telegram-alt1
+        chat: "手游源码"                  # 手游源码.技术(供需)(-2243082626;10-12 会话枚举)
+        lookback_limit: 50
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    retry: 3
+
+  - name: telegram-baidu-pan
+    engine: tg_web
+    url: "https://web.telegram.org"
+    engine_options:
+      tg_web:
+        account: telegram-alt1
+        chat: "百度网盘资源"              # 百度网盘资源分享(-2747225254;短剧即产出,粗筛词表见下方 keywords)
+        lookback_limit: 50
+        keywords: [百度, 网盘, pan.baidu.com, 短剧, 资源, 免费, 链接]  # 资源墙词表:缺省「免费情报」词表全滤致 0 产出(10-13-recommendations-exec)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    retry: 3
+
+
 watchlist:
   keywords: []
   mute: []
