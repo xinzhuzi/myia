@@ -12,8 +12,10 @@
    / externalBin 占位步骤(发版流水线与 rust-check 门不再依赖死链)。
 4. ``desktop/build-sidecar.sh``:档注保留 + 执行即拒(退出非 0 且带退役说明,
    误用者得到的是指引不是 118MiB 冻结二进制)。
-5. ``desktop/scripts/clean-pycache.mjs``:真跑——临时树内嵌套 ``__pycache__``
-   与 ``.DS_Store`` 全清、正常文件原样(跨平台 node 实现,不依赖 ``find``)。
+5. ``desktop/scripts/clean-pycache.mjs``:真跑——临时树内嵌套 ``__pycache__``、
+   ``.DS_Store`` 与 pip 源码装再生物(``build/``、``*.egg-info/``)全清、
+   正常文件原样(跨平台 node 实现,不依赖 ``find``);缺省根含 D5 随包组件
+   源码树 ``plugins/wechat-bridge``。
 """
 
 from __future__ import annotations
@@ -143,6 +145,13 @@ def test_clean_pycache_script(tmp_path: Path) -> None:
     (tree / "pkg" / "sub" / "__pycache__").mkdir(parents=True)
     (tree / "pkg" / "sub" / "__pycache__" / "deep.cpython-312.pyc").write_text("junk", encoding="utf-8")
     (tree / "pkg" / ".DS_Store").write_text("junk", encoding="utf-8")
+    # pip 源码装再生物(D5 随包组件源码树 2026-10-12 装机打包实测:冒烟遗留
+    # build/ 与 *.egg-info/ 被 tauri resources 无排除语义原样打进包)。
+    (tree / "build").mkdir()
+    (tree / "build" / "lib").mkdir()
+    (tree / "build" / "lib" / "stale.py").write_text("junk", encoding="utf-8")
+    (tree / "wechat_bridge.egg-info").mkdir()
+    (tree / "wechat_bridge.egg-info" / "PKG-INFO").write_text("junk", encoding="utf-8")
     (tree / "pkg" / "sub" / "keep.py").write_text("print('keep')\n", encoding="utf-8")
 
     proc = subprocess.run(
@@ -152,12 +161,14 @@ def test_clean_pycache_script(tmp_path: Path) -> None:
         timeout=60,
     )
     assert proc.returncode == 0, f"clean-pycache 失败: {proc.stderr[-1000:]}"
-    # 垃圾全清(嵌套两处 __pycache__ + .DS_Store = 3 条)。
+    # 垃圾全清(嵌套两处 __pycache__ + .DS_Store + build/ + *.egg-info/ = 5 条)。
     assert not list(tree.rglob("__pycache__")), "__pycache__ 残留"
     assert not list(tree.rglob(".DS_Store")), ".DS_Store 残留"
+    assert not list(tree.rglob("build")), "pip build/ 残留"
+    assert not list(tree.rglob("*.egg-info")), "pip egg-info 残留"
     # 正常文件原样。
     assert (tree / "pkg" / "sub" / "keep.py").read_text(encoding="utf-8") == "print('keep')\n"
-    assert "3" in proc.stdout, f"清理计数应=3: {proc.stdout!r}"
+    assert "5" in proc.stdout, f"清理计数应=5: {proc.stdout!r}"
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="本机无 node(tauri CLI 本身依赖 node,正常构建面恒在)")
@@ -171,6 +182,16 @@ def test_clean_pycache_script_idempotent_on_missing_root(tmp_path: Path) -> None
     )
     assert proc.returncode == 0, f"缺省根不存在应静默通过: {proc.stderr[-1000:]}"
     assert "0" in proc.stdout
+
+
+def test_clean_pycache_default_roots_cover_bundled_component_tree() -> None:
+    """cleaner 缺省根覆盖随包组件源码树(D5):plugins/wechat-bridge 在
+    DEFAULT_ROOTS——tauri resources 无排除语义,该树不入清理名单则本机
+    __pycache__/pip 冒烟工件必进安装包(2026-10-12 装机打包实测)。"""
+    text = CLEAN_PYCACHE.read_text(encoding="utf-8")
+    assert "plugins/wechat-bridge" in text, (
+        "clean-pycache 缺省根缺 plugins/wechat-bridge(D5 随包组件源码树)"
+    )
 
 
 if __name__ == "__main__":  # pragma: no cover
