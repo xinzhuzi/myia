@@ -34,10 +34,10 @@ pub struct ComponentManager {
 
 实现要点:
 
-- 续装逻辑抽 `spawn_component_install(app, id) -> ()`(占槽+emit+spawn+await+清槽+续队),命令入口与续装共用;await 段在 `tauri::async_runtime::spawn` 里递归接力,避免命令句柄悬挂。
+- **落地形态(复审后定案)**:续装逻辑为 `spawn_component_install_chain(app, first_id)`——命令只 spawn 这条链,链内 loop 自续(初稿的「命令入口与续装共用占槽函数」未采用:受理三态判断在命令锁段内联,链体每轮重解析注册表)。**终态转移原子化**:`ComponentRuntime::release_and_claim_next`(一次锁内释放当前槽+占队首)——分两次锁的间隙会被命令入口插队占槽,接力随后的占槽即双 pip 并发(复审 grill 抓出的竞态);链中止走 `abort_all`(槽+队列全清,排队件不滞留假排队)。
 - **命令回包不再等待安装完成**:占槽/入队后立即回,完成态全靠事件+拉取。`ComponentInstallOutcome` 加 `queued: bool`(serde 恒在场,TS 守门同步);`installed` 在回包时点恒 false(真相源=戳/状态),语义改为"已受理"。
-- 既有 `installing.await` 的 Err(join 失败)分支保留:落 error 戳路径不变(install_component 内部 fail 闭包写戳)。
-- 锁纪律不变:锁只在占槽/查队瞬间 held,pip 在 spawn_blocking,续装不在锁内做长事。
+- 既有 `installing.await` 的 Err(join 失败)分支保留落 error 戳路径(install_component 内部 fail 闭包写戳;join panic 在链内补写戳)。
+- 锁纪律不变:锁只在占槽/查队/终态转移瞬间 held,pip 在 spawn_blocking,emit 在锁外。
 
 ### 1.3 状态组装带 install_state(pyenv_components.rs ~1126 / pyenv.rs status_at)
 

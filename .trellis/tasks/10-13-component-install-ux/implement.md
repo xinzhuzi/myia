@@ -39,7 +39,7 @@
 
 - [x] `cargo test --manifest-path desktop/src-tauri/Cargo.toml` 全绿
 - [x] 前端门禁(vitest 全量 + tsc + build)零新红
-- [x] 沙箱冒烟(MYIA_HOME 临时根):两组件连点 → 第二个排队零弹错;伪造 error 戳 → 「重试安装」(AC1/AC4 的 agent 侧代验,真机留 AC7)
+- [ ] 真壳沙箱冒烟(MYIA_HOME 临时根 GUI 实跑):不可 CI 化,并入 AC7 装机验证一并做(等效覆盖已落:vitest 23 用例含受理/排队/事件全链/error 重试,cargo 纯函数测含 install_state 组装与原子转移)
 - [x] review gate:提交前 `gitnexus detect-changes -r shishi --scope staged`(WAL 恢复态空输出先 `gitnexus analyze --index-only`)
 
 ## 回滚点

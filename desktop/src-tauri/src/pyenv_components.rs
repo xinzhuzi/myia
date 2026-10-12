@@ -1367,6 +1367,28 @@ pub struct ComponentRuntime {
     pub queued: VecDeque<String>,
 }
 
+impl ComponentRuntime {
+    /// 接力链终态**原子转移**:释放当前槽 + 取队首占槽,一次锁内完成。
+    /// grill 抓出的竞态修复(10-13 复审):分两次锁做「清槽→再占」的间隙
+    /// 会被命令入口插队占槽,接力随后的无条件占槽即双 pip 并发——正是
+    /// 单飞护栏要防的事故。返回 Some(next) = 队首已占槽续装;
+    /// None = 队列空,槽已释放。
+    pub fn release_and_claim_next(&mut self) -> Option<String> {
+        self.installing = None;
+        self.queued.pop_front().map(|next| {
+            self.installing = Some(next.clone());
+            next
+        })
+    }
+
+    /// 链中止原子清理:释放槽 + 清空队列(排队件回「安装」态可重点,
+    /// 不滞留「排队中」永不自动开装)。
+    pub fn abort_all(&mut self) {
+        self.installing = None;
+        self.queued.clear();
+    }
+}
+
 /// 装组件进自管环境(R4:设置页按钮消费)。受理制(10-13):护栏检查
 /// (注册表对 id / 环境在位 / 主链互斥)后**占槽即回或入队即回**,不等
 /// 安装完成——完成态走 error/ready 戳 + `pyenv-status-changed` 广播 +
@@ -1381,12 +1403,13 @@ pub async fn pyenv_install_component(
     let data_root = crate::data_root(&app).map_err(|e| e.to_string())?;
     let resource_dir = app.path().resource_dir().ok();
     let registry = load_registry(resource_dir.as_deref());
-    let Some(spec) = registry.iter().find(|entry| entry.id == id) else {
+    let Some(_spec) = registry.iter().find(|entry| entry.id == id) else {
         let known: Vec<&str> = registry.iter().map(|entry| entry.id.as_str()).collect();
         return Err(format!(
             "未知组件 id: {id}(随包注册表现有: {known:?};注册表缺位时无可装组件)"
         ));
     };
+    // (_spec 仅证注册表对 id;安装参数在接力链内每轮重解析)
     // —— 环境在位(先走完整配置;与 pyenv_sync_deps 同口径)——
     let python_bin = crate::pyenv::python_bin_path(&data_root);
     if !python_bin.exists() {
@@ -1402,7 +1425,6 @@ pub async fn pyenv_install_component(
     {
         return Err("Python 环境安装进行中:请等安装完成后再装组件".into());
     }
-    let _ = spec; // spec 消费在接力链内(每轮重解析;受理时点只核存在性)
     // —— 受理:占槽即装 / 入队(锁内三态判断,原子)——
     let queued = {
         let manager = app.state::<ComponentManager>();
@@ -1432,19 +1454,20 @@ pub async fn pyenv_install_component(
     })
 }
 
-/// 后台安装接力链(单任务串行):占槽件装完 → 清槽 → 广播终态 → 队列
-/// pop 队首占槽 → 广播出队 → 续装,直到队空。pip 阻塞跑在
+/// 后台安装接力链(单任务串行):每件装完 → 终态原子转移
+/// (release_and_claim_next:一次锁内释放当前槽+占队首;快照含旧件戳终态
+/// 与新件开装,一次广播覆盖)→ 续装,直到队空。pip 阻塞跑在
 /// spawn_blocking(不占 async runtime worker);镜像索引继承
-/// pyenv-settings.json。**退出纪律:任何 break 前必须清槽**,否则槽卡死
-/// 后续受理永远入队不出。
+/// pyenv-settings.json。**退出纪律:任何 break 走 abort_all**(槽+队列
+/// 全清,排队件回「安装」态可重点),不留假排队。
 fn spawn_component_install_chain(app: AppHandle, first_id: String) {
     tauri::async_runtime::spawn(async move {
-        let clear_slot = |app: &AppHandle| {
+        let abort_chain = |app: &AppHandle| {
             app.state::<ComponentManager>()
                 .runtime
                 .lock()
                 .unwrap()
-                .installing = None;
+                .abort_all();
         };
         let mut id = first_id;
         loop {
@@ -1452,7 +1475,7 @@ fn spawn_component_install_chain(app: AppHandle, first_id: String) {
                 Ok(root) => root,
                 Err(err) => {
                     eprintln!("[components] 安装接力中止:数据根解析失败 {err}");
-                    clear_slot(&app);
+                    abort_chain(&app);
                     let _ = crate::pyenv::emit_current(&app);
                     break;
                 }
@@ -1460,9 +1483,10 @@ fn spawn_component_install_chain(app: AppHandle, first_id: String) {
             let resource_dir = app.path().resource_dir().ok();
             let registry = load_registry(resource_dir.as_deref());
             let Some(spec) = registry.into_iter().find(|entry| entry.id == id) else {
-                // 注册表变脸(理论不至:随包文件壳不重启不改)——停链不臆造
+                // 注册表变脸(理论不至:随包文件壳不重启不改)——停链不臆造;
+                // 队列一并清空(排队件回「安装」态,不滞留假排队)
                 eprintln!("[components] 安装接力中止:组件 {id} 不在注册表");
-                clear_slot(&app);
+                abort_chain(&app);
                 let _ = crate::pyenv::emit_current(&app);
                 break;
             };
@@ -1481,8 +1505,8 @@ fn spawn_component_install_chain(app: AppHandle, first_id: String) {
                     resource_for_install.as_deref(),
                 )
             });
-            let outcome = match joined.await {
-                Ok(outcome) => outcome,
+            match joined.await {
+                Ok(_) => {}
                 Err(err) => {
                     // 安装线程 panic:受理制下回包早已发出,失败必须落戳才有出口
                     let error_text = format!("组件安装线程失败: {err}");
@@ -1495,35 +1519,20 @@ fn spawn_component_install_chain(app: AppHandle, first_id: String) {
                             error: Some(error_text),
                         },
                     );
-                    ComponentInstallOutcome {
-                        id: id_for_stamp,
-                        installed: false,
-                        error: None,
-                        queued: false,
-                    }
                 }
-            };
-            let _ = outcome; // 结果已落戳(ready/error),真相源 = 戳 + 广播
-            // —— 清槽 + 广播终态(components[] 随新;拉取仍是前端真相源)——
-            clear_slot(&app);
+            }
+            // —— 终态原子转移(单锁:释放当前 + 取队首占槽;快照含旧件戳
+            //    终态与新件开装,一次广播覆盖两个时点;防插队竞态见
+            //    release_and_claim_next 注释)——
+            let next = app
+                .state::<ComponentManager>()
+                .runtime
+                .lock()
+                .unwrap()
+                .release_and_claim_next();
             let _ = crate::pyenv::emit_current(&app);
-            // —— 队首接力(锁内 pop + 占槽,原子)——
-            let next = {
-                let manager = app.state::<ComponentManager>();
-                let mut rt = manager.runtime.lock().unwrap();
-                match rt.queued.pop_front() {
-                    Some(next) => {
-                        rt.installing = Some(next.clone());
-                        Some(next)
-                    }
-                    None => None,
-                }
-            };
             match next {
-                Some(next_id) => {
-                    let _ = crate::pyenv::emit_current(&app); // 出队开装广播
-                    id = next_id;
-                }
+                Some(next_id) => id = next_id,
                 None => break,
             }
         }
@@ -1992,6 +2001,29 @@ mod tests {
         // 无戳组件恒 None
         assert_eq!(components[1].install_state, None);
         assert_eq!(components[1].install_error, None);
+    }
+
+    /// 接力终态原子转移 + 链中止清理(10-13 复审 grill 竞态修复的语义钉子):
+    /// release_and_claim_next 一次锁内完成「释放当前+占队首」——分两次锁
+    /// 的间隙会被命令入口插队(双 pip 并发);abort_all 槽与队列全清,
+    /// 排队件不滞留假排队。
+    #[test]
+    fn runtime_release_and_abort_semantics() {
+        let mut rt = ComponentRuntime::default();
+        // 队列空:释放当前 → None,槽确已释放(命令入口可占)
+        rt.installing = Some("table".into());
+        assert_eq!(rt.release_and_claim_next(), None);
+        assert!(rt.installing.is_none());
+        // 队列有件:释放当前 + 队首占槽一次完成(FIFO 序)
+        rt.installing = Some("table".into());
+        rt.queued = vec!["crawl4ai".into(), "telethon".into()].into();
+        assert_eq!(rt.release_and_claim_next().as_deref(), Some("crawl4ai"));
+        assert_eq!(rt.installing.as_deref(), Some("crawl4ai"));
+        assert_eq!(rt.queued.len(), 1);
+        // abort_all:槽与队列全清
+        rt.abort_all();
+        assert!(rt.installing.is_none());
+        assert!(rt.queued.is_empty());
     }
 
     /// 磁盘预算:已知钩子加码 600MB、无钩子/未知钩子不加;saturating 不溢出。

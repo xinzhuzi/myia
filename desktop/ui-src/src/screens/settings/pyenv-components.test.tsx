@@ -261,6 +261,44 @@ describe("PyenvCard:可选组件安装按钮(状态即按钮效果)", () => {
     expect(callsOf("pyenv_install_component")).toEqual([]);
   });
 
+  it("排队全链(事件驱动):排队中 → 前件装完自动开装(安装中)→ 本件装完(已装)——AC1 前端面", async () => {
+    const ipc = installIpc(wireFixture({
+      components: [
+        { id: "crawl4ai", installed: false, install_state: "installing" },
+        { id: "table", installed: false, install_state: "queued" },
+      ],
+    }));
+    render(<PyenvCard />);
+
+    // 初态:前件安装中,本件排队中
+    const tableButton = await screen.findByTestId("pyenv-component-table-install");
+    await waitFor(() => expect(tableButton.textContent).toContain("排队中"));
+
+    // 前件装完 → 接力链占槽本件(壳广播 installing)
+    act(() => {
+      ipc.emitStatus(wireFixture({
+        components: [
+          { id: "crawl4ai", installed: true },
+          { id: "table", installed: false, install_state: "installing" },
+        ],
+      }));
+    });
+    await waitFor(() => expect(tableButton.textContent).toContain("安装中"));
+    expect((tableButton as HTMLButtonElement).disabled).toBe(true);
+
+    // 本件装完 → 已装
+    act(() => {
+      ipc.emitStatus(wireFixture({
+        components: [
+          { id: "crawl4ai", installed: true },
+          { id: "table", installed: true },
+        ],
+      }));
+    });
+    await waitFor(() => expect(tableButton.textContent).toContain("已装"));
+    expect((tableButton as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("install_state=error → 按钮「重试安装」可点 + 失败原因小字;点击 → 受理重装", async () => {
     const ipc = installIpc(
       wireFixture({
