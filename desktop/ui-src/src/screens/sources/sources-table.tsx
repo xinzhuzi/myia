@@ -335,7 +335,7 @@ export function SourcesTable({
   const headers = table.getHeaderGroups()[0]?.headers ?? [];
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-3">
       {/* Kestra KSFilter 范式:一条工具栏贴表格上方 —— 左搜索/右筛选+刷新;
           控件高统一 32px(--control-h 档) */}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -456,7 +456,7 @@ export function SourcesTable({
 
       {/* 表格区:满铺无卡填充(Kestra full-container 密度),外缘 hairline
           容器收边(与下方排程/停用卡的圆角分层同族)+ 表头浅底带 */}
-      <div className="overflow-hidden rounded-lg border border-border">
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-border">
         <Table className={cn("table-fixed", resizing && "select-none")}>
         {/* 列宽拖拽:定宽列渲染 getSize() 原值;末列(操作)不定宽吃剩余宽度 */}
         <colgroup>

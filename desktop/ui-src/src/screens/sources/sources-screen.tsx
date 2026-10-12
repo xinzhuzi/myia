@@ -218,7 +218,7 @@ export function SourcesScreen() {
   return (
     /* R2 重排:区块节奏直接消费具名令牌 gap-block(24px)+ pb-block 底部呼吸,
        index.css 基调层兜底自然让位(值相同) */
-    <div className="flex flex-col gap-block pb-block">
+    <div className="flex h-full min-h-0 flex-col gap-block pb-block">
       <PageHeader
         title="源管理"
         description="品类源的启停写回品类 YAML;改动被 myssia run 识别(doctor 复核往返一致)"
@@ -299,7 +299,9 @@ export function SourcesScreen() {
 
       {/* Kestra Flows 分区范式(full-container):表格不再卡包裹,直接铺在内容底
           上(KsDataTable 观感);加载/空态同区呈现 */}
-      <div className="px-6">
+      {/* 满高铺底(10-12-sources-fullheight):表格区吃剩余视口高,Kestra
+          full-container 范式补完——分页钉底,行少时空底收在边框容器内 */}
+      <div className="flex min-h-0 flex-1 flex-col px-6">
         {state.status === "loading" ? (
           <div className="flex flex-col gap-2 py-2" aria-label="加载中">
             {[0, 1, 2].map((index) => (
