@@ -23,3 +23,10 @@
 - Keep `prd.md` focused on requirements, constraints, and acceptance criteria.
 - Lightweight tasks can remain PRD-only.
 - For complex tasks, add `design.md` for technical design and `implement.md` for execution planning before `task.py start`.
+
+## 实跑验收回执(2026-10-12 晚,grill 批 dwfrun-7e7e25f0)
+
+- **品类开启=形态纠偏**:weixin.yaml 无顶层 enabled 字段(schema extra=forbid 拒载;唯一 enabled=enrich 红线)——开关真身=cron job 注册(telegram-web 判例同款);已建「微信监控」job(*/30,next 05:30,enabled)。红线字段 sha256 前后同值零触碰。
+- **真拉跑通、入库 0 条=合法 skip**:skip_reason=chat_title_unreadable(visible_title:null——当前微信未打开声明会话「文件传输助手」的聊天窗);管线/引擎/CLI 全链 exit 0,盖戳值 weixin-文件传输助手 在 runs 账目确证。**条目将在微信打开该聊天窗后的下轮拉取自然产生**(语义边界=读当前打开会话,design 已注记)。
+- **grill 3 轮全部确证出环**(10 条裁决,含 PRD 验收锚补位 386b4xx、ticker 死使 cron 开启语义三账互证、AX 缺口落档)。
+- 去重沉默=false 成因=结构化空态 skip 非 dedup(grill 如实裁决)。
