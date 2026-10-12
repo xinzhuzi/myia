@@ -278,12 +278,12 @@ def test_robots_allowed_target_passes(patched_adapter):
 def test_adapter_missing_is_structured(monkeypatch):
     def missing():
         raise FileNotFoundError(
-            "urlwatch 适配器不存在:plugins/myssia-urlwatch/adapter.py"
+            "urlwatch 组件缺失:plugins/myssia-urlwatch/adapter.py"
         )
 
     monkeypatch.setattr(urlwatch_engine_module, "import_urlwatch_adapter", missing)
     engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
-    with pytest.raises(FetchError, match="适配器不存在") as excinfo:
+    with pytest.raises(FetchError, match="组件缺失") as excinfo:
         run(engine.fetch())
     assert excinfo.value.error_type == "urlwatch_adapter_missing"
 

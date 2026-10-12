@@ -209,7 +209,7 @@ def _parse_token_response(response: httpx.Response, error_code: str) -> dict[str
     try:
         payload = response.json()
     except ValueError as exc:
-        raise FeishuAccountError(error_code, f"飞书应答非 JSON:HTTP {response.status_code}") from exc
+        raise FeishuAccountError(error_code, f"飞书返回的不是 JSON:HTTP {response.status_code}") from exc
     if response.status_code != 200 or payload.get("code") != 0:
         msg = payload.get("msg") or f"HTTP {response.status_code}"
         raise FeishuAccountError(error_code, f"飞书开放平台拒绝({payload.get('code')}):{msg}")
@@ -217,7 +217,7 @@ def _parse_token_response(response: httpx.Response, error_code: str) -> dict[str
     token = data.get("access_token")
     refresh = data.get("refresh_token")
     if not token or not refresh:
-        raise FeishuAccountError(error_code, "飞书应答缺 access_token/refresh_token")
+        raise FeishuAccountError(error_code, "飞书返回的结果缺 access_token/refresh_token")
     return {"access_token": token, "refresh_token": refresh}
 
 

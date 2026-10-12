@@ -291,8 +291,8 @@ class WechatLocalEngine(BaseEngine):
             )
         except LocalBridgeTimeoutError as exc:
             raise FetchError(
-                f"wechat_local 桥读超时:{exc}(截图+OCR 单命令上界 "
-                f"{options['read_timeout_seconds']:.0f}s;瞬态可重试)",
+                f"读取微信消息超时:{exc}(单次读取含截图与文字识别,上限 "
+                f"{options['read_timeout_seconds']:.0f} 秒;多为暂时现象,稍后重试即可)",
                 error_type="bridge_timeout",
             ) from exc
         payload = self._check_bridge_result(exit_code, stdout)
@@ -322,8 +322,8 @@ class WechatLocalEngine(BaseEngine):
                 error_type=error_type,
             )
         raise FetchError(
-            f"wechat_local 桥应答不是契约 JSON(exit={exit_code});"
-            "重装或升级 wechat-bridge 组件",
+            f"wechat-bridge 组件返回了无法识别的结果(exit={exit_code});"
+            "请重装或升级该组件",
             error_type="bridge_error",
         )
 
@@ -359,8 +359,8 @@ class WechatLocalEngine(BaseEngine):
         messages = payload.get("messages")
         if not isinstance(messages, list):
             raise FetchError(
-                "wechat_local 桥应答缺 messages 列表(契约漂移;重装或升级"
-                " wechat-bridge 组件)",
+                "wechat-bridge 组件返回的结果缺 messages 列表;"
+                "请重装或升级该组件",
                 error_type="bridge_error",
             )
         items: list[dict] = []

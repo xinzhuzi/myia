@@ -146,13 +146,12 @@ CLAIM_REFRESH_MIN_AGE_SECONDS = FIRE_CLAIM_TTL_SECONDS / 2
 
 # create/update 共用的空载荷报错文案(D2:载荷 = category)。
 EMPTY_CATEGORY_ERROR = (
-    "Cron job requires a category (pipeline YAML path) — the job payload is "
-    "the category it runs."
+    "定时任务必须绑定一个品类(它运行的就是品类 YAML 路径)。"
 )
 
 _IMMUTABLE_JOB_FIELDS = frozenset({"id"})
 
-_REARM_RECURRING_ERROR = "Cannot re-arm recurring jobs: re-arm is one-shot-only; use plain resume or cron run."
+_REARM_RECURRING_ERROR = "常规定时任务直接点「恢复」即可,不需要指定时间;指定新时间只适用于一次性任务。"
 
 # mark_job_run 里区分「job 不在库」与「写入被拒」的哨兵(上游 _MISSING 同款)。
 _MISSING = object()
@@ -505,8 +504,8 @@ class CronJobs:
                 ONESHOT_GRACE_SECONDS,
             )
             raise ValueError(
-                f"Requested one-shot time {run_at} is more than "
-                f"{ONESHOT_GRACE_SECONDS}s in the past and cannot be scheduled."
+                f"指定的时间 {run_at} 已在过去"
+                f"(超过 {ONESHOT_GRACE_SECONDS} 秒宽限),不能再排程;请选一个未来的时间。"
             )
         return next_run_at
 
@@ -1006,9 +1005,8 @@ class CronJobs:
             )
         ):
             raise ValueError(
-                f"Cannot activate terminal cron job '{job.get('name', job_id)}' "
-                "through update_job; use cron resume --at <ISO-8601> "
-                "(or cron run for an immediate fire)."
+                f"「{job.get('name', job_id)}」已结束,不能直接改回进行中;"
+                "请用「恢复」指定一个新时间,或点「立即运行」。"
             )
 
     def _normalize_job_updates(
@@ -1123,8 +1121,8 @@ class CronJobs:
         if next_run is None and updated["schedule"].get("kind") == "once":
             run_at = updated["schedule"].get("run_at", "unknown")
             raise ValueError(
-                f"Requested one-shot time {run_at} is in the past "
-                f"(grace window: {ONESHOT_GRACE_SECONDS}s) and cannot be scheduled."
+                f"指定的时间 {run_at} 已过去(宽限 {ONESHOT_GRACE_SECONDS} 秒),"
+                "不能再排程;请选一个未来的时间。"
             )
         updated["next_run_at"] = next_run
 
@@ -1212,8 +1210,8 @@ class CronJobs:
         if next_run_at is None and (job.get("schedule") or {}).get("kind") == "once":
             run_at = (job.get("schedule") or {}).get("run_at", "unknown")
             raise ValueError(
-                f"Cannot resume: one-shot time {run_at} is in the past "
-                f"(grace window: {ONESHOT_GRACE_SECONDS}s) and will never fire."
+                f"指定的时间 {run_at} 已过去(宽限 {ONESHOT_GRACE_SECONDS} 秒),"
+                "不会再触发;请指定一个新时间。"
             )
         return self.update_job(
             job["id"],
@@ -1241,8 +1239,8 @@ class CronJobs:
         if is_terminal_job(job):
             name = job.get("name", job_id)
             raise ValueError(
-                f"Cannot run: job '{name}' is {job.get('state')} (terminal). "
-                f"Create a new occurrence with 'cron resume {name} --at <ISO-8601>'."
+                f"无法运行:「{name}」已结束({job.get('state')})。"
+                "如需再跑,请用「恢复」指定一个新时间,或新建定时任务。"
             )
         manual_run_at = self._now().isoformat()
         return self.update_job(
@@ -1278,8 +1276,8 @@ class CronJobs:
         )
         if next_run_at is None:
             raise ValueError(
-                f"Requested one-shot time {parsed_schedule.get('run_at') or run_at} is more "
-                f"than {ONESHOT_GRACE_SECONDS}s in the past and cannot be scheduled."
+                f"指定的时间 {parsed_schedule.get('run_at') or run_at} 已在过去"
+                f"(超过 {ONESHOT_GRACE_SECONDS} 秒宽限),不能再排程;请选一个未来的时间。"
             )
 
         def apply(

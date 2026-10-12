@@ -309,7 +309,7 @@ class LLMEnricher:
                             "url": item.url,
                             "title": item.title,
                             "error_type": "enrich_batch_failed",
-                            "message": f"批量精评失败: {type(exc).__name__}: {exc}",
+                            "message": f"批量 AI 评分失败: {type(exc).__name__}{f': {exc}' if str(exc) else ''}",
                         }
                     )
                 logger.warning(

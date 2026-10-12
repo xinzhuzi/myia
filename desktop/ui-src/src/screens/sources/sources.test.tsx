@@ -661,14 +661,14 @@ describe("源管理:试抓此源(C13 → 详情弹窗)", () => {
       throw JSON.stringify({
         code: "test_busy",
         path: "$",
-        message: "已有试抓在执行 job_id=9(单飞)",
+        message: "已有一次试抓正在进行,请等它完成后再试",
         data: { active_job_id: 9 },
       });
     };
     fireEvent.click(screen.getByRole("button", { name: "试抓 local-api" }));
     const busy = await screen.findByTestId("test-result-dialog");
     expect(busy.textContent).toContain("test_busy");
-    expect(busy.textContent).toContain("已有试抓在执行");
+    expect(busy.textContent).toContain("已有一次试抓正在进行");
 
     // X 关闭钮
     fireEvent.click(screen.getByRole("button", { name: "关闭对话框" }));

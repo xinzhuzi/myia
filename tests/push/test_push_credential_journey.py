@@ -88,7 +88,7 @@ class TestResolveChannelCredential:
                 "env:FEISHU_BOT_TOKEN", env_key="FEISHU_BOT_TOKEN", label="测试位"
             )
         assert excinfo.value.code == "env_var_missing"
-        assert "设置→推送" in str(excinfo.value)
+        assert "配置 → 机器人凭据" in str(excinfo.value)
 
     def test_explicit_keychain_ref_passes_through(self):
         secrets_store.set_secret("myia/stocks/my_chat", "oc_x")
@@ -134,7 +134,7 @@ class TestTelegramKeychainFallback:
         with pytest.raises(PushSendError) as excinfo:
             asyncio.run(channel.send([{"title": "t"}], _immediate_context()))
         assert excinfo.value.code == "env_var_missing"
-        assert "设置→推送" in str(excinfo.value)
+        assert "配置 → 机器人凭据" in str(excinfo.value)
 
 
 class TestWebhookKeychainFallback:
@@ -231,4 +231,4 @@ class TestFeishuAutoMint:
         with pytest.raises(PushSendError) as excinfo:
             asyncio.run(self._channel(lambda request: httpx.Response(500)).send([{"title": "t"}], _immediate_context()))
         assert excinfo.value.code == "env_var_missing"
-        assert "设置→推送" in str(excinfo.value)
+        assert "配置 → 机器人凭据" in str(excinfo.value)

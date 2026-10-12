@@ -123,8 +123,8 @@ def normalize_repeat_value(repeat: Any) -> int | None:
             repeat = int(repeat_str)
         except ValueError:
             raise ValueError(
-                f"Invalid repeat value {repeat!r}: use an integer, "
-                f"'forever', or 'once'."
+                f"无法识别的重复次数 {repeat!r}:应为整数,或 "
+                f"forever(不限次)/once(仅一次)。"
             ) from None
     return None if repeat <= 0 else int(repeat)
 
@@ -138,8 +138,8 @@ def parse_duration(s: str) -> int:
     match = re.match(r"^(\d*)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days)$", s)
     if not match:
         raise ValueError(
-            f"Invalid duration: '{s}'. Use format like '30m', '2h', '1d', "
-            "or a bare unit like 'hour' (defaults to 1).")
+            f"无法识别的时长「{s}」:应形如 30m、2h、1d, "
+            "或裸单位 hour(默认 1)。")
     value = int(match.group(1)) if match.group(1) else 1
     return value * _DURATION_MULTIPLIERS[match.group(2)[0]]
 
@@ -411,7 +411,7 @@ def parse_schedule(
         try:
             dt = datetime.fromisoformat(schedule.replace("Z", "+00:00"))
         except ValueError as e:
-            raise ValueError(f"Invalid timestamp '{schedule}': {e}") from e
+            raise ValueError(f"无法识别的时间「{schedule}」:{e}") from e
         if dt.tzinfo is None:
             # 朴素时间戳锚配置时区(#51021 修复照抄):due 检查对拍的
             # 是同一面配置时钟,"20:07" 必须指调度器检查时钟上的 20:07,
@@ -431,7 +431,7 @@ def parse_schedule(
             minutes = parse_duration(duration_str)
         except ValueError:
             raise ValueError(
-                f"Invalid duration '{duration_str}' after 'in '. Use e.g. 'in 30m', 'in 2h'."
+                f"无法识别的时长「{duration_str}」:应形如 in 30m、in 2h。"
             ) from None
         base = _ensure_aware(now, zone) if now is not None else datetime.now(tz=zone)
         # 时长度量的是流逝时间,不是跨 DST 边界的墙钟小时(上游同款)。
@@ -441,12 +441,12 @@ def parse_schedule(
         return _interval_schedule(parse_duration(schedule))
 
     raise ValueError(
-        f"Invalid schedule '{original}'. Use:\n"
-        f"  - Interval: '30m', 'every 30m', 'every 2h' (recurring)\n"
-        f"  - One-shot delay: 'in 30m', 'in 2h' (fires once)\n"
-        f"  - Weekly/daily: 'every monday 9am', 'weekdays at 9am' (recurring)\n"
-        f"  - Cron: '0 9 * * *' (cron expression)\n"
-        f"  - Timestamp: '2026-02-03T14:00:00' (one-shot at time)"
+        f"无法识别的定时方式「{original}」。可用:\n"
+        f"  - 周期:30m、every 30m、every 2h(循环执行)\n"
+        f"  - 延时一次:in 30m、in 2h(到点跑一次)\n"
+        f"  - 每周/每日:every monday 9am、weekdays at 9am(循环执行)\n"
+        f"  - cron 表达式:'0 9 * * *'\n"
+        f"  - 指定时刻:2026-02-03T14:00:00(到点跑一次)"
     )
 
 

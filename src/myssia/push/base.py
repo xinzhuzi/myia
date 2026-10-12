@@ -314,8 +314,8 @@ def resolve_channel_credential(reference: str, *, env_key: str, label: str) -> s
         except secrets_store.SecretError:
             raise CredentialResolveError(
                 "env_var_missing",
-                f"环境变量 {env_key} 未设置,钥匙链规范名 {fallback_name} 亦未录入;"
-                f"到 设置→推送 填一次即可(或设置环境变量 {env_key})——{label}",
+                f"{label} 还没填:到 配置 → 机器人凭据 填一次即可;"
+                f"也可以设置环境变量 {env_key}",
             ) from exc
 
 

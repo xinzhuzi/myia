@@ -2176,18 +2176,18 @@ def _m_feed_enrich(params: dict[str, Any]) -> dict[str, Any]:
                 detail = f"条目所属品类 {item.category!r} 的 YAML 不在 config 目录"
             else:
                 reason = "enrich_disabled"
-                detail = f"品类 {item.category!r} 未启用 enrich(enabled=false)"
+                detail = f"品类 {item.category!r} 未启用 AI 评分"
             raise ProtocolError(
                 "enrich_not_configured",
-                f"无法精评:{detail};请在品类 YAML enrich 节配置并启用端点",
+                f"无法进行 AI 评分:{detail};到 设置 的 AI 评分区启用该品类并配好模型端点",
                 path="params.item",
                 data={"category": item.category, "reason": reason},
             )
         if enrich_cfg.base_url is None or enrich_cfg.api_key is None:
             raise ProtocolError(
                 "enrich_not_configured",
-                f"品类 {item.category!r} 的 enrich 节缺少端点引用"
-                "(base_url/api_key 必须是 env:/keychain: 引用)",
+                f"品类 {item.category!r} 未配置 AI 评分端点"
+                "(base_url/api_key 须以 env:/keychain: 引用填写)",
                 path="params.item",
                 data={"category": item.category, "reason": "endpoint_missing"},
             )
@@ -2212,7 +2212,7 @@ def _m_feed_enrich(params: dict[str, Any]) -> dict[str, Any]:
         except asyncio.TimeoutError as exc:
             raise ProtocolError(
                 "enrich_timeout",
-                f"精评超时(>{settings.timeout_seconds}s):端点无响应",
+                f"AI 评分超时(超过 {settings.timeout_seconds} 秒):模型端点没有响应,请稍后重试",
                 path="params.item",
                 data={"timeout_seconds": settings.timeout_seconds},
             ) from exc
@@ -2220,7 +2220,7 @@ def _m_feed_enrich(params: dict[str, Any]) -> dict[str, Any]:
             first_failure = outcome.failures[0]["message"] if outcome.failures else "端点未返回该条目评分"
             raise ProtocolError(
                 "enrich_failed",
-                f"精评未获分(degrade_reason={outcome.degrade_reason!r}):{first_failure}",
+                f"AI 评分没有返回分数:{first_failure}",
                 path="params.item",
                 data={
                     "degrade_reason": outcome.degrade_reason,
@@ -2282,7 +2282,7 @@ def _source_names(entries: list[Any], *, where: str) -> list[str]:
         if not isinstance(name, str) or not name:
             raise ProtocolError(
                 "invalid_params",
-                f"{where}[{index}] 缺少有效 name 字段,无法定位写回目标",
+                f"{where}[{index}] 缺少有效 name 字段,无法定位要操作的源",
                 path="params.file",
             )
         names.append(name)
@@ -2784,7 +2784,7 @@ def _m_sources_write(params: dict[str, Any]) -> dict[str, Any]:
         ]
         raise ProtocolError(
             "category_invalid",
-            f"写回后的源名单未过品类校验: {details}",
+            f"保存失败:源名单没有通过配置校验: {details[0]['message']}",
             path="params.file",
             data={"errors": details},
         ) from exc
@@ -2806,7 +2806,7 @@ def _m_sources_write(params: dict[str, Any]) -> dict[str, Any]:
         _atomic_write_text(yaml_path, new_text)
     except OSError as exc:
         raise ProtocolError(
-            "source_write_failed", f"写回失败: {exc}", path="params.file"
+            "source_write_failed", f"保存失败: {exc}", path="params.file"
         ) from exc
     return {
         "file": str(yaml_path),
@@ -3154,14 +3154,13 @@ def _m_yaml_save(params: dict[str, Any]) -> dict[str, Any]:
             raise ProtocolError(
                 "mtime_conflict",
                 f"目标文件已存在,新建意图(expected_mtime=null)撞上已有文件: {resolved};"
-                f"请先 yaml.read 重读后再保存",
+                f"请先点「重读」后再保存",
                 path="params.expected_mtime",
             )
         if float(expected_mtime) != current_mtime:
             raise ProtocolError(
                 "mtime_conflict",
-                f"文件已被外部改动(CLI/别的窗口/启停开关),读时 mtime="
-                f"{expected_mtime},当前 mtime={current_mtime};请 yaml.read 重读后再保存",
+                f"文件已被其他窗口或命令行修改过,请点「重读」重新获取后再保存",
                 path="params.expected_mtime",
                 data={"expected_mtime": expected_mtime, "current_mtime": current_mtime},
             )
@@ -3171,7 +3170,7 @@ def _m_yaml_save(params: dict[str, Any]) -> dict[str, Any]:
     if errors or config is None:
         raise ProtocolError(
             "category_invalid",
-            f"内容未过品类校验(error 级 {len(errors)} 处),零写入",
+            f"保存失败:内容有 {len(errors)} 处配置错误,文件未做任何改动",
             path="params.content",
             data={"errors": errors},
         )
@@ -3207,7 +3206,7 @@ def _m_yaml_save(params: dict[str, Any]) -> dict[str, Any]:
         _atomic_write_text(resolved, content)
     except OSError as exc:
         raise ProtocolError(
-            "source_write_failed", f"写回失败: {exc}", path="params.file"
+            "source_write_failed", f"保存失败: {exc}", path="params.file"
         ) from exc
     return {
         "file": str(resolved),
@@ -3404,7 +3403,7 @@ def _m_sources_test(params: dict[str, Any]) -> dict[str, Any]:
     with _TEST_LOCK:
         if _TEST_ACTIVE_JOB is not None:
             raise ProtocolError(
-                "test_busy", f"已有试抓在执行 job_id={_TEST_ACTIVE_JOB}(单飞)",
+                "test_busy", "已有一次试抓正在进行,请等它完成后再试",
                 data={"active_job_id": _TEST_ACTIVE_JOB},
             )
         _TEST_NEXT_JOB_ID += 1
@@ -3693,7 +3692,7 @@ def _m_run_start(params: dict[str, Any]) -> dict[str, Any]:
     with _RUNS_LOCK:
         if _ACTIVE_RUN_ID is not None:
             raise ProtocolError(
-                "run_busy", f"已有 run 在执行 run_id={_ACTIVE_RUN_ID}(桌面单飞;请等待 completed 事件)",
+                "run_busy", "已有采集正在进行,请等这一轮结束后再开始新的采集",
                 data={"active_run_id": _ACTIVE_RUN_ID},
             )
         _NEXT_RUN_ID += 1
@@ -4162,7 +4161,7 @@ def _m_gates_save(params: dict[str, Any]) -> dict[str, Any]:
     except GatesLoadError as exc:
         raise ProtocolError(
             "gates_config_invalid",
-            f"门槛配置未过校验,零写入: {exc}",
+            f"保存失败:门槛配置有错误,文件未做任何改动: {exc}",
             path="params.config",
             data=exc.to_dict(),
         ) from exc
@@ -4197,7 +4196,7 @@ def _m_image_config_save(params: dict[str, Any]) -> dict[str, Any]:
         config = VisionConfig.from_payload(payload)
     except VisionConfigError as exc:
         raise ProtocolError(
-            "image_config_invalid", f"看图配置未过校验,零写入: {exc}",
+            "image_config_invalid", f"保存失败:看图配置有错误,文件未做任何改动: {exc}",
             path="params.config", data=exc.to_dict(),
         ) from exc
     path = save_vision_config(_vision_yaml_path(_serve_context()), config)
@@ -4268,7 +4267,7 @@ def _m_image_models_download(params: dict[str, Any]) -> dict[str, Any]:
         if _MODELS_DL_ACTIVE_JOB is not None:
             raise ProtocolError(
                 "download_busy",
-                f"已有模型下载在执行 job_id={_MODELS_DL_ACTIVE_JOB}(单飞)",
+                "已有模型下载正在进行,请等它完成后再操作",
                 data={"active_job_id": _MODELS_DL_ACTIVE_JOB},
             )
         _MODELS_DL_NEXT_JOB_ID += 1
@@ -4351,7 +4350,7 @@ def _m_image_models_activate(params: dict[str, Any]) -> dict[str, Any]:
         ) from exc
     except VisionConfigError as exc:  # 拒载/写失败零半载(activate 内同门)
         raise ProtocolError(
-            "image_config_invalid", f"vision.yaml 改写失败,零写入: {exc}",
+            "image_config_invalid", f"保存失败: {exc}",
             path="params.name", data=exc.to_dict(),
         ) from exc
     return {"ok": True}
@@ -4392,7 +4391,7 @@ def _m_image_server_ensure(params: dict[str, Any]) -> dict[str, Any]:
         if _SERVER_ENSURE_ACTIVE_JOB is not None:
             raise ProtocolError(
                 "ensure_busy",
-                f"已有确保启动在执行 job_id={_SERVER_ENSURE_ACTIVE_JOB}(单飞)",
+                "看图服务正在启动中,请稍候再试",
                 data={"active_job_id": _SERVER_ENSURE_ACTIVE_JOB},
             )
         _SERVER_ENSURE_NEXT_JOB_ID += 1
@@ -4983,7 +4982,7 @@ def _m_push_write(params: dict[str, Any]) -> dict[str, Any]:
         ]
         raise ProtocolError(
             "category_invalid",
-            f"写回后的 push 配置未过品类校验: {details}",
+            f"保存失败:推送配置没有通过配置校验: {details[0]['message']}",
             path="params.push",
             data={"errors": details},
         ) from exc
@@ -4997,7 +4996,7 @@ def _m_push_write(params: dict[str, Any]) -> dict[str, Any]:
         backed_up = str(bak)
         _atomic_write_text(resolved, new_text)
     except OSError as exc:
-        raise ProtocolError("source_write_failed", f"写回失败: {exc}", path="params.file") from exc
+        raise ProtocolError("source_write_failed", f"保存失败: {exc}", path="params.file") from exc
     return {
         "file": str(resolved),
         "written": True,
@@ -5684,7 +5683,7 @@ def _cron_jobs_from_params(params: dict[str, Any]) -> tuple[CronJobs, str]:
 def _cron_resolve_job(cron: CronJobs, ref: Any) -> dict[str, Any]:
     """job 引用解析(id 或名字;重名带 candidates,未找到结构化 404)。"""
     if isinstance(ref, bool) or not isinstance(ref, str) or not ref.strip():
-        raise ProtocolError("invalid_params", "缺少 job 引用(id 或名字)", path="params.job")
+        raise ProtocolError("invalid_params", "缺少定时任务(id 或名字)", path="params.job")
     try:
         job = cron.resolve_job_ref(ref.strip())
     except AmbiguousJobReference as exc:
@@ -5693,7 +5692,7 @@ def _cron_resolve_job(cron: CronJobs, ref: Any) -> dict[str, Any]:
             data={"candidates": [m.get("id") for m in exc.matches]},
         ) from exc
     if job is None:
-        raise ProtocolError("cron_job_not_found", f"找不到 cron job:{ref}", path="params.job")
+        raise ProtocolError("cron_job_not_found", f"找不到定时任务:{ref}", path="params.job")
     return job
 
 
@@ -5848,13 +5847,13 @@ def _m_cron_pause(params: dict[str, Any]) -> dict[str, Any]:
     job_ref = params.get("job")
     reason = _cron_opt_str(params, "reason")
     if all_flag and job_ref is not None:
-        raise ProtocolError("invalid_params", "all 是全局急停,不要再带 job", path="params.job")
+        raise ProtocolError("invalid_params", "选择「急停全部」时,不需要再指定单条定时任务", path="params.job")
     cron, _db = _cron_jobs_from_params(params)
     if all_flag:
         marker = cron.engage_estop(reason or "paused via sidecar cron.pause all")
         return {"estopped": True, "marker": str(marker)}
     if job_ref is None:
-        raise ProtocolError("invalid_params", "缺少 job(或 all=true 踩全局急停)", path="params.job")
+        raise ProtocolError("invalid_params", "请指定要暂停的定时任务,或选择「急停全部」", path="params.job")
     job = _cron_resolve_job(cron, job_ref)
     updated = cron.pause_job(job["id"], reason=reason)
     return {"job": dict(updated or {})}
@@ -5871,13 +5870,13 @@ def _m_cron_resume(params: dict[str, Any]) -> dict[str, Any]:
         raise ProtocolError("invalid_params", "at 必须为非空 ISO 时刻串", path="params.at")
     job_ref = params.get("job")
     if all_flag and (job_ref is not None or at is not None):
-        raise ProtocolError("invalid_params", "all 是解除全局急停,不要再带 job/at", path="params")
+        raise ProtocolError("invalid_params", "选择「恢复全部」时,不需要再指定单条定时任务或时间", path="params")
     cron, _db = _cron_jobs_from_params(params)
     if all_flag:
         cleared = cron.disengage_estop()
         return {"estopped": cron.is_estopped(), "cleared": cleared}
     if job_ref is None:
-        raise ProtocolError("invalid_params", "缺少 job(或 all=true 解除全局急停)", path="params.job")
+        raise ProtocolError("invalid_params", "请指定要恢复的定时任务,或选择「恢复全部」", path="params.job")
     job = _cron_resolve_job(cron, job_ref)
     try:
         updated = (
@@ -5889,7 +5888,7 @@ def _m_cron_resume(params: dict[str, Any]) -> dict[str, Any]:
         raise ProtocolError("cron_resume_failed", str(exc), path="params") from exc
     if updated is None:  # pragma: no cover - resolve 已保证存在
         raise ProtocolError(
-            "cron_job_not_found", f"找不到 cron job:{job_ref}", path="params.job"
+            "cron_job_not_found", f"找不到定时任务:{job_ref}", path="params.job"
         )
     return {"job": dict(updated)}
 
@@ -5912,7 +5911,7 @@ def _m_cron_remove(params: dict[str, Any]) -> dict[str, Any]:
     job = _cron_resolve_job(cron, params.get("job"))
     if not cron.remove_job(job["id"]):  # pragma: no cover - resolve 已保证存在
         raise ProtocolError(
-            "cron_job_not_found", f"找不到 cron job:{job['id']}", path="params.job"
+            "cron_job_not_found", f"找不到定时任务:{job['id']}", path="params.job"
         )
     return {"removed": True, "job_id": job["id"], "name": job.get("name")}
 
@@ -6133,7 +6132,7 @@ def _browser_humanize_failure(exc: Exception) -> tuple[str, str]:
     if isinstance(exc, TelegramWebError):
         if exc.reason == "dependency_missing":
             return (
-                f"登录窗拉起失败:playwright 未安装({exc})",
+                f"打开登录窗口失败:playwright 未安装({exc})",
                 "设置 →「Python 环境」→ 同步依赖(桌面锁已收录 playwright);"
                 "或终端执行 pip install 'myssia[browser]'",
             )
@@ -6307,7 +6306,7 @@ def _m_browser_open(params: dict[str, Any]) -> dict[str, Any]:
         except TelegramWebError as exc:
             raise ProtocolError(
                 "dependency_missing",
-                "登录窗拉不起来:playwright 库未安装。修复:设置 →"
+                "打不开登录窗口:playwright 库未安装。修复:设置 →"
                 "「Python 环境」→ 同步依赖(桌面锁已收录 playwright),"
                 f"或终端执行 {INSTALL_COMMAND}",
                 path="params.kind",
@@ -6350,7 +6349,7 @@ def _m_browser_open(params: dict[str, Any]) -> dict[str, Any]:
             "session_key": session_key,
             "url": url,
             "phase": "running",
-            "note": "登录窗拉起中(浏览器窗口即将弹出)",
+            "note": "正在打开登录窗口(浏览器窗口即将弹出)",
             "fix_hint": None,
             "started_at": _now_iso(),
             "finished_at": None,
@@ -6414,7 +6413,7 @@ def _m_browser_focus(params: dict[str, Any]) -> dict[str, Any]:
     if page is None or loop is None:
         raise ProtocolError(
             "window_not_active",
-            f"操作 {op_id} 的浏览器窗口还没就位(刚拉起),稍等片刻再聚焦",
+            f"操作 {op_id} 的浏览器窗口还未就绪(刚打开),稍等片刻再聚焦",
             path="params.op_id",
         )
     try:

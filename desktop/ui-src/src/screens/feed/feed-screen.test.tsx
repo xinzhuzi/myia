@@ -1428,7 +1428,7 @@ describe("FeedScreen", () => {
       new SidecarRequestError({
         code: "enrich_not_configured",
         path: "params.item",
-        message: "无法精评:品类 'tech' 未启用 enrich",
+        message: "无法进行 AI 评分:品类 'tech' 未启用 AI 评分;到 设置 的 AI 评分区启用该品类并配好模型端点",
         data: { category: "tech", reason: "enrich_disabled" },
       }),
     );
@@ -1437,7 +1437,7 @@ describe("FeedScreen", () => {
 
     const error = await screen.findByTestId(`feed-enrich-error-${item.id}`);
     expect(error.textContent).toContain("未配置 AI 评分");
-    expect(error.textContent).toContain("未启用 enrich");
+    expect(error.textContent).toContain("未启用 AI 评分");
     expect(error.getAttribute("title")).toContain("enrich_not_configured");
     await waitFor(() => expect(button.getAttribute("disabled")).toBeNull());
   });

@@ -1100,7 +1100,7 @@ class FeishuCardChannel(TrendAwareChannel):
         if envelope.get("code") != 0 or not isinstance(token, str) or not token:
             raise PushSendError(
                 "feishu_token_mint_failed",
-                f"飞书 tenant token 换取应答非零 code 或缺 token: {str(envelope)[:200]!r}"
+                f"飞书换取 tenant token 失败(返回异常或缺少 token): {str(envelope)[:200]!r}"
                 "(核对 app_id/app_secret 与应用发布状态)",
             )
         lifetime = expire if isinstance(expire, (int, float)) else 0

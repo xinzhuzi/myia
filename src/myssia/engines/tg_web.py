@@ -354,16 +354,16 @@ class TelegramWebEngine(BaseEngine):
             state = await probe_login_state_settled(page)
             if state == "logged_out":
                 raise FetchError(
-                    f"tg_web 账号 {options['account']} 登录态失效(登出页在 —— "
-                    "常见于配置档被TG 侧吊销或账号在别处登出);重登:"
-                    f"myssia telegram web-login --account {options['account']} --force",
+                    f"Telegram 网页账号 {options['account']} 登录已失效"
+                    "(常见原因:被 Telegram 收回,或账号在其他设备退出了登录);"
+                    f"请在终端执行 myssia telegram web-login --account {options['account']} --force 重新登录",
                     error_type="tg_web_logged_out",
                 )
             if state == "unknown":
                 raise FetchError(
-                    "tg_web 页面既无会话列表也无登录表单(选择器表失配或网络"
-                    "受限);跟修:重标定 myssia/telegram/web_dom.py 选择器表"
-                    f"(当前标定 {SELECTOR_REVISION})",
+                    "Telegram 页面加载异常(既看不到会话列表也看不到登录页;"
+                    "常见原因:网络受限,或 Telegram 页面改版);"
+                    "请检查网络后重试,若持续出现请更新本应用",
                     error_type="tg_web_dom_stale",
                 )
             from myssia.telegram.web_line import open_chat_flow

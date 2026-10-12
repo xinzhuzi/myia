@@ -142,8 +142,8 @@ def import_urlwatch_adapter(
             exec(executable, module.__dict__)  # noqa: S102 - 场景件白名单装载,credhunter 同手法
             return module
     raise FileNotFoundError(
-        f"urlwatch 适配器不存在:{candidates[0]}(场景件应随仓库 plugins/ 分发;"
-        "桌面端=myssia plugin install plugins/myssia-urlwatch)"
+        f"urlwatch 组件缺失:{candidates[0]}"
+        "(请到 设置 安装 myssia-urlwatch 组件)"
     )
 
 

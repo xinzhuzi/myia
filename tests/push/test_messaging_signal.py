@@ -321,7 +321,7 @@ class TestCredentials:
         with pytest.raises(PushSendError) as excinfo:
             _run(channel.send([{"title": "t"}], CONTEXT))
         assert excinfo.value.code == "env_var_missing"
-        assert "设置→推送" in str(excinfo.value)
+        assert "配置 → 机器人凭据" in str(excinfo.value)
         assert "SIGNAL_HTTP_URL" in str(excinfo.value)
 
     def test_keychain_fallback_drives_real_send(self, monkeypatch):

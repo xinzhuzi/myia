@@ -1344,7 +1344,7 @@ describe("排程一览(自源管理迁入)", () => {
           throw JSON.stringify({
             code: "run_busy",
             path: "$",
-            message: "已有 run 在执行 run_id=8(单飞)",
+            message: "已有采集正在进行,请等这一轮结束后再开始新的采集",
             data: { active_run_id: 8 },
           });
         }
@@ -1356,7 +1356,7 @@ describe("排程一览(自源管理迁入)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "跑一次:品类 ai-news" }));
     const busy = await screen.findByTestId("run-once-dialog");
     expect(busy.textContent).toContain("发起失败:run_busy");
-    expect(busy.textContent).toContain("已有 run 在执行");
+    expect(busy.textContent).toContain("已有采集正在进行");
     expect(screen.getByTestId("run-once-status").textContent).toBe("发起失败");
     // 拒绝不滞留:关闭弹窗即可重试,按钮始终可用
     expect((screen.getByRole("button", { name: "跑一次:品类 ai-news" }) as HTMLButtonElement).disabled).toBe(false);

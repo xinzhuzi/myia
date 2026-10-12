@@ -271,10 +271,10 @@ class SearxngEngine(BaseEngine):
         except httpx.TransportError as exc:
             if urlsplit(base).hostname in _LOOPBACK_HOSTS:
                 raise FetchError(
-                    "searxng 服务组件未启动(就绪探测 /healthz 网络失败:"
-                    f" {exc};本机实例请在 设置 → Python 运行环境 → 可选组件"
-                    "「关键词日报(SearXNG)」行点「启动」后重跑;"
-                    "引擎不隐式拉起服务,启停状态在设置卡可见)",
+                    "SearXNG 服务未启动(健康检测 /healthz 连接失败:"
+                    f" {exc};本机实例请到 设置 → Python 运行环境 → 可选组件"
+                    "「关键词日报(SearXNG)」行点「启动」后重试;"
+                    "本应用不会自动启动该服务,启停状态在设置里可见)",
                     error_type="searxng_service_not_running",
                 ) from exc
             raise FetchError(

@@ -281,7 +281,7 @@ class TestSecretCrud:
         with pytest.raises(SecretError) as excinfo:
             get_secret(CANONICAL_NAME, backend=backend)
         assert excinfo.value.code == "secret_not_found"
-        assert "myssia secret set" in str(excinfo.value)
+        assert "配置 → 机器人凭据" in str(excinfo.value)
         assert "env:" in str(excinfo.value)
 
     def test_delete_removes_item_and_second_delete_reports_not_found(self, backend):

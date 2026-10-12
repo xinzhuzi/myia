@@ -354,13 +354,13 @@ class BlueBubblesChannel(TrendAwareChannel):
         except ValueError as exc:
             raise PushSendError(
                 "invalid_response",
-                f"bluebubbles 应答不是 JSON(HTTP 状态 {response.status_code},"
+                f"bluebubbles 返回的不是 JSON(HTTP 状态 {response.status_code},"
                 f"路径 {path}): {response.text[:200]!r}",
             ) from exc
         if not isinstance(data, Mapping):
             raise PushSendError(
                 "invalid_response",
-                f"bluebubbles 2xx 应答不是 JSON 对象(路径 {path}): {str(data)[:200]!r}",
+                f"bluebubbles 返回的不是 JSON 对象(路径 {path}): {str(data)[:200]!r}",
             )
         return dict(data)
 

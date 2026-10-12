@@ -309,19 +309,19 @@ class SimplexChannel(TrendAwareChannel):
             if remaining <= 0:
                 raise PushSendError(
                     "simplex_api_error",
-                    f"simplex 命令超时无应答({COMMAND_TIMEOUT_SECONDS:.0f}s): {command[:60]!r}",
+                    f"simplex 命令超时,一直没有结果({COMMAND_TIMEOUT_SECONDS:.0f}s): {command[:60]!r}",
                 )
             try:
                 raw = await asyncio.wait_for(ws.recv(), timeout=remaining)
             except TimeoutError as exc:  # 3.11+:asyncio.TimeoutError 即内建形态
                 raise PushSendError(
                     "simplex_api_error",
-                    f"simplex 命令超时无应答({COMMAND_TIMEOUT_SECONDS:.0f}s): {command[:60]!r}",
+                    f"simplex 命令超时,一直没有结果({COMMAND_TIMEOUT_SECONDS:.0f}s): {command[:60]!r}",
                 ) from exc
             if raw is None:
                 raise PushSendError(
                     "simplex_api_error",
-                    f"simplex 守护进程在应答前关闭连接: {command[:60]!r}",
+                    f"simplex 守护进程在返回结果前关闭连接: {command[:60]!r}",
                 )
             try:
                 event = json.loads(raw)

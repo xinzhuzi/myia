@@ -323,8 +323,8 @@ def get_secret(name: str, *, backend: KeychainBackend | None = None) -> str:
     if value is None:
         raise SecretError(
             "secret_not_found",
-            f"系统钥匙链 service={SECRET_SERVICE!r} 下未找到凭据 {name!r};"
-            f"请先执行 myssia secret set {name} 写入,或改用 env: 引用",
+            f"钥匙链里还没有这条凭据({name});"
+            f"到 配置 → 机器人凭据 填一次即可,或在配置里改用 env: 环境变量引用",
         )
     return value
 

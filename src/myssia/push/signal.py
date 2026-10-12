@@ -327,12 +327,12 @@ class SignalChannel(TrendAwareChannel):
         except ValueError as exc:
             raise PushSendError(
                 "invalid_response",
-                f"signal 应答不是 JSON(HTTP 状态 {response.status_code}): {response.text[:200]!r}",
+                f"signal 返回的不是 JSON(HTTP 状态 {response.status_code}): {response.text[:200]!r}",
             ) from exc
         if not isinstance(data, Mapping):
             raise PushSendError(
                 "invalid_response",
-                f"signal 2xx 应答不是 JSON 对象: {str(data)[:200]!r}",
+                f"signal 返回的不是 JSON 对象: {str(data)[:200]!r}",
             )
         if "error" in data:
             # JSON-RPC error 信封:版本差异(signal-cli ≥0.14.3 typed code 如 -5,
@@ -358,8 +358,8 @@ class SignalChannel(TrendAwareChannel):
         if not isinstance(result, Mapping):
             raise PushSendError(
                 "invalid_response",
-                "signal 应答缺 result 或 result 非对象(非 signal-cli send 应答"
-                f"形态): {str(data)[:200]!r}(核对 SIGNAL_HTTP_URL 指向 signal-cli"
+                "signal 返回的结果缺 result 或 result 不是对象:"
+                f"{str(data)[:200]!r}(核对 SIGNAL_HTTP_URL 指向 signal-cli"
                 " 守护进程的 /api/v1/rpc 端点)",
             )
         failure = _validate_send_result(result)

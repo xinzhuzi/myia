@@ -216,7 +216,7 @@ def test_create_invalid_inputs_raise(jobs: CronJobs, kwargs: dict[str, Any]) -> 
 
 
 def test_create_past_oneshot_rejected(jobs: CronJobs) -> None:
-    with pytest.raises(ValueError, match="more than 120s in the past"):
+    with pytest.raises(ValueError, match="已在过去"):
         jobs.create_job("config/news.yaml", "2020-01-01T00:00:00")
 
 
@@ -224,7 +224,7 @@ def test_create_invalid_schedule_lists_five_forms(jobs: CronJobs) -> None:
     with pytest.raises(ValueError) as excinfo:
         jobs.create_job("config/news.yaml", "banana")
     text = str(excinfo.value)
-    for form in ("'30m'", "'in 30m'", "'every monday 9am'", "'0 9 * * *'", "Timestamp"):
+    for form in ("30m", "in 30m", "every monday 9am", "'0 9 * * *'", "指定时刻"):
         assert form in text
 
 
@@ -388,7 +388,7 @@ def test_update_terminal_activation_rejected(jobs: CronJobs) -> None:
         jobs.update_job(job["id"], {"name": "still editable"})["name"]
         == "still editable"
     )
-    with pytest.raises(ValueError, match="terminal"):
+    with pytest.raises(ValueError, match="已结束"):
         jobs.update_job(job["id"], {"enabled": True})
 
 
@@ -396,7 +396,7 @@ def test_update_category_absolute_and_validated(jobs: CronJobs) -> None:
     job = jobs.create_job("config/news.yaml", "every 5m")
     updated = jobs.update_job(job["id"], {"category": "config/tech.yaml"})
     assert Path(updated["category"]).is_absolute()
-    with pytest.raises(ValueError, match="category"):
+    with pytest.raises(ValueError, match="品类"):
         jobs.update_job(job["id"], {"category": ""})
 
 
@@ -456,7 +456,7 @@ def test_resume_past_oneshot_raises(jobs: CronJobs, clock: Clock) -> None:
     job = jobs.create_job("config/news.yaml", "in 10m")
     clock.tick(hours=1)
     jobs.pause_job(job["id"])
-    with pytest.raises(ValueError, match="will never fire"):
+    with pytest.raises(ValueError, match="不会再触发"):
         jobs.resume_job(job["id"])
 
 
@@ -483,7 +483,7 @@ def test_trigger_revives_paused_and_marks_manual(jobs: CronJobs, clock: Clock) -
 def test_trigger_terminal_rejected(jobs: CronJobs) -> None:
     job = jobs.create_job("config/news.yaml", "in 5m")
     jobs.mark_job_run(job["id"], success=True)
-    with pytest.raises(ValueError, match="terminal"):
+    with pytest.raises(ValueError, match="已结束"):
         jobs.trigger_job(job["id"])
 
 
@@ -512,13 +512,13 @@ def test_rearm_oneshot_reactivates(jobs: CronJobs, clock: Clock) -> None:
 
 
 @pytest.mark.parametrize(
-    "schedule,match", [("every 5m", "one-shot-only"), ("2020-01-01T00:00:00", "past")]
+    "schedule,match", [("every 5m", "一次性任务"), ("2020-01-01T00:00:00", "已在过去")]
 )
 def test_rearm_rejects_recurring_and_past(
     jobs: CronJobs, schedule: str, match: str
 ) -> None:
-    job = jobs.create_job("config/news.yaml", "in 5m" if match == "past" else schedule)
-    jobs.mark_job_run(job["id"], success=True) if match == "past" else None
+    job = jobs.create_job("config/news.yaml", "in 5m" if match == "已在过去" else schedule)
+    jobs.mark_job_run(job["id"], success=True) if match == "已在过去" else None
     with pytest.raises(ValueError, match=match):
         jobs.rearm_oneshot(job["id"], schedule)
 

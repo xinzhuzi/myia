@@ -412,8 +412,8 @@ async def send_batch_to_targets(
                 ok=False,
                 item_count=len(items),
                 error=(
-                    "[targeting_not_supported] 通道 "
-                    f"{channel.name!r} 尚不支持定向推送(等平台适配子任务接入)"
+                    "[targeting_not_supported] 注意:通道 "
+                    f"{channel.name!r} 暂不支持指定推送对象,本条未发送;请检查推送配置里的对象设置"
                 ),
             )
         ]
@@ -448,7 +448,7 @@ async def send_batch_to_targets(
                     channel=channel.name,
                     ok=False,
                     item_count=len(items),
-                    error=f"[dead_target] 跳过此前确认不可达的对象 {target}",
+                    error=f"[dead_target] 注意:已跳过推送对象 {target}(此前多次投递均确认无法送达),请核对其地址是否仍有效",
                     skipped=True,
                 )
             )

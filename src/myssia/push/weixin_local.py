@@ -132,9 +132,9 @@ def _require_executable(bin_path: Path) -> None:
     if not (bin_path.is_file() and os.access(bin_path, os.X_OK)):
         raise PushSendError(
             "bridge_unavailable",
-            f"微信本机通道不可用:桥组件 bin 不存在或不可执行: {bin_path}。"
-            "修复指引:到设置安装 wechat-bridge 组件(前置 brew install sqlcipher),"
-            "或在品类 YAML 的 push 条目配 wechat_bridge_bin 指向桥 bin 路径",
+            f"微信本机通道还没就绪:wechat-bridge 组件缺失或无法执行({bin_path});"
+            "到 设置 安装 wechat-bridge 组件后重试"
+            "(高级:可在配置中指定组件路径 wechat_bridge_bin)",
         )
 
 
@@ -231,8 +231,8 @@ def probe_local_bridge(
                 {
                     "code": "component_missing",
                     "fix_hint": (
-                        "到设置安装 wechat-bridge 组件(前置 brew install sqlcipher),"
-                        "或在品类 YAML 的 push 条目配 wechat_bridge_bin 指向桥 bin 路径"
+                        "到 设置 安装 wechat-bridge 组件后重试"
+                        "(高级:可在配置中指定组件路径 wechat_bridge_bin)"
                     ),
                 }
             ],
@@ -248,7 +248,7 @@ def probe_local_bridge(
             "wechat_version": None,
             "bridge_version": None,
             "reasons": [
-                {"code": "probe_timeout", "fix_hint": f"探针超过 {timeout:.0f}s 未返回(已终止);重试一次,持续超时先查桥组件"}
+                {"code": "probe_timeout", "fix_hint": f"检测超过 {timeout:.0f} 秒没有完成(已停止);请重试一次,若持续超时,先检查 wechat-bridge 组件是否正常"}
             ],
         }
     payload = parse_bridge_payload(stdout)
@@ -260,7 +260,7 @@ def probe_local_bridge(
             "wechat_version": None,
             "bridge_version": None,
             "reasons": [
-                {"code": "probe_unparseable", "fix_hint": f"桥探针应答不是契约 JSON(exit={exit_code});重装或升级桥组件"}
+                {"code": "probe_unparseable", "fix_hint": f"wechat-bridge 组件返回了无法识别的结果(exit={exit_code});请重装或升级该组件后重试"}
             ],
         }
     return payload

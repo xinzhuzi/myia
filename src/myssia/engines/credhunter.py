@@ -91,8 +91,8 @@ def import_credhunter_adapter(plugins_dir: str | Path = DEFAULT_PLUGINS_DIR) -> 
             exec(executable, module.__dict__)  # noqa: S102 - 仓库内受控插件代码,非任意输入
             return module
     raise FileNotFoundError(
-        f"credhunter 适配器不存在:{candidates[0]}"
-        "(场景件应随仓库 plugins/ 分发,桌面端=设置页安装 myssia-credhunter 组件)"
+        f"credhunter 组件缺失:{candidates[0]}"
+        "(请到 设置 安装 myssia-credhunter 组件)"
     )
 
 
@@ -248,7 +248,7 @@ class CredhunterEngine(BaseEngine):
         except FetchError:
             raise
         except Exception as exc:  # noqa: BLE001 — 适配器结构化错误(to_dict 面向 CLI)
-            raise FetchError(f"credhunter GitHub 猎取失败:{exc}", error_type="credhunt_failed") from exc
+            raise FetchError(f"credhunter GitHub 凭据检索失败:{exc}", error_type="credhunt_failed") from exc
         errors = outcome.get("errors") or []
         if errors:
             logger.warning(
@@ -284,7 +284,7 @@ class CredhunterEngine(BaseEngine):
                 probe=probe,
             )
         except Exception as exc:  # noqa: BLE001 — 插件失败结构化降级,不拦品类
-            raise FetchError(f"credhunter 曝面探测失败:{exc}", error_type="exposure_failed") from exc
+            raise FetchError(f"credhunter 公开泄露检测失败:{exc}", error_type="exposure_failed") from exc
         lanes = payload.get("lanes") or {}
         for lane_name, lane in lanes.items():
             if isinstance(lane, dict) and lane.get("errors"):

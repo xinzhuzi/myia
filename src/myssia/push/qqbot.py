@@ -260,7 +260,7 @@ class QQBotChannel(TrendAwareChannel):
         if not isinstance(token, str) or not token.strip():
             raise PushSendError(
                 "invalid_response",
-                f"qqbot token 应答缺 access_token: {str(data)[:200]!r}",
+                f"qqbot 获取 token 的结果缺 access_token: {str(data)[:200]!r}",
             )
         try:
             expires_in = float(data.get("expires_in") or TOKEN_TTL_SECONDS)

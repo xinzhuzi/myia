@@ -416,7 +416,7 @@ def test_dom_stale_sentinel(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     with pytest.raises(FetchError) as exc_info:
         run(engine.fetch())
     assert exc_info.value.error_type == "tg_web_dom_stale"
-    assert "web_dom" in str(exc_info.value)  # 跟修指引
+    assert "页面加载异常" in str(exc_info.value)  # 排障细节在 error_type 与日志
 
 
 def test_logged_out_transient_settled_passes(

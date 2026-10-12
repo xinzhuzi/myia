@@ -543,7 +543,7 @@ class TestProbeLocalBridge:
 
         assert payload["state"] == "bridge_unavailable"
         assert payload["reasons"][0]["code"] == "probe_unparseable"
-        assert "exit=3" in payload["reasons"][0]["fix_hint"]
+        assert "无法识别的结果" in payload["reasons"][0]["fix_hint"]
         assert "{exit_code}" not in payload["reasons"][0]["fix_hint"]
 
     def test_default_bin_path_constant(self):

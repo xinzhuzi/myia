@@ -143,7 +143,7 @@ def _run_bridge(argv: list[str], *, timeout: float) -> dict[str, Any]:
         )
     raise WechatLocalSidecarError(
         "bridge_error",
-        f"桥应答不是契约 JSON(exit={exit_code});重装或升级桥组件",
+        f"wechat-bridge 组件返回了无法识别的结果(exit={exit_code});请重装或升级该组件",
     )
 
 

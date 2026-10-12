@@ -704,7 +704,7 @@ def test_cron_create_bad_schedule_exits_one(tmp_path, capsys):
     assert code == EXIT_CONFIG_ERROR
     payload = json.loads(capsys.readouterr().out)
     assert payload["error"] == "cron_create_failed"
-    assert "Invalid schedule 'nonsense ###'" in payload["message"]
+    assert "无法识别的定时方式「nonsense ###」" in payload["message"]
     assert not (tmp_path / "cron" / "jobs.json").exists()
 
 

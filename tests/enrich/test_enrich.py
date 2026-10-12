@@ -913,7 +913,7 @@ class TestEnrichWiring:
                             "url": item.url,
                             "title": item.title,
                             "error_type": "enrich_batch_failed",
-                            "message": "批量精评失败: TimeoutError",
+                            "message": "批量 AI 评分失败: TimeoutError",
                         }
                     )
                 return outcome

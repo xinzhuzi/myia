@@ -1842,8 +1842,8 @@ class Pipeline:
                         "engine": "static_html",
                         "error_type": "extract_rules_empty_fallback",
                         "message": (
-                            "规则跑空(整页 0 条),trafilatura 兜底出条;"
-                            "规则选择器疑已失效"
+                            "注意:该源的提取规则一条都没取到(整页 0 条),已自动改用通用网页提取;"
+                            "提取规则可能已失效,建议到源管理检查"
                         ),
                         "fallback_items": sum(
                             1
@@ -2350,8 +2350,8 @@ class Pipeline:
                     if adapter_file is None:
                         raise AnalysisLaneError(
                             "adapter_missing",
-                            f"分析 lane 适配器不存在:{package}/adapter.py"
-                            f"(候选根:{[str(root) for root in plugins_roots]})",
+                            f"注意:分析组件 {package} 缺失,本轮未做分析,其余流程不受影响"
+                            "(可到 设置 检查组件安装)",
                         )
                     adapter = import_analysis_adapter(adapter_file)
                 # 子进程型适配器(snownlp)阻塞 spawn,丢线程池防事件循环饿死。
@@ -2368,7 +2368,7 @@ class Pipeline:
                     # partial,违反「装不上不拦核心」。统一归 load_failed 降级
                     # 注记(decorate_items 已宽捕获适配器执行段,这里补 import/exec)。
                     token = "load_failed"
-                    message = f"分析 lane 适配器装载失败:{exc}"
+                    message = f"注意:分析组件装载失败,本轮未做分析,其余流程不受影响({exc})"
                 report.skips[f"analysis_lane_degraded_{token}"] += len(items)
                 report.warnings.append(
                     {

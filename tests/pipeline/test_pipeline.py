@@ -1146,7 +1146,7 @@ def test_rules_empty_fallback_records_warning_not_failure(tmp_path, monkeypatch)
             "source": "revamped",
             "engine": "static_html",
             "error_type": "extract_rules_empty_fallback",
-            "message": "规则跑空(整页 0 条),trafilatura 兜底出条;规则选择器疑已失效",
+            "message": "注意:该源的提取规则一条都没取到(整页 0 条),已自动改用通用网页提取;提取规则可能已失效,建议到源管理检查",
             "fallback_items": 1,
         }
     ]

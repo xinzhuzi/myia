@@ -286,7 +286,7 @@ class MattermostChannel(TrendAwareChannel):
             # 结构化拒绝,绝不 let dict(data) 的 TypeError 裸逃(matrix 同款守卫)。
             raise PushSendError(
                 "invalid_response",
-                f"mattermost 2xx 应答不是 JSON 对象(HTTP {response.status_code}):"
+                f"mattermost 返回的不是 JSON 对象(HTTP {response.status_code}):"
                 f" {str(data)[:200]!r}",
             )
         return dict(data)

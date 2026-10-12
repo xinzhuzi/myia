@@ -403,8 +403,8 @@ class TelegramChannel(TrendAwareChannel):
                     # 原厂描述保留在文案里,死信分类(delivery)照常命中。
                     raise PushSendError(
                         exc.code,
-                        f"{exc};@username 仅对公开频道/群有效,"
-                        "私聊必须用数字 chat_id 定向(见 telegram:@username 约定)",
+                        f"{exc};@用户名 只对公开频道/群有效,"
+                        "发给私聊请用数字 chat_id",
                     ) from exc
                 raise
         logger.debug(

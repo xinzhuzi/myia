@@ -457,9 +457,8 @@ class TelegramEngine(BaseEngine):
             await client.connect()
             if not await client.is_user_authorized():
                 raise FetchError(
-                    "telethon session 未授权/已失效(session 文件在但登录态不在,"
-                    "常见于被 Telegram 侧吊销或账号在别处登出);"
-                    "重登:myssia telegram login --force",
+                    "Telegram 账号登录已失效(常见原因:被 Telegram 收回,或账号在其他设备退出了登录);"
+                    "请在终端执行重新登录:myssia telegram login --force",
                     error_type="session_expired",
                 )
             # iter_messages 新→旧吐;倒序归一到 Bot API 的时间序(锚与聚合
@@ -508,15 +507,15 @@ class TelegramEngine(BaseEngine):
         seconds = flood_wait_seconds(exc)
         if seconds is not None:
             return FetchError(
-                f"telethon FloodWait:服务器要求等待 {seconds:.0f} 秒"
-                "(服从退避;批量档下轮排程自然重试,锚点去重兜底)",
+                f"Telegram 服务器限流,要求等待约 {seconds:.0f} 秒;"
+                "下一轮采集会自动重试,不会重复已读消息",
                 error_type="telegram_flood_wait",
             )
         name = type(exc).__name__
         if name in SESSION_DEAD_EXCEPTION_NAMES:
             return FetchError(
-                f"telethon session 失效({name});"
-                "重登:myssia telegram login --force",
+                "Telegram 账号登录已失效;"
+                "请在终端执行重新登录:myssia telegram login --force",
                 error_type="session_expired",
             )
         # MTProto 面:异常文本不含 token/api_hash(协议层凭据不在消息面),
@@ -694,7 +693,7 @@ def filter_config_from_options(
     else:
         raise FetchError(
             f"engine_options.telegram.keywords 应为字符串列表(缺省内置"
-            f"免费情报词表;空列表 = 关闭粗筛),当前为 {keywords_option!r}",
+            f"免费情报词表;空列表 = 关闭消息过滤),当前为 {keywords_option!r}",
             error_type="invalid_engine_options",
         )
     threshold = options.get("score_threshold", DEFAULT_SCORE_THRESHOLD)

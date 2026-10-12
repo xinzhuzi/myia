@@ -402,9 +402,9 @@ def test_dead_instance_transport_error_structured(monkeypatch):
     with pytest.raises(FetchError) as excinfo:
         run(SearxngEngine(source, context).fetch())
     assert excinfo.value.error_type == "searxng_service_not_running"
-    assert "服务组件未启动" in str(excinfo.value)
+    assert "服务未启动" in str(excinfo.value)
     assert "设置" in str(excinfo.value) and "启动" in str(excinfo.value)
-    assert "不隐式拉起" in str(excinfo.value)
+    assert "不会自动启动" in str(excinfo.value)
 
     # 远端实例:同样的连接拒绝 → network「实例未起」(部署侧引导)
     source = make_searxng_source(

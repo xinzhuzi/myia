@@ -159,19 +159,19 @@ class FeishuEngine(BaseEngine):
             payload = response.json()
         except ValueError as exc:
             raise FetchError(
-                f"飞书 token 应答非 JSON:HTTP {response.status_code}",
+                f"飞书凭据返回的不是 JSON:HTTP {response.status_code}",
                 error_type="feishu_token_mint_failed",
             ) from exc
         if response.status_code != 200 or payload.get("code") != 0:
             raise FetchError(
-                f"飞书 token mint 被拒(code={payload.get('code')}):"
-                f"{payload.get('msg') or f'HTTP {response.status_code}'}",
+                f"获取飞书访问凭据被拒(code={payload.get('code')}):"
+                f"{payload.get('msg') or f'HTTP {response.status_code}'};请核对 app_id/app_secret",
                 error_type="feishu_token_mint_failed",
             )
         token = payload.get("tenant_access_token")
         if not token:
             raise FetchError(
-                "飞书 token 应答缺 tenant_access_token",
+                "飞书凭据返回的结果缺 tenant_access_token",
                 error_type="feishu_token_mint_failed",
             )
         return str(token)
@@ -192,7 +192,7 @@ class FeishuEngine(BaseEngine):
             payload = response.json()
         except ValueError as exc:
             raise FetchError(
-                f"飞书消息应答非 JSON:HTTP {response.status_code}",
+                f"飞书消息返回的不是 JSON:HTTP {response.status_code}",
                 error_type="feishu_api_error",
             ) from exc
         code = payload.get("code")
@@ -200,8 +200,8 @@ class FeishuEngine(BaseEngine):
             if code in _PERMISSION_CODES:
                 raise FetchError(
                     f"飞书群消息读取被拒(code={code}):{payload.get('msg')} —— "
-                    "主人侧动作:开放平台给应用开通 im:message 群消息只读权限,"
-                    "并把机器人加入该群(凭据与推送区同一应用)",
+                    "请到飞书开放平台为该应用开通 im:message 群消息只读权限,"
+                    "并把机器人加入这个群(凭据与推送使用同一应用)",
                     error_type="feishu_permission_denied",
                 )
             raise FetchError(

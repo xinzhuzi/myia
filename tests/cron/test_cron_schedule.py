@@ -93,7 +93,7 @@ class TestNormalizeRepeatValue:
     def test_invalid_string_error_text(self) -> None:
         with pytest.raises(ValueError) as exc:
             normalize_repeat_value("x2")
-        assert str(exc.value) == "Invalid repeat value 'x2': use an integer, 'forever', or 'once'."
+        assert str(exc.value) == "无法识别的重复次数 'x2':应为整数,或 forever(不限次)/once(仅一次)。"
 
 
 class TestParseDuration:
@@ -116,8 +116,8 @@ class TestParseDuration:
         with pytest.raises(ValueError) as exc:
             parse_duration("xyz")
         assert str(exc.value) == (
-            "Invalid duration: 'xyz'. Use format like '30m', '2h', '1d', "
-            "or a bare unit like 'hour' (defaults to 1)."
+            "无法识别的时长「xyz」:应形如 30m、2h、1d, "
+            "或裸单位 hour(默认 1)。"
         )
 
 
@@ -223,12 +223,12 @@ class TestParseScheduleErrors:
         with pytest.raises(ValueError) as exc:
             parse_schedule("totally bogus")
         assert str(exc.value) == (
-            "Invalid schedule 'totally bogus'. Use:\n"
-            "  - Interval: '30m', 'every 30m', 'every 2h' (recurring)\n"
-            "  - One-shot delay: 'in 30m', 'in 2h' (fires once)\n"
-            "  - Weekly/daily: 'every monday 9am', 'weekdays at 9am' (recurring)\n"
-            "  - Cron: '0 9 * * *' (cron expression)\n"
-            "  - Timestamp: '2026-02-03T14:00:00' (one-shot at time)"
+            "无法识别的定时方式「totally bogus」。可用:\n"
+            "  - 周期:30m、every 30m、every 2h(循环执行)\n"
+            "  - 延时一次:in 30m、in 2h(到点跑一次)\n"
+            "  - 每周/每日:every monday 9am、weekdays at 9am(循环执行)\n"
+            "  - cron 表达式:'0 9 * * *'\n"
+            "  - 指定时刻:2026-02-03T14:00:00(到点跑一次)"
         )
 
     def test_six_field_cron_structured_rejection(self) -> None:
@@ -255,18 +255,18 @@ class TestParseScheduleErrors:
     def test_invalid_timestamp(self) -> None:
         with pytest.raises(ValueError) as exc:
             parse_schedule("2026-02-30T10:00:00")
-        assert str(exc.value).startswith("Invalid timestamp '2026-02-30T10:00:00':")
+        assert str(exc.value).startswith("无法识别的时间「2026-02-30T10:00:00」:")
 
     def test_in_duration_error_text(self) -> None:
         with pytest.raises(ValueError) as exc:
             parse_schedule("in xyz")
-        assert str(exc.value) == "Invalid duration 'xyz' after 'in '. Use e.g. 'in 30m', 'in 2h'."
+        assert str(exc.value) == "无法识别的时长「xyz」:应形如 in 30m、in 2h。"
 
     def test_every_weekday_without_time_falls_to_duration_error(self) -> None:
         # 照抄上游形状:无时间的 "every monday" 落 interval 路径,报时长错。
         with pytest.raises(ValueError) as exc:
             parse_schedule("every monday")
-        assert str(exc.value).startswith("Invalid duration: 'monday'.")
+        assert str(exc.value).startswith("无法识别的时长「monday」:")
 
 
 class TestNormalizeDow:
