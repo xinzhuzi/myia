@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 __all__ = [
     "AX_PERMISSION_DENIED",
+    "SCREEN_RECORDING_DENIED",
     "AX_TREE_EMPTY",
     "DB_NOT_FOUND",
     "DECRYPT_FAILED",
@@ -44,6 +45,8 @@ EXIT_USAGE = 2
 USAGE = 2
 WECHAT_NOT_RUNNING = 10
 AX_PERMISSION_DENIED = 11
+#: 屏幕录制权限缺失(2026-10-13 勘误:像素链前置门真实权限;与 AX 同属权限族复用码值 11,通道侧 screen_recording_denied 已映射 11)
+SCREEN_RECORDING_DENIED = 16
 WINDOW_CLOSED = 12
 AX_TREE_EMPTY = 13
 SEND_RATE_LIMITED = 14
@@ -58,6 +61,7 @@ CODE_NAMES: dict[int, str] = {
     USAGE: "usage",
     WECHAT_NOT_RUNNING: "wechat_not_running",
     AX_PERMISSION_DENIED: "ax_permission_denied",
+    SCREEN_RECORDING_DENIED: "screen_recording_denied",  # 16(独立码;11 复用会顶名字,实测教训)
     WINDOW_CLOSED: "window_closed",
     AX_TREE_EMPTY: "ax_tree_empty",
     SEND_RATE_LIMITED: "send_rate_limited",

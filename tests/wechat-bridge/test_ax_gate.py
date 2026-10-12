@@ -8,6 +8,7 @@ import wechat_bridge.system_checks as sc
 from wechat_bridge.ax import ensure_ui_preconditions, not_implemented
 from wechat_bridge.codes import (
     AX_PERMISSION_DENIED,
+    SCREEN_RECORDING_DENIED,
     EXIT_GENERIC_FAILURE,
     WECHAT_NOT_RUNNING,
     WINDOW_CLOSED,
@@ -15,10 +16,11 @@ from wechat_bridge.codes import (
 )
 
 
-def _gate(monkeypatch: pytest.MonkeyPatch, *, process=True, ax=True, window=False) -> None:
+def _gate(monkeypatch: pytest.MonkeyPatch, *, process=True, ax=True, window=False, screen=True) -> None:
     monkeypatch.setattr(sc, "wechat_process_running", lambda: process)
     monkeypatch.setattr(sc, "ax_permission_trusted", lambda: ax)
     monkeypatch.setattr(sc, "wechat_main_window_open", lambda: window)
+    monkeypatch.setattr(sc, "screen_recording_granted", lambda: screen)
 
 
 class TestPreconditionGate:
@@ -29,11 +31,17 @@ class TestPreconditionGate:
             ensure_ui_preconditions()
         assert excinfo.value.exit_code == WECHAT_NOT_RUNNING == 10
 
-    def test_ax_denied_exits_11(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        _gate(monkeypatch, process=True, ax=False, window=False)
+    def test_screen_denied_exits_11(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """2026-10-13 勘误:像素链前置门真实权限=屏幕录制(非 AX);缺失 → 码 16(独立码)。"""
+        _gate(monkeypatch, process=True, window=False, screen=False)
         with pytest.raises(BridgeError) as excinfo:
             ensure_ui_preconditions()
-        assert excinfo.value.exit_code == AX_PERMISSION_DENIED == 11
+        assert excinfo.value.exit_code == SCREEN_RECORDING_DENIED == 16
+
+    def test_ax_denied_no_longer_blocks_gate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """2026-10-13 勘误回归:AX 缺失不再拦门(码 11 归屏幕录制;run 108 实锤收口)。"""
+        _gate(monkeypatch, process=True, ax=False, window=True, screen=True)
+        assert ensure_ui_preconditions() is None
 
     def test_window_closed_exits_12(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """托盘态:窗口未开 → 12(UI 通道专属;localdb 不受影响)。"""

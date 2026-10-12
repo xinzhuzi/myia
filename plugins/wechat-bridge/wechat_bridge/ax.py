@@ -23,6 +23,7 @@ from typing import Callable
 
 from .codes import (
     AX_PERMISSION_DENIED,
+    SCREEN_RECORDING_DENIED,
     WECHAT_NOT_RUNNING,
     WINDOW_CLOSED,
     EXIT_GENERIC_FAILURE,
@@ -40,7 +41,8 @@ def ensure_ui_preconditions(
     *,
     process_running: Callable[[], bool] | None = None,
     ax_trusted: Callable[[], bool | None] | None = None,
-    window_open: Callable[[], bool | None] = None,
+    window_open: Callable[[], bool | None] | None = None,
+    screen_granted: Callable[[], bool | None] | None = None,
 ) -> None:
     """UI 通道前置检查门(§6 码序:10 → 11 → 12;全绿放行)。
 
@@ -53,6 +55,7 @@ def ensure_ui_preconditions(
     process = process_running if process_running is not None else sc.wechat_process_running
     trusted = ax_trusted if ax_trusted is not None else sc.ax_permission_trusted
     window = window_open if window_open is not None else sc.wechat_main_window_open
+    screen = screen_granted if screen_granted is not None else sc.screen_recording_granted
 
     if not process():
         raise BridgeError(
@@ -60,11 +63,15 @@ def ensure_ui_preconditions(
             "微信进程不在运行,UI 通道无对象可驱",
             fix_hint="启动微信客户端后重试",
         )
-    if trusted() is False:
+    # 2026-10-13 勘误(0.3.1 残留收口):AX 通道 A1 定论死路后,像素链是唯一
+    # UI 读路,其真实 TCC 前置=屏幕录制(截窗),不是辅助功能——生产宿主缺 AX
+    # 权限把像素链拦死在码 11(run 108 实锤)。AX 检查退出前置门(probe 保留
+    # 报告位);本门码序改为 10 → 11(screen_recording_denied) → 12。
+    if screen() is False:
         raise BridgeError(
-            AX_PERMISSION_DENIED,
-            "辅助功能权限缺失:桥宿主进程未被授权读取/驱动 AX 树",
-            fix_hint="系统设置 → 隐私与安全性 → 辅助功能,给 MYIA(或桥宿主进程)授权",
+            SCREEN_RECORDING_DENIED,
+            "屏幕录制权限缺失:像素链截窗需要 TCC 屏幕录制授权",
+            fix_hint="系统设置 → 隐私与安全性 → 屏幕录制,给 MYIA(或桥宿主进程)授权",
         )
     if window() is False:
         raise BridgeError(

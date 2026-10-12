@@ -13,7 +13,7 @@
    "ax_tree": "unknown"
   },
   "wechat_version": "4.1.15",
-  "bridge_version": "0.3.1",
+  "bridge_version": "0.3.2",
   "reasons": [
    {
     "code": "window_closed",

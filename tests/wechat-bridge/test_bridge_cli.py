@@ -140,6 +140,7 @@ class TestExitCodeContract:
             2: "usage",
             10: "wechat_not_running",
             11: "ax_permission_denied",
+            16: "screen_recording_denied",
             12: "window_closed",
             13: "ax_tree_empty",
             14: "send_rate_limited",

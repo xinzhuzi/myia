@@ -1,7 +1,7 @@
 {
   "id": "wechat-bridge",
   "name": "微信本机桥(UI 自动化 + 本地库只读)",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "kind": "bridge",
   "runtime": "native-python",
   "entry": "wechat_bridge/__main__.py",
@@ -45,7 +45,8 @@
       "20": "db_not_found",
       "21": "key_unavailable",
       "22": "decrypt_failed",
-      "30": "timeout"
+      "30": "timeout",
+      "16": "screen_recording_denied"
     }
   },
   "config": {
@@ -53,8 +54,16 @@
     "rate_limit": "无配置键(G6 硬编码:单条、间隔≥10s、无批量、不可配置)"
   },
   "config_defaults": {
-    "domains": ["message", "session", "contact"],
-    "limits": { "sessions": 20, "messages": 50, "history_days": 30 },
+    "domains": [
+      "message",
+      "session",
+      "contact"
+    ],
+    "limits": {
+      "sessions": 20,
+      "messages": 50,
+      "history_days": 30
+    },
     "copy_ttl_hours": 24,
     "copy_capacity_mb": 512,
     "mem_search_enabled": false
