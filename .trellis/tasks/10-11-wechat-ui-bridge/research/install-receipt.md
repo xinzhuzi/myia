@@ -104,3 +104,61 @@
   key_info.db 离线校验路径,零进程接触零出网)。
 - 未做(如实):桌面 UI 卡亮窗目验(不碰运行中 MYIA app 的前台,probe 为按调执行,下次卡刷新即吃新态);
   localdb 真查询闭合仍挂 D4(keys.json 外部密钥引入即通,见 §7.3 错误族消息)。
+
+## 8. D5 分发链换装回执(打包安装员子代理,2026-10-12 12:45;「都解决」令分发链验段)
+
+> ask=Rust 安装器与 resources 都变(185484a)→ 按仓库配方全量重打包+静默换装+换装后真机验
+> 分发链四件:随包注册表条目/设置页组件行可见(无头=resources 读取层)/pip 源码形态冒烟
+> (独立 venv 装机包 Resources 内组件目录)/本机 `~/.myia/plugins/wechat-bridge` 0.3.0 不破。
+> ask 中「sidecar PyInstaller+tauri build」为旧词——sidecar 冻结链 2026-10-05 已退役
+> (desktop/build-sidecar.sh:2 档注),现配方 = `just build-desktop`(§2 同款),照此执行。
+> tcc/截屏像素验证本轮不做(上轮已过,按 ask 只验分发链);task.json 勾选归主会话。
+
+### 8.1 构建面三折(如实)
+
+1. **首构阻断(HEAD=185484a 工作树净)**:`just build-desktop` exit 1——`tsc -b` 两错
+   (`settings.test.tsx:69` fixture `paths` 项用旧名 `plugin`(types.ts:237 已改 `{category,path}`)、
+   `sources/api.ts:446` 三元分支裸名 `plugin`(:442 声明已改 `category`))= 1920b6d 概念清词
+   改名残留,该会话未重跑 `tsc -b`(vitest 不查型)。跨任务机械收口两行 → **bdaaf96**
+   (tsc --force 零错+settings/sources 两屏 vitest 176p/11 文件+detect-changes 2 符号 risk=low)。
+2. **打包卫生收口 → b9c5054**:bdaaf96 后构建产物实测——tauri resources 无排除语义把
+   `plugins/wechat-bridge` 里 D5 会话本机 pip 冒烟遗留的 `build/`+`wechat_bridge.egg-info/`+
+   `wechat_bridge/__pycache__`(3.12/3.14 双版本字节码)原样打进包;clean-pycache.mjs 缺省根
+   漏了 D5 新随包第三棵树且垃圾规则不含 pip 工件——补齐(真树清理实跑 6 条目)+packaging 真跑
+   测试扩 5 垃圾形+缺省根断言(11p)。
+3. **主树构建遭并行在途混入 → worktree 判例**:b9c5054 主树构建成品(12:32:56)经
+   `package_smoke.py::extract_embedded_dist`(Mach-O 胖指针+brotli)提取内嵌 dist,实测含
+   `data-fullcanvas` 标记=并行 feed 会话提交前在途改动进了包(vite 构建窗口撞上其首次落盘;
+   mtime 在换装后才更新是二次写,首写早于构建)。循 journal-1.md:598 判例转
+   `git worktree add /tmp/myia-wxui-d5 b9c5054 --detach` 干净构建(ui-src npm ci+desktop
+   npm install+tauri build,exit 0,12:40:06,18.10 MiB app+8.20 MiB dmg),worktree 产物
+   复验:内嵌 dist 6 件零 `data-fullcanvas`、entry.py 与 worktree `cmp` 一致、随包源
+   `diff -rq` 零差异、组件目录净五项;验毕 worktree 已 `git worktree remove --force` 清场。
+
+### 8.2 换装(2026-10-12 12:45:51,静默;链日志 /tmp/wxui-d5-install.log)
+
+| 项 | 值 |
+|---|---|
+| 现装(换装前记录在案) | inode=325428859,mtime **2026-10-12 12:37:13**——系并行 feed 会话 6f55129 的装机换装(commit 自述「装机重打包换装+重签」,12:37:13 落位,其内含 feed 详情整屏化特性;非我方任何产物,`cmp` 与主树/worktree 两包均不一致) |
+| 退出 | `osascript quit app id com.myssia.app`(温和,零夺焦),MYIA 首轮探测即退净;serve 子进程随 stdin EOF 自清 |
+| 备份 | `mv` 保 inode → **`/tmp/世事.app.bak-wxui3-124551`** |
+| 覆盖 | `cp -R` worktree b9c5054 包 → `/Applications/世事.app`;装后二进制与构建产物 `cmp` **逐字节一致**(新 inode=325470154,mtime 12:45:51,size 14,533,472) |
+| 缓存清 | `rm -rf ~/Library/WebKit/com.myssia.app ~/Library/Caches/com.myssia.app`(判例铁律) |
+| 复原 | `open -g` 后台静默拉起(零焦点;窗口缺省 visible:false 不弹窗)——MYIA pid 38216 + 托管 python serve pid 38223,跑新包 |
+| 竞态如实注 | 12:37 feed 会话换装与 12:45 本轮换装为双写(journal-1.md:601 双换装竞速同款):**现装 b9c5054 不含 6f55129 feed 详情整屏化**(该特性已入库,随下次任一会话装机刷新回归);本轮回执谱系 = b9c5054 worktree 包,cmp 锚点在案可随时复核 |
+
+### 8.3 分发链四验(换装后真机,全过)
+
+| 验 | 命令/路径 | 结果 |
+|---|---|---|
+| ① 随包注册表条目 | 读 `/Applications/世事.app/Contents/Resources/components.json` | ids 六项 `table/trafilatura/crawl4ai/telethon/searxng/wechat-bridge`;bridge 行 `pip_spec=setuptools>=75 wheel>=0.45 / pip_src=wechat-bridge / post_install=pip-src-no-build-isolation` 齐 |
+| ② 读取层断言(设置页组件行可见的无头等价) | 临时单测注 `pyenv_components.rs` 调**真读取层** `component_statuses(data_root, Some("/Applications/世事.app/Contents/Resources"))`(serde 解析+过滤同壳同款) | `cargo test --bin myssia-desktop installed_app_resources_registry_smoke` → **1 passed**(wechat-bridge 行在列);跑毕临时测还原,`cargo test` 全量回 90p/1i 基线、`git diff src/` 空 |
+| ③ pip 源码形态冒烟 | 独立 venv `/tmp/wxui-d5-pipsmoke`(uv venv --seed,零碰仓库 .venv):一段 `pip install setuptools>=75 wheel>=0.45`(setuptools 84.0.0/wheel 0.48.0)→ 二段 `pip install --no-build-isolation /Applications/…/components/wechat-bridge` | `Successfully installed wechat-bridge-0.3.0 pillow-12.3.0 pyobjc-core/-Cocoa/-Quartz/-CoreML/-Vision-12.2.2`(全在钉窗);`MYIA_HOME=<沙箱> wechat-bridge --probe` → **exit 0,`state=degraded`,`bridge_version=0.3.0`** |
+| ④ 本机组件不破 | `~/.myia/plugins/wechat-bridge` diff + probe | `component.json` version=0.3.0;包源与仓 HEAD `diff -rq` 零差异;`bin/wechat-bridge --probe` exit 0,degraded/七 checks/key_unavailable reason 与换装前基线逐项一致 |
+
+- 组件目录卫生尾注(如实):③的二段装是 in-tree build,会在装机包 Resources 组件目录落
+  `build/`+`egg-info`(与 b9c5054 收口的源码树同病)——冒烟后已 `rm -rf` 清回五项净,复核零残留;
+  设置页真实两段装落点在自管 python 环境,不产生此尾随。
+- 谱系小结:现装 = b9c5054(worktree 干净构建;含 185484a D5 全部+bdaaf96/b9c5054 两笔收口);
+  不含 6f55129/bb9ba05(并行 feed/spec 线,下次刷新自然并入)。
+- 私有数据红线自查:本档零聊天内容、零密钥材料;证据只含状态码/版本号/计数/inode/路径与时间戳。
