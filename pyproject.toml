@@ -99,7 +99,7 @@ all = ["crawl4ai", "scrapling", "firecrawl-py", "skyvern", "openai>=1.30", "hugg
 myssia = "myssia.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "pillow>=10.0"]  # wechat-bridge 像素测试合成夹具用(Image/ImageDraw/ImageFont)
 
 [tool.uv.workspace]
 members = ["myssia-classifier"]

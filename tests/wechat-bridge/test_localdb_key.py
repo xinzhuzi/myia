@@ -363,7 +363,9 @@ class TestMemsearchShell:
         assert "默认关" in str(err)
         assert "mem_search_enabled" in str(err)
 
-    def test_enabled_but_not_elevated_refuses(self, tmp_path: Path) -> None:
+    def test_enabled_but_not_elevated_refuses(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        # 豁免令检查在平台门之后:非 darwin CI 上须钉住平台判定才能到门
+        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
 
         with pytest.raises(BridgeError) as excinfo:
             memsearch.acquire_key_from_memory(

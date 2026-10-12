@@ -264,6 +264,8 @@ class TestLocaldbWiring:
             "copy": {"dir": "<private>", "built": [], "kept": [], "skipped": [], "total_bytes": 0},
         }
         seen: dict = {}
+        # CLI 在进 localdb 前有 darwin 平台门(ubuntu CI 真实 sys.platform 会先拒 exit 20)
+        monkeypatch.setattr("wechat_bridge.memsearch._platform_is_darwin", lambda: True)
 
         def fake_query_history(config, storage, keys, chat_id, days, **kwargs):
             seen["chat_id"], seen["days"], seen["domains"] = chat_id, days, config.domains
@@ -286,6 +288,8 @@ class TestLocaldbWiring:
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
         from wechat_bridge.codes import KEY_UNAVAILABLE, BridgeError
+
+        monkeypatch.setattr("wechat_bridge.memsearch._platform_is_darwin", lambda: True)
 
         def fake_resolve(storage):
             raise BridgeError(KEY_UNAVAILABLE, "本地库密钥不可得(注入)", fix_hint="D4")
@@ -322,6 +326,8 @@ class TestKeyScanCommand:
             "cache": str(tmp_path / "wechat-localdb" / "keys.json"),
         }
 
+        monkeypatch.setattr("wechat_bridge.memsearch._platform_is_darwin", lambda: True)
+
         def fake_scan(storage, *, config):
             assert config.mem_search_enabled is True
             return fake_payload
@@ -337,6 +343,8 @@ class TestKeyScanCommand:
         from wechat_bridge.codes import WECHAT_NOT_RUNNING, BridgeError
 
         self._write_config(tmp_path, enabled=True)
+
+        monkeypatch.setattr("wechat_bridge.memsearch._platform_is_darwin", lambda: True)
 
         def fake_scan(storage, *, config):
             raise BridgeError(WECHAT_NOT_RUNNING, "微信进程不在场(注入)")
