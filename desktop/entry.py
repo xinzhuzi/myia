@@ -3590,15 +3590,19 @@ def _run_worker(run_id: int, cmd: list[str], env: dict[str, str], *, dry: bool, 
                 latest = store.latest_run()
                 if latest is not None:
                     record = _run_record_dict(latest)
-                    # 会话号回填(10-07-logs-restart-visibility R1):把注册表
-                    # run_id 落到 runs 行——JSONL 日志行按会话号打 run_id,重启后
-                    # 历史行展开 logs.tail 靠它对齐。尽力而为:回填失败只损失
-                    # 「上一程」日志可达性,不连累 record 附挂(latest_run 启发式
-                    # 的既有薄弱面照旧,回填跟随同一行,不放大误挂范围)。
-                    try:
-                        store.set_run_log_run_id(latest.id, run_id)
-                    except Exception:  # noqa: BLE001 — 日志身份尽力而为,缺位不拦 completed
-                        pass
+                    # 会话号条件回填(10-12-serve-host-log-alignment G2 翻案):
+                    # 仅当行 log_run_id IS NULL 才写——CLI 自回填(pipeline.py
+                    # 收口处落行 id)是唯一权威值,注册表号后写覆盖它会把 2 级
+                    # 详情引向转发版旧语义(换装日每个 sidecar 会话注册表号
+                    # 恒=1,覆盖即病根)。NULL 行(CLI 未及自回填的旧路径)
+                    # 仍按注册表号回填,保跨重启「上一程」可见性。尽力而为:
+                    # 回填失败只损失日志可达性,不连累 record 附挂(latest_run
+                    # 启发式的既有薄弱面照旧,回填跟随同一行,不放大误挂范围)。
+                    if latest.log_run_id is None:
+                        try:
+                            store.set_run_log_run_id(latest.id, run_id)
+                        except Exception:  # noqa: BLE001 — 日志身份尽力而为,缺位不拦 completed
+                            pass
             except Exception:  # noqa: BLE001 — record 尽力而为,缺位不拦 completed
                 record = None
             finally:

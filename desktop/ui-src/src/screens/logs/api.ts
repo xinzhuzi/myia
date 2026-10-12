@@ -87,8 +87,6 @@ export interface RunRowModel {
   db: string;
   dry: boolean;
   durationText: string;
-  /** record.stats.items_retained(pipeline.py `stats_dict`);无记录为 null */
-  itemCount: number | null;
   /** 「上一程」行(run.status 合流 DB runs 历史;重启后跨会话可见) */
   history: boolean;
   /** logs.tail 的 run_id:历史行 = log_run_id 会话对齐号(旧行 null=不可回看),
@@ -123,11 +121,6 @@ export function runCategory(run: LogsRunEntry): string {
   return file.replace(/\.ya?ml$/i, "");
 }
 
-function itemsRetained(record: RunRecord | null): number | null {
-  const raw = record?.stats?.["items_retained"];
-  return typeof raw === "number" ? raw : null;
-}
-
 export function buildRunRows(runs: LogsRunEntry[]): RunRowModel[] {
   return runs.map((run) => {
     const history = isHistoryRun(run);
@@ -140,7 +133,6 @@ export function buildRunRows(runs: LogsRunEntry[]): RunRowModel[] {
       db: run.db,
       dry: run.dry,
       durationText: formatDuration(run.duration_ms),
-      itemCount: itemsRetained(run.record),
       history,
       logRunId: history ? (run.log_run_id ?? null) : run.run_id,
       exitCode: run.exit_code ?? null,

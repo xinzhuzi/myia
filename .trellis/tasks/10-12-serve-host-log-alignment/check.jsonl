@@ -1,0 +1,1 @@
+{"file": ".trellis/tasks/10-12-serve-host-log-alignment/prd.md", "reason": "G3 执行留痕:真库回修前后 SELECT 快照+两份备份路径+id30 无据行复查回滚记录(prd 末节,2026-10-12)"}

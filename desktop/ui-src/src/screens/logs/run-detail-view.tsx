@@ -100,7 +100,7 @@ export function RunDetailView({
   }, [copied]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="run-detail">
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="run-detail">
       {/* ═══ 元信息头(固定区,feed 2 级工具条解剖)═══ */}
       <div className="flex flex-wrap items-center gap-2 border-b px-5 py-2.5">
         {/* 返回钮(槽位第一;feed 返回钮同款解剖,词面随本屏物种) */}

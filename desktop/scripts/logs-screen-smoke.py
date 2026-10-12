@@ -38,7 +38,11 @@
   (data-error)→ L2 日志体第二塌缩哨兵(run-log-h855 溢出可滚)→ 返回钮
   回 L1(detail 卸载)→ 滚动位置保持(§4.2:写 400 → 进 → 返回 → ≥300)
   → 过滤态穿越保持(tech-rss 计数 10/50)→ 成功轮无失败区(h897 在 L2 中
-  run-failure-* 零命中,AC2 渲染门槛)。
+  run-failure-* 零命中,AC2 渲染门槛)→ 无号遗留行降级(h851)→ 错误态满高
+  算术(10-12-logs-line-low-polish G2/G5:置 run.status 故障 localStorage +
+  重载 → 横幅上屏「sidecar 错误码 sidecar_not_running」+ 横幅自然高(<300px)
+  + 满高算术(run-list clientHeight 缩量 ≈ 横幅高,±4px——编排层 flex 根下
+  横幅+分支总高恒 = 容器高)。
   注:滚动保持断言(§9 步骤 9)骑全量列表往返——§4.2 明文钉「scrollTop 写
   400 → 进 → 返回 → ≥300」正是该循环;若骑过滤后往返,品类过滤只剩 10 行
   (≈550px)撑不满视口,scrollTop 物理钳到 0,断言必假红。
@@ -144,6 +148,14 @@ INJECT_SCRIPT = r"""
         return { name: "myssia", version: "smoke", protocol: 13, app_version: null };
       }
       if (method === "run.status") {
+        if (window.localStorage.getItem("smoke:run-status-fail") === "1") {
+          // G2 错误态夹具(10-12-logs-line-low-polish):以 JSON 串拒答,
+          // client.ts toSidecarError 解析为结构化 SidecarRequestError(code 走
+          // 横幅「sidecar 错误码」槽)——冒烟尾段置 localStorage + 重载触发
+          // (window 旗标扛不住 reload,localStorage 才是跨导航载具;屏内已无
+          // 刷新钮——PageHeader 2026-10-04「无头」指令起渲染 null)
+          throw JSON.stringify({ code: "sidecar_not_running", path: "$", message: "smoke 注入:sidecar 未运行" });
+        }
         return { runs };
       }
       if (method === "store.items") {
@@ -455,6 +467,51 @@ async def main() -> int:
             expect("无号行零日志行", (await page.locator('[data-testid="run-log-h851"] [data-testid="log-row"]').count()) == 0)
             await page.locator('[data-testid="run-back"]').click()
             await page.wait_for_selector('[data-testid="run-list"]', timeout=10_000)
+
+            # ═══ 错误态满高算术(10-12-logs-line-low-polish G2/G5):置故障
+            #      localStorage → 重载 → 首载 run.status 结构化拒答 → 横幅上屏
+            #      (run 集为空,L1 空态卡;flex 链高度与内容无关,算术可断);
+            #      断言 ① 结构化错误码如实上屏 ② 横幅自然高(<300px)
+            #      ③ 满高算术:run-list clientHeight 缩量 ≈ 横幅高(旧 fragment
+            #      根下 h-full 分支与横幅成兄弟会溢出容器 100%+横幅高,新 flex
+            #      根恒 = 容器高)═══
+            list_before = await page.evaluate(
+                "() => document.querySelector('[data-testid=\"run-list\"]').clientHeight"
+            )
+            await page.evaluate("() => localStorage.setItem('smoke:run-status-fail', '1')")
+            await page.reload(wait_until="networkidle")
+            banner = page.locator('[data-testid="logs-error"]')
+            await banner.wait_for(timeout=10_000)
+            await page.wait_for_selector('[data-testid="run-list"]', timeout=10_000)
+            banner_text = await banner.inner_text()
+            print(f"metrics - logs-error = {banner_text!r}")
+            expect(
+                "错误横幅上屏(结构化错误码 sidecar_not_running 如实报)",
+                "采集日志不可用" in banner_text and "sidecar_not_running" in banner_text,
+            )
+            err_metrics = await page.evaluate(
+                """() => {
+                    const banner = document.querySelector('[data-testid="logs-error"]');
+                    const list = document.querySelector('[data-testid="run-list"]');
+                    return {
+                        bh: banner.getBoundingClientRect().height,
+                        ch: list.clientHeight,
+                    };
+                }"""
+            )
+            print(
+                "metrics - 错误态 banner="
+                f"{err_metrics['bh']:.1f}px run-list clientHeight={err_metrics['ch']}(无横幅时 {list_before})"
+            )
+            expect(
+                f"横幅自然高(banner {err_metrics['bh']:.1f}px < 300px,不吞列表区)",
+                0 < err_metrics["bh"] < 300,
+            )
+            shrink = list_before - err_metrics["ch"]
+            expect(
+                f"满高算术(run-list 缩量 {shrink}px ≈ 横幅高 {err_metrics['bh']:.1f}px,容差 4px)",
+                abs(shrink - err_metrics["bh"]) <= 4,
+            )
     except Exception as exc:  # noqa: BLE001 - 冒烟异常如实报
         failures.append(f"异常: {exc}")
         print(f"SMOKE ERROR: {exc}", file=sys.stderr)

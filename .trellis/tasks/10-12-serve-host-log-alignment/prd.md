@@ -41,3 +41,24 @@ logs.tail 对不上号;按 cron-run-log-alignment 同款语义修复(行 id 即�
 | G4 | 验证 | 修后 UI 触发一轮 → DB 行 log_run_id=行id + 2 级详情 logs.tail?run_id=行id 命中**原生行**(不再只靠转发版);换装重启后历史行仍可回看 | — | 否 |
 
 Requirements 按决议更新:原「定位 serve 宿主落库路径」改「改 entry.py:3585 为条件回填 + 存量回修脚本/SQL 一次性执行」。撞车标注维持(parallel telegram/feishu 在途,本档只动 entry.py 回填一行 + 数据回修,零交集)。
+
+## G3 执行留痕(2026-10-12 22:36-22:49,真库回修 + 复查回滚)
+
+- **备份**:`myssia.db.bak-20261012-logrun-fix`(回修前 22:37,integrity ok,99 行/max 99/脏 9 与活库一致);
+  `myssia.db.bak-20261012-logrun-fix-id30-rollback`(id30 回滚前 22:48,sqlite3 `.backup` 一致快照,30=30 入档)。
+- **改前 SELECT**(22:36:06):total=99,max_id=99,log_run_id=1 脏行 9;非空全景:
+  30/myia-demo/1,88/news/88,89/telegram/1,90/telegram/1,91/telegram/1,92/news/92,
+  93/feishu/1,94/feishu/1,95/feishu/1,96/feishu/1,97/feishu/1,98/ai-news/98,99/daily-digest/99。
+- **UPDATE**(22:37):`UPDATE runs SET log_run_id=id WHERE log_run_id=1 AND id<(SELECT MAX(id) FROM runs)`,changes()=9(30,89,90,91,93-97)。
+- **改后 SELECT**(22:37:08):脏 0,9 行 log_run_id=行id,total/max 99/99 不变。
+- **有据核验**:89-97 原生 JSONL(proc=cli,run_id=行id)在盘 7-23 行/条(logs/myssia-20261012.jsonl);
+  转发版(run_id=1,proc=sidecar)当日 189 行并存不动(G2)。
+- **复查回滚 id=30**(22:48-22:49,挑刺轮发现):该行**无据**——原生 run_id=30 全日志目录 0 行
+  (其轮 2026-10-06T21:34Z=本地 10-07 05:34,3.13s 短轮,仅转发版 3 行,在
+  myssia-20261007.jsonl 的 run_id=1 混流[该文件 94 行]内);按 G3「无据不迁」与
+  Requirements「旧行(恒 1)不迁移」处置:`UPDATE runs SET log_run_id=1 WHERE id=30`,changes()=1
+  (混流可达优于零可达)。**终态**:全库仅 id=30 保留 log_run_id=1,其余非空行 log_run_id=行id。
+- **工艺注**:改中活库 WAL 活跃(sidecar 长连接,98KB 未 checkpoint)——裸 cp 主文件不带 WAL
+  会读到旧值假象(22:47 坏样本实证,已删);回滚前备份改用 sqlite3 `.backup` 一致快照
+  (首份备份时 WAL 恰 0 字节,cp 无损)。
+

@@ -14,12 +14,14 @@ import importlib.util
 import io
 import json
 import logging
+import os
 import shutil
 import socketserver
 import subprocess
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -458,6 +460,96 @@ def test_run_start_config_error_exit_code_one(tmp_path):
     assert completed["exit_code"] == 1
     assert completed["status"] == "config_error"
     assert completed["record"] is None
+
+
+# ---------------------------------------------------------------------------
+# run 完成回填条件化(10-12-serve-host-log-alignment G2:仅 NULL 才写)
+# ---------------------------------------------------------------------------
+
+
+def _drive_run_worker(monkeypatch, db: Path, *, run_id: int) -> dict:
+    """直驱 ``_run_worker`` 至完成(真实子进程 ``python -c pass``,零外网、不动库)。
+
+    子进程不触碰 DB——runs 行的 log_run_id 初值完全由调用方预置(CLI 已
+    自回填行 id / 旧路径 NULL 两种历史),worker 收口处的条件回填是被测
+    唯一变量。同步调用(不起线程),返回 completed 事件。
+    """
+    started = datetime.now(timezone.utc).isoformat()
+    out = io.StringIO()
+    monkeypatch.setattr(entry, "_OUT", out)  # _write_line 断言 _OUT 已就绪
+    entry._RUNS[run_id] = {
+        "run_id": run_id, "yaml": "noop.yaml", "db": str(db), "dry": False,
+        "state": "running", "exit_code": None, "status": None,
+        "started_at": started, "finished_at": None, "duration_ms": None,
+        "record": None,
+    }
+    entry._ACTIVE_RUN_ID = run_id
+    entry._run_worker(
+        run_id, [sys.executable, "-c", "pass"], dict(os.environ),
+        dry=False, db=str(db), yaml_path="noop.yaml",
+        started_at=started, wall_start=datetime.now(timezone.utc).timestamp(),
+    )
+    _, events = split_stream(out)
+    completed = [event for event in events
+                 if event.get("type") == "completed" and event.get("run_id") == run_id]
+    assert len(completed) == 1
+    return completed[0]
+
+
+def _latest_row(db: Path):
+    store = SQLiteStore(str(db))
+    try:
+        return store.latest_run()
+    finally:
+        store.close()
+
+
+def test_run_worker_preserves_cli_backfilled_log_run_id(monkeypatch, tmp_path):
+    """G2 主断言:CLI 已自回填(行 id)的 runs 行,worker 完成回填不得覆盖。
+
+    病根复刻:注册表号与行 id 是两个编号空间(此处注册表 7 vs 行 id 5;
+    换装日真实事故=注册表号恒 1 覆盖行 id 93-97)。CLI 自回填的行 id 是
+    唯一权威值——修复前无条件 set_run_log_run_id 会改写成注册表号。
+    """
+    db = tmp_path / "keep.db"
+    ids = _seed_db_runs(db, finished=5, zombie=0, log_run_id_base=1)  # log_run_id=行id,CLI 语义
+    completed = _drive_run_worker(monkeypatch, db, run_id=7)
+    assert completed["exit_code"] == 0 and completed["status"] == "success"
+    assert completed["record"]["run_id"] == ids[-1]
+    latest = _latest_row(db)
+    assert latest.id == ids[-1]
+    assert latest.log_run_id == ids[-1]  # 行 id 保住,未被注册表号 7 覆盖
+
+
+def test_run_worker_backfills_null_log_run_id(monkeypatch, tmp_path):
+    """G2 旧行兼容:log_run_id NULL 的行(CLI 未及自回填),worker 仍按注册表号回填。"""
+    db = tmp_path / "null.db"
+    ids = _seed_db_runs(db, finished=2, zombie=0)  # log_run_id 全 NULL
+    completed = _drive_run_worker(monkeypatch, db, run_id=7)
+    assert completed["exit_code"] == 0 and completed["status"] == "success"
+    latest = _latest_row(db)
+    assert latest.id == ids[-1]
+    assert latest.log_run_id == 7  # NULL 行照旧回填注册表号,跨重启可见性不丢
+
+
+def test_run_start_keeps_row_id_log_run_id_end_to_end(tmp_path, local_api):
+    """G4 端到端:预置行拉开「行 id vs 注册表号」,UI run.start 全链完成后
+    log_run_id=行 id(CLI 自回填唯一权威;修复前被注册表号 1 覆盖=病根原样)。"""
+    yaml_path = write_yaml(tmp_path, VALID_YAML.replace("{port}", str(local_api)))
+    db = tmp_path / "e2e.db"
+    seeded = _seed_db_runs(db, finished=2, zombie=0)  # 新行 id 从 3 起,≠注册表号 1
+    out = io.StringIO()
+    stdin = io.StringIO(json.dumps({"id": 1, "method": "run.start",
+                                    "params": {"yaml": yaml_path, "db": str(db)}}) + "\n")
+    entry.serve(stdin=stdin, stdout=out)
+    run_id = json.loads(out.getvalue().splitlines()[0])["result"]["run_id"]
+    assert run_id == 1  # 换装日形态:新注册表首跑恒 1
+    completed = wait_completed(out, run_id)
+    assert completed["exit_code"] == 0 and completed["status"] == "success"
+    latest = _latest_row(db)
+    assert latest.id not in seeded and latest.id > max(seeded)  # CLI 新行
+    assert latest.log_run_id == latest.id  # 行 id 自回填保住
+    assert latest.log_run_id != run_id  # 未被注册表号(=1)覆盖
 
 
 def test_run_busy_single_flight():

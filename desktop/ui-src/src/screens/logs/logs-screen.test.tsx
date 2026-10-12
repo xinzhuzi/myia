@@ -6,11 +6,13 @@
  * 断言面随信息架构重写(design §8;jsdom 无真实布局,布局断言归无头冒烟):
  * L1 摘要行派生(summarizeRun 分状态段/accordion 退役哨兵)/ 切级动线(点行
  * 惰性拉 tail · 返回钮 · Esc 全局链 · 缓存不重拉)/ 默认不自动跳级 / 过滤态
- * 穿越保持 / 失败原因区(三源合成四象限 + 无据如实文案 + 永假在途态拦下)/
+ * 穿越保持 / view 滞留复位(10-12-logs-line-low-polish G3:L2 中行消失回 L1,
+ * 行重现不弹回)/ 失败原因区(三源合成四象限 + 无据如实文案 + 永假在途态拦下)/
  * L2 元信息头(绝对起止/exit 语义映射/会话对齐号/行数-错误行数)/ 日志体
  * (错误行 dead 高亮与级别着色/搜索过滤高亮计数/框内 Esc 清词)/ 流式续播
  * (事件归组缓冲-进 L2 合并/completed 刷新)/ 重跑(L1/L2 双可达,triggered
- * 词面去「展开跟随」)/ 结构化错误横幅两级可见 / 空态 / 「上一程」历史行全家族。
+ * 词面去「展开跟随」)/ 结构化错误横幅两级可见 / 空态 / 「上一程」历史行全家族
+ * (含 G4 撞号时间:注册表/历史同号两行时间槽各自读自家 started_at)。
  * 夹具层复用现状(run2Running/run1Success/histRun5/tail 五行/事件夹具),仅按
  * wire 真形增补:pipeline.py:592 stats.sources 数组(success 行全健康;
  * failed 注册表行内造一例 failed:true 成员)——喂摘要源段/失败段。
@@ -347,6 +349,27 @@ describe("LogsScreen 切级动线", () => {
     fireEvent.keyDown(input, { key: "Escape" });
     expect((input as HTMLInputElement).value).toBe("");
     expect(screen.getByTestId("run-detail")).toBeTruthy();
+  });
+
+  it("view 滞留复位(G3):L2 中行消失回 L1;行重现不弹回(view 不滞留 level:2)", async () => {
+    mockSidecar([run2Running, run1Success]);
+    render(<LogsScreen />);
+    fireEvent.click(await screen.findByTestId("run-row-2"));
+    await screen.findByTestId("run-detail");
+
+    // 刷新后行集失去 run 2 → 回 L1(防御已有:detailRun=null 时互斥分支回落)
+    runStatusMock.mockResolvedValue({ runs: [run1Success] as RunEntry[] });
+    emit({ type: "completed", run_id: 99, exit_code: 0, status: "success", dry: false, ts: "t30" });
+    await waitFor(() => expect(screen.queryByTestId("run-detail")).toBeNull());
+    expect(screen.getByTestId("run-row-1")).toBeTruthy();
+    expect(screen.queryByTestId("run-row-2")).toBeNull();
+
+    // 行重现:仍留 L1 不弹回 L2(view 已被复位 effect 归 {level:1};无复位时
+    // view 滞留 {level:2} 会随行重现跳级,劫持用户动线——本断言即防此回归)
+    runStatusMock.mockResolvedValue({ runs: [run2Running, run1Success] as RunEntry[] });
+    emit({ type: "completed", run_id: 98, exit_code: 0, status: "success", dry: false, ts: "t31" });
+    await screen.findByTestId("run-row-2");
+    expect(screen.queryByTestId("run-detail")).toBeNull();
   });
 });
 
@@ -896,6 +919,11 @@ describe("LogsScreen 上一程历史行", () => {
     expect(await screen.findByTestId("run-row-5")).toBeTruthy();
     expect(screen.getByTestId("run-row-h5")).toBeTruthy();
 
+    // G4 时间撞号断言:两行时间槽各自读自家的 started_at(L1 槽 title = 原始
+    // ISO;裸 run_id 键在两空间同号时 Map 后写互覆,注册表行会读到历史行时间)
+    expect(within(screen.getByTestId("run-row-5")).getByTitle(run5Running.started_at!)).toBeTruthy();
+    expect(within(screen.getByTestId("run-row-h5")).getByTitle(histDb5.started_at!)).toBeTruthy();
+
     fireEvent.click(screen.getByTestId("run-row-5"));
     await waitFor(() => expect(logsTailMock).toHaveBeenLastCalledWith({ lines: 400, run_id: 5 }));
     emit({ type: "log", run_id: 5, stream: "stdout", line: "实时行-注册表5", ts: "t6" });
@@ -905,6 +933,8 @@ describe("LogsScreen 上一程历史行", () => {
     fireEvent.click(screen.getByTestId("run-back"));
     fireEvent.click(screen.getByTestId("run-row-h5"));
     await waitFor(() => expect(logsTailMock).toHaveBeenLastCalledWith({ lines: 400, run_id: 9 }));
+    // G4 L2 半边:历史行详情「开始」读 histDb5 自家时间(rowKey 键,非裸 run_id)
+    expect(screen.getByTestId("run-detail-meta-h5").textContent).toContain(formatAbsolute(histDb5.started_at));
     const histText = screen.getByTestId("run-log-h5").textContent ?? "";
     expect(histText).not.toContain("实时行-注册表5");
   });

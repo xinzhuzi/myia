@@ -11,6 +11,7 @@ import {
   loadRunLogs,
   loadRuns,
   rerunRun,
+  runRowKey,
   subscribeRunEvents,
   tailToRows,
 } from "./api";
@@ -185,14 +186,16 @@ export function LogsScreen() {
   const rerunTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const runRows = useMemo(() => buildRunRows(runs), [runs]);
-  /** run_id → started_at/finished_at(时间槽用;不进 RunRowModel——api.ts 属
-   *  数据层,展示派生留视图层;历史行沿库可空,format* 自兜「—」) */
+  /** rowKey → started_at/finished_at(时间槽用;键=runRowKey——裸 run_id 在
+   *  会话注册表号与 DB 自增号两空间撞号(同屏双 #N)时后写互覆,两行读到
+   *  同一家时间;不进 RunRowModel——api.ts 属数据层,展示派生留视图层;
+   *  历史行沿库可空,format* 自兜「—」) */
   const startedAtById = useMemo(
-    () => new Map(runs.map((run) => [run.run_id, run.started_at] as const)),
+    () => new Map(runs.map((run) => [runRowKey(run), run.started_at] as const)),
     [runs],
   );
   const finishedAtById = useMemo(
-    () => new Map(runs.map((run) => [run.run_id, run.finished_at] as const)),
+    () => new Map(runs.map((run) => [runRowKey(run), run.finished_at] as const)),
     [runs],
   );
 
@@ -209,6 +212,13 @@ export function LogsScreen() {
     [view, runRows],
   );
   const level = detailRun !== null ? 2 : 1;
+
+  /** view 滞留复位:行消失时上面只把 level 派生回 1,view 仍滞留
+   *  {level:2}(行重现会「弹回」L2,劫持用户动线)——effect 里把 view 一并
+   *  复位 {level:1},行重现不弹回 */
+  useEffect(() => {
+    if (view.level === 2 && detailRun === null) setView({ level: 1 });
+  }, [view, detailRun]);
 
   const clearRerunFeedback = useCallback((key: string) => {
     setRerunByRun((prev) => {
@@ -310,11 +320,14 @@ export function LogsScreen() {
   }, [level]);
 
   return (
-    <>
+    /* 编排层满高骨架:根 = flex h-full min-h-0 flex-col,横幅自然高(shrink-0
+     * 护横幅不被压扁),L1/L2 分支根 flex-1 min-h-0 吃余高——横幅在场时总高
+     * 恒 = 容器高,不出「横幅 + h-full 分支 = 100%+ 横幅高」的溢出算术缺口 */
+    <div className="flex h-full min-h-0 flex-col">
       {/* 结构化错误横幅:挂编排层、互斥分支之上(design §2.3 R2 修正)——
           拆分支后若误钉 L1,L2 在途的 run.status 结构化错误会静默不可见 */}
       {error ? (
-        <div className="px-6">
+        <div className="shrink-0 px-6">
           <Card data-testid="logs-error">
             <CardContent>
               <p className="text-sm font-medium text-destructive">
@@ -348,8 +361,8 @@ export function LogsScreen() {
       ) : (
         <RunDetailView
           run={detailRun}
-          startedAt={startedAtById.get(detailRun.runId)}
-          finishedAt={finishedAtById.get(detailRun.runId)}
+          startedAt={startedAtById.get(detailRun.rowKey)}
+          finishedAt={finishedAtById.get(detailRun.rowKey)}
           rows={rowsByRun[detailRun.rowKey]}
           truncated={truncatedByRun[detailRun.rowKey] ?? false}
           loadError={loadErrors[detailRun.rowKey] ?? null}
@@ -361,6 +374,6 @@ export function LogsScreen() {
           onBack={backLevel}
         />
       )}
-    </>
+    </div>
   );
 }

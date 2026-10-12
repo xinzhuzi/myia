@@ -32,8 +32,9 @@ export interface RunListViewProps {
   allRows: RunRowModel[];
   /** 过滤后行模型(瀑布直出) */
   visibleRows: RunRowModel[];
-  /** run_id → started_at(相对时间槽;历史行沿库可空,formatRelative 自兜「—」) */
-  startedAtById: Map<number, string | null>;
+  /** rowKey → started_at(相对时间槽;键=runRowKey 防两编号空间撞号互覆,
+   *  历史行沿库可空,formatRelative 自兜「—」) */
+  startedAtById: Map<string, string | null>;
   categories: string[];
   categoryFilter: string;
   statusFilter: RunFilterStatus | "all";
@@ -91,8 +92,9 @@ export function RunListView({
 
   return (
     /* 满高列表容器(Kestra app.scss section.full-container 同款:列表内滚、
-     * 过滤条/节头常驻;骨架保留,现状 flex h-full min-h-0 零改) */
-    <div className="flex h-full min-h-0 flex-col gap-4">
+     * 过滤条/节头常驻;骨架保留。根 = 编排层 flex 列的分支根,吃余高 flex-1
+     * min-h-0——横幅在场时不再 100%+ 横幅高溢出) */
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PageHeader
         title="采集日志"
         description="采集记录一行一轮(新→旧)· 行内摘要可读「本轮采集了什么」· 点行进详情看完整日志与失败原因"
@@ -229,7 +231,7 @@ export function RunListView({
               <RunSummaryRow
                 key={run.rowKey}
                 run={run}
-                startedAt={startedAtById.get(run.runId)}
+                startedAt={startedAtById.get(run.rowKey)}
                 rerun={rerunByRun[run.rowKey]}
                 onRerun={onRerun}
                 onOpen={onOpen}
