@@ -104,7 +104,7 @@
 ### 7.1 本机数据布局（只读探查,内容未读）
 
 - 数据根：`~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/`
-- 当前账号目录：`wxid_oc2yhey1xkpw22_8253/`（wxid + 设备后缀命名）
+- 当前账号目录：`wxid_oc2y***[脱敏]_8253/`（wxid + 设备后缀命名）
 - `db_storage/` 十四域：MMKV, bizchat, chatbot, contact(+contact_fts 全文索引), emoticon, favorite(+fts), general, hardlink, head_image, **message**, **session**, sns, solitaire, third_app_icon
 - message 域形态：`biz_message_0.db` + `.db-wal/-shm` + `.db-first/-last/-incremental.material`（增量物料件）+ `.kvdb`；另有主消息分片库（探查被 head 截断,执行段盘点全量）
 - **`all_users/login/<wxid>/key_info.db`**（24KB,10-08 仍活跃写入）——名字直指密钥信息,D4「零内存密钥」头号探查对象

@@ -1,6 +1,6 @@
 # A3 — 密钥途径探查(2026-10-11 实测;D4 裁决输入)
 
-> 对象:`~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/all_users/login/wxid_oc2yhey1xkpw22/key_info.db`
+> 对象:`~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/all_users/login/wxid_oc2y***[脱敏]/key_info.db`
 > 边界:只读;只记 schema 与形状(计数/长度),**不导任何数据行、不读 BLOB 内容、密钥材料零落盘零入档**(红线 6)。
 
 ## 结论
@@ -15,7 +15,7 @@
 ## 1. key_info.db 实测证据
 
 ```bash
-FILE=…/all_users/login/wxid_oc2yhey1xkpw22/key_info.db
+FILE=…/all_users/login/wxid_oc2y***[脱敏]/key_info.db
 file "$FILE"
 # SQLite 3.x database, last written using SQLite version 3027002, writer version 2,
 # read version 2, file counter 8, database pages 6, cookie 0x2, schema 4, UTF-8 …
