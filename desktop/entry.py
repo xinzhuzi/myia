@@ -18,7 +18,7 @@
   字段路径、``message`` 中文原因、``data`` 原始细节(CLI 报文整包入 data)。
 - 协议级 code:``parse_error`` / ``invalid_request`` / ``invalid_params`` /
   ``method_not_found`` / ``internal_error``;业务级透传底层 code
-  (``config`` + errors[] / ``plugins_dir`` / ``store_corrupt`` /
+  (``config`` + errors[] / ``config_dir`` / ``store_corrupt`` /
   ``invalid_secret_name`` / ``run_busy`` / ``run_not_found`` …)。
 
 事件(stdout,无 id,以 ``type`` 字段区分)::

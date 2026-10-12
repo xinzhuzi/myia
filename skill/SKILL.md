@@ -17,10 +17,10 @@ myssia 是一个配置驱动的情报流水线:`fetch → classify → dedup →
 ```
 用户需求
   → myssia init --json           # 拿结构化信息清单(要收集什么、缺省是什么)
-  → 写 <id>.yaml(放到 plugins/ 下,对照 §2 速查表)
-  → myssia test plugins/<id>.yaml --json    # 逐源试抓,核对字段与去重键(不入库不推送)
-  → myssia run plugins/<id>.yaml --dry-run --json   # 全链演练(不推送)
-  → myssia run plugins/<id>.yaml            # 正式跑一次;长期使用再加 --loop 常驻调度
+  → 写 <id>.yaml(放到 config/ 下,对照 §2 速查表)
+  → myssia test config/<id>.yaml --json    # 逐源试抓,核对字段与去重键(不入库不推送)
+  → myssia run config/<id>.yaml --dry-run --json   # 全链演练(不推送)
+  → myssia run config/<id>.yaml            # 正式跑一次;长期使用再加 --loop 常驻调度
   → myssia doctor --json         # findings 清零后收工(见 §5 自诊断)
 ```
 
@@ -125,11 +125,11 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 选择器语法:L1/L2 用 CSS(item 内相对选择器,`a@href` 取属性,相对 URL 自动按页面地址补全);
 `json_path` 用 `$` 路径(`$.chart.result[0].meta.price`、`$[*].keyword` 通配)。
 响应没有页面 URL 只有 slug/appid 的 API(Epic/Steam 形态)用 `url_template` 渲染条目链接
-(官方 `plugins/games.yaml` 即此写法);`json_path` 仍表达不了「条目 URL = 请求 URL」,
-此类 API 用稳定业务字段(如 symbol)充当 `url` 字段(官方 `plugins/stocks.yaml` 即此写法)。
+(官方 `config/games.yaml` 即此写法);`json_path` 仍表达不了「条目 URL = 请求 URL」,
+此类 API 用稳定业务字段(如 symbol)充当 `url` 字段(官方 `config/stocks.yaml` 即此写法)。
 `rss`(10-03-news-rss)走 feedparser:fields 值=entry 属性白名单,条目缺某属性该字段
 逐条省略;`summary` 是 CDATA HTML,直出模板会刷屏,要摘要先进 enrich(官方
-`plugins/news.yaml` 即此写法,模板只有标题+链接+日期)。
+`config/news.yaml` 即此写法,模板只有标题+链接+日期)。
 
 ### 2.6 sources[].rate_limit(RateLimitConfig)
 
@@ -362,7 +362,7 @@ base 三级解析:源级 `searxng_base_url` > env `MYIA_SEARXNG_URL` > 缺省
 实例**(公共实例 robots `/*?*q=*` 全禁搜索请求,明禁 API 滥用);实例从
 哪来 = 任意已部署实例按 remote 指地址(部署属主人运维面,按上游官方
 容器文档,我方不复刻配方;json 开启关键是 settings.yml 的
-`search.formats: [html, json]`,要点见 `plugins/searxng.yaml` 头注)。
+`search.formats: [html, json]`,要点见 `config/searxng.yaml` 头注)。
 礼貌:逐词
 串行+词间 3s 引擎内置,run 间隔建议 ≥30 分钟;错误面 403=实例未开 json
 format(查 settings.yml)、连接拒绝=实例未起,均为源级结构化失败。
@@ -373,7 +373,7 @@ format(查 settings.yml)、连接拒绝=实例未起,均为源级结构化失败
 
 ### 4.2 生成 YAML
 
-对照 §2 速查表写 `plugins/<id>.yaml`。两个可载模板(均通过 `load_category` 验证):
+对照 §2 速查表写 `config/<id>.yaml`。两个可载模板(均通过 `load_category` 验证):
 
 完整示例(L1 API + feishu 推送,展示大部分节):
 
@@ -466,10 +466,10 @@ push:
 ### 4.3 验证与运行
 
 ```bash
-myssia test plugins/<id>.yaml --json          # 逐源试抓(不入库不推送,每源默认 120s 超时)
-myssia run plugins/<id>.yaml --dry-run --json # 全链演练,不推送无副作用
-myssia run plugins/<id>.yaml                  # 正式跑一次
-myssia run plugins/<id>.yaml --loop           # 常驻:按 schedule+timezone 自动触发
+myssia test config/<id>.yaml --json          # 逐源试抓(不入库不推送,每源默认 120s 超时)
+myssia run config/<id>.yaml --dry-run --json # 全链演练,不推送无副作用
+myssia run config/<id>.yaml                  # 正式跑一次
+myssia run config/<id>.yaml --loop           # 常驻:按 schedule+timezone 自动触发
 ```
 
 `myssia test --json` 逐源看:`ok`(引擎链是否拿到数据)、`engine`(实际选中引擎)、
@@ -488,11 +488,11 @@ decisions 与发送 reports)。status:`success`/`partial`/`failed`
 ## 5. 自诊断流程(doctor JSON → 修复动作)
 
 ```bash
-myssia doctor --json                    # 缺省体检 plugins/ 全部插件;也可 myssia doctor <yaml> --json
+myssia doctor --json                    # 缺省体检 config/ 全部品类;也可 myssia doctor <yaml> --json
 ```
 
 退出码诊断完成即 0;`healthy: false` 表示存在 error 级 `findings`。
-JSON 结构:`plugins[]`(loaded / load_errors / sources[].health / engine_hint /
+JSON 结构:`categories[]`(loaded / load_errors / sources[].health / engine_hint /
 next_fire_at / enrich)、`credentials.entries[]`(kind / name / exists / note)、
 `proxy.pools[]`(带 `--config` 时)、`findings[]`(severity / scope / code / message)、`summary`。
 
@@ -523,7 +523,7 @@ findings → 修复动作对照:
 
 ## 6. 自查清单(交 YAML 前逐条打勾)
 
-1. 文件 UTF-8,顶层是映射,无重复键;放到 `plugins/<id>.yaml`。
+1. 文件 UTF-8,顶层是映射,无重复键;放到 `config/<id>.yaml`。
 2. `id` 匹配 `[a-z0-9][a-z0-9_-]{0,63}`;`name` 非空;`schedule` 是 5 段 cron;
    `timezone` 是 IANA 名称(或省略)。
 3. `sources` 至少 1 个;每个 `url` 是 http(s);`method: POST` 配了 `post_body`,

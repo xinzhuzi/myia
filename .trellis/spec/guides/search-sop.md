@@ -53,7 +53,7 @@
 
 | 目标 | 首选范围 | 关键约束 |
 |------|----------|----------|
-| Python 核心包 | `src/shishi` | 域子目录 `classify/` `push/` `vision/` `store/` `enrich/` `feedback/` `engines/` `plugins/` `dedup.py`;入口 `cli.py`、总管线 `pipeline.py`、schema 事实源 `schema.py` |
+| Python 核心包 | `src/myssia` | 域子目录 `classify/` `push/` `vision/` `store/` `enrich/` `feedback/` `engines/` `plugins/` `dedup.py`;入口 `cli.py`、总管线 `pipeline.py`、schema 事实源 `schema.py` |
 | 测试 | `tests` | 录制回放夹具在 `tests/`(脱敏入盘) |
 | 桌面 sidecar | `desktop/entry.py` | sidecar 协议方法注册表事实源 = `entry.py` `_HANDLERS`(见 spec `desktop/sidecar-protocol.md`) |
 | 桌面构建 | `desktop/build-sidecar.sh` | PyInstaller 链路走 CLI 参数现场生成 spec;`desktop/myia-core.spec` 是历史手写件(已 SPECPATH 相对化,当前无消费方) |

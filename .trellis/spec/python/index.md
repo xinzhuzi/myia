@@ -52,10 +52,10 @@ vision/         看图:双引擎 OCR(ocrmac+rapidocr-onnxruntime)+ OpenAI 兼容
 
 ## 桌面发行数据根(v1.1.1 定案,task 10-03-v111-desktop-paths)
 
-- **CLI 相对路径默认(`myia.db`/`plugins`)是仓库开发契约,永不在 CLI 层改动**;桌面上下文的解析全部收口在 `desktop/entry.py` 的 `_serve_context()`,优先级:显式 params > `MYIA_HOME` env(Tauri 壳 main.rs spawn 注入)> 冻结 .app bundle 探测 > dev 回退 cwd
-- 平台数据根 `myia_home()`:macOS `~/Library/Application Support/MYIA` / Windows `%APPDATA%\MYIA` / Linux `~/.myia`;home 模式解析即建 `<home>` 与 `<home>/plugins`(全新数据根上 health/doctor 必须空态 OK,不得 plugins_dir 报错)
-- 品类补种(AC5 语义,10-05-plugin-market-batch):home 模式每次启动**幂等补缺** —— 随包 `Resources/plugins/*.yaml` 缺哪件补哪件、**绝不覆盖已存在文件**(官方新品类随升级自动出现;用户已有同名文件逐字节原样);`.seeded` 标志 = 「已做过一次补种」的记录(首次补种时刻定格,不再抑制复种);零缺件启动零写入。dev 模式零动作
-- 市场面(`myia plugin list`,InstalledPluginStore)与品类 YAML 平铺共用 `<home>/plugins` 不冲突(health 扫描非递归);官方插件 = 品类 YAML 形态,经 health/doctor 可见,plugins.list 首跑空是合法态
+- **CLI 相对路径默认(`myia.db`/`config`)是仓库开发契约,永不在 CLI 层改动**;桌面上下文的解析全部收口在 `desktop/entry.py` 的 `_serve_context()`,优先级:显式 params > `MYIA_HOME` env(Tauri 壳 main.rs spawn 注入)> 冻结 .app bundle 探测 > dev 回退 cwd
+- 平台数据根 `myia_home()`:macOS `~/Library/Application Support/MYIA` / Windows `%APPDATA%\MYIA` / Linux `~/.myia`;home 模式解析即建 `<home>` 与 `<home>/config`(全新数据根上 health/doctor 必须空态 OK,不得 config_dir 报错);首启一次性迁移旧 `<home>/plugins` 平铺配置 → `<home>/config`(config_layout.migrate_legacy_plugins_dir,jobs.json 路径一并改写)
+- 品类补种(AC5 语义,10-05-plugin-market-batch):home 模式每次启动**幂等补缺** —— 随包 `Resources/config/*.yaml` 缺哪件补哪件、**绝不覆盖已存在文件**(官方新品类随升级自动出现;用户已有同名文件逐字节原样);`.seeded` 标志 = 「已做过一次补种」的记录(首次补种时刻定格,不再抑制复种);零缺件启动零写入。dev 模式零动作
+- 配置与插件分居(2026-10-11):品类 YAML 配置落 `<home>/config`,市场安装件落 `<home>/plugins`/`~/.myia/plugins`(插件=代码组件,插件不是 yaml);官方品类 = 品类 YAML 配置,经 health/doctor 可见,plugins.list 首跑空是合法态
 - 改路径行为必须同步 `tests/desktop/test_desktop_sidecar_protocol.py` 的上下文/种子用例;发布前必跑「真实安装冒烟」(cwd=/ 全方法矩阵),mock 层绿不算数(v1.1 教训)
 
 ## 代理池池化(2026-10-04 定案,task 10-04-proxy-pool)
