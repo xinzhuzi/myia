@@ -28,6 +28,7 @@
 - 门禁:feed vitest **199/199**(185 存量零随迁+14 新增两批)+ tsc 全项目零错;feed-card-smoke 无头冒烟全过;像素取证 /tmp/myssia-tg-two-pane-final.png(左栏选中行+聊天头+气泡)。
 - 换装:index-BwBiGnq0 双实锤(新包 1/旧装 0→换装后 1),WKWebView 缓存清,app 后台常驻 PID 77515。
 - 留档:多账号分组落点=tgGroupCards memo(注释已钉);账号行身/头像词面=产品自有词表一致性优先,非抄 TG 主题。
+- **平台隔离追批(2026-10-13,主人令「微信是微信,TG是TG,不同渠道,要展示不同的群,不能混在一起」)**:10-12 微信线曾把左栏数据源放宽为 tg+wx 混列(微信共用双栏引入);本令收回——imGroupCards 按 activeChannelKind 同平台收窄(看 TG 列 TG,看微信列微信),补 wx 3 级 tg 对照源不混列回归锚;216 用例绿。
 
 ## 边界与不做
 
