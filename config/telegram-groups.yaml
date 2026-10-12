@@ -45,7 +45,10 @@ sources:
     engine_options:
       telegram:
         chat_id: "-1000000000000"       # 占位:四步后按日志/@userinfobot 实填
-        # bot_token: keychain:myia/telegram/bot-token   # 缺省键,省略即此
+        # 缺省键已弃用(2026-10-12,409 根治):占位 chat 零产出纯制造长轮询冲突面。
+        # 显式指向停用键 → credential_missing 空态,bot 线不装配零请求;
+        # G8 激活(bot 进群实填 chat_id)时把引用改回 myia/telegram/bot-token 即活。
+        bot_token: keychain:myia/telegram/bot-token-disabled
         lookback_limit: 100             # 单轮窗口帽(getUpdates 硬顶)
         keywords: [免费, 白嫖, 羊毛, token, 额度, 优惠, coupon, free, 折扣]  # 粗筛词表(B2;省略=内置缺省词表)
         llm_base_url: keychain:myia/llm/base_url        # LLM 精筛端点(enrich 同契约,B2;缺=降级纯粗筛)
