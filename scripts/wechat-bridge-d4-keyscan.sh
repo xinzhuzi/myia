@@ -59,7 +59,15 @@
 set -euo pipefail
 
 SMOKE_TMP=""
-trap 'if [ -n "$SMOKE_TMP" ]; then rm -rf "$SMOKE_TMP"; fi' EXIT
+SCAN_STARTED=""
+# 复审 low 收口(2026-10-12):中断路径(Ctrl-C/被杀)收尾段不会执行——
+# 开关合并写之后若被中断,真配置停留在 mem_search_enabled=true 且用户
+# 未被告知还原命令;EXIT trap 补一条中断还原提示(收尾段正常走时它
+# 也会打印,属可容忍重复;SCAN_STARTED 钉住「合并写已发生」才提示)。
+trap 'if [ -n "$SMOKE_TMP" ]; then rm -rf "$SMOKE_TMP"; fi
+      if [ -n "$SCAN_STARTED" ]; then
+        echo "[中断提示] 开关可能仍为开启态;还原: cp \"\$CONFIG_FILE.pre-keyscan\" \"\$CONFIG_FILE\" 或回全缺省(design §7),详见脚本尾部收尾段。"
+      fi' EXIT
 
 # —— 路径解析(脚本自定位,不依赖 cwd;数据根与组件 config.py myssia_home
 #    同序:显式 MYIA_HOME env > darwin 缺省)——
@@ -125,6 +133,7 @@ run_probe() {
 enable_mem_search() {
   if [[ -f "$CONFIG_FILE" ]]; then
     cp "$CONFIG_FILE" "$CONFIG_BACKUP"
+SCAN_STARTED=1
     echo "已备份原配置 → $CONFIG_BACKUP"
   fi
   mkdir -p "$CONFIG_DIR"
