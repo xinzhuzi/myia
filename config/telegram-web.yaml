@@ -7,6 +7,10 @@
 #   update → bot 线分拣/过滤(#tg-<chat>-<mid> 锚全期幂等)/出口全复用。
 #   批量档=开页读当前窗口(排程采集);常驻实时档=myssia telegram serve
 #   (每账号×群一 Watcher 页,失效隔离+max_accounts 帽)。
+#   评论线程档(V1,10-12-tg-comments-reach):批量档窗口读后,对带评论钮的
+#   频道帖逐帖展开讨论群线程(点开→读回泡→关),回复锚用讨论群真实 peer id
+#   (与频道帖独立命名空间),与基线消息同走粗筛/精筛出口;预算与状态基
+#   自守(见源级 comments_* 注记与品类 timeouts 注记)。
 #
 # 前置(一次性,零 api 凭据):
 #   myssia telegram web-login --account telegram-alt1( headed 窗口输手机号
@@ -36,6 +40,14 @@ name: Telegram 监控
 schedule: "*/30 * * * *"          # 批量档窗口读取(serve 常驻时不必挂)
 timezone: Asia/Shanghai
 
+# 品类级 fetch 阶段超时帽(秒;10-12-tg-comments-reach 预算激活路径):
+# 评论线程档(comments_max_threads>0)每轮多 N 段「开线程→读→关」,缺省
+# 120s 帽装不下 —— 品类声明更大帽后,须与源级 engine_options.tg_web.
+# fetch_timeout_seconds 对齐(引擎按 min(80, 帽−基线−过滤储备) 动态推导
+# 线程预算,预算不足自动跳过并留痕;180−基线~52−LLM储备65≈63s≈3 段)。
+timeouts:
+  fetch: 180
+
 sources:
   # ── 首源(telegram-alt1 首真跑 2026-10-08 标定:账号可达会话四件,
   #    对口目标 = Clash-Party channel,mihomo/Clash 生态频道;data-peer-id
@@ -49,6 +61,11 @@ sources:
         account: telegram-alt1          # 账号键(归属声明,全称律 telegram-<标识>)
         chat: "-2349572233"             # Clash-Party channel(data-peer-id 全等;或标题片段)
         lookback_limit: 50              # 单轮窗口帽 1-100(缺省 50)
+        comments_max_threads: 3         # 评论线程档帽(0=off;缺省 3):带评论钮的
+                                        #   频道帖逐帖展开线程,回复走讨论群独立锚
+                                        #   命名空间+同一粗筛出口;预算不足自动跳过
+        comments_max_replies: 50        # 单线程回复读取帽 1-100(缺省 50)
+        fetch_timeout_seconds: 180      # 引擎预算推导帽输入(须与品类 timeouts.fetch 一致)
         keywords: [免费, 白嫖, 羊毛, token, 额度, 优惠, coupon, free, 折扣]  # 粗筛词表(与 bot 线同面,省略=内置缺省)
         llm_base_url: keychain:myia/llm/base_url        # LLM 精筛端点(缺=降级纯粗筛)
         llm_api_key: keychain:myia/llm/api_key

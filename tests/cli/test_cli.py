@@ -1246,3 +1246,32 @@ def test_cron_subcommand_surface_is_frozen():
     }
     assert canonical <= sub_choices
     assert sub_choices - canonical == {"add", "rm", "delete", "history"}
+
+
+# ---------------------------------------------------------------------------
+# timeouts sidecar → stage_options 装配(10-12-tg-comments-reach)
+# ---------------------------------------------------------------------------
+
+
+def test_category_stage_options_assembly():
+    """品类 timeouts sidecar → Pipeline stage_options:未声明 = None(管线
+    缺省零改动);声明 fetch 帽 = {'fetch': StageOptions(帽)}(retries 缺省 0)。
+    """
+    from myssia.cli import _category_stage_options
+    from myssia.pipeline import StageOptions
+
+    base = {
+        "id": "demo",
+        "name": "Demo",
+        "schedule": "0 9 * * *",
+        "sources": [{"name": "example", "url": "https://example.com/list?page={page}"}],
+    }
+    assert _category_stage_options(load_category(dict(base))) is None
+    assembled = _category_stage_options(
+        load_category({**base, "timeouts": {"fetch": 180}})
+    )
+    assert assembled is not None
+    assert set(assembled) == {"fetch"}
+    assert isinstance(assembled["fetch"], StageOptions)
+    assert assembled["fetch"].timeout_seconds == 180.0
+    assert assembled["fetch"].retries == 0

@@ -166,7 +166,7 @@ from myssia.gates import (
     save_gates_config,
     valid_gate_key,
 )
-from myssia.pipeline import Pipeline, build_cron_trigger, make_cron_heartbeat_scan
+from myssia.pipeline import Pipeline, StageOptions, build_cron_trigger, make_cron_heartbeat_scan
 from myssia.push import PLATFORMS
 from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
 from myssia.plugins import (
@@ -1487,6 +1487,21 @@ def _print_human(result: Any) -> None:
     print(f"状态:{result.status}")
 
 
+def _category_stage_options(
+    config: CategoryConfig,
+) -> dict[str, StageOptions] | None:
+    """品类 ``timeouts:`` sidecar → stage_options 装配面(10-12-tg-comments-reach).
+
+    ``timeouts.fetch`` 覆盖 fetch 阶段缺省帽(120s,管线每源
+    asyncio.wait_for 面);未声明 timeouts 节 = None(管线缺省零改动)。
+    retries 沿用缺省(0);其余阶段钮不走本节。装配缝 = Pipeline 构造形参
+    ``stage_options``(零 pipeline.py 改动)。
+    """
+    if config.timeouts is None:
+        return None
+    return {"fetch": StageOptions(timeout_seconds=config.timeouts.fetch)}
+
+
 def _selfcheck_category_plugin(config: CategoryConfig) -> None:
     """品类 ``plugin:`` 节的启动自检:只发 WARNING 日志,任何结果都不改变 run 流程.
 
@@ -1550,6 +1565,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
             config,
             db_path=args.db,
             proxy_pools=pools,
+            # 品类 timeouts sidecar → fetch 帽(10-12-tg-comments-reach:
+            # 评论线程档的预算激活路径;未声明节 = None 管线缺省)。
+            stage_options=_category_stage_options(config),
             # --json 契约(SKILL.md §0 / cli docstring):stdout 恰好一份 JSON。
             # stdout 推送通道的卡片行改写 stderr,不能与 run 报告同流。
             stdout_stream=sys.stderr if args.as_json else None,

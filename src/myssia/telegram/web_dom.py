@@ -39,7 +39,11 @@ from typing import Any, Mapping
 logger = logging.getLogger(__name__)
 
 #: 选择器表标定版本(改版跟修只动本模块 + 升本注记)。
-SELECTOR_REVISION = "2026-10-08.v2"
+#: ``2026-10-12.v3``:评论线程档三件新增(10-12-tg-comments-reach 活页
+#: 标定,r4-r7 轮)—— 线程回泡抽取序(:data:`THREAD_MESSAGE_TEXT_SELECTORS`)、
+#: 回泡结构判据(:data:`REPLY_MARKER_ATTR`)、频道页片评论钮扫描
+#: (:func:`collect_channel_posts_js`);既有频道/群面选择器零改动。
+SELECTOR_REVISION = "2026-10-12.v3"
 
 #: 登录成功标志(左栏会话列表;**可见性口径** —— W5 真跑标定在案实证:
 #: Web K 登录页的隐藏壳里 ``.chatlist-container`` 也在 DOM,纯在场会
@@ -98,7 +102,47 @@ MESSAGE_MEDIA_SELECTORS: tuple[str, ...] = (
 #: 批量档是「读当前窗口」,深历史是 TG 客户端滚动加载面,不属本线)。
 MAX_DOM_MESSAGES = 100
 
+# ---------------------------------------------------------------------------
+# 评论线程档(10-12-tg-comments-reach;2026-10-12 活页标定,r4-r7 轮取证)
+# ---------------------------------------------------------------------------
+
+#: 线程档消息文本子选择器(must_fix5 标定):回泡正文叶 =
+#: ``.translatable-message``;``.message`` 容器会把时间粘进文本(产线取证
+#: r7_3:40/40 全脏,『订阅21:2221:22』型),**不进线程档**;
+#: ``.text-content``(Web A)做次级候选。频道/群档沿用
+#: :data:`MESSAGE_TEXT_SELECTORS`(``.message`` 首位)不动。
+THREAD_MESSAGE_TEXT_SELECTORS: tuple[str, ...] = (
+    ".translatable-message",
+    ".text-content",
+)
+
+#: 回泡结构判据属性(must_fix1):线程内三段形态 —— 头帖
+#: (``.bubble.channel-post[data-saved-from]``,原频道帖转发副本)与服务泡
+#: (``.bubble.service``,小数 mid,『Discussion started』)**无**
+#: ``data-reply-to-mid``,回泡 40/40 全有(r5_3/r7_3 取证);线程读取只收
+#: 带此属性的泡 —— 头帖双注入面由此关死,Python 层还有二道守
+#: (:func:`collect_thread_updates` 丢缺 ``replyTo`` 的条目)。
+REPLY_MARKER_ATTR = "data-reply-to-mid"
+
+#: 线程/频道页片作用域:点开线程 = 新开一个 ``.chat.tabs-tab`` 页片,频道
+#: 页片留在 DOM 非 active(r3_02 取证,两页片并存);线程档读取一律锁
+#: active tab,否则全页 ``[data-mid]`` 计数混淆。
+ACTIVE_TAB_SELECTOR = ".chat.tabs-tab.active"
+
+#: 频道帖评论钮(自定义元素;泡内,可见态整块可点)。计数在
+#: ``.replies-footer-text``(『N Comments』,数字即评论数);有新评论时该
+#: 元素加 ``is-unread`` 类(实测帖 4294967708);无评论帖整个 footer 不存在。
+REPLIES_FOOTER_SELECTORS: tuple[str, ...] = (
+    "replies-element.replies",
+    ".replies-footer",
+)
+
+#: 广告泡 mid(探索取证:广告泡 ``data-mid="-1"``,锚面必滤)。
+AD_BUBBLE_MID = "-1"
+
 __all__ = [
+    "ACTIVE_TAB_SELECTOR",
+    "AD_BUBBLE_MID",
     "CHAT_LIST_SELECTORS",
     "CHAT_OPEN_SELECTORS",
     "LOGGED_OUT_SELECTORS",
@@ -108,9 +152,16 @@ __all__ = [
     "MESSAGE_SENDER_SELECTORS",
     "MESSAGE_TEXT_SELECTORS",
     "MESSAGE_TIMESTAMP_ATTR",
+    "REPLY_MARKER_ATTR",
+    "REPLIES_FOOTER_SELECTORS",
     "SELECTOR_REVISION",
+    "THREAD_MESSAGE_TEXT_SELECTORS",
     "chat_url",
+    "collect_channel_posts",
+    "collect_channel_posts_js",
     "collect_messages_js",
+    "collect_thread_messages_js",
+    "collect_thread_updates",
     "collect_window_updates",
     "combined_selectors",
     "dom_message_to_update",
@@ -475,3 +526,212 @@ async def collect_window_updates(
         if update is not None:
             updates.append(update)
     return updates
+
+
+#: 评论线程读取件(active tab 作用域 + 回泡结构过滤 + must_fix5 文本序).
+
+
+def collect_thread_messages_js(limit: int = MAX_DOM_MESSAGES) -> str:
+    """线程档读取件工厂(只收回泡;帽 limit 取尾 = 最新回复窗).
+
+    与 :func:`collect_messages_js` 的三点差(活页标定 2026-10-12):
+
+    - 作用域锁 :data:`ACTIVE_TAB_SELECTOR`(双 tab 并存,r3_02);
+    - 结构过滤 ``[data-reply-to-mid]``(must_fix1:头帖/服务泡无此属性);
+    - 文本序 :data:`THREAD_MESSAGE_TEXT_SELECTORS`(``.message`` 不进
+      线程档 —— 会粘时间,r7_3 产线取证 40/40 全脏)。
+
+    每条附带 ``peerId``/``replyTo``/``hasInnerText``:前两者供 Python 层
+    锚命名空间注入与二道守,后者供半失配哨兵统计(分母 = 有 innerText 的
+    回泡)。
+    """
+    import json
+
+    return (
+        f"const LIMIT = {int(limit)};\n"
+        f"const SCOPE = {json.dumps(ACTIVE_TAB_SELECTOR)};\n"
+        f"const TEXT_SELECTORS = {json.dumps(list(THREAD_MESSAGE_TEXT_SELECTORS))};\n"
+        f"const SENDER_SELECTORS = {json.dumps(list(MESSAGE_SENDER_SELECTORS))};\n"
+        f"const MEDIA_SELECTORS = {json.dumps(list(MESSAGE_MEDIA_SELECTORS))};\n"
+        + """
+() => {
+    const scope = document.querySelector(SCOPE) || document;
+    const nodes = Array.from(scope.querySelectorAll(
+        '.bubble[data-mid][data-reply-to-mid]'));
+    const out = [];
+    for (const node of nodes.slice(-LIMIT)) {
+        const firstText = (selectors) => {
+            for (const s of selectors) {
+                for (const el of node.querySelectorAll(s)) {
+                    const t = el.textContent && el.textContent.trim();
+                    if (t) return t;
+                }
+            }
+            return null;
+        };
+        const ts = node.getAttribute('data-timestamp');
+        out.push({
+            mid: node.getAttribute('data-mid'),
+            peerId: node.getAttribute('data-peer-id'),
+            replyTo: node.getAttribute('data-reply-to-mid'),
+            text: firstText(TEXT_SELECTORS),
+            sender: firstText(SENDER_SELECTORS),
+            timestamp: ts ? Number(ts) : null,
+            has_media: MEDIA_SELECTORS.some(
+                (s) => node.querySelector(s) !== null),
+            has_inner_text: !!(node.innerText && node.innerText.trim()),
+        });
+    }
+    return out;
+}
+"""
+    )
+
+
+async def collect_thread_updates(
+    page: Any,
+    *,
+    chat_title: str | None = None,
+    limit: int = MAX_DOM_MESSAGES,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """评论线程读取:回泡 → update 同形列表 + 半失配哨兵统计(must_fix1/5).
+
+    锚命名空间:``chat.id`` 按回泡 ``data-peer-id`` 注入**讨论群真实 id**
+    (如 ``-4373866046``;与频道帖 peer 独立命名空间 —— 跨 chat 同形
+    data-mid 必撞,单 mid 不可作主键,活页取证钉死)。讨论群 id 回报在
+    stats[``thread_chat_id``],调用方(引擎)第二次 ``updates_to_items``
+    的 chat_id 实参必须用它(must_fix2:分拣缝按 chat.id 等值过滤)。
+
+    半失配哨兵(must_fix5):stats 携带 ``reply_bubbles``(有 innerText 的
+    回泡数)/``text_hits``/``text_hit_rate``;命中率 <0.8 = 文本选择器半
+    失配面,调用方按 ``tg_web_dom_stale`` 词表留痕告警(不在此吞,也不拦
+    已读到的条目出仓)。
+
+    Returns:
+        ``(updates, stats)``;零回泡/非列表/DOM 改版面 = ``([], stats)``
+        (stats 如实带零值,调用方按词表定错误语义)。
+    """
+    raw = await page.evaluate(collect_thread_messages_js(limit))
+    stats: dict[str, Any] = {
+        "reply_bubbles": 0,
+        "text_hits": 0,
+        "text_hit_rate": 1.0,
+        "thread_chat_id": None,
+    }
+    if not isinstance(raw, list):
+        logger.warning(
+            "TG 网页线线程读取返回非列表(DOM 改版面):%r",
+            type(raw).__name__,
+        )
+        return [], stats
+    entries: list[dict[str, Any]] = []
+    thread_chat_id: str | None = None
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        # Python 层二道守(must_fix1):缺 replyTo 的泡(头帖/服务泡混入面)即丢
+        if not entry.get("replyTo"):
+            continue
+        if (
+            thread_chat_id is None
+            and isinstance(entry.get("peerId"), str)
+            and entry["peerId"].strip()
+        ):
+            thread_chat_id = entry["peerId"].strip()
+        if entry.get("has_inner_text"):
+            stats["reply_bubbles"] += 1
+            if isinstance(entry.get("text"), str) and entry["text"].strip():
+                stats["text_hits"] += 1
+        entries.append(entry)
+    stats["thread_chat_id"] = thread_chat_id
+    if stats["reply_bubbles"] > 0:
+        stats["text_hit_rate"] = stats["text_hits"] / stats["reply_bubbles"]
+    if thread_chat_id is None:
+        # 零回泡或回泡全无 peer id:锚命名空间不可铸,零 update 如实回报
+        return [], stats
+    updates: list[dict[str, Any]] = []
+    for entry in entries:
+        update = dom_message_to_update(
+            entry, chat_id=thread_chat_id, chat_title=chat_title
+        )
+        if update is not None:
+            updates.append(update)
+    return updates, stats
+
+
+#: 频道页片评论钮扫描件(展开决策面:每帖评论数 + 未读标志).
+
+
+def collect_channel_posts_js() -> str:
+    """频道页片轻量重扫件(active tab 作用域;广告泡滤除).
+
+    每帖回报 ``{mid, peerId, commentsCount, isUnread}``;计数取
+    ``.replies-footer-text`` 首个数字(『1128 Comments』→ 1128;计数活变
+    697→704 跨轮实测,**去重按锚不按计数**,此值只做展开优先序);无评论
+    钮帖计数 0 如实回报,候选筛选取舍归调用方。
+    """
+    import json
+
+    return (
+        f"const SCOPE = {json.dumps(ACTIVE_TAB_SELECTOR)};\n"
+        f"const FOOTER = {json.dumps(', '.join(REPLIES_FOOTER_SELECTORS))};\n"
+        + """
+() => {
+    const scope = document.querySelector(SCOPE) || document;
+    const nodes = Array.from(scope.querySelectorAll('.bubble[data-mid]'));
+    const out = [];
+    for (const node of nodes) {
+        const mid = node.getAttribute('data-mid');
+        if (!mid || mid === '-1') continue;  // 广告泡(锚面必滤)
+        const footer = node.querySelector(FOOTER);
+        const textEl = footer
+            ? footer.querySelector('.replies-footer-text') : null;
+        const m = textEl && textEl.textContent
+            ? textEl.textContent.match(/(\\d[\\d,]*)/) : null;
+        out.push({
+            mid: mid,
+            peerId: node.getAttribute('data-peer-id'),
+            commentsCount: m ? Number(m[1].replace(/,/g, '')) : 0,
+            isUnread: !!(footer && footer.classList.contains('is-unread')),
+        });
+    }
+    return out;
+}
+"""
+    )
+
+
+async def collect_channel_posts(page: Any) -> list[dict[str, Any]]:
+    """频道页片评论钮发现面(engine 展开决策的轻量重扫).
+
+    Returns:
+        每帖 ``{mid, peer_id, comments_count, is_unread}``(Python 键形);
+        非列表(DOM 改版面)如实空表留痕 —— 候选筛选取舍归调用方(引擎)。
+    """
+    raw = await page.evaluate(collect_channel_posts_js())
+    posts: list[dict[str, Any]] = []
+    if not isinstance(raw, list):
+        logger.warning(
+            "TG 网页线频道帖扫描返回非列表(DOM 改版面):%r",
+            type(raw).__name__,
+        )
+        return []
+    for entry in raw:
+        if not isinstance(entry, dict) or not entry.get("mid"):
+            continue
+        count = entry.get("commentsCount")
+        posts.append(
+            {
+                "mid": str(entry["mid"]),
+                "peer_id": entry.get("peerId"),
+                "comments_count": (
+                    count
+                    if isinstance(count, int)
+                    and not isinstance(count, bool)
+                    and count > 0
+                    else 0
+                ),
+                "is_unread": bool(entry.get("isUnread")),
+            }
+        )
+    return posts

@@ -35,7 +35,7 @@ from myssia.engines.registry import (
 )
 from myssia.engines.tg_web import TelegramWebEngine
 from myssia.schema import SourceConfig
-from myssia.telegram import web_line
+from myssia.telegram import web_line, web_thread
 
 from conftest import make_client, make_context, make_source, run
 
@@ -43,19 +43,34 @@ SOURCE_URL = "https://web.telegram.org"
 ACCOUNT = "telegram-alt1"
 CHAT = "mihomo_party_group"
 
+#: 线程档 fake 坐标/常量(r6 判例:close-btn 504,40;hash 形 clashv8/xoxo8868)。
+THREAD_FOOTER_XY = (10.0, 20.0)
+THREAD_CLOSE_XY = (504.0, 40.0)
+CHANNEL_HASH = "#@clashv8"
+THREAD_HASH = "#@xoxo8868"
+THREAD_PEER = "-4373866046"
+
 
 class FakeMouse:
-    """受信点击 fake:记录坐标(open_chat_flow 宿主侧 page.mouse 消费面)."""
+    """受信点击 fake:记录坐标并驱动线程页片状态翻转(真点语义)."""
 
-    def __init__(self) -> None:
+    def __init__(self, page: "FakePage | None" = None) -> None:
         self.clicks: list[tuple[float, float]] = []
+        self._page = page
 
     async def click(self, x: float, y: float, **_: Any) -> None:
         self.clicks.append((x, y))
+        if self._page is not None:
+            self._page.apply_click(x, y)
 
 
 class FakePage:
-    """evaluate 按 JS 体内容分发的 fake(登录探针/侧栏定位/搜索兜底/验证/窗口读取)."""
+    """evaluate 按 JS 体内容分发的 fake.
+
+    基础面:登录探针/侧栏定位/搜索兜底/验证/窗口读取;线程档面
+    (10-12-tg-comments-reach):频道帖扫描/评论钮定位/线程读取/状态件/
+    close 钮定位 —— 真点坐标翻转 ``in_thread`` 页片状态。
+    """
 
     def __init__(
         self,
@@ -64,6 +79,11 @@ class FakePage:
         login_state_sequence: list[str] | None = None,
         open_outcome: dict[str, Any] | None = None,
         window: list[dict[str, Any]] | None = None,
+        posts: list[dict[str, Any]] | None = None,
+        thread: list[dict[str, Any]] | None = None,
+        threads: dict[str, list[dict[str, Any]]] | None = None,
+        footer_ok: bool = True,
+        stuck_in_thread: bool = False,
     ) -> None:
         self.login_state = login_state
         # 稳态复探回归件(2026-10-08 真跑:冷启动 0.4s logged_out → 2.9s
@@ -72,9 +92,32 @@ class FakePage:
         # None = 开群全链成功面;{ok:False,...} = 定位/验证失败注入口
         self.open_outcome = open_outcome
         self.window = window if window is not None else []
+        # 线程档注入口:posts = collect_channel_posts 的 JS 形载荷;
+        # thread = 线程回泡载荷(JS 形);footer_ok=False = 评论钮缺;
+        # stuck_in_thread=True = 线程开得进回不来(状态基中断面)。
+        self.posts = posts
+        self.thread = thread
+        # 每帖独立线程载荷(键 = 帖 mid;缺省走 thread 全量,任帖同载)
+        self.threads = threads
+        self.located_post: str | None = None
+        self.footer_ok = footer_ok
+        self.stuck_in_thread = stuck_in_thread
+        self.in_thread = False
+        self.footer_locates: list[tuple[str, bool]] = []
         self.goto_calls: list[str] = []
         self.probe_count = 0
-        self.mouse = FakeMouse()
+        self.mouse = FakeMouse(self)
+
+    def apply_click(self, x: float, y: float) -> None:
+        if (x, y) == THREAD_FOOTER_XY and self.footer_ok:
+            self.in_thread = True  # stuck 面:开得进
+        elif (x, y) == THREAD_CLOSE_XY and not self.stuck_in_thread:
+            self.in_thread = False  # stuck 面:close 点击无效
+
+    def _channel_posts_payload(self) -> list[dict[str, Any]]:
+        if self.in_thread:
+            return []  # 线程页片无评论钮(扫描只在频道面发生)
+        return list(self.posts or [])
 
     async def goto(self, url: str, **_: Any) -> None:
         self.goto_calls.append(url)
@@ -87,6 +130,36 @@ class FakePage:
                 state = self.login_state_sequence.pop(0)
                 return {"state": state}
             return {"state": self.login_state}
+        if "replies-footer-text" in js:  # collect_channel_posts_js
+            return self._channel_posts_payload()
+        if "data-reply-to-mid" in js:  # collect_thread_messages_js
+            if not self.in_thread:
+                return []
+            if self.threads is not None:
+                return list(self.threads.get(self.located_post or "", []))
+            return list(self.thread or [])
+        if "replies-element" in js:  # LOCATE_REPLY_FOOTER_JS
+            self.located_post = str(arg.get("mid"))
+            self.footer_locates.append(
+                (str(arg.get("mid")), bool(arg.get("scroll")))
+            )
+            if not self.footer_ok or self.in_thread:
+                return {"ok": False, "reason": "no_footer"}
+            if arg.get("scroll"):
+                return {"ok": True, "reason": "scrolled"}
+            return {"ok": True, "reason": "located", "x": 10.0, "y": 20.0}
+        if "sidebar-close-button" in js:  # LOCATE_CLOSE_BTN_JS
+            return {"ok": True, "x": 504.0, "y": 40.0, "hit": "btn-icon",
+                    "badge": True}
+        if "tabs-tab" in js:  # THREAD_STATE_JS
+            if self.stuck_in_thread:
+                return {"hash": THREAD_HASH, "tabCount": 2,
+                        "chanTabActive": False}
+            return {"hash": THREAD_HASH if self.in_thread else CHANNEL_HASH,
+                    "tabCount": 2 if self.in_thread else 1,
+                    "chanTabActive": not self.in_thread}
+        if js.strip() == web_thread.HASH_PROBE_JS:
+            return THREAD_HASH if self.in_thread else CHANNEL_HASH
         if "data-peer-id" in js:  # LOCATE_SIDEBAR_JS
             if self.open_outcome is not None:
                 return dict(self.open_outcome)
@@ -115,6 +188,16 @@ def _fast_open_chat_windows(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(web_line, "OPEN_CHAT_DIALOGS_TIMEOUT_SECONDS", 0.0)
     monkeypatch.setattr(web_line, "OPEN_CHAT_SETTLE_SECONDS", 0.0)
     monkeypatch.setattr(web_line, "OPEN_CHAT_VERIFY_TIMEOUT_SECONDS", 0.0)
+    # 线程档时序窗同归零(真跑标定值在 web_thread;基线 elapsed≈0 →
+    # 测试预算面 = fetch 帽 − 过滤储备,与真跑推导同式)
+    monkeypatch.setattr(web_thread, "THREAD_FOOTER_READY_TIMEOUT_SECONDS", 0.0)
+    monkeypatch.setattr(web_thread, "THREAD_FOOTER_POLL_SECONDS", 0.0)
+    monkeypatch.setattr(web_thread, "THREAD_PREP_SETTLE_SECONDS", 0.0)
+    monkeypatch.setattr(web_thread, "THREAD_OPEN_HASH_TIMEOUT_SECONDS", 0.0)
+    monkeypatch.setattr(web_thread, "THREAD_HASH_POLL_SECONDS", 0.0)
+    monkeypatch.setattr(web_thread, "THREAD_READ_SETTLE_SECONDS", 0.0)
+    monkeypatch.setattr(web_thread, "THREAD_CLOSE_VERIFY_TIMEOUT_SECONDS", 0.0)
+    monkeypatch.setattr(web_thread, "THREAD_STATE_POLL_SECONDS", 0.0)
 
 
 class FakeContext:
@@ -223,6 +306,18 @@ def test_registry_and_schema_vocabulary() -> None:
         {"account": ACCOUNT, "chat": CHAT, "lookback_limit": 0},
         {"account": ACCOUNT, "chat": CHAT, "lookback_limit": 101},
         {"account": ACCOUNT, "chat": CHAT, "lookback_limit": "50"},
+        # 评论线程档三钮(10-12-tg-comments-reach)
+        {"account": ACCOUNT, "chat": CHAT, "comments_max_threads": -1},
+        {"account": ACCOUNT, "chat": CHAT, "comments_max_threads": 21},
+        {"account": ACCOUNT, "chat": CHAT, "comments_max_threads": "3"},
+        {"account": ACCOUNT, "chat": CHAT, "comments_max_threads": True},
+        {"account": ACCOUNT, "chat": CHAT, "comments_max_replies": 0},
+        {"account": ACCOUNT, "chat": CHAT, "comments_max_replies": 101},
+        {"account": ACCOUNT, "chat": CHAT, "comments_max_replies": "50"},
+        {"account": ACCOUNT, "chat": CHAT, "fetch_timeout_seconds": 0},
+        {"account": ACCOUNT, "chat": CHAT, "fetch_timeout_seconds": -5},
+        {"account": ACCOUNT, "chat": CHAT, "fetch_timeout_seconds": "120"},
+        {"account": ACCOUNT, "chat": CHAT, "fetch_timeout_seconds": True},
     ],
 )
 def test_options_shape_errors(options: dict) -> None:
@@ -459,6 +554,12 @@ def test_sample_plugin_yaml_ships_valid_tg_web_source() -> None:
     # chat 落 data-peer-id 全等形态(见 config/telegram-web.yaml 源注记)
     assert opts["chat"] == "-2349572233"
     assert 1 <= opts["lookback_limit"] <= 100  # 窗口帽域
+    # 评论线程档示范(10-12-tg-comments-reach):帽与预算键在档,且品类
+    # timeouts.fetch 与引擎 fetch_timeout_seconds 对齐(漂移 = 超帽被掐面)
+    assert 0 <= opts["comments_max_threads"] <= 20
+    assert 1 <= opts["comments_max_replies"] <= 100
+    assert cfg.timeouts is not None
+    assert opts["fetch_timeout_seconds"] == cfg.timeouts.fetch
     groups = load_category_file(repo_root / "config" / "telegram-groups.yaml")
     bot_src = next(s for s in groups.sources if s.name == src.name)  # 同名复用
     # 锚命名空间独立把守(质询实证):同一条消息两线铸的锚必不同——
@@ -469,3 +570,316 @@ def test_sample_plugin_yaml_ships_valid_tg_web_source() -> None:
     bot_opts = bot_src.extra_params["engine_options"]["telegram"]
     bot_anchor = f"{bot_src.url}#tg-{bot_opts['chat_id']}-123"
     assert web_anchor != bot_anchor
+
+
+# ------------------------------------------------- comment threads (V1 批量档)
+
+
+def _thread_reply(mid: str, text: str, sender: str = "李某人 .") -> dict[str, Any]:
+    """r7_2 钉死形态的回泡载荷(JS 形;must_fix5 文本叶干净)."""
+    return {
+        "mid": mid,
+        "peerId": THREAD_PEER,
+        "replyTo": "4295090508",
+        "text": text,
+        "sender": sender,
+        "timestamp": 1791724777.0,
+        "has_media": False,
+        "has_inner_text": True,
+    }
+
+
+def test_comment_threads_two_sorting_calls_ship_both_namespaces(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """must_fix2 真出仓断言:fake 更新流含频道 update(chat.id=频道标识)+
+    回帖 update(chat.id=讨论群 peer),两次 updates_to_items 后合并进过滤,
+    输出两类锚各 ≥1(防单调用实现「形状绿/线上零评论条目」)。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    (tmp_path / "telegram-web" / ACCOUNT).mkdir(parents=True)
+    page = FakePage(
+        window=[
+            {"mid": "11", "text": "mihomo v1.19 发布", "timestamp": 1761000000.0},
+            {"mid": "12", "text": "今天天气不错", "timestamp": 1761000060.0},
+        ],
+        posts=[
+            {"mid": "4294967709", "peerId": "-3770098404",
+             "commentsCount": 704, "isUnread": False},
+            {"mid": "4294967708", "peerId": "-3770098404",
+             "commentsCount": 1128, "isUnread": True},
+            {"mid": "4294967702", "peerId": "-3770098404",
+             "commentsCount": 1128, "isUnread": False},
+            {"mid": "4294967633", "peerId": "-3770098404",
+             "commentsCount": 0, "isUnread": False},  # 无评论钮帖
+        ],
+        threads={
+            "4294967708": [_thread_reply("4295090517", "mihomo 线程福利")],
+            "4294967709": [
+                _thread_reply("4295090521", "mihomo 第二帖回复", sender="OO OO"),
+                _thread_reply("4295090523", "订阅(不含关键词)"),
+            ],
+        },
+    )
+    patch_browser(monkeypatch, page)
+    engine = TelegramWebEngine(
+        make_tg_web_source(
+            engine_options={"tg_web": {
+                "account": ACCOUNT, "chat": CHAT, "keywords": ["mihomo"],
+                "comments_max_threads": 2,  # 帽 2:三候选只展开两帖
+            }}
+        ),
+        tg_web_context(),
+    )
+    items = run(engine.fetch())
+    urls = [item["url"] for item in items]
+    # 频道命名空间锚(第一次分拣:频道标识 chat_id)
+    assert f"{SOURCE_URL}#tg-{CHAT}-11" in urls
+    # 讨论群命名空间锚(第二次分拣:讨论群真实 peer;-负 peer 连写双横线)
+    assert f"{SOURCE_URL}#tg-{THREAD_PEER}-4295090517" in urls
+    assert f"{SOURCE_URL}#tg-{THREAD_PEER}-4295090521" in urls
+    # 粗筛同源:不含关键词的回帖零痕迹
+    assert len(items) == 3
+    # 展开序与帽:is_unread 优先(4294967708)→ mid 大者(4294967709);
+    # 每帖两调(scroll + 新鲜 rect),4294967702 因帽 2 未展开
+    assert [mid for mid, _ in page.footer_locates] == [
+        "4294967708", "4294967708", "4294967709", "4294967709",
+    ]
+    # 每段关一次线程页片(真点 close-btn 判例坐标)
+    assert page.mouse.clicks.count(THREAD_CLOSE_XY) == 2
+    assert page.mouse.clicks.count(THREAD_FOOTER_XY) == 2
+    assert page.in_thread is False  # 收尾回频道面
+
+
+def test_comment_threads_off_zero_interaction(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """comments_max_threads=0 = 整档 off:零评论钮交互,行为与 V1 前一致."""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    (tmp_path / "telegram-web" / ACCOUNT).mkdir(parents=True)
+    page = FakePage(
+        window=[{"mid": "11", "text": "mihomo v1.19 发布",
+                 "timestamp": 1761000000.0}],
+        posts=[{"mid": "4294967708", "peerId": "-3770098404",
+                "commentsCount": 1128, "isUnread": True}],
+        thread=[_thread_reply("4295090517", "mihomo 线程福利")],
+    )
+    patch_browser(monkeypatch, page)
+    engine = TelegramWebEngine(
+        make_tg_web_source(
+            engine_options={"tg_web": {
+                "account": ACCOUNT, "chat": CHAT, "keywords": ["mihomo"],
+                "comments_max_threads": 0,
+            }}
+        ),
+        tg_web_context(),
+    )
+    items = run(engine.fetch())
+    assert [item["url"] for item in items] == [f"{SOURCE_URL}#tg-{CHAT}-11"]
+    assert page.footer_locates == []
+    assert THREAD_FOOTER_XY not in page.mouse.clicks
+
+
+def test_comment_threads_budget_skip_structured(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """预算推导跳过(留痕不硬烧):fetch 帽 80s + LLM 已配(储备 65s)→
+    budget=80−基线≈0−65≈15s < 18s 门槛 → 整档跳过,零评论钮交互."""
+    import logging
+
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    (tmp_path / "telegram-web" / ACCOUNT).mkdir(parents=True)
+    page = FakePage(
+        window=[{"mid": "11", "text": "mihomo v1.19 发布",
+                 "timestamp": 1761000000.0}],
+        posts=[{"mid": "4294967708", "peerId": "-3770098404",
+                "commentsCount": 1128, "isUnread": True}],
+        thread=[_thread_reply("4295090517", "mihomo 线程福利")],
+    )
+    patch_browser(monkeypatch, page)
+
+    async def fake_completer(**_: Any) -> Any:
+        from types import SimpleNamespace
+
+        return SimpleNamespace(text='[{"id": 1, "score": 5, "reason": "ok"}]')
+
+    engine = TelegramWebEngine(
+        make_tg_web_source(
+            engine_options={"tg_web": {
+                "account": ACCOUNT, "chat": CHAT, "keywords": ["mihomo"],
+                "comments_max_threads": 3,
+                "fetch_timeout_seconds": 80,
+                "llm_base_url": "env:MYIA_TEST_LLM_URL",
+                "llm_api_key": "env:MYIA_TEST_LLM_KEY",
+            }}
+        ),
+        tg_web_context(),
+        completer=fake_completer,
+    )
+    with caplog.at_level(logging.INFO, logger="myssia.engines.tg_web"):
+        items = run(engine.fetch())
+    # 基线条目照常出仓(精筛面 completer 注入,零真网络)
+    assert [item["url"] for item in items] == [f"{SOURCE_URL}#tg-{CHAT}-11"]
+    assert page.footer_locates == []  # 零评论钮交互
+    assert any("预算不足" in message for message in caplog.messages)
+
+
+def test_comment_threads_state_interrupt_abandons_remaining(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """must_fix4 状态基中断:线程开得进回不来(close 失效 + 兜底后仍未复原)
+    → 第一段后弃本轮剩余帖,基线 items 照常出仓(已读到的线程条目保留)."""
+    import logging
+
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    (tmp_path / "telegram-web" / ACCOUNT).mkdir(parents=True)
+    page = FakePage(
+        window=[{"mid": "11", "text": "mihomo v1.19 发布",
+                 "timestamp": 1761000000.0}],
+        posts=[
+            {"mid": "4294967708", "peerId": "-3770098404",
+             "commentsCount": 1128, "isUnread": True},
+            {"mid": "4294967709", "peerId": "-3770098404",
+             "commentsCount": 704, "isUnread": False},
+        ],
+        thread=[_thread_reply("4295090517", "mihomo 线程福利")],
+        stuck_in_thread=True,  # close 点击无效 + 状态件恒报未复原
+    )
+    patch_browser(monkeypatch, page)
+    engine = TelegramWebEngine(
+        make_tg_web_source(
+            engine_options={"tg_web": {
+                "account": ACCOUNT, "chat": CHAT, "keywords": ["mihomo"],
+                "comments_max_threads": 3,
+            }}
+        ),
+        tg_web_context(),
+    )
+    with caplog.at_level(logging.WARNING, logger="myssia.engines.tg_web"):
+        items = run(engine.fetch())
+    urls = [item["url"] for item in items]
+    # 基线 + 第一段线程条目都在(状态中断不丢已出仓数据)
+    assert f"{SOURCE_URL}#tg-{CHAT}-11" in urls
+    assert f"{SOURCE_URL}#tg-{THREAD_PEER}-4295090517" in urls
+    # 只展开了第一帖(unread 优先),第二帖按状态基弃
+    assert [mid for mid, _ in page.footer_locates] == ["4294967708", "4294967708"]
+    assert any("状态基中断" in message for message in caplog.messages)
+    # 兜底路径走过了(open_chat_flow 的侧栏定位 → 真点复活)
+    assert page.mouse.clicks.count((1.0, 2.0)) >= 1
+
+
+def test_comment_threads_open_failure_continues_next_post(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """开失败留痕不弃档:第一帖评论钮缺 → 跳过;第二帖照常展开."""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    (tmp_path / "telegram-web" / ACCOUNT).mkdir(parents=True)
+    page = FakePage(
+        window=[{"mid": "11", "text": "mihomo v1.19 发布",
+                 "timestamp": 1761000000.0}],
+        posts=[
+            {"mid": "4294967708", "peerId": "-3770098404",
+             "commentsCount": 1128, "isUnread": True},
+            {"mid": "4294967709", "peerId": "-3770098404",
+             "commentsCount": 704, "isUnread": False},
+        ],
+        thread=[_thread_reply("4295090517", "mihomo 线程福利")],
+    )
+    patch_browser(monkeypatch, page)
+    # 第一帖的评论钮定位失败(post_missing 面:泡不在窗)
+    real_evaluate = page.evaluate
+
+    async def evaluate_with_missing_first(script: Any, arg: Any = None) -> Any:
+        js = script if isinstance(script, str) else ""
+        if "replies-element" in js and arg and arg.get("mid") == "4294967708":
+            return {"ok": False, "reason": "post_missing"}
+        return await real_evaluate(script, arg)
+
+    page.evaluate = evaluate_with_missing_first  # type: ignore[method-assign]
+    engine = TelegramWebEngine(
+        make_tg_web_source(
+            engine_options={"tg_web": {
+                "account": ACCOUNT, "chat": CHAT, "keywords": ["mihomo"],
+                "comments_max_threads": 3,
+            }}
+        ),
+        tg_web_context(),
+    )
+    items = run(engine.fetch())
+    urls = [item["url"] for item in items]
+    assert f"{SOURCE_URL}#tg-{CHAT}-11" in urls
+    assert f"{SOURCE_URL}#tg-{THREAD_PEER}-4295090517" in urls
+    # 第二帖完整展开(2 次定位);第一帖零点击
+    assert [mid for mid, _ in page.footer_locates] == [
+        "4294967709", "4294967709",
+    ]
+    assert page.mouse.clicks.count(THREAD_FOOTER_XY) == 1
+
+
+def test_comment_threads_half_mismatch_sentinel(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """must_fix5 半失配哨兵:回泡 text 命中率 <80% → tg_web_dom_stale 词面
+    留痕(不拦已读条目出仓)。"""
+    import logging
+
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    (tmp_path / "telegram-web" / ACCOUNT).mkdir(parents=True)
+    thread = [_thread_reply("4295090517", "mihomo 线程福利")]
+    thread += [
+        _thread_reply(str(4295090520 + i), "") for i in range(1, 5)
+    ]  # 4/5 回泡 text 空 → 命中率 0.2
+    for entry in thread[1:]:
+        entry["text"] = None
+    page = FakePage(
+        window=[{"mid": "11", "text": "mihomo v1.19 发布",
+                 "timestamp": 1761000000.0}],
+        posts=[{"mid": "4295090517", "peerId": THREAD_PEER,
+                "commentsCount": 5, "isUnread": False}],
+        thread=thread,
+    )
+    patch_browser(monkeypatch, page)
+    engine = TelegramWebEngine(
+        make_tg_web_source(
+            engine_options={"tg_web": {
+                "account": ACCOUNT, "chat": CHAT, "keywords": ["mihomo"],
+                "comments_max_threads": 3,
+            }}
+        ),
+        tg_web_context(),
+    )
+    with caplog.at_level(logging.WARNING, logger="myssia.engines.tg_web"):
+        items = run(engine.fetch())
+    assert any(
+        "tg_web_dom_stale" in message and "命中率" in message
+        for message in caplog.messages
+    )
+    urls = [item["url"] for item in items]
+    assert f"{SOURCE_URL}#tg-{THREAD_PEER}-4295090517" in urls  # 已读照常出仓
+
+
+def test_comment_threads_zero_candidates_is_noop(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """窗口内帖全无评论钮 → 零候选留痕,零交互零错误."""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path))
+    (tmp_path / "telegram-web" / ACCOUNT).mkdir(parents=True)
+    page = FakePage(
+        window=[{"mid": "11", "text": "mihomo v1.19 发布",
+                 "timestamp": 1761000000.0}],
+        posts=[{"mid": "4294967633", "peerId": "-3770098404",
+                "commentsCount": 0, "isUnread": False}],
+    )
+    patch_browser(monkeypatch, page)
+    engine = TelegramWebEngine(
+        make_tg_web_source(
+            engine_options={"tg_web": {
+                "account": ACCOUNT, "chat": CHAT, "keywords": ["mihomo"],
+                "comments_max_threads": 3,
+            }}
+        ),
+        tg_web_context(),
+    )
+    items = run(engine.fetch())
+    assert [item["url"] for item in items] == [f"{SOURCE_URL}#tg-{CHAT}-11"]
+    assert page.footer_locates == []
+    assert engine.last_skip_reason is None

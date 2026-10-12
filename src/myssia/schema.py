@@ -127,6 +127,7 @@ __all__ = [
     "BaselineConfig",
     "AggregateConfig",
     "ImagesConfig",
+    "CategoryTimeoutsConfig",
     "CategoryPluginConfig",
     "PluginLocalModeConfig",
     "PluginRemoteModeConfig",
@@ -1578,6 +1579,33 @@ class ImagesConfig(_StrictModel):
 
 
 # ---------------------------------------------------------------------------
+# Stage timeouts sidecar section (10-12-tg-comments-reach, fetch 帽激活路径)
+# ---------------------------------------------------------------------------
+
+
+class CategoryTimeoutsConfig(_StrictModel):
+    """品类级阶段超时声明(top-level ``timeouts:`` sidecar 节).
+
+    语义:品类级 **fetch 阶段超时帽**(秒)—— 管线每源
+    ``asyncio.wait_for`` 的帽输入(:class:`pipeline.StageOptions`,cli
+    装配面消费,见 ``_category_stage_options``)。当前唯一消费场景 =
+    tg_web 评论线程档:``comments_max_threads > 0`` 的源每轮多 N 段
+    「开线程→读→关」,缺省 120s 帽装不下(总账 = 基线窗口读 + N×线程段
+    + 过滤段储备);品类声明更大帽即激活路径,须与
+    ``engine_options.tg_web.fetch_timeout_seconds`` 对齐(引擎帽>管线帽
+    会被外层 wait_for 掐 —— 漂移风险在引擎侧留痕,不在装载期强制)。
+
+    与 ``images:``/``aggregate:`` 同一套 sidecar 机制:由
+    :func:`load_category` 在装载入口校验(错误路径统一 ``$.timeouts``
+    前缀)并挂到 :attr:`CategoryConfig.timeouts`;12 节公开契约不随之
+    增长;retries 等其余阶段钮不走本节(缺省即可)。
+    """
+
+    #: fetch 阶段每源超时帽(秒,>0);缺省无本节 = 管线缺省 120s。
+    fetch: float = Field(gt=0, allow_inf_nan=False)
+
+
+# ---------------------------------------------------------------------------
 # Scenario plugin declaration (v1.7 dual-mode sidecar section)
 # ---------------------------------------------------------------------------
 
@@ -1749,6 +1777,10 @@ class CategoryConfig(_StrictModel):
     #: 见 :class:`ImagesConfig`)。
     _images: ImagesConfig | None = PrivateAttr(default=None)
 
+    #: 顶层 ``timeouts:`` 节(10-12-tg-comments-reach 阶段超时 sidecar,
+    #: 见 :class:`CategoryTimeoutsConfig`)。
+    _timeouts: CategoryTimeoutsConfig | None = PrivateAttr(default=None)
+
     @property
     def plugin(self) -> CategoryPluginConfig | None:
         """品类声明的场景插件节;未声明或未经 :func:`load_category` 装载时为 None."""
@@ -1768,6 +1800,11 @@ class CategoryConfig(_StrictModel):
     def images(self) -> ImagesConfig | None:
         """品类声明的图片处理节;未声明或未经 :func:`load_category` 装载时为 None."""
         return self._images
+
+    @property
+    def timeouts(self) -> CategoryTimeoutsConfig | None:
+        """品类声明的阶段超时节;未声明或未经 :func:`load_category` 装载时为 None."""
+        return self._timeouts
 
     @field_validator("id")
     @classmethod
@@ -1911,7 +1948,11 @@ def load_category(data: Mapping[str, Any], *, source: str | None = None) -> Cate
     and lands on :attr:`CategoryConfig.aggregate`. The optional top-level
     ``images:`` section (10-03-vision-pipeline 图片处理环) follows the same
     mechanism against :class:`ImagesConfig` (paths prefixed ``$.images``,
-    ``null`` absent) and lands on :attr:`CategoryConfig.images`.
+    ``null`` absent) and lands on :attr:`CategoryConfig.images`. The optional
+    top-level ``timeouts:`` section (10-12-tg-comments-reach 阶段超时帽)
+    follows the same mechanism against :class:`CategoryTimeoutsConfig`
+    (paths prefixed ``$.timeouts``, ``null`` absent) and lands on
+    :attr:`CategoryConfig.timeouts`.
 
     Args:
         data: top-level mapping from ``yaml.safe_load``.
@@ -1920,8 +1961,8 @@ def load_category(data: Mapping[str, Any], *, source: str | None = None) -> Cate
 
     Raises:
         LoadError: any of the twelve sections *or* a sidecar section (plugin
-            / baseline / aggregate / images) fails validation; collects *all*
-            errors in one report.
+            / baseline / aggregate / images / timeouts) fails validation;
+            collects *all* errors in one report.
     """
     if not isinstance(data, Mapping):
         raise LoadError(
@@ -1933,6 +1974,7 @@ def load_category(data: Mapping[str, Any], *, source: str | None = None) -> Cate
     baseline_data = payload.pop("baseline", None)  # 同上(v0.4 趋势基线)
     aggregate_data = payload.pop("aggregate", None)  # 同上(v0.4 事件聚合)
     images_data = payload.pop("images", None)  # 同上(10-03-vision-pipeline)
+    timeouts_data = payload.pop("timeouts", None)  # 同上(10-12 阶段超时)
     errors: list[LoadErrorDetail] = []
     config: CategoryConfig | None = None
     try:
@@ -1943,6 +1985,7 @@ def load_category(data: Mapping[str, Any], *, source: str | None = None) -> Cate
     baseline_section = _validate_baseline_section(baseline_data, errors)
     aggregate_section = _validate_aggregate_section(aggregate_data, errors)
     images_section = _validate_images_section(images_data, errors)
+    timeouts_section = _validate_timeouts_section(timeouts_data, errors)
     if config is not None and baseline_section is not None:
         # 交叉校验(baseline 节 vs sources):fields 拼错要装载期可检出。
         _check_baseline_fields(config, baseline_section, errors)
@@ -1953,6 +1996,7 @@ def load_category(data: Mapping[str, Any], *, source: str | None = None) -> Cate
     config._baseline = baseline_section
     config._aggregate = aggregate_section
     config._images = images_section
+    config._timeouts = timeouts_section
     return config
 
 
@@ -2103,6 +2147,35 @@ def _validate_images_section(
         for err in exc.errors():
             detail = _pydantic_error_detail(err)
             errors.append(dataclass_replace(detail, path=f"$.images{detail.path[1:]}"))
+        return None
+
+
+def _validate_timeouts_section(
+    timeouts_data: Any, errors: list[LoadErrorDetail]
+) -> CategoryTimeoutsConfig | None:
+    """Validate the sidecar ``timeouts:`` section, appending structured errors.
+
+    与 :func:`_validate_images_section` 同一契约:``None`` = 未声明;非映射 =
+    结构错误;校验失败的错误路径统一加 ``$.timeouts`` 前缀(子映射校验的
+    loc 相对于节根)。返回 None 时 errors 里必有对应明细。
+    """
+    if timeouts_data is None:
+        return None
+    if not isinstance(timeouts_data, Mapping):
+        errors.append(
+            LoadErrorDetail(
+                "$.timeouts",
+                "invalid_timeouts_section",
+                f"timeouts 节必须是键值映射,当前为 {type(timeouts_data).__name__}",
+            )
+        )
+        return None
+    try:
+        return CategoryTimeoutsConfig.model_validate(dict(timeouts_data))
+    except ValidationError as exc:
+        for err in exc.errors():
+            detail = _pydantic_error_detail(err)
+            errors.append(dataclass_replace(detail, path=f"$.timeouts{detail.path[1:]}"))
         return None
 
 

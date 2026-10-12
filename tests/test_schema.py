@@ -883,3 +883,57 @@ class TestImagesSection:
         paths = {detail.path for detail in load_error.errors}
         assert "$.schedule" in paths
         assert "$.images.vl" in paths
+
+
+# ---------------------------------------------------------------------------
+# timeouts: sidecar 节(10-12-tg-comments-reach fetch 帽激活路径)
+# ---------------------------------------------------------------------------
+
+
+class TestTimeoutsSection:
+    """照 images 同门:PrivateAttr sidecar,$.timeouts 前缀结构化错误。"""
+
+    def test_absent_section_leaves_config_timeouts_none(self):
+        assert load_category(_minimal_data()).timeouts is None
+
+    def test_null_section_treated_as_absent(self):
+        data = _minimal_data()
+        data["timeouts"] = None
+        assert load_category(data).timeouts is None
+
+    def test_fetch_cap_loads(self):
+        data = _minimal_data()
+        data["timeouts"] = {"fetch": 180}
+        timeouts = load_category(data).timeouts
+        assert timeouts is not None
+        assert timeouts.fetch == 180.0
+
+    def test_fetch_must_be_positive(self):
+        for bad in (0, -30):
+            data = _minimal_data()
+            data["timeouts"] = {"fetch": bad}
+            errors = _load_error(data).errors
+            assert errors, "fetch 非正必须拒载"
+            assert errors[0].path == "$.timeouts.fetch"
+
+    def test_non_mapping_section_rejected_with_path(self):
+        data = _minimal_data()
+        data["timeouts"] = "fast"
+        detail = _error_of_type(_load_error(data), "invalid_timeouts_section")
+        assert detail.path == "$.timeouts"
+
+    def test_unknown_field_rejected_with_path(self):
+        data = _minimal_data()
+        data["timeouts"] = {"fetch": 180, "classify": 5}
+        detail = _error_of_type(_load_error(data), "unknown_field")
+        assert detail.path == "$.timeouts.classify"
+
+    def test_timeouts_errors_merge_with_section_errors(self):
+        """sidecar 错误与 12 节错误同报(与 plugin/baseline/aggregate/images 同契约)。"""
+        data = _minimal_data()
+        data["schedule"] = "not-cron"
+        data["timeouts"] = {"fetch": -1}
+        load_error = _load_error(data)
+        paths = {detail.path for detail in load_error.errors}
+        assert "$.schedule" in paths
+        assert "$.timeouts.fetch" in paths
