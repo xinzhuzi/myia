@@ -2,22 +2,28 @@
 
 四态矩阵(照 tg_web/feishu 引擎判例;design §2.2/§4):
 
-- **配置错误**:chat/count/sides/read_timeout_seconds 形状错、源 URL 不符
-  锚契约、pagination 配置 → 结构化 FetchError(invalid_engine_options /
+- **配置错误**:chat/count/sides/read_timeout_seconds/channel/since_days 形状错、
+  通道专属键交叉(count+localdb / since_days+pixel)、源 URL 不符锚契约、
+  pagination 配置 → 结构化 FetchError(invalid_engine_options /
   invalid_wechat_local_source_url / pagination_unsupported);
 - **桥缺席/失败面**:bin 缺失 = ``component_missing``(零子进程);桥超时 =
   ``bridge_timeout``;桥具名错误族码名原样透传
   (wechat_not_running/screen_recording_denied/window_closed);应答不可解析
   = ``bridge_error``;
-- **结构化空态**(绝不张冠李戴):``chat.match=False`` → ``chat_not_open``;
-  ``chat.match=None`` → ``chat_title_unreadable``;
+- **结构化空态**(绝不张冠李戴):pixel ``chat.match=False`` →
+  ``chat_not_open``;``chat.match=None`` → ``chat_title_unreadable``;localdb
+  密钥缺位(桥 exit 21)→ ``key_unavailable``(D4 合法预期态,不算 failure,
+  水位不推进);
 - **开启态**:mock 桥子进程往返 → items 形状(#wx- 内容哈希锚/标题截断/
   全文 content/sides 过滤/type 过滤/空白文本跳过);锚稳定性(同窗同锚、
   OCR 微变另锚、side 入盐);
+- **localdb 电池(2026-10-13 换轨批)**:argv 契约(--since 水位增量窗)、
+  sender→side 派生、ts=epoch 入盐锚、sessions 名解析二查、水位推进/不推进、
+  db_not_found/decrypt_failed 透传、无 store 降级;
 - **词表/注册表**:schema ENGINES/EngineName 收录、ENGINE_REGISTRY 在册、
   AUTO_CHAIN 原样、auto_degrade 单级链、词表↔注册表双向同步;
-- **配置装载+入库盖戳**:config/weixin.yaml 真件装载(id=weixin、engine=
-  wechat_local、dedup {url}、push 空、enrich 关);Pipeline 全链跑
+- **配置装载+入库盖戳**:config/weixin.yaml 真件装载(双通道样例源:id=weixin、
+  engine=wechat_local、dedup {url}、push 空、enrich 关);Pipeline 全链跑
   (桥面 mock)→ 条目 source=weixin-<会话名>、category=weixin、
   dedup_key=url 全串;同载荷二跑零新增(锚幂等)。
 
@@ -29,8 +35,10 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 import pytest
@@ -54,6 +62,13 @@ SOURCE_URL = "https://weixin.qq.com"
 CHAT = "文件传输助手"
 CHAT_URL_ENCODED = "%E6%96%87%E4%BB%B6%E4%BC%A0%E8%BE%93%E5%8A%A9%E6%89%8B"
 ANCHOR_RE = re.compile(rf"^wechat-local://chat/{CHAT_URL_ENCODED}#wx-[0-9a-f]{{16}}$")
+
+
+def ANCHOR_RE_WITH(*, chat: str) -> re.Pattern[str]:
+    """任意会话名的 #wx- 锚形状(多源断言用)."""
+    return re.compile(
+        rf"^wechat-local://chat/{quote(chat, safe='')}#wx-[0-9a-f]{{16}}$"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +150,57 @@ def bridge_payload(
     }
 
 
+#: localdb 合成会话 id(形状真实:chatroom 形态;非任何真实会话)。
+DB_CHAT_ID = "00000000000000000000@chatroom"
+
+
+def db_msg(
+    text: str,
+    *,
+    sender: str = DB_CHAT_ID,
+    ts: int = 1760000000,
+    type_: str = "text",
+) -> dict[str, Any]:
+    """一条 localdb 合成消息行(桥 localdb_query.query_messages 契约形).
+
+    契约事实(2026-10-13 实探桥 localdb_query.py):行只有 ts(epoch 秒)/
+    sender("me"|会话 id)/type/text? 或 media_placeholder?—— **没有消息
+    id 字段**,锚退内容铸(引擎文档同记)。
+    """
+    row: dict[str, Any] = {"ts": ts, "sender": sender, "type": type_}
+    if type_ == "text":
+        row["text"] = text
+    else:
+        row["media_placeholder"] = "非文本消息,内容未导出(占位)"
+    return row
+
+
+def db_payload(
+    messages: list[dict[str, Any]],
+    *,
+    chat_id: str = CHAT,
+    display_name: str | None = None,
+    sessions: list[dict[str, Any]] | None = None,
+    since_days: int = 3,
+) -> dict[str, Any]:
+    """桥 localdb query 成功载荷(契约形;chat_id/display_name/sessions 注入口)."""
+    return {
+        "chat_id": chat_id,
+        "since_days": since_days,
+        "messages": messages,
+        "display_name": display_name,
+        "sessions": sessions if sessions is not None else [],
+        "domains": {"message": "ok", "contact": "ok", "session": "ok"},
+        "copy": {
+            "dir": "/synthetic/wechat-localdb/decrypted",
+            "built": ["message/message_0.db"],
+            "kept": [],
+            "skipped": [],
+            "total_bytes": 0,
+        },
+    }
+
+
 def make_engine(
     *,
     chat: Any = CHAT,
@@ -142,12 +208,29 @@ def make_engine(
     sides: Any = None,
     read_timeout: Any = 60,
     url: str = SOURCE_URL,
+    channel: Any = None,
+    since_days: Any = None,
+    store: Any = None,
     extra: dict[str, Any] | None = None,
 ) -> tuple[WechatLocalEngine, FetchContext]:
-    """构造引擎 + 上下文(engine_options 形状注入口,Any 故意 —— 校验面)."""
-    options: dict[str, Any] = {"chat": chat, "count": count, "read_timeout_seconds": read_timeout}
+    """构造引擎 + 上下文(engine_options 形状注入口,Any 故意 —— 校验面).
+
+    ``channel=None`` = 不声明(缺省 pixel);其余 None 键同理不进 options,
+    使各测试精确控制「声明了什么」。
+    """
+    options: dict[str, Any] = {}
+    if channel is not None:
+        options["channel"] = channel
+    options["chat"] = chat
+    if channel == "localdb":
+        if since_days is not None:
+            options["since_days"] = since_days
+    else:
+        options["count"] = count
     if sides is not None:
         options["sides"] = sides
+    if read_timeout is not None:
+        options["read_timeout_seconds"] = read_timeout
     source_kwargs: dict[str, Any] = {
         "name": f"weixin-{CHAT}",
         "engine": "wechat_local",
@@ -156,7 +239,25 @@ def make_engine(
     }
     source_kwargs.update(extra or {})
     source = make_source(**source_kwargs)
-    context, _clock = make_context(make_client(lambda request: httpx.Response(404)))
+    context, _clock = make_context(
+        make_client(lambda request: httpx.Response(404)), store=store
+    )
+    return WechatLocalEngine(source, context), context
+
+
+def make_engine_raw(
+    options: dict[str, Any], *, store: Any = None
+) -> tuple[WechatLocalEngine, FetchContext]:
+    """直接喂 engine_options.wechat_local 原始 dict(交叉键/畸形面注入口)."""
+    source = make_source(
+        name=f"weixin-{CHAT}",
+        engine="wechat_local",
+        url=SOURCE_URL,
+        engine_options={"wechat_local": options},
+    )
+    context, _clock = make_context(
+        make_client(lambda request: httpx.Response(404)), store=store
+    )
     return WechatLocalEngine(source, context), context
 
 
@@ -502,6 +603,437 @@ def test_anchor_shape():
 
 
 # ---------------------------------------------------------------------------
+# 5b. localdb 通道电池(2026-10-13 换轨批:全 mock,fixture 全合成样本)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("overrides", "fragment"),
+    [
+        ({"channel": "LocalDB"}, "channel"),
+        ({"channel": True}, "channel"),
+        ({"channel": "sqlite"}, "channel"),
+        ({"since_days": 0}, "since_days"),
+        ({"since_days": 3651}, "since_days"),
+        ({"since_days": True}, "since_days"),
+        ({"since_days": "3"}, "since_days"),
+    ],
+)
+def test_localdb_options_shape_errors(overrides: dict[str, Any], fragment: str):
+    """channel/since_days 形状错 = 结构化拒(零子进程)."""
+    engine, _ = make_engine_raw({"chat": CHAT, "channel": "localdb", **overrides})
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "invalid_engine_options"
+    assert fragment in str(excinfo.value)
+
+
+def test_localdb_rejects_pixel_only_count():
+    """count 是 pixel 窗口帽,localdb 声明即拒(静默忽略 = 谎报配置生效)."""
+    engine, _ = make_engine_raw(
+        {"channel": "localdb", "chat": CHAT, "count": 50}
+    )
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "invalid_engine_options"
+    assert "count" in str(excinfo.value)
+    assert "localdb" in str(excinfo.value)
+
+
+def test_pixel_rejects_localdb_only_since_days():
+    engine, _ = make_engine_raw({"chat": CHAT, "since_days": 3})
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "invalid_engine_options"
+    assert "since_days" in str(excinfo.value)
+
+
+def test_localdb_default_channel_is_pixel_for_legacy_options():
+    """缺省通道回归:不声明 channel 的既有源走 pixel(messages read 形态)."""
+    engine, _ = make_engine()  # 无 channel 声明
+    assert engine._options()["channel"] == "pixel"
+
+
+def test_localdb_argv_contract_first_pull(tmp_path, monkeypatch):
+    """首拉无水位 → --since <since_days>d(缺省 3);命令形态 localdb query."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(db_payload([db_msg("合成样本")]), calls=calls),
+    )
+    engine, _ = make_engine(channel="localdb", read_timeout=None)
+    fetch_items(engine)
+    assert len(calls) == 1
+    argv = calls[0]
+    assert argv[1:] == ["localdb", "query", CHAT, "--since", "3d", "--json"]
+    assert argv[0].endswith("wechat-bridge")
+
+
+def test_localdb_timeout_default_600(tmp_path, monkeypatch):
+    """localdb 读超时缺省 600s(sidecar _QUERY_TIMEOUT_SECONDS 同款判例)."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    seen: dict[str, float] = {}
+
+    def _runner(argv, input_text, timeout):
+        seen["timeout"] = timeout
+        return 0, json.dumps(db_payload([]), ensure_ascii=False), ""
+
+    monkeypatch.setattr(wx_engine, "run_bridge_command_sync", _runner)
+    engine, _ = make_engine(channel="localdb", read_timeout=None)
+    fetch_items(engine)
+    assert seen["timeout"] == wx_engine.DEFAULT_LOCALDB_TIMEOUT_SECONDS == 600.0
+
+
+def test_localdb_items_shape_and_side_derivation(tmp_path, monkeypatch):
+    """sender 派生 side("me"→right/其余→left);ts=epoch 入盐锚;raw 键保留."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            db_payload(
+                [
+                    db_msg("对方合成消息", sender=DB_CHAT_ID, ts=1760000100),
+                    db_msg("自己的合成消息", sender="me", ts=1760000200),
+                    db_msg("图片行", type_="image"),
+                    {"ts": 1760000300, "sender": DB_CHAT_ID, "type": "text"},  # 无 text 键
+                    "not-a-dict",
+                ],
+                chat_id=CHAT,
+            )
+        ),
+    )
+    engine, _ = make_engine(channel="localdb", read_timeout=None)
+    items = fetch_items(engine)
+    # 缺省 sides=[left]:只出对方消息;me 行被侧过滤;图片/无 text/非 dict 跳过
+    assert [i["content"] for i in items] == ["对方合成消息"]
+    item = items[0]
+    assert ANCHOR_RE.match(item["url"])
+    assert item["title"] == "对方合成消息"
+    assert item["sender"] == DB_CHAT_ID
+    assert item["side"] == "left"
+    assert item["ts"] == 1760000100  # epoch 秒原样(raw 面)
+    assert item["chat"] == CHAT
+    assert "conf" not in item  # localdb 无 OCR 置信度,不谎报
+    # sides=[left,right] 时自己消息也出,side=right
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            db_payload(
+                [
+                    db_msg("对方合成消息", sender=DB_CHAT_ID, ts=1760000100),
+                    db_msg("自己的合成消息", sender="me", ts=1760000200),
+                ],
+                chat_id=CHAT,
+            )
+        ),
+    )
+    engine2, _ = make_engine(channel="localdb", sides=["left", "right"], read_timeout=None)
+    items2 = fetch_items(engine2)
+    assert [i["side"] for i in items2] == ["left", "right"]
+
+
+def test_localdb_anchor_epoch_salt_and_stability():
+    """localdb 锚:ts=epoch 入盐,同消息恒同锚;不同秒不并锚(内容锚如实弱幂等,
+    桥应答无消息 id 不谎报强幂等 —— 引擎/档同记)."""
+    first = anchor_url(CHAT, "1760000100", "left", "同一条 合成消息")
+    second = anchor_url(CHAT, "1760000100", "left", " 同一条\t合成消息\n")
+    other_second = anchor_url(CHAT, "1760000200", "left", "同一条 合成消息")
+    assert first == second  # 压空白规整 + 精确 ts:重读恒同锚
+    assert first != other_second  # 同文本不同秒:不并锚
+    assert first.startswith(f"wechat-local://chat/{CHAT_URL_ENCODED}#wx-")
+
+
+def test_localdb_session_name_resolution_second_query(tmp_path, monkeypatch):
+    """声明显示名:首查零消息且 contact 解析不出 → sessions 名解析 → 二查用会话 id."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    calls: list[list[str]] = []
+    payloads = [
+        db_payload([], chat_id=CHAT, display_name=None,
+                   sessions=[{"id": DB_CHAT_ID, "name": CHAT, "unread": 0}]),
+        db_payload([db_msg("解析后合成消息", sender=DB_CHAT_ID)], chat_id=DB_CHAT_ID,
+                   display_name=CHAT),
+    ]
+    state = {"i": 0}
+
+    def _runner(argv, input_text, timeout):
+        calls.append(list(argv))
+        payload = payloads[state["i"]]
+        state["i"] += 1
+        return 0, json.dumps(payload, ensure_ascii=False), ""
+
+    monkeypatch.setattr(wx_engine, "run_bridge_command_sync", _runner)
+    engine, _ = make_engine(channel="localdb", read_timeout=None)
+    items = fetch_items(engine)
+    assert [i["content"] for i in items] == ["解析后合成消息"]
+    assert len(calls) == 2
+    assert calls[0][3] == CHAT  # 首查 = 声明显示名
+    assert calls[1][3] == DB_CHAT_ID  # 二查 = 解析出的会话 id
+    assert calls[0][4:] == calls[1][4:] == ["--since", "3d", "--json"]
+
+
+def test_localdb_chat_id_direct_hit_single_query(tmp_path, monkeypatch):
+    """声明会话 id 直接命中(有消息)→ 一查即中,不做 sessions 解析."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            db_payload([db_msg("直接命中合成消息")], chat_id=DB_CHAT_ID, display_name=CHAT),
+            calls=calls,
+        ),
+    )
+    engine, _ = make_engine(channel="localdb", chat=DB_CHAT_ID, read_timeout=None)
+    assert [i["content"] for i in fetch_items(engine)] == ["直接命中合成消息"]
+    assert len(calls) == 1
+
+
+def test_localdb_quiet_chat_id_no_resolution_single_query(tmp_path, monkeypatch):
+    """声明 id 但窗口零消息且 contact 有展示名(display_name 非 None)= 安静
+    合法空,一查即止(display_name 在 = id 是活会话,不做名解析)."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(db_payload([], chat_id=DB_CHAT_ID, display_name=CHAT), calls=calls),
+    )
+    engine, _ = make_engine(channel="localdb", chat=DB_CHAT_ID, read_timeout=None)
+    assert fetch_items(engine) == []
+    assert engine.last_skip_reason is None  # 安静会话 ≠ 结构化空态码
+    assert len(calls) == 1
+
+
+def test_localdb_name_unresolvable_is_legitimate_empty(tmp_path, monkeypatch):
+    """显示名不在 sessions(前 20 best-effort)= 解析不到,如实零产出不猜."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            db_payload([], chat_id=CHAT, display_name=None,
+                       sessions=[{"id": "other@chatroom", "name": "别的合成会话", "unread": 0}]),
+            calls=calls,
+        ),
+    )
+    engine, _ = make_engine(channel="localdb", read_timeout=None)
+    assert fetch_items(engine) == []
+    assert engine.last_skip_reason is None
+    assert len(calls) == 1  # 不猜第二次
+
+
+def test_localdb_key_unavailable_is_structured_skip_no_watermark(
+    tmp_path, monkeypatch, engine_store
+):
+    """桥 exit 21 key_unavailable = D4 合法预期态:零条目 + skip 码 + 不算
+    failure;水位不推进(下轮仍首拉窗口,不丢消息)."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    calls: list[list[str]] = []
+    payload = {
+        "error": {
+            "code": "key_unavailable",
+            "message": "合成:解密密钥未就绪(零内存途径不可推导)",
+            "fix_hint": "合成指引:跑 keyscan 脚本",
+        }
+    }
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(payload, exit_code=21, calls=calls),
+    )
+    engine, _ = make_engine(channel="localdb", read_timeout=None, store=engine_store)
+    assert fetch_items(engine) == []
+    assert engine.last_skip_reason == "key_unavailable"
+    assert len(calls) == 1
+    # 水位未推进:同 store 二拉仍用首拉窗口(since_days 缺省 3)
+    engine2, _ = make_engine(channel="localdb", read_timeout=None, store=engine_store)
+    fetch_items(engine2)
+    assert calls[1][4:] == ["--since", "3d", "--json"]
+
+
+@pytest.mark.parametrize(
+    ("exit_code", "code"),
+    [
+        (20, "db_not_found"),
+        (22, "decrypt_failed"),
+    ],
+)
+def test_localdb_other_named_family_passes_through(
+    tmp_path, monkeypatch, exit_code: int, code: str
+):
+    """db_not_found/decrypt_failed 是真失败(非合法预期态)→ 结构化 FetchError."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    payload = {
+        "error": {"code": code, "message": f"合成 {code} 错误", "fix_hint": "合成修复指引"}
+    }
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(payload, exit_code=exit_code),
+    )
+    engine, _ = make_engine(channel="localdb", read_timeout=None)
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == code
+    assert "合成修复指引" in str(excinfo.value)
+    assert engine.last_skip_reason is None
+
+
+def test_localdb_bridge_timeout_and_unparseable(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    engine, _ = make_engine(channel="localdb", read_timeout=None)
+    monkeypatch.setattr(
+        wx_engine, "run_bridge_command_sync", fake_runner(raise_timeout=True)
+    )
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "bridge_timeout"
+    # 应答不可解析 = bridge_error(与 pixel 同纪律)
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(exit_code=1, stdout="not-json"),
+    )
+    with pytest.raises(FetchError) as excinfo2:
+        run(engine.fetch())
+    assert excinfo2.value.error_type == "bridge_error"
+
+
+def test_localdb_payload_without_messages_is_bridge_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner({"chat_id": CHAT, "since_days": 3}),
+    )
+    engine, _ = make_engine(channel="localdb", read_timeout=None)
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "bridge_error"
+
+
+def test_localdb_watermark_advances_and_shrinks_window(tmp_path, monkeypatch, engine_store):
+    """成功拉取推进水位 → 下轮 --since 1d(增量窗);隔 25h → 2d."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            db_payload([db_msg("水位合成消息")], chat_id=DB_CHAT_ID, display_name=CHAT),
+            calls=calls,
+        ),
+    )
+    engine, _ = make_engine(
+        channel="localdb", chat=DB_CHAT_ID, read_timeout=None, store=engine_store
+    )
+    assert len(fetch_items(engine)) == 1
+    assert calls[0][4:] == ["--since", "3d", "--json"]  # 首拉 = since_days
+    # 水位已落 store(change_baseline 键空间;etag = epoch 秒)
+    baseline = engine_store.get_baseline(wx_engine.watermark_key(f"weixin-{CHAT}"))
+    assert baseline is not None and baseline.etag is not None
+    assert abs(float(baseline.etag) - time.time()) < 60
+    # 二拉(同 store 新引擎实例):水位在 → 增量窗 1d
+    engine2, _ = make_engine(
+        channel="localdb", chat=DB_CHAT_ID, read_timeout=None, store=engine_store
+    )
+    fetch_items(engine2)
+    assert calls[1][4:] == ["--since", "1d", "--json"]
+    # 手拨水位回 25h → 2d(天粒度向上取整,相邻轮次小幅重叠由 dedup 消化)
+    engine_store.set_baseline(
+        wx_engine.watermark_key(f"weixin-{CHAT}"),
+        etag=str(int(time.time()) - 90000),
+    )
+    engine3, _ = make_engine(
+        channel="localdb", chat=DB_CHAT_ID, read_timeout=None, store=engine_store
+    )
+    fetch_items(engine3)
+    assert calls[2][4:] == ["--since", "2d", "--json"]
+
+
+def test_localdb_without_store_degrades_to_default_window(tmp_path, monkeypatch):
+    """无 store(试抓/干跑面):水位不持久,每轮缺省窗口,不炸不谎."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            db_payload([db_msg("无库合成消息")], chat_id=DB_CHAT_ID, display_name=CHAT),
+            calls=calls,
+        ),
+    )
+    for _ in range(2):
+        engine, _ = make_engine(channel="localdb", chat=DB_CHAT_ID, read_timeout=None)
+        fetch_items(engine)
+    assert [c[5] for c in calls] == ["3d", "3d"]  # 无水位可读,恒缺省窗
+
+
+def test_localdb_corrupt_watermark_falls_back(tmp_path, monkeypatch, engine_store):
+    """水位值坏(非数值 etag)→ 当无水位处理(缺省窗),不炸."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    engine_store.set_baseline(
+        wx_engine.watermark_key(f"weixin-{CHAT}"), etag="not-a-number"
+    )
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            db_payload([db_msg("坏水位合成消息")], chat_id=DB_CHAT_ID, display_name=CHAT),
+            calls=calls,
+        ),
+    )
+    engine, _ = make_engine(
+        channel="localdb", chat=DB_CHAT_ID, read_timeout=None, store=engine_store
+    )
+    fetch_items(engine)
+    assert calls[0][5] == "3d"
+
+
+def test_localdb_second_query_key_unavailable_skips(tmp_path, monkeypatch, engine_store):
+    """二查(名解析后)撞 key_unavailable:同 skip 语义,水位不推进."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    payloads = [
+        db_payload([], chat_id=CHAT, display_name=None,
+                   sessions=[{"id": DB_CHAT_ID, "name": CHAT, "unread": 0}]),
+        {
+            "error": {
+                "code": "key_unavailable",
+                "message": "合成:二查时密钥不可用",
+                "fix_hint": "合成指引",
+            }
+        },
+    ]
+    state = {"i": 0}
+
+    def _runner(argv, input_text, timeout):
+        idx = state["i"]
+        state["i"] += 1
+        code = 0 if idx == 0 else 21
+        return code, json.dumps(payloads[idx], ensure_ascii=False), ""
+
+    monkeypatch.setattr(wx_engine, "run_bridge_command_sync", _runner)
+    engine, _ = make_engine(channel="localdb", read_timeout=None, store=engine_store)
+    assert fetch_items(engine) == []
+    assert engine.last_skip_reason == "key_unavailable"
+    # 水位未推进:二拉仍首拉窗口
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(db_payload([db_msg("后续合成消息")], chat_id=CHAT, display_name=CHAT)),
+    )
+    engine2, _ = make_engine(channel="localdb", read_timeout=None, store=engine_store)
+    items = fetch_items(engine2)
+    assert len(items) == 1
+
+
+# ---------------------------------------------------------------------------
 # 6. 词表/注册表(链外注册;AUTO_CHAIN 原样;词表↔注册表双向同步)
 # ---------------------------------------------------------------------------
 
@@ -537,35 +1069,65 @@ def test_source_config_accepts_wechat_local_engine():
 
 
 def test_weixin_yaml_loads_and_carries_red_lines():
+    """双通道样例(2026-10-13 换轨批):pixel 首源 + localdb 二源."""
     config = load_category_file(REPO_ROOT / "config" / "weixin.yaml")
     assert config.id == "weixin"
     assert config.name == "微信监控"
-    assert len(config.sources) == 1
-    source = config.sources[0]
-    assert source.name == f"weixin-{CHAT}"
-    assert source.engine == "wechat_local"
-    assert source.url == SOURCE_URL
-    assert source.empty_ok is True
-    assert source.extra_params["engine_options"]["wechat_local"]["chat"] == CHAT
+    assert len(config.sources) == 2
+    # 首源(pixel 缺省显式):文件传输助手
+    pixel = config.sources[0]
+    assert pixel.name == f"weixin-{CHAT}"
+    assert pixel.engine == "wechat_local"
+    assert pixel.url == SOURCE_URL
+    assert pixel.empty_ok is True
+    pixel_options = pixel.extra_params["engine_options"]["wechat_local"]
+    assert pixel_options["chat"] == CHAT
+    assert pixel_options["channel"] == "pixel"
+    assert pixel_options["count"] == 50
+    # 二源(localdb 换轨样例):合成会话
+    localdb = config.sources[1]
+    assert localdb.name == "weixin-localdb样例会话"
+    localdb_options = localdb.extra_params["engine_options"]["wechat_local"]
+    assert localdb_options["channel"] == "localdb"
+    assert localdb_options["since_days"] == 3
+    assert "count" not in localdb_options  # 通道专属键不交叉
+    assert localdb.empty_ok is True
     assert config.dedup.key == "{url}"  # #wx- 锚全串模板
     assert config.enrich.enabled is False  # 红线:私有内容不出本机
     assert config.push == []  # 红线:不外发任何通道
     assert config.storage.retention == "30d"  # 隐私谨慎缺省(TG 90d)
 
 
+def test_weixin_yaml_localdb_comments_carry_keyscan_guidance():
+    """密钥缺位指引面文件级注记(keyscan 一键脚本;skip 人话同源)."""
+    text = (REPO_ROOT / "config" / "weixin.yaml").read_text(encoding="utf-8")
+    assert "key_unavailable" in text
+    assert "scripts/wechat-bridge-d4-keyscan.sh" in text
+
+
 def test_pipeline_stamps_source_category_and_dedups(tmp_path, monkeypatch):
-    """入库盖戳全链:引擎条目 → Item(source=yaml 源名/category=weixin)→
-    dedup {url} → store;同载荷二跑零新增(锚幂等)."""
+    """入库盖戳全链(双通道):引擎条目 → Item(source=yaml 源名/category=
+    weixin)→ dedup {url} → store;同载荷二跑零新增(锚幂等)."""
     from myssia.pipeline import Pipeline
     from myssia.store import SQLiteStore
 
     monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
-    payload = bridge_payload(
+    pixel_payload = bridge_payload(
         [msg("合成样本消息甲", ts="22:30"), msg("合成样本消息乙", ts=None)]
     )
-    monkeypatch.setattr(
-        wx_engine, "run_bridge_command_sync", fake_runner(payload)
+    localdb_payload = db_payload(
+        [db_msg("localdb 合成样本消息", sender=DB_CHAT_ID, ts=1760000100)],
+        chat_id=DB_CHAT_ID,
+        display_name="localdb样例会话",
     )
+
+    def dispatch_runner(argv: Any, input_text: str, timeout: float) -> tuple[int, str, str]:
+        """按 argv 命令族分发(pixel=messages read / localdb=localdb query)."""
+        if "localdb" in argv:
+            return 0, json.dumps(localdb_payload, ensure_ascii=False), ""
+        return 0, json.dumps(pixel_payload, ensure_ascii=False), ""
+
+    monkeypatch.setattr(wx_engine, "run_bridge_command_sync", dispatch_runner)
     config = load_category_file(REPO_ROOT / "config" / "weixin.yaml")
     client = httpx.AsyncClient(
         transport=httpx.MockTransport(lambda request: httpx.Response(404))
@@ -586,11 +1148,16 @@ def test_pipeline_stamps_source_category_and_dedups(tmp_path, monkeypatch):
         assert record.category is None
         assert ANCHOR_RE.match(record.url)
         assert record.dedup_key == record.url  # {url} 模板渲染锚全串
+    # localdb 二源条目(source 盖戳 = 源名全称;锚同 #wx- 家族)
+    db_records = store.list_items(source="weixin-localdb样例会话")
+    assert len(db_records) == 1
+    assert ANCHOR_RE_WITH(chat="localdb样例会话").match(db_records[0].url)
 
     # 同窗重读(同载荷)= 同锚 → dedup 沉默(dedup 表全期在册),零新增
     second = run(pipeline.run())
     assert second.status == "success"
     assert len(store.list_items(source=f"weixin-{CHAT}")) == 2
+    assert len(store.list_items(source="weixin-localdb样例会话")) == 1
     store.close()
 
 

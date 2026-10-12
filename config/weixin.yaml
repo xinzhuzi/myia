@@ -1,21 +1,37 @@
 # config/weixin.yaml — 微信监控品类(10-12-weixin-feed-channel;engine:
 # wechat_local,主人令翻案 G3:微信消息入情报流,与 telegram 同为一等渠道)。
 #
-# 机制(engine: wechat_local 链外引擎,schema 词表/registry 已注册):
-#   管线进程内起本机桥子进程(受管组件 wechat-bridge 的 messages read,
-#   ~/.myia/plugins/wechat-bridge 缺省落点)只读**当前打开会话**的消息区
-#   (截图+OCR 像素链)→ #wx-<sha1(chat|ts|side|text)> 内容哈希锚 →
-#   store 入库+dedup → feed 第四类型档(微信)。
-#   ⚠ 像素链硬边界:桥不能点击切换会话(静默铁律),源声明 chat 与桥回报
-#   chat.match 不符 = 结构化空态 chat_not_open(不张冠李戴)—— 想采哪个
-#   会话,就在微信里把那个会话打开着。
+# 机制(engine: wechat_local 链外引擎,schema 词表/registry 已注册),双通道
+# (engine_options.wechat_local.channel,缺省 pixel 向后兼容;2026-10-13
+# 主人令换轨:TMS 源切 localdb——像素链 OCR 逻辑性/准确性判例成立):
+#   - pixel:管线进程内起本机桥子进程(wechat-bridge messages read)只读
+#     **当前打开会话**的消息区(截图+OCR 像素链)→ #wx-<sha1(chat|ts|side|
+#     text)> 内容哈希锚。⚠ 硬边界:桥不能点击切换会话(静默铁律),源声明
+#     chat 与桥回报 chat.match 不符 = 结构化空态 chat_not_open(不张冠李戴)
+#     —— 想采哪个会话,就在微信里把那个会话打开着。
+#   - localdb:同一桥的 localdb query <chat> --since Nd 只读**解密副本**
+#     (E1 密钥→E2 副本→E3 message/session/contact 三域 SQL),对微信进程
+#     零交互零截窗零 AX,不需开窗。增量窗口 = 源级水位(store 记上次成功
+#     拉取时刻,自动按增量开窗;首拉/无水位 = since_days,缺省 3 天)。
+#     解密密钥缺位 = 合法预期态:桥 exit 21 key_unavailable → 引擎结构化
+#     skip 不算失败不告警;指引:跑仓库 scripts/wechat-bridge-d4-keyscan.sh
+#     (主人 sudo 一键内存密钥扫描,命中自动落 keys.json 即通)。
 #
-# 锚的如实限制(与 #tg-<chat>-<mid> 全期强幂等不可比):像素链没有消息 id,
-#   锚只能内容铸 —— OCR 修字/置信度波动使文本微变会另立新锚(重复条目靠
-#   feed 读态消化);ts 标记间歇出现,缺失段内同文本同侧消息会并锚。
+# 锚的如实限制(与 #tg-<chat>-<mid> 全期强幂等不可比):两条通道的桥应答
+#   都没有消息 id(pixel MessageRow 无 id;localdb query_messages 只选
+#   时间/内容/类型/发送者四列,2026-10-13 实探)→ 锚只能内容铸。pixel:
+#   OCR 修字/置信度波动使文本微变会另立新锚;localdb 文本原样无 OCR 噪声,
+#   重读恒同锚(幂等远强于 pixel),残留面 = 同秒同侧同文本并锚。重复条目
+#   靠 feed 读态消化。
+#
+# localdb chat 寻址:理想形态是会话 id(wxid_xxx / xxx@chatroom,桥按库内
+#   strTalker 精确匹配);声明显示名(与 pixel 同形)也可 —— 引擎在首查
+#   零消息时拿应答 sessions 列表按名解析出会话 id 再查一次(至多二查;
+#   sessions 是前 20 行 best-effort,不在列表 = 解析不到,如实零产出)。
 #
 # 前置(一次性):设置安装 wechat-bridge 组件(前置 brew install sqlcipher)
-#   + 授屏幕录制权限 + 微信桌面客户端保持登录、目标会话保持打开。
+#   + 微信桌面客户端保持登录。pixel 另需:授屏幕录制权限 + 目标会话保持
+#   打开;localdb 另需:密钥就绪(上方 keyscan 一键脚本)。
 #
 # 缺省关(隐私面,telegram-web.yaml「未挂 cron」同款先例):本文件在场 ≠
 #   在跑 —— 品类只在注册了 cron job(桌面排程/myssia cron)后才拉取;
@@ -31,32 +47,53 @@ name: 微信监控
 schedule: "*/30 * * * *"          # 批量档窗口读取(镜像 TG web 线节奏)
 timezone: Asia/Shanghai
 
-# 品类级 fetch 阶段超时帽(秒):单源一次桥读 = 全窗截图 + 两遍 OCR(+可选
-# VL 校字),60s 命令族上界外再留余量;品类帽须 ≥ 源级
-# engine_options.wechat_local.read_timeout_seconds。
+# 品类级 fetch 阶段超时帽(秒):须 ≥ 源级 engine_options.wechat_local.
+# read_timeout_seconds。localdb 首查可能触发多域解密副本首建(sqlcipher
+# 单库上界 300s),故帽按 localdb 缺省 600s 再留余量;纯 pixel 品类可降回
+# 120(单源一次桥读 = 全窗截图 + 两遍 OCR)。
 timeouts:
-  fetch: 120
+  fetch: 660
 
 sources:
-  # ── 首源样例:文件传输助手(每个微信账号都有,零隐私面,先验通链路;
-  #    想监控真实会话 = 照此形态加源,并把那个会话在微信里保持打开)──
+  # ── 首源样例(像素链):文件传输助手(每个微信账号都有,零隐私面;
+  #    想用像素链监控真实会话 = 照此形态加源,并把那个会话在微信里保持
+  #    打开;channel 缺省即 pixel,不写即旧行为)──
   - name: weixin-文件传输助手     # 源名全称律:weixin-<会话原名>(feed 渠道名/L2 行/去重匹配键)
     engine: wechat_local
     url: "https://weixin.qq.com"  # 锚(schema http(s) 形状要求;引擎零 HTTP,端点=本机桥)
     empty_ok: true                # 当前会话不匹配/窗口零消息 = 合法空(doctor 口径)
     engine_options:
       wechat_local:
+        channel: pixel            # 缺省通道,写出仅为对照;删掉即同效
         chat: "文件传输助手"      # 与像素链可见标题匹配(同桥 messages read 的 id)
-        count: 50                 # 最近 K 条,1-200(窗口现存,不滚动翻历史)
+        count: 50                 # 最近 K 条,1-200(pixel 窗口现存,不滚动翻历史)
         sides: [left]             # 采集侧:left=对方(缺省)/right=自己/center=系统行
         read_timeout_seconds: 60  # 单次桥读上界(截图+OCR;须 ≤ 品类 timeouts.fetch)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
     proxy: direct                 # 零 HTTP;robots 面不适用(本机像素读回)
     retry: 1                      # 本机桥读,重试 1 防截图重打
 
-  # ── 你的会话往这里加(一个会话一个源;桥不能切会话,同轮多源 = 重复读
-  #    同一窗口,像素链只出「当前打开会话」的载荷 —— 多源各配各 chat,
-  #    不匹配的源按空态跳过,如实)──
+  # ── 二源样例(本地库直读,2026-10-13 主人令换轨通道):chat 声明显示名,
+  #    引擎按 sessions 名解析会话 id(至多二查);直接声明 wxid_xxx/
+  #    xxx@chatroom 形态的会话 id 则一查即中。密钥缺位期间每轮结构化
+  #    skip(key_unavailable),跑 scripts/wechat-bridge-d4-keyscan.sh 即通。──
+  - name: weixin-localdb样例会话   # 合成样例(非真实会话);真源照此形态加
+    engine: wechat_local
+    url: "https://weixin.qq.com"  # 锚同上:两通道共用(引擎零 HTTP)
+    empty_ok: true                # 密钥缺位 skip/安静窗口零消息 = 合法空(doctor 口径)
+    engine_options:
+      wechat_local:
+        channel: localdb          # 本地库直读(解密副本只读,零截窗零 AX,不需开窗)
+        chat: "localdb样例会话"   # 显示名(按 sessions 名解析)或会话 id(wxid_xxx/@chatroom)
+        since_days: 3             # 首拉/无水位窗口(缺省 3;有水位后自动按增量开窗)
+        sides: [left]             # 同 pixel:left=对方(me→right 派生)/right=自己
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct                 # 零 HTTP;robots 面不适用(本机读回)
+    retry: 1                      # 本机桥读,重试 1
+
+  # ── 你的会话往这里加(一个会话一个源;pixel 同轮多源 = 重复读同一窗口,
+  #    只出「当前打开会话」的载荷,不匹配的源按空态跳过;localdb 按库查询
+  #    无此面,多源各查各的会话,如实)──
 
 # 首版全入库,筛选交给 feed 读态/星标(零 LLM 筛选:私有内容不出本机)。
 watchlist:

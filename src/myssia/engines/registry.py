@@ -160,9 +160,12 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     "tg_web": lambda: _load("tg_web", "TelegramWebEngine"),
     # 微信本机会话引擎(10-12-weixin-feed-channel):链外同 tg_web 先例 ——
     # 显式 engine: wechat_local 才生效,auto 永不路过;凭据零(本机已登录
-    # 桌面客户端);数据面 = 子进程直调 wechat-bridge 桥只读当前打开会话
-    # (sidecar 只是 UI 探针/浏览面,cron 档 sidecar 不在场,不经 IPC)
-    # → #wx- 内容哈希锚条目(chat.match 不符 = chat_not_open 显式空态)。
+    # 桌面客户端);数据面 = 子进程直调 wechat-bridge 桥双通道
+    # (engine_options.wechat_local.channel 缺省 pixel:截窗 OCR 只读当前
+    # 打开会话,chat.match 不符 = chat_not_open 显式空态;localdb(换轨批
+    # 2026-10-13):解密副本直读零截窗零 AX,密钥缺位 = key_unavailable
+    # 显式空态)→ #wx- 内容哈希锚条目(sidecar 只是 UI 探针/浏览面,
+    # cron 档 sidecar 不在场,不经 IPC)。
     "wechat_local": lambda: _load("wechat_local", "WechatLocalEngine"),
     "feishu": lambda: _load("feishu", "FeishuEngine"),
 }
