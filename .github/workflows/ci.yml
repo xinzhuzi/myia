@@ -19,6 +19,8 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.11"
+      - name: Install CJK font (wechat-bridge 像素合成夹具渲染中文)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
       - name: Sync workspace dependencies
         run: uv sync
       - name: Run tests
