@@ -710,10 +710,30 @@ def test_wechat_bridge_component_row_contract() -> None:
     )
 
 
+def _pip_src_direct_ref_scheme(src: str) -> str | None:
+    """镜像 pyenv_install.rs `direct_ref_scheme`:取 `://` 前最后一个非
+    scheme 字符(RFC 3986 scheme = `[A-Za-z0-9+.-]`)之后的词——PEP 508
+    `name @ git+https://…` 的 scheme 是 `git+https` 而非把 `name@` 尾段
+    混进来;无 `://` 返回 None。两侧漂移即本文件契约红。"""
+    idx = src.find("://")
+    if idx < 0:
+        return None
+    prefix = src[:idx]
+    start = 0
+    for i, ch in enumerate(prefix):
+        if not (ch.isascii() and (ch.isalnum() or ch in "+-.")):
+            start = i + 1
+    return prefix[start:] or None
+
+
 def test_registry_pip_src_relative_entries_are_whitelist_safe() -> None:
     """全表 pip_src 守门(壳侧 resolve_pip_src_spec 的上游先拦,拼写漂移在
-    仓测拦下、不等用户点安装):远程直引(`://` 或 `git+` 打头,searxng
-    形态)放行;其余必须安全相对词形——非绝对、无 `..` 段、无前后空白。"""
+    仓测拦下、不等用户点安装):远程直引**仅放行 https/git+https scheme**
+    (searxng 形态,含 PEP 508 `name @ ` 前缀);其余 scheme(`file:`/`http:`/
+    `git+file:` 等——pip 对 file:// 直引按本地路径安装,放行即注册表条目
+    可把安装指向 Resources 外任意路径的白名单洞,2026-10-12 复审收口)与
+    `git+` 打头无 `://` 的畸形词形必须被壳侧拒,注册表里出现即红;
+    其余必须安全相对词形——非绝对、无 `..` 段、无前后空白。"""
     registry = json.loads(
         (RESOURCES_DIR / "components.json").read_text(encoding="utf-8")
     )
@@ -722,6 +742,12 @@ def test_registry_pip_src_relative_entries_are_whitelist_safe() -> None:
         if not src:
             continue
         if "://" in src or src.startswith("git+"):
+            scheme = _pip_src_direct_ref_scheme(src)
+            assert scheme in ("https", "git+https"), (
+                f"pip_src 远程直引仅放行 https/git+https(实得 scheme {scheme!r};"
+                f"file:// 等 pip 按本地路径安装的词形=白名单洞):"
+                f" {entry['id']!r} {src!r}"
+            )
             continue
         assert src == src.strip() and src, f"pip_src 空白形: {entry['id']!r} {src!r}"
         assert not src.startswith(("/", "\\")), (

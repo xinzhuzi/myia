@@ -768,8 +768,10 @@ fn run_pip_install_with_extra_flags(
 /// 已装自动跳过)。PyPI 镜像 --index-url 只覆盖 PyPI 依赖解析,git 直引
 /// 段走 github.com(与 Playwright CDN 同理,镜像不覆盖属预期,文案已披露)。
 ///
-/// pip_src 词形二分([`resolve_pip_src_spec`]):远程直引(searxng 的
-/// ``name@git+https://…``)原样透传;相对路径(10-11-wechat-ui-bridge D5
+/// pip_src 词形二分([`resolve_pip_src_spec`]):远程直引仅放行 https/
+/// git+https scheme(searxng 的 ``name@git+https://…``;`file://` 等 pip
+/// 按本地路径安装的词形一律拒——2026-10-12 复审收口,防注册表条目把安装
+/// 指向 Resources 外任意装机路径);相对路径(10-11-wechat-ui-bridge D5
 /// 随包源码形态,wechat-bridge——MYIA 仓私有,git 直引需凭据不可行、发
 /// PyPI 加发布纪律,随包 Resources 最省)白名单式解析到壳资源
 /// `Resources/components/` 下,注册表条目无法借此装任意路径。
@@ -799,16 +801,40 @@ pub(crate) fn run_pip_src_no_build_isolation(
 /// COMPONENTS_RESOURCE_FILE 同款「resource_dir.join(常量)」资源拼法)。
 pub(crate) const COMPONENTS_SRC_RESOURCE_DIR: &str = "components";
 
+/// 直引 spec 的 URL scheme:`://` 前最后一个非 scheme 字符
+/// (RFC 3986 scheme = `[A-Za-z0-9+.-]*`)之后的词——PEP 508
+/// `name @ git+https://…` 的 scheme 是 `git+https` 而非把 `name@` 尾段
+/// 混进来;无 `://` 返回 None。供 [`resolve_pip_src_spec`] 的 scheme 白名单。
+fn direct_ref_scheme(s: &str) -> Option<&str> {
+    let idx = s.find("://")?;
+    let prefix = &s[..idx];
+    let start = prefix
+        .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.'))
+        .map_or(0, |i| i + 1);
+    let scheme = &prefix[start..];
+    if scheme.is_empty() {
+        None
+    } else {
+        Some(scheme)
+    }
+}
+
 /// pip_src spec 解析(D5 随包源码形态;纯逻辑,子进程前拦):
 ///
-/// - 远程直引(searxng 形态 `name@git+https://…@commit`,或任意带 `://` 的
-///   URL)原样透传——安装语义不因本函数改变;
+/// - 远程直引**仅放行 https / git+https scheme**(searxng 形态
+///   `name@git+https://…@commit`,含 PEP 508 `name @ …` 前缀),命中即
+///   原样透传——安装语义不因本函数改变;
+/// - 其余 scheme(`file:`/`http:`/`ssh:`/`git+file:`/`git+ssh:` 及 `git+`
+///   打头但无 `://` 的畸形词形)一律结构化拒:pip 对 `file://` 直引按本地
+///   路径安装,若按「远程」放行,注册表条目(随包资产)即可把安装指向
+///   Resources 外任意装机路径——白名单不变量被穿透(2026-10-12 复审收口:
+///   临时 venv 实测 `pip install "file:///tmp/wxevil"` exit 0 装成);
 /// - 相对路径(如 `wechat-bridge`)白名单式解析到
 ///   `<resource_dir>/components/<rel>`:先过 [`is_safe_relative`](拒绝绝对
 ///   路径、`..` 穿越段、空串),落点不存在即结构化拒(注册表 pip_src 与
 ///   resources 映射漂移);
-/// - 白名单钉死在 Resources/components/ 下 + 相对词形守门,注册表(随包
-///   资产)不可能借此把安装指向任意装机路径;
+/// - 白名单钉死在 Resources/components/ 下 + 相对词形守门 + scheme 白名单,
+///   注册表(随包资产)不可能借此把安装指向任意装机路径;
 /// - resource_dir 缺位(极端宿主 resource_dir() 失败)遇相对路径 → 结构化拒。
 fn resolve_pip_src_spec(
     src_spec: &str,
@@ -816,7 +842,23 @@ fn resolve_pip_src_spec(
 ) -> Result<String, (InstallErrorKind, String)> {
     let trimmed = src_spec.trim();
     if trimmed.contains("://") || trimmed.starts_with("git+") {
-        return Ok(src_spec.to_string());
+        // scheme 白名单:https/git+https 放行(searxng 形态 + PEP 508 前缀);
+        // file:// 等 pip 按本地路径装的词形、http/ssh 等其余 scheme、`git+`
+        // 无 `://` 畸形词形,全拒(fail-closed;注册表真需要时改注册表 +
+        // 同步本白名单与 tests/desktop/test_pyenv_resources.py 契约镜像)。
+        match direct_ref_scheme(trimmed) {
+            Some("https") | Some("git+https") => return Ok(src_spec.to_string()),
+            scheme => {
+                return Err((
+                    InstallErrorKind::SetupFailed,
+                    format!(
+                        "pip_src 远程直引仅放行 https/git+https(实得 scheme {scheme:?};\
+                         file:// 等 pip 按本地路径安装的词形拒之——防注册表条目把安装\
+                         指向 Resources 外任意路径): {trimmed:?}"
+                    ),
+                ));
+            }
+        }
     }
     if !is_safe_relative(trimmed) {
         return Err((
@@ -1866,6 +1908,51 @@ mod tests {
         let err = resolve_pip_src_spec("ghost-bridge", Some(resource.path())).unwrap_err();
         assert_eq!(err.0, InstallErrorKind::SetupFailed);
         assert!(err.1.contains("ghost-bridge"), "明细应带落点: {}", err.1);
+    }
+
+    /// 远程直引 scheme 白名单门(2026-10-12 复审收口):透传臂曾按
+    /// 「含 `://` 或 `git+` 打头」放行,`file://` 直引被 pip 按本地路径
+    /// 安装(临时 venv 实测 `pip install "file:///…/wxevil"` exit 0 且
+    /// `pip show wxevil` 9.9.9),注册表条目即可把安装指向 Resources 外
+    /// 任意装机路径。现在:https/git+https(裸 + PEP 508 `name @ ` 前缀)
+    /// 透传;file:// 三词形、http/ssh 等其余 scheme、`git+` 无 `://`
+    /// 畸形词形全拒(setup_failed 结构化,fail-closed)。
+    #[test]
+    fn pip_src_remote_direct_ref_scheme_allowlist_rejects_file_urls() {
+        // 放行:https / git+https(裸 + PEP 508 前缀),resource_dir 缺位不碍事
+        assert_eq!(
+            resolve_pip_src_spec("https://example.com/pkg.whl", None).unwrap(),
+            "https://example.com/pkg.whl"
+        );
+        assert_eq!(
+            resolve_pip_src_spec("name @ https://example.com/pkg.whl", None).unwrap(),
+            "name @ https://example.com/pkg.whl"
+        );
+        let git_ref = "searxng@git+https://github.com/searxng/searxng.git@d48c4b55";
+        assert_eq!(resolve_pip_src_spec(git_ref, None).unwrap(), git_ref);
+
+        // 拒:file:// 三词形(裸 / PEP 508 / git+)——pip 按本地路径装 = 白名单洞
+        for evil in [
+            "file:///tmp/evil",
+            "wxevil @ file:///tmp/evil",
+            "git+file:///tmp/evil",
+        ] {
+            let err = resolve_pip_src_spec(evil, None).unwrap_err();
+            assert_eq!(err.0, InstallErrorKind::SetupFailed, "应拒: {evil}");
+            assert!(err.1.contains("https/git+https"), "实际: {}", err.1);
+        }
+
+        // 拒:其余非 https scheme 与畸形 git+ 打头(fail-closed)
+        for evil in [
+            "http://example.com/pkg.whl",
+            "git+ssh://git@example.com/org/repo.git",
+            "git+/local/path",
+        ] {
+            assert!(
+                resolve_pip_src_spec(evil, None).is_err(),
+                "应拒: {evil}"
+            );
+        }
     }
 
     /// 白名单根常量:组件源码恒在 Resources/components/ 下(与

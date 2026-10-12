@@ -75,3 +75,7 @@
 ## 回滚点
 
 每 Phase 一个 commit；B–F 任一故障不影响 MYIA 主功能（桥=显式可选，降级灰态）；E 的副本与密钥产物清除即可完全回退。
+
+## 增补(2026-10-12 复审收口:fixer 轮)
+
+- [x] **D5 pip_src 白名单洞收口(high→fixed)**:复审坐实 `resolve_pip_src_spec` 透传臂(`://`/`git+` 打头即放行)可被 `file://` 词形穿透——pip 对 file:// 直引按本地路径安装(临时 venv 实测 `pip install "file:///tmp/wxevil"` exit 0、`pip show wxevil` 9.9.9),注册表条目(随包资产)即可把安装指向 Resources 外任意装机路径,自述不变量(pyenv_install.rs 白名单注释)被高估。修复:透传臂收窄为 scheme 白名单——仅放行 https/git+https(新增 `direct_ref_scheme` 助手,取 `://` 前最后一段 scheme 词,PEP 508 `name @ ` 前缀正确归位),file:// 三词形(裸/PEP 508/git+)/http/ssh/`git+` 无 `://` 畸形词形全部 setup_failed 结构化拒(fail-closed);pytest 契约镜像 `test_registry_pip_src_relative_entries_are_whitelist_safe` 同步收窄 + `_pip_src_direct_ref_scheme` 助手(8 词形与 Rust 逐一对照)。缓解如实注:components.json 随签名包分发,利用需先 compromising 包体(彼时攻击者同样能改 plugins/wechat-bridge 源码本体),非远程可利用面,属纵深防御不变量收口。验证:cargo bin 单测全套 91p/0f/1i(基线 90p/1i +1 条 scheme 门单测);tests/desktop/test_pyenv_resources.py 全文件 36p。注册表现状零行为差(唯二 pip_src=wechat-bridge 相对路径、searxng@git+https 钉 commit)。
