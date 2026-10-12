@@ -3,7 +3,7 @@
   "name": "component-install-ux",
   "title": "组件安装交互重做:状态进按钮+排队自动装",
   "description": "设置屏可选组件行交互重做:安装状态直接表现在按钮上(安装/安装中/排队中/已装/重试),单飞槽被占时点击入队自动续装,安装态壳侧化随状态广播(切屏重开不丢),护栏拒绝不再误标 transport_error",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
