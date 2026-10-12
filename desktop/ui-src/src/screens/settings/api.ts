@@ -236,12 +236,12 @@ export async function saveSecret(name: string, value: string): Promise<SecretSav
 // ---------------------------------------------------------------------------
 
 export interface EnrichView {
-  pluginFile: string;
+  categoryFile: string;
   enrich: EnrichSection;
 }
 
 export interface PushChannelView {
-  pluginFile: string;
+  categoryFile: string;
   channels: string[];
 }
 
@@ -271,15 +271,15 @@ export function toDoctorVerify(doctor: DoctorResult): DoctorVerify {
     credentials: doctor.credentials.entries.filter(
       (entry) => entry.kind === "keychain" && entry.name.startsWith("myia/"),
     ),
-    enrichSections: doctor.plugins
-      .filter((plugin) => plugin.enrich !== null)
-      .map((plugin) => ({ pluginFile: plugin.file, enrich: plugin.enrich as EnrichSection })),
+    enrichSections: doctor.categories
+      .filter((category) => category.enrich !== null)
+      .map((category) => ({ categoryFile: category.file, enrich: category.enrich as EnrichSection })),
     proxyPools: doctor.proxy.pools,
     proxyConfig: doctor.proxy.config,
     findings: doctor.findings,
-    pushChannels: doctor.plugins.map((plugin) => ({
-      pluginFile: plugin.file,
-      channels: plugin.push_channels,
+    pushChannels: doctor.categories.map((category) => ({
+      categoryFile: category.file,
+      channels: category.push_channels,
     })),
   };
 }

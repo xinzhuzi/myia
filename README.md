@@ -263,19 +263,19 @@ Windows 版本随下个 Release 交付;交付前 Releases 页暂无 msi(见路�
    (见 [desktop/UPDATER.md](desktop/UPDATER.md));旧版数据原样沿用零迁移,
    首启一次性引导进设置完成环境配置。
 
-Python 环境配置完成后,装机首跑自动种子官方插件(含零凭据演示件
+Python 环境配置完成后,装机首跑自动种子官方品类(含零凭据演示件
 `myssia-demo`:GitHub 新星榜),第一次点「运行第一个插件」就出真数据;
 设置页「检查更新」走签名更新通道,应用更新后依赖有漂移时在同一分区一键
 「同步依赖」(幂等,已装跳过)。
 
-桌面五屏(截图为 demo 插件真实抓取数据):
+桌面五屏(截图为 demo 品类真实抓取数据):
 
 <p align="center">
-<img src="docs/screenshots/dashboard.png" width="400" alt="仪表盘:插件运行状态与最近采集概览" />
+<img src="docs/screenshots/dashboard.png" width="400" alt="仪表盘:品类运行状态与最近采集概览" />
 <img src="docs/screenshots/feed.png" width="400" alt="信息流:去重后的情报条目" />
 </p>
 <p align="center">
-<img src="docs/screenshots/sources.png" width="260" alt="源管理:插件与源配置" />
+<img src="docs/screenshots/sources.png" width="260" alt="源管理:品类与源配置" />
 <img src="docs/screenshots/logs.png" width="260" alt="日志:运行日志回溯" />
 <img src="docs/screenshots/settings.png" width="260" alt="设置:凭据入钥匙链 + 软件更新" />
 </p>
@@ -291,9 +291,9 @@ Python 环境配置完成后,装机首跑自动种子官方插件(含零凭据�
 myssia skill install --agent claude         # 一次性:速查表 → ~/.claude/skills/myia/
 myssia init --json                          # 拿结构化信息清单
 ( agent 现场写 <id>.yaml )                # 对照 12 节 schema
-myssia test plugins/<id>.yaml --json        # 试抓,核对字段与去重键
-myssia run plugins/<id>.yaml --dry-run      # 演练
-myssia run plugins/<id>.yaml --loop         # 常驻调度
+myssia test config/<id>.yaml --json        # 试抓,核对字段与去重键
+myssia run config/<id>.yaml --dry-run      # 演练
+myssia run config/<id>.yaml --loop         # 常驻调度
 myssia doctor --json                        # 拿 findings;agent 自修后复查
 ```
 
@@ -305,7 +305,7 @@ myssia doctor --json                        # 拿 findings;agent 自修后复查
 编排层          流水线:fetch → classify → dedup → analyze → enrich → push
                 (进程内 APScheduler + asyncio;无外部编排器、无守护进程)
                      │
-插件层          一个品类一份 YAML · 7 个官方品类 · 市场插件
+品类层          一个品类一份 YAML · 7 个官方品类 · 市场插件
                 desktop 级 = 进程内 adapter(零 docker)· remote/server 级走端点
                 (代理池 · 变更监控 · OSINT · 抖音 · maxun · …)
                      │
@@ -343,7 +343,7 @@ myssia doctor --json                        # 拿 findings;agent 自修后复查
 ## 路线图
 
 核心流水线已实现且有测试覆盖 —— 1300+ 测试跑在 CI 里,无一条碰真实网络。
-桌面端已可日常使用(数据通路统一、官方插件随包、开箱 demo、签名更新通道,
+桌面端已可日常使用(数据通路统一、官方品类随包、开箱 demo、签名更新通道,
 v0.0.1 起随 Releases 交付);桌面卡片内反馈按钮、设置反馈开关、采集量趋势
 已随桌面对齐批次落地 main、随下个发布版交付(反馈闭环 CLI 现已可用);
 Windows 构建这版未通过,Release 暂无 Windows 安装包(后续批次计划补上)。
@@ -356,7 +356,7 @@ Windows 构建这版未通过,Release 暂无 Windows 安装包(后续批次计�
 | v0.4 深水区 | stealth_browser L5、llm_browser L6、趋势基线、事件聚合 | ✅ 已交付 |
 | v1.0 发布 | 双语文档、演示物料、GitHub 门面、公开交付 | ✅ 已交付 |
 | v1.1 桌面优先 | Tauri 桌面壳(Python 核心以 sidecar 嵌入)、五屏 UI、进程内插件级;卡片内反馈按钮/settings 反馈开关/采集量趋势已随桌面对齐批次落地、随下个发布版交付(反馈 CLI 已可用) | ✅ 已交付 |
-| v1.1.1 通路修复 | 桌面数据通路统一(MYIA_HOME/官方插件随包/首跑种子)、开箱 demo 插件、签名更新通道(检查更新 + 自动安装) | ✅ 已交付 |
+| v1.1.1 通路修复 | 桌面数据通路统一(MYIA_HOME/官方品类随包/首跑种子)、开箱 demo 品类、签名更新通道(检查更新 + 自动安装) | ✅ 已交付 |
 | Web UI | 同一核心上的浏览器前端 | 📋 规划中 |
 
 ## 伦理与边界

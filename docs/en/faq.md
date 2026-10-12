@@ -92,7 +92,7 @@ Credentials stored in the OS keychain (macOS Keychain / Windows DPAPI) never
 enter the repository, config files or logs; `myssia secret list` shows names
 only. The repository is public — zero credentials, intranet addresses or
 production corpora in the repo is the project's own red line, and every
-credential slot in the official plugins is a reference placeholder.
+credential slot in the official categories is a reference placeholder.
 
 ## Data and storage
 

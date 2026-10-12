@@ -88,7 +88,7 @@ import type {
 function fixtureSource(
   name: string,
   state: SourceHealthState,
-  latest: DoctorResult["plugins"][number]["sources"][number]["health"]["latest"] = null,
+  latest: DoctorResult["categories"][number]["sources"][number]["health"]["latest"] = null,
 ) {
   return {
     name,
@@ -100,7 +100,7 @@ function fixtureSource(
   };
 }
 
-function fixturePlugin(overrides: Partial<DoctorResult["plugins"][number]>) {
+function fixtureCategory(overrides: Partial<DoctorResult["categories"][number]>) {
   return {
     file: "tech.yaml",
     id: "tech",
@@ -123,15 +123,15 @@ function fixtureDoctor(overrides: Partial<DoctorResult> = {}): DoctorResult {
     generated_at: "2026-10-02T12:00:00+00:00",
     db: "myssia.db",
     healthy: true,
-    plugins: [
-      fixturePlugin({
+    categories: [
+      fixtureCategory({
         sources: [fixtureSource("hn", "ok"), fixtureSource("gh", "ok"), fixtureSource("blog", "degraded")],
       }),
     ],
     credentials: { backend_available: true, backend_error: null, entries: [] },
     proxy: { config: null, pools: [] },
     findings: [],
-    summary: { plugins: 1, sources: 3, errors: 0, warnings: 0 },
+    summary: { categories: 1, sources: 3, errors: 0, warnings: 0 },
     ...overrides,
   };
 }
@@ -249,9 +249,9 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [
-            fixturePlugin({ file: "tech.yaml", sources: [fixtureSource("hn", "ok")] }),
-            fixturePlugin({
+          categories: [
+            fixtureCategory({ file: "tech.yaml", sources: [fixtureSource("hn", "ok")] }),
+            fixtureCategory({
               file: "broken.yaml",
               name: "坏品类",
               loaded: false,
@@ -267,7 +267,7 @@ describe("DashboardScreen", () => {
             },
           ],
           healthy: false,
-          summary: { plugins: 2, sources: 1, errors: 1, warnings: 0 },
+          summary: { categories: 2, sources: 1, errors: 1, warnings: 0 },
         }),
       ),
       Promise.resolve({ runs: [] }),
@@ -289,8 +289,8 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [
-            fixturePlugin({
+          categories: [
+            fixtureCategory({
               sources: [
                 fixtureSource("a", "ok"),
                 fixtureSource("b", "ok"),
@@ -395,7 +395,7 @@ describe("DashboardScreen", () => {
   });
 
   it("空态:无品类、无 run 时给引导文案,成功率为 —(不虚构 0%)", async () => {
-    mockSidecar(Promise.resolve(fixtureDoctor({ plugins: [] })), Promise.resolve({ runs: [] }));
+    mockSidecar(Promise.resolve(fixtureDoctor({ categories: [] })), Promise.resolve({ runs: [] }));
     render(<DashboardScreen />);
 
     await screen.findByText("暂无品类");
@@ -412,8 +412,8 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [
-            fixturePlugin({
+          categories: [
+            fixtureCategory({
               sources: [fixtureSource("a", "ok"), fixtureSource("b", "ok"), fixtureSource("c", "ok")],
             }),
           ],
@@ -443,8 +443,8 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [
-            fixturePlugin({
+          categories: [
+            fixtureCategory({
               sources: [fixtureSource("a", "ok"), fixtureSource("b", "ok"), fixtureSource("deadone", "dead")],
             }),
           ],
@@ -467,7 +467,7 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok"), fixtureSource("b", "degraded")] })],
+          categories: [fixtureCategory({ sources: [fixtureSource("a", "ok"), fixtureSource("b", "degraded")] })],
           findings: [
             { severity: "warning", scope: "plugin:tech.yaml", code: "env_ref_missing", message: "缺环境变量" },
           ],
@@ -524,8 +524,8 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [
-            fixturePlugin({
+          categories: [
+            fixtureCategory({
               sources: [
                 fixtureSource("a", "ok"),
                 fixtureSource("deadone", "dead"),
@@ -566,7 +566,7 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          categories: [fixtureCategory({ sources: [fixtureSource("a", "ok")] })],
           findings: [
             { severity: "error", scope: "plugin:tech.yaml", code: "credentials", message: "缺凭据" },
           ],
@@ -590,7 +590,7 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [fixturePlugin({ sources: [fixtureSource("deadone", "dead"), fixtureSource("a", "ok")] })],
+          categories: [fixtureCategory({ sources: [fixtureSource("deadone", "dead"), fixtureSource("a", "ok")] })],
           findings: [
             { severity: "error", scope: "plugin:tech.yaml", code: "credentials", message: "缺凭据" },
             { severity: "warning", scope: "plugin:tech.yaml/source:a", code: "env_ref_missing", message: "缺环境变量" },
@@ -615,7 +615,7 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          categories: [fixtureCategory({ sources: [fixtureSource("a", "ok")] })],
           findings: [],
         }),
       ),
@@ -631,7 +631,7 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          categories: [fixtureCategory({ sources: [fixtureSource("a", "ok")] })],
           findings: [
             { severity: "warning", scope: "plugin:tech.yaml", code: "env_ref_missing", message: "缺环境变量 FOO" },
             { severity: "warning", scope: "plugin:tech.yaml", code: "env_ref_missing", message: "缺环境变量 BAR" },
@@ -654,7 +654,7 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          categories: [fixtureCategory({ sources: [fixtureSource("a", "ok")] })],
           findings: [
             { severity: "error", scope: "credentials", code: "missing", message: "缺少 TG_TOKEN 凭据" },
             { severity: "warning", scope: "store", code: "schema", message: "数据库版本偏低" },
@@ -696,7 +696,7 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          categories: [fixtureCategory({ sources: [fixtureSource("a", "ok")] })],
           findings: [
             info("gates", "third_party_trace"),
             info("plugin:yake", "gate_disabled"),
@@ -721,7 +721,7 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })],
+          categories: [fixtureCategory({ sources: [fixtureSource("a", "ok")] })],
           findings: [
             { severity: "warning" as const, scope: "credentials", code: "missing", message: "缺凭据" },
             { severity: "info", scope: "store", code: "hint", message: "知情提示,不是故障" },
@@ -809,7 +809,7 @@ describe("DashboardScreen", () => {
     const errorText =
       "[env_var_missing] 飞书 bot 凭据解析失败: 环境变量 FEISHU_BOT_TOKEN 未设置,钥匙链规范名 myia/push/FEISHU_BOT_TOKEN 亦未录入;到 设置→推送 填一次即可(或设置环境变量 FEISHU_BOT_TOKEN)——飞书 tenant token";
     mockSidecar(
-      Promise.resolve(fixtureDoctor({ plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })] })),
+      Promise.resolve(fixtureDoctor({ categories: [fixtureCategory({ sources: [fixtureSource("a", "ok")] })] })),
       Promise.resolve({
         runs: [
           fixtureHistoryRun({
@@ -843,7 +843,7 @@ describe("DashboardScreen", () => {
   it("推送失败徽章不抢 dry 首位:dry 活跃行带失败 stats → 首 Badge 仍 dry title,verdict 升「推送失败」", async () => {
     const today = new Date().toISOString().slice(0, 10);
     mockSidecar(
-      Promise.resolve(fixtureDoctor({ plugins: [fixturePlugin({ sources: [fixtureSource("a", "ok")] })] })),
+      Promise.resolve(fixtureDoctor({ categories: [fixtureCategory({ sources: [fixtureSource("a", "ok")] })] })),
       Promise.resolve({
         runs: [
           // 表内 running 行与注册表活跃 run 合并 → 同一行 active+dry 且带失败 stats
@@ -937,8 +937,8 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [
-            fixturePlugin({
+          categories: [
+            fixtureCategory({
               sources: [
                 fixtureSource("a", "ok"),
                 fixtureSource("b", "degraded"),
@@ -1003,8 +1003,8 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [
-            fixturePlugin({
+          categories: [
+            fixtureCategory({
               sources: [fixtureSource("a", "ok"), fixtureSource("b", "ok"), fixtureSource("c", "degraded")],
             }),
           ],
@@ -1228,7 +1228,7 @@ describe("DashboardScreen", () => {
       started_at: observedRunStarted,
       finished_at: new Date().toISOString(),
     });
-    const plugin = fixturePlugin({
+    const category = fixtureCategory({
       sources: [
         fixtureSource("hn", "ok", {
           run_id: observedRun.run_id,
@@ -1242,7 +1242,7 @@ describe("DashboardScreen", () => {
       ],
     });
     mockSidecar(
-      Promise.resolve(fixtureDoctor({ plugins: [plugin] })),
+      Promise.resolve(fixtureDoctor({ categories: [category] })),
       Promise.resolve({ runs: [observedRun] }),
     );
     render(<DashboardScreen />);
@@ -1272,8 +1272,8 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [
-            fixturePlugin({
+          categories: [
+            fixtureCategory({
               sources: [
                 fixtureSource("deadone", "dead"),
                 fixtureSource("okone", "ok"),
@@ -1313,7 +1313,7 @@ describe("DashboardScreen", () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
-          plugins: [fixturePlugin({ sources: [fixtureSource("deadone", "dead"), fixtureSource("d", "degraded")] })],
+          categories: [fixtureCategory({ sources: [fixtureSource("deadone", "dead"), fixtureSource("d", "degraded")] })],
         }),
       ),
       Promise.resolve({ runs: [] }),

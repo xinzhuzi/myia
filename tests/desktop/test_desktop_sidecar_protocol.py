@@ -259,9 +259,9 @@ def test_health_roundtrip_with_summary(tmp_path):
     assert "error" not in responses[0]
     assert result["exit_code"] == 0
     assert result["healthy"] is True
-    assert result["summary"]["plugins"] == 1
+    assert result["summary"]["categories"] == 1
     assert result["summary"]["unknown"] == 1  # 无运行记录 → unknown(非 dead)
-    plugin = result["plugins"][0]
+    plugin = result["categories"][0]
     assert plugin["loaded"] is True
     assert plugin["sources"][0]["health"]["state"] == "unknown"
 
@@ -296,7 +296,7 @@ def test_doctor_roundtrip(tmp_path):
     result = responses[0]["result"]
     assert result["exit_code"] == 0
     assert result["healthy"] is True
-    assert result["plugins"][0]["id"] == "proto-demo"
+    assert result["categories"][0]["id"] == "proto-demo"
     assert isinstance(result["findings"], list)
 
 
@@ -1399,7 +1399,7 @@ def test_health_first_run_flag_and_home_defaults(tmp_path, monkeypatch):
     code, responses, _ = rpc({"id": 2, "method": "health", "params": {}})
     result = responses[0]["result"]
     assert result["first_run"] is False
-    assert [plugin["id"] for plugin in result["plugins"]] == ["ai-news"]
+    assert [category["id"] for category in result["categories"]] == ["ai-news"]
 
 
 def test_health_explicit_params_win_over_env(tmp_path, monkeypatch):
@@ -1698,7 +1698,7 @@ def test_yaml_save_new_file_roundtrip_and_not_found_fork(tmp_path, monkeypatch):
     assert load_category_file(new_path).id == "fresh-pick"
     # doctor 识别(保存闭环的证据面)
     _, responses, _ = rpc({"id": 2, "method": "doctor", "params": {"yamls": [str(new_path)]}})
-    assert responses[0]["result"]["plugins"][0]["id"] == "fresh-pick"
+    assert responses[0]["result"]["categories"][0]["id"] == "fresh-pick"
     # list 识别;既有 demo.yaml 不被误伤(无 .bak)
     _, responses, _ = rpc({"id": 3, "method": "yaml.list"})
     names = [item["name"] for item in responses[0]["result"]["files"]]

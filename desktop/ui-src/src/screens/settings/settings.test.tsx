@@ -19,13 +19,13 @@ vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: vi.fn() }));
 import { SettingsScreen } from "./settings-screen";
 import type {
   CredentialEntry,
-  DoctorPluginReport,
+  DoctorCategoryReport,
   DoctorResult,
   EnrichSection,
   Finding,
   GatesSaveParams,
   GatesView,
-  PluginReport,
+  CategoryReport,
   ProxyPoolStatus,
   SecretSetParams,
 } from "@/lib/api";
@@ -34,8 +34,8 @@ import type {
 // 协议夹具(types.ts 逐字段对照)
 // ---------------------------------------------------------------------------
 
-function pluginFixture(file: string, overrides?: Partial<DoctorPluginReport>): DoctorPluginReport {
-  const base: PluginReport = {
+function categoryFixture(file: string, overrides?: Partial<DoctorCategoryReport>): DoctorCategoryReport {
+  const base: CategoryReport = {
     file,
     id: "stocks",
     name: "量化快讯",
@@ -67,14 +67,14 @@ function credentialFixture(overrides?: Partial<CredentialEntry>): CredentialEntr
     name: "myia/stocks/tg_token",
     ref: "keychain:myia/stocks/tg_token",
     paths: [{ plugin: "stocks", path: "$.push[1].target" }],
-    plugins: ["stocks"],
+    categories: ["stocks"],
     exists: true,
     ...overrides,
   };
 }
 
 function doctorFixture(overrides?: {
-  plugins?: DoctorPluginReport[];
+  categories?: DoctorCategoryReport[];
   credentials?: CredentialEntry[];
   findings?: Finding[];
   pools?: ProxyPoolStatus[];
@@ -87,7 +87,7 @@ function doctorFixture(overrides?: {
     db: "myssia.db",
     // 与 cli.py 同口径:healthy = 无 error 级 finding
     healthy: !findings.some((finding) => finding.severity === "error"),
-    plugins: overrides?.plugins ?? [],
+    categories: overrides?.categories ?? [],
     credentials: {
       backend_available: true,
       backend_error: null,
@@ -95,7 +95,7 @@ function doctorFixture(overrides?: {
     },
     proxy: { config: overrides?.config ?? null, pools: overrides?.pools ?? [] },
     findings,
-    summary: { plugins: overrides?.plugins?.length ?? 0, sources: 0, errors: 0, warnings: 0 },
+    summary: { categories: overrides?.categories?.length ?? 0, sources: 0, errors: 0, warnings: 0 },
   };
 }
 
@@ -344,8 +344,8 @@ describe("设置:doctor 验证回显", () => {
   it("挂载即 doctor:凭据存在性 / enrich 现值 / findings 结构化展示", async () => {
     installSidecar(() =>
       doctorFixture({
-        plugins: [
-          pluginFixture("config/stocks.yaml", {
+        categories: [
+          categoryFixture("config/stocks.yaml", {
             enrich: enrichFixture("glm-4-flash"),
           }),
         ],
@@ -587,7 +587,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
       secrets: new Map<string, string>(),
       doctorImpl: () =>
         doctorFixture({
-          plugins: [pluginFixture("config/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
+          categories: [categoryFixture("config/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
         }),
     };
     mocks.invoke.mockImplementation(
@@ -705,7 +705,7 @@ describe("设置:评分与反馈分区(B3+C11)", () => {
       async (_command: string, args: { method: string }) => {
         if (args.method === "doctor") {
           return doctorFixture({
-            plugins: [pluginFixture("config/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
+            categories: [categoryFixture("config/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
           });
         }
         if (args.method === "secret.list") return { names: [] };
@@ -1227,7 +1227,7 @@ describe("设置:高困惑字段 tooltip(预算护栏/池名/门槛件 API Key)"
   it("通用分区:预算护栏行(品类问号)+ 代理池池名 tooltip 挂通", async () => {
     installSidecar(() =>
       doctorFixture({
-        plugins: [pluginFixture("config/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
+        categories: [categoryFixture("config/stocks.yaml", { enrich: enrichFixture("glm-4-flash") })],
       }),
     );
     renderScreen();

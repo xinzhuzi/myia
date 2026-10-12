@@ -23,7 +23,7 @@
  * category 精确等值;未分类组不出钮、时间/不分组无组头入口)/
  * 全库两按钮 inline 二次确认(一次点击进确认态,再点执行;取消/Esc/失焦
  * 退出零执行);品类批量失败按快照只回滚作用域内行(域外组不动)。
- * topbar-cleanup 归位批(10-04):屏内品类下拉(health().plugins 词汇源,
+ * topbar-cleanup 归位批(10-04):屏内品类下拉(health().categories 词汇源,
  * value = 品类 id 服务端精确等值,「全部品类」= 不传参;不再吃 Outlet
  * context)+ 工具条一行收纳(KsFilter:品类下拉 + 读态分段 + 搜索 + 刷新
  * 同容器,刷新自页头迁入);纯函数 categoryOptionsFromHealth。
@@ -186,14 +186,14 @@ const webviewGetAllMock = (WebviewWindowMock as unknown as { getAll: import("vit
 
 import { FeedScreen } from "./feed-screen";
 
-/** 空流时 refresh 会追问 health(first_run 分叉);默认给「有插件」的最小应答 */
+/** 空流时 refresh 会追问 health(first_run 分叉);默认给「有品类」的最小应答 */
 function healthResult(overrides: Partial<HealthResult> = {}): HealthResult {
   return {
     command: "list",
     config_dir: "/home/config",
     db: "/home/myssia.db",
     store_error: null,
-    plugins: [
+    categories: [
       {
         file: "/home/config/ai-news.yaml",
         id: "ai-news",
@@ -206,7 +206,7 @@ function healthResult(overrides: Partial<HealthResult> = {}): HealthResult {
         sources: [],
       },
     ],
-    summary: { plugins: 1, sources: 0, ok: 0, degraded: 0, dead: 0, unknown: 0 },
+    summary: { categories: 1, sources: 0, ok: 0, degraded: 0, dead: 0, unknown: 0 },
     healthy: true,
     first_run: false,
     exit_code: 0,
@@ -293,8 +293,8 @@ async function freshScreenFind(
   return screen.findByTestId(testId);
 }
 
-/** 品类下拉选项用 PluginReport 夹具(形状对齐 types.ts;字段按需覆写) */
-function pluginEntry(overrides: Partial<HealthResult["plugins"][number]> = {}): HealthResult["plugins"][number] {
+/** 品类下拉选项用 CategoryReport 夹具(形状对齐 types.ts;字段按需覆写) */
+function categoryEntry(overrides: Partial<HealthResult["categories"][number]> = {}): HealthResult["categories"][number] {
   return {
     file: "/home/config/x.yaml",
     id: "x",
@@ -361,7 +361,7 @@ async function importFreshScreen() {
   };
 }
 
-// G12 夹具:plugins 目录两个 YAML(一好一坏)+ 目标原文(流式 keywords)
+// G12 夹具:config 目录两个 YAML(一好一坏)+ 目标原文(流式 keywords)
 const G12_FILES = [
   {
     file: "/home/config/ai-news.yaml",
@@ -642,7 +642,7 @@ describe("FeedScreen", () => {
 
   it("空态 first_run 分支:无插件给初始化引导 + 去源管理,无运行 CTA", async () => {
     storeItemsMock.mockResolvedValue(result([]));
-    healthMock.mockResolvedValue(healthResult({ first_run: true, plugins: [] }));
+    healthMock.mockResolvedValue(healthResult({ first_run: true, categories: [] }));
     renderScreen();
 
     expect(await screen.findByText("还没有可运行的插件")).toBeTruthy();
@@ -695,10 +695,10 @@ describe("FeedScreen", () => {
   it("1 级类型卡墙(v8 AC29):类型以现存源划分出卡(渠道数 = 成员全集),竖版 min-h,计数已加载口径 title;渠道行退到 2 级", async () => {
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [
-          pluginEntry({ id: "telegram", sources: [sourceEntry("telegram-durov", "tg_web")] }),
-          pluginEntry({ id: "daily", sources: [sourceEntry("daily-digest", "prompt")] }),
-          pluginEntry({ id: "web", sources: [sourceEntry("openai-news", "static_html")] }),
+        categories: [
+          categoryEntry({ id: "telegram", sources: [sourceEntry("telegram-durov", "tg_web")] }),
+          categoryEntry({ id: "daily", sources: [sourceEntry("daily-digest", "prompt")] }),
+          categoryEntry({ id: "web", sources: [sourceEntry("openai-news", "static_html")] }),
         ],
       }),
     );
@@ -1659,7 +1659,7 @@ describe("FeedScreen · interaction-batch(A-feed,v8 三层单环)", () => {
     localStorageStub.clear();
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [pluginEntry({ id: "idle", sources: [sourceEntry("idle-source", "static_html")] })],
+        categories: [categoryEntry({ id: "idle", sources: [sourceEntry("idle-source", "static_html")] })],
       }),
     );
     storeItemsMock.mockResolvedValue(result([]));
@@ -2697,7 +2697,7 @@ describe("feed later 到期重现 纯函数(api.ts)", () => {
 // ---------------------------------------------------------------------------
 
 /** health 夹具源条目(SourceReport 形状;engine = 渠道类型判定词表源) */
-function sourceEntry(name: string, engine: string): HealthResult["plugins"][number]["sources"][number] {
+function sourceEntry(name: string, engine: string): HealthResult["categories"][number]["sources"][number] {
   return {
     name,
     url: "https://example.com",
@@ -2751,7 +2751,7 @@ describe("FeedScreen · feed-channel-groups(渠道流差异化 + 实时滚动 + 
   it("urlwatch 渠道详情(engine 映射):「有更新」徽标 + 目标页链接(watch_page)+ 展开 diff 明细", async () => {
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [pluginEntry({ id: "ai-news", sources: [sourceEntry("anthropic-news-watch", "urlwatch")] })],
+        categories: [categoryEntry({ id: "ai-news", sources: [sourceEntry("anthropic-news-watch", "urlwatch")] })],
       }),
     );
     storeItemsMock.mockResolvedValue(
@@ -2782,7 +2782,7 @@ describe("FeedScreen · feed-channel-groups(渠道流差异化 + 实时滚动 + 
   it("prompt 日报渠道详情(engine 映射):markdown 文档视图可折叠——收起单行摘要,展开出标题/列表/加粗", async () => {
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [pluginEntry({ id: "ai-vendor-watch", sources: [sourceEntry("ai-vendor-watch", "prompt")] })],
+        categories: [categoryEntry({ id: "ai-vendor-watch", sources: [sourceEntry("ai-vendor-watch", "prompt")] })],
       }),
     );
     storeItemsMock.mockResolvedValue(
@@ -2987,12 +2987,12 @@ describe("feed channel-groups 纯函数(api.ts)", () => {
   });
 
   it("engineMapFromHealth:源名→engine 首现优先去重;空/无源插件空映射", () => {
-    const plugins = [
-      pluginEntry({ sources: [sourceEntry("a", "urlwatch"), sourceEntry("b", "static_html")] }),
-      pluginEntry({ sources: [sourceEntry("a", "prompt")] }), // 同名源首现优先
-      pluginEntry({ sources: [] }),
+    const categories = [
+      categoryEntry({ sources: [sourceEntry("a", "urlwatch"), sourceEntry("b", "static_html")] }),
+      categoryEntry({ sources: [sourceEntry("a", "prompt")] }), // 同名源首现优先
+      categoryEntry({ sources: [] }),
     ];
-    const engines = engineMapFromHealth(plugins);
+    const engines = engineMapFromHealth(categories);
     expect(engines.get("a")).toBe("urlwatch");
     expect(engines.get("b")).toBe("static_html");
     expect(engines.size).toBe(2);
@@ -3144,9 +3144,9 @@ describe("FeedScreen · 渠道行零条目也出行(v8 AC30,v6 AC20 迁移)", ()
   it("health 源无条目 = 出行给知会词(零条目渠道不消失);未读徽标不渲染", async () => {
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [
-          pluginEntry({ id: "live", sources: [sourceEntry("live-source", "static_html")] }),
-          pluginEntry({ id: "idle", sources: [sourceEntry("idle-source", "static_html")] }),
+        categories: [
+          categoryEntry({ id: "live", sources: [sourceEntry("live-source", "static_html")] }),
+          categoryEntry({ id: "idle", sources: [sourceEntry("idle-source", "static_html")] }),
         ],
       }),
     );
@@ -3180,9 +3180,9 @@ describe("FeedScreen · tg-category-entry 监控台(v7:TG 选中左栏顶部常�
     versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [
-          pluginEntry({ id: "telegram", name: "Telegram 监控", sources: [sourceEntry("telegram-seed", "tg_web")] }),
-          pluginEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
+        categories: [
+          categoryEntry({ id: "telegram", name: "Telegram 监控", sources: [sourceEntry("telegram-seed", "tg_web")] }),
+          categoryEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
         ],
       }),
     );
@@ -3439,13 +3439,13 @@ describe("FeedScreen · tg-chat-two-pane(3 级 TG 群对话式双栏,10-11)", ()
     });
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [
-          pluginEntry({
+        categories: [
+          categoryEntry({
             id: "telegram",
             name: "Telegram 监控",
             sources: groups.map((name) => sourceEntry(name, "tg_web")),
           }),
-          pluginEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
+          categoryEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
         ],
       }),
     );
@@ -3630,9 +3630,9 @@ describe("FeedScreen · tg-multi-account-groups v5(2 级 Telegram 账号区)", (
   function mockAccountsWorld() {
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [
-          pluginEntry({ id: "telegram", name: "Telegram 监控", sources: [sourceEntry("telegram-seed", "tg_web")] }),
-          pluginEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
+        categories: [
+          categoryEntry({ id: "telegram", name: "Telegram 监控", sources: [sourceEntry("telegram-seed", "tg_web")] }),
+          categoryEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
         ],
       }),
     );
@@ -3817,13 +3817,13 @@ describe("FeedScreen · tg-chat-two-pane 补批(grill 一轮)", () => {
     });
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [
-          pluginEntry({
+        categories: [
+          categoryEntry({
             id: "telegram",
             name: "Telegram 监控",
             sources: groups.map((name) => sourceEntry(name, "tg_web")),
           }),
-          pluginEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
+          categoryEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
         ],
       }),
     );
@@ -4029,10 +4029,10 @@ describe("FeedScreen · v9 原生视图切换(design-v9 照稿)", () => {
     versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [
-          pluginEntry({ id: "telegram", name: "Telegram 监控", sources: [sourceEntry("telegram-seed", "tg_web")] }),
-          pluginEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
-          pluginEntry({ id: "daily", name: "日报", sources: [sourceEntry("daily-digest", "prompt")] }),
+        categories: [
+          categoryEntry({ id: "telegram", name: "Telegram 监控", sources: [sourceEntry("telegram-seed", "tg_web")] }),
+          categoryEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
+          categoryEntry({ id: "daily", name: "日报", sources: [sourceEntry("daily-digest", "prompt")] }),
         ],
       }),
     );
@@ -4609,7 +4609,7 @@ describe("FeedScreen · 深审修复批(F2/F4/F5/F6,v7 双缓冲双票迁移)", 
   it("F4:markdown 文档链接走 openInBrowser 受控门(默认导航被拦,shell.open 收到 URL)", async () => {
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [pluginEntry({ id: "ai-vendor-watch", sources: [sourceEntry("ai-vendor-watch", "prompt")] })],
+        categories: [categoryEntry({ id: "ai-vendor-watch", sources: [sourceEntry("ai-vendor-watch", "prompt")] })],
       }),
     );
     storeItemsMock.mockResolvedValue(
@@ -5132,7 +5132,7 @@ describe("FeedScreen · v8 三级界面(AC29-32 新增面)", () => {
     // health 有源(零条目)→ channelCards 非空、catalogItems 空
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [pluginEntry({ id: "idle", sources: [sourceEntry("idle-source", "static_html")] })],
+        categories: [categoryEntry({ id: "idle", sources: [sourceEntry("idle-source", "static_html")] })],
       }),
     );
     storeItemsMock.mockResolvedValue(result([]));
@@ -5151,9 +5151,9 @@ describe("FeedScreen · v8 三级界面(AC29-32 新增面)", () => {
     versionMock.mockResolvedValue(versionResult(STATS_PROTOCOL));
     healthMock.mockResolvedValue(
       healthResult({
-        plugins: [
-          pluginEntry({ id: "web", sources: [sourceEntry("openai-news", "static_html")] }),
-          pluginEntry({ id: "hot", sources: [sourceEntry("hot-outside", "static_html")] }),
+        categories: [
+          categoryEntry({ id: "web", sources: [sourceEntry("openai-news", "static_html")] }),
+          categoryEntry({ id: "hot", sources: [sourceEntry("hot-outside", "static_html")] }),
         ],
       }),
     );

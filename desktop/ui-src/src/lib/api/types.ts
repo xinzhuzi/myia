@@ -104,7 +104,7 @@ export interface LoadErrorDetail {
   message: string;
 }
 
-export interface PluginReport {
+export interface CategoryReport {
   file: string;
   id: string | null;
   name: string | null;
@@ -118,7 +118,7 @@ export interface PluginReport {
 }
 
 export interface HealthSummary {
-  plugins: number;
+  categories: number;
   sources: number;
   ok: number;
   degraded: number;
@@ -137,7 +137,7 @@ export interface HealthResult {
   config_dir: string;
   db: string;
   store_error: StoreErrorDetail | null;
-  plugins: PluginReport[];
+  categories: CategoryReport[];
   summary: HealthSummary;
   /** healthy 语义对齐 doctor:dead=error 级;degraded 只算 warning */
   healthy: boolean;
@@ -224,7 +224,7 @@ export interface EnrichSection {
   cache_rows?: number | null;
 }
 
-export interface DoctorPluginReport extends PluginReport {
+export interface DoctorCategoryReport extends CategoryReport {
   /** 调度下次触发时间(ISO,品类时区换算);计算失败为 null */
   next_fire_at: string | null;
   enrich: EnrichSection | null;
@@ -234,8 +234,8 @@ export interface CredentialEntry {
   kind: "env" | "keychain";
   name: string;
   ref: string;
-  paths: { plugin: string; path: string }[];
-  plugins: string[];
+  paths: { category: string; path: string }[];
+  categories: string[];
   /** true/false=存在性;null=无法核验(无钥匙链后端) */
   exists: boolean | null;
   /** keychain 引用名非规范形式(myia/<scope>/<name>)时的迁移提示 */
@@ -265,7 +265,7 @@ export interface DoctorResult {
   db: string;
   /** healthy = 无 error 级 finding */
   healthy: boolean;
-  plugins: DoctorPluginReport[];
+  categories: DoctorCategoryReport[];
   credentials: {
     backend_available: boolean;
     backend_error: string | null;
@@ -279,7 +279,7 @@ export interface DoctorResult {
   };
   findings: Finding[];
   summary: {
-    plugins: number;
+    categories: number;
     sources: number;
     errors: number;
     warnings: number;

@@ -35,7 +35,7 @@ import type {
   CronListResult,
   CronStatusResult,
   HealthResult,
-  PluginReport,
+  CategoryReport,
   YamlListResult,
 } from "@/lib/api";
 import { CronScreen } from "./cron-screen";
@@ -1165,8 +1165,8 @@ describe("#27 编辑示 id(G7;AC4)", () => {
 
 const SCHED_FILE = "config/ai-news.yaml";
 
-/** 品类夹具(排程一览只吃 health.plugins 层,sources 一律空) */
-function schedPlugin(file: string, id: string, schedule: string | null): PluginReport {
+/** 品类夹具(排程一览只吃 health.categories 层,sources 一律空) */
+function schedCategory(file: string, id: string, schedule: string | null): CategoryReport {
   return {
     file,
     id,
@@ -1180,14 +1180,14 @@ function schedPlugin(file: string, id: string, schedule: string | null): PluginR
   };
 }
 
-function schedHealth(plugins: PluginReport[]): HealthResult {
+function schedHealth(categories: CategoryReport[]): HealthResult {
   return {
     command: "list",
     config_dir: "config",
     db: "myssia.db",
     store_error: null,
-    plugins,
-    summary: { plugins: plugins.length, sources: 0, ok: 0, degraded: 0, dead: 0, unknown: 0 },
+    categories,
+    summary: { categories: categories.length, sources: 0, ok: 0, degraded: 0, dead: 0, unknown: 0 },
     healthy: true,
     exit_code: 0,
   };
@@ -1200,8 +1200,8 @@ describe("排程一览(自源管理迁入)", () => {
       "cron.status": () => STATUS_OK,
       health: () =>
         schedHealth([
-          schedPlugin(SCHED_FILE, "ai-news", "*/15 * * * *"),
-          schedPlugin("config/nosched.yaml", "nosched", null),
+          schedCategory(SCHED_FILE, "ai-news", "*/15 * * * *"),
+          schedCategory("config/nosched.yaml", "nosched", null),
         ]),
       "schedule.preview": (params) => {
         const { file } = params as { file: string };
@@ -1238,7 +1238,7 @@ describe("排程一览(自源管理迁入)", () => {
       "cron.list": () => listResult([]),
       "cron.status": () => STATUS_OK,
       health: () =>
-        schedHealth([schedPlugin(SCHED_FILE, "ai-news", "0 9 * * *"), schedPlugin("config/bad.yaml", "bad", null)]),
+        schedHealth([schedCategory(SCHED_FILE, "ai-news", "0 9 * * *"), schedCategory("config/bad.yaml", "bad", null)]),
       "schedule.preview": (params) => {
         const { file } = params as { file: string };
         if (file.endsWith("bad.yaml")) {
@@ -1277,7 +1277,7 @@ describe("排程一览(自源管理迁入)", () => {
       "cron.list": () => listResult([]),
       "cron.status": () => STATUS_OK,
       health: () =>
-        schedHealth([schedPlugin(SCHED_FILE, "ai-news", "*/15 * * * *"), schedPlugin("config/weekly.yaml", "weekly", null)]),
+        schedHealth([schedCategory(SCHED_FILE, "ai-news", "*/15 * * * *"), schedCategory("config/weekly.yaml", "weekly", null)]),
       "schedule.preview": (params) => {
         const { file } = params as { file: string };
         return { file, schedule: "*/15 * * * *", timezone: "Asia/Shanghai", runs: ["2026-10-04T09:00:00+08:00"] };
@@ -1334,7 +1334,7 @@ describe("排程一览(自源管理迁入)", () => {
     mockSidecar({
       "cron.list": () => listResult([]),
       "cron.status": () => STATUS_OK,
-      health: () => schedHealth([schedPlugin(SCHED_FILE, "ai-news", "*/15 * * * *")]),
+      health: () => schedHealth([schedCategory(SCHED_FILE, "ai-news", "*/15 * * * *")]),
       "schedule.preview": (params) => {
         const { file } = params as { file: string };
         return { file, schedule: "*/15 * * * *", timezone: "Asia/Shanghai", runs: ["2026-10-04T09:00:00+08:00"] };

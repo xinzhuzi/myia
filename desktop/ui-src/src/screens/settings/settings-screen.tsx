@@ -311,16 +311,16 @@ function EnrichFeedbackCard({
           /* Kestra SettingRow 扁平化:逐品类 = 开关行 + model 行,行间细线,
              控件右缘与全卡行对齐同一轨(不再嵌套内缩盒) */
           <div className="divide-y divide-border/60">
-            {enrichSections.map(({ pluginFile, enrich }) => {
-              const row = rowState(pluginFile);
+            {enrichSections.map(({ categoryFile, enrich }) => {
+              const row = rowState(categoryFile);
               const modelValue = row.modelDraft || enrich.model;
               const modelDirty = row.modelDraft !== "" && row.modelDraft !== enrich.model;
               return (
-                <div key={pluginFile} data-testid={`enrich-row-${pluginFile}`} className="flex flex-col">
+                <div key={categoryFile} data-testid={`enrich-row-${categoryFile}`} className="flex flex-col">
                   <SettingRow
                     label={
                       <LabelHint
-                        label={pluginFile.split("/").pop() ?? pluginFile}
+                        label={categoryFile.split("/").pop() ?? categoryFile}
                         tip="开 = 每条情报交给 AI 打个分再入库。预算护栏限制一轮采集最多花多少钱,超了就停;这里是只读回显,想改数额到「YAML配置」改品类文件里的 budget_per_run。"
                       />
                     }
@@ -333,25 +333,25 @@ function EnrichFeedbackCard({
                     <Switch
                       checked={enrich.enabled}
                       disabled={row.saving}
-                      aria-label={`精评开关 ${pluginFile}`}
+                      aria-label={`精评开关 ${categoryFile}`}
                       title="切换即写回品类 YAML enrich.enabled(yaml.save,注释保真)"
                       onCheckedChange={() =>
                         void writeNode(
-                          pluginFile,
+                          categoryFile,
                           "enabled",
                           enrich.enabled ? "false" : "true",
-                          `${pluginFile} 精评已${enrich.enabled ? "停用" : "启用"}(enrich.enabled 写回,doctor 已复核)。`,
+                          `${categoryFile} 精评已${enrich.enabled ? "停用" : "启用"}(enrich.enabled 写回,doctor 已复核)。`,
                         )
                       }
                     />
                   </SettingRow>
                   <FieldInput
                     label="enrich.model"
-                    aria-label={`精评模型 ${pluginFile}`}
+                    aria-label={`精评模型 ${categoryFile}`}
                     placeholder={enrich.model}
                     value={modelValue}
                     hint="写回品类 YAML enrich.model(yaml.save;doctor 回显为现值)"
-                    onChange={(event) => setRowState(pluginFile, { modelDraft: event.target.value })}
+                    onChange={(event) => setRowState(categoryFile, { modelDraft: event.target.value })}
                     action={
                       <Button
                         size="sm"
@@ -359,10 +359,10 @@ function EnrichFeedbackCard({
                         title={modelDirty ? "写回 enrich.model" : "与现值一致,无需保存"}
                         onClick={() =>
                           void writeNode(
-                            pluginFile,
+                            categoryFile,
                             "model",
                             modelValue.trim(),
-                            `${pluginFile} enrich.model 已写回(${modelValue.trim()}),doctor 已复核。`,
+                            `${categoryFile} enrich.model 已写回(${modelValue.trim()}),doctor 已复核。`,
                           )
                         }
                       >

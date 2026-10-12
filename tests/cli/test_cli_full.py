@@ -304,7 +304,7 @@ class TestSourceHealth:
         code = main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         assert code == EXIT_OK
         payload = json.loads(capsys.readouterr().out)
-        source = payload["plugins"][0]["sources"][0]
+        source = payload["categories"][0]["sources"][0]
         assert source["health"]["state"] == "degraded"
         assert source["health"]["latest"]["run_status"] == "success"
         assert "0 条" in source["health"]["reason"]
@@ -316,7 +316,7 @@ class TestSourceHealth:
 
         main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        source = payload["plugins"][0]["sources"][0]
+        source = payload["categories"][0]["sources"][0]
         assert source["health"]["state"] == "ok"
         assert source["fingerprint_skips"] == {"observed": 1, "skipped": 1}
 
@@ -327,7 +327,7 @@ class TestSourceHealth:
 
         main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        assert payload["plugins"][0]["sources"][0]["health"]["state"] == "ok"
+        assert payload["categories"][0]["sources"][0]["health"]["state"] == "ok"
 
     def test_three_consecutive_failures_are_dead(self, tmp_path, capsys):
         """连续 3 轮采集失败:dead。"""
@@ -336,7 +336,7 @@ class TestSourceHealth:
 
         main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        assert payload["plugins"][0]["sources"][0]["health"]["state"] == "dead"
+        assert payload["categories"][0]["sources"][0]["health"]["state"] == "dead"
 
     def test_two_failures_are_not_dead(self, tmp_path, capsys):
         """失败不足 3 轮:degraded(未满死线),不到 dead。"""
@@ -345,7 +345,7 @@ class TestSourceHealth:
 
         main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        assert payload["plugins"][0]["sources"][0]["health"]["state"] == "degraded"
+        assert payload["categories"][0]["sources"][0]["health"]["state"] == "degraded"
 
     def test_baseline_drop_needs_five_history_samples(self, tmp_path, capsys):
         """基线判据:被评判轮**之前**满 5 个历史样本且本轮 <50% → degraded。"""
@@ -356,7 +356,7 @@ class TestSourceHealth:
 
         main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        source = payload["plugins"][0]["sources"][0]
+        source = payload["categories"][0]["sources"][0]
         # 5 个历史样本(不含被评判轮),基线 10.0,3 < 5.0 → degraded
         assert source["health"]["state"] == "degraded"
         assert source["health"]["baseline"] == 10.0
@@ -371,7 +371,7 @@ class TestSourceHealth:
 
         main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        source = payload["plugins"][0]["sources"][0]
+        source = payload["categories"][0]["sources"][0]
         # 历史样本只有 4 个(<5)→ 基线判据不参与,只看 0 条判据 → ok
         assert source["health"]["state"] == "ok"
         assert source["health"]["baseline"] is None
@@ -385,7 +385,7 @@ class TestSourceHealth:
 
         main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        assert payload["plugins"][0]["sources"][0]["health"]["state"] == "ok"
+        assert payload["categories"][0]["sources"][0]["health"]["state"] == "ok"
 
     def test_no_history_is_unknown(self, tmp_path, capsys):
         """store 无运行记录:unknown,不误报。"""
@@ -394,7 +394,7 @@ class TestSourceHealth:
 
         main(["list", "--config-dir", str(make_plugin_dir(tmp_path)), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        assert payload["plugins"][0]["sources"][0]["health"]["state"] == "unknown"
+        assert payload["categories"][0]["sources"][0]["health"]["state"] == "unknown"
 
     def test_list_missing_dir_exit_one(self, tmp_path, capsys):
         """配置目录不存在:结构化报错,退出码 1。"""
@@ -420,11 +420,11 @@ class TestDoctor:
         code = main(["doctor", yaml_path, "--db", str(db), "--json"])
         assert code == EXIT_OK
         payload = json.loads(capsys.readouterr().out)
-        for key in ("command", "generated_at", "db", "healthy", "plugins", "credentials", "proxy", "findings", "summary"):
+        for key in ("command", "generated_at", "db", "healthy", "categories", "credentials", "proxy", "findings", "summary"):
             assert key in payload
         assert payload["healthy"] is True
         assert payload["findings"] == []
-        plugin = payload["plugins"][0]
+        plugin = payload["categories"][0]
         assert plugin["loaded"] is True
         assert plugin["sources"][0]["health"]["state"] == "ok"
         assert plugin["sources"][0]["engine_hint"] is None
@@ -439,7 +439,7 @@ class TestDoctor:
 
         main(["doctor", yaml_path, "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        next_fire = payload["plugins"][0]["next_fire_at"]
+        next_fire = payload["categories"][0]["next_fire_at"]
         assert next_fire is not None
         assert datetime.fromisoformat(next_fire) > datetime.now(UTC)
 
@@ -454,7 +454,7 @@ class TestDoctor:
         assert code == EXIT_OK  # 诊断完成即 0,问题落在 findings
         payload = json.loads(capsys.readouterr().out)
         assert payload["healthy"] is False
-        plugin = payload["plugins"][0]
+        plugin = payload["categories"][0]
         assert plugin["loaded"] is False
         error = plugin["load_errors"][0]
         assert error["error_type"] == "credential_plaintext"
@@ -471,7 +471,7 @@ class TestDoctor:
         code = main(["doctor", yaml_path, "--db", str(db), "--json"])
         assert code == EXIT_OK
         payload = json.loads(capsys.readouterr().out)
-        assert payload["plugins"][0]["sources"][0]["health"]["state"] == "dead"
+        assert payload["categories"][0]["sources"][0]["health"]["state"] == "dead"
         finding = next(f for f in payload["findings"] if f["code"] == "source_dead")
         assert finding["severity"] == "error"
         assert "source:api" in finding["scope"]
@@ -484,7 +484,7 @@ class TestDoctor:
 
         main(["doctor", yaml_path, "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        source = payload["plugins"][0]["sources"][0]
+        source = payload["categories"][0]["sources"][0]
         assert source["health"]["state"] == "degraded"
         assert source["health"]["latest"]["run_status"] == "success"
         finding = next(f for f in payload["findings"] if f["code"] == "source_degraded")
@@ -504,7 +504,7 @@ class TestDoctor:
         code = main(["doctor", yaml_path, "--db", str(db), "--json"])
         assert code == EXIT_OK
         payload = json.loads(capsys.readouterr().out)
-        source = payload["plugins"][0]["sources"][0]
+        source = payload["categories"][0]["sources"][0]
         assert source["health"]["state"] == "ok"
         assert "empty_ok" in source["health"]["reason"]
         assert not [f for f in payload["findings"] if f["code"] == "source_degraded"]
@@ -559,8 +559,8 @@ class TestDoctor:
             "kind": "env",
             "name": "MYIA_T_DOCTOR_TOKEN",
             "ref": "Bearer env:MYIA_T_DOCTOR_TOKEN",
-            "paths": [{"plugin": "demo", "path": "$.sources[0].headers.Authorization"}],
-            "plugins": ["demo"],
+            "paths": [{"category": "demo", "path": "$.sources[0].headers.Authorization"}],
+            "categories": ["demo"],
             "exists": False,
         }
         finding = next(f for f in payload["findings"] if f["code"] == "env_ref_missing")
@@ -581,7 +581,7 @@ class TestDoctor:
 
         main(["doctor", yaml_path, "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        enrich = payload["plugins"][0]["enrich"]
+        enrich = payload["categories"][0]["enrich"]
         assert enrich["enabled"] is True
         assert enrich["budget_per_run"] == 12345
         assert enrich["cache"] is True
@@ -734,7 +734,7 @@ class TestDoctor:
 
         main(["doctor", "--config-dir", str(directory), "--db", str(db), "--json"])
         payload = json.loads(capsys.readouterr().out)
-        loaded = {plugin["file"]: plugin["loaded"] for plugin in payload["plugins"]}
+        loaded = {plugin["file"]: plugin["loaded"] for plugin in payload["categories"]}
         assert loaded == {str(directory / "bad.yaml"): False, str(directory / "demo.yaml"): True}
         assert payload["healthy"] is False
 
@@ -1107,14 +1107,14 @@ class TestJsonContract:
         list_payload = json.loads(capsys.readouterr().out)  # 双文档 → Extra data 崩
         assert list_code == EXIT_OK
         assert list_payload["store_error"]["error_type"] == "store_corrupt"
-        assert list_payload["plugins"][0]["sources"][0]["health"]["reason"].startswith("存储无法打开")
+        assert list_payload["categories"][0]["sources"][0]["health"]["reason"].startswith("存储无法打开")
 
         doctor_code = main(["doctor", yaml_path, "--db", str(db), "--json"])
         doctor_payload = json.loads(capsys.readouterr().out)
         assert doctor_code == EXIT_OK
         assert doctor_payload["healthy"] is False
         assert any(f["code"] == "store_error" for f in doctor_payload["findings"])
-        assert doctor_payload["plugins"][0]["sources"][0]["health"]["reason"].startswith("存储无法打开")
+        assert doctor_payload["categories"][0]["sources"][0]["health"]["reason"].startswith("存储无法打开")
 
 
 # ---------------------------------------------------------------------------

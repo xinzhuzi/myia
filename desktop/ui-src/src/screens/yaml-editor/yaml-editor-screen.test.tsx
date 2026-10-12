@@ -68,7 +68,7 @@ function doctorOk(file: string, name: string, sources: number): DoctorResult {
     generated_at: "2026-10-03T10:00:00.000Z",
     db: "myssia.db",
     healthy: true,
-    plugins: [
+    categories: [
       {
         file,
         id: "ai-news",
@@ -99,7 +99,7 @@ function doctorOk(file: string, name: string, sources: number): DoctorResult {
     credentials: { backend_available: true, backend_error: null, entries: [] },
     proxy: { config: null, pools: [] },
     findings: [],
-    summary: { plugins: 1, sources, errors: 0, warnings: 0 },
+    summary: { categories: 1, sources, errors: 0, warnings: 0 },
   };
 }
 
@@ -316,7 +316,7 @@ describe("YAML配置:文件列表与读取", () => {
       expect(editor().value).toContain("# 头注释:逐字节保真的原文");
     });
     expect(lastCall("yaml.read")?.params).toEqual({ file: AI });
-    // 决议 10:完整路径可见(dev 模式即仓库 plugins/…,透明自担)
+    // 决议 10:完整路径可见(dev 模式即仓库 config/…,透明自担)
     expect(screen.getByTestId("editor-path").textContent).toBe(AI);
     // 读取只发生一次(预选不重复打开)
     expect(mocks.invoke.mock.calls.filter(([, args]) => (args as { method: string }).method === "yaml.read").length).toBe(1);

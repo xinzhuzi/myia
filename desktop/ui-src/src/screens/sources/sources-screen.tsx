@@ -42,7 +42,7 @@ interface ToggleOutcome {
 interface TestState {
   jobId: number;
   sourceName: string;
-  /** 行键(pluginFile::sourceName,spinner 定位) */
+  /** 行键(categoryFile::sourceName,spinner 定位) */
   key: string;
 }
 
@@ -135,11 +135,11 @@ export function SourcesScreen() {
   const handleTest = useCallback(async (row: SourceRow) => {
     setTestOutcome(null);
     try {
-      const started = await api.sourcesTest({ file: row.pluginFile, source: row.sourceName });
+      const started = await api.sourcesTest({ file: row.categoryFile, source: row.sourceName });
       setTesting({
         jobId: started.job_id,
         sourceName: row.sourceName,
-        key: sourceKey(row.pluginFile, row.sourceName),
+        key: sourceKey(row.categoryFile, row.sourceName),
       });
     } catch (error) {
       const failure = asSidecarError(error);
@@ -183,12 +183,12 @@ export function SourcesScreen() {
 
   const handleToggle = useCallback(
     async (row: SourceRow, next: boolean) => {
-      const key = sourceKey(row.pluginFile, row.sourceName);
+      const key = sourceKey(row.categoryFile, row.sourceName);
       setOutcome(null);
       setPendingKeys((prev) => new Set(prev).add(key));
       try {
         const result = await writeSourceToggle({
-          file: row.pluginFile,
+          file: row.categoryFile,
           ...(next ? { enable: [row.sourceName] } : { disable: [row.sourceName] }),
         });
         setDisabledByFile((prev) => ({ ...prev, [result.file]: result.disabled }));
@@ -313,13 +313,13 @@ export function SourcesScreen() {
             pendingKeys={pendingKeys}
             testingKey={testing?.key ?? null}
             onToggle={(row, next) => void handleToggle(row, next)}
-            onEdit={(row) => setEditingFile(row.pluginFile)}
+            onEdit={(row) => setEditingFile(row.categoryFile)}
             onTest={(row) => void handleTest(row)}
             onRefresh={() => void reload()}
             refreshing={refreshing}
           />
         ) : state.status === "ready" ? (
-          state.data && state.data.summary.plugins > 0 ? (
+          state.data && state.data.summary.categories > 0 ? (
             <EmptyState
               title="还没有源数据"
               description="已装品类存在但都没有声明源;品类 YAML 的 sources: 节为空或加载失败"
@@ -363,7 +363,7 @@ export function SourcesScreen() {
                       onClick={() => {
                         const row = rows.find(
                           (candidate) =>
-                            candidate.sourceName === entry.name && candidate.pluginFile === entry.file,
+                            candidate.sourceName === entry.name && candidate.categoryFile === entry.file,
                         );
                         if (row) {
                           void handleToggle(row, true);
@@ -372,7 +372,7 @@ export function SourcesScreen() {
                           void handleToggle(
                             {
                               ...sourceRowShell,
-                              pluginFile: entry.file,
+                              categoryFile: entry.file,
                               sourceName: entry.name,
                             },
                             true,
@@ -408,12 +408,12 @@ export function SourcesScreen() {
 
 /** 启用按钮的兜底行(行不在表里时仍可发起 enable 写回;只带键位字段) */
 const sourceRowShell: SourceRow = {
-  pluginFile: "",
-  pluginId: null,
-  pluginName: null,
-  pluginLoaded: true,
-  pluginLoadErrors: null,
-  pluginSchedule: null,
+  categoryFile: "",
+  categoryId: null,
+  categoryName: null,
+  categoryLoaded: true,
+  categoryLoadErrors: null,
+  categorySchedule: null,
   sourceName: "",
   url: "",
   engine: "",

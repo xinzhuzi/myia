@@ -143,20 +143,20 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     };
   }, [mounted]);
 
-  /** 跑一次:health → 第一个可加载插件 → run.start(品类定位已随品类组退役) */
+  /** 跑一次:health → 第一个可加载品类 → run.start(品类定位已随品类组退役) */
   const runOnce = useCallback(async () => {
     if (runStarting) return;
     setRunStarting(true);
     setRunError(null);
     try {
       const health = await api.health();
-      const plugin = health.plugins.find((candidate) => candidate.loaded) ?? health.plugins[0];
-      if (!plugin) {
+      const category = health.categories.find((candidate) => candidate.loaded) ?? health.categories[0];
+      if (!category) {
         // 保持打开,错误在面板脚注可见
-        setRunError("插件目录为空:重启应用触发首跑初始化,或到「源管理」检查插件目录。");
+        setRunError("配置目录为空:重启应用触发首跑初始化,或到「源管理」检查品类。");
         return;
       }
-      await api.runStart({ yaml: plugin.file });
+      await api.runStart({ yaml: category.file });
       onOpenChange(false);
     } catch (err) {
       setRunError(err instanceof SidecarRequestError ? `${err.code}: ${err.message}` : String(err));

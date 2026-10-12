@@ -30,7 +30,7 @@ import type {
   FingerprintSkips,
   HealthSummary,
   LoadErrorDetail,
-  PluginReport,
+  CategoryReport,
   SidecarErrorShape,
   SourceHealth,
 } from "@/lib/api";
@@ -41,15 +41,15 @@ import type {
 
 /** 表格一行 = 品类插件 × 源;health 只报 sources: 里启用的源,故 enabled 恒真 */
 export interface SourceRow {
-  /** 品类 YAML 路径(health PluginReport.file 原样;启停写回的目标) */
-  pluginFile: string;
-  pluginId: string | null;
-  pluginName: string | null;
-  pluginLoaded: boolean;
+  /** 品类 YAML 路径(health CategoryReport.file 原样;启停写回的目标) */
+  categoryFile: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  categoryLoaded: boolean;
   /** 插件加载失败明细(loaded=false 时非空;表格里以徽标+悬浮提示呈现) */
-  pluginLoadErrors: LoadErrorDetail[] | null;
-  /** 品类调度周期(展示用;health PluginReport.schedule) */
-  pluginSchedule: string | null;
+  categoryLoadErrors: LoadErrorDetail[] | null;
+  /** 品类调度周期(展示用;health CategoryReport.schedule) */
+  categorySchedule: string | null;
   sourceName: string;
   url: string;
   engine: string;
@@ -67,21 +67,21 @@ export interface SourcesData {
   /** store 打不开时的结构化明细(如实展示,不伪装成「暂无数据」) */
   storeError: { error_type: string; message: string } | null;
   /** health 的插件原序清单(排程一览按品类枚举;无源品类也在内) */
-  plugins: PluginReport[];
+  categories: CategoryReport[];
 }
 
-/** 扁平化 PluginReport[] → SourceRow[];插件保持原序,源保持 YAML 声明序。 */
-export function flattenHealthPlugins(plugins: PluginReport[]): SourceRow[] {
+/** 扁平化 CategoryReport[] → SourceRow[];品类保持原序,源保持 YAML 声明序。 */
+export function flattenHealthCategories(categories: CategoryReport[]): SourceRow[] {
   const rows: SourceRow[] = [];
-  for (const plugin of plugins) {
-    for (const source of plugin.sources) {
+  for (const category of categories) {
+    for (const source of category.sources) {
       rows.push({
-        pluginFile: plugin.file,
-        pluginId: plugin.id,
-        pluginName: plugin.name,
-        pluginLoaded: plugin.loaded,
-        pluginLoadErrors: plugin.load_errors,
-        pluginSchedule: plugin.schedule,
+        categoryFile: category.file,
+        categoryId: category.id,
+        categoryName: category.name,
+        categoryLoaded: category.loaded,
+        categoryLoadErrors: category.load_errors,
+        categorySchedule: category.schedule,
         sourceName: source.name,
         url: source.url,
         engine: source.engine,
@@ -98,12 +98,12 @@ export function flattenHealthPlugins(plugins: PluginReport[]): SourceRow[] {
 export async function loadSourcesData(): Promise<SourcesData> {
   const health = await api.health();
   return {
-    rows: flattenHealthPlugins(health.plugins),
+    rows: flattenHealthCategories(health.categories),
     summary: health.summary,
     configDir: health.config_dir,
     db: health.db,
     storeError: health.store_error,
-    plugins: health.plugins,
+    categories: health.categories,
   };
 }
 
@@ -113,7 +113,7 @@ export async function loadSourcesData(): Promise<SourcesData> {
 
 /** 排程一览一行:品类 + schedule/timezone 原文 + 未来 5 次预览 */
 export interface ScheduleRow {
-  /** 品类 YAML 路径(health PluginReport.file) */
+  /** 品类 YAML 路径(health CategoryReport.file) */
   file: string;
   /** 品类展示名(name ?? 文件名) */
   name: string;
@@ -126,11 +126,11 @@ export interface ScheduleRow {
 }
 
 /** 逐品类 schedule.preview(Promise.allSettled 并发;count=5 与设计一致) */
-export async function loadScheduleRows(plugins: PluginReport[], count = 5): Promise<ScheduleRow[]> {
+export async function loadScheduleRows(categories: CategoryReport[], count = 5): Promise<ScheduleRow[]> {
   const settled = await Promise.allSettled(
-    plugins.map((plugin) => api.schedulePreview({ file: plugin.file, count })),
+    categories.map((category) => api.schedulePreview({ file: category.file, count })),
   );
-  return plugins.map((plugin, index) => {
+  return categories.map((category, index) => {
     const outcome = settled[index];
     if (outcome.status === "rejected") {
       const failure =
@@ -138,17 +138,17 @@ export async function loadScheduleRows(plugins: PluginReport[], count = 5): Prom
           ? `${outcome.reason.code}: ${outcome.reason.message}`
           : String(outcome.reason);
       return {
-        file: plugin.file,
-        name: plugin.name ?? plugin.file,
-        schedule: plugin.schedule,
-        timezone: plugin.timezone,
+        file: category.file,
+        name: category.name ?? category.file,
+        schedule: category.schedule,
+        timezone: category.timezone,
         runs: [],
         error: failure,
       };
     }
     return {
-      file: plugin.file,
-      name: plugin.name ?? plugin.file,
+      file: category.file,
+      name: category.name ?? category.file,
       schedule: outcome.value.schedule,
       timezone: outcome.value.timezone,
       runs: outcome.value.runs,
@@ -410,7 +410,7 @@ export interface RoundTripCheck {
   expected: string[];
   /** doctor 实际报告的启用名单 */
   actual: string[];
-  pluginFile: string;
+  categoryFile: string;
   /** 不一致时的一行中文说明(供错误态展示) */
   message: string;
 }
@@ -424,7 +424,7 @@ export function sameNameSet(a: string[], b: string[]): boolean {
 }
 
 /**
- * doctor 复核往返:只对本次写回的品类 YAML 做体检,取该插件源名单与写回
+ * doctor 复核往返:只对本次写回的品类 YAML 做体检,取该品类源名单与写回
  * 应答的 enabled 对照。doctor 的 findings 不在此解析(全面诊断属仪表盘),
  * 名单不一致即往返失败(结构化结果,不抛错 —— 供界面直接渲染)。
  */
@@ -433,14 +433,14 @@ export async function verifySourceRoundTrip(
   expected: string[],
 ): Promise<RoundTripCheck> {
   const doctor = await api.doctor({ yamls: [file] });
-  const plugin = doctor.plugins.find((candidate) => candidate.file === file);
-  const actual = plugin ? plugin.sources.map((source) => source.name) : [];
-  const consistent = plugin !== undefined && sameNameSet(expected, actual);
+  const category = doctor.categories.find((candidate) => candidate.file === file);
+  const actual = category ? category.sources.map((source) => source.name) : [];
+  const consistent = category !== undefined && sameNameSet(expected, actual);
   return {
     consistent,
     expected,
     actual,
-    pluginFile: file,
+    categoryFile: file,
     message: consistent
       ? "doctor 复核与写回结果一致"
       : plugin === undefined

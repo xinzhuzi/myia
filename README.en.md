@@ -316,9 +316,9 @@ one command (`myssia skill install --agent claude`; also `cursor` / `zcode`,
 myssia skill install --agent claude         # one-time: skill sheet → ~/.claude/skills/myia/
 myssia init --json                          # structured checklist of what to collect
 ( agent writes <id>.yaml )                # against the 12-section schema
-myssia test plugins/<id>.yaml --json        # trial fetch, inspect fields + dedup keys
-myssia run plugins/<id>.yaml --dry-run      # rehearsal
-myssia run plugins/<id>.yaml --loop         # scheduled operation
+myssia test config/<id>.yaml --json        # trial fetch, inspect fields + dedup keys
+myssia run config/<id>.yaml --dry-run      # rehearsal
+myssia run config/<id>.yaml --loop         # scheduled operation
 myssia doctor --json                        # findings; the agent repairs and re-checks
 ```
 
@@ -367,7 +367,7 @@ Agent-facing condensed reference: [`skill/SKILL.md`](skill/SKILL.md).
 
 The core pipeline is implemented and tested — 1300+ tests run in CI, none of
 them touch the real network. The desktop app is ready for daily use
-(unified data paths, bundled official plugins, an out-of-the-box demo, a
+(unified data paths, bundled official categories, an out-of-the-box demo, a
 signed update channel — shipping in Releases since v0.0.1); in-card
 feedback buttons, the settings feedback toggle and collection trends have
 landed on main in the desktop-parity batch and ship with the next release

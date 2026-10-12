@@ -385,13 +385,13 @@ export async function bundledCategoryInstall(params: {
  * 三处同源)。UI 永不把明文写进配置——值只经 secret.set 入钥匙串,本引用名
  * 落 remote-plugins.json(keychain-only 判例同规)。
  */
-export function remoteTokenRef(pluginId: string): string {
-  return `keychain:myia/${pluginId.replace(/^myssia-/, "")}/api-key`;
+export function remoteTokenRef(categoryId: string): string {
+  return `keychain:myia/${categoryId.replace(/^myssia-/, "")}/api-key`;
 }
 
 /** remote 插件件当前配置读(未配置 = known=false 如实;dev 形态结构化拒)。 */
-export async function remotePluginGet(pluginId: string): Promise<RemotePluginConfig> {
-  return parseRemotePluginConfig(await bundledRequest("plugins.remote.get", { id: pluginId }));
+export async function remotePluginGet(categoryId: string): Promise<RemotePluginConfig> {
+  return parseRemotePluginConfig(await bundledRequest("plugins.remote.get", { id: categoryId }));
 }
 
 /**

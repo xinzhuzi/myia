@@ -10,7 +10,7 @@ import { FindingsPanel } from "./findings-panel";
 import { fileNameOf, useYamlFileEditor } from "./use-yaml-file-editor";
 
 interface YamlEditorDialogProps {
-  /** 要编辑的品类 YAML 绝对路径(源管理行 pluginFile 口径) */
+  /** 要编辑的品类 YAML 绝对路径(源管理行 categoryFile 口径) */
   file: string;
   /** 关闭弹窗(dirty 时组件内部先 confirm,确认放弃才回调) */
   onClose: () => void;

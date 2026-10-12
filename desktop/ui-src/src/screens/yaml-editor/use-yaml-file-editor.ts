@@ -221,11 +221,11 @@ export function useYamlFileEditor(options: UseYamlFileEditorOptions = {}) {
       let doctor: DoctorCheck;
       try {
         const check = await api.doctor({ yamls: [result.file] });
-        const plugin = check.plugins.find((candidate) => sameFilePath(candidate.file, result.file));
-        doctor = plugin
+        const category = check.categories.find((candidate) => sameFilePath(candidate.file, result.file));
+        doctor = category
           ? {
               ok: true,
-              message: `doctor 复核通过:识别「${plugin.name ?? plugin.id ?? fileNameOf(result.file)}」(${plugin.sources.length} 源)`,
+              message: `doctor 复核通过:识别「${category.name ?? category.id ?? fileNameOf(result.file)}」(${category.sources.length} 源)`,
             }
           : { ok: false, message: `doctor 未报告该品类(${result.file});请到仪表屏手动诊断` };
       } catch (error) {

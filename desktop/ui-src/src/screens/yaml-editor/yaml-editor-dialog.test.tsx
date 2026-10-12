@@ -38,7 +38,7 @@ function doctorOk(file: string, name: string, sources: number): DoctorResult {
     generated_at: "2026-10-03T12:00:00.000Z",
     db: "myssia.db",
     healthy: true,
-    plugins: [
+    categories: [
       {
         file,
         id: "ai-news",
@@ -63,7 +63,7 @@ function doctorOk(file: string, name: string, sources: number): DoctorResult {
     credentials: { backend_available: true, backend_error: null, entries: [] },
     proxy: { config: null, pools: [] },
     findings: [],
-    summary: { plugins: 1, sources, errors: 0, warnings: 0 },
+    summary: { categories: 1, sources, errors: 0, warnings: 0 },
   };
 }
 

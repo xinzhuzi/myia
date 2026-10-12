@@ -8,7 +8,7 @@ Exit-code contract (spec python/error-handling — agent 与 CI 依赖):
 0   成功   run 正常结束(含 dry-run);``--loop`` 干净退出;init/list/doctor
             完成;secret 操作成功;``--version`` / ``--help``
 1   配置错误   品类 YAML 被 schema 拒载 / 明文凭据 / route 或规则配置非法 /
-            用法错误(argparse)/ 插件目录不存在 / secret 结构化失败;
+            用法错误(argparse)/ 目录不存在 / secret 结构化失败;
             错误结构化、含字段路径
 2   采集全部失败   run:所有 source 采集失败;test:被试抓的源全部失败
 3   部分失败   run:部分 source/条目或通道发送失败;test:部分源失败
@@ -36,7 +36,7 @@ stdout 只有一份纯 JSON(AI 消费路径)。
                 问答):agent 据此向用户收集信息并生成 12 节 YAML。
 - ``test``      单源试抓:打印提取字段、变更指纹与去重键预览;不推送、
                 不入库(存储走 ``:memory:``,退出码沿用 0/2/3 子集语义)。
-- ``list``      插件清单 + 各源健康度(状态机 ok/degraded/dead/unknown、
+- ``list``      品类清单 + 各源健康度(状态机 ok/degraded/dead/unknown、
                 引擎提示、指纹跳过率;判据看源级条目数与 skip 原因,不看
                 run 级成败 —— run success 不得掩盖单源静默 0 条)。
 - ``doctor``    结构化诊断:源状态机、engine_hints、凭据配置检查(env:
@@ -349,7 +349,7 @@ TEST_PREVIEW_VALUE_CHARS = 200
 
 #: 子命令留位表(实现排期在后续版本)。
 STUB_COMMANDS: dict[str, str] = {
-    "add-source": "向既有插件 YAML 追加源",
+    "add-source": "向既有品类 YAML 追加源",
     "dashboard": "品类与源健康度终端面板",
 }
 
@@ -430,7 +430,7 @@ def _add_run_parser(sub: argparse._SubParsersAction) -> None:
     run = sub.add_parser(
         "run",
         help="跑一次品类流水线(--once 默认)或常驻调度(--loop)",
-        description="加载插件 YAML → 按品类跑 fetch→classify→dedup→analyze→push。",
+        description="加载品类 YAML → 跑 fetch→classify→dedup→analyze→push。",
     )
     run.add_argument("yaml", help="品类 YAML 文件路径(12 节 schema)")
     mode = run.add_mutually_exclusive_group()
@@ -874,10 +874,10 @@ def _add_test_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _add_list_parser(sub: argparse._SubParsersAction) -> None:
-    """``myssia list``:插件清单 + 源健康度。"""
+    """``myssia list``:品类清单 + 源健康度。"""
     listing = sub.add_parser(
         "list",
-        help="插件清单 + 各源健康度(ok/degraded/dead/unknown)",
+        help="品类清单 + 各源健康度(ok/degraded/dead/unknown)",
         description="健康度判据看源级条目数与 skip 原因,不看 run 级成败(静默 0 条不得被 success 掩盖)。",
     )
     listing.add_argument(
@@ -2972,7 +2972,7 @@ def _fingerprint_skip_stats(entries: list[dict[str, Any]]) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 
 
-def _plugin_files(directory: str | Path) -> list[Path]:
+def _config_yaml_files(directory: str | Path) -> list[Path]:
     """Sorted ``*.yaml``/``*.yml`` category files directly inside ``directory``.
 
     Raises:
@@ -2984,7 +2984,7 @@ def _plugin_files(directory: str | Path) -> list[Path]:
     return sorted({*root.glob("*.yaml"), *root.glob("*.yml")})
 
 
-def _load_plugin(
+def _load_category_yaml(
     path: str | Path,
 ) -> tuple[CategoryConfig | None, list[dict[str, Any]]]:
     """Load one category YAML; load errors come back structured, never raised."""
@@ -3048,7 +3048,7 @@ def _merge_credential_entries(
     (``myia/<scope>/<name>``)时附迁移提示(存在性仍按原名探测,兼容旧引用)。
 
     Args:
-        loaded: ``(plugin_id, config)`` pairs for every plugin that loaded.
+        loaded: ``(category_id, config)`` pairs for every category that loaded.
         backend: probed keychain backend; ``None`` = 不可用(exists 记 None).
     """
     merged: dict[tuple[str, str], dict[str, Any]] = {}
@@ -3062,12 +3062,12 @@ def _merge_credential_entries(
                     "name": ref["name"],
                     "ref": ref["ref"],
                     "paths": [],
-                    "plugins": [],
+                    "categories": [],
                 },
             )
-            entry["paths"].append({"plugin": plugin_id, "path": ref["path"]})
-            if plugin_id and plugin_id not in entry["plugins"]:
-                entry["plugins"].append(plugin_id)
+            entry["paths"].append({"category": plugin_id, "path": ref["path"]})
+            if plugin_id and plugin_id not in entry["categories"]:
+                entry["categories"].append(plugin_id)
     results: list[dict[str, Any]] = []
     for entry in merged.values():
         exists = _ref_exists(entry["kind"], entry["name"], backend)
@@ -3076,7 +3076,7 @@ def _merge_credential_entries(
             "name": entry["name"],
             "ref": entry["ref"],
             "paths": entry["paths"],
-            "plugins": entry["plugins"],
+            "categories": entry["categories"],
             "exists": exists,
         }
         if entry["kind"] == "keychain":
@@ -3387,7 +3387,7 @@ async def _test_sources(
 
 
 # ---------------------------------------------------------------------------
-# myssia list / myssia doctor:插件清单、健康度与结构化诊断
+# myssia list / myssia doctor:品类清单、健康度与结构化诊断
 # ---------------------------------------------------------------------------
 
 
@@ -3487,7 +3487,7 @@ def _source_report(
     return rows, entries_by_source
 
 
-def _plugin_identity(
+def _category_identity(
     path: Path, config: CategoryConfig | None, errors: list[dict[str, Any]]
 ) -> dict[str, Any]:
     """Common identity block of a plugin report (list/doctor 共用)."""
@@ -3503,12 +3503,12 @@ def _plugin_identity(
     }
 
 
-def _plugin_report(
+def _category_report(
     path: Path, store: SQLiteStore | None, store_error: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """One plugin's list view: identity + per-source health (errors structured)."""
-    config, errors = _load_plugin(path)
-    report = _plugin_identity(path, config, errors)
+    """One category's list view: identity + per-source health (errors structured)."""
+    config, errors = _load_category_yaml(path)
+    report = _category_identity(path, config, errors)
     report["sources"] = (
         _source_report(config, store, store_error)[0] if config is not None else []
     )
@@ -3516,22 +3516,22 @@ def _plugin_report(
 
 
 def _print_human_list(payload: dict[str, Any]) -> None:
-    """人类可读的插件清单(与 --json 同一信息)。"""
+    """人类可读的品类清单(与 --json 同一信息)。"""
     print(
-        f"世事 list:目录 {payload['plugins_dir']}(db={payload['db']})共 {len(payload['plugins'])} 个插件"
+        f"世事 list:目录 {payload['config_dir']}(db={payload['db']})共 {len(payload['categories'])} 个品类"
     )
-    for plugin in payload["plugins"]:
-        if not plugin["loaded"]:
-            print(f"  {plugin['file']} — 加载失败")
-            for detail in plugin["load_errors"] or []:
+    for category in payload["categories"]:
+        if not category["loaded"]:
+            print(f"  {category['file']} — 加载失败")
+            for detail in category["load_errors"] or []:
                 print(
                     f"    [{detail['error_type']}] {detail['path']} — {detail['message']}"
                 )
             continue
         print(
-            f"  {plugin['file']} — {plugin['id']}({plugin['name']})schedule={plugin['schedule']}"
+            f"  {category['file']} — {category['id']}({category['name']})schedule={category['schedule']}"
         )
-        for source in plugin["sources"]:
+        for source in category["sources"]:
             health = source["health"]
             skips = source["fingerprint_skips"]
             hint = f",hint={source['engine_hint']}" if source["engine_hint"] else ""
@@ -3542,11 +3542,11 @@ def _print_human_list(payload: dict[str, Any]) -> None:
 
 
 def _cmd_list(args: argparse.Namespace) -> int:
-    """``myssia list``:插件清单 + 源健康度;信息性命令,完成即 0(目录错=1)。"""
+    """``myssia list``:品类清单 + 源健康度;信息性命令,完成即 0(目录错=1)。"""
     as_json = args.as_json
     _configure_logging(as_json=as_json)
     try:
-        files = _plugin_files(args.config_dir)
+        files = _config_yaml_files(args.config_dir)
     except NotADirectoryError as exc:
         _emit_generic_error("config_dir", str(exc), as_json=as_json)
         return EXIT_CONFIG_ERROR
@@ -3556,7 +3556,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
         "config_dir": str(args.config_dir),
         "db": str(args.db),
         "store_error": store_error,
-        "plugins": [_plugin_report(path, store, store_error) for path in files],
+        "categories": [_category_report(path, store, store_error) for path in files],
     }
     if store is not None:
         store.close()
@@ -3604,7 +3604,7 @@ def _finding(
     )
 
 
-def _plugin_findings(report: dict[str, Any], findings: list[dict[str, Any]]) -> None:
+def _category_findings(report: dict[str, Any], findings: list[dict[str, Any]]) -> None:
     """Derive findings from one plugin's load errors + source health."""
     scope = f"plugin:{report['file']}"
     for detail in report["load_errors"] or []:
@@ -3637,8 +3637,8 @@ def _plugin_findings(report: dict[str, Any], findings: list[dict[str, Any]]) -> 
 
 
 def _format_ref_paths(entry: Mapping[str, Any]) -> str:
-    """Render a credential entry's usage sites as ``plugin:path``(诊断定位)."""
-    return "; ".join(f"{usage['plugin']}:{usage['path']}" for usage in entry["paths"])
+    """Render a credential entry's usage sites as ``category:path``(诊断定位)."""
+    return "; ".join(f"{usage['category']}:{usage['path']}" for usage in entry["paths"])
 
 
 def _credential_findings(
@@ -3923,19 +3923,19 @@ def _print_human_doctor(payload: dict[str, Any]) -> None:
     print(
         f"世事 doctor(db={payload['db']})healthy={'是' if payload['healthy'] else '否'}"
     )
-    for plugin in payload["plugins"]:
-        if not plugin["loaded"]:
-            print(f"  插件 {plugin['file']} — 加载失败")
+    for category in payload["categories"]:
+        if not category["loaded"]:
+            print(f"  品类 {category['file']} — 加载失败")
             continue
-        next_fire = plugin.get("next_fire_at") or "未知"
-        print(f"  插件 {plugin['id']}({plugin['name']})下次触发 {next_fire}")
-        for source in plugin["sources"]:
+        next_fire = category.get("next_fire_at") or "未知"
+        print(f"  品类 {category['id']}({category['name']})下次触发 {next_fire}")
+        for source in category["sources"]:
             health = source["health"]
             hint = f",hint={source['engine_hint']}" if source["engine_hint"] else ""
             print(
                 f"    源 {source['name']}[{health['state']}] {health['reason']}{hint}"
             )
-        enrich = plugin.get("enrich") or {}
+        enrich = category.get("enrich") or {}
         if enrich.get("enabled"):
             print(
                 f"    enrich model={enrich['model']} budget/run={enrich['budget_per_run']} "
@@ -3992,7 +3992,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     try:
         files = _doctor_targets(args, as_json=as_json)
     except NotADirectoryError as exc:
-        _emit_generic_error("plugins_dir", str(exc), as_json=as_json)
+        _emit_generic_error("config_dir", str(exc), as_json=as_json)
         return EXIT_CONFIG_ERROR
     if files is None:
         return EXIT_CONFIG_ERROR
@@ -4008,7 +4008,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
             message=f"存储无法打开 db={args.db}:{store_error['message']}",
         )
 
-    plugins, loaded = _doctor_plugins(files, store, findings, store_error)
+    categories, loaded = _doctor_categories(files, store, findings, store_error)
     backend, backend_error = _acquire_keychain_backend()
     credential_entries = _merge_credential_entries(loaded, backend)
     _credential_findings(
@@ -4022,7 +4022,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     firecrawl_section = _doctor_firecrawl(args, findings)
     payload = _doctor_payload(
         args,
-        plugins=plugins,
+        categories=categories,
         backend=backend,
         backend_error=backend_error,
         credential_entries=credential_entries,
@@ -4043,7 +4043,7 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
 def _doctor_payload(
     args: argparse.Namespace,
     *,
-    plugins: list[dict[str, Any]],
+    categories: list[dict[str, Any]],
     backend: KeychainBackend | None,
     backend_error: SecretError | None,
     credential_entries: list[dict[str, Any]],
@@ -4060,7 +4060,7 @@ def _doctor_payload(
         "generated_at": datetime.now().astimezone().isoformat(),
         "db": str(args.db),
         "healthy": errors == 0,
-        "plugins": plugins,
+        "categories": categories,
         "credentials": {
             "backend_available": backend is not None,
             "backend_error": str(backend_error) if backend_error else None,
@@ -4071,8 +4071,8 @@ def _doctor_payload(
         "firecrawl": firecrawl_section,
         "findings": findings,
         "summary": {
-            "plugins": len(plugins),
-            "sources": sum(len(report["sources"]) for report in plugins),
+            "categories": len(categories),
+            "sources": sum(len(report["sources"]) for report in categories),
             "errors": errors,
             "warnings": warnings,
         },
@@ -4087,7 +4087,7 @@ def _doctor_targets(args: argparse.Namespace, *, as_json: bool) -> list[Path] | 
         (already reported as a structured usage error, exit code 1).
     """
     if not args.yaml:
-        return _plugin_files(args.config_dir)
+        return _config_yaml_files(args.config_dir)
     files = [Path(path) for path in args.yaml]
     missing = [str(path) for path in files if not path.is_file()]
     if missing:
@@ -4098,18 +4098,18 @@ def _doctor_targets(args: argparse.Namespace, *, as_json: bool) -> list[Path] | 
     return files
 
 
-def _doctor_plugins(
+def _doctor_categories(
     files: list[Path],
     store: SQLiteStore | None,
     findings: list[dict[str, Any]],
     store_error: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], list[tuple[str, CategoryConfig]]]:
-    """Plugin section: identity + health + schedule + enrich(加载失败即 finding)."""
-    plugins: list[dict[str, Any]] = []
+    """Category section: identity + health + schedule + enrich(加载失败即 finding)."""
+    categories: list[dict[str, Any]] = []
     loaded: list[tuple[str, CategoryConfig]] = []
     for path in files:
-        config, errors = _load_plugin(path)
-        report = _plugin_identity(path, config, errors)
+        config, errors = _load_category_yaml(path)
+        report = _category_identity(path, config, errors)
         if config is not None:
             loaded.append((config.id, config))
             report["sources"] = _source_report(config, store, store_error)[0]
@@ -4119,9 +4119,9 @@ def _doctor_plugins(
             report["sources"] = []
             report["next_fire_at"] = None
             report["enrich"] = None
-        _plugin_findings(report, findings)
-        plugins.append(report)
-    return plugins, loaded
+        _category_findings(report, findings)
+        categories.append(report)
+    return categories, loaded
 
 
 def _acquire_keychain_backend() -> tuple[KeychainBackend | None, SecretError | None]:

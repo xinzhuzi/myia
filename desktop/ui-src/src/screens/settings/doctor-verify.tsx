@@ -91,9 +91,9 @@ export function DoctorVerifyPanel({ verify, loading, proxyAutoMiss = false }: Do
           </p>
           <ul className="flex flex-col gap-1">
             {verify.enrichSections.map((view) => (
-              <li key={view.pluginFile} className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="truncate font-mono text-muted-foreground" title={view.pluginFile}>
-                  {view.pluginFile}
+              <li key={view.categoryFile} className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="truncate font-mono text-muted-foreground" title={view.categoryFile}>
+                  {view.categoryFile}
                 </span>
                 <span className="text-foreground">model={view.enrich.model}</span>
                 <Badge variant={view.enrich.enabled ? "default" : "outline"}>
@@ -116,9 +116,9 @@ export function DoctorVerifyPanel({ verify, loading, proxyAutoMiss = false }: Do
           <p className="text-xs font-medium text-muted-foreground">品类推送通道(品类 YAML push: 声明)</p>
           <ul className="flex flex-col gap-1">
             {verify.pushChannels.map((view) => (
-              <li key={view.pluginFile} className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="truncate font-mono text-muted-foreground" title={view.pluginFile}>
-                  {view.pluginFile}
+              <li key={view.categoryFile} className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="truncate font-mono text-muted-foreground" title={view.categoryFile}>
+                  {view.categoryFile}
                 </span>
                 {view.channels.length > 0 ? (
                   <span className="flex items-center gap-1">

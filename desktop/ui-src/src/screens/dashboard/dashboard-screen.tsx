@@ -448,7 +448,7 @@ function buildAlertRows(
       dot: SOURCE_STATE[card.state].dot,
       stateLabel: SOURCE_STATE[card.state].label,
       primary: card.name,
-      secondary: card.pluginName,
+      secondary: card.categoryName,
       detail: card.reason,
       time: formatRelativeTime(card.lastObservedAt),
     });
@@ -727,7 +727,7 @@ function SourceCard({ card }: { card: SourceHealthCardModel }) {
           {card.name}
         </p>
         <p className="truncate text-xs text-muted-foreground">
-          {card.pluginName}
+          {card.categoryName}
           {card.latestItemCount !== null ? ` · 最近 ${card.latestItemCount} 条` : ""}
         </p>
       </div>

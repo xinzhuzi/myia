@@ -10,7 +10,7 @@
  */
 import { api } from "@/lib/api";
 import type {
-  DoctorPluginReport,
+  DoctorCategoryReport,
   DoctorResult,
   Finding,
   RunEntry,
@@ -152,11 +152,11 @@ export function emptyHealthCounts(): SourceHealthCounts {
   return { ok: 0, degraded: 0, dead: 0, unknown: 0 };
 }
 
-/** 遍历 doctor.plugins[].sources[].health.state 计数(与 health.summary 同口径) */
+/** 遍历 doctor.categories[].sources[].health.state 计数(与 health.summary 同口径) */
 export function summarizeSourceHealth(doctor: DoctorResult): SourceHealthCounts {
   const counts = emptyHealthCounts();
-  for (const plugin of doctor.plugins) {
-    for (const source of plugin.sources) {
+  for (const category of doctor.categories) {
+    for (const source of category.sources) {
       counts[source.health.state] += 1;
     }
   }
@@ -207,7 +207,7 @@ export function formatSuccessRate(rate: number | null): string {
 }
 
 // ---------------------------------------------------------------------------
-// 品类状态卡(doctor.plugins 一品类一卡;findings 按 scope 归属回品类)
+// 品类状态卡(doctor.categories 一品类一卡;findings 按 scope 归属回品类)
 // ---------------------------------------------------------------------------
 
 export type CategoryTone = "ok" | "warning" | "dead";
@@ -230,7 +230,7 @@ export interface CategoryCardModel {
  * 归属本品类的 findings:cli.py `_plugin_findings` 的 scope 形态为
  * `plugin:<file>` 与 `plugin:<file>/source:<name>`,前缀匹配即可。
  */
-export function pluginFindings(doctor: DoctorResult, file: string): Finding[] {
+export function categoryFindings(doctor: DoctorResult, file: string): Finding[] {
   const prefix = `plugin:${file}`;
   return doctor.findings.filter(
     (finding) => finding.scope === prefix || finding.scope.startsWith(`${prefix}/`),
@@ -238,19 +238,19 @@ export function pluginFindings(doctor: DoctorResult, file: string): Finding[] {
 }
 
 export function buildCategoryCards(doctor: DoctorResult): CategoryCardModel[] {
-  return doctor.plugins.map((plugin: DoctorPluginReport) => {
-    const findings = pluginFindings(doctor, plugin.file);
+  return doctor.categories.map((category: DoctorCategoryReport) => {
+    const findings = categoryFindings(doctor, category.file);
     const errorCount = findings.filter((finding) => finding.severity === "error").length;
     const warningCount = findings.filter((finding) => finding.severity === "warning").length;
     const tone: CategoryTone =
-      !plugin.loaded || errorCount > 0 ? "dead" : warningCount > 0 ? "warning" : "ok";
+      !category.loaded || errorCount > 0 ? "dead" : warningCount > 0 ? "warning" : "ok";
     return {
-      file: plugin.file,
-      name: plugin.name ?? plugin.file,
-      loaded: plugin.loaded,
-      schedule: plugin.schedule,
-      nextFireAt: plugin.next_fire_at,
-      sourceCount: plugin.sources.length,
+      file: category.file,
+      name: category.name ?? category.file,
+      loaded: category.loaded,
+      schedule: category.schedule,
+      nextFireAt: category.next_fire_at,
+      sourceCount: category.sources.length,
       errorCount,
       warningCount,
       tone,
@@ -656,11 +656,11 @@ export function buildVerdict(input: {
 const SOURCE_STATE_RANK: Record<SourceHealthState, number> = { dead: 0, degraded: 1, unknown: 2, ok: 3 };
 
 export interface SourceHealthCardModel {
-  /** `${pluginFile}#${sourceName}`(跨品类同名源不撞 key) */
+  /** `${categoryFile}#${sourceName}`(跨品类同名源不撞 key) */
   key: string;
   name: string;
   /** 所属品类显示名 */
-  pluginName: string;
+  categoryName: string;
   state: SourceHealthState;
   /** 健康度评判原因(cli.py evaluate_source_health 的 reason) */
   reason: string;
@@ -672,20 +672,20 @@ export interface SourceHealthCardModel {
 }
 
 /**
- * 源健康卡模型:doctor.plugins[].sources[] 摊平 + 最近观测时间锚。
+ * 源健康卡模型:doctor.categories[].sources[] 摊平 + 最近观测时间锚。
  * 时间锚如实处理:health.latest 只带 run_id 不带时刻,时刻要回 runs.list
  * 历史行查;窗口(20 条)外查不到 = null → 卡面显「—」,不虚构。
  */
 export function buildSourceHealthCards(doctor: DoctorResult, runs: DashboardRun[]): SourceHealthCardModel[] {
   const startedAtByRunId = new Map(runs.map((run) => [run.runId, run.startedAt] as const));
   const cards: SourceHealthCardModel[] = [];
-  for (const plugin of doctor.plugins) {
-    for (const source of plugin.sources) {
+  for (const category of doctor.categories) {
+    for (const source of category.sources) {
       const latest = source.health.latest;
       cards.push({
-        key: `${plugin.file}#${source.name}`,
+        key: `${category.file}#${source.name}`,
         name: source.name,
-        pluginName: plugin.name ?? plugin.file,
+        categoryName: category.name ?? category.file,
         state: source.health.state,
         reason: source.health.reason,
         engine: source.engine,

@@ -46,7 +46,7 @@ online, with every step visible and retryable:
   same section — one idempotent click.
 
 Once the environment is ready, categories on the desktop run in exactly the
-same shape as the CLI — one YAML file (official plugins are auto-seeded,
+same shape as the CLI — one YAML file (official categories are auto-seeded,
 including the zero-credential demo `myssia-demo`: GitHub's new-star board,
 abridged below):
 
@@ -245,7 +245,7 @@ uv run myssia run config/demo-min.yaml                    # the first real run
 
 The official categories in the repo (freebies / stocks / AI news / GPU
 prices, …) work the same way, e.g. `uv run myssia run config/wool.yaml`;
-every credential slot in an official plugin is already an `env:` /
+every credential slot in an official category is already an `env:` /
 `keychain:` reference — prepare the values as in section 2.
 
 Or just tell an AI agent what you want — it reads the
@@ -258,7 +258,7 @@ verifies and runs it with the same commands.
 Everything is stored in a single SQLite file (default `./myssia.db`, override
 with `--db`): fetched items, the dedup registry, change baselines and
 numeric history, push feedback, run history and per-source health.
-`storage.retention` in the plugin YAML controls the retention window (expired
+`storage.retention` in the category YAML controls the retention window (expired
 items are purged automatically) and `storage.vacuum` the VACUUM cadence;
 categories declaring `baseline:` keep their numeric history for twice the
 item retention (so the "vs last week" window stays complete).

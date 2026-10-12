@@ -77,9 +77,9 @@ export async function fetchFeedPage(request: FeedPageRequest): Promise<FeedPage>
 
 // ---------------------------------------------------------------------------
 // 屏内品类下拉(10-04-topbar-cleanup:品类过滤从全局顶栏拆下归位 feed 屏;
-// 词汇源沿用顶栏旧路 = health().plugins,与 store.items 的 category 精确
+// 词汇源沿用顶栏旧路 = health().categories,与 store.items 的 category 精确
 // 等值同口径 —— 入库时条目记 config.id(pipeline.py `category=self.config.id`),
-// 选项 value 即 plugin.id,label 显名称)
+// 选项 value 即 category.id,label 显名称)
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -615,7 +615,7 @@ export function sortUnreadFirst(items: FeedItem[], states: FeedStateMap): FeedIt
 //   document = 日报文档(engine prompt / store_report;markdown 可折叠正文)
 //   deal     = 价格优惠行(品类 games/wool 或价格键在场;价格字段突出)
 //   news     = 新闻列表卡(缺省,现状 RSS 形态)
-// engine 判定的词表源 = health().plugins[].sources[].name→engine 映射
+// engine 判定的词表源 = health().categories[].sources[].name→engine 映射
 // (本屏品类下拉同一次 health 调用顺带装配,零新 RPC);health 失败/旧
 // sidecar 无映射时退化为前缀+品类+字段三级判定(watch_event/价格键由
 // _item_dict 白名单投影,见 entry.py)。
@@ -663,11 +663,11 @@ export function channelKindOf(
   return "news";
 }
 
-/** health().plugins → 源名→engine 映射(渠道类型判定的词表源;同一次调用) */
-export function engineMapFromHealth(plugins: HealthResult["plugins"]): Map<string, string> {
+/** health().categories → 源名→engine 映射(渠道类型判定的词表源;同一次调用) */
+export function engineMapFromHealth(categories: HealthResult["categories"]): Map<string, string> {
   const engines = new Map<string, string>();
-  for (const plugin of plugins) {
-    for (const source of plugin.sources) {
+  for (const category of categories) {
+    for (const source of category.sources) {
       if (source.name && source.engine && !engines.has(source.name)) {
         engines.set(source.name, source.engine);
       }

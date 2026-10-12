@@ -199,7 +199,7 @@ uv run myssia run config/demo-min.yaml                    # 正式跑一次
   `telegram_token_poll_conflict` 披露多品类共配时的这一单接收方语义。
 
 跑仓库里的官方品类(羊毛/美股/AI 资讯/显卡行情等)同理,例如
-`uv run myssia run config/wool.yaml`;官方插件用到的凭据位都写着
+`uv run myssia run config/wool.yaml`;官方品类用到的凭据位都写着
 `env:` / `keychain:` 引用,按第 2 节备好即可。
 
 也可以直接对 AI 说需求——agent 会读[插件开发指南](write-a-plugin.md)
@@ -209,7 +209,7 @@ uv run myssia run config/demo-min.yaml                    # 正式跑一次
 ## 4. 数据在哪
 
 所有数据在一个 SQLite 单文件里(默认 `./myssia.db`,`--db` 可改):抓取条目、
-去重注册表、变更基线与数值历史、推送反馈、运行历史与源健康度。插件 YAML 的
+去重注册表、变更基线与数值历史、推送反馈、运行历史与源健康度。品类 YAML 的
 `storage.retention` 控制保留期(过期自动清理),`storage.vacuum` 控制
 VACUUM 周期;声明了 `baseline:` 的品类,数值历史按保留期的 2 倍保存
 (保证「较上周」窗口完整)。

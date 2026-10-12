@@ -30,10 +30,10 @@ vi.mock("@uiw/react-codemirror", () => ({
 }));
 
 import { SourcesScreen } from "./sources-screen";
-import type { DoctorResult, DoctorPluginReport, HealthResult, PluginReport, SourceReport, SourceHealthState } from "@/lib/api";
+import type { DoctorResult, DoctorCategoryReport, HealthResult, CategoryReport, SourceReport, SourceHealthState } from "@/lib/api";
 
 const FILE = "config/ai-news.yaml";
-/** 写回/复核/读原文断言用完整路径:pluginFile 是回传 sidecar 的协议键(yaml.read
+/** 写回/复核/读原文断言用完整路径:categoryFile 是回传 sidecar 的协议键(yaml.read
  * 围栏/sources.write 直开都按路径解析;5c188c0 截短名曾致 path_outside_root 回归,
  * 2026-10-05 冒烟抓获后恢复绝对路径,显示层自行 split("/").pop()) */
 
@@ -58,7 +58,7 @@ function sourceReport(name: string, state: SourceHealthState, url = `https://exa
   };
 }
 
-function pluginReport(file: string, id: string, sources: SourceReport[]): PluginReport {
+function categoryReport(file: string, id: string, sources: SourceReport[]): CategoryReport {
   return {
     file,
     id,
@@ -72,28 +72,28 @@ function pluginReport(file: string, id: string, sources: SourceReport[]): Plugin
   };
 }
 
-function healthResult(plugins: PluginReport[]): HealthResult {
+function healthResult(categories: CategoryReport[]): HealthResult {
   const counts = { ok: 0, degraded: 0, dead: 0, unknown: 0 };
   let sources = 0;
-  for (const plugin of plugins) {
-    sources += plugin.sources.length;
-    for (const source of plugin.sources) counts[source.health.state] += 1;
+  for (const category of categories) {
+    sources += category.sources.length;
+    for (const source of category.sources) counts[source.health.state] += 1;
   }
   return {
     command: "list",
     config_dir: "config",
     db: "myssia.db",
     store_error: null,
-    plugins,
-    summary: { plugins: plugins.length, sources, ...counts },
+    categories,
+    summary: { categories: categories.length, sources, ...counts },
     healthy: counts.dead === 0,
     exit_code: 0,
   };
 }
 
 function doctorResult(file: string, sourceNames: string[]): DoctorResult {
-  const plugin: DoctorPluginReport = {
-    ...pluginReport(file, "ai-news", sourceNames.map((name) => sourceReport(name, "ok"))),
+  const plugin: DoctorCategoryReport = {
+    ...categoryReport(file, "ai-news", sourceNames.map((name) => sourceReport(name, "ok"))),
     next_fire_at: null,
     enrich: null,
   };
@@ -102,11 +102,11 @@ function doctorResult(file: string, sourceNames: string[]): DoctorResult {
     generated_at: "2026-10-02T10:00:00.000Z",
     db: "myssia.db",
     healthy: true,
-    plugins: [plugin],
+    categories: [plugin],
     credentials: { backend_available: true, backend_error: null, entries: [] },
     proxy: { config: null, pools: [] },
     findings: [],
-    summary: { plugins: 1, sources: sourceNames.length, errors: 0, warnings: 0 },
+    summary: { categories: 1, sources: sourceNames.length, errors: 0, warnings: 0 },
   };
 }
 
@@ -124,7 +124,7 @@ function okSidecar(initialSources: string[]) {
   };
   const map: SidecarMap = {
     health: () =>
-      healthResult([pluginReport(FILE, "ai-news", state.enabled.map((name) => sourceReport(name, "ok")))]),
+      healthResult([categoryReport(FILE, "ai-news", state.enabled.map((name) => sourceReport(name, "ok")))]),
     "yaml.read": (params: never) => {
       const { file } = params as { file: string };
       return {
@@ -209,7 +209,7 @@ describe("源管理:表格渲染与健康度三色", () => {
     const { map } = okSidecar(["hacker-news", "rsshub"]);
     map.health = () =>
       healthResult([
-        pluginReport(FILE, "ai-news", [
+        categoryReport(FILE, "ai-news", [
           sourceReport("hacker-news", "ok"),
           sourceReport("rsshub", "degraded"),
           sourceReport("slow-site", "dead"),
@@ -239,7 +239,7 @@ describe("源管理:排序/筛选/分页", () => {
     const { map, state } = okSidecar([]);
     const names = Array.from({ length: 12 }, (_, index) => `source-${String(index).padStart(2, "0")}`);
     map.health = () =>
-      healthResult([pluginReport(FILE, "ai-news", names.map((name) => sourceReport(name, "ok")))]);
+      healthResult([categoryReport(FILE, "ai-news", names.map((name) => sourceReport(name, "ok")))]);
     state.enabled = names;
     return { map, state, names };
   }
@@ -273,7 +273,7 @@ describe("源管理:排序/筛选/分页", () => {
     const { map } = okSidecar(["beta", "alpha"]);
     map.health = () =>
       healthResult([
-        pluginReport(FILE, "ai-news", [
+        categoryReport(FILE, "ai-news", [
           sourceReport("beta", "ok", "https://example.com/beta"),
           sourceReport("alpha", "dead", "https://example.com/alpha"),
         ]),
@@ -387,7 +387,7 @@ describe("源管理:启停写回 + doctor 往返复核", () => {
 });
 
 describe("源管理:空态与错误态", () => {
-  it("无插件 → 首跑引导态(Kestra 空态+一键 demo)", async () => {
+  it("无品类 → 首跑引导态(Kestra 空态+一键 demo)", async () => {
     const { map } = okSidecar([]);
     map.health = () => healthResult([]);
     installSidecar(map);
@@ -533,7 +533,7 @@ describe("源管理:试抓此源(C13 → 详情弹窗)", () => {
 
     await screen.findByText("local-api");
     fireEvent.click(screen.getByRole("button", { name: "试抓 local-api" }));
-    // pluginFile = 完整路径回传协议(短名回归修复);试抓参数随行原样
+    // categoryFile = 完整路径回传协议(短名回归修复);试抓参数随行原样
     await waitFor(() =>
       expect(lastCall("sources.test")?.params).toEqual({ file: FILE, source: "local-api" }),
     );
@@ -747,7 +747,7 @@ describe("源管理:D4 表格基件迁移(ui/table + 列宽拖拽 + compact 密�
     const { map } = okSidecar(["beta", "alpha"]);
     map.health = () =>
       healthResult([
-        pluginReport(FILE, "ai-news", [
+        categoryReport(FILE, "ai-news", [
           sourceReport("beta", "ok", "https://example.com/beta"),
           sourceReport("alpha", "unknown", "https://example.com/alpha"),
         ]),
@@ -849,14 +849,14 @@ describe("源管理:品类点簇筛选", () => {
     const { map } = okSidecar([]);
     map.health = () =>
       healthResult([
-        pluginReport(FILE, "ai-news", [
+        categoryReport(FILE, "ai-news", [
           sourceReport("hn", "ok", "https://a.example.com/hn"),
           sourceReport("rsshub", "dead", "https://a.example.com/rsshub"),
         ]),
-        pluginReport("config/dev-tools.yaml", "dev-tools", [
+        categoryReport("config/dev-tools.yaml", "dev-tools", [
           sourceReport("tools-weekly", "ok", "https://b.example.com/tools"),
         ]),
-        pluginReport("config/games.yaml", "games", [
+        categoryReport("config/games.yaml", "games", [
           sourceReport("play-feed", "degraded", "https://c.example.com/play"),
           sourceReport("itch", "ok", "https://c.example.com/itch"),
         ]),

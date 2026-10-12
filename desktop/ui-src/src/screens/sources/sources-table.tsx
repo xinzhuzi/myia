@@ -65,7 +65,7 @@ interface SourcesTableProps {
 
 /** 品类插件列的排序/筛选键(名称优先,缺位回退 id/文件) */
 function pluginLabel(row: SourceRow): string {
-  return row.pluginName ?? row.pluginId ?? row.pluginFile;
+  return row.categoryName ?? row.categoryId ?? row.categoryFile;
 }
 
 /** 最近产出列的单行摘要 title(完整 run 明细收进悬浮提示,compact 行不折行) */
@@ -97,12 +97,12 @@ const COLUMNS: ColumnDef<SourceRow>[] = [
     size: 240,
     minSize: 150,
     cell: ({ row }) => (
-      <div className="min-w-0" title={row.original.pluginFile}>
+      <div className="min-w-0" title={row.original.categoryFile}>
         <div className="truncate text-sm text-foreground">{pluginLabel(row.original)}</div>
         <div className="truncate font-mono text-2xs text-muted-foreground">
-          {row.original.pluginFile.split("/").pop()}
+          {row.original.categoryFile.split("/").pop()}
         </div>
-        {!row.original.pluginLoaded ? <Badge variant="warning">加载失败</Badge> : null}
+        {!row.original.categoryLoaded ? <Badge variant="warning">加载失败</Badge> : null}
       </div>
     ),
   },
@@ -178,7 +178,7 @@ const COLUMNS: ColumnDef<SourceRow>[] = [
     enableResizing: false,
     size: 64,
     cell: ({ row, table }) => {
-      const key = sourceKey(row.original.pluginFile, row.original.sourceName);
+      const key = sourceKey(row.original.categoryFile, row.original.sourceName);
       const meta = table.options.meta as SourcesTableMeta;
       const enabled = !meta.disabledKeys.has(key);
       return (
@@ -200,7 +200,7 @@ const COLUMNS: ColumnDef<SourceRow>[] = [
     size: 72,
     cell: ({ row, table }) => {
       const meta = table.options.meta as SourcesTableMeta;
-      const key = sourceKey(row.original.pluginFile, row.original.sourceName);
+      const key = sourceKey(row.original.categoryFile, row.original.sourceName);
       const testing = meta.testingKey === key;
       return (
         /* Kestra Flows 动作列范式(KsIconButton):24px 幽灵图标钮 + tooltip,
@@ -218,7 +218,7 @@ const COLUMNS: ColumnDef<SourceRow>[] = [
             title={
               testing
                 ? "试抓进行中,实时输出见日志屏"
-                : `myssia test ${row.original.pluginFile} --source ${row.original.sourceName}`
+                : `myssia test ${row.original.categoryFile} --source ${row.original.sourceName}`
             }
             data-testid={testing ? "test-running" : undefined}
             onClick={() => meta.onTest(row.original)}
@@ -231,7 +231,7 @@ const COLUMNS: ColumnDef<SourceRow>[] = [
             variant="ghost"
             className="size-7"
             aria-label="编辑"
-            title={`弹出编辑对话框:${row.original.pluginFile}`}
+            title={`弹出编辑对话框:${row.original.categoryFile}`}
             onClick={() => meta.onEdit(row.original)}
           >
             <Pencil className="size-3.5" />
@@ -277,7 +277,7 @@ export function SourcesTable({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [healthFilter, setHealthFilter] = useState<HealthFilter>("all");
-  // 品类点簇筛选(10-05-fe-gap-batch ②b):多选 Set,簇键 = 行 pluginFile;
+  // 品类点簇筛选(10-05-fe-gap-batch ②b):多选 Set,簇键 = 行 categoryFile;
   // 空 Set = 全量零筛选。与 globalFilter(单输入)/healthFilter(健康度按钮组)
   // 三者并列,各自独立可组合
   const [clusterFilter, setClusterFilter] = useState<Set<string>>(new Set());
@@ -288,15 +288,15 @@ export function SourcesTable({
     [healthFilter],
   );
 
-  // 簇清单从 rows 派生:簇键 = pluginFile(品类 YAML 路径,唯一)、标签 =
+  // 簇清单从 rows 派生:簇键 = categoryFile(品类 YAML 路径,唯一)、标签 =
   // pluginLabel(name ?? id ?? file,与品类列同源)、逐簇源数进 chip 徽章;
   // localeCompare 稳定排序(chip 序不随数据序抖动)
   const clusters = useMemo(() => {
     const byFile = new Map<string, { label: string; count: number }>();
     for (const row of rows) {
-      const entry = byFile.get(row.pluginFile);
+      const entry = byFile.get(row.categoryFile);
       if (entry) entry.count += 1;
-      else byFile.set(row.pluginFile, { label: pluginLabel(row), count: 1 });
+      else byFile.set(row.categoryFile, { label: pluginLabel(row), count: 1 });
     }
     return [...byFile.entries()]
       .map(([key, { label, count }]) => ({ key, label, count }))
@@ -308,9 +308,9 @@ export function SourcesTable({
   // 失效簇键从有效集剔除(全失效 = 回全量,不空屏)
   const visibleRows = useMemo(() => {
     if (clusterFilter.size === 0) return rows;
-    const liveKeys = new Set(rows.map((row) => row.pluginFile));
+    const liveKeys = new Set(rows.map((row) => row.categoryFile));
     const effective = new Set([...clusterFilter].filter((key) => liveKeys.has(key)));
-    return effective.size === 0 ? rows : rows.filter((row) => effective.has(row.pluginFile));
+    return effective.size === 0 ? rows : rows.filter((row) => effective.has(row.categoryFile));
   }, [rows, clusterFilter]);
 
   const table = useReactTable({

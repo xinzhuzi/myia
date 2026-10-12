@@ -4,7 +4,7 @@
 // ①唤起/关闭(⌘K·Ctrl+K 自含监听 preventDefault、Esc、遮罩点击;挂载级
 // 回归在 app-layout.test);②输入过滤(中文标签/英文 keywords/空态);
 // ③键盘巡游(↑↓ 环回、aria-activedescendant 同步、Enter 执行、过滤词变化
-// 重置回首项);④动作(导航十二屏、跑一次 = 第一个可加载插件、刷新 =
+// 重置回首项);④动作(导航十二屏、跑一次 = 第一个可加载品类、刷新 =
 // window.location.reload)。品类组已随 TopBar 全球过滤退役(7152ff9 归
 // 情报流屏),挂载直连 AppLayout(10-05 复活注记见组件头)。
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -34,14 +34,14 @@ import type { CommandPaletteProps } from "@/components/layout/command-palette";
 import type { HealthResult } from "@/lib/api";
 
 function healthOf(
-  plugins: { id: string | null; name: string | null; loaded?: boolean }[],
+  categories: { id: string | null; name: string | null; loaded?: boolean }[],
 ): HealthResult {
   return {
     command: "list",
     config_dir: "/home/config",
     db: "/home/myssia.db",
     store_error: null,
-    plugins: plugins.map((entry, index) => ({
+    categories: categories.map((entry, index) => ({
       file: `/home/config/${entry.id ?? `broken-${index}`}.yaml`,
       id: entry.id,
       name: entry.name,
@@ -52,7 +52,7 @@ function healthOf(
       load_errors: null,
       sources: [],
     })),
-    summary: { plugins: plugins.length, sources: 0, ok: 0, degraded: 0, dead: 0, unknown: 0 },
+    summary: { categories: categories.length, sources: 0, ok: 0, degraded: 0, dead: 0, unknown: 0 },
     healthy: true,
     first_run: false,
     exit_code: 0,
@@ -250,7 +250,7 @@ describe("动作:导航 / 跑一次 / 刷新 / 切品类", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("跑一次(全部品类口径 = 第一个可加载插件,global-run 同源)", async () => {
+  it("跑一次(全部品类口径 = 第一个可加载品类,global-run 同源)", async () => {
     const { onOpenChange } = renderPalette();
     fireEvent.change(getInput(), { target: { value: "跑一次" } });
     fireEvent.keyDown(getInput(), { key: "Enter" });
@@ -260,7 +260,7 @@ describe("动作:导航 / 跑一次 / 刷新 / 切品类", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("跑一次(第一个可加载插件口径;前面有未加载插件时跳过)", async () => {
+  it("跑一次(第一个可加载品类口径;前面有未加载品类时跳过)", async () => {
     mocks.health.mockResolvedValue(
       healthOf([{ id: "broken", name: null, loaded: false }, { id: "ai-news", name: "AI资讯" }]),
     );

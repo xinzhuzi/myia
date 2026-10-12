@@ -872,7 +872,7 @@ def _m_version(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _m_health(params: dict[str, Any]) -> dict[str, Any]:
-    """``myssia list --json`` 等价:插件清单 + 源健康度 + 计数聚合。
+    """``myssia list --json`` 等价:品类清单 + 源健康度 + 计数聚合。
 
     config_dir/db 缺省走 serve 上下文(home 模式 = 数据根;dev = cwd 相对);
     home 模式零品类 YAML 时附 ``first_run=true``(UI 空态引导,不报错)。
@@ -889,13 +889,13 @@ def _m_health(params: dict[str, Any]) -> dict[str, Any]:
         raise _cli_error(code, payload)
     assert payload is not None
     counts = {"ok": 0, "degraded": 0, "dead": 0, "unknown": 0}
-    for plugin in payload.get("plugins", []):
-        for source in plugin.get("sources", []):
+    for category in payload.get("categories", []):
+        for source in category.get("sources", []):
             state = source.get("health", {}).get("state")
             if state in counts:
                 counts[state] += 1
     payload["summary"] = {
-        "plugins": len(payload.get("plugins", [])),
+        "categories": len(payload.get("categories", [])),
         "sources": sum(counts.values()),
         **counts,
     }

@@ -380,7 +380,7 @@ const FeedCard = memo(function FeedCard({
       return;
     }
     if (pinTarget === "") {
-      setPin({ phase: "note", kind: "error", message: "没有可写目标:plugins 目录内无可解析品类 YAML" });
+      setPin({ phase: "note", kind: "error", message: "没有可写目标:config 目录内无可解析品类 YAML" });
       return;
     }
     setPin({ phase: "writing" });
@@ -1718,7 +1718,7 @@ function FeedErrorCard({
  *  词面)+ Esc 即时清空(词面与已提交 query 同步归零,不等 300ms 防抖)。
  *
  * topbar-cleanup 归位(10-04):品类过滤从全局顶栏拆下自建 —— 屏内品类下拉
- *  (词汇源 health().plugins,value = 品类 id 与 store.items 精确等值,
+ *  (词汇源 health().categories,value = 品类 id 与 store.items 精确等值,
  *  「全部品类」= null 不传参;不再吃 Outlet context)+ 工具条一行收纳
  *  (KsFilter 范式,同源管理/日志工具行:品类下拉 + 读态分段 + 计数/批量 +
  *  右侧显示选项/搜索/刷新,置于列表头部;刷新自页头迁入工具条图标位)。
@@ -1787,7 +1787,7 @@ export function FeedScreen() {
   const [statsReady, setStatsReady] = useState(false);
   const [sourceStats, setSourceStats] = useState<SourceStatsRow[] | null>(null);
   /** 源名→engine 映射(右栏渠道全集词表源 + 类型徽标判定;
-   *  health().plugins 派生,挂载一次,零新 RPC;health 失败 = 空映射,
+   *  health().categories 派生,挂载一次,零新 RPC;health 失败 = 空映射,
    *  渠道全集退化为已加载条目 source、类型退化为源名前缀判定) */
   const [engineBySource, setEngineBySource] = useState<Map<string, string>>(new Map());
   /** 双缓冲(v7 §3.2,本批最关键结构改动):单一 items 同时喂「右栏聚合」
@@ -1899,7 +1899,7 @@ export function FeedScreen() {
     setDisplay(loadFeedDisplay());
   }, []);
 
-  // 源名→engine 映射(挂载一次):health().plugins → sources[].name→engine
+  // 源名→engine 映射(挂载一次):health().categories → sources[].name→engine
   // —— v6 渠道墙的渠道全集词表源(零条目渠道也出卡的 health 半边)+ 类型
   // 徽标判定;失败静默收敛为空映射(渠道全集退化为已加载条目 source,
   // 不拦情报流)
@@ -1908,7 +1908,7 @@ export function FeedScreen() {
     void api
       .health()
       .then((health) => {
-        if (!cancelled) setEngineBySource(engineMapFromHealth(health.plugins));
+        if (!cancelled) setEngineBySource(engineMapFromHealth(health.categories));
       })
       .catch(() => {
         if (!cancelled) setEngineBySource(new Map());
@@ -2673,20 +2673,20 @@ export function FeedScreen() {
     }
   }, []);
 
-  /** 空流 CTA:health 取第一个可加载插件 → run.start(yaml 绝对路径,与 sources.write 同口径) */
-  const startFirstPlugin = useCallback(async () => {
+  /** 空流 CTA:health 取第一个可加载品类 → run.start(yaml 绝对路径,与 sources.write 同口径) */
+  const startFirstCategory = useCallback(async () => {
     setCta({ phase: "starting" });
     try {
       const health = await api.health();
-      const plugin = health.plugins.find((candidate) => candidate.loaded) ?? health.plugins[0];
-      if (!plugin) {
+      const category = health.categories.find((candidate) => candidate.loaded) ?? health.categories[0];
+      if (!category) {
         setCta({
           phase: "error",
-          message: "插件目录为空:重启应用触发首跑初始化,或到「源管理」检查插件目录。",
+          message: "配置目录为空:重启应用触发首跑初始化,或到「源管理」检查品类。",
         });
         return;
       }
-      const started = await api.runStart({ yaml: plugin.file });
+      const started = await api.runStart({ yaml: category.file });
       setCta({ phase: "collecting", runId: started.run_id });
     } catch (err) {
       setCta({
@@ -3352,7 +3352,7 @@ export function FeedScreen() {
                           ) : (
                             <Button
                               size="sm"
-                              onClick={() => void startFirstPlugin()}
+                              onClick={() => void startFirstCategory()}
                               disabled={cta.phase === "starting"}
                             >
                               <Play className="size-3.5" />
@@ -3416,7 +3416,7 @@ export function FeedScreen() {
                           ) : (
                             <Button
                               size="sm"
-                              onClick={() => void startFirstPlugin()}
+                              onClick={() => void startFirstCategory()}
                               disabled={cta.phase === "starting"}
                             >
                               <Play className="size-3.5" />

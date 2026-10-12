@@ -137,7 +137,7 @@ export function CronScreen() {
 
   useEffect(() => {
     void api.health()
-      .then((health) => loadScheduleRows(health.plugins))
+      .then((health) => loadScheduleRows(health.categories))
       .then(setScheduleRows)
       .catch(() => undefined);
   }, []);

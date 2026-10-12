@@ -126,14 +126,14 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
    *  「remote.save 拒但 secret.set 已先行入钥匙串」的部分成功不发生。 */
   const [devBlocked, setDevBlocked] = useState(false);
 
-  const pluginId = plugin.id ?? plugin.dir_name;
-  const tokenRef = remoteTokenRef(pluginId);
-  const envBridged = REMOTE_ENV_BRIDGE_IDS.has(pluginId);
+  const categoryId = plugin.id ?? plugin.dir_name;
+  const tokenRef = remoteTokenRef(categoryId);
+  const envBridged = REMOTE_ENV_BRIDGE_IDS.has(categoryId);
 
   const reload = useCallback(async () => {
     setLoadHint(null);
     try {
-      const config = await remotePluginGet(pluginId);
+      const config = await remotePluginGet(categoryId);
       setConfigured(config.known);
       setDevBlocked(false);
       // 用户已手改草稿:异步应答不覆写(防打断输入);初拉/保存回读才回填
@@ -145,7 +145,7 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
       setLoadHint(error.message);
       setDevBlocked(error.code === "remote_config_unavailable");
     }
-  }, [pluginId]);
+  }, [categoryId]);
 
   // dirty 经 ref 读(reload 回调不因 dirty 变化而换引用;语义即「当前草稿态」)
   const endpointDirtyRef = useRef(endpointDirty);
@@ -185,7 +185,7 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
         secretWritten = true;
       }
       const result = await remotePluginSave({
-        id: pluginId,
+        id: categoryId,
         endpoint: endpoint.trim(),
         ...(token.trim() ? { token: tokenRef } : {}),
       });
@@ -193,8 +193,8 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
       setEndpointDirty(false); // 回读回填刚保存的值(与用户输入一致,良性)
       setNote({
         text: envBridged
-          ? `${pluginId} remote 配置已保存 → ${result.path}(端点即时生效,经 env 通道桥接)`
-          : `${pluginId} remote 配置已保存 → ${result.path}(该件端点经品类 YAML 消费,面板值暂无引擎 env 通道)`,
+          ? `${categoryId} remote 配置已保存 → ${result.path}(端点即时生效,经 env 通道桥接)`
+          : `${categoryId} remote 配置已保存 → ${result.path}(该件端点经品类 YAML 消费,面板值暂无引擎 env 通道)`,
         ok: true,
       });
       await reload();
@@ -212,7 +212,7 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
     } finally {
       setBusy(null);
     }
-  }, [endpoint, envBridged, pluginId, reload, token, tokenRef]);
+  }, [endpoint, envBridged, categoryId, reload, token, tokenRef]);
 
   const handleProbe = useCallback(async () => {
     setBusy("probe");
@@ -264,7 +264,7 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
             setEndpointDirty(true);
           }}
           placeholder="https://api.firecrawl.dev 或 https://<你的服务器>"
-          aria-label={`${plugin.name ?? pluginId} remote 端点`}
+          aria-label={`${plugin.name ?? categoryId} remote 端点`}
           data-testid={`bundled-remote-panel-${plugin.dir_name}-endpoint`}
           className="min-w-0 flex-1 font-mono text-2xs"
         />
@@ -274,7 +274,7 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
           value={token}
           onChange={(event) => setToken(event.target.value)}
           placeholder="API 键(留空 = 保持现值;保存即入系统钥匙串)"
-          aria-label={`${plugin.name ?? pluginId} API 键`}
+          aria-label={`${plugin.name ?? categoryId} API 键`}
           data-testid={`bundled-remote-panel-${plugin.dir_name}-token`}
           className="min-w-0 flex-1 font-mono text-2xs"
         />
@@ -294,7 +294,7 @@ function RemoteConfigPanel({ plugin }: { plugin: BundledPluginView }) {
             <KeyRound className={busy === "save" ? "size-3.5 animate-pulse" : "size-3.5"} />
             保存配置
           </Button>
-          {REMOTE_DOCTOR_PROBE_IDS.has(pluginId) ? (
+          {REMOTE_DOCTOR_PROBE_IDS.has(categoryId) ? (
             <Button
               size="sm"
               variant="outline"
