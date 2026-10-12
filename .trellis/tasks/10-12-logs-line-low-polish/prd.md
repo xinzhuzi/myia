@@ -23,3 +23,13 @@ logs-two-level-ui 复查留档的 4 条 low 一批收尾(全部复查员定位+�
 ## 边界
 
 - 纯打磨批,零协议/零数据面改动。
+
+## grill 决议表(2026-10-12 深化;四项修法复核定案)
+
+| # | 问题 | 决议 | 依据 | 可翻案 |
+|---|------|------|------|--------|
+| G1 | itemCount 死字段 | **删**:字段+itemsRetained 助手+其类型引用全清(grep 实证零消费方;摘要段 deriveOutcome 自带独立派生) | 复查员 grep 在案 | 否 |
+| G2 | 错误横幅满高 | 编排层 return 根包 flex h-full min-h-0 flex-col,横幅自然高、L1/L2 分支根改 flex-1 min-h-0 | 复查员修法;jsdom 无布局,验法=无头冒烟错误态夹具(本档补:冒烟加一条 error 态断言) | 是 |
+| G3 | view 滞留弹回 | detailRun===null 时 effect setView({level:1}) 复位;vitest 补用例(行消失→回 L1,行重现不弹回) | 复查员修法 | 否 |
+| G4 | 时间 Map 撞号 | startedAtById/finishedAtById 键改 runRowKey(run);vitest 撞号用例已有(注册表5/历史5 同屏),补断言两行时间各自正确 | HEAD 平移旧账,顺手收 | 是 |
+| G5 | 门禁 | build/vitest/冒烟三件 + 全量 pytest(纯前端面理论零 py 影响,跑一次兜底) | — | 否 |

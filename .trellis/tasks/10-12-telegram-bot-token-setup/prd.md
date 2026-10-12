@@ -23,3 +23,11 @@
 ## 边界
 
 - AI 不代取凭据;只立档推动+配置后验证。
+
+## grill 决议表(2026-10-12 深化;配置路径事实已核)
+
+| # | 问题 | 决议 | 依据 | 可翻案 |
+|---|------|------|------|--------|
+| G1 | token 配置入口 | **UI 两分钟路径:设置 → 机器人凭据 → telegram**:填 TELEGRAM_BOT_TOKEN(@BotFather 令牌,必填)+ TELEGRAM_CHAT_ID(可选,给 bot 发条消息后消息屏目录自动记)→ 存钥匙链 myia/push/*,推送解析 env 缺失自动回退 | bot-credentials-screen.tsx:82-84 表单在;push/telegram.py:452/533 钥匙链回退对上 | 否(实证) |
+| G2 | AI 侧工作 | 零开发;验证=主人配完后下一轮 news/cron,JSONL「推送完成 channel=telegram ok=True」+ 主人 TG 收到卡片 | run 92 已证链路通,唯缺 token | 否 |
+| G3 | chat_id 可选性 | 缺省时推送层自动发现(消息屏目录);不拦配置 | 屏内 hint 原文 | 是 |
