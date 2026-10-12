@@ -129,7 +129,7 @@ export function RunDetailView({
           <Badge
             variant="outline"
             data-testid={`run-history-badge-${domId}`}
-            title="重启前会话的跑次(run.status 合流运行历史库)"
+            title="应用重启前记录的采集(来自历史数据库)"
           >
             上一程
           </Badge>
@@ -204,7 +204,7 @@ export function RunDetailView({
               className="size-6 shrink-0 text-muted-foreground"
               data-testid={`run-rerun-${domId}`}
               aria-label={`重跑采集 #${run.runId}`}
-              title={`重跑该 run(run.start 回放 ${run.yaml}${run.dry ? ",dry" : ""})`}
+              title={`再跑一次这一轮采集(沿用相同品类配置${run.dry ? ";试跑,不落库" : ""})`}
               disabled={rerun?.phase === "starting"}
               onClick={() => onRerun(run)}
             >
@@ -253,7 +253,7 @@ export function RunDetailView({
               className="pl-8 font-mono"
             />
           </div>
-          {truncated ? <Badge variant="outline">缓冲截断</Badge> : null}
+          {truncated ? <Badge variant="outline">仅保留最近 4000 行</Badge> : null}
           {searching && shownRows !== undefined && rows !== undefined ? (
             <span data-testid={`run-log-hits-${domId}`} className="font-mono text-2xs text-muted-foreground">
               命中 {shownRows.length} / {rows.length} 行
@@ -280,7 +280,7 @@ export function RunDetailView({
             </p>
           ) : rows === undefined ? (
             <p className="shrink-0 text-muted-foreground">
-              <span className="text-brand-from">▍</span> 正在拉取 logs.tail…
+              <span className="text-brand-from">▍</span> 正在拉取日志…
             </p>
           ) : searching && shownRows !== undefined && shownRows.length === 0 ? (
             <p className="shrink-0 text-muted-foreground">
@@ -288,7 +288,7 @@ export function RunDetailView({
             </p>
           ) : rows.length === 0 ? (
             <p className="shrink-0 text-muted-foreground">
-              <span className="text-brand-from">▍</span> 这轮采集暂无日志(环形缓冲只保留最近 4000 行)
+              <span className="text-brand-from">▍</span> 这轮采集暂无日志(系统只保留最近 4000 行)
             </p>
           ) : (
             shownRows?.map((row) => <LogRowView key={row.key} row={row} needle={needle} />)
