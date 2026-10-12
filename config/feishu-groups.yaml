@@ -1,0 +1,38 @@
+# config/feishu-groups.yaml — 飞书群消息采集(10-12-feishu-ingest-engine)。
+#
+# 机制(engine: feishu,链外引擎,schema 词表/registry 已注册):
+#   Open API 群消息窗口拉取(GET /im/v1/chats/{chat_id}/messages,最新一页)
+#   → 锚 #fs-<chat_id>-<message_id> 全期幂等(管线 url 去重键,#tg- 同款);
+#   v1 仅 msg_type=text 出条目(post/富媒体静默跳过)。
+#
+# 凭据(与推送区同一自建应用,账号线复用机器人凭据的裁定语义):
+#   FEISHU_APP_ID / FEISHU_APP_SECRET(env 缺失回退钥匙链规范名
+#   myia/push/<键>)—— 设置→推送录过 feishu_card 凭据即通,零重复配置。
+#
+# 前置(一次性,主人侧):
+#   ① 开放平台给应用开通 im:message 群消息只读权限;
+#   ② 机器人加入目标群(在群里 /add 或群设置添加)。
+#   权限缺失 = feishu_permission_denied 结构化报错(不伪装空态)。
+id: feishu
+name: 飞书消息
+schedule: "*/30 * * * *"          # 半窗轮询(群消息量小,30 分钟足够新鲜)
+timezone: Asia/Shanghai
+
+sources:
+  - name: feishu-ai-relay-group
+    engine: feishu
+    url: "https://open.feishu.cn"     # 锚(#fs- 去重键前缀;端点由引擎构造)
+    engine_options:
+      feishu:
+        chat_id: "oc_f38a491eae5baf19898de28107087f05"   # AI中转站合伙人群
+        lookback_limit: 50
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    retry: 3
+
+watchlist:
+  keywords: []
+  mute: []
+
+classify:
+  builtin: false
+  rules: []

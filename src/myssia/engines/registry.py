@@ -158,6 +158,7 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # DOM → bot 线 update 同形全复用(#tg- 锚/过滤/合并出口);常驻实时
     # 监控是 telegram serve 的 web 线(telegram/web_host.py)的形态。
     "tg_web": lambda: _load("tg_web", "TelegramWebEngine"),
+    "feishu": lambda: _load("feishu", "FeishuEngine"),
 }
 
 # Static typing view of the registry (class names resolved lazily at runtime).

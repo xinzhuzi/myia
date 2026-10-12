@@ -194,6 +194,12 @@ ENGINES = (
     # 群消息 DOM → bot 线 update 同形全复用(配置档缺 = session_missing
     # 显式空态零浏览器,web-login 一次性前置)。
     "tg_web",
+    # 飞书群消息引擎(10-12-feishu-ingest-engine):链外 + 凭据可选(复用
+    # 推送区同一自建应用,env 缺失回退钥匙链规范名 myia/push/<键>);显式
+    # engine: feishu 才生效,Open API 群消息窗口拉取,锚 #fs-<chat>-<mid>
+    # 全期幂等(未配凭据 = credential_missing 显式空态零请求,reddit 判例;
+    # 权限缺失 = feishu_permission_denied 结构化指引)。
+    "feishu",
 )
 PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
@@ -270,6 +276,7 @@ EngineName = Literal[
     "store_report",
     "telegram",
     "tg_web",
+    "feishu",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]
 ExtractType = Literal["list", "item", "json_path", "rss"]
