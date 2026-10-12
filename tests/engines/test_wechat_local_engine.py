@@ -1,0 +1,602 @@
+"""Tests for the WeChat local-session engine (10-12-weixin-feed-channel 数据面).
+
+四态矩阵(照 tg_web/feishu 引擎判例;design §2.2/§4):
+
+- **配置错误**:chat/count/sides/read_timeout_seconds 形状错、源 URL 不符
+  锚契约、pagination 配置 → 结构化 FetchError(invalid_engine_options /
+  invalid_wechat_local_source_url / pagination_unsupported);
+- **桥缺席/失败面**:bin 缺失 = ``component_missing``(零子进程);桥超时 =
+  ``bridge_timeout``;桥具名错误族码名原样透传
+  (wechat_not_running/screen_recording_denied/window_closed);应答不可解析
+  = ``bridge_error``;
+- **结构化空态**(绝不张冠李戴):``chat.match=False`` → ``chat_not_open``;
+  ``chat.match=None`` → ``chat_title_unreadable``;
+- **开启态**:mock 桥子进程往返 → items 形状(#wx- 内容哈希锚/标题截断/
+  全文 content/sides 过滤/type 过滤/空白文本跳过);锚稳定性(同窗同锚、
+  OCR 微变另锚、side 入盐);
+- **词表/注册表**:schema ENGINES/EngineName 收录、ENGINE_REGISTRY 在册、
+  AUTO_CHAIN 原样、auto_degrade 单级链、词表↔注册表双向同步;
+- **配置装载+入库盖戳**:config/weixin.yaml 真件装载(id=weixin、engine=
+  wechat_local、dedup {url}、push 空、enrich 关);Pipeline 全链跑
+  (桥面 mock)→ 条目 source=weixin-<会话名>、category=weixin、
+  dedup_key=url 全串;同载荷二跑零新增(锚幂等)。
+
+零真机零真桥零真实微信(bin_path/run_bridge_command_sync 全 monkeypatch;
+fixture 消息全合成样本,不碰真实数据 —— 私有数据红线)。
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+import httpx
+import pytest
+
+import myssia.engines.wechat_local as wx_engine
+from myssia import schema
+from myssia.engines.fetch_base import FetchContext, FetchError
+from myssia.engines.registry import (
+    AUTO_CHAIN,
+    ENGINE_REGISTRY,
+    auto_degrade,
+    resolve_engine,
+)
+from myssia.engines.wechat_local import WechatLocalEngine, anchor_url
+from myssia.schema import load_category_file
+
+from conftest import make_client, make_context, make_source, run
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_URL = "https://weixin.qq.com"
+CHAT = "文件传输助手"
+CHAT_URL_ENCODED = "%E6%96%87%E4%BB%B6%E4%BC%A0%E8%BE%93%E5%8A%A9%E6%89%8B"
+ANCHOR_RE = re.compile(rf"^wechat-local://chat/{CHAT_URL_ENCODED}#wx-[0-9a-f]{{16}}$")
+
+
+# ---------------------------------------------------------------------------
+# Helpers(桥面 mock:bin 存在性 + 子进程往返;fixture 全合成样本)
+# ---------------------------------------------------------------------------
+
+
+def make_bridge_bin(tmp_path: Path) -> Path:
+    """假桥 bin(存在 + 可执行位;内容永不被执行 —— runner 已 mock)."""
+    fake_bin = tmp_path / "wechat-bridge"
+    fake_bin.write_text("#!/bin/sh\n", encoding="utf-8")
+    fake_bin.chmod(0o755)
+    return fake_bin
+
+
+def fake_runner(
+    payload: dict[str, Any] | None = None,
+    *,
+    exit_code: int = 0,
+    stdout: str | None = None,
+    raise_timeout: bool = False,
+    calls: list[list[str]] | None = None,
+):
+    """桥子进程 fake:固定应答/异常;记录 argv 供命令形态断言."""
+
+    def _runner(argv: Any, input_text: str, timeout: float) -> tuple[int, str, str]:
+        if calls is not None:
+            calls.append(list(argv))
+        if raise_timeout:
+            raise wx_engine.LocalBridgeTimeoutError(
+                f"wechat-bridge 超过 {timeout:.0f}s 未退出,子进程已终止"
+            )
+        if stdout is not None:
+            return exit_code, stdout, ""
+        return exit_code, json.dumps(payload, ensure_ascii=False), ""
+
+    return _runner
+
+
+def msg(
+    text: str,
+    *,
+    side: str = "left",
+    ts: str | None = "22:30",
+    sender: str | None = "合成样本发送者",
+    conf: float = 0.97,
+    type_: str = "text",
+) -> dict[str, Any]:
+    """一条合成消息行(桥 MessageRow.to_payload 契约形;非真实数据)."""
+    return {
+        "ts": ts,
+        "sender": sender,
+        "type": type_,
+        "text": text,
+        "side": side,
+        "conf": conf,
+    }
+
+
+def bridge_payload(
+    messages: list[dict[str, Any]],
+    *,
+    match: bool | None = True,
+    visible_title: str | None = CHAT,
+) -> dict[str, Any]:
+    """桥 messages read 成功载荷(契约形;chat.match 三态注入口)."""
+    return {
+        "messages": messages,
+        "count": len(messages),
+        "chat": {
+            "requested_id": CHAT,
+            "visible_title": visible_title,
+            "match": match,
+            "note": None if match is True else "像素链静默硬边界(合成)",
+        },
+        "window": {"window_id": 1, "onscreen": True, "width": 1200, "height": 800, "note": None},
+        "capture": {"state": "ok", "width": 1200, "height": 800, "mean_luma": 0.5},
+        "ocr": {"vl": {"used": False}},
+    }
+
+
+def make_engine(
+    *,
+    chat: Any = CHAT,
+    count: Any = 50,
+    sides: Any = None,
+    read_timeout: Any = 60,
+    url: str = SOURCE_URL,
+    extra: dict[str, Any] | None = None,
+) -> tuple[WechatLocalEngine, FetchContext]:
+    """构造引擎 + 上下文(engine_options 形状注入口,Any 故意 —— 校验面)."""
+    options: dict[str, Any] = {"chat": chat, "count": count, "read_timeout_seconds": read_timeout}
+    if sides is not None:
+        options["sides"] = sides
+    source_kwargs: dict[str, Any] = {
+        "name": f"weixin-{CHAT}",
+        "engine": "wechat_local",
+        "url": url,
+        "engine_options": {"wechat_local": options},
+    }
+    source_kwargs.update(extra or {})
+    source = make_source(**source_kwargs)
+    context, _clock = make_context(make_client(lambda request: httpx.Response(404)))
+    return WechatLocalEngine(source, context), context
+
+
+def fetch_items(engine: WechatLocalEngine) -> list[dict[str, Any]]:
+    return run(engine.fetch())
+
+
+# ---------------------------------------------------------------------------
+# 1. 配置错误面(结构化 FetchError;零子进程)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("overrides", "fragment"),
+    [
+        ({"chat": None}, "chat"),
+        ({"chat": "  "}, "chat"),
+        ({"chat": True}, "chat"),
+        ({"count": 0}, "count"),
+        ({"count": 201}, "count"),
+        ({"count": True}, "count"),
+        ({"count": "50"}, "count"),
+        ({"sides": []}, "sides"),
+        ({"sides": ["left", "up"]}, "sides"),
+        ({"sides": "left"}, "sides"),
+        ({"sides": [True]}, "sides"),
+        ({"read_timeout": 0}, "read_timeout_seconds"),
+        ({"read_timeout": -1}, "read_timeout_seconds"),
+        ({"read_timeout": "60"}, "read_timeout_seconds"),
+    ],
+)
+def test_engine_options_shape_errors(overrides: dict[str, Any], fragment: str):
+    engine, _ = make_engine(**overrides)
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "invalid_engine_options"
+    assert fragment in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://weixin.qq.com",  # 非 https
+        "https://wx.qq.com",  # 非锚域
+        "https://weixin.qq.com/chat/foo",  # 路径非空
+    ],
+)
+def test_source_url_anchor_contract(url: str):
+    engine, _ = make_engine(url=url)
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "invalid_wechat_local_source_url"
+    assert "https://weixin.qq.com" in str(excinfo.value)
+
+
+def test_pagination_unsupported():
+    engine, _ = make_engine(
+        extra={"pagination": {"mode": "selector", "selector": "a.next", "max_pages": 2}}
+    )
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "pagination_unsupported"
+
+
+# ---------------------------------------------------------------------------
+# 2. 桥缺席/失败面(component_missing / bridge_timeout / 具名族透传)
+# ---------------------------------------------------------------------------
+
+
+def test_bridge_bin_missing_is_component_missing(tmp_path, monkeypatch):
+    missing = tmp_path / "no-such-bridge"
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: missing)
+    calls: list[list[str]] = []
+    monkeypatch.setattr(wx_engine, "run_bridge_command_sync", fake_runner(calls=calls))
+    engine, _ = make_engine()
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "component_missing"
+    assert "wechat-bridge" in str(excinfo.value)
+    assert calls == []  # bin 缺失先于子进程:零执行
+
+
+def test_bridge_timeout_is_structured(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine, "run_bridge_command_sync", fake_runner(raise_timeout=True)
+    )
+    engine, _ = make_engine()
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "bridge_timeout"
+
+
+@pytest.mark.parametrize(
+    ("exit_code", "code"),
+    [
+        (10, "wechat_not_running"),
+        (11, "screen_recording_denied"),
+        (11, "ax_permission_denied"),
+        (12, "window_closed"),
+        (13, "ax_tree_empty"),
+        (30, "timeout"),
+    ],
+)
+def test_bridge_named_error_family_passes_through(
+    tmp_path, monkeypatch, exit_code: int, code: str
+):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    payload = {
+        "error": {
+            "code": code,
+            "message": f"合成 {code} 错误",
+            "fix_hint": "合成修复指引",
+        }
+    }
+    monkeypatch.setattr(
+        wx_engine, "run_bridge_command_sync", fake_runner(payload, exit_code=exit_code)
+    )
+    engine, _ = make_engine()
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    expected = "bridge_timeout" if code == "timeout" else code
+    assert excinfo.value.error_type == expected
+    assert "合成修复指引" in str(excinfo.value)
+
+
+def test_bridge_unparseable_answer_is_bridge_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(exit_code=1, stdout="not-json"),
+    )
+    engine, _ = make_engine()
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "bridge_error"
+
+
+def test_bridge_success_with_error_payload_is_rejected(tmp_path, monkeypatch):
+    """exit 0 却带 error 载荷 = 契约漂移,按具名族拒(不装死)."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    payload = {"error": {"code": "window_closed", "message": "窗口未开"}}
+    monkeypatch.setattr(
+        wx_engine, "run_bridge_command_sync", fake_runner(payload, exit_code=0)
+    )
+    engine, _ = make_engine()
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "window_closed"
+
+
+def test_bridge_payload_without_messages_list_is_bridge_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine, "run_bridge_command_sync", fake_runner({"count": 0, "chat": {"match": True}})
+    )
+    engine, _ = make_engine()
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "bridge_error"
+
+
+# ---------------------------------------------------------------------------
+# 3. 结构化空态(chat.match 三态;绝不张冠李戴)
+# ---------------------------------------------------------------------------
+
+
+def test_chat_not_open_is_explicit_empty_state(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(bridge_payload([msg("合成样本")], match=False, visible_title="别的事")),
+    )
+    engine, _ = make_engine()
+    assert fetch_items(engine) == []
+    assert engine.last_skip_reason == "chat_not_open"
+
+
+def test_chat_title_unreadable_is_explicit_empty_state(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(bridge_payload([msg("合成样本")], match=None, visible_title=None)),
+    )
+    engine, _ = make_engine()
+    assert fetch_items(engine) == []
+    assert engine.last_skip_reason == "chat_title_unreadable"
+
+
+# ---------------------------------------------------------------------------
+# 4. 开启态(items 形状 / 过滤 / 命令形态)
+# ---------------------------------------------------------------------------
+
+
+def test_bridge_argv_contract(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(bridge_payload([msg("合成样本")]), calls=calls),
+    )
+    engine, _ = make_engine(chat=CHAT, count=7)
+    fetch_items(engine)
+    assert len(calls) == 1
+    argv = calls[0]
+    assert argv[1:] == ["messages", "read", CHAT, "-k", "7", "--json"]
+    assert argv[0].endswith("wechat-bridge")
+
+
+def test_items_shape_and_metadata(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    text = "合成样本正文第一行\n合成样本正文第二行"
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(bridge_payload([msg(text, ts="22:30", conf=0.91)])),
+    )
+    engine, _ = make_engine()
+    items = fetch_items(engine)
+    assert len(items) == 1
+    item = items[0]
+    assert ANCHOR_RE.match(item["url"])
+    assert item["title"] == "合成样本正文第一行"
+    assert item["content"] == text
+    # 观测键留 raw 面(metadata;Item.from_extracted 把非契约键收进 metadata)
+    assert item["sender"] == "合成样本发送者"
+    assert item["side"] == "left"
+    assert item["ts"] == "22:30"
+    assert item["conf"] == 0.91
+    assert item["chat"] == CHAT
+
+
+def test_title_truncation_long_text(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    long_text = "长" * 200
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(bridge_payload([msg(long_text)])),
+    )
+    engine, _ = make_engine()
+    items = fetch_items(engine)
+    assert len(items[0]["title"]) == wx_engine.TITLE_MAX_CHARS
+    assert items[0]["content"] == long_text
+
+
+def test_sides_filter(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            bridge_payload(
+                [
+                    msg("对方消息", side="left"),
+                    msg("自己的消息", side="right"),
+                    msg("系统行", side="center"),
+                ]
+            )
+        ),
+    )
+    # 缺省 sides=[left]:只出对方消息
+    engine, _ = make_engine(sides=None)  # 不配 → 缺省 [left]
+    assert [i["content"] for i in fetch_items(engine)] == ["对方消息"]
+    # 显式 [left, right]:对方+自己
+    engine2, _ = make_engine(sides=["left", "right"])
+    assert [i["content"] for i in fetch_items(engine2)] == ["对方消息", "自己的消息"]
+
+
+def test_non_text_and_blank_messages_skipped(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            bridge_payload(
+                [
+                    msg("正常消息"),
+                    msg("图片行", type_="image"),
+                    msg("   "),  # 空白文本(OCR 噪声)
+                    "not-a-dict",  # 防御:非 dict 行
+                ]
+            )
+        ),
+    )
+    engine, _ = make_engine()
+    assert [i["content"] for i in fetch_items(engine)] == ["正常消息"]
+
+
+def test_zero_items_after_filter_is_legitimate_empty(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(bridge_payload([msg("自己的消息", side="right")])),
+    )
+    engine, _ = make_engine()  # 缺省 [left] → 全被侧过滤
+    assert fetch_items(engine) == []
+    assert engine.last_skip_reason is None  # 窗口零产出 ≠ 结构化空态码
+
+
+# ---------------------------------------------------------------------------
+# 5. 锚稳定性(#wx- 内容哈希;同窗同锚 / OCR 微变另锚 / side·ts 入盐)
+# ---------------------------------------------------------------------------
+
+
+def test_anchor_stable_same_window_same_anchor():
+    first = anchor_url(CHAT, "22:30", "left", "同一条合成消息")
+    second = anchor_url(CHAT, "22:30", "left", "同一条合成消息")
+    assert first == second
+
+
+def test_anchor_whitespace_variation_collapses():
+    """空白规整:OCR 行间空格抖动不另立新锚(缓解面,如实非全幂等)."""
+    plain = anchor_url(CHAT, "22:30", "left", "合成 消息 文本")
+    spaced = anchor_url(CHAT, "22:30", "left", "合成\n  消息\t文本 ")
+    assert plain == spaced
+
+
+def test_anchor_ocr_text_change_is_new_anchor():
+    """文本真变(OCR 修字)= 新锚(弱幂等如实:重复条目风险面)."""
+    first = anchor_url(CHAT, "22:30", "left", "合成消息甲")
+    second = anchor_url(CHAT, "22:30", "left", "合成消息乙")
+    assert first != second
+
+
+def test_anchor_side_and_ts_are_salt():
+    base = anchor_url(CHAT, "22:30", "left", "同一条合成消息")
+    other_side = anchor_url(CHAT, "22:30", "right", "同一条合成消息")
+    other_ts = anchor_url(CHAT, None, "left", "同一条合成消息")
+    other_chat = anchor_url("别的会话", "22:30", "left", "同一条合成消息")
+    assert len({base, other_side, other_ts, other_chat}) == 4
+
+
+def test_anchor_shape():
+    url = anchor_url(CHAT, "22:30", "left", "合成样本")
+    assert url.startswith(f"wechat-local://chat/{CHAT_URL_ENCODED}#wx-")
+    assert re.fullmatch(r"[0-9a-f]{16}", url.rsplit("#wx-", 1)[1])
+
+
+# ---------------------------------------------------------------------------
+# 6. 词表/注册表(链外注册;AUTO_CHAIN 原样;词表↔注册表双向同步)
+# ---------------------------------------------------------------------------
+
+
+def test_schema_vocabulary_includes_wechat_local():
+    assert "wechat_local" in schema.ENGINES
+    engine_names = schema.EngineName.__args__  # type: ignore[attr-defined]
+    assert "wechat_local" in engine_names
+
+
+def test_registry_off_chain_registration():
+    assert "wechat_local" in ENGINE_REGISTRY
+    assert resolve_engine("wechat_local") is WechatLocalEngine
+    assert "wechat_local" not in AUTO_CHAIN  # 链外:auto 永不路过
+    assert auto_degrade("wechat_local") == ["wechat_local"]  # 单级链零降级
+
+
+def test_schema_vocabulary_and_registry_are_in_sync():
+    """词表(除 auto)↔注册表双向一致:新引擎两处齐改,漏一处即红."""
+    assert set(schema.ENGINES) - {"auto"} == set(ENGINE_REGISTRY)
+
+
+def test_source_config_accepts_wechat_local_engine():
+    source = make_source(
+        name="weixin-demo", engine="wechat_local", url=SOURCE_URL
+    )
+    assert source.engine == "wechat_local"
+
+
+# ---------------------------------------------------------------------------
+# 7. 配置装载 + 入库盖戳(config/weixin.yaml 真件;Pipeline 全链 mock)
+# ---------------------------------------------------------------------------
+
+
+def test_weixin_yaml_loads_and_carries_red_lines():
+    config = load_category_file(REPO_ROOT / "config" / "weixin.yaml")
+    assert config.id == "weixin"
+    assert config.name == "微信监控"
+    assert len(config.sources) == 1
+    source = config.sources[0]
+    assert source.name == f"weixin-{CHAT}"
+    assert source.engine == "wechat_local"
+    assert source.url == SOURCE_URL
+    assert source.empty_ok is True
+    assert source.extra_params["engine_options"]["wechat_local"]["chat"] == CHAT
+    assert config.dedup.key == "{url}"  # #wx- 锚全串模板
+    assert config.enrich.enabled is False  # 红线:私有内容不出本机
+    assert config.push == []  # 红线:不外发任何通道
+    assert config.storage.retention == "30d"  # 隐私谨慎缺省(TG 90d)
+
+
+def test_pipeline_stamps_source_category_and_dedups(tmp_path, monkeypatch):
+    """入库盖戳全链:引擎条目 → Item(source=yaml 源名/category=weixin)→
+    dedup {url} → store;同载荷二跑零新增(锚幂等)."""
+    from myssia.pipeline import Pipeline
+    from myssia.store import SQLiteStore
+
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    payload = bridge_payload(
+        [msg("合成样本消息甲", ts="22:30"), msg("合成样本消息乙", ts=None)]
+    )
+    monkeypatch.setattr(
+        wx_engine, "run_bridge_command_sync", fake_runner(payload)
+    )
+    config = load_category_file(REPO_ROOT / "config" / "weixin.yaml")
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(404))
+    )
+    store = SQLiteStore(tmp_path / "wx-feed.db")
+    pipeline = Pipeline(config, store=store, client=client)
+
+    first = run(pipeline.run())
+    assert first.status == "success"
+    assert first.category == "weixin"  # run 级盖戳(RunResult.category=config.id)
+    records = store.list_items(source=f"weixin-{CHAT}")
+    assert len(records) == 2
+    assert {record.source for record in records} == {f"weixin-{CHAT}"}
+    for record in records:
+        # 条目级 category 不盖章:classify.builtin=false 下 store category=None
+        # —— telegram-web.yaml 同构(TG 线判例);feed 渠道判定走源名前缀
+        # (WEIXIN_SOURCE_RE)+ health() 词表,零依赖 items.category。
+        assert record.category is None
+        assert ANCHOR_RE.match(record.url)
+        assert record.dedup_key == record.url  # {url} 模板渲染锚全串
+
+    # 同窗重读(同载荷)= 同锚 → dedup 沉默(dedup 表全期在册),零新增
+    second = run(pipeline.run())
+    assert second.status == "success"
+    assert len(store.list_items(source=f"weixin-{CHAT}")) == 2
+    store.close()
+
+
+def test_weixin_yaml_disabled_by_default_no_cron_job():
+    """缺省关纪律(telegram-web.yaml 判例):品类在场 ≠ 在跑 —— cron jobs
+    是显式注册面;本测试钉死 config/weixin.yaml 不自带任何自动激活钩子
+    (该断言面的真源是 cron 侧显式 create_job,这里锁文件语义注释在场)."""
+    text = (REPO_ROOT / "config" / "weixin.yaml").read_text(encoding="utf-8")
+    assert "缺省关" in text  # 隐私面显式开启纪律的文件级注记

@@ -194,6 +194,12 @@ ENGINES = (
     # 群消息 DOM → bot 线 update 同形全复用(配置档缺 = session_missing
     # 显式空态零浏览器,web-login 一次性前置)。
     "tg_web",
+    # 微信本机会话引擎(10-12-weixin-feed-channel):链外 + 凭据零(本机
+    # 已登录桌面客户端);显式 engine: wechat_local 才生效,本机桥
+    # wechat-bridge 子进程只读当前打开会话(chat.match 不符 = chat_not_open
+    # 显式空态,绝不张冠李戴),锚 #wx-<内容哈希>(像素链无消息 id,
+    # 如实弱幂等)。
+    "wechat_local",
     # 飞书群消息引擎(10-12-feishu-ingest-engine):链外 + 凭据可选(复用
     # 推送区同一自建应用,env 缺失回退钥匙链规范名 myia/push/<键>);显式
     # engine: feishu 才生效,Open API 群消息窗口拉取,锚 #fs-<chat>-<mid>
@@ -276,6 +282,7 @@ EngineName = Literal[
     "store_report",
     "telegram",
     "tg_web",
+    "wechat_local",
     "feishu",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]

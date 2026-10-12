@@ -158,6 +158,12 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # DOM → bot 线 update 同形全复用(#tg- 锚/过滤/合并出口);常驻实时
     # 监控是 telegram serve 的 web 线(telegram/web_host.py)的形态。
     "tg_web": lambda: _load("tg_web", "TelegramWebEngine"),
+    # 微信本机会话引擎(10-12-weixin-feed-channel):链外同 tg_web 先例 ——
+    # 显式 engine: wechat_local 才生效,auto 永不路过;凭据零(本机已登录
+    # 桌面客户端);数据面 = 子进程直调 wechat-bridge 桥只读当前打开会话
+    # (sidecar 只是 UI 探针/浏览面,cron 档 sidecar 不在场,不经 IPC)
+    # → #wx- 内容哈希锚条目(chat.match 不符 = chat_not_open 显式空态)。
+    "wechat_local": lambda: _load("wechat_local", "WechatLocalEngine"),
     "feishu": lambda: _load("feishu", "FeishuEngine"),
 }
 
