@@ -305,7 +305,7 @@ function EnrichFeedbackCard({
         ) : null}
         {enrichSections.length === 0 ? (
           <span className="text-xs text-muted-foreground">
-            暂无带 enrich 节的品类(doctor 回显为准);到「YAML配置」为品类补 enrich 节。
+            还没有品类配置 AI 评分;到「YAML配置」给品类加 enrich 配置后会出现在这里。
           </span>
         ) : (
           /* Kestra SettingRow 扁平化:逐品类 = 开关行 + model 行,行间细线,
@@ -327,30 +327,30 @@ function EnrichFeedbackCard({
                     description={`预算护栏 budget_per_run = ${enrich.budget_per_run}(只读,改值走「YAML配置」)`}
                   >
                     <span className="text-2xs text-muted-foreground">
-                      {row.saving ? "写回中…" : enrich.enabled ? "AI 评分已启用" : "AI 评分已停用"}
+                      {row.saving ? "保存中…" : enrich.enabled ? "AI 评分已启用" : "AI 评分已停用"}
                     </span>
                     {/* 开关行:自动保存无按钮(拆解表第 5 条;Linear 开关即时生效模式) */}
                     <Switch
                       checked={enrich.enabled}
                       disabled={row.saving}
                       aria-label={`AI 评分开关 ${categoryFile}`}
-                      title="切换即写回品类 YAML enrich.enabled(yaml.save,注释保真)"
+                      title="打开或关闭后立即保存到该品类的配置文件(原有注释保留)"
                       onCheckedChange={() =>
                         void writeNode(
                           categoryFile,
                           "enabled",
                           enrich.enabled ? "false" : "true",
-                          `${categoryFile} AI 评分已${enrich.enabled ? "停用" : "启用"}(enrich.enabled 写回,doctor 已复核)。`,
+                          `${categoryFile} AI 评分已${enrich.enabled ? "停用" : "启用"}(已保存,并已自动复核)。`,
                         )
                       }
                     />
                   </SettingRow>
                   <FieldInput
-                    label="enrich.model"
+                    label="评分模型"
                     aria-label={`AI 评分模型 ${categoryFile}`}
                     placeholder={enrich.model}
                     value={modelValue}
-                    hint="写回品类 YAML enrich.model(yaml.save;doctor 回显为现值)"
+                    hint="填模型名点「保存」写进该品类的配置文件;留空保持当前值"
                     onChange={(event) => setRowState(categoryFile, { modelDraft: event.target.value })}
                     action={
                       <Button
@@ -1241,10 +1241,10 @@ export function SettingsScreen() {
                     <FieldInput
                       label="model"
                       aria-label="model"
-                      placeholder="glm-4-flash(doctor 回显为现值)"
+                      placeholder="如 glm-4-flash(当前使用的模型显示在这里)"
                       value={llm.model}
                       onChange={(event) => setLlm((prev) => ({ ...prev, model: event.target.value }))}
-                      hint="非凭据:存于品类 YAML enrich.model;写回走下方「评分与反馈」分区(yaml.save,mtime 乐观锁)"
+                      hint="模型名,保存在各品类的配置文件里;填好后到下方「评分与反馈」区点保存"
                     />
                     <FieldInput
                       label="LLM API Key"
