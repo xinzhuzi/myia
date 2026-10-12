@@ -1,28 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Check,
-  ChevronDown,
-  CirclePlay,
-  CircleStop,
-  CircleX,
-  CircleCheck,
-  Copy,
-  Loader2,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  TriangleAlert,
-  X,
-} from "lucide-react";
 
-import { EmptyState } from "@/components/empty-state";
-import { PageHeader } from "@/components/layout/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { SidecarRequestError } from "@/lib/api";
 import type { SidecarEvent, UnlistenFn } from "@/lib/api";
 
@@ -30,475 +8,68 @@ import {
   buildRunRows,
   eventToRow,
   filterRunRows,
-  isRowError,
-  isRowWarn,
   loadRunLogs,
   loadRuns,
   rerunRun,
-  rowMatchesQuery,
-  splitTextOnQuery,
   subscribeRunEvents,
   tailToRows,
 } from "./api";
-import type { LogRow, LogsRunEntry, RunFilterStatus, RunRowModel } from "./api";
+import type { LogRow, LogsRunEntry, RerunState, RunFilterStatus, RunRowModel } from "./api";
+import { RunDetailView } from "./run-detail-view";
+import { RunListView } from "./run-list-view";
 
 /**
- * 采集日志(D4 结构性重做;10-04-ui-kestra-anchor 重锚 Kestra):
- * 列表态对标 kestra/ui/src/components/executions/Executions.vue(KsDataTable
- * 表行解剖 [Apache-2.0,借结构改语义])——满高列表容器(section.full-container
- * 同款:列表内滚、过滤条常驻)+ 定宽槽位列对齐(#id mono · 品类 · 相对开始
- * 时间(KsDateAgo inverted 同义)· 耗时 mono · 状态小芯片(KsExecutionStatus
- * small:24px 高/xs 12px/描边圆图标/状态色淡底))。
- * 展开态对标同目录 Gantt.vue 头部解剖:摘要组(总耗时/行数/错误行)+ 行尾
- * 动作(复制日志 link 钮 + 状态),日志体仍等宽终端块。
- * 不抄:Kestra 复选/批量操作/分页/列配置/CSV 导出(单机单 run 单飞,无此域,
- * 功能面零改动 R5);Gantt 逐任务时间条(协议无 taskRunList 时间轴,造假数据
- * 违反像素双真源)。
- * 数据面不变:run.status + logs.tail(展开时惰性拉取,缓存)+ sidecar://event 续播。
- * 10-07-logs-restart-visibility R1:run.status 已合流 DB runs 历史——重启后
- * 「上一程」历史行落瀑布(「上一程」Badge,新→旧序不变),展开按 log_run_id
- * 会话对齐号走既有 logs.tail 惰性拉取(零新协议);旧行无对齐号如实降级。
+ * 采集日志(10-12-logs-two-level-ui:两级界面重做)。
  *
- * G7 三件:①run 行重跑(骑 G4 手动触发通道 run.start,不新增协议;成功反馈
- * 新 run_id,新 run 经列表刷新自动展开跟随);②品类·状态过滤条(与源管理
- * compact 密度同款 select);③日志搜索(输入即过滤 + 命中片段高亮)。
+ * 信息架构(design §1):accordion 内嵌折叠退役,两级下钻——
+ *   L1 运行历史(RunListView)= Kestra Executions 表行解剖:每 run 一行直出,
+ *     行内「采集了什么」摘要(summarizeRun,只吃 run.status 行);
+ *   L2 轮详情(RunDetailView)= Kestra Execution 详情页同物种锚:元信息头 +
+ *     失败原因区(三源合成)+ 完整日志体(自动滚底/错误行高亮/复制/搜索)。
+ * 动线(design §4):L1 点行 → L2;返回钮 / Esc → L1;过滤态与列表滚动位置
+ * 保持;新 running run 不自动跳级(行内状态芯片承担活性,accordion 时代的
+ * 自动展开跟随策略整体退役)。
+ *
+ * 本文件 = 编排层:数据 hooks + 事件订阅 + view state + Esc 全局链 + 过滤态
+ * (挂编排层,切级不重置,design §4.2)+ L1 滚动位置捕存回写。
+ *
+ * 数据面不变(零新协议):run.status + logs.tail(进 L2 才惰性拉取,
+ * loadedRunsRef 缓存驻屏)+ sidecar://event 续播;@/lib/api client 零改动。
+ * 10-07-logs-restart-visibility R1 合流的「上一程」历史行全家族保留(徽标 /
+ * log_run_id 会话对齐拉取 / 旧行无号如实降级 / 撞号 h 前缀防混)。
  */
 
-/** 状态过滤键 → 过滤选项文案(与 runBadge 同词表) */
-const STATUS_FILTER_OPTIONS: Array<{ value: RunFilterStatus; label: string }> = [
-  { value: "running", label: "运行中" },
-  { value: "success", label: "成功" },
-  { value: "partial", label: "部分" },
-  { value: "config_error", label: "配置" },
-  { value: "failed", label: "失败" },
-  { value: "cancelled", label: "已取消" },
-];
-
-/** run 状态 → 状态芯片模型(Kestra KsExecutionStatus 解剖:图标+文案+状态色;
- * 退出码语义 0/1/2/3 + cancelled,见 types.ts RunExitStatus) */
-function runBadge(status: RunRowModel["status"], state: RunRowModel["state"]) {
-  if (state === "running" || status === null) {
-    return { variant: "default" as const, label: "运行中", icon: CirclePlay };
-  }
-  switch (status) {
-    case "success":
-      return { variant: "ok" as const, label: "成功", icon: CircleCheck };
-    case "partial":
-      return { variant: "warning" as const, label: "部分", icon: TriangleAlert };
-    case "config_error":
-      return { variant: "warning" as const, label: "配置", icon: TriangleAlert };
-    case "failed":
-      return { variant: "destructive" as const, label: "失败", icon: CircleX };
-    case "cancelled":
-      // run.cancel 信号终局(C2,v1.1.2 桌面对齐批)
-      return { variant: "unknown" as const, label: "已取消", icon: CircleStop };
-  }
-}
-
-/** 状态芯片(Kestra KsExecutionStatus small 档:高 24px/字 xs 12px/圆角 6px/
- * 状态色文字+淡底+描边圆图标;色比沿用 Badge 四态实算档,WCAG 不降级) */
-const STATUS_CHIP_TONE: Record<string, string> = {
-  default: "border-primary/25 bg-primary/15 text-primary",
-  ok: "border-ok/30 bg-ok/15 text-ok",
-  warning: "border-warning/30 bg-warning/15 text-warning",
-  destructive: "border-destructive/30 bg-destructive/15 text-[#ff6b70]",
-  unknown: "border-unknown/30 bg-unknown/10 text-unknown",
-};
-function StatusChip({
-  badge,
-  testId,
-}: {
-  badge: { variant: "default" | "ok" | "warning" | "destructive" | "unknown"; label: string; icon: typeof CircleCheck };
-  testId?: string;
-}) {
-  const Icon = badge.icon;
-  return (
-    <span
-      data-testid={testId}
-      className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-[6px] border px-2 text-xs font-medium tabular-nums ${STATUS_CHIP_TONE[badge.variant]}`}
-    >
-      <Icon aria-hidden className="size-3.5" />
-      {badge.label}
-    </span>
-  );
-}
-
-/** testid/DOM id 后缀:历史行加 h 前缀——会话号与 DB 号两编号空间撞号
- *  (同屏双 #N)时保 DOM id/testid 唯一(行语义区分交给「上一程」徽标) */
-function domIdOf(run: Pick<RunRowModel, "runId" | "history">): string {
-  return run.history ? `h${run.runId}` : `${run.runId}`;
-}
-
-/** 相对开始时间(Kestra KsDateAgo inverted 同义:列表里读「多久前」比绝对时间快;
- * title 挂绝对时间补全语义;历史行 started_at 沿库可空 → 「—」) */
-function formatRelative(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const ms = Date.now() - new Date(iso).getTime();
-  if (!Number.isFinite(ms) || ms < 0) return "—";
-  const sec = Math.floor(ms / 1000);
-  if (sec < 10) return "刚刚";
-  if (sec < 60) return `${sec} 秒前`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min} 分钟前`;
-  const hour = Math.floor(min / 60);
-  if (hour < 24) return `${hour} 小时前`;
-  return `${Math.floor(hour / 24)} 天前`;
-}
-
-/** 命中片段 <mark>:警示底 + 前景保持行色系(只标记不改语,WCAG 不降级) */
-function HighlightedText({ text, needle }: { text: string; needle: string }) {
-  if (needle === "") return <>{text}</>;
-  return (
-    <>
-      {splitTextOnQuery(text, needle).map((part, index) =>
-        part.hit ? (
-          <mark
-            key={index}
-            data-testid="log-search-hit"
-            className="rounded-[2px] bg-warning/30 text-foreground underline decoration-warning/60 decoration-1 underline-offset-2"
-          >
-            {part.text}
-          </mark>
-        ) : (
-          <span key={index}>{part.text}</span>
-        ),
-      )}
-    </>
-  );
-}
-
-function LogRowView({ row, needle }: { row: LogRow; needle: string }) {
-  if (row.stream === "system") {
-    return (
-      <p data-testid="log-system-row" className="whitespace-pre-wrap break-words text-muted-foreground/80">
-        <span className="mr-1.5 text-brand-from">▸</span>
-        <HighlightedText text={row.text} needle={needle} />
-      </p>
-    );
-  }
-  const error = isRowError(row);
-  const warn = isRowWarn(row);
-  return (
-    <p
-      data-testid="log-row"
-      data-error={error ? "true" : undefined}
-      data-warn={warn ? "true" : undefined}
-      className={
-        error
-          ? // 错误行 dead 色高亮(D4;P2 对比实算:bg-dead/10 叠 bg-sidebar ≈ 4.67:1,
-            // 原 bg-dead/15 ≈ 4.43:1 不达 WCAG AA 正文 4.5,降档到 /10)
-            "whitespace-pre-wrap break-words rounded-sm bg-dead/10 px-1 text-dead"
-          : warn
-            ? "whitespace-pre-wrap break-words px-1 text-warning/85" // WARNING 级 / 裸 stderr 诊断行弱警示
-            : "whitespace-pre-wrap break-words px-1 text-foreground/90"
-      }
-    >
-      <span className="mr-1.5 text-muted-foreground/60">·</span>
-      <HighlightedText text={row.text} needle={needle} />
-    </p>
-  );
-}
-
-/** 重跑状态反馈(G7):starting 打转 → triggered 报新 run_id → 8s 后自动隐去 */
-type RerunState =
-  | { phase: "starting" }
-  | { phase: "triggered"; runId: number }
-  | { phase: "error"; message: string };
-
-/**
- * 折叠组头 = 每 run 统计行,解剖对位 Kestra Executions.vue 表行(定宽槽位列
- * 对齐):#id mono(KsId)· 品类(KsEntityLink 位)· 相对开始时间(KsDateAgo
- * inverted)· 耗时 mono(Duration)· 状态芯片(KsExecutionStatus small)。
- * 错误行数/条数沿用 G7 口径放时间槽左侧。折叠控件与重跑按钮是兄弟节点
- * (button 不可嵌套);testid/aria-expanded 留在折叠按钮上(它才是展开语义的owner)。
- */
-function RunGroupHeader({
-  run,
-  badge,
-  errorCount,
-  startedAt,
-  expanded,
-  onToggle,
-  rerun,
-  onRerun,
-}: {
-  run: RunRowModel;
-  badge: { variant: "default" | "ok" | "warning" | "destructive" | "unknown"; label: string; icon: typeof CircleCheck };
-  errorCount: number;
-  startedAt: string | null | undefined;
-  expanded: boolean;
-  onToggle: (run: RunRowModel) => void;
-  rerun: RerunState | undefined;
-  onRerun: (run: RunRowModel) => void;
-}) {
-  const starting = rerun?.phase === "starting";
-  const domId = domIdOf(run);
-  return (
-    <div className="flex min-h-11 items-center gap-1 pr-2 transition-colors duration-(--duration-fast) hover:bg-accent/60">
-      <button
-        type="button"
-        data-testid={`run-group-header-${domId}`}
-        aria-expanded={expanded}
-        aria-controls={`run-group-body-${domId}`}
-        onClick={() => onToggle(run)}
-        className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-left"
-      >
-        <ChevronDown
-          aria-hidden
-          className={`size-3.5 shrink-0 text-muted-foreground transition-transform duration-(--duration-fast) ${expanded ? "" : "-rotate-90"}`}
-        />
-        {/* KsId 档:mono 弱色,定宽槽让多行 id 列对齐 */}
-        <span className="w-9 shrink-0 font-mono text-xs text-muted-foreground">#{run.runId}</span>
-        {/* KsEntityLink 位:品类即 run 的「流程」主体(不可点,不作链接色——
-            Kestra 该槽是 RouterLink,我们行级折叠为主交互,诚实呈现) */}
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">{run.category}</span>
-        {run.dry ? (
-          <Badge variant="outline" title="dry run(不落库)">
-            试跑
-          </Badge>
-        ) : null}
-        {/* 「上一程」徽标(10-07-logs-restart-visibility R1):run.status 合流 DB
-            runs 历史行——重启后跨会话可见的上一程跑次;与试跑徽标同 variant=outline
-            并排槽位(历史行 dry 恒 false,两者不并存) */}
-        {run.history ? (
-          <Badge variant="outline" data-testid={`run-history-badge-${domId}`} title="重启前会话的跑次(run.status 合流运行历史库)">
-            上一程
-          </Badge>
-        ) : null}
-        <span className="ml-auto flex shrink-0 items-center gap-3 text-2xs text-muted-foreground">
-          {errorCount > 0 ? (
-            <span data-testid={`run-error-count-${domId}`} className="w-[64px] shrink-0 text-right font-medium text-[#ff6b70]">
-              {/* #ff6b70 而非 text-dead:组头 hover 底 accent/60 上 4.35<4.5,#ff6b70 实算 5.5+(WCAG) */}
-              {errorCount} 错误行
-            </span>
-          ) : (
-            <span className="w-[64px] shrink-0" aria-hidden />
-          )}
-          {/* 条数槽常渲染(空占位)——Kestra 表行列对齐:任何行同槽同位 */}
-          {run.itemCount !== null ? (
-            <span className="w-11 shrink-0 text-right tabular-nums">{run.itemCount} 条</span>
-          ) : (
-            <span className="w-11 shrink-0" aria-hidden />
-          )}
-          {/* KsDateAgo inverted:相对开始时间,title 绝对时间 */}
-          <span className="w-[68px] shrink-0 text-right tabular-nums" title={startedAt ?? undefined}>
-            {formatRelative(startedAt)}
-          </span>
-          {/* Duration:mono 定宽右对齐 */}
-          <span className="w-[56px] shrink-0 text-right font-mono">{run.durationText}</span>
-          <StatusChip badge={badge} testId={`run-status-chip-${domId}`} />
-        </span>
-      </button>
-      {rerun?.phase === "triggered" ? (
-        <span
-          data-testid={`run-rerun-ok-${domId}`}
-          className="shrink-0 text-2xs font-medium text-ok"
-          title={`新 run #${rerun.runId} 已启动,正在展开跟随`}
-        >
-          已触发 #{rerun.runId}
-        </span>
-      ) : null}
-      {rerun?.phase === "error" ? (
-        <span
-          data-testid={`run-rerun-err-${domId}`}
-          className="max-w-44 shrink-0 truncate text-2xs text-destructive"
-          title={rerun.message}
-        >
-          {rerun.message}
-        </span>
-      ) : null}
-      {/* 重跑钮只挂注册表行:历史行 yaml 无库源,run.start 无从回放 */}
-      {run.yaml !== null ? (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-6 shrink-0 text-muted-foreground"
-          data-testid={`run-rerun-${domId}`}
-          aria-label={`重跑采集 #${run.runId}`}
-          title={`重跑该 run(run.start 回放 ${run.yaml}${run.dry ? ",dry" : ""})`}
-          disabled={starting}
-          onClick={() => onRerun(run)}
-        >
-          {starting ? (
-            <Loader2 aria-hidden className="size-3.5 animate-spin" />
-          ) : (
-            <RotateCcw aria-hidden className="size-3.5" />
-          )}
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * 展开组的日志体:头部解剖对标 Kestra Gantt.vue 卡头——左侧摘要组
- * (总耗时/行数/错误行,「/」分隔)+ 右侧行尾动作(复制日志 link 钮
- * ContentCopy 同位 + 截断/实时徽标);来源标记 logs.tail run_id=N 并入摘要尾。
- * 日志体 = 等宽终端块,新行到达自动滚底(Crawlab revealLine 同款,无条件滚)。
- * 搜索态(G7):needle 非空时行集即时过滤(命中才显示)+ 命中片段高亮,
- * 摘要报「命中 X / Y 行」。
- */
-function RunLogBody({
-  row,
-  rows,
-  durationText,
-  truncated,
-  loadError,
-  running,
-  live,
-  needle,
-}: {
-  row: RunRowModel;
-  rows: LogRow[] | undefined;
-  durationText: string;
-  truncated: boolean;
-  loadError: string | null;
-  running: boolean;
-  live: boolean;
-  needle: string;
-}) {
-  const domId = domIdOf(row);
-  const rowKey = row.rowKey;
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [copied, setCopied] = useState<null | { ok: boolean; count: number }>(null);
-  const searching = needle !== "";
-  const shownRows = useMemo(
-    () => (rows === undefined ? undefined : searching ? rows.filter((row) => rowMatchesQuery(row, needle)) : rows),
-    [rows, searching, needle],
-  );
-  const errorCount = rows?.filter(isRowError).length ?? 0;
-
-  // 自动滚底(D4):行集变化即贴底(终端惯例;展开瞬间 rows 未必到位,依赖数组带 rows 兜两拍)
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el !== null) el.scrollTop = el.scrollHeight;
-  }, [shownRows, rowKey]);
-
-  /** 复制日志(Gantt copyAllLogs 同位):复制该 run 全部行(不受搜索过滤影响);
-   *  无头/无焦点环境 clipboard 可能拒绝,失败如实回显 */
-  const copyLogs = useCallback(() => {
-    if (rows === undefined || rows.length === 0) return;
-    const text = rows.map((row) => row.text).join("\n");
-    void navigator.clipboard
-      .writeText(text)
-      .then(() => setCopied({ ok: true, count: rows.length }))
-      .catch(() => setCopied({ ok: false, count: rows.length }));
-  }, [rows]);
-  useEffect(() => {
-    if (copied === null) return;
-    const timer = setTimeout(() => setCopied(null), 2000);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
-  return (
-    <div id={`run-group-body-${domId}`} data-testid={`run-log-${domId}`} className="border-t border-border bg-sidebar">
-      <div
-        data-testid={`run-log-meta-${domId}`}
-        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2 text-2xs text-muted-foreground"
-      >
-        {/* Gantt 卡头摘要组:label 弱色 + value,「/」分隔;来源标记如实报
-            logs.tail 实际查询号(历史行=会话对齐号,旧行无号=未调用) */}
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0">
-            <span className="mr-1">总耗时</span>
-            <span className="font-mono">{durationText}</span>
-          </span>
-          <span aria-hidden className="text-muted-foreground/50">/</span>
-          <span className="shrink-0">{rows?.length ?? 0} 行</span>
-          {errorCount > 0 ? (
-            <>
-              <span aria-hidden className="text-muted-foreground/50">/</span>
-              <span className="shrink-0 font-medium text-[#ff6b70]">{errorCount} 错误行</span>
-            </>
-          ) : null}
-          <span aria-hidden className="text-muted-foreground/50">/</span>
-          <span className="min-w-0 truncate font-mono">logs.tail run_id={row.logRunId ?? "—"}</span>
-        </span>
-        <span className="flex shrink-0 items-center gap-2.5">
-          {truncated ? <Badge variant="outline">缓冲截断</Badge> : null}
-          {shownRows !== undefined ? (
-            searching ? (
-              <span data-testid={`run-log-hits-${domId}`} className="font-mono">
-                命中 {shownRows.length} / {rows?.length ?? 0} 行
-              </span>
-            ) : null
-          ) : null}
-          {running ? <Badge variant={live ? "ok" : "unknown"}>{live ? "实时跟踪中" : "未跟踪"}</Badge> : null}
-          <button
-            type="button"
-            data-testid={`run-log-copy-${domId}`}
-            onClick={copyLogs}
-            disabled={rows === undefined || rows.length === 0}
-            className="inline-flex shrink-0 items-center gap-1 rounded-sm text-2xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {copied?.ok ? (
-              <Check aria-hidden className="size-3" />
-            ) : (
-              <Copy aria-hidden className="size-3" />
-            )}
-            {copied === null ? "复制日志" : copied.ok ? `已复制 ${copied.count} 行` : "复制失败(剪贴板拒绝)"}
-          </button>
-        </span>
-      </div>
-      {/* 终审修整:日志体四周呼吸(px-3→px-4 + 顶部 pt)+ 行间 gap
-          (VL 指认「行距过密、状态标签与时间戳贴边」) */}
-      <div
-        ref={scrollRef}
-        className="flex max-h-[26rem] flex-col gap-1 overflow-y-auto px-4 pt-2 pb-3 font-mono text-xs leading-relaxed"
-      >
-        {loadError !== null ? (
-          <p className="text-dead">
-            <span className="mr-1.5">●</span>日志加载失败({loadError})
-          </p>
-        ) : row.logRunId === null ? (
-          /* 「上一程」旧行(早于日志对齐字段落库):无会话号可对齐,不拉取,
-             如实降级——比拉一个必空的 run_id 再说「暂无日志」诚实 */
-          <p className="text-muted-foreground">
-            <span className="text-brand-from">▍</span> 该跑次早于日志对齐落库,无可回看的日志(旧 runs 行未记会话号)
-          </p>
-        ) : rows === undefined ? (
-          <p className="text-muted-foreground">
-            <span className="text-brand-from">▍</span> 正在拉取 logs.tail…
-          </p>
-        ) : searching && shownRows !== undefined && shownRows.length === 0 ? (
-          <p className="text-muted-foreground">
-            <span className="text-brand-from">▍</span> 无命中行(搜索词过滤掉了这轮采集的全部日志)
-          </p>
-        ) : rows.length === 0 ? (
-          <p className="text-muted-foreground">
-            <span className="text-brand-from">▍</span> 这轮采集暂无日志(环形缓冲只保留最近 4000 行)
-          </p>
-        ) : (
-          shownRows?.map((row) => <LogRowView key={row.key} row={row} needle={needle} />)
-        )}
-      </div>
-    </div>
-  );
-}
+/** 两级视图状态(feed v8 `FeedView` 判别联合同门,feed-screen.tsx:175-178;
+ *  作用域不进路由——App.tsx `Route path="logs"` 零改动,红线内)。
+ *  本屏只有两级,无 feed 3→2 的 kind 重派生分支。 */
+type LogsView = { level: 1 } | { level: 2; rowKey: string };
 
 export function LogsScreen() {
   const [runs, setRuns] = useState<LogsRunEntry[]>([]);
-  /** 逐 run 日志行(键=rowKey):展开时 tail 打底 + 事件续播(未加载的 run 先缓冲,加载时合并) */
+  /** 逐 run 日志行(键=rowKey):进 L2 时 tail 打底 + 事件续播(未进过的 run
+   *  先缓冲,进入时合并,事件比快照新排在 tail 历史之后) */
   const [rowsByRun, setRowsByRun] = useState<Record<string, LogRow[]>>({});
   const [truncatedByRun, setTruncatedByRun] = useState<Record<string, boolean>>({});
-  /** 逐 run tail 拉取失败(code:message);成功即清除,重展开可重试 */
+  /** 逐 run tail 拉取失败(code:message);成功即清除,重进可重试 */
   const [loadErrors, setLoadErrors] = useState<Record<string, string>>({});
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const [view, setView] = useState<LogsView>({ level: 1 });
   const [live, setLive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<SidecarRequestError | null>(null);
   const eventSeq = useRef(0);
-  /** 已成功 tail 打底的 run(键=rowKey;重展开不重拉,缓存驻屏) */
+  /** 已成功 tail 打底的 run(键=rowKey;返回再进不重拉,缓存驻屏,现状语义零改) */
   const loadedRunsRef = useRef<Set<string>>(new Set());
   /** 拉取在途的 run(键=rowKey;防双发) */
   const fetchingRef = useRef<Set<string>>(new Set());
-  /** 已见过的行(键=rowKey;自动跟随=新出现的 running run 才展开,不打扰用户折叠态;
-   *  会话号与 DB 号两空间靠 rowKey 区分,历史行不顶掉同号新 run 的跟随资格) */
-  const knownRowKeysRef = useRef<Set<string>>(new Set());
+  /** L1 内滚容器 ref + 滚动位置(design §4.2:openRun 时捕 scrollTop,返回
+   *  L1 的 effect 回写——feed v8 三级没有做恢复,本档 AC3 明示要求,对 feed
+   *  先例的唯一偏离已留档;jsdom 无真实布局不测,无头冒烟断言) */
+  const runListRef = useRef<HTMLDivElement | null>(null);
+  const l1ScrollTopRef = useRef(0);
 
-  /** 展开 run 的日志惰性加载(Kestra 步骤展开同款):首次展开才 logs.tail;
-   *  历史行按 logRunId 会话对齐号拉(旧行 null=不拉,渲染层如实降级);
-   *  加载期间到达的事件行已在缓冲,合并时排在 tail 历史之后(事件比快照新) */
+  /** run 日志惰性加载(Kestra 步骤展开同款,现状 ensureTail 原样):首次进
+   *  L2 才 logs.tail;历史行按 logRunId 会话对齐号拉(旧行 null=不拉,渲染层
+   *  如实降级);加载期间到达的事件行已在缓冲,合并时排在 tail 历史之后 */
   const ensureTail = useCallback((run: Pick<RunRowModel, "rowKey" | "logRunId">) => {
     const key = run.rowKey;
     if (loadedRunsRef.current.has(key) || fetchingRef.current.has(key)) return;
@@ -530,23 +101,11 @@ export function LogsScreen() {
     try {
       const list = await loadRuns();
       setRuns(list);
-      // 跟随策略(Crawlab 活动任务跟踪同款):初次进屏展开最新 run(重启后注册表
-      // 空 → 最新历史行接管,「上一程」立即可见可展开);之后仅新出现的 running
-      // run 自动展开跟随,用户折叠过的不强扒
-      const known = knownRowKeysRef.current;
-      const rows = buildRunRows(list);
-      let follow: RunRowModel | null = null;
-      if (known.size === 0 && rows.length > 0) {
-        follow = rows[0];
-      } else {
-        follow = rows.find((run) => run.state === "running" && !known.has(run.rowKey)) ?? null;
-      }
-      if (follow !== null) {
-        const target = follow.rowKey;
-        setExpanded((prev) => (prev.has(target) ? prev : new Set(prev).add(target)));
-        ensureTail(follow);
-      }
-      knownRowKeysRef.current = new Set(rows.map((run) => run.rowKey));
+      // 跟随策略(design §4.3 定稿:默认不自动跳级)——现状「初次进屏自动展开
+      // 最新 run / 新 running run 自动展开」(knownRowKeysRef + follow 分支)
+      // 是 accordion 时代的跟随遗产,两级 IA 下「自动展开」=「进屏自动跳 L2」,
+      // 违反 PRD 默认不自动跳级,整体退役;新 run 活性由 L1 行状态芯片 +
+      // completed 触发的列表刷新承担。
     } catch (err) {
       setError(
         err instanceof SidecarRequestError
@@ -554,7 +113,7 @@ export function LogsScreen() {
           : new SidecarRequestError({ code: "transport_error", path: "$", message: String(err) }),
       );
     }
-  }, [ensureTail]);
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -564,8 +123,8 @@ export function LogsScreen() {
     })();
   }, [refreshRuns]);
 
-  /** 事件流订阅(挂屏一次,不随展开态变化):任意 run 的事件按 run_id 归组缓冲;
-   *  completed 另触发列表刷新(终态/耗时落表)。 */
+  /** 事件流订阅(挂屏一次,不随切级变化,现状原样):任意 run 的事件按 run_id
+   *  归组缓冲;completed 另触发列表刷新(终态/耗时落表)。 */
   useEffect(() => {
     let cancelled = false;
     const unlisten: Promise<UnlistenFn> = subscribeRunEvents((event: SidecarEvent) => {
@@ -598,43 +157,58 @@ export function LogsScreen() {
     };
   }, [refreshRuns]);
 
-  const handleToggle = useCallback(
+  // ---- 两级动线(design §4.1)----------------------------------------------
+
+  /** 进 L2:捕 L1 滚动位(§4.2)+ 惰性 tail(§4.1;缓存命中不重拉) */
+  const openRun = useCallback(
     (run: RunRowModel) => {
-      if (!expanded.has(run.rowKey)) ensureTail(run);
-      setExpanded((prev) => {
-        const next = new Set(prev);
-        if (next.has(run.rowKey)) next.delete(run.rowKey);
-        else next.add(run.rowKey);
-        return next;
-      });
+      const el = runListRef.current;
+      if (el !== null) l1ScrollTopRef.current = el.scrollTop;
+      setView({ level: 2, rowKey: run.rowKey });
+      ensureTail(run);
     },
-    [expanded, ensureTail],
+    [ensureTail],
   );
 
-  const runRows = useMemo(() => buildRunRows(runs), [runs]);
-  /** run_id → started_at(相对时间用;不进 RunRowModel——api.ts 属数据层,
-   *  展示派生留视图层;历史行沿库可空,formatRelative 自兜「—」) */
-  const startedAtById = useMemo(
-    () => new Map(runs.map((run) => [run.run_id, run.started_at] as const)),
-    [runs],
-  );
+  /** 返回 L1(feed `backLevel` 同名同构;本屏只有两级,无 3→2 重派生分支) */
+  const backLevel = useCallback(() => setView({ level: 1 }), []);
 
-  // ---- G7:过滤(品类·状态)+ 搜索 + 重跑 ---------------------------------
+  // ---- 过滤(品类·状态,挂编排层,切级不重置 §4.2)+ 搜索(L2 词面)+ 重跑 --
 
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<RunFilterStatus | "all">("all");
+  /** 日志搜索词(挂编排层:输入框在 L2,词面跨切级存活;搜索对象是日志行,
+   *  行只在 L2 在场——框不迁则 1 级 50 行 × tail = 协议风暴,design §2.3) */
   const [query, setQuery] = useState("");
   /** 逐 run 重跑反馈(键=rowKey;starting/triggered/error;8s 自动隐去) */
   const [rerunByRun, setRerunByRun] = useState<Record<string, RerunState>>({});
   const rerunTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const needle = query.trim().toLowerCase();
+  const runRows = useMemo(() => buildRunRows(runs), [runs]);
+  /** run_id → started_at/finished_at(时间槽用;不进 RunRowModel——api.ts 属
+   *  数据层,展示派生留视图层;历史行沿库可空,format* 自兜「—」) */
+  const startedAtById = useMemo(
+    () => new Map(runs.map((run) => [run.run_id, run.started_at] as const)),
+    [runs],
+  );
+  const finishedAtById = useMemo(
+    () => new Map(runs.map((run) => [run.run_id, run.finished_at] as const)),
+    [runs],
+  );
+
   const categories = useMemo(() => Array.from(new Set(runRows.map((row) => row.category))).sort(), [runRows]);
   const visibleRunRows = useMemo(
     () => filterRunRows(runRows, categoryFilter, statusFilter),
     [runRows, categoryFilter, statusFilter],
   );
   const filtering = categoryFilter !== "all" || statusFilter !== "all";
+
+  /** 当前 L2 目标行(刷新后行集变动的防御:view 指向的行消失则回落 L1) */
+  const detailRun = useMemo(
+    () => (view.level === 2 ? (runRows.find((run) => run.rowKey === view.rowKey) ?? null) : null),
+    [view, runRows],
+  );
+  const level = detailRun !== null ? 2 : 1;
 
   const clearRerunFeedback = useCallback((key: string) => {
     setRerunByRun((prev) => {
@@ -668,9 +242,9 @@ export function LogsScreen() {
   }, []);
 
   /**
-   * 重跑(G7①):骑 G4 手动触发通道 run.start 回放 yaml/dry/db——不新增协议;
-   * 成功反馈新 run_id 并刷新列表(follow 策略自动展开新 running run 承担
-   * 「正在跑」主反馈);失败如实报错误码。
+   * 重跑(G7):骑 G4 手动触发通道 run.start 回放 yaml/dry/db——不新增协议;
+   * 成功反馈新 run_id 并刷新列表(L1/L2 双可达,design §2.3;不再有「展开
+   * 跟随」——两级 IA 下新 run 落列表,主人点行即达);失败如实报错误码。
    */
   const handleRerun = useCallback(
     (run: RunRowModel) => {
@@ -698,102 +272,47 @@ export function LogsScreen() {
     setQuery("");
   }, []);
 
-  /** 终审修整:run 状态分布(状态条可视化,VL 指认「全屏无任何图表/进度
-   * 可视化」)——与 runBadge 同一词表聚档,零新协议,纯视图层派生 */
-  const statusDist = useMemo(() => {
-    const dist = { running: 0, success: 0, partial: 0, failed: 0, other: 0 } as Record<string, number>;
-    for (const run of visibleRunRows) {
-      if (run.state === "running" || run.status === null) dist.running += 1;
-      else if (run.status === "success") dist.success += 1;
-      else if (run.status === "partial" || run.status === "config_error") dist.partial += 1;
-      else if (run.status === "failed") dist.failed += 1;
-      else dist.other += 1;
-    }
-    return dist;
-  }, [visibleRunRows]);
-  const distSegments = [
-    { key: "success", label: "成功", tone: "bg-ok", count: statusDist.success },
-    { key: "running", label: "运行中", tone: "bg-primary", count: statusDist.running },
-    { key: "partial", label: "部分/配置", tone: "bg-warning", count: statusDist.partial },
-    { key: "failed", label: "失败", tone: "bg-dead", count: statusDist.failed },
-    { key: "other", label: "其他", tone: "bg-unknown", count: statusDist.other },
-  ].filter((segment) => segment.count > 0);
+  /** Esc 全局链(design §4.1,feed v8 同门 feed-screen.tsx:3041-3095):仅
+   *  2 级响应回 L1,1 级 no-op(不挂 listener)。守卫随迁 feed 先例——
+   *  ①焦点在 INPUT/TEXTAREA/SELECT/contentEditable 不抢(输入框 Esc 归清词
+   *  自身语义,run-detail-view 框内守卫);②修饰键组合不抢;另随迁 feed 的
+   *  defaultPrevented 让位(浮层基件对 Esc 先 preventDefault 放行原生冒泡,
+   *  feed-screen.tsx:3046——Radix Select 下拉开着时先关下拉不切级)。
+   *  与 feed 的差异如实注明:本屏无菜单/浮层,feed 的 [role="menu"] 第三道
+   *  守卫不需要。 */
+  useEffect(() => {
+    if (level !== 2) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      backLevel();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [level, backLevel]);
+
+  /** 返回 L1:回写滚动位置(design §4.2,AC3「列表位置保持」) */
+  useEffect(() => {
+    if (level !== 1) return;
+    const el = runListRef.current;
+    if (el !== null && l1ScrollTopRef.current > 0) el.scrollTop = l1ScrollTopRef.current;
+  }, [level]);
 
   return (
-    /* 满高列表容器(对标 Kestra app.scss section.full-container:列表内滚、
-     * 过滤条/节头常驻;R2 的 gap-block 页面滚动让位) */
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <PageHeader
-        title="采集日志"
-        description="采集记录瀑布(新→旧)· 逐轮耗时/条数统计 · 错误行高亮 · 展开组流式续播自动滚底"
-        actions={
-          <Button variant="outline" size="sm" onClick={() => void refreshRuns()} disabled={loading}>
-            <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
-            刷新
-          </Button>
-        }
-      />
-
-      {/* 过滤条(G7②③):品类/状态 select + 日志搜索。
-          R2 刀4:一行控件统一 32px 档(default size),与源管理工具行同族 */}
-      <div className="flex flex-wrap items-center gap-2 px-6" data-testid="logs-filter-bar">
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger
-            className="max-w-48 text-muted-foreground"
-            aria-label="品类过滤"
-            data-testid="filter-category"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部品类</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as RunFilterStatus | "all")}>
-          <SelectTrigger
-            className="text-muted-foreground"
-            aria-label="状态过滤"
-            data-testid="filter-status"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部状态</SelectItem>
-            {STATUS_FILTER_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {filtering ? (
-          <Button variant="ghost" className="gap-1 px-2 text-muted-foreground" onClick={resetFilters}>
-            <X aria-hidden className="size-3.5" />
-            清除过滤
-          </Button>
-        ) : null}
-        <span className="text-2xs text-muted-foreground" data-testid="logs-filter-count">
-          {visibleRunRows.length} / {runRows.length} 轮
-        </span>
-        <div className="relative ml-auto">
-          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
-          <Input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索日志(输入即过滤,命中高亮)"
-            aria-label="搜索日志"
-            data-testid="log-search-input"
-            className="w-64 pl-8 font-mono"
-          />
-        </div>
-      </div>
-
+    <>
+      {/* 结构化错误横幅:挂编排层、互斥分支之上(design §2.3 R2 修正)——
+          拆分支后若误钉 L1,L2 在途的 run.status 结构化错误会静默不可见 */}
       {error ? (
         <div className="px-6">
           <Card data-testid="logs-error">
@@ -806,117 +325,42 @@ export function LogsScreen() {
           </Card>
         </div>
       ) : null}
-
-      <div className="flex min-h-0 flex-1 flex-col gap-3 px-6">
-        {/* 终审修整:节头 + run 状态分布条——VL 指认「页面标题与区块标题字号无
-            级差、全屏无图表/进度可视化」;分布条与图例同 render,纯视图派生 */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold text-foreground">运行历史</h2>
-            <span className="text-2xs text-muted-foreground">
-              {visibleRunRows.length} / {runRows.length} 轮 · 新→旧
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {distSegments.map((segment) => (
-              <span key={segment.key} className="inline-flex items-center gap-1.5 text-2xs text-muted-foreground">
-                <span aria-hidden className={`size-1.5 rounded-full ${segment.tone}`} />
-                {segment.label} {segment.count}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div
-          className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted/60"
-          data-testid="run-status-distribution"
-          role="img"
-          aria-label={`采集状态分布:${distSegments.map((s) => `${s.label} ${s.count}`).join("、") || "无采集"}`}
-        >
-          {distSegments.map((segment) => (
-            <span
-              key={segment.key}
-              className={segment.tone}
-              style={{ width: `${(segment.count / Math.max(visibleRunRows.length, 1)) * 100}%` }}
-              title={`${segment.label} ${segment.count}`}
-            />
-          ))}
-        </div>
-        {/* run 瀑布:每 run 一段折叠组(Crawlab 运行瀑布 + Kestra 步骤折叠);
-            列表区内滚(full-container),组间 gap-grid 令牌。
-            子组必须 shrink-0:子组自带 overflow-hidden → flex 自动最小尺寸
-            归零,行数超视口时整列被均匀压扁(10-11 实测 44px→6.5px 黑条)
-            且 scrollHeight 恒等于 clientHeight 永不出滚动条 */}
-        <div className="flex min-h-0 flex-1 flex-col gap-grid overflow-y-auto pb-block" data-testid="run-waterfall">
-          {loading && runs.length === 0 ? (
-            <>
-              <Skeleton className="h-12 w-full rounded-lg" />
-              <Skeleton className="h-12 w-full rounded-lg" />
-              <Skeleton className="h-12 w-full rounded-lg" />
-            </>
-          ) : runRows.length === 0 ? (
-            <Card>
-              <CardContent>
-                <EmptyState
-                  compact
-                  title="还没有采集记录"
-                  description="从源管理触发一次采集后,采集记录将按新→旧出现在这里"
-                />
-              </CardContent>
-            </Card>
-          ) : visibleRunRows.length === 0 ? (
-            <Card>
-              <CardContent>
-                <EmptyState
-                  compact
-                  title="没有匹配的采集记录"
-                  description="品类/状态过滤或搜索词没有命中任何采集记录,放宽条件再试"
-                />
-                <div className="mt-3 flex justify-center">
-                  <Button variant="outline" size="sm" onClick={resetFilters}>
-                    清除过滤
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            visibleRunRows.map((run) => {
-              const badge = runBadge(run.status, run.state);
-              const rows = rowsByRun[run.rowKey];
-              const errorCount = rows?.filter(isRowError).length ?? 0;
-              return (
-                <div
-                  key={run.rowKey}
-                  data-testid={`run-group-${domIdOf(run)}`}
-                  className="shrink-0 overflow-hidden rounded-lg border border-border bg-card animate-fade-in"
-                >
-                  <RunGroupHeader
-                    run={run}
-                    badge={badge}
-                    errorCount={errorCount}
-                    startedAt={startedAtById.get(run.runId)}
-                    expanded={expanded.has(run.rowKey)}
-                    onToggle={handleToggle}
-                    rerun={rerunByRun[run.rowKey]}
-                    onRerun={handleRerun}
-                  />
-                  {expanded.has(run.rowKey) ? (
-                    <RunLogBody
-                      row={run}
-                      rows={rows}
-                      durationText={run.durationText}
-                      truncated={truncatedByRun[run.rowKey] ?? false}
-                      loadError={loadErrors[run.rowKey] ?? null}
-                      running={run.state === "running"}
-                      live={live}
-                      needle={needle}
-                    />
-                  ) : null}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-    </div>
+      {level === 1 || detailRun === null ? (
+        <RunListView
+          loading={loading}
+          allRows={runRows}
+          visibleRows={visibleRunRows}
+          startedAtById={startedAtById}
+          categories={categories}
+          categoryFilter={categoryFilter}
+          statusFilter={statusFilter}
+          onCategoryFilter={setCategoryFilter}
+          onStatusFilter={setStatusFilter}
+          filtering={filtering}
+          onResetFilters={resetFilters}
+          refreshing={loading}
+          onRefresh={() => void refreshRuns()}
+          rerunByRun={rerunByRun}
+          onRerun={handleRerun}
+          onOpen={openRun}
+          listRef={runListRef}
+        />
+      ) : (
+        <RunDetailView
+          run={detailRun}
+          startedAt={startedAtById.get(detailRun.runId)}
+          finishedAt={finishedAtById.get(detailRun.runId)}
+          rows={rowsByRun[detailRun.rowKey]}
+          truncated={truncatedByRun[detailRun.rowKey] ?? false}
+          loadError={loadErrors[detailRun.rowKey] ?? null}
+          live={live}
+          query={query}
+          onQueryChange={setQuery}
+          rerun={rerunByRun[detailRun.rowKey]}
+          onRerun={handleRerun}
+          onBack={backLevel}
+        />
+      )}
+    </>
   );
 }

@@ -94,8 +94,17 @@ export interface RunRowModel {
   /** logs.tail 的 run_id:历史行 = log_run_id 会话对齐号(旧行 null=不可回看),
    *  注册表行 = 自身 run_id */
   logRunId: number | null;
+  /** 退出码(注册表行 0/1/2/3 有契约语义;历史行 wire 恒 null——entry.py
+   *  `_history_run_rows` 硬编码 None,0/1/2/3 只适用注册表行) */
+  exitCode: number | null;
+  /** error 原文整句(record.error 落库记录优先,run.error 工作线程兜底;
+   *  两键皆空 = null,如实不编) */
+  errorText: string | null;
   /** 行唯一键(run:N / hist:N,见 runRowKey) */
   rowKey: string;
+  /** wire 原始行(run.status 应答行原样;视图派生 summarizeRun 的签名声源
+   *  = LogsRunEntry,行模型随身携带免二次查表) */
+  entry: LogsRunEntry;
 }
 
 /** 毫秒 → "830ms" / "1.2s" / "2m3s";null/非法 → "—"(本屏私有格式化) */
@@ -134,7 +143,10 @@ export function buildRunRows(runs: LogsRunEntry[]): RunRowModel[] {
       itemCount: itemsRetained(run.record),
       history,
       logRunId: history ? (run.log_run_id ?? null) : run.run_id,
+      exitCode: run.exit_code ?? null,
+      errorText: run.record?.error ?? run.error ?? null,
       rowKey: runRowKey(run),
+      entry: run,
     };
   });
 }
@@ -153,6 +165,158 @@ export async function loadRuns(): Promise<LogsRunEntry[]> {
  */
 export function rerunRun(run: { yaml: string; dry: boolean; db: string }): Promise<RunStartResult> {
   return api.runStart({ yaml: run.yaml, dry: run.dry, db: run.db });
+}
+
+/** 重跑反馈(10-12 两级界面:重跑钮 L1 行 / L2 元信息头双可达,反馈态挂编排层):
+ *  starting 打转 → triggered 报新 run_id → 8s 后自动隐去 */
+export type RerunState =
+  | { phase: "starting" }
+  | { phase: "triggered"; runId: number }
+  | { phase: "error"; message: string };
+
+// ---------------------------------------------------------------------------
+// 两级界面视图派生(10-12-logs-two-level-ui;PRD 授权「logs/api.ts 可加视图
+// 派生」)。数据真源边界(PRD 不可妥协):L1 摘要 / L2 失败合成的每个字段都
+// 出自 run.status 应答行(record + stats + error + exit_code),零 logs.tail
+// 依赖;wire 形状一律守卫,不信任形状、不造假数据。
+// ---------------------------------------------------------------------------
+
+/** testid/DOM id 后缀:历史行加 h 前缀(原 logs-screen.tsx domIdOf 平移收口,
+ *  L1 行/L2 详情共用)——会话号与 DB 号两编号空间撞号(同屏双 #N)时保
+ *  DOM id/testid 唯一(行语义区分交给「上一程」徽标) */
+export function domIdOf(run: Pick<RunRowModel, "runId" | "history">): string {
+  return run.history ? `h${run.runId}` : `${run.runId}`;
+}
+
+/** 相对开始时间(Kestra KsDateAgo inverted 同义:列表里读「多久前」比绝对时间快;
+ *  title 挂绝对时间补全语义;历史行 started_at 沿库可空 → 「—」)
+ *  (原 logs-screen.tsx formatRelative 平移收口,纯函数可直测) */
+export function formatRelative(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const sec = Math.floor(ms / 1000);
+  if (sec < 10) return "刚刚";
+  if (sec < 60) return `${sec} 秒前`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} 分钟前`;
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return `${hour} 小时前`;
+  return `${Math.floor(hour / 24)} 天前`;
+}
+
+/** 绝对时间(L2 元信息头「开始/结束」槽,新派生):YYYY-MM-DD HH:mm 本地时区;
+ *  title 挂相对时间对偶(与 formatRelative 互补)。可空/非法 → 「—」 */
+export function formatAbsolute(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** 摘要段:dead = 失败语义片段(渲染 #ff6b70,组头 hover 底对比实算档,
+ *  WCAG 5.5+ 不降级);muted = 常规派生段 */
+export interface RunSummarySegment {
+  text: string;
+  tone: "muted" | "dead";
+}
+
+export interface RunSummaryModel {
+  segments: RunSummarySegment[];
+  /** 全空兜底文案(record 缺失或 stats 全缺;null = 有段可渲染)。
+   *  如实档:running = 「采集中…」;终态 = 「无统计记录」(不造假) */
+  empty: string | null;
+}
+
+/**
+ * L1「采集了什么」摘要合成(design §2.2 字段派生映射,只吃 run.status 行):
+ * 段序 = 成果(保留 N 条)· 源(M 源)· 失败源(失败 K 源,dead)· 错误原文
+ * (dead,终态非 success 才有)。stats 是 wire 上的 Record<string, unknown>
+ * (pipeline.py:586-609 stats_dict 键全集),一律 typeof/Array.isArray 守卫。
+ */
+export function summarizeRun(run: LogsRunEntry): RunSummaryModel {
+  const segments: RunSummarySegment[] = [];
+  const stats: Record<string, unknown> | null = run.record?.stats ?? null;
+  // 成果段:record.stats.items_retained(pipeline.py:606 len(self.items))
+  const retained = stats ? stats["items_retained"] : undefined;
+  if (typeof retained === "number") {
+    segments.push({ text: `保留 ${retained} 条`, tone: "muted" });
+  }
+  // 源段:record.stats.sources(pipeline.py:592;元素 SourceReport.to_dict
+  // 带 failed/error,pipeline.py:399-412;failed 或 error 为串 = 该源失败链耗尽)
+  const sources = stats ? stats["sources"] : undefined;
+  if (Array.isArray(sources)) {
+    segments.push({ text: `${sources.length} 源`, tone: "muted" });
+    const failedCount = sources.filter(
+      (source) =>
+        source !== null &&
+        typeof source === "object" &&
+        ((source as Record<string, unknown>).failed === true ||
+          typeof (source as Record<string, unknown>).error === "string"),
+    ).length;
+    if (failedCount > 0) segments.push({ text: `失败 ${failedCount} 源`, tone: "dead" });
+  }
+  if (segments.length === 0) {
+    return { segments, empty: run.state === "running" ? "采集中…" : "无统计记录" };
+  }
+  // 错误段:终态非 success 且有 error 原文(record.error 落库记录优先,
+  // run.error 工作线程兜底,历史行同键);status 未知(null)不声称失败
+  if (run.state === "done" && run.status !== null && run.status !== "success") {
+    const errorText = run.record?.error ?? run.error ?? null;
+    if (errorText !== null && errorText !== "") segments.push({ text: errorText, tone: "dead" });
+  }
+  return { segments, empty: null };
+}
+
+/** exit_code → 契约语义词(cli.py:212-215 `_EXIT_BY_STATUS`:0=success /
+ *  1=config_error / 2=failed / 3=partial)。只适用注册表行——历史行 wire
+ *  恒 null(entry.py `_history_run_rows`),exit=— 是历史行常态真形非降级 */
+const EXIT_CODE_LABEL: Record<number, string> = {
+  0: "正常退出",
+  1: "配置错误",
+  2: "运行失败",
+  3: "部分成功",
+};
+
+/** L2 失败原因区模型(design §3.2):三证据源 + 如实判空 */
+export interface FailureModel {
+  /** exit_code 证据:null = 无据(exit=— 不编语义) */
+  exitCode: number | null;
+  /** exit 契约语义词(仅注册表行 0/1/2/3 有义;null 不编) */
+  exitLabel: string | null;
+  /** error 字段证据整句(record.error ?? run.error;两键皆空 = null 无据) */
+  errorText: string | null;
+  /** stderr 错误行摘(前 5 条,等宽 dead 单行;旧行无对齐号 = 恒空) */
+  errorRows: LogRow[];
+  /** stderr 错误行总数(摘 5 条外的余量在日志体高亮可见) */
+  errorRowsTotal: number;
+  /** tail 在途(日志对齐号在场且 rows 未到位)→ 面板挂「日志拉取中」 */
+  tailPending: boolean;
+  /** 日志对齐号在场(= logRunId !== null):旧行 stderr 源直接判无据——
+   *  ensureTail 对 null 号早退、事件流按 run_id 归组也收不到,「在途」永假 */
+  logAligned: boolean;
+}
+
+/**
+ * L2「为什么失败」三源合成(design §3.2):exit_code + error 字段 + stderr
+ * 错误行(isRowError 双信号原样复用)。渲染门槛(PRD AC2「成功轮不显示」):
+ * failed / partial / config_error / cancelled 四终态才进合成,success /
+ * running / status 未知一律 null(面板一行都不渲染)。
+ */
+export function synthesizeFailure(run: RunRowModel, rows: LogRow[] | undefined): FailureModel | null {
+  if (run.state !== "done" || run.status === null || run.status === "success") return null;
+  const logAligned = run.logRunId !== null;
+  const matched = logAligned && rows !== undefined ? rows.filter(isRowError) : [];
+  return {
+    exitCode: run.exitCode,
+    exitLabel: run.exitCode !== null ? (EXIT_CODE_LABEL[run.exitCode] ?? null) : null,
+    errorText: run.errorText,
+    errorRows: matched.slice(0, 5),
+    errorRowsTotal: matched.length,
+    tailPending: logAligned && rows === undefined,
+    logAligned,
+  };
 }
 
 // ---------------------------------------------------------------------------

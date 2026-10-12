@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""采集日志屏无头冒烟(10-11;run 瀑布流满高滚动布局验证)。
+"""采集日志屏无头冒烟(10-12;两级界面重做后的布局哨兵 + 动线验证)。
 
 面板与注入(同 feed-card-smoke.py 骨架):
 - 静态服务 ``desktop/ui`` 构建产物(与装机件同一构建链产物,HashRouter);
@@ -8,15 +8,47 @@
   run.status(50 轮 DB 历史行夹具:35 成功/10 部分配置/5 失败,对齐实机
   状态分布;history=true + log_run_id 会话号)/ logs.tail(环形缓冲尾巴)。
 
-断言面(run 瀑布流满高滚动布局):50 组行直出;每组行高 ≥ 40px
-(min-h-11=44px 档,塌缩回归哨兵);瀑布流容器内容溢出可滚
-(scrollHeight > clientHeight);首组自动展开(跟随策略)且日志体在场。
-截图落 /tmp 备查。退出码 0 = 冒烟通过。
+夹具修正(10-12 R2,如实向 wire 真形对齐):
+- 历史行 ``exit_code`` 保持 null(entry.py ``_history_run_rows`` 的 wire 真形
+  恒 None;0/1/2/3 CLI 映射只适用注册表行——exit 语义词断言随此修正移出
+  冒烟、落组件测试 logs-screen.test.tsx);
+- 全部夹具行 record.stats 补 ``sources`` 数组(pipeline.py:592 形状
+  source/failed/error;success 行全健康,partial/failed 行内各造一例
+  failed:true 成员——stats 来自 _run_record_dict 落库 record,wire 真,
+  喂 L1 摘要源段/失败段);
+- failed 行(i=45..49,run_id 855..851)record.error 置真句 + logs.tail 对
+  这些 run_id 恰回一行 stderr ``ERROR …``(喂失败合成第二/三源;夹具行
+  log_run_id 在场,第三源可达);
+- logs.tail 全部 run_id 回 TAIL_LINES=80 行(failed 行 ERROR 行埋 seq=40
+  中段)——design §7 明文「冒烟双哨兵:两容器各自 scrollHeight > clientHeight」,
+  L2 日志体内滚容器(run-log-{domId})要真溢出才可断言,2 行尾巴永远撑不出
+  第二哨兵;80 行 × text-xs/leading-relaxed ≈ 1.5k px 对 L2 可用高 ≈ 800 px
+  必然溢出,且更贴 52s 真实采集轮的日志量级(wire 真,不造假)。
 
-背景(10-11 报障):瀑布流容器 = flex 列 + overflow-y-auto,子组无
+断言面(design §9 编号顺序 + §6 testid 锚;布局哨兵性质保留):
+- L1 直出:run-list 在场,50 摘要行;accordion 退役哨兵(run-group-header-*
+  零命中 + run 行按钮无 aria-expanded);行高 ≥ 40px(min-h-11=44px 档,
+  塌缩回归一票否决);容器内容溢出可滚(scrollHeight > clientHeight);
+  默认不自动跳级(run-detail 不在场)+ 摘要可读(run-summary-h900 含
+  「保留」「源」;run-summary-h855 含「失败 1 源」与 record.error 句);
+- 两级动线:置 scrollTop=400 → 点 run-row-h855(failed 历史行,domIdOf
+  规则带 h 前缀)进 L2 → 元信息头(run-detail-meta-h855 含 exit=— 与
+  logs.tail run_id=855)→ 失败原因区(含 record.error 句与 exit=—,不含
+  「无据」文案,stderr 摘行 run-failure-line-h855-0)→ ERROR 行高亮
+  (data-error)→ L2 日志体第二塌缩哨兵(run-log-h855 溢出可滚)→ 返回钮
+  回 L1(detail 卸载)→ 滚动位置保持(§4.2:写 400 → 进 → 返回 → ≥300)
+  → 过滤态穿越保持(tech-rss 计数 10/50)→ 成功轮无失败区(h897 在 L2 中
+  run-failure-* 零命中,AC2 渲染门槛)。
+  注:滚动保持断言(§9 步骤 9)骑全量列表往返——§4.2 明文钉「scrollTop 写
+  400 → 进 → 返回 → ≥300」正是该循环;若骑过滤后往返,品类过滤只剩 10 行
+  (≈550px)撑不满视口,scrollTop 物理钳到 0,断言必假红。
+
+截图落 /tmp(L1/L2 各一)。退出码 0 = 冒烟通过。
+
+背景(10-11 报障):瀑布流容器 = flex 列 + overflow-y-auto,子行无
 shrink-0 —— 行数超过视口高时 flex 把每行均匀压扁(44px → ~14px),
-内容被 overflow-hidden 裁没、滚动条永不出现,实机表现为整屏黑条。
-本冒烟即该回归的布局哨兵。
+内容被 overflow-hidden 裁没、滚动条永不出现。10-12 新 IA 下两内滚容器
+(L1 run-list / L2 日志体)直接 flex 子项显式 shrink-0,本冒烟即双哨兵。
 
 用法(仓库根):``.venv/bin/python desktop/scripts/logs-screen-smoke.py``
 """
@@ -46,37 +78,57 @@ MIME = {
 }
 
 RUN_COUNT = 50
+L1_SCREENSHOT = "/tmp/myssia-logs-screen-smoke-l1.png"
+L2_SCREENSHOT = "/tmp/myssia-logs-screen-smoke-l2.png"
 
 INJECT_SCRIPT = r"""
 (() => {
   const iso = (ms) => new Date(ms).toISOString();
-  // 50 轮历史行:35 success / 10 partial / 5 failed(对齐 10-11 实机分布)
+  // 50 轮历史行:35 success / 10 partial / 5 failed(对齐 10-11 实机分布;
+  // failed 段 i=45..49 → run_id 855..851)
   const statuses = [
     ...Array(35).fill("success"),
     ...Array(10).fill("partial"),
     ...Array(5).fill("failed"),
   ];
   const categories = ["ai-news", "games-deals", "proxy-watch", "tech-rss", "urlwatch"];
+  const FAILED_IDS = new Set([851, 852, 853, 854, 855]);
   const runs = statuses.map((status, i) => {
+    const runId = 900 - i;
     const started = Date.now() - (i + 1) * 37 * 60_000;
+    // record.stats.sources(pipeline.py:592 形状):success 全健康,
+    // partial/failed 各造一例 failed:true 成员(摘要失败段真源)
+    const sources = [
+      { source: "src-alpha", failed: false, error: null },
+      { source: "src-beta", failed: false, error: null },
+      { source: "src-gamma", failed: false, error: null },
+    ];
+    if (status !== "success") {
+      sources.push({ source: "src-delta", failed: true, error: "engine chain exhausted: timeout" });
+    }
+    const record = {
+      run_id: runId,
+      category: categories[i % categories.length],
+      stats: { items_retained: 20 + (i % 7), sources },
+    };
+    if (status === "failed") {
+      record.error = "RuntimeError: source fetch failed: timeout after 3 attempts";
+    }
     return {
-      run_id: 900 - i,
+      run_id: runId,
       yaml: null,
       db: "/home/myssia.db",
       dry: false,
       state: "done",
-      exit_code: status === "failed" ? 1 : 0,
+      // 历史行 wire 真形恒 null(entry.py _history_run_rows);不假造 0/1/2/3
+      exit_code: null,
       status,
       started_at: iso(started),
       finished_at: iso(started + 52_300),
       duration_ms: 52_300,
-      record: {
-        run_id: 900 - i,
-        category: categories[i % categories.length],
-        stats: { items_retained: 20 + (i % 7) },
-      },
+      record,
       history: true,
-      log_run_id: 900 - i,
+      log_run_id: runId,
     };
   });
   window.__TAURI_INTERNALS__ = {
@@ -93,14 +145,18 @@ INJECT_SCRIPT = r"""
       }
       if (method === "logs.tail") {
         const runId = params?.run_id ?? 0;
-        const lines = Array.from({ length: 8 }, (_, k) => ({
-          seq: k + 1,
-          ts: iso(Date.now() - 60_000 + k * 1000),
-          run_id: runId,
-          stream: k === 6 ? "stderr" : "stdout",
-          line: `[run ${runId}] step ${k + 1}: fetch ok, retained ${10 + k} items`,
-        }));
-        return { lines, total: lines.length, truncated: false };
+        const total = 80;
+        const lines = [];
+        for (let seq = 1; seq <= total; seq += 1) {
+          if (FAILED_IDS.has(runId) && seq === 40) {
+            // 恰一行 stderr 错误行:喂失败合成第三源(isRowError 双信号)+
+            // L2 data-error 高亮 + run-failure-line-* 摘条目
+            lines.push({ seq, ts: iso(Date.now() - 60_000), run_id: runId, stream: "stderr", line: "ERROR source fetch failed: timeout after 3 attempts" });
+          } else {
+            lines.push({ seq, ts: iso(Date.now() - 60_000 + seq * 600), run_id: runId, stream: "stdout", line: "[run " + runId + "] step " + seq + ": fetch ok, retained " + (10 + (seq % 9)) + " items" });
+          }
+        }
+        return { lines, total, truncated: false };
       }
       return {};
     },
@@ -159,46 +215,191 @@ async def main() -> int:
             await page.add_init_script(INJECT_SCRIPT)
             await page.goto(f"http://127.0.0.1:{port}/#/logs", wait_until="networkidle")
 
-            await page.wait_for_selector('[data-testid="run-waterfall"]', timeout=10_000)
-            await page.wait_for_selector('[data-testid="run-group-h900"]', timeout=10_000)
+            # ── 1. L1 直出:50 摘要行(accordion 折叠退役,run-waterfall 改名 run-list)
+            await page.wait_for_selector('[data-testid="run-list"]', timeout=10_000)
+            await page.wait_for_selector('[data-testid="run-row-h900"]', timeout=10_000)
             expect(
-                "50 组历史行直出",
-                (await page.locator('[data-testid^="run-group-"]:not([data-testid*="-header-"])').count()) == RUN_COUNT,
+                "50 摘要行直出(accordion 折叠退役)",
+                (await page.locator('[data-testid^="run-row-"]').count()) == RUN_COUNT,
             )
 
-            # 布局哨兵:逐组行高(min-h-11 = 44px;塌缩回归 ≈ 14px 一票否决)
+            # ── 2. accordion 退役哨兵:旧折叠组头 testid 零命中 + 行按钮无
+            #       aria-expanded(design §6:run-row-* 取代 run-group-header-*)
+            leftover_headers = await page.locator('[data-testid^="run-group-header-"]').count()
+            aria_expanded = await page.evaluate(
+                """() => Array.from(
+                    document.querySelectorAll('[data-testid^="run-row-"]'),
+                    (el) => el.hasAttribute("aria-expanded"),
+                ).filter(Boolean).length"""
+            )
+            expect(
+                f"accordion 退役(run-group-header-* = {leftover_headers},aria-expanded 行数 = {aria_expanded})",
+                leftover_headers == 0 and aria_expanded == 0,
+            )
+
+            # ── 3. 行高哨兵:逐行 min ≥ 40px(min-h-11 = 44px;塌缩回归一票否决)
             heights = await page.evaluate(
                 """() => Array.from(
-                    document.querySelectorAll('[data-testid^="run-group-"]:not([data-testid*="-header-"])'),
+                    document.querySelectorAll('[data-testid^="run-row-"]'),
                     (el) => el.getBoundingClientRect().height,
                 )"""
             )
-            print(f"metrics - 组行高 min={min(heights):.1f}px max={max(heights):.1f}px n={len(heights)}")
-            expect(f"组行高 ≥ 40px(实测 min={min(heights):.1f}px)", min(heights) >= 40)
+            print(f"metrics - 摘要行高 min={min(heights):.1f}px max={max(heights):.1f}px n={len(heights)}")
+            expect(f"行高 ≥ 40px(实测 min={min(heights):.1f}px)", min(heights) >= 40)
 
-            # 瀑布流容器:内容溢出必须可滚(压扁回归 = scrollHeight==clientHeight)
+            # ── 4. 可滚哨兵:run-list 内容溢出必须可滚(压扁回归 = scrollHeight==clientHeight)
             scroll = await page.evaluate(
                 """() => {
-                    const el = document.querySelector('[data-testid="run-waterfall"]');
+                    const el = document.querySelector('[data-testid="run-list"]');
                     return { sh: el.scrollHeight, ch: el.clientHeight };
                 }"""
             )
-            print(f"metrics - waterfall scrollHeight={scroll['sh']} clientHeight={scroll['ch']}")
+            print(f"metrics - run-list scrollHeight={scroll['sh']} clientHeight={scroll['ch']}")
             expect(
-                f"瀑布流内容溢出可滚(scrollHeight {scroll['sh']} > clientHeight {scroll['ch']})",
+                f"run-list 内容溢出可滚(scrollHeight {scroll['sh']} > clientHeight {scroll['ch']})",
                 scroll["sh"] > scroll["ch"] + 100,
             )
 
-            # 首组跟随策略自动展开,日志体在场(拉取态或行集均可,不许报错面)
-            await page.wait_for_selector('[data-testid="run-log-h900"]', timeout=10_000)
-            expect("首组自动展开(跟随策略)", True)
+            # ── 5. 不自动跳级哨兵 + 摘要可读(AC1:成功轮成果段+源段;失败行
+            #       摘要带「失败 K 源」dead 段与 record.error 句,design §2.2)
             expect(
-                "展开体无加载错误",
-                (await page.locator('[data-testid="run-log-h900"] .text-dead').count()) == 0,
+                "默认不自动跳级(run-detail 不在场)",
+                (await page.locator('[data-testid="run-detail"]').count()) == 0,
+            )
+            summary_h900 = await page.locator('[data-testid="run-summary-h900"]').inner_text()
+            print(f"metrics - run-summary-h900 = {summary_h900!r}")
+            expect("h900 摘要非空且含「保留」与「源」", bool(summary_h900.strip()) and "保留" in summary_h900 and "源" in summary_h900)
+            summary_h855 = await page.locator('[data-testid="run-summary-h855"]').inner_text()
+            print(f"metrics - run-summary-h855 = {summary_h855!r}")
+            expect(
+                "h855 摘要含失败源段与 error 句(失败语义片段)",
+                "失败 1 源" in summary_h855 and "RuntimeError: source fetch failed: timeout after 3 attempts" in summary_h855,
             )
 
-            await page.screenshot(path="/tmp/myssia-logs-screen-smoke.png", full_page=False)
-            print("screenshot: /tmp/myssia-logs-screen-smoke.png")
+            # ── 6. 截图 L1(AC4 双图之一)
+            await page.screenshot(path=L1_SCREENSHOT, full_page=False)
+            print(f"screenshot: {L1_SCREENSHOT}")
+
+            # ── 7. 进 2 级:置滚动位(为滚动保持断言铺垫)→ 点 failed 历史行
+            #       (夹具全 history:true,domIdOf 规则带 h 前缀,裸号必空匹配)
+            await page.evaluate("() => { document.querySelector('[data-testid=\"run-list\"]').scrollTop = 400; }")
+            await page.click('[data-testid="run-row-h855"]')
+            await page.wait_for_selector('[data-testid="run-detail"]', timeout=10_000)
+            expect("点行进 2 级(run-detail 在场)", True)
+
+            # ── 7a. 元信息头事实簇(design §3.1/§6):exit=—(历史行 wire 真形
+            #        恒 null)+ logs.tail 会话对齐号如实报
+            meta_h855 = await page.locator('[data-testid="run-detail-meta-h855"]').inner_text()
+            print(f"metrics - run-detail-meta-h855 = {meta_h855!r}")
+            expect(
+                "元信息头含 exit=— 与 logs.tail run_id=855",
+                "exit=—" in meta_h855 and "logs.tail run_id=855" in meta_h855,
+            )
+
+            failure_panel = page.locator('[data-testid="run-failure-h855"]')
+            await failure_panel.wait_for(timeout=10_000)
+            panel_text = await failure_panel.inner_text()
+            print(f"metrics - run-failure-h855 = {panel_text!r}")
+            expect(
+                "失败区含 record.error 句与 exit=—(历史行 wire 真形)",
+                "RuntimeError: source fetch failed: timeout after 3 attempts" in panel_text and "exit=—" in panel_text,
+            )
+            expect("失败区不含「无据」文案(此轮有据)", "暂无结构化失败记录" not in panel_text)
+            stderr_excerpt = page.locator('[data-testid="run-failure-line-h855-0"]')
+            expect(
+                "失败区 stderr 错误行摘第 1 条在场",
+                (await stderr_excerpt.count()) == 1
+                and "ERROR source fetch failed" in (await stderr_excerpt.inner_text()),
+            )
+            await page.wait_for_selector('[data-testid="log-row"]', timeout=10_000)
+            expect(
+                "日志行 ERROR 行 data-error 高亮",
+                (await page.locator('[data-testid="log-row"][data-error="true"]').count()) >= 1,
+            )
+
+            # ── 7b. L2 日志体第二塌缩哨兵(design §7 双哨兵后半):内滚容器
+            #        内容溢出必须可滚(80 行夹具真溢出;压扁/内滚帽回归在此暴露)
+            try:
+                await page.wait_for_function(
+                    """() => {
+                        const el = document.querySelector('[data-testid="run-log-h855"]');
+                        return el !== null && el.scrollHeight > el.clientHeight + 100;
+                    }""",
+                    timeout=10_000,
+                )
+                log_scroll = await page.evaluate(
+                    """() => {
+                        const el = document.querySelector('[data-testid="run-log-h855"]');
+                        return { sh: el.scrollHeight, ch: el.clientHeight };
+                    }"""
+                )
+                expect(
+                    f"run-log-h855 内容溢出可滚(scrollHeight {log_scroll['sh']} > clientHeight {log_scroll['ch']})",
+                    True,
+                )
+            except Exception:
+                log_scroll = await page.evaluate(
+                    """() => {
+                        const el = document.querySelector('[data-testid="run-log-h855"]');
+                        return el ? { sh: el.scrollHeight, ch: el.clientHeight } : null;
+                    }"""
+                )
+                expect(f"run-log-h855 内容溢出可滚(实测 {log_scroll!r})", False)
+
+            # 截图 L2(AC4 双图之二)
+            await page.screenshot(path=L2_SCREENSHOT, full_page=False)
+            print(f"screenshot: {L2_SCREENSHOT}")
+
+            # ── 8+10. 返回钮回 1 级 + 滚动位置保持(§4.2 钉死循环:写 400 → 进
+            #        → 返回 → ≥300;Playwright 点行会自动滚到 h855 行,捕存值
+            #        只会更大,≥300 判据稳)
+            await page.click('[data-testid="run-back"]')
+            await page.wait_for_selector('[data-testid="run-detail"]', state="detached", timeout=10_000)
+            expect("返回钮回 1 级(run-detail 卸载)", True)
+            try:
+                await page.wait_for_function(
+                    """() => {
+                        const el = document.querySelector('[data-testid="run-list"]');
+                        return el !== null && el.scrollTop >= 300;
+                    }""",
+                    timeout=5_000,
+                )
+                restored = await page.evaluate(
+                    "() => document.querySelector('[data-testid=\"run-list\"]').scrollTop"
+                )
+                expect(f"滚动位置保持(返回后 scrollTop={restored} ≥ 300)", True)
+            except Exception:
+                restored = await page.evaluate(
+                    "() => document.querySelector('[data-testid=\"run-list\"]')?.scrollTop ?? -1"
+                )
+                expect(f"滚动位置保持(返回后 scrollTop={restored} ≥ 300)", False)
+
+            # ── 9. 过滤态保持 + 成功轮无失败区(AC2 渲染门槛 + AC3 过滤穿越):
+            #       开品类过滤(Radix select 无头可点,feed/源管理既有用例同法)
+            #       → 选 tech-rss → 计数读数 → 点过滤集首行 run-row-h897(最新
+            #       tech-rss 轮:i%5==3 → i=3 → run_id 897,status success,一石
+            #       二鸟验「成功轮 run-failure-* 零命中」)→ Esc 回 → 计数同读数
+            await page.click('[data-testid="filter-category"]')
+            await page.wait_for_selector('[role="option"]', timeout=10_000)
+            await page.get_by_role("option", name="tech-rss").click()
+            count_text = await page.locator('[data-testid="logs-filter-count"]').inner_text()
+            print(f"metrics - 过滤后计数 = {count_text!r}")
+            expect(f"品类过滤计数 = {count_text!r}(tech-rss 10 轮)", count_text.strip() == "10 / 50 轮")
+
+            await page.click('[data-testid="run-row-h897"]')
+            await page.wait_for_selector('[data-testid="run-detail"]', timeout=10_000)
+            expect(
+                "成功轮无失败区(h897 success → run-failure-* 零命中)",
+                (await page.locator('[data-testid^="run-failure-"]').count()) == 0,
+            )
+            await page.keyboard.press("Escape")
+            await page.wait_for_selector('[data-testid="run-detail"]', state="detached", timeout=10_000)
+            expect("Esc 回 1 级(过滤态穿越)", True)
+            count_after = await page.locator('[data-testid="logs-filter-count"]').inner_text()
+            expect(
+                f"返回后过滤计数保持({count_after!r} == {count_text!r})",
+                count_after.strip() == count_text.strip(),
+            )
     except Exception as exc:  # noqa: BLE001 - 冒烟异常如实报
         failures.append(f"异常: {exc}")
         print(f"SMOKE ERROR: {exc}", file=sys.stderr)
