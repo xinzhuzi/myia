@@ -918,17 +918,17 @@ def test_checkpoint_stages_are_pipeline_prefix():
 def test_cleanup_ages_enrich_cache(db_store):
     """enrich_cache 随 retention 老化:过期行删除,新鲜行保留(纯缓存,重评即可)。"""
     db_store.set_enrich_cache(
-        "https://old.example/a", "glm-4-flash", "k1", {"scores": {"v": 1}, "score": 1.0},
+        "https://old.example/a", "glm-5.3-flash", "k1", {"scores": {"v": 1}, "score": 1.0},
         created_at=PM_NOW - timedelta(days=200),
     )
     db_store.set_enrich_cache(
-        "https://fresh.example/b", "glm-4-flash", "k1", {"scores": {"v": 9}, "score": 9.0},
+        "https://fresh.example/b", "glm-5.3-flash", "k1", {"scores": {"v": 9}, "score": 9.0},
         created_at=PM_NOW - timedelta(days=1),
     )
     counts = db_store.cleanup_expired(90, now=PM_NOW)
     assert counts["enrich_cache"] == 1
-    assert db_store.get_enrich_cache("https://old.example/a", "glm-4-flash", "k1") is None
-    assert db_store.get_enrich_cache("https://fresh.example/b", "glm-4-flash", "k1") is not None
+    assert db_store.get_enrich_cache("https://old.example/a", "glm-5.3-flash", "k1") is None
+    assert db_store.get_enrich_cache("https://fresh.example/b", "glm-5.3-flash", "k1") is not None
 
 
 def test_cleanup_never_touches_dedup_registry(db_store):

@@ -69,7 +69,7 @@ dedup:
 enrich:
   enabled: true              # 价值筛(主人令「有价值才进,不裸塞」):GLM 打分→
                               # 合并日报按分排序,低分沉底;频道源同律不豁免
-  model: glm-4-flash
+  model: glm-5.3-flash
   scores: [value, relevance, credibility]
   batch: 10
   cache: true

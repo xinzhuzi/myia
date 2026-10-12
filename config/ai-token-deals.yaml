@@ -35,7 +35,7 @@ sources:
           - "https://linux.sb/"                 # 社区最新帖(羊毛件已验证通路)
           - "https://bbs.bt.sb/latest"
           - "https://www.nodeloc.com/latest"
-        model: glm-4-flash
+        model: glm-5.3-flash
         base_url: keychain:myia/llm/base_url
         api_key: keychain:myia/image/api_key
         max_chars_per_url: 6000

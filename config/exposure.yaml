@@ -87,7 +87,7 @@ dedup:
 
 enrich:
   enabled: false                     # 掩码-only 红线:命中物不进 LLM 上下文
-  model: glm-4-flash
+  model: glm-5.3-flash
   scores: [value, relevance, credibility]
   batch: 20
   cache: true

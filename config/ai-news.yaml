@@ -428,9 +428,9 @@ enrich:
   enabled: true                 # 10-03-vision-daily A2:第二层漏斗实开;端点凭据
                                 # 双引用(schema 铁律:base_url/api_key 只收
                                 # env:/keychain: 引用,明文拒载 — grill Q6)
-  model: glm-4-flash
+  model: glm-5.3-flash
   scores: [value, relevance, credibility]
-  batch: 10                   # 10-03-vision-daily 实测:glm-4-flash 单批 20 条
+  batch: 10                   # 10-03-vision-daily 实测:glm-5.3-flash 单批 20 条
                               # 评分 completion >60s 超时上限(enrich 层批级降级);
                               # 10 条留足余量,mini-batch(≤2 条)~6s 实证
   cache: true

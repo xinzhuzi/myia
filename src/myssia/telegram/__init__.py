@@ -3,7 +3,7 @@
 包布局(按批次落地):
 
 - :mod:`myssia.telegram.filter`(B2)—— 过滤管线:关键词粗筛(零成本)
-  → LLM 精筛打分(glm-4-flash,grill Q5:≥8 分即时)→ 高价值同轮合并
+  → LLM 精筛打分(glm-5.3-flash,grill Q5:≥8 分即时)→ 高价值同轮合并
   单条(组合铁律)/ 普通入库。批量引擎(``myssia.engines.telegram``)与
   常驻宿主(serve,B3)两档共用(design D1「两档共用」决议)。
 - :mod:`myssia.telegram.serve` + :mod:`myssia.telegram.offsets` +

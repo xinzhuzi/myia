@@ -1241,7 +1241,7 @@ export function SettingsScreen() {
                     <FieldInput
                       label="model"
                       aria-label="model"
-                      placeholder="如 glm-4-flash(当前使用的模型显示在这里)"
+                      placeholder="如 glm-5.3-flash(当前使用的模型显示在这里)"
                       value={llm.model}
                       onChange={(event) => setLlm((prev) => ({ ...prev, model: event.target.value }))}
                       hint="模型名,保存在各品类的配置文件里;填好后到下方「评分与反馈」区点保存"

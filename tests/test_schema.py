@@ -113,7 +113,7 @@ class TestStocksFixture:
         assert rule.tag == "大涨/大跌"
         assert cfg.dedup.key == "{symbol}-{date}"
         assert cfg.enrich.enabled is True
-        assert cfg.enrich.model == "glm-4-flash"
+        assert cfg.enrich.model == "glm-5.3-flash"
         assert cfg.enrich.scores == ["value", "relevance", "credibility"]
         assert cfg.enrich.batch == 20
         assert cfg.enrich.cache is True
@@ -145,7 +145,7 @@ class TestDefaults:
         assert cfg.classify.rules == []
         assert cfg.dedup.key == "{url}"
         assert cfg.enrich.enabled is False
-        assert cfg.enrich.model == "glm-4-flash"
+        assert cfg.enrich.model == "glm-5.3-flash"
         assert cfg.enrich.scores == ["value", "relevance", "credibility"]
         assert cfg.enrich.batch == 20
         assert cfg.enrich.cache is True
@@ -319,7 +319,7 @@ class TestUnknownFieldRefusal:
     def test_config_with_unknown_section_field_rejected(self):
         # Strictness is not top-level only: typos inside a section are caught too.
         data = _minimal_data()
-        data["enrich"] = {"enabled": False, "modle": "glm-4-flash"}
+        data["enrich"] = {"enabled": False, "modle": "glm-5.3-flash"}
 
         error = _load_error(data)
         detail = _error_of_type(error, "unknown_field")

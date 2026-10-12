@@ -101,7 +101,7 @@ dedup:
 
 enrich:                         # second funnel — LLM scoring (v0.2 on-ramp;
   enabled: false                # v0.1 runs this section as pass-through)
-  model: glm-4-flash            # default model (OpenAI-compatible endpoints)
+  model: glm-5.3-flash            # default model (OpenAI-compatible endpoints)
   scores: [value, relevance, credibility]   # 0-10 each
   batch: 20                     # batched scoring to save tokens
   cache: true                   # a URL is never scored twice

@@ -667,7 +667,7 @@ def filter_config_from_options(
     """engine_options.telegram 过滤键 → 过滤配置(引擎与 serve 装配共用).
 
     键面:keywords(缺省内置词表;空列表=关闭粗筛)/score_threshold(1-10,
-    缺省 8,grill Q5)/model(缺省 glm-4-flash,enrich 同款)/llm_base_url+
+    缺省 8,grill Q5)/model(缺省 glm-5.3-flash,enrich 同款)/llm_base_url+
     llm_api_key(成对 env:/keychain: 引用,明文拒;全缺=降级纯粗筛)/
     timeout(正数秒)。
 
@@ -757,7 +757,7 @@ def filter_config_from_options(
     return TelegramFilterConfig(
         keywords=keywords,
         score_threshold=threshold,
-        model=model_str or TelegramFilterConfig.model,  # 缺省 = glm-4-flash
+        model=model_str or TelegramFilterConfig.model,  # 缺省 = glm-5.3-flash
         llm_base_url=base_ref.strip() if isinstance(base_ref, str) else None,
         llm_api_key=key_ref.strip() if isinstance(key_ref, str) else None,
         timeout=float(timeout)

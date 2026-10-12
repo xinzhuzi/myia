@@ -8,7 +8,7 @@
    > 内置缺省 :data:`DEFAULT_COARSE_KEYWORDS`(免费/token/额度/优惠/白嫖
    等)—— 配置化即「口味」(grill Q5:口味配置化)。
 2. **LLM 精筛**(挂点,enrich 客户端复用)::class:`~myssia.enrich.client.
-   OpenAICompatClient` 直连 OpenAI 兼容端点(缺省 ``glm-4-flash``,enrich
+   OpenAICompatClient` 直连 OpenAI 兼容端点(缺省 ``glm-5.3-flash``,enrich
    同款缺省),凭据 ``llm_base_url``/``llm_api_key`` 走 ``env:``/
    ``keychain:`` 引用(prompt 引擎同契约,明文拒);一轮批量打分 0-10。
    **端点未配 = 降级纯粗筛**(粗筛命中全部按普通出仓,零 token;宁慢推
@@ -135,7 +135,7 @@ class TelegramFilterConfig:
         keywords: 粗筛词表(空元组 = 用缺省;空列表经引擎归一为空元组后再
             区分——见 :func:`coarse_hit`,空词表=全未命中=关闭)。
         score_threshold: 高价值阈值(1-10,缺省 8)。
-        model: 精筛模型(缺省 ``glm-4-flash``,enrich 同款)。
+        model: 精筛模型(缺省 ``glm-5.3-flash``,enrich 同款)。
         llm_base_url / llm_api_key: OpenAI 兼容端点引用(None = 降级纯粗筛;
             成对配置,半配是配置错误由引擎结构化拒)。
         timeout: 单轮精筛超时秒。

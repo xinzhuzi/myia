@@ -171,7 +171,7 @@ def test_ai_news_carries_firecrawl_semantics_and_discourse_list():
         "端点 base_url 必须是 keychain: 引用(桌面零 env;grill Q6 引用铁律不变)"
     )
     assert config.enrich.api_key == "keychain:myia/image/api_key", "key 走钥匙链既有 GLM 凭据"
-    assert config.enrich.batch == 10, "实测批宽:glm-4-flash 单批 20 条超 60s completion 上限,10 条留余量"
+    assert config.enrich.batch == 10, "实测批宽:glm-5.3-flash 单批 20 条超 60s completion 上限,10 条留余量"
     cocoloop = by_name["cocoloop"]
     assert cocoloop.engine == "static_html"
     assert cocoloop.pagination is not None and cocoloop.pagination.max_pages >= 1

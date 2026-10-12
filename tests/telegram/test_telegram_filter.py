@@ -179,7 +179,7 @@ def test_score_clamped_to_zero_ten_and_model_name_passthrough():
     completer = FakeCompleter(scores_answer((1, 15), (2, -3)))
     pipeline = TelegramFilterPipeline(
         TelegramFilterConfig(
-            model="glm-4-flash", llm_base_url="env:X", llm_api_key="env:Y"
+            model="glm-5.3-flash", llm_base_url="env:X", llm_api_key="env:Y"
         ),
         completer=completer,
     )
@@ -188,7 +188,7 @@ def test_score_clamped_to_zero_ten_and_model_name_passthrough():
     )
     assert {item["message_id"]: item["score"] for item in outcome.high_value} == {1: 10}
     assert outcome.normal[0]["score"] == 0
-    assert completer.calls[0]["model"] == "glm-4-flash"
+    assert completer.calls[0]["model"] == "glm-5.3-flash"
 
 
 def test_threshold_configurable():

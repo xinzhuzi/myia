@@ -201,7 +201,7 @@ dedup:
 enrich:
   enabled: false                # keyword pre-filter only; flip to true in v0.2
                                 # with an explicit env: endpoint (grill Q6)
-  model: glm-4-flash
+  model: glm-5.3-flash
   scores: [value, relevance, credibility]
   batch: 20
   cache: true

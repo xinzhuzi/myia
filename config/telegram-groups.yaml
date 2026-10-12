@@ -19,7 +19,7 @@
 # 是合并日报「Telegram 群」分区的匹配键(daily-digest.yaml 同步维护)。
 #
 # 出口(10-06-telegram-telethon B2,Grill Q5):
-#   粗筛词表(keywords,零成本)→ 命中 → LLM 精筛打分(glm-4-flash)→
+#   粗筛词表(keywords,零成本)→ 命中 → LLM 精筛打分(glm-5.3-flash)→
 #   score ≥ 8 即时(同轮多条高价值由过滤管线合并单条=组合铁律)→
 #   其余 archive 入库,进每日合并日报「Telegram 群」分区。
 #   LLM 端点未配(llm_base_url/llm_api_key 缺)= 降级纯粗筛,全部入库。
@@ -53,7 +53,7 @@ sources:
         keywords: [免费, 白嫖, 羊毛, token, 额度, 优惠, coupon, free, 折扣]  # 粗筛词表(B2;省略=内置缺省词表)
         llm_base_url: keychain:myia/llm/base_url        # LLM 精筛端点(enrich 同契约,B2;缺=降级纯粗筛)
         llm_api_key: keychain:myia/llm/api_key
-        # model: glm-4-flash            # 缺省即此(prompt/enrich 同款)
+        # model: glm-5.3-flash            # 缺省即此(prompt/enrich 同款)
         # score_threshold: 8            # ≥8 分即时(Grill Q5;缺省 8)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
     proxy: direct                       # api.telegram.org 出海按需改 pool:<名称>

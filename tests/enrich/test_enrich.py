@@ -530,7 +530,7 @@ class TestLLMEnricher:
 
         run(enricher.enrich(items, watchlist=WatchlistConfig(), store=store))
 
-        cached = store.get_enrich_cache(self.URLS[0], "glm-4-flash", enricher.scores_key)
+        cached = store.get_enrich_cache(self.URLS[0], "glm-5.3-flash", enricher.scores_key)
         assert cached is not None
         assert cached["scores"] == {"value": 9, "relevance": 9, "credibility": 9}
         assert cached["score"] == 9.0
@@ -592,13 +592,13 @@ class TestPromptTemplate:
 
 class TestStoreEnrichCache:
     def test_cache_roundtrip_and_key_invalidation(self, store):
-        store.set_enrich_cache("https://a", "glm-4-flash", "value+relevance+credibility@p1",
+        store.set_enrich_cache("https://a", "glm-5.3-flash", "value+relevance+credibility@p1",
                                {"scores": {"value": 8}, "score": 8.0})
-        hit = store.get_enrich_cache("https://a", "glm-4-flash", "value+relevance+credibility@p1")
+        hit = store.get_enrich_cache("https://a", "glm-5.3-flash", "value+relevance+credibility@p1")
         assert hit == {"scores": {"value": 8}, "score": 8.0}
         # 换模型 / 换维度指纹 → 未命中(schema/变更才重评)
         assert store.get_enrich_cache("https://a", "glm-4.5", "value+relevance+credibility@p1") is None
-        assert store.get_enrich_cache("https://a", "glm-4-flash", "value@p1") is None
+        assert store.get_enrich_cache("https://a", "glm-5.3-flash", "value@p1") is None
 
     def test_cache_upsert_overwrites_same_key(self, store):
         key = "value@p1"

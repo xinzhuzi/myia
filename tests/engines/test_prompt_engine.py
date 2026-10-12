@@ -255,7 +255,7 @@ def test_happy_path_one_summary_item(monkeypatch):
     assert item["prompt_summary"] == MARKDOWN  # 模板渲染键(metadata 面)
     assert item["prompt_urls_ok"] == 3
     assert item["prompt_urls_failed"] == 0
-    assert item["prompt_model"] == "glm-4-flash"
+    assert item["prompt_model"] == "glm-5.3-flash"
     assert item["prompt_instructions"].startswith("找出新发布")
     # LLM 调用形状:一轮、system 固定、user 含 instructions 与三正文段
     assert len(completer.calls) == 1

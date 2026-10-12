@@ -50,7 +50,7 @@ sources:
           - "https://www.anthropic.com/news"       # SSR HTML(trafilatura 通路)
           - "https://openai.com/news/rss.xml"      # 官网 RSS(feedparser 通路;
           - "https://deepmind.google/blog/rss.xml" # HTML 页=CF 403/JS 壳,feed 放行)
-        model: glm-4-flash                 # 缺省同 schema DEFAULT_ENRICH_MODEL
+        model: glm-5.3-flash                 # 缺省同 schema DEFAULT_ENRICH_MODEL
         base_url: keychain:myia/llm/base_url    # 智谱 PAAS v4 端点(ai-news
         api_key: keychain:myia/image/api_key    # enrich 同链既有 GLM 凭据)
         max_chars_per_url: 6000            # 每页正文进 prompt 的截断(token 护栏)

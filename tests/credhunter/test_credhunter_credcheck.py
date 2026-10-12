@@ -440,7 +440,7 @@ class TestSpecializedEndpoints:
 
     def test_versioned_base_join_for_glm_and_groq(self, cc, registry):
         glm = FakeTransport([
-            ("GET", "https://open.bigmodel.cn/api/paas/v4/models", 200, '{"data":[{"id":"glm-4-flash"}]}', {}),
+            ("GET", "https://open.bigmodel.cn/api/paas/v4/models", 200, '{"data":[{"id":"glm-5.3-flash"}]}', {}),
         ])
         result = check(registry, glm, apikey=KEY_GENERIC, apiurl="https://open.bigmodel.cn/api/paas/v4")
         assert result.provider == "glm"

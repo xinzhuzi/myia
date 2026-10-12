@@ -70,7 +70,7 @@ sources:
   #         keywords: [免费, 白嫖, 羊毛, token, 额度, 优惠, coupon, free, 折扣]  # 粗筛词表(与 bot 线同面,省略=内置缺省)
   #         llm_base_url: keychain:myia/llm/base_url        # LLM 精筛端点(缺=降级纯粗筛)
   #         llm_api_key: keychain:myia/llm/api_key
-  #         # model: glm-4-flash            # 缺省即此
+  #         # model: glm-5.3-flash            # 缺省即此
   #         # score_threshold: 8            # ≥8 分即时(缺省 8)
   #     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
   #     proxy: direct                       # chromium 走系统网络(mihomo 出口按需系统级配)

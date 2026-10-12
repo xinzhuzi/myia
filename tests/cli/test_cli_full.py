@@ -575,7 +575,7 @@ class TestDoctor:
         yaml_path = write_plugin(tmp_path, "demo.yaml", enrich_yaml)
         db = tmp_path / "myssia.db"
         store = SQLiteStore(str(db))
-        store.set_enrich_cache("https://example.com/a", "glm-4-flash", "value@p1",
+        store.set_enrich_cache("https://example.com/a", "glm-5.3-flash", "value@p1",
                                {"scores": {"value": 8}, "score": 8.0})
         store.close()
 

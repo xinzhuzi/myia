@@ -48,7 +48,7 @@ dedup:
 
 enrich:                           # second funnel: explicit LLM precision scoring
   enabled: true
-  model: glm-4-flash              # any OpenAI-compatible endpoint
+  model: glm-5.3-flash              # any OpenAI-compatible endpoint
   scores: [value, relevance, credibility]   # 0-10, three dimensions
   batch: 20                       # batch scoring saves tokens
   cache: true                     # same URL never scored twice

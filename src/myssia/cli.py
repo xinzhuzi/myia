@@ -2761,7 +2761,7 @@ _INIT_OPTIONAL_INPUTS: list[dict[str, Any]] = [
         "section": "enrich",
         "default": {
             "enabled": False,
-            "model": "glm-4-flash",
+            "model": "glm-5.3-flash",
             "scores": ["value", "relevance", "credibility"],
             "batch": 20,
             "cache": True,

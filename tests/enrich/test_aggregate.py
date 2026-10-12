@@ -385,7 +385,7 @@ class TestEventAggregator:
         assert second.tokens_used == 0
         cached = store.get_enrich_cache(
             pair_cache_key("https://s0.example/post", "https://s1.example/post"),
-            "glm-4-flash",
+            "glm-5.3-flash",
             f"{DEDUPE_CACHE_KEY_PREFIX}@p1",
         )
         assert cached == {"same": True}
@@ -396,7 +396,7 @@ class TestEventAggregator:
         run(aggregator.aggregate(self.three_sources(), store=store))
         cached = store.get_enrich_cache(
             pair_cache_key("https://s0.example/post", "https://s1.example/post"),
-            "glm-4-flash",
+            "glm-5.3-flash",
             f"{DEDUPE_CACHE_KEY_PREFIX}@p1",
         )
         assert cached == {"same": False}
