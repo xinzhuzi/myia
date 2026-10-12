@@ -670,7 +670,9 @@ def test_resume_same_slot_records_no_duplicate_push(tmp_path, monkeypatch):
     store = SQLiteStore(tmp_path / "dup.db")
     registry = DedupRegistry(store, tz=TIMEZONE)
     for item in resume_items():
-        registry.record_push(item.dedup_key, now=PM_NOW)  # 同槽位已发过
+        # 渠道分键(10-12-push-slot-per-channel):品类管线登记/判定按 push
+        # 通道(make_config 的 stdout),模拟同通道同槽位已发过
+        registry.record_push(item.dedup_key, now=PM_NOW, channel="stdout")  # 同槽位已发过
     craft_interrupted_run(store, payload=pipeline_module._checkpoint_payload(resume_items()))
 
     counter = {"n": 0}

@@ -2746,7 +2746,7 @@ class Pipeline:
                 1
                 for item in buckets["immediate"]
                 if (key := item.dedup_key or item.url)
-                and not registry.should_send(key, now=now)
+                and not registry.should_send(key, now=now, channel=push.channel)
             )
             if suppressed > 0:
                 report.skips["slot_suppressed"] += suppressed
@@ -2763,7 +2763,7 @@ class Pipeline:
             digest_items = zip(buckets["digest"], digest_specs)
             for item, specs in digest_items:
                 key = item.dedup_key or item.url
-                if not registry.should_send(key, now=now):
+                if not registry.should_send(key, now=now, channel=push.channel):
                     report.skips["slot_suppressed"] += 1
                     logger.info("摘要同槽位拦截 channel=%s key=%s", push.channel, key)
                     continue

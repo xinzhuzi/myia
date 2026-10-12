@@ -340,9 +340,11 @@ class DigestAggregator:
         sent_ok = any(report.ok for report in reports)
         if sent_ok:
             if self._registry is not None:
+                ok_channels = {report.channel for report in reports if report.ok}
                 for pending in keep:
                     if pending.dedup_key:
-                        self._registry.record_push(pending.dedup_key, now=local_now)
+                        for ch_name in ok_channels:
+                            self._registry.record_push(pending.dedup_key, now=local_now, channel=ch_name)
             logger.info(
                 "摘要已发送: slot=%s date=%s count=%d ok_sends=%d/%d",
                 slot,
@@ -374,7 +376,13 @@ class DigestAggregator:
             if (
                 self._registry is not None
                 and pending.dedup_key is not None
-                and not self._registry.should_send(pending.dedup_key, now=now)
+                # 渠道分键(10-12-push-slot-per-channel):本池所有通道都
+                # 同槽位拦过才丢;任一通道未发过 = 该条目还有投递面,保留
+                # (发送层 per channel 报告,ok 通道各自登记)。
+                and all(
+                    not self._registry.should_send(pending.dedup_key, now=now, channel=ch.name)
+                    for ch in self._channels
+                )
             ):
                 blocked += 1
                 continue
@@ -458,7 +466,11 @@ async def send_immediate(
             slot_dedup  # 重投冲账跳过闸门(send_immediate docstring:键级粒度 vs 条目级重投)
             and registry is not None
             and key
-            and not registry.should_send(key, now=local_now)
+            # 渠道分键(10-12-push-slot-per-channel):任一待发通道未发过即保留
+            and all(
+                not registry.should_send(key, now=local_now, channel=ch.name)
+                for ch in channels
+            )
         ):
             logger.info("立即推送跳过(同槽位已发过): key=%s slot=%s", key, context.slot)
             continue
@@ -487,11 +499,13 @@ async def send_immediate(
         )
         reports.extend(group_reports)
         if registry is not None and any(report.ok for report in group_reports):
+            ok_channels = {report.channel for report in group_reports if report.ok}
             for group_item in group_items:
                 view = item_view(group_item)
                 key = view.get("dedup_key") or view.get("url")
                 if key:
-                    registry.record_push(key, now=local_now)
+                    for ch_name in ok_channels:
+                        registry.record_push(key, now=local_now, channel=ch_name)
     for (failed_channel, failed_code), times in failure_tally.items():
         if times > 1:
             logger.warning(

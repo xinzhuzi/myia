@@ -41,6 +41,17 @@ _FIELD_NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _FORMATTER = Formatter()
 
 
+def _scope_key(key: str, channel: str | None) -> str:
+    """(channel, key) → 注册表存储键(10-12-push-slot-per-channel)。
+
+    ``\x1f`` 单元分隔符防拼接歧义;channel=None = 旧裸键(doctor/debug)。
+    存量裸键行不迁移:items 去重先拦旧条目,旧键自然退役、无补发窗口。
+    """
+    if channel is None:
+        return key
+    return f"{channel}\x1f{key}"
+
+
 class DedupRegistry:
     """Persistent dedup registry on top of a :class:`myssia.store.base.Store`.
 
@@ -173,14 +184,18 @@ class DedupRegistry:
         """Record ``key`` as seen without touching its push info."""
         self._store.mark_dedup_seen(key, self._utc(now))
 
-    def should_send(self, key: str, now: datetime | None = None) -> bool:
+    def should_send(self, key: str, now: datetime | None = None, *, channel: str | None = None) -> bool:
         """Push-slot check: may ``key`` be sent at time ``now``?
 
         False only when the key was pushed at or after the start of the
         current slot window (同槽位拦截); any earlier window — the other
         slot, or a previous day's same-name slot — allows the send (跨槽位放行).
+        ``channel``:推送通道名(10-12-push-slot-per-channel)——防重发键是
+        ``(channel, key)`` 二元组:同条目在 A 通道发过不拦 B 通道(双通道配置
+        各出一份摘要,主人报障「20 条同槽位拦截 channel=telegram」根治);
+        None = 旧裸键语义(doctor/debug 内省面)。
         """
-        entry = self._store.get_dedup_entry(key)
+        entry = self._store.get_dedup_entry(_scope_key(key, channel))
         if entry is None or entry.last_pushed_at is None:
             return True
         window_start_utc = self.slot_window_start(now).astimezone(timezone.utc)
@@ -194,12 +209,15 @@ class DedupRegistry:
             )
         return allowed
 
-    def record_push(self, key: str, now: datetime | None = None) -> None:
-        """Record a push of ``key`` in the slot containing ``now`` (upsert)."""
+    def record_push(self, key: str, now: datetime | None = None, *, channel: str | None = None) -> None:
+        """Record a push of ``key`` in the slot containing ``now`` (upsert).
+
+        ``channel`` 见 :meth:`should_send`:(channel, key) 二元组键。
+        """
         local_now = self._to_local(now)
         slot = SLOT_AM if local_now.hour < SLOT_BOUNDARY_HOUR else SLOT_PM
-        self._store.record_dedup_push(key, local_now.astimezone(timezone.utc), slot)
-        logger.debug("去重推送登记 key=%s slot=%s", key, slot)
+        self._store.record_dedup_push(_scope_key(key, channel), local_now.astimezone(timezone.utc), slot)
+        logger.debug("去重推送登记 key=%s channel=%s slot=%s", key, channel, slot)
 
     def get_entry(self, key: str) -> DedupEntry | None:
         """Return the raw registry entry for ``key`` (doctor/debug introspection)."""

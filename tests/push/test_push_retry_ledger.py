@@ -626,7 +626,8 @@ class TestSendImmediateIntegration:
         成功照常 record_push。"""
         store = SQLiteStore(tmp_path / "dedup.db")
         registry = DedupRegistry(store)
-        registry.record_push("k1", now=NOW)  # 模拟本槽位已有任一侧成功
+        # 渠道分键(10-12-push-slot-per-channel):「同槽位已发过」= 同通道已发
+        registry.record_push("k1", now=NOW, channel="flaky")
         channel = FlakyChannel()
         try:
             assert (
@@ -667,7 +668,9 @@ class TestSendImmediateIntegration:
             )
             assert [(r.channel, r.ok) for r in reports] == [("good", True), ("flaky", False)]
             assert ledger.pending_count() == 1
-            assert registry.should_send("k1", now=NOW) is False  # good 已记进本槽位
+            # 渠道分键:good 已记 (good, k1);flaky 未发(新语义核心——异通道不拦)
+            assert registry.should_send("k1", now=NOW, channel="good") is False
+            assert registry.should_send("k1", now=NOW, channel="flaky") is True
 
             clock.advance(RETRY_BACKOFF_SECONDS[0])  # 退避到点,仍同槽位
             healed = FlakyChannel(fail_next=0)
@@ -886,8 +889,8 @@ class TestPipelineWiring:
             )
             registry = pipeline._ensure_registry(store)
             # 模拟「别的通道/目标」在本槽位成功:键级 record_push 拦住重投闸门
-            registry.record_push("k1", now=flush_now)
-            assert registry.should_send("k1", now=flush_now) is False
+            registry.record_push("k1", now=flush_now, channel="good")
+            assert registry.should_send("k1", now=flush_now, channel="good") is False
 
             assert pipeline._retry_ledger.enqueue_failure(
                 channel="flaky",

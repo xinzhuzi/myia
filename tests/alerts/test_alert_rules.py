@@ -635,7 +635,9 @@ def test_bidirectional_suppression_route_first(tmp_path):
     channel = FakeChannel()
     registry = DedupRegistry(store)
     item = make_item()
-    registry.record_push("key-a")  # route immediate 已在本槽位发过
+    # 渠道分键(10-12-push-slot-per-channel):route 侧经同一 FakeChannel 发过
+    # 渠道分键(10-12-push-slot-per-channel):route 侧经同一 stdout 通道发过
+    registry.record_push("key-a", channel="stdout")  # route immediate 已在本槽位发过
     engine = AlertEngine(
         store=store,
         channel_resolver=lambda _: channel,

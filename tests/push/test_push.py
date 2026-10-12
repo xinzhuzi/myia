@@ -655,7 +655,8 @@ def test_digest_flush_records_push_slot_in_registry(registry):
         {"title": "示例", "url": "https://example.com/a"}, dedup_key="k-slot"
     )
     asyncio.run(aggregator.flush(now=local_dt(9)))
-    entry = registry.get_entry("k-slot")
+    # 渠道分键(10-12-push-slot-per-channel):登记键 = (channel, key)
+    entry = registry.get_entry(f"{RecordingChannel.name}\x1fk-slot")
     assert entry is not None
     assert entry.last_push_slot == SLOT_AM
     assert entry.last_pushed_at is not None
@@ -727,8 +728,10 @@ def test_send_immediate_sends_each_item_and_records_push(registry):
     assert len(channel.calls) == 1  # 同轮合并一条(逐条单发已消灭)
     assert len(channel.calls[0]["items"]) == 2
     assert channel.calls[0]["context"].kind == "immediate"
-    assert registry.get_entry("https://example.com/1").last_push_slot == SLOT_AM
-    assert registry.get_entry("https://example.com/2").last_push_slot == SLOT_AM
+    # 渠道分键(10-12-push-slot-per-channel):登记键 = (channel, key)
+    scoped = f"{RecordingChannel.name}\x1fhttps://example.com/"
+    assert registry.get_entry(scoped + "1").last_push_slot == SLOT_AM
+    assert registry.get_entry(scoped + "2").last_push_slot == SLOT_AM
 
 
 def test_send_immediate_continues_after_channel_failure():
