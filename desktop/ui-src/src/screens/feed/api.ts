@@ -621,11 +621,16 @@ export function sortUnreadFirst(items: FeedItem[], states: FeedStateMap): FeedIt
 // _item_dict 白名单投影,见 entry.py)。
 // ---------------------------------------------------------------------------
 
-/** 渠道类型五档(呈现档位;判定优先级 telegram > watch > document > deal) */
-export type ChannelKind = "telegram" | "watch" | "document" | "deal" | "news";
+/** 渠道类型六档(呈现档位;判定优先级 telegram > weixin > watch > document > deal;
+ *  weixin 档 10-12-weixin-feed-channel:微信本机桥读回入情报流,G3 翻案) */
+export type ChannelKind = "telegram" | "weixin" | "watch" | "document" | "deal" | "news";
 
 /** telegram 源名前缀(命名规约 telegram-<渠道原名>;tg- 旧缩写同收防漏) */
 const TELEGRAM_SOURCE_RE = /^(telegram|tg)[-_.]/i;
+
+/** weixin 源名前缀(命名规约 weixin-<会话原名>,源名全称律 G7;wx- 缩写
+ *  同收防漏——判定次序列于 TELEGRAM 之后、engine 词表之前,前缀优先同门) */
+const WEIXIN_SOURCE_RE = /^(weixin|wx)[-_.]/i;
 
 /** 优惠渠道品类集(games 游戏情报 / wool 羊毛情报;config.id 词表) */
 const DEAL_CATEGORIES = new Set(["games", "wool"]);
@@ -649,6 +654,7 @@ export function channelKindOf(
 ): ChannelKind {
   const source = item.source ?? "";
   if (TELEGRAM_SOURCE_RE.test(source)) return "telegram";
+  if (WEIXIN_SOURCE_RE.test(source)) return "weixin";
   const engine = engineOfSource?.get(source);
   if (engine === "urlwatch" || (item.watch_event ?? null) !== null) return "watch";
   if (engine === "prompt" || engine === "store_report") return "document";
@@ -678,8 +684,9 @@ export function engineMapFromHealth(categories: HealthResult["categories"]): Map
 
 /** 源名前缀展示词表(10-08 审计 F9 一屏一词:卡面与 L2 渠道行共用本函数;
  *  telegram-<频道> 去 platform 前缀显本名,rss-/hnrss-/urlwatch-/engine-
- *  同为「协议载体前缀」一并剥除;其余源名全称直出,不猜)。 */
-const SOURCE_DISPLAY_PREFIX_RE = /^(telegram|tg|rss|hnrss|urlwatch|engine)[-_.]/i;
+ *  同为「协议载体前缀」一并剥除;weixin-<会话> 同门(10-12 微信入情报流,
+ *  源名全称律的会话本名落点);其余源名全称直出,不猜)。 */
+const SOURCE_DISPLAY_PREFIX_RE = /^(telegram|tg|rss|hnrss|urlwatch|engine|weixin|wx)[-_.]/i;
 
 /** 源名展示词(去协议载体前缀显可读本名;未匹配词表 = 源名全称原样;
  *  前缀后空残余回源名,不猜。10-08-tg-channel-card 自 feed-screen 收编入
@@ -828,12 +835,16 @@ export function urlSegmentsOf(text: string): UrlSegment[] {
 // 类型三档判定 + 渠道全集聚合 + 搜索过滤,三件纯函数收编 api 与卡面同源。
 // ---------------------------------------------------------------------------
 
-/** 渠道卡类型三档(v6 AC20 类型徽标;engine 词表映射) */
-export type ChannelCardKind = "tg" | "site" | "daily";
+/** 渠道卡类型四档(v6 AC20 类型徽标;wx 档 10-12-weixin-feed-channel 新增,
+ *  微信本机桥渠道与 TG 同为 IM 消息档——3 级共用聊天双栏/气泡时间线) */
+export type ChannelCardKind = "tg" | "wx" | "site" | "daily";
 
 /** TG 线引擎词表:tg_web(网页线)/ telegram(bot·telethon 线仓内实名);
  *  telethon/bot 为同族别名预留。 */
 const TG_ENGINES = new Set(["tg_web", "telegram", "telethon", "bot"]);
+
+/** 微信本机桥引擎词表(10-12:config/weixin.yaml 单引擎单线,链外注册) */
+const WX_ENGINES = new Set(["wechat_local"]);
 
 /** 日报引擎词表(prompt 生成日报 / store_report 链外日报) */
 const DAILY_ENGINES = new Set(["prompt", "store_report"]);
@@ -850,9 +861,11 @@ const DAILY_ENGINES = new Set(["prompt", "store_report"]);
  */
 export function channelCardKindOf(source: string, engine?: string | null): ChannelCardKind {
   if (TELEGRAM_SOURCE_RE.test(source)) return "tg";
+  if (WEIXIN_SOURCE_RE.test(source)) return "wx";
   const normalized = (engine ?? "").trim().toLowerCase();
   if (DAILY_ENGINES.has(normalized)) return "daily";
   if (TG_ENGINES.has(normalized)) return "tg";
+  if (WX_ENGINES.has(normalized)) return "wx";
   return "site";
 }
 
@@ -939,6 +952,7 @@ export function feedChannelCards(
  *  实测主路径;网站/日报同构一词)。 */
 const CHANNEL_KIND_ALIASES: Record<ChannelCardKind, string[]> = {
   tg: ["tg", "telegram"],
+  wx: ["wx", "weixin", "微信", "wechat"],
   site: ["web", "网站", "网址"],
   daily: ["daily", "日报"],
 };
@@ -973,12 +987,14 @@ export function filterChannelsByQuery(
  *  图标/色调随此 label,聚合层自持防 api↔screen 循环导入) */
 export const CHANNEL_CARD_LABELS: Record<ChannelCardKind, string> = {
   tg: "TG",
+  wx: "微信",
   site: "网站",
   daily: "日报",
 };
 
-/** 类型卡固定序(词表序 tg → site → daily,稳定心智模型,不按计数跳动) */
-export const CHANNEL_CARD_ORDER: readonly ChannelCardKind[] = ["tg", "site", "daily"];
+/** 类型卡固定序(词表序 tg → wx → site → daily,稳定心智模型,不按计数跳动;
+ *  IM 双档相邻:微信紧随 TG,同为「聊天消息」媒介族,10-12 落位) */
+export const CHANNEL_CARD_ORDER: readonly ChannelCardKind[] = ["tg", "wx", "site", "daily"];
 
 /** 类型卡最新预览行(成员渠道按 latest_first_seen 降序取前 3) */
 export interface TypeCardPreview {

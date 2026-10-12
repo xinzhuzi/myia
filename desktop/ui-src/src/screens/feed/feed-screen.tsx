@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FileText,
   Inbox,
+  MessageCircle,
   Percent,
   Play,
   Radar,
@@ -115,6 +116,7 @@ import {
 } from "./api";
 import type { FeedFilter, FeedStateMap } from "./api";
 import { telegramGetStatus, telegramWebLogin, type TelegramStatus } from "@/screens/settings/telegram-api";
+import { wechatLocalProbe, type WechatLocalProbeView } from "@/screens/messaging/api";
 
 import { FeedCardFeedback } from "./feed-card-feedback";
 import { MarkdownLite } from "./markdown-lite";
@@ -148,16 +150,20 @@ const FILTERS: { key: FeedFilter; label: string }[] = [
  *  色调(品类分组下的二级组头与卡面呈现共用同一词表)。 */
 const CHANNEL_KIND_META: Record<ChannelKind, { label: string; Icon: typeof Rss; className: string }> = {
   telegram: { label: "频道", Icon: Send, className: "text-primary" },
+  weixin: { label: "微信", Icon: MessageCircle, className: "text-[#07C160]" },
   watch: { label: "监控", Icon: Radar, className: "text-warning" },
   document: { label: "日报", Icon: FileText, className: "text-primary/80" },
   deal: { label: "优惠", Icon: Percent, className: "text-ok" },
   news: { label: "新闻", Icon: Rss, className: "text-muted-foreground" },
 };
 
-/** 渠道卡类型元(v6 渠道墙):三档徽标词/图标/色调(条目级 CHANNEL_KIND_META
- *  的渠道级姊妹; TG = Send 品牌紫 / 网站 = Rss 灰 / 日报 = FileText 淡紫) */
+/** 渠道卡类型元(v6 渠道墙):四档徽标词/图标/色调(条目级 CHANNEL_KIND_META
+ *  的渠道级姊妹; TG = Send 品牌紫 / 微信 = MessageCircle 官方绿 #07C160
+ *  (与 messaging/platform-icons.tsx weixin_local 品牌色同源,暗卡底对比
+ *  ≈6.9:1 过 4.5 档,F8 审计口径)/ 网站 = Rss 灰 / 日报 = FileText 淡紫) */
 const CHANNEL_CARD_META: Record<ChannelCardKind, { label: string; Icon: typeof Rss; className: string }> = {
   tg: { label: "TG", Icon: Send, className: "text-primary" },
+  wx: { label: "微信", Icon: MessageCircle, className: "text-[#07C160]" },
   site: { label: "网站", Icon: Rss, className: "text-muted-foreground" },
   daily: { label: "日报", Icon: FileText, className: "text-primary/80" },
 };
@@ -262,6 +268,20 @@ function copyLink(url: string): void {
   } catch {
     // 老 webview 无剪贴板 API:静默
   }
+}
+
+/** 微信桥探针三态词面(10-12-weixin-feed-channel;2 级桥状态区/3 级监控台
+ *  共用。主判例「行话零容忍」:码名只作 title/原因行的结构词,可见词面全人话) */
+function wxBridgeWord(probe: WechatLocalProbeView): string {
+  if (probe.state === "ok") return "桥在线";
+  if (probe.state === "degraded") return "桥降级";
+  return "桥不可用";
+}
+
+/** 微信桥探针三态 title(词面 + 首因修复指引;零原因 = 裸词面) */
+function wxBridgeTitle(probe: WechatLocalProbeView): string {
+  const hint = probe.reasons[0]?.fix_hint;
+  return hint ? `${wxBridgeWord(probe)}:${hint}` : wxBridgeWord(probe);
 }
 
 /** 绝对时间(展开态元信息行):YYYY-MM-DD HH:mm */
@@ -455,7 +475,7 @@ const FeedCard = memo(function FeedCard({
           onMouseEnter={() => onCurrent(key)}
           onFocus={() => onCurrent(key)}
           className={`group/feed-item relative ${
-            kind === "telegram"
+            kind === "telegram" || kind === "weixin"
               ? "w-fit min-w-[13rem] max-w-[min(100%,640px)] rounded-md border border-border/40 bg-card py-2 pl-3 pr-3"
               : `rounded-md border py-2 pr-3 pl-4 hover:bg-accent/50 ${
                   state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
@@ -466,8 +486,9 @@ const FeedCard = memo(function FeedCard({
           #631bf3 卡底 2.30:1 不达非文字 3:1,提一档 4.40:1);已读 = 统一
           降饱和灰(10-08 审计 F4:品类色散列可落紫系与未读 accent 同色相,
           读态竖条通道失效——已读改走 muted 灰档,品类色只承担品类徽章通道) */}
-      {/* TG 聊天气泡不带竖条(10-09 聊天主页风格:未读走泡底色/文字档) */}
-      {kind !== "telegram" ? (
+      {/* TG/微信聊天气泡不带竖条(10-09 聊天主页风格:未读走泡底色/文字档;
+          微信共用同款,10-12-weixin-feed-channel) */}
+      {kind !== "telegram" && kind !== "weixin" ? (
       <span
         aria-hidden
         data-testid={`feed-strip-${rowKey}`}
@@ -484,16 +505,22 @@ const FeedCard = memo(function FeedCard({
 
       {/* 相对时间(公共件):右对齐灰色(teardown #4),hover 让位浮现的
           操作簇(#5);等宽数字(mono)——VL 指认时间戳与正文无视觉区分 */}
-      {kind === "telegram" ? (
+      {kind === "telegram" || kind === "weixin" ? (
         <>
           {/* 聊天主页风格(10-09,主人令「做成 tg 的聊天主页风格」):
               频道名入泡顶(非节内语境),时间收泡底右下,窄泡左对齐;
               点击正文/摘要 = 详情弹窗(弹开即记已读)。P2-3:着色底收编于此
               (未读亮泡 primary/10 / 已读降档 muted,v4 AC12 口径不变,仅从
-              根容器下移;hover 提亮随 group/feed-item 联动,观感同前)。 */}
+              根容器下移;hover 提亮随 group/feed-item 联动,观感同前)。
+              10-12 微信共用全套(weixin-<会话名> 源剥前缀显会话名);泡顶
+              图标随档:微信 = MessageCircle 官方绿,TG = Send。 */}
           {!inChannelSection ? (
             <div className="flex items-center gap-1 text-2xs font-medium text-link">
-              <Send aria-hidden className="size-3 shrink-0" />
+              {kind === "weixin" ? (
+                <MessageCircle aria-hidden className="size-3 shrink-0 text-[#07C160]" />
+              ) : (
+                <Send aria-hidden className="size-3 shrink-0" />
+              )}
               <span className="min-w-0 truncate">{channelDisplayName(item.source)}</span>
             </div>
           ) : null}
@@ -789,7 +816,7 @@ const FeedCard = memo(function FeedCard({
         </Button>
       </div>
 
-      {kind !== "telegram" ? (
+      {kind !== "telegram" && kind !== "weixin" ? (
       <div className="mt-1 flex flex-wrap items-center gap-1.5">
         {expandable ? (
           <Button
@@ -841,7 +868,7 @@ const FeedCard = memo(function FeedCard({
       ) : null}
 
       {/* ═══ 正文块(渠道差异化,10-06-feed-channel-groups)═══
-          telegram 正文在气泡内(头区已渲染)此处跳过;document = markdown
+          telegram/weixin 正文在气泡内(头区已渲染)此处跳过;document = markdown
           文档视图(MarkdownLite,可折叠正文);watch = diff 变更明细(等宽
           块,展开态);news/deal = 现状两行摘要/展开全文(G2 零变化)。 */}
       {item.content && kind === "document" ? (
@@ -880,7 +907,7 @@ const FeedCard = memo(function FeedCard({
             {bodyPreview.replace(/\s+/g, " ").trim()}
           </p>
         ) : null
-      ) : item.content && kind !== "telegram" ? (
+      ) : item.content && kind !== "telegram" && kind !== "weixin" ? (
         expanded ? (
           // 展开态:全文 + 元信息(G2:C9 消号——正文与原文链接都在卡内)
           <div className="mt-1.5" data-testid={`feed-expanded-${item.id ?? itemKey(item)}`}>
@@ -1145,9 +1172,11 @@ const FeedCard = memo(function FeedCard({
  * = ring(仅 navByKeyboard 时)。计数 title 沿用「已加载口径」真话(全库
  * 首页 50 条铺底)。memo 同 FeedCard(hover onCurrent 只改 listCurrentKey)。
  */
-/** 类型头像 chip 底色档(v7 右栏行):同色系淡档,头像位即类型徽标 */
+/** 类型头像 chip 底色档(v7 右栏行):同色系淡档,头像位即类型徽标
+ *  (wx = 微信官方绿 10% tint,tg 的 primary 淡档同构) */
 const CHANNEL_ROW_AVATAR_TONE: Record<ChannelCardKind, string> = {
   tg: "bg-primary/10 text-primary",
+  wx: "bg-[#07C160]/10 text-[#07C160]",
   site: "bg-muted text-muted-foreground",
   daily: "bg-primary/5 text-primary/80",
 };
@@ -2487,29 +2516,39 @@ export function FeedScreen() {
     [memberChannels, query],
   );
 
-  /** 渲染形态派生(v8:3 级渠道详情双形态;1/2 级无条目流):TG 渠道 =
+  /** 渲染形态派生(v8:3 级渠道详情双形态;1/2 级无条目流):TG/微信渠道 =
    *  聊天视图(气泡时间线 + 日期胶囊),网站/日报渠道 = 单列条目卡。
-   *  TG 判定走渠道卡同一词表(channelCardKindOf,v8 前缀优先)。
+   *  TG 判定走渠道卡同一词表(channelCardKindOf,v8 前缀优先);微信共用
+   *  聊天双栏/气泡渲染(10-12-weixin-feed-channel,主令「按 tg 的 UI 设计
+   *  方式给微信也做一版」)。
    *  3→2 回退时 kind 重派生同式(v7 activeChannelKind 机件,§0)。 */
   const activeChannelKind =
     viewSource !== null ? channelCardKindOf(viewSource, engineBySource.get(viewSource)) : null;
-  const chatView = activeChannelKind === "tg";
-  /** TG 渠道详情(监控台钉顶判定,v8 = 3 级专属:1/2 级不出)。 */
-  const isTgChannel = chatView;
+  const chatView = activeChannelKind === "tg" || activeChannelKind === "wx";
+  /** TG 渠道详情(监控台钉顶判定,v8 = 3 级专属:1/2 级不出;原生视图段/
+   *  扫码登录/网页预览 = TG 专属件,微信不渲染)。 */
+  const isTgChannel = activeChannelKind === "tg";
+  /** 微信渠道详情(3 级专属:wx 监控台压缩条/桥状态区判定;2 级 wx 页桥
+   *  状态区另走 view.kind === "wx" 门)。 */
+  const isWxChannel = activeChannelKind === "wx";
 
   /** 左栏监控会话列表(10-11-tg-chat-two-pane,主人令「左侧是群列表,点击后
    *  展示出来右侧的群内容」;裁⑥词面定案:用户可见词 = 「监控会话」,testid
-   *  前缀 feed-tg-group-* 为结构词不动):数据源 = 渠道全集卡的 tg 档成员,
-   *  与 2 级全渠道列表同源(health 词表源 ∪ 已加载条目 source 去重,stats
-   *  门过 = 计数全库真值);单群(当前实况 clashv8)照常渲染单行选中,零群
-   *  给引导空态。仅 TG 渠道 3 级渲染(网站/日报 3 级零变化)。落点判例:v7
-   *  双栏错在 2 级粒度(选中即数据),本次 3 级双栏是主人明令,不属翻案。
+   *  前缀 feed-tg-group-* 为结构词不动):数据源 = 渠道全集卡的 IM 档(tg/wx)
+   *  成员,与 2 级全渠道列表同源(health 词表源 ∪ 已加载条目 source 去重,stats
+   *  门过 = 计数全库真值);单会话(当前实况 clashv8)照常渲染单行选中,零群
+   *  给引导空态。TG/微信渠道 3 级渲染(网站/日报 3 级零变化;微信左栏数据源
+   *  = yaml 声明源,桥 sessions 清单不接 feed,声明制监控 v1 语义)。落点判例:
+   *  v7 双栏错在 2 级粒度(选中即数据),本次 3 级双栏是主人明令,不属翻案。
    *  (⑧钉注:多账号分组的落点 = 此 memo——按账号聚合在此扩展,账号备注名/
    *  user_id 词表 = telegram.status web.accounts 的 label/user_id,tg-account
    *  屏与 2 级账号区已消费同一词表。) */
-  const tgGroupCards = useMemo(
-    () => (isTgChannel ? channelCardsWithStats.filter((card) => card.kind === "tg") : []),
-    [isTgChannel, channelCardsWithStats],
+  const imGroupCards = useMemo(
+    () =>
+      chatView
+        ? channelCardsWithStats.filter((card) => card.kind === "tg" || card.kind === "wx")
+        : [],
+    [chatView, channelCardsWithStats],
   );
 
   // 补⑤(grill 一轮):viewSource 变化 → 左栏选中会话行滚入视口(block:
@@ -2619,6 +2658,43 @@ export function FeedScreen() {
    *  (idle/loading/error)= 空集,空态呈现由 phase 分支兜住(答案未落地
    *  不出空态,不把加载中误述成没有)。 */
   const tgAccounts = tgWebline?.web.accounts ?? [];
+
+  // ── 微信本机桥探针(10-12-weixin-feed-channel;镜像 tgStatusPhase 同构)──
+  // 数据面 = wechatLocalProbe()(messaging/api.ts 屏私有封装,sidecar
+  // wechat_local.probe 三态 ok/degraded/bridge_unavailable);探针永不抛
+  // (sidecar 对组件缺席/超时回同形合成载荷,state 恒 bridge_unavailable),
+  // catch 只兜壳不可达的传输层错误 → error 态。2 级 wx 页桥状态区与 3 级
+  // wx 监控台共此一拉(镜像 tgStatusNeeded 2↔3 往返不重发)。
+  type WxProbePhase = "idle" | "loading" | "ok" | "error";
+  const [wxProbe, setWxProbe] = useState<WechatLocalProbeView | null>(null);
+  const [wxProbePhase, setWxProbePhase] = useState<WxProbePhase>("idle");
+  const [wxProbeTick, setWxProbeTick] = useState(0);
+  /** 桥状态拉取门:微信语境布尔(3 级 wx 渠道 ∨ 2 级 wx 页),镜像
+   *  tgStatusNeeded(:2592 同门)。 */
+  const wxProbeNeeded = isWxChannel || (view.level === 2 && view.kind === "wx");
+  useEffect(() => {
+    if (!wxProbeNeeded) return;
+    let cancelled = false;
+    setWxProbePhase("loading");
+    void wechatLocalProbe()
+      .then((probe) => {
+        if (cancelled) return;
+        setWxProbe(probe);
+        setWxProbePhase("ok");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setWxProbe(null);
+        setWxProbePhase("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [wxProbeNeeded, wxProbeTick]);
+  /** 空态重试(tgStatusTick 同门:重拉,在途先落 loading) */
+  const retryWxProbe = useCallback(() => {
+    setWxProbeTick((tick) => tick + 1);
+  }, []);
 
   /** 分组(显示选项,仅聊天视图):TG 频道作用域的日期胶囊分组走时间四桶
    *  (v4 聊天主页风格);不分组 = 平铺。瀑布流卡片墙(AC13)恒平铺多列
@@ -3733,6 +3809,123 @@ export function FeedScreen() {
                   )}
                 </section>
               ) : null}
+              {/* 桥状态区(10-12-weixin-feed-channel,镜像 TG 账号区结构;仅
+                  微信类型页,网站/日报 2 级零变化):微信单本机客户端无账号
+                  概念,账号列表位换成桥状态单卡 —— probe 三态 pill + 版本行 +
+                  降级/不可用原因逐条(码名 + 修复指引,消息屏微信区同款)+
+                  「到消息屏处理」钮(微信本机工作区在消息屏,非独立屏)。
+                  探针数据与 3 级 wx 监控台共此一拉(wxProbeNeeded 门 2↔3
+                  往返不重发)。 */}
+              {view.kind === "wx" ? (
+                <section
+                  data-testid="feed-wx-bridge"
+                  aria-label="桥状态"
+                  className="border-b border-border/40 pb-3"
+                >
+                  <p
+                    className="px-2.5 py-1.5 text-xs font-medium tracking-wider text-muted-foreground"
+                    data-testid="feed-wx-bridge-title"
+                  >
+                    {wxProbePhase === "ok" && wxProbe !== null ? `桥 · ${wxBridgeWord(wxProbe)}` : "桥"}
+                  </p>
+                  {wxProbePhase === "idle" || wxProbePhase === "loading" ? (
+                    /* 答案未落地:骨架行,不出空态(不把加载中误述成没有) */
+                    <div
+                      className="flex items-center gap-2 rounded-md px-2.5 py-2"
+                      data-testid="feed-wx-bridge-loading"
+                      aria-busy="true"
+                      aria-label="桥状态加载中"
+                    >
+                      <Skeleton className="size-6 shrink-0 rounded-full" />
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <Skeleton className="h-3 w-24" />
+                        <Skeleton className="h-2.5 w-36" />
+                      </div>
+                    </div>
+                  ) : wxProbePhase === "error" ? (
+                    /* 探针失败:重试 + 跳转并列(TG 账号区 error 分支同门) */
+                    <div className="px-2.5 py-1.5" data-testid="feed-wx-bridge-error">
+                      <p className="text-2xs leading-relaxed text-warning">桥状态暂时不可用</p>
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-2xs"
+                          data-testid="feed-wx-bridge-retry"
+                          onClick={retryWxProbe}
+                        >
+                          重试
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-2xs"
+                          data-testid="feed-wx-bridge-goto"
+                          onClick={() => navigate("/messaging")}
+                        >
+                          到消息屏查看
+                        </Button>
+                      </div>
+                    </div>
+                  ) : wxProbe !== null ? (
+                    /* 桥状态单卡:三态 pill(●/○)+ 版本行 + 原因逐条 + 动线钮 */
+                    <div className="flex flex-col gap-1 px-2.5 py-2" data-testid="feed-wx-bridge-card">
+                      <div className="flex items-center gap-2">
+                        <span
+                          aria-hidden
+                          className={`shrink-0 text-2xs leading-none ${
+                            wxProbe.state === "ok" ? "text-ok" : "text-warning"
+                          }`}
+                          title={wxBridgeTitle(wxProbe)}
+                        >
+                          {wxProbe.state === "bridge_unavailable" ? "○" : "●"}
+                        </span>
+                        <span className="sr-only">{wxBridgeWord(wxProbe)}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                          {wxBridgeWord(wxProbe)}
+                          {wxProbe.state === "ok" && wxProbe.wechat_version
+                            ? ` · 微信 ${wxProbe.wechat_version}`
+                            : ""}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 shrink-0 px-1.5 text-2xs"
+                          data-testid="feed-wx-bridge-manage"
+                          onClick={() => navigate("/messaging")}
+                        >
+                          到消息屏处理
+                        </Button>
+                      </div>
+                      <p
+                        className="min-w-0 truncate font-mono text-2xs text-muted-foreground"
+                        title={`wechat ${wxProbe.wechat_version ?? "?"} / bridge ${wxProbe.bridge_version ?? "?"}`}
+                      >
+                        微信 {wxProbe.wechat_version ?? "?"} / 桥组件 {wxProbe.bridge_version ?? "?"}
+                      </p>
+                      {wxProbe.state === "bridge_unavailable" ? (
+                        <p className="min-w-0 break-words text-2xs leading-relaxed text-muted-foreground">
+                          微信本机桥不可用(组件未装或微信未运行);到「消息」屏的微信区看引导卡处理。
+                        </p>
+                      ) : null}
+                      {wxProbe.state !== "ok" && wxProbe.reasons.length > 0 ? (
+                        <ul className="flex flex-col gap-1" data-testid="feed-wx-bridge-reasons">
+                          {wxProbe.reasons.map((reason) => (
+                            <li
+                              key={reason.code}
+                              className="min-w-0 break-words text-2xs leading-relaxed text-muted-foreground"
+                            >
+                              <code className="font-mono text-foreground">{reason.code}</code>
+                              <span className="mx-1">—</span>
+                              {reason.fix_hint}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
               {catalogLoading && channelCards.length === 0 ? (
                 <div
                   className="flex flex-col gap-1 px-1.5"
@@ -3802,12 +3995,14 @@ export function FeedScreen() {
          *  交互恒等)。落点判例:v7 双栏错粒度在 2 级(选中即数据),本次 3 级
          *  双栏是主人明令,不属翻案。 */
         <div className="flex min-h-0 flex-1">
-          {/* 左栏:监控群列表(TG 聊天列表行 = 渠道名/最近消息预览/相对时间/
-              未读徽标;选中态 bg-accent 高亮;w-72 固定宽内部自滚,flex-1 右栏
-              弹性占满) */}
+          {/* 左栏:监控会话列表(TG/微信聊天列表行 = 渠道名/最近消息预览/相对
+              时间/未读徽标;选中态 bg-accent 高亮;w-72 固定宽内部自滚,flex-1
+              右栏弹性占满。10-12:微信共用双栏,data-im-kind 标 IM 档供区分,
+              testid feed-tg-group-* 为结构词不动) */}
           {chatView ? (
             <aside
               data-testid="feed-tg-group-pane"
+              data-im-kind={activeChannelKind ?? undefined}
               aria-label="监控会话列表"
               className="flex w-72 shrink-0 flex-col border-r border-border/60"
             >
@@ -3815,14 +4010,14 @@ export function FeedScreen() {
                 {/* 裁⑥词面定案:用户可见词 = 「监控会话」(testid 前缀
                     feed-tg-group-* 为结构词,不动) */}
                 <span className="text-xs font-medium text-muted-foreground">监控会话</span>
-                {tgGroupCards.length > 0 ? (
-                  <span className="text-2xs text-muted-foreground tabular-nums">{tgGroupCards.length}</span>
+                {imGroupCards.length > 0 ? (
+                  <span className="text-2xs text-muted-foreground tabular-nums">{imGroupCards.length}</span>
                 ) : null}
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto py-1" data-testid="feed-tg-group-list">
-                {tgGroupCards.length === 0 ? (
-                  /* 零监控会话引导空态(AC4):正常动线下 3 级 TG 必有 ≥1 群
-                      (入口本身来自该列表),此态为防御位 + 语义自文档 */
+                {imGroupCards.length === 0 ? (
+                  /* 零监控会话引导空态(AC4):正常动线下 3 级聊天视图必有 ≥1
+                      会话(入口本身来自该列表),此态为防御位 + 语义自文档 */
                   <div className="px-3 py-8 text-center" data-testid="feed-tg-group-empty">
                     <p className="text-xs font-medium text-foreground">还没有监控会话</p>
                     <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">
@@ -3830,7 +4025,7 @@ export function FeedScreen() {
                     </p>
                   </div>
                 ) : (
-                  tgGroupCards.map((card) => (
+                  imGroupCards.map((card) => (
                     <ChannelRow
                       key={card.key}
                       card={card}
@@ -3854,13 +4049,14 @@ export function FeedScreen() {
           ) : null}
           {/* 右栏:聊天头(TG)+ 工具条 + 时间线滚动区(网站/日报无头单列原样) */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            {/* TG 聊天头(AC3,粘顶):群名大字(feed-stream-title 随迁于此,
-                工具条内小字位撤 —— 一词一源)+ 监控台压缩条(feed-tg-console
-                原大卡信息压缩,四态/词面/机件原样;门 = phase ok && tgWebline
-                与 v8 大卡同门:在途/失败整条缺席,R2 与深检 F3 语义随迁) */}
+            {/* 聊天头(AC3,粘顶;10-12 微信共用骨架):会话名大字
+                (feed-stream-title 随迁于此,工具条内小字位撤 —— 一词一源)+
+                监控台压缩条(TG = feed-tg-console 原样;微信 = feed-wx-console
+                桥状态三态 + 管理 + 历史,无扫码登录/无原生网页预览 —— 微信桥
+                消费本机已登录客户端,登录动作发生在微信本体,如实无钮)。 */}
             {chatView ? (
               <div
-                data-testid="feed-tg-chat-header"
+                data-testid={activeChannelKind === "wx" ? "feed-wx-chat-header" : "feed-tg-chat-header"}
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-5 py-2.5"
               >
                 <h2
@@ -3870,7 +4066,109 @@ export function FeedScreen() {
                 >
                   {streamTitle}
                 </h2>
-                {tgStatusPhase === "ok" && tgWebline !== null ? (
+                {activeChannelKind === "wx" ? (
+                  /* ═══ 微信监控台压缩条(10-12-weixin-feed-channel):数据 =
+                      wechatLocalProbe 三态(ok/degraded/bridge_unavailable);
+                      门 = wxProbePhase ok(在途/失败整条缺席,镜像 TG 门);
+                      管理 → /messaging(微信本机工作区在消息屏,无独立屏)。 */
+                  wxProbePhase === "ok" && wxProbe !== null ? (
+                  <div
+                    data-testid="feed-wx-console"
+                    className="ml-auto flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+                  >
+                    {wxProbe.state === "ok" ? (
+                      <span
+                        className="inline-flex items-center gap-1 text-2xs text-ok"
+                        data-testid="feed-wx-console-live"
+                      >
+                        ● 桥在线
+                        {wxProbe.wechat_version ? ` · 微信 ${wxProbe.wechat_version}` : ""}
+                      </span>
+                    ) : wxProbe.state === "degraded" ? (
+                      <span
+                        className="inline-flex min-w-0 items-center gap-1 text-2xs text-warning"
+                        data-testid="feed-wx-console-degraded"
+                        title={
+                          wxProbe.reasons
+                            .map((reason) => `${reason.code} — ${reason.fix_hint}`)
+                            .join("\n") || undefined
+                        }
+                      >
+                        <span className="min-w-0 truncate">
+                          桥降级 —— {wxProbe.reasons[0]?.fix_hint ?? "原因未上报"}
+                        </span>
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex min-w-0 items-center gap-1 text-2xs text-warning"
+                        data-testid="feed-wx-console-unavailable"
+                        title={
+                          wxProbe.reasons
+                            .map((reason) => `${reason.code} — ${reason.fix_hint}`)
+                            .join("\n") || undefined
+                        }
+                      >
+                        <span className="min-w-0 truncate">
+                          桥不可用 —— {wxProbe.reasons[0]?.fix_hint ?? "组件未装或微信未运行"}
+                        </span>
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-1.5 text-2xs"
+                        data-testid="feed-wx-console-manage"
+                        title="微信本机工作区在「消息」屏:桥状态/屏幕录制权限引导/只读会话"
+                        onClick={() => navigate("/messaging")}
+                      >
+                        管理
+                      </Button>
+                      {/* 历史入口/出口(TG 同门):历史态词面转「退出历史」,
+                          出口就近 */}
+                      <button
+                        type="button"
+                        data-testid="feed-wx-console-history"
+                        onClick={viewHistory ? exitHistory : openHistory}
+                        title={
+                          viewHistory
+                            ? "退出历史态:回到读态过滤视图"
+                            : "查看该渠道全部入库条目(含已读)"
+                        }
+                        className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-2xs text-primary hover:bg-accent/50 hover:underline"
+                      >
+                        {viewHistory ? (
+                          <ChevronLeft aria-hidden className="size-3" />
+                        ) : (
+                          <Inbox aria-hidden className="size-3" />
+                        )}
+                        {viewHistory ? "退出历史" : "看全部历史消息(含已读)"}
+                      </button>
+                    </span>
+                  </div>
+                  ) : wxProbePhase === "error" && streamItems.length > 0 ? (
+                    /* TG 补④ 同门:探针失败但条目在场 = 头部行内明示 + 就近
+                        重试;零条目 error 走空态卡兜底(深检 F2 语义同门)。 */
+                    <span
+                      className="ml-auto flex items-center gap-1.5 text-2xs text-warning"
+                      data-testid="feed-wx-console-error"
+                    >
+                      桥状态暂时不可用
+                      <Button variant="ghost" size="sm" className="h-6 px-1.5 text-2xs" onClick={retryWxProbe}>
+                        重试
+                      </Button>
+                    </span>
+                  ) : wxProbePhase === "idle" || wxProbePhase === "loading" ? (
+                    /* TG 补④ 同门:首拉在途占位词,不空窗一拍;error 且零条目
+                        不出占位词(答案落地前不误述),交给空态卡。 */
+                    <span
+                      className="ml-auto text-2xs text-muted-foreground"
+                      data-testid="feed-wx-console-loading"
+                    >
+                      正在拉取桥状态…
+                    </span>
+                  ) : null
+                ) : tgStatusPhase === "ok" && tgWebline !== null ? (
                   <div
                     data-testid="feed-tg-console"
                     className="ml-auto flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
@@ -4363,6 +4661,65 @@ export function FeedScreen() {
                     <EmptyState
                       title="监控在线,暂无未读新消息"
                       description="Telegram 监控在线,新消息入库即出现在这里;已读条目切「全部」页签或点聊天头「看全部历史消息(含已读)」直达。"
+                    />
+                  </CardContent>
+                </Card>
+              ) : isWxChannel && (wxProbePhase === "idle" || wxProbePhase === "loading") ? null :
+              isWxChannel && wxProbePhase === "error" ? (
+                /* 微信渠道空态 · 桥状态未知(探针失败;TG 状态未知卡同门) */
+                <Card data-testid="feed-wx-status-unknown">
+                  <CardContent className="p-0">
+                    <EmptyState
+                      title="桥状态未知"
+                      description="暂时拿不到微信本机桥状态(探针服务未就绪或请求失败);桥是否可用以「消息」屏的微信区为准。"
+                      action={
+                        <Button variant="outline" size="sm" onClick={retryWxProbe}>
+                          重试拉取状态
+                        </Button>
+                      }
+                    />
+                  </CardContent>
+                </Card>
+              ) : isWxChannel && wxProbe !== null && wxProbe.state === "bridge_unavailable" ? (
+                /* 微信渠道空态 · 桥不可用:引导到消息屏引导卡(主令:
+                    unavailable 时引导文案指向消息屏引导卡) */
+                <Card data-testid="feed-wx-bridge-unavailable">
+                  <CardContent className="p-0">
+                    <EmptyState
+                      title="桥不可用,暂无新消息入库"
+                      description="微信本机桥不可用:桥组件未装或微信未运行;到「消息」屏的微信区看引导卡,装好组件并打开微信后新消息才会入库。"
+                      action={
+                        <Button variant="outline" size="sm" onClick={() => navigate("/messaging")}>
+                          到消息屏看引导
+                        </Button>
+                      }
+                    />
+                  </CardContent>
+                </Card>
+              ) : isWxChannel && wxProbe !== null && wxProbe.state === "degraded" ? (
+                /* 微信渠道空态 · 桥降级:首因人话 + 指引(窗口未开/屏幕录制
+                    权限等;码名 title 留结构词) */
+                <Card data-testid="feed-wx-degraded">
+                  <CardContent className="p-0">
+                    <EmptyState
+                      title="桥降级,暂无新消息入库"
+                      description={`微信本机桥降级:${wxProbe.reasons[0]?.fix_hint ?? "原因未上报"};按指引处理后新消息恢复入库,已入库条目不受影响。`}
+                      action={
+                        <Button variant="outline" size="sm" onClick={() => navigate("/messaging")}>
+                          到消息屏处理
+                        </Button>
+                      }
+                    />
+                  </CardContent>
+                </Card>
+              ) : isWxChannel ? (
+                /* 微信渠道空态 · 桥在线:如实披露像素链「当前打开会话」语义
+                    (§3-①,不张冠李戴的对面 = 不藏着窗口边界) */
+                <Card data-testid="feed-wx-online">
+                  <CardContent className="p-0">
+                    <EmptyState
+                      title="桥在线,暂无未读新消息"
+                      description="微信本机桥在线,新消息入库即出现在这里(桥只读微信当前打开的会话,且需与声明的监控会话匹配);已读条目切「全部」页签或点聊天头「看全部历史消息(含已读)」直达。"
                     />
                   </CardContent>
                 </Card>

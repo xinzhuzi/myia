@@ -118,8 +118,11 @@ import {
   statesFromItems,
   telegramKUrlOf,
   telegramMirrorUrlOf,
+  CHANNEL_CARD_LABELS,
+  CHANNEL_CARD_ORDER,
   type SourceStatsRow,
 } from "./api";
+import type { WechatLocalProbeView } from "@/screens/messaging/api";
 import { resetTgNativeForTests } from "./tg-native-window";
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -5469,5 +5472,400 @@ describe("feed v8 三级界面 纯函数(api.ts)", () => {
     expect(storeItemsSpy).toHaveBeenLastCalledWith(
       expect.objectContaining({ before: "2026-10-10T00:00:00Z", before_id: 7, source: "a", query: "x" }),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// weixin-feed-channel(10-12,主令翻案 G3:微信消息入情报流):类型卡第四档 +
+// 聊天双栏/气泡渲染共用 + 2 级桥状态区 + 3 级 wx 监控台三态 + 空态阶梯 +
+// 搜索别名 + 进会话即已读(深链/登录/原生预览 = 有意缺席,不造假)
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
+  /** wechat_local.probe 夹具(形状对齐 messaging/api.ts WechatLocalProbeView;
+   *  与消息屏 wechat-local.test.tsx probeFixture 同源) */
+  const probePayload = (overrides: Partial<WechatLocalProbeView> = {}): WechatLocalProbeView => ({
+    ok: true,
+    state: "ok",
+    checks: { bridge_component: "ok", wechat_process: "ok", screen_recording: "ok" },
+    wechat_version: "4.1.15",
+    bridge_version: "0.3.1",
+    reasons: [],
+    ...overrides,
+  });
+
+  /** 微信世界:health 给 weixin 品类单源(wechat_local 引擎,源名全称律
+   *  weixin-<会话名>)+ telegram/tech 对照渠道;store.items 按源过滤。 */
+  function mockWxWorld(items: FeedItem[] = []) {
+    healthMock.mockResolvedValue(
+      healthResult({
+        categories: [
+          categoryEntry({ id: "weixin", name: "微信监控", sources: [sourceEntry("weixin-测试会话", "wechat_local")] }),
+          categoryEntry({ id: "telegram", name: "Telegram 监控", sources: [sourceEntry("telegram-seed", "tg_web")] }),
+          categoryEntry({ id: "tech", name: "科技", sources: [sourceEntry("tech-source", "static_html")] }),
+        ],
+      }),
+    );
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(items.filter((item) => !params?.source || item.source === params.source))),
+    );
+  }
+
+  /** 探针分发 mock(wechat_local.probe;probe = null → 传输层错误形态) */
+  function mockProbe(probe: WechatLocalProbeView | null) {
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "wechat_local.probe") {
+        if (probe === null) {
+          throw JSON.stringify({ code: "transport_error", path: "$", message: "探针不可达" });
+        }
+        return probe;
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+  }
+
+  /** 1 级点微信类型卡 → 2 级渠道列表 */
+  async function openWxList() {
+    fireEvent.click(await screen.findByTestId("feed-type-card-wx"));
+    await waitFor(() => expect(screen.getByTestId("feed-channel-list")).toBeTruthy());
+  }
+
+  /** 1→2→3 下钻微信渠道详情(等作用域查询发出) */
+  async function openWxChannel() {
+    await openWxList();
+    fireEvent.click(await screen.findByTestId("feed-channel-row-weixin-测试会话"));
+    await waitFor(() =>
+      expect(storeItemsMock).toHaveBeenLastCalledWith(expect.objectContaining({ source: "weixin-测试会话" })),
+    );
+  }
+
+  it("类型卡第四档(1 级):wx 卡词面「微信」,词表序 tg → wx → site(IM 双档相邻),零条目也出卡(health 声明源)", async () => {
+    mockProbe(probePayload());
+    // 微信零条目(tech 有条目):声明源即成员,wx 卡照出
+    mockWxWorld([fixtureItem({ source: "tech-source", title: "网页新闻" })]);
+    await renderOverview();
+    // 词表序:类型卡 DOM 顺序 = CHANNEL_CARD_ORDER 过滤有成员档(tg → wx → site;daily 无成员不出)
+    const kinds = screen
+      .getAllByTestId(/^feed-type-card-/)
+      .map((node) => node.getAttribute("data-testid")?.replace("feed-type-card-", ""));
+    expect(kinds).toEqual(["tg", "wx", "site"]);
+    // 词面「微信」(G7 显示名)+ 渠道数 + 零条目知会词
+    const wxCard = screen.getByTestId("feed-type-card-wx");
+    expect(wxCard.textContent).toContain("微信");
+    expect(wxCard.textContent).toContain("1 个渠道");
+    expect(wxCard.textContent).toContain("暂无入库条目");
+  });
+
+  it("2 级桥状态区(镜像 TG 账号区结构):wx 页出 probe 单卡(三态词 + 版本行 + 动线钮);TG/site 页零出现;探针失败给重试", async () => {
+    mockProbe(probePayload());
+    mockWxWorld([]);
+    await renderOverview();
+    await openWxList();
+    const bridge = await screen.findByTestId("feed-wx-bridge-card");
+    // 三态词(● 桥在线 · 微信 4.1.15)+ 版本行(微信/桥组件)
+    expect(bridge.textContent).toContain("桥在线");
+    expect(bridge.textContent).toContain("微信 4.1.15");
+    expect(bridge.textContent).toContain("桥组件 0.3.1");
+    expect(within(bridge).getByTestId("feed-wx-bridge-manage")).toBeTruthy();
+    // 区头词面随三态
+    expect(screen.getByTestId("feed-wx-bridge-title").textContent).toContain("桥在线");
+
+    // 降级态:首因人话 + 原因逐条(码名 + 修复指引,消息屏同款)
+    cleanup();
+    mockProbe(probePayload({ ok: false, state: "degraded", reasons: [{ code: "wechat_not_running", fix_hint: "打开微信桌面客户端" }] }));
+    renderScreen();
+    await openWxList();
+    const degraded = await screen.findByTestId("feed-wx-bridge-card");
+    expect(degraded.textContent).toContain("桥降级");
+    expect(within(degraded).getByTestId("feed-wx-bridge-reasons").textContent).toContain("打开微信桌面客户端");
+
+    // 探针失败:重试 + 跳转并列(TG 账号区 error 分支同门);重试真实重发 probe
+    cleanup();
+    mockProbe(null);
+    renderScreen();
+    await openWxList();
+    const errorArea = await screen.findByTestId("feed-wx-bridge-error");
+    const probeCalls = () =>
+      invokeMock.mock.calls.filter(([, args]) => (args as { method?: string })?.method === "wechat_local.probe").length;
+    const before = probeCalls();
+    fireEvent.click(within(errorArea).getByTestId("feed-wx-bridge-retry"));
+    await waitFor(() => expect(probeCalls()).toBeGreaterThan(before));
+
+    // TG 2 级/site 2 级:桥状态区零出现(镜像 TG 账号区仅 tg 页)
+    cleanup();
+    mockProbe(probePayload());
+    renderScreen();
+    await openChannelList("tg");
+    await screen.findByTestId("feed-tg-accounts");
+    expect(screen.queryByTestId("feed-wx-bridge")).toBeNull();
+    fireEvent.click(screen.getByTestId("feed-back-to-types"));
+    await openChannelList("site");
+    await screen.findByTestId("feed-channel-row-tech-source");
+    expect(screen.queryByTestId("feed-wx-bridge")).toBeNull();
+  });
+
+  it("2 级桥状态区动线钮:「到消息屏处理」真实路由落 /messaging(消息屏微信区,路由已有)", async () => {
+    mockProbe(probePayload());
+    mockWxWorld([]);
+    render(
+      <MemoryRouter>
+        <LocationProbe />
+        <FeedScreen />
+      </MemoryRouter>,
+    );
+    await openWxList();
+    fireEvent.click(await screen.findByTestId("feed-wx-bridge-manage"));
+    await waitFor(() => expect(screen.getByTestId("location-probe").textContent).toBe("/messaging"));
+  });
+
+  it("3 级微信渠道:聊天双栏共用(左栏监控会话 data-im-kind=wx)+ 气泡卡 data-kind=weixin + 泡顶会话名(剥 weixin- 前缀);wechat-local:// 锚「打开原文」如实缺席", async () => {
+    mockProbe(probePayload());
+    const wxItem = fixtureItem({
+      source: "weixin-测试会话",
+      title: "微信消息甲",
+      content: "正文一行",
+      url: "wechat-local://chat/%E6%B5%8B%E8%AF%95#wx-abc123def4567890",
+    });
+    mockWxWorld([wxItem]);
+    renderScreen();
+    await openWxChannel();
+    // 双栏:左栏监控会话(结构 testid feed-tg-group-* 不动,data-im-kind 区分 IM 档)
+    const pane = await screen.findByTestId("feed-tg-group-pane");
+    expect(pane.getAttribute("data-im-kind")).toBe("wx");
+    expect(within(pane).getByTestId("feed-channel-row-weixin-测试会话")).toBeTruthy();
+    // 气泡卡:data-kind=weixin(五档判定),气泡结构词共用
+    const card = await screen.findByTestId(`feed-item-${wxItem.id}`);
+    expect(card.getAttribute("data-kind")).toBe("weixin");
+    expect(within(card).getByTestId(`feed-tg-bubble-${wxItem.id}`)).toBeTruthy();
+    // 泡顶会话名:channelDisplayName 剥 weixin- 前缀显会话本名
+    expect(within(card).getByText("测试会话")).toBeTruthy();
+    // wechat-local:// 自定义锚不可打开 →「打开原文」如实缺席(有意,§2.3)
+    expect(within(card).queryByRole("button", { name: "打开原文" })).toBeNull();
+    // 聊天头:wx 专属 testid(feed-wx-chat-header),会话名大字
+    expect(screen.getByTestId("feed-wx-chat-header").textContent).toContain("测试会话");
+  });
+
+  it("3 级 wx 监控台三态:ok = ● 桥在线 · 微信版本 + 管理/历史钮(无扫码登录、无原生网页预览、无原生视图段 = 有意缺席);degraded/unavailable 如实", async () => {
+    mockProbe(probePayload());
+    mockWxWorld([
+      fixtureItem({ source: "weixin-测试会话", title: "桥在线时的一条", first_seen: new Date().toISOString() }),
+    ]);
+    renderScreen();
+    await openWxChannel();
+    const consoleBar = await screen.findByTestId("feed-wx-console");
+    // ok 态:桥在线 + 微信版本
+    expect(within(consoleBar).getByTestId("feed-wx-console-live").textContent).toContain("桥在线");
+    expect(within(consoleBar).getByTestId("feed-wx-console-live").textContent).toContain("微信 4.1.15");
+    // TG 专属件零出现:无扫码登录钮、无原生网页预览钮、无「原生视图」段
+    expect(within(consoleBar).queryByTestId("feed-tg-console-login")).toBeNull();
+    expect(within(consoleBar).queryByTestId("feed-tg-console-preview")).toBeNull();
+    expect(screen.queryByTestId("feed-tg-view-toggle")).toBeNull();
+    // 三件套之二:管理 + 看全部历史(openHistory 复用)
+    expect(within(consoleBar).getByTestId("feed-wx-console-manage")).toBeTruthy();
+    fireEvent.click(within(consoleBar).getByTestId("feed-wx-console-history"));
+    expect(await screen.findByTestId("feed-history-exit")).toBeTruthy();
+    expect(screen.getByTestId("feed-day-window").textContent).toContain("全部历史");
+
+    // degraded:首因人话(title 留码名结构词)
+    cleanup();
+    mockProbe(probePayload({ ok: false, state: "degraded", reasons: [{ code: "wechat_not_running", fix_hint: "打开微信桌面客户端" }] }));
+    renderScreen();
+    await openWxChannel();
+    const degradedBar = await screen.findByTestId("feed-wx-console");
+    expect(within(degradedBar).getByTestId("feed-wx-console-degraded").textContent).toContain("打开微信桌面客户端");
+
+    // bridge_unavailable:○ 词面 + 首因
+    cleanup();
+    mockProbe(probePayload({ ok: false, state: "bridge_unavailable", reasons: [{ code: "component_missing", fix_hint: "到设置装 wechat-bridge 组件" }] }));
+    renderScreen();
+    await openWxChannel();
+    const unavailableBar = await screen.findByTestId("feed-wx-console");
+    expect(within(unavailableBar).getByTestId("feed-wx-console-unavailable").textContent).toContain("桥不可用");
+    expect(within(unavailableBar).getByTestId("feed-wx-console-unavailable").textContent).toContain("到设置装 wechat-bridge 组件");
+  });
+
+  it("3 级监控台「管理」钮:真实路由落 /messaging(微信本机工作区在消息屏,非独立屏)", async () => {
+    mockProbe(probePayload());
+    mockWxWorld([]);
+    render(
+      <MemoryRouter>
+        <LocationProbe />
+        <FeedScreen />
+      </MemoryRouter>,
+    );
+    await openWxChannel();
+    fireEvent.click(await screen.findByTestId("feed-wx-console-manage"));
+    await waitFor(() => expect(screen.getByTestId("location-probe").textContent).toBe("/messaging"));
+  });
+
+  it("空态阶梯 wx 分支(probe 三态驱动):桥不可用 → 引导卡指向消息屏引导卡;桥在线 → 「桥在线,暂无未读新消息」(如实披露当前会话语义);探针失败 → 桥状态未知 + 重试", async () => {
+    // 桥不可用:主令「unavailable 时引导文案指向消息屏引导卡」
+    mockProbe(probePayload({ ok: false, state: "bridge_unavailable", reasons: [{ code: "wechat_not_running", fix_hint: "打开微信桌面客户端" }] }));
+    mockWxWorld([fixtureItem({ source: "tech-source", title: "网页新闻" })]);
+    renderScreen();
+    await openWxChannel();
+    const unavailable = await screen.findByTestId("feed-wx-bridge-unavailable");
+    expect(unavailable.textContent).toContain("桥不可用");
+    expect(within(unavailable).getByRole("button", { name: "到消息屏看引导" })).toBeTruthy();
+
+    // 桥在线:新消息预期词 + 像素链「当前打开会话」语义如实披露
+    cleanup();
+    mockProbe(probePayload());
+    renderScreen();
+    await openWxChannel();
+    const online = await screen.findByTestId("feed-wx-online");
+    expect(online.textContent).toContain("桥在线,暂无未读新消息");
+    expect(online.textContent).toContain("当前打开的会话");
+
+    // 探针失败:桥状态未知 + 重试(TG 状态未知卡同门);重试真实重发 probe
+    cleanup();
+    mockProbe(null);
+    renderScreen();
+    await openWxChannel();
+    const unknown = await screen.findByTestId("feed-wx-status-unknown");
+    expect(unknown.textContent).toContain("桥状态未知");
+    const probeCalls = () =>
+      invokeMock.mock.calls.filter(([, args]) => (args as { method?: string })?.method === "wechat_local.probe").length;
+    const before = probeCalls();
+    fireEvent.click(within(unknown).getByRole("button", { name: "重试拉取状态" }));
+    await waitFor(() => expect(probeCalls()).toBeGreaterThan(before));
+  });
+
+  it("搜索别名:1 级搜「微信」/「wx」仅 wx 类型卡直出(CHANNEL_KIND_ALIASES wx 档);清空恢复全量", async () => {
+    mockProbe(probePayload());
+    mockWxWorld([
+      fixtureItem({ source: "telegram-seed", title: "TG 一条" }),
+      fixtureItem({ source: "tech-source", title: "网页新闻" }),
+    ]);
+    await renderOverview();
+    const typeSearch = screen.getByLabelText("搜索类型") as HTMLInputElement;
+    // 「微信」:主路径(主人搜中文俗名)
+    fireEvent.change(typeSearch, { target: { value: "微信" } });
+    expect(await screen.findByTestId("feed-type-card-wx")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByTestId("feed-type-card-tg")).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId("feed-type-card-site")).toBeNull());
+    fireEvent.keyDown(typeSearch, { key: "Escape" });
+    await screen.findByTestId("feed-type-card-site");
+    // 「wx」:缩写别名同认
+    fireEvent.change(typeSearch, { target: { value: "wx" } });
+    expect(await screen.findByTestId("feed-type-card-wx")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByTestId("feed-type-card-site")).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId("feed-type-card-tg")).toBeNull());
+    fireEvent.keyDown(typeSearch, { key: "Escape" });
+  });
+
+  it("进会话即已读(wx 同享 chatView 语义):微信会话选中 → mark_all 带 source 全量已读 + 未读档顺手切「全部」", async () => {
+    versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    markAllMock.mockResolvedValue({ updated: 1 });
+    mockProbe(probePayload());
+    mockWxWorld([
+      fixtureItem({
+        source: "weixin-测试会话",
+        title: "点进来的未读一条",
+        first_seen: new Date(dayWindowStart().getTime() + 5 * 60_000).toISOString(),
+      }),
+    ]);
+    renderScreen();
+    await openWxChannel();
+    // 源级全量已读(角标口径 = source_stats 全库未读)
+    await waitFor(() =>
+      expect(markAllMock).toHaveBeenCalledWith({ marker: "read", value: true, source: "weixin-测试会话" }),
+    );
+    // 未读档被切「全部」:刚读的消息留在时间线(TG 聊天语义同款)
+    await waitFor(() => expect(screen.getByText("点进来的未读一条")).toBeTruthy());
+  });
+});
+
+describe("feed weixin 档 纯函数(api.ts,10-12-weixin-feed-channel)", () => {
+  it("channelKindOf:weixin-/wx- 前缀 → weixin 档(列 TELEGRAM 之后、engine 之前;engine 词表不参与条目档判定)", () => {
+    // 前缀规约(源名全称律 weixin-<会话名>)+ wx- 旧缩写同收
+    expect(channelKindOf({ source: "weixin-测试会话", category: null })).toBe("weixin");
+    expect(channelKindOf({ source: "wx-测试会话", category: null })).toBe("weixin");
+    // 前缀优先:engine=wechat_local 不抢判(条目档判定只有前缀,§2.5 A 表)
+    expect(
+      channelKindOf({ source: "别的源", category: null }, new Map([["别的源", "wechat_local"]])),
+    ).toBe("news");
+    // telegram 前缀仍最优先
+    expect(channelKindOf({ source: "telegram-durov", category: null })).toBe("telegram");
+    // 价格键/品类判定不被 weixin 前缀遮蔽以外的路径影响
+    expect(channelKindOf({ source: "weixin-x", category: "games" })).toBe("weixin");
+  });
+
+  it("channelCardKindOf:weixin-/wx- 前缀 → wx(前缀优先);engine wechat_local → wx;其余照旧 site/daily/tg", () => {
+    // 前缀优先(static_html 等任意 engine 不抢判;engine 大小写宽容)
+    expect(channelCardKindOf("weixin-测试会话", "static_html")).toBe("wx");
+    expect(channelCardKindOf("weixin-测试会话", null)).toBe("wx");
+    expect(channelCardKindOf("wx-foo", undefined)).toBe("wx");
+    // engine 词表(无前缀命中的源名,engine 补判)
+    expect(channelCardKindOf("x", "wechat_local")).toBe("wx");
+    expect(channelCardKindOf("x", "WeChat_Local")).toBe("wx");
+    // 既有档不受扰:telegram 前缀/daily 词表/其余 site
+    expect(channelCardKindOf("telegram-durov", "static_html")).toBe("tg");
+    expect(channelCardKindOf("daily-digest", "prompt")).toBe("daily");
+    expect(channelCardKindOf("openai-news", "static_html")).toBe("site");
+  });
+
+  it("channelDisplayName:剥 weixin-/wx- 协议载体前缀显会话本名(一词一源;前缀后空残余回源名)", () => {
+    expect(channelDisplayName("weixin-测试会话")).toBe("测试会话");
+    expect(channelDisplayName("wx-测试会话")).toBe("测试会话");
+    expect(channelDisplayName("weixin-")).toBe("weixin-"); // 空残余回源名,不猜
+    expect(channelDisplayName("telegram-durov")).toBe("durov"); // 既有词表不受扰
+    expect(channelDisplayName(null)).toBe("未知来源");
+  });
+
+  it("类型卡词表:CHANNEL_CARD_LABELS wx = 「微信」(G7 显示名);CHANNEL_CARD_ORDER = tg → wx → site → daily(IM 双档相邻)", () => {
+    expect(CHANNEL_CARD_LABELS.wx).toBe("微信");
+    expect(CHANNEL_CARD_LABELS.tg).toBe("TG");
+    expect(CHANNEL_CARD_ORDER).toEqual(["tg", "wx", "site", "daily"]);
+  });
+
+  it("feedChannelCards/aggregateTypeCards:weixin-<会话> 声明源(wechat_local)出 wx 档卡(零条目也出);归并出「微信」类型卡成员", () => {
+    const windowStart = dayWindowStart(new Date(2026, 9, 12, 14, 0));
+    const at = (h: number) => new Date(2026, 9, 12, h, 0).toISOString();
+    const wxMsg = fixtureItem({ source: "weixin-测试会话", title: "会话一条", first_seen: at(10) });
+    const engines = new Map<string, string>([
+      ["weixin-测试会话", "wechat_local"],
+      ["weixin-另一个会话", "wechat_local"], // 零条目声明源
+    ]);
+    const cards = feedChannelCards([wxMsg], {}, engines, windowStart, new Date(2026, 9, 12, 14, 0));
+    const wxCards = cards.filter((card) => card.kind === "wx");
+    expect(wxCards.map((card) => card.key)).toEqual(["weixin-测试会话", "weixin-另一个会话"]);
+    expect(wxCards[0].label).toBe("测试会话"); // 前缀剥除
+    expect(wxCards[0].today).toBe(1);
+    // 零条目渠道也出卡(health 声明源)
+    expect(wxCards[1].today).toBe(0);
+    expect(wxCards[1].latest).toBeNull();
+    // 归并:wx 档出「微信」类型卡,成员 = 2 渠道
+    const types = aggregateTypeCards(cards, null);
+    const wxType = types.find((type) => type.kind === "wx");
+    expect(wxType?.label).toBe("微信");
+    expect(wxType?.channels).toBe(2);
+    expect(wxType?.today).toBe(1);
+    expect(wxType?.previews[0]?.channelLabel).toBe("测试会话");
+  });
+
+  it("filterChannelsByQuery/filterTypesByQuery:wx 档别名(「微信」「wx」「wechat」)直出;「w」前缀命中;零命中如实空", () => {
+    const cards = feedChannelCards(
+      [fixtureItem({ source: "weixin-测试会话" })],
+      {},
+      new Map([
+        ["weixin-测试会话", "wechat_local"],
+        ["openai-news", "static_html"],
+      ]),
+      dayWindowStart(),
+    );
+    // 「微信」:字面包含碰不到 "weixin-测试会话" 的拼音外词面 —— 别名补上
+    expect(filterChannelsByQuery(cards, "微信").map((card) => card.key)).toEqual(["weixin-测试会话"]);
+    expect(filterChannelsByQuery(cards, "wx").map((card) => card.key)).toEqual(["weixin-测试会话"]);
+    expect(filterChannelsByQuery(cards, "wechat").map((card) => card.key)).toEqual(["weixin-测试会话"]);
+    // 别名前缀语义如实:「we」同时命中 wx(weixin/wechat)与 site(web)别名,非 wx 独占
+    expect(filterChannelsByQuery(cards, "we").map((card) => card.key)).toEqual(["weixin-测试会话", "openai-news"]);
+    // 既有档不受扰 + 零命中
+    expect(filterChannelsByQuery(cards, "Tg").map((card) => card.key)).toEqual([]);
+    expect(filterChannelsByQuery(cards, "不存在的渠道")).toEqual([]);
+    // 类型级(filterTypesByQuery 同门)
+    const types = aggregateTypeCards(cards, null);
+    expect(filterTypesByQuery(types, "微信").map((type) => type.kind)).toEqual(["wx"]);
+    expect(filterTypesByQuery(types, "wx").map((type) => type.kind)).toEqual(["wx"]);
   });
 });
