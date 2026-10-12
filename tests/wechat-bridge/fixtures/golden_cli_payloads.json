@@ -6,13 +6,14 @@
    "bridge_component": "ok",
    "wechat_process": "ok",
    "ax_permission": "ok",
+   "screen_recording": "ok",
    "main_window": "fail",
    "localdb_storage": "ok",
    "localdb_key": "unavailable",
    "ax_tree": "unknown"
   },
   "wechat_version": "4.1.15",
-  "bridge_version": "0.3.0",
+  "bridge_version": "0.3.1",
   "reasons": [
    {
     "code": "window_closed",

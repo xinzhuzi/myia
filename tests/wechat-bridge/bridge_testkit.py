@@ -35,6 +35,7 @@ class CheckMocks:
     process: bool = True
     version: str | None = "4.1.15"
     ax_trusted: bool | None = True
+    screen_granted: bool | None = True
     window: bool | None = False
     accounts: int | None = 1
     key: bool = False
@@ -47,6 +48,7 @@ def apply_mocks(mocks: CheckMocks, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sc, "wechat_process_running", lambda: mocks.process)
     monkeypatch.setattr(sc, "wechat_version", lambda: mocks.version)
     monkeypatch.setattr(sc, "ax_permission_trusted", lambda: mocks.ax_trusted)
+    monkeypatch.setattr(sc, "screen_recording_granted", lambda: mocks.screen_granted)
     monkeypatch.setattr(sc, "wechat_main_window_open", lambda: mocks.window)
     monkeypatch.setattr(sc, "localdb_storage_accounts", lambda: mocks.accounts)
     monkeypatch.setattr(sc, "localdb_key_available", lambda: mocks.key)

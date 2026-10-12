@@ -8,8 +8,8 @@
  *   版本行(微信/桥组件版本,mono)+ 降级原因逐条(码名 + 修复指引);
  *   sidecar 未接线(method_not_found)时降级说明,不挡整屏(alerts 面板
  *   unsupported 判例同款)。
- * - AX 权限引导卡(F3):辅助功能授权分步指引,常驻渲染(装机授权主体是
- *   MYIA app 本体,design §5.1);探针 checks.ax_permission 在场时如实标注
+ * - 权限引导卡(F3,2026-10-12 勘误:AX 定论死路后像素链为唯一读路,TCC 依赖=屏幕录制非辅助功能):屏幕录制授权分步指引,常驻渲染(装机授权主体是
+ *   MYIA app 本体,design §5.1);探针 checks.screen_recording 在场时如实标注(2026-10-12 勘误:AX 不再驱动)
  *   现状(未授权 → warning 强调)。版面遵循 10-05 判例:同版面常驻分区、
  *   无返回钮;文字三层防:容器 min-w-0 防撑破 / 列表行 truncate+title 防
  *   溢出 / 正文 break-words 防长串。
@@ -115,7 +115,7 @@ interface WechatLocalSectionProps {
 
 export function WechatLocalSection({ probe, probeError, refreshing, onRefresh }: WechatLocalSectionProps) {
   const pill = probePill(probe, probeError);
-  const axState = probe?.checks.ax_permission;
+  const axState = probe?.checks.screen_recording;
   return (
     <div className="px-6">
       <Card>
@@ -178,14 +178,14 @@ export function WechatLocalSection({ probe, probeError, refreshing, onRefresh }:
             data-testid="wechat-local-ax-guide"
           >
             <p className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-medium text-foreground">
-              系统权限引导:辅助功能(AX)
+              系统权限引导:屏幕录制
               {axState === "ok" ? <Badge variant="default">已授权</Badge> : null}
               {axState === "fail" ? <Badge variant="destructive">未授权</Badge> : null}
             </p>
             <p className="min-w-0 break-words text-2xs leading-relaxed text-muted-foreground">
-              本机桥读会话/消息走 macOS 辅助功能通道;授权主体是 MYIA app 本体(装机一次性)。步骤:打开
-              <span className="mx-1 font-mono text-foreground" title="系统设置 → 隐私与安全性 → 辅助功能">
-                系统设置 → 隐私与安全性 → 辅助功能
+              本机桥读会话/消息走像素链(截窗+OCR),依赖 macOS「屏幕录制」权限;授权主体是 MYIA app 本体(装机一次性)。步骤:打开
+              <span className="mx-1 font-mono text-foreground" title="系统设置 → 隐私与安全性 → 屏幕录制">
+                系统设置 → 隐私与安全性 → 屏幕录制
               </span>
               ,打开 MYIA 的开关,回到本屏点「刷新状态」。桥不抢前台焦点、不合成鼠标点击、不激活微信窗口(静默铁律)。
             </p>

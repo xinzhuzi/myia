@@ -23,7 +23,7 @@ function probeFixture(overrides: Partial<WechatLocalProbeView> = {}): WechatLoca
   return {
     ok: true,
     state: "ok",
-    checks: { bridge_component: "ok", wechat_process: "ok", ax_permission: "ok" },
+    checks: { bridge_component: "ok", wechat_process: "ok", screen_recording: "ok" },
     wechat_version: "4.1.15",
     bridge_version: "0.2.0",
     reasons: [],
@@ -86,7 +86,7 @@ describe("微信本机:状态头与 AX 引导卡", () => {
   it("AX 权限引导卡常驻渲染(探针缺位也在);步骤含授权路径与静默铁律", () => {
     renderSection();
     const guide = screen.getByTestId("wechat-local-ax-guide");
-    expect(guide.textContent).toContain("辅助功能");
+    expect(guide.textContent).toContain("屏幕录制");
     expect(guide.textContent).toContain("隐私与安全性");
     expect(guide.textContent).toContain("MYIA");
     expect(guide.textContent).toContain("不激活微信窗口");
@@ -106,7 +106,7 @@ describe("微信本机:状态头与 AX 引导卡", () => {
       probe: probeFixture({
         ok: false,
         state: "degraded",
-        checks: { wechat_process: "ok", main_window: "fail", ax_permission: "ok" },
+        checks: { wechat_process: "ok", main_window: "fail", screen_recording: "ok" },
         reasons: [{ code: "window_closed", fix_hint: "打开微信主窗口" }],
       }),
     });
@@ -127,12 +127,12 @@ describe("微信本机:状态头与 AX 引导卡", () => {
     expect(screen.getByTestId("wechat-local-state-pill").textContent).toBe("不可用");
   });
 
-  it("探针 checks.ax_permission=fail:引导卡 warning 强调 + 未授权徽标", () => {
+  it("探针 checks.screen_recording=fail:引导卡 warning 强调 + 未授权徽标(2026-10-12 勘误换轨)", () => {
     renderSection({
       probe: probeFixture({
         ok: false,
         state: "bridge_unavailable",
-        checks: { ax_permission: "fail" },
+        checks: { screen_recording: "fail" },
         reasons: [{ code: "ax_permission_denied", fix_hint: "系统设置授权" }],
       }),
     });

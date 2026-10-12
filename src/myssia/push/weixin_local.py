@@ -97,6 +97,7 @@ _CODE_NAME_TO_EXIT: dict[str, int] = {
     "usage": 2,
     "wechat_not_running": 10,
     "ax_permission_denied": 11,
+    "screen_recording_denied": 11,
     "window_closed": 12,
     "ax_tree_empty": 13,
     "send_rate_limited": 14,

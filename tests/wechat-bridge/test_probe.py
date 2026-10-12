@@ -28,20 +28,28 @@ class TestMatrixRows:
         # 短路语义:进程不在就不再评窗口/本地库(checks 如实留短)。
         assert "main_window" not in result.checks
 
-    def test_ax_permission_missing_is_bridge_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """矩阵行 3:AX 权限缺失 → bridge_unavailable。"""
-        tray_mocks(monkeypatch, CheckMocks(ax_trusted=False))
+    def test_screen_recording_missing_is_bridge_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """矩阵行 3(2026-10-12 勘误):屏幕录制缺失 → bridge_unavailable(像素链前置)。"""
+        tray_mocks(monkeypatch, CheckMocks(screen_granted=False))
         result = run_probe(bridge_version="t")
         assert result.state == "bridge_unavailable"
-        assert [r.code for r in result.reasons] == ["ax_permission_denied"]
-        assert result.checks["ax_permission"] == "fail"
+        assert [r.code for r in result.reasons] == ["screen_recording_denied"]
+        assert result.checks["screen_recording"] == "fail"
 
-    def test_ax_permission_unknown_is_not_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_screen_recording_unknown_is_not_unavailable(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """权限判定不可及(None)= unknown 如实,不据此判死(托盘降级照走)。"""
-        tray_mocks(monkeypatch, CheckMocks(ax_trusted=None))
+        tray_mocks(monkeypatch, CheckMocks(screen_granted=None))
         result = run_probe(bridge_version="t")
         assert result.state == "degraded"
-        assert result.checks["ax_permission"] == "unknown"
+        assert result.checks["screen_recording"] == "unknown"
+
+    def test_ax_denied_no_longer_drives_state(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """2026-10-12 勘误回归:AX 缺失(A1 死路后不再前置)不驱动态,仅保留报告。"""
+        tray_mocks(monkeypatch, CheckMocks(ax_trusted=False, screen_granted=True))
+        result = run_probe(bridge_version="t")
+        assert result.state != "bridge_unavailable"
+        assert result.checks["ax_permission"] == "fail"
+        assert all(r.code != "ax_permission_denied" for r in result.reasons)
 
     def test_tray_state_is_degraded_window_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """矩阵行 4(2026-10-11 实况形状):托盘态 → degraded(window_closed)。"""

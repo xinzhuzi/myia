@@ -280,7 +280,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
       keys: [],
       steps: [
         "安装受管组件 wechat-bridge(组件下载链路,Phase B3 接线);本地库解密前置:brew install sqlcipher(缺依赖时组件安装器给明确指引,不静默半装)。",
-        "系统权限:本机桥需要「辅助功能」授权(系统设置 → 隐私与安全性 → 辅助功能,给 MYIA 授权);授权主体是 MYIA app 本体,本屏下方 AX 权限引导卡有分步指引。",
+        "系统权限:本机桥需要「屏幕录制」授权(像素链截窗依赖;系统设置 → 隐私与安全性 → 屏幕录制,给 MYIA 授权);授权主体是 MYIA app 本体,本屏下方权限引导卡有分步指引。",
         "静默边界如实:UI 通道全程不抢前台焦点、不合成鼠标点击、不激活微信窗口;窗口未开时 UI 通道降级(本地库查询不受影响)。",
         "本地库只读的密钥途径:零内存方案实测不可推导(D4 裁决项)——未裁决前本地库查询如实报 key_unavailable(降级灰态,不是故障);UI 通道与探针不受影响。",
         "ToS 披露:UI 自动化违反微信许可协议字面,封禁风险由腾讯裁量;本地库只读不碰网络与微信进程,账号侧零风险。两类风险不同源,本卡如实分开陈述。",
@@ -1389,7 +1389,7 @@ function statusExplanation(card: PlatformCard): string {
   if (card.localProbe) {
     // 微信本机卡:探针是唯一真源,降级原因逐条上卡(码名 + 修复指引)。
     if (card.status === "connected") {
-      return "已连接:本机桥探针全绿(微信在跑 + 辅助功能已授权 + 组件就绪)。只读会话入口与本 AX 指引见本屏下方「微信本机」工作区;出站(写)不在本卡——主出站口是左侧「微信」官方桥。";
+      return "已连接:本机桥探针全绿(微信在跑 + 屏幕录制已授权 + 组件就绪)。只读会话入口与权限指引见本屏下方「微信本机」工作区;出站(写)不在本卡——主出站口是左侧「微信」官方桥。";
     }
     if (card.status === "degraded") {
       const reasons = card.localProbe.reasons

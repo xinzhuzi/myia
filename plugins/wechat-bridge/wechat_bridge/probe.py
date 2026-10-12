@@ -89,6 +89,7 @@ def run_probe(
     storage_accounts: Callable[[], int | None] | None = None,
     key_available: Callable[[], bool] | None = None,
     bridge_version: str | None = None,
+    screen_granted: Callable[[], bool | None] | None = None,
 ) -> ProbeResult:
     """跑全部探针项并按判据矩阵归态(检查器全部可注入 = 单测主战场)。
 
@@ -100,6 +101,7 @@ def run_probe(
     process = process_running if process_running is not None else sc.wechat_process_running
     version = version_of if version_of is not None else sc.wechat_version
     trusted = ax_trusted if ax_trusted is not None else sc.ax_permission_trusted
+    screen = screen_granted if screen_granted is not None else sc.screen_recording_granted
     window = window_open if window_open is not None else sc.wechat_main_window_open
     storage = storage_accounts if storage_accounts is not None else sc.localdb_storage_accounts
     key = key_available if key_available is not None else sc.localdb_key_available
@@ -124,12 +126,16 @@ def run_probe(
         )
 
     trusted_value = trusted()
+    # 2026-10-12 勘误:AX 通道 A1 定论死路后,ax_permission 不再驱动 degraded
+    # (保留报告值;UI 徽标已改消费 screen_recording)。
     checks["ax_permission"] = sc.check_summary(trusted_value)
-    if trusted_value is False:
+    screen_value = screen()
+    checks["screen_recording"] = sc.check_summary(screen_value)
+    if screen_value is False:
         reasons.append(
             ProbeReason(
-                "ax_permission_denied",
-                "系统设置 → 隐私与安全性 → 辅助功能,给 MYIA(或桥宿主进程)授权",
+                "screen_recording_denied",
+                "系统设置 → 隐私与安全性 → 屏幕录制,给 MYIA(或桥宿主进程)授权(像素链截窗前置)",
             )
         )
         return ProbeResult(

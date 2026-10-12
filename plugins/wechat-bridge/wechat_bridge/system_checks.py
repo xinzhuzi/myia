@@ -130,6 +130,31 @@ def sys_darwin() -> bool:
     return sys.platform == "darwin"
 
 
+def screen_recording_granted() -> bool | None:
+    """屏幕录制 TCC 授权检测(像素链读路径的真实前置;2026-10-12 勘误引入)。
+
+    用 CGWindowListCreateImage 截主屏 10x10:返回 None = 无屏幕录制权限
+    (TCC 拒绝的实锤形状);出图(含全黑,暗屏/锁屏误判归运行时 pixel 黑图
+    fix_hint,不在探针层猜)视为已授权。非 darwin 平台返回 None(不判)。
+    """
+    if not sys_darwin():
+        return None
+    try:
+        import Quartz
+
+        img = Quartz.CGWindowListCreateImage(
+            Quartz.CGRectMake(0, 0, 10, 10),
+            Quartz.kCGWindowListOptionOnScreenOnly,
+            Quartz.kCGNullWindowID,
+            Quartz.kCGWindowImageDefault,
+        )
+        if img is None:
+            return False
+        return True
+    except Exception:
+        return None
+
+
 def wechat_main_window_open() -> bool | None:
     """微信主窗口在否(CGWindowList 全量快照按属主过滤;零激活零枚举)。
 
