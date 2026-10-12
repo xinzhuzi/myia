@@ -336,7 +336,7 @@ describe("设置:LLM 凭据保存(钥匙链唯一路径,零回显)", () => {
     expect(screen.queryByTestId("save-status")).toBeNull();
     // 失败时输入保留在用户自己的输入框里(未保存),但绝无旁路回显节点
     expect((screen.getByLabelText("LLM API Key") as HTMLInputElement).value).toBe("sk-do-not-echo");
-    expect(document.body.textContent).not.toContain("已写入钥匙链");
+    expect(document.body.textContent).not.toContain("已写入钥匙串");
   });
 });
 
@@ -371,7 +371,7 @@ describe("设置:doctor 验证回显", () => {
 
     const panel = await screen.findByTestId("doctor-verify");
     expect(panel.textContent).toContain("myia/stocks/tg_token");
-    expect(panel.textContent).toContain("已在钥匙链");
+    expect(panel.textContent).toContain("已在钥匙串");
     expect(panel.textContent).toContain("myia/stocks/feishu_chat_id");
     expect(panel.textContent).toContain("缺失(需写入)");
     expect(panel.textContent).toContain("model=glm-4-flash");
@@ -395,7 +395,7 @@ describe("设置:doctor 验证回显", () => {
       expect(callsOf("doctor").length).toBeGreaterThanOrEqual(2); // 挂载一次 + 保存后一次
     });
     expect(screen.getByTestId("doctor-verify").textContent).toContain("myia/llm/api_key");
-    expect(screen.getByTestId("doctor-verify").textContent).toContain("已在钥匙链");
+    expect(screen.getByTestId("doctor-verify").textContent).toContain("已在钥匙串");
     expect((screen.getByLabelText("LLM API Key") as HTMLInputElement).value).toBe("");
     expect(document.body.textContent).not.toContain("sk-later-verify");
   });
@@ -511,7 +511,7 @@ describe("设置:危险区钥匙链凭据(C5;10-05 归位系统分区)", () => {
     renderScreen("/settings?section=system");
 
     const zone = await screen.findByTestId("settings-danger-zone");
-    expect(zone.textContent).toContain("危险区 · 钥匙链凭据");
+    expect(zone.textContent).toContain("危险区 · 钥匙串凭据");
     expect(zone.textContent).toContain("myia/llm/api_key");
     expect(zone.textContent).toContain("myia/push/FEISHU_APP_ID");
     expect(screen.queryByTestId("settings-section-general")).toBeNull();

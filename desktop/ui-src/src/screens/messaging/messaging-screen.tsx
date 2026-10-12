@@ -430,7 +430,7 @@ export function MessagingScreen() {
             ) : state.status === "ready" && platforms.length === 0 ? (
               <EmptyState
                 title="通道目录还是空的"
-                description="先到「设置」录入平台凭据(经钥匙链的 bot token),再回到这里点刷新;飞书会列出 bot 所在的群,telegram 会话随 bot 收到消息自动入目录。"
+                description="先到「配置 → 机器人凭据」录入平台凭据(bot token 存系统钥匙串),再回到这里点刷新;飞书会列出 bot 所在的群,telegram 会话随 bot 收到消息自动入目录。"
                 tag="可空态"
               />
             ) : (

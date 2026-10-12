@@ -172,7 +172,7 @@ describe("TG 账号屏:三段状态(v10 随迁用例,原 TelegramCard)", () => {
     render(<TgAccountScreen />);
     await screen.findByTestId("telegram-card");
     const cardText = screen.getByTestId("telegram-card").textContent ?? "";
-    expect(cardText).toContain("跟修哨兵");
+    expect(cardText).toContain("自动监测并跟进修复");
     expect(cardText).toContain("建议各键专用小号");
     expect(cardText).toContain("切回 Telethon 正统线");
   });

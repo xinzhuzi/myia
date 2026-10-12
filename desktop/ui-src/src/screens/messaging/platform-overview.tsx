@@ -91,7 +91,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     name: "飞书",
     wave: "W1",
     discovery: "auto",
-    description: "飞书开放平台机器人(W1 已实装):tenant_access_token 出站卡片发送 + 群目录发现;凭据到 设置→推送 填一次,token 自动续期。",
+    description: "飞书开放平台机器人(已实装):tenant_access_token 出站卡片发送 + 群目录发现;凭据到 配置 → 机器人凭据 填一次,token 自动续期。",
     guide: {
       keys: [
         {
@@ -111,7 +111,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "打开飞书开放平台(open.feishu.cn)→ 开发者后台 → 「创建企业自建应用」,记下应用的 App ID 与 App Secret。",
         "在应用里添加「机器人」能力;「权限管理」开通 im:message:send_as_bot(以机器人身份发消息)和 im:chat:readonly(读机器人所在群列表,目录发现用);要看图推送再开 im:resource(上传图片)。",
         "「版本管理与发布」发布版本并让组织管理员审核通过;把机器人拉进要推送的群。",
-        "到 设置→推送 选 feishu_card:填 App ID 与 App Secret(可选填群 chat_id)→ 保存 → 点「发送测试」。token 由应用自动续期,全程无需手工换。",
+        "到 配置 → 机器人凭据 选 feishu_card:填 App ID 与 App Secret(可选填群 chat_id)→ 保存 → 点「发送测试」。token 由应用自动续期,全程无需手工换。",
         "群 chat_id 不必手抄:回到本屏点飞书分组里的「刷新」列出群目录,再到下区「推送规则」勾选推送对象。",
       ],
     },
@@ -121,12 +121,12 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     name: "Telegram",
     wave: "W1",
     discovery: "passive",
-    description: "Telegram Bot API(W1 已实装):BotFather 令牌出站发送 + 会话随真实 bot 流量被动积累入目录。",
+    description: "Telegram Bot API(已实装):BotFather 令牌出站发送 + 会话随真实 bot 流量被动积累入目录。",
     guide: {
       keys: [
         {
           key: "TELEGRAM_BOT_TOKEN",
-          purpose: "机器人令牌;出站发送与被动目录积累共用,设置→推送 填一次即可",
+          purpose: "机器人令牌;出站发送与被动目录积累共用,配置 → 机器人凭据 填一次即可",
         },
         {
           key: "TELEGRAM_CHAT_ID",
@@ -135,7 +135,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
       ],
       steps: [
         "在 Telegram 里找 @BotFather 发送 /newbot,按提示给机器人起显示名和用户名(用户名须以 bot 结尾);BotFather 最后回复的 HTTP API token 就是 TELEGRAM_BOT_TOKEN。",
-        "到 设置→推送 选 telegram:填 Bot Token(可选填数字 chat_id)→ 保存 → 点「发送测试」。",
+        "到 配置 → 机器人凭据 选 telegram:填 Bot Token(可选填数字 chat_id)→ 保存 → 点「发送测试」。",
         "群聊/私聊会话不必手抄 id:把机器人拉进群、或给机器人发条消息,本屏目录会自动记下该会话;不给机器人发消息,目录里就不会有会话。",
         "目录里出现会话后,到下区「推送规则」勾选它作为推送对象即可。",
       ],
@@ -147,7 +147,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W2",
     discovery: "manual",
     description:
-      "ntfy 通知(W2 已实装):one-shot POST 到 {server}/{topic},纯文本/可选 markdown;topic 即地址,无目录概念,推送对象直达或别名登记。",
+      "ntfy 通知(已实装):one-shot POST 到 {server}/{topic},纯文本/可选 markdown;topic 即地址,无目录概念,推送对象直达或别名登记。",
     guide: {
       keys: [
         {
@@ -163,11 +163,11 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "选 server:公共 ntfy.sh 开箱即用(无需注册);要私有部署可在自己机器上跑 ntfy 容器(binaries/docker,见 docs.ntfy.sh 的 install 页)。",
         "定一个 topic 名(字母/数字/-/_,如 my-games-alerts);手机装 ntfy App(或开 ntfy.sh 网页)订阅同名 topic——订阅即接收,无需服务端登记。",
         {
-          text: "冒烟一发确认链路(手机订阅 my-games-alerts 后执行,应立刻收到通知):",
+          text: "发一条测试消息确认链路(手机订阅 my-games-alerts 后执行,应立刻收到通知):",
           code: 'curl -d "hello from MYIA" https://ntfy.sh/my-games-alerts',
         },
         "把整串写入环境变量 NTFY_TARGET(如 export NTFY_TARGET=https://ntfy.sh/my-games-alerts);需要鉴权的自建 server 再配 NTFY_TOKEN。",
-        "推送规则里 targets 直达写 ntfy:my-games-alerts;常用地名可在数据根 channel_aliases.json 登记别名(ntfy 无自动发现,别名/直达是仅有的两条寻址路)。",
+        "推送规则里 targets 直达写 ntfy:my-games-alerts;常用地名可在数据目录 channel_aliases.json 登记别名(ntfy 无自动发现,别名/直达是仅有的两条寻址路)。",
       ],
     },
   },
@@ -177,7 +177,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W2",
     discovery: "manual",
     description:
-      "钉钉自定义机器人 webhook(W2 已实装):msgtype=text 群消息;可选加签(HMAC-SHA256,MYIA 增量);一个 webhook = 一个群,无目录发现。",
+      "钉钉自定义机器人 webhook(已实装):msgtype=text 群消息;可选加签(HMAC-SHA256,MYIA 增量);一个 webhook = 一个群,无目录发现。",
     guide: {
       keys: [
         {
@@ -193,9 +193,9 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "在钉钉电脑端打开要推送的群 → 右上角群设置 → 机器人 → 添加机器人 → 自定义。",
         "安全设置三选一:自定义关键词(消息须含该词)/ 加签(推荐,拿 SEC 密钥)/ IP 白名单;记下勾选项——推送被 310000 拒绝时先回这里核对。",
         "完成添加后复制 Webhook 地址(https://oapi.dingtalk.com/robot/send?access_token=…),写入环境变量 DINGTALK_WEBHOOK_URL。",
-        "安全设置选了「加签」:把 SEC 密钥存入钥匙链或环境变量,品类 YAML 的 push 条目配 dingtalk_secret: env:DINGTALK_SECRET(或 keychain: 引用)。",
+        "安全设置选了「加签」:把 SEC 密钥存入钥匙串或环境变量,品类 YAML 的 push 条目配 dingtalk_secret: env:DINGTALK_SECRET(或 keychain: 引用)。",
         {
-          text: "冒烟一发确认链路(把 URL 换成你的 webhook,群里应立刻收到):",
+          text: "发一条测试消息确认链路(把 URL 换成你的 webhook,群里应立刻收到):",
           code: 'curl -s https://oapi.dingtalk.com/robot/send?access_token=xxxx \\\n  -H "Content-Type: application/json" \\\n  -d \'{"msgtype":"text","text":{"content":"hello from MYIA"}}\'',
         },
         "多群 = 多个机器人:每个群的 webhook 在规则 targets 里直达写 dingtalk:<完整 webhook URL>,或别名登记;webhook URL 是凭据,别名文件是本机私有数据。",
@@ -208,7 +208,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W2",
     discovery: "manual",
     description:
-      "企业微信自建应用(W2 已实装):corpid+secret 换 access_token(7200s 缓存)发 text 私聊(touser);群聊/markdown 为蓝本外能力,未实装。",
+      "企业微信自建应用(已实装):corpid+secret 换 access_token(7200s 缓存)发 text 私聊(touser);群聊/markdown 暂不支持,未实装。",
     guide: {
       keys: [
         {
@@ -243,7 +243,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W2",
     discovery: "manual",
     description:
-      "微信桥接(W2 已实装,task 10-03-messaging-weixin-bridge):微信无官方出站 API,本通道是桥接实现——出站经本机常驻 Hermes-Agent 持有微信登录态与 context_token。无 Hermes 的环境此平台不可用,这是如实披露,不是缺陷。",
+      "微信桥接(已实装):微信无官方出站 API,本通道是桥接实现——出站经本机常驻 Hermes-Agent 持有微信登录态与 context_token。无 Hermes 的环境此平台不可用,这是已知的平台限制,不是故障。",
     guide: {
       // keys 段为空是刻意事实:MYIA 侧零凭据(登录态只存 Hermes 侧),
       // 没有任何环境变量/钥匙链可录(R2「不装可用」)。
@@ -255,7 +255,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
           text: "自查推送对象的 peer id(会话地址,形如 xxx@im.wechat 私聊 / xxx@chatroom 群):",
           code: "~/.hermes/hermes-agent/.hermes/bin/hermes send --list weixin",
         },
-        "推送规则 targets 直达写 weixin:<peer id>;常用对象可在数据根 channel_aliases.json 登记别名(微信无自动发现,直达/别名是仅有的两条寻址路)。",
+        "推送规则 targets 直达写 weixin:<peer id>;常用对象可在数据目录 channel_aliases.json 登记别名(微信无自动发现,直达/别名是仅有的两条寻址路)。",
         "注意:对方长期没给 bot 发过消息时,冷发送会得到「会话未就绪」指引(先让对方发条消息再推)——这是微信协议的固有限制,不是故障;修复后无需任何配置变更。",
       ],
     },
@@ -272,7 +272,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "微信本机桥(task 10-11-wechat-ui-bridge 已实装):受管组件 wechat-bridge 直驱本机微信客户端——UI 读(会话/最近消息)+ 本地库只读(历史三域查询)。与左侧「微信」官方桥分工:本卡管「读自己账号」,出站仍归官方桥;状态独立不混用。",
+      "微信本机桥(已实装):受管组件 wechat-bridge 直驱本机微信客户端——UI 读(会话/最近消息)+ 本地库只读(历史查询)。与左侧「微信」官方桥分工:本卡管「读自己账号」,出站仍归官方桥;状态独立不混用。",
     guide: {
       // keys 段为空是刻意事实:MYIA 对微信零凭据(账号登录态在本机微信
       // 客户端与本地库;桥组件不持密钥——密钥途径按 D4 裁决,未豁免前
@@ -281,9 +281,9 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
       steps: [
         "安装受管组件 wechat-bridge(组件下载链路,Phase B3 接线);本地库解密前置:brew install sqlcipher(缺依赖时组件安装器给明确指引,不静默半装)。",
         "系统权限:本机桥需要「屏幕录制」授权(像素链截窗依赖;系统设置 → 隐私与安全性 → 屏幕录制,给 MYIA 授权);授权主体是 MYIA app 本体,本屏下方权限引导卡有分步指引。",
-        "静默边界如实:UI 通道全程不抢前台焦点、不合成鼠标点击、不激活微信窗口;窗口未开时 UI 通道降级(本地库查询不受影响)。",
-        "本地库只读的密钥途径:零内存方案实测不可推导(D4 裁决项)——未裁决前本地库查询如实报 key_unavailable(降级灰态,不是故障);UI 通道与探针不受影响。",
-        "ToS 披露:UI 自动化违反微信许可协议字面,封禁风险由腾讯裁量;本地库只读不碰网络与微信进程,账号侧零风险。两类风险不同源,本卡如实分开陈述。",
+        "静默边界:UI 通道全程不抢前台焦点、不合成鼠标点击、不激活微信窗口;窗口未开时 UI 通道降级(本地库查询不受影响)。",
+        "本地库只读的密钥途径:零内存方案暂不可用——未就绪前本地库查询会报 key_unavailable(降级灰态,不是故障);UI 通道与探针不受影响。",
+        "ToS 披露:UI 自动化违反微信许可协议字面,封禁风险由腾讯裁量;本地库只读不碰网络与微信进程,账号侧零风险。两类风险不同源,本卡分开陈述。",
       ],
     },
   },
@@ -296,7 +296,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "邮件 SMTP 出站(W3 已实装):smtplib 纯标准库一封一报,tls(465 隐式)/ starttls(587)缺省按端口推导;收件人直达 email:<地址> 或别名登记,无目录发现。",
+      "邮件 SMTP 出站(已实装):smtplib 纯标准库一封一报,tls(465 隐式)/ starttls(587)缺省按端口推导;收件人直达 email:<地址> 或别名登记,无目录发现。",
     guide: {
       keys: [
         { key: "EMAIL_ADDRESS", purpose: "发件人地址(From);run 时读环境变量" },
@@ -313,7 +313,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "准备一个发件邮箱:QQ/163 等在邮箱设置里开启 SMTP 服务并生成「授权码」(不是登录密码);Gmail 用账户页的应用专用密码。",
         "把发件人与服务器写入环境变量:export EMAIL_ADDRESS=you@example.com、EMAIL_PASSWORD=授权码、EMAIL_SMTP_HOST=smtp.example.com(端口可省:缺省 587 走 STARTTLS,填 465 自动改走隐式 TLS)。",
         "收件人:推送规则 targets 直达写 email:addr@example.com;单发也可配 target: env:EMAIL_TO 走缺省收件人。",
-        "邮箱无「列出联系人」API(蓝本事实):常用收件人在数据根 channel_aliases.json 登记别名;标题与摘要正文一致,可选用户模板自定排版。",
+        "邮箱无「列出联系人」API:常用收件人在数据目录 channel_aliases.json 登记别名;标题与摘要正文一致,可选用户模板自定排版。",
         "内网本机中继:机器上有 localhost:25 中继时可完全不配 EMAIL_PASSWORD(匿名投递,合法态不报错)。",
       ],
     },
@@ -324,7 +324,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "短信 Twilio REST 出站(W3 已实装):one-shot POST Messages.json(HTTP Basic 鉴权),单条上限 1600 字符超长截断;收信号码直达 sms:<E.164> 或别名登记,无目录发现。",
+      "短信 Twilio REST 出站(已实装):one-shot POST Messages.json(HTTP Basic 鉴权),单条上限 1600 字符超长截断;收信号码直达 sms:<E.164> 或别名登记,无目录发现。",
     guide: {
       keys: [
         { key: "TWILIO_ACCOUNT_SID", purpose: "Twilio 账号 SID(Console 首页);run 时读环境变量" },
@@ -337,7 +337,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "号码:Console → Phone Numbers → Buy a number 购入可发短信的号码;trial 账号只能发给已验证号码,发中国大陆手机号需先在 Geographic Permissions 申请地理权限(资费较高,先核对)。",
         "把三者写入环境变量:export TWILIO_ACCOUNT_SID=AC…、TWILIO_AUTH_TOKEN=…、TWILIO_PHONE_NUMBER=+1…(必须 E.164 形态,否则发送期报 invalid_credential_ref)。",
         "收信号码:targets 直达写 sms:+8613800138000(E.164);单发也可配 target: env:SMS_TO。",
-        "短信无「列出可达对象」API:常用收件人在数据根 channel_aliases.json 登记别名;正文超 1600 字符自动截断(不拆多条)。",
+        "短信无「列出可达对象」API:常用收件人在数据目录 channel_aliases.json 登记别名;正文超 1600 字符自动截断(不拆多条)。",
       ],
     },
   },
@@ -347,7 +347,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "IRC 出站(W3 已实装):纯标准库 asyncio 一次性会话(NICK → JOIN → 分段 PRIVMSG → QUIT,缺省 6697 TLS);频道直达 irc:<#频道> 或别名登记,无目录发现。",
+      "IRC 出站(已实装):纯标准库 asyncio 一次性会话(NICK → JOIN → 分段 PRIVMSG → QUIT,缺省 6697 TLS);频道直达 irc:<#频道> 或别名登记,无目录发现。",
     guide: {
       keys: [
         { key: "IRC_SERVER", purpose: "IRC 服务器主机(公共网络如 irc.libera.chat 或自建);run 时读环境变量" },
@@ -364,7 +364,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "环境变量:export IRC_SERVER=irc.libera.chat、IRC_NICK=myssia-push;缺省端口 6697 走 TLS。",
         "可选:IRC_SERVER_PASSWORD(服务器 PASS)、IRC_NICKSERV_PASSWORD(NickServ IDENTIFY)。",
         "频道目标:targets 直达写 irc:#频道名;裸 nick DM 不设直达(与中文别名撞形),经别名登记后按名寻址。",
-        "IRC 无列表 API(蓝本事实):无自动发现,条目唯一来源 = 直达 + channel_aliases.json 别名;正文按 510 字节行预算自动分段。",
+        "IRC 无列表 API:无自动发现,条目唯一来源 = 直达 + channel_aliases.json 别名;正文按 510 字节行预算自动分段。",
       ],
     },
   },
@@ -374,7 +374,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "auto",
     description:
-      "SimpleX 出站(W3 已实装):本机 simplex-chat 守护进程的 WebSocket JSON API,超长按 8000 字符切块;22 家长尾平台中唯一的目录发现(/contacts + /groups)。",
+      "SimpleX 出站(已实装):本机 simplex-chat 守护进程的 WebSocket JSON API,超长按 8000 字符切块;22 家长尾平台中唯一的目录发现(/contacts + /groups)。",
     guide: {
       keys: [
         {
@@ -403,7 +403,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "WhatsApp Cloud API(W3 已实装):Graph POST 到 /{phone_number_id}/messages + Bearer 永久访问令牌,text 按 4096 官方上限分段;收件人直达 E.164 号码,无自动发现。",
+      "WhatsApp Cloud API(已实装):Graph POST 到 /{phone_number_id}/messages + Bearer 永久访问令牌,text 按 4096 官方上限分段;收件人直达 E.164 号码,无自动发现。",
     guide: {
       keys: [
         {
@@ -424,10 +424,10 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "换永久令牌:同一 App 的 Business 设置里创建 System User 并授权 whatsapp_business_messaging,生成永久访问令牌(Permanent token)写入 WHATSAPP_CLOUD_TOKEN——API Setup 页给的临时令牌 24 小时过期,不宜常驻。",
         "接收方号码须先在该页「To」管理过(五档验证/模板会话内),否则报 131030「不在允许名单」;把常用收件人登记后再发。",
         {
-          text: "冒烟一发确认链路(把 id/令牌/号码换成你的,应答含 messages[].id 即 wamid):",
+          text: "发一条测试消息确认链路(把 id/令牌/号码换成你的,应答含 messages[].id 即 wamid):",
           code: 'curl -X POST "https://graph.facebook.com/v20.0/$WHATSAPP_CLOUD_PHONE_NUMBER_ID/messages" \\\n  -H "Authorization: Bearer $WHATSAPP_CLOUD_TOKEN" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"messaging_product":"whatsapp","recipient_type":"individual","to":"+8613800000000","type":"text","text":{"body":"hello from MYIA","preview_url":true}}\'',
         },
-        "推送规则 targets 直达写 whatsapp_cloud:+8613800000000(E.164);WhatsApp 无「列出收件人」API(蓝本事实),常用人名在数据根 channel_aliases.json 登记别名。",
+        "推送规则 targets 直达写 whatsapp_cloud:+8613800000000(E.164);WhatsApp 无「列出收件人」API,常用人名在数据目录 channel_aliases.json 登记别名。",
       ],
     },
   },
@@ -437,7 +437,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Google Chat(W3 已实装):空间 incoming webhook 直发(one-shot POST,text 按 4000 上限拆条);URL 内嵌 key/token 即凭据,零 SA 密钥文件(蓝本 SA 形态不移植)。",
+      "Google Chat(已实装):空间 incoming webhook 直发(one-shot POST,text 按 4000 上限拆条);URL 内嵌 key/token 即凭据,无需 SA 密钥文件。",
     guide: {
       keys: [
         {
@@ -450,10 +450,10 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "「Webhook」→「添加 Webhook」,起个名字(如 MYIA 推送)→ 保存后复制 URL(https://chat.googleapis.com/v1/spaces/<id>/messages?key=…&token=…)。",
         "把整串 URL 写入环境变量 GOOGLE_CHAT_WEBHOOK_URL(URL 内嵌凭据,等同密钥保管,不要提交进仓库)。",
         {
-          text: "冒烟一发确认链路(空间里应立刻出现消息;2xx 即成功):",
+          text: "发一条测试消息确认链路(空间里应立刻出现消息;2xx 即成功):",
           code: 'curl -s -X POST "$GOOGLE_CHAT_WEBHOOK_URL" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"text":"hello from MYIA"}\'',
         },
-        "推送规则 targets 直达写 google_chat:<完整 webhook URL>(一个 webhook = 一个空间);常用地名在数据根 channel_aliases.json 登记别名(Chat 无自动发现,蓝本事实)。",
+        "推送规则 targets 直达写 google_chat:<完整 webhook URL>(一个 webhook = 一个空间);常用地名在数据目录 channel_aliases.json 登记别名(Chat 无自动发现)。",
       ],
     },
   },
@@ -463,7 +463,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Microsoft Teams(W3 已实装):Power Automate Workflows incoming webhook 直发 Adaptive Card(2xx 即成功,应答是字面 1);旧 O365 connector 已被微软退役,webhookb2 是现行官方路径。",
+      "Microsoft Teams(已实装):Power Automate Workflows incoming webhook 直发 Adaptive Card(2xx 即成功,应答是字面 1);旧 O365 connector 已被微软退役,webhookb2 是现行官方路径。",
     guide: {
       keys: [
         {
@@ -476,10 +476,10 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "配置目标团队与频道并创建;流程详情页复制给出的 URL(https://<tenant>.webhook.office.com/webhookb2/…)——注意旧 O365 connector(outlook.office.com/webhook)已于 2024-2025 退役,别再用那条路。",
         "把 URL 写入环境变量 TEAMS_WEBHOOK_URL(webhookb2 路径段本身是凭据,等同密钥保管)。",
         {
-          text: "冒烟一发确认链路(频道里应立刻出现卡片,应答是字面 1 不是 JSON):",
+          text: "发一条测试消息确认链路(频道里应立刻出现卡片,应答是字面 1 不是 JSON):",
           code: 'curl -s -X POST "$TEAMS_WEBHOOK_URL" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"type":"message","attachments":[{"contentType":"application/vnd.microsoft.card.adaptive","content":{"type":"AdaptiveCard","version":"1.4","body":[{"type":"TextBlock","text":"hello from MYIA","wrap":true}]}}]}\'',
         },
-        "推送规则 targets 直达写 teams:<完整 webhook URL>(一个 webhook = 一个频道);常用频道在数据根 channel_aliases.json 登记别名(Teams 无自动发现,蓝本事实)。",
+        "推送规则 targets 直达写 teams:<完整 webhook URL>(一个 webhook = 一个频道);常用频道在数据目录 channel_aliases.json 登记别名(Teams 无自动发现)。",
       ],
     },
   },
@@ -489,7 +489,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Matrix 出站(W3 已实装):任意 homeserver 的 Client-Server API 发 m.room.message 纯文本(Bearer token,#别名 先解析成房间 id,按 16000 分段);纯 REST 零新依赖,蓝本 mautrix/E2EE 不在出站范围。",
+      "Matrix 出站(已实装):任意 homeserver 的 Client-Server API 发 m.room.message 纯文本(Bearer token,#别名 先解析成房间 id,按 16000 分段);纯 REST 零新依赖,端到端加密(mautrix)不在出站范围。",
     guide: {
       keys: [
         {
@@ -513,7 +513,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
           code: 'curl -X POST "https://matrix.org/_matrix/client/v3/login" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"type":"m.login.password","identifier":{"type":"m.id.user","user":"myssia-bot"},"password":"xxx"}\'',
         },
         "房间地址取原生 id(!opaque:server.tld)或别名(#name:server.tld)——发送端点只收房间 id,别名会自动经 directory 端点解析。",
-        "推送规则 targets 直达写 matrix:!room:server.tld 或 matrix:#alias:server.tld;CS API 无带名称的房间列表(蓝本事实),常用房间在数据根 channel_aliases.json 登记别名。",
+        "推送规则 targets 直达写 matrix:!room:server.tld 或 matrix:#alias:server.tld;CS API 无带名称的房间列表,常用房间在数据目录 channel_aliases.json 登记别名。",
       ],
     },
   },
@@ -526,7 +526,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Slack Bot API(W3 已实装):xoxb bot token 经 chat.postMessage 出站(text 39000 上限分段);U/W 用户 id 发送期自动 conversations.open 换 DM 会话再投递;无目录发现,直达/别名两条寻址路。",
+      "Slack Bot API(已实装):xoxb bot token 经 chat.postMessage 出站(text 39000 上限分段);U/W 用户 id 发送期自动 conversations.open 换 DM 会话再投递;无目录发现,直达/别名两条寻址路。",
     guide: {
       keys: [
         {
@@ -544,10 +544,10 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "Install to Workspace 安装应用 → 复制 Bot User OAuth Token(xoxb- 开头)写入环境变量 SLACK_BOT_TOKEN(例如在 ~/.zshrc 加一行 export,重开终端/应用后生效)。",
         "把 bot 邀请进要推送的频道(频道里 /invite @应用名);频道 id 以 C 开头(公开频道)/ G(私有群)/ D(DM 会话)/ U 或 W(用户)。",
         {
-          text: "冒烟一发确认链路(把 token 与频道 id 换成你的,频道应立刻收到,应答 ok 为 true):",
+          text: "发一条测试消息确认链路(把 token 与频道 id 换成你的,频道应立刻收到,应答 ok 为 true):",
           code: 'curl -s -X POST https://slack.com/api/chat.postMessage \\\n  -H "Authorization: Bearer xoxb-xxx" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"channel":"C0123ABCDEF","text":"hello from MYIA"}\'',
         },
-        "推送规则 targets 直达写 slack:C…/G…/D…/U…/W…(U/W 发送期自动换 DM);slack 无自动发现(蓝本事实),常用地名在数据根 channel_aliases.json 登记别名。",
+        "推送规则 targets 直达写 slack:C…/G…/D…/U…/W…(U/W 发送期自动换 DM);slack 无自动发现,常用地名在数据目录 channel_aliases.json 登记别名。",
       ],
     },
   },
@@ -557,7 +557,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Discord Bot REST(W3 已实装):Bot token 直发 /channels/{id}/messages(content 2000 硬上限分段;话题定向改投话题端点);无目录发现,直达/别名两条寻址路。",
+      "Discord Bot REST(已实装):Bot token 直发 /channels/{id}/messages(content 2000 硬上限分段;话题定向改投话题端点);无目录发现,直达/别名两条寻址路。",
     guide: {
       keys: [
         {
@@ -575,10 +575,10 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "OAuth2 → URL Generator:scopes 勾 bot,复制生成的邀请链接在浏览器打开,把 bot 拉进你的服务器(给它 Send Messages 权限)。",
         "Discord 客户端开开发者模式(用户设置 → 高级 → 开发者模式);右键要推送的频道 → 复制频道 ID(17-20 位数字)。",
         {
-          text: "冒烟一发确认链路(把 token 与频道 id 换成你的,频道应立刻收到):",
+          text: "发一条测试消息确认链路(把 token 与频道 id 换成你的,频道应立刻收到):",
           code: 'curl -s -X POST https://discord.com/api/v10/channels/<频道id>/messages \\\n  -H "Authorization: Bot <token>" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"content":"hello from MYIA"}\'',
         },
-        "推送规则 targets 直达写 discord:<snowflake 频道 id>;discord 无自动发现(蓝本事实),常用地名在数据根 channel_aliases.json 登记别名。",
+        "推送规则 targets 直达写 discord:<snowflake 频道 id>;discord 无自动发现,常用地名在数据目录 channel_aliases.json 登记别名。",
       ],
     },
   },
@@ -588,7 +588,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "LINE Messaging API(W3 已实装):channel access token 经 message/push 出站,一次最多 5 泡(每泡 4500 字,超长丢弃并告警);无目录发现,直达/别名两条寻址路。",
+      "LINE Messaging API(已实装):channel access token 经 message/push 出站,一次最多 5 泡(每泡 4500 字,超长丢弃并告警);无目录发现,直达/别名两条寻址路。",
     guide: {
       keys: [
         {
@@ -605,10 +605,10 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "频道页 Messaging API 设定 → Channel access token (long-lived) → Issue,复制长寿命 token 写入环境变量 LINE_CHANNEL_ACCESS_TOKEN。",
         "接收方 id:用户 U / 群组 C / 聊天室 R(33 位十六进制)。注意官方约束:用户类接收方须已把该官方账号(bot)加为好友,push 才送得到;群组/聊天室 id 官方只经 webhook 事件下发,MYIA 零入站拿不到——推送对象优先用用户 U id。",
         {
-          text: "冒烟一发确认链路(把 token 与接收方 id 换成你的,HTTP 200 + 空 body 即成功):",
+          text: "发一条测试消息确认链路(把 token 与接收方 id 换成你的,HTTP 200 + 空 body 即成功):",
           code: 'curl -s -X POST https://api.line.me/v2/bot/message/push \\\n  -H "Authorization: Bearer <token>" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"to":"U0000ffffffff0000ffffffff0000ffff","messages":[{"type":"text","text":"hello from MYIA"}]}\'',
         },
-        "推送规则 targets 直达写 line:U…/C…/R…;line 无自动发现(蓝本事实),常用地名在数据根 channel_aliases.json 登记别名。",
+        "推送规则 targets 直达写 line:U…/C…/R…;line 无自动发现,常用地名在数据目录 channel_aliases.json 登记别名。",
       ],
     },
   },
@@ -618,7 +618,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Mattermost 自建服务器(W3 已实装):REST /api/v4/posts(Bearer token,4000 上限分段)主路 + incoming webhook 退路(按解析值形态分发);无目录发现(蓝本走常驻 websocket,出站-only 不含),直达/别名两条寻址路。",
+      "Mattermost 自建服务器(已实装):REST /api/v4/posts(Bearer token,4000 上限分段)主路 + incoming webhook 退路(按解析值形态分发);无目录发现(官方走常驻 websocket,本通道只发不收),直达/别名两条寻址路。",
     guide: {
       keys: [
         {
@@ -640,10 +640,10 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "channel id(26 位小写字母数字):点频道名 → View Info 面板可见/复制(版本较旧时在 System Console → User Management → Channels 可查;以 Mattermost 官方文档为准)。",
         "webhook 退路(免 token/server):管理员开 Incoming Webhook 后,频道 → Integrations → Incoming Webhook 创建,得到的整条 URL(https://…/hooks/xxx)直接作为 target 引用的解析值。",
         {
-          text: "冒烟一发确认链路(REST 路;把 server/token/频道 id 换成你的,应答 201):",
+          text: "发一条测试消息确认链路(REST 路;把 server/token/频道 id 换成你的,应答 201):",
           code: 'curl -s -X POST https://mm.example.com/api/v4/posts \\\n  -H "Authorization: Bearer <token>" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"channel_id":"<26位channel id>","message":"hello from MYIA"}\'',
         },
-        "推送规则 targets 直达写 mattermost:<26位 channel id>;无自动发现(蓝本走常驻 websocket 会话,MYIA 出站-only 不含),常用地名在数据根 channel_aliases.json 登记别名。",
+        "推送规则 targets 直达写 mattermost:<26位 channel id>;无自动发现(官方走常驻 websocket 会话,本通道只发不收),常用地名在数据目录 channel_aliases.json 登记别名。",
       ],
     },
   },
@@ -656,7 +656,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Home Assistant 通知出站(W3 已实装):one-shot POST /api/services/notify/notify(Bearer 长期访问令牌),标题+正文(超 4096 截断);HA 无「列出通知目标」API(蓝本事实),推送对象直达目标名或别名登记。",
+      "Home Assistant 通知出站(已实装):one-shot POST /api/services/notify/notify(Bearer 长期访问令牌),标题+正文(超 4096 截断);HA 无「列出通知目标」API,推送对象直达目标名或别名登记。",
     guide: {
       keys: [
         {
@@ -677,10 +677,10 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "创建长期访问令牌:HA 左下角点自己的用户名 → 「安全」标签页拉到底 → 「长期访问令牌」→ 创建,起个名(如 myssia-push)并复制,写入环境变量 HASS_TOKEN。",
         "确认通知目标:手机装 Home Assistant Companion App 并登录,目标名形如 mobile_app_<设备名>;或用 HA 里配置好的 notify 实体/群组(如 notify.mobile)——目标名就是推送地址。",
         {
-          text: "冒烟一发确认链路(把地址/令牌/目标换成你的;HA 通知或手机 App 应立刻收到):",
+          text: "发一条测试消息确认链路(把地址/令牌/目标换成你的;HA 通知或手机 App 应立刻收到):",
           code: 'curl -X POST http://homeassistant.local:8123/api/services/notify/notify \\\n  -H "Authorization: Bearer $HASS_TOKEN" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"title":"hello","message":"hello from MYIA","target":"mobile_app_pixel"}\'',
         },
-        "推送规则:targets 直达写 homeassistant:<目标名>(如 homeassistant:mobile_app_pixel);只推固定目标时也可配 target: env:HASS_TARGET 走缺省。HA 无「列出通知目标」的 API,常用目标在数据根 channel_aliases.json 登记别名。",
+        "推送规则:targets 直达写 homeassistant:<目标名>(如 homeassistant:mobile_app_pixel);只推固定目标时也可配 target: env:HASS_TARGET 走缺省。HA 无「列出通知目标」的 API,常用目标在数据目录 channel_aliases.json 登记别名。",
       ],
     },
   },
@@ -695,7 +695,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "QQ 开放平台机器人(W3 已实装):AppID+ClientSecret 换 access_token,主动消息 REST 直发(c2c:/group:/guild: 三寻址形态;群聊有每月主动额度);无目录发现,直达/别名登记。",
+      "QQ 开放平台机器人(已实装):AppID+ClientSecret 换 access_token,主动消息 REST 直发(c2c:/group:/guild: 三寻址形态;群聊有每月主动额度);无目录发现,直达/别名登记。",
     guide: {
       keys: [
         {
@@ -715,7 +715,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "打开 QQ 机器人开放平台管理后台(bot.q.qq.com)→ 选择/创建机器人,「开发设置」页记下 AppID 与 ClientSecret。",
         "把两者写入环境变量 QQBOT_APP_ID 与 QQBOT_CLIENT_SECRET(例如在 ~/.zshrc 里 export,重开终端/应用后生效);发送期自动换 access_token(2024-04 后的 QQBot 新鉴权形态),无需手工管 token。",
         "拿推送对象 id:主动消息无「列出会话」API(MYIA 又零入站)——群 group_openid / 用户 openid 只能从机器人真实交互的官方回调或后台数据获得,频道 channel_id 在频道设置可见。",
-        "推送规则 targets 直达写 qqbot:group:<group_openid> / qqbot:c2c:<openid> / qqbot:guild:<channel_id>;单发也可配 target: env:QQBOT_TARGET 走缺省对象;常用对象在数据根 channel_aliases.json 登记别名。",
+        "推送规则 targets 直达写 qqbot:group:<group_openid> / qqbot:c2c:<openid> / qqbot:guild:<channel_id>;单发也可配 target: env:QQBOT_TARGET 走缺省对象;常用对象在数据目录 channel_aliases.json 登记别名。",
         "注意主动消息额度(官方:群聊每月 4 条/群):额度耗尽时官方错误原样上抛,是配额事实不是故障;正文超 2000 字符自动按行边界拆多条(每条计入额度)。",
       ],
     },
@@ -726,7 +726,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Microsoft Teams/Graph 群聊直发(W3 已实装):Azure 应用 client credentials 换 token,POST /chats/{id}/messages(app-only,需应用权限 Chat.ReadWrite);只寻址 1:1/群聊 chat,团队频道走 teams 通道;无目录发现。",
+      "Microsoft Teams/Graph 群聊直发(已实装):Azure 应用 client credentials 换 token,POST /chats/{id}/messages(app-only,需应用权限 Chat.ReadWrite);只寻址 1:1/群聊 chat,团队频道走 teams 通道;无目录发现。",
     guide: {
       keys: [
         {
@@ -751,7 +751,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "「证书和密码」→ 新建客户端密码并立刻复制「值」(离开页面后不可再看);三者写入环境变量 MSGRAPH_WEBHOOK_TENANT_ID / MSGRAPH_WEBHOOK_CLIENT_ID / MSGRAPH_WEBHOOK_CLIENT_SECRET。",
         "「API 权限」→ 添加权限 → Microsoft Graph → 应用权限(不是委托权限)→ Chat.ReadWrite → 回列表点「代表 {租户} 授予管理员同意」——app-only 发 chat 消息的官方路径。",
         "拿 chat id(形如 19:…@unq.gbl.spaces 私聊 / 19:…@thread.v2 群聊):从 Teams 会话或 Graph 查询获得;写入 MSGRAPH_WEBHOOK_CHAT_ID,或规则 targets 直达写 msgraph_webhook:19:…。",
-        "边界如实:团队频道消息需 RSC 已装 bot(不在本通道,频道场景走 teams 通道的 Workflows webhook);无自动发现(app-only 无会话列表),常用会话别名登记。",
+        "边界说明:团队频道消息需 RSC 已装 bot(不在本通道,频道场景走 teams 通道的 Workflows webhook);无自动发现(app-only 无会话列表),常用会话别名登记。",
       ],
     },
   },
@@ -765,12 +765,12 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "BlueBubbles iMessage 桥(10-05 出壳):自建服务端 REST 发 message/text(password 查询串鉴权,4000 上限分段);手机号发送期经 chat/query 解析成 chat GUID,邮箱/+手机号可直开新会话;服务端是外部系统级部署前提,无自动发现。",
+      "BlueBubbles iMessage 桥(已实装):自建服务端 REST 发 message/text(password 查询串鉴权,4000 上限分段);手机号发送期经 chat/query 解析成 chat GUID,邮箱/+手机号可直开新会话;服务端是外部系统级部署前提,无自动发现。",
     guide: {
       keys: [
         {
           key: "BLUEBUBBLES_SERVER_URL",
-          purpose: "服务端地址(如 http://127.0.0.1:1234;缺 scheme 自动补 http://);到 设置→推送 填一次,run 时读环境变量",
+          purpose: "服务端地址(如 http://127.0.0.1:1234;缺 scheme 自动补 http://);到 配置 → 机器人凭据 填一次,run 时读环境变量",
         },
         {
           key: "BLUEBUBBLES_PASSWORD",
@@ -784,12 +784,12 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
       steps: [
         "部署 BlueBubbles 服务端(https://bluebubbles.app,常驻 macOS 并接管 Messages.app 的 iMessage 桥):这是外部系统级依赖,不是 pip 包;发送路纯 httpx 已实装,无需装任何 extras。",
         "在 BlueBubbles 设置里开启 API 服务并记下服务端密码(password)与监听地址/端口。",
-        "到 设置→推送 填 BLUEBUBBLES_SERVER_URL(如 http://127.0.0.1:1234)与 BLUEBUBBLES_PASSWORD → 保存;凭据也会存进钥匙链规范名,GUI 桌面不读 shell 环境也能发。",
+        "到 配置 → 机器人凭据 填 BLUEBUBBLES_SERVER_URL(如 http://127.0.0.1:1234)与 BLUEBUBBLES_PASSWORD → 保存;凭据也会存进系统钥匙串,GUI 桌面不读 shell 环境也能发。",
         {
-          text: "冒烟一发确认链路(把地址/密码/目标换成你的;应答 status 200 即成功):",
+          text: "发一条测试消息确认链路(把地址/密码/目标换成你的;应答 status 200 即成功):",
           code: 'curl -s -X POST "http://127.0.0.1:1234/api/v1/message/text?password=<密码>" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"chatGuid":"iMessage;-;+15551234567","tempGuid":"smoke-1","message":"hello from MYIA"}\'',
         },
-        "推送规则 targets 直达写 bluebubbles:iMessage;… / SMS;… chat GUID 或 +手机号(手机号/邮箱发送期自动解析 GUID 或直开新会话);常用对象在数据根 channel_aliases.json 登记别名(无自动发现)。",
+        "推送规则 targets 直达写 bluebubbles:iMessage;… / SMS;… chat GUID 或 +手机号(手机号/邮箱发送期自动解析 GUID 或直开新会话);常用对象在数据目录 channel_aliases.json 登记别名(无自动发现)。",
       ],
     },
   },
@@ -799,15 +799,15 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "腾讯元宝(W3 壳通道):寻址面已接线(direct:/group:/裸 id 直达),发送路待 extras 实装——元宝无 one-shot HTTP 出站(蓝本事实:常驻 WebSocket 网关),当前发送如实报 dependency_missing,不假装可用。",
+      "腾讯元宝(发送待后续版本):寻址已就绪(direct:/group:/裸 id 直达)——元宝无一次性 HTTP 出站接口(走常驻 WebSocket 网关),当前发送会报 dependency_missing,不是配置错误。",
     guide: {
       // keys 段为空是刻意事实:壳通道当前不读任何环境变量——蓝本凭据
       // (YUANBAO_APP_ID/APP_SECRET)属常驻 WS 网关客户端,MYIA 壳尚未
       // 读取;待 extras 实装后补录。
       keys: [],
       steps: [
-        "现状如实:元宝无 one-shot HTTP 出站(蓝本事实:出站走常驻 WebSocket 网关,sign-token → AUTH_BIND → 心跳);本平台是 W3 实装的结构化报错壳,当前推送恒报 dependency_missing,不是配置错误。",
-        "MYIA 推送层是单发 one-shot 契约:常驻 WS 客户端随后续 extras 提供(依赖 uv add websockets;蓝本凭据 YUANBAO_APP_ID/YUANBAO_APP_SECRET,届时本指南补凭据项)。",
+        "当前状态:元宝无一次性 HTTP 出站接口(走常驻 WebSocket 网关);本平台已接入寻址,推送暂报 dependency_missing,不是配置错误。",
+        "MYIA 推送层是单发 one-shot 契约:常驻 WS 客户端随后续 extras 提供(依赖 uv add websockets;凭据为 YUANBAO_APP_ID/YUANBAO_APP_SECRET,启用时本指南补凭据项)。",
         "寻址先行接线:直达写 yuanbao:direct:<account_id> / group:<group_code> / 裸 id;常用会话别名登记(无自动发现)。",
         "急需元宝触达的可先改用其余 one-shot 通道(email/sms/homeassistant/ntfy/webhook)。",
       ],
@@ -823,7 +823,7 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "A2A 协议 v1.0 出站(W3 已实装):对端基址上一次 one-shot JSON-RPC SendMessage(A2A-Version: 1.0 头 + 单 text Part);无目录发现(Agent Card 描述对端能力而非会话列表),对端直达 URL 或别名登记。",
+      "A2A 协议 v1.0 出站(已实装):对端基址上一次 one-shot JSON-RPC SendMessage(A2A-Version: 1.0 头 + 单 text Part);无目录发现(Agent Card 描述对端能力而非会话列表),对端直达 URL 或别名登记。",
     guide: {
       keys: [
         {
@@ -840,10 +840,10 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
         "把基址写入环境变量 A2A_PEER(例如 ~/.zshrc 里 export A2A_PEER=https://agent.example.com);对端要求鉴权再配 A2A_TOKEN。",
         "品类 YAML 的 push 条目写 channel: a2a 与 target: env:A2A_PEER(与钉钉 dingtalk_secret 同款 env: 引用形态);规则写 targets 定向时可省 target(schema 允许)。",
         {
-          text: "冒烟一发确认链路(2xx 即对端已受理;result 载荷不解析,推送只认受理):",
+          text: "发一条测试消息确认链路(2xx 即对端已受理;result 载荷不解析,推送只认受理):",
           code: 'curl -s -X POST "$A2A_PEER" \\\n  -H "Content-Type: application/json" \\\n  -H "A2A-Version: 1.0" \\\n  -d \'{"jsonrpc":"2.0","id":"smoke-1","method":"SendMessage","params":{"message":{"role":"ROLE_USER","parts":[{"text":"hello from MYIA","mediaType":"text/plain"}],"messageId":"smoke-1","contextId":"smoke-1"}}}\'',
         },
-        "推送规则 targets 直达写 a2a:<对端基址 URL>;a2a 无自动发现(蓝本事实),常用对端在数据根 channel_aliases.json 登记别名。",
+        "推送规则 targets 直达写 a2a:<对端基址 URL>;a2a 无自动发现,常用对端在数据目录 channel_aliases.json 登记别名。",
       ],
     },
   },
@@ -853,16 +853,16 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Buzz(W3 壳通道):Block 开源 Nostr 协作平台,寻址面已接线(频道 UUID 直达),发送路待 extras 实装——蓝本中继读写全经 buzz CLI 子进程 + Nostr 签名,无 one-shot HTTP 出站(蓝本事实),当前发送如实报 dependency_missing,不假装可用。",
+      "Buzz(发送待后续版本):Block 开源 Nostr 协作平台,寻址已接线(频道 UUID 直达)——中继读写全经 buzz CLI 子进程 + Nostr 签名,无一次性 HTTP 出站接口,当前发送会报 dependency_missing,不是配置错误。",
     guide: {
       // keys 段为空是刻意事实(同上两壳):壳通道当前不读任何环境变量——
       // 中继地址/Nostr 私钥(BUZZ_RELAY_URL/BUZZ_PRIVATE_KEY)属 CLI 桥接
       // 的前置项,待 extras 实装后补录。
       keys: [],
       steps: [
-        "现状如实:本平台是 W3 实装的 extras 壳——寻址已可用,发送路待 extras 实装批次;当前推送会报 dependency_missing(依赖未提供),不是配置错误。",
+        "当前状态:寻址已可用,发送待后续版本;当前推送会报 dependency_missing(依赖未提供),不是配置错误。",
         "修复路径(错误文案同款携带):安装 buzz CLI(https://github.com/block/buzz,置于 PATH 或配 BUZZ_CLI_PATH),并备好 Nostr 中继地址与私钥(BUZZ_RELAY_URL / BUZZ_PRIVATE_KEY,nsec 或 hex)——CLI 桥接随后续 extras 批次评估,届时本指南补凭据项。",
-        "推送对象先行接线:直达写 buzz:<频道 UUID>;常用频道在数据根 channel_aliases.json 登记别名(无自动发现——频道列表只在 buzz CLI 侧)。",
+        "推送对象先行接线:直达写 buzz:<频道 UUID>;常用频道在数据目录 channel_aliases.json 登记别名(无自动发现——频道列表只在 buzz CLI 侧)。",
       ],
     },
   },
@@ -872,15 +872,15 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Photon(W3 壳通道):Spectrum 平台(含 iMessage),寻址面已接线(space id 的 UUID 形态 / 裸 E.164 号码直达),发送路待 extras 实装——蓝本收发均走 spectrum-ts SDK 的 gRPC 长流(经 Node sidecar),无 one-shot HTTP 出站,当前发送如实报 dependency_missing,不假装可用。",
+      "Photon(发送待后续版本):Spectrum 平台(含 iMessage),寻址已接线(space id 的 UUID 形态 / 裸 E.164 号码直达)——收发均走 spectrum-ts SDK 的 gRPC 长流(经 Node sidecar),无一次性 HTTP 出站接口,当前发送会报 dependency_missing,不是配置错误。",
     guide: {
       // keys 段为空是刻意事实(同上壳):PHOTON_PROJECT_ID/PHOTON_PROJECT_SECRET
       // 属 Node sidecar 的凭据,待 extras 实装后补录。
       keys: [],
       steps: [
-        "现状如实:本平台是 W3 实装的 extras 壳——寻址已可用,发送路待 extras 实装批次;当前推送会报 dependency_missing(依赖未提供),不是配置错误。",
-        "修复路径(错误文案同款携带):部署 Node sidecar(spectrum-ts SDK,https://photon.codes/,蓝本 sidecar/package.json 精确锁版 + npm ci)并配置 PHOTON_PROJECT_ID/PHOTON_PROJECT_SECRET(app.photon.codes 项目凭据)——随后续 extras 批次评估,届时本指南补凭据项。",
-        "推送对象先行接线:直达写 photon:<UUID(space id)或 +E.164 号码>(蓝本文档 space id/E.164 两形态,DM 由号码解析);常用会话别名登记(无自动发现——会话列表依赖 Spectrum SDK 长流)。",
+        "当前状态:寻址已可用,发送待后续版本;当前推送会报 dependency_missing(依赖未提供),不是配置错误。",
+        "修复路径(错误文案同款携带):部署 Node sidecar(spectrum-ts SDK,https://photon.codes/,官方 sidecar/package.json 精确锁版 + npm ci)并配置 PHOTON_PROJECT_ID/PHOTON_PROJECT_SECRET(app.photon.codes 项目凭据)——随后续 extras 批次评估,届时本指南补凭据项。",
+        "推送对象先行接线:直达写 photon:<UUID(space id)或 +E.164 号码>(官方文档 space id/E.164 两形态,DM 由号码解析);常用会话别名登记(无自动发现——会话列表依赖 Spectrum SDK 长流)。",
       ],
     },
   },
@@ -890,15 +890,15 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Raft(W3 壳通道):工作区协作平台,寻址面已接线(别名登记;蓝本 chat_id 是运行期会话标识,无直达形态),发送路待 extras 实装——蓝本读写全经 Raft CLI 子进程 + 本地唤醒桥,无 one-shot HTTP 出站,当前发送如实报 dependency_missing,不假装可用。",
+      "Raft(发送待后续版本):工作区协作平台,寻址已接线(别名登记;官方 chat_id 是运行期会话标识,无直达形态)——读写全经 Raft CLI 子进程 + 本地唤醒桥,无一次性 HTTP 出站接口,当前发送会报 dependency_missing,不是配置错误。",
     guide: {
       // keys 段为空是刻意事实(同上壳):RAFT_PROFILE 是工作区 agent 标识,
       // 属 CLI 桥接前置项,待 extras 实装后补录。
       keys: [],
       steps: [
-        "现状如实:本平台是 W3 实装的 extras 壳——寻址已可用,发送路待 extras 实装批次;当前推送会报 dependency_missing(依赖未提供),不是配置错误。",
+        "当前状态:寻址已可用,发送待后续版本;当前推送会报 dependency_missing(依赖未提供),不是配置错误。",
         "修复路径(错误文案同款携带):安装 Raft CLI(https://raft.build)并在工作区登记 agent profile(RAFT_PROFILE)——CLI 桥接随后续 extras 批次评估,届时本指南补凭据项。",
-        "推送对象先行接线:raft 无直达形态(蓝本 chat_id 形态无公开成文约束,MYIA 不猜)——目标一律在数据根 channel_aliases.json 登记别名(目录精确名/唯一前缀可寻址)。",
+        "推送对象先行接线:raft 无直达形态(chat_id 形态无公开成文约束,MYIA 不猜)——目标一律在数据目录 channel_aliases.json 登记别名(目录精确名/唯一前缀可寻址)。",
       ],
     },
   },
@@ -912,12 +912,12 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
     wave: "W3",
     discovery: "manual",
     description:
-      "Signal 出站(10-05 出壳):signal-cli 守护进程 HTTP 模式的 JSON-RPC send(手机号 recipient/群 groupId 寻址,8000 上限分段);守护进程是外部系统级部署前提,无自动发现,直达/别名两条寻址路。",
+      "Signal 出站(已实装):signal-cli 守护进程 HTTP 模式的 JSON-RPC send(手机号 recipient/群 groupId 寻址,8000 上限分段);守护进程是外部系统级部署前提,无自动发现,直达/别名两条寻址路。",
     guide: {
       keys: [
         {
           key: "SIGNAL_HTTP_URL",
-          purpose: "signal-cli 守护进程地址(HTTP 模式,如 http://127.0.0.1:8080);到 设置→推送 填一次,run 时读环境变量",
+          purpose: "signal-cli 守护进程地址(HTTP 模式,如 http://127.0.0.1:8080);到 配置 → 机器人凭据 填一次,run 时读环境变量",
         },
         {
           key: "SIGNAL_ACCOUNT",
@@ -931,12 +931,12 @@ export const IMPLEMENTED_PLATFORMS: readonly ImplementedPlatform[] = [
       steps: [
         "部署 signal-cli 守护进程(外部系统级依赖,不是 pip 包):安装 signal-cli(https://github.com/AsamK/signal-cli)并注册/链接账号,再以 HTTP 服务模式启动(如 signal-cli daemon --http 127.0.0.1:8080);发送路纯 httpx 已实装,无需装任何 extras。",
         "记下守护进程地址与账号手机号(E.164,如 +8613800138000)。",
-        "到 设置→推送 填 SIGNAL_HTTP_URL(如 http://127.0.0.1:8080)与 SIGNAL_ACCOUNT(+手机号)→ 保存;凭据也会存进钥匙链规范名,GUI 桌面不读 shell 环境也能发。",
+        "到 配置 → 机器人凭据 填 SIGNAL_HTTP_URL(如 http://127.0.0.1:8080)与 SIGNAL_ACCOUNT(+手机号)→ 保存;凭据也会存进系统钥匙串,GUI 桌面不读 shell 环境也能发。",
         {
-          text: "冒烟一发确认链路(把地址/账号/收件人换成你的;应答 result.results[].type 为 SUCCESS 即成功):",
+          text: "发一条测试消息确认链路(把地址/账号/收件人换成你的;应答 result.results[].type 为 SUCCESS 即成功):",
           code: 'curl -s -X POST http://127.0.0.1:8080/api/v1/rpc \\\n  -H "Content-Type: application/json" \\\n  -d \'{"jsonrpc":"2.0","method":"send","params":{"account":"+8613800138000","recipient":["+8613900139000"],"message":"hello from MYIA"},"id":"smoke-1"}\'',
         },
-        "推送规则 targets 直达写 signal:+8613…(E.164 手机号;Signal 无 @username 寻址,蓝本事实);群 id(base64)在数据根 channel_aliases.json 登记别名(无自动发现)。",
+        "推送规则 targets 直达写 signal:+8613…(E.164 手机号;Signal 无 @username 寻址);群 id(base64)在数据目录 channel_aliases.json 登记别名(无自动发现)。",
       ],
     },
   },
@@ -956,8 +956,8 @@ export const UPCOMING_PLATFORMS: readonly UpcomingPlatform[] = [];
 
 /** 未实装平台的详情描述(按波次;不虚构平台功能,只说排期与实装后的去处)。 */
 const UPCOMING_DESCRIPTION: Record<"W2" | "W3", string> = {
-  W2: "尚未实装;已排入 W2(近期)波次。实装后此处将给出出站凭据指南与目录速览。",
-  W3: "尚未实装;在 W3(远期)波次排期中。实装后此处将给出出站凭据指南与目录速览。",
+  W2: "尚未实装;已排入近期批次。实装后此处将给出出站凭据指南与目录速览。",
+  W3: "尚未实装;在远期批次排期中。实装后此处将给出出站凭据指南与目录速览。",
 };
 
 // ---------------------------------------------------------------------------
@@ -1420,11 +1420,11 @@ function statusExplanation(card: PlatformCard): string {
     }。修复后回本屏刷新即转绿;无 Hermes 的环境此平台不可用——这是如实披露的边界,不是故障。`;
   }
   if (EXTRAS_SHELL_PLATFORM_IDS.has(card.id)) {
-    return "需要设置:该平台是 W3 实装的 extras 壳——寻址已接线,发送路依赖外部服务/CLI(元宝常驻 WS 网关、buzz CLI、photon Node sidecar、Raft CLI),待 extras 实装批次,当前发送会如实报 dependency_missing。MYIA 侧暂无凭据可录(钥匙链恒空是预期,不是缺配置);推送规则可先写直达 id 或别名登记,部署与实装指引见下方「出站凭据指南」。";
+    return "需要设置:该平台发送待后续版本——寻址已接线,发送依赖外部服务/CLI(元宝常驻 WS 网关、buzz CLI、photon Node sidecar、Raft CLI),当前发送会报 dependency_missing。MYIA 侧暂无凭据可录(钥匙串暂为空是预期,不是缺配置);推送规则可先写直达 id 或别名登记,部署与实装指引见下方「出站凭据指南」。";
   }
   if (card.status === "connected") {
     const signals = [
-      card.matchedSecretNames.length > 0 ? `钥匙链命中 ${card.matchedSecretNames.length} 项凭据名` : null,
+      card.matchedSecretNames.length > 0 ? `钥匙串命中 ${card.matchedSecretNames.length} 项凭据名` : null,
       card.directoryCount > 0 ? `目录非空(${card.directoryCount} 个会话)` : null,
     ]
       .filter(Boolean)
@@ -1436,9 +1436,9 @@ function statusExplanation(card: PlatformCard): string {
     }`;
   }
   if (card.discovery === "manual") {
-    return "需要设置:钥匙链未探测到该平台凭据名,且目录为空。按下方「出站凭据指南」录入凭据;该平台无自动发现(蓝本事实),推送对象在规则里写直达 id(如 ntfy:my-alerts)或用别名文件登记。";
+    return "需要设置:钥匙串里未找到该平台凭据名,且目录为空。按下方「出站凭据指南」录入凭据;该平台无自动发现(蓝本事实),推送对象在规则里写直达 id(如 ntfy:my-alerts)或用别名文件登记。";
   }
-  return "需要设置:钥匙链未探测到该平台凭据名,且目录为空(无一次成功发现或真实 bot 流量的证据)。按下方「出站凭据指南」录入凭据,再到下方「通道目录」点该平台的「刷新」验证。";
+  return "需要设置:钥匙串里未找到该平台凭据名,且目录为空(无一次成功发现或真实 bot 流量的证据)。按下方「出站凭据指南」录入凭据,再到下方「通道目录」点该平台的「刷新」验证。";
 }
 
 /** 右栏详情面板(R2):描述 / 状态说明 / 凭据指南 / 已连接时的目录速览。 */
@@ -1536,7 +1536,7 @@ function DirectoryQuickView({
     if (discovery === "manual") {
       return (
         <p className="text-2xs leading-relaxed text-muted-foreground">
-          目录为空:{platformId} 无自动发现(蓝本事实)——推送规则里写直达 id,或手工编辑数据根的
+          目录为空:{platformId} 无自动发现——推送规则里写直达 id,或手工编辑数据目录的
           channel_aliases.json 登记对象(别名文件是本机私有数据)。
         </p>
       );

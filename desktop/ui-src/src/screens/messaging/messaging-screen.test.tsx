@@ -520,7 +520,7 @@ describe("消息:空态与断连态", () => {
       </MemoryRouter>,
     );
     expect(await screen.findByText("通道目录还是空的")).toBeTruthy();
-    expect(screen.getByText(/先到「设置」录入平台凭据/)).toBeTruthy();
+    expect(screen.getByText(/先到「配置 → 机器人凭据」录入平台凭据/)).toBeTruthy();
     expect(screen.getByText(/还没有品类 YAML/)).toBeTruthy();
     // 状态条:目录空 = 已连接 0(29 张在册卡;weixin_local 10-11 入册),sidecar 本身存活
     const bar = await screen.findByTestId("messaging-statusbar");
@@ -643,10 +643,10 @@ describe("消息:平台总览三态与头像卡", () => {
     // 缺省选中 feishu → 详情栏说明钥匙链命中;切 telegram 同样命中
     const detail = within(overview).getByTestId("platform-detail");
     expect(within(detail).getByText("已连接")).toBeTruthy();
-    expect(detail.textContent).toContain("钥匙链命中 1 项凭据名");
+    expect(detail.textContent).toContain("钥匙串命中 1 项凭据名");
     fireEvent.click(within(overview).getByTestId("platform-card-telegram"));
     expect(within(overview).getByTestId("platform-detail").textContent).toContain(
-      "钥匙链命中 1 项凭据名",
+      "钥匙串命中 1 项凭据名",
     );
   });
 
@@ -672,8 +672,8 @@ describe("消息:平台总览三态与头像卡", () => {
     const guide = within(detail).getByTestId("platform-guide-signal");
     expect(guide.textContent).toContain("SIGNAL_HTTP_URL");
     expect(guide.textContent).toContain("SIGNAL_ACCOUNT");
-    expect(guide.textContent).toContain("设置→推送");
     expect(guide.textContent).toContain("signal-cli");
+    expect(guide.textContent).toContain("配置 → 机器人凭据");
   });
 
   it("homeassistant 已转实装(W3 组三):详情需要设置 + 出站凭据指南(HASS_*);不再是灰卡排期文案", async () => {
@@ -746,7 +746,7 @@ describe("消息:平台总览三态与头像卡", () => {
     expect(guide.textContent).toContain("BLUEBUBBLES_SERVER_URL");
     expect(guide.textContent).toContain("BLUEBUBBLES_PASSWORD");
     expect(guide.textContent).toContain("bluebubbles.app");
-    expect(guide.textContent).toContain("设置→推送");
+    expect(guide.textContent).toContain("配置 → 机器人凭据");
 
     // yuanbao(extras 壳):无 one-shot 出站的蓝本事实 + uv add websockets
     fireEvent.click(within(overview).getByTestId("platform-card-yuanbao"));
@@ -895,7 +895,7 @@ describe("消息:平台总览筛选 tabs", () => {
 });
 
 describe("消息:详情栏出站凭据指南(唯一入口)", () => {
-  it("选中 feishu 即见指南(零点击,卡片上无展开按钮):app 凭据 + 设置→推送 引导,零 curl/零 zshrc", async () => {
+  it("选中 feishu 即见指南(零点击,卡片上无展开按钮):app 凭据 + 配置 → 机器人凭据 引导,零 curl/零 zshrc", async () => {
     const sidecar = okSidecar();
     installSidecar(sidecar.map, sidecar.record);
     render(
@@ -913,8 +913,8 @@ describe("消息:详情栏出站凭据指南(唯一入口)", () => {
     expect(guide.textContent).toContain("FEISHU_APP_ID");
     expect(guide.textContent).toContain("FEISHU_APP_SECRET");
     expect(guide.textContent).toContain("im:message:send_as_bot");
-    // 10-05-push-credential-journey:接引导到 设置→推送(自动续期),手工 curl/zshrc/2h 段全删
-    expect(guide.textContent).toContain("设置→推送");
+    // 10-05-push-credential-journey:接引导到 配置 → 机器人凭据(自动续期),手工 curl/zshrc/2h 段全删
+    expect(guide.textContent).toContain("配置 → 机器人凭据");
     expect(guide.textContent).toContain("自动续期");
     expect(guide.textContent).not.toContain("curl");
     expect(guide.textContent).not.toContain(".zshrc");
@@ -924,7 +924,7 @@ describe("消息:详情栏出站凭据指南(唯一入口)", () => {
     expect(feishuCard.tagName).toBe("BUTTON"); // 卡即选中按钮,无二级展开
   });
 
-  it("点击 telegram 卡 → 指南切到 telegram(@BotFather + 设置→推送 + 两个凭据 key)", async () => {
+  it("点击 telegram 卡 → 指南切到 telegram(@BotFather + 配置 → 机器人凭据 + 两个凭据 key)", async () => {
     const sidecar = okSidecar();
     installSidecar(sidecar.map, sidecar.record);
     render(
@@ -939,7 +939,7 @@ describe("消息:详情栏出站凭据指南(唯一入口)", () => {
     expect(guide.textContent).toContain("TELEGRAM_BOT_TOKEN");
     expect(guide.textContent).toContain("TELEGRAM_CHAT_ID");
     expect(guide.textContent).toContain("@BotFather");
-    expect(guide.textContent).toContain("设置→推送");
+    expect(guide.textContent).toContain("配置 → 机器人凭据");
     expect(guide.textContent).not.toContain(".zshrc");
     // 详情栏一次只展示一个平台:feishu 指南随选中切换离开
     expect(within(overview).queryByTestId("platform-guide-feishu")).toBeNull();

@@ -134,7 +134,7 @@ export function WechatLocalSection({ probe, probeError, refreshing, onRefresh }:
               </span>
             </CardTitle>
             <CardDescription>
-              本机桥只读面(选会话 → 拉最近消息展示;读回不入情报管线)+ 本地库三域查询;与上方「微信」官方桥分工,出站归官方桥
+              本机桥只读面(选会话 → 拉最近消息展示;读回不入情报管线)+ 本地库历史查询;与上方「微信」官方桥分工,出站归官方桥
             </CardDescription>
           </div>
           <Button
@@ -301,7 +301,7 @@ function SessionReader() {
           </p>
           {messagesError ? <ReadOnlyError error={messagesError} testId="wechat-local-messages-error" /> : null}
           {messages !== null && messages.length === 0 ? (
-            <p className="text-2xs text-muted-foreground">窗口内暂无可读文本消息(AX 只见已加载消息;历史请用下方本地库查询)。</p>
+            <p className="text-2xs text-muted-foreground">窗口内暂无可读文本消息(只读当前窗口已加载的内容;查历史请用下方本地库查询)。</p>
           ) : null}
           {messages && messages.length > 0 ? (
             <ul className="flex min-w-0 flex-col gap-1" data-testid="wechat-local-messages">
@@ -357,7 +357,7 @@ function LocalDbQuery() {
       <p className="min-w-0 break-words text-xs font-medium text-foreground">
         本地库查询(历史)
         <span className="ml-2 text-2xs font-normal text-muted-foreground">
-          解密副本只读,零出网零微信进程交互;密钥途径未裁决(D4)时如实报 key_unavailable
+          解密副本只读,零出网零微信进程交互;密钥途径未就绪时查询会报 key_unavailable
         </span>
       </p>
       <div className="flex min-w-0 flex-wrap items-center gap-2">

@@ -17,7 +17,7 @@ export function FeishuAccountScreen() {
     <div className="flex flex-col gap-block pb-block">
       <PageHeader
         title="飞书账号"
-        description="飞书本身账号(user_access_token 授权态)管理:添加授权 / 状态检查 / 删除(机器人凭据归 设置→推送)"
+        description="飞书个人账号(user_access_token 授权)管理:添加授权 / 状态检查 / 删除(机器人凭据归 配置 → 机器人凭据)"
       />
       <div className="px-6">
         <FeishuAccountCard />

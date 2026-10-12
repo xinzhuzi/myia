@@ -10,7 +10,7 @@ function CredentialState({ exists }: { exists: boolean | null }) {
     return (
       <span className="flex items-center gap-1 text-ok">
         <CheckCircle2 className="size-3.5" />
-        已在钥匙链
+        已在钥匙串
       </span>
     );
   }
@@ -25,7 +25,7 @@ function CredentialState({ exists }: { exists: boolean | null }) {
   return (
     <span className="flex items-center gap-1 text-unknown">
       <CircleDashed className="size-3.5" />
-      无法核验(无钥匙链后端)
+      无法核验(无钥匙串后端)
     </span>
   );
 }
@@ -65,10 +65,10 @@ export function DoctorVerifyPanel({ verify, loading, proxyAutoMiss = false }: Do
 
       <section className="flex flex-col gap-1.5">
         <p className="text-xs font-medium text-muted-foreground">
-          钥匙链凭据(myia/ 命名;值不可读,只核验存在性)
+          钥匙串凭据(myia/ 命名;值不可读,只核验存在性)
         </p>
         {verify.credentials.length === 0 ? (
-          <p className="text-xs text-muted-foreground">暂无 myia/ 钥匙链引用</p>
+          <p className="text-xs text-muted-foreground">暂无 myia/ 钥匙串引用</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {verify.credentials.map((entry) => (

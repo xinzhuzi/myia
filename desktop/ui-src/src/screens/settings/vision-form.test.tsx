@@ -91,7 +91,7 @@ describe("设置 · 看图分区:读取与保存分流", () => {
     });
     expect((screen.getByLabelText("本地模型路径") as HTMLInputElement).value).toBe("/models/qwen3-vl-8b-mlx");
     expect((screen.getByLabelText("云端模型") as HTMLInputElement).value).toBe("glm-4.6v");
-    expect(screen.getByText("key 已在钥匙链")).toBeTruthy(); // secret.list 名单核验
+    expect(screen.getByText("key 已在钥匙串")).toBeTruthy(); // secret.list 名单核验
   });
 
   it("保存:结构字段走 image.config.save;key 只走 secret.set,配置仅留 keychain: 引用;key 零回显保存即清", async () => {

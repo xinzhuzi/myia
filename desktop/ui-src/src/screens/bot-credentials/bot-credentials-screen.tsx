@@ -86,17 +86,17 @@ const PUSH_FIELDS_BY_CHANNEL: Record<
   webhook: [{ key: "MYIA_WEBHOOK_URL", label: "接收端点 URL", hint: "POST JSON 的接收端(自建服务 / n8n 等)" }],
   // bark(10-05-push-bark):iOS 即时推送;唯一凭据位 = device key
   bark: [
-    { key: "BARK_DEVICE_KEY", label: "Device Key", password: true, hint: "在 iPhone 的 Bark App 里复制;凭据走 env:/keychain: 引用(保存即入钥匙链)" },
+    { key: "BARK_DEVICE_KEY", label: "Device Key", password: true, hint: "在 iPhone 的 Bark App 里复制;凭据保存进系统钥匙串" },
   ],
   // apprise(10-05-push-apprise):统一推送;唯一凭据位 = Apprise 目标串
   apprise: [
-    { key: "APPRISE_URL", label: "Apprise 目标串", password: true, hint: "Apprise 原生目标串,如 bark://… 或 pushover://…,逗号或换行分隔多个;凭据走 env:/keychain: 引用(保存即入钥匙链)" },
+    { key: "APPRISE_URL", label: "Apprise 推送目标", password: true, hint: "Apprise 目标地址,如 bark://… 或 pushover://…,逗号或换行分隔多个;凭据保存进系统钥匙串" },
   ],
   // ── 10-11-bot-credentials-screen 扩通道:已实装全通道凭据位(探查表逐家核实;
   //    B 派通道 = 裸 resolve_credential 无钥匙链回退,品类 YAML 引用须写
   //    keychain:myia/push/<键> 才吃到此处保存值 —— 卡底条件提示段如实注明)──
   ntfy: [
-    { key: "NTFY_TARGET", label: "topic 整串", hint: "{server}/{topic} 形态(如 https://ntfy.sh/myia-alerts);YAML 引用写 keychain:myia/push/NTFY_TARGET" },
+    { key: "NTFY_TARGET", label: "topic 完整地址", hint: "{server}/{topic} 形态(如 https://ntfy.sh/myia-alerts);YAML 引用写 keychain:myia/push/NTFY_TARGET" },
     { key: "NTFY_TOKEN", label: "鉴权 Token", password: true, optional: true, hint: "可选;ntfy 服务器开启鉴权时填" },
   ],
   dingtalk: [
@@ -307,7 +307,7 @@ function CardSaveBar({
         ) : null}
         {state?.kind === "saved" ? (
           <div role="status" data-testid="save-status" className="text-xs text-ok">
-            已写入钥匙链:{state.names.join("、")}(值不回显)
+            已写入钥匙串:{state.names.join("、")}(值不回显)
             {state.note ? <span className="mt-0.5 block text-2xs text-muted-foreground">{state.note}</span> : null}
           </div>
         ) : null}
@@ -354,7 +354,7 @@ export function BotCredentialsScreen() {
       setPushSave({
         kind: "saved",
         names: [record.name],
-        note: "通道凭据已入钥匙链;品类 YAML push[].target 侧以 keychain:myia/<scope>/<name> 引用(通道声明写回属协议缺口)。",
+        note: "通道凭据已入钥匙串;品类 YAML push[].target 侧以 keychain:myia/<scope>/<name> 引用(通道声明写回属协议缺口)。",
       });
       setPush((prev) => ({ ...prev, value: "" }));
     } catch (error) {
@@ -415,7 +415,7 @@ export function BotCredentialsScreen() {
       setPushSave({
         kind: "saved",
         names,
-        note: "已入钥匙链;运行时 env 缺失会自动用这些值(发送测试与真实推送同源)。",
+        note: "已入钥匙串;运行时 env 缺失会自动用这些值(发送测试与真实推送同源)。",
       });
       setPushValues({});
     } catch (error) {
@@ -433,8 +433,8 @@ export function BotCredentialsScreen() {
               机器人凭据
             </CardTitle>
             <CardDescription>
-              按通道填一次凭据(入钥匙链 myia/push/*);「发送测试」与真实推送同源;通道启停与阈值路由在品类
-              YAML push: 节。B 派通道(下拉含提示)的 YAML 引用须写 keychain: 形态,详见通道内提示
+              按通道填一次凭据(入钥匙串 myia/push/*);「发送测试」与真实推送同源;通道启停与阈值路由在品类
+              YAML push: 节。部分通道(下拉选项带标注)不走钥匙串回退:品类 YAML 的凭据引用须写 keychain: 形态,详见该通道内提示
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-1">
@@ -495,7 +495,7 @@ export function BotCredentialsScreen() {
               {KEYCHAIN_REF_REQUIRED_CHANNELS.has(push.channel) ? (
                 // B 派通道(裸 resolve_credential):无钥匙链回退,如实注明引用口径
                 <p data-testid="keychain-ref-hint" className="px-1 pb-1 text-2xs text-muted-foreground">
-                  如实注明:本通道凭据解析无钥匙链回退——品类 YAML 的凭据引用请写
+                  注意:本通道凭据解析不走钥匙串回退——品类 YAML 的凭据引用请写
                   <code className="mx-1 font-mono">keychain:myia/push/&lt;键&gt;</code>
                   形态,此处保存的值即生效;「发送测试」传的就是该引用,可直接验连通。
                 </p>
@@ -521,7 +521,7 @@ export function BotCredentialsScreen() {
                       void handlePushTest(`keychain:myia/push/${PUSH_TEST_TARGET_KEY[push.channel]}`)
                     }
                     disabled={pushTesting}
-                    title="真发一条测试消息(push.test):目标=该通道预设凭据位,与真实推送同源解析"
+                    title="真发一条测试消息:发到该通道预设凭据,与真实推送走同一解析"
                   >
                     <Send className={pushTesting ? "size-3.5 animate-pulse" : "size-3.5"} />
                     {pushTesting ? "发送中…" : "发送测试"}
@@ -542,7 +542,7 @@ export function BotCredentialsScreen() {
             ) : null}
             <details className="border-t border-border/60 pt-2 text-2xs text-muted-foreground">
               <summary className="cursor-pointer select-none">
-                自定义凭据位(品类 YAML 手写 keychain: 引用用;日常接入用上方预设位即可)
+                自定义凭据(高级:品类 YAML 手写 keychain: 引用时才用;日常接入填上方预设字段即可)
               </summary>
               <div className="mt-2 flex flex-col gap-2">
                 <FieldInput

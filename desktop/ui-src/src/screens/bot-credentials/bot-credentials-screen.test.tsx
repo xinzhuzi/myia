@@ -166,7 +166,7 @@ describe("机器人凭据:通道下拉与提示", () => {
     expect(targetHint).toContain("bark://");
     expect(targetHint).toContain("逗号");
 
-    await typeByLabel("apprise Apprise 目标串", "json://sink/a,bark://key/DEFAULT");
+    await typeByLabel("apprise Apprise 推送目标", "json://sink/a,bark://key/DEFAULT");
     fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
     await screen.findByTestId("save-status");
     expect(callsOf("secret.set")).toContainEqual({

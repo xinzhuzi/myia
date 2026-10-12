@@ -16,7 +16,7 @@ export function WeixinAccountScreen() {
     <div className="flex flex-col gap-block pb-block">
       <PageHeader
         title="微信账号"
-        description="微信本身账号(经 Hermes 桥)状态与登录指引:扫码登录在 Hermes 终端向导内完成(机器人凭据归 设置→推送)"
+        description="微信个人账号(经 Hermes 桥)状态与登录指引:扫码登录在 Hermes 终端向导内完成(机器人凭据归 配置 → 机器人凭据)"
       />
       <div className="px-6">
         <WeixinAccountCard />
