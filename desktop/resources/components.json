@@ -42,6 +42,14 @@
         }
       },
       "description": "自托管聚合搜索服务组件(轨B 壳服务,显式 engine: searxng 源的关键词日报底座):装进自管环境后在组件行手动「启动/停止」,装好默认停(G-Q5 手动启停 + 状态记忆,引擎跑源未启动=结构化提示不隐式拉起);服务监听本机 127.0.0.1:8888,健康端点 /healthz,服务数据(settings.yml 随机 secret + 运行日志)落数据根 services/searxng/ 目录,清理数据根即整目录回收。体积与落点(G-Q6):闭包装进自管环境 site-packages(数据根 python/ 下,不散落系统缓存区),沙箱实测 2026-10-06 落盘约 100MB 级(闭包约 90MB:babel 33M + searx 23M + lxml 20M + granian 16M + 其余纯 Python 件;无浏览器/chromium 量级下载,PyPI 走镜像覆盖生效)。上游现实如实披露:SearXNG 真身不在 PyPI(PyPI 同名包是无关 MCP 包装器),闭包从 GitHub 钉 commit d48c4b555 装源码(=引擎探查实例 2026.10.4+d48c4b555 同 commit;git 段不走 PyPI 镜像,需可及 github.com),上游 setup.py 构建期 import 运行时依赖,故安装链分两段:先装钉版依赖闭包(-r 该 commit 的 requirements.txt + granian==2.8.3 服务端 + setuptools/wheel 构建后端)再 --no-build-isolation 装源码包;任一段失败 = 组件卡 error 态可见可重试(幂等)"
+    },
+    {
+      "id": "wechat-bridge",
+      "pip_spec": "setuptools>=75 wheel>=0.45",
+      "pip_src": "wechat-bridge",
+      "post_install": "pip-src-no-build-isolation",
+      "label": "微信本机桥(UI 自动化 + 本地库只读)",
+      "description": "微信本机桥组件(task 10-11-wechat-ui-bridge,0.3.0):UI 通道 = 像素链读取(CGWindowList 快照 + VisionOCR 一级 + VL 修字二级;零激活、零合成点击、不抢焦点、不唤醒微信;读的是当前打开会话,切会话不在能力内)+ 本地库通道 = 只读(sqlcipher 解密副本落数据根私有区 600/700,TTL 24h+容量上限)。分发形态(D5 裁决 2026-10-12):MYIA 仓私有,git 直引需凭据不可行、发 PyPI 加发布纪律——随包源码两段装(searxng 先例):一段装构建后端闭包(setuptools/wheel),二段 --no-build-isolation 装 pip_src 相对路径 wechat-bridge(壳侧白名单解析到 Resources/components/wechat-bridge,拒绝绝对路径与 .. 穿越;零 PyPI 依赖、零凭据墙),源码自带 pyproject.toml,主依赖 = 像素链 pyobjc(pyobjc-framework-Quartz/Vision,darwin 环境标记,Windows 零拉)+ pillow;装成后自管环境有 console script wechat-bridge(--probe 三态探针全只读)。就绪前置:①本地库通道 brew install sqlcipher(缺装时解密步骤结构化指引,不静默半装);②辅助功能授权(授给 MYIA app 本体,responsible process);sqlcipher Python 绑定(sqlcipher3/pysqlcipher3)是编译型依赖,放 extras wechat-bridge[sqlcipher] 备用,刻意不入主链。D4 语义:内存密钥扫描(localdb key-scan)默认关——配置显式开启 + root 提权 + 主人裁决在案三重门齐才生效,只读 vm_read 单遍零常驻;密钥不可得如实 exit 21(key_unavailable),命中落 keys.json(600 权限)后 localdb query 一步闭合。聊天内容/密钥材料不入 git/日志(红线 6)。重装幂等:pip 已装自动跳过"
     }
   ]
 }

@@ -753,7 +753,8 @@ fn run_pip_install_with_extra_flags(
     ))
 }
 
-/// 组件源码包二段安装(10-06-native-plugin-components 轨B:searxng)。
+/// 组件源码包二段安装(10-06-native-plugin-components 轨B:searxng;
+/// 10-11-wechat-ui-bridge D5:wechat-bridge 随包源码)。
 ///
 /// 上游现实(2026-10-06 沙箱实测):searxng 真身**不在 PyPI**(PyPI 同名包
 /// 是无关 MCP 包装器),只能 git 钉 commit 装;且其 setup.py 构建期
@@ -766,10 +767,17 @@ fn run_pip_install_with_extra_flags(
 /// 尾部回显);错误分类复用 pip_failed(用户可重试面同族;重跑幂等——
 /// 已装自动跳过)。PyPI 镜像 --index-url 只覆盖 PyPI 依赖解析,git 直引
 /// 段走 github.com(与 Playwright CDN 同理,镜像不覆盖属预期,文案已披露)。
+///
+/// pip_src 词形二分([`resolve_pip_src_spec`]):远程直引(searxng 的
+/// ``name@git+https://…``)原样透传;相对路径(10-11-wechat-ui-bridge D5
+/// 随包源码形态,wechat-bridge——MYIA 仓私有,git 直引需凭据不可行、发
+/// PyPI 加发布纪律,随包 Resources 最省)白名单式解析到壳资源
+/// `Resources/components/` 下,注册表条目无法借此装任意路径。
 pub(crate) fn run_pip_src_no_build_isolation(
     python: &Path,
     src_spec: &str,
     index_url: Option<&str>,
+    resource_dir: Option<&Path>,
 ) -> Result<(), (InstallErrorKind, String)> {
     if src_spec.trim().is_empty() {
         return Err((
@@ -777,12 +785,64 @@ pub(crate) fn run_pip_src_no_build_isolation(
             "pip_src spec 为空(全空白):注册表条目无效".to_string(),
         ));
     }
+    let resolved = resolve_pip_src_spec(src_spec, resource_dir)?;
     run_pip_install_with_extra_flags(
         python,
-        vec![std::ffi::OsString::from(src_spec)],
+        vec![std::ffi::OsString::from(resolved)],
         index_url,
         &["--no-build-isolation"],
     )
+}
+
+/// 组件源码目录名(resource_dir 下;tauri.conf resources 把组件源码目录整份
+/// 映射进包后位于 `Resources/components/`。与 pyenv_components 的
+/// COMPONENTS_RESOURCE_FILE 同款「resource_dir.join(常量)」资源拼法)。
+pub(crate) const COMPONENTS_SRC_RESOURCE_DIR: &str = "components";
+
+/// pip_src spec 解析(D5 随包源码形态;纯逻辑,子进程前拦):
+///
+/// - 远程直引(searxng 形态 `name@git+https://…@commit`,或任意带 `://` 的
+///   URL)原样透传——安装语义不因本函数改变;
+/// - 相对路径(如 `wechat-bridge`)白名单式解析到
+///   `<resource_dir>/components/<rel>`:先过 [`is_safe_relative`](拒绝绝对
+///   路径、`..` 穿越段、空串),落点不存在即结构化拒(注册表 pip_src 与
+///   resources 映射漂移);
+/// - 白名单钉死在 Resources/components/ 下 + 相对词形守门,注册表(随包
+///   资产)不可能借此把安装指向任意装机路径;
+/// - resource_dir 缺位(极端宿主 resource_dir() 失败)遇相对路径 → 结构化拒。
+fn resolve_pip_src_spec(
+    src_spec: &str,
+    resource_dir: Option<&Path>,
+) -> Result<String, (InstallErrorKind, String)> {
+    let trimmed = src_spec.trim();
+    if trimmed.contains("://") || trimmed.starts_with("git+") {
+        return Ok(src_spec.to_string());
+    }
+    if !is_safe_relative(trimmed) {
+        return Err((
+            InstallErrorKind::SetupFailed,
+            format!(
+                "pip_src 相对路径不在白名单词形内(绝对路径/.. 穿越/空段): {trimmed:?}"
+            ),
+        ));
+    }
+    let dir = resource_dir.ok_or_else(|| {
+        (
+            InstallErrorKind::SetupFailed,
+            "pip_src 相对路径解析需要资源目录(resource_dir 缺位)".to_string(),
+        )
+    })?;
+    let resolved = dir.join(COMPONENTS_SRC_RESOURCE_DIR).join(trimmed);
+    if !resolved.exists() {
+        return Err((
+            InstallErrorKind::SetupFailed,
+            format!(
+                "随包组件源码缺位: {}(注册表 pip_src 与 tauri resources 映射漂移?)",
+                resolved.display()
+            ),
+        ));
+    }
+    Ok(resolved.to_string_lossy().into_owned())
 }
 
 /// version ping 自检:短命 serve 进程握手(与常驻 spawn 同源 argv/env 注入)。
@@ -1753,6 +1813,67 @@ mod tests {
             Path::new("python/bin/python3"),
             Path::new("python/python.exe")
         ));
+    }
+
+    /// pip_src 相对路径解析(D5 随包源码形态):远程直引原样透传;相对路径
+    /// 白名单解析到 `<resource_dir>/components/<rel>`;穿越/绝对/resource_dir
+    /// 缺位/落点缺位全拒(setup_failed,结构化)。
+    #[test]
+    fn pip_src_resolution_whitelists_relative_under_resources_components() {
+        let resource = tempfile::tempdir().expect("资源根临时目录创建失败");
+        let src_root = resource
+            .path()
+            .join(COMPONENTS_SRC_RESOURCE_DIR)
+            .join("wechat-bridge");
+        fs::create_dir_all(&src_root).expect("组件源码目录创建失败");
+
+        // 远程直引(searxng 形态 git 钉 commit / 普通 URL)原样透传,
+        // resource_dir 缺位也不影响
+        let git_ref =
+            "searxng@git+https://github.com/searxng/searxng.git@d48c4b555421e824342c51d68482dd0898e54d0f";
+        assert_eq!(resolve_pip_src_spec(git_ref, None).unwrap(), git_ref);
+        assert_eq!(
+            resolve_pip_src_spec("https://example.com/pkg.tar.gz", None).unwrap(),
+            "https://example.com/pkg.tar.gz"
+        );
+
+        // 相对路径 → resource_dir/components/<rel> 绝对路径
+        let resolved = resolve_pip_src_spec("wechat-bridge", Some(resource.path())).unwrap();
+        assert_eq!(Path::new(&resolved), src_root.as_path());
+
+        // 前后空白容忍(trim 后解析)
+        let padded = resolve_pip_src_spec("  wechat-bridge  ", Some(resource.path())).unwrap();
+        assert_eq!(Path::new(&padded), src_root.as_path());
+
+        // 穿越段拒(`..` 逃不出白名单根)
+        let err = resolve_pip_src_spec("../escape", Some(resource.path())).unwrap_err();
+        assert_eq!(err.0, InstallErrorKind::SetupFailed);
+        assert!(err.1.contains("白名单词形"), "实际: {}", err.1);
+
+        // 绝对路径拒(注册表是随包资产,不得指向装机实况路径)
+        let err = resolve_pip_src_spec("/tmp/evil", Some(resource.path())).unwrap_err();
+        assert_eq!(err.0, InstallErrorKind::SetupFailed);
+
+        // 空段拒
+        assert!(resolve_pip_src_spec("", Some(resource.path())).is_err());
+
+        // resource_dir 缺位 + 相对路径 → 结构化拒
+        let err = resolve_pip_src_spec("wechat-bridge", None).unwrap_err();
+        assert_eq!(err.0, InstallErrorKind::SetupFailed);
+        assert!(err.1.contains("resource_dir 缺位"), "实际: {}", err.1);
+
+        // 落点缺位(注册表与 resources 映射漂移)→ 结构化拒,明细带落点
+        let err = resolve_pip_src_spec("ghost-bridge", Some(resource.path())).unwrap_err();
+        assert_eq!(err.0, InstallErrorKind::SetupFailed);
+        assert!(err.1.contains("ghost-bridge"), "明细应带落点: {}", err.1);
+    }
+
+    /// 白名单根常量:组件源码恒在 Resources/components/ 下(与
+    /// tauri.conf.json resources 映射 `components/wechat-bridge` 对齐,
+    /// tests/desktop/test_pyenv_resources.py 把守两侧不漂移)。
+    #[test]
+    fn components_src_resource_dir_is_pinned() {
+        assert_eq!(COMPONENTS_SRC_RESOURCE_DIR, "components");
     }
 
     // —— 全链真跑测试(unix:sh 桩 + 本地 HTTP)——

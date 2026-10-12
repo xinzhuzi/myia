@@ -179,8 +179,11 @@ pub struct ComponentSpec {
     pub post_install: Option<String>,
     /// 源码包二段安装 spec(可选;与 post_install=pip-src-no-build-isolation
     /// 钩子配套——searxng 上游 setup.py 构建期 import 运行时依赖,须先装
-    /// 闭包再 --no-build-isolation 装源码包,单发必败,见模块注释)。进指纹
-    /// 基准(闭包任一串变脸即漂移)。
+    /// 闭包再 --no-build-isolation 装源码包,单发必败,见模块注释)。词形
+    /// 二分(pyenv_install::resolve_pip_src_spec):远程直引(searxng 形态
+    /// `name@git+https://…@commit`)原样透传;相对路径(10-11-wechat-ui-bridge
+    /// D5 wechat-bridge 随包源码)白名单解析到 Resources/components/ 下。
+    /// 进指纹基准(闭包任一串变脸即漂移)。
     #[serde(default)]
     pub pip_src: Option<String>,
     /// 组件形态(可选;缺省 None = 轨A 库组件既有语义,老条目/老消费端零
@@ -1152,18 +1155,22 @@ pub struct ComponentInstallOutcome {
     pub error: Option<String>,
 }
 
-/// 组件安装(复用安装链依赖段;轨A crawl4ai 带浏览器钩子,design §3):
+/// 组件安装(复用安装链依赖段;轨A crawl4ai 带浏览器钩子,design §3;
+/// 10-11-wechat-ui-bridge D5 wechat-bridge 带随包源码二段装钩子):
 /// 契约校验(未知 post_install 钩子零副作用拒)→ 磁盘预检(钩子加码)→
 /// run_pip_spec(镜像索引透传)→ playwright chromium 钩子(落
 /// `<数据根>/playwright-browsers/`)→ 指纹戳。成功落 ready+指纹;任一步
 /// 失败/中断落 error+明细(installed=false 如实;重试幂等——pip 已装自动
-/// 跳过、浏览器二进制续装)。
+/// 跳过、浏览器二进制续装)。resource_dir 供 pip_src 相对路径解析
+/// (pyenv_install::resolve_pip_src_spec 白名单;searxng 的远程直引不需要,
+/// 传 None 即可)。
 pub(crate) fn install_component(
     data_root: &Path,
     python_bin: &Path,
     spec: &ComponentSpec,
     index_url: Option<&str>,
     disk_required_bytes: u64,
+    resource_dir: Option<&Path>,
 ) -> ComponentInstallOutcome {
     use crate::pyenv_install;
     let fail = |error: String, fingerprint: Option<String>| {
@@ -1241,13 +1248,16 @@ pub(crate) fn install_component(
                     }
                     POST_INSTALL_PIP_SRC_NO_BUILD_ISOLATION => {
                         // 轨B searxng:二段装源码包(依赖已在场;构建期 import
-                        // 才可解析,见 run_pip_src_no_build_isolation 注释)
+                        // 才可解析,见 run_pip_src_no_build_isolation 注释)。
+                        // 10-11-wechat-ui-bridge D5:相对路径 pip_src 在本函数
+                        // 内白名单解析到 Resources/components/(随包源码形态)
                         let src = spec.pip_src.clone().unwrap_or_default();
                         if let Err((kind, detail)) =
                             pyenv_install::run_pip_src_no_build_isolation(
                                 python_bin,
                                 &src,
                                 index_url,
+                                resource_dir,
                             )
                         {
                             return fail(pyenv_install::render_error(kind, detail), None);
@@ -1332,6 +1342,7 @@ pub async fn pyenv_install_component(
     let index_url = crate::pyenv::read_settings(&data_root).mirror_pypi;
     let spec = spec.clone();
     let root = data_root.clone();
+    let resource_for_install = resource_dir.clone();
     let joined = tauri::async_runtime::spawn_blocking(move || {
         install_component(
             &root,
@@ -1339,6 +1350,7 @@ pub async fn pyenv_install_component(
             &spec,
             index_url.as_deref(),
             crate::pyenv_install::DISK_REQUIRED_BYTES,
+            resource_for_install.as_deref(),
         )
     });
     let outcome = match joined.await {
@@ -1945,6 +1957,7 @@ mod tests {
                 &table_spec(),
                 index_url,
                 1024 * 1024, // 磁盘门注小值(预检本身另测)
+                None,
             )
         }
 
@@ -2037,6 +2050,7 @@ mod tests {
                 &table_spec(),
                 None,
                 u64::MAX, // 预检必不过
+                None,
             );
             assert!(!outcome.installed);
             let error = outcome.error.expect("预检失败应带明细");
@@ -2047,7 +2061,7 @@ mod tests {
         // —— crawl4ai 轨A:post_install 浏览器钩子(10-06-native-plugin-components)——
 
         fn install_crawl4ai(python: &Path, data_root: &Path) -> ComponentInstallOutcome {
-            install_component(data_root, python, &crawl4ai_spec(), None, 1024 * 1024)
+            install_component(data_root, python, &crawl4ai_spec(), None, 1024 * 1024, None)
         }
 
         /// crawl4ai 成功链:pip 闭包 → playwright chromium 钩子恰各跑一次;
@@ -2132,7 +2146,7 @@ mod tests {
                 ..crawl4ai_spec()
             };
             let outcome =
-                install_component(dir.path(), &python, &bogus, None, 1024 * 1024);
+                install_component(dir.path(), &python, &bogus, None, 1024 * 1024, None);
 
             assert!(!outcome.installed);
             let error = outcome.error.expect("契约漂移应带明细");
@@ -2452,7 +2466,7 @@ mod tests {
             } else {
                 std::fs::remove_file(dir.join("src-fail-marker")).ok();
             }
-            install_component(dir, python, &searxng_spec(), None, 1024 * 1024)
+            install_component(dir, python, &searxng_spec(), None, 1024 * 1024, None)
         }
 
         /// 一段闭包 pip 记账行(既有 pip-invocations.log 里的闭包装)。
@@ -2566,7 +2580,7 @@ mod tests {
                 pip_src: None,
                 ..searxng_spec()
             };
-            let outcome = install_component(dir.path(), &python, &malformed, None, 1024 * 1024);
+            let outcome = install_component(dir.path(), &python, &malformed, None, 1024 * 1024, None);
 
             assert!(!outcome.installed);
             let error = outcome.error.expect("契约漂移应带明细");
@@ -2577,6 +2591,129 @@ mod tests {
             );
             let stamp = read_component_stamp(dir.path(), "searxng").expect("拒也应落戳");
             assert_eq!(stamp.state.as_deref(), Some("error"));
+        }
+    }
+
+    // —— 随包源码组件(10-11-wechat-ui-bridge D5:wechat-bridge):pip_src
+    //    相对路径白名单解析到 resource_dir/components/<rel>,二段装收到解析后
+    //    绝对路径;穿越形在二段段被结构化拒(一段闭包已跑 = 既有两段装结构,
+    //    src 段失败照旧 error 戳可见)——
+    #[cfg(unix)]
+    mod bundled_src_install {
+        use super::*;
+
+        /// wechat-bridge 组件 spec(与随包 components.json 条目同形:一段
+        /// 构建后端闭包 + 二段相对路径 pip_src + no-build-isolation 钩子;
+        /// 注册表钉版由 tests/desktop/test_pyenv_resources.py 把守)。
+        fn wechat_bridge_spec() -> ComponentSpec {
+            ComponentSpec {
+                post_install: Some(POST_INSTALL_PIP_SRC_NO_BUILD_ISOLATION.into()),
+                pip_src: Some("wechat-bridge".into()),
+                ..base_spec(
+                    "wechat-bridge",
+                    "setuptools>=75 wheel>=0.45",
+                    "微信本机桥(UI 自动化 + 本地库只读)",
+                    "随包源码两段装(D5)",
+                )
+            }
+        }
+
+        /// 二段源码包 pip 记账行(pip-src-invocations.log;桩按
+        /// --no-build-isolation flag 路由,与 searxng_install 同款)。
+        fn src_pip_lines(dir: &Path) -> Vec<String> {
+            std::fs::read_to_string(dir.join("pip-src-invocations.log"))
+                .map(|text| text.lines().map(String::from).collect())
+                .unwrap_or_default()
+        }
+
+        #[test]
+        fn relative_pip_src_resolves_under_resources_components() {
+            let dir = tempfile::tempdir().expect("临时目录创建失败");
+            let resource = tempfile::tempdir().expect("资源临时目录创建失败");
+            let src_root = resource
+                .path()
+                .join(crate::pyenv_install::COMPONENTS_SRC_RESOURCE_DIR)
+                .join("wechat-bridge");
+            std::fs::create_dir_all(&src_root).expect("随包源码目录创建失败");
+            let python = stub_python(dir.path());
+
+            let outcome = install_component(
+                dir.path(),
+                &python,
+                &wechat_bridge_spec(),
+                None,
+                1024 * 1024,
+                Some(resource.path()),
+            );
+
+            assert_eq!(
+                outcome,
+                ComponentInstallOutcome {
+                    id: "wechat-bridge".into(),
+                    installed: true,
+                    error: None
+                }
+            );
+            // 一段闭包:构建后端两件(searxng 同款词形)
+            let closure = pip_log(dir.path());
+            assert_eq!(closure.len(), 1, "一段闭包恰一次: {closure:?}");
+            assert!(
+                closure[0].contains("setuptools>=75") && closure[0].contains("wheel>=0.45"),
+                "一段闭包须构建后端齐: {}",
+                closure[0]
+            );
+            // 二段源码包:--no-build-isolation + 解析后的绝对路径(白名单根下)
+            let src_lines = src_pip_lines(dir.path());
+            assert_eq!(src_lines.len(), 1, "二段源码包恰一次: {src_lines:?}");
+            assert!(src_lines[0].contains("--no-build-isolation"));
+            assert!(
+                src_lines[0].contains(src_root.to_string_lossy().as_ref()),
+                "二段须收到解析后的白名单绝对路径: {}",
+                src_lines[0]
+            );
+            // ready 戳:指纹基准 = 闭包两段(pip_spec+pip_src,相对原文进基准)
+            let stamp = read_component_stamp(dir.path(), "wechat-bridge").expect("成功应落戳");
+            assert_eq!(stamp.state.as_deref(), Some("ready"));
+            assert_eq!(
+                stamp.fingerprint.as_deref(),
+                Some(closure_fingerprint(&wechat_bridge_spec()).as_str())
+            );
+            assert!(is_component_installed(dir.path(), &wechat_bridge_spec()));
+        }
+
+        /// 穿越形 pip_src:二段段结构化拒(setup_failed),src 段零子进程;
+        /// 一段闭包已跑 = 既有两段装结构不动(最小改动裁决),失败 error 戳
+        /// 可见可重试,不静默半装。
+        #[test]
+        fn traversal_pip_src_rejected_at_src_stage_with_error_stamp() {
+            let dir = tempfile::tempdir().expect("临时目录创建失败");
+            let resource = tempfile::tempdir().expect("资源临时目录创建失败");
+            let python = stub_python(dir.path());
+            let evil = ComponentSpec {
+                pip_src: Some("../escape".into()),
+                ..wechat_bridge_spec()
+            };
+
+            let outcome = install_component(
+                dir.path(),
+                &python,
+                &evil,
+                None,
+                1024 * 1024,
+                Some(resource.path()),
+            );
+
+            assert!(!outcome.installed);
+            let error = outcome.error.expect("穿越形应带明细");
+            assert!(error.starts_with("setup_failed: "), "实际: {error}");
+            assert!(error.contains("白名单词形"), "实际: {error}");
+            assert!(
+                src_pip_lines(dir.path()).is_empty(),
+                "src 段零子进程(白名单守门在 pip 拉起之前)"
+            );
+            let stamp = read_component_stamp(dir.path(), "wechat-bridge").expect("拒也应落戳");
+            assert_eq!(stamp.state.as_deref(), Some("error"));
+            assert_eq!(stamp.fingerprint, None, "失败不落指纹(防误判已装)");
         }
     }
 

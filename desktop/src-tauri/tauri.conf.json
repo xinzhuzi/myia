@@ -82,7 +82,8 @@
       "../resources/components.json": "components.json",
       "../resources/plugins.lock.json": "plugins.lock.json",
       "../resources/requirements-lock.txt": "requirements-lock.txt",
-      "../resources/runtime-manifest.json": "runtime-manifest.json"
+      "../resources/runtime-manifest.json": "runtime-manifest.json",
+      "../../plugins/wechat-bridge": "components/wechat-bridge"
     },
     "category": "DeveloperTool",
     "shortDescription": "myssia — AI-native intelligence hub"

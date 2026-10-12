@@ -631,6 +631,171 @@ def test_browser_covered_by_desktop_lock() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 1g. wechat-bridge 随包源码组件行(10-11-wechat-ui-bridge D5 裁决 2026-10-12):
+#     MYIA 仓私有,git 直引需凭据不可行、发 PyPI 加发布纪律 → 随包源码 +
+#     pip_src 相对路径白名单解析到 Resources/components/(searxng 两段装
+#     先例的壳侧机制复用:一段构建后端闭包 + 二段 --no-build-isolation 装
+#     pip_src;相对路径解析在壳侧 pyenv_install.rs resolve_pip_src_spec,
+#     此处钉「上游不产漂移词形」与披露锚点)。
+# ---------------------------------------------------------------------------
+
+#: 微信本机桥组件一段闭包(构建后端两件,searxng 先例同款词形:--no-build-
+#: isolation 二段装的构建后端必须已在场;setuptools>=75 严于组件源码
+#: pyproject build-system requires 的 setuptools>=61,相容且更严)。像素链
+#: pyobjc/pillow **不在注册表闭包**——由组件源码 pyproject dependencies
+#: 随源码装(darwin 环境标记),注册表只钉构建后端,第三种钉版口径不引入。
+WECHAT_BRIDGE_COMPONENT_PIP_SPEC = "setuptools>=75 wheel>=0.45"
+
+#: pip_src 相对路径(白名单词形;壳侧解析到 Resources/components/<rel>,
+#: 拒绝对路径/.. 穿越——注册表是随包资产,不得携带装机实况路径)。
+WECHAT_BRIDGE_PIP_SRC = "wechat-bridge"
+
+#: 组件源码目录随包映射(tauri.conf resources;整目录进包)。
+WECHAT_BRIDGE_RESOURCE_MAP = {
+    "../../plugins/wechat-bridge": "components/wechat-bridge",
+}
+
+
+def test_wechat_bridge_source_resource_declared_and_present() -> None:
+    """组件源码目录随包映射:tauri.conf resources 已声明 + 磁盘实况在位 +
+    pip 装元数据在源码根(pyproject.toml + wechat_bridge 包)——映射与
+    注册表 pip_src 相对路径漂移时,壳侧解析会落「随包组件源码缺位」
+    setup_failed,此处上游先拦。"""
+    resources = _conf_resources()
+    for source, dest in WECHAT_BRIDGE_RESOURCE_MAP.items():
+        assert resources.get(source) == dest, (
+            f"resources 缺映射 {source!r} -> {dest!r}(实得 {resources.get(source)!r})"
+        )
+        path = (SRC_TAURI / source).resolve()
+        assert path.is_dir(), f"映射源不存在(目录形态): {source} -> {path}"
+        assert (path / "pyproject.toml").is_file(), f"pip 装元数据缺位: {path}"
+        assert (path / "wechat_bridge" / "__init__.py").is_file(), (
+            f"wechat_bridge 包缺位: {path}"
+        )
+
+
+def test_wechat_bridge_component_row_contract() -> None:
+    """注册表行契约:构建后端闭包 + 相对路径 pip_src + no-build-isolation
+    钩子 + kind 缺省(库组件,非 service)+ 就绪前置/D4 语义/静默铁律/
+    分发形态披露锚点(披露缺失即红)。"""
+    registry = json.loads(
+        (RESOURCES_DIR / "components.json").read_text(encoding="utf-8")
+    )
+    entry = next(e for e in registry["components"] if e["id"] == "wechat-bridge")
+    assert entry["pip_spec"] == WECHAT_BRIDGE_COMPONENT_PIP_SPEC, (
+        f"wechat-bridge 一段闭包漂移: {entry['pip_spec']!r}"
+    )
+    assert entry["pip_src"] == WECHAT_BRIDGE_PIP_SRC, (
+        f"pip_src 必须是白名单相对路径(随包源码形态): {entry['pip_src']!r}"
+    )
+    assert entry["post_install"] == "pip-src-no-build-isolation", (
+        "两段装钩子必须声明(缺它只装构建后端,桥本体不在场)"
+    )
+    assert "kind" not in entry, "wechat-bridge 是库组件(kind 缺省),非 service"
+    description = entry["description"]
+    # 就绪前置(design §5.1)
+    assert "brew install sqlcipher" in description, "须写明 sqlcipher CLI 前置"
+    assert "辅助功能授权" in description, "须写明 AX 授权前置"
+    assert "sqlcipher3" in description, "须披露编译型绑定 extras 化(不入主链)"
+    # D4 语义(默认关 + 提权 + 诚实退出码)
+    assert "默认关" in description and "提权" in description, "须披露 D4 三重门"
+    assert "exit 21" in description, "须披露密钥不可得如实 exit 21"
+    # 静默铁律(红线 4)
+    assert "零合成点击" in description and "不唤醒微信" in description, (
+        "须披露静默铁律(零激活零合成点击)"
+    )
+    # D5 分发形态
+    assert "Resources/components/wechat-bridge" in description, (
+        "须披露随包源码落点(白名单解析)"
+    )
+
+
+def test_registry_pip_src_relative_entries_are_whitelist_safe() -> None:
+    """全表 pip_src 守门(壳侧 resolve_pip_src_spec 的上游先拦,拼写漂移在
+    仓测拦下、不等用户点安装):远程直引(`://` 或 `git+` 打头,searxng
+    形态)放行;其余必须安全相对词形——非绝对、无 `..` 段、无前后空白。"""
+    registry = json.loads(
+        (RESOURCES_DIR / "components.json").read_text(encoding="utf-8")
+    )
+    for entry in registry["components"]:
+        src = entry.get("pip_src")
+        if not src:
+            continue
+        if "://" in src or src.startswith("git+"):
+            continue
+        assert src == src.strip() and src, f"pip_src 空白形: {entry['id']!r} {src!r}"
+        assert not src.startswith(("/", "\\")), (
+            f"pip_src 绝对路径不在白名单内: {entry['id']!r} {src!r}"
+        )
+        assert ".." not in Path(src).parts, (
+            f"pip_src 含 .. 穿越段: {entry['id']!r} {src!r}"
+        )
+
+
+def test_wechat_bridge_pyproject_matches_component_stamp() -> None:
+    """组件源码 pip 元数据 ↔ 组件戳三方对齐(真锁惯例,design §4):
+
+    - 版本单源:pyproject == component.json == ``wechat_bridge.__version__``;
+    - 主依赖 = 像素链(pyobjc Quartz/Vision 带 darwin 环境标记——Windows
+      自管环境零 pyobjc 拉;pillow 无标记跨平台),版本窗覆盖 uv.lock
+      实测线(pyobjc 12.2.2 / pillow 12.3.0);
+    - 编译型 sqlcipher 绑定**只在 extras 不在主依赖**(主链不添编译墙,
+      brew install sqlcipher CLI 是本地库前置);
+    - console script 对齐 cli.main;构建后端 setuptools 与注册表一段闭包
+      (setuptools>=75)相容。
+    """
+    component_root = REPO_ROOT / "plugins" / "wechat-bridge"
+    pyproject = tomllib.loads((component_root / "pyproject.toml").read_text(encoding="utf-8"))
+    stamp = json.loads((component_root / "component.json").read_text(encoding="utf-8"))
+    init_text = (component_root / "wechat_bridge" / "__init__.py").read_text(encoding="utf-8")
+
+    version = pyproject["project"]["version"]
+    assert version == stamp["version"] == "0.3.0", (
+        f"版本三方漂移: pyproject {version} vs component.json {stamp['version']}"
+    )
+    matched = re.search(r'^__version__\s*=\s*"([^"]+)"', init_text, re.M)
+    assert matched and matched.group(1) == version, (
+        f"__init__.__version__ 与 pyproject 漂移: {matched and matched.group(1)!r} vs {version}"
+    )
+
+    deps = {
+        _pep503(str(Requirement(raw).name)): Requirement(raw)
+        for raw in pyproject["project"]["dependencies"]
+    }
+    assert {"pyobjc-framework-quartz", "pyobjc-framework-vision", "pillow"} <= set(deps), (
+        f"像素链主依赖缺件: {sorted(deps)}"
+    )
+    for name in ("pyobjc-framework-quartz", "pyobjc-framework-vision"):
+        marker = deps[name].marker
+        assert marker is not None and "darwin" in str(marker), (
+            f"{name} 须带 darwin 环境标记(Windows 零 pyobjc 拉): {marker}"
+        )
+    assert deps["pillow"].marker is None, "pillow 跨平台,不应带环境标记"
+    # 版本窗覆盖 uv.lock 实测线、排除 unverified 大版本
+    assert deps["pyobjc-framework-quartz"].specifier.contains("12.2.2")
+    assert deps["pyobjc-framework-vision"].specifier.contains("12.2.2")
+    assert deps["pillow"].specifier.contains("12.3.0")
+    assert not deps["pyobjc-framework-quartz"].specifier.contains("13.0")
+    assert not deps["pillow"].specifier.contains("13.0")
+
+    # 编译型绑定:主依赖零出现,extras [sqlcipher] 双件齐
+    assert "sqlcipher3" not in deps and "pysqlcipher3" not in deps, (
+        "sqlcipher Python 绑定是编译型依赖,不得入主依赖(主链不添编译墙)"
+    )
+    extras = pyproject["project"]["optional-dependencies"]["sqlcipher"]
+    extra_names = {_pep503(str(Requirement(raw).name)) for raw in extras}
+    assert {"sqlcipher3", "pysqlcipher3"} <= extra_names, f"extras 缺件: {sorted(extra_names)}"
+
+    # 入口与构建后端
+    assert pyproject["project"]["scripts"]["wechat-bridge"] == "wechat_bridge.cli:main"
+    build_requires = " ".join(pyproject["build-system"]["requires"])
+    assert "setuptools" in build_requires, "构建后端须 setuptools(注册表一段闭包对齐)"
+    assert "setuptools>=75" in WECHAT_BRIDGE_COMPONENT_PIP_SPEC, (
+        "注册表一段闭包钉 setuptools>=75(≥ build-system requires 的下限,两段装前提)"
+    )
+
+
+# ---------------------------------------------------------------------------
 # 2. runtime-manifest.json:钉版 URL + 实算 sha256 + 解压布局
 # ---------------------------------------------------------------------------
 

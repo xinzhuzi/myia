@@ -27,6 +27,13 @@ requires),exec `python -m wechat_bridge`;stdout 恒单 JSON 由桥包保证,
 启动器失败只写 stderr + exit 2。MYIA 侧消费点即此 bin
 (`myssia.push.weixin_local.DEFAULT_BRIDGE_BIN`)。
 
+## 分发形态(D5 裁决:随包源码 + pip_src 相对路径,2026-10-12)
+
+- **路线**:MYIA 仓私有,git 直引需凭据不可行、发 PyPI 加发布纪律 → 组件源码随壳包走:tauri.conf resources 把本目录整份映射进 `Resources/components/wechat-bridge`,桌面组件注册表(`desktop/resources/components.json`)的 `pip_src: "wechat-bridge"` 相对路径由壳白名单解析到该落点(拒绝对路径/`..` 穿越),零 PyPI 依赖、零凭据墙、零发布纪律。
+- **两段装**(searxng 先例):一段装构建后端闭包(`setuptools>=75 wheel>=0.45`),二段 `--no-build-isolation` 装随包源码——本目录 `pyproject.toml` 即 pip 装元数据(name `wechat-bridge`,版本与 component.json/`__init__.__version__` 三方同步),主依赖带像素链 pyobjc(Quartz/Vision,darwin 环境标记)与 pillow;装成后自管环境内有 console script `wechat-bridge`。
+- **编译依赖不入主链**:sqlcipher Python 绑定(`sqlcipher3`/`pysqlcipher3`)是编译型依赖,放 optional extra `wechat-bridge[sqlcipher]`;**本地库前置是 `brew install sqlcipher`**(design §5.1)——现行解密实现走 sqlcipher CLI,缺装时结构化指引不静默半装;绑定 extras 仅嵌入式路线备用,需要时显式安装。
+- **就绪前置**(components.json 描述同口径):`brew install sqlcipher`(本地库通道)+ 辅助功能授权(授给 MYIA app 本体);内存密钥扫描(D4)默认关,显式开启 + root 提权 + 主人裁决在案三重门齐才生效,密钥不可得如实 exit 21。
+
 ## 落点与配置
 
 - 组件源码(本目录)经受管链路落在 `~/.myia/plugins/wechat-bridge/`(design §1);MYIA 侧 `wechat_bridge_bin` 可覆写路径(Phase F)。

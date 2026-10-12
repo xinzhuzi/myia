@@ -1,0 +1,60 @@
+# wechat-bridge pip 装元数据(10-11-wechat-ui-bridge D5 组件分发形态裁决:
+# 随包源码 + pip_src 相对路径解析到 tauri Resources——MYIA 仓私有,git 直引
+# 需凭据不可行,发 PyPI 加发布纪律;桌面组件链经本文件装进自管环境,
+# 开发态目录形态(bin/wechat-bridge + python -m wechat_bridge)不受影响。
+# 版本单一出处 = wechat_bridge/__init__.__version__,与本文件、component.json
+# 三方同步(真锁惯例,design §4;tests/desktop/test_pyenv_resources.py 把守)。
+
+[build-system]
+# 构建后端 = setuptools:桌面组件链两段装的二段用 --no-build-isolation
+# (searxng 先例),构建后端必须已在场——注册表一段闭包钉 setuptools>=75
+# wheel>=0.45 与此处对齐。
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wechat-bridge"
+version = "0.3.0"
+description = "微信本机桥:UI 自动化(像素链读取,零激活零合成点击)+ 本地库只读(sqlcipher 解密副本;brew install sqlcipher 前置)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "xinzhuzi"}]
+dependencies = [
+    # 像素链主依赖(D5:声明进主依赖,非可选):
+    # - pyobjc-framework-Quartz:CGWindowList 窗口枚举(screencapture 截窗走
+    #   系统 CLI,Quartz 供窗口定位与三态判定);仓库 uv.lock 实测 12.2.2,
+    #   窗 >=12,<13 防 unverified 大版本。
+    # - pyobjc-framework-Vision:像素读链一级 VisionOCR(pyobjc-framework-Vision,
+    #   毫秒级+逐行置信度);AX 树零暴露(4.1.15 实测),读链全靠本件。
+    # - pillow:截窗解码 + 三态黑图检测 + VL 显式降采样 + 聊天区裁剪;
+    #   uv.lock 实测 12.3.0。
+    # pyobjc 全家仅 darwin 有轮,环境标记钉死(sys_platform)——Windows 自管
+    # 环境装本包时零 pyobjc 拉,像素链缺装如实降级(component.json
+    # requires.optional_python 语义的 pip 化)。
+    "pyobjc-framework-Quartz>=12,<13; sys_platform == 'darwin'",
+    "pyobjc-framework-Vision>=12,<13; sys_platform == 'darwin'",
+    "pillow>=12,<13",
+]
+
+[project.optional-dependencies]
+# sqlcipher Python 绑定 = 编译型依赖(须 brew install sqlcipher 提供头文件与
+# libsqlcipher,否则源码编译必败),**刻意不入主依赖**:本地库解密现行实现走
+# sqlcipher CLI(wechat_bridge.localdb.sqlcipher_available,design §5.1 前置,
+# 缺装时结构化指引不静默半装),绑定是嵌入式路线的备选声明——需要时
+# `pip install 'wechat-bridge[sqlcipher]'` 显式 opting,不给装机链添编译墙。
+sqlcipher = [
+    "sqlcipher3>=0.5; sys_platform == 'darwin'",
+    "pysqlcipher3>=1.2; sys_platform == 'darwin'",
+]
+
+[project.scripts]
+# console script(pip 装形态入口):与开发态 `python -m wechat_bridge` 同一
+# cli.main;CLI 契约(design §6 十二错误码)、三态探针、G6 频控、静默铁律
+# 全在包内,入口零逻辑。
+wechat-bridge = "wechat_bridge.cli:main"
+
+[tool.setuptools]
+# 显式列举(flat 布局下 bin/、component.json 等非包件在场,自动发现必歧义
+# 报错);纯 Python 包,无包外数据文件。
+packages = ["wechat_bridge"]
