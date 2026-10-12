@@ -53,7 +53,7 @@
 - [x] **AC4 静默验证**：AC2/AC3 全程前台 app 与焦点不变（取证：前后前台进程对照 + 窗口列表对照）。**冲突裁决预设**：若 A1 探查证实 AX 静默发送技术上不可行（发送必须窗口持焦），AC3 不得以破坏静默铁律为代价强行达成——降级三案提主人裁决（A1 定论后更新）：(i) 半自动（桥备好内容+人工点发送） (ii) 显式妥协案（已无意义,AX 通道不存在） **(iii) A1 探查追加:写通道归官方 iLink 桥(weixin.py)独任,UI 写判 exit 13/15——推荐**。
 - [x] **AC5 落地形态（开发态）**:组件戳+配置面+push 通道注册+消息屏双卡三态+本机已装 0.3.0(probe degraded 如实)。**分发形态缺口→D5**（开发态手装≠新机器可下载;现有组件体系全 pip_spec 形态,wechat-bridge 的 sqlcipher 编译链+目录形态与之不匹配）。
 - [x] **AC6 备胎占位**：Windows 线设计占位段落档（栈选型 + 启用判据 + 与 macOS 桥的协议对齐），不实现。**启用硬判据（G9）**：macOS 线连续两周 degraded/不可用，或微信升级后 AX+像素链双双救不回，才真启 Windows 线。
-- [ ] **AC7 本地库只读全链**（代码全就位;唯一剩余=主人跑 research/d4-memscan-e2e.md §5 的 sudo 提权命令,命中即一步闭环;扫不到也有诚实 exit 21）：对已登录账号完成「定位 db_storage → 密钥获取（途径按 D4）→ 解密副本落 MYIA 私有数据区 → 只读查询指定会话最近 N 天文本消息」全链验证；全程零出网、零微信进程交互；副本与查询结果不进 git/日志，证据只留形状（库数、表数、行数、样例脱敏一条）。
+- [ ] **AC7 本地库只读全链**（代码全就位;唯一剩余=主人一键真跑——`scripts/wechat-bridge-d4-keyscan.sh`(2026-10-12 已就位,固化 research/d4-memscan-e2e.md §5 提权命令:前置自检+probe 前后对照+chown 属主兜底+rc 原样奉还+还原提示,`--dry-run` 可不提权自校验),命中即一步闭环;扫不到也有诚实 exit 21）：对已登录账号完成「定位 db_storage → 密钥获取（途径按 D4）→ 解密副本落 MYIA 私有数据区 → 只读查询指定会话最近 N 天文本消息」全链验证；全程零出网、零微信进程交互；副本与查询结果不进 git/日志，证据只留形状（库数、表数、行数、样例脱敏一条）。
 
 ## 非目标（Out of Scope，集中清单）
 
@@ -82,7 +82,7 @@
 
 - **D2（✅ 已认领并执行完毕,2026-10-12「全部解决」批）**：A1 实测微信 4.1.15 **聊天内容层对 AX 完全零暴露**（主窗在场态仅剩 chrome 三钮；AXManualAccessibility/-25205、AXEnhancedUserInterface/-25208 均拒；三类目标节点全未找到）——自研 AX 与借力 BiboyQG（同为 AX 路线）**双双不可行**，UI 读线正解 = **像素链（screencapture + local-ocr）为主**；写通道不可达且与焦点无关 → AC4 冲突裁决自动触发（证据 research/ax-probe-4.1.15.md）。像素链已实现并真跑通过(C1 15 会话/C2 10 条,静默取证 frontmost 不变,证据 research/pixel-chain-e2e.md);出站归官方 iLink。
 - **D5 组件分发形态（2026-10-12 新立,交主人裁决）**:现有组件体系全 pip_spec 形态（PyPI+锁闭包+设置页就绪卡）;wechat-bridge 是目录形态源码组件且运行时依赖 brew sqlcipher+编译型绑定——三条路:(a) 发 PyPI(标准,加发布纪律) (b) 扩安装器 copy 形态(Rust pyenv_components.rs+设置页开发,工程最重) (c) 维持手装+文档(零工程,新机器半自动)。不阻塞本档其余 AC。
-- **D4（「全部解决」令=豁免裁决,已按边界执行;真跑留主人一条 sudo 命令,见 research/d4-memscan-e2e.md §5）**：E1 真跑定论**零内存密钥途径不可行**——key_info.db 虽为明文 SQLite，35 行 → 5081 候选 → 对 20 库共 101,620 次离线 HMAC 校验全部 0 命中（与三方公开实测/0xlane 逆向一致）；唯一活路 lldb attach（踩红线 3，已拒）。exit 21 D4 语义已落地。内存搜索路径已实现(只读 vm_read 单遍批处理,三重门:配置+提权+平台,写/注入/调试 API 源码级守卫钉死);sudo -n 不可用→真跑留主人提权命令;命中即 keys.json 600 私有区→localdb query 一步闭合 AC7(复审 medium 属主自坏已双保险修复 1453e65)。
+- **D4（「全部解决」令=豁免裁决,已按边界执行;真跑留主人一条 sudo 命令,见 research/d4-memscan-e2e.md §5）**：E1 真跑定论**零内存密钥途径不可行**——key_info.db 虽为明文 SQLite，35 行 → 5081 候选 → 对 20 库共 101,620 次离线 HMAC 校验全部 0 命中（与三方公开实测/0xlane 逆向一致）；唯一活路 lldb attach（踩红线 3，已拒）。exit 21 D4 语义已落地。内存搜索路径已实现(只读 vm_read 单遍批处理,三重门:配置+提权+平台,写/注入/调试 API 源码级守卫钉死);sudo -n 不可用→真跑留主人提权命令;命中即 keys.json 600 私有区→localdb query 一步闭合 AC7(复审 medium 属主自坏已双保险修复 1453e65)。**一键脚本已就位(2026-10-12 收尾)**:`scripts/wechat-bridge-d4-keyscan.sh` 固化 §5 命令——前置自检(缺位诚实退出,不消耗 sudo 密码)+扫描前后 probe 对照+配置合并写(其余键保留,原配置备份)+chown 属主兜底(rc 不被吞)+还原提示;相对 §5 原命令一处确定性加固:sudo env 显式钉 `HOME="$HOME"`(组件 WECHAT_FILES_ROOT 按 Path.home() 定位,本机 sudo 1.9.17p2 缺省 env_reset 会把 HOME 重置为 /var/root→不钉必 exit 20;man sudoers 实证);`--dry-run` 不提权自校验已过(缺省关路径诚实 exit 21)。
 
 ## Notes
 

@@ -88,8 +88,20 @@ E1 空壳期口径:「无配置键,启用唯一途径 = 代码层显式改 `MEMO
 ## 5. 主人单条提权命令(真跑待此;keyObtained=false 的闭合途径)
 
 ```sh
-mkdir -p "$HOME/Library/Application Support/MYIA/wechat-bridge" && printf '{"mem_search_enabled": true}\n' > "$HOME/Library/Application Support/MYIA/wechat-bridge/config.json" && sudo env MYIA_HOME="$HOME/Library/Application Support/MYIA" PYTHONPATH="/Users/zhengbingjin/Project/Github/MYIA/plugins/wechat-bridge" /Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python -m wechat_bridge localdb key-scan --json; rc=$?; sudo chown -R "$(id -u):$(id -g)" "$HOME/Library/Application Support/MYIA/wechat-localdb" 2>/dev/null; (exit $rc)
+mkdir -p "$HOME/Library/Application Support/MYIA/wechat-bridge" && printf '{"mem_search_enabled": true}\n' > "$HOME/Library/Application Support/MYIA/wechat-bridge/config.json" && sudo env HOME="$HOME" MYIA_HOME="$HOME/Library/Application Support/MYIA" PYTHONPATH="/Users/zhengbingjin/Project/Github/MYIA/plugins/wechat-bridge" /Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python -m wechat_bridge localdb key-scan --json; rc=$?; sudo chown -R "$(id -u):$(id -g)" "$HOME/Library/Application Support/MYIA/wechat-localdb" 2>/dev/null; (exit $rc)
 ```
+
+> **2026-10-12 收尾增补**:①命令加固 `HOME="$HOME"`(sudo env 显式钉)——本机
+> sudo 1.9.17p2 缺省 `env_reset` 会把 HOME 重置为 /var/root(man sudoers
+> 「By default, the env_reset flag is enabled … HOME … initialized based on
+> the target user」实证),而组件 `WECHAT_FILES_ROOT` 按 `Path.home()` 定位
+> 微信数据(system_checks.py),不钉则 sudo 内 locate_db_storage 必 exit 20;
+> 显式 env 变量可穿透 env_reset,原命令其余形态不变。②提权命令已固化为一键
+> 脚本 **`scripts/wechat-bridge-d4-keyscan.sh`**(前置自检缺位诚实退出不消耗
+> sudo 密码 / 扫描前后 probe 对照 / 配置合并写其余键保留+原配置备份 /
+> chown 属主兜底 rc 原样奉还 / 收尾打印还原提示;`--dry-run` 不提权自校验:
+> bash -n + shellcheck + 缺省关路径诚实 exit 21 + sudo shim 全链彩排均过),
+> 推荐主人走脚本。
 
 **机理与边界(一次性批处理式只读扫描)**:
 
