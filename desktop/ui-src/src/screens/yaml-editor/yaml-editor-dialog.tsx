@@ -155,7 +155,7 @@ export function YamlEditorDialog({ file, onClose, onSaved }: YamlEditorDialogPro
           ) : null}
           {save.created !== null && save.error === null ? (
             <p role="status" data-testid="save-ok" className="text-xs text-ok">
-              已保存 · mtime 基线已更新
+              已保存
             </p>
           ) : null}
           {save.created !== null && save.error === null ? (

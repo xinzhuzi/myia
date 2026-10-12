@@ -331,7 +331,7 @@ export function LogsScreen() {
           <Card data-testid="logs-error">
             <CardContent>
               <p className="text-sm font-medium text-destructive">
-                采集日志不可用(sidecar 错误码 {error.code})
+                采集日志不可用(本地服务错误码 {error.code})
               </p>
               <p className="mt-1 text-xs text-muted-foreground">{error.message}</p>
             </CardContent>

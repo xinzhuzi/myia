@@ -153,7 +153,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       const category = health.categories.find((candidate) => candidate.loaded) ?? health.categories[0];
       if (!category) {
         // 保持打开,错误在面板脚注可见
-        setRunError("配置目录为空:重启应用触发首跑初始化,或到「源管理」检查品类。");
+        setRunError("配置目录为空:重启应用触发首次运行初始化,或到「源管理」检查品类。");
         return;
       }
       await api.runStart({ yaml: category.file });

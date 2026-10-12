@@ -108,7 +108,7 @@ export function OutcomePanel({
         {/* 条目标题预览(本轮新入库,前 8 条;全量在情报流) */}
         {previewError ? (
           <p className="shrink-0 text-2xs text-muted-foreground">
-            <span className="mr-1 text-brand-from">▍</span>条目预览拉取失败(store.items 不可达)
+            <span className="mr-1 text-brand-from">▍</span>条目预览拉取失败(数据暂不可达)
           </p>
         ) : preview !== null && preview.length > 0 ? (
           <div

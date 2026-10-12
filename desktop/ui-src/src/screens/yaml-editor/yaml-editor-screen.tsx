@@ -365,7 +365,7 @@ export function YamlEditorScreen() {
             {save.error ? <ErrorBox error={save.error} /> : null}
             {save.created !== null && save.error === null ? (
               <p role="status" data-testid="save-ok" className="text-xs text-ok">
-                已保存{save.created ? "(新建)" : ""} · mtime 基线已更新
+                已保存{save.created ? "(新建)" : ""}
               </p>
             ) : null}
             {save.created !== null && save.error === null ? (

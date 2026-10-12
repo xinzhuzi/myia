@@ -86,7 +86,7 @@ export function FirstRunGuide({
   const busy = phase.kind === "busy";
 
   return (
-    <section aria-label="首跑引导" className="flex flex-col gap-6 py-16" data-testid="first-run-guide">
+    <section aria-label="首次运行引导" className="flex flex-col gap-6 py-16" data-testid="first-run-guide">
       {/* Kestra KsEmptyState:左对齐 artwork+标题+描述+动作行(块间 gap≈21px) */}
       <div className="flex flex-col items-start gap-5 px-1">
         <div className="relative flex items-center justify-center">
@@ -99,7 +99,7 @@ export function FirstRunGuide({
         <div className="flex max-w-sm flex-col gap-2">
           <h2 className="text-xl font-semibold text-foreground">还没有品类源</h2>
           <p className="text-sm leading-5 text-muted-foreground">
-            配置目录{configDir ? `(${configDir})` : ""}下没有可加载的品类 YAML——真·首跑。
+            配置目录{configDir ? `(${configDir})` : ""}下没有可加载的品类 YAML——首次运行。
             一键用官方模板跑通第一个 demo 采集,或从指引开始手动建品类。
           </p>
         </div>

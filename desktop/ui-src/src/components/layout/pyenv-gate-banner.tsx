@@ -22,7 +22,7 @@ const GATE_TEXT: Partial<Record<PyenvState, { title: string; detail: string }>> 
   not_configured: {
     title: "Python 运行环境未配置,功能待配置后可用",
     detail:
-      "运行时与依赖不随安装包分发:请在设置的「Python 环境」分区点「开始配置」在线安装(首跑需联网,约一分钟)。",
+      "运行时与依赖不随安装包分发:请在设置的「Python 环境」分区点「开始配置」在线安装(首次运行需联网,约一分钟)。",
   },
   installing: {
     title: "Python 运行环境安装中…",

@@ -755,9 +755,9 @@ describe("DashboardScreen", () => {
     );
     expect(screen.getByTestId("stat-window-items").textContent).toContain("如实显 —");
     // meta 分支:口径 note 不落明文,悬停可查(推送成功/活跃源两格)
-    expect(screen.getByTestId("stat-window-push").textContent).not.toContain("受最近 20 轮上限");
+    expect(screen.getByTestId("stat-window-push").textContent).not.toContain("仅统计最近 20 轮");
     expect(hoverTooltip(screen.getByRole("button", { name: "推送成功说明" }))).toContain(
-      "受最近 20 轮上限(runs.list)",
+      "仅统计最近 20 轮",
     );
     expect(screen.getByTestId("stat-active-sources").textContent).not.toContain("共 3 源");
     expect(hoverTooltip(screen.getByRole("button", { name: "活跃源说明" }))).toContain(
@@ -986,9 +986,9 @@ describe("DashboardScreen", () => {
     expect(hoverTooltip(screen.getByRole("button", { name: "今日采集说明" }))).toContain(
       "UTC 日口径 · items 入库",
     );
-    // hover note 人话化(D9):「各轮采集的推送成功数 · 受最近 20 轮上限(runs.list)」
+    // hover note 人话化(D9):「各轮采集的推送成功数 · 仅统计最近 20 轮」
     expect(hoverTooltip(screen.getByRole("button", { name: "推送成功说明" }))).toContain(
-      "受最近 20 轮上限(runs.list)",
+      "仅统计最近 20 轮",
     );
     expect(screen.getByTestId("stat-window-push").textContent).toContain("2"); // 2 次 ok 推送
     expect(screen.getByTestId("stat-alerts").textContent).toContain("2"); // error+warning 各一

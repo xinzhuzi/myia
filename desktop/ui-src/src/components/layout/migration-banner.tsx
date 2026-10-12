@@ -60,7 +60,7 @@ export function MigrationBanner() {
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground">检测到旧版数据:新版改为自管 Python 环境,需一次性配置</p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          你的数据库、插件、模型与钥匙串凭据全部原样沿用,零迁移零丢失;首次使用前请在设置的「Python 环境」分区完成一次配置(运行时与依赖在线下载,首跑需联网)。
+          你的数据库、插件、模型与钥匙串凭据全部原样沿用,零迁移零丢失;首次使用前请在设置的「Python 环境」分区完成一次配置(运行时与依赖在线下载,首次运行需联网)。
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">

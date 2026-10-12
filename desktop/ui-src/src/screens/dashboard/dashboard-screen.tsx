@@ -949,7 +949,7 @@ export function DashboardScreen() {
               size="icon"
               className="size-7"
               aria-label="刷新数据"
-              title="重新拉取仪表盘数据(doctor / runs / 趋势)"
+              title="重新拉取仪表盘数据(诊断 / 采集记录 / 趋势)"
               disabled={loading}
               onClick={() => {
                 void refresh();
@@ -1003,8 +1003,8 @@ export function DashboardScreen() {
                     value={overview.windowPushOk}
                     note={
                       overviewWindow === "today"
-                        ? "今日(UTC)各轮采集的推送成功数 · 受最近 20 轮上限(runs.list)"
-                        : `近 ${overviewWindow} 天(UTC)各轮采集的推送成功数 · 受最近 20 轮上限(runs.list)`
+                        ? "今日(UTC)各轮采集的推送成功数 · 仅统计最近 20 轮"
+                        : `近 ${overviewWindow} 天(UTC)各轮采集的推送成功数 · 仅统计最近 20 轮`
                     }
                     noteKind="meta"
                   />

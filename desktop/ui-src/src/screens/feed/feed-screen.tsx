@@ -273,9 +273,9 @@ function copyLink(url: string): void {
 /** 微信桥探针三态词面(10-12-weixin-feed-channel;2 级桥状态区/3 级监控台
  *  共用。主判例「行话零容忍」:码名只作 title/原因行的结构词,可见词面全人话) */
 function wxBridgeWord(probe: WechatLocalProbeView): string {
-  if (probe.state === "ok") return "桥在线";
-  if (probe.state === "degraded") return "桥降级";
-  return "桥不可用";
+  if (probe.state === "ok") return "在线";
+  if (probe.state === "degraded") return "降级";
+  return "不可用";
 }
 
 /** 微信桥探针三态 title(词面 + 首因修复指引;零原因 = 裸词面) */
@@ -733,9 +733,9 @@ const FeedCard = memo(function FeedCard({
           variant="ghost"
           size="icon"
           className="size-6"
-          aria-label="AI 摘要"
+          aria-label="AI 评分"
           aria-expanded={enrich.phase === "done"}
-          title="AI 精评摘要(feed.enrich:骑品类 enrich 端点现跑,enrich_cache 命中零 token)"
+          title="AI 评分:调用该品类配置的评分模型打分;已有缓存的结果不消耗 token"
           disabled={enrich.phase === "loading"}
           onClick={() => void runEnrich()}
         >
@@ -859,7 +859,7 @@ const FeedCard = memo(function FeedCard({
           <Badge
             variant="default"
             className="border-primary/40 font-mono tabular-nums"
-            title="精评分数(维度最高分)"
+            title="AI 评分(维度最高分)"
           >
             {score.toFixed(2)}
           </Badge>
@@ -937,7 +937,7 @@ const FeedCard = memo(function FeedCard({
           // 展开态(10-03-vision-v2):OCR 全文等宽块(保换行,详情态不截断)
           <div className="mt-1.5 flex flex-col gap-1" data-testid={`feed-image-ocr-${rowKey}`}>
             <span className="flex items-center gap-1.5 text-2xs text-muted-foreground">
-              <Badge variant="outline" className="shrink-0" title="图析:配图 OCR 文本全文">
+              <Badge variant="outline" className="shrink-0" title="配图 OCR 文本全文">
                 图
               </Badge>
               OCR 全文
@@ -951,7 +951,7 @@ const FeedCard = memo(function FeedCard({
             className="mt-1.5 flex items-center gap-1.5 text-2xs leading-relaxed text-muted-foreground"
             data-testid={`feed-image-ocr-${rowKey}`}
           >
-            <Badge variant="outline" className="shrink-0" title="图析:配图 OCR 文本摘要">
+            <Badge variant="outline" className="shrink-0" title="配图 OCR 文本摘要">
               图
             </Badge>
             <span className="min-w-0 truncate" title={item.image_ocr ?? undefined}>
@@ -1010,17 +1010,17 @@ const FeedCard = memo(function FeedCard({
           错误(enrich_not_configured 等 graceful 明示,重按按钮即重试) */}
       {enrich.phase === "loading" ? (
         <p className="mt-1.5 text-2xs text-muted-foreground" data-testid={`feed-enrich-loading-${rowKey}`}>
-          精评中…
+          评分中…
         </p>
       ) : enrich.phase === "done" ? (
         <div className="mt-1.5 flex flex-col gap-1" data-testid={`feed-enrich-${rowKey}`}>
           <span className="flex flex-wrap items-center gap-1.5 text-2xs text-muted-foreground">
-            <Badge variant="outline" className="shrink-0" title="AI 精评摘要(feed.enrich)">
+            <Badge variant="outline" className="shrink-0" title="AI 评分结果">
               AI
             </Badge>
-            精评 {enrich.result.score.toFixed(2)} · 模型 {enrich.result.model}
-            <Badge variant="secondary" title="enrich_cache 命中 = 零 token">
-              {enrich.result.cached ? "缓存命中" : "现跑"}
+            AI 评分 {enrich.result.score.toFixed(2)} · 模型 {enrich.result.model}
+            <Badge variant="secondary" title="缓存命中 = 不消耗 token">
+              {enrich.result.cached ? "缓存命中" : "实时调用"}
             </Badge>
           </span>
           <span className="flex flex-wrap items-center gap-1">
@@ -1040,8 +1040,8 @@ const FeedCard = memo(function FeedCard({
           title={`${enrich.code}:${enrich.message}`}
         >
           {enrich.code === "enrich_not_configured"
-            ? `无精评配置:${enrich.message}(在品类 YAML enrich 节配置端点后重试)`
-            : `精评失败(${enrich.code}):${enrich.message}`}
+            ? `未配置 AI 评分:${enrich.message}(在品类 YAML enrich 节配置端点后重试)`
+            : `评分失败(${enrich.code}):${enrich.message}`}
         </p>
       ) : null}
 
@@ -1116,7 +1116,7 @@ const FeedCard = memo(function FeedCard({
                 className="w-fit"
                 onClick={() => void writeKeyword()}
                 disabled={pin.phase === "writing" || pinFiles.length === 0}
-                title="yaml.read → watchlist.keywords 原文手术 → yaml.save(mtime 乐观锁 + 跨文件 id 查重)"
+                title="把上面的关键词追加到所选 YAML 的 watchlist.keywords:重复的词不写入;文件被其他程序同时修改时不覆盖,可重试"
               >
                 {pin.phase === "writing" ? "写入中…" : "写入"}
               </Button>
@@ -1515,12 +1515,12 @@ function FeedItemDetail({
               </span>
             ) : null}
             {score !== null ? (
-              <Badge variant="default" className="border-primary/40 font-mono tabular-nums" title="精评分数(维度最高分)">
+              <Badge variant="default" className="border-primary/40 font-mono tabular-nums" title="AI 评分(维度最高分)">
                 {score.toFixed(2)}
               </Badge>
             ) : null}
             {hasImageDetails(item) ? (
-              <Badge variant="outline" title="图析:配图 OCR/图说全文在下方">
+              <Badge variant="outline" title="配图 OCR 与图说全文在下方">
                 图
               </Badge>
             ) : null}
@@ -1656,7 +1656,7 @@ function FeedErrorCard({
         ) : (
           <>
             <p className="text-sm font-medium text-destructive">
-              情报流不可用(sidecar 错误码 {error.code})
+              情报流不可用(本地服务错误码 {error.code})
             </p>
             <p className="text-xs text-muted-foreground">{error.message}</p>
             <Button variant="outline" size="sm" className="w-fit" onClick={onRetry} disabled={busy}>
@@ -2821,7 +2821,7 @@ export function FeedScreen() {
       if (!category) {
         setCta({
           phase: "error",
-          message: "配置目录为空:重启应用触发首跑初始化,或到「源管理」检查品类。",
+          message: "配置目录为空:重启应用触发首次运行初始化,或到「源管理」检查品类。",
         });
         return;
       }
@@ -3296,7 +3296,7 @@ export function FeedScreen() {
                 value={typeSearchInput}
                 data-testid="feed-type-search"
                 aria-label="搜索类型"
-                placeholder="搜索类型(Tg / 网站 / 日报)"
+                placeholder="搜索类型(TG / 微信 / 网站 / 日报)"
                 className="w-full pl-8 text-xs"
                 onChange={(event) => setTypeSearchInput(event.target.value)}
                 onKeyDown={(event) => {
@@ -3459,7 +3459,7 @@ export function FeedScreen() {
                       <EmptyState
                         title="还没有可运行的插件"
                         description="应用首次运行尚未装上官方插件;重启应用会自动完成初始化,或到「源管理」查看插件目录。"
-                        tag="首跑"
+                        tag="首次运行"
                         action={
                           <Button variant="outline" size="sm" onClick={() => navigate("/sources")}>
                             去源管理
@@ -3584,7 +3584,7 @@ export function FeedScreen() {
               size="sm"
               className="px-2 text-xs"
               data-testid="feed-back-to-types"
-              title="返回类型卡(Esc 同门)"
+              title="返回类型卡(也可按 Esc)"
               onClick={backLevel}
             >
               <ChevronLeft className="size-3.5" />
@@ -3604,7 +3604,7 @@ export function FeedScreen() {
                 value={searchInput}
                 data-testid="feed-channel-search"
                 aria-label="搜索渠道"
-                placeholder={`搜索${CHANNEL_CARD_LABELS[view.kind]}渠道(名称 / 源 id,如 Tg)`}
+                placeholder={`搜索${CHANNEL_CARD_LABELS[view.kind]}渠道(名称 / 来源标识,如 TG)`}
                 className="w-full pl-8 text-xs"
                 onChange={(event) => setSearchInput(event.target.value)}
                 onKeyDown={(event) => {
@@ -3618,7 +3618,7 @@ export function FeedScreen() {
             </div>
             {searchActive ? (
               <p className="text-2xs text-muted-foreground" data-testid="feed-channel-search-note">
-                {`渠道过滤「${query}」· 按渠道名 / 源 id 包含匹配`}
+                {`渠道过滤「${query}」· 按渠道名 / 来源标识匹配`}
               </p>
             ) : null}
             <div className="ml-auto flex items-center gap-2">
@@ -3826,7 +3826,7 @@ export function FeedScreen() {
                     className="px-2.5 py-1.5 text-xs font-medium tracking-wider text-muted-foreground"
                     data-testid="feed-wx-bridge-title"
                   >
-                    {wxProbePhase === "ok" && wxProbe !== null ? `桥 · ${wxBridgeWord(wxProbe)}` : "桥"}
+                    {wxProbePhase === "ok" && wxProbe !== null ? `桥状态 · ${wxBridgeWord(wxProbe)}` : "桥状态"}
                   </p>
                   {wxProbePhase === "idle" || wxProbePhase === "loading" ? (
                     /* 答案未落地:骨架行,不出空态(不把加载中误述成没有) */
@@ -3951,7 +3951,7 @@ export function FeedScreen() {
                 <div className="px-3 py-8 text-center" data-testid="feed-search-empty">
                   <p className="text-xs font-medium text-foreground">没有匹配的渠道</p>
                   <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">
-                    {`搜索「${query}」零命中渠道(按渠道名 / 源 id 包含匹配);换个关键词,或清空搜索看全部渠道。`}
+                    {`搜索「${query}」零命中渠道(按渠道名 / 来源标识匹配);换个关键词,或清空搜索看全部渠道。`}
                   </p>
                 </div>
               ) : (
@@ -4185,7 +4185,7 @@ export function FeedScreen() {
                       </span>
                     ) : (
                       <span className="text-2xs text-warning">
-                        未登录 —— 扫码登录网页版 telegram,登录后 7×24 监控,新消息自动入库
+                        未登录 —— 扫码登录网页版 Telegram,登录后 7×24 监控,新消息自动入库
                       </span>
                     )}
                     <span className="flex items-center gap-1">
@@ -4215,7 +4215,7 @@ export function FeedScreen() {
                         disabled={tgPreviewUrl === null}
                         title={
                           tgPreviewUrl === null
-                            ? "暂无可推导的 t.me 公开链接(私有频道或条目无链接),原生预览与公开镜像均不可用"
+                            ? "暂无 t.me 公开链接(私有频道或条目未带链接),原生预览与公开镜像均不可用"
                             : `原生网页预览(首次需扫码登录一次;登录会触发 TG 的新设备登录安全提醒,属预期):${tgPreviewUrl}`
                         }
                         onClick={launchTgNative}
@@ -4291,7 +4291,7 @@ export function FeedScreen() {
               size="sm"
               className="px-2 text-xs"
               data-testid="feed-back-to-channels"
-              title="返回渠道列表(Esc 同门)"
+              title="返回渠道列表(也可按 Esc)"
               onClick={backLevel}
             >
               <ChevronLeft className="size-3.5" />
@@ -4348,9 +4348,9 @@ export function FeedScreen() {
                   disabled={tgPreviewUrl === null}
                   title={
                     tgPreviewUrl === null
-                      ? "暂无可推导的 t.me 公开链接(私有频道或条目无链接),原生视图与公开镜像均不可用"
+                      ? "暂无 t.me 公开链接(私有频道或条目未带链接),原生预览与公开镜像均不可用"
                       : tgNativeAlive
-                        ? `原生窗口存活中(程序坞/「窗口」菜单可唤回):${tgPreviewUrl}`
+                        ? `原生窗口已打开(程序坞/「窗口」菜单可唤回):${tgPreviewUrl}`
                         : `开独立窗加载 Telegram 网页版(首次需扫码登录一次,登录会触发 TG 的新设备登录安全提醒,属预期):${tgPreviewUrl}`
                   }
                   onClick={launchTgNative}
@@ -4650,7 +4650,7 @@ export function FeedScreen() {
                   <CardContent className="p-0">
                     <EmptyState
                       title="未登录,暂无新消息入库"
-                      description="上方聊天头扫码登录网页版 telegram 后,7×24 监控自动入库,新消息即出现在这里;「全部」页签可看已入库的已读条目。"
+                      description="上方聊天头扫码登录网页版 Telegram 后,7×24 监控自动入库,新消息即出现在这里;「全部」页签可看已入库的已读条目。"
                     />
                   </CardContent>
                 </Card>
@@ -4671,7 +4671,7 @@ export function FeedScreen() {
                   <CardContent className="p-0">
                     <EmptyState
                       title="桥状态未知"
-                      description="暂时拿不到微信本机桥状态(探针服务未就绪或请求失败);桥是否可用以「消息」屏的微信区为准。"
+                      description="暂时拿不到微信桥状态(服务未就绪或请求失败);桥是否可用以「消息」屏的微信区为准。"
                       action={
                         <Button variant="outline" size="sm" onClick={retryWxProbe}>
                           重试拉取状态

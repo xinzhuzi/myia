@@ -1391,7 +1391,7 @@ describe("FeedScreen", () => {
       cached: true,
     } as FeedEnrichResult);
 
-    fireEvent.click(within(screen.getByTestId(`feed-item-${item.id}`)).getByRole("button", { name: "AI 摘要" }));
+    fireEvent.click(within(screen.getByTestId(`feed-item-${item.id}`)).getByRole("button", { name: "AI 评分" }));
     expect(feedEnrichMock).toHaveBeenCalledWith({ item: item.dedup_key });
 
     const block = await screen.findByTestId(`feed-enrich-${item.id}`);
@@ -1404,21 +1404,21 @@ describe("FeedScreen", () => {
     expect(screen.queryByText("0.87")).toBeNull();
   });
 
-  it("G8 loading 态:请求在途按钮禁用 + 「精评中…」行", async () => {
+  it("G8 loading 态:请求在途按钮禁用 + 「评分中…」行", async () => {
     const item = fixtureItem();
     storeItemsMock.mockResolvedValue(result([item]));
     await renderChannelDetail();
     await screen.findByText("条目 1");
 
     feedEnrichMock.mockImplementation(() => new Promise<FeedEnrichResult>(() => {}));
-    const button = within(screen.getByTestId(`feed-item-${item.id}`)).getByRole("button", { name: "AI 摘要" });
+    const button = within(screen.getByTestId(`feed-item-${item.id}`)).getByRole("button", { name: "AI 评分" });
     fireEvent.click(button);
 
     expect(await screen.findByTestId(`feed-enrich-loading-${item.id}`)).toBeTruthy();
     expect(button.getAttribute("disabled")).not.toBeNull();
   });
 
-  it("G8 无配置 graceful:enrich_not_configured 明示「无精评配置」(不伪装成传输错误),按钮可重试", async () => {
+  it("G8 无配置 graceful:enrich_not_configured 明示「未配置 AI 评分」(不伪装成传输错误),按钮可重试", async () => {
     const item = fixtureItem();
     storeItemsMock.mockResolvedValue(result([item]));
     await renderChannelDetail();
@@ -1432,11 +1432,11 @@ describe("FeedScreen", () => {
         data: { category: "tech", reason: "enrich_disabled" },
       }),
     );
-    const button = within(screen.getByTestId(`feed-item-${item.id}`)).getByRole("button", { name: "AI 摘要" });
+    const button = within(screen.getByTestId(`feed-item-${item.id}`)).getByRole("button", { name: "AI 评分" });
     fireEvent.click(button);
 
     const error = await screen.findByTestId(`feed-enrich-error-${item.id}`);
-    expect(error.textContent).toContain("无精评配置");
+    expect(error.textContent).toContain("未配置 AI 评分");
     expect(error.textContent).toContain("未启用 enrich");
     expect(error.getAttribute("title")).toContain("enrich_not_configured");
     await waitFor(() => expect(button.getAttribute("disabled")).toBeNull());
@@ -3235,7 +3235,7 @@ describe("FeedScreen · tg-category-entry 监控台(v7:TG 选中左栏顶部常�
     // (/k/ 与 t.me/s 镜像同源推导,频道名推导不出 = 两者同不可得,v9 §1.1)
     const previewBtn = within(consoleCard).getByTestId("feed-tg-console-preview");
     expect(previewBtn.getAttribute("disabled")).not.toBeNull();
-    expect(previewBtn.getAttribute("title")).toContain("无可推导");
+    expect(previewBtn.getAttribute("title")).toContain("暂无 t.me 公开链接");
     expect(previewBtn.getAttribute("title")).toContain("原生预览与公开镜像均不可用");
     // 「原生视图」段同门置灰(同一推导);段控件本体在场(isTgChannel 渠道)
     const viewToggle = screen.getByTestId("feed-tg-view-toggle");
@@ -4208,7 +4208,7 @@ describe("FeedScreen · v9 原生视图切换(design-v9 照稿)", () => {
     await waitFor(() => expect(screen.queryByTestId("feed-tg-view-native-live")).toBeTruthy());
     // 存活 title 分档(深检 F7d):窗活着 → 指引程序坞/「窗口」菜单唤回
     await waitFor(() =>
-      expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("title")).toContain("原生窗口存活中"),
+      expect(within(toggle).getByTestId("feed-tg-view-native").getAttribute("title")).toContain("原生窗口已打开"),
     );
     // 切「情报视图」:段回落,但窗不死 → 红点徽标仍在(两张数据皮互为冗余)
     fireEvent.click(within(toggle).getByTestId("feed-tg-view-intel"));
@@ -5562,13 +5562,13 @@ describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
     await renderOverview();
     await openWxList();
     const bridge = await screen.findByTestId("feed-wx-bridge-card");
-    // 三态词(● 桥在线 · 微信 4.1.15)+ 版本行(微信/桥组件)
-    expect(bridge.textContent).toContain("桥在线");
+    // 三态词(● 在线 · 微信 4.1.15)+ 版本行(微信/桥组件)
+    expect(bridge.textContent).toContain("在线");
     expect(bridge.textContent).toContain("微信 4.1.15");
     expect(bridge.textContent).toContain("桥组件 0.3.1");
     expect(within(bridge).getByTestId("feed-wx-bridge-manage")).toBeTruthy();
     // 区头词面随三态
-    expect(screen.getByTestId("feed-wx-bridge-title").textContent).toContain("桥在线");
+    expect(screen.getByTestId("feed-wx-bridge-title").textContent).toContain("桥状态 · 在线");
 
     // 降级态:首因人话 + 原因逐条(码名 + 修复指引,消息屏同款)
     cleanup();
@@ -5576,7 +5576,7 @@ describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
     renderScreen();
     await openWxList();
     const degraded = await screen.findByTestId("feed-wx-bridge-card");
-    expect(degraded.textContent).toContain("桥降级");
+    expect(degraded.textContent).toContain("降级");
     expect(within(degraded).getByTestId("feed-wx-bridge-reasons").textContent).toContain("打开微信桌面客户端");
 
     // 探针失败:重试 + 跳转并列(TG 账号区 error 分支同门);重试真实重发 probe

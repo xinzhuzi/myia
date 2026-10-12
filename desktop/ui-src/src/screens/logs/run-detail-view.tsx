@@ -109,7 +109,7 @@ export function RunDetailView({
           size="sm"
           className="px-2 text-xs"
           data-testid="run-back"
-          title="返回运行历史(Esc 同门)"
+          title="返回运行历史(也可按 Esc)"
           onClick={onBack}
         >
           <ChevronLeft aria-hidden className="size-3.5" />
@@ -276,7 +276,7 @@ export function RunDetailView({
                断言(NULL ≠ 早于落库,cron 新行也曾是 NULL;补号后此态只剩
                真遗留行) */
             <p className="shrink-0 text-muted-foreground">
-              <span className="text-brand-from">▍</span> 该轮未记录日志会话号,无可回看的日志(旧 runs 行未记会话号)
+              <span className="text-brand-from">▍</span> 该轮未记录日志会话号,无可回看的日志(较早的采集未保存日志编号)
             </p>
           ) : rows === undefined ? (
             <p className="shrink-0 text-muted-foreground">
