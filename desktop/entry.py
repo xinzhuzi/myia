@@ -2357,7 +2357,7 @@ def _toggle_sources_header(lines: list[str]) -> tuple[int, int]:
     """
     raise_unsupported = lambda why: ProtocolError(  # noqa: E731 — 单点小闭包
         "source_write_unsupported",
-        f"品类 YAML 存在文本手术不支持的结构({why});拒绝写回,原文零改动",
+        f"无法保存:品类 YAML 里存在程序不认识的结构({why});文件未做任何改动",
         path="params.file",
     )
     src_idx = None
@@ -2607,7 +2607,7 @@ def _sources_surgical_rewrite(
         if len(dashes) != len(text_names):
             raise ProtocolError(
                 "source_write_unsupported",
-                f"移入 {name} 时条目行与名单对不齐;拒绝写回,原文零改动",
+                f"无法保存:移入 {name} 时条目行数与名单对不上;文件未做任何改动",
                 path="params.file",
             )
         spans = _toggle_chunk_spans(lines, src_idx, block_end, dashes)
@@ -2735,7 +2735,7 @@ def _m_sources_write(params: dict[str, Any]) -> dict[str, Any]:
     if _toggle_alias_nodes(original):
         raise ProtocolError(
             "source_write_unsupported",
-            f"品类 YAML 存在锚点/别名引用,文本手术不做行级搬运(零写入): {yaml_path}",
+            f"无法保存:品类 YAML 里存在锚点/别名引用,程序不做逐行搬运;文件未做任何改动: {yaml_path}",
             path="params.file",
         )
     new_text, moved = _sources_surgical_rewrite(original, enabled_names, disable, back_raw)
@@ -2757,13 +2757,13 @@ def _m_sources_write(params: dict[str, Any]) -> dict[str, Any]:
     except yaml.YAMLError as exc:  # 手术产物连 YAML 都不是(如悬空别名)= 拒写
         raise ProtocolError(
             "source_write_unsupported",
-            f"文本手术结果不再是合法 YAML(零写入): {yaml_path} ({exc})",
+            f"无法保存:修改后的内容不再是合法 YAML;文件未做任何改动: {yaml_path} ({exc})",
             path="params.file",
         ) from exc
     if not isinstance(reread, dict) or not isinstance(reread.get("sources"), list):
         raise ProtocolError(
             "source_write_unsupported",
-            f"文本手术结果不是品类文档(零写入): {yaml_path}",
+            f"无法保存:修改后的内容不是品类文档;文件未做任何改动: {yaml_path}",
             path="params.file",
         )
     doc["sources"] = reread["sources"]
@@ -2771,7 +2771,7 @@ def _m_sources_write(params: dict[str, Any]) -> dict[str, Any]:
     if reread != doc:
         raise ProtocolError(
             "source_write_unsupported",
-            f"文本手术波及了 sources 之外的内容(疑为未支持结构的漏网形态,零写入): {yaml_path}",
+            f"无法保存:改动影响到了 sources 之外的配置(疑似尚未支持的结构);文件未做任何改动: {yaml_path}",
             path="params.file",
         )
 
@@ -4929,7 +4929,7 @@ def _m_push_write(params: dict[str, Any]) -> dict[str, Any]:
     if span is None and "push" in doc:
         raise ProtocolError(
             "push_write_unsupported",
-            f"push 节形态不支持文本手术(多行流式/锚点,零写入): {resolved}",
+            f"无法保存:push 节是多行流式/锚点形态,程序不支持这种编辑;文件未做任何改动: {resolved}",
             path="params.file",
         )
     changed = True
@@ -4962,13 +4962,13 @@ def _m_push_write(params: dict[str, Any]) -> dict[str, Any]:
     except yaml.YAMLError as exc:
         raise ProtocolError(
             "push_write_unsupported",
-            f"push 块替换结果不再是合法 YAML(零写入): {resolved} ({exc})",
+            f"无法保存:修改后的内容不再是合法 YAML;文件未做任何改动: {resolved} ({exc})",
             path="params.file",
         ) from exc
     if reread != expected:
         raise ProtocolError(
             "push_write_unsupported",
-            f"push 块替换波及了 push 之外的内容(疑为未支持结构的漏网形态,零写入): {resolved}",
+            f"无法保存:改动影响到了 push 之外的配置(疑似尚未支持的结构);文件未做任何改动: {resolved}",
             path="params.file",
         )
 
