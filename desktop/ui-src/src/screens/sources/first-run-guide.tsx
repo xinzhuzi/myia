@@ -35,8 +35,8 @@ const GUIDE_CARDS: GuideCardSpec[] = [
   },
   {
     icon: ScrollText,
-    title: "采集结果在日志屏",
-    description: "run 的产出条数与错误行都在日志屏;跑完去那里核对",
+    title: "采集结果在采集日志",
+    description: "每轮采集的产出条数与错误行都在「采集日志」;跑完去那里核对",
     href: "#/logs",
   },
   {
@@ -104,7 +104,7 @@ export function FirstRunGuide({
           </p>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Button size="sm" disabled={busy} title="模板落盘 myssia-demo.yaml 并发起一次采集(run.start)" onClick={() => void runDemo()}>
+          <Button size="sm" disabled={busy} title="用官方模板创建 myssia-demo.yaml 并发起一次采集" onClick={() => void runDemo()}>
             <Rocket className={busy ? "size-3.5 animate-pulse" : "size-3.5"} />
             {phase.kind === "busy" && phase.step === "creating"
               ? "创建 demo 品类…"
@@ -116,7 +116,7 @@ export function FirstRunGuide({
             <span role="status" className="text-xs text-ok" data-testid="demo-started">
               demo 已发起(run #{phase.runId});
               <a href="#/logs" className="ml-0.5 text-primary underline-offset-2 hover:underline">
-                去日志屏查看
+                去「采集日志」查看
               </a>
             </span>
           ) : null}

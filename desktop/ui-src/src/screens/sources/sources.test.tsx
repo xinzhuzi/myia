@@ -433,7 +433,7 @@ describe("源管理:空态与错误态", () => {
     // 模板 id 段替换为 demo stem(createDraft 同款文本手术)
     expect(savedContent).toContain("id: myssia-demo");
     // 完成态带日志屏深链(采集结果去向)
-    expect(screen.getByRole("link", { name: "去日志屏查看" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "去「采集日志」查看" })).toBeTruthy();
   });
 
   it("sidecar 不可用 → 结构化错误(code/path)+ 重试", async () => {
