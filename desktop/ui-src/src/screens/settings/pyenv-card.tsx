@@ -195,32 +195,32 @@ const COMPONENT_META: Record<string, { label: string; description: string }> = {
   table: {
     label: "表格还原",
     description:
-      "截图表格(行情/比价/参数对比/榜单)还原成结构化 Markdown:rapid_table 3.x onnx 引擎(与 extras myssia[table] 同一套依赖,含 rapidocr 单元格文字;不引 Paddle)。点「安装」= 往应用管理的环境装组件(首装联网,PyPI 镜像覆盖生效;SLANET-plus 结构模型首用时自动从 modelscope 下载,之后离线复用);管线侧行为由品类配置 images.table 控制",
+      "依赖 rapid_table + rapidocr-onnxruntime,把截图表格还原成 Markdown;首装联网拉 SLANET 模型(6.8MB)",
   },
   trafilatura: {
     label: "正文抽取兜底",
     description:
-      "网页正文抽取兜底引擎,零配置:static_html 引擎抓到页面但正文抽取缺失或规则跑空时,自动用 trafilatura 补抽正文。缺省关——开关是环境变量 MYIA_EXTRACT_FALLBACK(设为 1 才启用),不设置则行为完全不变;缺装时兜底自动降级,不影响核心流水线(与 extras myssia[trafilatura] 同源,固定 selectolax <1 以防解析器不兼容)",
+      "依赖 trafilatura + selectolax:网页正文抽取缺失时自动补抽,默认关(MYIA_EXTRACT_FALLBACK=1 才启用)",
   },
   crawl4ai: {
     label: "JS 渲染抓取(crawl4ai)",
     description:
-      "JS 渲染抓取引擎 crawl4ai(L3,进程内无头浏览器;与 extras myssia[crawl4ai] 同源,版本要求 >=0.9 且 <0.10):解锁纯客户端渲染源与 urlwatch 渲染通道、images 品类 L3 兜底。点「安装」= pip 装闭包后自动下载 playwright chromium 浏览器二进制(下载约 300MB 级、落盘约 600MB,沙箱实测 557MB;走 Playwright CDN,耗时数分钟);浏览器存到数据目录 playwright-browsers/ 目录(PLAYWRIGHT_BROWSERS_PATH),不散落系统缓存区,卸载组件/清理数据目录即整目录回收;chromium 拉取失败按钮会变「重试安装」并附原因(重试幂等)",
+      "依赖 crawl4ai + playwright,无头浏览器渲染纯客户端页面;附带下载 Chromium 约 600MB,耗时数分钟",
   },
   telethon: {
     label: "Telegram 用户线(telethon)",
     description:
-      "Telegram 账号 session 消息线(MTProto,读 bot 进不去的已加入群;与 extras myssia[telethon] 同源,版本要求 >=1.36 且 <2,纯 Python 轻依赖,无浏览器量级下载)。桌面锁已随包收录本闭包,此卡是就绪检查与手动补装入口(重装幂等);使用前置一次性:钥匙串写入 api-id/api-hash(my.telegram.org 取值)→ 终端 myssia telegram login(手机号+验证码,建议挂小号),session 存到数据目录 telegram/(0600);缺装时用户线结构化降级不影响 bot 线,本线只读无发送能力",
-  },
-  "wechat-bridge": {
-    label: "微信本机桥(wechat-bridge)",
-    description:
-      "微信本机桥组件(10-11-wechat-ui-bridge):像素链读微信会话/消息(screencapture+Vision OCR,微信 4.x AX 零暴露的唯一可行读路)+本地库只读通道(sqlcipher 解密副本;密钥途径=D4 内存扫描一键脚本 scripts/wechat-bridge-d4-keyscan.sh,主人显式开启)。随包源码两段装(pip_src 相对路径解析到包内 Resources,零 PyPI 依赖);前置:macOS 辅助功能与屏幕录制权限(设置页微信卡有引导);出站消息不走本组件(归官方 iLink 桥);probe 三态如实(微信托盘态=degraded 属正常)",
+      "依赖 telethon(纯 Python 轻量):用自己的 Telegram 账号读已加入的群(bot 进不去的群)",
   },
   searxng: {
     label: "关键词日报(SearXNG)",
     description:
-      "自托管聚合搜索服务组件(显式 engine: searxng 源的关键词日报底座):装好默认停,此处按钮手动启停(状态记忆,引擎跑源未启动=结构化提示,不自动启动)。服务监听本机 127.0.0.1:8888,健康端点 /healthz;组件约 100MB 级,存到数据目录(无浏览器量级下载;PyPI 走镜像),源码从 GitHub 固定 commit 装(需可及 github.com),服务数据(settings.yml + 日志)存到数据目录 services/searxng/,清理数据目录即整目录回收",
+      "依赖 SearXNG(GitHub 钉版源码)+ granian,自托管聚合搜索约 100MB;装好默认停,手动启停",
+  },
+  "wechat-bridge": {
+    label: "微信本机桥(wechat-bridge)",
+    description:
+      "依赖 pyobjc + pillow:像素链读微信会话 + 本地库只读(sqlcipher)",
   },
 };
 
