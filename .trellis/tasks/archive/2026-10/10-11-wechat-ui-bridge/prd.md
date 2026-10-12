@@ -49,7 +49,7 @@
 
 - [x] **AC1 AX 探查报告**：微信 4.1.15 开窗状态下 AX 树能力清单实测（能读到会话列表？消息文本？发送框？Chromium 渲染层是否需要 AXManualAccessibility 激活？），附原始证据；含 wxauto-mac 对 4.1.15 兼容性实测结论（可用 / 部分 / 不可用）。
 - [x] **AC2 读**：像素链真跑通过（C1 15 会话/C2 10 条,N=20/K=50 可配置）。**语义边界如实注记（A1 定论的推论）**:像素链读的是「微信当前打开的会话」——不能点击切换会话（合成点击踩静默红线）,「指定会话」语义=主人在微信里点到哪读到哪;会话列表 C1 可视区约 15 条,滚动翻页未做。
-- [x] **AC3 写（A1 定论后正式改写,原义作废）**:AX 写通道不存在（输入框/发送按钮不在任何 AX 树）——写通道归**官方 iLink 桥（weixin.py）独任**（第三案）,UI 写通道判 exit 13/15 如实语义;桥内频控（G6）代码保留待真实写通道出现再接。
+- [x] **AC3 写（A1 定论后正式改写,原义作废）**:AX 写通道不存在（输入框/发送按钮不在任何 AX 树）——写通道归**官方 iLink 桥（weixin.py）独任**（第三案）,UI 写如实 not_implemented(exit 1 过渡码,前置码 10/11/12 透传;13/15 家族码表+通道映射在位待真实写通道——终检 ③ 收口,原表述高估);桥内频控（G6）代码保留待真实写通道出现再接。
 - [x] **AC4 静默验证**：AC2/AC3 全程前台 app 与焦点不变（取证：前后前台进程对照 + 窗口列表对照）。**冲突裁决预设**：若 A1 探查证实 AX 静默发送技术上不可行（发送必须窗口持焦），AC3 不得以破坏静默铁律为代价强行达成——降级三案提主人裁决（A1 定论后更新）：(i) 半自动（桥备好内容+人工点发送） (ii) 显式妥协案（已无意义,AX 通道不存在） **(iii) A1 探查追加:写通道归官方 iLink 桥(weixin.py)独任,UI 写判 exit 13/15——推荐**。
 - [x] **AC5 落地形态（开发态）**:组件戳+配置面+push 通道注册+消息屏双卡三态+本机已装 0.3.0(probe degraded 如实)。**分发形态缺口→D5**（开发态手装≠新机器可下载;现有组件体系全 pip_spec 形态,wechat-bridge 的 sqlcipher 编译链+目录形态与之不匹配）。
 - [x] **AC6 备胎占位**：Windows 线设计占位段落档（栈选型 + 启用判据 + 与 macOS 桥的协议对齐），不实现。**启用硬判据（G9）**：macOS 线连续两周 degraded/不可用，或微信升级后 AX+像素链双双救不回，才真启 Windows 线。
@@ -87,5 +87,5 @@
 ## Notes
 
 - 本机已知事实（2026-10-11 实测）：微信 4.1.15 运行中但**主窗口未开**（托盘态，CGWindowList 全量 0 窗口）；会话宿主已有辅助功能权限（Dock/Finder AX 读取正常）；微信进程族含 WeChatAppEx + 5×Chromium Renderer helper → 聊天界面疑似 Web 渲染，AX 深探必须开窗后做（开窗涉及前台性，归执行段在主人知情下进行）。
-- 本地库事实（2026-10-11 实测）：数据根 `~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/`；当前账号目录 `wxid_oc2yhey1xkpw22_8253/db_storage/` 十四域分库（message/session/contact/sns/favorite/general…），message 域为分片库 + `-wal/-shm/-incremental.material` 增量件；`all_users/login/<wxid>/key_info.db`（活跃写入）为 D4 零内存密钥方案的头号探查对象；钥匙串无微信密钥条目（dump-keychain 元数据级核过，凭据红线内未深挖）。
+- 本地库事实（2026-10-11 实测）：数据根 `~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/`；当前账号目录 `wxid_oc2y***[脱敏]_8253/db_storage/` 十四域分库（message/session/contact/sns/favorite/general…），message 域为分片库 + `-wal/-shm/-incremental.material` 增量件；`all_users/login/<wxid>/key_info.db`（活跃写入）为 D4 零内存密钥方案的头号探查对象；钥匙串无微信密钥条目（dump-keychain 元数据级核过，凭据红线内未深挖）。
 - 官方零风险通道（企微 W2 / apprise 五通道）与本桥互补不互斥，见 research 文档 §4/§5。

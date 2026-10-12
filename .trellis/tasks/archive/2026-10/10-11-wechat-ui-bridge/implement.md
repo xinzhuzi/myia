@@ -56,11 +56,11 @@
 
 ## Phase F MYIA 装配
 
-- [ ] F1 push 层 `weixin_local.py` 通道注册（**通道 id `weixin-local`，G7**；三态 + 显式可选语义，对齐 weixin.py；`weixin` 通道名保持归官方 Hermes 桥）
-- [ ] F2 sidecar 协议 handler（`_HANDLERS` + 协议测试对账，sidecar-protocol 纪律；**⚠️ 执行前核验：`desktop/entry.py` 有并行会话在途改动（2026-10-11 工作树 M 状态在案）——动手前确认对方已收口，混写按快照外科先例处理，勿裸改**）
-- [ ] F3 消息屏微信区双卡（design §5.2 默认方案：官方桥卡 + 「微信本机」卡，三态独立；UI 稿主人可翻案）+ AX 权限引导卡
-- [ ] F4 消息屏**只读会话入口**（G2：选会话 → 拉最近消息展示；读回消息不入 store/dedup，G3）
-- [ ] F5 门禁全绿（pytest 全量 + vitest + tauri build）+ 装机包刷新换装 + 装机件像素级验证（交付判例）**+ AX 权限引导真机走通（装机授权主体是 MYIA app 本体，与开发期宿主授权不同，design §5.1）**
+- [x] F1 push 层 `weixin_local.py` 通道注册（**通道 id `weixin-local`，G7**；三态 + 显式可选语义，对齐 weixin.py；`weixin` 通道名保持归官方 Hermes 桥）
+- [x] F2 sidecar 协议 handler（`_HANDLERS` + 协议测试对账，sidecar-protocol 纪律；**⚠️ 执行前核验：`desktop/entry.py` 有并行会话在途改动（2026-10-11 工作树 M 状态在案）——动手前确认对方已收口，混写按快照外科先例处理，勿裸改**）
+- [x] F3 消息屏微信区双卡（design §5.2 默认方案：官方桥卡 + 「微信本机」卡，三态独立；UI 稿主人可翻案）+ AX 权限引导卡
+- [x] F4 消息屏**只读会话入口**（G2：选会话 → 拉最近消息展示；读回消息不入 store/dedup，G3）
+- [ ] F5 门禁全绿(注因不勾:AX 权限引导装机主体=世事.app 本体的真机走通未验——installed-visual-check §2.3.1 如实注,留主人装机授权一次性动作;其余全毕)（pytest 全量 + vitest + tauri build）+ 装机包刷新换装 + 装机件像素级验证（交付判例）**+ AX 权限引导真机走通（装机授权主体是 MYIA app 本体，与开发期宿主授权不同，design §5.1）**
 
 ## Phase G 备胎占位
 
