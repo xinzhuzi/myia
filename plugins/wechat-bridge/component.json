@@ -1,7 +1,7 @@
 {
   "id": "wechat-bridge",
   "name": "微信本机桥(UI 自动化 + 本地库只读)",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "kind": "bridge",
   "runtime": "native-python",
   "entry": "wechat_bridge/__main__.py",
@@ -13,8 +13,9 @@
   "requires": {
     "python": ">=3.11",
     "system": {
-      "sqlcipher": "本地库解密只读前置(E2;缺装时明确指引 `brew install sqlcipher`,不静默半装——design §5.1;2026-10-11 本机实测 brew 装 4.19.0)",
-      "accessibility": "辅助功能授权(授给 MYIA app 本体;responsible process 归责——design §5.1)"
+      "sqlcipher": "本地库解密只读前置(E2;缺装时明确指引 `brew install sqlcipher`,不静默半装——design §5.1;2026-10-11 本机实测 brew 装 4.19.0;0.4.0 起同为密钥试开验证前置)",
+      "accessibility": "辅助功能授权(授给 MYIA app 本体;responsible process 归责——design §5.1)",
+      "cc": "Xcode Command Line Tools(密钥收集器首用自动编译;缺装时结构化报错带 `xcode-select --install` 指引;或经 install-keyscanner.sh 一次装 setuid 件)"
     },
     "optional_python": {
       "pyobjc": "AX 树驱动与 CGWindowList 快照(仓库 venv 已有 Quartz;ApplicationServices 走 ctypes 兜底)",
@@ -30,7 +31,7 @@
       "messages read <id> -k 50",
       "send_text <id> --file -",
       "localdb query <chat> --since 7d --json",
-      "localdb key-scan --json(内存密钥批处理扫描;默认关+须提权+只读单遍零常驻)"
+      "localdb key-scan --json(内存密钥批处理扫描;默认关+须提权(root 或 setuid keyscanner)+只读单遍零常驻;0.4.0 管道=C 收集器三模式宽收集→熵筛→并行 sqlcipher 试开→page1 交叉验证)"
     ],
     "exit_codes": {
       "0": "成功",
@@ -72,7 +73,15 @@
     "config": "<数据根>/wechat-bridge/config.json",
     "send_state": "<数据根>/wechat-localdb/send_state.json",
     "key_cache": "<数据根>/wechat-localdb/keys.json(仅验证通过才落;600 权限)",
-    "decrypted_copy": "<数据根>/wechat-localdb/decrypted/<域>/<库>(600 权限,TTL 24h+容量上限,失败重建)"
+    "decrypted_copy": "<数据根>/wechat-localdb/decrypted/<域>/<库>(600 权限,TTL 24h+容量上限,失败重建)",
+    "keyscanner": "<数据根>/wechat-localdb/bin/keyscanner(setuid root:staff 4750;native/install-keyscanner.sh 所装;只读 mach 四调用零 exec,argv 白名单=pid,输出恒 stdout;威胁模型=单用户本机读自己微信内存,多用户机不接受则不装,卸载即回归现状)",
+    "scan_tmp": "<数据根>/wechat-localdb/scan/candidates-<pid>.txt(候选临时件 600,用后即清)"
+  },
+  "native": {
+    "collector_source": "native/collector.c(三模式候选收集器:x'hex' 包裹/连续 96hex 裸串/已知 salt 二进制 ±512B 邻域;C 源码入 git)",
+    "collector_build": "组件 bin/collector 首用时自动编译(cc -O2;缺 cc 结构化报错带 xcode-select --install 指引)",
+    "keyscan_installer": "native/install-keyscanner.sh(装 setuid 自愈件;一键脚本 scripts/wechat-bridge-d4-keyscan.sh 首段代跑)",
+    "self_heal": "keyscanner 在位 + mem_search_enabled=true 时,localdb query 的密钥缺位/解密失败零人工重取(全量命中才落 keys.json;未安装=保持现状)"
   },
   "redlines": [
     "静默后台:不抢前台焦点、不合成鼠标点击、不激活微信窗口(prd 红线 4)",

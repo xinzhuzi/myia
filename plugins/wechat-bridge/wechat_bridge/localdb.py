@@ -497,21 +497,26 @@ def resolve_keys(
     key_db: Path | None = None,
     targets: list[tuple[str, int, bytes]] | None = None,
     data_root: Path | None = None,
+    config: "BridgeConfig | None" = None,
 ) -> dict[str, str]:
     """密钥解析全链(D4 裁决②「外部密钥引入即闭合」的消费通路;query 入口)。
 
     顺序:① ``keys.json``(缓存与外部供给同位:既可能是组件全量验证后的
     落盘,也可能是主人以任意可行手段提供的 all_keys.json 类产物)经
     :func:`verify_key_mapping` 逐条 HMAC 重验,全量命中即放行——主人按
-    指引放置密钥产物后查询**一步闭合,无须再改代码**;② 回落 E1 零内存
-    途径(:func:`acquire_key`,当前如实负结论出口)。①未闭合会如实并入
-    exit 21 消息(放了 keys.json 却被弃的排查者不再被零内存措辞带偏)。
+    指引放置密钥产物后查询**一步闭合,无须再改代码**;② 自愈钩子
+    (0.4.0,task 10-13-wechat-key-subsystem):缓存缺位/未闭合且
+    ``mem_search_enabled`` 开 + setuid keyscanner 在位时,零人工重取
+    (:func:`wechat_bridge.memsearch.try_self_heal`,全量命中才落缓存);
+    ③ 回落 E1 零内存途径(:func:`acquire_key`,当前如实负结论出口)。
+    ①③未闭合会如实并入 exit 21 消息(放了 keys.json 却被弃的排查者
+    不再被零内存措辞带偏)。
 
     Returns:
         dict: 加密库相对路径 → key hex(全部经 page1 离线验证)。
 
     Raises:
-        BridgeError: exit 21(两源都未闭合;消息只承载形状,绝无材料)。
+        BridgeError: exit 21(各源都未闭合;消息只承载形状,绝无材料)。
     """
     notes: list[str] = []
     staged = read_key_cache(data_root=data_root)
@@ -528,6 +533,16 @@ def resolve_keys(
             f"keys.json 在场({len(staged)}条)但全量验证未闭合:"
             f"命中 {len(verified)}/{len(targets) if targets else 0}库"
         )
+    # —— 自愈钩子(setuid keyscanner + 配置门开 → 零人工重取;未武装 = 保持现状)——
+    from . import memsearch  # 延迟导入:memsearch 顶导本模块,防循环
+
+    if memsearch.self_heal_armed(config=config, data_root=data_root):
+        healed = memsearch.try_self_heal(
+            db_storage, config=config, targets=targets, data_root=data_root
+        )
+        if healed is not None:
+            return healed
+        notes.append("keyscanner 自愈未闭合(重取后缓存仍未全量命中)")
     try:
         return acquire_key(
             db_storage, files_root=files_root, key_db=key_db, targets=targets
@@ -541,7 +556,8 @@ def resolve_keys(
             fix_hint=(
                 "核对 keys.json:键=相对 db_storage 的库路径,值=该库的 64-hex "
                 "SQLCipher 密钥;逐条重验未命中说明密钥与库不匹配(登录态轮换后"
-                "旧 key 失效,G5),重取后覆盖重试"
+                "旧 key 失效,G5),重取后覆盖重试(一键:scripts/"
+                "wechat-bridge-d4-keyscan.sh;setuid 自愈件在位则查询自动重取)"
             ),
         ) from exc
 
@@ -734,18 +750,39 @@ def query_history(
     data_root: Path | None = None,
     now: float | None = None,
 ) -> dict[str, object]:
-    """``localdb query`` 全链编排:E2 副本 → E3 三域只读查询(G4)。"""
-    from . import localdb_query
+    """``localdb query`` 全链编排:E2 副本 → E3 三域只读查询(G4)。
 
-    copy_info = ensure_decrypted_copies(
-        db_storage,
-        keys,
-        domains=config.domains,
-        ttl_hours=config.copy_ttl_hours,
-        capacity_mb=config.copy_capacity_mb,
-        data_root=data_root,
-        now=now,
-    )
+    自愈钩子(0.4.0):E2 解密失败(密钥失效形状,如登录态轮换 G5)且
+    setuid keyscanner 在位 + 配置门开时,零人工重取一次(:func:
+    ``wechat_bridge.memsearch.try_self_heal`)并重建副本;未武装/未闭合 =
+    原样透传 decrypt_failed(诚实,不吞)。
+    """
+    from . import localdb_query, memsearch
+
+    def _ensure(keys_mapping: dict[str, str]) -> dict[str, object]:
+        return ensure_decrypted_copies(
+            db_storage,
+            keys_mapping,
+            domains=config.domains,
+            ttl_hours=config.copy_ttl_hours,
+            capacity_mb=config.copy_capacity_mb,
+            data_root=data_root,
+            now=now,
+        )
+
+    try:
+        copy_info = _ensure(keys)
+    except BridgeError as exc:
+        if exc.exit_code != DECRYPT_FAILED:
+            raise
+        if not memsearch.self_heal_armed(config=config, data_root=data_root):
+            raise  # 未安装自愈件 = 保持现状(指引一键脚本)
+        healed = memsearch.try_self_heal(db_storage, config=config, data_root=data_root)
+        if healed is None:
+            raise  # 自愈未闭合:原样透传,不制造半真状态
+        keys = healed
+        copy_info = _ensure(keys)
+
     return localdb_query.run_query(
         copy_dir=Path(str(copy_info["dir"])),
         domains=config.domains,

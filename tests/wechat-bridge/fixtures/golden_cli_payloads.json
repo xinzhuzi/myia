@@ -13,7 +13,7 @@
    "ax_tree": "unknown"
   },
   "wechat_version": "4.1.15",
-  "bridge_version": "0.3.2",
+  "bridge_version": "0.4.0",
   "reasons": [
    {
     "code": "window_closed",
@@ -81,7 +81,7 @@
   "error": {
    "code": "key_unavailable",
    "message": "内存密钥搜索默认关(配置门未开):mem_search_enabled=false(D4 豁免后仍须显式开启才生效——design §4)",
-   "fix_hint": "在 <数据根>/wechat-bridge/config.json 写 {\"mem_search_enabled\": true} 后重试;真跑还须提权(root)与主人裁决在案(三重门)"
+   "fix_hint": "在 <数据根>/wechat-bridge/config.json 写 {\"mem_search_enabled\": true} 后重试;真跑还须提权(root 或 setuid 自愈件)与主人裁决在案(三重门)"
   }
  }
 }

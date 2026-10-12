@@ -269,11 +269,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             days = _parse_since_days(args.since)
             # 本地库通道不依赖 UI 前置(窗口未开不影响);失败族 = 20/21/22。
             # 密钥解析(D4 裁决②消费通路):keys.json(缓存/外部同位)逐条
-            # 重验 → 全量命中即放行;未闭合回落 E1 零内存途径(exit 21 =
-            # D4 语义如实)→ E2 副本 → E3 三域查询;成功在此 emit 契约载荷
-            # (消息内容属 stdout 契约,不入日志;红线 6)。
+            # 重验 → 全量命中即放行;未闭合且自愈在位(mem_search_enabled
+            # + setuid keyscanner,0.4.0)→ 零人工重取;再回落 E1 零内存
+            # 途径(exit 21 = D4 语义如实)→ E2 副本 → E3 三域查询;成功
+            # 在此 emit 契约载荷(消息内容属 stdout 契约,不入日志;红线 6)。
             storage = localdb.locate_db_storage()
-            keys = localdb.resolve_keys(storage)
+            keys = localdb.resolve_keys(storage, config=config)
             _emit(localdb.query_history(config, storage, keys, chat_id, days))
             return EXIT_OK
         elif args.group == "localdb" and args.localdb_cmd == "key-scan":

@@ -1,9 +1,11 @@
-"""E1 密钥模块单测(合成数据全链;零真实微信材料——红线 6)。
+"""密钥模块单测(E1 零内存 + 0.4.0 内存管道 + setuid 自愈;零真实微信材料——红线 6)。
 
 合成 page1 按公开 SQLCipher 4 页格式构造(salt/数据区/IV/HMAC-SHA512,
 mac_key=PBKDF2-HMAC-SHA512(key, salt⊕0x3A, 2 轮));合成 key_info.db 按
-A3 实测 schema。校验机制(verify/extract/acquire)在此全链验证——真机
-材料永远不入测试。
+A3 实测 schema。校验机制(verify/extract/acquire)与 0.4.0 内存管道
+(C 收集器 subprocess / sqlcipher 试开全 mock)在此全链验证——真机材料
+与真实进程永不入测试;C 收集器源码级守卫(只读 mach 四调用,零 exec)
+钉死在 native/collector.c。
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from pathlib import Path
 
 import pytest
 
+import wechat_bridge.localdb as localdb
 import wechat_bridge.memsearch as memsearch
 from wechat_bridge.codes import KEY_UNAVAILABLE, BridgeError
 from wechat_bridge.config import BridgeConfig
@@ -344,14 +347,15 @@ class TestResolveKeys:
 
 
 class TestMemsearchShell:
-    """内存搜索(D4 豁免执行件):缺省关、三重门、只读性钉死、合成内存全链。
+    """内存搜索(D4 豁免执行件,0.4.0 管道):三重门 + 新管道全 mock 全链。
 
-    D4 豁免口径(主人 2026-10-11「全部解决」令):对微信进程只读内存
-    (vm_read 类),禁写/禁注入/禁调试器附加;真跑还须配置显式开启 +
-    提权,本类以注入段源全链验证,绝不触碰真实进程。
+    D4 豁免口径(主人 2026-10-11「全部解决」令;2026-10-13 固化令换轨
+    C 收集器管道):mach 只读逻辑全在 native/collector.c(本模块零 ctypes/
+    零 mach),收集器 subprocess 与 sqlcipher 试开全 mock,绝不触碰真实
+    进程/真实 sqlcipher;材料全合成(红线 6)。
     """
 
-    # —— 门:缺省关 + 逐门拒 ——
+    # —— 门:缺省关 + 逐门拒(既有测试锚,语义不变)——
     def test_default_off_and_refuses(self, tmp_path: Path) -> None:
 
         with pytest.raises(BridgeError) as excinfo:
@@ -366,6 +370,8 @@ class TestMemsearchShell:
     def test_enabled_but_not_elevated_refuses(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         # 豁免令检查在平台门之后:非 darwin CI 上须钉住平台判定才能到门
         monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
+        # 数据根指到空目录:keyscanner 未装 → 门③只剩 euid(非 root)即拒。
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
 
         with pytest.raises(BridgeError) as excinfo:
             memsearch.acquire_key_from_memory(
@@ -404,13 +410,62 @@ class TestMemsearchShell:
             )
         assert excinfo.value.exit_code == 10
 
-    # —— 守卫:源码级红线钉死(只读机械在场;写/注入/调试 API 零引用)——
-    def test_source_readonly_guards(self) -> None:
-        source = Path(memsearch.__file__).read_text(encoding="utf-8")
+    def test_keyscanner_elevation_in_place(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """门③新形态:setuid keyscanner 在位 = 提权在位(免 sudo 扫描的判据)。"""
+        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
+        monkeypatch.setattr(memsearch, "_current_euid_is_root", lambda: False)
+        data_root = tmp_path / "home"
+        assert memsearch.self_heal_armed(
+            config=BridgeConfig(mem_search_enabled=True), data_root=data_root
+        ) is False
+        scanner = memsearch.keyscanner_path(data_root=data_root)
+        scanner.parent.mkdir(parents=True)
+        scanner.write_bytes(b"#!/bin/sh\nexit 0\n")
+        scanner.chmod(0o4750)  # 假件:只验形状判据,永不执行
+        assert memsearch.keyscanner_available(data_root=data_root) is True
+        assert memsearch.self_heal_armed(
+            config=BridgeConfig(mem_search_enabled=True), data_root=data_root
+        ) is True
+        # 配置门缺省关 → 即便件在位也不武装(三重门缺一不可)。
+        assert memsearch.self_heal_armed(config=BridgeConfig(), data_root=data_root) is False
+        scanner.chmod(0o750)  # 掉 setuid 位 = 未安装语义
+        assert memsearch.keyscanner_available(data_root=data_root) is False
+
+    # —— 守卫:源码级红线钉死(mach 只读逻辑只许活在 C 收集器源码)——
+    @staticmethod
+    def _c_code_only(source: str) -> str:
+        """C 源去注释(守卫只打代码;注释里的 API 名是文档不是调用)。"""
+        import re
+
+        no_block = re.sub(r"/\*.*?\*/", " ", source, flags=re.S)
+        return re.sub(r"//[^\n]*", " ", no_block)
+
+    @staticmethod
+    def _py_code_only(source: str) -> str:
+        """Python 源去注释/文档串(tokenize;守卫只打代码)。"""
+        import io
+        import tokenize
+
+        tokens: list[str] = []
+        try:
+            for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+                if tok.type not in (tokenize.COMMENT, tokenize.STRING):
+                    tokens.append(tok.string)
+        except tokenize.TokenError:  # pragma: no cover - 源码恒可 tokenize
+            return source
+        return " ".join(tokens)
+
+    def test_collector_source_readonly_guards(self) -> None:
+        """C 收集器:只读机械在场;写/注入/调试/exec 类 API 零引用(setuid 审计焦点)。"""
+        source = self._c_code_only(
+            (
+                Path(memsearch.__file__).resolve().parents[1] / "native" / "collector.c"
+            ).read_text(encoding="utf-8")
+        )
         # 只读机械必须真实在场(不是装样子的空壳)。
-        for required in ("task_for_pid", "mach_vm_region", "mach_vm_read_overwrite"):
+        for required in ("task_for_pid", "mach_vm_region", "mach_vm_read", "mach_vm_deallocate"):
             assert required in source, f"只读机械缺位: {required}"
-        # 写/注入/调试类 API 一个字都不许出现(D4 豁免边界=只读)。
+        # 写/注入/调试/子进程类 API 一个字都不许出现(固化红线:零 exec)。
         for forbidden in (
             "vm_write",
             "vm_protect",
@@ -424,91 +479,121 @@ class TestMemsearchShell:
             "task_policy",
             "OpenProcess",
             "WriteProcessMemory",
+            "popen",
+            "system",
+            "fork",
+            "posix_spawn",
         ):
-            assert forbidden not in source, f"只读模块不得出现: {forbidden}"
+            assert forbidden not in source, f"只读收集器不得出现: {forbidden}"
 
-    # —— 合成内存全链:命中 → 落缓存(600)→ 形状载荷 ——
-    def test_scan_finds_embedded_key_full_chain(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_memsearch_module_has_no_mach_or_exec(self) -> None:
+        """桥侧 Python:零 ctypes/mach(内存接触全在 C 件)/零外壳执行。"""
+        source = self._py_code_only(Path(memsearch.__file__).read_text(encoding="utf-8"))
+        for forbidden in ("ctypes", "task_for_pid", "mach_vm", "shell =", "os.system"):
+            assert forbidden not in source, f"memsearch 模块不得出现: {forbidden}"
+
+    # —— 新管道全链(收集器/sqlcipher 全 mock;材料全合成)——
+    @staticmethod
+    def _collector_stdout(hex_keys: list[str]) -> bytes:
+        return ("\n".join(hex_keys) + "\n").encode("utf-8")
+
+    @staticmethod
+    def _sqlcipher_opens_only(true_hex: str):
+        """试开 mock:仅真钥匙(缺省参数组)开锁,其余变体/候选全拒。"""
+        calls: list[tuple[str, str]] = []
+
+        def runner(argv: list[str], input_bytes: bytes) -> "subprocess.CompletedProcess[bytes]":
+            import subprocess as sp
+
+            sql = input_bytes.decode("utf-8")
+            key_hex = sql.split("x'")[1].split("'")[0]
+            calls.append((key_hex, argv[1]))
+            opened = key_hex == true_hex and "cipher_" not in sql
+            out = b"1\n" if opened else b""
+            return sp.CompletedProcess(
+                args=argv, returncode=0 if opened else 1, stdout=out, stderr=b"" if opened else b"file is not a database"
+            )
+
+        return runner, calls
+
+    def _run_scan(self, tmp_path, monkeypatch, *, stdout: bytes, sqlcipher_runner):
         monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
         monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
-        key = bytes(range(32))
+        key = bytes(range(1, 33))  # 32B 无零字节、高熵(>3.5 bits/B)
         db_storage, _key_db = make_account(tmp_path, key)
-        targets = page1_targets(db_storage)
-        noise = bytes(128)
-        # 记账标记(滤除/超大区)放 key 段之前:全量命中即早退是既定语义,
-        # 其后未消费的段不再计数(单遍批处理,命中即收工)。
-        buffers = iter(
-            [
-                (0, "filtered", b""),  # 非堆区:滤除计数
-                (1, "cap", b""),  # 超大区:整区跳过计数
-                (2, "data", noise[:100] + key + noise[:50]),  # key 整窗横卧
-            ]
-        )
-        payload = memsearch.acquire_key_from_memory(
-            db_storage,
-            config=BridgeConfig(mem_search_enabled=True),
-            targets=targets,
-            elevated=True,
-            pids=[4242],
-            region_source=lambda pid: buffers,
-        )
-        assert payload["matched"] == {"count": 1, "total": 1}
-        scan = payload["scan"]
-        assert scan["regions_scanned"] == 1
-        assert scan["regions_filtered"] == 1
-        assert scan["regions_skipped_cap"] == 1
-        assert scan["interrupted"] is False
-        assert "pids" in scan and scan["pids"] == [4242]
-        # 缓存落盘且 600(resolve_keys 消费通路同位;keys.json 内容只进
-        # 数据根私有区,断言只看形状与可读性,不回显)。
-        cache = read_key_cache(data_root=tmp_path / "home")
-        assert cache is not None and set(cache.values()) == {key.hex()}
-        cache_path = tmp_path / "home" / "wechat-localdb" / "keys.json"
-        assert (cache_path.stat().st_mode & 0o777) == 0o600
+        fake_binary = tmp_path / "fake-collector"
+        fake_binary.write_bytes(b"")
+        collector_calls: list[tuple[list[str], bytes]] = []
 
-    def test_straddling_key_found_via_chunk_stitch(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """key 跨段横卧:31 字节重叠拼接恰好覆盖一次(换区即清)。"""
-        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
-        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
-        key = bytes(range(32))
-        db_storage, _key_db = make_account(tmp_path, key)
-        first = bytes(100) + key[:20]  # key 只有一截在首段
-        second = key[20:] + bytes(64)  # 余截在次段(拼接头 31B 覆盖 20B 前缀)
-        buffers = iter([(0, "data", first), (0, "data", second)])
+        def collector_runner(argv: list[str], input_bytes: bytes):
+            import subprocess as sp
+
+            collector_calls.append((list(argv), input_bytes))
+            return sp.CompletedProcess(
+                args=argv, returncode=0, stdout=stdout, stderr=b"salts: 1\ncandidates: 2\n"
+            )
+
         payload = memsearch.acquire_key_from_memory(
             db_storage,
             config=BridgeConfig(mem_search_enabled=True),
             targets=page1_targets(db_storage),
             elevated=True,
-            pids=[1],
-            region_source=lambda pid: buffers,
+            pids=[4242],
+            data_root=tmp_path / "home",
+            collector_binary=fake_binary,
+            collector_runner=collector_runner,
+            sqlcipher_runner=sqlcipher_runner,
         )
-        assert payload["matched"]["count"] == 1
+        return key, db_storage, payload, collector_calls
 
-    def test_zero_hit_is_honest_exit21_shape(
+    def test_pipeline_full_chain_hit(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
-        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
-        db_storage, _key_db = make_account(tmp_path, bytes(range(32)))
-        buffers = iter([(0, "data", bytes(4096))])
+        """新管道全链:收集器候选 → 熵筛 → sqlcipher 试开 → 交叉验证 → keys.json(600)。"""
+        key = bytes(range(1, 33))
+        runner, calls = self._sqlcipher_opens_only(key.hex())
+        decoy_low = ("00" * 32)  # 全零:熵 0,预筛即弃
+        payload_keys = [decoy_low, key.hex()]
+        _key, db_storage, payload, collector_calls = self._run_scan(
+            tmp_path, monkeypatch,
+            stdout=self._collector_stdout(payload_keys), sqlcipher_runner=runner,
+        )
+        assert payload["matched"] == {"count": 1, "total": 1}
+        scan = payload["scan"]
+        assert scan["pids"] == [4242]
+        assert scan["candidates"] == 2
+        assert scan["entropy_kept"] == 1  # 全零候选被熵筛弃
+        assert scan["sqlcipher_hits"] == 1
+        assert scan["salts"] == 1
+        # 收集器收到:白名单 argv(pid)+ stdin 盐清单(page1 前 16B)。
+        argv, stdin_bytes = collector_calls[0]
+        assert argv == [str(tmp_path / "fake-collector"), "4242"]
+        assert stdin_bytes.decode().strip() == bytes(range(16)).hex()
+        # 试开只打了熵筛后的候选(全零候选零试开)。
+        assert [c[0] for c in calls] == [key.hex()]
+        # 缓存落盘 600;内容 = canonical 验证后的映射。
+        cache_path = tmp_path / "home" / "wechat-localdb" / "keys.json"
+        assert (cache_path.stat().st_mode & 0o777) == 0o600
+        cache = read_key_cache(data_root=tmp_path / "home")
+        assert cache == {"message/message_0.db": key.hex()}
+        # 候选临时件用后即清(红线 6:密钥材料只进 keys.json 私有区)。
+        assert not (tmp_path / "home" / "wechat-localdb" / "scan").exists()
+
+    def test_zero_hit_is_honest_exit21(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """零命中:exit 21 + 形状计数;不落缓存。"""
+        key = bytes(range(1, 33))
+        runner, _calls = self._sqlcipher_opens_only(key.hex())
         with pytest.raises(BridgeError) as excinfo:
-            memsearch.acquire_key_from_memory(
-                db_storage,
-                config=BridgeConfig(mem_search_enabled=True),
-                targets=page1_targets(db_storage),
-                elevated=True,
-                pids=[1],
-                region_source=lambda pid: buffers,
+            self._run_scan(
+                tmp_path, monkeypatch,
+                stdout=self._collector_stdout([("ab" * 32)]), sqlcipher_runner=runner,
             )
         err = excinfo.value
         assert err.exit_code == 21
         assert "零命中" in str(err)
-        assert "滑窗" in str(err) and "校验" in str(err)
+        assert "候选" in str(err) and "试开" in str(err)
         assert read_key_cache(data_root=tmp_path / "home") is None
 
     def test_partial_hit_no_cache(
@@ -517,7 +602,7 @@ class TestMemsearchShell:
         """两库一库命中:部分命中不落缓存(缓存=全量验证子集)。"""
         monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
         monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
-        key_a, key_b = bytes(range(32)), bytes(range(32, 64))
+        key_a, key_b = bytes(range(1, 33)), bytes(range(33, 65))
         account = tmp_path / "wxid_demo_8253"
         (account / "db_storage" / "message").mkdir(parents=True)
         (account / "db_storage" / "message" / "message_0.db").write_bytes(
@@ -527,7 +612,9 @@ class TestMemsearchShell:
         (account / "db_storage" / "session" / "session.db").write_bytes(
             make_page1(key_b)
         )
-        buffers = iter([(0, "data", bytes(10) + key_a + bytes(10))])
+        runner, _calls = self._sqlcipher_opens_only(key_a.hex())
+        import subprocess as sp
+
         with pytest.raises(BridgeError) as excinfo:
             memsearch.acquire_key_from_memory(
                 account / "db_storage",
@@ -535,30 +622,91 @@ class TestMemsearchShell:
                 targets=page1_targets(account / "db_storage"),
                 elevated=True,
                 pids=[1],
-                region_source=lambda pid: buffers,
+                data_root=tmp_path / "home",
+                collector_binary=tmp_path / "fake",
+                collector_runner=lambda argv, data: sp.CompletedProcess(
+                    args=argv, returncode=0,
+                    stdout=(key_a.hex() + "\n").encode(), stderr=b"",
+                ),
+                sqlcipher_runner=runner,
             )
         assert excinfo.value.exit_code == 21
         assert "部分命中" in str(excinfo.value)
         assert read_key_cache(data_root=tmp_path / "home") is None
 
-    def test_budget_interrupt_honest(self, tmp_path: Path) -> None:
-        """预算耗尽:如实标 interrupted,字节不超收。"""
-        key = bytes(range(32))
-        page1 = make_page1(key)
-        big = bytes(10_000) + key
-        matched, report = memsearch.scan_region_buffers(
-            [("message/message_0.db", len(page1), page1)],
-            [(0, "data", big)],
-            total_budget=1_000,
-        )
-        assert matched == {}
-        assert report.interrupted is True
-        assert report.bytes_scanned == 1_000
+    def test_collector_failure_is_honest_exit21(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """收集器失败(task_for_pid 被拒形状):exit 21 如实,不规避。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
+        db_storage, _key_db = make_account(tmp_path, bytes(range(1, 33)))
+        import subprocess as sp
 
-    def test_scan_region_buffers_empty_targets(self) -> None:
-        matched, report = memsearch.scan_region_buffers([], iter([(0, "data", bytes(64))]))
-        assert matched == {} and report.windows == 0
+        with pytest.raises(BridgeError) as excinfo:
+            memsearch.acquire_key_from_memory(
+                db_storage,
+                config=BridgeConfig(mem_search_enabled=True),
+                targets=page1_targets(db_storage),
+                elevated=True,
+                pids=[1],
+                data_root=tmp_path / "home",
+                collector_binary=tmp_path / "fake",
+                collector_runner=lambda argv, data: sp.CompletedProcess(
+                    args=argv, returncode=1, stdout=b"",
+                    stderr=b"task_for_pid failed: 5\n",
+                ),
+                sqlcipher_runner=lambda argv, data: sp.CompletedProcess(
+                    args=argv, returncode=1, stdout=b"", stderr=b""
+                ),
+            )
+        err = excinfo.value
+        assert err.exit_code == 21
+        assert "task_for_pid" in str(err)
+        assert read_key_cache(data_root=tmp_path / "home") is None
 
+    def test_collector_binary_missing_cc_structured_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """收集器不可得(keyscanner 未装/组件 bin 未编/cc 缺装):结构化 exit 21 + CLT 指引。"""
+        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
+        monkeypatch.setattr(memsearch, "_current_euid_is_root", lambda: True)
+        monkeypatch.setattr(memsearch, "_cc_available", lambda: False)
+        # 组件 bin/collector 若已编(本机真跑过)会短路解析——钉住组件根到空目录。
+        empty_root = tmp_path / "empty-component"
+        (empty_root / "native").mkdir(parents=True)
+        (empty_root / "native" / "collector.c").write_text("/* stub */\n")
+        monkeypatch.setattr(memsearch, "_component_root", lambda: empty_root)
+        db_storage, _key_db = make_account(tmp_path, bytes(range(1, 33)))
+
+        with pytest.raises(BridgeError) as excinfo:
+            memsearch.acquire_key_from_memory(
+                db_storage,
+                config=BridgeConfig(mem_search_enabled=True),
+                elevated=True,
+                pids=[1],
+                data_root=tmp_path / "home",
+            )
+        err = excinfo.value
+        assert err.exit_code == 21
+        assert "cc" in str(err) or "Xcode" in str(err)
+        assert "xcode-select" in (err.fix_hint or "")
+
+    def test_keyscanner_preferred_over_component_build(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """二进制解析序:setuid 自愈件优先于组件 bin/(免 sudo 的根基)。"""
+        monkeypatch.setattr(memsearch, "_platform_is_darwin", lambda: True)
+        data_root = tmp_path / "home"
+        scanner = memsearch.keyscanner_path(data_root=data_root)
+        scanner.parent.mkdir(parents=True)
+        scanner.write_bytes(b"")
+        scanner.chmod(0o4750)
+        resolved, kind = memsearch.resolve_collector_binary(data_root=data_root)
+        assert kind == "keyscanner"
+        assert resolved == scanner
+
+    # —— 缓存/进程定位(保留锚)——
     def test_find_wechat_pids_parses_pgrep(self) -> None:
         import subprocess as sp
 
@@ -585,6 +733,243 @@ class TestMemsearchShell:
         written = write_key_cache(write_map, data_root=tmp_path)
         assert (written.stat().st_mode & 0o777) == 0o600
         assert read_key_cache(data_root=tmp_path) == write_map
+
+    def test_entropy_prefilter_shape(self) -> None:
+        """熵筛配方:全零/单字节=0;真随机 32B ≥ 3.5 bits/B。"""
+        assert memsearch.entropy_bits_per_byte(bytes(32)) == 0.0
+        assert memsearch.entropy_bits_per_byte(b"\xab" * 32) == 0.0
+        assert (
+            memsearch.entropy_bits_per_byte(bytes(range(32)))
+            >= memsearch.ENTROPY_MIN_BITS_PER_BYTE
+        )
+
+    def test_param_sets_shape(self) -> None:
+        """参数变体 4 组(/tmp verify.py 已验配方;缺省组在首位=E2 消费参数)。"""
+        assert len(memsearch.PARAM_SETS) == 4
+        assert memsearch.PARAM_SETS[0] == ()
+
+
+class TestSelfHeal:
+    """setuid 自愈钩子(0.4.0):query 链密钥缺位/失效零人工重取的口径。"""
+
+    def test_self_heal_dormant_without_armed(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """未武装(配置关/件未装):resolve_keys 保持现状语义(E1 如实 21)。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, key_db = make_account(tmp_path, bytes(range(32)))
+        stale_page1 = make_page1(b"\xab" * 32, salt=bytes(range(16, 32)))
+        (db_storage / "message" / "message_0.db").write_bytes(stale_page1)
+
+        def _must_not_run(*_a: object, **_k: object) -> dict[str, str]:
+            raise AssertionError("未武装时不得触达自愈扫描")
+
+        monkeypatch.setattr("wechat_bridge.memsearch.try_self_heal", _must_not_run)
+        with pytest.raises(BridgeError) as excinfo:
+            resolve_keys(db_storage, files_root=tmp_path, key_db=key_db)
+        assert excinfo.value.exit_code == 21
+
+    def test_self_heal_closes_cache_miss(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """缓存缺位 + 件在位 + 门开 → 自愈重取,query 链一步闭合。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        key = bytes(range(32))
+        db_storage, _key_db = make_account(tmp_path, key)
+
+        def fake_heal(storage, *, config, targets=None, data_root=None):
+            write_key_cache({"message/message_0.db": key.hex()}, data_root=data_root)
+            return {"message/message_0.db": key.hex()}
+
+        monkeypatch.setattr(
+            "wechat_bridge.memsearch.self_heal_armed",
+            lambda *, config, data_root=None: True,
+        )
+        monkeypatch.setattr("wechat_bridge.memsearch.try_self_heal", fake_heal)
+
+        def _must_not_run(*_a: object, **_k: object) -> dict[str, str]:
+            raise AssertionError("自愈闭合后不应回落 E1 零内存途径")
+
+        monkeypatch.setattr("wechat_bridge.localdb.acquire_key", _must_not_run)
+        resolved = resolve_keys(db_storage, files_root=tmp_path, config=BridgeConfig(mem_search_enabled=True))
+        assert resolved == {"message/message_0.db": key.hex()}
+        assert read_key_cache(data_root=tmp_path / "home") is not None
+
+    def test_self_heal_failure_falls_through_with_note(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """自愈未闭合(如实 None)→ 回落 E1;exit 21 并入自愈注记。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, key_db = make_account(tmp_path, bytes(range(32)))
+        stale_page1 = make_page1(b"\xab" * 32, salt=bytes(range(16, 32)))
+        (db_storage / "message" / "message_0.db").write_bytes(stale_page1)
+        monkeypatch.setattr(
+            "wechat_bridge.memsearch.self_heal_armed",
+            lambda *, config, data_root=None: True,
+        )
+        monkeypatch.setattr(
+            "wechat_bridge.memsearch.try_self_heal",
+            lambda *a, **k: None,
+        )
+        with pytest.raises(BridgeError) as excinfo:
+            resolve_keys(
+                db_storage,
+                files_root=tmp_path,
+                key_db=key_db,
+                config=BridgeConfig(mem_search_enabled=True),
+            )
+        assert excinfo.value.exit_code == 21
+        assert "自愈" in str(excinfo.value)
+
+    def test_try_self_heal_gate_guards(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """try_self_heal 本体:未武装 → 零扫描;武装 + 扫描未闭合 → None;
+        武装 + 全量命中 → 落缓存并返回验证映射。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, _key_db = make_account(tmp_path, bytes(range(1, 33)))
+        # 假 setuid 件(只验形状判据,永不执行)+ 配置开 = 武装;
+        # 件未装/配置关 = 未武装(三重门缺一不可)。
+        scanner = memsearch.keyscanner_path(data_root=tmp_path / "home")
+        scanner.parent.mkdir(parents=True)
+        scanner.write_bytes(b"")
+        scanner.chmod(0o4750)
+
+        def _must_not_scan(*_a: object, **_k: object) -> dict[str, object]:
+            raise AssertionError("未武装不得扫描")
+
+        monkeypatch.setattr(memsearch, "acquire_key_from_memory", _must_not_scan)
+        assert (
+            memsearch.try_self_heal(
+                db_storage, config=BridgeConfig(), data_root=tmp_path / "home"
+            )
+            is None
+        )
+
+        key = bytes(range(1, 33))
+
+        def fake_scan(storage, *, config, **_k):
+            write_key_cache({"message/message_0.db": key.hex()}, data_root=tmp_path / "home")
+            return {"matched": {"count": 1, "total": 1}, "scan": {}, "cache": "x"}
+
+        monkeypatch.setattr(
+            memsearch,
+            "acquire_key_from_memory",
+            lambda *a, **k: (_ for _ in ()).throw(BridgeError(21, "零命中(注入)")),
+        )
+        assert (
+            memsearch.try_self_heal(
+                db_storage,
+                config=BridgeConfig(mem_search_enabled=True),
+                data_root=tmp_path / "home",
+            )
+            is None
+        )
+
+        monkeypatch.setattr(memsearch, "acquire_key_from_memory", fake_scan)
+        healed = memsearch.try_self_heal(
+            db_storage,
+            config=BridgeConfig(mem_search_enabled=True),
+            data_root=tmp_path / "home",
+        )
+        assert healed == {"message/message_0.db": key.hex()}
+
+    def test_query_history_decrypt_failure_heals_once(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """E2 解密失败(密钥失效形状)→ 自愈重取 → 重建一次 → 查询成功。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        key = bytes(range(1, 33))
+        db_storage, _key_db = make_account(tmp_path, key)
+        stale_keys = {"message/message_0.db": "cd" * 32}
+        healed_keys = {"message/message_0.db": key.hex()}
+        copy_infos: list[dict[str, object]] = []
+
+        def fake_ensure(_storage, keys_mapping, **_k):
+            copy_infos.append(dict(keys_mapping))
+            if len(copy_infos) == 1:
+                raise BridgeError(22, "sqlcipher 解密失败(注入:密钥失效)")
+            return {"dir": str(tmp_path / "dec"), "built": ["message/message_0.db"], "kept": [], "skipped": [], "total_bytes": 1}
+
+        monkeypatch.setattr("wechat_bridge.localdb.ensure_decrypted_copies", fake_ensure)
+        monkeypatch.setattr(
+            "wechat_bridge.memsearch.self_heal_armed",
+            lambda *, config, data_root=None: True,
+        )
+        monkeypatch.setattr(
+            "wechat_bridge.memsearch.try_self_heal",
+            lambda *a, **k: healed_keys,
+        )
+        monkeypatch.setattr(
+            "wechat_bridge.localdb_query.run_query",
+            lambda **_k: {"messages": [], "healed": True},
+        )
+        result = localdb.query_history(
+            BridgeConfig(mem_search_enabled=True),
+            db_storage,
+            stale_keys,
+            "filehelper",
+            7,
+            data_root=tmp_path / "home",
+        )
+        assert result == {"messages": [], "healed": True}
+        assert copy_infos == [stale_keys, healed_keys]  # 第二次用自愈后的钥匙
+
+    def test_query_history_decrypt_failure_unarmed_propagates(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """未武装时解密失败原样透传(不吞、不谎报)。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, _key_db = make_account(tmp_path, bytes(range(1, 33)))
+
+        def fake_ensure(*_a, **_k):
+            raise BridgeError(22, "sqlcipher 解密失败(注入)")
+
+        monkeypatch.setattr("wechat_bridge.localdb.ensure_decrypted_copies", fake_ensure)
+        with pytest.raises(BridgeError) as excinfo:
+            localdb.query_history(
+                BridgeConfig(),
+                db_storage,
+                {"message/message_0.db": "cd" * 32},
+                "filehelper",
+                7,
+                data_root=tmp_path / "home",
+            )
+        assert excinfo.value.exit_code == 22
+
+    def test_query_history_decrypt_failure_heal_none_propagates(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """武装但自愈未闭合(None)→ decrypt_failed 原样(不制造半真状态)。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, _key_db = make_account(tmp_path, bytes(range(1, 33)))
+
+        def fake_ensure(*_a, **_k):
+            raise BridgeError(22, "sqlcipher 解密失败(注入)")
+
+        monkeypatch.setattr("wechat_bridge.localdb.ensure_decrypted_copies", fake_ensure)
+        monkeypatch.setattr(
+            "wechat_bridge.memsearch.self_heal_armed",
+            lambda *, config, data_root=None: True,
+        )
+        monkeypatch.setattr(
+            "wechat_bridge.memsearch.try_self_heal",
+            lambda *a, **k: None,
+        )
+        with pytest.raises(BridgeError) as excinfo:
+            localdb.query_history(
+                BridgeConfig(mem_search_enabled=True),
+                db_storage,
+                {"message/message_0.db": "cd" * 32},
+                "filehelper",
+                7,
+                data_root=tmp_path / "home",
+            )
+        assert excinfo.value.exit_code == 22
+
+
+class TestSudoOwnerRestore:
+    """sudo 会话落盘属主归还(v1 已验锚,0.4.0 原样保留)。"""
 
     def test_sudo_write_restores_owner_to_invoking_user(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

@@ -1,6 +1,6 @@
 # wechat-bridge — 微信本机桥(UI 自动化 + 本地库只读)
 
-受管组件(task 10-11-wechat-ui-bridge,G7 命名):管「当下收发」的 **UI 自动化桥**(macOS AX 先行,Windows wxauto 备胎另启)+ 管「历史与全量」的**本地库只读通道**。不破解协议、不碰微信进程内存,外部件走受管组件链路。
+受管组件(task 10-11-wechat-ui-bridge,G7 命名):管「当下收发」的 **UI 自动化桥**(macOS AX 先行,Windows wxauto 备胎另启)+ 管「历史与全量」的**本地库只读通道**。不破解协议;微信进程内存仅在 D4 豁免的密钥扫描里**只读**接触(默认关,三重门;0.4.0 固化为 C 收集器管道),外部件走受管组件链路。
 
 - 设计与契约:`.trellis/tasks/10-11-wechat-ui-bridge/design.md`(CLI §6 / 配置 §7 / 测试 §8)
 - 组件戳:`component.json`(版本 + 适用微信版本范围,真锁惯例 design §4)
@@ -17,7 +17,7 @@ python -m wechat_bridge sessions list --json           # 会话列表(Phase C1)
 python -m wechat_bridge messages read <id> -k 50       # 最近 K 条文本(Phase C2)
 python -m wechat_bridge send_text <id> --file -        # 正文经 stdin(G6 硬频控;Phase D)
 python -m wechat_bridge localdb query <chat> --since 7d --json   # 本地库只读(Phase E)
-python -m wechat_bridge localdb key-scan --json        # 内存密钥批处理扫描(D4 豁免;默认关+须提权+只读单遍)
+python -m wechat_bridge localdb key-scan --json        # 内存密钥批处理扫描(D4 豁免;默认关+须提权(root 或 setuid 自愈件)+只读单遍)
 ```
 
 `bin/wechat-bridge` = 装机启动器(纯转接,零业务逻辑):解析组件根 → 按
@@ -50,14 +50,16 @@ requires),exec `python -m wechat_bridge`;stdout 恒单 JSON 由桥包保证,
   - 截图/裁剪件含聊天内容:全程 0700 私有临时目录、用后即清(红线 3)。
 - UI 写通道(send_text):Phase D 按 A1 第三案收口(官方 iLink 桥独任);前置检查门真跑(§6 码序 fail-fast),未落地实现层结构化应答 `not_implemented`(exit 1 过渡码,不谎报 §6 具名族)。
 - `localdb query`(Phase E,已落地):定位 db_storage → E1 密钥获取(零内存途径=key_info.db 材料→候选提取→page1 离线 HMAC-SHA512 校验,机制完整可单测)→ E2 sqlcipher 解密副本至 `<数据根>/wechat-localdb/decrypted/`(600/700 权限,TTL 24h+容量上限,失败重建)→ E3 message/session/contact 三域只读查询(列签名自适应,版本漂移如实降级)。**E1 实测结论(2026-10-11 真跑):零内存密钥途径不可推导**(候选全数 HMAC 未命中,与三方独立公开实测一致)→ 如实 `key_unavailable`(exit 21)+ D4 待主人裁决;密钥可得(外部引入或 D4 豁免后)即全链闭合。
-- `localdb key-scan`(D4 豁免执行件,主人 2026-10-11「全部解决」令):内存密钥批处理扫描——只读 vm_read 类系统调用(`task_for_pid`/`mach_vm_region`/`mach_vm_read_overwrite`)单遍遍历可写私有区 → 32 字节滑窗候选 → 复用 E1 校验器对 page1 离线 HMAC 校验 → 全量命中才落 `keys.json`(600,`localdb query` 一步闭合)。**三重门**:配置 `mem_search_enabled: true`(缺省关)+ root 提权 + 主人裁决在案;预算(单区 64MB/总 256MB)为模块常量;禁写内存/禁注入/禁调试器附加/禁重签名,守卫测试钉死。如实预告:微信为 hardened runtime 签名,root 亦可能被内核拒(`task_for_pid` KERN_FAILURE)——该拒绝即此路在本机不可达的如实信号。
+- `localdb key-scan`(D4 豁免执行件,主人 2026-10-11「全部解决」令;**0.4.0 固化**主人 2026-10-13「固化成代码」令):内存密钥批处理扫描,管道 = **C 收集器**(`native/collector.c`,三模式宽收集:`x'hex'` 包裹串 / 连续 96-hex 裸串 / 已知 salt 二进制 ±512B 邻域 1B 步进;只读 mach 四调用 `task_for_pid`/`mach_vm_region`/`mach_vm_read`/`mach_vm_deallocate`,**零写零注入零 exec**,argv 白名单=pid,候选恒走 stdout)→ 候选文件(数据根私有区临时件 600,用后即清)→ 熵预筛(≥3.5 bits/byte)→ 8 并发 sqlcipher 试开(微信 4.x 参数变体 4 组)→ page1 离线 HMAC 交叉验证 → 全量命中才落 `keys.json`(600,`localdb query` 一步闭合)。**三重门**:配置 `mem_search_enabled: true`(缺省关)+ 提权在位(root 或 setuid 自愈件)+ 主人裁决在案;旧 Python 滑窗实现退役删除;禁写内存/禁注入/禁调试器附加/禁重签名,守卫测试钉死(C 源码级)。如实预告:微信为 hardened runtime 签名,root 亦可能被内核拒(`task_for_pid` KERN_FAILURE)——该拒绝即此路在本机不可达的如实信号。
+- **setuid 自愈件**(0.4.0):`native/install-keyscanner.sh`(一键脚本首段代跑,一次 root)把收集器装为 `<数据根>/wechat-localdb/bin/keyscanner`(root:staff,4750)——此后扫描/自愈零 sudo;`localdb query` 的密钥缺位/解密失败(密钥轮换)在 `mem_search_enabled: true` + 件在位时自动重取(`resolve_keys`/`query_history` 自愈钩子,全量命中才落缓存)。**威胁模型(如实)**:单用户本机 = 用户读自己微信内存;多用户机器上 staff 组成员可借它做同款只读模式扫描——不接受则不装,`sudo rm` 该件即回归现状(未安装 = key_unavailable + 一键脚本指引)。
+- 依赖:sqlcipher CLI(`brew install sqlcipher`,design §5.1 前置;0.4.0 起同为密钥试开验证前置)、cc(Xcode CLT,收集器首用自动编译,缺装时结构化报错带 `xcode-select --install` 指引)。
 - 频控落盘模块(G6)已实现并可单测(时间注入,不真等 10 秒)。
 - 依赖:sqlcipher CLI(`brew install sqlcipher`,design §5.1 前置;缺装时解密步骤结构化报错并给指引)。
 
 ## 红线(违者返工)
 
 1. 静默后台:不抢前台焦点、不合成鼠标点击、不激活微信窗口;UI 侧只走 AX 通道。
-2. 不破解协议:禁逆向、禁 hook 注入;内存密钥搜索默认关,仅 D4 豁免后配置显式开启 + 提权才生效,且只读 vm_read 单遍零常驻、禁写内存/禁注入/禁调试器附加/禁重签名。
+2. 不破解协议:禁逆向、禁 hook 注入;内存密钥搜索默认关,仅 D4 豁免后配置显式开启 + 提权在位(root 或 setuid 自愈件)才生效,且只读 vm_read 单遍零常驻、禁写内存/禁注入/禁调试器附加/禁重签名(0.4.0:mach 逻辑只在 `native/collector.c`,源码级守卫;setuid 件零 exec、argv 白名单、输出恒 stdout)。
 3. 私有数据:聊天内容/密钥材料不入 git/日志/报告;证据只留形状。
 4. 依赖纪律:临时依赖一律独立 venv,勿入仓库 `.venv`。
 
