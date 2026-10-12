@@ -135,7 +135,7 @@ dedup:
   key: "{url}"
 enrich:
   enabled: false                 # keep false when you don't want LLM scoring — zero config
-  model: glm-4-flash
+  model: glm-5.3-flash
   scores: [value, relevance, credibility]
   batch: 20
   cache: true

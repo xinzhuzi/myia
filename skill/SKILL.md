@@ -184,7 +184,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | 字段 | 缺省 | 语义 |
 |---|---|---|
 | `enabled` | `false` | LLM 精评开关;开启时 `base_url`/`api_key` 必须有效(构造期结构化报错 `missing_base_url`/`missing_api_key`) |
-| `model` | `glm-4-flash` | 模型名(任意 OpenAI 兼容端点) |
+| `model` | `glm-5.3-flash` | 模型名(任意 OpenAI 兼容端点) |
 | `scores` | `[value, relevance, credibility]` | 评分维度(各 0-10),回填为条目 `score` 供 route 使用 |
 | `batch` | `20` | 批量评分条数(1-1000) |
 | `cache` | `true` | 按 URL 缓存评分,同一 URL 永不打两次分 |
@@ -416,7 +416,7 @@ dedup:
   key: "{url}"
 enrich:
   enabled: false                 # 不启用 LLM 精评就保持 false,零配置
-  model: glm-4-flash
+  model: glm-5.3-flash
   scores: [value, relevance, credibility]
   batch: 20
   cache: true

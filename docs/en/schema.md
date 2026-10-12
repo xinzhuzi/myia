@@ -264,7 +264,7 @@ round the category stays permanently silent.
 | Field | Default | Semantics |
 |---|---|---|
 | `enabled` | `false` | LLM scoring switch; when on, `base_url`/`api_key` must be valid (structured `missing_base_url`/`missing_api_key` errors) |
-| `model` | `glm-4-flash` | Model name (any OpenAI-compatible endpoint) |
+| `model` | `glm-5.3-flash` | Model name (any OpenAI-compatible endpoint) |
 | `scores` | `[value, relevance, credibility]` | Score dimensions (0-10 each), backfilled as the item `score` for routing |
 | `batch` | `20` | Items scored per batch (1-1000) |
 | `cache` | `true` | Per-URL score cache — a URL is never scored twice |

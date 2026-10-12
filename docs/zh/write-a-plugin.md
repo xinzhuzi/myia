@@ -114,7 +114,7 @@ dedup:
   key: "{url}"
 enrich:
   enabled: false                 # 不启用 LLM 精评就保持 false,零配置
-  model: glm-4-flash
+  model: glm-5.3-flash
   scores: [value, relevance, credibility]
   batch: 20
   cache: true

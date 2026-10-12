@@ -46,7 +46,7 @@ export MYIA_LLM_KEY=ollama            # 占位值,本地端点不校验
 
 | 服务 | 免费内容(快照 2026-10-03,以官网为准) | 性质 | 看图 | 精评 |
 |---|---|---|---|---|
-| 智谱 GLM-4V-Flash / GLM-4-Flash | 定价页输入/输出单价均标注「免费」(0 元,非限时活动);并发/RPM 数值不公开,登录后于账户速率限制页查看 | 限速制 | ✓(4V-Flash) | ✓(4-Flash 即精评缺省模型 `glm-4-flash`) |
+| 智谱 GLM-4V-Flash / GLM-4-Flash | 定价页输入/输出单价均标注「免费」(0 元,非限时活动);并发/RPM 数值不公开,登录后于账户速率限制页查看 | 限速制 | ✓(4V-Flash) | ✓(4-Flash;评分缺省现为 `glm-5.3-flash`,免费诉求可显式指回 4-Flash) |
 | OpenRouter `:free` 模型 | 当日 466 个模型中 17 个以 `:free` 结尾;未充值 50 请求/天,累计充值 ≥$10 后 1000 请求/天(官方 FAQ) | 日配额,用尽即止 | 未核到稳定免费视觉模型,不推荐 | ✓ 文本主力 |
 | Groq Free plan | 文本模型(如 `openai/gpt-oss-120b`)30 RPM、1000 请求/天、8K TPM(官方 rate-limits 页);限速按组织计 | 限速制 | 未核 | ✓ 备选 |
 | Mistral La Plateforme | 免费层为新账户默认(无需信用卡),官网定价页标注含 $10/月 API credits;具体限速登录控制台 Limits 页自查 | 赠金制,月度会用尽 | 未核 | ✓ 备选 |
@@ -80,7 +80,7 @@ myssia secret set myia/image/api_key < key.txt    # 值走 stdin,不落 shell hi
 ### 接入:精评(enrich)
 
 品类 YAML 的 `enrich:` 节(字段:`enabled` / `model` / `base_url` / `api_key`
-等),端点与 key 都写凭据引用;缺省模型 `glm-4-flash` 本身就是智谱免费档。
+等),端点与 key 都写凭据引用;免费档可选 `glm-4-flash`(当前缺省已升为 `glm-5.3-flash`,是否免费以智谱定价页为准)。
 完整品类示例(其余节取最小骨架,`enrich:` 节即主角):
 
 ```yaml
@@ -99,7 +99,7 @@ sources:
         url: "h2 a@href"
 enrich:
   enabled: true
-  model: glm-4-flash                              # 缺省即此;确切标识以智谱模型页为准
+  model: glm-5.3-flash                            # 当前缺省;要零成本可改回免费档 glm-4-flash(以智谱定价页为准)
   base_url: env:MYIA_LLM_BASE_URL
   api_key: env:MYIA_LLM_KEY
 push:

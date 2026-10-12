@@ -54,7 +54,7 @@ dedup:
 
 enrich:                            # 第二层漏斗(LLM 精评)演示关闭;
   enabled: false                   # 启用需 OpenAI 兼容端点的 env:/keychain: 引用
-  model: glm-4-flash
+  model: glm-5.3-flash
   scores: [value, relevance, credibility]
   batch: 20
   cache: true

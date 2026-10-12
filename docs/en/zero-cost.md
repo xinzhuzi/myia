@@ -100,7 +100,7 @@ myssia secret set myia/image/api_key < key.txt    # value goes over stdin, never
 
 In the category YAML's `enrich:` section (fields: `enabled` / `model` /
 `base_url` / `api_key`, etc.), write both the endpoint and the key as
-credential references; the default model `glm-4-flash` is itself Zhipu's
+credential references; `glm-4-flash` remains a free-tier option (the default is now `glm-5.3-flash`; check Zhipu's pricing page) — Zhipu's
 free tier. Complete category example (every other section is a minimal
 skeleton — the `enrich:` section is the star):
 
@@ -120,7 +120,7 @@ sources:
         url: "h2 a@href"
 enrich:
   enabled: true
-  model: glm-4-flash                              # the default; exact identifier per Zhipu's model page
+  model: glm-5.3-flash                            # current default; switch to free-tier glm-4-flash for zero cost (per Zhipu's pricing page)
   base_url: env:MYIA_LLM_BASE_URL
   api_key: env:MYIA_LLM_KEY
 push:
