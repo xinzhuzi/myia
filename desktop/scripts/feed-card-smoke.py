@@ -83,22 +83,58 @@ INJECT_SCRIPT = r"""
   ];
   window.__TAURI_INTERNALS__ = {
     invoke: async (command, args) => {
+      if (command === "pyenv_migration_banner") {
+        // 壳层存量迁移一次性引导(第 6 步 D5):smoke 世界无存量,不给引导
+        return { show: false };
+      }
       if (command !== "sidecar_request") {
         throw new Error("smoke 只应答 sidecar_request,收到: " + command);
       }
       const { method, params } = args ?? {};
       if (method === "version") {
-        // protocol 13 = 过读态/计数门;stats 门(14)未过 = 1 级类型卡走
-        // catalog 已加载口径 + title 如实(不发 store.source_stats 试错)
-        return { name: "myssia", version: "smoke", protocol: 13, app_version: null };
+        // protocol 15 = 与生产 sidecar 同口径(entry.py PROTOCOL_VERSION):
+        // 过读态(10)/计数(13)/统计(14)三门;store.source_stats 一答直出
+        // 全库真值(2026-10-13 修:此前答 13 停在统计门外,零条目声明源的
+        // 类型卡成员路径在现行规则下不再出场 → 日报卡消失冒烟中断)
+        return { name: "myssia", version: "smoke", protocol: 15, app_version: null };
+      }
+      if (method === "store.source_stats") {
+        const statsOf = (source, total, unread, latest) => ({
+          source, total, today: total, unread, latest_first_seen: latest,
+        });
+        const newest = items.reduce(
+          (acc, it) => (acc === null || (it.first_seen ?? "") > acc ? it.first_seen : acc), null);
+        const rows = new Map();
+        for (const it of items) {
+          const row = rows.get(it.source) ?? statsOf(it.source, 0, 0, null);
+          row.total += 1;
+          // 夹具条目全部未读且 first_seen = now 邻域 → 今日=未读=total
+          row.today = row.total;
+          row.unread = row.total;
+          rows.set(it.source, row);
+        }
+        for (const s of ["telegram-mihomo_party_group", "openai-news", "daily-digest"]) {
+          if (!rows.has(s)) rows.set(s, statsOf(s, 0, 0, null));
+        }
+        if (newest) {
+          for (const row of rows.values()) {
+            if (row.total > 0 && !row.latest_first_seen) row.latest_first_seen = newest;
+          }
+        }
+        return { rows: [...rows.values()] };
       }
       if (method === "health") {
+        // 契约随品类化同步(2026-10-13 修):health 顶层 = categories[]
+        // (config_dir + CategoryReport:file/id/name/schedule/timezone/
+        // push_channels/loaded/load_errors/sources),旧 plugins 形状已被
+        // 6511015 品类化改名淘汰 → engineMapFromHealth 读空,零条目声明源
+        // (daily-digest)成员路径断 → 日报卡消失冒烟中断。
         return {
-          command: "list", plugins_dir: "/home/plugins", db: "/home/myssia.db",
+          command: "list", config_dir: "/home/config", db: "/home/myssia.db",
           store_error: null,
-          plugins: [
+          categories: [
             {
-              file: "/home/plugins/telegram.yaml", id: "telegram", name: "Telegram 监控",
+              file: "/home/config/telegram.yaml", id: "telegram", name: "Telegram 监控",
               schedule: null, timezone: null, push_channels: [], loaded: true,
               load_errors: null,
               sources: [
@@ -109,7 +145,7 @@ INJECT_SCRIPT = r"""
               ],
             },
             {
-              file: "/home/plugins/tech.yaml", id: "tech", name: "科技",
+              file: "/home/config/tech.yaml", id: "tech", name: "科技",
               schedule: null, timezone: null, push_channels: [], loaded: true,
               load_errors: null,
               sources: [
@@ -124,7 +160,7 @@ INJECT_SCRIPT = r"""
               ],
             },
           ],
-          summary: { plugins: 2, sources: 3, ok: 0, degraded: 0, dead: 0, unknown: 0 },
+          summary: { categories: 2, sources: 3, ok: 0, degraded: 0, dead: 0, unknown: 0 },
           healthy: true, first_run: false, exit_code: 0,
         };
       }
