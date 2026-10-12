@@ -84,15 +84,16 @@ function sidebarWidth(): string {
 // ---------------------------------------------------------------------------
 
 describe("NAV_GROUPS 信息架构(v10 配置分组)", () => {
-  it("组序 = 顶层直链/采集/推送/配置;采集组不再含 YAML配置(原「配置编辑」)", () => {
+  it("组序 = 顶层直链/采集/推送/配置;采集组纯运行面(排程+日志,源管理已归配置)", () => {
     expect(NAV_GROUPS.map((group) => group.label)).toEqual([null, "采集", "推送", "配置"]);
     const capture = NAV_GROUPS.find((group) => group.label === "采集");
-    expect(capture?.entries.map((entry) => entry.to)).toEqual(["/sources", "/cron", "/logs"]);
+    expect(capture?.entries.map((entry) => entry.to)).toEqual(["/cron", "/logs"]);
   });
 
-  it("「配置」组收 YAML配置(/yaml-editor 更名)+ Telegram(/tg-account 新屏;主人令更名)", () => {
+  it("「配置」组收 源管理(10-12 归组)+ YAML配置(/yaml-editor 更名)+ Telegram(/tg-account 新屏;主人令更名)", () => {
     const config = NAV_GROUPS.find((group) => group.label === "配置");
     expect(config?.entries.map((entry) => [entry.to, entry.label])).toEqual([
+      ["/sources", "源管理"],
       ["/yaml-editor", "YAML配置"],
       ["/tg-account", "Telegram"],
       ["/feishu", "飞书"],

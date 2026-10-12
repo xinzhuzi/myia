@@ -40,9 +40,7 @@ export const NAV_GROUPS: NavGroup[] = [
  {
   label: "采集",
   entries: [
-   { to: "/sources", label: "源管理", icon: Rss, end: false },
-   // 定时任务(10-04-cron-ui):cron.* 管理屏,位次=源管理之后
-   // (与 App.tsx 路由一致;Clock 图标=排程语义)
+   // 定时任务(10-04-cron-ui):cron.* 管理屏(Clock 图标=排程语义)
    { to: "/cron", label: "定时任务", icon: Clock, end: false },
    { to: "/logs", label: "采集日志", icon: Terminal, end: false },
   ],
@@ -56,9 +54,13 @@ export const NAV_GROUPS: NavGroup[] = [
  // YAML配置 = 原「配置编辑」更名(route /yaml-editor 不变);Telegram =
  // 新独立屏 /tg-account(Telegram 配置卡自设置屏抽出;Send 图标=收发消息
  // 语义;2026-10-11 主人令侧栏「TG账号」更名「Telegram」)。
+ // 10-12 主人令「按照你的建议做完」:源管理(管理的对象=品类 yaml 配置)
+ // 自「采集」组归位「配置」组之首——「采集」组自此纯运行面(排程+日志),
+ // 配置面(品类/账号/凭据)全归「配置」(yaml 是配置判例的归组收口)。
  {
   label: "配置",
   entries: [
+   { to: "/sources", label: "源管理", icon: Rss, end: false },
    { to: "/yaml-editor", label: "YAML配置", icon: FileCode2, end: false },
    { to: "/tg-account", label: "Telegram", icon: Send, end: false },
    { to: "/feishu", label: "飞书", icon: MessageSquare, end: false },
