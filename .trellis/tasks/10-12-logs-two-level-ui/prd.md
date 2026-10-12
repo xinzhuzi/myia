@@ -66,7 +66,7 @@ pathspec 提交 → design.md+PRD+实现一笔入库 → tauri 重打包 + 静�
       (exit_code/error/stderr 摘);成功轮不显示失败区。
 - [x] AC3 动线:返回钮 + Esc 回 1 级,过滤态与列表位置保持。
 - [x] AC4 门禁三件绿 + 冒烟截图(1 级/2 级各一)像素证据。
-- [ ] AC5 装机件刷新换装(主会话,workflow 后)。
+- [x] AC5 装机件刷新换装(主会话,workflow 后)。
 
 ## 边界
 
