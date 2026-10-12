@@ -157,8 +157,13 @@
 | ④ 本机组件不破 | `~/.myia/plugins/wechat-bridge` diff + probe | `component.json` version=0.3.0;包源与仓 HEAD `diff -rq` 零差异;`bin/wechat-bridge --probe` exit 0,degraded/七 checks/key_unavailable reason 与换装前基线逐项一致 |
 
 - 组件目录卫生尾注(如实):③的二段装是 in-tree build,会在装机包 Resources 组件目录落
-  `build/`+`egg-info`(与 b9c5054 收口的源码树同病)——冒烟后已 `rm -rf` 清回五项净,复核零残留;
-  设置页真实两段装落点在自管 python 环境,不产生此尾随。
+  `build/`+`egg-info`(与 b9c5054 收口的源码树同病)——冒烟后已 `rm -rf` 清回五项净,复核零残留。
+- **§8.3 上句勘误(2026-10-12 自点批实证推翻)**:原断言「设置页真实两段装落点在自管 python
+  环境,不产生此尾随」**不成立**——pip 21.3+ 的 in-tree build 同样会在源目录(包内 Resources
+  组件目录)落 `build/`+`egg-info` 工件;自点批(769edce)基线 14:05 已见工件在场(非本轮新增,
+  本轮零新增条目), Resources 只读态下 pip 落不下新工件但既有工件会留存。无功能影响(指纹/
+  安装语义均不看源目录卫生),重打包时 `__pycache__` 清理链不覆盖 build/——留待下次打包顺手
+  清或安装器侧加清理钩(记档不展开)。
 - 谱系小结:现装 = b9c5054(worktree 干净构建;含 185484a D5 全部+bdaaf96/b9c5054 两笔收口);
   不含 6f55129/bb9ba05(并行 feed/spec 线,下次刷新自然并入)。
 - 私有数据红线自查:本档零聊天内容、零密钥材料;证据只含状态码/版本号/计数/inode/路径与时间戳。
