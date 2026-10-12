@@ -1761,6 +1761,42 @@ def test_yaml_save_duplicate_category_id_rejected(tmp_path, monkeypatch):
     assert responses[0]["result"]["created"] is True
 
 
+def test_yaml_save_id_unchanged_exempt_from_duplicate_gate(tmp_path, monkeypatch):
+    """存量 id 未变更豁免(统一大分类先例):两文件共享 id=telegram 属存量
+    形态 —— 编辑其中一份(id 不变)放行;换新 id 仍被查重拦;坏文件修好
+    (原 LoadError 不参与 id 空间)按新 id 对待同样放行。"""
+    legacy = EDITOR_YAML.replace("id: editor-demo", "id: telegram")
+    plugins = _editor_plugins(
+        tmp_path, monkeypatch,
+        ("telegram-channels.yaml", legacy),   # 存量占位(字典序在 web 前)
+        ("other.yaml", EDITOR_YAML),          # 另一 id 占位(供「换成既有 id」用例)
+        ("telegram-web.yaml", legacy),        # 待编辑的存量重复文件
+    )
+    web = plugins / "telegram-web.yaml"
+    # ① id 不变的编辑:放行(撞 telegram-channels.yaml 也不拦)
+    edited = legacy.replace('schedule: "0 9 * * *"', 'schedule: "*/15 * * * *"')
+    code, responses, _ = rpc({"id": 1, "method": "yaml.save",
+                              "params": {"file": str(web), "content": edited,
+                                         "expected_mtime": web.stat().st_mtime}})
+    assert code == 0 and responses[0]["result"]["created"] is False
+    assert web.read_text(encoding="utf-8") == edited
+    # ② 同一份文件换成既有 id(editor-demo 被 other.yaml 占):查重照拦
+    renamed = edited.replace("id: telegram", "id: editor-demo")
+    _, responses, _ = rpc({"id": 2, "method": "yaml.save",
+                           "params": {"file": str(web), "content": renamed,
+                                      "expected_mtime": web.stat().st_mtime}})
+    assert responses[0]["error"]["code"] == "duplicate_category_id"
+    assert [Path(item).name for item in responses[0]["error"]["data"]["conflicts"]] == ["other.yaml"]
+    # ③ 坏文件修好:原文件 load 失败(不参与 id 空间)→ 按新 id 对待 → 放行
+    broken = plugins / "broken.yaml"
+    broken.write_text("::: 不是合法 yaml", encoding="utf-8")
+    fixed = edited.replace("id: telegram", "id: broken-fix")
+    code, responses, _ = rpc({"id": 3, "method": "yaml.save",
+                              "params": {"file": str(broken), "content": fixed,
+                                         "expected_mtime": broken.stat().st_mtime}})
+    assert code == 0 and responses[0]["result"]["created"] is False
+
+
 def test_yaml_delete_roundtrip_cleans_stash(tmp_path, monkeypatch):
     """delete 往返:.bak 留底删除前原文 → 主文件删 → 连带 .disabled.json 清;
     .bak 不入列;再删 = file_not_found。"""

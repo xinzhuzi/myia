@@ -3175,7 +3175,21 @@ def _m_yaml_save(params: dict[str, Any]) -> dict[str, Any]:
             path="params.content",
             data={"errors": errors},
         )
-    conflict = _collect_category_ids(Path(ctx.config_dir), exclude=resolved).get(config.id)
+    # 存量 id 未变更豁免(10-12 实案):查重拦的是「新增重复」;统一大分类
+    # 先例(telegram-groups/channels/web 三文件共享 id=telegram)属存量形态
+    # —— id 未变更的编辑若也被拦,这三份文件在 GUI 里永久不可保存,与
+    # 「启停写回本屏」核心承诺冲突。仅 id 变更(换新 id)或新建才查重。
+    id_unchanged = False
+    if exists:
+        try:
+            id_unchanged = load_category_file(resolved).id == config.id
+        except LoadError:
+            id_unchanged = False  # 坏文件修好场景按新 id 对待,查重不豁免
+    conflict = (
+        None
+        if id_unchanged
+        else _collect_category_ids(Path(ctx.config_dir), exclude=resolved).get(config.id)
+    )
     if conflict is not None:
         raise ProtocolError(
             "duplicate_category_id",
