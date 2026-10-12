@@ -17,3 +17,9 @@
 - Keep `prd.md` focused on requirements, constraints, and acceptance criteria.
 - Lightweight tasks can remain PRD-only.
 - For complex tasks, add `design.md` for technical design and `implement.md` for execution planning before `task.py start`.
+
+## 结果(交付回执,2026-10-12)
+
+- 代码 1 笔:屏根 h-full min-h-0 + 表格区 flex-1 + SourcesTable 满高(边框容器内滚)。
+- 无头桥像素验证(dev 与装机件双验):分页底缘距视口底 24px(修复前数百 px);装机冒烟全 PASS;vitest 全量 762/762;tsc 绿。
+- 装机:换装备份 /tmp/myssia-srcfull-backup-20261012-161600;strict verify 过;WKWebView 缓存清。转 review。
