@@ -59,7 +59,17 @@ pipeline 侧 getattr 防御**(实测仅 sqlite.py:2110 有,base 未列——实�
 
 ## AC
 
-- [ ] AC1 cron 触发一轮采集后,其 runs 行带 log_run_id,2 级可回看该轮 JSONL 日志。
-- [ ] AC2 手动 run.start 路径回归不破(有号行照旧回看)。
-- [ ] AC3 无号遗留行降级句如实(不再断言「早于落库」)。
-- [ ] AC4 门禁(pytest 相关面 + vitest + tauri build)绿;装机换装。
+> 终局回执(10-12 15:5x):AC1 活体证据=CLI 真跑 news.yaml(--db 显式指真库,
+> 与 cron 子进程同路径):runs 行 88|news|success|log_run_id=88 自回填,今日
+> JSONL 32 行按 run_id=88 打标(proc=cli);盘扫合并面由协议测试
+> test_logs_tail_run_id_merges_disk_rows 实跑(跨进程行可达/双写折叠/缺省
+> 纯环)。AC2=run.start 全链路协议测试 252 绿。AC3=冒烟无号行降级断言+
+> vitest 新文案断言。AC4=全量 pytest 5421 过/vitest 762/build/冒烟/tauri
+> 打包全绿;装机件 15:53 换装(PID 5972)。换装前旧行(telegram 84-87 等)
+> 维持 NULL 如实降级;telegram serve 宿主落库路径是否经 Pipeline.run 待
+> 下轮自然分晓(不經则如实降级,不在本档范围)。
+
+- [x] AC1 cron 触发一轮采集后,其 runs 行带 log_run_id,2 级可回看该轮 JSONL 日志。
+- [x] AC2 手动 run.start 路径回归不破(有号行照旧回看)。
+- [x] AC3 无号遗留行降级句如实(不再断言「早于落库」)。
+- [x] AC4 门禁(pytest 相关面 + vitest + tauri build)绿;装机换装。

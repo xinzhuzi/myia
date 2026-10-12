@@ -3,7 +3,7 @@
   "name": "cron-run-log-alignment",
   "title": "cron/CLI 跑次日志对齐补全(2 级空白根治)",
   "description": "主人报障:2 级详情大量成功轮空白。根因=日志会话号只在 sidecar run.start 路径回填,cron 定时跑是独立子进程走 CLI 路径从不分配(库里 79/80 行无号);且 logs.tail 只读 sidecar 内存环,子进程行即使有号也够不着。修复=CLI 路径以 runs 行自增 id 为日志会话键打标+回填,logs.tail 带 run_id 时加 JSONL 盘扫回退,降级文案去掉错误时间断言。",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
