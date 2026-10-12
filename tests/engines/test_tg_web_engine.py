@@ -535,24 +535,27 @@ def test_source_validates_in_schema() -> None:
 
 def test_sample_plugin_yaml_ships_valid_tg_web_source() -> None:
     """示范件把守(G9,质询回改):config/telegram-web.yaml 过 schema 全装载,
-    源形态与 D4 对齐(account 全称律/chat/lookback 窗口帽);源名与 bot 线
-    同名(daily-digest 分区六按源名承载两线 archive);**锚命名空间独立**——
+    源形态与 D4 对齐(account 全称律/chat/lookback 窗口帽);首源=生产正户
+    clashv8(2026-10-11 主人令换源;G9 同名复用对 mihomo_party 的 web 侧源
+    停订为注释块可回切,bot 线同名示范件仍在册);**锚命名空间独立**——
     #tg- 锚含源 url 前缀+chat.id,两线 url 必不同(web vs api)且 tg_web
-    chat 按源配置原样注入(用户名形≠bot 线数字形),双线同跑同群同消息双条;
-    断言两线示范件同消息锚串不等(未来若做锚归一改动,此断言红=提示同步
-    四处文档口径)."""
+    chat 按源配置原样注入(标题包含形≠bot 线数字形),双线同跑同群同消息
+    双条;断言两线示范件同消息锚串不等(未来若做锚归一改动,此断言红=提示
+    同步四处文档口径)."""
     from myssia.schema import load_category_file
 
     repo_root = Path(__file__).resolve().parents[2]
     cfg = load_category_file(repo_root / "config" / "telegram-web.yaml")
     assert cfg.id == "telegram"  # 10-09 AC6 归一:三件同 id,文件名区分三线
     src = cfg.sources[0]
+    assert src.name == "telegram-clashv8"  # 生产正户钉名(示范件换源/重排须有意过此关)
     assert src.engine == "tg_web"
     opts = src.extra_params["engine_options"]["tg_web"]
     assert opts["account"].startswith("telegram-")  # 账号键全称律
-    # 首真跑标定(2026-10-08):账号可达对口目标 = Clash-Party channel,
-    # chat 落 data-peer-id 全等形态(见 config/telegram-web.yaml 源注记)
-    assert opts["chat"] == "-2349572233"
+    # 2026-10-11 主人令换源:mihomo_party 停订(注释块可回切),首源=clashv8
+    # 频道「免费VPN|机场|节点」,chat 落标题包含形(数字形 -3770098404 备选,
+    # 见 config/telegram-web.yaml 源注记)
+    assert opts["chat"] == "免费VPN"
     assert 1 <= opts["lookback_limit"] <= 100  # 窗口帽域
     # 评论线程档示范(10-12-tg-comments-reach):帽与预算键在档,且品类
     # timeouts.fetch 与引擎 fetch_timeout_seconds 对齐(漂移 = 超帽被掐面)
@@ -561,9 +564,11 @@ def test_sample_plugin_yaml_ships_valid_tg_web_source() -> None:
     assert cfg.timeouts is not None
     assert opts["fetch_timeout_seconds"] == cfg.timeouts.fetch
     groups = load_category_file(repo_root / "config" / "telegram-groups.yaml")
-    bot_src = next(s for s in groups.sources if s.name == src.name)  # 同名复用
-    # 锚命名空间独立把守(质询实证):同一条消息两线铸的锚必不同——
-    # url 前缀(web.telegram.org vs api.telegram.org)+chat 形(用户名 vs
+    # 同名复用对的 web 侧已停订(注释块),按名找 bot 对位会扑空——取 bot 线
+    # 示范件首源(mihomo_party,占位 chat_id)作锚对照;回切同名对时改回按名找。
+    bot_src = groups.sources[0]
+    # 锚命名空间独立把守(质询实证):两线示范件铸的锚必不同——
+    # url 前缀(web.telegram.org vs api.telegram.org)+chat 形(标题包含 vs
     # 数字)双差异;若有人改配置成 url 同值+同数字 id(互去重理论成立条件),
     # 此断言红 = 逼同步文档口径,防「互去重」失真声明再溜入。
     web_anchor = f"{src.url}#tg-{opts['chat']}-123"
