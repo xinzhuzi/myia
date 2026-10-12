@@ -213,6 +213,11 @@ const COMPONENT_META: Record<string, { label: string; description: string }> = {
     description:
       "Telegram 账号 session 消息线(MTProto,读 bot 进不去的已加入群;闭包与 extras myssia[telethon] 同源,窗 >=1.36,<2,纯 Python 轻依赖,无浏览器量级下载)。桌面锁已随包收录本闭包,此卡是就绪检查与手动补装入口(重装幂等);使用前置一次性:钥匙串写入 api-id/api-hash(my.telegram.org 取值)→ 终端 myssia telegram login(手机号+验证码,建议挂小号),session 落数据根 telegram/(0600);缺装时用户线结构化降级不影响 bot 线,本线只读无发送能力",
   },
+  "wechat-bridge": {
+    label: "微信本机桥(wechat-bridge)",
+    description:
+      "微信本机桥组件(10-11-wechat-ui-bridge):像素链读微信会话/消息(screencapture+Vision OCR,微信 4.x AX 零暴露的唯一可行读路)+本地库只读通道(sqlcipher 解密副本;密钥途径=D4 内存扫描一键脚本 scripts/wechat-bridge-d4-keyscan.sh,主人显式开启)。随包源码两段装(pip_src 相对路径解析到包内 Resources,零 PyPI 依赖);前置:macOS 辅助功能与屏幕录制权限(设置页微信卡有引导);出站消息不走本组件(归官方 iLink 桥);probe 三态如实(微信托盘态=degraded 属正常)",
+  },
   searxng: {
     label: "关键词日报(SearXNG)",
     description:

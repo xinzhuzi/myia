@@ -174,6 +174,17 @@ describe("PyenvCard:设置屏「表格还原」组件开关", () => {
     expect(screen.queryByTestId("pyenv-components")).toBeNull();
   });
 
+  it("wechat-bridge 组件行:COMPONENT_META 中文文案命中(不回退原 id;安装工自点批缺口收口)", async () => {
+    installIpc(wireFixture({ components: [{ id: "wechat-bridge", installed: true }] }));
+    installListen();
+    render(<PyenvCard />);
+
+    const row = await screen.findByTestId("pyenv-component-wechat-bridge");
+    expect(row.textContent).toContain("微信本机桥(wechat-bridge)");
+    expect(row.textContent).toContain("像素链读");
+    expect(screen.getByTestId("pyenv-component-wechat-bridge-state").textContent).toBe("已装");
+  });
+
   it("未装点击开 → pyenv_install_component({id:'table'});回读翻已装(徽标/开关随新)", async () => {
     installIpc(wireFixture({ components: [{ id: "table", installed: false }] }));
     installListen();
