@@ -17,6 +17,7 @@ import {
 } from "./api";
 import type { LogRow, RerunState, RunRowModel } from "./api";
 import { FailurePanel } from "./failure-panel";
+import { OutcomePanel } from "./outcome-panel";
 import { runBadge, StatusChip } from "./run-status-chip";
 
 /**
@@ -219,6 +220,10 @@ export function RunDetailView({
 
       {/* ═══ 失败原因区(固定区;渲染门槛在 synthesizeFailure,成功轮 null 不渲染)═══ */}
       {failure !== null ? <FailurePanel domId={domId} badge={badge} failure={failure} /> : null}
+
+      {/* ═══ 采集成果区(固定区;「本轮采集到了什么」,10-12-run-detail-outcome;
+          渲染门槛在 deriveOutcome:running/无记录一行不出)═══ */}
+      <OutcomePanel run={run} startedAt={startedAt} finishedAt={finishedAt} />
 
       {/* ═══ 日志体(主滚动区,内滚帽解除 → flex-1)═══ */}
       <div className="flex min-h-0 flex-1 flex-col">

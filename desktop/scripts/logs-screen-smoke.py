@@ -98,13 +98,14 @@ INJECT_SCRIPT = r"""
     const started = Date.now() - (i + 1) * 37 * 60_000;
     // record.stats.sources(pipeline.py:592 形状):success 全健康,
     // partial/failed 各造一例 failed:true 成员(摘要失败段真源)
+    // 源行 = stats_dict 真形子集(10-12-run-detail-outcome 成果卡消费键齐备)
     const sources = [
-      { source: "src-alpha", failed: false, error: null },
-      { source: "src-beta", failed: false, error: null },
-      { source: "src-gamma", failed: false, error: null },
+      { source: "src-alpha", engine: "static_html", item_count: 8, duration_seconds: 1.9, skipped: false, skip_reason: null, failed: false, error: null },
+      { source: "src-beta", engine: "direct_api", item_count: 7, duration_seconds: 0.4, skipped: false, skip_reason: null, failed: false, error: null },
+      { source: "src-gamma", engine: "rss", item_count: 5, duration_seconds: 0.8, skipped: true, skip_reason: "engine_hint 首遇探测中", failed: false, error: null },
     ];
     if (status !== "success") {
-      sources.push({ source: "src-delta", failed: true, error: "engine chain exhausted: timeout" });
+      sources.push({ source: "src-delta", engine: "tg_web", item_count: 0, duration_seconds: 3.2, skipped: false, skip_reason: null, failed: true, error: "engine chain exhausted: timeout" });
     }
     const record = {
       run_id: runId,
@@ -144,6 +145,24 @@ INJECT_SCRIPT = r"""
       }
       if (method === "run.status") {
         return { runs };
+      }
+      if (method === "store.items") {
+        // 成果区条目预览(10-12-run-detail-outcome):窗内一条 + 窗外一条
+        // (h855 = i 45 → ai-news,started ≈ 28h 前,finished = started+52s)
+        const h855Started = Date.now() - 46 * 37 * 60_000;
+        const mk = (id, title, seenMs) => ({
+          id, url: "https://example.com/" + id, dedup_key: "dk-" + id, title,
+          source: "src-alpha", content: null, pushed_at: null, push_slot: null,
+          first_seen: iso(seenMs), read: false, starred: false, later: false,
+        });
+        const items = [
+          mk(1, "窗内条目:新一轮采集成果预览甲", h855Started + 10_000),
+          mk(2, "窗外条目:后继轮不应混入", Date.now() - 60_000),
+        ];
+        const filtered = params?.since
+          ? items.filter((it) => it.first_seen >= params.since)
+          : items;
+        return { db: "smoke.db", count: filtered.length, items: filtered };
       }
       if (method === "logs.tail") {
         const runId = params?.run_id ?? 0;
@@ -317,6 +336,23 @@ async def main() -> int:
             expect(
                 "日志行 ERROR 行 data-error 高亮",
                 (await page.locator('[data-testid="log-row"][data-error="true"]').count()) >= 1,
+            )
+
+            # ── 7a. 采集成果区(10-12-run-detail-outcome):「本轮采集到了什么」──
+            outcome_h855 = await page.locator('[data-testid="run-outcome-h855"]').inner_text()
+            expect(
+                "L2 成果区:保留 N 条 + 源行(引擎/条数)+ 跳过与失败如实",
+                "保留" in outcome_h855
+                and "src-alpha" in outcome_h855
+                and "8 条" in outcome_h855
+                and "跳过" in outcome_h855
+                and "src-delta" in outcome_h855
+                and "失败" in outcome_h855,
+            )
+            preview_h855 = await (await page.wait_for_selector('[data-testid="run-outcome-preview-h855"]', timeout=10_000)).inner_text()
+            expect(
+                "L2 条目预览:窗内标题在场,窗外条目被 finishedAt 截窗剔除",
+                "窗内条目" in preview_h855 and "窗外条目" not in preview_h855,
             )
 
             # ── 7b. L2 日志体第二塌缩哨兵(design §7 双哨兵后半):内滚容器

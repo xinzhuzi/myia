@@ -556,3 +556,103 @@ export function isRowWarn(row: LogRow): boolean {
   if (LEVEL_WARN.test(row.text)) return true;
   return !LEVEL_INFO.test(row.text);
 }
+
+// ---------------------------------------------------------------------------
+// L2 采集成果区(10-12-run-detail-outcome):「本轮采集到了什么」的答案位
+// ---------------------------------------------------------------------------
+
+/** 成果源行(record.stats.sources[] 防御派生;pipeline.py stats_dict 真源) */
+export interface OutcomeSourceRow {
+  name: string;
+  engine: string;
+  itemCount: number;
+  durationText: string | null;
+  skipped: boolean;
+  skipReason: string | null;
+  failed: boolean;
+}
+
+/** 推送概要行(record.stats.push[];ok=null = 旧库行无此键,如实不编) */
+export interface OutcomePushRow {
+  channel: string;
+  ok: boolean | null;
+  immediate: number;
+  digest: number;
+  archive: number;
+}
+
+export interface OutcomeModel {
+  /** items_retained(pipeline.py:607 len(items));null = 无记录 */
+  retained: number | null;
+  /** item_failures 条目入库失败数 */
+  itemFailures: number | null;
+  sources: OutcomeSourceRow[];
+  pushes: OutcomePushRow[];
+}
+
+function statsNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * L2 成果派生(零协议:record.stats 已随 run.status 行在 wire 上)。渲染
+ * 门槛:record/stats 缺位(running 行、无记录行)→ null 一行不渲染;空壳
+ * stats(键全缺)同样 null——不拿空卡片糊弄。
+ */
+export function deriveOutcome(run: RunRowModel): OutcomeModel | null {
+  const stats = run.entry.record?.stats;
+  if (stats === null || stats === undefined) return null;
+  const retained = statsNumber(stats["items_retained"]);
+  const itemFailures = statsNumber(stats["item_failures"]);
+  const sources: OutcomeSourceRow[] = (Array.isArray(stats["sources"]) ? stats["sources"] : []).flatMap((raw) => {
+    if (typeof raw !== "object" || raw === null) return [];
+    const row = raw as Record<string, unknown>;
+    const durationSeconds = statsNumber(row["duration_seconds"]);
+    return [
+      {
+        name: typeof row["source"] === "string" ? row["source"] : "未知源",
+        engine: typeof row["engine"] === "string" ? row["engine"] : "—",
+        itemCount: statsNumber(row["item_count"]) ?? 0,
+        durationText: durationSeconds === null ? null : formatDuration(durationSeconds * 1000),
+        skipped: row["skipped"] === true,
+        skipReason: typeof row["skip_reason"] === "string" ? row["skip_reason"] : null,
+        failed: row["failed"] === true || row["error"] != null,
+      },
+    ];
+  });
+  const pushes: OutcomePushRow[] = (Array.isArray(stats["push"]) ? stats["push"] : []).flatMap((raw) => {
+    if (typeof raw !== "object" || raw === null) return [];
+    const row = raw as Record<string, unknown>;
+    if (typeof row["channel"] !== "string") return [];
+    return [
+      {
+        channel: row["channel"],
+        ok: typeof row["ok"] === "boolean" ? row["ok"] : null,
+        immediate: statsNumber(row["immediate"]) ?? 0,
+        digest: statsNumber(row["digest"]) ?? 0,
+        archive: statsNumber(row["archive"]) ?? 0,
+      },
+    ];
+  });
+  if (retained === null && sources.length === 0 && pushes.length === 0) return null;
+  return { retained, itemFailures, sources, pushes };
+}
+
+/** 条目预览(store.items since 派生;first_seen 客户端按 finishedAt 截窗) */
+export interface OutcomePreviewItem {
+  key: string;
+  title: string;
+  firstSeen: string;
+}
+
+/** 本轮新入库条目预览:store.items?category+since=started_at(零新协议),
+ *  finishedAt 截窗在视图层(同刻后继轮的条目不混入) */
+export async function loadOutcomePreviews(category: string, sinceIso: string): Promise<OutcomePreviewItem[]> {
+  const result = await api.storeItems({ category, since: sinceIso, limit: 50 });
+  // first_seen 可空(旧 wire 行);预览窗靠它截窗,空值无窗可言如实剔除
+  return result.items.flatMap((item) =>
+    item.first_seen === null
+      ? []
+      : [{ key: item.dedup_key ?? item.url, title: item.title, firstSeen: item.first_seen }],
+  );
+}

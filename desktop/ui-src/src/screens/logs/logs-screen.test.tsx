@@ -41,6 +41,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       runStatus: vi.fn(),
       logsTail: vi.fn(),
       runStart: vi.fn(),
+      storeItems: vi.fn(),
     },
     onSidecarEvent: vi.fn((handler: (event: SidecarEvent) => void) => {
       harness.handler = handler;
@@ -52,6 +53,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 const { api } = await import("@/lib/api");
 const runStatusMock = vi.mocked(api.runStatus);
 const logsTailMock = vi.mocked(api.logsTail);
+const storeItemsMock = vi.mocked(api.storeItems);
 const runStartMock = vi.mocked(api.runStart);
 
 import { LogsScreen } from "./logs-screen";
@@ -826,6 +828,62 @@ describe("LogsScreen 上一程历史行", () => {
     expect(screen.getByTestId("run-log-h5").textContent).toContain("无可回看的日志");
     expect(logsTailMock).not.toHaveBeenCalled();
     expect(screen.getByTestId("run-detail-meta-h5").textContent).toContain("run_id=—");
+  });
+
+  it("L2 采集成果区:保留 N 条 + 每源行 + 条目预览(finishedAt 截窗);running 行不渲染", async () => {
+    storeItemsMock.mockResolvedValue({
+      db: "myssia.db",
+      count: 2,
+      items: [
+        {
+          id: 1, url: "https://example.com/a", dedup_key: "dk-a", title: "标题甲(本轮新入库)",
+          source: "arxiv", content: null, tags: [], category: "科技早报", scores: null,
+          pushed_at: null, push_slot: null,
+          first_seen: "2026-10-01T09:00:02+00:00", read: false, starred: false, later: false,
+        },
+        {
+          id: 2, url: "https://example.com/b", dedup_key: "dk-b", title: "后继轮条目(截窗应剔)",
+          source: "arxiv", content: null, tags: [], category: "科技早报", scores: null,
+          pushed_at: null, push_slot: null,
+          first_seen: "2026-10-02T09:00:00+00:00", read: false, starred: false, later: false,
+        },
+      ],
+    });
+    mockSidecar([{ ...histRun5, record: { ...histRun5.record!, stats: {
+      ...histRun5.record!.stats,
+      push: [{ channel: "feishu_card", ok: true, immediate: 0, digest: 8, archive: 0, failures: [] }],
+    } } }]);
+    render(<LogsScreen />);
+
+    fireEvent.click(await screen.findByTestId("run-row-h5"));
+    await screen.findByTestId("run-detail");
+    const outcome = await screen.findByTestId("run-outcome-h5");
+    expect(outcome.textContent).toContain("保留");
+    expect(outcome.textContent).toContain("8");
+    expect(outcome.textContent).toContain("feishu_card");
+    expect(outcome.textContent).toContain("日报 8");
+    const sources = screen.getByTestId("run-outcome-sources-h5");
+    expect(sources.textContent).toContain("arxiv");
+    expect(sources.textContent).toContain("hackernews");
+    expect(sources.textContent).toContain("2 条");
+    const preview = await screen.findByTestId("run-outcome-preview-h5");
+    expect(preview.textContent).toContain("标题甲");
+    expect(preview.textContent).not.toContain("后继轮条目"); // finishedAt 截窗
+    expect(storeItemsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ category: "科技早报", since: "2026-10-01T09:00:00+00:00" }),
+    );
+    cleanup();
+  });
+
+  it("L2 采集成果区:running 行(record=null)一行不渲染", async () => {
+    mockSidecar([run2Running]);
+    render(<LogsScreen />);
+
+    fireEvent.click(await screen.findByTestId("run-row-2"));
+    await screen.findByTestId("run-detail");
+    expect(screen.queryByTestId("run-outcome-2")).toBeNull();
+    expect(storeItemsMock).not.toHaveBeenCalled();
+    cleanup();
   });
 
   it("撞号防混:注册表会话 5 与历史 DB 5 同屏分立;实时事件只进注册表行,历史行按对齐号拉取", async () => {
