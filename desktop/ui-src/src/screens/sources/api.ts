@@ -443,7 +443,7 @@ export async function verifySourceRoundTrip(
     categoryFile: file,
     message: consistent
       ? "doctor 复核与写回结果一致"
-      : plugin === undefined
+      : category === undefined
         ? `doctor 未报告该品类(${file});写回可能未落盘或路径不一致`
         : `源名单不一致:期望 [${expected.join(", ") || "无"}],doctor 实际 [${actual.join(", ") || "无"}]`,
   };

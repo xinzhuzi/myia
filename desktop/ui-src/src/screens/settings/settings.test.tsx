@@ -66,7 +66,7 @@ function credentialFixture(overrides?: Partial<CredentialEntry>): CredentialEntr
     kind: "keychain",
     name: "myia/stocks/tg_token",
     ref: "keychain:myia/stocks/tg_token",
-    paths: [{ plugin: "stocks", path: "$.push[1].target" }],
+    paths: [{ category: "stocks", path: "$.push[1].target" }],
     categories: ["stocks"],
     exists: true,
     ...overrides,
