@@ -59,9 +59,10 @@ sources:
                                     # /admin/ and retired paths are blocked)
     proxy: direct
     retry: 3
-    engine_options.firecrawl:                  # 三层序第 3 层(云端兜底;主人
-      endpoint: keychain:myia/firecrawl/url    # 裁决 2026-10-13:本地自托管探测
-      api_key: keychain:myia/firecrawl/api-key # 优先→下载层→云端;引擎探测 127.0.0.1:3002,本地起服务即自动切本地)
+    engine_options:                            # 三层序第 3 层(云端兜底;主人
+      firecrawl:                               # 裁决 2026-10-13:本地自托管探测
+        endpoint: keychain:myia/firecrawl/url  # 优先→下载层→云端;嵌套块形态
+        api_key: keychain:myia/firecrawl/api-key  # (点键不被加载链支持,注释模板纠偏)
 
   # CocoLoop — Discourse community (AI/agent sections). L2 static_html over
   # the standard Discourse topic list; template pagination walks /latest.
