@@ -31,3 +31,11 @@
 - **grill 3 轮全部确证出环**(10 条裁决,含 PRD 验收锚补位 386b4xx、ticker 死使 cron 开启语义三账互证、AX 缺口落档)。
 - 去重沉默=false 成因=结构化空态 skip 非 dedup(grill 如实裁决)。
 - **挑刺修正(2026-10-12 深夜)**:schedule 由 */30 全天候收窄为 ***/30 9-22 * * ***(cron edit,job 0e9f2daf2d6a)——夜间锁屏截窗 failure→failure_deliver=feishu 半夜告警的边缘消除;且 */30 全天候偏离本仓品类定时日报家规(其他 5 家全 8/9/11/20 点制),白天近实时保留。
+
+## 生产闭环实录(2026-10-13 晨,主人发失败告警卡触发)
+
+- **run 108(06:00) ax_permission_denied** → 0.3.2 修复(0.3.1 勘误残留:cli 前置门未摘 AX;门改 10→16 屏录→12,fe9e5cb,装机实证)
+- **run 110(06:30) screen_capture_failed** → 门已对,但 TCC 屏录授权对运行中进程不热生效(主人授权时 sidecar 已在跑)
+- **run 112(06:32) ✅ completed ok=1 零错误**(重启世事.app 后)——生产宿主(世事.app sidecar)桥调用全链通;items=0 为 skip 语义(微信未开声明会话聊天窗)
+- **工程课**:TCC 授权后须重启宿主进程才生效(在案);CODE_NAMES dict 同键覆盖(码 16 独立码教训)
+- schedule 已恢复 */30 9-22
