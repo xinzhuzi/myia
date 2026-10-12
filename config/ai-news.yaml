@@ -59,12 +59,9 @@ sources:
                                     # /admin/ and retired paths are blocked)
     proxy: direct
     retry: 3
-    # engine_options.firecrawl:            # backend knobs (all optional, all
-    #   endpoint: env:MYIA_FIRECRAWL_URL   # credential refs — plaintext refused)
-    #   api_key: env:MYIA_FIRECRAWL_API_KEY
-    # (2026-10-13 主人裁决:云端禁用——firecrawl 无本地库形态(SDK 是纯
-    # REST 客户端,本地跑需 Node 自托管服务),auto 链尾兜底由本地 crawl4ai
-    # 承担;云端配置已撤,钥匙链键已删。)
+    engine_options.firecrawl:                  # 三层序第 3 层(云端兜底;主人
+      endpoint: keychain:myia/firecrawl/url    # 裁决 2026-10-13:本地自托管探测
+      api_key: keychain:myia/firecrawl/api-key # 优先→下载层→云端;引擎探测 127.0.0.1:3002,本地起服务即自动切本地)
 
   # CocoLoop — Discourse community (AI/agent sections). L2 static_html over
   # the standard Discourse topic list; template pagination walks /latest.

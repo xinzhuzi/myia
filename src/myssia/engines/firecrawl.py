@@ -2,8 +2,16 @@
 
 Contract (PRD 10-01-v01-engine-firecrawl):
 
-- ``POST {endpoint}/v1/scrape`` per target URL; the endpoint defaults to the
-  self-host address ``http://127.0.0.1:3002`` and the cloud API is a
+- 三层 endpoint 序(主人裁决 2026-10-13「先查本地,本地有就用;没有就
+  下载;都不行或查不出来,再配置/使用云端」):①本地自托管探测命中
+  (缺省 ``http://127.0.0.1:3002``,0.5s 帽)即用本地,即使另配了云端;
+  ②显式配置(engine_options 引用 → env 回退)= 云端兜底位;③皆无 →
+  内置缺省空炮(结构化失败)。``firecrawl-py`` SDK 不引入——它是纯
+  REST 客户端,本地装壳无服务端可打,自托管服务本体(Node 栈)待主人
+  个案裁决后「下载」层才有实体;
+
+- ``POST {endpoint}/v1/scrape`` per target URL; the endpoint defaults to
+  the self-host address ``http://127.0.0.1:3002`` and the cloud API is a
   drop-in via ``MYIA_FIRECRAWL_URL`` / ``MYIA_FIRECRAWL_API_KEY``;
 - endpoint and API key resolve at *call* time (never import time) and, when
   configured in YAML (``engine_options.firecrawl``), must be ``env:`` /
@@ -52,6 +60,7 @@ ENV_FIRECRAWL_URL = "MYIA_FIRECRAWL_URL"
 ENV_FIRECRAWL_API_KEY = "MYIA_FIRECRAWL_API_KEY"
 DEFAULT_FIRECRAWL_ENDPOINT = "http://127.0.0.1:3002"
 DEFAULT_FIRECRAWL_TIMEOUT_SECONDS = 60.0
+LOCAL_PROBE_TIMEOUT_SECONDS = 0.5
 
 __all__ = [
     "LAYER",
@@ -73,13 +82,41 @@ class FirecrawlEngine(BaseEngine):
 
     # ------------------------------------------------------- configuration
 
-    def _endpoint(self) -> tuple[str, str]:
+    async def _probe_local_backend(self) -> bool:
+        """三层配置第 1 层(主人裁决 2026-10-13):本地自托管优先。
+
+        对缺省自托管地址做活性探测——任意 HTTP 响应(含 4xx/5xx)= 服务
+        在;连接拒绝/超时/解析失败 = 不在**或查不出**(两者同落下一层,
+        不视为引擎错误)。探测走引擎 client(同代理域),超时短,失败
+        静默降级正是设计行为。
+        """
+        try:
+            await self._active_client.get(
+                f"{DEFAULT_FIRECRAWL_ENDPOINT}/", timeout=LOCAL_PROBE_TIMEOUT_SECONDS
+            )
+        except Exception:  # noqa: BLE001 —— 探测失败即「不在/查不出」,落下一层
+            return False
+        return True
+
+    def _endpoint(self, *, local_backend_alive: bool) -> tuple[str, str]:
         """Resolve endpoint -> ``(concrete value, log-safe display form)``.
 
-        展示形态记来源 —— options 引用原样(``env:``/``keychain:`` 名)、env
-        回退记 ``env:MYIA_FIRECRAWL_URL``、无配置记内置缺省 —— 解析值不落
-        日志(安全基线「引用名可以,展开后的值禁止」;llm_browser 同款)。
+        三层序(主人裁决 2026-10-13「先查本地,本地有就用;没有就下载;
+        都不行或查不出来,再配置/使用云端」):
+        1. 本地自托管探测命中 → 用本地(即使另配了云端——本地优先);
+        2. 显式配置(engine_options 引用 → env 回退)= 云端兜底位;
+        3. 皆无 → 内置缺省(自托管空炮,结构化失败如实)。
+
+        展示形态记来源 —— 本地命中记「本地自托管(探测)」、options 引用
+        原样(``env:``/``keychain:`` 名)、env 回退记 ``env:MYIA_FIRECRAWL_URL``、
+        无配置记内置缺省 —— 解析值不落日志(安全基线「引用名可以,展开后
+        的值禁止」;llm_browser 同款)。
         """
+        if local_backend_alive:
+            return (
+                DEFAULT_FIRECRAWL_ENDPOINT,
+                f"本地自托管(探测命中 {DEFAULT_FIRECRAWL_ENDPOINT})",
+            )
         configured = self.engine_options().get("endpoint")
         if configured is not None:
             if not isinstance(configured, str):
@@ -144,7 +181,8 @@ class FirecrawlEngine(BaseEngine):
     # -------------------------------------------------------------- fetch
 
     async def _fetch_impl(self) -> list[dict]:
-        endpoint, endpoint_display = self._endpoint()
+        local_backend_alive = await self._probe_local_backend()
+        endpoint, endpoint_display = self._endpoint(local_backend_alive=local_backend_alive)
         api_key = self._resolve_api_key()
         formats = self._formats()
         timeout = self._timeout()

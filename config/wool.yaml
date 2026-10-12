@@ -142,9 +142,9 @@ sources:
 
   # v2ex — parked placeholder, same treatment as linux.do below. Cloudflare
   # fronts both the HTML and the JSON API: from v0.1's direct-only transport
-  # a run gets challenged (403 "Just a moment"). firecrawl 云端已被主人禁用
-  # (2026-10-13,无本地库形态),本地过挑战的路 = crawl4ai(L3)或
-  # stealth_browser(L5);解开下方注释前先真跑验证:
+  # a run gets challenged (403 "Just a moment"). 三层序终态(2026-10-13
+  # 主人裁决):引擎先探本地自托管(127.0.0.1:3002),本地起服务即用本地;
+  # 没有则落下方云端兜底配置。解开注释前先真跑验证:
   # - name: v2ex
   #   engine: auto
   #   url: "https://www.v2ex.com/latest"
@@ -164,6 +164,9 @@ sources:
   #     respect_robots: true
   #   proxy: direct
   #   retry: 3
+  #   engine_options.firecrawl:            # 三层第 3 层(云端兜底):
+  #     endpoint: keychain:myia/firecrawl/url      # 引擎把 endpoint 也按凭据管
+  #     api_key: keychain:myia/firecrawl/api-key   # 已配(2026-10-13),解开即用
 
   # linux.do — placeholder for a login-walled Discourse source. stealth_browser
   # (L5) is implemented and sits at the auto chain's tail carrying login state:

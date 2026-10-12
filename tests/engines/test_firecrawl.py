@@ -19,7 +19,7 @@ import pytest
 from pydantic import ValidationError
 
 from myssia.engines.fetch_base import FetchError, classify_exception
-from myssia.engines.firecrawl import FirecrawlEngine
+from myssia.engines.firecrawl import DEFAULT_FIRECRAWL_ENDPOINT, FirecrawlEngine
 from myssia.schema import RateLimitConfig, SourceConfig
 
 from conftest import make_client, make_context, make_handler, make_source, run
@@ -54,6 +54,27 @@ def firecrawl_handler(responder):
         return responder(request)
 
     return make_handler(handler)
+
+
+def no_local_backend(handler):
+    """三层第 1 层 miss:本地探测答连接拒绝(自托管不在),其余原样。
+
+    引擎加本地优先探测后(2026-10-13 主人三层裁决),mock 对一切请求答
+    200 会让探测命中、端点被压到本地缺省——测「配置端点/云端兜底」
+    路径的用例都要先让探测 miss,断言才落在被测层上。
+    """
+
+    def wrapped(request: httpx.Request) -> httpx.Response:
+        if (
+            request.method == "GET"
+            and request.url.host == "127.0.0.1"
+            and request.url.port == 3002
+            and request.url.path == "/"
+        ):
+            raise httpx.ConnectError("local self-host not running")
+        return handler(request)
+
+    return wrapped
 
 
 def test_scrape_request_body_auth_and_default_endpoint(monkeypatch):
@@ -96,7 +117,7 @@ def test_endpoint_via_env_reference(monkeypatch):
         seen.append(str(request.url))
         return httpx.Response(200, json=SCRAPE_OK_MARKDOWN)
 
-    client = make_client(firecrawl_handler(responder))
+    client = make_client(no_local_backend(firecrawl_handler(responder)))
     source = scrape_source(
         engine_options={"firecrawl": {"endpoint": "env:MYIA_FC_ENDPOINT"}},
     )
@@ -109,7 +130,7 @@ def test_endpoint_via_env_reference(monkeypatch):
 
 def test_plaintext_endpoint_refused():
     source = scrape_source(engine_options={"firecrawl": {"endpoint": "http://10.0.0.8:3002"}})
-    client = make_client(firecrawl_handler(lambda r: pytest.fail("不应发起任何请求")))
+    client = make_client(no_local_backend(firecrawl_handler(lambda r: pytest.fail("不应发起任何请求"))))
     context, _ = make_context(client)
     engine = FirecrawlEngine(source, context)
 
@@ -139,7 +160,7 @@ def test_plaintext_api_key_refused_at_engine_layer():
         retry=3,
         engine_options={"firecrawl": {"api_key": "fc-plain-key"}},
     )
-    client = make_client(firecrawl_handler(lambda r: pytest.fail("不应发起任何请求")))
+    client = make_client(no_local_backend(firecrawl_handler(lambda r: pytest.fail("不应发起任何请求"))))
     context, _ = make_context(client)
     engine = FirecrawlEngine(source, context)
 
@@ -151,7 +172,7 @@ def test_plaintext_api_key_refused_at_engine_layer():
 def test_keychain_api_key_with_noncanonical_name_raises():
     """keychain: 引用已实装(v0.2);非规范扁平名解析前即被结构化拒绝。"""
     source = scrape_source(engine_options={"firecrawl": {"api_key": "keychain:firecrawl_key"}})
-    client = make_client(firecrawl_handler(lambda r: pytest.fail("不应发起任何请求")))
+    client = make_client(no_local_backend(firecrawl_handler(lambda r: pytest.fail("不应发起任何请求"))))
     context, _ = make_context(client)
     engine = FirecrawlEngine(source, context)
 
@@ -222,7 +243,7 @@ def test_backend_down_retries_then_structured_network_error():
         calls["count"] += 1
         raise httpx.ConnectError("connection refused (self-host down)")
 
-    client = make_client(firecrawl_handler(responder))
+    client = make_client(no_local_backend(firecrawl_handler(responder)))
     source = scrape_source(retry=2)
     context, clock = make_context(client)
     engine = FirecrawlEngine(source, context)
@@ -245,7 +266,7 @@ def test_backend_500_exhausts_retries_and_raises(monkeypatch):
         calls["count"] += 1
         return httpx.Response(503, text="overloaded")
 
-    client = make_client(firecrawl_handler(responder))
+    client = make_client(no_local_backend(firecrawl_handler(responder)))
     source = scrape_source(
         retry=1, engine_options={"firecrawl": {"endpoint": "env:MYIA_FC_ENDPOINT"}}
     )
@@ -267,7 +288,7 @@ def test_ready_log_shows_reference_not_resolved_endpoint(monkeypatch, caplog):
     同族回归 —— 此前该行直接记解析后的明文 endpoint)。"""
     monkeypatch.setenv("MYIA_FC_ENDPOINT", "http://secret.firecrawl.internal:9402")
     client = make_client(
-        firecrawl_handler(lambda r: httpx.Response(200, json=SCRAPE_OK_MARKDOWN))
+        no_local_backend(firecrawl_handler(lambda r: httpx.Response(200, json=SCRAPE_OK_MARKDOWN)))
     )
     source = scrape_source(
         engine_options={"firecrawl": {"endpoint": "env:MYIA_FC_ENDPOINT"}}
@@ -309,7 +330,7 @@ def test_retry_warning_masks_resolved_endpoint(monkeypatch, caplog):
         calls["count"] += 1
         return httpx.Response(429, json={"error": "slow down"})
 
-    client = make_client(firecrawl_handler(responder))
+    client = make_client(no_local_backend(firecrawl_handler(responder)))
     source = scrape_source(
         retry=1, engine_options={"firecrawl": {"endpoint": "env:MYIA_FC_ENDPOINT"}}
     )
@@ -379,7 +400,7 @@ def test_timeout_failure_path_retries_then_raises_classified():
         calls["count"] += 1
         raise httpx.ReadTimeout("read timed out")
 
-    client = make_client(firecrawl_handler(responder))
+    client = make_client(no_local_backend(firecrawl_handler(responder)))
     source = scrape_source(retry=2)
     context, clock = make_context(client)
     engine = FirecrawlEngine(source, context)
@@ -389,6 +410,72 @@ def test_timeout_failure_path_retries_then_raises_classified():
     assert calls["count"] == 3  # 1 + retry 2
     assert clock.sleeps == [1.0, 2.0]
     assert classify_exception(httpx.ReadTimeout("x")) == "timeout"
+
+
+# ---------------------------------------------------------------------------
+# 三层 endpoint 序专项(主人裁决 2026-10-13「先查本地,本地有就用;没有就
+# 下载;都不行或查不出来,再配置/使用云端」):①本地探测命中(任意 HTTP
+# 响应含 4xx)=本地,压过云端引用;②探测拒绝/超时(=不在或查不出)→
+# 显式配置(云端兜底);③皆无→内置缺省空炮。
+# ---------------------------------------------------------------------------
+
+
+def test_three_layer_local_probe_hit_wins_over_cloud_reference():
+    """第 1 层:本地探测命中(哪怕 404)→ 端点=本地缺省,压过云端引用。"""
+    source = scrape_source(
+        engine_options={"firecrawl": {"endpoint": "env:MYIA_FC_ENDPOINT"}}
+    )
+    engine = FirecrawlEngine(source, _ctx_with(_probe_answers(httpx.Response(404, text=""))))
+    endpoint, display = engine._endpoint(local_backend_alive=True)
+    assert endpoint == DEFAULT_FIRECRAWL_ENDPOINT
+    assert "本地自托管" in display
+
+
+def test_three_layer_probe_refused_falls_to_configured(monkeypatch):
+    """第 2 层:探测连接拒绝(不在/查不出)→ 落显式配置(env 引用)。"""
+    monkeypatch.setenv("MYIA_FC_ENDPOINT", "https://api.firecrawl.dev")
+    source = scrape_source(
+        engine_options={"firecrawl": {"endpoint": "env:MYIA_FC_ENDPOINT"}}
+    )
+    client = make_client(no_local_backend(firecrawl_handler(lambda r: httpx.Response(200, json=SCRAPE_OK_MARKDOWN))))
+    context, _ = make_context(client)
+    engine = FirecrawlEngine(source, context)
+    endpoint, display = engine._endpoint(local_backend_alive=False)
+    assert endpoint == "https://api.firecrawl.dev"
+    assert display == "env:MYIA_FC_ENDPOINT"
+
+
+def test_three_layer_probe_refused_no_config_lands_default():
+    """第 3 层:探测拒绝且零配置 → 内置缺省(空炮形态,由 scrape 报错如实)。"""
+    engine = FirecrawlEngine(scrape_source(), _ctx_with(_probe_answers(httpx.ConnectError("refused"))))
+    endpoint, display = engine._endpoint(local_backend_alive=False)
+    assert endpoint == DEFAULT_FIRECRAWL_ENDPOINT
+    assert "默认" in display
+
+
+def _probe_answers(response_or_exc):
+    """构造对探测请求给定应答、对 scrape 请求答标准 OK 的 handler。"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        is_probe = (
+            request.method == "GET"
+            and request.url.host == "127.0.0.1"
+            and request.url.port == 3002
+            and request.url.path == "/"
+        )
+        if is_probe:
+            if isinstance(response_or_exc, Exception):
+                raise response_or_exc
+            return response_or_exc
+        return make_handler(lambda r: httpx.Response(200, json=SCRAPE_OK_MARKDOWN))(request)
+
+    return handler
+
+
+def _ctx_with(handler):
+    client = make_client(handler)
+    context, _ = make_context(client)
+    return context
 
 
 # ---------------------------------------------------------------------------
