@@ -5645,6 +5645,18 @@ describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
     expect(screen.getByTestId("feed-wx-chat-header").textContent).toContain("测试会话");
   });
 
+  it("3 级左栏平台隔离(主人令 2026-10-13「微信是微信,TG是TG,不同渠道,要展示不同的群,不能混在一起」):wx 渠道左栏只列 wx 会话,telegram 对照源不混列", async () => {
+    mockProbe(probePayload());
+    // telegram-seed 为 health 声明源(零条目也成卡)——混列时代它会出现在 wx 左栏
+    mockWxWorld([]);
+    renderScreen();
+    await openWxChannel();
+    const pane = await screen.findByTestId("feed-tg-group-pane");
+    expect(pane.getAttribute("data-im-kind")).toBe("wx");
+    expect(within(pane).getByTestId("feed-channel-row-weixin-测试会话")).toBeTruthy();
+    expect(within(pane).queryByTestId("feed-channel-row-telegram-seed")).toBeNull();
+  });
+
   it("3 级 wx 监控台三态:ok = ● 桥在线 · 微信版本 + 管理/历史钮(无扫码登录、无原生网页预览、无原生视图段 = 有意缺席);degraded/unavailable 如实", async () => {
     mockProbe(probePayload());
     mockWxWorld([

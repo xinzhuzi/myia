@@ -2537,18 +2537,21 @@ export function FeedScreen() {
    *  前缀 feed-tg-group-* 为结构词不动):数据源 = 渠道全集卡的 IM 档(tg/wx)
    *  成员,与 2 级全渠道列表同源(health 词表源 ∪ 已加载条目 source 去重,stats
    *  门过 = 计数全库真值);单会话(当前实况 clashv8)照常渲染单行选中,零群
-   *  给引导空态。TG/微信渠道 3 级渲染(网站/日报 3 级零变化;微信左栏数据源
-   *  = yaml 声明源,桥 sessions 清单不接 feed,声明制监控 v1 语义)。落点判例:
-   *  v7 双栏错在 2 级粒度(选中即数据),本次 3 级双栏是主人明令,不属翻案。
+   *  给引导空态。平台隔离(主人令 2026-10-13「微信是微信,TG是TG,不同渠道,
+   *  要展示不同的群,不能混在一起」):左栏只列与当前查看渠道同平台的会话
+   *  —— 看 TG 列 TG,看微信列微信(此前 tg+wx 混列是 10-12 微信线放宽,
+   *  主人令收回)。网站/日报 3 级零变化;微信左栏数据源 = yaml 声明源,桥
+   *  sessions 清单不接 feed,声明制监控 v1 语义。落点判例:v7 双栏错在 2 级
+   *  粒度(选中即数据),本次 3 级双栏是主人明令,不属翻案。
    *  (⑧钉注:多账号分组的落点 = 此 memo——按账号聚合在此扩展,账号备注名/
    *  user_id 词表 = telegram.status web.accounts 的 label/user_id,tg-account
    *  屏与 2 级账号区已消费同一词表。) */
   const imGroupCards = useMemo(
     () =>
-      chatView
-        ? channelCardsWithStats.filter((card) => card.kind === "tg" || card.kind === "wx")
+      chatView && activeChannelKind !== null
+        ? channelCardsWithStats.filter((card) => card.kind === activeChannelKind)
         : [],
-    [chatView, channelCardsWithStats],
+    [chatView, activeChannelKind, channelCardsWithStats],
   );
 
   // 补⑤(grill 一轮):viewSource 变化 → 左栏选中会话行滚入视口(block:
