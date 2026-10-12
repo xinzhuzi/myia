@@ -128,3 +128,25 @@ D5 在位眼见:`components.json` wechat-bridge 行(pip_spec/pip_src/post_instal
 COMPONENTS_SRC_RESOURCE_DIR;随包树清理链(`desktop/package.json:10` clean:pycache→
 `scripts/clean-pycache.mjs` 缺省根含 plugins/wechat-bridge,b9c5054)闭合。
 AC7 唯一剩余=主人 sudo 真跑(prd.md AC7,不在修复工范围);task.json 勾选归主会话。
+
+## 7. 第四轮(同日 13:13 后;ask 快照=pytest 5372p/0f + vitest 1f)
+
+并行会话已推进(10-12 TG 原生窗返回钮 bf988dc 提交;新在途集=10-12-tg-session-read:
+`desktop/entry.py`/`desktop/ui-src/src/lib/api/types.ts`/`feed-screen.tsx`/
+`feed-screen.test.tsx`/`src/myssia/store/sqlite.py` 全 M)。
+
+| 门禁 | 命令(原样) | 结果 |
+|---|---|---|
+| pytest 全量 | `uv run --no-sync python -m pytest tests -q -p no:cacheprovider` | **5305 passed / 48 skipped / 0 failed**,exit 0(149.10s)——红=0 与 ask 摘要口径一致(±67 收集差=对方在途增删) |
+| vitest 全量 | `npx vitest run`(desktop/ui-src) | Test Files **1 failed** / 34 passed;Tests 1 failed / 743 passed(744)——唯一红=`feed-screen.test.tsx > tg-category-entry 监控台 > 监控台历史入口(深检 F1 后语义)` |
+| 定向复跑①(单用例) | `npx vitest run src/screens/feed/feed-screen.test.tsx -t "监控台历史入口"` | **1 passed** |
+| 定向复跑②(整文件) | `npx vitest run src/screens/feed/feed-screen.test.tsx` | **180/180 全绿** |
+| 任务面定向 | `uv run --no-sync python -m pytest tests/desktop/test_pyenv_resources.py tests/wechat-bridge -q` | **204 passed / 7 skipped** |
+| Rust | `cargo test --locked`(desktop/src-tauri) | **90 passed / 0 failed / 1 ignored** |
+
+**归因与处置**:唯一 vitest 红文件 `feed-screen.test.tsx` 在对方 M 在途集
+(10-12-tg-session-read 正改 feed-screen.tsx/test.tsx),单用例与整文件复跑均绿
+=多文件并发执行竞态+在途 tsx 半程态叠加的瞬态,非稳定红;与本任务面
+(D5 分发/AC7)零交集(任务面 204p+Rust 90p 全绿)。按纪律**不修、skipped 归因,
+零代码改动**。D5/AC7 状态与 §6 结论不变(D5 已落地在位;AC7 唯一剩余=主人
+sudo 真跑)。本档第四轮增补为唯一产出。
