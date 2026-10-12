@@ -77,11 +77,17 @@ export interface PyenvStatus {
 
 /** 可选组件(自管环境按需 pip 装;壳侧 pyenv_components.rs 对齐源)。
  *  kind="service" = 轨B 壳服务组件(10-06-native-plugin-components 阶段2:
- *  同卡组件行扩服务形态——启停按钮 + 健康绿点);缺省 = 轨A 库组件(既有开关面)。 */
+ *  同卡组件行扩服务形态——启停按钮 + 健康绿点);缺省 = 轨A 库组件(既有开关面)。
+ *  install_state/install_error(10-13-component-install-ux):安装进行态
+ *  (installing=正在装 / queued=排队等槽 / error=上次失败)+ 失败原因原文;
+ *  缺省 = 不在装(旧壳兼容)。 */
+export type ComponentInstallState = "installing" | "queued" | "error";
 export interface PyenvComponent {
   id: string;
   installed: boolean;
   kind?: "service";
+  install_state?: ComponentInstallState;
+  install_error?: string | null;
 }
 
 /** 安装链全阶段有序表(安装明细逐项渲染的骨架;steps 只补状态)。 */
@@ -131,7 +137,22 @@ export function parsePyenvStatus(raw: unknown): PyenvStatus {
         // kind 附加键宽容:仅 "service" 是契约值(其余/缺省 → 库组件形态,
         // 与壳侧 skip_serializing_if 的 wire 形一致——库条目仍恰两键)
         const kind = component.kind === "service" ? ("service" as const) : undefined;
-        return [{ id: component.id, installed: component.installed, kind }];
+        // install_state/install_error 附加键宽容(10-13-component-install-ux;
+        // 旧壳缺键 → undefined,与「不在装」同形):仅三契约值进面,坏值丢弃
+        const installState = (
+          ["installing", "queued", "error"] as const
+        ).includes(component.install_state as ComponentInstallState)
+          ? (component.install_state as ComponentInstallState)
+          : undefined;
+        return [
+          {
+            id: component.id,
+            installed: component.installed,
+            kind,
+            install_state: installState,
+            install_error: asStringOrNone(component.install_error),
+          },
+        ];
       })
     : [];
   return {
@@ -180,18 +201,25 @@ export async function pyenvSyncDeps(): Promise<PyenvStatus> {
 
 /**
  * `pyenv_install_component` 结果(10-05-table-restore R4;壳侧
- * pyenv_components.rs 对齐源)。error 恒在场,无错为 null——安装失败也走
- * Ok 回包(installed=false + error 明细如实),仅传输/护栏层拒绝走 Err。
+ * pyenv_components.rs 对齐源)。error 恒在场,无错为 null。
+ * 受理制(10-13-component-install-ux):回包 = 占槽开装或入队,不等安装
+ * 完成——installed 在回包时点恒 false,queued = true 表示排在别的安装
+ * 后面(槽清空自动开装);完成态(ready/error 戳)走
+ * `pyenv-status-changed` 事件 + `pyenv_get_status` 拉取(真相源)。
  */
 export interface ComponentInstallOutcome {
   id: string;
   installed: boolean;
   error: string | null;
+  /** true = 已入队(槽被占);false = 已占槽开装 */
+  queued: boolean;
 }
 
 /**
- * wire 载荷 → ComponentInstallOutcome(TS 侧守门):id/installed 非契约类型
- * 即抛(壳侧 serde 已钉死,出现即对齐破了,大声失败,同 parsePyenvStatus 口径)。
+ * wire 载荷 → ComponentInstallOutcome(TS 侧守门):id/installed/queued
+ * 非契约类型即抛(壳侧 serde 已钉死,出现即对齐破了,大声失败,
+ * 同 parsePyenvStatus 口径);queued 缺键 = 旧壳,回 false(保守:按
+ * 「已开装」处理,按钮态反正以 status 真源为准)。
  */
 export function parseComponentInstallOutcome(raw: unknown): ComponentInstallOutcome {
   if (typeof raw !== "object" || raw === null) {
@@ -200,10 +228,15 @@ export function parseComponentInstallOutcome(raw: unknown): ComponentInstallOutc
   const record = raw as Record<string, unknown>;
   if (typeof record.id !== "string" || typeof record.installed !== "boolean") {
     throw new TypeError(
-      `组件安装结果非契约形态({id, installed, error}): ${String(raw)}`,
+      `组件安装结果非契约形态({id, installed, error, queued}): ${String(raw)}`,
     );
   }
-  return { id: record.id, installed: record.installed, error: asStringOrNone(record.error) };
+  return {
+    id: record.id,
+    installed: record.installed,
+    error: asStringOrNone(record.error),
+    queued: typeof record.queued === "boolean" ? record.queued : false,
+  };
 }
 
 /** 装组件进自管环境(设置屏组件开关消费;PyPI 镜像覆盖继承 pyenv-settings)。 */

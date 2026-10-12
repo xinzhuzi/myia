@@ -92,7 +92,7 @@
 //! searx.webserver/waitress 已被上游移除,design §2 的 -m searx.webserver
 /// 依实测改形)。
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -1128,9 +1128,21 @@ pub struct ComponentStatus {
     pub installed: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
+    /// 安装进行态(10-13-component-install-ux;附加键向后兼容,同 kind 先例):
+    /// "installing" | "queued" = 壳内存态(ComponentManager 快照);
+    /// "error" = 上次安装失败的持久态(戳 error 原文进 install_error);
+    /// None = 不在装(installed 或从未开装)。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub install_state: Option<String>,
+    /// 失败原因小字(仅 install_state == "error" 非空;戳 error 原文)。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub install_error: Option<String>,
 }
 
 /// 组装 components[](注册表序;注册表缺位 → 空表)。pyenv::status_at 调用。
+/// install_state/install_error 不在此组装(需要 ComponentManager 内存态,
+/// status_at 是无 AppHandle 的纯函数)——pyenv::current_status 经
+/// apply_components_runtime 后置拼装(爆炸半径对策,10-13 设计 §1.3)。
 pub fn component_statuses(data_root: &Path, resource_dir: Option<&Path>) -> Vec<ComponentStatus> {
     load_registry(resource_dir)
         .into_iter()
@@ -1138,21 +1150,67 @@ pub fn component_statuses(data_root: &Path, resource_dir: Option<&Path>) -> Vec<
             installed: is_component_installed(data_root, &spec),
             kind: spec.is_service().then(|| "service".to_string()),
             id: spec.id,
+            install_state: None,
+            install_error: None,
         })
         .collect()
+}
+
+/// 组件安装内存态快照(apply_components_runtime 的输入;从 ComponentManager
+/// 锁内克隆,拼装在锁外做——组装要读戳文件,不能占着锁做 IO)。
+#[derive(Default, Clone, Debug)]
+pub struct ComponentsRuntime {
+    pub installing: Option<String>,
+    pub queued: Vec<String>,
+}
+
+/// 后置拼装 install_state/install_error(纯函数,单测主战场):
+/// 内存态优先(installing > queued),否则落戳 error 态;其余 None。
+/// installed 与 install_state 独立——装完(error 戳残留)后 installed 由
+/// 指纹判定,install_state 只看「此刻在不在装/上次有没有失败」。
+pub fn apply_components_runtime(
+    components: &mut [ComponentStatus],
+    runtime: Option<&ComponentsRuntime>,
+    data_root: &Path,
+) {
+    for component in components.iter_mut() {
+        component.install_state = None;
+        component.install_error = None;
+        if let Some(runtime) = runtime {
+            if runtime.installing.as_deref() == Some(component.id.as_str()) {
+                component.install_state = Some("installing".into());
+                continue;
+            }
+            if runtime.queued.iter().any(|id| id == &component.id) {
+                component.install_state = Some("queued".into());
+                continue;
+            }
+        }
+        if let Some(stamp) = read_component_stamp(data_root, &component.id) {
+            if stamp.state.as_deref() == Some("error") {
+                component.install_state = Some("error".into());
+                component.install_error = stamp.error;
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
 // 安装本体(纯逻辑,无 AppHandle;单测主战场)
 // ---------------------------------------------------------------------------
 
-/// `pyenv_install_component` 结果(契约:`{id, installed, error}`;error 恒
-/// 在场,无错为 null,与 steps[].error 同惯例)。
+/// `pyenv_install_component` 结果(契约:`{id, installed, error, queued}`;
+/// error 恒在场,无错为 null,与 steps[].error 同惯例)。回包是**受理制**
+/// (10-13-component-install-ux):占槽开装或入队即回,不等安装完成——
+/// installed 在回包时点恒 false(真相源 = 戳 + pyenv_get_status),
+/// queued = true 表示排在别的安装后面(槽清空自动开装);error 只在
+/// 受理前的结构性拒绝出现,安装失败走 error 戳 + install_state=error。
 #[derive(Clone, PartialEq, Eq, Debug, Serialize)]
 pub struct ComponentInstallOutcome {
     pub id: String,
     pub installed: bool,
     pub error: Option<String>,
+    pub queued: bool,
 }
 
 /// 组件安装(复用安装链依赖段;轨A crawl4ai 带浏览器钩子,design §3;
@@ -1187,6 +1245,7 @@ pub(crate) fn install_component(
             id: spec.id.clone(),
             installed: false,
             error: Some(error),
+            queued: false,
         }
     };
     // —— 契约校验先于一切子进程:未知 post_install 钩子 / 钩子配套字段缺失
@@ -1279,6 +1338,7 @@ pub(crate) fn install_component(
                 id: spec.id.clone(),
                 installed: true,
                 error: None,
+                queued: false,
             }
         }
         Err((kind, detail)) => fail(pyenv_install::render_error(kind, detail), None),
@@ -1289,17 +1349,29 @@ pub(crate) fn install_component(
 // 胶水:AppHandle → IPC 命令(main.rs 注册)
 // ---------------------------------------------------------------------------
 
-/// 壳侧组件管理器(setup 时 manage):installing = 正在安装的组件 id
-/// (单飞护栏:同刻只许一个组件 pip,防两代 pip 写同一环境互踩)。
+/// 壳侧组件管理器(setup 时 manage)。单飞护栏不变:同刻只许一个组件
+/// pip,防两代 pip 写同一环境互踩。10-13-component-install-ux 起加 FIFO
+/// 排队:槽被占时点击入队而非弹错,槽清空(装完/失败)自动续装队首;
+/// 队列是壳内存态,壳重启即清(装一半的组件重开显示未装可重试,重试
+/// 幂等——pip 已装跳过、浏览器二进制续装)。
 #[derive(Default)]
 pub struct ComponentManager {
-    pub installing: Mutex<Option<String>>,
+    pub runtime: Mutex<ComponentRuntime>,
 }
 
-/// 装组件进自管环境(R4:设置页开关消费)。链路:注册表对 id → 环境在位
-/// 护栏 → 主链/组件单飞护栏 → 后台线程跑依赖段(磁盘预检 + pip spec +
-/// 镜像索引)→ 指纹戳 → 广播 `pyenv-status-changed`(components[] 随新)。
-/// pip 阻塞跑在 spawn_blocking(不占 async runtime worker);卸载本期不做。
+/// installing 与 queued 一把锁管(无嵌套锁序;锁只在查/改瞬间 held,
+/// pip 与戳 IO 全在锁外)。
+#[derive(Default)]
+pub struct ComponentRuntime {
+    pub installing: Option<String>,
+    pub queued: VecDeque<String>,
+}
+
+/// 装组件进自管环境(R4:设置页按钮消费)。受理制(10-13):护栏检查
+/// (注册表对 id / 环境在位 / 主链互斥)后**占槽即回或入队即回**,不等
+/// 安装完成——完成态走 error/ready 戳 + `pyenv-status-changed` 广播 +
+/// `pyenv_get_status` 拉取(前端真相源)。槽清空由后台接力链自动取队首
+/// 续装;同 id 已在装/已在队 = 幂等回执,不重复入队。
 #[tauri::command]
 pub async fn pyenv_install_component(
     app: AppHandle,
@@ -1320,7 +1392,7 @@ pub async fn pyenv_install_component(
     if !python_bin.exists() {
         return Err("Python 运行环境未就位:请先在设置页「开始配置」完成环境安装,再装组件".into());
     }
-    // —— 护栏:主安装链在跑 / 组件安装单飞 ——
+    // —— 护栏:主安装链在跑(主链与组件互斥不变,前端 envBlocked 先拦一道)——
     if app
         .state::<crate::pyenv::PyenvManager>()
         .installing
@@ -1330,41 +1402,132 @@ pub async fn pyenv_install_component(
     {
         return Err("Python 环境安装进行中:请等安装完成后再装组件".into());
     }
-    {
+    let _ = spec; // spec 消费在接力链内(每轮重解析;受理时点只核存在性)
+    // —— 受理:占槽即装 / 入队(锁内三态判断,原子)——
+    let queued = {
         let manager = app.state::<ComponentManager>();
-        let mut slot = manager.installing.lock().unwrap();
-        if slot.is_some() {
-            return Err("组件安装进行中,请稍候(同刻只装一个)".into());
+        let mut rt = manager.runtime.lock().unwrap();
+        if rt.installing.as_deref() == Some(id.as_str())
+            || rt.queued.iter().any(|q| q == &id)
+        {
+            // 幂等:已在装/已在队,如实回排队中(前端按钮态以 status 真源为准)
+            true
+        } else if rt.installing.is_some() {
+            rt.queued.push_back(id.clone());
+            true
+        } else {
+            rt.installing = Some(id.clone());
+            false
         }
-        *slot = Some(id.clone());
-    }
-    // —— 依赖段后台执行(spawn_blocking;镜像索引继承 pyenv-settings.json)——
-    let index_url = crate::pyenv::read_settings(&data_root).mirror_pypi;
-    let spec = spec.clone();
-    let root = data_root.clone();
-    let resource_for_install = resource_dir.clone();
-    let joined = tauri::async_runtime::spawn_blocking(move || {
-        install_component(
-            &root,
-            &python_bin,
-            &spec,
-            index_url.as_deref(),
-            crate::pyenv_install::DISK_REQUIRED_BYTES,
-            resource_for_install.as_deref(),
-        )
-    });
-    let outcome = match joined.await {
-        Ok(outcome) => outcome,
-        Err(err) => ComponentInstallOutcome {
-            id: id.clone(),
-            installed: false,
-            error: Some(format!("组件安装线程失败: {err}")),
-        },
     };
-    // —— 清槽 + 广播(components[] 随新;拉取仍是前端真相源)——
-    *app.state::<ComponentManager>().installing.lock().unwrap() = None;
-    let _ = crate::pyenv::emit_current(&app);
-    Ok(outcome)
+    if !queued {
+        spawn_component_install_chain(app.clone(), id.clone());
+    }
+    let _ = crate::pyenv::emit_current(&app); // 受理即广播(开装/入队即时可见)
+    Ok(ComponentInstallOutcome {
+        id,
+        installed: false,
+        error: None,
+        queued,
+    })
+}
+
+/// 后台安装接力链(单任务串行):占槽件装完 → 清槽 → 广播终态 → 队列
+/// pop 队首占槽 → 广播出队 → 续装,直到队空。pip 阻塞跑在
+/// spawn_blocking(不占 async runtime worker);镜像索引继承
+/// pyenv-settings.json。**退出纪律:任何 break 前必须清槽**,否则槽卡死
+/// 后续受理永远入队不出。
+fn spawn_component_install_chain(app: AppHandle, first_id: String) {
+    tauri::async_runtime::spawn(async move {
+        let clear_slot = |app: &AppHandle| {
+            app.state::<ComponentManager>()
+                .runtime
+                .lock()
+                .unwrap()
+                .installing = None;
+        };
+        let mut id = first_id;
+        loop {
+            let data_root = match crate::data_root(&app) {
+                Ok(root) => root,
+                Err(err) => {
+                    eprintln!("[components] 安装接力中止:数据根解析失败 {err}");
+                    clear_slot(&app);
+                    let _ = crate::pyenv::emit_current(&app);
+                    break;
+                }
+            };
+            let resource_dir = app.path().resource_dir().ok();
+            let registry = load_registry(resource_dir.as_deref());
+            let Some(spec) = registry.into_iter().find(|entry| entry.id == id) else {
+                // 注册表变脸(理论不至:随包文件壳不重启不改)——停链不臆造
+                eprintln!("[components] 安装接力中止:组件 {id} 不在注册表");
+                clear_slot(&app);
+                let _ = crate::pyenv::emit_current(&app);
+                break;
+            };
+            let python_bin = crate::pyenv::python_bin_path(&data_root);
+            let index_url = crate::pyenv::read_settings(&data_root).mirror_pypi;
+            let root = data_root.clone();
+            let resource_for_install = resource_dir.clone();
+            let id_for_stamp = id.clone();
+            let joined = tauri::async_runtime::spawn_blocking(move || {
+                install_component(
+                    &root,
+                    &python_bin,
+                    &spec,
+                    index_url.as_deref(),
+                    crate::pyenv_install::DISK_REQUIRED_BYTES,
+                    resource_for_install.as_deref(),
+                )
+            });
+            let outcome = match joined.await {
+                Ok(outcome) => outcome,
+                Err(err) => {
+                    // 安装线程 panic:受理制下回包早已发出,失败必须落戳才有出口
+                    let error_text = format!("组件安装线程失败: {err}");
+                    write_component_stamp(
+                        &data_root,
+                        &id_for_stamp,
+                        &ComponentStamp {
+                            state: Some("error".into()),
+                            fingerprint: None,
+                            error: Some(error_text),
+                        },
+                    );
+                    ComponentInstallOutcome {
+                        id: id_for_stamp,
+                        installed: false,
+                        error: None,
+                        queued: false,
+                    }
+                }
+            };
+            let _ = outcome; // 结果已落戳(ready/error),真相源 = 戳 + 广播
+            // —— 清槽 + 广播终态(components[] 随新;拉取仍是前端真相源)——
+            clear_slot(&app);
+            let _ = crate::pyenv::emit_current(&app);
+            // —— 队首接力(锁内 pop + 占槽,原子)——
+            let next = {
+                let manager = app.state::<ComponentManager>();
+                let mut rt = manager.runtime.lock().unwrap();
+                match rt.queued.pop_front() {
+                    Some(next) => {
+                        rt.installing = Some(next.clone());
+                        Some(next)
+                    }
+                    None => None,
+                }
+            };
+            match next {
+                Some(next_id) => {
+                    let _ = crate::pyenv::emit_current(&app); // 出队开装广播
+                    id = next_id;
+                }
+                None => break,
+            }
+        }
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -1474,9 +1637,10 @@ pub async fn service_start(app: AppHandle, id: String) -> Result<ServiceStatus, 
     }
     if app
         .state::<ComponentManager>()
-        .installing
+        .runtime
         .lock()
         .unwrap()
+        .installing
         .is_some()
     {
         return Err("组件安装进行中:请等组件安装完成后再启动服务组件".into());
@@ -1766,6 +1930,70 @@ mod tests {
         assert!(should_inject_browsers_env(data.path()), "目录在即注");
     }
 
+    /// install_state 后置拼装(10-13):内存态优先(installing > queued)、
+    /// 否则戳 error 态带原文、其余 None;runtime=None(纯函数路径)零行为差。
+    #[test]
+    fn apply_components_runtime_resolves_states_in_priority_order() {
+        let data = tempfile::tempdir().expect("数据根临时目录创建失败");
+        let spec = table_spec();
+        // table 与 telethon 各落 error 戳(带原文)
+        for error_id in [&spec.id, "telethon"] {
+            write_component_stamp(
+                data.path(),
+                error_id,
+                &ComponentStamp {
+                    state: Some("error".into()),
+                    fingerprint: None,
+                    error: Some("磁盘不足".into()),
+                },
+            );
+        }
+        let mut components = vec![
+            ComponentStatus {
+                id: spec.id.clone(),
+                installed: false,
+                kind: None,
+                install_state: None,
+                install_error: None,
+            },
+            ComponentStatus {
+                id: "crawl4ai".into(),
+                installed: false,
+                kind: None,
+                install_state: None,
+                install_error: None,
+            },
+            ComponentStatus {
+                id: "telethon".into(),
+                installed: false,
+                kind: None,
+                install_state: None,
+                install_error: None,
+            },
+        ];
+        // 内存态压过戳 error(table 在装、crawl4ai 在队、telethon 落戳 error)
+        let runtime = ComponentsRuntime {
+            installing: Some(spec.id.clone()),
+            queued: vec!["crawl4ai".into()],
+        };
+        apply_components_runtime(&mut components, Some(&runtime), data.path());
+        assert_eq!(components[0].install_state.as_deref(), Some("installing"));
+        assert_eq!(components[1].install_state.as_deref(), Some("queued"));
+        assert_eq!(components[2].install_state.as_deref(), Some("error"));
+        assert_eq!(components[2].install_error.as_deref(), Some("磁盘不足"));
+        // 同一 table 释放后(不在装不在队)→ 回落戳 error 态
+        let idle = ComponentsRuntime::default();
+        apply_components_runtime(&mut components, Some(&idle), data.path());
+        assert_eq!(components[0].install_state.as_deref(), Some("error"));
+        assert_eq!(components[0].install_error.as_deref(), Some("磁盘不足"));
+        // runtime=None(纯函数路径,spawn_sidecar 等不消费面)→ 零行为差
+        apply_components_runtime(&mut components, None, data.path());
+        assert_eq!(components[0].install_state.as_deref(), Some("error"));
+        // 无戳组件恒 None
+        assert_eq!(components[1].install_state, None);
+        assert_eq!(components[1].install_error, None);
+    }
+
     /// 磁盘预算:已知钩子加码 600MB、无钩子/未知钩子不加;saturating 不溢出。
     #[test]
     fn disk_budget_adds_chromium_headroom_only_for_known_hook() {
@@ -1975,7 +2203,8 @@ mod tests {
                 ComponentInstallOutcome {
                     id: "table".into(),
                     installed: true,
-                    error: None
+                    error: None,
+                        queued: false
                 }
             );
             let lines = pip_log(dir.path());
@@ -2078,7 +2307,8 @@ mod tests {
                 ComponentInstallOutcome {
                     id: "crawl4ai".into(),
                     installed: true,
-                    error: None
+                    error: None,
+                        queued: false
                 }
             );
             let lines = pip_log(dir.path());
@@ -2496,7 +2726,8 @@ mod tests {
                 ComponentInstallOutcome {
                     id: "searxng".into(),
                     installed: true,
-                    error: None
+                    error: None,
+                        queued: false
                 }
             );
             // 一段闭包:-r 上游 commit 钉版 requirements URL + granian + 构建后端
@@ -2651,7 +2882,8 @@ mod tests {
                 ComponentInstallOutcome {
                     id: "wechat-bridge".into(),
                     installed: true,
-                    error: None
+                    error: None,
+                        queued: false
                 }
             );
             // 一段闭包:构建后端两件(searxng 同款词形)

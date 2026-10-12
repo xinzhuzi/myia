@@ -1372,11 +1372,14 @@ pub(crate) fn start_install_thread(app: AppHandle, deps_only: bool) -> Result<()
     //    pyenv_install_component 先查本侧 installing 再占组件坑,这里先查
     //    组件坑再占主链坑)。先后双锁非原子,TOCTOU 残余窗极窄且两侧对称,
     //    不为此扩权(单锁结构改动不成比例);消息风格镜像组件侧反向护栏。
+    //    10-13-component-install-ux:组件排队件(queued)同拦——主链与一切
+    //    组件 pip 互斥,队件留给接力链在主链结束后受理(用户重点按钮即续)。
     if app
         .state::<crate::pyenv_components::ComponentManager>()
-        .installing
+        .runtime
         .lock()
         .unwrap()
+        .installing
         .is_some()
     {
         return Err("组件安装进行中:请等组件安装完成后再开始安装或同步 Python 环境".into());

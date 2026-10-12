@@ -1,10 +1,9 @@
-import { Check, Cpu, Download, Play, RefreshCw, ShieldCheck, Square, X } from "lucide-react";
+import { AlertTriangle, Check, Clock, Cpu, Download, Play, RefreshCw, ShieldCheck, Square, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import type { SidecarRequestError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -196,7 +195,7 @@ const COMPONENT_META: Record<string, { label: string; description: string }> = {
   table: {
     label: "表格还原",
     description:
-      "截图表格(行情/比价/参数对比/榜单)还原成结构化 Markdown:rapid_table 3.x onnx 引擎(与 extras myssia[table] 同一套依赖,含 rapidocr 单元格文字;不引 Paddle)。开关开 = 往应用管理的环境装组件(首装联网,PyPI 镜像覆盖生效;SLANET-plus 结构模型首用时自动从 modelscope 下载,之后离线复用);管线侧行为由品类配置 images.table 控制",
+      "截图表格(行情/比价/参数对比/榜单)还原成结构化 Markdown:rapid_table 3.x onnx 引擎(与 extras myssia[table] 同一套依赖,含 rapidocr 单元格文字;不引 Paddle)。点「安装」= 往应用管理的环境装组件(首装联网,PyPI 镜像覆盖生效;SLANET-plus 结构模型首用时自动从 modelscope 下载,之后离线复用);管线侧行为由品类配置 images.table 控制",
   },
   trafilatura: {
     label: "正文抽取兜底",
@@ -206,7 +205,7 @@ const COMPONENT_META: Record<string, { label: string; description: string }> = {
   crawl4ai: {
     label: "JS 渲染抓取(crawl4ai)",
     description:
-      "JS 渲染抓取引擎 crawl4ai(L3,进程内无头浏览器;与 extras myssia[crawl4ai] 同源,版本要求 >=0.9 且 <0.10):解锁纯客户端渲染源与 urlwatch 渲染通道、images 品类 L3 兜底。开关开 = pip 装闭包后自动下载 playwright chromium 浏览器二进制(下载约 300MB 级、落盘约 600MB,沙箱实测 557MB;走 Playwright CDN,耗时数分钟);浏览器存到数据目录 playwright-browsers/ 目录(PLAYWRIGHT_BROWSERS_PATH),不散落系统缓存区,卸载组件/清理数据目录即整目录回收;chromium 拉取失败会在下方示错可重试(重试幂等)",
+      "JS 渲染抓取引擎 crawl4ai(L3,进程内无头浏览器;与 extras myssia[crawl4ai] 同源,版本要求 >=0.9 且 <0.10):解锁纯客户端渲染源与 urlwatch 渲染通道、images 品类 L3 兜底。点「安装」= pip 装闭包后自动下载 playwright chromium 浏览器二进制(下载约 300MB 级、落盘约 600MB,沙箱实测 557MB;走 Playwright CDN,耗时数分钟);浏览器存到数据目录 playwright-browsers/ 目录(PLAYWRIGHT_BROWSERS_PATH),不散落系统缓存区,卸载组件/清理数据目录即整目录回收;chromium 拉取失败按钮会变「重试安装」并附原因(重试幂等)",
   },
   telethon: {
     label: "Telegram 用户线(telethon)",
@@ -224,6 +223,87 @@ const COMPONENT_META: Record<string, { label: string; description: string }> = {
       "自托管聚合搜索服务组件(显式 engine: searxng 源的关键词日报底座):装好默认停,此处按钮手动启停(状态记忆,引擎跑源未启动=结构化提示,不自动启动)。服务监听本机 127.0.0.1:8888,健康端点 /healthz;组件约 100MB 级,存到数据目录(无浏览器量级下载;PyPI 走镜像),源码从 GitHub 固定 commit 装(需可及 github.com),服务数据(settings.yml + 日志)存到数据目录 services/searxng/,清理数据目录即整目录回收",
   },
 };
+
+/**
+ * 组件安装按钮(10-13-component-install-ux;主人指令「状态就表现在按钮
+ * 效果上面」):一行一按钮,安装全生命周期五态由按钮本体承载——
+ * 安装(可点)/ 安装中…(转圈)/ 排队中…/ 已装 / 重试安装(附失败小字)。
+ * 状态真源 = status.components[].install_state(壳侧广播 + 拉取,切屏
+ * 重开不丢);pending 仅做点击 → 受理回执间隙的防双击过渡。
+ */
+function ComponentInstallButton({
+  component,
+  envBlocked,
+  pending,
+  onInstall,
+}: {
+  component: PyenvComponent;
+  /** 主链未配置/安装中:一切安装动作禁用(壳侧同门,前端先拦一道) */
+  envBlocked: boolean;
+  pending: boolean;
+  onInstall: () => void;
+}) {
+  const testId = `pyenv-component-${component.id}-install`;
+  // pending 优先于一切态(点击瞬间到回执/事件到达前,按钮必须不可再点)
+  const installState = pending ? ("installing" as const) : component.install_state;
+  const blockedTitle = envBlocked
+    ? "Python 环境未就位/主链安装中:先完成「开始配置」再装组件"
+    : null;
+
+  if (installState === "installing") {
+    return (
+      <Button variant="outline" size="sm" disabled data-testid={testId} title={blockedTitle ?? "下载依赖+按需拉浏览器,可能耗时数分钟;完成后按钮自动变「已装」"}>
+        <RefreshCw className="size-3.5 animate-spin" />
+        安装中…
+      </Button>
+    );
+  }
+  if (installState === "queued") {
+    return (
+      <Button variant="outline" size="sm" disabled data-testid={testId} title={blockedTitle ?? "等前面的组件装完自动开装(同刻只装一个,防互踩);壳重启会清空队列,重新点「安装」即可"}>
+        <Clock className="size-3.5" />
+        排队中…
+      </Button>
+    );
+  }
+  if (component.installed) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        disabled
+        data-testid={testId}
+        className="border-ok/40 text-ok hover:bg-ok/[0.04]"
+        title="已装进应用管理的环境;卸载将在后续版本提供(停用请调整品类/源配置不再引用该组件)"
+      >
+        <Check className="size-3.5" />
+        已装
+      </Button>
+    );
+  }
+  if (installState === "error") {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={envBlocked}
+        onClick={onInstall}
+        data-testid={testId}
+        className="border-warning/50 text-warning hover:bg-warning/[0.06]"
+        title={blockedTitle ?? "上次安装失败;点此重试(幂等:已装依赖自动跳过,浏览器二进制续装)"}
+      >
+        <AlertTriangle className="size-3.5" />
+        重试安装
+      </Button>
+    );
+  }
+  return (
+    <Button size="sm" disabled={envBlocked} onClick={onInstall} data-testid={testId} title={blockedTitle ?? "把该组件装进应用管理的环境(pip,镜像覆盖生效);已有组件在装时自动排队"}>
+      <Download className="size-3.5" />
+      安装
+    </Button>
+  );
+}
 
 export function PyenvCard() {
   const [status, setStatus] = useState<PyenvStatus | null>(null);
@@ -337,42 +417,36 @@ export function PyenvCard() {
     }
   }, []);
 
-  /** 组件开关(10-05-table-restore R4):off→on = pyenv_install_component 装
-   *  进自管环境(装后拉取回读,components[] 随新);on→off = 卸载本期不做,
-   *  如实提示不伪造关闭。与主链动作(开始配置/同步依赖)反馈分槽,互不覆写。 */
-  const [installingComponent, setInstallingComponent] = useState<string | null>(null);
+  /** 组件安装(10-13-component-install-ux 主人指令:状态进按钮,一行一
+   * 按钮):点击 → 受理制回执(占槽开装 / 入队)→ 拉真值(install_state
+   * 是渲染真源)。Err 只剩结构性拒绝(未知 id / 环境未就位——envBlocked
+   * 已先拦,真 Err 罕见)仍走 ErrorBox 如实呈现;完成/失败态走事件 +
+   * 拉取,回执不做进度承诺。卸载本期不做,不提供关闭动作。 */
+  const [installPendingId, setInstallPendingId] = useState<string | null>(null);
   const [componentError, setComponentError] = useState<SidecarRequestError | null>(null);
   const [componentNote, setComponentNote] = useState<{ text: string; ok: boolean } | null>(null);
 
-  const handleToggleComponent = useCallback(
-    async (component: PyenvComponent, next: boolean) => {
-      if (!next) {
-        setComponentError(null);
-        setComponentNote({
-          text: "组件卸载将在后续版本提供:此处开关只管装进应用管理的环境;停用组件行为请调整品类/源配置不再引用该组件(table 走 images.table,crawl4ai 走源 engine 改离 crawl4ai)。",
-          ok: false,
-        });
-        return;
-      }
-      setInstallingComponent(component.id);
+  const handleInstallComponent = useCallback(
+    async (component: PyenvComponent) => {
+      setInstallPendingId(component.id);
       setComponentError(null);
       setComponentNote(null);
       try {
         const outcome = await pyenvInstallComponent(component.id);
-        if (outcome.error) {
-          setComponentNote({ text: `组件 ${component.id} 安装失败:${outcome.error}`, ok: false });
-        } else {
-          setComponentNote({
-            text: `组件 ${component.id} 已装进应用管理的环境(指纹已记;重开时自动跳过)。`,
-            ok: true,
-          });
-        }
-        // 拉取是真相源:按结果回读状态(components[] 随新;镜像草稿不覆写)
+        setComponentNote(
+          outcome.queued
+            ? { text: `组件 ${component.id} 已排队:等前面的组件装完自动开装(同刻只装一个)。`, ok: true }
+            : {
+                text: `组件 ${component.id} 安装已开始(下载依赖,可能耗时数分钟;完成自动刷新)。`,
+                ok: true,
+              },
+        );
+        // 拉取是真相源:安装中/排队态以回读为准(镜像草稿不覆写)
         applyStatus(await pyenvGetStatus(), false);
       } catch (raw) {
         setComponentError(asSidecarError(raw));
       } finally {
-        setInstallingComponent(null);
+        setInstallPendingId(null);
       }
     },
     [applyStatus],
@@ -597,8 +671,12 @@ export function PyenvCard() {
               </ol>
             </section>
 
-            {/* 可选组件(10-05-table-restore R4):首件「表格还原」;装/状态回读
-                如实呈现,卸载本期不做。注册表缺位(旧包)→ components 空 → 不渲染 */}
+            {/* 可选组件(10-05-table-restore R4;10-13-component-install-ux
+                按钮化):状态进按钮(主人指令「状态就表现在按钮效果上面」)——
+                安装/安装中/排队中/已装/重试安装五态单按钮承载,取代
+                Badge+开关+旁挂 spinner 三处散落;安装态真源 =
+                status.components[].install_state(壳侧广播/拉取,切屏重开不丢)。
+                注册表缺位(旧包)→ components 空 → 不渲染 */}
             {status.components.length > 0 ? (
               <section aria-labelledby="pyenv-components-title" className="flex flex-col gap-3">
                 <h3 id="pyenv-components-title" className="text-2xs font-medium tracking-wide text-muted-foreground">
@@ -610,11 +688,11 @@ export function PyenvCard() {
                 >
                   {status.components.map((component) => {
                     const display = COMPONENT_META[component.id];
-                    // 环境未配置/主链安装中:开关禁用(壳侧同门,前端先拦一道)
+                    // 环境未配置/主链安装中:安装按钮禁用(壳侧同门,前端先拦一道)
                     const envBlocked =
                       status.state === "not_configured" || status.state === "installing";
-                    const busy = installingComponent === component.id;
-                    // 轨B 服务组件(已装):启停按钮 + 健康绿点(未装仍走装开关;
+                    const pending = installPendingId === component.id;
+                    // 轨B 服务组件(已装):启停按钮 + 健康绿点(启停本就是按钮态;
                     // 状态未知时按 stopped 呈现,对账毫秒级即至)
                     const service = component.kind === "service" && component.installed;
                     const running = service && (serviceStates[component.id]?.state ?? "stopped") === "running";
@@ -633,15 +711,14 @@ export function PyenvCard() {
                           <p className="text-2xs leading-4 text-muted-foreground">
                             {display?.description ?? "可选组件(按需安装)"}
                           </p>
-                          {busy ? (
-                            <span
-                              role="status"
-                              data-testid={`pyenv-component-${component.id}-busy`}
-                              className="flex items-center gap-1 text-2xs text-warning"
+                          {component.install_state === "error" && component.install_error ? (
+                            <p
+                              role="alert"
+                              data-testid={`pyenv-component-${component.id}-error`}
+                              className="text-left text-2xs leading-4 text-destructive"
                             >
-                              <RefreshCw className="size-3 animate-spin" />
-                              安装中(下载依赖,可能耗时数分钟)…
-                            </span>
+                              上次安装失败:{component.install_error}(重试幂等,已装依赖自动跳过)
+                            </p>
                           ) : null}
                           {serviceToggleBusy ? (
                             <span
@@ -655,12 +732,6 @@ export function PyenvCard() {
                           ) : null}
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <Badge
-                            variant={component.installed ? "ok" : "outline"}
-                            data-testid={`pyenv-component-${component.id}-state`}
-                          >
-                            {component.installed ? "已装" : "未装"}
-                          </Badge>
                           {service ? (
                             <>
                               <Badge
@@ -701,20 +772,11 @@ export function PyenvCard() {
                               </Button>
                             </>
                           ) : (
-                            <Switch
-                              checked={component.installed}
-                              disabled={busy || envBlocked}
-                              aria-label={`组件开关 ${component.id}`}
-                              title={
-                                envBlocked
-                                  ? "Python 环境未就位/主链安装中:先完成「开始配置」再装组件"
-                                  : component.installed
-                                    ? "已装进应用管理的环境;卸载将在后续版本提供(停用走品类/源配置不再引用该组件)"
-                                    : "把该组件装进应用管理的环境(pip,镜像覆盖生效)"
-                              }
-                              onCheckedChange={(checked) =>
-                                void handleToggleComponent(component, checked)
-                              }
+                            <ComponentInstallButton
+                              component={component}
+                              envBlocked={envBlocked}
+                              pending={pending}
+                              onInstall={() => void handleInstallComponent(component)}
                             />
                           )}
                         </div>

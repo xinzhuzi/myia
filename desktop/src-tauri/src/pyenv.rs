@@ -461,12 +461,30 @@ pub fn current_status(app: &AppHandle) -> Result<PyenvStatus, Box<dyn std::error
         .clone();
     let settings = read_settings(&data_root);
     let resource_dir = app.path().resource_dir().ok();
-    Ok(status_at(
+    let mut status = status_at(
         &data_root,
         resource_dir.as_deref(),
         installing.as_deref(),
         &settings,
-    ))
+    );
+    // 组件安装进行态(installing/queued/error)后置拼装:需要 ComponentManager
+    // 内存态,而 status_at 是无 AppHandle 的纯函数(上游 15 符号零触碰的
+    // 爆炸半径对策,10-13-component-install-ux design §1.3)。快照在锁内
+    // 克隆、戳 IO 在锁外做。
+    let components_runtime = {
+        let manager = app.state::<crate::pyenv_components::ComponentManager>();
+        let rt = manager.runtime.lock().unwrap();
+        crate::pyenv_components::ComponentsRuntime {
+            installing: rt.installing.clone(),
+            queued: rt.queued.iter().cloned().collect(),
+        }
+    };
+    crate::pyenv_components::apply_components_runtime(
+        &mut status.components,
+        Some(&components_runtime),
+        &data_root,
+    );
+    Ok(status)
 }
 
 /// 协议层「未配置」结构化错误(prd Req 3):`sidecar_request` 在环境未就绪时

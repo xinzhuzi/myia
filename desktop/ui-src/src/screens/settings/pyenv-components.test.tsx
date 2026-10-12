@@ -2,12 +2,14 @@
 //
 // 可选组件机制 IPC 契约测试(10-05-table-restore 桌面侧;mock Tauri IPC,
 // 不触真实壳),与壳侧 src-tauri/src/pyenv_components.rs / pyenv.rs 逐字段对齐:
-// - command `pyenv_install_component(id)` → `{id, installed, error}`
-//   (error 恒在场,无错为 null;安装失败也走 Ok 回包,如实呈现)
-// - `pyenv_get_status` 扩展 `components: [{id, installed}]`(两键钉死;
-//   注册表缺位回空表,前端不渲染组件行)
-// 组件面(R4):「表格还原」开关 = 装/状态回读;卸载本期不做(on→off 只提示,
-// 不发卸载调用);主链未配置/安装中开关禁用(壳侧同门)。
+// - command `pyenv_install_component(id)` → `{id, installed, error, queued}`
+//   受理制(10-13-component-install-ux):回包 = 占槽开装/入队,不等安装
+//   完成(installed 回包时点恒 false;queued=true 排队自动续装)
+// - `pyenv_get_status` 扩展 `components: [{id, installed, install_state?,
+//   install_error?}]`(附加键向后兼容;install_state =
+//   installing|queued|error,缺省 = 不在装)
+// 组件面(10-13 按钮化):状态进按钮(主人指令)——安装/安装中…/排队中…/
+// 已装/重试安装 五态单按钮承载;主链未配置/安装中禁用(壳侧同门)。
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -32,7 +34,7 @@ import { PyenvCard } from "./pyenv-card";
 import { PYENV_STATUS_EVENT_NAME } from "./pyenv-api";
 
 // ---------------------------------------------------------------------------
-// 夹具(wire 形 = 壳侧 serde 序列化 PyenvStatus 的原样 JSON;components 两键)
+// 夹具(wire 形 = 壳侧 serde 序列化 PyenvStatus 的原样 JSON)
 // ---------------------------------------------------------------------------
 
 function wireFixture(overrides?: Partial<Record<string, unknown>>): Record<string, unknown> {
@@ -48,12 +50,12 @@ function wireFixture(overrides?: Partial<Record<string, unknown>>): Record<strin
   };
 }
 
+/** 受理制回包(installed 回包时点恒 false;queued=false=占槽开装)。 */
 function installOutcomeFixture(
   id = "table",
-  installed = true,
-  error: string | null = null,
+  queued = false,
 ): Record<string, unknown> {
-  return { id, installed, error };
+  return { id, installed: false, error: null, queued };
 }
 
 beforeEach(() => {
@@ -73,29 +75,64 @@ function callsOf(command: string): unknown[] {
     .map((args) => args ?? {});
 }
 
+/**
+ * IPC mock + 事件通道:get_status 回 current;install_component 记账并按
+ * outcome 应答(受理制:不翻 current——状态翻新走 emit,模拟壳侧装完广播)。
+ * 返回 emit(payload):既更新 current 又派发 pyenv-status-changed 事件。
+ */
+function installIpc(
+  initial: Record<string, unknown>,
+  installOutcome: Record<string, unknown> = installOutcomeFixture(),
+) {
+  let current = initial;
+  let dispatch: ((event: { payload: unknown }) => void) | null = null;
+  mocks.invoke.mockImplementation(async (command: string) => {
+    if (command === "pyenv_get_status") return current;
+    if (command === "pyenv_install_component") return installOutcome;
+    throw new Error(`未预期的 IPC 命令: ${command}`);
+  });
+  mocks.listen.mockImplementation(async (_name: string, handler: (event: { payload: unknown }) => void) => {
+    dispatch = handler;
+    return () => undefined;
+  });
+  return {
+    emitStatus: (payload: Record<string, unknown>) => {
+      current = payload;
+      dispatch?.({ payload });
+    },
+  };
+}
+
+function installListen() {
+  mocks.listen.mockResolvedValue(() => undefined);
+}
+
 // ---------------------------------------------------------------------------
 // api 层契约(命令名 / 参数键 / 载荷守门)
 // ---------------------------------------------------------------------------
 
 describe("pyenv-api:组件契约(与壳侧 pyenv_components.rs 对齐)", () => {
-  it("pyenvInstallComponent:命令名 pyenv_install_component、参数键 id;三键结果原样消费", async () => {
-    mocks.invoke.mockResolvedValue(installOutcomeFixture());
+  it("pyenvInstallComponent:命令名 pyenv_install_component、参数键 id;四键受理制结果原样消费", async () => {
+    mocks.invoke.mockResolvedValue(installOutcomeFixture("table", true));
     const outcome = await pyenvInstallComponent("table");
     expect(mocks.invoke).toHaveBeenCalledTimes(1);
     expect(mocks.invoke).toHaveBeenCalledWith("pyenv_install_component", { id: "table" });
-    expect(outcome).toEqual({ id: "table", installed: true, error: null });
+    expect(outcome).toEqual({ id: "table", installed: false, error: null, queued: true });
   });
 
-  it("parseComponentInstallOutcome:非契约形态即抛(对齐破了要大声失败);error 恒在场", () => {
-    expect(parseComponentInstallOutcome(installOutcomeFixture("table", false, "pip_failed: boom")))
-      .toEqual({ id: "table", installed: false, error: "pip_failed: boom" });
+  it("parseComponentInstallOutcome:非契约形态即抛(对齐破了要大声失败);queued 缺键回 false(旧壳兼容)", () => {
+    expect(parseComponentInstallOutcome(installOutcomeFixture("table")))
+      .toEqual({ id: "table", installed: false, error: null, queued: false });
+    // 旧壳三键回包(无 queued)→ 宽容回 false
+    expect(parseComponentInstallOutcome({ id: "table", installed: false, error: null }))
+      .toEqual({ id: "table", installed: false, error: null, queued: false });
     expect(() => parseComponentInstallOutcome("not-an-object")).toThrow(TypeError);
     expect(() => parseComponentInstallOutcome({ id: "table" })).toThrow(TypeError);
     expect(() => parseComponentInstallOutcome({ id: 1, installed: true, error: null })).toThrow(TypeError);
     expect(() => parseComponentInstallOutcome({ id: "table", installed: "yes", error: null })).toThrow(TypeError);
   });
 
-  it("parsePyenvStatus:components 两键透传;缺键回空表(旧壳兼容);坏条目丢弃", () => {
+  it("parsePyenvStatus:components 透传 install_state/install_error;缺键回空表(旧壳兼容);坏条目/坏值丢弃", () => {
     // 缺 components 键 → [](旧壳中间态,不拦状态展示)
     const { components: missing } = parsePyenvStatus(wireFixture({ components: undefined }));
     expect(missing).toEqual([]);
@@ -103,57 +140,32 @@ describe("pyenv-api:组件契约(与壳侧 pyenv_components.rs 对齐)", () => {
       wireFixture({
         components: [
           { id: "table", installed: true },
-          { id: "future", installed: false },
+          { id: "crawl4ai", installed: false, install_state: "installing" },
+          { id: "trafilatura", installed: false, install_state: "queued" },
+          { id: "telethon", installed: false, install_state: "error", install_error: "磁盘不足" },
+          { id: "weird-state", installed: false, install_state: "bogus" },
           { id: "bad-shape", installed: "yes" },
-          { no: "keys" },
           "not-an-entry",
         ],
       }),
     );
     expect(parsed.components).toEqual([
-      { id: "table", installed: true },
-      { id: "future", installed: false },
+      { id: "table", installed: true, install_error: null },
+      { id: "crawl4ai", installed: false, install_state: "installing", install_error: null },
+      { id: "trafilatura", installed: false, install_state: "queued", install_error: null },
+      { id: "telethon", installed: false, install_state: "error", install_error: "磁盘不足" },
+      // 坏 install_state 值丢弃 → 不在装形态
+      { id: "weird-state", installed: false, install_error: null },
     ]);
   });
 });
 
 // ---------------------------------------------------------------------------
-// 组件面(「表格还原」开关;R4 字段全覆盖)
+// 组件面(10-13 按钮化:状态进按钮,一行一按钮)
 // ---------------------------------------------------------------------------
 
-/**
- * IPC mock:get_status 回 current;install_component 记账并按 outcome 应答
- * (可选副作用:成功后 current 的该组件翻 installed=true,模拟壳侧指纹戳+回读)。
- */
-function installIpc(
-  initial: Record<string, unknown>,
-  installOutcome: Record<string, unknown> = installOutcomeFixture(),
-) {
-  let current = initial;
-  mocks.invoke.mockImplementation(async (command: string, args?: unknown) => {
-    if (command === "pyenv_get_status") return current;
-    if (command === "pyenv_install_component") {
-      const { id } = (args ?? {}) as { id: string };
-      if ((installOutcome.id as string) === id && installOutcome.installed === true) {
-        current = {
-          ...current,
-          components: (current.components as Record<string, unknown>[]).map((entry) =>
-            entry.id === id ? { ...entry, installed: true } : entry,
-          ),
-        };
-      }
-      return installOutcome;
-    }
-    throw new Error(`未预期的 IPC 命令: ${command}`);
-  });
-}
-
-function installListen() {
-  mocks.listen.mockResolvedValue(() => undefined);
-}
-
-describe("PyenvCard:设置屏「表格还原」组件开关", () => {
-  it("ready 态渲染组件行:文案/未装徽标/开关 off;components 空表时不渲染组件块", async () => {
+describe("PyenvCard:可选组件安装按钮(状态即按钮效果)", () => {
+  it("ready 态渲染组件行:文案/「安装」按钮;无开关无徽标;components 空表时不渲染组件块", async () => {
     installIpc(wireFixture({ components: [{ id: "table", installed: false }] }));
     installListen();
     render(<PyenvCard />);
@@ -161,9 +173,13 @@ describe("PyenvCard:设置屏「表格还原」组件开关", () => {
     const row = await screen.findByTestId("pyenv-component-table");
     expect(row.textContent).toContain("表格还原");
     expect(row.textContent).toContain("rapid_table");
-    expect(screen.getByTestId("pyenv-component-table-state").textContent).toBe("未装");
-    const toggle = screen.getByRole("switch", { name: "组件开关 table" });
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    const install = screen.getByTestId("pyenv-component-table-install") as HTMLButtonElement;
+    expect(install.textContent).toContain("安装");
+    expect(install.disabled).toBe(false);
+    // 按钮化判例(AC5):无 Switch、无「已装/未装」徽标、无旁挂 spinner 行
+    expect(screen.queryByRole("switch")).toBeNull();
+    expect(screen.queryByTestId("pyenv-component-table-state")).toBeNull();
+    expect(screen.queryByTestId("pyenv-component-table-busy")).toBeNull();
 
     // 注册表缺位(旧包)→ components 空 → 组件块整段不渲染
     expect(screen.queryByTestId("pyenv-components")).not.toBeNull();
@@ -174,7 +190,7 @@ describe("PyenvCard:设置屏「表格还原」组件开关", () => {
     expect(screen.queryByTestId("pyenv-components")).toBeNull();
   });
 
-  it("wechat-bridge 组件行:COMPONENT_META 中文文案命中(不回退原 id;安装工自点批缺口收口)", async () => {
+  it("wechat-bridge 已装:按钮「已装」禁用(COMPONENT_META 中文文案命中)", async () => {
     installIpc(wireFixture({ components: [{ id: "wechat-bridge", installed: true }] }));
     installListen();
     render(<PyenvCard />);
@@ -182,58 +198,96 @@ describe("PyenvCard:设置屏「表格还原」组件开关", () => {
     const row = await screen.findByTestId("pyenv-component-wechat-bridge");
     expect(row.textContent).toContain("微信本机桥(wechat-bridge)");
     expect(row.textContent).toContain("像素链读");
-    expect(screen.getByTestId("pyenv-component-wechat-bridge-state").textContent).toBe("已装");
+    const done = screen.getByTestId("pyenv-component-wechat-bridge-install") as HTMLButtonElement;
+    expect(done.textContent).toContain("已装");
+    expect(done.disabled).toBe(true);
   });
 
-  it("未装点击开 → pyenv_install_component({id:'table'});回读翻已装(徽标/开关随新)", async () => {
-    installIpc(wireFixture({ components: [{ id: "table", installed: false }] }));
-    installListen();
+  it("未装点「安装」→ pyenv_install_component({id});受理回执「已开始」;装完事件到 → 按钮翻「已装」", async () => {
+    const ipc = installIpc(wireFixture({ components: [{ id: "table", installed: false }] }));
     render(<PyenvCard />);
     await screen.findByTestId("pyenv-component-table");
 
-    fireEvent.click(screen.getByRole("switch", { name: "组件开关 table" }));
+    fireEvent.click(screen.getByTestId("pyenv-component-table-install"));
 
     await waitFor(() => expect(callsOf("pyenv_install_component")).toEqual([{ id: "table" }]));
+    const note = await screen.findByTestId("pyenv-component-note");
+    expect(note.textContent).toContain("安装已开始");
+
+    // 壳侧装完广播(受理制:状态翻新只走事件)→ 按钮翻「已装」
+    act(() => {
+      ipc.emitStatus(wireFixture({ components: [{ id: "table", installed: true }] }));
+    });
     await waitFor(() =>
-      expect(screen.getByTestId("pyenv-component-table-state").textContent).toBe("已装"),
+      expect((screen.getByTestId("pyenv-component-table-install") as HTMLButtonElement).textContent).toContain("已装"),
     );
-    expect(screen.getByRole("switch", { name: "组件开关 table" }).getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByTestId("pyenv-component-note").textContent).toContain("已装进应用管理的环境");
   });
 
-  it("安装失败回包(outcome.error=pip_failed):alert 如实呈现,开关保持 off(回读未翻)", async () => {
-    installIpc(
+  it("排队回包(queued:true)+ status 排队态 → 回执「已排队」;按钮「排队中…」禁用", async () => {
+    const ipc = installIpc(
       wireFixture({ components: [{ id: "table", installed: false }] }),
-      installOutcomeFixture("table", false, "pip_failed: 退出码 1,输出尾部: no matching distribution"),
+      installOutcomeFixture("table", true),
+    );
+    render(<PyenvCard />);
+    await screen.findByTestId("pyenv-component-table");
+
+    fireEvent.click(screen.getByTestId("pyenv-component-table-install"));
+
+    const note = await screen.findByTestId("pyenv-component-note");
+    expect(note.textContent).toContain("已排队");
+    // 壳侧入队广播 → install_state=queued
+    act(() => {
+      ipc.emitStatus(wireFixture({ components: [{ id: "table", installed: false, install_state: "queued" }] }));
+    });
+    const queued = await screen.findByTestId("pyenv-component-table-install");
+    await waitFor(() => expect(queued.textContent).toContain("排队中"));
+    expect((queued as HTMLButtonElement).disabled).toBe(true);
+    // 排队件不可再点 → 零重复受理
+    fireEvent.click(queued);
+    expect(callsOf("pyenv_install_component")).toEqual([{ id: "table" }]);
+  });
+
+  it("install_state=installing(含切屏重挂载拉取恢复)→ 按钮「安装中…」禁用", async () => {
+    installIpc(
+      wireFixture({ components: [{ id: "crawl4ai", installed: false, install_state: "installing" }] }),
     );
     installListen();
     render(<PyenvCard />);
-    await screen.findByTestId("pyenv-component-table");
 
-    fireEvent.click(screen.getByRole("switch", { name: "组件开关 table" }));
-
-    const alert = await screen.findByTestId("pyenv-component-note");
-    expect(alert.getAttribute("role")).toBe("alert");
-    expect(alert.textContent).toContain("pip_failed");
-    expect(screen.getByTestId("pyenv-component-table-state").textContent).toBe("未装");
-    expect(screen.getByRole("switch", { name: "组件开关 table" }).getAttribute("aria-checked")).toBe("false");
-  });
-
-  it("已装点击关 → 零卸载调用;如实提示卸载本期未提供(档记后续)", async () => {
-    installIpc(wireFixture({ components: [{ id: "table", installed: true }] }));
-    installListen();
-    render(<PyenvCard />);
-    await screen.findByTestId("pyenv-component-table");
-
-    fireEvent.click(screen.getByRole("switch", { name: "组件开关 table" }));
-
-    await screen.findByTestId("pyenv-component-note");
+    const installing = await screen.findByTestId("pyenv-component-crawl4ai-install");
+    expect(installing.textContent).toContain("安装中");
+    expect((installing as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(installing);
     expect(callsOf("pyenv_install_component")).toEqual([]);
-    expect(screen.getByTestId("pyenv-component-note").textContent).toContain("卸载将在后续版本提供");
-    expect(screen.getByRole("switch", { name: "组件开关 table" }).getAttribute("aria-checked")).toBe("true");
   });
 
-  it("IPC 护栏拒绝(结构化错误)→ ErrorBox 上屏,开关保持现状", async () => {
+  it("install_state=error → 按钮「重试安装」可点 + 失败原因小字;点击 → 受理重装", async () => {
+    const ipc = installIpc(
+      wireFixture({
+        components: [
+          { id: "crawl4ai", installed: false, install_state: "error", install_error: "chromium 下载超时" },
+        ],
+      }),
+    );
+    render(<PyenvCard />);
+
+    const retry = await screen.findByTestId("pyenv-component-crawl4ai-install");
+    expect(retry.textContent).toContain("重试安装");
+    expect((retry as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByTestId("pyenv-component-crawl4ai-error").textContent).toContain("chromium 下载超时");
+
+    fireEvent.click(retry);
+    await waitFor(() => expect(callsOf("pyenv_install_component")).toEqual([{ id: "crawl4ai" }]));
+    // 重试受理 → 装完事件翻已装
+    act(() => {
+      ipc.emitStatus(wireFixture({ components: [{ id: "crawl4ai", installed: true }] }));
+    });
+    await waitFor(() =>
+      expect((screen.getByTestId("pyenv-component-crawl4ai-install") as HTMLButtonElement).textContent).toContain("已装"),
+    );
+  });
+
+  it("IPC 护栏拒绝(结构化错误)→ ErrorBox 上屏,按钮保持「安装」", async () => {
     mocks.invoke.mockImplementation(async (command: string) => {
       if (command === "pyenv_get_status")
         return wireFixture({ components: [{ id: "table", installed: false }] });
@@ -249,24 +303,24 @@ describe("PyenvCard:设置屏「表格还原」组件开关", () => {
     render(<PyenvCard />);
     await screen.findByTestId("pyenv-component-table");
 
-    fireEvent.click(screen.getByRole("switch", { name: "组件开关 table" }));
+    fireEvent.click(screen.getByTestId("pyenv-component-table-install"));
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Python 运行环境未就位");
     expect(alert.textContent).toContain("code=component_env_missing");
-    expect(screen.getByRole("switch", { name: "组件开关 table" }).getAttribute("aria-checked")).toBe("false");
+    expect((screen.getByTestId("pyenv-component-table-install") as HTMLButtonElement).textContent).toContain("安装");
   });
 
-  it("环境未配置/主链安装中 → 开关禁用(壳侧同门,前端先拦)", async () => {
+  it("环境未配置/主链安装中 → 安装按钮禁用(壳侧同门,前端先拦)", async () => {
     for (const state of ["not_configured", "installing"]) {
       cleanup();
       installIpc(wireFixture({ state, components: [{ id: "table", installed: false }] }));
       installListen();
       render(<PyenvCard />);
       await screen.findByTestId(`pyenv-component-table`);
-      const toggle = screen.getByRole("switch", { name: "组件开关 table" }) as HTMLButtonElement;
-      expect(toggle.disabled, `state=${state} 应禁用`).toBe(true);
-      fireEvent.click(toggle);
+      const button = screen.getByTestId("pyenv-component-table-install") as HTMLButtonElement;
+      expect(button.disabled, `state=${state} 应禁用`).toBe(true);
+      fireEvent.click(button);
       expect(callsOf("pyenv_install_component")).toEqual([]);
     }
   });
@@ -274,23 +328,25 @@ describe("PyenvCard:设置屏「表格还原」组件开关", () => {
 
 // 事件名守门(载荷同 status 形态 → components 随事件到达,与拉取同源)。
 describe("pyenv-components:状态事件载荷同源", () => {
-  it("pyenv-status-changed 订阅名不变;载荷经 parsePyenvStatus 带 components", async () => {
+  it("pyenv-status-changed 订阅名不变;载荷经 parsePyenvStatus 带 components(含 install_state)", async () => {
     const handler = vi.fn();
     mocks.listen.mockResolvedValue(() => undefined);
     const { onPyenvStatusChanged } = await import("./pyenv-api");
     await onPyenvStatusChanged(handler);
     expect(mocks.listen.mock.calls[0][0]).toBe(PYENV_STATUS_EVENT_NAME);
     const dispatch = mocks.listen.mock.calls[0][1] as (event: { payload: unknown }) => void;
-    dispatch({ payload: wireFixture({ components: [{ id: "table", installed: true }] }) });
+    dispatch({ payload: wireFixture({ components: [{ id: "table", installed: true, install_state: "installing" }] }) });
     expect(handler).toHaveBeenLastCalledWith(
-      expect.objectContaining({ components: [{ id: "table", installed: true }] }),
+      expect.objectContaining({
+        components: [{ id: "table", installed: true, install_state: "installing", install_error: null }],
+      }),
     );
   });
 });
 
 // ---------------------------------------------------------------------------
 // 轨B 壳服务组件(10-06-native-plugin-components 阶段2;design §2/G-Q5):
-// components[].kind="service" 三键透传 + 启停按钮/健康绿点/服务态对账。
+// components[].kind="service" 透传 + 启停按钮/健康绿点/服务态对账。
 // ---------------------------------------------------------------------------
 
 function serviceStatusFixture(
@@ -396,15 +452,15 @@ describe("pyenv-api:服务组件契约(与壳侧 service_start/stop/status 对�
       }),
     );
     expect(parsed.components).toEqual([
-      { id: "searxng", installed: true, kind: "service" },
-      { id: "table", installed: false, kind: undefined },
-      { id: "weird", installed: false, kind: undefined },
+      { id: "searxng", installed: true, kind: "service", install_error: null },
+      { id: "table", installed: false, kind: undefined, install_error: null },
+      { id: "weird", installed: false, kind: undefined, install_error: null },
     ]);
   });
 });
 
 describe("PyenvCard:服务组件行(启停按钮 + 健康绿点 + 状态对账)", () => {
-  it("已装服务行:渲染启停按钮(未运行=「启动」/已停止徽标/灰绿点),挂载即对账 service_status", async () => {
+  it("已装服务行:渲染启停按钮(未运行=「启动」/已停止徽标/灰绿点),挂载即对账 service_status;无安装按钮", async () => {
     installServiceIpc(
       wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] }),
     );
@@ -412,14 +468,13 @@ describe("PyenvCard:服务组件行(启停按钮 + 健康绿点 + 状态对账)"
     render(<PyenvCard />);
 
     await screen.findByTestId("pyenv-service-searxng-start");
-    expect(screen.getByTestId("pyenv-component-searxng-state").textContent).toBe("已装");
     expect(screen.getByTestId("pyenv-service-searxng-run-state").textContent).toBe("已停止");
     await waitFor(() => expect(callsOf("service_status")).toEqual([{ id: "searxng" }]));
-    // 未运行:无启动开关面(Switch 不渲染——服务形态替代库开关),无绿点
-    expect(screen.queryByRole("switch", { name: "组件开关 searxng" })).toBeNull();
+    // 已装 = 走服务启停形态(安装按钮不渲染)
+    expect(screen.queryByTestId("pyenv-component-searxng-install")).toBeNull();
   });
 
-  it("未装服务行:仍走装开关(Switch 渲染,无启停按钮/状态对账)", async () => {
+  it("未装服务行:走「安装」按钮(无启停按钮/状态对账)", async () => {
     installServiceIpc(
       wireFixture({ components: [{ id: "searxng", installed: false, kind: "service" }] }),
     );
@@ -427,7 +482,9 @@ describe("PyenvCard:服务组件行(启停按钮 + 健康绿点 + 状态对账)"
     render(<PyenvCard />);
 
     await screen.findByTestId("pyenv-component-searxng");
-    expect(screen.getByRole("switch", { name: "组件开关 searxng" })).toBeTruthy();
+    const install = screen.getByTestId("pyenv-component-searxng-install") as HTMLButtonElement;
+    expect(install.textContent).toContain("安装");
+    expect(install.disabled).toBe(false);
     expect(screen.queryByTestId("pyenv-service-searxng-start")).toBeNull();
     expect(screen.queryByTestId("pyenv-service-searxng-run-state")).toBeNull();
     await waitFor(() => expect(screen.getByTestId("pyenv-state-badge")).toBeTruthy());
