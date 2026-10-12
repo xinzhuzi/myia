@@ -107,3 +107,75 @@ weixin_runs         | 3   (102/103/104,本轮新增的运行账目)
   /tmp 文件用后即删,且该轮 items 为空本就零文本);本档零消息文本。
 - git:pathspec 仅提交本文件;他人 M 状态文件(desktop/src-tauri/*.rs 等)未碰。
 - 仓库 config/ 未动;数据根侧只新增 runs 账目(拉取的固有副作用)。
+
+## 7. cron 自动线验证(grill 轮 2 补全;2026-10-13 05:41-05:46)
+
+### 7.1 死态取证(本会话实跑)
+
+- `ticker_heartbeat` 冻结 `1791840226.616231 24140`(=05:23:46+08,宿主 pid 24140);
+  `ps -p 24140` 无此进程(exit 1),`pgrep -fl ticker` 无命中——宿主已死,无人接管。
+- `cron/ticker_writers/` 死属主文件 `…-24140` 残留在册;jobs.json mtime 05:18。
+- 微信 job `0e9f2daf2d6a`(*/30,created_at 05:18:41)`next_run_at=05:30` 已过刻度
+  而无宿主触发:`last_run_at=null`/`repeat.completed=0`/`last_status=null`——
+  「品类已开启」的自动拉取效果当时为零(grill 属实)。
+- 宿主归属事实(代码在案):ticker 常驻循环宿主=「`myssia cron serve`(CLI 监督
+  守护线程)或桌面 sidecar(`desktop/entry.py` `_start_cron_ticker`,home 模式才起)」
+  (src/myssia/cron/ticker.py:22-32;desktop/entry.py:5587);多宿主并存靠
+  tick 文件锁 + fire claim 互斥(cli.py:571)。宿主死=调度停,是全局运维事实
+  (6 个品类 job 全停),非微信渠道缺陷。
+
+### 7.2 复活与自动触发(dev serve 代行,验后即停)
+
+动作:05:44:09 起后台 `myssia cron serve --db <数据根>/myssia.db`
+(仓库 .venv 二进制,与 §2 手动真拉同源;dispatch_gate=CLI 形传 None,不撞桌面单飞锁)。
+`run_ticker_loop` 启动即首个 tick(ticker.py:212-217),微信 job 05:30 积压刻度
+被判定 due(积压坍缩只补一发,tick.py:307)→ 自动派发子进程(serve 日志原文):
+
+```
+05:44:09,434 INFO myssia.cron.tick: Running job '微信监控' (ID: 0e9f2daf2d6a)
+05:44:09,434 INFO myssia.cron.runner: Cron job '微信监控' spawning:
+  .venv/bin/python3 -m myssia.cli run <数据根>/config/weixin.yaml
+  --db <数据根>/myssia.db --json
+05:44:10,360 INFO myssia.cron.runner: Cron job '微信监控' finished: ok
+```
+
+此为**真实自动触发**(ticker 自主扫描→派发,非手动 `cron tick`、非手动 `myssia run`)。
+
+### 7.3 账目对照(触发前后,全形状级)
+
+| 账目 | 前(05:41 快照) | 后(05:45 验读) |
+|---|---|---|
+| jobs.json `last_run_at` | null | `2026-10-13T05:44:10.361632+08:00` |
+| jobs.json `repeat.completed` | 0 | 1 |
+| jobs.json `next_run_at` | 05:30(已过) | `06:00:00+08:00`(重锚) |
+| jobs.json `last_status` | null | `ok` |
+| jobs.json `last_dispatch` | — | `{scheduled_at:05:30, dispatched_at:05:44:09.42, lateness_seconds:849.4, kind:"late"}`(迟发诚实记账) |
+| executions 账本 | 55 行(最新 2026-10-12) | +1 行 `f009289dcc1c4dec…\|0e9f2daf2d6a\|tick\|completed`(source=tick=自动派发铁证) |
+| runs 表 | max_run_id=106 | +1 行 `107\|weixin\|success` |
+| weixin_items / wx_anchor_urls / dedup_total | 0 / 0 / 1747 | 0 / 0 / 1747(空态一致,零条目零键变更) |
+| ticker_heartbeat | 1791840226(pid 24140,冻结) | 1791841509(pid 94048,新鲜;writer 已换 `-94048`,死属主文件被清) |
+
+run 107 的 stats 形状核验(与手动轮 102/103/104 完全同态):源报告
+`weixin-文件传输助手` `skipped:true` `skip_reason=chat_title_unreadable`
+`item_count=0`,五阶段(fetch/classify/dedup/analyze/push)全 ok、
+dedup 阶段 `items_in=0`——自动触发轮引擎行为与手动轮一致,空态语义复现。
+
+### 7.4 干净停与残留核验
+
+05:46:07 `kill -INT 94048` → serve 日志「收到中断信号→Cron ticker stopped→
+cron serve 已退出」,后台任务 exit 0;`ps -p 94048`/`pgrep myssia` 双无命中——
+零进程残留。心跳冻结在存活最后一跳(无宿主=无心跳,诚实语义)。
+
+**判定:cron 自动线验收缺口已补实**——注册态 job 可自动触发且账目三处
+(jobs.json/账本/runs)齐落钉。生产常态宿主=桌面 sidecar(主人开 app 即起),
+常驻启停归主人/主会话运维,本档 dev serve 代行仅作验证、已停。
+
+## 8. 三件套顺延判(grill 轮 2;窗口重探)
+
+05:41 桥只读重探(`sessions list`,形状键):主窗 `window_id 85182`(上轮 81322,
+微信窗口已重建)、`onscreen:false`、`capture.mean_luma=28.0`、`ocr.n_lines=0`——
+与 §3 同态,离屏近黑帧未变。静默铁律禁止验收方带屏(§3 判例),故条目级三件套
+(锚实例/dedup 同锚沉默/feed 屏非空)本会话客观不可达,**明示顺延后续任务**
+(前置=主人保持主窗可见+目标会话打开;补验口径=重拉前后 dedup_total 与锚计数
+对照,见 prd.md Acceptance Criteria)。勿留悬空:顺延依据、前置条件、补验
+口径均已落 prd.md,非 TBD。
