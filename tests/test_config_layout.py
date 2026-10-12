@@ -125,3 +125,27 @@ def test_fresh_home_without_legacy_dir_is_noop(tmp_path: Path) -> None:
 
     assert not report.did_anything
     assert not (home / CONFIG_DIR_NAME).exists()  # 无旧目录不凭空建新目录
+
+
+def test_rewrites_paths_through_symlinked_home(tmp_path: Path) -> None:
+    """home 路径经符号链接(macOS /tmp→/private/tmp 类)改写不失效:
+    category 存 resolve 后形态、legacy_root 走未 resolve 串,双口径任一命中即改。"""
+    real = tmp_path / "real-home"
+    legacy = real / LEGACY_CONFIG_DIR_NAME
+    legacy.mkdir(parents=True)
+    (legacy / "ai-news.yaml").write_text("id: ai-news\n", encoding="utf-8")
+    link = tmp_path / "link-home"
+    link.symlink_to(real)
+    jobs_file = real / "cron" / "jobs.json"
+    jobs_file.parent.mkdir()
+    # category 按 cron create 语义存 resolve() 绝对路径(经符号链接)
+    jobs_file.write_text(
+        json.dumps({"jobs": [{"id": "a", "category": str((link / LEGACY_CONFIG_DIR_NAME / "ai-news.yaml").resolve())}]}),
+        encoding="utf-8",
+    )
+
+    report = migrate_legacy_plugins_dir(real)  # 数据根用未 resolve 串(运行时同形)
+
+    assert report.jobs_rewritten == 1
+    payload = json.loads(jobs_file.read_text(encoding="utf-8"))
+    assert payload["jobs"][0]["category"] == str(real / CONFIG_DIR_NAME / "ai-news.yaml")

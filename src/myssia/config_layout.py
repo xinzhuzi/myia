@@ -104,15 +104,21 @@ def _rewrite_cron_job_paths(jobs_file: Path, *, legacy_root: Path, new_root: Pat
     jobs = payload.get("jobs") if isinstance(payload, dict) else payload
     if not isinstance(jobs, list):
         return 0
-    legacy_prefix = str(legacy_root)
+    # 前缀比对对符号链接鲁棒(macOS /tmp→/private/tmp 类):原串与 resolve 后
+    # 双口径任一命中即算指向旧目录(cron create 存的是 resolve() 绝对路径)。
+    legacy_prefixes = {str(legacy_root), str(legacy_root.resolve())}
     rewritten = 0
     for job in jobs:
         if not isinstance(job, dict):
             continue
         category = job.get("category")
-        if not isinstance(category, str) or not category.startswith(legacy_prefix + str(Path("/"))):
+        if not isinstance(category, str) or not category.lower().endswith((".yaml", ".yml")):
             continue
-        if not category.lower().endswith((".yaml", ".yml")):
+        try:
+            category_variants = {category, str(Path(category).resolve())}
+        except OSError:  # resolve 失败按原串判
+            category_variants = {category}
+        if not any(v.startswith(p + str(Path("/"))) for v in category_variants for p in legacy_prefixes):
             continue
         job["category"] = str(new_root / Path(category).name)
         rewritten += 1
