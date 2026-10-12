@@ -2131,6 +2131,7 @@ vision = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "pillow" },
     { name = "pytest" },
 ]
 
@@ -2175,7 +2176,10 @@ requires-dist = [
 provides-extras = ["crawl4ai", "scrapling", "firecrawl", "skyvern", "simplex", "llm", "vision", "table", "trafilatura", "apprise", "telethon", "browser", "all"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8.0" }]
+dev = [
+    { name = "pillow", specifier = ">=10.0" },
+    { name = "pytest", specifier = ">=8.0" },
+]
 
 [[package]]
 name = "myssia-classifier"
