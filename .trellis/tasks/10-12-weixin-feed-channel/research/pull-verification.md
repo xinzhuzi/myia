@@ -21,7 +21,7 @@
 | 红线字段 | 数据根 `config/weixin.yaml` | `enrich.enabled:false` / `push:[]` / `retention:30d` 未动;与仓库 `config/weixin.yaml` 逐字节相同(diff IDENTICAL)。注:品类开关实为 cron 注册态,schema `CategoryConfig`(schema.py:1763)无顶层 enabled 字段 |
 | 微信进程 | `pgrep -lf WeChat` | 主进程 pid 85172 在场 |
 | 桥组件 | `ls ~/.myia/plugins/wechat-bridge/bin/` | `wechat-bridge` 在场 |
-| 桥探针 | `bin/wechat-bridge --probe`(过滤) | state=degraded **仅因 localdb_key:unavailable**;wechat_process/ax_permission/screen_recording/main_window/localdb_storage 全 ok;版本 wechat 4.1.15 / bridge 0.3.1 |
+| 桥探针 | `bin/wechat-bridge --probe`(过滤) | state=degraded **仅因 localdb_key:unavailable**;wechat_process/ax_permission/screen_recording/main_window/localdb_storage 全 ok;版本 wechat 4.1.15 / bridge 0.3.1。**(勘误:ax_permission ok 仅代表终端上下文——sidecar 宿主被拒,见 §9)** |
 | store 基线 | `sqlite3 <数据根>/myssia.db` | `items WHERE category='weixin'`=0;`source LIKE 'weixin-%'`=0;总 1722;`dedup_registry`=1747 |
 
 ## 2. 真拉命令与结果(三轮)
@@ -179,3 +179,47 @@ cron serve 已退出」,后台任务 exit 0;`ps -p 94048`/`pgrep myssia` 双无�
 (前置=主人保持主窗可见+目标会话打开;补验口径=重拉前后 dedup_total 与锚计数
 对照,见 prd.md Acceptance Criteria)。勿留悬空:顺延依据、前置条件、补验
 口径均已落 prd.md,非 TBD。
+
+## 9. AX 权限缺口落档(grill 轮 3;2026-10-13 06:05 实查)
+
+### 9.1 实证(run 108,06:00 生产 sidecar 自动轮)
+
+06:00:05 微信 job 由**生产 sidecar 宿主** tick 派发(宿主进程实测在跑:
+pid 99631 = `<数据根>/python/bin/python3 -m myssia_desktop_entry serve`,
+heartbeat 06:05:05 新鲜;主人侧于 05:46-06:00 间拉起桌面 app,接替了 §7 已停的
+dev serve)→ run 108 **failed**。runs 表 error 全文(结构化诊断,非消息内容):
+
+```
+source=weixin-文件传输助手 ax_permission_denied: 所有引擎尝试失败:
+wechat_local:ax_permission_denied:wechat_local 桥读失败(ax_permission_denied):
+辅助功能权限缺失:桥宿主进程未被授权读取/驱动 AX 树。
+修复指引:系统设置 → 隐私与安全性 → 辅助功能,给 MYIA(或桥宿主进程)授权
+```
+
+executions 账本同行在册:`cad3d123a985…|0e9f2daf2d6a|tick|failed`(06:00:05)。
+jobs.json 记账:`last_status=failed`、`last_error="Pipeline failed: all sources
+exhausted their engine chains."`、`failure_streak=1`、`next_run_at=06:30`
+(last_dispatch kind=on_time, lateness 5.4s——派发本身准点,失败在引擎层)。
+
+### 9.2 权限按宿主进程算(105/106 vs 108 对照坐实)
+
+| 轮 | 时间(+08) | 派发宿主 | 结果 |
+|---|---|---|---|
+| 105/106 | 05:32/05:34 | 终端 CLI(`.venv` python,手动) | success + `chat_title_unreadable`(AX 读通,窗口在册) |
+| 107 | 05:44 | dev serve 代行(终端 `.venv` 进程链) | success + `chat_title_unreadable`(同上) |
+| 108 | 06:00 | 生产 sidecar(`<数据根>/python` 运行时,`myssia_desktop_entry serve`) | **failed `ax_permission_denied`** |
+
+同机同桥同微信,唯一变量=派发宿主进程链 → **macOS 辅助功能授权按宿主进程算**:
+终端(Terminal/iTerm/执行 CLI 的 app)有授权,MYIA 桌面宿主(及其 python 运行时)
+无授权。§1 表 `ax_permission: ok` 行已加勘误指针——该探针结论仅限终端上下文。
+
+### 9.3 后果与归属
+
+- **后果**:AX 未修期间,06:30 起每个 */30 自动轮同因 failed 可期
+  (failure_streak 递增;失败发生在引擎层,不影响 cron 调度本身的记账——
+  tick/账本行为正常,§7 验证结论不受影响)。
+- **归属**:修复动作=系统设置 GUI 授权(隐私与安全性→辅助功能→给 MYIA/
+  桥宿主进程),归**主人/主会话运维**,验收方不可代行(系统隐私设置越权)。
+- **补验宿主口径(prd.md Acceptance 已同步写死)**:三件套补验走
+  **手动 CLI**(终端上下文,判例 105/106/107 AX 读通)不受本缺口影响;
+  若走生产 sidecar 自动轮,须**先修 AX** 再验。两条路径二选一,无歧义。
