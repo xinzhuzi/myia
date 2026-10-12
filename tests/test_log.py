@@ -595,3 +595,80 @@ class TestEntryProcCronAndFeishu:
         assert [t for t, _ in _tagged_shapes()] == ["StreamHandler"]
         assert not (tmp_path / "logs").exists()
         assert myssia_log._STATE.proc == "feishu_callback"
+
+
+# ---------------------------------------------------------------------------
+# run 上下文 + 盘扫(10-12-cron-run-log-alignment D2/D3)
+# ---------------------------------------------------------------------------
+
+
+class TestRunContext:
+    def test_bind_run_stamps_unmarked_lines(self, isolated, tmp_path):
+        """bind 后:无显式 run_id 的模块日志行按绑定 id 打标(环+盘一致)。"""
+        configure(mode="human", data_root=tmp_path, ring=True, proc="cli")
+        myssia_log.bind_run(77)
+        try:
+            logging.getLogger("myssia.test").info("run-scoped line")
+        finally:
+            myssia_log.clear_run()
+        entries = [e for e in ring_snapshot(run_id=77) if e["line"] == "run-scoped line"]
+        assert len(entries) == 1
+        # 盘上同标(D2 的落点就是 JSONL——2 级回看走盘扫)
+        disk = myssia_log.disk_tail(tmp_path, run_id=77)
+        assert [e["line"] for e in disk if e["line"] == "run-scoped line"] == ["run-scoped line"]
+
+    def test_clear_run_restores_null(self, isolated, tmp_path):
+        configure(mode="human", data_root=None, ring=True, proc="cli")
+        myssia_log.bind_run(5)
+        myssia_log.clear_run()
+        logging.getLogger("myssia.test").info("after clear")
+        assert all(e.get("run_id") != 5 for e in ring_snapshot())
+
+    def test_explicit_run_id_wins_over_context(self, isolated, tmp_path):
+        """stream_line 显式号优先于回落(D2:sidecar 注册表路径不 bind,
+        但显式 None 的 CLI 诊断行在 bind 进程内会被回落覆盖——仅 CLI 单飞
+        形态如此,sidecar 不 bind,两空间不串)。"""
+        configure(mode="human", data_root=None, ring=True, proc="cli")
+        myssia_log.bind_run(9)
+        try:
+            stream_line(4, "stdout", "explicit wins")
+            logging.getLogger("myssia.test").warning("fallback picks up 9")
+        finally:
+            myssia_log.clear_run()
+        assert any(e["line"] == "explicit wins" and e["run_id"] == 4 for e in ring_snapshot())
+        assert any(e["line"] == "fallback picks up 9" and e["run_id"] == 9 for e in ring_snapshot())
+
+
+class TestDiskTail:
+    def _write(self, tmp_path: Path, day: str, rows: list[dict]) -> None:
+        logs = tmp_path / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        with open(logs / f"myssia-{day}.jsonl", "a", encoding="utf-8") as fh:
+            for row in rows:
+                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    def test_collects_run_rows_across_days_ts_order_with_seq(self, tmp_path):
+        """跨进程行按号收齐:多日文件、ts 升序、重发新 seq(backfill 同款)。"""
+        self._write(tmp_path, "20261011", [
+            {"ts": "2026-10-11T01:00:00.000+00:00", "run_id": 31, "stream": "stdout", "line": "day1 a", "proc": "cli"},
+            {"ts": "2026-10-11T02:00:00.000+00:00", "run_id": 32, "stream": "stdout", "line": "other run", "proc": "cli"},
+            {"ts": "2026-10-11T03:00:00.000+00:00", "run_id": 31, "stream": "stderr", "line": "day1 b", "proc": "cli"},
+        ])
+        self._write(tmp_path, "20261012", [
+            {"ts": "2026-10-12T01:00:00.000+00:00", "run_id": 31, "stream": "stdout", "line": "day2 a", "proc": "cli"},
+        ])
+        tail = myssia_log.disk_tail(tmp_path, run_id=31)
+        assert [r["line"] for r in tail] == ["day1 a", "day1 b", "day2 a"]
+        assert all(isinstance(r["seq"], int) and r["seq"] > 0 for r in tail)
+        assert myssia_log.disk_tail(tmp_path, run_id=99) == []
+
+    def test_bad_lines_skipped_lines_tail_and_missing_dir(self, tmp_path):
+        logs = tmp_path / "logs"
+        logs.mkdir(parents=True)
+        with open(logs / "myssia-20261012.jsonl", "a", encoding="utf-8") as fh:
+            fh.write("{broken json\n\n")
+            fh.write(json.dumps({"ts": "2026-10-12T01:00:00.000+00:00", "run_id": 7, "stream": "stdout", "line": "keep", "proc": "cli"}) + "\n")
+        tail = myssia_log.disk_tail(tmp_path, run_id=7, lines=1)
+        assert [r["line"] for r in tail] == ["keep"]
+        # 数据根缺目录/不可读:静默空结果,不抛(盘是尽力而为面)
+        assert myssia_log.disk_tail(tmp_path / "nowhere", run_id=7) == []

@@ -128,7 +128,9 @@ INJECT_SCRIPT = r"""
       duration_ms: 52_300,
       record,
       history: true,
-      log_run_id: runId,
+      // 最老一行(10-12-cron-run-log-alignment D5)置无号:真遗留行形态,
+      // 2 级降级句断言用
+      log_run_id: i === 49 ? null : runId,  // 49 = RUN_COUNT-1(JS 侧无 Python 常量)
     };
   });
   window.__TAURI_INTERNALS__ = {
@@ -400,6 +402,23 @@ async def main() -> int:
                 f"返回后过滤计数保持({count_after!r} == {count_text!r})",
                 count_after.strip() == count_text.strip(),
             )
+
+            # ═══ 无号遗留行(D5):2 级如实降级,不拉 logs.tail ═══
+            # (先清过滤:上段 tech-rss 过滤态保持是被测特性,h851=urlwatch 会被滤掉)
+            await page.get_by_role("button", name="清除过滤").click()
+            await page.wait_for_selector('[data-testid="run-row-h851"]', timeout=10_000)
+            null_row = page.locator('[data-testid="run-row-h851"]')
+            await null_row.scroll_into_view_if_needed()
+            await null_row.click()
+            await page.wait_for_selector('[data-testid="run-detail-meta-h851"]', timeout=10_000)
+            detail_text = await page.locator('[data-testid="run-log-h851"]').text_content()
+            expect(
+                "无号行降级句(D5 文案,去时间断言)",
+                "未记录日志会话号" in (detail_text or "") and "早于" not in (detail_text or ""),
+            )
+            expect("无号行零日志行", (await page.locator('[data-testid="run-log-h851"] [data-testid="log-row"]').count()) == 0)
+            await page.locator('[data-testid="run-back"]').click()
+            await page.wait_for_selector('[data-testid="run-list"]', timeout=10_000)
     except Exception as exc:  # noqa: BLE001 - 冒烟异常如实报
         failures.append(f"异常: {exc}")
         print(f"SMOKE ERROR: {exc}", file=sys.stderr)

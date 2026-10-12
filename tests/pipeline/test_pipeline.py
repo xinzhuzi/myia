@@ -1181,3 +1181,25 @@ def test_missing_rules_fallback_no_rules_empty_warning(tmp_path, monkeypatch):
     assert fetch.warnings == []
     assert fetch.items_out == 1  # ①兜底出条,零软信号
     store.close()
+
+
+def test_run_self_backfills_log_run_id(tmp_path):
+    """非 dry 完成自回填 log_run_id = 行 id(cron/CLI 2 级回看对齐键,
+    10-12-cron-run-log-alignment D4);dry 全程 :memory: 真库零行、无号可回。"""
+    store = SQLiteStore(tmp_path / "p.db")
+    config = make_config()
+    pipeline, _clock = make_pipeline(
+        config, handler=make_handler([{"title": "回看对齐", "url": "https://api.demo.local/a"}]), store=store
+    )
+    result = asyncio.run(pipeline.run())
+    row = store.get_run(result.run_id)
+    assert row is not None and row.log_run_id == result.run_id
+    store.close()
+
+    dry_store = SQLiteStore(tmp_path / "dry.db")
+    pipeline2, _clock2 = make_pipeline(
+        config, handler=make_handler([{"title": "dry 不落库", "url": "https://api.demo.local/b"}]), store=dry_store
+    )
+    asyncio.run(pipeline2.run(dry_run=True))
+    assert dry_store.latest_run() is None
+    dry_store.close()

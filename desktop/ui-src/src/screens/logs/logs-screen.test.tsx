@@ -822,6 +822,7 @@ describe("LogsScreen 上一程历史行", () => {
 
     fireEvent.click(await screen.findByTestId("run-row-h5"));
     await screen.findByTestId("run-detail");
+    expect(screen.getByTestId("run-log-h5").textContent).toContain("未记录日志会话号");
     expect(screen.getByTestId("run-log-h5").textContent).toContain("无可回看的日志");
     expect(logsTailMock).not.toHaveBeenCalled();
     expect(screen.getByTestId("run-detail-meta-h5").textContent).toContain("run_id=—");

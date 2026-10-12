@@ -27,6 +27,7 @@ import re
 import sys
 import threading
 from collections import deque
+from contextvars import ContextVar
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal, TextIO
@@ -36,7 +37,10 @@ __all__ = [
     "CAPACITY",
     "RETENTION_DAYS",
     "backfill",
+    "bind_run",
+    "clear_run",
     "configure",
+    "disk_tail",
     "is_configured",
     "reset_ring",
     "resume_stderr",
@@ -77,6 +81,13 @@ _SEQ_LOCK = threading.Lock()
 
 _RING: deque[dict[str, Any]] = deque(maxlen=CAPACITY)
 _RING_LOCK = threading.Lock()
+
+#: 进程级当前 run 上下文(10-12-cron-run-log-alignment D2):CLI/cron 子进程
+#: 的 JSONL 行按 runs 行自增 id 打标的回落源。ContextVar:同 task await 链
+#: 传播(引擎协程继承),线程不传播(telegram serve 等后台线程天然隔离)。
+#: sidecar 注册表路径不 bind——其子进程行由 _pump_stream 显式盖注册表号,
+#: extra 显式值优先于本回落,两编号空间不串。
+_RUN_CTX: ContextVar[int | None] = ContextVar("myssia_log_run_id", default=None)
 
 #: 进程内 seq 盖章工厂(装一次守卫;卸载/复位仅测试经 _reset_module_state)。
 _OUR_FACTORY: Any = None
@@ -130,14 +141,19 @@ def _entry_from_record(record: logging.LogRecord) -> dict[str, Any]:
     """record → 统一条目形状(=今天环形条目超集,design §0)。
 
     run_id/stream 从 extra 注入的属性读,缺省 ``None/"stderr"``(模块自身
-    WARNING+ 日志的口径);proc 缺省用本进程 configure 的 proc。
+    WARNING+ 日志的口径);run_id 缺省时回落进程级 run 上下文(``bind_run``,
+    D2——CLI/cron 子进程整进程行按 runs 行 id 打标,引擎/三方日志逐调用
+    传 extra 不现实)。proc 缺省用本进程 configure 的 proc。
     """
+    run_id = getattr(record, "run_id", None)
+    if run_id is None:
+        run_id = _RUN_CTX.get()
     return {
         "seq": getattr(record, "seq", 0),
         "ts": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(
             timespec="milliseconds"
         ),
-        "run_id": getattr(record, "run_id", None),
+        "run_id": run_id,
         "stream": getattr(record, "stream", "stderr"),
         "line": _cap_line(record.getMessage()),
         "proc": getattr(record, "proc", _STATE.proc),
@@ -415,6 +431,55 @@ def ring_snapshot(run_id: int | None = None, lines: int = CAPACITY) -> list[dict
     if run_id is not None:
         snapshot = [entry for entry in snapshot if entry.get("run_id") == run_id]
     return snapshot[-lines:] if lines > 0 else []
+
+
+def bind_run(run_id: int) -> None:
+    """绑定进程级当前 run 上下文(D2):本进程后续无显式 run_id 的日志行
+    (引擎/三方/模块自身)按 ``run_id`` 打标落 JSONL——CLI/cron 子进程的
+    runs 行 id 即日志会话键。非嵌套设计:一进程一 run(CLI 单飞形态);
+    Pipeline.run 的 finally 必配 ``clear_run()``。
+    """
+    _RUN_CTX.set(run_id)
+
+
+def clear_run() -> None:
+    """解除 run 上下文绑定(bind_run 的 finally 配对;未绑定时 no-op)。"""
+    _RUN_CTX.set(None)
+
+
+def disk_tail(data_root: Path, *, run_id: int, lines: int = CAPACITY) -> list[dict[str, Any]]:
+    """盘扫尾部(logs.tail 跨进程回退,D3):按号收齐数据根 JSONL 行。
+
+    只服务**带 run_id** 的查询:cron/CLI 子进程行落盘但不进任何常驻环形
+    (sidecar 环是进程私有),logs.tail 按号过滤时由本函数从
+    ``<data_root>/logs/myssia-*.jsonl`` 保留窗内(RETENTION_DAYS 天,清理
+    已按名内日期裁)收齐该号行——文件按日升序整读、坏行/空行跳过
+    (_read_tail 同容忍)。返回 ts 序、重发新 seq(backfill 同款:盘行不落
+    seq,前端行键 ``seq:N`` 依赖),尾部截取归本函数自理。任何异常静默 =
+    空结果(盘是尽力而为面,绝不拦协议应答)。
+    """
+    rows: list[dict[str, Any]] = []
+    try:
+        logs_dir = Path(data_root) / "logs"
+        files = sorted(p for p in logs_dir.glob(f"{_FILE_PREFIX}-*.jsonl") if p.is_file())
+        for path in files:
+            with open(path, encoding="utf-8") as fh:
+                for raw in fh:
+                    raw = raw.strip()
+                    if not raw:
+                        continue
+                    try:
+                        parsed = json.loads(raw)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(parsed, dict) and parsed.get("run_id") == run_id:
+                        rows.append(parsed)
+    except Exception:
+        return []
+    tail = rows[-lines:] if lines > 0 else []
+    for row in tail:
+        row["seq"] = _next_seq()
+    return tail
 
 
 def is_configured() -> bool:

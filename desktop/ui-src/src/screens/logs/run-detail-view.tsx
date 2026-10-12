@@ -266,10 +266,12 @@ export function RunDetailView({
               <span className="mr-1.5">●</span>日志加载失败({loadError})
             </p>
           ) : run.logRunId === null ? (
-            /* 「上一程」旧行(早于日志对齐字段落库):无会话号可对齐,不拉取,
-               如实降级——比拉一个必空的 run_id 再说「暂无日志」诚实 */
+            /* 无会话号行:不拉取,如实降级——比拉一个必空的 run_id 再说
+               「暂无日志」诚实。10-12-cron-run-log-alignment D5:文案去时间
+               断言(NULL ≠ 早于落库,cron 新行也曾是 NULL;补号后此态只剩
+               真遗留行) */
             <p className="shrink-0 text-muted-foreground">
-              <span className="text-brand-from">▍</span> 该跑次早于日志对齐落库,无可回看的日志(旧 runs 行未记会话号)
+              <span className="text-brand-from">▍</span> 该轮未记录日志会话号,无可回看的日志(旧 runs 行未记会话号)
             </p>
           ) : rows === undefined ? (
             <p className="shrink-0 text-muted-foreground">

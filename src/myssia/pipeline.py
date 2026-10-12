@@ -124,6 +124,7 @@ from myssia.classify import (
 from myssia.cron.executions import ExecutionLedger
 from myssia.cron.store import CronJobStore
 from myssia.dedup import DedupRegistry
+from myssia import log as myssia_log
 from myssia.engines.fetch_base import (
     DEFAULT_TIMEOUT_SECONDS,
     FetchContext,
@@ -1284,6 +1285,12 @@ class Pipeline:
         """
         run_store = self._store_for_run(dry_run)
         run_id = run_store.start_run(self.config.id)
+        if not dry_run:
+            # 绑定 run 日志上下文(D2,10-12-cron-run-log-alignment):本进程后续
+            # 无显式 run_id 的日志行(引擎/三方/模块自身)按 runs 行 id 打标落
+            # JSONL——cron/CLI 子进程的 2 级回看靠此对齐。dry 用 :memory: store
+            # 会产假 id,不绑。finally 必配 clear_run(见下)。
+            myssia_log.bind_run(run_id)
         result = RunResult(
             category=self.config.id,
             category_name=self.config.name,
@@ -1469,6 +1476,20 @@ class Pipeline:
                 finally:
                     if own_client:
                         await client.aclose()
+            if not dry_run:
+                # 日志会话号自回填(D4)——CLI/cron 路径的 runs 行落自身行 id,
+                # 2 级详情 logs.tail?run_id= 靠它可达;尽力而为(回填失败只损
+                # 失该行日志可达性,不拦 run 终态)。Store 契约面该方法仅
+                # SQLiteStore 实现,getattr 防御。sidecar 注册表路径随后以
+                # 注册表号后写覆盖(PRD D4 秩序注)。
+                try:
+                    _set_log_run_id = getattr(run_store, "set_run_log_run_id", None)
+                    if _set_log_run_id is not None:
+                        _set_log_run_id(run_id, run_id)
+                except Exception:  # noqa: BLE001 — 会话号尽力而为
+                    logger.warning("log_run_id 自回填失败 run_id=%s", run_id, exc_info=True)
+                finally:
+                    myssia_log.clear_run()
             # 清理任务随调度周期执行(每次 run 收尾;VACUUM 由 cadence 决定是否真正执行)
             if not dry_run:
                 result.maintenance = await self._maintenance_safely(run_store)

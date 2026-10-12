@@ -4040,6 +4040,11 @@ def _m_logs_tail(params: dict[str, Any]) -> dict[str, Any]:
     数据面切到统一模块环形(``myssia.log.ring_snapshot``,批1):语义
     逐字对齐旧实现(run_id 过滤 + 尾部截取);serve 启动的盘尾回填
     (design §5)让重启后这里也能翻到上一程历史——请求/响应形状零变化。
+    带 ``run_id`` 时叠加盘扫合并(D3,10-12-cron-run-log-alignment):cron/CLI
+    子进程行落盘不进本进程环,``disk_tail`` 按号从数据根 JSONL 收齐;去重键
+    ``(ts, run_id, line)``——sidecar 双写(环+盘同 record 同 ts)恰好折叠,
+    子进程自标行(行 id)与注册表号不同键天然不混。缺省无 run_id 语义不变
+    (纯环,零风险)。
     """
     lines = params.get("lines", 200)
     if not isinstance(lines, int) or lines < 1:
@@ -4051,6 +4056,28 @@ def _m_logs_tail(params: dict[str, Any]) -> dict[str, Any]:
     # 前端「缓冲截断」徽标死亡。环形帽结构性 ≤ CAPACITY,故传 CAPACITY 取
     # 全量过滤视图,尾部截取归本函数自理。
     snapshot = myssia_log.ring_snapshot(run_id=run_id, lines=myssia_log.CAPACITY)
+    if run_id is not None:
+        try:
+            home = _serve_context().home
+        except ProtocolError:
+            home = None
+        if home is not None:
+            disk = myssia_log.disk_tail(home, run_id=run_id, lines=myssia_log.CAPACITY)
+            if disk:
+                seen = {
+                    (entry.get("ts"), entry.get("run_id"), entry.get("line"))
+                    for entry in snapshot
+                }
+                merged = [
+                    *snapshot,
+                    *(
+                        row
+                        for row in disk
+                        if (row.get("ts"), row.get("run_id"), row.get("line")) not in seen
+                    ),
+                ]
+                merged.sort(key=lambda entry: str(entry.get("ts", "")))
+                snapshot = merged
     return {
         "lines": snapshot[-lines:],
         "total": len(snapshot),

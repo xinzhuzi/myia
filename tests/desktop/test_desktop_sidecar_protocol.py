@@ -6386,3 +6386,42 @@ def test_telegram_web_check_guards(tmp_path, monkeypatch):
     finally:
         _telegram_check_ledger_cleanup()
         _browser_ledger_cleanup()
+
+
+def test_logs_tail_run_id_merges_disk_rows(tmp_path, monkeypatch):
+    """logs.tail 带 run_id:环 + 盘合并去重(D3,10-12-cron-run-log-alignment)。
+
+    cron/CLI 子进程行落盘不进 sidecar 环(根因②)——盘扫按号收齐;sidecar
+    双写(环+盘同一 record 同 ts)按 (ts, run_id, line) 折叠;缺省无 run_id
+    仍纯环(语义不变)。"""
+    home = tmp_path / "home"
+    (home / "logs").mkdir(parents=True)
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    # 盘:cron 子进程昨日行(跨进程,永不在环)
+    with open(home / "logs" / "myssia-20261011.jsonl", "a", encoding="utf-8") as fh:
+        for row in [
+            {"ts": "2026-10-11T01:00:00.000+00:00", "run_id": 55, "stream": "stdout",
+             "line": "cron child line a", "proc": "cli"},
+            {"ts": "2026-10-11T02:00:00.000+00:00", "run_id": 56, "stream": "stdout",
+             "line": "other run", "proc": "cli"},
+            {"ts": "2026-10-11T03:00:00.000+00:00", "run_id": 55, "stream": "stderr",
+             "line": "cron child line b", "proc": "cli"},
+        ]:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    # 环+盘同漏斗双写(sidecar 形态:stream_line 经 root 三 handler,环与盘
+    # 同 record 同 ts → 合并时折叠)
+    entry.myssia_log.configure(mode="serve", data_root=home, ring=True, proc="sidecar")
+    entry.myssia_log.reset_ring()  # 清先序用例环残留(run_id 撞号防线)
+    entry.myssia_log.stream_line(55, "stdout", "sidecar pumped line")
+    try:
+        resp = entry._m_logs_tail({"run_id": 55, "lines": 200})
+        lines = [row["line"] for row in resp["lines"]]
+        # 跨进程行可达(根因②修复)+ 他号不混 + ts 序 + 双写折叠
+        assert "cron child line a" in lines and "cron child line b" in lines
+        assert "other run" not in lines
+        assert lines == ["cron child line a", "cron child line b", "sidecar pumped line"]
+        # 缺省无 run_id:纯环语义不变(盘上的 cron 行不出现)
+        resp_all = entry._m_logs_tail({"lines": 50})
+        assert all("cron child" not in row["line"] for row in resp_all["lines"])
+    finally:
+        entry.myssia_log._reset_module_state()
