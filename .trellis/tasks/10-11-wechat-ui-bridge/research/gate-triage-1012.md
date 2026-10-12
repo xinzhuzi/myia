@@ -102,3 +102,29 @@ FAILED/ERROR 全列表 grep `wechat|weixin` 仍 = **0**。
 装机件只读复核:`component.json` 仍 `"version": "0.2.0"`,
 `wechat_bridge/pixel.py` 仍不在装(§4 移交项维持)。**处置不变:零本任务失败,
 全数 skipped 归因,零代码 commit。**
+
+## 6. 第三轮(同日晚;ask=pytest=0 / vitest 红,D5 收尾+AC7 收尾复核)
+
+config 迁移已收口(c48bcdb/bb9ba05)后门禁全面转绿,残余 vitest 红为瞬态。
+
+| 门禁 | 命令(原样) | 结果 |
+|---|---|---|
+| pytest 全量 | `uv run --no-sync python -m pytest tests -q -p no:cacheprovider` | **5305 passed / 48 skipped / 0 failed**,exit 0(153.55s)——红=0 实锤(与 ask 摘要 5372 的±67 收集差=并行会话在途增删,两口径均零失败) |
+| vitest 全量① | `npx vitest run`(desktop/ui-src) | Test Files **2 failed** / 33 passed(35);Tests 2 failed / 742 passed(744) |
+| vitest 全量② | 同上(数分钟后复跑) | Test Files **1 failed** / 34 passed;Tests 1 failed / 743 passed——**两轮数字漂移=在途实锤** |
+| 定向复跑① | `npx vitest run src/screens/messaging/messaging-screen.test.tsx` | **56/56 全绿**(全量①红=`platform-card-a2a` 撞「加载中」skeleton,异步加载竞态 flaky) |
+| 定向复跑② | `npx vitest run src/screens/feed/feed-screen.test.tsx -t "开窗失败"` | **1 passed**(全量红用例单独跑绿) |
+| D5 契约 | `uv run --no-sync python -m pytest tests/desktop/test_pyenv_resources.py -q` | **36 passed**(185484a 落地面在位) |
+| D5 Rust | `cargo test --locked`(desktop/src-tauri) | **90 passed / 1 ignored**(白名单解析 5 测在列) |
+| 组件单测 | `uv run --no-sync python -m pytest tests/wechat-bridge -q` | **168 passed / 7 skipped**(与 research/d5-distribution-form.md 基线持平) |
+| AC7 脚本 | `bash scripts/wechat-bridge-d4-keyscan.sh --dry-run` | **exit 0**:前置自检 5 项过+缺省关路径诚实 exit 21(key_unavailable 三重门语义)+真跑命令固化展示 |
+
+**归因与处置**:vitest 两个失败文件(`feed-screen.test.tsx`/`messaging-screen.test.tsx`)
+单独复跑均绿=非稳定红;`feed-screen.test.tsx`/`tg-native-window.{ts,test.ts}` 在 git M
+在途集(并行会话 feed 原生视图改动中,见本轮 `git status`),按纪律不修、记 skipped
+归因;messaging-screen 与本任务面(D5 分发/AC7)零交集。**零代码改动可修**。
+D5 在位眼见:`components.json` wechat-bridge 行(pip_spec/pip_src/post_install 齐)+
+`tauri.conf.json:86` 随包映射+`pyenv_install.rs` resolve_pip_src_spec/is_safe_relative/
+COMPONENTS_SRC_RESOURCE_DIR;随包树清理链(`desktop/package.json:10` clean:pycache→
+`scripts/clean-pycache.mjs` 缺省根含 plugins/wechat-bridge,b9c5054)闭合。
+AC7 唯一剩余=主人 sudo 真跑(prd.md AC7,不在修复工范围);task.json 勾选归主会话。
