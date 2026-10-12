@@ -65,7 +65,7 @@ function fakeDeps(existing: string[] = []): NativeWindowDeps & {
     handles,
     getByLabel: vi.fn(async (label: string) => handles.get(label) ?? null),
     getAll: vi.fn(async () => [...handles.keys()].map((label) => ({ label }))),
-    create: vi.fn((label: string, _options: Record<string, unknown>) => {
+    create: vi.fn(async (label: string, _options: Record<string, unknown>) => {
       const handle = fakeHandle(label, (event) => {
         if (event === "tauri://destroyed") handles.delete(label);
       });
@@ -145,7 +145,7 @@ describe("tg-native-window 注册表(v9 原生视图窗口管理)", () => {
       // 竞态剧本:首查 miss(own 未落)→ 建窗后复查命中(twin 已被并发发登记)
       getByLabel: vi.fn(async (label: string) => (label === "tg-native-mihomo_party" && own !== null ? twin : null)),
       getAll: vi.fn(async () => []),
-      create: vi.fn((label: string) => {
+      create: vi.fn(async (label: string) => {
         own = fakeHandle(label);
         return own;
       }),
@@ -249,11 +249,18 @@ describe("tg-native-window 注册表(v9 原生视图窗口管理)", () => {
     const deps: NativeWindowDeps = {
       getByLabel: vi.fn(async () => null),
       getAll: vi.fn(async () => []),
-      create: vi.fn(() => {
+      create: vi.fn(async () => {
         throw new Error("sync boom");
       }),
     };
-    await expect(openOrFocusNative(K_URL, { deps })).rejects.toThrow("sync boom");
+    // 返回钮批(10-12)后契约:建窗失败同步收 failed 语义(释放登记 +
+    // onCreateError("failed") + 返回 "created" 保持调用方状态机与
+    // tauri://error 分支同款)—— 不再原样上抛
+    const errors: string[] = [];
+    await expect(
+      openOrFocusNative(K_URL, { deps, onCreateError: (r) => errors.push(r) }),
+    ).resolves.toBe("created");
+    expect(errors).toEqual(["failed"]);
     expect(tgNativeRegisteredLabelsForTests()).toEqual([]);
   });
 

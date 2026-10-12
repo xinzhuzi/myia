@@ -57,6 +57,100 @@ fn backoff_delay(attempt: u32) -> Duration {
     RESPAWN_BASE_DELAY * 2u32.saturating_pow(attempt.saturating_sub(1))
 }
 
+// ---------------------------------------------------------------------------
+// 原生 TG 窗(10-12 主人令「这个界面没有返回,需要有返回按钮」)
+// ---------------------------------------------------------------------------
+
+/// 注入原生 TG 窗的「‹ 返回 MYIA」悬浮钮:点击 → myssia://back 信令
+/// (on_navigation 哨兵截获 → 关本窗 + 聚焦主窗)。2s 间隔自愈重挂
+/// (SPA 重渲染抹掉后补回);零 IPC 依赖(远程页不拿任何能力,信令走
+/// 导航拦截,域白名单外的导航一律放行原样)。
+const TG_NATIVE_BACK_PILL_JS: &str = r#"(function () {
+  if (window.__myssiaBackPill) return;
+  window.__myssiaBackPill = true;
+  var install = function () {
+    if (document.getElementById('myssia-back-pill')) return;
+    var host = document.body || document.documentElement;
+    if (!host) return;
+    var b = document.createElement('button');
+    b.id = 'myssia-back-pill';
+    b.type = 'button';
+    b.textContent = '\u2039 \u8fd4\u56de MYIA';
+    b.setAttribute('style',
+      'position:fixed;top:10px;right:12px;z-index:2147483647;' +
+      'padding:6px 14px;border-radius:9999px;border:1px solid rgba(255,255,255,.28);' +
+      'background:rgba(96,64,190,.92);color:#fff;font-size:13px;' +
+      'font-family:system-ui,-apple-system,sans-serif;cursor:pointer;' +
+      'box-shadow:0 2px 10px rgba(0,0,0,.35);');
+    b.addEventListener('click', function () {
+      try { location.href = 'myssia://back'; } catch (e) { /* 尽力而为 */ }
+    });
+    host.appendChild(b);
+  };
+  install();
+  setInterval(install, 2000);
+})();"#;
+
+/// Rust 侧建原生 TG 窗(前端 tg-native-window.ts 经 invoke 调;此前 JS 直建
+/// WebviewWindow 裸加载远程页 —— 主人在窗里没有任何「返回 MYIA」的控件,
+/// macOS 红绿灯也不被认作返回)。三件套:
+/// ① builder 级 on_navigation 哨兵:myssia://back → 关本窗 + 聚焦主窗
+///    (返回 = 回 MYIA;信令导航拦截不落页);其余导航放行。
+/// ② on_page_load(Finished) 注入返回钮(自愈脚本,Rust 侧 eval 零 ACL)。
+/// ③ 域白名单纵深防御(web.telegram.org/t.me,与前端同源判例)——
+///    本命令是唯一能带上 返回钮 的建窗通道,白名单外拒。
+#[tauri::command]
+fn tg_native_open(
+    app: AppHandle,
+    url: String,
+    label: String,
+    title: String,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    let parsed =
+        tauri::Url::parse(&url).map_err(|e| format!("tg_native_open url 解析失败: {e}"))?;
+    let host_allowed = parsed
+        .host_str()
+        .is_some_and(|h| h == "web.telegram.org" || h == "t.me");
+    if parsed.scheme() != "https" || !host_allowed {
+        return Err(format!("tg_native_open 拒绝白名单外 url: {url}"));
+    }
+    if !label.starts_with("tg-native-") {
+        return Err(format!("tg_native_open label 前缀违例(须 tg-native-): {label}"));
+    }
+    let width = if width.is_finite() && width >= 640.0 { width } else { 1100.0 };
+    let height = if height.is_finite() && height >= 480.0 { height } else { 780.0 };
+
+    let nav_label = label.clone();
+    let nav_app = app.clone();
+    tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::External(parsed))
+        .title(if title.trim().is_empty() { label.clone() } else { title })
+        .inner_size(width, height)
+        .min_inner_size(640.0, 480.0)
+        .on_navigation(move |url| {
+            if url.scheme() == "myssia" {
+                // 返回信令(远程页零 IPC;导航拦截 = 唯一通道)
+                if let Some(win) = nav_app.get_webview_window(&nav_label) {
+                    let _ = win.close();
+                }
+                if let Some(main) = nav_app.get_webview_window("main") {
+                    let _ = main.set_focus();
+                }
+                return false;
+            }
+            true
+        })
+        .on_page_load(move |win, payload| {
+            if payload.event() == tauri::webview::PageLoadEvent::Finished {
+                let _ = win.eval(TG_NATIVE_BACK_PILL_JS);
+            }
+        })
+        .build()
+        .map_err(|e| format!("tg_native_open 建窗失败: {e}"))?;
+    Ok(())
+}
+
 struct Sidecar {
     child: Mutex<Option<CommandChild>>,
     /// id → 应答回递通道(pump 线程 demux 后回填)。
@@ -787,6 +881,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             sidecar_request,
             sidecar_restart,
+            tg_native_open,
             reveal_yaml_dir,
             pyenv::pyenv_get_status,
             pyenv::pyenv_start_setup,

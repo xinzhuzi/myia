@@ -26,6 +26,7 @@
  * 存储不亡,重启 app 免重扫;与 watcher 的 Playwright 配置档互不相通
  * (双会话披露见 feed-screen 首开注记,design-v9 §1.3)。
  */
+import { invoke } from "@tauri-apps/api/core";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 /** 原生视图窗 label 前缀(稳定 label;getAll 对账上限以此过滤) */
@@ -61,15 +62,38 @@ export interface NativeWindowHandle {
 export interface NativeWindowDeps {
   getByLabel(label: string): Promise<NativeWindowHandle | null>;
   getAll(): Promise<{ label: string }[]>;
-  create(label: string, options: Record<string, unknown>): NativeWindowHandle;
-  /** 创建后上屏(macOS JS 建窗不自动 orderFront);缺省 = 不 show(测试桩) */
+  /** 建原生 TG 窗(10-12 返回钮批:真实实现走 Rust 命令 tg_native_open
+   *  —— builder 级 on_navigation 哨兵 + on_page_load 注「‹ 返回 MYIA」
+   *  悬浮钮;JS 直建裸 WebviewWindow 无任何返回控件,主人令补)。 */
+  create(
+    label: string,
+    options: Record<string, unknown>,
+  ): Promise<NativeWindowHandle>;
+  /** 创建后上屏(Rust 建窗应自动可见,保留显式 show 兜底);缺省 = 不 show */
   show?(handle: NativeWindowHandle): Promise<void>;
 }
 
 const realDeps: NativeWindowDeps = {
   getByLabel: (label) => WebviewWindow.getByLabel(label) as Promise<NativeWindowHandle | null>,
   getAll: () => WebviewWindow.getAll(),
-  create: (label, options) => new WebviewWindow(label, options) as unknown as NativeWindowHandle,
+  create: async (label, options) => {
+    await invoke("tg_native_open", {
+      url: String(options.url),
+      label,
+      title: String(options.title ?? ""),
+      width: Number(options.width ?? 1100),
+      height: Number(options.height ?? 780),
+    });
+    // invoke 应答 = Rust build() 已返回,窗应可查;getByLabel 竞态 miss 时
+    // 回落最小桩(事件监听缺位只降级 destroyed/error 的注册表自动清理,
+    // 窗本体与返回钮不受影响——Rust 侧才是真身)。
+    const handle = (await WebviewWindow.getByLabel(label)) ?? {
+      label,
+      once: async () => () => undefined,
+      setFocus: async () => undefined,
+    };
+    return handle as NativeWindowHandle;
+  },
   show: (handle) => handle.show?.() ?? Promise.resolve(),
 };
 
@@ -211,15 +235,24 @@ export async function openOrFocusNative(
   );
   if (openNative.length >= TG_NATIVE_WINDOW_CAP) return "capped";
   // 尺寸对齐 TG Web 桌面版三栏最小可用宽(design-v9 §2.2 方案 A);
-  // decorations 缺省 true = 自带标题栏红绿灯,零自绘关闭面
-  const handle = deps.create(label, {
-    url: kUrl,
-    title: options?.title ?? `TG · ${key}`,
-    width: 1100,
-    height: 780,
-    minWidth: 640,
-    minHeight: 480,
-  });
+  // decorations 缺省 true = 自带标题栏红绿灯;Rust 命令建窗(返回钮批,
+  // 10-12):建窗失败同步走 failed 语义(释放登记+onCreateError,与
+  // tauri://error 分支同款收尾)
+  let handle: NativeWindowHandle;
+  try {
+    handle = await deps.create(label, {
+      url: kUrl,
+      title: options?.title ?? `TG · ${key}`,
+      width: 1100,
+      height: 780,
+      minWidth: 640,
+      minHeight: 480,
+    });
+  } catch {
+    releaseNativeWindow(key, label, { forgetCreated: true });
+    options?.onCreateError?.("failed");
+    return "created";
+  }
   registry.set(label, key);
   // 创建后立即上屏(macOS 实测:JS 建窗不自动 orderFront,窗在注册表活着但
   // 永不上屏 = 主人实测「点击没用,没有弹窗」;show = orderFront 不抢焦点,
