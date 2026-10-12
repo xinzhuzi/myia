@@ -520,6 +520,10 @@ describe("FeedScreen", () => {
     // 点标题 → 详情弹窗(弹开即记已读)→ Esc 关闭 → 已读卡在「未读」过滤下消失
     fireEvent.click(screen.getByText("条目 1"));
     expect(screen.getByTestId("feed-detail-dialog")).toBeTruthy();
+    // 整屏画布(2026-10-11 主人令「弹框太小,要整个界面」):标记在 + 正文
+    // 去内滚帽(主滚动区承接,不再 max-h-72 小窗内滚)
+    expect(screen.getByTestId("feed-detail-dialog").getAttribute("data-fullcanvas")).toBe("true");
+    expect(screen.getByTestId("feed-detail-content").className).not.toContain("max-h-72");
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByTestId("feed-detail-dialog")).toBeNull());
     await waitFor(() => expect(screen.queryByText("条目 1")).toBeNull());

@@ -1436,8 +1436,16 @@ function FeedItemDetail({
   const KindIcon = kindMeta.Icon;
   return (
     <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent className="max-w-xl gap-3" data-testid="feed-detail-dialog">
-        <DialogHeader>
+      {/* 整屏画布(2026-10-11 主人看图令「弹框太小,要整个界面,一眼看出
+          所有数据」——独占画布判例的主人个案明示;此前 max-w-xl+正文
+          max-h-72 帽把长公告挤成小窗内滚)。结构:头(固定)+中(主滚动区,
+          正文/图析去内滚帽)+底(动作簇常驻,不随正文滚走)。 */}
+      <DialogContent
+        className="flex max-w-none w-[calc(100vw-2.5rem)] h-[calc(100vh-2.5rem)] flex-col gap-0 overflow-hidden p-0"
+        data-testid="feed-detail-dialog"
+        data-fullcanvas="true"
+      >
+        <DialogHeader className="flex-none px-6 pb-3 pt-6">
           {/* 标题全文(卡面 truncate 的反面:弹窗内不截断) */}
           <DialogTitle
             className="pr-6 text-base leading-relaxed break-words whitespace-pre-wrap"
@@ -1489,24 +1497,28 @@ function FeedItemDetail({
             ) : null}
           </div>
         </DialogHeader>
+        {/* 中段主滚动区(整屏化承接:正文/图析不再各自小窗内滚,统一在这里滚;
+            头与动作簇常驻——「一眼看出所有数据」的读版面) */}
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-4">
         {/* 正文(去标题重复开头,10-08 验收「标题下正文首段再次复述」;
-            正文整段 = 标题时零渲染;超高内滚不 line-clamp) */}
+            正文整段 = 标题时零渲染;整屏化去 max-h-72 帽,滚动交中段) */}
         {(() => {
           const body = bodyWithoutTitleDup(item);
           return body !== null ? (
             <p
-              className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90"
+              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90"
               data-testid="feed-detail-content"
             >
               {body}
             </p>
           ) : null;
         })()}
-        {/* 图析全文:OCR 全文 + VL 图说(10-03-vision-v2 同一套字段) */}
+        {/* 图析全文:OCR 全文 + VL 图说(10-03-vision-v2 同一套字段;整屏化
+            内滚帽放宽到 50vh——大段 OCR 也不吞屏) */}
         {item.image_ocr ? (
           <div className="flex flex-col gap-1" data-testid="feed-detail-ocr">
             <span className="text-2xs text-muted-foreground">配图 OCR 全文</span>
-            <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border/60 bg-muted/30 px-2.5 py-2 font-mono text-xs leading-relaxed text-foreground/90">
+            <pre className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border/60 bg-muted/30 px-2.5 py-2 font-mono text-xs leading-relaxed text-foreground/90">
               {item.image_ocr}
             </pre>
           </div>
@@ -1519,11 +1531,13 @@ function FeedItemDetail({
             </p>
           </div>
         ) : null}
+        </div>
         {/* 动作簇(复用卡内既有实现;10-08 验收权重理顺):打开原文 = 唯一
             实底主钮(品牌紫大面积底 = F1 保留档),其余全 ghost 同档次 ——
-            👍👎 反馈 / 复制链接 / 星标 / 稍后读 / 已读切换 */}
+            👍👎 反馈 / 复制链接 / 星标 / 稍后读 / 已读切换;整屏化后常驻
+            底栏(flex-none),不随正文滚走 */}
         <div
-          className="flex flex-wrap items-center gap-1.5 border-t border-border/60 pt-3"
+          className="flex flex-none flex-wrap items-center gap-1.5 border-t border-border/60 px-6 py-3"
           data-testid="feed-detail-actions"
         >
           <FeedCardFeedback item={item} />
