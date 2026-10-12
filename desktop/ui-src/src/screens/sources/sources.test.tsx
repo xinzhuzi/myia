@@ -537,9 +537,9 @@ describe("源管理:试抓此源(C13 → 详情弹窗)", () => {
     await waitFor(() =>
       expect(lastCall("sources.test")?.params).toEqual({ file: FILE, source: "local-api" }),
     );
-    // 进行中态 = 行内试抓钮锚点(提示实时输出见日志屏);不再有「异步 job #N」横幅
+    // 进行中态 = 行内试抓钮锚点(提示实时输出见「采集日志」);不再有「异步 job #N」横幅
     const running = await screen.findByTestId("test-running");
-    expect(running.getAttribute("title")).toBe("试抓进行中,实时输出见日志屏");
+    expect(running.getAttribute("title")).toBe("试抓进行中,实时输出见「采集日志」");
     expect(document.body.textContent ?? "").not.toContain("job #");
 
     events.emit({

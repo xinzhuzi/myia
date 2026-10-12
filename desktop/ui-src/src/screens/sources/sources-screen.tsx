@@ -345,8 +345,8 @@ export function SourcesScreen() {
             <CardHeader>
               <CardTitle>本次会话已停用({disabledEntries.length})</CardTitle>
               <CardDescription>
-                停用名单以品类 YAML 为准(写回应答为准出);会话前已停用的源不在
-                health 协议面,读取待协议扩展。
+                停用状态记录在品类 YAML 里;本列表只显示本次打开应用后停用的源,
+                更早停用的源暂无法在此查看。
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">

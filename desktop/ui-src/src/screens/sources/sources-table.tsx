@@ -217,7 +217,7 @@ const COLUMNS: ColumnDef<SourceRow>[] = [
             aria-label={`试抓 ${row.original.sourceName}`}
             title={
               testing
-                ? "试抓进行中,实时输出见日志屏"
+                ? "试抓进行中,实时输出见「采集日志」"
                 : `myssia test ${row.original.categoryFile} --source ${row.original.sourceName}`
             }
             data-testid={testing ? "test-running" : undefined}
@@ -396,7 +396,7 @@ export function SourcesTable({
           aria-pressed button 与健康度按钮组同范式;单品类(单簇=全量)无筛选
           意义,不渲染;n/m 徽章 aria-live 让屏幕阅读器感知收窄/复位 */}
       {clusters.length > 1 ? (
-        <div role="group" aria-label="品类点簇筛选" className="flex flex-wrap items-center gap-1.5">
+        <div role="group" aria-label="按品类筛选" className="flex flex-wrap items-center gap-1.5">
           {clusters.map(({ key, label, count }) => {
             const active = clusterFilter.has(key);
             return (

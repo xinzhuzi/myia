@@ -792,7 +792,7 @@ describe("#14 事件驱动(AC7)", () => {
 
     const notice = await screen.findByTestId("cron-notice");
     expect(notice.textContent).toContain("早晚情报流");
-    expect(notice.textContent).toContain("status=partial");
+    expect(notice.textContent).toContain("完成");
     await waitFor(() => {
       expect(listCalls).toBeGreaterThan(before);
     });

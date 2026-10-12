@@ -84,7 +84,7 @@ export function RunListView({
     return [
       { key: "success", label: "成功", tone: "bg-ok", count: dist.success },
       { key: "running", label: "运行中", tone: "bg-primary", count: dist.running },
-      { key: "partial", label: "部分/配置", tone: "bg-warning", count: dist.partial },
+      { key: "partial", label: "部分成功/配置错误", tone: "bg-warning", count: dist.partial },
       { key: "failed", label: "失败", tone: "bg-dead", count: dist.failed },
       { key: "other", label: "其他", tone: "bg-unknown", count: dist.other },
     ].filter((segment) => segment.count > 0);
@@ -296,7 +296,7 @@ function RunSummaryRow({
             <Badge
               variant="outline"
               data-testid={`run-history-badge-${domId}`}
-              title="重启前会话的跑次(run.status 合流运行历史库)"
+              title="应用重启前记录的采集(来自历史数据库)"
             >
               上一程
             </Badge>
@@ -354,7 +354,7 @@ function RunSummaryRow({
             className="size-6 shrink-0 text-muted-foreground"
             data-testid={`run-rerun-${domId}`}
             aria-label={`重跑采集 #${run.runId}`}
-            title={`重跑该 run(run.start 回放 ${run.yaml}${run.dry ? ",dry" : ""})`}
+            title={`再跑一次这一轮采集(沿用相同品类配置${run.dry ? ";试跑,不落库" : ""})`}
             disabled={starting}
             onClick={() => onRerun(run)}
           >

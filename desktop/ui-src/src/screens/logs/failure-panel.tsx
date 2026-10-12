@@ -44,7 +44,7 @@ export function FailurePanel({
                如实报缺号,不编 0/1/2/3 语义 */
             <span
               className="shrink-0 font-mono text-xs text-muted-foreground"
-              title="该轮未落 exit_code(上一程历史行 wire 真形)"
+              title="该轮没有记录退出码(应用重启前的历史记录不含此项)"
             >
               exit=—
             </span>
@@ -57,7 +57,7 @@ export function FailurePanel({
         ) : null}
         {failure.tailPending ? (
           <p className="shrink-0 text-2xs text-muted-foreground">
-            <span className="mr-1 text-brand-from">▍</span>日志拉取中…(stderr 错误行摘待 tail 到位)
+            <span className="mr-1 text-brand-from">▍</span>日志拉取中…(错误详情待日志拉齐后显示)
           </p>
         ) : null}
         {failure.errorRows.map((row, index) => (
@@ -77,7 +77,7 @@ export function FailurePanel({
         ) : null}
         {noEvidence ? (
           <p data-testid={`run-failure-none-${domId}`} className="shrink-0 text-2xs text-muted-foreground">
-            暂无结构化失败记录(该轮未落 error 字段,日志缓冲中亦无错误行)
+            暂无结构化失败记录(该轮没有记录错误信息,日志中也没有错误行)
           </p>
         ) : null}
       </div>

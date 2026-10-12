@@ -45,7 +45,7 @@ export function FeedbackStatsCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">反馈统计</CardTitle>
-        <CardDescription>近 {WINDOW_DAYS} 天 👍/👎 计数与负反馈类目(channel=desktop 与 CLI 同库)</CardDescription>
+        <CardDescription>近 {WINDOW_DAYS} 天 👍/👎 计数与负反馈类目(桌面端与命令行的反馈记在同一处)</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {loading && stats === null ? (
@@ -95,7 +95,7 @@ export function FeedbackStatsCard() {
               )}
             </div>
             <p className="text-2xs text-muted-foreground">
-              负反馈将在下轮维护阶段参与调参(Top 类目/词降权);enrich 关闭时仅入库不生效。
+              负反馈将在下轮维护阶段参与调参(Top 类目/词降权);AI 评分关闭时仅入库不生效。
             </p>
           </>
         )}

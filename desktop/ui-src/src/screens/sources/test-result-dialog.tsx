@@ -109,7 +109,7 @@ export function TestResultDialog({ outcome, onClose }: TestResultDialogProps) {
             <section className="flex flex-col gap-1.5" aria-label="概要">
               <SectionLabel>概要</SectionLabel>
               <p className="text-sm">
-                <span className="text-muted-foreground">引擎命中</span>{" "}
+                <span className="text-muted-foreground">实际使用引擎</span>{" "}
                 <span className="font-mono text-foreground">{engineHit}</span>
                 {outcome.engineConfigured && outcome.engineConfigured !== engineHit ? (
                   <>
@@ -141,8 +141,8 @@ export function TestResultDialog({ outcome, onClose }: TestResultDialogProps) {
 
           {/* 3. 引擎退化链:逐条 engine [error_type] message */}
           {outcome.failures && outcome.failures.length > 0 ? (
-            <section className="flex flex-col gap-1.5" aria-label="引擎退化链">
-              <SectionLabel>引擎退化({outcome.failures.length} 次)</SectionLabel>
+            <section className="flex flex-col gap-1.5" aria-label="引擎尝试记录">
+              <SectionLabel>引擎尝试失败({outcome.failures.length} 次)</SectionLabel>
               <ul className="flex flex-col gap-1">
                 {outcome.failures.map((failure, index) => (
                   <li key={`${failure.engine}:${index}`} className="break-all text-xs">
@@ -224,7 +224,7 @@ export function TestResultDialog({ outcome, onClose }: TestResultDialogProps) {
         <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border px-4 py-3">
           <a
             href="#/logs"
-            title="到采集日志屏跟踪试抓子进程实时输出"
+            title="到「采集日志」跟踪试抓子进程实时输出"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
           >
             <ScrollText className="size-3.5" />

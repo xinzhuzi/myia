@@ -226,18 +226,18 @@ export function CronScreen() {
         );
         setNotice(
           event.ok
-            ? { kind: "ok", text: `定时任务「${event.name}」完成(status=${event.status})` }
+            ? { kind: "ok", text: `定时任务「${event.name}」完成` }
             : {
                 kind: "error",
-                text: `定时任务「${event.name}」失败(status=${event.status}${
-                  event.delivery_error ? ` · 投递失败:${event.delivery_error}` : ""
-                })`,
+                text: `定时任务「${event.name}」失败${
+                  event.delivery_error ? `(投递失败:${event.delivery_error})` : ""
+                }`,
               },
         );
       } else {
         setNotice({
           kind: "warn",
-          text: `定时任务「${event.name}」因运行占用跳过(桌面 run #${event.active_run_id} 进行中)`,
+          text: `定时任务「${event.name}」因该品类正在采集,本次自动跳过`,
         });
       }
       reload();
@@ -471,11 +471,11 @@ export function CronScreen() {
             </div>
           ) : stale ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <span className="font-medium">调度器心跳迟滞或已停</span>
+              <span className="font-medium">调度器可能已停止运行</span>
               <span className="text-xs opacity-80">
-                调度器未存活
+                调度器可能不在运行
                 {status?.heartbeat_age_seconds != null ? `(心跳 ${Math.round(status.heartbeat_age_seconds)} 秒前)` : ""}
-                ——任务可能不再按时触发,可先手动「刷新」复核
+                ——任务可能不再按时触发,可先点「刷新」确认
               </span>
             </div>
           ) : status !== null ? (
@@ -498,7 +498,7 @@ export function CronScreen() {
               </span>
             </p>
           ) : (
-            <span className="text-sm">活性待载入…</span>
+            <span className="text-sm">调度器状态载入中…</span>
           )}
           <div className="flex items-center gap-2">
             <Button
@@ -571,7 +571,7 @@ export function CronScreen() {
                 <>
                   选一个品类 YAML、定好排程,采集就按点自动跑。
                   <br />
-                  CLI 建的 job 也在这里:<code>myssia cron list</code>(数据根一致即同一批 job)
+                  CLI 建的定时任务也在这里:<code>myssia cron list</code>(数据目录一致即同一批任务)
                 </>
               }
               action={
@@ -615,9 +615,9 @@ export function CronScreen() {
             <a
               href="#/logs"
               className="font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
-              title="到采集日志屏跟踪该次运行实时输出"
+              title="到「采集日志」跟踪该次运行实时输出"
             >
-              日志屏
+              采集日志
             </a>
             …
           </div>
@@ -634,8 +634,8 @@ export function CronScreen() {
             <CardHeader>
               <CardTitle>排程一览</CardTitle>
               <CardDescription>
-                每品类未来 5 次运行(schedule.preview 纯计算,品类 YAML schedule
-                节;无 cron job 的品类也在此见排程);改 schedule 节到「YAML配置」;
+                按品类 YAML 的 schedule 节算出每个品类未来 5 次运行(
+                没建定时任务的品类也在列);要改时间到「YAML配置」;
                 行尾 ▶ 立即跑一次该品类。
               </CardDescription>
             </CardHeader>
@@ -702,7 +702,7 @@ export function CronScreen() {
                         className="size-7"
                         disabled={runActiveFile !== null}
                         aria-label={`跑一次:${row.name}`}
-                        title={`手动触发该品类采集一次(run.start ${row.file})`}
+                        title="手动触发该品类采集一次"
                         onClick={() => void handleRunOnce(row)}
                       >
                         {runActiveFile === row.file ? (
@@ -726,8 +726,8 @@ export function CronScreen() {
           <DialogHeader>
             <DialogTitle>急停全部定时任务?</DialogTitle>
             <DialogDescription>
-              写入全局急停标记,tick 将跳过一切派发;在途运行不受影响。
-              急停仅暂停调度,单 job 操作(立即运行/暂停/编辑/删除)仍可用,可随时「恢复全部」。
+              自动触发将全部暂停;已在运行的任务不受影响。
+              立即运行/暂停/编辑/删除单个任务仍可用,可随时「恢复全部」。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1049,7 +1049,7 @@ function RunsPanel({ jobId, state }: { jobId: string; state: RunsState | undefin
             ))}
             {summary && summary.failure_count > summary.failures.length ? (
               <p className="pl-4 text-2xs text-muted-foreground">
-                共 {summary.failure_count} 条失败,示前 {summary.failures.length} 条
+                共 {summary.failure_count} 条失败,仅展示前 {summary.failures.length} 条
               </p>
             ) : null}
           </li>

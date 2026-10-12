@@ -90,7 +90,7 @@ export function RunOnceResultDialog({
         <DialogFooter>
           <a
             href="#/logs"
-            title="到采集日志屏跟踪该次运行实时输出"
+            title="到「采集日志」跟踪该次运行实时输出"
             className="mr-auto inline-flex items-center gap-1.5 text-sm font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
           >
             查看采集日志

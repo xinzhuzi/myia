@@ -12,8 +12,8 @@ import type { RunFilterStatus, RunRowModel } from "./api";
 export const STATUS_FILTER_OPTIONS: Array<{ value: RunFilterStatus; label: string }> = [
   { value: "running", label: "运行中" },
   { value: "success", label: "成功" },
-  { value: "partial", label: "部分" },
-  { value: "config_error", label: "配置" },
+  { value: "partial", label: "部分成功" },
+  { value: "config_error", label: "配置错误" },
   { value: "failed", label: "失败" },
   { value: "cancelled", label: "已取消" },
 ];
@@ -34,9 +34,9 @@ export function runBadge(status: RunRowModel["status"], state: RunRowModel["stat
     case "success":
       return { variant: "ok", label: "成功", icon: CircleCheck };
     case "partial":
-      return { variant: "warning", label: "部分", icon: TriangleAlert };
+      return { variant: "warning", label: "部分成功", icon: TriangleAlert };
     case "config_error":
-      return { variant: "warning", label: "配置", icon: TriangleAlert };
+      return { variant: "warning", label: "配置错误", icon: TriangleAlert };
     case "failed":
       return { variant: "destructive", label: "失败", icon: CircleX };
     case "cancelled":
