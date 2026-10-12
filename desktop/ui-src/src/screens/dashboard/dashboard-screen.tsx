@@ -993,7 +993,7 @@ export function DashboardScreen() {
                         ? "诊断不可达 · doctor 分区失败"
                         : overviewWindow === "today"
                           ? `共 ${overview.totalSources} 源 · 正常+退化`
-                          : `共 ${overview.totalSources} 源 · ok+degraded · 实时快照,不随时间范围变化`
+                          : `共 ${overview.totalSources} 源 · 正常+退化 · 实时快照,不随时间范围变化`
                     }
                     noteKind={overview.totalSources === null ? "alert" : "meta"}
                   />
