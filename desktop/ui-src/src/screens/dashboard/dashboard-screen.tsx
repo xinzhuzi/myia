@@ -123,9 +123,9 @@ function runStatusBadge(run: DashboardRun) {
     case "success":
       return { variant: "ok" as const, label: "成功", icon: CircleCheck };
     case "partial":
-      return { variant: "warning" as const, label: "部分", icon: TriangleAlert };
+      return { variant: "warning" as const, label: "部分成功", icon: TriangleAlert };
     case "config_error":
-      return { variant: "warning" as const, label: "配置", icon: TriangleAlert };
+      return { variant: "warning" as const, label: "配置错误", icon: TriangleAlert };
     case "failed":
       return { variant: "destructive" as const, label: "失败", icon: CircleX };
     case "cancelled":
@@ -228,7 +228,7 @@ function CategoryCard({
         <p className="text-2xs text-muted-foreground">
           {category.sourceCount} 源
           {category.schedule ? ` · ${category.schedule}` : " · 手动"}
-          {category.nextFireAt ? " · 有排程" : ""}
+          {category.nextFireAt ? " · 已建定时任务" : ""}
         </p>
         {runOnce.phase === "error" ? (
           <p className="text-2xs text-destructive" data-testid={`run-once-error-${category.file}`}>
@@ -303,7 +303,7 @@ function RecentRunRow({ run }: { run: DashboardRun }) {
           <a
             href="#/logs"
             className="shrink-0 rounded-sm text-2xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
-            title="到采集日志屏跟踪该 run 实时输出"
+            title="到「采集日志」跟踪这一轮的实时输出"
           >
             日志 →
           </a>
@@ -992,8 +992,8 @@ export function DashboardScreen() {
                       overview.totalSources === null
                         ? "诊断不可达 · doctor 分区失败"
                         : overviewWindow === "today"
-                          ? `共 ${overview.totalSources} 源 · ok+degraded`
-                          : `共 ${overview.totalSources} 源 · ok+degraded · 即时快照不随窗`
+                          ? `共 ${overview.totalSources} 源 · 正常+退化`
+                          : `共 ${overview.totalSources} 源 · ok+degraded · 实时快照,不随时间范围变化`
                     }
                     noteKind={overview.totalSources === null ? "alert" : "meta"}
                   />
@@ -1014,8 +1014,8 @@ export function DashboardScreen() {
                     value={overview.alerts}
                     note={
                       overviewWindow === "today"
-                        ? "doctor error+warning 发现"
-                        : "doctor error+warning 发现 · 即时快照不随窗"
+                        ? "诊断发现的错误与提醒"
+                        : "诊断发现的错误与提醒 · 实时快照,不随时间范围变化"
                     }
                     noteKind="meta"
                     destructive={(overview.alerts ?? 0) > 0}
@@ -1047,7 +1047,7 @@ export function DashboardScreen() {
                 ) : null}
               </CardTitle>
             </div>
-            <CardDescription>每日入库条目数(UTC 逐日;窗口随概览时间范围)</CardDescription>
+            <CardDescription>每日入库条目数(UTC 逐日;时间范围跟随上方概览的选择)</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             {trendLoading && trend === null ? (

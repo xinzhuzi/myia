@@ -761,7 +761,7 @@ describe("DashboardScreen", () => {
     );
     expect(screen.getByTestId("stat-active-sources").textContent).not.toContain("共 3 源");
     expect(hoverTooltip(screen.getByRole("button", { name: "活跃源说明" }))).toContain(
-      "共 3 源 · ok+degraded",
+      "共 3 源 · 正常+退化",
     );
   });
 
@@ -807,7 +807,7 @@ describe("DashboardScreen", () => {
 
   it("推送失败徽章:失败通道带 failures 文案 → destructive 徽章显错误原文,title 悬停全文", async () => {
     const errorText =
-      "[env_var_missing] 飞书 bot 凭据解析失败: 环境变量 FEISHU_BOT_TOKEN 未设置,钥匙链规范名 myia/push/FEISHU_BOT_TOKEN 亦未录入;到 设置→推送 填一次即可(或设置环境变量 FEISHU_BOT_TOKEN)——飞书 tenant token";
+      "[env_var_missing] 飞书 bot 凭据解析失败: 环境变量 FEISHU_BOT_TOKEN 未设置,钥匙链规范名 myia/push/FEISHU_BOT_TOKEN 亦未录入;到 配置 → 机器人凭据 填一次即可(或设置环境变量 FEISHU_BOT_TOKEN)——飞书 tenant token";
     mockSidecar(
       Promise.resolve(fixtureDoctor({ categories: [fixtureCategory({ sources: [fixtureSource("a", "ok")] })] })),
       Promise.resolve({
@@ -836,7 +836,7 @@ describe("DashboardScreen", () => {
     // 非 dry 行的行内唯一 Badge = 推送失败徽章:错误原文 + title 全文(截断仅 CSS 层)
     const badge = row.querySelector('[data-slot="badge"]');
     expect(badge?.getAttribute("title")).toBe(errorText);
-    expect(badge?.textContent).toContain("设置→推送"); // 指引原文在行内直接可见
+    expect(badge?.textContent).toContain("配置 → 机器人凭据"); // 指引原文在行内直接可见
     expect(badge?.className).toContain("bg-destructive/15"); // destructive 变体
   });
 
@@ -860,7 +860,7 @@ describe("DashboardScreen", () => {
                   digest: 0,
                   archive: 0,
                   failures: [
-                    { error: "[env_var_missing] telegram bot 凭据解析失败: 到 设置→推送 填一次即可", count: 1 },
+                    { error: "[env_var_missing] telegram bot 凭据解析失败: 到 配置 → 机器人凭据 填一次即可", count: 1 },
                   ],
                 },
               ],
@@ -876,7 +876,7 @@ describe("DashboardScreen", () => {
     const badges = row.querySelectorAll('[data-slot="badge"]');
     expect(badges).toHaveLength(2); // 试跑 + 推送失败
     expect(badges[0].getAttribute("title")).toBe("dry run(不落库)"); // 首位仍是 dry(既有断言锚)
-    expect(badges[1].getAttribute("title")).toContain("设置→推送");
+    expect(badges[1].getAttribute("title")).toContain("配置 → 机器人凭据");
     // verdict 联动升态:窗口内 run 推送全挂不再报「一切正常」
     await waitFor(() =>
       expect(screen.getByTestId("dashboard-verdict").textContent).toContain("推送失败"),
@@ -975,12 +975,12 @@ describe("DashboardScreen", () => {
     await screen.findByTestId("category-tech.yaml");
     await waitFor(() => expect(screen.getByTestId("stat-window-items").textContent).toContain("5"));
     expect(screen.getByText("今日采集")).toBeTruthy(); // 默认今日档,口径不动
-    // R4 数字带分母:活跃源 2/4(ok+degraded / 总数;tnum 全局已开)
+    // R4 数字带分母:活跃源 2/4(正常+退化 / 总数;tnum 全局已开)
     expect(screen.getByTestId("stat-active-sources").textContent).toContain("2/4");
     // R3 口径注记收 ⓘ 悬停:扫读面无口径明文,悬停后可查
     expect(screen.getByTestId("stat-active-sources").textContent).not.toContain("共 4 源");
     expect(hoverTooltip(screen.getByRole("button", { name: "活跃源说明" }))).toContain(
-      "共 4 源 · ok+degraded",
+      "共 4 源 · 正常+退化",
     );
     expect(screen.getByTestId("stat-window-items").textContent).not.toContain("UTC 日口径");
     expect(hoverTooltip(screen.getByRole("button", { name: "今日采集说明" }))).toContain(
@@ -1064,15 +1064,15 @@ describe("DashboardScreen", () => {
     await waitFor(() => expect(screen.getByTestId("stat-window-push").textContent).toContain("2"));
 
     // 两格快照:活跃源(ok 2 + degraded 1 → 活跃 3/3)、告警(findings 1)不随窗;
-    // 「即时快照不随窗」口径注记收 ⓘ 悬停(R3),textContent 不再明文
+    // 「实时快照,不随时间范围变化」口径注记收 ⓘ 悬停(R3),textContent 不再明文
     expect(screen.getByTestId("stat-active-sources").textContent).toContain("3/3");
-    expect(screen.getByTestId("stat-active-sources").textContent).not.toContain("即时快照不随窗");
+    expect(screen.getByTestId("stat-active-sources").textContent).not.toContain("实时快照,不随时间范围变化");
     expect(hoverTooltip(screen.getByRole("button", { name: "活跃源说明" }))).toContain(
-      "即时快照不随窗",
+      "实时快照,不随时间范围变化",
     );
     expect(screen.getByTestId("stat-alerts").textContent).toContain("1");
     expect(hoverTooltip(screen.getByRole("button", { name: "告警说明" }))).toContain(
-      "即时快照不随窗",
+      "实时快照,不随时间范围变化",
     );
   });
 
@@ -1713,7 +1713,7 @@ describe("推送失败文案纯函数(10-06 push 失败可见性;stats_dict fail
     dry: false,
     durationMs: 60_000,
   });
-  const credError = "[env_var_missing] 飞书 bot 凭据解析失败: 到 设置→推送 填一次即可";
+  const credError = "[env_var_missing] 飞书 bot 凭据解析失败: 到 配置 → 机器人凭据 填一次即可";
   /** 旧 run 行五字段形态(后端加 failures 键之前落库的行) */
   const legacyEntry = { channel: "feishu_card", ok: false, immediate: 12, digest: 0, archive: 0 };
   const failingEntry = { ...legacyEntry, failures: [{ error: credError, count: 1 }] };
