@@ -48,3 +48,10 @@
 - 未刷新时,完成汇报**第一段**必须显式声明「你打开 app 还看不到 X(装机包停在 <时间>/<提交),换装预计…」——不许埋进遗留清单;
 - **重打包+静默换装**(build-sidecar → tauri build → 备份旧包 → ditto 换装,守 os-etiquette)是 AI 侧标准动作,只有像素目验归主人;
 - 说「都完成了 / 没有其他问题」之前先自答一句:**用户此刻打开 app 看到的是什么?**(仓库态绿 ≠ 用户态绿;实证:提交/测试/CI 全绿,而 /Applications 还是旧包,主人问「前端为啥没有」)
+
+## 5. pytest pythonpath 显式化陷阱(2026-10-12 判例:wechat-bridge B 段)
+
+`pyproject.toml` 的 `[tool.pytest.ini_options]` 一旦显式设置 `pythonpath`,pytest **不再隐式插入 rootdir**——依赖隐式根路径的导入(如 `tests/desktop` 的 `from desktop import entry`,namespace 包)会在**收集期** ImportError 炸全量,且报错指向无辜文件,极易误归因到并行会话在途改动(在案:工作流回炉 2 轮归因错,真凶是自己刚加的 pythonpath)。
+
+- 动 `pythonpath` 时必须把仓库根 `"."` 同列进去;
+- 收集期 ImportError 先查 `[tool.pytest.ini_options]` 近期 diff,再看文件归属。
