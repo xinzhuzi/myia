@@ -629,7 +629,7 @@ describe("YAML配置:跑一次与采集运行提示", () => {
 
     expect(await screen.findByTestId("run-started")).toBeTruthy();
     expect(screen.getByTestId("run-started").textContent).toContain("run #9");
-    expect(screen.getByRole("link", { name: "去日志屏查看" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "去「采集日志」查看" })).toBeTruthy();
     expect(lastCall("run.start")?.params).toEqual({ yaml: AI });
     expect(state.started.length).toBe(1);
   });

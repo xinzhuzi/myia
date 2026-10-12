@@ -208,7 +208,7 @@ export function YamlEditorScreen() {
     <div className="flex h-full min-h-0 flex-col pb-4">
       <PageHeader
         title="YAML配置"
-        description="品类 YAML 原文编辑:注释逐字节保真;保存经同门校验(坏内容零写入),成功后 doctor 复核"
+        description="品类 YAML 原文编辑:注释逐字节保真;保存前自动校验(校验不过零写入),保存成功后自动复核"
         actions={
           <Button size="sm" variant="outline" disabled={list.status === "loading"} onClick={() => void reloadList()}>
             <RefreshCw className={list.status === "loading" ? "size-3.5 animate-spin" : "size-3.5"} />
@@ -296,7 +296,7 @@ export function YamlEditorScreen() {
                 size="sm"
                 variant="outline"
                 disabled={docReady === null || dirty || run.starting}
-                title={dirty ? "先保存再运行" : "以当前品类发起一次采集(run.start)"}
+                title={dirty ? "先保存再运行" : "以当前品类发起一次采集"}
                 onClick={() => void handleRunOnce()}
               >
                 <Play className="size-3.5" />
@@ -385,7 +385,7 @@ export function YamlEditorScreen() {
               <p role="status" data-testid="run-started" className="text-xs text-foreground">
                 已发起采集(run #{run.runId});
                 <Link to="/logs" className="ml-0.5 text-primary underline-offset-2 hover:underline">
-                  去日志屏查看
+                  去「采集日志」查看
                 </Link>
               </p>
             ) : null}
