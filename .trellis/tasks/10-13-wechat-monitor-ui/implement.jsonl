@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-13-wechat-keyprovider/design.md", "reason": "取钥器协议 v1 契约与挂点(v1.1 在其上放宽超时)"}
+{"file": ".trellis/tasks/10-13-wechat-key-crack/research/crack-roadmap.md", "reason": "取钥 SOP 与工具链(lldb-shot 部署件源)与红线语境"}
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "设置卡/feed 改动层规范"}
+{"file": ".trellis/spec/desktop/sidecar-protocol.md", "reason": "壳↔前端契约(事件流新增面)"}
+{"file": ".trellis/spec/python/quality.md", "reason": "桥侧命令实现质量基线"}
