@@ -3,9 +3,9 @@
 主人令翻案 G3(10-11 档「仅展示不入管线」):微信消息经 wechat-bridge 桥
 读回后**入 store/dedup/feed**,与 telegram 同为情报流一等渠道。
 
-双通道(``engine_options.wechat_local.channel``,缺省 ``pixel`` 向后兼容;
+三通道(``engine_options.wechat_local.channel``,缺省 ``pixel`` 向后兼容;
 主人令 2026-10-13 换轨:像素链 OCR 逻辑性/准确性判例成立 → TMS 源切
-``localdb`` 本地库直读):
+``localdb`` 本地库直读;同日 sns 批加朋友圈):
 
 - **pixel(缺省)**:数据面 = 管线进程内起本机桥子进程
   (``wechat-bridge messages read <chat> -k N --json``,受管组件,
@@ -20,6 +20,15 @@
   交互零截窗零 AX** —— 本分支绝不触碰任何截窗/AX 面(与 pixel 分支完全
   隔离;桥侧同纪律:localdb 命令族不跑 UI 前置检查)。增量窗口 = 源级
   水位(见下)。
+- **sns**(10-13-wechat-sns-feed):数据面 = 同一桥子进程的
+  ``localdb sns feed|notices --since Nd --json``(桥 0.6.0;朋友圈域
+  SnsTimeLine XML / SnsMessage_tmp3 互动通知)。朋友圈无会话概念:
+  不消费 ``chat``/``sides``/``count``(声明即拒),专属键 ``feed_kind``
+  (feed=动态缺省/notices=互动通知)。**强幂等锚**:动态用微信侧全局 id
+  (``#wxsns-<id>``)、通知用表主键(``#wxsnsn-<local_id>``)—— 比消息通道
+  的内容哈希锚强(TG 同级),重读/重装恒同锚。**可疑空水位防御**:feed
+  零条目且桥报 parse_errors>0(XML 坏行吞噬整窗的形状)= 不推进水位
+  (下轮重开同窗,微信 XML 格式变化不丢中间窗口);正常安静窗照常推进。
 
 源 YAML 形态(design §2.1 + 换轨批):
 
@@ -147,10 +156,16 @@ LAYER = "LOCAL_BRIDGE"
 #: 请求「端点」是本机桥子进程 —— telegram-web.yaml 锚判例同构)。
 WEB_HOST = "weixin.qq.com"
 
-#: 通道词表(换轨批):pixel = 像素链截窗 OCR(缺省,向后兼容);
-#: localdb = 本地库解密副本直读(只读,零截窗零 AX)。
-CHANNELS = ("pixel", "localdb")
+#: 通道词表(换轨批+sns 批):pixel = 像素链截窗 OCR(缺省,向后兼容);
+#: localdb = 本地库解密副本直读(只读,零截窗零 AX);sns = 朋友圈域
+#: (动态/互动通知,零截窗零 AX,强 id 锚)。
+CHANNELS = ("pixel", "localdb", "sns")
 DEFAULT_CHANNEL = "pixel"
+
+#: sns 模式词表:feed = 朋友圈动态(SnsTimeLine)/notices = 互动通知
+#: (SnsMessage_tmp3 赞/评)。
+SNS_KINDS = ("feed", "notices")
+DEFAULT_SNS_KIND = "feed"
 
 #: 最近 K 条缺省(pixel 单轮窗口帽;桥像素链现存消息,不滚动翻历史)。
 DEFAULT_COUNT = 50
@@ -181,9 +196,12 @@ DEFAULT_READ_TIMEOUT_SECONDS = 60.0
 #: 标题截断(TG 同律:标题 = 首行/全文截断;feishu ``text[:80]`` 判例)。
 TITLE_MAX_CHARS = 80
 
-#: 锚前缀与 scheme(design §2.3;#wx- 与 #tg-/#fs- 同族命名)。
+#: 锚前缀与 scheme(design §2.3;#wx- 与 #tg-/#fs- 同族命名;sns 批加
+#: #wxsns-/#wxsnsn- 强 id 锚族)。
 ANCHOR_SCHEME = "wechat-local://"
 ANCHOR_PREFIX = "#wx-"
+SNS_ANCHOR_PREFIX = "#wxsns-"
+SNS_NOTICE_ANCHOR_PREFIX = "#wxsnsn-"
 
 #: localdb 水位键前缀(store ``change_baseline`` 表的引擎自有命名空间;
 #: 与条目锚同 scheme 家族,不与任何 http(s) 源 URL 相撞)。
@@ -205,17 +223,23 @@ __all__ = [
     "DEFAULT_READ_TIMEOUT_SECONDS",
     "DEFAULT_SIDES",
     "DEFAULT_SINCE_DAYS",
+    "DEFAULT_SNS_KIND",
     "ENGINE_NAME",
     "KEYSCAN_SCRIPT",
     "LAYER",
     "MAX_COUNT",
     "MAX_SINCE_DAYS",
     "SIDES",
+    "SNS_ANCHOR_PREFIX",
+    "SNS_KINDS",
+    "SNS_NOTICE_ANCHOR_PREFIX",
     "TITLE_MAX_CHARS",
     "WATERMARK_PREFIX",
     "WEB_HOST",
     "WechatLocalEngine",
     "anchor_url",
+    "sns_anchor",
+    "sns_notice_anchor",
     "watermark_key",
 ]
 
@@ -239,6 +263,23 @@ def anchor_url(chat: str, ts: str | None, side: str, text: str) -> str:
         )
     ).hexdigest()[:16]
     return f"{ANCHOR_SCHEME}chat/{quote(chat, safe='')}{ANCHOR_PREFIX}{digest}"
+
+
+def sns_anchor(entry_id: str) -> str:
+    """朋友圈动态强锚:``wechat-local://sns/<id>#wxsns-<id>``.
+
+    id = 微信侧全局 id(桥 XML 解析;全期稳定)—— 与消息通道的内容哈希锚
+    不同,**重读恒同锚**(TG ``#tg-`` 同级幂等),OCR/解析噪声零并锚面。
+    """
+    return f"{ANCHOR_SCHEME}sns/{quote(entry_id, safe='')}{SNS_ANCHOR_PREFIX}{entry_id}"
+
+
+def sns_notice_anchor(local_id: object) -> str:
+    """互动通知强锚:``wechat-local://sns/notice/<id>#wxsnsn-<id>``(表主键)."""
+    return (
+        f"{ANCHOR_SCHEME}sns/notice/{local_id}"
+        f"{SNS_NOTICE_ANCHOR_PREFIX}{local_id}"
+    )
 
 
 def watermark_key(source_name: str) -> str:
@@ -265,19 +306,73 @@ class WechatLocalEngine(BaseEngine):
     def _options(self) -> dict[str, Any]:
         """engine_options.wechat_local 校验与缺省化(错型即结构化拒).
 
-        通道词表 ``channel``:缺省 pixel(向后兼容);两通道共享 chat/sides,
-        专属键交叉声明即拒(count 属 pixel,since_days 属 localdb ——
-        消费面不同,静默忽略会谎报配置生效)。
+        通道词表 ``channel``:缺省 pixel(向后兼容);pixel/localdb 共享
+        chat/sides,专属键交叉声明即拒(count 属 pixel,since_days 属
+        localdb);sns 通道无会话概念(chat/sides/count 全不消费,专属键
+        feed_kind)—— 消费面不同,静默忽略会谎报配置生效。
         """
         options = self.engine_options()
         channel = options.get("channel", DEFAULT_CHANNEL)
         if isinstance(channel, bool) or channel not in CHANNELS:
             raise FetchError(
                 f"engine_options.wechat_local.channel 应为 {'/'.join(CHANNELS)} "
-                "(pixel=像素链截窗 OCR 缺省;localdb=本地库解密副本直读),"
-                f"当前为 {channel!r}",
+                "(pixel=像素链截窗 OCR 缺省;localdb=本地库解密副本直读;"
+                f"sns=朋友圈动态/互动通知),当前为 {channel!r}",
                 error_type="invalid_engine_options",
             )
+        result: dict[str, Any] = {"channel": channel}
+        if channel == "sns":
+            for chat_key in ("chat", "sides", "count"):
+                if chat_key in options:
+                    raise FetchError(
+                        f"engine_options.wechat_local.{chat_key} 是会话通道"
+                        "(pixel/localdb)的配置,朋友圈无会话概念,sns 通道不"
+                        "消费(全量收朋友圈动态;窗口用 since_days)",
+                        error_type="invalid_engine_options",
+                    )
+            feed_kind = options.get("feed_kind", DEFAULT_SNS_KIND)
+            if (
+                isinstance(feed_kind, bool)
+                or feed_kind not in SNS_KINDS
+            ):
+                raise FetchError(
+                    f"engine_options.wechat_local.feed_kind 应为 "
+                    f"{'/'.join(SNS_KINDS)}(feed=朋友圈动态缺省;"
+                    "notices=互动通知赞/评),当前为 "
+                    f"{feed_kind!r}",
+                    error_type="invalid_engine_options",
+                )
+            since_days = options.get("since_days", DEFAULT_SINCE_DAYS)
+            if (
+                isinstance(since_days, bool)
+                or not isinstance(since_days, int)
+                or not 1 <= since_days <= MAX_SINCE_DAYS
+            ):
+                raise FetchError(
+                    f"engine_options.wechat_local.since_days 应为 1-{MAX_SINCE_DAYS}"
+                    " 整数(sns 首拉/无水位历史窗口天数,缺省 "
+                    f"{DEFAULT_SINCE_DAYS};有水位后自动按增量开窗),当前为 "
+                    f"{since_days!r}",
+                    error_type="invalid_engine_options",
+                )
+            result["feed_kind"] = feed_kind
+            result["since_days"] = since_days
+            default_timeout = DEFAULT_LOCALDB_TIMEOUT_SECONDS
+            timeout = options.get("read_timeout_seconds", default_timeout)
+            if (
+                isinstance(timeout, bool)
+                or not isinstance(timeout, (int, float))
+                or timeout <= 0
+            ):
+                raise FetchError(
+                    "engine_options.wechat_local.read_timeout_seconds 应为正数秒"
+                    f"(单次桥读上界;sns 缺省 {DEFAULT_LOCALDB_TIMEOUT_SECONDS:.0f}"
+                    " 副本首建),当前为 "
+                    f"{timeout!r}",
+                    error_type="invalid_engine_options",
+                )
+            result["read_timeout_seconds"] = float(timeout)
+            return result
         chat = options.get("chat")
         if isinstance(chat, bool) or not isinstance(chat, str) or not chat.strip():
             raise FetchError(
@@ -285,6 +380,13 @@ class WechatLocalEngine(BaseEngine):
                 "像素链可见标题匹配;localdb 理想形态是会话 id wxid_xxx/"
                 "xxx@chatroom,声明显示名则按 sessions 名解析),当前为 "
                 f"{chat!r}",
+                error_type="invalid_engine_options",
+            )
+        if "feed_kind" in options:
+            raise FetchError(
+                "engine_options.wechat_local.feed_kind 是 sns 通道(朋友圈)的"
+                "模式配置,会话通道(pixel/localdb)不消费;朋友圈源请声明"
+                " channel: sns",
                 error_type="invalid_engine_options",
             )
         raw_sides = options.get("sides", list(DEFAULT_SIDES))
@@ -393,6 +495,8 @@ class WechatLocalEngine(BaseEngine):
     async def _fetch_impl(self) -> list[dict]:
         self._parse_source_url()
         options = self._options()
+        if options["channel"] == "sns":
+            return await self._fetch_sns(options)
         if options["channel"] == "localdb":
             return await self._fetch_localdb(options)
         return await self._fetch_pixel(options)
@@ -514,6 +618,163 @@ class WechatLocalEngine(BaseEngine):
         return payload
 
     # ------------------------------------------------------ localdb helpers
+
+    async def _fetch_sns(self, options: dict[str, Any]) -> list[dict]:
+        """sns 通道:``localdb sns feed|notices`` 朋友圈域只读(零截窗零 AX).
+
+        增量窗口 = 源级水位(同 localdb 机制);key_unavailable = 结构化
+        skip;**可疑空水位防御**(grill 决议):feed 零条目且桥报
+        parse_errors>0(XML 坏行吞噬整窗的形状)= 不推进水位——微信 XML
+        格式变化时中间窗口不丢,修好后的下一轮重开同窗补齐。
+        """
+        resolved = bin_path(None)
+        if not (resolved.is_file() and os.access(resolved, os.X_OK)):
+            raise FetchError(
+                "微信本机桥组件 bin 不存在或不可执行: "
+                f"{resolved}。修复指引:到设置安装 wechat-bridge 组件"
+                "(前置 brew install sqlcipher)",
+                error_type="component_missing",
+            )
+        mode = options["feed_kind"]
+        days = self._localdb_since_days(options)
+        argv = [
+            str(resolved), "localdb", "sns", mode,
+            "--since", f"{days}d", "--json",
+        ]
+        exit_code, stdout = await self._run_bridge(
+            argv, options["read_timeout_seconds"], label="查询朋友圈"
+        )
+        payload = self._check_bridge_result(
+            exit_code, stdout, skip_codes=frozenset({"key_unavailable"})
+        )
+        if payload is None:
+            self.last_skip_reason = "key_unavailable"
+            logger.info(
+                "wechat_local sns 显式空态:解密密钥未就绪(key_unavailable),"
+                "本轮跳过不算失败 source=%s。指引:跑仓库 %s(主人 sudo 一键"
+                "内存密钥扫描,命中自动落 keys.json,下一轮即通)",
+                self.source.name,
+                KEYSCAN_SCRIPT,
+            )
+            return []
+        items = self._sns_items_from_payload(payload)
+        sns = payload.get("sns") if isinstance(payload.get("sns"), dict) else {}
+        suspicious_empty = (
+            not items
+            and mode == "feed"
+            and isinstance(sns, dict)
+            and int(sns.get("parse_errors") or 0) > 0
+        )
+        if suspicious_empty:
+            logger.warning(
+                "wechat_local sns feed 可疑空窗:零条目且 parse_errors=%s"
+                "(XML 坏行形状),水位不推进 source=%s(下轮重开同窗)",
+                sns.get("parse_errors"),
+                self.source.name,
+            )
+            return items
+        self._advance_watermark()
+        return items
+
+    def _sns_items_from_payload(self, payload: dict[str, Any]) -> list[dict]:
+        """sns 成功载荷 → 条目(feed 强 id 锚 / notices 主键锚;§3.2).
+
+        标题回退链(design grill 决议:media type 数字语义不臆造,视频型
+        判别不做):text → [图片×N] → [朋友圈动态]。通知词面中性不假设
+        归属(is_relative_me 语义未实证)。``kind``/``username``/``ts`` 等
+        留 raw 面(metadata;feed v1 不投影)。
+        """
+        sns = payload.get("sns")
+        if not isinstance(sns, dict):
+            raise FetchError(
+                "wechat-bridge 组件返回的结果缺 sns 节;请重装或升级该组件"
+                "(需要 0.6.0+)",
+                error_type="bridge_error",
+            )
+        mode = sns.get("mode")
+        rows = sns.get("feed") if mode == "feed" else sns.get("notices")
+        if not isinstance(rows, list):
+            raise FetchError(
+                "wechat-bridge 组件返回的结果缺 feed/notices 列表;"
+                "请重装或升级该组件(需要 0.6.0+)",
+                error_type="bridge_error",
+            )
+        items: list[dict] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            if mode == "feed":
+                item = self._sns_feed_row_to_item(row)
+            else:
+                item = self._sns_notice_row_to_item(row)
+            if item is not None:
+                items.append(item)
+        logger.info(
+            "wechat_local sns 窗口取得 source=%s mode=%s rows=%s items=%s"
+            " parse_errors=%s(形状级,不记内容)",
+            self.source.name,
+            mode,
+            len(rows),
+            len(items),
+            sns.get("parse_errors"),
+        )
+        return items
+
+    def _sns_feed_row_to_item(self, row: dict[str, Any]) -> dict[str, Any] | None:
+        """一条朋友圈动态 → 管线条目(#wxsns-<id> 强锚)."""
+        entry_id = row.get("id")
+        if not isinstance(entry_id, str) or not entry_id:
+            return None  # 桥侧已过滤,防御形状
+        text = row.get("text")
+        text = text if isinstance(text, str) and text.strip() else ""
+        media_count = row.get("media_count")
+        media_count = media_count if isinstance(media_count, int) else 0
+        display = text or (f"[图片×{media_count}]" if media_count > 0 else "[朋友圈动态]")
+        title = display.splitlines()[0][:TITLE_MAX_CHARS]
+        return {
+            "url": sns_anchor(entry_id),
+            "title": title,
+            "content": display,
+            "sender": row.get("nickname") or row.get("username"),
+            "side": "left",  # 朋友圈 feed 全收(v1 不筛自己;design §3.1)
+            "ts": row.get("create_time"),
+            "kind": "sns",
+            "sns_kind": "feed",
+            "username": row.get("username"),
+            "nickname": row.get("nickname"),
+            "media_count": media_count,
+            "ref_nickname": row.get("ref_nickname"),
+        }
+
+    def _sns_notice_row_to_item(self, row: dict[str, Any]) -> dict[str, Any] | None:
+        """一条互动通知 → 管线条目(#wxsnsn-<local_id> 主键锚;中性词面)."""
+        local_id = row.get("local_id")
+        if local_id is None:
+            return None
+        who = row.get("from_nickname") or row.get("from_username") or "微信好友"
+        content = row.get("content")
+        content = content if isinstance(content, str) and content.strip() else ""
+        if row.get("type") == "comment" and content:
+            title = f"{who} 评论了朋友圈动态:{content[:40]}"
+        elif row.get("type") == "comment":
+            title = f"{who} 评论了朋友圈动态"
+        else:  # like / 未知型:赞词面兜底(未知型如实入 title,不臆造分类)
+            kind_label = "赞了" if row.get("type") == "like" else f"互动({row.get('type')})"
+            title = f"{who} {kind_label}朋友圈动态"
+        return {
+            "url": sns_notice_anchor(local_id),
+            "title": title[:TITLE_MAX_CHARS] if len(title) > TITLE_MAX_CHARS else title,
+            "content": content or title,
+            "sender": who,
+            "side": "left",
+            "ts": row.get("create_time"),
+            "kind": "sns",
+            "sns_kind": "notices",
+            "notice_type": row.get("type"),
+            "is_relative_me": row.get("is_relative_me"),
+            "from_username": row.get("from_username"),
+            "feed_id": row.get("feed_id"),
+        }
 
     def _localdb_since_days(self, options: dict[str, Any]) -> int:
         """水位 → ``--since`` 天数(天粒度向上取整;无水位 = since_days 缺省)."""

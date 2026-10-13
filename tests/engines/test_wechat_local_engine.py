@@ -1167,3 +1167,318 @@ def test_weixin_yaml_disabled_by_default_no_cron_job():
     (该断言面的真源是 cron 侧显式 create_job,这里锁文件语义注释在场)."""
     text = (REPO_ROOT / "config" / "weixin.yaml").read_text(encoding="utf-8")
     assert "缺省关" in text  # 隐私面显式开启纪律的文件级注记
+
+
+# ---------------------------------------------------------------------------
+# sns 通道电池(10-13-wechat-sns-feed;feed 强 id 锚 / notices 主键锚 /
+# 水位增量 / 可疑空防御 / 交叉键拒;零真桥零真实数据)
+# ---------------------------------------------------------------------------
+
+SNS_ENTRY_ID = "15031476623630930533"
+
+
+def sns_feed_row(
+    *,
+    entry_id: str = SNS_ENTRY_ID,
+    username: str = "wxid_synthetic00",
+    nickname: str | None = "合成昵称",
+    create_time: int = 1760000000,
+    text: str | None = "合成朋友圈正文",
+    media_count: int = 0,
+    media_types: list[str] | None = None,
+    ref_nickname: str | None = None,
+) -> dict[str, Any]:
+    """一条桥 sns feed 契约行(合成;桥 sns_query.parse_feed_row 形)."""
+    return {
+        "id": entry_id,
+        "username": username,
+        "nickname": nickname,
+        "create_time": create_time,
+        "text": text,
+        "media_count": media_count,
+        "media_types": media_types or [],
+        "ref_username": None,
+        "ref_nickname": ref_nickname,
+    }
+
+
+def sns_notice_row(
+    *,
+    local_id: int = 247,
+    create_time: int = 1760000000,
+    type_: str = "like",
+    from_nickname: str | None = "合成赞者",
+    content: str | None = None,
+    is_relative_me: int = 0,
+    feed_id: str | None = "-3417398247010987346",
+) -> dict[str, Any]:
+    """一条桥 sns notices 契约行(合成;feed_id 已是 str——桥侧转好)."""
+    return {
+        "local_id": local_id,
+        "create_time": create_time,
+        "type": type_,
+        "from_username": "wxid_synthetic_from",
+        "from_nickname": from_nickname,
+        "feed_id": feed_id,
+        "content": content,
+        "is_relative_me": is_relative_me,
+    }
+
+
+def sns_payload(mode: str, rows: list[dict[str, Any]], *, parse_errors: int = 0) -> dict[str, Any]:
+    """桥 localdb sns 成功载荷(契约形;§2.4)."""
+    return {
+        "sns": {
+            "mode": mode,
+            "since_days": 3,
+            mode: rows,
+            "rows_total": len(rows),
+            "parse_errors": parse_errors,
+            "domains": {"sns": "ok", "contact": "ok"},
+            "copy": {"dir": "/synthetic", "built": [], "kept": []},
+        }
+    }
+
+
+def make_sns_engine(
+    *,
+    feed_kind: Any = None,
+    since_days: Any = None,
+    store: Any = None,
+    name: str = "weixin-朋友圈",
+) -> tuple[WechatLocalEngine, FetchContext]:
+    """sns 通道引擎构造器(源名默认朋友圈形态;None 键不进 options)."""
+    options: dict[str, Any] = {"channel": "sns"}
+    if feed_kind is not None:
+        options["feed_kind"] = feed_kind
+    if since_days is not None:
+        options["since_days"] = since_days
+    source = make_source(
+        name=name,
+        engine="wechat_local",
+        url=SOURCE_URL,
+        engine_options={"wechat_local": options},
+    )
+    context, _clock = make_context(
+        make_client(lambda request: httpx.Response(404)), store=store
+    )
+    return WechatLocalEngine(source, context), context
+
+
+def test_sns_options_reject_session_keys():
+    """sns 无会话概念:chat/sides/count 声明即拒(静默忽略=谎报配置生效)."""
+    for key, value in (("chat", CHAT), ("sides", ["left"]), ("count", 50)):
+        engine, _ = make_engine_raw({"channel": "sns", key: value})
+        with pytest.raises(FetchError) as excinfo:
+            run(engine.fetch())
+        assert excinfo.value.error_type == "invalid_engine_options"
+        assert key in str(excinfo.value)
+
+
+def test_sns_rejects_bad_feed_kind_and_since_days():
+    engine, _ = make_engine_raw({"channel": "sns", "feed_kind": "bogus"})
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "invalid_engine_options"
+    assert "feed_kind" in str(excinfo.value)
+    engine, _ = make_engine_raw({"channel": "sns", "since_days": 0})
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert "since_days" in str(excinfo.value)
+
+
+def test_session_channels_reject_feed_kind():
+    """反向交叉:pixel/localdb 声明 feed_kind 同拒(sns 专属键)."""
+    engine, _ = make_engine_raw({"chat": CHAT, "feed_kind": "feed"})
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "invalid_engine_options"
+    assert "feed_kind" in str(excinfo.value)
+
+
+def test_sns_argv_contract_and_watermark(tmp_path, monkeypatch, engine_store):
+    """argv 契约:localdb sns feed --since 3d(首拉)→ 水位推进 → 1d(增量)."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            sns_payload("feed", [sns_feed_row()]), calls=calls
+        ),
+    )
+    engine, _ = make_sns_engine(store=engine_store)
+    assert len(fetch_items(engine)) == 1
+    assert calls[0][1:] == ["localdb", "sns", "feed", "--since", "3d", "--json"]
+    baseline = engine_store.get_baseline(wx_engine.watermark_key("weixin-朋友圈"))
+    assert baseline is not None and baseline.etag is not None
+    engine2, _ = make_sns_engine(store=engine_store)
+    fetch_items(engine2)
+    assert calls[1][1:] == ["localdb", "sns", "feed", "--since", "1d", "--json"]
+
+
+def test_sns_notices_argv(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(sns_payload("notices", [sns_notice_row()]), calls=calls),
+    )
+    engine, _ = make_sns_engine(feed_kind="notices")
+    assert len(fetch_items(engine)) == 1
+    assert calls[0][1:] == ["localdb", "sns", "notices", "--since", "3d", "--json"]
+
+
+def test_sns_feed_items_and_strong_anchor(tmp_path, monkeypatch):
+    """feed 条目:#wxsns-<id> 强锚(重读恒同);标题回退链;text 空 → 图片占位."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    rows = [
+        sns_feed_row(),
+        sns_feed_row(entry_id="9002", text=None, media_count=2, media_types=["2", "2"]),
+        sns_feed_row(entry_id="9003", text=None, media_count=0),
+        sns_feed_row(entry_id="9004", nickname=None),
+        "not-a-dict",
+    ]
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(sns_payload("feed", rows)),
+    )
+    engine, _ = make_sns_engine()
+    items = fetch_items(engine)
+    assert len(items) == 4
+    by_id = {item["url"].split("#wxsns-")[1]: item for item in items}
+    assert set(by_id) == {SNS_ENTRY_ID, "9002", "9003", "9004"}
+    first = by_id[SNS_ENTRY_ID]
+    assert first["url"] == f"wechat-local://sns/{SNS_ENTRY_ID}#wxsns-{SNS_ENTRY_ID}"
+    assert first["title"] == "合成朋友圈正文"
+    assert first["sender"] == "合成昵称"  # nickname 优先,username 回落
+    assert first["kind"] == "sns" and first["sns_kind"] == "feed"
+    assert first["ts"] == 1760000000
+    assert by_id["9002"]["title"] == "[图片×2]"  # 无文本 → 媒体占位
+    assert by_id["9003"]["title"] == "[朋友圈动态]"  # 无文本无媒体 → 兜底
+    assert by_id["9004"]["sender"] == "wxid_synthetic00"  # nickname 缺 → username
+    # 强幂等:同 id 重铸同锚(内容变了锚也不变 —— id 锚非内容锚)
+    assert wx_engine.sns_anchor(SNS_ENTRY_ID) == first["url"]
+
+
+def test_sns_notice_items_neutral_wording(tmp_path, monkeypatch):
+    """notices 条目:中性词面(不假设归属);like/comment/未知型三档."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    rows = [
+        sns_notice_row(local_id=1, type_="like", from_nickname="赞者"),
+        sns_notice_row(local_id=2, type_="comment", content="合成评论内容", from_nickname="评者"),
+        sns_notice_row(local_id=3, type_="99", from_nickname=None),
+    ]
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(sns_payload("notices", rows)),
+    )
+    engine, _ = make_sns_engine(feed_kind="notices")
+    items = fetch_items(engine)
+    assert [i["title"] for i in items] == [
+        "赞者 赞了朋友圈动态",
+        "评者 评论了朋友圈动态:合成评论内容",
+        "wxid_synthetic_from 互动(99)朋友圈动态",
+    ]
+    assert items[0]["url"] == "wechat-local://sns/notice/1#wxsnsn-1"
+    assert items[0]["content"] == "赞者 赞了朋友圈动态"  # 赞无内容 → 词面句
+    assert items[1]["content"] == "合成评论内容"
+    assert items[2]["notice_type"] == "99"
+    assert items[0]["is_relative_me"] == 0
+
+
+def test_sns_key_unavailable_skip_no_watermark(tmp_path, monkeypatch, engine_store):
+    """密钥缺位 = 结构化 skip(零条目不算失败),水位不推进(localdb 同判例)."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            {"error": {"code": "key_unavailable", "message": "合成缺钥"}},
+            exit_code=21,
+        ),
+    )
+    engine, _ = make_sns_engine(store=engine_store)
+    assert fetch_items(engine) == []
+    assert engine.last_skip_reason == "key_unavailable"
+    assert engine_store.get_baseline(wx_engine.watermark_key("weixin-朋友圈")) is None
+
+
+def test_sns_suspicious_empty_holds_watermark(tmp_path, monkeypatch, engine_store):
+    """可疑空防御(grill 决议):feed 零条目 + parse_errors>0 → 水位不推进."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(sns_payload("feed", [], parse_errors=37)),
+    )
+    engine, _ = make_sns_engine(store=engine_store)
+    assert fetch_items(engine) == []
+    assert engine_store.get_baseline(wx_engine.watermark_key("weixin-朋友圈")) is None
+    # 对照:安静空窗(parse_errors=0)照常推进
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(sns_payload("feed", [], parse_errors=0)),
+    )
+    engine2, _ = make_sns_engine(store=engine_store)
+    fetch_items(engine2)
+    assert engine_store.get_baseline(wx_engine.watermark_key("weixin-朋友圈")) is not None
+
+
+def test_sns_error_family_passthrough(tmp_path, monkeypatch):
+    """桥具名错误族透传(decrypt_failed 同 localdb 纪律)."""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(
+            {"error": {"code": "decrypt_failed", "message": "合成解密失败"}},
+            exit_code=22,
+        ),
+    )
+    engine, _ = make_sns_engine()
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "decrypt_failed"
+
+
+def test_sns_timeout_and_missing_payload_shape(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(raise_timeout=True),
+    )
+    engine, _ = make_sns_engine()
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "bridge_timeout"
+    # 旧桥(0.5.x)应答无 sns 节 → bridge_error + 升级指引
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner({"messages": []}),
+    )
+    engine2, _ = make_sns_engine()
+    with pytest.raises(FetchError) as excinfo2:
+        run(engine2.fetch())
+    assert excinfo2.value.error_type == "bridge_error"
+    assert "0.6.0" in str(excinfo2.value)
+
+
+def test_sns_timeout_default_600(tmp_path, monkeypatch):
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    seen: dict[str, float] = {}
+
+    def _runner(argv, input_text, timeout):
+        seen["timeout"] = timeout
+        return 0, json.dumps(sns_payload("feed", []), ensure_ascii=False), ""
+
+    monkeypatch.setattr(wx_engine, "run_bridge_command_sync", _runner)
+    engine, _ = make_sns_engine()
+    fetch_items(engine)
+    assert seen["timeout"] == wx_engine.DEFAULT_LOCALDB_TIMEOUT_SECONDS == 600.0
