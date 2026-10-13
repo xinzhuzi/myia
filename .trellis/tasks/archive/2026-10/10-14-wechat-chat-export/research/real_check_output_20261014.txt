@@ -1,0 +1,5 @@
+shard=message/message_0.db::Msg_3aec884d788fe4e43dfb44afa6725f7f rows=9821 pages=20 elapsed=245ms
+keyset_sequence_equal=True
+explain_plan(no index yet)=SCAN Msg_3aec884d788fe4e43dfb44afa6725f7f | USE TEMP B-TREE FOR ORDER BY
+census_mapping_consistent=True (mismatches=[])
+RESULT: PASS
