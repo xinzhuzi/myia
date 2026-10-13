@@ -67,6 +67,7 @@ import {
   channelCardKindOf,
   channelDisplayName,
   channelKindOf,
+  chatSenderOf,
   dayWindowStart,
   DEFAULT_FEED_DISPLAY,
   dealPriceView,
@@ -120,6 +121,7 @@ import { wechatLocalProbe, type WechatLocalProbeView } from "@/screens/messaging
 
 import { FeedCardFeedback } from "./feed-card-feedback";
 import { MarkdownLite } from "./markdown-lite";
+import { WxGroupInfoPanel } from "./wx-groupinfo-panel";
 import {
   isNativeWindowOpen,
   nativeViewFocusOf,
@@ -336,13 +338,30 @@ function formatAbsoluteTime(iso: string | null): string {
  *  模块级常量保身份稳定,marked 卡仅在 toggle 时换身份。 */
 const FEED_CARD_NO_STATE: { read?: boolean; starred?: boolean; later?: boolean } = {};
 
+/** 发信人稳定色(10-13 气泡重做,TG 群聊同思路):名字 hash → 固定调色板
+ *  取色,同名同色跨条/跨屏稳定,异名尽量异色;全部为暗底可读的 300 档
+ *  低饱和色(内联 style 直给,不依赖 JIT 类名)。 */
+const CHAT_SENDER_TONES = [
+  "#7dd3fc", "#6ee7b7", "#fcd34d", "#fda4af",
+  "#c4b5fd", "#5eead4", "#fdba74", "#bef264",
+] as const;
+
+function chatSenderTone(sender: string): string {
+  let hash = 0;
+  for (const ch of sender) {
+    hash = (hash * 31 + (ch.codePointAt(0) ?? 0)) >>> 0;
+  }
+  return CHAT_SENDER_TONES[hash % CHAT_SENDER_TONES.length];
+}
+
 const FeedCard = memo(function FeedCard({
   item,
   state,
   current,
   navFocused,
   kind,
-  inChannelSection = false,
+  chatLead = true,
+  chatTail = true,
   onCurrent,
   onToggle,
   onOpenError,
@@ -357,9 +376,11 @@ const FeedCard = memo(function FeedCard({
   navFocused: boolean;
   /** 渠道类型(10-06-feed-channel-groups:五档差异化呈现,判定见 api.ts) */
   kind: ChannelKind;
-  /** 频道语境(10-08 验收:TG 分节详情的节内卡)——节头已标频道名,
-   *  卡头不再重复渲染,只留相对时间;单频道流/source 作用域不在内 */
-  inChannelSection?: boolean;
+  /** 连续同发信人合并组位(10-13 气泡重做;时间线装配层 chatSenderSlots
+   *  算好传入):lead = 组首(泡内上方显发信人标签),tail = 组尾(泡体
+   *  不对称尾角 + 组间距)。非聊天时间线路径缺省双真,单卡自成一组。 */
+  chatLead?: boolean;
+  chatTail?: boolean;
   onCurrent: (key: string) => void;
   onToggle: (item: FeedItem, marker: "starred" | "later" | "read") => void;
   onOpenError: (message: string) => void;
@@ -389,6 +410,11 @@ const FeedCard = memo(function FeedCard({
   /** 收起态正文预览(10-08 验收:与标题重复的开头剥除,v3 cardDigest 同门;
    *  正文整段 = 标题时 null,预览行不渲染 —— 不再同屏读两遍) */
   const bodyPreview = bodyWithoutTitleDup(item);
+  /** 发信人词面拆分(10-13 气泡重做,渲染层):IM 入库 title 内嵌
+   *  「发信人: 正文」前缀,此处拆出泡内小型标签用;只对聊天两档做,
+   *  网站类标题的冒号是内容语法不动。数据层原样,详情弹窗仍显全文。 */
+  const chatSender =
+    kind === "telegram" || kind === "weixin" ? chatSenderOf(item.title) : null;
 
   /** G8:单条精评(feed.enrich;item 传 dedup_key,resolve 口径同 feedback.mark)。
    *  无配置(enrich_not_configured)/超时/失败都走 error 态结构化明示,可重试。 */
@@ -496,12 +522,12 @@ const FeedCard = memo(function FeedCard({
         {/* 三级密度卡(D4):13px 标题/正文、11px 元信息;hover 行背景 accent/50
             (teardown-linear-activity #5);品类色条/未读 accent 竖条(#6/D4)。
             j/k 键盘聚焦 = ring 环(A-feed;hover 只置 current 不亮环,Linear 式)。
-            P2-3 拉出泡根(10-09-tg-category-entry,v4 深检遗留翻案):telegram
-            卡根只留布局(w-fit 窄泡/min-w/max-w/relative 定位锚)与 data-*,
-            底色 = 中性卡底(bg-card,展开态富块落点);未读/已读着色底收编进
-            气泡 div —— 富块(OCR/图说/图文件/enrich/沉淀面板)作为泡外兄弟
-            节点,不再渲染在着色泡内呈双泡观感。悬停操作簇(absolute 根锚)/
-            右键/j-k 定位(root data-item-key)不动。 */}
+            10-13 气泡重做(主人令「布局好看一点」):聊天两档卡根 = 纯布局层
+            (零边框零着色,双泡观感根除 —— 着色/圆角/边框全在泡体单箱上),
+            宽度锚定 min-w 保底 + max-w 72% 封顶(右缘不再乱缩参差);组内
+            mb-0.5 紧、组尾 mb-2.5 松(TG 节奏),由装配层 chatSlots 定档。
+            非聊天档 = 原形态(边框+卡底,hover 行背景);悬停操作簇(absolute
+            根锚)/右键/j-k 定位(root data-item-key)不动。 */}
         <div
           data-testid={`feed-item-${rowKey}`}
           data-item-key={key}
@@ -514,7 +540,7 @@ const FeedCard = memo(function FeedCard({
           onFocus={() => onCurrent(key)}
           className={`group/feed-item relative ${
             kind === "telegram" || kind === "weixin"
-              ? "w-fit min-w-[13rem] max-w-[min(100%,640px)] rounded-md border border-border/40 bg-card py-2 pl-3 pr-3"
+              ? `w-fit min-w-[13rem] max-w-[min(100%,72%)] ${chatTail ? "mb-2.5" : "mb-0.5"}`
               : `rounded-md border py-2 pr-3 pl-4 hover:bg-accent/50 ${
                   state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
                 }`
@@ -535,8 +561,8 @@ const FeedCard = memo(function FeedCard({
       ) : null}
 
       {/* ═══ 渠道差异化头区(10-06-feed-channel-groups)═══
-          news/deal = 现状标题行形态(回归安全);telegram = 频道名行 +
-          消息气泡(聊天感:正文气泡+时间+频道名);watch = 「有更新」徽标 +
+          news/deal = 现状标题行形态(回归安全);telegram/weixin = 聊天气泡
+          (发信人标签+正文+时间,渠道名行退役);watch = 「有更新」徽标 +
           标题 + 目标页链接;document = 文档头(FileText + 标题)。
           10-08:标题/气泡点击 = 开详情弹窗(弹开即记已读);hover 用
           --link 文字档(F1:品牌紫文字档不达 AA);已读标题降 muted 档(F4)。*/}
@@ -545,36 +571,41 @@ const FeedCard = memo(function FeedCard({
           操作簇(#5);等宽数字(mono)——VL 指认时间戳与正文无视觉区分 */}
       {kind === "telegram" || kind === "weixin" ? (
         <>
-          {/* 聊天主页风格(10-09,主人令「做成 tg 的聊天主页风格」):
-              频道名入泡顶(非节内语境),时间收泡底右下,窄泡左对齐;
-              点击正文/摘要 = 详情弹窗(弹开即记已读)。P2-3:着色底收编于此
-              (未读亮泡 primary/10 / 已读降档 muted,v4 AC12 口径不变,仅从
-              根容器下移;hover 提亮随 group/feed-item 联动,观感同前)。
-              10-12 微信共用全套(weixin-<会话名> 源剥前缀显会话名);泡顶
-              图标随档:微信 = MessageCircle 官方绿,TG = Send。 */}
-          {!inChannelSection ? (
-            <div className="flex items-center gap-1 text-2xs font-medium text-link">
-              {kind === "weixin" ? (
-                <MessageCircle aria-hidden className="size-3 shrink-0 text-[#07C160]" />
-              ) : (
-                <Send aria-hidden className="size-3 shrink-0" />
-              )}
-              <span className="min-w-0 truncate">{channelDisplayName(item.source)}</span>
-            </div>
-          ) : null}
+          {/* 聊天气泡(10-13 主人令重做,TG 桌面端物种):泡顶「渠道图标 +
+              渠道名」整行退役 —— 群名一词一源只在聊天头(feed-stream-title),
+              每条重复 = 截图病灶①;发信人改泡内上方小型标签(词面拆自
+              title 前缀,chatSenderOf 守卫见 api.ts),低饱和 hash 稳定色,
+              连续同发信人合并组内首条才显(病灶⑤,TG 同款),平台点缀
+              (Send/MessageCircle)随发信人行不再独占整行。泡体 = 唯一
+              可见箱(根零着色,病灶③双泡观感根除):紧凑内边距 px-3
+              py-1.5,全 2xl 圆角 + 组尾不对称尾角 rounded-bl-md;未读/
+              已读档照旧走泡底色。点击正文/摘要 = 详情弹窗语义不变。 */}
           <div
-            className={`mt-0.5 w-fit rounded-2xl rounded-bl-md px-3 py-2 ${
+            className={`w-fit rounded-2xl px-3 py-1.5 ${chatTail ? "rounded-bl-md" : ""} ${
               state.read ? "bg-muted/20 group-hover/feed-item:bg-muted/35" : "bg-muted/45 group-hover/feed-item:bg-muted/60"
             }`}
             data-testid={`feed-tg-bubble-${rowKey}`}
           >
+            {chatLead && chatSender !== null ? (
+              <div
+                className="mb-0.5 flex items-center gap-1 text-2xs font-medium leading-tight"
+                style={{ color: chatSenderTone(chatSender.sender) }}
+              >
+                {kind === "weixin" ? (
+                  <MessageCircle aria-hidden className="size-3 shrink-0" style={{ color: "#07C160" }} />
+                ) : (
+                  <Send aria-hidden className="size-3 shrink-0 text-link" />
+                )}
+                <span className="min-w-0 truncate">{chatSender.sender}</span>
+              </div>
+            ) : null}
             <button
               type="button"
               className={`w-full min-w-0 text-left text-sm leading-relaxed break-words whitespace-pre-wrap hover:text-link ${state.read ? "text-muted-foreground" : "text-foreground"}`}
               onClick={() => onOpenDetail(item)}
               title={`点击查看详情:${item.title || item.url}`}
             >
-              {item.title || item.url}
+              {chatSender !== null ? chatSender.body : item.title || item.url}
             </button>
             {/* 收起正文行:经 bodyWithoutTitleDup 去标题重复开头(10-08 验收
                 「正文复述标题,同屏读两遍」);无独有信息 = 行消失;展开态 =
@@ -619,13 +650,15 @@ const FeedCard = memo(function FeedCard({
               )
             ) : null}
             {/* 泡底右下:展开钮(内联路径与详情弹窗并存,10-08 弹窗批语义)+
-                时间(聊天惯例,等宽数字) */}
+                时间(聊天惯例,等宽数字)。10-13:展开钮改 hover/键盘聚焦
+                浮现(裸 chevron 静态常驻显生硬,病灶④;悬停操作簇同门),
+                静态视图 = 时间独占右下,词面/语义不动。 */}
             <div className="mt-1 flex items-center justify-end gap-1">
               {expandable ? (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-5"
+                  className="size-5 opacity-0 transition-opacity duration-(--duration-fast) ease-out-expo group-hover/feed-item:opacity-100 focus-visible:opacity-100"
                   aria-label={expanded ? "收起条目" : "展开条目"}
                   aria-expanded={expanded}
                   onClick={() => setExpanded((current) => !current)}
@@ -1364,6 +1397,12 @@ const ChannelRow = memo(function ChannelRow({
  * 行本身仍可点开看历史消息)。交互契约镜像 ChannelRow:role=button + Space
  * 激活、Enter 归全局巡游线、data-feed-group-row 定位锚。testid 走 wx-monitor-*
  * 契约词(feed-channel-row-* 是 2 级 ChannelRow 的结构词,不共用)。
+ *
+ * 右键「群信息」(10-13-wechat-groupinfo R2):ContextMenu 根纯 Provider
+ * 零包装 DOM,asChild 合 onContextMenu 到行面(FeedCard 右键菜单判例同门,
+ * 布局零扰动)—— 入口形态择型记录:行 2 已有 状态词/预览/未读徽标 三位,
+ * 行尾「群信息」钮会挤占预览位并与行点击语义打架(需 stopPropagation),
+ * 右键菜单最贴本行密度(详情类轻入口);Esc/关闭让位收口由基件承担。
  */
 const WxMonitorRow = memo(function WxMonitorRow({
   card,
@@ -1376,6 +1415,7 @@ const WxMonitorRow = memo(function WxMonitorRow({
   onCurrent,
   onOpen,
   onGoAcquire,
+  onOpenInfo,
 }: {
   card: FeedChannelCardData;
   /** 源健康度快照(sourceHealthBySource.get(key);缺席 = 未知词如实) */
@@ -1392,6 +1432,8 @@ const WxMonitorRow = memo(function WxMonitorRow({
   onOpen: (key: string) => void;
   /** 「去获取密钥」动线(密钥缺失灰行;跳 /weixin 屏密钥状态行) */
   onGoAcquire: () => void;
+  /** 「群信息」动线(右键菜单;开群信息详情弹窗,面板自拉数据) */
+  onOpenInfo: (key: string) => void;
 }) {
   const meta = CHANNEL_CARD_META[card.kind];
   const KindIcon = meta.Icon;
@@ -1404,6 +1446,8 @@ const WxMonitorRow = memo(function WxMonitorRow({
   const seenIso = card.latest?.first_seen ?? (loadedPreview === null ? card.statsLatestSeen ?? null : null);
   const time = seenIso ? formatRelativeTime(seenIso) : null;
   return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
     <div
       data-testid={`wx-monitor-row-${card.key}`}
       data-item-key={card.key}
@@ -1512,6 +1556,12 @@ const WxMonitorRow = memo(function WxMonitorRow({
         </div>
       </div>
     </div>
+      </ContextMenuTrigger>
+      {/* 右键菜单(入口形态见组件头注):群信息 = 详情弹窗动线 */}
+      <ContextMenuContent>
+        <ContextMenuItem onSelect={() => onOpenInfo(card.key)}>群信息</ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 });
 
@@ -2600,6 +2650,15 @@ export function FeedScreen() {
   );
   const closeDetail = useCallback(() => setDetailKey(null), []);
 
+  /** 群信息弹窗(10-13-wechat-groupinfo R2):存源名(weixin-<会话名> 全称),
+   *  面板内部剥前缀作寻址键并自拉数据(契约 prd「group-info 应答契约 v1」),
+   *  关闭 = 置 null 卸载(数据不缓存,重开重拉 —— 群成员/公告随微信侧变动,
+   *  每次读现值不陈旧)。回调稳定引用:memo 化 WxMonitorRow 不因内联箭头
+   *  全行失忆(同 openChannel/gotoWxKeyAcquire 纪律)。 */
+  const [wxGroupInfoSource, setWxGroupInfoSource] = useState<string | null>(null);
+  const openWxGroupInfo = useCallback((key: string) => setWxGroupInfoSource(key), []);
+  const closeWxGroupInfo = useCallback(() => setWxGroupInfoSource(null), []);
+
   /** G9 批量:全部标已读/未读(v7 总览态工具条入口 = 全库语义;选中渠道
    *  不出钮 —— mark_all 无 source 参数,范围不实则不出现)—— 过门后
    *  store.state.mark_all 单 UPDATE 全库(含未翻页/未加载条目);就地翻转
@@ -3022,11 +3081,27 @@ export function FeedScreen() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [confirmAllMark]);
 
+  /** 连续同发信人合并成组(10-13 气泡重做,TG 同款;病灶⑤):键 = 源 +
+   *  词面拆出的发信人(chatSenderOf;无 sender = 匿名键,前后同键也归组,
+   *  只是不显名)。组首 lead = 泡内发信人标签,组尾 tail = 尾角圆角 + 组
+   *  间距;日期分节各自成列,节间天然断组。 */
+  const chatSenderSlots = (items: FeedItem[]) => {
+    const senderKeyOf = (row: FeedItem) =>
+      `${row.source ?? ""}\u0000${chatSenderOf(row.title)?.sender ?? ""}`;
+    return items.map((item, index) => ({
+      item,
+      lead: index === 0 || senderKeyOf(items[index - 1]) !== senderKeyOf(item),
+      tail: index + 1 >= items.length || senderKeyOf(items[index + 1]) !== senderKeyOf(item),
+    }));
+  };
+
   /** 单卡渲染(时间线/单列列表两路共用;右键菜单随卡在 FeedCard 内;
    *  渠道类型随卡判定 —— 五档差异化呈现,engine 词表源 = health 装配的
    *  源名映射;TG 卡带频道名行,列表里卡片自带来源渠道语义。
-   *  v8 三层单环:3 级条目环直属 j/k,环呈现 = navByKeyboard。 */
-  const renderCard = (entry: FeedItem) => (
+   *  v8 三层单环:3 级条目环直属 j/k,环呈现 = navByKeyboard。
+   *  10-13:聊天时间线路径传合并组位(chatSenderSlots),非聊天路径缺省
+   *  双真(单卡自成一组,形态不变)。 */
+  const renderCard = (entry: FeedItem, chatSlot?: { lead: boolean; tail: boolean }) => (
     <FeedCard
       key={itemKey(entry)}
       item={entry}
@@ -3034,6 +3109,8 @@ export function FeedScreen() {
       current={itemCurrentKey === itemKey(entry)}
       navFocused={itemCurrentKey === itemKey(entry) && navByKeyboard}
       kind={channelKindOf(entry, engineBySource)}
+      chatLead={chatSlot?.lead ?? true}
+      chatTail={chatSlot?.tail ?? true}
       onCurrent={onCurrentCard}
       onToggle={toggle}
       onOpenError={setOpenError}
@@ -4295,6 +4372,9 @@ export function FeedScreen() {
                           注释:清流重拉不退出 3 级;密钥缺失行也可开 = 看历史) */
                       onOpen={openChannel}
                       onGoAcquire={gotoWxKeyAcquire}
+                      /* 群信息动线(10-13-wechat-groupinfo R2):右键菜单 →
+                          详情弹窗(稳定引用,memo 行不因内联箭头失忆) */
+                      onOpenInfo={openWxGroupInfo}
                     />
                   ))
                 ) : (
@@ -5052,12 +5132,14 @@ export function FeedScreen() {
               )
             ) : chatView ? (
               /* ═══ TG 聊天视图(v4 全套原样):气泡时间线,日期分隔居中胶囊;
-                  含历史态照旧。10-11 双栏:TG 右栏内全宽(TG 群对话方式,不再
-                  居中窄列留白;气泡自身 min/max-w 上限照旧,日期胶囊 mx-auto
-                  仍居中);网站/日报形态走 feed-stream-list 独立分支(居中窄
-                  列原样),不经此处 ═══ */
+                  含历史态照旧。10-13 气泡重做:时间线列宽收窄锚定(居中
+                  max-w-[760px] 舒适列,病灶③「一列卡片左缘参差、右侧大片
+                  空白」的视轴锚);组内行距由卡根 mb 档(chatSenderSlots)
+                  接管 —— 组内紧组间松;气泡自身 min/max-w 上限照旧,日期
+                  胶囊 mx-auto 仍居中;网站/日报形态走 feed-stream-list 独立
+                  分支(居中窄列原样),不经此处 ═══ */
               groups !== null ? (
-                <div className="flex w-full flex-col gap-4" data-testid="feed-chat-timeline">
+                <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4" data-testid="feed-chat-timeline">
                   {groups.map((group) => (
                     <section key={group.key} aria-label={`时间分组:${group.label}`}>
                       <div
@@ -5066,21 +5148,23 @@ export function FeedScreen() {
                       >
                         {`${group.label} · ${group.items.length} 条`}
                       </div>
-                      <div className="mt-1 flex flex-col gap-1.5">{group.items.map(renderCard)}</div>
+                      <div className="mt-1 flex flex-col">
+                        {chatSenderSlots(group.items).map((slot) => renderCard(slot.item, slot))}
+                      </div>
                     </section>
                   ))}
                 </div>
               ) : (
-                // 不分组:平铺(行距 6px 密度档;TG 右栏全宽同上)
-                <div className="flex w-full flex-col gap-1.5" data-testid="feed-flat-list">
-                  {displayItems.map(renderCard)}
+                // 不分组:平铺(组位口径同上,行距由卡根 mb 档接管)
+                <div className="mx-auto flex w-full max-w-[760px] flex-col" data-testid="feed-flat-list">
+                  {chatSenderSlots(displayItems).map((slot) => renderCard(slot.item, slot))}
                 </div>
               )
             ) : (
               /* ═══ 网站/日报渠道条目流(§3.1):单列纵向列表(Kestra 行密度),
                   内容卡直出;点击卡片 = 详情弹窗 ═══ */
               <div className="mx-auto flex w-full max-w-[820px] flex-col gap-1.5" data-testid="feed-stream-list">
-                {displayItems.map(renderCard)}
+                {displayItems.map((entry) => renderCard(entry))}
               </div>
             )}
 
@@ -5106,6 +5190,13 @@ export function FeedScreen() {
           onToggle={toggle}
           onOpenError={setOpenError}
         />
+      ) : null}
+
+      {/* 群信息详情弹窗(10-13-wechat-groupinfo R2):详情类用模态判例
+          (FeedItemDetail 同族基件);入口 = 3 级左栏微信群行右键菜单,
+          面板自拉数据(Esc/遮罩关闭让位收口同上) */}
+      {wxGroupInfoSource !== null ? (
+        <WxGroupInfoPanel source={wxGroupInfoSource} onClose={closeWxGroupInfo} />
       ) : null}
     </div>
   );

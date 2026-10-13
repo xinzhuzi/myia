@@ -698,6 +698,29 @@ export function channelDisplayName(source: string | null): string {
   return stripped === "" ? source : stripped;
 }
 
+/** 聊天发信人词面拆分(10-13 气泡重做,渲染层 —— 数据层不动):IM 入库
+ *  title 常内嵌「发信人: 正文」前缀(TG 转发/微信本机捕获实况,如
+ *  「i: …」「YkC: …」),泡内直出会让发信人与正文同权挤一行。只在词面层
+ *  拆,守卫从紧(拆错比不拆更伤):前缀 1-24 字无空白、至少含一个字母/
+ *  汉字(纯数字时间「10:30 开会」、纯符号不算人)、非已知协议 scheme 词、
+ *  冒号后须有余部且余部非空非「//」(URL scheme 尾巴不算)。
+ *  已知局限:纯中文「标签: 值」形态(公告:/基于版本:)与中文人名词面
+ *  无法区分,release-note 式误拆是有意容忍的代价(信息无损,只是词面归位)。
+ *  未命中回 null,调用方正文原样直出。 */
+const CHAT_SENDER_RE = /^([^\s:：]{1,24})[:：][ \t]*/;
+const CHAT_SENDER_SCHEME_RE = /^(https?|ftps?|file|data|ws|wss?|mailto|tel|sms|wechat-local)$/i;
+
+export function chatSenderOf(title: string): { sender: string; body: string } | null {
+  const match = CHAT_SENDER_RE.exec(title);
+  if (match === null) return null;
+  const sender = match[1];
+  const body = title.slice(match[0].length).replace(/^\s+/, "");
+  if (!/[\p{L}]/u.test(sender)) return null; // 纯数字/纯符号不是发信人
+  if (CHAT_SENDER_SCHEME_RE.test(sender)) return null; // URL scheme 不是发信人
+  if (body === "" || body.startsWith("//")) return null; // 冒号后空/链接尾巴
+  return { sender, body };
+}
+
 /** first_seen 数值化(缺失/非法 = 负无穷,排序沉底;feedChannelCards 消费) */
 function firstSeenValue(iso: string | null | undefined): number {
   if (!iso) return Number.NEGATIVE_INFINITY;

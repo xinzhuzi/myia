@@ -95,6 +95,7 @@ import {
   channelCardKindOf,
   COUNT_PROTOCOL,
   channelKindOf,
+  chatSenderOf,
   dayWindowStart,
   DEFAULT_FEED_DISPLAY,
   dealPriceView,
@@ -4503,7 +4504,7 @@ describe("FeedScreen · v9 原生视图切换(design-v9 照稿)", () => {
 });
 
 describe("FeedScreen · 聊天主页风格形态锚(10-09 v4,v7 左栏落点)", () => {
-  it("TG 气泡形态:w-fit 窄泡+未读亮泡在气泡 div+根中性卡底+无竖条+无元信息行;泡底展开钮+时间同排;展开态富块不在着色泡内(P2-3)", async () => {
+  it("TG 气泡形态(10-13 随迁):泡体单箱零双泡 —— 根 = 纯布局层(零边框零着色,w-fit/min-w/max-w 72% 锚),未读亮泡在气泡 div,组尾不对称尾角;泡底展开钮(hover 浮现)+时间同排;展开态富块不在着色泡内(P2-3 延续)", async () => {
     // 条目数组造在实现外(mockImplementation 每调用重造会让 id 漂移,查
     // feed-item-1 永远落空——10-09 形态锚用例踩坑实录);image_ocr 备展开态
     // 富块(OCR 块,P2-3 断言锚)
@@ -4518,21 +4519,27 @@ describe("FeedScreen · 聊天主页风格形态锚(10-09 v4,v7 左栏落点)", 
     const card = await screen.findByTestId("feed-item-1");
     expect(card.className).toContain("w-fit");
     expect(card.className).toContain("max-w-");
-    // P2-3 拉出泡根 + v9 TG 网页版风:着色/圆角尾角收编到气泡 div
-    // (bg-muted/45 无边框+rounded-bl-md 尾角),根 = 中性布局层
+    // 10-13 气泡重做:根不再画框着色(双泡观感根除),泡体 = 唯一可见箱
+    // (bg-muted/45 无边框;单条消息自成一组 = 组尾,rounded-bl-md 尾角)
     const bubble = within(card).getByTestId("feed-tg-bubble-1");
     expect(bubble.className).toContain("bg-muted/45");
     expect(bubble.className).toContain("rounded-bl-md");
+    expect(bubble.className).toContain("rounded-2xl");
+    expect(card.className).not.toContain("bg-card");
+    expect(card.className).not.toContain("border");
     expect(card.className).not.toContain("bg-primary/10");
-    expect(card.className).toContain("bg-card");
     expect(within(card).queryByTestId("feed-strip-1")).toBeNull();
     expect(within(card).queryByText("ai")).toBeNull();
     const footer = within(card).getByText("刚刚").closest("div");
     expect(footer?.className).toContain("justify-end");
-    // 内联展开钮在泡底行:点击翻转为「收起条目」(与详情弹窗并存)
-    fireEvent.click(within(footer as HTMLElement).getByRole("button", { name: "展开条目" }));
+    // 内联展开钮在泡底行(hover/键盘聚焦浮现,静态裸 chevron 退役):
+    // 点击翻转为「收起条目」(与详情弹窗并存),键盘聚焦可拉回可见
+    const expandButton = within(footer as HTMLElement).getByRole("button", { name: "展开条目" });
+    expect(expandButton.className).toContain("opacity-0");
+    expect(expandButton.className).toContain("focus-visible:opacity-100");
+    fireEvent.click(expandButton);
     expect(within(footer as HTMLElement).getByRole("button", { name: "收起条目" })).toBeTruthy();
-    // P2-3:展开态富块(OCR 全文块)是泡外兄弟节点,落在根卡底色上,
+    // P2-3:展开态富块(OCR 全文块)是泡外兄弟节点,落在时间线底色上,
     // 不在着色泡内(双泡观感根除;正文/标题仍在泡内)
     const ocrBlock = within(card).getByTestId("feed-image-ocr-1");
     expect(bubble.contains(ocrBlock)).toBe(false);
@@ -5062,13 +5069,15 @@ describe("FeedScreen · 验收整改批(正文去重/节内省频道名/弹窗�
     await closeDetailDialog();
   });
 
-  it("② TG 渠道详情气泡卡自带频道名行(v6:节头随分节视图退役,频道归属回到每张卡),相对时间保留", async () => {
+  it("② TG 渠道详情气泡卡泡顶频道名行退役(10-13 气泡重做:群名一词一源只在聊天头,每条重复 = 冗余),相对时间保留", async () => {
     mockStoreV12Acceptance();
     await renderChannelDetail("telegram-mihomo_party_group");
-    // 每张 TG 气泡卡各带频道名行(词表名,2 张卡 = 2 次;断言收窄时间线,
-    // 排除工具条作用域词/sr-only 播报的同名词面)
+    // 时间线内零频道名词面(词表名只随聊天头 feed-stream-title;断言收窄
+    // 时间线,排除工具条作用域词/sr-only 播报的同名词面)
     const timeline = screen.getByTestId("feed-chat-timeline");
-    expect(within(timeline).getAllByText("mihomo_party_group")).toHaveLength(2);
+    expect(within(timeline).queryAllByText("mihomo_party_group")).toHaveLength(0);
+    // 聊天头一词一源在场
+    expect(screen.getByTestId("feed-stream-title").textContent).toContain("mihomo_party_group");
     // 卡头时间仍在(卡面元信息不缺)
     expect(within(timeline).getAllByText(/分钟前|刚刚/).length).toBeGreaterThanOrEqual(2);
   });
@@ -5624,7 +5633,7 @@ describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
     await waitFor(() => expect(screen.getByTestId("location-probe").textContent).toBe("/messaging"));
   });
 
-  it("3 级微信渠道:聊天双栏共用(左栏监控会话 data-im-kind=wx)+ 气泡卡 data-kind=weixin + 泡顶会话名(剥 weixin- 前缀);wechat-local:// 锚「打开原文」如实缺席", async () => {
+  it("3 级微信渠道:聊天双栏共用(左栏监控会话 data-im-kind=wx)+ 气泡卡 data-kind=weixin + 泡顶会话名行退役(10-13:一词一源在聊天头);wechat-local:// 锚「打开原文」如实缺席", async () => {
     mockProbe(probePayload());
     const wxItem = fixtureItem({
       source: "weixin-测试会话",
@@ -5644,8 +5653,8 @@ describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
     const card = await screen.findByTestId(`feed-item-${wxItem.id}`);
     expect(card.getAttribute("data-kind")).toBe("weixin");
     expect(within(card).getByTestId(`feed-tg-bubble-${wxItem.id}`)).toBeTruthy();
-    // 泡顶会话名:channelDisplayName 剥 weixin- 前缀显会话本名
-    expect(within(card).getByText("测试会话")).toBeTruthy();
+    // 泡顶会话名行退役(10-13 气泡重做):群名一词一源只在聊天头
+    expect(within(card).queryByText("测试会话")).toBeNull();
     // wechat-local:// 自定义锚不可打开 →「打开原文」如实缺席(有意,§2.3)
     expect(within(card).queryByRole("button", { name: "打开原文" })).toBeNull();
     // 聊天头:wx 专属 testid(feed-wx-chat-header),会话名大字
@@ -5980,6 +5989,25 @@ describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
     // 未读档被切「全部」:刚读的消息留在时间线(TG 聊天语义同款)
     await waitFor(() => expect(screen.getByText("点进来的未读一条")).toBeTruthy());
   });
+
+  it("wx 档同套泡形(10-13 气泡重做,平台区分只走点缀色):发信人标签同规则拆显,平台图标随发信人行(不整行重复渠道名)", async () => {
+    mockProbe(probePayload());
+    const wxSenderItem = fixtureItem({
+      source: "weixin-测试会话",
+      title: "i: wx 消息一条",
+      content: null,
+      url: "wechat-local://chat/%E6%B5%8B%E8%AF%95#wx-abc123def4567890",
+    });
+    mockWxWorld([wxSenderItem]);
+    renderScreen();
+    await openWxChannel();
+    const card = await screen.findByTestId(`feed-item-${wxSenderItem.id}`);
+    // 同一套拆分与标签(TG/weixin 两档同一泡形,不分叉两套布局)
+    expect(within(card).getByText("i")).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "wx 消息一条" })).toBeTruthy();
+    // 渠道名行退役在 wx 档同样成立(群名只在聊天头)
+    expect(within(card).queryByText("测试会话")).toBeNull();
+  });
 });
 
 describe("feed weixin 档 纯函数(api.ts,10-12-weixin-feed-channel)", () => {
@@ -6073,5 +6101,104 @@ describe("feed weixin 档 纯函数(api.ts,10-12-weixin-feed-channel)", () => {
     const types = aggregateTypeCards(cards, null);
     expect(filterTypesByQuery(types, "微信").map((type) => type.kind)).toEqual(["wx"]);
     expect(filterTypesByQuery(types, "wx").map((type) => type.kind)).toEqual(["wx"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 气泡重做批(10-13,主人令「这个布局不好看,你给我搞的好看一点」:
+// 泡顶渠道名行退役 / 发信人词面拆分标签 / 连续同发信人合并 / 时间线列宽锚)
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · 气泡重做(10-13 气泡布局好看一点)", () => {
+  /** chatSenderOf 守卫单测(词表层,api.ts;数据层不动) */
+  it("chatSenderOf:「YkC: 消息」拆人名与正文;守卫从紧 —— 纯数字时间/URL scheme/冒号后空不拆;无前缀原样 null", () => {
+    // 常规拆分(实况词形:i: / YkC: / 中文名)
+    expect(chatSenderOf("YkC: 今天更新了")).toEqual({ sender: "YkC", body: "今天更新了" });
+    expect(chatSenderOf("i: 收到")).toEqual({ sender: "i", body: "收到" });
+    expect(chatSenderOf("张三: 你好")).toEqual({ sender: "张三", body: "你好" });
+    // 冒号后换行(发信人独占一行的实况形态)也拆
+    expect(chatSenderOf("YkC:\n第二条消息")).toEqual({ sender: "YkC", body: "第二条消息" });
+    // 守卫:纯数字(时间 10:30 开会)/纯符号不是人
+    expect(chatSenderOf("10:30 开会")).toBeNull();
+    expect(chatSenderOf("::: x")).toBeNull();
+    // 守卫:URL scheme 词与链接尾巴(https://…)不拆
+    expect(chatSenderOf("https://example.com/a")).toBeNull();
+    expect(chatSenderOf("wechat-local://chat/x#wx-1")).toBeNull();
+    // 守卫:冒号后空 = 不猜
+    expect(chatSenderOf("YkC:")).toBeNull();
+    expect(chatSenderOf("YkC: ")).toBeNull();
+    // 无前缀(标题无冒号)= null,原样直出
+    expect(chatSenderOf("🎉 Clash Party v2 发布")).toBeNull();
+  });
+
+  it("发信人标签:泡内上方小型标签显拆出的人名,正文剥「发信人: 」前缀直出(词面归位,数据层不动)", async () => {
+    const chatItems = [
+      fixtureItem({ source: "telegram-durov", title: "YkC: 新版本已经推流", content: "YkC: 新版本已经推流\n变更点见频道公告" }),
+    ];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(chatItems.filter((item) => !params?.source || item.source === params.source)),
+      ),
+    );
+    await renderChannelDetail("telegram-durov");
+    const card = await screen.findByTestId("feed-item-1");
+    // 泡内发信人标签在("YkC" 词面在场)
+    expect(within(card).getByText("YkC")).toBeTruthy();
+    // 正文剥前缀:标题按钮名 = 前缀后的正文,「YkC: 新版本已经推流」整词直出不复现
+    expect(within(card).queryByRole("button", { name: "YkC: 新版本已经推流" })).toBeNull();
+    expect(within(card).getByRole("button", { name: "新版本已经推流" })).toBeTruthy();
+    // 无前缀消息:零发信人标签(不硬造)
+    cleanup();
+    const plainItems = [fixtureItem({ source: "telegram-durov", title: "普通消息无前缀" })];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(plainItems.filter((item) => !params?.source || item.source === params.source)),
+      ),
+    );
+    await renderChannelDetail("telegram-durov");
+    const plainCard = await screen.findByTestId(`feed-item-${plainItems[0].id}`);
+    expect(within(plainCard).queryByText("YkC")).toBeNull();
+    expect(within(plainCard).getByRole("button", { name: "普通消息无前缀" })).toBeTruthy();
+  });
+
+  it("连续同发信人合并成组(TG 同款):组内首条显发信人标签,后续条省略;换发信人重显;组尾才有尾角 rounded-bl-md", async () => {
+    const chatItems = [
+      fixtureItem({ source: "telegram-durov", title: "i: 第一条", first_seen: new Date(Date.now() - 30_000).toISOString() }),
+      fixtureItem({ source: "telegram-durov", title: "i: 第二条", first_seen: new Date(Date.now() - 20_000).toISOString() }),
+      fixtureItem({ source: "telegram-durov", title: "YkC: 第三条换人了", first_seen: new Date(Date.now() - 10_000).toISOString() }),
+    ];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(chatItems.filter((item) => !params?.source || item.source === params.source)),
+      ),
+    );
+    await renderChannelDetail("telegram-durov");
+    const card1 = await screen.findByTestId("feed-item-1");
+    const card2 = await screen.findByTestId("feed-item-2");
+    const card3 = await screen.findByTestId("feed-item-3");
+    // 组首(i 第一条)显发信人;组内后续(第二条)省略
+    expect(within(card1).getByText("i")).toBeTruthy();
+    expect(within(card2).queryByText("i")).toBeNull();
+    // 换发信人重显
+    expect(within(card3).getByText("YkC")).toBeTruthy();
+    // 组尾不对称尾角:每组的最后一条有 rounded-bl-md,组内后续条全 2xl 无尾角
+    expect(within(card2).getByTestId("feed-tg-bubble-2").className).toContain("rounded-bl-md");
+    expect(within(card1).getByTestId("feed-tg-bubble-1").className).not.toContain("rounded-bl-md");
+  });
+
+  it("时间线列宽锚定:聊天时间线居中舒适列(max-w-[760px] mx-auto),卡根带 min-w 保底 + max-w 72% 封顶(右缘不再乱缩)", async () => {
+    const chatItems = [fixtureItem({ source: "telegram-durov", title: "短消息" })];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(
+        result(chatItems.filter((item) => !params?.source || item.source === params.source)),
+      ),
+    );
+    await renderChannelDetail("telegram-durov");
+    const timeline = await screen.findByTestId("feed-chat-timeline");
+    expect(timeline.className).toContain("max-w-[760px]");
+    expect(timeline.className).toContain("mx-auto");
+    const card = await screen.findByTestId("feed-item-1");
+    expect(card.className).toContain("min-w-[13rem]");
+    expect(card.className).toContain("max-w-[min(100%,72%)]");
   });
 });
