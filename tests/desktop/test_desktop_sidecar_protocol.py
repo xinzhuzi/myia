@@ -938,7 +938,8 @@ def test_store_items_projects_image_ocr_scalar(tmp_path):
     assert by_key["ocr3"]["image_ocr"] == "x"
     # raw 整包仍不出协议面:仅白名单投影,其余 metadata 键不外泄
     # (read/starred/later = v10 起随行读态三键,G9;价格/优惠七键 + urlwatch
-    # 事件两键 = 10-06-feed-channel-groups 渠道差异化呈现批)
+    # 事件两键 = 10-06-feed-channel-groups 渠道差异化呈现批;nickname =
+    # 10-13-wechat-sns-merge 发帖人白名单一键,entry.py _project_item 同源)
     assert set(by_key["ocr1"]) == {
         "id", "url", "dedup_key", "title", "source", "content", "image_ocr",
         "image_caption", "image_files", "image_ocr_lines",
@@ -947,6 +948,7 @@ def test_store_items_projects_image_ocr_scalar(tmp_path):
         "price_text", "sale_price", "normal_price", "final_price",
         "original_price", "discount_pct", "savings_pct",
         "watch_event", "watch_page",
+        "nickname",
     }
     # 本条 raw 无价格/watch 键 → 全 None(显式才有,异型/缺失置 None)
     assert by_key["ocr1"]["price_text"] is None
