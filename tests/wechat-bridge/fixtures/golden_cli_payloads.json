@@ -13,7 +13,7 @@
    "ax_tree": "unknown"
   },
   "wechat_version": "4.1.15",
-  "bridge_version": "0.7.0",
+  "bridge_version": "0.8.1",
   "reasons": [
    {
     "code": "window_closed",
@@ -39,6 +39,12 @@
    "copy_capacity_mb": 512,
    "mem_search_enabled": false,
    "key_provider_path": "",
+   "media_decrypt_path": "",
+   "media_cache_capacity_mb": 2048,
+   "http_api_enabled": false,
+   "http_api_host": "127.0.0.1",
+   "http_api_port": 5032,
+   "http_api_token_configured": false,
    "source": null
   }
  },
@@ -59,13 +65,22 @@
  },
  "ok_send_text": {
   "send": {
-   "chat": "filehelper",
+   "target": {
+    "username": "filehelper",
+    "display_name": "文件传输助手"
+   },
+   "channel": "ax",
    "sent": true,
    "attempts": 1,
-   "readback": "ocr_strip",
+   "readback": "ax_value",
+   "title_verify": "ax_label",
+   "composer_cleared": true,
+   "localdb_receipt": true,
    "post_send_verified": true,
    "post_send_note": null,
-   "elapsed_ms": 1
+   "fingerprint_note": null,
+   "elapsed_ms": 1,
+   "chat": "filehelper"
   }
  },
  "err_send_focus_required": {

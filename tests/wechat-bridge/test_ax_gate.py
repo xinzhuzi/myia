@@ -57,20 +57,31 @@ class TestPreconditionGate:
         assert ensure_ui_preconditions() is None  # 过窗门放行(门只挡 10/11/12)
 
     def test_all_green_gate_passes_and_send_delegates(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """前置全绿 = 门放行(None);D1 已落(0.7.0)——send_text 委托
-        sendui 真身(此处桩验证委托面;三支柱本体见 test_send_ui.py)。"""
+        """前置全绿 = 门放行(None);send_text 委托 sendui 真身(此处桩验证
+        委托面——0.8.0 三源合体新签名 target/dry_run/on_armed 全参透传;
+        全链本体见 test_send_ui.py)。"""
         _gate(monkeypatch, process=True, ax=True, window=True)
         assert ensure_ui_preconditions() is None
         from wechat_bridge.ax import send_text
         from wechat_bridge.config import BridgeConfig
+        from wechat_bridge.sendtarget import SendTarget
 
-        monkeypatch.setattr(
-            "wechat_bridge.sendui.send_text",
-            lambda config, chat_id, body: {"send": {"chat": chat_id, "sent": True}},
+        target = SendTarget(
+            username="filehelper", alias=None, display_name="文件传输助手",
+            search_term="filehelper",
         )
-        payload = send_text(BridgeConfig(), "filehelper", "正文")
+        seen: dict = {}
+
+        def stub(config, tgt, body, *, dry_run=False, on_armed=None,
+                 on_receipt_green=None, receipt_query=None):
+            seen.update(target=tgt, dry_run=dry_run)
+            return {"send": {"sent": True}}
+
+        monkeypatch.setattr("wechat_bridge.sendui.send_text", stub)
+        payload = send_text(BridgeConfig(), target, "正文")
         assert payload["send"]["sent"] is True
-        assert payload["send"]["chat"] == "filehelper"
+        assert seen["target"] is target  # 委托面:target 原样透传
+        assert seen["dry_run"] is False
 
 
 class TestNotImplementedDiscipline:

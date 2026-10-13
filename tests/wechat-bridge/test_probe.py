@@ -116,3 +116,95 @@ class TestContractShape:
         for reason in result.reasons:
             assert reason.fix_hint
 
+
+
+# ---------------------------------------------------------------------------
+# doctor(task 10-14-wechat-send-text design §E-2;--probe 超集 + AX 门态)
+# ---------------------------------------------------------------------------
+
+import wechat_bridge.system_checks as sc  # noqa: E402
+from wechat_bridge.probe import run_doctor  # noqa: E402
+
+
+class TestRunDoctor:
+    def test_doctor_reuses_probe_payload_and_ax_gate_open(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        tray_mocks(monkeypatch)
+        monkeypatch.setattr(sc, "wechat_ax_node_count", lambda: 122)
+        import wechat_bridge.axui as axui
+
+        monkeypatch.setattr(axui, "read_input_value", lambda: "")
+        payload = run_doctor(bridge_version="t")
+        doctor = payload["doctor"]
+        assert doctor["probe"]["state"] == "degraded"  # 复用 run_probe 全量
+        assert doctor["probe"]["bridge_version"] == "t"
+        assert doctor["ax_gate"] == {
+            "nodes": 122, "state": "open", "input_field": "ok",
+            "note": None, "fix_hint": None,
+        }
+
+    def test_doctor_closed_and_unknown_states(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        tray_mocks(monkeypatch)
+        import wechat_bridge.axui as axui
+
+        monkeypatch.setattr(axui, "read_input_value", lambda: None)
+        monkeypatch.setattr(sc, "wechat_ax_node_count", lambda: 5)  # ≤5 = closed
+        gate = run_doctor()["doctor"]["ax_gate"]
+        assert gate["state"] == "closed" and gate["input_field"] == "missing"
+        assert "LLDB" in gate["fix_hint"]
+        monkeypatch.setattr(sc, "wechat_ax_node_count", lambda: None)
+        gate2 = run_doctor()["doctor"]["ax_gate"]
+        assert gate2["state"] == "unknown" and gate2["nodes"] is None
+
+    def test_doctor_cgevent_channel_note(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        tray_mocks(monkeypatch)
+        monkeypatch.setattr(sc, "wechat_ax_node_count", lambda: 122)
+        monkeypatch.setattr(sc, "ax_permission_trusted", lambda: False)
+        import wechat_bridge.axui as axui
+
+        monkeypatch.setattr(axui, "read_input_value", lambda: "")
+        channel = run_doctor()["doctor"]["cgevent_channel"]
+        assert channel["post_key"] == "unverified"
+        assert channel["host_ax_trusted"] is False  # 宿主授权实锤信号(0.8.1)
+        assert "不合成事件" in channel["note"]
+        assert "keystroke" in channel["note"]
+
+
+class TestAxNodeCount:
+    """wechat_ax_node_count:全部窗口最大 UI elements 数(不绑 window 1,
+    design §J-22——多窗时 z-order 首窗未必主窗)。"""
+
+    def test_script_deep_walks_all_windows_and_takes_max(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """0.8.1(真机实证直查第一层恒 ~4):计数 = 全窗子树 BFS 深度枚举
+        取最大,不绑 window 1。"""
+        seen: dict = {}
+
+        def fake_run(argv: list) -> object:
+            seen["script"] = argv[2]
+            import subprocess
+
+            return subprocess.CompletedProcess(
+                args=[], returncode=0, stdout=b"122\n", stderr=b""
+            )
+
+        monkeypatch.setattr(sc, "_run_command", fake_run)
+        assert sc.wechat_ax_node_count() == 122
+        script = seen["script"]
+        assert "repeat with w in windows" in script  # 遍历全部窗口
+        assert "maxCount" in script  # 取最大,不绑 window 1
+        assert "window 1" not in script
+        assert "theQueue" in script and "budget" in script  # BFS 队列 + 预算
+        assert "UI elements of elem" in script  # 逐层展开(非直查 count)
+
+    def test_failures_return_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import subprocess
+
+        monkeypatch.setattr(
+            sc, "_run_command",
+            lambda argv: subprocess.CompletedProcess(args=[], returncode=1, stdout=b"", stderr=b"x"),
+        )
+        assert sc.wechat_ax_node_count() is None
+        monkeypatch.setattr(
+            sc, "_run_command",
+            lambda argv: subprocess.CompletedProcess(args=[], returncode=0, stdout=b"not-a-number\n", stderr=b""),
+        )
+        assert sc.wechat_ax_node_count() is None

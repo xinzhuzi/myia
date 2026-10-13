@@ -124,6 +124,11 @@ __all__ = [
     "ensure_decrypted_copies",
     "query_history",
     "group_info",
+    "page_history",
+    "export_history",
+    "contacts_inventory",
+    "sessions_list",
+    "conversations_census",
 ]
 
 #: 单账号本地库目录名(db_storage;research §7.1 实测)。
@@ -1702,6 +1707,269 @@ def group_info(
     return localdb_query.group_info(
         copy_dir=Path(str(copy_info["dir"])),
         chat_id=chat_id,
+    )
+
+
+def _ensure_copies_with_self_heal(
+    config,  # BridgeConfig(鸭子类型;避免循环导入)
+    db_storage: Path,
+    keys: dict[str, str],
+    domains: list[str],
+    *,
+    data_root: Path | None = None,
+    now: float | None = None,
+) -> tuple[dict[str, object], dict[str, str]]:
+    """E2 副本 + 解密失败自愈钩子(与 :func:`query_history` 同构;task
+    10-14-wechat-http-api R4 终位平移,httpapi 经 import 消费)。
+
+    Returns:
+        ``(copy_info, 实际生效 keys)``——自愈成功后以新 keys 重建的副本
+        供后续查询消费(与 query_history 的 keys 重指派同款)。
+    """
+    from . import memsearch
+
+    def _ensure(keys_mapping: dict[str, str]) -> dict[str, object]:
+        return ensure_decrypted_copies(
+            db_storage,
+            keys_mapping,
+            domains=domains,
+            ttl_hours=config.copy_ttl_hours,
+            capacity_mb=config.copy_capacity_mb,
+            data_root=data_root,
+            now=now,
+        )
+
+    try:
+        return _ensure(keys), keys
+    except BridgeError as exc:
+        if exc.exit_code != DECRYPT_FAILED:
+            raise
+        if not memsearch.self_heal_armed(config=config, data_root=data_root):
+            raise  # 未安装自愈件 = 保持现状(与 query_history 同判)
+        healed = memsearch.try_self_heal(db_storage, config=config, data_root=data_root)
+        if healed is None:
+            raise  # 自愈未闭合:原样透传,不制造半真状态
+        return _ensure(healed), healed
+
+
+def sessions_list(
+    config,  # BridgeConfig(避免循环导入,运行时鸭子类型)
+    db_storage: Path,
+    keys: dict[str, str],
+    limit: int,
+    *,
+    data_root: Path | None = None,
+    now: float | None = None,
+) -> dict[str, object]:
+    """会话清单全链编排(task 10-14-wechat-http-api R4;PRD 终位 = 本函数,
+    httpapi 经 ``from .localdb import sessions_list`` 消费)。与
+    :func:`query_history` 同构:确保 ``[session, contact]`` 域副本 →
+    :func:`localdb_query.list_sessions`。
+
+    应答即编排载荷(HTTP 应答=CLI 载荷同源):``{"sessions":[…],
+    "domains":{…},"copy":{…}}``。
+    """
+    from . import localdb_query
+
+    copy_info, _keys = _ensure_copies_with_self_heal(
+        config, db_storage, keys, ["session", "contact"],
+        data_root=data_root, now=now,
+    )
+    copy_dir = Path(str(copy_info["dir"]))
+    rel_map = {"session": "session/session.db", "contact": "contact/contact.db"}
+    domain_status = {
+        domain: ("ok" if (copy_dir / rel).is_file() else "copy_missing")
+        for domain, rel in rel_map.items()
+    }
+    con = localdb_query._open_copy(copy_dir, "session/session.db")
+    if con is None:
+        raise BridgeError(
+            DECRYPT_FAILED,
+            "session 域解密副本不可用(副本缺失或损坏;G5 重建流程未产出可用库)",
+            fix_hint="重试触发副本重建;持续失败先核密钥与 sqlcipher(design §5.1)",
+        )
+    try:
+        sessions = localdb_query.list_sessions(con, int(limit))
+    finally:
+        con.close()
+    return {"sessions": sessions, "domains": domain_status, "copy": copy_info}
+
+
+def page_history(
+    config,  # BridgeConfig(避免循环导入,运行时鸭子类型)
+    db_storage: Path,
+    keys: dict[str, str],
+    chat_id: str,
+    *,
+    cursor: str | None = None,
+    limit: int | None = None,
+    asc: bool | None = None,
+    from_ts: int | None = None,
+    to_ts: int | None = None,
+    types: list[str] | None = None,
+    sender: str | None = None,
+    data_root: Path | None = None,
+) -> dict[str, object]:
+    """``localdb page`` 全链编排(task 10-14-wechat-chat-export R1)。
+
+    与 :func:`query_history` 同构:E2 副本(域 ``["message", "contact"]``——
+    contact 供 wxid→显示名解析)→ 解密失败自愈钩子同款(setuid keyscanner
+    在位+门开 = 零人工重取一次)→ E3 :func:`localdb_page.run_page`;尾部经
+    :func:`localdb_query._contact_pick_names` 批量解析 wxid→显示名(remark>
+    nickname>alias)回填消息 sender 与会话 display_name(未命中维持 wxid,
+    陌生群成员如实)。``invalid_cursor`` / ``invalid_types``(exit 2)由
+    run_page/decode_cursor/type_filter_values 抛,本层不吞。
+    """
+    from . import localdb_page, localdb_query
+
+    copy_info, keys = _ensure_copies_with_self_heal(
+        config, db_storage, keys, ["message", "contact"], data_root=data_root
+    )
+    copy_dir = Path(str(copy_info["dir"]))
+    payload = localdb_page.run_page(
+        copy_dir,
+        chat_id,
+        cursor=cursor,
+        limit=limit,
+        asc=asc,
+        from_ts=from_ts,
+        to_ts=to_ts,
+        types=types,
+        sender=sender,
+    )
+    page = payload.get("page")
+    messages = page.get("messages") if isinstance(page, dict) else None
+    names: dict[str, str] = {}
+    if isinstance(messages, list):
+        wanted = [chat_id] + [
+            message.get("sender_id")
+            for message in messages
+            if isinstance(message, dict)
+            and isinstance(message.get("sender_id"), str)
+        ]
+        contact_con = localdb_query._open_copy(copy_dir, "contact/contact.db")
+        try:
+            if contact_con is not None:
+                names = localdb_query._contact_pick_names(contact_con, wanted)
+        finally:
+            if contact_con is not None:
+                contact_con.close()
+    if names and isinstance(page, dict):
+        for message in messages or []:
+            if not isinstance(message, dict):
+                continue
+            wxid = message.get("sender_id")
+            if isinstance(wxid, str) and wxid in names:
+                message["sender"] = names[wxid]
+        if chat_id in names:
+            page["display_name"] = names[chat_id]
+    return payload
+
+
+def export_history(
+    config,  # BridgeConfig(避免循环导入,运行时鸭子类型)
+    db_storage: Path,
+    keys: dict[str, str],
+    chat_id: str | None,
+    *,
+    fmt: str,
+    out_dir: Path,
+    from_ts: int | None = None,
+    to_ts: int | None = None,
+    types: list[str] | None = None,
+    sender: str | None = None,
+    display_name_pref: str = "remark-first",
+    name_mode: str = "classic",
+    all_chats: bool = False,
+    progress=None,
+    data_root: Path | None = None,
+) -> dict[str, object]:
+    """``localdb export`` 全链编排(task 10-14-wechat-chat-export R2/R4)。
+
+    与 :func:`page_history` 同构:E2 副本(域 ``["message", "contact"]``)
+    → 解密失败自愈钩子 → :func:`localdb_export.run_export`(staging → 流式
+    写 → manifest 对账 → 原子落位;143 ``export_cancelled`` / usage 族由
+    run_export 抛,本层不吞)。``progress`` = CLI 侧单行 JSON 打印器
+    (NDJSON 转印判例 key-acquire)。
+    """
+    from . import localdb_export
+
+    copy_info, keys = _ensure_copies_with_self_heal(
+        config, db_storage, keys, ["message", "contact"], data_root=data_root
+    )
+    return localdb_export.run_export(
+        Path(str(copy_info["dir"])),
+        chat_id,
+        out_dir,
+        fmt=fmt,
+        from_ts=from_ts,
+        to_ts=to_ts,
+        types=types,
+        sender=sender,
+        display_name_pref=display_name_pref,
+        name_mode=name_mode,
+        all_chats=all_chats,
+        progress=progress,
+    )
+
+
+def contacts_inventory(
+    config,  # BridgeConfig(避免循环导入,运行时鸭子类型)
+    db_storage: Path,
+    keys: dict[str, str],
+    *,
+    type_filter: str | None = None,
+    keyword: str | None = None,
+    limit: int = 100,
+    cursor: str | None = None,
+    with_residue: bool = False,
+    include_stranger: bool = True,
+    data_root: Path | None = None,
+    now: float | None = None,
+) -> dict[str, object]:
+    """``localdb contacts`` 全链编排(task 10-14-wechat-contacts R1;镜像
+    :func:`group_info` 同构)。域收缩纪律(AC9):``with_residue`` 才带
+    message 域(找回考古要消息残迹),否则 contact 单域;缺表降级恒
+    exit 0(判例同 key-status)。尾调 :func:`contacts_query.contacts_page`。
+    """
+    from . import contacts_query
+
+    domains = ["contact", "message"] if with_residue else ["contact"]
+    copy_info, keys = _ensure_copies_with_self_heal(
+        config, db_storage, keys, domains, data_root=data_root, now=now
+    )
+    return contacts_query.contacts_page(
+        Path(str(copy_info["dir"])),
+        type_filter=type_filter,
+        keyword=keyword,
+        limit=limit,
+        cursor=cursor,
+        with_residue=with_residue,
+        include_stranger=include_stranger,
+    )
+
+
+def conversations_census(
+    config,  # BridgeConfig(避免循环导入,运行时鸭子类型)
+    db_storage: Path,
+    keys: dict[str, str],
+    *,
+    limit: int | None = None,
+    data_root: Path | None = None,
+) -> dict[str, object]:
+    """``localdb conversations`` 全链编排(task 10-14-wechat-chat-export
+    R2;集成侧补的最小编排,与 page_history 同族)。E2 副本(域
+    ``["message", "contact"]``)→ 自愈钩子 → :func:`localdb_page.
+    run_conversations`(逐表 COUNT/MIN/MAX 普查 + contact 显示名解析,
+    副本指纹缓存)。清单截断(缺省 500/帽 5000)在 run_conversations。
+    """
+    from . import localdb_page
+
+    copy_info, keys = _ensure_copies_with_self_heal(
+        config, db_storage, keys, ["message", "contact"], data_root=data_root
+    )
+    return localdb_page.run_conversations(
+        Path(str(copy_info["dir"])), limit=limit
     )
 
 

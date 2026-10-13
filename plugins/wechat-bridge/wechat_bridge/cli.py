@@ -6,7 +6,7 @@
 契约形状;失败 = ``{"error": {...}}``;argparse 用法错同样 JSON 化——
 子类化 parser.error),人读诊断一律走 stderr——MYIA 侧只解析 stdout。
 
-命令表(§6 原文):
+命令表(§6 原文 + 六域接线批 0.8.0 增补):
 
 .. code-block:: text
 
@@ -15,6 +15,18 @@
     wechat-bridge messages read <id> -k 50
     wechat-bridge send_text <id> --file -
     wechat-bridge localdb query <chat> --since 7d --json
+    wechat-bridge localdb page <chat> --limit 500 [--cursor/--from-ts/--to-ts/--types/--sender/--asc]
+    wechat-bridge localdb conversations [--limit 500]
+    wechat-bridge localdb export <chat> --format json|txt|csv|md|html|xlsx --out <dir> [--all/--verify]
+    wechat-bridge localdb stats chats|chat <chat>|annual|dual <chat> …
+    wechat-bridge localdb media status|decrypt <dat>|scan <chat> --since Nd [--decrypt]
+    wechat-bridge localdb media-decrypt set <path>|get|clear
+    wechat-bridge localdb sns feed|notices|export --since Nd
+    wechat-bridge localdb contacts [--type/--keyword/--limit/--cursor/--with-residue]
+    wechat-bridge localdb notify-scan --file -
+    wechat-bridge localdb revoke-list <chat> --since Nd
+    wechat-bridge localdb serve [--host H] [--port P]
+    wechat-bridge localdb http-token generate|show|clear
 
 私有数据红线(prd 红线 6):argv 永不携带消息正文(send_text 正文走
 stdin,weixin.py D0 同款——日志可安全打 argv);stderr 诊断只承载形状与
@@ -30,15 +42,37 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
-from . import __version__, ax, localdb, memsearch
-from .codes import EXIT_OK, EXIT_USAGE, BridgeError
+from . import (
+    __version__,
+    ax,
+    contacts_query,
+    httpapi,
+    localdb,
+    localdb_export,
+    localdb_page,
+    media,
+    memsearch,
+    notify_query,
+    sendtarget,
+    sns_export,
+    stats_query,
+)
+from .codes import EXIT_GENERIC_FAILURE, EXIT_OK, EXIT_USAGE, BridgeError
 from .config import BridgeConfig, load_config, save_config_key
-from .probe import run_probe
+from .probe import run_doctor, run_probe
 from .send_state import SendRateState
 
 __all__ = ["JsonArgumentParser", "build_parser", "main"]
 
 _BRIDGE_VERSION = __version__
+
+
+def _compact_body(text: str) -> str:
+    """回执对账的空白不敏感形态(receipt_query 闭包用;委托
+    :func:`.sendui.squash` = 单一对账形态出处,防近亲漂移)。"""
+    from .sendui import squash
+
+    return squash(text)
 
 
 class JsonArgumentParser(argparse.ArgumentParser):
@@ -103,6 +137,19 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         metavar="PATH",
         help="正文来源;'-' = stdin(argv 永不携带正文,日志可安全打 argv)",
+    )
+    send.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="走到粘贴回读不回车;零频控副作用可重跑(导航/哨兵/聚焦证据链实测面)",
+    )
+
+    # doctor(task 10-14-wechat-send-text design §E-2):--probe 超集 + send
+    # 链就绪度(AX 门态/输入区能力);零前台扰动,状态查询恒 exit 0。
+    doctor = sub.add_parser(
+        "doctor",
+        help="send 链就绪度探针(--probe 超集 + AX 门态;零前台扰动)",
     )
 
     localdb_cmd = sub.add_parser("localdb", help="本地库只读通道(Phase E)")
@@ -192,6 +239,228 @@ def build_parser() -> argparse.ArgumentParser:
     localdb_groupinfo.add_argument(
         "chat_id", metavar="chat", help="目标群 id(@chatroom;sessions list 所得)"
     )
+    # —— C1 分页/会话普查/导出(task 10-14-wechat-chat-export R1/R2/R4)——
+    localdb_page_cmd = localdb_sub.add_parser(
+        "page",
+        help="指定会话 keyset 分页(游标续拉;时间窗/类型/发送者过滤)",
+    )
+    localdb_page_cmd.add_argument(
+        "chat_id", metavar="chat", help="目标会话 id(wxid 或 @chatroom)"
+    )
+    localdb_page_cmd.add_argument(
+        "--cursor", default=None, metavar="B64",
+        help="续拉游标(上页应答 next_cursor;首发缺省)",
+    )
+    localdb_page_cmd.add_argument(
+        "--limit", type=int, default=None, metavar="N",
+        help="页大小:缺省 200,帽 1000",
+    )
+    page_order = localdb_page_cmd.add_mutually_exclusive_group()
+    page_order.add_argument(
+        "--asc", action="store_true", default=False, help="时间升序(旧在前;缺省 desc 最新在前)"
+    )
+    page_order.add_argument(
+        "--desc", action="store_true", default=False, help="时间降序(缺省;显式给齐)"
+    )
+    localdb_page_cmd.add_argument(
+        "--from-ts", default=None, metavar="TS",
+        help="时间窗起点(unix 秒;毫秒/微秒自动归一)",
+    )
+    localdb_page_cmd.add_argument(
+        "--to-ts", default=None, metavar="TS", help="时间窗终点(unix 秒)"
+    )
+    localdb_page_cmd.add_argument(
+        "--types", default=None, metavar="A,B",
+        help="类型过滤(逗号分隔:text/file/link/quote/…或 type_<N> 字面量)",
+    )
+    localdb_page_cmd.add_argument(
+        "--sender", default=None, metavar="wxid", help="按解析前原始 wxid 精确匹配"
+    )
+    localdb_conversations = localdb_sub.add_parser(
+        "conversations",
+        help="会话清单普查(逐表 COUNT/MIN/MAX;按最近消息排序)",
+    )
+    localdb_conversations.add_argument(
+        "--limit", type=int, default=None, metavar="N",
+        help="清单截断条数:缺省 500,帽 5000",
+    )
+    localdb_export_cmd = localdb_sub.add_parser(
+        "export",
+        help="聊天记录导出(六格式 json|txt|csv|md|html|xlsx + manifest 对账)",
+    )
+    localdb_export_cmd.add_argument(
+        "chat_id", metavar="chat", nargs="?", default=None,
+        help="目标会话 id(--all 全量导出时可省)",
+    )
+    localdb_export_cmd.add_argument(
+        "--format", required=True, metavar="F",
+        help="导出格式:json|txt|csv|md|html|xlsx",
+    )
+    localdb_export_cmd.add_argument(
+        "--out", required=True, metavar="DIR", help="导出目录(须已可建;staging 原子落位)"
+    )
+    localdb_export_cmd.add_argument(
+        "--from-ts", default=None, metavar="TS", help="时间窗起点(unix 秒)"
+    )
+    localdb_export_cmd.add_argument(
+        "--to-ts", default=None, metavar="TS", help="时间窗终点(unix 秒)"
+    )
+    localdb_export_cmd.add_argument(
+        "--since", default=None, metavar="Nd",
+        help="时间窗糖(近 N 天;与 --from-ts 互斥)",
+    )
+    localdb_export_cmd.add_argument(
+        "--types", default=None, metavar="A,B", help="类型过滤(逗号分隔,同 page)"
+    )
+    localdb_export_cmd.add_argument(
+        "--sender", default=None, metavar="wxid", help="按解析前原始 wxid 精确匹配"
+    )
+    localdb_export_cmd.add_argument(
+        "--display-name-pref", default="remark-first", metavar="P",
+        help="显示名优先序:remark-first|nickname-first(缺省 remark-first)",
+    )
+    localdb_export_cmd.add_argument(
+        "--name-mode", default="classic", metavar="M",
+        help="文件命名:classic|date-range(缺省 classic)",
+    )
+    localdb_export_cmd.add_argument(
+        "--all", action="store_true", default=False,
+        help="全量导出(逐会话各一文件;chat 可省)",
+    )
+    localdb_export_cmd.add_argument(
+        "--verify", default=None, metavar="MANIFEST",
+        help="对账子动作:校验既有 manifest(sha256 逐件),不导出",
+    )
+    # —— C2 统计四子命令(task 10-14-wechat-stats-reports;parser 本体在
+    #    stats_query.register_cli,chats/chat/annual/dual 四形态)——
+    stats_nodes = stats_query.register_cli(localdb_sub)
+    # —— C3 媒体/朋友圈导出(task 10-14-wechat-media-sns)——
+    localdb_mediadecrypt = localdb_sub.add_parser(
+        "media-decrypt",
+        help="媒体解密件管理(set|get|clear;协议 docs/wechat-mediadecrypt.md)",
+    )
+    mediadecrypt_sub = localdb_mediadecrypt.add_subparsers(
+        dest="media_decrypt_cmd", required=True
+    )
+    mediadecrypt_set = mediadecrypt_sub.add_parser(
+        "set", help="配置媒体解密件路径(校验文件存在且有可执行位)"
+    )
+    mediadecrypt_set.add_argument(
+        "path", metavar="path", help="媒体解密件可执行文件路径(须绝对路径)"
+    )
+    mediadecrypt_get = mediadecrypt_sub.add_parser(
+        "get", help="查看媒体解密件配置与在位状态"
+    )
+    mediadecrypt_clear = mediadecrypt_sub.add_parser(
+        "clear", help="清除媒体解密件配置(媒体面回结构化降级)"
+    )
+    localdb_media = localdb_sub.add_parser(
+        "media", help="媒体面(status=配置态 / decrypt=单件解密 / scan=会话寻径)"
+    )
+    media_sub = localdb_media.add_subparsers(dest="media_cmd", required=True)
+    media_status_node = media_sub.add_parser(
+        "status", help="解密件配置态 + 缓存统计(状态查询恒不判错)"
+    )
+    media_decrypt_node = media_sub.add_parser(
+        "decrypt", help="单件 .dat 解密到媒体缓存(jpg/png/webp/gif/mp4)"
+    )
+    media_decrypt_node.add_argument(
+        "dat_path", metavar="dat_path", help="待解密 .dat 文件绝对路径"
+    )
+    media_scan_node = media_sub.add_parser(
+        "scan", help="会话媒体寻径(缩略图/正图;--decrypt 逐条解密回填)"
+    )
+    media_scan_node.add_argument(
+        "chat_id", metavar="chat", help="目标会话 id(wxid 或 @chatroom)"
+    )
+    media_scan_node.add_argument(
+        "--since", required=True, metavar="Nd", help="历史窗口(天;形如 30d)"
+    )
+    media_scan_node.add_argument(
+        "--decrypt", action="store_true", default=False,
+        help="逐条调解密件回填 cached_path(未配置 = exit 23)",
+    )
+    sns_export_node = sns_sub.add_parser(
+        "export",
+        help="朋友圈导出(json 载荷 / html 单件浏览;--with-media 下载媒体)",
+    )
+    sns_export_node.add_argument(
+        "--format", default="json", choices=("json", "html"), metavar="F",
+        help="导出格式:json|html(缺省 json)",
+    )
+    sns_export_node.add_argument(
+        "--out", default=None, metavar="DIR", help="导出目录(缺省数据根私有区)"
+    )
+    sns_export_node.add_argument(
+        "--since", required=True, metavar="Nd", help="历史窗口(天;形如 30d)"
+    )
+    sns_export_node.add_argument(
+        "--with-media", action="store_true", default=False,
+        help="下载媒体原件(唯一受限 CDN GET 豁免;docs/wechat-mediadecrypt.md §11)",
+    )
+    # —— C4 联系人六桶(task 10-14-wechat-contacts;group-info 判例同族)——
+    localdb_contacts = localdb_sub.add_parser(
+        "contacts",
+        help="联系人分类浏览/找回考古(friend|group|official|former|other;缺表降级恒 exit 0)",
+    )
+    localdb_contacts.add_argument(
+        "--type", dest="type_filter", default=None, metavar="T",
+        help="六桶过滤:friend|group|official|former|other(缺省全量分桶浏览)",
+    )
+    localdb_contacts.add_argument(
+        "--keyword", default=None, metavar="K", help="显示名/备注/别名模糊过滤"
+    )
+    localdb_contacts.add_argument(
+        "--limit", type=int, default=None, metavar="N",
+        help="页大小:缺省 100,上帽 1000;0 = 全量导出态(帽豁免,has_more 恒 false)",
+    )
+    localdb_contacts.add_argument(
+        "--cursor", default=None, metavar="B64", help="续拉游标(上页 next_cursor)"
+    )
+    localdb_contacts.add_argument(
+        "--with-residue", action="store_true", default=False,
+        help="找回考古:message 域残迹交叉(首跑触发消息域副本首建)",
+    )
+    localdb_contacts.add_argument(
+        "--include-stranger", action="store_true", default=True,
+        help="包含陌生人桶(缺省开;PRD R2「缺省开」)",
+    )
+    # —— C5 通知扫描/撤回历史(task 10-14-wechat-notify-revoke)——
+    localdb_notifyscan = localdb_sub.add_parser(
+        "notify-scan",
+        help="轮询水位通知扫描+撤回检测/恢复阶梯(stdin JSON 载荷,argv 零内容)",
+    )
+    localdb_notifyscan.add_argument(
+        "--file", required=True, metavar="PATH",
+        help="载荷来源;仅支持 '-'(stdin;argv 永不携带白名单内容)",
+    )
+    localdb_revokelist = localdb_sub.add_parser(
+        "revoke-list", help="会话撤回历史(--since Nd 窗口;同一恢复阶梯)"
+    )
+    localdb_revokelist.add_argument(
+        "chat_id", metavar="chat", help="目标会话 id(wxid 或 @chatroom)"
+    )
+    localdb_revokelist.add_argument(
+        "--since", required=True, metavar="Nd", help="历史窗口(天;形如 7d)"
+    )
+    # —— C6 本机 HTTP API(task 10-14-wechat-http-api;key-provider 族形态)——
+    localdb_serve = localdb_sub.add_parser(
+        "serve",
+        help="本机 HTTP API 常驻服务(回环强制+token;协议 docs/wechat-http-api.md)",
+    )
+    localdb_serve.add_argument(
+        "--host", default=None, metavar="H", help="绑定地址(缺省配置 http_api_host;回环强制)"
+    )
+    localdb_serve.add_argument(
+        "--port", type=int, default=None, metavar="P", help="端口(缺省配置 http_api_port)"
+    )
+    localdb_httptoken = localdb_sub.add_parser(
+        "http-token", help="HTTP token 管理(generate|show|clear;轮换热生效)"
+    )
+    httptoken_sub = localdb_httptoken.add_subparsers(dest="http_token_cmd", required=True)
+    httptoken_generate = httptoken_sub.add_parser("generate", help="生成并落盘新 token(轮换热生效)")
+    httptoken_show = httptoken_sub.add_parser("show", help="查看 token 配置态(只呈形状不呈值)")
+    httptoken_clear = httptoken_sub.add_parser("clear", help="吊销 token(回未配置=全拒)")
 
     # §6 文样把 --json 放在子命令之后(sessions list --json)——全局旗标在
     # argparse 里必须逐层重注册才收得到;default=SUPPRESS 防子层缺省覆写
@@ -214,7 +483,29 @@ def build_parser() -> argparse.ArgumentParser:
         localdb_sns,
         sns_feed,
         sns_notices,
+        sns_export_node,
         localdb_groupinfo,
+        localdb_page_cmd,
+        localdb_conversations,
+        localdb_export_cmd,
+        localdb_mediadecrypt,
+        mediadecrypt_set,
+        mediadecrypt_get,
+        mediadecrypt_clear,
+        localdb_media,
+        media_status_node,
+        media_decrypt_node,
+        media_scan_node,
+        localdb_contacts,
+        localdb_notifyscan,
+        localdb_revokelist,
+        localdb_serve,
+        localdb_httptoken,
+        httptoken_generate,
+        httptoken_show,
+        httptoken_clear,
+        doctor,
+        *stats_nodes,
     ):
         node.add_argument(
             "--json",
@@ -340,22 +631,133 @@ def main(argv: Sequence[str] | None = None) -> int:
                 raise BridgeError(
                     EXIT_USAGE, "正文为空(stdin 无内容);拒发空消息", code="usage"
                 )
+            dry_run = bool(getattr(args, "dry_run", False))
+            branch_started = _now()
+            # 三源合体序列(task 10-14-wechat-send-text design §1):
+            # 2) localdb 链**单次**解析(取钥器交互/自愈链全程至多一次,
+            #    §J-19)——storage/keys 注入 resolve_target 与 receipt 闭包。
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            # 3) DB 侧目标解析(红线 2 第一验:三形态 id → username 真源;
+            #    查无/多义在零 UI 扰动下拒发——此时未激活未占位)。
+            target = sendtarget.resolve_target(
+                config, chat_id, storage=storage, keys=keys
+            )
+            if target is None:
+                raise BridgeError(
+                    EXIT_GENERIC_FAILURE,
+                    f"DB 侧未解析到目标(chat_id={chat_id},username/alias/展示名三路均无)",
+                    code="send_target_not_found",
+                    fix_hint="确认 id;用 localdb query 先验目标存在",
+                )
+            key = sendtarget.fingerprint(target, body)
+            # 4) UI 前置门(码序 10 → 11(screen) → 12,不变;dry-run 同过
+            #    ——它要驱动 UI,微信不在/窗口关/权限缺都无从演练)。
             ax.ensure_ui_preconditions()
-            # G6 频控门(并发封闭):「检查+占位」同一 flock 临界区——并发
-            # 两个 send_text 子进程只有一个能过检占位(红线 ≥10s 硬间隔在
-            # 并发下成立,两段式 check/record 的 TOCTOU 缝不进发送路径)。
-            # BridgeError = 契约内失败(未发出)→ rollback_reserve 还原占位
-            # (失败不吞重试窗口);非契约异常不还原——宁可多吃 10s 窗口,
-            # 不冒「已发出却放开第二发」的二次发送风险(红线方向)。
             rate_state = SendRateState()
-            now = _now()
-            previous = rate_state.reserve_send(now=now)
+            now: float | None = None
+            previous: float | None = None
+            if not dry_run:
+                # 5) G6+防重合成占位:同一 flock 临界区,**指纹门在前、
+                #    间隔门在后**(幂等命中不该被间隔拦;§J-5)。BridgeError
+                #    = 契约内失败(未发出)→ rollback_reserve 还原占位(失败
+                #    不吞重试窗口);armed(on_armed 已成功)之后的失败绝不
+                #    rollback(指纹 pending 在档,uncertain-never-retry)。
+                now = _now()
+                outcome = rate_state.reserve_send_dedup(now=now, fingerprint=key)
+                previous = outcome.previous
+                if outcome.dedup == "sent_recently":
+                    _emit(
+                        {
+                            "send": {
+                                "chat": chat_id,
+                                "target": {
+                                    "username": target.username,
+                                    "display_name": target.display_name,
+                                },
+                                "sent": False,
+                                "deduped": True,
+                                "dedup_status": "sent_recently",
+                                "elapsed_ms": round((_now() - branch_started) * 1000),
+                            }
+                        }
+                    )
+                    return EXIT_OK
+            else:
+                # --dry-run 跳过频控与防重(零发送零占位零指纹,可无限重跑)。
+                pass
+            armed = {"v": False}
+
+            def _on_armed() -> None:
+                # on_armed = fail-closed 门(design §C-5):先落 pending 再置
+                # armed 标志——落盘失败 → armed 仍 False → CLI rollback 可
+                # 安全重试;成功后置位,此后失败不再 rollback(§C-4)。
+                rate_state.mark_fingerprint_pending(key, now=_now())
+                armed["v"] = True
+
+            def _on_receipt_green() -> None:
+                rate_state.mark_fingerprint_sent(key, now=_now())
+
+            def receipt_query(
+                username: str, body_text: str, since_epoch: float
+            ) -> bool | None:
+                """localdb 回执终验闭包(红线 4;design §C-6)。
+
+                判定 = ``query_history(username, since 1d)`` 的 messages 中
+                存在(text 空白不敏感对账命中 body)AND(int(ts) >
+                since_epoch - 2)——ts 已归一秒(localdb_query.
+                _normalize_ts),容差 2s 防同正文历史消息假绿(§J-8)。
+                localdb 链 BridgeError → None(如实,不算失败也不算成功)。
+                """
+                try:
+                    result = localdb.query_history(
+                        config, storage, keys, username, 1
+                    )
+                except BridgeError:
+                    return None
+                messages = result.get("messages") if isinstance(result, dict) else None
+                if not isinstance(messages, list):
+                    return None
+                want = _compact_body(body_text)
+                for message in messages:
+                    if not isinstance(message, dict):
+                        continue
+                    text = message.get("text")
+                    if not isinstance(text, str):
+                        continue
+                    if _compact_body(text) != want:
+                        continue
+                    ts = message.get("ts")
+                    if (
+                        isinstance(ts, (int, float))
+                        and not isinstance(ts, bool)
+                        and int(ts) > since_epoch - 2
+                    ):
+                        return True
+                return False
+
             try:
-                payload = ax.send_text(config, chat_id, body)  # D1 已落(sendui 热激活驱动)
+                payload = ax.send_text(
+                    config,
+                    target,
+                    body,
+                    dry_run=dry_run,
+                    on_armed=None if dry_run else _on_armed,
+                    on_receipt_green=_on_receipt_green,
+                    receipt_query=receipt_query,
+                )
             except BridgeError:
-                rate_state.rollback_reserve(now, previous)
+                # rollback 边界 = on_armed 之前(armed 闭包标志判;§C-5)。
+                if not dry_run and not armed["v"]:
+                    rate_state.rollback_reserve(now, previous)
                 raise
+            payload.setdefault("send", {})["chat"] = chat_id
             _emit(payload)
+            return EXIT_OK
+        elif args.group == "doctor":
+            # 状态查询不判错(key-status 判例,design §E-2):恒 exit 0,
+            # 三态在载荷(ax_gate.state: open|closed|unknown)。
+            _emit(run_doctor(config=config, bridge_version=_BRIDGE_VERSION))
             return EXIT_OK
         elif args.group == "localdb" and args.localdb_cmd == "query":
             chat_id = _require_chat_id(args.chat_id)
@@ -471,11 +873,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             # 同一验真器,不另写一份)。
             _emit(localdb.key_status())
             return EXIT_OK
-        elif args.group == "localdb" and args.localdb_cmd == "sns":
+        elif args.group == "localdb" and args.localdb_cmd == "sns" and args.sns_cmd in ("feed", "notices"):
             # 朋友圈只读查询(10-13-wechat-sns-feed):密钥链与 query 同一
             # 全链(resolve_keys:缓存/取钥器/自愈/E1);E2 副本域固定
             # sns+contact(nickname 反查),不带消息域;成功 emit 契约载荷
-            # (朋友圈内容属 stdout 契约,不入日志;红线 6 同款)。
+            # (朋友圈内容属 stdout 契约,不入日志;红线 6 同款)。export
+            # 子模式归 C3 sns_export(下方分支)。
             days = _parse_since_days(args.since)
             storage = localdb.locate_db_storage()
             keys = localdb.resolve_keys(storage, config=config)
@@ -491,6 +894,275 @@ def main(argv: Sequence[str] | None = None) -> int:
             storage = localdb.locate_db_storage()
             keys = localdb.resolve_keys(storage, config=config)
             _emit(localdb.group_info(config, storage, keys, chat_id))
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "page":
+            # C1 分页查询(10-14-wechat-chat-export R1):密钥链与 query 同一
+            # 全链;时间戳经 normalize_ts_input 归一(秒/毫秒/微秒);游标
+            # scope 守卫与类型词表校验在 run_page/decode_cursor/
+            # type_filter_values(invalid_cursor/invalid_types → exit 2)。
+            chat_id = _require_chat_id(args.chat_id)
+            from_ts = localdb_page.normalize_ts_input(args.from_ts, flag="from-ts")
+            to_ts = localdb_page.normalize_ts_input(args.to_ts, flag="to-ts")
+            types = (
+                [t.strip() for t in args.types.split(",") if t.strip()]
+                if args.types
+                else None
+            )
+            asc: bool | None = True if args.asc else (False if args.desc else None)
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            _emit(
+                localdb.page_history(
+                    config,
+                    storage,
+                    keys,
+                    chat_id,
+                    cursor=args.cursor,
+                    limit=args.limit,
+                    asc=asc,
+                    from_ts=from_ts,
+                    to_ts=to_ts,
+                    types=types,
+                    sender=args.sender,
+                )
+            )
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "conversations":
+            # C1 会话普查(R2):密钥链同 query;消息域副本普查(逐表
+            # COUNT/MIN/MAX,副本指纹缓存),清单缺省 500/帽 5000 在桥侧。
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            _emit(
+                localdb.conversations_census(
+                    config, storage, keys, limit=args.limit
+                )
+            )
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "export":
+            # C1 导出(R4):stdout 是 NDJSON 流(progress 行经 run_export
+            # 的单行 JSON 打印器原样转印;终态/错误 _emit_ndjson_line 单行
+            # 收尾——key-acquire 判例)。--verify 子动作走对账不导出。
+            if args.verify is not None:
+                _emit(
+                    localdb_export.verify_manifest(
+                        Path(args.verify.strip()).expanduser()
+                    )
+                )
+                return EXIT_OK
+            if args.since is not None and (args.from_ts is not None or args.to_ts is not None):
+                raise BridgeError(
+                    EXIT_USAGE,
+                    "--since 与 --from-ts/--to-ts 互斥(时间窗只给一份)",
+                    code="usage",
+                )
+            from_ts = localdb_page.normalize_ts_input(args.from_ts, flag="from-ts")
+            to_ts = localdb_page.normalize_ts_input(args.to_ts, flag="to-ts")
+            if args.since is not None:
+                from_ts = int(_now()) - _parse_since_days(args.since) * 86400
+            types = (
+                [t.strip() for t in args.types.split(",") if t.strip()]
+                if args.types
+                else None
+            )
+            chat_id = (args.chat_id or "").strip() or None
+            if not args.all and not chat_id:
+                raise BridgeError(
+                    EXIT_USAGE,
+                    "单会话导出必须给 chat(或 --all 全量导出)",
+                    code="usage",
+                )
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            try:
+                payload = localdb.export_history(
+                    config,
+                    storage,
+                    keys,
+                    chat_id,
+                    fmt=args.format,
+                    out_dir=Path(args.out.strip()).expanduser(),
+                    from_ts=from_ts,
+                    to_ts=to_ts,
+                    types=types,
+                    sender=args.sender,
+                    display_name_pref=args.display_name_pref,
+                    name_mode=args.name_mode,
+                    all_chats=bool(args.all),
+                    progress=_emit_ndjson_line,
+                )
+                exit_code = EXIT_OK
+            except BridgeError as exc:
+                payload = {"error": exc.to_payload()}
+                exit_code = exc.exit_code
+            _emit_ndjson_line(payload)
+            return exit_code
+        elif args.group == "localdb" and args.localdb_cmd == "stats":
+            # C2 统计四子命令(10-14-wechat-stats-reports):dispatch_cli 自带
+            # JSON emit 与 BridgeError 兜底;exit 码契约 = 查询层降级恒 0,
+            # 密钥链 20/21/22,用法 2。
+            return stats_query.dispatch_cli(args, config_path)
+        elif args.group == "localdb" and args.localdb_cmd == "media-decrypt":
+            # C3 媒体解密件管理(key-provider set 判例:绝对路径/存在/可执行
+            # 校验;get 状态查询恒不判错;clear 回未配置)。
+            if args.media_decrypt_cmd == "set":
+                provider = Path(args.path.strip()).expanduser()
+                if not provider.is_absolute():
+                    raise BridgeError(
+                        EXIT_USAGE,
+                        f"媒体解密件路径必须是绝对路径: {provider}",
+                        code="usage",
+                        fix_hint="给出绝对路径(~ 开头会自动展开)",
+                    )
+                if not provider.is_file():
+                    raise BridgeError(
+                        EXIT_USAGE,
+                        f"媒体解密件文件不存在: {provider}",
+                        code="usage",
+                        fix_hint="给出解密件可执行文件的路径(协议:docs/wechat-mediadecrypt.md)",
+                    )
+                if not os.access(provider, os.X_OK):
+                    raise BridgeError(
+                        EXIT_USAGE,
+                        f"媒体解密件文件不可执行(缺可执行位): {provider}",
+                        code="usage",
+                        fix_hint="chmod +x 后重试",
+                    )
+                save_config_key("media_decrypt_path", str(provider), path=config_path)
+                _emit(
+                    {
+                        "media_decrypt": {
+                            "path": str(provider),
+                            "state": "configured",
+                            "message": f"已配置媒体解密件: {provider}",
+                        }
+                    }
+                )
+                return EXIT_OK
+            if args.media_decrypt_cmd == "get":
+                _emit(media.media_status(config))
+                return EXIT_OK
+            # clear(分支封闭:media_decrypt_cmd required=True 三选一)
+            save_config_key("media_decrypt_path", None, path=config_path)
+            _emit(
+                {
+                    "media_decrypt": {
+                        "path": None,
+                        "state": "unconfigured",
+                        "message": "已清除媒体解密件配置(媒体面回结构化降级:exit 23)",
+                    }
+                }
+            )
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "media":
+            # C3 媒体面:status=配置态查询恒不判错;decrypt=单件解密;
+            # scan=寻径(密钥链与 query 同序,域固定 message)。
+            if args.media_cmd == "status":
+                _emit(media.media_status(config))
+                return EXIT_OK
+            if args.media_cmd == "decrypt":
+                dat_path = args.dat_path.strip()
+                if not dat_path:
+                    raise BridgeError(
+                        EXIT_USAGE, "dat_path 不可为空白", code="usage"
+                    )
+                _emit(media.media_decrypt_command(dat_path, config))
+                return EXIT_OK
+            # scan(分支封闭:media_cmd required=True 三选一)
+            chat_id = _require_chat_id(args.chat_id)
+            days = _parse_since_days(args.since)
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            _emit(
+                media.media_scan_history(
+                    config, storage, keys, chat_id, days, decrypt=bool(args.decrypt)
+                )
+            )
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "sns" and args.sns_cmd == "export":
+            # C3 朋友圈导出(域 sns+contact 同 feed;--with-media = 唯一受限
+            # CDN GET 豁免,缺省关——docs/wechat-mediadecrypt.md §11)。
+            days = _parse_since_days(args.since)
+            fmt = args.format or "json"
+            out_dir = Path(args.out.strip()).expanduser() if args.out else None
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            _emit(
+                sns_export.sns_export_history(
+                    config,
+                    storage,
+                    keys,
+                    fmt,
+                    out_dir,
+                    days,
+                    with_media=bool(args.with_media),
+                )
+            )
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "contacts":
+            # C4 联系人六桶(10-14-wechat-contacts):密钥链同 query;limit
+            # 三态(缺省 100/0=全量/帽 1000)与 --type 五桶校验都在密钥链
+            # 之前(用法错先炸,不混 21);缺表降级恒 exit 0(判例
+            # key-status)。
+            limit = contacts_query.normalize_cli_limit(args.limit)
+            contacts_query._norm_filter(args.type_filter, args.keyword)
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            _emit(
+                localdb.contacts_inventory(
+                    config,
+                    storage,
+                    keys,
+                    type_filter=args.type_filter,
+                    keyword=args.keyword,
+                    limit=limit,
+                    cursor=args.cursor,
+                    with_residue=bool(args.with_residue),
+                    include_stranger=bool(args.include_stranger),
+                )
+            )
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "notify-scan":
+            # C5 轮询水位通知扫描(10-14-wechat-notify-revoke):stdin JSON
+            # 载荷(argv 零内容,红线 6);notify_query 属性调用形态(gated
+            # 桩生效点);sqlite busy 本轮跳过不判死(载荷内 stats)。
+            if args.file != "-":
+                raise BridgeError(
+                    EXIT_USAGE,
+                    f"notify-scan --file 仅支持 '-'(stdin 载荷),当前为 {args.file!r}",
+                    code="usage",
+                    fix_hint="白名单/水位等载荷经 stdin 传入(argv 永不携带内容)",
+                )
+            payload = notify_query.read_scan_payload(sys.stdin.read())
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            _emit(notify_query.notify_scan(config, storage, keys, payload))
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "revoke-list":
+            # C5 会话撤回历史:同一恢复阶梯(notify_scan 的 R1.3 阶梯两壳)。
+            chat_id = _require_chat_id(args.chat_id)
+            days = _parse_since_days(args.since)
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            _emit(notify_query.revoke_list(config, storage, keys, chat_id, days))
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "serve":
+            # C6 本机 HTTP API 常驻(10-14-wechat-http-api R4):serve 自管
+            # stdout(就绪单行 JSON/错误 JSON)与 SIGTERM/exit 码,勿再包
+            # _emit;回环强制在 serve 面(exit 2)。
+            return httpapi.run_serve(
+                config_path=config_path, host=args.host, port=args.port
+            )
+        elif args.group == "localdb" and args.localdb_cmd == "http-token":
+            # C6 token 管理(key-provider 族形态:generate=secrets 轮换热
+            # 生效,show=状态查询恒 exit 0,clear=吊销)。
+            if args.http_token_cmd == "generate":
+                _emit(httpapi.http_token_generate(config_path=config_path))
+                return EXIT_OK
+            if args.http_token_cmd == "show":
+                _emit(httpapi.http_token_show(config_path=config_path))
+                return EXIT_OK
+            # clear(分支封闭:http_token_cmd required=True 三选一)
+            _emit(httpapi.http_token_clear(config_path=config_path))
             return EXIT_OK
         elif args.group == "localdb" and args.localdb_cmd == "key-acquire":
             # D3 交互式取钥编排(design §A.2):stdout 是 NDJSON 流——progress

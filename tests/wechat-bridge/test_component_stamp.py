@@ -13,7 +13,13 @@ from wechat_bridge.config import (
     COPY_TTL_HOURS_DEFAULT,
     DEFAULT_DOMAINS,
     HISTORY_DAYS_DEFAULT,
+    HTTP_API_ENABLED_DEFAULT,
+    HTTP_API_HOST_DEFAULT,
+    HTTP_API_PORT_DEFAULT,
+    HTTP_API_TOKEN_DEFAULT,
     KEY_PROVIDER_PATH_DEFAULT,
+    MEDIA_CACHE_CAPACITY_MB_DEFAULT,
+    MEDIA_DECRYPT_PATH_DEFAULT,
     MEM_SEARCH_ENABLED_DEFAULT,
     MESSAGES_DEFAULT,
     SESSIONS_DEFAULT,
@@ -71,6 +77,19 @@ class TestStampLock:
         # docs/wechat-keyprovider.md)。
         assert defaults["key_provider_path"] == KEY_PROVIDER_PATH_DEFAULT
         assert KEY_PROVIDER_PATH_DEFAULT == ""
+        # 媒体解密件两键(0.8.0,10-14-wechat-media-sns:空路径=未配置=
+        # 媒体面 exit 23 结构化降级;缓存容量 2048MB)。
+        assert defaults["media_decrypt_path"] == MEDIA_DECRYPT_PATH_DEFAULT
+        assert MEDIA_DECRYPT_PATH_DEFAULT == ""
+        assert defaults["media_cache_capacity_mb"] == MEDIA_CACHE_CAPACITY_MB_DEFAULT
+        # HTTP API 四键(0.8.0,10-14-wechat-http-api R10:缺省关/回环/5032/
+        # 空 token=非 health 全拒)。
+        assert defaults["http_api_enabled"] is HTTP_API_ENABLED_DEFAULT
+        assert HTTP_API_ENABLED_DEFAULT is False
+        assert defaults["http_api_host"] == HTTP_API_HOST_DEFAULT
+        assert defaults["http_api_port"] == HTTP_API_PORT_DEFAULT
+        assert defaults["http_api_token"] == HTTP_API_TOKEN_DEFAULT
+        assert HTTP_API_TOKEN_DEFAULT == ""
         # defaults 只装真配置键;"无配置键"类声明(频控/路径)在 config 节。
         assert set(defaults) == {
             "domains",
@@ -79,6 +98,12 @@ class TestStampLock:
             "copy_capacity_mb",
             "mem_search_enabled",
             "key_provider_path",
+            "media_decrypt_path",
+            "media_cache_capacity_mb",
+            "http_api_enabled",
+            "http_api_host",
+            "http_api_port",
+            "http_api_token",
         }
         assert "G6" in _stamp()["config"]["rate_limit"]
 

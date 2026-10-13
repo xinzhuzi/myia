@@ -124,13 +124,20 @@ BADGE_RE = re.compile(r"^(?:\d{1,3}|999\+)$")
 
 @dataclass(frozen=True)
 class WindowInfo:
-    """微信主窗快照(CGWindowList;零激活零枚举 AX)。"""
+    """微信主窗快照(CGWindowList;零激活零枚举 AX)。
+
+    x/y = 窗口左上角的屏幕绝对像素(kCGWindowBounds 同系:原点主屏左上、
+    Y 向下;2026-10-14 task 10-14-wechat-send-text 加,供 CGEvent 点击的
+    window→screen 坐标换算;缺省 0 向后兼容旧构造)。
+    """
 
     window_id: int
     onscreen: bool
     width: float
     height: float
     pid: int | None = None
+    x: float = 0.0
+    y: float = 0.0
 
     def to_payload(self) -> dict[str, Any]:
         note = None
@@ -144,6 +151,8 @@ class WindowInfo:
             "onscreen": self.onscreen,
             "width": self.width,
             "height": self.height,
+            "x": self.x,
+            "y": self.y,
             "note": note,
         }
 
@@ -246,6 +255,8 @@ def find_main_window(
             width=width,
             height=height,
             pid=entry.get("kCGWindowOwnerPID"),
+            x=float(bounds.get("X") or 0),
+            y=float(bounds.get("Y") or 0),
         )
         if best is None or (info.onscreen, info.width * info.height) > (
             best.onscreen,

@@ -32,6 +32,7 @@ __all__ = [
     "wechat_process_running",
     "wechat_version",
     "ax_permission_trusted",
+    "wechat_ax_node_count",
     "wechat_main_window_open",
     "localdb_storage_accounts",
     "localdb_key_available",
@@ -152,6 +153,74 @@ def screen_recording_granted() -> bool | None:
             return False
         return True
     except Exception:
+        return None
+
+
+def wechat_ax_node_count(*, runner=None) -> int | None:
+    """微信进程 AX 树节点计数 = **全部窗口子树的深度枚举节点数**取最大
+    (只读 osascript 查询;task 10-14-wechat-send-text design §D-1/§J-22;
+    0.8.1 修正)。
+
+    **不绑 ``window 1``**(§J-22:多窗时 z-order 首窗未必主窗)且**不直查
+    第一层 count**:真机 dry-run 实证(/tmp/wxsend-e2e/axwalk2-out.txt)
+    4.1.15 窗口直查 UI elements 恒 ~4(AXGroup + 标题栏钮),Qt 命名树挂
+    AXGroup 下深层——计数必须 BFS 逐层枚举(节点预算上限 400,门开实测
+    ~122)。
+
+    判据消费方(axui.probe_wechat_ax / doctor):>5 = 门开;≤5 = closed
+    (Qt AX 门未开,REV 判据);脚本失败/进程不在/非整数 → None(unknown
+    如实)。
+
+    probe 副作用如实注记:本查询即一次无障碍查询,自然触发 QNSView
+    activateQtAccessibility(REV:20-24,微信自身行为,非前台扰动)。
+    """
+    script = (
+        'tell application "System Events"\n'
+        '  repeat with pname in {"微信", "WeChat"}\n'
+        "    try\n"
+        "      tell process (pname as text)\n"
+        "        set maxCount to 0\n"
+        "        repeat with w in windows\n"
+        "          set wRef to contents of w\n"
+        "          set total to 0\n"
+        "          set theQueue to {wRef}\n"
+        "          set budget to 400\n"
+        "          repeat while (count of theQueue) > 0 and budget > 0\n"
+        "            set nextQueue to {}\n"
+        "            repeat with elem in theQueue\n"
+        "              try\n"
+        "                set kids to UI elements of elem\n"
+        "              on error\n"
+        "                set kids to {}\n"
+        "              end try\n"
+        "              repeat with kid in kids\n"
+        "                if budget > 0 then\n"
+        "                  set total to total + 1\n"
+        "                  set budget to budget - 1\n"
+        "                  copy kid to end of nextQueue\n"
+        "                end if\n"
+        "              end repeat\n"
+        "            end repeat\n"
+        "            set theQueue to nextQueue\n"
+        "          end repeat\n"
+        "          if total > maxCount then set maxCount to total\n"
+        "        end repeat\n"
+        "        return maxCount\n"
+        "      end tell\n"
+        "    end try\n"
+        "  end repeat\n"
+        "end tell\n"
+    )
+    run = runner if runner is not None else _run_command
+    try:
+        result = run(["osascript", "-e", script])
+    except BridgeError:
+        return None  # 超时族 → 探测不可及(unknown),不拦状态查询
+    if result.returncode != 0:
+        return None
+    try:
+        return int(result.stdout.decode("utf-8", "replace").strip())
+    except ValueError:
         return None
 
 

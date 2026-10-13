@@ -24,6 +24,8 @@ __all__ = [
     "KEY_UNAVAILABLE",
     "SEND_AX_FOCUS_REQUIRED",
     "SEND_RATE_LIMITED",
+    "SEND_UNCERTAIN_DEDUP",
+    "MEDIA_UNAVAILABLE",
     "TIMEOUT",
     "USAGE",
     "WECHAT_NOT_RUNNING",
@@ -51,9 +53,17 @@ WINDOW_CLOSED = 12
 AX_TREE_EMPTY = 13
 SEND_RATE_LIMITED = 14
 SEND_AX_FOCUS_REQUIRED = 15
+#: §6 修订 2026-10-14(task 10-14-wechat-send-text design §E-4):17 = 指纹
+#: pending 命中,上次同指纹发送状态不确定,**绝不自动重试**
+#: (uncertain-never-retry;与 14「可等后重试」语义分开编程)。
+SEND_UNCERTAIN_DEDUP = 17
 DB_NOT_FOUND = 20
 KEY_UNAVAILABLE = 21
 DECRYPT_FAILED = 22
+#: 媒体解密件未配置/不可用(design §6 修订 2026-10-14,task
+#: 10-14-wechat-media-sns:媒体面结构化降级,文本链零影响)。media.py 的
+#: try-import fallback 同值 23,键落位后接线前后行为一致。
+MEDIA_UNAVAILABLE = 23
 TIMEOUT = 30
 
 #: exit 码 → 码名(§6 表的程序化形态;MYIA 侧/UI 文案映射与单测对账用)。
@@ -66,9 +76,11 @@ CODE_NAMES: dict[int, str] = {
     AX_TREE_EMPTY: "ax_tree_empty",
     SEND_RATE_LIMITED: "send_rate_limited",
     SEND_AX_FOCUS_REQUIRED: "send_ax_focus_required",
+    SEND_UNCERTAIN_DEDUP: "send_uncertain_dedup",
     DB_NOT_FOUND: "db_not_found",
     KEY_UNAVAILABLE: "key_unavailable",
     DECRYPT_FAILED: "decrypt_failed",
+    MEDIA_UNAVAILABLE: "media_unavailable",  # 23(2026-10-14 design §6 修订)
     TIMEOUT: "timeout",
 }
 

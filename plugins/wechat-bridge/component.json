@@ -1,7 +1,7 @@
 {
   "id": "wechat-bridge",
   "name": "微信本机桥(UI 自动化 + 本地库只读)",
-  "version": "0.7.0",
+  "version": "0.8.1",
   "kind": "bridge",
   "runtime": "native-python",
   "entry": "wechat_bridge/__main__.py",
@@ -29,12 +29,27 @@
       "--probe",
       "sessions list --json",
       "messages read <id> -k 50",
-      "send_text <id> --file -(0.7.0 已落:热激活 UI 驱动 wechat_bridge/sendui.py,wxauto 三支柱=激活+Cmd+F 定位+标题带断言+剪贴板粘+AX value/OCR 输入带回读确认才回车[flags=0]+消息区事后回读入载荷;断言失败重试上限 3 后 exit 15/30 如实失败,绝不假成功;主人 2026-10-13 热激活批令,合成鼠标仍禁)",
+      "send_text <id> --file - [--dry-run](0.8.0 三源合体,task 10-14-wechat-send-text:分区过滤导航零盲回车[KEY_RETURN 唯一出现点=发送段]+验证五件套[标题双验证/哨兵探测/清空轮询/SHA256 指纹防重 120s 多槽+exit 17 uncertain-never-retry/剪贴板复原]+AX 主链双判据门+CGEvent+OCR 降级跨尝试接管+localdb 回执终验[ts>since_epoch-2 防假绿,(5,10,15)s 退避]+发送前聚焦断言两通道对称+on_armed fail-closed 门/armed 段恒不抛;目标三形态解析 DB 侧拒发 send_target_not_found/ambiguous;--dry-run 走到粘贴回读不回车零频控副作用,载荷带 nav_debug;合成鼠标点击解禁=仅导航行与 composer 聚焦,不点发送按钮)",
+      "doctor [--json](0.8.1;--probe 超集+send 链就绪度:ax_gate 节[全窗子树深度枚举节点数>5=open/≤5=closed,直查第一层在 4.1.15 恒约 4 故必深度枚举,closed 给 LLDB 重开配方摘要桥不自动 attach]+input_field 能力+cgevent_channel[host_ax_trusted 宿主辅助功能授权自检+keystroke 优先/CGEvent 兜底注记];零前台扰动,恒 exit 0)",
       "localdb query <chat> --since 7d --json(0.4.2 起 4.1.15 分表形态:Msg_<md5(username)> 无会话列,表名与 real_sender_id 经 Name2Id 反解;WCDB_CT 标记的 zstd 压缩行优先真解码[stdlib compression.zstd,3.14+],缺模块/解压失败落占位并计数)",
       "localdb key-scan --json(内存密钥批处理扫描;默认关+须提权(root 或 setuid keyscanner)+只读单遍零常驻;0.4.0 管道=C 收集器三模式宽收集→熵筛→并行 sqlcipher 试开→page1 交叉验证)",
       "localdb key-provider set <path>|get|clear --json(外部取钥器管理;set 校验文件存在+可执行;协议 v1 = docs/wechat-keyprovider.md:stdin 单行 JSON 请求/stdout NDJSON progress+result/120s 超时 kill;密钥缓存缺失且已配置时查询链自动 spawn,返回钥匙逐把页1 HMAC 验真后才落 keys.json,失败一律 exit 21 不降级)",
       "localdb key-status --json(0.5.0,task 10-13-wechat-monitor-ui D2;密钥缓存三态 ready/stale/missing:抽样 1-3 库页1 HMAC 重验[与消费门同一验真器]+acquired_at=keys.json mtime;恒 exit 0,三态即正常态不判错)",
-      "localdb key-acquire --json [--force] [--timeout-hint N](0.5.0,D3;交互式取钥编排,协议 v1.1=docs/wechat-keyprovider.md §12:ready 且无 --force 短路 already_ready/missing|stale 直走取钥器/--force 跳短路/hint 透传 timeout_hint_seconds 且桥内硬帽 clamp(N,120,1800)/provider progress 行原样转印 stdout NDJSON+终态单行 JSON 收尾/启动先清残留取消哨兵;未配置取钥器=exit 21 法定文案,与 query 缺钥同族同码)"
+      "localdb key-acquire --json [--force] [--timeout-hint N](0.5.0,D3;交互式取钥编排,协议 v1.1=docs/wechat-keyprovider.md §12:ready 且无 --force 短路 already_ready/missing|stale 直走取钥器/--force 跳短路/hint 透传 timeout_hint_seconds 且桥内硬帽 clamp(N,120,1800)/provider progress 行原样转印 stdout NDJSON+终态单行 JSON 收尾/启动先清残留取消哨兵;未配置取钥器=exit 21 法定文案,与 query 缺钥同族同码)",
+      "localdb page <chat> --limit 500 [--cursor/--from-ts/--to-ts/--types/--sender/--asc](0.8.0,10-14-wechat-chat-export:keyset 分页,游标续拉;E2 副本域 message+contact,尾部 wxid→显示名批量解析;应答 {page:{chat_id,display_name,messages,next_cursor,has_more,filter,page_size}};invalid_cursor/invalid_types exit 2)",
+      "localdb conversations [--limit 500](0.8.0,10-14-wechat-chat-export:会话清单普查,逐表 COUNT/MIN/MAX+副本指纹缓存;按最近消息排序,contact 显示名解析)",
+      "localdb export <chat> --format json|txt|csv|md|html|xlsx --out <dir> [--all/--verify](0.8.0,10-14-wechat-chat-export:六格式导出+manifest sha256 对账;stdout NDJSON 流=progress 行转印+终态单行;staging 0700 原子落位产物 0600;--since Nd 糖与 --from-ts 互斥)",
+      "localdb stats chats|chat <chat> --since Nd|--all|annual --year N|--all|dual <chat> --since Nd|--all --json [--refresh](0.8.0,10-14-wechat-stats-reports:单遍 GROUP BY 聚合+文件缓存 <数据根>/wechat-bridge/stats-cache/ 键=sha1(参数+副本指纹+版本);查询层降级恒 exit 0)",
+      "localdb media status --json(0.8.0,10-14-wechat-media-sns:解密件配置态+缓存统计,状态查询恒不判错)",
+      "localdb media decrypt <dat_path> --json(0.8.0,10-14-wechat-media-sns:单件 .dat 解密到媒体缓存,魔数校验;未配置解密件=exit 23)",
+      "localdb media scan <chat> --since Nd [--decrypt] --json(0.8.0,10-14-wechat-media-sns:会话媒体寻径(缩略图优先),--decrypt 逐条解密回填 cached_path)",
+      "localdb media-decrypt set <path>|get|clear --json(0.8.0,10-14-wechat-media-sns:媒体解密件管理,set 校验绝对路径/存在/可执行;协议=docs/wechat-mediadecrypt.md)",
+      "localdb sns export --format json|html [--out DIR] --since Nd [--with-media] --json(0.8.0,10-14-wechat-media-sns:朋友圈导出;--with-media=唯一受限 CDN GET 豁免,缺省关,docs/wechat-mediadecrypt.md §11)",
+      "localdb contacts --type friend|group|official|former|other [--keyword/--limit/--cursor/--with-residue] --json(0.8.0,10-14-wechat-contacts:联系人六桶分类+找回考古,counts 恒全量/keyset 游标/limit 三态缺省 100 帽 1000 零=全量导出态/缺表降级恒 exit 0;--with-residue 触发 message 域副本)",
+      "localdb notify-scan --file - --json(0.8.0,10-14-wechat-notify-revoke:轮询水位通知扫描+撤回检测/恢复阶梯,stdin JSON 载荷 argv 零内容,sqlite busy 本轮跳过不判死;桥零持久化)",
+      "localdb revoke-list <chat> --since Nd --json(0.8.0,10-14-wechat-notify-revoke:会话撤回历史,--since Nd 窗口,同一恢复阶梯 newmsgid→server_id→时间近邻→replacemsg)",
+      "localdb serve --json [--host H] [--port P](0.8.0,10-14-wechat-http-api:本机 HTTP API 常驻服务,回环强制+token 三通道+纯只读端点族/SSE/ChatLab Pull,协议=docs/wechat-http-api.md)",
+      "localdb http-token generate|show|clear --json(0.8.0,10-14-wechat-http-api:HTTP token 管理;generate=secrets.token_urlsafe(32) 轮换热生效,clear=吊销)"
     ],
     "exit_codes": {
       "0": "成功",
@@ -46,9 +61,11 @@
       "13": "ax_tree_empty",
       "14": "send_rate_limited",
       "15": "send_ax_focus_required",
+      "17": "send_uncertain_dedup",
       "20": "db_not_found",
       "21": "key_unavailable",
       "22": "decrypt_failed",
+      "23": "media_unavailable",
       "30": "timeout",
       "16": "screen_recording_denied"
     }
@@ -71,13 +88,23 @@
     "copy_ttl_hours": 24,
     "copy_capacity_mb": 512,
     "mem_search_enabled": false,
-    "key_provider_path": ""
+    "key_provider_path": "",
+    "media_decrypt_path": "",
+    "media_cache_capacity_mb": 2048,
+    "http_api_enabled": false,
+    "http_api_host": "127.0.0.1",
+    "http_api_port": 5032,
+    "http_api_token": ""
   },
   "private_paths": {
     "config": "<数据根>/wechat-bridge/config.json",
     "send_state": "<数据根>/wechat-localdb/send_state.json",
     "key_cache": "<数据根>/wechat-localdb/keys.json(仅验证通过才落;600 权限)",
     "decrypted_copy": "<数据根>/wechat-localdb/decrypted/<域>/<库>(600 权限,TTL 24h+容量上限,失败重建)",
+    "stats_cache": "<数据根>/wechat-bridge/stats-cache/(统计文件缓存,0.8.0 10-14-wechat-stats-reports:键=sha1(参数+副本指纹+bridge 版本+契约修订号);不含 cache/copy 计时段)",
+    "media_cache": "<数据根>/wechat-localdb/media-cache/(媒体解密缓存,0.8.0 10-14-wechat-media-sns:LRU 容量 media_cache_capacity_mb 缺省 2048;C6 HTTP 媒体端点唯一读取白名单)",
+    "http_watermark": "<数据根>/wechat-localdb/http-watermark.json(SSE 扫描水位,0.8.0 10-14-wechat-http-api:600,仅时间戳)",
+    "http_media": "<数据根>/wechat-localdb/http-media/(HTTP 媒体下发白名单目录,0.8.0 10-14-wechat-http-api:700,C3 媒体导出物落点)",
     "keyscanner": "<数据根>/wechat-localdb/bin/keyscanner(setuid root:staff 4750;native/install-keyscanner.sh 所装;只读 mach 四调用零 exec,argv 白名单=pid,输出恒 stdout;威胁模型=单用户本机读自己微信内存,多用户机不接受则不装,卸载即回归现状)",
     "scan_tmp": "<数据根>/wechat-localdb/scan/candidates-<pid>.txt(候选临时件 600,用后即清)",
     "self_heal_cooldown": "<数据根>/wechat-localdb/self_heal_cooldown.json(自愈失败冷却戳:内容=上次未闭合时间戳,零密钥材料,600;30 分钟窗内 query 链零重扫——不可闭合态失败退避,0.4.1;损坏即忘却不卡死自愈;key-scan CLI/一键脚本不受此门)",
@@ -90,7 +117,7 @@
     "self_heal": "keyscanner 在位 + mem_search_enabled=true 时,localdb query 的密钥缺位/解密失败零人工重取(全量命中才落 keys.json;未安装=保持现状;未闭合落冷却戳,30 分钟窗内不重扫——0.4.1 失败退避)"
   },
   "redlines": [
-    "静默后台(读通道):不抢前台焦点、不合成鼠标点击、不激活微信窗口(prd 红线 4)。写通道 send_text 例外(2026-10-13 主人热激活批令):激活+键盘 CGEvent+剪贴板,合成鼠标仍禁(0.7.0)",
+    "静默后台(读通道):不抢前台焦点、不合成鼠标点击、不激活微信窗口(prd 红线 4)。写通道 send_text 例外(2026-10-13 主人热激活批令):激活+键盘 CGEvent+剪贴板,+合成鼠标点击(仅导航行与 composer 聚焦;PRD 2026-10-14 翻案,不点发送按钮,发送=回车;0.8.0)",
     "不破解协议:禁逆向、禁 hook 注入;内存密钥搜索默认关,仅 D4 豁免(主人 2026-10-11「全部解决」令)后配置显式开启 + 提权才生效,且只读 vm_read 单遍零常驻、禁写内存/禁注入/禁调试器附加/禁重签名(prd 红线 1)",
     "私有数据:聊天内容/密钥材料不入 git/日志/报告;证据只留形状(prd 红线 6;send_text 载荷只载形状与通路,永不载正文;截图件 0700 工作目录用后即清)"
   ]

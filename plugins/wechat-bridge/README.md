@@ -15,13 +15,26 @@
 python -m wechat_bridge --probe                        # 开发形态(组件根上直跑;三态探针 ok/degraded/bridge_unavailable)
 python -m wechat_bridge sessions list --json           # 会话列表(Phase C1)
 python -m wechat_bridge messages read <id> -k 50       # 最近 K 条文本(Phase C2)
-python -m wechat_bridge send_text <id> --file -        # 正文经 stdin(G6 硬频控;0.7.0 已落:热激活 UI 驱动,wxauto 三支柱)
+python -m wechat_bridge send_text <id> --file - [--dry-run]  # 正文经 stdin(G6 硬频控;0.8.0 三源合体:分区过滤导航零盲回车+验证五件套+AX 主链/CGEvent 降级+localdb 回执终验;--dry-run 走到粘贴回读不回车、零频控副作用可重跑)
+python -m wechat_bridge doctor                          # send 链就绪度探针(--probe 超集 + AX 门态/输入区能力;零前台扰动;恒 exit 0;0.8.0)
 python -m wechat_bridge localdb query <chat> --since 7d --json   # 本地库只读(Phase E)
 python -m wechat_bridge localdb key-scan --json        # 内存密钥批处理扫描(D4 豁免;默认关+须提权(root 或 setuid 自愈件)+只读单遍)
 python -m wechat_bridge localdb key-status --json      # 密钥缓存三态 ready/stale/missing(抽样页1 HMAC 重验;恒 exit 0;0.5.0)
 python -m wechat_bridge localdb key-acquire --json [--force] [--timeout-hint 600]  # 交互式取钥编排(ready 短路 already_ready/--force 直走/hint clamp 120..1800/progress 原样转印 stdout NDJSON;协议 v1.1)
 python -m wechat_bridge localdb sns feed --since 3d --json    # 朋友圈动态(SnsTimeLine XML 解析;窗口过滤在解析后;0.6.0)
 python -m wechat_bridge localdb sns notices --since 3d --json # 朋友圈互动通知(赞/评;type 1→like/2→comment;窗口过滤在 SQL;0.6.0)
+python -m wechat_bridge localdb page <chat> --limit 500 [--cursor/--from-ts/--to-ts/--types/--sender/--asc]  # keyset 分页,游标续拉(0.8.0)
+python -m wechat_bridge localdb conversations [--limit 500]   # 会话清单普查(逐表 COUNT/MIN/MAX+显示名解析;0.8.0)
+python -m wechat_bridge localdb export <chat> --format json|txt|csv|md|html|xlsx --out <dir> [--all/--verify]  # 六格式导出+manifest 对账;stdout NDJSON(0.8.0)
+python -m wechat_bridge localdb stats chats --json            # 统计与会话枚举/单会话/年度/双人四模式(--since Nd|--all;缓存 <数据根>/wechat-bridge/stats-cache/;0.8.0)
+python -m wechat_bridge localdb media status|decrypt <dat>|scan <chat> --since 30d [--decrypt]  # 媒体面(解密件协议 docs/wechat-mediadecrypt.md;未配置=exit 23;0.8.0)
+python -m wechat_bridge localdb media-decrypt set <path>|get|clear  # 媒体解密件管理(set 校验绝对路径/存在/可执行;0.8.0)
+python -m wechat_bridge localdb sns export --format json|html [--out DIR] --since 30d [--with-media]  # 朋友圈导出(--with-media=唯一受限 CDN GET 豁免,缺省关;0.8.0)
+python -m wechat_bridge localdb contacts --type former --with-residue --json  # 联系人六桶分类+找回考古(counts 恒全量/keyset 游标/缺表降级恒 exit 0;0.8.0)
+python -m wechat_bridge localdb notify-scan --file -           # 轮询水位通知扫描+撤回检测/恢复阶梯(stdin JSON 载荷,argv 零内容;0.8.0)
+python -m wechat_bridge localdb revoke-list <chat> --since 7d  # 会话撤回历史(同一恢复阶梯;0.8.0)
+python -m wechat_bridge localdb serve --json [--host 127.0.0.1] [--port 5032]  # 本机 HTTP API 常驻(回环强制+token;协议 docs/wechat-http-api.md;0.8.0)
+python -m wechat_bridge localdb http-token generate|show|clear --json  # HTTP token 管理(轮换热生效;0.8.0)
 ```
 
 `bin/wechat-bridge` = 装机启动器(纯转接,零业务逻辑):解析组件根 → 按
@@ -52,17 +65,17 @@ requires),exec `python -m wechat_bridge`;stdout 恒单 JSON 由桥包保证,
   - **硬边界(静默铁律派生)**:桥不能点击切换会话(合成点击被禁)→ `messages read` 读的是**当前打开会话**,载荷 `chat.match` 如实回报请求 id 与可见标题匹配,`false` 时消费方自行取舍。
   - **误差如实**:载荷 `ocr` 节带 engine/低置信行数/VL 是否参与/解析命中率;单个小徽标数字 Vision 常漏读、`999+` 可能读成 `999`(2026-10-11 实测形状)。像素层专属故障不谎报 §6 具名族:`screen_capture_failed`/`screen_capture_black`(后者典型=宿主缺「屏幕录制」TCC 授权)/`ocr_unavailable`(exit 1 过渡码,扩 §6 码表须先改 design)。
   - 截图/裁剪件含聊天内容:全程 0700 私有临时目录、用后即清(红线 3)。
-- UI 写通道(send_text,**0.7.0 已落地**):主人 2026-10-13 热激活批令翻案(原 Phase D「iLink 独任」收口作废)→ `wechat_bridge/sendui.py` 按 **wxauto 三支柱**实装:①焦点/状态断言(前台断言 osascript System Events + 会话定位断言=截窗 OCR 标题带与请求 id 空白不敏感互含 + 窗口在册);②粘后回读确认(pbpaste 剪贴板对账 → AX 焦点元素 value 精确路 → 截输入带 OCR 兜底,0.14s 级;超长正文 OCR 首尾段对账);③超时报错绝不假成功(全部等待硬超时;断言失败整尝试重试上限 3 → exit 15/30 结构化失败)。流程=激活微信→Cmd+F 搜索+↓+回车定位会话→清残留(Cmd+A+Delete)→剪贴板粘正文→回读确认**才**回车(key flags=0,全函数唯一发送动作)→消息区 OCR 事后回读如实入载荷(`post_send_verified`,不确认不谎报)。键盘=CGEvent(ctypes 直调 CoreGraphics,零新依赖);合成鼠标仍禁;截图件 0700 工作目录用后即清。**G6 契约**:`send_text` 只在未发出时抛 BridgeError(发出后抛错会诱发 rollback 放开 10s 内第二发);频控由 CLI 层 `SendRateState.reserve_send` 占位原语封闭(并发封闭,失败 rollback 不吞重试窗口)。前置=桥宿主需辅助功能/输入监控授权(缺授权 CGEvent 对他 app 无效,断言兜住后 exit 15 如实)。真机冒烟=下一阶段(`MYIA_WECHAT_E2E=1` 门控)。
+- UI 写通道(send_text,**0.8.0 三源合体**;0.7.0 wxauto 三支柱升级,task 10-14-wechat-send-text):①**分区过滤导航零盲回车**(tonyshield 蓝本)——旧「Cmd+F→↓→Return」键序已删除,`KEY_RETURN` 全链唯一出现点=发送;搜索结果面板 OCR 选行=本地/垃圾分区头锚定 + 评分 + unique-row 兜底(emoji 行乱码可救,零候选 exit 15 拒发绝不盲点),坐标三段换算(裁剪系→全窗→屏幕);②**验证五件套**(wechatctl 蓝本)——标题双验证(AX label 直读/OCR 标题带/emoji 间接证据链)、composer 哨兵探测(只读协议 Cmd+A 全选+哨兵+Cmd+C)、发送后清空轮询(12×80ms)、SHA256 指纹防重 120s + uncertain-never-retry(多槽指纹档,exit 17)、剪贴板 finally 复原;③**AX 主链+CGEvent+OCR 降级**——每次尝试双判据(全窗最大节点数>5 AND 输入区可读)判定通道,AX 原语 False → 下一尝试 forced_fallback;CGEvent 键盘/鼠标事件带 combinedSessionState 源句柄,点击范围收窄到导航行+composer 聚焦点;④**localdb 回执终验**(红线 4)——`receipt_query` 闭包按 username 查 1d 窗口消息,`ts > since_epoch-2` 防同正文历史假绿,退避 (5,10,15)s 累计 ~30s;⑤**fail-closed 门与 armed 段隔离**——on_armed(回车 down 前落指纹 pending)失败=上抛可 rollback;armed 后一切异常吞掉如实注记(上抛会诱发 rollback 放开 10s 第二发);**发送前聚焦断言两通道对称**(AX focus_input+复读 / 降级链哨兵读一致性),终败 exit 15 error 载荷(stage=focus,注明 pending 已落);⑥**G6+防重门序**——指纹门在前(幂等命中不占位、立即重复得幂等而非 14)、间隔门在后,同一 flock 临界区;`--dry-run` 走到粘贴回读即收尾(清草稿+Esc 退搜索态,零频控零指纹副作用可无限重跑,载荷带 nav_debug 供 P9 校准);`doctor` 子命令=--probe 超集+AX 门态(closed 时给 LLDB 重开配方摘要,桥不自动 attach)。**消费方迁移注记(design §E-5)**:exit 0 现有两处 `sent:false` 扩展形态——`deduped:true`(指纹幂等命中,零新发)与 `dry_run:true`(演练);未升级的消费方把 exit 0 当 sent:true 会误判上述两形态,MYIA push 层(weixin_local)按分支键判;除此之外 exit 0 恒 sent:true(聚焦终败=exit 15)。前置=桥宿主需辅助功能/输入监控授权。真机矩阵=P9/P10(dry-run 预验+≤2 真发门控)。
 - `localdb query`(Phase E,已落地):定位 db_storage → E1 密钥获取(零内存途径=key_info.db 材料→候选提取→page1 离线 HMAC-SHA512 校验,机制完整可单测)→ E2 sqlcipher 解密副本至 `<数据根>/wechat-localdb/decrypted/`(600/700 权限,TTL 24h 缺省(0=永不过期)+容量上限,失败重建;源库(含 -wal)mtime 比副本新 = 重建(0.4.4,近实时:微信写库后下轮查询即见;微信活跃期重建频率上升为已知 trade-off);TTL=0 = 显式永不刷新(源新也不重建,冻结快照))→ E3 message/session/contact 三域只读查询(列签名自适应,版本漂移如实降级)。**E1 实测结论(2026-10-11 真跑):零内存密钥途径不可推导**(候选全数 HMAC 未命中,与三方独立公开实测一致)→ 如实 `key_unavailable`(exit 21)+ D4 待主人裁决;密钥可得(外部引入或 D4 豁免后)即全链闭合。
 - `localdb key-scan`(D4 豁免执行件,主人 2026-10-11「全部解决」令;**0.4.0 固化**主人 2026-10-13「固化成代码」令):内存密钥批处理扫描,管道 = **C 收集器**(`native/collector.c`,三模式宽收集:`x'hex'` 包裹串 / 连续 96-hex 裸串 / 已知 salt 二进制 ±512B 邻域 1B 步进;只读 mach 四调用 `task_for_pid`/`mach_vm_region`/`mach_vm_read`/`mach_vm_deallocate`,**零写零注入零 exec**,argv 白名单=pid,候选恒走 stdout)→ 候选文件(数据根私有区临时件 600,用后即清)→ 熵预筛(≥3.5 bits/byte)→ 8 并发 sqlcipher 试开(微信 4.x 参数变体 4 组)→ page1 离线 HMAC 交叉验证 → 全量命中才落 `keys.json`(600,`localdb query` 一步闭合)。**三重门**:配置 `mem_search_enabled: true`(缺省关)+ 提权在位(root 或 setuid 自愈件)+ 主人裁决在案;旧 Python 滑窗实现退役删除;禁写内存/禁注入/禁调试器附加/禁重签名,守卫测试钉死(C 源码级)。如实预告:微信为 hardened runtime 签名,root 亦可能被内核拒(`task_for_pid` KERN_FAILURE)——该拒绝即此路在本机不可达的如实信号。
 - **setuid 自愈件**(0.4.0):`native/install-keyscanner.sh`(一键脚本首段代跑,一次 root)把收集器装为 `<数据根>/wechat-localdb/bin/keyscanner`(root:staff,4750)——此后扫描/自愈零 sudo;`localdb query` 的密钥缺位/解密失败(密钥轮换)在 `mem_search_enabled: true` + 件在位时自动重取(`resolve_keys`/`query_history` 自愈钩子,全量命中才落缓存)。**失败退避**(0.4.1 复审修复):自愈未闭合落冷却戳 `<数据根>/wechat-localdb/self_heal_cooldown.json`(600,内容仅时间戳,零密钥材料),30 分钟窗内查询链不再重扫——不可闭合态(微信改版零命中/部分命中/收集器超时)不再逐次 query 重读微信全进程内存;冷却中 exit 21/22 消息如实注记(不谎称重取过);戳损坏即忘却(负缓存不卡死自愈);成功闭合(自愈或手动 `key-scan`)即清戳;`localdb key-scan` CLI 与一键脚本直连扫描入口,不受冷却门。**威胁模型(如实)**:单用户本机 = 用户读自己微信内存;多用户机器上 staff 组成员可借它做同款只读模式扫描——不接受则不装,`sudo rm` 该件即回归现状(未安装 = key_unavailable + 一键脚本指引)。
 - 依赖:sqlcipher CLI(`brew install sqlcipher`,design §5.1 前置;0.4.0 起同为密钥试开验证前置)、cc(Xcode CLT,收集器首用自动编译,缺装时结构化报错带 `xcode-select --install` 指引)。
-- 频控落盘模块(G6)已实现并可单测(时间注入,不真等 10 秒)。
+- 频控+防重落盘模块(G6)已实现并可单测(时间注入,不真等 10 秒;0.8.0 起状态文件两键:`last_send_epoch` + `send_fingerprints` 多槽指纹档——同指纹 120s 防重,pending 命中 exit 17 `send_uncertain_dedup` 绝不自动重试,sent 命中幂等 exit 0)。
 - 依赖:sqlcipher CLI(`brew install sqlcipher`,design §5.1 前置;缺装时解密步骤结构化报错并给指引)。
 
 ## 红线(违者返工)
 
-1. 静默后台(读通道):不抢前台焦点、不合成鼠标点击、不激活微信窗口。**写通道 send_text 例外**(主人 2026-10-13 热激活批令):激活+键盘 CGEvent+剪贴板驱动,合成鼠标仍禁(0.7.0)。
+1. 静默后台(读通道):不抢前台焦点、不合成鼠标点击、不激活微信窗口。**写通道 send_text 例外**(主人 2026-10-13 热激活批令):激活+键盘 CGEvent+剪贴板驱动,+ 合成鼠标点击(**仅导航行与 composer 聚焦**;PRD 2026-10-14 翻案,task 10-14-wechat-send-text design §I-1——不点发送按钮,发送=回车)。
 2. 不破解协议:禁逆向、禁 hook 注入;内存密钥搜索默认关,仅 D4 豁免后配置显式开启 + 提权在位(root 或 setuid 自愈件)才生效,且只读 vm_read 单遍零常驻、禁写内存/禁注入/禁调试器附加/禁重签名(0.4.0:mach 逻辑只在 `native/collector.c`,源码级守卫;setuid 件零 exec、argv 白名单、输出恒 stdout)。
 3. 私有数据:聊天内容/密钥材料不入 git/日志/报告;证据只留形状。
 4. 依赖纪律:临时依赖一律独立 venv,勿入仓库 `.venv`。

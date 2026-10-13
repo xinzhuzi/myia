@@ -14,7 +14,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wechat-bridge"
-version = "0.7.0"
+version = "0.8.1"
 description = "微信本机桥:UI 自动化(像素链读取,零激活零合成点击)+ 本地库只读(sqlcipher 解密副本;brew install sqlcipher 前置)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -40,6 +40,10 @@ dependencies = [
     #   环境暂 3.12,两级 import 链缺它则压缩行落占位(localdb_query
     #   zstd_module_missing 计数)。one-shot decompress 同形 API。
     "zstandard>=0.22,<1",
+    # - xlsxwriter:导出格式 xlsx 前置(0.8.0,task 10-14-wechat-chat-export;
+    #   纯 Python 轮零编译;localdb_export._import_xlsxwriter 惰性导入,缺装
+    #   时该格式结构化 dependency_missing,其余五格式不受影响)。
+    "xlsxwriter>=3,<4",
 ]
 
 [project.optional-dependencies]

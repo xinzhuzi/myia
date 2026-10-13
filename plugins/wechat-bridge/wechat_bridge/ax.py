@@ -6,8 +6,9 @@
 解析;静默铁律全套:零激活、零合成点击、零抢焦点)。原「AX 树遍历」实现
 整体作废。
 
-**Phase D1 写通道已落(0.7.0)**:``send_text`` 委托 :mod:`.sendui`
-(wxauto 三支柱:焦点/状态断言、粘后回读确认、超时报错绝不假成功);
+**Phase D1 写通道已落(0.7.0;0.8.0 三源合体升级)**:``send_text`` 委托
+:mod:`.sendui`(分区过滤导航零盲回车 + 验证五件套 + AX 主链/CGEvent+OCR
+降级 + localdb 回执终验;详见 sendui 模块 docstring);
 ``not_implemented`` 过渡应答仅作 API 兼容保留(C/D 全落,过渡码消亡)。
 
 静默铁律(prd 红线 4)对本模块的约束:
@@ -21,7 +22,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Any, Callable
 
 from .codes import (
     AX_PERMISSION_DENIED,
@@ -117,12 +118,42 @@ def read_messages(config: BridgeConfig, chat_id: str, k: int | None = None) -> d
     return pixel.read_messages(config, chat_id, k)
 
 
-def send_text(config: BridgeConfig, chat_id: str, body: str) -> dict[str, object]:
-    """``send_text`` 实现(D1 已落,0.7.0:热激活 UI 驱动,委托 :mod:`.sendui`;
-    调用方已过频控占位门——``SendRateState.reserve_send`` 检查+落戳同临界区,
-    并发封闭。本函数契约 = **只在未发出时**抛 BridgeError(调用方据此
-    rollback_reserve 还原占位),发出即成功返回,失败不得发生在真实回车
-    之后——否则还原占位会放开 10s 内的第二发,踩 G6 红线)。"""
+def send_text(
+    config: BridgeConfig,
+    target: Any,
+    body: str,
+    *,
+    dry_run: bool = False,
+    on_armed: Callable[[], None] | None = None,
+    on_receipt_green: Callable[[], None] | None = None,
+    receipt_query: Callable[[str, str, float], bool | None] | None = None,
+) -> dict[str, object]:
+    """``send_text`` 实现(0.8.0 三源合体,委托 :mod:`.sendui`)。
+
+    契约 = **只在未发出时**抛 BridgeError(调用方据此 rollback_reserve
+    还原占位);发出即成功返回,失败不得发生在真实回车之后——否则还原
+    占位会放开 10s 内的第二发,踩 G6 红线。
+
+    on_armed 边界条款(design §C-4/§C-5):on_armed(= 落指纹 pending,
+    回车 down 前回调)**失败 = fail-closed 上抛**(未回车,调用方可
+    rollback 重试);armed 之后的一切异常在 sendui 内吞掉(聚焦终败的
+    exit 15 error 载荷除外——已 pending 不该 rollback,调用方以 armed
+    闭包标志区分,cli.py 同款)。
+
+    Args:
+        target: :class:`.sendtarget.SendTarget`(DB 侧解析产物)。
+        dry_run: 走到粘贴回读即收尾,零发送零频控副作用。
+        on_armed / on_receipt_green / receipt_query: 见 :func:`.sendui.
+            send_text`(指纹状态机回调与回执判定闭包,CLI 注入)。
+    """
     from . import sendui
 
-    return sendui.send_text(config, chat_id, body)
+    return sendui.send_text(
+        config,
+        target,
+        body,
+        dry_run=dry_run,
+        on_armed=on_armed,
+        on_receipt_green=on_receipt_green,
+        receipt_query=receipt_query,
+    )

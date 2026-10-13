@@ -15,7 +15,13 @@
   替代 E1 空壳期的「无配置键」口径)、
   ``key_provider_path``(外部取钥器可执行文件路径,缺省空 = 未配置 =
   现状行为;task 10-13-wechat-keyprovider B2,协议 = docs/wechat-keyprovider.md,
-  管理命令 ``localdb key-provider set|get|clear`` 代写)。
+  管理命令 ``localdb key-provider set|get|clear`` 代写)、
+  ``media_decrypt_path``/``media_cache_capacity_mb``(task
+  10-14-wechat-media-sns:媒体解密件路径缺省空 = 未配置;媒体缓存容量
+  缺省 2048MB,管理命令 ``localdb media-decrypt set|get|clear`` 代写)、
+  ``http_api_enabled``/``http_api_host``/``http_api_port``/``http_api_token``
+  (task 10-14-wechat-http-api R10:缺省 false/127.0.0.1/5032/空;token
+  管理命令 ``localdb http-token generate|show|clear`` 代写)。
   **无频控键**(G6 硬编码,刻意不提供——design §7 原文)。
 
 数据根解析与 MYIA 本体同源(desktop/entry.py ``myssia_home`` /
@@ -44,8 +50,14 @@ __all__ = [
     "COPY_TTL_HOURS_DEFAULT",
     "DEFAULT_DOMAINS",
     "HISTORY_DAYS_DEFAULT",
+    "HTTP_API_ENABLED_DEFAULT",
+    "HTTP_API_HOST_DEFAULT",
+    "HTTP_API_PORT_DEFAULT",
+    "HTTP_API_TOKEN_DEFAULT",
     "KEY_PROVIDER_PATH_DEFAULT",
     "LOCALDB_KEYS_REL_PATH",
+    "MEDIA_CACHE_CAPACITY_MB_DEFAULT",
+    "MEDIA_DECRYPT_PATH_DEFAULT",
     "MEM_SEARCH_ENABLED_DEFAULT",
     "MESSAGES_DEFAULT",
     "MYIA_HOME_ENV",
@@ -91,6 +103,21 @@ MEM_SEARCH_ENABLED_DEFAULT = False
 #: docs/wechat-keyprovider.md。空串 = 未配置 = 现状行为:查询链不 spawn
 #: 取钥器、不取钥;桥对取钥器零来源校验——风险件用户自备、自行担责)。
 KEY_PROVIDER_PATH_DEFAULT = ""
+#: 媒体解密件路径缺省(task 10-14-wechat-media-sns;协议 =
+#: docs/wechat-mediadecrypt.md。空串 = 未配置 = 媒体面 exit 23
+#: media_unavailable 结构化降级,文本链零影响)。
+MEDIA_DECRYPT_PATH_DEFAULT = ""
+#: 媒体缓存容量上限缺省(MB;media-cache/ 目录 LRU 逐出)。
+MEDIA_CACHE_CAPACITY_MB_DEFAULT = 2048
+#: HTTP API 开关缺省(task 10-14-wechat-http-api R10;仅桌面托管消费,
+#: 显式 CLI ``localdb serve`` 起服不读该键)。
+HTTP_API_ENABLED_DEFAULT = False
+#: HTTP API 绑定地址缺省(R3 回环强制;装载期不拒非回环,serve 面拒)。
+HTTP_API_HOST_DEFAULT = "127.0.0.1"
+#: HTTP API 端口缺省(刻意避开 5030/5031 chatlog 族端口,防同机相撞)。
+HTTP_API_PORT_DEFAULT = 5032
+#: HTTP API token 缺省(空 = 未配置 = 非 health 全拒,R2)。
+HTTP_API_TOKEN_DEFAULT = ""
 
 _ALLOWED_TOP_KEYS = frozenset(
     {
@@ -100,6 +127,12 @@ _ALLOWED_TOP_KEYS = frozenset(
         "copy_capacity_mb",
         "mem_search_enabled",
         "key_provider_path",
+        "media_decrypt_path",
+        "media_cache_capacity_mb",
+        "http_api_enabled",
+        "http_api_host",
+        "http_api_port",
+        "http_api_token",
     }
 )
 _ALLOWED_LIMIT_KEYS = frozenset({"sessions", "messages", "history_days"})
@@ -135,6 +168,20 @@ class BridgeConfig:
     #: localdb.resolve_keys:密钥缓存缺失且已配置 → 按协议 spawn;配置文件
     #: 存在性/可执行性不在装载期判(get 命令与 spawn 失败如实报)。
     key_provider_path: str = KEY_PROVIDER_PATH_DEFAULT
+    #: 媒体解密件可执行文件路径(10-14-wechat-media-sns;空 = 未配置 =
+    #: 媒体面 exit 23 结构化降级。media.py 经 getattr duck-type 消费)。
+    media_decrypt_path: str = MEDIA_DECRYPT_PATH_DEFAULT
+    #: 媒体缓存容量上限 MB(10-14-wechat-media-sns;media.py 经 getattr
+    #: duck-type 消费,缺省 2048)。
+    media_cache_capacity_mb: int = MEDIA_CACHE_CAPACITY_MB_DEFAULT
+    #: HTTP API 开关(R10;仅桌面托管消费,显式 CLI 起服不读该键)。
+    http_api_enabled: bool = HTTP_API_ENABLED_DEFAULT
+    #: HTTP API 绑定地址(R3 回环强制;装载期不拒非回环,serve 面拒)。
+    http_api_host: str = HTTP_API_HOST_DEFAULT
+    #: HTTP API 端口(1..65535)。
+    http_api_port: int = HTTP_API_PORT_DEFAULT
+    #: HTTP API token(空 = 未配置 = 非 health 全拒;generate 轮换热生效)。
+    http_api_token: str = HTTP_API_TOKEN_DEFAULT
     #: 配置实际来源(None = 缺文件全缺省,health/诊断如实呈现)。
     source: str | None = None
 
@@ -151,6 +198,13 @@ class BridgeConfig:
             "copy_capacity_mb": self.copy_capacity_mb,
             "mem_search_enabled": self.mem_search_enabled,
             "key_provider_path": self.key_provider_path,
+            "media_decrypt_path": self.media_decrypt_path,
+            "media_cache_capacity_mb": self.media_cache_capacity_mb,
+            "http_api_enabled": self.http_api_enabled,
+            "http_api_host": self.http_api_host,
+            "http_api_port": self.http_api_port,
+            # token 只呈形状不呈值(私有数据红线:密钥材料不入诊断面)。
+            "http_api_token_configured": bool(self.http_api_token),
             "source": self.source,
         }
 
@@ -264,6 +318,58 @@ def load_config(path: Path | None = None, *, data_root: Path | None = None) -> B
             code="usage",
             fix_hint="外部取钥器路径配置;wechat-bridge localdb key-provider set <path> 可代写并校验",
         )
+    # —— 媒体解密件两键(10-14-wechat-media-sns;照 key_provider_path 判例)——
+    media_decrypt_path = raw.get("media_decrypt_path")
+    if media_decrypt_path is not None and not isinstance(media_decrypt_path, str):
+        raise BridgeError(
+            EXIT_USAGE,
+            f"桥配置 media_decrypt_path 须为字符串(媒体解密件可执行文件路径;空串 = 未配置),"
+            f"当前为 {media_decrypt_path!r}",
+            code="usage",
+            fix_hint="媒体解密件路径配置;wechat-bridge localdb media-decrypt set <path> 可代写并校验",
+        )
+    media_cache_capacity_mb = raw.get("media_cache_capacity_mb")
+    if media_cache_capacity_mb is not None:
+        if (
+            not isinstance(media_cache_capacity_mb, int)
+            or isinstance(media_cache_capacity_mb, bool)
+            or media_cache_capacity_mb <= 0
+        ):
+            raise BridgeError(
+                EXIT_USAGE,
+                f"桥配置 media_cache_capacity_mb 须为正整数(MB),当前为 {media_cache_capacity_mb!r}",
+            )
+    # —— HTTP API 四键(10-14-wechat-http-api R10;回环校验在 serve 面,
+    #    装载期只做形状门——配置错形状 fail-fast,值域留 serve 拒)——
+    http_api_enabled = raw.get("http_api_enabled")
+    if http_api_enabled is not None and not isinstance(http_api_enabled, bool):
+        raise BridgeError(
+            EXIT_USAGE,
+            f"桥配置 http_api_enabled 须为布尔(true/false),当前为 {http_api_enabled!r}",
+        )
+    http_api_host = raw.get("http_api_host")
+    if http_api_host is not None and not isinstance(http_api_host, str):
+        raise BridgeError(
+            EXIT_USAGE,
+            f"桥配置 http_api_host 须为字符串(回环地址),当前为 {http_api_host!r}",
+        )
+    http_api_port = raw.get("http_api_port")
+    if http_api_port is not None:
+        if (
+            not isinstance(http_api_port, int)
+            or isinstance(http_api_port, bool)
+            or not 1 <= http_api_port <= 65535
+        ):
+            raise BridgeError(
+                EXIT_USAGE,
+                f"桥配置 http_api_port 须为 1..65535 的整数,当前为 {http_api_port!r}",
+            )
+    http_api_token = raw.get("http_api_token")
+    if http_api_token is not None and not isinstance(http_api_token, str):
+        raise BridgeError(
+            EXIT_USAGE,
+            f"桥配置 http_api_token 须为字符串(空串 = 未配置),当前为 {http_api_token!r}",
+        )
     return BridgeConfig(
         domains=[str(item).strip() for item in domains],
         sessions=values.get("sessions", SESSIONS_DEFAULT),
@@ -280,6 +386,30 @@ def load_config(path: Path | None = None, *, data_root: Path | None = None) -> B
             KEY_PROVIDER_PATH_DEFAULT
             if key_provider_path is None
             else key_provider_path.strip()
+        ),
+        media_decrypt_path=(
+            MEDIA_DECRYPT_PATH_DEFAULT
+            if media_decrypt_path is None
+            else media_decrypt_path.strip()
+        ),
+        media_cache_capacity_mb=(
+            MEDIA_CACHE_CAPACITY_MB_DEFAULT
+            if media_cache_capacity_mb is None
+            else media_cache_capacity_mb
+        ),
+        http_api_enabled=(
+            HTTP_API_ENABLED_DEFAULT if http_api_enabled is None else http_api_enabled
+        ),
+        http_api_host=(
+            HTTP_API_HOST_DEFAULT
+            if http_api_host is None
+            else http_api_host.strip()
+        ),
+        http_api_port=(
+            HTTP_API_PORT_DEFAULT if http_api_port is None else http_api_port
+        ),
+        http_api_token=(
+            HTTP_API_TOKEN_DEFAULT if http_api_token is None else http_api_token
         ),
         source=str(config_path),
     )

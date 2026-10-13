@@ -35,6 +35,7 @@ from __future__ import annotations
 import hashlib
 import sqlite3
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -53,8 +54,10 @@ __all__ = [
     "find_message_tables",
     "name2id_maps",
     "query_messages",
+    "query_messages_range",
     "lookup_contact",
     "group_info",
+    "humanize_content",
 ]
 
 #: 微信消息 localType → 类型名(公开常量表;未知类型回落 type_<N>)。
@@ -68,6 +71,17 @@ MSG_TYPE_NAMES: dict[int, str] = {
     49: "file_or_link",
     10000: "system",
     10002: "revoke",
+    # —— R3 类型映射扩展(task 10-14-wechat-chat-export;真库普查实证,
+    #    证据逐条在 census 基件 tests/wechat-bridge/fixtures/
+    #    local_type_census.json mapping 节;大数 = (appmsg子型<<32)|49)——
+    42: "card",             # 名片(WeFlow 42;真库抽样 root=msg 空子节点)
+    50: "call",             # 音视频通话(真库抽样 root=voipmsg)
+    21474836529: "link",    # 链接卡(5<<32|49;appmsg<type>=5 + url)
+    25769803825: "file",    # 文件(6<<32|49;WeFlow file 变体)
+    34359738417: "file",    # 文件(8<<32|49;WeFlow file 变体)
+    103079215153: "file",   # 文件(24<<32|49;WeFlow file 变体)
+    81604378673: "record",  # 合并转发(19<<32|49;title=群聊的聊天记录)
+    244813135921: "quote",  # 引用(57<<32|49;refermsg 在场)
 }
 
 # 列名候选族(自适应识别;命中顺序即优先序)。
@@ -90,6 +104,138 @@ _ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
 
 #: 媒体占位语义(prd:图片/文件类先落「类型+占位描述」,不做内容识别)。
 _MEDIA_PLACEHOLDER = "非文本消息,内容未导出(占位)"
+
+# —— R3 人话化(task 10-14-wechat-chat-export;prd R3 定稿落位本模块,
+#    localdb_page 的模块级 try-import 自动接管共享版,消费方零改)——
+#: type-49 族编码底数(hi32<<32|49;census _meta 注记)。
+_APPMSG_SHIFT = 32
+#: 群消息 type-49/47 XML 的 ``wxid:\n`` 前缀上限(4.1.15 真库实测)。
+_GROUP_XML_PREFIX_MAX = 128
+
+
+def _is_appmsg_local_type(local_type: int) -> bool:
+    """type-49 族判定(含大数变体;非 49 编码的大数不成族)。"""
+    if local_type == 49:
+        return True
+    if local_type < 1 << 62 and local_type > 1 << _APPMSG_SHIFT:
+        return (local_type - 49) % (1 << _APPMSG_SHIFT) == 0
+    return False
+
+
+def _appmsg_subtype(local_type: int) -> int | None:
+    """type-49 族的 appmsg 语义位(hi32;与 ``<appmsg><type>`` 子节点同值)。"""
+    if local_type == 49:
+        return None  # 纯 49 无语义位,以 XML 内 <type> 为准
+    if not _is_appmsg_local_type(local_type):
+        return None
+    return (local_type - 49) >> _APPMSG_SHIFT
+
+
+def _humanize_size(num_bytes: Any) -> str:
+    """字节数 → 人话(B/KB/MB/GB;坏值原样字符串,不臆造)。"""
+    try:
+        size = int(num_bytes)
+    except (TypeError, ValueError):
+        return str(num_bytes)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024 or unit == "TB":
+            return f"{size}{unit}" if unit == "B" else f"{size:.1f}{unit}"
+        size = round(size / 1024, 1)
+    return f"{size}TB"  # pragma: no cover - 循环末态兜底
+
+
+def _strip_group_prefix(text: str) -> str:
+    """剥离群消息 XML 的 ``wxid:\n`` 前缀(仅当后跟 '<' 才剥,正文不误伤)。"""
+    head, sep, rest = text.partition(":\n")
+    if sep and len(head) <= _GROUP_XML_PREFIX_MAX and rest.lstrip().startswith("<"):
+        return rest.lstrip()
+    return text
+
+
+def _parse_xml_content(content: str) -> ET.Element | None:
+    """内容 → XML 根节点(两段:直解 → 剥群前缀再解;坏 XML = None)。"""
+    cleaned = content.strip().strip("\x00").strip()
+    try:
+        return ET.fromstring(cleaned)
+    except ET.ParseError:
+        pass
+    try:
+        return ET.fromstring(_strip_group_prefix(cleaned))
+    except ET.ParseError:
+        return None
+
+
+def _humanize_appmsg(local_type: int, appmsg: ET.Element) -> str | None:
+    """``<appmsg>`` 节点 → 人话(链接/引用/合并转发/文件四形,prd R3 文案)。
+
+    语义位取 ``<appmsg><type>`` 子节点(真库实测在场),缺位回落 local_type
+    的 hi32(同一语义,census _meta 注记)。缺节点/空文案 = None(调用方落
+    占位 + 计数,如实降级)。
+    """
+    try:
+        subtype = int((appmsg.findtext("type") or "").strip())
+    except ValueError:
+        subtype = _appmsg_subtype(local_type)
+        subtype = -1 if subtype is None else subtype
+    title = (appmsg.findtext("title") or "").strip()
+    if subtype == 5:  # 链接卡
+        description = (appmsg.findtext("description") or "").strip()
+        url = (appmsg.findtext("url") or "").strip()
+        parts = [p for p in (title, description, url) if p]
+        return f"【链接】{' '.join(parts)}" if parts else None
+    if subtype == 57:  # 引用
+        refer = appmsg.find(".//refermsg")
+        summary = ((refer.findtext("content") if refer is not None else "") or "")
+        summary = summary.strip().replace("\n", " ")[:50]
+        if title and summary:
+            return f"{title}(引用:{summary})"
+        return title or None
+    if subtype == 19:  # 合并转发(4.1.15 真库抽样无 recordinfo,如实降级)
+        datalist = appmsg.find(".//datalist")
+        count = (datalist.get("count") if datalist is not None else "") or ""
+        display = (appmsg.findtext(".//displayname") or "").strip() or title
+        if display and count.isdigit():
+            return f"【聊天记录】{display} 的 {int(count)} 条消息"
+        return f"【聊天记录】{display}" if display else None
+    if subtype == 6:  # 文件
+        if not title:
+            return None
+        raw_size = appmsg.findtext(".//totallen")
+        size_text = _humanize_size(raw_size) if raw_size not in (None, "") else ""
+        return f"【文件】{title}({size_text})" if size_text else f"【文件】{title}"
+    return None  # 其余 appmsg 子型(转账/红包/拍一拍…)不臆造文案
+
+
+def humanize_content(
+    local_type: int, content: Any, stats: dict[str, object] | None = None
+) -> str | None:
+    """type-49 族 / 47 XML → 人话(str;None = 解不出,调用方落占位+计数)。
+
+    prd R3 定稿的共享实现(参考实现 = localdb_page._humanize_impl,契约同一;
+    stdlib xml.etree 解析):type-49 XML 四形【链接】/引用/【聊天记录】/
+    【文件】+ 47 emoji description;群消息 ``wxid:\\n`` 前缀剥离;坏 XML =
+    None + ``wx_parse_failed`` 计数(stats 透传应答附加键)。
+    """
+    if not isinstance(content, str) or not content.strip():
+        return None
+    root = _parse_xml_content(content)
+    if root is None:
+        if stats is not None:
+            stats["wx_parse_failed"] = int(stats.get("wx_parse_failed", 0)) + 1
+        return None
+    if local_type == 47:  # 表情:emoji XML 的 description 属性
+        emoji = root if root.tag == "emoji" else root.find(".//emoji")
+        desc = (emoji.get("description") if emoji is not None else "") or ""
+        return desc.strip() or None
+    if _is_appmsg_local_type(local_type):
+        appmsg = root.find(".//appmsg")
+        if appmsg is not None:
+            text = _humanize_appmsg(local_type, appmsg)
+            if text is not None:
+                return text
+    if stats is not None:
+        stats["wx_parse_failed"] = int(stats.get("wx_parse_failed", 0)) + 1
+    return None
 
 
 def _open_copy(copy_dir: Path, rel: str) -> sqlite3.Connection | None:
@@ -358,6 +504,131 @@ def query_messages(
             messages.append(entry)
     messages.sort(key=lambda item: int(item["ts"]), reverse=True)
     return messages[:limit]
+
+
+def query_messages_range(
+    con: Any,
+    chat_id: str,
+    since_ts: int,
+    end_ts: int | None = None,
+    *,
+    limit: int = 500,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """水位增量查询(R5 ChatLab Pull;task 10-14-wechat-http-api PRD 终位
+    = 本模块纯加法平移;httpapi 与 watermark 消费同一函数,不得另写一份)。
+
+    - 选表按 :func:`find_message_tables` 同一自适应机制(宽表 talker 过滤
+      /分表 Name2Id md5 反解);``create_time > since``(且 ``<= end`` 若给)
+      **升序** + ``LIMIT limit OFFSET offset``;
+    - ``watermark`` = 该会话表当前 ``max(create_time)``(单会话表内聚合,
+      代价=单会话规模,不扫全库);
+    - sync 块:取满 ``limit`` → ``hasMore=true, nextOffset=offset+limit,
+      nextSince=since``(翻页期 since 不动);未取满 → ``hasMore=false,
+      nextOffset=0, nextSince=max(watermark, since)``(拉毕跳水位;max 防御
+      表 max 早于 since 时的游标回退)。多表命中时页语义按表独立后归并
+      截断(现实=单会话单表;宽表形态的边缘并流如实注记)。
+
+    既有 :func:`query_messages` 零改动(纯加法)。行形状与其同源:
+    ``{"ts","sender","type","text"?,"media_placeholder"?}``。
+    """
+    tables = find_message_tables(con)
+    id_to_name: dict[int, str] = {}
+    if any(colmap.get("sender_id") for _table, colmap in tables):
+        id_to_name = name2id_maps(con)[0]
+    messages: list[dict[str, Any]] = []
+    watermark_value = int(since_ts)
+    for table, colmap in tables:
+        if colmap.get("talker"):
+            chat_condition = (f'"{colmap["talker"]}" = ?', [chat_id])
+        elif colmap.get("chat") == chat_id:
+            chat_condition = None
+        else:
+            continue
+        cols: list[str] = []
+        idx: dict[str, int] = {}
+        for key, col in (
+            ("time", colmap.get("time")),
+            ("content", colmap.get("content")),
+            ("type", colmap.get("type")),
+            ("sender", colmap.get("sender")),
+            ("sender_id", colmap.get("sender_id")),
+            ("ct_content", colmap.get("ct_content")),
+        ):
+            if col:
+                idx[key] = len(cols)
+                cols.append(col)
+        quoted = ", ".join(chr(34) + c + chr(34) for c in cols)
+        conditions: list[str] = []
+        params: list[Any] = []
+        if chat_condition is not None:
+            conditions.append(chat_condition[0])
+            params.extend(chat_condition[1])
+        conditions.append(f'"{colmap["time"]}" > ?')
+        params.append(int(since_ts))
+        if end_ts is not None:
+            conditions.append(f'"{colmap["time"]}" <= ?')
+            params.append(int(end_ts))
+        sql = (
+            f'SELECT {quoted} FROM "{table}" WHERE {" AND ".join(conditions)} '
+            f'ORDER BY "{colmap["time"]}" ASC LIMIT ? OFFSET ?'
+        )
+        params.extend([int(limit), int(offset)])
+        max_sql = f'SELECT MAX("{colmap["time"]}") FROM "{table}"'
+        max_params: list[Any] = []
+        if chat_condition is not None:
+            max_sql += f" WHERE {chat_condition[0]}"
+            max_params.extend(chat_condition[1])
+        try:
+            rows = con.execute(sql, params).fetchall()
+            row_max = con.execute(max_sql, max_params).fetchone()
+        except Exception:  # noqa: BLE001 - 单表漂移不拖垮整查询(红线 7)
+            continue
+        if row_max and row_max[0] is not None:
+            watermark_value = max(watermark_value, _normalize_ts(row_max[0]))
+        for row in rows:
+            ts = _normalize_ts(row[idx["time"]])
+            content = row[idx["content"]] if "content" in idx else None
+            msg_type = 1
+            if "type" in idx:
+                try:
+                    msg_type = int(row[idx["type"]] or 0)
+                except (TypeError, ValueError):
+                    msg_type = 0
+            if "sender" in idx:
+                sender = "me" if row[idx["sender"]] == 1 else chat_id
+            elif "sender_id" in idx:
+                sender = _sender_name(row[idx["sender_id"]], id_to_name, chat_id)
+            else:
+                sender = chat_id
+            entry: dict[str, Any] = {
+                "ts": ts,
+                "sender": sender,
+                "type": MSG_TYPE_NAMES.get(msg_type, f"type_{msg_type}"),
+            }
+            if msg_type == 1:
+                text, placeholder = _decode_text_content(
+                    content,
+                    row[idx["ct_content"]] if "ct_content" in idx else None,
+                    None,
+                )
+                if text is not None:
+                    entry["text"] = text
+                else:
+                    entry["media_placeholder"] = placeholder
+            else:
+                entry["media_placeholder"] = "非文本消息,内容未导出(占位)"
+            messages.append(entry)
+    messages.sort(key=lambda item: int(item["ts"]))
+    messages = messages[: int(limit)]
+    has_more = len(messages) >= int(limit)
+    sync = {
+        "hasMore": has_more,
+        "nextSince": int(since_ts) if has_more else watermark_value,
+        "nextOffset": int(offset) + int(limit) if has_more else 0,
+        "watermark": watermark_value,
+    }
+    return messages, sync
 
 
 def lookup_contact(con: sqlite3.Connection, chat_id: str) -> str | None:

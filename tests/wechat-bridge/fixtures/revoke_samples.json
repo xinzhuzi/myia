@@ -1,0 +1,71 @@
+{
+  "_doc": "撤回样本夹具(10-14-wechat-notify-revoke R7;全合成,零真实语料)。形状取自 WeFlow 语义文档与微信 sysmsg XML 公开形态,零代码借入(CC BY-NC-SA 4.0 只借语义;拷问修正①)。同时作为 C1 浏览面「已撤回」标记的验收夹具数据源(交割注记)。cases[].revoke_row = 撤回行的 (local_type, message_content) 合成形状;cases[].fixture_rows = 同表撤回点前的合成消息行(供恢复阶梯消费,server_id/create_time/real_sender_id/message_content);cases[].expect = 期望恢复三元组 (recovery, replacemsg_text, original_server_id);sender_name 字段给 real_sender_id 的 Name2Id 反解锚。ts 基准 = 1791900000(合成锚,测试把 create_time 平移到当前时刻再断言)。",
+  "base_ts": 1791900000,
+  "name2id": {"10": "wxid_self", "20": "wxid_alice", "30": "wxid_bob"},
+  "cases": [
+    {
+      "name": "server_id-direct-hit",
+      "revoke_row": {
+        "local_type": 10002,
+        "message_content": "<sysmsg type=\"revokemsg\"><revokemsg><sessionid>50438708676@chatroom</sessionid><newmsgid>7000000001</newmsgid><revokesender><![CDATA[wxid_alice]]></revokesender></revokemsg></sysmsg>"
+      },
+      "fixture_rows": [
+        {"server_id": 7000000001, "create_time_offset": -60, "real_sender_id": 20, "message_content": "合成原文-撤回前一条(直查命中)"}
+      ],
+      "expect": {"recovery": "server_id", "original_server_id": 7000000001, "original_preview_contains": "直查命中"}
+    },
+    {
+      "name": "heuristic-fallback",
+      "revoke_row": {
+        "local_type": 10002,
+        "message_content": "<sysmsg type=\"revokemsg\"><revokemsg><newmsgid>8888888888</newmsgid></revokemsg></sysmsg>"
+      },
+      "fixture_rows": [
+        {"server_id": 6000000001, "create_time_offset": -300, "real_sender_id": 20, "message_content": "合成原文-五分钟前(启发式近邻)"},
+        {"server_id": 6000000002, "create_time_offset": -120, "real_sender_id": 10, "message_content": "合成-自己的消息(启发式须跳过本人)"}
+      ],
+      "expect": {"recovery": "heuristic", "original_server_id": 6000000001, "original_preview_contains": "启发式近邻"}
+    },
+    {
+      "name": "replacemsg-text-fallback",
+      "revoke_row": {
+        "local_type": 10000,
+        "message_content": "<sysmsg type=\"revokemsg\"><replacemsg><![CDATA[\"合成张三\"撤回了一条消息]]></replacemsg></sysmsg>"
+      },
+      "fixture_rows": [],
+      "expect": {"recovery": "replacemsg", "replacemsg_text": "\"合成张三\"撤回了一条消息", "original_server_id": null}
+    },
+    {
+      "name": "none-when-all-miss",
+      "revoke_row": {
+        "local_type": 10002,
+        "message_content": "<sysmsg type=\"revokemsg\"><revokemsg><newmsgid>7777777777</newmsgid></revokemsg></sysmsg>"
+      },
+      "fixture_rows": [],
+      "expect": {"recovery": "none", "replacemsg_text": null, "original_server_id": null}
+    },
+    {
+      "name": "marker-predicate-10000-revokemsg-attr",
+      "revoke_row": {
+        "local_type": 10000,
+        "message_content": "<sysmsg><revokemsg svrid=\"5550000011\"></revokemsg></sysmsg>"
+      },
+      "fixture_rows": [
+        {"server_id": 5550000011, "create_time_offset": -30, "real_sender_id": 30, "message_content": "合成原文-svrid 属性形态直查"}
+      ],
+      "expect": {"recovery": "server_id", "original_server_id": 5550000011, "original_preview_contains": "svrid 属性形态"}
+    },
+    {
+      "name": "self-revoke-suppressed",
+      "revoke_row": {
+        "local_type": 10002,
+        "message_content": "<sysmsg type=\"revokemsg\"><revokemsg><newmsgid>7000000009</newmsgid><revokesender><![CDATA[wxid_self]]></revokesender></revokemsg></sysmsg>",
+        "real_sender_id": 10
+      },
+      "fixture_rows": [
+        {"server_id": 7000000009, "create_time_offset": -60, "real_sender_id": 10, "message_content": "合成-自己发后被自己撤回"}
+      ],
+      "expect": {"suppressed": true, "recovery": null, "original_server_id": null}
+    }
+  ]
+}

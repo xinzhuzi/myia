@@ -28,13 +28,28 @@ from . import system_checks as sc
 from .codes import DB_NOT_FOUND, KEY_UNAVAILABLE, WECHAT_NOT_RUNNING
 from .config import BridgeConfig, load_config
 
-__all__ = ["ProbeResult", "run_probe"]
+__all__ = ["ProbeResult", "run_probe", "run_doctor"]
 
 #: 密钥不可得的码名字符串(与 codes 表 exit 21 的码名对账,不裸写串)。
 CODE_KEY_UNAVAILABLE_NAME = "key_unavailable"
 # 静态对账护栏:矩阵用到的 §6 码值不被无声改动(改码先改 design §6 表)。
 assert KEY_UNAVAILABLE == 21 and CODE_KEY_UNAVAILABLE_NAME == "key_unavailable"
 assert WECHAT_NOT_RUNNING == 10 and DB_NOT_FOUND == 20
+
+#: AX 门 closed 时的重开配方摘要(task 10-14-wechat-send-text design §E-2;
+#: 完整配方 research/FINDINGS.md;桥不自动 attach,人工执行)。
+AX_GATE_FIX_HINT = (
+    "AX 门重开配方(LLDB,人工执行):P1 vptr 自检 == slide+0x9fe7e68 → "
+    "P2 FUN_06c4ad50($qca,1) 写门 → P4 复验节点数>5;完整配方 "
+    "research/FINDINGS.md"
+)
+#: AX 门 closed 的判定注记(REV 判据;design §J-22)。0.8.1:nodes 为
+#: 全窗子树**深度枚举**节点数(直查第一层在 4.1.15 恒 ~4——Qt 树挂
+#: AXGroup 深层,真机实证 /tmp/wxsend-e2e/axwalk2-out.txt)。
+AX_GATE_CLOSED_NOTE = (
+    "进程外枚举 5 节点级 = Qt AX 门未开(REV 判据);nodes 为全窗子树"
+    "深度枚举节点数(直查第一层在 4.1.15 恒约 4,Qt 树挂深层)"
+)
 
 #: 单条降级原因(码名 + 修复指引;MYIA 侧映射 UI 文案)。
 @dataclass(frozen=True)
@@ -202,3 +217,75 @@ def run_probe(
         bridge_version=bridge_version,
         config=cfg.to_payload(),
     )
+
+
+def run_doctor(
+    *,
+    config: BridgeConfig | None = None,
+    bridge_version: str | None = None,
+    node_counter: Callable[[], int | None] | None = None,
+    input_probe: Callable[[], str | None] | None = None,
+) -> dict[str, Any]:
+    """``wechat-bridge doctor`` 载荷(task 10-14-wechat-send-text design
+    §E-2):= ``--probe`` 超集 + send 链就绪度,**仍零前台扰动**(AX 读
+    查询不激活不点击;probe 即一次无障碍查询,副作用 = 微信自身
+    activateQtAccessibility 自然置位,REV:20-24)。
+
+    形状::
+
+        {"doctor": {"probe": {run_probe 载荷原样},
+                    "ax_gate": {"nodes", "state": open|closed|unknown,
+                                "input_field": ok|missing, "note", "fix_hint"},
+                    "cgevent_channel": {"post_key", "note"}}}
+
+    - ``ax_gate.nodes`` = ``system_checks.wechat_ax_node_count()``(全部
+      窗口子树的**深度枚举节点数**取最大,0.8.1 修正:直查第一层在
+      4.1.15 恒 ~4,Qt 命名树挂 AXGroup 深层;>5 = open,≤5 = closed,
+      失败 = unknown);``input_field`` = axui.read_input_value() 探测
+      (ok/missing);均可注入 = 单测主战场。
+    - ``cgevent_channel.host_ax_trusted`` = 宿主辅助功能授权自检
+      (ax_permission_trusted;False = CGEvent/keystroke 对他 app 无效
+      的实锤——发送前置)。
+    - doctor 是状态查询不判错:调用方恒 exit 0(key-status 判例)。
+    """
+    probe_result = run_probe(config=config, bridge_version=bridge_version)
+    if node_counter is None:
+        node_counter = sc.wechat_ax_node_count
+    if input_probe is None:
+        from . import axui
+
+        input_probe = axui.read_input_value
+
+    nodes = node_counter()
+    if nodes is None:
+        gate_state, note = "unknown", "AX 节点数探测不可及(脚本失败/进程不在)"
+        fix_hint = "确认微信在运行后重试;持续 unknown 查辅助功能授权(osascript System Events)"
+    elif nodes > 5:
+        gate_state, note, fix_hint = "open", None, None
+    else:
+        gate_state, note, fix_hint = "closed", AX_GATE_CLOSED_NOTE, AX_GATE_FIX_HINT
+
+    input_value = input_probe()
+    ax_gate: dict[str, Any] = {
+        "nodes": nodes,
+        "state": gate_state,
+        "input_field": "ok" if input_value is not None else "missing",
+        "note": note,
+        "fix_hint": fix_hint,
+    }
+    return {
+        "doctor": {
+            "probe": probe_result.to_payload(),
+            "ax_gate": ax_gate,
+            "cgevent_channel": {
+                "post_key": "unverified",
+                "host_ax_trusted": sc.ax_permission_trusted(),
+                "note": (
+                    "辅助功能授权为发送前置(host_ax_trusted=false = CGEvent/"
+                    "keystroke 对他 app 无效实锤);非发送键 = System Events "
+                    "keystroke 优先(失败可检测)/CGEvent 兜底;doctor 不合成"
+                    "事件,以首次 dry-run 实测为准"
+                ),
+            },
+        }
+    }
