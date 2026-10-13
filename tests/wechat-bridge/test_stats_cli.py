@@ -24,12 +24,19 @@ if str(COMPONENT_SRC) not in sys.path:
 from wechat_bridge import stats_query  # noqa: E402
 from wechat_bridge.codes import KEY_UNAVAILABLE, BridgeError  # noqa: E402
 
-# 与 test_stats_query 同:时区钉 UTC(本文件在其后导入,桥族无更后继者)
+# 与 test_stats_query 同:时区钉 UTC——钉法 = autouse fixture(测完还原),
+# 不做导入期全局副作用(pytest 收集期导入会泄给整个会话;判例见
+# test_stats_query._pin_tz_utc 注记)。
 import os
 import time
 
-os.environ.setdefault("TZ", "UTC")
-time.tzset()
+
+@pytest.fixture(autouse=True)
+def _pin_tz_utc(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("TZ", "UTC")
+    time.tzset()
+    yield
+    time.tzset()  # monkeypatch 还原 TZ env 后重置 libc 本地时区
 
 
 def _dispatch(argv: list[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path):

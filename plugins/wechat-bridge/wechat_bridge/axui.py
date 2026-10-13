@@ -16,6 +16,11 @@ AX 主链的元素操作,osascript System Events 封装)。
   :data:`WALK_BUDGET`,单次 osascript 内完成,找到即返)。
 - ``write_search_value`` 走 **AXFocusedUIElement 直写**(REF 同路线,
   不依赖树遍历——焦点元素是系统级查询)。
+- **0.8.2(r2 真机修正,/tmp/wxsend-e2e/r2/)**:walk 底座**遍历全部
+  windows**(搜索态下搜索浮窗是 window 1、主窗是 window 3,绑死
+  z-order 首窗恒搜错窗);匹配属性改 **AXIdentifier**(命名元素的名称
+  在 identifier,AXDescription 为空);``missing value`` 字面量 stdout
+  过滤(否则当标题值泄漏)。
 - **AXPress 聚焦行为未经桥内复验——P9 预验先行(design §I-7),不可达
   即降级,零阻塞**(design §D-1:调用方按返回 False 计入 AX 能力缺失,
   下一尝试 forced_fallback 直走 CGEvent+OCR 降级链)。
@@ -93,11 +98,15 @@ def _bool_result(result: subprocess.CompletedProcess[bytes]) -> bool:
 
 
 def _text_result(result: subprocess.CompletedProcess[bytes]) -> str | None:
-    """stdout 文本(去尾换行);脚本失败/空 → None 如实。"""
+    """stdout 文本(去尾换行);脚本失败/空/``missing value`` 字面量 →
+    None 如实(r2 真机实证:osascript 把 ``return missing value`` 序列化
+    为字面文本 'missing value' 输出——不过滤会当标题值泄漏)。"""
     if result.returncode != 0:
         return None
     text = result.stdout.decode("utf-8", "replace").rstrip("\n")
-    return text if text.strip() else None
+    if text.strip() in ("", "missing value"):
+        return None
+    return text
 
 
 def _run_handler(script_body: str, *, arg: str | None = None) -> subprocess.CompletedProcess[bytes]:
@@ -125,39 +134,67 @@ def _run_handler(script_body: str, *, arg: str | None = None) -> subprocess.Comp
 # ------------------------------------------------------- BFS 逐层遍历底座 ----
 
 _BFS_HEAD = (
-    "          set theQueue to {window 1}\n"
-    f"          set budget to {WALK_BUDGET}\n"
+    # 0.8.3 窗口选择=**最大面积窗**(主窗选择;r3 真机实证):全窗 BFS 在
+    # 搜索态被浮窗动态树膨胀到 >10s(press_session_item 恒超时挂死);
+    # 命名元素(chat_input_field/session_item_*/current_chat_name_label)
+    # 全在主窗(聊天主窗恒为微信最大窗),浮窗内是空 id 的 virtual_cell
+    # 对 AX 无用——先选最大窗再走树。0.8.2 全窗遍历修正的是「绑死
+    # window 1 搜错窗」(r2),本修正不回退该结论:最大窗≠z-order 首窗。
+    "          set budget to " + str(WALK_BUDGET) + "\n"
+    "          set mainWin to missing value\n"
+    "          set bestArea to 0\n"
+    "          repeat with w in windows\n"
+    "            try\n"
+    "              set sz to size of w\n"
+    "              set a to ((item 1 of sz) * (item 2 of sz))\n"
+    "              if a > bestArea then\n"
+    "                set bestArea to a\n"
+    "                set mainWin to w\n"
+    "              end if\n"
+    "            end try\n"
+    "          end repeat\n"
+    "          if mainWin is missing value then return missing value\n"
+    "          set theQueue to {contents of mainWin}\n"
     "          repeat while (count of theQueue) > 0 and budget > 0\n"
-    "            set nextQueue to {}\n"
-    "            repeat with elem in theQueue\n"
-    "              try\n"
-    "                set kids to UI elements of elem\n"
-    "              on error\n"
-    "                set kids to {}\n"
-    "              end try\n"
-    "              repeat with kid in kids\n"
-    "                set budget to budget - 1\n"
+    "              set nextQueue to {}\n"
+    "              repeat with elem in theQueue\n"
     "                try\n"
-    "                  set elemDesc to (description of kid) as text\n"
+    "                  set kids to UI elements of elem\n"
     "                on error\n"
-    "                  set elemDesc to \"\"\n"
+    "                    set kids to {}\n"
     "                end try\n"
+    "                repeat with kid in kids\n"
+    "                  set budget to budget - 1\n"
+    "                  try\n"
+    "                    set elemId to (value of attribute \"AXIdentifier\" of kid) as text\n"
+    "                  on error\n"
+    "                    set elemId to \"\"\n"
+    "                  end try\n"
 )
 
 _BFS_TAIL = (
-    "                copy kid to end of nextQueue\n"
+    "                  copy kid to end of nextQueue\n"
+    "                end repeat\n"
     "              end repeat\n"
+    "              set theQueue to nextQueue\n"
     "            end repeat\n"
-    "            set theQueue to nextQueue\n"
-    "          end repeat\n"
 )
 
 
 def _walk_find(match_body: str, *, arg: str | None = None) -> subprocess.CompletedProcess[bytes]:
-    """BFS 逐层遍历找元素(整树一个 osascript 内走完;``match_body`` 是
-    each-kid 级匹配块——命中即 return,否则入队继续)。
+    """BFS 逐层遍历**最大面积窗(主窗)**找元素(整程一个 osascript 内
+    走完;``match_body`` 是 each-kid 级匹配块——命中即 return,否则入队
+    继续)。
 
-    ``match_body`` 内可用:``elemDesc``(kid 的 AXDescription)、``kid``、
+    窗口选择(0.8.3,r3 真机实证):**最大面积窗**——全窗遍历在搜索态
+    被浮窗动态树拖到 >10s 超时;0.8.2 修的「绑死 window 1 搜错窗」由
+    「最大窗≠z-order 首窗」继续保证(搜索浮窗 464×375 恒小于主窗)。
+
+    匹配属性(r2 真机实证):**AXIdentifier**——命名元素
+    (chat_input_field/session_item_*/current_chat_name_label)的名称在
+    AXIdentifier,AXDescription 为空(axwalk2-out.txt 全树同证)。
+
+    ``match_body`` 内可用:``elemId``(kid 的 AXIdentifier)、``kid``、
     ``theArg``(argv 注入参数)。
     """
     return _run_handler(_BFS_HEAD + match_body + _BFS_TAIL, arg=arg)
@@ -211,10 +248,10 @@ def press_session_item(name: str) -> bool:
     """单次探测:BFS 遍历找 name 含 <display_name> 的 ``session_item_*``
     元素并 AXPress(零坐标点击;轮询节奏由调用方管)。"""
     result = _walk_find(
-        '                if elemDesc starts with "session_item_" and elemDesc contains theArg then\n'
-        "                  perform action \"AXPress\" of kid\n"
-        "                  return true\n"
-        "                end if\n",
+        '                  if elemId starts with "session_item_" and elemId contains theArg then\n'
+        "                    perform action \"AXPress\" of kid\n"
+        "                    return true\n"
+        "                  end if\n",
         arg=name,
     )
     return _bool_result(result)
@@ -223,11 +260,11 @@ def press_session_item(name: str) -> bool:
 def read_current_chat_name() -> str | None:
     """``current_chat_name_label`` 直读(emoji 精确;缺位 → None 不拦通道)。"""
     result = _walk_find(
-        '                if elemDesc is "current_chat_name_label" then\n'
-        "                  set val to value of attribute \"AXValue\" of kid\n"
-        "                  if val is missing value then return missing value\n"
-        "                  return (val as text)\n"
-        "                end if\n"
+        '                  if elemId is "current_chat_name_label" then\n'
+        "                    set val to value of attribute \"AXValue\" of kid\n"
+        "                    if val is missing value then return missing value\n"
+        "                    return (val as text)\n"
+        "                  end if\n"
     )
     return _text_result(result)
 
@@ -240,11 +277,11 @@ def read_input_value() -> str | None:
     侧以 ``"v:"`` 前缀包装可达路径,Python 侧剥前缀。
     """
     result = _walk_find(
-        '                if elemDesc is "chat_input_field" then\n'
-        "                  set val to value of attribute \"AXValue\" of kid\n"
-        "                  if val is missing value then set val to \"\"\n"
-        "                  return (\"v:\" & (val as text))\n"
-        "                end if\n"
+        '                  if elemId is "chat_input_field" then\n'
+        "                    set val to value of attribute \"AXValue\" of kid\n"
+        "                    if val is missing value then set val to \"\"\n"
+        "                    return (\"v:\" & (val as text))\n"
+        "                  end if\n"
     )
     if result.returncode != 0:
         return None
@@ -255,10 +292,10 @@ def read_input_value() -> str | None:
 def write_input_value(text: str) -> bool:
     """``chat_input_field`` AXValue 直写(REV 实弹配方;写入正文主链)。"""
     result = _walk_find(
-        '                if elemDesc is "chat_input_field" then\n'
-        "                  set value of attribute \"AXValue\" of kid to theArg\n"
-        "                  return true\n"
-        "                end if\n",
+        '                  if elemId is "chat_input_field" then\n'
+        "                    set value of attribute \"AXValue\" of kid to theArg\n"
+        "                    return true\n"
+        "                  end if\n",
         arg=text,
     )
     return _bool_result(result)
@@ -269,10 +306,10 @@ def focus_input() -> bool:
     (design §J-1/§I-7);返回 False = 能力缺失,调用方按降级处理。
     聚焦后的正文保全由调用方复读 value 断言(design §D-2)。"""
     result = _walk_find(
-        '                if elemDesc is "chat_input_field" then\n'
-        "                  perform action \"AXPress\" of kid\n"
-        "                  return true\n"
-        "                end if\n"
+        '                  if elemId is "chat_input_field" then\n'
+        "                    perform action \"AXPress\" of kid\n"
+        "                    return true\n"
+        "                  end if\n"
     )
     return _bool_result(result)
 
@@ -283,11 +320,11 @@ def focused_is_input() -> bool | None:
     result = _run_handler(
         "          set focusedElement to value of attribute \"AXFocusedUIElement\"\n"
         "          try\n"
-        "            set elemDesc to (description of focusedElement) as text\n"
+        "            set elemId to (value of attribute \"AXIdentifier\" of focusedElement) as text\n"
         "          on error\n"
         "            return missing value\n"
         "          end try\n"
-        '          if elemDesc is "chat_input_field" then return true\n'
+        '          if elemId is "chat_input_field" then return true\n'
         "          return false\n"
     )
     if result.returncode != 0:

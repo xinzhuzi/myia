@@ -27,6 +27,8 @@ E2 解密副本(G5 生命周期):
   sqlcipher 缺失 → 结构化报错 + brew 指引(design §5.1,不静默半装)。
 - TTL 24h(配置 ``copy_ttl_hours``)失效重建 + 容量上限(配置
   ``copy_capacity_mb``);解密失败触发重建;微信进程零接触、零出网。
+  2026-10-14 修订:CDN GET(sns export --with-media,缺省关)为唯一受限
+  豁免,见 docs/wechat-mediadecrypt.md §11。
   **0.4.4 源新即重建**:源库(含 ``-wal``)mtime 比副本新 = 缓存失效
   (微信持续写库,TTL 内的新消息也要可见——近实时监控的正确性前提)。
 

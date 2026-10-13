@@ -179,10 +179,54 @@ class TestScriptShapes:
             )
             script = seen["script"]
             assert "entire contents" not in script, probe.__name__
-            assert "set theQueue to {window 1}" in script  # BFS 队列起点
+            assert "set bestArea to 0" in script and "set mainWin to w" in script  # 0.8.3:最大面积窗=主窗选择
+            assert "set theQueue to {contents of mainWin}" in script  # BFS 队列起点=主窗(非 z-order 首窗)
             assert "repeat while (count of theQueue) > 0 and budget > 0" in script
             assert f"set budget to {axui.WALK_BUDGET}" in script  # 节点预算上限
             assert "UI elements of elem" in script  # 逐层展开(非一次性拍平)
+
+    def test_walk_selects_largest_window_not_zorder_first(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """0.8.3 窗口选择(承 0.8.2 A 条:搜索态浮窗=window 1、主窗=window 3,
+        绑 z-order 首窗恒搜错窗;r3 实证全窗遍历被浮窗膨胀挂死):walk 底座
+        先按**最大面积**选主窗再走树——最大窗恒为主窗,且≠z-order 首窗。"""
+        seen: dict = {}
+
+        def fake_run(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
+            seen["script"] = argv[2]
+            return _proc_ok()
+
+        monkeypatch.setattr(axui, "_run", fake_run)
+        axui.press_session_item("目标")
+        script = seen["script"]
+        assert "set bestArea to 0" in script and "set mainWin to w" in script
+        assert "{window 1}" not in script
+        assert "set theQueue to {contents of mainWin}" in script
+
+    def test_match_uses_axidentifier_not_description(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """0.8.2 B 条(r2 实证:命名在 AXIdentifier,AXDescription 为空):
+        匹配属性 = AXIdentifier;focused_is_input 同。"""
+        seen: list[str] = []
+
+        def fake_run(argv: list[str]) -> subprocess.CompletedProcess[bytes]:
+            seen.append(argv[2])
+            return _proc_ok()
+
+        monkeypatch.setattr(axui, "_run", fake_run)
+        axui.read_input_value()
+        axui.focus_input()
+        axui.focused_is_input()
+        for script in seen:
+            assert 'AXIdentifier' in script
+            assert "(description of kid)" not in script
+            assert "(description of focusedElement)" not in script
+
+    def test_missing_value_literal_stdout_maps_to_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """0.8.2 B 条附带:r2 实证 osascript 把 return missing value 序列化
+        为字面文本 'missing value' —— 必须映射 None(否则当标题值泄漏)。"""
+        monkeypatch.setattr(axui, "_run", lambda argv: _proc_ok("missing value\n"))
+        assert axui.read_current_chat_name() is None
+        monkeypatch.setattr(axui, "_run", lambda argv: _proc_ok("missing value"))
+        assert axui.read_current_chat_name() is None
 
     def test_write_search_value_uses_focused_element_not_walk(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """write_search_value 保持 AXFocusedUIElement 直写(REF 路线,

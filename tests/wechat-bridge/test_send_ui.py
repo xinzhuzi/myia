@@ -81,6 +81,9 @@ class FakeHarness:
         channel: str = "cgevent_ocr",
         frontmost: bool = True,
         window: object | None = FakeWindow(),
+        search_window: object | None | object = FakeWindow(
+            window_id=96202, width=368.0, height=370.0, x=200.0, y=180.0
+        ),
         ocr_texts: dict[str, str] | None = None,
         search_lines: list[OcrLine] | None = None,
         pre_nav_title: str | None = None,
@@ -103,6 +106,8 @@ class FakeHarness:
             _sline(CHAT, 0.40),  # 目标行
         ]
         self.pre_nav_title = pre_nav_title if pre_nav_title is not None else CHAT
+        self.search_window = search_window
+        self.ocr_windows: list[object] = []  # _ocr_region_lines 收到的窗口
         self.channel_want = channel
         # write_search_value 可用性(0.8.1 起降级链也先试 AXFocusedUIElement
         # 直写;None = 随通道——ax True / cgevent False=走剪贴板兜底)。
@@ -141,6 +146,7 @@ class FakeHarness:
         monkeypatch.setattr(sendui, "_ocr_region", self._ocr_region)
         monkeypatch.setattr(sendui, "_ocr_region_lines", self._ocr_region_lines)
         monkeypatch.setattr(sendui, "_find_window", lambda: self.window)
+        monkeypatch.setattr(sendui, "_find_search_window", lambda main, **kw: self.search_window)
         monkeypatch.setattr(sendui, "_post_send_verify", self._post_send_verify)
         # axui 原语(通道相关)
         monkeypatch.setattr(axui, "probe_wechat_ax", lambda: self.channel_want == "ax")
@@ -191,6 +197,7 @@ class FakeHarness:
 
     def _ocr_region_lines(self, _window, _box, _workdir, tag: str) -> list[OcrLine]:
         self.ocr_calls.append(tag)
+        self.ocr_windows.append(_window)
         return list(self.search_lines)
 
     def _post_send_verify(self, _body, _workdir) -> dict:
@@ -418,8 +425,9 @@ class TestSentinelAndClear:
         assert (sendui.KEY_A, sendui.FLAG_COMMAND) not in harness.keys  # 零 Cmd+A(空断言/清残留段)
 
     def test_ax_dry_run_cleanup_without_keyboard(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """ax 路 dry-run 收尾零键盘:草稿经 write_input_value("") 清,
-        无 Cmd+A/Delete/Esc 键序。"""
+        """ax 路 dry-run 收尾:草稿与搜索词都经 AXValue 直写清(零
+        Cmd+A/Delete 键序);ESC(关搜索浮窗,0.8.2 D 条统一清理)允许。
+        """
         harness = FakeHarness(channel="ax")
         harness.install(monkeypatch)
         writes: list[str] = []
@@ -434,7 +442,8 @@ class TestSentinelAndClear:
         assert payload["send"]["dry_run"] is True
         assert writes[-1] == ""  # 收尾清草稿 = AXValue 空串
         assert (sendui.KEY_DELETE, 0) not in harness.keys
-        assert (sendui.KEY_ESCAPE, 0) not in harness.keys  # ax 路不进搜索态
+        assert (sendui.KEY_A, sendui.FLAG_COMMAND) not in harness.keys
+        assert (sendui.KEY_ESCAPE, 0) in harness.keys  # 清理关浮窗(统一)
 
     def test_cgevent_dry_run_cleanup_clicks_composer_first(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """cgevent 路 dry-run 清草稿键序前先 click composer(焦点断言
@@ -510,11 +519,12 @@ class TestDryRun:
         assert nav["pick_rule"] == "text_match" and nav["terms_hit"] == CHAT
         assert isinstance(nav["pick_cx"], float) and isinstance(nav["pick_cy"], float)
 
-    def test_dry_run_ax_channel_keeps_search_state(self, ax_harness: FakeHarness) -> None:
-        """AX 通道 dry-run 不按 Esc(AXPress 导航不进搜索态)。"""
+    def test_dry_run_ax_channel_cleans_search_state(self, ax_harness: FakeHarness) -> None:
+        """AX 通道 dry-run:nav_debug 带 ax_session_item;收尾统一清理
+        搜索态(0.8.2 D 条:清词 + Esc 关浮窗,两通道一致)。"""
         payload = _run(ax_harness, dry_run=True)
         assert payload["send"]["nav_debug"]["pick_rule"] == "ax_session_item"
-        assert (sendui.KEY_ESCAPE, 0) not in ax_harness.keys
+        assert (sendui.KEY_ESCAPE, 0) in ax_harness.keys
 
 
 class TestTitleVerifyModes:
@@ -818,6 +828,79 @@ class TestKeystrokeDualEngine:
         assert calls == []  # keystroke 已注入,CGEvent 不重复
 
 
+class TestSearchFloatWindow:
+    """0.8.2 C 条:降级链 OCR/click 目标 = 搜索结果浮窗(非主窗左栏)。"""
+
+    def test_ocr_and_click_target_search_float_window(self, harness: FakeHarness) -> None:
+        """OCR 落在浮窗(tag=search 的窗口 = 96202 浮窗);点击坐标 =
+        浮窗几何换算(x=200,y=180,w=368,h=370;整窗框 cx/cy 直映射)。"""
+        payload = _run(harness, on_armed=harness.on_armed)
+        assert payload["send"]["sent"] is True
+        assert harness.ocr_windows, "搜索 OCR 必须发生"
+        assert all(w is harness.search_window for w in harness.ocr_windows)
+        # 目标行 fixture:cx = 0.10+0.20/2 = 0.20,cy = 0.40+0.04/2 = 0.42
+        # (整窗框 → wx=0.20, wy=0.42;浮窗几何 → 屏幕 (200+0.20*368, 180+0.42*370))
+        expect_x = round(200 + 0.20 * 368)
+        expect_y = round(180 + 0.42 * 370)
+        assert (expect_x, expect_y) in harness.clicks
+
+    def test_float_window_missing_times_out_with_cleanup(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """浮窗未出现(找不到搜索浮窗)→ 轮询超时 exit 15 navigate;
+        失败清理(ESC)在键序(D 条)。"""
+        harness = FakeHarness()
+        harness.install(monkeypatch)
+        monkeypatch.setattr(sendui, "_find_search_window", lambda main, **kw: None)
+        with pytest.raises(BridgeError) as excinfo:
+            _run(harness)
+        assert excinfo.value.exit_code == 15
+        assert "navigate" in excinfo.value.message
+        assert (sendui.KEY_ESCAPE, 0) in harness.keys  # D:失败清理关浮窗
+        assert harness.clicks == []  # 零候选零点击
+
+    def test_ax_navigate_failure_cleans_search_state(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """ax 路导航失败(press 超时)→ 清词(write_search_value(""))+
+        ESC(0.8.2 D 条)。"""
+        harness = FakeHarness(channel="ax")
+        harness.install(monkeypatch)
+        monkeypatch.setattr(sendui, "_find_search_window", lambda main, **kw: None)  # 降级链同败
+        search_writes: list[str] = []
+        monkeypatch.setattr(axui, "write_search_value", lambda term: search_writes.append(term) or True)
+        monkeypatch.setattr(axui, "press_session_item", lambda name: False)  # 恒找不到
+        with pytest.raises(BridgeError) as excinfo:
+            _run(harness)
+        assert excinfo.value.exit_code == 15
+        assert "" in search_writes  # 清词(AXFocusedUIElement 直写空串)
+        assert (sendui.KEY_ESCAPE, 0) in harness.keys
+
+    def test_find_search_window_picks_smallest_non_main(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """_find_search_window 判据:微信属主 layer 0、非主窗、面积最小者。
+        (mock pixel._read_window_list:主窗 + 搜索浮窗 + 更大的无关窗)。"""
+        import wechat_bridge.pixel as pixel
+
+        def fake_list() -> list[dict]:
+            return [
+                {"kCGWindowOwnerName": "微信", "kCGWindowLayer": 0, "kCGWindowIsOnscreen": True,
+                 "kCGWindowNumber": 93824, "kCGWindowBounds": {"X": 0, "Y": 0, "Width": 1200, "Height": 800}},
+                {"kCGWindowOwnerName": "微信", "kCGWindowLayer": 0, "kCGWindowIsOnscreen": True,
+                 "kCGWindowNumber": 96202, "kCGWindowBounds": {"X": 200, "Y": 180, "Width": 368, "Height": 370}},
+                {"kCGWindowOwnerName": "微信", "kCGWindowLayer": 0, "kCGWindowIsOnscreen": True,
+                 "kCGWindowNumber": 99000, "kCGWindowBounds": {"X": 50, "Y": 50, "Width": 500, "Height": 600}},
+                {"kCGWindowOwnerName": "别的App", "kCGWindowLayer": 0,
+                 "kCGWindowNumber": 77000, "kCGWindowBounds": {"X": 0, "Y": 0, "Width": 10, "Height": 10}},
+                {"kCGWindowOwnerName": "微信", "kCGWindowLayer": 3,
+                 "kCGWindowNumber": 78000, "kCGWindowBounds": {"X": 0, "Y": 0, "Width": 5, "Height": 5}},
+            ]
+
+        monkeypatch.setattr(pixel, "_read_window_list", fake_list)
+        main = FakeWindow(window_id=93824, width=1200, height=800)
+        found = sendui._find_search_window(main)
+        assert found is not None and found.window_id == 96202  # 最小非主窗
+        assert (found.x, found.y, found.width, found.height) == (200.0, 180.0, 368.0, 370.0)
+        assert sendui._find_search_window(FakeWindow(window_id=999)) is not None  # 主窗不在列表时仍选最小
+
+
 class TestCrossAttemptFallback:
     """跨尝试降级(§D-1):AX 能力缺失 → 下一尝试 forced_fallback。"""
 
@@ -965,3 +1048,85 @@ class TestTextConfirmed:
     def test_short_body_requires_full(self) -> None:
         assert sendui.text_confirmed("正文片段", "正文") is True
         assert sendui.text_confirmed("正", "正文") is False
+
+
+class TestSearchWindowDiff0_8_3:
+    """0.8.3 两修(真机 r3 实证):浮窗差分定位 + 门关态 AX 写挂起吞超时。
+
+    窗表取自 2026-10-14 03:50 真机 CGWindowList 快照(噪声窗原样入表):
+    100×30 状态条/1920×30 横条/280×380 常驻面板/700×640 面板对——裸
+    min(面积) 会选中 100×30 不可见窗 → 截窗黑图 luma 0.0。
+    """
+
+    @staticmethod
+    def _window_list(float_onscreen: bool = True) -> list[dict]:
+        def w(wid: int, x: float, y: float, wd: float, ht: float, layer: int = 0, onscreen=None) -> dict:
+            return {
+                "kCGWindowOwnerName": "WeChat",
+                "kCGWindowNumber": wid,
+                "kCGWindowLayer": layer,
+                "kCGWindowIsOnscreen": onscreen,
+                "kCGWindowBounds": {"X": x, "Y": y, "Width": wd, "Height": ht},
+            }
+
+        return [  # 真机快照噪声窗(全部不在屏)+ 主窗 + 搜索浮窗(95818,layer 3 浮层)
+            w(95818, 728, 353, 464, 375, layer=3, onscreen=float_onscreen),
+            w(94430, 610, 235, 700, 640),
+            w(94429, 610, 235, 700, 640),
+            w(94137, 910, 540, 100, 30, layer=21),
+            w(93830, 910, 512, 100, 58),
+            w(93829, 1313, 544, 100, 30),
+            w(93807, 820, 335, 280, 380),
+            w(93811, 0, 0, 1920, 30),
+            w(93824, 0, 30, 1920, 1050, onscreen=True),
+        ]
+
+    def test_float_pick_onscreen_beats_noise(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """在屏 + 尺寸带:状态条/横条/常驻面板(全不在屏)与隐藏浮窗均排除,
+        在屏浮窗被选中(真机判据:kCGWindowIsOnscreen)。"""
+        from wechat_bridge import pixel, sendui
+
+        monkeypatch.setattr(pixel, "_read_window_list", lambda: self._window_list(float_onscreen=True))
+        main_window = pixel.WindowInfo(
+            window_id=93824, onscreen=True, width=1920.0, height=1050.0, pid=1, x=0.0, y=30.0
+        )
+        got = sendui._find_search_window(main_window)
+        assert got is not None and got.window_id == 95818
+
+    def test_float_hidden_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """浮窗未在屏(未弹出/预建隐藏态)→ None(调用方轮询等渲染,不猜)。"""
+        from wechat_bridge import pixel, sendui
+
+        monkeypatch.setattr(pixel, "_read_window_list", lambda: self._window_list(float_onscreen=None))
+        main_window = pixel.WindowInfo(
+            window_id=93824, onscreen=True, width=1920.0, height=1050.0, pid=1, x=0.0, y=30.0
+        )
+        assert sendui._find_search_window(main_window) is None
+
+    def test_onscreen_strip_still_excluded_by_band(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """在屏的 100×30 状态条仍被尺寸带排除(0.8.2 黑图根因的双保险)。"""
+        from wechat_bridge import pixel, sendui
+
+        wl = self._window_list(float_onscreen=False)
+        wl.append({  # 在屏但超小(状态条真弹到前台的形态)
+            "kCGWindowOwnerName": "WeChat", "kCGWindowNumber": 99999,
+            "kCGWindowLayer": 0, "kCGWindowIsOnscreen": True,
+            "kCGWindowBounds": {"X": 900, "Y": 500, "Width": 100, "Height": 30},
+        })
+        monkeypatch.setattr(pixel, "_read_window_list", lambda: wl)
+        main_window = pixel.WindowInfo(
+            window_id=93824, onscreen=True, width=1920.0, height=1050.0, pid=1, x=0.0, y=30.0
+        )
+        got = sendui._find_search_window(main_window)
+        assert got is None or got.window_id != 99999
+
+    def test_try_write_search_value_swallows_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """门关态挂起(超时 BridgeError)→ False 走剪贴板,不上抛。"""
+        from wechat_bridge import sendui
+        from wechat_bridge.codes import TIMEOUT, BridgeError
+
+        def hang(term: str) -> bool:
+            raise BridgeError(TIMEOUT, "平台子进程超时(osascript…)", fix_hint="重试")
+
+        monkeypatch.setattr(sendui.axui, "write_search_value", hang)
+        assert sendui._try_write_search_value("x") is False

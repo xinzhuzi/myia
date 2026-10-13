@@ -177,7 +177,7 @@ class TestAmbiguity:
 
 class TestChainInjection:
     def test_storage_keys_injection_skips_self_resolution(
-        self, contact_db: Path, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, contact_db: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """注入 storage/keys 时不再自解析(单次解析纪律,§J-19)。"""
         calls = {"resolve": 0, "locate": 0}

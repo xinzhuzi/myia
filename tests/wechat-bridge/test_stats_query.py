@@ -35,10 +35,16 @@ from wechat_bridge.stats_query import TYPE_COUNT_KEYS  # noqa: E402
 
 # 时区钉 UTC:strftime('localtime') 与 time.localtime 同源(同 libc,
 # macOS 实测 SQLite 亦随 TZ env + tzset 走);夹具时间戳按 UTC 设计桶值。
-# 本模块按字典序在 test_sns_query 之后导入,桥测试族内无后继文件受
-# TZ 全局态影响。
-os.environ["TZ"] = "UTC"
-time.tzset()
+# 钉法 = autouse fixture(设 TZ + tzset → 测完还原):**不得在模块导入期
+# 设全局 TZ**——pytest 收集期会导入全部测试模块,导入期副作用会泄给整个
+# 会话(2026-10-14 实证:tests/cron 的 +08:00 断言全被 UTC 污染,单独跑
+# 绿、全量跑红)。
+@pytest.fixture(autouse=True)
+def _pin_tz_utc(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("TZ", "UTC")
+    time.tzset()
+    yield
+    time.tzset()  # monkeypatch 还原 TZ env 后重置 libc 本地时区
 
 #: 夹具基准时刻(2023-11-14 02:30:00 UTC,周二;深夜 0-5:59 桶内)。
 BASE = int(datetime(2023, 11, 14, 2, 30, 0, tzinfo=timezone.utc).timestamp())

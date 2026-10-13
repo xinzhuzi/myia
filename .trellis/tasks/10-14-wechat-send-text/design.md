@@ -1,8 +1,8 @@
 # 微信 send_text 三源合体升级设计(task 10-14-wechat-send-text)
 
-设计员产出,2026-10-14;**同日两轮质询修订版**(第一轮 13 条 + 第二轮 9 条,处置
-记录见 §J,全部已并入正文,正文即修订后终态)。执行者照此实现,零设计自由度;凡标
-「可翻案点」处为主人保留的裁决位(默认方案已选,翻案须改本档)。
+设计员产出,2026-10-14;**三轮修订版**(第一轮质询 13 条 + 第二轮 9 条 + 第三轮真机
+dry-run r2 实测三缺陷,处置记录见 §J,全部已并入正文,正文即修订后终态)。执行者照此
+实现,零设计自由度;凡标「可翻案点」处为主人保留的裁决位(默认方案已选,翻案须改本档)。
 
 输入材料(本文全部断言的出处):
 - **桥勘察**(任务 ask 内嵌):现状 send 链逐行锚点(sendui.py/cli.py/ax.py/send_state.py/pixel.py/codes.py/system_checks.py/README.md + 装机启动器)。
@@ -12,6 +12,12 @@
   - `research/ref_search_click.sh`(下称 REF;tonyshield 分区过滤导航)
   - `research/FINDINGS.md`(下称 REV;AX 门 LLDB 配方/元素链)
 - 桥源码与测试实读:sendui.py(555 行)/cli.py(523;send 分支 336-359、key-acquire hint clamp 152-164)/ax.py(129)/send_state.py(224;_write_unlocked 单键整写 125-134、rollback unlink 分支 174-184)/codes.py(112)/pixel.py(WindowInfo:126-148、OcrLine:151-160、SessionRow.to_payload:173-177、_chat_match:1161-1169)/localdb.py(query_history:1547-1556)/localdb_query.py(lookup_contact:363、_normalize_ts:192-200)/system_checks.py/probe.py/config.py/README.md(红线:63-68)/test_send_state.py(104-141 占位用例断言 float;rollback 断言 `not path.exists()` 120-128)/test_bridge_cli.py(55-113 既有 send 用例)。
+- **第三轮真机证据(2026-10-14 03:2x,r2 dry-run,证据 /tmp/wxsend-e2e/ 与 /tmp/wxsend-e2e/r2/,装机桥 0.8.0)**:
+  - 两目标 dry-run 均 exit 15「阶段=navigate:搜索结果面板无可定位行(分区过滤零候选)」(r2/01-filehelper-stdout.json、02-jl666-stdout.json 实读)。
+  - 不存在联系人 → exit 1 send_target_not_found,零 UI 扰动(r2/03-nonexist-stdout.json 实读;DB 侧三形态 resolve 好消息)。
+  - 主窗 AX 全树(axwalk2-out.txt 实读):具名元素 `current_chat_name_label`/`chat_input_field`/`chat_message_list`/`virtual_cell`/`tabbar_*`/`main_window_main_splitter_view` 全在 **AXIdentifier 列**(desc 列基本空)。
+  - 搜索态窗序颠倒:搜索浮窗成 window 1、主窗退 window 3(主人 System Events 枚举实证 win1=368x370 匿名树/win3=微信 4 顶元素,浮窗 wid 96202;我侧未复跑枚举,以 ask 材料为准);doctor 在该形态数到 nodes=4 报 closed(doctor-after-p3-inproc.json 实读 ax_gate.nodes=4/input_field=missing——数的是浮窗)。
+  - 好消息:doctor BFS 深度判据在正常态工作(门=open,nodes 76~123);搜索词 OCR 实证进框;浮窗内目标行俱在(「filehelper 文件传输助手」「微信号:jiangliushi666」在最常使用区顶部——截图证据模型侧不可视,以 ask 的 OCR 描述为准)。
 
 ---
 
@@ -138,7 +144,7 @@ AX 主链的中途失败(AXPress/AXValue 写失败)→ 整尝试失败重来(通
 | `wechat_bridge/send_state.py` | 扩 | 防重指纹多槽态;**新原语 `reserve_send_dedup(now, fingerprint)`**;既有 `reserve_send`/`check_send_allowed`/`record_send`/`load_last_send_epoch` 公共行为零改动、`rollback_reserve` 增「有指纹档时移键不删文件」分支(无指纹场景行为不变,test_send_state.py:104-141 既有断言零改);**`_write_unlocked` 私有实现升级为读-改-写保指纹键**(§C-3/§J-16,缺失即 B rollback 抹 A pending 的实洞);`mark_fingerprint_pending/mark_fingerprint_sent`。 |
 | `wechat_bridge/sendtarget.py` | **新** | DB 侧目标解析(三形态入参,§B-1;接受 CLI 注入的 storage/keys,§J-19)+ 搜索词选择 + 指纹。 |
 | `wechat_bridge/navfilter.py` | **新** | 分区过滤选行纯逻辑 + 裁剪系→全窗→屏幕三段坐标换算(§B-3)。零平台调用、零 import 桥内其它模块(仅 stdlib)。 |
-| `wechat_bridge/axui.py` | **新** | AX 读写原语(osascript System Events 封装;_run/SUBPROC_TIMEOUT_S 惯例抄 sendui.py:75-77/177-193)+ 双判据门探针 + focus_input(§B-2/§D-1)。 |
+| `wechat_bridge/axui.py` | **新** | AX 读写原语(osascript System Events 封装;_run/SUBPROC_TIMEOUT_S 惯例抄 sendui.py:75-77/177-193)+ 双判据门探针 + focus_input(§B-2/§D-1)。**元素查找底座 = 遍历全部 windows 的 BFS + AXIdentifier 匹配 + missing value→None 规范化**(r2 三缺陷 A/B 的修正,§B-2-r2;二轮 §J-22 只修了 system_checks 计数,axui 底座遗漏在本轮补全)。 |
 | `wechat_bridge/sendui.py` | 大改 | 导航段替换、哨兵、聚焦断言(两通道)、清空轮询、通道分层与跨尝试降级、dry_run、on_armed/回执注入、CGEvent 源隔离、`_ocr_region_lines` 新原语、载荷扩键。 |
 | `wechat_bridge/pixel.py` | 微改 | `WindowInfo` 加 `x: float = 0.0` / `y: float = 0.0` 字段(pixel.py:126-133;find_main_window 从 kCGWindowBounds 已取的 X/Y 存入,pixel.py:238-249);`to_payload` 加 `"x"/"y"` 键。向后兼容(缺省 0)。 |
 | `wechat_bridge/cli.py` | 改 | send_text 分支接线新序列(localdb 单次解析+注入;receipt_query 闭包);`send` parser 加 `--dry-run`;新顶层子命令 `doctor`(见 §E)。 |
@@ -212,7 +218,9 @@ BridgeError(exit 1, code="send_target_ambiguous")):
 4. else → 用 display_name(全 emoji 名走 §D-3 特殊路)。
 
 `row_match_terms = [display_name, search_term, alias or "", username]`(去重去空;顺序即
-优先级)。P9 预验若实证搜索行副文本含「微信号:alias」,alias 项自动兜住。
+优先级)。**r2 实证(§J-27)**:搜索结果行副文本「微信号:jiangliushi666」在场且
+可 OCR——alias 项兜底从假设升级为实证,jl666 类 ASCII-alias 目标的降级链主路 =
+副文本 text_match(unique-row 依赖下降)。
 
 ### B-2 AX 主链原语(axui)
 
@@ -243,6 +251,34 @@ def focused_is_input() -> bool | None       # osascript 读 AXFocusedUIElement �
 全部经模块级 `_run`(osascript 子进程,SUBPROC_TIMEOUT_S=10 挂起 → exit 30,抄
 sendui.py:177-193);`_run`/`monotonic`/`sleep` 是注入点(单测全 mock)。
 
+#### B-2-r2 元素查找底座与取值规范化(第三轮真机修正,§J-23/24)
+
+r2 实证的三条硬事实驱动本节(证据见档首「第三轮真机证据」):
+
+1. **BFS 底座遍历全部 windows,不绑 `window 1`**(§J-23):搜索态下搜索浮窗是
+   window 1、主窗退 window 3(System Events 枚举实证)——绑 z-order 首窗的元素查找
+   在搜索态必然搜错窗 → probe 判据失败 → 恒降级。修正原语:
+
+```python
+def find_element_by_identifier(identifier: str, *,
+                               value_contains: str | None = None,
+                               timeout_s: float = 2.0) -> osascript 元素引用 | None:
+    """遍历 process "WeChat" 的**全部 windows**,每窗内 BFS 按 AXIdentifier 匹配
+    (可加 value_contains 复筛);返回首个命中(元素引用带窗信息)。osascript 单
+    脚本内完成「枚举 windows → 逐窗 BFS」(repeat with w in windows),不在 Python
+    侧逐窗 spawn。chat_input_field 在主窗、session_item_* 在搜索浮窗——全窗遍历
+    对两者都成立,不依赖 window 顺序。超时/异常/无命中 → None。"""
+```
+
+2. **匹配属性 = AXIdentifier**(§J-24):真机全树实证具名元素
+   (current_chat_name_label/chat_input_field/session_item_*/tabbar_*)的名称都在
+   AXIdentifier,AXDescription 基本为空(仅 tabbar 有内容)——**AXDescription 不用于
+   匹配**(r2 实现按 AXDescription 匹配导致全链 miss,教训入档)。
+3. **取值规范化:AppleScript 的 `missing value` 字面量 → None**(§J-24):no-match
+   时 osascript 返回字面串 `"missing value"`,read_* 系列一律把它与空串规范化为
+   `None`(r2 实现把 `'missing value'` 当真值泄漏给上层判据,哨兵污染,修正)。
+   `read_current_chat_name()` 缺位 → None 的既有契约由此才真正成立。
+
 ### B-3 分区过滤选行(navfilter,降级通道)与坐标换算链
 
 REF 的内嵌 python(REF:43-101)抽出为纯函数 + 三处增强:①分区头集合补「功能分类」
@@ -252,13 +288,14 @@ REF 的内嵌 python(REF:43-101)抽出为纯函数 + 三处增强:①分区头�
 §J-3)。
 
 ```python
-#: 本地结果分区头(REF:53 六项 + 朋友圈动态)
-LOCAL_HEADERS = frozenset({"群聊", "联系人", "聊天记录", "公众号", "服务号", "小程序", "朋友圈"})
+#: 本地结果分区头(REF:53 六项 + 朋友圈动态 + ★r2 实证的「最常使用」默认区)
+LOCAL_HEADERS = frozenset({"最常使用", "群聊", "联系人", "聊天记录", "公众号", "服务号", "小程序", "朋友圈"})
 #: 非本地/功能分类分区头(其下候选一律排除;★补 REF 缺的「功能分类」族)
 JUNK_HEADERS = frozenset({"搜一搜", "功能", "功能分类", "文章", "智能工具", "朋友圈动态",
                           "表情", "视频号", "直播", "新闻", "购物", "小程序码"})
-#: 搜索结果面板 OCR 区(窗口内容归一化;全左栏,分区头逻辑做主裁;P9 预验校准)
-SEARCH_PANE_BOX = (0.0, 0.10, 0.32, 0.88)
+#: 搜索结果面板 OCR 区——**搜索浮窗内归一化**(r2 实证 4.1.15 搜索结果渲染在独立
+#: 浮窗,不在主窗;§J-25):box 坐标相对浮窗内容,全浮窗宽、中部带;P9' 预验校准。
+SEARCH_PANE_BOX = (0.0, 0.10, 1.0, 0.88)
 
 @dataclass(frozen=True)
 class RowPick:
@@ -274,6 +311,9 @@ def select_result_row(lines: list[OcrLine], terms: list[str]) -> RowPick | None:
 
     **坐标契约:lines 的 x/y/w/h 一律为 SEARCH_PANE_BOX 裁剪图内归一化 0-1**
     (与 pixel.vision_ocr 的输出坐标系一致,pixel.py:152-153);返回的 RowPick 同系。
+    **承载窗 = 搜索浮窗**(§J-25,r2 实证):OCR 的截窗对象是浮窗 WindowInfo,
+    row_box_to_screen 的 window 参数 = 浮窗(浮窗自带 bounds x/y/w/h)——三段换算
+    链几何不变,承载窗换浮窗。
 
     1. 分区头定位:
        y_local = max(y | compact(行文) ∈ LOCAL_HEADERS)(REF:58-59 最下本地头)
@@ -324,31 +364,48 @@ def click_at(x: int, y: int) -> None:
 ②composer 聚焦点(降级链哨兵/清空/发送前聚焦,COMPOSER_POINT_NORM=(0.50, 0.83),
 INPUT_STRIP_BOX 中心;P9 预验校准)、③无。不点发送按钮(发送=回车)、不点任何其他 UI。
 
-### B-5 导航序列(sendui._navigate,替换 sendui.py:398-413)
+### B-5 导航序列(sendui._navigate,替换 sendui.py:398-413;r2 修正版)
+
+**双窗模型(§J-25,r2 实证)**:搜索态下微信有两个相关窗——主窗
+(chat_input_field/current_chat_name_label 所在)与**搜索浮窗**(搜索结果渲染处,
+wid 每次搜索新生成)。AX 主链经全窗遍历 BFS 自动覆盖两窗(§B-2-r2);降级链需显式
+找浮窗:
+
+```python
+#: 搜索前快照 CGWindowList 属主窗 id 集合;Cmd+F+粘词后 diff 出**新出现**的
+#: 微信属主窗 = 搜索浮窗 → WindowInfo(含 bounds x/y/w/h,坐标换算第三段用)。
+def find_search_popup(before_ids: set[int]) -> WindowInfo | None:
+    """浮窗判据 = 属主 ∈ {微信, WeChat} 且 window_id ∉ before_ids(搜索态新增);
+    diff 不到(版本漂移无浮窗)→ None,降级链导航按零候选拒发如实(不回退主窗
+    区域——r2 已证主窗无搜索内容)。"""
+```
 
 ```
 ax 通道:
   post_key(KEY_F, CMD) → sleep(SEARCH_SETTLE_S)
   axui.write_search_value(search_term)           # 零剪贴板
   轮询(SEARCH_RENDER_TIMEOUT_S=5s/0.5s):axui.press_session_item(display_name)
-    成功即返回(press 内部找到并按下)
+    ——press 底座 = find_element_by_identifier("session_item_…" 前缀匹配,全窗遍历,
+    浮窗内命中;§J-23/25)成功即返回(press 内部找到并按下)
 cgevent_ocr 通道:
+  before_ids = 快照窗集合(CGWindowList,属主微信/WeChat)
   set_clipboard_text(search_term) → sleep(CLIPBOARD_SETTLE_S)
   post_key(KEY_F, CMD) → sleep(SEARCH_SETTLE_S)
   post_key(KEY_V, CMD) → sleep(SEARCH_RENDER_S=1.2s)
   轮询(SEARCH_RENDER_TIMEOUT_S=5s/0.6s):
-    lines = _ocr_region_lines(window, SEARCH_PANE_BOX, workdir, "search")  # ★新原语,
-           # 返回 list[OcrLine](坐标=裁剪系);旧 _ocr_region(拼接文本)保留给
-           # 标题带/输入带
+    popup = find_search_popup(before_ids);None → 记 stage 失败详情,继续轮询至超时
+    lines = _ocr_region_lines(popup, SEARCH_PANE_BOX, workdir, "search")  # ★截浮窗
     pick = navfilter.select_result_row(lines, row_match_terms)
-    pick 非 None → click_at(*row_box_to_screen(window,
+    pick 非 None → click_at(*row_box_to_screen(popup,
       *navfilter.pane_to_window(SEARCH_PANE_BOX, pick.cx, pick.cy)))
       → sleep(CLICK_SETTLE_S=0.3) → 返回 pick
-两通道随后都过标题双验证(§1 步骤 e);任一环节超时/无候选 → stage_fail("navigate",
-detail)→ exit 15 整尝试重试;盲回车键序(↓+Return)已删除,KEY_RETURN 全链唯一
-出现点=§1 步骤 j2 的发送。
-dry-run 收尾(降级链):Cmd+A+Delete 清草稿 → post_key(KEY_ESCAPE)(0x35)退出
-搜索态 → 返回(§E-1)。
+两通道随后都过标题双验证(§1 步骤 e,主窗坐标系不变);
+**失败清理(§J-26,★r2 缺陷 D:导航失败不得留残局)**:任一环节超时/零候选 →
+先 `_dismiss_search()`(post_key(KEY_ESCAPE)——关浮窗+清搜索态;ESC 后若词残留
+搜索框由下次 Cmd+F 预填无害,r2 后复验)→ 再 stage_fail("navigate")→ exit 15
+整尝试重试;盲回车键序(↓+Return)已删除,KEY_RETURN 全链唯一出现点=§1 步骤 j2。
+dry-run 成功收尾与 armed 前其它失败路径同用 `_dismiss_search()` 清场(armed 后
+不引入新交互)。
 ```
 
 ---
@@ -541,12 +598,15 @@ P10 真发的 localdb_receipt 若超窗 → 载荷如实 false + P10.6 人工双
 ### D-1 切换判据(§J-4/13/22:双判据 + 跨尝试降级 + 全窗节点数)
 
 - **判定原语**:`axui.probe_wechat_ax()` = **(a)** `system_checks.wechat_ax_node_count()
-  > 5`(AX 门开;REV「P3/P4」判据,靶场实证门开时 122 节点;**该计数取全部窗口的
-  最大 UI elements 数,不绑 `window 1`**——微信多窗时 z-order 首窗未必主窗,绑死会
-  把门开误判成 closed 白走降级链,§J-22) **AND (b)** `axui.read_input_value() is
-  not None`(chat_input_field 能力面——主链依赖写/读输入区,光 label 可读不够;
-  本仓自证 sendui.py:247-249:AX 门关时输入区零暴露,「label 可读、输入区不可写」
-  的半开态按此判据直接走降级链)。
+  > 5`(AX 门开;REV「P3/P4」判据,靶场实证门开时 122 节点,r2 正常态 76~123 亦证
+  判据工作;**该计数取全部窗口的最大 UI elements 数,不绑 `window 1`**——r2 实证
+  搜索态浮窗是 window 1(4 顶元素)而主窗在 window 3,绑死会把门开误判成 closed,
+  doctor-after-p3-inproc.json 实读 nodes=4 即此形态,§J-22/23) **AND (b)**
+  `axui.read_input_value() is not None`(chat_input_field 能力面——主链依赖写/读
+  输入区,光 label 可读不够;本仓自证 sendui.py:247-249:AX 门关时输入区零暴露,
+  「label 可读、输入区不可写」的半开态按此判据直接走降级链)。read_input_value
+  底座 = 全窗遍历 BFS(§B-2-r2)——r2 实证绑 window 1 时搜索态恒 miss → 恒降级,
+  修正后判据才真可达。
   **label 不进门**(§J-13):「门开但当前无会话打开(label 缺位)」不误判——
   label 是读路增强,缺位时标题验证走 OCR 兜底。
   probe 即一次无障碍查询,副作用 = QNSView activateQtAccessibility 自然置位
@@ -589,15 +649,17 @@ P10 真发的 localdb_receipt 若超窗 → 载荷如实 false + P10.6 人工双
 文本都是 AX 层字符串,emoji 精确直读零 OCR——jiangliushi666/🐳 目标优先走 AX 主链,
 标题验证 `ax_label` 路精确核 🐳。
 
-**降级链(AX 不可达时)的如实可达性(§J-9,不再宣称 unique-row 必达)**:
+**降级链(AX 不可达时)的如实可达性(§J-9/25 修订)**:
 1. **导航级**:search_term=alias(ASCII)进搜索框;结果行文本是 🐳。可达路径按
-   OCR 实况二分:
+   **浮窗内** OCR 实况二分(r2 已证主窗无搜索内容,盯主窗必零候选;浮窗修正后):
    - OCR 吐出了该行的**某种文本**(乱码字符/或副文本「微信号:jiangliushi666」——
-     副文本被 alias 项命中即 text_match)→ 分区过滤后若无 term 命中但候选恰 1 行 →
-     unique-row 采纳(§B-3 步 5;兜底救「行在但名读不出」,不救「行完全没读出」);
-   - OCR **零文本行**(emoji 行完全没被读出,候选 0)→ select_result_row 返回 None
-     → **exit 15 拒发(设计内行为,不是故障)**,message 注明「emoji 目标在降级链
-     不可定位;先修 AX 门(doctor 看配方)后以 AX 主链发送」。
+     **r2 实证该副文本在场且可 OCR**,alias 项命中即 text_match,jiangliushi666
+     类目标的主路是副文本 text_match 而非 unique-row)→ 分区过滤后若无 term 命中
+     但候选恰 1 行 → unique-row 采纳(§B-3 步 5;兜底救「行在但名读不出」,
+     不救「行完全没读出」);
+   - 浮窗 OCR **零文本行**(行完全没被读出,候选 0)→ select_result_row 返回
+     None → **exit 15 拒发(设计内行为,不是故障)**,message 注明「emoji 目标在
+     降级链不可定位;先修 AX 门(doctor 看配方)后以 AX 主链发送」。
 2. **标题核验级**:OCR 标题带读不出 🐳 → 间接证据链放行(前提:导航级已成立):
    (a)unique-row/text_match 采纳记录在案 +(b)点击后标题带 OCR ≠ baseline_title
    (导航前基线,§1 步骤 c;会话已切换)+(c)发送后清空轮询通过 +(d)localdb 回执
@@ -770,9 +832,9 @@ README.md 同步:红线 1 的 send_text 例外句补「+ 合成鼠标点击(仅�
 | 2 | exit 17 新码族 | 新增(uncertain 需与 14「可等后重试」语义分开编程) | exit 14 + code 区分(不加码值;MYIA 侧需看 code 字符串分叉) |
 | 3 | LLDB 重开自动化 | 不自动(doctor 只探+配方;attach 属调试器附加,人工执行) | doctor 一键重开(须主人再批调试器自动化) |
 | 4 | 发送动作 | 保留回车(post_key KEY_RETURN,唯一发送点,回车前聚焦断言保落点) | WZ 的 send 按钮点击(sendPoint;多一处坐标依赖,不取) |
-| 5 | AX 元素名可信度 | 依 REV/ax_chat_test 实测名,P9 预验先行,不可达整体降级 | 若预验发现元素名漂移:axui 元素名改前缀匹配而非全等 |
-| 6 | dry-run 跳过防重检查 | 跳过(零频控副作用) | dry-run 也吃防重检查(若担心 dry-run 本身扰动) |
-| 7 | **AXPress 聚焦行为/搜索命中形态未实证项**(§J-1/12):focus_input 的 AXPress 是否真聚焦、search_term=alias/username 在搜索框的命中形态、session_item_🐳 元素名、SEARCH_PANE_BOX/COMPOSER_POINT_NORM 几何 | P9 预验先行(dry-run+nav_debug+哨兵一致性断言留痕校准),任一倒 → 回改常量/通道判据再进 P10 矩阵;**回车落点终局真伪以 P10.2 首发 composer_cleared 终判** | 预验倒且不可校准 → emoji 目标改「AX 门开才可发」硬前置(降级链仅 ASCII 目标) |
+| 5 | AX 元素名可信度 | **已定案(r2)**:真机实证元素名在 AXIdentifier 且 BFS 命中(axwalk2-out.txt 全树:chat_input_field/current_chat_name_label/chat_message_list);「漂移改前缀匹配」备选**撤销**(无漂移证据;session_item_* 前缀匹配本来就进 §B-5) | ~~P9 预验~~ 已闭 |
+| 6 | dry-run 跳过防重检查 | 跳过(零频控副作用;r2 两轮 dry-run 零占位已实践) | dry-run 也吃防重检查(不取) |
+| 7 | **未实证项清算(第三轮,§J-27)**:①搜索命中形态 **已实证**(搜索词进框,OCR 证);②SEARCH_PANE_BOX 主窗几何 **已证伪并修正**(浮窗,§J-25);③session_item_🐳 元素名 **仍悬置**(r2 走了降级链,AX 通道因缺陷 A 未跑通;修通后 P9' dry-run 验);④AXPress 聚焦行为 **仍悬置**(未回车,P10.2 终判);⑤COMPOSER_POINT_NORM **仍悬置**(哨兵未及跑);⑥回执热路径 **仍悬置**(未真发) | 修 A+B+C 后重跑 P9' 预验清单③④⑤,再进 P10 | 悬置项任一倒 → 按对应节回改常量/判据 |
 | 8 | pending 落点=on_armed(回车 down 前,WZ 同序)+ on_armed fail-closed(§J-14) | 宁误锁 120s 不开双发窗;聚焦断言失败(未回车但已 pending)也如实吃 17;on_armed 落盘失败=不发送可重试 | 回车后才落 pending(崩溃窗口:回车 up→mark 前进程死 → 指纹空 → 双发洞;不取) |
 | 9 | 回执轮询预算 30s 退避 | 保守覆盖冷重建(无零发实测数据,如实);超窗→人工双查补证 | 若 P9/P10 实测热路径+冷重建都快,可收窄 schedule(改常量即可) |
 
@@ -791,10 +853,11 @@ README.md 同步:红线 1 的 send_text 例外句补「+ 合成鼠标点击(仅�
 | P7 | 全量回归基线对账 | 0.5h |
 | P8 | README/文档修订(含 §E-5 迁移注记) | 0.5h |
 | P9 | 装机热修+假设预验与校准(doctor 双判据/双目标 dry-run/nav_debug/哨兵一致性/热路径计时)+ 冒烟 | 1h |
+| P9' | **r2 修正轮(§J-23~26 落码后)**:cp 热修 → 双目标 dry-run 复跑(验 A/B/C:AX 通道可达+浮窗 OCR 有候选+失败清场)+ 悬置项③④⑤(session_item_🐳/AXPress 聚焦/COMPOSER_POINT) | 1h |
 | P10 | 真机矩阵(AC4;防重/间隔全用零发或条件执行路径) | 1h(含 ≥10s 间隔等待) |
 | P11 | grill 三关+AC7 提交 | 1h |
 
-合计约 18h。测试先行顺序:P1→P6 每阶段单测同批落,不留尾部补测。
+合计约 19h(含 r2 修正轮 P9')。测试先行顺序:P1→P6 每阶段单测同批落,不留尾部补测。
 
 ---
 
@@ -831,3 +894,13 @@ README.md 同步:红线 1 的 send_text 例外句补「+ 合成鼠标点击(仅�
 | 20 | 「stage=focus 终败=exit 0+sent:false」打破旧契约 exit 0⇒sent:true,未给 MYIA 侧迁移注记 | **采纳**:stage=focus 终败改 **exit 15 error 载荷**(code=send_ax_focus_required,message 注明 pending 已落;消费方零迁移);exit 0 的两处 sent:false 扩展形态(deduped/dry_run)入新增 §E-5 迁移注记,落 P8 README+MYIA push 层提醒 | §E-3、§E-5、§1-j1 |
 | 21 | 展示名反查是伪 SQL(compact() 进不了 WHERE;ASCII 名 BINARY collation 不折叠即不命中);alias 反查多行命中未定义(静默取首行=错发风险) | **采纳**:展示名反查改**SQL 全量拉取+Python compact 比对**(去空白+casefold);三路命中集统一唯一性判据——恰 1 建档、>1 一律 send_target_ambiguous(含 alias 多行,绝不取首行)、0 → None;单测补大小写折叠与 alias 多行用例 | §B-1、§G |
 | 22 | C-4 缺「跨尝试」行(尝试1 pending 残留 vs 表第 2 行字面矛盾);P7 对账公式算术不对(适配用例仍计入通过数,减项不该存在);node count 绑 window 1 多窗误判 | **采纳**:C-4 补「跨尝试残留」行(armed 过即视同 uncertain,如实);P7 对账式改「通过数=302+新增数,全绿;适配用例列名但不减数」;wechat_ax_node_count 改**全窗最大 UI elements 数**(不绑 window 1),doctor 载荷 note 注明 | §C-4、§G、§D-1、§E-2、implement 7.1/4.2 |
+
+### 第三轮(真机 dry-run r2,5 条;证据见档首「第三轮真机证据」)
+
+| # | 缺陷/事项 | 处置 | 落点 |
+|---|---|---|---|
+| 23 | **A:axui BFS 底座绑 window 1**——搜索态浮窗是 window 1、主窗退 window 3(System Events 枚举实证,win1=368x370 匿名树/win3=微信 4 顶元素,浮窗 wid 96202)→ AX 原语搜错窗 → probe 恒败 → 恒降级;doctor 同形态数到 nodes=4 误报 closed(doctor-after-p3-inproc.json 实读 ax_gate.nodes=4/input_field=missing)。二轮 §J-22 只修了 system_checks 计数的 window 1 绑定,**axui 元素查找的同款绑定漏网**——本轮补全并如实记二轮修正范围不彻底 | **采纳**:`find_element_by_identifier` 底座 = osascript 单脚本内「枚举全部 windows → 逐窗 BFS」(AXIdentifier 匹配),不依赖 window 顺序;chat_input_field(主窗)与 session_item_*(浮窗)同原语可达 | §B-2-r2、§D-1、§A axui 行 |
+| 24 | **B:匹配属性 AXDescription 不命中**(真机具名元素名全在 AXIdentifier,desc 基本空——axwalk2-out.txt 全树实读:current_chat_name_label/chat_input_field/chat_message_list/virtual_cell/tabbar_* 均在 identifier 列);附带 read_current_chat_name no-match 返回字面 `'missing value'` 的哨兵泄漏 | **采纳**:匹配改 AXIdentifier(AXDescription 不用于匹配);read_* 系列统一把 AppleScript 字面 `missing value`/空串规范化为 None——「缺位 → None」契约由此真正落地 | §B-2-r2 |
+| 25 | **C:降级链 OCR 盯主窗 SEARCH_PANE_BOX 必零候选**——4.1.15 搜索结果渲染在独立浮窗(r2 截图+OCR 实证浮窗内「filehelper 文件传输助手」「微信号:jiangliushi666」在最常使用区顶部;两目标 JSON 实读均「分区过滤零候选」) | **采纳**:OCR 承载窗改搜索浮窗——`find_search_popup(before_ids)`(CGWindowList 搜索前后 diff 新增微信属主窗,winid.py 同源判据);SEARCH_PANE_BOX 语义改浮窗内归一化 (0.0,0.10,1.0,0.88);三段坐标链几何不变、window 参数换浮窗;diff 不到浮窗 → 如实零候选拒发(不回退主窗);LOCAL_HEADERS 补「最常使用」(r2 实证默认区);AX 主链同享修正(浮窗内 session_item 经全窗 BFS AXPress) | §B-3、§B-5、§D-3 |
+| 26 | **D:导航失败无清理**——词留搜索框、浮窗不关(r2 残局实证) | **采纳**:armed 前一切导航失败/超时路径先 `_dismiss_search()`(post_key(KEY_ESCAPE) 关浮窗+清搜索态)再 stage_fail;dry-run 成功收尾同用;armed 后不引入新交互;顺带:navigate 失败的 fix_hint 文案按目标实况给(非 emoji 目标不报「emoji 目标…」提示——r2 两 JSON 文案误导实录) | §B-5、§E-1 |
+| 27 | **r2 好消息与悬置项清算**:①doctor BFS 深度判据正常态工作(门=open,nodes 76~123);②搜索词进框(OCR 实证,Cmd+F+Cmd+V 序列有效);③DB 侧三形态 resolve+不存在联系人 exit 1 send_target_not_found 零 UI 扰动全绿(r2/03 JSON 实读);④副文本「微信号:jiangliushi666」实证在场可读——§B-1 alias 兜底假设**升级为实证**,jl666 类目标降级链主路=text_match(副文本),unique-row 依赖下降;⑤§I-5 元素名定案、§I-7 悬置项逐条清算(搜索命中形态/主窗几何已闭,session_item_🐳/AXPress 聚焦/COMPOSER_POINT/回执热路径仍悬置,修 A+B+C 后 P9' 重验) | 好消息入档;悬置项转 P9'(§11) | 档首证据节、§B-1、§D-3、§I-5/7 |

@@ -50,6 +50,12 @@ CGEvent 事件源隔离(0.8.0,WZ:25-41):键盘/鼠标事件均带
 kCGEventSourceStateCombinedSessionState 源句柄(模块级缓存;创建失败
 回退 None 源如实,不拦发送)。
 
+**0.8.2 真机 r2 修正(证据 /tmp/wxsend-e2e/r2/,2026-10-14)**:AX 元素
+匹配改 **AXIdentifier**(命名不在 AXDescription)、walk 底座遍历**全部
+windows**(搜索态浮窗是 window 1 主窗是 window 3)、降级链 OCR 目标改
+**搜索结果浮窗**(4.1.15 搜索结果渲染在独立浮窗,主窗左栏必零候选)、
+导航失败/dry-run 收尾统一**搜索态清理**(清词 + ESC 关浮窗)。
+
 **0.8.1 真机 dry-run 修正(证据 /tmp/wxsend-e2e/,2026-10-14)**:首测
 两目标 dry-run 均止于 navigate 零候选——(a) System Events ``entire
 contents`` 在 4.1.15 动态树上返回空(元素重建竞态,-1719),axui 全部
@@ -148,6 +154,10 @@ CLEAR_POLL_GAP_S = 0.08
 RECEIPT_POLL_SCHEDULE = (5.0, 10.0, 15.0)
 #: composer 聚焦点(窗口内容归一化;INPUT_STRIP_BOX 中心;P9 预验校准项)。
 COMPOSER_POINT_NORM = (0.50, 0.83)
+#: 搜索结果浮窗的 OCR 框(浮窗内容归一化;0.8.2:r2 真机实证 4.1.15 的
+#: 搜索结果渲染在**独立浮窗**(wid 96202)而非主窗左栏——OCR 主窗
+#: SEARCH_PANE_BOX 必然零候选;浮窗整窗即搜索面板,分区头逻辑做主裁)。
+SEARCH_FLOAT_BOX = (0.0, 0.0, 1.0, 1.0)
 
 # ------------------------------------------------------------- OCR 区域 ----
 #: 会话标题带(窗口顶部;pixel.TITLE_MAX_Y 放宽一档,搜索态标题在顶栏)。
@@ -500,6 +510,78 @@ def _find_window() -> Any:
     return pixel.find_main_window()
 
 
+#: 搜索浮窗尺寸带(0.8.3 真机窗表实证:浮窗 4xx×3xx 级;噪声窗=100×30
+#: 状态条/1920×30 横条/280×380 常驻面板——min(面积) 启发式会被 100×30
+#: 不可见工具窗命中,拍出黑图 luma 0.0,故先过尺寸带再差分)。
+SEARCH_FLOAT_MIN_DIM = 200.0
+SEARCH_FLOAT_MAX_DIM = 800.0
+
+
+def _find_search_window(main_window: Any) -> Any:
+    """搜索结果浮窗定位(0.8.2;r2 真机实证 4.1.15 搜索结果渲染在独立
+    浮窗,wid 96202,368x370——OCR/click 目标应是它而不是主窗)。
+
+    判据(0.8.3 修正,真机窗表实证 /tmp/wxsend-e2e/r3/):微信属主、
+    **layer ∈ {0, 3}**(搜索浮窗是 layer 3 浮层窗,非 layer 0——r3
+    窗表实证 96721=368×370@layer3;layer 21 状态条等照旧排除)、
+    **在屏**(``kCGWindowIsOnscreen`` 真值——搜索浮窗是微信预建的隐藏
+    面板,窗 id 在 Cmd+F 前就存在且恒不在屏,差分法无效;常驻小面板/
+    工具窗也不在屏)、非主窗、两边长落在
+    :data:`SEARCH_FLOAT_MIN_DIM`/:data:`SEARCH_FLOAT_MAX_DIM` 尺寸带内
+    (排除 100×30 状态条与 1920×30 横条——0.8.2 裸 min(面积) 会被
+    不可见工具窗命中→黑图),取**面积最小**者。无候选 → None(浮窗
+    未弹出,调用方轮询等渲染)。返回 pixel.WindowInfo。
+    """
+    from . import pixel
+
+    candidates = []
+    main_id = int(getattr(main_window, "window_id", -1) or -1)
+    for entry in pixel._read_window_list():
+        owner = entry.get("kCGWindowOwnerName") or ""
+        if owner not in pixel.WECHAT_OWNER_NAMES:
+            continue
+        if entry.get("kCGWindowLayer") not in (0, 3):
+            continue
+        if not entry.get("kCGWindowIsOnscreen"):
+            continue
+        bounds = entry.get("kCGWindowBounds") or {}
+        width = float(bounds.get("Width") or 0)
+        height = float(bounds.get("Height") or 0)
+        if not (SEARCH_FLOAT_MIN_DIM <= width <= SEARCH_FLOAT_MAX_DIM
+                and SEARCH_FLOAT_MIN_DIM <= height <= SEARCH_FLOAT_MAX_DIM):
+            continue
+        window_id = int(entry.get("kCGWindowNumber") or 0)
+        if window_id == main_id:
+            continue
+        candidates.append(
+            pixel.WindowInfo(
+                window_id=window_id,
+                onscreen=bool(entry.get("kCGWindowIsOnscreen")),
+                width=width,
+                height=height,
+                pid=entry.get("kCGWindowOwnerPID"),
+                x=float(bounds.get("X") or 0),
+                y=float(bounds.get("Y") or 0),
+            )
+        )
+    if not candidates:
+        return None
+    return min(candidates, key=lambda info: info.width * info.height)
+
+
+def _cleanup_search_state(channel: str) -> None:
+    """搜索态清理(导航失败/dry-run 收尾;0.8.2 D 条:r2 实证失败路径
+    词留框、浮窗不关):ax 路 write_search_value("") 清词(AXFocusedUIElement
+    直写,best-effort)+ ESC 关浮窗。**恒不抛**(清理不拦主流程/不引入
+    新失败面)。"""
+    try:
+        if channel == "ax":
+            axui.write_search_value("")
+        _post_key_dual(KEY_ESCAPE)
+    except Exception:  # noqa: BLE001 - 清理 best-effort,绝不拦主流程
+        pass
+
+
 def _fresh_workdir() -> Path:
     """0700 私有工作目录(截图含聊天内容,用后即清——红线 6)。"""
     import os
@@ -594,6 +676,15 @@ def read_composer_via_clipboard(window: Any) -> str | None:
     return None if got == sentinel else got
 
 
+def _try_write_search_value(term: str) -> bool:
+    """降级链内的 AX 搜索词直写(0.8.3):门关态 osascript 挂起 →
+    BridgeError(超时)按快败 False 处理,交剪贴板 + Cmd+V 路。"""
+    try:
+        return axui.write_search_value(term)
+    except BridgeError:
+        return False
+
+
 # ------------------------------------------------------------ 导航(§B-5) ----
 
 
@@ -625,11 +716,21 @@ def _navigate(target: SendTarget, window: Any, channel: str, workdir: Path) -> d
     if channel == "ax":
         _post_key_dual(KEY_F, FLAG_COMMAND)
         sleep(SEARCH_SETTLE_S)
-        if not axui.write_search_value(target.search_term):
+        # 0.8.3:原语超时/挂起(BridgeError)按能力缺失降格→降级链,
+        # 不当尝试失败烧满 3 轮(门关态/树异常态实证,osascript 10s 挂)。
+        try:
+            wrote = axui.write_search_value(target.search_term)
+        except BridgeError:
+            wrote = False
+        if not wrote:
             raise _AxCapabilityMissing("write_search_value")
         deadline = monotonic() + SEARCH_RENDER_TIMEOUT_S
         while True:
-            if axui.press_session_item(target.display_name):
+            try:
+                pressed = axui.press_session_item(target.display_name)
+            except BridgeError:
+                pressed = False
+            if pressed:
                 return {
                     "pick_rule": "ax_session_item",
                     "pick_cx": None,
@@ -637,6 +738,7 @@ def _navigate(target: SendTarget, window: Any, channel: str, workdir: Path) -> d
                     "terms_hit": target.display_name,
                 }
             if monotonic() >= deadline:
+                _cleanup_search_state("ax")  # D:失败清理(词留框/浮窗不关)
                 raise _AxCapabilityMissing("press_session_item")
             sleep(SEARCH_POLL_S)
     terms = row_match_terms(target)
@@ -644,27 +746,39 @@ def _navigate(target: SendTarget, window: Any, channel: str, workdir: Path) -> d
     # /tmp/wxsend-e2e/ 搜索框恒空、无搜索弹窗):**AXFocusedUIElement 直写
     # 优先**(REF:26-28 同路线,系统级焦点查询,不依赖树遍历与键事件)
     # → 失败回落剪贴板 + Cmd+V(纯 CGEvent 路,keystroke 双引擎)。
+    # 0.8.3(门关态真机实证):AX 直写在门关时**挂起**(osascript 10s 超时
+    # 上抛 BridgeError 而非快败 False)——降级链内吞超时转 False 走剪贴板,
+    # 否则门关态降级链三连挂死、「降级」名不副实(/tmp/wxsend-e2e/r3/)。
     _post_key_dual(KEY_F, FLAG_COMMAND)
     sleep(SEARCH_SETTLE_S)
-    if not axui.write_search_value(target.search_term):
+    if not _try_write_search_value(target.search_term):
         set_clipboard_text(target.search_term)
         sleep(CLIPBOARD_SETTLE_S)
         _post_key_dual(KEY_V, FLAG_COMMAND)
     sleep(SEARCH_RENDER_S)
     deadline = monotonic() + SEARCH_RENDER_TIMEOUT_S
     pick = None
+    search_window: Any = None
     while True:
-        lines = _ocr_region_lines(
-            window, navfilter.SEARCH_PANE_BOX, workdir, "search"
-        )
-        pick = navfilter.select_result_row(lines, terms)
-        if pick is not None:
-            break
+        # 0.8.2(C 条):搜索结果渲染在独立浮窗(非主窗左栏)——每轮重
+        # 定位(浮窗弹出有时序),OCR 与坐标换算都以浮窗为对象;浮窗未
+        # 出现 = 继续轮询等渲染,超时如实失败。0.8.3:在屏+尺寸带判据。
+        search_window = _find_search_window(window)
+        if search_window is not None:
+            lines = _ocr_region_lines(
+                search_window, SEARCH_FLOAT_BOX, workdir, "search"
+            )
+            pick = navfilter.select_result_row(lines, terms)
+            if pick is not None:
+                break
         if monotonic() >= deadline:
-            raise stage_fail("搜索结果面板无可定位行(分区过滤零候选)")
+            _cleanup_search_state("cgevent_ocr")  # D:失败清理
+            raise stage_fail(
+                "搜索结果浮窗无可定位行(分区过滤零候选或浮窗未弹出)"
+            )
         sleep(SEARCH_POLL_S)
-    wx, wy = navfilter.pane_to_window(navfilter.SEARCH_PANE_BOX, pick.cx, pick.cy)
-    click_at(*navfilter.row_box_to_screen(window, wx, wy))
+    wx, wy = navfilter.pane_to_window(SEARCH_FLOAT_BOX, pick.cx, pick.cy)
+    click_at(*navfilter.row_box_to_screen(search_window, wx, wy))
     sleep(CLICK_SETTLE_S)
     return {
         "pick_rule": pick.rule,
@@ -1060,7 +1174,9 @@ def _attempt_send(
             sleep(SENTINEL_GAP_S)
             _post_key_dual(KEY_A, FLAG_COMMAND)
             _post_key_dual(KEY_DELETE)
-            _post_key_dual(KEY_ESCAPE)  # 退出搜索态
+        # 搜索态清理(D 条,0.8.2):两通道统一清搜索框词 + ESC 关浮窗
+        # (r2 实证 dry-run 后词留框、浮窗不关)。
+        _cleanup_search_state(channel)
         return {
             "channel": channel,
             "sent": False,

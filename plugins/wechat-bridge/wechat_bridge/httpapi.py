@@ -91,7 +91,6 @@ __all__ = [
     "media_dir_path",
     "query_messages_range",
     "read_http_api_token",
-    "resolve_media_file",
     "run_serve",
     "sessions_list",
     "validate_loopback_host",

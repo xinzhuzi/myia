@@ -1,8 +1,8 @@
 # implement.md — send_text 三源合体执行清单(task 10-14-wechat-send-text)
 
 执行者照勾选推进;每步含验证命令。设计依据 = 同目录 `design.md`(下称 D;**2026-10-14
-两轮质询修订版**,§J 共 22 条处置记录,断言锚到 D 的 §)。仓库根 =
-`/Users/zhengbingjin/Project/Github/MYIA`(下称 `$REPO`)。
+三轮修订版**:两轮质询 §J-1~22 + 第三轮真机 r2 三缺陷 §J-23~27,断言锚到 D 的 §)。
+仓库根 = `/Users/zhengbingjin/Project/Github/MYIA`(下称 `$REPO`)。
 基线:`uv run --no-sync python -m pytest tests/wechat-bridge -q` = **302 passed /
 7 skipped**(prd「现状」节;P7 对账口径见 7.1)。
 
@@ -122,9 +122,11 @@ cd "$REPO" && uv run --no-sync python -m pytest tests/wechat-bridge/test_send_ta
       (pixel.py:126-133);`find_main_window` 把 kCGWindowBounds 的 X/Y 存入
       (pixel.py:238-249);`to_payload` 加 `"x"/"y"`(pixel.py:135-148)。
 - [ ] 3.2 新建 `navfilter.py`(stdlib only,D§B-3 逐条):
-  - [ ] `LOCAL_HEADERS` / `JUNK_HEADERS`(D§B-3;JUNK 含「功能/功能分类/搜一搜/
-        文章/智能工具/朋友圈动态/表情/视频号/直播/新闻/购物/小程序码」)。
-  - [ ] `SEARCH_PANE_BOX = (0.0, 0.10, 0.32, 0.88)`(常量,P9 预验校准注记)。
+  - [ ] `LOCAL_HEADERS` / `JUNK_HEADERS`(D§B-3;**LOCAL 含 r2 实证的「最常使用」
+        默认区**,§J-25;JUNK 含「功能/功能分类/搜一搜/文章/智能工具/朋友圈动态/
+        表情/视频号/直播/新闻/购物/小程序码」)。
+  - [ ] `SEARCH_PANE_BOX = (0.0, 0.10, 1.0, 0.88)`——**搜索浮窗内归一化**(r2 实证
+        搜索结果在独立浮窗不在主窗,§J-25;P9' 预验校准)。
   - [ ] `compact(text)`(去全部空白+casefold)。
   - [ ] `RowPick{cx, cy, rule, term}`(**坐标契约 = SEARCH_PANE_BOX 裁剪图归一化**,
         OcrLine 同系,pixel.py:152-153;docstring 写死,D§J-3)。
@@ -152,14 +154,24 @@ cd "$REPO" && uv run --no-sync python -m pytest tests/wechat-bridge/test_navfilt
 
 - [ ] 4.1 新建 `axui.py`(中文 docstring;`_run`/`monotonic`/`sleep` 模块级注入点,
       SUBPROC_TIMEOUT_S=10 → exit 30,抄 sendui.py:75-77/177-193):
-  - [ ] `probe_wechat_ax() -> bool`——双判据(D§D-1/§J-4/13):
-        `wechat_ax_node_count() > 5` AND `read_input_value() is not None`;
-        **label 不进门**;docstring 注记副作用=AX 查询自然触发
-        activateQtAccessibility(REV:20-24)。
+  - [ ] **`find_element_by_identifier(identifier, *, value_contains=None, timeout_s=2.0)
+        -> 元素引用 | None`——底座 = osascript 单脚本内「枚举全部 windows → 逐窗
+        BFS」+ AXIdentifier 匹配**(D§B-2-r2/§J-23/24,r2 三缺陷 A+B 的修正:
+        搜索态浮窗是 window 1、主窗退 window 3,绑 window 1 必搜错窗;AXDescription
+        真机基本为空不匹配;**read_* 系列把 AppleScript 字面 `missing value`/空串
+        规范化为 None**,堵 `'missing value'` 哨兵泄漏)。chat_input_field(主窗)与
+        session_item_*(浮窗)同原语可达。
+  - [ ] `probe_wechat_ax() -> bool`——双判据(D§D-1/§J-4/13/23):
+        `wechat_ax_node_count() > 5` AND `read_input_value() is not None`
+        (底座 = find_element_by_identifier,全窗遍历);**label 不进门**;docstring
+        注记副作用=AX 查询自然触发 activateQtAccessibility(REV:20-24)。
   - [ ] `write_search_value(term) -> bool`(Cmd+F 后 AXValue 直写焦点元素,
         REF:27-28)。
-  - [ ] `press_session_item(name) -> bool`(轮询找 session_item_* → AXPress)。
-  - [ ] `read_current_chat_name() -> str | None`(label 直读;缺位 → None 不拦通道)。
+  - [ ] `press_session_item(name) -> bool`(轮询 `find_element_by_identifier`
+        ("session_item_" 前缀/名含目标,全窗遍历命中浮窗内元素)→ AXPress,
+        D§J-23/25)。
+  - [ ] `read_current_chat_name() -> str | None`(label 直读;缺位/missing value →
+        None 不拦通道,§J-24)。
   - [ ] `read_input_value() -> str | None` / `write_input_value(text) -> bool`。
   - [ ] `focus_input() -> bool`(chat_input_field AXPress + 复读 value 断言正文未丢;
         行为未实证 → P9 预验项,D§J-1/§I-7)。
@@ -204,11 +216,19 @@ cd "$REPO" && uv run --no-sync python -m pytest tests/wechat-bridge/test_axui.py
       time.time`**(回执 since_epoch,D§C-6)。
 - [ ] 5.4 `read_composer_via_clipboard(window) -> str | None`(D§C-2 协议逐行)。
 - [ ] 5.5 **新原语 `_ocr_region_lines(window, box, workdir, tag) -> list[OcrLine]`**
-      (坐标=裁剪图归一化,D§J-3;旧 `_ocr_region` 拼接文本保留);`_navigate(target,
-      window, channel, workdir)`(D§B-5 两通道序列):降级链 OCR 路 =
-      `_ocr_region_lines(SEARCH_PANE_BOX)` → `select_result_row` → `pane_to_window`
-      → `row_box_to_screen` → `click_at`;AX 路 = write_search_value +
-      press_session_item;无候选 → stage_fail("navigate")。
+      (坐标=裁剪图归一化,D§J-3;旧 `_ocr_region` 拼接文本保留);**新原语
+      `find_search_popup(before_ids) -> WindowInfo | None`**(D§B-5/§J-25:r2 实证
+      搜索结果在独立浮窗——CGWindowList 搜索前后 diff 出新增微信属主窗 = 浮窗,
+      winid.py 同源判据;diff 不到 → None 如实零候选拒发,不回退主窗);**失败清理
+      `_dismiss_search()`**(D§J-26:post_key(KEY_ESCAPE) 关浮窗+清搜索态,armed 前
+      一切导航失败/超时路径与 dry-run 收尾先清场再 stage_fail/返回;armed 后不引入
+      新交互);`_navigate(target, window, channel, workdir)`(D§B-5 两通道序列):
+      降级链 OCR 路 = `find_search_popup(before_ids)` → `_ocr_region_lines(popup,
+      SEARCH_PANE_BOX)` → `select_result_row` → `pane_to_window` →
+      `row_box_to_screen(popup,…)` → `click_at`(**坐标链承载窗=浮窗**,三段几何
+      不变);AX 路 = write_search_value + press_session_item(find_element 全窗底座);
+      无候选 → `_dismiss_search()` → stage_fail("navigate")(fix_hint 按目标实况,
+      非 emoji 目标不报 emoji 提示,§J-26)。
 - [ ] 5.6 `_attempt_send` 改造(签名加 target/channel/forced_fallback/dry_run;
       D§1 序列 b-i):通道判定 axui.probe(**跨尝试降级**:本尝试失败原语为 AX
       能力缺失 → 下一尝试 forced_fallback 直走 cgevent_ocr,D§D-1)→ 降级链导航前
@@ -383,6 +403,28 @@ echo 嘻嘻 | "$B" send_text jiangliushi666 --file - --dry-run  # 预验③:alia
         预算保守 30s 维持,如实注记)。
 - [ ] 9.3 dry-run 后核频控无副作用:`send_state.json` 无新 last_send_epoch 变动/
       无指纹档。
+
+---
+
+## P9' r2 修正轮(≈1h;零真发;§J-23~27 落码后的复验)
+
+前置:P4/5.5 按 r2 修正落码(全窗 BFS/AXIdentifier/missing value→None/浮窗 OCR/
+失败清理),单测同步更新后全绿。
+
+- [ ] 9'.1 热修 cp(同 9.1 命令面)+ 全量单测绿:
+
+```bash
+cd "$REPO" && uv run --no-sync python -m pytest tests/wechat-bridge -q
+```
+
+- [ ] 9'.2 **双目标 dry-run 复跑**(验 A/B/C 三缺陷闭合,留痕 r3 目录):
+      ①filehelper dry-run:期望不再「分区过滤零候选」——AX 通道可达(channel=ax,
+      probe 全窗底座)或降级链浮窗 OCR 有候选(载荷 nav_debug.pick_rule 非 None);
+      ②jl666 dry-run:同上 + 副文本「微信号:jiangliushi666」text_match 路径;
+      ③失败路径清场核(若造一次失败):微信回到无搜索态(词清/浮窗关,目检+截图)。
+- [ ] 9'.3 悬置项(§I-7 清单):session_item_🐳 元素名(AX 路 dry-run 实测)/
+      AXPress 聚焦(focus_input 后 focused_is_input 直证尽力)/COMPOSER_POINT_NORM
+      (降级路哨兵一致性);留痕,倒则按对应节回改常量再进 P10。
 
 ---
 
