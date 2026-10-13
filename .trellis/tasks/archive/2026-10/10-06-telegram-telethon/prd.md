@@ -152,6 +152,13 @@ MYIA 具备三层 Telegram 消息获取能力,全部走「链接者」形态,组
 - **AC1 bot 线现状**:推送通道 token(myia/push/*)主人已配且真达;但监控 bot 线
   token 为停用键态(`config/telegram-groups.yaml:51`
   keychain:myia/telegram/bot-token-disabled,7873c56 根治 409),chat_id 仍占位。
-- **本档不归档,留主人三向裁决**:①激活 bot 线(改回键名+实填 chat_id);
-  ②AC2 按 tg_web 替代结案收口;③继续 Telethon 真登(my.telegram.org 取自有
-  api 对)。任一方向落定即可收口归档。
+- **结案(2026-10-14 主人裁决「这三个不是都有吗」=三线都留)**:tg_web 为生产路径
+  (在跑);bot/Telethon 两线休眠备胎,激活各差一步实物——
+  - ① bot 线:token 实体仍在钥匙串(`myia/telegram/bot-token` 在册,档务亲验),
+    把 `config/telegram-groups.yaml` 引用从 bot-token-disabled 改回 + bot 进目标群
+    实填 chat_id(@userinfobot/日志取)即活(键名改回是配置一行,进群+chat_id 是
+    主人侧);停用缘由=占位 chat 零产出纯制造长轮询 409 冲突面(7873c56 注记)。
+  - ③ Telethon:`myssia telegram login` 一次真登(my.telegram.org 取自有 api 对+
+    手机验证码,一次性),代码面 B4 全量在库。
+  本档按「功能已齐+活性分工定案」收口归档:AC1/AC2 的端到端真发回执由 tg_web
+  生产线承接(bot/Telethon 线回执以备胎激活日为准,激活步骤在案)。
