@@ -167,23 +167,47 @@ progress 行纯供人读与过程展示;协议的机器语义只在 result 行�
 - 因此取钥器**无状态、不写 `keys.json`**、不依赖桥内任何文件布局;它每次调用都被期待
   独立给出当前有效的密钥材料。
 
+### 换号后怎么办(登录态轮换)
+
+微信换号/登录态轮换后,旧密钥与新库**全不匹配**:桥端页 1 HMAC 逐把验真**全拒**,
+如实 exit 21(`key_unavailable`)并附「登录态轮换后旧钥失效,重取后重试」类指引
+——无静默、无半通过。桥侧 `keys.json` 缓存此时是**整体失效**(密钥与库盐一一对应,
+换号即全换),下次查询密钥缺失 → 自动走取钥器重取,全量验真通过后整体覆写缓存。
+
+取钥器作者按自己形态对号:
+
+- **cache-read 形态**(如参考实现 `keyprovider_ref.py` 读固定钥匙文件):钥匙文件内容
+  换号后全旧,须**手动更新钥匙文件**(用你的取钥机制重取新钥、重写该文件)——桥会
+  反复 spawn 取钥器但拿到的仍是旧钥、HMAC 全拒,人话错误会一直指向「钥匙与库不匹配」。
+- **passphrase-derive 形态**(取钥器内部现读 passphrase 现派生):只要 passphrase 来源
+  自新鲜(取钥器自己维护其获取/更新),换号后**天然闭环**——每次调用现派生,新库新盐
+  自动得到新钥,无须人工改任何文件;passphrase 来源陈旧时同样表现为 HMAC 全拒,更新
+  该来源即可。
+
 ## 8. 桥侧错误与人话文案
 
 本表是「桥对各种情形的呈现语义」。所有取钥器侧失败最终收敛为桥既有具名错误
 `key_unavailable`(exit 21,现状语义不变)——取钥器故障不会伪装成其他错误族。
 除标注的法定文案外,错误措辞以桥实装为准;判定语义以本表为准。
 
-| 情形 | 桥侧行为 | 错误信息 |
-|---|---|---|
-| 未配置取钥器(`key_provider_path` 为空) | 不 spawn,直接失败 | **「未配置外部取钥器,请在设置中指定可执行文件路径」**(法定文案) |
-| 配置路径的文件不存在 | spawn 失败 | 人话报错,含所配路径 |
-| 文件不可执行 | `key-provider set` 阶段拒绝;运行期 spawn 失败如实报 | 人话报错 |
-| `result` `success:false` | 失败 | 透传取钥器 `error` 字段(人话) |
-| 退出码非 0、无 `result` | 失败 | 附 stderr 尾部 500 字符 |
-| 退出码 0、无 `result` | 失败 | 「取钥器未返回结果」 |
-| 超过 120 秒 | kill 子进程,失败 | 超时说明(含时限) |
-| 密钥部分覆盖 / 部分验真不过 | **整体失败**(exit 21) | 如实说明覆盖与验真计数(给出/覆盖/通过各多少)、未入缓存 |
-| 密钥全部验真不过 | 失败 | 如实说明验真未通过、未入缓存 |
+测试锚列 = `tests/wechat-bridge/test_localdb_keyprovider.py` 中钉死该行的测试函数
+(2026-10-13 复审后逐行补齐;半形态组合如「`success:false` + 非零退出码」「运行期
+不可执行」亦有专测锚)。
+
+| 情形 | 桥侧行为 | 错误信息 | 测试锚 |
+|---|---|---|---|
+| 未配置取钥器(`key_provider_path` 为空) | 不 spawn,直接失败 | **「未配置外部取钥器,请在设置中指定可执行文件路径」**(法定文案) | `TestProviderUnconfigured::test_legal_message_appended_when_unconfigured` |
+| 配置路径的文件不存在 | spawn 失败 | 人话报错,含所配路径 | `TestProviderNegative::test_missing_provider_file_spawn_failure` |
+| 文件不可执行 | `key-provider set` 阶段拒绝;运行期 spawn 失败如实报 | 人话报错 | set 阶段:`TestKeyProviderCli::test_set_rejects_non_executable`;运行期 spawn OSError:`TestProviderEdgeShapes::test_runtime_nonexecutable_spawn_oserror` |
+| `result` `success:false` | 失败 | 透传取钥器 `error` 字段(人话) | 退出码 0 形态:`TestProviderNegative::test_success_false_error_transparent`;非零退出码组合:`TestProviderEdgeShapes::test_success_false_with_nonzero_exit_takes_error` |
+| 退出码非 0、无 `result` | 失败 | 附 stderr 尾部 500 字符 | `TestProviderNegative::test_nonzero_exit_attaches_stderr_tail` |
+| 退出码 0、无 `result` | 失败 | 「取钥器未返回结果」 | `TestProviderNegative::test_exit0_without_result_is_failure` |
+| 超过 120 秒 | kill 子进程,失败 | 超时说明(含时限) | `TestProviderNegative::test_timeout_kills_and_exit21` |
+| `result` 多条(协议违例,§4 行序) | 取**首条** `result` 为终态,其后行读空丢弃 | 依首条 `result` 判定(不报错、不重试) | `TestProviderEdgeShapes::test_first_result_wins_on_duplicate` |
+| `result` `success:true` 但无 `keys` | 失败 | 「成功应答未携带 keys 映射(空映射或形状不符)」 | `TestProviderEdgeShapes::test_success_without_keys_map_fails` |
+| 密钥部分覆盖 / 部分验真不过 | **整体失败**(exit 21) | 如实说明覆盖与验真计数(给出/覆盖/通过各多少)、未入缓存 | `TestProviderEdgeShapes::test_partial_coverage_over_inflight_dbs_fails` |
+| 盐不匹配任何在场库(条目弃用) | 弃条目;若因此覆盖不满 = 转上行的部分覆盖失败 | 「盐不匹配 N 条」计数入错误信息 | `TestProviderEdgeShapes::test_unmatched_salt_entries_dropped` |
+| 密钥全部验真不过 | 失败 | 如实说明验真未通过、未入缓存 | `TestProviderNegative::test_garbage_key_rejected_no_cache` |
 
 ## 9. 实现者指南:写一个最小取钥器
 
@@ -283,6 +307,35 @@ echo '{"action":"get_db_key","db_path":"/abs/path/to/db_dir","account_id":"wxid_
 | 面 | 说明 |
 |---|---|
 | 桥配置 | `config.json` 键 `key_provider_path`(缺省空 = 现状行为:不 spawn、不取钥) |
-| 桥管理命令 | `wechat-bridge localdb key-provider set <path>` / `get` / `clear`;`set` 校验文件存在且可执行 |
+| 桥管理命令 | `wechat-bridge localdb key-provider set <path>` / `get` / `clear`;`set` 校验**路径为绝对路径**(`~` 开头自动展开,相对路径拒 exit 2——相对路径落盘后随桥 cwd 漂移,spawn 面不可靠)且文件存在、有可执行位 |
 | 设置页 | 微信/桥分区「取钥器」行:路径输入 + 三态(已配/未配/文件缺失);未配置态引导文案指向本文档 |
 | MYIA 引擎 | 零改动:取钥闭环在桥内,失败语义即既有 `key_unavailable`(exit 21) |
+
+### 回滚注意事项
+
+桥的 `config.json` 是**键封闭**装载:未知顶层键 = 整体拒载(exit 2,而非静默忽略——
+「配置了却没生效」的假象是设计红线)。因此:
+
+- **桥二进制回滚到不认识 `key_provider_path` 键的旧版本(0.4.2 之前)前,必须先
+  `wechat-bridge localdb key-provider clear`**(或手动从 `config.json` 删掉该键);
+  否则配置里残留的 `key_provider_path` 会让旧版桥**全桥拒载**,不止取钥、连既有
+  查询/探针全部 exit 2。
+- 清掉后即回到旧版现状行为(缺省空 = 不 spawn、不取钥),无其他残留态。
+
+## 11. 版本基线(SOP)
+
+取钥器链路对**微信客户端版本敏感**(密钥派生参数、库表形态、压缩形态均为实测形状)。
+本协议验证所用的微信版本:
+
+- **当前验证版本:4.1.15(构建 270135)**——完整基线表(派生参数/表形态/钥与
+  passphrase 位置/attach 实锚)见任务档
+  [`.trellis/tasks/10-13-wechat-keyprovider/research/wechat-version-baseline.md`](../.trellis/tasks/10-13-wechat-keyprovider/research/wechat-version-baseline.md)。
+
+版本漂移对照命令(微信自动更新后先跑,输出与基线不一致 = 按基线档「最先失效什么」
+清单逐项重验):
+
+```bash
+defaults read /Applications/WeChat.app/Contents/Info.plist CFBundleShortVersionString
+# 基线 = 4.1.15;不一致 → 打开基线档照 2.2 清单重验,全绿才继续用取钥链
+```
+
