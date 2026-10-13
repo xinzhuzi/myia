@@ -14,13 +14,19 @@
  * resolution,src/myssia/engines/wechat_local.py「localdb chat 寻址」节)。
  * 三级监控台群行手里只有源名(源名全称律 `weixin-<会话名>`),前端零进程
  * 面拿不到 sessions 列表 —— 故**名→id 解析钉在壳侧命令内**:壳先 spawn 桥
- * `sessions list --json` 按名精确解析(同名不多见;不在列表如实空结构,
- * 与引擎「不在前 20 = 解析不到不猜」同律),命中才 spawn `localdb
- * group-info <id> --json`;寻址键本身已是 `xxx@chatroom` 形态则直查免解析。
- * 壳侧实现本契约时以此段为规格。
+ * `sessions list --json` 按名精确解析(同名不多见,引擎 wechat_local
+ * `_resolve_session_id` 同律),命中才 spawn `localdb group-info <id>
+ * --json`;寻址键本身已是 `<前缀>@chatroom` 形态则直查免解析。**解析不到
+ * = 结构化 `group_not_resolved`**(人话「未能定位该群(不在最近会话)」,
+ * 面板错误态承接,不冒充 0 人 —— 评审 10-13 修正:原「不在列表如实空结构」
+ * 的词面会把真 500 人群演成 0)。壳侧实现 = desktop/src-tauri/src/
+ * wechat_groupinfo.rs(2026-10-13 落地)。
  *
  * 契约(任务档 prd.md「group-info 应答契约 v1」钉死,逐字段照抄零自造;
- * 缺表/缺行 = 对应键 null 或空表,桥恒 exit 0 如实降级):
+ * 退出码 2026-10-13 评审勘误按实现实况:查询层降级(缺表/缺行/缺列/缺群
+ * 行)= 对应键 null 或空表且桥 exit 0;密钥链错误族与 query/sns 同一全链
+ * —— 缺数据根 exit 20 / 缺密钥 exit 21 / 解密失败 exit 22,结构化 error
+ * 原样透传走面板错误态):
  *
  *     {"group_info": {
  *       "chat_id": "50438708676@chatroom",
@@ -34,8 +40,8 @@
  *
  * 与壳侧成对(判例 wechat-keyprovider-api.ts KEY_ACQUIRE_EVENT_NAME 头注):
  * 命令名 `wechat_group_info`、参数键 `chat`、应答 = 桥 `group_info` 内层
- * 对象直转 —— 壳侧并行实现,本文件按 prd 契约先行,零运行时依赖;改任一
- * 侧须两侧同步。
+ * 对象直转 —— 壳侧已落地(wechat_groupinfo.rs `wechat_group_info` 命令,
+ * 2026-10-13);改任一侧须两侧同步。
  */
 import { invoke } from "@tauri-apps/api/core";
 
@@ -170,16 +176,18 @@ function parseMembers(raw: unknown): WechatGroupMember[] {
  * 词表,源名全称律 `weixin-<会话名>`)。值 = 会话显示名或会话 id(源声明
  * 直写 id 时剥前缀即 id 原样)—— 名→id 解析在壳侧命令内(模块头注「寻址」
  * 节:桥精确等值不解析,壳 spawn `sessions list` 按名解析后直查;解析不到
- * 如实空结构,不猜)。
+ * = 结构化 group_not_resolved,不冒充 0 人)。
  */
 export function wxGroupInfoChatKey(source: string): string {
   return channelDisplayName(source);
 }
 
 /**
- * 读群信息(群信息面板的唯一数据源;桥恒 exit 0 的只读命令,缺库缺表 =
- * 对应键 null/空表如实降级,三态皆正常态)。catch 后走 asSidecarError ——
- * 桥具名错误族(code/message/fix_hint)原样上屏,面板错误态给重试。
+ * 读群信息(群信息面板的唯一数据源)。两段链在壳侧(sessions list 名解析 →
+ * localdb group-info 直转,见 wechat_groupinfo.rs);查询层降级(缺表/缺行)
+ * = 对应键 null/空表且 exit 0,是正常态如实降级;**错误族不是正常态**:
+ * 名解析不到(group_not_resolved)与密钥链(缺根 20/缺钥 21/解密失败 22)
+ * 都 catch 后走 asSidecarError,面板错误态给重试。
  */
 export async function wechatGroupInfo(source: string): Promise<WechatGroupInfo> {
   try {

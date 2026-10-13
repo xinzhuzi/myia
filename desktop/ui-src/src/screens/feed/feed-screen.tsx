@@ -11,6 +11,7 @@ import {
   ExternalLink,
   FileText,
   Inbox,
+  Info,
   MessageCircle,
   Percent,
   Play,
@@ -4528,7 +4529,7 @@ export function FeedScreen() {
               data-testid="feed-tg-group-pane"
               data-im-kind={activeChannelKind ?? undefined}
               aria-label="监控会话列表"
-              /* ⑦ 极窄窗口响应式隐藏:lg(1024px,仓内 tailwind 惯例断点,
+              /* ⑦ 极窄窗口响应式隐藏:lg(1024px,仓内 tailwind 惯例宽度档,
                   dashboard 网格同门)起显示;之下整栏让位,右栏 flex-1 自适应
                   占满(桌面 app 常态宽度远在 lg 上,此栏只在极限收窄时退场)。 */
               className="hidden w-72 shrink-0 flex-col border-r border-border/60 lg:flex"
@@ -4677,6 +4678,21 @@ export function FeedScreen() {
                 >
                   {streamTitle}
                 </h2>
+                {activeChannelKind === "wx" && viewSource ? (
+                  /* 群信息入口(10-13-wechat-groupinfo R2「从群行/聊天头进」
+                      的聊天头一半;群行右键菜单同款动线 openWxGroupInfo,
+                      弹窗自拉数据):群名旁常驻小钮,TG/网站头不出现 */
+                  <button
+                    type="button"
+                    data-testid="feed-wx-chat-header-groupinfo"
+                    title="查看本群的群主 / 群公告 / 成员列表"
+                    onClick={() => openWxGroupInfo(viewSource)}
+                    className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-2xs text-primary hover:bg-accent/50 hover:underline"
+                  >
+                    <Info aria-hidden className="size-3" />
+                    群信息
+                  </button>
+                ) : null}
                 {activeChannelKind === "wx" ? (
                   /* ═══ 微信监控台压缩条(10-12-weixin-feed-channel):数据 =
                       wechatLocalProbe 三态(ok/degraded/bridge_unavailable);

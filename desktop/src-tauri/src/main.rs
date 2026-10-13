@@ -12,6 +12,8 @@ mod pyenv;
 mod pyenv_components;
 mod pyenv_install;
 mod pyenv_migration;
+mod wechat_group_export;
+mod wechat_groupinfo;
 mod wechat_keyprovider;
 
 use std::collections::HashMap;
@@ -907,7 +909,19 @@ fn main() {
             wechat_keyprovider::wechat_key_acquire,
             wechat_keyprovider::wechat_key_acquire_cancel,
             // E 线(部署件一键安装):束源探测 + cp 到数据根私有区 bin/。
-            wechat_keyprovider::wechat_key_provider_install
+            wechat_keyprovider::wechat_key_provider_install,
+            // 微信群信息读取(10-13-wechat-groupinfo R2):「群信息」面板数据
+            // 源 —— 名→id 两段链:先 spawn 桥 sessions list --json 按名精确
+            // 解析出 @chatroom id(@chatroom 形态直查免解析),再 spawn
+            // localdb group-info <id> --json 直转;解析不到 = 结构化
+            // group_not_resolved(面板如实报「未能定位该群」,不冒充 0 人)。
+            wechat_groupinfo::wechat_group_info,
+            // 微信群信息导出(10-13-wechat-groupinfo R3):面板「导出」按钮
+            // 接活 —— 前端已持 group-info 应答原样落盘(JSON + 同目录同名
+            // 成员表 CSV,UTF-8 BOM),壳不重查;保存对话框 = dialog 插件
+            // Rust 侧 blocking_save_file(spawn_blocking 线程,注册先例 =
+            // 看图屏 main.rs `tauri_plugin_dialog::init()`)。
+            wechat_group_export::wechat_group_export
         ])
         .setup(move |app| {
             // 冷启动打点(沿用 spike 惯例):进程启动 → sidecar spawn 完成。

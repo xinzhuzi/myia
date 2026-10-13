@@ -1607,10 +1607,14 @@ describe("FeedScreen", () => {
 
 describe("FeedScreen · interaction-batch(A-feed,v8 三层单环)", () => {
   it("2 级渠道行 j/k 巡游(v8 §7,v7 机件原样):首按 j 选中首行(focus 环可见),j/k 上下移,首末边界钳制不回绕;Enter 打开当前行渠道", async () => {
+    // first_seen 显式钉死递减(a 新→c 旧):渠道行按 latest 活跃优先排序
+    // (feedChannelCards,api.ts),缺省夹具取创建毫秒 —— 同毫秒平局走 key
+    // 字典序恰为 a,b,c,跨毫秒则行序随机排列,j 落首行不再必是 a(门禁
+    // 实录的 1-in-N 偶发红);钉时间后行序恒定
     const items = [
-      fixtureItem({ source: "a-source", title: "甲" }),
-      fixtureItem({ source: "b-source", title: "乙" }),
-      fixtureItem({ source: "c-source", title: "丙" }),
+      fixtureItem({ source: "a-source", title: "甲", first_seen: new Date(Date.now() - 60_000).toISOString() }),
+      fixtureItem({ source: "b-source", title: "乙", first_seen: new Date(Date.now() - 120_000).toISOString() }),
+      fixtureItem({ source: "c-source", title: "丙", first_seen: new Date(Date.now() - 180_000).toISOString() }),
     ];
     storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
       Promise.resolve(result(items.filter((item) => !params?.source || item.source === params.source))),
@@ -1659,8 +1663,10 @@ describe("FeedScreen · interaction-batch(A-feed,v8 三层单环)", () => {
   });
 
   it("2 级 U triage(未过门本地通路):j 落行 + U = 该渠道已加载条目一键标已读(localStorage 持久,行徽标即时熄灭);已加载 0 条 = 无操作", async () => {
-    const item = fixtureItem({ source: "a-source" });
-    const other = fixtureItem({ source: "b-source" });
+    // first_seen 显式钉死递减:渠道行按 latest 活跃优先排序,「j 落首行 =
+    // a-source」依赖行序确定(同 flake 机理注,见 j/k 巡游用例)
+    const item = fixtureItem({ source: "a-source", first_seen: new Date(Date.now() - 60_000).toISOString() });
+    const other = fixtureItem({ source: "b-source", first_seen: new Date(Date.now() - 120_000).toISOString() });
     storeItemsMock.mockResolvedValue(result([item, other]));
     await renderOverview();
     await openChannelList("site");
@@ -1696,8 +1702,9 @@ describe("FeedScreen · interaction-batch(A-feed,v8 三层单环)", () => {
   });
 
   it("2 级 U 在场校验(深检 C3,P2):搜索收窄把巡游行过滤出局后按 U 零操作(与 Enter 同门);搜索清巡游行回场后 U 照常 triage", async () => {
-    const itemA = fixtureItem({ source: "a-source", title: "甲" });
-    const itemB = fixtureItem({ source: "b-source", title: "乙" });
+    // first_seen 显式钉死递减(行序确定,「j 落 a-source」不再赌毫秒平局)
+    const itemA = fixtureItem({ source: "a-source", title: "甲", first_seen: new Date(Date.now() - 60_000).toISOString() });
+    const itemB = fixtureItem({ source: "b-source", title: "乙", first_seen: new Date(Date.now() - 120_000).toISOString() });
     storeItemsMock.mockResolvedValue(result([itemA, itemB]));
     await renderOverview();
     await openChannelList("site");
@@ -1785,9 +1792,10 @@ describe("FeedScreen · interaction-batch(A-feed,v8 三层单环)", () => {
   });
 
   it("j/k 守卫(2 级):输入框内敲 j 不动渠道行;⌘/Ctrl/Alt 修饰键不触发", async () => {
+    // first_seen 显式钉死递减(行序确定,「裸 j 选中首行 a-source」不再赌毫秒平局)
     const items = [
-      fixtureItem({ source: "a-source", title: "甲" }),
-      fixtureItem({ source: "b-source", title: "乙" }),
+      fixtureItem({ source: "a-source", title: "甲", first_seen: new Date(Date.now() - 60_000).toISOString() }),
+      fixtureItem({ source: "b-source", title: "乙", first_seen: new Date(Date.now() - 120_000).toISOString() }),
     ];
     storeItemsMock.mockResolvedValue(result(items));
     await renderOverview();
@@ -6303,6 +6311,23 @@ describe("FeedScreen · 群信息面板动线(10-13-wechat-groupinfo R2)", () =>
     await waitFor(() => expect(screen.queryByTestId("wx-groupinfo-dialog")).toBeNull());
     // 弹窗关闭后仍停在 3 级(聊天头在场 = 未回退层级)
     expect(screen.getByTestId("feed-wx-chat-header")).toBeTruthy();
+  });
+
+  it("聊天头群信息入口(R2「从群行/聊天头进」的聊天头一半):群名旁小钮 → 同款弹窗真拉数据,寻址键剥前缀", async () => {
+    mockWxChannelWorld();
+    await renderOverview();
+    fireEvent.click(await screen.findByTestId("feed-type-card-wx"));
+    await waitFor(() => expect(screen.getByTestId("feed-channel-list")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("feed-channel-row-weixin-测试会话"));
+    // wx 聊天头:群名旁「群信息」入口在场(词面人话,title 指明看什么)
+    const headerButton = await screen.findByTestId("feed-wx-chat-header-groupinfo");
+    expect(headerButton.textContent).toContain("群信息");
+    expect(headerButton.getAttribute("title")).toContain("群公告");
+    fireEvent.click(headerButton);
+    // 同款弹窗动线:契约字段上屏 + 寻址键剥前缀传壳侧
+    expect(await screen.findByTestId("wx-groupinfo-dialog")).toBeTruthy();
+    expect(screen.getByTestId("wx-groupinfo-member-count").textContent).toBe("成员 2 人");
+    expect(invokeMock).toHaveBeenCalledWith("wechat_group_info", { chat: "测试会话" });
   });
 });
 

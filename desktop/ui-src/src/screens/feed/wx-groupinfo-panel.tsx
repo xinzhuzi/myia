@@ -15,10 +15,13 @@
  * 文案判例「行话零容忍」:可见词面全人话(群公告/群主/成员 N 人/备注);
  * chat_id / wxid 等协议词只作 title 悬浮与成员行次要灰字(任务令明准)。
  *
- * 数据 = ./wechat-groupinfo-api 的 wechatGroupInfo()(壳 spawn 桥 localdb
- * group-info,契约 prd「group-info 应答契约 v1」);缺库缺表如实降级
- * (owner/announcement null → 「—」,member_count null → 「成员数未知」,
- * 不虚构)。Esc 与遮罩关闭由 ui/dialog.tsx 基件承担;浮层让位收口同
+ * 数据 = ./wechat-groupinfo-api 的 wechatGroupInfo()(壳两段链:桥
+ * sessions list 名解析 → localdb group-info 直转,契约 prd「group-info
+ * 应答契约 v1」);缺库缺表如实降级(owner/announcement null → 「—」,
+ * member_count null → 「成员数未知」,不虚构)。**解析失败与真 0 人分层**
+ * (评审 10-13):壳侧名解析不到 = 结构化 group_not_resolved → 本面板错误
+ * 态词面「未能定位该群(不在最近会话)」,绝不渲染「成员 0 人」冒充。
+ * Esc 与遮罩关闭由 ui/dialog.tsx 基件承担;浮层让位收口同
  * FeedItemDetail(基件 Esc preventDefault,屏级巡游线自动让位)。
  */
 import { useEffect, useState } from "react";

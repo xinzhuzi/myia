@@ -44,6 +44,10 @@ flate2 = "1"
 fs2 = "0.4"
 # 仅用 time(请求超时);运行时由 tauri 提供,不另起 tokio 特性树。
 tokio = { version = "1", features = ["time"] }
+# 群信息导出缺省文件名的日期段(10-13-wechat-groupinfo R3「群信息-<显示名>
+# -<日期>.json」,本地时 %Y-%m-%d);锁内已有同版 0.4.45(其他链路传递依赖),
+# 零新增 crate(default-features=false,仅 clock)。
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [dev-dependencies]
 # pyenv 探测单测的临时数据根(三态/指纹/镜像回环)。
