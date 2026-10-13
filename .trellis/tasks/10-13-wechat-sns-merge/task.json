@@ -1,0 +1,16 @@
+{
+  "id": "wechat-sns-merge",
+  "name": "wechat-sns-merge",
+  "title": "朋友圈动态+互动合并展示,发帖人必显",
+  "description": "主人令(2026-10-13):朋友圈与朋友圈互动放到一起,不要分开;要表明朋友圈是谁发的,不能光有信息没有发表人。数据面已备(raw.nickname 全量在库),纯前端改造。",
+  "status": "review",
+  "priority": "P1",
+  "creator": "xinzhuzi",
+  "assignee": "xinzhuzi",
+  "createdAt": "2026-10-13",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "commit": null,
+  "notes": "合流批 8f47727 + 七件套批(搜索/锚定/分割线/等高/头像/三档/折叠)全交付;jcdGNI2x 换装 PID 23109"
+}
