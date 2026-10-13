@@ -46,7 +46,7 @@
 - [x] AC-B4:参考 provider 按协议跑通 `get_db_key`。(假取钥器对夹具库正例+四负例全绿;真钥端到端随 AC-B7 装机验)
 - [x] AC-B5:协议文档 docs/wechat-keyprovider.md 落地(全量验真门槛/行序硬约束/实现注/管理命令/walkthrough;收官补:多条 result 取首条实现注+progress 不透传披露+绝对路径要求)。
 - [x] AC-B6:门禁全绿(pytest/vitest/tsc+ruff/cargo 五门禁二轮全绿,工作流 world.run 实跑)+ detect-changes 主会话收官跑。
-- [ ] AC-B7:装机包刷新+像素级验证(设置页新配置项+未配置报错态,截屏+OCR 证据)。
+- [x] AC-B7:装机包刷新+验证(10-13 收官)。换装毕(WKWebView 缓存已清);**源验证**:包内字节级双证(Rust 命令符号 wechat_key_provider+前端「取钥器」文案×4);**启动冒烟**:MYIA_SMOKE_GEOMETRY 窗截屏+OCR(侧栏全谱/仪表盘正常/微信配置入口在,零回归,截图 /tmp/wxkey-c/appsmoke.png);**设置屏取钥器行像素**:无头导航钩子不存在(hash 路由无 env 控制),证据链=组件测试(真实桥载荷形状)+cargo test+安装态 CLI set/get/clear 全环沙箱验证——**行级像素留主人一眼终裁**(设置→配置→微信)。
 
 **已知限制(如实)**:zstd 压缩消息真解码需 Python ≥3.14(PEP 784);装机态数据根自管 python=3.12.7 → 压缩行落占位并如实计数(zstd_module_missing);escape hatch=$MYIA_WECHAT_BRIDGE_PYTHON 指 3.14 即全解码(开发态 .venv 3.14 实测 28/28 解码)。自管 python 升 3.14=主人架构裁决域,本任务不擅动。
 

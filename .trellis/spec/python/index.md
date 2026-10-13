@@ -79,3 +79,10 @@ vision/         看图:双引擎 OCR(ocrmac+rapidocr-onnxruntime)+ OpenAI 兼容
 - **存储布局(不进 myia.db)**:数据根 = `--db` 父目录(`CronJobs.for_db`),全部落 `<数据根>/cron/`——`jobs.json`(job 注册表,tmp+rename 原子写 + 跨进程建议锁;他进程磁盘新增的未知 job 合并不覆盖)、`executions.db`(cron 专属 SQLite 执行账本,`run_summary_json` 摘要快照随终态)、`output/<job_id>/`(运行文档+stderr,倒序裁剪留 50)、`tick.lock`/`paused.marker`(estop)/心跳标记族;**SQLiteStore SCHEMA_VERSION 零改动是红线**
 - **at-most-once 与多宿主**:tick 在文件锁内**先推进 next_run_at 再派发**(锁被他宿主持有 = 静默 return 0);fire claim TTL 300s 认领;`cron serve`(监督守护线程,崩了 respawn)/桌面 sidecar ticker(仅 home 模式)/手动 `cron tick` 三宿主共存;cron fire 撞桌面 run 单飞锁 = 跳过本 fire(`skipped_busy` + `cron.skipped` 事件,用户手点优先);同 db job 派发串行、不同 db 并行
 - **执行体 = 子进程**(偏离 D11,对齐 sidecar「从不构造 Pipeline」铁律):spawn `myia run <品类> --json`(start_new_session 自成进程组;墙钟 run_timeout 缺省 3600s,超时 killpg SIGTERM→宽限→SIGKILL);退出码 0/2/3 映射 ok/failed/partial(3 算成功附注);摘要投递复用 push 平台层 directory+targets+delivery,deliver spec = `local`/`feishu:群名`/`telegram:id`/`stdout:debug`(内存缓冲+日志回显,协议流零污染);SendContext kind=`cron_summary`(受控扩值);投递失败记 `last_status="delivery_failed"` 不动 failure_streak
+
+## 微信桥外部件协议(2026-10-13 定案,task 10-13-wechat-keyprovider)
+
+- **取钥器外置**(照 WeFlow keyProvider 生存架构,DMCA 时代判例):桥的取钥面=用户自备外部可执行件(`key_provider_path` 配置),协议=stdin 单行 JSON 请求/stdout NDJSON(progress 任意次+result 恰一次),契约唯一权威源 `docs/wechat-keyprovider.md`;未配置/失败=人话报错 exit 21 **无降级不校验来源签名**;返回钥匙逐把页 1 HMAC 验真,**全量命中才落缓存**(部分=整体失败)
+- **红线**:产品代码(src/)永不进货内存扫描/取钥实现(grep 守卫 `task_for_pid|mach_vm|vm_read_overwrite|ptrace`);桥内既有 memsearch/collector 维持冻结,新扫描能力只在仓外开发;密钥材料只落数据根私有区(600/700)
+- **4.1.15 消息库形状**(适配事实):分表 `Msg_<md5(username)>` 无会话列(经 Name2Id 全表 md5 反解)、内容列 `message_content`、压缩行 WCDB_CT 标记+zstd 魔数双信号(stdlib compression.zstd 需 3.14+,守卫降级占位并计数)
+- 组件版本三方锁:pyproject/component.json/__init__ 同版本,`tests/desktop/test_pyenv_resources.py` 钉死
