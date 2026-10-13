@@ -41,7 +41,7 @@
 ## 四阶段路线
 
 - [ ] **阶段1：MMKV tinfo 解析**（零密码可做）——MMKV 格式解析（腾讯开源格式：文件头+protobuf KV），抽出 tinfo 全字段。（passphrase 模型下预期调低：机器密钥在登录流由服务器侧参与,磁盘派生材料大概率不存在）
-- [x] **阶段1.5：macOS 堆存根重绘——v7 就绪,待一次 sudo 实跑**。collector5 四模式（S1 std::string 32B/S1h 64hex string/V1 vector/C1 CFData 内联,布局=layout_probe 本机实测）+ **A1 锚邻域（10-13 v7 新增,C 计划）**：锚串 USER_KEYINFO（macOS 同源词实证=key_info.db 唯一索引名 `LoginKeyInfoTable_USER_KEYINFO`）/com.Tencent.WCDB.Config.Cipher/WCDB.Config.Cipher/setCipherKey,UTF-8+UTF-16LE 双编码,仅 RW 区,锚实例 ±128B 窗内 8B 步进裸 32B+窗内 RW 指针解引用,共用 FNV 去重+内联验证器。**v7 自验（10-13 本会话实测）：`--selftest` 六召回全 PASS（S1/S1h/V1/C1/A1裸/A1指针）,-Wall 零警告,扫自身 5710MB;用法守卫 exit2/非root task_for_pid 干净拒绝**。实跑：主人在场 `sudo bash /tmp/wxkey-c/run5.sh`（基线≤10 分钟;HITS 0 且已验证==5000 → `sudo COLLECTOR5_MAXVERIFY=0 bash run5.sh` 不设限重跑）→ hit5.key → verify3.py 交叉验 → 桥 write_key_cache。
+- [x] **阶段1.5：v7 已实跑终局——8428 候选全验零命中(10-13)**:S1/S1h/V1/C1 容器+锚邻域(459 裸+31 解引用)全覆盖;passphrase 不在这些形态或 4.1.15 又变。**预案语义 bug 修正:MAXVERIFY=0=零验证非不设限,用 999999**。v7 工具链保留——社区新情报到手即可按新模式重扫。collector5 四模式（S1 std::string 32B/S1h 64hex string/V1 vector/C1 CFData 内联,布局=layout_probe 本机实测）+ **A1 锚邻域（10-13 v7 新增,C 计划）**：锚串 USER_KEYINFO（macOS 同源词实证=key_info.db 唯一索引名 `LoginKeyInfoTable_USER_KEYINFO`）/com.Tencent.WCDB.Config.Cipher/WCDB.Config.Cipher/setCipherKey,UTF-8+UTF-16LE 双编码,仅 RW 区,锚实例 ±128B 窗内 8B 步进裸 32B+窗内 RW 指针解引用,共用 FNV 去重+内联验证器。**v7 自验（10-13 本会话实测）：`--selftest` 六召回全 PASS（S1/S1h/V1/C1/A1裸/A1指针）,-Wall 零警告,扫自身 5710MB;用法守卫 exit2/非root task_for_pid 干净拒绝**。实跑：主人在场 `sudo bash /tmp/wxkey-c/run5.sh`（基线≤10 分钟;HITS 0 且已验证==5000 → `sudo COLLECTOR5_MAXVERIFY=0 bash run5.sh` 不设限重跑）→ hit5.key → verify3.py 交叉验 → 桥 write_key_cache。
 - [x] **阶段2：判死不再做**（方差分析+Windows 四组穷举全灭,见排除表末行）。
 - [x] **阶段3：Windows 4.x 对照——结论已回填**（10-13）：WeChatMsg 全源码零 key_info 解析（Windows 4.x 唯一实现=wx_info_v4 内存扫+is_ok 验证,参数与我方 verify3 逐位一致）;Windows 侧也无解包算法（key_info_data 机器绑定离线不可还原） ⇒ 本档排除表+GATE 已吸收全部可搬情报。
 - [ ] **阶段4：打穿收口**——passphrase/raw key → 派生全库 enc_key → keys.json（600）→ localdb query 真跑 → TMS 群首拉 → 情报流通电 → 10-12 档 AC7 终验。
@@ -59,3 +59,7 @@
 # 见 tools/ 同款：sqlite3 只读 key_info.db → pb_parse(key_info_data)
 # field1 载荷头 14B 结构 + 加密体偏移 28(0x1C) 起取 152B
 ```
+
+## 10-13 全天终局战报(第 1 攻坚日)
+
+九路全排除(四hex/盐邻域/chatlog锚×时序/API钩/钥匙串/Win指针/v7六模式 8428 验)。**4.1.15 macOS 钥匙获取=当前社区前沿未破**(chatlog 停 4.1.2)。下一步候选:①社区新情报(等 chatlog/PyWxDump 系跟进 4.1.15)→v7 换模式即用 ②阶段1.5 深化(passphrase 若非容器形态=散存/加密态驻留→逆向微信二进制找 PBKDF2 调用点参数寄存器/栈) ③LLDB CCKeyDerivationPBKDF 符号断点(根因修正已入档;主人已口头允 LLDB,下会话可实施:重登微信触发派生时抓参数)。
