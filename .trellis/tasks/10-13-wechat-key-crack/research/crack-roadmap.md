@@ -15,6 +15,8 @@
 | 内存扫·chatlog fts5 锚定模式（collector2/3） | 零命中（含时序修正轮=主人开着 TMS 群时扫——终扫若也零则正式归档失效） |
 | LLDB hook CCCryptorCreate（v1-v4 四轮） | 断点零命中=4.1.15 AES 静态链进微信二进制，无系统 API 可钩 |
 | 钥匙串机器密钥 | 全量 dump（80+ 条）无任何 wechat/tencent 条目 |
+| 内存时序修正轮（chatlog 模式,主人开 TMS 群时扫） | 终扫完成零命中（chatlog fts5 锚对 4.1.15 正式失效） |
+| Windows 指针跳转法移植（collector4,存根模式 tailA/B） | 7.8GB 扫完 deref tried=0——Windows CRT 堆元数据模式在 macOS allocator 不存在;**思路保留,存根需按 macOS 堆（malloc zone 元数据）重绘**（新工具 tools/collector4.c 在 /tmp 待固化） |
 | 零内存直接推导（E1，10 万 HMAC） | 0 命中（10-11 档在案） |
 
 **已破开的结构（磁盘路战果）**：
@@ -35,6 +37,7 @@
 ## 四阶段路线
 
 - [ ] **阶段1：MMKV tinfo 解析**（零密码可做）——MMKV 格式解析（腾讯开源格式：文件头+protobuf KV），抽出 tinfo 全字段。
+- [ ] **阶段1.5（新增）：macOS 堆存根重绘**——「指针跳转」思路保留：钥匙无特征但「引用它的结构」有;macOS 形态=malloc zone 的 32B 块引用（NKV/pointer array/CFData wrapper）;打法=在微信进程里定位 32B 堆块的引用者（先 dump 堆块清单→反查引用）或 CFData/NSData 包装层特征。
 - [ ] **阶段2：派生组合爆破**——{tinfo 字段/设备标识/wxid} × {SHA256/HMAC/PBKDF2,常见盐与迭代} 矩阵，逐组合解 152B 加密体；判据=解出内容可解析为 protobuf 钥匙结构（非随机）。
 - [ ] **阶段3：Windows 4.x 对照**——社区对 Windows 版 key_info 的研究（PyWxDump 系活 fork/WeChatMsg 源码在 wx-cli 的 .run/ 里全套！`youkuzazazazaza/wechat-cli/.run/WeChatMsg-src/`）比对封装结构。
 - [ ] **阶段4：打穿收口**——真钥匙 → keys.json（600）→ localdb query 真跑 → TMS 群首拉 → 情报流通电 → 10-12 档 AC7 终验。
