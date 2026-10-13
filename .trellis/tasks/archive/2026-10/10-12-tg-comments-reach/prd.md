@@ -6,11 +6,12 @@
 
 ## Requirements
 
-- TBD
+- tg_web 批量档对带评论钮的频道帖展开讨论线程读回复:锚=讨论群 chat id 独立命名空间(与频道帖独立),锚必 (data-peer-id,data-mid) 成对;预算动态推导(≤80 线程+过滤储备 60)+5s 帽;降级守卫(弃帖保基线)。
+- 引擎配置面 comments_max_threads/max_replies + schema/CLI 面。
 
 ## Acceptance Criteria
 
-- [x] TBD
+- [x] AC1 线程采集全链交付(4f46f2f 实现+e9c1916 终局回执):web_thread.py+引擎评论档在库;门禁 pytest 5347/0+vitest 762/762+build+ruff 全绿;真跑 clashv8 64 采/45 入库(评论锚 #tg--4373866046-* 独立命名空间);装机外科换装+装机态真跑 success。
 
 ## Notes
 
