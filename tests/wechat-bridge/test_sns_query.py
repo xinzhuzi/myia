@@ -277,3 +277,68 @@ class TestCli:
             with pytest.raises(SystemExit) as excinfo:
                 run_cli(argv + ["--json"], monkeypatch, tmp_path)
             assert excinfo.value.code == 2
+
+
+class TestGrillDeepening:
+    """grill 深化批(交付后拷问)的回归:实体净化/SQL 防护/域收缩."""
+
+    def test_illegal_entity_sanitized_real_content_recovered(self) -> None:
+        """非法码点数字实体净化后可解析——真实内容不弃行.
+
+        真库实证(2026-10-13,4408 行 3 条):微信把用户输入里的 XML 1.0
+        禁止控制字符序列化为数字实体(``&#11;`` U+000B / ``&#02;`` U+0002),
+        ET 按规范整篇拒收;净化后 id/username/createTime/正文全须回收。
+        """
+        xml = (
+            "<SnsDataItem><TimelineObject><id>14981148567247131189</id>"
+            "<username>wxid_ctl</username><createTime>1785892077</createTime>"
+            "<contentDesc>#年&#11;最&#x2;划算</contentDesc>"
+            "</TimelineObject></SnsDataItem>"
+        )
+        entry = parse_feed_row(xml)
+        assert entry is not None
+        assert entry["id"] == "14981148567247131189"
+        assert entry["text"] == "#年最划算"  # 控制字符如实不入内容
+
+    def test_legal_entities_preserved(self) -> None:
+        """合法数字实体与命名实体原样保留(净化零误伤).
+
+        U+202E(RLO)与 CJK 都是合法 XML 字符——实体形态必须原样通过
+        (真库 contentDesc 实测在用),只有禁用控制字符才净化。
+        """
+        xml = _feed_xml("1", "u", 100, "中&#x4E2D;&#x202E;尾&amp;")
+        entry = parse_feed_row(xml)
+        assert entry is not None
+        assert entry["text"] == "中中\u202e尾&"
+
+    def test_feed_sql_error_is_contract_failure(self, sns_copies: Path) -> None:
+        """F1:表在而查询炸(损坏形状)→ 契约内 decrypt_failed,不裸 traceback."""
+        import wechat_bridge.sns_query as sq
+
+        class _Boom:
+            """假连接:sqlite_master 探测正常回真,主查询抛 OperationalError."""
+
+            def execute(self, sql, *args, **kwargs):
+                if "sqlite_master" in sql:
+
+                    class _Rows:
+                        def fetchall(self):
+                            return [(1,)]
+
+                        def fetchone(self):
+                            return (1,)
+
+                    return _Rows()
+                raise sqlite3.OperationalError("database disk image is malformed")
+
+        with pytest.raises(BridgeError) as excinfo:
+            sq._query_feed(_Boom(), 0, 3, sns_copies)
+        assert excinfo.value.exit_code == DECRYPT_FAILED
+
+    def test_notices_domains_exclude_contact(self, sns_copies: Path) -> None:
+        """F2:notices 载荷 domains 不含 contact(域收缩后不消费不报)."""
+        payload = _run(sns_copies, "notices")
+        assert set(payload["domains"]) == {"sns"}
+        # feed 仍双域
+        payload = _run(sns_copies, "feed")
+        assert set(payload["domains"]) == {"sns", "contact"}

@@ -1482,3 +1482,29 @@ def test_sns_timeout_default_600(tmp_path, monkeypatch):
     engine, _ = make_sns_engine()
     fetch_items(engine)
     assert seen["timeout"] == wx_engine.DEFAULT_LOCALDB_TIMEOUT_SECONDS == 600.0
+
+
+def test_sns_feed_media_wording_by_evidenced_types(tmp_path, monkeypatch):
+    """grill 深化批:media type 语义实证(2=图/6=视频)后的词面回退链.
+
+    纯视频动态不再误标「图片」;混合形态双计;无媒体兜底不变。
+    """
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    rows = [
+        sns_feed_row(entry_id="v1", text=None, media_count=2, media_types=["6", "6"]),
+        sns_feed_row(entry_id="m1", text=None, media_count=3, media_types=["2", "6", "2"]),
+        sns_feed_row(entry_id="i1", text=None, media_count=1, media_types=["2"]),
+        sns_feed_row(entry_id="n1", text=None, media_count=0, media_types=[]),
+    ]
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        fake_runner(sns_payload("feed", rows)),
+    )
+    engine, _ = make_sns_engine()
+    items = fetch_items(engine)
+    titles = {i["url"].split("#wxsns-")[1]: i["title"] for i in items}
+    assert titles["v1"] == "[视频×2]"
+    assert titles["m1"] == "[图片×2·视频×1]"
+    assert titles["i1"] == "[图片×1]"
+    assert titles["n1"] == "[朋友圈动态]"

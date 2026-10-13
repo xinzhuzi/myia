@@ -25,6 +25,7 @@ design §5)。
 
 from __future__ import annotations
 
+import re
 import sqlite3
 import time
 import xml.etree.ElementTree as ET
@@ -36,7 +37,8 @@ from .localdb_query import _contact_pick_names, _open_copy
 __all__ = ["run_sns_query", "parse_feed_row", "NOTICE_TYPE_NAMES"]
 
 #: 动态表(2026-10-13 实探:tid/user_name/content/pack_info_buf 四列,
-#: content = XML;SQL 层无时间列,窗口过滤在解析后)。
+#: content = XML;SQL 层无时间列,窗口过滤在解析后;pack_info_buf 实探
+#: 恒空不消费)。
 FEED_TABLE = "SnsTimeLine"
 #: 互动通知表(tmp3 后缀疑似版本产物;缺表如实报,见模块 docstring)。
 NOTICES_TABLE = "SnsMessage_tmp3"
@@ -44,6 +46,37 @@ NOTICES_TABLE = "SnsMessage_tmp3"
 #: 通知 type → 词面(实探:1=赞 182 条 content 恒空;2=评论 67 条
 #: content=评论文本;未知类型原样数字字符串,不臆造)。
 NOTICE_TYPE_NAMES: dict[int, str] = {1: "like", 2: "comment"}
+
+#: 数字字符实体的非法码点净化(grill 深化批,2026-10-13 真库实证):
+#: 微信会把 RLO 类控制字符以 XML 1.0 禁止的字符引用写进 contentDesc
+#: (如 ``&#x202E;``;4408 行里 3 条,均为真实动态)——ET 按规范整篇拒收,
+#: 弃行 = 丢真实内容。净化 = 把**非法码点**的数字实体替换为空(控制字符
+#: 本不可见,如实不入内容);合法实体(``&#x4E2D;`` 形)与命名实体
+#: (``&amp;`` 族)原样保留。
+_NUM_ENTITY_RE = re.compile(r"&#(x[0-9A-Fa-f]+|\d+);")
+
+
+def _xml_char_legal(codepoint: int) -> bool:
+    """XML 1.0 合法字符集(w3c XML 1.0 §2.2 Char 产生式)."""
+    return (
+        codepoint in (0x9, 0xA, 0xD)
+        or 0x20 <= codepoint <= 0xD7FF
+        or 0xE000 <= codepoint <= 0xFFFD
+        or 0x10000 <= codepoint <= 0x10FFFF
+    )
+
+
+def _sanitize_numeric_entities(xml_text: str) -> str:
+    """非法码点的数字字符实体 → 空串(合法实体原样;对干净 XML 零扰动)."""
+    def _sub(match: re.Match[str]) -> str:
+        body = match.group(1)
+        try:
+            codepoint = int(body[1:], 16) if body[0] in "xX" else int(body)
+        except ValueError:
+            return ""
+        return match.group(0) if _xml_char_legal(codepoint) else ""
+
+    return _NUM_ENTITY_RE.sub(_sub, xml_text)
 
 #: is_relative_me 语义注记:真跑 3 条赞全 0(语义未实证——可能不是
 #: 「与我相关」的简单布尔),**原样透传不解释**;消费方词面中性不依赖它。
@@ -62,13 +95,16 @@ def parse_feed_row(content: object) -> dict[str, object] | None:
 
     契约字段(design §2.3 表):id/username/create_time 必备(缺失即弃),
     text/media/ref_username/ref_nickname 可选。media = ContentObject/
-    mediaList/media 列表,每条取 type 文本(media type 数字语义不臆造,
-    原样透传)。
+    mediaList/media 列表,每条取 type 文本(**type 语义已实证:2=图片/
+    6=视频**(2026-10-13 真库 videoDuration 交叉验证:6 型 296/306
+    videoDuration>0;2 型 6685 个全 0);其余型原样透传不解释)。
+    预净化:非法码点数字实体替换为空后解析(微信 RLO 类控制字符写入面,
+    见 :func:`_sanitize_numeric_entities`)。
     """
     if not isinstance(content, str) or not content.strip():
         return None
     try:
-        root = ET.fromstring(content)
+        root = ET.fromstring(_sanitize_numeric_entities(content))
     except ET.ParseError:
         return None
     timeline = root.find("TimelineObject")
@@ -136,12 +172,17 @@ def run_sns_query(
     如实,消费方回落 username)。notices:SnsMessage_tmp3 SQL 直查(窗口
     在 WHERE)。两模式共用 domains 状态节与 copy 原样节。
     """
-    domain_status = {
+    # 域状态按模式报(feed 消费 contact 反查;notices 域收缩后不报——
+    # 不消费的域报 copy_missing 会误导排查)。
+    domain_status: dict[str, str] = {
         "sns": "ok" if (copy_dir / "sns" / "sns.db").is_file() else "copy_missing",
-        "contact": "ok"
-        if (copy_dir / "contact" / "contact.db").is_file()
-        else "copy_missing",
     }
+    if mode == "feed":
+        domain_status["contact"] = (
+            "ok"
+            if (copy_dir / "contact" / "contact.db").is_file()
+            else "copy_missing"
+        )
     con = _open_copy(copy_dir, "sns/sns.db")
     if con is None:
         raise _sns_copy_error("sns/sns.db")
@@ -173,9 +214,18 @@ def _query_feed(
             f"sns 副本缺 {FEED_TABLE} 表(微信版本形状漂移;2026-10-13 实探形状失配)",
             fix_hint="微信升级可能改表名;重登/升级后重试,持续缺失报 issue 附版本号",
         )
-    rows = con.execute(
-        f'SELECT user_name, content FROM "{FEED_TABLE}"'
-    ).fetchall()
+    try:
+        rows = con.execute(
+            f'SELECT user_name, content FROM "{FEED_TABLE}"'
+        ).fetchall()
+    except sqlite3.Error as exc:
+        # 副本损坏形状(grill 深化批):降级为契约内失败,不裸 traceback
+        # 破坏 stdout JSON 契约(localdb_query 单表降级同纪律)。
+        raise BridgeError(
+            DECRYPT_FAILED,
+            f"sns 副本 {FEED_TABLE} 查询失败({type(exc).__name__});疑似副本损坏",
+            fix_hint="删除数据根 wechat-localdb/decrypted/sns/ 触发下轮重建(纯派生缓存,安全)",
+        ) from exc
     feed: list[dict[str, object]] = []
     parse_errors = 0
     out_of_window = 0
@@ -222,12 +272,19 @@ def _query_notices(
             f"sns 副本缺 {NOTICES_TABLE} 表(微信版本形状漂移;tmp3 后缀疑似版本产物)",
             fix_hint="微信升级可能改表名;重登/升级后重试,持续缺失报 issue 附版本号",
         )
-    rows = con.execute(
-        f'SELECT local_id, create_time, type, from_username, from_nickname, '
-        f'feed_id, content, is_relative_me FROM "{NOTICES_TABLE}" '
-        f"WHERE create_time >= ? ORDER BY create_time ASC",
-        (since_ts,),
-    ).fetchall()
+    try:
+        rows = con.execute(
+            f'SELECT local_id, create_time, type, from_username, from_nickname, '
+            f'feed_id, content, is_relative_me FROM "{NOTICES_TABLE}" '
+            f"WHERE create_time >= ? ORDER BY create_time ASC",
+            (since_ts,),
+        ).fetchall()
+    except sqlite3.Error as exc:
+        raise BridgeError(
+            DECRYPT_FAILED,
+            f"sns 副本 {NOTICES_TABLE} 查询失败({type(exc).__name__});疑似副本损坏",
+            fix_hint="删除数据根 wechat-localdb/decrypted/sns/ 触发下轮重建(纯派生缓存,安全)",
+        ) from exc
     notices: list[dict[str, object]] = []
     for local_id, create_time, notice_type, from_user, from_nick, feed_id, content, relative in rows:
         try:

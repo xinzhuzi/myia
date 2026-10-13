@@ -721,15 +721,37 @@ class WechatLocalEngine(BaseEngine):
         return items
 
     def _sns_feed_row_to_item(self, row: dict[str, Any]) -> dict[str, Any] | None:
-        """一条朋友圈动态 → 管线条目(#wxsns-<id> 强锚)."""
+        """一条朋友圈动态 → 管线条目(#wxsns-<id> 强锚).
+
+        标题回退链(grill 深化批,type 语义已实证:2=图/6=视频,真库
+        videoDuration 交叉验证——「视频显示成图片」的词面瑕疵据此修复):
+        text → 媒体词面([图片×N]/[视频×K]/混合)→ [朋友圈动态]。
+        """
         entry_id = row.get("id")
         if not isinstance(entry_id, str) or not entry_id:
             return None  # 桥侧已过滤,防御形状
         text = row.get("text")
         text = text if isinstance(text, str) and text.strip() else ""
+        media_types = row.get("media_types")
+        media_types = (
+            [str(t) for t in media_types]
+            if isinstance(media_types, list)
+            else []
+        )
+        video_count = sum(1 for t in media_types if t == "6")
+        image_count = len(media_types) - video_count
         media_count = row.get("media_count")
         media_count = media_count if isinstance(media_count, int) else 0
-        display = text or (f"[图片×{media_count}]" if media_count > 0 else "[朋友圈动态]")
+        if text:
+            display = text
+        elif video_count and image_count:
+            display = f"[图片×{image_count}·视频×{video_count}]"
+        elif video_count:
+            display = f"[视频×{video_count}]"
+        elif image_count:
+            display = f"[图片×{image_count}]"
+        else:
+            display = "[朋友圈动态]"
         title = display.splitlines()[0][:TITLE_MAX_CHARS]
         return {
             "url": sns_anchor(entry_id),
@@ -761,9 +783,11 @@ class WechatLocalEngine(BaseEngine):
         else:  # like / 未知型:赞词面兜底(未知型如实入 title,不臆造分类)
             kind_label = "赞了" if row.get("type") == "like" else f"互动({row.get('type')})"
             title = f"{who} {kind_label}朋友圈动态"
+        if len(title) > TITLE_MAX_CHARS:
+            title = title[:TITLE_MAX_CHARS]
         return {
             "url": sns_notice_anchor(local_id),
-            "title": title[:TITLE_MAX_CHARS] if len(title) > TITLE_MAX_CHARS else title,
+            "title": title,
             "content": content or title,
             "sender": who,
             "side": "left",

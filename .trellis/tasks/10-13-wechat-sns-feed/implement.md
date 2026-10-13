@@ -98,3 +98,34 @@ uv run myssia run weixin --once                   # live 真跑(数据根)
 - **遗留(批 4 裁量)**:feed 屏像素级验收留并行会话(10-13-wechat-
   features/groupinfo 在改 feed-screen.tsx/api.ts)收编后做——数据面
   220 条已入库,UI 渲染零改动面(源名前缀自动归微信渠道),不阻塞。
+
+## grill 深化批(交付后双线拷问,2026-10-13 深夜;主人令「做完后 grill 拷问+立即解决」)
+
+交付线抓出 5 缺陷全部修复实证:
+
+- **F3(最重)3 条真实内容被丢**:真库 4408 行 3 条 parse_errors 诊断定案
+  ——微信把 XML 1.0 禁用控制字符序列化为数字实体(`&#11;` U+000B /
+  `&#02;` U+0002)写入 contentDesc,ET 整篇拒收,弃行 = 丢真实动态(含
+  年终话题+多图)。修复 = 非法码点实体净化后解析(合法实体/RLO 原样);
+  parse_errors 3→0,150d 窗复验 3 条全回收。
+- **F1 契约破坏面**:feed/notices 主查询无 sqlite3.Error 防护——副本损坏
+  时裸 traceback 破坏 stdout JSON 契约。修复 = 包裹降级 decrypt_failed
+  (fix_hint 指删 decrypted/sns/ 重建)。
+- **F2 浪费面**:notices 域收缩 ["sns"](不消费 contact 却因「源新即重建」
+  每 */2 重解 32MB contact 副本);载荷 domains 节按模式报。
+- **F4 词面瑕疵**:media type 真库实证(2=图 6685/6=视频 296/306
+  videoDuration>0 交叉验证)——纯视频不再误标「图片」,混合词面
+  [图片×N·视频×K];桥侧 media_types 仍原样透传。
+- **F5 发布锁**:just release-plugins v0.0.2 --dry-run 重产锁(实证
+  wechat-bridge 不在 11 件市场插件锁管辖——桥走组件链;锁刷新收编了
+  3fb661c 重命名批以来的资产哈希漂移,源码全已提交非在途)。
+- 换装链复走:桥组件 rsync(0.6.0+修复)+ bundle 引擎同步;装机 cron
+  下轮自动生效。
+- 门禁:全量 5647 passed 零新红(含 grill 回归 5 用例:实体净化/合法实体
+  零误伤/SQL 防护/域收缩/视频词面)。
+
+文档线(D1-D5)同步回写:design 落定全表解析 0.59s/实体净化机制/type
+实证/域收缩/pack_info_buf 不消费/可疑空「部分坏行」边界注记;prd AC5
+注记(装机生效形态 = bundle 热修 + 组件 rsync,完整 tauri 重打包归 tag
+发布链——与 0.4.x 时代换装同路数,AC5 的「装机真跑」数据面已验、像素面
+留并行会话收编后)。

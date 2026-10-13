@@ -123,6 +123,7 @@ __all__ = [
     "sqlcipher_available",
     "ensure_decrypted_copies",
     "query_history",
+    "group_info",
 ]
 
 #: 单账号本地库目录名(db_storage;research §7.1 实测)。
@@ -1609,18 +1610,22 @@ def sns_history(
 ) -> dict[str, object]:
     """``localdb sns feed|notices`` 全链编排(task 10-13-wechat-sns-feed)。
 
-    与 :func:`query_history` 同构:E2 副本(域固定 ``["sns", "contact"]``——
-    contact 供 nickname 反查;**不带 message/session**,sns 查询不摊消息域
-    解密成本)→ 解密失败自愈钩子同款(setuid keyscanner 在位+门开 = 零人工
+    与 :func:`query_history` 同构:E2 副本(feed 域 ``["sns", "contact"]``——
+    contact 供 nickname 反查;**notices 域收缩 ``["sns"]``**,grill 深化批:
+    通知的 from_nickname 是 SQL 直列不消费 contact,而微信持续写 contact
+    会触发「源新即重建」——*/2 频率的通知源不该反复重解 32MB 的 contact
+    副本)→ 解密失败自愈钩子同款(setuid keyscanner 在位+门开 = 零人工
     重取一次)→ E3 :func:`wechat_bridge.sns_query.run_sns_query` 装配。
     """
     from . import memsearch, sns_query
+
+    domains = ["sns", "contact"] if mode == "feed" else ["sns"]
 
     def _ensure(keys_mapping: dict[str, str]) -> dict[str, object]:
         return ensure_decrypted_copies(
             db_storage,
             keys_mapping,
-            domains=["sns", "contact"],
+            domains=domains,
             ttl_hours=config.copy_ttl_hours,
             capacity_mb=config.copy_capacity_mb,
             data_root=data_root,
@@ -1645,6 +1650,58 @@ def sns_history(
         mode=mode,
         since_days=since_days,
         copy_info=copy_info,
+    )
+
+
+def group_info(
+    config,  # BridgeConfig(避免循环导入,运行时鸭子类型)
+    db_storage: Path,
+    keys: dict[str, str],
+    chat_id: str,
+    *,
+    data_root: Path | None = None,
+    now: float | None = None,
+) -> dict[str, object]:
+    """``localdb group-info`` 全链编排(task 10-13-wechat-groupinfo)。
+
+    与 :func:`sns_history` 同构:E2 副本(域固定 ``["contact"]``——群信息
+    单 contact 域自足:chat_room/chat_room_info_detail/chatroom_member 全在
+    contact 库,member_id 即 contact rowid(2026-10-13 实拍裁决,见
+    localdb_query._contact_rowid_usernames),显示名同库直查;**不带
+    message/session**,零消息域解密成本)→ 解密失败自愈钩子同款(setuid
+    keyscanner 在位+门开 = 零人工重取一次)→ E3
+    :func:`localdb_query.group_info` 装配。查询层缺表/缺域恒降级空结构不判错
+    (判例同 key-status:状态查询不判错)。
+    """
+    from . import localdb_query, memsearch
+
+    def _ensure(keys_mapping: dict[str, str]) -> dict[str, object]:
+        return ensure_decrypted_copies(
+            db_storage,
+            keys_mapping,
+            domains=["contact"],
+            ttl_hours=config.copy_ttl_hours,
+            capacity_mb=config.copy_capacity_mb,
+            data_root=data_root,
+            now=now,
+        )
+
+    try:
+        copy_info = _ensure(keys)
+    except BridgeError as exc:
+        if exc.exit_code != DECRYPT_FAILED:
+            raise
+        if not memsearch.self_heal_armed(config=config, data_root=data_root):
+            raise
+        healed = memsearch.try_self_heal(db_storage, config=config, data_root=data_root)
+        if healed is None:
+            raise
+        keys = healed
+        copy_info = _ensure(keys)
+
+    return localdb_query.group_info(
+        copy_dir=Path(str(copy_info["dir"])),
+        chat_id=chat_id,
     )
 
 

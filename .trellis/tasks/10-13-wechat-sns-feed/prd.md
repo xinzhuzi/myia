@@ -48,7 +48,10 @@ R5 **隐私红线沿袭**:enrich 关(内容不送 LLM)、push 空(零外发—�
 - AC3 水位:第二轮起按增量开窗(--since 天数随水位收缩),skip/失败不推进。
 - AC4 门禁:pytest 全量零新红;桥测试(golden 夹具)覆盖 feed/notices 两命令。
 - AC5 装机:桥组件 0.6.0 装机件刷新换装,装机环境真跑 AC2(条目入 feed,
-  截屏留证——文字内容脱敏,只证条目在场与形状)。
+  截屏留证——文字内容脱敏,只证条目在场与形状)。**注记(grill 深化批)**:
+  装机生效形态 = bundle myssia-src 热修 + 桥组件 rsync(装机 cron */2
+  实证全绿);完整 tauri 重打包归 tag 发布链;像素级截屏留并行会话
+  (在改 feed 屏)收编后,数据面已验不阻塞。
 - AC6 配置:repo 样例 config/weixin.yaml 注释补 sns 形态;live 数据根
   weixin.yaml 加两源(weixin-朋友圈 / weixin-朋友圈互动)。
 

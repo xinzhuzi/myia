@@ -36,6 +36,11 @@ wechat-bridge localdb sns notices --since 3d --json   # 互动通知
 - `localdb sns` 子命令组不跑 UI 前置(localdb 族同纪律,零截窗零 AX)。
 - 密钥链复用 `resolve_keys`(keys.json/取钥器/自愈/E1 同一全链;sns 钥匙
   已在 20/20 映射内,零新取钥面)。
+- **E2 域按模式收缩**(grill 深化批):feed = `["sns","contact"]`(nickname
+  反查需要);notices = `["sns"]`——通知的 from_nickname 是 SQL 直列不
+  消费 contact,而微信持续写 contact 触发「源新即重建」,*/2 频率的通知
+  源不该反复重解 32MB contact 副本;载荷 domains 节同步按模式报(不消费
+  的域不报 copy_missing 误导排查)。
 - 版本 0.5.1 → 0.6.0(`__init__.py`/`pyproject.toml`/`component.json`
   三处同步;docs 无版本引用面)。
 
@@ -55,13 +60,24 @@ wechat-bridge localdb sns notices --since 3d --json   # 互动通知
 | 转发源 | `sourceUserName` + `sourceNickName` | 可空;非空时入行 |
 
 - 窗口过滤在 Python(createTime 在 XML 内,SQL 层无时间列):窗口外的行
-  计入 `rows_out_of_window` 不进载荷(**解析在全表跑**,过滤后返回;估算
-  4408 行×3KB ≈ 亚秒级,**实现时实测**——若 >2s 再加正则前置过滤 createTime
-  快速路径+漏网慢路径兜底,v1 不做 tid 单调性赌博)。
+  计入 `rows_out_of_window` 不进载荷(**解析在全表跑**,过滤后返回;
+  **实测 0.59s**(4408 行,grill 深化批复验)——正则前置过滤不需要,
+  落定全表解析;表涨到十万级再议)。
 - **解析失败不炸整轮**:单行 XML 坏/字段缺失 → 弃行 + `parse_errors` 计数
-  (宁缺毋假,localdb_query 既有纪律)。**media type 数字语义不臆造**
-  (2=图/4=视频未实证):media_types 原样透传供消费方自判,标题回退链
-  不依赖它。
+  (宁缺毋假,localdb_query 既有纪律)。**media type 语义已实证**(grill
+  深化批真库定案:2=图片 6685 个/6=视频——306 个 6 型里 296 个
+  videoDuration>0 交叉验证):引擎词面按此判视频,桥侧 media_types 仍
+  原样透传(其余型 0/3/4/5 不解释)。
+- **非法 XML 实体净化**(grill 深化批):微信把用户输入里 XML 1.0 禁止的
+  控制字符序列化为数字实体(真库 3 条:`&#11;` U+000B / `&#02;` U+0002),
+  ET 按规范整篇拒收 → 弃行 = **丢真实内容**(实证 3 条均为真实动态,含
+  带年终话题文本+多图)。净化 = 非法码点数字实体替换为空后解析;合法实体
+  与命名实体(`&#x202E;` RLO 形态真库在用)原样保留——控制字符本不可见,
+  如实不入内容。修复后 parse_errors 3→0,3 条内容全回收(150d 窗复验)。
+- **SnsTimeLine.pack_info_buf 列**:实探恒空,不消费(grill 深化批定案)。
+- **SQL 层防护**(grill 深化批):feed/notices 主查询包 sqlite3.Error →
+  契约内 decrypt_failed(疑似副本损坏,fix_hint 指删 decrypted/sns/ 重建)
+  ——不裸 traceback 破坏 stdout JSON 契约(localdb_query 单表降级同纪律)。
 - **SnsTimeLine 无 is_relative_me 列**(实探列清单):自筛「自己发的」无据,
   feed v1 全收。
 - nickname 解析:作者 wxid → contact 域反查(`_contact_pick_names` 复用);
@@ -126,10 +142,11 @@ query 形态)。type 映射 `1→"like"` / `2→"comment"` / 其余原样数字�
 - notices:`wechat-local://sns/notice/<local_id>#wxsnsn-<local_id>`
   (local_id = 表主键,数据不变则不变)。
 - 标题:text 非空 → 首行截 80 字符(TITLE_MAX_CHARS 同律);text 空 →
-  `[图片×N]`(media_count>0)/`[朋友圈动态]`(兜底;**视频型判别不做**,
-  media type 数字语义未实证)。通知标题**中性词面不假设归属**(通知含
-  好友间互动,is_relative_me=0):`{from_nickname} 赞了朋友圈动态` /
-  `{from_nickname} 评论了朋友圈动态:{content 截断}`。
+  媒体词面(**grill 深化批实证判据**:type=6 算视频,type=2 其余算图)——
+  `[图片×N]`/`[视频×K]`/混合 `[图片×N·视频×K]`/兜底 `[朋友圈动态]`。
+  通知标题**中性词面不假设归属**(通知含好友间互动,is_relative_me=0)：
+  `{from_nickname} 赞了朋友圈动态` / `{from_nickname} 评论了朋友圈动态:
+  {content 截断}`。
 - content:动态 = text(空则媒体占位文);通知 = content(评论原文)或赞
   占位。metadata:`kind:"sns"`/`sns_kind`/`username`/`nickname`/`ts`/
   `media_count`(raw 面,feed v1 不投影)。
@@ -149,7 +166,9 @@ query 形态)。type 映射 `1→"like"` / `2→"comment"` / 其余原样数字�
 **可疑空水位防御**(grill 挑刺补):feed 应答零条目且 `parse_errors > 0`
 (XML 坏行吞噬整窗的形状)→ **不推进水位**(下轮重开同窗;微信 XML
 格式变化时中间窗口不丢);正常零条目(安静窗,parse_errors=0)照常推进。
-notices SQL 直查无解析面,零条目恒正常推进。
+**边界注记**(grill 深化批):防御只覆盖「全坏窗」——部分坏行(1 条好
++ N 条坏)仍推进水位,坏行窗口不补;实体净化落地后坏行主因已消,残留面
+接受。notices SQL 直查无解析面,零条目恒正常推进。
 
 ### 3.5 源 YAML 形态(live + repo 样例注释)
 
