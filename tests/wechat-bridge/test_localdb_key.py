@@ -15,6 +15,7 @@ import hmac
 import os
 import sqlite3
 import struct
+import subprocess
 from pathlib import Path
 
 import pytest

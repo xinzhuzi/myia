@@ -11,7 +11,10 @@
   ``copy_ttl_hours``(G5=24)/ ``copy_capacity_mb``(G5 容量上限,缺省 512)、
   ``mem_search_enabled``(D4 豁免开关,缺省关——design §4「开关默认关,
   主人显式开启才生效」;2026-10-11 主人「全部解决」令授权以配置键落位,
-  替代 E1 空壳期的「无配置键」口径)。
+  替代 E1 空壳期的「无配置键」口径)、
+  ``key_provider_path``(外部取钥器可执行文件路径,缺省空 = 未配置 =
+  现状行为;task 10-13-wechat-keyprovider B2,协议 = docs/wechat-keyprovider.md,
+  管理命令 ``localdb key-provider set|get|clear`` 代写)。
   **无频控键**(G6 硬编码,刻意不提供——design §7 原文)。
 
 数据根解析与 MYIA 本体同源(desktop/entry.py ``myssia_home`` /
@@ -40,6 +43,7 @@ __all__ = [
     "COPY_TTL_HOURS_DEFAULT",
     "DEFAULT_DOMAINS",
     "HISTORY_DAYS_DEFAULT",
+    "KEY_PROVIDER_PATH_DEFAULT",
     "LOCALDB_KEYS_REL_PATH",
     "MEM_SEARCH_ENABLED_DEFAULT",
     "MESSAGES_DEFAULT",
@@ -49,6 +53,7 @@ __all__ = [
     "BridgeConfig",
     "load_config",
     "myssia_home",
+    "save_config_key",
 ]
 
 #: MYIA 数据根 env 覆写名(壳 spawn 注入;main.rs data_root 同名锚点)。
@@ -81,9 +86,20 @@ COPY_CAPACITY_MB_DEFAULT = 512
 #: D4 豁免开关缺省(design §4:内存密钥搜索开关默认关,主人显式开启才生效;
 #: 2026-10-11「全部解决」令把 E1 空壳期的「无配置键」口径改写为配置可启)。
 MEM_SEARCH_ENABLED_DEFAULT = False
+#: 外部取钥器路径缺省(task 10-13-wechat-keyprovider B2;协议 v1 =
+#: docs/wechat-keyprovider.md。空串 = 未配置 = 现状行为:查询链不 spawn
+#: 取钥器、不取钥;桥对取钥器零来源校验——风险件用户自备、自行担责)。
+KEY_PROVIDER_PATH_DEFAULT = ""
 
 _ALLOWED_TOP_KEYS = frozenset(
-    {"domains", "limits", "copy_ttl_hours", "copy_capacity_mb", "mem_search_enabled"}
+    {
+        "domains",
+        "limits",
+        "copy_ttl_hours",
+        "copy_capacity_mb",
+        "mem_search_enabled",
+        "key_provider_path",
+    }
 )
 _ALLOWED_LIMIT_KEYS = frozenset({"sessions", "messages", "history_days"})
 
@@ -114,6 +130,10 @@ class BridgeConfig:
     copy_capacity_mb: int = COPY_CAPACITY_MB_DEFAULT
     #: D4 豁免开关(缺省关;真跑还须提权 + 主人裁决在案,三重门见 memsearch)。
     mem_search_enabled: bool = MEM_SEARCH_ENABLED_DEFAULT
+    #: 外部取钥器可执行文件路径(B2;空 = 未配置 = 现状行为。运行期消费在
+    #: localdb.resolve_keys:密钥缓存缺失且已配置 → 按协议 spawn;配置文件
+    #: 存在性/可执行性不在装载期判(get 命令与 spawn 失败如实报)。
+    key_provider_path: str = KEY_PROVIDER_PATH_DEFAULT
     #: 配置实际来源(None = 缺文件全缺省,health/诊断如实呈现)。
     source: str | None = None
 
@@ -129,6 +149,7 @@ class BridgeConfig:
             "copy_ttl_hours": self.copy_ttl_hours,
             "copy_capacity_mb": self.copy_capacity_mb,
             "mem_search_enabled": self.mem_search_enabled,
+            "key_provider_path": self.key_provider_path,
             "source": self.source,
         }
 
@@ -224,6 +245,15 @@ def load_config(path: Path | None = None, *, data_root: Path | None = None) -> B
             code="usage",
             fix_hint="D4 豁免开关只认布尔;开启 = true(真跑还须提权,memsearch 三重门)",
         )
+    key_provider_path = raw.get("key_provider_path")
+    if key_provider_path is not None and not isinstance(key_provider_path, str):
+        raise BridgeError(
+            EXIT_USAGE,
+            f"桥配置 key_provider_path 须为字符串(取钥器可执行文件路径;空串 = 未配置),"
+            f"当前为 {key_provider_path!r}",
+            code="usage",
+            fix_hint="外部取钥器路径配置;wechat-bridge localdb key-provider set <path> 可代写并校验",
+        )
     return BridgeConfig(
         domains=[str(item).strip() for item in domains],
         sessions=values.get("sessions", SESSIONS_DEFAULT),
@@ -236,5 +266,58 @@ def load_config(path: Path | None = None, *, data_root: Path | None = None) -> B
             if mem_search_enabled is None
             else mem_search_enabled
         ),
+        key_provider_path=(
+            KEY_PROVIDER_PATH_DEFAULT
+            if key_provider_path is None
+            else key_provider_path.strip()
+        ),
         source=str(config_path),
     )
+
+
+def save_config_key(
+    key: str,
+    value: Any | None,
+    *,
+    path: Path | None = None,
+    data_root: Path | None = None,
+) -> Path:
+    """管理命令的配置代写面(B2;``localdb key-provider set|clear`` 唯一后端)。
+
+    外科式改单键:先经 :func:`load_config` 同门校验既有文件(坏文件拒改,
+    不把用户的配置写花),再原样保留其余键改写目标键,原子落盘(tmp+rename,
+    600/目录 700——数据根私有区纪律)。``value=None`` = 删除该键(= 回缺省)。
+
+    本函数只收**顶层标量键**(``key_provider_path`` 族);limits 子键与整表
+    替换不在管理命令面(用户直改文件,load_config 全量校验兜底)。
+    """
+    if key not in _ALLOWED_TOP_KEYS or key == "limits" or key == "domains":
+        raise BridgeError(
+            EXIT_USAGE,
+            f"save_config_key 只支持顶层标量键,不支持: {key!r}",
+            code="usage",
+        )
+    config_path = path if path is not None else default_config_path(data_root)
+    load_config(config_path)  # 同门校验:既有文件坏 = 拒改(fail-fast,不写花)
+    raw: dict[str, Any] = {}
+    if config_path.is_file():
+        loaded = json.loads(config_path.read_text(encoding="utf-8"))
+        if isinstance(loaded, dict):
+            raw = loaded
+    if value is None:
+        raw.pop(key, None)
+    else:
+        raw[key] = value
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(config_path.parent, 0o700)
+    tmp = config_path.with_name(f"{config_path.name}.tmp-{os.getpid()}")
+    try:
+        tmp.write_text(
+            json.dumps(raw, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+        )
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, config_path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+    return config_path

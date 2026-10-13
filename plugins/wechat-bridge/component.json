@@ -1,7 +1,7 @@
 {
   "id": "wechat-bridge",
   "name": "微信本机桥(UI 自动化 + 本地库只读)",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "kind": "bridge",
   "runtime": "native-python",
   "entry": "wechat_bridge/__main__.py",
@@ -30,8 +30,9 @@
       "sessions list --json",
       "messages read <id> -k 50",
       "send_text <id> --file -",
-      "localdb query <chat> --since 7d --json",
-      "localdb key-scan --json(内存密钥批处理扫描;默认关+须提权(root 或 setuid keyscanner)+只读单遍零常驻;0.4.0 管道=C 收集器三模式宽收集→熵筛→并行 sqlcipher 试开→page1 交叉验证)"
+      "localdb query <chat> --since 7d --json(0.4.2 起 4.1.15 分表形态:Msg_<md5(username)> 无会话列,表名与 real_sender_id 经 Name2Id 反解;WCDB_CT 标记的 zstd 压缩行优先真解码[stdlib compression.zstd,3.14+],缺模块/解压失败落占位并计数)",
+      "localdb key-scan --json(内存密钥批处理扫描;默认关+须提权(root 或 setuid keyscanner)+只读单遍零常驻;0.4.0 管道=C 收集器三模式宽收集→熵筛→并行 sqlcipher 试开→page1 交叉验证)",
+      "localdb key-provider set <path>|get|clear --json(外部取钥器管理;set 校验文件存在+可执行;协议 v1 = docs/wechat-keyprovider.md:stdin 单行 JSON 请求/stdout NDJSON progress+result/120s 超时 kill;密钥缓存缺失且已配置时查询链自动 spawn,返回钥匙逐把页1 HMAC 验真后才落 keys.json,失败一律 exit 21 不降级)"
     ],
     "exit_codes": {
       "0": "成功",
@@ -67,7 +68,8 @@
     },
     "copy_ttl_hours": 24,
     "copy_capacity_mb": 512,
-    "mem_search_enabled": false
+    "mem_search_enabled": false,
+    "key_provider_path": ""
   },
   "private_paths": {
     "config": "<数据根>/wechat-bridge/config.json",

@@ -28,6 +28,17 @@ E2 解密副本(G5 生命周期):
 - TTL 24h(配置 ``copy_ttl_hours``)失效重建 + 容量上限(配置
   ``copy_capacity_mb``);解密失败触发重建;微信进程零接触、零出网。
 
+外部取钥器(B3,task 10-13-wechat-keyprovider;协议 v1 =
+docs/wechat-keyprovider.md):
+
+- MYIA 产品代码**零取钥实现**:取钥能力整体外包给用户自备的外部可执行件,
+  桥只认协议——不校验来源与签名、不内置降级(取钥器故障 = exit 21 如实,
+  绝不静默回退内置取钥)。:func:`acquire_keys_from_provider` 是桥侧全链:
+  spawn 子进程 → stdin 单行 JSON 请求 → stdout 按行 NDJSON(progress +
+  result)→ 退出码矩阵判定 → 逐把页 1 HMAC 验真 → 全量命中才落 keys.json
+  (缓存由桥独占写)。挂点 = :func:`resolve_keys` 密钥缓存缺失分支
+  (配置 ``key_provider_path``,管理命令 ``localdb key-provider set|get|clear``)。
+
 私有数据红线(prd 红线 6):密钥材料/聊天内容不入 git/日志/报告;本模块
 的错误消息与应答只承载形状(计数/路径名/字节数)。
 """
@@ -43,22 +54,30 @@ import struct
 import subprocess
 import time
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from .codes import DECRYPT_FAILED, DB_NOT_FOUND, KEY_UNAVAILABLE, BridgeError
 from .config import LOCALDB_KEYS_REL_PATH, myssia_home
 from .system_checks import WECHAT_FILES_ROOT
 
+if TYPE_CHECKING:  # 仅供类型注解(运行时鸭子类型,防循环导入——原注释纪律)
+    from .config import BridgeConfig
+
 __all__ = [
     "DB_STORAGE_DIR_NAME",
     "LOCALDB_PRIVATE_DIR",
     "PAGE_SZ",
+    "PROVIDER_ACTION_GET_DB_KEY",
+    "PROVIDER_STDERR_TAIL_CHARS",
+    "PROVIDER_TIMEOUT_SECONDS",
+    "PROVIDER_UNCONFIGURED_MESSAGE",
     "locate_db_storage",
     "locate_key_info_db",
     "verify_key_for_page",
     "verify_key_mapping",
     "extract_key_candidates",
     "acquire_key",
+    "acquire_keys_from_provider",
     "resolve_keys",
     "key_cache_path",
     "write_key_cache",
@@ -490,6 +509,256 @@ def read_key_cache(*, data_root: Path | None = None) -> dict[str, str] | None:
     return {str(k): str(v) for k, v in raw.items()}
 
 
+# =====================================================================
+# 外部取钥器(B3;协议 v1 = docs/wechat-keyprovider.md——桥只认协议,
+# 零取钥实现零来源校验:风险件用户自备、自行担责)
+# =====================================================================
+
+#: 取钥器子进程硬上限(协议 §6:120 秒 = spawn 起全程预算,与 progress
+#: 输出无关,无延长协商;模块常量非配置面——协议钉死的边界)。
+PROVIDER_TIMEOUT_SECONDS = 120.0
+#: 失败场景 stderr 消费的尾部字符数(协议 §2/§6:stderr 是调试旁路,
+#: 仅失败被取尾部 500 字符附入错误信息;成功时桥不读)。
+PROVIDER_STDERR_TAIL_CHARS = 500
+#: 未配置取钥器的法定错误文案(协议 §8;查询链密钥不可得且未配置时
+#: 并入 exit 21 消息——设置页/文档引导的锚文本)。
+PROVIDER_UNCONFIGURED_MESSAGE = "未配置外部取钥器,请在设置中指定可执行文件路径"
+#: 协议 v1 唯一动作(桥只发 ``get_db_key``;未知动作的处理属取钥器侧事务)。
+PROVIDER_ACTION_GET_DB_KEY = "get_db_key"
+
+
+def _configured_provider_path(config: Any) -> str:
+    """已配置的取钥器路径(空白 = 未配置;duck-type 容错测试替身)。"""
+    return str(getattr(config, "key_provider_path", "") or "").strip()
+
+
+def _provider_account_id(db_storage: Path) -> str:
+    """请求 ``account_id`` 的零交互推导(只读,供多账号场景选钥)。
+
+    与 :func:`locate_key_info_db` 同序:``all_users/login/<wxid>`` 目录名是
+    账号目录名(wxid_xxx 带设备后缀)的前缀 → 前缀匹配优先;匹配不到回落
+    账号目录名(取钥器侧自行取舍,桥只给最佳推断)。
+    """
+    root = db_storage.parents[1] if len(db_storage.parents) > 1 else db_storage.parent
+    login_dir = root / "all_users" / "login"
+    account_dir = db_storage.parent.name
+    if login_dir.is_dir():
+        prefixed = sorted(
+            child.name
+            for child in login_dir.iterdir()
+            if child.is_dir() and account_dir.startswith(child.name)
+        )
+        if prefixed:
+            return prefixed[0]
+    return account_dir
+
+
+def acquire_keys_from_provider(
+    db_storage: Path,
+    provider_path: str,
+    *,
+    account_id: str | None = None,
+    targets: list[tuple[str, int, bytes]] | None = None,
+    data_root: Path | None = None,
+    timeout: float = PROVIDER_TIMEOUT_SECONDS,
+) -> dict[str, str]:
+    """spawn 外部取钥器取钥(协议 v1 全链;任何失败 = exit 21,无降级)。
+
+    时序照协议 §2:spawn → stdin 写**单行** JSON 请求(``communicate`` 写完
+    即关 stdin)→ stdout 按行 NDJSON(``progress`` 0..N + ``result`` 恰一次)
+    → 退出码矩阵判定(§6)→ 返回钥匙逐把页 1 HMAC 离线验真(§7,复用
+    :func:`verify_key_for_page`)→ 全量命中才 :func:`write_key_cache`(600,
+    缓存由桥独占写、验真后才落;部分命中不落缓存 = 全链既有纪律)。
+
+    判定取舍(§6 矩阵 + v1 未定义处的确定性实现):``result``
+    ``success:false``(任意退出码)= 失败透传取钥器 ``error``;退出码非 0 =
+    失败附 stderr 尾部;退出码 0 无 ``result`` = 失败「未返回结果」;超时 =
+    kill 失败。首条 ``result`` 即终态、其后行忽略排空(v1 未定义桥的取舍);
+    非 JSON/非协议行不计入协议(有 ``result`` 时忽略,无时计入失败明细)。
+    ``keys`` 键 = salt_hex(匹配库文件前 16 字节)或 ``"*"`` 通配(全域同钥);
+    混用时 ``"*"`` 铺底、逐 salt 后到覆盖;盐不匹配任何在场库的条目弃。
+
+    Returns:
+        dict: 加密库相对路径 → key hex(全部经页 1 离线验证)。
+
+    Raises:
+        BridgeError: exit 21(一切取钥器侧失败收敛 ``key_unavailable``;
+            消息只承载形状与取钥器自报 ``error``,绝无密钥材料——红线 6)。
+    """
+    import json
+
+    page_targets = targets if targets is not None else page1_targets(db_storage)
+    if not page_targets:
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            f"外部取钥器不适用:db_storage 下无待解密库(无 ≥{PAGE_SZ}B 的 .db): {db_storage}",
+        )
+    exe = Path(provider_path).expanduser()
+    request = {
+        "action": PROVIDER_ACTION_GET_DB_KEY,
+        "db_path": str(db_storage),
+        "account_id": (
+            account_id if account_id is not None else _provider_account_id(db_storage)
+        ),
+    }
+    try:
+        proc = subprocess.Popen(  # noqa: S603 - 用户自备外部件,契约=docs/wechat-keyprovider.md
+            [str(exe)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as exc:
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            f"取钥器子进程启动失败({type(exc).__name__}): {exe}",
+            fix_hint=(
+                "核对路径存在且有可执行位(localdb key-provider get 可查在位状态);"
+                "运行期 spawn 失败如实报(协议 §8)"
+            ),
+        ) from exc
+    try:
+        stdout_bytes, stderr_bytes = proc.communicate(
+            json.dumps(request, ensure_ascii=False).encode("utf-8") + b"\n",
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        proc.kill()
+        try:
+            proc.communicate()  # 收尸防僵尸;超时路径的残余输出弃
+        except subprocess.TimeoutExpired:  # pragma: no cover - kill 后即退
+            pass
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            f"外部取钥器超时(>{timeout:.0f} 秒已 kill 子进程): {exe.name}",
+            fix_hint=(
+                "协议 v1 硬上限 120 秒、无延长协商;预计耗时的步骤应尽早输出"
+                " result 或主动失败,不要挂满预算"
+            ),
+        ) from exc
+
+    stdout_text = (stdout_bytes or b"").decode("utf-8", errors="replace")
+    stderr_tail = _stderr_tail(
+        (stderr_bytes or b"").decode("utf-8", errors="replace")
+    )
+    result: dict[str, Any] | None = None
+    progress_lines = 0
+    junk_lines = 0
+    for raw_line in stdout_text.splitlines():
+        line = raw_line.strip()
+        if not line or result is not None:
+            continue  # result 即终态,其后行忽略排空(v1 未定义取舍)
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            junk_lines += 1
+            continue
+        if not isinstance(obj, dict):
+            junk_lines += 1
+            continue
+        obj_type = obj.get("type")
+        if obj_type == "progress":
+            progress_lines += 1
+        elif obj_type == "result":
+            result = obj
+        else:
+            junk_lines += 1
+
+    if result is not None and result.get("success") is False:
+        provider_error = (
+            str(result.get("error") or "").strip()
+            or "(取钥器未给出人话 error 字段)"
+        )
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            f"外部取钥器报告失败: {provider_error}",
+            fix_hint="取钥器自报错误原样透传(协议 §6);排查取钥器实现或更换取钥件",
+        )
+    if proc.returncode != 0:
+        tail = stderr_tail.strip()
+        detail = f";stderr 尾部: {tail}" if tail else ""
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            f"外部取钥器异常退出(exit={proc.returncode}): {exe.name}{detail}",
+        )
+    if result is None:
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            f"取钥器未返回结果(退出码 0 但无 result 行;progress {progress_lines} 行,"
+            f"非协议行 {junk_lines} 行): {exe.name}",
+            fix_hint=(
+                "协议 §6:退出码 0 必须恰有一条 result;调试输出一律走 stderr,"
+                "stdout 只准协议 NDJSON"
+            ),
+        )
+    if result.get("success") is not True:
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            f"取钥器 result 行形状不符(success 须为布尔): {exe.name}",
+            fix_hint="协议 §4:result 的 success 字段必含且为布尔(true/false)",
+        )
+
+    keys_raw = result.get("keys")
+    if not isinstance(keys_raw, dict) or not keys_raw:
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            f"取钥器成功应答未携带 keys 映射(空映射或形状不符): {exe.name}",
+            fix_hint="协议 §4:成功形态必含 keys({salt_hex: key_hex} 或 \"*\" 通配)",
+        )
+
+    page1_by_rel: dict[str, bytes] = {rel: page1 for rel, _size, page1 in page_targets}
+    salt_to_rel: dict[str, str] = {
+        page1[:SALT_SZ].hex(): rel for rel, _size, page1 in page_targets
+    }
+    wildcard_count = sum(1 for k in keys_raw if k == "*")
+    candidates: dict[str, str] = {}
+    unmatched_salts = 0
+    # "*" 铺底在前、逐 salt 后到覆盖(混用形态的确定性取舍;协议 §5 建议不混用)
+    for salt_key, key_value in sorted(keys_raw.items(), key=lambda kv: kv[0] != "*"):
+        if not isinstance(key_value, str):
+            continue  # 非 hex 字符串:验真阶段自然弃,此处不硬拒
+        hex_key = key_value.strip().lower()
+        if salt_key == "*":
+            for rel in page1_by_rel:
+                candidates[rel] = hex_key
+            continue
+        rel = salt_to_rel.get(salt_key.strip().lower())
+        if rel is None:
+            unmatched_salts += 1  # 盐不匹配任何在场库:条目弃(宁缺毋假)
+            continue
+        candidates[rel] = hex_key
+
+    verified: dict[str, str] = {}
+    for rel, hex_key in candidates.items():
+        try:
+            raw_key = bytes.fromhex(hex_key)
+        except ValueError:
+            continue  # 非 hex:条目弃(verify_key_mapping 同款纪律)
+        if len(raw_key) == KEY_SZ and verify_key_for_page(raw_key, page1_by_rel[rel]):
+            verified[rel] = hex_key
+    if len(verified) != len(page_targets):
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            "外部取钥器返回的密钥验真未全量通过:"
+            f"给出 {len(keys_raw)} 把(含 '*' 通配 {wildcard_count} 把),"
+            f"覆盖在场库 {len(candidates)}/{len(page_targets)}"
+            f"(盐不匹配 {unmatched_salts} 条),"
+            f"页1 HMAC 验真通过 {len(verified)}/{len(page_targets)};未入缓存",
+            fix_hint=(
+                "验真 = 页1 离线 HMAC(SQLCipher 4 原始密钥语义);不通过说明钥匙"
+                "与库不匹配(登录态轮换后旧钥失效,重取后重试);协议 §5:宁可多给"
+                "候选,不要只给一把没把握的钥"
+            ),
+        )
+    write_key_cache(verified, data_root=data_root)
+    return verified
+
+
+def _stderr_tail(text: str) -> str:
+    """stderr 尾部截取(协议 §6:500 字符;只入错误信息,不另落盘)。"""
+    return text[-PROVIDER_STDERR_TAIL_CHARS:]
+
+
 def resolve_keys(
     db_storage: Path,
     *,
@@ -504,14 +773,20 @@ def resolve_keys(
     顺序:① ``keys.json``(缓存与外部供给同位:既可能是组件全量验证后的
     落盘,也可能是主人以任意可行手段提供的 all_keys.json 类产物)经
     :func:`verify_key_mapping` 逐条 HMAC 重验,全量命中即放行——主人按
-    指引放置密钥产物后查询**一步闭合,无须再改代码**;② 自愈钩子
+    指引放置密钥产物后查询**一步闭合,无须再改代码**;② **外部取钥器**
+    (B3,task 10-13-wechat-keyprovider):``key_provider_path`` 已配置时
+    :func:`acquire_keys_from_provider` 按协议 spawn 取钥——已配置 = 首选
+    取钥路(先于一切内置途径),**失败即 exit 21 不降级**(协议 §1「无
+    降级」:绝不静默回退任何内置取钥实现,含下列钩子);③ 自愈钩子
     (0.4.0,task 10-13-wechat-key-subsystem):缓存缺位/未闭合且
     ``mem_search_enabled`` 开 + setuid keyscanner 在位时,零人工重取
     (:func:`wechat_bridge.memsearch.try_self_heal`,全量命中才落缓存;
     0.4.1 失败退避:未闭合落冷却戳,30 分钟窗内不重扫、零内存读);
-    ③ 回落 E1 零内存途径(:func:`acquire_key`,当前如实负结论出口)。
-    ①③未闭合会如实并入 exit 21 消息(放了 keys.json 却被弃的排查者
-    不再被零内存措辞带偏);②冷却中同样如实注记(不谎称重取过)。
+    ④ 回落 E1 零内存途径(:func:`acquire_key`,当前如实负结论出口)。
+    ①③④未闭合会如实并入 exit 21 消息(放了 keys.json 却被弃的排查者
+    不再被零内存措辞带偏);②③冷却中同样如实注记(不谎称重取过);
+    未配置取钥器时最终 exit 21 消息并入法定文案
+    :data:`PROVIDER_UNCONFIGURED_MESSAGE`(协议 §8——用户知道 remedy 在哪)。
 
     Returns:
         dict: 加密库相对路径 → key hex(全部经 page1 离线验证)。
@@ -534,6 +809,22 @@ def resolve_keys(
             f"keys.json 在场({len(staged)}条)但全量验证未闭合:"
             f"命中 {len(verified)}/{len(targets) if targets else 0}库"
         )
+    # —— 外部取钥器(B3;已配置 = 首选取钥路,先于内置自愈/零内存;失败
+    # 即 exit 21 不降级——协议 §1:绝不静默回退内置取钥实现)——
+    provider_path = _configured_provider_path(config)
+    if provider_path:
+        try:
+            return acquire_keys_from_provider(
+                db_storage, provider_path, targets=targets, data_root=data_root
+            )
+        except BridgeError as exc:
+            if not notes:
+                raise
+            raise BridgeError(
+                KEY_UNAVAILABLE,
+                f"{exc.message};另有:{'; '.join(notes)}",
+                fix_hint=exc.fix_hint,
+            ) from exc
     # —— 自愈钩子(setuid keyscanner + 配置门开 → 零人工重取;未武装 = 保持现状;
     # 0.4.1 失败退避:未闭合落冷却戳,窗内不重扫、零内存读——不可闭合态
     # 不再逐次 query 重读微信全进程内存;冷却注记如实,不谎称重取过)——
@@ -559,16 +850,19 @@ def resolve_keys(
             db_storage, files_root=files_root, key_db=key_db, targets=targets
         )
     except BridgeError as exc:
-        if not notes:
-            raise
+        detail = (
+            exc.message if not notes else f"{exc.message};另有:{'; '.join(notes)}"
+        )
         raise BridgeError(
             KEY_UNAVAILABLE,
-            f"{exc.message};另有:{'; '.join(notes)}",
+            f"{detail};{PROVIDER_UNCONFIGURED_MESSAGE}",
             fix_hint=(
-                "核对 keys.json:键=相对 db_storage 的库路径,值=该库的 64-hex "
-                "SQLCipher 密钥;逐条重验未命中说明密钥与库不匹配(登录态轮换后"
-                "旧 key 失效,G5),重取后覆盖重试(一键:scripts/"
-                "wechat-bridge-d4-keyscan.sh;setuid 自愈件在位则查询自动重取)"
+                (f"{exc.fix_hint};" if exc.fix_hint else "")
+                + "外部取钥器:wechat-bridge localdb key-provider set <取钥器可执行"
+                "文件路径> 配置后查询自动取钥(协议文档 docs/wechat-keyprovider.md);"
+                "keys.json 排查:键=相对 db_storage 的库路径,值=该库的 64-hex "
+                "SQLCipher 密钥(逐条重验未命中 = 钥匙与库不匹配,登录态轮换后"
+                "旧 key 失效,重取后覆盖重试)"
             ),
         ) from exc
 

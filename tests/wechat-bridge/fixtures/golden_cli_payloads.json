@@ -13,7 +13,7 @@
    "ax_tree": "unknown"
   },
   "wechat_version": "4.1.15",
-  "bridge_version": "0.4.1",
+  "bridge_version": "0.4.2",
   "reasons": [
    {
     "code": "window_closed",
@@ -38,6 +38,7 @@
    "copy_ttl_hours": 24,
    "copy_capacity_mb": 512,
    "mem_search_enabled": false,
+   "key_provider_path": "",
    "source": null
   }
  },
@@ -66,8 +67,8 @@
  "err_localdb_key_unavailable": {
   "error": {
    "code": "key_unavailable",
-   "message": "key_info.db 不在场(零内存密钥途径入口缺失): <TMP>/xwechat_files/all_users/login",
-   "fix_hint": "确认微信在本机登录过;D4 密钥途径:内存扫描(localdb key-scan,配置 mem_search_enabled 显式开启+提权,默认关,prd 红线 1/3)或引入外部密钥(keys.json,600 权限)"
+   "message": "key_info.db 不在场(零内存密钥途径入口缺失): <TMP>/xwechat_files/all_users/login;未配置外部取钥器,请在设置中指定可执行文件路径",
+   "fix_hint": "确认微信在本机登录过;D4 密钥途径:内存扫描(localdb key-scan,配置 mem_search_enabled 显式开启+提权,默认关,prd 红线 1/3)或引入外部密钥(keys.json,600 权限);外部取钥器:wechat-bridge localdb key-provider set <取钥器可执行文件路径> 配置后查询自动取钥(协议文档 docs/wechat-keyprovider.md);keys.json 排查:键=相对 db_storage 的库路径,值=该库的 64-hex SQLCipher 密钥(逐条重验未命中 = 钥匙与库不匹配,登录态轮换后旧 key 失效,重取后覆盖重试)"
   }
  },
  "err_localdb_db_not_found": {

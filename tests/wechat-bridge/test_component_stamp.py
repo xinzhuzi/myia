@@ -13,6 +13,7 @@ from wechat_bridge.config import (
     COPY_TTL_HOURS_DEFAULT,
     DEFAULT_DOMAINS,
     HISTORY_DAYS_DEFAULT,
+    KEY_PROVIDER_PATH_DEFAULT,
     MEM_SEARCH_ENABLED_DEFAULT,
     MESSAGES_DEFAULT,
     SESSIONS_DEFAULT,
@@ -66,6 +67,10 @@ class TestStampLock:
         # D4 豁免开关缺省关(真锁:戳与 config.py 单一出处互钉)。
         assert defaults["mem_search_enabled"] is MEM_SEARCH_ENABLED_DEFAULT
         assert MEM_SEARCH_ENABLED_DEFAULT is False
+        # 外部取钥器路径缺省空 = 未配置 = 现状行为(B2 真锁;协议
+        # docs/wechat-keyprovider.md)。
+        assert defaults["key_provider_path"] == KEY_PROVIDER_PATH_DEFAULT
+        assert KEY_PROVIDER_PATH_DEFAULT == ""
         # defaults 只装真配置键;"无配置键"类声明(频控/路径)在 config 节。
         assert set(defaults) == {
             "domains",
@@ -73,6 +78,7 @@ class TestStampLock:
             "copy_ttl_hours",
             "copy_capacity_mb",
             "mem_search_enabled",
+            "key_provider_path",
         }
         assert "G6" in _stamp()["config"]["rate_limit"]
 

@@ -25,13 +25,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any, Sequence
 
 from . import __version__, ax, localdb, memsearch
 from .codes import EXIT_OK, EXIT_USAGE, BridgeError
-from .config import BridgeConfig, load_config
+from .config import BridgeConfig, load_config, save_config_key
 from .probe import run_probe
 from .send_state import SendRateState
 
@@ -120,6 +121,22 @@ def build_parser() -> argparse.ArgumentParser:
     localdb_key_scan = localdb_sub.add_parser(
         "key-scan", help="内存密钥批处理扫描(D4 豁免;默认关+须提权;只读单遍零常驻)"
     )
+    # 外部取钥器管理(B2,task 10-13-wechat-keyprovider;协议 =
+    # docs/wechat-keyprovider.md)。设置页与 CLI 的唯一配置通道(壳层不直写
+    # 桥 config.json);set 校验存在+可执行,其余状态查询不判错。
+    localdb_keyprov = localdb_sub.add_parser(
+        "key-provider",
+        help="外部取钥器管理(set|get|clear;协议 docs/wechat-keyprovider.md)",
+    )
+    keyprov_sub = localdb_keyprov.add_subparsers(dest="key_provider_cmd", required=True)
+    keyprov_set = keyprov_sub.add_parser(
+        "set", help="配置取钥器路径(校验文件存在且有可执行位)"
+    )
+    keyprov_set.add_argument(
+        "path", metavar="path", help="取钥器可执行文件路径(脚本须带 shebang)"
+    )
+    keyprov_get = keyprov_sub.add_parser("get", help="查看取钥器配置与在位状态")
+    keyprov_clear = keyprov_sub.add_parser("clear", help="清除取钥器配置(回未配置现状)")
 
     # §6 文样把 --json 放在子命令之后(sessions list --json)——全局旗标在
     # argparse 里必须逐层重注册才收得到;default=SUPPRESS 防子层缺省覆写
@@ -133,6 +150,10 @@ def build_parser() -> argparse.ArgumentParser:
         localdb_cmd,
         localdb_query,
         localdb_key_scan,
+        localdb_keyprov,
+        keyprov_set,
+        keyprov_get,
+        keyprov_clear,
     ):
         node.add_argument(
             "--json",
@@ -224,7 +245,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise AssertionError("parser.error 必抛 SystemExit")  # pragma: no cover
 
     try:
-        config = load_config(Path(config_value).expanduser() if config_value else None)
+        config_path = Path(config_value).expanduser() if config_value else None
+        config = load_config(config_path)
         if args.group == "sessions" and args.sessions_cmd == "list":
             if args.limit is not None and args.limit <= 0:
                 raise BridgeError(
@@ -284,6 +306,93 @@ def main(argv: Sequence[str] | None = None) -> int:
             # 消息/载荷只承载形状(红线 6);拒绝与零命中如实 exit 21。
             storage = localdb.locate_db_storage()
             _emit(memsearch.acquire_key_from_memory(storage, config=config))
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "key-provider":
+            # 外部取钥器管理(B2;协议 docs/wechat-keyprovider.md §10)。
+            # set 阶段校验存在+可执行+绝对路径(文件不可执行/相对路径在这里
+            # 拒——协议 §8;相对路径落盘后随桥 cwd 漂移,spawn 面不可靠);
+            # get 是状态查询恒 exit 0(未配置/文件缺失如实呈态,不判错)。
+            if args.key_provider_cmd == "set":
+                provider = Path(args.path.strip()).expanduser()
+                if not provider.is_absolute():
+                    raise BridgeError(
+                        EXIT_USAGE,
+                        f"取钥器路径必须是绝对路径: {provider}",
+                        code="usage",
+                        fix_hint="给出绝对路径(~ 开头会自动展开),如 /Users/you/bin/my-keyprovider",
+                    )
+                if not provider.is_file():
+                    raise BridgeError(
+                        EXIT_USAGE,
+                        f"取钥器文件不存在: {provider}",
+                        code="usage",
+                        fix_hint="给出取钥器可执行文件的路径;脚本须带 shebang(如 #!/usr/bin/env python3)并有可执行位",
+                    )
+                if not os.access(provider, os.X_OK):
+                    raise BridgeError(
+                        EXIT_USAGE,
+                        f"取钥器文件不可执行(缺可执行位): {provider}",
+                        code="usage",
+                        fix_hint="chmod +x 后重试;脚本还须带 shebang(协议 v1:可直接执行的可执行文件)",
+                    )
+                save_config_key(
+                    "key_provider_path", str(provider), path=config_path
+                )
+                _emit(
+                    {
+                        "key_provider": {
+                            "path": str(provider),
+                            "state": "configured",
+                            "message": f"已配置外部取钥器: {provider}",
+                        }
+                    }
+                )
+                return EXIT_OK
+            if args.key_provider_cmd == "get":
+                configured = (config.key_provider_path or "").strip()
+                if not configured:
+                    state, message = (
+                        "unconfigured",
+                        "未配置外部取钥器;localdb key-provider set <path> 配置(协议:docs/wechat-keyprovider.md)",
+                    )
+                else:
+                    provider = Path(configured).expanduser()
+                    if not provider.is_file():
+                        state, message = (
+                            "missing_file",
+                            f"已配置但文件不存在: {provider}",
+                        )
+                    elif not os.access(provider, os.X_OK):
+                        state, message = (
+                            "not_executable",
+                            f"已配置但文件缺可执行位: {provider}",
+                        )
+                    else:
+                        state, message = (
+                            "configured",
+                            f"外部取钥器已配置: {provider}",
+                        )
+                _emit(
+                    {
+                        "key_provider": {
+                            "path": configured or None,
+                            "state": state,
+                            "message": message,
+                        }
+                    }
+                )
+                return EXIT_OK
+            # clear(分支封闭:key_provider_cmd required=True 三选一)
+            save_config_key("key_provider_path", None, path=config_path)
+            _emit(
+                {
+                    "key_provider": {
+                        "path": None,
+                        "state": "unconfigured",
+                        "message": "已清除外部取钥器配置(查询链恢复现状:不 spawn 取钥器)",
+                    }
+                }
+            )
             return EXIT_OK
         else:  # pragma: no cover - 子 parser required=True 已封住其余形态
             parser.error("未知子命令形态")
