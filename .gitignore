@@ -122,3 +122,4 @@ desktop/ui-src/e2e/artifacts/
 # (指令字面 .trellis/tasks/archive/*/evidence/ 的 * 只匹配一层,实测盖不住两层路径)。
 .trellis/tasks/*/evidence/
 .trellis/tasks/archive/**/evidence/
+plugins/wechat-bridge/bin/collector

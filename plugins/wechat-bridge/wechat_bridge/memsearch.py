@@ -282,7 +282,10 @@ def resolve_collector_binary(*, data_root: Path | None = None) -> tuple[Path, st
     """
     scanner = keyscanner_path(data_root=data_root)
     try:
-        if scanner.stat().st_mode & stat_mod.S_IXUSR:
+        # 0.4.1 复审 low 修复:判据与 keyscanner_available 对齐(IXUSR+S_ISUID
+        # 双位)——掉 setuid 位的残留件不再被误选为 keyscanner 形态。
+        mode = scanner.stat().st_mode
+        if (mode & stat_mod.S_IXUSR) and (mode & stat_mod.S_ISUID):
             return scanner, "keyscanner"
     except OSError:
         pass

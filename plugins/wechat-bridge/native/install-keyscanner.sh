@@ -15,7 +15,7 @@
 #     守卫测试 tests/wechat-bridge/test_localdb_key.py 钉死源码)。
 #   - 4750 root:staff = 仅本机用户组可执行;预期形态是**单用户本机**
 #     (用户读自己微信的内存)。多用户机器上,staff 组成员可用它对任意
-#     pid 做同款只读模式扫描(hex 串/salt 邻域形态候选,非任意内存转储)
+#     pid 做同款只读模式扫描(hex 串/salt 邻域形态候选,形态受限的定向只读提取(需预知目标位置 16B 明文;非任意全量转储))
 #     ——这是已知的、接受的边界;不接受该边界的机器不要安装本件,
 #     桥保持 sudo 单次批处理形态(不装此件即零 setuid 面)。
 #   - 卸载:sudo rm <数据根>/wechat-localdb/bin/keyscanner 即回归

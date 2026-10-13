@@ -170,9 +170,11 @@ install_keyscanner() {
 #    既有配置非法 JSON 时诚实中止(load_config 本会 fail-fast exit 2,
 #    不静默覆盖主人的文件)——
 enable_mem_search() {
+  # 0.4.1 复审 low 修复:置位无条件化(首跑无既有配置的合并写后中断,
+  # EXIT trap 同样给还原提示;原先只在备份分支置位)。
+  SCAN_STARTED=1
   if [[ -f "$CONFIG_FILE" ]]; then
     cp "$CONFIG_FILE" "$CONFIG_BACKUP"
-SCAN_STARTED=1
     echo "已备份原配置 → $CONFIG_BACKUP"
   fi
   mkdir -p "$CONFIG_DIR"
