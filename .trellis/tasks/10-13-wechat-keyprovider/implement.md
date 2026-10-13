@@ -33,3 +33,40 @@
 
 - Phase A=主会话亲自操刀(需要主人配合窗口+红线敏感,不派子代理)。
 - Phase B=trellis-implement 子代理分步派发(dispatch 首行 `Active task: .trellis/tasks/10-13-wechat-keyprovider`),每步过 grilling 拷问,门禁红了先修再进。
+
+## 复核发现与处置(2026-10-13 落档)
+
+> 两轮审计 + 本轮文档侧复核的全部发现,逐条处置状态。**独立复核证据**:
+> [`research/e2e-provider-verify.md`](research/e2e-provider-verify.md)
+> (独立验证员真数据全链,E2E 七步全绿,verifiedCount=20——1 至 6 号步骤含
+> keys 缺失态/spawn+NDJSON/HMAC 验真+缓存/真消息+zstd 独立比对/负例×2/换号语义)。
+
+### 第一轮审计(代码侧审计→对方 phase4 修复)
+
+| 发现 | 处置 |
+|---|---|
+| 1 high | **已修复**(对方工作流 phase4;修复后 E2E 复核全链绿为旁证) |
+| 3 medium | **已修复**(同上;E2E 负例×2 零缓存污染+换号语义如实,与修复口径吻合) |
+
+明细以对方(代码侧)phase4 交付为准,本档不重复展开;仓内未见独立审计明细档,
+上表分类与处置结论按本任务指令如实记录。
+
+### 本轮发现与处置(zstd/TTL/低危四件 + 换号实弹暂缓)
+
+| # | 发现 | 处置 |
+|---|---|---|
+| 1 | zstd 解码装机面恒占位(自管 3.12 无 stdlib `compression.zstd`) | **已修复**(代码侧):两级 import 链 stdlib→pip `zstandard`(0.4.3 主依赖,commit f51d5ac);装机态真跑 TMS 群 50 条,zstd_available=True/zstd_decoded=28;E2E 独立比对 5/5 一致(research/e2e-provider-verify.md 步骤 4) |
+| 2 | TTL=0 语义(0 是否=永不过期) | **终局=0=永不过期已四面落地**(后续同日 fix 轮翻转)。本档初记轮结论曾为「未落地、0 非法」;后续(同日 fix 轮)已改代码语义:**0=永不过期四面落地**——config 校验改非负整数(0 合法,`config.py:233-246`,报错文案「0 = 永不过期」)、localdb fresh 判定 0 短路(`localdb.py:1061`,陈旧副本恒新鲜跳过重建)、README 键说明改写(`plugins/wechat-bridge/README.md:40`「非负整数,0 = 永不过期;负数拒」)、test_config 正例(0 合法,`test_config.py:78-83`)+负例(-1 拒,`:141`)与 test_localdb_copy「拨回一年仍 kept」专测(`test_localdb_copy.py:106-115`)。`copy_capacity_mb` 维持正整数(0 容量无合法语义)。初记轮的旧行号引用(config.py:235/test_config.py:127/localdb.py:998-1001)随翻转作废,以本行现位行号为准 |
+| 3 | 低危·回滚陷阱(桥回滚旧版遇未知键全桥拒载) | **已处置(文档)**:协议文档 §10 补「回滚注意事项」——回滚到不认识 `key_provider_path` 的版本(0.4.2 前)须先 `localdb key-provider clear`,否则 config.json 残留键令旧版桥 exit 2 全拒载(`config.py:190-197` 键封闭装载) |
+| 4 | 低危·换号指引缺口(cache-read 形态换号后无运维指引) | **已处置(文档)**:协议文档 §7 补「换号后怎么办」——桥端行为(HMAC 全拒+exit 21+重取指引+缓存整体覆写)+ 两形态对号(cache-read=手动更新钥匙文件;passphrase-derive=passphrase 来源新鲜即天然闭环) |
+| 5 | 换号实弹验证 | **主人明令暂缓**,不入本轮验收;协议语义面已有等价证据(E2E 步骤 6:错误 passphrase→HMAC 0/20 全拒+「重取后重试」+零缓存污染) |
+| 6 | 源新即重建(0.4.4) | **已实装+本轮补档**——动机:10-13 实况副本 11:47 恒新鲜到次日、下午消息全盲区(TTL 内副本不重建,新消息不可见);实装 `_source_newer`(`localdb.py:960-1027`:主库+`-wal` mtime 对比副本,源消失保持既有副本不炸);测试锄4个(源新重建/`wal` 新重建/TTL=0 关闸/源消失保持,`test_localdb_copy.py:121-184`);版本 bump 五处(component.json/pyproject/`__init__.py`/test_pyenv_resources.py/golden_cli_payloads.json,0.4.3→0.4.4);trade-off 如档:微信活跃期重建频率上升、TTL 摊薄实质弱化。文档同步(整改轮补):README E2 生命周期段、design G5 语义扩展注记(10-11 归档档) |
+
+### 附加交付(主人点名:版本基线)
+
+- **微信版本基线档**:[`research/wechat-version-baseline.md`](research/wechat-version-baseline.md)
+  ——实读 4.1.15(构建 270135);基线表(DB 路径形态/钥与 passphrase 位置/派生协议
+  参数/4.1.15 表形态/未重签名 attach 实锚)+ 版本漂移对照(一条 `defaults read`
+  对照命令 + 「版本变了最先失效什么」清单:passphrase→重跑 lldb-shot SOP;表结构→
+  B0 适配重验;压缩形态→zstd 链重验)。
+- 协议文档 §11「版本基线(SOP)」小节同步:当前验证版本 + 指到基线档 + 对照命令。
