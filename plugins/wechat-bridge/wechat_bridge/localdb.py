@@ -27,6 +27,8 @@ E2 解密副本(G5 生命周期):
   sqlcipher 缺失 → 结构化报错 + brew 指引(design §5.1,不静默半装)。
 - TTL 24h(配置 ``copy_ttl_hours``)失效重建 + 容量上限(配置
   ``copy_capacity_mb``);解密失败触发重建;微信进程零接触、零出网。
+  **0.4.4 源新即重建**:源库(含 ``-wal``)mtime 比副本新 = 缓存失效
+  (微信持续写库,TTL 内的新消息也要可见——近实时监控的正确性前提)。
 
 外部取钥器(B3,task 10-13-wechat-keyprovider;协议 v1 =
 docs/wechat-keyprovider.md):
@@ -45,6 +47,7 @@ docs/wechat-keyprovider.md):
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import hmac
 import os
@@ -868,7 +871,7 @@ def resolve_keys(
 
 
 # =====================================================================
-# E2 解密副本(G5:TTL 24h + 容量上限 + 失败重建)
+# E2 解密副本(G5:TTL 24h + 容量上限 + 失败重建 + 源新即重建(0.4.4))
 # =====================================================================
 
 #: G4 三域 → 解密目标库(代码级映射;域清单配置可扩,未知域回落全目录)。
@@ -955,6 +958,26 @@ def _run_sqlcipher_decrypt(
         )
 
 
+def _source_newer(db_storage: Path, rel: str, copy_mtime: float) -> bool:
+    """源库(含 ``-wal``)是否比副本新(0.4.4 近实时:微信写库后下轮查询即见)。
+
+    只读 ``stat`` 零打开;``-wal`` 缺席只看主库。源消失(极端:账号目录
+    迁走)返回 False——留着既有副本供查询,不炸整轮。
+    """
+    source = db_storage / rel
+    try:
+        newest = source.stat().st_mtime
+    except OSError:
+        return False
+    wal = db_storage / (rel + "-wal")
+    try:
+        if wal.is_file():
+            newest = max(newest, wal.stat().st_mtime)
+    except OSError:  # stat 竞态(拷贝瞬间被删):以主库时间为据
+        pass
+    return newest > copy_mtime
+
+
 def ensure_decrypted_copies(
     db_storage: Path,
     keys: dict[str, str],
@@ -966,16 +989,55 @@ def ensure_decrypted_copies(
     now: float | None = None,
     runner: Callable[[Path, Path, str], None] | None = None,
 ) -> dict[str, object]:
-    """E2 副本生命周期(G5):TTL 失效重建 + 容量上限 + 失败重建。
+    """E2 副本生命周期(G5):TTL 失效重建 + 容量上限 + 失败重建 + 源新即重建。
 
-    逐库:新鲜副本(存在且 mtime 在 TTL 内)保留;过期/缺失/上次失败 →
-    重建(加密原件 db+-wal 先拷入私有 staging,sqlcipher 解密,产物 600,
-    staging 用完即清)。累计解密体积超 ``capacity_mb`` 的库跳过并如实记录
-    (跳过原因 capacity);无 key 的库跳过(reason no_key)。
+    逐库:新鲜副本(存在、mtime 在 TTL 内、**且不比源库(含 ``-wal``)
+    旧)保留;TTL 过期/缺失/上次失败/**源库有新写入** → 重建(加密原件
+    db+-wal 先拷入私有 staging,sqlcipher 解密,产物 600,staging 用完即
+    清)。**TTL=0 = 永不过期**(config ``copy_ttl_hours`` 语义:恒新鲜、
+    跳过重建;负数在装载期已拒)。累计解密体积超 ``capacity_mb`` 的库跳过
+    并如实记录(跳过原因 capacity);无 key 的库跳过(reason no_key)。
+
+    **并发单飞(0.4.4)**:同数据根的并发查询(*/2 双源同轮并发 fetch)
+    会在共享 staging 用同名 ``.enc`` 互相覆盖,做出 db+wal 不一致对
+    (实测:每轮恰一源 decrypt_failed)。整轮重建以 ``.rebuild.lock``
+    排他锁串行;后来者在锁内重估新鲜度,通常直接复用先到者刚建好的
+    副本(重建工作也被去重)。
 
     Returns:
         形状级应答节:{"dir","built","kept","skipped","total_bytes"}。
     """
+    target_dir = copy_dir(data_root=data_root)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(target_dir, 0o700)
+    lock_fh = open(target_dir / ".rebuild.lock", "a")  # 700 目录内,600 由 umask 缺省
+    try:
+        fcntl.flock(lock_fh, fcntl.LOCK_EX)
+        return _ensure_decrypted_copies_locked(
+            db_storage,
+            keys,
+            domains=domains,
+            ttl_hours=ttl_hours,
+            capacity_mb=capacity_mb,
+            data_root=data_root,
+            now=now,
+            runner=runner,
+        )
+    finally:
+        lock_fh.close()
+
+
+def _ensure_decrypted_copies_locked(
+    db_storage: Path,
+    keys: dict[str, str],
+    *,
+    domains: list[str],
+    ttl_hours: int,
+    capacity_mb: int,
+    data_root: Path | None = None,
+    now: float | None = None,
+    runner: Callable[[Path, Path, str], None] | None = None,
+) -> dict[str, object]:
     target_dir = copy_dir(data_root=data_root)
     target_dir.mkdir(parents=True, exist_ok=True)
     os.chmod(target_dir, 0o700)
@@ -995,9 +1057,12 @@ def ensure_decrypted_copies(
             skipped.append({"rel": rel, "reason": "capacity"})
             continue
         plain_path = target_dir / rel
-        fresh = (
-            plain_path.is_file()
-            and (current_time - plain_path.stat().st_mtime) < ttl_hours * 3600
+        fresh = plain_path.is_file() and (
+            ttl_hours == 0  # 0 = 永不过期:陈旧副本也恒新鲜,跳过重建
+            or (
+                (current_time - plain_path.stat().st_mtime) < ttl_hours * 3600
+                and not _source_newer(db_storage, rel, plain_path.stat().st_mtime)
+            )
         )
         if fresh:
             kept.append(rel)
@@ -1012,14 +1077,23 @@ def ensure_decrypted_copies(
         os.chmod(staging, 0o700)
         enc_copy = staging / (plain_path.name + ".enc")
         try:
-            shutil.copyfile(db_storage / rel, enc_copy)
-            os.chmod(enc_copy, 0o600)
-            wal = db_storage / (rel + "-wal")
-            if wal.is_file():
-                shutil.copyfile(wal, enc_copy.with_suffix(enc_copy.suffix + "-wal"))
-                os.chmod(enc_copy.with_suffix(enc_copy.suffix + "-wal"), 0o600)
-            encrypt_run = runner if runner is not None else _run_sqlcipher_decrypt
-            encrypt_run(enc_copy, plain_path, key_hex)
+            # 活库拷贝竞态(0.4.4):微信持续写库,db+wal 两段拷贝非原子,
+            # 偶发不一致对 → sqlcipher 解密失败;原样重拷一次再试(竞态窗
+            # 毫秒级,两连败概率平方级衰减;真键错/真损坏则两次同败照实抛)。
+            for attempt in (1, 2):
+                try:
+                    shutil.copyfile(db_storage / rel, enc_copy)
+                    os.chmod(enc_copy, 0o600)
+                    wal = db_storage / (rel + "-wal")
+                    if wal.is_file():
+                        shutil.copyfile(wal, enc_copy.with_suffix(enc_copy.suffix + "-wal"))
+                        os.chmod(enc_copy.with_suffix(enc_copy.suffix + "-wal"), 0o600)
+                    encrypt_run = runner if runner is not None else _run_sqlcipher_decrypt
+                    encrypt_run(enc_copy, plain_path, key_hex)
+                    break
+                except BridgeError:
+                    if attempt == 2:
+                        raise
         finally:
             shutil.rmtree(staging, ignore_errors=True)
         if not plain_path.is_file():
