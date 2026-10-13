@@ -61,6 +61,8 @@
 | 4 | 低危·换号指引缺口(cache-read 形态换号后无运维指引) | **已处置(文档)**:协议文档 §7 补「换号后怎么办」——桥端行为(HMAC 全拒+exit 21+重取指引+缓存整体覆写)+ 两形态对号(cache-read=手动更新钥匙文件;passphrase-derive=passphrase 来源新鲜即天然闭环) |
 | 5 | 换号实弹验证 | **主人明令暂缓**,不入本轮验收;协议语义面已有等价证据(E2E 步骤 6:错误 passphrase→HMAC 0/20 全拒+「重取后重试」+零缓存污染) |
 | 6 | 源新即重建(0.4.4) | **已实装+本轮补档**——动机:10-13 实况副本 11:47 恒新鲜到次日、下午消息全盲区(TTL 内副本不重建,新消息不可见);实装 `_source_newer`(`localdb.py:960-1027`:主库+`-wal` mtime 对比副本,源消失保持既有副本不炸);测试锄4个(源新重建/`wal` 新重建/TTL=0 关闸/源消失保持,`test_localdb_copy.py:121-184`);版本 bump 五处(component.json/pyproject/`__init__.py`/test_pyenv_resources.py/golden_cli_payloads.json,0.4.3→0.4.4);trade-off 如档:微信活跃期重建频率上升、TTL 摊薄实质弱化。文档同步(整改轮补):README E2 生命周期段、design G5 语义扩展注记(10-11 归档档) |
+| 7 | 低危·台账漏记 0.4.4 同批并发机制(并发单飞/竞态重试;复核流终报指出,三轮档内无痕) | **本行补档**——动机与行为:同数据根并发查询曾在共享 staging 互覆出 db+wal 不一致对(*/2 双源实况每轮恰一源 decrypt_failed)→ **并发单飞**:`.rebuild.lock` flock 整轮串行,后来者锁内重估「副本已新鲜即复用」不重复重建(实装 `localdb.py:1004-1027`;**已知代价:重建轮实测 82.5s 内并发查询串行等锁,*/2 双源 fetch 由并行变串行**);**竞态重试**:活库拷贝非原子不一致对原样重拷一次再试(attempt×2 覆盖拷贝+解密全程),两连败照实抛无残留(实装 `localdb.py:1080-1095`);测试锚=test_localdb_copy.py 竞态/单飞三测。原 #6 与 design G5 注记只记「源新即重建」,此两机制此前仅存于 c1fde1b commit message |
+| 8 | 低危·test_localdb_query.py 裸 import zstandard(缺位整文件 collect 失败,含 12+ 个无关旧用例;三轮审计未闭无取舍说明) | **已修复**:顶层 try-import + `copies_415` 夹具统一 skip(缺 dev 组时旧形态用例照常跑,4.1.15 压缩用例 skip 并提示 `uv sync --all-extras`);真帧生成惰性化 `_secret_zstd_frame()`(魔数自检断言保留在函数内);模拟缺依赖负验证过(blocked-import 下文件可收集、旧用例绿、压缩用例 skip)——测试不再比生产脆(生产是两级优雅回退) |
 
 ### 附加交付(主人点名:版本基线)
 

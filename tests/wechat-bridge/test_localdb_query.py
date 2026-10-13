@@ -12,6 +12,9 @@ luvrell/wechat-msg-extract scripts/test_exporter.py:16-24)全合成——
 与插件 pyproject 主依赖同版本窗)产真 zstd 帧,桥侧两级 import 链
 (stdlib ``compression.zstd`` → ``zstandard``)真解回明文——与生产链
 同构,不做变换替身;仅「模块缺位」负例保留 monkeypatch。
+
+zstandard 缺位(未装 dev 组)时:本文件照常收集,4.1.15 压缩相关用例
+经 ``copies_415`` 夹具统一 skip,旧形态用例照常跑——收集期不再整文件炸。
 """
 
 from __future__ import annotations
@@ -22,7 +25,11 @@ import time
 from pathlib import Path
 
 import pytest
-import zstandard
+
+try:  # dev 组可选件:缺位时本文件仍可收集,压缩用例运行期统一 skip
+    import zstandard
+except ImportError:
+    zstandard = None
 
 import wechat_bridge.localdb_query as localdb_query
 from wechat_bridge.codes import BridgeError
@@ -202,9 +209,17 @@ class TestRunQuery:
 CHAT_415 = "50438708676@chatroom"  # 表名 md5 反解锚(形状照真实库)
 SECRET_TEXT = "合成压缩行-解出的真文本"  # 压缩行解出的目标明文
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
-#: 真 zstd 帧(夹具产;帧头自带魔数,与 4.1.15 实测库字节形状一致)。
-SECRET_ZSTD_FRAME = zstandard.compress(SECRET_TEXT.encode("utf-8"))
-assert SECRET_ZSTD_FRAME[:4] == ZSTD_MAGIC  # 夹具自检:确系真 zstd 帧
+def _secret_zstd_frame() -> bytes:
+    """真 zstd 帧惰性生成(帧头自带魔数,与 4.1.15 实测库字节形状一致)。
+
+    惰性化保收集期安全:zstandard 缺位时模块可收集,运行期由
+    copies_415 夹具统一 skip。
+    """
+    if zstandard is None:
+        pytest.skip("pip zstandard 未装(根 pyproject dev 组;uv sync --all-extras 后可跑)")
+    frame = zstandard.compress(SECRET_TEXT.encode("utf-8"))
+    assert frame[:4] == ZSTD_MAGIC  # 夹具自检:确系真 zstd 帧
+    return frame
 
 
 def _md5hex(name: str) -> str:
@@ -251,7 +266,7 @@ def _build_415_db(path: Path, *, with_name2id: bool = True) -> None:
         #  message_content,compress,NULL,WCDB_CT_message_content,NULL)
         (1, 101, 1, 1, 20, NOW - 60, 1, 0, 0, 0, 0, "", "合成明文-对方发", None, None, None, None),
         (2, 102, 1, 2, 10, NOW - 120, 1, 0, 0, 0, 0, "", "合成明文-我发", None, None, 0, None),
-        (3, 103, 1, 3, 20, NOW - 180, 1, 0, 0, 0, 0, "", SECRET_ZSTD_FRAME, None, None, 4, None),
+        (3, 103, 1, 3, 20, NOW - 180, 1, 0, 0, 0, 0, "", _secret_zstd_frame(), None, None, 4, None),
         (4, 104, 3, 4, 20, NOW - 240, 1, 0, 0, 0, 0, "", "img_合成立名", None, None, None, None),
         (5, 105, 1, 5, 20, NOW - 40 * 86400, 1, 0, 0, 0, 0, "", "合成-40天前应被窗口滤掉", None, None, None, None),
         (6, 106, 1, 6, 99, NOW - 30, 1, 0, 0, 0, 0, "", "合成-未知sender回落会话", None, None, None, None),
@@ -281,6 +296,8 @@ def _build_415_db(path: Path, *, with_name2id: bool = True) -> None:
 
 @pytest.fixture()
 def copies_415(tmp_path: Path) -> Path:
+    if zstandard is None:
+        pytest.skip("pip zstandard 未装(根 pyproject dev 组;uv sync --all-extras 后可跑)")
     copy_root = tmp_path / "home415" / "decrypted"
     _build_415_db(copy_root / "message" / "message_0.db")
     return copy_root
