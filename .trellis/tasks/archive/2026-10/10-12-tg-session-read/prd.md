@@ -12,7 +12,7 @@
 
 ## Acceptance Criteria
 
-- [ ] TBD
+- [x] AC1 源级进会话即已读全链交付(2deccd9,10-12):store set_all_item_states source 精确等值作用域+UI 进 TG 会话自动 storeStateMarkAll({source})+stats 重拉角标归零;pytest 5306/0+vitest 745/745+build 绿;装机重打包换装+重签 strict+方法签名实证。Requirements 三项全 [x] 在上。
 
 ## Notes
 
