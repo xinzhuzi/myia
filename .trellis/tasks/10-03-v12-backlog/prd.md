@@ -78,8 +78,10 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
      10-04-g9-read-all(重开)交付
    - G10:代理池连通性测试按钮(doctor --config 探测已有,差 UI)
      → **后端依赖已解锁**:`10-04-proxy-pool` 已归档(2026-10-04 fe-gap-census
-     matrix §二核验:设置屏仅凭据表单 `settings-screen.tsx:132/383-384`,无测试
-     按钮);维持留池(v1.2),增补回执见第 8 项
+       matrix §二核验:设置屏仅凭据表单 `settings-screen.tsx:132/383-384`,无测试
+       按钮);维持留池(v1.2),增补回执见第 8 项
+     → **已消号(2026-10-14 档务回标)**:归属 `10-05-g10-proxy-probe`(已归档,
+       ebfb34e)——设置屏代理池测试一键化已交付,上方「维持留池」系过时口径
    - G12:条目卡「就地沉淀为关键词」入口(OpenCTI 快捷订阅铃铛式,衔接 yaml-editor)
      → **已消号**:已做,归属 `10-03-fe-small-batch`(已归档)——卡内沉淀面板
      (`feed-screen.tsx:382-393`);右键入口随 `10-04-interaction-batch` 在途
@@ -105,11 +107,16 @@ grill 决议 2026-10-03 Q1:发布工程(v1.1.1)先行,以下三项排 v1.2。本
      supplier-map 判例:收紧源优先评估聚合器,但只做可选后端永不默认)。
    - robots/政策会漂移:拆任务时先重探 robots.txt 再定通道。
    - 场景通用:games(r/GamingNews 曾候选)之外,ai-news 等场景同享。
+   - **回标(2026-10-14,档务批)**:**已消号**——引擎已交付(b1489ef:
+     `src/myssia/engines/reddit.py`,链外注册凭据可选);`10-05-reddit-source` 与
+     `10-05-reddit-official-engine` 两档均已归档(archive/2026-10 在场亲验)。
 8. **fe-gap-census 增补入池**(2026-10-04 `10-04-fe-gap-census` 普查处置路由
    R6/R7;判词与证据出处 = `.trellis/tasks/10-04-fe-gap-census/research/matrix.md`)
    - G10 代理池连通性测试按钮(回执:即第 5 项 G10——后端 `10-04-proxy-pool`
      已归档=依赖解锁,差设置屏测试按钮;与第 6 项代理池管理面板同族,
      拆任务时合并考虑;出处 matrix §二 G10 行/路由 R6)
+     → **已消号(2026-10-14 档务回标)**:同第 5 项 G10——`10-05-g10-proxy-probe`
+       (ebfb34e,已归档)交付一键化;仅第 6 项「代理池管理面板」远期形态仍留池
    - 侧栏分组级折叠(每组 ChevronDown 旋转 ~150ms;区别于在途
      interaction-batch 的整栏 `[` 折叠键——现状分组固定展开,
      `rg ChevronDown sidebar.tsx` 零命中;出处 matrix §1.1 #2/路由 R7)
