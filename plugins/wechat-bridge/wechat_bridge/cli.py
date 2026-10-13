@@ -182,6 +182,16 @@ def build_parser() -> argparse.ArgumentParser:
             metavar="Nd",
             help="历史窗口(天;形如 3d;窗口含当天,水位增量由调用方管)",
         )
+    # 群信息只读查询(task 10-13-wechat-groupinfo;应答契约 v1 = 群显示名/
+    # 群主/公告/状态/成员列表)。查询层缺表/缺域如实降级空结构恒 exit 0
+    # (判例同 key-status:状态查询不判错);密钥链与 query/sns 同一全链。
+    localdb_groupinfo = localdb_sub.add_parser(
+        "group-info",
+        help="群信息只读查询(群主/公告/成员;缺表降级恒 exit 0)",
+    )
+    localdb_groupinfo.add_argument(
+        "chat_id", metavar="chat", help="目标群 id(@chatroom;sessions list 所得)"
+    )
 
     # §6 文样把 --json 放在子命令之后(sessions list --json)——全局旗标在
     # argparse 里必须逐层重注册才收得到;default=SUPPRESS 防子层缺省覆写
@@ -204,6 +214,7 @@ def build_parser() -> argparse.ArgumentParser:
         localdb_sns,
         sns_feed,
         sns_notices,
+        localdb_groupinfo,
     ):
         node.add_argument(
             "--json",
@@ -469,6 +480,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             storage = localdb.locate_db_storage()
             keys = localdb.resolve_keys(storage, config=config)
             _emit(localdb.sns_history(config, storage, keys, args.sns_cmd, days))
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "group-info":
+            # 群信息只读查询(10-13-wechat-groupinfo):密钥链与 query/sns
+            # 同一全链(resolve_keys);E2 副本域固定 contact 单域(成员
+            # member_id 即 contact rowid,零消息域解密成本)。查询层缺表/
+            # 缺域如实降级空结构恒 exit 0(判例同 key-status);成功 emit
+            # 契约 v1 载荷(群数据属 stdout 契约,不入日志;红线 6 同款)。
+            chat_id = _require_chat_id(args.chat_id)
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            _emit(localdb.group_info(config, storage, keys, chat_id))
             return EXIT_OK
         elif args.group == "localdb" and args.localdb_cmd == "key-acquire":
             # D3 交互式取钥编排(design §A.2):stdout 是 NDJSON 流——progress

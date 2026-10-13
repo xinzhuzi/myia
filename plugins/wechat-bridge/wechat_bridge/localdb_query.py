@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+import time
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,7 @@ __all__ = [
     "name2id_maps",
     "query_messages",
     "lookup_contact",
+    "group_info",
 ]
 
 #: 微信消息 localType → 类型名(公开常量表;未知类型回落 type_<N>)。
@@ -424,6 +426,69 @@ def _contact_pick_names(
     return result
 
 
+def _contact_pick_remarks(
+    con: sqlite3.Connection, user_names: list[str]
+) -> dict[str, str]:
+    """contact 域批量:username → 备注原样(remark;无备注不入映射;0.6.0)。
+
+    群信息面板「备注」列的直源:显示名经 :func:`_contact_pick_names` 的
+    remark>nickname>alias 优先序已含备注优先,但契约 v1 要求显示名与备注
+    两列分立——备注缺席(昵称上屏)= None 如实,不拿显示名冒充备注。
+    表发现逻辑与 :func:`_contact_pick_names` 同族(首个有命中的 contact 系
+    表胜)。
+    """
+    wanted = [u for u in dict.fromkeys(user_names) if isinstance(u, str) and u]
+    if not wanted:
+        return {}
+    remark_cols = ("remark", "Remark", "conRemark")
+    id_cols = ("username", "userName", "UserName", "user_name")
+    try:
+        tables = [
+            row[0]
+            for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        ]
+    except sqlite3.Error:
+        return {}
+    result: dict[str, str] = {}
+    for table in tables:
+        if "contact" not in table.lower():
+            continue
+        columns = _columns(con, table)
+        id_col = _pick(columns, id_cols)
+        if id_col is None:
+            continue
+        remark_actual = [
+            next((c for c in columns if c.lower() == rc.lower()), None)
+            for rc in remark_cols
+        ]
+        selectable = [a for a in remark_actual if a is not None]
+        if not selectable:
+            continue
+        quoted_id = chr(34) + id_col + chr(34)
+        quoted_remarks = ", ".join(chr(34) + a + chr(34) for a in selectable)
+        marks = ", ".join("?" for _ in wanted)
+        try:
+            rows = con.execute(
+                f"SELECT {quoted_id}, {quoted_remarks} FROM \"{table}\" "
+                f"WHERE {quoted_id} IN ({marks})",
+                wanted,
+            ).fetchall()
+        except sqlite3.Error:
+            continue
+        for row in rows:
+            username = row[0]
+            if not isinstance(username, str):
+                continue
+            remark = next(
+                (v for v in row[1:] if isinstance(v, str) and v.strip()), None
+            )
+            if remark:
+                result[username] = remark
+        if result:
+            break
+    return result
+
+
 def _apply_sender_display(
     messages: list[dict[str, object]], display_map: dict[str, str]
 ) -> None:
@@ -441,6 +506,249 @@ def _apply_sender_display(
             entry["text"] = display + ":" + text[len(prefix):]
         entry["sender"] = display
         entry["sender_id"] = sender
+
+
+# =====================================================================
+# E3 群信息只读查询(task 10-13-wechat-groupinfo;应答契约 v1 逐字段)
+# =====================================================================
+
+#: 群信息表名(2026-10-13 contact.db 实锚直查;缺表 = 对应键 null/空表如实
+#: 降级,不搞发现式查询——判例同 sns_query 的直查纪律)。
+_CHAT_ROOM_TABLE = "chat_room"
+_CHAT_ROOM_INFO_TABLE = "chat_room_info_detail"
+_CHATROOM_MEMBER_TABLE = "chatroom_member"
+
+
+def _format_wall_ts(value: Any) -> str | None:
+    """秒级时间戳 → 人话上屏形态(本地时 ``YYYY-MM-DD HH:MM:SS``)。
+
+    0/负/形状异常 = None(「未发布」不是 1970;如实缺省,不臆造);
+    毫秒值经 :func:`_normalize_ts` 启发式归一(与消息时间列同一纪律)。
+    """
+    ts = _normalize_ts(value)
+    if ts <= 0:
+        return None
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+
+
+def _json_safe_status(status: Any) -> Any:
+    """群状态串化守卫(v1 原样透传不臆造语义,但 stdout 是 JSON)。
+
+    列值若为 BLOB(bytes/json.dump 无 default 会 TypeError 崩出非契约
+    退出码),转 hex 串保真进出(零失真、可逆);其余标量(int/str/None)
+    原样。"""
+    if isinstance(status, (bytes, bytearray, memoryview)):
+        return bytes(status).hex()
+    return status
+
+
+def _chat_room_row(
+    con: sqlite3.Connection, chat_id: str
+) -> tuple[Any, Any] | None:
+    """contact 库 ``chat_room(username, owner)`` → ``(id, owner)``。
+
+    群主 wxid 直源;``id`` 供 ``chatroom_member.room_id`` 关联。缺表/缺列/
+    缺行 = None 如实(降级,不判错)。
+    """
+    columns = _columns(con, _CHAT_ROOM_TABLE)
+    if not (_pick(columns, ("id",)) and _pick(columns, ("username",)) and _pick(columns, ("owner",))):
+        return None
+    try:
+        row = con.execute(
+            f'SELECT id, owner FROM "{_CHAT_ROOM_TABLE}" WHERE username = ?',
+            (chat_id,),
+        ).fetchone()
+    except sqlite3.Error:
+        return None
+    return (row[0], row[1]) if row is not None else None
+
+
+def _chatroom_member_ids(con: sqlite3.Connection, room_id: Any) -> list[int]:
+    """contact 库 ``chatroom_member(room_id, member_id)`` → 成员 id 清单。
+
+    **member_id = contact 表 rowid**(2026-10-13 实测对拍裁决,见
+    :func:`_contact_rowid_usernames` 注);形状异常的行跳过(宁缺毋假)。
+    缺表/缺列 = 空清单如实。
+    """
+    columns = _columns(con, _CHATROOM_MEMBER_TABLE)
+    if not (_pick(columns, ("room_id",)) and _pick(columns, ("member_id",))):
+        return []
+    try:
+        rows = con.execute(
+            f'SELECT member_id FROM "{_CHATROOM_MEMBER_TABLE}" WHERE room_id = ?',
+            (room_id,),
+        ).fetchall()
+    except sqlite3.Error:
+        return []
+    ids: list[int] = []
+    for (member_id,) in rows:
+        try:
+            ids.append(int(member_id))
+        except (TypeError, ValueError):
+            continue
+    return ids
+
+
+def _contact_rowid_usernames(
+    con: sqlite3.Connection, rowids: list[int]
+) -> dict[int, str]:
+    """contact 库 rowid → username 批量反查(``chatroom_member.member_id``
+    的真源映射,0.6.0)。
+
+    **裁决注记(2026-10-13,500 人群实拍)**:member_id 曾被预设为 message
+    库 Name2Id rowid(real_sender_id 同款语义),真数据证伪——TMS 群
+    (50438708676@chatroom,500 成员)按 contact.rowid 解释 500/500 可解且
+    500/500 命中 ``chat_room.ext_buffer`` 可读名单锚、群主 wxid 的 contact
+    rowid 恰在成员表;按 Name2Id 解释仅 16/500 命中(行号空间重叠的巧合
+    错配,会张冠李戴真群成员)。故成员反查走 contact.rowid 直查,不碰
+    Name2Id。缺行(退群成员残留/联系人被删)= 不入映射,调用方弃行如实。
+    """
+    wanted = list(dict.fromkeys(rowids))
+    if not wanted:
+        return {}
+    marks = ", ".join("?" for _ in wanted)
+    try:
+        rows = con.execute(
+            f'SELECT rowid, username FROM "contact" WHERE rowid IN ({marks})',
+            wanted,
+        ).fetchall()
+    except sqlite3.Error:
+        return {}
+    return {
+        int(rowid): username
+        for rowid, username in rows
+        if isinstance(username, str) and username
+    }
+
+
+def _chat_room_settings(
+    con: sqlite3.Connection,
+    chat_id: str,
+    display_map: dict[str, str],
+) -> tuple[dict[str, object] | None, object]:
+    """contact 库 ``chat_room_info_detail`` → (公告节, 群状态原样)。
+
+    公告节 = ``{"text","editor_display","published_at"}``:文本空串 = None;
+    编辑人 wxid 经 display_map 反解(查不到回落原样,0.5.1 同款);发布
+    时间 0 = 未发布 = None。**chat_room_status_ 原样透传不臆造语义**
+    (实测域含 0 与 524288 等,词面归 UI 线;BLOB 列值经
+    :func:`_json_safe_status` hex 串化保 JSON 契约);缺表/缺列/缺行 =
+    (None, None)。
+    """
+    needed = (
+        "username_",
+        "announcement_",
+        "announcement_editor_",
+        "announcement_publish_time_",
+        "chat_room_status_",
+    )
+    columns = _columns(con, _CHAT_ROOM_INFO_TABLE)
+    if not all(_pick(columns, (c,)) for c in needed):
+        return None, None
+    try:
+        row = con.execute(
+            f'SELECT announcement_, announcement_editor_, '
+            f'announcement_publish_time_, chat_room_status_ '
+            f'FROM "{_CHAT_ROOM_INFO_TABLE}" WHERE username_ = ?',
+            (chat_id,),
+        ).fetchone()
+    except sqlite3.Error:
+        return None, None
+    if row is None:
+        return None, None
+    announcement_raw, editor_raw, published_raw, status_raw = row
+    text = (
+        announcement_raw
+        if isinstance(announcement_raw, str) and announcement_raw.strip()
+        else None
+    )
+    editor_display: str | None = None
+    if isinstance(editor_raw, str) and editor_raw:
+        editor_display = display_map.get(editor_raw, editor_raw)
+    announcement: dict[str, object] = {
+        "text": text,
+        "editor_display": editor_display,
+        "published_at": _format_wall_ts(published_raw),
+    }
+    return announcement, status_raw
+
+
+def group_info(copy_dir: Path, chat_id: str) -> dict[str, object]:
+    """E3 群信息只读查询(task 10-13-wechat-groupinfo;应答契约 v1 逐字段)。
+
+    数据源(2026-10-13 解密副本实锚,**单 contact 域自足**,全部复用既有件):
+    群显示名 = :func:`lookup_contact`;群主 = ``chat_room(username, owner)``;
+    公告/编辑人/发布时间/状态 = ``chat_room_info_detail(username_, …)``;
+    成员 = ``chatroom_member(room_id, member_id)`` 经 ``chat_room.id`` 关联,
+    member_id = contact 表 rowid(实拍裁决见
+    :func:`_contact_rowid_usernames`,不碰 Name2Id);显示名批量解析
+    :func:`_contact_pick_names`、备注 :func:`_contact_pick_remarks`。
+
+    **缺库/缺表/缺行 = 对应键 null 或空表,恒不判错**(判例同 key-status:
+    状态查询不判错);contact 域整库缺失 = 全空结构。``is_owner`` 按
+    ``chat_room.owner`` 标记,恰一真或零真。返回 ``{"group_info": …}``
+    契约载荷(键序 = 契约 v1 原文序)。
+    """
+    info: dict[str, object] = {
+        "chat_id": chat_id,
+        "display_name": None,
+        "member_count": 0,
+        "owner": None,
+        "announcement": None,
+        "status": None,
+        "members": [],
+    }
+    contact_con = _open_copy(copy_dir, "contact/contact.db")
+    if contact_con is None:  # contact 域缺位:空结构如实降级,不判错
+        return {"group_info": info}
+    try:
+        info["display_name"] = lookup_contact(contact_con, chat_id)
+        room = _chat_room_row(contact_con, chat_id)
+        if room is None:  # 非群 id / 群行缺:设置域全空如实
+            return {"group_info": info}
+        room_id, owner_wxid = room
+        owner = (
+            owner_wxid
+            if isinstance(owner_wxid, str) and owner_wxid
+            else None
+        )
+        member_ids = _chatroom_member_ids(contact_con, room_id)
+        info["member_count"] = len(member_ids)
+        rowid_map = _contact_rowid_usernames(contact_con, member_ids)
+        usernames = [
+            rowid_map[mid] for mid in member_ids if mid in rowid_map
+        ]  # 反查不出的 member_id 弃(退群残留/联系人已删;宁缺毋假,
+        # member_count 仍记真值)
+        display_map = _contact_pick_names(
+            contact_con,
+            usernames + ([owner] if owner else []),
+        )
+        remark_map = _contact_pick_remarks(contact_con, usernames)
+        announcement, status = _chat_room_settings(
+            contact_con, chat_id, display_map
+        )
+        info["owner"] = (
+            {
+                "username": owner,
+                "display": display_map.get(owner, owner),
+            }
+            if owner
+            else None
+        )
+        info["announcement"] = announcement
+        info["status"] = _json_safe_status(status)
+        info["members"] = [
+            {
+                "username": username,
+                "display": display_map.get(username, username),
+                "remark": remark_map.get(username),
+                "is_owner": username == owner,
+            }
+            for username in sorted(usernames)
+        ]
+    finally:
+        contact_con.close()
+    return {"group_info": info}
 
 
 def list_sessions(con: sqlite3.Connection, limit: int) -> list[dict[str, object]]:
