@@ -472,6 +472,10 @@ export interface FeedItem {
    *  = new|changed;watch_page = 目标页真链(条目 url 是 #watch-<sha> 锚)。 */
   watch_event?: string | null;
   watch_page?: string | null;
+  /** sns 通道发帖人(10-13-wechat-sns-merge 协议白名单投影,raw.nickname;
+   *  旧 sidecar 缺键 = undefined,消费侧回落「微信好友」词面)。仅朋友圈
+   *  动态源携带,其余源恒缺省。 */
+  nickname?: string | null;
   tags: string[];
   category: string | null;
   scores: Record<string, unknown> | null;

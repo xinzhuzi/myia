@@ -1,10 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { UIEvent as ReactUIEvent } from "react";
 import {
   Bookmark,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Copy,
   ExternalLink,
   FileText,
@@ -68,6 +70,7 @@ import {
   channelDisplayName,
   channelKindOf,
   chatSenderOf,
+  chatTimeOf,
   dayWindowStart,
   DEFAULT_FEED_DISPLAY,
   dealPriceView,
@@ -76,9 +79,11 @@ import {
   exportFeedView,
   feedChannelCards,
   fetchFeedPage,
+  fetchFeedPageMulti,
   fetchSourceStats,
   filterChannelsByQuery,
   filterTypesByQuery,
+  foldSnsMomentCards,
   formatRelativeTime,
   groupFeedItems,
   importLocalFeedStates,
@@ -100,6 +105,11 @@ import {
   saveFeedStates,
   saveYamlRaw,
   setMarkerBulk,
+  isSnsMomentSource,
+  isSnsNoticeSource,
+  SNS_AUTHOR_FALLBACK,
+  snsMomentAuthor,
+  snsStreamSources,
   sortUnreadFirst,
   STATS_PROTOCOL,
   statesFromItems,
@@ -197,6 +207,10 @@ const EMPTY_TEXT: Record<FeedFilter, { title: string; description: string }> = {
 
 /** 搜索防抖(G1):输入停顿 300ms 提交;Enter 立即提交 */
 const SEARCH_DEBOUNCE_MS = 300;
+
+/** 新消息锚定阈值(追加批②):视口距最新端(本时间线 = 顶)≤80px 视为
+ *  「盯着最新」,新条目到达自动回顶;超过即中段翻阅,不打扰。 */
+const CHAT_ANCHOR_THRESHOLD_PX = 80;
 
 /** 图析行截断上限(字符;10-03-vision-pipeline:metadata.image_ocr 可达全文,
  *  feed 屏只出单行摘要,CSS truncate 再兜底一行;全文看卡片展开态)。 */
@@ -403,6 +417,9 @@ const FeedCard = memo(function FeedCard({
   );
   const score = primaryScore(item);
   const time = formatRelativeTime(item.first_seen);
+  // 聊天时间线三档词面(追加批⑥):仅聊天两档(气泡/互动行)消费 chatTimeOf,
+  // 其余渠道卡与详情弹窗仍走 formatRelativeTime 旧词面(调用点不扩)。
+  const chatTime = chatTimeOf(item.first_seen);
   const openable = isOpenableUrl(item.url);
   const rowKey = item.id ?? itemKey(item);
   const key = itemKey(item);
@@ -415,6 +432,15 @@ const FeedCard = memo(function FeedCard({
    *  网站类标题的冒号是内容语法不动。数据层原样,详情弹窗仍显全文。 */
   const chatSender =
     kind === "telegram" || kind === "weixin" ? chatSenderOf(item.title) : null;
+  /** 朋友圈合流(10-13-wechat-sns-merge):动态源发帖人必显(AC2,主人令
+   *  「要表明朋友圈是谁发的,不能光有信息没有发表人」)—— raw.nickname
+   *  经协议白名单投影,缺失/旧 sidecar 回落「微信好友」词面;互动通知走
+   *  轻量行内态(AC3,who 已在 title 词面),不发帖人签、不进泡箱。 */
+  const snsAuthor =
+    kind === "weixin" && isSnsMomentSource(item.source)
+      ? (snsMomentAuthor(item) ?? SNS_AUTHOR_FALLBACK)
+      : null;
+  const snsNotice = kind === "weixin" && isSnsNoticeSource(item.source);
 
   /** G8:单条精评(feed.enrich;item 传 dedup_key,resolve 口径同 feedback.mark)。
    *  无配置(enrich_not_configured)/超时/失败都走 error 态结构化明示,可重试。 */
@@ -539,11 +565,13 @@ const FeedCard = memo(function FeedCard({
           onMouseEnter={() => onCurrent(key)}
           onFocus={() => onCurrent(key)}
           className={`group/feed-item relative ${
-            kind === "telegram" || kind === "weixin"
-              ? `w-fit min-w-[13rem] max-w-[min(100%,72%)] ${chatTail ? "mb-2.5" : "mb-0.5"}`
-              : `rounded-md border py-2 pr-3 pl-4 hover:bg-accent/50 ${
-                  state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
-                }`
+            snsNotice
+              ? `mx-auto w-fit max-w-[min(100%,88%)] ${chatTail ? "mb-2" : "mb-0.5"}`
+              : kind === "telegram" || kind === "weixin"
+                ? `w-fit min-w-[13rem] max-w-[min(100%,72%)] ${chatTail ? "mb-2.5" : "mb-0.5"}`
+                : `rounded-md border py-2 pr-3 pl-4 hover:bg-accent/50 ${
+                    state.read ? "border-border/50 bg-muted/20" : "border-border bg-card"
+                  }`
           }${navFocused ? " ring-1 ring-primary/60" : ""}`}
         >
       {/* 左缘竖条:未读 = 2px 品牌紫亮档 #9869f7(primary-300;10-08 验收:
@@ -569,7 +597,28 @@ const FeedCard = memo(function FeedCard({
 
       {/* 相对时间(公共件):右对齐灰色(teardown #4),hover 让位浮现的
           操作簇(#5);等宽数字(mono)——VL 指认时间戳与正文无视觉区分 */}
-      {kind === "telegram" || kind === "weixin" ? (
+      {/* 朋友圈互动通知轻量行内态(AC3,TG 服务消息物种):居中无泡箱
+          小字行,who 已在 title 词面(「猫三三 赞了朋友圈动态」,引擎侧
+          中性词面);点击仍开详情弹窗(feed-item-/data-* 语义保留,唯泡箱
+          testid 如实缺席——非气泡不冒充);时间随行右,不并组。 */}
+      {snsNotice ? (
+        <div className="flex items-baseline justify-center gap-1.5 px-2 py-0.5 text-2xs text-muted-foreground">
+          <button
+            type="button"
+            className={`min-w-0 text-left leading-relaxed hover:text-link ${state.read ? "text-muted-foreground" : "text-foreground/80"}`}
+            onClick={() => onOpenDetail(item)}
+            title={`点击查看详情:${item.title || item.url}`}
+          >
+            {item.title || item.url}
+          </button>
+          <time
+            dateTime={item.first_seen ?? undefined}
+            className="shrink-0 font-mono text-2xs text-muted-foreground"
+          >
+            {chatTime}
+          </time>
+        </div>
+      ) : kind === "telegram" || kind === "weixin" ? (
         <>
           {/* 聊天气泡(10-13 主人令重做,TG 桌面端物种):泡顶「渠道图标 +
               渠道名」整行退役 —— 群名一词一源只在聊天头(feed-stream-title),
@@ -586,17 +635,17 @@ const FeedCard = memo(function FeedCard({
             }`}
             data-testid={`feed-tg-bubble-${rowKey}`}
           >
-            {chatLead && chatSender !== null ? (
+            {chatLead && (chatSender !== null || snsAuthor !== null) ? (
               <div
                 className="mb-0.5 flex items-center gap-1 text-2xs font-medium leading-tight"
-                style={{ color: chatSenderTone(chatSender.sender) }}
+                style={{ color: chatSenderTone(snsAuthor ?? chatSender?.sender ?? "") }}
               >
                 {kind === "weixin" ? (
                   <MessageCircle aria-hidden className="size-3 shrink-0" style={{ color: "#07C160" }} />
                 ) : (
                   <Send aria-hidden className="size-3 shrink-0 text-link" />
                 )}
-                <span className="min-w-0 truncate">{chatSender.sender}</span>
+                <span className="min-w-0 truncate">{snsAuthor ?? chatSender?.sender}</span>
               </div>
             ) : null}
             <button
@@ -605,7 +654,9 @@ const FeedCard = memo(function FeedCard({
               onClick={() => onOpenDetail(item)}
               title={`点击查看详情:${item.title || item.url}`}
             >
-              {chatSender !== null ? chatSender.body : item.title || item.url}
+              {/* 朋友圈动态正文不剥前缀(title = 正文首行,作者已走 snsAuthor
+                  签;title 碰巧含「X: 」词形也原样,归属以 nickname 为准) */}
+              {chatSender !== null && snsAuthor === null ? chatSender.body : item.title || item.url}
             </button>
             {/* 收起正文行:经 bodyWithoutTitleDup 去标题重复开头(10-08 验收
                 「正文复述标题,同屏读两遍」);无独有信息 = 行消失;展开态 =
@@ -674,7 +725,7 @@ const FeedCard = memo(function FeedCard({
                 dateTime={item.first_seen ?? undefined}
                 className="font-mono text-2xs text-muted-foreground"
               >
-                {time}
+                {chatTime}
               </time>
             </div>
           </div>
@@ -1233,6 +1284,38 @@ const FeedCard = memo(function FeedCard({
 });
 
 /**
+ * 会话字母头像(10-13 聊天工作台追加批⑤,左栏监控会话行专属):统一类型
+ * 图标 → key-hash 低饱和色底 + 会话名首字母,与发信人彩签同 8 色轮转体系
+ * (chatSenderTone,同调色板同散列,同名/同源恒同色跨条跨屏稳定)。品味
+ * 定案 = 平台 icon 缩为右下角标(小圆徽,CHANNEL_CARD_META 色档):色块内
+ * 再塞小图标会与首字母打架,角标既保平台判读又不抢会话身份。仅左栏 3 级
+ * 会话行消费(2 级渠道列表行保持类型图标 —— 那里是「类型导航」语境,头像
+ * 位仍承担类型徽标语义;左栏是「会话」语境,身份区分优先,与 TG 桌面聊天
+ * 列表同构)。
+ */
+function SessionAvatar({ kind, toneKey, label }: { kind: ChannelCardKind; toneKey: string; label: string }) {
+  const tone = chatSenderTone(toneKey);
+  const KindIcon = CHANNEL_CARD_META[kind].Icon;
+  // 首字母取码点首字(CJK 会话取首汉字),拉丁升大写(TG 桌面同款);空名
+  // 回落「?」不空块(防御位,label 词表恒非空)。
+  const letter = [...label.trim()][0]?.toUpperCase() ?? "?";
+  return (
+    <span
+      aria-hidden
+      className="relative mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md text-sm font-semibold"
+      style={{ backgroundColor: `${tone}24`, color: tone }}
+    >
+      {letter}
+      <span
+        className={`absolute -right-1 -bottom-1 flex size-3.5 items-center justify-center rounded-full border border-border bg-background ${CHANNEL_CARD_META[kind].className}`}
+      >
+        <KindIcon className="size-2.5" />
+      </span>
+    </span>
+  );
+}
+
+/**
  * 渠道行(v7 AC25,双栏监控台的右栏「群组列表」行;镜像 TG 桌面聊天列表的
  * 两行密度,借形不改语义):一行一渠道 —— 类型头像 chip(圆角方 size-8,
  * 内置类型图标 + 同色系淡档底,头像位即类型徽标不再挂 Badge 词标)+
@@ -1263,6 +1346,10 @@ const ChannelRow = memo(function ChannelRow({
    *  (焦点错位修复)、viewSource 变化滚到选中行的定位锚;与右栏条目
    *  data-item-key 不撞语义。2 级行不传(属性缺席,Enter 归全局环,零扰动)。 */
   dataFeedGroupRow = false,
+  /** 会话字母头像(追加批⑤):true = 头像位换 SessionAvatar(key-hash 色底 +
+   *  会话名首字母 + 平台角标);缺省 false = 类型图标 chip 原样(2 级渠道
+   *  列表零扰动,左栏 3 级会话行传真)。 */
+  sessionAvatar = false,
   onCurrent,
   onOpen,
 }: {
@@ -1279,6 +1366,7 @@ const ChannelRow = memo(function ChannelRow({
    *  随行,否则同徽标数字与 title 互相拆台) */
   statsScope?: "loaded" | "full";
   dataFeedGroupRow?: boolean;
+  sessionAvatar?: boolean;
   onCurrent: (key: string) => void;
   onOpen: (key: string) => void;
 }) {
@@ -1331,16 +1419,21 @@ const ChannelRow = memo(function ChannelRow({
       }${navFocused ? " ring-1 ring-primary/60" : ""}`}
     >
       <div className="flex items-start gap-2.5 px-2.5 py-2">
-        {/* 类型头像 chip:图标 + 色调按 CHANNEL_CARD_META 词表,底色同色系淡档。
+        {/* 头像位(追加批⑤):左栏会话行 = 字母头像(会话身份);2 级行 =
+            类型图标 chip 原样(CHANNEL_ROW_AVATAR_TONE 词表,类型导航语境)。
             (⑨a 钉注:头像/时间/未读词面 = 产品自有词表一致性优先,非抄 TG
             主题——借的是 TG 桌面列表的结构密度,配色与词面走 Kestra 紫暗色
             + 本文件 CHANNEL_* 词表,UI 物种铁律的「借形不改语义」。) */}
-        <span
-          aria-hidden
-          className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md ${CHANNEL_ROW_AVATAR_TONE[card.kind]}`}
-        >
-          <KindIcon className="size-4" />
-        </span>
+        {sessionAvatar ? (
+          <SessionAvatar kind={card.kind} toneKey={card.key} label={card.label} />
+        ) : (
+          <span
+            aria-hidden
+            className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md ${CHANNEL_ROW_AVATAR_TONE[card.kind]}`}
+          >
+            <KindIcon className="size-4" />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           {/* 行 1:渠道名 + 最新相对时间(零条目不显) */}
           <div className="flex items-baseline justify-between gap-2">
@@ -1435,8 +1528,6 @@ const WxMonitorRow = memo(function WxMonitorRow({
   /** 「群信息」动线(右键菜单;开群信息详情弹窗,面板自拉数据) */
   onOpenInfo: (key: string) => void;
 }) {
-  const meta = CHANNEL_CARD_META[card.kind];
-  const KindIcon = meta.Icon;
   const status = wxGroupStatusOf(health);
   // 预览三段回退同 ChannelRow(F6 同文回退标题 / stats 回填),零新词表
   const digest = card.latest ? cardDigest(card.latest) : null;
@@ -1477,13 +1568,9 @@ const WxMonitorRow = memo(function WxMonitorRow({
       }${navFocused ? " ring-1 ring-primary/60" : ""}${status.keyMissing ? " opacity-60" : ""}`}
     >
       <div className="flex items-start gap-2.5 px-2.5 py-2">
-        {/* 类型头像 chip:微信官方绿 10% tint 既有档(CHANNEL_ROW_AVATAR_TONE.wx) */}
-        <span
-          aria-hidden
-          className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md ${CHANNEL_ROW_AVATAR_TONE[card.kind]}`}
-        >
-          <KindIcon className="size-4" />
-        </span>
+        {/* 头像位(追加批⑤):本组件只服务于左栏 3 级监控会话,恒用会话字母
+            头像(与 ChannelRow 左栏档同体系;平台判读交给右下角标) */}
+        <SessionAvatar kind={card.kind} toneKey={card.key} label={card.label} />
         <div className="min-w-0 flex-1">
           {/* 行 1:群名 + 最新相对时间(零条目不显;ChannelRow 同款) */}
           <div className="flex items-baseline justify-between gap-2">
@@ -1920,6 +2007,23 @@ function FeedErrorCard({
   );
 }
 
+/** 未读分割线(追加批③,TG 同款):词面「未读」+ 细线;落在最早一条未读
+ *  与更早已读的分界上(落位推导见 unreadDividerKey 注)。role=separator +
+ *  aria-label 读屏可达;纯呈现件零状态。 */
+function UnreadDivider() {
+  return (
+    <div
+      data-testid="feed-chat-unread-divider"
+      role="separator"
+      aria-label="以上为未读消息"
+      className="my-1 flex items-center gap-2"
+    >
+      <span className="shrink-0 text-2xs text-muted-foreground">未读</span>
+      <span aria-hidden className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
 /**
  * 情报流:条目卡片列表 + 未读/星标/稍后读三态(本地态,localStorage 持久)
  * + 游标分页加载(见 ./api 的协议缺口注记)+ 服务端搜索(G1,防抖/Enter
@@ -2336,17 +2440,19 @@ export function FeedScreen() {
 
   /** 3 级渠道流拉取(v7 §3.2 机件原样,作用域换血):查询带 source =
    *  viewSource(精确等值)+ streamQuery(渠道内检索,v8 §4.3 服务端透传,
-   *  检索态 = 显式全量由 UI 裁读态);仅 3 级拉取,整页替换 + 游标机件重置。 */
+   *  检索态 = 显式全量由 UI 裁读态);仅 3 级拉取,整页替换 + 游标机件重置。
+   *  10-13 朋友圈合流:sns 双源并列取(fetchFeedPageMulti,AC1——
+   *  store.items source 精确等值无 IN 查询,双发前端混排,契约零变更)。 */
   const refreshStream = useCallback(async () => {
     if (viewSource === null) return;
     const seq = nextStreamSeq();
     setLoading(true);
     setError(null);
     try {
-      const page = await fetchFeedPage({
+      const page = await fetchFeedPageMulti({
         cursor: null,
         cursorId: null,
-        source: viewSource,
+        sources: snsStreamSources(viewSource),
         query: streamQuery !== "" ? streamQuery : null,
         withTotal: countReady,
       });
@@ -2416,10 +2522,10 @@ export function FeedScreen() {
     if (viewSource === null) return;
     const seq = nextStreamSeq();
     try {
-      const page = await fetchFeedPage({
+      const page = await fetchFeedPageMulti({
         cursor: null,
         cursorId: null,
-        source: viewSource,
+        sources: snsStreamSources(viewSource),
         query: streamQuery !== "" ? streamQuery : null,
         withTotal: countReady, // F2 根治:实时滚动顺带刷新 total(新条目落地 T 随动)
       });
@@ -2502,16 +2608,17 @@ export function FeedScreen() {
   }, [useServerState, refreshCatalog]);
 
   /** 加载更早(v7 归 stream 域,时间线尾部按钮):复合游标翻页 + 判停零改;
-   *  检索态翻页游标与 query 同 WHERE(v8 §4.3,「加载更早」照常)。 */
+   *  检索态翻页游标与 query 同 WHERE(v8 §4.3,「加载更早」照常);
+   *  朋友圈合流同走双源并列(游标对两源同发,fetchFeedPageMulti 同门)。 */
   const loadMore = useCallback(async () => {
     if (loadingMore || cursor === null) return;
     const seq = nextStreamSeq();
     setLoadingMore(true);
     try {
-      const page = await fetchFeedPage({
+      const page = await fetchFeedPageMulti({
         cursor,
         cursorId,
-        source: viewSource,
+        sources: snsStreamSources(viewSource),
         query: streamQuery !== "" ? streamQuery : null,
       });
       if (seq !== streamSeqRef.current) return; // F2:refresh/liveRefresh 已接管,旧页不追加
@@ -2759,6 +2866,73 @@ export function FeedScreen() {
   );
 
   // ---------------------------------------------------------------------------
+  // 聊天工作台追加批(10-13 同域追加,①搜索/②锚定/③未读分割线)
+  // ---------------------------------------------------------------------------
+
+  // ① 左栏会话搜索(即输即滤,前端过滤):词域 = 会话行(label/源 id/类型
+  //  别名,filterChannelsByQuery 同 2 级渠道搜索一套语义),**与右栏渠道内
+  //  检索(streamQuery)互不相干** —— 左栏是导航域的客户端行过滤(零服务端
+  //  查询,store.items 不发包);右栏 streamQuery 是数据域的服务端条目全文
+  //  检索(query 随游标透传)。词面、作用域、通路三条线互不相交,注释钉清。
+  const [groupSearchInput, setGroupSearchInput] = useState("");
+
+  // ② 新消息到达锚定:本时间线为「新→旧」序(新条目从顶部进流,mergeFreshItems
+  //  前插),TG 的「贴底」在此镜像为**贴最新端(顶)**:视口距顶 ≤80px = 正盯
+  //  最新一端,新 items 到达自动回顶贴住;中段翻阅(scrollTop > 阈值)不打扰。
+  //  只认「头部进新」(首键变化且总量增长):loadMore 尾部追加旧行(head 同键)
+  //  与已读翻转重排(unreadFirst,总量不变)都不锚,绝不把人从历史拽回最新。
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
+  const nearNewestRef = useRef(true);
+  const timelineHeadRef = useRef<{ key: string | null; length: number }>({ key: null, length: 0 });
+  /** 距最新端较远(浮钮「回到最新」的呈现位;品味选择:加 —— 深翻历史后
+   *  一键回最新,新→旧序下比 TG 的浮钮更常用) */
+  const [awayFromNewest, setAwayFromNewest] = useState(false);
+  const onTimelineScroll = useCallback((event: ReactUIEvent<HTMLDivElement>) => {
+    const near = event.currentTarget.scrollTop <= CHAT_ANCHOR_THRESHOLD_PX;
+    nearNewestRef.current = near;
+    setAwayFromNewest(!near);
+  }, []);
+  const scrollToNewest = useCallback(() => {
+    const el = timelineScrollRef.current;
+    if (!el) return;
+    el.scrollTop = 0; // 即时回顶(不做 smooth:锚定/轮询高频路径,确定性优先)
+    nearNewestRef.current = true;
+    setAwayFromNewest(false);
+  }, []);
+  useEffect(() => {
+    const headKey = displayItems.length > 0 ? itemKey(displayItems[0]) : null;
+    const previous = timelineHeadRef.current;
+    timelineHeadRef.current = { key: headKey, length: displayItems.length };
+    // 首装/清流(切渠道)不锚:previous.key === null 或本轮空
+    if (previous.key === null || headKey === null) return;
+    const grewAtHead = headKey !== previous.key && displayItems.length > previous.length;
+    if (grewAtHead && nearNewestRef.current) {
+      const el = timelineScrollRef.current;
+      if (el) {
+        el.scrollTop = 0;
+        setAwayFromNewest(false);
+      }
+    }
+  }, [displayItems]);
+
+  // ③ 未读分割线:会话时间线内最早一条未读(新→旧序中的最底一条未读)与
+  //  更早已读的分界(TG「未读块上缘」在本镜像序 = DOM 未读块下缘)。全部
+  //  已读不画;未读块已到列表末尾(下方再无可读条目可分界,如「未读」过滤
+  //  档全未读)也不画 —— 悬空线没有语义。读态源 = 既有 states(first_seen
+  //  与服务端 read 投影),零新接口。
+  const unreadDividerKey = useMemo(() => {
+    let lastUnreadIndex = -1;
+    for (let index = displayItems.length - 1; index >= 0; index -= 1) {
+      if (states[itemKey(displayItems[index])]?.read !== true) {
+        lastUnreadIndex = index;
+        break;
+      }
+    }
+    if (lastUnreadIndex === -1 || lastUnreadIndex === displayItems.length - 1) return null;
+    return itemKey(displayItems[lastUnreadIndex]);
+  }, [displayItems, states]);
+
+  // ---------------------------------------------------------------------------
   // 渠道全集派生(v7 §3.3 机件原样;v8 三级消费面重排):全集 = health sources
   // ∪ catalog 条目 source 去重(feedChannelCards,零条目渠道也出行);过
   // STATS 门 → applySourceStats 覆写 today/unread 为全库真值并回填行预览;
@@ -2770,7 +2944,11 @@ export function FeedScreen() {
     [catalogItems, states, engineBySource, windowStart],
   );
   const channelCardsWithStats = useMemo(
-    () => (sourceStats !== null ? applySourceStats(channelCards, sourceStats) : channelCards),
+    () =>
+      // 朋友圈合流(10-13-wechat-sns-merge,AC1):互动卡并回朋友圈卡单行
+      // —— 2 级渠道列表与左栏监控会话行同一消费面,折叠须在 stats 覆写后
+      // (today/unread 才是全库真值求和,词面「放到一起,不要分开」)。
+      foldSnsMomentCards(sourceStats !== null ? applySourceStats(channelCards, sourceStats) : channelCards),
     [channelCards, sourceStats],
   );
   const typeCards = useMemo(
@@ -2829,6 +3007,15 @@ export function FeedScreen() {
     [chatView, activeChannelKind, channelCardsWithStats],
   );
 
+  // ① 会话搜索过滤(即输即滤,纯客户端;与 streamQuery 互不相干,见上注):
+  //  过滤管线收在 stats 覆写/朋友圈合流折叠之后(imGroupCards 产物),词面
+  //  计数与行集同源。零防抖直滤(会话行 ≤ 双位数量级,过滤成本可忽略 ——
+  //  「防抖轻即可」的最轻解 = 不防抖,输入即真相)。
+  const visibleGroupCards = useMemo(
+    () => filterChannelsByQuery(imGroupCards, groupSearchInput),
+    [imGroupCards, groupSearchInput],
+  );
+
   // 补⑤(grill 一轮):viewSource 变化 → 左栏选中会话行滚入视口(block:
   // "nearest";jsdom 无 scrollIntoView 实现时静默跳过,惯例同键盘巡游线)。
   // 定位锚 = 行根专属 data-feed-group-row(补①同源),不与右栏条目
@@ -2850,23 +3037,27 @@ export function FeedScreen() {
   // 新到条目不自动清(TG 同款:新消息进来角标再亮,重进或 U 键清)。
   useEffect(() => {
     if (viewSource === null || !chatView || !useServerState) return;
+    // 朋友圈合流(10-13-wechat-sns-merge):sns 会话的进会即已读 = 双源同清
+    // (角标口径 = source_stats 全库未读,漏互动源则合流行角标不归零)
+    const viewSources = snsStreamSources(viewSource);
+    const inView = (candidate: FeedItem) => viewSources.includes(candidate.source ?? "");
     const snapshot = new Map(
       catalogItems
-        .filter((candidate) => candidate.source === viewSource)
+        .filter(inView)
         .map((candidate) => [itemKey(candidate), candidate.read === true] as const),
     );
     let cancelled = false;
     setCatalogItems((current) =>
-      current.map((candidate) =>
-        candidate.source === viewSource ? { ...candidate, read: true } : candidate,
-      ),
+      current.map((candidate) => (inView(candidate) ? { ...candidate, read: true } : candidate)),
     );
     // 未读档随自动已读即时清空 = 「刚点进来的消息从眼前消失」反语义
     // (TG 聊天语义:进来看到的就是历史)——若正处未读档,顺手切「全部」;
     // 其他档位(星标/稍后读)不受打扰(⑦ 跨群工作台态定案不翻案)。
     setFilter((current) => (current === "unread" ? "all" : current));
-    void Promise.resolve(
-      api.storeStateMarkAll({ marker: "read", value: true, source: viewSource }),
+    void Promise.all(
+      viewSources.map((source) =>
+        api.storeStateMarkAll({ marker: "read", value: true, source }),
+      ),
     )
       .then(() => {
         if (cancelled) return;
@@ -2877,7 +3068,7 @@ export function FeedScreen() {
         if (cancelled) return;
         setCatalogItems((current) =>
           current.map((candidate) =>
-            candidate.source === viewSource
+            inView(candidate)
               ? { ...candidate, read: snapshot.get(itemKey(candidate)) ?? false }
               : candidate,
           ),
@@ -3084,10 +3275,17 @@ export function FeedScreen() {
   /** 连续同发信人合并成组(10-13 气泡重做,TG 同款;病灶⑤):键 = 源 +
    *  词面拆出的发信人(chatSenderOf;无 sender = 匿名键,前后同键也归组,
    *  只是不显名)。组首 lead = 泡内发信人标签,组尾 tail = 尾角圆角 + 组
-   *  间距;日期分节各自成列,节间天然断组。 */
+   *  间距;日期分节各自成列,节间天然断组。朋友圈合流(10-13-wechat-sns-
+   *  merge)扩展:动态发帖人 = raw.nickname(同人合并同样生效,AC2),
+   *  匿名动态各成组不互并(不猜同人);互动通知键唯一,独立成行不并组。 */
   const chatSenderSlots = (items: FeedItem[]) => {
-    const senderKeyOf = (row: FeedItem) =>
-      `${row.source ?? ""}\u0000${chatSenderOf(row.title)?.sender ?? ""}`;
+    const senderKeyOf = (row: FeedItem) => {
+      if (isSnsMomentSource(row.source)) {
+        return `sns\u0000${snsMomentAuthor(row) ?? `\u0001${itemKey(row)}`}`;
+      }
+      if (isSnsNoticeSource(row.source)) return `notice\u0000${itemKey(row)}`;
+      return `${row.source ?? ""}\u0000${chatSenderOf(row.title)?.sender ?? ""}`;
+    };
     return items.map((item, index) => ({
       item,
       lead: index === 0 || senderKeyOf(items[index - 1]) !== senderKeyOf(item),
@@ -4330,15 +4528,44 @@ export function FeedScreen() {
               data-testid="feed-tg-group-pane"
               data-im-kind={activeChannelKind ?? undefined}
               aria-label="监控会话列表"
-              className="flex w-72 shrink-0 flex-col border-r border-border/60"
+              /* ⑦ 极窄窗口响应式隐藏:lg(1024px,仓内 tailwind 惯例断点,
+                  dashboard 网格同门)起显示;之下整栏让位,右栏 flex-1 自适应
+                  占满(桌面 app 常态宽度远在 lg 上,此栏只在极限收窄时退场)。 */
+              className="hidden w-72 shrink-0 flex-col border-r border-border/60 lg:flex"
             >
-              <div className="flex items-center justify-between border-b border-border/40 px-3 py-2">
+              {/* ④ 顶栏等高:与右栏聊天头同 py-2.5 + min-h-11 —— 两栏顶栏
+                  内容高不同(text-xs vs text-base+h-6 钮),仅统一 py 不等高,
+                  min-h-11 兜齐后 border-b 连线。 */}
+              <div className="flex min-h-11 items-center justify-between border-b border-border/40 px-3 py-2.5">
                 {/* 裁⑥词面定案:用户可见词 = 「监控会话」(testid 前缀
                     feed-tg-group-* 为结构词,不动) */}
                 <span className="text-xs font-medium text-muted-foreground">监控会话</span>
                 {imGroupCards.length > 0 ? (
                   <span className="text-2xs text-muted-foreground tabular-nums">{imGroupCards.length}</span>
                 ) : null}
+              </div>
+              {/* ① 会话搜索框:即输即滤纯客户端(词域/通路与右栏 streamQuery
+                  互不相干,见 visibleGroupCards 注);Esc 清词(三级搜索框同门
+                  框守卫);焦点不进 Mod+F 三级环(3 级 Mod+F 仍聚焦渠道内检索)。 */}
+              <div className="border-b border-border/40 px-3 py-2">
+                <div className="relative">
+                  <Search
+                    aria-hidden
+                    className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
+                  />
+                  <Input
+                    type="search"
+                    value={groupSearchInput}
+                    data-testid="feed-tg-group-search"
+                    aria-label="搜索监控会话"
+                    placeholder="搜索监控会话"
+                    className="h-7 w-full pl-8 text-xs"
+                    onChange={(event) => setGroupSearchInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") setGroupSearchInput("");
+                    }}
+                  />
+                </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto py-1" data-testid="feed-tg-group-list">
                 {imGroupCards.length === 0 ? (
@@ -4354,10 +4581,19 @@ export function FeedScreen() {
                         : "到「Telegram」屏(侧栏「配置」组)添加监控会话并登录后,群消息会自动入库并出现在这里。"}
                     </p>
                   </div>
+                ) : visibleGroupCards.length === 0 ? (
+                  /* ① 搜索零命中:一行空态(词面同 2 级渠道搜索零命中家法,
+                      收窄成单行贴左栏密度) */
+                  <div className="px-3 py-6 text-center" data-testid="feed-tg-group-search-empty">
+                    <p className="text-xs font-medium text-foreground">没有匹配的会话</p>
+                    <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">
+                      {`搜索「${groupSearchInput.trim()}」零命中监控会话(按会话名 / 来源标识匹配);换个关键词,或清空搜索看全部。`}
+                    </p>
+                  </div>
                 ) : activeChannelKind === "wx" ? (
                   /* wx 档 = WxMonitorRow(B1/B2:群状态位 + 密钥缺失灰行;
                       渠道行家族微信档,借形不改语义) */
-                  imGroupCards.map((card) => (
+                  visibleGroupCards.map((card) => (
                     <WxMonitorRow
                       key={card.key}
                       card={card}
@@ -4378,7 +4614,7 @@ export function FeedScreen() {
                     />
                   ))
                 ) : (
-                  imGroupCards.map((card) => (
+                  visibleGroupCards.map((card) => (
                     <ChannelRow
                       key={card.key}
                       card={card}
@@ -4388,6 +4624,8 @@ export function FeedScreen() {
                       navFocused={false}
                       statsScope={sourceStats !== null ? "full" : "loaded"}
                       dataFeedGroupRow
+                      /* ⑤ 会话字母头像(左栏专属;2 级列表保持类型图标) */
+                      sessionAvatar
                       onCurrent={onCurrentRow}
                       /* 切换语义(AC2):openChannel 原样复用 —— 置 view =
                           {level:3, source, history:false},viewSource 变更驱动
@@ -4417,8 +4655,9 @@ export function FeedScreen() {
               ) : null}
             </aside>
           ) : null}
-          {/* 右栏:聊天头(TG)+ 工具条 + 时间线滚动区(网站/日报无头单列原样) */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {/* 右栏:聊天头(TG)+ 工具条 + 时间线滚动区(网站/日报无头单列原样);
+              relative = ②「回到最新」浮钮的定位锚 */}
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
             {/* 聊天头(AC3,粘顶;10-12 微信共用骨架):会话名大字
                 (feed-stream-title 随迁于此,工具条内小字位撤 —— 一词一源)+
                 监控台压缩条(TG = feed-tg-console 原样;微信 = feed-wx-console
@@ -4427,7 +4666,9 @@ export function FeedScreen() {
             {chatView ? (
               <div
                 data-testid={activeChannelKind === "wx" ? "feed-wx-chat-header" : "feed-tg-chat-header"}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-5 py-2.5"
+                /* ④ 顶栏等高:与左栏「监控会话」区头同 py-2.5 + min-h-11
+                    (左栏注同门),两栏 border-b 连线。 */
+                className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b px-5 py-2.5"
               >
                 <h2
                   className="min-w-0 truncate text-base font-semibold text-foreground"
@@ -4940,8 +5181,16 @@ export function FeedScreen() {
               锚(feed-tg-console 系 testid)原样随迁。 */}
 
           {/* 时间线滚动区(§3.1):错误卡 → 骨架 → 空态阶梯 → 聊天气泡/单列
-              → 加载更早;回执行(打开原文/标记)随滚动区走 */}
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-3">
+              → 加载更早;回执行(打开原文/标记)随滚动区走。
+              ② 锚定:ref + onScroll 记「视口是否贴最新端」(距顶 ≤80px),
+              新条目头部到达时回顶贴住(见 displayItems 后锚定 effect);
+              feed-chat-scroll = 测试锚。 */}
+          <div
+            ref={timelineScrollRef}
+            onScroll={onTimelineScroll}
+            className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-3"
+            data-testid="feed-chat-scroll"
+          >
             <span className="sr-only" aria-live="polite">{streamTitle}</span>
             {exportNote ? (
               <p className="text-xs text-muted-foreground" data-testid="feed-export-result">
@@ -5149,15 +5398,28 @@ export function FeedScreen() {
                         {`${group.label} · ${group.items.length} 条`}
                       </div>
                       <div className="mt-1 flex flex-col">
-                        {chatSenderSlots(group.items).map((slot) => renderCard(slot.item, slot))}
+                        {/* ③ 未读分割线:画在最早一条未读(最底未读)卡之后
+                            —— 与更早已读的分界(TG 未读块界线在本镜像序的
+                            落位推导见 unreadDividerKey 注) */}
+                        {chatSenderSlots(group.items).map((slot) => (
+                          <Fragment key={itemKey(slot.item)}>
+                            {renderCard(slot.item, slot)}
+                            {itemKey(slot.item) === unreadDividerKey ? <UnreadDivider /> : null}
+                          </Fragment>
+                        ))}
                       </div>
                     </section>
                   ))}
                 </div>
               ) : (
-                // 不分组:平铺(组位口径同上,行距由卡根 mb 档接管)
+                // 不分组:平铺(组位口径同上,行距由卡根 mb 档接管);分割线同门
                 <div className="mx-auto flex w-full max-w-[760px] flex-col" data-testid="feed-flat-list">
-                  {chatSenderSlots(displayItems).map((slot) => renderCard(slot.item, slot))}
+                  {chatSenderSlots(displayItems).map((slot) => (
+                    <Fragment key={itemKey(slot.item)}>
+                      {renderCard(slot.item, slot)}
+                      {itemKey(slot.item) === unreadDividerKey ? <UnreadDivider /> : null}
+                    </Fragment>
+                  ))}
                 </div>
               )
             ) : (
@@ -5174,6 +5436,24 @@ export function FeedScreen() {
               </Button>
             ) : null}
           </div>
+          {/* ② 回到最新浮钮(品味选择:加 —— 深翻历史后一键回最新,新→旧序
+              下高频;中段翻阅期间新消息静默进流,浮钮是唯一的回位动线)。
+              只聊天语境渲染(网站/日报单列无「最新」会话语义);即时回顶
+              (scrollToNewest,确定性优先,不做 smooth)。 */}
+          {chatView && awayFromNewest ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="absolute right-6 bottom-4 z-10 gap-1 rounded-full bg-popover/95 shadow-popover"
+              data-testid="feed-chat-back-to-latest"
+              aria-label="回到最新消息"
+              title="回到时间线最新一端(新消息进入端)"
+              onClick={scrollToNewest}
+            >
+              <ChevronUp aria-hidden className="size-3.5" />
+              回到最新
+            </Button>
+          ) : null}
           </div>
         </div>
       ) : null}

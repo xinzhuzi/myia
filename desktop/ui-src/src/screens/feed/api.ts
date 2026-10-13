@@ -721,6 +721,83 @@ export function chatSenderOf(title: string): { sender: string; body: string } | 
   return { sender, body };
 }
 
+// ---------------------------------------------------------------------------
+// 朋友圈合流(10-13-wechat-sns-merge,主人令「朋友圈与朋友圈互动放到一起,
+// 不要分开;要表明朋友圈是谁发的」):sns 通道(073698a)把动态/互动拆两源
+// (weixin-朋友圈 / weixin-朋友圈互动),展示面合为一个「朋友圈」会话。
+// 纯装配层:数据层(库/引擎)零动。
+// ---------------------------------------------------------------------------
+
+/** sns 双源词表:动态主源(合流会话 key,源名剥前缀词面恰为「朋友圈」)/
+ *  互动通知源(并流不单列,who 已在 title 词面)。 */
+export const SNS_MOMENT_MAIN_SOURCE = "weixin-朋友圈";
+export const SNS_MOMENT_NOTICE_SOURCE = "weixin-朋友圈互动";
+
+export function isSnsMomentSource(source: string | null | undefined): boolean {
+  return source === SNS_MOMENT_MAIN_SOURCE;
+}
+
+export function isSnsNoticeSource(source: string | null | undefined): boolean {
+  return source === SNS_MOMENT_NOTICE_SOURCE;
+}
+
+export function isSnsSource(source: string | null | undefined): boolean {
+  return isSnsMomentSource(source) || isSnsNoticeSource(source);
+}
+
+/** 视图源 → 取数源集:任一 sns 源都给双源并列(直接落到互动源的旧路径/
+ *  深链同样给合流时间线,不猜归属),其余单源原样。取数选择 = 并列双源取
+ *  (store.items source 精确等值,无 IN 查询):两次请求并行 + 前端按
+ *  (first_seen,id) 混排,零 sidecar 契约变更,成本最低。 */
+export function snsStreamSources(viewSource: string | null): string[] {
+  if (viewSource === null) return [];
+  return isSnsSource(viewSource) ? [SNS_MOMENT_MAIN_SOURCE, SNS_MOMENT_NOTICE_SOURCE] : [viewSource];
+}
+
+/** sns 动态发帖人(AC2 发帖人必显):协议白名单投影的 item.nickname
+ *  (引擎侧 nickname/username 回退链已落 raw;旧 sidecar 缺键/坏值 = null,
+ *  词面回落 SNS_AUTHOR_FALLBACK 归消费侧,不猜真名)。互动通知不在此列
+ *  (发帖人词面已在 title,如「猫三三 赞了朋友圈动态」)。 */
+export const SNS_AUTHOR_FALLBACK = "微信好友";
+
+export function snsMomentAuthor(item: FeedItem): string | null {
+  if (!isSnsMomentSource(item.source)) return null;
+  const nickname = item.nickname;
+  return typeof nickname === "string" && nickname.trim() !== "" ? nickname : null;
+}
+
+/** 合流页取数:单源原样单发(fetchFeedPage 同门);sns 双源并列双发,前端
+ *  按 (first_seen,id) 新→旧混排。复合游标 = 两源同发(全局 (first_seen,id)
+ *  空间内严格小于,各源各翻各页,单页条数上浮至 2×limit 无害);hasMore =
+ *  任源未尽;total = 两源计数和(任一缺失 = null,UI 回落词面不猜)。 */
+export async function fetchFeedPageMulti(
+  request: Omit<FeedPageRequest, "source"> & { sources: string[] },
+): Promise<FeedPage> {
+  if (request.sources.length <= 1) {
+    return fetchFeedPage({ ...request, source: request.sources[0] ?? null });
+  }
+  const pages = await Promise.all(
+    request.sources.map((source) => fetchFeedPage({ ...request, source })),
+  );
+  const items = pages
+    .flatMap((page) => page.items)
+    .sort((a, b) => {
+      const delta = firstSeenValue(b.first_seen) - firstSeenValue(a.first_seen);
+      return delta !== 0 ? delta : (b.id ?? 0) - (a.id ?? 0);
+    });
+  const oldest = items.length > 0 ? items[items.length - 1] : null;
+  return {
+    items,
+    hasMore: pages.some((page) => page.hasMore),
+    nextCursor: oldest?.first_seen ?? null,
+    nextCursorId: oldest?.id ?? null,
+    total:
+      pages.some((page) => page.total === null)
+        ? null
+        : pages.reduce((sum, page) => sum + (page.total ?? 0), 0),
+  };
+}
+
 /** first_seen 数值化(缺失/非法 = 负无穷,排序沉底;feedChannelCards 消费) */
 function firstSeenValue(iso: string | null | undefined): number {
   if (!iso) return Number.NEGATIVE_INFINITY;
@@ -967,6 +1044,32 @@ export function feedChannelCards(
       firstSeenValue(b.latest?.first_seen ?? null) - firstSeenValue(a.latest?.first_seen ?? null);
     return diff !== 0 ? diff : a.key.localeCompare(b.key);
   });
+}
+
+/** 朋友圈合流卡折叠(AC1):朋友圈互动卡并回朋友圈卡单行展示(主人令
+ *  「放到一起,不要分开」)。today/unread 求和;latest/statsLatest* 取较新
+ *  一侧;互动卡整体退场(2 级行/左栏监控会话行共用本折叠,1 级类型卡计数
+ *  不经此 —— 底层确是两个监控源,词面不谎报)。位置守序:折后占主源原位。
+ *  零互动卡/零动态卡(未启用 sns 通道的世界)= 原样返回,既有渠道零扰动。 */
+export function foldSnsMomentCards(cards: FeedChannelCardData[]): FeedChannelCardData[] {
+  const moment = cards.find((card) => card.key === SNS_MOMENT_MAIN_SOURCE);
+  const notice = cards.find((card) => card.key === SNS_MOMENT_NOTICE_SOURCE);
+  if (moment === undefined || notice === undefined) return cards;
+  const seenValue = (card: FeedChannelCardData) =>
+    firstSeenValue(card.statsLatestSeen ?? card.latest?.first_seen ?? null);
+  const folded: FeedChannelCardData = {
+    ...moment,
+    today: moment.today + notice.today,
+    unread: moment.unread + notice.unread,
+    latest: seenValue(moment) >= seenValue(notice) ? moment.latest : notice.latest,
+    statsLatestTitle:
+      seenValue(moment) >= seenValue(notice) ? moment.statsLatestTitle : notice.statsLatestTitle,
+    statsLatestSeen:
+      seenValue(moment) >= seenValue(notice) ? moment.statsLatestSeen : notice.statsLatestSeen,
+  };
+  return cards
+    .filter((card) => card.key !== SNS_MOMENT_NOTICE_SOURCE)
+    .map((card) => (card.key === SNS_MOMENT_MAIN_SOURCE ? folded : card));
 }
 
 /** 渠道类型别名词表(TG 是平台俗名:搜「Tg」须直出全部 TG 渠道卡 ——
@@ -1250,6 +1353,37 @@ export function dayWindowStart(now: Date = new Date(), anchorHour: number = DAY_
   if (now.getTime() >= start.getTime()) return start;
   start.setDate(start.getDate() - 1);
   return start;
+}
+
+/**
+ * 聊天语境时间词面(10-13 聊天工作台追加批⑥,三档):今天 HH:mm /
+ * 昨天 HH:mm / M月D日。只换聊天时间线调用点(气泡/互动行),formatRelativeTime
+ * 旧调用点(行列表相对时间/新闻卡/详情弹窗)不动。
+ *
+ * 「今天/昨天」边界取当日窗锚(03:00,= groupFeedItems 分组同锚)而非日历
+ * 0 点:00:00-03:00 的条目在本屏时间分组里归「昨天(上一窗口)」组头,泡面
+ * 词面若按日历日说「今天」会同屏自相矛盾(组头昨天/泡面今天);两处同锚,
+ * 所见一致。跨年旧条目仍落「M月D日」三档词(年份语境由日期组头「更早」与
+ * 详情弹窗绝对时间承担,不第四档加码)。`now` 注入以便测试(跨日边界)。
+ */
+export function chatTimeOf(
+  iso: string | null,
+  now: Date = new Date(),
+  anchorHour: number = DAY_WINDOW_ANCHOR_HOUR,
+): string {
+  if (!iso) return "—";
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return iso;
+  const startOfWindow = dayWindowStart(now, anchorHour).getTime();
+  const prevAnchor = dayWindowStart(now, anchorHour);
+  prevAnchor.setDate(prevAnchor.getDate() - 1);
+  const startOfPrevWindow = prevAnchor.getTime();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const hhmm = `${pad(then.getHours())}:${pad(then.getMinutes())}`;
+  const seen = then.getTime();
+  if (seen >= startOfWindow) return `今天 ${hhmm}`;
+  if (seen >= startOfPrevWindow) return `昨天 ${hhmm}`;
+  return `${then.getMonth() + 1}月${then.getDate()}日`;
 }
 
 /**

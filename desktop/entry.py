@@ -1680,6 +1680,12 @@ def _item_dict(item: Any) -> dict[str, Any]:
         # #watch-<sha> 锚,目标页链接以本键为准)
         "watch_event": _str_key("watch_event"),
         "watch_page": _str_key("watch_page"),
+        # sns 发帖人白名单(10-13-wechat-sns-merge,主人令「要表明朋友圈是
+        # 谁发的」):sns 通道动态的 nickname(引擎侧 nickname/username 回退
+        # 链已落 raw);异型/缺失置 None,UI 词面回落「微信好友」;raw 其余
+        # 键仍不出协议面。旧前端多收一键无害(不识即弃),旧 sidecar 缺键 =
+        # 前端回落,双向兼容,不抬 PROTOCOL_VERSION。
+        "nickname": _str_key("nickname"),
         "tags": item.tags,
         "category": item.category,
         "scores": item.scores,

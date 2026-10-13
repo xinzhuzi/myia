@@ -96,7 +96,11 @@ import {
   COUNT_PROTOCOL,
   channelKindOf,
   chatSenderOf,
+  chatTimeOf,
   dayWindowStart,
+  foldSnsMomentCards,
+  snsMomentAuthor,
+  snsStreamSources,
   DEFAULT_FEED_DISPLAY,
   dealPriceView,
   engineMapFromHealth,
@@ -4530,7 +4534,8 @@ describe("FeedScreen · 聊天主页风格形态锚(10-09 v4,v7 左栏落点)", 
     expect(card.className).not.toContain("bg-primary/10");
     expect(within(card).queryByTestId("feed-strip-1")).toBeNull();
     expect(within(card).queryByText("ai")).toBeNull();
-    const footer = within(card).getByText("刚刚").closest("div");
+    // 泡底时间(追加批⑥):聊天语境三档词面,fresh 夹具 = 今天 HH:mm
+    const footer = within(card).getByText(/^(今天|昨天) \d{2}:\d{2}$/).closest("div");
     expect(footer?.className).toContain("justify-end");
     // 内联展开钮在泡底行(hover/键盘聚焦浮现,静态裸 chevron 退役):
     // 点击翻转为「收起条目」(与详情弹窗并存),键盘聚焦可拉回可见
@@ -5078,8 +5083,9 @@ describe("FeedScreen · 验收整改批(正文去重/节内省频道名/弹窗�
     expect(within(timeline).queryAllByText("mihomo_party_group")).toHaveLength(0);
     // 聊天头一词一源在场
     expect(screen.getByTestId("feed-stream-title").textContent).toContain("mihomo_party_group");
-    // 卡头时间仍在(卡面元信息不缺)
-    expect(within(timeline).getAllByText(/分钟前|刚刚/).length).toBeGreaterThanOrEqual(2);
+    // 卡头时间仍在(卡面元信息不缺;追加批⑥:聊天语境三档词面,夹具
+    //  first_seen = now → 今天 HH:mm;组头胶囊「今天 · N 条」不同词形不混.match)
+    expect(within(timeline).getAllByText(/^(今天|昨天) \d{2}:\d{2}$/).length).toBeGreaterThanOrEqual(2);
   });
 
   it("⑤ 弹窗动作簇:打开原文 = 唯一实底主钮(default),复制链接/星标/稍后读/标记未读 = ghost 同档", async () => {
@@ -6200,5 +6206,489 @@ describe("FeedScreen · 气泡重做(10-13 气泡布局好看一点)", () => {
     const card = await screen.findByTestId("feed-item-1");
     expect(card.className).toContain("min-w-[13rem]");
     expect(card.className).toContain("max-w-[min(100%,72%)]");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 群信息面板动线(10-13-wechat-groupinfo R2):微信群行右键 →「群信息」→
+// 详情弹窗(真拉壳侧 wechat_group_info;契约 = 任务档 prd「group-info 应答
+// 契约 v1」,载荷按钉死形状夹具)。面板本体细则(wx-groupinfo-*)在
+// wx-groupinfo-panel.test.tsx 穷尽,此处只验挂点动线与行/弹窗联动。
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · 群信息面板动线(10-13-wechat-groupinfo R2)", () => {
+  /** wechat_group_info 夹具(prd 契约 v1 全量形状;双成员含群主标记) */
+  const groupInfoPayload = {
+    chat_id: "50438708676@chatroom",
+    display_name: "测试会话",
+    member_count: 2,
+    owner: { username: "wxid_owner", display: "老王" },
+    announcement: { text: "本群仅供技术交流。", editor_display: null, published_at: null },
+    status: null,
+    members: [
+      { username: "wxid_owner", display: "老王", remark: null, is_owner: true },
+      { username: "wxid_a", display: "花开相随", remark: null, is_owner: false },
+    ],
+  };
+
+  /** 微信世界(单 wx 源)+ invoke 按命令名/method 双通道分发(探针走
+   *  sidecar_request 载荷 method,群信息走壳侧裸命令) */
+  function mockWxChannelWorld() {
+    healthMock.mockResolvedValue(
+      healthResult({
+        categories: [
+          categoryEntry({ id: "weixin", name: "微信监控", sources: [sourceEntry("weixin-测试会话", "wechat_local")] }),
+        ],
+      }),
+    );
+    storeItemsMock.mockImplementation(() => Promise.resolve(result([])));
+    invokeMock.mockImplementation(async (command: string, args?: { method?: string }) => {
+      if (command === "wechat_group_info") return groupInfoPayload;
+      if (args?.method === "wechat_local.probe") {
+        return {
+          ok: true,
+          state: "ok",
+          checks: { bridge_component: "ok", wechat_process: "ok", screen_recording: "ok" },
+          wechat_version: "4.1.15",
+          bridge_version: "0.3.1",
+          reasons: [],
+        };
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method ?? command}` });
+    });
+  }
+
+  it("右键微信群行 →「群信息」→ 详情弹窗:群名/群主 wxid 灰字/群主标记/成员 N 人上屏,寻址键剥前缀,导出留位禁用", async () => {
+    mockWxChannelWorld();
+    await renderOverview();
+    // 1→2→3 下钻(3 级左栏才有 WxMonitorRow 家族)
+    fireEvent.click(await screen.findByTestId("feed-type-card-wx"));
+    await waitFor(() => expect(screen.getByTestId("feed-channel-list")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("feed-channel-row-weixin-测试会话"));
+    await waitFor(() =>
+      expect(storeItemsMock).toHaveBeenLastCalledWith(expect.objectContaining({ source: "weixin-测试会话" })),
+    );
+    // 右键群行 → 应用内菜单「群信息」(portal 出屏,screen 全局可达)
+    fireEvent.contextMenu(screen.getByTestId("wx-monitor-row-weixin-测试会话"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "群信息" }));
+    // 弹窗渲染(契约钉死字段逐项上屏)
+    expect(await screen.findByTestId("wx-groupinfo-dialog")).toBeTruthy();
+    expect(screen.getByTestId("wx-groupinfo-name").textContent).toBe("测试会话");
+    expect(screen.getByTestId("wx-groupinfo-owner").textContent).toContain("老王");
+    expect(screen.getByTestId("wx-groupinfo-member-count").textContent).toBe("成员 2 人");
+    const members = screen.getByTestId("wx-groupinfo-members");
+    expect(within(members).getByTestId("wx-groupinfo-member-wxid_owner").textContent).toContain("群主");
+    expect(within(members).getByTestId("wx-groupinfo-member-wxid_a").textContent).toContain("花开相随");
+    // 导出钮(R3 态机随迁:面板侧 idle 可点,导出中才禁用;词面「导出」)
+    const exportButton = screen.getByTestId("wx-groupinfo-export") as HTMLButtonElement;
+    expect(exportButton.disabled).toBe(false);
+    expect(exportButton.getAttribute("title")).toBe("导出");
+    // 寻址键:源名剥 weixin- 前缀(名→id 解析在壳侧命令内,api 模块头注「寻址」节)
+    expect(invokeMock).toHaveBeenCalledWith("wechat_group_info", { chat: "测试会话" });
+  });
+
+  it("弹窗开着 Esc 只关弹窗不回退层级(浮层让位收口判例)", async () => {
+    mockWxChannelWorld();
+    await renderOverview();
+    fireEvent.click(await screen.findByTestId("feed-type-card-wx"));
+    await waitFor(() => expect(screen.getByTestId("feed-channel-list")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("feed-channel-row-weixin-测试会话"));
+    await waitFor(() =>
+      expect(storeItemsMock).toHaveBeenLastCalledWith(expect.objectContaining({ source: "weixin-测试会话" })),
+    );
+    fireEvent.contextMenu(screen.getByTestId("wx-monitor-row-weixin-测试会话"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "群信息" }));
+    await screen.findByTestId("wx-groupinfo-dialog");
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("wx-groupinfo-dialog")).toBeNull());
+    // 弹窗关闭后仍停在 3 级(聊天头在场 = 未回退层级)
+    expect(screen.getByTestId("feed-wx-chat-header")).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 朋友圈合流批(10-13-wechat-sns-merge,主人令「朋友圈与朋友圈互动放到
+// 一起,不要分开;要表明朋友圈是谁发的,不能光有信息没有发表人」):
+// 双源合单行(2 级 + 左栏)/ 右栏双源混排 / 动态发帖人必显(raw.nickname
+// 协议白名单投影,缺失回落「微信好友」)/ 互动通知轻量行内态
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · 朋友圈合流(10-13-wechat-sns-merge)", () => {
+  /** 双 sns 源世界(health 声明朋友圈动态/互动两源 + store.items 按源过滤) */
+  function mockSnsWorld(items: FeedItem[] = []) {
+    healthMock.mockResolvedValue(
+      healthResult({
+        categories: [
+          categoryEntry({
+            id: "weixin",
+            name: "微信监控",
+            sources: [sourceEntry("weixin-朋友圈", "wechat_local"), sourceEntry("weixin-朋友圈互动", "wechat_local")],
+          }),
+        ],
+      }),
+    );
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(items.filter((item) => !params?.source || item.source === params.source))),
+    );
+  }
+
+  /** sns 探针 ok(wechat_local.probe;进 wx 渠道即拉) */
+  function mockSnsProbe() {
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "wechat_local.probe") {
+        return {
+          ok: true, state: "ok", checks: {}, wechat_version: "4.0.3", bridge_version: "1.0", reasons: [],
+        };
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+  }
+
+  async function openSnsChannel() {
+    fireEvent.click(await screen.findByTestId("feed-type-card-wx"));
+    await waitFor(() => expect(screen.getByTestId("feed-channel-list")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("feed-channel-row-weixin-朋友圈"));
+    // 双源并列取数:两调用齐落地即达(并行双发,先后不保证,不押 last call)
+    await waitFor(() => {
+      expect(storeItemsMock).toHaveBeenCalledWith(expect.objectContaining({ source: "weixin-朋友圈" }));
+      expect(storeItemsMock).toHaveBeenCalledWith(expect.objectContaining({ source: "weixin-朋友圈互动" }));
+    });
+  }
+
+  it("AC1 合流:2 级与左栏单行「朋友圈」(互动源不单列),右栏双源并列取数且时间线按 first_seen 混排", async () => {
+    mockSnsProbe();
+    const noticeOld = fixtureItem({
+      source: "weixin-朋友圈互动", title: "猫三三 赞了朋友圈动态",
+      first_seen: new Date(Date.now() - 30 * 60_000).toISOString(), content: null,
+      url: "wechat-local://sns/notice/9#wxsnsn-9",
+    });
+    const moment = fixtureItem({
+      source: "weixin-朋友圈", title: "周末爬山", nickname: "猫三三",
+      first_seen: new Date(Date.now() - 10 * 60_000).toISOString(), content: "周末爬山",
+      url: "wechat-local://sns/f1#wxsns-f1",
+    });
+    const noticeNew = fixtureItem({
+      source: "weixin-朋友圈互动", title: "阿四 评论了朋友圈动态:带我一个",
+      first_seen: new Date(Date.now() - 2 * 60_000).toISOString(), content: null,
+      url: "wechat-local://sns/notice/10#wxsnsn-10",
+    });
+    mockSnsWorld([noticeOld, moment, noticeNew]);
+    renderScreen();
+    await openSnsChannel();
+    // 双源并列取数(source 精确等值,无 IN 查询;如实选择:双发前端混排)
+    expect(storeItemsMock).toHaveBeenCalledWith(expect.objectContaining({ source: "weixin-朋友圈" }));
+    expect(storeItemsMock).toHaveBeenCalledWith(expect.objectContaining({ source: "weixin-朋友圈互动" }));
+    // 时间线混排(first_seen 新→旧):互动新帖在最前,动态居中,互动旧帖垫底
+    const timeline = await screen.findByTestId("feed-chat-timeline");
+    const domOrder = [...timeline.querySelectorAll("[data-item-key]")].map(
+      (node) => node.getAttribute("data-testid") ?? "",
+    );
+    expect(domOrder).toEqual([
+      `feed-item-${noticeNew.id}`,
+      `feed-item-${moment.id}`,
+      `feed-item-${noticeOld.id}`,
+    ]);
+    // 左栏合流单行:朋友圈行在场,互动源不单列
+    const pane = await screen.findByTestId("feed-tg-group-pane");
+    expect(within(pane).getByTestId("wx-monitor-row-weixin-朋友圈")).toBeTruthy();
+    expect(within(pane).queryByTestId("wx-monitor-row-weixin-朋友圈互动")).toBeNull();
+    // 2 级渠道列表同单行(回 2 级验)
+    fireEvent.click(screen.getByTestId("feed-back-to-channels"));
+    expect(await screen.findByTestId("feed-channel-row-weixin-朋友圈")).toBeTruthy();
+    expect(screen.queryByTestId("feed-channel-row-weixin-朋友圈互动")).toBeNull();
+  });
+
+  it("AC2 发帖人必显:动态泡发帖人小签 = raw.nickname 投影,同人合并组内首条显;缺失回落「微信好友」不猜", async () => {
+    mockSnsProbe();
+    const moments = [
+      fixtureItem({ source: "weixin-朋友圈", title: "今天打卡第三天", nickname: "猫三三",
+        first_seen: new Date(Date.now() - 30 * 60_000).toISOString(), content: "今天打卡第三天" }),
+      fixtureItem({ source: "weixin-朋友圈", title: "配图是公园门口", nickname: "猫三三",
+        first_seen: new Date(Date.now() - 29 * 60_000).toISOString(), content: "配图是公园门口" }),
+      fixtureItem({ source: "weixin-朋友圈", title: "无 nickname 的动态", nickname: undefined,
+        first_seen: new Date(Date.now() - 20 * 60_000).toISOString(), content: null }),
+    ];
+    mockSnsWorld(moments);
+    renderScreen();
+    await openSnsChannel();
+    // 展示序 = first_seen 新→旧:m3(无 nickname)> m2 > m1;同人组 {m2,m1}
+    // 的组首是较新的 m2(时间线顶部第一条),m1 为组内延续条
+    const card1 = await screen.findByTestId(`feed-item-${moments[0].id}`);
+    const card2 = await screen.findByTestId(`feed-item-${moments[1].id}`);
+    const card3 = await screen.findByTestId(`feed-item-${moments[2].id}`);
+    // 组首显发帖人;同人后续条省略(合并机制对朋友圈动态同样生效)
+    expect(within(card2).getByText("猫三三")).toBeTruthy();
+    expect(within(card1).queryByText("猫三三")).toBeNull();
+    // raw 缺失 = 词面回落「微信好友」,不猜真名
+    expect(within(card3).getByText("微信好友")).toBeTruthy();
+    // 正文原样(title 不做发信人前缀剥除,归属以 nickname 为准)
+    expect(within(card1).getByRole("button", { name: "今天打卡第三天" })).toBeTruthy();
+  });
+
+  it("AC3 互动通知轻量行内态:无泡箱小字行 + 时间随行;点击仍开详情弹窗(feed-item-/data-* 语义保留)", async () => {
+    mockSnsProbe();
+    const notice = fixtureItem({
+      source: "weixin-朋友圈互动", title: "猫三三 赞了朋友圈动态",
+      first_seen: new Date(Date.now() - 5 * 60_000).toISOString(), content: null,
+      url: "wechat-local://sns/notice/9#wxsnsn-9",
+    });
+    mockSnsWorld([notice]);
+    renderScreen();
+    await openSnsChannel();
+    const card = await screen.findByTestId(`feed-item-${notice.id}`);
+    expect(card.getAttribute("data-kind")).toBe("weixin");
+    // 词面保持(who 已在 title);无泡箱(非气泡不冒充 feed-tg-bubble-*)
+    expect(within(card).getByText("猫三三 赞了朋友圈动态")).toBeTruthy();
+    expect(within(card).queryByTestId(`feed-tg-bubble-${notice.id}`)).toBeNull();
+    // 点击语义保留:开详情弹窗
+    fireEvent.click(within(card).getByRole("button", { name: "猫三三 赞了朋友圈动态" }));
+    expect(screen.getByTestId("feed-detail-dialog")).toBeTruthy();
+    await closeDetailDialog();
+  });
+
+  it("纯函数:snsStreamSources 双源展开(任一 sns 源都给合流,非 sns 原样);snsMomentAuthor 词面守卫;foldSnsMomentCards 求和取新折叠", () => {
+    // 取数源集
+    expect(snsStreamSources("weixin-朋友圈")).toEqual(["weixin-朋友圈", "weixin-朋友圈互动"]);
+    expect(snsStreamSources("weixin-朋友圈互动")).toEqual(["weixin-朋友圈", "weixin-朋友圈互动"]);
+    expect(snsStreamSources("weixin-测试会话")).toEqual(["weixin-测试会话"]);
+    expect(snsStreamSources(null)).toEqual([]);
+    // 发帖人词面守卫(缺失/空白/异型 = null 回落,不猜)
+    expect(snsMomentAuthor({ source: "weixin-朋友圈", nickname: "猫三三" } as FeedItem)).toBe("猫三三");
+    expect(snsMomentAuthor({ source: "weixin-朋友圈", nickname: "   " } as FeedItem)).toBeNull();
+    expect(snsMomentAuthor({ source: "weixin-朋友圈", nickname: undefined } as FeedItem)).toBeNull();
+    expect(snsMomentAuthor({ source: "weixin-测试会话", nickname: "猫三三" } as FeedItem)).toBeNull();
+    // 卡折叠:计数求和、latest/statsLatest 取较新一侧、互动卡退场、主源守位
+    const momentCard = { key: "weixin-朋友圈", label: "朋友圈", kind: "wx" as const, today: 2, unread: 1, latest: null, statsLatestSeen: "2026-10-13T10:00:00Z" };
+    const noticeCard = { key: "weixin-朋友圈互动", label: "朋友圈互动", kind: "wx" as const, today: 3, unread: 2, latest: null, statsLatestSeen: "2026-10-13T12:00:00Z" };
+    const otherCard = { key: "weixin-测试会话", label: "测试会话", kind: "wx" as const, today: 1, unread: 0, latest: null };
+    const folded = foldSnsMomentCards([momentCard, noticeCard, otherCard]);
+    expect(folded.map((card) => card.key)).toEqual(["weixin-朋友圈", "weixin-测试会话"]);
+    expect(folded[0].today).toBe(5);
+    expect(folded[0].unread).toBe(3);
+    expect(folded[0].statsLatestSeen).toBe("2026-10-13T12:00:00Z");
+    // 无 sns 卡世界 = 原样返回(既有渠道零扰动)
+    expect(foldSnsMomentCards([otherCard])).toEqual([otherCard]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 聊天工作台追加批(10-13 同域追加七件):①左栏会话搜索 / ②新消息到达
+// 锚定+回到最新浮钮 / ③未读分割线 / ④顶栏等高 / ⑤会话字母头像 / ⑥时间
+// 三档词面(chatTimeOf 纯函数 + 泡面接线随迁断言)/ ⑦极窄窗口左栏折叠
+// ---------------------------------------------------------------------------
+
+describe("FeedScreen · 聊天工作台追加批(10-13 同域追加七件)", () => {
+  /** 双 TG 群世界(clashv8/alpha;health 声明源即成行,items 提槽可换答,
+   *  与 tg-chat-two-pane mockTwoPaneWorld 同门但可变应答) */
+  function mockGroupsWorld(initial: FeedItem[] = []) {
+    healthMock.mockResolvedValue(
+      healthResult({
+        categories: [
+          categoryEntry({
+            id: "telegram",
+            name: "Telegram 监控",
+            sources: [sourceEntry("telegram-clashv8", "tg_web"), sourceEntry("telegram-alpha", "tg_web")],
+          }),
+        ],
+      }),
+    );
+    const items = [...initial];
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(items.filter((item) => !params?.source || item.source === params.source))),
+    );
+    return items;
+  }
+
+  /** 下钻入口:1 级 TG 类型卡 → 2 级行 → 3 级(群列表默认选中该渠道)。 */
+  async function openTgGroup(key: string) {
+    fireEvent.click(await screen.findByTestId("feed-type-card-tg"));
+    fireEvent.click(await screen.findByTestId(`feed-channel-row-${key}`));
+  }
+
+  it("① 左栏会话搜索:即输即滤纯客户端过滤(零服务端查询,与右栏 streamQuery 通路互不相干),零命中一行空态,Esc 清词恢复", async () => {
+    mockGroupsWorld();
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    const pane = await screen.findByTestId("feed-tg-group-pane");
+    const search = within(pane).getByTestId("feed-tg-group-search");
+    expect(within(pane).getByTestId("feed-channel-row-telegram-clashv8")).toBeTruthy();
+    expect(within(pane).getByTestId("feed-channel-row-telegram-alpha")).toBeTruthy();
+
+    // 输入即滤(不防抖等待):alpha 命中,clashv8 行离场
+    fireEvent.change(search, { target: { value: "alpha" } });
+    expect(within(pane).getByTestId("feed-channel-row-telegram-alpha")).toBeTruthy();
+    expect(within(pane).queryByTestId("feed-channel-row-telegram-clashv8")).toBeNull();
+    // 零命中:一行空态(testid feed-tg-group-search-empty)
+    fireEvent.change(search, { target: { value: "zzz" } });
+    const empty = screen.getByTestId("feed-tg-group-search-empty");
+    expect(empty.textContent).toContain("没有匹配的会话");
+    expect(empty.textContent).toContain("zzz");
+    // 客户端过滤零服务端查询:storeItems 全部调用不带 query(检索词不进
+    // 数据域 —— 右栏 streamQuery 才是服务端全文检索,两域互不相干)
+    for (const call of storeItemsMock.mock.calls) {
+      expect((call[0] as StoreItemsParams | undefined)?.query ?? null).toBeNull();
+    }
+    // Esc 清词(三级搜索框同门框守卫):全量恢复
+    fireEvent.keyDown(search, { key: "Escape" });
+    expect(within(pane).getByTestId("feed-channel-row-telegram-clashv8")).toBeTruthy();
+    expect(screen.queryByTestId("feed-tg-group-search-empty")).toBeNull();
+  });
+
+  it("⑤ 会话字母头像:左栏行 = key-hash 色底(内联 style)+ 会话名首字母 + 平台角标;2 级渠道行保持类型图标不换", async () => {
+    mockGroupsWorld();
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    const pane = await screen.findByTestId("feed-tg-group-pane");
+    const row = within(pane).getByTestId("feed-channel-row-telegram-clashv8");
+    // 头像位:首字母(clashv8 → C)+ 8 色轮转色底(内联 style = chatSenderTone
+    // 同体系,非类型档色)+ 角标 svg(平台 icon 缩角标)
+    const avatar = row.querySelector("span[style]");
+    expect(avatar).not.toBeNull();
+    expect(avatar?.textContent).toContain("C");
+    expect((avatar as HTMLElement).style.backgroundColor).not.toBe("");
+    expect(avatar?.querySelector("svg")).not.toBeNull();
+    // 2 级渠道行不换(类型导航语境保留类型图标 chip,无内联色)
+    fireEvent.click(screen.getByTestId("feed-back-to-channels"));
+    const l2row = await screen.findByTestId("feed-channel-row-telegram-clashv8");
+    expect(l2row.querySelector("span[style]")).toBeNull();
+  });
+
+  it("④⑦ 顶栏等高与极窄折叠:左栏区头与聊天头同 min-h-11 + py-2.5(border-b 连线);左栏 aside hidden lg:flex(lg 起显示,右栏 flex-1 自适应)", async () => {
+    mockGroupsWorld();
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    const pane = await screen.findByTestId("feed-tg-group-pane");
+    // ⑦:lg 以下隐藏(lg:flex 起显示)
+    expect(pane.className).toContain("hidden");
+    expect(pane.className).toContain("lg:flex");
+    // ④:两栏顶栏同档(min-h-11 + py-2.5)
+    const paneHeader = pane.querySelector("div");
+    const chatHeader = await screen.findByTestId("feed-tg-chat-header");
+    for (const bar of [paneHeader, chatHeader]) {
+      expect(bar?.className).toContain("min-h-11");
+      expect(bar?.className).toContain("py-2.5");
+    }
+  });
+
+  it("② 新消息到达锚定:贴最新端(≤80px)新条目头部到达自动回顶;中段翻阅不打扰;「回到最新」浮钮一键回位", async () => {
+    let emitEvent: ((event: { type: string }) => void) | undefined;
+    onSidecarEventMock.mockImplementation((handler: (event: never) => void) => {
+      emitEvent = handler as (event: { type: string }) => void;
+      return Promise.resolve(() => {});
+    });
+    const anchor = dayWindowStart().getTime();
+    const items = mockGroupsWorld([
+      fixtureItem({ source: "telegram-clashv8", title: "旧行", first_seen: new Date(anchor + 60_000).toISOString() }),
+    ]);
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    await screen.findByText("旧行");
+    const scroll = screen.getByTestId("feed-chat-scroll");
+
+    // 中段翻阅(scrollTop=300 > 阈值):新条目头部到达不锚(scrollTop 不动)
+    scroll.scrollTop = 300;
+    fireEvent.scroll(scroll);
+    items.unshift(
+      fixtureItem({ source: "telegram-clashv8", title: "新到甲", first_seen: new Date(anchor + 120_000).toISOString() }),
+    );
+    await act(async () => {
+      await emitEvent?.({ type: "completed" });
+    });
+    await screen.findByText("新到甲");
+    expect(scroll.scrollTop).toBe(300);
+    // 翻阅态出「回到最新」浮钮,一键回顶后浮钮退场
+    fireEvent.click(await screen.findByTestId("feed-chat-back-to-latest"));
+    expect(scroll.scrollTop).toBe(0);
+    expect(screen.queryByTestId("feed-chat-back-to-latest")).toBeNull();
+
+    // 贴最新端(scrollTop=50 ≤ 80 阈值):再进新条目 → 锚定回顶(50 → 0)
+    scroll.scrollTop = 50;
+    fireEvent.scroll(scroll);
+    items.unshift(
+      fixtureItem({ source: "telegram-clashv8", title: "新到乙", first_seen: new Date(anchor + 180_000).toISOString() }),
+    );
+    await act(async () => {
+      await emitEvent?.({ type: "completed" });
+    });
+    await screen.findByText("新到乙");
+    expect(scroll.scrollTop).toBe(0);
+  });
+
+  it("③ 未读分割线:最早一条未读(最底未读)与更早已读之间画「未读」细线;全部已读不画;未读块到列表末尾不画", async () => {
+    // 服务端读态通路(读态源 = items.read 投影,statesFromItems);catalog 域
+    // 给空答 —— 进会话自动已读只翻 catalog 副本,不冲掉 stream 侧 read 字段
+    versionMock.mockResolvedValue(versionResult(READ_STATE_PROTOCOL));
+    markAllMock.mockResolvedValue({ updated: 4 });
+    healthMock.mockResolvedValue(
+      healthResult({
+        categories: [
+          categoryEntry({ id: "telegram", name: "Telegram 监控", sources: [sourceEntry("telegram-clashv8", "tg_web")] }),
+        ],
+      }),
+    );
+    const anchor = dayWindowStart().getTime();
+    const at = (minute: number) => new Date(anchor + minute * 60_000).toISOString();
+    const u2 = fixtureItem({ source: "telegram-clashv8", title: "未读新", first_seen: at(4) });
+    const u1 = fixtureItem({ source: "telegram-clashv8", title: "未读早", first_seen: at(3) });
+    const r1 = fixtureItem({ source: "telegram-clashv8", title: "已读近", first_seen: at(2), read: true });
+    const r2 = fixtureItem({ source: "telegram-clashv8", title: "已读远", first_seen: at(1), read: true });
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(params?.source ? [u2, u1, r1, r2] : [])),
+    );
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    await screen.findByText("未读早");
+    // 分割线上邻 = 最早一条未读(u1,新→旧序中最底未读),下邻 = 更早已读(r1)
+    const divider = screen.getByTestId("feed-chat-unread-divider");
+    expect(divider.previousElementSibling?.getAttribute("data-testid")).toBe(`feed-item-${u1.id}`);
+    expect(divider.nextElementSibling?.getAttribute("data-testid")).toBe(`feed-item-${r1.id}`);
+    expect(divider.textContent).toContain("未读");
+
+    // 全部已读:分割线退场(全部已读不画)
+    cleanup();
+    const readAll = [u2, u1, r1, r2].map((item) => ({ ...item, read: true }));
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(params?.source ? readAll : [])),
+    );
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    await screen.findByText("未读早");
+    expect(screen.queryByTestId("feed-chat-unread-divider")).toBeNull();
+
+    // 未读块到列表末尾(全部未读):无已读可分界,悬空线不画
+    cleanup();
+    const noneRead = [u2, u1, r1, r2].map((item) => ({ ...item, read: undefined }));
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(params?.source ? noneRead : [])),
+    );
+    renderScreen();
+    await openTgGroup("telegram-clashv8");
+    await screen.findByText("未读早");
+    expect(screen.queryByTestId("feed-chat-unread-divider")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// chatTimeOf 纯函数(追加批⑥):聊天语境三档时间词面,now 注入可测
+// ---------------------------------------------------------------------------
+
+describe("chatTimeOf(追加批⑥,纯函数)", () => {
+  it("三档词面:今天 HH:mm / 昨天 HH:mm / M月D日;跨日边界与当日窗同锚(03:00,与时间分组同门);缺失/异形回落", () => {
+    const now = new Date(2026, 9, 13, 10, 0); // 2026-10-13 10:00(窗锚后)
+    expect(chatTimeOf(new Date(2026, 9, 13, 9, 5).toISOString(), now)).toBe("今天 09:05");
+    // 03:00 窗锚语义:当日 00:00 属上一窗(与时间分组「昨天(上一窗口)」
+    // 同门 —— 组头/泡面同锚,同屏不打架)
+    expect(chatTimeOf(new Date(2026, 9, 13, 0, 0).toISOString(), now)).toBe("昨天 00:00");
+    expect(chatTimeOf(new Date(2026, 9, 12, 23, 59).toISOString(), now)).toBe("昨天 23:59");
+    expect(chatTimeOf(new Date(2026, 9, 12, 3, 0).toISOString(), now)).toBe("昨天 03:00");
+    expect(chatTimeOf(new Date(2026, 9, 10, 8, 1).toISOString(), now)).toBe("10月10日");
+    expect(chatTimeOf(new Date(2025, 11, 30, 8, 0).toISOString(), now)).toBe("12月30日");
+    // 跨日边界(相对 now):now 在窗锚前(02:00)→ 当日 03:00 前的刻属上一窗
+    const early = new Date(2026, 9, 13, 2, 0);
+    expect(chatTimeOf(new Date(2026, 9, 13, 1, 30).toISOString(), early)).toBe("今天 01:30");
+    expect(chatTimeOf(new Date(2026, 9, 12, 2, 30).toISOString(), early)).toBe("昨天 02:30");
+    // 缺失/异形(与 formatRelativeTime 同守卫)
+    expect(chatTimeOf(null)).toBe("—");
+    expect(chatTimeOf("not-a-date")).toBe("not-a-date");
   });
 });
