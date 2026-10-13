@@ -899,7 +899,15 @@ fn main() {
             // 微信本机桥「取钥器」配置面(10-13-wechat-keyprovider B5:spawn
             // 安装态桥跑 localdb key-provider set/get/clear;配置落桥自有
             // config.json,壳不直写)
-            wechat_keyprovider::wechat_key_provider
+            wechat_keyprovider::wechat_key_provider,
+            // 微信监控 UI C 线(10-13-wechat-monitor-ui):密钥状态查询 +
+            // 取钥编排(单飞锁 + `wechat-key-acquire` 进度事件流;取消 =
+            // 组信号停用户态树 + 哨兵文件 + cancelled 终态事件)。
+            wechat_keyprovider::wechat_key_status,
+            wechat_keyprovider::wechat_key_acquire,
+            wechat_keyprovider::wechat_key_acquire_cancel,
+            // E 线(部署件一键安装):束源探测 + cp 到数据根私有区 bin/。
+            wechat_keyprovider::wechat_key_provider_install
         ])
         .setup(move |app| {
             // 冷启动打点(沿用 spike 惯例):进程启动 → sidecar spawn 完成。

@@ -238,6 +238,12 @@ function LocationProbe() {
   return <div data-testid="location-probe">{location.pathname}</div>;
 }
 
+/** 路由探针·带查询串(B3 深链断言:?file= 预选词进 search,不进 pathname) */
+function FullLocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location-full-probe">{`${location.pathname}${location.search}`}</div>;
+}
+
 /** v8 惯用入口:渲染 1 级类型卡墙(落地页;等类型卡形骨架卸载即铺底应答,
  *  类型卡在场)。 */
 async function renderOverview() {
@@ -5629,10 +5635,11 @@ describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
     mockWxWorld([wxItem]);
     renderScreen();
     await openWxChannel();
-    // 双栏:左栏监控会话(结构 testid feed-tg-group-* 不动,data-im-kind 区分 IM 档)
+    // 双栏:左栏监控会话(结构 testid feed-tg-group-* 不动,data-im-kind 区分 IM 档;
+    // wx 档行 = WxMonitorRow,10-13 B1 起 testid 走 wx-monitor-* 契约词)
     const pane = await screen.findByTestId("feed-tg-group-pane");
     expect(pane.getAttribute("data-im-kind")).toBe("wx");
-    expect(within(pane).getByTestId("feed-channel-row-weixin-测试会话")).toBeTruthy();
+    expect(within(pane).getByTestId("wx-monitor-row-weixin-测试会话")).toBeTruthy();
     // 气泡卡:data-kind=weixin(五档判定),气泡结构词共用
     const card = await screen.findByTestId(`feed-item-${wxItem.id}`);
     expect(card.getAttribute("data-kind")).toBe("weixin");
@@ -5653,8 +5660,195 @@ describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
     await openWxChannel();
     const pane = await screen.findByTestId("feed-tg-group-pane");
     expect(pane.getAttribute("data-im-kind")).toBe("wx");
-    expect(within(pane).getByTestId("feed-channel-row-weixin-测试会话")).toBeTruthy();
+    expect(within(pane).getByTestId("wx-monitor-row-weixin-测试会话")).toBeTruthy();
     expect(within(pane).queryByTestId("feed-channel-row-telegram-seed")).toBeNull();
+  });
+
+  // ── 10-13-wechat-monitor-ui B 线:3 级 wx 监控台群列表内容化(B1/B2/B3)──
+
+  /** wx 源健康度夹具(evaluate_source_health 形状;按需覆写 latest/skip) */
+  function wxHealth(
+    overrides: Partial<NonNullable<HealthResult["categories"][number]["sources"][number]["health"]>> = {},
+  ) {
+    return {
+      state: "ok" as const,
+      reason: "本轮产出 2 条",
+      observed: 3,
+      latest: { run_id: 1, run_status: "success", item_count: 2, skip_reason: null, failed: false },
+      baseline: null,
+      ...overrides,
+    };
+  }
+
+  /** 双 wx 源世界(源名 = 生产实名 TMS/AI中转站,前缀律 weixin-<群显示名>);
+   *  healthOverrides 按源名注入健康度,store.items 按源过滤。 */
+  function mockWxMonitorWorld(
+    healthOverrides: Record<string, ReturnType<typeof wxHealth>> = {},
+    items: FeedItem[] = [],
+  ) {
+    healthMock.mockResolvedValue(
+      healthResult({
+        categories: [
+          categoryEntry({
+            id: "weixin",
+            name: "微信监控",
+            sources: [
+              { ...sourceEntry("weixin-TMS 中转站交流", "wechat_local"), health: wxHealth(healthOverrides["weixin-TMS 中转站交流"]) },
+              { ...sourceEntry("weixin-AI中转站-♾️ AI Token", "wechat_local"), health: wxHealth(healthOverrides["weixin-AI中转站-♾️ AI Token"]) },
+            ],
+          }),
+        ],
+      }),
+    );
+    storeItemsMock.mockImplementation((params?: StoreItemsParams) =>
+      Promise.resolve(result(items.filter((item) => !params?.source || item.source === params.source))),
+    );
+  }
+
+  /** 双 wx 源世界下钻:2 级点 TMS 行进 3 级(等作用域查询发出) */
+  async function openWxMonitorChannel() {
+    await openWxList();
+    fireEvent.click(await screen.findByTestId("feed-channel-row-weixin-TMS 中转站交流"));
+    await waitFor(() =>
+      expect(storeItemsMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ source: "weixin-TMS 中转站交流" }),
+      ),
+    );
+  }
+
+  it("B1 微信群列表按源渲染:health 声明源即成行(源驱动零硬编码群名),状态词=监控中,展示名剥 weixin- 前缀,telegram 不混列", async () => {
+    mockProbe(probePayload());
+    mockWxMonitorWorld();
+    renderScreen();
+    await openWxMonitorChannel();
+    const pane = await screen.findByTestId("feed-tg-group-pane");
+    // 两声明源各一行(wx-monitor-row-<源名全称>);头像 tint 档 = CHANNEL_ROW_AVATAR_TONE.wx
+    const tmsRow = within(pane).getByTestId("wx-monitor-row-weixin-TMS 中转站交流");
+    const aiRow = within(pane).getByTestId("wx-monitor-row-weixin-AI中转站-♾️ AI Token");
+    // 健康度 ok + 无 skip → 状态词「监控中」(域词,B2 映射)
+    expect(within(tmsRow).getByTestId("wx-monitor-status-weixin-TMS 中转站交流").textContent).toContain("监控中");
+    expect(within(aiRow).getByTestId("wx-monitor-status-weixin-AI中转站-♾️ AI Token").textContent).toContain("监控中");
+    // 展示名 = channelDisplayName 剥 weixin- 前缀(群本名)
+    expect(tmsRow.textContent).toContain("TMS 中转站交流");
+    // 平台隔离延续:telegram 源不混列(此世界未声明,行缺席)
+    expect(within(pane).queryByTestId("wx-monitor-row-telegram-seed")).toBeNull();
+  });
+
+  it("B2 密钥缺失灰行与跳转:最近 run skip_reason=key_unavailable → 灰行(data-key-missing)+「密钥缺失」+「去获取密钥」跳 /weixin;健康源对照无钮;其余降级走域词「降级」", async () => {
+    mockProbe(probePayload());
+    mockWxMonitorWorld({
+      // 生产语义锚:empty_ok 品类下 key skip 健康度可判 ok,skip 一票定密钥缺失
+      "weixin-TMS 中转站交流": wxHealth({
+        state: "ok",
+        reason: "empty_ok:0 条合法",
+        latest: { run_id: 9, run_status: "success", item_count: 0, skip_reason: "key_unavailable", failed: false },
+      }),
+      "weixin-AI中转站-♾️ AI Token": wxHealth({
+        state: "degraded",
+        reason: "最新一轮采集失败(未满连续 3 次的死线)",
+        latest: { run_id: 8, run_status: "success", item_count: 0, skip_reason: null, failed: true },
+      }),
+    });
+    render(
+      <MemoryRouter>
+        <LocationProbe />
+        <FeedScreen />
+      </MemoryRouter>,
+    );
+    await openWxMonitorChannel();
+    const pane = await screen.findByTestId("feed-tg-group-pane");
+    // 密钥缺失灰行:标记 + 词 + 动线钮;预览位让给钮
+    const tmsRow = within(pane).getByTestId("wx-monitor-row-weixin-TMS 中转站交流");
+    expect(tmsRow.getAttribute("data-key-missing")).toBe("true");
+    expect(within(tmsRow).getByTestId("wx-monitor-status-weixin-TMS 中转站交流").textContent).toContain("密钥缺失");
+    expect(within(tmsRow).getByTestId("wx-monitor-goto-acquire")).toBeTruthy();
+    expect(within(tmsRow).queryByTestId("wx-monitor-latest-weixin-TMS 中转站交流")).toBeNull();
+    // 降级(非密钥):域词「降级」+ 无密钥钮
+    const aiRow = within(pane).getByTestId("wx-monitor-row-weixin-AI中转站-♾️ AI Token");
+    expect(aiRow.getAttribute("data-key-missing")).toBe("false");
+    expect(within(aiRow).getByTestId("wx-monitor-status-weixin-AI中转站-♾️ AI Token").textContent).toContain("降级");
+    expect(within(aiRow).queryByTestId("wx-monitor-goto-acquire")).toBeNull();
+    // 跳转:去获取密钥 → /weixin(密钥状态行 = A 线卡内锚,跳屏即止)
+    fireEvent.click(within(tmsRow).getByTestId("wx-monitor-goto-acquire"));
+    await waitFor(() => expect(screen.getByTestId("location-probe").textContent).toBe("/weixin"));
+  });
+
+  it("B1 最新一条预览与相对时间:cardDigest 预览 + 相对时间 time 元素(dateTime 锚);零条目源 = 知会词 + 无时间", async () => {
+    mockProbe(probePayload());
+    const seen = new Date().toISOString();
+    mockWxMonitorWorld(
+      {},
+      [
+        fixtureItem({
+          source: "weixin-TMS 中转站交流",
+          title: "群消息标题",
+          content: "预览正文一行",
+          first_seen: seen,
+        }),
+      ],
+    );
+    renderScreen();
+    await openWxMonitorChannel();
+    const pane = await screen.findByTestId("feed-tg-group-pane");
+    const tmsRow = within(pane).getByTestId("wx-monitor-row-weixin-TMS 中转站交流");
+    // cardDigest 复用:正文(与标题不重复)压平取头
+    expect(within(tmsRow).getByTestId("wx-monitor-latest-weixin-TMS 中转站交流").textContent).toContain("预览正文一行");
+    // 相对时间:time 元素 + dateTime 锚(ChannelRow 同门;词面 = formatRelativeTime 域词)
+    const time = tmsRow.querySelector("time");
+    expect(time).toBeTruthy();
+    expect(time?.getAttribute("dateTime")).toBe(seen);
+    expect(time?.textContent ?? "").toMatch(/^(刚刚|\d+ (分钟|小时|天)前|\d{4}-)/);
+    // 零条目源(未入库):知会词 + 无 time 元素
+    const aiRow = within(pane).getByTestId("wx-monitor-row-weixin-AI中转站-♾️ AI Token");
+    expect(within(aiRow).getByTestId("wx-monitor-latest-weixin-AI中转站-♾️ AI Token").textContent).toContain("暂无入库消息");
+    expect(aiRow.querySelector("time")).toBeNull();
+  });
+
+  it("B3 去配置跳转链路:右栏底「去配置监控群 →」→ /yaml-editor 深链预选 weixin.yaml(?file=);清单无 weixin.yaml/拉取失败 = 跳屏手选回退", async () => {
+    // yaml.list 应答(weixin.yaml 在列;G12 夹具同形)
+    const yamlFiles = [
+      { file: "/home/config/weixin.yaml", name: "weixin.yaml", parse_ok: true, category_id: "weixin", category_name: "微信监控" },
+      { file: "/home/config/ai-news.yaml", name: "ai-news.yaml", parse_ok: true, category_id: "ai-news", category_name: "AI资讯" },
+    ];
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "wechat_local.probe") return probePayload();
+      if (args?.method === "yaml.list") return { config_dir: "/home/config", files: yamlFiles };
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    mockWxMonitorWorld();
+    render(
+      <MemoryRouter>
+        <FullLocationProbe />
+        <FeedScreen />
+      </MemoryRouter>,
+    );
+    await openWxMonitorChannel();
+    const pane = await screen.findByTestId("feed-tg-group-pane");
+    const gotoConfig = within(pane).getByTestId("wx-monitor-goto-config");
+    expect(gotoConfig.textContent).toContain("去配置监控群");
+    fireEvent.click(gotoConfig);
+    await waitFor(() =>
+      expect(screen.getByTestId("location-full-probe").textContent).toBe(
+        `/yaml-editor?file=${encodeURIComponent("/home/config/weixin.yaml")}`,
+      ),
+    );
+
+    // 回退:清单无 weixin.yaml → 跳屏手选(不猜文件名)
+    cleanup();
+    invokeMock.mockImplementation(async (_command: string, args?: { method?: string }) => {
+      if (args?.method === "wechat_local.probe") return probePayload();
+      if (args?.method === "yaml.list") return { config_dir: "/home/config", files: yamlFiles.slice(1) };
+      throw JSON.stringify({ code: "method_not_found", path: "$", message: `未 mock:${args?.method}` });
+    });
+    render(
+      <MemoryRouter>
+        <FullLocationProbe />
+        <FeedScreen />
+      </MemoryRouter>,
+    );
+    await openWxMonitorChannel();
+    fireEvent.click(within(await screen.findByTestId("feed-tg-group-pane")).getByTestId("wx-monitor-goto-config"));
+    await waitFor(() => expect(screen.getByTestId("location-full-probe").textContent).toBe("/yaml-editor"));
   });
 
   it("3 级 wx 监控台三态:ok = ● 桥在线 · 微信版本 + 管理/历史钮(无扫码登录、无原生网页预览、无原生视图段 = 有意缺席);degraded/unavailable 如实", async () => {

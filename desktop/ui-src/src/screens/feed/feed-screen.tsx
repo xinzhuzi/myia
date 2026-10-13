@@ -53,7 +53,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, onSidecarEvent, SidecarRequestError } from "@/lib/api";
-import type { FeedEnrichResult, FeedItem, UnlistenFn } from "@/lib/api";
+import type { FeedEnrichResult, FeedItem, SourceHealth, UnlistenFn } from "@/lib/api";
 
 import {
   appendFeedPage,
@@ -282,6 +282,44 @@ function wxBridgeWord(probe: WechatLocalProbeView): string {
 function wxBridgeTitle(probe: WechatLocalProbeView): string {
   const hint = probe.reasons[0]?.fix_hint;
   return hint ? `${wxBridgeWord(probe)}:${hint}` : wxBridgeWord(probe);
+}
+
+/** wx 监控群状态视图词(10-13-wechat-monitor-ui B2,契约 design §D.4/§1.3):
+ *  源最近 run 的 skip_reason 映射优先 + 源健康度既有判据域承载其余态
+ *  (grill 决议⑤:复用 ok/degraded/dead/unknown 词表,不新造「24h 安静」
+ *  规则)。key_unavailable 一票定「密钥缺失」灰行 —— 即便健康度判 ok
+ *  (生产 weixin.yaml 源带 empty_ok:true,密钥缺位 skip + 0 条会被判 ok,
+ *  只看健康度会把「该去取钥」误报成「监控中」,探针判据说谎同款坑)。 */
+interface WxGroupStatus {
+  /** 上屏词(§4 文案表:监控中 / 密钥缺失 / 降级;健康度 unknown 域词如实) */
+  word: "监控中" | "密钥缺失" | "降级" | "未知";
+  /** 圆点档色(健康度四态 token 同源:ok 绿 / warning 黄 / unknown 灰) */
+  dotClass: string;
+  /** 词色(ok 绿 / warning 黄 / muted 灰) */
+  textClass: string;
+  /** 密钥缺失灰行 + 「去获取密钥」动线的判定位 */
+  keyMissing: boolean;
+}
+
+const WX_GROUP_STATUS: Record<WxGroupStatus["word"], Omit<WxGroupStatus, "word">> = {
+  监控中: { dotClass: "bg-ok", textClass: "text-ok", keyMissing: false },
+  密钥缺失: { dotClass: "bg-unknown", textClass: "text-muted-foreground", keyMissing: true },
+  降级: { dotClass: "bg-warning", textClass: "text-warning", keyMissing: false },
+  未知: { dotClass: "bg-unknown", textClass: "text-muted-foreground", keyMissing: false },
+};
+
+/** wx 群状态映射:最近 run skip_reason(key_unavailable → 密钥缺失)优先,
+ *  其余走源健康度域词(ok → 监控中;degraded/dead → 降级;unknown/无快照
+ *  → 未知)。reason 供 title 悬浮(health.reason 人话)。 */
+function wxGroupStatusOf(health: SourceHealth | undefined): WxGroupStatus {
+  let word: WxGroupStatus["word"];
+  if (health?.latest?.skip_reason === "key_unavailable") {
+    word = "密钥缺失";
+  } else {
+    const state = health?.state ?? "unknown";
+    word = state === "ok" ? "监控中" : state === "degraded" || state === "dead" ? "降级" : "未知";
+  }
+  return { word, ...WX_GROUP_STATUS[word] };
 }
 
 /** 绝对时间(展开态元信息行):YYYY-MM-DD HH:mm */
@@ -1316,6 +1354,168 @@ const ChannelRow = memo(function ChannelRow({
 });
 
 /**
+ * wx 监控群行(10-13-wechat-monitor-ui B1/B2,契约 design §D.4):ChannelRow
+ * 渠道行家族的微信档姊妹 —— 借 ChannelRow 的两行密度与头像 chip 形(CHANNEL_
+ * ROW_AVATAR_TONE.wx 官方绿 10% tint 既有档直接用,借形不改语义),增第三
+ * 语义位:**群状态**(wxGroupStatusOf:最近 run skip_reason + 源健康度域词)。
+ * 行 1 = 群名 + 最新相对时间(ChannelRow 同款);行 2 = 状态点词 + cardDigest
+ * 最新一条预览(F6 同文回退标题/stats 回退同门)+ 未读徽标。密钥缺失 =
+ * 灰行(整行降透明 + 预览位让给「去获取密钥」动线钮 → /weixin 屏密钥行;
+ * 行本身仍可点开看历史消息)。交互契约镜像 ChannelRow:role=button + Space
+ * 激活、Enter 归全局巡游线、data-feed-group-row 定位锚。testid 走 wx-monitor-*
+ * 契约词(feed-channel-row-* 是 2 级 ChannelRow 的结构词,不共用)。
+ */
+const WxMonitorRow = memo(function WxMonitorRow({
+  card,
+  health,
+  selected,
+  current,
+  navFocused,
+  statsScope = "loaded",
+  dataFeedGroupRow = true,
+  onCurrent,
+  onOpen,
+  onGoAcquire,
+}: {
+  card: FeedChannelCardData;
+  /** 源健康度快照(sourceHealthBySource.get(key);缺席 = 未知词如实) */
+  health: SourceHealth | undefined;
+  selected: boolean;
+  current: boolean;
+  navFocused: boolean;
+  /** 计数词面档(ChannelRow 同门:stats 覆写后 title 随全库口径) */
+  statsScope?: "loaded" | "full";
+  /** 左栏群行定位锚(补①/补⑤同门;默认挂,与 ChannelRow 缺省 false 相异:
+   *  本组件只在 3 级左栏消费) */
+  dataFeedGroupRow?: boolean;
+  onCurrent: (key: string) => void;
+  onOpen: (key: string) => void;
+  /** 「去获取密钥」动线(密钥缺失灰行;跳 /weixin 屏密钥状态行) */
+  onGoAcquire: () => void;
+}) {
+  const meta = CHANNEL_CARD_META[card.kind];
+  const KindIcon = meta.Icon;
+  const status = wxGroupStatusOf(health);
+  // 预览三段回退同 ChannelRow(F6 同文回退标题 / stats 回填),零新词表
+  const digest = card.latest ? cardDigest(card.latest) : null;
+  const loadedPreview = digest ?? (card.latest ? card.latest.title || card.latest.url : null);
+  const statsPreview = loadedPreview === null ? (card.statsLatestTitle ?? null) : null;
+  const preview = loadedPreview ?? statsPreview;
+  const seenIso = card.latest?.first_seen ?? (loadedPreview === null ? card.statsLatestSeen ?? null : null);
+  const time = seenIso ? formatRelativeTime(seenIso) : null;
+  return (
+    <div
+      data-testid={`wx-monitor-row-${card.key}`}
+      data-item-key={card.key}
+      data-channel-kind={card.kind}
+      data-feed-group-row={dataFeedGroupRow ? card.key : undefined}
+      data-selected={selected ? "true" : "false"}
+      data-unread={card.unread > 0 ? "true" : "false"}
+      data-current={current ? "true" : "false"}
+      data-nav-focused={navFocused ? "true" : "false"}
+      data-key-missing={status.keyMissing ? "true" : "false"}
+      role="button"
+      tabIndex={0}
+      aria-current={selected ? "true" : undefined}
+      aria-label={`打开监控群:${card.label}`}
+      onMouseEnter={() => onCurrent(card.key)}
+      onFocus={() => onCurrent(card.key)}
+      onClick={() => onOpen(card.key)}
+      onKeyDown={(event) => {
+        // Space = ARIA 按钮激活语义(ChannelRow 同门;Enter 归全局巡游线)
+        if (event.key === " ") {
+          event.preventDefault();
+          onOpen(card.key);
+        }
+      }}
+      className={`relative cursor-pointer ${
+        selected ? "bg-accent" : "hover:bg-accent/50"
+      }${navFocused ? " ring-1 ring-primary/60" : ""}${status.keyMissing ? " opacity-60" : ""}`}
+    >
+      <div className="flex items-start gap-2.5 px-2.5 py-2">
+        {/* 类型头像 chip:微信官方绿 10% tint 既有档(CHANNEL_ROW_AVATAR_TONE.wx) */}
+        <span
+          aria-hidden
+          className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md ${CHANNEL_ROW_AVATAR_TONE[card.kind]}`}
+        >
+          <KindIcon className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          {/* 行 1:群名 + 最新相对时间(零条目不显;ChannelRow 同款) */}
+          <div className="flex items-baseline justify-between gap-2">
+            <span
+              className={`min-w-0 truncate text-sm font-medium ${
+                selected ? "text-link" : status.keyMissing ? "text-muted-foreground" : "text-foreground"
+              }`}
+              title={card.key}
+            >
+              {card.label}
+            </span>
+            {time !== null ? (
+              <time
+                dateTime={seenIso ?? undefined}
+                className="shrink-0 font-mono text-2xs text-muted-foreground"
+              >
+                {time}
+              </time>
+            ) : null}
+          </div>
+          {/* 行 2:状态点词(B2 判据)· cardDigest 预览 · 未读徽标;密钥缺失 =
+              预览位让给「去获取密钥」动线钮(灰行的信息就是这颗钮)。状态不得
+              仅靠颜色传达:点 + 词(title 悬浮 = health.reason 人话)。 */}
+          <div className="mt-0.5 flex items-center justify-between gap-2">
+            <span
+              data-testid={`wx-monitor-status-${card.key}`}
+              title={health?.reason ?? undefined}
+              className={`inline-flex shrink-0 items-center gap-1 text-2xs ${status.textClass}`}
+            >
+              <span aria-hidden className={`size-1.5 rounded-full ${status.dotClass}`} />
+              {status.word}
+            </span>
+            {status.keyMissing ? (
+              <button
+                type="button"
+                data-testid="wx-monitor-goto-acquire"
+                title="到「微信」屏获取数据库密钥:密钥就绪后本群自动恢复监控"
+                onClick={(event) => {
+                  // 行 onClick 会随后冒泡触发(开渠道)——动线钮独占本击,
+                  // 密钥缺失态的行点击(看历史)与去取钥不混发
+                  event.stopPropagation();
+                  onGoAcquire();
+                }}
+                className="inline-flex h-5 shrink-0 items-center rounded-md px-1.5 text-2xs text-primary hover:bg-accent/50 hover:underline"
+              >
+                去获取密钥
+              </button>
+            ) : (
+              <p
+                data-testid={`wx-monitor-latest-${card.key}`}
+                className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+              >
+                {preview ?? "暂无入库消息"}
+              </p>
+            )}
+            {card.unread > 0 ? (
+              <span
+                data-testid={`feed-channel-unread-${card.key}`}
+                className="min-w-5 shrink-0 rounded-full bg-primary px-1.5 text-center text-2xs font-medium text-primary-foreground tabular-nums"
+                title={
+                  statsScope === "full"
+                    ? "全库口径:未读 = 未标已读(store.source_stats 分源聚合),不限今日。"
+                    : "已加载口径:未读 = 已加载条目中的未读(不限今日)。首屏铺底为全库首页 50 条,更早条目未计入。"
+                }
+              >
+                {card.unread > 9 ? "9+" : card.unread}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/**
  * 类型卡(v8 1 级,design-v8 §1.2):竖版卡(260 宽 × min-h 340 = 高>宽,
  * 主人「卡片高度 > 宽度」钉死),自上而下四段 —— 类型头像 chip(同门
  * CHANNEL_CARD_META,size-10)+ 类型名/渠道数、今日(大号 mono)/未读、
@@ -1745,7 +1945,7 @@ function FeedErrorCard({
  *  基件 ui/context-menu.tsx 本批自建)。
  *
  * read-state-server(10-04,G9 后半):已读/星标/稍后读迁服务端 —— 能力门
- *  (挂载一次 api.version,protocol ≥ READ_STATE_PROTOCOL)分流:过门走
+ *  (装载一次 api.version,protocol ≥ READ_STATE_PROTOCOL)分流:过门走
  *  store.state.*(单键 mark 乐观 + 失败回滚;「全部标已读/未读」= mark_all
  *  全库语义,title 换真话,就地翻转不整页重拉)+ 首启 localStorage 一次性
  *  搬迁(importLocalFeedStates,旧键保留不删);未过门(旧 sidecar 配新 UI)
@@ -1830,9 +2030,12 @@ export function FeedScreen() {
   const [statsReady, setStatsReady] = useState(false);
   const [sourceStats, setSourceStats] = useState<SourceStatsRow[] | null>(null);
   /** 源名→engine 映射(右栏渠道全集词表源 + 类型徽标判定;
-   *  health().categories 派生,挂载一次,零新 RPC;health 失败 = 空映射,
+   *  health().categories 派生,装载一次,零新 RPC;health 失败 = 空映射,
    *  渠道全集退化为已加载条目 source、类型退化为源名前缀判定) */
   const [engineBySource, setEngineBySource] = useState<Map<string, string>>(new Map());
+  /** 源名→健康度快照(10-13-wechat-monitor-ui B2:wx 三级监控台群状态词源;
+   *  与 engineBySource 同一次 health() 装配,进屏一次零新 RPC,快照时点同门) */
+  const [sourceHealthBySource, setSourceHealthBySource] = useState<Map<string, SourceHealth>>(new Map());
   /** 双缓冲(v7 §3.2,本批最关键结构改动):单一 items 同时喂「右栏聚合」
    *  与「左栏流」会把右栏其他行的数据饿死 —— 拆两域。catalogItems = 全库
    *  铺底(首页 50,只喂右栏:channelCards 聚合 + 总览统计);streamItems
@@ -1942,7 +2145,7 @@ export function FeedScreen() {
     setDisplay(loadFeedDisplay());
   }, []);
 
-  // 源名→engine 映射(挂载一次):health().categories → sources[].name→engine
+  // 源名→engine 映射(装载一次):health().categories → sources[].name→engine
   // —— v6 渠道墙的渠道全集词表源(零条目渠道也出卡的 health 半边)+ 类型
   // 徽标判定;失败静默收敛为空映射(渠道全集退化为已加载条目 source,
   // 不拦情报流)
@@ -1951,10 +2154,23 @@ export function FeedScreen() {
     void api
       .health()
       .then((health) => {
-        if (!cancelled) setEngineBySource(engineMapFromHealth(health.categories));
+        if (cancelled) return;
+        setEngineBySource(engineMapFromHealth(health.categories));
+        // B2 群状态词源:同一次应答顺带留全源健康度快照(首个声明者赢,
+        // 与 engineMapFromHealth 同门;失败面 = 空映射,wx 群行落「未知」)
+        const healths = new Map<string, SourceHealth>();
+        for (const category of health.categories) {
+          for (const source of category.sources) {
+            if (source.name && !healths.has(source.name)) healths.set(source.name, source.health);
+          }
+        }
+        setSourceHealthBySource(healths);
       })
       .catch(() => {
-        if (!cancelled) setEngineBySource(new Map());
+        if (!cancelled) {
+          setEngineBySource(new Map());
+          setSourceHealthBySource(new Map());
+        }
       });
     return () => {
       cancelled = true;
@@ -1971,7 +2187,7 @@ export function FeedScreen() {
     return () => window.clearInterval(timer);
   }, []);
 
-  // 能力门探测(挂载一次):低版本/探测失败 → false(旧 localStorage 通路);
+  // 能力门探测(装载一次):低版本/探测失败 → false(旧 localStorage 通路);
   // 同一次应答顺带置计数口径门(F2)与分源统计门(v8 STATS_PROTOCOL,零新 RPC;
   // 源大类门随 v5 信息架构退役,见 view 注记)
   useEffect(() => {
@@ -2013,7 +2229,7 @@ export function FeedScreen() {
     return () => clearTimeout(timer);
   }, [streamSearchInput, streamQuery]);
 
-  /** 分源统计拉取(v8 §5.1:挂载即拉;与 catalog 同触发面双刷;windowStart
+  /** 分源统计拉取(v8 §5.1:装载即拉;与 catalog 同触发面双刷;windowStart
    *  60s 滴答跨窗重拉——今日数随窗翻面,deps 用时间戳数值防每分钟重拉)。
    *  失败/未过门 = sourceStats 落 null 回退 catalog 口径,尽力而为不拦情报流。 */
   const windowStartKey = windowStart.getTime();
@@ -2028,7 +2244,7 @@ export function FeedScreen() {
   }, [statsReady, windowStartKey]);
 
   /** 右栏铺底拉取(v7 §3.2):全库首页 50(零 source 参数),只喂 catalogItems
-   *  (channelCards 聚合 + 总览统计);挂载即拉,countReady 门翻转补一查。
+   *  (channelCards 聚合 + 总览统计);装载即拉,countReady 门翻转补一查。
    *  空结果追问 health(firstRun 分叉,总览空态用)。 */
   const refreshCatalog = useCallback(async () => {
     const seq = nextCatalogSeq();
@@ -2103,8 +2319,8 @@ export function FeedScreen() {
     }
   }, [viewSource, streamQuery, countReady, nextStreamSeq]);
 
-  // catalog 挂载即拉;countReady 门翻转(version 异步竞速)补一查,total 不缺场;
-  // 分源统计同触发面(挂载 + 门翻转,windowStart 跨窗经自身 deps 重拉)
+  // catalog 装载即拉;countReady 门翻转(version 异步竞速)补一查,total 不缺场;
+  // 分源统计同触发面(装载 + 门翻转,windowStart 跨窗经自身 deps 重拉)
   useEffect(() => {
     void refreshCatalog();
   }, [refreshCatalog]);
@@ -2698,6 +2914,36 @@ export function FeedScreen() {
   const retryWxProbe = useCallback(() => {
     setWxProbeTick((tick) => tick + 1);
   }, []);
+
+  /** B2「去获取密钥」动线(密钥缺失灰行;契约 design §D.4):跳 /weixin 屏
+   *  (App.tsx 在册路由,WeixinAccountCard 密钥状态行 = A 线交付件)。行在场
+   *  时滚入视口;缺席/未渲染(并行 A 线未合)跳屏即止,不硬等 —— best-effort
+   *  定位锚 = A 线契约 testid weixin-keystatus-badge(§D.1,注释互指)。 */
+  const gotoWxKeyAcquire = useCallback(() => {
+    navigate("/weixin");
+    window.setTimeout(() => {
+      document
+        .querySelector('[data-testid="weixin-keystatus-badge"]')
+        ?.scrollIntoView({ block: "center" });
+    }, 80);
+  }, [navigate]);
+
+  /** B3「去配置监控群 →」动线(grill 决议④:一期零写面,不与数据源侧会话
+   *  双写 weixin.yaml):跳既有 YAML 编辑屏,深链 ?file= 预选 weixin.yaml
+   *  (yaml-editor-screen.tsx:103 深链在册,源管理「编辑」同款)。清单拉取
+   *  失败 / 无 weixin.yaml(如实:可能尚未建)→ 跳屏由用户手选(注释注记,
+   *  不猜文件名)。注:生产数据根另有 weixin-ai-token.yaml 第二品类文件,
+   *  深链只预选主件 weixin.yaml(契约钉死),他件手选。 */
+  const gotoWxGroupConfig = useCallback(() => {
+    void listYamlTargets()
+      .then((targets) => {
+        const wxYaml = targets.files.find((file) => file.name.toLowerCase() === "weixin.yaml");
+        navigate(wxYaml ? `/yaml-editor?file=${encodeURIComponent(wxYaml.file)}` : "/yaml-editor");
+      })
+      .catch(() => {
+        navigate("/yaml-editor");
+      });
+  }, [navigate]);
 
   /** 分组(显示选项,仅聊天视图):TG 频道作用域的日期胶囊分组走时间四桶
    *  (v4 聊天主页风格);不分组 = 平铺。瀑布流卡片墙(AC13)恒平铺多列
@@ -4020,13 +4266,37 @@ export function FeedScreen() {
               <div className="min-h-0 flex-1 overflow-y-auto py-1" data-testid="feed-tg-group-list">
                 {imGroupCards.length === 0 ? (
                   /* 零监控会话引导空态(AC4):正常动线下 3 级聊天视图必有 ≥1
-                      会话(入口本身来自该列表),此态为防御位 + 语义自文档 */
+                      会话(入口本身来自该列表),此态为防御位 + 语义自文档;
+                      wx 分支指引走 YAML 声明制(声明制监控 v1:桥 sessions
+                      清单不接 feed),TG 分支指引 Telegram 屏原样 */
                   <div className="px-3 py-8 text-center" data-testid="feed-tg-group-empty">
                     <p className="text-xs font-medium text-foreground">还没有监控会话</p>
                     <p className="mt-1 text-2xs leading-relaxed text-muted-foreground">
-                      到「Telegram」屏(侧栏「配置」组)添加监控会话并登录后,群消息会自动入库并出现在这里。
+                      {activeChannelKind === "wx"
+                        ? "监控群在品类 YAML(weixin.yaml)里声明;到 YAML 配置屏添加后,下一轮采集自动入库并出现在这里。"
+                        : "到「Telegram」屏(侧栏「配置」组)添加监控会话并登录后,群消息会自动入库并出现在这里。"}
                     </p>
                   </div>
+                ) : activeChannelKind === "wx" ? (
+                  /* wx 档 = WxMonitorRow(B1/B2:群状态位 + 密钥缺失灰行;
+                      渠道行家族微信档,借形不改语义) */
+                  imGroupCards.map((card) => (
+                    <WxMonitorRow
+                      key={card.key}
+                      card={card}
+                      health={sourceHealthBySource.get(card.key)}
+                      /* 选中态 = 当前深链渠道(AC1 默认选中;点他行即切换) */
+                      selected={card.key === viewSource}
+                      current={listCurrentKey === card.key}
+                      navFocused={false}
+                      statsScope={sourceStats !== null ? "full" : "loaded"}
+                      onCurrent={onCurrentRow}
+                      /* 切换语义(AC2):openChannel 原样复用(ChannelRow 同门
+                          注释:清流重拉不退出 3 级;密钥缺失行也可开 = 看历史) */
+                      onOpen={openChannel}
+                      onGoAcquire={gotoWxKeyAcquire}
+                    />
+                  ))
                 ) : (
                   imGroupCards.map((card) => (
                     <ChannelRow
@@ -4048,6 +4318,23 @@ export function FeedScreen() {
                   ))
                 )}
               </div>
+              {/* B3「去配置监控群 →」(wx 档专属,列表底常驻——含零群空态):
+                  跳既有 YAML 编辑屏(?file= 深链预选 weixin.yaml;grill 决议④
+                  一期零写面,不与数据源侧会话双写 weixin.yaml)。 */}
+              {activeChannelKind === "wx" ? (
+                <div className="border-t border-border/40 px-3 py-2">
+                  <button
+                    type="button"
+                    data-testid="wx-monitor-goto-config"
+                    title="到「YAML 配置」屏编辑 weixin.yaml 声明监控群;保存后下一轮采集生效(本页一期只读,不直接写文件)"
+                    onClick={gotoWxGroupConfig}
+                    className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-2xs text-primary hover:bg-accent/50 hover:underline"
+                  >
+                    去配置监控群
+                    <ChevronRight aria-hidden className="size-3" />
+                  </button>
+                </div>
+              ) : null}
             </aside>
           ) : null}
           {/* 右栏:聊天头(TG)+ 工具条 + 时间线滚动区(网站/日报无头单列原样) */}
