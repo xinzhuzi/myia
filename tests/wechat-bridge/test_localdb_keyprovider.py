@@ -357,6 +357,189 @@ class TestProviderNegative:
         assert "取钥失败XYZ" in message and "keys.json" in message
 
 
+class TestProviderEdgeShapes:
+    """失败台账 6 个半形态专测锚(2026-10-13 两轮审计修复;行对齐
+    docs/wechat-keyprovider.md §8 台账表——判定语义 §4 行序/§5 keys 映射/
+    §6 矩阵的组合与半覆盖形态,既有正负例之外补齐)。"""
+
+    def test_partial_coverage_over_inflight_dbs_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """①部分覆盖(多库缺钥):两库在场只给一把真钥 → 整体失败 exit 21,
+        消息如实报覆盖/验真计数、未入缓存(台账「密钥部分覆盖」行)。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        key = bytes(range(32))
+        db_storage, _key_db = make_account(tmp_path, key)
+        second_key = bytes(range(64, 96))
+        second_db = db_storage / "session" / "session.db"
+        second_db.parent.mkdir(parents=True, exist_ok=True)
+        second_db.write_bytes(make_page1(second_key, salt=bytes(range(16, 32))))
+        first_page1 = (db_storage / "message" / "message_0.db").read_bytes()[:4096]
+        provider = _echo_provider(
+            tmp_path,
+            "provider-partial.py",
+            _success_result({_salt(first_page1): key.hex()}),  # 只给 message 钥
+        )
+        with pytest.raises(BridgeError) as excinfo:
+            acquire_keys_from_provider(
+                db_storage, str(provider), data_root=tmp_path / "home"
+            )
+        err = excinfo.value
+        assert err.exit_code == 21
+        assert "覆盖在场库 1/2" in err.message
+        assert "页1 HMAC 验真通过 1/2" in err.message
+        assert "未入缓存" in err.message
+        assert read_key_cache(data_root=tmp_path / "home") is None
+
+    def test_success_false_with_nonzero_exit_takes_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """②success:false + 非零退出码:§6 矩阵「任意退出码」半边——
+        result 判定优先于退出码,error 透传,不落「异常退出」形态。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, _page1 = self._single_db_fixture(tmp_path)
+        result_obj = {
+            "type": "result",
+            "success": False,
+            "error": "钥匙串未解锁(非零退出形态)",
+            "logs": [],
+        }
+        payload_file = tmp_path / "refuse-exit3.ndjson"
+        payload_file.write_text(
+            json.dumps(result_obj, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        provider = _write_script(
+            tmp_path,
+            "provider-refuse-exit3.py",
+            "import sys\nsys.stdin.readline()\n"
+            f"sys.stdout.write(open({str(payload_file)!r}, encoding='utf-8').read())\n"
+            "sys.stdout.flush()\n"
+            "sys.exit(3)\n",  # 报 result 后再以非零码退出(半形态组合)
+        )
+        with pytest.raises(BridgeError) as excinfo:
+            acquire_keys_from_provider(
+                db_storage, str(provider), data_root=tmp_path / "home"
+            )
+        err = excinfo.value
+        assert err.exit_code == 21
+        assert "外部取钥器报告失败" in err.message
+        assert "钥匙串未解锁(非零退出形态)" in err.message
+        assert "异常退出" not in err.message  # 不被 exit 码形态顶掉
+
+    def test_runtime_nonexecutable_spawn_oserror(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """③运行期不可执行:set 之后被 chmod -x 的文件 → spawn OSError
+        (PermissionError)如实报(台账「文件不可执行」行运行期半边;
+        区别于既有「文件不存在」 FileNotFoundError 形态)。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, _page1 = self._single_db_fixture(tmp_path)
+        script = _write_script(
+            tmp_path,
+            "provider-nox.py",
+            "import sys\nsys.stdin.readline()\n",
+        )
+        script.chmod(0o644)  # 文件在场、缺可执行位(绕过 set 门后的运行期态)
+        with pytest.raises(BridgeError) as excinfo:
+            acquire_keys_from_provider(
+                db_storage, str(script), data_root=tmp_path / "home"
+            )
+        err = excinfo.value
+        assert err.exit_code == 21
+        assert "启动失败" in err.message and "PermissionError" in err.message
+        assert str(script) in err.message
+        assert "可执行位" in (err.fix_hint or "")
+
+    def test_first_result_wins_on_duplicate(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """④多条 result(§4 行序违例):首条为终态、其后读空丢弃——
+        首条 success:true 真钥 → 闭合落缓存;第二条 success:false 不生效。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        key = bytes(range(32))
+        db_storage, _key_db = make_account(tmp_path, key)
+        page1 = (db_storage / "message" / "message_0.db").read_bytes()[:4096]
+        first = _success_result({_salt(page1): key.hex()})
+        second = {
+            "type": "result",
+            "success": False,
+            "error": "第二条不该被读(协议 §4 行序违例)",
+            "logs": [],
+        }
+        payload = tmp_path / "dup.ndjson"
+        payload.write_text(
+            json.dumps(first, ensure_ascii=False) + "\n"
+            + json.dumps(second, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        provider = _write_script(
+            tmp_path,
+            "provider-dup.py",
+            "import sys\nsys.stdin.readline()\n"
+            f"sys.stdout.write(open({str(payload)!r}, encoding='utf-8').read())\n"
+            "sys.stdout.flush()\n",
+        )
+        resolved = acquire_keys_from_provider(
+            db_storage, str(provider), data_root=tmp_path / "home"
+        )
+        assert resolved == {"message/message_0.db": key.hex()}
+        assert read_key_cache(data_root=tmp_path / "home") == resolved
+
+    def test_success_without_keys_map_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """⑤成功但无 keys:success:true 而 keys 缺位 → 失败「未携带 keys
+        映射」(台账行;§4 成功形态必含 keys)。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, _page1 = self._single_db_fixture(tmp_path)
+        provider = _echo_provider(
+            tmp_path,
+            "provider-nokeys.py",
+            {"type": "result", "success": True, "account_id": "wxid_demo", "logs": []},
+        )
+        with pytest.raises(BridgeError) as excinfo:
+            acquire_keys_from_provider(
+                db_storage, str(provider), data_root=tmp_path / "home"
+            )
+        err = excinfo.value
+        assert err.exit_code == 21
+        assert "未携带 keys 映射" in err.message
+        assert read_key_cache(data_root=tmp_path / "home") is None
+
+    def test_unmatched_salt_entries_dropped(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """⑥盐不匹配弃条目:真钥配错盐(对不上任何在场库 page1)→
+        条目弃、覆盖 0/1 → 部分覆盖失败形态;「盐不匹配 1 条」计数入消息;
+        红线 6:钥 hex 不入消息。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        key = bytes(range(32))
+        db_storage, _key_db = make_account(tmp_path, key)
+        wrong_salt = "ab" * 16  # 32 hex 但非本库 page1 前 16 字节
+        provider = _echo_provider(
+            tmp_path,
+            "provider-badsalt.py",
+            _success_result({wrong_salt: key.hex()}),
+        )
+        with pytest.raises(BridgeError) as excinfo:
+            acquire_keys_from_provider(
+                db_storage, str(provider), data_root=tmp_path / "home"
+            )
+        err = excinfo.value
+        assert err.exit_code == 21
+        assert "盐不匹配 1 条" in err.message
+        assert "覆盖在场库 0/1" in err.message
+        assert key.hex() not in err.message  # 红线 6:钥不入消息
+        assert read_key_cache(data_root=tmp_path / "home") is None
+
+    @staticmethod
+    def _single_db_fixture(tmp_path: Path) -> tuple[Path, bytes]:
+        key = bytes(range(32))
+        db_storage, _key_db = make_account(tmp_path, key)
+        page1 = (db_storage / "message" / "message_0.db").read_bytes()[:4096]
+        return db_storage, page1
+
+
 class TestProviderUnconfigured:
     def test_legal_message_appended_when_unconfigured(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -466,6 +649,23 @@ class TestKeyProviderCli:
         )
         assert exit_code == 2
         assert "不可执行" in payload["error"]["message"]
+
+    def test_set_rejects_relative_path(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """相对路径拒(2026-10-13 审计修复,对齐 Rust 面校验/docs §10):
+        相对路径落盘后随桥 cwd 漂移,spawn 面不可靠——人话错误 + exit 2。"""
+        exit_code, payload = run_cli(
+            ["localdb", "key-provider", "set", "bin/my-provider.py"],
+            monkeypatch,
+            tmp_path,
+        )
+        assert exit_code == 2
+        assert payload["error"]["code"] == "usage"
+        assert "必须是绝对路径" in payload["error"]["message"]
+        assert "bin/my-provider.py" in payload["error"]["message"]
+        # 拒于落盘前:配置文件不应被写出。
+        assert not (tmp_path / "wechat-bridge" / "config.json").exists()
 
     def test_set_get_clear_roundtrip(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

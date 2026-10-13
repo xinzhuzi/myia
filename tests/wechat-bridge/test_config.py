@@ -74,6 +74,20 @@ class TestLoadCustom:
         assert config.messages == 9
         assert config.sessions == 20  # 未声明键回落缺省
 
+    def test_copy_ttl_zero_means_never_expire(self, tmp_path: Path) -> None:
+        """copy_ttl_hours=0 合法且语义=永不过期(2026-10-13 审计修复:
+        用户直觉「0=永不过期」,旧实现拒载致全桥不可用);负数仍拒。"""
+        path = tmp_path / "config.json"
+        path.write_text(json.dumps({"copy_ttl_hours": 0}), encoding="utf-8")
+        config = load_config(path)
+        assert config.copy_ttl_hours == 0
+        # 容量键不受连带:仍须正整数(0 容量无合法语义)。
+        path.write_text(json.dumps({"copy_capacity_mb": 0}), encoding="utf-8")
+        with pytest.raises(BridgeError) as excinfo:
+            load_config(path)
+        assert excinfo.value.exit_code == EXIT_USAGE
+        assert "copy_capacity_mb 须为正整数" in excinfo.value.message
+
     def test_mem_search_enabled_accepts_bool_only(self, tmp_path: Path) -> None:
         """D4 豁免开关:布尔收下(true/false),其余形态 usage 拒。"""
         path = tmp_path / "config.json"
@@ -124,7 +138,10 @@ class TestFailFast:
             ('{"limits": {"messages": 0}}', "正整数"),
             ('{"limits": {"messages": -3}}', "正整数"),
             ('{"limits": {"messages": true}}', "正整数"),
-            ('{"copy_ttl_hours": 0}', "正整数"),
+            # TTL 负数仍拒(0 = 永不过期已合法,见 TestLoadCustom 正例);
+            # 布尔/非整数同拒(锚「非负整数」新话术)。
+            ('{"copy_ttl_hours": -1}', "非负整数"),
+            ('{"copy_ttl_hours": true}', "非负整数"),
             ('{"copy_capacity_mb": "512"}', "正整数"),
             # G6:频控类键写进来 = 契约漂移,拒载(设计 §7「无频控键」)。
             ('{"send_interval_seconds": 5}', "未知键"),

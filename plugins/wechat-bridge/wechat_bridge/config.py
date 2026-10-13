@@ -8,7 +8,8 @@
   **缺文件可用**(设计原文);键封闭清单:
   ``domains``(G4 缺省 message/session/contact)、
   ``limits``(AC2 参数化:sessions=20/messages=50/history_days=30)、
-  ``copy_ttl_hours``(G5=24)/ ``copy_capacity_mb``(G5 容量上限,缺省 512)、
+  ``copy_ttl_hours``(G5=24;**0 合法 = 永不过期**,localdb TTL 判定 0 =
+  恒新鲜跳过重建;负数拒)/ ``copy_capacity_mb``(G5 容量上限,缺省 512)、
   ``mem_search_enabled``(D4 豁免开关,缺省关——design §4「开关默认关,
   主人显式开启才生效」;2026-10-11 主人「全部解决」令授权以配置键落位,
   替代 E1 空壳期的「无配置键」口径)、
@@ -228,15 +229,24 @@ def load_config(path: Path | None = None, *, data_root: Path | None = None) -> B
                 code="usage",
             )
         values[key] = value
-    for key in ("copy_ttl_hours", "copy_capacity_mb"):
-        value = raw.get(key)
-        if value is None:
-            continue
+    # copy_ttl_hours:0 合法 = 永不过期(用户直觉语义:localdb TTL 判定
+    # 0 = 恒新鲜、跳过重建);负数仍拒。copy_capacity_mb 须正整数(0 容量
+    # = 什么都装不下,无合法语义)。
+    value = raw.get("copy_ttl_hours")
+    if value is not None:
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise BridgeError(
+                EXIT_USAGE,
+                f"桥配置 copy_ttl_hours 须为非负整数(0 = 永不过期),当前为 {value!r}",
+            )
+        values["copy_ttl_hours"] = value
+    value = raw.get("copy_capacity_mb")
+    if value is not None:
         if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
             raise BridgeError(
-                EXIT_USAGE, f"桥配置 {key} 须为正整数,当前为 {value!r}", code="usage"
+                EXIT_USAGE, f"桥配置 copy_capacity_mb 须为正整数,当前为 {value!r}"
             )
-        values[key] = value
+        values["copy_capacity_mb"] = value
     mem_search_enabled = raw.get("mem_search_enabled")
     if mem_search_enabled is not None and not isinstance(mem_search_enabled, bool):
         raise BridgeError(

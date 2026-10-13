@@ -99,7 +99,11 @@ all = ["crawl4ai", "scrapling", "firecrawl-py", "skyvern", "openai>=1.30", "hugg
 myssia = "myssia.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8.0", "pillow>=10.0"]  # wechat-bridge 像素测试合成夹具用(Image/ImageDraw/ImageFont)
+# pillow:wechat-bridge 像素测试合成夹具用(Image/ImageDraw/ImageFont)。
+# zstandard:桥 4.1.15 压缩消息真解码测试用(与 plugins/wechat-bridge
+# pyproject 主依赖同版本窗 >=0.22,<1——两级 import 链的 3.12 主路件,
+# venv 3.12 无 stdlib compression.zstd;测试夹具产真 zstd 帧实解)。
+dev = ["pytest>=8.0", "pillow>=10.0", "zstandard>=0.22,<1"]
 
 [tool.uv.workspace]
 members = ["myssia-classifier"]

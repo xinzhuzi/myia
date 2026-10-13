@@ -7,6 +7,11 @@ luvrell/wechat-msg-extract scripts/test_exporter.py:16-24)全合成——
 0.4.2 B0 增:4.1.15 分表形态夹具(``Msg_<md5(username)>`` 无会话列 +
 ``Name2Id`` 反查 + ``WCDB_CT_message_content`` zstd 压缩行),形状照
 2026-10-13 直查本机解密副本实测 DDL;内容全合成,零真实语料。
+
+压缩行走**真 zstd 实解**:夹具用 pip ``zstandard``(根 pyproject dev 组,
+与插件 pyproject 主依赖同版本窗)产真 zstd 帧,桥侧两级 import 链
+(stdlib ``compression.zstd`` → ``zstandard``)真解回明文——与生产链
+同构,不做变换替身;仅「模块缺位」负例保留 monkeypatch。
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ import time
 from pathlib import Path
 
 import pytest
+import zstandard
 
 import wechat_bridge.localdb_query as localdb_query
 from wechat_bridge.codes import BridgeError
@@ -196,24 +202,13 @@ class TestRunQuery:
 CHAT_415 = "50438708676@chatroom"  # 表名 md5 反解锚(形状照真实库)
 SECRET_TEXT = "合成压缩行-解出的真文本"  # 压缩行解出的目标明文
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
+#: 真 zstd 帧(夹具产;帧头自带魔数,与 4.1.15 实测库字节形状一致)。
+SECRET_ZSTD_FRAME = zstandard.compress(SECRET_TEXT.encode("utf-8"))
+assert SECRET_ZSTD_FRAME[:4] == ZSTD_MAGIC  # 夹具自检:确系真 zstd 帧
 
 
 def _md5hex(name: str) -> str:
     return hashlib.md5(name.encode("utf-8")).hexdigest()
-
-
-class _FakeZstd:
-    """压缩解码路径替身(venv 3.12 无 compression.zstd;变换=去魔数后反转)。
-
-    与真模块同契约:无魔数输入 raise(坏帧路径),有魔数去头反转——
-    夹具内容 = MAGIC + SECRET.encode()[::-1] 即可解回 SECRET。
-    """
-
-    @staticmethod
-    def decompress(data: bytes) -> bytes:
-        if bytes(data[:4]) != ZSTD_MAGIC:
-            raise ValueError("bad zstd frame")
-        return bytes(data[4:])[::-1]
 
 
 _DDL_415 = (
@@ -256,7 +251,7 @@ def _build_415_db(path: Path, *, with_name2id: bool = True) -> None:
         #  message_content,compress,NULL,WCDB_CT_message_content,NULL)
         (1, 101, 1, 1, 20, NOW - 60, 1, 0, 0, 0, 0, "", "合成明文-对方发", None, None, None, None),
         (2, 102, 1, 2, 10, NOW - 120, 1, 0, 0, 0, 0, "", "合成明文-我发", None, None, 0, None),
-        (3, 103, 1, 3, 20, NOW - 180, 1, 0, 0, 0, 0, "", ZSTD_MAGIC + SECRET_TEXT.encode()[::-1], None, None, 4, None),
+        (3, 103, 1, 3, 20, NOW - 180, 1, 0, 0, 0, 0, "", SECRET_ZSTD_FRAME, None, None, 4, None),
         (4, 104, 3, 4, 20, NOW - 240, 1, 0, 0, 0, 0, "", "img_合成立名", None, None, None, None),
         (5, 105, 1, 5, 20, NOW - 40 * 86400, 1, 0, 0, 0, 0, "", "合成-40天前应被窗口滤掉", None, None, None, None),
         (6, 106, 1, 6, 99, NOW - 30, 1, 0, 0, 0, 0, "", "合成-未知sender回落会话", None, None, None, None),
@@ -341,11 +336,11 @@ class TestFindMessageTables415:
 
 
 class TestQueryMessages415:
-    def test_decode_sender_and_window(
-        self, copies_415: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """压缩行真解码 + sender 经 Name2Id 反查 + 窗口/旁会话过滤。"""
-        monkeypatch.setattr(localdb_query, "_zstd", _FakeZstd)
+    def test_decode_sender_and_window(self, copies_415: Path) -> None:
+        """压缩行真 zstd 实解 + sender 经 Name2Id 反查 + 窗口/旁会话过滤。
+
+        无 monkeypatch:走生产两级 import 链(venv 3.12 → pip zstandard),
+        真帧真解——与装机态同构。"""
         con = _open_415(copies_415)
         try:
             stats: dict[str, object] = {}
@@ -415,11 +410,8 @@ class TestQueryMessages415:
             con.close()
         assert [m.get("text") for m in messages] == ["合成-旧形态宽表行"]
 
-    def test_run_query_reports_decode_stats(
-        self, copies_415: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """run_query 载荷带 content_decode 统计(zstd 可用性与计数)。"""
-        monkeypatch.setattr(localdb_query, "_zstd", _FakeZstd)
+    def test_run_query_reports_decode_stats(self, copies_415: Path) -> None:
+        """run_query 载荷带 content_decode 统计(zstd 可用性与计数;真解)。"""
         payload = run_query(
             copy_dir=copies_415,
             domains=["message"],
