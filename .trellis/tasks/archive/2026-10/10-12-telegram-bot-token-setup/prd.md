@@ -18,11 +18,15 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1 token 配置后一轮真跑 telegram 推送 ok=True(日志实证)。
+- [x] AC1 token 配置后一轮真跑 telegram 推送 ok=True(日志实证)。
 
 ## 边界
 
 - AI 不代取凭据;只立档推动+配置后验证。
+
+## 收口注记(2026-10-14 档务批)
+
+主人已配置 token(设置→机器人凭据路径);数据根日志实证:run 101(10-12 15:05)「推送完成 channel=telegram ok=True」+sidecar「发送成功」,run 130(10-13 03:00)ok=True archive=2;run 92 ok=False 系配置前口径。AC1 满足,归档。
 
 ## grill 决议表(2026-10-12 深化;配置路径事实已核)
 
