@@ -13,7 +13,7 @@
    "ax_tree": "unknown"
   },
   "wechat_version": "4.1.15",
-  "bridge_version": "0.6.0",
+  "bridge_version": "0.7.0",
   "reasons": [
    {
     "code": "window_closed",
@@ -57,11 +57,22 @@
    "retry_after_seconds": 7.0
   }
  },
- "err_not_implemented_send": {
+ "ok_send_text": {
+  "send": {
+   "chat": "filehelper",
+   "sent": true,
+   "attempts": 1,
+   "readback": "ocr_strip",
+   "post_send_verified": true,
+   "post_send_note": null,
+   "elapsed_ms": 1
+  }
+ },
+ "err_send_focus_required": {
   "error": {
-   "code": "not_implemented",
-   "message": "send_text 的实现层尚未落地(Phase D1);当前为 Phase B 桥骨架,前置检查通过但无实现可执行",
-   "fix_hint": "等待 Phase D1 落地;期间可用通道:probe(三态)/ localdb(按 D4)"
+   "code": "send_ax_focus_required",
+   "message": "发送未执行:3 次尝试均未通过断言;末次失败 发送断言超时(阶段=readback,4s 内未达成)",
+   "fix_hint": "确认微信前台可见、目标会话存在且输入区可聚焦;辅助功能/输入监控授权给桥宿主后重试"
   }
  },
  "err_localdb_key_unavailable": {

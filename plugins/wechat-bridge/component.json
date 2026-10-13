@@ -1,7 +1,7 @@
 {
   "id": "wechat-bridge",
   "name": "微信本机桥(UI 自动化 + 本地库只读)",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "kind": "bridge",
   "runtime": "native-python",
   "entry": "wechat_bridge/__main__.py",
@@ -29,7 +29,7 @@
       "--probe",
       "sessions list --json",
       "messages read <id> -k 50",
-      "send_text <id> --file -",
+      "send_text <id> --file -(0.7.0 已落:热激活 UI 驱动 wechat_bridge/sendui.py,wxauto 三支柱=激活+Cmd+F 定位+标题带断言+剪贴板粘+AX value/OCR 输入带回读确认才回车[flags=0]+消息区事后回读入载荷;断言失败重试上限 3 后 exit 15/30 如实失败,绝不假成功;主人 2026-10-13 热激活批令,合成鼠标仍禁)",
       "localdb query <chat> --since 7d --json(0.4.2 起 4.1.15 分表形态:Msg_<md5(username)> 无会话列,表名与 real_sender_id 经 Name2Id 反解;WCDB_CT 标记的 zstd 压缩行优先真解码[stdlib compression.zstd,3.14+],缺模块/解压失败落占位并计数)",
       "localdb key-scan --json(内存密钥批处理扫描;默认关+须提权(root 或 setuid keyscanner)+只读单遍零常驻;0.4.0 管道=C 收集器三模式宽收集→熵筛→并行 sqlcipher 试开→page1 交叉验证)",
       "localdb key-provider set <path>|get|clear --json(外部取钥器管理;set 校验文件存在+可执行;协议 v1 = docs/wechat-keyprovider.md:stdin 单行 JSON 请求/stdout NDJSON progress+result/120s 超时 kill;密钥缓存缺失且已配置时查询链自动 spawn,返回钥匙逐把页1 HMAC 验真后才落 keys.json,失败一律 exit 21 不降级)",
@@ -90,8 +90,8 @@
     "self_heal": "keyscanner 在位 + mem_search_enabled=true 时,localdb query 的密钥缺位/解密失败零人工重取(全量命中才落 keys.json;未安装=保持现状;未闭合落冷却戳,30 分钟窗内不重扫——0.4.1 失败退避)"
   },
   "redlines": [
-    "静默后台:不抢前台焦点、不合成鼠标点击、不激活微信窗口(prd 红线 4)",
+    "静默后台(读通道):不抢前台焦点、不合成鼠标点击、不激活微信窗口(prd 红线 4)。写通道 send_text 例外(2026-10-13 主人热激活批令):激活+键盘 CGEvent+剪贴板,合成鼠标仍禁(0.7.0)",
     "不破解协议:禁逆向、禁 hook 注入;内存密钥搜索默认关,仅 D4 豁免(主人 2026-10-11「全部解决」令)后配置显式开启 + 提权才生效,且只读 vm_read 单遍零常驻、禁写内存/禁注入/禁调试器附加/禁重签名(prd 红线 1)",
-    "私有数据:聊天内容/密钥材料不入 git/日志/报告;证据只留形状(prd 红线 6)"
+    "私有数据:聊天内容/密钥材料不入 git/日志/报告;证据只留形状(prd 红线 6;send_text 载荷只载形状与通路,永不载正文;截图件 0700 工作目录用后即清)"
   ]
 }

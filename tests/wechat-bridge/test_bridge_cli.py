@@ -70,16 +70,49 @@ def _collect_golden_payloads(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     assert exit_code == 14
     payloads["err_send_rate_limited"] = payload
 
-    # ④ 前置全绿 + 频控放行(独立数据根,无发送记录)→ 实现层未落地(骨架
-    # 过渡码,exit 1)
+    # ④ 前置全绿 + 频控放行(独立数据根,无发送记录)→ send_text D1 已落
+    # (0.7.0,sendui 热激活驱动;golden 注入确定性桩,真身三支柱在
+    # test_send_ui.py 受测)
+    monkeypatch.setattr(
+        "wechat_bridge.sendui.send_text",
+        lambda config, chat_id, body: {
+            "send": {
+                "chat": chat_id,
+                "sent": True,
+                "attempts": 1,
+                "readback": "ocr_strip",
+                "post_send_verified": True,
+                "post_send_note": None,
+                "elapsed_ms": 1,
+            }
+        },
+    )
     exit_code, payload = run_cli(
         ["send_text", "filehelper", "--file", "-"],
         monkeypatch,
         tmp_path / "clean-home",
         stdin_text="你好",
     )
-    assert exit_code == 1
-    payloads["err_not_implemented_send"] = payload
+    assert exit_code == 0
+    payloads["ok_send_text"] = payload
+
+    # ④b 断言失败族(driver 桩抛 exit 15)→ 结构化 error 载荷
+    def _focus_fail(config, chat_id, body):
+        raise codes_mod.BridgeError(
+            codes_mod.SEND_AX_FOCUS_REQUIRED,
+            "发送未执行:3 次尝试均未通过断言;末次失败 发送断言超时(阶段=readback,4s 内未达成)",
+            fix_hint="确认微信前台可见、目标会话存在且输入区可聚焦;辅助功能/输入监控授权给桥宿主后重试",
+        )
+
+    monkeypatch.setattr("wechat_bridge.sendui.send_text", _focus_fail)
+    exit_code, payload = run_cli(
+        ["send_text", "filehelper", "--file", "-"],
+        monkeypatch,
+        tmp_path / "clean-home-2",
+        stdin_text="你好",
+    )
+    assert exit_code == 15
+    payloads["err_send_focus_required"] = payload
 
     # ⑤ 本地库:定位成功 + 密钥不可得(D4)→ exit 21
     fake_root = tmp_path / "xwechat_files"

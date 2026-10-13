@@ -340,10 +340,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             now = _now()
             previous = rate_state.reserve_send(now=now)
             try:
-                ax.send_text(config, chat_id, body)  # Phase D1 落位
+                payload = ax.send_text(config, chat_id, body)  # D1 已落(sendui 热激活驱动)
             except BridgeError:
                 rate_state.rollback_reserve(now, previous)
                 raise
+            _emit(payload)
+            return EXIT_OK
         elif args.group == "localdb" and args.localdb_cmd == "query":
             chat_id = _require_chat_id(args.chat_id)
             days = _parse_since_days(args.since)

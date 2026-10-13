@@ -9,7 +9,6 @@ from wechat_bridge.ax import ensure_ui_preconditions, not_implemented
 from wechat_bridge.codes import (
     AX_PERMISSION_DENIED,
     SCREEN_RECORDING_DENIED,
-    EXIT_GENERIC_FAILURE,
     WECHAT_NOT_RUNNING,
     WINDOW_CLOSED,
     BridgeError,
@@ -57,23 +56,21 @@ class TestPreconditionGate:
         monkeypatch.setattr(sc, "wechat_main_window_open", lambda: None)
         assert ensure_ui_preconditions() is None  # 过窗门放行(门只挡 10/11/12)
 
-    def test_all_green_gate_passes_and_stub_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """前置全绿 = 门放行(None);未落地实现层(Phase D 写通道桩)以
-        not_implemented 应答。C1/C2 已落像素链,stub 断言改指 send_text。"""
+    def test_all_green_gate_passes_and_send_delegates(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """前置全绿 = 门放行(None);D1 已落(0.7.0)——send_text 委托
+        sendui 真身(此处桩验证委托面;三支柱本体见 test_send_ui.py)。"""
         _gate(monkeypatch, process=True, ax=True, window=True)
         assert ensure_ui_preconditions() is None
-        with pytest.raises(BridgeError) as excinfo:
-            _raise_stub()
-        assert excinfo.value.exit_code == EXIT_GENERIC_FAILURE == 1
-        assert excinfo.value.name == "not_implemented"
+        from wechat_bridge.ax import send_text
+        from wechat_bridge.config import BridgeConfig
 
-
-def _raise_stub() -> None:
-    """实现层骨架桩的最小复刻(send_text 本体即此形状;直呼保真)。"""
-    from wechat_bridge.ax import send_text
-    from wechat_bridge.config import BridgeConfig
-
-    send_text(BridgeConfig(), "filehelper", "正文")
+        monkeypatch.setattr(
+            "wechat_bridge.sendui.send_text",
+            lambda config, chat_id, body: {"send": {"chat": chat_id, "sent": True}},
+        )
+        payload = send_text(BridgeConfig(), "filehelper", "正文")
+        assert payload["send"]["sent"] is True
+        assert payload["send"]["chat"] == "filehelper"
 
 
 class TestNotImplementedDiscipline:

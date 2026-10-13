@@ -4,17 +4,19 @@
 对 AX 完全零暴露,证据 research/ax-probe-4.1.15.md):``sessions list`` /
 ``messages read`` 委托 :mod:`.pixel`(截窗 → VisionOCR → VL 校对 → 结构化
 解析;静默铁律全套:零激活、零合成点击、零抢焦点)。原「AX 树遍历」实现
-整体作废,本模块保留前置检查门与写通道占位。
+整体作废。
 
-实现层未落地时的应答纪律(现仅剩 Phase D 写通道):结构化
-:class:`BridgeError`(exit 1,通用失败段,``code="not_implemented"``)——
-**绝不谎报为任何 §6 具名族**。
+**Phase D1 写通道已落(0.7.0)**:``send_text`` 委托 :mod:`.sendui`
+(wxauto 三支柱:焦点/状态断言、粘后回读确认、超时报错绝不假成功);
+``not_implemented`` 过渡应答仅作 API 兼容保留(C/D 全落,过渡码消亡)。
 
 静默铁律(prd 红线 4)对本模块的约束:
 读=像素链(screencapture -l 对后台窗口零交互,ordered-off 窗可截,
-2026-10-11 实测);写=AX 动作(AXPress/AXConfirm 类),禁合成鼠标事件、
-禁激活窗口、禁抢前台焦点——A1 实测 AX 写通道整体不可达,Phase D1 按
-「官方 iLink 桥独任」第三案收口,UI 写如实报不可用。
+2026-10-11 实测)——**不变**;写=**2026-10-13 主人令翻案**:热激活实验
+范围已批(不注入 dylib、不重签名、不 hook 拦截),send_text 按 wxauto
+三支柱实装(激活+Cmd+F 定位+剪贴板粘+回读确认才回车),落
+:mod:`.sendui`;原「官方 iLink 桥独任」第三案与「UI 写如实报不可用」
+的旧 D1 收口自此作废(合成鼠标仍禁)。
 """
 
 from __future__ import annotations
@@ -116,9 +118,11 @@ def read_messages(config: BridgeConfig, chat_id: str, k: int | None = None) -> d
 
 
 def send_text(config: BridgeConfig, chat_id: str, body: str) -> dict[str, object]:
-    """``send_text`` 实现位(Phase D1/D2:AX 定位发送框 → AXConfirm/AXPress +
-    回执验证;调用方已过频控占位门——``SendRateState.reserve_send`` 检查+落戳
-    同临界区,并发封闭。本函数契约 = **只在未发出时**抛 BridgeError(调用方
-    据此 rollback_reserve 还原占位),发出即成功返回,失败不得发生在真实
-    AX 发送之后——否则还原占位会放开 10s 内的第二发,踩 G6 红线)。"""
-    raise not_implemented("send_text", "Phase D1")
+    """``send_text`` 实现(D1 已落,0.7.0:热激活 UI 驱动,委托 :mod:`.sendui`;
+    调用方已过频控占位门——``SendRateState.reserve_send`` 检查+落戳同临界区,
+    并发封闭。本函数契约 = **只在未发出时**抛 BridgeError(调用方据此
+    rollback_reserve 还原占位),发出即成功返回,失败不得发生在真实回车
+    之后——否则还原占位会放开 10s 内的第二发,踩 G6 红线)。"""
+    from . import sendui
+
+    return sendui.send_text(config, chat_id, body)
