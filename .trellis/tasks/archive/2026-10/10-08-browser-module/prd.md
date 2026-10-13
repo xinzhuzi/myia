@@ -18,7 +18,7 @@
 **模块面**:浏览器操作页(当前任务列表:登录中/已完成/失败重试)+每操作的窗口管理(聚焦/关闭)+日志尾巴;禁屏控令豁免面=用户主动点击触发的窗口(交互性窗口非自动化屏控,与主人操作意图一致)。
 
 ## AC
-- [~] AC1 登录流真通:设置页点「添加账号」→**MYIA 子窗口**弹出网页版 TG→手机号+验证码→卡面转绿(真跑回执;临时解锁后即可验);**工程面已齐**——「添加账号/重新登录」已改调浏览器模块统一入口 `browser.open`(单入口铁律),拉窗/轮询/转绿链路 vitest+无头冒烟钉死;装机自管 python 三件在位亲证(playwright/telethon/python_socks importable),**差主人一次真输验证码**(步骤见结果段「主人登录步骤」);
+- [x] AC1 登录流真通:设置页点「添加账号」→**MYIA 子窗口**弹出网页版 TG→手机号+验证码→卡面转绿(真跑回执;临时解锁后即可验);**工程面已齐**——「添加账号/重新登录」已改调浏览器模块统一入口 `browser.open`(单入口铁律),拉窗/轮询/转绿链路 vitest+无头冒烟钉死;装机自管 python 三件在位亲证(playwright/telethon/python_socks importable);**主人真跑已闭**——10-08-tg-web-line 档实证(a0f1d18 归档回执:主人输手机号+验证码 17:51:50 登录落档,新包路径首验即通),web 线此后进入生产常驻(2026-10-14 档务核);
 - [x] AC2 静默失败消灭:依赖缺失/浏览器缺失等一切失败在卡面上浮人话错误+修复指引(测试钉死:拔依赖→可见错误)——`browser.open` 同步依赖前置探针(缺装=点按钮立即可见 `dependency_missing` 人话+安装命令+深链「Python 环境」同步依赖);线程内失败三族(依赖缺/浏览器二进制缺 Executable doesn't exist/登录超时)人话化+`fix_hint` 修复指引,卡面与模块页双上浮(ErrorBox dependency_missing 变体+模块页失败行 alert/fix 区);pytest `test_browser_open_dependency_missing_visible_error`+vitest 拔依赖用例+冒烟失败行断言三面钉死;
 - [x] AC3 根治链:lock 扩 extras+指纹链绿+一键同步吃到 playwright/telethon(判例判据)——pyproject `extras[browser]=playwright>=1.63,<2`(uv.lock diff 恰 13 行纯增零漂移);桌面锁 `uv export --extra llm --extra telethon --extra browser` 定向重导,diff 实证增量恰 3 轮(playwright==1.63.0/greenlet==3.5.6/pyee==13.0.1=临时解锁 pip 三件同源固化)既有零漂移+classifier 钉版保留;`test_browser_covered_by_desktop_lock` 逐件+闭包伴生件把守;指纹链绿=test_pyenv_e2e 全链随新锁跑通(安装戳 deps_fingerprint=新锁 sha256);telethon+python-socks 前批 G2 已在锁(本批复验在包);
 - [x] AC4 浏览器模块独立分区落地(案甲)+操作列表/窗口管理(程序化验证:vitest+无头冒烟)——设置树「浏览器」一级分区+模块页(操作台账 running/done/failed/closed 四态行/失败重试/聚焦/关闭/环形日志尾巴 60 行容量投影 20);sidecar `browser.open/list/focus/close` 四方法(kind 登记词表拒旁路=单入口铁律的登记面);窗口=案甲 MYIA 自管 Chromium(复用 web_line 登录器零重写,`on_page_opened` 注入缝+停令可中断 sleep 两处加法);vitest 模块页 8 例+协议面 6 例+无头 Playwright 冒烟 13 断言全过;
@@ -31,7 +31,7 @@
 - 门禁:pytest 全量 **5044 passed/40 skipped/0 failed**;vitest **617/617**(30 文件);`tsc -b` 0 错;ruff 全绿;browser-module-smoke 13 断言+tg-card-smoke 9 断言全过(截图 /tmp/myssia-browser-module-smoke.png、/tmp/myssia-tg-card-smoke.png);detect-changes high=预期面(20 文件/61 符号/6 执行流全在 Telegram 卡改线+设置屏分区,无预期外漂移,已按纪律记录);`git commit --only` 两笔定向,不推远端。
 
 ## 结果(完工填)
-- [~] **AC1** 工程链已通、差主人真跑(输验证码);**[x] AC2** 拔依赖→`dependency_missing` 同步可见(pytest+vitest+冒烟三面钉死);**[x] AC3** extras[browser] 入锁增量恰 3 轮零漂移+指纹链绿+把守测试在册;**[x] AC4** 模块独立分区+四方法+台账/窗口管理/日志尾巴(vitest 617 全量+无头冒烟 13 断言);**[x] AC5** 三段回填+装机外科(换装+重签+直载+心跳,恰一次 open -g)。案乙(CDP screencast 内嵌)留 design 待令。
+- [x] **AC1** 工程链已通+主人真跑闭环(10-08-tg-web-line a0f1d18 实证,2026-10-14 档务核回标);**[x] AC2** 拔依赖→`dependency_missing` 同步可见(pytest+vitest+冒烟三面钉死);**[x] AC3** extras[browser] 入锁增量恰 3 轮零漂移+指纹链绿+把守测试在册;**[x] AC4** 模块独立分区+四方法+台账/窗口管理/日志尾巴(vitest 617 全量+无头冒烟 13 断言);**[x] AC5** 三段回填+装机外科(换装+重签+直载+心跳,恰一次 open -g)。案乙(CDP screencast 内嵌)留 design 待令。
 
 ### 终验抽查回执(2026-10-08 14:2x,终验抽查员;全部命令级零 GUI,证据=本机实跑)
 1. **装机态生产全链 dry-run**(规定装机态形态:`MYIA_HOME=~/Library/Application Support/MYIA`+`PYTHONPATH=/Applications/世事.app/Contents/Resources/myssia-src`+数据根 `python/bin/python3 -m myssia.cli run <home>/plugins/ai-news.yaml --dry-run --json`;产物 /tmp/fv-dryrun.log、/tmp/fv-dryrun2.log):
