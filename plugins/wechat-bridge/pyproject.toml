@@ -14,7 +14,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wechat-bridge"
-version = "0.4.2"
+version = "0.4.3"
 description = "微信本机桥:UI 自动化(像素链读取,零激活零合成点击)+ 本地库只读(sqlcipher 解密副本;brew install sqlcipher 前置)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -35,6 +35,11 @@ dependencies = [
     "pyobjc-framework-Quartz>=12,<13; sys_platform == 'darwin'",
     "pyobjc-framework-Vision>=12,<13; sys_platform == 'darwin'",
     "pillow>=12,<13",
+    # - zstandard:4.1.15 压缩消息(WCDB_CT 影子列,zstd 帧)真解码的自管
+    #   3.12 主路依赖——stdlib compression.zstd 需 3.14+(PEP 784),自管
+    #   环境暂 3.12,两级 import 链缺它则压缩行落占位(localdb_query
+    #   zstd_module_missing 计数)。one-shot decompress 同形 API。
+    "zstandard>=0.22,<1",
 ]
 
 [project.optional-dependencies]

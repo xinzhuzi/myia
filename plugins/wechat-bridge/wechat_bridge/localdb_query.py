@@ -24,8 +24,9 @@ WCDB_CT_source。适配:①内容列候选补 ``message_content``;②无会话�
 Name2Id 的 rowid→user_name 反查(实测 246/246 Msg_ 表全覆盖、sender id
 全在 rowid 集内);④``WCDB_CT_message_content`` 非 0 非空 = 该行内容
 zstd 压缩(实测 CT=4 → message_content 为 BLOB、字节以魔数 x28 xb5 x2f
-xfd 开头;CT=0/NULL = 未压 TEXT)——优先真解码(stdlib
-``compression.zstd``,PEP 784/Python 3.14+),模块缺位或解压失败才落
+xfd 开头;CT=0/NULL = 未压 TEXT)——优先真解码(两级 import 链:
+stdlib ``compression.zstd``(PEP 784/Python 3.14+)→ pip ``zstandard``
+(自管 3.12 主路,pyproject 主依赖)),两级缺位或解压失败才落
 媒体占位并计数,乱码绝不冒充内容。
 """
 
@@ -38,10 +39,13 @@ from typing import Any
 
 from .codes import DECRYPT_FAILED, BridgeError
 
-try:  # stdlib zstd(PEP 784,Python 3.14+);缺位=占位+计数,不误吐乱码
+try:  # stdlib zstd(PEP 784,Python 3.14+);缺位回落 pip zstandard(自管 3.12 主路)
     from compression import zstd as _zstd
-except ImportError:  # pragma: no cover - 取决于解释器版本
-    _zstd = None
+except ImportError:  # pragma: no cover - 取决于解释器版本与装态
+    try:
+        import zstandard as _zstd  # type: ignore[no-redef]
+    except ImportError:  # pragma: no cover - 两级都缺=占位+计数,不误吐乱码
+        _zstd = None
 
 __all__ = [
     "run_query",
