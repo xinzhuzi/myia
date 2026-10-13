@@ -1,0 +1,74 @@
+openjdk version "23.0.2" 2025-01-21
+OpenJDK Runtime Environment Homebrew (build 23.0.2)
+OpenJDK 64-Bit Server VM Homebrew (build 23.0.2, mixed mode)
+INFO  Using log config file: jar:file:/Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml (LoggingInitialization)  
+INFO  Using log file: /Users/zhengbingjin/Library/ghidra/ghidra_12.1.4_PUBLIC/application.log (LoggingInitialization)  
+INFO  Loading user preferences: /Users/zhengbingjin/Library/ghidra/ghidra_12.1.4_PUBLIC/preferences (Preferences)  
+INFO  Searching for classes... (ClassSearcher)  
+INFO  Class search complete (567 ms) (ClassSearcher)  
+INFO  Initializing SSL Context (DefaultSSLContextInitializer)  
+INFO  Initializing Random Number Generator... (SecureRandomFactory)  
+INFO  Random Number Generator initialization complete: NativePRNGNonBlocking (SecureRandomFactory)  
+INFO  Trust manager disabled, cacerts have not been set (DefaultTrustManagerFactory)  
+INFO  Headless startup complete (1214 ms) (AnalyzeHeadless)  
+INFO  Class searcher loaded 59 extension points (20 false positives) (ClassSearcher)  
+INFO  HEADLESS Script Paths:
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/FunctionID/ghidra_scripts
+    /Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-13-wechat-dylib-reverse/research/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/VersionTracking/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/DecompilerDependent/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/WildcardAssembler/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Processors/8051/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/SystemEmulation/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/SwiftDemangler/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Processors/Atmel/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Processors/PIC/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/Decompiler/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/BSim/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/FileFormats/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Processors/DATA/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Debug/Debugger-rmi-trace/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Debug/Debugger/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/PyGhidra/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/PDB/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/GnuDemangler/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/Base/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/BytePatterns/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/MicrosoftCodeAnalyzer/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Processors/JVM/ghidra_scripts (HeadlessAnalyzer)  
+INFO  HEADLESS: execution starts (HeadlessAnalyzer)  
+INFO  Opening existing project: /Users/zhengbingjin/ghidra-wxhunt/ghidra-wxui/wxui (HeadlessAnalyzer)  
+INFO  Opening project: /Users/zhengbingjin/ghidra-wxhunt/ghidra-wxui/wxui (HeadlessProject)  
+INFO  REPORT: Processing project file: /wechat_arm64.dylib (HeadlessAnalyzer)  
+INFO  REPORT: Execute script: HuntXref.java 'xref:0x9928f34' 'xref:0x9928f7b' 'decomp:0x7094020' 'out=/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-13-wechat-dylib-reverse/research/ax-hunt-round8.log'  (HeadlessAnalyzer)  
+INFO  SCRIPT: /Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-13-wechat-dylib-reverse/research/ghidra_scripts/HuntXref.java (HeadlessAnalyzer)  
+INFO  HuntXref.java> ### DecompInterface.openProgram = true (GhidraScript)  
+INFO  HuntXref.java> ### HuntXref on wechat_arm64.dylib imageBase=00000000 (GhidraScript)  
+INFO  HuntXref.java> ---- XREFS TO 09928f34 (xref:0x9928f34) ---- (GhidraScript)  
+INFO  HuntXref.java>   xref from 09ff8c30 type=DATA in - (GhidraScript)  
+INFO  HuntXref.java>     hop2 from 0715a0b4 type=DATA in - (GhidraScript)  
+INFO  HuntXref.java>     hop2 from 07093fc0 type=READ in accessibilityAttributeValue:@07093f50 (GhidraScript)  
+INFO  HuntXref.java>   xref from 07093fc0 type=PARAM in accessibilityAttributeValue:@07093f50 (GhidraScript)  
+INFO  HuntXref.java>   total direct xrefs: 2 (GhidraScript)  
+INFO  HuntXref.java> ---- XREFS TO 09928f7b (xref:0x9928f7b) ---- (GhidraScript)  
+INFO  HuntXref.java>   xref from 09ff70a8 type=DATA in - (GhidraScript)  
+INFO  HuntXref.java>     hop2 from 07159ad0 type=DATA in - (GhidraScript)  
+INFO  HuntXref.java>   total direct xrefs: 1 (GhidraScript)  
+INFO  HuntXref.java> ==== DECOMP decomp:0x7094020 func platformWindow @ 07094020 size=44 ==== (GhidraScript)  
+INFO  HuntXref.java> |  (GhidraScript)  
+INFO  HuntXref.java> | /* WARNING: Unknown calling convention -- yet parameter storage is locked */ (GhidraScript)  
+INFO  HuntXref.java> | /* Function Stack Size: 0x10 bytes */ (GhidraScript)  
+INFO  HuntXref.java> |  (GhidraScript)  
+INFO  HuntXref.java> | void * QNSView::platformWindow(ID param_1,SEL param_2) (GhidraScript)  
+INFO  HuntXref.java> |  (GhidraScript)  
+INFO  HuntXref.java> | { (GhidraScript)  
+INFO  HuntXref.java> |   long lVar1; (GhidraScript)  
+INFO  HuntXref.java> |    (GhidraScript)  
+INFO  HuntXref.java> |   lVar1 = *(long *)(param_1 + (long)m_platformWindow); (GhidraScript)  
+INFO  HuntXref.java> |   if ((lVar1 != 0) && (*(int *)(lVar1 + 4) != 0)) { (GhidraScript)  
+INFO  HuntXref.java> |     return (void *)((long *)(param_1 + (long)m_platformWindow))[1]; (GhidraScript)  
+INFO  HuntXref.java> |   } (GhidraScript)  
+INFO  HuntXref.java> |   return (void *)0x0; (GhidraScript)  
+INFO  HuntXref.java> | } (GhidraScript)  
+INFO  HuntXref.java>   -- callers of platformWindow -- (GhidraScript)  
+INFO  REPORT: Save succeeded for processed file: /wechat_arm64.dylib (HeadlessAnalyzer)  

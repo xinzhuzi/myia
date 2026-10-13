@@ -1,0 +1,22 @@
+#!/bin/bash
+# 全自动管线:等下载→解压→headless 导入分析 arm64 薄片→导出符号与字符串
+export JAVA_HOME=/opt/homebrew/opt/openjdk
+export PATH="$JAVA_HOME/bin:$PATH"
+LOG=/tmp/ghidra-pipeline.log
+echo "[pipeline] start $(date)" > "$LOG"
+for i in $(seq 1 240); do
+  if grep -q "^exit=0" /tmp/ghidra-dl.exit 2>/dev/null; then break; fi
+  sleep 10
+done
+grep -q "^exit=0" /tmp/ghidra-dl.exit || { echo "[pipeline] download failed" >> "$LOG"; echo "fail=download" > /tmp/ghidra-pipeline.exit; exit 1; }
+cd /tmp && unzip -q -o ghidra.zip -d /tmp/ghidra-tool >> "$LOG" 2>&1
+GH=$(ls -d /tmp/ghidra-tool/ghidra_*_PUBLIC | head -1)
+echo "[pipeline] ghidra at $GH" >> "$LOG"
+mkdir -p /tmp/ghidra-wxui
+"$GH/support/analyzeHeadless" /tmp/ghidra-wxui wxui -import /tmp/wechat_arm64.dylib \
+   \
+  -postScript ExportSymbols.java \
+  -scriptPath /Users/zhengbingjin/Project/Github/MYIA/.zcode/skills/ghidra-headless/scripts/ghidra_scripts \
+  >> "$LOG" 2>&1
+echo "exit=$?" > /tmp/ghidra-pipeline.exit
+echo "[pipeline] done $(date)" >> "$LOG"

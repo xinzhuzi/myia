@@ -122,4 +122,9 @@ desktop/ui-src/e2e/artifacts/
 # (指令字面 .trellis/tasks/archive/*/evidence/ 的 * 只匹配一层,实测盖不住两层路径)。
 .trellis/tasks/*/evidence/
 .trellis/tasks/archive/**/evidence/
+
+# ---- 逆向研究 Ghidra 机械导出件(170MB/2.2MB 工作产物,结论留 research/ax-gate-hunt.md)----
+# 只挡符号/函数表 dump;md 档案与管线脚本照常入库。** 盖任务名与 archive 月份层。
+.trellis/tasks/**/research/wechat_arm64.dylib_symbols.json
+.trellis/tasks/**/research/wechat_arm64.dylib_functions.json
 plugins/wechat-bridge/bin/collector

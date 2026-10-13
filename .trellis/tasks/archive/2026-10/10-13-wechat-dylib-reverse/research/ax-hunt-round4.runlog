@@ -1,0 +1,117 @@
+openjdk version "23.0.2" 2025-01-21
+OpenJDK Runtime Environment Homebrew (build 23.0.2)
+OpenJDK 64-Bit Server VM Homebrew (build 23.0.2, mixed mode)
+INFO  Using log config file: jar:file:/Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Framework/Generic/lib/Generic.jar!/generic.log4j.xml (LoggingInitialization)  
+INFO  Using log file: /Users/zhengbingjin/Library/ghidra/ghidra_12.1.4_PUBLIC/application.log (LoggingInitialization)  
+INFO  Loading user preferences: /Users/zhengbingjin/Library/ghidra/ghidra_12.1.4_PUBLIC/preferences (Preferences)  
+INFO  Searching for classes... (ClassSearcher)  
+INFO  Class search complete (582 ms) (ClassSearcher)  
+INFO  Initializing SSL Context (DefaultSSLContextInitializer)  
+INFO  Initializing Random Number Generator... (SecureRandomFactory)  
+INFO  Random Number Generator initialization complete: NativePRNGNonBlocking (SecureRandomFactory)  
+INFO  Trust manager disabled, cacerts have not been set (DefaultTrustManagerFactory)  
+INFO  Headless startup complete (1256 ms) (AnalyzeHeadless)  
+INFO  Class searcher loaded 59 extension points (20 false positives) (ClassSearcher)  
+INFO  HEADLESS Script Paths:
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/FunctionID/ghidra_scripts
+    /Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-13-wechat-dylib-reverse/research/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/VersionTracking/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/DecompilerDependent/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/WildcardAssembler/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Processors/8051/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/SystemEmulation/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/SwiftDemangler/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Processors/Atmel/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Processors/PIC/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/Decompiler/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/BSim/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/FileFormats/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Processors/DATA/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Debug/Debugger-rmi-trace/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Debug/Debugger/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/PyGhidra/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/PDB/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/GnuDemangler/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/Base/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/BytePatterns/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Features/MicrosoftCodeAnalyzer/ghidra_scripts
+    /Users/zhengbingjin/ghidra-wxhunt/ghidra-tool/ghidra_12.1.4_PUBLIC/Ghidra/Processors/JVM/ghidra_scripts (HeadlessAnalyzer)  
+INFO  HEADLESS: execution starts (HeadlessAnalyzer)  
+INFO  Opening existing project: /Users/zhengbingjin/ghidra-wxhunt/ghidra-wxui/wxui (HeadlessAnalyzer)  
+INFO  Opening project: /Users/zhengbingjin/ghidra-wxhunt/ghidra-wxui/wxui (HeadlessProject)  
+INFO  REPORT: Processing project file: /wechat_arm64.dylib (HeadlessAnalyzer)  
+INFO  REPORT: Execute script: HuntXref.java 'decomp:0x06c44d1c' 'decomp:0x06c466cc' 'decomp:0x06c48e88' 'decomp:0x06c489fc' 'decomp:0x0713c940' 'decomp:0x70b14b4' 'decomp:0x6c48ce4' 'decomp:0x031ab38c' 'decomp:0x048a9a38' 'xref:0x88a7350' 'xref:0x88a8fb0' 'out=/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-13-wechat-dylib-reverse/research/ax-hunt-round4.log'  (HeadlessAnalyzer)  
+INFO  SCRIPT: /Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-13-wechat-dylib-reverse/research/ghidra_scripts/HuntXref.java (HeadlessAnalyzer)  
+ERROR os/mac_arm_64/decompile does not exist (see GettingStarted.md, 'Building Native Components') (DecompileProcessFactory)  
+INFO  HuntXref.java> ### DecompInterface.openProgram = false (GhidraScript)  
+INFO  HuntXref.java> ### HuntXref on wechat_arm64.dylib imageBase=00000000 (GhidraScript)  
+INFO  HuntXref.java> ==== DECOMP decomp:0x06c44d1c func FUN_06c44d1c @ 06c44d1c size=140 ==== (GhidraScript)  
+INFO  HuntXref.java>   retrying decompile... (GhidraScript)  
+INFO  HuntXref.java>   decompile failed:  (GhidraScript)  
+INFO  HuntXref.java>   -- callers of FUN_06c44d1c -- (GhidraScript)  
+INFO  HuntXref.java>     called from 06c4628c (GhidraScript)  
+INFO  HuntXref.java>     called from 06c4629c (GhidraScript)  
+INFO  HuntXref.java> ==== DECOMP decomp:0x06c466cc func FUN_06c466cc @ 06c466cc size=736 ==== (GhidraScript)  
+INFO  HuntXref.java>   retrying decompile... (GhidraScript)  
+INFO  HuntXref.java>   decompile failed:  (GhidraScript)  
+INFO  HuntXref.java>   -- callers of FUN_06c466cc -- (GhidraScript)  
+INFO  HuntXref.java> ==== DECOMP decomp:0x06c48e88 func FUN_06c48e88 @ 06c48e88 size=928 ==== (GhidraScript)  
+INFO  HuntXref.java>   retrying decompile... (GhidraScript)  
+INFO  HuntXref.java>   decompile failed:  (GhidraScript)  
+INFO  HuntXref.java>   -- callers of FUN_06c48e88 -- (GhidraScript)  
+INFO  HuntXref.java>     called from 06c45cf0 (GhidraScript)  
+INFO  HuntXref.java>     called from 06c454f4 (GhidraScript)  
+INFO  HuntXref.java>     called from 06c45698 (GhidraScript)  
+INFO  HuntXref.java>     called from 06c4570c (GhidraScript)  
+INFO  HuntXref.java>     called from 06c45c6c (GhidraScript)  
+INFO  HuntXref.java>     called from 06c46288 (GhidraScript)  
+INFO  HuntXref.java> ==== DECOMP decomp:0x06c489fc func FUN_06c489fc @ 06c489fc size=744 ==== (GhidraScript)  
+INFO  HuntXref.java>   retrying decompile... (GhidraScript)  
+INFO  HuntXref.java>   decompile failed:  (GhidraScript)  
+INFO  HuntXref.java>   -- callers of FUN_06c489fc -- (GhidraScript)  
+INFO  HuntXref.java>     called from 06c487a4 (GhidraScript)  
+INFO  HuntXref.java>     called from 06c49f4c (GhidraScript)  
+INFO  HuntXref.java>     called from 06c45c94 (GhidraScript)  
+INFO  HuntXref.java>     called from 06c49e28 (GhidraScript)  
+INFO  HuntXref.java> ==== DECOMP decomp:0x0713c940 func FUN_0713c940 @ 0713c940 size=72 ==== (GhidraScript)  
+INFO  HuntXref.java>   retrying decompile... (GhidraScript)  
+INFO  HuntXref.java>   decompile failed:  (GhidraScript)  
+INFO  HuntXref.java>   -- callers of FUN_0713c940 -- (GhidraScript)  
+INFO  HuntXref.java>     called from 070b3390 (GhidraScript)  
+INFO  HuntXref.java> ==== DECOMP decomp:0x70b14b4 func isAccessibilityEnabled @ 070b14b4 size=80 ==== (GhidraScript)  
+INFO  HuntXref.java>   retrying decompile... (GhidraScript)  
+INFO  HuntXref.java>   decompile failed:  (GhidraScript)  
+INFO  HuntXref.java>   -- callers of isAccessibilityEnabled -- (GhidraScript)  
+INFO  HuntXref.java> ==== DECOMP decomp:0x6c48ce4 func thunk_FUN_06c4863c @ 06c48ce4 size=4 ==== (GhidraScript)  
+INFO  HuntXref.java>   retrying decompile... (GhidraScript)  
+INFO  HuntXref.java>   decompile failed:  (GhidraScript)  
+INFO  HuntXref.java>   -- callers of thunk_FUN_06c4863c -- (GhidraScript)  
+INFO  HuntXref.java> ==== DECOMP decomp:0x031ab38c func FUN_031ab38c @ 031ab38c size=3400 ==== (GhidraScript)  
+INFO  HuntXref.java>   retrying decompile... (GhidraScript)  
+INFO  HuntXref.java>   decompile failed:  (GhidraScript)  
+INFO  HuntXref.java>   -- callers of FUN_031ab38c -- (GhidraScript)  
+INFO  HuntXref.java>     called from 045a5b18 (GhidraScript)  
+INFO  HuntXref.java> ==== DECOMP decomp:0x048a9a38 func FUN_048a9a38 @ 048a9a38 size=188 ==== (GhidraScript)  
+INFO  HuntXref.java>   retrying decompile... (GhidraScript)  
+INFO  HuntXref.java>   decompile failed:  (GhidraScript)  
+INFO  HuntXref.java>   -- callers of FUN_048a9a38 -- (GhidraScript)  
+INFO  HuntXref.java>     called from 045a5ae8 (GhidraScript)  
+INFO  HuntXref.java>     called from 04d20688 (GhidraScript)  
+INFO  HuntXref.java> ---- XREFS TO 088a7350 (xref:0x88a7350) ---- (GhidraScript)  
+INFO  HuntXref.java>   xref from 03078960 type=READ in FUN_03078770@03078770 (GhidraScript)  
+INFO  HuntXref.java>   xref from 03078ba4 type=READ in FUN_03078770@03078770 (GhidraScript)  
+INFO  HuntXref.java>   xref from 0307c71c type=READ in FUN_0307c524@0307c524 (GhidraScript)  
+INFO  HuntXref.java>   xref from 0307c964 type=READ in FUN_0307c524@0307c524 (GhidraScript)  
+INFO  HuntXref.java>   xref from 03073bf8 type=READ in FUN_030734fc@030734fc (GhidraScript)  
+INFO  HuntXref.java>   xref from 03073a44 type=READ in FUN_030734fc@030734fc (GhidraScript)  
+INFO  HuntXref.java>   total direct xrefs: 6 (GhidraScript)  
+INFO  HuntXref.java> ---- XREFS TO 088a8fb0 (xref:0x88a8fb0) ---- (GhidraScript)  
+INFO  HuntXref.java>   xref from 03092348 type=READ in FUN_03092230@03092230 (GhidraScript)  
+INFO  HuntXref.java>   xref from 030924f4 type=READ in FUN_03092230@03092230 (GhidraScript)  
+INFO  HuntXref.java>   xref from 03093360 type=READ in FUN_03092230@03092230 (GhidraScript)  
+INFO  HuntXref.java>   xref from 03092a78 type=READ in FUN_03092230@03092230 (GhidraScript)  
+INFO  HuntXref.java>   xref from 03093604 type=READ in FUN_03092230@03092230 (GhidraScript)  
+INFO  HuntXref.java>   xref from 030930b4 type=READ in FUN_03092230@03092230 (GhidraScript)  
+INFO  HuntXref.java>   xref from 03092768 type=READ in FUN_03092230@03092230 (GhidraScript)  
+INFO  HuntXref.java>   total direct xrefs: 7 (GhidraScript)  
+INFO  REPORT: Save succeeded for processed file: /wechat_arm64.dylib (HeadlessAnalyzer)  
