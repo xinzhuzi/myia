@@ -1,7 +1,7 @@
 {
   "id": "wechat-bridge",
   "name": "微信本机桥(UI 自动化 + 本地库只读)",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "kind": "bridge",
   "runtime": "native-python",
   "entry": "wechat_bridge/__main__.py",

@@ -442,3 +442,46 @@ class TestQueryMessages415:
         decode = payload["content_decode"]
         assert isinstance(decode["zstd_available"], bool)
         assert decode["zstd_decoded"] == 1
+
+
+def test_sender_display_names_and_prefix_swap(tmp_path: Path) -> None:
+    """0.5.1 发送者上屏名:remark>昵称>alias 批量解析+文本前缀换名+原 id 留档。"""
+    import sqlite3
+
+    from wechat_bridge.localdb_query import (
+        _apply_sender_display,
+        _contact_pick_names,
+    )
+
+    con = sqlite3.connect(":memory:")
+    con.execute(
+        'CREATE TABLE contact (username TEXT, remark TEXT, nick_name TEXT, alias TEXT)'
+    )
+    con.executemany(
+        "INSERT INTO contact VALUES (?,?,?,?)",
+        [
+            ("wxid_aaa", "备注A", None, None),
+            ("wxid_bbb", None, "昵称B", "aliasB"),
+            ("wxid_ccc", None, None, "aliasC"),
+        ],
+    )
+    names = _contact_pick_names(con, ["wxid_aaa", "wxid_bbb", "wxid_ccc", "wxid_stranger"])
+    assert names == {
+        "wxid_aaa": "备注A",
+        "wxid_bbb": "昵称B",
+        "wxid_ccc": "aliasC",
+    }  # 陌生群成员不入映射(回落 wxid 原样)
+
+    messages = [
+        {"ts": 2, "sender": "wxid_aaa", "type": "text", "text": "wxid_aaa:\n出货"},
+        {"ts": 1, "sender": "wxid_stranger", "type": "text", "text": "wxid_stranger:\n匿名"},
+        {"ts": 0, "sender": "wxid_bbb", "type": "text", "text": "无前缀消息"},
+    ]
+    _apply_sender_display(messages, names)
+    assert messages[0]["sender"] == "备注A"
+    assert messages[0]["sender_id"] == "wxid_aaa"
+    assert messages[0]["text"] == "备注A:\n出货"
+    assert messages[1]["sender"] == "wxid_stranger"  # 查无此人不改
+    assert "sender_id" not in messages[1]
+    assert messages[2]["sender"] == "昵称B"
+    assert messages[2]["text"] == "无前缀消息"  # 无前缀不误伤

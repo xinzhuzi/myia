@@ -360,7 +360,22 @@ def query_messages(
 
 def lookup_contact(con: sqlite3.Connection, chat_id: str) -> str | None:
     """contact 域:会话 id → 展示名(remark > nickname > alias;best-effort)。"""
-    name_cols = ("remark", "Remark", "conRemark", "nickname", "nickName", "NickName", "alias")
+    return _contact_pick_names(con, [chat_id]).get(chat_id)
+
+
+def _contact_pick_names(
+    con: sqlite3.Connection, user_names: list[str]
+) -> dict[str, str]:
+    """contact 域批量:username → 展示名(remark > nickname > alias;0.5.1)。
+
+    群消息发送者上屏要名字不要裸 wxid(主人令 2026-10-13「要展示名字」):
+    逐批 IN 查询同表发现逻辑与 :func:`lookup_contact` 同族;查不到的
+    username 不入映射(调用方回落原样,陌生群成员如实保留 wxid)。
+    """
+    wanted = [u for u in dict.fromkeys(user_names) if isinstance(u, str) and u]
+    if not wanted:
+        return {}
+    name_cols = ("remark", "Remark", "conRemark", "nick_name", "nickname", "nickName", "NickName", "alias")
     id_cols = ("username", "userName", "UserName", "user_name")
     try:
         tables = [
@@ -368,7 +383,8 @@ def lookup_contact(con: sqlite3.Connection, chat_id: str) -> str | None:
             for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
         ]
     except sqlite3.Error:
-        return None
+        return {}
+    result: dict[str, str] = {}
     for table in tables:
         if "contact" not in table.lower():
             continue
@@ -376,20 +392,55 @@ def lookup_contact(con: sqlite3.Connection, chat_id: str) -> str | None:
         id_col = _pick(columns, id_cols)
         if id_col is None:
             continue
-        for name_col in name_cols:
-            actual = next((c for c in columns if c.lower() == name_col.lower()), None)
-            if actual is None:
+        name_actual = [
+            next((c for c in columns if c.lower() == nc.lower()), None)
+            for nc in name_cols
+        ]
+        selectable = [a for a in name_actual if a is not None]
+        if not selectable:
+            continue
+        quoted_id = chr(34) + id_col + chr(34)
+        quoted_names = ", ".join(chr(34) + a + chr(34) for a in selectable)
+        marks = ", ".join("?" for _ in wanted)
+        try:
+            rows = con.execute(
+                f"SELECT {quoted_id}, {quoted_names} FROM \"{table}\" "
+                f"WHERE {quoted_id} IN ({marks})",
+                wanted,
+            ).fetchall()
+        except sqlite3.Error:
+            continue
+        for row in rows:
+            username = row[0]
+            if not isinstance(username, str):
                 continue
-            try:
-                row = con.execute(
-                    f'SELECT "{actual}" FROM "{table}" WHERE "{id_col}" = ?',
-                    (chat_id,),
-                ).fetchone()
-            except sqlite3.Error:
-                continue
-            if row and isinstance(row[0], str) and row[0].strip():
-                return row[0]
-    return None
+            display = next(
+                (v for v in row[1:] if isinstance(v, str) and v.strip()), None
+            )
+            if display:
+                result[username] = display
+        if result:
+            break
+    return result
+
+
+def _apply_sender_display(
+    messages: list[dict[str, object]], display_map: dict[str, str]
+) -> None:
+    """发送者上屏名替换(0.5.1,原地):sender→展示名+sender_id 留原 id+
+    群消息文本前缀 ``<wxid>:\\n`` 同步换名(引擎标题/预览取首行,首行带名
+    则 feed 行自然读作「名字: 内容」)。"""
+    for entry in messages:
+        sender = entry.get("sender")
+        if not isinstance(sender, str) or sender not in display_map:
+            continue
+        display = display_map[sender]
+        text = entry.get("text")
+        prefix = sender + ":"
+        if isinstance(text, str) and text.startswith(prefix):
+            entry["text"] = display + ":" + text[len(prefix):]
+        entry["sender"] = display
+        entry["sender_id"] = sender
 
 
 def list_sessions(con: sqlite3.Connection, limit: int) -> list[dict[str, object]]:
@@ -495,6 +546,15 @@ def run_query(
     if contact_con is not None:
         try:
             display_name = lookup_contact(contact_con, chat_id)
+            # 0.5.1 发送者上屏名(主人令「要展示名字」):批量解析消息发送者
+            # wxid→展示名并原地替换(文本前缀同步换名,sender_id 留原 id);
+            # contact 域缺位时跳过,sender 维持 wxid 原样(如实,不臆造)。
+            senders = [
+                m.get("sender")
+                for m in messages
+                if isinstance(m.get("sender"), str)
+            ]
+            _apply_sender_display(messages, _contact_pick_names(contact_con, senders))
         finally:
             contact_con.close()
     session_con = _open_copy(copy_dir, "session/session.db") if "session" in domains else None
