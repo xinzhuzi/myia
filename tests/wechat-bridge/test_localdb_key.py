@@ -750,7 +750,8 @@ class TestMemsearchShell:
 
 
 class TestSelfHeal:
-    """setuid 自愈钩子(0.4.0):query 链密钥缺位/失效零人工重取的口径。"""
+    """setuid 自愈钩子(0.4.0):query 链密钥缺位/失效零人工重取的口径;
+    0.4.1 失败退避:未闭合落冷却戳,窗内零重扫(损坏即忘却不卡死)。"""
 
     def test_self_heal_dormant_without_armed(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -824,8 +825,9 @@ class TestSelfHeal:
     def test_try_self_heal_gate_guards(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """try_self_heal 本体:未武装 → 零扫描;武装 + 扫描未闭合 → None;
-        武装 + 全量命中 → 落缓存并返回验证映射。"""
+        """try_self_heal 本体:未武装 → 零扫描;武装 + 扫描未闭合 → None +
+        落冷却戳(600);冷却窗内 → 零扫描直 None(0.4.1 失败退避);
+        过窗重扫 → 全量命中落缓存并返回验证映射,且成功清戳。"""
         monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
         db_storage, _key_db = make_account(tmp_path, bytes(range(1, 33)))
         # 假 setuid 件(只验形状判据,永不执行)+ 配置开 = 武装;
@@ -836,7 +838,7 @@ class TestSelfHeal:
         scanner.chmod(0o4750)
 
         def _must_not_scan(*_a: object, **_k: object) -> dict[str, object]:
-            raise AssertionError("未武装不得扫描")
+            raise AssertionError("未武装/冷却窗内不得扫描")
 
         monkeypatch.setattr(memsearch, "acquire_key_from_memory", _must_not_scan)
         assert (
@@ -846,12 +848,7 @@ class TestSelfHeal:
             is None
         )
 
-        key = bytes(range(1, 33))
-
-        def fake_scan(storage, *, config, **_k):
-            write_key_cache({"message/message_0.db": key.hex()}, data_root=tmp_path / "home")
-            return {"matched": {"count": 1, "total": 1}, "scan": {}, "cache": "x"}
-
+        t0 = 1_800_000_000.0
         monkeypatch.setattr(
             memsearch,
             "acquire_key_from_memory",
@@ -862,17 +859,164 @@ class TestSelfHeal:
                 db_storage,
                 config=BridgeConfig(mem_search_enabled=True),
                 data_root=tmp_path / "home",
+                now=t0,
             )
             is None
         )
+        stamp = memsearch.self_heal_cooldown_path(data_root=tmp_path / "home")
+        assert stamp.is_file()
+        assert (stamp.stat().st_mode & 0o777) == 0o600  # 冷却戳私有区 600
+
+        # 冷却窗内:直接 None,零扫描——不可闭合态不再逐次 query 重读
+        # 微信全进程内存(复审 medium;分钟级扫描 × 无限次重试的退避)。
+        monkeypatch.setattr(memsearch, "acquire_key_from_memory", _must_not_scan)
+        assert (
+            memsearch.try_self_heal(
+                db_storage,
+                config=BridgeConfig(mem_search_enabled=True),
+                data_root=tmp_path / "home",
+                now=t0 + 60.0,
+            )
+            is None
+        )
+
+        key = bytes(range(1, 33))
+
+        def fake_scan(storage, *, config, **_k):
+            write_key_cache({"message/message_0.db": key.hex()}, data_root=tmp_path / "home")
+            return {"matched": {"count": 1, "total": 1}, "scan": {}, "cache": "x"}
 
         monkeypatch.setattr(memsearch, "acquire_key_from_memory", fake_scan)
         healed = memsearch.try_self_heal(
             db_storage,
             config=BridgeConfig(mem_search_enabled=True),
             data_root=tmp_path / "home",
+            now=t0 + memsearch.SELF_HEAL_COOLDOWN_SECONDS + 1.0,  # 过窗重扫
         )
         assert healed == {"message/message_0.db": key.hex()}
+        assert not stamp.exists()  # 成功闭合 = 冷却理由消失,戳即清
+
+    def test_self_heal_cooldown_remaining_bounds(self, tmp_path: Path) -> None:
+        """冷却剩余纯函数边界:缺/坏 JSON/形状不符 → 0(损坏即忘却,
+        负缓存绝不把自愈永久卡死);窗内递减;过窗 → 0;未来戳(时钟
+        回拨)→ 恒整窗(阻塞上界有界)。"""
+        data_root = tmp_path / "home"
+        t0 = 1_800_000_000.0
+        assert memsearch.self_heal_cooldown_remaining(data_root=data_root, now=t0) == 0.0
+        memsearch._record_self_heal_failure(data_root=data_root, now=t0)
+        window = memsearch.SELF_HEAL_COOLDOWN_SECONDS
+        assert memsearch.self_heal_cooldown_remaining(data_root=data_root, now=t0) == window
+        mid = memsearch.self_heal_cooldown_remaining(
+            data_root=data_root, now=t0 + window - 1.0
+        )
+        assert 0.0 < mid <= window
+        assert memsearch.self_heal_cooldown_remaining(
+            data_root=data_root, now=t0 + window + 1.0
+        ) == 0.0
+        stamp = memsearch.self_heal_cooldown_path(data_root=data_root)
+        stamp.write_text("{corrupt", encoding="utf-8")
+        assert memsearch.self_heal_cooldown_remaining(data_root=data_root, now=t0) == 0.0
+        stamp.write_text('["not", "a", "dict"]', encoding="utf-8")
+        assert memsearch.self_heal_cooldown_remaining(data_root=data_root, now=t0) == 0.0
+        stamp.write_text('{"failed_at": "not-a-number"}', encoding="utf-8")
+        assert memsearch.self_heal_cooldown_remaining(data_root=data_root, now=t0) == 0.0
+        stamp.write_text(f'{{"failed_at": {t0 + 999_999.0}}}', encoding="utf-8")
+        assert memsearch.self_heal_cooldown_remaining(data_root=data_root, now=t0) == window
+
+    def test_self_heal_cooldown_corrupt_stamp_still_scans(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """冷却戳损坏 → 自愈照常重扫(损坏即忘却),失败后重写合法戳。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, _key_db = make_account(tmp_path, bytes(range(1, 33)))
+        scanner = memsearch.keyscanner_path(data_root=tmp_path / "home")
+        scanner.parent.mkdir(parents=True)
+        scanner.write_bytes(b"")
+        scanner.chmod(0o4750)
+        memsearch.self_heal_cooldown_path(data_root=tmp_path / "home").write_text(
+            "{corrupt", encoding="utf-8"
+        )
+        scanned: list[bool] = []
+
+        def fake_scan(*_a: object, **_k: object) -> dict[str, object]:
+            scanned.append(True)
+            raise BridgeError(21, "零命中(注入)")
+
+        monkeypatch.setattr(memsearch, "acquire_key_from_memory", fake_scan)
+        assert (
+            memsearch.try_self_heal(
+                db_storage,
+                config=BridgeConfig(mem_search_enabled=True),
+                data_root=tmp_path / "home",
+                now=1_800_000_000.0,
+            )
+            is None
+        )
+        assert scanned == [True]  # 损坏戳没挡住重扫
+        assert memsearch.self_heal_cooldown_remaining(
+            data_root=tmp_path / "home", now=1_800_000_000.0
+        ) == memsearch.SELF_HEAL_COOLDOWN_SECONDS  # 失败重写合法戳
+
+    def test_resolve_keys_cooldown_note_is_honest(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """武装 + 冷却窗内:resolve_keys 零重扫,exit 21 如实注记「冷却中」
+        (不谎称重取过——诚实语义与「未闭合」措辞区分)。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, key_db = make_account(tmp_path, bytes(range(32)))
+        stale_page1 = make_page1(b"\xab" * 32, salt=bytes(range(16, 32)))
+        (db_storage / "message" / "message_0.db").write_bytes(stale_page1)
+        monkeypatch.setattr(
+            "wechat_bridge.memsearch.self_heal_armed",
+            lambda *, config, data_root=None: True,
+        )
+        memsearch._record_self_heal_failure(data_root=tmp_path / "home")
+
+        def _must_not_heal(*_a: object, **_k: object) -> dict[str, str]:
+            raise AssertionError("冷却窗内不得触达自愈扫描")
+
+        monkeypatch.setattr("wechat_bridge.memsearch.try_self_heal", _must_not_heal)
+        with pytest.raises(BridgeError) as excinfo:
+            resolve_keys(
+                db_storage,
+                files_root=tmp_path,
+                key_db=key_db,
+                config=BridgeConfig(mem_search_enabled=True),
+            )
+        assert excinfo.value.exit_code == 21
+        assert "冷却" in str(excinfo.value)
+
+    def test_query_history_decrypt_failure_cooldown_propagates(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """E2 解密失败 + 武装 + 冷却窗内 → 零重扫,decrypt_failed 原样透传
+        (query_history 钩子受 try_self_heal 内部冷却门节流,0.4.1)。"""
+        monkeypatch.setenv("MYIA_HOME", str(tmp_path / "home"))
+        db_storage, _key_db = make_account(tmp_path, bytes(range(1, 33)))
+        scanner = memsearch.keyscanner_path(data_root=tmp_path / "home")
+        scanner.parent.mkdir(parents=True)
+        scanner.write_bytes(b"")
+        scanner.chmod(0o4750)
+        memsearch._record_self_heal_failure(data_root=tmp_path / "home")
+
+        def fake_ensure(*_a: object, **_k: object) -> dict[str, object]:
+            raise BridgeError(22, "sqlcipher 解密失败(注入)")
+
+        def _must_not_scan(*_a: object, **_k: object) -> dict[str, object]:
+            raise AssertionError("冷却窗内不得触达自愈扫描")
+
+        monkeypatch.setattr("wechat_bridge.localdb.ensure_decrypted_copies", fake_ensure)
+        monkeypatch.setattr(memsearch, "acquire_key_from_memory", _must_not_scan)
+        with pytest.raises(BridgeError) as excinfo:
+            localdb.query_history(
+                BridgeConfig(mem_search_enabled=True),
+                db_storage,
+                {"message/message_0.db": "cd" * 32},
+                "filehelper",
+                7,
+                data_root=tmp_path / "home",
+            )
+        assert excinfo.value.exit_code == 22
 
     def test_query_history_decrypt_failure_heals_once(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

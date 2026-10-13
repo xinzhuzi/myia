@@ -507,10 +507,11 @@ def resolve_keys(
     指引放置密钥产物后查询**一步闭合,无须再改代码**;② 自愈钩子
     (0.4.0,task 10-13-wechat-key-subsystem):缓存缺位/未闭合且
     ``mem_search_enabled`` 开 + setuid keyscanner 在位时,零人工重取
-    (:func:`wechat_bridge.memsearch.try_self_heal`,全量命中才落缓存);
+    (:func:`wechat_bridge.memsearch.try_self_heal`,全量命中才落缓存;
+    0.4.1 失败退避:未闭合落冷却戳,30 分钟窗内不重扫、零内存读);
     ③ 回落 E1 零内存途径(:func:`acquire_key`,当前如实负结论出口)。
     ①③未闭合会如实并入 exit 21 消息(放了 keys.json 却被弃的排查者
-    不再被零内存措辞带偏)。
+    不再被零内存措辞带偏);②冷却中同样如实注记(不谎称重取过)。
 
     Returns:
         dict: 加密库相对路径 → key hex(全部经 page1 离线验证)。
@@ -533,16 +534,26 @@ def resolve_keys(
             f"keys.json 在场({len(staged)}条)但全量验证未闭合:"
             f"命中 {len(verified)}/{len(targets) if targets else 0}库"
         )
-    # —— 自愈钩子(setuid keyscanner + 配置门开 → 零人工重取;未武装 = 保持现状)——
+    # —— 自愈钩子(setuid keyscanner + 配置门开 → 零人工重取;未武装 = 保持现状;
+    # 0.4.1 失败退避:未闭合落冷却戳,窗内不重扫、零内存读——不可闭合态
+    # 不再逐次 query 重读微信全进程内存;冷却注记如实,不谎称重取过)——
     from . import memsearch  # 延迟导入:memsearch 顶导本模块,防循环
 
     if memsearch.self_heal_armed(config=config, data_root=data_root):
-        healed = memsearch.try_self_heal(
-            db_storage, config=config, targets=targets, data_root=data_root
-        )
-        if healed is not None:
-            return healed
-        notes.append("keyscanner 自愈未闭合(重取后缓存仍未全量命中)")
+        cooldown = memsearch.self_heal_cooldown_remaining(data_root=data_root)
+        if cooldown > 0:
+            notes.append(
+                "keyscanner 自愈冷却中(上次未闭合后 "
+                f"{memsearch.SELF_HEAL_COOLDOWN_SECONDS / 60:.0f} 分钟内不重扫,"
+                f"剩 {cooldown / 60:.0f} 分钟;冷却门不挡一键脚本/手动 key-scan)"
+            )
+        else:
+            healed = memsearch.try_self_heal(
+                db_storage, config=config, targets=targets, data_root=data_root
+            )
+            if healed is not None:
+                return healed
+            notes.append("keyscanner 自愈未闭合(重取后缓存仍未全量命中)")
     try:
         return acquire_key(
             db_storage, files_root=files_root, key_db=key_db, targets=targets
@@ -755,7 +766,8 @@ def query_history(
     自愈钩子(0.4.0):E2 解密失败(密钥失效形状,如登录态轮换 G5)且
     setuid keyscanner 在位 + 配置门开时,零人工重取一次(:func:
     ``wechat_bridge.memsearch.try_self_heal`)并重建副本;未武装/未闭合 =
-    原样透传 decrypt_failed(诚实,不吞)。
+    原样透传 decrypt_failed(诚实,不吞)。0.4.1 失败退避:未闭合落
+    冷却戳,窗内(30 分钟)解密失败不再重扫,原样透传。
     """
     from . import localdb_query, memsearch
 

@@ -47,7 +47,11 @@ O(内存×库数))**退役删除**,替换为:
 - **setuid 自愈**(:func:`self_heal_armed` / :func:`try_self_heal`):
   keyscanner 安装在位 + 配置门开时,localdb 查询链的密钥缺位/失效可零
   人工重取(见 wechat_bridge.localdb 自愈钩子);未安装 = 保持现状
-  (key_unavailable + 一键脚本指引),零 setuid 面。
+  (key_unavailable + 一键脚本指引),零 setuid 面。自愈未闭合落
+  带时间戳冷却戳(窗 = :data:`SELF_HEAL_COOLDOWN_SECONDS`,内含零重扫
+  ——不可闭合态的失败退避,0.4.1 复审 medium 修复;损坏即忘却,
+  绝不把自愈永久卡死;`localdb key-scan` / 一键脚本直连扫描入口,
+  不受冷却门)。
 - 扫描模式参考公开实现思路(0xlane/wechat-dump-rs 系 macOS 段、参考件
   wechat-mcp-macos 的校验配方),实现为本仓库自有零第三方依赖版本,
   **不拷上游代码**。
@@ -86,6 +90,8 @@ __all__ = [
     "KEYSCANNER_REL_PATH",
     "PARAM_SETS",
     "ScanReport",
+    "SELF_HEAL_COOLDOWN_REL_PATH",
+    "SELF_HEAL_COOLDOWN_SECONDS",
     "SQLCIPHER_TRY_TIMEOUT_SECONDS",
     "VERIFY_WORKERS",
     "acquire_key_from_memory",
@@ -94,6 +100,8 @@ __all__ = [
     "keyscanner_available",
     "keyscanner_path",
     "self_heal_armed",
+    "self_heal_cooldown_path",
+    "self_heal_cooldown_remaining",
     "try_open_with_sqlcipher",
     "try_self_heal",
 ]
@@ -112,6 +120,15 @@ COLLECTOR_TIMEOUT_SECONDS = 1800.0
 SQLCIPHER_TRY_TIMEOUT_SECONDS = 15.0
 #: 数据根私有区内 setuid 自愈件落点(install-keyscanner.sh 所装)。
 KEYSCANNER_REL_PATH = f"{LOCALDB_PRIVATE_DIR}/bin/keyscanner"
+#: 自愈失败冷却窗(秒;复审 medium 修复:不可闭合态——微信改版零命中/
+#: 部分命中/收集器超时——若不节流,每次 localdb query 都重触发全进程
+#: 内存扫描(分钟级且用户无感),收集器预算 1800s 还会把失败形状从
+#: exit 21 结构化 skip 拖成 bridge_timeout)。**模块常量非配置面**:
+#: 预算即边界,边界不给人调;`localdb key-scan` CLI / 一键脚本直连扫描
+#: 入口,不受此门。
+SELF_HEAL_COOLDOWN_SECONDS = 1800.0
+#: 自愈冷却戳落点(数据根私有区;内容 = 上次未闭合时间戳,零密钥材料)。
+SELF_HEAL_COOLDOWN_REL_PATH = f"{LOCALDB_PRIVATE_DIR}/self_heal_cooldown.json"
 
 #: 微信 4.x sqlcipher 参数变体 4 组(/tmp verify.py 已验配方;缺省组在前
 #: ——与 E2 解密消费通路 ``PRAGMA key = "x'…'"`` 同参,命中即可直接消费)。
@@ -627,6 +644,10 @@ def acquire_key_from_memory(
 
         if len(matched) == len(page_targets):
             cache_path = write_key_cache(matched, data_root=data_root)
+            # 闭合 = 冷却理由消失:清自愈冷却戳(best-effort;一键脚本/
+            # 手动 key-scan 成功后,后续 query 链失效可即刻重取,不被
+            # 旧失败戳白挡一个冷却窗)。
+            _clear_self_heal_cooldown(data_root=data_root)
             return {
                 "matched": {"count": len(matched), "total": len(page_targets)},
                 "scan": report.to_payload(),
@@ -695,10 +716,77 @@ def self_heal_armed(
     """自愈在位判据:配置门开 + 提权在位(setuid 件或 root)。
 
     未在位 = 保持现状语义(key_unavailable + 一键脚本指引,零 setuid 面)。
+    注意:本函数只判「武装态」(配置 + 安装形状);失败退避的冷却门在
+    :func:`try_self_heal` 内部(节流是行为策略,不混进在位判据——
+    doctor/诊断面读武装态不应被冷却窗谎报成未武装)。
     """
     if config is None or not config.mem_search_enabled:
         return False
     return _elevation_in_place(data_root=data_root)
+
+
+def self_heal_cooldown_path(*, data_root: Path | None = None) -> Path:
+    """自愈冷却戳路径(数据根私有区 wechat-localdb/self_heal_cooldown.json)。"""
+    root = data_root if data_root is not None else myssia_home()
+    return root / SELF_HEAL_COOLDOWN_REL_PATH
+
+
+def self_heal_cooldown_remaining(
+    *, data_root: Path | None = None, now: float | None = None
+) -> float:
+    """距冷却窗结束的剩余秒数(0 = 可重扫;只读状态件,零扫描零成本)。
+
+    冷却戳 = 上次自愈未闭合的时间戳件(**零密钥材料**,红线 6)。缺文件/
+    坏 JSON/形状不符 → 0——**状态件损坏即忘却**,负缓存绝不把自愈永久
+    卡死(宁可多扫一次,不可永久失能);时间戳在未来(时钟回拨)按整窗
+    计,阻塞上界恒为 :data:`SELF_HEAL_COOLDOWN_SECONDS`。
+    """
+    import json
+    import time
+
+    try:
+        raw = json.loads(
+            self_heal_cooldown_path(data_root=data_root).read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return 0.0
+    if not isinstance(raw, dict):
+        return 0.0
+    failed_at = raw.get("failed_at")
+    if not isinstance(failed_at, (int, float)) or isinstance(failed_at, bool):
+        return 0.0
+    current = time.time() if now is None else now
+    elapsed = current - float(failed_at)
+    if elapsed < 0:
+        return SELF_HEAL_COOLDOWN_SECONDS
+    return max(0.0, SELF_HEAL_COOLDOWN_SECONDS - elapsed)
+
+
+def _record_self_heal_failure(
+    *, data_root: Path | None = None, now: float | None = None
+) -> None:
+    """落冷却戳(600;目录 700;sudo 下属主归还——与 keys.json 同款纪律)。"""
+    import json
+    import time
+
+    stamp = self_heal_cooldown_path(data_root=data_root)
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    os.chmod(stamp.parent, 0o700)
+    stamp.write_text(
+        json.dumps({"failed_at": time.time() if now is None else now}) + "\n",
+        encoding="utf-8",
+    )
+    os.chmod(stamp, 0o600)
+    _restore_owner_for_sudo(stamp.parent)
+    _restore_owner_for_sudo(stamp)
+
+
+def _clear_self_heal_cooldown(*, data_root: Path | None = None) -> None:
+    """清冷却戳(best-effort:任何一次成功闭合都让冷却理由消失)。"""
+    try:
+        self_heal_cooldown_path(data_root=data_root).unlink()
+    except OSError:
+        pass  # 缺文件/删失败不拦成功路径;残留旧戳至多白挡一个窗
 
 
 def try_self_heal(
@@ -707,15 +795,24 @@ def try_self_heal(
     config: BridgeConfig,
     targets: list[tuple[str, int, bytes]] | None = None,
     data_root: Path | None = None,
+    now: float | None = None,
 ) -> dict[str, str] | None:
     """自愈扫描(best-effort):全量命中 → keys.json 已落,返回缓存映射。
 
     供 localdb 查询链在密钥缺位/失效时零人工重取;任何未闭合(门未开/
     件未装/微信不在/零命中/部分命中)都返回 None,由调用方如实并入
     exit 21 语义——自愈绝不制造半真状态(缓存=全量验证子集纪律不变)。
+
+    失败退避(0.4.1 复审 medium 修复):未闭合落带时间戳冷却戳,
+    :data:`SELF_HEAL_COOLDOWN_SECONDS` 窗内再次进入直接 None 且**零
+    扫描**——不可闭合态(微信改版零命中/部分命中/收集器超 600s query
+    帽)不再逐次拉取重读微信全进程内存(分钟级且用户无感)。成功闭合
+    (本函数或 ``localdb key-scan`` 直连)清戳;CLI/一键脚本不受冷却门。
     """
     if not self_heal_armed(config=config, data_root=data_root):
         return None
+    if self_heal_cooldown_remaining(data_root=data_root, now=now) > 0:
+        return None  # 冷却门(内部硬保证:任何调用方都绕不过节流)
     try:
         acquire_key_from_memory(
             db_storage,
@@ -725,12 +822,18 @@ def try_self_heal(
             data_root=data_root,
         )
     except BridgeError:
+        _record_self_heal_failure(data_root=data_root, now=now)
         return None  # 形状细节归调用方 notes;此处不吞成成功
     staged = read_key_cache(data_root=data_root)
     if staged is None:
+        _record_self_heal_failure(data_root=data_root, now=now)
         return None
     page_targets = targets if targets is not None else page1_targets(db_storage)
     verified = verify_key_mapping(db_storage, staged, targets=page_targets)
     if page_targets and len(verified) == len(page_targets):
+        # 闭合 = 冷却理由消失(与 acquire_key_from_memory 成功路径同款;
+        # 本函数的合同自持:成功返回即清戳,不依赖闭合来自哪条通路)。
+        _clear_self_heal_cooldown(data_root=data_root)
         return verified
+    _record_self_heal_failure(data_root=data_root, now=now)
     return None
