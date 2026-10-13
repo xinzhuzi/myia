@@ -110,14 +110,27 @@ def _all_docs_markdown_files() -> list[Path]:
     return sorted(DOCS_DIR.rglob("*.md"))
 
 
+#: 协议规格页(docs/ 根下的非 schema 教学页):独立题材的**规格文档**——
+#: 面向第三方实现者定义子进程协议,其「示例」是参考实现代码(由桥侧测试
+#: 锁定),不承载品类 YAML 配置。豁免口径同 demo 物料:免「每页必须带
+#: 品类示例」与「链接仅 .md/.yaml」两条教学页规则;若日后出现 ```yaml
+#: 块仍全量过 load_category 校验,相对链接仍须解析到真实仓库文件。
+#: 新增根页时先自问题材:schema 教学页入双语对齐体系,规格页入本清单。
+PROTOCOL_SPEC_PAGES = ("wechat-keyprovider.md",)
+
+
 def _is_doc_page(path: Path) -> bool:
     """Schema-teaching documentation page (bilingual-PRD scope): the shared
     root pages (``docs/*.md``) plus the zh/en trees. Demo material
     (``docs/demo/**``) is repo material, not AI-input documentation — exempt
     from the per-page example rule and the docs-only link-type gate, but its
-    yaml blocks are still fully validated and its links must still resolve."""
+    yaml blocks are still fully validated and its links must still resolve.
+    Protocol spec pages (PROTOCOL_SPEC_PAGES) get the same treatment for the
+    same reason: they teach a wire protocol, not the category schema."""
     resolved = path.resolve()
     if resolved.is_relative_to(DEMO_DIR.resolve()):
+        return False
+    if path.parent == DOCS_DIR and path.name in PROTOCOL_SPEC_PAGES:
         return False
     return (
         path.parent == DOCS_DIR

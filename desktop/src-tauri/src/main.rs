@@ -12,6 +12,7 @@ mod pyenv;
 mod pyenv_components;
 mod pyenv_install;
 mod pyenv_migration;
+mod wechat_keyprovider;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -491,7 +492,8 @@ fn yaml_dir_to_reveal(file: &str) -> Result<PathBuf, String> {
 /// 壳侧数据根解析(spawn 注入/自管环境探测共用,与 spawn 的 MYIA_HOME 注入
 /// 规则同源):显式 `MYIA_HOME` env 尊重用户设置原样继承(自动化/自定位数据根
 /// 的逃生口;entry.py `_serve_context` 同优先级链);未设才计算平台根并预建目录。
-fn data_root(app: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
+/// (pub(crate):wechat_keyprovider 的 MYIA_HOME 注入同规则复用。)
+pub(crate) fn data_root(app: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
     if let Some(home) = std::env::var_os("MYIA_HOME") {
         return Ok(PathBuf::from(home));
     }
@@ -893,7 +895,11 @@ fn main() {
             pyenv_components::service_start,
             pyenv_components::service_stop,
             pyenv_components::service_status,
-            pyenv_migration::pyenv_migration_banner
+            pyenv_migration::pyenv_migration_banner,
+            // 微信本机桥「取钥器」配置面(10-13-wechat-keyprovider B5:spawn
+            // 安装态桥跑 localdb key-provider set/get/clear;配置落桥自有
+            // config.json,壳不直写)
+            wechat_keyprovider::wechat_key_provider
         ])
         .setup(move |app| {
             // 冷启动打点(沿用 spike 惯例):进程启动 → sidecar spawn 完成。

@@ -6,18 +6,32 @@
  * 不读不写 Hermes 私有目录——本卡零新契约,只做桥接状态灯(三布尔,直读
  * probe_bridge)+ 登录指引(`hermes gateway setup` 终端扫码)+ 单活模型
  * 诚实披露。账号档列表/卡内登录/删除待上游契约后开放。
+ *
+ * 10-13-wechat-keyprovider B5:卡底新增「取钥器」配置行(微信桥配置分区既有
+ * 版面内加行,不新造卡)——路径输入 + 三态(已配置/未配置/文件缺失)+ 未配置
+ * 引导文案(指向 docs/wechat-keyprovider.md);读写经壳侧 Tauri 命令
+ * spawn 桥 `localdb key-provider set/get/clear`,配置落桥自有 config.json。
  */
-import { Copy, User } from "lucide-react";
+import { Copy, Save, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SidecarRequestError as SidecarRequestErrorType } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 import { asSidecarError } from "./api";
 import { ErrorBox } from "./error-box";
+import { FieldInput } from "./field-input";
 import { platformAccountsGetStatus } from "./platform-accounts-api";
+import {
+  keyProviderView,
+  wechatKeyProviderClear,
+  wechatKeyProviderGet,
+  wechatKeyProviderSet,
+  type KeyProviderState,
+} from "./wechat-keyprovider-api";
 
 /** 状态灯:绿/灰两态(桥探测无忙碌面)。 */
 function BridgeDot({ on, label }: { on: boolean; label: string }) {
@@ -47,9 +61,67 @@ export function WeixinAccountCard() {
     }
   }, []);
 
+  // 取钥器配置态(B5):get 是三态真源;保存/清除成功后重拉刷新。
+  const [provider, setProvider] = useState<KeyProviderState | null>(null);
+  const [providerError, setProviderError] = useState<SidecarRequestErrorType | null>(null);
+  const [providerDraft, setProviderDraft] = useState("");
+  const [providerBusy, setProviderBusy] = useState(false);
+  const [providerNote, setProviderNote] = useState<string | null>(null);
+
+  const refreshProvider = useCallback(async () => {
+    setProviderError(null);
+    try {
+      setProvider(await wechatKeyProviderGet());
+    } catch (raw) {
+      setProviderError(asSidecarError(raw));
+    }
+  }, []);
+
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+    void refreshProvider();
+  }, [refresh, refreshProvider]);
+
+  const providerView = provider ? keyProviderView(provider) : null;
+  // 草稿镜像已存值(空草稿 = 回显现值;改过才算 dirty,保存钮才亮)
+  const storedPath = provider?.configured ? (provider.path ?? "") : "";
+  const draftValue = providerDraft !== "" ? providerDraft : storedPath;
+  const draftDirty = providerDraft.trim() !== "" && providerDraft !== storedPath;
+
+  const saveProvider = useCallback(async () => {
+    const value = draftValue.trim();
+    if (!value || providerBusy) return;
+    setProviderBusy(true);
+    setProviderError(null);
+    setProviderNote(null);
+    try {
+      await wechatKeyProviderSet(value);
+      setProviderNote(`取钥器路径已保存:${value}`);
+      setProviderDraft("");
+      await refreshProvider();
+    } catch (raw) {
+      setProviderError(asSidecarError(raw));
+    } finally {
+      setProviderBusy(false);
+    }
+  }, [draftValue, providerBusy, refreshProvider]);
+
+  const clearProvider = useCallback(async () => {
+    if (providerBusy) return;
+    setProviderBusy(true);
+    setProviderError(null);
+    setProviderNote(null);
+    try {
+      await wechatKeyProviderClear();
+      setProviderNote("已清除取钥器配置(读本地消息时会明确报错,不静默降级)。");
+      setProviderDraft("");
+      await refreshProvider();
+    } catch (raw) {
+      setProviderError(asSidecarError(raw));
+    } finally {
+      setProviderBusy(false);
+    }
+  }, [providerBusy, refreshProvider]);
 
   const weixin = status?.weixin ?? null;
 
@@ -125,6 +197,104 @@ export function WeixinAccountCard() {
           诚实披露:微信登录态由本机 Hermes-Agent 持有(单活:同一时刻生效账号一个);
           MYIA 不读不写 Hermes 私有目录,账号列表/卡内登录/删除待后续版本开放。
         </p>
+
+        {/* 取钥器配置行(10-13-wechat-keyprovider B5):微信本机消息库的解密
+            钥匙外置获取件。三态徽标 + 状态文案 + 路径输入(保存/清除经壳侧
+            Tauri 命令 spawn 桥管理子命令,前端不碰桥配置文件)。 */}
+        <div
+          className="mt-1 flex flex-col gap-2 border-t border-border/60 pt-3"
+          data-testid="weixin-keyprovider"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-foreground">取钥器</span>
+            {providerView === null && !providerError ? (
+              <span data-testid="weixin-keyprovider-loading" className="text-2xs text-muted-foreground">
+                配置装载中…
+              </span>
+            ) : (
+              <Badge
+                variant={providerView === "configured" ? "ok" : providerView === "missing" ? "warning" : "outline"}
+                data-testid="weixin-keyprovider-badge"
+              >
+                {providerView === "configured" ? "已配置" : providerView === "missing" ? "文件缺失" : "未配置"}
+              </Badge>
+            )}
+          </div>
+
+          {providerView === "unset" ? (
+            <p
+              data-testid="weixin-keyprovider-guidance"
+              className="text-2xs leading-4 text-muted-foreground"
+            >
+              未配置取钥器:读取微信本地消息库时不会自动获取解密钥匙(会明确报错,不静默降级)。
+              自制或取得一个密钥获取工具(可执行文件)后,把它的路径填到下面保存;
+              协议写法与示例见仓库
+              <code className="mx-1 rounded-sm border border-border/60 bg-muted px-1 font-mono">
+                docs/wechat-keyprovider.md
+              </code>
+              。
+            </p>
+          ) : null}
+          {providerView === "missing" ? (
+            <p role="alert" data-testid="weixin-keyprovider-missing" className="text-2xs leading-4 text-warning">
+              配置的取钥器文件不存在或不可执行:
+              <code className="mx-1 rounded-sm border border-border/60 bg-muted px-1 font-mono">
+                {provider?.path}
+              </code>
+              ;请核对路径后重新保存。
+            </p>
+          ) : null}
+          {providerView === "configured" ? (
+            <div className="flex flex-wrap items-center gap-1.5 text-2xs leading-4 text-muted-foreground">
+              <span data-testid="weixin-keyprovider-current">
+                当前取钥器:
+                <code className="mx-1 rounded-sm border border-border/60 bg-muted px-1 font-mono">
+                  {provider?.path}
+                </code>
+                (需要解密时桥会调用它)
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-2xs"
+                disabled={providerBusy}
+                aria-label="清除取钥器配置"
+                title="清除后读本地消息会明确报错(未配置取钥器);需要时重新保存路径即可"
+                onClick={() => void clearProvider()}
+              >
+                清除配置
+              </Button>
+            </div>
+          ) : null}
+
+          <FieldInput
+            label="取钥器路径"
+            aria-label="取钥器路径"
+            placeholder="可执行文件绝对路径,如 /opt/tools/wechat-keyprovider"
+            value={draftValue}
+            hint="保存进微信桥自己的配置文件;读本地消息需要解密钥匙时,桥会按协议调用这个工具"
+            labelHint="取钥器 = 帮 MYIA 拿到微信本地消息库解密钥匙的外部小工具(一个可执行文件)。MYIA 自己不带它、也不校验它从哪来;路径要用绝对位置(~ 开头也行)。"
+            onChange={(event) => setProviderDraft(event.target.value)}
+            action={
+              <Button
+                size="sm"
+                disabled={!draftDirty || providerBusy}
+                aria-label="保存取钥器路径"
+                title={draftDirty ? "保存路径(桥会先校验文件存在且可执行)" : "先填一个与当前不同的路径"}
+                onClick={() => void saveProvider()}
+              >
+                <Save className="size-3.5" />
+                保存路径
+              </Button>
+            }
+          />
+          {providerError ? <ErrorBox error={providerError} onRetry={() => void refreshProvider()} /> : null}
+          {providerNote ? (
+            <p role="status" data-testid="weixin-keyprovider-note" className="text-xs text-ok">
+              {providerNote}
+            </p>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );
