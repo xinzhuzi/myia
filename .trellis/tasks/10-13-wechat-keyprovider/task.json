@@ -3,7 +3,7 @@
   "name": "wechat-keyprovider",
   "title": "微信取钥外置化:真数据先行,后代码落地",
   "description": "照 WeFlow 模式把微信桥取钥面外置为可插拔件(设置页路径配置+stdin JSON/stdout NDJSON 协议),桥本体零取钥代码。硬门禁:先真数据到手(key→verify3→localdb query 通电),验收过门才准写项目代码。",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
