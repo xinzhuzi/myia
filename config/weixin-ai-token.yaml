@@ -1,0 +1,58 @@
+# config/weixin-ai-token.yaml — 微信 AI Token 群(10-13 主人令「按建议做完」
+# 第 1 件:从 weixin.yaml 拆出独立品类开飞书即推——该群内容时效性强
+# (优惠/额度动态),值得手机实时可见;TMS 内部交流群留在 weixin.yaml
+# 维持「只入本机」隐私红线不动。源名保持 weixin-<会话原名> 全称律不变,
+# #wx- 内容锚跨品类恒同 → 已入库消息沉默零重推。
+#
+# 推送面(主人 2026-10-13 显式开启,本品类唯一的出本机面):全部消息
+# immediate 即推飞书卡(route 兜底封边 url != "" 同 games 判例);不入
+# digest/archive 槽 → 日报零微信分区红线对本品类同样成立。enrich 仍关
+# (内容不送 LLM)。
+
+id: weixin-ai-token
+name: 微信AI中转站
+
+schedule: "*/2 9-22 * * *"          # 与 weixin.yaml 同窗(准实时 2-3 分钟级)
+timezone: Asia/Shanghai
+
+timeouts:
+  fetch: 660                         # 同 weixin.yaml:重建轮上界留余量
+
+sources:
+  - name: weixin-AI中转站-♾️ AI Token  # 源名全称律:weixin-<会话原名>(与 weixin.yaml 时代同名,锚连续)
+    engine: wechat_local
+    url: "https://weixin.qq.com"    # 锚(schema http(s) 形状要求;引擎零 HTTP,端点=本机桥)
+    empty_ok: true                  # 安静窗口零消息 = 合法空(doctor 口径)
+    engine_options:
+      wechat_local:
+        channel: localdb            # 本地库直读,零截窗零 AX
+        chat: "48114732647@chatroom"  # 会话 id 直读(contact 库反查)
+        since_days: 3               # 首拉/无水位窗口(缺省 3;有水位后自动增量)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct                   # 零 HTTP;robots 面不适用(本机读回)
+    retry: 1                        # 本机桥读,重试 1
+
+watchlist:
+  keywords: []
+  mute: []
+
+classify:
+  builtin: false
+  rules: []
+
+dedup:
+  key: "{url}"                      # #wx- 内容哈希锚全串(跨品类同锚沉默)
+
+enrich:
+  enabled: false                    # 内容不送 LLM(红线沿袭)
+
+push:                               # 主人令开的唯一出本机面:全量即推
+  - channel: feishu_card
+    target: env:FEISHU_CHAT_ID      # bot token 走渠道缺省 env:FEISHU_BOT_TOKEN
+    route:
+      - when: 'url != ""'           # 兜底封边:全部消息命中(games 判例同款)
+        mode: immediate
+
+storage:
+  retention: 30d                    # 隐私谨慎缺省
+  vacuum: monthly
