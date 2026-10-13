@@ -1296,10 +1296,13 @@ def resolve_keys(
 # =====================================================================
 
 #: G4 三域 → 解密目标库(代码级映射;域清单配置可扩,未知域回落全目录)。
+#: sns 域(10-13-wechat-sns-feed):DEFAULT_DOMAINS 不含它——query 命令的
+#: 缺省解密面零变化,sns 副本只在 ``localdb sns`` 命令显式请求时解密。
 DOMAIN_DB_FILES: dict[str, list[str]] = {
     "message": ["message/message_0.db", "message/biz_message_0.db"],
     "session": ["session/session.db"],
     "contact": ["contact/contact.db"],
+    "sns": ["sns/sns.db"],
 }
 
 
@@ -1590,6 +1593,57 @@ def query_history(
         chat_id=chat_id,
         since_days=since_days,
         limit=config.messages,
+        copy_info=copy_info,
+    )
+
+
+def sns_history(
+    config,  # BridgeConfig(避免循环导入,运行时鸭子类型)
+    db_storage: Path,
+    keys: dict[str, str],
+    mode: str,
+    since_days: int,
+    *,
+    data_root: Path | None = None,
+    now: float | None = None,
+) -> dict[str, object]:
+    """``localdb sns feed|notices`` 全链编排(task 10-13-wechat-sns-feed)。
+
+    与 :func:`query_history` 同构:E2 副本(域固定 ``["sns", "contact"]``——
+    contact 供 nickname 反查;**不带 message/session**,sns 查询不摊消息域
+    解密成本)→ 解密失败自愈钩子同款(setuid keyscanner 在位+门开 = 零人工
+    重取一次)→ E3 :func:`wechat_bridge.sns_query.run_sns_query` 装配。
+    """
+    from . import memsearch, sns_query
+
+    def _ensure(keys_mapping: dict[str, str]) -> dict[str, object]:
+        return ensure_decrypted_copies(
+            db_storage,
+            keys_mapping,
+            domains=["sns", "contact"],
+            ttl_hours=config.copy_ttl_hours,
+            capacity_mb=config.copy_capacity_mb,
+            data_root=data_root,
+            now=now,
+        )
+
+    try:
+        copy_info = _ensure(keys)
+    except BridgeError as exc:
+        if exc.exit_code != DECRYPT_FAILED:
+            raise
+        if not memsearch.self_heal_armed(config=config, data_root=data_root):
+            raise
+        healed = memsearch.try_self_heal(db_storage, config=config, data_root=data_root)
+        if healed is None:
+            raise
+        keys = healed
+        copy_info = _ensure(keys)
+
+    return sns_query.run_sns_query(
+        copy_dir=Path(str(copy_info["dir"])),
+        mode=mode,
+        since_days=since_days,
         copy_info=copy_info,
     )
 

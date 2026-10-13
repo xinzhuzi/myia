@@ -162,6 +162,26 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="取钥器等待窗提示秒数(透传 timeout_hint_seconds;桥内硬帽 clamp(N,120,1800))",
     )
+    # 朋友圈只读查询(task 10-13-wechat-sns-feed;key-provider 多层子命令同款
+    # 形态)。feed=SnsTimeLine 动态(XML 解析)/notices=SnsMessage_tmp3 互动
+    # 通知(赞/评);两模式都不跑 UI 前置(localdb 族同纪律,零截窗零 AX)。
+    localdb_sns = localdb_sub.add_parser(
+        "sns", help="朋友圈只读查询(feed=动态 / notices=互动通知)"
+    )
+    sns_sub = localdb_sns.add_subparsers(dest="sns_cmd", required=True)
+    sns_feed = sns_sub.add_parser(
+        "feed", help="朋友圈动态(SnsTimeLine;content XML 解析,窗口过滤在解析后)"
+    )
+    sns_notices = sns_sub.add_parser(
+        "notices", help="朋友圈互动通知(赞/评;窗口过滤在 SQL)"
+    )
+    for sns_node in (sns_feed, sns_notices):
+        sns_node.add_argument(
+            "--since",
+            required=True,
+            metavar="Nd",
+            help="历史窗口(天;形如 3d;窗口含当天,水位增量由调用方管)",
+        )
 
     # §6 文样把 --json 放在子命令之后(sessions list --json)——全局旗标在
     # argparse 里必须逐层重注册才收得到;default=SUPPRESS 防子层缺省覆写
@@ -181,6 +201,9 @@ def build_parser() -> argparse.ArgumentParser:
         keyprov_clear,
         localdb_keystatus,
         localdb_keyacquire,
+        localdb_sns,
+        sns_feed,
+        sns_notices,
     ):
         node.add_argument(
             "--json",
@@ -434,6 +457,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             # missing 不判错;抽样重验在 key_status 内(与 keys.json 消费门
             # 同一验真器,不另写一份)。
             _emit(localdb.key_status())
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "sns":
+            # 朋友圈只读查询(10-13-wechat-sns-feed):密钥链与 query 同一
+            # 全链(resolve_keys:缓存/取钥器/自愈/E1);E2 副本域固定
+            # sns+contact(nickname 反查),不带消息域;成功 emit 契约载荷
+            # (朋友圈内容属 stdout 契约,不入日志;红线 6 同款)。
+            days = _parse_since_days(args.since)
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            _emit(localdb.sns_history(config, storage, keys, args.sns_cmd, days))
             return EXIT_OK
         elif args.group == "localdb" and args.localdb_cmd == "key-acquire":
             # D3 交互式取钥编排(design §A.2):stdout 是 NDJSON 流——progress

@@ -776,7 +776,7 @@ def test_wechat_bridge_pyproject_matches_component_stamp() -> None:
     init_text = (component_root / "wechat_bridge" / "__init__.py").read_text(encoding="utf-8")
 
     version = pyproject["project"]["version"]
-    assert version == stamp["version"] == "0.5.1", (
+    assert version == stamp["version"] == "0.6.0", (
         f"版本三方漂移: pyproject {version} vs component.json {stamp['version']}"
     )
     matched = re.search(r'^__version__\s*=\s*"([^"]+)"', init_text, re.M)

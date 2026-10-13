@@ -114,6 +114,15 @@ def _collect_golden_payloads(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     assert exit_code == 21
     payloads["err_memsearch_default_off"] = payload
 
+    # ⑧ 朋友圈查询缺钥(10-13-wechat-sns-feed;⑤ 同族——sns 命令族走同一
+    # 密钥链,缺位 = exit 21 如实。feed/notices 错误载荷同形,单锚定形)
+    exit_code, payload = run_cli(
+        ["localdb", "sns", "feed", "--since", "3d", "--json"],
+        monkeypatch, tmp_path,
+    )
+    assert exit_code == 21
+    payloads["err_localdb_sns_key_unavailable"] = payload
+
     return payloads
 
 
