@@ -95,6 +95,22 @@ sources:
   #    只出「当前打开会话」的载荷,不匹配的源按空态跳过;localdb 按库查询
   #    无此面,多源各查各的会话,如实)──
 
+  # ── 朋友圈(10-13-wechat-sns-feed;桥 0.6.0+,channel: sns 无会话概念,
+  #    不消费 chat/sides/count;feed=动态/notices=互动通知赞评两模式,
+  #    一模式一源;动态用微信全局 id 强锚,通知用表主键锚,重读恒同)──
+  # - name: weixin-朋友圈                # 源名全称律(渠道归属+去重键)
+  #   engine: wechat_local
+  #   url: "https://weixin.qq.com"
+  #   empty_ok: true                     # 安静窗零动态/密钥缺位 skip = 合法空
+  #   engine_options:
+  #     wechat_local:
+  #       channel: sns
+  #       feed_kind: feed                # feed(缺省)=动态;notices=互动通知
+  #       since_days: 3                  # 首拉/无水位窗口(缺省 3;有水位自动增量)
+  #   rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+  #   proxy: direct
+  #   retry: 1
+
 # 首版全入库,筛选交给 feed 读态/星标(零 LLM 筛选:私有内容不出本机)。
 watchlist:
   keywords: []

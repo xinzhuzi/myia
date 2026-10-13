@@ -20,6 +20,8 @@ python -m wechat_bridge localdb query <chat> --since 7d --json   # 本地库只�
 python -m wechat_bridge localdb key-scan --json        # 内存密钥批处理扫描(D4 豁免;默认关+须提权(root 或 setuid 自愈件)+只读单遍)
 python -m wechat_bridge localdb key-status --json      # 密钥缓存三态 ready/stale/missing(抽样页1 HMAC 重验;恒 exit 0;0.5.0)
 python -m wechat_bridge localdb key-acquire --json [--force] [--timeout-hint 600]  # 交互式取钥编排(ready 短路 already_ready/--force 直走/hint clamp 120..1800/progress 原样转印 stdout NDJSON;协议 v1.1)
+python -m wechat_bridge localdb sns feed --since 3d --json    # 朋友圈动态(SnsTimeLine XML 解析;窗口过滤在解析后;0.6.0)
+python -m wechat_bridge localdb sns notices --since 3d --json # 朋友圈互动通知(赞/评;type 1→like/2→comment;窗口过滤在 SQL;0.6.0)
 ```
 
 `bin/wechat-bridge` = 装机启动器(纯转接,零业务逻辑):解析组件根 → 按
