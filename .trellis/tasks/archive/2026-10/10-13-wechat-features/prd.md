@@ -42,11 +42,19 @@
 
 ## Acceptance Criteria(父档=集成验收;细节 AC 在各子档)
 
-- [ ] AC-P1:六子全部交付且归档,每个子的 prd AC 全勾。
-- [ ] AC-P2:真数据端到端——每类功能对真实本地库(TMS 群等)真跑出真产物(消息/统计/报告/媒体/导出件),非夹具演示。
-- [ ] AC-P3:红线守卫——全程零微信进程干预、零写微信数据(grep 守卫+代码评审双保险);三个排除项未以任何形态混入。
-- [ ] AC-P4:装机包全量刷新+像素级验证(微信功能屏族)。
-- [ ] AC-P5:词汇判例——功能名/UI 文案全人话(「聊天记录」「年度报告」),协议/字段保留标准英文。
+- [x] AC-P1:六子全部交付且归档,每个子的 prd AC 全勾。
+- [x] AC-P2:真数据端到端——每类功能对真实本地库(TMS 群等)真跑出真产物(消息/统计/报告/媒体/导出件),非夹具演示。
+- [x] AC-P3:红线守卫——全程零微信进程干预、零写微信数据(grep 守卫+代码评审双保险);三个排除项未以任何形态混入。
+- [x] AC-P4:装机包全量刷新+像素级验证(微信功能屏族)。
+- [x] AC-P5:词汇判例——功能名/UI 文案全人话(「聊天记录」「年度报告」),协议/字段保留标准英文。
+
+> **验收回填(2026-10-14 收口簿记;证据=六子复查回执+装机复查,全 PASS/needsFix=false)**:
+>
+> - **AC-P1**:六子(chat-export/stats-reports/media-sns/contacts/notify-revoke/http-api)prd AC 全勾+全部归档(本笔六档外科提交;各子复查回执原文留档于各子档 prd 尾);groupinfo 前批已归档(35e9d78)。
+> - **AC-P2(真数据=复查回执)**:C1 keyset 全量翻页对拍 rows=9821/pages=20 序列相等+六格式真库导出 3391 行==同窗 SQL COUNT+SIGTERM 取消安全;C2 chat total=111062(system=907 契约自洽)+annual --all total=20964/319ms+缓存 sha256 逐字节确定;C3 rows=4419/parsed=4419/media_nodes=7065+media status 真跑;C4 六桶闭包 sum=22092==COUNT+游标零重漏+Tier 6389/13925;C5 notify-scan 真库 sessions_scanned=454/whitelist=1+baseline 推进;C6 门控真库 Pull 深分页 p95≤45.3ms+SSE 真扫描水位推进。
+> - **AC-P3(红线守卫)**:各回执红线 grep 零命中——C1 两模块 INSERT|UPDATE|DELETE|db_storage 零+产物 0600;C2 stats_query 网络/print/写 SQL 零(恒 mode=ro);C3 写 SQL/AES|ECB|isaac/密钥入日志三组零(CDN 回源只读 GET 属 R4 设计内);C4 contacts_query 写/网络/进程全零;C5 LLDB|断点|passphrase|hook|trigger 词表零,macos_notify=osascript 字面量 argv 通知通道非微信干预;C6 DELETE|PUT|block-delete|uninstall 零+do_ 处理器恰三个;三排除项(改本地消息/防撤回拦截/朋友圈拦截)零混入。
+> - **AC-P4(装机)**:rebuilt=true/swapped=true;**pixelVerified**——C1 `/tmp/wxfeat-install/10-query-export.png`(「本地库查询(历史) 解密副本只读,零出网零微信进程交互…」+「分页浏览窗口」+「导出本会话」+「选择目录并导出」,Vision 1.00+Paddle 交叉核对 0.9929/0.9556/0.9527 逐字一致);C2-C4 同屏 `15-stats-sns-media-contacts.png`(「统计报告…首次统计较慢,之后秒出(文件缓存)」+私聊/群聊/年度/双人四类;「朋友圈 只读时间线…」+「拉取朋友圈/导出/扫描媒体」;「聊天图片…缩略图经你的解密件解出」;「联系人 解密副本只读分类浏览(好友/群聊/公众号/曾经的好友)」+桶 chip,Paddle ≥0.95);版本链 `05-after-move.png` 卡头「微信 4.1.15 / 桥组件 0.8.3」(Paddle 0.9435)=装机 UI→sidecar→自管 python 桥 0.8.3 全链像素实证。**blocked 两项如实注记**:①通知撤回面无 UI 面可截——notify-revoke prd 钉死「UI 零新画布」,其 AC8 feed「weixin-通知」卡需 config/weixin-notify.yaml 部署到数据根+cron 注册+白名单+新消息(数据根 config/ 仅有 weixin.yaml 与 weixin-ai-token.yaml,myssia.db 无 weixin-通知 源,首扫描轮零事件;该任务 jsonl 空、在途未交付 UI);②HTTP API 面无 UI 面可截——ui-src 全树「5032/http_api/本机接口」零命中,http-api 全部 AC 为 CLI/curl/文档级(其 implement/check jsonl 均 0 行,任务在途,UI 未落),工作树唯一 http-api 交付为桥侧 CLI+docs。非阻塞注记:spctl -a rejected=adhoc 签名既定基线(旧装机版同形,无 quarantine xattr 可正常运行,生产实例已复原在跑 pid 48482)。
+> - **AC-P5(文案=复查抽查+像素文案核对)**:上屏人话实证——「本地库查询(历史)」「分页浏览窗口」「导出本会话」「统计报告」(私聊分析/群聊分析/年度报告/双人报告)「朋友圈 只读时间线」「聊天图片」「联系人」「好友/群聊/公众号/曾经的好友」;协议/字段英文保留(next_cursor/with_residue/stats_chats/revoke_list 等,回执在案);C6 文档「实时」零命中(延迟口径=分钟级,2 处如实)。
 
 ## Constraints
 

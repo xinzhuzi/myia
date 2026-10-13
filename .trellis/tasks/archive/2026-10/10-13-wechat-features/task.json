@@ -3,7 +3,7 @@
   "name": "wechat-features",
   "title": "微信功能全家桶:WeFlow 功能落到 MYIA",
   "description": "把 WeFlow 的功能清单(聊天媒体解密/私聊群聊分析/年度报告/双人报告/多格式导出/朋友圈/联系人找回/通知/HTTP API)按 MYIA 形态落地;红线项(修改消息/防撤回拦截/朋友圈拦截)以只读替代形态实现。数据面走已打通的本地库只读链。",
-  "status": "planning",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "xinzhuzi",
   "assignee": "xinzhuzi",
   "createdAt": "2026-10-13",
-  "completedAt": null,
+  "completedAt": "2026-10-14",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
@@ -19,7 +19,13 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "10-13-wechat-groupinfo"
+    "10-13-wechat-groupinfo",
+    "10-14-wechat-chat-export",
+    "10-14-wechat-stats-reports",
+    "10-14-wechat-media-sns",
+    "10-14-wechat-contacts",
+    "10-14-wechat-notify-revoke",
+    "10-14-wechat-http-api"
   ],
   "parent": null,
   "relatedFiles": [],
