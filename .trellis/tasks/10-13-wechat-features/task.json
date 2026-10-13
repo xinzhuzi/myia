@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "10-13-wechat-groupinfo"
+  ],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
