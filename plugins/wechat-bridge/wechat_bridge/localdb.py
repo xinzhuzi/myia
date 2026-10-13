@@ -30,8 +30,8 @@ E2 解密副本(G5 生命周期):
   **0.4.4 源新即重建**:源库(含 ``-wal``)mtime 比副本新 = 缓存失效
   (微信持续写库,TTL 内的新消息也要可见——近实时监控的正确性前提)。
 
-外部取钥器(B3,task 10-13-wechat-keyprovider;协议 v1 =
-docs/wechat-keyprovider.md):
+外部取钥器(B3,task 10-13-wechat-keyprovider;协议 v1 +
+v1.1 扩展 = docs/wechat-keyprovider.md):
 
 - MYIA 产品代码**零取钥实现**:取钥能力整体外包给用户自备的外部可执行件,
   桥只认协议——不校验来源与签名、不内置降级(取钥器故障 = exit 21 如实,
@@ -40,6 +40,23 @@ docs/wechat-keyprovider.md):
   result)→ 退出码矩阵判定 → 逐把页 1 HMAC 验真 → 全量命中才落 keys.json
   (缓存由桥独占写)。挂点 = :func:`resolve_keys` 密钥缓存缺失分支
   (配置 ``key_provider_path``,管理命令 ``localdb key-provider set|get|clear``)。
+
+密钥状态/交互式取钥(task 10-13-wechat-monitor-ui D2/D3;协议 v1.1):
+
+- :func:`key_status` = ``localdb key-status`` 三态真源(missing/stale/
+  ready):探针的零成本判据只看 keys.json 在场,钥匙失配时会说谎——本命令
+  自带**抽样重验**(mapping 前中后各 1 把、至多 3 把,复用
+  :func:`verify_key_for_page` 同一验真器),秒级、恒 exit 0(三态即正常态,
+  不判错)。``acquired_at`` = keys.json 文件 mtime(零格式变更,cache 不加
+  元数据键——「键=库相对路径」消费方零破坏)。
+- :func:`key_acquire` = ``localdb key-acquire`` 交互式取钥编排:ready 且无
+  ``--force`` → ``already_ready`` 短路;否则 spawn 取钥器(协议 v1.1:请求
+  携带 ``timeout_hint_seconds``,桥内硬帽 = clamp(hint, 120, 1800));
+  provider stdout 的 progress 行**原样转印**到桥 stdout(NDJSON 流,终态单
+  行 JSON 收尾);启动先清残留取消哨兵(:data:`CANCEL_SENTINEL_NAME`);
+  收到 SIGTERM(壳 kill)→ kill provider 进程组 + 自身退出码 143(提权段
+  清理由部署件哨兵轮询自理,docs §12.3)。未配置取钥器 = exit 21 法定文案
+  (:data:`PROVIDER_UNCONFIGURED_MESSAGE`,与 query 缺钥同族同码)。
 
 私有数据红线(prd 红线 6):密钥材料/聊天内容不入 git/日志/报告;本模块
 的错误消息与应答只承载形状(计数/路径名/字节数)。
@@ -51,14 +68,20 @@ import fcntl
 import hashlib
 import hmac
 import os
+import queue
 import shutil
+import signal
 import sqlite3
 import struct
 import subprocess
+import sys
+import threading
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
+from . import system_checks
 from .codes import DECRYPT_FAILED, DB_NOT_FOUND, KEY_UNAVAILABLE, BridgeError
 from .config import LOCALDB_KEYS_REL_PATH, myssia_home
 from .system_checks import WECHAT_FILES_ROOT
@@ -73,7 +96,12 @@ __all__ = [
     "PROVIDER_ACTION_GET_DB_KEY",
     "PROVIDER_STDERR_TAIL_CHARS",
     "PROVIDER_TIMEOUT_SECONDS",
+    "PROVIDER_TIMEOUT_HINT_MAX_SECONDS",
+    "PROVIDER_TIMEOUT_HINT_MIN_SECONDS",
     "PROVIDER_UNCONFIGURED_MESSAGE",
+    "KEY_ACQUIRE_TIMEOUT_HINT_DEFAULT",
+    "KEY_STATUS_SAMPLE_MAX",
+    "CANCEL_SENTINEL_NAME",
     "locate_db_storage",
     "locate_key_info_db",
     "verify_key_for_page",
@@ -81,6 +109,11 @@ __all__ = [
     "extract_key_candidates",
     "acquire_key",
     "acquire_keys_from_provider",
+    "clamp_provider_timeout",
+    "cancel_sentinel_path",
+    "clear_cancel_sentinel",
+    "key_status",
+    "key_acquire",
     "resolve_keys",
     "key_cache_path",
     "write_key_cache",
@@ -517,9 +550,21 @@ def read_key_cache(*, data_root: Path | None = None) -> dict[str, str] | None:
 # 零取钥实现零来源校验:风险件用户自备、自行担责)
 # =====================================================================
 
-#: 取钥器子进程硬上限(协议 §6:120 秒 = spawn 起全程预算,与 progress
-#: 输出无关,无延长协商;模块常量非配置面——协议钉死的边界)。
+#: 取钥器子进程硬上限 v1 基线(协议 §6:120 秒 = spawn 起全程预算,与 progress
+#: 输出无关,无延长协商;模块常量非配置面——协议钉死的边界)。v1.1 的
+#: key-acquire 调用以 :func:`clamp_provider_timeout` 在 [MIN, MAX] 内放宽。
 PROVIDER_TIMEOUT_SECONDS = 120.0
+#: v1.1 timeout_hint 桥内硬帽下限(协议 §12:hint 再小也至少给 v1 基线窗)。
+PROVIDER_TIMEOUT_HINT_MIN_SECONDS = 120
+#: v1.1 timeout_hint 桥内硬帽上限(协议 §12:防取钥器/调用方乱报大值)。
+PROVIDER_TIMEOUT_HINT_MAX_SECONDS = 1800
+#: key-acquire 等待窗提示缺省(秒;design §2 决议⑥:重登是分钟级人操作)。
+KEY_ACQUIRE_TIMEOUT_HINT_DEFAULT = 600
+#: key-status 抽样重验的把数上限(mapping 前中后各 1;design §A.1)。
+KEY_STATUS_SAMPLE_MAX = 3
+#: 取消哨兵文件名(design §C/§12.3:壳/上层取消 = 落文件;取钥器提权段
+#: 轮询见即自杀+清孤儿+删哨兵;桥 key-acquire 启动先清残留)。
+CANCEL_SENTINEL_NAME = "cancel.keyacquire"
 #: 失败场景 stderr 消费的尾部字符数(协议 §2/§6:stderr 是调试旁路,
 #: 仅失败被取尾部 500 字符附入错误信息;成功时桥不读)。
 PROVIDER_STDERR_TAIL_CHARS = 500
@@ -533,6 +578,53 @@ PROVIDER_ACTION_GET_DB_KEY = "get_db_key"
 def _configured_provider_path(config: Any) -> str:
     """已配置的取钥器路径(空白 = 未配置;duck-type 容错测试替身)。"""
     return str(getattr(config, "key_provider_path", "") or "").strip()
+
+
+def clamp_provider_timeout(hint: int) -> int:
+    """v1.1 等待窗硬帽 = clamp(hint, 120, 1800)(协议 §12;防乱报双向夹逼)。"""
+    return max(
+        PROVIDER_TIMEOUT_HINT_MIN_SECONDS,
+        min(PROVIDER_TIMEOUT_HINT_MAX_SECONDS, int(hint)),
+    )
+
+
+def cancel_sentinel_path(data_root: Path | None = None) -> Path:
+    """取消哨兵路径(``<数据根>/wechat-localdb/cancel.keyacquire``;design §C)。"""
+    root = data_root if data_root is not None else myssia_home()
+    return root / LOCALDB_PRIVATE_DIR / CANCEL_SENTINEL_NAME
+
+
+def clear_cancel_sentinel(*, data_root: Path | None = None) -> bool:
+    """清残留取消哨兵(key-acquire 启动面;在场即删,缺席 = False 如实)。
+
+    残留 = 上轮获取流崩溃/被杀,部署件未及轮询即死——哨兵只在获取进行中
+    生效,清掉不影响任何在途行为(design §7 风险表)。
+    """
+    try:
+        cancel_sentinel_path(data_root).unlink()
+        return True
+    except OSError:
+        return False
+
+
+def _iso_local_mtime(path: Path) -> str | None:
+    """文件 mtime → ISO 本地时(秒精度;文件缺位 → None)。"""
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return None
+    return datetime.fromtimestamp(mtime).astimezone().isoformat(timespec="seconds")
+
+
+def _kill_process_group(proc: subprocess.Popen) -> None:
+    """kill 取钥器进程组(start_new_session spawn → pgid == pid)。"""
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except OSError:
+        try:
+            proc.kill()  # 组已消亡/权限面的兜底单杀
+        except OSError:
+            pass
 
 
 def _provider_account_id(db_storage: Path) -> str:
@@ -564,14 +656,22 @@ def acquire_keys_from_provider(
     targets: list[tuple[str, int, bytes]] | None = None,
     data_root: Path | None = None,
     timeout: float = PROVIDER_TIMEOUT_SECONDS,
+    timeout_hint_seconds: int | None = None,
+    on_progress: Callable[[str], None] | None = None,
+    on_spawn: Callable[[subprocess.Popen], None] | None = None,
 ) -> dict[str, str]:
-    """spawn 外部取钥器取钥(协议 v1 全链;任何失败 = exit 21,无降级)。
+    """spawn 外部取钥器取钥(协议 v1 全链 + v1.1 可选扩展;任何失败 =
+    exit 21,无降级)。
 
-    时序照协议 §2:spawn → stdin 写**单行** JSON 请求(``communicate`` 写完
-    即关 stdin)→ stdout 按行 NDJSON(``progress`` 0..N + ``result`` 恰一次)
-    → 退出码矩阵判定(§6)→ 返回钥匙逐把页 1 HMAC 离线验真(§7,复用
-    :func:`verify_key_for_page`)→ 全量命中才 :func:`write_key_cache`(600,
-    缓存由桥独占写、验真后才落;部分命中不落缓存 = 全链既有纪律)。
+    时序照协议 §2:spawn(独立进程组,取消面可 killpg)→ stdin 写**单行**
+    JSON 请求(写完即关 stdin)→ stdout **按行流式**读 NDJSON(progress
+    0..N + result 恰一次;``on_progress`` 逐行实时回调,v1.1 key-acquire 的
+    progress 转印挂点)→ 退出码矩阵判定(§6)→ 返回钥匙逐把页 1 离线验真
+    (§7,复用 :func:`verify_key_for_page`)→ 全量命中才
+    :func:`write_key_cache`(600,缓存由桥独占写、验真后才落;部分命中不落
+    缓存 = 全链既有纪律)。超时 = spawn 起全程预算(与 progress 输出无关),
+    到点 kill 子进程组;``timeout_hint_seconds``(v1.1 可选)透传进请求字段
+    供取钥器自整等待窗——query 链(v1)恒不携带,行为不变。
 
     判定取舍(§6 矩阵 + v1 未定义处的确定性实现):``result``
     ``success:false``(任意退出码)= 失败透传取钥器 ``error``;退出码非 0 =
@@ -597,19 +697,23 @@ def acquire_keys_from_provider(
             f"外部取钥器不适用:db_storage 下无待解密库(无 ≥{PAGE_SZ}B 的 .db): {db_storage}",
         )
     exe = Path(provider_path).expanduser()
-    request = {
+    request: dict[str, Any] = {
         "action": PROVIDER_ACTION_GET_DB_KEY,
         "db_path": str(db_storage),
         "account_id": (
             account_id if account_id is not None else _provider_account_id(db_storage)
         ),
     }
+    if timeout_hint_seconds is not None:
+        # v1.1(§12):可选请求字段;v1 取钥器不认识的自有字段应忽略,向后兼容。
+        request["timeout_hint_seconds"] = int(timeout_hint_seconds)
     try:
         proc = subprocess.Popen(  # noqa: S603 - 用户自备外部件,契约=docs/wechat-keyprovider.md
             [str(exe)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            start_new_session=True,  # 独立进程组:取消面(key-acquire SIGTERM)可 killpg 整组
         )
     except OSError as exc:
         raise BridgeError(
@@ -620,29 +724,106 @@ def acquire_keys_from_provider(
                 "运行期 spawn 失败如实报(协议 §8)"
             ),
         ) from exc
-    try:
-        stdout_bytes, stderr_bytes = proc.communicate(
-            json.dumps(request, ensure_ascii=False).encode("utf-8") + b"\n",
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired as exc:
-        proc.kill()
+    if on_spawn is not None:
+        on_spawn(proc)
+
+    # —— 流式读:v1 只判终态(等效 communicate);v1.1 key-acquire 经 on_progress
+    #    逐行转印。读者线程 + 队列 = 行级超时的唯一便携形态;stderr 并发排空
+    #    防 64KB 管道写满死锁(communicate 同款职责)。——
+    deadline = time.monotonic() + timeout
+    line_queue: queue.Queue[str | None] = queue.Queue()
+    stderr_chunks: list[bytes] = []
+
+    def _stdout_reader() -> None:
+        assert proc.stdout is not None
         try:
-            proc.communicate()  # 收尸防僵尸;超时路径的残余输出弃
-        except subprocess.TimeoutExpired:  # pragma: no cover - kill 后即退
+            for raw in proc.stdout:
+                line_queue.put(raw.decode("utf-8", errors="replace"))
+        finally:
+            line_queue.put(None)  # EOF 哨兵(读尽/异常同形收尾)
+
+    def _stderr_reader() -> None:
+        assert proc.stderr is not None
+        try:
+            stderr_chunks.append(proc.stderr.read())
+        except OSError:
+            pass  # 诊断旁路读失败不拦协议判定(stderr 尾部缺席 = 明细少一段)
+
+    threads = [
+        threading.Thread(target=_stdout_reader, daemon=True),
+        threading.Thread(target=_stderr_reader, daemon=True),
+    ]
+    for thread in threads:
+        thread.start()
+    try:
+        assert proc.stdin is not None
+        proc.stdin.write(
+            json.dumps(request, ensure_ascii=False).encode("utf-8") + b"\n"
+        )
+        proc.stdin.close()
+    except (BrokenPipeError, OSError):
+        pass  # 取钥器秒退不读 stdin:请求已尽力送达,判定交给退出码矩阵
+
+    out_lines: list[str] = []
+    result_seen = False
+    timed_out = False
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            timed_out = True
+            break
+        try:
+            line = line_queue.get(timeout=remaining)
+        except queue.Empty:
+            timed_out = True
+            break
+        if line is None:
+            break
+        out_lines.append(line)
+        if on_progress is not None and not result_seen:
+            stripped = line.strip()
+            if stripped:
+                try:
+                    obj = json.loads(stripped)
+                except ValueError:
+                    obj = None
+                if isinstance(obj, dict) and obj.get("type") == "progress":
+                    on_progress(line.rstrip("\r\n"))
+                elif isinstance(obj, dict) and obj.get("type") == "result":
+                    result_seen = True  # result 后的行协议上不存在,不再转印
+
+    if not timed_out:
+        try:  # stdout EOF 后收尸(留 ≥1s 余量防 EOF 恰在预算边界)
+            proc.wait(timeout=max(deadline - time.monotonic(), 1.0))
+        except subprocess.TimeoutExpired:
+            timed_out = True
+    if timed_out:
+        _kill_process_group(proc)
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:  # pragma: no cover - SIGKILL 后罕见
             pass
+        for thread in threads:
+            thread.join(timeout=2)
         raise BridgeError(
             KEY_UNAVAILABLE,
             f"外部取钥器超时(>{timeout:.0f} 秒已 kill 子进程): {exe.name}",
             fix_hint=(
                 "协议 v1 硬上限 120 秒、无延长协商;预计耗时的步骤应尽早输出"
                 " result 或主动失败,不要挂满预算"
+                if timeout_hint_seconds is None
+                else (
+                    "协议 v1.1:本次硬帽 = clamp(timeout_hint, 120, 1800) = "
+                    f"{timeout:.0f} 秒;交互式等待窗见 docs/wechat-keyprovider.md §12"
+                )
             ),
-        ) from exc
+        )
+    for thread in threads:
+        thread.join(timeout=2)
 
-    stdout_text = (stdout_bytes or b"").decode("utf-8", errors="replace")
+    stdout_text = "".join(out_lines)
     stderr_tail = _stderr_tail(
-        (stderr_bytes or b"").decode("utf-8", errors="replace")
+        b"".join(stderr_chunks).decode("utf-8", errors="replace")
     )
     result: dict[str, Any] | None = None
     progress_lines = 0
@@ -760,6 +941,246 @@ def acquire_keys_from_provider(
 def _stderr_tail(text: str) -> str:
     """stderr 尾部截取(协议 §6:500 字符;只入错误信息,不另落盘)。"""
     return text[-PROVIDER_STDERR_TAIL_CHARS:]
+
+
+# =====================================================================
+# 密钥状态 + 交互式取钥编排(task 10-13-wechat-monitor-ui D2/D3;
+# 契约 = design §A.1/§A.2;协议 v1.1 = docs/wechat-keyprovider.md §12)
+# =====================================================================
+
+
+def _sample_rels(mapping: dict[str, str]) -> list[str]:
+    """抽样库清单(mapping 前中后各 1,至多 :data:`KEY_STATUS_SAMPLE_MAX` 把;
+    键序取样保证同库跨次稳定)。"""
+    rels = sorted(mapping)
+    if len(rels) <= KEY_STATUS_SAMPLE_MAX:
+        return rels
+    return [rels[0], rels[len(rels) // 2], rels[-1]]
+
+
+def _verify_cached_entry(db_storage: Path, rel: str, hex_key: str) -> bool:
+    """单条缓存条目的页 1 HMAC 验真(:func:`verify_key_mapping` 同器同纪律;
+    库不在场 / 非 hex / 长度错 / HMAC 不过 → False,与消费门同判)。"""
+    try:
+        with (db_storage / rel).open("rb") as fh:
+            page1 = fh.read(PAGE_SZ)
+    except OSError:
+        return False
+    if len(page1) < PAGE_SZ:
+        return False
+    try:
+        raw = bytes.fromhex(hex_key)
+    except ValueError:
+        return False
+    return len(raw) == KEY_SZ and verify_key_for_page(raw, page1)
+
+
+def key_status(
+    *,
+    data_root: Path | None = None,
+    files_root: Path | None = None,
+    version_of: Callable[[], str | None] | None = None,
+) -> dict[str, object]:
+    """密钥缓存三态真源(``localdb key-status``;design §A.1,恒不抛错)。
+
+    三态判据(探针的零成本判据只看文件在场,钥匙失配时会说谎——本命令
+    自带抽样重验,与 :func:`write_key_cache` 消费前重验同一验真器):
+
+    - ``missing``:keys.json 缺位 / 空 dict / 解析失败 →「密钥缓存缺位」;
+    - ``stale``:在场,抽样(mapping 前中后各 1,≤3 把)页 1 HMAC 有一把
+      不过 →「抽样验真失败:N/M」(微信版本变化/换号后失配的如实态);
+    - ``ready``:在场 + 抽样全过 →「抽样 N 库验真通过」。
+
+    ``db_count`` = mapping 键数(missing=0);``acquired_at`` = keys.json
+    **文件 mtime** ISO 本地时(零格式变更,cache 不加元数据键——「键=库
+    相对路径」消费方零破坏);``wechat_version`` = 探针同源
+    (:func:`wechat_bridge.system_checks.wechat_version`,拿不到 = None)。
+    钥内容永不出现(计数/时间戳 = 形状级证据,红线 6)。库根不可定位时
+    全部抽样按未过计(stale + 注记),不判错——三态查询不制造第四态。
+
+    Returns:
+        ``{"key_status": {state, db_count, acquired_at, wechat_version,
+        verdict_note}}``(恒正常应答,exit 0 由 CLI 层兜)。
+    """
+    version_fn = version_of if version_of is not None else system_checks.wechat_version
+    wechat_version_value = version_fn()
+    mapping = read_key_cache(data_root=data_root)
+    if mapping is None:
+        return {
+            "key_status": {
+                "state": "missing",
+                "db_count": 0,
+                "acquired_at": None,
+                "wechat_version": wechat_version_value,
+                "verdict_note": "密钥缓存缺位",
+            }
+        }
+    acquired_at = _iso_local_mtime(key_cache_path(data_root))
+    sample = _sample_rels(mapping)
+    unlocatable: BridgeError | None = None
+    passed = 0
+    try:
+        db_storage = locate_db_storage(files_root=files_root)
+    except BridgeError as exc:
+        db_storage = None
+        unlocatable = exc
+    if db_storage is not None:
+        for rel in sample:
+            if _verify_cached_entry(db_storage, rel, mapping[rel]):
+                passed += 1
+    if passed == len(sample):
+        state, note = "ready", f"抽样 {len(sample)} 库验真通过"
+    else:
+        state = "stale"
+        note = f"抽样验真失败:{passed}/{len(sample)}"
+        if unlocatable is not None:
+            note += "(库根不可定位,全部按未过计)"
+    return {
+        "key_status": {
+            "state": state,
+            "db_count": len(mapping),
+            "acquired_at": acquired_at,
+            "wechat_version": wechat_version_value,
+            "verdict_note": note,
+        }
+    }
+
+
+def _default_progress_writer() -> Callable[[str], None]:
+    """progress 转印缺省落点(桥自身 stdout,逐行 flush——流式可被壳即时读到)。"""
+
+    def _write(line: str) -> None:
+        sys.stdout.write(line + "\n")
+        sys.stdout.flush()
+
+    return _write
+
+
+def _acquire_diag(message: str) -> None:
+    """stderr 摘要行(§A.2:诊断用计数,不进 stdout 协议流)。"""
+    try:
+        sys.stderr.write(message + "\n")
+    except OSError:  # pragma: no cover - stderr 关闭的极端形态
+        pass
+
+
+def key_acquire(
+    *,
+    config: "BridgeConfig | None" = None,
+    force: bool = False,
+    timeout_hint: int = KEY_ACQUIRE_TIMEOUT_HINT_DEFAULT,
+    data_root: Path | None = None,
+    files_root: Path | None = None,
+    version_of: Callable[[], str | None] | None = None,
+    emit_line: Callable[[str], None] | None = None,
+    targets: list[tuple[str, int, bytes]] | None = None,
+) -> dict[str, object]:
+    """交互式取钥编排(``localdb key-acquire``;design §A.2,协议 v1.1)。
+
+    时序:①启动清残留取消哨兵(:func:`clear_cancel_sentinel`;§C/§12.3);
+    ②**already_ready 短路**(缺省且抽样过 → 直接返回,不 spawn;missing/
+    stale 不短路直走取钥器——失效场景不空转;``--force`` = ready 态也跳过
+    短路,「重新获取」的旗标);③未配置取钥器 = exit 21 法定文案(与 query
+    缺钥同族同码,§F);④spawn 取钥器(:func:`acquire_keys_from_provider`
+    全链:请求携带 ``timeout_hint_seconds``,桥内硬帽 = :func:
+    `clamp_provider_timeout`,progress 行经 ``emit_line`` **原样转印**);
+    ⑤全量验真落缓存后返回 ``{"key_acquire": {result, db_count,
+    acquired_at, wechat_version}}``(形状级,钥内容永不出现)。
+
+    取消联动(§A.2):SIGTERM(壳 kill)→ kill 取钥器进程组(SIGKILL)+
+    自身退出码 143(SystemExit);root 段清理由部署件哨兵轮询自理。非主
+    线程调用(库态)不装信号钩子,取消面交还调用方。
+
+    Raises:
+        BridgeError: exit 21(未配置取钥器 / 取钥器侧失败 / 验真未全量,
+            全族收敛 ``key_unavailable``)或 exit 20(库根不可定位)。
+    """
+    clear_cancel_sentinel(data_root=data_root)
+    if not force:
+        status = key_status(
+            data_root=data_root, files_root=files_root, version_of=version_of
+        )
+        inner = status["key_status"]
+        assert isinstance(inner, dict)
+        if inner["state"] == "ready":
+            return {
+                "key_acquire": {
+                    "result": "already_ready",
+                    "db_count": inner["db_count"],
+                    "acquired_at": inner["acquired_at"],
+                    "wechat_version": inner["wechat_version"],
+                }
+            }
+    provider_path = _configured_provider_path(config)
+    if not provider_path:
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            PROVIDER_UNCONFIGURED_MESSAGE,
+            fix_hint=(
+                "wechat-bridge localdb key-provider set <取钥器可执行文件路径> "
+                "配置后重试(协议文档 docs/wechat-keyprovider.md)"
+            ),
+        )
+    db_storage = locate_db_storage(files_root=files_root)
+    effective_timeout = clamp_provider_timeout(timeout_hint)
+    forward = emit_line if emit_line is not None else _default_progress_writer()
+    progress_count = 0
+
+    def _forward(line: str) -> None:
+        nonlocal progress_count
+        progress_count += 1
+        forward(line)
+
+    proc_holder: dict[str, subprocess.Popen | None] = {"proc": None}
+    previous_handler: Any = None
+    handler_installed = False
+
+    def _on_sigterm(_signum: int, _frame: Any) -> None:  # noqa: ANN001 - signal 签名
+        live = proc_holder["proc"]
+        if live is not None:
+            _kill_process_group(live)
+        raise SystemExit(143)  # 128+SIGTERM 惯例(§A.2 取消联动)
+
+    try:
+        previous_handler = signal.getsignal(signal.SIGTERM)
+        signal.signal(signal.SIGTERM, _on_sigterm)
+        handler_installed = True
+    except ValueError:
+        pass  # 非主线程(库态调用):不装,取消面交还调用方
+    try:
+        verified = acquire_keys_from_provider(
+            db_storage,
+            provider_path,
+            targets=targets,
+            data_root=data_root,
+            timeout=float(effective_timeout),
+            timeout_hint_seconds=effective_timeout,
+            on_progress=_forward,
+            on_spawn=lambda spawned: proc_holder.__setitem__("proc", spawned),
+        )
+    except BridgeError:
+        _acquire_diag(
+            f"key-acquire: 取钥失败(硬帽 {effective_timeout}s,"
+            f"progress {progress_count} 行转印)"
+        )
+        raise
+    finally:
+        if handler_installed:
+            signal.signal(signal.SIGTERM, previous_handler)
+    _acquire_diag(
+        f"key-acquire: 取钥成功 {len(verified)} 库全量验真落缓存"
+        f"(硬帽 {effective_timeout}s,progress {progress_count} 行转印)"
+    )
+    return {
+        "key_acquire": {
+            "result": "ok",
+            "db_count": len(verified),
+            "acquired_at": _iso_local_mtime(key_cache_path(data_root)),
+            "wechat_version": (
+                system_checks.wechat_version() if version_of is None else version_of()
+            ),
+        }
+    }
 
 
 def resolve_keys(

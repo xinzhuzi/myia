@@ -18,6 +18,8 @@ python -m wechat_bridge messages read <id> -k 50       # 最近 K 条文本(Phas
 python -m wechat_bridge send_text <id> --file -        # 正文经 stdin(G6 硬频控;Phase D)
 python -m wechat_bridge localdb query <chat> --since 7d --json   # 本地库只读(Phase E)
 python -m wechat_bridge localdb key-scan --json        # 内存密钥批处理扫描(D4 豁免;默认关+须提权(root 或 setuid 自愈件)+只读单遍)
+python -m wechat_bridge localdb key-status --json      # 密钥缓存三态 ready/stale/missing(抽样页1 HMAC 重验;恒 exit 0;0.5.0)
+python -m wechat_bridge localdb key-acquire --json [--force] [--timeout-hint 600]  # 交互式取钥编排(ready 短路 already_ready/--force 直走/hint clamp 120..1800/progress 原样转印 stdout NDJSON;协议 v1.1)
 ```
 
 `bin/wechat-bridge` = 装机启动器(纯转接,零业务逻辑):解析组件根 → 按

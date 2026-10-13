@@ -137,6 +137,31 @@ def build_parser() -> argparse.ArgumentParser:
     )
     keyprov_get = keyprov_sub.add_parser("get", help="查看取钥器配置与在位状态")
     keyprov_clear = keyprov_sub.add_parser("clear", help="清除取钥器配置(回未配置现状)")
+    # 密钥状态/交互式取钥(task 10-13-wechat-monitor-ui D2/D3;协议 v1.1 =
+    # docs/wechat-keyprovider.md §12)。key-status 三态查询恒 exit 0(缺文件
+    # = missing 也是正常态);key-acquire = ready 短路/--force 直走取钥器/
+    # hint clamp(120,1800)/progress 原样转印 stdout(NDJSON 流)。
+    localdb_keystatus = localdb_sub.add_parser(
+        "key-status",
+        help="密钥缓存三态查询(ready/stale/missing;抽样页1 HMAC 重验;恒 exit 0)",
+    )
+    localdb_keyacquire = localdb_sub.add_parser(
+        "key-acquire",
+        help="交互式取钥编排(ready 短路 already_ready;--force 直走取钥器;progress 转印)",
+    )
+    localdb_keyacquire.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="跳过 already_ready 短路直走取钥器(「重新获取」场景:缓存 ready 也要真取)",
+    )
+    localdb_keyacquire.add_argument(
+        "--timeout-hint",
+        type=int,
+        default=600,
+        metavar="N",
+        help="取钥器等待窗提示秒数(透传 timeout_hint_seconds;桥内硬帽 clamp(N,120,1800))",
+    )
 
     # §6 文样把 --json 放在子命令之后(sessions list --json)——全局旗标在
     # argparse 里必须逐层重注册才收得到;default=SUPPRESS 防子层缺省覆写
@@ -154,6 +179,8 @@ def build_parser() -> argparse.ArgumentParser:
         keyprov_set,
         keyprov_get,
         keyprov_clear,
+        localdb_keystatus,
+        localdb_keyacquire,
     ):
         node.add_argument(
             "--json",
@@ -175,6 +202,14 @@ def _emit(payload: dict[str, Any]) -> None:
     """stdout 单个 JSON 对象(键序稳定,golden 基件对账用)。"""
     json.dump(payload, sys.stdout, ensure_ascii=False, indent=1)
     sys.stdout.write("\n")
+
+
+def _emit_ndjson_line(payload: dict[str, Any]) -> None:
+    """NDJSON 流终态行(key-acquire 专属:progress 转印行已是单行 JSON,
+    终态/错误同形单行收尾——整条 stdout 流逐行可解析,壳侧逐行读转事件;
+    ``_emit`` 的缩进多行形态会破流,不用于此)。"""
+    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
 
 
 def _read_body(file_spec: str) -> str:
@@ -394,6 +429,30 @@ def main(argv: Sequence[str] | None = None) -> int:
                 }
             )
             return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "key-status":
+            # D2 三态真源(design §A.1):恒 exit 0——三态即正常态,缺文件 =
+            # missing 不判错;抽样重验在 key_status 内(与 keys.json 消费门
+            # 同一验真器,不另写一份)。
+            _emit(localdb.key_status())
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "key-acquire":
+            # D3 交互式取钥编排(design §A.2):stdout 是 NDJSON 流——progress
+            # 行由 key_acquire 原样转印(已逐行落 stdout,终态前合法行序),
+            # 终态/错误由本分支单行 JSON 收尾;错误不走通用 _emit 缩进形态
+            # (多行 JSON 在逐行流里不可解析)。取消联动 = SIGTERM → kill
+            # provider 进程组 + SystemExit(143)(localdb 内装)。
+            try:
+                payload = localdb.key_acquire(
+                    config=config,
+                    force=args.force,
+                    timeout_hint=args.timeout_hint,
+                )
+                exit_code = EXIT_OK
+            except BridgeError as exc:
+                payload = {"error": exc.to_payload()}
+                exit_code = exc.exit_code
+            _emit_ndjson_line(payload)
+            return exit_code
         else:  # pragma: no cover - 子 parser required=True 已封住其余形态
             parser.error("未知子命令形态")
     except BridgeError as exc:

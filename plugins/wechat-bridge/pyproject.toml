@@ -14,7 +14,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wechat-bridge"
-version = "0.4.4"
+version = "0.5.0"
 description = "微信本机桥:UI 自动化(像素链读取,零激活零合成点击)+ 本地库只读(sqlcipher 解密副本;brew install sqlcipher 前置)"
 readme = "README.md"
 requires-python = ">=3.11"
