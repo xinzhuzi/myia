@@ -4807,6 +4807,104 @@ def _m_wechat_local_query(params: dict[str, Any]) -> dict[str, Any]:
     return _wechat_local_shell("query", params)
 
 
+def _wechat_stats_shell(action: str, params: dict[str, Any]) -> dict[str, Any]:
+    """公共转接(10-14-wechat-stats-reports R5):分发进 wechat_stats_sidecar
+    实现件(独立模块,判例同 _wechat_local_shell),结构化错误换轨协议错误。"""
+    try:
+        from myssia.wechat_stats_sidecar import handle_wechat_stats
+    except ImportError as exc:  # pragma: no cover - 随包件缺位(打包漂移兜底)
+        raise ProtocolError(
+            "internal_error", f"wechat_stats_sidecar 模块不可用: {exc}"
+        ) from exc
+    try:
+        return handle_wechat_stats(action, params)
+    except WechatLocalSidecarError as exc:
+        raise ProtocolError(exc.code, exc.message, path=exc.path, data=exc.data) from exc
+
+
+def _m_wechat_local_page(params: dict[str, Any]) -> dict[str, Any]:
+    """微信本机分页查询(10-14-wechat-chat-export R7;keyset 游标续拉)。
+
+    {chat_id, cursor?, limit?, asc?, from_ts?, to_ts?, types?, sender?} → 桥
+    ``localdb page`` 载荷({page:{chat_id,display_name,messages,next_cursor,
+    has_more,filter,page_size}});invalid_cursor/invalid_types exit 2 原样。
+    """
+    return _wechat_local_shell("page", params)
+
+
+def _m_wechat_local_conversations(params: dict[str, Any]) -> dict[str, Any]:
+    """微信本机会话普查(10-14-wechat-chat-export R7;清单+计数)。
+
+    {limit?} → 桥 ``localdb conversations`` 载荷
+    ({conversations:[{chat_id,display_name,is_group,msg_count,first_ts,
+    last_ts}],total,unresolved_tables})。
+    """
+    return _wechat_local_shell("conversations", params)
+
+
+def _m_wechat_local_stats(params: dict[str, Any]) -> dict[str, Any]:
+    """微信本机统计查询(10-14-wechat-stats-reports R5;四模式中继)。
+
+    {mode, chat_id?, since_days?|all?, year?, refresh?} → 桥 ``localdb
+    stats`` 载荷;20/21/22 错误族透传,查询层降级恒 exit 0。
+    """
+    return _wechat_stats_shell("stats", params)
+
+
+def _m_wechat_local_stats_report(params: dict[str, Any]) -> dict[str, Any]:
+    """微信统计 AI 叙事报告(10-14-wechat-stats-reports R5;纯聚合数字喂模)。
+
+    {mode, stats_payload, tone?} → AI 叙事文本;ai_disabled/
+    dependency_missing 结构化;零逐条消息原文(防御性剥离)。
+    """
+    return _wechat_stats_shell("stats_report", params)
+
+
+def _m_wechat_local_sns_feed(params: dict[str, Any]) -> dict[str, Any]:
+    """微信朋友圈动态(10-14-wechat-media-sns R5;只读)。
+
+    {since_days?} → 桥 ``localdb sns feed --since Nd`` 载荷。
+    """
+    return _wechat_local_shell("sns_feed", params)
+
+
+def _m_wechat_local_sns_export(params: dict[str, Any]) -> dict[str, Any]:
+    """微信朋友圈导出(10-14-wechat-media-sns R5)。
+
+    {format?, out?, since_days?, with_media?} → 桥 ``localdb sns export``
+    载荷;--with-media = 唯一受限 CDN GET 豁免(缺省关)。
+    """
+    return _wechat_local_shell("sns_export", params)
+
+
+def _m_wechat_local_media_scan(params: dict[str, Any]) -> dict[str, Any]:
+    """微信会话媒体寻径(10-14-wechat-media-sns R5)。
+
+    {chat_id, since_days?, decrypt?} → 桥 ``localdb media scan`` 载荷
+    ({media:{items,stats,provider}});未配置解密件+decrypt = media_unavailable。
+    """
+    return _wechat_local_shell("media_scan", params)
+
+
+def _m_wechat_local_media_decrypt(params: dict[str, Any]) -> dict[str, Any]:
+    """微信单件媒体解密(10-14-wechat-media-sns R5)。
+
+    {dat_path} → 桥 ``localdb media decrypt`` 载荷({media_decrypt:{
+    dat_path,cached_path,ext,…}});exit 23 原样上抛。
+    """
+    return _wechat_local_shell("media_decrypt", params)
+
+
+def _m_wechat_local_contacts(params: dict[str, Any]) -> dict[str, Any]:
+    """微信联系人六桶(10-14-wechat-contacts R6;分类浏览/找回考古)。
+
+    {type?, keyword?, limit?, cursor?, with_residue?} → 桥 ``localdb
+    contacts`` 载荷({contacts:{counts,rows,next_cursor,has_more,filter,
+    page_size,degraded}});limit 0 = 全量导出态;缺表降级恒 exit 0。
+    """
+    return _wechat_local_shell("contacts", params)
+
+
 #: push.write 重序列化行宽(官方 YAML 阅读宽一致;模板长行不被硬拆)。
 _PUSH_DUMP_WIDTH = 100
 
@@ -6782,7 +6880,7 @@ def _start_feishu_oauth_endpoint(app_id: str, app_secret: str) -> None:
         def log_message(self, *_args: Any) -> None:  # 静音默认 stderr 访问日志
             pass
 
-        def do_GET(self) -> None:  # noqa: N802(stdlib 命名)
+        def do_GET(self) -> None:  # noqa: N802  # stdlib 命名
             parsed = urlparse(self.path)
             if parsed.path != _FEISHU_OAUTH_REDIRECT_PATH:
                 self._reply(404, "<html><body>未知路径</body></html>")
@@ -7078,6 +7176,19 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "wechat_local.sessions": _m_wechat_local_sessions,
     "wechat_local.messages": _m_wechat_local_messages,
     "wechat_local.query": _m_wechat_local_query,
+    # 六域接线批(0.8.0)纯加法九方法(判例 F2 地基路,不 bump
+    # PROTOCOL_VERSION;注册表对账 = .trellis/spec/desktop/sidecar-protocol.md):
+    # C1 page/conversations、C2 stats/stats_report、C3 sns_feed/sns_export/
+    # media_scan/media_decrypt、C4 contacts。
+    "wechat_local.page": _m_wechat_local_page,
+    "wechat_local.conversations": _m_wechat_local_conversations,
+    "wechat_local.stats": _m_wechat_local_stats,
+    "wechat_local.stats_report": _m_wechat_local_stats_report,
+    "wechat_local.sns_feed": _m_wechat_local_sns_feed,
+    "wechat_local.sns_export": _m_wechat_local_sns_export,
+    "wechat_local.media_scan": _m_wechat_local_media_scan,
+    "wechat_local.media_decrypt": _m_wechat_local_media_decrypt,
+    "wechat_local.contacts": _m_wechat_local_contacts,
     "platform_accounts.status": _m_platform_accounts_status,
     "platform_accounts.feishu.authorize": _m_platform_accounts_feishu_authorize,
     "platform_accounts.feishu.delete": _m_platform_accounts_feishu_delete,

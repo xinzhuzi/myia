@@ -1,0 +1,87 @@
+# config/weixin-notify.yaml — 微信新消息通知品类(10-14-wechat-notify-revoke
+# C5;engine: wechat_local 第四通道 notify + macos_notify 本机弹窗)。
+#
+# 机制(桥 0.8.0+ localdb notify-scan,轮询水位版——零微信进程干预,一切读
+#   解密副本 mode=ro):
+#   - 每轮一次桥扫描:SessionTable 会话基线水位先筛(白名单内会话比对
+#     {ts, unread},非白名单零二次查询)→ 仅候选会话定点增量查 Msg_ 分表
+#     (create_time >= 水位-90s LIMIT 20)→ message.new 事件;撤回谓词
+#     (local_type 10002 / 10000+内容标记)→ message.revoke 事件 + 原文恢复
+#     阶梯(server_id 直查→时间近邻启发式→replacemsg 文本兜底→none)。
+#   - 主机侧水位:store change_baseline 键 wechat-local://watermark/<源名>,
+#     每会话 {ts, unread} JSON;仅成功轮回写。条目锚 #wxn-<server_id>/
+#     #wxnr-<server_id> 强幂等(重读恒同锚,dedup 沉默)。
+#   - 首轮只建基线零事件(初值 now,防装机首弹轰炸);sqlite busy(与建索引/
+#     长查询并发)= 本轮跳过不判死。
+#
+# sessions 白名单(id 或显示名;显示名引擎二查解析):**不声明即不通知**
+# (黑名单语义反向:白名单外的会话零扫描)。notify_self 缺省 false(自己
+# 发的消息不通知)。
+#
+# 缺省关(双保险,telegram-web.yaml「未挂 cron」+ weixin.yaml 同款先例):
+#   ① 本文件在场 ≠ 在跑——品类只在注册了 cron job(桌面排程/myssia cron,
+#     选本文件 + schedule */1)后才拉取;② sessions 出厂空清单 = 引擎构造
+#     期即拒(白名单空 = 功能空转)——想启用:把目标会话 id(如
+#     50438708676@chatroom)或显示名填进 sessions 再注册 cron job。
+#
+# 私有数据红线(weixin.yaml 同源纪律):enrich 关(内容不出本机不送 LLM)+
+#   watchlist/mute 空 + 日报无分区;投递仅 macos_notify——**本机零网络**
+#   通知中心弹窗(「不外发任何通道」的豁免注记:macos_notify 是本机形态,
+#   零出网,通知正文不出现在日志/网络面);条目只入本机 store+feed。通知
+#   预览 80 字帽(弹窗正文 200 字帽)。retention 30d 隐私谨慎缺省。
+#
+# 已知形态限制(如实):通知归组显示为 osascript;系统通知中心会留通知
+#   历史(本机态);macOS 4.1.15 是否向本地库落撤回行是待实证问题(撤回
+#   事件恒零时见任务档 AC6 实证结论,如实降级不硬凑)。
+
+id: weixin-notify
+name: 微信通知
+
+schedule: "*/1 * * * *"            # 分钟级轮询(notify-scan 恒轻;主人可调疏)
+timezone: Asia/Shanghai
+
+# notify-scan 恒轻(SessionTable 单查+候选分表定点),无需 localdb 的 660;
+# 首轮副本首建余量 120。
+timeouts:
+  fetch: 120
+
+sources:
+  - name: weixin-通知              # 源名全称律:weixin- 前缀(feed 渠道名自动判定)
+    engine: wechat_local
+    url: "https://weixin.qq.com"   # 锚(schema http(s) 形状要求;引擎零 HTTP,端点=本机桥)
+    empty_ok: true                 # 密钥缺位 skip/安静窗零事件 = 合法空(doctor 口径)
+    engine_options:
+      wechat_local:
+        channel: notify            # 第四通道:通知扫描(轮询水位,零截窗零 AX)
+        chat_whitelist: []         # 出厂空 = 缺省关(启用:填会话 id 或显示名;
+                                   # 键名注记:schema 凭据基线不容 sessions 键名,白名单键定名 chat_whitelist)
+        notify_self: false         # 自己发的消息不通知(缺省;显式写出仅为对照)
+        read_timeout_seconds: 120  # 单次桥扫描上界(须 ≤ 品类 timeouts.fetch)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct                  # 零 HTTP;robots 面不适用(本机读回)
+    retry: 1                       # 本机桥读,重试 1
+
+# 首版全入库,筛选交给 feed 读态/星标(零 LLM 筛选:私有内容不出本机)。
+watchlist:
+  keywords: []
+  mute: []
+
+classify:
+  builtin: false
+  rules: []
+
+dedup:
+  key: "{url}"                    # #wxn-/#wxnr- server_id 强锚(重读恒同锚 → 沉默)
+
+enrich:
+  enabled: false                  # 红线:私有内容不出本机(不送 LLM)
+
+# 投递 = 本机通知中心弹窗(macos_notify 零网络)。route 空 = 缺省桶
+# immediate(route.py DEFAULT_ROUTE_NO_RULES)——本机即时无 digest 语义,
+# 撤回/新消息的合并与三态文案由通道层兑现(R3 合并纪律)。
+push:
+  - channel: macos_notify
+
+storage:
+  retention: 30d                  # 隐私谨慎缺省(TG 90d;通知流水可再调短)
+  vacuum: monthly

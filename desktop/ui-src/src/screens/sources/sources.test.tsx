@@ -613,11 +613,17 @@ describe("源管理:试抓此源(C13 → 详情弹窗)", () => {
     expect(screen.queryByTestId("test-result-ok")).toBeNull();
     expect(screen.queryByTestId("test-result-fail")).toBeNull();
 
-    // ESC 关闭(只读无 dirty 守卫)
+    // ESC 关闭(只读无 dirty 守卫)。timeout 放宽:关闭链路本身同步,
+    // 但全量门禁(pytest 后紧接 vitest)高负载下 testing-library 的
+    // 50ms 轮询会被饿死,默认 1s 预算在轮询真正跑完前就超时 → 假红
+    // (2026-10-14 just test 实捕一次,单独跑恒绿)。
     fireEvent.keyDown(window, { key: "Escape" });
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog")).toBeNull();
-    });
+    await waitFor(
+      () => {
+        expect(screen.queryByRole("dialog")).toBeNull();
+      },
+      { timeout: 4000 },
+    );
   });
 
   it("失败形:事件 ok=false → error 族+data.errors 逐条入弹窗;发起被拒(test_busy)同弹窗;遮罩/X 均可关", async () => {

@@ -518,14 +518,131 @@ export async function wechatLocalQuery(
   }
 }
 
+/** wechat_local.page 应答的消息条目(形状对照桥 localdb_page.run_page 行)。 */
+export interface WechatLocalPageMessage {
+  seq: number;
+  ts: number;
+  sender: string;
+  sender_id: string;
+  type: string;
+  local_type: number;
+  text?: string;
+  placeholder?: string;
+}
+
+/**
+ * wechat_local.page 应答(10-14-wechat-chat-export R7;键序 = 桥 prd R1
+ * 原文序:chat_id/display_name/messages/next_cursor/has_more/filter/page_size)。
+ */
+export interface WechatLocalPageView {
+  page: {
+    chat_id: string;
+    display_name: string | null;
+    messages: WechatLocalPageMessage[];
+    next_cursor: string | null;
+    has_more: boolean;
+    filter: {
+      from_ts: number | null;
+      to_ts: number | null;
+      types: string[];
+      sender: string | null;
+      order: string;
+    };
+    page_size: number;
+  };
+}
+
+/** wechat_local.conversations 应答的会话条目(桥 localdb_page.run_conversations)。 */
+export interface WechatLocalConversationView {
+  conversations: Array<{
+    chat_id: string;
+    display_name: string | null;
+    is_group: boolean;
+    msg_count: number;
+    first_ts: number;
+    last_ts: number;
+  }>;
+  total: number;
+  unresolved_tables: number;
+}
+
+/**
+ * 分页应答守门(判例 parseWechatGroupExportResult 的核心判别字段严校):
+ * page 节四键齐备才算分页应答,漂移即抛大声失败(壳桥契约破了不装成功)。
+ */
+function parseWechatLocalPageResult(raw: unknown): WechatLocalPageView {
+  if (typeof raw !== "object" || raw === null) {
+    throw new TypeError(`分页应答不是对象: ${String(raw)}`);
+  }
+  const page = (raw as Record<string, unknown>).page;
+  if (
+    typeof page !== "object" ||
+    page === null ||
+    typeof (page as Record<string, unknown>).chat_id !== "string" ||
+    !Array.isArray((page as Record<string, unknown>).messages) ||
+    typeof (page as Record<string, unknown>).has_more !== "boolean"
+  ) {
+    throw new TypeError("分页应答缺 page 核心字段(chat_id/messages/has_more;壳桥契约漂移)");
+  }
+  return raw as WechatLocalPageView;
+}
+
+/** 分页查询选项(全部可选;cursor = 上页 next_cursor 续拉)。 */
+export interface WechatLocalPageOptions {
+  cursor?: string;
+  limit?: number;
+  asc?: boolean;
+  fromTs?: number;
+  toTs?: number;
+  types?: string[];
+  sender?: string;
+}
+
+/** 本地库 keyset 分页(10-14-wechat-chat-export;游标续拉,超时 600s 在 sidecar)。 */
+export async function wechatLocalPage(
+  chatId: string,
+  opts: WechatLocalPageOptions = {},
+): Promise<WechatLocalPageView> {
+  const params: Record<string, unknown> = { chat_id: chatId };
+  if (opts.cursor !== undefined) params.cursor = opts.cursor;
+  if (opts.limit !== undefined) params.limit = opts.limit;
+  if (opts.asc !== undefined) params.asc = opts.asc;
+  if (opts.fromTs !== undefined) params.from_ts = opts.fromTs;
+  if (opts.toTs !== undefined) params.to_ts = opts.toTs;
+  if (opts.types !== undefined && opts.types.length > 0) params.types = opts.types;
+  if (opts.sender !== undefined && opts.sender !== "") params.sender = opts.sender;
+  try {
+    const raw = await invoke<WechatLocalPageView>("sidecar_request", {
+      method: "wechat_local.page",
+      params,
+    });
+    return parseWechatLocalPageResult(raw);
+  } catch (raw) {
+    throw asSidecarError(raw);
+  }
+}
+
+/** 会话清单普查(10-14-wechat-chat-export R7;逐表 COUNT/MIN/MAX)。 */
+export async function wechatLocalConversations(limit?: number): Promise<WechatLocalConversationView> {
+  try {
+    return await invoke<WechatLocalConversationView>("sidecar_request", {
+      method: "wechat_local.conversations",
+      params: limit === undefined ? {} : { limit },
+    });
+  } catch (raw) {
+    throw asSidecarError(raw);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 告警表单辅助(纯函数:下拉选项 / 逗号分隔解析)
 // ---------------------------------------------------------------------------
 
 /**
- * push 动作 channel 下拉名集 = `myssia.push.CHANNELS` 键集镜像(33 条:
+ * push 动作 channel 下拉名集 = `myssia.push.CHANNELS` 键集镜像(34 条:
  * 8 核心 + bark/apprise(10-05 两批;存量缺漏 2026-10-11 审查补齐)+ W3
- * 长尾 22 + weixin-local(10-11-wechat-ui-bridge F1,微信本机桥);同步源
+ * 长尾 22 + weixin-local(10-11-wechat-ui-bridge F1,微信本机桥)+
+ * macos_notify(10-14-wechat-notify-revoke,本机通知中心);同步源
  * src/myssia/push/__init__.py CHANNELS)。
  * UI 只做名集提示,凭据解析在执行期(品类 push[] 第一个此类型通道,
  * 未配置则降级不发 —— design §7.1)。
@@ -564,6 +681,7 @@ export const ALERT_CHANNELS: string[] = [
   "photon",
   "raft",
   "weixin-local",
+  "macos_notify",
 ];
 
 /** scope 下拉的品类选项(yaml.list 的 parse_ok 且有 category_id 项)。 */

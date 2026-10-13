@@ -3050,11 +3050,14 @@ def test_method_registry_allowed_matches_handlers():
     + tg-manage-absorb 批(telegram.web.check,10-11-tg-manage-absorb)
     后 = 80;
     wechat-ui-bridge F2 批(wechat_local.* 四方法,10-11-wechat-ui-bridge)
-    后 = 84。"""
+    后 = 84;
+    六域接线批(wechat_local.* 再九方法:page/conversations/stats/
+    stats_report/sns_feed/sns_export/media_scan/media_decrypt/contacts,
+    10-13-wechat-features 集成员)后 = 93。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 84
+    assert len(allowed) == 93
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",

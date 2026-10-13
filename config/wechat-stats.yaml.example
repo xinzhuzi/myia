@@ -1,0 +1,26 @@
+# 微信统计报告 AI 配置样例(task 10-14-wechat-stats-reports R5)。
+#
+# 本文件是**样例**(config/ 目录纪律:该目录所有 *.yaml 必须是可加载的
+# 品类文件,本配置是 sidecar 专属形态非品类);启用 = 复制为本机
+# `<数据根>/config/wechat-stats.yaml`(或按下方键位手写)后改
+# enabled: true。文件缺失 = 全缺省(enabled:false,AI 按钮给配置指引)。
+#
+# 「生成 AI 报告」按钮的端点配置:形态照 config/exposure.yaml 的 enrich 段
+# (enabled/model/base_url/api_key);装载/校验/凭据解析复用
+# src/myssia/enrich/settings.py 的 EnrichSettings + resolve_endpoint
+# (env:/keychain: 引用,明文拒载——grill Q6 同门)。
+#
+# 缺省 enabled: false(隐私缺省:喂模型 = 纯聚合数字 + top 短语 + 双人报告
+# 首条消息一行,零逐条消息原文;开启属主人显式动作)。文件缺失 = 全缺省,
+# 统计面板的数字/图表面不受影响,AI 按钮给出配置指引文案。
+#
+# base_url / api_key 为必填对(只填其一 = 结构化 ai_disabled 如实);
+# 例:base_url: env:MYIA_LLM_BASE_URL / api_key: keychain:myia/llm/api_key
+# (keychain 条目可经设置屏 secret.set 录入)。
+
+stats_report:
+  enabled: false
+  model: glm-5.3-flash
+  base_url: null
+  api_key: null
+  timeout_seconds: 60

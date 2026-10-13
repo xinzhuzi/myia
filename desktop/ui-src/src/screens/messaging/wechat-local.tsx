@@ -27,8 +27,26 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { SidecarRequestError } from "@/lib/api";
 
-import { asSidecarError, formatLastSeen, wechatLocalMessages, wechatLocalQuery, wechatLocalSessions } from "./api";
-import type { WechatLocalMessage, WechatLocalProbeView } from "./api";
+import {
+  asSidecarError,
+  formatLastSeen,
+  wechatLocalMessages,
+  wechatLocalPage,
+  wechatLocalQuery,
+  wechatLocalSessions,
+} from "./api";
+import type { WechatLocalMessage, WechatLocalPageMessage, WechatLocalProbeView } from "./api";
+import {
+  WECHAT_CHAT_EXPORT_FORMATS,
+  subscribeWechatChatExportProgress,
+  wechatChatExport,
+  wechatChatExportCancel,
+} from "./wechat-chat-export-api";
+import type { WechatChatExportFormat } from "./wechat-chat-export-api";
+import { WechatStatsPanel } from "./wx-stats-panel";
+import { WechatSnsTimeline } from "./wechat-sns";
+import { WechatChatMedia } from "./wechat-media";
+import { ContactsBrowser } from "./wechat-contacts";
 
 /** 探针三态 → 胶囊(文案 + tone);与平台总览卡的 degraded 黄态同源。 */
 function probePill(probe: WechatLocalProbeView | null, probeError: SidecarRequestError | null) {
@@ -194,6 +212,12 @@ export function WechatLocalSection({ probe, probeError, refreshing, onRefresh }:
           {/* ---- F4:只读会话入口(G2 选会话 → 拉最近消息;G3 不入管线)---- */}
           <SessionReader />
           <LocalDbQuery />
+
+          {/* ---- 六域接线批(0.8.0):统计 / 朋友圈+媒体 / 联系人常驻分区 ---- */}
+          <WechatStatsPanel />
+          <WechatSnsTimeline />
+          <WechatChatMedia />
+          <ContactsBrowser />
         </CardContent>
       </Card>
     </div>
@@ -320,13 +344,36 @@ function SessionReader() {
 // 本地库查询(E 段产出消费面;G4 三域)
 // ---------------------------------------------------------------------------
 
-/** 本地库查询行(chat_id + 天数 → 桥 localdb query;结果同区只读展示)。 */
+/**
+ * 本地库查询行(chat_id + 天数 → 桥 localdb query;结果同区只读展示)+
+ * 分页浏览与导出行(10-14-wechat-chat-export R6/R7 接线批,同卡承载):
+ * 「加载更早」= keyset 游标续拉(首帧最新页倒转上屏);时间窗快捷档
+ * 7天/30天/全部 → from_ts;导出 = 六格式下拉 + 壳弹目录对话框 + 进度条
+ * + 取消 + 回执路径列表。文案判例 AC-P5 全人话。
+ */
 function LocalDbQuery() {
   const [chatId, setChatId] = useState("");
   const [sinceDays, setSinceDays] = useState("30");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ displayName: string | null; messages: WechatLocalMessage[]; domains: Record<string, string> } | null>(null);
   const [error, setError] = useState<SidecarRequestError | null>(null);
+
+  // —— C1 分页浏览态(与既有 query 行共用 chat id 输入)——
+  const [windowDays, setWindowDays] = useState<number | null>(30);
+  const [pageMessages, setPageMessages] = useState<WechatLocalPageMessage[] | null>(null);
+  const [pageCursor, setPageCursor] = useState<string | null>(null);
+  const [pageMore, setPageMore] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [pageError, setPageError] = useState<SidecarRequestError | null>(null);
+  const [pageChat, setPageChat] = useState<string | null>(null);
+
+  // —— C1 导出行态 ——
+  const [exportFormat, setExportFormat] = useState<WechatChatExportFormat>("html");
+  const [exporting, setExporting] = useState(false);
+  const [exportPct, setExportPct] = useState<number | null>(null);
+  const [exportJobId, setExportJobId] = useState<number | null>(null);
+  const [exportFiles, setExportFiles] = useState<string[] | null>(null);
+  const [exportError, setExportError] = useState<SidecarRequestError | null>(null);
 
   const runQuery = useCallback(async () => {
     const id = chatId.trim();
@@ -351,6 +398,104 @@ function LocalDbQuery() {
       setLoading(false);
     }
   }, [chatId, sinceDays]);
+
+  const windowFromTs = useCallback(
+    (): number | undefined =>
+      windowDays === null ? undefined : Math.floor(Date.now() / 1000) - windowDays * 86400,
+    [windowDays],
+  );
+
+  const loadFirstPage = useCallback(async () => {
+    const id = chatId.trim();
+    if (!id) {
+      setPageError(new SidecarRequestError({ code: "invalid_params", path: "params.chat_id", message: "会话 id 不能为空" }));
+      return;
+    }
+    setPageError(null);
+    setPageLoading(true);
+    try {
+      const view = await wechatLocalPage(id, { fromTs: windowFromTs() });
+      // 最新页倒转上屏(旧在上新在下,聊天阅读序);加载更早 = 头部续接。
+      setPageMessages([...view.page.messages].reverse());
+      setPageCursor(view.page.next_cursor);
+      setPageMore(view.page.has_more);
+      setPageChat(view.page.display_name ? `${id}(${view.page.display_name})` : id);
+    } catch (raw) {
+      setPageMessages(null);
+      setPageCursor(null);
+      setPageMore(false);
+      setPageError(asSidecarError(raw));
+    } finally {
+      setPageLoading(false);
+    }
+  }, [chatId, windowFromTs]);
+
+  const loadEarlier = useCallback(async () => {
+    const id = chatId.trim();
+    if (!id || !pageCursor) return;
+    setPageError(null);
+    setPageLoading(true);
+    try {
+      const view = await wechatLocalPage(id, { cursor: pageCursor, fromTs: windowFromTs() });
+      setPageMessages((prev) => [
+        ...[...view.page.messages].reverse(),
+        ...(prev ?? []),
+      ]);
+      setPageCursor(view.page.next_cursor);
+      setPageMore(view.page.has_more);
+    } catch (raw) {
+      setPageError(asSidecarError(raw));
+    } finally {
+      setPageLoading(false);
+    }
+  }, [chatId, pageCursor, windowFromTs]);
+
+  const runExport = useCallback(async () => {
+    const id = chatId.trim();
+    if (!id) {
+      setExportError(new SidecarRequestError({ code: "invalid_params", path: "params.chat_id", message: "会话 id 不能为空" }));
+      return;
+    }
+    setExportError(null);
+    setExportFiles(null);
+    setExportPct(null);
+    setExportJobId(null);
+    setExporting(true);
+    const unlisten = await subscribeWechatChatExportProgress((event) => {
+      setExportJobId(event.job_id);
+      const pct = event.body.progress?.pct_est;
+      setExportPct(typeof pct === "number" ? pct : null);
+    });
+    try {
+      const receipt = await wechatChatExport({ chatId: id, format: exportFormat, fromTs: windowFromTs() });
+      // null = 用户在目录对话框点了取消:静默回 idle 零提示(判例群导出)。
+      if (receipt !== null) {
+        setExportFiles(receipt.files.map((file) => file.path));
+      }
+    } catch (raw) {
+      setExportError(asSidecarError(raw));
+    } finally {
+      unlisten();
+      setExporting(false);
+      setExportPct(null);
+      setExportJobId(null);
+    }
+  }, [chatId, exportFormat, windowFromTs]);
+
+  const cancelExport = useCallback(async () => {
+    if (exportJobId === null) return;
+    try {
+      await wechatChatExportCancel(exportJobId);
+    } catch (raw) {
+      setExportError(asSidecarError(raw));
+    }
+  }, [exportJobId]);
+
+  const windowChips: Array<{ label: string; days: number | null; testId: string }> = [
+    { label: "近 7 天", days: 7, testId: "wechat-local-window-7d" },
+    { label: "近 30 天", days: 30, testId: "wechat-local-window-30d" },
+    { label: "全部", days: null, testId: "wechat-local-window-all" },
+  ];
 
   return (
     <div className="flex min-w-0 flex-col gap-2" data-testid="wechat-local-db-query">
@@ -406,6 +551,137 @@ function LocalDbQuery() {
               ))}
             </ul>
           )}
+        </div>
+      ) : null}
+
+      {/* —— C1 分页浏览(时间窗快捷档 + 游标续拉;10-14-wechat-chat-export R6)—— */}
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="text-2xs text-muted-foreground">分页浏览窗口:</span>
+        {windowChips.map((chip) => (
+          <button
+            key={chip.testId}
+            type="button"
+            aria-pressed={windowDays === chip.days}
+            className={cn(
+              "rounded-full border px-2.5 py-0.5 text-2xs transition-colors duration-(--duration-fast) ease-out-expo",
+              windowDays === chip.days
+                ? "border-primary/40 bg-primary/10 text-foreground"
+                : "border-border/50 text-muted-foreground hover:bg-accent/60",
+            )}
+            data-testid={chip.testId}
+            onClick={() => setWindowDays(chip.days)}
+          >
+            {chip.label}
+          </button>
+        ))}
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0"
+          disabled={pageLoading}
+          data-testid="wechat-local-page-run"
+          onClick={() => void loadFirstPage()}
+        >
+          {pageLoading && pageMessages === null ? "拉取中…" : "拉取最新一页"}
+        </Button>
+        {pageMore ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+            disabled={pageLoading}
+            data-testid="wechat-local-page-more"
+            onClick={() => void loadEarlier()}
+          >
+            {pageLoading ? "加载中…" : "加载更早"}
+          </Button>
+        ) : null}
+      </div>
+      {pageError ? <ReadOnlyError error={pageError} testId="wechat-local-page-error" /> : null}
+      {pageMessages !== null ? (
+        <div className="flex min-w-0 flex-col gap-1" data-testid="wechat-local-page-result">
+          <p className="min-w-0 break-words text-2xs text-muted-foreground">
+            {pageChat ?? ""} 的分页消息(旧在上新在下;{pageMore ? "还有更早的消息,点「加载更早」继续" : "已到窗口起点"};当前 {pageMessages.length} 条)
+          </p>
+          {pageMessages.length === 0 ? (
+            <p className="text-2xs text-muted-foreground">窗口内零条消息(换个窗口档或检查会话 id)。</p>
+          ) : (
+            <ul className="flex min-w-0 flex-col gap-1" data-testid="wechat-local-page-messages">
+              {pageMessages.map((message) => (
+                <MessageRow
+                  key={`${message.ts}-${message.seq}`}
+                  message={{
+                    ts: message.ts,
+                    sender: message.sender,
+                    type: message.type,
+                    text: message.text,
+                    media_placeholder: message.placeholder,
+                  }}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+
+      {/* —— C1 导出行(六格式 + 壳弹目录对话框 + 进度/取消/回执;R6)—— */}
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="text-2xs text-muted-foreground">导出本会话:</span>
+        <select
+          aria-label="导出格式"
+          className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+          value={exportFormat}
+          disabled={exporting}
+          data-testid="wechat-local-export-format"
+          onChange={(event) => setExportFormat(event.target.value as WechatChatExportFormat)}
+        >
+          {WECHAT_CHAT_EXPORT_FORMATS.map((format) => (
+            <option key={format.value} value={format.value}>
+              {format.label}
+            </option>
+          ))}
+        </select>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0"
+          disabled={exporting}
+          data-testid="wechat-local-export-run"
+          onClick={() => void runExport()}
+        >
+          {exporting ? "导出中…" : "选择目录并导出"}
+        </Button>
+        {exporting && exportJobId !== null ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0"
+            data-testid="wechat-local-export-cancel"
+            onClick={() => void cancelExport()}
+          >
+            取消导出
+          </Button>
+        ) : null}
+        {exporting && exportPct !== null ? (
+          <span
+            className="min-w-0 break-words text-2xs text-muted-foreground"
+            data-testid="wechat-local-export-progress"
+          >
+            进度约 {Math.round(exportPct)}%
+          </span>
+        ) : null}
+      </div>
+      {exportError ? <ReadOnlyError error={exportError} testId="wechat-local-export-error" /> : null}
+      {exportFiles !== null ? (
+        <div className="flex min-w-0 flex-col gap-1" data-testid="wechat-local-export-files">
+          <p className="text-2xs text-muted-foreground">导出完成,产物 {exportFiles.length} 件(点击路径可在访达中查看):</p>
+          <ul className="flex min-w-0 flex-col gap-0.5">
+            {exportFiles.map((path) => (
+              <li key={path} className="min-w-0 truncate font-mono text-2xs text-foreground" title={path}>
+                {path}
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
     </div>

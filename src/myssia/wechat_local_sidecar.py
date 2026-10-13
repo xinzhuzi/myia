@@ -56,6 +56,13 @@ _QUERY_TIMEOUT_SECONDS = 600.0
 _LIMIT_SESSIONS_MAX = 100
 _LIMIT_MESSAGES_MAX = 200
 _SINCE_DAYS_MAX = 3650
+#: C1 分页/普查上界(桥 localdb_page.PAGE_LIMIT_CAP/CONVERSATIONS_LIMIT_MAX 同值)。
+_LIMIT_PAGE_MAX = 1000
+_LIMIT_CONVERSATIONS_MAX = 5000
+#: C3 朋友圈/媒体窗口上界(sns feed 判例同值)。
+_LIMIT_MEDIA_SINCE_DAYS_MAX = 3650
+#: C4 联系人 limit 三态上界(0 = 全量导出态合法;桥 contacts_query 帽同值)。
+_LIMIT_CONTACTS_MAX = 1000
 
 
 class WechatLocalSidecarError(Exception):
@@ -191,16 +198,260 @@ def _query(params: dict[str, Any]) -> dict[str, Any]:
     return _run_bridge(argv, timeout=_QUERY_TIMEOUT_SECONDS)
 
 
+def _optional_int_min0(
+    params: dict[str, Any], key: str, *, maximum: int
+) -> int | None:
+    """C4 联系人 limit 三态:0 = 全量导出态合法(:func:`_optional_int` 拒 0,
+    此变体放行;负数/非 int/超帽仍 invalid_params)。"""
+    value = params.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0 or value > maximum:
+        raise WechatLocalSidecarError(
+            "invalid_params",
+            f"params.{key} 须为 0..{maximum} 的整数(0 = 全量导出态)",
+            path=f"params.{key}",
+        )
+    return value
+
+
+def _optional_ts(params: dict[str, Any], key: str) -> int | None:
+    """C1 时间窗参数:非负整数时间戳(秒;桥侧 normalize_ts_input 再归一)。"""
+    value = params.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise WechatLocalSidecarError(
+            "invalid_params",
+            f"params.{key} 须为非负整数时间戳(unix 秒)",
+            path=f"params.{key}",
+        )
+    return value
+
+
+def _page(params: dict[str, Any]) -> dict[str, Any]:
+    """``wechat_local.page`` {chat_id, cursor?, limit?, asc?, from_ts?, to_ts?,
+    types?, sender?} → 桥 ``localdb page``(C1 keyset 分页;10-14-wechat-chat-export)。
+
+    limit 帽 1000(桥 PAGE_LIMIT_CAP 同值);types 数组 → CLI 逗号分隔;
+    超时走 :data:`_QUERY_TIMEOUT_SECONDS`(副本首建判例同 query)。
+    """
+    chat_id = _require_str(params, "chat_id")
+    limit = _optional_int(params, "limit", default=None, maximum=_LIMIT_PAGE_MAX)
+    asc = params.get("asc")
+    if asc is not None and not isinstance(asc, bool):
+        raise WechatLocalSidecarError(
+            "invalid_params", "params.asc 须为布尔", path="params.asc"
+        )
+    from_ts = _optional_ts(params, "from_ts")
+    to_ts = _optional_ts(params, "to_ts")
+    types = params.get("types")
+    if types is not None:
+        if not isinstance(types, list) or not all(
+            isinstance(item, str) and item.strip() for item in types
+        ):
+            raise WechatLocalSidecarError(
+                "invalid_params",
+                "params.types 须为非空字符串数组(转 CLI 逗号分隔)",
+                path="params.types",
+            )
+    sender = params.get("sender")
+    if sender is not None and (not isinstance(sender, str) or not sender.strip()):
+        raise WechatLocalSidecarError(
+            "invalid_params", "params.sender 必须是非空字符串", path="params.sender"
+        )
+    cursor = params.get("cursor")
+    if cursor is not None and not isinstance(cursor, str):
+        raise WechatLocalSidecarError(
+            "invalid_params", "params.cursor 须为字符串", path="params.cursor"
+        )
+    argv = [_BASE, "localdb", "page", chat_id]
+    if cursor:
+        argv += ["--cursor", cursor]
+    if limit is not None:
+        argv += ["--limit", str(limit)]
+    if asc is not None:
+        argv += ["--asc" if asc else "--desc"]
+    if from_ts is not None:
+        argv += ["--from-ts", str(from_ts)]
+    if to_ts is not None:
+        argv += ["--to-ts", str(to_ts)]
+    if types:
+        argv += ["--types", ",".join(t.strip() for t in types)]
+    if sender:
+        argv += ["--sender", sender.strip()]
+    argv += ["--json"]
+    return _run_bridge(argv, timeout=_QUERY_TIMEOUT_SECONDS)
+
+
+def _conversations(params: dict[str, Any]) -> dict[str, Any]:
+    """``wechat_local.conversations`` {limit?} → 桥 ``localdb conversations``
+    (C1 会话清单普查;limit 帽 5000 = 桥 CONVERSATIONS_LIMIT_MAX 同值)。"""
+    limit = _optional_int(
+        params, "limit", default=None, maximum=_LIMIT_CONVERSATIONS_MAX
+    )
+    argv = [_BASE, "localdb", "conversations"]
+    if limit is not None:
+        argv += ["--limit", str(limit)]
+    argv += ["--json"]
+    return _run_bridge(argv, timeout=_QUERY_TIMEOUT_SECONDS)
+
+
+def _sns_feed(params: dict[str, Any]) -> dict[str, Any]:
+    """``wechat_local.sns_feed`` {since_days?} → 桥 ``localdb sns feed``
+    (C3;缺省 30d,帽 3650d;argv 契约钉死在
+    tests/desktop/test_wechat_local_media_handlers.py)。"""
+    since_days = _optional_int(
+        params, "since_days", default=30, maximum=_LIMIT_MEDIA_SINCE_DAYS_MAX
+    )
+    argv = [_BASE, "localdb", "sns", "feed", "--since", f"{since_days}d", "--json"]
+    return _run_bridge(argv, timeout=_QUERY_TIMEOUT_SECONDS)
+
+
+def _sns_export(params: dict[str, Any]) -> dict[str, Any]:
+    """``wechat_local.sns_export`` {format?, out?, since_days?, with_media?} →
+    桥 ``localdb sns export``(C3;format ∈ json|html 缺省 json)。"""
+    fmt = params.get("format", "json")
+    if fmt not in ("json", "html"):
+        raise WechatLocalSidecarError(
+            "invalid_params",
+            "params.format 须为 json|html",
+            path="params.format",
+        )
+    since_days = _optional_int(
+        params, "since_days", default=30, maximum=_LIMIT_MEDIA_SINCE_DAYS_MAX
+    )
+    out = params.get("out")
+    if out is not None and (not isinstance(out, str) or not out.strip()):
+        raise WechatLocalSidecarError(
+            "invalid_params", "params.out 必须是非空字符串", path="params.out"
+        )
+    with_media = params.get("with_media", False)
+    if not isinstance(with_media, bool):
+        raise WechatLocalSidecarError(
+            "invalid_params", "params.with_media 须为布尔", path="params.with_media"
+        )
+    argv = [_BASE, "localdb", "sns", "export", "--format", fmt, "--since", f"{since_days}d"]
+    if out:
+        argv += ["--out", out.strip()]
+    if with_media:
+        argv += ["--with-media"]
+    argv += ["--json"]
+    return _run_bridge(argv, timeout=_QUERY_TIMEOUT_SECONDS)
+
+
+def _media_scan(params: dict[str, Any]) -> dict[str, Any]:
+    """``wechat_local.media_scan`` {chat_id, since_days?, decrypt?} → 桥
+    ``localdb media scan``(C3 寻径;--decrypt 逐条解密回填)。"""
+    chat_id = _require_str(params, "chat_id")
+    since_days = _optional_int(
+        params, "since_days", default=30, maximum=_LIMIT_MEDIA_SINCE_DAYS_MAX
+    )
+    decrypt = params.get("decrypt", False)
+    if not isinstance(decrypt, bool):
+        raise WechatLocalSidecarError(
+            "invalid_params", "params.decrypt 须为布尔", path="params.decrypt"
+        )
+    argv = [_BASE, "localdb", "media", "scan", chat_id, "--since", f"{since_days}d"]
+    if decrypt:
+        argv += ["--decrypt"]
+    argv += ["--json"]
+    return _run_bridge(argv, timeout=_QUERY_TIMEOUT_SECONDS)
+
+
+def _media_decrypt(params: dict[str, Any]) -> dict[str, Any]:
+    """``wechat_local.media_decrypt`` {dat_path} → 桥 ``localdb media
+    decrypt``(C3 单件 .dat 解密;未配置解密件 = exit 23 原样上抛)。"""
+    dat_path = _require_str(params, "dat_path")
+    argv = [_BASE, "localdb", "media", "decrypt", dat_path, "--json"]
+    return _run_bridge(argv, timeout=_QUERY_TIMEOUT_SECONDS)
+
+
+#: C4 联系人六桶词表(桥 contacts_query.TYPE_FILTERS 同源)。
+_CONTACTS_TYPE_FILTERS = ("friend", "group", "official", "former", "other")
+
+
+def _contacts(params: dict[str, Any]) -> dict[str, Any]:
+    """``wechat_local.contacts`` {type?, keyword?, limit?, cursor?,
+    with_residue?, include_stranger?} → 桥 ``localdb contacts``(C4;limit
+    0 = 全量导出态合法;include_stranger 缺省开=超参不传)。超时走
+    :data:`_QUERY_TIMEOUT_SECONDS`(residue 首跑触发 message 域副本首建)。"""
+    type_filter = params.get("type")
+    if type_filter is not None:
+        if not isinstance(type_filter, str) or type_filter not in _CONTACTS_TYPE_FILTERS:
+            raise WechatLocalSidecarError(
+                "invalid_params",
+                f"params.type 须为 {'|'.join(_CONTACTS_TYPE_FILTERS)} 之一",
+                path="params.type",
+            )
+    keyword = params.get("keyword")
+    if keyword is not None and not isinstance(keyword, str):
+        raise WechatLocalSidecarError(
+            "invalid_params", "params.keyword 须为字符串", path="params.keyword"
+        )
+    limit = _optional_int_min0(params, "limit", maximum=_LIMIT_CONTACTS_MAX)
+    cursor = params.get("cursor")
+    if cursor is not None and not isinstance(cursor, str):
+        raise WechatLocalSidecarError(
+            "invalid_params", "params.cursor 须为字符串", path="params.cursor"
+        )
+    with_residue = params.get("with_residue", False)
+    if not isinstance(with_residue, bool):
+        raise WechatLocalSidecarError(
+            "invalid_params",
+            "params.with_residue 须为布尔",
+            path="params.with_residue",
+        )
+    include_stranger = params.get("include_stranger")
+    if include_stranger is not None and not isinstance(include_stranger, bool):
+        raise WechatLocalSidecarError(
+            "invalid_params",
+            "params.include_stranger 须为布尔",
+            path="params.include_stranger",
+        )
+    argv = [_BASE, "localdb", "contacts"]
+    if type_filter:
+        argv += ["--type", type_filter]
+    if keyword:
+        argv += ["--keyword", keyword]
+    if limit is not None:
+        argv += ["--limit", str(limit)]
+    if cursor:
+        argv += ["--cursor", cursor]
+    if with_residue:
+        argv += ["--with-residue"]
+    # include_stranger:CLI 缺省 True,显式 false 桥侧无旗标可关(v1 如实
+    # 只透传开态;协议面收形状不炸)。
+    if include_stranger is False:
+        raise WechatLocalSidecarError(
+            "invalid_params",
+            "params.include_stranger=false 暂不支持(桥 CLI 缺省开且无关闭旗标)",
+            path="params.include_stranger",
+        )
+    argv += ["--json"]
+    return _run_bridge(argv, timeout=_QUERY_TIMEOUT_SECONDS)
+
+
 #: 桥 bin 缺省落点(构造期展开一次;模块单测经 monkeypatch 换注入点)。
 _BASE = str(bin_path(None))
 
 
 #: 动作 → 处理器(封闭词表;未知动作 = invalid_params,新增动作先扩此表)。
+#: 六域接线批(0.8.0)纯加法七动作:C1 page/conversations、C3 sns_feed/
+#: sns_export/media_scan/media_decrypt、C4 contacts——判例 F2 地基路,
+#: 不 bump PROTOCOL_VERSION(stats 两动作在 wechat_stats_sidecar.py 独立模块)。
 _ACTIONS = {
     "probe": _probe,
     "sessions": _sessions,
     "messages": _messages,
     "query": _query,
+    "page": _page,
+    "conversations": _conversations,
+    "sns_feed": _sns_feed,
+    "sns_export": _sns_export,
+    "media_scan": _media_scan,
+    "media_decrypt": _media_decrypt,
+    "contacts": _contacts,
 }
 
 

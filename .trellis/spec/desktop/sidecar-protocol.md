@@ -16,7 +16,7 @@
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 84 行;代码 `_HANDLERS` 现值 84,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 93 行;代码 `_HANDLERS` 现值 93,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -104,6 +104,15 @@
 | 82 | `wechat_local.sessions` | `_m_wechat_local_sessions` | 微信本机会话列表(10-11-wechat-ui-bridge F4 只读入口第一步):`{limit?}` → 桥 `sessions list --json` 载荷(`{sessions:[{id,name,unread}]}`,首版 N=20,limit 1..100);只读浏览面不经目录不落 store;桥 Phase C 未落地如实 `not_implemented`(exit 1 过渡码原样透传,不谎报具名族);bin 缺失 `component_missing`、超时 `bridge_timeout`(60s kill 兜底) |
 | 83 | `wechat_local.messages` | `_m_wechat_local_messages` | 微信本机最近消息(10-11-wechat-ui-bridge F4;G2 读回展示):`{chat_id, count?}` → 桥 `messages read` 载荷(`{messages:[{ts,sender,type,text?,media_placeholder?}]}`,缺省 K=50,count 1..200);**读回仅展示不入情报管线**(G3:零 store/dedup/分类接线);媒体类 = 类型+占位描述不识别内容(prd R1a);参数门 invalid_params(path 精确到 params.chat_id/params.count) |
 | 84 | `wechat_local.query` | `_m_wechat_local_query` | 微信本机本地库查询(10-11-wechat-ui-bridge F2;E 段三域只读):`{chat_id, since_days?}` → 桥 `localdb query --since Nd --json` 载荷(`{chat_id, since_days, messages, display_name, sessions, domains, copy}`);G4 message/session/contact 三域;since_days 缺省 30(design §7 limits.history_days 同值)、上界 3650 防呆;**超时 600s**(独立于 60s 命令族:桥侧 sqlcipher 单库解密上界 300s,多域副本首建累计可超 60s,600s=2×单库上界盖住;副本 kept 语义让 kill 后重试只补缺库);密钥途径未闭合如实 `key_unavailable`(exit 21,D4 语义;外部密钥 keys.json 重验通路 resolve_keys,D4② 一步闭合)/副本缺 `decrypt_failed`(exit 22)/定位失败 `db_not_found`(exit 20);聊天内容只在应答载荷(stdout 契约),sidecar 层零日志零落盘(红线 6) |
+| 85 | `wechat_local.page` | `_m_wechat_local_page` | 微信本机分页查询(10-14-wechat-chat-export R7;keyset 游标续拉):`{chat_id, cursor?, limit?, asc?, from_ts?, to_ts?, types?, sender?}` → 桥 `localdb page` 载荷(`{page:{chat_id,display_name,messages,next_cursor,has_more,filter,page_size}}`;E2 副本域 message+contact,尾部 wxid→显示名批量解析);limit 帽 1000;types 数组→CLI 逗号;游标 scope 不符/未知类型名 → `invalid_cursor`/`invalid_types`(exit 2 原样);超时 600s(判例 query);实现本体 `myssia.wechat_local_sidecar._page` |
+| 86 | `wechat_local.conversations` | `_m_wechat_local_conversations` | 微信本机会话普查(10-14-wechat-chat-export R7):`{limit?}`(帽 5000)→ 桥 `localdb conversations` 载荷(`{conversations:[{chat_id,display_name,is_group,msg_count,first_ts,last_ts}],total,unresolved_tables}`;逐表 COUNT/MIN/MAX+副本指纹缓存);超时 600s |
+| 87 | `wechat_local.stats` | `_m_wechat_local_stats` | 微信本机统计查询(10-14-wechat-stats-reports R5;四模式中继):`{mode∈chats|chat|annual|dual, chat_id?, since_days?|all?, year?, refresh?}` → 桥 `localdb stats` 载荷(单遍 GROUP BY 聚合+文件缓存 `<数据根>/wechat-bridge/stats-cache/`);实现本体 `myssia.wechat_stats_sidecar`(独立模块,复用 `_run_bridge`/错误族);查询层降级恒 exit 0,密钥链 20/21/22 透传;超时 600s |
+| 88 | `wechat_local.stats_report` | `_m_wechat_local_stats_report` | 微信统计 AI 叙事报告(10-14-wechat-stats-reports R5;MYIA 侧不重查):`{mode, stats_payload, tone?}` → 报告文本;端点 = `<数据根>/config/wechat-stats.yaml`(enrich 段形态,凭据引用制明文拒载);`enabled:false`/端点缺 → `ai_disabled`,openai 包缺位 → `dependency_missing`(结构化);隐私缺省:纯聚合数字+top 短语,**零逐条消息原文**(入口防御性递归剥 messages) |
+| 89 | `wechat_local.sns_feed` | `_m_wechat_local_sns_feed` | 微信朋友圈动态(10-14-wechat-media-sns R5;只读):`{since_days?}`(缺省 30,帽 3650)→ 桥 `localdb sns feed --since Nd --json` 载荷;argv 契约钉死在 tests/desktop/test_wechat_local_media_handlers.py;超时 600s(盖副本首建) |
+| 90 | `wechat_local.sns_export` | `_m_wechat_local_sns_export` | 微信朋友圈导出(10-14-wechat-media-sns R5):`{format?∈json|html(缺省 json), out?, since_days?(缺省 30), with_media?(缺省 false)}` → 桥 `localdb sns export` 载荷(`{sns_export:{format,out_dir,files,with_media,stats}}`);`with_media=true` = 唯一受限 CDN GET 豁免(docs/wechat-mediadecrypt.md §11);超时 600s |
+| 91 | `wechat_local.media_scan` | `_m_wechat_local_media_scan` | 微信会话媒体寻径(10-14-wechat-media-sns R5):`{chat_id, since_days?(缺省 30), decrypt?(缺省 false)}` → 桥 `localdb media scan` 载荷(`{media:{items,stats,provider}}`;缩略图优先寻径,decrypt 逐条解密回填 cached_path);未配置解密件+decrypt → `media_unavailable`(exit 23 原样);超时 600s |
+| 92 | `wechat_local.media_decrypt` | `_m_wechat_local_media_decrypt` | 微信单件媒体解密(10-14-wechat-media-sns R5):`{dat_path}` → 桥 `localdb media decrypt` 载荷(`{media_decrypt:{dat_path,cached_path,ext,is_wxgf,width,height,cache}}`;解密钥仅内存过手不落盘);未配置解密件 → `media_unavailable`(exit 23);超时 600s |
+| 93 | `wechat_local.contacts` | `_m_wechat_local_contacts` | 微信联系人六桶(10-14-wechat-contacts R6;分类浏览/找回考古):`{type?∈friend|group|official|former|other, keyword?, limit?(0..1000,0=全量导出态), cursor?, with_residue?, include_stranger?(只收开态,false=invalid_params——桥 CLI 缺省开无关闭旗标)}` → 桥 `localdb contacts` 载荷(`{contacts:{counts,former_tiers,residue_checked,strict_residual_count,labels,stranger,room_verify,rows,next_cursor,has_more,filter,page_size,degraded}}`);with_residue 触发 message 域副本首建 → 超时 600s(不用 60s 命令族帽);缺表降级恒 exit 0 |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+
@@ -209,6 +218,15 @@ wechat_local_sidecar`(随包打包),entry.py 只留四枚三行薄壳;桥具名
 错误族(design §6 码表)原样透传。**不 bump v15**:同上地基路纯加法
 先例(新方法旧壳 method_not_found 结构化降级,消息屏「微信本机」卡
 按灰态呈现即正确行为);注册表 84 行。
+六域接线批(0.8.0,task 10-13-wechat-features 集成员)纯加法 9:85-93
+`wechat_local.page`/`wechat_local.conversations`(10-14-wechat-chat-export
+C1 分页+普查)、`wechat_local.stats`/`wechat_local.stats_report`
+(10-14-wechat-stats-reports C2;stats_report 实现本体在独立模块
+`myssia.wechat_stats_sidecar`)、`wechat_local.sns_feed`/
+`wechat_local.sns_export`/`wechat_local.media_scan`/
+`wechat_local.media_decrypt`(10-14-wechat-media-sns C3)、
+`wechat_local.contacts`(10-14-wechat-contacts C4)。**不 bump
+PROTOCOL_VERSION**:同上地基路纯加法先例;注册表 93 行。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成

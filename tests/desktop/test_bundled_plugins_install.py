@@ -13,7 +13,7 @@ test_desktop_sidecar_protocol.py 的 rpc 手法;rpc helper 本文件独立一份
   本测试不经「手写件清单」二手复述:list 断言数从映射动态派生,与
   test_installer_resources.py 的守卫常量(DESKTOP_TIER_PACKAGES 9 +
   STUB_ONLY_PACKAGES 1 + REMOTE_STUB_PACKAGES 1 = 11 组件包,10-06 阶段3
-  起含 remote 桩 myssia-firecrawl;10-11 拆分批后品类 16 件,10-12 微信入情报流批后 17 件)对账,映射漂移
+  起含 remote 桩 myssia-firecrawl;10-11 拆分批后品类 16 件,10-12 微信入情报流批后 17 件,10-14 微信通知批 +weixin-notify 后 18 件)对账,映射漂移
   即红);
 - env 未设/目录不存在 = 合法空表(dev 稳定契约);
 - install 三岔编排(10-06 分发规范:声明随包、源码远取):锁在+条目在 →
@@ -54,7 +54,7 @@ _spec = importlib.util.spec_from_file_location("desktop_entry_bundled", ENTRY_PA
 entry = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(entry)
 
-# 与 test_installer_resources.py 同源守卫常量(随包组件包 11 件 + 品类 17 件
+# 与 test_installer_resources.py 同源守卫常量(随包组件包 11 件 + 品类 18 件
 # 单一事实源;跨文件 import 常量——两侧清单漂移时参数化对不上即红,人工对账
 # 口径同彼处)。
 from test_installer_resources import (  # noqa: E402
@@ -69,7 +69,7 @@ from test_installer_resources import (  # noqa: E402
 #: 插件件」卡的轨D remote 配置面板挂点,零 adapter 零运行时)。
 BUNDLED_PACKAGES = DESKTOP_TIER_PACKAGES + STUB_ONLY_PACKAGES + REMOTE_STUB_PACKAGES
 
-#: 随包品类 YAML 全集(恰 17 件;= OFFICIAL_CATEGORY_YAMLS 同源,7 官方 +
+#: 随包品类 YAML 全集(恰 18 件;= OFFICIAL_CATEGORY_YAMLS 同源,7 官方 +
 #: demo + monitor/credentials 两场景件 + telegram 三件与 daily-digest,
 #: 10-08 查漏批③ G5/G9 入种子;10-12 微信品类 weixin 入流批补 1 件)。
 #: 名实注(10-09 AC6 归一):这是**文件名 stem 清单**(件数口径),不再是
@@ -205,7 +205,7 @@ def test_list_env_points_to_missing_dir_is_also_empty(monkeypatch, tmp_path):
 
 def test_list_rebuilt_installer_tree_yields_exactly_eleven_packages(monkeypatch, tmp_path):
     """装机态对账:resources 映射重建目录树 → 组件包恰 11 件(10 desktop +
-    myssia-firecrawl remote 桩)、品类恰 17 件(与 test_installer_resources
+    myssia-firecrawl remote 桩)、品类恰 18 件(与 test_installer_resources
     守卫常量同源;映射漂移即红,不硬编码孤数)。"""
     root = rebuild_bundled_tree(tmp_path / "Resources")
     monkeypatch.setenv(entry.BUNDLED_PLUGINS_ENV, str(root))
@@ -242,7 +242,7 @@ def test_list_rebuilt_installer_tree_yields_exactly_eleven_packages(monkeypatch,
     # id 口径):重建树平铺 YAML = 每件一条(件数口径 17),id 经 load_category_file
     # 实读随 config.id —— telegram 三件归一后同 id 'telegram',id 集 = 15;
     # 散装回归(任一件 id 改回 telegram-groups/channels/web)在此即红。
-    assert len(result["categories"]) == len(BUNDLED_CATEGORY_STEMS) == 17
+    assert len(result["categories"]) == len(BUNDLED_CATEGORY_STEMS) == 18
     assert {cat["id"] for cat in result["categories"]} == BUNDLED_CATEGORY_ID_SET
     # AC6 归一实锚:恰好三条 id='telegram' 且 file 各异(文件名区分三线)
     assert sorted(cat["file"] for cat in result["categories"] if cat["id"] == "telegram") == [
@@ -1183,8 +1183,8 @@ def test_category_install_and_seed_semantics_aligned(monkeypatch, tmp_path):
     monkeypatch.setattr(entry, "_bundle_config_dir", lambda: root.parent / "config")
     _, responses, _ = rpc({"id": 1, "method": "plugins.bundled.list", "params": {}})
     categories = responses[0]["result"]["categories"]
-    assert len(categories) == 17
-    assert all(cat["exists"] for cat in categories), "serve 启动补种应已把 17 件补齐"
+    assert len(categories) == 18
+    assert all(cat["exists"] for cat in categories), "serve 启动补种应已把 18 件补齐"
     seeded = home / "config" / "ai-news.yaml"
     assert seeded.exists()
     # 手改件不被补种覆盖(幂等补缺,逐字节保留)

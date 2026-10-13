@@ -12,9 +12,12 @@ mod pyenv;
 mod pyenv_components;
 mod pyenv_install;
 mod pyenv_migration;
+mod wechat_chat_export;
+mod wechat_contacts_export;
 mod wechat_group_export;
 mod wechat_groupinfo;
 mod wechat_keyprovider;
+mod wechat_stats_export;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -921,7 +924,19 @@ fn main() {
             // 成员表 CSV,UTF-8 BOM),壳不重查;保存对话框 = dialog 插件
             // Rust 侧 blocking_save_file(spawn_blocking 线程,注册先例 =
             // 看图屏 main.rs `tauri_plugin_dialog::init()`)。
-            wechat_group_export::wechat_group_export
+            wechat_group_export::wechat_group_export,
+            // 微信聊天记录导出(10-14-wechat-chat-export R6):目录对话框
+            // (缺省)→ spawn 桥 `localdb export` → NDJSON 进度转事件
+            // `wechat-chat-export-progress` → 终态回执原样转前端;取消 =
+            // wechat_chat_export_cancel(SIGTERM 桥进程组)。
+            wechat_chat_export::wechat_chat_export,
+            wechat_chat_export::wechat_chat_export_cancel,
+            // 微信统计导出(10-14-wechat-stats-reports R8):前端已持 stats
+            // 应答原样落盘(JSON pretty);保存对话框判例同上。
+            wechat_stats_export::wechat_stats_export,
+            // 微信联系人导出(10-14-wechat-contacts R4):JSON/CSV/VCF 三
+            // 格式写盘 + BOM/注入中和/VCF 转义;取消 null 静默判例同上。
+            wechat_contacts_export::wechat_contacts_export
         ])
         .setup(move |app| {
             // 冷启动打点(沿用 spike 惯例):进程启动 → sidecar spawn 完成。

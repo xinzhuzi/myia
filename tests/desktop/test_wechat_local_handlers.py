@@ -344,3 +344,58 @@ class TestBridgeErrorMapping:
         with caplog.at_level("DEBUG"):
             wls.handle_wechat_local("sessions", {})
         assert caplog.records == []
+
+
+# ---------------------------------------------------------------------------
+# C4 contacts(10-14-wechat-contacts R6;argv 契约 + limit 三态 + 词表拒)
+# ---------------------------------------------------------------------------
+
+
+CONTACTS_PAYLOAD = {
+    "contacts": {
+        "counts": {"friend": 1, "group": 0, "official": 0, "former": 0, "other": 0},
+        "rows": [{"username": "wxid_a", "display_name": "甲", "type": "friend"}],
+        "next_cursor": None,
+        "has_more": False,
+        "filter": {"type": None, "keyword": None},
+        "page_size": 100,
+        "degraded": [],
+    }
+}
+
+
+class TestContactsAction:
+    def test_type_and_with_residue_forwarded_with_query_timeout(self, fake_bridge):
+        """argv 含 --type former --with-residue;超时 = 600s 查询族(residue
+        首跑触发 message 域副本首建,不用 60s 命令族帽)。"""
+        calls, responses = fake_bridge
+        responses["localdb contacts"] = (0, json.dumps(CONTACTS_PAYLOAD))
+        payload = wls.handle_wechat_local(
+            "contacts", {"type": "former", "with_residue": True}
+        )
+        assert payload == CONTACTS_PAYLOAD
+        argv = calls[0]["argv"][1:]
+        assert argv[:3] == ["localdb", "contacts", "--type"]
+        assert argv[argv.index("--type") + 1] == "former"
+        assert "--with-residue" in argv
+        assert argv[-1] == "--json"
+        assert calls[0]["timeout"] == wls._QUERY_TIMEOUT_SECONDS  # 600
+
+    def test_limit_zero_is_legal_full_export(self, fake_bridge):
+        calls, responses = fake_bridge
+        responses["localdb contacts"] = (0, json.dumps(CONTACTS_PAYLOAD))
+        wls.handle_wechat_local("contacts", {"limit": 0})
+        argv = calls[0]["argv"]
+        assert argv[argv.index("--limit") + 1] == "0"
+
+    def test_limit_over_max_negative_and_non_int_rejected(self, fake_bridge):
+        for limit in (1001, -1, "50"):
+            with pytest.raises(wls.WechatLocalSidecarError) as excinfo:
+                wls.handle_wechat_local("contacts", {"limit": limit})
+            assert excinfo.value.code == "invalid_params"
+
+    def test_bad_type_rejected(self, fake_bridge):
+        with pytest.raises(wls.WechatLocalSidecarError) as excinfo:
+            wls.handle_wechat_local("contacts", {"type": "bogus"})
+        assert excinfo.value.code == "invalid_params"
+        assert excinfo.value.path == "params.type"

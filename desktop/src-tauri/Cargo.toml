@@ -9,7 +9,10 @@ rust-version = "1.77"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# protocol-asset(10-14-wechat-media-sns):微信聊天图片缩略图渲染前置——
+# assetProtocol 开 scope 允许 $APPDATA/wechat-localdb/media-cache/**(UI 侧
+# convertFileSrc 直读媒体缓存;C6 HTTP 媒体端点落地后可切端点 URL 收窄)。
+tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-shell = "2"
 # log:统一日志面壳半(10-07-unified-logging 批2)——Rust 壳与 UI(webview
 # console 劫持经 plugin JS API)同汇 `<数据根>/logs/shell.log`(按大小轮转

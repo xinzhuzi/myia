@@ -116,7 +116,13 @@ def _all_docs_markdown_files() -> list[Path]:
 #: 品类示例」与「链接仅 .md/.yaml」两条教学页规则;若日后出现 ```yaml
 #: 块仍全量过 load_category 校验,相对链接仍须解析到真实仓库文件。
 #: 新增根页时先自问题材:schema 教学页入双语对齐体系,规格页入本清单。
-PROTOCOL_SPEC_PAGES = ("wechat-keyprovider.md",)
+#: wechat-mediadecrypt.md(10-14-wechat-media-sns)/wechat-http-api.md
+#: (10-14-wechat-http-api)同判例入册(协议规格页,零品类 YAML 示例)。
+PROTOCOL_SPEC_PAGES = (
+    "wechat-keyprovider.md",
+    "wechat-mediadecrypt.md",
+    "wechat-http-api.md",
+)
 
 
 def _is_doc_page(path: Path) -> bool:

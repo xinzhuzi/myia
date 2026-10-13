@@ -334,7 +334,7 @@ echo '{"action":"get_db_key","db_path":"/abs/path/to/db_dir","account_id":"wxid_
 
 - **当前验证版本:4.1.15(构建 270135)**——完整基线表(派生参数/表形态/钥与
   passphrase 位置/attach 实锚)见任务档
-  [`.trellis/tasks/10-13-wechat-keyprovider/research/wechat-version-baseline.md`](../.trellis/tasks/10-13-wechat-keyprovider/research/wechat-version-baseline.md)。
+  [`.trellis/tasks/archive/2026-10/10-13-wechat-keyprovider/research/wechat-version-baseline.md`](../.trellis/tasks/archive/2026-10/10-13-wechat-keyprovider/research/wechat-version-baseline.md)。
 
 版本漂移对照命令(微信自动更新后先跑,输出与基线不一致 = 按基线档「最先失效什么」
 清单逐项重验):

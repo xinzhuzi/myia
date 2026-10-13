@@ -260,6 +260,10 @@ PUSH_CHANNELS = (
     # wechat-bridge;不进 CHANNEL_PLATFORMS——无目录寻址,targets 配即拒,
     # 同 webhook/bark/apprise;weixin_local_enabled 显式开启才可加载)。
     "weixin-local",
+    # macos_notify 随 10-14-wechat-notify-revoke 增(本机通知中心:零网络
+    # 零凭据;不进 CHANNEL_PLATFORMS——无目录寻址,target/targets 配即拒,
+    # 同 stdout)。
+    "macos_notify",
     *_W3_LONGTAIL,
 )
 ROUTE_MODES = ("immediate", "digest", "archive")
@@ -302,6 +306,9 @@ PushChannel = Literal[
     # weixin-local(10-11-wechat-ui-bridge F1;G7 命名):微信本机桥(受管
     # 组件 wechat-bridge;同机便捷补充,weixin_local_enabled 显式开启才可加载)。
     "weixin-local",
+    # macos_notify(10-14-wechat-notify-revoke):本机通知中心(零网络零
+    # 凭据;target/targets 配即拒,同 stdout)。
+    "macos_notify",
 ]
 RouteMode = Literal["immediate", "digest", "archive"]
 ScoreName = Literal["value", "relevance", "credibility"]
@@ -1336,6 +1343,21 @@ class PushConfig(_StrictModel):
                 raise SchemaValueError(
                     "targeting_not_supported",
                     "channel 为 stdout 时不支持定向推送(不能配置 targets)",
+                    path_suffix="targets",
+                )
+        elif self.channel == "macos_notify":
+            # 本机通知中心(10-14-wechat-notify-revoke):零网络零凭据,
+            # 无寻址语义——target/targets 配置即拒(stdout 分支同款)。
+            if self.target is not None:
+                raise SchemaValueError(
+                    "unexpected_target",
+                    "channel 为 macos_notify 时不允许配置 target(本机通知中心,零网络零凭据)",
+                    path_suffix="target",
+                )
+            if self.targets:
+                raise SchemaValueError(
+                    "targeting_not_supported",
+                    "channel 为 macos_notify 时不支持定向推送(不能配置 targets)",
                     path_suffix="targets",
                 )
         elif platform is None:

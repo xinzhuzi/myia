@@ -6,11 +6,15 @@
 // not_found,alerts unsupported 判例同款)/ 只读会话入口(G2 选会话 → 拉最近
 // 消息展示;G3 读回不入情报管线)/ 本地库查询行(E 段三域,key_unavailable
 // 结构化直显)。桥命令族全走 mock sidecar,零真跑。
+//
+// 六域接线批(0.8.0,10-14-wechat-chat-export R7)新增:分页浏览(首帧/
+// 游标续拉/时间窗切换)与导出行(null 取消静默/回执路径/进度事件)。
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: mocks.listen }));
 
 import { WechatLocalSection } from "./wechat-local";
 import { SidecarRequestError } from "@/lib/api";
@@ -71,6 +75,7 @@ function renderSection(props: Partial<Parameters<typeof WechatLocalSection>[0]> 
 
 beforeEach(() => {
   mocks.invoke.mockReset();
+  mocks.listen.mockReset();
   installSidecar({});
 });
 
@@ -299,5 +304,187 @@ describe("微信本机:本地库查询", () => {
     fireEvent.click(screen.getByTestId("wechat-local-db-run"));
     await waitFor(() => expect(screen.getByTestId("wechat-local-db-error").textContent).toContain("不能为空"));
     expect(calls).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C1 分页浏览与导出行(10-14-wechat-chat-export R7;mock sidecar + mock 壳命令)
+// ---------------------------------------------------------------------------
+
+/** 分页应答夹具(desc 最新在前;两条消息 ts 新旧可辨)。 */
+function pagePayload(overrides: Partial<{ next_cursor: string | null; has_more: boolean; messages: unknown[] }> = {}) {
+  return {
+    page: {
+      chat_id: "filehelper",
+      display_name: "文件传输助手",
+      messages:
+        overrides.messages ??
+        [
+          { seq: 2, ts: 1760000200, sender: "wxid_a", sender_id: "wxid_a", type: "text", local_type: 1, text: "较新的消息" },
+          { seq: 1, ts: 1760000100, sender: "wxid_a", sender_id: "wxid_a", type: "text", local_type: 1, text: "较旧的消息" },
+        ],
+      next_cursor: overrides.next_cursor ?? null,
+      has_more: overrides.has_more ?? false,
+      filter: { from_ts: null, to_ts: null, types: [], sender: null, order: "desc" },
+      page_size: 200,
+    },
+  };
+}
+
+describe("微信本机:分页浏览与导出(C1)", () => {
+  it("拉取最新一页 → 倒转上屏(旧在上新在下);加载更早 = 游标续拉头部续接", async () => {
+    const calls: Array<{ method: string; params: unknown }> = [];
+    installSidecar({
+      "wechat_local.page": (params: never) => {
+        calls.push({ method: "wechat_local.page", params });
+        const record = params as { cursor?: string };
+        if (!record.cursor) return pagePayload({ next_cursor: "next-cursor-1", has_more: true });
+        // 续拉页:更早的一条
+        return pagePayload({
+          next_cursor: null,
+          has_more: false,
+          messages: [
+            { seq: 4, ts: 1759999200, sender: "wxid_a", sender_id: "wxid_a", type: "text", local_type: 1, text: "更早的消息" },
+          ],
+        });
+      },
+    });
+    renderSection();
+
+    fireEvent.change(screen.getByLabelText("本地库会话 id"), { target: { value: "filehelper" } });
+    fireEvent.click(screen.getByTestId("wechat-local-page-run"));
+
+    const result = await screen.findByTestId("wechat-local-page-messages");
+    // 首帧倒转:旧在上新在下(聊天阅读序)
+    const items = within(result).getAllByRole("listitem");
+    expect(items[0].textContent).toContain("较旧的消息");
+    expect(items[items.length - 1].textContent).toContain("较新的消息");
+    // 缺省窗口 30 天 → from_ts 透传
+    const first = calls[0]?.params as { from_ts?: number };
+    expect(typeof first.from_ts).toBe("number");
+
+    // 加载更早:游标续拉,新批 prepend 在头部
+    fireEvent.click(screen.getByTestId("wechat-local-page-more"));
+    await waitFor(() => {
+      const merged = screen.getByTestId("wechat-local-page-messages");
+      const mergedItems = within(merged).getAllByRole("listitem");
+      expect(mergedItems[0].textContent).toContain("更早的消息");
+      expect(mergedItems).toHaveLength(3);
+    });
+    const second = calls[1]?.params as { cursor?: string };
+    expect(second.cursor).toBe("next-cursor-1");
+  });
+
+  it("时间窗切换:全部 → from_ts 不传;7 天 → 按天换算", async () => {
+    const calls: Array<unknown> = [];
+    installSidecar({
+      "wechat_local.page": (params: never) => {
+        calls.push(params);
+        return pagePayload();
+      },
+    });
+    renderSection();
+
+    fireEvent.change(screen.getByLabelText("本地库会话 id"), { target: { value: "filehelper" } });
+    fireEvent.click(screen.getByTestId("wechat-local-window-all"));
+    fireEvent.click(screen.getByTestId("wechat-local-page-run"));
+    await screen.findByTestId("wechat-local-page-messages");
+    expect((calls[0] as { from_ts?: number }).from_ts).toBeUndefined();
+
+    fireEvent.click(screen.getByTestId("wechat-local-window-7d"));
+    fireEvent.click(screen.getByTestId("wechat-local-page-run"));
+    await waitFor(() => expect(calls.length).toBeGreaterThanOrEqual(2));
+    const fromTs = (calls[calls.length - 1] as { from_ts?: number }).from_ts;
+    expect(typeof fromTs).toBe("number");
+    expect(fromTs!).toBeGreaterThan(Math.floor(Date.now() / 1000) - 8 * 86400);
+  });
+
+  it("导出:null 回包(用户取消目录选择)静默回 idle 零提示", async () => {
+    const exportCalls: Array<unknown> = [];
+    mocks.listen.mockResolvedValue(() => undefined);
+    mocks.invoke.mockImplementation(async (command: string, args: unknown) => {
+      if (command === "wechat_chat_export") {
+        exportCalls.push(args);
+        return null; // 用户取消
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "method", message: "未知调用" });
+    });
+    renderSection();
+
+    fireEvent.change(screen.getByLabelText("本地库会话 id"), { target: { value: "filehelper" } });
+    fireEvent.change(screen.getByTestId("wechat-local-export-format"), { target: { value: "xlsx" } });
+    fireEvent.click(screen.getByTestId("wechat-local-export-run"));
+
+    await waitFor(() => expect(exportCalls).toHaveLength(1));
+    const args = exportCalls[0] as { chatId: string; format: string };
+    expect(args.chatId).toBe("filehelper");
+    expect(args.format).toBe("xlsx");
+    // 取消 = 静默:无错误无回执列表
+    await waitFor(() => expect(screen.queryByTestId("wechat-local-export-error")).toBeNull());
+    expect(screen.queryByTestId("wechat-local-export-files")).toBeNull();
+  });
+
+  it("导出:回执路径列表上屏;进度事件驱动进度条并携带取消", async () => {
+    const holder: { emit: ((payload: unknown) => void) | null } = { emit: null };
+    mocks.listen.mockImplementation(
+      async (_name: string, cb: (event: { payload: unknown }) => void) => {
+        holder.emit = (payload: unknown) => cb({ payload });
+        return () => undefined;
+      },
+    );
+    const cancelCalls: Array<unknown> = [];
+    let resolveExport: ((value: unknown) => void) | null = null;
+    mocks.invoke.mockImplementation(async (command: string, args: unknown) => {
+      if (command === "wechat_chat_export") {
+        return await new Promise((resolve) => {
+          resolveExport = resolve;
+        });
+      }
+      if (command === "wechat_chat_export_cancel") {
+        cancelCalls.push(args);
+        return { ok: true };
+      }
+      throw JSON.stringify({ code: "method_not_found", path: "method", message: "未知调用" });
+    });
+    renderSection();
+
+    fireEvent.change(screen.getByLabelText("本地库会话 id"), { target: { value: "filehelper" } });
+    fireEvent.click(screen.getByTestId("wechat-local-export-run"));
+    await waitFor(() => expect(mocks.listen).toHaveBeenCalled());
+
+    // 进度事件:job_id 捕获 → 取消按钮在场;pct_est 上屏
+    holder.emit?.({ job_id: 9, seq: 1, body: { progress: { phase: "write", rows: 500, pct_est: 42.5 } } });
+    const progress = await screen.findByTestId("wechat-local-export-progress");
+    expect(progress.textContent).toContain("43"); // Math.round(42.5)
+    fireEvent.click(screen.getByTestId("wechat-local-export-cancel"));
+    await waitFor(() => expect(cancelCalls).toHaveLength(1));
+    expect((cancelCalls[0] as { jobId: number }).jobId).toBe(9);
+
+    // 终态回执:产物路径列表。先等 invoke 真正进场(resolve 落位)再放行
+    // 终态——waitFor(listen) 只保证订阅完成,invoke 是其后的独立微步,
+    // 高负载下抢先 resolve 会被 null 静默吞掉(files 永不出现→findBy 超时,
+    // 本文件曾 1/13 复现的竞态);局部 let 在回调内赋值会被 CFA 钉成
+    // null,读出侧显式还原可空签名再调。
+    await waitFor(() => {
+      expect(resolveExport as unknown).not.toBeNull();
+    });
+    (resolveExport as unknown as (value: unknown) => void)({
+      export: {
+        chat_id: "filehelper",
+        display_name: "文件传输助手",
+        format: "html",
+        files: [
+          { name: "a.html", path: "/tmp/exports/a.html", rows: 10, sha256: "0".repeat(64) },
+          { name: "manifest.json", path: "/tmp/exports/manifest.json", rows: 10, sha256: "1".repeat(64) },
+        ],
+        manifest_path: "/tmp/exports/manifest.json",
+        total_rows: 10,
+        time_range: null,
+        elapsed_ms: 5,
+      },
+    });
+    const files = await screen.findByTestId("wechat-local-export-files");
+    expect(files.textContent).toContain("/tmp/exports/a.html");
+    expect(files.textContent).toContain("/tmp/exports/manifest.json");
   });
 });

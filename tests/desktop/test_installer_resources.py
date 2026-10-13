@@ -79,6 +79,10 @@ OFFICIAL_CATEGORY_YAMLS = (
     # 翻案),缺省关同 telegram-web 先例——随包 = 装机补种后在册可启,
     # 随包品类面自此 17 件。
     "weixin.yaml",
+    # weixin-notify(2026-10-14 10-14-wechat-notify-revoke):微信本机通知
+    # 品类(*/1 水位扫描+撤回检测,push=[macos_notify] 本机通知中心出站;
+    # 缺省关双保险)——随包品类面自此 18 件。
+    "weixin-notify.yaml",
 )
 
 #: desktop tier 源码件全件(EXPECTED_TIERS 同源清单;新规范下这些件的

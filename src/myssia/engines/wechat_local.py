@@ -156,10 +156,12 @@ LAYER = "LOCAL_BRIDGE"
 #: 请求「端点」是本机桥子进程 —— telegram-web.yaml 锚判例同构)。
 WEB_HOST = "weixin.qq.com"
 
-#: 通道词表(换轨批+sns 批):pixel = 像素链截窗 OCR(缺省,向后兼容);
-#: localdb = 本地库解密副本直读(只读,零截窗零 AX);sns = 朋友圈域
-#: (动态/互动通知,零截窗零 AX,强 id 锚)。
-CHANNELS = ("pixel", "localdb", "sns")
+#: 通道词表(换轨批+sns 批+notify 批):pixel = 像素链截窗 OCR(缺省,向后
+#: 兼容);localdb = 本地库解密副本直读(只读,零截窗零 AX);sns = 朋友圈域
+#: (动态/互动通知,零截窗零 AX,强 id 锚);notify = 轮询水位通知扫描+撤回
+#: 检测(10-14-wechat-notify-revoke;实现件 myssia.engines.wechat_local_notify,
+#: 校验/抓取零复制直转)。
+CHANNELS = ("pixel", "localdb", "sns", "notify")
 DEFAULT_CHANNEL = "pixel"
 
 #: sns 模式词表:feed = 朋友圈动态(SnsTimeLine)/notices = 互动通知
@@ -317,10 +319,19 @@ class WechatLocalEngine(BaseEngine):
             raise FetchError(
                 f"engine_options.wechat_local.channel 应为 {'/'.join(CHANNELS)} "
                 "(pixel=像素链截窗 OCR 缺省;localdb=本地库解密副本直读;"
-                f"sns=朋友圈动态/互动通知),当前为 {channel!r}",
+                "sns=朋友圈动态/互动通知;notify=通知扫描+撤回检测),"
+                f"当前为 {channel!r}",
                 error_type="invalid_engine_options",
             )
         result: dict[str, Any] = {"channel": channel}
+        if channel == "notify":
+            # notify 通道(10-14-wechat-notify-revoke):词面校验全在实现件
+            # wechat_local_notify.validate_options(交叉键拒/空清单拒),此处
+            # 纯转接(函数内惰性 import 防循环)。
+            from myssia.engines.wechat_local_notify import validate_options
+
+            result.update(validate_options(options))
+            return result
         if channel == "sns":
             for chat_key in ("chat", "sides", "count"):
                 if chat_key in options:
@@ -497,6 +508,12 @@ class WechatLocalEngine(BaseEngine):
         options = self._options()
         if options["channel"] == "sns":
             return await self._fetch_sns(options)
+        if options["channel"] == "notify":
+            # notify 通道(10-14-wechat-notify-revoke):实现件直转(惰性
+            # import 防循环;水位/白名单/撤回调阶梯全在 wechat_local_notify)。
+            from myssia.engines.wechat_local_notify import fetch_notify
+
+            return await fetch_notify(self, options)
         if options["channel"] == "localdb":
             return await self._fetch_localdb(options)
         return await self._fetch_pixel(options)

@@ -792,8 +792,13 @@ class TestDoctorCommand:
     def test_doctor_unknown_node_count(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         tray_mocks(monkeypatch)
         import wechat_bridge.system_checks as sc
+        import wechat_bridge.axui as axui
 
         monkeypatch.setattr(sc, "wechat_ax_node_count", lambda: None)
+        # input_probe 也须 mock(判例同上两例):真身是 osascript 子进程
+        # (SUBPROC_TIMEOUT_S=10),全量门禁高负载下超预算 → exit 30 假红
+        # (2026-10-14 just test 实捕;本用例只钉 unknown 门态,不测输入区)。
+        monkeypatch.setattr(axui, "read_input_value", lambda: "")
         exit_code, payload = run_cli(["doctor"], monkeypatch, tmp_path)
         assert exit_code == 0
         assert payload["doctor"]["ax_gate"]["state"] == "unknown"

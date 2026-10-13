@@ -878,6 +878,9 @@ def test_feishu_and_stdout_channels_conform_to_channel_protocol(monkeypatch):
         # wechat-bridge;同机便捷补充,缺省关。专测
         # tests/push/test_messaging_weixin_local.py)。
         "weixin-local",
+        # macos_notify(10-14-wechat-notify-revoke):本机通知中心(零网络
+        # 零凭据。专测 tests/push/test_messaging_macos_notify.py)。
+        "macos_notify",
         # ---- W3 长尾(10-03-messaging-w3-longtail)----
         "slack",
         "discord",

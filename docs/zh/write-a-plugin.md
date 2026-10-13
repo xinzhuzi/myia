@@ -197,6 +197,7 @@ push:
 - `bark`(iOS 即时推送):`target` = device key 引用(`env:BARK_DEVICE_KEY`,在 iPhone Bark App 里复制);端点**非凭据**——`bark_endpoint` 留空 = 官方服务 `https://api.day.app`,自建填主机地址(如 `http://<host>:8080`,docker `finb/bark-server`);通知固定按 `MYIA` 分组;无目录语义,不能配 `targets`。
 - `apprise`(统一推送):`target` = Apprise 目标串引用(`env:APPRISE_URL`,值为一个或多个 Apprise 原生 URL,如 `bark://…`、`pushover://…`,逗号/换行分隔多目标——一个引用推多处);需装可选组件 `pip install "myssia[apprise]"`(或 `uv sync --extra apprise`),未装时发送结构化报 `apprise_unavailable`、`myssia doctor` 出 `apprise_not_installed` 提示(从不惊扰未配置该通道的用户);无目录语义,不能配 `targets`。
 - `stdout`:零凭据,本地验证首选。
+- `macos_notify`(本机通知中心,10-14-wechat-notify-revoke):零网络零凭据,不允许配置 `target`/`targets`(同 `stdout`);消息经 `/usr/bin/osascript` 字面量 argv 渲染为系统通知;失败按单条错误行降级,绝不阻塞其他通道。
 
 ## 验证与运行
 
