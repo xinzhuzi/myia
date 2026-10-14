@@ -41,9 +41,9 @@ assert WECHAT_NOT_RUNNING == 10 and DB_NOT_FOUND == 20
 #: 开位/增强位(plist 键/启动者/时间+使用)树均不暴露,门位可写=1 无效。
 #: 新进程的正解 = CGEvent+OCR 降级链(已真机三连绿),不再误导用户去开门)。
 AX_GATE_FIX_HINT = (
-    "新进程(重启后)AX 树不暴露为已知边界(2026-10-14 五组对照实证,"
-    "LLDB 开位无效)→ 走 CGEvent+OCR 降级链(send_text 自动);仅长期"
-    "运行的进程可试 LLDB 重开配方(research/FINDINGS.md,历史成功 1 例)"
+    "AX 树浅为供给侧机理定论(2026-10-14 双线收敛:门位自愈=红鲱鱼,"
+    "主窗 mmui accessibleRoot 恒 nil;见 10-14-wechat-ax-gate-exp)→ "
+    "send_text 自动走 CGEvent+OCR 降级链(真机验证绿)"
 )
 #: AX 门 closed 的判定注记(REV 判据;design §J-22)。0.8.1:nodes 为
 #: 全窗子树**深度枚举**节点数(直查第一层在 4.1.15 恒 ~4——Qt 树挂
