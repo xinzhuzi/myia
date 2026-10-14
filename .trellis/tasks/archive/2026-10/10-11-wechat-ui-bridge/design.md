@@ -108,6 +108,7 @@ wechat-bridge localdb key-scan --json     # → {"matched":{"count","total"},"sc
 | 20 | db_not_found | db_storage 定位失败 |
 | 21 | key_unavailable | 密钥不可得（D4 语义） |
 | 22 | decrypt_failed | 解密失败（→副本重建流程） |
+| 23 | media_unavailable | 媒体解密件未配置/不可用（媒体面结构化降级，文本链零影响；2026-10-14 修订，task 10-14-wechat-media-sns） |
 | 30 | timeout | 子进程超时（kill 兜底） |
 
 ## 7. 配置面清单（执行者不发明配置键）
