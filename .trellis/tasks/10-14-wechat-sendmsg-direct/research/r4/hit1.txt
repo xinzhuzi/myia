@@ -1,14 +1,6 @@
 slide=0x133224000 fexec=0x133a62394
 ctx=0x77de0bc18 msgctx=0x16d85f708
+tls_base=0x1ef5ed8c0
 
-#frame1: pc+0xa6b590 x0=0x0
-#frame2: pc+0xa685ec x0=0x0
-#frame3: pc+0xa81274 x0=0x0
-#frame4: pc+0xa8087c x0=0x0
-#frame5: pc+0xa86510 x0=0x0
-
-sp=0x16d85f3a0
-== 宽域 F_exec 值扫描 ==
-  ☆ msgctx 值 @ 栈下 0x16d85f388(sp-0x18)
-  ☆ msgctx 值 @ 栈上 0x16d85f418(sp+0x78)
-  ☆ msgctx 值 @ 栈上 0x16d85f450(sp+0xb0)
+== TLS 区 0x1ef5ed8c0 0x1000 扫描 ==
+(TLS 区一级 deref 未命中 F_exec;二级待续)

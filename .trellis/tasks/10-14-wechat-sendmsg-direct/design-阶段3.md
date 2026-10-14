@@ -621,3 +621,11 @@ CoreFoundation RunLoop(主线程!)
 - 蹦床帧(0xa6b590 族)x0 全零(unwind 重建)=不经寄存器传任务;
 - **下一跳(唯一)**:定位 coro current-task TLS 符号(lldb `image lookup -rv` 扫 __thread/__tlv 段)→ 真发时读 TLS 得堆帧 → dump 找 resume/ctx/msgctx 三槽 → 完成任务→(resume,实参)映射 → 伪造+enqueue_a 终验。
 - 本轮触发 1 条落库绿;微信 pid 20632 存活。
+
+## §2.11 TLS 轮(10-15 晨,第 5 捕获轮):两级排除+停手裁决
+
+- TLS 基址可得(expr pthread_self(),Darwin=tpidrro_el0 同值;寄存器名 FindRegister 不可读——工程坑);
+- **pthread 基址±一级 deref(0x1000 区全指针×0x300 块)与二级 deref 均无 F_exec 值**——两个可能:①macOS TLV 描述符协议(thunk+key+offset)需精确计算变量真址而非盲扫;②**resume 可能根本不以裸 F_exec 指针存储**(经包装 thunk/偏移形态,调用时才组装)——若 ②,整条「找槽位」路线前提失效。
+- **停手裁决依据(错题集 D2)**:本子问题连续 4 轮阴性(嵌套调/宽扫/TLS 寄存器/TLS 两级),每轮产出真实排除但无收敛信号;开放搜索空间(TLV 数学或前提重估)≥ 又一专项轮。
+- **配方线最终建议:封存**。全部基础设施+五节战报(§2.7-§2.11)+全证据在档;若未来重开,先验②(resume 存储形态)再决定是否做 TLV 数学。
+- 本轮触发 2 条落库绿(t10b/t10c);微信 pid 20632 存活零伤。
