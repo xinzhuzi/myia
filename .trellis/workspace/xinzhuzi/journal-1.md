@@ -809,3 +809,8 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 另修前置任务暴露面:旧包 polyfill 的 dialog|confirm ACL 拒(19:50 实锤 unhandledrejection)→ systemConfirm 异常=安全缺省取消(f9d726a)。
 - 测试坑:regular file 冒充 FIFO 测两条计划=每次 open 从 offset 0 写互相覆盖出拼花字节流(UnicodeDecodeError 假象);FIFO 语义=流式,测试须用真管道。
 - 全量 6275 绿;三装哈希验毕;沙箱注入横幅实弹到系统授权征询(像素入档)——**主人唯二:点「允许」通知授权 + 重启 app**。
+
+## 2026-10-14 10-14-feed-l3-beautify(情报流三级美化)
+- 主人令「三级界面一定要好看,用相关 skill」:frontend-design+apple-design 双技能;基线=装机同源无头冒烟截图,病灶=本机 VL 评审(标题被挤/间距密/胶囊弱),修整全类名级。
+- 契约课:顶栏等高 py-2.5 被测试钉死(④⑦),呼吸感只能走 gap;● 字形圆点换真色点 span 不破 toContain 断言。
+- 终审 VL 8.5/10;装机换装+冒烟复过;FeedCard detect-changes high=广度非深度。
