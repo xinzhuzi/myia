@@ -25,6 +25,7 @@ These guides help you **ask the right questions before coding**.
 | [Cross-Layer Thinking Guide](./cross-layer-thinking-guide.md) | Think through data flow across layers | Features spanning multiple layers |
 | [Engineering Discipline](./engineering-discipline.md) | 长任务监控 / 先报量再动手(查改分家) / 高星参考 | Before launching long tasks, before >30min work, before writing nontrivial code |
 | [Search SOP](./search-sop.md) | 搜索范围/工具/排噪/热路径 + 仓库外路径 + 网络路由 + GitNexus 用法 | Before ANY search (repo / local / web) |
+| [微信逆向复跑手册](./wechat-reverse-playbook.md) | 逆向资产账(两 Downloads 目录)+ 全套复跑配方(薄片/Ghidra/定向反编译/LLDB 猎捕)+ 锚点表 + 铁律 | Before continuing wechat.dylib reverse engineering, before touching ~/Downloads 逆向产物 |
 
 ---
 
