@@ -48,7 +48,7 @@ vision/         看图:双引擎 OCR(ocrmac+rapidocr-onnxruntime)+ OpenAI 兼容
 - **对象解析**(`push/targets.py`):spec 形态 `platform:名称或id`,解析顺序 = 显式 id/@username 直达(平台 `parse_direct_ref` 钩子,不经目录)→ 目录精确 id → 精确名(大小写不敏感)→ 唯一前缀(多义即未命中);别名是目录改名层,不是独立解析层级;未命中抛 `TargetResolveError` 内嵌候选列表(MYIA 增量,上游靠交互式 list);纯字符串/前缀匹配,无任何 eval
 - **定向投递 + 死信**(`push/delivery.py`):按解析后对象逐一发送(immediate 单条 / digest 每(通道×对象)一卡),单对象失败不阻断同批;死信为错误分类制(Hermes 原味):`forbidden` 与 chat 级 `not_found` 单次硬失败即标 dead,瞬态错误(超时/网络/限流)不标;dead 期间跳过并记结构化日志(不发告警卡);投递成功一次即自愈;无阈值、无配置口
 - **schema 同平台约束**:`push[].targets` / `push[].route[].targets` 元素平台前缀须与条目通道一致(内置字面映射 `feishu_card→feishu`、`telegram→telegram`),不一致在配置加载期即拒;跨平台 = 写多条 push 条目;targets 在场时 legacy `target` 可省;不配 targets = 现行为零迁移(golden 回测逐字节等价)
-- **注册与刷新**:平台适配器挂现有 `Channel` 协议(`supports_targeting` / `parse_direct_ref` / `discover_directory`),`PLATFORMS` dict 注册表与 `CHANNELS` 并排(feishu/telegram 已接入);刷新三层 = run 前节流懒刷(>5 分钟且有已注册平台才发现,失败退回旧目录+告警)+ CLI `myia channels refresh/list` + 桌面按钮;无发现 API 的被动平台归 passive 上报(退出码 0),非失败
+- **注册与刷新**:平台适配器挂现有 `Channel` 协议(`supports_targeting` / `parse_direct_ref` / `discover_directory`),`PLATFORMS` dict 注册表与 `CHANNELS` 并排(现 28 平台全量接入;清单不写死,事实源 = `src/myssia/push/__init__.py` 的 `PLATFORMS`);刷新三层 = run 前节流懒刷(>5 分钟且有已注册平台才发现,失败退回旧目录+告警)+ CLI `myia channels refresh/list` + 桌面按钮;无发现 API 的被动平台归 passive 上报(退出码 0),非失败
 
 ## 桌面发行数据根(v1.1.1 定案,task 10-03-v111-desktop-paths)
 

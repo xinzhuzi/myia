@@ -93,8 +93,15 @@ uv sync --extra table       # table restore (rapid_table: screenshot tables → 
 uv sync --extra trafilatura # L2 article fallback (single-page body extraction for rule-less/revamped sources, opt-in switch)
 ```
 
-There are nine extras in total: `crawl4ai` / `scrapling` / `firecrawl` /
-`skyvern` / `simplex` / `llm` / `vision` / `table` / `trafilatura`. Table restore has a
+There are twelve capability extras in total: `crawl4ai` / `scrapling` /
+`firecrawl` / `skyvern` / `simplex` / `llm` / `vision` / `table` /
+`trafilatura` / `apprise` / `telethon` / `browser`; an `all` aggregate key
+installs six of them in one go (`crawl4ai` / `scrapling` / `firecrawl` /
+`skyvern` / `llm` / `browser` — `simplex`/`vision`/`table`/`trafilatura`/
+`apprise`/`telethon` are not part of it). `all` shares only the openai /
+huggingface-hub packages with `vision` — the OCR engines
+(ocrmac / rapidocr-onnxruntime) are not in `all`, so run
+`uv sync --extra vision` separately for image reading. Table restore has a
 second install path on the desktop: the **"table restore" component switch
 under Settings → Python environment** installs the pinned component into
 the managed environment — no repackaging, mirror overrides apply.
@@ -158,10 +165,13 @@ export MYIA_LLM_KEY=...
 myssia secret set myia/stocks/site_cookie < cookie.txt
 ```
 
-The Weixin channel is an optional bridge: outbound goes through a local
-resident Hermes-Agent install that holds the login — without one, that
-platform is unavailable (myssia stores zero WeChat credentials; the platform
-card honestly says "needs a local Hermes").
+The Weixin channels are optional bridges with two paths: `weixin` (the
+official bridge) sends outbound through a local resident Hermes-Agent install
+that holds the login — without one, that platform is unavailable (the platform
+card honestly says "needs a local Hermes"); `weixin-local` is the same-machine
+convenience path through the managed wechat-bridge component, no Hermes
+needed. myssia itself stores zero WeChat credentials on either path; the
+per-channel conventions live in the [plugin guide](write-a-plugin.md).
 
 Reddit sources go through the official Data API engine (`engine: reddit`,
 off-chain explicit selection) with **optional** credentials: unconfigured =

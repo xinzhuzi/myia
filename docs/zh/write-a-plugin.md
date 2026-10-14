@@ -64,6 +64,25 @@ YAML(或环境)→ 复验,用户只做决策。
 失败=源级结构化失败,不拦品类。授权用途:仅限已授权安全研究与自有/已授权
 资产的凭证泄露排查;命中物一律前 8 后 4 掩码。
 
+**链外源引擎 `wechat_local`**(不在 L1-L6 层级里):微信本机会话与朋友圈入
+情报流——经本机 wechat-bridge 组件子进程读已登录的微信桌面客户端,凭据零
+(登录态在微信侧),引擎零 HTTP(源 `url` 仅作 schema 形状锚,端点=本机桥)。
+四条通道经 `engine_options.wechat_local.channel` 选择(缺省 `pixel`):
+`pixel`(截窗 OCR 只读**当前打开**的会话,源声明 `chat` 与桥所见不符 =
+`chat_not_open` 显式空态,不张冠李戴)、`localdb`(解密副本直读,零截窗零
+AX;密钥缺位 = `key_unavailable` 结构化 skip)、`sns`(朋友圈域:`feed` 动态 /
+`notices` 互动通知)、`notify`(新消息与撤回事件的通知扫描)。**不参与 auto
+降级链**,显式选择才生效;前置 = 安装 wechat-bridge 组件 + 微信桌面客户端
+保持登录。注释齐全的活模板:[weixin.yaml](../../config/weixin.yaml)
+(pixel/localdb/sns)与 [weixin-notify.yaml](../../config/weixin-notify.yaml)(notify)。
+
+**微信通知整机形态**(`weixin-notify` 品类):`wechat_local` 的 `notify` 通道 +
+`push: macos_notify` 本机通知中心弹窗(零网络),`schedule: "*/1 * * * *"`
+分钟级扫描;`engine_options.wechat_local.chat_whitelist` 会话白名单——出厂空
+清单 = 构造期即拒,白名单外的会话零扫描零通知;部署走 cron job(桌面排程 /
+`myssia cron` 注册后才拉取,文件在场 ≠ 在跑)。模板即
+[weixin-notify.yaml](../../config/weixin-notify.yaml)。
+
 经验法则:先看页面源码——搜得到数据写 L2,搜不到找 API 走 L1,JS 化才 L3;
 拿不准就 `engine: auto`,用 `myssia test --json` 看实际选中引擎(`engine` 字段)。
 不要给 API 源写 CSS 选择器,不要给 SSR 页面写 json_path。所有引擎默认尊重

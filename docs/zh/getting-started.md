@@ -76,8 +76,14 @@ uv sync --extra table       # 表格还原(rapid_table:截图表格 → metadata
 uv sync --extra trafilatura # L2 正文兜底(无规则/规则失效源的单页正文抽取,opt-in 开关)
 ```
 
-可选依赖共 9 个:`crawl4ai` / `scrapling` / `firecrawl` / `skyvern` /
-`simplex` / `llm` / `vision` / `table` / `trafilatura`。表格还原在桌面端还有第二条安装通道:
+能力 extras 共 12 个:`crawl4ai` / `scrapling` / `firecrawl` / `skyvern` /
+`simplex` / `llm` / `vision` / `table` / `trafilatura` / `apprise` /
+`telethon` / `browser`;另有 `all` 聚合键一键装其中六件(`crawl4ai` /
+`scrapling` / `firecrawl` / `skyvern` / `llm` / `browser`,
+`simplex`/`vision`/`table`/`trafilatura`/`apprise`/`telethon` 不在其内——
+`all` 只与 `vision` 共享 openai / huggingface-hub 两个包,看图双引擎
+ocrmac / rapidocr-onnxruntime 不在 `all` 内,要看图请单装
+`uv sync --extra vision`。表格还原在桌面端还有第二条安装通道:
 **设置 → Python 环境的「表格还原」组件开关**——往自管环境装钉版组件,零重
 打包,镜像覆盖生效;品类里用 `images.table: true` 开启(schema 细节见
 [schema 参考](schema.md) 的 images 节)。缺装时品类照常跑,只是表格还原静默
@@ -127,8 +133,10 @@ export MYIA_LLM_KEY=...
 myssia secret set myia/stocks/site_cookie < cookie.txt
 ```
 
-微信通道是可选桥接:出站经本机常驻的 Hermes-Agent 持有登录态,无 Hermes
-的环境该平台不可用(myssia 侧零微信凭据,平台卡会如实标「需本机 Hermes」)。
+微信通道是可选桥接,两条路:`weixin` 官方桥出站经本机常驻的 Hermes-Agent
+持有登录态,无 Hermes 的环境该平台不可用(平台卡会如实标「需本机 Hermes」);
+同机便捷路径 `weixin-local` 走受管组件 wechat-bridge,无需 Hermes。两者 myssia
+侧都零微信凭据,约定见[插件开发指南](write-a-plugin.md)。
 
 Reddit 源走官方 Data API 引擎(`engine: reddit`,链外显式选用),凭据**可选**:
 不配 = 该源显式空态(`credential_missing` skip,零请求,不拦品类);要启用,

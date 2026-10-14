@@ -300,7 +300,19 @@ class GithubClient:
             round_waits: list[float] = []
             for offset in range(token_count):
                 token = self._pool.token_at(start, offset)
-                response = await self._client.get(url, params=dict(params or {}), headers=self._headers(token))
+                try:
+                    response = await self._client.get(
+                        url, params=dict(params or {}), headers=self._headers(token)
+                    )
+                except httpx.HTTPError as exc:
+                    # 传输层失败(DNS/连接/超时)与 token 无关:不换 token 重试
+                    # (同网络环境下只会多等一轮超时),直接结构化上抛,由泳道
+                    # 层按「单查询失败只进 errors 不打断整轮」降级(规格 §7)。
+                    raise GithubHuntError(
+                        "github_unreachable",
+                        f"GitHub API {path} 请求失败(传输层 {type(exc).__name__}):{exc}",
+                        path=path,
+                    ) from exc
                 if response.status_code in _RATE_LIMIT_STATUS:
                     round_waits.append(self._rate_limit_wait(response))
                     continue

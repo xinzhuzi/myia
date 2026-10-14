@@ -10,14 +10,14 @@
 
 <p>
 <a href="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-<img src="https://img.shields.io/badge/tests-5400%2B%20passing-2EA44F" alt="tests: 5400+ passing" />
+<img src="https://img.shields.io/badge/tests-6200%2B%20passing-2EA44F" alt="tests: 6200+ passing" />
 <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="python 3.11+" />
 <img src="https://img.shields.io/badge/license-MIT-3DA639" alt="MIT license" />
 <img src="https://img.shields.io/badge/status-0.0.3%20released-2EA44F" alt="status: v0.0.3 released" />
 </p>
 <p>
 <img src="https://img.shields.io/badge/fetch%20engines-6%20(L1%E2%80%93L6)-22D3EE" alt="6 fetch engines, L1–L6" />
-<img src="https://img.shields.io/badge/push-Feishu%20%C2%B7%20Telegram%20%C2%B7%20webhook%20%C2%B7%20stdout-8B5CF6" alt="push: Feishu · Telegram · webhook · stdout" />
+<img src="https://img.shields.io/badge/push-Feishu%20%C2%B7%20Telegram%20%C2%B7%20weixin%2Dlocal%20%C2%B7%20macos_notify%20%C2%B7%20bark%20%E2%80%94%2034%20channels-8B5CF6" alt="push: Feishu · Telegram · weixin-local · macos_notify · bark — 34 channels" />
 <img src="https://img.shields.io/badge/weight-SQLite%20single%20file%20%C2%B7%20no%20daemon-64748B" alt="SQLite single file, no daemon" />
 </p>
 
@@ -54,8 +54,11 @@ your messaging apps. The YAML itself is written by your coding agent: it
 reads the schema, generates the config, trial-fetches with `myssia test`, and
 repairs broken sources on its own from `myssia doctor` output.
 
-Weixin outbound is a bridge via a local Hermes-Agent install — without one,
-the weixin channel is unavailable (myssia itself holds zero WeChat credentials).
+Weixin outbound goes over bridges: the `weixin` official bridge rides a local
+Hermes-Agent install (without one, that channel is unavailable — myssia itself
+holds zero WeChat credentials), and the `weixin-local` local bridge goes
+through the managed wechat-bridge component (off by default; see
+[Write a Plugin](docs/en/write-a-plugin.md)).
 
 **Humans decide; AI does the rest.**
 
@@ -98,8 +101,8 @@ source (in SQLite — never written back into your YAML).
 
 📬 **Push that respects your attention**
 URL-key dedup registry + AM/PM digest slots — production-proven semantics;
-you never receive the same item twice. Feishu card, Telegram, webhook and
-stdout channels.
+you never receive the same item twice. 34 channels: Feishu card, Telegram,
+weixin-local (local WeChat bridge), macos_notify, bark and more.
 
 </td>
 <td width="50%" valign="top">
@@ -293,7 +296,9 @@ channel, and when an app update changes the dependency list the same section
 grows a one-click "Sync dependencies" action (idempotent — installed packages
 are skipped).
 
-The five desktop screens (fed by real demo-plugin data):
+The desktop app ships fourteen screens (the five screenshots below are fed
+by real demo-plugin data; newer screens include the messaging WeChat local
+workbench, proxy-pool, credhunter and the five-step sources wizard):
 
 <p align="center">
 <img src="docs/screenshots/dashboard.png" width="400" alt="Dashboard: plugin run status and recent collection overview" />
@@ -330,21 +335,26 @@ User layer      myssia CLI · Agent Skill · desktop app (Tauri, v1.1) · Web UI
 Orchestration   Pipeline: fetch → classify → dedup → analyze → enrich → push
                 (in-process APScheduler + asyncio; no external orchestrator, no daemon)
                      │
-Plugin layer     One YAML per category · 7 official categories · market plugins
+Plugin layer     One YAML per category · 18 official categories · market plugins
                 desktop tier = in-process adapter (zero docker) · remote/server tier
                 (proxy pool · changedetection · OSINT · douyin · maxun · …)
                      │
 Fetch engines   L1 direct_api → L2 static_html → L3 crawl4ai ⇄ firecrawl
                 → L4 scrapling → L5 stealth_browser → L6 llm_browser
                 (auto degrade chain; winning engine persisted per source)
+                off-ladder explicit engines: reddit (official Data API,
+                credentials optional) · credhunter · zenrows/scraperapi
+                (gated paid SaaS) · searxng (self-hosted metasearch,
+                keyword digests) — auto never routes them implicitly
                      │
 Analysis        builtin 7-category keyword classifier (myssia-classifier)
                 + optional LLM enrich (value / relevance / credibility, 0–10)
                      │
 Storage         SQLite single file · retention + VACUUM · change baselines
                      │
-Push            Feishu card · Telegram · webhook · stdout, threshold-routed
-                (immediate / digest AM-PM / archive) + feedback loop
+Push            Feishu card · Telegram · weixin-local · macos_notify · bark —
+                34 channels, threshold-routed (immediate / digest AM-PM /
+                archive) + feedback loop
 ```
 
 ## Documentation
@@ -359,13 +369,19 @@ entry point, and zh/en trees cannot drift apart:
 | Write a plugin | [docs/en/write-a-plugin.md](docs/en/write-a-plugin.md) | [docs/zh/write-a-plugin.md](docs/zh/write-a-plugin.md) |
 | Schema reference | [docs/en/schema.md](docs/en/schema.md) | [docs/zh/schema.md](docs/zh/schema.md) |
 | FAQ (ethics & boundaries) | [docs/en/faq.md](docs/en/faq.md) | [docs/zh/faq.md](docs/zh/faq.md) |
+| Zero-cost self-host stack | [docs/en/zero-cost.md](docs/en/zero-cost.md) | [docs/zh/zero-cost.md](docs/zh/zero-cost.md) |
 | Scheduled jobs (cron) | [docs/en/cron.md](docs/en/cron.md) | [docs/zh/cron.md](docs/zh/cron.md) |
+| Building the Windows app (MSI) | [docs/en/build-windows.md](docs/en/build-windows.md) | [docs/zh/build-windows.md](docs/zh/build-windows.md) |
+| **WeChat bridge protocols (single copies at the `docs/` root, shared zh/en)** | | |
+| wechat-http-api: local-db HTTP API | — | [docs/wechat-http-api.md](docs/wechat-http-api.md) |
+| wechat-keyprovider: key-provider subprocess protocol | — | [docs/wechat-keyprovider.md](docs/wechat-keyprovider.md) |
+| wechat-mediadecrypt: media-decrypt subprocess protocol | — | [docs/wechat-mediadecrypt.md](docs/wechat-mediadecrypt.md) |
 
 Agent-facing condensed reference: [`skill/SKILL.md`](skill/SKILL.md).
 
 ## Roadmap
 
-The core pipeline is implemented and tested — 5400+ tests run in CI, none of
+The core pipeline is implemented and tested — 6200+ tests run in CI, none of
 them touch the real network. The desktop app is ready for daily use
 (unified data paths, bundled official categories, an out-of-the-box demo, a
 signed update channel — shipping in Releases since v0.0.1); in-card
@@ -412,6 +428,12 @@ dependencies, plugin backends and design references:
 - [changedetection.io](https://github.com/dgtlmoon/changedetection.io) — source-management & diff UX reference; `myssia-monitor` plugin backend
 - [RSSHub](https://github.com/DIYgod/RSSHub) — the "everything is a feed" philosophy
 - [jhao104/proxy_pool](https://github.com/jhao104/proxy_pool) — `myssia-proxy` plugin backend
+- [Reddit Data API](https://www.reddit.com/dev/api/) — the `reddit` engine's
+  official authorized lane (OAuth2, credentials optional; official stance:
+  robots.txt targets search engines, not Data API users)
+- [SearXNG](https://github.com/searxng/searxng) — self-hosted metasearch
+  aggregation backend for the `searxng` engine (AGPL, consumed as a service
+  only, zero code reuse; keyword digests — stack guide in docs/zero-cost §5)
 - [Photon](https://github.com/s0md3v/Photon) — `myssia-osint` plugin backend (vendored via git submodule)
 - [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) — `myssia-douyin` plugin backend
 - [Maxun](https://github.com/getmaxun/maxun) — `myssia-maxun` plugin backend

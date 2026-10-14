@@ -30,6 +30,7 @@ import json
 import os
 import re
 import signal
+import shutil
 import time
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator
@@ -789,6 +790,7 @@ def run_export(
             total_rows=total_rows,
             time_range=time_range,
         )
+        shutil.rmtree(staging_dir, ignore_errors=True)  # 成功路径零残留(清 staging 根)
         return {
             "export": {
                 "chat_id": chat_id_out,
@@ -805,8 +807,6 @@ def run_export(
             }
         }
     except BaseException:
-        import shutil
-
         shutil.rmtree(staging_dir, ignore_errors=True)  # 零半成品(staging 内未落位件)
         raise
     finally:

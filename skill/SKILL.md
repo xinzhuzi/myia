@@ -367,6 +367,27 @@ base 三级解析:源级 `searxng_base_url` > env `MYIA_SEARXNG_URL` > 缺省
 串行+词间 3s 引擎内置,run 间隔建议 ≥30 分钟;错误面 403=实例未开 json
 format(查 settings.yml)、连接拒绝=实例未起,均为源级结构化失败。
 
+**链外本机微信引擎 `wechat_local`**(不在上表层级里):本机微信桌面数据入
+情报流(与 telegram 同为一等渠道)——数据面 = 受管组件 wechat-bridge
+子进程(设置里安装,微信桌面保持登录;引擎零 HTTP,`url` 仅是满足 schema
+http(s) 形状要求的锚,写 `https://weixin.qq.com` 即可),四通道由
+`engine_options.wechat_local.channel` 选择:`pixel`(缺省;截窗像素读回
++OCR,只读微信**当前打开会话**,声明 `chat` 与桥回报 `chat.match` 不符 =
+结构化空态 `chat_not_open`;配 `sides`/`count`)、`localdb`(解密副本
+本地库直读,零截窗零 AX,不需开窗;`chat` 填会话 id 或显示名,增量窗口 =
+源级水位,配 `since_days`)、`sns`(朋友圈动态/互动通知,无会话概念,
+配 `feed_kind`)、`notify`(新消息通知扫描+撤回检测;`chat_whitelist`
+会话白名单空清单 = 声明即拒,`notify_self` 缺省 false 自己发的消息不通知)。
+**不参与 auto 降级链**(显式 `engine: wechat_local` 才生效);pagination
+配置即结构化拒(单轮窗口语义);解密密钥缺位 = 合法预期态结构化 skip
+`key_unavailable`(不算失败,跑 `scripts/wechat-bridge-d4-keyscan.sh` 即通)。
+锚:消息两通道 `#wx-` 内容哈希(localdb 文本无 OCR 噪声,重读恒同锚)、
+sns `#wxsns-`/`#wxsnsn-`、notify `#wxn-`/`#wxnr-` 微信侧 id 强锚。模板:
+`config/weixin.yaml`(pixel/localdb/sns 源样例)与 `config/weixin-notify.yaml`
+(notify 源 + `macos_notify` 本机弹窗投递,填好 `chat_whitelist` 即可用)。
+隐私红线:微信是主人隐私面——模板 enrich 全关、push 空或仅本机零网络
+`macos_notify`、缺省关(注册 cron job 后才拉取)。
+
 经验法则:先看页面源码——搜得到数据写 L2,搜不到找 API 走 L1,都 JS 化才 L3;
 拿不准就 `engine: auto`,用 `myssia test --json` 看实际选中引擎(`engine` 字段)。
 不要给 API 源写 CSS 选择器,不要给 SSR 页面写 json_path。

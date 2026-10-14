@@ -96,15 +96,29 @@ works too. Default install location: `C:\Program Files\myssia\` (containing
 
 ## 7. Launch & Smoke Test
 
-**Known behavior (as of 2026-10)**: release builds start quietly (the window is
-created hidden) and Windows currently has no tray/Dock path to summon it —
-double-clicking the icon can look like "nothing happened". The supported way to show
-the window is launching with an environment variable:
+**Shows on launch (since 2026-10)**: Windows builds (local and CI share the
+same chain) merge the platform overlay `desktop/src-tauri/tauri.windows.conf.json`
+(a full mirror of the base config's window entry with `visible` flipped to
+`true`), so the window is created visible — double-clicking the icon shows it
+right away, and `focus: false` keeps it from stealing the foreground (a
+taskbar flash instead). Clicking the icon again while the app is already
+running goes through the single-instance plugin and focuses the existing
+window. Just launch it:
 
 ```bat
-set MYIA_SHOW_ON_START=1
 start "" "C:\Program Files\myssia\MYIA.exe"
 ```
+
+(Historical note) before 2026-10 the base config's `visible: false` silent
+start leaked onto every platform, and Windows had no Dock/tray path to summon
+the window — double-clicking looked like "nothing happened", and the supported
+workaround back then was launching with `MYIA_SHOW_ON_START=1`. That variable
+still works today (force show on start; focus is only taken by dev builds or
+with an explicit `MYIA_SMOKE_FOCUS=1`) and mainly serves the macOS release
+silent-start semantics — Windows no longer needs it. Honest caveat: "shows on
+launch" is currently anchored by the overlay's config shape plus a cargo unit
+test; real-machine MSI double-click verification lands with the next tag's
+windows-msi artifact.
 
 Verify three things: Task Manager shows both `MYIA.exe` and a `myssia-core` process;
 the window renders the dashboard; the `%APPDATA%\MYIA` data directory exists.
@@ -140,7 +154,7 @@ push:
 | 2 | WiX/`light.exe` errors at the end of bundling | non-ASCII productName | The step-4 overlay (required) |
 | 3 | `npm run sidecar` prints a WSL error and exits | `bash` on PATH resolves to the WSL stub (no distro installed) | Prepend Git Bash per-command: `set "PATH=C:\Program Files\Git\bin;%PATH%"` (included in step 5) |
 | 4 | Sidecar packaging stalls for minutes | PyInstaller onefile being first-scanned by Defender | Just wait — not a failure |
-| 5 | MYIA launched via SSH/remote session exits instantly (exit 0) | WebView2 cannot start in a headless non-interactive context | Run from the local desktop session; for remote automation use Task Scheduler (`schtasks /create … /run`) or set `MYIA_SHOW_ON_START=1` |
+| 5 | MYIA launched via SSH/remote session exits instantly (exit 0) | WebView2 cannot start in a headless non-interactive context | Run from the local desktop session; for remote automation use Task Scheduler (`schtasks /create … /run`) to launch it in the interactive desktop session (the root cause is WebView2 failing to start — window visibility is unrelated) |
 | 6 | `curl -I https://crates.io/api/…` returns 403 | bot protection rejecting HEAD probes on the API | Harmless — cargo uses the sparse index and fetches normally |
 
 ## Differences from CI
@@ -148,4 +162,4 @@ push:
 CI pins Node 22 (anything 20+ works here) / CI has a Rust cache, a real machine
 compiles everything the first time / CI injects signing keys and produces update
 artifacts, local builds are unsigned by design / clone with any client. The full
-execution record (sanitized) lives in `.trellis/tasks/10-05-win-local-build/`.
+execution record (sanitized) lives in `.trellis/tasks/archive/2026-10/10-05-win-local-build/`.

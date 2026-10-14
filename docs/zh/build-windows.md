@@ -85,13 +85,22 @@ echo %ERRORLEVEL%
 
 ## 7. 启动与冒烟
 
-**已知行为(截至 2026-10)**:发布包默认静默启动(窗口隐藏出厂),且 Windows 侧
-暂无托盘/Dock 唤出路径——直接双击图标会「看起来没打开」。亮窗正路是带环境变量启动:
+**启动即亮窗(2026-10 起)**:Windows 构建(本地与 CI 同链)经平台覆盖件
+`desktop/src-tauri/tauri.windows.conf.json`(主配置窗口项的全量镜像,`visible`
+翻转为 `true`)合并出「窗口出厂即显示」——直接双击图标即见窗口,且 `focus:
+false` 不抢前台焦点(任务栏闪烁提示);应用已在跑时再点图标,经
+single-instance 插件回调聚焦既有主窗。直接启动即可:
 
 ```bat
-set MYIA_SHOW_ON_START=1
 start "" "C:\Program Files\myssia\MYIA.exe"
 ```
+
+(历史注记)2026-10 之前主配置 `visible: false` 的静默启动漏到全平台,Windows
+无 Dock/托盘唤出路径,双击图标会「看起来没打开」,彼时正路是带
+`MYIA_SHOW_ON_START=1` 启动。该变量如今仍有效(强制启动即显示;焦点仅 dev
+构建或显式 `MYIA_SMOKE_FOCUS=1` 才抢),主要服务于 macOS 发布包的静默启动
+语义,Windows 侧已无需再设。如实注:「启动即亮窗」当前由覆盖件配置形状与
+cargo 单测锚定,真机 MSI 双击验证随下个 tag 的 windows-msi 产物补做。
 
 验证三点:任务管理器里 `MYIA.exe` 与 `myssia-core` 双进程存活;窗口渲染出仪表盘;
 `%APPDATA%\MYIA` 数据目录生成。
@@ -125,11 +134,11 @@ push:
 | 2 | 打包尾段 WiX/`light.exe` 报错 | productName 非 ASCII | 第 4 步 overlay(必须) |
 | 3 | `npm run sidecar` 打印 WSL 报错退出 | PATH 里的 `bash` 解析到 WSL 存根(机器未装发行版) | 命令级 `set "PATH=C:\Program Files\Git\bin;%PATH%"` 前置 Git Bash(第 5 步已含) |
 | 4 | sidecar 打包卡几分钟 | PyInstaller onefile 被 Defender 首扫 | 等待即可,非失败 |
-| 5 | 经 SSH/远程会话启动 MYIA 秒退(exit 0) | 无桌面的非交互上下文起不了 WebView2 | 在本地桌面会话跑;远程自动化用计划任务(`schtasks /create … /run`)或带 `MYIA_SHOW_ON_START=1` |
+| 5 | 经 SSH/远程会话启动 MYIA 秒退(exit 0) | 无桌面的非交互上下文起不了 WebView2 | 在本地桌面会话跑;远程自动化用计划任务(`schtasks /create … /run`)在交互桌面会话里拉起(根因是 WebView2 起不来,与窗口显隐无关) |
 | 6 | `curl -I https://crates.io/api/…` 403 | API 的 bot 拦截 HEAD 探测 | 无碍,cargo 实走稀疏索引,正常拉包 |
 
 ## 与 CI 的差异
 
 Node 版本 CI 锁 22(本文 20+ 均可)/ CI 有 rust 缓存、真机首编全量 / CI 注入签名
 密钥产更新包、本地按设计不签名 / 克隆方式任意。完整执行记录(已脱敏)见
-`.trellis/tasks/10-05-win-local-build/`。
+`.trellis/tasks/archive/2026-10/10-05-win-local-build/`。

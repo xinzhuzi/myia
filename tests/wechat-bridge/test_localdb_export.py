@@ -186,6 +186,9 @@ def test_export_manifest_and_verify_roundtrip(copies: Path, tmp_path: Path) -> N
     assert manifest["time_range"] == export["time_range"]
     result = verify_manifest(manifest_path)
     assert result["verify"]["ok"] is True
+    # 成功路径零残留:manifest 落位后 staging 根已清
+    staged = [p for p in (tmp_path / "out").rglob(".wechat-export-staging*")]
+    assert not staged, "成功导出后 staging 根零残留"
     # 篡改一件 → sha256 mismatch
     victim = Path(export["files"][0]["path"])
     victim.write_text("[]\n")

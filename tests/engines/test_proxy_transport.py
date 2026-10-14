@@ -686,6 +686,16 @@ def test_doctor_pool_probes_run_concurrently_in_declared_order(monkeypatch):
         await asyncio.sleep(delays.get(name, 0.0))
         return _Check(name)
 
+    def _cheap_client(**kwargs: Any) -> httpx.AsyncClient:
+        # 计时窗口只许量「探测并行性」:生产形 AsyncClient(proxy=…) 构造
+        # 是同步代码(实测 30-270ms/个,事件循环内串行),不剔除则真并行
+        # 也 ≈ 2×构造+max(delay),顶穿中点阈值(本测 2026-10-14 门禁红根因)。
+        kwargs.pop("proxy", None)
+        return httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200))
+        )
+
+    monkeypatch.setattr(cli, "_build_async_client", _cheap_client)
     monkeypatch.setattr(cli, "check_proxy_connectivity", fake_check)
 
     started = time.monotonic()

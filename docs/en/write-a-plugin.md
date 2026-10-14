@@ -81,6 +81,35 @@ per-source failure that never blocks the category. Authorized use only:
 credential-leak research on your own or explicitly authorized assets; every
 finding is masked head-8/tail-4.
 
+**Off-chain source engine `wechat_local`** (not one of the L1-L6 layers):
+feeds local WeChat sessions and Moments into the intelligence stream — via
+subprocess calls to the local wechat-bridge component against the logged-in
+WeChat desktop client. Zero credentials (the login state lives on the WeChat
+side) and zero HTTP from the engine (the source `url` is only a schema shape
+anchor; the endpoint is the local bridge). Four channels are selected via
+`engine_options.wechat_local.channel` (default `pixel`): `pixel`
+(screenshot+OCR of the **currently open** chat only; a declared `chat` that
+does not match what the bridge sees = a `chat_not_open` explicit empty
+state — never the wrong chat), `localdb` (read-only queries over the
+decrypted copy, zero screenshots, zero AX; a missing key = a
+`key_unavailable` structured skip), `sns` (the Moments domain: `feed`
+posts / `notices` interactions), and `notify` (notification scanning for
+new and revoked messages). It **never joins the auto degrade chain** —
+explicit selection only; prerequisites are the wechat-bridge component
+installed and the WeChat desktop client logged in. Fully commented live
+templates: [weixin.yaml](../../config/weixin.yaml) (pixel/localdb/sns) and
+[weixin-notify.yaml](../../config/weixin-notify.yaml) (notify).
+
+**The weixin-notify whole-machine shape** (the `weixin-notify` category):
+the `notify` channel of `wechat_local` plus `push: macos_notify` local
+Notification Center popups (zero network), on a `schedule: "*/1 * * * *"`
+minute-level scan; `engine_options.wechat_local.chat_whitelist` is the
+session whitelist — the factory-empty list refuses at engine construction,
+and sessions outside the whitelist are never scanned or notified; deployment
+goes through a cron job (desktop scheduler / `myssia cron` — the file's
+presence alone never runs it). Template:
+[weixin-notify.yaml](../../config/weixin-notify.yaml).
+
 Rule of thumb: view the page source first — data visible → L2, data via an
 API → L1, JS-only → L3; when unsure pick `engine: auto` and read the chosen
 engine from `myssia test --json` (the `engine` field). Never write CSS

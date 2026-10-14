@@ -10,14 +10,14 @@
 
 <p>
 <a href="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-<img src="https://img.shields.io/badge/tests-5400%2B%20passing-2EA44F" alt="tests: 5400+ passing" />
+<img src="https://img.shields.io/badge/tests-6200%2B%20passing-2EA44F" alt="tests: 6200+ passing" />
 <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="python 3.11+" />
 <img src="https://img.shields.io/badge/license-MIT-3DA639" alt="MIT license" />
 <img src="https://img.shields.io/badge/status-0.0.3%20released-2EA44F" alt="status: v0.0.3 released" />
 </p>
 <p>
 <img src="https://img.shields.io/badge/fetch%20engines-6%20(L1%E2%80%93L6)-22D3EE" alt="6 fetch engines, L1–L6" />
-<img src="https://img.shields.io/badge/push-Feishu%20%C2%B7%20Telegram%20%C2%B7%20webhook%20%C2%B7%20stdout-8B5CF6" alt="push: Feishu · Telegram · webhook · stdout" />
+<img src="https://img.shields.io/badge/push-Feishu%20%C2%B7%20Telegram%20%C2%B7%20weixin%2Dlocal%20%C2%B7%20macos_notify%20%C2%B7%20bark%20%E7%AD%89%2034%20%E9%80%9A%E9%81%93-8B5CF6" alt="push: Feishu · Telegram · weixin-local · macos_notify · bark 等 34 通道" />
 <img src="https://img.shields.io/badge/weight-SQLite%20single%20file%20%C2%B7%20no%20daemon-64748B" alt="SQLite single file, no daemon" />
 </p>
 
@@ -50,6 +50,10 @@
 打分(先关键词粗筛 —— 零 token;可选 LLM 精评),把重要的推到你的即时通讯。
 YAML 本身由你的编码 agent 照规范现场生成:读 schema、写配置、`myssia test` 试抓
 验证、凭 `myssia doctor` 输出自行修复失效源。
+
+微信出站走桥:`weixin` 官方桥经本机 Hermes-Agent(缺它则该通道不可用——
+世事 自身零微信凭据);另有 `weixin-local` 本机桥经 wechat-bridge 受管组件
+(缺省关,详见[插件开发指南](docs/zh/write-a-plugin.md))。
 
 **人做决策,AI 做其余。**
 
@@ -89,7 +93,8 @@ YAML 本身由你的编码 agent 照规范现场生成:读 schema、写配置、
 
 📬 **推送尊重你的注意力**
 URL 键去重注册表 + 早/晚摘要槽位 —— 生产验证过的语义;同一条情报你永远不会
-收到第二遍。通道:飞书卡片、Telegram、webhook、stdout。
+收到第二遍。通道 34 个:飞书卡片、Telegram、weixin-local(微信本机桥)、
+macos_notify、bark 等。
 
 </td>
 <td width="50%" valign="top">
@@ -267,7 +272,9 @@ Python 环境配置完成后,装机首跑自动种子官方品类(含零凭据�
 设置页「检查更新」走签名更新通道,应用更新后依赖有漂移时在同一分区一键
 「同步依赖」(幂等,已装跳过)。
 
-桌面五屏(截图为 demo 品类真实抓取数据):
+桌面十四屏(下方五张截图均为 demo 品类真实抓取数据;十四屏里还有 messaging
+微信本机工作台、proxy-pool 代理池、credhunter 凭证猎手、sources 五步建源
+向导等新屏):
 
 <p align="center">
 <img src="docs/screenshots/dashboard.png" width="400" alt="仪表盘:品类运行状态与最近采集概览" />
@@ -304,7 +311,7 @@ myssia doctor --json                        # 拿 findings;agent 自修后复查
 编排层          流水线:fetch → classify → dedup → analyze → enrich → push
                 (进程内 APScheduler + asyncio;无外部编排器、无守护进程)
                      │
-品类层          一个品类一份 YAML · 7 个官方品类 · 市场插件
+品类层          一个品类一份 YAML · 18 个官方品类 · 市场插件
                 desktop 级 = 进程内 adapter(零 docker)· remote/server 级走端点
                 (代理池 · 变更监控 · OSINT · 抖音 · maxun · …)
                      │
@@ -320,8 +327,8 @@ myssia doctor --json                        # 拿 findings;agent 自修后复查
                      │
 存储            SQLite 单文件 · 保留期 + VACUUM · 变更基线
                      │
-推送            飞书卡片 · Telegram · webhook · stdout,阈值分级路由
-                (立即 / 早晚摘要 / 归档)+ 反馈闭环
+推送            飞书卡片 · Telegram · weixin-local · macos_notify · bark
+                等 34 通道,阈值分级路由(立即 / 早晚摘要 / 归档)+ 反馈闭环
 ```
 
 ## 文档
@@ -335,13 +342,19 @@ myssia doctor --json                        # 拿 findings;agent 自修后复查
 | Write a plugin | [docs/en/write-a-plugin.md](docs/en/write-a-plugin.md) | [docs/zh/write-a-plugin.md](docs/zh/write-a-plugin.md) |
 | Schema reference | [docs/en/schema.md](docs/en/schema.md) | [docs/zh/schema.md](docs/zh/schema.md) |
 | FAQ(伦理与边界) | [docs/en/faq.md](docs/en/faq.md) | [docs/zh/faq.md](docs/zh/faq.md) |
+| 零成本接入(自托管栈) | [docs/en/zero-cost.md](docs/en/zero-cost.md) | [docs/zh/zero-cost.md](docs/zh/zero-cost.md) |
 | Scheduled jobs (cron) | [docs/en/cron.md](docs/en/cron.md) | [docs/zh/cron.md](docs/zh/cron.md) |
+| Windows 本地构建(MSI) | [docs/en/build-windows.md](docs/en/build-windows.md) | [docs/zh/build-windows.md](docs/zh/build-windows.md) |
+| **微信桥接协议(单册,随 `docs/` 根发行,zh/en 共用)** | | |
+| wechat-http-api:本地库 HTTP API | — | [docs/wechat-http-api.md](docs/wechat-http-api.md) |
+| wechat-keyprovider:取钥器子进程协议 | — | [docs/wechat-keyprovider.md](docs/wechat-keyprovider.md) |
+| wechat-mediadecrypt:媒体解密件子进程协议 | — | [docs/wechat-mediadecrypt.md](docs/wechat-mediadecrypt.md) |
 
 面向 agent 的浓缩参考:[`skill/SKILL.md`](skill/SKILL.md)。
 
 ## 路线图
 
-核心流水线已实现且有测试覆盖 —— 5400+ 测试跑在 CI 里,无一条碰真实网络。
+核心流水线已实现且有测试覆盖 —— 6200+ 测试跑在 CI 里,无一条碰真实网络。
 桌面端已可日常使用(数据通路统一、官方品类随包、开箱 demo、签名更新通道,
 v0.0.1 起随 Releases 交付);桌面卡片内反馈按钮、设置反馈开关、采集量趋势
 已随桌面对齐批次交付;Windows 安装包(msi)已随 v0.0.3 挂上 Releases
