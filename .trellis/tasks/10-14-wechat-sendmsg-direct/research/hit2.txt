@@ -1,0 +1,32 @@
+thread: mars::stn *1212 tid=21
+x0 = 0xa528f6698
+x1 = 0x4
+x2 = 0x4
+x3 = 0x13166d1ac
+x4 = 0xa565d4807
+x5 = 0xa53819927
+x6 = 0x45
+x7 = 0xfffff0003ffff800
+sp = 0x171b89ec0
+lr = 0x132ddf314
+mem[x0] = b'\xb8?\xec68m\xec6 \xf0\xc0R\xa7\xab\xaa2\xf8f\x8fR\x98m\xec6\xf2\xc0R\xa7\xab\xaa2'
+mem[x3] = b'\xff\xd1\xfco\xa9\xf6W\xa9\xf4O\xa9\xfd{\xa9\xfd\xc3\x91\xe8\xa7\xb0MF\xf9@\xf9\xa8\x83\xf8\xa0\x91\xfd\xdf\x88k T\xf3\xaa\xf4\xaa\xf5\xaa@\x80R\xe1\x91_\x94\xa04\xf6\x91\xe8\x91\x8e \x94\xe8_\xc09\xe9@\xf9q"\xb1\x96\x9a(\xf1\x90\xc5Q9i7\xc9\x90 D\xfd\xc9\x90!D\xfd n\x89\xf2\xb0!\xc1D\xfd n\xa9\xf4\xd0!1C\xfd'
+BT:
+  #0: <err>
+  #1: <err>
+  #2: <err>
+  #3: <err>
+  #4: <err>
+  #5: <err>
+  #6: <err>
+  #7: <err>
+  #8: <err>
+  #9: <err>
+  #10: <err>
+  #11: <err>
+  #12: <err>
+  #13: <err>
+  #14: <err>
+  #15: <err>
+  #16: <err>
+  #17: <err>
