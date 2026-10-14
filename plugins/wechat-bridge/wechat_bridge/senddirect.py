@@ -9,10 +9,13 @@ design-阶段3 §2/§3)。
 哨兵协议(round.sh 判例的桥内化;run_dir 内 JSON 文件,桥侧轮询):
 
 =====================  =====================================================
-``PREFLIGHT_OK.json``  版本门+活性验全过(含 slide/svc/attach_ms)
+``CAPTURE_ARMED.json``  capture 段断点已布并 Continue(§2.7;桥侧见此才
+                       放触发发送——消「触发先于断点」竞态)
+``PREFLIGHT_OK.json``  版本门+活性验全过(含 slide/ctx/attach_ms;capture
+                       形态另含 template 指纹与 svc_invariants 采集值)
 ``PREFLIGHT_FAIL.json`` 门失败({reason, detail};未调用,零风险)
 ``ARMED.json``         expr 提交前落(armed 时点;此后绝不 rollback)
-``DONE.json``          调用返回({call_rc};postflight 一并记存活态)
+``DONE.json``          调用返回({call_rc, alive};postflight 存活一并记)
 ``ERROR.json``         调用/探测异常({stage, detail})
 =====================  =====================================================
 
@@ -53,6 +56,7 @@ import signal
 import struct
 import subprocess
 import tempfile
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -71,30 +75,54 @@ from .config import BridgeConfig, myssia_home
 __all__ = [
     "ANCHOR_REL_PATH",
     "ARM64_CPUTYPE",
+    "CAPTURE_ARMED_NAME",
     "FAT_MAGIC",
     "LLDB_BATCH_TIMEOUT_S",
     "LLDB_SIGINT_GRACE_S",
     "MAX_INLINE_STRING_BYTES",
     "MODULE_TEXT_MIN_BYTES",
     "RECEIPT_POLL_SCHEDULE",
+    "SLOT_BODY",
+    "SLOT_DISPLAY",
+    "SLOT_PEER",
+    "SLOT_REFCOUNT",
+    "TEMPLATE_BYTES",
     "THIN_MAGIC_64",
+    "TRIGGER_BODY_VARIANTS",
     "AnchorTable",
+    "anchor_file_path",
     "anchor_file_state",
+    "backfill_anchor_invariants",
     "build_call_expr",
     "build_cmd_text",
-    "inline23_bytes",
     "load_anchor_table",
     "execute_send",
     "run_lldb_batch",
     "require_lldb",
     "slice_arm64_sha256",
+    "trigger_body_for",
     "doctor_direct_channel",
 ]
 
 #: 锚定表相对数据根路径(§2.6 私有路径族,不入配置键面)。
 ANCHOR_REL_PATH = "wechat-bridge/send-direct-anchors.json"
-#: inline23_rawlen 串容量(F3:23 容量+末字节裸长度;双长度门共用)。
+#: inline23_rawlen 串容量(F3:23 容量+末字节裸长度;三槽长度门共用)。
 MAX_INLINE_STRING_BYTES = 23
+#: msgctx 模板尺寸(§2.7:capture 段 dump x1 起 0x230B,+0x228 引用计数
+#: 槽含在内;560B 十进制字面量进 expr)。
+TEMPLATE_BYTES = 0x230
+#: msgctx 三串槽偏移(cap5 直捕定案:peer@+0x08/body@+0x48/display@+0x130)。
+SLOT_PEER = 0x08
+SLOT_BODY = 0x48
+SLOT_DISPLAY = 0x130
+#: 引用计数槽(+0x228 qword;两处使用均有 null 守卫 → 置 NULL=安全跳 retain)。
+SLOT_REFCOUNT = 0x228
+#: 触发发送正文变体(§2.7 capture_call:filehelper 真发一条换断点命中;
+#: 与直发正文必须互斥——localdb 回执对账按 (username, body) 匹配,触发
+#: 消息若与直发同文会假绿)。
+TRIGGER_BODY_VARIANTS = ("嘻嘻~cap", "嘻嘻~cap2", "嘻嘻~cap3")
+#: capture 段哨兵(探针已布 send_entry 断点并 Continue;桥侧见此才放触发)。
+CAPTURE_ARMED_NAME = "CAPTURE_ARMED.json"
 #: 模块锁定门槛:__TEXT ≥128MiB(主体 ~154MiB 过,84,544B 桩必拒;§2.6)。
 MODULE_TEXT_MIN_BYTES = 0x8000000
 #: FAT 魔数(大端 0xcafebabe;磁盘双切片形态,F10)。
@@ -175,11 +203,13 @@ def _parse_hex_bytes(value: Any, field_name: str) -> bytes:
 
 @dataclass(frozen=True)
 class AnchorTable:
-    """锚定表已验证形态(§2.6 schema 3;全部 slide 相对量)。
+    """锚定表已验证形态(§2.6 schema 3 / §2.7 终版模型;全部 slide 相对量)。
 
-    ``send_entry``/``service_ptr_mode`` 允许 None(r4 钉入轮未落)——此时
-    版本门可验(dry-run 链路),但**不可调用**(:meth:`callable_for_send`
-    False → 发送路径 24 拒调,不猜)。
+    ``send_entry`` 允许 None(r4 未落)——此时版本门可验(dry-run 链路),
+    但**不可调用**(:meth:`callable_for_send` False → 发送路径 24 拒调,
+    不猜)。``svc_invariants`` 允许 None(§2.7:capture 轮采集后回填,
+    首轮直发即完成回填);旧模型 svc 全局槽已作废(r6/r7 实扫零命中),
+    ``service_ptr_mode`` 须为 observe_bp(capture 断点=send_entry 自身)。
     """
 
     wechat_version: str
@@ -203,13 +233,12 @@ class AnchorTable:
     svc_invariants: bytes | None
 
     def callable_for_send(self) -> bool:
-        """发送就绪判定:F_send 入口 + ABI + 服务对象获取式 + 活性锚全在。"""
+        """发送就绪判定(§2.7 终版):F_exec 入口 + observe_bp 获取式 +
+        ctx vtable 相对锚全在(svc_invariants 可缺=capture 轮回填)。"""
         return (
             self.send_entry is not None
-            and self.service_ptr_mode in ("global", "observe_bp")
+            and self.service_ptr_mode == "observe_bp"
             and self.svc_vtable_off is not None
-            and self.svc_invariants is not None
-            and (self.service_ptr_mode != "global" or self.service_global_off is not None)
         )
 
 
@@ -229,6 +258,41 @@ def anchor_file_state(data_root: Path | None = None) -> str:
     except _AnchorShapeError:
         return "malformed"
     return "ok"
+
+
+def backfill_anchor_invariants(
+    invariants_hex: str, data_root: Path | None = None
+) -> bool:
+    """capture 轮采集的 ctx 非指针不变字段回填锚定表(§2.7「补
+    svc_invariants」)。
+
+    仅当现值为缺(null/缺键)时写入——已锚定值不覆盖(漂移=锚定失配,
+    归 capture 段 vtable/不变量比对拒,不静默刷新)。原子写(同目录
+    temp+rename);形状校验委托 :func:`_parse_hex_bytes`(fail-closed,
+    坏输入直接抛、文件不动)。
+
+    Returns:
+        是否发生了写入(False=已有值/未变更)。
+    """
+    _parse_hex_bytes(invariants_hex, "svc_invariants_hex")
+    path = anchor_file_path(data_root)
+    if not path.is_file():
+        return False
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(raw, dict) or not isinstance(raw.get("offsets"), dict):
+        return False
+    if raw["offsets"].get("svc_invariants_hex") not in (None, ""):
+        return False
+    raw["offsets"]["svc_invariants_hex"] = invariants_hex
+    temp = path.with_name(path.name + ".tmp")
+    temp.write_text(
+        json.dumps(raw, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
+    os.replace(temp, path)
+    return True
 
 
 def load_anchor_table(data_root: Path | None = None) -> AnchorTable:
@@ -377,60 +441,98 @@ def slice_arm64_sha256(dylib_path: Path) -> str | None:
 # --------------------------------------------------------- 工件生成(纯)----
 
 
-def inline23_bytes(encoded: bytes) -> list[int]:
-    """23 容量+末字节裸长度的 24B 记录(F3 形态;长度=**UTF-8 字节数**,
-    嘻嘻=6、8 个汉字=24 → 调用方长度门先拒)。
+def _require_inline23(encoded: bytes, name: str) -> None:
+    """串槽长度门(纯函数;长度=**UTF-8 字节数**非字符数,嘻嘻=6、
+    8 个汉字=24 → 拒;§2.1 双长度门的函数面)。
 
     Raises:
         ValueError: 编码后字节数 >23(inline 容量上限;§7-6 可翻案点)。
     """
     if len(encoded) > MAX_INLINE_STRING_BYTES:
         raise ValueError(
-            f"inline23 容量上限 {MAX_INLINE_STRING_BYTES} 字节(UTF-8 字节数,"
-            f"非字符数),当前 {len(encoded)}"
+            f"{name} UTF-8 字节长 {len(encoded)} 超过 inline23 容量 "
+            f"{MAX_INLINE_STRING_BYTES}(长度=字节数,非字符数)"
         )
-    padded = list(encoded) + [0] * (24 - len(encoded) - 1)
-    return padded + [len(encoded)]
+
+
+def trigger_body_for(body: str) -> str:
+    """触发发送正文变体(§2.7 capture_call:与直发正文**互斥**)。
+
+    互斥判据=**squash 对账形态**(去全部空白)而非精确相等——回执匹配走
+    :func:`.sendui.squash`,而正文原样收 stdin(尾随 ``\\n`` 是 echo/管道
+    默认形态):「嘻嘻~cap\\n」精确异文但 squash 相等 → 触发消息可替直发
+    回执买单=假绿面(质询轮 P1 实证)。变体按同形态比对,首个 squash
+    异文者胜(单一出处 import,防近亲漂移;探针/lldb 路径不经此函数)。
+    """
+    from .sendui import squash  # noqa: PLC0415 - 局部 import(桥侧调用时)
+
+    receipt_body = squash(body)
+    for variant in TRIGGER_BODY_VARIANTS:
+        if squash(variant) != receipt_body:
+            return variant
+    raise AssertionError("变体集与正文同构(不可达:变体集恒多于 1 条)")  # pragma: no cover
 
 
 def build_call_expr(
     send_entry_off: int,
     slide: int,
-    svc_addr: int,
+    ctx_addr: int,
+    template_bytes: bytes,
     peer_utf8: bytes,
     body_utf8: bytes,
-    *,
-    by_value: bool = False,
+    display_utf8: bytes,
 ) -> str:
-    """§2.1 主配方 expr 文本(纯函数;唯一会碰微信内存的工件,golden 直测)。
+    """§2.7 终版模型 expr 文本(纯函数;唯一会碰微信内存的工件,golden 直测)。
 
-    - 串一律十进制字节数组字面量(非 ASCII 安全,规避编码层);
-    - 调用地址 = ``0x<slide+send_entry_off>``(运行期解析值代入);
-    - by_value=False:24B 记录取址传引用(预期形态);True:struct 传值
-      (r4 ABI dump 二选一,模板兼容)。
+    模板直调模型(capture_call 同会话产物):
 
-    原语收 5 个标量/字节参数(锚定表无关)——lldb 内探针(senddirect_probe)
-    经包导入同一函数构造 expr,单一出处防近亲漂移。
+    - ``template_bytes`` = capture 段从 F_exec 入口 x1 dump 的 0x230B
+      模板(含 +0x40 堆指针等活对象引用——同会话直调,模板仍活);
+    - 三串槽补丁(inline23:memset 清 24B 槽 → memcpy 装值 → 末字节裸
+      长度),peer/body/display 十进制字节数组字面量(非 ASCII 安全);
+    - ``+0x228`` 置 0 跳 retain(fexec_decompile 双 null 守卫实证安全);
+    - 调用形态 = ``F_exec(ctx, msgctx)``(§2.7:签名 void(long, char*),
+      地址=slide+send_entry_off 运行期解析值代入)。
+
+    Raises:
+        ValueError: 模板尺寸≠0x230 / 模板 +0x00 标志字节≠1(F_exec 读面
+            须=1)/ 任一串槽 UTF-8 字节长 >23。
     """
-    peer = inline23_bytes(peer_utf8)
-    body = inline23_bytes(body_utf8)
-    call_addr = slide + send_entry_off
-    if by_value:
-        return (
-            "(int)({\n"
-            "  struct __senddirect_str23 { unsigned char b[24]; };\n"
-            "  struct __senddirect_str23 peer = {{" + ",".join(str(v) for v in peer) + "}};\n"
-            "  struct __senddirect_str23 body = {{" + ",".join(str(v) for v in body) + "}};\n"
-            "  ((int(*)(void*, struct __senddirect_str23, struct __senddirect_str23))"
-            f"0x{call_addr:x})((void*)0x{svc_addr:x}, peer, body);\n"
-            "})"
+    if len(template_bytes) != TEMPLATE_BYTES:
+        raise ValueError(
+            f"模板尺寸须为 {TEMPLATE_BYTES}(0x230)字节,当前 {len(template_bytes)}"
         )
+    if template_bytes[0] != 1:
+        raise ValueError(f"模板 +0x00 标志字节须=1(F_exec 读面),当前 {template_bytes[0]}")
+    _require_inline23(peer_utf8, "peer")
+    _require_inline23(body_utf8, "body")
+    _require_inline23(display_utf8, "display")
+    call_addr = slide + send_entry_off
+
+    def _slot_patch(offset_text: str, encoded: bytes) -> str:
+        literal = ",".join(str(v) for v in encoded)
+        length = len(encoded)
+        # (void) cast 必带:lldb 表达式语境 memset/memcpy 无声明,裸调用
+        # 拒析 "unknown return type; cast the call"(质询轮 F1→F2 实弹定则)。
+        return (
+            f"(void)memset(msgctx+{offset_text},0,24); "
+            f"(void)memcpy(msgctx+{offset_text},"
+            f"(unsigned char[]){{{literal}}},{length}); "
+            f"msgctx[{offset_text}+23]={length};"
+        )
+
     return (
         "(int)({\n"
-        "  unsigned char peer[24] = {" + ",".join(str(v) for v in peer) + "};\n"
-        "  unsigned char body[24] = {" + ",".join(str(v) for v in body) + "};\n"
-        f"  ((int(*)(void*,void*,void*))0x{call_addr:x})"
-        f"((void*)0x{svc_addr:x}, (void*)peer, (void*)body);\n"
+        f"  unsigned char msgctx[{TEMPLATE_BYTES}] = {{"
+        + ",".join(str(v) for v in template_bytes)
+        + "};\n"  # 普通串闭单括号(f-string 的 }} 转义不适用于拼接段;
+        # 质询轮 P0 判例:曾输出 `}};` → lldb 解析必败于列 1152)
+        f"  {_slot_patch('8', peer_utf8)}\n"
+        f"  {_slot_patch('0x48', body_utf8)}\n"
+        f"  {_slot_patch('0x130', display_utf8)}\n"
+        f"  *(long*)(msgctx+{SLOT_REFCOUNT:#x}) = 0;\n"
+        f"  ((int(*)(void*,void*))0x{call_addr:x})"
+        f"((void*)0x{ctx_addr:x}, (void*)msgctx);\n"
         "})"
     )
 
@@ -491,13 +593,19 @@ def require_lldb() -> str:
 
 @dataclass
 class BatchOutcome:
-    """一次 lldb 批的桥侧观测(哨兵文件由 probe 写,本类只汇总进程面)。"""
+    """一次 lldb 批的桥侧观测(哨兵文件由 probe 写,本类只汇总进程面)。
+
+    ``trigger_error``:capture_call 触发发送(§2.7)在后台线程抛出的
+    异常——armed 前 = 本次直发的根因(调用方上抛);armed 后探针已捕获
+    并直调,触发链异常不推翻调用结果。
+    """
 
     returncode: int | None
     timed_out: bool
     killed: bool
     armed_seen: bool
     log_path: Path
+    trigger_error: BaseException | None = None
 
 
 def _read_sentinel(run_dir: Path, name: str) -> dict[str, Any] | None:
@@ -523,8 +631,14 @@ def run_lldb_batch(
     poll_s: float = SENTINEL_POLL_S,
     sleep: Callable[[float], None] = _sleep,
     monotonic: Callable[[], float] = time.monotonic,
+    trigger: Callable[[], Any] | None = None,
 ) -> BatchOutcome:
     """spawn 单次 lldb 批并按 §3.3 杀伤序列守护(轮询 ARMED 哨兵)。
+
+    ``trigger``(capture_call,§2.7):探针写 CAPTURE_ARMED 哨兵(断点已
+    布+Continue)后**后台线程**放触发发送——不阻塞主循环对 ARMED/DONE
+    的轮询;触发链异常捕获进 ``trigger_error`` 不打断守护(探针侧
+    observe_timeout 自会收兵)。
 
     超时序:SIGINT(批余段跑 detach)→ 宽限 → SIGKILL(SIGKILL 不保证
     PT_DETACH → 微信可能残留停止态,冻结面由调用方探测,§5)。
@@ -534,6 +648,15 @@ def run_lldb_batch(
     environment["SENDDIRECT_RUN_DIR"] = str(run_dir)
     environment["SENDDIRECT_REQUEST"] = str(request_path)
     killed = False
+    trigger_error: list[BaseException] = []
+    trigger_thread: threading.Thread | None = None
+
+    def _fire_trigger() -> None:
+        try:
+            trigger()
+        except BaseException as exc:  # noqa: BLE001 - 捕获面=后台线程兜底
+            trigger_error.append(exc)
+
     with open(log_path, "wb") as log:
         process = subprocess.Popen(
             [lldb_path, "-b", "-s", str(cmd_path)],
@@ -550,6 +673,15 @@ def run_lldb_batch(
                     armed_seen = True
                     if on_armed is not None:
                         on_armed()
+                if (
+                    trigger is not None
+                    and trigger_thread is None
+                    and (run_dir / CAPTURE_ARMED_NAME).is_file()
+                ):
+                    trigger_thread = threading.Thread(
+                        target=_fire_trigger, daemon=True
+                    )
+                    trigger_thread.start()
                 if process.poll() is not None:
                     break
                 if monotonic() >= deadline:
@@ -570,6 +702,9 @@ def run_lldb_batch(
                     process.wait(timeout=10)
                 except subprocess.TimeoutExpired:  # pragma: no cover
                     process.kill()
+    if trigger_thread is not None:
+        # 触发线程收尾(sendui 链自带超时封套;守护不为其无限等)。
+        trigger_thread.join(timeout=grace_s)
     returncode = process.poll()
     if not armed_seen and (run_dir / "ARMED.json").is_file():
         armed_seen = True
@@ -581,6 +716,7 @@ def run_lldb_batch(
         killed=killed,
         armed_seen=armed_seen,
         log_path=log_path,
+        trigger_error=trigger_error[0] if trigger_error else None,
     )
 
 
@@ -648,6 +784,22 @@ def _unanchored(reason: str, detail: str = "") -> BridgeError:
     )
 
 
+def _default_trigger_send(config: BridgeConfig) -> Callable[[str], Any]:
+    """触发发送缺省件(§2.7:filehelper 真发一条经 ax.send_text 既有链;
+    合成目标同 _default_anchor_validator 判例,回执闭包缺省不挂——capture
+    命中本身即触发的实证回执)。"""
+    from . import ax, sendtarget  # 局部 import 防环
+
+    trigger_target = sendtarget.SendTarget(
+        username="filehelper", alias=None, display_name="", search_term="filehelper"
+    )
+
+    def _trigger(trigger_body: str) -> dict[str, Any]:
+        return ax.send_text(config, trigger_target, trigger_body)
+
+    return _trigger
+
+
 def execute_send(
     config: BridgeConfig,
     target: Any,
@@ -663,8 +815,17 @@ def execute_send(
     timeout_s: float = LLDB_BATCH_TIMEOUT_S,
     grace_s: float = LLDB_SIGINT_GRACE_S,
     lldb_path: str | None = None,
+    trigger_send: Callable[[str], Any] | None = None,
 ) -> dict[str, Any]:
-    """send_direct 主链(§3.1 步骤 6-9;步骤 1-5 前置由 CLI 分支完成)。
+    """send_direct 主链(§3.1 步骤 6-9 + §2.7 capture_call;步骤 1-5
+    前置由 CLI 分支完成)。
+
+    ``mode=capture_call`` 接线(§2.7 终版):单次 lldb 批内完成 capture
+    段(send_entry 断点 + 桥侧触发发送命中 → 读 x0=ctx/x1 0x230B 模板 →
+    禁断点 → vtable/不变量采集)与 call 段(同会话三槽补丁 expr 直调,
+    模板堆指针仍活)。触发发送经 ``trigger_send`` 注入(CLI 闭包复用
+    ax.send_text 既有链;缺省合成 filehelper 目标)——每操作 2 发(1
+    触发+1 直调)为 §2.7 定案成本。
 
     ``now``/``sleep`` 缺省经**模块属性**惰性解析(调用时取
     :data:`_now`/:data:`_sleep`)——CLI 级单测 monkeypatch 模块属性即可
@@ -672,7 +833,8 @@ def execute_send(
 
     Raises:
         BridgeError: 24(门未过,armed 前)/ 17(armed 后超时或回执未绿)/
-            30(armed 前超时)/ 1(call_failed·frozen·attach_failed)。
+            30(armed 前超时/capture 观察窗超时)/ 10(capture 中进程退出)/
+            1(call_failed·frozen·attach_failed·触发链异常)。
     """
     now_fn = now if now is not None else _now
     sleep_fn = sleep if sleep is not None else _sleep
@@ -689,12 +851,13 @@ def execute_send(
                 missing.append("send_entry")
             if anchor.service_ptr_mode is None:
                 missing.append("service_ptr_mode")
-            elif anchor.service_ptr_mode == "global" and anchor.service_global_off is None:
-                missing.append("service_global_off")
+            elif anchor.service_ptr_mode != "observe_bp":
+                missing.append(
+                    f"service_ptr_mode={anchor.service_ptr_mode}(旧模型作废,"
+                    "§2.7 仅 observe_bp)"
+                )
             if anchor.svc_vtable_off is None:
                 missing.append("svc_vtable_off")
-            if anchor.svc_invariants is None:
-                missing.append("svc_invariants_hex")
             raise _unanchored("anchor_incomplete", "缺 " + ",".join(missing))
         pid = wechat_pid()
         if pid is None:
@@ -709,13 +872,16 @@ def execute_send(
         os.chmod(run_dir, 0o700)
         artifacts.run_dir = run_dir
         request: dict[str, Any] = {
-            "mode": "dry_run" if dry_run else "call",
+            "mode": "dry_run" if dry_run else "capture_call",
             "anchor": {
                 "slice_sha256": anchor.slice_sha256,
                 "anchor_offset": f"0x{anchor.anchor_offset:x}",
                 "anchor_bytes_hex": anchor.anchor_bytes.hex(),
                 "enqueue_a": None if anchor.enqueue_a is None else f"0x{anchor.enqueue_a:x}",
                 "enqueue_b": None if anchor.enqueue_b is None else f"0x{anchor.enqueue_b:x}",
+                "send_entry": (
+                    None if anchor.send_entry is None else f"0x{anchor.send_entry:x}"
+                ),
                 "service_ptr_mode": anchor.service_ptr_mode,
                 "service_global_off": (
                     None
@@ -732,14 +898,21 @@ def execute_send(
                 ),
             },
         }
+        trigger_body = trigger_body_for(body)
         if not dry_run:
-            # 调用载荷(探针侧经包导入 build_call_expr 构造 expr;run_dir
-            # 0700 且 finally 全清,零内容残留——§5 隐私)。
+            # 调用载荷(探针侧经包导入 build_call_expr 构造 expr;display 槽
+            # 取 target.display_name;run_dir 0700 且 finally 全清,零内容
+            # 残留——§5 隐私)。
             request["call"] = {
                 "send_entry": f"0x{anchor.send_entry:x}",
-                "by_value": anchor.by_value,
                 "peer": list(target.username.encode("utf-8")),
                 "body": list(body.encode("utf-8")),
+                "display": list((target.display_name or "").encode("utf-8")),
+            }
+            # capture 段载荷:needle=触发变体原字节(cap5 判别门纪律——
+            # 「必须当轮正文」,自然杂散命中被拒之窗外)。
+            request["capture"] = {
+                "needle": list(trigger_body.encode("utf-8")),
             }
         request_path = run_dir / "request.json"
         request_path.write_text(
@@ -750,6 +923,11 @@ def execute_send(
         cmd_path.write_text(build_cmd_text(pid, probe_path), encoding="utf-8")
         artifacts.cmd_path = cmd_path
 
+        trigger_fn: Callable[[], Any] | None = None
+        if not dry_run:
+            sender = trigger_send if trigger_send is not None else _default_trigger_send(config)
+            trigger_fn = lambda: sender(trigger_body)  # noqa: E731 - 闭包固化变体
+
         outcome = run_lldb_batch(
             resolved_lldb,
             cmd_path,
@@ -759,6 +937,7 @@ def execute_send(
             grace_s=grace_s,
             on_armed=on_armed,
             sleep=sleep_fn,
+            trigger=trigger_fn,
         )
         armed = outcome.armed_seen
 
@@ -768,6 +947,18 @@ def execute_send(
         error_sentinel = _read_sentinel(run_dir, "ERROR.json")
         done_sentinel = _read_sentinel(run_dir, "DONE.json")
 
+        if outcome.trigger_error is not None and not armed:
+            # 触发发送链失败(§2.7 capture 前置)= 本次直发根因;armed 前
+            # → 上抛回滚(BridgeError 原样透传族语义,杂异常包裹成契约)。
+            exc = outcome.trigger_error
+            if isinstance(exc, BridgeError):
+                raise exc
+            raise BridgeError(
+                EXIT_GENERIC_FAILURE,
+                f"capture 触发发送链异常: {exc!r}",
+                code="send_direct_trigger_failed",
+                fix_hint="触发经 send_text 既有链;先跑 send_text 验证 UI 链健康",
+            ) from exc
         if preflight_fail is not None:
             reason = str(preflight_fail.get("reason", "preflight"))
             if reason == "attach":
@@ -778,6 +969,21 @@ def execute_send(
                     f"{preflight_fail.get('detail', '')}",
                     code="lldb_attach_failed",
                     fix_hint="排队等并行 lldb 会话收兵后重试;绝不绕过 attach 失败(§5)",
+                )
+            if reason == "observe_timeout":
+                # capture 观察窗超时(触发未命中;§2.7)= armed 前超时族 30。
+                raise BridgeError(
+                    TIMEOUT,
+                    "capture 段观察窗超时(send_entry 断点未见触发命中;"
+                    f"{preflight_fail.get('detail', '')}):未进入调用",
+                    fix_hint="确认触发链(send_text)健康后重试;armed 前,占位已回滚",
+                )
+            if reason in ("observe_process_state", "observe_x0"):
+                # capture 等待中微信进程退出/寄存器不可读 = 微信不在族 10。
+                raise BridgeError(
+                    WECHAT_NOT_RUNNING,
+                    "capture 段等待中微信进程异常退出:"
+                    f"{preflight_fail.get('detail', '')}",
                 )
             raise _unanchored(reason, str(preflight_fail.get("detail", "")))
         if error_sentinel is not None and error_sentinel.get("stage") == "attach":
@@ -792,6 +998,19 @@ def execute_send(
             artifacts.attach_ms = preflight_ok.get("attach_ms")
             artifacts.slide = preflight_ok.get("slide")
             artifacts.svc = preflight_ok.get("svc")
+            # capture 轮采集的 ctx 非指针不变字段回填锚定表(§2.7「补
+            # svc_invariants」;仅缺值时写,已锚定值不覆盖)。
+            captured_invariants = preflight_ok.get("svc_invariants_hex")
+            if (
+                not dry_run
+                and isinstance(captured_invariants, str)
+                and captured_invariants
+                and anchor.svc_invariants is None
+            ):
+                try:
+                    backfill_anchor_invariants(captured_invariants, data_root)
+                except (_AnchorShapeError, OSError, ValueError):
+                    pass  # 回填失败不拦发送(采集值已在哨兵,下轮再补)
         if outcome.timed_out and not armed:
             # armed 前超时 = 30 + rollback(§3.3;SIGKILL 收兵附存活注记)。
             raise BridgeError(

@@ -1,13 +1,15 @@
-"""lldb 内嵌直发探针(随包分发;task 10-14-wechat-sendmsg-direct 阶段3 §2)。
+"""lldb 内嵌直发探针(随包分发;task 10-14-wechat-sendmsg-direct 阶段3
+§2.7 终版模型)。
 
 本文件在 **lldb 进程内**运行(``command script import`` 装载,cmd 批调
 ``senddirect_probe.run()``);全部参数来自 env ``SENDDIRECT_REQUEST`` 指向
 的 request JSON(桥侧 senddirect 写入),哨兵写 ``SENDDIRECT_RUN_DIR``:
-PREFLIGHT_OK/PREFLIGHT_FAIL/ARMED/DONE/ERROR(round.sh 判例的桥内化)。
+CAPTURE_ARMED/PREFLIGHT_OK/PREFLIGHT_FAIL/ARMED/DONE/ERROR(round.sh
+判例的桥内化)。
 
 红线:只读观察 + 函数直调;**绝不写微信自有代码/数据**(expr 语句块局部
-缓冲 = 批准范围的参数装载,§2.0);observe 模式断点「使能→命中→立即
-禁用」;全程零常驻。
+缓冲 = 批准范围的参数装载,§2.0);capture 段断点「使能→命中→立即禁用
+→删除」;全程零常驻。
 
 preflight 门序(§2.6,grill r2 定稿):
 
@@ -16,14 +18,25 @@ preflight 门序(§2.6,grill r2 定稿):
    头部装载地址;区间断言锚点落 __TEXT 内;
 2. 副门:``S+anchor_offset`` 16B 锚字节逐字节比对(指令字节与 slide 无关);
 3. 主门:模块磁盘文件 arm64 **切片 sha256**(FAT 大端解析取 cputype==arm64
-   区间 / 纯 thin 整文件;≈165MiB 读 ≈1-2s)——禁止弱化回 16B 单门;
-4. 服务对象获取:global(读 ``S+service_global_off`` 槽)或 observe_bp
-   (enqueue 断点等自然任务命中读 x0;§2.5 式 B);
-5. 活性验(slide 相对量):``vptr−S == svc_vtable_off`` + 非指针不变字段
-   逐字节比对——绝不比对 vptr 原始值(重启即假阴性)。
+   区间 / 纯 thin 整文件;≈165MiB 读 ≈1-2s)——禁止弱化回 16B 单门。
 
-observe 模式(r4a 零出站取证):不比对,记录 {q, svc, vptr−S, 不变字段}
-到 PREFLIGHT_OK 哨兵——服务对象锚定值的采集面。
+capture_call 模式(§2.7 终版,mode=capture_call|call):
+
+4. capture 段:断点=anchors.send_entry(F_exec 入口)自身;Continue 后写
+   CAPTURE_ARMED 哨兵(桥侧见此才放触发发送——经 send_text 既有链真发
+   filehelper 嘻嘻变体);命中判别门=needle(触发变体原字节,cap5 纪律)
+   扫 x1 模板块,杂散命中继续等;命中读 x0=ctx、dump x1 起 0x230B=模板;
+   finally 禁用+删除断点;验模板 +0x00 标志=1 与 ctx vtable−slide(§2.5
+   slide 相对量定则);采集 ctx+8..+0x20 非指针不变字段(桥侧回填锚定表
+   svc_invariants_hex);PREFLIGHT_OK 记形状(template 只记指纹,零内容);
+5. call 段(同会话,模板堆指针仍活):经包导入桥侧 build_call_expr 构造
+   三槽补丁 expr(+0x228 置 0 跳 retain)→ ARMED 哨兵 →
+   EvaluateExpression 直调 → postflight(返回值+进程存活)→ DONE。
+
+dry_run/observe 模式:dry_run=**门即止**(模块锁定+锚字节+切片哈希,
+零断点零等待零触发,§3.1「可无限重跑」契约面;§2.7 终版锚定表下
+活性验= capture 轮产物,passive 观察不存在);observe=r4a 取证形态
+(自然任务观察,记录不比对)。
 """
 
 from __future__ import annotations
@@ -42,7 +55,18 @@ THIN_MAGIC_64_LE = 0xFEEDFACF
 ARM64_CPUTYPE = 0x0100000C
 MODULE_TEXT_MIN_BYTES = 0x8000000
 OBSERVE_WAIT_S = 10.0
-EXPR_TIMEOUT_US = 40_000_000  # 40s(< 桥侧 45s 带宽)
+#: capture 段观察窗(§2.7:桥侧触发发送经 UI 链,数秒级;窗宽盖触发全链)。
+#: 预算算术(质询轮 P2 定则,端到端必须 ≤ 桥侧 45s 带宽):
+#: attach+门 ≤8s + capture ≤20s + expr ≤15s ≈ 43s ≤ 45s——晚命中+慢 expr
+#: 不再落进桥侧 SIGKILL 窗(expr 中途被杀=微信残留停止态自招)。
+CAPTURE_WAIT_S = 20.0
+#: msgctx 模板尺寸(§2.7:x1 起 0x230B;与桥侧 senddirect.TEMPLATE_BYTES 同值,
+#: 探针独立常量防包依赖漂移)。
+TEMPLATE_BYTES = 0x230
+#: ctx 非指针不变字段采集窗(slide 相对量锚定面,§2.5)。
+CTX_INVARIANTS_OFFSET = 8
+CTX_INVARIANTS_LEN = 24
+EXPR_TIMEOUT_US = 15_000_000  # 15s(预算算术见 CAPTURE_WAIT_S 注)
 
 
 class PreflightFail(Exception):
@@ -289,8 +313,126 @@ def _validate_liveness(proc, request, slide: int, svc: int, vptr: int) -> dict:
     return report
 
 
+def _capture_template(target, proc, request, slide: int):
+    """capture 段(§2.7):断点=send_entry;等触发命中;读 x0=ctx 与
+    x1 起 0x230B 模板;禁用+删除断点;验形+采集锚定面。
+
+    判别门(两级):命中线程 stop reason=断点 + x1 模板块含 needle
+    (触发变体原字节;cap5 纪律——自然杂散命中继续等,绝不取首击)。
+
+    Returns:
+        (ctx, template_bytes, vtable_off, invariants_bytes)
+
+    Raises:
+        PreflightFail: observe_timeout(窗内无 needle 命中)/
+            observe_process_state(等待中进程退出)/observe_x0(寄存器
+            不可读)/capture_template_flag(模板 +0x00≠1)/
+            svc_vtable_mismatch(ctx 非 §2.7 锚定形态)。
+    """
+    import lldb  # noqa: PLC0415 - lldb 仅进程内可得
+
+    anchor = request["anchor"]
+    send_entry_raw = anchor.get("send_entry")
+    if send_entry_raw in (None, ""):
+        raise PreflightFail("send_entry", "锚定表缺 send_entry(capture 不可行)")
+    send_entry = _hex_int(send_entry_raw, "send_entry")
+    vtable_raw = anchor.get("svc_vtable_off")
+    if vtable_raw in (None, ""):
+        raise PreflightFail("svc_vtable_off", "锚定表缺 ctx vtable 相对偏移")
+    expected_vtable = _hex_int(vtable_raw, "svc_vtable_off")
+    capture_req = request.get("capture")
+    if not isinstance(capture_req, dict):
+        raise PreflightFail("capture_needle", "request 缺 capture 载荷")
+    try:
+        needle = bytes(int(v) for v in capture_req.get("needle", []))
+    except (TypeError, ValueError) as exc:
+        raise PreflightFail("capture_needle", f"needle 非字节清单: {exc}") from exc
+    if not needle:
+        raise PreflightFail("capture_needle", "request 缺 capture.needle(触发正文)")
+
+    bp = target.BreakpointCreateByAddress(slide + send_entry)
+    template: bytes | None = None
+    ctx = 0
+    try:
+        # capture 段切 async(2026-10-15 装机实证 bug:lldb 命令文件批
+        # (-b -s)SBDebugger 缺省 **sync**,Continue() 阻塞至进程再停——而
+        # CAPTURE_ARMED 在 Continue 返回后才写,桥侧见哨兵才放触发发送
+        # → 触发永放不出 = 自死锁,45s 批超时 rc=30、零哨兵零出站;
+        # /tmp/wxsend6/async_test.{cmd,py,log} 实证 async_default=False 且
+        # Continue 不归)。async 下 Continue 立即返回,轮询循环按设计跑;
+        # finally 恢复 sync(调用段 EvaluateExpression 保持批缺省形态)。
+        lldb.debugger.SetAsync(True)
+        proc.Continue()  # 断点已布,微信恢复运行等待触发链命中
+        _write_sentinel(
+            "CAPTURE_ARMED.json", {"t": time.time(), "bp": hex(slide + send_entry)}
+        )
+        deadline = time.monotonic() + CAPTURE_WAIT_S
+        while time.monotonic() < deadline:
+            state = proc.GetState()
+            if state in (lldb.eStateExited, lldb.eStateInvalid):
+                raise PreflightFail(
+                    "observe_process_state", f"capture 等待中进程退出 state={state}"
+                )
+            if state != lldb.eStateStopped:
+                time.sleep(0.05)
+                continue
+            hit_ctx = 0
+            hit_x1 = 0
+            for thread in proc:
+                if thread.GetStopReason() != lldb.eStopReasonBreakpoint:
+                    continue
+                frame0 = thread.GetFrameAtIndex(0)
+                reg_x0 = frame0.FindRegister("x0")
+                reg_x1 = frame0.FindRegister("x1")
+                hit_ctx = (
+                    reg_x0.GetValueAsUnsigned() if reg_x0 and reg_x0.IsValid() else 0
+                )
+                hit_x1 = (
+                    reg_x1.GetValueAsUnsigned() if reg_x1 and reg_x1.IsValid() else 0
+                )
+                break
+            if hit_ctx and hit_x1:
+                block = _read_mem(proc, hit_x1, TEMPLATE_BYTES)
+                if block and needle in block:
+                    ctx = hit_ctx
+                    template = block
+                    break
+            proc.Continue()  # 杂散命中(非触发):继续等
+    finally:
+        # 命中即禁断点→删除(§2.0 收兵序;直调段零断点);恢复 sync 缺省
+        # (capture 段异常路径同样归位——批余段 detach/quit 与调用段 expr
+        # 均按批缺省形态跑)。
+        bp.SetEnabled(False)
+        target.BreakpointDelete(bp.GetID())
+        lldb.debugger.SetAsync(False)
+    if template is None:
+        raise PreflightFail(
+            "observe_timeout",
+            f"{CAPTURE_WAIT_S:.0f}s 观察窗内未见触发命中(needle 未中)",
+        )
+    if template[0] != 1:
+        raise PreflightFail(
+            "capture_template_flag", f"模板 +0x00 标志字节≠1: {template[0]}"
+        )
+    vptr_data = _read_mem(proc, ctx, 8)
+    if not vptr_data or len(vptr_data) < 8:
+        raise PreflightFail("svc_unreadable", hex(ctx))
+    vptr = _qword(vptr_data)
+    vtable_off = vptr - slide
+    if vtable_off != expected_vtable:
+        raise PreflightFail(
+            "svc_vtable_mismatch",
+            f"ctx vptr−S={vtable_off:#x} ≠ 锚定 {expected_vtable:#x}"
+            "(ctx 非 §2.7 锚定形态)",
+        )
+    invariants = _read_mem(
+        proc, ctx + CTX_INVARIANTS_OFFSET, CTX_INVARIANTS_LEN
+    )
+    return ctx, template, vtable_off, invariants or b""
+
+
 def run() -> None:
-    """cmd 批唯一入口:preflight → [expr 调用] → postflight(条件流全在此)。"""
+    """cmd 批唯一入口:preflight → [capture] → [expr 调用] → postflight。"""
     import lldb  # noqa: PLC0415
 
     attach_started = time.time()
@@ -325,19 +467,60 @@ def run() -> None:
                 "slice_sha256", f"arm64 切片哈希不符(微信已换包): {slice_sha[:12]}…"
             )
 
-        svc, q, vptr = _resolve_service(target, proc, request, slide, text_lo, text_hi)
-        liveness = _validate_liveness(proc, request, slide, svc, vptr)
-        _write_sentinel(
-            "PREFLIGHT_OK.json",
-            {
-                "slide": slide,
-                "svc": svc,
-                "q": q,
-                "attach_ms": int((time.time() - attach_started) * 1000),
-                "slice_sha256": slice_sha,
-                **liveness,
-            },
-        )
+        mode = str(request.get("mode", "capture_call"))
+        if mode in ("capture_call", "call"):
+            # —— capture 段(§2.7):ctx/模板同会话采集,活性验 slide 相对量 ——
+            ctx, template, vtable_off, invariants = _capture_template(
+                target, proc, request, slide
+            )
+            _write_sentinel(
+                "PREFLIGHT_OK.json",
+                {
+                    "slide": slide,
+                    "svc": ctx,
+                    "attach_ms": int((time.time() - attach_started) * 1000),
+                    "slice_sha256": slice_sha,
+                    "svc_vtable_off": vtable_off,
+                    "svc_invariants_hex": (
+                        invariants.hex()
+                        if len(invariants) == CTX_INVARIANTS_LEN
+                        else None
+                    ),
+                    "template_sha256": hashlib.sha256(template).hexdigest(),
+                    "template_len": len(template),
+                },
+            )
+        elif mode == "dry_run":
+            # dry-run = 版本门实测面(§3.1「可无限重跑」契约):**门即止**,
+            # 零断点零等待零触发。§2.7 终版锚定表(observe_bp)下活性验是
+            # capture 轮产物,passive 观察不存在——旧径(等自然任务 10s)在
+            # 空闲微信上必败 observe_timeout → dry-run 恒 30(质询轮 P1 实证,
+            # doctor 锚定验证随之恒 unknown)。
+            _write_sentinel(
+                "PREFLIGHT_OK.json",
+                {
+                    "slide": slide,
+                    "attach_ms": int((time.time() - attach_started) * 1000),
+                    "slice_sha256": slice_sha,
+                },
+            )
+            return
+        else:
+            # observe = r4a 取证形态(自然任务观察,记录不比对)。
+            svc, q, vptr = _resolve_service(target, proc, request, slide, text_lo, text_hi)
+            liveness = _validate_liveness(proc, request, slide, svc, vptr)
+            _write_sentinel(
+                "PREFLIGHT_OK.json",
+                {
+                    "slide": slide,
+                    "svc": svc,
+                    "q": q,
+                    "attach_ms": int((time.time() - attach_started) * 1000),
+                    "slice_sha256": slice_sha,
+                    **liveness,
+                },
+            )
+            return
     except PreflightFail as exc:
         _write_sentinel(
             "PREFLIGHT_FAIL.json", {"reason": exc.reason, "detail": exc.detail}
@@ -347,11 +530,8 @@ def run() -> None:
         _write_sentinel("ERROR.json", {"stage": "preflight", "detail": repr(exc)})
         return
 
-    mode = str(request.get("mode", "call"))
-    if mode in ("dry_run", "observe"):
-        return  # 到活性验即停(§3.1 dry-run;observe=取证形态)
-
-    # —— 调用段(§2.1 主配方;armed 哨兵 = expr 提交前)——
+    # —— 调用段(§2.7 三槽补丁;armed 哨兵 = expr 提交前;dry_run/observe
+    # 已在上方 return,此处仅 capture_call/call 到达)——
     call = request.get("call")
     if not isinstance(call, dict):
         _write_sentinel("ERROR.json", {"stage": "call", "detail": "request 缺 call 载荷"})
@@ -361,10 +541,11 @@ def run() -> None:
         expr_text = bridge.build_call_expr(
             _hex_int(call["send_entry"], "send_entry"),
             slide,
-            svc,
+            ctx,
+            template,
             bytes(int(v) for v in call.get("peer", [])),
             bytes(int(v) for v in call.get("body", [])),
-            by_value=bool(call.get("by_value", False)),
+            bytes(int(v) for v in call.get("display", [])),
         )
     except Exception as exc:  # noqa: BLE001 - 工件构造失败绝不进调用
         _write_sentinel("ERROR.json", {"stage": "call", "detail": f"expr 构造失败: {exc!r}"})
@@ -378,11 +559,19 @@ def run() -> None:
         options.SetUnwindOnError(True)  # 调用出错时回滚栈帧(进程保全方向)
         options.SetIgnoreBreakpoints(True)  # 直调全程零断点(§2.0)
         value = frame.EvaluateExpression(expr_text, options)
-        if value.IsValid() and value.GetError().Success():
+        state = proc.GetState()
+        alive = state not in (lldb.eStateExited, lldb.eStateInvalid)
+        if not alive:
+            _write_sentinel(
+                "ERROR.json",
+                {"stage": "call", "detail": f"调用后微信进程退出(state={state})"},
+            )
+        elif value.IsValid() and value.GetError().Success():
             _write_sentinel(
                 "DONE.json",
                 {
                     "call_rc": value.GetValueAsSigned(),
+                    "alive": True,
                     "expr_ms": int((time.time() - attach_started) * 1000),
                 },
             )

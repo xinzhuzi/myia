@@ -845,6 +845,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                     code="send_direct_target_too_long",
                     fix_hint="长 id 目标走 send_text(UI/OCR 链,无此限)",
                 )
+            display_len = len((target.display_name or "").encode("utf-8"))
+            if display_len > senddirect.MAX_INLINE_STRING_BYTES:
+                # msgctx display 槽(§2.7 +0x130)同为 inline23;宁拒不裁——
+                # 错裁展示名不如整条走 send_text(UI 链,无此限)。
+                raise BridgeError(
+                    EXIT_GENERIC_FAILURE,
+                    f"对端展示名 UTF-8 字节长 {display_len} 超过 inline23 容量 "
+                    f"{senddirect.MAX_INLINE_STRING_BYTES}(直发 msgctx display 槽)",
+                    code="send_direct_target_too_long",
+                    fix_hint="长展示名目标走 send_text(UI/OCR 链,无此限)",
+                )
             # 前置门(§3.1 步 4):微信不在 → 10;lldb 缺 → 1;配置门 → 1。
             if senddirect.wechat_pid() is None:
                 raise BridgeError(WECHAT_NOT_RUNNING, "微信进程不在:直发通道前置失败")
@@ -895,6 +906,43 @@ def main(argv: Sequence[str] | None = None) -> int:
             def _on_receipt_green() -> None:
                 rate_state.mark_fingerprint_sent(key, now=_now())
 
+            # 触发目标(装机实证 bug 修正,详注见 _trigger_send docstring):
+            # 解析态优先——同目标直发复用主目标;异目标解析 filehelper,
+            # 解析异常/形态不符回落旧合成形态(语义同旧)。
+            if target.username == "filehelper":
+                trigger_target = target
+            else:
+                trigger_resolved = None
+                try:
+                    trigger_resolved = sendtarget.resolve_target(
+                        config, "filehelper", storage=storage, keys=keys
+                    )
+                except BridgeError:
+                    trigger_resolved = None
+                if trigger_resolved is None or trigger_resolved.username != "filehelper":
+                    trigger_resolved = None
+                trigger_target = trigger_resolved or sendtarget.SendTarget(
+                    username="filehelper",
+                    alias=None,
+                    display_name="",
+                    search_term="filehelper",
+                )
+
+            def _trigger_send(trigger_body: str):
+                # capture_call 触发发送闭包(§2.7:经 ax.send_text 既有链
+                # 真发 filehelper 嘻嘻变体,供 F_exec 断点捕获 ctx/模板)。
+                # **触发目标=解析态**(2026-10-15 装机实证 bug 修正:旧合成
+                # 形态 display_name=""/search_term="filehelper" 在 4.1.15
+                # 搜索浮窗无本地分区锚 → navfilter 分区过滤零候选 → 3 次
+                # 尝试均败 navigate(exit 15,54s),触发零出站 → capture 段
+                # observe_timeout;零预算 repro:ax.send_text(合成目标,
+                # dry_run) 同败,CLI 解析态目标同链 dry-run 8.9s 绿)。
+                # **不挂 receipt_query**(质询轮 P3:回执轮询 (5,10,15)s
+                # 白拉长触发线程寿命,失败路径 join 超时即弃 → 剪贴板复原
+                # 被跳过;capture 命中本身即触发的实证回执,触发 payload
+                # 的 localdb 验证无人消费)。
+                return ax.send_text(config, trigger_target, trigger_body)
+
             try:
                 payload = senddirect.execute_send(
                     config,
@@ -904,6 +952,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     on_armed=None if dry_run else _on_armed,
                     on_receipt_green=_on_receipt_green,
                     receipt_query=_receipt_query_closure(config, storage, keys),
+                    trigger_send=None if dry_run else _trigger_send,
                 )
             except BridgeError:
                 # rollback 边界 = armed 前(§3.1 步 7:含 24/attach_failed/
