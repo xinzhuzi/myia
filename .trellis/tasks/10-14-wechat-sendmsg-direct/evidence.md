@@ -51,3 +51,30 @@
 | E15 | 轮报告原文落档(双路交付此前仅存会话文本,无产物可复核) | ✅ 静态 C1-C6+动态 argsMap 两 JSON 逐字落盘;**红旗:「q=服务对象+0x1c0」仅存于 C1 原文,sendmsg-hunt/*.c 与本档 research/ 一切反编译/转储产物无独立出处——r4 钉入轮必先形验证(design-阶段3.md §2.4)才准入锚定表** | `research/round-reports-阶段3合流输入.md` 档首注意事项 |
 | E16 | 预算实锤(F5) | ⚠️ 触发形态=桥自动发非主人手发(见上预算账 10-15 更新:账本 9~10/10 余 0~1,P-2 需 2);**任何验证发送前未得 P-0 裁决=不发** | round.sh 触发行;design-阶段3.md §4 P-0 |
 | E17 | 簿记员本轮(10-15 凌晨) | 纯文档:读+ls+lsof+date+pgrep 只读核验;改本档+prd.md(AC3 勘误+预算括注)+task.json(旧前提描述撤销,状态指针未动)+design-阶段3.md P-2 引注勘误+FINDINGS-阶段2.md 勘误括注;**错题集.md 让道未碰**(并行会话活跃写入)。零代码、零微信操作、零 attach、零发送;未提交插件源码改动(senddirect*.py 等)非簿记员职责面,未核验未记档 | 本节+git diff |
+
+## 10-15 05:09 簿记轮(S15 事后核账:快照恢复结论 + 代审结论索引 + 对账注记;错题集补账)
+
+> 本轮纯文档轮:零微信、零 attach、零发送、零代码、零提交、零索引操作;唯一写入=本节 + research/错题集.md(S16 入册 + S11-S14 双录合并)。断言均附本轮实跑命令(时间戳 2026-10-15 05:09:02 CST)。
+
+### 快照恢复结论(簿记员只读核验)
+
+- **血统一致**:`git merge-base --is-ancestor 27e3b255 HEAD` 通过(HEAD=03d9ca72)——与「01:56 自远端 xinzhuzi/shishi HEAD==27e3b255 整仓 clone 回填、并行线续推」自洽;`git log --oneline -1 27e3b255`=fix(test) keychain 纪律用例,与错题集 S15 记载的恢复基线同哈希。
+- **不可恢复名单实证**:`ls plugins/wechat-bridge/uv.lock` → No such file or directory(插件 uv.lock 至今未复建,损失仍在案)。
+- **回收件在位**:`research/hunt-r3-dynargs/` 15 件齐(ARMED/DONE/LLDB_EXIT、hit_send{0,7,9}、cap2.py、round.sh、dumps_r1/r3、msgctx_*.bin、needle.bin、lldb.cmd);回收源 `/tmp/wxsend3` 仍在(含 ARMED/DONE/cap2.py/cap4.py)。
+- **desktop/ui-src 旧 WIP(约 40 文件)无从核验=已灭失**;当前树内该目录均为已提交态,现存新生 WIP(feed-screen.tsx 等)属 10-15-remaining-sweep 线(代审③ review-note:27 实证),非损失件回归——两者不可混淆。
+
+### 代审结论索引(全树 `find .trellis/tasks -maxdepth 2 -name 'review-note.md'` 实测仅两份落盘)
+
+| # | 任务 | 代审员 | 结论 | 要点 | 档 |
+|---|---|---|---|---|---|
+| D1 | 10-14-feed-l3-beautify | s8-review-feed-l3(六任务代审③) | **有条件过** | AC2 当代复跑 `npm --prefix desktop/ui-src run test` EXIT=0(47 文件/949 测试,feed 219 精确吻合);AC1 过程档缺(VL 终审仅 prd 自述)+AC3 装机面历史动作不可复验=两条件;tsc 未跑(会写 ../ui 装机面,红线禁,如实记未跑);簿记三缺(implement/check/evidence.md)系 S15 后 01:56 重铺态 | `.trellis/tasks/10-14-feed-l3-beautify/review-note.md`(?? 未跟踪) |
+| D2 | 10-14-native-system-dialog | s9-review-native-dialog(六任务代审④) | **有条件过** | AC1-4 提交链(18c2f51f 主交付/f9d726ab 加固)+path:line+门禁实跑(tsc EXIT=0;vitest 8 文件 104/104)全过;AC5 装机面 not-run(判例 packaged-app-verify-and-swap-race)+回退副本 /Applications/世事.app.old-1014-native-dialog 已灭失留主人决断;**ask 前提勘误**:evidence-auth-prompt*.png 实属 10-14-notify-app-icon(801b15b8 入档) | `.trellis/tasks/10-14-native-system-dialog/review-note.md`(?? 未跟踪) |
+
+两份均标注「六任务代审 fan-out」编号③④;**其余四路(①②⑤⑥)未见落盘**,如实注(可能在他线会话内未回写,簿记员不代猜内容)。
+
+### 对账注记(现场 vs 指令背景,如实)
+
+1. **索引 staged 件:现场与指令背景不符**——指令背景称「索引挂着并行线 staged 件(senddirect.py 系),绝不能整 index 提交」;05:09:02 实测 `git diff --cached --stat` **空输出**、porcelain 全部 ` M`(第二列 M=工作树态),**零 staged 件**。处置:簿记轮零提交零索引操作,「绝不整 index 提交」红线在两种现场态下均天然保持;不符如实入档未 escalate(不构成本轮阻塞)。
+2. HEAD 已由恢复基线 27e3b255 前进至 03d9ca72(e75732ec→bb9d858c→03d9ca72 并行线三笔在案),与快照恢复结论自洽。
+3. 工作树 M 实测 **6 件**(.trellis/tasks/10-14-notify-app-icon/prd.md、desktop/ui-src/e2e/package_smoke.py、plugins/wechat-bridge/wechat_bridge/{cli,senddirect,senddirect_probe}.py、tests/wechat-bridge/test_send_direct.py)+ ?? 2 件(上两 review-note);指令背景称「任务四档 M 态」,计数差如实注。M 件均未提交=在途勘误/WIP,按红线不进装机面、簿记员一律不碰。
+4. **错题集.md 05:09 `git diff` 干净=并行线不在写** → 簿记员按上轮挂账动笔:S16 入册 + S11-S14 双录合并(详见错题集勘误记录 2026-10-15 05:09 条)。

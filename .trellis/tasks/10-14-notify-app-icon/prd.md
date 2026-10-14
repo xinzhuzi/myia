@@ -43,3 +43,26 @@ osascript 兜底;壳代发故障逐条回退 osascript,横幅不丢。
 - 不动合并纪律/文案(每会话一条、撤回独立、200 字帽)。
 - 不引入 terminal-notifier 等外部二进制(链接者红线)。
 - Windows/Linux 通知形态顺带受益(插件自带),不做专项。
+
+## 转交注记:macOS 通知 FIFO 竞态(2026-10-15,门禁修复员)
+
+门禁 flaky 实证移交(notify 线接手;本注记期间零源码改动):
+
+- **症状**:`tests/push/test_messaging_macos_notify.py:327`
+  `test_relay_end_to_end_zero_osascript` 间歇挂——2 条通知中第 2 条(subtitle
+  「N 条新消息」那条)泄漏一次 osascript 直弹;单测 12 连跑 5 过 7 挂;
+  `/tmp` 复现脚本 300 轮:93 轮恰为「第一条走管道 + 第二条 ENXIO 回退」同签名,
+  另 4 轮启动竞态。代码停在 bde22d83,无后续相关提交,纯调度竞态。
+- **根因**:`src/myssia/push/macos_notify.py:85` 写者
+  `os.open(FIFO, O_WRONLY|O_NONBLOCK)` 无读者即 ENXIO→回退(设计如此);
+  `:123-140` 读者线程读到 EOF(写者全退)即 `with` 退出**关读端再 while 重开**——
+  同轮两条 `_fifo_write` 之间(写者#1 已 close、读者已关读端、未重开)存在
+  无读者窗口,第 2 条撞上即泄漏。生产调用面仅 `desktop/entry.py:7865` + 该测试。
+- **最小修方案(已评审未实施)**:仅改 `start_notify_relay` 内部,接口/调用方/
+  `_fifo_write` 零改动——返回前同步 `os.open(fifo, O_RDONLY|O_NONBLOCK)`
+  (立即可成,确立读者在位)+ 自持常开写端 `os.open(fifo, O_WRONLY|O_NONBLOCK)`
+  (因读端在而成功,中继存活期持有)→ 读端永不 EOF → 无重开窗口;读者线程改
+  持常开 fd 阻塞读。中继死 = fd 全关 = ENXIO 回退契约不变。实施前按 AGENTS.md
+  跑 gitnexus impact(`start_notify_relay`,CLI `-r shishi`)。
+- **门禁处置**:本轮按「条件绿」记账——重跑 `just test` 全量,唯一失败恰为
+  该 flaky 即视为条件绿(根因在档);不 retry 装饰/不 flaky 标记/不 deselect。
