@@ -1,3 +1,5 @@
+# ⚠️ 本档为过程快照(10-14 晚)。权威文档=同任务 design.md(执行协议)+research/错题集.md(错误全谱系)+implement.md(阶段门);冲突以权威档为准
+
 # REA × 微信自动化实测(2026-10-14)
 
 主人令:①缓存清理 ②REA 试微信自动化发消息 ③梳理卡点。本档为实测证据汇总,反编译产物同目录落盘。
@@ -28,9 +30,10 @@
 | **SendMsgFtouser LLDB 直调(10-14-wechat-sendmsg-direct)** | ⏳ **当前主线卡点**:PRD 骨架 Requirements TBD,未动工 | 逆向资产已齐:主流程 FUN_031ab38c(3400B)/RPC 桩 FUN_05e1d050(service id 0xa13…0xa2f)/谓词 FUN_048a9a38/appmsg 路 CoSendAppMsgCgi@0x88a8fb0;VA=fat偏移-0xB010000(见 archive/2026-10/10-13-wechat-dylib-reverse) |
 | 并行会话干扰 | ⚠️ 今日在途 | 另一会话在微信上做 LLDB attach(3 次换主,现主 58622@13:45);其收工清理误伤 ~/ghidra-wxhunt。协作约束:不 attach 不 kill,共用文件先 ls 核验 |
 
-## 四、下一步(REA 在直调线上的用法)
+## 四、反编译终局(当日完成)→ 见 ghidra_out/README.md
 
-1. `rea analyze wechat_arm64_thin.dylib`(Ghidra 导入+分析,长任务)
-2. `rea search … 'SendMsgFtouser'` → 命中字符串 @0x88bac38 → xrefs → 主流程
-3. `rea decompile … 0x31ab38c`(以及 RPC 桩 0x5e1d050)→ 伪代码落本目录
-4. 产物供 sendmsg-direct 推调用签名(优先 ObjC selector 路;排除 sendMessageToWeTypeWithEncodedData@0x992fd22=输入法贴纸桥假阳性)
+- REA CLI `rea analyze` 对 165MB 薄片**超其固定操作预算**(provider_timeout,无环境变量可调)→ REA 反编译轴对超大目标受限;inspect-macho 等轻操作可用
+- 正解配方(**2 分钟出活**):Ghidra headless `-import … -noanalysis` + 定点建函数反编译;**全量自动分析会被混淆段卡死(DecompilerSwitchAnalyzer 1.5h+ 空转,已实证,勿再走)**
+- 四函数全拿到:主流程 0x31ab38c(570 行 C,XOR 解码/service id 0xa13…0xa2f 分支指纹全复现)+ RPC 桩 0x5e1d050 + 谓词 0x48a9a38 + CoSendAppMsgCgi 0x88a8fb0;RPC 桩调用形状:`(ret,3,msg,0xa3dd350,0xa3dec10,service_id,0,0)`
+- 可复用工程:ghidra_proj/wxrea2(免分析态,基址 0)
+- **路线修正补发**:前序会话判定 0x31ab38c 为 NewSync 误标,真发送=协程+mars::stn、方向 0x490fb20 邻域 → 已补反编译 `func_0x490fb20_490fb20.c`(134 行,内部调 0x5e1d978,与 RPC 桩 0x5e1d050 同区相邻,佐证修正路线)
