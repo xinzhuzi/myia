@@ -13,13 +13,18 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1:明文入口定位(运行时猎捕协议 Step 1-2;产物=入口函数 VA+全函数反编译)
-- [ ] AC2:调用签名推导(LLDB 只读方法验证机制通过 + 直调发送一次成功,白名单内,协议见 design.md Step 3)
-- [ ] AC3:白名单双发真验证(filehelper+jiangliushi666,嘻嘻,≤2 条,≥10s;**回执双通道**:filehelper=sqlite 直查 decrypted/message_0.db,jl666=桥 localdb query——〔勘误 10-15 簿记补落:表名映射「缺陷」断言已判误诊撤销,md5(username) 映射成立、真因=副本重建时延(design.md Step3.4 判例);双通道保留为独立第二通道交叉验证〕)
-- [ ] AC4:桥保证级通道落地+与 OCR 链分级调度+单测绿(打字路径打桩;直调通道同过 G6 频控)
+✅ AC1(达成,形态修订):明文消费点定位=F_exec(0x83e394)+msgctx 三槽布局逐字节实证(r4/cap5);全函数反编译在档(research/r4/fexec_decompile.c)
+⛔ AC2(未达成,结构性):签名推导完成但直调三形态全阴性(裸调/嵌套调/TLS 追踪;F_exec 含协程挂起点,普通函数调用不成立,§2.9);配方封存(§2.11)
+⛔ AC3(未达成,依赖 AC2):直调 0 送达(三轮实证);触发链 15+ 条全落库绿,回执双通道本身验证通过
+◐ AC4(半成):基础设施全落地(锚定表/门/错误码/防重/827 测试绿;失败=干净拒绝零误发);配方未通→分级调度暂以 send_text 兜底,实际发送由 OCR 链承担
 
 ## Notes
 
 - Keep `prd.md` focused on requirements, constraints, and acceptance criteria.
 - Lightweight tasks can remain PRD-only.
 - For complex tasks, add `design.md` for technical design and `implement.md` for execution planning before `task.py start`.
+
+
+## 终局裁定(2026-10-15,主人令「review 后归档」)
+
+直调配方线五轮攻坚(r4→r10)后按 D2 纪律封存:知识库(38 帧架构图/三槽布局/三阴性/ TLS 排除)全量入库;OCR 链(全天 15+ 条落库零误发)承担实际发送;send_direct 通道保留(失败=干净拒绝)。重开前置=先验 resume 存储形态(§2.11)。
