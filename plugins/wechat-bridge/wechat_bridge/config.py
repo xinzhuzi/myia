@@ -21,7 +21,11 @@
   缺省 2048MB,管理命令 ``localdb media-decrypt set|get|clear`` 代写)、
   ``http_api_enabled``/``http_api_host``/``http_api_port``/``http_api_token``
   (task 10-14-wechat-http-api R10:缺省 false/127.0.0.1/5032/空;token
-  管理命令 ``localdb http-token generate|show|clear`` 代写)。
+  管理命令 ``localdb http-token generate|show|clear`` 代写)、
+  ``send_direct_enabled``(task 10-14-wechat-sendmsg-direct 阶段3:LLDB
+  函数直调通道开关,缺省关——直调=第二例调试器豁免,主人 10-14 直调批令+
+  阶段3 设计档在案;范围=仅 attach+只读观察+函数直调,禁写微信内存/禁注入/
+  禁常驻。锚定表路径不入配置=私有路径族固定)。
   **无频控键**(G6 硬编码,刻意不提供——design §7 原文)。
 
 数据根解析与 MYIA 本体同源(desktop/entry.py ``myssia_home`` /
@@ -61,6 +65,7 @@ __all__ = [
     "MEM_SEARCH_ENABLED_DEFAULT",
     "MESSAGES_DEFAULT",
     "MYIA_HOME_ENV",
+    "SEND_DIRECT_ENABLED_DEFAULT",
     "SESSIONS_DEFAULT",
     "SEND_STATE_REL_PATH",
     "BridgeConfig",
@@ -118,6 +123,10 @@ HTTP_API_HOST_DEFAULT = "127.0.0.1"
 HTTP_API_PORT_DEFAULT = 5032
 #: HTTP API token 缺省(空 = 未配置 = 非 health 全拒,R2)。
 HTTP_API_TOKEN_DEFAULT = ""
+#: 直发通道开关缺省(阶段3:LLDB 函数直调;默认关,主人显式开启才生效
+#:——照 mem_search_enabled 判例。真跑还须锚定表在位+版本门过+lldb 在,
+#: 多重门见 senddirect 模块)。
+SEND_DIRECT_ENABLED_DEFAULT = False
 
 _ALLOWED_TOP_KEYS = frozenset(
     {
@@ -133,6 +142,7 @@ _ALLOWED_TOP_KEYS = frozenset(
         "http_api_host",
         "http_api_port",
         "http_api_token",
+        "send_direct_enabled",
     }
 )
 _ALLOWED_LIMIT_KEYS = frozenset({"sessions", "messages", "history_days"})
@@ -182,6 +192,9 @@ class BridgeConfig:
     http_api_port: int = HTTP_API_PORT_DEFAULT
     #: HTTP API token(空 = 未配置 = 非 health 全拒;generate 轮换热生效)。
     http_api_token: str = HTTP_API_TOKEN_DEFAULT
+    #: 直发通道开关(阶段3;缺省关。真跑还须锚定表+版本门+lldb 多重门,
+    #: 消费在 senddirect;dry-run 同受此门——attach 属调试器豁免范围)。
+    send_direct_enabled: bool = SEND_DIRECT_ENABLED_DEFAULT
     #: 配置实际来源(None = 缺文件全缺省,health/诊断如实呈现)。
     source: str | None = None
 
@@ -205,6 +218,7 @@ class BridgeConfig:
             "http_api_port": self.http_api_port,
             # token 只呈形状不呈值(私有数据红线:密钥材料不入诊断面)。
             "http_api_token_configured": bool(self.http_api_token),
+            "send_direct_enabled": self.send_direct_enabled,
             "source": self.source,
         }
 
@@ -370,6 +384,14 @@ def load_config(path: Path | None = None, *, data_root: Path | None = None) -> B
             EXIT_USAGE,
             f"桥配置 http_api_token 须为字符串(空串 = 未配置),当前为 {http_api_token!r}",
         )
+    send_direct_enabled = raw.get("send_direct_enabled")
+    if send_direct_enabled is not None and not isinstance(send_direct_enabled, bool):
+        raise BridgeError(
+            EXIT_USAGE,
+            f"桥配置 send_direct_enabled 须为布尔(true/false),当前为 {send_direct_enabled!r}",
+            code="usage",
+            fix_hint="直发通道豁免开关只认布尔;开启 = true(真跑还须锚定表+版本门+lldb,见 senddirect 三重门)",
+        )
     return BridgeConfig(
         domains=[str(item).strip() for item in domains],
         sessions=values.get("sessions", SESSIONS_DEFAULT),
@@ -410,6 +432,11 @@ def load_config(path: Path | None = None, *, data_root: Path | None = None) -> B
         ),
         http_api_token=(
             HTTP_API_TOKEN_DEFAULT if http_api_token is None else http_api_token
+        ),
+        send_direct_enabled=(
+            SEND_DIRECT_ENABLED_DEFAULT
+            if send_direct_enabled is None
+            else send_direct_enabled
         ),
         source=str(config_path),
     )

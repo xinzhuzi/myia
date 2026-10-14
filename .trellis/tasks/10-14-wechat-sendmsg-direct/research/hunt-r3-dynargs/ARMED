@@ -1,0 +1,5 @@
+slide=0x12b0e8000
+send_bp=0x12f4e08e4 id=1
+subm_bp=0x12f9f7b20 id=2
+text=[0x12b0e8000,0x134c1c000)
+t=1791985768.945123

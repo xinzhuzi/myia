@@ -1,0 +1,103 @@
+== hit_send9 t=1791985862.064 MATCHED ==
+thread=None tid=1
+regs: x0=0x8a6926280 x1=0x186a0 x2=0x0 x3=0xfffffc088 x4=0x1c7c84692c2 x5=0x0 x6=0x0 x7=0xfffff0003ffff800 sp=0x16d768ac0 fp=0x16d768ae0 lr=0x12b18e108 pc=0x12f4e08e4
+x0 0x8a6926280 -> hit_send9_x0.bin (12288B)
+  x0+0x8 -> 0x12f4e08e4 => hit_send9_ptr0008.bin
+  x0+0x10 -> 0x12f4e337c => hit_send9_ptr0010.bin
+  x0+0x18 -> 0x12b11bc5c => hit_send9_ptr0018.bin
+  x0+0x28 -> 0x8a397ca18 => hit_send9_ptr0028.bin
+  x0+0x30 -> 0x8a397ca00 => hit_send9_ptr0030.bin
+  x0+0x38 -> 0x89f456f98 => hit_send9_ptr0038.bin
+  x0+0x40 -> 0x89f456f80 => hit_send9_ptr0040.bin
+  x0+0xb0 -> 0x8a42e19b8 => hit_send9_ptr00b0.bin
+  x0+0xb8 -> 0x8a42e19a0 => hit_send9_ptr00b8.bin
+  x0+0x300 -> 0x134ce07f0 => hit_send9_ptr0300.bin
+  x0+0x318 -> 0x134ce0840 => hit_send9_ptr0318.bin
+  x0+0x320 -> 0x8a6926598 => hit_send9_ptr0320.bin
+  x0+0x328 -> 0x8a6926580 => hit_send9_ptr0328.bin
+  x0+0x330 -> 0x897164a80 => hit_send9_ptr0330.bin
+  x0+0x338 -> 0x897164a80 => hit_send9_ptr0338.bin
+  x0+0x348 -> 0x8a69265d0 => hit_send9_ptr0348.bin
+  x0+0x360 -> 0x8a69265e8 => hit_send9_ptr0360.bin
+  x0+0x380 -> 0x8a7e683b8 => hit_send9_ptr0380.bin
+  x0+0x388 -> 0x8a7e683a0 => hit_send9_ptr0388.bin
+  x0+0x390 -> 0x89f4aea00 => hit_send9_ptr0390.bin
+  x0+0x398 -> 0x89f4aea00 => hit_send9_ptr0398.bin
+  x0+0x3a0 -> 0x89c1db828 => hit_send9_ptr03a0.bin
+  x0+0x480 -> 0x134ce07f0 => hit_send9_ptr0480.bin
+  x0+0x498 -> 0x134ce0840 => hit_send9_ptr0498.bin
+  x0+0x4a0 -> 0x8a6926718 => hit_send9_ptr04a0.bin
+  x0+0x4a8 -> 0x8a6926700 => hit_send9_ptr04a8.bin
+  x0+0x4b0 -> 0x8a6926738 => hit_send9_ptr04b0.bin
+  x0+0x4c8 -> 0x8a6926750 => hit_send9_ptr04c8.bin
+  x0+0x4e0 -> 0x8a6926768 => hit_send9_ptr04e0.bin
+  x0+0x500 -> 0x8a7e68f98 => hit_send9_ptr0500.bin
+  x0+0x508 -> 0x8a7e68f80 => hit_send9_ptr0508.bin
+  x0+0x518 -> 0x89f4aea00 => hit_send9_ptr0518.bin
+  x0+0x520 -> 0x89c1db828 => hit_send9_ptr0520.bin
+  x0+0x540 -> 0x1f32784b8 => hit_send9_ptr0540.bin
+  x0+0x548 -> 0x8a7ff9740 => hit_send9_ptr0548.bin
+  x0+0x600 -> 0x1f32784b8 => hit_send9_ptr0600.bin
+  x0+0x608 -> 0x8a7ff97a0 => hit_send9_ptr0608.bin
+  x0+0x780 -> 0x1f32784b8 => hit_send9_ptr0780.bin
+  x0+0x840 -> 0x8a490b0c0 => hit_send9_ptr0840.bin
+  x0+0x860 -> 0x8a4909a10 => hit_send9_ptr0860.bin
+  (ptr-chase cap)
+x3 0xfffffc088 -> hit_send9_x3.bin
+stack 0x16d768ac0 -> hit_send9_stack.bin
+  [sp+0x10] dylib+0x6d7b8  0x12b1557b8 wechat.dylib`___lldb_unnamed_symbol3887+0x567b8
+  [sp+0x28] dylib+0x6d7e8  0x12b1557e8 wechat.dylib`___lldb_unnamed_symbol3887+0x567e8
+  [sp+0x40] dylib+0x6d7b8  0x12b1557b8 wechat.dylib`___lldb_unnamed_symbol3887+0x567b8
+  [sp+0x58] dylib+0x6d85c  0x12b15585c wechat.dylib`___lldb_unnamed_symbol3888+0x5685c
+  [sp+0x98] dylib+0x6d43c  0x12b15543c wechat.dylib`___lldb_unnamed_symbol3872+0x5643c
+  [sp+0xa8] dylib+0x43f5c30  0x12f4ddc30 wechat.dylib`___lldb_unnamed_symbol243879+0x43dec30
+  [sp+0x128] dylib+0x80624  0x12b168624 wechat.dylib`___lldb_unnamed_symbol4249+0x69624
+  [sp+0x298] dylib+0x430dc  0x12b12b0dc wechat.dylib`___lldb_unnamed_symbol3060+0x2c0dc
+  [sp+0x2c8] dylib+0x8005c  0x12b16805c wechat.dylib`___lldb_unnamed_symbol4248+0x6905c
+  [sp+0x318] dylib+0x430dc  0x12b12b0dc wechat.dylib`___lldb_unnamed_symbol3060+0x2c0dc
+  [sp+0x368] dylib+0x441c8  0x12b12c1c8 wechat.dylib`___lldb_unnamed_symbol3078+0x2d1c8
+  [sp+0x3b8] dylib+0x3e02c  0x12b12602c wechat.dylib`___lldb_unnamed_symbol2943+0x2702c
+  [sp+0x3c8] dylib+0x43188  0x12b12b188 wechat.dylib`___lldb_unnamed_symbol3060+0x2c188
+  [sp+0x3e8] dylib+0x44148  0x12b12c148 wechat.dylib`___lldb_unnamed_symbol3077+0x2d148
+lr: 0x12b18e108 wechat.dylib`___lldb_unnamed_symbol5010+0x8f108
+pc: 0x12f4e08e4 wechat.dylib`___lldb_unnamed_symbol243953+0x43e18e4
+  frame#0 0x12f4e08e4 wechat.dylib`___lldb_unnamed_symbol243953+0x43e18e4
+  frame#1 0x12b18e108 wechat.dylib`___lldb_unnamed_symbol5010+0x8f108
+  frame#2 0x12b1557e8 wechat.dylib`___lldb_unnamed_symbol3887+0x567e8
+  frame#3 0x12b15585c wechat.dylib`___lldb_unnamed_symbol3888+0x5685c
+  frame#4 0x12b15543c wechat.dylib`___lldb_unnamed_symbol3872+0x5643c
+  frame#5 0x12b168624 wechat.dylib`___lldb_unnamed_symbol4249+0x69624
+  frame#6 0x12b16805c wechat.dylib`___lldb_unnamed_symbol4248+0x6905c
+  frame#7 0x12b12c1c8 wechat.dylib`___lldb_unnamed_symbol3078+0x2d1c8
+  frame#8 0x12b12602c wechat.dylib`___lldb_unnamed_symbol2943+0x2702c
+  frame#9 0x12b12b188 wechat.dylib`___lldb_unnamed_symbol3060+0x2c188
+  frame#10 0x185775d50 CoreFoundation`__CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__+0x95660
+  frame#11 0x185775a48 CoreFoundation`__CFRunLoopDoTimer+0x95358
+  frame#12 0x1857755c0 CoreFoundation`__CFRunLoopDoTimers+0x94ed0
+  frame#13 0x18575b8c8 CoreFoundation`__CFRunLoopRun+0x7b1d8
+  frame#14 0x18582dbe0 CoreFoundation`_CFRunLoopRunSpecificWithOptions+0x14d4f0
+  frame#15 0x192530560 HIToolbox`RunCurrentEventLoopInMode+0xbba48
+  frame#16 0x1925338bc HIToolbox`ReceiveNextEventCommon+0xbeda4
+  frame#17 0x1926bd13c HIToolbox`_BlockUntilNextEventMatchingListInMode+0x248624
+  frame#18 0x18a2331a4 AppKit`_DPSBlockUntilNextEventMatchingListInMode+0x6e1584
+  frame#19 0x189b87084 AppKit`_DPSNextEvent+0x35464
+  frame#20 0x18a71c69c AppKit`-[NSApplication(NSEventRouting) _nextEventMatchingEventMask:untilDate:inMode:dequeue:]+0xbcaa7c
+  frame#21 0x18a71c3a8 AppKit`-[NSApplication(NSEventRouting) nextEventMatchingMask:untilDate:inMode:dequeue:]+0xbca788
+  frame#22 0x189b7a13c AppKit`-[NSApplication run]+0x2851c
+  frame#23 0x155ac5f48 WeChatAppEx Framework`___lldb_unnamed_symbol10667+0x24bdf48
+  frame#24 0x155ac5d88 WeChatAppEx Framework`___lldb_unnamed_symbol10667+0x24bdd88
+  frame#25 0x1551aa61c WeChatAppEx Framework`___lldb_unnamed_symbol10650+0x1ba261c
+  frame#26 0x155419f60 WeChatAppEx Framework`___lldb_unnamed_symbol10654+0x1e11f60
+  frame#27 0x1598f44e4 WeChatAppEx Framework`___lldb_unnamed_symbol10791+0x62ec4e4
+  frame#28 0x1321805b8 wechat.dylib`___lldb_unnamed_symbol384268+0x70815b8
+  frame#29 0x1320a24a0 wechat.dylib`___lldb_unnamed_symbol381575+0x6fa34a0
+  frame#30 0x1320a5ddc wechat.dylib`___lldb_unnamed_symbol381634+0x6fa6ddc
+  frame#31 0x12b12aa40 wechat.dylib`___lldb_unnamed_symbol3053+0x2ba40
+  frame#32 0x12b168d28 wechat.dylib`___lldb_unnamed_symbol4253+0x69d28
+  frame#33 0x12b145e10 wechat.dylib`___lldb_unnamed_symbol3637+0x46e10
+  frame#34 0x12b3b2bfc wechat.dylib`___lldb_unnamed_symbol20347+0x2b3bfc
+  frame#35 0x1029d7ea4 libwxld.dylib`___lldb_unnamed_symbol402+0x2ea4
+  frame#36 0x1029e61d4 libwxld.dylib`LdMain+0x111d4
+  frame#37 0x1852e3da4 dyld`start+0x1eda4
+BT:
+thread #1: tid = 0x7597b7c, 0x000000012f4e08e4 wechat.dylib`___lldb_unnamed_symbol243953, queue = 'com.apple.main-thread', stop reason = breakpoint 1.1

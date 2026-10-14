@@ -1,0 +1,1013 @@
+"""直发通道驱动(LLDB 批式函数直调;task 10-14-wechat-sendmsg-direct
+design-阶段3 §2/§3)。
+
+形态(§3.4):桥侧 python 生成**单次 lldb 批**(attach→preflight→[expr 调用]
+→postflight→detach→quit),subprocess + 硬超时驱动,无常驻调试器;lldb 内
+逻辑在随包分发的 :mod:`.senddirect_probe`(经 ``command script import``
+装载,全部参数经 env 传入的 request JSON——cmd 工件零内容材料)。
+
+哨兵协议(round.sh 判例的桥内化;run_dir 内 JSON 文件,桥侧轮询):
+
+=====================  =====================================================
+``PREFLIGHT_OK.json``  版本门+活性验全过(含 slide/svc/attach_ms)
+``PREFLIGHT_FAIL.json`` 门失败({reason, detail};未调用,零风险)
+``ARMED.json``         expr 提交前落(armed 时点;此后绝不 rollback)
+``DONE.json``          调用返回({call_rc};postflight 一并记存活态)
+``ERROR.json``         调用/探测异常({stage, detail})
+=====================  =====================================================
+
+版本门(§2.6,grill r2 定稿):**主门 = wechat.dylib arm64 切片 sha256**
+(FAT 0xcafebabe 解析取 cputype==0x100000c 切片区间;纯 thin 0xfeedfacf
+整文件;F10 端到端亲验算法)——禁止执行者为提速弱化回 16B 单门;副门 =
+16B 锚字节。模块锁定:basename==wechat.dylib 且 __TEXT ≥128MiB 的候选
+**恰好一个**(磁盘双同名 dylib 歧义,F10),S=幸存模块头部装载地址,
+区间断言锚点落 __TEXT 内。服务对象活性验一律 **slide 相对量**
+(vptr−S == 锚定表 svc_vtable_off;非指针不变字段逐字节比对)——绝不存
+vptr 原始字节(重启即恒假阴性 → 恒 24,通道跨重启即死)。
+
+错误族(§3.3;codes.py 已增 24,exit 1 自定义族照 send_target_not_found
+判例显式 code):24 send_direct_unanchored(未调用+rollback)/
+send_direct_disabled / lldb_not_found / lldb_attach_failed /
+send_direct_body_too_long / send_direct_target_too_long /
+send_direct_call_failed(armed 后,绝不回退绝不自动重试)/ wechat_frozen
+(SIGKILL 收兵后的结构化存活报告)。
+
+红线(§5 批准范围):attach + 只读观察 + 函数直调;禁写微信自有代码/
+数据,禁注入,禁常驻,attach 不通=降级绝不硬闯。参数缓冲(expr 语句块
+局部量)=「调函数」的批准范围组成部分(§2.0 界定);expr 文本是**唯一会
+碰微信内存的工件**(生成函数纯函数化供 golden 直测)。
+
+清理纪律(2026-10-15 事故后加固):run_dir 一律 ``None`` 起步、mkdtemp
+赋值,finally 清理**仅当路径非空且落在系统临时目录内**——任何缺省/相对
+路径形态都绝不进入 rmtree(事故判例:``Path()`` 归一化为 ``.`` 曾整删
+仓库,详见错题集 S15)。
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import shutil
+import signal
+import struct
+import subprocess
+import tempfile
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable
+
+from .codes import (
+    EXIT_GENERIC_FAILURE,
+    SEND_DIRECT_UNANCHORED,
+    SEND_UNCERTAIN_DEDUP,
+    TIMEOUT,
+    WECHAT_NOT_RUNNING,
+    BridgeError,
+)
+from .config import BridgeConfig, myssia_home
+
+__all__ = [
+    "ANCHOR_REL_PATH",
+    "ARM64_CPUTYPE",
+    "FAT_MAGIC",
+    "LLDB_BATCH_TIMEOUT_S",
+    "LLDB_SIGINT_GRACE_S",
+    "MAX_INLINE_STRING_BYTES",
+    "MODULE_TEXT_MIN_BYTES",
+    "RECEIPT_POLL_SCHEDULE",
+    "THIN_MAGIC_64",
+    "AnchorTable",
+    "anchor_file_state",
+    "build_call_expr",
+    "build_cmd_text",
+    "inline23_bytes",
+    "load_anchor_table",
+    "execute_send",
+    "run_lldb_batch",
+    "require_lldb",
+    "slice_arm64_sha256",
+    "doctor_direct_channel",
+]
+
+#: 锚定表相对数据根路径(§2.6 私有路径族,不入配置键面)。
+ANCHOR_REL_PATH = "wechat-bridge/send-direct-anchors.json"
+#: inline23_rawlen 串容量(F3:23 容量+末字节裸长度;双长度门共用)。
+MAX_INLINE_STRING_BYTES = 23
+#: 模块锁定门槛:__TEXT ≥128MiB(主体 ~154MiB 过,84,544B 桩必拒;§2.6)。
+MODULE_TEXT_MIN_BYTES = 0x8000000
+#: FAT 魔数(大端 0xcafebabe;磁盘双切片形态,F10)。
+FAT_MAGIC = 0xCAFEBA_BE
+#: 纯 thin Mach-O 64 魔数(小端读 = 0xfeedfacf)。
+THIN_MAGIC_64 = 0xFEEDFACF
+#: arm64 cputype(F10:fat_arch 表大端字段)。
+ARM64_CPUTYPE = 0x0100000C
+#: lldb 子进程硬超时(§3.3:45s 带宽 = SIGINT → 10s 宽限 → SIGKILL)。
+LLDB_BATCH_TIMEOUT_S = 45.0
+LLDB_SIGINT_GRACE_S = 10.0
+#: 回执轮询退避(与 send_text 同一;累计 ~30s)。
+RECEIPT_POLL_SCHEDULE = (5.0, 10.0, 15.0)
+#: 哨兵轮询间隔(armed 及时落 fingerprint pending)。
+SENTINEL_POLL_S = 0.2
+
+
+def _now() -> float:
+    """时钟注入点(单测换假钟;独立函数避免 import time 散布)。"""
+    return time.time()
+
+
+def _sleep(seconds: float) -> None:
+    """sleep 注入点(回执退避的单测换装点)。"""
+    time.sleep(seconds)
+
+
+def _cleanup_run_dir(run_dir: Path | None) -> None:
+    """run_dir 清理(事故加固:仅当非 None 且落在系统临时目录内才 rmtree)。
+
+    2026-10-15 事故判例(S15):早期实现以 ``Path()`` 为缺省,而 ``Path("")``
+    归一化为 ``PosixPath('.')``——早失败路径的 finally 因此 ``rmtree('.')``
+    整删了测试运行时的当前工作目录(仓库根)。本函数把清理面钉死在
+    mkdtemp 产物上:相对路径/仓库路径/任何缺省形态都到不了 rmtree。
+    """
+    if run_dir is None:
+        return
+    try:
+        text = str(run_dir)
+        if not text.startswith(tempfile.gettempdir()):
+            return
+        if run_dir.is_dir():
+            shutil.rmtree(run_dir, ignore_errors=True)
+    except OSError:
+        pass
+
+
+# --------------------------------------------------------------- 锚定表 ----
+
+
+class _AnchorShapeError(ValueError):
+    """锚定表形状非法(doctor 归 unknown;发送归 24,fail-closed)。"""
+
+
+def _parse_hex_int(value: Any, field_name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        raise _AnchorShapeError(f"{field_name} 须为 0x 十六进制串或整数")
+    text = str(value).strip().lower()
+    if not text.startswith("0x"):
+        raise _AnchorShapeError(f"{field_name} 须为 0x 前缀形态: {value!r}")
+    try:
+        return int(text, 16)
+    except ValueError as exc:
+        raise _AnchorShapeError(f"{field_name} 非法十六进制: {value!r}") from exc
+
+
+def _parse_hex_bytes(value: Any, field_name: str) -> bytes:
+    if not isinstance(value, str):
+        raise _AnchorShapeError(f"{field_name} 须为 hex 串")
+    text = value.strip().lower().removeprefix("0x")
+    if len(text) % 2:
+        raise _AnchorShapeError(f"{field_name} hex 长度须为偶数")
+    try:
+        return bytes.fromhex(text)
+    except ValueError as exc:
+        raise _AnchorShapeError(f"{field_name} 非法 hex: {value!r}") from exc
+
+
+@dataclass(frozen=True)
+class AnchorTable:
+    """锚定表已验证形态(§2.6 schema 3;全部 slide 相对量)。
+
+    ``send_entry``/``service_ptr_mode`` 允许 None(r4 钉入轮未落)——此时
+    版本门可验(dry-run 链路),但**不可调用**(:meth:`callable_for_send`
+    False → 发送路径 24 拒调,不猜)。
+    """
+
+    wechat_version: str
+    slice_sha256: str
+    anchor_offset: int
+    anchor_bytes: bytes
+    pump_resume: int | None
+    enqueue_a: int | None
+    enqueue_b: int | None
+    send_entry: int | None
+    peer_slot: str
+    body_slot: str
+    string_form: str
+    by_value: bool
+    buffer_mode: str
+    service_ptr_mode: str | None
+    service_global_off: int | None
+    queue_selector: str
+    queue_delta: int
+    svc_vtable_off: int | None
+    svc_invariants: bytes | None
+
+    def callable_for_send(self) -> bool:
+        """发送就绪判定:F_send 入口 + ABI + 服务对象获取式 + 活性锚全在。"""
+        return (
+            self.send_entry is not None
+            and self.service_ptr_mode in ("global", "observe_bp")
+            and self.svc_vtable_off is not None
+            and self.svc_invariants is not None
+            and (self.service_ptr_mode != "global" or self.service_global_off is not None)
+        )
+
+
+def anchor_file_path(data_root: Path | None = None) -> Path:
+    """锚定表绝对路径(数据根私有路径族;§7-4 固定路径)。"""
+    root = data_root if data_root is not None else myssia_home()
+    return root / ANCHOR_REL_PATH
+
+
+def anchor_file_state(data_root: Path | None = None) -> str:
+    """锚定表在位态:absent / ok / malformed(doctor 三态源)。"""
+    path = anchor_file_path(data_root)
+    if not path.is_file():
+        return "absent"
+    try:
+        load_anchor_table(data_root)
+    except _AnchorShapeError:
+        return "malformed"
+    return "ok"
+
+
+def load_anchor_table(data_root: Path | None = None) -> AnchorTable:
+    """读+验证锚定表(缺文件/形状错 → _AnchorShapeError,调用方归位)。
+
+    Raises:
+        _AnchorShapeError: 文件缺位/JSON 坏/必备键缺/hex 形态错。
+    """
+    path = anchor_file_path(data_root)
+    if not path.is_file():
+        raise _AnchorShapeError(f"锚定表缺位: {path}")
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise _AnchorShapeError(f"锚定表不可读或非合法 JSON: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise _AnchorShapeError("锚定表顶层须为键值映射")
+    if raw.get("schema") != 3:
+        raise _AnchorShapeError(f"锚定表 schema 须为 3,当前为 {raw.get('schema')!r}")
+    for key in ("wechat_version", "dylib_arm64_slice_sha256", "anchor_offset",
+                "anchor_bytes_hex", "offsets"):
+        if key not in raw:
+            raise _AnchorShapeError(f"锚定表缺必备键 {key}")
+    offsets = raw.get("offsets")
+    if not isinstance(offsets, dict):
+        raise _AnchorShapeError("锚定表 offsets 须为键值映射")
+    slice_hex = str(raw["dylib_arm64_slice_sha256"]).strip().lower()
+    if len(slice_hex) != 64:
+        raise _AnchorShapeError("dylib_arm64_slice_sha256 须为 64 位 hex")
+    try:
+        bytes.fromhex(slice_hex)
+    except ValueError as exc:
+        raise _AnchorShapeError("dylib_arm64_slice_sha256 非法 hex") from exc
+    arg_abi = offsets.get("arg_abi") or {}
+    if not isinstance(arg_abi, dict):
+        raise _AnchorShapeError("offsets.arg_abi 须为键值映射")
+
+    def _opt_off(key: str) -> int | None:
+        raw_value = offsets.get(key)
+        return (
+            None
+            if raw_value in (None, "", "null")
+            else _parse_hex_int(raw_value, key)
+        )
+
+    send_entry = _opt_off("send_entry")
+    pump_resume = _opt_off("pump_resume")
+    enqueue_a = _opt_off("enqueue_a")
+    enqueue_b = _opt_off("enqueue_b")
+    service_mode = offsets.get("service_ptr_mode")
+    if service_mode not in (None, "global", "observe_bp"):
+        raise _AnchorShapeError(f"service_ptr_mode 非法: {service_mode!r}")
+    global_off_raw = offsets.get("service_global_off")
+    service_global_off = (
+        None
+        if global_off_raw in (None, "", "null")
+        else _parse_hex_int(global_off_raw, "service_global_off")
+    )
+    queue_selector = offsets.get("queue_selector", "enqueue_a")
+    if queue_selector not in ("enqueue_a", "enqueue_b", "same"):
+        raise _AnchorShapeError(f"queue_selector 非法: {queue_selector!r}")
+    vtable_raw = offsets.get("svc_vtable_off")
+    svc_vtable_off = (
+        None
+        if vtable_raw in (None, "", "null")
+        else _parse_hex_int(vtable_raw, "svc_vtable_off")
+    )
+    invariants_raw = offsets.get("svc_invariants_hex")
+    svc_invariants = (
+        None
+        if invariants_raw in (None, "")
+        else _parse_hex_bytes(invariants_raw, "svc_invariants_hex")
+    )
+    return AnchorTable(
+        wechat_version=str(raw["wechat_version"]),
+        slice_sha256=slice_hex,
+        anchor_offset=_parse_hex_int(raw["anchor_offset"], "anchor_offset"),
+        anchor_bytes=_parse_hex_bytes(raw["anchor_bytes_hex"], "anchor_bytes_hex"),
+        pump_resume=pump_resume,
+        enqueue_a=enqueue_a,
+        enqueue_b=enqueue_b,
+        send_entry=send_entry,
+        peer_slot=str(arg_abi.get("peer_slot", "x1")),
+        body_slot=str(arg_abi.get("body_slot", "x2")),
+        string_form=str(arg_abi.get("string_form", "inline23_rawlen")),
+        by_value=bool(arg_abi.get("by_value", False)),
+        buffer_mode=str(arg_abi.get("buffer_mode", "expr_local")),
+        service_ptr_mode=service_mode,
+        service_global_off=service_global_off,
+        queue_selector=queue_selector,
+        queue_delta=_parse_hex_int(offsets.get("queue_delta", "0x1c0"), "queue_delta"),
+        svc_vtable_off=svc_vtable_off,
+        svc_invariants=svc_invariants,
+    )
+
+
+# --------------------------------------------------- 切片哈希(F10 算法)----
+
+
+def slice_arm64_sha256(dylib_path: Path) -> str | None:
+    """磁盘 wechat.dylib 的 arm64 切片 sha256(F10 端到端亲验算法)。
+
+    FAT(大端 0xcafebabe):解析 fat_header.nfat_arch + 20B fat_arch 表,
+    取 cputype==arm64 条目对 ``[offset, offset+size)`` 区间哈希;纯 thin
+    (小端 0xfeedfacf):整文件哈希;其他魔数 → None(形态未知,不猜)。
+    分块读(4MiB)避免整载 ~165MiB。
+    """
+    digest = hashlib.sha256()
+    with open(dylib_path, "rb") as handle:
+        head = handle.read(8)
+        if len(head) < 8:
+            return None
+        if head[:4] == b"\xca\xfe\xba\xbe":
+            nfat = struct.unpack(">I", head[4:8])[0]
+            if nfat == 0 or nfat > 16:
+                return None
+            table = handle.read(20 * nfat)
+            if len(table) < 20 * nfat:
+                return None
+            chosen: tuple[int, int] | None = None
+            for index in range(nfat):
+                cputype, _cpusub, offset, size = struct.unpack_from(
+                    ">IIII", table, index * 20
+                )
+                if cputype == ARM64_CPUTYPE:
+                    chosen = (offset, size)
+                    break
+            if chosen is None:
+                return None
+            handle.seek(chosen[0])
+            remaining = chosen[1]
+        elif struct.unpack("<I", head[:4])[0] == THIN_MAGIC_64:
+            handle.seek(0)
+            remaining = os.fstat(handle.fileno()).st_size
+        else:
+            return None
+        while remaining > 0:
+            chunk = handle.read(min(4 * 1024 * 1024, remaining))
+            if not chunk:
+                return None
+            digest.update(chunk)
+            remaining -= len(chunk)
+    return digest.hexdigest()
+
+
+# --------------------------------------------------------- 工件生成(纯)----
+
+
+def inline23_bytes(encoded: bytes) -> list[int]:
+    """23 容量+末字节裸长度的 24B 记录(F3 形态;长度=**UTF-8 字节数**,
+    嘻嘻=6、8 个汉字=24 → 调用方长度门先拒)。
+
+    Raises:
+        ValueError: 编码后字节数 >23(inline 容量上限;§7-6 可翻案点)。
+    """
+    if len(encoded) > MAX_INLINE_STRING_BYTES:
+        raise ValueError(
+            f"inline23 容量上限 {MAX_INLINE_STRING_BYTES} 字节(UTF-8 字节数,"
+            f"非字符数),当前 {len(encoded)}"
+        )
+    padded = list(encoded) + [0] * (24 - len(encoded) - 1)
+    return padded + [len(encoded)]
+
+
+def build_call_expr(
+    send_entry_off: int,
+    slide: int,
+    svc_addr: int,
+    peer_utf8: bytes,
+    body_utf8: bytes,
+    *,
+    by_value: bool = False,
+) -> str:
+    """§2.1 主配方 expr 文本(纯函数;唯一会碰微信内存的工件,golden 直测)。
+
+    - 串一律十进制字节数组字面量(非 ASCII 安全,规避编码层);
+    - 调用地址 = ``0x<slide+send_entry_off>``(运行期解析值代入);
+    - by_value=False:24B 记录取址传引用(预期形态);True:struct 传值
+      (r4 ABI dump 二选一,模板兼容)。
+
+    原语收 5 个标量/字节参数(锚定表无关)——lldb 内探针(senddirect_probe)
+    经包导入同一函数构造 expr,单一出处防近亲漂移。
+    """
+    peer = inline23_bytes(peer_utf8)
+    body = inline23_bytes(body_utf8)
+    call_addr = slide + send_entry_off
+    if by_value:
+        return (
+            "(int)({\n"
+            "  struct __senddirect_str23 { unsigned char b[24]; };\n"
+            "  struct __senddirect_str23 peer = {{" + ",".join(str(v) for v in peer) + "}};\n"
+            "  struct __senddirect_str23 body = {{" + ",".join(str(v) for v in body) + "}};\n"
+            "  ((int(*)(void*, struct __senddirect_str23, struct __senddirect_str23))"
+            f"0x{call_addr:x})((void*)0x{svc_addr:x}, peer, body);\n"
+            "})"
+        )
+    return (
+        "(int)({\n"
+        "  unsigned char peer[24] = {" + ",".join(str(v) for v in peer) + "};\n"
+        "  unsigned char body[24] = {" + ",".join(str(v) for v in body) + "};\n"
+        f"  ((int(*)(void*,void*,void*))0x{call_addr:x})"
+        f"((void*)0x{svc_addr:x}, (void*)peer, (void*)body);\n"
+        "})"
+    )
+
+
+def build_cmd_text(pid: int, probe_path: Path) -> str:
+    """lldb 批式 cmd 文件文本(attach-快进-detach;条件流全在 probe 内)。"""
+    return (
+        f"attach -p {pid}\n"
+        f'command script import "{probe_path}"\n'
+        "script senddirect_probe.run()\n"
+        "detach\n"
+        "quit\n"
+    )
+
+
+# ------------------------------------------------------------ 前置检查 ----
+
+
+def wechat_pid() -> int | None:
+    """微信进程 pid(pgrep -x WeChat;不在 → None)。"""
+    from . import system_checks as sc
+
+    if not sc.wechat_process_running():
+        return None
+    try:
+        completed = subprocess.run(
+            ["pgrep", "-x", "WeChat"], capture_output=True, text=True, timeout=5
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in completed.stdout.splitlines():
+        line = line.strip()
+        if line.isdigit():
+            return int(line)
+    return None
+
+
+def lldb_executable() -> str | None:
+    """lldb 可执行文件解析(shutil.which;缺 = xcode CLT 缺)。"""
+    return shutil.which("lldb")
+
+
+def require_lldb() -> str:
+    """前置门:lldb 缺 → exit 1 lldb_not_found(→OCR 降级,§3.3)。"""
+    found = lldb_executable()
+    if found is None:
+        raise BridgeError(
+            EXIT_GENERIC_FAILURE,
+            "lldb 不在 PATH(xcode Command Line Tools 缺?):直发通道不可用",
+            code="lldb_not_found",
+            fix_hint="xcode-select --install 后重试;或走 send_text(UI/OCR 链)",
+        )
+    return found
+
+
+# -------------------------------------------------------- lldb 批驱动 ----
+
+
+@dataclass
+class BatchOutcome:
+    """一次 lldb 批的桥侧观测(哨兵文件由 probe 写,本类只汇总进程面)。"""
+
+    returncode: int | None
+    timed_out: bool
+    killed: bool
+    armed_seen: bool
+    log_path: Path
+
+
+def _read_sentinel(run_dir: Path, name: str) -> dict[str, Any] | None:
+    path = run_dir / name
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def run_lldb_batch(
+    lldb_path: str,
+    cmd_path: Path,
+    run_dir: Path,
+    request_path: Path,
+    *,
+    timeout_s: float = LLDB_BATCH_TIMEOUT_S,
+    grace_s: float = LLDB_SIGINT_GRACE_S,
+    on_armed: Callable[[], None] | None = None,
+    poll_s: float = SENTINEL_POLL_S,
+    sleep: Callable[[float], None] = _sleep,
+    monotonic: Callable[[], float] = time.monotonic,
+) -> BatchOutcome:
+    """spawn 单次 lldb 批并按 §3.3 杀伤序列守护(轮询 ARMED 哨兵)。
+
+    超时序:SIGINT(批余段跑 detach)→ 宽限 → SIGKILL(SIGKILL 不保证
+    PT_DETACH → 微信可能残留停止态,冻结面由调用方探测,§5)。
+    """
+    log_path = run_dir / "lldb-batch.log"
+    environment = dict(os.environ)
+    environment["SENDDIRECT_RUN_DIR"] = str(run_dir)
+    environment["SENDDIRECT_REQUEST"] = str(request_path)
+    killed = False
+    with open(log_path, "wb") as log:
+        process = subprocess.Popen(
+            [lldb_path, "-b", "-s", str(cmd_path)],
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            env=environment,
+        )
+        deadline = monotonic() + timeout_s
+        timed_out = False
+        armed_seen = False
+        try:
+            while True:
+                if not armed_seen and (run_dir / "ARMED.json").is_file():
+                    armed_seen = True
+                    if on_armed is not None:
+                        on_armed()
+                if process.poll() is not None:
+                    break
+                if monotonic() >= deadline:
+                    timed_out = True
+                    break
+                sleep(poll_s)
+        finally:
+            # 杀伤序列(§3.3):SIGINT(批余段跑 detach)→ 宽限 → SIGKILL。
+            if process.poll() is None:
+                process.send_signal(signal.SIGINT)
+                grace_deadline = monotonic() + grace_s
+                while process.poll() is None and monotonic() < grace_deadline:
+                    sleep(poll_s)
+                if process.poll() is None:
+                    process.kill()
+                    killed = True
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:  # pragma: no cover
+                    process.kill()
+    returncode = process.poll()
+    if not armed_seen and (run_dir / "ARMED.json").is_file():
+        armed_seen = True
+        if on_armed is not None:
+            on_armed()
+    return BatchOutcome(
+        returncode=returncode,
+        timed_out=timed_out,
+        killed=killed,
+        armed_seen=armed_seen,
+        log_path=log_path,
+    )
+
+
+# ------------------------------------------------------- 冻结探测(§5)----
+
+
+def _alive_note() -> str:
+    """杀伤/超时路径的微信存活注记(§5:桥必做存活探测;只探测不处置)。"""
+    from . import system_checks as sc
+
+    if not sc.wechat_process_running():
+        return "微信进程不在(疑似崩溃,非冻结)"
+    window = sc.wechat_main_window_open()
+    if window is False:
+        return "进程在、主窗口不可探(SIGKILL 不保证 PT_DETACH,可能残留停止态=冻结)"
+    if window is None:
+        return "进程在、窗口探测不可及"
+    return "进程在、窗口在"
+
+
+def _frozen_report(outcome: BatchOutcome, armed: bool) -> BridgeError:
+    """SIGKILL 收兵路径的存活探测 + 结构化 wechat_frozen 报(绝不自动 kill)。"""
+    note = _alive_note()
+    if note.startswith("进程在"):
+        message = (
+            f"lldb 批 SIGKILL 收兵(SIGKILL 不保证 PT_DETACH,微信可能残留"
+            f"停止态):{note};armed={armed}"
+        )
+    else:
+        message = f"lldb 批 SIGKILL 收兵后微信进程不在(疑似崩溃,非冻结);armed={armed}"
+    return BridgeError(
+        EXIT_GENERIC_FAILURE,
+        message,
+        code="wechat_frozen",
+        fix_hint="人工检查/重启微信后重试;桥绝不自动 kill 微信(§5 红线)",
+    )
+
+
+# ----------------------------------------------------------- 主执行链 ----
+
+
+@dataclass
+class _RunArtifacts:
+    """一次直发的工件落位(0700 run_dir;finally 经 _cleanup_run_dir 全清)。
+
+    ``run_dir`` 起步恒 None(事故加固,S15)——仅 mkdtemp 赋值后才有清理面。
+    """
+
+    run_dir: Path | None = None
+    request_path: Path | None = None
+    cmd_path: Path | None = None
+    attach_ms: int | None = None
+    slide: int | None = None
+    svc: int | None = None
+    call_rc: int | None = None
+    receipt: str | None = None
+
+
+def _unanchored(reason: str, detail: str = "") -> BridgeError:
+    return BridgeError(
+        SEND_DIRECT_UNANCHORED,
+        f"直发版本门/活性验未过({reason}{': ' + detail if detail else ''}):"
+        "微信已换包或锚定表失配——未调用,零风险",
+        fix_hint="微信更新后须重锚(r4 钉入轮);期间走 send_text(UI/OCR 链)",
+    )
+
+
+def execute_send(
+    config: BridgeConfig,
+    target: Any,
+    body: str,
+    *,
+    dry_run: bool = False,
+    on_armed: Callable[[], None] | None = None,
+    on_receipt_green: Callable[[], None] | None = None,
+    receipt_query: Callable[[str, str, float], bool | None] | None = None,
+    data_root: Path | None = None,
+    now: Callable[[], float] | None = None,
+    sleep: Callable[[float], None] | None = None,
+    timeout_s: float = LLDB_BATCH_TIMEOUT_S,
+    grace_s: float = LLDB_SIGINT_GRACE_S,
+    lldb_path: str | None = None,
+) -> dict[str, Any]:
+    """send_direct 主链(§3.1 步骤 6-9;步骤 1-5 前置由 CLI 分支完成)。
+
+    ``now``/``sleep`` 缺省经**模块属性**惰性解析(调用时取
+    :data:`_now`/:data:`_sleep`)——CLI 级单测 monkeypatch 模块属性即可
+    换假钟/免睡,不经参数穿透。
+
+    Raises:
+        BridgeError: 24(门未过,armed 前)/ 17(armed 后超时或回执未绿)/
+            30(armed 前超时)/ 1(call_failed·frozen·attach_failed)。
+    """
+    now_fn = now if now is not None else _now
+    sleep_fn = sleep if sleep is not None else _sleep
+    started = now_fn()
+    artifacts = _RunArtifacts()
+    try:
+        try:
+            anchor = load_anchor_table(data_root)
+        except _AnchorShapeError as exc:
+            raise _unanchored("anchor_file", str(exc)) from exc
+        if not dry_run and not anchor.callable_for_send():
+            missing = []
+            if anchor.send_entry is None:
+                missing.append("send_entry")
+            if anchor.service_ptr_mode is None:
+                missing.append("service_ptr_mode")
+            elif anchor.service_ptr_mode == "global" and anchor.service_global_off is None:
+                missing.append("service_global_off")
+            if anchor.svc_vtable_off is None:
+                missing.append("svc_vtable_off")
+            if anchor.svc_invariants is None:
+                missing.append("svc_invariants_hex")
+            raise _unanchored("anchor_incomplete", "缺 " + ",".join(missing))
+        pid = wechat_pid()
+        if pid is None:
+            raise BridgeError(
+                WECHAT_NOT_RUNNING, "微信进程不在:直发通道前置失败"
+            )
+        resolved_lldb = lldb_path if lldb_path is not None else require_lldb()
+        probe_path = Path(__file__).with_name("senddirect_probe.py")
+
+        # —— 工件落位(0700 run_dir;请求含正文材料,finally 全清)——
+        run_dir = Path(tempfile.mkdtemp(prefix="wechat-bridge-send-direct-"))
+        os.chmod(run_dir, 0o700)
+        artifacts.run_dir = run_dir
+        request: dict[str, Any] = {
+            "mode": "dry_run" if dry_run else "call",
+            "anchor": {
+                "slice_sha256": anchor.slice_sha256,
+                "anchor_offset": f"0x{anchor.anchor_offset:x}",
+                "anchor_bytes_hex": anchor.anchor_bytes.hex(),
+                "enqueue_a": None if anchor.enqueue_a is None else f"0x{anchor.enqueue_a:x}",
+                "enqueue_b": None if anchor.enqueue_b is None else f"0x{anchor.enqueue_b:x}",
+                "service_ptr_mode": anchor.service_ptr_mode,
+                "service_global_off": (
+                    None
+                    if anchor.service_global_off is None
+                    else f"0x{anchor.service_global_off:x}"
+                ),
+                "queue_selector": anchor.queue_selector,
+                "queue_delta": f"0x{anchor.queue_delta:x}",
+                "svc_vtable_off": (
+                    None if anchor.svc_vtable_off is None else f"0x{anchor.svc_vtable_off:x}"
+                ),
+                "svc_invariants_hex": (
+                    None if anchor.svc_invariants is None else anchor.svc_invariants.hex()
+                ),
+            },
+        }
+        if not dry_run:
+            # 调用载荷(探针侧经包导入 build_call_expr 构造 expr;run_dir
+            # 0700 且 finally 全清,零内容残留——§5 隐私)。
+            request["call"] = {
+                "send_entry": f"0x{anchor.send_entry:x}",
+                "by_value": anchor.by_value,
+                "peer": list(target.username.encode("utf-8")),
+                "body": list(body.encode("utf-8")),
+            }
+        request_path = run_dir / "request.json"
+        request_path.write_text(
+            json.dumps(request, ensure_ascii=False, indent=1), encoding="utf-8"
+        )
+        artifacts.request_path = request_path
+        cmd_path = run_dir / "lldb.cmd"
+        cmd_path.write_text(build_cmd_text(pid, probe_path), encoding="utf-8")
+        artifacts.cmd_path = cmd_path
+
+        outcome = run_lldb_batch(
+            resolved_lldb,
+            cmd_path,
+            run_dir,
+            request_path,
+            timeout_s=timeout_s,
+            grace_s=grace_s,
+            on_armed=on_armed,
+            sleep=sleep_fn,
+        )
+        armed = outcome.armed_seen
+
+        # —— 哨兵判读(§3.1 步骤 7/8;哨兵真值优先于驱动器状态)——
+        preflight_fail = _read_sentinel(run_dir, "PREFLIGHT_FAIL.json")
+        preflight_ok = _read_sentinel(run_dir, "PREFLIGHT_OK.json")
+        error_sentinel = _read_sentinel(run_dir, "ERROR.json")
+        done_sentinel = _read_sentinel(run_dir, "DONE.json")
+
+        if preflight_fail is not None:
+            reason = str(preflight_fail.get("reason", "preflight"))
+            if reason == "attach":
+                # attach 拒(并行调试器/权限)= 独立族,非版本失配(§3.3)。
+                raise BridgeError(
+                    EXIT_GENERIC_FAILURE,
+                    "lldb attach 拒(并行调试器/权限):"
+                    f"{preflight_fail.get('detail', '')}",
+                    code="lldb_attach_failed",
+                    fix_hint="排队等并行 lldb 会话收兵后重试;绝不绕过 attach 失败(§5)",
+                )
+            raise _unanchored(reason, str(preflight_fail.get("detail", "")))
+        if error_sentinel is not None and error_sentinel.get("stage") == "attach":
+            raise BridgeError(
+                EXIT_GENERIC_FAILURE,
+                "lldb attach 拒(并行调试器/权限):"
+                f"{error_sentinel.get('detail', '')}",
+                code="lldb_attach_failed",
+                fix_hint="排队等并行 lldb 会话收兵后重试;绝不绕过 attach 失败(§5)",
+            )
+        if preflight_ok is not None:
+            artifacts.attach_ms = preflight_ok.get("attach_ms")
+            artifacts.slide = preflight_ok.get("slide")
+            artifacts.svc = preflight_ok.get("svc")
+        if outcome.timed_out and not armed:
+            # armed 前超时 = 30 + rollback(§3.3;SIGKILL 收兵附存活注记)。
+            raise BridgeError(
+                TIMEOUT,
+                f"lldb 批超时(armed 前 {timeout_s:.0f}s 带宽):未进入调用;"
+                f"存活注记:{_alive_note()}",
+            )
+        if dry_run:
+            # dry-run 到活性验即停(§3.1):零占位零指纹零调用,恒成功载荷。
+            return {
+                "send": {
+                    "target": {
+                        "username": target.username,
+                        "display_name": target.display_name,
+                    },
+                    "sent": False,
+                    "dry_run": True,
+                    "channel": "direct",
+                    "anchor_build": anchor.wechat_version,
+                    "preflight": (
+                        "ok"
+                        if preflight_ok is not None
+                        else f"unknown(哨兵缺失:rc={outcome.returncode})"
+                    ),
+                    "elapsed_ms": round((now_fn() - started) * 1000),
+                }
+            }
+        if outcome.timed_out and armed:
+            raise BridgeError(
+                SEND_UNCERTAIN_DEDUP,
+                f"lldb 批超时(armed 后 {timeout_s:.0f}s):expr 已提交,发送状态"
+                f"不确定——绝不自动重试;存活注记:{_alive_note()}",
+            )
+        if error_sentinel is not None and error_sentinel.get("stage") == "call":
+            detail = str(error_sentinel.get("detail", ""))
+            receipt_state = _poll_receipt(
+                receipt_query, target.username, body, started, sleep=sleep_fn, now=now_fn
+            )
+            if receipt_state is True:
+                if on_receipt_green is not None:
+                    on_receipt_green()
+                return _sent_payload(target, anchor, artifacts, started, 0, "green", now=now_fn)
+            raise BridgeError(
+                EXIT_GENERIC_FAILURE,
+                f"expr 已执行但返回异常且回执未绿:{detail}",
+                code="send_direct_call_failed",
+                fix_hint="人工确认发送结果;绝不自动重试(armed 后同指纹 pending 锁 120s)",
+            )
+        if done_sentinel is not None:
+            call_rc = done_sentinel.get("call_rc")
+            artifacts.call_rc = call_rc if isinstance(call_rc, int) else None
+            receipt_state = _poll_receipt(
+                receipt_query, target.username, body, started, sleep=sleep_fn, now=now_fn
+            )
+            if receipt_state is True:
+                if on_receipt_green is not None:
+                    on_receipt_green()
+                return _sent_payload(
+                    target, anchor, artifacts, started, artifacts.call_rc, "green", now=now_fn
+                )
+            raise BridgeError(
+                SEND_UNCERTAIN_DEDUP,
+                "expr 已提交且返回,但回执未绿(localdb 未见落库):发送状态"
+                "不确定——绝不自动重试",
+            )
+        if outcome.killed:
+            # SIGKILL 收兵 + 无终态哨兵 → 冻结探测 + 结构化报(§5;绝不
+            # 自动 kill 微信)。
+            raise _frozen_report(outcome, armed)
+        if not armed:
+            # 未 armed 且无哨兵(批早退/probe 未装载):形态未知,24 拒。
+            raise _unanchored(
+                "no_armed",
+                f"批未进入调用段(armed 哨兵缺失;rc={outcome.returncode})",
+            )
+        # armed 但无 DONE/ERROR/杀伤(哨兵缺失的中间态):按不确定处理。
+        raise BridgeError(
+            SEND_UNCERTAIN_DEDUP,
+            f"expr 已提交但终态哨兵缺失(rc={outcome.returncode}):发送状态"
+            "不确定——绝不自动重试",
+        )
+    finally:
+        _cleanup_run_dir(artifacts.run_dir)
+
+
+def _sent_payload(
+    target: Any,
+    anchor: AnchorTable,
+    artifacts: _RunArtifacts,
+    started: float,
+    call_rc: int | None,
+    receipt: str,
+    now: Callable[[], float] | None = None,
+) -> dict[str, Any]:
+    """成功应答(§3.1 形状;键序稳定供 golden 对账)。"""
+    now_fn = now if now is not None else _now
+    return {
+        "send": {
+            "target": {
+                "username": target.username,
+                "display_name": target.display_name,
+            },
+            "sent": True,
+            "channel": "direct",
+            "anchor_build": anchor.wechat_version,
+            "lldb": {
+                "attach_ms": artifacts.attach_ms,
+                "call_rc": call_rc,
+                "receipt": receipt,
+            },
+            "elapsed_ms": round((now_fn() - started) * 1000),
+        }
+    }
+
+
+def _poll_receipt(
+    receipt_query: Callable[[str, str, float], bool | None] | None,
+    username: str,
+    body: str,
+    since_epoch: float,
+    *,
+    sleep: Callable[[float], None],
+    now: Callable[[], float] = _now,
+) -> bool | None:
+    """localdb 回执终验轮询(sendui._poll_receipt 同构:0+(5,10,15)s 退避)。
+
+    True=落库;False=查询可执行但超窗未见;None=链失败。
+    """
+    if receipt_query is None:
+        return None
+    executed = False
+    for gap in (0.0,) + tuple(RECEIPT_POLL_SCHEDULE):
+        if gap:
+            sleep(gap)
+        try:
+            if receipt_query(username, body, since_epoch) is True:
+                return True
+            executed = True
+        except Exception:  # noqa: BLE001 - 链失败如实 None/继续轮询
+            continue
+    return False if executed else None
+
+
+# --------------------------------------------------------- doctor 探针 ----
+
+
+def doctor_direct_channel(
+    config: BridgeConfig,
+    data_root: Path | None = None,
+    *,
+    validator: Callable[[], dict[str, Any]] | None = None,
+    lldb_check: Callable[[], str | None] | None = None,
+) -> dict[str, Any]:
+    """doctor ``direct_channel`` 节(§3.5;恒不判错,探针失败≠通道失败)。
+
+    形状:``{enabled, anchored, lldb, last_anchor_build, slice_sha256_matched}``。
+    轻量 attach 验证仅在 enabled(豁免门开)时做——排队纪律+零扰动;缺
+    锚定表/门关时如实呈态不 attach。anchored ∈ ok|mismatch|no_anchor_file|
+    unknown(attach 不畅 = unknown 不判死)。
+    """
+    lldb_state = "ok" if (lldb_check or lldb_executable)() is not None else "missing"
+    state = anchor_file_state(data_root)
+    last_build: str | None = None
+    slice_matched: bool | None = None
+    if state == "ok":
+        try:
+            anchor = load_anchor_table(data_root)
+            last_build = anchor.wechat_version
+        except _AnchorShapeError:
+            state = "malformed"
+    anchored_state = {
+        "absent": "no_anchor_file",
+        "malformed": "unknown",
+        "ok": "unknown",
+    }[state]
+    if state == "ok" and config.send_direct_enabled and lldb_state == "ok":
+        if validator is not None:
+            report = validator()
+        else:
+            report = _default_anchor_validator(config, data_root)
+        verdict = report.get("anchored")
+        if verdict in ("ok", "mismatch", "unknown"):
+            anchored_state = verdict
+        slice_matched = report.get("slice_sha256_matched")
+    return {
+        "enabled": bool(config.send_direct_enabled),
+        "anchored": anchored_state,
+        "lldb": lldb_state,
+        "last_anchor_build": last_build,
+        "slice_sha256_matched": slice_matched,
+    }
+
+
+def _default_anchor_validator(
+    config: BridgeConfig, data_root: Path | None
+) -> dict[str, Any]:
+    """默认轻量验证:跑一次 dry-run 批(无断点,attach+门+detach ≈5-8s)。
+
+    探针失败≠通道失败(发送时自会再验);attach 不畅 → unknown。
+    """
+    from . import sendtarget  # 局部 import 防环
+
+    probe_target = sendtarget.SendTarget(
+        username="filehelper", alias=None, display_name="", search_term=""
+    )
+    try:
+        execute_send(
+            config,
+            probe_target,
+            "",
+            dry_run=True,
+            data_root=data_root,
+            timeout_s=30.0,
+        )
+        return {"anchored": "ok", "slice_sha256_matched": True}
+    except BridgeError as exc:
+        if exc.exit_code == SEND_DIRECT_UNANCHORED:
+            return {"anchored": "mismatch", "slice_sha256_matched": False}
+        return {"anchored": "unknown", "slice_sha256_matched": None}

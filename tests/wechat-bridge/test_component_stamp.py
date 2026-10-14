@@ -22,6 +22,7 @@ from wechat_bridge.config import (
     MEDIA_DECRYPT_PATH_DEFAULT,
     MEM_SEARCH_ENABLED_DEFAULT,
     MESSAGES_DEFAULT,
+    SEND_DIRECT_ENABLED_DEFAULT,
     SESSIONS_DEFAULT,
 )
 
@@ -104,7 +105,10 @@ class TestStampLock:
             "http_api_host",
             "http_api_port",
             "http_api_token",
+            "send_direct_enabled",
         }
+        assert defaults["send_direct_enabled"] is SEND_DIRECT_ENABLED_DEFAULT
+        assert SEND_DIRECT_ENABLED_DEFAULT is False
         assert "G6" in _stamp()["config"]["rate_limit"]
 
     def test_redlines_documented(self) -> None:

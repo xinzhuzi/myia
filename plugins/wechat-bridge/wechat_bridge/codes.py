@@ -25,6 +25,7 @@ __all__ = [
     "SEND_AX_FOCUS_REQUIRED",
     "SEND_RATE_LIMITED",
     "SEND_UNCERTAIN_DEDUP",
+    "SEND_DIRECT_UNANCHORED",
     "MEDIA_UNAVAILABLE",
     "TIMEOUT",
     "USAGE",
@@ -64,6 +65,11 @@ DECRYPT_FAILED = 22
 #: 10-14-wechat-media-sns:媒体面结构化降级,文本链零影响)。media.py 的
 #: try-import fallback 同值 23,键落位后接线前后行为一致。
 MEDIA_UNAVAILABLE = 23
+#: 直发通道锚定失配(task 10-14-wechat-sendmsg-direct design-阶段3 §3.3
+#: 修订):arm64 切片哈希主门/16B 锚字节副门/模块锁定/服务对象活性验任一
+#: 不过(微信已换包或锚定表缺位)——**未调用,零风险**,一律 rollback 后
+#: 可走 OCR 链。重锚税=微信版本更新,非每次重启(锚定表存 slide 相对量)。
+SEND_DIRECT_UNANCHORED = 24
 TIMEOUT = 30
 
 #: exit 码 → 码名(§6 表的程序化形态;MYIA 侧/UI 文案映射与单测对账用)。
@@ -81,6 +87,7 @@ CODE_NAMES: dict[int, str] = {
     KEY_UNAVAILABLE: "key_unavailable",
     DECRYPT_FAILED: "decrypt_failed",
     MEDIA_UNAVAILABLE: "media_unavailable",  # 23(2026-10-14 design §6 修订)
+    SEND_DIRECT_UNANCHORED: "send_direct_unanchored",  # 24(10-14-wechat-sendmsg-direct 阶段3)
     TIMEOUT: "timeout",
 }
 

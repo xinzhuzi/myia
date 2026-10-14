@@ -14,6 +14,7 @@
     wechat-bridge sessions list --json
     wechat-bridge messages read <id> -k 50
     wechat-bridge send_text <id> --file -
+    wechat-bridge send_direct <id> --file - [--dry-run]   # 直发通道(阶段3;配置门缺省关)
     wechat-bridge localdb query <chat> --since 7d --json
     wechat-bridge localdb page <chat> --limit 500 [--cursor/--from-ts/--to-ts/--types/--sender/--asc]
     wechat-bridge localdb conversations [--limit 500]
@@ -54,11 +55,18 @@ from . import (
     media,
     memsearch,
     notify_query,
+    senddirect,
     sendtarget,
     sns_export,
     stats_query,
 )
-from .codes import EXIT_GENERIC_FAILURE, EXIT_OK, EXIT_USAGE, BridgeError
+from .codes import (
+    EXIT_GENERIC_FAILURE,
+    EXIT_OK,
+    EXIT_USAGE,
+    WECHAT_NOT_RUNNING,
+    BridgeError,
+)
 from .config import BridgeConfig, load_config, save_config_key
 from .probe import run_doctor, run_probe
 from .send_state import SendRateState
@@ -144,6 +152,26 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         default=False,
         help="走到粘贴回读不回车;零频控副作用可重跑(导航/哨兵/聚焦证据链实测面)",
+    )
+
+    # 直发通道(task 10-14-wechat-sendmsg-direct 阶段3 §3.1):LLDB 批式
+    # 函数直调,与 send_text 同族形态(argv 永不载正文);缺省配置门关。
+    send_direct = sub.add_parser(
+        "send_direct",
+        help="直发通道(LLDB 函数直调,阶段3;G6 同频控;配置门缺省关)",
+    )
+    send_direct.add_argument("chat_id", metavar="id", help="目标会话 id")
+    send_direct.add_argument(
+        "--file",
+        required=True,
+        metavar="PATH",
+        help="正文来源;仅 '-' = stdin(argv 永不携带正文)",
+    )
+    send_direct.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="走到版本门+目标解析+活性验即停;零占位零指纹零调用(锚定链路实测面)",
     )
 
     # doctor(task 10-14-wechat-send-text design §E-2):--probe 超集 + send
@@ -483,6 +511,7 @@ def build_parser() -> argparse.ArgumentParser:
         messages,
         messages_read,
         send,
+        send_direct,
         localdb_cmd,
         localdb_query,
         localdb_key_scan,
@@ -574,6 +603,45 @@ def _parse_since_days(raw: str) -> int:
             code="usage",
         )
     return int(value[:-1])
+
+
+def _receipt_query_closure(config: BridgeConfig, storage: Any, keys: Any):
+    """localdb 回执终验闭包(红线 4;design §C-6;send_text/send_direct 共用)。
+
+    判定 = ``query_history(username, since 1d)`` 的 messages 中存在
+    (text 空白不敏感对账命中 body)AND(int(ts) > since_epoch - 2)
+    ——ts 已归一秒(localdb_query._normalize_ts),容差 2s 防同正文历史
+    消息假绿(§J-8)。localdb 链 BridgeError → None(如实,不算失败也不算
+    成功)。
+    """
+
+    def receipt_query(username: str, body_text: str, since_epoch: float) -> bool | None:
+        try:
+            result = localdb.query_history(config, storage, keys, username, 1)
+        except BridgeError:
+            return None
+        messages = result.get("messages") if isinstance(result, dict) else None
+        if not isinstance(messages, list):
+            return None
+        want = _compact_body(body_text)
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            text = message.get("text")
+            if not isinstance(text, str):
+                continue
+            if _compact_body(text) != want:
+                continue
+            ts = message.get("ts")
+            if (
+                isinstance(ts, (int, float))
+                and not isinstance(ts, bool)
+                and int(ts) > since_epoch - 2
+            ):
+                return True
+        return False
+
+    return receipt_query
 
 
 def _require_chat_id(chat_id: str) -> str:
@@ -712,43 +780,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             def _on_receipt_green() -> None:
                 rate_state.mark_fingerprint_sent(key, now=_now())
 
-            def receipt_query(
-                username: str, body_text: str, since_epoch: float
-            ) -> bool | None:
-                """localdb 回执终验闭包(红线 4;design §C-6)。
-
-                判定 = ``query_history(username, since 1d)`` 的 messages 中
-                存在(text 空白不敏感对账命中 body)AND(int(ts) >
-                since_epoch - 2)——ts 已归一秒(localdb_query.
-                _normalize_ts),容差 2s 防同正文历史消息假绿(§J-8)。
-                localdb 链 BridgeError → None(如实,不算失败也不算成功)。
-                """
-                try:
-                    result = localdb.query_history(
-                        config, storage, keys, username, 1
-                    )
-                except BridgeError:
-                    return None
-                messages = result.get("messages") if isinstance(result, dict) else None
-                if not isinstance(messages, list):
-                    return None
-                want = _compact_body(body_text)
-                for message in messages:
-                    if not isinstance(message, dict):
-                        continue
-                    text = message.get("text")
-                    if not isinstance(text, str):
-                        continue
-                    if _compact_body(text) != want:
-                        continue
-                    ts = message.get("ts")
-                    if (
-                        isinstance(ts, (int, float))
-                        and not isinstance(ts, bool)
-                        and int(ts) > since_epoch - 2
-                    ):
-                        return True
-                return False
+            receipt_query = _receipt_query_closure(config, storage, keys)
 
             try:
                 payload = ax.send_text(
@@ -762,6 +794,120 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             except BridgeError:
                 # rollback 边界 = on_armed 之前(armed 闭包标志判;§C-5)。
+                if not dry_run and not armed["v"]:
+                    rate_state.rollback_reserve(now, previous)
+                raise
+            payload.setdefault("send", {})["chat"] = chat_id
+            _emit(payload)
+            return EXIT_OK
+        elif args.group == "send_direct":
+            # 直发通道(阶段3 §3.1 管线序,写死):长度门 → localdb 链 →
+            # 目标解析+对端门 → 前置门(10/lldb/配置)→ G6+防重占位 →
+            # 单次 lldb 批(preflight→expr→postflight,45s 硬超时)→
+            # rollback 边界 = armed 前 → 回执终验。argv 永不载正文。
+            chat_id = _require_chat_id(args.chat_id)
+            body = _read_body(args.file)
+            if not body.strip():
+                raise BridgeError(
+                    EXIT_USAGE, "正文为空(stdin 无内容);拒发空消息", code="usage"
+                )
+            body_len = len(body.encode("utf-8"))
+            if body_len > senddirect.MAX_INLINE_STRING_BYTES:
+                raise BridgeError(
+                    EXIT_GENERIC_FAILURE,
+                    f"正文 UTF-8 字节长 {body_len} 超过 inline23 容量 "
+                    f"{senddirect.MAX_INLINE_STRING_BYTES}(长度=字节数非字符数):"
+                    "长文走 send_text(UI/OCR 链)——本码=承诺的唯一执行路径",
+                    code="send_direct_body_too_long",
+                    fix_hint="缩短正文至 23 UTF-8 字节内,或改用 send_text",
+                )
+            dry_run = bool(getattr(args, "dry_run", False))
+            branch_started = _now()
+            storage = localdb.locate_db_storage()
+            keys = localdb.resolve_keys(storage, config=config)
+            target = sendtarget.resolve_target(
+                config, chat_id, storage=storage, keys=keys
+            )
+            if target is None:
+                raise BridgeError(
+                    EXIT_GENERIC_FAILURE,
+                    f"DB 侧未解析到目标(chat_id={chat_id},username/alias/展示名三路均无)",
+                    code="send_target_not_found",
+                    fix_hint="确认 id;用 localdb query 先验目标存在",
+                )
+            target_len = len(target.username.encode("utf-8"))
+            if target_len > senddirect.MAX_INLINE_STRING_BYTES:
+                raise BridgeError(
+                    EXIT_GENERIC_FAILURE,
+                    f"对端 username UTF-8 字节长 {target_len} 超过 inline23 容量 "
+                    f"{senddirect.MAX_INLINE_STRING_BYTES}"
+                    "(@chatroom 族长 id 真实存在;错一个=发错人,宁拒不裁)",
+                    code="send_direct_target_too_long",
+                    fix_hint="长 id 目标走 send_text(UI/OCR 链,无此限)",
+                )
+            # 前置门(§3.1 步 4):微信不在 → 10;lldb 缺 → 1;配置门 → 1。
+            if senddirect.wechat_pid() is None:
+                raise BridgeError(WECHAT_NOT_RUNNING, "微信进程不在:直发通道前置失败")
+            senddirect.require_lldb()
+            if not config.send_direct_enabled:
+                raise BridgeError(
+                    EXIT_GENERIC_FAILURE,
+                    "直发通道配置门关(send_direct_enabled 缺省 false):"
+                    "调试器豁免须主人显式开启",
+                    code="send_direct_disabled",
+                    fix_hint="数据根 wechat-bridge/config.json 置 send_direct_enabled=true;"
+                    "直发范围=仅 attach+只读观察+函数直调(禁写内存/禁注入/禁常驻)",
+                )
+            key = sendtarget.fingerprint(target, body)
+            rate_state = SendRateState()
+            now: float | None = None
+            previous: float | None = None
+            if not dry_run:
+                now = _now()
+                outcome = rate_state.reserve_send_dedup(now=now, fingerprint=key)
+                previous = outcome.previous
+                if outcome.dedup == "sent_recently":
+                    _emit(
+                        {
+                            "send": {
+                                "chat": chat_id,
+                                "target": {
+                                    "username": target.username,
+                                    "display_name": target.display_name,
+                                },
+                                "sent": False,
+                                "deduped": True,
+                                "dedup_status": "sent_recently",
+                                "channel": "direct",
+                                "elapsed_ms": round((_now() - branch_started) * 1000),
+                            }
+                        }
+                    )
+                    return EXIT_OK
+            armed = {"v": False}
+
+            def _on_armed() -> None:
+                # armed 时点 = expr 提交前(§3.1 步 8;fail-closed 同 send_text
+                # 判例):此后失败绝不 rollback(指纹 pending 在档)。
+                rate_state.mark_fingerprint_pending(key, now=_now())
+                armed["v"] = True
+
+            def _on_receipt_green() -> None:
+                rate_state.mark_fingerprint_sent(key, now=_now())
+
+            try:
+                payload = senddirect.execute_send(
+                    config,
+                    target,
+                    body,
+                    dry_run=dry_run,
+                    on_armed=None if dry_run else _on_armed,
+                    on_receipt_green=_on_receipt_green,
+                    receipt_query=_receipt_query_closure(config, storage, keys),
+                )
+            except BridgeError:
+                # rollback 边界 = armed 前(§3.1 步 7:含 24/attach_failed/
+                # armed 前超时 30,OCR 回退不再撞 G6 14)。
                 if not dry_run and not armed["v"]:
                     rate_state.rollback_reserve(now, previous)
                 raise

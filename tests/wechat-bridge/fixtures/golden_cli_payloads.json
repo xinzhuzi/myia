@@ -13,7 +13,7 @@
    "ax_tree": "unknown"
   },
   "wechat_version": "4.1.15",
-  "bridge_version": "0.8.4",
+  "bridge_version": "0.9.0",
   "reasons": [
    {
     "code": "window_closed",
@@ -45,6 +45,7 @@
    "http_api_host": "127.0.0.1",
    "http_api_port": 5032,
    "http_api_token_configured": false,
+   "send_direct_enabled": false,
    "source": null
   }
  },

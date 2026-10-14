@@ -1,0 +1,90 @@
+== hit_send7 t=1791985328.059 MATCHED ==
+thread=None tid=1
+regs: x0=0x8a7e14000 x1=0x186a0 x2=0x0 x3=0xfffffc088 x4=0x1c7a8725d9e x5=0x0 x6=0x0 x7=0xfffff0003ffff800 sp=0x16d768ac0 fp=0x16d768ae0 lr=0x12b18e108 pc=0x12f4e08e4
+x0 0x8a7e14000 -> hit_send7_x0.bin (8192B)
+  x0+0x8 -> 0x12f4e08e4 => hit_send7_ptr0008.bin
+  x0+0x10 -> 0x12f4e337c => hit_send7_ptr0010.bin
+  x0+0x18 -> 0x12b11bc5c => hit_send7_ptr0018.bin
+  x0+0x28 -> 0x8a397ca18 => hit_send7_ptr0028.bin
+  x0+0x30 -> 0x8a397ca00 => hit_send7_ptr0030.bin
+  x0+0x38 -> 0x89f457af8 => hit_send7_ptr0038.bin
+  x0+0x40 -> 0x89f457ae0 => hit_send7_ptr0040.bin
+  x0+0xb0 -> 0x8a42e19b8 => hit_send7_ptr00b0.bin
+  x0+0xb8 -> 0x8a42e19a0 => hit_send7_ptr00b8.bin
+  x0+0xc0 -> 0x200000099 => hit_send7_ptr00c0.bin
+  x0+0x240 -> 0x134ce07f0 => hit_send7_ptr0240.bin
+  x0+0x258 -> 0x134ce0840 => hit_send7_ptr0258.bin
+  x0+0x260 -> 0x8a7e14258 => hit_send7_ptr0260.bin
+  x0+0x268 -> 0x8a7e14240 => hit_send7_ptr0268.bin
+  x0+0x270 -> 0x89c270640 => hit_send7_ptr0270.bin
+  x0+0x278 -> 0x89c270640 => hit_send7_ptr0278.bin
+  x0+0x288 -> 0x8a7e14290 => hit_send7_ptr0288.bin
+  x0+0x2a0 -> 0x8a7e142a8 => hit_send7_ptr02a0.bin
+  x0+0x2c0 -> 0x8a7a013d8 => hit_send7_ptr02c0.bin
+  x0+0x2c8 -> 0x8a7a013c0 => hit_send7_ptr02c8.bin
+  x0+0x2d0 -> 0x8a7512600 => hit_send7_ptr02d0.bin
+  x0+0x2d8 -> 0x8a7512620 => hit_send7_ptr02d8.bin
+  x0+0x2e0 -> 0x89ae3e328 => hit_send7_ptr02e0.bin
+  x0+0x300 -> 0x134d184c8 => hit_send7_ptr0300.bin
+  (ptr-chase cap)
+x3 0xfffffc088 -> hit_send7_x3.bin
+stack 0x16d768ac0 -> hit_send7_stack.bin
+  [sp+0x10] dylib+0x6d7b8  0x12b1557b8 (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x28] dylib+0x6d7e8  0x12b1557e8 (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x40] dylib+0x6d7b8  0x12b1557b8 (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x58] dylib+0x6d85c  0x12b15585c (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x98] dylib+0x6d43c  0x12b15543c (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0xa8] dylib+0x43f5c30  0x12f4ddc30 (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0xb0] dylib+0x43f5c30  0x12f4ddc30 (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0xb8] dylib+0x43f5c30  0x12f4ddc30 (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x128] dylib+0x80624  0x12b168624 (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x298] dylib+0x430dc  0x12b12b0dc (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x2c8] dylib+0x8005c  0x12b16805c (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x2d0] dylib+0x84886c0  0x1335706c0 (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x318] dylib+0x430dc  0x12b12b0dc (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x368] dylib+0x441c8  0x12b12c1c8 (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x3b8] dylib+0x3e02c  0x12b12602c (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x3c8] dylib+0x43188  0x12b12b188 (sym-err 'SBModule' object has no attribute 'File')
+  [sp+0x3e8] dylib+0x44148  0x12b12c148 (sym-err 'SBModule' object has no attribute 'File')
+lr: 0x12b18e108 (sym-err 'SBModule' object has no attribute 'File')
+pc: 0x12f4e08e4 (sym-err 'SBModule' object has no attribute 'File')
+  frame#0 0x12f4e08e4 (sym-err 'SBModule' object has no attribute 'File')
+  frame#1 0x12b18e108 (sym-err 'SBModule' object has no attribute 'File')
+  frame#2 0x12b1557e8 (sym-err 'SBModule' object has no attribute 'File')
+  frame#3 0x12b15585c (sym-err 'SBModule' object has no attribute 'File')
+  frame#4 0x12b15543c (sym-err 'SBModule' object has no attribute 'File')
+  frame#5 0x12b168624 (sym-err 'SBModule' object has no attribute 'File')
+  frame#6 0x12b16805c (sym-err 'SBModule' object has no attribute 'File')
+  frame#7 0x12b12c1c8 (sym-err 'SBModule' object has no attribute 'File')
+  frame#8 0x12b12602c (sym-err 'SBModule' object has no attribute 'File')
+  frame#9 0x12b12b188 (sym-err 'SBModule' object has no attribute 'File')
+  frame#10 0x185775d50 (sym-err 'SBModule' object has no attribute 'File')
+  frame#11 0x185775a48 (sym-err 'SBModule' object has no attribute 'File')
+  frame#12 0x1857755c0 (sym-err 'SBModule' object has no attribute 'File')
+  frame#13 0x18575b8c8 (sym-err 'SBModule' object has no attribute 'File')
+  frame#14 0x18582dbe0 (sym-err 'SBModule' object has no attribute 'File')
+  frame#15 0x192530560 (sym-err 'SBModule' object has no attribute 'File')
+  frame#16 0x1925338bc (sym-err 'SBModule' object has no attribute 'File')
+  frame#17 0x1926bd13c (sym-err 'SBModule' object has no attribute 'File')
+  frame#18 0x18a2331a4 (sym-err 'SBModule' object has no attribute 'File')
+  frame#19 0x189b87084 (sym-err 'SBModule' object has no attribute 'File')
+  frame#20 0x18a71c69c (sym-err 'SBModule' object has no attribute 'File')
+  frame#21 0x18a71c3a8 (sym-err 'SBModule' object has no attribute 'File')
+  frame#22 0x189b7a13c (sym-err 'SBModule' object has no attribute 'File')
+  frame#23 0x155ac5f48 (sym-err 'SBModule' object has no attribute 'File')
+  frame#24 0x155ac5d88 (sym-err 'SBModule' object has no attribute 'File')
+  frame#25 0x1551aa61c (sym-err 'SBModule' object has no attribute 'File')
+  frame#26 0x155419f60 (sym-err 'SBModule' object has no attribute 'File')
+  frame#27 0x1598f44e4 (sym-err 'SBModule' object has no attribute 'File')
+  frame#28 0x1321805b8 (sym-err 'SBModule' object has no attribute 'File')
+  frame#29 0x1320a24a0 (sym-err 'SBModule' object has no attribute 'File')
+  frame#30 0x1320a5ddc (sym-err 'SBModule' object has no attribute 'File')
+  frame#31 0x12b12aa40 (sym-err 'SBModule' object has no attribute 'File')
+  frame#32 0x12b168d28 (sym-err 'SBModule' object has no attribute 'File')
+  frame#33 0x12b145e10 (sym-err 'SBModule' object has no attribute 'File')
+  frame#34 0x12b3b2bfc (sym-err 'SBModule' object has no attribute 'File')
+  frame#35 0x1029d7ea4 (sym-err 'SBModule' object has no attribute 'File')
+  frame#36 0x1029e61d4 (sym-err 'SBModule' object has no attribute 'File')
+  frame#37 0x1852e3da4 (sym-err 'SBModule' object has no attribute 'File')
+BT:
+thread #1: tid = 0x7597b7c, 0x000000012f4e08e4 wechat.dylib`___lldb_unnamed_symbol243953, queue = 'com.apple.main-thread', stop reason = breakpoint 1.1

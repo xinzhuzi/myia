@@ -235,6 +235,7 @@ class TestExitCodeContract:
             21: "key_unavailable",
             22: "decrypt_failed",
             23: "media_unavailable",  # §6 修订 2026-10-14(10-14-wechat-media-sns)
+            24: "send_direct_unanchored",  # 阶段3 修订(10-14-wechat-sendmsg-direct §3.3)
             30: "timeout",
         }
         assert (codes_mod.EXIT_OK, codes_mod.EXIT_GENERIC_FAILURE, codes_mod.EXIT_USAGE) == (0, 1, 2)

@@ -1,4 +1,4 @@
-# evidence(10-14 晚轮:Phase 0 工具整备 + Phase 1 r1 活体猎捕)
+# evidence(10-14 晚轮:Phase 0 工具整备 + Phase 1 r1 活体猎捕;阶段 2/3 战果注记)
 
 > 产物根:`/Users/zhengbingjin/Downloads/微信反编译/sendmsg-勘察-1014/`(下称 `<勘察>`)。本档由簿记员依据落盘产物核验后记录(逆向产物只引路径不外发原文)。零伤核验:run-sheet r1 尾行记录新 PID 40379 存活、零 lldb/debugserver 残留;簿记员本轮只读复核 `pgrep -x WeChat`=40379 在跑、`ps aux | grep -E 'lldb|debugserver'` 空。
 
@@ -26,8 +26,28 @@
 
 ## 预算账(簿记员如实转记)
 
-勘察 6+1 在案;r1 授权桥自动发 1 条→实际出站 0(sendsUsed=0),授权按 uncertain-never-retry 已消耗不重试。**歧义留主人裁**:零出站授权是否计入 10 帽余量(计入→余 2,P2+P3 需 3 缺 1;仅计出站→余 3 不变);详见 implement.md 预算账节。
+勘察 6+1 在案;r1 授权桥自动发 1 条→实际出站 0(sendsUsed=0),授权按 uncertain-never-retry 已消耗不重试。**歧义终裁待主人**:零出站授权是否计入 10 帽余量(计入→余 2,P2+P3 需 3 缺 1;仅计出站→余 3 不变);**任何下轮发送前必先就此问裁**;三档口径(design.md 预算账/implement.md 预算账/本节)已按勘误轮统一。
+
+**〔10-15 凌晨更新,依 design-阶段3.md §4 P-0(F5 账本实锤;簿记员转记)〕**阶段 3 动态轮 r1/r2/r3 三发全部经**桥自动发送**触发(round.sh 触发行实证,非主人手发零耗形态),实际出站 3。现行账本=勘察 6+r1 零出站 1+动态轮 3=**9~10/10,余 0~1**;而 P-2 白名单双发矩阵需 2 条。P-0 主人裁决门(先于一切发送):(a) r1 零出站不计→余 1,再批 +1;(b) 直接批 +2;(c) 上调帽;**任何验证发送前未得裁决=不发**。
 
 ## 错题集对账
 
 本轮四错 S11-S14+勘误记录(S10 转述失真)已由执行会话随轮入账 `research/错题集.md`(2026-10-14 晚);簿记员本轮纯文档操作(读+ls+pgrep 只读复核),**无新增错条**。
+
+**〔10-15 凌晨对账更新(簿记员)〕**阶段 3 双路探索轮两笔挂账:①动态轮 r2 判别门以 filehelper 为门过宽、旧消息早命中浪费一发(round-reports 原文已标「方法论坑(入册)」)=**新错待入册(S16 候选)**;②错题主表 S11-S14 存在两波双录(执行会话波+勘误轮波,同四事故各入一遍)待合并。**错题集.md 正被并行会话活跃写入(S15 rmtree 事故条目 02:09 落盘在案)——簿记员按红线让道不碰该文件,上两笔挂账待其并入或下轮簿记补。**
+
+## 阶段 2 战果并档注记(10-14 晚勘误轮补记)
+
+阶段 2 猎捕战果(活入口=FUN_043f88e4 实证;归档 031ab38c/043f88e4 角色互换勘误)见 `research/FINDINGS-阶段2.md`。本勘误轮据此对齐四件套:design.md 架构定论与 Step 2.1 布点勘误、prd.md AC3 回执断言撤销(误诊归档在案)、task.json 旧前提撤销、预算口径三档统一(终裁待主人)。本轮纯文档操作:零代码、零微信、零 attach、零发送。
+
+## 阶段 3 双路探索轮(10-14 深夜执行;簿记员 10-15 凌晨转记)
+
+> 背景如实注:本轮产物曾因 **S15 仓库 rmtree 事故**损毁,任务档与 research 件系会话读档逐字重写恢复(远端 HEAD 27e3b255 整仓 clone 回填;/tmp/wxsend3 原件回收,hunt-r3-dynargs md5 对账一致);不可恢复损失清单见错题集 S15(已上报主人)。簿记员按落盘产物+轮报告原文核验转记,零微信零 attach 零发送。
+
+| # | 项 | 结果 | 证据(路径) |
+|---|---|---|---|
+| E13 | 静态轮(零发送,全程只读):5 次 Ghidra headless(`-process wechat_arm64.dylib -noanalysis` 复用 wxui.gpr,分钟级)+2 个 python 离线解码器 | ✅ 00a05ea0 静态墙定案(全可执行内存字节级扫 ADRP/ADR/LDR-lit 零代码装载,唯一 8B 字面量在 __const 0x9c61f58=混淆清单表普通成员);XOR 文件名解码 1212 路径(**00a05ea0→chat_voice_input_viewmodel.cc:463=阶段2「task_service 族」定性勘误**;043f88e4→task_service.cc;031ab38c→message_manager.cc;045937f8→add_msg_cmd_handler.cc 收信侧);hit4 x1=0x186a0=cmdid 100000(LoopHandleTasks 泵任务号)定案;CGI 注册表直读 newsendmsg reqid=237;UI=Qt C++ 无 ObjC 发送选择器(仅 MessageService 串×2 零 selref);入队 API 三件套签名定案(FUN_00033c40/00033c68/000a6060+000a5ed0) | `research/round-reports-阶段3合流输入.md` 静态轮 JSON(逐字落档);产物 8 件=`/Users/zhengbingjin/Downloads/微信反编译/sendmsg-hunt/`(coro_spawn_hunt{,2,3,4,5}.c、mass_paths_decoded.txt、mass_decode.py、xor_decode.py) |
+| E14 | 动态轮三轮(r1 21:42:08/r2 21:47:16/r3 21:49:28 CST,10-14):round.sh 单轮协议=attach→ARMED→桥真发 filehelper→判别门 DONE→SIGINT 收兵→detach;slide=0x12b0e8000,pid 40379 主线程 | ✅ 入口 slide+0x43f88e4 三轮寄存器形态全同;x0=RPC 任务/闭包对象(**x0+0x8=043f88e4 自指=「函数指针入协程故零 BL 调用者」机理坐实**);(user,content) 明文在指针一跳外 msgctx 堆块(r1=x0+0x2e0→0x89ae3e328;r3=x0+0x3a0/+0x520 双引用同块,引用槽逐轮漂移→通用走法=扫 x0 前 ~0x600 qword 指针+512B 探针找 {char[23];u8len} 记录):块+0x130=自 wxid「wxid_oc2yhey1xkpw22」(len 0x13)/+0x148=对端「filehelper」(len 0x0a)/+0x160/+0x178 成对重复/+0x1d8=正文 UTF-8 明文内联(r1「嘻嘻」e5 98 bb×2、r3「嘻嘻嘻嘻」×4,跨轮逐字节同构;串形态=23 容量+末字节裸长度,非 libc++ SSO);三轮全部转储零 protobuf 框架字节=**序列化前 C++ 对象图实证**;x1=0x186a0 恒定标量;x3=0xfffffc088 可读无消息数据;x4 读取失败(如实);r3 收兵 DONE:send_hits=10/subm_hits=328/lldb_exit=143(SIGTERM);0x490fb20 三轮 300+ 杂散命中无一载 filehelper/正文(传输边界旁证,S2 复证);上层链 lr=slide+0x106108(+0x106104 bl +0x105fa8 解引用槽位尾跳),38 帧见 hit_send7_r1.txt | `research/hunt-r3-dynargs/`(ARMED/DONE/LLDB_EXIT、hit_send7_r1.txt、hit_send0_r2_earlystage.txt、hit_send9_r3.txt、cap2.py、round.sh、dumps_r1/dumps_r3、msgctx_{r1_ptr02e0,r3_ptr03a0}.bin、needle.bin);`research/round-reports-阶段3合流输入.md` 动态轮 argsMap JSON(sendsUsed=3) |
+| E15 | 轮报告原文落档(双路交付此前仅存会话文本,无产物可复核) | ✅ 静态 C1-C6+动态 argsMap 两 JSON 逐字落盘;**红旗:「q=服务对象+0x1c0」仅存于 C1 原文,sendmsg-hunt/*.c 与本档 research/ 一切反编译/转储产物无独立出处——r4 钉入轮必先形验证(design-阶段3.md §2.4)才准入锚定表** | `research/round-reports-阶段3合流输入.md` 档首注意事项 |
+| E16 | 预算实锤(F5) | ⚠️ 触发形态=桥自动发非主人手发(见上预算账 10-15 更新:账本 9~10/10 余 0~1,P-2 需 2);**任何验证发送前未得 P-0 裁决=不发** | round.sh 触发行;design-阶段3.md §4 P-0 |
+| E17 | 簿记员本轮(10-15 凌晨) | 纯文档:读+ls+lsof+date+pgrep 只读核验;改本档+prd.md(AC3 勘误+预算括注)+task.json(旧前提描述撤销,状态指针未动)+design-阶段3.md P-2 引注勘误+FINDINGS-阶段2.md 勘误括注;**错题集.md 让道未碰**(并行会话活跃写入)。零代码、零微信操作、零 attach、零发送;未提交插件源码改动(senddirect*.py 等)非簿记员职责面,未核验未记档 | 本节+git diff |

@@ -4,7 +4,7 @@
 
 1. **活入口=FUN_043f88e4**(主线程,真发即命中,hit4 断点实证):RPC 家族真调度器(直调 05e1d050×4=service-id 分支所在)。
 2. **归档张冠李戴勘误**:031ab38c(旧"主流程")与 043f88e4 角色互换——字符串「SendMsgFtouser」(0x88bac38)xref 两函数,branch 结构在 043f88e4。
-3. 直接调用者=FUN_00a05ea0=协程 lambda(operator(),XOR 现场解码,task_service 族)——静态攀爬到此为止(协程函数指针入帧,无静态 xref)。
+3. 直接调用者=FUN_00a05ea0=协程 lambda(operator(),XOR 现场解码,task_service 族)——静态攀爬到此为止(协程函数指针入帧,无静态 xref)。〔**勘误 10-15(阶段 3 静态轮)**:「task_service 族」定性撤销——XOR 全量路径解码实证 00a05ea0=ui/chat/detail/viewmodel/voice_input/chat_voice_input_viewmodel.cc:463 行 0x1cf,TU 兄弟 0xa05cac..0xa06284 全为协程脚手架;见 round-reports-阶段3合流输入.md C6(2)〕
 4. 明文(user,content)在协程创建点之上,尚未拿到。
 
 ## 剩余路线(下阶段)

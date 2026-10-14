@@ -14,7 +14,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wechat-bridge"
-version = "0.8.4"
+version = "0.9.0"
 description = "微信本机桥:UI 自动化(像素链读取,零激活零合成点击)+ 本地库只读(sqlcipher 解密副本;brew install sqlcipher 前置)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -34,6 +34,12 @@ dependencies = [
     # requires.optional_python 语义的 pip 化)。
     "pyobjc-framework-Quartz>=12,<13; sys_platform == 'darwin'",
     "pyobjc-framework-Vision>=12,<13; sys_platform == 'darwin'",
+    # - pyobjc-framework-ApplicationServices:原生 AXUIElement 读树通道前置
+    #   (10-14-wechat-send-text 实证门开态快而稳,「python 依赖待正式入桥」
+    #   ——本条即补位申报);AXIsProcessTrusted 权限探针仍走 ctypes 直呼
+    #   (system_checks.ax_permission_trusted,零依赖兜底保留:本件缺装
+    #   不伤探针,读树通道缺装如实降级)。
+    "pyobjc-framework-ApplicationServices>=12,<13; sys_platform == 'darwin'",
     "pillow>=12,<13",
     # - zstandard:4.1.15 压缩消息(WCDB_CT 影子列,zstd 帧)真解码的自管
     #   3.12 主路依赖——stdlib compression.zstd 需 3.14+(PEP 784),自管

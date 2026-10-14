@@ -227,6 +227,8 @@ def run_doctor(
     bridge_version: str | None = None,
     node_counter: Callable[[], int | None] | None = None,
     input_probe: Callable[[], str | None] | None = None,
+    direct_validator: Callable[[], dict[str, Any]] | None = None,
+    direct_lldb_check: Callable[[], str | None] | None = None,
 ) -> dict[str, Any]:
     """``wechat-bridge doctor`` 载荷(task 10-14-wechat-send-text design
     §E-2):= ``--probe`` 超集 + send 链就绪度,**仍零前台扰动**(AX 读
@@ -238,7 +240,10 @@ def run_doctor(
         {"doctor": {"probe": {run_probe 载荷原样},
                     "ax_gate": {"nodes", "state": open|closed|unknown,
                                 "input_field": ok|missing, "note", "fix_hint"},
-                    "cgevent_channel": {"post_key", "note"}}}
+                    "cgevent_channel": {"post_key", "note"},
+                    "direct_channel": {"enabled", "anchored", "lldb",
+                                       "last_anchor_build",
+                                       "slice_sha256_matched"}}}
 
     - ``ax_gate.nodes`` = ``system_checks.wechat_ax_node_count()``(全部
       窗口子树的**深度枚举节点数**取最大,0.8.1 修正:直查第一层在
@@ -248,6 +253,10 @@ def run_doctor(
     - ``cgevent_channel.host_ax_trusted`` = 宿主辅助功能授权自检
       (ax_permission_trusted;False = CGEvent/keystroke 对他 app 无效
       的实锤——发送前置)。
+    - ``direct_channel`` = 阶段3 §3.5 直发通道探针(senddirect.
+      doctor_direct_channel;轻量 attach 验证仅 enabled 时做,探针失败
+      ≠通道失败,anchored 三态+unknown 如实);validator/lldb 检查器
+      可注入 = 单测主战场。
     - doctor 是状态查询不判错:调用方恒 exit 0(key-status 判例)。
     """
     probe_result = run_probe(config=config, bridge_version=bridge_version)
@@ -275,6 +284,13 @@ def run_doctor(
         "note": note,
         "fix_hint": fix_hint,
     }
+    from . import senddirect
+
+    direct_channel = senddirect.doctor_direct_channel(
+        config or load_config(),
+        validator=direct_validator,
+        lldb_check=direct_lldb_check,
+    )
     return {
         "doctor": {
             "probe": probe_result.to_payload(),
@@ -289,5 +305,6 @@ def run_doctor(
                     "事件,以首次 dry-run 实测为准"
                 ),
             },
+            "direct_channel": direct_channel,
         }
     }
