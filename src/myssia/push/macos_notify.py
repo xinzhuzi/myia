@@ -8,8 +8,12 @@
 - **平台门**:非 darwin = 结构化 ``PushSendError(platform_unsupported)``
   (构造期零检查,发送期如实拒;同 weixin-local 的「无桥环境配置照常加载」
   纪律——配置面可加载,发送面才判平台)。
-- **发送**:/usr/bin/osascript 字面量 argv,10s 超时 kill;字符串转义
-  (反斜杠/引号/换行,AppleScript 双引号串形态)。
+- **发送**:桌面壳在跑 = ``MYIA_NOTIFY_FIFO`` 中继管道(serve 宿主
+  ``start_notify_relay`` 注入环境,子进程自动继承)逐条送壳,壳经
+  tauri-plugin-notification 以 app 身份代发(10-14-notify-app-icon:图标/
+  归组/点击唤起 = 世事 app;osascript 直弹的脚本编辑器图标是主人报障);
+  无管道/无读者(CLI 单跑/壳已死)= ``/usr/bin/osascript`` 字面量 argv,
+  10s 超时 kill;字符串转义(反斜杠/引号/换行,AppleScript 双引号串形态)。
 - **合并纪律(组合优先铁律)**:同轮同 ``session_display`` 的
   ``message.new`` 条目并成**每会话一条**——title=会话名,subtitle=
   ``N 条新消息``,body=最新一条「发送者: 预览」(200 字帽);``message.
@@ -20,7 +24,8 @@
 - **日志只记形状**(通知条数/会话数),永不记正文(私有数据红线);
   osascript 失败载荷只带 exit 码不带 stderr(stderr 可能回显脚本正文)。
 
-已知形态限制(如实落档不修):通知归组显示为 osascript;系统通知中心
+已知形态限制(如实落档不修):CLI 无壳兜底的 osascript 通知归组显示为
+osascript、图标为脚本编辑器(桌面壳在跑时已由壳代发根治);系统通知中心
 会留通知历史(本机态,与 WeFlow 弹窗同级)。
 
 纯 stdlib(subprocess);测试经 ``runner``/``platform`` 注入点 mock,不触
@@ -29,9 +34,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import subprocess
 import sys
+import threading
+from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from myssia.push.base import (
@@ -45,14 +54,96 @@ from myssia.push.base import (
 __all__ = [
     "BODY_MAX_CHARS",
     "DEFAULT_NOTIFY_TIMEOUT_SECONDS",
+    "NOTIFY_FIFO_ENV",
     "OSASCRIPT_BIN",
     "MacosNotifyChannel",
     "applescript_escape",
     "build_notification_script",
     "plan_notifications",
+    "start_notify_relay",
 ]
 
 logger = logging.getLogger(__name__)
+
+#: 中继管道路径环境变量(桌面 serve 宿主 ``start_notify_relay`` 注入;
+#: 子进程经 ``os.environ.copy()`` 继承 → cron CLI run 等全部推送路径统一)。
+NOTIFY_FIFO_ENV = "MYIA_NOTIFY_FIFO"
+
+
+def _fifo_write(payload: dict[str, str | None]) -> bool:
+    """经中继管道送一条横幅计划;无管道/无读者 = False(调用方回退 osascript)。
+
+    ``O_NONBLOCK``:无读者(serve 未在跑/已死)立即 ENXIO,绝不挂起采集
+    子进程;payload 远小于 PIPE_BUF(文案帽 80+200 字符)→ 原子写,
+    多写者(并发 cron 子进程)安全。
+    """
+    path = os.environ.get(NOTIFY_FIFO_ENV)
+    if not path:
+        return False
+    data = (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_NONBLOCK)
+    except OSError:
+        return False
+    try:
+        os.write(fd, data)
+    except OSError:
+        os.close(fd)
+        return False
+    os.close(fd)
+    return True
+
+
+def start_notify_relay(
+    home: "str | Path",
+    emit: Callable[[dict[str, "str | None"]], None],
+) -> "Path | None":
+    """桌面 serve 宿主启动横幅中继:创建 FIFO + 读者线程 + 注入环境变量。
+
+    - FIFO = ``<home>/.notify.relay.fifo``(重建先 unlink,0600 私有);
+    - 读者线程逐行读 → ``emit(plan)``(宿主:转协议事件 ``notify.banner``
+      送壳代发);EOF(写者全退)→ 重开等待;daemon,随宿主进程收尾;
+    - ``os.environ`` 注入 → serve 进程内与 cron CLI 子进程(环境继承)
+      的推送统一走壳;CLI 单跑(无注入)= osascript 直弹照旧。
+
+    失败(只读文件系统/权限)只留痕返回 None = 不注入,推送自动落
+    osascript 兜底,绝不拦 serve 启动。
+    """
+    fifo = Path(home) / ".notify.relay.fifo"
+    try:
+        fifo.unlink()
+    except OSError:
+        pass
+    try:
+        os.mkfifo(fifo, 0o600)
+    except OSError as exc:
+        logger.warning("macos_notify 中继管道创建失败(%s);推送回退 osascript", exc)
+        return None
+
+    def _reader() -> None:
+        while True:
+            try:
+                with fifo.open("r") as stream:
+                    for line in stream:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            plan = json.loads(line)
+                        except ValueError:
+                            continue
+                        try:
+                            emit(plan)
+                        except Exception:  # noqa: BLE001 — 观测面失败不带走读者
+                            logger.warning("macos_notify 中继转发失败", exc_info=True)
+            except OSError:
+                return  # FIFO 被删等致命态:读者退场(写者侧 ENXIO 自动回退)
+
+    threading.Thread(
+        target=_reader, name="macos-notify-relay", daemon=True
+    ).start()
+    os.environ[NOTIFY_FIFO_ENV] = str(fifo)
+    return fifo
 
 #: osascript 字面量路径(绝不走 PATH 查找——argv 注入面收敛到零)。
 OSASCRIPT_BIN = "/usr/bin/osascript"
@@ -223,6 +314,10 @@ class MacosNotifyChannel(TrendAwareChannel):
         if not plans:
             return  # 空条目组由调用方前置跳过;防御形状零弹零错
         for plan in plans:
+            # 壳代发(10-14-notify-app-icon):中继管道在位先走壳(图标/归组 =
+            # app 本体);管道缺失/无读者 = 该条回退 osascript,横幅不丢。
+            if _fifo_write(dict(plan)):
+                continue
             script = build_notification_script(
                 title=str(plan["title"] or ""),
                 subtitle=plan["subtitle"],

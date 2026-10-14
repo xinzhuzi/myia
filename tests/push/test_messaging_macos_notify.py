@@ -12,7 +12,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
+import time
 from typing import Any
 
 import pytest
@@ -20,12 +23,13 @@ import pytest
 from myssia.push.base import PushSendError
 from myssia.push.macos_notify import (
     BODY_MAX_CHARS,
+    NOTIFY_FIFO_ENV,
     OSASCRIPT_BIN,
     MacosNotifyChannel,
     applescript_escape,
     build_notification_script,
     plan_notifications,
-    set_banner_emitter,
+    start_notify_relay,
 )
 from myssia.push import SendContext
 
@@ -294,47 +298,50 @@ class TestSchemaIntegration:
 
 
 # ---------------------------------------------------------------------------
-# 壳代发(set_banner_emitter;10-14-notify-app-icon)
+# 壳代发(MYIA_NOTIFY_FIFO 中继;10-14-notify-app-icon)
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture(autouse=True)
-def _reset_banner_emitter():
-    """模块级发射器测试隔离:前后各复位一次,防泄漏污染既有 osascript 用例。"""
-    set_banner_emitter(None)
+def _clean_notify_fifo_env(monkeypatch: pytest.MonkeyPatch):
+    """中继环境隔离:每测前后摘除,防泄漏污染既有 osascript 用例。"""
+    monkeypatch.delenv(NOTIFY_FIFO_ENV, raising=False)
     yield
-    set_banner_emitter(None)
+    monkeypatch.delenv(NOTIFY_FIFO_ENV, raising=False)
 
 
-class TestBannerEmitter:
-    """三分支:注入 → 逐条送发射器零 osascript;异常 → 逐条回退;复位 → 照旧。"""
+class TestNotifyRelayFifo:
+    """中继端到端(真 FIFO+读者线程)→ 零 osascript+形状不变;无读者/无管道 → 回退。"""
 
-    def test_emitter_in_place_zero_osascript(self) -> None:
+    def test_relay_end_to_end_zero_osascript(self, tmp_path) -> None:
+        received: list[dict[str, str | None]] = []
+        fifo = start_notify_relay(tmp_path, received.append)
+        try:
+            assert fifo is not None and fifo.exists()
+            assert os.environ[NOTIFY_FIFO_ENV] == str(fifo)  # 注入 = 子进程继承面
+            runner = FakeRunner()
+            _run(_channel(runner).send([_new_msg(), _revoke()], CONTEXT))
+            deadline = time.monotonic() + 2.0  # 读者线程异步转发,轮询等待
+            while len(received) < 2 and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert runner.calls == []  # 零 osascript(中继在位 = 不 spawn)
+            assert len(received) == 2  # 合并纪律不变:撤回独立在前 + 每会话一条
+            assert received[0]["subtitle"] is None  # 撤回条无 subtitle
+            assert received[0]["title"] == "合成群聊"
+            assert received[1]["subtitle"] == "1 条新消息"
+            assert received[1]["body"].startswith("合成张三: ")
+        finally:
+            os.environ.pop(NOTIFY_FIFO_ENV, None)
+
+    def test_fifo_no_reader_falls_back_osascript(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.setenv(NOTIFY_FIFO_ENV, str(tmp_path / "missing.fifo"))
         runner = FakeRunner()
-        plans: list[dict[str, str | None]] = []
-        set_banner_emitter(plans.append)
-        _run(_channel(runner).send([_new_msg(), _revoke()], CONTEXT))
-        assert runner.calls == []  # 零 osascript(壳在跑 = 不 spawn)
-        assert len(plans) == 2  # 合并纪律不变:撤回独立在前 + 每会话一条
-        assert plans[0]["subtitle"] is None  # 撤回条无 subtitle
-        assert plans[0]["title"] == "合成群聊"
-        assert plans[1]["subtitle"] == "1 条新消息"
-        assert plans[1]["body"].startswith("合成张三: ")
-
-    def test_emitter_exception_falls_back_osascript(self) -> None:
-        runner = FakeRunner()
-
-        def boom(plan: dict[str, str | None]) -> None:
-            raise RuntimeError("shell pump broken")
-
-        set_banner_emitter(boom)
         _run(_channel(runner).send([_new_msg()], CONTEXT))
-        assert len(runner.calls) == 1  # 回退直弹,横幅不丢
+        assert len(runner.calls) == 1  # 无读者(ENXIO)回退直弹,横幅不丢
         assert runner.calls[0][0] == OSASCRIPT_BIN
 
-    def test_reset_emitter_osascript_as_before(self) -> None:
+    def test_env_unset_osascript_as_before(self, monkeypatch) -> None:
+        monkeypatch.delenv(NOTIFY_FIFO_ENV, raising=False)  # CLI 单跑形态
         runner = FakeRunner()
-        set_banner_emitter(lambda plan: None)
-        set_banner_emitter(None)  # 复位 = CLI 无壳形态
         _run(_channel(runner).send([_new_msg()], CONTEXT))
         assert len(runner.calls) == 1

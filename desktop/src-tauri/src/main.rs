@@ -224,6 +224,41 @@ fn handle_stdout_line(app: &AppHandle, line: &str) {
         }
     };
     if parsed.get("type").is_some() {
+        // notify.banner(10-14-notify-app-icon):sidecar 通知横幅 → 壳以 app
+        // 身份代发(macOS 经 notify-rust set_application(bundle_id):图标/
+        // 归组/点击唤起 = 世事 app;subtitle 桌面 builder 无面,折叠进正文)。
+        // 不转发 UI 事件面;代发失败只 warn —— Python 通道的发射器故障回退
+        // 在 sidecar 侧,此处失败 = 壳侧展示面问题,如实留痕不吞。
+        if parsed.get("type").and_then(Value::as_str) == Some("notify.banner") {
+            use tauri_plugin_notification::NotificationExt;
+            let title = parsed
+                .get("title")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let body = parsed
+                .get("body")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            let subtitle = parsed
+                .get("subtitle")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty());
+            let body = subtitle
+                .map(|subtitle| format!("{subtitle} · {body}"))
+                .unwrap_or(body);
+            if let Err(err) = app
+                .notification()
+                .builder()
+                .title(title)
+                .body(body)
+                .show()
+            {
+                log::warn!("desktop: notify.banner 壳代发失败: {err}");
+            }
+            return;
+        }
         let _ = app.emit(SIDECAR_EVENT, parsed);
         return;
     }
@@ -885,6 +920,9 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         // dialog:看图屏系统文件选择器(前端 @tauri-apps/plugin-dialog;权限见 capabilities/default.json)
         .plugin(tauri_plugin_dialog::init())
+        // notification:sidecar 通知横幅壳代发(10-14-notify-app-icon;泵分支
+        // handle_stdout_line 的 notify.banner)。仅 Rust 侧调用,零 webview ACL 面。
+        .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             sidecar_request,
             sidecar_restart,
