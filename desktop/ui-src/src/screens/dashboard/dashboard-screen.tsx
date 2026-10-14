@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Activity,
   CircleCheck,
@@ -14,6 +15,10 @@ import {
   TrendingUp,
   TriangleAlert,
 } from "lucide-react";
+// recharts(10-15-dash-donut):概览条四色环。主人令「饼状图用插件做,不要
+// 自己造」——27.6k★ MIT 当日活跃(find-skills 核验),图表域判例覆盖早年
+// sparkline 自绘决议(趋势折线仍自绘,不动);只引入 PieChart/Pie/Cell。
+import { Cell, Pie, PieChart } from "recharts";
 
 import { EmptyState } from "@/components/empty-state";
 import { HintButton } from "@/components/label-hint";
@@ -538,53 +543,90 @@ function AlertList({ rows }: { rows: AlertRowModel[] }) {
   );
 }
 
+/** 健康度四态 → 环图段色(SVG fill 直取 :root token,色彩单源不动摇) */
+const HEALTH_RING_FILL: Record<SourceHealthState, string> = {
+  ok: "var(--ok)",
+  degraded: "var(--warning)",
+  dead: "var(--dead)",
+  unknown: "var(--unknown)",
+};
+
 /**
- * 概览格卡(终审修整:单卡内 divide-x 四格 → 四张独立等宽等高 Card;
- * VL 指认「四卡紧密堆叠、卡高不一/宽度不一、右侧告警卡错位」——
- * grid gap-grid + 基调层 [data-slot=card] height:100% 天然等高等宽)。
- * teardown-vercel-dashboard #2 血统保留:小标签 = 大写+弱色,大数字 = tnum
- * 全局已开;value=null 显 — 不虚构。note = 弱注记(口径说明)。
- * R3(10-05-dashboard-glance):口径型 note 收进 ⓘ 悬停(HintButton,
- * ui/tooltip 基件,键盘 focus 可达)——扫读面只剩标签+大数字;错误/降级型
- * note(noteKind="alert")保留明文,错误不藏 hover。
+ * 概览条源健康度四色环(recharts;10-15-dash-donut):ok/退化/失效/未知
+ * 四段占比,中心由调用侧叠「活跃/总数」数字。定尺寸 PieChart(56px,不走
+ * ResponsiveContainer)——jsdom 测试与 reduced-motion 双免;动画关(数据
+ * 快照类环图无叙事必要,反 AI 审美「动效回答动作」红线)。
  */
-function StatCell({
+function HealthDonut({ segments }: { segments: { state: SourceHealthState; count: number }[] }) {
+  const data = segments.filter((segment) => segment.count > 0);
+  if (data.length === 0) return null;
+  return (
+    <PieChart width={56} height={56}>
+      <Pie
+        data={data}
+        dataKey="count"
+        nameKey="state"
+        innerRadius={18}
+        outerRadius={27}
+        paddingAngle={data.length > 1 ? 2 : 0}
+        stroke="none"
+        isAnimationActive={false}
+      >
+        {data.map((segment) => (
+          <Cell key={segment.state} fill={HEALTH_RING_FILL[segment.state]} />
+        ))}
+      </Pie>
+    </PieChart>
+  );
+}
+
+/**
+ * 概览条紧凑块(10-15-dash-donut):四张 1/4 宽大卡(主人判「站位过于
+ * 大」)收成单卡 divide-x 行内块。块解剖沿 StatCell 血统(大写小标签 +
+ * 数字 tnum + alert 明文 / meta ⓘ),testid/注记词面原样(测试契约钉死)。
+ */
+function CompactStat({
   label,
   value,
   note,
   noteKind = "meta",
   destructive = false,
   testid,
+  className,
+  children,
 }: {
   label: string;
   value: number | string | null;
   note: string;
-  /** note 性质:meta = 口径注记(ⓘ 悬停);alert = 错误/降级注记(明文) */
   noteKind?: "meta" | "alert";
   destructive?: boolean;
   testid: string;
+  className?: string;
+  /** 头部自定义位(活跃源块挂环图,值由环心承担时传 null 走 — 兜底) */
+  children?: ReactNode;
 }) {
   return (
-    <Card data-testid={testid} className="gap-2">
-      <div className="flex h-full min-h-24 flex-col gap-1.5 px-card py-4">
-        <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+    <div
+      data-testid={testid}
+      className={cn("flex min-w-0 flex-1 flex-col justify-center gap-1 px-card py-3", className)}
+    >
+      <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      {children ?? (
         <p
           className={cn(
-            "text-2xl font-semibold tabular-nums",
-            destructive ? "text-destructive" : "text-foreground",
+            "text-xl font-semibold tabular-nums",
+            destructive ? "text-destructive-text" : "text-foreground",
           )}
         >
           {value === null ? "—" : value}
         </p>
-        {noteKind === "alert" ? (
-          <p className="mt-auto text-2xs leading-snug text-muted-foreground">{note}</p>
-        ) : (
-          <div className="mt-auto">
-            <HintButton name={label} tip={note} />
-          </div>
-        )}
-      </div>
-    </Card>
+      )}
+      {noteKind === "alert" ? (
+        <p className="text-2xs leading-snug text-muted-foreground">{note}</p>
+      ) : (
+        <HintButton name={label} tip={note} />
+      )}
+    </div>
   );
 }
 
@@ -850,6 +892,11 @@ export function DashboardScreen() {
   // 补批五:坏源(state≠ok)照旧铺开,ok 源收进折叠组
   const badSourceCards = sourceCards.filter((card) => card.state !== "ok");
   const okSourceCards = sourceCards.filter((card) => card.state === "ok");
+  // 概览环图四段(10-15-dash-donut):逐源健康态聚合计数(环图与源健康度
+  // 卡同一数据源,占比与下方卡区恒一致)
+  const healthSegments = (["ok", "degraded", "dead", "unknown"] as const)
+    .map((state) => ({ state, count: sourceCards.filter((card) => card.state === state).length }))
+    .filter((segment) => segment.count > 0);
 
   return (
     <div data-testid="dashboard-screen-root" className="flex flex-col gap-block pb-6">
@@ -960,69 +1007,88 @@ export function DashboardScreen() {
             </Button>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {loading && overview === null ? (
-            [0, 1, 2, 3].map((index) => <Skeleton key={index} className="h-28 w-full rounded-lg" />)
-          ) : overview === null ? null : (
-                <>
-                  <StatCell
-                    testid="stat-window-items"
-                    label={overviewWindow === "today" ? "今日采集" : `近 ${overviewWindow} 天采集`}
-                    value={overview.windowItems}
-                    note={
-                      trendError !== null
-                        ? trendError.code === "pyenv_not_ready"
-                          ? "数据待 Python 环境配置 · 如实显 —"
-                          : `趋势不可达(${trendError.code})· 如实显 —`
-                        : overviewWindow === "today"
-                          ? "UTC 日口径 · items 入库"
-                          : `UTC 逐日 ${overviewWindow} 天求和 · items 入库`
-                    }
-                    noteKind={trendError !== null ? "alert" : "meta"}
-                  />
-                  <StatCell
-                    testid="stat-active-sources"
-                    label="活跃源"
-                    value={
-                      overview.activeSources !== null && overview.totalSources !== null
-                        ? `${overview.activeSources}/${overview.totalSources}`
-                        : null
-                    }
-                    note={
-                      overview.totalSources === null
-                        ? "诊断不可达 · doctor 分区失败"
-                        : overviewWindow === "today"
-                          ? `共 ${overview.totalSources} 源 · 正常+退化`
-                          : `共 ${overview.totalSources} 源 · 正常+退化 · 实时快照,不随时间范围变化`
-                    }
-                    noteKind={overview.totalSources === null ? "alert" : "meta"}
-                  />
-                  <StatCell
-                    testid="stat-window-push"
-                    label="推送成功"
-                    value={overview.windowPushOk}
-                    note={
-                      overviewWindow === "today"
-                        ? "今日(UTC)各轮采集的推送成功数 · 仅统计最近 20 轮"
-                        : `近 ${overviewWindow} 天(UTC)各轮采集的推送成功数 · 仅统计最近 20 轮`
-                    }
-                    noteKind="meta"
-                  />
-                  <StatCell
-                    testid="stat-alerts"
-                    label="告警"
-                    value={overview.alerts}
-                    note={
-                      overviewWindow === "today"
-                        ? "诊断发现的错误与提醒"
-                        : "诊断发现的错误与提醒 · 实时快照,不随时间范围变化"
-                    }
-                    noteKind="meta"
-                    destructive={(overview.alerts ?? 0) > 0}
-                  />
-                </>
-              )}
-        </div>
+        {/* 10-15-dash-donut:四张 1/4 宽大卡(主人判「站位过于大」)收成单卡
+            紧凑行——活跃源 = recharts 源健康度四色环(环心 32/48),其余三格
+            divide-x 行内数字块;testid/注记词面/ⓘ-说明钮契约原样(测试钉死) */}
+        {loading && overview === null ? (
+          <Skeleton className="h-20 w-full rounded-lg" />
+        ) : overview === null ? null : (
+          <Card className="overflow-hidden py-0">
+            <div className="flex flex-wrap items-stretch divide-x divide-border/60">
+              <CompactStat
+                testid="stat-active-sources"
+                label="活跃源"
+                value={
+                  overview.activeSources !== null && overview.totalSources !== null
+                    ? `${overview.activeSources}/${overview.totalSources}`
+                    : null
+                }
+                note={
+                  overview.totalSources === null
+                    ? "诊断不可达 · doctor 分区失败"
+                    : overviewWindow === "today"
+                      ? `共 ${overview.totalSources} 源 · 正常+退化 · 环图 = 正常/退化/失效/未知占比`
+                      : `共 ${overview.totalSources} 源 · 正常+退化 · 实时快照,不随时间范围变化 · 环图 = 四态占比`
+                }
+                noteKind={overview.totalSources === null ? "alert" : "meta"}
+                className="min-w-[232px] flex-[1.3]"
+              >
+                {overview.activeSources !== null &&
+                overview.totalSources !== null &&
+                overview.totalSources > 0 &&
+                healthSegments.length > 0 ? (
+                  <div className="relative flex size-14 shrink-0 items-center justify-center">
+                    <HealthDonut segments={healthSegments} />
+                    <span className="absolute text-2xs font-semibold tabular-nums text-foreground">
+                      {overview.activeSources}/{overview.totalSources}
+                    </span>
+                  </div>
+                ) : undefined}
+              </CompactStat>
+              <CompactStat
+                testid="stat-window-items"
+                label={overviewWindow === "today" ? "今日采集" : `近 ${overviewWindow} 天采集`}
+                value={overview.windowItems}
+                note={
+                  trendError !== null
+                    ? trendError.code === "pyenv_not_ready"
+                      ? "数据待 Python 环境配置 · 如实显 —"
+                      : `趋势不可达(${trendError.code})· 如实显 —`
+                    : overviewWindow === "today"
+                      ? "UTC 日口径 · items 入库"
+                      : `UTC 逐日 ${overviewWindow} 天求和 · items 入库`
+                }
+                noteKind={trendError !== null ? "alert" : "meta"}
+                className="min-w-[150px]"
+              />
+              <CompactStat
+                testid="stat-window-push"
+                label="推送成功"
+                value={overview.windowPushOk}
+                note={
+                  overviewWindow === "today"
+                    ? "今日(UTC)各轮采集的推送成功数 · 仅统计最近 20 轮"
+                    : `近 ${overviewWindow} 天(UTC)各轮采集的推送成功数 · 仅统计最近 20 轮`
+                }
+                noteKind="meta"
+                className="min-w-[150px]"
+              />
+              <CompactStat
+                testid="stat-alerts"
+                label="告警"
+                value={overview.alerts}
+                note={
+                  overviewWindow === "today"
+                    ? "诊断发现的错误与提醒"
+                    : "诊断发现的错误与提醒 · 实时快照,不随时间范围变化"
+                }
+                noteKind="meta"
+                destructive={(overview.alerts ?? 0) > 0}
+                className="min-w-[150px]"
+              />
+            </div>
+          </Card>
+        )}
         {/* R2 告警升格清单(D3):触发 = 告警或坏源非零,坏源行优先 + 品类级
             findings 补位,前三条封顶,行点跳源管理;皆零零占位 */}
         <AlertList rows={alertRows} />
