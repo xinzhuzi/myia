@@ -158,6 +158,10 @@ COMPOSER_POINT_NORM = (0.50, 0.83)
 #: 搜索结果渲染在**独立浮窗**(wid 96202)而非主窗左栏——OCR 主窗
 #: SEARCH_PANE_BOX 必然零候选;浮窗整窗即搜索面板,分区头逻辑做主裁)。
 SEARCH_FLOAT_BOX = (0.0, 0.0, 1.0, 1.0)
+#: 主窗侧栏会话带(窗口归一化;0.8.4 侧栏优先导航——主人判例
+#: 2026-10-14「每次都搜索网络结果」:搜索面板顶部恒现网络区,在册
+#: 目标改走侧栏直选,搜索面板根本不打开)。
+SIDEBAR_BOX = (0.0, 0.12, 0.26, 0.83)
 
 # ------------------------------------------------------------- OCR 区域 ----
 #: 会话标题带(窗口顶部;pixel.TITLE_MAX_Y 放宽一档,搜索态标题在顶栏)。
@@ -685,6 +689,51 @@ def _try_write_search_value(term: str) -> bool:
         return False
 
 
+def _sidebar_pick(window: Any, target: SendTarget, workdir: Path) -> tuple[int, int] | None:
+    """侧栏直选(0.8.4;主人判例「每次都搜索网络结果」的在册目标免搜索):
+
+    OCR 主窗侧栏带(:data:`SIDEBAR_BOX`),display_name **精确或前缀且
+    唯一**命中 → 行中心屏幕坐标;多行命中/零命中 → None(调用方走搜索,
+    搜索面板才可能打开)。不做包含匹配(侧栏预览行常含人名,太松)。
+    emoji display_name 的 OCR 不可读 → 天然 None 走搜索(AX 通道侧栏
+    直选不受此限,见 ``_navigate`` 的 sidebar_ax 路)。
+
+    **热列表位置稳定锁**(真机实证 12:3x:新消息实时重排,OCR→点击
+    间隙行位漂移可点错行):命中后 0.3s 重扫,目标行仍在原 y ±0.02
+    才返回坐标;漂移 → None 落搜索路(结果面板无重排)。只锁目标行,
+    不锁全列表(活跃会话列表全行指纹永在变,全锁=永拒)。
+    """
+    from . import navfilter
+
+    def _unique_row(lines: list[Any]) -> Any | None:
+        display = navfilter.compact(target.display_name)
+        if not display:
+            return None
+        exact = [l for l in lines if navfilter.compact(str(getattr(l, "text", "") or "")) == display]
+        pool = exact or [
+            l for l in lines
+            if navfilter.compact(str(getattr(l, "text", "") or "")).startswith(display)
+        ]
+        return pool[0] if len(pool) == 1 else None
+
+    def _center(l: Any) -> tuple[int, int]:
+        wx, wy = navfilter.pane_to_window(
+            SIDEBAR_BOX,
+            float(getattr(l, "x", 0.0)) + float(getattr(l, "w", 0.0)) / 2,
+            float(getattr(l, "y", 0.0)) + float(getattr(l, "h", 0.0)) / 2,
+        )
+        return navfilter.row_box_to_screen(window, wx, wy)
+
+    first = _unique_row(_ocr_region_lines(window, SIDEBAR_BOX, workdir, "sidebar"))
+    if first is None:
+        return None
+    sleep(0.3)
+    again = _unique_row(_ocr_region_lines(window, SIDEBAR_BOX, workdir, "sidebar"))
+    if again is None or abs(float(getattr(again, "y", 0.0)) - float(getattr(first, "y", 0.0))) > 0.02:
+        return None  # 目标行漂移/消失:热列表,不赌点击
+    return _center(again)
+
+
 # ------------------------------------------------------------ 导航(§B-5) ----
 
 
@@ -712,6 +761,36 @@ def _navigate(target: SendTarget, window: Any, channel: str, workdir: Path) -> d
             f"发送断言失败(阶段=navigate):{detail}",
             fix_hint="重试由桥自动进行(上限 3 次);emoji 目标在降级链不可定位时,先修 AX 门(doctor 看配方)后以 AX 主链发送",
         )
+
+    # 0.8.4 侧栏优先(主人判例「每次都搜索网络结果」):在册目标先侧栏
+    # 直选,搜索面板(及其置顶网络区)根本不打开。
+    if channel == "ax":
+        try:
+            sidebar_hit = axui.press_session_item(target.display_name)
+        except BridgeError:
+            sidebar_hit = False
+        if sidebar_hit:
+            return {
+                "pick_rule": "sidebar_ax",
+                "pick_cx": None,
+                "pick_cy": None,
+                "terms_hit": target.display_name,
+            }
+    else:
+        sidebar_pt = _sidebar_pick(window, target, workdir)
+        if sidebar_pt is not None:
+            click_at(*sidebar_pt)
+            sleep(CLICK_SETTLE_S)
+            # 热列表竞态防御(真机实证 12:3x:新消息实时重排):点后即时
+            # 标题确认,不符**不烧尝试**直接落搜索路(结果面板无重排)。
+            title_now = _ocr_region(window, TITLE_BAND_BOX, workdir, "title")
+            if _title_matches(title_now, target.display_name):
+                return {
+                    "pick_rule": "sidebar_ocr",
+                    "pick_cx": None,
+                    "pick_cy": None,
+                    "terms_hit": target.display_name,
+                }
 
     if channel == "ax":
         _post_key_dual(KEY_F, FLAG_COMMAND)
@@ -837,6 +916,9 @@ def _verify_title(
         current = _ocr_region(window, TITLE_BAND_BOX, workdir, "title")
         if squash(current or "") != squash(baseline_title):
             return "indirect"
+    # 0.8.4:locate 失败同样清搜索态(真机实证残留「Q搜索」浮层;D 条
+    # 原只挂 navigate 失败路径)。
+    _cleanup_search_state(channel)
     raise stage_fail("标题带与目标不符(导航后未切换到目标会话)")
 
 

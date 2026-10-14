@@ -51,91 +51,102 @@ class TestHeaderSets:
         for name in ("群聊", "联系人", "聊天记录", "公众号", "服务号", "小程序", "朋友圈"):
             assert name in LOCAL_HEADERS
 
-    def test_junk_headers_cover_fenced_groups(self) -> None:
-        for name in ("搜一搜", "功能", "功能分类", "文章", "智能工具", "朋友圈动态"):
-            assert name in JUNK_HEADERS
+    def test_function_headers_are_local_not_junk(self) -> None:
+        """勘误回归(真机实证):功能/功能分类=本地功能分区,曾在 JUNK。"""
+        assert "功能" in LOCAL_HEADERS and "功能" not in JUNK_HEADERS
+        assert "功能分类" in LOCAL_HEADERS and "功能分类" not in JUNK_HEADERS
+        for name in ("最常使用", "常用"):
+            assert name in LOCAL_HEADERS
+
+    def test_network_tokens_cover_real_header_render(self) -> None:
+        """网络区锚(主人抓障 2026-10-14:「每次都搜索网络结果」)。"""
+        for token in ("搜索网络结果", "搜一搜", "网络结果"):
+            assert token in navfilter.NETWORK_TOKENS
 
 
 class TestSelectResultRow:
-    def test_text_match_below_junk_excluded(self) -> None:
-        """命中行在锚(limit)之上被选中;junk 头之下的行被排除。
-
-        坐标语义(design §B-3 步骤 2):候选 = y < limit - 0.003——
-        limit = y_junk(在场时),即垃圾分区头之上的行才可点。
-        """
+    def test_real_layout_network_top_local_band(self) -> None:
+        """真机布局回归(/tmp/wxsend-e2e/r3/float-evidence.png 位置化取证,
+        2026-10-14):网络区置顶 + Q 联想 + 功能带内目标行 + 深区同名行——
+        必须选功能带内那行,网络行/回显/深区同名行永不中。"""
         lines = [
-            line("文件传输助手", 0.03, 0.25),  # 锚之上:可选
-            line("搜一搜", 0.02, 0.60),
-            line("文件传输助手广告", 0.03, 0.75),  # junk 分区之下,必须排除
+            line("大 搜索网络结果", 0.10, 0.028),
+            line("Q", 0.10, 0.081, w=0.03),
+            line("文件传输助手", 0.139, 0.081, w=0.2),  # 输入回显(网络区下、功能带上)
+            line("Q 文件传输助手打开", 0.103, 0.135),
+            line("Q 文件传输助手恢复数据", 0.103, 0.190),
+            line("功能", 0.098, 0.351),
+            line("文件传输助手", 0.212, 0.421),  # ★目标行(功能带内)
+            line("聊天记录", 0.095, 0.499),
+            line("文件传输助手", 0.209, 0.728),  # 深区同名行(聊天记录带)
         ]
         pick = select_result_row(lines, ["文件传输助手"])
-        assert pick is not None
-        assert pick.rule == "text_match"
-        assert pick.term == "文件传输助手"
-        assert pick.cy == approx(0.25 + 0.03 / 2)
+        assert pick is not None and pick.rule == "text_match"
+        assert pick.cy == approx(0.421 + 0.015)  # 功能带内行,非深区同名
 
-    def test_junk_anchor_wins_over_local_anchor(self) -> None:
-        """junk 头在场时以 junk 头为排除锚(比最下本地头更紧)。"""
+    def test_no_local_header_never_guesses(self) -> None:
+        """无本地分区锚 → None 绝不猜——网络联想行/回显永不入候选
+        (旧版 limit=None 时全行候选的洞,主人抓障根因)。"""
         lines = [
-            line("聊天记录", 0.02, 0.05),  # local 头(锚更松)
-            line("目标会话", 0.03, 0.25),
-            line("搜一搜", 0.02, 0.50),  # junk 头(锚更紧,优先)
-            line("目标会话", 0.03, 0.55),  # junk 之下,排除
+            line("搜索网络结果", 0.10, 0.028),
+            line("文件传输助手", 0.139, 0.081),
+            line("Q 文件传输助手打开", 0.103, 0.135),
+        ]
+        assert select_result_row(lines, ["文件传输助手"]) is None
+
+    def test_band_bottom_excludes_deeper_sections(self) -> None:
+        """候选带止于下一个分区头:更深分区的行(哪怕全等)不入带。"""
+        lines = [
+            line("功能", 0.098, 0.35),
+            line("目标会话", 0.21, 0.42),
+            line("文章", 0.095, 0.50),  # junk 分区头=带底
+            line("目标会话", 0.21, 0.60),  # 带外
         ]
         pick = select_result_row(lines, ["目标会话"])
-        assert pick is not None
-        assert pick.cy == approx(0.25 + 0.015)
+        assert pick is not None and pick.cy == approx(0.42 + 0.015)
 
-    def test_no_headers_all_rows_are_candidates(self) -> None:
-        """分区头全没 OCR 出来(limit None)→ 全部有文本行为候选。"""
-        lines = [line("目标会话", 0.03, 0.90)]
-        pick = select_result_row(lines, ["目标会话"])
-        assert pick is not None and pick.rule == "text_match"
-
-    def test_tie_break_prefers_lowest_y_then_smallest_x(self) -> None:
-        """并列(同 term 同分)取 y 最大、再 x 最小(REF:80-97)。"""
+    def test_tie_break_prefers_topmost_in_band(self) -> None:
+        """并列(同 term 同分)取带内最上(y 最小)——旧版取 y 最大的
+        平局规则会把同名深区行点错(勘误)。"""
         lines = [
-            line("同名群", 0.10, 0.30),
-            line("同名群", 0.05, 0.50),  # y 更大 → 胜
+            line("联系人", 0.02, 0.10),
+            line("同名群", 0.05, 0.30),
+            line("同名群", 0.10, 0.50),
         ]
         pick = select_result_row(lines, ["同名群"])
-        assert pick is not None
-        assert pick.cy == approx(0.50 + 0.015)
+        assert pick is not None and pick.cy == approx(0.30 + 0.015)
 
-    def test_exact_beats_prefix_beats_contains(self) -> None:
-        """评分序:全等 0 / 前缀 1 / 包含 2;term 序即优先级。"""
+    def test_exact_beats_prefix_beats_contains_in_band(self) -> None:
+        """评分序:全等 0 / 前缀 1 / 包含 2;term 序即优先级(带内)。"""
         lines = [
-            line("目标会话(工作)", 0.03, 0.60),  # 前缀(term1)
-            line("目标会话", 0.03, 0.40),  # 全等(term1)
-            line("讨论目标会话", 0.03, 0.50),  # 包含(term1)
+            line("联系人", 0.02, 0.10),
+            line("目标会话(工作)", 0.03, 0.30),  # 前缀
+            line("目标会话", 0.03, 0.20),  # 全等
+            line("讨论目标会话", 0.03, 0.25),  # 包含
         ]
         pick = select_result_row(lines, ["目标会话"])
-        assert pick is not None and pick.cy == approx(0.40 + 0.015)
-        # term_rank 优先:低 rank 的包含胜过高 rank 的全等
+        assert pick is not None and pick.cy == approx(0.20 + 0.015)
         pick2 = select_result_row(lines, ["无关词", "讨论目标会话"])
-        assert pick2 is not None and pick2.cy == approx(0.50 + 0.015)
+        assert pick2 is not None and pick2.cy == approx(0.25 + 0.015)
 
     def test_unique_row_adopted_for_garbled_single_candidate(self) -> None:
-        """unique-row 兜底:emoji 行被 OCR 读成乱码(与 terms 全不匹配)、
-        候选恰 1 行且分区头在场 → 采纳(design §J-9「行在名读不出」)。"""
+        """unique-row 兜底:emoji 行 OCR 乱码、带内恰 1 行且本地头在场。"""
         lines = [
-            line("联系人", 0.02, 0.60),  # 分区头(锚)
-            line(".cert.=:)", 0.03, 0.42),  # 🐳 行乱码(锚之上,唯一候选)
+            line("联系人", 0.02, 0.10),
+            line(".cert.=:)", 0.03, 0.42),
         ]
         pick = select_result_row(lines, ["🐳", "jiangliushi666"])
-        assert pick is not None
-        assert pick.rule == "unique_row"
-        assert pick.term == ""
+        assert pick is not None and pick.rule == "unique_row" and pick.term == ""
 
     def test_unique_row_rejected_when_zero_candidates(self) -> None:
-        """OCR 零文本行(行完全没读出,候选 0)→ None 拒发,绝不猜。"""
-        lines = [line("联系人", 0.02, 0.30)]  # 只有分区头
+        """OCR 零文本行(候选 0)→ None 拒发,绝不猜。"""
+        lines = [line("联系人", 0.02, 0.30)]
         assert select_result_row(lines, ["🐳"]) is None
 
     def test_unique_row_rejected_when_multiple_candidates(self) -> None:
-        """候选 ≥2 且无命中 → 不触发兜底(猜哪个都是赌)。"""
+        """带内候选 ≥2 且无命中 → 不触发兜底。"""
         lines = [
-            line("联系人", 0.02, 0.60),
+            line("联系人", 0.02, 0.10),
             line(".cert.=:)", 0.03, 0.42),
             line("::..~", 0.03, 0.52),
         ]
@@ -143,7 +154,10 @@ class TestSelectResultRow:
 
     def test_click_point_is_text_center_avoiding_avatar(self) -> None:
         """点击点 = 行文本本体中心(cx = x + w/2 避头像)。"""
-        lines = [line("目标会话", x=0.10, y=0.40, w=0.20, h=0.04)]
+        lines = [
+            line("功能", 0.02, 0.10),
+            line("目标会话", x=0.10, y=0.40, w=0.20, h=0.04),
+        ]
         pick = select_result_row(lines, ["目标会话"])
         assert pick is not None
         assert pick.cx == approx(0.10 + 0.10)

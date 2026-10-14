@@ -1,30 +1,41 @@
 """搜索结果面板的分区过滤选行纯逻辑 + 三段坐标换算链(task
 10-14-wechat-send-text design §B-3;tonyshield ref_search_click.sh 算法
-+ 三处增强;降级通道 CGEvent+OCR 导航的选行器)。
+根型 + 2026-10-14 按真机布局重写)。
 
 纯逻辑模块:**零平台调用、零桥内其它模块 import(仅 stdlib)**——单测
 主战场(design §A)。
 
-来源与增强(REF = research/ref_search_click.sh 内嵌 python):
+真机布局实证(2026-10-14 /tmp/wxsend-e2e/r3/float-evidence.png 位置化
+OCR,主人抓障「每次都搜索网络结果」后取证)::
 
-- 分区头定位(REF:53-59 最下本地头)——增强①:补「功能分类」族垃圾
-  分区头集合,``y_junk`` 排除锚优先于 ``y_local``;
-- 评分选行(REF:69-74 全等/前缀/包含)与并列取 y 最大再 x 最小
-  (REF:80-97);
-- 增强②:unique-row 兜底——emoji 行 OCR 名乱/不匹配时的「行在但名读
-  不出」救援(候选恰 1 行且分区头在场才采;**不救**「行完全没读出」,
-  0 候选 → None 拒发绝不猜,design §J-9);
-- 增强③:**三段坐标换算链**——OcrLine 坐标是 ``SEARCH_PANE_BOX`` 裁剪图
-  归一化 0-1(pixel.vision_ocr 输出坐标系),必须先 pane→window 再
-  window→screen,直接当全窗用会系统性偏左上(design §J-3)。
+    y=0.028  搜索网络结果        ← 网络区(顶部!)
+    y=0.081  Q / <输入回显>      ← 搜索框回显
+    y=0.135+ Q <词>+<联想尾>     ← 网络联想行(Q 前缀族)
+    y=0.351  功能                ← 本地分区头(★曾在 JUNK,勘误:本地!)
+    y=0.421  <目标行>            ← 要点的行
+    y=0.499  聊天记录            ← 更深本地分区
+    y=0.560+ 聊天记录行…
+
+即 4.1.15 的浮窗是「网络区在上、本地分区在下」——tonyshield 原算法的
+「垃圾在底、取锚上方行」假设整体不成立,旧实现靠 OCR 漏读分区头 +
+``y 最大`` 平局侥幸点对过。本版语义:
+
+1. 网络区锚:文本**包含** :data:`NETWORK_TOKENS` 任一词(OCR 会带图标
+   前缀,如「大 搜索网络结果」→ containment 匹配)或 Q 联想行形态;
+2. 本地分区头锚:精确命中 :data:`LOCAL_HEADERS`(功能/功能分类勘误
+   归本地;补最常使用/常用);
+3. 候选带 = 首个位于网络区之下的本地头 → 下一个任意分区头(开区间);
+   **无本地头 → None 拒发绝不猜**(网络联想行永不入候选);
+4. 评分全等=0/前缀=1/包含=2(terms 按序即 rank);并列取带内最上
+   (y 最小)再 x 最小——同名行常在更深聊天记录区再现,取带内首段;
+5. unique-row 兜底:带内恰 1 行且本地头在场才采(救「名读不出」)。
 
 坐标契约(design §B-3,docstring 写死)::
 
     select_result_row(lines, terms) 的 lines 与返回的 RowPick.cx/cy
-    一律为 SEARCH_PANE_BOX 裁剪图内归一化 0-1(原点左上);
-    pane_to_window → 全窗归一化;row_box_to_screen → 屏幕绝对像素
-    (kCGWindowBounds 同系:原点主屏左上、Y 向下,与 CGEvent 鼠标坐标
-    一致)。
+    一律为裁剪图内归一化 0-1(原点左上);pane_to_window → 全窗归一化;
+    row_box_to_screen → 屏幕绝对像素(kCGWindowBounds 同系:原点主屏
+    左上、Y 向下,与 CGEvent 鼠标坐标一致)。
 """
 
 from __future__ import annotations
@@ -39,6 +50,7 @@ if TYPE_CHECKING:  # 仅类型引用;运行时零桥内依赖(鸭子类型,OcrLi
 __all__ = [
     "JUNK_HEADERS",
     "LOCAL_HEADERS",
+    "NETWORK_TOKENS",
     "SEARCH_PANE_BOX",
     "RowPick",
     "compact",
@@ -47,14 +59,27 @@ __all__ = [
     "select_result_row",
 ]
 
-#: 本地结果分区头(REF:53 六项 + 朋友圈)。
-LOCAL_HEADERS = frozenset({"群聊", "联系人", "聊天记录", "公众号", "服务号", "小程序", "朋友圈"})
-#: 非本地/功能分类分区头(其下候选一律排除;★补 REF 缺的「功能分类」族)。
-JUNK_HEADERS = frozenset(
+#: 本地结果分区头(真机实证:功能/功能分类=本地功能分区,勘误自 JUNK;
+#: 最常使用/常用=搜索首段常见头)。
+LOCAL_HEADERS = frozenset(
     {
-        "搜一搜",
+        "群聊",
+        "联系人",
+        "聊天记录",
+        "公众号",
+        "服务号",
+        "小程序",
+        "朋友圈",
         "功能",
         "功能分类",
+        "最常使用",
+        "常用",
+    }
+)
+#: 兜底垃圾分区头(其下整段排除;真机布局下网络区靠 NETWORK_TOKENS
+#: containment 锚,此处仅兜更深的非目标分区)。
+JUNK_HEADERS = frozenset(
+    {
         "文章",
         "智能工具",
         "朋友圈动态",
@@ -66,17 +91,17 @@ JUNK_HEADERS = frozenset(
         "小程序码",
     }
 )
+#: 网络区锚( containment 匹配——OCR 常带图标前缀,如「大 搜索网络结果」;
+#: 主人抓障 2026-10-14:此区每次搜索都置顶出现,永不点击)。
+NETWORK_TOKENS = ("搜索网络结果", "搜一搜", "网络结果")
 #: 搜索结果面板 OCR 区(窗口内容归一化;全左栏,分区头逻辑做主裁;
 #: P9 预验校准注记:design §I-7,几何漂移先改本常量再进 P10)。
 SEARCH_PANE_BOX = (0.0, 0.10, 0.32, 0.88)
 
-#: 候选行必须落在分区头锚之上的容差(REF:83 同款 -0.003)。
-_LIMIT_TOLERANCE = 0.003
-
 
 @dataclass(frozen=True)
 class RowPick:
-    """选中行(坐标 = SEARCH_PANE_BOX 裁剪图归一化,design §J-3)。"""
+    """选中行(坐标 = 裁剪图归一化,design §J-3)。"""
 
     cx: float
     cy: float
@@ -97,60 +122,78 @@ def _line_text(line: "OcrLine") -> str:
     return str(getattr(line, "text", "") or "")
 
 
+def _is_network_row(text_compact: str) -> bool:
+    """网络区行(头行 containment + Q 联想行形态)。"""
+    if any(token in text_compact for token in NETWORK_TOKENS):
+        return True
+    return text_compact.startswith("q") and len(text_compact) > 1
+
+
 def select_result_row(
     lines: Sequence["OcrLine"], terms: Sequence[str]
 ) -> RowPick | None:
-    """分区过滤 + 评分选行(零平台调用;REF 算法 + 增强项)。
+    """分区带过滤 + 评分选行(零平台调用;真机布局语义,模块 docstring)。
 
-    **坐标契约:lines 的 x/y/w/h 一律为 SEARCH_PANE_BOX 裁剪图内归一化
-    0-1**(与 pixel.vision_ocr 的输出坐标系一致);返回的 RowPick 同系。
+    步骤:
 
-    步骤(design §B-3):
-
-    1. 分区头定位:y_local = 最下本地头 y;junk 头取最上(``min``)——
-       ``limit = y_junk if 在场 else y_local if 在场 else None``;
-    2. 候选 = 有文本(OcrLine.text 去空白非空;OCR 吐出的行哪怕乱码也算
-       ——unique-row 的可达前提)、非分区头、y < limit - 0.003 的行;
-       limit None(分区头全没 OCR 出来)→ 候选 = 全部非分区头有文本行;
-    3. 文本评分:每候选取最优 (term_rank, score),score:全等=0 / 前缀=1 /
-       包含=2;terms 按序即 rank;
-    4. 并列取 y 最大、再 x 最小(sorted key=(score_tuple, -y, x) 取首);
-    5. unique_row 兜底:无任何文本命中 且 候选恰 1 行 且 limit 在场 →
-       采纳该行(rule="unique_row")——救「行在但名读不出」,不救
-       「行完全没读出」(0 候选 → None 拒发,绝不猜);
+    1. 锚定:网络区头 y(最上 containment/Q 行);全部本地头 y(升序);
+    2. 候选带 = (网络区之下首个本地头, 下一个任意分区头);无本地头 →
+       None(绝不猜,网络联想行永不入候选);
+    3. 带内候选 = 有文本、非任何分区头、非网络行;
+    4. 评分(全等=0/前缀=1/包含=2,terms 序=rank),并列取带内最上
+       (y 最小)再 x 最小;
+    5. unique-row 兜底:带内恰 1 行才采;
     6. 无命中 → None(调用方 exit 15 拒,绝不盲回车)。
 
     点击点 = 行文本本体中心(cx = x + w/2 避头像,cy = y + h/2)。
     """
-    # —— 1. 分区头锚 ——
-    y_local: float | None = None
-    y_junk: float | None = None
+    # —— 1. 锚 ——
+    y_network: float | None = None
+    local_ys: list[float] = []
+    header_rows: list[tuple[float, str]] = []  # (y, compact) 全部分区头
     for line in lines:
-        key = compact(_line_text(line))
-        if not key:
+        text = compact(_line_text(line))
+        if not text:
             continue
-        if key in LOCAL_HEADERS:
-            y = _line_y(line)
-            y_local = y if y_local is None else max(y_local, y)
-        elif key in JUNK_HEADERS:
-            y = _line_y(line)
-            y_junk = y if y_junk is None else min(y_junk, y)
-    limit = y_junk if y_junk is not None else y_local
+        y = _line_y(line)
+        if _is_network_row(text):
+            y_network = y if y_network is None else min(y_network, y)
+            continue
+        if text in LOCAL_HEADERS:
+            local_ys.append(y)
+            header_rows.append((y, text))
+        elif text in JUNK_HEADERS:
+            header_rows.append((y, text))
+    if not local_ys:
+        return None  # 无本地分区锚:绝不猜(网络联想行永不点)
 
-    # —— 2. 候选行 ——
-    header_keys = LOCAL_HEADERS | JUNK_HEADERS
+    # —— 2. 候选带:网络区之下首个本地头 → 下一个任意分区头 ——
+    band_top = min(
+        (y for y in local_ys if y_network is None or y > y_network),
+        default=min(local_ys),
+    )
+    header_ys = sorted({y for y, _ in header_rows})
+    nexts = [y for y in header_ys if y > band_top + 1e-4]
+    band_bottom = min(nexts) if nexts else 1.0
+
+    # —— 3. 带内候选 ——
+    network_texts = {id(l) for l in lines if _is_network_row(compact(_line_text(l)))}
+    all_header_y = {y for y, _ in header_rows} | set(local_ys)
     candidates = []
     for line in lines:
         text = compact(_line_text(line))
-        if not text or text in header_keys:
+        if not text or id(line) in network_texts:
             continue
-        if limit is not None and _line_y(line) >= limit - _LIMIT_TOLERANCE:
+        y = _line_y(line)
+        if any(abs(y - hy) < 1e-4 for hy in all_header_y):
+            continue
+        if not (band_top + 1e-4 < y < band_bottom - 1e-4):
             continue
         candidates.append(line)
     if not candidates:
         return None
 
-    # —— 3/4. 文本评分 + 并列取 y 最大再 x 最小 ——
+    # —— 4. 评分 + 并列取带内最上(y 最小)再 x 最小 ——
     best: tuple[tuple[int, int], float, float, "OcrLine", str] | None = None
     for line in candidates:
         line_text = compact(_line_text(line))
@@ -166,7 +209,7 @@ def select_result_row(
                 score = 2
             else:
                 continue
-            key = ((rank, score), -_line_y(line), float(getattr(line, "x", 0.0)), line, term)
+            key = ((rank, score), _line_y(line), float(getattr(line, "x", 0.0)), line, term)
             if best is None or key[:3] < best[:3]:
                 best = key
     if best is not None:
@@ -179,7 +222,7 @@ def select_result_row(
         )
 
     # —— 5. unique-row 兜底 ——
-    if limit is not None and len(candidates) == 1:
+    if len(candidates) == 1:
         line = candidates[0]
         return RowPick(
             cx=float(getattr(line, "x", 0.0)) + float(getattr(line, "w", 0.0)) / 2,

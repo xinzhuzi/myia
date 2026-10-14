@@ -102,12 +102,15 @@ class FakeHarness:
             **(ocr_texts or {}),
         }
         self.search_lines = search_lines if search_lines is not None else [
-            _sline("联系人", 0.80),  # 分区头(锚)
-            _sline(CHAT, 0.40),  # 目标行
+            _sline("联系人", 0.20),  # 本地分区头(真机布局:头在上)
+            _sline(CHAT, 0.40),  # 目标行(带内)
         ]
         self.pre_nav_title = pre_nav_title if pre_nav_title is not None else CHAT
         self.search_window = search_window
         self.ocr_windows: list[object] = []  # _ocr_region_lines 收到的窗口
+        self.sidebar_lines: list[OcrLine] = []  # 侧栏带 OCR 行(0.8.4 侧栏优先)
+        self.ax_sidebar_hit: bool = False  # 侧栏 AXPress 探针是否命中
+        self.ax_press_calls: int = 0
         self.channel_want = channel
         # write_search_value 可用性(0.8.1 起降级链也先试 AXFocusedUIElement
         # 直写;None = 随通道——ax True / cgevent False=走剪贴板兜底)。
@@ -197,7 +200,9 @@ class FakeHarness:
 
     def _ocr_region_lines(self, _window, _box, _workdir, tag: str) -> list[OcrLine]:
         self.ocr_calls.append(tag)
-        self.ocr_windows.append(_window)
+        self.ocr_windows.append((tag, _window))  # 0.8.4:(tag, 窗) 对
+        if tag == "sidebar":
+            return list(self.sidebar_lines)
         return list(self.search_lines)
 
     def _post_send_verify(self, _body, _workdir) -> dict:
@@ -208,6 +213,9 @@ class FakeHarness:
         return self.ax_search_write
 
     def _ax_press_item(self, name: str) -> bool:
+        self.ax_press_calls += 1
+        if self.ax_press_calls == 1:
+            return self.ax_sidebar_hit  # 首调=0.8.4 侧栏探针
         return self.channel_want == "ax"
 
     def _ax_label(self) -> str | None:
@@ -376,7 +384,7 @@ class TestNavigateZeroCandidates:
     """⑧ 后半:搜索面板零候选 → exit 15 拒发(设计内行为,绝不盲点)。"""
 
     def test_zero_candidates_refuses_to_send(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        harness = FakeHarness(search_lines=[_sline("联系人", 0.80)])  # 只有分区头,零候选
+        harness = FakeHarness(search_lines=[_sline("联系人", 0.20)])  # 只有分区头,零候选
         harness.install(monkeypatch)
         with pytest.raises(BridgeError) as excinfo:
             _run(harness)
@@ -551,7 +559,7 @@ class TestTitleVerifyModes:
         harness = FakeHarness(
             ocr_texts={"title": "🦭读不出的新标题"},  # ≠ baseline → 会话已切换
             pre_nav_title="旧的会话标题",
-            search_lines=[_sline("联系人", 0.80), _sline(".cert.=:)", 0.42)],  # 乱码单行
+            search_lines=[_sline("联系人", 0.20), _sline(".cert.=:)", 0.42)],  # 乱码单行(带内)
         )
         harness.install(monkeypatch)
         payload = sendui.send_text(
@@ -575,7 +583,7 @@ class TestTitleVerifyModes:
         harness = FakeHarness(
             ocr_texts={"title": "🦭读不出的新标题"},
             pre_nav_title="旧的会话标题",
-            search_lines=[_sline("联系人", 0.80), _sline(".cert.=:)", 0.42)],
+            search_lines=[_sline("联系人", 0.20), _sline(".cert.=:)", 0.42)],
         )
         harness.install(monkeypatch)
         payload = sendui.send_text(BridgeConfig(), emoji_target, BODY, dry_run=True)
@@ -837,7 +845,8 @@ class TestSearchFloatWindow:
         payload = _run(harness, on_armed=harness.on_armed)
         assert payload["send"]["sent"] is True
         assert harness.ocr_windows, "搜索 OCR 必须发生"
-        assert all(w is harness.search_window for w in harness.ocr_windows)
+        search_wins = [w for tag, w in harness.ocr_windows if tag == "search"]
+        assert search_wins and all(w is harness.search_window for w in search_wins)
         # 目标行 fixture:cx = 0.10+0.20/2 = 0.20,cy = 0.40+0.04/2 = 0.42
         # (整窗框 → wx=0.20, wy=0.42;浮窗几何 → 屏幕 (200+0.20*368, 180+0.42*370))
         expect_x = round(200 + 0.20 * 368)
@@ -1130,3 +1139,41 @@ class TestSearchWindowDiff0_8_3:
 
         monkeypatch.setattr(sendui.axui, "write_search_value", hang)
         assert sendui._try_write_search_value("x") is False
+
+
+class TestSidebarFirst0_8_4:
+    """侧栏优先导航(主人判例 2026-10-14「每次都搜索网络结果」):
+    在册目标侧栏直选,搜索面板(及其置顶网络区)根本不打开。"""
+
+    def test_ax_sidebar_press_hits_without_search(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """ax 通道侧栏 AXPress 命中 → pick_rule=sidebar_ax,零 Cmd+F。"""
+        harness = FakeHarness(channel="ax")
+        harness.install(monkeypatch)
+        harness.ax_sidebar_hit = True
+        payload = _run(harness, dry_run=True)
+        assert payload["send"]["dry_run"] is True
+        assert payload["send"]["nav_debug"]["pick_rule"] == "sidebar_ax"
+        assert (3, 256) not in harness.keys  # 从未开搜索(无 Cmd+F)
+
+    def test_ocr_sidebar_unique_exact_clicks_without_search(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """降级链侧栏唯一精确命中 → 点击行中心,pick_rule=sidebar_ocr,零 Cmd+F。"""
+        harness = FakeHarness()
+        harness.install(monkeypatch)
+        harness.sidebar_lines = [OcrLine(text=CHAT, conf=0.9, x=0.02, y=0.05, w=0.18, h=0.04)]
+        payload = _run(harness, dry_run=True)
+        assert payload["send"]["dry_run"] is True
+        assert payload["send"]["nav_debug"]["pick_rule"] == "sidebar_ocr"
+        assert (3, 256) not in harness.keys
+        assert harness.clicks, "侧栏行必须被点击"
+
+    def test_sidebar_ambiguous_falls_to_search(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """侧栏两行同名(歧义)→ 不点,回落搜索面板路(带内选行)。"""
+        harness = FakeHarness()
+        harness.install(monkeypatch)
+        harness.sidebar_lines = [
+            OcrLine(text=CHAT, conf=0.9, x=0.02, y=0.05, w=0.18, h=0.04),
+            OcrLine(text=CHAT, conf=0.9, x=0.02, y=0.20, w=0.18, h=0.04),
+        ]
+        payload = _run(harness, dry_run=True)
+        assert payload["send"]["dry_run"] is True
+        assert payload["send"]["nav_debug"]["pick_rule"] == "text_match"  # 搜索路
