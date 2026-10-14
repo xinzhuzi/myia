@@ -35,3 +35,17 @@ distribution 同步换 `astral-sh/python-build-standalone`(Q8:旧 org 值与 ast
 ### Phase A 基线口径偏差注记
 
 生产 3.12.7 自管解释器**无 pytest 模块**(实测 `No module named pytest`),往生产环境 pip 装 pytest 会污染依赖指纹链(python-env.json 漂移),故基线改为「双沙箱 A/B」:PBS 3.12.7@20241016(旧钉,sha256 对 manifest 现值)与 PBS 3.14.8@20261013 两个干净沙箱同配方(装齐 requirements-lock.txt + pytest),同命令 `python3 -m pytest -q` 对拍通过数——只差解释器版本,比污染生产环境取基线更可控。
+
+### Phase A 终轮 R3 判定与第四处钉版断言(2026-10-14 23:37)
+
+- 终轮 R3:根套件 3.12.7 vs 3.14.8 = **6288 passed == 6288 passed**(60 skipped 同;各 1 failed 且为同一测试 `tests/classify/test_classifier_package.py::test_distribution_metadata_version_and_trove_classifiers`——锁钉 PyPI `myssia-classifier==0.0.1`(requirements-lock.txt:27)vs 测试期 0.0.3 的仓内既有漂移,lock-only 环境必红、dev 工作区 -e 装配则绿,与解释器无关);`pytest -q tests/wechat-bridge` **双侧 758 passed / 20 skipped / EXIT=0 全绿**。结论:无 3.14 专属红,不触发 degradedPaths 冻结。
+- Q8 三处之外的**第四处钉版断言**:`tests/desktop/test_pyenv_e2e.py:654` 硬断言 `"Python 3.12.7"`(本轮亲跑暴露),已同步为 3.14.8(提交 a2a02d6);tests/ 全树 grep 三词(3.12.7/20241016/indygreg)清零。
+- e2e 会话夹具 wheels 缓存 marker 只认锁 sha(test_pyenv_e2e.py:138-152):**换钉后旧 3.12 ABI wheels 缓存会拒配报「缓存损坏」**,需删 `~/Library/Caches/myia-pyenv-e2e/wheels` 重建(本机已重建为 3.14 wheels,42 件);上游建议后续把 marker 扩为锁 sha+运行时 sha(留主人裁决,未擅改)。
+- 桥两级 import 链 3.12/3.14 幂等实证:`python -m wechat_bridge --version` 双侧沙箱均 `wechat-bridge 0.8.4` EXIT=0。
+
+### Phase C 生产切换移交装机维护窗(编排裁决,2026-10-14 23:44)
+
+- 迁移窗口发现生产数据根被并行改动(storage 线按 Q4 连坐口径整目录回收:playwright-browsers/、crawl4ai/searxng 组件戳、services/searxng/ 已删;searxng 8888 监听随之消失;7 个 chrome-headless 孤儿进程仍在跑待装机阶段统一清)。升级裁决:**py314 生产切换(退 app→mv python→删戳→force 重装)并入「打包覆盖安装」同一维护窗执行,一次停机两件事**。
+- 装机员约束(编排裁决原文):**force 重装不得复活 storage 线已回收的组件**——crawl4ai/searxng/playwright-browsers 三者的戳与目录保持未装态(用户回收意图);重装范围 = python 本体 + 仍处装态的组件戳(table/trafilatura/telethon/wechat-bridge)。
+- 就绪件:evidence/py314/ 已留迁移脚本 phase-c-migration.sh(8888 放行门/argv 锚组杀/归档预播种/force 直跑二进制/ready 等待,逐 gate)与 app 包内 manifest 原值备份(bundle-manifest.orig-indygreg-3.12.7.json,回滚用);app 包内 manifest 已同步 D3-v2(adhoc 签名不破启);mirror_pypi 临时设置已用毕恢复 `{}`(装机窗如需提速可再置,装毕恢复);MYIA_HOME 独立域彩排已全绿(五段 done 至 ready、selfcheck 过、zstd OK,证据 rehearsal-python-env.json)。
+- 迁移窗口情报流缺档注记:weixin-sns */5 全天档在跑,装机窗停机期间缺档由该窗统一注记。
