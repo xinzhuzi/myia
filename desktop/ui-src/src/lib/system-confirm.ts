@@ -24,12 +24,20 @@ export interface SystemConfirmOptions {
 export async function systemConfirm(options: SystemConfirmOptions): Promise<boolean> {
   if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
     const dialog = await import("@tauri-apps/plugin-dialog");
-    return dialog.confirm(options.message, {
-      title: options.title,
-      kind: options.kind ?? "warning",
-      okLabel: options.okLabel ?? "确定",
-      cancelLabel: options.cancelLabel ?? "取消",
-    });
+    try {
+      return await dialog.confirm(options.message, {
+        title: options.title,
+        kind: options.kind ?? "warning",
+        okLabel: options.okLabel ?? "确定",
+        cancelLabel: options.cancelLabel ?? "取消",
+      });
+    } catch (error) {
+      // 原生通道故障(ACL 拒/插件崩)= 安全缺省「取消」:破坏性动作绝不在
+      // 无确认下放行;守卫类(放弃/关闭)同样按取消留人,重试即恢复。
+      // 实锤教训:旧包 polyfill 的同类拒绝只留 unhandledrejection,静默断肢。
+      console.error("systemConfirm 原生 confirm 失败,按取消处理", error);
+      return false;
+    }
   }
   return window.confirm(options.message);
 }

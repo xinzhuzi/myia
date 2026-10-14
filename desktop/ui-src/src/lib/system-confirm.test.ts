@@ -69,4 +69,15 @@ describe("systemConfirm(系统级确认弹窗)", () => {
     expect(spy).toHaveBeenCalledWith("确定删除账号?");
     expect(pluginConfirm).not.toHaveBeenCalled();
   });
+
+  it("Tauri 环境:原生 confirm 抛错(ACL 拒/插件故障)= 安全缺省取消,不冒泡", async () => {
+    stubTauriInternals();
+    pluginConfirm.mockRejectedValue(new Error("not allowed by ACL"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const ok = await systemConfirm({ title: "删除", message: "正文", okLabel: "删除" });
+
+    expect(ok).toBe(false);
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+  });
 });
