@@ -1,19 +1,35 @@
 # 云端评审五条 finding 修复(UI 精修批)
 
-## Goal
+## 背景
 
-主人令(10-15 /workflow):做完剩余清单。执行面=上批云端视觉评审 5 条 finding:feed-l1 卡片下半留白+三卡图标风格不统一/feed-l2 垂直失衡+父子层级无缩进/feed-l3 右栏头部三层控制带过密+正文对比不足/tg-card 绿提示句悬浮+网页登录卡嵌套粗糙/feed-site 顶栏元信息行重评;附环图装机实拍复查。流程=探索→计划→grill→执行→深化→云端双通道深度review→打包覆盖安装
+主人令(10-15 /workflow):做完剩余清单。执行面 = 上批云端视觉评审 8 问题点(五面)+ feed-site 顶栏重评 + 环图实拍复查。流程=探索→计划→grill+独立复审→实施→门禁→快筛→云端双通道深度评审→打包覆盖安装。
 
-## Requirements
+## 流程(dwfrun-b551bbe1,两次 1308 熔断+一次会话中断,Resume 三次无损续)
 
-- TBD
+提交 118c23eb;装机新实例;门禁 vitest scoped+全量+tsc/vite 绿;云端双通道实弹(代码回炉一轮:spec 色表半同步/3→5 失同步/wx 缩进断层 三意见修毕复验 264 测绿;视觉 6/6 屏)。
 
-## Acceptance Criteria
+## 落点(8 问题点)
 
-- [ ] TBD
+- F1 l1 卡片留白:hover:shadow-lg 摘除(顺带修掉偏离 spec 阴影白名单的真违规)、预览列表 justify-evenly 填充、预览帽 3→5 条、零条目态居中——**部分改善**(分隔线上下仍有空带,观感级留档)。
+- F2 图标三风格:四处半档收满档、site 降 tint 底并入 tint 族、头注同步——**复评仍被判三风格**(tint 族内物种差异,观感裁决)。
+- F3 l2 失衡:feed-count 迁入内容流尾随+渠道区头新增——**部分改善**(内容少时下半仍空,根因=内容量,留档)。
+- F4 父子层级:ChannelRow indented prop(tg/wx 两档)+横向偏移已平衡——**部分改善**。
+- F5 l3 三带:tgPreviewNote 并入工具条+分隔线分家控件/元信息组——**复评仍判混排**(等高契约不动,深层重排留档)。
+- F6 正文对比:泡底改实色卡面档(未读 bg-muted/已读 /25)——**部分改善**(对比已过 AA,提档留档)。
+- F7 tg 绿提示句:句尾…→。未完成感消除——**容器闭合复评仍判悬浮**(静态核证在容器内,观感)。
+- F8 网页登录卡:**已修复**(单卡细分隔+基线对齐)。
 
-## Notes
+## 收尾排查(主会话)
 
-- Keep `prd.md` focused on requirements, constraints, and acceptance criteria.
-- Lightweight tasks can remain PRD-only.
-- For complex tasks, add `design.md` for technical design and `implement.md` for execution planning before `task.py start`.
+装机后冒烟未过=两处测试侧伪影,**装机件无辜**:①坐标伪影(l3 布局上移后静止鼠标悬首条气泡触发 hover=当前卡契约,裸 j 落第二条)→烟改键盘入级;②tg 烟词面「上次体检」未随版(上批修未入提交)→补齐。双烟复跑全绿(冒烟修复另行提交)。dash-live 5.5 分作废(截到主人启动器非世事窗);云端视觉复拍实证:环图在位(环心 29/48 三段一致)、单卡紧凑横排、成品感 8/10。
+
+## 验收
+
+- [x] 门禁+云端双通道(代码回炉后过;视觉 6 屏:7.5-7.8)。
+- [x] 覆盖安装+双冒烟复绿(测试侧修复后)。
+- [x] 环图实拍云端验毕(8/10)。
+- [ ] F1/F3/F5/F7 残留为观感裁决项(评审未给修法),留主人另裁;git push 待令。
+
+## 教训(入记忆)
+
+中止的清理命令里 rsync --delete 已执行,回退了 ui-src/src 四文件——git checkout HEAD -- 恢复;凡「先跑再 echo 中止」的复合命令,危险动作必须放 echo 之后或分步执行。
