@@ -144,6 +144,10 @@ SEARCH_POLL_S = 0.5
 #: 刀3 行位稳定性双读间隔与容差(2026-10-14:建议区异步渲染顶动行位)。
 SEARCH_STABLE_GAP_S = 0.3
 PICK_STABLE_TOL = 0.03
+#: 刀4 正文慢落退避重读(2026-10-14 15:08 真机实证:粘贴慢窗上断言时
+#: 框空、数秒后内容才出现;读空先退避重读)。
+FOCUS_RETRY_TIMES = 3
+FOCUS_RETRY_GAP_S = 0.3
 #: 粘搜索词后的渲染静置(降级链)。
 SEARCH_RENDER_S = 1.2
 #: 结果行点击后的会话切换静置。
@@ -1180,8 +1184,18 @@ def _assert_focused(body: str, window: Any, channel: str) -> None:
     got = read_composer_via_clipboard(window)
     if text_confirmed(got or "", body):
         return  # 正文在框 = 焦点在 composer 且正文未丢
-    if got is None or not got.strip():
-        raise focus_fail("composer 哨兵读回空(正文已丢失;发送前空 ≠ 聚焦成立)")
+    # 刀4(正文慢落,2026-10-14 15:08 真机实证):粘贴在焦点时序慢的窗口
+    # 上会「慢落」——断言时框空,数秒后内容才出现;读空先退避重读再判,
+    # 不立即判死。读到内容但异值 = 真焦点问题,不再等。
+    for _ in range(FOCUS_RETRY_TIMES):
+        sleep(FOCUS_RETRY_GAP_S)
+        got = read_composer_via_clipboard(window)
+        if text_confirmed(got or "", body):
+            return
+        if got is not None and got.strip():
+            break
+    if got is None or not (got or "").strip():
+        raise focus_fail("composer 哨兵读回空(正文慢落重读仍空;发送前空 ≠ 聚焦成立)")
     raise focus_fail("composer 点击后哨兵读回异值(焦点不在输入框)")
 
 

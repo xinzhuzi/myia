@@ -1221,3 +1221,33 @@ class TestPickStability0_8_4:
         assert harness.clicks, "稳定后必须点击"
         expect_y = round(180 + (0.55 + 0.02) * 370)  # 以第二读为准
         assert any(abs(cy - expect_y) <= 1 for _cx, cy in harness.clicks)
+
+
+class TestFocusSlowLanding0_8_4:
+    """刀4(正文慢落):哨兵读空先退避重读,慢落后正文在框=聚焦成立。"""
+
+    def test_empty_then_body_lands_passes_focus(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """首读空(慢落)→ 退避后读到正文 → 通过(不判死,零额外键)。"""
+        harness = FakeHarness()
+        harness.install(monkeypatch)
+        reads = {"n": 0}
+        real_read = sendui.read_composer_via_clipboard
+
+        def slow_landing(window):
+            reads["n"] += 1
+            if reads["n"] == 1:
+                return None  # 慢落:断言时框空
+            return BODY
+
+        monkeypatch.setattr(sendui, "read_composer_via_clipboard", slow_landing)
+        payload = _run(harness)
+        assert payload["send"]["sent"] is True
+
+    def test_persistently_empty_still_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """退避重读恒空 → 仍判死(focus 失败,不假成功)。"""
+        harness = FakeHarness()
+        harness.install(monkeypatch)
+        monkeypatch.setattr(sendui, "read_composer_via_clipboard", lambda window: None)
+        with pytest.raises(BridgeError) as excinfo:
+            _run(harness)
+        assert "慢落重读仍空" in excinfo.value.message
