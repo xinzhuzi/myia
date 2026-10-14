@@ -47,7 +47,13 @@ ZH_DIR = DOCS_DIR / "zh"
 EN_DIR = DOCS_DIR / "en"
 DEMO_DIR = DOCS_DIR / "demo"
 
-#: 双语页面清单:两棵树必须同时存在这七页,并逐页结构对齐。
+#: 双语页面清单:两棵树必须同时存在这十一页,并逐页结构对齐。
+#: source-wizard.md(10-14-product-docs-deep):桌面建源向导产品页,带品类 YAML
+#: 示例,入双语对齐体系;proxy-pool.md(10-14-product-docs-deep):代理池管理
+#: 面板产品页,同判例入册;wechat-local.md(10-14-product-docs-deep):微信本机
+#: 工作台产品页(六功能面 + weixin-notify 品类示例),同判例入册;
+#: cred-hunter.md(10-14-product-docs-deep):凭证猎手产品页(引擎三 lane +
+#: 密钥库 + 只读面板 + 官方品类示例),同判例入册。
 BILINGUAL_PAGES = (
     "getting-started.md",
     "write-a-plugin.md",
@@ -56,6 +62,10 @@ BILINGUAL_PAGES = (
     "zero-cost.md",
     "cron.md",
     "build-windows.md",
+    "source-wizard.md",
+    "proxy-pool.md",
+    "wechat-local.md",
+    "cred-hunter.md",
 )
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\n(.*?)```", re.DOTALL)
