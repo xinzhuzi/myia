@@ -613,3 +613,11 @@ CoreFoundation RunLoop(主线程!)
 ### 工程账
 
 本轮:微信曾被正常退出(零崩溃报告)→重拉 pid 20632;触发 1 条(嘻嘻~trig8)落库绿+嵌套直调 0(异常回滚零伤);微信存活。
+
+## §2.10 生命周期追踪轮(10-15 晨):槽位战果与最后一跳
+
+- **msgctx 栈槽位×3 定位**:sp-0x18(蹦床为调用暂存)/sp+0x78/sp+0xb0(调用链局部)——伪造时任务状态块的 msgctx 引用形态实证;
+- **F_exec 指针值不在**栈 32KB 宽域、亦不在 ctx 邻域 ±2KB——**协程帧(resume 字段所在)在堆上别处,仅经 coro TLS 可达**;
+- 蹦床帧(0xa6b590 族)x0 全零(unwind 重建)=不经寄存器传任务;
+- **下一跳(唯一)**:定位 coro current-task TLS 符号(lldb `image lookup -rv` 扫 __thread/__tlv 段)→ 真发时读 TLS 得堆帧 → dump 找 resume/ctx/msgctx 三槽 → 完成任务→(resume,实参)映射 → 伪造+enqueue_a 终验。
+- 本轮触发 1 条落库绿;微信 pid 20632 存活。
