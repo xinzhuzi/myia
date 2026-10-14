@@ -4532,9 +4532,9 @@ describe("FeedScreen · 聊天主页风格形态锚(10-09 v4,v7 左栏落点)", 
     expect(card.className).toContain("w-fit");
     expect(card.className).toContain("max-w-");
     // 10-13 气泡重做:根不再画框着色(双泡观感根除),泡体 = 唯一可见箱
-    // (bg-muted/45 无边框;单条消息自成一组 = 组尾,rounded-bl-md 尾角)
+    // (bg-muted 实色卡面档无边框;单条消息自成一组 = 组尾,rounded-bl-md 尾角)
     const bubble = within(card).getByTestId("feed-tg-bubble-1");
-    expect(bubble.className).toContain("bg-muted/45");
+    expect(bubble.className).toContain("bg-muted");
     expect(bubble.className).toContain("rounded-bl-md");
     expect(bubble.className).toContain("rounded-2xl");
     expect(card.className).not.toContain("bg-card");
@@ -5365,7 +5365,7 @@ describe("feed v8 三级界面 纯函数(api.ts)", () => {
     ...overrides,
   });
 
-  it("aggregateTypeCards:成员归并(stats 全库真值)+ 卡序固定词表序 + 零渠道类型不出卡 + previews 按最新取 3", () => {
+  it("aggregateTypeCards:成员归并(stats 全库真值)+ 卡序固定词表序 + 零渠道类型不出卡 + previews 按最新排序(帽 5)", () => {
     const engines = new Map([
       ["telegram-a", "tg_web"],
       ["telegram-b", "tg_web"],
@@ -5393,7 +5393,7 @@ describe("feed v8 三级界面 纯函数(api.ts)", () => {
     expect(tg.unread).toBe(5);
     expect(tg.statsApplied).toBe(true);
     expect(tg.label).toBe("TG");
-    // previews = 成员源按 latest_first_seen 降序取 3(stats title 优先)
+    // previews = 成员源按 latest_first_seen 降序(帽 5;stats title 优先)
     expect(tg.previews.length).toBe(2);
     expect(tg.previews[0].channelLabel).toBe("a");
     expect(tg.previews[0].latestTitle).toBe("stats 最新标题");
@@ -5407,6 +5407,33 @@ describe("feed v8 三级界面 纯函数(api.ts)", () => {
       [statsRow({ source: "openai-news" })],
     );
     expect(noDaily.map((type) => type.kind)).toEqual(["site"]);
+  });
+
+  it("aggregateTypeCards:previews 帽 = 5(成员 >5 按 latest_first_seen 降序截断,第 6 旧源不入)", () => {
+    const engines = new Map([
+      ["telegram-a", "tg_web"],
+      ["telegram-b", "tg_web"],
+      ["telegram-c", "tg_web"],
+      ["telegram-d", "tg_web"],
+      ["telegram-e", "tg_web"],
+      ["telegram-f", "tg_web"],
+    ]);
+    const cards = feedChannelCards([], {}, engines, dayWindowStart());
+    const minute = 60_000;
+    const stats = ["a", "b", "c", "d", "e", "f"].map((suffix, index) =>
+      statsRow({
+        source: `telegram-${suffix}`,
+        latest_first_seen: new Date(dayWindowStart().getTime() + (6 - index) * minute).toISOString(),
+        latest_title: `标题 ${suffix}`,
+      }),
+    );
+    const types = aggregateTypeCards(cards, stats);
+    const tg = types[0];
+    expect(tg.channels).toBe(6);
+    // 帽 = 5:a~f 六源按 latest_first_seen 降序(a 最新),f(最旧)截断在外
+    expect(tg.previews.length).toBe(5);
+    expect(tg.previews.map((preview) => preview.channelLabel)).toEqual(["a", "b", "c", "d", "e"]);
+    expect(tg.previews[4].latestTitle).toBe("标题 e");
   });
 
   it("aggregateTypeCards:NULL source 行归「网站」卡 today/unread、不计渠道数(它不是渠道)", () => {

@@ -20,15 +20,15 @@
 
 | 层 | token | 值 |
 |---|---|---|
-| 背景 | `--background` | `#0a0d16` |
-| 侧栏 | `--sidebar` | `#080b13` |
-| 卡片 | `--card` | `#0e1220` |
-| 悬浮 | `--popover` | `#141a2b` |
-| 描边 | `--border` / `--input` | `#1d2536` |
-| 前景 | `--foreground` 系 | `#e7ebf3` / `--muted-foreground #8b94a7` |
+| 背景 | `--background` | `#14181f` |
+| 侧栏 | `--sidebar` | `#1e202a` |
+| 卡片 | `--card` | `#1e202a` |
+| 悬浮 | `--popover` | `#20232d` |
+| 描边 | `--border` / `--input` | `#2c303f` |
+| 前景 | `--foreground` 系 | `#ffffff` / `--muted-foreground #9797a6` |
 
-- 主色 = 品牌青 `--primary #22d3ee`(按钮/焦点/激活),**禁紫色主基调**;品牌青→紫渐变 `--brand-from/--brand-to` 仅限 logo 字标/空态光晕。
-- 语义:`--destructive #e5484d`;健康度四态 `--ok #3dd68c` / `--warning #f5b544` / `--dead #e5484d` / `--unknown #8b94a7`。
+- 主色 = Kestra 品牌紫 `--primary #631bf3`(按钮/焦点/激活);品牌青→紫渐变 `--brand-from #22d3ee/--brand-to #8b5cf6` 仅限 logo 字标/空态光晕。
+- 语义:`--destructive #ed0011`;健康度四态 `--ok #43f6b6` / `--warning #ff8b61` / `--dead #ff6a6c` / `--unknown #9797a6`。
 - 色系锚点取自 `desktop/branding/shishi-icon.svg`(深空蓝底+青紫渐变);暗色单主题,token 直接落 `:root`,不做亮色切换。
 
 ### 字号阶梯(Linear 密度;覆盖 Tailwind 默认 14/16/18/20)
@@ -51,7 +51,7 @@
 
 - 分层以**细边框为主**;阴影只给浮层:`shadow-popover` / `shadow-drawer`(色带深空蓝底)。重阴影是反模式。
 - 紧凑节奏 `--spacing-table 0.25rem` → `p-table / py-table / gap-table`;表格行高 compact 36px。
-- 圆角 `--radius 0.5rem` 系;`rounded-full` 仅限状态点/进度条/pill,禁大圆角卡(`rounded-2xl/3xl` 属反 AI 审美违禁)。
+- 圆角 `--radius 0.625rem` 系;`rounded-full` 仅限状态点/进度条/pill,禁大圆角卡(`rounded-2xl/3xl` 属反 AI 审美违禁;聊天气泡物种(TG 桌面端范式,10-13 重做,test:4539 钉死)豁免在案)。
 
 ### 焦点体系(WCAG 2.4.7)
 
@@ -62,7 +62,7 @@
 - 渐变白名单仅 2 处:sparkline 线下填充、空态品牌光晕(20% blur);其余禁。
 - 阴影白名单:浮层 `shadow-popover/drawer` + 卡片 `shadow-xs`;其余禁。
 - 间距全走 scale,禁任意 `mt-[13px]` 类;行内 `style` 仅限动态值(动态色/动态列宽)。
-- 禁 stock hero 感、禁紫色主基调、禁装饰性大圆角与多层阴影。
+- 禁 stock hero 感、禁装饰性大圆角与多层阴影。
 
 ## 可达性约定(终审已按此过检)
 

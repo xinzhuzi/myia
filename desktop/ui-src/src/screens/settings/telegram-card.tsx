@@ -316,7 +316,7 @@ export function TelegramCard() {
                     <div
                       key={row.account}
                       data-testid={`telegram-web-account-${row.account}`}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2"
+                      className="flex flex-wrap items-start justify-between gap-2 rounded-md bg-muted/40 px-3 py-2"
                     >
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="flex items-center gap-2 text-xs font-medium text-foreground">
@@ -474,15 +474,17 @@ export function TelegramCard() {
                   </Button>
                 </div>
               </div>
-            </div>
-
-            <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-              {actionError ? <ErrorBox error={actionError} /> : null}
-              {note ? (
-                <p role="status" data-testid="telegram-action-note" className="text-xs leading-5 text-ok">
-                  {note}
-                </p>
-              ) : null}
+              {/* 回执尾段(问题7):随主容器 divide-y 收段 —— note 原落主
+                  border 容器之外仅 border-t 接缝,「盒外孤岛」观感根因;
+                  收容器即收敛,text-ok 成功回执语义档原样不降饱和。 */}
+              <div className="flex flex-col gap-2 p-4">
+                {actionError ? <ErrorBox error={actionError} /> : null}
+                {note ? (
+                  <p role="status" data-testid="telegram-action-note" className="text-xs leading-5 text-ok">
+                    {note}
+                  </p>
+                ) : null}
+              </div>
             </div>
           </>
         ) : null}

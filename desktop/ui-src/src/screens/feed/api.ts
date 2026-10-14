@@ -1143,7 +1143,7 @@ export interface TypeCardData {
   today: number;
   /** 未读数(同上双口径) */
   unread: number;
-  /** 最新预览 2-3 条(§1.2;零条目类型 = 空数组,卡内出知会词) */
+  /** 最新预览最多 5 条(§1.2;零条目类型 = 空数组,卡内出知会词) */
   previews: TypeCardPreview[];
   /** stats 覆写是否在场(过 STATS 门且应答已落;计数 title 双口径词面用:
    *  过门 = 「全库口径(store.source_stats 分源聚合)」,未过 = 「已加载口径」) */
@@ -1157,7 +1157,7 @@ export interface TypeCardData {
  *   应答缺失)回退 catalog 已加载口径(statsApplied=false,title 如实);
  * - NULL source 行(schema 允许,活库 0 条)计入「网站」卡的 today/unread、
  *   **不计渠道数**(它不是渠道)——只把 site 档计入,null 行对 tg/daily 不沾;
- * - previews = 成员源按 latest_first_seen 降序取 3(stats 的 latest_title/
+ * - previews = 成员源按 latest_first_seen 降序取 5(stats 的 latest_title/
  *   latest_first_seen 优先,catalog 最新条目回退;两者皆缺 = 行不产)。
  */
 export function aggregateTypeCards(
@@ -1203,7 +1203,7 @@ export function aggregateTypeCards(
       })
       .filter((preview) => preview.firstSeen !== null || preview.latestTitle !== null)
       .sort((a, b) => firstSeenValue(b.firstSeen) - firstSeenValue(a.firstSeen))
-      .slice(0, 3);
+      .slice(0, 5);
     result.push({
       kind,
       label: CHANNEL_CARD_LABELS[kind],

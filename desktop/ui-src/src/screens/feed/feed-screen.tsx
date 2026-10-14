@@ -165,7 +165,7 @@ const CHANNEL_KIND_META: Record<ChannelKind, { label: string; Icon: typeof Rss; 
   telegram: { label: "频道", Icon: Send, className: "text-primary" },
   weixin: { label: "微信", Icon: MessageCircle, className: "text-[#07C160]" },
   watch: { label: "监控", Icon: Radar, className: "text-warning" },
-  document: { label: "日报", Icon: FileText, className: "text-primary/80" },
+  document: { label: "日报", Icon: FileText, className: "text-primary" },
   deal: { label: "优惠", Icon: Percent, className: "text-ok" },
   news: { label: "新闻", Icon: Rss, className: "text-muted-foreground" },
 };
@@ -173,12 +173,12 @@ const CHANNEL_KIND_META: Record<ChannelKind, { label: string; Icon: typeof Rss; 
 /** 渠道卡类型元(v6 渠道墙):四档徽标词/图标/色调(条目级 CHANNEL_KIND_META
  *  的渠道级姊妹; TG = Send 品牌紫 / 微信 = MessageCircle 官方绿 #07C160
  *  (与 messaging/platform-icons.tsx weixin_local 品牌色同源,暗卡底对比
- *  ≈6.9:1 过 4.5 档,F8 审计口径)/ 网站 = Rss 灰 / 日报 = FileText 淡紫) */
+ *  ≈6.9:1 过 4.5 档,F8 审计口径)/ 网站 = Rss 灰 / 日报 = FileText 紫) */
 const CHANNEL_CARD_META: Record<ChannelCardKind, { label: string; Icon: typeof Rss; className: string }> = {
   tg: { label: "TG", Icon: Send, className: "text-primary" },
   wx: { label: "微信", Icon: MessageCircle, className: "text-[#07C160]" },
   site: { label: "网站", Icon: Rss, className: "text-muted-foreground" },
-  daily: { label: "日报", Icon: FileText, className: "text-primary/80" },
+  daily: { label: "日报", Icon: FileText, className: "text-primary" },
 };
 
 /** 源名展示词 channelDisplayName(telegram-<频道> 规约)已收编 api.ts
@@ -632,7 +632,7 @@ const FeedCard = memo(function FeedCard({
               已读档照旧走泡底色。点击正文/摘要 = 详情弹窗语义不变。 */}
           <div
             className={`w-fit rounded-2xl px-3.5 py-2 ${chatTail ? "rounded-bl-md" : ""} ${
-              state.read ? "bg-muted/20 group-hover/feed-item:bg-muted/35" : "bg-muted/45 group-hover/feed-item:bg-muted/60"
+              state.read ? "bg-muted/25 group-hover/feed-item:bg-muted/40" : "bg-muted"
             }`}
             data-testid={`feed-tg-bubble-${rowKey}`}
           >
@@ -788,7 +788,7 @@ const FeedCard = memo(function FeedCard({
         <div className="flex items-baseline justify-between gap-2 pr-1">
           {kind === "document" ? (
             <span className="flex min-w-0 items-center gap-1.5">
-              <FileText aria-hidden className="size-3.5 shrink-0 text-primary/80" />
+              <FileText aria-hidden className="size-3.5 shrink-0 text-primary" />
               <button
                 type="button"
                 className={`min-w-0 truncate text-left text-sm font-semibold hover:text-link ${state.read ? "text-muted-foreground" : "text-foreground"}`}
@@ -1332,8 +1332,8 @@ function SessionAvatar({ kind, toneKey, label }: { kind: ChannelCardKind; toneKe
 const CHANNEL_ROW_AVATAR_TONE: Record<ChannelCardKind, string> = {
   tg: "bg-primary/10 text-primary",
   wx: "bg-[#07C160]/10 text-[#07C160]",
-  site: "bg-muted text-muted-foreground",
-  daily: "bg-primary/5 text-primary/80",
+  site: "bg-muted-foreground/10 text-muted-foreground",
+  daily: "bg-primary/10 text-primary",
 };
 
 const ChannelRow = memo(function ChannelRow({
@@ -1351,6 +1351,11 @@ const ChannelRow = memo(function ChannelRow({
    *  会话名首字母 + 平台角标);缺省 false = 类型图标 chip 原样(2 级渠道
    *  列表零扰动,左栏 3 级会话行传真)。 */
   sessionAvatar = false,
+  /** 行首缩进分档(10-15 ui-cloud5 问题4):true = 行体左缘 pl-8 缩进,
+   *  表达 l2 tg/wx 页父段(账号区/桥状态区,wx 桥区镜像 TG 账号区结构)
+   *  → 渠道列表父子层级;缺省 false = 行体原样(site/daily 页无父级、
+   *  l3 会话行均不缩进,零扰动)。 */
+  indented = false,
   onCurrent,
   onOpen,
 }: {
@@ -1368,6 +1373,7 @@ const ChannelRow = memo(function ChannelRow({
   statsScope?: "loaded" | "full";
   dataFeedGroupRow?: boolean;
   sessionAvatar?: boolean;
+  indented?: boolean;
   onCurrent: (key: string) => void;
   onOpen: (key: string) => void;
 }) {
@@ -1419,7 +1425,7 @@ const ChannelRow = memo(function ChannelRow({
         selected ? "bg-accent" : "hover:bg-accent/50"
       }${navFocused ? " ring-1 ring-primary/60" : ""}`}
     >
-      <div className="flex items-start gap-2.5 px-2.5 py-2">
+      <div className={`flex items-start gap-2.5 py-2 ${indented ? "pl-8 pr-2.5" : "px-2.5"}`}>
         {/* 头像位(追加批⑤):左栏会话行 = 字母头像(会话身份);2 级行 =
             类型图标 chip 原样(CHANNEL_ROW_AVATAR_TONE 词表,类型导航语境)。
             (⑨a 钉注:头像/时间/未读词面 = 产品自有词表一致性优先,非抄 TG
@@ -1656,8 +1662,8 @@ const WxMonitorRow = memo(function WxMonitorRow({
 /**
  * 类型卡(v8 1 级,design-v8 §1.2):竖版卡(260 宽 × min-h 340 = 高>宽,
  * 主人「卡片高度 > 宽度」钉死),自上而下四段 —— 类型头像 chip(同门
- * CHANNEL_CARD_META,size-10)+ 类型名/渠道数、今日(大号 mono)/未读、
- * 分隔线、最新预览 2-3 条(成员渠道按 latest_first_seen 降序:渠道名 +
+ * CHANNEL_ROW_AVATAR_TONE,size-10)+ 类型名/渠道数、今日(大号 mono)/未读、
+ * 分隔线、最新预览最多 5 条(成员渠道按 latest_first_seen 降序:渠道名 +
  * 标题一行 truncate + 相对时间;零条目 = 知会词)。role=button + Space 激活
  * (ARIA 同 ChannelRow);Enter 归全局巡游线(hover/focus 置环);hover 亮
  * ring-primary/40,键盘巡游亮 ring-primary/60。memo 同 ChannelRow。
@@ -1702,7 +1708,7 @@ const TypeCard = memo(function TypeCard({
       className={`mb-4 flex min-h-[340px] cursor-pointer flex-col break-inside-avoid rounded-lg border border-border bg-card p-4 transition-shadow ${
         navFocused
           ? "ring-1 ring-primary/60"
-          : "hover:shadow-lg hover:ring-1 hover:ring-primary/40"
+          : "hover:ring-1 hover:ring-primary/40"
       }`}
     >
       {/* 段 1:类型头像 chip + 类型名 · N 个渠道 */}
@@ -1743,12 +1749,12 @@ const TypeCard = memo(function TypeCard({
         </span>
       </div>
       <div className="my-3 border-t border-border/60" aria-hidden />
-      {/* 段 3:最新预览 2-3 条(渠道名 + 标题一行 truncate + 相对时间);
+      {/* 段 3:最新预览最多 5 条(渠道名 + 标题一行 truncate + 相对时间);
           零条目类型 = 知会词(有源零条目态,卡答「有什么渠道」) */}
       {type.previews.length === 0 ? (
-        <p className="text-2xs leading-relaxed text-muted-foreground">暂无入库条目</p>
+        <p className="flex min-h-0 flex-1 items-center text-2xs leading-relaxed text-muted-foreground">暂无入库条目</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex min-h-0 flex-1 flex-col justify-evenly gap-2">
           {type.previews.map((preview) => (
             <li key={preview.channelLabel} className="min-w-0">
               <p className="flex items-center gap-1 text-2xs text-muted-foreground">
@@ -4455,6 +4461,15 @@ export function FeedScreen() {
                   ) : null}
                 </section>
               ) : null}
+              {/* 渠道区头:镜像账号区头式样(「账号 · N」同构,全集口径);
+                  tg 页承接账号区之后的群列表语境,site/daily 无账号区时
+                  独居列表头。 */}
+              <p
+                className="px-2.5 py-1.5 text-xs font-medium tracking-wider text-muted-foreground"
+                data-testid="feed-channels-title"
+              >
+                {`渠道 · ${memberChannels.length}`}
+              </p>
               {catalogLoading && channelCards.length === 0 ? (
                 <div
                   className="flex flex-col gap-1 px-1.5"
@@ -4492,24 +4507,28 @@ export function FeedScreen() {
                     current={listCurrentKey === card.key}
                     navFocused={listCurrentKey === card.key && navByKeyboard}
                     statsScope={sourceStats !== null ? "full" : "loaded"}
+                    /* tg/wx 页渠道行缩进:父段(账号区/桥状态区)→ 渠道
+                       列表父子层级(问题4);site/daily 无父级不缩进 */
+                    indented={view.kind === "tg" || view.kind === "wx"}
                     onCurrent={onCurrentRow}
                     onOpen={openChannel}
                   />
                 ))
               )}
+              {/* 脚注(列表尾,随内容流):feed-count 随迁本级(全屏恒单实例:
+                  1 级无 feed-count,3 级条目计数独占 feed-stream-count,v7 R1-1
+                  消歧延续)。px-2.5 对齐行缩进,轻尾线 border/40 对齐账号区
+                  分隔族。 */}
+              <div
+                className="border-t border-border/40 px-2.5 py-2 text-2xs text-muted-foreground"
+                data-testid="feed-count"
+                title={`渠道全集 = 插件 health 源 ∪ 已加载条目来源;${sourceStats !== null ? "计数为全库口径(store.source_stats 分源聚合)" : "计数为已加载口径(全库首页 50 条铺底)"}`}
+              >
+                {searchActive
+                  ? `命中 ${visibleChannels.length} / ${memberChannels.length} 个渠道`
+                  : `${memberChannels.length} 个渠道`}
+              </div>
             </div>
-          </div>
-          {/* 脚注(列表尾,sticky 域外):feed-count 随迁本级(全屏恒单实例:
-              1 级无 feed-count,3 级条目计数独占 feed-stream-count,v7 R1-1
-              消歧延续) */}
-          <div
-            className="border-t px-5 py-2 text-2xs text-muted-foreground"
-            data-testid="feed-count"
-            title={`渠道全集 = 插件 health 源 ∪ 已加载条目来源;${sourceStats !== null ? "计数为全库口径(store.source_stats 分源聚合)" : "计数为已加载口径(全库首页 50 条铺底)"}`}
-          >
-            {searchActive
-              ? `命中 ${visibleChannels.length} / ${memberChannels.length} 个渠道`
-              : `${memberChannels.length} 个渠道`}
           </div>
         </>
       ) : null}
@@ -5045,6 +5064,11 @@ export function FeedScreen() {
               })}
             </div>
             ) : null}
+            {/* 控件组|元信息组分界(问题5):返回/视图切换/读态分段 = 控件组,
+                计数/知会词/原生视图注记 = 元信息组(2xs 族),ml-auto 起
+                检索/显示/刷新操作簇;flex-wrap 折行按声明序,窄窗操作簇
+                整簇下沉 */}
+            <span className="h-4 w-px bg-border" aria-hidden />
             {/* 计数词面(testid = feed-stream-count,F2 口径与 R1 修正词面原样;
                 检索态 total = source+query 同 WHERE,visible = 全量直出口径一致) */}
             <span
@@ -5086,6 +5110,17 @@ export function FeedScreen() {
                   ? `检索中 · 渠道内全量(不限读态)`
                   : "全量 · 新→旧 · 实时滚动"}
             </span>
+            {/* 原生视图注记(v9):testid 复用 feed-tg-console-preview-note;随
+                知会词并入工具条元信息组(问题5,三带收两带),但 gate 只认
+                isTgChannel —— 监控台条被 telegram.status 在途/失败拉走
+                (phase≠ok,tgWebline 缺席)时「原生视图」段控件照常可点,
+                写入的 capped/failed/首开注记必须可见,不给静默丢(深检 F3:
+                design-v9 §1.2「不装死」覆盖全部段控件可点状态) */}
+            {isTgChannel && tgPreviewNote ? (
+              <p className="text-2xs text-warning" data-testid="feed-tg-console-preview-note">
+                {tgPreviewNote}
+              </p>
+            ) : null}
             {viewHistory ? (
               <Button
                 variant="ghost"
@@ -5190,18 +5225,6 @@ export function FeedScreen() {
               </Button>
             </div>
           </div>
-
-          {/* 原生视图注记(v9):testid 复用 feed-tg-console-preview-note;落位
-              在工具条下与监控台条同层,但 gate 只认 isTgChannel —— 监控台条被
-              telegram.status 在途/失败拉走(phase≠ok,tgWebline 缺席)时「原生
-              视图」段控件照常可点,写入的 capped/failed/首开注记必须可见,
-              不给静默丢(深检 F3:design-v9 §1.2「不装死」覆盖全部段控件
-              可点状态) */}
-          {isTgChannel && tgPreviewNote ? (
-            <p className="mx-5 mt-2 text-2xs text-warning" data-testid="feed-tg-console-preview-note">
-              {tgPreviewNote}
-            </p>
-          ) : null}
 
           {/* TG 监控台大卡已撤销(10-11-tg-chat-two-pane):四态/词面/机件
               (登录钮/预览/管理/历史入口)压缩进上方聊天头压缩条,门与测试
