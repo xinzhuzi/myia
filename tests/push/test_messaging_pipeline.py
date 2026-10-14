@@ -23,7 +23,7 @@ from conftest import FakeClock
 from myssia.pipeline import Pipeline
 from myssia.push.base import PushSendError
 from myssia.push.directory import ChannelDirectory, ChannelEntry
-from myssia.push.weixin import DEFAULT_BRIDGE_TIMEOUT_SECONDS, WeixinChannel
+from myssia.wechat.push_weixin import DEFAULT_BRIDGE_TIMEOUT_SECONDS, WeixinChannel
 from myssia.schema import load_category
 from myssia.store import SQLiteStore
 

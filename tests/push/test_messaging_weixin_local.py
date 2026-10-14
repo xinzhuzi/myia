@@ -6,7 +6,7 @@ design §6 错误映射表全行(每行断言 ``classify_dead_error`` 为 None�
 无目录寻址)、``probe_local_bridge`` 三形态(fake bridge 回显预录 JSON)、
 schema 门(weixin_local_enabled 缺省拒 + 字段宿主 + pipeline kwargs 下传)。
 
-蓝本对照::mod:`myssia.push.weixin`(官方 Hermes 桥,出站主口)——此处测
+蓝本对照::mod:`myssia.wechat.push_weixin`(官方 Hermes 桥,出站主口)——此处测
 MYIA 侧重写;桥本体(plugins/wechat-bridge)由 tests/wechat-bridge 专测。
 真实子进程冒烟仅两条(fake bridge 回显 / sleep 超时 kill),对齐蓝本克制口径。
 """

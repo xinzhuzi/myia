@@ -159,7 +159,7 @@ from myssia.push import (
 from myssia.push.base import clip_text
 from myssia.push.directory import REFRESH_STALE_SECONDS, ChannelDirectory, ChannelEntry
 from myssia.push.retry_ledger import PushRetryLedger
-from myssia.push.wecom import TOKEN_CACHE_FILENAME as WECOM_TOKEN_CACHE_FILENAME
+from myssia.wechat.push_wecom import TOKEN_CACHE_FILENAME as WECOM_TOKEN_CACHE_FILENAME
 from myssia.push.templates import (
     build_keyword_trends,
     build_trend_table,
