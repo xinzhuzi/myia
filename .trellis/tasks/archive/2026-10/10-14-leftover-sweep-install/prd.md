@@ -49,3 +49,15 @@ distribution 同步换 `astral-sh/python-build-standalone`(Q8:旧 org 值与 ast
 - 装机员约束(编排裁决原文):**force 重装不得复活 storage 线已回收的组件**——crawl4ai/searxng/playwright-browsers 三者的戳与目录保持未装态(用户回收意图);重装范围 = python 本体 + 仍处装态的组件戳(table/trafilatura/telethon/wechat-bridge)。
 - 就绪件:evidence/py314/ 已留迁移脚本 phase-c-migration.sh(8888 放行门/argv 锚组杀/归档预播种/force 直跑二进制/ready 等待,逐 gate)与 app 包内 manifest 原值备份(bundle-manifest.orig-indygreg-3.12.7.json,回滚用);app 包内 manifest 已同步 D3-v2(adhoc 签名不破启);mirror_pypi 临时设置已用毕恢复 `{}`(装机窗如需提速可再置,装毕恢复);MYIA_HOME 独立域彩排已全绿(五段 done 至 ready、selfcheck 过、zstd OK,证据 rehearsal-python-env.json)。
 - 迁移窗口情报流缺档注记:weixin-sns */5 全天档在跑,装机窗停机期间缺档由该窗统一注记。
+
+## 终局回执(簿记归档员落笔,2026-10-15;材料=编排回执逐字)
+
+- **四域**(编排材料逐字):`{"k":"storage","done":true}` / `{"k":"py314","done":true}` / `{"k":"release-notes","done":true}`。
+  - storage:代码 56ba74c 落库(pyenv_storage_usage/pyenv_reclaim_storage 两命令+存储卡三件+main.rs 注册,8 件 1540 行)。
+  - py314:代码已 a2a02d6(D3-v2 改钉)+d4914a1(R3 判定注记);装机切换见下。
+  - release-notes:CHANGELOG v0.0.4 段落+窗注(187 件口径;storage/py314 落库后补录与否留主人推 tag 前裁决)——56ba74c 同批落库。
+  - **T1 目验取证域缺口如实注记**:编排材料标「四域」仅附三域回执对象,T1(cron 隔夜/媒体CDN/取钥器行)无编排回执;evidence 仅 key-fetcher-row-weixin-sandbox.png 一件(取钥器行),cron 隔夜与媒体 CDN 两项目验取证未见于 evidence/ 与提交史,按未收编排判定如实留档,不代判。
+- **门禁**:绿(编排回执;簿记员未重跑)。
+- **复查**:过(编排回执;簿记员未重跑)。
+- **装机**(编排回执逐字):`{"rebuilt":true,"swapped":true}`——重打包+换装均成;证据 evidence/install-window/(build/components/py314/swap 四日志+sessionA2/B2/C 三截图);约束兑现亲验:install-window/py314.log:8-9 `absent-ok playwright-browsers` / `absent-ok services/searxng`(storage 线回收组件未复活)。
+- **簿记事实**:代码提交 56ba74c(8 件,含 tests/conftest.py ORT_DISABLE_TELEMETRY 门禁支撑件——归属链:全仓活跃线中唯本线跑 Python 全量门禁,UI sweep 为纯前端线不认领);evidence/ 敏感性扫描过(凭据词零命中;十六进制串逐个核对=PBS 公开 sha256/pip wheel 指纹/缓存路径,components.log:96-97、py314.log:11);并行在途件(UI sweep 屏族+frontend-ui.md+ghidra scripts+sendmsg_hunt.c 等)未碰。
