@@ -364,8 +364,18 @@ async def main() -> int:
             )
             await snap("/tmp/myssia-feed-card-smoke-l2.png")
 
-            # ═══ 点行 = 3 级渠道详情(TG:监控台 + 聊天时间线)═══
-            await tg_row.click()
+            # ═══ 行入 3 级 = 渠道详情(TG:监控台 + 聊天时间线)═══
+            # 10-15-ui-cloud5 修:点击改键盘 j+Enter 入级——本批 l3 头部三带收两带
+            # 后布局上移,点击后静止鼠标恰悬在 3 级首条气泡上,hover=当前卡
+            # (onCurrentCard 设计契约)把 itemCurrentKey 预置为首条,裸 j 落到
+            # 第二条、wait 超时。键盘入级鼠标不动,itemCurrentKey 保持 null,
+            # 「裸 j 落首条目」断言语义(无 hover 的 j 从头)成立。
+            await page.keyboard.press("j")
+            await page.wait_for_function(
+                "document.querySelector('[data-testid=\"feed-channel-row-telegram-mihomo_party_group\"]')?.getAttribute('data-nav-focused') === 'true'",
+                timeout=10_000,
+            )
+            await page.keyboard.press("Enter")
             console_card = page.locator('[data-testid="feed-tg-console"]')
             await console_card.wait_for(timeout=10_000)
             expect("监控台常驻条(3 级专属,工具条下)", (await console_card.count()) == 1)

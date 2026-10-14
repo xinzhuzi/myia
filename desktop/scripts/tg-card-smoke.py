@@ -241,10 +241,10 @@ async def main() -> int:
             await page.wait_for_selector(
                 '[data-testid="telegram-web-telegram-alt1-verified"]', timeout=5_000
             )
-            expect("体检后上次体检小字出现", True)
+            expect("体检后上次检查小字出现", True)
             expect(
                 "体检小字判活",
-                await page.get_by_text("上次体检").count() >= 1,
+                await page.get_by_text("上次检查").count() >= 1,
             )
             # 删除动作链:alt1 删除后行消失
             await page.locator(
