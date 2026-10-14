@@ -305,6 +305,7 @@ class TestFetchContract:
             raise wx_engine.LocalBridgeTimeoutError("wechat-bridge 超时")
 
         monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+        monkeypatch.setattr(wx_notify, "bin_path", lambda _: make_bridge_bin(tmp_path))
         monkeypatch.setattr(wx_engine, "run_bridge_command_sync", timeout_runner)
         monkeypatch.setattr(wx_notify, "run_bridge_command_sync", timeout_runner)
         engine = make_notify_engine(sessions=[CHAT])
