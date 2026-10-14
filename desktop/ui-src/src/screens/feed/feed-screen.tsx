@@ -631,14 +631,14 @@ const FeedCard = memo(function FeedCard({
               py-1.5,全 2xl 圆角 + 组尾不对称尾角 rounded-bl-md;未读/
               已读档照旧走泡底色。点击正文/摘要 = 详情弹窗语义不变。 */}
           <div
-            className={`w-fit rounded-2xl px-3 py-1.5 ${chatTail ? "rounded-bl-md" : ""} ${
+            className={`w-fit rounded-2xl px-3.5 py-2 ${chatTail ? "rounded-bl-md" : ""} ${
               state.read ? "bg-muted/20 group-hover/feed-item:bg-muted/35" : "bg-muted/45 group-hover/feed-item:bg-muted/60"
             }`}
             data-testid={`feed-tg-bubble-${rowKey}`}
           >
             {chatLead && (chatSender !== null || snsAuthor !== null) ? (
               <div
-                className="mb-0.5 flex items-center gap-1 text-2xs font-medium leading-tight"
+                className="mb-1 flex items-center gap-1 text-2xs font-medium leading-tight"
                 style={{ color: chatSenderTone(snsAuthor ?? chatSender?.sender ?? "") }}
               >
                 {kind === "weixin" ? (
@@ -2017,9 +2017,13 @@ function UnreadDivider() {
       data-testid="feed-chat-unread-divider"
       role="separator"
       aria-label="以上为未读消息"
-      className="my-1 flex items-center gap-2"
+      /* 10-14-feed-l3-beautify:未读起点是时间线的视觉路标 —— 品牌青小点
+          居中撑场(纯文字+细线的旧形存在感不足),muted 字面退到线中 */
+      className="my-2 flex items-center gap-2"
     >
-      <span className="shrink-0 text-2xs text-muted-foreground">未读</span>
+      <span aria-hidden className="h-px flex-1 bg-border" />
+      <span className="shrink-0 text-2xs tracking-wide text-muted-foreground">以上未读</span>
+      <span aria-hidden className="size-1 shrink-0 rounded-full bg-primary/70" />
       <span aria-hidden className="h-px flex-1 bg-border" />
     </div>
   );
@@ -4667,12 +4671,14 @@ export function FeedScreen() {
             {chatView ? (
               <div
                 data-testid={activeChannelKind === "wx" ? "feed-wx-chat-header" : "feed-tg-chat-header"}
-                /* ④ 顶栏等高:与左栏「监控会话」区头同 py-2.5 + min-h-11
-                    (左栏注同门),两栏 border-b 连线。 */
-                className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-b px-5 py-2.5"
+                /* ④ 顶栏等高契约(测试钉死):与左栏「监控会话」区头同
+                    py-2.5 + min-h-11,两栏 border-b 连线。10-14-feed-l3-beautify
+                    的呼吸感走 gap 放档(gap-x-4/gap-y-1.5)+ 标题升 lg,padding
+                    不动免破等高。 */
+                className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1.5 border-b px-5 py-2.5"
               >
                 <h2
-                  className="min-w-0 truncate text-base font-semibold text-foreground"
+                  className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground"
                   data-testid="feed-stream-title"
                   title={viewSource ?? undefined}
                 >
@@ -4701,7 +4707,7 @@ export function FeedScreen() {
                   wxProbePhase === "ok" && wxProbe !== null ? (
                   <div
                     data-testid="feed-wx-console"
-                    className="ml-auto flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+                    className="ml-auto flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1"
                   >
                     {wxProbe.state === "ok" ? (
                       <span
@@ -4798,17 +4804,22 @@ export function FeedScreen() {
                 ) : tgStatusPhase === "ok" && tgWebline !== null ? (
                   <div
                     data-testid="feed-tg-console"
-                    className="ml-auto flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+                    className="ml-auto flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1"
                   >
                     {tgWebline.web.accounts.some((a) => a.logged_in) ? (
                       <span
-                        className="inline-flex items-center gap-1 text-2xs text-ok"
+                        className="inline-flex items-center gap-1.5 text-2xs text-ok"
                         data-testid="feed-tg-console-live"
                       >
-                        ● 监控中 · {tgWebline.web.accounts.filter((a) => a.logged_in).map((a) => a.account).join("、")}
-                        {tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at
-                          ? ` · 自 ${formatAbsoluteTime(tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at ?? null)}`
-                          : ""}
+                        {/* 10-14-feed-l3-beautify:文字圆点换真色点(2xs 行内
+                            「●」字形发虚);词面断言 toContain 不受影响 */}
+                        <span className="size-1.5 shrink-0 rounded-full bg-ok" aria-hidden />
+                        <span className="min-w-0 truncate">
+                          监控中 · {tgWebline.web.accounts.filter((a) => a.logged_in).map((a) => a.account).join("、")}
+                          {tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at
+                            ? ` · 自 ${formatAbsoluteTime(tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at ?? null)}`
+                            : ""}
+                        </span>
                       </span>
                     ) : (
                       <span className="text-2xs text-warning">
@@ -5204,7 +5215,11 @@ export function FeedScreen() {
           <div
             ref={timelineScrollRef}
             onScroll={onTimelineScroll}
-            className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-3"
+            /* 10-14-feed-l3-beautify:节奏放档(gap-3→4 / py-3→4,VL 病灶
+                「消息间距过小」)+ 进场淡入(key 随渠道切,animate-fade-in 系
+                现成 keyframes;reduced-motion 全局归零免配) */
+            key={viewSource ?? "stream"}
+            className="animate-fade-in flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-4"
             data-testid="feed-chat-scroll"
           >
             <span className="sr-only" aria-live="polite">{streamTitle}</span>
@@ -5407,13 +5422,16 @@ export function FeedScreen() {
                 <div className="mx-auto flex w-full max-w-[760px] flex-col gap-4" data-testid="feed-chat-timeline">
                   {groups.map((group) => (
                     <section key={group.key} aria-label={`时间分组:${group.label}`}>
+                      {/* 日期胶囊(10-14-feed-l3-beautify):细描边 + 降底色 =
+                          「有边缘的玻璃感」分层,替代纯底色块;字距微放。
+                          词面「label · N 条」原样(测试锚 feed-group-*)。 */}
                       <div
                         data-testid={`feed-group-${group.label}`}
-                        className="mx-auto w-fit rounded-full bg-muted/60 px-3 py-1 text-2xs text-muted-foreground"
+                        className="mx-auto w-fit rounded-full border border-border/50 bg-muted/30 px-3 py-1 text-2xs tracking-wide text-muted-foreground"
                       >
                         {`${group.label} · ${group.items.length} 条`}
                       </div>
-                      <div className="mt-1 flex flex-col">
+                      <div className="mt-2 flex flex-col">
                         {/* ③ 未读分割线:画在最早一条未读(最底未读)卡之后
                             —— 与更早已读的分界(TG 未读块界线在本镜像序的
                             落位推导见 unreadDividerKey 注) */}
