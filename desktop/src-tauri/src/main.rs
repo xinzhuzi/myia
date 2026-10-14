@@ -938,6 +938,11 @@ fn main() {
             pyenv_components::service_start,
             pyenv_components::service_stop,
             pyenv_components::service_status,
+            // 磁盘占用视图 + 第一批整目录回收(10-14-leftover-sweep-install
+            // storage 域):占用扫描(du 级遍历,spawn_blocking)与 target
+            // 白名单回收(浏览器目录连带 crawl4ai 戳 / 服务目录连双戳)。
+            pyenv_components::pyenv_storage_usage,
+            pyenv_components::pyenv_reclaim_storage,
             pyenv_migration::pyenv_migration_banner,
             // 微信本机桥「取钥器」配置面(10-13-wechat-keyprovider B5:spawn
             // 安装态桥跑 localdb key-provider set/get/clear;配置落桥自有

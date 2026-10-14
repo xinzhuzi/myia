@@ -11,6 +11,24 @@ repeated here.
 
 ### Changed
 
+- **评分模型缺省 glm-4-flash → glm-5.3-flash 全仓升级**(2026-10-13,主人令
+  「最差也应该是 GLM-5.3-Flash」):源码缺省/仓库种子/实机 9 品类/UI 占位/
+  测试 49 处(5dcf59e,golden 快照按数据保留);schema 表/示例/zero-cost
+  双语文档同步,看图 glm-4.6v 视觉模型不动(b1294ba);设置页 AI 评分模型
+  行去行话——enrich.model/yaml.save/doctor 回显全链人话化(0896b8a,主人
+  实测「没理解」即判例)。
+- **wechat_local 引擎换轨 localdb 通道**(2026-10-13,10-12-weixin-feed-
+  channel,主人令):channel 字段二分支(engine_options.wechat_local,缺省
+  pixel 向后兼容)——localdb 走桥解密副本只读(零截窗零 AX,与 pixel 分支
+  隔离),源级水位增量窗;exit 21 key_unavailable=结构化 skip 不算 failure,
+  指引一键取钥脚本(aac331f)。
+- **微信消费侧模块归位 myssia/wechat 与 messaging/wechat**(2026-10-14,
+  10-14-wechat-module,主人令对标 TG 形态解耦):push 三件(5474d4d)、
+  sidecar 双件(b3f29df)、notify+engine 归位+registry 直载(9064447);
+  桌面微信屏族 14 件归 messaging/wechat 子域(481b1e6);破 sidecar⇄
+  push_local 顶层回环(ed8178c)。
+- **feed 三级界面美化**(2026-10-14,10-14-feed-l3-beautify):标题锚定/
+  时间线节奏/日期胶囊描边/进场淡入(4ee4d06)。
 - **Tests reorganized by module; classifier now ships its own tests**(2026-10-05,
   10-05-tests-module-grouping):主包 `tests/` 由 94 文件平铺重组为镜像
   `src/myssia` 的 14 个模块组(alerts/cli/cron/credhunter/engines/push/store/
@@ -36,6 +54,75 @@ repeated here.
 
 ### Added
 
+- **微信本机桥:取钥器全链与库密钥钥匙串化**(2026-10-13~14,
+  10-13-wechat-key-subsystem / 10-13-wechat-keyprovider):密钥获取固化进桥
+  组件——C 收集器入件(零 exec、只读 mach 四调用,bin/ 首用时自动编译)+
+  memsearch 重写(收集器→熵预筛→并发 sqlcipher 试开→HMAC 交叉验证)+
+  setuid 自愈件(单用户本机读自己微信内存的威胁模型,sudo rm 即回归)+
+  一键脚本 v2,0.4.0(46a4fac);自愈失败退避——不可闭合态 30min 冷却门、
+  损坏即忘却、成功清戳,0.4.1(289d96f);localdb 查询适配 4.1.15 分表+
+  取钥器协议,0.4.2(19c606b);copy_ttl_hours 0=永不过期(5342f82);密钥
+  状态与获取编排命令 0.5.0(3e74788);设置页「取钥器」配置面(32433f3)。
+  库密钥钥匙串化:resolve_keys 两级(钥匙串 myia/wechat/db-keys 优先/文件
+  兜底)+keys-migrate/unmigrate 原子迁移(HMAC 验真门+回读逐字节门,生产
+  实测拦住 security -w 128B 截断并回滚),生产 20 钥已迁、明文退役
+  (b4fb27e)。
+- **微信本机桥:解密副本近实时与只读查询族**(2026-10-13,
+  10-13-wechat-features 系):压缩消息解码补自管 3.12 主路 zstandard
+  (f51d5ac,0.4.3);解密副本源新即重建+并发单飞+竞态重试,监控近实时
+  (c1fde1b,0.4.4);发送者上屏真名不显 wxid(f1b849f,0.5.1);localdb
+  sns 命令——朋友圈动态与互动通知只读查询(59ff041,0.6.0);群信息只读
+  命令(843cc24,0.7.0)。
+- **微信本机桥:send_text 发送真身**(2026-10-13~14,10-13-wechat-features /
+  10-14-wechat-send-text):wxauto 三支柱热激活 UI 驱动落地(bba02c8,
+  0.7.0,主人热激活批令);三源合体升级,收编并行全家桶线(dc0cd98);
+  0.8.3 真机深测五缺陷修复与白名单双发闭环(0bec58d);成功逻辑全链入册
+  ——时序七步/侧栏优先+搜索兜底/浮窗判据/三刀/五层验证(d004b92,
+  0.8.4 真机验证版)。
+- **微信六屏全家桶桌面集成层**(2026-10-14,10-13-wechat-features 六子):
+  Rust 导出三件+UI 六屏+引擎 notify 件+stats sidecar+docs+config 入库
+  (7748884)。六域验收回执:C1 聊天记录导出(b93382a:keyset 9821 行对拍、
+  六格式 3391 行==SQL COUNT、SIGTERM 取消安全)、C2 统计与年报(e17c737:
+  chat total=111062 契约自洽、annual --all 319ms、缓存 sha256 确定性)、
+  C3 媒体与朋友圈(8213963:rows=4419/media_nodes=7065、vitest 886 全绿)、
+  C4 联系人(8a16c71:16/16 真库 PASS、六桶 22092==COUNT、游标零重漏)、
+  C5 通知与撤回(3ad6184:notify-scan 真库 454 会话、红线词表 grep 零)、
+  C6 HTTP API(2974b68:门控真库深分页 p95≤45.3ms、tests 730 全绿零回归)。
+- **微信监控 UI 全链与群信息面板**(2026-10-13,10-13-wechat-monitor-ui /
+  10-13-wechat-groupinfo):密钥状态/获取密钥流/监控台群列表/一键安装取钥器
+  (51b9ddf);群信息面板+全量导出(JSON+CSV),三级监控台群设置与成员
+  上屏(dd8ee11)。
+- **朋友圈线:引擎通道→信息流合流→独立品类**(2026-10-13~14,
+  10-13-wechat-sns-feed / 10-13-wechat-sns-merge / 10-14-wechat-sns-5min):
+  wechat_local 引擎 sns 通道——朋友圈动态与互动通知入情报流(id 强锚+
+  水位增量,073698a);动态+互动合流上屏,发帖人必显——双源折叠单会话行+
+  时间线 first_seen 混排+动态泡发帖人小签+同人合并组(8f47727,主人令);
+  聊天气泡时间线设计重做——泡顶渠道名退役/发信人泡内 8 色 hash 小彩签/
+  同人合并组/760px 居中列,TG/微信同套泡形(5afde42,主人令「搞的好看
+  一点」);grill 深化批五缺陷修复——实体净化/SQL 契约防护/notices 域
+  收缩等(c9affad);朋友圈拆独立品类 weixin-sns 挂 */5 全天档(28bf86c)。
+- **六线收口:代理池面板/凭证猎手面板/点选建源向导/Windows 启动即亮窗**
+  (2026-10-14,10-14-proxy-pool-panel / 10-14-cred-hunter-panel /
+  10-14-visual-source-builder / 10-14-win-startup-show):桌面四档交付入库
+  (3a518f9)。
+- **系统原生确认弹窗与带 app 图标通知**(2026-10-14,
+  10-14-native-system-dialog / 10-14-notify-app-icon):确认弹窗全量切系统
+  原生弹窗,system-confirm 统一入口(18c2f51);原生通道异常加固——ACL 拒/
+  插件故障=安全缺省取消(f9d726a);macos_notify 换壳代发——通知带世事
+  app 图标/归组/点击唤起(bde22d8)。
+- **组件安装体验:安装状态进按钮+排队自动装**(2026-10-13,
+  10-13-component-install-ux):单飞弹错改 FIFO 受理,安装态壳侧化切屏不丢
+  (0fdc12f);接力链终态原子化+链中止清队——grill 复审抓出双 pip 并发
+  竞态(98ffb5e);组件行描述精简为一句以依赖开头(043932e,主人判例)。
+- **firecrawl 三层 endpoint 序**(2026-10-13,engines):本地自托管探测优先
+  (127.0.0.1:3002,命中即用),miss 落显式配置云端兜底,皆无缺省空炮;
+  三层专项用例(3601dd6,主人「本地→下载→云端」二修裁决);兜底改嵌套块
+  形态——自查抓出点键静默丢配置(97a0541)。
+- **五特性完整双语文档**(2026-10-14,10-14-product-docs-deep):微信本机
+  工作台(六屏+通知线整机)/代理池(后端+面板+G10)/凭证猎手(引擎+
+  G11 红线)/建源向导(五步),全部主张带代码锚,BILINGUAL_PAGES 入守卫
+  (461a77a,tests/test_docs 143 绿);文档新鲜度刷新+遗留清账三件
+  (afdb52e)。
 - **定时任务管理屏**(10-04-cron-ui):桌面侧栏「采集」组新增「定时任务」屏
   (`/cron`,Clock 图标,源管理之后),照 Hermes web 控制台 CronPage 抄的
   可视化管理皮——ticker 活性条(正常灰字含数据根/僵死黄条/急停红条,
@@ -306,6 +393,40 @@ repeated here.
   `shishi.app.tar.gz{,.sig}`, `latest.json`). Wheels/sdists land after the
   owner registers the pending publishers and re-runs the failed jobs.
   TestPyPI rehearsal remains available via manual dispatch.
+
+### Fixed
+
+- **微信桥 0.8.4 真机打磨**(2026-10-14,10-14-wechat-send-text 轮):AX 门
+  边界五组对照关闭+doctor 提示改诚实(90f130d);搜索网络区抓障三修
+  (eeef485);followups 三件+搜索中文化(5d6f9a9);OCR 降级链三刀加固
+  (ed0d844);刀4 正文慢落退避重读(d95663c);全半角 NFKC 归一双点修复
+  (995879e);消息区回读几何修复——下缘 0.70→0.715,最新气泡底部窄带
+  漏扫(d1af26f)。
+- **微信桥 0.3.2 前置门勘误**(2026-10-13,10-12-weixin-feed-channel 生产
+  轮):AX 检查退出 UI 前置门、屏幕录制接管(独立码 16)——修前像素链被
+  不需要的 AX 权限拦死,生产 06:00 run 108 ax_permission_denied 实锤
+  (fe9e5cb)。
+- **feed 三级左栏平台隔离**(2026-10-13,主人令「微信是微信,TG 是 TG,
+  不能混在一起」):imGroupCards 按 activeChannelKind 同平台收窄,收回
+  10-12 微信线的 tg+wx 混列(2035b36)。
+- **UI 文案人话化·全屏族**(2026-10-13,10-12-ui-wording-audit):词不达意
+  审计 46 项改词/旗舰族统一/10 处失效指引修复——仪表盘/日志/源管理/定时/
+  配置编辑(f574a57 系 7 件)、消息/账号/凭据屏群(b96c37b)、情报流
+  (3340178)、设置与壳层(0fe0cbb)。
+- **后端错误文案人话化与种子同步**(2026-10-13,10-13-recommendations-exec):
+  错误文案衔接前端词表(9c35ad0);9 条「文本手术/零写入」同族漏网补齐,
+  统一「无法保存:…;文件未做任何改动」句式(10588a0);telegram-web 种子
+  同步实机——baidu 源关键词+handgame/baidu 两源(d657be9),tg_web 示范件
+  把守同步(ab7f5b7)。
+
+<!-- v0.0.4 草稿·窗口注记(主人评审用,定版时随裁):本批口径=2026-10-13
+     T00:00:00 起入库 187 件,用户可见面入正文,docs(task)/chore(task)/
+     research 等内部件不计;v0.0.3..HEAD 全差量 426 件,其中 10-08→10-12 的
+     239 件差量(browser-module / tg 系 / feed detail 等)不在本批口径,扩窗
+     与否留主人裁决。G10 一键化本体(ebfb34e,2026-10-05)落在 v0.0.3 tag
+     (2026-10-07)窗口内,如实不重复入账——本批 G10 面=代理池面板+深文档
+     G10 节。storage/py314 域截至本草稿未落库,主人推 tag 前若落库须补录
+     对应条目。 -->
 
 ## [0.0.1] — 2026-10-03
 

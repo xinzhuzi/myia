@@ -5,6 +5,7 @@ import {
   AppWindow,
   Cpu,
   Eye,
+  HardDrive,
   KeyRound,
   Layers,
   Lightbulb,
@@ -59,6 +60,7 @@ import { ErrorBox } from "./error-box";
 import { FieldInput } from "./field-input";
 import { PyenvCard } from "./pyenv-card";
 import { SettingRow } from "./settings-row";
+import { StorageCard } from "./storage-card";
 import { UpdaterCard } from "./updater-card";
 import { VisionForm } from "./vision-form";
 
@@ -113,6 +115,9 @@ const SECTIONS: SettingsSection[] = [
   // 10-05-desktop-managed-py-env 第 4 步(D1/D2):Python 运行环境自管区块,
   // 也是 D2 引导空态「一键跳设置」的深链落点(#/settings?section=python-env)
   { id: "python-env", label: "Python 环境", icon: Cpu, title: "Python 运行环境", description: "运行时与依赖按需下载:开始配置 / 双镜像覆盖 / 安装明细 / 同步依赖" },
+  // 10-14-leftover-sweep-install storage 域:数据根占用只读视图 + 第一批
+  // 整目录回收(浏览器目录连带 crawl4ai 戳 / 服务目录连双戳;target 白名单)。
+  { id: "storage", label: "磁盘占用", icon: HardDrive, title: "磁盘占用", description: "数据根占用只读视图与第一批整目录回收(浏览器 / 壳服务)" },
   { id: "system", label: "系统", icon: Activity, title: "系统", description: "sidecar 连接 + 软件更新 + 凭据管理" },
 ];
 const DEFAULT_SECTION = "general";
@@ -140,6 +145,7 @@ const SECTION_FIELD_TERMS: Record<string, string> = {
   browser:
     "浏览器 模块 操作 台账 登录中 完成 失败 重试 窗口 聚焦 关闭 日志 尾巴 chromium playwright 授权 验证码 核验",
   "python-env": "python 运行时 依赖 下载源 安装路径 使用路径 镜像 pypi 安装明细 同步",
+  storage: "磁盘 占用 空间 回收 浏览器 playwright chromium 模型 数据根 telegram 登录态",
   system: "sidecar 连接 状态 更新 版本 凭据 钥匙串 钥匙链 secret 删除 危险区",
 };
 
@@ -1400,6 +1406,14 @@ export function SettingsScreen() {
           {activeSection.id === "python-env" ? (
             <Searchable terms={SECTION_FIELD_TERMS["python-env"]}>
               <PyenvCard />
+            </Searchable>
+          ) : null}
+
+          {/* 磁盘占用(10-14-leftover-sweep-install storage 域:数据根占用
+              只读视图 + 第一批整目录回收;IPC 契约见 storage-api.ts)。② 同上 */}
+          {activeSection.id === "storage" ? (
+            <Searchable terms={SECTION_FIELD_TERMS.storage}>
+              <StorageCard />
             </Searchable>
           ) : null}
 

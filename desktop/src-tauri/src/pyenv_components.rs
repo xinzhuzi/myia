@@ -1718,6 +1718,431 @@ pub async fn service_status(app: AppHandle, id: String) -> Result<ServiceStatus,
 }
 
 // ---------------------------------------------------------------------------
+// 磁盘占用视图 + 第一批整目录回收(10-14-leftover-sweep-install storage 域:
+// 只读占用视图 + target 白名单硬规格的整目录回收;判据 = du 全根对拍 <5%)
+// ---------------------------------------------------------------------------
+
+/// 占用分项(策展一层目录 + 「顶层文件」聚合 + 「其余」兜底;hint 文案钉在
+/// 壳侧——口径与 components.json 已发布契约一致,前端只渲染不改写)。
+#[derive(Clone, PartialEq, Eq, Debug, Serialize)]
+pub struct StorageItem {
+    pub id: String,
+    pub label: String,
+    pub bytes: u64,
+    /// true = 第一批整目录可回收(`pyenv_reclaim_storage` 接受此 id;
+    /// false = 只展示,不提供回收入口)。
+    pub reclaimable: bool,
+    pub hint: String,
+}
+
+/// `pyenv_storage_usage` 载荷:`{total, items}`。total = 全根逻辑字节总和,
+/// 与 items 之和恒等(未知一层目录归「其余」、全部顶层文件含隐藏聚合为
+/// 「顶层文件」,不丢面——枚举仅示例不设限)。
+#[derive(Clone, PartialEq, Eq, Debug, Serialize)]
+pub struct StorageUsage {
+    pub total: u64,
+    pub items: Vec<StorageItem>,
+}
+
+/// 策展一层目录清单(固定序,展示元随行):(id, label, reclaimable, hint)。
+/// 未知一层目录自动归「其余」桶。占用口径钉死(grill 对拍基准):std::fs
+/// metadata().len() 逻辑字节、含隐藏文件全量、目录 inode 大小不计(块开销
+/// 全根实测 0.48%,对拍门 <5%)。
+const STORAGE_CURATED_DIRS: &[(&str, &str, bool, &str)] = &[
+    (
+        "models",
+        "模型(models/)",
+        false,
+        "视觉模型本地权重(qwen3-vl-8b-mlx 等);删除与管理在「视觉 → 模型管理」",
+    ),
+    (
+        "python",
+        "Python 运行环境(python/)",
+        false,
+        "自管 Python 运行时 + 依赖(site-packages 混装组件闭包);pip 件随 Python 环境重建回收",
+    ),
+    (
+        "playwright-browsers",
+        "抓取浏览器(playwright-browsers/)",
+        true,
+        "crawl4ai 组件的 chromium 浏览器二进制;回收后重装幂等:pip 件秒级跳过,浏览器需重下约 300MB 级、耗时数分钟",
+    ),
+    (
+        "wechat-localdb",
+        "微信本地库解密副本(wechat-localdb/)",
+        false,
+        "TTL 默认 24h 自清(可配永不过期);随查询自动重建",
+    ),
+    (
+        "telegram",
+        "Telegram 登录态(telegram/)",
+        false,
+        "telethon session 登录态(权限 0600);不可回收——删除即掉登录态(telethon 在桌面基础锁内,不提供卸载入口)",
+    ),
+    (
+        "telegram-web",
+        "Telegram Web 会话(telegram-web/)",
+        false,
+        "Telegram Web 线会话数据;含登录态,不提供回收",
+    ),
+    ("logs", "运行日志(logs/)", false, "壳与 sidecar 运行日志"),
+    (
+        "downloads",
+        "下载暂存(downloads/)",
+        false,
+        "采集下载暂存区",
+    ),
+    ("cron", "定时任务数据(cron/)", false, "cron 运行数据与状态"),
+    (
+        "config",
+        "配置(config/)",
+        false,
+        "品类与源配置(searxng.yaml 等)",
+    ),
+    ("images", "图片缓存(images/)", false, "采集图片缓存"),
+    (
+        "wechat-bridge",
+        "微信桥数据(wechat-bridge/)",
+        false,
+        "微信本机桥自有配置与密钥状态",
+    ),
+    (
+        "services",
+        "壳服务数据(services/)",
+        false,
+        "壳服务组件数据目录(settings.yml/service.log);按服务整目录回收(见下方服务行),pip 件随 Python 环境重建回收",
+    ),
+    (
+        "pyenv-components",
+        "组件安装戳(pyenv-components/)",
+        false,
+        "组件指纹与服务状态戳(壳侧真相源,不回收)",
+    ),
+];
+
+/// 顶层文件聚合项 id(全部一层文件含隐藏,不拆分)。
+const STORAGE_TOP_FILES_ID: &str = "top-files";
+/// 未知一层目录兜底项 id。
+const STORAGE_OTHER_ID: &str = "other";
+
+/// 目录逻辑字节递归累加(只计文件 metadata().len(),目录 inode 不计;
+/// symlink 不跟随(计自身 len),隐藏文件全量;子目录不可读 → warn 计 0
+/// 继续——占用视图尽量给数,不 panic 不中断)。
+fn dir_logical_size(path: &Path) -> u64 {
+    let mut total = 0u64;
+    let mut stack = vec![path.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            log::warn!("desktop: 占用扫描目录不可读(计 0 继续): {}", dir.display());
+            continue;
+        };
+        for entry in entries.flatten() {
+            let Ok(meta) = entry.metadata() else {
+                continue;
+            };
+            if meta.is_dir() {
+                stack.push(entry.path());
+            } else {
+                total += meta.len();
+            }
+        }
+    }
+    total
+}
+
+/// 占用扫描核心(纯逻辑,无 AppHandle;单测主战场):数据根缺位/不可读 →
+/// 结构化错误(分类码前缀,与 install 链 render_error 同惯例);一层目录按
+/// 策展清单归桶,未知目录归「其余」;全部一层文件(含隐藏,含 FIFO 等
+/// 非目录非 symlink 形态,len 按实测)聚合为「顶层文件」。
+pub(crate) fn storage_usage_at(data_root: &Path) -> Result<StorageUsage, String> {
+    let root_meta = std::fs::symlink_metadata(data_root).map_err(|err| {
+        format!(
+            "setup_failed: 数据根不可访问({}): {err}",
+            data_root.display()
+        )
+    })?;
+    if !root_meta.is_dir() {
+        return Err(format!(
+            "setup_failed: 数据根不是目录({})",
+            data_root.display()
+        ));
+    }
+    let mut curated_bytes = vec![0u64; STORAGE_CURATED_DIRS.len()];
+    let mut top_files = 0u64;
+    let mut other = 0u64;
+    let entries = std::fs::read_dir(data_root).map_err(|err| {
+        format!(
+            "setup_failed: 数据根不可枚举({}): {err}",
+            data_root.display()
+        )
+    })?;
+    for entry in entries.flatten() {
+        let Ok(meta) = entry.metadata() else {
+            continue;
+        };
+        if meta.is_dir() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let bytes = dir_logical_size(&entry.path());
+            match STORAGE_CURATED_DIRS
+                .iter()
+                .position(|(id, ..)| *id == name)
+            {
+                Some(index) => curated_bytes[index] += bytes,
+                None => other += bytes,
+            }
+        } else {
+            top_files += meta.len();
+        }
+    }
+    let mut items: Vec<StorageItem> = STORAGE_CURATED_DIRS
+        .iter()
+        .zip(curated_bytes.into_iter())
+        .map(|((id, label, reclaimable, hint), bytes)| StorageItem {
+            id: (*id).to_string(),
+            label: (*label).to_string(),
+            bytes,
+            reclaimable: *reclaimable,
+            hint: (*hint).to_string(),
+        })
+        .collect();
+    items.push(StorageItem {
+        id: STORAGE_TOP_FILES_ID.to_string(),
+        label: "顶层文件(含隐藏)".to_string(),
+        bytes: top_files,
+        reclaimable: false,
+        hint: "数据根顶层文件:配置 JSON / 数据库(myia.db、myssia.db 及 .bak 系列)/ 杂项日志等".to_string(),
+    });
+    items.push(StorageItem {
+        id: STORAGE_OTHER_ID.to_string(),
+        label: "其余(未策展目录)".to_string(),
+        bytes: other,
+        reclaimable: false,
+        hint: "未策展的一层目录自动归并(枚举仅示例不设限,视图不漏面)".to_string(),
+    });
+    let total = items.iter().map(|item| item.bytes).sum();
+    Ok(StorageUsage { total, items })
+}
+
+/// 占用扫描 IPC(du 级 19G/32751 文件秒级阻塞——必须 spawn_blocking,
+/// 判例 = install_component 链 :1498;不 spawn_blocking 会卡 async runtime
+/// worker 冻住设置屏)。
+#[tauri::command]
+pub async fn pyenv_storage_usage(app: AppHandle) -> Result<StorageUsage, String> {
+    let data_root = crate::data_root(&app).map_err(|e| e.to_string())?;
+    match tauri::async_runtime::spawn_blocking(move || storage_usage_at(&data_root)).await {
+        Ok(result) => result,
+        Err(err) => Err(format!("占用扫描线程失败: {err}")),
+    }
+}
+
+/// 回收回执:`{target, reclaimed_bytes}`(reclaimed_bytes = 删除前实测逻辑
+/// 字节,供 UI 展示「已回收 X」;目标本就不在场 = 0,幂等)。
+#[derive(Clone, PartialEq, Eq, Debug, Serialize)]
+pub struct ReclaimOutcome {
+    pub target: String,
+    pub reclaimed_bytes: u64,
+}
+
+/// 白名单解析后的回收目标(纯枚举,不落到路径面)。
+enum ReclaimTarget {
+    Browsers,
+    Service(ComponentSpec),
+}
+
+/// 回收 target 白名单解析(**硬规格**):仅接受 `{playwright-browsers}` ∪
+/// `{注册表 kind=service 条目 id}`;其余一切取值(路径分隔符/raw path/
+/// `../` 穿越/白名单外 id,含注册表内的库组件 id)结构化拒——前端字符串
+/// 直传到不了文件系统面,safe_component_id 再守一道(services/<id> 拼装,
+/// 判例 = service_stamp_path :448-454 同款防逃逸)。
+fn resolve_reclaim_target(
+    registry: &[ComponentSpec],
+    target: &str,
+) -> Result<ReclaimTarget, String> {
+    let mut allowed: Vec<&str> = vec![PLAYWRIGHT_BROWSERS_DIR];
+    allowed.extend(
+        registry
+            .iter()
+            .filter(|spec| spec.is_service())
+            .map(|spec| spec.id.as_str()),
+    );
+    let reject = || {
+        format!(
+            "非法回收目标: {target:?}(白名单: {allowed:?};不接受原始路径/路径穿越/白名单外 id)"
+        )
+    };
+    if target == PLAYWRIGHT_BROWSERS_DIR {
+        return Ok(ReclaimTarget::Browsers);
+    }
+    if !safe_component_id(target) {
+        return Err(reject());
+    }
+    let Some(spec) = registry
+        .iter()
+        .find(|spec| spec.id == target && spec.is_service())
+    else {
+        return Err(reject());
+    };
+    Ok(ReclaimTarget::Service(spec.clone()))
+}
+
+/// 整目录回收核心(纯逻辑,无 AppHandle;单测主战场)。动作面:
+/// - `playwright-browsers`:整目录删 + **连带删 crawl4ai 组件戳**
+///   (post_install=playwright-chromium 的条目;裁决:is_component_installed
+///   只看戳不验盘,保戳 = 卡绿运行断的「假 ready」,与 components.json
+///   已发布契约「卸载组件或清理数据根即整目录回收」相悖;删戳后卡转
+///   「未装」,重装幂等链既有)。删目录后 should_inject_browsers_env 自动
+///   转 false 停注 PLAYWRIGHT_BROWSERS_PATH(既有判例测试把守)。
+/// - `services/<id>`:先走 stop_service_process 完整停链(活服务必须真停:
+///   SIGTERM 组 → 宽限 → SIGKILL 组;跨壳孤儿先 ps argv 三锚点复核防 pid
+///   复用误杀),再删 services/<id>/ 目录 + **删双戳**(<id>.json 组件戳 +
+///   <id>.service.json 服务状态戳;残留虽被 reconcile 纠偏 stopped 但留脏
+///   记录,整目录回收语义 = 戳一并清)。pip 闭包混装 site-packages 不删
+///   (如实文案「pip 件随 Python 环境重建回收」)。
+pub(crate) fn reclaim_target(
+    data_root: &Path,
+    python_bin: &Path,
+    registry: &[ComponentSpec],
+    target: &str,
+    owned_service_child: Option<std::process::Child>,
+) -> Result<ReclaimOutcome, String> {
+    match resolve_reclaim_target(registry, target)? {
+        ReclaimTarget::Browsers => {
+            let dir = playwright_browsers_path(data_root);
+            let reclaimed = if dir.is_dir() {
+                dir_logical_size(&dir)
+            } else {
+                0
+            };
+            if dir.exists() {
+                std::fs::remove_dir_all(&dir).map_err(|err| {
+                    format!(
+                        "setup_failed: 浏览器目录删除失败({}): {err}",
+                        dir.display()
+                    )
+                })?;
+            }
+            // 连带删浏览器钩子组件戳(当前 = crawl4ai;按钩子反查,不写死 id)
+            for spec in registry
+                .iter()
+                .filter(|spec| spec.post_install.as_deref() == Some(POST_INSTALL_PLAYWRIGHT_CHROMIUM))
+            {
+                let stamp = component_stamp_path(data_root, &spec.id);
+                if stamp.exists() {
+                    std::fs::remove_file(&stamp).map_err(|err| {
+                        format!(
+                            "setup_failed: 组件戳删除失败({}): {err}",
+                            stamp.display()
+                        )
+                    })?;
+                }
+            }
+            log::info!(
+                "desktop: 已回收浏览器目录 {}({reclaimed} 字节)+ 浏览器钩子组件戳",
+                dir.display()
+            );
+            Ok(ReclaimOutcome {
+                target: target.to_string(),
+                reclaimed_bytes: reclaimed,
+            })
+        }
+        ReclaimTarget::Service(spec) => {
+            // 停链先行(判例 = service_stop:亲生句柄可及则直接组停回收退出码,
+            // 跨壳孤儿走 ps argv 复核;幂等:未在运行直接过)
+            stop_service_process(data_root, python_bin, &spec, owned_service_child)?;
+            let dir = service_dir(data_root, &spec.id);
+            let reclaimed = if dir.is_dir() {
+                dir_logical_size(&dir)
+            } else {
+                0
+            };
+            if dir.exists() {
+                std::fs::remove_dir_all(&dir).map_err(|err| {
+                    format!(
+                        "setup_failed: 服务数据目录删除失败({}): {err}",
+                        dir.display()
+                    )
+                })?;
+            }
+            // service 类 id 删双戳:组件戳 + 服务状态戳
+            for stamp in [
+                component_stamp_path(data_root, &spec.id),
+                service_stamp_path(data_root, &spec.id),
+            ] {
+                if stamp.exists() {
+                    std::fs::remove_file(&stamp).map_err(|err| {
+                        format!("setup_failed: 服务戳删除失败({}): {err}", stamp.display())
+                    })?;
+                }
+            }
+            log::info!(
+                "desktop: 已回收服务组件 {}(services/ 目录 + 双戳;{} 字节)",
+                spec.id, reclaimed
+            );
+            Ok(ReclaimOutcome {
+                target: target.to_string(),
+                reclaimed_bytes: reclaimed,
+            })
+        }
+    }
+}
+
+/// 整目录回收 IPC(第一批只做白名单目标):白名单解析先于一切动作(查册
+/// 先行,判例 = 安装接力链 :1485);主安装链/组件安装槽互斥;组件槽持锁
+/// 执行(拦住回收期间的新装受理——删目录毫秒级,服务停链宽限上限 11s,
+/// 持锁阻塞的是并发安装受理而非 async runtime,可接受)。回收成功后广播
+/// pyenv-status-changed(crawl4ai/searxng 组件行即时转「未装」)。
+#[tauri::command]
+pub async fn pyenv_reclaim_storage(
+    app: AppHandle,
+    target: String,
+) -> Result<ReclaimOutcome, String> {
+    let data_root = crate::data_root(&app).map_err(|e| e.to_string())?;
+    let resource_dir = app.path().resource_dir().ok();
+    let registry = load_registry(resource_dir.as_deref());
+    // 查册先行:白名单外取值在此拒,零删动
+    resolve_reclaim_target(&registry, &target)?;
+    if app
+        .state::<crate::pyenv::PyenvManager>()
+        .installing
+        .lock()
+        .unwrap()
+        .is_some()
+    {
+        return Err("Python 环境安装进行中:请等安装完成后再回收".into());
+    }
+    let python_bin = crate::pyenv::python_bin_path(&data_root);
+    let needs_python = registry
+        .iter()
+        .any(|spec| spec.id == target && spec.is_service());
+    let handle = app.clone();
+    let joined = tauri::async_runtime::spawn_blocking(move || {
+        // 组件单飞互斥(判例 = ComponentManager :1358):装中拒回收;
+        // 持锁执行回收拦住回收期间的新受理(锁内无 IO 之外的长阻塞面)
+        let manager = handle.state::<ComponentManager>();
+        let runtime = manager.runtime.lock().unwrap();
+        if runtime.installing.is_some() || !runtime.queued.is_empty() {
+            return Err("组件安装进行中:请等安装完成后再回收".to_string());
+        }
+        // 服务回收停链依赖自管 python 在位(argv 三锚点复核之一);
+        // 浏览器回收不碰 python(环境未装时浏览器目录也理应不在,
+        // 残留目录回收不设此门)
+        if needs_python && !python_bin.exists() {
+            return Err(
+                "Python 运行环境未就位:无法复核并停止服务进程;请先完成环境安装或确认服务已停后再回收".into(),
+            );
+        }
+        let service_child = take_owned_child(&handle, &target).map(|entry| entry.child);
+        reclaim_target(&data_root, &python_bin, &registry, &target, service_child)
+    });
+    let outcome = match joined.await {
+        Ok(result) => result,
+        Err(err) => Err(format!("回收线程失败: {err}")),
+    }?;
+    let _ = crate::pyenv::emit_current(&app); // 回收即广播(组件行转「未装」即时可见)
+    Ok(outcome)
+}
+
+// ---------------------------------------------------------------------------
 // 单测(门:10-05-table-restore 桌面侧「cargo 单测」;sh 桩部分 unix 门控)
 // ---------------------------------------------------------------------------
 
@@ -3528,6 +3953,384 @@ mod tests {
                     String::from_utf8_lossy(&out.stdout).trim()
                 );
             }
+        }
+    }
+
+    // —— 磁盘占用视图 + 整目录回收(10-14-leftover-sweep-install storage 域)——
+    mod storage {
+        use super::*;
+
+        fn write_file(path: &Path, bytes: usize) {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).expect("测试父目录创建失败");
+            }
+            std::fs::write(path, vec![b'x'; bytes]).expect("测试文件写入失败");
+        }
+
+        /// 白名单对拍基座:库组件(table/crawl4ai)+ 服务组件(searxng)
+        /// ——白名单 = {playwright-browsers} ∪ {searxng},其余全拒。
+        fn reclaim_registry() -> Vec<ComponentSpec> {
+            vec![table_spec(), crawl4ai_spec(), searxng_spec()]
+        }
+
+        /// 聚合口径:策展目录归桶(含隐藏文件)、顶层文件(含隐藏)全聚合、
+        /// 未知一层目录归「其余」;total 与分项之和恒等;条目数 = 策展 + 2。
+        #[test]
+        fn usage_aggregates_curated_dirs_top_files_and_other() {
+            let data = tempfile::tempdir().expect("数据根临时目录创建失败");
+            // 策展目录:models(含隐藏文件)+ python + playwright-browsers
+            write_file(&data.path().join("models/qwen/weight.bin"), 1000);
+            write_file(&data.path().join("models/.hidden"), 24);
+            write_file(&data.path().join("python/bin/python3"), 500);
+            write_file(&data.path().join("playwright-browsers/chromium/headless"), 300);
+            // 未知一层目录(深层)+ 顶层文件(含隐藏 + 普通)
+            write_file(&data.path().join("unknown-dir/deep/file.bin"), 40);
+            write_file(&data.path().join("myssia.db"), 7777);
+            write_file(&data.path().join(".DS_Store"), 3);
+            let usage = storage_usage_at(data.path()).expect("伪数据根扫描应成功");
+            let item = |id: &str| {
+                usage
+                    .items
+                    .iter()
+                    .find(|entry| entry.id == id)
+                    .unwrap_or_else(|| panic!("缺分项 {id}"))
+            };
+            assert_eq!(item("models").bytes, 1024, "含隐藏文件全量");
+            assert_eq!(item("python").bytes, 500);
+            assert_eq!(item("playwright-browsers").bytes, 300);
+            assert!(item("playwright-browsers").reclaimable);
+            assert_eq!(item("other").bytes, 40, "未知一层目录归「其余」");
+            assert_eq!(item("top-files").bytes, 7780, "顶层文件含隐藏全聚合");
+            assert_eq!(item("telegram").reclaimable, false, "登录态不可回收");
+            assert_eq!(item("models").label, "模型(models/)");
+            assert!(
+                item("telegram")
+                    .hint
+                    .contains("不可回收"),
+                "登录态事故面文案: {}",
+                item("telegram").hint
+            );
+            assert_eq!(usage.items.len(), STORAGE_CURATED_DIRS.len() + 2);
+            assert_eq!(
+                usage.total,
+                usage.items.iter().map(|entry| entry.bytes).sum::<u64>(),
+                "total 与分项之和恒等"
+            );
+            // 顶层文件聚合项含实盘敏感面文案(.bak 系列披露)
+            assert!(item("top-files").hint.contains(".bak"));
+        }
+
+        /// 数据根缺位/非目录 → 结构化错误(分类码前缀,install 链同惯例)。
+        #[test]
+        fn usage_missing_root_is_structured_error() {
+            let err = storage_usage_at(Path::new("/nonexistent/myia-usage-probe"))
+                .expect_err("缺位数据根应结构化拒");
+            assert!(err.starts_with("setup_failed: "), "实际: {err}");
+            assert!(err.contains("数据根不可访问"), "实际: {err}");
+        }
+
+        /// target 白名单与路径穿越拒(硬规格):'../..'、'/etc'、'python'、
+        /// 白名单外 id(含注册表内库组件 id、telegram 等敏感目录名)等非法
+        /// 取值一律结构化拒且**零删动**。
+        #[test]
+        fn reclaim_whitelist_rejects_paths_traversal_and_unknown_ids() {
+            let data = tempfile::tempdir().expect("数据根临时目录创建失败");
+            write_file(&data.path().join("python/bin/python3"), 500);
+            write_file(&data.path().join("models/weight.bin"), 100);
+            write_file(&data.path().join("telegram/session.file"), 64);
+            write_file(&data.path().join("playwright-browsers/chromium/x"), 10);
+            let python = Path::new("/nonexistent/python3-reclaim-probe");
+            for evil in [
+                "../..",
+                "/etc",
+                "python",
+                "models",
+                "logs",
+                "telegram",
+                "",
+                " ",
+                "..",
+                ".",
+                "a/b",
+                "playwright-browsers/../python",
+                "crawl4ai",
+                "table",
+                "wechat-localdb",
+            ] {
+                let err = reclaim_target(data.path(), python, &reclaim_registry(), evil, None)
+                    .expect_err(format!("target={evil:?} 应拒").as_str());
+                assert!(
+                    err.contains("非法回收目标") && err.contains("白名单"),
+                    "target={evil:?} 实际: {err}"
+                );
+            }
+            // 零删动:被冒名的目录原样在场
+            assert!(data.path().join("python/bin/python3").is_file());
+            assert!(data.path().join("models/weight.bin").is_file());
+            assert!(data.path().join("telegram/session.file").is_file());
+            assert!(data.path().join("playwright-browsers/chromium/x").is_file());
+        }
+
+        /// 浏览器回收:整目录删 + **连带删 crawl4ai 戳**(假 ready 裁决);
+        /// 无关组件戳不动、pip 件不删(随 Python 环境重建回收)、注入判定转
+        /// false;幂等(目标不在场 = Ok 0 字节)。
+        #[test]
+        fn reclaim_browsers_deletes_dir_and_crawl4ai_stamp_keeps_python() {
+            let data = tempfile::tempdir().expect("数据根临时目录创建失败");
+            write_file(&data.path().join("playwright-browsers/chromium/x"), 300);
+            write_file(&data.path().join("python/lib/site/crawl4ai/__init__.py"), 100);
+            write_component_stamp(
+                data.path(),
+                "crawl4ai",
+                &ComponentStamp {
+                    state: Some("ready".into()),
+                    fingerprint: Some(spec_fingerprint(CRAWL4AI_PIP_SPEC)),
+                    error: None,
+                },
+            );
+            write_component_stamp(
+                data.path(),
+                "table",
+                &ComponentStamp {
+                    state: Some("ready".into()),
+                    fingerprint: Some(spec_fingerprint(TABLE_PIP_SPEC)),
+                    error: None,
+                },
+            );
+            let out = reclaim_target(
+                data.path(),
+                Path::new("/nonexistent/python3-reclaim-probe"),
+                &reclaim_registry(),
+                PLAYWRIGHT_BROWSERS_DIR,
+                None,
+            )
+            .expect("浏览器回收应成功");
+            assert_eq!(out.target, PLAYWRIGHT_BROWSERS_DIR);
+            assert_eq!(out.reclaimed_bytes, 300);
+            assert!(!playwright_browsers_path(data.path()).exists(), "整目录删");
+            assert!(
+                !component_stamp_path(data.path(), "crawl4ai").exists(),
+                "必须连带删 crawl4ai 戳(保戳 = 卡绿运行断的假 ready)"
+            );
+            assert!(
+                read_component_stamp(data.path(), "crawl4ai").is_none()
+                    && !is_component_installed(data.path(), &crawl4ai_spec()),
+                "删戳后卡转「未装」"
+            );
+            assert!(
+                component_stamp_path(data.path(), "table").exists(),
+                "无关组件戳不动"
+            );
+            assert!(
+                data.path()
+                    .join("python/lib/site/crawl4ai/__init__.py")
+                    .is_file(),
+                "pip 闭包混装 site-packages 不删(随 Python 环境重建回收)"
+            );
+            assert!(!should_inject_browsers_env(data.path()), "停注浏览器环境");
+            // 幂等:目标不在场 = Ok 0 字节
+            let again = reclaim_target(
+                data.path(),
+                Path::new("/nonexistent/python3-reclaim-probe"),
+                &reclaim_registry(),
+                PLAYWRIGHT_BROWSERS_DIR,
+                None,
+            )
+            .expect("幂等回收应成功");
+            assert_eq!(again.reclaimed_bytes, 0);
+        }
+
+        /// 服务回收:停链(幂等态,零进程副作用)→ services/<id>/ 删 +
+        /// **双戳删**(<id>.json 组件戳 + <id>.service.json 服务状态戳);
+        /// services/ 下其他内容不动。
+        #[test]
+        fn reclaim_service_deletes_dir_and_both_stamps() {
+            let data = tempfile::tempdir().expect("数据根临时目录创建失败");
+            write_file(&data.path().join("services/searxng/settings.yml"), 200);
+            write_file(&data.path().join("services/searxng/service.log"), 100);
+            write_file(&data.path().join("services/other/keep.bin"), 5);
+            write_component_stamp(
+                data.path(),
+                "searxng",
+                &ComponentStamp {
+                    state: Some("ready".into()),
+                    fingerprint: Some(closure_fingerprint(&searxng_spec())),
+                    error: None,
+                },
+            );
+            write_service_stamp(
+                data.path(),
+                "searxng",
+                &ServiceStamp {
+                    state: Some("stopped".into()),
+                    pid: None,
+                    started_at: None,
+                    last_exit: Some(0),
+                },
+            );
+            let out = reclaim_target(
+                data.path(),
+                Path::new("/nonexistent/python3-reclaim-probe"),
+                &reclaim_registry(),
+                "searxng",
+                None,
+            )
+            .expect("服务回收应成功(停链幂等:戳 stopped 零信号)");
+            assert_eq!(out.target, "searxng");
+            assert_eq!(out.reclaimed_bytes, 300);
+            assert!(!service_dir(data.path(), "searxng").exists(), "服务数据目录删");
+            assert!(
+                !component_stamp_path(data.path(), "searxng").exists(),
+                "service 类 id 删双戳:组件戳 <id>.json"
+            );
+            assert!(
+                !service_stamp_path(data.path(), "searxng").exists(),
+                "service 类 id 删双戳:服务状态戳 <id>.service.json"
+            );
+            assert!(
+                data.path().join("services/other/keep.bin").is_file(),
+                "services/ 下非目标内容不动"
+            );
+            assert!(read_service_stamp(data.path(), "searxng").is_none(), "戳清 = 无脏记录");
+        }
+
+        /// 装机对拍与第一批回收真跑门(#[ignore];判据 ③④⑤):
+        /// `MYIA_STORAGE_SMOKE_ROOT="$HOME/Library/Application Support/MYIA" \
+        ///  cargo test --manifest-path desktop/src-tauri/Cargo.toml \
+        ///  pyenv_components::tests::storage -- --ignored --nocapture`
+        /// ①total(metadata().len() 逻辑字节,含隐藏全量)vs 同机 du -sk
+        ///   偏差 <5%;②浏览器回收:目录删 + crawl4ai 戳删(卡转未装)+
+        ///   注入判定转 false;③searxng 回收:停链(8888 释放)+ services/
+        ///   searxng/ 删 + 双戳删;④重装恢复:crawl4ai install_component
+        ///   真跑(pip 件秒级跳过 + chromium 重下约 300MB 级),ready 戳回 +
+        ///   playwright-browsers/ 重建。
+        #[test]
+        #[ignore = "装机真跑:MYIA_STORAGE_SMOKE_ROOT=<真数据根> cargo test storage -- --ignored --nocapture(④ 重下 chromium 耗时数分钟)"]
+        fn storage_smoke_real_root_usage_compare_and_reclaim() {
+            let Ok(root) = std::env::var("MYIA_STORAGE_SMOKE_ROOT") else {
+                panic!("装机真跑须设 MYIA_STORAGE_SMOKE_ROOT=<真数据根>");
+            };
+            let data_root = std::path::PathBuf::from(&root);
+            let resource_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../resources");
+            let registry = load_registry(Some(&resource_dir));
+            assert!(
+                registry.iter().any(|spec| spec.id == "searxng" && spec.is_service()),
+                "真注册表必须已有 searxng 服务条目"
+            );
+
+            // —— ① 占用对拍:IPC 逻辑字节 vs du -sk(块),偏差 <5% ——
+            let usage = storage_usage_at(&data_root).expect("真数据根扫描应成功");
+            eprintln!(
+                "storage-smoke: IPC total = {} 字节({:.2} GB)",
+                usage.total,
+                usage.total as f64 / 1024.0 / 1024.0 / 1024.0
+            );
+            let du_out = std::process::Command::new("du")
+                .arg("-sk")
+                .arg(&data_root)
+                .output()
+                .expect("du -sk 失败");
+            assert!(du_out.status.success(), "du 应成功");
+            let du_kb: f64 = String::from_utf8_lossy(&du_out.stdout)
+                .split_whitespace()
+                .next()
+                .and_then(|token| token.parse().ok())
+                .expect("du -sk 输出应可解析");
+            let ipc_kb = usage.total as f64 / 1024.0;
+            let deviation = (ipc_kb - du_kb).abs() / du_kb;
+            eprintln!(
+                "storage-smoke: du -sk = {du_kb:.0} KB,IPC = {ipc_kb:.0} KB,偏差 {deviation:.4}({:.2}%)",
+                deviation * 100.0
+            );
+            assert!(
+                deviation < 0.05,
+                "占用对拍偏差 {deviation:.4} 顶穿 5% 门(du={du_kb}KB,ipc={ipc_kb}KB)"
+            );
+
+            // —— ② 浏览器回收(真数据根)——
+            let python_bin = crate::pyenv::python_bin_path(&data_root);
+            let browsers_before = usage
+                .items
+                .iter()
+                .find(|entry| entry.id == PLAYWRIGHT_BROWSERS_DIR)
+                .map(|entry| entry.bytes)
+                .unwrap_or(0);
+            eprintln!("storage-smoke: 浏览器目录回收前 {browsers_before} 字节");
+            let out = reclaim_target(&data_root, &python_bin, &registry, PLAYWRIGHT_BROWSERS_DIR, None)
+                .expect("浏览器回收应成功");
+            eprintln!(
+                "storage-smoke: 浏览器已回收 {} 字节",
+                out.reclaimed_bytes
+            );
+            assert!(!playwright_browsers_path(&data_root).exists(), "判据④:目录删");
+            assert!(
+                !component_stamp_path(&data_root, "crawl4ai").exists(),
+                "判据④:crawl4ai 戳连带删"
+            );
+            let crawl4ai = registry
+                .iter()
+                .find(|spec| spec.id == "crawl4ai")
+                .expect("真注册表必须有 crawl4ai 条目")
+                .clone();
+            assert!(
+                !is_component_installed(&data_root, &crawl4ai),
+                "判据④:删戳后卡转「未装」"
+            );
+            assert!(!should_inject_browsers_env(&data_root), "停注浏览器环境");
+
+            // —— ③ searxng 服务回收(活服务真停链)——
+            let out = reclaim_target(&data_root, &python_bin, &registry, "searxng", None)
+                .expect("服务回收应成功");
+            eprintln!(
+                "storage-smoke: searxng 已回收 {} 字节(服务数据 + 双戳)",
+                out.reclaimed_bytes
+            );
+            assert!(!service_dir(&data_root, "searxng").exists(), "判据⑤:服务目录删");
+            assert!(
+                !component_stamp_path(&data_root, "searxng").exists(),
+                "判据⑤:组件戳删"
+            );
+            assert!(
+                !service_stamp_path(&data_root, "searxng").exists(),
+                "判据⑤:服务状态戳删"
+            );
+            // 8888 释放:连接必拒(停链后 worker 孤儿也须零残留——组信号覆盖)
+            std::thread::sleep(Duration::from_millis(500));
+            let port_probe = std::net::TcpStream::connect("127.0.0.1:8888");
+            assert!(
+                port_probe.is_err(),
+                "判据⑤:8888 必须释放(连接应被拒)"
+            );
+
+            // —— ④ 重装恢复:crawl4ai install_component 真跑 ——
+            // pip 闭包已装(秒级跳过);chromium 重下约 300MB 级、耗时数分钟。
+            let index_url = crate::pyenv::read_settings(&data_root).mirror_pypi;
+            let started = Instant::now();
+            let outcome = install_component(
+                &data_root,
+                &python_bin,
+                &crawl4ai,
+                index_url.as_deref(),
+                crate::pyenv_install::DISK_REQUIRED_BYTES,
+                Some(&resource_dir),
+            );
+            eprintln!(
+                "storage-smoke: 重装回执 {:?}(耗时 {:.1}s)",
+                outcome,
+                started.elapsed().as_secs_f64()
+            );
+            assert!(outcome.installed, "判据④:重装后卡 ready(回执 installed)");
+            assert!(outcome.error.is_none(), "重装应零错误: {:?}", outcome.error);
+            assert!(
+                playwright_browsers_path(&data_root).is_dir(),
+                "判据④:playwright-browsers/ 重建"
+            );
+            assert!(
+                is_component_installed(&data_root, &crawl4ai),
+                "判据④:ready 戳 + 指纹回位(卡 ready)"
+            );
+            eprintln!("storage-smoke: 全链收尾(对拍 + 浏览器回收/重装 + searxng 回收)");
         }
     }
 }

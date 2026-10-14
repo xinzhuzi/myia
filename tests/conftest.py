@@ -5,8 +5,17 @@
 `python -m pytest`,不把 CWD 放进 sys.path)假红。历史与双跑法证据见 718d56c。
 """
 
+import os
 import sys
 from pathlib import Path
+
+# onnxruntime 1.30.0(macOS)进程退出期偶发 SIGABRT(exit 134):1DS 遥测线程在
+# 静态析构期锁已被销毁的 recursive_mutex(上游 microsoft/onnxruntime#33251,
+# 无修复版本)。tests/vision 真引擎路径(test_vision_table.py 的真表格用例 →
+# vision/table.py 惰性导入链)会真实加载 ORT,全量套件进程都在射程内。必须
+# 在任何 onnxruntime 导入之前置位;测试门禁本就不应发遥测。setdefault:显式
+# 要开遥测的环境仍可覆盖。
+os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
 
 SRC = Path(__file__).resolve().parent.parent / "src"
 if str(SRC) not in sys.path:
