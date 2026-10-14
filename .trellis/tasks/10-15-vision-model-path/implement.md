@@ -27,9 +27,14 @@ gitnexus detect-changes -r shishi --scope staged
 
 ## 检查单
 
-- [ ] 两模块删除后全仓零活引用(头注/版本注记的历史性提及除外)
-- [ ] pyproject extras `huggingface-hub` 依赖处置:models.py 删除后 vision extras
-      内零消费者 → 从 vision/all extras 移除并 `uv lock` 校验(本机 sync 带
-      `--all-extras`)
-- [ ] 真机 vision.yaml 落位 + 真图冒烟通过
-- [ ] 双测面 + build 绿;detect-changes 影响面 = 预期符号
+- [x] models.py/server.py 删除后全仓零活引用(头注/版本注记的历史性提及除外;
+      docs zh/en、build-sidecar.sh、pyproject 的 huggingface-hub 同批摘净)
+- [x] pyproject extras `huggingface-hub` 已从 vision/all 移除,uv.lock 刷新
+      (锁内残留为其余 extras 的传递依赖,非直接要求)
+- [x] 真机 vision.yaml 落位(主人晨间已手改 LM Studio + qwen3.8-27b-coder390,
+      新装载器验证)+ VisionClient 真图冒烟答「红」
+- [x] 双测面 + build 绿(pytest 6316 / vitest 932 / tsc+vite / ruff);
+      detect-changes 影响面 = VisionForm/saveImageConfig 流,符合预期
+- [x] 装机:净树 UI(git archive HEAD 导出构建,零裹挟并行 WIP)→ tauri
+      build → 外科净化 Resources(macos_notify 回 HEAD 版 + 清 __pycache__)→
+      换装 /Applications/世事.app → 清 WKWebView 缓存;在跑实例下次重启生效

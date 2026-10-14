@@ -3,7 +3,7 @@
   "name": "vision-model-path",
   "title": "看图模型改路径制:停止应用内下载大模型",
   "description": "视觉大模型获取方式纠偏:MYIA 不再自己下载大模型,改为用户给定模型目录路径(如 ComfyUI models 目录),设置屏扫描该目录下的可用 MLX 模型并选用;删除应用内下载/删除模型能力",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
