@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import type { SidecarRequestError } from "@/lib/api";
+import { systemConfirm } from "@/lib/system-confirm";
 
 import { ErrorBox } from "./error-box";
 import { EditorPane } from "./editor-pane";
@@ -128,11 +129,14 @@ export function YamlEditorScreen() {
   const handleDelete = useCallback(
     async (entry: YamlFileEntry) => {
       const label = entry.category_name ?? entry.name;
-      const confirmed = window.confirm(
-        `确定删除「${label}」(${entry.name})?\n\n` +
+      const confirmed = await systemConfirm({
+        title: "删除品类文件",
+        message:
+          `确定删除「${label}」(${entry.name})?\n\n` +
           `删除前会在同目录留底 ${entry.name}.bak;\n` +
           `官方件删除后需重装或从模板重建。`,
-      );
+        okLabel: "删除",
+      });
       if (!confirmed) return;
       setActionError(null);
       try {
@@ -189,11 +193,25 @@ export function YamlEditorScreen() {
 
   useEffect(() => {
     if (blocker.state !== "blocked") return;
-    if (window.confirm("当前文件有未保存的修改,离开将丢失(可先保存或复制留底)。确定离开?")) {
-      blocker.proceed();
-    } else {
-      blocker.reset();
-    }
+    // 异步原生确认(10-14-native-system-dialog):卸载/守卫状态流转后不再
+    // proceed/reset,迟到应答作废(cancelled 标记)
+    let cancelled = false;
+    void systemConfirm({
+      title: "离开将丢失未保存修改",
+      message: "当前文件有未保存的修改,离开将丢失(可先保存或复制留底)。确定离开?",
+      okLabel: "离开",
+      cancelLabel: "留下",
+    }).then((leave) => {
+      if (cancelled) return;
+      if (leave) {
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [blocker]);
 
   const selectedFile = doc.status === "ready" || doc.status === "loading" ? doc.file : null;

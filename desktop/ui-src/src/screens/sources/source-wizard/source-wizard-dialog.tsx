@@ -23,7 +23,7 @@ import { explainSaveError, useSourceWizard } from "./use-source-wizard";
  *
  * 形态:源管理屏内多步向导(不新路由/不新侧栏行/零新 sidecar 协议方法)。
  * 弹窗范式沿本屏 YamlEditorDialog:fixed 遮罩 + 居中面板 role=dialog
- * aria-modal,ESC / 遮罩 / 关闭钮三径同关(有输入或已保存先 confirm);
+ * aria-modal,ESC / 遮罩 / 关闭钮三径同关(有输入或已保存先系统级原生确认);
  * 头部次入口「直接编辑 YAML」深链保留。步骤条五步置顶,底部「上一步/下一步」。
  * 状态机 = use-source-wizard(五步/表单态/保存 mtime 链/试采 job);
  * 试采详情二次打开既有 TestResultDialog(零改动复用)。
@@ -74,9 +74,13 @@ export function SourceWizardDialog({ onClose }: SourceWizardDialogProps) {
   /** 当前步错误是否上屏(点「下一步」被拦后才显示,避免空表单开场即满屏红字) */
   const [showStepErrors, setShowStepErrors] = useState(false);
 
+  /** 关闭守卫:有输入或已保存先系统级原生确认(10-14-native-system-dialog)。
+   *  守卫异步 → fire-and-forget;原生弹窗为应用模态,打开期间 webview 收不到
+   *  新输入,无需另设在飞守卫(与改造前同步守卫的双触发语义一致) */
   const attemptClose = useCallback(() => {
-    if (!confirmClose()) return;
-    onClose();
+    void confirmClose().then((ok) => {
+      if (ok) onClose();
+    });
   }, [confirmClose, onClose]);
 
   // 键盘:ESC 关闭(已消费的事件不关;详情弹窗打开时让给它,防双关丢结果)

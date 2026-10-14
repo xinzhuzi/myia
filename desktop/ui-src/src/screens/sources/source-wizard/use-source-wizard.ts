@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, onSidecarEvent } from "@/lib/api";
 import type { SidecarRequestError, TestCompletedEvent } from "@/lib/api";
+import { systemConfirm } from "@/lib/system-confirm";
 
 import { asSidecarError, listYamlFiles, saveYaml, validateYaml } from "../../yaml-editor/api";
 import type { YamlFinding } from "../../yaml-editor/api";
@@ -103,8 +104,8 @@ export interface UseSourceWizardResult {
   form: WizardForm;
   /** 表单有任何用户输入(与初始预填态对照) */
   formDirty: boolean;
-  /** 关闭守卫:未动过任何字段直接关;有输入或已保存未完成先 confirm */
-  confirmClose: () => boolean;
+  /** 关闭守卫:未动过任何字段直接关;有输入或已保存未完成先系统级原生确认(异步) */
+  confirmClose: () => Promise<boolean>;
   /** 分步校验(纯函数;1-3 有门,4/5 恒空——第 4 步走真实干跑) */
   stepErrors: (step: WizardStep) => string[];
   /** 步导航(1-4 向前由对话框校验门控;回退自由;5 只经保存进入;越界钳到 1-5) */
@@ -247,10 +248,14 @@ export function useSourceWizard(): UseSourceWizardResult {
 
   const formDirty = !isPristineForm(form);
 
-  /** 关闭守卫(PRD R4):未动过任何字段直接关;有输入或已保存未完成先确认 */
-  const confirmClose = useCallback((): boolean => {
+  /** 关闭守卫(PRD R4):未动过任何字段直接关;有输入或已保存未完成先系统级原生确认 */
+  const confirmClose = useCallback(async (): Promise<boolean> => {
     if (!formDirty && saved === null) return true;
-    return window.confirm("向导内容还没走完(已保存的文件会保留),确定关闭?");
+    return systemConfirm({
+      title: "向导还没走完",
+      message: "向导内容还没走完(已保存的文件会保留),确定关闭?",
+      okLabel: "关闭",
+    });
   }, [formDirty, saved]);
 
   const idExistsWarning =

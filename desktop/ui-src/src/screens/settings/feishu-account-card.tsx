@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { SidecarRequestError as SidecarRequestErrorType } from "@/lib/api";
+import { systemConfirm } from "@/lib/system-confirm";
 import { cn } from "@/lib/utils";
 
 import { asSidecarError } from "./api";
@@ -139,7 +140,12 @@ export function FeishuAccountCard() {
   const handleDelete = useCallback(
     async (account: FeishuAccount) => {
       const label = account.label ?? account.account;
-      if (!window.confirm(`确定删除账号「${label}」(${account.account})?\n\n钥匙串中的授权 token 与账号记录将一并清除。`)) {
+      const confirmed = await systemConfirm({
+        title: "删除账号",
+        message: `确定删除账号「${label}」(${account.account})?\n\n钥匙串中的授权 token 与账号记录将一并清除。`,
+        okLabel: "删除",
+      });
+      if (!confirmed) {
         return;
       }
       setActionError(null);

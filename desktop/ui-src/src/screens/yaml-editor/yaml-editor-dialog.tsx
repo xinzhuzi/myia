@@ -25,7 +25,7 @@ interface YamlEditorDialogProps {
  * 同门校验零写入 → mtime 乐观锁 → .bak → 原子落盘 → doctor 复核)。
  * 「跑一次/新建/删除」不进弹窗(留在YAML配置屏;弹窗 = 快速编辑既有文件)。
  * 零新 npm 依赖:手写 overlay(fixed 遮罩 + 居中面板,role=dialog aria-modal);
- * ESC / 遮罩点击 / 关闭按钮都走同一守卫:dirty 时先 window.confirm。
+ * ESC / 遮罩点击 / 关闭按钮都走同一守卫:dirty 时先系统级原生确认(10-14-native-system-dialog)。
  * mtime_conflict 走 ErrorBox 惯例并给「重读」(不覆盖外部改动)。
  */
 export function YamlEditorDialog({ file, onClose, onSaved }: YamlEditorDialogProps) {
@@ -53,10 +53,13 @@ export function YamlEditorDialog({ file, onClose, onSaved }: YamlEditorDialogPro
     void openFile(file);
   }, [file, openFile]);
 
-  /** 关闭守卫:dirty 先 confirm(与屏内切文件守卫同款文案),确认放弃才 onClose */
+  /** 关闭守卫:dirty 先系统级原生确认(与屏内切文件守卫同款文案),确认放弃才 onClose。
+   *  守卫异步 → fire-and-forget;原生弹窗为应用模态,打开期间 webview 收不到
+   *  新输入,无需另设在飞守卫(与改造前同步守卫的双触发语义一致) */
   const attemptClose = useCallback(() => {
-    if (!confirmDiscardIfDirty()) return;
-    onClose();
+    void confirmDiscardIfDirty().then((ok) => {
+      if (ok) onClose();
+    });
   }, [confirmDiscardIfDirty, onClose]);
 
   // 键盘:ESC 关闭(同守卫);Meta+S 保存(preventDefault 防 webview 默认行为)

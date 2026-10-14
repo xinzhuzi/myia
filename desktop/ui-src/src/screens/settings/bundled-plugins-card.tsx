@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api, type SidecarRequestError } from "@/lib/api";
+import { systemConfirm } from "@/lib/system-confirm";
 import { cn } from "@/lib/utils";
 
 import { asSidecarError } from "./api";
@@ -386,9 +387,11 @@ export function BundledPluginsCard() {
   const handleUninstall = useCallback(
     async (plugin: BundledPluginView) => {
       if (plugin.id === null || !plugin.installed) return;
-      const confirmed = window.confirm(
-        `卸载 ${plugin.name ?? plugin.id}(${plugin.id})?\n\n卸载 = 删除插件根里的安装拷贝;随包原件只读不受影响,可随时重装。`,
-      );
+      const confirmed = await systemConfirm({
+        title: "卸载插件",
+        message: `卸载 ${plugin.name ?? plugin.id}(${plugin.id})?\n\n卸载 = 删除插件根里的安装拷贝;随包原件只读不受影响,可随时重装。`,
+        okLabel: "卸载",
+      });
       if (!confirmed) return;
       setBusyId(plugin.id);
       setActionError(null);
@@ -416,9 +419,11 @@ export function BundledPluginsCard() {
     async (category: BundledCategoryView) => {
       if (category.id === null) return; // 坏 YAML 件:无可安装内容,按了也装不上
       if (category.exists) {
-        const confirmed = window.confirm(
-          `覆盖品类文件 ${category.file}?\n\n数据目录已有同名文件(补种或自建);覆盖将丢失其中的本地修改。`,
-        );
+        const confirmed = await systemConfirm({
+          title: "覆盖品类文件",
+          message: `覆盖品类文件 ${category.file}?\n\n数据目录已有同名文件(补种或自建);覆盖将丢失其中的本地修改。`,
+          okLabel: "覆盖",
+        });
         if (!confirmed) return;
       }
       setBusyId(`category:${category.id}`);

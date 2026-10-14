@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import type { SidecarRequestError } from "@/lib/api";
+import { systemConfirm } from "@/lib/system-confirm";
 
 import { asSidecarError, getYamlTemplate, readYaml, saveYaml, validateYaml } from "./api";
 import type { YamlFinding, YamlValidateResult } from "./api";
@@ -104,15 +105,21 @@ export function useYamlFileEditor(options: UseYamlFileEditorOptions = {}) {
     setRunNotice(null);
   }, []);
 
-  /** dirty 守卫:放弃编辑前 window.confirm(v1 够用不花哨,design §3;弹窗关闭同款) */
-  const confirmDiscardIfDirty = useCallback((): boolean => {
+  /** dirty 守卫:放弃编辑前系统级原生确认(macOS NSAlert/Windows 原生,10-14-native-system-dialog;
+   *  屏内切文件/新建与弹窗关闭同款;异步守卫,调用方 await) */
+  const confirmDiscardIfDirty = useCallback(async (): Promise<boolean> => {
     if (!dirty) return true;
-    return window.confirm("当前文件有未保存的修改,放弃后将丢失(可先保存或复制留底)。确定继续?");
+    return systemConfirm({
+      title: "放弃未保存的修改?",
+      message: "当前文件有未保存的修改,放弃后将丢失(可先保存或复制留底)。确定继续?",
+      okLabel: "放弃",
+      cancelLabel: "保留",
+    });
   }, [dirty]);
 
   const openFile = useCallback(
     async (file: string) => {
-      if (!confirmDiscardIfDirty()) return;
+      if (!(await confirmDiscardIfDirty())) return;
       const seq = ++docSeq.current;
       onOpenStart?.();
       resetResults();
@@ -140,7 +147,7 @@ export function useYamlFileEditor(options: UseYamlFileEditorOptions = {}) {
   /** 新建流后半段:stem 已过前端正则预检 → 取模板 → 回填 id → 未保存草稿态 */
   const createDraft = useCallback(
     async (stem: string, configDir: string) => {
-      if (!confirmDiscardIfDirty()) return;
+      if (!(await confirmDiscardIfDirty())) return;
       const seq = ++docSeq.current;
       onOpenStart?.();
       resetResults();

@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, onSidecarEvent, SidecarRequestError } from "@/lib/api";
 import type { CompletedEvent, CronJobRecord, RunExitStatus, UnlistenFn } from "@/lib/api";
+import { systemConfirm } from "@/lib/system-confirm";
 import { cn } from "@/lib/utils";
 
 import { ErrorBox } from "../sources/error-box";
@@ -348,9 +349,14 @@ export function CronScreen() {
   );
 
   const removeJob = useCallback(
-    (job: CronJobRecord) => {
+    async (job: CronJobRecord) => {
       setNotice(null);
-      if (!window.confirm(`删除定时任务「${job.name}」?任务记录将删除;运行历史与输出目录保留。`)) return;
+      const confirmed = await systemConfirm({
+        title: "删除定时任务",
+        message: `删除定时任务「${job.name}」?任务记录将删除;运行历史与输出目录保留。`,
+        okLabel: "删除",
+      });
+      if (!confirmed) return;
       void api.cronRemove({ job: job.id }).then(
         (result) => {
           setNotice({ kind: "ok", text: `已删除「${result.name}」` });
