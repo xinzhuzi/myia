@@ -645,13 +645,13 @@ def test_fresh_sandbox_full_chain(
         # 的桌面源文件同内容——_sync_resources 刚同步)。
         assert stamp["deps_fingerprint"] == _sha256_file(resource_dir / "requirements-lock.txt")
 
-        # 真钉版运行时就位:python 可执行、版本恰 3.12.7(D3 钉版)。
+        # 真钉版运行时就位:python 可执行、版本恰 3.14.8(D3-v2 改钉,2026-10-14)。
         python_bin = sandbox / "python" / "bin" / "python3"
         assert python_bin.is_file(), f"钉版 python 缺位: {python_bin}"
         version = subprocess.run(
             [python_bin, "--version"], capture_output=True, text=True, timeout=60
         )
-        assert "Python 3.12.7" in version.stdout, version.stdout
+        assert "Python 3.14.8" in version.stdout, version.stdout
 
         # pip 锁版装真落沙箱(锁版清单代表包逐版钉死,含 classifier PyPI 钉版)。
         packages = _pip_list(python_bin)

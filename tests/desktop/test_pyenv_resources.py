@@ -6,8 +6,8 @@
    存在;既有官方插件种子映射(首跑种子依赖)不被挤掉。
    1b. 组件注册表 ``components.json`` 随包映射 + 契约形态(10-05-table-restore
    R4;首件 table 钉版在册)。
-2. ``desktop/resources/runtime-manifest.json``:钉版=主人 D3 原文 URL(mac)+
-   同 release Windows 等效件;sha256 为实算入盘的 64 位小写 hex;解压布局
+2. ``desktop/resources/runtime-manifest.json``:钉版=D3-v2 改钉 URL(2026-10-14
+   决议,mac)+ 同 release Windows 等效件;sha256 为实算入盘的 64 位小写 hex;解压布局
    (install_only 根目录 ``python/`` 与平台 python_bin)自洽。
 3. ``desktop/resources/requirements-lock.txt`` 与 pyproject dependencies 一致:
    每个直接依赖都有 ``name==version`` 钉版行且满足 pyproject 约束;无
@@ -39,15 +39,17 @@ SRC_TAURI = DESKTOP / "src-tauri"
 RESOURCES_DIR = DESKTOP / "resources"
 TAURI_CONF = SRC_TAURI / "tauri.conf.json"
 
-#: D3 主人钉定原文(PRD 决议 2026-10-05;一字不改)。
+#: D3-v2 主人钉定改钉(2026-10-14 决议,task 10-14-leftover-sweep-install;
+#: 前钉 D3 2026-10-05 旧 org 旧版由此作废——改钉非悄悄改,提交信息与任务档
+#: 同载新 URL 全文留主人过目)。
 D3_MAC_URL = (
-    "https://github.com/indygreg/python-build-standalone/releases/download/20241016/"
-    "cpython-3.12.7+20241016-aarch64-apple-darwin-install_only.tar.gz"
+    "https://github.com/astral-sh/python-build-standalone/releases/download/20261013/"
+    "cpython-3.14.8+20261013-aarch64-apple-darwin-install_only.tar.gz"
 )
-#: 同 release Windows 等效件(D3:取 20241016 的 x86_64-pc-windows-msvc)。
+#: 同 release Windows 等效件(D3-v2:取 20261013 的 x86_64-pc-windows-msvc)。
 WIN_URL = (
-    "https://github.com/indygreg/python-build-standalone/releases/download/20241016/"
-    "cpython-3.12.7+20241016-x86_64-pc-windows-msvc-install_only.tar.gz"
+    "https://github.com/astral-sh/python-build-standalone/releases/download/20261013/"
+    "cpython-3.14.8+20261013-x86_64-pc-windows-msvc-install_only.tar.gz"
 )
 
 #: 自管环境随包映射(tauri.conf.json resources 源 → 目标;源路径相对 src-tauri/)。
@@ -837,25 +839,25 @@ def _manifest() -> dict:
 
 
 def test_runtime_manifest_shape_and_pins() -> None:
-    """manifest 骨架 + 双平台钉版:URL 与 D3 原文逐字节一致,release 全局一致。"""
+    """manifest 骨架 + 双平台钉版:URL 与 D3-v2 改钉逐字节一致,release 全局一致。"""
     data = _manifest()
     assert data["manifest_version"] == 1
     runtime = data["runtime"]
     assert runtime["name"] == "cpython"
-    assert runtime["version"] == "3.12.7"
-    assert runtime["release_tag"] == "20241016"
-    assert runtime["distribution"] == "indygreg/python-build-standalone"
+    assert runtime["version"] == "3.14.8"
+    assert runtime["release_tag"] == "20261013"
+    assert runtime["distribution"] == "astral-sh/python-build-standalone"
     assert runtime["install_kind"] == "install_only"
     platforms = data["platforms"]
-    # D3:mac 当前只发 aarch64(与现行 dmg 单架构一致);win 取 x86_64 等效件。
+    # D3-v2:mac 当前只发 aarch64(与现行 dmg 单架构一致);win 取 x86_64 等效件。
     assert set(platforms) == {"aarch64-apple-darwin", "x86_64-pc-windows-msvc"}
     assert platforms["aarch64-apple-darwin"]["url"] == D3_MAC_URL
     assert platforms["x86_64-pc-windows-msvc"]["url"] == WIN_URL
     for key, entry in platforms.items():
         # URL 文件名与平台键/release 元数据三方自洽(镜像覆盖只换 URL,不换钉版语义)。
-        expected_file = f"cpython-3.12.7+20241016-{key}-install_only.tar.gz"
+        expected_file = f"cpython-3.14.8+20261013-{key}-install_only.tar.gz"
         assert entry["url"].rsplit("/", 1)[-1] == expected_file
-        assert f"/download/20241016/{expected_file}" in entry["url"]
+        assert f"/download/20261013/{expected_file}" in entry["url"]
 
 
 def test_runtime_manifest_sha256_format() -> None:
