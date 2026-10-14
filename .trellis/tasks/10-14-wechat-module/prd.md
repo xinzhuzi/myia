@@ -12,7 +12,12 @@
 | src/myssia/wechat_local_sidecar.py、wechat_stats_sidecar.py | **顶层散件**两个 | ❌ 收进包 |
 | src/myssia/push/weixin.py、weixin_local.py、wecom.py | 推送三分支散在 push/,与 telegram 包形态不对称 | ❌ 归位(留薄壳兼容) |
 | desktop .../screens/messaging/wechat-*.tsx ×8+ | 微信屏族混在 messaging 大杂烩 | ❌ 归子域 messaging/wechat/ |
+| `src/myssia/engines/wechat_local.py`(**1125 行,最大件**) | 本机会话引擎,顶层 engines/ 平铺 | ❌ 归位为 wechat/engine.py |
+| desktop/src-tauri/keyprovider.rs 五处**注释**引用 | 勘察定级:纯文档注释,无运行时模块名串 | ➖ 注释同步项 |
+| proxy_panel.py → stats_sidecar 意外耦合 | 语义存疑 | ➖ 迁移时核实,不夹带重构 |
 | src/myssia/schema.py 等公共件微信字段 | 挂点,暂不动(与 telegram 同款挂点) | ➖ 评估 |
+
+desktop 屏族精确清单(12 件):`wechat-{local,contacts,media,sns}.tsx(+各 .test.tsx)`、`wechat-{chat-export,contacts}-api.ts(+export 的 .test.ts)`、`wechat-stats-api.ts`。
 
 ## 目标形态
 
