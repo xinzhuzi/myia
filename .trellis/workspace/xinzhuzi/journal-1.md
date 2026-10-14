@@ -814,3 +814,9 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 主人令「三级界面一定要好看,用相关 skill」:frontend-design+apple-design 双技能;基线=装机同源无头冒烟截图,病灶=本机 VL 评审(标题被挤/间距密/胶囊弱),修整全类名级。
 - 契约课:顶栏等高 py-2.5 被测试钉死(④⑦),呼吸感只能走 gap;● 字形圆点换真色点 span 不破 toContain 断言。
 - 终审 VL 8.5/10;装机换装+冒烟复过;FeedCard detect-changes high=广度非深度。
+
+## 2026-10-15 10-15-remaining-sweep(扫尾批+云端评审;另 dash-donut 同晚)
+- dwfrun-98316ce5 全链毕:解密件骨架(算法面生态无干净可借——三选项待主人)/feed-site 两笔/nit/备份恰留一位;云端评审通道实弹打通(glm-5.3-flash@fuhuagoogle 中转,钥匙串零落盘),代码两轮净,视觉 5 finding 留下批清单;提交 bb9d858c 装机 088a0f0d。
+- 评审闭环亮点:首评两 blocker 被实施员识破=旧快照伪影(fade-in 零点透明摄入),冒烟加 settle 400ms 根治——工作流内部质检自纠生效。
+- 同晚 dash-donut(cb99baf6):概览条四卡→单卡行+recharts 四色环(27.6k★ MIT);「图表用库不自己造」判例;949/949 绿随同树上机。
+- 构建模式勘正:前端资产内嵌二进制( Resources/ui 不再拷贝=正常,7748884c 只加 assetProtocol 未动 frontendDist)。
