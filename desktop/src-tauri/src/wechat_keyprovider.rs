@@ -2,7 +2,7 @@
 //!
 //! 设置页「微信账号」卡取钥器配置行的壳侧通道:spawn **安装态**桥可执行文件
 //! (`~/.myia/plugins/wechat-bridge/bin/wechat-bridge`,与
-//! `myssia.push.weixin_local.DEFAULT_BRIDGE_BIN` 同一钉死路径)执行
+//! `myssia.wechat.push_local.DEFAULT_BRIDGE_BIN` 同一钉死路径)执行
 //! `localdb key-provider set|get|clear` 子命令(桥侧实现 = 任务 B2,组件源码
 //! 并行落地)。配置只落桥自有 `<数据根>/wechat-bridge/config.json`,经桥管理
 //! 命令读写——壳与前端都**不直写**桥配置文件(sidecar-protocol.md 契约纪律:
@@ -23,7 +23,7 @@
 //!
 //! 错误信封沿仓惯例 `{"code","path","message"[,"data"]}` JSON 字符串
 //! (前端 asSidecarError 同形解析);桥具名错误族原样透传(码名/人话/
-//! fix_hint),与 wechat_local_sidecar.py `_run_bridge` 归一口径一致。
+//! fix_hint),与 wechat/sidecar.py `_run_bridge` 归一口径一致。
 //!
 //! —— C 线扩展(10-13-wechat-monitor-ui;契约 = 任务档 design §B.1-§B.3)——
 //!
@@ -63,7 +63,7 @@ use tauri::{AppHandle, Emitter, Manager};
 /// 桥 bin 缺省落点(相对用户 home;与 DEFAULT_BRIDGE_BIN 同一钉死字面量,
 /// Rust 侧无 `~` 展开原语故拆 home + 相对段)。装到别处时品类 YAML push 条目
 /// `wechat_bridge_bin` 覆写只作用于发送通道——本配置面与协议面
-/// (wechat_local_sidecar)同用缺省落点,不给 UI 留任意路径执行缝。
+/// (wechat/sidecar)同用缺省落点,不给 UI 留任意路径执行缝。
 const BRIDGE_BIN_REL: &str = ".myia/plugins/wechat-bridge/bin/wechat-bridge";
 
 /// key-provider 命令超时:纯配置读/写轻命令,30s 防挂死兜底。
@@ -197,7 +197,7 @@ fn stderr_tail(stderr: &str) -> String {
     chars[start..].iter().collect()
 }
 
-/// 桥失败归一(与 wechat_local_sidecar `_run_bridge` 同口径):stdout 单 JSON
+/// 桥失败归一(与 wechat/sidecar `_run_bridge` 同口径):stdout 单 JSON
 /// 携 `error{code,message,fix_hint}` → 码名/人话原样透传(fix_hint 进 data);
 /// 否则 `bridge_error` 兜底带 exit 码 + stderr 尾部。
 fn bridge_error_value(exit_code: Option<i32>, stdout: &str, stderr: &str) -> String {
@@ -394,7 +394,7 @@ const KEY_ACQUIRE_SHELL_CAP: Duration = Duration::from_secs(900);
 /// run.cancel「SIGTERM→5s→SIGKILL」同款纪律,pyenv_components 服务停同族)。
 const ACQUIRE_STOP_GRACE: Duration = Duration::from_secs(5);
 /// key-status 命令帽:三态抽样验真秒级(§A.1「1-3 把/次秒级」)+ db 根
-/// 探测余量,60s = 桥命令族帽(weixin_local DEFAULT_BRIDGE_TIMEOUT_SECONDS
+/// 探测余量,60s = 桥命令族帽(wechat.push_local DEFAULT_BRIDGE_TIMEOUT_SECONDS
 /// 同值;30s 配置面帽不够盖盘 IO 慢顶)。
 const KEY_STATUS_TIMEOUT: Duration = Duration::from_secs(60);
 /// 取消哨兵文件(相对数据根;§B.2 取消动作②:部署件 root 段每 2s 轮询,
