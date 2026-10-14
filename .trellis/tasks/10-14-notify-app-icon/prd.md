@@ -32,7 +32,7 @@ osascript 兜底;壳代发故障逐条回退 osascript,横幅不丢。
 
 ## Acceptance Criteria
 
-- [x] AC1 机制全落地并实弹到系统层:沙箱注入验证横幅触发 macOS 对「世事」的一次性通知授权征询(截图 evidence-auth-prompt 入档);图标终验=主人点「允许」后第一条自然横幅(一眼之验,无法代点)。
+- [x] AC1 机制全落地并实弹到系统层:沙箱注入验证横幅触发 macOS 对「世事」的一次性通知授权征询(截图 evidence-auth-prompt 入档);**图标终验已过——主人 10-15 确认「图标对了」(授权后真实横幅,像素验收闭环)**。
 - [x] AC2 CLI 无壳零差(ENXIO/无注入回退 osascript 专测在案)。
 - [x] AC3 中继三形态专测(真 FIFO 端到端/ENXIO 回退/CLI 形态)23/23 全绿,既有用例零改动;cargo check+build 绿。
 - [x] AC4 全量 6275 passed / 53 skipped;UI 零涉。
