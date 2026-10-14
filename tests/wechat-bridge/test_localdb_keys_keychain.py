@@ -457,6 +457,8 @@ class TestSecurityDiscipline:
         """security -i 形态:argv 恒 ["security","-i"],值内联进 stdin 命令行
         (JSON 引号转义)——OS argv/环境零值(128B 截断实测教训后的形态)。"""
         monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+        # 通道可用性是被测前提不是被测对象:非 mac 宿主(CI Linux)也必须能验子进程形状
+        monkeypatch.setattr(keychain, "keychain_available", lambda: True)
         recorded: dict[str, object] = {}
 
         def fake_run(argv, **kwargs):  # noqa: ANN001, ANN202 - 录制形状
@@ -476,6 +478,8 @@ class TestSecurityDiscipline:
 
     def test_read_returns_none_on_44(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+        # 通道可用性是被测前提不是被测对象:非 mac 宿主(CI Linux)也必须能验子进程形状
+        monkeypatch.setattr(keychain, "keychain_available", lambda: True)
 
         def fake_run(argv, **kwargs):  # noqa: ANN001, ANN202
             return subprocess.CompletedProcess(argv, 44, "", "")
@@ -485,6 +489,8 @@ class TestSecurityDiscipline:
 
     def test_read_strips_single_trailing_newline(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+        # 通道可用性是被测前提不是被测对象:非 mac 宿主(CI Linux)也必须能验子进程形状
+        monkeypatch.setattr(keychain, "keychain_available", lambda: True)
 
         def fake_run(argv, **kwargs):  # noqa: ANN001, ANN202
             return subprocess.CompletedProcess(argv, 0, "VALUE-SECRET\n", "")
@@ -496,6 +502,8 @@ class TestSecurityDiscipline:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+        # 通道可用性是被测前提不是被测对象:非 mac 宿主(CI Linux)也必须能验子进程形状
+        monkeypatch.setattr(keychain, "keychain_available", lambda: True)
 
         def fake_run(argv, **kwargs):  # noqa: ANN001, ANN202
             return subprocess.CompletedProcess(argv, 51, "", "")
@@ -508,6 +516,8 @@ class TestSecurityDiscipline:
 
     def test_delete_returns_false_on_44(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+        # 通道可用性是被测前提不是被测对象:非 mac 宿主(CI Linux)也必须能验子进程形状
+        monkeypatch.setattr(keychain, "keychain_available", lambda: True)
 
         def fake_run(argv, **kwargs):  # noqa: ANN001, ANN202
             return subprocess.CompletedProcess(argv, 44, "", "")
