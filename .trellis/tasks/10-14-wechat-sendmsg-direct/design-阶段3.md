@@ -568,3 +568,32 @@ last_anchor_build, slice_sha256_matched}`——轻量 attach(无断点)+切片�
 - 锚定表已落数据根(schema-3,observe_bp 形态,装载验证过;svc_invariants 空=待 capture 轮补);
 - 探针 observe_bp 死码 bug 已修(bp 创建缩进);
 - **未实现**:capture_call 流程(上述规格)、build_call_expr 模板模型重写、peer/body/display 三槽参数化、会话缓存。下轮按本节施工。
+
+## §2.8 选项 a 轮终局(10-15 晨):协程上下文墙定案
+
+### 架构全图(cap7 spawner 断点 38 帧完整 BT 实证)
+
+```
+CoreFoundation RunLoop(主线程!)
+ └ 0x7099614 泵回调 → 0x6c4f1d4/0x6c5f4d8(消息泵,单对象事件分发形态)
+   → 业务链(0x69d2 型路由/0x6fbd/0x6a0/0x1fc 桥)→ 协程机(0xa4f-0xa77)
+     → F_exec+0x4f0(运行中)→ 0x837/0x8dd/0x85b/0x845 → 0x1fcfd3c 桥
+       → RPC 提交链(0x6b3→0x6d2)→ spawner(0x6fda37c,嵌套投递)
+```
+
+### 定案事实
+
+1. **F_exec 跑在主线程 runloop 协程泵上**(非独立栈)——C++ 异常真因=**协程 current-task thread-local 缺失**,不是栈错位;
+2. spawner(0x6fda37c)签名=(服务对象, 类型 int, **复杂闭包环境**)——x2 含大量活指针(0xa463ec00 单例/栈链),不可伪造;
+3. 泵入口三候选(06c5e990 单对象/06c4f0d8 位标志/06d2999c 四参杂型)均**非 (会话,文本) 明文形态**;
+4. **结论:4.1.15 发送链无浅层明文入口;明文 msgctx 只在协程深度被消费,其执行依赖不可 expr 伪造的 thread-local。**
+
+### 剩余路径(均需主人裁决或大工程)
+
+- **TLS 注入(灰区)**:真发时 F_exec 入口处 thread-local 已就位——expr 内读写 thread-local 属「进程状态变异」,超出已批范围(attach+只读观察+函数直调),**须主人显式批**;
+- 深逆向:定位 coro current-task TLS 布局并在 expr 局部完整复刻(大工程,成功率未知);
+- **建议:配方线封存**(基础设施保留,OCR 链承担发送),本任务转 review 归档。
+
+### 账实
+
+本轮触发 1 条(filehelper 嘻嘻~a1/a2 变体,落库绿);lldb 用后即清零残留;微信 pid 40379 全程存活。
