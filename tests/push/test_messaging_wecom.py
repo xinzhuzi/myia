@@ -32,7 +32,7 @@ from myssia.push.base import PushSendError
 from myssia.push.delivery import classify_dead_error
 from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
 from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget, resolve_target
-from myssia.push.wecom import (
+from myssia.wechat.push_wecom import (
     MAX_CONTENT_BYTES,
     WEBHOOK_MARKDOWN_MAX_BYTES,
     parse_webhook_key,

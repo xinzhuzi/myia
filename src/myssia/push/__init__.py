@@ -111,12 +111,12 @@ from myssia.push.telegram_feedback import (
     TelegramFeedbackPoller,
     parse_callback_data,
 )
-from myssia.push.wecom import WecomChannel
-from myssia.push.weixin import WeixinChannel
+from myssia.wechat.push_wecom import WecomChannel
+from myssia.wechat.push_weixin import WeixinChannel
 # weixin-local(微信本机桥,10-11-wechat-ui-bridge F1;G7 命名):出站桥接
 # 受管组件 wechat-bridge(同机便捷补充,schema weixin_local_enabled 缺省关);
 # weixin 通道名保持归官方 Hermes 桥(出站主口),两通道语义独立不混用。
-from myssia.push.weixin_local import WeixinLocalChannel
+from myssia.wechat.push_local import WeixinLocalChannel
 # macos_notify(本机通知中心,10-14-wechat-notify-revoke):/usr/bin/osascript
 # 字面量 argv,零网络零凭据;不进 PLATFORMS(target/targets 配即拒,schema
 # stdout 分支同款)。

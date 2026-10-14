@@ -430,7 +430,8 @@ from myssia.plugins.remote import (
 )
 from myssia.plugins.versioning import VersionRange, VersionSpecError
 from myssia.push import ChannelDirectory, DeliveryLedger, DirectoryDiscoverUnsupported, PushSendError
-from myssia.push.weixin import probe_bridge
+from myssia.push import macos_notify as myssia_macos_notify
+from myssia.wechat.push_weixin import probe_bridge
 from myssia.wechat_local_sidecar import (
     WechatLocalSidecarError,
     handle_wechat_local,
@@ -7854,6 +7855,13 @@ def serve(stdin: Any | None = None, stdout: Any | None = None) -> int:
     """
     global _OUT
     _OUT = stdout if stdout is not None else sys.stdout
+    # macos_notify 壳代发(10-14-notify-app-icon):横幅改走协议事件
+    # notify.banner 送壳,由壳以 app 身份代发(图标/归组/点击唤起 = 世事
+    # app);_OUT 已捕获,发射器即刻可用。CLI 直跑不经 serve = 零注入,
+    # osascript 直弹形态照旧。
+    myssia_macos_notify.set_banner_emitter(
+        lambda plan: _write_line({"type": "notify.banner", **plan})
+    )
     # 统一日志(10-07-unified-logging 批1):serve 形态 configure(ring+盘+
     # stderr WARNING)+ 盘尾冷回填(design §5)——重启后 logs.tail 可翻上一程
     # 历史;必须先于任何 stream_line 消费者(种子/桥接/cron/telegram)。

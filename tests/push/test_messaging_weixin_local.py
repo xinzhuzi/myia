@@ -27,7 +27,7 @@ from myssia.push import SendContext, WeixinLocalChannel
 from myssia.push.base import PushSendError
 from myssia.push.delivery import classify_dead_error, is_config_send_error
 from myssia.push.directory import DirectoryDiscoverUnsupported
-from myssia.push.weixin_local import (
+from myssia.wechat.push_local import (
     DEFAULT_BRIDGE_BIN,
     DEFAULT_BRIDGE_TIMEOUT_SECONDS,
     DEFAULT_PROBE_TIMEOUT_SECONDS,

@@ -32,7 +32,7 @@ from myssia.push.base import PushSendError
 from myssia.push.delivery import classify_dead_error
 from myssia.push.directory import ChannelDirectory, DirectoryDiscoverUnsupported
 from myssia.push.targets import RESOLVED_DIRECT, ChannelTarget
-from myssia.push.weixin import (
+from myssia.wechat.push_weixin import (
     DEFAULT_BRIDGE_TIMEOUT_SECONDS,
     DEFAULT_HERMES_BIN,
     BridgeTimeoutError,

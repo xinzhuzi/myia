@@ -25,6 +25,7 @@ from myssia.push.macos_notify import (
     applescript_escape,
     build_notification_script,
     plan_notifications,
+    set_banner_emitter,
 )
 from myssia.push import SendContext
 
@@ -290,3 +291,50 @@ class TestSchemaIntegration:
         if "macos_notify" not in CHANNELS:
             pytest.skip("等集成:push/__init__.py 注册 MacosNotifyChannel(R6 接线)")
         assert CHANNELS["macos_notify"] is MacosNotifyChannel
+
+
+# ---------------------------------------------------------------------------
+# 壳代发(set_banner_emitter;10-14-notify-app-icon)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _reset_banner_emitter():
+    """模块级发射器测试隔离:前后各复位一次,防泄漏污染既有 osascript 用例。"""
+    set_banner_emitter(None)
+    yield
+    set_banner_emitter(None)
+
+
+class TestBannerEmitter:
+    """三分支:注入 → 逐条送发射器零 osascript;异常 → 逐条回退;复位 → 照旧。"""
+
+    def test_emitter_in_place_zero_osascript(self) -> None:
+        runner = FakeRunner()
+        plans: list[dict[str, str | None]] = []
+        set_banner_emitter(plans.append)
+        _run(_channel(runner).send([_new_msg(), _revoke()], CONTEXT))
+        assert runner.calls == []  # 零 osascript(壳在跑 = 不 spawn)
+        assert len(plans) == 2  # 合并纪律不变:撤回独立在前 + 每会话一条
+        assert plans[0]["subtitle"] is None  # 撤回条无 subtitle
+        assert plans[0]["title"] == "合成群聊"
+        assert plans[1]["subtitle"] == "1 条新消息"
+        assert plans[1]["body"].startswith("合成张三: ")
+
+    def test_emitter_exception_falls_back_osascript(self) -> None:
+        runner = FakeRunner()
+
+        def boom(plan: dict[str, str | None]) -> None:
+            raise RuntimeError("shell pump broken")
+
+        set_banner_emitter(boom)
+        _run(_channel(runner).send([_new_msg()], CONTEXT))
+        assert len(runner.calls) == 1  # 回退直弹,横幅不丢
+        assert runner.calls[0][0] == OSASCRIPT_BIN
+
+    def test_reset_emitter_osascript_as_before(self) -> None:
+        runner = FakeRunner()
+        set_banner_emitter(lambda plan: None)
+        set_banner_emitter(None)  # 复位 = CLI 无壳形态
+        _run(_channel(runner).send([_new_msg()], CONTEXT))
+        assert len(runner.calls) == 1
