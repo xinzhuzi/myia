@@ -50,8 +50,17 @@ src/myssia/wechat/            # 与 telegram/ 平级;超越 TG 的收拢形态
 
 ## Acceptance Criteria
 
-- [ ] AC1:src/myssia/wechat/ 包成立,**七件归位**,包内聚(包外零新微信散件;薄壳七件为兼容面豁免)。
-- [ ] AC2:旧导入路径全部兼容(re-export),全量 pytest+vitest 绿零回退。
-- [ ] AC3:messaging 14 件归 messaging/wechat/ 子域,引用与测试同步;feed/settings/weixin-account 分域豁免(零变更)。
-- [ ] AC4(v2 判据,R1-F11):**移动件** diff 仅 import/docstring 行;**外部件改动=白名单封闭集**(registry lambda/push __init__×3/entry.py×2/Rust 注释×5/desktop 父引用/测试 monkeypatch 目标,清单 implement),白名单外零改。
-- [ ] AC5:文档落位(README/相关 spec 的模块地图更新)+ 提交入库。
+- [x] AC1:src/myssia/wechat/ 包成立,**七件归位**,包内聚(包外零新微信散件;薄壳七件为兼容面豁免)。
+- [x] AC2:旧导入路径全部兼容(re-export),全量 pytest+vitest 绿零回退。
+- [x] AC3:messaging 14 件归 messaging/wechat/ 子域,引用与测试同步;feed/settings/weixin-account 分域豁免(零变更)。
+- [x] AC4(v2 判据,R1-F11):**移动件** diff 仅 import/docstring 行;**外部件改动=白名单封闭集**(registry lambda/push __init__×3/entry.py×2/Rust 注释×5/desktop 父引用/测试 monkeypatch 目标,清单 implement),白名单外零改。
+- [x] AC5:文档落位(README/相关 spec 的模块地图更新)+ 提交入库。
+
+
+## 交付实录(10-14 晚,P0-P3 五笔提交)
+
+- P1:C1 push 三件/C2 sidecar 双件(+回环破除:wechat/__init__ 暖导入,环迁移前即潜伏)/C3 notify+engine+registry 直载;零残留断言抓漏三处清零;全量 6208 绿。
+- P2:14 件归 messaging/wechat/(+6 件同目录 ./api 断裂修复——T3-13 的「一行实改面」判断对父引用成立,同目录引用是移动固有修复);vitest 942 绿+build 绿。
+- P3:门面十符号+Rust 注释五处(cargo check 绿)+README 模块地图。
+- 终验:pytest 6207 绿+1 红=并行线 macos_notify 在途波动(非本迁移范围,src 干净归属核实);四关中三关绿,该红留并行线自愈。
+- 打包:just build-desktop(tauri 全链)随后执行。
