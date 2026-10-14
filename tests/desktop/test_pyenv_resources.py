@@ -133,11 +133,12 @@ def test_seed_resources_untouched(source: str, dest: str) -> None:
 #: src/myssia/vision/table.py,按 rapid_table 3.x API 写——裸 RapidTable()/
 #: ocr_results= 复数/pred_htmls 复数;1.0.3 虽模型随轮但 __init__ 必传
 #: RapidTableInput、ocr_result/pred_html 单数,三处调用面全断)。主件钉
-#: ==3.0.2 落在 extras >=3.0.2,<4 内;rapidocr-onnxruntime 供单元格文字
-#: (引擎显式喂 ocr_results 绕开其内置新版 rapidocr 通道)、tqdm 是 3.0.2
-#: 轮隐性 import(extras 显式补)——裸装主件会让引擎 dependency_missing,
-#: 故闭包必须与 extras myssia[table] 三件同源(交叉对齐测试把守)。
-TABLE_COMPONENT_PIP_SPEC = "rapid-table==3.0.2 rapidocr-onnxruntime>=1.3 tqdm>=4"
+#: ==3.0.2 落在 extras >=3.0.2,<4 内;rapidocr 新主包供单元格文字、
+#: onnxruntime 显式列名(主包不带推理后端;>=1.31,<2 cp314 轮在位)、
+#: tqdm 是 3.0.2 轮隐性 import(extras 显式补)——裸装主件会让引擎
+#: dependency_missing,故闭包必须与 extras myssia[table] 四件同源
+#: (交叉对齐测试把守;供件换代 10-15-ocr-revive-py314)。
+TABLE_COMPONENT_PIP_SPEC = "rapid-table==3.0.2 rapidocr>=3,<4 onnxruntime>=1.31,<2 tqdm>=4"
 
 #: 正文抽取兜底组件闭包(10-05-bundled-plugins-batch2 R1):与 pyproject
 #: extras ``myssia[trafilatura]`` 逐字符同字串——主件也用 extras 原窗

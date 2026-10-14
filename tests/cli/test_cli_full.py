@@ -801,8 +801,9 @@ class TestDoctor:
         assert finding["scope"] == "components"
         assert "table-demo" in finding["message"]
         assert "rapid-table" in finding["message"]
-        assert "rapidocr-onnxruntime" in finding["message"]
-        assert "tqdm" in finding["message"]  # 三侧闭包第三件(隐性 import,探测面不得漏)
+        assert "rapidocr" in finding["message"]
+        assert "onnxruntime" in finding["message"]  # 主包不带后端,显式列名同锁
+        assert "tqdm" in finding["message"]  # 三侧闭包第四件(隐性 import,探测面不得漏)
         assert "uv sync --extra table" in finding["message"]
         assert "myssia[table]" in finding["message"]
         assert "table_provider_error" in finding["message"]

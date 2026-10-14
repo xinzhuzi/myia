@@ -1,4 +1,4 @@
-"""双引擎 OCR 统一接口:macOS Vision(ocrmac)+ RapidOCR(rapidocr-onnxruntime)。
+"""双引擎 OCR 统一接口:macOS Vision(ocrmac)+ RapidOCR(rapidocr 新主包)。
 
 ``run_ocr(path, engine)`` 返回统一形状的逐行结果 ``[OcrLine{text, conf}]``
 (task 10-03-image-input,10-03 修订:两个引擎都要有,可切换):
@@ -8,8 +8,11 @@
   实证:小图不放大,行识别质量塌);ocrmac 1.x 无 use_language_correction 参
   (VNRecognizeTextRequest 缺省即关语言纠正,报错码/ID 保真语义保持)。
   置信度刻度 0.30-1.0 真实分布,≤0.5 警示阈值主要对此引擎有意义。
-- ``rapidocr``:rapidocr-onnxruntime 内置默认 det/rec/cls 模型,零下载;
-  置信度刻度普遍 ≥0.9(与 Vision 不可直接互比,UI 注记来源引擎,阈值统一)。
+- ``rapidocr``:rapidocr 新主包(3.x,onnxruntime 后端显式同列)内置
+  PP-OCRv6 small det/rec/cls 三模型,零下载;置信度刻度普遍 ≥0.9(与
+  Vision 不可直接互比,UI 注记来源引擎,阈值统一)。供件换代见
+  10-15-ocr-revive-py314(旧 rapidocr-onnxruntime 1.4.x 冻结且声明
+  <3.13,3.14 无轮故换血)。
 
 两个引擎都是可选依赖(extras ``myssia[vision]``),惰性 import —— 未装时结构化
 报错并附安装命令,核心流水线零重依赖红线不破。置信度原样透传,不截断不过滤:
@@ -151,28 +154,31 @@ def _run_vision(path: Path) -> list[OcrLine]:
 
 
 def _run_rapidocr(path: Path) -> list[OcrLine]:
-    """RapidOCR(onnxruntime);内置默认模型,首次调用才加载。"""
+    """RapidOCR(rapidocr 新主包 + onnxruntime 后端);内置 PP-OCRv6 small
+    三模型零下载,首次调用才加载;单调用单返回 ``RapidOCROutput``。"""
     try:
-        rapidocr = importlib.import_module("rapidocr_onnxruntime")
+        rapidocr = importlib.import_module("rapidocr")
     except ImportError as exc:
         raise OCRError(
             "dependency_missing",
-            f"rapidocr 引擎依赖 rapidocr-onnxruntime 未安装:请先执行 {INSTALL_COMMAND}",
-            details={"engine": "rapidocr", "package": "rapidocr-onnxruntime", "install": INSTALL_COMMAND},
+            f"rapidocr 引擎依赖 rapidocr 未安装:请先执行 {INSTALL_COMMAND}",
+            details={"engine": "rapidocr", "package": "rapidocr", "install": INSTALL_COMMAND},
         ) from exc
     try:
         engine = rapidocr.RapidOCR()
-        result, _elapse = engine(str(path))
+        output = engine(str(path))
     except Exception as exc:  # noqa: BLE001 — 引擎内部任何失败统一结构化包装
         raise OCRError(
             "engine_failed",
             f"rapidocr 引擎识别失败: {type(exc).__name__}: {exc}",
             details={"engine": "rapidocr"},
         ) from exc
-    if not result:  # 无文字图片:合法空结果(不是错误;describe 模式的事)
+    # 无文字图片:output 非 None 但 txts=None(实测),双条件兜底;合法空结果
+    # 不是错误(describe 模式的事)。
+    if output is None or output.txts is None:
         return []
-    # RapidOCR 逐行产出 [box, text, score];score 刻度普遍 ≥0.9(见模块头)。
-    return [OcrLine(text=str(item[1]), conf=float(item[2])) for item in result]
+    # RapidOCR 3.x 单返回 txts/scores 逐行平行数组;score 刻度普遍 ≥0.9(模块头)。
+    return [OcrLine(text=str(t), conf=float(s)) for t, s in zip(output.txts, output.scores)]
 
 
 # ---------------------------------------------------------------------------

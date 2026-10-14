@@ -73,7 +73,7 @@ follow_redirects 默认值不再相关**(10-03-image-fix-followups 小修⑤);
 png/jpg/webp/gif 魔法字节白名单;流式 10MB 截断。图文件落条目级临时目录,
 处理完即弃,绝不持久化。
 
-依赖红线:OCR/VL 重依赖全部惰性(ocrmac / rapidocr-onnxruntime / openai,
+依赖红线:OCR/VL 重依赖全部惰性(ocrmac / rapidocr / openai,
 extras ``myssia[vision]``)——本模块 import 零重依赖,未装 extras 时 OCR 走
 ``ocr_failed`` 降级,不炸管线。VL 通道与端点配置复用 ``vision.yaml``
 (:class:`myssia.vision.settings.VisionConfig`);token 用量经

@@ -1,6 +1,6 @@
 """src/myssia/vision 单测(10-03-image-input):ocr / client / settings。
 
-引擎与 AsyncOpenAI 全 mock(ocrmac / rapidocr_onnxruntime / openai 在 CI 与
+引擎与 AsyncOpenAI 全 mock(ocrmac / rapidocr / openai 在 CI 与
 dev 环境均未安装 —— extras 未开):假引擎模块注入 ``sys.modules``,假
 AsyncOpenAI 经 ``VisionClient._import_openai`` 替换;sips 探测/缩放全部
 monkeypatch(CI 是 ubuntu,sips 不可用)。零外网、零真实钥匙链。
@@ -257,27 +257,42 @@ class TestOcr:
         assert "boom" in str(excinfo.value)
 
     @staticmethod
-    def _install_rapidocr(monkeypatch, result):
+    def _install_rapidocr(monkeypatch, output):
+        """rapidocr 新主包桩:__call__ 单返回 RapidOCROutput 形(txts/scores)。"""
+
         class FakeRapidOCR:
             def __call__(self, path: str):
-                return result, [0.12]
+                return output
 
         monkeypatch.setitem(
-            sys.modules, "rapidocr_onnxruntime", SimpleNamespace(RapidOCR=FakeRapidOCR)
+            sys.modules, "rapidocr", SimpleNamespace(RapidOCR=FakeRapidOCR)
         )
 
     def test_rapidocr_roundtrip(self, monkeypatch, png_file):
-        # RapidOCR 返回 (lines, elapse);每行 = [box, text, score]。
-        line = [[[0, 0], [10, 0], [10, 10], [0, 10]], "羊毛行RapidOCR", 0.95]
-        self._install_rapidocr(monkeypatch, [line])
-        assert run_ocr(png_file, "rapidocr") == [OcrLine("羊毛行RapidOCR", 0.95)]
+        # RapidOCR 3.x 单返回 output.txts / output.scores 平行数组。
+        output = SimpleNamespace(
+            txts=["羊毛行RapidOCR", "second line"], scores=[0.95, 0.91]
+        )
+        self._install_rapidocr(monkeypatch, output)
+        assert run_ocr(png_file, "rapidocr") == [
+            OcrLine("羊毛行RapidOCR", 0.95),
+            OcrLine("second line", 0.91),
+        ]
 
     def test_rapidocr_no_text_returns_empty(self, monkeypatch, png_file):
+        # 空图实测形态:output 非 None 但 txts=None(双条件判空的实测背书面)。
+        self._install_rapidocr(
+            monkeypatch, SimpleNamespace(txts=None, scores=None, boxes=None)
+        )
+        assert run_ocr(png_file, "rapidocr") == []
+
+    def test_rapidocr_none_output_returns_empty(self, monkeypatch, png_file):
+        # 防御分支:引擎直接回 None 也按合法空结果收口。
         self._install_rapidocr(monkeypatch, None)
         assert run_ocr(png_file, "rapidocr") == []
 
     def test_rapidocr_dependency_missing(self, monkeypatch, png_file):
-        monkeypatch.setitem(sys.modules, "rapidocr_onnxruntime", None)
+        monkeypatch.setitem(sys.modules, "rapidocr", None)
         with pytest.raises(OCRError) as excinfo:
             run_ocr(png_file, "rapidocr")
         assert excinfo.value.code == "dependency_missing"

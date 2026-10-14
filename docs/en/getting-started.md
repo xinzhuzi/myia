@@ -100,7 +100,7 @@ installs six of them in one go (`crawl4ai` / `scrapling` / `firecrawl` /
 `skyvern` / `llm` / `browser` — `simplex`/`vision`/`table`/`trafilatura`/
 `apprise`/`telethon` are not part of it). `all` shares only the openai /
 huggingface-hub packages with `vision` — the OCR engines
-(ocrmac / rapidocr-onnxruntime) are not in `all`, so run
+(ocrmac / rapidocr with the onnxruntime backend) are not in `all`, so run
 `uv sync --extra vision` separately for image reading. Table restore has a
 second install path on the desktop: the **"table restore" component switch
 under Settings → Python environment** installs the pinned component into

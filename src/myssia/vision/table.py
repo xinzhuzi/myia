@@ -8,11 +8,11 @@
 
 - 单图 → 单表;``None`` = 图内未检出表格(合法结果,不是错误);
 - 引擎 = rapid_table 3.x(``RapidTable()``,缺省 SLANET-plus 结构模型),
-  **OCR 结果显式喂入**(rapidocr-onnxruntime,与 vision extras 同栈):
-  rapid_table 3.x 默认 ``use_ocr=True`` 但其内置 OCR 走新版 ``rapidocr``
-  包,未装时 ``ocr_engine=None`` 调用即炸(3.0.2 轮 main.py 实读);走
-  ``ocr_results=[(boxes, txts, scores)]`` 参数即可完全绕开——同栈复用、
-  零新增 OCR 发行版(R1:不引 Paddle 全家,复用自管环境 onnxruntime);
+  **OCR 结果显式喂入**(rapidocr 新主包,与 vision extras 同栈):
+  走 ``ocr_results=[(boxes, txts, scores)]`` 参数显式喂入——同栈复用、
+  不依赖 rapid_table 内置 OCR 通道自建引擎(R1:不引 Paddle 全家,复用
+  自管环境 onnxruntime);供件换代 10-15-ocr-revive-py314(旧
+  rapidocr-onnxruntime 1.4.x 冻结且声明 <3.13,3.14 无轮故换血);
 - 模型说明:**rapid_table 3.x 轮并不内置模型**(README「打包进 whl」措辞
   已过期,3.0.2 轮实读无 models/),首次 ``RapidTable()`` 初始化从
   modelscope 下载 slanet-plus.onnx(6.8MB,SHA256 校验)到包目录,之后
@@ -25,7 +25,7 @@ HTML → Markdown:rapid_table 产出 ``pred_html``(``<td colspan/rowspan>``
 原格保留内容(不复制),rowspan 影子格补空(GFM 无跨行语义)——再投影
 GFM(首行为表头,契约样式 ``|a|b|`` 无空格填充)。
 
-依赖红线:rapid_table / rapidocr-onnxruntime 全部惰性 import(extras
+依赖红线:rapid_table / rapidocr 全部惰性 import(extras
 ``myssia[table]``),未装时 :class:`TableError`(``dependency_missing``)
 结构化报错并附安装命令;管线环(:mod:`myssia.vision.collect`)统一落
 ``metadata.table_status = "table_provider_error"``,绝不阻管线(R6)。
@@ -98,7 +98,7 @@ def run_table(image_path: Path | str) -> TableResult | None:
     """对单图做表格结构化还原;``None`` = 图内未检出表格(合法,非错误)。
 
     Raises:
-        TableError: ``dependency_missing``(rapid-table / rapidocr-onnxruntime
+        TableError: ``dependency_missing``(rapid-table / rapidocr
             任一未装)或 ``engine_failed``(引擎执行失败)。
     """
     path = Path(image_path)
@@ -146,17 +146,17 @@ def _get_table_engine() -> Any:
 
 
 def _get_ocr_engine() -> Any:
-    """rapidocr_onnxruntime 引擎单例(表格单元格文字来源;与 vision extras 同栈)。"""
+    """rapidocr(新主包)引擎单例(表格单元格文字来源;与 vision extras 同栈)。"""
     global _OCR_ENGINE
     if _OCR_ENGINE is not None:
         return _OCR_ENGINE
     try:
-        rapidocr = importlib.import_module("rapidocr_onnxruntime")
+        rapidocr = importlib.import_module("rapidocr")
     except ImportError as exc:
         raise TableError(
             "dependency_missing",
-            f"表格还原依赖 rapidocr-onnxruntime 未安装(单元格文字识别):请先执行 {INSTALL_COMMAND}",
-            details={"package": "rapidocr-onnxruntime", "install": INSTALL_COMMAND},
+            f"表格还原依赖 rapidocr 未安装(单元格文字识别):请先执行 {INSTALL_COMMAND}",
+            details={"package": "rapidocr", "install": INSTALL_COMMAND},
         ) from exc
     try:
         _OCR_ENGINE = rapidocr.RapidOCR()
@@ -179,18 +179,19 @@ def _ocr_feed(path: Path) -> tuple[Any, tuple[str, ...], tuple[float, ...]] | No
 
     engine = _get_ocr_engine()
     try:
-        result, _elapse = engine(str(path))
+        output = engine(str(path))
     except Exception as exc:  # noqa: BLE001 — 引擎内部任何失败统一结构化包装
         raise TableError(
             "engine_failed",
             f"rapidocr 表格前 OCR 失败: {type(exc).__name__}: {exc}",
             details={"engine": "rapidocr"},
         ) from exc
-    if not result:  # 无文字图片:合法空结果(表格内容无从谈起)
+    # 无文字图片:output 非 None 但 txts=None(实测),双条件兜底;合法空结果
+    if output is None or output.txts is None:
         return None
-    boxes = np.array([item[0] for item in result], dtype=np.float32)
-    txts = tuple(str(item[1]) for item in result)
-    scores = tuple(float(item[2]) for item in result)
+    boxes = np.array(output.boxes, dtype=np.float32)
+    txts = tuple(str(t) for t in output.txts)
+    scores = tuple(float(s) for s in output.scores)
     return boxes, txts, scores
 
 

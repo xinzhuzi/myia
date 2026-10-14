@@ -1,7 +1,7 @@
 """vision/table 表格还原单测(task 10-05-table-restore 执行清单①)。
 
 全量 mock、零外网(真引擎路径除外):引擎单测注入假 ``rapid_table`` /
-``rapidocr_onnxruntime`` 模块(``sys.modules``,与 ``tests/vision/test_vision.py``
+``rapidocr`` 模块(``sys.modules``,与 ``tests/vision/test_vision.py``
 假引擎同款纪律)+ 引擎单例逐例重置(``table._reset_engines``);图片环分支
 monkeypatch ``collect.run_table``(与 ``fake_ocr`` 同款);schema 侧验
 ``images.table`` sidecar(``$.images`` 前缀错误路径)。真引擎端到端
@@ -46,8 +46,9 @@ SIMPLE_HTML = (
     "<tr><td>1</td><td>2</td></tr>"
     "</table></body></html>"
 )
-#: 真引擎探针(2026-10-05,rapid-table 3.0.2 + rapidocr-onnxruntime 实跑)
-#: 对 fixtures/table_sample.png 的逐格还原输出——端到端断言的事实源。
+#: 真引擎探针对 fixtures/table_sample.png 的逐格还原输出——端到端断言的事实源
+#: (2026-10-05 rapid-table 3.0.2 + rapidocr-onnxruntime 初标;2026-10-15
+#: OCR 供件换代 rapidocr 新主包 3.10 沙箱复跑 EXACT_MATCH,事实源不变)。
 FIXTURE_MARKDOWN = (
     "|品种|价格|涨跌幅|\n"
     "|---|---|---|\n"
@@ -144,24 +145,28 @@ class FakeRapidTable:
 
 
 class FakeRapidOCR:
-    """rapidocr_onnxruntime 桩:RapidOCR()(无参)→ (result, elapse)。"""
+    """rapidocr 新主包桩:RapidOCR()(无参)→ 单返回 output(boxes/txts/scores)。"""
 
     instances: list["FakeRapidOCR"] = []
 
     def __init__(self, params: Any = None) -> None:
         self.calls: list[str] = []
-        self.result: list[Any] | None = [
-            [[[0, 0], [10, 0], [10, 10], [0, 10]], "a", 0.99],
-            [[[20, 0], [30, 0], [30, 10], [20, 10]], "b", 0.98],
-        ]
+        self.output: Any = SimpleNamespace(
+            boxes=[
+                [[0, 0], [10, 0], [10, 10], [0, 10]],
+                [[20, 0], [30, 0], [30, 10], [20, 10]],
+            ],
+            txts=["a", "b"],
+            scores=[0.99, 0.98],
+        )
         self.error: Exception | None = None
         FakeRapidOCR.instances.append(self)
 
-    def __call__(self, img: str) -> tuple[list[Any] | None, list[float]]:
+    def __call__(self, img: str) -> Any:
         self.calls.append(img)
         if self.error is not None:
             raise self.error
-        return self.result, [0.1]
+        return self.output
 
 
 class _FakeNumpyArray(list):
@@ -215,7 +220,7 @@ class TestRunTableEngine:
         img.write_bytes(PNG_HEAD + b"0" * 64)
         monkeypatch.setitem(sys.modules, "rapid_table", SimpleNamespace(RapidTable=FakeRapidTable))
         monkeypatch.setitem(
-            sys.modules, "rapidocr_onnxruntime", SimpleNamespace(RapidOCR=FakeRapidOCR)
+            sys.modules, "rapidocr", SimpleNamespace(RapidOCR=FakeRapidOCR)
         )
         result = run_table(img)
         assert result == TableResult(markdown="|a|b|\n|---|---|\n|1|2|", rows=2, cols=2)
@@ -230,7 +235,7 @@ class TestRunTableEngine:
         img.write_bytes(PNG_HEAD)
         monkeypatch.setitem(sys.modules, "rapid_table", None)
         monkeypatch.setitem(
-            sys.modules, "rapidocr_onnxruntime", SimpleNamespace(RapidOCR=FakeRapidOCR)
+            sys.modules, "rapidocr", SimpleNamespace(RapidOCR=FakeRapidOCR)
         )
         with pytest.raises(TableError) as excinfo:
             run_table(img)
@@ -243,12 +248,12 @@ class TestRunTableEngine:
         img = tmp_path / "t.png"
         img.write_bytes(PNG_HEAD)
         monkeypatch.setitem(sys.modules, "rapid_table", SimpleNamespace(RapidTable=FakeRapidTable))
-        monkeypatch.setitem(sys.modules, "rapidocr_onnxruntime", None)
+        monkeypatch.setitem(sys.modules, "rapidocr", None)
         with pytest.raises(TableError) as excinfo:
             run_table(img)
         assert excinfo.value.code == "dependency_missing"
         assert 'pip install "myssia[table]"' in str(excinfo.value)
-        assert excinfo.value.details["package"] == "rapidocr-onnxruntime"
+        assert excinfo.value.details["package"] == "rapidocr"
 
     def test_zero_ocr_text_short_circuits_to_none(self, monkeypatch, tmp_path):
         img = tmp_path / "t.png"
@@ -257,10 +262,11 @@ class TestRunTableEngine:
         class EmptyOcr(FakeRapidOCR):
             def __init__(self, params: Any = None) -> None:
                 super().__init__(params)
-                self.result = None
+                # 空图实测形态:output 非 None 但 txts=None。
+                self.output = SimpleNamespace(boxes=None, txts=None, scores=None)
 
         monkeypatch.setitem(sys.modules, "rapid_table", SimpleNamespace(RapidTable=FakeRapidTable))
-        monkeypatch.setitem(sys.modules, "rapidocr_onnxruntime", SimpleNamespace(RapidOCR=EmptyOcr))
+        monkeypatch.setitem(sys.modules, "rapidocr", SimpleNamespace(RapidOCR=EmptyOcr))
         assert run_table(img) is None, "图内零文字 = 未检出表格(合法,不触结构引擎)"
         assert FakeRapidTable.instances == []
 
@@ -275,7 +281,7 @@ class TestRunTableEngine:
 
         monkeypatch.setitem(sys.modules, "rapid_table", SimpleNamespace(RapidTable=Boom))
         monkeypatch.setitem(
-            sys.modules, "rapidocr_onnxruntime", SimpleNamespace(RapidOCR=FakeRapidOCR)
+            sys.modules, "rapidocr", SimpleNamespace(RapidOCR=FakeRapidOCR)
         )
         with pytest.raises(TableError) as excinfo:
             run_table(img)
@@ -292,7 +298,7 @@ class TestRunTableEngine:
 
         monkeypatch.setitem(sys.modules, "rapid_table", SimpleNamespace(RapidTable=BoomInit))
         monkeypatch.setitem(
-            sys.modules, "rapidocr_onnxruntime", SimpleNamespace(RapidOCR=FakeRapidOCR)
+            sys.modules, "rapidocr", SimpleNamespace(RapidOCR=FakeRapidOCR)
         )
         with pytest.raises(TableError) as excinfo:
             run_table(img)
@@ -304,7 +310,7 @@ class TestRunTableEngine:
         img.write_bytes(PNG_HEAD)
         monkeypatch.setitem(sys.modules, "rapid_table", SimpleNamespace(RapidTable=FakeRapidTable))
         monkeypatch.setitem(
-            sys.modules, "rapidocr_onnxruntime", SimpleNamespace(RapidOCR=FakeRapidOCR)
+            sys.modules, "rapidocr", SimpleNamespace(RapidOCR=FakeRapidOCR)
         )
         assert run_table(img) is not None
         assert run_table(img) is not None
@@ -322,7 +328,7 @@ class TestRunTableEngine:
 
         monkeypatch.setitem(sys.modules, "rapid_table", SimpleNamespace(RapidTable=NoHtml))
         monkeypatch.setitem(
-            sys.modules, "rapidocr_onnxruntime", SimpleNamespace(RapidOCR=FakeRapidOCR)
+            sys.modules, "rapidocr", SimpleNamespace(RapidOCR=FakeRapidOCR)
         )
         assert run_table(img) is None
 

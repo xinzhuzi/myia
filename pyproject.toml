@@ -38,23 +38,30 @@ skyvern = ["skyvern"]
 # firecrawl-py 传递锁定 17.1。
 simplex = ["websockets>=12"]
 llm = ["openai>=1.30"]
-# 看图(10-03-image-input):双引擎 OCR = ocrmac(macOS Vision,MIT)+
-# rapidocr-onnxruntime(Apache-2.0,内置模型零下载);显式含 llm 的 openai
-# (VisionClient 复用 AsyncOpenAI 模式)。体积影响 ~37MB 下载(onnxruntime
-# 20.5MB + rapidocr 14.2MB),见任务档 design 依赖节。
+# 看图(10-03-image-input;OCR 供件换代 10-15-ocr-revive-py314):双引擎
+# OCR = ocrmac(macOS Vision,MIT)+ rapidocr(Apache-2.0 新主包,内置
+# PP-OCRv6 small det/rec/cls 三模型零下载);显式含 llm 的 openai
+# (VisionClient 复用 AsyncOpenAI 模式)。rapidocr 主包不带推理后端,
+# onnxruntime 显式同列(>=1.31,<2:cp314 轮在位);体积影响 ~48MB 下载
+# (rapidocr 27.3MB + onnxruntime 20.9MB),见任务档 design 依赖节。
+# opencv 双株共存注记(10-15-ocr-revive-py314):opencv-python 经
+# rapid-table 保留(requires_dist 硬含)+ opencv-python-headless 经
+# rapidocr 3.10 新增;同版(5.0.0.93)文件集相同良性,异版分叉即停交付。
 # huggingface-hub(10-03-vision-v2):应用内下载 mlx-community 系 MLX 权重
 # (vision/models.py snapshot_download,惰性 import);带 tqdm 传递依赖。
 # ocrmac 平台标记(10-04-windows-build F1):macOS Vision 独占,Windows/Linux
 # 无 wheel(传递链 pyobjc 全 macosx wheel,uv.lock 实读;CI run 37117015528
 # Windows sdist 构建炸)。macOS 装配与无标记逐字节等价(marker 恒真)。
-vision = ["ocrmac>=1.0; sys_platform == 'darwin'", "rapidocr-onnxruntime>=1.3", "openai>=1.30", "huggingface-hub>=0.23"]
+vision = ["ocrmac>=1.0; sys_platform == 'darwin'", "rapidocr>=3,<4", "onnxruntime>=1.31,<2", "openai>=1.30", "huggingface-hub>=0.23"]
 # 表格还原(10-05-table-restore,R1/R3):rapid-table(RapidAI 家族 onnx 表格
 # 结构还原,SLANET-plus 模型首用从 modelscope 下载 6.8MB 到包目录,SHA256
 # 校验——3.x 轮并不内置模型,README 措辞已过期,3.0.2 轮实读);单元格文字
-# 走 rapidocr-onnxruntime(vision extras 同栈复用,wrapper 显式喂 ocr_results
-# 绕开其内置新版 rapidocr 通道);tqdm 是 rapid-table 3.0.2 轮的隐性 import
+# 走 rapidocr 新主包(vision extras 同栈复用,wrapper 显式喂 ocr_results);
+# rapid-table 3.0.2 自身 requires_dist 硬含 opencv_python>=4.5.1.48 与
+# onnxruntime>1.17.0,与显式 >=1.31,<2 双约束合流落 1.31.x 无冲突;
+# tqdm 是 rapid-table 3.0.2 轮的隐性 import
 # (未声明进 requires-dist,main.py:11 实读),显式补上防裸装炸 import。
-table = ["rapid-table>=3.0.2,<4", "rapidocr-onnxruntime>=1.3", "tqdm>=4"]
+table = ["rapid-table>=3.0.2,<4", "rapidocr>=3,<4", "onnxruntime>=1.31,<2", "tqdm>=4"]
 # 正文兜底(10-05-trafilatura-impl):static_html 引擎 extract 缺失/规则跑空时的
 # opt-in 单页正文抽取(开关 MYIA_EXTRACT_FALLBACK=1,缺省关零行为差);惰性
 # import,缺装时兜底能力结构化降级不拦核心(①回落 extract_required、②维持零条)。

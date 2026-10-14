@@ -25,3 +25,9 @@
 - **param_1(ctx)=0x8a3913c18(堆)**:首 qword=vtable(slide+0x9c516b8),+8=堆指针链;须活对象(全局槽定位=下一步离线活:扫 data 段引用该 vtable 的全局槽)。
 - **直调配方形态(免 spawner 链)**:取活 param_1(全局槽/观测捕获)+伪造 param_2(三 inline23 槽)+call F_exec——比原设计(找 F_send 造任务)更短更可控。
 - BT 证实 #6-#13 为协程缝合的 spawner 原栈(0x7097be8→…→0x6fda37c→spawn),无需再追。
+
+## r6/r7 离线续(同晨):ctx 来源结论
+
+- spawner 三件(06fda37c/06fdf3a0/06fd4ae8)与外层四件(07097be8/06ffd1e0/06fbd634/069d32a8)全反编译:DAT 引用全是哈希桶/特性旗,**ctx(param_1)全程参数传递,无全局槽直载**。
+- 活探实扫(__DATA/__DATA_CONST 各 4MB,已知地址+VT 双跳两法):**零命中**——ctx 为堆链所有(服务管理器对象持有),不落静态槽。
+- **务实路线定案(下轮实施)**:ctx 会话内缓存——同一微信进程内 ctx 长寿;直发首条=桥 OCR 触发+F_exec 断点捕 x0(成本 2 发),缓存 ctx;后续直发=纯 LLDB 直调(1 发/条)。自动化排程场景下首条成本可忽略。anchors 表 service_ptr_mode="observe_bp" 形态(senddirect 已留该枚举位)。

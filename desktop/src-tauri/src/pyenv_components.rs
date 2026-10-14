@@ -14,9 +14,10 @@
 //!   `rapid-table>=3.0.2,<4`——1.x 虽模型随轮但 API 代差全断(`__init__`
 //!   必传 `RapidTableInput`、`ocr_result`/`pred_html` 单数;质检高危修正,
 //!   故不取 1.0.3);pip_spec = 组件闭包(空格分隔多条,与 extras
-//!   `myssia[table]` 三件同源:rapid-table 主件钉 ==3.0.2 +
-//!   rapidocr-onnxruntime(单元格文字,引擎显式喂 ocr_results)+ tqdm
-//!   (3.0.2 轮隐性 import,extras 显式补));3.x 轮不内置模型,SLANET-plus
+//!   `myssia[table]` 四件同源:rapid-table 主件钉 ==3.0.2 +
+//!   rapidocr 新主包(单元格文字,引擎显式喂 ocr_results;主包不带推理
+//!   后端,onnxruntime>=1.31,<2 显式列名)+ tqdm
+//!   (3.0.2 轮隐性 import,extras 显式补);3.x 轮不内置模型,SLANET-plus
 //!   结构模型首用时从 modelscope 下载 6.8MB(SHA256 校验,table.py 落地)——
 //!   「首装需联网」含模型首用下载,之后离线复用);
 //! - 读取宽容:文件缺位/不可读/不可解析 → 空表(旧包/并行波次中间态,
@@ -162,8 +163,8 @@ const SERVICE_HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(300);
 pub struct ComponentSpec {
     pub id: String,
     /// 钉版 pip spec(组件闭包,空格分隔多条与 pyproject extras 同源,如
-    /// `rapid-table==3.0.2 rapidocr-onnxruntime>=1.3 tqdm>=4`;壳更新改钉版
-    /// 即指纹漂移)。
+    /// `rapid-table==3.0.2 rapidocr>=3,<4 onnxruntime>=1.31,<2 tqdm>=4`;
+    /// 壳更新改钉版即指纹漂移)。
     pub pip_spec: String,
     pub label: String,
     #[serde(default)]
@@ -2156,9 +2157,9 @@ mod tests {
     }
 
     /// 测试基准 spec 串(与随包 components.json / pyproject extras
-    /// myssia[table] 同源的三件闭包;tests/desktop/test_pyenv_resources.py
+    /// myssia[table] 同源的四件闭包;tests/desktop/test_pyenv_resources.py
     /// 交叉对齐把守两侧不漂移)。
-    const TABLE_PIP_SPEC: &str = "rapid-table==3.0.2 rapidocr-onnxruntime>=1.3 tqdm>=4";
+    const TABLE_PIP_SPEC: &str = "rapid-table==3.0.2 rapidocr>=3,<4 onnxruntime>=1.31,<2 tqdm>=4";
 
     /// crawl4ai 组件闭包(10-06-native-plugin-components 轨A;与随包
     /// components.json 同源,tests/desktop/test_pyenv_resources.py 交叉对齐):
@@ -2281,7 +2282,7 @@ mod tests {
         let a = spec_fingerprint(TABLE_PIP_SPEC);
         assert_eq!(a, spec_fingerprint(TABLE_PIP_SPEC));
         // 闭包任一件变脸(壳更新改钉版)即不同指纹
-        let drifted_pin = "rapid-table==3.0.3 rapidocr-onnxruntime>=1.3 tqdm>=4";
+        let drifted_pin = "rapid-table==3.0.3 rapidocr>=3,<4 onnxruntime>=1.31,<2 tqdm>=4";
         assert_ne!(a, spec_fingerprint(drifted_pin));
         assert_ne!(a, spec_fingerprint("rapid-table==3.0.2"));
         assert_eq!(a.len(), 64);
@@ -2490,7 +2491,7 @@ mod tests {
         assert!(is_component_installed(data.path(), &spec));
         // 指纹漂移(闭包改钉版,壳更新场景)→ 未装(引导重装)
         let drifted = ComponentSpec {
-            pip_spec: "rapid-table==3.0.3 rapidocr-onnxruntime>=1.3 tqdm>=4".into(),
+            pip_spec: "rapid-table==3.0.3 rapidocr>=3,<4 onnxruntime>=1.31,<2 tqdm>=4".into(),
             ..spec.clone()
         };
         assert!(!is_component_installed(data.path(), &drifted));
@@ -2647,7 +2648,7 @@ mod tests {
         }
 
 
-        /// 成功:pip argv 逐条含闭包三件(位置参数,无 -r);落 ready+指纹
+        /// 成功:pip argv 逐条含闭包四件(位置参数,无 -r);落 ready+指纹
         /// (整串 sha256);installed 翻真。
         #[test]
         fn success_pins_closure_specs_without_r_flag_and_stamps_ready() {
@@ -2666,8 +2667,8 @@ mod tests {
             );
             let lines = pip_log(dir.path());
             assert_eq!(lines.len(), 1, "组件安装恰跑一次 pip");
-            // 闭包三件逐条作位置参数(质检高危修正面:跟引擎 extras 同源全装,
-            // 裸装主件会让引擎 dependency_missing 于 rapidocr_onnxruntime)
+            // 闭包四件逐条作位置参数(质检高危修正面:跟引擎 extras 同源全装,
+            // 裸装主件会让引擎 dependency_missing 于 rapidocr)
             assert!(
                 lines[0].contains("-m pip install")
                     && TABLE_PIP_SPEC
