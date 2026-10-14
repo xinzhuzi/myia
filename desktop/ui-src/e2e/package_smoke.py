@@ -455,7 +455,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "content-type")
 
-    def do_OPTIONS(self) -> None:  # noqa: N802(BaseHTTPRequestHandler 约定)
+    def do_OPTIONS(self) -> None:  # noqa: N802
         self.send_response(204)
         self._cors()
         self.end_headers()
