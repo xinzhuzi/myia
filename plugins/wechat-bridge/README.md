@@ -2,7 +2,7 @@
 
 受管组件(task 10-11-wechat-ui-bridge,G7 命名):管「当下收发」的 **UI 自动化桥**(macOS AX 先行,Windows wxauto 备胎另启)+ 管「历史与全量」的**本地库只读通道**。不破解协议;微信进程内存仅在 D4 豁免的密钥扫描里**只读**接触(默认关,三重门;0.4.0 固化为 C 收集器管道),外部件走受管组件链路。
 
-- 设计与契约:`.trellis/tasks/10-11-wechat-ui-bridge/design.md`(CLI §6 / 配置 §7 / 测试 §8)
+- 设计与契约:`.trellis/tasks/archive/2026-10/10-11-wechat-ui-bridge/design.md`(CLI §6 / 配置 §7 / 测试 §8)
 - 组件戳:`component.json`(版本 + 适用微信版本范围,真锁惯例 design §4)
 - MYIA 侧接入:push 通道 `weixin-local`(Phase F;`weixin` 通道名保持归官方 Hermes 桥 `src/myssia/push/weixin.py`,该文件是本桥调用形态的蓝本)
 
@@ -71,7 +71,6 @@ requires),exec `python -m wechat_bridge`;stdout 恒单 JSON 由桥包保证,
 - **setuid 自愈件**(0.4.0):`native/install-keyscanner.sh`(一键脚本首段代跑,一次 root)把收集器装为 `<数据根>/wechat-localdb/bin/keyscanner`(root:staff,4750)——此后扫描/自愈零 sudo;`localdb query` 的密钥缺位/解密失败(密钥轮换)在 `mem_search_enabled: true` + 件在位时自动重取(`resolve_keys`/`query_history` 自愈钩子,全量命中才落缓存)。**失败退避**(0.4.1 复审修复):自愈未闭合落冷却戳 `<数据根>/wechat-localdb/self_heal_cooldown.json`(600,内容仅时间戳,零密钥材料),30 分钟窗内查询链不再重扫——不可闭合态(微信改版零命中/部分命中/收集器超时)不再逐次 query 重读微信全进程内存;冷却中 exit 21/22 消息如实注记(不谎称重取过);戳损坏即忘却(负缓存不卡死自愈);成功闭合(自愈或手动 `key-scan`)即清戳;`localdb key-scan` CLI 与一键脚本直连扫描入口,不受冷却门。**威胁模型(如实)**:单用户本机 = 用户读自己微信内存;多用户机器上 staff 组成员可借它做同款只读模式扫描——不接受则不装,`sudo rm` 该件即回归现状(未安装 = key_unavailable + 一键脚本指引)。
 - 依赖:sqlcipher CLI(`brew install sqlcipher`,design §5.1 前置;0.4.0 起同为密钥试开验证前置)、cc(Xcode CLT,收集器首用自动编译,缺装时结构化报错带 `xcode-select --install` 指引)。
 - 频控+防重落盘模块(G6)已实现并可单测(时间注入,不真等 10 秒;0.8.0 起状态文件两键:`last_send_epoch` + `send_fingerprints` 多槽指纹档——同指纹 120s 防重,pending 命中 exit 17 `send_uncertain_dedup` 绝不自动重试,sent 命中幂等 exit 0)。
-- 依赖:sqlcipher CLI(`brew install sqlcipher`,design §5.1 前置;缺装时解密步骤结构化报错并给指引)。
 
 ## send_text 全链工作原理(0.8.4,2026-10-14 真机验证版)
 
@@ -79,7 +78,7 @@ requires),exec `python -m wechat_bridge`;stdout 恒单 JSON 由桥包保证,
 
 ### 成功逻辑(按执行时序,零歧义粒度)
 
-1. **目标解析**(发送前置,失败即拒,零 UI 扰动):localdb 三路解析(username/alias/展示名),唯一命中才继续;多命中 exit 1 `send_target_ambiguous`,零命中 exit 1 `send_target_not_found`。搜索词选择=**中文名优先**(主人判例 2026-10-14:display_name 非纯 emoji 即用中文名;纯 emoji 名(🐳)落 alias 档)。
+1. **目标解析**(发送前置,失败即拒,零 UI 扰动):localdb 三路解析(username/alias/展示名),唯一命中才继续;多命中 exit 1 `send_target_ambiguous`,零命中 exit 1 `send_target_not_found`。搜索词选择=**中文名优先**(主人判例 2026-10-14:display_name 非纯 emoji 即用中文名;纯 emoji 名(🐳)落 alias 档);display_name 取**备注>昵称>微信号**(微信界面同序),一切文本比对经 **NFKC 全半角归一**(真机实证:库内半角括号 vs 界面全角渲染,不归一恒不匹配)。
 2. **通道判定**:AX 探测(主窗最大面积窗 BFS 节点数>5 且输入区可读)。**常态判定结果=走 CGEvent+OCR 降级链**——微信 4.1.15 主窗为 mmui 自绘引擎,accessibleRoot 恒 nil(双线定论:门位自愈=红鲱鱼,树浅是供给侧;见归档 10-14-wechat-ax-gate-exp),AX 主链只在罕见的长命旧进程上可用。
 3. **导航 = 侧栏优先,搜索兜底**(主人判例:搜索面板网络区永不为点击目标):
    - **侧栏直选**:OCR 主窗侧栏带(SIDEBAR_BOX),display_name 精确/前缀**唯一**命中→目标行 0.3s 位置稳定锁(y 漂移 ≤0.02 才点,热列表防漂移误点)→点击→即时标题确认;不符**不烧尝试**直接落搜索路。AX 通道等价物=侧栏 session_item AXPress(sidebar_ax)。
@@ -110,7 +109,7 @@ exit 0 载荷三形态:`sent:true` / `deduped:true`(幂等,零新发)/ `dry_run:
 
 ---
 
-
+## 红线
 
 1. 静默后台(读通道):不抢前台焦点、不合成鼠标点击、不激活微信窗口。**写通道 send_text 例外**(主人 2026-10-13 热激活批令):激活+键盘 CGEvent+剪贴板驱动,+ 合成鼠标点击(**仅导航行与 composer 聚焦**;PRD 2026-10-14 翻案,task 10-14-wechat-send-text design §I-1——不点发送按钮,发送=回车)。
 2. 不破解协议:禁逆向、禁 hook 注入;内存密钥搜索默认关,仅 D4 豁免后配置显式开启 + 提权在位(root 或 setuid 自愈件)才生效,且只读 vm_read 单遍零常驻、禁写内存/禁注入/禁调试器附加/禁重签名(0.4.0:mach 逻辑只在 `native/collector.c`,源码级守卫;setuid 件零 exec、argv 白名单、输出恒 stdout)。
