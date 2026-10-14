@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-from myssia import wechat_local_sidecar as wls
-from myssia.push.weixin_local import LocalBridgeTimeoutError
+from myssia.wechat import sidecar as wls
+from myssia.wechat.push_local import LocalBridgeTimeoutError
 
 PROBE_OK = {
     "ok": True,

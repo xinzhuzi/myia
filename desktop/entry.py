@@ -432,7 +432,7 @@ from myssia.plugins.versioning import VersionRange, VersionSpecError
 from myssia.push import ChannelDirectory, DeliveryLedger, DirectoryDiscoverUnsupported, PushSendError
 from myssia.push import macos_notify as myssia_macos_notify
 from myssia.wechat.push_weixin import probe_bridge
-from myssia.wechat_local_sidecar import (
+from myssia.wechat.sidecar import (
     WechatLocalSidecarError,
     handle_wechat_local,
 )
@@ -4812,7 +4812,7 @@ def _wechat_stats_shell(action: str, params: dict[str, Any]) -> dict[str, Any]:
     """公共转接(10-14-wechat-stats-reports R5):分发进 wechat_stats_sidecar
     实现件(独立模块,判例同 _wechat_local_shell),结构化错误换轨协议错误。"""
     try:
-        from myssia.wechat_stats_sidecar import handle_wechat_stats
+        from myssia.wechat.stats_sidecar import handle_wechat_stats
     except ImportError as exc:  # pragma: no cover - 随包件缺位(打包漂移兜底)
         raise ProtocolError(
             "internal_error", f"wechat_stats_sidecar 模块不可用: {exc}"
@@ -7855,13 +7855,17 @@ def serve(stdin: Any | None = None, stdout: Any | None = None) -> int:
     """
     global _OUT
     _OUT = stdout if stdout is not None else sys.stdout
-    # macos_notify 壳代发(10-14-notify-app-icon):横幅改走协议事件
-    # notify.banner 送壳,由壳以 app 身份代发(图标/归组/点击唤起 = 世事
-    # app);_OUT 已捕获,发射器即刻可用。CLI 直跑不经 serve = 零注入,
-    # osascript 直弹形态照旧。
-    myssia_macos_notify.set_banner_emitter(
-        lambda plan: _write_line({"type": "notify.banner", **plan})
-    )
+    # macos_notify 壳代发(10-14-notify-app-icon):横幅改走 <home> 中继管道
+    # → 协议事件 notify.banner 送壳,由壳以 app 身份代发(图标/归组/点击
+    # 唤起 = 世事 app)。环境变量注入 = cron CLI 子进程(os.environ.copy()
+    # 继承)与 serve 进程内推送统一覆盖;home 未解析/管道失败 = 不注入,
+    # osascript 直弹照旧。
+    _relay_home = _serve_context().home
+    if _relay_home is not None:
+        myssia_macos_notify.start_notify_relay(
+            _relay_home,
+            lambda plan: _write_line({"type": "notify.banner", **plan}),
+        )
     # 统一日志(10-07-unified-logging 批1):serve 形态 configure(ring+盘+
     # stderr WARNING)+ 盘尾冷回填(design §5)——重启后 logs.tail 可翻上一程
     # 历史;必须先于任何 stream_line 消费者(种子/桥接/cron/telegram)。

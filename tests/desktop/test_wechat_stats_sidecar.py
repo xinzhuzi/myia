@@ -18,10 +18,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "src"))
 
-from myssia import wechat_local_sidecar as wls  # noqa: E402
-from myssia import wechat_stats_sidecar as wss  # noqa: E402
+from myssia.wechat import sidecar as wls  # noqa: E402
+from myssia.wechat import stats_sidecar as wss  # noqa: E402
 from myssia.enrich.errors import EnrichConfigError  # noqa: E402
-from myssia.wechat_local_sidecar import WechatLocalSidecarError  # noqa: E402
+from myssia.wechat.sidecar import WechatLocalSidecarError  # noqa: E402
 
 STATS_PAYLOAD = {
     "stats_chat": {

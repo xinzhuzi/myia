@@ -56,7 +56,7 @@ from typing import Any
 from urllib.parse import quote
 
 from myssia.engines.fetch_base import FetchError
-from myssia.push.weixin_local import (
+from myssia.wechat.push_local import (
     LocalBridgeTimeoutError,
     bin_path,
     run_bridge_command_sync,

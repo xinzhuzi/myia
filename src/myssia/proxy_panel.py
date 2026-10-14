@@ -2,7 +2,7 @@
 
 两个协议动作的实现本体(``desktop/entry.py`` ``_HANDLERS`` 只注册
 :func:`make_proxy_panel_handlers` 产出的薄壳,集成接线见任务档
-integrationSpec;判例同 :mod:`myssia.wechat_stats_sidecar`):
+integrationSpec;判例同 :mod:`myssia.wechat.stats_sidecar`):
 
 - ``proxy.probe`` ``{config?, config_auto?, probe_timeout?}``(形状 =
   DoctorParams 子集)→ **字面内部复用** entry ``_m_doctor``(零逻辑分叉,

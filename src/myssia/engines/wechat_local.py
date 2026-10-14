@@ -9,8 +9,8 @@
 
 - **pixel(缺省)**:数据面 = 管线进程内起本机桥子进程
   (``wechat-bridge messages read <chat> -k N --json``,受管组件,
-  ``myssia.push.weixin_local`` 的 ``bin_path``/``run_bridge_command_sync``/
-  ``parse_bridge_payload`` 同组 helper,与 :mod:`myssia.wechat_local_sidecar`
+  ``myssia.wechat.push_local`` 的 ``bin_path``/``run_bridge_command_sync``/
+  ``parse_bridge_payload`` 同组 helper,与 :mod:`myssia.wechat.sidecar`
   的 ``_run_bridge`` 同款封装)。**不经 sidecar**:``wechat_local.*`` sidecar
   方法保持纯 UI 探针/浏览面,数据面从不绕道桌面 IPC —— 引擎跑在 cron/CLI
   进程里,sidecar 可能根本不在场(tg_web 自持 Playwright 传输同构论证)。
@@ -139,7 +139,7 @@ from typing import Any
 from urllib.parse import quote
 
 from myssia.engines.fetch_base import BaseEngine, FetchError
-from myssia.push.weixin_local import (
+from myssia.wechat.push_local import (
     LocalBridgeTimeoutError,
     bin_path,
     parse_bridge_payload,

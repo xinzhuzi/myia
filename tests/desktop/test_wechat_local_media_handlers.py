@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from myssia import wechat_local_sidecar as wls
+from myssia.wechat import sidecar as wls
 
 #: 接线门控:四动作入 _ACTIONS 后自动启用(rationale 见模块 docstring)。
 _ACTIONS_WIRED = all(
