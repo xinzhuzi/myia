@@ -99,12 +99,16 @@ describe("NAV_GROUPS 信息架构(v10 配置分组)", () => {
       ["/feishu", "飞书"],
       ["/weixin", "微信"],
       ["/bot-credentials", "机器人凭据"],
+      ["/proxy-pool", "代理池"],
+      ["/credhunter", "凭证猎手"],
     ]);
   });
 
   it("resolveNav 深链口径:/tg-account、/yaml-editor 落「配置」组;底部设置行不动", () => {
     expect(resolveNav("/tg-account")?.group).toBe("配置");
     expect(resolveNav("/yaml-editor")?.group).toBe("配置");
+    expect(resolveNav("/proxy-pool")?.group).toBe("配置");
+    expect(resolveNav("/credhunter")?.group).toBe("配置");
     expect(resolveNav("/settings")?.entry.label).toBe("设置");
   });
 

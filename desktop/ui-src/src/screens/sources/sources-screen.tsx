@@ -23,6 +23,7 @@ import {
 import type { RoundTripCheck, SourcesData, SourceRow, TestOutcomeView } from "./api";
 import { SourcesTable, sourceKey } from "./sources-table";
 import { TestResultDialog } from "./test-result-dialog";
+import { SourceWizardDialog } from "./source-wizard/source-wizard-dialog";
 
 interface LoadState {
   status: "loading" | "error" | "ready";
@@ -88,6 +89,8 @@ export function SourcesScreen() {
   const [testOutcome, setTestOutcome] = useState<TestOutcomeView | null>(null);
   const testingRef = useRef<TestState | null>(null);
   testingRef.current = testing;
+  /** 建源向导(R1.1):顶栏「新建品类」打开;null=关闭 */
+  const [wizardOpen, setWizardOpen] = useState(false);
   /** 工具栏刷新态(Kestra KSFilter refresh 位):有数据时原地转圈不卸表格 */
   const [refreshing, setRefreshing] = useState(false);
   /** 一键探查(主人 2026-10-05):doctor 全源诊断 → reload 更新健康度 */
@@ -236,14 +239,9 @@ export function SourcesScreen() {
                 ) : null}
               </div>
             ) : null}
-            {/* Kestra Flows 顶栏范式(NavBarAction primary):主操作=新建,
-                指向既有YAML配置屏深链(纯导航,零新功能) */}
-            <Button size="sm" asChild>
-              <a href="#/yaml-editor" title="到YAML配置新建品类 YAML">
-                <Plus className="size-3.5" />
-                新建品类
-              </a>
-            </Button>
+            {/* 一键探查/新建入口见下方操作行:主人 2026-10-04「无头」令后
+                PageHeader 不渲染(actions 死位),R1.1 新建按钮由集成员
+                接线适配落到真实渲染的操作行 */}
           </>
         }
       />
@@ -282,8 +280,14 @@ export function SourcesScreen() {
         </div>
       ) : null}
 
-      {/* 一键探查(主人 2026-10-05):doctor 全源诊断 → 刷新健康度 */}
-      <div className="flex items-center justify-end px-6 pb-2">
+      {/* 一键探查(主人 2026-10-05):doctor 全源诊断 → 刷新健康度。
+          新建品类(R1.1,10-14-visual-source-builder AC1):无头令后主操作
+          落本行左侧(PageHeader actions 不渲染,集成员接线适配)——打开
+          建源向导,深链入口由向导头部「直接编辑 YAML」承担 */}
+      <div className="flex items-center justify-between px-6 pb-2">
+        <Button size="sm" onClick={() => setWizardOpen(true)} title="打开建源向导">
+          <Plus className="size-3.5" />新建品类
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -403,6 +407,12 @@ export function SourcesScreen() {
       {/* 当场编辑弹窗:行「编辑」打开;关闭守卫(dirty confirm)在弹窗内部;保存成功刷新表格 */}
       {editingFile !== null ? (
         <YamlEditorDialog file={editingFile} onClose={() => setEditingFile(null)} onSaved={handleDialogSaved} />
+      ) : null}
+
+      {/* 建源向导(AC1 顶栏入口):关闭即刷新(AC8——完成/关闭后源管理列表重拉,
+          新建品类即刻入表) */}
+      {wizardOpen ? (
+        <SourceWizardDialog onClose={() => { setWizardOpen(false); void reload(); }} />
       ) : null}
     </div>
   );

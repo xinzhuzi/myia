@@ -586,11 +586,19 @@ describe("PyenvCard:服务组件行(启停按钮 + 健康绿点 + 状态对账)"
       wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] }),
       { searxng: serviceStatusFixture() },
     );
-    // 覆写 start 应答为「已拉起未绿」;初态对账仍回 stopped(点击前是停态行)
+    // 覆写 start 应答为「已拉起未绿」;初态对账仍回 stopped(点击前是停态行)。
+    // start 之后的 status 对账恒回慢启动态(服务实际在跑):对 5s 健康轮询
+    // 免疫——全量并发挤压下断言晚于首个轮询周期时,对账不会把行翻回停态
+    // (2026-10-14 门禁红根因:轮询回停态 fixture 覆盖了「运行中」;
+    // 组件侧轮询见 pyenv-card.tsx:492-516,绿即停/未绿续轮)。
+    let started = false;
     mocks.invoke.mockImplementation(async (command: string, args?: unknown) => {
       const { id } = (args ?? {}) as { id: string };
-      if (command === "service_start" && id === "searxng") return slowStart;
-      if (command === "service_status") return serviceStatusFixture();
+      if (command === "service_start" && id === "searxng") {
+        started = true;
+        return slowStart;
+      }
+      if (command === "service_status") return started ? slowStart : serviceStatusFixture();
       if (command === "pyenv_get_status")
         return wireFixture({ components: [{ id: "searxng", installed: true, kind: "service" }] });
       throw new Error(`未预期的 IPC 命令: ${command}`);

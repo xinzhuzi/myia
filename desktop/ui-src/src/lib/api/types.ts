@@ -1369,6 +1369,40 @@ export interface GatesSaveResult {
 }
 
 // ---------------------------------------------------------------------------
+// credhunter.keys.list(10-14-cred-hunter-panel §3.1 冻结形状;掩码-only)
+// ---------------------------------------------------------------------------
+
+/** credcheck 三态词表(final_verified / rejected / transient;null = 未验证) */
+export type CredhunterCheckState = "final_verified" | "rejected" | "transient";
+
+/** 单条密钥记录(服务端掩码投影;无 apikey 键,全文永不出协议面) */
+export interface CredhunterKeyRecord {
+  /** 指纹(sha256 前 16 hex,`sha256-xxxxxxxxxxxxxxxx` 形态) */
+  fingerprint: string;
+  /** 掩码密钥(服务端 findings.mask_apikey 产物:前 8 + `…MASKED…` + 后 4,
+   *  长 9-12 只前 8、≤8 只前 2;前端只显示不重算) */
+  masked_apikey: string;
+  /** 供应商(xai / openai …) */
+  provider: string;
+  first_seen: string;
+  last_seen: string;
+  hit_count: number;
+  /** 证据 URL 列表(库内已去重上限 20,原样透传) */
+  sources: string[];
+  last_check: string | null;
+  check_state: CredhunterCheckState | null;
+}
+
+/** credhunter.keys.list 应答(exists=false = 合法未建库态,不报错不建文件) */
+export interface CredhunterKeysListResult {
+  path: string;
+  exists: boolean;
+  version: number | null;
+  count: number;
+  records: CredhunterKeyRecord[];
+}
+
+// ---------------------------------------------------------------------------
 // 方法 ↔ 参数/结果 映射(entry.py `_HANDLERS` 全集)
 // ---------------------------------------------------------------------------
 
@@ -1426,6 +1460,9 @@ export interface SidecarProtocol {
   // 镜像 src/myssia/gates.py GatesConfig.to_payload,契约 design.md §6.7)
   "gates.get": { params: EmptyParams; result: GatesGetResult };
   "gates.save": { params: GatesSaveParams; result: GatesSaveResult };
+  // 凭证猎手面板(10-14-cred-hunter-panel §3.1:本地密钥库掩码-only 只读;
+  // 消费方 = screens/credhunter/ 屏私有封装 invoke,不走共享门面)
+  "credhunter.keys.list": { params: EmptyParams; result: CredhunterKeysListResult };
 }
 
 export type SidecarMethod = keyof SidecarProtocol;

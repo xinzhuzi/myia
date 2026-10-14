@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Clock, FileCode2, Inbox, LayoutDashboard, Loader2, MessageCircle, Play, RefreshCw, Rss, Search, Send, Settings, Terminal, MessageSquare, User } from "lucide-react";
+import { Clock, FileCode2, Globe, Inbox, KeyRound, LayoutDashboard, Loader2, MessageCircle, Play, RefreshCw, Rss, Search, Send, Settings, Terminal, MessageSquare, User } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
  *
  * 命令面(清单自含,不复用 sidebar 的 NAV_GROUPS,避免与 A-shell 跨批
  * 耦合,重复属有意取舍):
- * - 导航九屏(App.tsx 路由表口径);
+ * - 导航十四屏(App.tsx 路由表口径);
  * - 跑一次:health → 第一个可加载插件 → run.start;
  * - 刷新:window.location.reload(自含,不逐屏发刷新事件)。
  *
@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
 /** 与 --duration-fast(120ms)对应的离场卸载延迟,改 token 时同步改这里(dialog.tsx 同款) */
 const EXIT_UNMOUNT_MS = 120;
 
-/** 导航命令清单:App.tsx 路由表九屏(自含数据,不 import NAV_GROUPS) */
+/** 导航命令清单:App.tsx 路由表十四屏(自含数据,不 import NAV_GROUPS) */
 const SCREENS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon; keywords: string }> = [
   { to: "/", label: "仪表盘", icon: LayoutDashboard, keywords: "dashboard home" },
   { to: "/feed", label: "情报流", icon: Inbox, keywords: "feed inbox" },
@@ -48,6 +48,10 @@ const SCREENS: ReadonlyArray<{ to: string; label: string; icon: LucideIcon; keyw
   { to: "/weixin", label: "微信", icon: User, keywords: "weixin wechat account" },
   // 机器人凭据(10-11-bot-credentials-screen):推送通道机器人凭据(自设置→推送抽出),配置组收口
   { to: "/bot-credentials", label: "机器人凭据", icon: Send, keywords: "bot credentials push token webhook bark apprise qqbot" },
+  // 代理池(10-14-proxy-pool-panel R3;设计拷问修正②):序=侧栏配置组;防 /proxy-pool 成唯一 ⌘K 不可达屏
+  { to: "/proxy-pool", label: "代理池", icon: Globe, keywords: "proxy pool 代理 出口 探测 probe" },
+  // 凭证猎手(10-14-cred-hunter-panel):keywords = PRD §3.2 逐字
+  { to: "/credhunter", label: "凭证猎手", icon: KeyRound, keywords: "credhunter 凭证 密钥 高危 leaked keys" },
   { to: "/messaging", label: "消息", icon: MessageCircle, keywords: "messaging message push" },
   { to: "/logs", label: "采集日志", icon: Terminal, keywords: "logs terminal" },
   { to: "/settings", label: "设置", icon: Settings, keywords: "settings" },

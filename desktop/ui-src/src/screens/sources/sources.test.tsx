@@ -499,6 +499,44 @@ describe("源管理:空态与错误态", () => {
 });
 
 // ---------------------------------------------------------------------------
+// R1.1(10-14-visual-source-builder AC1,集成员接线):顶栏「新建品类」自
+// YAML配置深链改绑建源向导;AC9 屏级断言(向导组件自身 25 项行为测试在
+// source-wizard-dialog.test.tsx,此处只钉改绑)。注意:向导挂载即调
+// yaml.list(同名预检),okSidecar map 无此方法会收 method_not_found——向导
+// 对此非阻塞(预检降级,后端 mtime 是终门),断言不受影响。
+// ---------------------------------------------------------------------------
+
+describe("源管理:顶栏「新建品类」打开向导(R1.1 改绑)", () => {
+  it("顶栏「新建品类」打开向导对话框(不再深链)", async () => {
+    const { map } = okSidecar(["hacker-news"]);
+    installSidecar(map);
+    render(
+      <MemoryRouter>
+        <SourcesScreen />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("hacker-news")).toBeTruthy();
+
+    // 深链已撤:不再是链接
+    expect(screen.queryByRole("link", { name: /新建品类/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "新建品类" }));
+
+    const dialog = await screen.findByTestId("source-wizard-dialog");
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+
+    // 向导干净表单零 confirm 直关(ESC);关闭触发列表刷新(AC8)
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => {
+      expect(screen.queryByTestId("source-wizard-dialog")).toBeNull();
+    });
+    await waitFor(() => {
+      expect(callCount("health")).toBe(2);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // C13(10-03-v112-desktop-parity):行「试抓」(sources.test 异步 job →
 // test.completed 详情弹窗;10-05-test-result-dialog 撤贴顶横幅改模态)
 // ---------------------------------------------------------------------------

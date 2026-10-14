@@ -16,7 +16,7 @@
 - 错误结构化透传(对齐 spec python/error-handling):`path` 字段路径、`message` 中文原因、`data` 原始细节。
 - EOF = 干净退出 0(serve,entry.py:1941)。
 
-## 方法注册表(本文现列 93 行;代码 `_HANDLERS` 现值 93,对账一致;单一事实源 = 代码)
+## 方法注册表(本文现列 96 行;代码 `_HANDLERS` 现值 96,对账一致;单一事实源 = 代码)
 
 | # | 方法 | 处理器 | 语义 |
 |---|------|----------------|------|
@@ -113,6 +113,9 @@
 | 91 | `wechat_local.media_scan` | `_m_wechat_local_media_scan` | 微信会话媒体寻径(10-14-wechat-media-sns R5):`{chat_id, since_days?(缺省 30), decrypt?(缺省 false)}` → 桥 `localdb media scan` 载荷(`{media:{items,stats,provider}}`;缩略图优先寻径,decrypt 逐条解密回填 cached_path);未配置解密件+decrypt → `media_unavailable`(exit 23 原样);超时 600s |
 | 92 | `wechat_local.media_decrypt` | `_m_wechat_local_media_decrypt` | 微信单件媒体解密(10-14-wechat-media-sns R5):`{dat_path}` → 桥 `localdb media decrypt` 载荷(`{media_decrypt:{dat_path,cached_path,ext,is_wxgf,width,height,cache}}`;解密钥仅内存过手不落盘);未配置解密件 → `media_unavailable`(exit 23);超时 600s |
 | 93 | `wechat_local.contacts` | `_m_wechat_local_contacts` | 微信联系人六桶(10-14-wechat-contacts R6;分类浏览/找回考古):`{type?∈friend|group|official|former|other, keyword?, limit?(0..1000,0=全量导出态), cursor?, with_residue?, include_stranger?(只收开态,false=invalid_params——桥 CLI 缺省开无关闭旗标)}` → 桥 `localdb contacts` 载荷(`{contacts:{counts,former_tiers,residue_checked,strict_residual_count,labels,stranger,room_verify,rows,next_cursor,has_more,filter,page_size,degraded}}`);with_residue 触发 message 域副本首建 → 超时 600s(不用 60s 命令族帽);缺表降级恒 exit 0 |
+| 94 | `proxy.probe` | `_PROXY_PANEL["proxy.probe"]` | 代理池逐上游探测+快照落盘(task 10-14-proxy-pool-panel R1):`{config?, config_auto?, probe_timeout?}`(DoctorParams 子集)→ doctor 应答原形状+纯增键 `snapshot:{persisted, reason?}`(实现=字面复用 `_m_doctor` 零分叉,config_auto 非布尔门继承);落 `<home>/proxy-probe-history.jsonl` 一行一快照 {at,config,pools}(pools 行引擎已打码;保留帽 200 裁最旧原子重写;文件 0600);落盘失败不 fail 探测(persisted=false+reason: no_home/write_failed/no_proxy_section) |
+| 95 | `proxy.history` | `_PROXY_PANEL["proxy.history"]` | 探测历史零网络纯读:`{limit?(钳制[1,100]缺省20), pool?}` → `{snapshots:[{at,config,pools}], count, truncated, home_available, skipped?}`(新→旧;pool 过滤只回该池行;坏行跳过 skipped 如实;文件不存在=合法空表;home_available=false=dev 无数据根);实现本体 `src/myssia/proxy_panel.py` |
+| 96 | `credhunter.keys.list` | `_m_credhunter_keys_list` | 凭证猎手面板数据面(task 10-14-cred-hunter-panel §3.1):`{}`(多余键忽略,gates.get 同门)→ `{path, exists, version, count, records[]}`——本地密钥库 `credhunter-keystore.json` **纯文件读**(零网络零写入,库缺绝不建档);records 按 last_seen 新→旧,行 = `{fingerprint, masked_apikey, provider, first_seen, last_seen, hit_count, sources[], last_check, check_state}`,**无 apikey 键**(全文在 handler 投影时丢弃,Q9 掩码-only:前 8+`…MASKED…`+后 4,长 9-12 只前 8、≤8 只前 2);库不存在 = 合法未建库态 `{exists:false, version:null, count:0, records:[]}`;坏 JSON/结构不符(version≠1)→ `keystore_invalid`、IO 不可读 → `keystore_unreadable`(同名镜像插件 `keystore.py` 错误族;路径/掩码规则内联镜像 `keystore.py:78-86`/`findings.py:54-66`,插件动态加载不 import);数据根 = `MYIA_HOME` env > cwd(镜像 `default_keystore_path`);消费方 = `screens/credhunter/` 屏私有封装 |
 
 分组:核心 10(1-9 + 13-14 的 logs.tail/secret.set/secret.list)+
 源启停 1(16)+ 品类 YAML 编辑 6(18-23,task 10-03-yaml-editor)+
@@ -227,6 +230,16 @@ C1 分页+普查)、`wechat_local.stats`/`wechat_local.stats_report`
 `wechat_local.media_decrypt`(10-14-wechat-media-sns C3)、
 `wechat_local.contacts`(10-14-wechat-contacts C4)。**不 bump
 PROTOCOL_VERSION**:同上地基路纯加法先例;注册表 93 行。
+proxy-pool-panel 批(task 10-14-proxy-pool-panel)新增 2:94-95
+`proxy.probe`/`proxy.history`(代理池只读面板数据面:探测=字面复用
+`_m_doctor`+快照落盘,history=零网络纯读;实现本体
+`src/myssia/proxy_panel.py`,工厂注入 entry 依赖)。**不 bump v15**——
+同地基路纯加法先例,旧壳经 method_not_found 结构化降级;注册表 95 行。
+cred-hunter-panel 批(task 10-14-cred-hunter-panel)新增 1:96
+`credhunter.keys.list`(凭证猎手面板数据面:本地密钥库掩码-only 只读
+列表,契约见注册表 96 行注;前端共享映射 `SidecarProtocol` 同批 +1 行,
+消费方 `screens/credhunter/` 屏私有封装)。**不 bump v15**——同地基路
+纯加法先例;注册表 96 行。
 
 **store.items 参数(合流形状,v112 批 C1 × feed-ux G1/G3)**:`db/category/since/limit`
 之外增 `before`(ISO,first_seen 严格小于)、`before_id`(与 before 组成

@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppLayout } from "@/components/layout/app-layout";
+import { CredhunterScreen } from "@/screens/credhunter/credhunter-screen";
 import { CronScreen } from "@/screens/cron/cron-screen";
 import { DashboardScreen } from "@/screens/dashboard/dashboard-screen";
 import { FeedScreen } from "@/screens/feed/feed-screen";
@@ -14,10 +15,11 @@ import { TgAccountScreen } from "@/screens/tg-account/tg-account-screen";
 import { FeishuAccountScreen } from "@/screens/feishu-account/feishu-account-screen";
 import { WeixinAccountScreen } from "@/screens/weixin-account/weixin-account-screen";
 import { BotCredentialsScreen } from "@/screens/bot-credentials/bot-credentials-screen";
+import { ProxyPoolScreen } from "@/screens/proxy-pool/proxy-pool-screen";
 import { YamlEditorScreen } from "@/screens/yaml-editor/yaml-editor-screen";
 
 /**
- * 九屏路由(HashRouter:桌面 webview 下免服务端回退,最稳)。
+ * 十四屏路由(HashRouter:桌面 webview 下免服务端回退,最稳)。
  * 「/」= 仪表盘;未知路径一律回落仪表盘。
  *
  * 路由接的是 @/screens/* 真实实现(自带 health/doctor/run/logs 数据流)。
@@ -38,6 +40,11 @@ import { YamlEditorScreen } from "@/screens/yaml-editor/yaml-editor-screen";
  * /tg-account = Telegram(10-11-tg-multi-account-groups v10;侧栏原「TG账号」,
  * 56696b6 随主人令更名):Telegram 监控卡自设置屏抽出的独立屏,归侧栏
  * 「配置」组(位次=推送之后,与侧栏一致)。
+ * /proxy-pool = 代理池(10-14-proxy-pool-panel R3):proxy.probe/history
+ * 只读面板,归侧栏「配置」组(位次=机器人凭据之后,与侧栏一致)。
+ * /credhunter = 凭证猎手(10-14-cred-hunter-panel):本地密钥库只读屏,
+ * 归侧栏「配置」组;数据面 credhunter.keys.list 已接线(纯加法不 bump,
+ * 旧壳组合下 method_not_found → 屏显结构化错误卡,不崩溃不空白)。
  */
 export default function App() {
   // 白窗修复握手(10-06-smoke-window-politeness R1):首屏挂载完成即通知壳层
@@ -63,6 +70,8 @@ export default function App() {
         <Route path="feishu" element={<FeishuAccountScreen />} />
         <Route path="weixin" element={<WeixinAccountScreen />} />
         <Route path="bot-credentials" element={<BotCredentialsScreen />} />
+        <Route path="proxy-pool" element={<ProxyPoolScreen />} />
+        <Route path="credhunter" element={<CredhunterScreen />} />
         <Route path="settings" element={<SettingsScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

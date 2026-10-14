@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "title": "世事",
+        "width": 1920,
+        "height": 1080,
+        "visible": true,
+        "focus": false,
+        "backgroundColor": "#10131a"
+      }
+    ]
+  }
+}

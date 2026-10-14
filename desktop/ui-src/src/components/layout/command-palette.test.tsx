@@ -4,7 +4,7 @@
 // ①唤起/关闭(⌘K·Ctrl+K 自含监听 preventDefault、Esc、遮罩点击;挂载级
 // 回归在 app-layout.test);②输入过滤(中文标签/英文 keywords/空态);
 // ③键盘巡游(↑↓ 环回、aria-activedescendant 同步、Enter 执行、过滤词变化
-// 重置回首项);④动作(导航十二屏、跑一次 = 第一个可加载品类、刷新 =
+// 重置回首项);④动作(导航十四屏、跑一次 = 第一个可加载品类、刷新 =
 // window.location.reload)。品类组已随 TopBar 全球过滤退役(7152ff9 归
 // 情报流屏),挂载直连 AppLayout(10-05 复活注记见组件头)。
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -150,7 +150,7 @@ describe("唤起与关闭(⌘K 自含监听)", () => {
 });
 
 describe("命令面与输入过滤", () => {
-  it("默认命令面:导航十二屏 + 跑一次/刷新(品类组已随 TopBar 退役)", () => {
+  it("默认命令面:导航十四屏 + 跑一次/刷新(品类组已随 TopBar 退役)", () => {
     renderPalette();
     const labels = getOptions().map((node) => node.textContent);
     expect(labels).toEqual([
@@ -163,6 +163,8 @@ describe("命令面与输入过滤", () => {
       "飞书",
       "微信",
       "机器人凭据",
+      "代理池",
+      "凭证猎手",
       "消息",
       "采集日志",
       "设置",

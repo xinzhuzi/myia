@@ -1323,4 +1323,59 @@ mod tests {
         let missing = base.path().join("no-such-logs");
         assert_eq!(clean_stale_shell_archives_with_cutoff(&missing, 0), 0);
     }
+
+    // -----------------------------------------------------------------------
+    // Windows 启动即亮窗(10-14-win-startup-show;AC1 防漂移锚)
+    // -----------------------------------------------------------------------
+
+    /// 平台覆盖件防漂移锚:tauri 平台配置合并走 `json_patch::merge`
+    /// (tauri-utils config/parse.rs:185 → json-patch 4.2.0 lib.rs:666,
+    /// RFC 7396)——**非对象节点(含 `app.windows` 数组)整组替换**,不按
+    /// 条目递归合并。因此 `tauri.windows.conf.json` 的 windows[0] 必须是
+    /// 主配置 windows[0] 的全量镜像 + visible 翻转 true;写成增量
+    /// `{"visible":true}` 会在 Windows 生效配置里丢 title/尺寸/focus/
+    /// backgroundColor(且 mac 宿主与 ubuntu CI 的 cargo check 都不解析
+    /// windows 覆盖件,坏形状要等 tag 时 windows-msi 才炸)。
+    /// 本测锚两道契约:① 覆盖件 windows[0] 携带主配置 windows[0] 的全部键
+    /// 且逐字相等(丢键 = 真机回归,mac 上先红);② visible 恰为 true
+    /// (再翻转须同步改判)。键集外的新差异键是有意的覆盖行为,不受此限;
+    /// 豁免集只剩 visible 一个,新增豁免即意味着镜像不变式被改,须过评议。
+    #[test]
+    fn windows_override_mirrors_base_window_config() {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let read = |name: &str| -> serde_json::Value {
+            let path = manifest_dir.join(name);
+            let text = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("读 {name} 失败({e}):{}", path.display()));
+            serde_json::from_str(&text)
+                .unwrap_or_else(|e| panic!("{name} 非 JSON:{e}"))
+        };
+        let window_at = |config: &serde_json::Value, name: &str| -> serde_json::Value {
+            config
+                .get("app")
+                .and_then(|app| app.get("windows"))
+                .and_then(|windows| windows.as_array())
+                .and_then(|windows| windows.first())
+                .cloned()
+                .unwrap_or_else(|| panic!("{name} 缺 app.windows[0]"))
+        };
+        let base = window_at(&read("tauri.conf.json"), "tauri.conf.json");
+        let override_config = window_at(&read("tauri.windows.conf.json"), "tauri.windows.conf.json");
+        assert_eq!(
+            override_config.get("visible"),
+            Some(&serde_json::json!(true)),
+            "覆盖件 visible 必须为 true(启动即亮窗判例被翻转?)"
+        );
+        for (key, base_value) in base.as_object().expect("主配置 windows[0] 应为对象") {
+            if key == "visible" {
+                continue; // 唯一豁免:本轨刻意翻转的键
+            }
+            assert_eq!(
+                override_config.get(key),
+                Some(base_value),
+                "tauri.windows.conf.json windows[0] 缺键/漂移:{key} \
+                 (平台合并是整组替换,覆盖件必须全量镜像主配置)"
+            );
+        }
+    }
 }

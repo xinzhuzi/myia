@@ -7108,9 +7108,101 @@ def _m_platform_accounts_feishu_probe(params: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _m_credhunter_keys_list(params: dict[str, Any]) -> dict[str, Any]:
+    """凭证猎手面板数据面(10-14-cred-hunter-panel §3.1):本地密钥库
+    ``credhunter-keystore.json`` 纯文件读——零网络、零写入、库缺绝不建档
+    (handler 不构造 Keystore);应答只有服务端算好的 ``masked_apikey``,
+    全文 ``apikey`` 在投影时丢弃,协议流/UI 零全文密钥(Q9 同向,secrets
+    契约「值永不可读」)。
+
+    插件动态加载,本模块**不 import 插件代码**,三处规则内联镜像(漂移以
+    插件侧为准,tests/desktop/test_credhunter_keys_list.py 对账):路径 =
+    ``MYIA_HOME`` env > cwd 下的 ``credhunter-keystore.json``(镜像
+    ``plugins/myssia-credhunter/credhunter/keystore.py`` ``default_keystore_path``);
+    掩码 = 前 8 + ``…MASKED…`` + 后 4,长 9-12 只前 8、≤8 只前 2(逐字镜像
+    ``credhunter/findings.py`` ``mask_apikey``);错误族 = ``keystore_unreadable``
+    (IO 不可读)/ ``keystore_invalid``(坏 JSON/结构不符,含 version≠1;同名
+    镜像 ``keystore.py`` ``KeystoreError`` 码表)。多余 params 键忽略
+    (gates.get 同门)。
+    """
+    home = os.environ.get(MYIA_HOME_ENV)
+    base = Path(home).expanduser() if home else Path.cwd()
+    path = base / "credhunter-keystore.json"
+    if not path.exists():
+        # 合法未建库态:如实空表,不报错不建文件(纯读,绝不触发建档)
+        return {"path": str(path), "exists": False, "version": None, "count": 0, "records": []}
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ProtocolError(
+            "keystore_unreadable", f"密钥库不可读:{path}({exc})", data={"path": str(path)}
+        ) from exc
+    try:
+        data = json.loads(raw)
+    except ValueError as exc:
+        raise ProtocolError(
+            "keystore_invalid", f"密钥库不是合法 JSON:{path}", data={"path": str(path)}
+        ) from exc
+    if (
+        not isinstance(data, dict)
+        or data.get("version") != 1
+        or not isinstance(data.get("records"), dict)
+    ):
+        raise ProtocolError(
+            "keystore_invalid",
+            f"密钥库结构不符(期望 version=1 + records 映射):{path}",
+            data={"path": str(path)},
+        )
+
+    def _mask(apikey: str) -> str:  # 逐字镜像 findings.mask_apikey(短键退化)
+        if len(apikey) > 12:
+            return f"{apikey[:8]}…MASKED…{apikey[-4:]}"
+        if len(apikey) > 8:
+            return f"{apikey[:8]}…MASKED…"
+        return f"{apikey[:2]}…MASKED…"
+
+    records: list[dict[str, Any]] = []
+    for fingerprint, record in data["records"].items():
+        if not isinstance(record, dict):
+            continue  # 异型行如实跳过(镜像 keystore._read 只验容器不逐行)
+        apikey = record.get("apikey")
+        records.append(
+            {
+                "fingerprint": str(fingerprint),
+                "masked_apikey": _mask(apikey if isinstance(apikey, str) else ""),
+                "provider": str(record.get("provider") or ""),
+                "first_seen": record.get("first_seen"),
+                "last_seen": record.get("last_seen"),
+                "hit_count": int(record.get("hit_count") or 0),
+                "sources": [s for s in record.get("sources") or [] if isinstance(s, str)],
+                "last_check": record.get("last_check"),
+                "check_state": record.get("check_state"),
+            }
+        )
+    records.sort(key=lambda r: str(r["fingerprint"]))  # 稳定 tiebreak
+    records.sort(key=lambda r: str(r["last_seen"] or ""), reverse=True)  # last_seen 新→旧
+    return {
+        "path": str(path),
+        "exists": True,
+        "version": data["version"],
+        "count": len(records),
+        "records": records,
+    }
+
+
 # ---------------------------------------------------------------------------
 # 分发与 serve 循环
 # ---------------------------------------------------------------------------
+
+from myssia.proxy_panel import make_proxy_panel_handlers
+
+#: 代理池管理面板(10-14-proxy-pool-panel R1):探测+快照历史两方法;
+#: 纯加法批不 bump PROTOCOL_VERSION(循上方 v15 后纯加法批先例,设计拷问修正①)。
+_PROXY_PANEL = make_proxy_panel_handlers(
+    doctor=_m_doctor,
+    home_resolver=lambda: _serve_context().home,
+    protocol_error=ProtocolError,
+)
 
 _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "version": _m_version,
@@ -7219,6 +7311,16 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "browser.list": _m_browser_list,
     "browser.focus": _m_browser_focus,
     "browser.close": _m_browser_close,
+    # 代理池管理面板(10-14-proxy-pool-panel R1):探测+快照历史两方法,
+    # 实现本体 myssia.proxy_panel(工厂注入 entry 依赖,wechat_stats_sidecar
+    # 薄壳判例);纯加法批不 bump PROTOCOL_VERSION。
+    "proxy.probe": _PROXY_PANEL["proxy.probe"],
+    "proxy.history": _PROXY_PANEL["proxy.history"],
+    # 凭证猎手面板(10-14-cred-hunter-panel §3.1):本地密钥库掩码-only
+    # 只读列表;纯文件读零网络,插件动态加载不 import(路径/掩码/错误族
+    # 内联镜像 keystore.py/findings.py,见 _m_credhunter_keys_list docstring);
+    # 纯加法不 bump PROTOCOL_VERSION(循地基路先例)。
+    "credhunter.keys.list": _m_credhunter_keys_list,
 }
 
 

@@ -3053,11 +3053,15 @@ def test_method_registry_allowed_matches_handlers():
     后 = 84;
     六域接线批(wechat_local.* 再九方法:page/conversations/stats/
     stats_report/sns_feed/sns_export/media_scan/media_decrypt/contacts,
-    10-13-wechat-features 集成员)后 = 93。"""
+    10-13-wechat-features 集成员)后 = 93;
+    proxy-pool-panel 批(proxy.probe/proxy.history 两方法,
+    10-14-proxy-pool-panel R1 集成员接线;纯加法不 bump)后 = 95;
+    cred-hunter-panel 批(credhunter.keys.list 一方法,
+    10-14-cred-hunter-panel §3.1;纯加法不 bump)后 = 96。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 93
+    assert len(allowed) == 96
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status", "image.models.list", "image.models.download",

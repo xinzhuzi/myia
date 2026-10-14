@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, Clock, FileCode2, Inbox, LayoutDashboard, MessageCircle, MessageSquare, Rss, Send, Settings, Terminal, User } from "lucide-react";
+import { ChevronDown, Clock, FileCode2, Globe, Inbox, KeyRound, LayoutDashboard, MessageCircle, MessageSquare, Rss, Send, Settings, Terminal, User } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -66,6 +66,12 @@ export const NAV_GROUPS: NavGroup[] = [
    { to: "/feishu", label: "飞书", icon: MessageSquare, end: false },
    { to: "/weixin", label: "微信", icon: User, end: false },
    { to: "/bot-credentials", label: "机器人凭据", icon: Send, end: false },
+   // 代理池(10-14-proxy-pool-panel R3):proxy.probe/history 只读面板;
+   // Globe = 设置屏代理池卡同款图标;配置组收口(管理对象=pools.yaml)。
+   { to: "/proxy-pool", label: "代理池", icon: Globe, end: false },
+   // 凭证猎手(10-14-cred-hunter-panel):本地密钥库只读屏,配置组收口
+   // (管理对象=本地密钥库,与凭据/账号同族;KeyRound = 密钥语义)。
+   { to: "/credhunter", label: "凭证猎手", icon: KeyRound, end: false },
   ],
  },
 ];
