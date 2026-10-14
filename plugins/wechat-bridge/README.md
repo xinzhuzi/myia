@@ -109,6 +109,14 @@ exit 0 载荷三形态:`sent:true` / `deduped:true`(幂等,零新发)/ `dry_run:
 
 ---
 
+## send_direct 直发通道(0.9.0+,配方研制中)
+
+**能力现状(2026-10-15,如实)**:通道基础设施**完备**(锚定表门/切片哈希主门/capture_call 流程/错误码/防重/回执),但**直调配方未通**——三轮实证阴性(裸调/嵌套调均抛 C++ 异常;根因=F_exec 含协程挂起点,普通函数调用结构性不成立,任务档 design §2.7-§2.9 全证据)。调用失败=fail-closed 干净拒绝(send_direct_call_failed,never-retry 族),零误发零伤微信;配置门 `send_direct_enabled`(数据根)当前开,实际发送仍走 send_text(OCR 链)。
+
+**架构事实(三轮逆向定案)**:微信 4.1.15 发送链=主线程 runloop 协程泵;明文 msgctx(对端+正文 inline23 三槽,可伪造)只在协程深度被消费;**唯一剩路=完整任务伪造+入队**(协程帧+任务包装+实参块+enqueue_a),缺任务→(resume/实参)字段映射。
+
+**使用**:配置门开时 `send_direct <id> --file -`;失败自动干净拒绝并提示走 send_text;锚定表 `send-direct-anchors.json`(数据根,observe_bp 形态)微信换包后须重锚(doctor 可查)。
+
 ## 红线
 
 1. 静默后台(读通道):不抢前台焦点、不合成鼠标点击、不激活微信窗口。**写通道 send_text 例外**(主人 2026-10-13 热激活批令):激活+键盘 CGEvent+剪贴板驱动,+ 合成鼠标点击(**仅导航行与 composer 聚焦**;PRD 2026-10-14 翻案,task 10-14-wechat-send-text design §I-1——不点发送按钮,发送=回车)。
