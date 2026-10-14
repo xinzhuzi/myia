@@ -36,12 +36,14 @@ CODE_KEY_UNAVAILABLE_NAME = "key_unavailable"
 assert KEY_UNAVAILABLE == 21 and CODE_KEY_UNAVAILABLE_NAME == "key_unavailable"
 assert WECHAT_NOT_RUNNING == 10 and DB_NOT_FOUND == 20
 
-#: AX 门 closed 时的重开配方摘要(task 10-14-wechat-send-text design §E-2;
-#: 完整配方 research/FINDINGS.md;桥不自动 attach,人工执行)。
+#: AX 门 closed 时的处置提示(0.8.4 勘误:重开配方仅在**长期运行**进程上
+#: 历史成功过一次;2026-10-14 五组对照实证——重启后的新进程无论 LLDB
+#: 开位/增强位(plist 键/启动者/时间+使用)树均不暴露,门位可写=1 无效。
+#: 新进程的正解 = CGEvent+OCR 降级链(已真机三连绿),不再误导用户去开门)。
 AX_GATE_FIX_HINT = (
-    "AX 门重开配方(LLDB,人工执行):P1 vptr 自检 == slide+0x9fe7e68 → "
-    "P2 FUN_06c4ad50($qca,1) 写门 → P4 复验节点数>5;完整配方 "
-    "research/FINDINGS.md"
+    "新进程(重启后)AX 树不暴露为已知边界(2026-10-14 五组对照实证,"
+    "LLDB 开位无效)→ 走 CGEvent+OCR 降级链(send_text 自动);仅长期"
+    "运行的进程可试 LLDB 重开配方(research/FINDINGS.md,历史成功 1 例)"
 )
 #: AX 门 closed 的判定注记(REV 判据;design §J-22)。0.8.1:nodes 为
 #: 全窗子树**深度枚举**节点数(直查第一层在 4.1.15 恒 ~4——Qt 树挂
