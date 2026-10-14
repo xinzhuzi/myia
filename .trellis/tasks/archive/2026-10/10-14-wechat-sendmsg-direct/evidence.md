@@ -30,6 +30,8 @@
 
 **〔10-15 凌晨更新,依 design-阶段3.md §4 P-0(F5 账本实锤;簿记员转记)〕**阶段 3 动态轮 r1/r2/r3 三发全部经**桥自动发送**触发(round.sh 触发行实证,非主人手发零耗形态),实际出站 3。现行账本=勘察 6+r1 零出站 1+动态轮 3=**9~10/10,余 0~1**;而 P-2 白名单双发矩阵需 2 条。P-0 主人裁决门(先于一切发送):(a) r1 零出站不计→余 1,再批 +1;(b) 直接批 +2;(c) 上调帽;**任何验证发送前未得裁决=不发**。
 
+**〔10-15 归档补笔(回填 P-0 裁决;本节即 evidence-阶段3-final.md:3 所引「预算账 10-15 更新节」的实体〕**上段「账本 9~10/10 余 0~1、任何验证发送前未得裁决=不发」旧态已被 P-0 裁决终结:主人令原文「C,自动化情况下,可以发无数条信息的」→**裁决 1=(c) 上调帽,自动化发送总量不限**(G6 节奏护栏单条/≥10s 保留,防封非预算);裁决 2(串构造新造 inline23_rawlen)视同已批。原文载体=design-阶段3.md §4 P-0 裁决块(:405-409);「继续做完」令另载 research/r4/cap8.py:1 头注与 design-阶段3.md §2.9 标题(:601)。终局出站总账=勘察 6+动态轮 3+终轮触发 2=11 条(r1 零出站已耗授权另计 1,合计 12 记账单位)。**:29 「三档口径(design.md 预算账/implement.md 预算账/本节)已按勘误轮统一」断言在 (c) 裁决后一度失真**——三档(design.md:57/implement.md 预算账/本节,另 prd.md:12 预算行)至本补笔前均停留「帽 10/终裁待主人」旧态;本补笔与上述三处同日归档补笔为同步回填,回填后三档口径真统一。
+
 ## 错题集对账
 
 本轮四错 S11-S14+勘误记录(S10 转述失真)已由执行会话随轮入账 `research/错题集.md`(2026-10-14 晚);簿记员本轮纯文档操作(读+ls+pgrep 只读复核),**无新增错条**。
@@ -78,3 +80,36 @@
 2. HEAD 已由恢复基线 27e3b255 前进至 03d9ca72(e75732ec→bb9d858c→03d9ca72 并行线三笔在案),与快照恢复结论自洽。
 3. 工作树 M 实测 **6 件**(.trellis/tasks/10-14-notify-app-icon/prd.md、desktop/ui-src/e2e/package_smoke.py、plugins/wechat-bridge/wechat_bridge/{cli,senddirect,senddirect_probe}.py、tests/wechat-bridge/test_send_direct.py)+ ?? 2 件(上两 review-note);指令背景称「任务四档 M 态」,计数差如实注。M 件均未提交=在途勘误/WIP,按红线不进装机面、簿记员一律不碰。
 4. **错题集.md 05:09 `git diff` 干净=并行线不在写** → 簿记员按上轮挂账动笔:S16 入册 + S11-S14 双录合并(详见错题集勘误记录 2026-10-15 05:09 条)。
+
+## 10-15 07:45 簿记轮(收编/代审/换装三块对账+背景两红当代归宿+归档补笔当代复核;错题集 S17)
+
+> 本轮纯文档轮+只读核验+全桩测试:零微信、零 attach、零发送、零代码改动;唯一写入=本节+research/错题集.md(S17 入册+勘误记录补条)。断言均附本轮实跑命令(首轮核验 2026-10-15 07:45:37 CST)。注:ask 所指路径 `.trellis/tasks/10-14-wechat-sendmsg-direct/` 已随归档迁移至本档路径(fdc1e278)。
+
+### 收编/代审/换装三块落档核对(档面已在位,本轮索引+当代实证)
+
+| 块 | 档面载体 | 本轮当代实证(实跑) |
+|---|---|---|
+| 收编 | **bd395888**(2026-10-15T06:04:35+08:00「send_direct 阶段3 capture_call 终版——两真机 bug 修复+装机换装」)收编四件 cli/senddirect/senddirect_probe/test_send_direct(+1441 行通道可用性修复);归档随 fdc1e278(06:57:30) | `git log -1 --format='%H %cI' bd395888` 时间戳吻合;`git log --oneline bd395888..HEAD -- <四件>` 空=提交至今零后续触碰 |
+| 代审 | evidence-阶段3-final.md「10-15 归档补笔」两笔:①装机/提交时序如实补记(换装窗 05:53-06:03 装工作树态先于提交 ~90s,内容等价另证)②提交回执数字勘正(+27/−4、38→61、单件 collect 63) | 两笔全部断言本轮重跑复证(见下节复核表,全过) |
+| 换装 | evidence-阶段3-final.md §8(05:53-06:03 全链:全量测试条件绿→构建→验源→换装→像素冒烟→复原常驻+env 旗核) | 装机三件 `git show HEAD:<path> | cmp - <装机件>` IDENTICAL ×3(本轮实跑) |
+| 预算 P-0(c) 四档回填 | design.md:57/implement.md 预算账/prd.md:12/本档:33(均「10-15 归档补笔」同步回填) | 载体核验:design-阶段3.md:405-409 裁决块原文逐字(「C,自动化情况下,可以发无数条信息的」→(c) 上调帽+G6 护栏保留)、:601 §2.9 标题、research/r4/cap8.py:1「继续做完」头注;design-阶段3.md 随 fdc1e278 入库 |
+
+### 背景所列两红的当代归宿(本轮实跑核验,均已消解)
+
+1. **红①(HEAD 版 callable_for_send 面对现锚定表 svc_invariants=null 必 24 拒调)——双重消解**:(a) 代码面=bd395888 新谓词已删该必要(senddirect.py:235-241,docstring 明言「svc_invariants 可缺=capture 轮回填」;旧版谓词确含 `self.svc_invariants is not None`,经 `git show bd395888~1:plugins/wechat-bridge/wechat_bridge/senddirect.py` 实证;拒调路径=:848 守卫,:209 文档注「24 拒调」);(b) 数据面=装机数据根锚定表 svc_invariants_hex 已于 05:47 capture 轮回填(本轮直读 `~/Library/Application Support/MYIA/wechat-bridge/send-direct-anchors.json`=`009647a3080000002800000000000000183c91a308000000` 非空)。
+2. **红②(test_observe_timeout_when_no_hit 漏 _inject_fake_lldb→import lldb ModuleNotFoundError)——随收编消解**:`git show bd395888~1:tests/wechat-bridge/test_send_direct.py | grep -A6 'def test_observe_timeout_when_no_hit'` 空=该测试提交前不存在,系 bd395888 新增且落笔即带修复(test_send_direct.py:1446 `_inject_fake_lldb(monkeypatch, harness)`);背景所指红态系工作树中途态,未进任何提交。
+
+### 归档补笔断言当代复核(六项全过)
+
+| 断言 | 本轮命令 | 结果 |
+|---|---|---|
+| bd395888=2026-10-15T06:04:35+08:00 | `git log -1 --format='%H %cI' bd395888` | ✓ |
+| 四代码件 bd395888 后零触碰 | `git log --oneline bd395888..HEAD -- <四件>` | ✓ 空 |
+| 装机三件 ≡ HEAD(字节级) | `git show HEAD:<p> | cmp - /Applications/世事.app/.../<p>` ×3 | ✓ IDENTICAL×3 |
+| def test_ +27/−4(38→61) | `git diff bd395888~1 bd395888 | grep -cE '^\+\s*def test_'` 等 | ✓ 27/4/38/61 |
+| 单件收集 63 | `uv run --no-sync python -m pytest tests/wechat-bridge/test_send_direct.py --collect-only -q` | ✓ 63 |
+| 套件 827 passed/14 skipped | `uv run --no-sync python -m pytest tests/wechat-bridge/ -q` | ✓ 827/14(11.13s;senddirect 全桩在案,微信零操作零发送红线内) |
+
+### 对账注记(ask 背景快照 vs 现场,如实)
+
+ask 背景所述态(工作树四件 M+未跟踪 evidence-阶段3-final.md、两红待修、三档待裁、task.py 断裂)系过时快照:现场=四件已收编(bd395888)、evidence-阶段3-final.md 已跟踪(M 态)、两红已消解(上节)、三档已同步回填、归档已完成(fdc1e278;task.py「No developer set」断裂属 10-15-final-trio-sweep 档 57f84783 已注记的 phase-1 断裂同族,与本轮无涉)。差值处置=按现场实录本节+错题集 S17 入册(动前 git diff/status 对表)。背景「总真发~13-14 条」与档面终账不一致:档面逐笔=出站 11(勘察 6+动态轮 3+终轮触发 2)+r1 零出站已耗授权另计 1=12 记账单位,以档面为准。让道核验:归档补笔五档 mtime 07:19-07:20=本线前相位所笔、动笔时静默>25 分钟且无外来写者;desktop/ui-src 五件 M+.trellis/spec/desktop/frontend-ui.md+?? 10-15-ui-cloud5 系并行线在途,本轮零触碰零裹挟,提交 scoped 仅本任务档+错题集。

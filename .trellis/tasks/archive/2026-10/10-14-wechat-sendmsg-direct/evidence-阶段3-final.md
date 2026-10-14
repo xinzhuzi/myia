@@ -1,6 +1,6 @@
 # evidence-阶段3-final(capture_call 真机证明轮;2026-10-15 05:30-05:51 CST)
 
-> 执行者:真机验证员(动态工作流子代理)。产物根 `/tmp/wxsend6/`(本档所有 stdout/stderr/哨兵副本/截图/复现脚本在位)。预算红线:直调真发 ≤2 + 触发 ≤2、目标仅 filehelper、微信异常即停、不确定绝不重试。**P-0 已裁 (c)+主人令「继续做完」为本轮发送授权依据**(evidence.md 预算账 10-15 更新节)。
+> 执行者:真机验证员(动态工作流子代理)。产物根 `/tmp/wxsend6/`(本档所有 stdout/stderr/哨兵副本/截图/复现脚本在位)。预算红线:直调真发 ≤2 + 触发 ≤2、目标仅 filehelper、微信异常即停、不确定绝不重试。**P-0 已裁 (c)+主人令「继续做完」为本轮发送授权依据**(原文载体=design-阶段3.md §4 P-0 裁决块 :405-409;「继续做完」另见 design-阶段3.md §2.9 标题 :601、research/r4/cap8.py:1 头注。〔10-15 补笔改锚:原括注引「evidence.md 预算账 10-15 更新节」,该节当时不含任何 (c)/「继续做完」记载,锚点失准;该节已于同日归档补笔回填 P-0 裁决,现可作次级载体〕)。
 
 ## 0. 环境与基线(05:29-05:31)
 
@@ -85,3 +85,8 @@ config.json.before;baseline/{pid,crash_reports_before,filehelper_count,send_stat
 - **像素冒烟**:`MYIA_SHOW_ON_START=1` 直跑装机二进制(pid 10950)→ 主窗(窗主名=世事,id 1045696→104564 族)亮窗渲染 → `screencapture -l 104564 -x` 截图(922,141B,3976×2236,**禁全屏,定窗**)→ Vision OCR 一级实证全 UI 在屏:侧栏「仪表盘/情报流/采集/定时任务/采集日志/配置/源管理/YAML配置/Telegram/飞书/微信/机器人凭据/代理池/凭证猎手」+顶栏「3个源失效 今日采集 550条•32/48 源在线•推送成功16」+「今日概览(UTC) 活跃源 32/48 今日采集 550」。截图/日志本地档 `evidence/smoke-1015-sendmsg-swap.{png,log}`(`.gitignore:123` 忽略 evidence/ 子目录,仓策,故实物留本地+本节文字回执入 git)。
 - **收尾**:冒烟实例退出干净 → `open -g` 复原常驻(pid 18494,零焦点)→ env 旗核:常驻实例冒烟旗(MYIA_SHOW_ON_START/SMOKE_*)=0;`MYIA_EXTRACT_FALLBACK=1` 为主人 launchctl 全局预置(会话起始 zcode 进程即带,`launchctl getenv` 实证),非冒烟泄漏。
 - 注:新包 `codesign --verify --strict` 报「code has no resources…」= 10-11 在册构建固有告警(源包同报判例);冒烟启动全链即权威闸,已过。
+
+**〔10-15 归档补笔(代审复核两笔回填)〕**
+
+1. **装机/提交时序如实补记**:换装窗 05:53-06:03(装机件 mtime=05:58:45)先于提交 bd395888(2026-10-15T06:04:35+08:00)约 90 秒——装机时装的是**工作树态**,非「已提交态」,时序上两者不能画等号。内容等价已当代复核(补笔轮实跑):装机三件 `/Applications/世事.app/Contents/Resources/components/wechat-bridge/wechat_bridge/{cli,senddirect,senddirect_probe}.py` 与 HEAD 逐字节一致(`git show HEAD:<path> | cmp - 装机件` IDENTICAL ×3),且 `git log bd395888..HEAD --` 四代码件=零后续触碰 → 装机内容 ≡ bd395888 后来提交态(字节级)。
+2. **提交回执数字勘正**:bd395888 提交消息「test_send_direct.py +26 用例」与实测不吻合——`git diff bd395888~1 bd395888` 计 def test_ 新增 **27**/删除 **4**/净增 **23**(全文 38→61;parametrize 前后均 1 处);collect-only 实测当前 **63 tests collected**(提交前 40 系代审轮实测)。数字账不齐但非红绿问题:套件 `pytest tests/wechat-bridge/` = 827 passed/14 skipped 与 §2 bug② 节回执精确吻合。
