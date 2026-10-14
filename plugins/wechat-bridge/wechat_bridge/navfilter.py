@@ -110,8 +110,15 @@ class RowPick:
 
 
 def compact(text: str) -> str:
-    """去全部空白 + casefold(展示名/行文比对形态)。"""
-    return re.sub(r"\s+", "", text or "").casefold()
+    """NFKC 全半角归一 + 去全部空白 + casefold(展示名/行文比对形态)。
+
+    全半角归一(2026-10-14 真机实证:备注「竹海晨金(分身)」半角括号,
+    微信界面渲染全角「竹海晨金（分身）」,不归一则三连匹配全空;
+    WZ:127-129 widthInsensitive 同味)。
+    """
+    import unicodedata
+
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", text or "")).casefold()
 
 
 def _line_y(line: "OcrLine") -> float:

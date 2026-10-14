@@ -1170,11 +1170,16 @@ def _list_right_edge(lines: list[OcrLine]) -> float:
 
 
 def _chat_match(requested: str, visible_title: str | None) -> bool | None:
-    """请求 id 与可见标题匹配判定(True/False;标题不可读 → None 如实)。"""
+    """请求 id 与可见标题匹配判定(True/False;标题不可读 → None 如实)。
+
+    NFKC 全半角归一(2026-10-14 真机实证:备注半角括号 vs 标题带全角
+    括号,不归一恒不匹配;navfilter.compact 同味)。"""
+    import unicodedata
+
     if not visible_title:
         return None
-    want = re.sub(r"\s+", "", requested)
-    have = re.sub(r"\s+", "", visible_title)
+    want = re.sub(r"\s+", "", unicodedata.normalize("NFKC", requested))
+    have = re.sub(r"\s+", "", unicodedata.normalize("NFKC", visible_title))
     if not want:
         return None
     return want in have or have in want
