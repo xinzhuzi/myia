@@ -17,3 +17,11 @@
 
 - 触发成本:4 条 filehelper 真发(嘻嘻/嘻嘻!/嘻嘻~r4b/嘻嘻~r4c,P-0 (c) 不限量后合规);微信 pid 40379 全程存活零伤;lldb 用后即 kill 零残留。
 - 脚本坑入册:cap4 f-string 中文占位符=NameError;LLDB `command script import` 需 `__lldb_init_module` 钩子否则 install 不跑;指针追扫必须全窗(hit1 教训:needle 深至 +0xf50)。
+
+## cap5 终捕(同晨):直调配方的最后拼图
+
+- **F_exec = FUN_0083e394(param_1=ctx, param_2=msgctx)**:完整执行体断点直捕;param_2=0x16d768288(栈)自身即明文载体。
+- **param_2(msgctx)布局定案(可伪造纯数据)**:+0x00 flag=1;**+0x08 对端 inline23**(filehelper,raw_len=0x0a);+0x40 堆指针(0x1f14a9800,语义待解);**+0x48 正文 inline23**(嘻嘻~r4c,0x0a);**+0x130 显示名 inline23**(文件传输助手,0x12);其余大段零——三串槽与 F3 完全对齐。
+- **param_1(ctx)=0x8a3913c18(堆)**:首 qword=vtable(slide+0x9c516b8),+8=堆指针链;须活对象(全局槽定位=下一步离线活:扫 data 段引用该 vtable 的全局槽)。
+- **直调配方形态(免 spawner 链)**:取活 param_1(全局槽/观测捕获)+伪造 param_2(三 inline23 槽)+call F_exec——比原设计(找 F_send 造任务)更短更可控。
+- BT 证实 #6-#13 为协程缝合的 spawner 原栈(0x7097be8→…→0x6fda37c→spawn),无需再追。
