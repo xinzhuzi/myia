@@ -217,16 +217,17 @@ class TestChainInjection:
 
 class TestSearchTermAndFingerprint:
     def test_pick_search_term_four_tiers(self) -> None:
-        # 档1:alias 纯 ASCII ≥3
+        """2026-10-14 主人判例:中文优先——display_name 在首(搜索用中文)。"""
+        # 档1:display_name 非纯 emoji → 中文名(旧 alias 优先废止)
+        assert st.pick_search_term("wxid_m90epbt5ojml22", "jiangliushi666", "文件传输助手") == "文件传输助手"
+        # 纯 emoji display_name(🐳)→ 落 alias 档(design §D-3 不变)
         assert st.pick_search_term("wxid_m90epbt5ojml22", "jiangliushi666", "🐳") == "jiangliushi666"
-        # 档1 不取短 alias / 非 ASCII alias
-        assert st.pick_search_term("wxid_x", "ab", "名") == "wxid_x"  # <3 落档3
-        # 档2:非 wxid_ 纯 ASCII username(filehelper / gh_ 公众号)
-        assert st.pick_search_term("filehelper", None, "文件传输助手") == "filehelper"
-        assert st.pick_search_term("gh_abc123", None, "公众号名") == "gh_abc123"
-        # 档3:wxid_ username
-        assert st.pick_search_term("wxid_m90epbt5ojml22", None, "🐳") == "wxid_m90epbt5ojml22"
-        # 档4:全非 ASCII(username 中文 + 无可用 alias)
+        # emoji 名 + 短 alias(<3)→ 落 username 档
+        assert st.pick_search_term("wxid_x", "ab", "🐳") == "wxid_x"
+        # 档3:纯 emoji 名 + 非 wxid_ 纯 ASCII username(filehelper/gh_)
+        assert st.pick_search_term("filehelper", None, "🐳") == "filehelper"
+        assert st.pick_search_term("gh_abc123", None, "🐳") == "gh_abc123"
+        # 档4:全中文 username + 无 alias → 中文名既是 display 也是 username
         assert st.pick_search_term("中文名", None, "中文名") == "中文名"
 
     def test_row_match_terms_dedup_keeps_priority(self, contact_db: Path) -> None:

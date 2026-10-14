@@ -75,23 +75,29 @@ def _is_ascii(text: str) -> bool:
     return all(ord(ch) < 128 for ch in text)
 
 
-def pick_search_term(username: str, alias: str | None, display_name: str) -> str:
-    """搜索词选择(确定性四档,design §B-1;键盘与 OCR 双友好的 ASCII 优先)。
+def _is_pure_emoji(text: str) -> bool:
+    """名字是否纯 emoji/符号(无字母数字,CJK 计字母)——🐳 类。"""
+    return not any(ch.isalnum() for ch in text)
 
-    1. alias 非空、纯 ASCII、长度 ≥3 → alias(键盘可打、OCR 可读);
-    2. elif username 纯 ASCII 且不以 ``wxid_`` 开头(filehelper/gh_ 公众号)
+
+def pick_search_term(username: str, alias: str | None, display_name: str) -> str:
+    """搜索词选择(确定性四档;2026-10-14 主人判例:**中文优先**——
+    搜索框里敲给人看的中文名,filehelper/jiangliushi666 等机器名不再上屏)。
+
+    1. display_name 非空且非纯 emoji → display_name(主人令:搜索用中文);
+    2. elif alias 非空、纯 ASCII、长度 ≥3 → alias(纯 emoji 名走此路,
+       行匹配仍以 display_name 为主——design §D-3 不变);
+    3. elif username 纯 ASCII 且不以 ``wxid_`` 开头(filehelper/gh_ 公众号)
        → username;
-    3. elif username 以 ``wxid_`` 开头 → username(微信搜索支持 wxid 命中;
-       行匹配反正用 display_name,搜索词只负责把目标带进结果面板);
-    4. else → display_name(全 emoji 名走 design §D-3 特殊路)。
+    4. else → username。
     """
+    if display_name and not _is_pure_emoji(display_name):
+        return display_name
     if alias and _is_ascii(alias) and len(alias) >= 3:
         return alias
     if _is_ascii(username) and not username.startswith(_WXID_PREFIX):
         return username
-    if username.startswith(_WXID_PREFIX):
-        return username
-    return display_name
+    return username
 
 
 def row_match_terms(target: SendTarget) -> list[str]:

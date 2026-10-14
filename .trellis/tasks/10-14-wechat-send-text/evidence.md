@@ -30,3 +30,11 @@
 - 重复发送的第二次尝试在聚焦断言干净失败(粘贴未吃上,未回车零新发)——低频鲁棒性,留 P9 观察。
 - 老档「唤窗全手段皆败」翻案:本机托盘态 `open -a WeChat` 唤窗成功(0→1 窗)。
 - AX 门关闭态(S2)演练已做(门关 dry-run→挂死→修后行为),但「门关态完整降级发送成功」未演练(门开后未再关)。
+
+## followups 三件终局(10-14 午,主人令续做)
+
+- **S1 golden AX 快照夹具 ✅**:tests/wechat-bridge/fixtures/ax_tree_snapshot.json(真机 System Events BFS 全量转储,主窗 126 节点/33 命名 + 浮窗 15 节点)+ test_ax_snapshot.py 5 测(承重件锚定/树量级漂移守卫/主窗专属证/浮窗命名行证/采集前提留档)。**重大事实修正:搜索浮窗结果行有命名 id(search_item_function_<名字>),旧档「搜索面板全空 id」只对聊天记录区(virtual_cell)成立。**
+- **S3 频控并发 ✅**:test_send_state_concurrency.py 3 测(multiprocessing 真子进程):异指纹同刻并发恰一占位/他方 exit 14;pending 指纹 exit 17;占位后跨进程间隔门可见。flock 语义封闭实证,零微信交互。
+- **S2 门关态演练 ✅(含惊群发现)**:重启后新进程 AX 树**不暴露**——LLDB 门字节可写可验(read-back=1)但 AppKit 不接线:System Events 零窗/原生 API 空树/-25208 拒增强位与 hit-test/P3 NSApp 位无效/门关-开翻转广播无效/真实点击无效/窗重建无效(8 路实验,证据 /tmp/wxsend-e2e/r3/)。**旧档「重启失效可重开」在全新进程上不成立**(r2 时代开门成功的进程是长期运行实例)。**降级链兜底打通**:中文搜索词落框(焦点时序敏感,先点后粘非必需)+浮窗(368×570 layer3 在屏)分区过滤 OCR → 门关态 dry-run 7.8s 全绿(attempts=1)。
+- **WeChat-MCP(277⭐)通道采纳验证**:原生 AXUIElement(ApplicationServices)读树快而稳、不挂起,已验证可用于门开态(python 依赖 pyobjc-framework-ApplicationServices 待正式入桥);其 AX 增强位写法同样被 4.1.15 拒——**门是微信生态共同天花板,非我方独有**。
+- **主人判例落地:搜索用中文**——pick_search_term 中文名优先(纯 emoji 名落 alias 档),四档测试重写;真机复验 terms_hit=文件传输助手。

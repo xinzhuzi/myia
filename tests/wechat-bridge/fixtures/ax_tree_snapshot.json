@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "captured_at": "2026-10-14T12:03",
+  "wechat_version": "4.1.15",
+  "ax_gate": "open(LLDB 热激活)",
+  "capture": "System Events BFS 全量转储(一次性脚本 /tmp/wxsend-e2e/r3/axdump.py);主窗须处于打开态(关进托盘时 System Events windows=0,AX 主链自然落降级)",
+  "facts": [
+   "命名元素名在 AXIdentifier(AXDescription 基本为空)",
+   "chat_input_field/current_chat_name_label/session_item_* 只在主窗;搜索浮窗内是 search_list/search_item_* 族",
+   "搜索浮窗=独立窗(layer 3,kCGWindowIsOnscreen 判据),功能分类区结果行有命名 id(search_item_function_<名字>)——推翻旧档『搜索面板全空 id』(空 id 的 virtual_cell 属聊天记录区)",
+   "主窗关进托盘 → System Events 窗数 0;open -a WeChat 唤回"
+  ]
+ },
+ "main_window": {
+  "node_count": 126,
+  "named": [
+   "big_title_line_h_view",
+   "bottom_sticky_folder",
+   "button",
+   "chat_bubble_item_view",
+   "chat_input_field",
+   "chat_message_list",
+   "current_chat_count_label",
+   "current_chat_name_label",
+   "main_window_main_splitter_view",
+   "main_window_sub_splitter_view",
+   "more_button",
+   "qt_splithandle_",
+   "session_item_755598349@qq.com",
+   "session_item_AI中转站-♾️ AI Token",
+   "session_item_A徐炎79712989@qq.com",
+   "session_item_H 哥(aiwanwu)",
+   "session_item_Hermes机器人",
+   "session_item_LBH(13632373900@163.com)",
+   "session_item_你我皆凡人",
+   "session_item_同事-曾文科- offscumke@gmail.com",
+   "session_item_哇偶！金色传说(H-2015-S)",
+   "session_item_大山",
+   "session_item_机智的叶先生.",
+   "session_item_浮华网络科技交流中心",
+   "session_item_猫三三(2665252078@qq.com)",
+   "session_item_王尚壮",
+   "session_item_竹海晨金",
+   "session_item_🔥郑冰津-tok-杨🔥",
+   "session_list",
+   "tabbar_handoff",
+   "tabbar_setting",
+   "virtual_cell",
+   "voip_button"
+  ],
+  "roles": {
+   "AXStaticText": 52,
+   "AXGrowArea": 2,
+   "AXTextArea": 2,
+   "AXButton": 52,
+   "AXList": 2,
+   "AXSplitGroup": 4,
+   "?": 5,
+   "AXGroup": 6,
+   "AXWindow": 1
+  },
+  "session_item_samples": [
+   "session_item_755598349@qq.com",
+   "session_item_AI中转站-♾️ AI Token",
+   "session_item_A徐炎79712989@qq.com",
+   "session_item_H 哥(aiwanwu)",
+   "session_item_Hermes机器人",
+   "session_item_LBH(13632373900@163.com)"
+  ]
+ },
+ "search_float": {
+  "node_count": 15,
+  "named": [
+   "search_item_function_文件传输助手",
+   "search_list"
+  ],
+  "search_term": "文件传输助手"
+ }
+}
