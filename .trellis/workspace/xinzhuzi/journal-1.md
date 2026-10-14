@@ -795,3 +795,9 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - **Reddit 决策备忘**(0b0355e,116 行入档)——五决策做成五分钟选择题(推荐 ①A/②A/③B/④A/⑤A,**②10-31 前亲自注册为唯一硬时限动作**)+八步注册人话清单+决策↔引擎对照(b1489ef 引擎全链在库,仅②有真实剩余动作)。
 - 剩余终局:Bark 真推(物理)/Reddit 决策②注册(主人账号,10-31)/review 过目/远期池/下个 v* tag(载 Windows 修复+今夜全部)。searxng 并行线推进中。
 - 提交:本 journal 段 --only;不推远端。
+
+## 2026-10-14 10-14-native-system-dialog(确认弹窗全量切系统原生)
+- 主人令:macOS 弹窗从系统层面做精美 → 8 处 window.confirm 全量替换 lib/system-confirm(tauri-plugin-dialog 原生 confirm:macOS NSAlert/Windows MessageBox),破坏性操作 warning 图标+动词按钮,正文逐字保留。
+- 坑:①dialog:default 不含 confirm(实证 permissions/default.toml)须显式 allow-confirm;②异步守卫的在飞 ref 会吞 jsdom 同帧连发事件(source-wizard 实案,原生弹窗应用模态根本不需要);③Tauri 自带 window.confirm 覆写返回 Promise → 旧同步守卫在装机包恒真=暗病,本次顺带根治。
+- 门禁:scoped 119/119+全量 941/941+tsc 绿;detect-changes 21 符号全预期。提交 18c2f51+30f3ac1;规范检查单 +第8条(含并行会话同文件措辞 hunk 收编注记)。
+- 装机:just build-desktop 绿 → 沙箱 MYIA_HOME(APFS clone+清 cron 防真推)冒烟实证启动/渲染/切屏 → 换装(哈希判别 6584a65b…,旧件留 .old-1014-native-dialog)+清 WKWebView 缓存;SE 的 AX 桥在 WKWebView 切屏后窗引用会塌(8s 冷却也救不回),NSAlert 像素实证止步于此留主人一眼。主人实例 70699 全程未动。

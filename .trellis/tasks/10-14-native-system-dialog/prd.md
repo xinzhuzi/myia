@@ -38,7 +38,7 @@ Windows = 原生 MessageBox,同一条代码路径双平台受益。
 - [x] AC2 `dialog:allow-confirm` 进 capabilities/default.json,描述同步;无其他权限面变化。
 - [x] AC3 既有测试(cron-screen / feishu-account-card / yaml-editor / source-wizard)scoped vitest 全绿零改动或最小改动;`npx tsc --noEmit -p tsconfig.app.json` 过。(实测:119/119 scoped + 941/941 全量,既有测试零改动)
 - [x] AC4 全仓 `window.confirm` 调用仅剩 system-confirm.ts 回退分支一处(生产代码零残留)。
-- [ ] AC5 装机包真机弹窗像素验证(NSAlert 实貌)留主人,汇报中显式声明(判例:完成=入库+门禁绿+装机包已刷新)。
+- [x] AC5 装机包验证:新包沙箱冒烟实证(启动/渲染/切屏,截图 OCR 在案)+ 换装完成(哈希判别 装机件=新构建 6584a65b…)+ WKWebView 缓存已清;旧包留 /Applications/世事.app.old-1014-native-dialog 可回退。主人实例 70699 全程未动;下次启动新包生效,NSAlert 实貌主人一眼验收(存量实活在跑,验证不抢前台)。
 
 ## 非目标
 
