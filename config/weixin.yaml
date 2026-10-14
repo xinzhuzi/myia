@@ -98,6 +98,13 @@ sources:
   # ── 朋友圈(10-13-wechat-sns-feed;桥 0.6.0+,channel: sns 无会话概念,
   #    不消费 chat/sides/count;feed=动态/notices=互动通知赞评两模式,
   #    一模式一源;动态用微信全局 id 强锚,通知用表主键锚,重读恒同)──
+  #    ⚠ 高频档建议拆独立品类(如 weixin-sns.yaml)单独挂 cron:本品类
+  #    schedule 是聊天档节奏(镜像 TG web 线,常带 9-22 收窗),朋友圈要
+  #    提频/全天拉取时拆档各自排程互不牵连——源名不变即零迁移(水位键
+  #    `wechat-local://watermark/<源名>` 无品类维度不重灌;feed 渠道归属按
+  #    源名前缀判定;#wxsns- 强锚跨品类沉默;先例 = weixin-ai-token 拆档)。
+  #    如实限制:微信客户端往本地库写朋友圈数据是批次式(实测一天几批),
+  #    提频拉取只保证「数据落库后 ≤1 档必收」,改不了上游写入节奏。
   # - name: weixin-朋友圈                # 源名全称律(渠道归属+去重键)
   #   engine: wechat_local
   #   url: "https://weixin.qq.com"
