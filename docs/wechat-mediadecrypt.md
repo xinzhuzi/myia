@@ -198,7 +198,14 @@ codes.py 封闭表纪律:先改 design §6 再进表)。
 参考实现 =
 [`plugins/wechat-bridge/examples/mediadecrypt_ref.py`](../plugins/wechat-bridge/examples/mediadecrypt_ref.py)
 ——**toy 算法(字节反转),非真实微信解密**;只示范协议形状,真实算法
-(V4 XOR/AES 分段、Isaac64 keystream)用户自备。
+(V4 XOR/AES 分段、Isaac64 keystream)用户自备。生产起步骨架(协议壳+钥匙
+intake 钩,算法位留空)=
+[`scripts/wechat-bridge-mediadecrypt.py`](../scripts/wechat-bridge-mediadecrypt.py)
+——仓内工具位,不随产品包分发(app resources 白名单不含仓根 scripts/);
+永不放入 plugins/wechat-bridge/ 目录(该目录经 tauri.conf.json resources
+整目录映射随产品包分发);骨架的 env/--key-file 钩仅手动联调形态有效
+(桥 spawn 链 argv 恒空、GUI app 不继承 shell env),钥匙进真实件走件内
+自理(§2)。
 
 手动联调(不经桥):
 

@@ -23,6 +23,10 @@ j + Enter = 条目详情弹窗(Esc 关;三层单环,Shift 层退役)→ 返回�
 tg-category-entry v9,design-v9 §6):3 级 TG 切换段 feed-tg-view-toggle
 在场、原生视图段可点、情报段缺省 active、预览钮词面含「原生」且 title 告知
 「首次需扫码登录一次」;网站渠道切换段整组不渲染。截图落 /tmp 备查。
+10-15 追补(云评审 blocker 修):截图前统一静置 400ms(fade-in 零点伪影
+坐实后杜绝「主区空黑」假证据)+ 弹窗开着截图(dialog.png,动作簇分界
+改动零覆盖补证)+ 日报零条目渠道空态卡断言与截图(empty.png)+ site
+夹具补 3 条目(900px 列宽效果可评)。
 退出码 0 = 冒烟通过。
 
 用法(仓库根):``.venv/bin/python desktop/scripts/feed-card-smoke.py``
@@ -79,6 +83,33 @@ INJECT_SCRIPT = r"""
       content: "摘要内容丙",
       tags: ["ai"], category: "tech", scores: null, pushed_at: null, push_slot: null,
       first_seen: iso(now - 20 * 60_000), read: false, starred: false, later: false,
+    },
+    {
+      // 10-15 追加(site 3级截图需成列内容:10-14 云评审 site 图仅 1 条且被
+      // fade-in 零点伪影拍空,900px 列宽加宽的美观效果无从评——补 3 条拉开
+      // 时间梯度,新→旧成列)
+      id: 4, url: "https://openai.com/blog/y", dedup_key: "dk-4",
+      title: "分析长文:推理模型的 Scaling 拐点与数据墙",
+      source: "openai-news",
+      content: "摘要内容丁:推理算力分配、合成数据配比与评测漂移的权衡。",
+      tags: ["ai"], category: "tech", scores: null, pushed_at: null, push_slot: null,
+      first_seen: iso(now - 2 * 60 * 60_000), read: false, starred: false, later: false,
+    },
+    {
+      id: 5, url: "https://openai.com/blog/z", dedup_key: "dk-5",
+      title: "开发者速递:API 定价与速率档位更新",
+      source: "openai-news",
+      content: "摘要内容戊:分层速率档位调整与新付费预览接口。",
+      tags: ["ai"], category: "tech", scores: null, pushed_at: null, push_slot: null,
+      first_seen: iso(now - 5 * 60 * 60_000), read: false, starred: false, later: false,
+    },
+    {
+      id: 6, url: "https://openai.com/blog/w", dedup_key: "dk-6",
+      title: "安全公告:协作链接共享策略调整",
+      source: "openai-news",
+      content: "摘要内容己:共享链接缺省有效期收紧与审计日志补强。",
+      tags: ["ai"], category: "tech", scores: null, pushed_at: null, push_slot: null,
+      first_seen: iso(now - 26 * 60 * 60_000), read: false, starred: false, later: false,
     },
   ];
   window.__TAURI_INTERNALS__ = {
@@ -243,6 +274,19 @@ async def main() -> int:
             failures.append(label)
             print(f"FAIL - {label}", file=sys.stderr)
 
+    async def settle() -> None:
+        """截图前静置 400ms:等入场动画(animate-fade-in,--duration-fast=120ms)
+        落定。10-15 云评审 site 图「主区整片空黑」实为动画零点透明被捕进图的
+        时序伪影(条目 DOM 在场、像素不可见,像素级复核坐实),截图前统一
+        静置杜绝复发。"""
+        await page.wait_for_timeout(400)
+
+    async def snap(path: str) -> None:
+        """settle + 截图 + 回显(全屏 full_page 口径统一)。"""
+        await settle()
+        await page.screenshot(path=path, full_page=True)
+        print(f"screenshot: {path}")
+
     browser = None
     try:
         async with async_playwright() as p:
@@ -281,15 +325,14 @@ async def main() -> int:
                          "feed-breadcrumb", "feed-channel-wall", "feed-waterfall", "feed-back-to-wall",
                          "feed-overview", "feed-overview-stats", "feed-back-to-overview", "feed-search-scope"):
                 expect(f"旧面退场:{gone}", (await page.locator(f'[data-testid="{gone}"]').count()) == 0)
-            await page.screenshot(path="/tmp/myssia-feed-card-smoke-l1.png", full_page=True)
-            print("screenshot: /tmp/myssia-feed-card-smoke-l1.png")
+            await snap("/tmp/myssia-feed-card-smoke-l1.png")
 
             # ═══ 1 级搜索「Tg」:TG 类型卡独显(别名前缀命中)═══
             type_search = page.get_by_label("搜索类型")
             await type_search.fill("Tg")
             await page.wait_for_selector('[data-testid="feed-type-card-tg"]', timeout=10_000)
             expect("搜 Tg:TG 类型卡独显", (await site_card.count()) == 0 and (await daily_card.count()) == 0)
-            await page.screenshot(path="/tmp/myssia-feed-card-smoke-l1-search.png", full_page=True)
+            await snap("/tmp/myssia-feed-card-smoke-l1-search.png")
             await type_search.press("Escape")
             await page.wait_for_selector('[data-testid="feed-type-card-site"]', timeout=10_000)
             expect("清空搜索恢复全量", True)
@@ -319,8 +362,7 @@ async def main() -> int:
                 "行内未读徽标(未读 >0)",
                 (await tg_row.get_attribute("data-unread")) == "true",
             )
-            await page.screenshot(path="/tmp/myssia-feed-card-smoke-l2.png", full_page=True)
-            print("screenshot: /tmp/myssia-feed-card-smoke-l2.png")
+            await snap("/tmp/myssia-feed-card-smoke-l2.png")
 
             # ═══ 点行 = 3 级渠道详情(TG:监控台 + 聊天时间线)═══
             await tg_row.click()
@@ -374,7 +416,7 @@ async def main() -> int:
                 "渠道内检索框在场(§4.3)",
                 (await page.get_by_label("渠道内检索").count()) == 1,
             )
-            await page.screenshot(path="/tmp/myssia-feed-card-smoke-l3.png", full_page=True)
+            await snap("/tmp/myssia-feed-card-smoke-l3.png")
 
             # ═══ 裸 j + Enter = 条目详情弹窗;Esc 关(v8 三层单环,Shift 层退役)═══
             # 点击行后焦点在行根(DIV),键盘守卫放行;真浏览器标题钮居中点击会被
@@ -391,6 +433,9 @@ async def main() -> int:
                 "详情弹窗标题(TG 消息)",
                 "Clash Party" in ((await page.locator('[data-testid="feed-detail-title"]').text_content()) or ""),
             )
+            # 10-15 补证:弹窗开着截一张(动作簇底栏分界 feed-screen.tsx:1907
+            # border-t 全强度本批改动,此前冒烟零弹窗截图 → 云评审「零覆盖」)
+            await snap("/tmp/myssia-feed-card-smoke-dialog.png")
             # Esc 走 dialog 元素本尊(locator.press 先聚焦再派发):dialog 基件的
             # 关闭线挂 overlay onKeyDown(事件冒泡),初始聚焦是 rAF 异步落——
             # 若打给 body 级 keyboard.press,无头下 rAF 节流时事件路径不过
@@ -435,7 +480,7 @@ async def main() -> int:
                 "TG 气泡不混入",
                 (await page.locator('[data-testid="feed-tg-bubble-1"]').count()) == 0,
             )
-            await page.screenshot(path="/tmp/myssia-feed-card-smoke-site.png", full_page=True)
+            await snap("/tmp/myssia-feed-card-smoke-site.png")
             await page.locator('[data-testid="feed-back-to-channels"]').click()
             await page.wait_for_selector('[data-testid="feed-channel-list"]', timeout=10_000)
             expect("返回钮 3→2(行高亮退场 = 本级无持久选中)",
@@ -444,8 +489,22 @@ async def main() -> int:
             await page.wait_for_selector('[data-testid="feed-types-wall"]', timeout=10_000)
             expect("返回钮 2→1(类型卡墙回归)", True)
 
-            await page.screenshot(path="/tmp/myssia-feed-card-smoke.png", full_page=True)
-            print("screenshot: /tmp/myssia-feed-card-smoke.png")
+            # ═══ 零条目渠道空态(10-15 云评审补证:无条目主区有占位不残缺;
+            #     日报类型卡 → daily-digest 零条目行 → 3 级空态卡)═══
+            await page.locator('[data-testid="feed-type-card-daily"]').click()
+            await page.wait_for_selector('[data-testid="feed-channel-row-daily-digest"]', timeout=10_000)
+            await page.locator('[data-testid="feed-channel-row-daily-digest"]').click()
+            await page.wait_for_selector('[data-testid="feed-channel-empty"]', timeout=10_000)
+            expect("零条目渠道 = 空态卡(feed-channel-empty)", True)
+            expect(
+                "空态卡回流动线(「返回渠道列表」钮在场)",
+                "返回渠道列表" in (
+                    (await page.locator('[data-testid="feed-channel-empty"]').text_content()) or ""
+                ),
+            )
+            await snap("/tmp/myssia-feed-card-smoke-empty.png")
+
+            await snap("/tmp/myssia-feed-card-smoke.png")
     except Exception as exc:  # noqa: BLE001 - 冒烟异常如实报
         failures.append(f"异常: {exc}")
         print(f"SMOKE ERROR: {exc}", file=sys.stderr)

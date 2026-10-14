@@ -1904,7 +1904,7 @@ function FeedItemDetail({
             👍👎 反馈 / 复制链接 / 星标 / 稍后读 / 已读切换;整屏化后常驻
             底栏(flex-none),不随正文滚走 */}
         <div
-          className="flex flex-none flex-wrap items-center gap-1.5 border-t border-border/60 px-6 py-3"
+          className="flex flex-none flex-wrap items-center gap-1.5 border-t border-border px-6 py-3"
           data-testid="feed-detail-actions"
         >
           <FeedCardFeedback item={item} />
@@ -4527,7 +4527,7 @@ export function FeedScreen() {
           {/* 左栏:监控会话列表(TG/微信聊天列表行 = 渠道名/最近消息预览/相对
               时间/未读徽标;选中态 bg-accent 高亮;w-72 固定宽内部自滚,flex-1
               右栏弹性占满。10-12:微信共用双栏,data-im-kind 标 IM 档供区分,
-              testid feed-tg-group-* 为结构词不动) */}
+              testid feed-tg-group-* 为结构词不动;10-15 VL 分界弱:border/60 升全强度,对齐铬层分界惯例) */}
           {chatView ? (
             <aside
               data-testid="feed-tg-group-pane"
@@ -4536,7 +4536,7 @@ export function FeedScreen() {
               /* ⑦ 极窄窗口响应式隐藏:lg(1024px,仓内 tailwind 惯例宽度档,
                   dashboard 网格同门)起显示;之下整栏让位,右栏 flex-1 自适应
                   占满(桌面 app 常态宽度远在 lg 上,此栏只在极限收窄时退场)。 */
-              className="hidden w-72 shrink-0 flex-col border-r border-border/60 lg:flex"
+              className="hidden w-72 shrink-0 flex-col border-r border-border lg:flex"
             >
               {/* ④ 顶栏等高:与右栏聊天头同 py-2.5 + min-h-11 —— 两栏顶栏
                   内容高不同(text-xs vs text-base+h-6 钮),仅统一 py 不等高,
@@ -5458,8 +5458,8 @@ export function FeedScreen() {
               )
             ) : (
               /* ═══ 网站/日报渠道条目流(§3.1):单列纵向列表(Kestra 行密度),
-                  内容卡直出;点击卡片 = 详情弹窗 ═══ */
-              <div className="mx-auto flex w-full max-w-[820px] flex-col gap-1.5" data-testid="feed-stream-list">
+                  内容卡直出;点击卡片 = 详情弹窗;列宽 820→900(10-15 主人令 VL「主区留白空旷」:宽主区居中单列两侧死边收窄,居中列形不破) ═══ */
+              <div className="mx-auto flex w-full max-w-[900px] flex-col gap-1.5" data-testid="feed-stream-list">
                 {displayItems.map((entry) => renderCard(entry))}
               </div>
             )}
