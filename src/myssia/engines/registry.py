@@ -168,7 +168,7 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # (10-14-wechat-notify-revoke):轮询水位通知扫描+撤回检测,词表本体
     # 在引擎 CHANNELS 常量)→ #wx- 内容哈希锚条目(sidecar 只是 UI 探针/
     # 浏览面,cron 档 sidecar 不在场,不经 IPC)。
-    "wechat_local": lambda: _load("wechat_local", "WechatLocalEngine"),
+    "wechat_local": lambda: getattr(import_module("myssia.wechat.engine"), "WechatLocalEngine"),
     "feishu": lambda: _load("feishu", "FeishuEngine"),
 }
 

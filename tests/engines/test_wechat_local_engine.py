@@ -43,7 +43,7 @@ from urllib.parse import quote
 import httpx
 import pytest
 
-import myssia.engines.wechat_local as wx_engine
+import myssia.wechat.engine as wx_engine
 from myssia import schema
 from myssia.engines.fetch_base import FetchContext, FetchError
 from myssia.engines.registry import (
@@ -52,7 +52,7 @@ from myssia.engines.registry import (
     auto_degrade,
     resolve_engine,
 )
-from myssia.engines.wechat_local import WechatLocalEngine, anchor_url
+from myssia.wechat.engine import WechatLocalEngine, anchor_url
 from myssia.schema import load_category_file
 
 from conftest import make_client, make_context, make_source, run

@@ -4,7 +4,7 @@
 锚 #wxn-/#wxnr- 强幂等(重读同锚沉默)/水位 kv 读写(仅成功轮回写)/
 key_unavailable 结构化 skip/sessions 空清单拒/交叉键拒/条目 metadata 平铺。
 
-实现件在 :mod:`myssia.engines.wechat_local_notify`(新文件);通道词表与
+实现件在 :mod:`myssia.wechat.notify`(新文件);通道词表与
 _fetch_impl 分发接线在引擎本体(集成统一落笔,integrationSpec)——本文件
 直调实现件,接线落地后零改动继续有效。零真机零真桥
 (bin_path/run_bridge_command_sync 全 monkeypatch;fixture 全合成)。
@@ -19,11 +19,11 @@ from typing import Any
 import httpx
 import pytest
 
-import myssia.engines.wechat_local as wx_engine
-import myssia.engines.wechat_local_notify as wx_notify
+import myssia.wechat.engine as wx_engine
+import myssia.wechat.notify as wx_notify
 from myssia.engines.fetch_base import FetchError
-from myssia.engines.wechat_local import WechatLocalEngine
-from myssia.engines.wechat_local_notify import (
+from myssia.wechat.engine import WechatLocalEngine
+from myssia.wechat.notify import (
     notify_anchor,
     revoke_anchor,
     validate_options,
