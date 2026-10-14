@@ -89,6 +89,7 @@ class TestKeyStatusThreeStates:
             "state": "missing",
             "db_count": 0,
             "acquired_at": None,
+            "source": None,
             "wechat_version": "4.1.15",
             "verdict_note": "密钥缓存缺位",
         }
@@ -102,7 +103,8 @@ class TestKeyStatusThreeStates:
         )["key_status"]
         assert status["state"] == "ready"
         assert status["db_count"] == 1
-        assert status["verdict_note"] == "抽样 1 库验真通过"
+        assert status["verdict_note"] == "抽样 1 库验真通过(源 file)"
+        assert status["source"] == "file"  # 未迁移态:唯一在场源 = 文件
         # acquired_at = keys.json mtime(ISO 本地时,秒精度)。
         mtime_iso = localdb._iso_local_mtime(
             localdb.key_cache_path(data_root=tmp_path / "home")
@@ -123,7 +125,7 @@ class TestKeyStatusThreeStates:
         )["key_status"]
         assert status["state"] == "stale"
         assert status["db_count"] == 1
-        assert status["verdict_note"] == "抽样验真失败:0/1"
+        assert status["verdict_note"] == "抽样验真失败:file源 0/1"
         assert status["wechat_version"] is None  # 拿不到 = None 如实
 
     def test_empty_and_broken_cache_are_missing(
@@ -166,7 +168,7 @@ class TestKeyStatusThreeStates:
         )["key_status"]
         assert status["state"] == "stale"
         assert status["db_count"] == 5
-        assert status["verdict_note"] == "抽样验真失败:2/3"
+        assert status["verdict_note"] == "抽样验真失败:file源 2/3"
         assert KEY_STATUS_SAMPLE_MAX == 3
 
 

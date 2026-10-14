@@ -32,6 +32,17 @@ E2 解密副本(G5 生命周期):
   **0.4.4 源新即重建**:源库(含 ``-wal``)mtime 比副本新 = 缓存失效
   (微信持续写库,TTL 内的新消息也要可见——近实时监控的正确性前提)。
 
+密钥钥匙串化(task 10-14-wechat-keys-keychain;主人令 2026-10-14:
+密钥是保密数据,本地保存应加密):
+
+- 读取两级化:macOS 钥匙串条目 ``myia/wechat/db-keys``(:mod:`.keychain`
+  最小通道,值 = 完整 keys.json 的 JSON 外壳)优先;文件 keys.json 兜底
+  (兼容);两者都无 = 现既有空态。:func:`keys_migrate` /
+  :func:`keys_unmigrate` 是容器迁移对(文件↔钥匙串,验真门照跑,断电安全:
+  先写钥匙串并回读验证成功才动文件)。
+- ``acquired_at`` 语义:钥匙串条目无 mtime,取外壳 ``migrated_at`` 字段
+  (写入即刷新,key-status 不谎;文件源仍是文件 mtime,零漂移)。
+
 外部取钥器(B3,task 10-13-wechat-keyprovider;协议 v1 +
 v1.1 扩展 = docs/wechat-keyprovider.md):
 
@@ -83,8 +94,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
-from . import system_checks
-from .codes import DECRYPT_FAILED, DB_NOT_FOUND, KEY_UNAVAILABLE, BridgeError
+from . import keychain, system_checks
+from .codes import DECRYPT_FAILED, DB_NOT_FOUND, EXIT_GENERIC_FAILURE, KEY_UNAVAILABLE, BridgeError
 from .config import LOCALDB_KEYS_REL_PATH, myssia_home
 from .system_checks import WECHAT_FILES_ROOT
 
@@ -116,7 +127,11 @@ __all__ = [
     "clear_cancel_sentinel",
     "key_status",
     "key_acquire",
+    "keys_migrate",
+    "keys_unmigrate",
     "resolve_keys",
+    "read_db_keys_from_keychain",
+    "keychain_available_guarded",
     "key_cache_path",
     "write_key_cache",
     "read_key_cache",
@@ -524,7 +539,42 @@ def _restore_owner_for_sudo(path: Path) -> None:
 
 
 def write_key_cache(mapping: dict[str, str], *, data_root: Path | None = None) -> Path:
-    """写密钥缓存(仅验证通过的 key;600 权限;目录 700;sudo 下属主归还)。"""
+    """写密钥缓存(仅验证通过的 key;600 权限;目录 700;sudo 下属主归还)。
+
+    钥匙串化(task 10-14-wechat-keys-keychain):**迁移态**(钥匙串条目
+    ``myia/wechat/db-keys`` 已在场)下落点改为刷新钥匙串条目(外壳随写刷新
+    migrated_at),明文件不再重建——密钥轮换后明文不回流(主人令:本地保存
+    应加密);返回值仍是规范文件路径(缓存落点标识,消费方报告零改面)。
+    钥匙串写失败(锁死等)= 回落明文件(可用性优先;之后 ``keys-migrate``
+    归拢)。root 会话(euid==0)触不到用户钥匙串,同样回落明文件(判例同
+    :func:`_restore_owner_for_sudo` 的 sudo 形态)。
+    """
+    path = key_cache_path(data_root)
+    if os.geteuid() != 0 and keychain_available_guarded():
+        try:
+            existing = keychain.read_item(keychain.DB_KEYS_ACCOUNT)
+        except BridgeError:
+            existing = None  # 探测失败按未迁移处理:落明文件,keys-migrate 可后补归拢
+        if existing is not None:
+            try:
+                keychain.write_item(
+                    keychain.DB_KEYS_ACCOUNT,
+                    keychain.build_db_keys_envelope(mapping),
+                )
+                return path
+            except BridgeError:
+                pass  # 回落明文件(可用性;docstring 已述)
+    _write_key_cache_file(mapping, data_root=data_root)
+    return path
+
+
+def keychain_available_guarded() -> bool:
+    """钥匙串通道在场性(:mod:`.keychain` 薄封装;测试可整体关闸的接缝)。"""
+    return keychain.keychain_available()
+
+
+def _write_key_cache_file(mapping: dict[str, str], *, data_root: Path | None = None) -> Path:
+    """明文件落盘(原 write_key_cache 本体;600/目录 700/sudo 属主归还)。"""
     import json
 
     path = key_cache_path(data_root)
@@ -551,6 +601,29 @@ def read_key_cache(*, data_root: Path | None = None) -> dict[str, str] | None:
     if not isinstance(raw, dict) or not raw:
         return None
     return {str(k): str(v) for k, v in raw.items()}
+
+
+def read_db_keys_from_keychain(
+    notes: list[str] | None = None,
+) -> tuple[dict[str, str] | None, str | None]:
+    """读钥匙串 db-keys 条目 → ``(映射, migrated_at)``。
+
+    缺席/通道不可用/坏形状 = ``(None, None)``(「源缺席」语义,兜底链照走);
+    读失败(锁死等)如实入 ``notes``(排查者不被静默带偏)。值永不入
+    notes/异常消息(红线 6)。
+    """
+    try:
+        raw = keychain.read_item(keychain.DB_KEYS_ACCOUNT)
+    except BridgeError as exc:
+        if notes is not None:
+            notes.append(f"钥匙串条目读取失败({exc.message})")
+        return None, None
+    if raw is None:
+        return None, None
+    mapping, migrated_at = keychain.parse_db_keys_envelope(raw)
+    if mapping is None and notes is not None:
+        notes.append("钥匙串条目在场但值形状不可解析(弃,不硬配)")
+    return mapping, migrated_at
 
 
 # =====================================================================
@@ -992,62 +1065,92 @@ def key_status(
     """密钥缓存三态真源(``localdb key-status``;design §A.1,恒不抛错)。
 
     三态判据(探针的零成本判据只看文件在场,钥匙失配时会说谎——本命令
-    自带抽样重验,与 :func:`write_key_cache` 消费前重验同一验真器):
+    自带抽样重验,与 :func:`write_key_cache` 消费前重验同一验真器),源
+    选择镜像 :func:`resolve_keys` 消费序(钥匙串优先、文件兜底——首个
+    抽样通过的源即如实态,不谎报):
 
-    - ``missing``:keys.json 缺位 / 空 dict / 解析失败 →「密钥缓存缺位」;
-    - ``stale``:在场,抽样(mapping 前中后各 1,≤3 把)页 1 HMAC 有一把
-      不过 →「抽样验真失败:N/M」(微信版本变化/换号后失配的如实态);
-    - ``ready``:在场 + 抽样全过 →「抽样 N 库验真通过」。
+    - ``missing``:钥匙串条目与 keys.json 文件双双缺位 →「密钥缓存缺位」;
+    - ``stale``:在场源的抽样(mapping 前中后各 1,≤3 把)页 1 HMAC 有一把
+      不过、且无更低优先源补救 →「抽样验真失败」(微信版本变化/换号后
+      失配的如实态);
+    - ``ready``:某源抽样全过 →「抽样 N 库验真通过」。
 
-    ``db_count`` = mapping 键数(missing=0);``acquired_at`` = keys.json
-    **文件 mtime** ISO 本地时(零格式变更,cache 不加元数据键——「键=库
-    相对路径」消费方零破坏);``wechat_version`` = 探针同源
-    (:func:`wechat_bridge.system_checks.wechat_version`,拿不到 = None)。
-    钥内容永不出现(计数/时间戳 = 形状级证据,红线 6)。库根不可定位时
-    全部抽样按未过计(stale + 注记),不判错——三态查询不制造第四态。
+    ``db_count`` = 生效源 mapping 键数(missing=0);``acquired_at`` =
+    生效源写入时间 ISO 本地时(钥匙串源 = 外壳 ``migrated_at``,条目无
+    mtime;文件源 = 文件 mtime——零漂移);``source`` = ``"keychain"`` |
+    ``"file"`` | None(10-14-wechat-keys-keychain 增补);``wechat_version``
+    = 探针同源(:func:`wechat_bridge.system_checks.wechat_version`,拿不到
+    = None)。钥内容永不出现(计数/时间戳 = 形状级证据,红线 6)。库根
+    不可定位时全部抽样按未过计(stale + 注记),不判错——三态查询不
+    制造第四态。
 
     Returns:
-        ``{"key_status": {state, db_count, acquired_at, wechat_version,
+        ``{"key_status": {state, db_count, acquired_at, source, wechat_version,
         verdict_note}}``(恒正常应答,exit 0 由 CLI 层兜)。
     """
     version_fn = version_of if version_of is not None else system_checks.wechat_version
     wechat_version_value = version_fn()
-    mapping = read_key_cache(data_root=data_root)
-    if mapping is None:
+    kc_mapping, kc_migrated_at = read_db_keys_from_keychain()
+    file_mapping = read_key_cache(data_root=data_root)
+    candidates: list[tuple[str, dict[str, str], str | None]] = []
+    if kc_mapping is not None:
+        candidates.append(("keychain", kc_mapping, kc_migrated_at))
+    if file_mapping is not None:
+        candidates.append(
+            ("file", file_mapping, _iso_local_mtime(key_cache_path(data_root)))
+        )
+    if not candidates:
         return {
             "key_status": {
                 "state": "missing",
                 "db_count": 0,
                 "acquired_at": None,
+                "source": None,
                 "wechat_version": wechat_version_value,
                 "verdict_note": "密钥缓存缺位",
             }
         }
-    acquired_at = _iso_local_mtime(key_cache_path(data_root))
-    sample = _sample_rels(mapping)
     unlocatable: BridgeError | None = None
-    passed = 0
     try:
         db_storage = locate_db_storage(files_root=files_root)
     except BridgeError as exc:
         db_storage = None
         unlocatable = exc
-    if db_storage is not None:
-        for rel in sample:
-            if _verify_cached_entry(db_storage, rel, mapping[rel]):
-                passed += 1
-    if passed == len(sample):
-        state, note = "ready", f"抽样 {len(sample)} 库验真通过"
-    else:
-        state = "stale"
-        note = f"抽样验真失败:{passed}/{len(sample)}"
-        if unlocatable is not None:
-            note += "(库根不可定位,全部按未过计)"
+
+    def _sample_pass(mapping: dict[str, str]) -> tuple[bool, int, int]:
+        sample = _sample_rels(mapping)
+        passed = 0
+        if db_storage is not None:
+            for rel in sample:
+                if _verify_cached_entry(db_storage, rel, mapping[rel]):
+                    passed += 1
+        return passed == len(sample), passed, len(sample)
+
+    failures: list[str] = []
+    for source, mapping, acquired_at in candidates:
+        ok, passed, total = _sample_pass(mapping)
+        if ok:
+            return {
+                "key_status": {
+                    "state": "ready",
+                    "db_count": len(mapping),
+                    "acquired_at": acquired_at,
+                    "source": source,
+                    "wechat_version": wechat_version_value,
+                    "verdict_note": f"抽样 {total} 库验真通过(源 {source})",
+                }
+            }
+        failures.append(f"{source}源 {passed}/{total}")
+    source, mapping, acquired_at = candidates[0]
+    note = f"抽样验真失败:{'; '.join(failures)}"
+    if unlocatable is not None:
+        note += "(库根不可定位,全部按未过计)"
     return {
         "key_status": {
-            "state": state,
+            "state": "stale",
             "db_count": len(mapping),
             "acquired_at": acquired_at,
+            "source": source,
             "wechat_version": wechat_version_value,
             "verdict_note": note,
         }
@@ -1191,6 +1294,171 @@ def key_acquire(
     }
 
 
+def _migration_ts() -> str:
+    """迁移备份文件名时间戳(判例 = channel_directory.json.bak-YYYYmmdd-HHMMSS)。"""
+    return time.strftime("%Y%m%d-%H%M%S")
+
+
+def keys_migrate(
+    *,
+    data_root: Path | None = None,
+    files_root: Path | None = None,
+    targets: list[tuple[str, int, bytes]] | None = None,
+) -> dict[str, object]:
+    """文件密钥 → 钥匙串迁移(``localdb keys-migrate``;断电安全,不删明文)。
+
+    全链(原子性:先写钥匙串验证成功,才动文件;任何一步失败保持原状):
+    ① 读文件 keys.json(缺位 = exit 21「无物可迁」);② HMAC 验真门
+    (:func:`verify_key_mapping` 全量命中才放行——与查询消费同一验真器,
+    假钥匙进不了钥匙串);③ 写钥匙串条目 ``myia/wechat/db-keys``(JSON
+    外壳 migrated_at 随写刷新;旧值先备底,回读不一致时回滚恢复);④
+    **回读逐字节验证**(条目值 == 外壳原文且材料映射 == 原映射);⑤ 文件
+    改名 ``keys.json.migrated-<ts>`` **保留**(断电安全,不删;重跑幂等)。
+
+    Returns:
+        ``{"keys_migrate": {db_count, migrated_at, keychain_account, file_renamed,
+        verified, message}}``(形状级回执,钥内容永不出现——红线 6)。
+
+    Raises:
+        BridgeError: exit 21(文件缺位/验真未闭合)、exit 1(钥匙串通道
+        不可用/回读不一致(已回滚)/文件改名失败)。
+    """
+    mapping = read_key_cache(data_root=data_root)
+    if mapping is None:
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            "文件密钥缓存缺位,无物可迁",
+            fix_hint=(
+                "先 localdb key-acquire / key-scan 取钥,或放置 keys.json"
+                "(数据根私有区,600)后再迁"
+            ),
+        )
+    db_storage = locate_db_storage(files_root=files_root)
+    page_targets = targets if targets is not None else page1_targets(db_storage)
+    verified = verify_key_mapping(db_storage, mapping, targets=page_targets)
+    if not page_targets or len(verified) != len(page_targets):
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            "文件密钥未全量验真:"
+            f"命中 {len(verified)}/{len(page_targets)}库,拒绝迁移(宁缺毋假)",
+            fix_hint="重取密钥后重试(keys.json 与库不匹配,登录态轮换后旧钥失效)",
+        )
+    if not keychain_available_guarded():
+        raise BridgeError(
+            EXIT_GENERIC_FAILURE,
+            "本机无钥匙串通道(须 macOS + security CLI),无法迁移",
+            code="keychain_backend_unavailable",
+        )
+    old_raw = keychain.read_item(keychain.DB_KEYS_ACCOUNT)
+    envelope = keychain.build_db_keys_envelope(mapping)
+    keychain.write_item(keychain.DB_KEYS_ACCOUNT, envelope)
+    read_raw = keychain.read_item(keychain.DB_KEYS_ACCOUNT)
+    read_mapping, migrated_at = (
+        (None, None) if read_raw is None else keychain.parse_db_keys_envelope(read_raw)
+    )
+    if read_raw != envelope or read_mapping != mapping:
+        # 回滚:恢复迁移前原值(原缺席 = 删;原在场 = 原样回写),文件未动。
+        rollback_error: str | None = None
+        try:
+            if old_raw is None:
+                keychain.delete_item(keychain.DB_KEYS_ACCOUNT)
+            else:
+                keychain.write_item(keychain.DB_KEYS_ACCOUNT, old_raw)
+        except BridgeError as exc:
+            rollback_error = exc.message
+        detail = "钥匙串条目已尽力回滚恢复原状" if rollback_error is None else (
+            f"钥匙串回滚失败(条目可能停留在新值): {rollback_error}"
+        )
+        raise BridgeError(
+            EXIT_GENERIC_FAILURE,
+            "钥匙串回读验证不一致(材料映射不等),迁移中止;"
+            f"{detail};文件未动",
+            code="keychain_migration_failed",
+            fix_hint="钥匙串状态异常(锁死/损坏);钥匙串访问.app 检查后重试",
+        )
+    path = key_cache_path(data_root)
+    backup = path.with_name(f"{path.name}.migrated-{_migration_ts()}")
+    try:
+        os.replace(path, backup)
+    except OSError as exc:
+        raise BridgeError(
+            EXIT_GENERIC_FAILURE,
+            f"明文件改名失败({type(exc).__name__}):钥匙串已迁入且回读验证通过,"
+            "明文件保持原位;修复后重跑(幂等)",
+            code="keychain_migration_failed",
+        ) from exc
+    return {
+        "keys_migrate": {
+            "db_count": len(mapping),
+            "migrated_at": migrated_at,
+            "keychain_account": keychain.DB_KEYS_ACCOUNT,
+            "file_renamed": backup.name,
+            "verified": True,
+            "message": (
+                f"已迁入钥匙串 {keychain.DB_KEYS_ACCOUNT}({len(mapping)} 钥,"
+                "回读逐字节验证通过);明文件改名保留: "
+                f"{backup.name}(消费序 = 钥匙串优先、文件兜底)"
+            ),
+        }
+    }
+
+
+def keys_unmigrate(*, data_root: Path | None = None) -> dict[str, object]:
+    """钥匙串 → 文件密钥回退(``localdb keys-unmigrate``;容器迁移,不验真门)。
+
+    读钥匙串条目 → 明文件落盘(:func:`_write_key_cache_file`,600/目录 700
+    ——消费侧 :func:`resolve_keys` 的 HMAC 验真门照跑,此处不重复设门)→
+    回读一致才删条目(删失败如实呈态:双源并存同值,钥匙串仍优先)。
+
+    Returns:
+        ``{"keys_unmigrate": {db_count, file, migrated_at, keychain_entry_deleted,
+        message}}``(形状级回执)。
+
+    Raises:
+        BridgeError: exit 21(条目缺位/通道不可用)、exit 1(形状不可解析/
+        文件回读不一致)。
+    """
+    raw = keychain.read_item(keychain.DB_KEYS_ACCOUNT)
+    if raw is None:
+        raise BridgeError(
+            KEY_UNAVAILABLE,
+            "钥匙串条目缺位(或本机无钥匙串通道),无可回退",
+            fix_hint=f"须先 localdb keys-migrate 建立条目 {keychain.DB_KEYS_ACCOUNT}",
+        )
+    mapping, migrated_at = keychain.parse_db_keys_envelope(raw)
+    if mapping is None:
+        raise BridgeError(
+            EXIT_GENERIC_FAILURE,
+            "钥匙串条目值形状不可解析,拒绝回退(宁缺毋假)",
+            code="keychain_migration_failed",
+        )
+    path = _write_key_cache_file(mapping, data_root=data_root)
+    if read_key_cache(data_root=data_root) != mapping:
+        raise BridgeError(
+            EXIT_GENERIC_FAILURE,
+            "回退明文件回读不一致(钥匙串条目保留未删)",
+            code="keychain_migration_failed",
+        )
+    deleted: bool
+    try:
+        deleted = keychain.delete_item(keychain.DB_KEYS_ACCOUNT)
+    except BridgeError:
+        deleted = False  # 删失败不毁整轮:双源并存同值(钥匙串仍优先),回执如实
+    return {
+        "keys_unmigrate": {
+            "db_count": len(mapping),
+            "file": str(path),
+            "migrated_at": migrated_at,
+            "keychain_entry_deleted": deleted,
+            "message": (
+                f"已回退为明文件: {path}({len(mapping)} 钥,600);"
+                + ("钥匙串条目已删" if deleted else
+                   "钥匙串条目删除失败(双源并存同值,钥匙串仍优先;可手动删)")
+            ),
+        }
+    }
+
+
 def resolve_keys(
     db_storage: Path,
     *,
@@ -1202,21 +1470,22 @@ def resolve_keys(
 ) -> dict[str, str]:
     """密钥解析全链(D4 裁决②「外部密钥引入即闭合」的消费通路;query 入口)。
 
-    顺序:① ``keys.json``(缓存与外部供给同位:既可能是组件全量验证后的
-    落盘,也可能是主人以任意可行手段提供的 all_keys.json 类产物)经
-    :func:`verify_key_mapping` 逐条 HMAC 重验,全量命中即放行——主人按
-    指引放置密钥产物后查询**一步闭合,无须再改代码**;② **外部取钥器**
-    (B3,task 10-13-wechat-keyprovider):``key_provider_path`` 已配置时
-    :func:`acquire_keys_from_provider` 按协议 spawn 取钥——已配置 = 首选
-    取钥路(先于一切内置途径),**失败即 exit 21 不降级**(协议 §1「无
-    降级」:绝不静默回退任何内置取钥实现,含下列钩子);③ 自愈钩子
+    顺序:① **macOS 钥匙串条目** ``myia/wechat/db-keys``(task
+    10-14-wechat-keys-keychain;迁移态首选源,值 = keys.json 的 JSON 外壳)
+    逐条 HMAC 重验,全量命中即放行;② ``keys.json`` 文件(缓存与外部供给
+    同位:既可能是组件全量验证后的落盘,也可能是主人以任意可行手段提供的
+    all_keys.json 类产物)同门重验——钥匙串未闭合/未迁移时文件兜底(兼容);
+    ③ **外部取钥器**(B3,task 10-13-wechat-keyprovider):``key_provider_path``
+    已配置时 :func:`acquire_keys_from_provider` 按协议 spawn 取钥——已配置 =
+    首选取钥路(先于一切内置途径),**失败即 exit 21 不降级**(协议 §1「无
+    降级」:绝不静默回退任何内置取钥实现,含下列钩子);④ 自愈钩子
     (0.4.0,task 10-13-wechat-key-subsystem):缓存缺位/未闭合且
     ``mem_search_enabled`` 开 + setuid keyscanner 在位时,零人工重取
     (:func:`wechat_bridge.memsearch.try_self_heal`,全量命中才落缓存;
     0.4.1 失败退避:未闭合落冷却戳,30 分钟窗内不重扫、零内存读);
-    ④ 回落 E1 零内存途径(:func:`acquire_key`,当前如实负结论出口)。
-    ①③④未闭合会如实并入 exit 21 消息(放了 keys.json 却被弃的排查者
-    不再被零内存措辞带偏);②③冷却中同样如实注记(不谎称重取过);
+    ⑤ 回落 E1 零内存途径(:func:`acquire_key`,当前如实负结论出口)。
+    ①②④⑤未闭合会如实并入 exit 21 消息(放了钥匙串/keys.json 却被弃的
+    排查者不再被零内存措辞带偏);③④冷却中同样如实注记(不谎称重取过);
     未配置取钥器时最终 exit 21 消息并入法定文案
     :data:`PROVIDER_UNCONFIGURED_MESSAGE`(协议 §8——用户知道 remedy 在哪)。
 
@@ -1227,11 +1496,22 @@ def resolve_keys(
         BridgeError: exit 21(各源都未闭合;消息只承载形状,绝无材料)。
     """
     notes: list[str] = []
+    staged_targets = targets if targets is not None else page1_targets(db_storage)
+    # —— ① 钥匙串条目(迁移态首选源;缺席/未闭合 = 落到文件兜底)——
+    staged, _stamp = read_db_keys_from_keychain(notes)
+    if staged is not None:
+        verified = verify_key_mapping(db_storage, staged, targets=staged_targets)
+        if staged_targets and len(verified) == len(staged_targets):
+            return verified
+        notes.append(
+            f"钥匙串条目在场({len(staged)}条)但全量验证未闭合:"
+            f"命中 {len(verified)}/{len(staged_targets) if staged_targets else 0}库"
+        )
+    # —— ② 文件 keys.json(缓存与外部供给同位)——
     staged = read_key_cache(data_root=data_root)
     if staged is not None:
-        targets = targets if targets is not None else page1_targets(db_storage)
-        verified = verify_key_mapping(db_storage, staged, targets=targets)
-        if targets and len(verified) == len(targets):
+        verified = verify_key_mapping(db_storage, staged, targets=staged_targets)
+        if staged_targets and len(verified) == len(staged_targets):
             try:  # 主人自放产物权限规整到 600(design §5.3;失败不拦查询)
                 os.chmod(key_cache_path(data_root=data_root), 0o600)
             except OSError:
@@ -1239,15 +1519,15 @@ def resolve_keys(
             return verified
         notes.append(
             f"keys.json 在场({len(staged)}条)但全量验证未闭合:"
-            f"命中 {len(verified)}/{len(targets) if targets else 0}库"
+            f"命中 {len(verified)}/{len(staged_targets) if staged_targets else 0}库"
         )
-    # —— 外部取钥器(B3;已配置 = 首选取钥路,先于内置自愈/零内存;失败
+    # —— ③ 外部取钥器(B3;已配置 = 首选取钥路,先于内置自愈/零内存;失败
     # 即 exit 21 不降级——协议 §1:绝不静默回退内置取钥实现)——
     provider_path = _configured_provider_path(config)
     if provider_path:
         try:
             return acquire_keys_from_provider(
-                db_storage, provider_path, targets=targets, data_root=data_root
+                db_storage, provider_path, targets=staged_targets, data_root=data_root
             )
         except BridgeError as exc:
             if not notes:
@@ -1257,7 +1537,7 @@ def resolve_keys(
                 f"{exc.message};另有:{'; '.join(notes)}",
                 fix_hint=exc.fix_hint,
             ) from exc
-    # —— 自愈钩子(setuid keyscanner + 配置门开 → 零人工重取;未武装 = 保持现状;
+    # —— ④ 自愈钩子(setuid keyscanner + 配置门开 → 零人工重取;未武装 = 保持现状;
     # 0.4.1 失败退避:未闭合落冷却戳,窗内不重扫、零内存读——不可闭合态
     # 不再逐次 query 重读微信全进程内存;冷却注记如实,不谎称重取过)——
     from . import memsearch  # 延迟导入:memsearch 顶导本模块,防循环
@@ -1272,14 +1552,14 @@ def resolve_keys(
             )
         else:
             healed = memsearch.try_self_heal(
-                db_storage, config=config, targets=targets, data_root=data_root
+                db_storage, config=config, targets=staged_targets, data_root=data_root
             )
             if healed is not None:
                 return healed
             notes.append("keyscanner 自愈未闭合(重取后缓存仍未全量命中)")
     try:
         return acquire_key(
-            db_storage, files_root=files_root, key_db=key_db, targets=targets
+            db_storage, files_root=files_root, key_db=key_db, targets=staged_targets
         )
     except BridgeError as exc:
         detail = (

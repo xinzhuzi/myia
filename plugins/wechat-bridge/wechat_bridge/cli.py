@@ -27,6 +27,7 @@
     wechat-bridge localdb revoke-list <chat> --since Nd
     wechat-bridge localdb serve [--host H] [--port P]
     wechat-bridge localdb http-token generate|show|clear
+    wechat-bridge localdb keys-migrate|keys-unmigrate   # 密钥容器迁移(文件↔钥匙串)
 
 私有数据红线(prd 红线 6):argv 永不携带消息正文(send_text 正文走
 stdin,weixin.py D0 同款——日志可安全打 argv);stderr 诊断只承载形状与
@@ -208,6 +209,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=600,
         metavar="N",
         help="取钥器等待窗提示秒数(透传 timeout_hint_seconds;桥内硬帽 clamp(N,120,1800))",
+    )
+    # 密钥容器迁移(task 10-14-wechat-keys-keychain;主人令:本地保存应加密)。
+    # keys-migrate = 文件→钥匙串(验真门+回读逐字节验证+文件改名保留,断电安全);
+    # keys-unmigrate = 钥匙串→文件(回退用)。消费序 = 钥匙串优先、文件兜底。
+    localdb_keysmigrate = localdb_sub.add_parser(
+        "keys-migrate",
+        help="文件密钥迁入钥匙串(验真门+回读验证;明文件改名保留,断电安全)",
+    )
+    localdb_keysunmigrate = localdb_sub.add_parser(
+        "keys-unmigrate",
+        help="钥匙串密钥回退为文件(回退用;消费序本就钥匙串优先文件兜底)",
     )
     # 朋友圈只读查询(task 10-13-wechat-sns-feed;key-provider 多层子命令同款
     # 形态)。feed=SnsTimeLine 动态(XML 解析)/notices=SnsMessage_tmp3 互动
@@ -480,6 +492,8 @@ def build_parser() -> argparse.ArgumentParser:
         keyprov_clear,
         localdb_keystatus,
         localdb_keyacquire,
+        localdb_keysmigrate,
+        localdb_keysunmigrate,
         localdb_sns,
         sns_feed,
         sns_notices,
@@ -1163,6 +1177,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 return EXIT_OK
             # clear(分支封闭:http_token_cmd required=True 三选一)
             _emit(httpapi.http_token_clear(config_path=config_path))
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "keys-migrate":
+            # 容器迁移(10-14-wechat-keys-keychain):文件→钥匙串。验真门在
+            # keys_migrate 内(与查询消费同一验真器);回执形状级(计数/时间戳,
+            # 钥内容永不出现——红线 6)。
+            _emit(localdb.keys_migrate())
+            return EXIT_OK
+        elif args.group == "localdb" and args.localdb_cmd == "keys-unmigrate":
+            # 容器回退:钥匙串→文件(消费侧验真门照跑;本命令不重复设门)。
+            _emit(localdb.keys_unmigrate())
             return EXIT_OK
         elif args.group == "localdb" and args.localdb_cmd == "key-acquire":
             # D3 交互式取钥编排(design §A.2):stdout 是 NDJSON 流——progress

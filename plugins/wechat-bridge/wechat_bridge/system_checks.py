@@ -274,24 +274,36 @@ def localdb_storage_accounts(root: Path | None = None) -> int | None:
 def localdb_key_available() -> bool:
     """本地库密钥可用性(Phase E1 真判据:验证通过的密钥缓存在场即真)。
 
-    判据 = 数据根私有区 ``wechat-localdb/keys.json``(:data:`LOCALDB_KEYS_REL_PATH`,
-    600 权限)存在且含至少一条验证通过的 key——该缓存**只在** :func:
-    `wechat_bridge.localdb.acquire_key` 全量校验命中时落盘,故本检查零成本
-    (一个小文件存在性)且不谎报。E1 实测(2026-10-11):零内存途径 0 命中
-    → 缓存恒缺省 → False 如实(D4 待主人裁决)。
+    判据(10-14-wechat-keys-keychain 两源化):①数据根私有区
+    ``wechat-localdb/keys.json``(:data:`LOCALDB_KEYS_REL_PATH`,600 权限)
+    存在且非空——该缓存**只在**全量校验命中时落盘;②迁移后真源 = 钥匙串
+    条目 ``myia/wechat/db-keys``(:mod:`.keychain` 读;明文件改名保留后
+    本检查若只看文件会系统性谎报 missing)。任一在场即 True;两源读取都
+    不做 HMAC 验真——验真门在消费侧(:func:`wechat_bridge.localdb.
+    resolve_keys` / ``key-status``),与本检查的零成本判据同款纪律(条目
+    读取一次 ``security`` 子进程,probe/doctor 按需调用,不在查询热径)。
     """
+    from . import keychain
     from .config import LOCALDB_KEYS_REL_PATH, myssia_home
 
     path = myssia_home() / LOCALDB_KEYS_REL_PATH
-    if not path.is_file():
-        return False
-    try:
-        import json
+    if path.is_file():
+        try:
+            import json
 
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            raw = None
+        if isinstance(raw, dict) and raw:
+            return True
+    try:
+        entry = keychain.read_item(keychain.DB_KEYS_ACCOUNT)
+    except BridgeError:
+        entry = None  # 读失败按缺席(锁死等);真源验真在消费侧
+    if entry is None:
         return False
-    return isinstance(raw, dict) and bool(raw)
+    mapping, _stamp = keychain.parse_db_keys_envelope(entry)
+    return mapping is not None and bool(mapping)
 
 
 def check_summary(value: Any) -> str:
