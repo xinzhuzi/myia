@@ -47,7 +47,7 @@
 ### 2.3 仓库内(随 git 永生,目录删光也不丢)
 
 - `.trellis/tasks/10-14-wechat-sendmsg-direct/` — design.md(执行协议)/ prd / implement / research/(错题集.md、rea-probe-1014.md、empirical-findings.md、hit2/hit3、cap.py v1、**tools-mirror/**(本次镜像))
-- `.zcode/skills/ghidra-headless/scripts/ghidra_scripts/` — ⚠️ 该路径内层经符号链接指向仓库外,**不入 git**(Export*.java 六件原位在盘,盘存可用);**git 内正本镜像=任务 `research/tools-mirror/ghidra-scripts/`**(13 件全:DecompileTargets×4 / DisableSlowAnalyzers / QuerySendPath / Export×6 / SendMsgHunt,2026-10-14 镜像)
+- `.agents/skills/ghidra-headless/` — **git 追踪的技能正本**(Export*.java 六件已入库 80fb1a2;DecompileTargets×4/DisableSlowAnalyzers/QuerySendPath/SendMsgHunt 为 10-14 新增件,当时未提交)。⚠️ `.zcode/skills/ghidra-headless` 只是它的**符号链接运行位**(gitignore,勿往该路径找 git 内容)。**git 内全量正本镜像=任务 `research/tools-mirror/ghidra-scripts/`**(13 件,2026-10-14 镜像)
 - `.trellis/tasks/archive/2026-10/` — 20 个微信相关档正本(10-13-wechat-dylib-reverse=地址模型/AX 门原始出处;10-13-wechat-key-crack=密钥;10-14-wechat-send-text=OCR 发送链;10-14-wechat-ax-gate-exp=AX 树浅定论等)
 
 ### 2.4 稳定安装(两目录之外的常驻件)
@@ -142,13 +142,15 @@ export GHIDRA_OUTPUT_DIR=<输出目录>
 | `0x48a9a38` | "SendMsgFtouser" 串谓词 | — |
 | `0x88a8fb0` | CoSendAppMsgCgi(appmsg 路) | — |
 | `0x70b32bc` | QCocoaAccessibility 激活门(`m_active`@this+8) | AX 线;门开树仍 6 节点=树浅系供给侧非门 |
-| `0x490d4d0` | **Phase 1 首命中链 caller**(0x490d4d0-0x490da78) | 2026-10-14 20:42 实弹命中,上游=0x490fb20;**下一步=反编译此函数** |
+| `0x490d4d0` | r1 命中链 caller(0x490d4d0-0x490da78,mars 投递邻域) | ⚠️ **r1(10-14 20:34-20:55)轮失败**:命中帧=协程看门狗污染帧(非发送),嘻嘻命中=输入框粘贴缓冲非序列化管线,发送本身未执行;此 caller 非发送专属锚,勿据其定向 |
+
+**r1 战况与 r2 必改(10-14 晚;战报=hunt/run-sheet-r1.md,错题 S11-S14)**:桥备选触发与堆扫冻结同窗互斥→零出站;bp2(0x5e1d680)=4B thunk 死点(35s 5374 命中风暴);跨线程 Stop/Continue 互锁 5min;detach 竞态崩微信一次(守护自拉起)。**r2 必改四条:断点选址先热度采样(>1/s 弃);触发与捕获分相位(主人手发=标准形态);驱动单线程、收枪走 debugserver SIGINT;detach 前 interrupt 静置+detach 后崩报检查**。预算账歧义(零出站的已耗授权计不计帽)留主人裁。
 
 **已证死路(勿重试)**:ObjC selector 路(全量 otool dump 无 send 族)/ BL 直调投递器(零调用点)/ newsendmsg 字符串 xref 当判据(functionlist 配置表,判据作废)/ thunk 区函数起点启发式 / 全量自动分析 / REA observe-native-ui 对微信硬闸(`NSRunningApplication.launchDate=nil`→capability_unavailable,微信 4.1.15 进程形态不给 launchDate,无 CLI/env 绕口)。
 
-**密钥线(已破,独立于本线)**:LLDB 断点 CCKeyDerivationPBKDF 路 20/20 全库验真(10-13);重取 SOP 与数据根坑见记忆 wechat-key-broken-1013 与归档档。
+**密钥线(已破,独立于本线)**:LLDB 断点 CCKeyDerivationPBKDF 路 20/20 全库验真(10-13);重取 SOP 与数据根坑见记忆 wechat-key-broken-1013 与归档档;后续钥匙串化收拢已立档 `10-14-wechat-keys-keychain`(planning,10-14 晚)。
 
-## 6. 铁律摘录(错题集 S1-S10 精髓;全文=research/错题集.md)
+## 6. 铁律摘录(错题集 S1-S14 精髓;全文=research/错题集.md)
 
 1. **字符串锚定的因果归因必须断点实证**;传输配置表(functionlist)的邻居是「所有网络任务」不是「发送任务」。
 2. **取址扫描一律页级匹配**;扫描器先拿「已知引用」做校准用例再信结果。
@@ -160,6 +162,8 @@ export GHIDRA_OUTPUT_DIR=<输出目录>
 8. 连续 3 次同域失败停手升维复盘(D2 元规则,与 send-text 错题集共守)。
 9. brew 装新件后必冒烟 `node -e 1 && npx -v`(simdjson 连坐前科)。
 10. 真发预算先报后发;失败即停,uncertain-never-retry,绝不带断点重试。
+11. **断点选址前先禁用态热度采样(>1/s 即弃;4B thunk=死点)**;窗口内命中帧先验线程/任务身份,明文命中须验伴生上下文(纯 UI 粘贴副本不算管线命中)。
+12. **触发与捕获分相位**(堆扫=进程级冻结,与触发链物理互斥);LLDB 驱动单线程,跨线程禁 `SBProcess.Stop()`,收枪走 debugserver SIGINT;**detach 前 interrupt 静置、detach 后必查 pgrep 存活+崩报**。
 
 ## 7. 目录处置预案(仅记录;**现在一律不动,处置权在主人**)
 
