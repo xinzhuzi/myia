@@ -17,7 +17,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
-import { asSidecarError } from "./api";
+import { asSidecarError } from "../api";
 
 /** 导出进度事件名(与壳侧 WECHAT_CHAT_EXPORT_EVENT 常量同值成对,改值须两侧同步)。 */
 export const WECHAT_CHAT_EXPORT_EVENT_NAME = "wechat-chat-export-progress";

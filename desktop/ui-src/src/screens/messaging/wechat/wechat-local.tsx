@@ -34,8 +34,8 @@ import {
   wechatLocalPage,
   wechatLocalQuery,
   wechatLocalSessions,
-} from "./api";
-import type { WechatLocalMessage, WechatLocalPageMessage, WechatLocalProbeView } from "./api";
+} from "../api";
+import type { WechatLocalMessage, WechatLocalPageMessage, WechatLocalProbeView } from "../api";
 import {
   WECHAT_CHAT_EXPORT_FORMATS,
   subscribeWechatChatExportProgress,

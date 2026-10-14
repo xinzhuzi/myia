@@ -59,7 +59,7 @@ import type {
   WechatLocalProbeView,
 } from "./api";
 import { buildPlatformCards, PlatformOverview } from "./platform-overview";
-import { WechatLocalSection } from "./wechat-local";
+import { WechatLocalSection } from "./wechat/wechat-local";
 
 interface LoadState {
   status: "loading" | "error" | "ready";

@@ -18,7 +18,7 @@ vi.mock("@tauri-apps/api/event", () => ({ listen: mocks.listen }));
 
 import { WechatLocalSection } from "./wechat-local";
 import { SidecarRequestError } from "@/lib/api";
-import type { WechatLocalProbeView } from "./api";
+import type { WechatLocalProbeView } from "../api";
 
 type Handler = (params: never) => unknown;
 type SidecarMap = Record<string, Handler>;

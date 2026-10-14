@@ -20,7 +20,7 @@
  */
 import { invoke } from "@tauri-apps/api/core";
 
-import { asSidecarError } from "./api";
+import { asSidecarError } from "../api";
 
 /** 六桶计数(counts 恒全量,与 filter 无关;system 是诊断桶不呈现行)。 */
 export interface WechatContactsCounts {

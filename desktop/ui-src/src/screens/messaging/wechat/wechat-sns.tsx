@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidecarRequestError } from "@/lib/api";
 
-import { asSidecarError, formatLastSeen } from "./api";
+import { asSidecarError, formatLastSeen } from "../api";
 
 // ---------------------------------------------------------------------------
 // sidecar 最小封装(方法名与 entry.py 薄壳双侧同步;接线批归集成员)

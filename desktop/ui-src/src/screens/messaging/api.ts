@@ -150,7 +150,7 @@ export interface PushWriteResult {
 }
 
 /** bridge.status 应答(微信桥接探测;形状逐字段对照 desktop/entry.py
- * `_m_bridge_status` → myssia.push.weixin.probe_bridge 的 BridgeStatus)。 */
+ * `_m_bridge_status` → myssia.wechat.push_weixin.probe_bridge 的 BridgeStatus)。 */
 export interface BridgeStatusView {
   available: boolean;
   reason: string | null;
