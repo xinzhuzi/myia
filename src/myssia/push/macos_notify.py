@@ -94,6 +94,13 @@ def _fifo_write(payload: dict[str, str | None]) -> bool:
     return True
 
 
+#: 中继自持常开写端(中继存活期 = 宿主进程期持有不关;None = 无中继)。
+#: 持有它 → 读者读端永不 EOF →「写者#1 已 close/读者未重开」的无读者
+#: 空窗不存在(门禁 flaky 根因:同轮第二条 ``_fifo_write`` 撞窗 ENXIO
+#: 回退泄漏一次 osascript;2026-10-15 转交注记的最小修落地)。
+_RELAY_KEEPALIVE_WFD: "int | None" = None
+
+
 def start_notify_relay(
     home: "str | Path",
     emit: Callable[[dict[str, "str | None"]], None],
@@ -101,14 +108,18 @@ def start_notify_relay(
     """桌面 serve 宿主启动横幅中继:创建 FIFO + 读者线程 + 注入环境变量。
 
     - FIFO = ``<home>/.notify.relay.fifo``(重建先 unlink,0600 私有);
-    - 读者线程逐行读 → ``emit(plan)``(宿主:转协议事件 ``notify.banner``
-      送壳代发);EOF(写者全退)→ 重开等待;daemon,随宿主进程收尾;
+    - 打开次序(零竞态关键,先读端后自持写端):``O_RDONLY|O_NONBLOCK``
+      先开读端立即成(确立「有读者」),再 ``O_WRONLY|O_NONBLOCK`` 开
+      自持常开写端(因读端在位必成,中继存活期持有不关)→ 读端永不
+      EOF;读者线程持常开 fd 阻塞逐行读 → ``emit(plan)``(宿主:转协议
+      事件 ``notify.banner`` 送壳代发);daemon,随宿主进程收尾;
     - ``os.environ`` 注入 → serve 进程内与 cron CLI 子进程(环境继承)
       的推送统一走壳;CLI 单跑(无注入)= osascript 直弹照旧。
 
     失败(只读文件系统/权限)只留痕返回 None = 不注入,推送自动落
     osascript 兜底,绝不拦 serve 启动。
     """
+    global _RELAY_KEEPALIVE_WFD
     fifo = Path(home) / ".notify.relay.fifo"
     try:
         fifo.unlink()
@@ -120,24 +131,39 @@ def start_notify_relay(
         logger.warning("macos_notify 中继管道创建失败(%s);推送回退 osascript", exc)
         return None
 
+    # 零竞态握手:读端在位后写者们(并发 cron 子进程)的 O_WRONLY|
+    # O_NONBLOCK 永不撞 ENXIO 空窗;任一步失败 = 清理已开 fd 回 None
+    #(宿主进程死 = fd 全关 → 写者侧 ENXIO 回退契约不变)。
+    try:
+        rfd = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
+        try:
+            wfd = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
+        except OSError:
+            os.close(rfd)
+            raise
+        os.set_blocking(rfd, True)
+    except OSError as exc:
+        logger.warning("macos_notify 中继管道打开失败(%s);推送回退 osascript", exc)
+        return None
+    _RELAY_KEEPALIVE_WFD = wfd
+
     def _reader() -> None:
-        while True:
-            try:
-                with fifo.open("r") as stream:
-                    for line in stream:
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            plan = json.loads(line)
-                        except ValueError:
-                            continue
-                        try:
-                            emit(plan)
-                        except Exception:  # noqa: BLE001 — 观测面失败不带走读者
-                            logger.warning("macos_notify 中继转发失败", exc_info=True)
-            except OSError:
-                return  # FIFO 被删等致命态:读者退场(写者侧 ENXIO 自动回退)
+        try:
+            with os.fdopen(rfd, "r", encoding="utf-8") as stream:
+                for line in stream:  # 自持写端在 → 永不 EOF,阻塞候下一写者
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        plan = json.loads(line)
+                    except ValueError:
+                        continue
+                    try:
+                        emit(plan)
+                    except Exception:  # noqa: BLE001 — 观测面失败不带走读者
+                        logger.warning("macos_notify 中继转发失败", exc_info=True)
+        except OSError:
+            return  # FIFO 被删等致命态:读者退场(写者侧 ENXIO 自动回退)
 
     threading.Thread(
         target=_reader, name="macos-notify-relay", daemon=True
