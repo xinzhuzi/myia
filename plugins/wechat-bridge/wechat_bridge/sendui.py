@@ -141,6 +141,9 @@ RETRY_BACKOFF_S = 1.0
 #: 搜索结果渲染等待上限(两通道共用;轮询 SEARCH_POLL_S)。
 SEARCH_RENDER_TIMEOUT_S = 5.0
 SEARCH_POLL_S = 0.5
+#: 刀3 行位稳定性双读间隔与容差(2026-10-14:建议区异步渲染顶动行位)。
+SEARCH_STABLE_GAP_S = 0.3
+PICK_STABLE_TOL = 0.03
 #: 粘搜索词后的渲染静置(降级链)。
 SEARCH_RENDER_S = 1.2
 #: 结果行点击后的会话切换静置。
@@ -689,6 +692,49 @@ def _try_write_search_value(term: str) -> bool:
         return False
 
 
+def _type_text_stevents(text: str) -> bool:
+    """System Events keystroke 打字引擎(刀 2 备用引擎,2026-10-14):
+    剪贴板 Cmd+V 静默丢时的第二通道;rc==0 即认为已尽力(真机对该引擎
+    的实证不充分,仅作重试梯级,不作主路)。参数经 argv 注入零转义面。"""
+    script = (
+        "on run {theArg}\n"
+        '  tell application "System Events"\n'
+        '    repeat with pname in {"微信", "WeChat"}\n'
+        "      try\n"
+        '        tell process (pname as text) to keystroke theArg\n'
+        "        return true\n"
+        "      end try\n"
+        "    end repeat\n"
+        "  end tell\n"
+        "  return false\n"
+        "end run"
+    )
+    try:
+        result = _run(["osascript", "-e", script, "--", text])
+    except BridgeError:
+        return False
+    return result.returncode == 0 and result.stdout.decode("utf-8", "replace").strip() == "true"
+
+
+def _search_field_point(window: Any, workdir: Path) -> tuple[int, int] | None:
+    """搜索框屏幕坐标(刀 1 恢复路径):OCR 主窗顶部左侧找「搜索」
+    常驻输入框文字,中心即点击点;OCR 不及 → 固定归一化点兜底
+    (真机窗布局:侧栏顶搜索条 ≈ (0.13, 0.045))。"""
+    from . import navfilter
+
+    band = (0.0, 0.0, 0.30, 0.08)
+    lines = _ocr_region_lines(window, band, workdir, "searchfield")
+    for l in lines:
+        if "搜索" in str(getattr(l, "text", "") or ""):
+            wx, wy = navfilter.pane_to_window(
+                band,
+                float(getattr(l, "x", 0.0)) + float(getattr(l, "w", 0.0)) / 2,
+                float(getattr(l, "y", 0.0)) + float(getattr(l, "h", 0.0)) / 2,
+            )
+            return navfilter.row_box_to_screen(window, wx, wy)
+    return navfilter.row_box_to_screen(window, 0.13, 0.045)
+
+
 def _sidebar_pick(window: Any, target: SendTarget, workdir: Path) -> tuple[int, int] | None:
     """侧栏直选(0.8.4;主人判例「每次都搜索网络结果」的在册目标免搜索):
 
@@ -836,6 +882,8 @@ def _navigate(target: SendTarget, window: Any, channel: str, workdir: Path) -> d
         _post_key_dual(KEY_V, FLAG_COMMAND)
     sleep(SEARCH_RENDER_S)
     deadline = monotonic() + SEARCH_RENDER_TIMEOUT_S
+    recovered = False  # 刀1:点框重粘是否已用
+    engine2_used = False  # 刀2:keystroke 备用引擎是否已用
     pick = None
     search_window: Any = None
     while True:
@@ -847,10 +895,48 @@ def _navigate(target: SendTarget, window: Any, channel: str, workdir: Path) -> d
             lines = _ocr_region_lines(
                 search_window, SEARCH_FLOAT_BOX, workdir, "search"
             )
-            pick = navfilter.select_result_row(lines, terms)
-            if pick is not None:
-                break
+            cand = navfilter.select_result_row(lines, terms)
+            if cand is not None:
+                # 刀3(行位稳定性双读):建议区异步渲染会顶动行位,首读
+                # 即点可点错行——隔 SEARCH_STABLE_GAP_S 重读,选中行
+                # y 漂移 ≤ PICK_STABLE_TOL 才采(以第二读为准)。
+                sleep(SEARCH_STABLE_GAP_S)
+                lines2 = _ocr_region_lines(
+                    search_window, SEARCH_FLOAT_BOX, workdir, "search"
+                )
+                cand2 = navfilter.select_result_row(lines2, terms)
+                if cand2 is not None and abs(cand2.cy - cand.cy) <= PICK_STABLE_TOL:
+                    pick = cand2
+                    break
+        if (
+            not recovered
+            and search_window is None
+            and monotonic() >= deadline - SEARCH_RENDER_TIMEOUT_S / 2
+        ):
+            # 刀1(词落框恢复):浮窗迟迟不弹 = 词大概率没进框(真机实证
+            # Cmd+V 静默丢)→ 点常驻搜索框 + 重粘一次,继续等余下窗口。
+            click_at(*_search_field_point(window, workdir))
+            sleep(0.3)
+            set_clipboard_text(target.search_term)
+            sleep(CLIPBOARD_SETTLE_S)
+            _post_key_dual(KEY_V, FLAG_COMMAND)
+            recovered = True
         if monotonic() >= deadline:
+            if not engine2_used:
+                # 刀2(备用打字引擎):整窗超时零候选 → 清搜索态重开,
+                # System Events keystroke 直打搜索词,再给一个完整窗口。
+                _cleanup_search_state("cgevent_ocr")
+                sleep(0.2)
+                _post_key_dual(KEY_F, FLAG_COMMAND)
+                sleep(SEARCH_SETTLE_S)
+                if not _type_text_stevents(target.search_term):
+                    set_clipboard_text(target.search_term)
+                    sleep(CLIPBOARD_SETTLE_S)
+                    _post_key_dual(KEY_V, FLAG_COMMAND)
+                sleep(SEARCH_RENDER_S)
+                engine2_used = True
+                deadline = monotonic() + SEARCH_RENDER_TIMEOUT_S
+                continue
             _cleanup_search_state("cgevent_ocr")  # D:失败清理
             raise stage_fail(
                 "搜索结果浮窗无可定位行(分区过滤零候选或浮窗未弹出)"

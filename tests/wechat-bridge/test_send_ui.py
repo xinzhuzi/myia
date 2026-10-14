@@ -148,6 +148,11 @@ class FakeHarness:
         monkeypatch.setattr(sendui, "clipboard_text", lambda: self.clip)
         monkeypatch.setattr(sendui, "_ocr_region", self._ocr_region)
         monkeypatch.setattr(sendui, "_ocr_region_lines", self._ocr_region_lines)
+        self.stevents_typed: list[str] = []
+        monkeypatch.setattr(
+            sendui, "_type_text_stevents",
+            lambda text: (self.stevents_typed.append(text), True)[1],
+        )
         monkeypatch.setattr(sendui, "_find_window", lambda: self.window)
         monkeypatch.setattr(sendui, "_find_search_window", lambda main, **kw: self.search_window)
         monkeypatch.setattr(sendui, "_post_send_verify", self._post_send_verify)
@@ -856,8 +861,9 @@ class TestSearchFloatWindow:
     def test_float_window_missing_times_out_with_cleanup(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """浮窗未出现(找不到搜索浮窗)→ 轮询超时 exit 15 navigate;
-        失败清理(ESC)在键序(D 条)。"""
+        """浮窗未出现(找不到搜索浮窗)→ 刀1 点框重粘(恢复路径)+ 刀2
+        keystroke 备用引擎整窗重试 → 仍零候选 exit 15 navigate;失败清理
+        (ESC)在键序(D 条)。0.8.4 三刀语义。"""
         harness = FakeHarness()
         harness.install(monkeypatch)
         monkeypatch.setattr(sendui, "_find_search_window", lambda main, **kw: None)
@@ -866,7 +872,11 @@ class TestSearchFloatWindow:
         assert excinfo.value.exit_code == 15
         assert "navigate" in excinfo.value.message
         assert (sendui.KEY_ESCAPE, 0) in harness.keys  # D:失败清理关浮窗
-        assert harness.clicks == []  # 零候选零点击
+        assert harness.clicks, "刀1:浮窗不出必须点搜索框重粘"
+        assert harness.clip_sets.count(CHAT) >= 2 or len(harness.clip_sets) >= 2, "刀1 重粘/刀2 备引擎都在粘贴序"
+        assert harness.stevents_typed, "刀2:超时后必须换 keystroke 引擎"
+        # 刀2 重开搜索:Cmd+F 出现两次(首轮 + 引擎2 重开)
+        assert harness.keys.count((3, 256)) >= 2
 
     def test_ax_navigate_failure_cleans_search_state(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """ax 路导航失败(press 超时)→ 清词(write_search_value(""))+
@@ -1177,3 +1187,37 @@ class TestSidebarFirst0_8_4:
         payload = _run(harness, dry_run=True)
         assert payload["send"]["dry_run"] is True
         assert payload["send"]["nav_debug"]["pick_rule"] == "text_match"  # 搜索路
+
+
+class TestPickStability0_8_4:
+    """刀3(行位稳定性双读):建议区异步渲染顶动行位时拒点,稳定才点。"""
+
+    def test_drifting_row_rejected_until_stable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """首读命中行 y=0.42,双读漂到 0.55 → 拒点重轮询;下一轮双读
+        稳定在 0.55 → 才点击(以第二读为准,防建议区渲染顶动点错行)。"""
+        from wechat_bridge.pixel import OcrLine
+
+        harness = FakeHarness()
+        harness.install(monkeypatch)
+        schedule = [
+            0.42, 0.55,  # 第一轮:漂移 → 拒
+            0.55, 0.55,  # 第二轮:稳定 → 点
+        ]
+        state = {"i": 0}
+
+        def ocr_seq(_window, _box, _workdir, tag: str):
+            if tag != "search":
+                return []
+            y = schedule[min(state["i"], len(schedule) - 1)]
+            state["i"] += 1
+            return [
+                OcrLine(text="功能", conf=0.9, x=0.09, y=0.20, w=0.1, h=0.03),
+                OcrLine(text=CHAT, conf=0.9, x=0.21, y=y, w=0.2, h=0.04),
+            ]
+
+        monkeypatch.setattr(sendui, "_ocr_region_lines", ocr_seq)
+        payload = _run(harness, dry_run=True)
+        assert payload["send"]["nav_debug"]["pick_rule"] == "text_match"
+        assert harness.clicks, "稳定后必须点击"
+        expect_y = round(180 + (0.55 + 0.02) * 370)  # 以第二读为准
+        assert any(abs(cy - expect_y) <= 1 for _cx, cy in harness.clicks)
