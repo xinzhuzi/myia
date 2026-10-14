@@ -13,8 +13,8 @@ task 10-03-image-input);凭据铁律与 enrich 同门(security-baseline):云端
 之前就已发生。
 
 缺省本地端点带 ``/v1`` 后缀:OpenAI 兼容 SDK 以 ``{base_url}/chat/completions``
-发请求,而 mlx-vlm 端点是 ``:8080/v1/chat/completions``(local-ocr 技能实证),
-不带后缀会打到 404。
+发请求,LM Studio 标准口是 ``:1234/v1/chat/completions``,不带后缀会打到 404
+(mlx-vlm :8080 时代同理;客户端制 10-15 起缺省指 LM Studio)。
 """
 
 from __future__ import annotations
@@ -41,12 +41,14 @@ __all__ = [
     "DEFAULT_LOCAL_BASE_URL",
     "KEYCHAIN_API_KEY",
     "KEYCHAIN_LLM_API_KEY",
+    "KEYCHAIN_LOCAL_API_KEY",
     "OCR_ENGINES",
     "VISION_FILE_NAME",
     "VisionConfig",
     "VisionConfigError",
     "load_vision_config",
     "resolve_cloud_api_key",
+    "resolve_local_api_key",
     "save_vision_config",
 ]
 
@@ -54,6 +56,9 @@ __all__ = [
 VISION_FILE_NAME = "vision.yaml"
 #: 云端 api_key 的缺省钥匙链名(桌面端 secret.set 录入;canonical myia/<scope>/<name>)。
 KEYCHAIN_API_KEY = "myia/image/api_key"
+#: 本地端点(LM Studio 等)可选 api_key 的钥匙链名(10-15-vision-model-path:
+#: 本地通道客户端制——服务开了 API 鉴权才需要录,未配 = 不带鉴权头)。
+KEYCHAIN_LOCAL_API_KEY = "myia/image/local_api_key"
 #: 既有 GLM 凭据链路(设置屏 LLM 表单经 secret.set 录入,enrich 同链)——云端
 #: 看图未录专用 key 时的回落解析点;「云默认 glm-4.6v 走既有 GLM 凭据链路」落点。
 KEYCHAIN_LLM_API_KEY = "myia/llm/api_key"
@@ -63,13 +68,13 @@ CHANNELS = ("local", "cloud")
 #: 一级 OCR 引擎(macOS Vision 默认;RapidOCR 第二引擎,10-03 修订两个都要)。
 OCR_ENGINES = ("vision", "rapidocr")
 
-DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:8080/v1"
+DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:1234/v1"  # LM Studio 标准口(客户端制,10-15)
 DEFAULT_CLOUD_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
 DEFAULT_CLOUD_MODEL = "glm-4.6v"  # grill 已拍板;glm-4.5v 错读勿用(local-ocr 横测存档)
 
 #: 协议文档允许的顶层键(from_payload 未知键拒收的对照名单)。
 _TOP_KEYS = ("channel_default", "local", "cloud", "ocr")
-_LOCAL_KEYS = ("base_url", "model")
+_LOCAL_KEYS = ("base_url", "model", "api_key")
 _CLOUD_KEYS = ("base_url", "model", "api_key")
 _OCR_KEYS = ("enabled", "engine_default")
 
@@ -100,13 +105,17 @@ class VisionConfig:
     """看图配置(``vision.yaml`` 的内存形态;构造即校验,非法值拒构造)。
 
     云端 ``api_key`` 只承载 ``keychain:`` 引用(明文/env: 拒);``local_model``
-    即本地模型路径(mlx-vlm 的 model 字段天然是路径,grill「设置本地模型路径」
-    的落点),允许空 = 未配置(analyze 提交时结构化拒绝,不静默)。
+    即本地端点的模型名(OpenAI ``model`` 参数;本地通道客户端制
+    10-15-vision-model-path:LM Studio 等本地服务,MYIA 不自跑模型),允许空 =
+    未配置(analyze 提交时结构化拒绝,不静默);``local_api_key_ref`` 可选
+    ``keychain:`` 引用(``myia/image/local_api_key``)——本地服务开了 API 鉴权
+    才需要,未配 = 不带鉴权头。
     """
 
     channel_default: str = "local"
     local_base_url: str = DEFAULT_LOCAL_BASE_URL
     local_model: str = ""
+    local_api_key_ref: str | None = None
     cloud_base_url: str = DEFAULT_CLOUD_BASE_URL
     cloud_model: str = DEFAULT_CLOUD_MODEL
     cloud_api_key_ref: str | None = None
@@ -141,7 +150,13 @@ class VisionConfig:
                 details={"field": "cloud.model"},
             )
         if self.cloud_api_key_ref is not None:
-            _require_keychain_ref(self.cloud_api_key_ref)
+            _require_keychain_ref(
+                self.cloud_api_key_ref, field="cloud.api_key", keychain_name=KEYCHAIN_API_KEY
+            )
+        if self.local_api_key_ref is not None:
+            _require_keychain_ref(
+                self.local_api_key_ref, field="local.api_key", keychain_name=KEYCHAIN_LOCAL_API_KEY
+            )
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, Any]) -> VisionConfig:
@@ -170,6 +185,13 @@ class VisionConfig:
                 "cloud.api_key 必须是 keychain: 引用字符串或 null",
                 details={"field": "cloud.api_key"},
             )
+        local_api_key = local.get("api_key")
+        if local_api_key is not None and (not isinstance(local_api_key, str) or not local_api_key):
+            raise VisionConfigError(
+                "invalid_field",
+                "local.api_key 必须是 keychain: 引用字符串或 null",
+                details={"field": "local.api_key"},
+            )
         ocr_enabled = ocr.get("enabled")
         if ocr_enabled is not None and not isinstance(ocr_enabled, bool):
             raise VisionConfigError(
@@ -181,6 +203,7 @@ class VisionConfig:
             channel_default=channel_default or "local",
             local_base_url=_string(local, "local", "base_url") or DEFAULT_LOCAL_BASE_URL,
             local_model=_string(local, "local", "model") or "",
+            local_api_key_ref=local_api_key,
             cloud_base_url=_string(cloud, "cloud", "base_url") or DEFAULT_CLOUD_BASE_URL,
             cloud_model=_string(cloud, "cloud", "model") or DEFAULT_CLOUD_MODEL,
             cloud_api_key_ref=api_key,
@@ -192,7 +215,11 @@ class VisionConfig:
         """协议视图(嵌套原文形状;keychain 引用原样回显,永不携带解析值)。"""
         return {
             "channel_default": self.channel_default,
-            "local": {"base_url": self.local_base_url, "model": self.local_model},
+            "local": {
+                "base_url": self.local_base_url,
+                "model": self.local_model,
+                "api_key": self.local_api_key_ref,
+            },
             "cloud": {
                 "base_url": self.cloud_base_url,
                 "model": self.cloud_model,
@@ -202,22 +229,24 @@ class VisionConfig:
         }
 
 
-def _require_keychain_ref(value: str) -> None:
-    """cloud.api_key 只收纯 ``keychain:`` 引用(security-baseline:凭据禁明文)。"""
+def _require_keychain_ref(
+    value: str, *, field: str, keychain_name: str
+) -> None:
+    """cloud/local ``api_key`` 只收纯 ``keychain:`` 引用(security-baseline:凭据禁明文)。"""
     try:
-        ref = parse_secret_value(value, label="cloud.api_key", allow_scheme=False)
+        ref = parse_secret_value(value, label=field, allow_scheme=False)
     except SchemaValueError as exc:
         code = "credential_plaintext" if exc.code == "credential_plaintext" else "invalid_credential_ref"
         raise VisionConfigError(
             code,
-            f"cloud.api_key {exc}(只接受 keychain: 引用;桌面端经 secret.set 录入 {KEYCHAIN_API_KEY})",
-            details={"field": "cloud.api_key"},
+            f"{field} {exc}(只接受 keychain: 引用;桌面端经 secret.set 录入 {keychain_name})",
+            details={"field": field},
         ) from exc
     if ref.kind != "keychain":
         raise VisionConfigError(
             "invalid_credential_ref",
-            f"cloud.api_key 只接受 keychain: 引用(收到 {value!r});桌面端经 secret.set 录入 {KEYCHAIN_API_KEY}",
-            details={"field": "cloud.api_key"},
+            f"{field} 只接受 keychain: 引用(收到 {value!r});桌面端经 secret.set 录入 {keychain_name}",
+            details={"field": field},
         )
 
 
@@ -331,3 +360,30 @@ def resolve_cloud_api_key(
     except CredentialResolveError:
         # 回落段失败 = 无 key(未录/无后端都算),不是错误路径。
         return None
+
+
+def resolve_local_api_key(
+    config: VisionConfig, *, backend: Any | None = None
+) -> str | None:
+    """解析本地端点(LM Studio 等)可选 api_key:显式 ``local.api_key`` 引用。
+
+    客户端制(10-15-vision-model-path):本地服务开了 API 鉴权才在 vision.yaml
+    配 ``keychain:myia/image/local_api_key``;未配 = ``None``(调用方构造
+    VisionClient 时不带鉴权头)。与云端不同,**无回落链**——本地服务不存在
+    「既有链路」可借用;显式引用解析失败原样上抛(CredentialResolveError),
+    由调用方按通道语义翻译降级(同云端 fail fast 门风)。
+
+    Args:
+        config: 已过构造校验的看图配置。
+        backend: 注入钥匙链后端(测试 ``InMemoryKeychainBackend``);``None`` =
+            系统钥匙串惰性发现(与 :func:`myssia.schema.resolve_credential` 同参)。
+
+    Returns:
+        已解析的 key;未配置时 ``None``。
+
+    Raises:
+        CredentialResolveError: 显式引用解析失败(未录/无钥匙链后端/操作失败)。
+    """
+    if not config.local_api_key_ref:
+        return None
+    return resolve_credential(config.local_api_key_ref, backend=backend)

@@ -106,8 +106,6 @@ def _reset_sidecar_state(monkeypatch):
     monkeypatch.setattr(entry, "_CANCEL_TIMERS", [])
     monkeypatch.setattr(entry, "_TEST_ACTIVE_JOB", None)
     monkeypatch.setattr(entry, "_TEST_NEXT_JOB_ID", 0)
-    monkeypatch.setattr(entry, "_MODELS_DL_ACTIVE_JOB", None)
-    monkeypatch.setattr(entry, "_MODELS_DL_NEXT_JOB_ID", 0)
     saved_handlers = logging.getLogger().handlers[:]
     saved_factory = logging.getLogRecordFactory()
     myssia_log._reset_module_state()
@@ -3057,16 +3055,17 @@ def test_method_registry_allowed_matches_handlers():
     proxy-pool-panel 批(proxy.probe/proxy.history 两方法,
     10-14-proxy-pool-panel R1 集成员接线;纯加法不 bump)后 = 95;
     cred-hunter-panel 批(credhunter.keys.list 一方法,
-    10-14-cred-hunter-panel §3.1;纯加法不 bump)后 = 96。"""
+    10-14-cred-hunter-panel §3.1;纯加法不 bump)后 = 96;
+    vision-model-path 批(image.models.* 四方法 + image.server.* 两方法移除,
+    看图本地通道改 LM Studio 客户端制,10-15-vision-model-path;收窄批
+    bump v16)后 = 90。"""
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 96
+    assert len(allowed) == 90
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
-                   "bridge.status", "image.models.list", "image.models.download",
-                   "image.models.delete", "image.models.activate",
-                   "image.server.status", "image.server.ensure",
+                   "bridge.status",
                    "image.files.purge", "feed.enrich",
                    "alerts.list", "alerts.save", "alerts.delete", "alerts.test",
                    "cron.list", "cron.create", "cron.edit", "cron.pause",
@@ -3113,9 +3112,12 @@ def test_protocol_version_bumped_for_feed_ux():
     同 WHERE 全量计数,UI 能力门 COUNT_PROTOCOL = 13,
     10-09-tg-category-entry F2)→ v13;
     feed v8 三级界面批(store.source_stats 分源聚合,UI 能力门
-    STATS_PROTOCOL = 14,10-09-tg-category-entry v8)→ v14。"""
+    STATS_PROTOCOL = 14,10-09-tg-category-entry v8)→ v14;
+    vision-model-path 批(image.models.* 四方法 + image.server.* 两方法与三
+    事件移除,看图本地通道改 LM Studio 客户端制,10-15-vision-model-path)
+    → v16(v15 期内纯加法批按先例不 bump)。"""
     code, responses, _ = rpc({"id": 1, "method": "version", "params": {}})
-    assert responses[0]["result"]["protocol"] == 15
+    assert responses[0]["result"]["protocol"] == 16
 
 
 # ---------------------------------------------------------------------------
@@ -3697,8 +3699,9 @@ def test_serve_starts_and_stops_cron_ticker(tmp_path, monkeypatch):
     assert code == 0
     # v9 = hermes-cron 批;v10 = read-state-server 批;v11 = browser-module 批;
     # v12 = tg-channel-card v2(source_kind 三方法);v13 = feed 计数口径根治
-    # (store.items with_total);v14 = feed v8 三级界面(store.source_stats)
-    assert responses[0]["result"]["protocol"] == 15
+    # (store.items with_total);v14 = feed v8 三级界面(store.source_stats);
+    # v16 = vision-model-path 批(看图本地通道客户端制,image.models/server 下线)
+    assert responses[0]["result"]["protocol"] == 16
     assert seen["supervisor_alive"] and seen["ticker_alive"]
     # EOF:serve 返回前已关停(idle ticker 即醒即退,interval 已注入 0.05s)
     assert entry._CRON_SUPERVISOR is None and entry._CRON_TICKER is None
@@ -4674,375 +4677,18 @@ def test_bridge_status_bad_yaml_does_not_block_probe(tmp_path, monkeypatch):
     assert "available" in responses[0]["result"]
 
 
-# ---------------------------------------------------------------------------
-# image.models.* / image.server.*(10-03-vision-v2;契约与前端 TS 侧同形状冻结:
-# list→{models:[{name,path,bytes,active}]};download→{job_id}+progress/completed
-# 两事件;delete/activate→{ok};status→{running,base_url,model,healthy};
-# ensure→status+{started})
-# ---------------------------------------------------------------------------
-
-
-def _vision_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """MYIA_HOME 指到 tmp;建 models 目录,返回 home。"""
-    home = tmp_path / "home"
-    monkeypatch.setenv("MYIA_HOME", str(home))
-    (home / "models").mkdir(parents=True)
-    return home
-
-
-def _seed_model(home: Path, name: str, size: int = 64, *, incomplete: bool = False) -> Path:
-    """种一个模型目录;incomplete=True 只落半截权重(无 config.json)。"""
-    model_dir = home / "models" / name
-    model_dir.mkdir(parents=True, exist_ok=True)
-    (model_dir / "w.safetensors").write_bytes(b"x" * size)
-    if not incomplete:
-        (model_dir / "config.json").write_text("{}", encoding="utf-8")
-    return model_dir
-
-
-def test_image_models_list_roundtrip(tmp_path, monkeypatch):
-    """models.list:扫描 + active/incomplete 标;空目录空表。"""
-    home = _vision_home(tmp_path, monkeypatch)
-    _seed_model(home, "qwen-4bit", 100)
-    _seed_model(home, "smol-250m", 10)
-    (home / "models" / "README.md").write_text("杂文件不算")
-    code, responses, _ = rpc({"id": 1, "method": "image.models.list", "params": {}})
-    result = responses[0]["result"]
-    assert [m["name"] for m in result["models"]] == ["qwen-4bit", "smol-250m"]
-    by_name = {m["name"]: m for m in result["models"]}
-    config_bytes = (home / "models" / "qwen-4bit" / "config.json").stat().st_size
-    assert by_name["qwen-4bit"]["bytes"] == 100 + config_bytes
-    assert by_name["smol-250m"]["active"] is False  # vision.yaml 未配 → 全部非激活
-    assert by_name["qwen-4bit"]["incomplete"] is False  # 完整(config+权重齐)
-
-    # 激活一个(vision.yaml local.model)后 active 标翻转
-    (home / "vision.yaml").write_text(
-        "local:\n  model: " + str((home / "models" / "qwen-4bit").resolve()) + "\n",
-        encoding="utf-8",
-    )
-    code, responses, _ = rpc({"id": 2, "method": "image.models.list", "params": {}})
-    by_name = {m["name"]: m for m in responses[0]["result"]["models"]}
-    assert by_name["qwen-4bit"]["active"] is True
-    assert by_name["smol-250m"]["active"] is False
-
-
-def test_image_models_list_marks_incomplete(tmp_path, monkeypatch):
-    """半成品目录(缺 config.json / 缺 *.safetensors)标 incomplete=true。"""
-    home = _vision_home(tmp_path, monkeypatch)
-    _seed_model(home, "half-weights", 50, incomplete=True)  # 有权重无 config
-    no_weights = home / "models" / "no-weights"
-    no_weights.mkdir()
-    (no_weights / "config.json").write_text("{}", encoding="utf-8")  # 有 config 无权重
-    code, responses, _ = rpc({"id": 1, "method": "image.models.list", "params": {}})
-    by_name = {m["name"]: m for m in responses[0]["result"]["models"]}
-    assert by_name["half-weights"]["incomplete"] is True
-    assert by_name["no-weights"]["incomplete"] is True
-
-
-def test_image_models_list_empty_home_is_legal(tmp_path, monkeypatch):
-    """零模型 = 合法空表(下载引导态,不报错)。"""
-    _vision_home(tmp_path, monkeypatch)
-    code, responses, _ = rpc({"id": 1, "method": "image.models.list", "params": {}})
-    assert responses[0]["result"] == {"models": []}
-
-
-def test_image_models_download_job_and_events(tmp_path, monkeypatch):
-    """download:提交即返 job_id;progress/completed 两事件形状冻结。"""
-    home = _vision_home(tmp_path, monkeypatch)
-    calls: dict[str, Any] = {}
-
-    def fake_download(repo, models_root, *, name=None, on_progress=None):
-        calls["repo"] = repo
-        calls["name"] = name
-        calls["root"] = str(models_root)
-        calls["dir"] = (home / "models" / "qwen-4bit").mkdir()
-        if on_progress is not None:
-            on_progress(100, 200)
-            on_progress(200, 200)
-        return home / "models" / "qwen-4bit"
-
-    monkeypatch.setattr(entry, "vision_download_model", fake_download)
-    out = io.StringIO()
-    stdin = io.StringIO(json.dumps({
-        "id": 1, "method": "image.models.download",
-        "params": {"repo": "mlx-community/qwen-4bit"},
-    }) + "\n")
-    assert entry.serve(stdin=stdin, stdout=out) == 0
-    responses, _ = split_stream(out)
-    job_id = responses[0]["result"]["job_id"]
-    assert isinstance(job_id, int)
-
-    deadline = time.monotonic() + 10
-    events: list[dict] = []
-    while time.monotonic() < deadline:
-        _, events = split_stream(out)
-        if any(e["type"] == "image.models.completed" for e in events):
-            break
-        time.sleep(0.05)
-    progress = [e for e in events if e["type"] == "image.models.progress"]
-    completed = [e for e in events if e["type"] == "image.models.completed"]
-    assert progress, "进度事件必须发生"
-    assert progress[0]["job_id"] == job_id
-    assert progress[0]["repo"] == "mlx-community/qwen-4bit"
-    assert progress[0]["done_bytes"] == 100 and progress[0]["total_bytes"] == 200
-    assert progress[-1]["done_bytes"] == 200
-    assert completed and completed[0]["ok"] is True
-    assert completed[0]["job_id"] == job_id
-    assert "error" not in completed[0]
-    assert calls["repo"] == "mlx-community/qwen-4bit"
-    assert calls["name"] is None  # 缺省 = repo 名段
-    assert calls["root"] == str(home / "models")
-
-
-def test_image_models_download_failure_event_and_busy(tmp_path, monkeypatch):
-    """下载失败:completed{ok:false, error=code};并发第二单 download_busy。"""
-    _vision_home(tmp_path, monkeypatch)
-    release = threading.Event()
-
-    def failing_download(repo, models_root, *, name=None, on_progress=None):
-        release.wait(timeout=10)  # 钉住第一单,确保第二单撞单飞窗口
-        raise entry.VisionModelError("disk_insufficient", "磁盘不足")
-
-    monkeypatch.setattr(entry, "vision_download_model", failing_download)
-    out = io.StringIO()
-    stdin = io.StringIO("".join(line + "\n" for line in [
-        json.dumps({"id": 1, "method": "image.models.download",
-                    "params": {"repo": "mlx-community/qwen-4bit"}}),
-        json.dumps({"id": 2, "method": "image.models.download",
-                    "params": {"repo": "mlx-community/other"}}),
-    ]))
-    entry.serve(stdin=stdin, stdout=out)
-    responses, _ = split_stream(out)
-    # 第二单撞第一单(单飞):结构化 download_busy(不是 500)
-    assert responses[1]["error"]["code"] == "download_busy"
-    release.set()
-    deadline = time.monotonic() + 10
-    completed: list[dict] = []
-    while time.monotonic() < deadline:
-        _, events = split_stream(out)
-        completed = [e for e in events if e["type"] == "image.models.completed"]
-        if completed:
-            break
-        time.sleep(0.05)
-    assert completed[0]["ok"] is False
-    assert completed[0]["error"] == "disk_insufficient"
-
-
-def test_image_models_download_invalid_params(tmp_path, monkeypatch):
-    """缺 repo / 非 mlx-community 前缀:invalid_params/invalid_repo 结构化拒。"""
-    _vision_home(tmp_path, monkeypatch)
-    code, responses, _ = rpc({"id": 1, "method": "image.models.download", "params": {}})
-    assert responses[0]["error"]["code"] == "invalid_params"
-    assert responses[0]["error"]["path"] == "params.repo"
-    # 非 mlx-community repo:同步快速失败(校验在 download_model 内,job 事件收口)
-    monkeypatch.setattr(entry, "vision_download_model",
-                        lambda *a, **k: (_ for _ in ()).throw(
-                            entry.VisionModelError("invalid_repo", "只收 mlx-community")))
-    out = io.StringIO()
-    stdin = io.StringIO(json.dumps({
-        "id": 2, "method": "image.models.download",
-        "params": {"repo": "Qwen/Qwen2-VL"}}) + "\n")
-    entry.serve(stdin=stdin, stdout=out)
-    responses, _ = split_stream(out)
-    assert responses[0]["result"]["job_id"] == 1  # 提交照常,失败走事件
-
-
-def test_image_models_delete_and_activate_roundtrip(tmp_path, monkeypatch):
-    """delete/activate → {ok};active 拒删 model_active_refused;激活写 vision.yaml;
-    半成品拒激活 model_incomplete(零写入)。"""
-    home = _vision_home(tmp_path, monkeypatch)
-    _seed_model(home, "qwen-4bit")
-    _seed_model(home, "smol-250m")
-    _seed_model(home, "half-done", incomplete=True)
-    # 激活 qwen-4bit
-    code, responses, _ = rpc({"id": 1, "method": "image.models.activate",
-                              "params": {"name": "qwen-4bit"}})
-    assert responses[0]["result"] == {"ok": True}
-    vision_text = (home / "vision.yaml").read_text(encoding="utf-8")
-    assert str((home / "models" / "qwen-4bit").resolve()) in vision_text
-    # 半成品拒激活:vision.yaml 零改写(local.model 仍指 qwen-4bit)
-    code, responses, _ = rpc({"id": 2, "method": "image.models.activate",
-                              "params": {"name": "half-done"}})
-    assert responses[0]["error"]["code"] == "model_incomplete"
-    assert (home / "vision.yaml").read_text(encoding="utf-8") == vision_text
-    # active 拒删
-    code, responses, _ = rpc({"id": 3, "method": "image.models.delete",
-                              "params": {"name": "qwen-4bit"}})
-    assert responses[0]["error"]["code"] == "model_active_refused"
-    assert (home / "models" / "qwen-4bit").exists()  # 拒删 = 目录原样
-    # 非激活模型正常删(半成品也可删 = 放弃续传)
-    code, responses, _ = rpc({"id": 4, "method": "image.models.delete",
-                              "params": {"name": "smol-250m"}})
-    assert responses[0]["result"] == {"ok": True}
-    assert not (home / "models" / "smol-250m").exists()
-    # 未知模型结构化 404 族
-    code, responses, _ = rpc({"id": 5, "method": "image.models.delete",
-                              "params": {"name": "ghost"}})
-    assert responses[0]["error"]["code"] == "model_not_found"
-    code, responses, _ = rpc({"id": 6, "method": "image.models.delete", "params": {}})
-    assert responses[0]["error"]["code"] == "invalid_params"
-
-
-def test_image_server_status_roundtrip_local_http(tmp_path, monkeypatch, local_api):
-    """server.status:对本地 /models 端点 running/healthy;死端口全 False。"""
-    home = _vision_home(tmp_path, monkeypatch)
-    port = local_api  # 复用直 API 夹具服务器(任意路径回 200 JSON)
-    (home / "vision.yaml").write_text(
-        f"local:\n  base_url: http://127.0.0.1:{port}/v1\n  model: /m/qwen\n",
-        encoding="utf-8",
-    )
-    code, responses, _ = rpc({"id": 1, "method": "image.server.status", "params": {}})
-    assert responses[0]["result"] == {
-        "running": True,
-        "base_url": f"http://127.0.0.1:{port}/v1",
-        "model": "/m/qwen",
-        "healthy": True,
-    }
-    # 死端口:vision.yaml 指向无人听的 127.0.0.1:9
-    (home / "vision.yaml").write_text(
-        "local:\n  base_url: http://127.0.0.1:9/v1\n  model: /m/qwen\n",
-        encoding="utf-8",
-    )
-    code, responses, _ = rpc({"id": 2, "method": "image.server.status", "params": {}})
-    result = responses[0]["result"]
-    assert result["running"] is False and result["healthy"] is False
-
-
-def _wait_for_event(out: io.StringIO, event_type: str, timeout: float = 10.0) -> dict:
-    """轮询协议流直到指定事件出现(后台线程写,serve 主线程已 EOF)。"""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        _, events = split_stream(out)
-        found = [e for e in events if e.get("type") == event_type]
-        if found:
-            return found[-1]
-        time.sleep(0.05)
-    raise AssertionError(f"{event_type} 事件在 {timeout}s 内未出现")
-
-
-def _reset_ensure_job() -> None:
-    """清 ensure 单飞位(防上例失败残留串扰;同 sources.test 的 _TEST_ACTIVE_JOB)。"""
-    entry._SERVER_ENSURE_ACTIVE_JOB = None
-
-
-def test_image_server_ensure_paths(tmp_path, monkeypatch):
-    """ensure 新契约:快路径已健康 = status+{started} 即返零事件;慢路径应答
-    立即返快照超集 + {ensuring, job_id},终态走 image.server.completed 事件
-    (ok 时带 status;错误族以 error code 收口)—— serve 循环不再被 120s
-    健康窗冻住。
-
-    探测统一桩死(dev 主机 8080 可能真跑着 mlx_vlm.server,测试绝不碰真网);
-    ①走真 ensure 实现,②③走 entry 能力桩。
-    """
-    import myssia.vision.server as vision_server_module
-    monkeypatch.setattr(vision_server_module, "_probe",
-                        lambda url, timeout=2.0: (False, False))
-    home = _vision_home(tmp_path, monkeypatch)
-    _reset_ensure_job()
-
-    # ① vision.yaml 未配 local.model 且探测未跑:应答立即返(ensuring) +
-    #    completed{ok:false, error:no_local_model} 事件收口
-    out = io.StringIO()
-    stdin = io.StringIO(json.dumps(
-        {"id": 1, "method": "image.server.ensure", "params": {}}) + "\n")
-    entry.serve(stdin=stdin, stdout=out)
-    responses, _ = split_stream(out)
-    result = responses[0]["result"]
-    assert result["ensuring"] is True and isinstance(result["job_id"], int)
-    assert result["healthy"] is False and result["started"] is False  # 快照原样
-    completed = _wait_for_event(out, "image.server.completed")
-    assert completed["ok"] is False
-    assert completed["error"] == "no_local_model"
-    assert "status" not in completed
-
-    # ② 已健康:快路径,应答即终态(status+started)零事件
-    monkeypatch.setattr(vision_server_module, "_probe",
-                        lambda url, timeout=2.0: (True, True))
-    _seed_model(home, "qwen-4bit")
-    (home / "vision.yaml").write_text(
-        "local:\n  model: " + str((home / "models" / "qwen-4bit").resolve()) + "\n",
-        encoding="utf-8",
-    )
-    code, responses, events = rpc({"id": 2, "method": "image.server.ensure", "params": {}})
-    assert responses[0]["result"] == {
-        "running": True,
-        "base_url": "http://127.0.0.1:8080/v1",
-        "model": str((home / "models" / "qwen-4bit").resolve()),
-        "healthy": True,
-        "started": False,
-    }
-    assert "ensuring" not in responses[0]["result"]
-    assert [e for e in events if e["type"] == "image.server.completed"] == []
-
-    # ③ 慢路径真自起:能力桩回 started=true → completed{ok:true, status}
-    monkeypatch.setattr(vision_server_module, "_probe",
-                        lambda url, timeout=2.0: (False, False))
-
-    def _spawning(cfg, **kwargs):
-        return {"running": True, "base_url": cfg.local_base_url,
-                "model": cfg.local_model, "healthy": True, "started": True}
-
-    monkeypatch.setattr(entry, "ensure_vision_server", _spawning)
-    out = io.StringIO()
-    stdin = io.StringIO(json.dumps(
-        {"id": 3, "method": "image.server.ensure", "params": {}}) + "\n")
-    entry.serve(stdin=stdin, stdout=out)
-    responses, _ = split_stream(out)
-    assert responses[0]["result"]["ensuring"] is True
-    completed = _wait_for_event(out, "image.server.completed")
-    assert completed["ok"] is True
-    assert completed["status"]["started"] is True
-    assert completed["status"]["healthy"] is True
-
-    # ④ 代管层失败(如 uvx 缺装):completed{ok:false, error:spawn_failed}
-    def _failing(cfg, **kwargs):
-        raise entry.VisionServerError("spawn_failed", "uvx 不可用")
-
-    monkeypatch.setattr(entry, "ensure_vision_server", _failing)
-    out = io.StringIO()
-    stdin = io.StringIO(json.dumps(
-        {"id": 4, "method": "image.server.ensure", "params": {}}) + "\n")
-    entry.serve(stdin=stdin, stdout=out)
-    responses, _ = split_stream(out)
-    assert responses[0]["result"]["ensuring"] is True
-    completed = _wait_for_event(out, "image.server.completed")
-    assert completed["ok"] is False and completed["error"] == "spawn_failed"
-
-
-def test_image_server_ensure_single_flight_busy(tmp_path, monkeypatch):
-    """ensure 单飞:慢路径进行中第二单结构化 ensure_busy(不排队不双起)。"""
-    import myssia.vision.server as vision_server_module
-    monkeypatch.setattr(vision_server_module, "_probe",
-                        lambda url, timeout=2.0: (False, False))
-    _vision_home(tmp_path, monkeypatch)
-    _reset_ensure_job()
-    release = threading.Event()
-
-    def _pinned(cfg, **kwargs):
-        release.wait(timeout=10)  # 钉住第一单,确保第二单撞单飞窗口
-        return {"running": True, "base_url": cfg.local_base_url,
-                "model": cfg.local_model, "healthy": True, "started": True}
-
-    monkeypatch.setattr(entry, "ensure_vision_server", _pinned)
-    out = io.StringIO()
-    stdin = io.StringIO("".join(line + "\n" for line in [
-        json.dumps({"id": 1, "method": "image.server.ensure", "params": {}}),
-        json.dumps({"id": 2, "method": "image.server.ensure", "params": {}}),
-    ]))
-    entry.serve(stdin=stdin, stdout=out)
-    responses, _ = split_stream(out)
-    # 第二单撞第一单(单飞):结构化 ensure_busy(不是 500);第一单已受理
-    assert responses[0]["result"]["ensuring"] is True
-    assert responses[1]["error"]["code"] == "ensure_busy"
-    assert responses[1]["error"]["data"]["active_job_id"] == responses[0]["result"]["job_id"]
-    release.set()
-    completed = _wait_for_event(out, "image.server.completed")
-    assert completed["ok"] is True
-
 
 # ---------------------------------------------------------------------------
 # image.files.purge(10-03-vision-v2 复查:落图零回收的 CLI 面清除口)
 # ---------------------------------------------------------------------------
+
+
+def _vision_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """MYIA_HOME 指到 tmp(看图域测试共用的家目录隔离;建 home 本体)。"""
+    home = tmp_path / "home"
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    home.mkdir(parents=True, exist_ok=True)
+    return home
 
 
 def test_image_files_purge_by_mtime(tmp_path, monkeypatch):

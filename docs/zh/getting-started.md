@@ -81,7 +81,7 @@ uv sync --extra trafilatura # L2 正文兜底(无规则/规则失效源的单页
 `telethon` / `browser`;另有 `all` 聚合键一键装其中六件(`crawl4ai` /
 `scrapling` / `firecrawl` / `skyvern` / `llm` / `browser`,
 `simplex`/`vision`/`table`/`trafilatura`/`apprise`/`telethon` 不在其内——
-`all` 只与 `vision` 共享 openai / huggingface-hub 两个包,看图双引擎
+`all` 只与 `vision` 共享 openai 一个包,看图双引擎
 ocrmac / rapidocr(+ onnxruntime 后端)不在 `all` 内,要看图请单装
 `uv sync --extra vision`。表格还原在桌面端还有第二条安装通道:
 **设置 → Python 环境的「表格还原」组件开关**——往自管环境装钉版组件,零重

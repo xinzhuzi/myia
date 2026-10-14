@@ -784,7 +784,7 @@ describe("设置:分区导航与危险区(D4 结构重做)", () => {
           exists: true,
           config: {
             channel_default: "local",
-            local: { base_url: "http://127.0.0.1:8080/v1", model: "" },
+            local: { base_url: "http://127.0.0.1:8080/v1", model: "", api_key: null },
             cloud: { base_url: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4.6v", api_key: null },
             ocr: { enabled: true, engine_default: "vision" },
           },

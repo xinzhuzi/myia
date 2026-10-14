@@ -108,7 +108,11 @@ from myssia.engines.fetch_base import (
 from myssia.schema import ImagesConfig
 from myssia.vision.client import VisionClient
 from myssia.vision.ocr import OCRError, run_ocr
-from myssia.vision.settings import VisionConfig, resolve_cloud_api_key
+from myssia.vision.settings import (
+    VisionConfig,
+    resolve_cloud_api_key,
+    resolve_local_api_key,
+)
 from myssia.vision.table import TableError, TableResult, run_table
 
 __all__ = [
@@ -871,6 +875,14 @@ class _VlChannel:
         if channel == "local":
             if not vision_cfg.local_model:
                 self.reason = "no_local_model"
+                return
+            try:
+                # 本地端点(LM Studio 等)可选 api_key(显式 local.api_key
+                # keychain 引用;未配 = None,构造 VisionClient 不带鉴权头)。
+                self.api_key = resolve_local_api_key(vision_cfg)
+            except Exception as exc:  # noqa: BLE001 - 凭据解析失败 = VL 降级,不阻管线
+                self.reason = f"credential_resolve_failed:{type(exc).__name__}"
+                logger.warning("VL 本地凭据解析失败(降级只 OCR): %s", exc)
                 return
             self.base_url = vision_cfg.local_base_url
             self.model = vision_cfg.local_model

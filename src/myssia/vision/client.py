@@ -65,11 +65,13 @@ class VisionClient:
     也能构造,首次调用才结构化报 ``dependency_missing``。
 
     Args:
-        base_url: OpenAI 兼容端点 base(本地含 ``/v1`` 路径,如
-            ``http://127.0.0.1:8080/v1``)。
-        model: 模型名;本地 mlx-vlm 场景即模型目录路径(「设置本地模型路径」落点)。
-        api_key: 已解析的云端 key;``None`` = 本地通道(占位构造 + 剥离
-            Authorization 头,见 :data:`LOCAL_PLACEHOLDER_KEY`)。
+        base_url: OpenAI 兼容端点 base(含 ``/v1`` 路径;本地 = LM Studio 等,
+            缺省 ``http://127.0.0.1:1234/v1``)。
+        model: 端点上的模型名(OpenAI ``model`` 参数;LM Studio 场景 =
+            其模型列表里的 id)。
+        api_key: 已解析的端点 key(云端 GLM 或本地开了鉴权的 LM Studio);
+            ``None`` = 端点无鉴权(占位构造 + 剥离 Authorization 头,见
+            :data:`LOCAL_PLACEHOLDER_KEY`)。
         timeout_seconds: 单请求硬上限(asyncio.wait_for + SDK timeout 双保险;
             缺省 180s —— 60s 在 Metal JIT 首请求/长 describe/低速主机下实测越线,
             见 10-03 装机冒烟 protocol-e2e2-summary.md)。

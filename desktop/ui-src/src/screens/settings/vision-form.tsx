@@ -1,30 +1,15 @@
-import { Download, HardDrive, KeyRound, Save, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { KeyRound, Save } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SidecarRequestError, onSidecarEvent } from "@/lib/api";
-import type {
-  ImageServerStatusResult,
-  OcrEngine,
-  UnlistenFn,
-  VisionChannel,
-  VisionConfig,
-  VisionModelEntry,
-} from "@/lib/api";
-import { IMAGE_MODELS_NAME_RE, IMAGE_MODELS_REPO_RE } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { SidecarRequestError } from "@/lib/api";
+import type { OcrEngine, VisionChannel, VisionConfig } from "@/lib/api";
 
 import {
   DEFAULT_VISION_CONFIG,
-  activateImageModel,
-  deleteImageModel,
-  downloadImageModel,
-  ensureImageServer,
-  imageServerStatus,
-  listImageModels,
   readImageConfig,
   saveImageConfig,
 } from "./vision-api";
@@ -36,6 +21,8 @@ import { SettingRow } from "./settings-row";
 
 /** 云端 api_key 的钥匙链规范名(与 sidecar vision.yaml 引用同口径) */
 const SECRET_NAME_IMAGE_API_KEY = "myia/image/api_key";
+/** 本地端点(LM Studio 等)可选 api_key 的钥匙链规范名(10-15 客户端制) */
+const SECRET_NAME_IMAGE_LOCAL_API_KEY = "myia/image/local_api_key";
 
 interface VisionFormProps {
   /** 设置屏已加载的钥匙链名清单(判 api_key 是否已存;值永不可读) */
@@ -71,13 +58,12 @@ function isVisionConfigLike(value: unknown): value is VisionConfig {
 }
 
 /**
- * 设置 → 看图分区(两张卡):
- *   1) 结构配置卡:二级看图通道与引擎(经 image.config.save 落
- *      MYIA_HOME/vision.yaml;与三凭据表单不同,本表单结构字段可写回)。
- *      凭据铁律照旧:云端 api_key 只经 secret.set 入钥匙链 myia/image/api_key,
- *      配置里只落 keychain: 引用 —— 明文拒载,值不回显不落盘。
- *   2) 模型管理卡(VisionModelsCard,10-03-vision-v2):本地 MLX 视觉模型
- *      下载/删除/激活 + 本地 mlx_vlm.server 代管行(见下方组件头注释)。
+ * 设置 → 看图分区(单卡,10-15-vision-model-path 客户端制):二级看图通道
+ * 与 OCR 引擎结构配置(经 image.config.save 落 MYIA_HOME/vision.yaml)。
+ * 本地通道 = LM Studio 等 OpenAI 兼容端点的纯客户端 —— base_url / 模型名 /
+ * 可选 api_key 三件套,MYIA 不下载/不自跑大模型(模型在 LM Studio 应用里
+ * 管理);云端 = GLM 等。凭据铁律照旧:两个 api_key 都只经 secret.set 入
+ * 钥匙串,配置里只落 keychain: 引用 —— 明文拒载,值不回显不落盘。
  */
 export function VisionForm({ secretNames }: VisionFormProps) {
   const [form, setForm] = useState<VisionFormState>(stateFromConfig(DEFAULT_VISION_CONFIG));
@@ -85,6 +71,7 @@ export function VisionForm({ secretNames }: VisionFormProps) {
   const [loaded, setLoaded] = useState<VisionConfig>(DEFAULT_VISION_CONFIG);
   const [loadedError, setLoadedError] = useState<SidecarRequestError | null>(null);
   const [apiKey, setApiKey] = useState("");
+  const [localApiKey, setLocalApiKey] = useState("");
   const [errors, setErrors] = useState<Partial<Record<"localBaseUrl", string>>>({});
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -112,7 +99,7 @@ export function VisionForm({ secretNames }: VisionFormProps) {
   const handleSave = useCallback(async () => {
     const localBase = form.localBaseUrl.trim() || DEFAULT_VISION_CONFIG.local.base_url;
     if (!/^https?:\/\//.test(localBase)) {
-      setErrors({ localBaseUrl: "本地 base_url 须为 http(s) 地址(留空用默认 http://127.0.0.1:8080/v1)" });
+      setErrors({ localBaseUrl: "本地 base_url 须为 http(s) 地址(留空用默认 http://127.0.0.1:1234/v1)" });
       return;
     }
     setErrors({});
@@ -121,20 +108,26 @@ export function VisionForm({ secretNames }: VisionFormProps) {
     setStatus(null);
     try {
       // 1) 凭据(如有输入)只入钥匙链;配置里仅落引用
-      let apiKeyRef = loaded.cloud.api_key;
+      let apiKeyRef = loaded.cloud.api_key ?? null;
       if (apiKey) {
         await saveSecret(SECRET_NAME_IMAGE_API_KEY, apiKey);
         apiKeyRef = `keychain:${SECRET_NAME_IMAGE_API_KEY}`;
       }
+      let localApiKeyRef = loaded.local.api_key ?? null;
+      if (localApiKey) {
+        await saveSecret(SECRET_NAME_IMAGE_LOCAL_API_KEY, localApiKey);
+        localApiKeyRef = `keychain:${SECRET_NAME_IMAGE_LOCAL_API_KEY}`;
+      }
       // 2) 结构配置整份写回(未入表单字段按 read 原样保留)
       const config: VisionConfig = {
         channel_default: form.channelDefault,
-        local: { base_url: localBase, model: form.localModel.trim() },
+        local: { base_url: localBase, model: form.localModel.trim(), api_key: localApiKeyRef },
         cloud: { base_url: loaded.cloud.base_url, model: form.cloudModel.trim() || loaded.cloud.model, api_key: apiKeyRef },
         ocr: { enabled: loaded.ocr.enabled, engine_default: form.ocrEngine },
       };
       await saveImageConfig(config);
       setApiKey(""); // key 保存即清:不留存、不回显
+      setLocalApiKey("");
       // 3) 复核往返:重读配置与所写一致才算数
       const rereadValue = await readImageConfig();
       const consistent =
@@ -142,6 +135,7 @@ export function VisionForm({ secretNames }: VisionFormProps) {
         rereadValue.channel_default === config.channel_default &&
         rereadValue.local.base_url === config.local.base_url &&
         rereadValue.local.model === config.local.model &&
+        rereadValue.local.api_key === config.local.api_key &&
         rereadValue.cloud.model === config.cloud.model &&
         rereadValue.ocr.engine_default === config.ocr.engine_default;
       setStatus(
@@ -158,20 +152,20 @@ export function VisionForm({ secretNames }: VisionFormProps) {
     } finally {
       setSaving(false);
     }
-  }, [apiKey, form, loaded]);
+  }, [apiKey, localApiKey, form, loaded]);
 
   const keyInKeychain = secretNames?.includes(SECRET_NAME_IMAGE_API_KEY) ?? false;
+  const localKeyInKeychain = secretNames?.includes(SECRET_NAME_IMAGE_LOCAL_API_KEY) ?? false;
 
   return (
-    <>
-      <Card>
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <KeyRound className="size-4 text-muted-foreground" />
           看图
         </CardTitle>
         <CardDescription>
-          二级看图通道与 OCR 引擎结构配置(落 MYIA_HOME/vision.yaml);云端 api_key 只入系统钥匙串
+          本地通道 = LM Studio 等 OpenAI 兼容端点(模型在 LM Studio 里管理);云端 = GLM;配置落 MYIA_HOME/vision.yaml
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -187,7 +181,7 @@ export function VisionForm({ secretNames }: VisionFormProps) {
             image.config.save —— 协议未收编(Python 侧未落地)时会得到结构化 method_not_found,如实呈现。
           </div>
         ) : null}
-        <SettingRow label="默认通道" description="本地零出网优先;云端出网(按云端 key)">
+        <SettingRow label="默认通道" description="本地端点优先;云端出网(按云端 key)">
           <Select
             value={form.channelDefault}
             onValueChange={(value) => setForm((prev) => ({ ...prev, channelDefault: value as VisionChannel }))}
@@ -196,7 +190,7 @@ export function VisionForm({ secretNames }: VisionFormProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="local">本地(零出网)</SelectItem>
+              <SelectItem value="local">本地端点</SelectItem>
               <SelectItem value="cloud">云端(出网)</SelectItem>
             </SelectContent>
           </Select>
@@ -218,19 +212,38 @@ export function VisionForm({ secretNames }: VisionFormProps) {
         <FieldInput
           label="本地 base_url"
           aria-label="本地 base_url"
-          placeholder="http://127.0.0.1:8080/v1(mlx-vlm;LM Studio 为 http://127.0.0.1:1234/v1)"
+          placeholder="http://127.0.0.1:1234/v1(LM Studio;留空用默认)"
           value={form.localBaseUrl}
           onChange={(event) => setForm((prev) => ({ ...prev, localBaseUrl: event.target.value }))}
           error={errors.localBaseUrl}
-          hint="OpenAI 兼容端点(含 /v1 路径);默认 http://127.0.0.1:8080/v1,留空按默认保存"
+          hint="OpenAI 兼容端点(含 /v1 路径);默认 LM Studio 标准口 http://127.0.0.1:1234/v1"
         />
         <FieldInput
-          label="本地模型路径"
-          aria-label="本地模型路径"
-          placeholder="~/.myia/models/qwen3-vl-8b-mlx(mlx-vlm 的 model 字段即模型路径)"
+          label="本地模型"
+          aria-label="本地模型"
+          placeholder="LM Studio 模型列表里的模型名"
           value={form.localModel}
           onChange={(event) => setForm((prev) => ({ ...prev, localModel: event.target.value }))}
-          hint="「设置本地模型路径」的落点:本地通道 model 字段 = MLX 模型目录;下载/代管属 v2"
+          hint="端点上的模型名(本地服务模型列表 id);本地看图走它在 LM Studio 里加载的模型"
+        />
+        <FieldInput
+          label="本地 API Key"
+          aria-label="本地 API Key"
+          type="password"
+          autoComplete="new-password"
+          placeholder="本地服务开了 API 鉴权才需要;留空 = 不带鉴权"
+          value={localApiKey}
+          onChange={(event) => setLocalApiKey(event.target.value)}
+          hint={`LM Studio 未开鉴权可留空;输入则写入钥匙串 ${SECRET_NAME_IMAGE_LOCAL_API_KEY},保存即清,永不回显`}
+          action={
+            secretNames !== null ? (
+              localKeyInKeychain ? (
+                <Badge variant="ok">本地 key 已在钥匙串</Badge>
+              ) : (
+                <Badge variant="outline">本地无鉴权</Badge>
+              )
+            ) : null
+          }
         />
         <FieldInput
           label="云端模型"
@@ -271,498 +284,6 @@ export function VisionForm({ secretNames }: VisionFormProps) {
           ) : null}
         </div>
         {saveError ? <ErrorBox error={saveError} /> : null}
-      </CardContent>
-      </Card>
-      <VisionModelsCard />
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 模型管理卡(10-03-vision-v2):已装清单 + 下载(事件流)+ 本地 server 代管行
-// ---------------------------------------------------------------------------
-
-/** 进行中的下载 job UI 态(进度事件喂字节;completed 定终态) */
-interface DownloadJobState {
-  jobId: number;
-  repo: string;
-  doneBytes: number;
-  /** HF 未回报总量时为 null(进度条退化为不定态 + 已下载字节) */
-  totalBytes: number | null;
-}
-
-/**
- * 下载 job 的模块级驻留(10-03-vision-v2 复查:remount 断链修复):设置屏
- * 切页会卸载本卡,而下载 job 跑在 sidecar 侧与卡不同寿 —— jobId 只存组件
- * state 会随卸载丢失,重挂载后 progress/completed 事件被当陌生 job 滤掉。
- * 驻留模块级:重挂载即恢复等待态继续吃事件(模块绑定永不陈旧,事件订阅
- * 直接读写它)。已知缺口:job 在卸载窗口内完成时事件已错过,等待态残留到
- * 用户再点下载(后端单飞会拒 download_busy,可据错误码收口)。
- */
-let activeDownloadJob: DownloadJobState | null = null;
-
-/** 字节数 → 人类可读(B/KB/MB/GB/TB;一位小数,百级以上取整) */
-export function formatModelBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return "—";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value >= 100 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`;
-}
-
-/**
- * 设置 → 看图分区 · 模型管理卡:本地 MLX 视觉模型(MYIA_HOME/models)的
- * 下载(HF snapshot_download,断点续传;半成品标「未完成(可续传)」)/
- * 删除 / 激活,与本地 mlx_vlm.server 代管状态行。数据面 = image.models.* /
- * image.server.* 六方法 + 三事件(image.models.progress / completed 与
- * image.server.completed,经 onSidecarEvent 订阅;ensure 应答即返,慢路径
- * 等待期徽章明示、终态事件翻徽章)。
- */
-export function VisionModelsCard() {
-  const [models, setModels] = useState<VisionModelEntry[] | null>(null);
-  const [listError, setListError] = useState<SidecarRequestError | null>(null);
-  /** 下载表单与 job 态(单飞:后端 download_busy,前端按钮随 job 态禁用;
-   *  初值取模块级驻留 —— remount 恢复等待态,见 activeDownloadJob 注释) */
-  const [repoId, setRepoId] = useState("");
-  const [localName, setLocalName] = useState("");
-  const [job, setJob] = useState<DownloadJobState | null>(activeDownloadJob);
-  /** completed ok=false 的结构化 code(前端预校验失败也走这里) */
-  const [downloadError, setDownloadError] = useState<string | null>(null);
-  const [downloadStatus, setDownloadStatus] = useState<string | null>(null);
-  /** 删除二次确认(inline confirm,同钥匙链凭据删除惯例)与变更错误 */
-  const [deletingModel, setDeletingModel] = useState<string | null>(null);
-  const [activating, setActivating] = useState<string | null>(null);
-  const [mutationError, setMutationError] = useState<SidecarRequestError | null>(null);
-  const [activateStatus, setActivateStatus] = useState<string | null>(null);
-  /** 服务行:挂载拉一次 status;ensure 应答即返,终态吃 image.server.completed */
-  const [server, setServer] = useState<ImageServerStatusResult | null>(null);
-  const [serverError, setServerError] = useState<SidecarRequestError | null>(null);
-  const [ensuring, setEnsuring] = useState(false);
-  const [ensureStatus, setEnsureStatus] = useState<string | null>(null);
-  const [ensureError, setEnsureError] = useState<SidecarRequestError | null>(null);
-  /** 本会话发起的 ensure 未收 completed(也防 completed 先于应答到的竞态) */
-  const ensurePendingRef = useRef(false);
-  /** 订阅期防陈旧闭包:job id 走 ref 过滤(事件只喂本会话发起的 job) */
-  const jobIdRef = useRef<number | null>(activeDownloadJob?.jobId ?? null);
-
-  const refreshModels = useCallback(async () => {
-    setListError(null);
-    try {
-      setModels(await listImageModels());
-    } catch (raw) {
-      setListError(raw instanceof SidecarRequestError ? raw : new SidecarRequestError({ code: "transport_error", path: "$", message: String(raw) }));
-    }
-  }, []);
-
-  const refreshServer = useCallback(async () => {
-    setServerError(null);
-    try {
-      setServer(await imageServerStatus());
-    } catch (raw) {
-      setServerError(raw instanceof SidecarRequestError ? raw : new SidecarRequestError({ code: "transport_error", path: "$", message: String(raw) }));
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshModels();
-    void refreshServer();
-  }, [refreshModels, refreshServer]);
-
-  // 下载域 + server ensure 事件订阅(progress 喂进度;completed 定终态 → 成功
-  // 刷新清单/失败出 error;image.server.completed 定 ensure 终态翻服务徽章)。
-  // catch:浏览器直开/壳未起时 listen 不可用 —— 进度条退化为提交即等待态,不炸卡。
-  useEffect(() => {
-    let unlisten: UnlistenFn | null = null;
-    let cancelled = false;
-    void onSidecarEvent((event) => {
-      if (event.type === "image.models.progress") {
-        if (jobIdRef.current !== event.job_id) return;
-        const current = activeDownloadJob;
-        if (current && current.jobId === event.job_id) {
-          activeDownloadJob = {
-            ...current,
-            doneBytes: event.done_bytes,
-            totalBytes: event.total_bytes ?? current.totalBytes,
-          };
-          setJob(activeDownloadJob);
-        }
-      } else if (event.type === "image.models.completed") {
-        if (jobIdRef.current !== event.job_id) return;
-        jobIdRef.current = null;
-        activeDownloadJob = null;
-        if (event.ok) {
-          setJob(null);
-          setDownloadStatus("模型已下载完成,清单已刷新(可点「设为当前」激活)");
-          void refreshModels();
-        } else {
-          setJob(null);
-          setDownloadError(event.error ?? "未知错误");
-        }
-      } else if (event.type === "image.server.completed") {
-        // ensure 终态(单飞:同一时刻至多一个 ensure,不滤 job_id;非本会话
-        // 发起的 ensure 由 ensurePendingRef 守门 —— pending 才收)
-        if (!ensurePendingRef.current) return;
-        ensurePendingRef.current = false;
-        setEnsuring(false);
-        if (event.ok && event.status) {
-          setServer(event.status);
-          setEnsureStatus(
-            event.status.started
-              ? `本地服务已启动并运行正常(${event.status.base_url};Metal JIT 首载最长约 2 分钟)`
-              : `本地 server 已在运行(${event.status.base_url}),无需启动`,
-          );
-        } else {
-          setEnsureError(new SidecarRequestError({
-            code: event.error ?? "unknown",
-            path: "$",
-            message: `启动失败(${event.error ?? "未知错误"});可稍后重试,详情见「采集日志」或数据目录 logs/myssia-*.jsonl 的 proc=vision 行`,
-          }));
-        }
-      }
-    })
-      .then((un) => {
-        if (cancelled) un();
-        else unlisten = un;
-      })
-      .catch(() => {
-        // 订阅通道不可用:保留 job 态(completed 不可达时用户可刷新清单自行收口)
-      });
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
-  }, [refreshModels]);
-
-  const handleDownload = useCallback(async () => {
-    const repo = repoId.trim();
-    if (!IMAGE_MODELS_REPO_RE.test(repo)) {
-      setDownloadError("repo 须为 mlx-community/<name> 形式(MLX 格式权重直下免 convert)");
-      return;
-    }
-    const name = localName.trim();
-    if (name && !IMAGE_MODELS_NAME_RE.test(name)) {
-      setDownloadError("本地名须以字母/数字开头,仅含 . _ -(禁路径分隔)");
-      return;
-    }
-    setDownloadError(null);
-    setDownloadStatus(null);
-    try {
-      const result = await downloadImageModel({ repo, ...(name ? { name } : {}) });
-      jobIdRef.current = result.job_id;
-      activeDownloadJob = { jobId: result.job_id, repo, doneBytes: 0, totalBytes: null };
-      setJob(activeDownloadJob);
-    } catch (raw) {
-      const failure = raw instanceof SidecarRequestError ? raw : new SidecarRequestError({ code: "transport_error", path: "$", message: String(raw) });
-      setDownloadError(`${failure.code}: ${failure.message}`);
-    }
-  }, [repoId, localName]);
-
-  const handleDelete = useCallback(
-    async (name: string) => {
-      setMutationError(null);
-      try {
-        await deleteImageModel({ name });
-        setDeletingModel(null);
-        await refreshModels();
-      } catch (raw) {
-        setMutationError(raw instanceof SidecarRequestError ? raw : new SidecarRequestError({ code: "transport_error", path: "$", message: String(raw) }));
-      }
-    },
-    [refreshModels],
-  );
-
-  const handleActivate = useCallback(
-    async (name: string) => {
-      setMutationError(null);
-      setActivateStatus(null);
-      setActivating(name);
-      try {
-        await activateImageModel({ name });
-        setActivateStatus(`已设为当前模型:${name}(vision.yaml local.model 已改写)`);
-        await refreshModels();
-      } catch (raw) {
-        setMutationError(raw instanceof SidecarRequestError ? raw : new SidecarRequestError({ code: "transport_error", path: "$", message: String(raw) }));
-      } finally {
-        setActivating(null);
-      }
-    },
-    [refreshModels],
-  );
-
-  /** ensure 应答即返:快路径(已健康/旧 sidecar 同步终态)直接收;慢路径
-   *  (ensuring=true)挂等待文案,终态吃 image.server.completed 事件翻徽章
-   *  —— sidecar 侧自起 + 健康等待 ≤120s 跑后台线程,桌面协议不再被冻住。 */
-  const handleEnsure = useCallback(async () => {
-    ensurePendingRef.current = true;
-    setEnsuring(true);
-    setEnsureError(null);
-    setEnsureStatus(null);
-    try {
-      const result = await ensureImageServer();
-      if (result.ensuring) {
-        // 慢路径:completed 可能先于本应答 resolve 到达(竞态)——pending 已
-        // 被事件清掉时不重复置等待文案/等待态
-        if (ensurePendingRef.current) {
-          setEnsureStatus("正在后台启动并等待就绪(Metal JIT 首次加载最长约 2 分钟),完成后自动更新…");
-        }
-        return;
-      }
-      ensurePendingRef.current = false;
-      setEnsuring(false);
-      setServer(result);
-      setEnsureStatus(
-        result.started
-          ? `本地服务已启动并运行正常(${result.base_url};Metal JIT 首载最长约 2 分钟)`
-          : `本地 server 已在运行(${result.base_url}),无需启动`,
-      );
-    } catch (raw) {
-      ensurePendingRef.current = false;
-      setEnsuring(false);
-      setEnsureError(raw instanceof SidecarRequestError ? raw : new SidecarRequestError({ code: "transport_error", path: "$", message: String(raw) }));
-    }
-  }, []);
-
-  const percent = job && job.totalBytes ? Math.min(100, (job.doneBytes / job.totalBytes) * 100) : null;
-
-  return (
-    <Card data-testid="vision-models-card">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <HardDrive className="size-4 text-muted-foreground" />
-          看图模型管理
-        </CardTitle>
-        <CardDescription>
-          本地 MLX 视觉模型(MYIA_HOME/models):下载 / 删除 / 激活 + 本地 mlx_vlm.server 代管
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {/* 挂载期读取失败 = 注记不是告警(同上方 config 卡惯例:不占 role=alert,
-            设置屏既有用例对 alert 单匹配断言);动作期错误才走 ErrorBox */}
-        {listError ? (
-          <div
-            role="note"
-            className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
-            data-testid="vision-models-note"
-          >
-            已装清单读取失败(code={listError.code}:{listError.message});协议未收编
-            (Python 侧未落地)时如实呈现,下载/删除/激活可试。
-          </div>
-        ) : null}
-        {mutationError ? <ErrorBox error={mutationError} /> : null}
-        {models === null && listError === null ? (
-          <span className="text-xs text-muted-foreground">已装清单加载中…</span>
-        ) : models !== null && models.length === 0 ? (
-          <span className="text-xs text-muted-foreground" data-testid="vision-models-empty">
-            尚未安装任何模型(models/ 为空);在下方下载第一个
-          </span>
-        ) : (
-          <div className="flex flex-col gap-1.5" data-testid="vision-models-list">
-            {models?.map((model) => (
-              <div
-                key={model.name}
-                data-testid={`vision-model-${model.name}`}
-                className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/60 px-2.5 py-1.5"
-              >
-                <span className="min-w-0 truncate font-mono text-xs" title={model.path}>
-                  {model.name}
-                </span>
-                <span className="text-2xs text-muted-foreground">{formatModelBytes(model.bytes)}</span>
-                {model.incomplete ? (
-                  <Badge variant="warning" data-testid={`vision-model-incomplete-${model.name}`}>
-                    未完成(可续传)
-                  </Badge>
-                ) : null}
-                {model.active ? (
-                  <Badge variant="ok">当前</Badge>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 px-1.5 text-xs"
-                    onClick={() => void handleActivate(model.name)}
-                    disabled={activating !== null || model.incomplete}
-                    title={
-                      model.incomplete
-                        ? "未下载完整(后端 model_incomplete 拒激活);再次下载同名可断点续传补全"
-                        : undefined
-                    }
-                  >
-                    {activating === model.name ? "激活中…" : "设为当前"}
-                  </Button>
-                )}
-                <span className="ml-auto flex items-center gap-0.5">
-                  {deletingModel === model.name ? (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        data-testid={`vision-model-delete-confirm-${model.name}`}
-                        onClick={() => void handleDelete(model.name)}
-                      >
-                        确认删除
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setDeletingModel(null)}>
-                        取消
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-6"
-                      aria-label={`删除模型 ${model.name}`}
-                      disabled={model.active}
-                      title={
-                        model.active
-                          ? "当前模型不可删除(后端 model_active_refused);先激活别的模型"
-                          : `删除 ${model.name}(${formatModelBytes(model.bytes)})`
-                      }
-                      onClick={() => {
-                        setMutationError(null);
-                        setDeletingModel(model.name);
-                      }}
-                    >
-                      <Trash2 className="size-3" />
-                    </Button>
-                  )}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-        {activateStatus ? (
-          <p role="status" className="text-xs text-ok" data-testid="vision-activate-status">
-            {activateStatus}
-          </p>
-        ) : null}
-
-        {/* 下载区:repo + 本地名(可选);进度条吃 progress 事件 */}
-        <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-          <div className="flex flex-col divide-y divide-border/60">
-            <FieldInput
-              label="repo"
-              aria-label="模型 repo"
-              placeholder="mlx-community/Qwen2.5-VL-7B-Instruct-4bit"
-              value={repoId}
-              onChange={(event) => setRepoId(event.target.value)}
-              hint="HF 仓库全名;须 mlx-community/<name>(MLX 权重直下免 convert)"
-            />
-            <FieldInput
-              label="本地名(可选)"
-              aria-label="模型本地名"
-              placeholder="Qwen2.5-VL-7B-Instruct-4bit(缺省 = repo 名段)"
-              value={localName}
-              onChange={(event) => setLocalName(event.target.value)}
-              hint="装到 MYIA_HOME/models/<本地名>;断点续传,失败可重下"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => void handleDownload()} disabled={job !== null}>
-              <Download className="size-3.5" />
-              {job ? "下载中…" : "下载模型"}
-            </Button>
-            <span className="text-2xs text-muted-foreground">
-              磁盘空间不足会报 disk_insufficient;已有同名完整模型会报 model_exists(请先删除或换名字);下载中断过的模型会断点续传
-            </span>
-          </div>
-          {job ? (
-            <div className="flex flex-col gap-1" data-testid="vision-download-progress">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all",
-                    percent !== null ? "bg-primary" : "w-full animate-pulse bg-primary/50",
-                  )}
-                  style={percent !== null ? { width: `${percent.toFixed(1)}%` } : undefined}
-                  role="progressbar"
-                  aria-valuenow={percent !== null ? Math.round(percent) : undefined}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label={`下载进度 ${job.repo}`}
-                />
-              </div>
-              <span className="text-2xs text-muted-foreground">
-                {job.repo}:
-                {percent !== null
-                  ? ` ${formatModelBytes(job.doneBytes)} / ${formatModelBytes(job.totalBytes ?? 0)}(${percent.toFixed(0)}%)`
-                  : ` 已下载 ${formatModelBytes(job.doneBytes)}(总量未知)`}
-              </span>
-            </div>
-          ) : null}
-          {downloadStatus ? (
-            <p role="status" className="text-xs text-ok" data-testid="vision-download-status">
-              {downloadStatus}
-            </p>
-          ) : null}
-          {downloadError ? (
-            <p role="alert" className="text-xs text-destructive" data-testid="vision-download-error">
-              下载失败:{downloadError}
-            </p>
-          ) : null}
-        </div>
-
-        {/* 服务行:status 挂载拉一次;ensure 应答即返(慢路径终态吃
-            image.server.completed 事件翻徽章,等待期徽章明示「确保启动中」) */}
-        <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">本地服务</span>
-            {ensuring ? (
-              <Badge variant="unknown" data-testid="vision-server-badge">
-                启动中…
-              </Badge>
-            ) : server === null ? (
-              serverError ? (
-                <Badge variant="unknown" data-testid="vision-server-badge">
-                  状态未知
-                </Badge>
-              ) : (
-                <span className="text-xs text-muted-foreground">探测中…</span>
-              )
-            ) : server.healthy ? (
-              <Badge variant="ok" data-testid="vision-server-badge">
-                运行中 · 健康
-              </Badge>
-            ) : server.running ? (
-              <Badge variant="warning" data-testid="vision-server-badge">
-                已监听 · /models 异常
-              </Badge>
-            ) : (
-              <Badge variant="destructive" data-testid="vision-server-badge">
-                未运行
-              </Badge>
-            )}
-            <Button size="sm" variant="outline" onClick={() => void handleEnsure()} disabled={ensuring}>
-              {ensuring ? "启动中…(后台,最长约 2 分钟)" : "启动服务"}
-            </Button>
-            <Button size="sm" variant="ghost" aria-label="刷新服务状态" onClick={() => void refreshServer()} disabled={ensuring}>
-              刷新
-            </Button>
-          </div>
-          {server ? (
-            <p className="text-2xs text-muted-foreground">
-              {server.base_url} · 模型 {server.model || "(未配置)"}
-            </p>
-          ) : null}
-          {serverError ? (
-            <div
-              role="note"
-              className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
-              data-testid="vision-server-note"
-            >
-              服务状态探测失败(code={serverError.code}:{serverError.message});「启动服务」仍可尝试。
-            </div>
-          ) : null}
-          {ensureStatus ? (
-            <p role="status" className="text-xs text-ok" data-testid="vision-ensure-status">
-              {ensureStatus}
-            </p>
-          ) : null}
-          {ensureError ? <ErrorBox error={ensureError} onRetry={() => void handleEnsure()} retrying={ensuring} /> : null}
-        </div>
       </CardContent>
     </Card>
   );

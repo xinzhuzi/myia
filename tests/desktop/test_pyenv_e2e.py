@@ -703,7 +703,7 @@ def test_fresh_sandbox_full_chain(
         try:
             version_result = client.call(1, "version")
             assert version_result["name"] == "myssia"
-            assert version_result["protocol"] == 15  # v15 = 平台账号批(飞书账号线+微信桥状态;10-11-platform-account-config)
+            assert version_result["protocol"] == 16  # v16 = vision-model-path 批(看图本地通道客户端制,image.models/server 下线;10-15-vision-model-path)
             assert version_result["app_version"] == "0.0.1"
             smoke_methods = [
                 ("health", 2),  # 源管理:插件清单 + 源健康度聚合

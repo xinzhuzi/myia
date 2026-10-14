@@ -1164,18 +1164,22 @@ export interface EmptyParams {}
 /** OCR 引擎:vision = macOS Vision(ocrmac,默认)/ rapidocr = RapidOCR(onnxruntime) */
 export type OcrEngine = "vision" | "rapidocr";
 
-/** 二级看图通道:local = OpenAI 兼容本地端点(mlx-vlm/LM Studio)/ cloud = 云端视觉 API */
+/** 二级看图通道:local = OpenAI 兼容本地端点(LM Studio)/ cloud = 云端视觉 API */
 export type VisionChannel = "local" | "cloud";
 
 /** 看图结构配置(vision.yaml;MYIA_HOME 第一个全局配置文件)。
- *  铁律:api_key 只收 keychain: 引用(env: 同拒),明文凭据拒载(security-baseline)。 */
+ *  铁律:api_key 只收 keychain: 引用(env: 同拒),明文凭据拒载(security-baseline)。
+ *  本地通道客户端制(10-15-vision-model-path):local = LM Studio 等自跑端点,
+ *  MYIA 不下载/不自跑任何大模型。 */
 export interface VisionConfig {
   channel_default: VisionChannel;
   local: {
-    /** OpenAI 兼容本地端点(mlx-vlm :8080 / LM Studio :1234) */
+    /** OpenAI 兼容本地端点(缺省 LM Studio http://127.0.0.1:1234/v1) */
     base_url: string;
-    /** 本地模型 = 模型路径(mlx-vlm 契约:model 字段即路径) */
+    /** 端点上的模型名(OpenAI model 参数;LM Studio 模型列表 id) */
     model: string;
+    /** keychain:myia/image/local_api_key 引用或 null;本地服务开鉴权才需要 */
+    api_key: string | null;
   };
   cloud: {
     base_url: string;
@@ -1207,87 +1211,9 @@ export interface ImageConfigSaveParams {
   config: VisionConfig;
 }
 
-// ---------------------------------------------------------------------------
-// image.models.* / image.server.*(10-03-vision-v2:模型下载与 server 代管;
-// 契约与 entry.py `_m_image_models_*` / `_m_image_server_*` 同形状冻结,
-// 能力实现 src/myssia/vision/models.py / server.py)
-// ---------------------------------------------------------------------------
-
-/** 已装模型(image.models.list 逐项;模型 = models/ 一级子目录) */
-export interface VisionModelEntry {
-  /** 目录名(下载时 repo 名段或自定义本地名) */
-  name: string;
-  /** resolve 后的绝对路径 */
-  path: string;
-  /** 递归字节数(跳过隐藏 .cache;未完下载不算已装体量) */
-  bytes: number;
-  /** = 目录与 vision.yaml local.model resolve 后全等(当前激活) */
-  active: boolean;
-  /** 半成品(缺 config.json 或 *.safetensors):激活被拒 model_incomplete;
-   *  再次 download 同名 = 断点续传补全 */
-  incomplete: boolean;
-}
-
-export interface ImageModelsListResult {
-  /** 空目录 = 合法空表(UI 给下载引导不报错) */
-  models: VisionModelEntry[];
-}
-
-/** repo 合法形(镜像 models.py `_REPO_RE`):mlx-community/<name>,单斜杠,org 固定 */
-export const IMAGE_MODELS_REPO_RE = /^mlx-community\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
-
-/** 本地名合法形(镜像 `_NAME_RE`;禁路径分隔,防穿越) */
-export const IMAGE_MODELS_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-
-export interface ImageModelsDownloadParams {
-  /** HF 仓库全名,必须 mlx-community/<name>(MLX 格式权重直下免 convert;
-   *  其余命名空间多为原始 HF 权重,对 mlx_vlm.server 不可用,结构化拒) */
-  repo: string;
-  /** 本地目录名;缺省 = repo 名段 */
-  name?: string;
-}
-
-export interface ImageModelsDownloadResult {
-  /** 异步 job id(进度/终态走 image.models.progress / completed 两事件) */
-  job_id: number;
-}
-
-export interface ImageModelsDeleteParams {
-  name: string;
-}
-
-export interface ImageModelsActivateParams {
-  name: string;
-}
-
-export interface ImageModelsMutationResult {
-  ok: true;
-}
-
-/** image.server.status / image.server.ensure 公共形状(server.py `vision_server_status`) */
-export interface ImageServerStatusResult {
-  /** 端口有进程在听(拿到 HTTP 应答;连接拒绝/超时 = false) */
-  running: boolean;
-  /** vision.yaml local.base_url 配置值(探测目标) */
-  base_url: string;
-  /** vision.yaml local.model 配置值(配置口径,不问 server 实载) */
-  model: string;
-  /** GET {base_url}/models 返回 200 */
-  healthy: boolean;
-}
-
-/** image.server.ensure 应答 = status + started;慢路径另带 ensuring/job_id。
- *  已健康(快路径)= status + {started:false},零后台零事件(冻结契约原样);
- *  需自起(慢路径)= 快照超集 + {ensuring:true, job_id},应答立即返回,
- *  自起 + 健康等待(≤120s)跑 sidecar 后台线程,终态走
- *  ImageServerCompletedEvent 事件;并发第二单 = ensure_busy。 */
-export interface ImageServerEnsureResult extends ImageServerStatusResult {
-  started: boolean;
-  /** 慢路径标记:终态经 image.server.completed 事件收口 */
-  ensuring?: boolean;
-  /** 慢路径 job id(image.server.completed 事件同 id) */
-  job_id?: number;
-}
+// image.models.* / image.server.* 已随看图客户端制下线(10-15-vision-model-path:
+// MYIA 不下载/不自跑大模型,本地 = LM Studio 等 OpenAI 兼容端点,配置面只剩
+// image.config.*;协议 v16 收窄批)。
 
 // image.files.purge(10-03-vision-v2 复查:落图零回收的 CLI 面清除口;UI 不做)
 export interface ImageFilesPurgeParams {
@@ -1436,12 +1362,6 @@ export interface SidecarProtocol {
   "store.trend": { params: StoreTrendParams; result: StoreTrendResult };
   "image.config.read": { params: EmptyParams; result: ImageConfigReadResult };
   "image.config.save": { params: ImageConfigSaveParams; result: ImageConfigSaveResult };
-  "image.models.list": { params: EmptyParams; result: ImageModelsListResult };
-  "image.models.download": { params: ImageModelsDownloadParams; result: ImageModelsDownloadResult };
-  "image.models.delete": { params: ImageModelsDeleteParams; result: ImageModelsMutationResult };
-  "image.models.activate": { params: ImageModelsActivateParams; result: ImageModelsMutationResult };
-  "image.server.status": { params: EmptyParams; result: ImageServerStatusResult };
-  "image.server.ensure": { params: EmptyParams; result: ImageServerEnsureResult };
   "image.files.purge": { params: ImageFilesPurgeParams; result: ImageFilesPurgeResult };
   // cron.* 九方法(10-04-cron-ui 消费,hermes-cron 批协议 v9;mirror 对账
   // 非协议变更)——pause/resume 单 job 形态应答 {job},all 形态见各自接口
@@ -1512,39 +1432,8 @@ export interface CompletedEvent {
   ts: string;
 }
 
-/** 模型下载进度事件(entry.py `_image_models_download_worker`;后端 0.5s 节流,
- *  终态前必发最后一次)。total_bytes 未知(HF 未回报)时缺省。 */
-export interface ImageModelsProgressEvent {
-  type: "image.models.progress";
-  job_id: number;
-  repo: string;
-  done_bytes: number;
-  total_bytes?: number;
-  ts: string;
-}
-
-/** 模型下载终态事件:ok=false 时 error = 结构化 code(disk_insufficient /
- *  hf_unavailable / 网络失败族等;见 myssia.vision.models 错误码表)。 */
-export interface ImageModelsCompletedEvent {
-  type: "image.models.completed";
-  job_id: number;
-  ok: boolean;
-  error?: string;
-  ts: string;
-}
-
-/** 本地 server ensure 终态事件(entry.py `_image_server_ensure_worker`;
- *  image.server.ensure 慢路径应答后的收口)。ok=true 时 status =
- * status+{started} 全量;ok=false 时 error = myssia.vision.server 错误族
- * code(no_local_model / spawn_failed / server_start_failed 等)。 */
-export interface ImageServerCompletedEvent {
-  type: "image.server.completed";
-  job_id: number;
-  ok: boolean;
-  status?: ImageServerEnsureResult;
-  error?: string;
-  ts: string;
-}
+/** 模型下载/本地 server 三事件已随看图客户端制下线(10-15-vision-model-path,
+ *  协议 v16:image.models.progress/completed 与 image.server.completed 移除)。 */
 
 /** 告警命中事件(entry.py run 终态收口回放:run.started_at 之后的
  *  alert_fired 逐条 _write_line;task 10-04-alert-rules design §4.2-§4.3)。
@@ -1608,19 +1497,14 @@ export type SidecarEvent =
   | ProgressEvent
   | CompletedEvent
   | TestCompletedEvent
-  | ImageModelsProgressEvent
-  | ImageModelsCompletedEvent
-  | ImageServerCompletedEvent
   | AlertsFiredEvent
   | CronSkippedEvent
   | CronCompletedEvent;
 
 // 看图事件流:image.progress / image.completed 已随看图屏拆除
-// (10-03-vision-pipeline 拍板①);10-03-vision-v2 起新增模型下载域两事件
-// (image.models.progress / completed)与 server ensure 终态事件
-// (image.server.completed,ensure 慢路径应答即返、终态走事件);
+// (10-03-vision-pipeline 拍板①);模型下载域两事件与 server ensure 终态事件
+// 已随看图客户端制下线(10-15-vision-model-path,协议 v16);
 // 10-04 fe-gap-census R2 起 alerts.fired(告警命中回放,协议 v7 实装即入);
 // 10-04-cron-ui 起 cron.skipped/cron.completed(定时任务域,协议 v9 实装
 // 即入,蓝本任务 PRD 非目标补接线)。
-// SidecarEvent = run 域三事件 + test.completed + 模型下载域两事件 +
-// server ensure 终态事件 + alerts.fired + cron 域两事件。
+// SidecarEvent = run 域三事件 + test.completed + alerts.fired + cron 域两事件。

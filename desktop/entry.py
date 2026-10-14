@@ -27,9 +27,6 @@
     {"type": "progress",  "run_id": 3, "phase": "source_done", "source": "…", "items": "2", "ts": "…"}
     {"type": "completed", "run_id": 3, "exit_code": 0, "status": "success", …, "ts": "…"}
     {"type": "test.completed", "job_id": 1, "ok": true, "exit_code": 0, "result": {…}, "ts": "…"}
-    {"type": "image.models.progress",  "job_id": 1, "repo": "…", "done_bytes": 1, "total_bytes": 2, "ts": "…"}
-    {"type": "image.models.completed", "job_id": 1, "ok": true, "ts": "…"}
-    {"type": "image.server.completed", "job_id": 1, "ok": true, "status": {…}, "ts": "…"}
     {"type": "alerts.fired", "rule_id": 3, "rule_name": "…", "item_id": 42, "dedup_key": "…",
      "title": "…", "action": "push", "action_status": "sent", "ts": "…"}
     {"type": "cron.skipped",   "job_id": "a1b2c3d4e5f6", "name": "早晚情报流",
@@ -105,29 +102,6 @@ yaml.save         (校验→查重→.bak→原子写)         mtime 乐观锁;f
 yaml.delete       (.bak 留底→删主文件→连带暂存)   自建品类生命周期收尾
 image.config.read  (vision.yaml 直读)              脱敏配置(keychain 引用不回明文)
 image.config.save  (同门校验→原子写)               失败零写入(image_config_invalid)
-image.models.list  (<home>/models 扫描)            已装模型清单(name/path/bytes/
-                                                 active/incomplete 标;半成品
-                                                 incomplete=true 可续传;空目录
-                                                 =合法空表)
-image.models.download (HF snapshot_download)       异步 job:提交即返 job_id,
-                                                 结果走 image.models.progress/
-                                                 completed 两事件(断点续传;
-                                                 同名完整模型 model_exists 拒;
-                                                 单飞 download_busy)
-image.models.delete (active 拒删)                  {ok};正被 local.model 使用的
-                                                 模型 model_active_refused
-image.models.activate (vision.yaml 改写)           {ok};local.model 指向该模型
-                                                 目录(同门校验原子写;半成品
-                                                 model_incomplete 拒)
-image.server.status (base_url/models 2s 探)        {running, base_url, model,
-                                                 healthy}
-image.server.ensure (nohup 自起 mlx_vlm.server)    应答立即返:已健康=status+
-                                                 {started};否则快照超集+
-                                                 {ensuring:true, job_id},自启+
-                                                 健康等待 ≤120s 跑后台线程
-                                                 (serve 循环不冻结),终态走
-                                                 image.server.completed 事件;
-                                                 并发第二单 ensure_busy
 image.files.purge  (按 mtime 清 <home>/images)     {deleted, bytes_freed};
                                                  days≥1 整数;只删文件不动
                                                  目录(CLI 面能力,零 UI)
@@ -274,32 +248,13 @@ cron.runs          (ExecutionLedger.list_executions) 执行账本尾查(新→�
   包,与 vision.yaml 机制不动):``image.config.read`` / ``image.config.save``
   读写 ``<home>/vision.yaml``(MYIA_HOME 第一个全局配置文件;云端 api_key 只收
   ``keychain:`` 引用,同门校验失败零写入)。业务错误码:``image_config_invalid``。
-- ``image.models.*`` / ``image.server.*`` 六方法 + ``image.files.purge``
-  (10-03-vision-v2,契约与前端 TS 侧同形状):``image.models.list`` 零参 →
-  ``{models:[{name,path,bytes,active,incomplete}]}``(半成品 = 缺
-  config.json 或 *.safetensors 的目录,incomplete=true);``image.models.
-  download {repo, name?}``(repo 必须 ``mlx-community/<name>``,MLX 格式权重
-  直下免 convert)→ ``{job_id}`` + ``image.models.progress {job_id, repo,
-  done_bytes, total_bytes?}`` / ``image.models.completed {job_id, ok,
-  error?}`` 两事件(磁盘预检不足 = ``disk_insufficient`` 完成事件;断点
-  续传 = 半成品同名放行,完整同名 ``model_exists`` 拒;单飞
-  ``download_busy``);``image.models.delete {name}`` /
-  ``image.models.activate {name}`` → ``{ok}``(active 模型拒删
-  ``model_active_refused``;半成品拒激活 ``model_incomplete``;激活 =
-  vision.yaml ``local.model`` 原子改写);``image.server.status`` 零参 →
-  ``{running, base_url, model, healthy}``;``image.server.ensure`` 零参 →
-  应答立即返(已健康 = status+``{started:false}``;否则快照超集+
-  ``{ensuring:true, job_id}``,自起 ``uvx --from mlx-vlm mlx_vlm.server`` +
-  健康等待 ≤120s 跑**后台线程**——serve 循环单线程,同步等健康窗会把
-  桌面全协议冻成队头阻塞),终态走 ``image.server.completed {job_id, ok,
-  status?, error?, ts}`` 事件(ok 时 status = status+``{started}``;
-  并发第二单 ``ensure_busy``;错误族 ``no_local_model`` /
-  ``model_dir_missing`` / ``spawn_failed`` / ``server_died`` /
-  ``server_start_failed`` 以事件 error 收口,子进程输出泵入统一日志
-  ``<home>/logs/myssia-*.jsonl`` 的 proc=vision 行,决议③);``image.files.purge
-  {days}`` → ``{deleted, bytes_freed}``。模型与 server 能力实现在
-  ``myssia.vision.models`` / ``myssia.vision.server``(重依赖惰性,
-  huggingface-hub 在 extras ``myssia[vision]``)。
+- ``image.files.purge``(10-03-vision-v2 立;10-15-vision-model-path 客户端制
+  收窄:``image.models.*`` 四方法、``image.server.*`` 两方法与
+  ``image.models.progress/completed``、``image.server.completed`` 三事件**全下线**
+  —— MYIA 不自跑视觉大模型,本地通道 = LM Studio 等 OpenAI 兼容端点的纯客户端,
+  vision.yaml ``local`` = base_url / model / api_key 三件套,能力面只剩
+  ``image.config.*`` 两方法):``image.files.purge
+  {days}`` → ``{deleted, bytes_freed}``。
 - ``alerts.*`` 四方法 + ``alerts.fired`` 事件(10-04-alert-rules,契约钉死于
   任务档 design.md §4,引擎 = ``myssia.alerts``、挂点 = ``Pipeline._alert_pass``):
   ``alerts.list {}`` → ``{rules:[AlertRuleView]}``(全字段 + ``fired_count``/
@@ -473,18 +428,6 @@ from myssia.vision import (
     load_vision_config,
     save_vision_config,
 )
-from myssia.vision.models import (
-    VisionModelError,
-    activate_model as vision_activate_model,
-    delete_model as vision_delete_model,
-    download_model as vision_download_model,
-    list_models as vision_list_models,
-)
-from myssia.vision.server import (
-    VisionServerError,
-    ensure_vision_server,
-    vision_server_status,
-)
 
 #: v2 = 消息族(channels.*/push.write)入表;yaml.*/image.* 并线期未及 bump,
 #: 本次统一收口(v1 停在 10 方法时代)。
@@ -530,7 +473,14 @@ from myssia.vision.server import (
 #: sessions/messages/query 四方法(微信本机桥三态探针 + 只读命令族)——
 #: 同上不 bump:新方法全部自带结构化错误面,旧壳组合下 UI method_not_found
 #: 降级灰态即正确行为;注册表 84 行。
-PROTOCOL_VERSION = 15
+#: v16 = vision-model-path 批(看图本地通道客户端制:image.models.* 四方法 +
+#: image.server.* 两方法与 image.models.progress/completed、
+#: image.server.completed 三事件**移除**——MYIA 不自跑视觉大模型,本地 =
+#: LM Studio 等 OpenAI 兼容端点(vision.yaml local 增可选 api_key 键,缺省
+#: base_url 改 :1234/v1);管线 vl:local 前的 server ensure 环同批拆除;
+#: 10-15-vision-model-path。收窄批必 bump:旧 UI 调已删方法得 method_not_found
+#: 结构化降级;sidecar 与 UI 同包同发,无错配窗口)。
+PROTOCOL_VERSION = 16
 #: 单次 run 的日志事件与环形上限一致;超限仅丢最旧行。
 STATUS_BY_EXIT = {0: "success", 1: "config_error", 2: "failed", 3: "partial"}
 
@@ -4211,237 +4161,6 @@ def _m_image_config_save(params: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# 方法:image.models.list / download / delete / activate + image.server.status
-#       / image.server.ensure(10-03-vision-v2;能力实现 myssia.vision.models /
-#       myssia.vision.server,契约与前端 TS 侧同形状冻结)
-# ---------------------------------------------------------------------------
-
-#: 模型下载单飞(桌面一次一个大模型;并发下载只会互相抢带宽与磁盘)。
-_MODELS_DL_LOCK = threading.Lock()
-_MODELS_DL_ACTIVE_JOB: int | None = None
-_MODELS_DL_NEXT_JOB_ID = 0
-
-
-def _vision_models_root(ctx: ServeContext) -> Path:
-    """模型根:vision.yaml 同目录 ``models/``(home 模式 = ``<home>/models``)。"""
-    return _vision_yaml_path(ctx).parent / "models"
-
-
-def _active_model_path(ctx: ServeContext) -> str:
-    """当前激活模型路径(lenient:vision.yaml 拒载按未配置,清单不因坏配置炸)。"""
-    try:
-        return load_vision_config(_vision_yaml_path(ctx)).local_model
-    except VisionConfigError:
-        return ""
-
-
-def _require_model_name(params: dict[str, Any]) -> str:
-    """模型名参数校验(非空字符串;delete/activate 共用)。"""
-    name = params.get("name")
-    if not isinstance(name, str) or not name:
-        raise ProtocolError("invalid_params", "缺少模型名 name", path="params.name")
-    return name
-
-
-def _m_image_models_list(params: dict[str, Any]) -> dict[str, Any]:
-    """已装模型清单(空目录 = 合法空表,UI 给下载引导不报错)。"""
-    ctx = _serve_context()
-    active = _active_model_path(ctx)
-    return {
-        "models": vision_list_models(_vision_models_root(ctx), active_path=active or None)
-    }
-
-
-def _m_image_models_download(params: dict[str, Any]) -> dict[str, Any]:
-    """模型下载(异步 job,仿 sources.test 先例):提交即返,结果走两事件。
-
-    ``repo`` 必须 ``mlx-community/<name>``(MLX 格式权重直下免 convert);
-    ``name`` 缺省 = repo 名段。磁盘预检不足 / 网络失败都以
-    ``image.models.completed {ok:false, error}` 收口(error = 结构化 code)。
-    """
-    global _MODELS_DL_ACTIVE_JOB, _MODELS_DL_NEXT_JOB_ID
-    repo = params.get("repo")
-    if not isinstance(repo, str) or not repo.strip():
-        raise ProtocolError(
-            "invalid_params", "缺少仓库全名 repo(mlx-community/<name>)", path="params.repo"
-        )
-    name = params.get("name")
-    if name is not None and (not isinstance(name, str) or not name.strip()):
-        raise ProtocolError("invalid_params", "name 必须是非空字符串或省略", path="params.name")
-    repo = repo.strip()
-    name = (name or "").strip() or None
-    with _MODELS_DL_LOCK:
-        if _MODELS_DL_ACTIVE_JOB is not None:
-            raise ProtocolError(
-                "download_busy",
-                "已有模型下载正在进行,请等它完成后再操作",
-                data={"active_job_id": _MODELS_DL_ACTIVE_JOB},
-            )
-        _MODELS_DL_NEXT_JOB_ID += 1
-        job_id = _MODELS_DL_NEXT_JOB_ID
-        _MODELS_DL_ACTIVE_JOB = job_id
-    threading.Thread(
-        target=_image_models_download_worker,
-        args=(job_id, repo, name, _vision_models_root(_serve_context())),
-        daemon=True,
-    ).start()
-    return {"job_id": job_id}
-
-
-def _image_models_download_worker(
-    job_id: int, repo: str, name: str | None, models_root: Path
-) -> None:
-    """后台线程:snapshot_download → 进度/完成事件(绝不阻塞 serve 循环)。"""
-    global _MODELS_DL_ACTIVE_JOB
-
-    def _on_progress(done_bytes: int, total_bytes: int | None) -> None:
-        event: dict[str, Any] = {
-            "type": "image.models.progress",
-            "job_id": job_id,
-            "repo": repo,
-            "done_bytes": done_bytes,
-        }
-        if total_bytes is not None:
-            event["total_bytes"] = total_bytes
-        event["ts"] = _now_iso()
-        _write_line(event)
-
-    error: str | None = None
-    try:
-        try:
-            vision_download_model(repo, models_root, name=name, on_progress=_on_progress)
-        except VisionModelError as exc:
-            error = exc.code
-            myssia_log.stream_line(None, "stderr", f"sidecar: 模型下载失败 {repo}: [{exc.code}] {exc}")
-        except Exception as exc:  # noqa: BLE001 — 事件必须可见,错误收口为完成事件
-            error = type(exc).__name__
-            myssia_log.stream_line(None, "stderr", f"sidecar: 模型下载未预期异常 {repo}: {exc}")
-        completed: dict[str, Any] = {
-            "type": "image.models.completed",
-            "job_id": job_id,
-            "ok": error is None,
-            "ts": _now_iso(),
-        }
-        if error is not None:
-            completed["error"] = error
-        _write_line(completed)
-    finally:
-        with _MODELS_DL_LOCK:
-            if _MODELS_DL_ACTIVE_JOB == job_id:
-                _MODELS_DL_ACTIVE_JOB = None
-
-
-def _m_image_models_delete(params: dict[str, Any]) -> dict[str, Any]:
-    """删除模型目录(active 拒删——在用权重删除会让本地 VL 突然失效)。"""
-    name = _require_model_name(params)
-    ctx = _serve_context()
-    active = _active_model_path(ctx)
-    try:
-        vision_delete_model(name, _vision_models_root(ctx), active_path=active or None)
-    except VisionModelError as exc:
-        raise ProtocolError(
-            exc.code, str(exc), path="params.name", data=exc.to_dict()
-        ) from exc
-    return {"ok": True}
-
-
-def _m_image_models_activate(params: dict[str, Any]) -> dict[str, Any]:
-    """激活模型 = vision.yaml ``local.model`` 指向该目录(同门校验原子写)。"""
-    name = _require_model_name(params)
-    ctx = _serve_context()
-    try:
-        vision_activate_model(name, _vision_models_root(ctx), _vision_yaml_path(ctx))
-    except VisionModelError as exc:
-        raise ProtocolError(
-            exc.code, str(exc), path="params.name", data=exc.to_dict()
-        ) from exc
-    except VisionConfigError as exc:  # 拒载/写失败零半载(activate 内同门)
-        raise ProtocolError(
-            "image_config_invalid", f"保存失败: {exc}",
-            path="params.name", data=exc.to_dict(),
-        ) from exc
-    return {"ok": True}
-
-
-def _m_image_server_status(params: dict[str, Any]) -> dict[str, Any]:
-    """本地 mlx_vlm.server 状态(base_url/models 2s 探;零副作用)。"""
-    return vision_server_status(_load_vision(_serve_context()))
-
-
-#: server ensure 单飞(应答立即返回,健康等待跑后台线程;10-03-vision-v2 复查:
-#: serve 循环单线程,同步等 120s 健康窗会把桌面全协议冻成队头阻塞)。
-_SERVER_ENSURE_LOCK = threading.Lock()
-_SERVER_ENSURE_ACTIVE_JOB: int | None = None
-_SERVER_ENSURE_NEXT_JOB_ID = 0
-
-
-def _m_image_server_ensure(params: dict[str, Any]) -> dict[str, Any]:
-    """确保本地 mlx_vlm.server 在跑:健康即返;否则后台自启,应答立即回。
-
-    快路径(≤2s 快照探,与 status 同帽):已健康 → ``status + {started:false}``
-    零后台零事件(冻结契约原样)。慢路径:起后台线程跑
-    :func:`ensure_vision_server`(自启 + 健康等待 ≤120s / 并发互斥 / 超窗杀
-    孤儿,纪律全在能力层),应答立即返回快照超集
-    ``{running, base_url, model, healthy, started:false, ensuring:true, job_id}``,
-    终态走 ``image.server.completed {job_id, ok, status?, error?, ts}`` 事件
-    (ok 时 status = status+{started});并发第二单 = ``ensure_busy`` 结构化拒。
-    子进程输出经统一日志管道落 ``<home>/logs/myssia-*.jsonl`` 的 proc=vision
-    行(决议③;vision-server.log 已退役,见 vision/server.py)。
-    """
-    global _SERVER_ENSURE_ACTIVE_JOB, _SERVER_ENSURE_NEXT_JOB_ID
-    ctx = _serve_context()
-    config = _load_vision(ctx)
-    snapshot = vision_server_status(config)  # ≤2s 快照(与 image.server.status 同帽)
-    if snapshot["healthy"]:
-        return {**snapshot, "started": False}
-    with _SERVER_ENSURE_LOCK:
-        if _SERVER_ENSURE_ACTIVE_JOB is not None:
-            raise ProtocolError(
-                "ensure_busy",
-                "看图服务正在启动中,请稍候再试",
-                data={"active_job_id": _SERVER_ENSURE_ACTIVE_JOB},
-            )
-        _SERVER_ENSURE_NEXT_JOB_ID += 1
-        job_id = _SERVER_ENSURE_NEXT_JOB_ID
-        _SERVER_ENSURE_ACTIVE_JOB = job_id
-    threading.Thread(
-        target=_image_server_ensure_worker,
-        args=(job_id, config, _vision_yaml_path(ctx).parent),
-        daemon=True,
-    ).start()
-    return {**snapshot, "started": False, "ensuring": True, "job_id": job_id}
-
-
-def _image_server_ensure_worker(job_id: int, config: VisionConfig, data_root: Path) -> None:
-    """后台线程:ensure_vision_server → image.server.completed 事件(不阻 serve 循环)。"""
-    global _SERVER_ENSURE_ACTIVE_JOB
-    error: str | None = None
-    status: dict[str, Any] | None = None
-    try:
-        status = ensure_vision_server(config, data_root=data_root)
-    except VisionServerError as exc:
-        error = exc.code
-        myssia_log.stream_line(None, "stderr", f"sidecar: vision server ensure 失败: [{exc.code}] {exc}")
-    except Exception as exc:  # noqa: BLE001 — 事件必须可见,错误收口为完成事件
-        error = type(exc).__name__
-        myssia_log.stream_line(None, "stderr", f"sidecar: vision server ensure 未预期异常: {exc}")
-    completed: dict[str, Any] = {
-        "type": "image.server.completed",
-        "job_id": job_id,
-        "ok": error is None,
-        "ts": _now_iso(),
-    }
-    if error is not None:
-        completed["error"] = error
-    if status is not None:
-        completed["status"] = status
-    _write_line(completed)
-    with _SERVER_ENSURE_LOCK:  # 对齐下载 worker:事件先发,单飞位后清
-        if _SERVER_ENSURE_ACTIVE_JOB == job_id:
-            _SERVER_ENSURE_ACTIVE_JOB = None
-
-
-# ---------------------------------------------------------------------------
 # 方法:image.files.purge(10-03-vision-v2 复查:落图零回收 —— 内容寻址只进
 # 不出,给 CLI 面一个按 mtime 清 <数据根>/images 超龄文件的口;UI 不做)
 # ---------------------------------------------------------------------------
@@ -7247,12 +6966,6 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     "yaml.delete": _m_yaml_delete,
     "image.config.read": _m_image_config_read,
     "image.config.save": _m_image_config_save,
-    "image.models.list": _m_image_models_list,
-    "image.models.download": _m_image_models_download,
-    "image.models.delete": _m_image_models_delete,
-    "image.models.activate": _m_image_models_activate,
-    "image.server.status": _m_image_server_status,
-    "image.server.ensure": _m_image_server_ensure,
     "image.files.purge": _m_image_files_purge,
     "gates.get": _m_gates_get,
     "gates.save": _m_gates_save,

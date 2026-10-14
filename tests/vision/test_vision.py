@@ -52,7 +52,7 @@ class TestVisionSettings:
         config = VisionConfig()
         assert config.to_payload() == {
             "channel_default": "local",
-            "local": {"base_url": "http://127.0.0.1:8080/v1", "model": ""},
+            "local": {"base_url": "http://127.0.0.1:1234/v1", "model": "", "api_key": None},
             "cloud": {
                 "base_url": "https://open.bigmodel.cn/api/paas/v4",
                 "model": "glm-4.6v",
@@ -60,6 +60,33 @@ class TestVisionSettings:
             },
             "ocr": {"enabled": True, "engine_default": "vision"},
         }
+
+    def test_local_api_key_keychain_ref_accepted_plaintext_refused(self):
+        # 本地端点可选 key(10-15 客户端制):同门 keychain-only,明文/env: 拒。
+        ref = "keychain:myia/image/local_api_key"
+        assert VisionConfig(local_api_key_ref=ref).local_api_key_ref == ref
+        with pytest.raises(VisionConfigError) as excinfo:
+            VisionConfig(local_api_key_ref="sk-local-123")
+        assert excinfo.value.code == "credential_plaintext"
+        assert excinfo.value.to_dict()["field"] == "local.api_key"
+        with pytest.raises(VisionConfigError) as excinfo:
+            VisionConfig(local_api_key_ref="env:MY_LOCAL_KEY")
+        assert excinfo.value.code == "invalid_credential_ref"
+
+    def test_local_api_key_payload_roundtrip(self):
+        # from_payload/to_payload 对 local.api_key 的往返(锁 _LOCAL_KEYS 白名单:
+        # 漏登即 unknown_field 拒载)。
+        payload = {
+            "local": {
+                "base_url": "http://127.0.0.1:1234/v1",
+                "model": "qwen3.8-27b-coder390",
+                "api_key": "keychain:myia/image/local_api_key",
+            }
+        }
+        config = VisionConfig.from_payload(payload)
+        assert config.local_model == "qwen3.8-27b-coder390"
+        assert config.local_api_key_ref == "keychain:myia/image/local_api_key"
+        assert config.to_payload()["local"] == payload["local"]
 
     def test_plaintext_api_key_refused(self):
         with pytest.raises(VisionConfigError) as excinfo:
