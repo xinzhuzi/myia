@@ -20,22 +20,26 @@
 | proxy_panel.py → stats_sidecar 意外耦合 | 语义存疑 | ➖ 迁移时核实,不夹带重构 |
 | src/myssia/schema.py 等公共件微信字段 | 挂点,暂不动(与 telegram 同款挂点) | ➖ 评估 |
 
-desktop 屏族(grill R1-F4 勘误:**22 件**,边界判据=「文件名或其直接依赖 api 件专属于微信域」):messaging 内 14(含 wx-stats-panel×2)+feed 内 4(wechat-groupinfo/export-api、wx-groupinfo-panel×2)+settings 内 3(wechat-keyprovider-api、weixin-account-card×2)+weixin-account-screen;完整清单与 TS 父引用面见 design §1(P0.5.2 实测对账后为准)。
+desktop 屏族(R1-F4 勘误 22 件;R2-F8 分域修订:**仅 messaging 14 件迁**,其余 8 件已同域共置不动,边界判据=「文件名或其直接依赖 api 件专属于微信域」):messaging 内 14(含 wx-stats-panel×2)+feed 内 4(wechat-groupinfo/export-api、wx-groupinfo-panel×2)+settings 内 3(wechat-keyprovider-api、weixin-account-card×2)+weixin-account-screen;完整清单与 TS 父引用面见 design §1(P0.5.2 实测对账后为准)。
 
 **打包面定论(grill R1-F7)**:tauri 整目录拷贝+PyInstaller collect_submodules 动态收集,包内移动**免疫**,装机无需同步。**测试兼容定论(R1-F1)**:薄壳只保仓外;仓内测试(4 文件 46+ monkeypatch)必须迁新径,壳上打补丁不生效。
 
-## 目标形态
+## 目标形态(R2 修订:七件全录+desktop 分域)
 
 ```
-src/myssia/wechat/            # 与 telegram/ 平级
-├── __init__.py               # 统一门面(消费方唯一入口)
+src/myssia/wechat/            # 与 telegram/ 平级;超越 TG 的收拢形态
+├── __init__.py               # 门面(显式白名单,不做 import* 合并)
 ├── sidecar.py                # ← wechat_local_sidecar.py
 ├── stats_sidecar.py          # ← wechat_stats_sidecar.py
-├── push_local.py             # ← push/weixin_local.py(桥推送适配)
-├── push_weixin.py            # ← push/weixin.py(保留薄壳 re-export 兼容)
-└── push_wecom.py             # ← push/wecom.py(同)
-desktop/.../messaging/wechat/ # 微信屏族子域(8+ 文件+测试)
+├── push_weixin.py            # ← push/weixin.py
+├── push_local.py             # ← push/weixin_local.py
+├── push_wecom.py             # ← push/wecom.py
+├── engine.py                 # ← engines/wechat_local.py
+└── notify.py                 # ← engines/wechat_local_notify.py
 ```
+
+- python 旧路径留薄壳(兼容面=仓外);**仓内(含 9 个测试文件/85 行 monkeypatch)一律迁新径**——壳上打补丁不生效,测试迁真模块是硬步骤。
+- desktop **分域方案**(R2-F8 修订):只有 messaging/ 14 件真平铺混乱→迁 `messaging/wechat/`;feed 4/settings 3/weixin-account 1 已同域共置**零迁移零变更**。
 
 ## Requirements
 
@@ -46,8 +50,8 @@ desktop/.../messaging/wechat/ # 微信屏族子域(8+ 文件+测试)
 
 ## Acceptance Criteria
 
-- [ ] AC1:src/myssia/wechat/ 包成立,五件归位,包内聚(包外零新散件)。
+- [ ] AC1:src/myssia/wechat/ 包成立,**七件归位**,包内聚(包外零新微信散件;薄壳七件为兼容面豁免)。
 - [ ] AC2:旧导入路径全部兼容(re-export),全量 pytest+vitest 绿零回退。
-- [ ] AC3:desktop 微信屏族归 messaging/wechat/ 子域,引用与测试同步。
+- [ ] AC3:messaging 14 件归 messaging/wechat/ 子域,引用与测试同步;feed/settings/weixin-account 分域豁免(零变更)。
 - [ ] AC4(v2 判据,R1-F11):**移动件** diff 仅 import/docstring 行;**外部件改动=白名单封闭集**(registry lambda/push __init__×3/entry.py×2/Rust 注释×5/desktop 父引用/测试 monkeypatch 目标,清单 implement),白名单外零改。
 - [ ] AC5:文档落位(README/相关 spec 的模块地图更新)+ 提交入库。
