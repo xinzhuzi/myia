@@ -150,7 +150,7 @@ class TestRunDoctor:
         monkeypatch.setattr(sc, "wechat_ax_node_count", lambda: 5)  # ≤5 = closed
         gate = run_doctor()["doctor"]["ax_gate"]
         assert gate["state"] == "closed" and gate["input_field"] == "missing"
-        assert "LLDB" in gate["fix_hint"]
+        assert "CGEvent+OCR" in gate["fix_hint"]
         monkeypatch.setattr(sc, "wechat_ax_node_count", lambda: None)
         gate2 = run_doctor()["doctor"]["ax_gate"]
         assert gate2["state"] == "unknown" and gate2["nodes"] is None

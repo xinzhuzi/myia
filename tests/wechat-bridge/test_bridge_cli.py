@@ -787,7 +787,7 @@ class TestDoctorCommand:
         assert exit_code == 0
         gate = payload["doctor"]["ax_gate"]
         assert gate["state"] == "closed" and gate["input_field"] == "missing"
-        assert "LLDB" in gate["fix_hint"] and "深度枚举" in gate["note"]
+        assert "CGEvent+OCR" in gate["fix_hint"] and "深度枚举" in gate["note"]
 
     def test_doctor_unknown_node_count(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         tray_mocks(monkeypatch)
