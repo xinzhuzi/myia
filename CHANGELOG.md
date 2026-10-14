@@ -11,6 +11,15 @@ repeated here.
 
 ### Changed
 
+- **OCR 供件换代:rapidocr-onnxruntime → rapidocr 3.x 新主包**(2026-10-15,
+  10-15-ocr-revive-py314,py3.14 连坐):旧件 1.4.x 上游冻结且声明 `Python<3.13`
+  cp314 无轮,看图双引擎与表格还原链换血——vision/table 两组 extras 与桌面
+  table 组件闭包统一改 `rapidocr>=3,<4`+`onnxruntime>=1.31,<2`(cp314 轮在位,
+  PP-OCRv6 small 三模型内置零下载);引擎层适配方新 API(单返回
+  `RapidOCROutput`,txts/scores 平行数组);opencv 双株共存裁定(opencv-python
+  经 rapid-table + headless 经 rapidocr,同版良性异版停交付);测试四面同步。
+  代码 ee020958(与并行 sendmsg research 混列落库,对账锚点=任务档);装机
+  换装成(swap 不重打包)。
 - **评分模型缺省 glm-4-flash → glm-5.3-flash 全仓升级**(2026-10-13,主人令
   「最差也应该是 GLM-5.3-Flash」):源码缺省/仓库种子/实机 9 品类/UI 占位/
   测试 49 处(5dcf59e,golden 快照按数据保留);schema 表/示例/zero-cost
