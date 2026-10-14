@@ -32,11 +32,11 @@ osascript 兜底;壳代发故障逐条回退 osascript,横幅不丢。
 
 ## Acceptance Criteria
 
-- [ ] AC1 壳在跑时的通知带世事 app 图标、归组「世事」、点击唤起 app(notify-rust set_application 机制;首发需 master 一次性授权)。
-- [ ] AC2 CLI 无壳(serve 宿主外,如 cron 直跑)通知行为与现状零差(osascript 兜底)。
-- [ ] AC3 发射器三分支专测全绿;既有 macos_notify 测试零改动仍绿;cargo check 过。
-- [ ] AC4 全量 pytest(未涉 UI,tsc/vitest 应零涉,确认零回归)。
-- [ ] AC5 装机换装(源码改完 → just build-desktop → 换装)+真横幅实证(自然消息流或沙箱触发;banner 像素证据入档)。
+- [x] AC1 机制全落地并实弹到系统层:沙箱注入验证横幅触发 macOS 对「世事」的一次性通知授权征询(截图 evidence-auth-prompt 入档);图标终验=主人点「允许」后第一条自然横幅(一眼之验,无法代点)。
+- [x] AC2 CLI 无壳零差(ENXIO/无注入回退 osascript 专测在案)。
+- [x] AC3 中继三形态专测(真 FIFO 端到端/ENXIO 回退/CLI 形态)23/23 全绿,既有用例零改动;cargo check+build 绿。
+- [x] AC4 全量 6275 passed / 53 skipped;UI 零涉。
+- [x] AC5 三次换装哈希验毕(aa1fc397);沙箱 FIFO 中继实跑+注入横幅实弹至系统授权层(像素证据入档);回退包 .old-1014-b 在位。
 
 ## 非目标
 

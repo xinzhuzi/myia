@@ -801,3 +801,11 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 坑:①dialog:default 不含 confirm(实证 permissions/default.toml)须显式 allow-confirm;②异步守卫的在飞 ref 会吞 jsdom 同帧连发事件(source-wizard 实案,原生弹窗应用模态根本不需要);③Tauri 自带 window.confirm 覆写返回 Promise → 旧同步守卫在装机包恒真=暗病,本次顺带根治。
 - 门禁:scoped 119/119+全量 941/941+tsc 绿;detect-changes 21 符号全预期。提交 18c2f51+30f3ac1;规范检查单 +第8条(含并行会话同文件措辞 hunk 收编注记)。
 - 装机:just build-desktop 绿 → 沙箱 MYIA_HOME(APFS clone+清 cron 防真推)冒烟实证启动/渲染/切屏 → 换装(哈希判别 6584a65b…,旧件留 .old-1014-native-dialog)+清 WKWebView 缓存;SE 的 AX 桥在 WKWebView 切屏后窗引用会塌(8s 冷却也救不回),NSAlert 像素实证止步于此留主人一眼。主人实例 70699 全程未动。
+
+## 2026-10-14 10-14-notify-app-icon(通知横幅换壳代发,带 app 图标)
+- 主人报障截图:osascript 通知图标是脚本编辑器。根因=macos_notify.py 用 /usr/bin/osascript 直弹(图标/归组恒 osascript,模块注释自记的形态限制)。
+- 关键架构发现:cron job 推送发生在 CLI 子进程(proc=cli 日志实锤),serve 进程内注入器够不到 → 重构为 MYIA_NOTIFY_FIFO 命名管道中继(serve 建管道+读者线程+env 注入,子进程 os.environ.copy() 继承自动覆盖;O_NONBLOCK 无读者 ENXIO 回退 osascript;<PIPE_BUF 原子写)。
+- 壳挂 tauri-plugin-notification(notify-rust set_application(bundle_id) → 图标/归组/点击唤起=世事 app);entry.py 注册 hunk 被并行 wechat-module C2 b3f29df 收编(G1 好邻居)。
+- 另修前置任务暴露面:旧包 polyfill 的 dialog|confirm ACL 拒(19:50 实锤 unhandledrejection)→ systemConfirm 异常=安全缺省取消(f9d726a)。
+- 测试坑:regular file 冒充 FIFO 测两条计划=每次 open 从 offset 0 写互相覆盖出拼花字节流(UnicodeDecodeError 假象);FIFO 语义=流式,测试须用真管道。
+- 全量 6275 绿;三装哈希验毕;沙箱注入横幅实弹到系统授权征询(像素入档)——**主人唯二:点「允许」通知授权 + 重启 app**。
