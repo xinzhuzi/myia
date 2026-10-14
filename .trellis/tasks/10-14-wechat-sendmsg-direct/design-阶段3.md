@@ -528,3 +528,43 @@ last_anchor_build, slice_sha256_matched}`——轻量 attach(无断点)+切片�
 4. **P-2 双发矩阵**(§4,预算 2,门 3+AC3;#4 跨通道互锁零耗验证);
 5. **收尾**:MYIA 分级调度+重试账本 never-retry 接线+装机冒烟+grill 门 4+
    detect-changes。
+
+
+## §2.7 终版模型(r4/cap5 实证后,替代 §2.1 旧三参模型;2026-10-15 晨)
+
+### 事实基线(全部实证,research/r4/)
+
+- **F_exec = slide+0x83e394**,签名 `void F_exec(long ctx, char *msgctx)`,协程体,真发必经(cap5 断点直捕)。
+- **msgctx(param_2)读取面完备枚举**(fexec_decompile.c 全文核):
+  - `+0x00` 标志字节(须=1);
+  - `+0x08..+0x220` **整块拷贝 0x218B**(FUN_003c56c4;含 peer@+8/堆指针@+0x40/body@+0x48/display@+0x130 全部字段);
+  - `+0x220` qword → local_428(捕获实值=0);
+  - `+0x228` 引用计数指针(非空则 `local_420[1] += 1` retain;**两处使用均有 null 守卫→置 NULL=安全跳过**)。
+- **ctx(param_1)**:堆对象,vtable=slide+0x9c516b8,**无全局槽**(r6/r7 双法实扫零命中),同一微信进程内长寿。
+- 直调旧模型(F_send+svc 单例)作废:svc 全局槽不存在;enqueue 两族队列对象亦非单例。
+
+### capture_call 流程(实现规格;同会话捕获+直调,消悬垂指针)
+
+1. **preflight**:模块锁定四步+FAT arm64 切片 sha256 主门+16B 锚副门(探针已实现,零改);
+2. **capture 段**:断点= send_entry(F_exec 入口)自身;桥侧先走一次 send_text(filehelper,嘻嘻变体)触发;命中读 x0=ctx、dump x1 起 0x230B=**模板**;禁用断点;记 ctx vtable−slide 与 ctx+8..+0x20 不变量(补 svc_invariants);
+3. **call 段(同一 lldb 会话,模板堆指针仍活)**:expr 语句块——
+   ```c
+   unsigned char msgctx[560] = {<模板 560B 十进制字面量>};
+   // 三槽补丁(inline23:23B 值+末字节裸长度)
+   memset(msgctx+8,0,24); memcpy(msgctx+8,(unsigned char[]){<peer>},n); msgctx[8+23]=n;
+   memset(msgctx+0x48,0,24); memcpy(msgctx+0x48,(unsigned char[]){<body>},m); msgctx[0x48+23]=m;
+   memset(msgctx+0x130,0,24); memcpy(msgctx+0x130,(unsigned char[]){<display>},k); msgctx[0x130+23]=k;
+   *(long*)(msgctx+0x228) = 0;   // 跳 retain(双守卫实证安全)
+   ((int(*)(void*,void*))0x<slide+0x83e394>)((void*)0x<ctx>, (void*)msgctx);
+   ```
+4. **postflight**:读 x0 返回值+进程存活断言;detach(探针既有形态)。
+
+### 成本与缓存
+
+- 每操作 2 发(1 触发+1 直调);**ctx 会话缓存**优化(同 pid 复用 capture 结果,后续 1 发/条)= 可选项,缺省关(模板堆指针 staleness 风险自担,主人可开)。
+
+### 落地面状态(2026-10-15 晨)
+
+- 锚定表已落数据根(schema-3,observe_bp 形态,装载验证过;svc_invariants 空=待 capture 轮补);
+- 探针 observe_bp 死码 bug 已修(bp 创建缩进);
+- **未实现**:capture_call 流程(上述规格)、build_call_expr 模板模型重写、peer/body/display 三槽参数化、会话缓存。下轮按本节施工。

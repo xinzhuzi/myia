@@ -221,7 +221,7 @@ def _resolve_service(
         bp_off_raw = anchor.get("enqueue_a")
         if bp_off_raw in (None, ""):
             raise PreflightFail("enqueue_a", "锚定表缺 enqueue 偏移(observe 不可行)")
-            bp = target.BreakpointCreateByAddress(slide + _hex_int(bp_off_raw, "enqueue_a"))
+        bp = target.BreakpointCreateByAddress(slide + _hex_int(bp_off_raw, "enqueue_a"))
         try:
             proc.Continue()
             deadline = time.monotonic() + OBSERVE_WAIT_S
