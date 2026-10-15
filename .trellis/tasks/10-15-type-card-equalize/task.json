@@ -1,0 +1,9 @@
+{
+  "id": "10-15-type-card-equalize",
+  "title": "情报流 1 级类型卡墙高度宽度取齐(主人「高度宽度要一致」)",
+  "status": "review",
+  "created": "2026-10-15",
+  "owner": "ai",
+  "labels": ["desktop", "ui", "feed"],
+  "commits": ["d3547600"]
+}
