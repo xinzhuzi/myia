@@ -60,3 +60,11 @@ LM Studio 已在跑的服务,MYIA 只当 OpenAI 兼容客户端(同云端 GLM �
       tsc + vite build 绿;ruff 改动域零告警。
 - [x] AC5 旧 vision.yaml(无 local.api_key、base_url 是 8080)照常装载
       (test_vision.py 用例;显式旧值不迁移,行为 = 按显式值连)。
+
+## 追记(交付后主人令两笔,同屏追加)
+
+1. 云端缺省模型改 `glm-5.3-flash`(实证:ui-cloud5 视觉通道 z-ai/glm-5.3-flash
+   5 屏 8 调用吃图;官方端点现有钥 1113 无余额,云端真通待 funded 钥)。
+2. 云端三件套补齐:`云端 base_url` 入表单成可编辑字段(原先只读保留),
+   云端 base_url/API Key/模型一组;中转端点可直接指。
+两笔均已换装装机件;本机 vision.yaml cloud.model=glm-5.3-flash。
