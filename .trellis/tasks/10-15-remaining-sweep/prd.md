@@ -13,7 +13,7 @@
 1. **解密件**:`scripts/wechat-bridge-mediadecrypt.py` 骨架(协议壳完整自测 T1-T7 过;两算法位显式留空,命中回法定指路文案;B1 永不入桥目录/B2 env 钥匙边界,头注+文档双载)+ docs §9 指路 + 沙箱接线闭环(exit 22/23 逐字命中)。**算法面生态结论:mac 4.x .dat 无任何 MIT/Apache 可借实现**(chatlog 空仓/WeFlow CC BY-NC-SA 禁/wechat-dump-rs DMCA/余无 LICENSE)——主人三选项入档:自写/指路 WeFlow 外置件自担/imldy fork 取钥件自组。
 2. **feed-site**:列宽 820→900 + 侧栏分界 /60→全强度(与铬层分界惯例对齐)。
 3. **详情弹窗**:动作簇 border-t 全强度;tg-account 复查零改动。
-4. **备份清理**:删 .old-1014-l3,恰留 .old-sweep 一个回退位。
+4. **备份清理**:删 .old-1014-l3,恰留 .old-sweep 一个回退位。〔10-15 晚勘定:两标的已被装机备份清理波带走(/Applications 已无 .old-1014-*/.old-sweep);现存回滚包两枚——`.old-1015-ui`(ui 线已全推+图标亲验过,理论可清)与 `.old-cloud5`(等 ui-cloud5 目验,须留)。通知图标终验同日主人再认「图标是对的」,归档档 10-14-notify-app-icon AC1 已记;删留待主人一并裁〕
 
 ## 云端评审通道(主人点名的升级,全程实录入档)
 
