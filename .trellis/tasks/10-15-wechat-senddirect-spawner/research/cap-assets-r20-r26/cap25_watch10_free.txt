@@ -1,0 +1,17 @@
+whit=10 t=12.8 tid=1
+  #0 pc=0x18360119c rva=0x0 fn=_xzm_free
+  #1 pc=0x133413810 rva=0x1ef810 fn=___lldb_unnamed_symbol17044
+  #2 pc=0x135518af4 rva=0x22f4af4 fn=___lldb_unnamed_symbol147157
+  #3 pc=0x137582d90 rva=0x435ed90 fn=___lldb_unnamed_symbol241367
+  #4 pc=0x133257d60 rva=0x33d60 fn=___lldb_unnamed_symbol2829
+  #5 pc=0x13793b51c rva=0x471751c fn=___lldb_unnamed_symbol254943
+  #6 pc=0x137d95874 rva=0x4b71874 fn=___lldb_unnamed_symbol263346
+  #7 pc=0x13329143c rva=0x6d43c fn=___lldb_unnamed_symbol3872
+  #8 pc=0x1332a4624 rva=0x80624 fn=___lldb_unnamed_symbol4249
+  #9 pc=0x1332a405c rva=0x8005c fn=___lldb_unnamed_symbol4248
+  #10 pc=0x1332681c8 rva=0x441c8 fn=___lldb_unnamed_symbol3078
+  #11 pc=0x13326202c rva=0x3e02c fn=___lldb_unnamed_symbol2943
+  #12 pc=0x133267188 rva=0x43188 fn=___lldb_unnamed_symbol3060
+  #13 pc=0x1838b9d50 rva=0x0 fn=__CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__
+  #14 pc=0x1838b9a48 rva=0x0 fn=__CFRunLoopDoTimer
+  #15 pc=0x1838b95c0 rva=0x0 fn=__CFRunLoopDoTimers

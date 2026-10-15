@@ -118,7 +118,64 @@
 
 ### 验收(AC)
 
-- [ ] cap19 区分实验有结论(阳/阴,localdb 证据行入档)
-- [ ] 阳性:任意正文(≥2 组不同文本)经配方直发落库回执;阴性:消息创建层命中点锚定+补丁传导实证或如实记墙
-- [ ] 微信全程存活零崩溃;结束态字节复验 INTACT;滞留 lldb 清零
-- [ ] 战报入档(槽位几何/命中序号/失败矩阵);若配方成:桥 0.10.0+打包换装+装机验到像素级
+- [x] cap19 区分实验有结论(阳/阴,localdb 证据行入档)——**阴性**(cap20 实证,原文行 ts=1792043470)
+- [x] 阴性分支:如实记墙(墙=CGI 编码先于 spawn 命中,四重证据链见下;spawn 补丁路线架构性判死)
+- [x] 微信全程存活零崩溃(pid 20632 全程);结束态字节复验 INTACT(L3+BL 双锚点多轮全 PASS);滞留 lldb 清零
+- [x] 战报入档(槽位几何/命中序号/失败矩阵见续攻战报);配方未成→桥 0.10.0 不做(Step4 前提不满足)
+
+## 续攻战报(10-15 下午,执行会话实录;微信 pid 20632 全程存活)
+
+### 静态查证 HuntR20/R21(~/ghidra-hunt-r9/)
+
+- **档案勘误①**:「L4=0x435e074」实为 **bl 指令的返回地址**(bl@0x435e070 的下一条);L4 函数真身入口=**FUN_0435df74**。
+- **档案勘误②**:「L4 是 L3 唯一静态调用者」不成立——L3(0x433c5f0)有 **3 个代码 caller**:L4 内 bl@0x435e070、兄弟A FUN_043527f4 内 bl@0x4352830、兄弟B FUN_0435ee58 内尾跳 b@0x435ee8c;另 1 处 DATA 引用(0xa59403d)。
+- L4 入口无代码 caller、仅 2 处 DATA 引用(0x9e75190/0xa594273)=函数指针调度(vtable/lambda 表)。**入站链(0xa6xxxx 蹦床族)不经 L4**,断 0x435E070 收窄有效但仍非零噪声(群流杂项走该 bl,~1 命中/3s,只读 0x58 门+静默放行可忍)。
+- 兄弟A/B 形态:`L3(*(u64*)(host+0x28), host+0x30, host+0x248, *(byte*)(host+0x298)^1)`——**宿主对象内嵌 msgctx@+0x30、svc 指针@+0x28**;但 L4 队列项=独立 0x270 msgctx 块(mc-0x30 无宿主语义,deref 实证+0x28 非 svc)。两条 spawn 路径容器不同、msgctx 几何同构。
+- bl 指令字节互证:0x435E070 处 `6079ff97` 解码=bl 0x433c5f0(bl@0x435E070−0x21A80)✓。
+
+### cap20(cap19 区分实验·断点收窄版)→ 阴性定案
+
+- 断 0x435E070+needle 门只读 0x58:触发链全绿(rc=0,14.4s,cgevent_ocr,localdb_receipt=true)——**上两跑冻 UI 死因(断 L3 入口频繁停机)解除**。needle=嘻嘻~c20w。
+- 命中 2 次(n=1 发送跳 mc=0x7762c8918/n=2 疑回显),全命中补 +0x40 槽 wrote=24 ✓;hit1 实证 msgctx:peer=filehelper@+0x00、body=needle@+0x40,**mc=堆地址(发送链 msgctx 在堆,与入站栈版同构不同储)**。
+- localdb:仅原文「嘻嘻~c20w」(ts=1792043470),无 forge 版 → **阴性:cap18 非补错跳,H2(内容在别处)成立**。
+
+### cap21(长文本形态观察)→ SSO 双形态机制实锤
+
+- 发 43B needle(嘻嘻~c21x+X×32),body 槽变形:`{ptr@+0x40, len@+0x48=0x2b=43(精确吻合), cap@+0x50=0x30|long-bit}`——「inline23」=libc++ std::string SSO,>23B 堆指针化,**正文真体在堆**。
+- 事后 deref ptr=已复用无关数据(「...weclaw」随机串)——**堆串=发送期间临时真体,必须命中时刻当场 deref**。脚本 deref 分支判据 bug:0x1000000000 下限(10 hex 位)>堆地址 9 hex 位,错杀。
+
+### cap22(真体改写终验)→ 仍不传导
+
+- 命中时刻当场 deref 真体=needle 明文 ✓,原位改写 43B forge(嘻嘻~直发c22y+Y×26,读回字节级验证 ✓),触发链 rc=0 → localdb **仍只落原文**。
+
+### cap23-25(read-watchpoint 抓正文消费者)→ 双副本架构定案
+
+- 工程坑:①`SBTarget.WatchAddress` 需第 5 参 SBError;②**SBWatchpoint 无 SetScriptCallbackFunction**(与 breakpoint 不同)——改「驱动守望循环轮询进程 stop 态+采栈+Continue」绕过;③驱动收尾 GIL 挂死形态复现三轮,SIGTERM 兜底 1s 内干净退出(六轮实证)。
+- cap25 三断点齐挂(L4 bl+兄弟A bl+兄弟B b):bp 记录实证**多路径负载**——发送跳走 L4(peer 干净),**回显跳走兄弟A/B(peer 槽带 \x83\x07 尾巴)**;cap24 轮 A miss 之谜=发送跳偶走兄弟被「干净 peer 门」滤掉。
+- **watch 栈判读(628 命中)**:free(P) 前(A 发送后 0~2.2s)P 的**唯一读者=L3 内 FUN_003c56c4 参数拷贝链**(memmove×9,tid=1 主线程 RunLoop Timer→调度→L8 svc 链);t+2.2s `_xzm_free` 从 L4 续体(rva=0x435ed90)释放 P;之后 600+ 命中全为 allocator 复用噪声(含入站回显链 0x6fda778 帧读复用块)。**CGI/序列化层从未读 P**。
+
+### cap26(正本猎杀)→ 墙定案
+
+- spawn 命中时刻扫 P±32MB 堆窗:找到 **5 处 needle 副本**(P 邻域 ±32KB),全部原位改写 forge+读回验证 ✓,触发 rc=0 → localdb **仍只落原文**(ts=1792046485)。
+- **终局判读:发送管线=双副本架构**——按钮时刻创建层先造「正本」(CGI 编码消费后即弃/变换),spawn 的 msgctx 及其真体=纯任务副本;**CGI 编码完成于 spawn 断点命中之前**,spawn 时刻堆中已无可传导的 UTF-8 正本。spawn 补丁路线(槽/真体/全命中/多路径/全副本猎杀)四重证据判死。
+
+### 失败矩阵(本轮 needle 清单,localdb 均有原文行)
+
+| 实验 | 断点 | 改写对象 | 结果 |
+|---|---|---|---|
+| cap20 | 0x435E070 | 全命中 SSO 短槽 | 原文落库 |
+| cap22 | 0x435E070 | 命中时刻真体 43B 原位 | 原文落库 |
+| cap26 | 三断点 | P±32MB 全部 5 副本 | 原文落库 |
+
+### 下轮方向(若续攻,超出本档 spawn 主题需另立)
+
+1. **UI 创建层窗口**:按钮 handler 同步栈(cgevent 点击→输入框文本对象→消息构造)。spawn 在 Timer 异步链上,须改断 UI 事件层——无符号,需从 RunLoop/按钮响应链或「输入框取文本」API 入手。
+2. **CGI 编码窗口**:newsendmsg(reqid 237)请求体构造点;正本编码后即弃,须抓编码瞬间(memcpy 内容门)。
+3. watchpoint 技术(轮询采栈版)与堆窗扫描猎杀可直接复用为新窗口的取证器。
+
+### 工程课(本轮新增)
+
+- lldb watchpoint 无脚本回调→驱动轮询 stop 态+采栈+Continue 可稳定工作(628 栈样本实证)。
+- read-watch 事后 deref 必复用失真;**命中时刻当场 deref 是唯一真值**。
+- 门设计:干净 peer 门=发送跳;带尾 peer(\x83\x07)=回显跳;多路径负载下断点要三 caller 齐挂。
+- cap-assets-r20-r26/(44 件)已固化入档 research/;HuntR20/21.java+输出在 ~/ghidra-hunt-r9/。

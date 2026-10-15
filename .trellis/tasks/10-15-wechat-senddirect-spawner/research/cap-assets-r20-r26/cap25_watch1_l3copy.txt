@@ -1,0 +1,17 @@
+whit=1 t=10.6 tid=1
+  #0 pc=0x1837ed568 rva=0x0 fn=_platform_memmove
+  #1 pc=0x1335e9abc rva=0x3c5abc fn=___lldb_unnamed_symbol24458
+  #2 pc=0x1335e96dc rva=0x3c56dc fn=___lldb_unnamed_symbol24456
+  #3 pc=0x137560644 rva=0x433c644 fn=___lldb_unnamed_symbol240909
+  #4 pc=0x137582074 rva=0x435e074 fn=___lldb_unnamed_symbol241356
+  #5 pc=0x137582cfc rva=0x435ecfc fn=___lldb_unnamed_symbol241366
+  #6 pc=0x137582be0 rva=0x435ebe0 fn=___lldb_unnamed_symbol241365
+  #7 pc=0x13793b514 rva=0x4717514 fn=___lldb_unnamed_symbol254943
+  #8 pc=0x137d95874 rva=0x4b71874 fn=___lldb_unnamed_symbol263346
+  #9 pc=0x13329143c rva=0x6d43c fn=___lldb_unnamed_symbol3872
+  #10 pc=0x1332a4624 rva=0x80624 fn=___lldb_unnamed_symbol4249
+  #11 pc=0x1332a405c rva=0x8005c fn=___lldb_unnamed_symbol4248
+  #12 pc=0x1332681c8 rva=0x441c8 fn=___lldb_unnamed_symbol3078
+  #13 pc=0x13326202c rva=0x3e02c fn=___lldb_unnamed_symbol2943
+  #14 pc=0x133267188 rva=0x43188 fn=___lldb_unnamed_symbol3060
+  #15 pc=0x1838b9d50 rva=0x0 fn=__CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__
