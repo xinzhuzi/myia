@@ -92,6 +92,7 @@ describe("设置 · 看图分区:读取与保存分流", () => {
       expect((screen.getByLabelText("本地 base_url") as HTMLInputElement).value).toBe("http://127.0.0.1:1234/v1");
     });
     expect((screen.getByLabelText("本地模型") as HTMLInputElement).value).toBe("qwen3.8-27b-coder390");
+    expect((screen.getByLabelText("云端 base_url") as HTMLInputElement).value).toBe("https://open.bigmodel.cn/api/paas/v4");
     expect((screen.getByLabelText("云端模型") as HTMLInputElement).value).toBe("glm-4.6v");
     expect(screen.getByText("key 已在钥匙串")).toBeTruthy(); // secret.list 名单核验
   });
@@ -106,6 +107,7 @@ describe("设置 · 看图分区:读取与保存分流", () => {
     fireEvent.change(screen.getByLabelText("本地 base_url"), { target: { value: "http://127.0.0.1:9999/v1" } });
     fireEvent.change(screen.getByLabelText("本地模型"), { target: { value: "qwen3.8-27b-coder390" } });
     fireEvent.change(screen.getByLabelText("本地 API Key"), { target: { value: "lm-local-secret" } });
+    fireEvent.change(screen.getByLabelText("云端 base_url"), { target: { value: "https://relay.example.top/v1" } });
     fireEvent.change(screen.getByLabelText("云端模型"), { target: { value: "glm-4.6v" } });
     fireEvent.change(screen.getByLabelText("云端 API Key"), { target: { value: "sk-img-secret" } });
     fireEvent.click(screen.getByRole("button", { name: "保存看图配置" }));
@@ -125,7 +127,7 @@ describe("设置 · 看图分区:读取与保存分流", () => {
         model: "qwen3.8-27b-coder390",
         api_key: "keychain:myia/image/local_api_key",
       },
-      cloud: { base_url: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4.6v", api_key: "keychain:myia/image/api_key" },
+      cloud: { base_url: "https://relay.example.top/v1", model: "glm-4.6v", api_key: "keychain:myia/image/api_key" },
       ocr: { enabled: true, engine_default: "vision" },
     });
     // 复核一致(reread 与所写同值);key 输入清空;明文不出现在任何 DOM
@@ -168,6 +170,20 @@ describe("设置 · 看图分区:读取与保存分流", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存看图配置" }));
 
     expect(await screen.findByText(/本地 base_url 须为 http\(s\) 地址/)).toBeTruthy();
+    expect(callsOf("image.config.save")).toEqual([]);
+    expect(callsOf("secret.set")).toEqual([]);
+  });
+
+  it("云端 base_url 非 http(s) → 同门拦截(云端三件套一组,base_url 不可缺检)", async () => {
+    installSidecar();
+    render(<VisionForm secretNames={null} />);
+    await waitFor(() => {
+      expect((screen.getByLabelText("云端 base_url") as HTMLInputElement).value).toBe("https://open.bigmodel.cn/api/paas/v4");
+    });
+    fireEvent.change(screen.getByLabelText("云端 base_url"), { target: { value: "relay-only-host" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存看图配置" }));
+
+    expect(await screen.findByText(/云端 base_url 须为 http\(s\) 地址/)).toBeTruthy();
     expect(callsOf("image.config.save")).toEqual([]);
     expect(callsOf("secret.set")).toEqual([]);
   });

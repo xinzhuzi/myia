@@ -34,6 +34,7 @@ interface VisionFormState {
   ocrEngine: OcrEngine;
   localBaseUrl: string;
   localModel: string;
+  cloudBaseUrl: string;
   cloudModel: string;
 }
 
@@ -43,6 +44,7 @@ function stateFromConfig(config: VisionConfig): VisionFormState {
     ocrEngine: config.ocr.engine_default,
     localBaseUrl: config.local.base_url,
     localModel: config.local.model,
+    cloudBaseUrl: config.cloud.base_url,
     cloudModel: config.cloud.model,
   };
 }
@@ -62,17 +64,18 @@ function isVisionConfigLike(value: unknown): value is VisionConfig {
  * 与 OCR 引擎结构配置(经 image.config.save 落 MYIA_HOME/vision.yaml)。
  * 本地通道 = LM Studio 等 OpenAI 兼容端点的纯客户端 —— base_url / 模型名 /
  * 可选 api_key 三件套,MYIA 不下载/不自跑大模型(模型在 LM Studio 应用里
- * 管理);云端 = GLM 等。凭据铁律照旧:两个 api_key 都只经 secret.set 入
- * 钥匙串,配置里只落 keychain: 引用 —— 明文拒载,值不回显不落盘。
+ * 管理);云端 = 三件套一组:**云端 base_url / 云端 API Key / 云端模型**
+ * (官方 GLM 或任意 OpenAI 兼容中转端点)。凭据铁律照旧:两个 api_key 都只经
+ * secret.set 入钥匙串,配置里只落 keychain: 引用 —— 明文拒载,值不回显不落盘。
  */
 export function VisionForm({ secretNames }: VisionFormProps) {
   const [form, setForm] = useState<VisionFormState>(stateFromConfig(DEFAULT_VISION_CONFIG));
-  /** 原样保存 read 应答:save 时保留未入表单的字段(cloud.base_url/ocr.enabled 等) */
+  /** 原样保存 read 应答:save 时保留未入表单的字段(ocr.enabled 等) */
   const [loaded, setLoaded] = useState<VisionConfig>(DEFAULT_VISION_CONFIG);
   const [loadedError, setLoadedError] = useState<SidecarRequestError | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [localApiKey, setLocalApiKey] = useState("");
-  const [errors, setErrors] = useState<Partial<Record<"localBaseUrl", string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<"localBaseUrl" | "cloudBaseUrl", string>>>({});
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<SidecarRequestError | null>(null);
@@ -102,6 +105,11 @@ export function VisionForm({ secretNames }: VisionFormProps) {
       setErrors({ localBaseUrl: "本地 base_url 须为 http(s) 地址(留空用默认 http://127.0.0.1:1234/v1)" });
       return;
     }
+    const cloudBase = form.cloudBaseUrl.trim() || DEFAULT_VISION_CONFIG.cloud.base_url;
+    if (!/^https?:\/\//.test(cloudBase)) {
+      setErrors({ cloudBaseUrl: "云端 base_url 须为 http(s) 地址(留空用默认 https://open.bigmodel.cn/api/paas/v4)" });
+      return;
+    }
     setErrors({});
     setSaving(true);
     setSaveError(null);
@@ -122,7 +130,7 @@ export function VisionForm({ secretNames }: VisionFormProps) {
       const config: VisionConfig = {
         channel_default: form.channelDefault,
         local: { base_url: localBase, model: form.localModel.trim(), api_key: localApiKeyRef },
-        cloud: { base_url: loaded.cloud.base_url, model: form.cloudModel.trim() || loaded.cloud.model, api_key: apiKeyRef },
+        cloud: { base_url: cloudBase, model: form.cloudModel.trim() || loaded.cloud.model, api_key: apiKeyRef },
         ocr: { enabled: loaded.ocr.enabled, engine_default: form.ocrEngine },
       };
       await saveImageConfig(config);
@@ -136,6 +144,7 @@ export function VisionForm({ secretNames }: VisionFormProps) {
         rereadValue.local.base_url === config.local.base_url &&
         rereadValue.local.model === config.local.model &&
         rereadValue.local.api_key === config.local.api_key &&
+        rereadValue.cloud.base_url === config.cloud.base_url &&
         rereadValue.cloud.model === config.cloud.model &&
         rereadValue.ocr.engine_default === config.ocr.engine_default;
       setStatus(
@@ -244,6 +253,15 @@ export function VisionForm({ secretNames }: VisionFormProps) {
               )
             ) : null
           }
+        />
+        <FieldInput
+          label="云端 base_url"
+          aria-label="云端 base_url"
+          placeholder="https://open.bigmodel.cn/api/paas/v4(留空用默认;中转站填中转地址)"
+          value={form.cloudBaseUrl}
+          onChange={(event) => setForm((prev) => ({ ...prev, cloudBaseUrl: event.target.value }))}
+          error={errors.cloudBaseUrl}
+          hint="OpenAI 兼容端点(官方 GLM PAAS 或任意中转);与云端 API Key、云端模型三件一组"
         />
         <FieldInput
           label="云端模型"
