@@ -407,7 +407,7 @@ describe("DashboardScreen", () => {
   // 10-05-dashboard-glance:D1 状态句(verdict)+ D3 告警清单 + dry→试跑
   // -------------------------------------------------------------------------
 
-  it("verdict ok 态:屏首一行「一切正常 · 今日采集 X 条 · M/K 源在线」,ok 态纯文本", async () => {
+  it("verdict ok 态:屏首一行纯状态句「一切正常」,数字段已与概览四格去重", async () => {
     const today = new Date().toISOString().slice(0, 10);
     mockSidecar(
       Promise.resolve(
@@ -427,11 +427,15 @@ describe("DashboardScreen", () => {
 
     const verdict = await screen.findByTestId("dashboard-verdict");
     expect(verdict.textContent).toContain("一切正常");
-    expect(verdict.textContent).toContain("今日采集 128 条");
-    expect(verdict.textContent).toContain("3/3 源在线");
+    // 去重契约(云端 8→9 建议 ③):采集/源在线/推送数字只在概览四格出现一次
+    expect(verdict.textContent).not.toContain("今日采集");
+    expect(verdict.textContent).not.toContain("源在线");
+    expect(verdict.textContent).not.toContain("推送成功");
     expect(verdict.getAttribute("role")).toBe("status");
-    expect(verdict.getAttribute("aria-label")).toContain("一切正常 · 今日采集 128 条");
+    expect(verdict.getAttribute("aria-label")).toBe("一切正常"); // facts 空,汇总句 = 主句
     expect(verdict.tagName).toBe("DIV"); // ok 态纯文本,非链接
+    // 数字由概览四格承担(同 mock 下在场,不因去重丢失)
+    expect(screen.getByTestId("stat-window-items").textContent).toContain("128");
     // 屏首块:先于概览 section(无头范式首块)
     expect(
       verdict.compareDocumentPosition(screen.getByTestId("dashboard-overview")) &
@@ -457,12 +461,12 @@ describe("DashboardScreen", () => {
 
     const verdict = await screen.findByTestId("dashboard-verdict");
     expect(verdict.textContent).toContain("1 个源失效");
-    expect(verdict.textContent).toContain("2/3 源在线");
+    expect(verdict.textContent).not.toContain("源在线"); // 数字段去重,健康度词归环图/源卡
     expect(verdict.tagName).toBe("A");
     expect(verdict.getAttribute("href")).toBe("#/sources");
   });
 
-  it("verdict warning 态:告警/退化拼段缺段省略,facts 随概览窗切 7 天换窗文案(grill Q1)", async () => {
+  it("verdict warning 态:告警/退化拼段缺段省略;去重后摘要条与概览窗解耦(无采集段)", async () => {
     const today = new Date().toISOString().slice(0, 10);
     mockSidecar(
       Promise.resolve(
@@ -482,7 +486,7 @@ describe("DashboardScreen", () => {
     expect(verdict.textContent).toContain("1 项告警 · 1 个源退化");
     expect(verdict.getAttribute("href")).toBe("#/sources");
 
-    // 概览窗切 7 天 → facts 采集段换「近 7 天采集 …」(与四格同窗同数)
+    // 概览窗切 7 天 → 四格换窗换数,摘要条零联动(去重 ③:无采集段可换)
     storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 9 }] });
     fireEvent.pointerDown(screen.getByRole("combobox", { name: "概览时间范围" }), {
       button: 0,
@@ -491,9 +495,10 @@ describe("DashboardScreen", () => {
     });
     fireEvent.click(await screen.findByRole("option", { name: "7 天" }));
     await waitFor(() =>
-      expect(screen.getByTestId("dashboard-verdict").textContent).toContain("近 7 天采集 9 条"),
+      expect(screen.getByTestId("stat-window-items").textContent).toContain("近 7 天采集"),
     );
-    expect(screen.getByTestId("dashboard-verdict").textContent).not.toContain("今日采集");
+    expect(screen.getByTestId("dashboard-verdict").textContent).not.toContain("采集");
+    expect(screen.getByTestId("dashboard-verdict").textContent).toContain("1 项告警 · 1 个源退化");
   });
 
   it("verdict unknown 态:doctor 分区失败 → 「部分数据不可达,状态未知 · 其余分区已降级显示」", async () => {
@@ -992,6 +997,20 @@ describe("DashboardScreen", () => {
     );
     expect(screen.getByTestId("stat-window-push").textContent).toContain("2"); // 2 次 ok 推送
     expect(screen.getByTestId("stat-alerts").textContent).toContain("2"); // error+warning 各一
+    // 10-15 云端 8→9 建议 ①:四格均分整行(同 min-w + 等基 flex-1,无偏置)
+    for (const cellId of ["stat-active-sources", "stat-window-items", "stat-window-push", "stat-alerts"]) {
+      const cellClass = screen.getByTestId(cellId).className;
+      expect(cellClass).toContain("min-w-[170px]");
+      expect(cellClass).toContain("flex-1");
+      expect(cellClass).not.toContain("flex-[1.3]");
+    }
+    // ②:环图 hover 图例常驻 DOM(显隐由 group-hover CSS 承担),四态标签+计数
+    const legend = screen.getByTestId("health-donut-legend");
+    expect(legend.textContent).toContain("正常 1");
+    expect(legend.textContent).toContain("退化 1");
+    expect(legend.textContent).toContain("失效 1");
+    expect(legend.textContent).toContain("未知 1");
+    expect(legend.className).toContain("group-hover/donut:opacity-100");
     expect(screen.getByTestId("dashboard-overview")).toBeTruthy();
     expect(storeTrendMock).toHaveBeenCalledWith({ days: 7 }); // 统一时间窗:默认今日 = 图窗下限 7 天(趋势卡同窗;采集格值仍当日行,切片不虚增)
   });
@@ -1785,7 +1804,7 @@ describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
     recent: [],
   });
 
-  it("ok 静态:「一切正常」+ 采集/源在线/推送 三段 facts", () => {
+  it("ok 静态:「一切正常」+ facts 空(采集/源在线/推送数字段与概览四格去重,10-15)", () => {
     expect(
       buildVerdict({
         overview: stats(),
@@ -1797,7 +1816,7 @@ describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
     ).toEqual({
       tone: "ok",
       headline: "一切正常",
-      facts: ["今日采集 128 条", "12/14 源在线", "推送成功 3"],
+      facts: [],
     });
   });
 
@@ -1810,7 +1829,7 @@ describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
       doctorFailed: false,
     });
     expect(verdict?.headline).toBe("一切正常");
-    expect(verdict?.facts).toEqual(["今日采集 128 条", "12/14 源在线", "推送成功 3", "2 个采集中"]);
+    expect(verdict?.facts).toEqual(["2 个采集中"]);
   });
 
   it("warning:alerts/degraded 拼段、缺段省略;仅品类 dead tone 触发时兜底「N 品类异常」", () => {
@@ -1907,7 +1926,7 @@ describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
     ).toBe("2 个源失效");
   });
 
-  it("unknown:doctorFailed 最坏优先;health 缺 → 源在线缺数省略,首段「其余分区已降级显示」", () => {
+  it("unknown:doctorFailed 最坏优先;health 缺不虚构,facts 只装降级提示(去重后无数字段)", () => {
     const verdict = buildVerdict({
       overview: stats({ activeSources: null, totalSources: null, alerts: null }),
       health: null,
@@ -1917,7 +1936,7 @@ describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
     });
     expect(verdict?.tone).toBe("unknown");
     expect(verdict?.headline).toBe("部分数据不可达,状态未知");
-    expect(verdict?.facts).toEqual(["其余分区已降级显示", "今日采集 128 条", "推送成功 3"]);
+    expect(verdict?.facts).toEqual(["其余分区已降级显示"]);
   });
 
   it("null 分支:overview/runSummary 任一 null(整屏错误/加载态)不渲染", () => {
@@ -1929,7 +1948,7 @@ describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
     ).toBeNull();
   });
 
-  it("facts 随概览窗(grill Q1):7 天档换「近 7 天采集」;缺数逐项省略不显 0(grill Q3)", () => {
+  it("facts 与概览窗解耦(去重 ③):7 天档/缺数/零源配置 facts 恒无数字段", () => {
     const windowed = buildVerdict({
       overview: stats({ window: 7, windowItems: 900 }),
       health: health(),
@@ -1937,7 +1956,7 @@ describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
       runSummary: runs(),
       doctorFailed: false,
     });
-    expect(windowed?.facts[0]).toBe("近 7 天采集 900 条");
+    expect(windowed?.facts).toEqual([]); // 采集数字只在概览四格,与窗无关
     const missing = buildVerdict({
       overview: stats({ windowItems: null, activeSources: null, totalSources: null, windowPushOk: null }),
       health: health(),
@@ -1945,18 +1964,15 @@ describe("buildVerdict 状态句(D1 纯函数;10-05-dashboard-glance)", () => {
       runSummary: runs(),
       doctorFailed: false,
     });
-    expect(missing?.facts).toEqual([]); // 趋势不可达/无 run → 逐项省略,不虚构 0
-  });
-
-  it("零源配置:totalSources=0 省略源在线段(0/0 不是健康度事实)", () => {
-    const verdict = buildVerdict({
+    expect(missing?.facts).toEqual([]); // 趋势不可达/无 run → 摘要条不虚构
+    const zeroSources = buildVerdict({
       overview: stats({ activeSources: 0, totalSources: 0 }),
       health: health({ ok: 0, unknown: 0 }),
       categories: [],
       runSummary: runs(),
       doctorFailed: false,
     });
-    expect(verdict?.facts).toEqual(["今日采集 128 条", "推送成功 3"]);
+    expect(zeroSources?.facts).toEqual([]); // 0/0 空配置不虚构健康度事实
   });
 });
 

@@ -585,7 +585,9 @@ export interface DashboardVerdict {
  * 品类 dead tone → warning(缺段省略;推送全挂不再报「一切正常」与行内失败
  * 徽章自相矛盾);否则 ok。返回 null = 不渲染(overview 与 runSummary 同源
  * 于 data,任一 null 即数据整体不可达——整屏错误卡已负责,不双报;加载态同)。
- * facts 所有态都拼(grill Q1:采集随概览窗与四格同窗同数;running>0 才拼)。
+ * facts 只装过程性事实(降级提示 / running>0 才拼「N 个采集中」)——采集/
+ * 源在线/推送数字段 10-15 去重撤除:概览四格同屏就在下方,数字只出现一次
+ * (主人判例「顶部摘要条与概览卡数据去重」,云端 8→9 建议 ③)。
  */
 export function buildVerdict(input: {
   overview: OverviewStats | null;
@@ -600,22 +602,6 @@ export function buildVerdict(input: {
 
   const facts: string[] = [];
   if (doctorFailed) facts.push("其余分区已降级显示");
-  if (overview.windowItems !== null) {
-    facts.push(
-      overview.window === "today"
-        ? `今日采集 ${overview.windowItems} 条`
-        : `近 ${overview.window} 天采集 ${overview.windowItems} 条`,
-    );
-  }
-  if (
-    overview.activeSources !== null &&
-    overview.totalSources !== null &&
-    overview.totalSources > 0
-  ) {
-    // totalSources=0(未配置任何源)省略本段:0/0 是空配置不是健康度事实
-    facts.push(`${overview.activeSources}/${overview.totalSources} 源在线`);
-  }
-  if (overview.windowPushOk !== null) facts.push(`推送成功 ${overview.windowPushOk}`);
   if (runSummary !== null && runSummary.running > 0) facts.push(`${runSummary.running} 个采集中`);
 
   if (doctorFailed) {

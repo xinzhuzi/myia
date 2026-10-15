@@ -1009,7 +1009,10 @@ export function DashboardScreen() {
         </div>
         {/* 10-15-dash-donut:四张 1/4 宽大卡(主人判「站位过于大」)收成单卡
             紧凑行——活跃源 = recharts 源健康度四色环(环心 32/48),其余三格
-            divide-x 行内数字块;testid/注记词面/ⓘ-说明钮契约原样(测试钉死) */}
+            divide-x 行内数字块;testid/注记词面/ⓘ-说明钮契约原样(测试钉死)。
+            10-15 云端 8→9 建议 ①:四格均分整行(同 min-w-170 + 等基 flex-1,
+            去 flex-[1.3] 偏置消右侧留白);②:环图挂 hover 图例(格根
+            group/donut) */}
         {loading && overview === null ? (
           <Skeleton className="h-20 w-full rounded-lg" />
         ) : overview === null ? null : (
@@ -1031,7 +1034,7 @@ export function DashboardScreen() {
                       : `共 ${overview.totalSources} 源 · 正常+退化 · 实时快照,不随时间范围变化 · 环图 = 四态占比`
                 }
                 noteKind={overview.totalSources === null ? "alert" : "meta"}
-                className="min-w-[232px] flex-[1.3]"
+                className="group/donut min-w-[170px]"
               >
                 {overview.activeSources !== null &&
                 overview.totalSources !== null &&
@@ -1042,6 +1045,26 @@ export function DashboardScreen() {
                     <span className="absolute text-2xs font-semibold tabular-nums text-foreground">
                       {overview.activeSources}/{overview.totalSources}
                     </span>
+                    {/* hover 图例(云端 8→9 建议 ②):四态色点+计数答「绿橙含义」;
+                        与环图同过滤(零段不入);悬停整格显(group/donut 在格根);
+                        pointer-events-none 防悬停自身闪烁;右出避开卡底裁切 */}
+                    <div
+                      data-testid="health-donut-legend"
+                      className="pointer-events-none absolute left-full top-1/2 z-20 ml-2 flex -translate-y-1/2 flex-col gap-1 rounded-md border border-border bg-popover/95 px-2.5 py-2 text-2xs text-popover-foreground opacity-0 shadow-popover transition-opacity duration-(--duration-fast) ease-out-expo group-hover/donut:opacity-100"
+                    >
+                      {healthSegments
+                        .filter((segment) => segment.count > 0)
+                        .map((segment) => (
+                          <span key={segment.state} className="flex items-center gap-1.5 whitespace-nowrap">
+                            <span
+                              aria-hidden
+                              className="size-2 shrink-0 rounded-[2px]"
+                              style={{ background: HEALTH_RING_FILL[segment.state] }}
+                            />
+                            {`${SOURCE_STATE[segment.state].label} ${segment.count}`}
+                          </span>
+                        ))}
+                    </div>
                   </div>
                 ) : undefined}
               </CompactStat>
@@ -1059,7 +1082,7 @@ export function DashboardScreen() {
                       : `UTC 逐日 ${overviewWindow} 天求和 · items 入库`
                 }
                 noteKind={trendError !== null ? "alert" : "meta"}
-                className="min-w-[150px]"
+                className="min-w-[170px]"
               />
               <CompactStat
                 testid="stat-window-push"
@@ -1071,7 +1094,7 @@ export function DashboardScreen() {
                     : `近 ${overviewWindow} 天(UTC)各轮采集的推送成功数 · 仅统计最近 20 轮`
                 }
                 noteKind="meta"
-                className="min-w-[150px]"
+                className="min-w-[170px]"
               />
               <CompactStat
                 testid="stat-alerts"
@@ -1084,7 +1107,7 @@ export function DashboardScreen() {
                 }
                 noteKind="meta"
                 destructive={(overview.alerts ?? 0) > 0}
-                className="min-w-[150px]"
+                className="min-w-[170px]"
               />
             </div>
           </Card>
