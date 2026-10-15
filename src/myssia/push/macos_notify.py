@@ -242,7 +242,10 @@ def plan_notifications(items: Sequence[Any]) -> list[dict[str, str | None]]:
     - ``event == "message.new"`` 或无 event:按 ``session_display`` 分组,
       每会话一条,subtitle=N 条新消息,body=最新一条(ts 最大,序稳定)
       「发送者: 预览」;
-    - 元数据缺位(其他品类借用)= 单条通用通知,body 取最新条目标题。
+    - 元数据缺位(其他品类借用)= 单条通用通知,body 取最新条目标题;
+    - 每条计划携带 ``source``(最新条目的条目源键;微信本机 = 会话名/feed
+      渠道键)——壳侧横幅点击深链(10-15-notify-deeplink)据此直达该会话
+      的 feed 3 级聊天工作台;缺 source(异常条目)= None,壳侧只弹不链。
     """
     new_by_session: dict[str, list[dict[str, Any]]] = {}
     revokes: list[dict[str, Any]] = []
@@ -271,10 +274,12 @@ def plan_notifications(items: Sequence[Any]) -> list[dict[str, str | None]]:
             if isinstance(content, str) and content.strip()
             else "撤回了一条消息(原内容未能恢复)"
         )
+        source = view.get("source")
         plans.append({
             "title": _clip(title, TITLE_MAX_CHARS),
             "subtitle": None,
             "body": _clip(body, BODY_MAX_CHARS),
+            "source": source if isinstance(source, str) and source.strip() else None,
         })
     for session, group in new_by_session.items():
         latest = max(
@@ -284,10 +289,12 @@ def plan_notifications(items: Sequence[Any]) -> list[dict[str, str | None]]:
         sender = latest.get("sender_display") or "新消息"
         preview = latest.get("content") or latest.get("title") or ""
         body = _clip(f"{sender}: {preview}", BODY_MAX_CHARS)
+        source = latest.get("source")
         plans.append({
             "title": _clip(session, TITLE_MAX_CHARS),
             "subtitle": f"{len(group)} 条新消息",
             "body": body,
+            "source": source if isinstance(source, str) and source.strip() else None,
         })
     if generic:
         latest = max(
@@ -300,6 +307,7 @@ def plan_notifications(items: Sequence[Any]) -> list[dict[str, str | None]]:
             "title": _clip(str(title), TITLE_MAX_CHARS),
             "subtitle": f"{len(generic)} 条更新",
             "body": _clip(str(preview), BODY_MAX_CHARS),
+            "source": latest.get("source") if isinstance(latest.get("source"), str) else None,
         })
     return plans
 

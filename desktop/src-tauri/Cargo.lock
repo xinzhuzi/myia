@@ -2270,6 +2270,7 @@ dependencies = [
  "fs2",
  "libc",
  "log",
+ "mac-notification-sys",
  "objc2",
  "objc2-app-kit",
  "reqwest",

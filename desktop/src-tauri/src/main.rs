@@ -225,12 +225,14 @@ fn handle_stdout_line(app: &AppHandle, line: &str) {
     };
     if parsed.get("type").is_some() {
         // notify.banner(10-14-notify-app-icon):sidecar 通知横幅 → 壳以 app
-        // 身份代发(macOS 经 notify-rust set_application(bundle_id):图标/
-        // 归组/点击唤起 = 世事 app;subtitle 桌面 builder 无面,折叠进正文)。
-        // 不转发 UI 事件面;代发失败只 warn —— Python 通道的发射器故障回退
-        // 在 sidecar 侧,此处失败 = 壳侧展示面问题,如实留痕不吞。
+        // 身份代发(图标/归组/点击唤起 = 世事 app)。不转发 UI 事件面;代发
+        // 失败只 warn —— Python 通道的发射器故障回退在 sidecar 侧,此处失败
+        // = 壳侧展示面问题,如实留痕不吞。
+        // 10-15-notify-deeplink:载荷新增 source(feed 渠道键 = 会话名)。
+        // macOS 直走 mac-notification-sys(wait_for_click 拿点击回调 → 前端
+        // notify:navigate 深链;插件不透传点击响应);非 macOS 保留插件面
+        // (subtitle 折叠进正文)。
         if parsed.get("type").and_then(Value::as_str) == Some("notify.banner") {
-            use tauri_plugin_notification::NotificationExt;
             let title = parsed
                 .get("title")
                 .and_then(Value::as_str)
@@ -244,18 +246,66 @@ fn handle_stdout_line(app: &AppHandle, line: &str) {
             let subtitle = parsed
                 .get("subtitle")
                 .and_then(Value::as_str)
-                .filter(|s| !s.is_empty());
-            let body = subtitle
-                .map(|subtitle| format!("{subtitle} · {body}"))
-                .unwrap_or(body);
-            if let Err(err) = app
-                .notification()
-                .builder()
-                .title(title)
-                .body(body)
-                .show()
+                .filter(|s| !s.is_empty())
+                .map(str::to_string);
+            let source = parsed
+                .get("source")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string);
+            #[cfg(target_os = "macos")]
             {
-                log::warn!("desktop: notify.banner 壳代发失败: {err}");
+                // set_application(bundle_id) 每次直发前调(与插件/notify-rust
+                // 同语义,幂等廉价):图标/归组恒挂本 app。
+                let identifier = app.config().identifier.clone();
+                if let Err(err) = mac_notification_sys::set_application(&identifier) {
+                    log::warn!("desktop: notify.banner set_application 失败: {err}");
+                }
+                let app = app.clone();
+                if let Err(err) = std::thread::Builder::new()
+                    .name("notify-banner-click".into())
+                    .spawn(move || {
+                        let mut options = mac_notification_sys::Notification::new();
+                        options.wait_for_click(true);
+                        let response = mac_notification_sys::send_notification(
+                            &title,
+                            subtitle.as_deref(),
+                            &body,
+                            Some(&options),
+                        );
+                        match response {
+                            Ok(mac_notification_sys::NotificationResponse::Click) => {
+                                // 点击横幅本体 → 深链 feed 3 级目标会话;
+                                // source 缺位(异常条目)= 只唤不链,如实。
+                                let _ = app.emit(
+                                    "notify:navigate",
+                                    serde_json::json!({ "source": source }),
+                                );
+                            }
+                            Ok(_) => {} // 关闭钮/无交互:不深链
+                            Err(err) => log::warn!("desktop: notify.banner 直发失败: {err}"),
+                        }
+                    })
+                {
+                    log::warn!("desktop: notify.banner 点击线程拉起失败: {err}");
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                use tauri_plugin_notification::NotificationExt;
+                let body = subtitle
+                    .map(|subtitle| format!("{subtitle} · {body}"))
+                    .unwrap_or(body);
+                let _ = source; // 非 macOS 暂无深链面;载荷保形
+                if let Err(err) = app
+                    .notification()
+                    .builder()
+                    .title(title)
+                    .body(body)
+                    .show()
+                {
+                    log::warn!("desktop: notify.banner 壳代发失败: {err}");
+                }
             }
             return;
         }

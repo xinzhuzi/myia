@@ -57,6 +57,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, onSidecarEvent, SidecarRequestError } from "@/lib/api";
 import type { FeedEnrichResult, FeedItem, SourceHealth, UnlistenFn } from "@/lib/api";
+import { NOTIFY_ROUTE_SIGNAL, takePendingNotifyChannel } from "@/lib/notify-route";
 
 import {
   appendFeedPage,
@@ -3432,6 +3433,21 @@ export function FeedScreen() {
     setStreamQuery("");
     setTgPreviewNote(null);
   }, [viewSource, viewHistory]);
+
+  // 通知点击深链消费(10-15-notify-deeplink):挂起渠道 = 壳横幅点击送来的
+  // 目标会话键。两形态:他屏导航过来(feed 挂载时本 effect 消费挂起槽)+
+  // 已在 feed(壳事件的窗口信号即时消费)。openChannel 幂等(3 级同渠道
+  // 早退),无效键由 openChannel 的既有容错面兜住。
+  useEffect(() => {
+    const consume = () => {
+      const target = takePendingNotifyChannel();
+      if (target !== null) openChannel(target);
+    };
+    consume();
+    window.addEventListener(NOTIFY_ROUTE_SIGNAL, consume);
+    return () => window.removeEventListener(NOTIFY_ROUTE_SIGNAL, consume);
+  }, [openChannel]);
+
   const backLevel = useCallback(() => {
     setView((current) => {
       if (current.level === 3) return { level: 2, kind: channelCardKindOf(current.source, engineBySource.get(current.source)) };
