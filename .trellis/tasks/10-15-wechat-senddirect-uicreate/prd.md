@@ -71,3 +71,41 @@
 - **关键否定**:NSString 转换族 0x382402 全生命周期仅粘贴瞬间 2 门过(cap35)——构造/回读/哨兵复制/回显插入均不走 NSString 往返;剪贴板写四 API(setString:/setData:/writeObjects:/CFPasteboardSetData)在 readback=clipboard_copy 实跑下零 needle 门过(cap37)——copy-out 经风味转义/私有路径。
 - **未测完路线(重开姿势)**:follow-the-copy watch(粘贴+2.5s 堆扫持久副本→read watch→Return 时刻读者栈=构造点 PC→该 PC 补丁);两次实现(前序 cap28-31、本会话 cap36)均死于驱动层死锁/空采,**概念未证伪**;重开须复用 r23 已验证轮询采栈骨架+单线程驱动(本会话教训:多线程交叉持 SB API=新死锁形态)。
 - **工程课入档**:每窗 attach 后锚点预验(不符拒装)SOP 化;SBBreakpoint 无 SetName(用 id→sym 映射);门扫描必须 x0-x28 全 GPR;STOP 哨兵回调自禁+守护 detach 形态五连干净收尾。
+
+## 🌙 全日终局战报(10-15 深夜 23:25 收官,主会话)
+
+### 线路总览(本档四幕)
+
+1. **自研 UI 创建层(cap27-33,九连)**:粘贴锚(stringForType→NSString+0x18 UTF-16)→SSO 双形态→一路拷贝链(watch 跟不住)→三重奏正扫无 needle→RunLoop Source0 终扫(cap33 被打断)。结论留存:正本构造点在 RunLoop 回调海洋里,逐层爬成本失控。
+2. **生态纠偏(主人令 find-skills)**:**weixin-macos(654★ GPL-3.0)=mac 微信 4.x 收发消息逆向成品**——hook tencent/mars 底层(我们逆向的 L4/spawn 链=mars 任务体系!构造点谜底=startTask+Req2Buf protobuf 注入),onebot HTTP(onebot11 协议,文本/图/视频+入站)。**纪律教训入册:攻坚/逆向前必查生态,本域漏执行导致 22 轮自研在重造社区轮子。**
+3. **4.1.15 适配(窗口1/2/4 授权实弹+Ghidra R24-34)**:
+   - sendFuncAddr=**0x597eda0**(MMStartTask manager 两参;lldb 命中 3 次+onebot sendFunc hook 实时捕获同值 mgr=0x9494fa100)
+   - req2bufEnter=**0x5980a6c**(FUN_05980a6c,唯一非桥 "Req2Buf" 引用者;**x1=taskId 4 次实锤(0x506a 递增序列),4.1.12 门原样成立**)
+   - blrX8=**0x5980c44**(函数内唯一序列化虚调用:vtable+0x10→blr→cmp 长度);req2bufExit=0x5980d6c(ret 位);buf2Resp=0x5980dec(字符串锚)
+   - 判读修正三则:0x435e074=bl 返回地址;L3 三 caller;窗口2 读点 0x5daa3e4 实为 task 拷贝构造器(非 Req2Buf)
+4. **onebot 实测(窗口3/5)**:窗口3=服务跑通/9hook 全装/trigger 直调发生(result="1")/**微信零崩**;失败因二:trigger 复用微信已释放任务地址作 payload(修复=frida 独立分配)+门寄存器漂移(修复=标志制)。窗口5=适配版(script-4115.js 六 patch+终版 json)就绪待验,**环境终局故障**:~/.frida 被移入 Trash+僵尸 helper 占 socket→frida attach 挂死(lldb 正常),修复后仍卡(疑新 helper 权限等待),深夜按红线停手。
+
+### 明日一跑(终验清单,预计 10 分钟)
+
+1. 白天微信活跃期:killall frida* 清僵尸→跑 `/tmp/wxsend3/onebot-4115/onebot/onebot -type=local -wechat_pid=$(pgrep -x WeChat) -wechat_conf=../wechat_4_1_15.json`(script.js 已是适配版)
+2. 观察模式 trigger→看「发送文本任务执行结果」+4115-OBS 日志(blr 位点寄存器)
+3. OBS 绿→script.js 置 INJECT_MODE=true 重启→trigger→localdb 验 needle 落库=**直发成**
+4. 成→桥 send_direct 接 onebot HTTP(链接者模式:下载/配置/健康检查三件套)
+
+### 风险审查结论(主人问「hook 是否破坏微信」)
+
+script.js 写微信内存仅三处(全围绕任务栈 X24+0x60 指针槽)+伪造对象生命周期四层缓解(快照/整块恢复/超时兜底/迟到 ack 容忍);不 patch 代码段;爆炸半径单任务;泄漏每次 1-2KB。主要风险=版本适配错(适配期崩一次微信,重启无损)。
+
+### 并行会话事故录(工程课)
+
+- Codex(ChatGPT app 内 computer-use 会话,16:31 启动)跑了 r34-37 旧路线实验,与主会话在 attach 槽/目录编号全面撞车;文件信箱(NOTICE/STOP/档内注记)对非 ZCode 会话无效;终局=按主人授权关闭 ChatGPT.app+清 Codex 进程树(教训:**多 agent 并行时,先探对方宿主类型再选通信通道;目录编号加宿主前缀**)。
+- /tmp 系统清理两次吞产物(r28/探针文件),资产当场固化纪律再证。
+- frida 大进程(4GB 微信)首 attach 需 1-3 分钟,onebot 内置 25s 超时不够——预热(先 CLI frida attach 一次)后秒连。
+
+### AC 终态
+
+- [x] cap27 粘贴断点结论(锚定+栈入档 research/cap-assets-r20-r26/ 与本档 community-adapt/)
+- [x] 正本流向观测(SSO 机制/拷贝链/RunLoop 判读);构造/CGI 编码点=**社区方案锚定**(mars startTask+Req2Buf,六地址 4.1.15 定位)
+- [ ] 补丁传导验证(终验一跑待环境恢复;资产全备:script-4115.js+json+验证清单)
+- [x] 微信全程存活零崩溃(今晨至今 91292/20632 两代进程);所有窗口结束态字节复验 INTACT;我方滞留清零
+- [x] 战报入档+资产固化(research/community-adapt/ 26 件+cap-assets-r20-r26 44 件)
