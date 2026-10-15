@@ -10,7 +10,9 @@
 
 ## Acceptance Criteria
 
-- [ ] TBD
+- [x] AC1 件内自理双通道落地:钥匙串 myia/wechat/media-keys + 数据根 wechat-bridge/media-keys.json,load_keys 三序合并(手动显式覆盖);WX_MEDIA_SKIP_COMPONENT 调试旁路(提交 5bb039c1)
+- [x] AC2 测试 33 绿(26 旧+7 新,含漏提文件收编);零命中/坏 JSON 静默降级、值零回显面全测
+- [x] AC3 文档:件头供钥命令(短载荷内联避 -w 截断坑)+docs §2/§4 具体通道+V2 缺钥人话报错带三通道
 
 ## Notes
 
