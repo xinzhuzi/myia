@@ -1,0 +1,97 @@
+"""cap35(4.1.15 双锚实弹验证):断 MMStartTask manager(0x597eda0 两参)
++ mars stn Req2Buf 桥(0x5daad24)。OCR 链发 needle 命中后:
+- MMST:dump task 结构(param_2)0x100 找 cmdid(0x20000095 LE=95 00 00 20)
+  +栈 12 帧(上层=textCallback/回车链)
+- 桥:dump x0(bridge 对象)*x0+8 → vtable → +0x30 目标=真 Req2Buf 实现地址"""
+import lldb
+import os
+
+OUT = "/tmp/wxsend3/r35"
+OFF_MMST = 0x597EDA0
+OFF_BRIDGE = 0x5DAAD24
+
+_st = {"bps": [], "slide": 0, "mmst": 0, "bridge": 0}
+
+
+def _read(proc, addr, size):
+    err = lldb.SBError()
+    return proc.ReadMemory(addr, size, err) if err.Success() else None
+
+
+def install(debugger):
+    target = debugger.GetSelectedTarget()
+    slide = None
+    for m in target.module_iter():
+        if m.file.basename == "wechat.dylib":
+            slide = m.GetObjectFileHeaderAddress().GetLoadAddress(target)
+            break
+    if slide is None:
+        return
+    _st["slide"] = slide
+    for off in (OFF_MMST, OFF_BRIDGE):
+        bp = target.BreakpointCreateByAddress(slide + off)
+        bp.SetScriptCallbackFunction("cap35.on_hit")
+        _st["bps"].append(bp)
+    with open(f"{OUT}/ARMED", "w") as f:
+        f.write(f"slide={slide:#x}\n")
+
+
+def on_hit(frame, bp_loc, internal_dict):
+    try:
+        proc = frame.GetThread().GetProcess()
+        slide = _st["slide"]
+        pc = frame.GetPC() - slide
+        thread = frame.GetThread()
+        if pc == OFF_MMST and _st["mmst"] < 3:
+            _st["mmst"] += 1
+            x0 = frame.FindRegister("x0")
+            x1 = frame.FindRegister("x1")
+            mgr = x0.GetValueAsUnsigned() if x0 and x0.IsValid() else 0
+            task = x1.GetValueAsUnsigned() if x1 and x1.IsValid() else 0
+            tblob = _read(proc, task, 0x100) or b""
+            lines = [f"MMST n={_st['mmst']} mgr={mgr:#x} task={task:#x}",
+                     f"task100={tblob.hex()}",
+                     "cmdid_0x20000095_in_task=" + str(bytes.fromhex("95000020") in tblob)]
+            for i in range(min(12, thread.GetNumFrames())):
+                f = thread.GetFrameAtIndex(i)
+                p = f.GetPC()
+                rva = p - slide if slide <= p < slide + 0x10000000 else 0
+                lines.append(f"  #{i} rva={rva:#x} fn={f.GetFunctionName()}")
+            with open(f"{OUT}/mmst{_st['mmst']}.txt", "w") as f:
+                f.write("\n".join(lines) + "\n")
+        elif pc == OFF_BRIDGE and _st["bridge"] < 2:
+            _st["bridge"] += 1
+            x0 = frame.FindRegister("x0")
+            b = x0.GetValueAsUnsigned() if x0 and x0.IsValid() else 0
+            obj = _read(proc, b, 8) or b"\x00\x00\x00\x00\x00\x00\x00\x00"
+            cb = int.from_bytes(obj, "little")
+            lines = [f"BRIDGE n={_st['bridge']} bridge={b:#x} callback_obj={cb:#x}"]
+            vt = _read(proc, cb, 8)
+            if vt:
+                vtp = int.from_bytes(vt, "little")
+                lines.append(f"vtable={vtp:#x}")
+                slot30 = _read(proc, vtp + 0x30, 8)
+                if slot30:
+                    target_fn = int.from_bytes(slot30, "little")
+                    lines.append(f"REQ2BUF_IMPL_rva={target_fn - slide:#x}")
+            for i in range(min(10, thread.GetNumFrames())):
+                f = thread.GetFrameAtIndex(i)
+                p = f.GetPC()
+                rva = p - slide if slide <= p < slide + 0x10000000 else 0
+                lines.append(f"  #{i} rva={rva:#x} fn={f.GetFunctionName()}")
+            with open(f"{OUT}/bridge{_st['bridge']}.txt", "w") as f:
+                f.write("\n".join(lines) + "\n")
+        if _st["mmst"] >= 1 and _st["bridge"] >= 1:
+            for b in _st["bps"]:
+                b.SetEnabled(False)
+    except Exception as exc:
+        try:
+            with open(f"{OUT}/err.log", "a") as f:
+                f.write(repr(exc) + "\n")
+        except OSError:
+            pass
+    return False
+
+
+def __lldb_init_module(debugger, internal_dict):
+    install(debugger)

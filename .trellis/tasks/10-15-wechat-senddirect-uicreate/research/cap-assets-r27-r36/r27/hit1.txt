@@ -1,0 +1,17 @@
+n=1 t=6.6 tid=1
+  #0 pc=0x187f49058 fn=-[NSPasteboard dataForType:]
+  #1 pc=0x1887a58a8 fn=-[NSPasteboard stringForType:]
+  #2 pc=0x13a2d05e8 fn=___lldb_unnamed_symbol384597
+  #3 pc=0x13a2cfdd4 fn=___lldb_unnamed_symbol384596
+  #4 pc=0x13a1f4750 fn=___lldb_unnamed_symbol381955
+  #5 pc=0x13a1f5910 fn=___lldb_unnamed_symbol381964
+  #6 pc=0x13534e87c fn=___lldb_unnamed_symbol143566
+  #7 pc=0x1351f8bc0 fn=___lldb_unnamed_symbol138162
+  #8 pc=0x139d577f0 fn=___lldb_unnamed_symbol368236
+  #9 pc=0x139d56820 fn=___lldb_unnamed_symbol368234
+  #10 pc=0x139d414a4 fn=___lldb_unnamed_symbol367931
+  #11 pc=0x1351f5df0 fn=___lldb_unnamed_symbol138094
+  #12 pc=0x139c28024 fn=___lldb_unnamed_symbol364453
+  #13 pc=0x139c9fe78 fn=___lldb_unnamed_symbol365573
+  #14 pc=0x139d40cc4 fn=___lldb_unnamed_symbol367922
+  #15 pc=0x139bf6150 fn=___lldb_unnamed_symbol363736

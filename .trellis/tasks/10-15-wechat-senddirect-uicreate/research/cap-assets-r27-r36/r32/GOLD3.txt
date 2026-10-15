@@ -1,0 +1,17 @@
+gold=3 reg=x1 hit_at=0x16d85f840 bp_rva=0x434a2ac t_n=30
+  #0 pc=0x13756e2ac rva=0x434a2ac fn=___lldb_unnamed_symbol240957
+  #1 pc=0x133c91fa4 rva=0xa6dfa4 fn=___lldb_unnamed_symbol52273
+  #2 pc=0x1375606f0 rva=0x433c6f0 fn=___lldb_unnamed_symbol240909
+  #3 pc=0x137582074 rva=0x435e074 fn=___lldb_unnamed_symbol241356
+  #4 pc=0x137582cfc rva=0x435ecfc fn=___lldb_unnamed_symbol241366
+  #5 pc=0x137582be0 rva=0x435ebe0 fn=___lldb_unnamed_symbol241365
+  #6 pc=0x13793b514 rva=0x4717514 fn=___lldb_unnamed_symbol254943
+  #7 pc=0x137d95874 rva=0x4b71874 fn=___lldb_unnamed_symbol263346
+  #8 pc=0x13329143c rva=0x6d43c fn=___lldb_unnamed_symbol3872
+  #9 pc=0x1332a4624 rva=0x80624 fn=___lldb_unnamed_symbol4249
+  #10 pc=0x1332a405c rva=0x8005c fn=___lldb_unnamed_symbol4248
+  #11 pc=0x1332681c8 rva=0x441c8 fn=___lldb_unnamed_symbol3078
+  #12 pc=0x13326202c rva=0x3e02c fn=___lldb_unnamed_symbol2943
+  #13 pc=0x133267240 rva=0x43240 fn=___lldb_unnamed_symbol3061
+  #14 pc=0x1838a0bc0 rva=0x0 fn=__CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE0_PERFORM_FUNCTION__
+  #15 pc=0x1838a0b54 rva=0x0 fn=__CFRunLoopDoSource0

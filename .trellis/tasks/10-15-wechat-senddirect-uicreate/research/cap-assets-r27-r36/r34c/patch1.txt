@@ -1,0 +1,18 @@
+n=32 t=1792070880.3 bp=0x434a2ac outbound=True spots=1 sp=0x16f4dbf70
+  #pc=0x12d5ae2ac rva=0x434a2ac fn=___lldb_unnamed_symbol240957
+  #pc=0x129cd1fa4 rva=0xa6dfa4 fn=___lldb_unnamed_symbol52273
+  #pc=0x12d5a06f0 rva=0x433c6f0 fn=___lldb_unnamed_symbol240909
+  #pc=0x12d5c2074 rva=0x435e074 fn=___lldb_unnamed_symbol241356
+  #pc=0x12d5c2cfc rva=0x435ecfc fn=___lldb_unnamed_symbol241366
+  #pc=0x12d5c2be0 rva=0x435ebe0 fn=___lldb_unnamed_symbol241365
+  #pc=0x12d97b514 rva=0x4717514 fn=___lldb_unnamed_symbol254943
+  #pc=0x12ddd5874 rva=0x4b71874 fn=___lldb_unnamed_symbol263346
+  #pc=0x1292d143c rva=0x6d43c fn=___lldb_unnamed_symbol3872
+  #pc=0x1292e4624 rva=0x80624 fn=___lldb_unnamed_symbol4249
+  #pc=0x1292e405c rva=0x8005c fn=___lldb_unnamed_symbol4248
+  #pc=0x1292a81c8 rva=0x441c8 fn=___lldb_unnamed_symbol3078
+  #pc=0x1292a202c rva=0x3e02c fn=___lldb_unnamed_symbol2943
+  #pc=0x1292a7188 rva=0x43188 fn=___lldb_unnamed_symbol3060
+  #pc=0x1838b9d50 rva=0x0 fn=__CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__
+  #pc=0x1838b9a48 rva=0x0 fn=__CFRunLoopDoTimer
+  addr=0x93abe09c8 where=reg:x24 form=u8 span=43 wrote=True verified=True
