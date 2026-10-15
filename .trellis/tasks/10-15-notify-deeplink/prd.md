@@ -26,3 +26,16 @@ mac-notification-sys 0.6.15 原生 `wait_for_click(true)`(cargo registry 实读:
 ## 工程教训
 
 并行会话同时在写 feed-screen.tsx(另 4 个 dwfrun 在跑):写入被周期性回打——守波(90 秒静默)+ git HEAD 干净底一次成型 + Edit 工具落点 + 即时门禁 + 立即提交锁果。
+
+## 增量(10-15 晚,主人令「小件都做完」):粒度细化到具体消息(4a355082)
+
+原局限「落到会话 3 级,不定位到具体消息」已消除:
+
+- 载荷全链新增 `item_key`(python plan → 横幅 → 壳事件):= 锚定条目
+  `dedup_key`(feed 屏 `data-item-key`);合并通知锚 = 最新一条;撤回
+  独立条也锚定;缺 = 会话级如实退化。
+- feed 屏消费:开 3 级 → 有限重试(12×250ms 等挂载/数据)→
+  `scrollIntoView(center)` + `ring-1 ring-primary/60` 短暂高亮 1.6s
+  (类名取键盘巡游现成组合,保 Tailwind 构建产物在位)。
+- notify-route 挂起槽升级 `{source, itemKey}` 两元组(新增单测 4 条)。
+- 门禁:pytest 24 / vitest 937 / tsc / cargo check 全绿。
