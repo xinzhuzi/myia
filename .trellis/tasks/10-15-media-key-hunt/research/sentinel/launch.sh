@@ -1,4 +1,9 @@
 #!/bin/bash
+# Disabled by the user on 2026-10-15 after LLDB breakpoints stalled WeChat.
+# Historical implementation retained below; never re-enable or bypass it.
+printf '%s\n' 'DISABLED: background/repeating debugger attachment is forbidden. A new foreground, single, time-bounded debug session requires explicit user authorization for target, purpose, and duration.' >&2
+exit 78
+
 # 媒体钥哨兵·持久守望发射器(v2):并行会话(uicreate 等)与哨兵共用微信
 # task port,单占互斥。本发射器循环礼让协议,不再单次排队输竞态:
 #   等无 lldb → 180s 静默窗(窗内 lldb 回归 = 回队尾重等)→ 核 WeChat

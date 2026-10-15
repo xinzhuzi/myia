@@ -1,0 +1,1 @@
+{"decision":"not_required","reason":"独立离线三图验收工具切片已完成，无活进程附加，不推进直发支线或装机。","status":"in_progress","window_status":"consumed_failed_no_retry","current_slice":"offline_sample_verifier_complete","open_items":["真实媒体钥尚未取得；本次授权已消费，禁止再次附加","取得真实钥后才可三样本真图终验、供钥与装机"]}
