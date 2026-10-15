@@ -39,21 +39,29 @@ plugins/wechat-bridge/examples/mediadecrypt_ref.py 的协议形状
   ``"../../plugins/wechat-bridge": "components/wechat-bridge"``),放进去
   即随产品包分发。**解密产物永不写进本件所在目录**(只写请求的 out_path)。
 
-钥匙 intake 钩(仅手动联调形态有效;边界如实):
+钥匙 intake(双形态;钥匙**仅内存过手、零落盘、零日志**:永不写盘、
+永不进 result/logs/stderr,诊断只可报「有无」不报值):
 
-- 钩 = env ``WX_MEDIA_XOR_KEY`` / ``WX_MEDIA_AES_KEY`` 或 ``--key-file``
-  (JSON,字段 ``xor_key``/``aes_key``)——钥匙**仅内存过手、零落盘、零
-  日志**:永不写盘、永不进 result/logs/stderr。
+- **件内自理通道(桥 spawn 链可达,2026-10-15 落地)**:固定取钥点两处,
+  按序取先命中者——
+  ① **macOS 钥匙串**条目 ``myia / myia/wechat/media-keys``
+  (``security find-generic-password -s myia -a myia/wechat/media-keys
+  -w``;值 = 与 --key-file 同构的 JSON 文本);
+  ② **数据根文件** ``$MYIA_HOME(缺省 ~/Library/Application Support/
+  MYIA)/wechat-bridge/media-keys.json``(0600 建议)。
+  供给命令(主人自供钥一次性动作;JSON 短载荷 <128B,避开 ``-w`` 管道
+  截断坑走内联):
+  ``security add-generic-password -U -s myia -a myia/wechat/media-keys
+  -w '{"aes_key":"<16字>","xor_key":"E9"}'``
+- **手动联调形态(显式供给,最高优先)**:env ``WX_MEDIA_XOR_KEY`` /
+  ``WX_MEDIA_AES_KEY`` 或 ``--key-file``。注意桥 spawn 链 argv 恒只传
+  件路径零参数(media.py:254-260 ``subprocess.Popen([str(exe)])``,无
+  ``env=`` 显式传参),世事.app 为 macOS GUI app(launchd 起),用户
+  shell export 的 env 不进桥进程——桥链上的钥**只能**走件内自理通道。
 - ``xor_key`` 形态:单字节,``0xE9``/``E9``/``233`` 均可;缺省时按尾部
   JPEG/PNG 标志异或计票自推(推不出 → 人话报错,见 ``derive_xor_key``)。
 - ``aes_key`` 形态:V2 每用户钥 = 16 字节 ASCII;或 32 位 hex 串(自动
   解码为 16 字节)。V1 固定钥件内自带,无需供给。
-- 但 env/--key-file **仅手动联调形态有效**:桥 spawn 链 argv 恒只传件
-  路径零参数(media.py:254-260 ``subprocess.Popen([str(exe)])``,无
-  ``env=`` 显式传参),``--key-file`` 在桥链上永远收不到;世事.app 为
-  macOS GUI app(launchd 起),用户 shell export 的 env 不进桥进程。
-  钥匙进真实件的现实通道 = **件内自理**:件内写死路径/自带钥匙文件约定
-  (docs/wechat-mediadecrypt.md §2/§4「钥匙=件内自理」)。
 
 依赖:AES 用 ``cryptography``(本仓 uv 锁内在,经 pyopenssl/secretstorage
 传递引入);不可用时回落 ``openssl enc -d -aes-128-ecb`` CLI,再不可用则
@@ -136,6 +144,106 @@ def load_keys_manual(key_file: str | None) -> dict[str, str]:
                 value = str(data.get(field) or "").strip()
                 if value:
                     keys[field] = value
+    return keys
+
+
+#: 件内自理通道(桥 spawn 链可达)——钥匙串条目(service=account 二元组
+#: 与桥内 db-keys 同构惯例:plugins/wechat-bridge/wechat_bridge/keychain.py)。
+_KEYCHAIN_SERVICE = "myia"
+_KEYCHAIN_ACCOUNT = "myia/wechat/media-keys"
+
+
+def _component_keys_from_keychain() -> dict[str, str]:
+    """钥匙串条目 ``myia / myia/wechat/media-keys`` 的 JSON 值。
+
+    值形态 = 与 --key-file 同构的 JSON 文本;零命中(无条目/44)、security
+    不可用、超时、有内容但非合法 JSON **均归零命中**(静默降级到下一通道,
+    不因供钥面故障拖死协议链)。诊断只报布尔——值永不回显。
+    """
+    try:
+        proc = subprocess.run(
+            ["security", "find-generic-password",
+             "-s", _KEYCHAIN_SERVICE, "-a", _KEYCHAIN_ACCOUNT, "-w"],
+            capture_output=True, timeout=5, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
+    if proc.returncode != 0:
+        return {}
+    text = proc.stdout.decode("utf-8", "replace").strip()
+    if not text:
+        return {}
+    try:
+        data = json.loads(text)
+    except ValueError:
+        sys.stderr.write(
+            "钥匙串 myia/wechat/media-keys 有内容但不是合法 JSON(取钥面"
+            "降级;修法=按件头注命令重写条目)\n"
+        )
+        return {}
+    keys: dict[str, str] = {}
+    if isinstance(data, dict):
+        for field in _KEY_FILE_FIELDS:
+            value = str(data.get(field) or "").strip()
+            if value:
+                keys[field] = value
+    return keys
+
+
+def _component_keys_from_data_root() -> dict[str, str]:
+    """数据根文件 ``<数据根>/wechat-bridge/media-keys.json``(第二通道)。
+
+    数据根解析序与桥内惯例同源:``MYIA_HOME`` env > darwin 缺省
+    ``~/Library/Application Support/MYIA``。文件宽松权限(组/其他可读)
+    只发一次性 stderr 提醒,不拦解密。
+    """
+    root = os.environ.get("MYIA_HOME") or str(
+        Path.home() / "Library" / "Application Support" / "MYIA"
+    )
+    path = Path(root) / "wechat-bridge" / "media-keys.json"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    try:
+        data = json.loads(text)
+    except ValueError:
+        sys.stderr.write(
+            f"{path} 不是合法 JSON(件内自理第二通道取钥降级;字段 {_KEY_FILE_FIELDS})\n"
+        )
+        return {}
+    keys: dict[str, str] = {}
+    if isinstance(data, dict):
+        for field in _KEY_FILE_FIELDS:
+            value = str(data.get(field) or "").strip()
+            if value:
+                keys[field] = value
+    try:
+        mode = path.stat().st_mode & 0o077
+        if mode & 0o077:
+            sys.stderr.write(
+                f"提醒:{path} 权限过宽({oct(mode)},建议 chmod 600)——钥匙文件仅本机属主可读为宜\n"
+            )
+    except OSError:
+        pass
+    return keys
+
+
+def load_keys(key_file: str | None) -> dict[str, str]:
+    """全形态取钥合并(件内自理两通道 → 手动联调显式供给最高优先)。
+
+    字段级合并:先到先得按通道序(钥匙串 → 数据根文件),手动 env/--key-file
+    显式值**覆盖**件内自理(调试语义:显式供给永远赢)。
+    env ``WX_MEDIA_SKIP_COMPONENT``(任意非空非 0)= 调试旁路,跳过件内
+    自理两通道(测试洁净性/复现纯手动形态用;生产链不应设置)。
+    """
+    keys: dict[str, str] = {}
+    if os.environ.get("WX_MEDIA_SKIP_COMPONENT", "") in ("", "0"):
+        for source in (_component_keys_from_keychain, _component_keys_from_data_root):
+            for field, value in source().items():
+                keys.setdefault(field, value)
+    for field, value in load_keys_manual(key_file).items():
+        keys[field] = value
     return keys
 
 
@@ -284,8 +392,8 @@ def _aes_plain_truncate(plain: bytes, aes_size: int) -> bytes:
 def decrypt_dat(payload: bytes, keys: dict[str, str]) -> bytes:
     """聊天图片 .dat:V2/V1 三段容器,legacy 整文件单字节 XOR。
 
-    ``keys`` = ``load_keys_manual()`` 载入的钥匙(V2 的 aes_key 必供,
-    xor_key 可缺省自推;真实件走件内自理——见模块头注边界)。
+    ``keys`` = ``load_keys()`` 合并载入的钥匙(V2 的 aes_key 必供,
+    xor_key 可缺省自推;供给通道见模块头注「钥匙 intake」)。
     """
     magic = payload[:6]
     if magic in (_DAT_V2_MAGIC, _DAT_V1_MAGIC):
@@ -312,9 +420,14 @@ def _decrypt_dat_container(payload: bytes, keys: dict[str, str], *, v2: bool) ->
         aes_key = _parse_aes_key(keys.get("aes_key"))
         if aes_key is None:
             raise DecryptError(
-                "V2 容器需每用户 AES-128 钥(16 字节 ASCII 或 32 位 hex):"
-                "手动联调用 WX_MEDIA_AES_KEY/--key-file 供给;真实件走件内自理"
-                "(钥提取属进程内存取证,本件不含提取器;见 docs/wechat-mediadecrypt.md §2)"
+                "V2 容器需每用户 AES-128 钥(16 字节 ASCII 或 32 位 hex),未供给——"
+                "供钥通道(按序取先命中):① 钥匙串 myia/wechat/media-keys"
+                "(security add-generic-password -U -s myia -a myia/wechat/media-keys"
+                " -w '{\"aes_key\":\"<16字>\",\"xor_key\":\"E9\"}');"
+                "② 数据根 wechat-bridge/media-keys.json;"
+                "③ 手动联调 WX_MEDIA_AES_KEY/--key-file"
+                "(钥提取属进程内存取证,本件不含提取器;详见件头注与"
+                " docs/wechat-mediadecrypt.md §2)"
             )
     else:
         aes_key = _V1_FIXED_AES_KEY
@@ -572,7 +685,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    keys = load_keys_manual(args.key_file)
+    keys = load_keys(args.key_file)
 
     line = sys.stdin.readline()  # 桥写一行后关 stdin,不会有更多输入(协议 §3)
     try:

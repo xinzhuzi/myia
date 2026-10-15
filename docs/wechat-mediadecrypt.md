@@ -32,6 +32,17 @@
 - **`decrypt_dat` 的钥匙 = 件内自理**:V4 媒体钥(imageXorKey/imageAesKey)
   由用户供给**自己的**解密件;MYIA 全链对 V4 媒体钥**零接触、零落盘**——
   请求里没有也不会有任何钥字段。
+- **件内自理通道落地(2026-10-15)**:仓根生产件
+  `scripts/wechat-bridge-mediadecrypt.py` 按序取先命中——
+  ① **macOS 钥匙串**条目 `myia / myia/wechat/media-keys`
+  (值 = JSON `{"aes_key":"<16字>","xor_key":"E9"}`;
+  供给 = `security add-generic-password -U -s myia -a
+  myia/wechat/media-keys -w '<JSON>'`,短载荷内联无截断);
+  ② **数据根文件** `$MYIA_HOME(缺省 ~/Library/Application
+  Support/MYIA)/wechat-bridge/media-keys.json`(建议 chmod 600);
+  ③ 手动联调 env `WX_MEDIA_*` / `--key-file`(显式供给最高优先;
+  桥 spawn 链 argv/env 恒空,③ 在桥链上天然不可达)。
+  调试旁路 env `WX_MEDIA_SKIP_COMPONENT=1` = 跳过①②(测试/复现用)。
 - **MYIA 侧纪律(收窄表述,2026-10-14 修订)**:解密钥**不落盘、仅内存过手**。
   `decrypt_stream` 的朋友圈 CDN key 是 sns 库 content XML 内的明文数字串
   (库内公开字段,非秘密材料),经桥 stdin JSON **单次透传**给解密件——
@@ -82,7 +93,8 @@ stderr 三件套与 120 秒执行预算。
 | `out_path` | string | 是 | 桥私有区临时产物路径(**件把明文产物写到该路径**;桥随后做 magic 校验并原子移入缓存) |
 
 **钥匙自理**:件自己持有 V4 媒体钥(用户把 imageXorKey/imageAesKey 配进
-自己的件;从哪来是你的事——钥匙串/配置文件/你的提取机制)。
+自己的件——生产件的具体供钥通道见 §2「件内自理通道落地」:钥匙串条目
+`myia/wechat/media-keys` 或数据根 `wechat-bridge/media-keys.json`)。
 
 ### action `decrypt_stream`(朋友圈 CDN 媒体流;`--with-media` 链)
 
