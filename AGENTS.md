@@ -31,7 +31,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **MYIA** (7114 symbols, 15389 relationships, 277 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **shishi** (23774 symbols, 52057 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -54,10 +54,10 @@ This project is indexed by GitNexus as **MYIA** (7114 symbols, 15389 relationshi
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/MYIA/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/MYIA/clusters` | All functional areas |
-| `gitnexus://repo/MYIA/processes` | All execution flows |
-| `gitnexus://repo/MYIA/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/shishi/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/shishi/clusters` | All functional areas |
+| `gitnexus://repo/shishi/processes` | All execution flows |
+| `gitnexus://repo/shishi/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 
