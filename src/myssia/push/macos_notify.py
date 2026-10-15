@@ -246,6 +246,10 @@ def plan_notifications(items: Sequence[Any]) -> list[dict[str, str | None]]:
     - 每条计划携带 ``source``(最新条目的条目源键;微信本机 = 会话名/feed
       渠道键)——壳侧横幅点击深链(10-15-notify-deeplink)据此直达该会话
       的 feed 3 级聊天工作台;缺 source(异常条目)= None,壳侧只弹不链。
+    - 10-15 粒度细化:每条计划另携 ``item_key``(锚定条目的 ``dedup_key``,
+      即 feed 屏 ``data-item-key`` 稳定键)——横幅点击后 3 级定位到该条
+      消息(滚入视口 + 短暂高亮);合并通知锚 = 最新一条;缺 dedup_key
+      (异常条目)= None,深链退回会话级。
     """
     new_by_session: dict[str, list[dict[str, Any]]] = {}
     revokes: list[dict[str, Any]] = []
@@ -261,6 +265,11 @@ def plan_notifications(items: Sequence[Any]) -> list[dict[str, str | None]]:
             new_by_session.setdefault(key, []).append(view)
         else:
             generic.append(view)
+
+    def _anchor_key(view: dict[str, Any]) -> str | None:
+        """锚定条目的稳定键(dedup_key = feed 屏 data-item-key);缺 = None。"""
+        key = view.get("dedup_key")
+        return key if isinstance(key, str) and key.strip() else None
 
     plans: list[dict[str, str | None]] = []
     for view in revokes:
@@ -280,6 +289,7 @@ def plan_notifications(items: Sequence[Any]) -> list[dict[str, str | None]]:
             "subtitle": None,
             "body": _clip(body, BODY_MAX_CHARS),
             "source": source if isinstance(source, str) and source.strip() else None,
+            "item_key": _anchor_key(view),
         })
     for session, group in new_by_session.items():
         latest = max(
@@ -295,6 +305,7 @@ def plan_notifications(items: Sequence[Any]) -> list[dict[str, str | None]]:
             "subtitle": f"{len(group)} 条新消息",
             "body": body,
             "source": source if isinstance(source, str) and source.strip() else None,
+            "item_key": _anchor_key(latest),
         })
     if generic:
         latest = max(
@@ -308,6 +319,7 @@ def plan_notifications(items: Sequence[Any]) -> list[dict[str, str | None]]:
             "subtitle": f"{len(generic)} 条更新",
             "body": _clip(str(preview), BODY_MAX_CHARS),
             "source": latest.get("source") if isinstance(latest.get("source"), str) else None,
+            "item_key": _anchor_key(latest),
         })
     return plans
 

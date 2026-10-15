@@ -228,7 +228,9 @@ fn handle_stdout_line(app: &AppHandle, line: &str) {
         // 身份代发(图标/归组/点击唤起 = 世事 app)。不转发 UI 事件面;代发
         // 失败只 warn —— Python 通道的发射器故障回退在 sidecar 侧,此处失败
         // = 壳侧展示面问题,如实留痕不吞。
-        // 10-15-notify-deeplink:载荷新增 source(feed 渠道键 = 会话名)。
+        // 10-15-notify-deeplink:载荷新增 source(feed 渠道键 = 会话名)+
+        // item_key(锚定条目 dedup_key = feed 屏 data-item-key,粒度细化
+        // 到具体消息;缺 = 会话级)。
         // macOS 直走 mac-notification-sys(wait_for_click 拿点击回调 → 前端
         // notify:navigate 深链;插件不透传点击响应);非 macOS 保留插件面
         // (subtitle 折叠进正文)。
@@ -250,6 +252,11 @@ fn handle_stdout_line(app: &AppHandle, line: &str) {
                 .map(str::to_string);
             let source = parsed
                 .get("source")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string);
+            let item_key = parsed
+                .get("item_key")
                 .and_then(Value::as_str)
                 .filter(|s| !s.is_empty())
                 .map(str::to_string);
@@ -275,11 +282,16 @@ fn handle_stdout_line(app: &AppHandle, line: &str) {
                         );
                         match response {
                             Ok(mac_notification_sys::NotificationResponse::Click) => {
-                                // 点击横幅本体 → 深链 feed 3 级目标会话;
-                                // source 缺位(异常条目)= 只唤不链,如实。
+                                // 点击横幅本体 → 深链 feed 3 级目标会话并定位
+                                // 到锚定消息(item_key = data-item-key,滚入
+                                // 视口 + 短暂高亮);source 缺位(异常条目)=
+                                // 只唤不链,item_key 缺位 = 会话级,如实。
                                 let _ = app.emit(
                                     "notify:navigate",
-                                    serde_json::json!({ "source": source }),
+                                    serde_json::json!({
+                                        "source": source,
+                                        "item_key": item_key,
+                                    }),
                                 );
                             }
                             Ok(_) => {} // 关闭钮/无交互:不深链
@@ -296,7 +308,7 @@ fn handle_stdout_line(app: &AppHandle, line: &str) {
                 let body = subtitle
                     .map(|subtitle| format!("{subtitle} · {body}"))
                     .unwrap_or(body);
-                let _ = source; // 非 macOS 暂无深链面;载荷保形
+                let _ = (source, item_key); // 非 macOS 暂无深链面;载荷保形
                 if let Err(err) = app
                     .notification()
                     .builder()

@@ -215,6 +215,25 @@ class TestMergeDiscipline:
         assert plans[0]["subtitle"] == "2 条更新"
         assert "羊毛线报B" in plans[0]["body"]  # 最新
 
+    def test_item_key_carries_anchor_dedup_key(self) -> None:
+        """10-15 粒度细化:计划携 item_key = 锚定条目 dedup_key(合并通知锚
+        = 最新一条);缺 dedup_key = None(深链退会话级),不虚构。"""
+        old = _new_msg(ts=100)
+        old["dedup_key"] = "dk-old"
+        latest = _new_msg(ts=200)
+        latest["dedup_key"] = "dk-latest"
+        plans = plan_notifications([old, latest])
+        assert plans[0]["item_key"] == "dk-latest"  # 最新锚,非首条
+
+        no_key = _new_msg()  # 异常条目缺 dedup_key
+        plans = plan_notifications([no_key])
+        assert plans[0]["item_key"] is None
+
+        revoke = _revoke()
+        revoke["dedup_key"] = "dk-revoke"
+        plans = plan_notifications([revoke])
+        assert plans[0]["item_key"] == "dk-revoke"  # 撤回独立条也锚定
+
 
 # ---------------------------------------------------------------------------
 # 平台门 + 失败面 + 日志零正文

@@ -3438,15 +3438,38 @@ export function FeedScreen() {
   // 目标会话键。两形态:他屏导航过来(feed 挂载时本 effect 消费挂起槽)+
   // 已在 feed(壳事件的窗口信号即时消费)。openChannel 幂等(3 级同渠道
   // 早退),无效键由 openChannel 的既有容错面兜住。
-  useEffect(() => {
-    const consume = () => {
-      const target = takePendingNotifyChannel();
-      if (target !== null) openChannel(target);
-    };
-    consume();
-    window.addEventListener(NOTIFY_ROUTE_SIGNAL, consume);
-    return () => window.removeEventListener(NOTIFY_ROUTE_SIGNAL, consume);
-  }, [openChannel]);
+    useEffect(() => {
+      // 深链定位到具体消息(10-15 粒度细化):itemKey = data-item-key
+      // (dedup_key)。3 级挂载/数据拉取有延迟 → 有限重试(12×250ms≈3s);
+      // 命中 = 滚入视口居中 + 短暂高亮(复用键盘巡游同款 ring 类,类名字面
+      // 须在构建产物内故取现成组合);jsdom 无 scrollIntoView 时静默跳过
+      // (惯例同键盘巡游线)。找不到 = 会话级已落,如实不强求。
+      const focusItem = (key: string, attempt: number) => {
+        const node = document.querySelector<HTMLElement>(
+          `[data-item-key="${CSS.escape(key)}"]`,
+        );
+        if (!node) {
+          if (attempt < 12) window.setTimeout(() => focusItem(key, attempt + 1), 250);
+          return;
+        }
+        if (typeof node.scrollIntoView === "function") {
+          node.scrollIntoView({ block: "center" });
+        }
+        node.classList.add("ring-1", "ring-primary/60", "rounded-lg");
+        window.setTimeout(() => {
+          node.classList.remove("ring-1", "ring-primary/60", "rounded-lg");
+        }, 1600);
+      };
+      const consume = () => {
+        const route = takePendingNotifyChannel();
+        if (route === null) return;
+        openChannel(route.source);
+        if (route.itemKey !== null) focusItem(route.itemKey, 0);
+      };
+      consume();
+      window.addEventListener(NOTIFY_ROUTE_SIGNAL, consume);
+      return () => window.removeEventListener(NOTIFY_ROUTE_SIGNAL, consume);
+    }, [openChannel]);
 
   const backLevel = useCallback(() => {
     setView((current) => {
@@ -3975,11 +3998,11 @@ export function FeedScreen() {
               /* 加载态(§1.5):3 张类型卡形骨架(catalogLoaded 门沿用;
                   testid = feed-types-loading,1 级加载锚) */
               <div className="mx-auto w-full max-w-6xl px-6 py-6" data-testid="feed-types-loading" aria-busy="true" aria-label="类型卡加载中">
-                <div className="columns-[260px] gap-4">
+                <div className="grid gap-4 [grid-auto-rows:1fr] [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
                   {[0, 1, 2].map((card) => (
                     <div
                       key={card}
-                      className="mb-4 break-inside-avoid rounded-lg border border-border/50 p-4"
+                      className="flex min-h-[340px] flex-col rounded-lg border border-border/50 p-4"
                       aria-hidden
                     >
                       <div className="flex items-center gap-2.5">
