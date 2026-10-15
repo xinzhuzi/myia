@@ -3,7 +3,7 @@
   "name": "wechat-senddirect-spawner",
   "title": "send_direct 攻坚:spawner/ramp 静态定位+任务伪造入队终验",
   "description": "主人裁决(10-15):选攻。基于归档档 10-14-wechat-sendmsg-direct §2.7-§2.11 战报:F_exec 同步直调结构性不成立已终案,唯二活路=①Ghidra xref F_exec→ramp→spawner(若 spawner 吃 ctx+msgctx 可直调——msgctx 伪造术+ctx 活捕术已备)②完整任务伪造+enqueue(缺任务→resume/实参映射,泵分发反编译可静态补全)+§2.11 前提②复核(resume 裸指针 or 包装 thunk)",
-  "status": "planning",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
