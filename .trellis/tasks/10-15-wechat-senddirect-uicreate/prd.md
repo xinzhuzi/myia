@@ -109,3 +109,22 @@ script.js 写微信内存仅三处(全围绕任务栈 X24+0x60 指针槽)+伪造
 - [ ] 补丁传导验证(终验一跑待环境恢复;资产全备:script-4115.js+json+验证清单)
 - [x] 微信全程存活零崩溃(今晨至今 91292/20632 两代进程);所有窗口结束态字节复验 INTACT;我方滞留清零
 - [x] 战报入档+资产固化(research/community-adapt/ 26 件+cap-assets-r20-r26 44 件)
+
+
+## 🏁 终验实录(10-15 23:40-23:50,授权窗口内)
+
+### 环境修复三连(终验前置)
+1. frida 对旧进程 91292 attach 死锁(240s)而 lldb 秒通→**进程 frida 状态脏**(全天十余轮注入残留),TERM 重启微信→干净进程 27413 上 onebot **秒连复活**
+2. ~/.frida 与 ~/.Trash/.frida 与 ~/.cache/frida 三目录打架(垃圾筒僵尸 helper 反复复活)→**双双隔离至 ~/quarantine-frida/**,只留标准位 ~/.cache/frida
+3. /tmp 又吞 script.js(第三次)→从档恢复 research/community-adapt/script-4115.js
+
+### 终验结果:全链打通到 Req2Buf 注入位,崩在最后一注前
+- ✅ onebot 秒连+9hook 全装+StartTask 捕获恢复
+- ✅ curl trigger→**MMStartTask 直调→任务真实入队→req2bufEnter 以我们 taskId 命中**(x1 门实锤)→**X24+0x60 消息指针替换成功**(日志「已将 X24+0x60 指向新地址」)
+- ❌ blr 注入位(0x5980c44)未命中:任务走 `tbz w8,#0x1`(0x5980c30)的**跳过序列化分支**(伪造消息对象未带「需序列化」位)
+- 💥 **微信 crash 一次**(23:43:25,SIGSEGV 野地址 0xe839;崩点栈=0x5980cac 跳过分支→bl 0x5a6c868→0x5a6c8a0 解引用伪造对象野字段)——**昨晚风险审查预告的适配期崩边界,授权范围内**;微信已重启(29809 存活,登录保持,双锚 INTACT)
+
+### 下一修正位(崩点即指路牌)
+1. **伪造消息对象字段补齐**:需带「需序列化」bit(0x5980c2c 读的 [x29-0x94] 位源)+0x5a6c868 消费的字段——反汇编 0x5a6c868/0x5a6c8a0 定字段偏移,补进 setup 的 textMessageAddr 构造
+2. 或注入位后移:让 tbz 走序列化分支后blrX8(0x5980c44)才有效——两修一即可
+3. 复验流程不变(观察→注入→localdb)
