@@ -87,8 +87,9 @@ cloud:
 
 Two cautions:
 
-- The product's default cloud model `glm-4.6v` is a **paid tier** — for
-  zero cost you must change `model` to a free model name;
+- The product's default cloud model `glm-5.3-flash` is a **paid tier**
+  (default since 2026-10-15; the previous default `glm-4.6v` was paid too) —
+  for zero cost you must change `model` to a free model name;
 - `cloud.api_key` accepts `keychain:` references only (plaintext and
   `env:` are both refused at load) — record it in the keychain first:
 

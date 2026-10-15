@@ -2062,7 +2062,7 @@ def test_image_config_read_defaults_without_file(tmp_path, monkeypatch):
     assert result["exists"] is False
     assert result["file"] == str(tmp_path / "home" / "vision.yaml")
     assert result["config"]["channel_default"] == "local"
-    assert result["config"]["cloud"]["model"] == "glm-4.6v"
+    assert result["config"]["cloud"]["model"] == "glm-5.3-flash"
     assert result["config"]["cloud"]["api_key"] is None
     assert result["config"]["ocr"]["engine_default"] == "vision"
 

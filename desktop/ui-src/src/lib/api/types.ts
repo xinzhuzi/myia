@@ -1183,7 +1183,7 @@ export interface VisionConfig {
   };
   cloud: {
     base_url: string;
-    /** 默认 glm-4.6v(grill 拍板;glm-4.5v 错读勿用) */
+    /** 默认 glm-5.3-flash(10-15 主人令;云端评审视觉通道实证吃图) */
     model: string;
     /** keychain:myia/image/api_key 引用或 null;明文不落盘不回显 */
     api_key: string | null;

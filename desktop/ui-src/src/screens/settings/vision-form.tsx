@@ -248,10 +248,10 @@ export function VisionForm({ secretNames }: VisionFormProps) {
         <FieldInput
           label="云端模型"
           aria-label="云端模型"
-          placeholder="glm-4.6v"
+          placeholder="glm-5.3-flash"
           value={form.cloudModel}
           onChange={(event) => setForm((prev) => ({ ...prev, cloudModel: event.target.value }))}
-          hint="默认 glm-4.6v(glm-4.5v 错读勿用);留空按已保存值"
+          hint="默认 glm-5.3-flash(云端评审视觉通道实证);留空按已保存值"
         />
         <FieldInput
           label="云端 API Key"

@@ -60,7 +60,7 @@ KEYCHAIN_API_KEY = "myia/image/api_key"
 #: 本地通道客户端制——服务开了 API 鉴权才需要录,未配 = 不带鉴权头)。
 KEYCHAIN_LOCAL_API_KEY = "myia/image/local_api_key"
 #: 既有 GLM 凭据链路(设置屏 LLM 表单经 secret.set 录入,enrich 同链)——云端
-#: 看图未录专用 key 时的回落解析点;「云默认 glm-4.6v 走既有 GLM 凭据链路」落点。
+#: 看图未录专用 key 时的回落解析点;「云默认 glm-5.3-flash 走既有 GLM 凭据链路」落点。
 KEYCHAIN_LLM_API_KEY = "myia/llm/api_key"
 
 #: 二级看图通道(local=本地 OpenAI 兼容端点零出网;cloud=显式切换才出网)。
@@ -70,7 +70,7 @@ OCR_ENGINES = ("vision", "rapidocr")
 
 DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:1234/v1"  # LM Studio 标准口(客户端制,10-15)
 DEFAULT_CLOUD_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
-DEFAULT_CLOUD_MODEL = "glm-4.6v"  # grill 已拍板;glm-4.5v 错读勿用(local-ocr 横测存档)
+DEFAULT_CLOUD_MODEL = "glm-5.3-flash"  # 主人令 10-15(云端评审视觉通道实证吃图);glm-4.6v 时代终结
 
 #: 协议文档允许的顶层键(from_payload 未知键拒收的对照名单)。
 _TOP_KEYS = ("channel_default", "local", "cloud", "ocr")
@@ -146,7 +146,7 @@ class VisionConfig:
         if not self.cloud_model:
             raise VisionConfigError(
                 "invalid_field",
-                "cloud.model 不能为空(缺省 glm-4.6v)",
+                "cloud.model 不能为空(缺省 glm-5.3-flash)",
                 details={"field": "cloud.model"},
             )
         if self.cloud_api_key_ref is not None:
@@ -331,7 +331,7 @@ def resolve_cloud_api_key(
 ) -> str | None:
     """解析云端看图 key:显式 ``cloud.api_key`` 引用优先,缺省回落既有 GLM 链路。
 
-    解析序(2026-10-03 收口拍板:云默认 ``glm-4.6v`` 走既有 GLM 凭据链路):
+    解析序(2026-10-15 主人令:云默认 ``glm-5.3-flash`` 走既有 GLM 凭据链路):
 
     1. ``vision.yaml`` 显式 ``cloud.api_key``(``keychain:myia/image/api_key`` 等)
        —— 配了专用 key 就用它;解析失败**原样上抛**由调用方按通道语义翻译

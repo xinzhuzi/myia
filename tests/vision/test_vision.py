@@ -55,7 +55,7 @@ class TestVisionSettings:
             "local": {"base_url": "http://127.0.0.1:1234/v1", "model": "", "api_key": None},
             "cloud": {
                 "base_url": "https://open.bigmodel.cn/api/paas/v4",
-                "model": "glm-4.6v",
+                "model": "glm-5.3-flash",
                 "api_key": None,
             },
             "ocr": {"enabled": True, "engine_default": "vision"},

@@ -535,7 +535,7 @@ class TestVlCloudChannel:
         assert status == "ok"
         assert item.metadata["image_caption"] == "图析描述"
         assert captured["args"][0] == VisionConfig().cloud_base_url
-        assert captured["args"][1] == "glm-4.6v", "云端缺省模型必须 glm-4.6v"
+        assert captured["args"][1] == "glm-5.3-flash", "云端缺省模型必须 glm-5.3-flash(10-15 主人令)"
         assert captured["api_key"] == "sk-llm-fallback"
         assert len(vl.calls) == 1
 

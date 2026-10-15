@@ -67,6 +67,6 @@ export const DEFAULT_VISION_CONFIG: VisionConfig = {
   // 带 /v1 后缀,与 Python 缺省一致(settings.py DEFAULT_LOCAL_BASE_URL:SDK 按
   // {base_url}/chat/completions 发请求;客户端制缺省 = LM Studio 标准口 1234)
   local: { base_url: "http://127.0.0.1:1234/v1", model: "", api_key: null },
-  cloud: { base_url: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4.6v", api_key: null },
+  cloud: { base_url: "https://open.bigmodel.cn/api/paas/v4", model: "glm-5.3-flash", api_key: null },
   ocr: { enabled: true, engine_default: "vision" },
 };
