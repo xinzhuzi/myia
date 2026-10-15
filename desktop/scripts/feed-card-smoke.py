@@ -308,6 +308,17 @@ async def main() -> int:
                 "竖版卡 min-h(卡片高度 > 宽度,主人钉死)",
                 "min-h-[340px]" in ((await tg_card.get_attribute("class")) or ""),
             )
+            # 等分契约(主人「高度宽度要一致」10-15):全部类型卡实测
+            # bounding box 宽高逐一相等(像素级,非类名推断)。
+            _boxes = []
+            for _card in await page.locator('[data-testid^="feed-type-card-"]').all():
+                _box = await _card.bounding_box()
+                if _box:
+                    _boxes.append((round(_box["width"]), round(_box["height"])))
+            expect(
+                f"类型卡等宽等高(全卡同尺寸,像素实测 boxes={_boxes})",
+                len(_boxes) >= 3 and len(set(_boxes)) == 1 and _boxes[0][1] >= 340,
+            )
             expect(
                 "卡内计数词面(今日/未读,catalog 口径)",
                 "今日 2 条" in ((await tg_card.text_content()) or "")

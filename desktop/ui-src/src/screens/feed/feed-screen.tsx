@@ -1706,7 +1706,7 @@ const TypeCard = memo(function TypeCard({
           onOpen(type.kind);
         }
       }}
-      className={`mb-4 flex min-h-[340px] cursor-pointer flex-col break-inside-avoid rounded-lg border border-border bg-card p-4 transition-shadow ${
+      className={`flex h-full min-h-[340px] cursor-pointer flex-col rounded-lg border border-border bg-card p-4 transition-shadow ${
         navFocused
           ? "ring-1 ring-primary/60"
           : "hover:ring-1 hover:ring-primary/40"
@@ -4056,10 +4056,15 @@ export function FeedScreen() {
                 )}
               </div>
             ) : (
-              /* 卡墙(§1.1):columns 多列瀑布流,竖版卡(min-h 340 = 高>宽);
-                  卡序固定词表序,搜索零命中 = 行内小空态 */
+              /* 卡墙(§1.1):grid 等宽列 + 等高行(主人「高度宽度要一致」
+                  10-15:auto-rows 1fr 全墙行高取齐,卡 stretch 满格;列宽
+                  ≥260 自适应;竖版锚 min-h 340 仍是地板);卡序固定词表序,
+                  搜索零命中 = 行内小空态 */
               <div className="mx-auto w-full max-w-6xl px-6 py-6">
-                <div className="columns-[260px] gap-4" data-testid="feed-types-wall">
+                <div
+                  className="grid gap-4 [grid-auto-rows:1fr] [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]"
+                  data-testid="feed-types-wall"
+                >
                   {visibleTypes.length === 0 ? (
                     <div className="col-span-full px-1 py-10 text-center" data-testid="feed-type-search-empty">
                       <p className="text-xs font-medium text-foreground">没有匹配的类型</p>

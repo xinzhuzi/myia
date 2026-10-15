@@ -748,6 +748,13 @@ describe("FeedScreen", () => {
     expect(dailyCard.getAttribute("data-channels")).toBe("1");
     // 竖版锚(min-h-[340px],主人「卡片高度 > 宽度」钉死)
     expect(tgCard.className).toContain("min-h-[340px]");
+    // 等分契约(主人「高度宽度要一致」10-15):grid 等宽列 + 等高行,卡满格;
+    // 瀑布流遗物(break-inside-avoid / mb-4)不得回流
+    const wall = screen.getByTestId("feed-types-wall");
+    expect(wall.className).toContain("grid");
+    expect(wall.className).toContain("[grid-auto-rows:1fr]");
+    expect(tgCard.className).toContain("h-full");
+    expect(tgCard.className).not.toContain("break-inside-avoid");
     // 计数 title 已加载口径(未过 STATS 门,version 缺省 = 9;词面在 title)
     expect(tgCard.textContent).toContain("今日 1 条");
     expect(tgCard.textContent).toContain("未读 1");
