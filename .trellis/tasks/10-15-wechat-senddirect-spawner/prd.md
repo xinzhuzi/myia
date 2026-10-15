@@ -76,3 +76,49 @@
 1. **已破**:架构全图(队列/节点/vtable/蹦床/入队两族)、F_exec=入站处理器(五轮错锚终案)、发送任务类 0x9c52cb0、**L3=FUN_0433c5f0 同步 spawn 函数(四参形态+槽位几何)**、原地补丁写入真实发送链(零伤)。
 2. **未破**:任意正文注入——msgctx 字符串槽补丁不改变线上内容,疑正文按 msg-id 从消息库取(msgctx 串=元数据);下一跳=消息**创建**层(UI 按钮→消息对象构造)或补丁实验区分。
 3. **重开 SOP**:cap19 区分实验(脚本在 /tmp/wxsend3/r19/,产物模板/驱动/修复链全套)→阳性则深挖 L3 之上 0x435e074/0x4b7182c 链找消息构造入口;阴性则上溯 UI 层。
+
+## 续攻阶段(主人裁决 10-15:继续攻;执行会话=另开,本节=执行蓝本)
+
+### 目标
+
+任意正文直发(不经 UI/OCR):完成 cap19 区分实验 → 按结果走消息创建层或 L3 之上链 → 产出可复用直发配方 → 桥 senddirect.py 落地(若配方成)。
+
+### 资产地图(执行前先验在位)
+
+- **本档 research/cap-assets/**(11 件,已从 /tmp 抢救):cap19 区分实验全套(cap19.py/drive19.py/run19.cmd)、cap18 原地补丁验证版、cap16 L3 捕获器+四参模板实例(hit1.txt:svc/msgctx 0x270/cont 全零/flag=0)、verify3.py+verify3.cmd(L3 字节级复验修复链)、cap17 CALLRESULT(expr 直调 IR 崩实证)、cap12 hit1.txt(msgctx 全量转储实例)。
+- **稳定盘上**(非 /tmp 不会丢):~/ghidra-hunt-r9/(九轮静态产物 hunt_r9-r19_out.txt+HuntR*.java 全套 22 件);~/ghidra-wxui-r2/(Ghidra 已分析工程 ASCII 副本,2.1G);~/ghidra_12.1.4_PUBLIC/(引擎);原件 ~/Downloads/微信反编译/ghidra-wxhunt/。
+- 运行环境锚:微信 pid 以 `ps aux | grep WeChat` 现查(20632 会漂);装机桥 ~/.myia/plugins/wechat-bridge/bin/wechat-bridge;触发形态 `printf '<needle>' | <桥> send_text filehelper --file -`。
+
+### 执行序(分支树)
+
+**Step 1 = cap19 区分实验(先行,答案决定一切)**
+- 复制 research/cap-assets/cap19{.py,.cmd} 等到新 /tmp/wxsend3/r20/ 改 needle(如 嘻嘻~c20w/直发c20w);**改断点策略**:cap19 两跑死于「L3 断点在活跃群流下频繁停机冻 UI→OCR 触发链 osascript 超时」——三选一:①BP 只在触发粘贴阶段后布防(驱动在 send 启动后 ~10s 再 enable);②改断 L4(0x435e074,L3 唯一静态调用者,疑仅发送路径走,入站不吵)并验证槽位等价;③回调内 needle 预筛只读 x1 头 0x48(减少停机时延)。
+- 判据:补丁版正文(直发c20w)出现在 localdb `localdb query filehelper --since 1d` → **阳性**;仅原文 → **阴性**。
+
+**Step 2a(阳性→修命中选错)**:L3 同一发送多次命中,逐次补丁全部命中槽位已在 cap19 形态;定位真正传导线上正文的命中序号 → 直接成配方(断 L3+needle 门+全槽补丁+放行),跳到 Step 4。
+
+**Step 2b(阴性→内容键在消息库)**:正文按 msg-id 从消息库取,msgctx 串=元数据。两路:
+- 上溯消息**创建**层:CAND3 回溯 #4-#8(0x435e074→0x435ecfc→0x435ebe0→0x4717514→0x4b7182c)再往上=UI 按钮链;Ghidra callers 逐层上溯找「吃明文文本」的构造点(消息对象 new+text 字段写入处),或
+- 下钻 msg-id:msgctx 0x270 内找 msg-id 字段 → 断消息库读点(DB 层)看正文来源——优先前者。
+- 原地补丁技术(cap18 已证)直接复用于新命中点。
+
+**Step 3 = 配方固化**:命中点+补丁几何定型 → 写入本档(槽位/长度/守卫/失败矩阵);若命中点参数可直调(非协程体)亦可试 expr 直调(cap17 教训:大数组字面量会压垮 IR——分步 malloc+memcpy 表达式规避)。
+
+**Step 4 = 桥落地(配方成才做)**:senddirect.py 新锚模型(schema-4:命中点/槽位/needle 门),capture_call 流程重写(触发→捕获→补丁→放行),版本 0.9.x→0.10.0;**改桥件必重新打包换装+重产锁(just release-plugins --dry-run)**;门禁 pytest tests/wechat-bridge/ 全绿。
+
+### 红线与工程坑(必读)
+
+1. 微信零伤是绝对红线:断点用后即禁再 detach;失败姿势=异常吞+STOP 哨兵+SIGTERM 放行。
+2. **lldl 批式 Stop() 从脚本线程对运行中进程死锁**:驱动收尾用回调返回 True 自停;若挂死=对 lldb 进程 SIGTERM(实证有效),之后必跑 verify3(字节级复验 L3/新命中点,dylib 文件字节=真值源)。
+3. **attach 前必查滞留**:`ps aux | grep "lldb -p <pid>"`,有则先 TERM。
+4. 回调 needle 门滤杂项(L3 也处理入站/其他消息);stray 只记不补。
+5. 主人活跃群流=冻 UI 风险源:优先低频断点(L4/创建层),触发窗内布防。
+6. Ghidra 跑法:`analyzeHeadless ~/ghidra-wxui-r2 wxui -process "wechat_arm64.dylib" -noanalysis -scriptPath <dir> -postScript <X>.java`(漏 -process=零程序上下文假成功)。
+7. 发送预算不限量(主人已裁),但每条 needle 唯一标记(嘻嘻~cNNx 形态)便于 localdb 溯源。
+
+### 验收(AC)
+
+- [ ] cap19 区分实验有结论(阳/阴,localdb 证据行入档)
+- [ ] 阳性:任意正文(≥2 组不同文本)经配方直发落库回执;阴性:消息创建层命中点锚定+补丁传导实证或如实记墙
+- [ ] 微信全程存活零崩溃;结束态字节复验 INTACT;滞留 lldb 清零
+- [ ] 战报入档(槽位几何/命中序号/失败矩阵);若配方成:桥 0.10.0+打包换装+装机验到像素级
