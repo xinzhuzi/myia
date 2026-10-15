@@ -155,8 +155,10 @@ tag 推出后 Actions 自动起三个 run(互相独立,单通道失败不影响�
    - PyPI 附挂 4 件:`myssia-0.0.1-*.whl`、`myssia-0.0.1.tar.gz`、
      `myssia_classifier-0.0.1-*.whl`、`myssia_classifier-0.0.1.tar.gz`;
    - Windows msi 成功时另有 `*.msi`(+`.msi.sig`),不计入 8 件核对。
-3. **GHCR 镜像 tag 恰两个**:`0.0.1` 与 `latest`(无 `v0.0.1`、无 `sha-*`);
-   `docker pull ghcr.io/xinzhuzi/myia:0.0.1` 可拉。
+3. **GHCR 镜像 tag 恰两个**:`0.0.3` 与 `latest`(无 `v0.0.3`、无 `sha-*`);
+   `docker pull ghcr.io/xinzhuzi/myia:0.0.3` 可拉。
+   (勘误 2026-10-15:原文写 `0.0.1 可拉` 失实——docker-publish 上线晚于 v0.0.1,
+   0.0.1 从未推过镜像;可拉版本以 GHCR 实存为准。)
 4. **PyPI 页面**:<https://pypi.org/project/myssia/> 与
    <https://pypi.org/project/myssia-classifier/> 可访问、版本号 `0.0.1`、README
    正常渲染(中文简介 + MIT license);`pip index versions myssia` 列出

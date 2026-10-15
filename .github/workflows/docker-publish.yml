@@ -8,6 +8,13 @@ name: Docker Publish
 on:
   push:
     tags: ["v*"]
+  # 手动重建历史版本镜像(如误删后恢复):dispatch 时指定 version(如 v0.0.3),
+  # checkout 该 tag 构建;正式版才滚 latest(与 push 路径语义一致)。
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "要重建的历史 tag(含 v 前缀,如 v0.0.3)"
+        required: true
 
 env:
   REGISTRY: ghcr.io
@@ -23,6 +30,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version || github.ref }}
 
       - name: Set up QEMU (arm64 builds)
         uses: docker/setup-qemu-action@v3
@@ -40,6 +49,7 @@ jobs:
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v5
+        if: ${{ !inputs.version }}
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           # 仅 semver 一条:X.Y.Z;latest 交给下方 flavor(官方语义,semver 感知预发布)。
@@ -50,13 +60,28 @@ jobs:
           flavor: |
             latest=auto
 
+      # dispatch 重建路径:checkout 的是历史 tag 但 GITHUB_REF=main,metadata-action
+      # 的 semver 解析不可用——显式拼 tags(正式版滚 latest,预发布不滚,与 push 路径同语义)。
+      - name: Compose tags for rebuild (dispatch)
+        id: meta-rebuild
+        if: ${{ inputs.version }}
+        run: |
+          ver="${{ inputs.version }}"
+          ver="${ver#v}"
+          tags="${REGISTRY}/${IMAGE_NAME}:${ver}"
+          if [[ "$ver" != *"-"* ]]; then
+            tags="${tags},${REGISTRY}/${IMAGE_NAME}:latest"
+          fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+          echo "labels=" >> "$GITHUB_OUTPUT"
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags || steps.meta-rebuild.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels || steps.meta-rebuild.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
