@@ -1,9 +1,16 @@
 {
   "id": "10-15-dash-suggest",
   "title": "仪表盘 8→9 三建议(云端视觉):概览四格均分 / 环图 hover 图例 / 顶部摘要条去重",
-  "status": "review",
+  "status": "completed",
   "created": "2026-10-15",
   "owner": "ai",
-  "labels": ["desktop", "ui", "dashboard"],
-  "commits": ["408a7d48"]
+  "labels": [
+    "desktop",
+    "ui",
+    "dashboard"
+  ],
+  "commits": [
+    "408a7d48"
+  ],
+  "completedAt": "2026-10-15"
 }
