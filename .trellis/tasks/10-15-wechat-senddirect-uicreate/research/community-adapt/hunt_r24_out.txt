@@ -1,0 +1,186 @@
+
+======== MMStartTask rva=0x4bd0e1c ========
+-- func entry=0x4bcec84 delta=8600
+
+/* WARNING: Removing unreachable block (ram,0x04bceff8) */
+/* WARNING: Type propagation algorithm not settling */
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+void FUN_04bcec84(undefined8 *param_1,undefined8 *param_2)
+
+{
+  undefined1 uVar1;
+  uint3 uVar2;
+  undefined8 *****pppppuVar3;
+  undefined8 *****pppppuVar4;
+  bool bVar5;
+  undefined1 *puVar6;
+  long lVar7;
+  int iVar8;
+  uint uVar9;
+  int iVar10;
+  undefined8 *******pppppppuVar11;
+  undefined8 *******pppppppuVar12;
+  void *pvVar13;
+  undefined8 uVar14;
+  undefined1 *puVar15;
+  long lVar16;
+  ulong uVar17;
+  undefined1 *puVar18;
+  undefined8 *******pppppppuVar19;
+  long *plVar20;
+  uint uVar21;
+  undefined4 uVar22;
+  undefined4 uVar23;
+  undefined1 auStack_800 [48];
+  undefined8 *******local_7d0;
+  undefined1 *puStack_7c8;
+  undefined1 *local_7c0;
+  undefined8 *******local_7b0 [2];
+  undefined7 local_7a0;
+  char cStack_799;
+  undefined8 local_798;
+  undefined8 *******local_790;
+  undefined8 *******pppppppuStack_788;
+  undefined8 local_780;
+  undefined8 local_718;
+  undefined8 uStack_710;
+  undefined8 local_708;
+/* truncated */
+
+======== textCallback rva=0x26779d4 ========
+-- func entry=0x26779a4 delta=48
+
+/* WARNING: Removing unreachable block (ram,0x026784c8) */
+/* WARNING: Type propagation algorithm not settling */
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+void FUN_026779a4(undefined8 param_1,long *param_2,int param_3)
+
+{
+  uint uVar1;
+  undefined8 *******pppppppuVar2;
+  undefined8 *puVar3;
+  undefined1 uVar4;
+  uint uVar5;
+  uint3 uVar6;
+  bool bVar7;
+  long lVar8;
+  int iVar9;
+  undefined1 *puVar10;
+  long *plVar11;
+  undefined1 *puVar12;
+  undefined1 *puVar13;
+  long lVar14;
+  ulong uVar15;
+  int iVar16;
+  undefined8 *puVar17;
+  uint uVar18;
+  undefined8 uVar19;
+  undefined4 uVar20;
+  undefined4 uVar21;
+  undefined8 *******local_378 [2];
+  undefined7 local_368;
+  char cStack_361;
+  undefined8 local_360;
+  undefined8 local_358;
+  undefined8 local_350;
+  ulong local_348;
+  undefined1 local_340;
+  undefined4 local_33c;
+  undefined8 local_2d0;
+  undefined1 *puStack_2c8;
+  undefined1 *local_2c0;
+  undefined1 *puStack_2b8;
+  undefined1 *local_2b0;
+  long *local_2a8;
+  undefined1 *local_2a0;
+/* truncated */
+
+======== req2bufEnter rva=0x39d51d8 ========
+-- func entry=0x39d5198 delta=64
+
+void FUN_039d5198(undefined8 *param_1)
+
+{
+  long *plVar1;
+  long lVar2;
+  
+  *param_1 = &PTR_thunk_FUN_039d5198_09e1a240;
+  plVar1 = (long *)param_1[0x1e];
+  while (plVar1 != (long *)0x0) {
+    lVar2 = *plVar1;
+    FUN_0002b440(plVar1 + 2);
+    __ZdlPvm(plVar1,0x30);
+    plVar1 = (long *)lVar2;
+  }
+  lVar2 = param_1[0x1c];
+  param_1[0x1c] = 0;
+  if (lVar2 != 0) {
+    __ZdlPvm(lVar2,param_1[0x1d] << 3);
+  }
+  plVar1 = (long *)param_1[0x19];
+  while (plVar1 != (long *)0x0) {
+    lVar2 = *plVar1;
+    FUN_0002b440(plVar1 + 5);
+    if (*(char *)((long)plVar1 + 0x27) < '\0') {
+      __ZdlPvm(plVar1[2],plVar1[4] & 0x7fffffffffffffff);
+    }
+    __ZdlPvm(plVar1,0x40);
+    plVar1 = (long *)lVar2;
+  }
+  lVar2 = param_1[0x17];
+  param_1[0x17] = 0;
+  if (lVar2 != 0) {
+    __ZdlPvm(lVar2,param_1[0x18] << 3);
+  }
+  FUN_039ce424(param_1);
+  return;
+}
+
+======== req2bufExit rva=0x39d62ec ========
+-- func entry=0x39d6280 delta=108
+
+undefined8 * FUN_039d6280(undefined8 *param_1,undefined8 *param_2)
+
+{
+  undefined8 uVar1;
+  undefined8 uVar2;
+  
+  uVar1 = *param_2;
+  param_1[1] = param_2[1];
+  *param_1 = uVar1;
+  *param_2 = 0;
+  param_2[1] = 0;
+  uVar1 = param_2[2];
+  param_1[3] = param_2[3];
+  param_1[2] = uVar1;
+  param_2[2] = 0;
+  param_2[3] = 0;
+  FUN_0534b050(param_1 + 4,param_2 + 4);
+  if (*(char *)((long)param_2 + 0x5f) < '\0') {
+    FUN_00018d20(param_1 + 9,param_2[9],param_2[10]);
+  }
+  else {
+    uVar2 = param_2[10];
+    uVar1 = param_2[9];
+    param_1[0xb] = param_2[0xb];
+    param_1[10] = uVar2;
+    param_1[9] = uVar1;
+  }
+  param_1[0xc] = param_2[0xc];
+  if (*(char *)((long)param_2 + 0x7f) < '\0') {
+    FUN_00018d20(param_1 + 0xd,param_2[0xd],param_2[0xe]);
+  }
+  else {
+    uVar2 = param_2[0xe];
+    uVar1 = param_2[0xd];
+    param_1[0xf] = param_2[0xf];
+    param_1[0xe] = uVar2;
+    param_1[0xd] = uVar1;
+  }
+  param_1[0x10] = param_2[0x10];
+  return param_1;
+}
+
+HUNT_R24_DONE

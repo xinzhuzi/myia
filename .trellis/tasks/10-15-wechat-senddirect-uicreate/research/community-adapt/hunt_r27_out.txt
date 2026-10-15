@@ -1,0 +1,23 @@
+== Req2Buf func 5daad24 .. 5daae87 ==
+  blr at rva 0x5daae38  blr x8
+  ret at rva 0x5daae80  ret
+
+== find "Buf2Resp" (buf2resp) ==
+  str at rva 0x9859838
+  str at rva 0x9859d80
+  str at rva 0x985a105
+    <- from rva 0x5db0fe0 in func 0x5db0f18
+    <- from rva 0x5980e70 in func 0x5980dec
+    <- from rva 0x5980fd0 in func 0x5980dec
+    <- from rva 0x598116c in func 0x5980dec
+    <- from rva 0x5981210 in func 0x5980dec
+  str at rva 0x985a10e
+    <- from rva 0x5980f48 in func 0x5980dec
+
+== find "AutoBuffer" (autobuffer) ==
+  str at rva 0x8b800d2
+  str at rva 0x8b80227
+  str at rva 0x8b802d2
+  str at rva 0x8b80343
+
+HUNT_R27_DONE

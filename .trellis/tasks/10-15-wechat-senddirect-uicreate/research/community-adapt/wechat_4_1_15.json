@@ -1,0 +1,21 @@
+{
+  "structVer": "2",
+  "sendFuncAddr": "0x597eda0",
+  "req2bufEnterAddr": "0x5daad24",
+  "req2bufExitAddr": "0x5daae80",
+  "buf2RespAddr": "0x5980dec",
+  "blrX8Addr": "0x5daae38",
+  "autoBufferWriteFunc": "0x5dd16d8",
+  "uploadImageAddr": "0x5daad24",
+  "cdnGetServiceAddr": "0x5daad24",
+  "cdnManagerGetterAddr": "0x5daad24",
+  "cndOnCompleteAddr": "0x5daad24",
+  "uploadGetCallbackWrapperAddr": "0x5daad24",
+  "uploadGetCallbackWrapperFuncAddr": "0x5daad24",
+  "uploadOnCompleteFuncAddr": "0x5daad24",
+  "startDownloadMedia": "0x5daad24",
+  "uploadOnCompleteAddr": "0x5daad24",
+  "downloadImagAddr": "0x5daad24",
+  "downloadFileAddr": "0x5daad24",
+  "downloadVideoAddr": "0x5daad24"
+}

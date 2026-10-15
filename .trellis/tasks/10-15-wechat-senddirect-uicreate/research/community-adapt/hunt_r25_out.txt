@@ -1,0 +1,38 @@
+
+== find "MMStartTask" (anchor) ==
+  str at rva 0x9859454
+    <- from rva 0x597ede0 in func 0x597eda0
+    <- from rva 0x597edec in func 0x597eda0
+    <- from rva 0x5973974 in func 0x5973938
+    <- from rva 0x5973980 in func 0x5973938
+    <- from rva 0x59739fc in func 0x5973938
+
+== find "startTask" (mars-mangled-chunk) ==
+  (not found)
+
+== find "Req2Buf" (req2buf) ==
+  str at rva 0x9859d2d
+  str at rva 0x985a094
+    <- from rva 0x5db0e80 in func 0x5db0db8
+    <- from rva 0x5daada4 in func 0x5daad24
+    <- from rva 0x5daadec in func 0x5daad24
+    <- from rva 0x5daadf8 in func 0x5daad24
+    <- from rva 0x5980ad4 in func 0x5980a6c
+    <- from rva 0x5980bf8 in func 0x5980a6c
+  str at rva 0x985b859
+    <- from rva 0x5997854 in func 0x599571c
+  str at rva 0x98b2fbe
+  str at rva 0x98b3063
+
+== find "N4mars3stn" (mars-stn-mangled) ==
+  str at rva 0x8b7a1c0
+  str at rva 0x8b7a246
+  str at rva 0x8b7a290
+    <- from rva 0x9f2bd48 in func 0x0
+  str at rva 0x8b7a376
+  str at rva 0x8b7a40e
+    <- from rva 0x9f2bfb0 in func 0x0
+  str at rva 0x8b7a436
+    <- from rva 0x9f2c000 in func 0x0
+
+HUNT_R25_DONE

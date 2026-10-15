@@ -1,0 +1,104 @@
+
+======== MMST_REF_A rva=0x597eda0 ========
+-- func entry=0x597eda0
+
+bool FUN_0597eda0(long param_1,undefined8 param_2)
+
+{
+  long lVar1;
+  undefined1 auStack_140 [264];
+  long local_38;
+  
+  local_38 = *(long *)PTR____stack_chk_guard_09b36c98;
+  thunk_FUN_05e1d500(auStack_140,1,"mars::mmext","MMStartTask","mmstn_manager.cc","MMStartTask",
+                     0x4ad,0);
+  lVar1 = *(long *)(param_1 + 0x18);
+  if (lVar1 != 0) {
+    FUN_059b73b0(lVar1,param_2);
+  }
+  thunk_FUN_05e1d684(auStack_140);
+  if (*(long *)PTR____stack_chk_guard_09b36c98 == local_38) {
+    return lVar1 != 0;
+  }
+                    /* WARNING: Subroutine does not return */
+  ___stack_chk_fail();
+}
+
+======== MMST_REF_B rva=0x5973938 ========
+-- func entry=0x5973938
+
+undefined8 FUN_05973938(undefined8 param_1)
+
+{
+  int iVar1;
+  long lVar2;
+  undefined8 uVar3;
+  undefined8 local_1d0 [2];
+  char local_1b9;
+  undefined1 auStack_140 [264];
+  long local_38;
+  
+  local_38 = *(long *)PTR____stack_chk_guard_09b36c98;
+  thunk_FUN_05e1d500(auStack_140,1,"mars::mmext","MMStartTask","mmstn_logic.cc","MMStartTask",0x119,
+                     0);
+  FUN_05941fe8(local_1d0,"default");
+  FUN_0594199c(local_1d0);
+  lVar2 = FUN_0594c390();
+  if (local_1b9 < '\0') {
+    __ZdlPv(local_1d0[0]);
+  }
+  if (lVar2 == 0) {
+    iVar1 = thunk_FUN_05e1d97c(5);
+    if (iVar1 != 0) {
+      FUN_05e1d050(local_1d0,5,"mars::mmext","mmstn_logic.cc","MMStartTask",0x11b,0,0);
+      lVar2 = FUN_05e1d244(local_1d0,"NULL != mmstn_manager");
+      __ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6appendEPKc
+                (lVar2 + 0x58,"mars2 mmstn_manager is empty.");
+      thunk_FUN_05e1d0bc(local_1d0);
+    }
+    uVar3 = 0;
+  }
+  else {
+    uVar3 = FUN_0597eda0(lVar2,param_1);
+  }
+  thunk_FUN_05e1d684(auStack_140);
+  if (*(long *)PTR____stack_chk_guard_09b36c98 == local_38) {
+    return uVar3;
+  }
+                    /* WARNING: Subroutine does not return */
+  ___stack_chk_fail();
+}
+
+======== REQ2BUF_REF_A rva=0x5daad24 ========
+-- func entry=0x5daad24
+
+undefined8
+FUN_05daad24(long param_1,undefined8 param_2,undefined8 param_3,undefined8 param_4,
+            undefined8 param_5,undefined8 param_6,undefined8 param_7,undefined8 param_8,
+            undefined8 param_9,undefined2 param_10)
+
+{
+  int iVar1;
+  undefined8 uVar2;
+  undefined1 auStack_178 [264];
+  long local_70;
+  
+  local_70 = *(long *)PTR____stack_chk_guard_09b36c98;
+  if ((*(long *)(param_1 + 8) == 0) && (iVar1 = thunk_FUN_05e1d97c(5), iVar1 != 0)) {
+    FUN_05e1d050(auStack_178,5,"mars::stn","stn_callback_bridge.cc","Req2Buf",0x6f,0,0);
+    FUN_05e1d244(auStack_178,"sg_callback != NULL");
+    thunk_FUN_05e1d0bc(auStack_178);
+  }
+  thunk_FUN_05e1d500(auStack_178,1,"mars::stn","Req2Buf","stn_callback_bridge.cc","Req2Buf",0x70,0);
+  uVar2 = (**(code **)(**(long **)(param_1 + 8) + 0x30))
+                    (*(long **)(param_1 + 8),param_2,param_3,param_4,param_5,param_6,param_7,param_8
+                     ,param_9,param_10);
+  thunk_FUN_05e1d684(auStack_178);
+  if (*(long *)PTR____stack_chk_guard_09b36c98 == local_70) {
+    return uVar2;
+  }
+                    /* WARNING: Subroutine does not return */
+  ___stack_chk_fail();
+}
+
+HUNT_R26_DONE

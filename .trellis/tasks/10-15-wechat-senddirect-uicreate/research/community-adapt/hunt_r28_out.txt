@@ -1,0 +1,87 @@
+
+======== AUTOBUF_DELTA_CAND rva=0x5dd16d8 ========
+-- entry=0x5dd0f40
+
+/* WARNING: Removing unreachable block (ram,0x05dd107c) */
+
+undefined8 FUN_05dd0f40(long *param_1)
+
+{
+  int *piVar1;
+  long *****ppppplVar2;
+  undefined4 uVar3;
+  undefined1 uVar4;
+  long *****ppppplVar5;
+  long *plVar6;
+  undefined *puVar7;
+  long ****pppplVar8;
+  ulong uVar9;
+  bool bVar10;
+  long ****pppplVar11;
+  int iVar12;
+  long *plVar13;
+  ulong *puVar14;
+  ulong uVar15;
+  size_t sVar16;
+  undefined8 *puVar17;
+  char *pcVar18;
+  ulonglong uVar19;
+  long extraout_x1;
+  undefined1 *puVar20;
+  undefined1 *puVar21;
+  ulong uVar22;
+  undefined8 uVar23;
+  long lVar24;
+  long lVar25;
+  long *plVar26;
+  long lVar27;
+  int *piVar28;
+  long **pplVar29;
+  int *piVar30;
+  undefined8 ****local_2e8;
+  undefined8 uStack_2e0;
+  long local_2d8;
+
+======== BUF2RESP_CAND rva=0x5980dec ========
+-- entry=0x5980dec
+
+ulong FUN_05980dec(undefined8 *param_1,ulong param_2,undefined8 param_3,undefined8 param_4,
+                  undefined8 param_5)
+
+{
+  char cVar1;
+  ulong uVar2;
+  long lVar3;
+  int iVar4;
+  undefined8 uVar5;
+  undefined8 uVar6;
+  ulong uVar7;
+  char *pcVar8;
+  uint uVar9;
+  char *pcVar10;
+  ulong uVar11;
+  char *pcVar12;
+  ulong uVar13;
+  undefined1 auStack_238 [24];
+  uint local_220;
+  undefined4 local_21c;
+  byte local_214;
+  undefined1 auStack_210 [144];
+  long local_180;
+  long *local_178;
+  undefined8 local_170;
+  char local_168 [72];
+  undefined8 local_120;
+  char local_118 [72];
+  undefined8 *local_d0;
+  undefined8 *puStack_c8;
+  undefined8 uStack_c0;
+  undefined8 local_b8;
+  undefined8 uStack_b0;
+  undefined8 local_a8;
+  undefined8 uStack_a0;
+  undefined8 local_98;
+  undefined8 uStack_90;
+  undefined8 local_88;
+  undefined8 uStack_80;
+HUNT_R28_DONE
