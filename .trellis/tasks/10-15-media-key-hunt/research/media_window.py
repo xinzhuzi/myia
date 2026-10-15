@@ -1,4 +1,11 @@
-"""Single explicitly authorized LLDB window; never schedules or retries attach."""
+"""Single explicitly authorized LLDB window; never schedules or retries attach.
+
+2026-10-15 坐标升级(Ghidra 静态定案,research/ghidra-static.md §2/§6):媒体
+V2 AES 解密**不走 CommonCrypto**——旧 CCCrypt/CCCryptorCreate 断点永无
+命中(已证伪并废弃)。新坐标 = wechat.dylib 自带 AES-ECB 解密包装器
+rva 0x5a857d4(入口 x0[0:16] = 16 字节钥);身份门 = 双锚点 rva
+0x433C5F0 期望 8B fc6fbca9f65701a9(uicreate 十窗同款 SOP,不符拒装)。
+"""
 import json
 import os
 import signal
@@ -6,6 +13,13 @@ import time
 from pathlib import Path
 
 import lldb
+
+DYLIB_NAME = 'wechat.dylib'
+#: AES-ECB 解密包装器入口(ghidra-static.md:0x46c2994 调 0x5a857d4,keylen==16 门)。
+ECB_DECRYPT_RVA = 0x5A857D4
+#: 二进制身份锚(uicreate verify 双锚点之一;attach 后先验,不符拒装断点)。
+ANCHOR_RVA = 0x433C5F0
+ANCHOR_MAGIC = bytes.fromhex('fc6fbca9f65701a9')
 
 
 def _save_private(path, payload):
@@ -16,6 +30,18 @@ def _save_private(path, payload):
 
 def _interrupt(_signum, _frame):
     raise KeyboardInterrupt
+
+
+def _resolve_dylib_base(target, listener):
+    """wechat.dylib 的 slid 基址;attach 初模块表未齐时等事件重试 3 次。"""
+    for _ in range(3):
+        for module in target.module_iter():
+            spec = module.GetFileSpec()
+            if spec is not None and spec.GetFilename() == DYLIB_NAME:
+                return module.GetObjectFileHeaderAddress().GetLoadAddress(target)
+        event = lldb.SBEvent()
+        listener.WaitForEvent(1, event)
+    return None
 
 
 def capture(debugger, pid, output, duration=20.0):
@@ -41,11 +67,19 @@ def capture(debugger, pid, output, duration=20.0):
         if not error.Success() or not process.IsValid():
             result['outcome'] = 'attach_failed'
             return result
-        breakpoints = [target.BreakpointCreateByName(name) for name in ('CCCrypt', 'CCCryptorCreate')]
-        if not all(bp.GetNumLocations() for bp in breakpoints):
-            result['outcome'] = 'symbols_missing'
+        base = _resolve_dylib_base(target, listener)
+        if base is None:
+            result['outcome'] = 'module_missing'
             return result
-        ids = {bp.GetID() for bp in breakpoints}
+        anchor = process.ReadMemory(base + ANCHOR_RVA, len(ANCHOR_MAGIC), error)
+        if not error.Success() or anchor != ANCHOR_MAGIC:
+            result['outcome'] = 'anchor_mismatch'
+            return result
+        breakpoint = target.BreakpointCreateByAddress(base + ECB_DECRYPT_RVA)
+        if not breakpoint.GetNumLocations():
+            result['outcome'] = 'breakpoint_unresolved'
+            return result
+        ids = {breakpoint.GetID()}
         previous_stop = process.GetStopID()
         if not process.Continue().Success():
             result['outcome'] = 'continue_failed'
@@ -69,17 +103,18 @@ def capture(debugger, pid, output, duration=20.0):
                     if hot_start is None:
                         hot_start = now
                     frame = thread.GetFrameAtIndex(0)
-                    regs = [frame.FindRegister('x' + str(i)) for i in range(5)]
-                    if not all(reg.IsValid() for reg in regs):
+                    register = frame.FindRegister('x0')
+                    if not register.IsValid():
                         raise ValueError('Register unavailable')
-                    op, alg, options, pointer, size = [reg.GetValueAsUnsigned() for reg in regs]
-                    if op == 1 and alg == 0 and options & 2 and size == 16 and pointer:
-                        result['matching'] += 1
-                        memory_error = lldb.SBError()
-                        value = process.ReadMemory(pointer, 16, memory_error)
-                        if not memory_error.Success() or len(value) != 16:
-                            raise ValueError('Memory unavailable')
-                        values.add(bytes(value).hex())
+                    pointer = register.GetValueAsUnsigned()
+                    if not pointer:
+                        raise ValueError('Key pointer unavailable')
+                    result['matching'] += 1
+                    memory_error = lldb.SBError()
+                    value = process.ReadMemory(pointer, 16, memory_error)
+                    if not memory_error.Success() or len(value) != 16:
+                        raise ValueError('Memory unavailable')
+                    values.add(bytes(value).hex())
                 if not owned_stop:
                     result['outcome'] = 'unexpected_stop'
                     break

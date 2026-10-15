@@ -12,6 +12,8 @@ ROOT = Path(__file__).parent
 CONSTANTS = dict(eStateStopped=1, eStateExited=2, eStateCrashed=3,
                  eStateDetached=4, eStateInvalid=5, eStateRunning=6,
                  eStopReasonBreakpoint=10)
+# 假 wechat.dylib slid 基址与真件常量同源(media_window 模块加载后校对)。
+FAKE_BASE = 0x100000
 
 
 def load(name):
@@ -62,7 +64,8 @@ class FakeThread:
         return self
 
     def FindRegister(self, name):
-        return Register([1, 0, 2, 100, 16][int(name[1:])], self.process.mode != 'register')
+        assert name == 'x0'
+        return Register(0x2000, self.process.mode != 'register')
 
 
 class Process:
@@ -99,11 +102,23 @@ class Process:
         return Error(self.mode != 'detach')
 
     def ReadMemory(self, address, length, error):
+        module = load('media_window')
+        if address == FAKE_BASE + module.ANCHOR_RVA:
+            # 身份锚读:anchor 模式回错误字节,其余回真值(截到请求长度)。
+            error.ok = True
+            return (b'\x00' * 8 if self.mode == 'anchor' else module.ANCHOR_MAGIC)[:length]
         error.ok = self.mode != 'memory'
         return bytes(range(16))
 
     def __iter__(self):
         return iter([FakeThread(self)])
+
+
+def _fake_module():
+    return types.SimpleNamespace(
+        GetFileSpec=lambda: types.SimpleNamespace(GetFilename=lambda: 'wechat.dylib'),
+        GetObjectFileHeaderAddress=lambda: types.SimpleNamespace(GetLoadAddress=lambda target: FAKE_BASE),
+    )
 
 
 class Target:
@@ -117,8 +132,14 @@ class Target:
         error.ok = self.process.mode != 'attach'
         return self.process
 
-    def BreakpointCreateByName(self, name):
-        return types.SimpleNamespace(GetNumLocations=lambda: int(self.process.mode != 'symbol'), GetID=lambda: 1)
+    def module_iter(self):
+        return iter([] if self.process.mode == 'module' else [_fake_module()])
+
+    def BreakpointCreateByAddress(self, address):
+        return types.SimpleNamespace(
+            GetNumLocations=lambda: int(self.process.mode != 'symbol'),
+            GetID=lambda: 1,
+        )
 
     def DisableAllBreakpoints(self):
         self.disabled = True
@@ -139,7 +160,7 @@ def environment(monkeypatch, tmp_path):
                 timer.value += 0.05
                 if mode == 'cancel':
                     raise KeyboardInterrupt
-                if mode not in ('timeout', 'symbol', 'attach'):
+                if mode not in ('timeout', 'symbol', 'attach', 'anchor', 'module'):
                     process.state = 1
                     process.stop_id += 1
                 return True
@@ -147,6 +168,7 @@ def environment(monkeypatch, tmp_path):
         fake = types.SimpleNamespace(**CONSTANTS, SBError=Error, SBListener=Listener, SBEvent=object)
         monkeypatch.setitem(sys.modules, 'lldb', fake)
         module = load('media_window')
+        assert module.ECB_DECRYPT_RVA == 0x5A857D4  # 坐标契约:Ghidra 定案不漂移
         module.time = timer
         debugger = types.SimpleNamespace(SetAsync=lambda value: None, CreateTarget=lambda name: target)
         tmp_path.chmod(0o700)
@@ -157,8 +179,9 @@ def environment(monkeypatch, tmp_path):
 @pytest.mark.parametrize('mode,outcome', [
     ('normal', 'hit_limit'), ('timeout', 'timeout'), ('cancel', 'cancelled'),
     ('register', 'error'), ('memory', 'error'), ('unexpected', 'unexpected_stop'),
-    ('symbol', 'symbols_missing'), ('attach', 'attach_failed'),
-    ('continue', 'continue_failed'), ('detach', 'hit_limit')])
+    ('symbol', 'breakpoint_unresolved'), ('attach', 'attach_failed'),
+    ('continue', 'continue_failed'), ('detach', 'hit_limit'),
+    ('anchor', 'anchor_mismatch'), ('module', 'module_missing')])
 def test_release_all_paths(environment, tmp_path, mode, outcome):
     module, debugger, process, target = environment(mode)
     handlers = {s: signal.getsignal(s) for s in (signal.SIGINT, signal.SIGTERM)}
@@ -166,9 +189,16 @@ def test_release_all_paths(environment, tmp_path, mode, outcome):
     assert result['outcome'] == outcome
     assert target.attach_count == 1
     assert {s: signal.getsignal(s) for s in handlers} == handlers
-    if mode != 'attach':
+    if mode not in ('attach', 'anchor', 'module'):
         assert process.detach_calls == [False]
         assert target.disabled
+    elif mode == 'attach':
+        # 假件 IsValid=False(附加失败面):finally 不进释放序列,detach 零调用。
+        assert process.detach_calls == []
+    else:
+        # 拒装路径(锚不符/模块缺失)在装断点前 return:Detach 序列仍走,
+        # 但断点从未装上——disabled 标记不适用。
+        assert process.detach_calls == [False]
     assert result['detached'] == (mode not in ('attach', 'detach'))
     assert (tmp_path / 'parameters.json').exists() == (mode == 'normal')
     for path in tmp_path.iterdir():

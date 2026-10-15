@@ -21,9 +21,16 @@ def run():
         state['detached'] = True
         return ok
 
+    def read_memory(address, length, error):
+        error.ok = True
+        if address == 0x100000 + module.ANCHOR_RVA:
+            return module.ANCHOR_MAGIC[:length]
+        return bytes(length)
+
     # No real SBTarget/SBProcess is created; there is no OS attach operation.
     process = types.SimpleNamespace(IsValid=lambda: True, GetState=lambda: lldb.eStateStopped,
-                                    GetStopID=lambda: 0, Continue=lambda: failed, Detach=detach)
+                                    GetStopID=lambda: 0, Continue=lambda: failed, Detach=detach,
+                                    ReadMemory=read_memory)
 
     def fake_attach(listener, pid, error):
         state['attach_calls'] += 1
@@ -32,8 +39,14 @@ def run():
     def disable():
         state['disabled'] = True
 
+    fake_module = types.SimpleNamespace(
+        GetFileSpec=lambda: types.SimpleNamespace(GetFilename=lambda: 'wechat.dylib'),
+        GetObjectFileHeaderAddress=lambda: types.SimpleNamespace(GetLoadAddress=lambda target: 0x100000),
+    )
+
     target = types.SimpleNamespace(AttachToProcessWithID=fake_attach, DisableAllBreakpoints=disable,
-                                   BreakpointCreateByName=lambda name: types.SimpleNamespace(
+                                   module_iter=lambda: iter([fake_module]),
+                                   BreakpointCreateByAddress=lambda address: types.SimpleNamespace(
                                        GetNumLocations=lambda: 1, GetID=lambda: 1))
     debugger = types.SimpleNamespace(SetAsync=lambda value: None, CreateTarget=lambda name: target)
     folder = Path(tempfile.mkdtemp(prefix='myia-no-attach-probe-'))
