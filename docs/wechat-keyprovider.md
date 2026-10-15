@@ -344,6 +344,15 @@ defaults read /Applications/WeChat.app/Contents/Info.plist CFBundleShortVersionS
 # 基线 = 4.1.15;不一致 → 打开基线档照 2.2 清单重验,全绿才继续用取钥链
 ```
 
+**passphrase 与钥匙串条目的生命周期**(2026-10-15 勘定):桥侧钥匙串预留两条目——
+`myia/wechat/db-keys`(已落:JSON 外壳,`localdb keys-migrate` 产物)与
+`myia/wechat/passphrase`(供取钥器 **passphrase-derive 形态**的部署件搬运,通道见
+桥内 `keychain.py`)。后者**随 derive 形态装机而落、不单独补写**:未部署该形态时
+条目缺席属预期(钥匙串里微信桥只见 db-keys 一条)。重跑 lldb-shot 重取 SOP 取到
+新 passphrase 后,应顺手经钥匙串通道落条目、明文缓存(如 `~/.wcdb-key-tool/`)用后
+即退役——本机 10-13 捕获的明文缓存已按此清理,当前机上无 passphrase 存量,轮换时
+以重取 SOP 为准。
+
 ## 12. v1.1:timeout_hint、交互式取钥器与哨兵取消
 
 v1.1(桥 0.5.0 起)是 v1 的**向后兼容扩展**:新增一个可选请求字段、超时上限
