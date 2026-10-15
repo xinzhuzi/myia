@@ -182,3 +182,20 @@ export GHIDRA_OUTPUT_DIR=<输出目录>
 | 仓库镜像(tools-mirror + ghidra-scripts 13 件) | 永生 | 随 git;镜像时点 2026-10-14 晚(cap.py v2.1 / tools README v2.1 / Ghidra Java 脚本 13 件) |
 
 > 镜像纪律:Downloads 侧 `tools/` 仍是**唯一演进源**(并行会话在途);镜像落后时以源为准重镜像,勿双向编辑。
+
+## 8. 媒体 V2 解密链定案(2026-10-15,Ghidra 静态;全档见 10-15-media-key-hunt/research/ghidra-static.md)
+
+- **链路**(wechat.dylib,arm64,全实证):dat 头解析 `0x4b1f390`
+  (GetDecryptInputOf,secure_file_util.cc)→ `0x4b2aef4`
+  (ReadAesDecryptBuffer)→ `0x46c2994`(AesEcbDecrypt)→ `0x5a857d4`
+  (ECB 核心:keylen==16 门 + 密钥扩展 0x5e6f744 + AES-NI 块循环)。
+- **媒体路径零走 CommonCrypto**(全 dylib 仅 crashinfo AES-128-CBC 用硬编码
+  "WCDYCrshInfoKey!" 与无关 AES-256 两调用者)——CCCrypt 断点猎媒体钥
+  永无命中,勿再走(判例:10-15 哨兵空等+卡顿)。
+- **钥三源**(0x4b1fb1c):内置缺省 md5('0')[:16](0x711a7a0 XOR 去混淆,
+  V1/旧 V2 用;本机样本解不开=按户钥)/按户钥(key 服务单例 0xa45df38,
+  +0x228 串与 32B 掩码异或,注册表持久化在**加密 MMKV**,盘上零明文)/
+  keyIndex 分派。
+- **取钥正解坐标**:前台单次授权窗,断 `slide+0x5a857d4` 入口读
+  `x0[0:16]`(工具族 10-15-media-key-hunt/research/media_window.py,含
+  双锚点身份门 0x433C5F0)。

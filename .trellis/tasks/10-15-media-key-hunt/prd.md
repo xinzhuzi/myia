@@ -40,14 +40,35 @@ dump 七族 oracle 零确认,结论=运行期驻留),本档走**运行期断点�
 `scripts/wechat-bridge-mediadecrypt.py` 真图终验(≥3 样本 magic 全过)→
 按主人裁决接内置默认通道 → 打包装机。
 
+## 路线定案(2026-10-15 晚,Ghidra 静态逆向;详见 research/ghidra-static.md)
+
+- **CCCrypt 断点路线证伪**:媒体 V2 解密零走 CommonCrypto(全 dylib 仅
+  crashinfo CBC + 无关 AES-256 两调用者)——旧哨兵(已封禁)即使不卡顿
+  也永无命中,封禁即止损。
+- **解密链全实证**:header 0x4b1f390 → ReadAesDecryptBuffer 0x4b2aef4 →
+  AesEcbDecrypt 0x46c2994 → ECB 核心 0x5a857d4(keylen==16 门,AES-NI);
+  **取钥坐标 = 0x5a857d4 入口读 x0[0:16]**。
+- 内置缺省钥(md5('0')[:16])静态恢复但解不开本机样本 → 按户钥路径;
+  按户钥注册表持久化在**加密 MMKV**,盘上无免附加活路(84 容器零明文)。
+- **取钥窗工具已按新坐标升级**(research/media_window.py:地址断点+双锚点
+  身份门 0x433C5F0+模块解析重试;18 测含 anchor/module 拒装态,96 全绿,
+  真 LLDB 无附加探针过)。上一轮单次授权已消费(signal 恢复 bug 已修),
+  开新窗须新的明示授权(目标/用途/时限)。
+
 ## Acceptance Criteria
 
-- [ ] KEY 验真落袋(oracle 三样本以上通过)
+- [x] 钥源头静态定案(解密链全实证+取钥坐标交付;research/ghidra-static.md)
+- [x] 取钥窗工具坐标升级 + 离线全绿 + 真 LLDB 无附加探针
+- [ ] KEY 验真落袋(oracle 三样本以上通过)——待新授权开窗
 - [ ] 真图终验:解密件对真 dat 产出可看图(magic 校验过)
 - [ ] 供钥双通道写入 + key-status 可查
 - [ ] 打包覆盖安装 + 主人真机点图终验
 
 ## 资产(已固化入档,纪律§6)
 
-research/sentinel/{cap.py, launch.sh, run.cmd};oracle 样本 /tmp/wximg/
-5 件(V2 头已验);分析记录 /tmp/{scan_key,brute_key}.py(假阳性路线存照)。
+research/ghidra-static.md(静态定案+断点坐标表 §6);research/media_window.py
++ test_media_window.py + no_attach_probe.py + run_media_window.py(单次授权
+窗工具族);research/verify_media_samples.py + test_verify_media_samples.py
+(离线三图验收 CLI);research/sentinel/(封禁哨兵存照);oracle 样本
+/tmp/wximg/ 5 件(V2 头已验);分析记录 /tmp/{scan_key,brute_key}.py
+(假阳性路线存照)。
