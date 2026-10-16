@@ -1,0 +1,141 @@
+ok: true
+schema_version: '1'
+data:
+  items:
+  - id: BV1KiJk67EQ9
+    bvid: BV1KiJk67EQ9
+    aid: 117443632567747
+    title: 我造了一块会飞的滑板...
+    description: '这次手搓的是一个操控难度有点高，但是超级灵活的个人飞行器—载人飞行滑板！
+
+      掌握之后真的有种御剑飞行的感觉，超级自由。
+
+      感谢STEPX对本期视频的赞助支持，StepX Neo真的是一台让人很惊艳的Ai智能体手机。
+
+      同时也非常感谢我的家乡 — 湖北巴东县委宣传部以及各相关部门领导对这次拍摄的大力支持。
+
+      很高兴能够用自己的方式让大家看到我的家乡！'
+    duration_seconds: 598
+    duration: 09:58
+    url: https://www.bilibili.com/video/BV1KiJk67EQ9
+    owner:
+      id: '431956189'
+      name: 神奇阿宇Ayu
+    stats:
+      view: 3495045
+      danmaku: 5774
+      like: 188593
+      coin: 86018
+      favorite: 50295
+      share: 27333
+  - id: BV1d5JQ6pEFS
+    bvid: BV1d5JQ6pEFS
+    aid: 117448363744067
+    title: 《绝区零》菲欧妮角色展示 | 不要死挑战
+    description: '「那么，第5782次《不要死挑战》就到这里结束啦！」
+
+      「接下来，就是第5783次…」
+
+      「好像…也已经结束了呢…」
+
+
+      菲欧妮CV
+
+      中：宋媛媛
+
+      日：藤田茜
+
+
+      琉音CV
+
+      中：蔡书瑾
+
+      日：竹达彩奈
+
+
+      照CV
+
+      中：诺亚
+
+      日：大空直美
+
+
+      —— 欢迎来到罗斯凯利法！——
+
+      ▼《绝区零》3.3版本「重返天空的旅程」将于10月21日上线！
+
+      版本期间，参与活动可免费领取妄想天使时装！
+
+      bilibili安卓端下载地址：https://www.biligame.com/detail/?id=108434
+
+      bilibiliPC端下载'
+    duration_seconds: 600
+    duration: '10:00'
+    url: https://www.bilibili.com/video/BV1d5JQ6pEFS
+    owner:
+      id: '1636034895'
+      name: 绝区零
+    stats:
+      view: 1952244
+      danmaku: 4459
+      like: 157453
+      coin: 45441
+      favorite: 36021
+      share: 15686
+  - id: BV1cApB6NEPq
+    bvid: BV1cApB6NEPq
+    aid: 117433012584851
+    title: 这下可好了！收养一只咪，迎来一大群！
+    description: '-'
+    duration_seconds: 99
+    duration: 01:39
+    url: https://www.bilibili.com/video/BV1cApB6NEPq
+    owner:
+      id: '1017573503'
+      name: 明月忘了缺yh
+    stats:
+      view: 1617933
+      danmaku: 979
+      like: 279123
+      coin: 167588
+      favorite: 27273
+      share: 3197
+  - id: BV1Eapz6PErV
+    bvid: BV1Eapz6PErV
+    aid: 117434522538286
+    title: 原来，小猫是这样认识武警哥哥的～
+    description: ''
+    duration_seconds: 60
+    duration: 01:00
+    url: https://www.bilibili.com/video/BV1Eapz6PErV
+    owner:
+      id: '456664753'
+      name: 央视新闻
+    stats:
+      view: 2374603
+      danmaku: 856
+      like: 313333
+      coin: 7305
+      favorite: 27126
+      share: 3772
+  - id: BV19gp16kEAV
+    bvid: BV19gp16kEAV
+    aid: 117439404771144
+    title: 婚礼摄影师记录下婚礼后感人一幕……喧闹落幕，新人相视一笑便红了眼眶
+    description: （素材来源：志伟的拍摄日记）
+    duration_seconds: 53
+    duration: 00:53
+    url: https://www.bilibili.com/video/BV19gp16kEAV
+    owner:
+      id: '1131457022'
+      name: 人民日报
+    stats:
+      view: 2146187
+      danmaku: 1546
+      like: 244444
+      coin: 30253
+      favorite: 48039
+      share: 16357
+  day: 3
+  count: 5
+

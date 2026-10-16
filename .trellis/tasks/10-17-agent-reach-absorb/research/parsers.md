@@ -53,6 +53,16 @@ data:
   / `rank`(排行);`feed/favorites/history` 等均需扫码登录;写操作命令
   (`like/coin/dynamic-post`)存在但链接者铁律不碰。
 
+### hot / rank — `bili hot -n <N>` / `bili rank -n <N>`(2026-10-17 全能力面真跑补证)
+
+坑④(实测实锤):hot/rank 与 search **同骨架不同形**——`ok/schema_version` 同族,
+但条目在 **`data.items[]` 嵌套**(search 是 `data[]` 平铺);字段归一差异:
+自带 `url`(无需 bvid 拼)、作者在 `owner.name`(search 是平铺 `author`)、
+播放数在 `stats.view`(search 是平铺 `play`)。parser 已两形分治(引擎
+2026-10-17 修复,修复前 hot/rank 落 `agent_reach_output_unparsed` 结构化
+失败——复查 low 预言成真)。样例:`bili-hot.yaml` / `bili-rank.yaml`。
+hot 另有 `-p/--page`、rank 另有 `--day [3|7]`,条数帽走 `-n` 即可。
+
 ### twitter — `twitter tweet <URL>`(免登录单条读取,**实测成立**)
 
 - 证据 `twitter-anon-read.yaml`:elonmusk 名推真数据(id/text/author/

@@ -142,7 +142,7 @@ robots.txt 不适用于钉死的官方端点);礼貌由 qps 限速承担。
 | channel | action | 上游命令(实测固化) | 条目锚 | 备注 |
 |---|---|---|---|---|
 | bilibili | search | `bili search "<query>" --type video -n <limit>` | `https://www.bilibili.com/video/<bvid>` | 免登录;空 bvid 条目过滤;**B站禁用 yt-dlp**(上游明令) |
-| bilibili | hot / rank | `bili hot` / `bili rank`(参数面执行期按 `bili <cmd> --help` 定) | 同上 | 免登录;全站热门/排行,天然 feed 形态 |
+| bilibili | hot / rank | `bili hot -n <N>` / `bili rank -n <N>` | 同上 | 免登录;全站热门/排行;**坑④实测:条目在 data.items[] 嵌套形(owner.name/stats.view/自带 url),parser 两形分治已实装+真跑各 10 条验证(2026-10-17 全能力面)** |
 | youtube | channel_videos | `yt-dlp --flat-playlist --print "%(id)s\|%(title)s\|%(channel)s" --playlist-end <limit> <channel_url>` | `https://www.youtube.com/watch?v=<id>` | 免登录;`--playlist-end` 限条数;字幕提取归 enrich 面不做 |
 
 **已证伪/移出的形态**(grill 实测):

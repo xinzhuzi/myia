@@ -1,0 +1,102 @@
+ok: true
+schema_version: '1'
+data:
+  items:
+  - id: BV1s7JX6gELt
+    bvid: BV1s7JX6gELt
+    aid: 117450158907258
+    title: 欠钱不还却有钱出道？是谁又在给老赖之女洗白？深扒李秀满新女团成员盛艾敬！
+    description: 我真是没招了。
+    duration_seconds: 602
+    duration: '10:02'
+    url: https://www.bilibili.com/video/BV1s7JX6gELt
+    owner:
+      id: '5870268'
+      name: 三代鹿人
+    stats:
+      view: 368682
+      danmaku: 2288
+      like: 33180
+      coin: 23437
+      favorite: 4962
+      share: 2084
+  - id: BV1mmJt6kEYW
+    bvid: BV1mmJt6kEYW
+    aid: 117450276346860
+    title: 真让她成气候了？这可能是全网最通透的⚡️‌雨 爱⚡️‌！
+    description: '这期手机掉床缝里听了一个小时才舍得捡起来
+
+
+      参考文献：BV1faak6AEzm'
+    duration_seconds: 103
+    duration: 01:43
+    url: https://www.bilibili.com/video/BV1mmJt6kEYW
+    owner:
+      id: '210752'
+      name: 真栗
+    stats:
+      view: 318879
+      danmaku: 399
+      like: 16003
+      coin: 3844
+      favorite: 3350
+      share: 947
+  - id: BV1Fspj66E66
+    bvid: BV1Fspj66E66
+    aid: 117421050429774
+    title: “这波秒开仙人，直接把六小龄童看呆了！”
+    description: “这波秒开仙人，直接把六小龄童看呆了！”
+    duration_seconds: 111
+    duration: 01:51
+    url: https://www.bilibili.com/video/BV1Fspj66E66
+    owner:
+      id: '626297715'
+      name: 荒草音乐
+    stats:
+      view: 3673444
+      danmaku: 1266
+      like: 283027
+      coin: 18031
+      favorite: 57419
+      share: 4066
+  - id: BV1HCpS6iEXh
+    bvid: BV1HCpS6iEXh
+    aid: 117440646223459
+    title: 朱棣：“我的侄子走丢了，有好心人能帮帮我吗？”
+    description: '"起兵yes削藩no，奉天靖难gogogo！"大明严选，全程高能不烧心！
+
+      特别鸣谢：@配音木成   老师的配音'
+    duration_seconds: 499
+    duration: 08:19
+    url: https://www.bilibili.com/video/BV1HCpS6iEXh
+    owner:
+      id: '96070394'
+      name: 推背兔の
+    stats:
+      view: 372735
+      danmaku: 518
+      like: 26581
+      coin: 5008
+      favorite: 7154
+      share: 1378
+  - id: BV1eaJU65Ed4
+    bvid: BV1eaJU65Ed4
+    aid: 117445914335073
+    title: 操 控 买 瓜 2.0
+    description: ''
+    duration_seconds: 296
+    duration: 04:56
+    url: https://www.bilibili.com/video/BV1eaJU65Ed4
+    owner:
+      id: '438256074'
+      name: 岩罗Crv
+    stats:
+      view: 711087
+      danmaku: 958
+      like: 39935
+      coin: 17443
+      favorite: 11954
+      share: 4384
+  page: 1
+  count: 5
+

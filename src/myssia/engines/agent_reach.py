@@ -467,9 +467,11 @@ class AgentReachEngine(BaseEngine):
     # --------------------------------------------------------------- parsing
 
     def _parse_bilibili(self, stdout: str, argv: list[str]) -> list[dict]:
-        """YAML 骨架族解析(bili search 输出骨架经 parsers.md 实测固化;
-        hot/rank 输出形状未单独取证,按同族假设处理——形状不符时落
-        agent_reach_output_unparsed 结构化失败,在册源未用 hot/rank)。
+        """YAML 骨架族解析(search/hot/rank 三 action 全实测,2026-10-17
+        全能力面真跑取证;坑④见 parsers.md):``ok/schema_version`` 同族,
+        但 ``data`` 两形——search 是 **data[] 平铺**(author/play 平铺,
+        无 url 需 bvid 拼);hot/rank 是 **data.items[] 嵌套**(自带 url,
+        作者在 ``owner.name``、播放数在 ``stats.view``)。
 
         ``ok: false`` → ``agent_reach_error``;``ok: true`` 零条 → 合法空态
         (源没更新不是故障,urlwatch unchanged 同义);**空 bvid 条目过滤**
@@ -482,8 +484,13 @@ class AgentReachEngine(BaseEngine):
             raise self._unparsed(stdout, f"YAML 解析失败:{exc}") from exc
         if not isinstance(payload, dict) or "ok" not in payload or "data" not in payload:
             raise self._unparsed(stdout, "缺 ok/data 骨架键")
-        if not isinstance(payload["data"], list):
-            raise self._unparsed(stdout, f"data 非列表({type(payload['data']).__name__})")
+        data = payload["data"]
+        if isinstance(data, dict) and isinstance(data.get("items"), list):
+            entries: list[Any] = data["items"]  # 坑④:hot/rank 嵌套形
+        elif isinstance(data, list):
+            entries = data  # search 平铺形
+        else:
+            raise self._unparsed(stdout, f"data 非两形之一(列表/items 嵌套),实际 {type(data).__name__}")
         if payload["ok"] is not True:
             raise FetchError(
                 f"agent-reach 上游骨架报 ok: false:{shlex.join(argv)};"
@@ -492,24 +499,33 @@ class AgentReachEngine(BaseEngine):
             )
         items: list[dict] = []
         dropped = 0
-        for entry in payload["data"]:
+        for entry in entries:
             if not isinstance(entry, dict):
                 dropped += 1
                 continue
+            # 坑④:hot/rank 自带完整 url;search 需 bvid 拼(两形都要求 bvid
+            # 兜底——url 缺失且 bvid 空即无 dedup 锚,弃)。
+            url = entry.get("url")
             bvid = entry.get("bvid")
-            if not isinstance(bvid, str) or not bvid.strip():
+            if isinstance(url, str) and url.strip():
+                item_url = url.strip()
+            elif isinstance(bvid, str) and bvid.strip():
+                item_url = f"{BILI_VIDEO_URL_PREFIX}{bvid.strip()}"
+            else:
                 # 实测坑:bili search 会混入 bvid 为空的条目 —— 无 dedup 锚
                 # 即弃,计数不静默。
                 dropped += 1
                 continue
-            item: dict[str, Any] = {"url": f"{BILI_VIDEO_URL_PREFIX}{bvid.strip()}"}
+            item: dict[str, Any] = {"url": item_url}
             title = entry.get("title")
             if isinstance(title, str) and title.strip():
                 item["title"] = title
-            author = entry.get("author")
+            owner = entry.get("owner")
+            author = entry.get("author") if not isinstance(owner, dict) else owner.get("name")
             if isinstance(author, str) and author.strip():
                 item["author"] = author
-            play = entry.get("play")
+            stats = entry.get("stats")
+            play = entry.get("play") if not isinstance(stats, dict) else stats.get("view")
             if isinstance(play, int) and not isinstance(play, bool):
                 item["play"] = play
             duration = entry.get("duration")

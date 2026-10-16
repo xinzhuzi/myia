@@ -147,6 +147,93 @@ def install_which(monkeypatch: pytest.MonkeyPatch, present: tuple[str, ...]) -> 
     )
 
 
+BILI_HOT_YAML = """\
+ok: true
+schema_version: '1'
+data:
+  items:
+  - id: BV1s7JX6gELt
+    bvid: BV1s7JX6gELt
+    aid: 117450158907258
+    title: 欠钱不还却有钱出道？是谁又在给老赖之女洗白？深扒李秀满新女团成员盛艾敬！
+    duration_seconds: 602
+    duration: '10:02'
+    url: https://www.bilibili.com/video/BV1s7JX6gELt
+    owner:
+      id: '5870268'
+      name: 三代鹿人
+    stats:
+      view: 368682
+      danmaku: 2288
+      like: 33180
+      coin: 23437
+      favorite: 4962
+      share: 2084
+  - id: BV1mmJt6kEYW
+    bvid: BV1mmJt6kEYW
+    aid: 117450276346860
+    title: 真让她成气候了？这可能是全网最通透的⚡️‌雨 爱⚡️‌！
+    duration_seconds: 103
+    duration: 01:43
+    url: https://www.bilibili.com/video/BV1mmJt6kEYW
+    owner:
+      id: '210752'
+      name: 真栗
+    stats:
+      view: 318879
+      danmaku: 399
+      like: 16003
+      coin: 3844
+      favorite: 3350
+      share: 947
+  page: 1
+  count: 5
+"""
+
+BILI_RANK_YAML = """\
+ok: true
+schema_version: '1'
+data:
+  items:
+  - id: BV1KiJk67EQ9
+    bvid: BV1KiJk67EQ9
+    aid: 117443632567747
+    title: 我造了一块会飞的滑板...
+    duration_seconds: 598
+    duration: 09:58
+    url: https://www.bilibili.com/video/BV1KiJk67EQ9
+    owner:
+      id: '431956189'
+      name: 神奇阿宇Ayu
+    stats:
+      view: 3495045
+      danmaku: 5774
+      like: 188593
+      coin: 86018
+      favorite: 50295
+      share: 27333
+  - id: BV1d5JQ6pEFS
+    bvid: BV1d5JQ6pEFS
+    aid: 117448363744067
+    title: 《绝区零》菲欧妮角色展示 | 不要死挑战
+    duration_seconds: 600
+    duration: '10:00'
+    url: https://www.bilibili.com/video/BV1d5JQ6pEFS
+    owner:
+      id: '1636034895'
+      name: 绝区零
+    stats:
+      view: 1952244
+      danmaku: 4459
+      like: 157453
+      coin: 45441
+      favorite: 36021
+      share: 15686
+  day: 3
+  count: 5
+"""
+
+
 def install_cli(
     monkeypatch: pytest.MonkeyPatch,
     procs: list[FakeProc] | None = None,
@@ -466,6 +553,34 @@ def test_bili_search_fixture_parses_and_filters_empty_bvid(monkeypatch: pytest.M
         "bili", "search", "AI agent", "--type", "video", "-n", "10",
     ]
     assert engine.last_skip_reason is None
+
+
+def test_bili_hot_fixture_parses_nested_shape(monkeypatch: pytest.MonkeyPatch):
+    """坑④(2026-10-17 全能力面真跑实锤):hot 是 data.items[] 嵌套形——
+    自带 url、作者在 owner.name、播放数在 stats.view;与 search 平铺形分治."""
+    install_which(monkeypatch, present=ALL_PRESENT)
+    calls = install_cli(monkeypatch, stdout=BILI_HOT_YAML)
+    engine = make_engine(bili_source(**{"engine_options": {"agent_reach": {"channel": "bilibili", "action": "hot"}}}))
+    items = run(engine.fetch())
+    assert len(items) >= 1
+    first = items[0]
+    assert first["url"].startswith("https://www.bilibili.com/video/BV")
+    assert first["author"] == "三代鹿人"  # owner.name 归一
+    assert first["play"] == 368682  # stats.view 归一
+    assert first["duration"] == "10:02"
+    assert calls[0]["argv"] == ["bili", "hot", "-n", "10"]
+
+
+def test_bili_rank_fixture_parses_nested_shape(monkeypatch: pytest.MonkeyPatch):
+    """坑④:rank 同 hot 嵌套形(data.items[]/owner.name/stats.view)."""
+    install_which(monkeypatch, present=ALL_PRESENT)
+    calls = install_cli(monkeypatch, stdout=BILI_RANK_YAML)
+    engine = make_engine(bili_source(**{"engine_options": {"agent_reach": {"channel": "bilibili", "action": "rank"}}}))
+    items = run(engine.fetch())
+    assert len(items) >= 1
+    assert items[0]["url"].startswith("https://www.bilibili.com/video/BV")
+    assert items[0]["author"] == "神奇阿宇Ayu"
+    assert calls[0]["argv"] == ["bili", "rank", "-n", "10"]
 
 
 def test_bili_ok_false_is_error(monkeypatch: pytest.MonkeyPatch):
