@@ -1,0 +1,77 @@
+# config/bilibili-watch.yaml — B站关键词视频监控(Agent-Reach 链外引擎,
+# 10-17-agent-reach-absorb):`engine: agent_reach` 显式选择才生效,auto
+# 永不路过(credhunter/searxng 判例);上游 bili-cli 经 agent-reach install
+# --system 显式授权安装(注意 `--env=auto` 只做安全检查不真装,grill 实测),
+# 缺装时引擎报 dependency_missing 并附两段安装命令原文。
+# 依赖装法(用户侧/装机钩子):
+#   pip install 'myssia[agent-reach]' && agent-reach install --system
+#   agent-reach doctor --json        # bilibili 行 status: ok 即就绪
+# 12 节形状同 news.yaml 逐节内联注解("AI writes the YAML" 参考义务);
+# 装载检查:myssia run config/bilibili-watch.yaml --dry-run --json
+# 上游契约唯一依据:.trellis/tasks/10-17-agent-reach-absorb/research/parsers.md
+
+id: bilibili-watch
+name: B站AI视频监控
+
+# 每日 09:41(AM 槽)一跑:搜索结果按 dedup {url} 全期差集,同视频只推一次;
+# 调密也别低于小时级 —— B站是配额敏感平台,源级 qps 已按 0.2 礼貌档设。
+schedule: "41 9 * * *"
+timezone: Asia/Shanghai
+
+sources:
+  # B站「AI agent」视频搜索源(bili-cli 免登录;命令面实测只有 search/hot/
+  # rank 免登录,UP主投稿列表已证伪砍除 —— feed/favorites 等均需扫码)。
+  # 命令形状引擎内固化:`bili search "AI agent" --type video -n 10`
+  # (--type video 必带:CLI 缺省是用户搜索;-n 条数帽)。
+  # 源 url 是身份标识不参与请求(searxng 先例)—— 实际目标由 bvid 拼接:
+  # https://www.bilibili.com/video/<bvid>,即 dedup 锚。
+  - name: bili-ai_news               # <平台>-<渠道> 命名规约,全局唯一
+    engine: agent_reach              # 链外引擎:显式选择才生效,auto 永不路过
+    url: "https://www.bilibili.com"  # 身份标识;请求不经此 URL(bvid 拼接)
+    engine_options:
+      agent_reach:
+        channel: bilibili            # bilibili | youtube(渠道→CLI 映射钉死:
+                                     # B站禁用 yt-dlp 抓取,上游明令)
+        action: search               # bilibili 词表:search | hot | rank
+        query: "AI agent"            # action=search 必填(搜索词)
+        limit: 10                    # 单次条数帽(缺省 10,1-50)
+        # timeout: 60                # 子进程超时秒(缺省 60,5-300;CLI 自带
+                                     # 重试链,超帽即放弃本 run 下轮再来)
+    rate_limit:                      # 礼貌档:配额敏感平台必配
+      qps: 0.2                       # 同域多源合并取最严;spawn 前过限速器
+      jitter: "2s"
+      backoff: exponential
+    proxy: direct                    # 本机直连实测通;遇阻挂 pool(基座已备)
+    retry: 0                         # 上游 CLI 已做重试链,MYIA 不叠加
+                                     # (PRD 约束 5;引擎无 HTTP 重试循环消费)
+
+watchlist:                          # enrich 关闭时仅做提及量统计,不做降权
+  keywords: [Agent, 智能体, 大模型]
+  mute: [广告, 招聘, 课程推广]
+
+classify:                           # 搜索结果非七大论坛类(searxng 判例)
+  builtin: false                    # 内置扫描只会误杀,关掉直通
+  rules: []
+
+dedup:
+  key: "{url}"                      # 条目 url = bvid 拼接的视频页,稳定唯一;
+                                    # 同视频多日重搜只推一次(全期 seen 拦截)
+
+enrich:                             # 零 token 路线:标题+链接+UP主自解释
+  enabled: false                    # 要 LLM 精评时再开(published 上游无,
+                                    # 不做假数据,模板用 is defined 守卫)
+
+push:
+  - channel: stdout                 # 零凭据通道起步;接飞书等再改 target
+    route:                          # 视频监控全 digest 日报桶(无分数分层)
+      - when: "category == 'news'"
+        mode: digest
+    template: |
+      B站AI视频 · {{ date }}
+      {% for item in items %}
+      - {{ item.title }} {{ item.url }}{% if item.author is defined %}({{ item.author }}){% if item.play is defined %} · 播放{{ item.play }}{% endif %}{% endif %}
+      {% endfor %}
+
+storage:                            # 视频时效短,90d 后清库
+  retention: 90d
+  vacuum: monthly

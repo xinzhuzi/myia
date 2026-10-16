@@ -170,6 +170,12 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # 浏览面,cron 档 sidecar 不在场,不经 IPC)。
     "wechat_local": lambda: getattr(import_module("myssia.wechat.engine"), "WechatLocalEngine"),
     "feishu": lambda: _load("feishu", "FeishuEngine"),
+    # Agent-Reach 平台情报引擎(10-17-agent-reach-absorb):链外同 credhunter
+    # 先例 —— 显式 engine: agent_reach 才生效,auto 永不路过;上游 CLI
+    # (bili/yt-dlp)经 asyncio 子进程直调,MYIA 核心零 import 本体(extras
+    # 钉 tag 直装 GitHub archive,PyPI 同名包为假冒);失败双判据(退出码
+    # 非 0 或 stderr 含 ERROR: 行,yt-dlp 实测坑),WARNING 不算失败。
+    "agent_reach": lambda: _load("agent_reach", "AgentReachEngine"),
 }
 
 # Static typing view of the registry (class names resolved lazily at runtime).

@@ -210,6 +210,11 @@ ENGINES = (
     # 全期幂等(未配凭据 = credential_missing 显式空态零请求,reddit 判例;
     # 权限缺失 = feishu_permission_denied 结构化指引)。
     "feishu",
+    # Agent-Reach 平台情报引擎(10-17-agent-reach-absorb):链外 + 零凭据;
+    # 显式 engine: agent_reach 才生效,上游 CLI(bili/yt-dlp)子进程直调
+    # (B站搜索/热门/排行 + YouTube 频道投稿,免登录档);渠道/action 词表
+    # 与失败语义在引擎内校验(fetch 期,credhunter/prompt 先例)。
+    "agent_reach",
 )
 PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
@@ -292,6 +297,7 @@ EngineName = Literal[
     "tg_web",
     "wechat_local",
     "feishu",
+    "agent_reach",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]
 ExtractType = Literal["list", "item", "json_path", "rss"]

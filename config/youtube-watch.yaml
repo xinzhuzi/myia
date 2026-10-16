@@ -1,0 +1,83 @@
+# config/youtube-watch.yaml — YouTube 频道投稿监控(Agent-Reach 链外引擎,
+# 10-17-agent-reach-absorb):`engine: agent_reach` 显式选择才生效,auto
+# 永不路过;上游 yt-dlp flat-playlist 免登录(无需账号)。与 bilibili-watch
+# 分品类:两平台节奏与 watchlist 各异,且单源单品类便于按平台单独停跑
+# (上游失效即降档停跑,PRD 风险节)。
+# 依赖装法(用户侧/装机钩子,与 bilibili-watch 同一组件):
+#   pip install 'myssia[agent-reach]' && agent-reach install --system
+#   agent-reach doctor --json        # youtube 行 status: ok 即就绪
+# 12 节形状同 news.yaml 逐节内联注解("AI writes the YAML" 参考义务);
+# 装载检查:myssia run config/youtube-watch.yaml --dry-run --json
+# 上游契约唯一依据:.trellis/tasks/10-17-agent-reach-absorb/research/parsers.md
+
+id: youtube-watch
+name: YouTube频道监控
+
+# 每日 09:53(AM 槽,B站源后 12 分钟错峰)一跑:频道投稿按 dedup {url}
+# 全期差集,同视频只推一次。频道列表有 IP 配额(单 IP 低频无碍):
+# --playlist-end 限条数 + 源级 qps 0.2 兜底,调密勿低于小时级。
+schedule: "53 9 * * *"
+timezone: Asia/Shanghai
+
+sources:
+  # Anthropic 官方频道投稿源。handle 已核对:官方是 @anthropic-ai 不是
+  # @AnthropicAI(错 handle 报 404,stderr 出 ERROR: [youtube:tab] 行,
+  # 引擎双判据判失败 —— parsers.md 实测坑)。
+  # **channel_url 必须用 /videos 投稿 tab,不能用频道根**(真跑实锤:
+  # 频道根被 yt-dlp 展开成多 tab —— Videos/Shorts/Live 各算一个 playlist,
+  # --playlist-end 是 per-playlist 帽,根 URL 下 limit 10 实跑出 25 条;
+  # /videos 是单一 playlist,帽才真生效;Shorts/Live 另开源再配)。
+  # 命令形状引擎内固化:`yt-dlp --flat-playlist --print "%(id)s|%(title)s|
+  # %(channel)s" --playlist-end 10 <channel_url>`(限条数必须用
+  # --playlist-end;-I 与 --print 组合实测失效,引擎永不使用)。
+  # 源 url 是身份标识不参与请求(searxng 先例)—— 实际目标由视频 id 拼接:
+  # https://www.youtube.com/watch?v=<id>,即 dedup 锚。
+  - name: yt-anthropic              # yt-<频道> 命名规约(<平台>-<渠道标识>)
+    engine: agent_reach              # 链外引擎:显式选择才生效,auto 永不路过
+    url: "https://www.youtube.com"  # 身份标识;请求不经此 URL(id 拼接)
+    engine_options:
+      agent_reach:
+        channel: youtube            # 渠道→CLI 映射钉死:youtube = yt-dlp
+        action: channel_videos      # youtube 词表仅此一项(搜索需登录,非目标)
+        channel_url: "https://www.youtube.com/@anthropic-ai/videos"
+                                     # 投稿 tab URL;加新频道 = 加新源
+        limit: 10                   # 单次条数帽(缺省 10,1-50)
+        # timeout: 60               # 子进程超时秒(缺省 60,5-300)
+    rate_limit:                      # 礼貌档:IP 配额敏感平台必配
+      qps: 0.2
+      jitter: "2s"
+      backoff: exponential
+    proxy: direct                    # 本机直连实测通;遇阻挂 pool(基座已备)
+    retry: 0                         # yt-dlp 自带重试链,MYIA 不叠加
+                                     # (PRD 约束 5;引擎无 HTTP 重试循环消费)
+
+watchlist:                          # enrich 关闭时仅做提及量统计,不做降权
+  keywords: [Claude, model, release]
+  mute: [shorts, ad]
+
+classify:                           # 视频投稿非七大论坛类(searxng 判例)
+  builtin: false                    # 内置扫描只会误杀,关掉直通
+  rules: []
+
+dedup:
+  key: "{url}"                      # 条目 url = 视频页(watch?v=<id>),稳定
+                                    # 唯一;同视频多日重列只推一次(全期拦截)
+
+enrich:                             # 零 token 路线:标题+链接自解释
+  enabled: false                    # 要 LLM 精评时再开(published 与作者在
+                                    # flat 输出均无/常为 NA,不做假数据)
+
+push:
+  - channel: stdout                 # 零凭据通道起步;接飞书等再改 target
+    route:                          # 频道监控全 digest 日报桶(无分数分层)
+      - when: "category == 'news'"
+        mode: digest
+    template: |
+      YouTube频道 · {{ date }}
+      {% for item in items %}
+      - {{ item.title }} {{ item.url }}{% if item.channel is defined and item.channel != 'NA' %}({{ item.channel }}){% endif %}
+      {% endfor %}
+
+storage:                            # 视频时效短,90d 后清库
+  retention: 90d
+  vacuum: monthly

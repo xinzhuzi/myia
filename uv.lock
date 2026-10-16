@@ -13,6 +13,43 @@ members = [
 ]
 
 [[package]]
+name = "agent-reach"
+version = "1.5.0"
+source = { url = "https://github.com/Panniantong/Agent-Reach/archive/v1.5.0.zip" }
+dependencies = [
+    { name = "feedparser" },
+    { name = "loguru" },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "rich" },
+    { name = "yt-dlp" },
+]
+sdist = { hash = "sha256:7c3d55c59dfdfce05b85b94800dc6ef6cc46caa8fb93a76eca9822eb66adefb2" }
+
+[package.metadata]
+requires-dist = [
+    { name = "browser-cookie3", marker = "extra == 'all'", specifier = ">=0.19" },
+    { name = "browser-cookie3", marker = "extra == 'cookies'", specifier = ">=0.19" },
+    { name = "feedparser", specifier = ">=6.0" },
+    { name = "loguru", specifier = ">=0.7" },
+    { name = "mcp", extras = ["cli"], marker = "extra == 'all'", specifier = ">=1.0" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.12" },
+    { name = "playwright", marker = "extra == 'all'", specifier = ">=1.40" },
+    { name = "playwright", marker = "extra == 'browser'", specifier = ">=1.40" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "python-dotenv", specifier = ">=1.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "requests", specifier = ">=2.28" },
+    { name = "rich", specifier = ">=13.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
+    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
+    { name = "types-requests", marker = "extra == 'dev'", specifier = ">=2.32" },
+    { name = "yt-dlp", specifier = ">=2024.0" },
+]
+provides-extras = ["browser", "cookies", "all", "dev"]
+
+[[package]]
 name = "aiofiles"
 version = "25.1.0"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
@@ -1640,6 +1677,19 @@ wheels = [
 ]
 
 [[package]]
+name = "loguru"
+version = "0.7.3"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "win32-setctime", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/3a/05/a1dae3dffd1116099471c643b8924f5aa6524411dc6c63fdae648c4f1aca/loguru-0.7.3.tar.gz", hash = "sha256:19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6", size = 63559, upload-time = "2024-12-06T11:20:56.608Z" }
+wheels = [
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/0c/29/0348de65b8cc732daa3e33e67806420b2ae89bdce2b04af740289c5c6c8c/loguru-0.7.3-py3-none-any.whl", hash = "sha256:31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c", size = 61595, upload-time = "2024-12-06T11:20:54.538Z" },
+]
+
+[[package]]
 name = "lxml"
 version = "6.1.3"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
@@ -2076,6 +2126,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+agent-reach = [
+    { name = "agent-reach" },
+]
 all = [
     { name = "crawl4ai" },
     { name = "firecrawl-py" },
@@ -2138,6 +2191,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "agent-reach", marker = "extra == 'agent-reach'", url = "https://github.com/Panniantong/Agent-Reach/archive/v1.5.0.zip" },
     { name = "apprise", marker = "extra == 'apprise'", specifier = ">=1.9,<2" },
     { name = "apscheduler", specifier = ">=3.10,<4" },
     { name = "crawl4ai", marker = "extra == 'all'" },
@@ -2174,7 +2228,7 @@ requires-dist = [
     { name = "trafilatura", marker = "extra == 'trafilatura'", specifier = ">=2.3,<3" },
     { name = "websockets", marker = "extra == 'simplex'", specifier = ">=12" },
 ]
-provides-extras = ["crawl4ai", "scrapling", "firecrawl", "skyvern", "simplex", "llm", "vision", "table", "trafilatura", "apprise", "telethon", "browser", "all"]
+provides-extras = ["crawl4ai", "scrapling", "firecrawl", "skyvern", "simplex", "llm", "vision", "table", "trafilatura", "apprise", "telethon", "browser", "agent-reach", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -4525,6 +4579,15 @@ wheels = [
 ]
 
 [[package]]
+name = "win32-setctime"
+version = "1.2.0"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/b3/8f/705086c9d734d3b663af0e9bb3d4de6578d08f46b1b101c2442fd9aecaa2/win32_setctime-1.2.0.tar.gz", hash = "sha256:ae1fdf948f5640aae05c511ade119313fb6a30d7eabe25fef9764dca5873c4c0", size = 4867, upload-time = "2024-12-07T15:28:28.314Z" }
+wheels = [
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/e1/07/c6fe3ad3e685340704d314d765b7912993bcb8dc198f0e7a89382d37974b/win32_setctime-1.2.0-py3-none-any.whl", hash = "sha256:95d644c4e708aba81dc3704a116d8cbc974d70b3bdb8be1d150e36be6e9d1390", size = 4083, upload-time = "2024-12-07T15:28:26.465Z" },
+]
+
+[[package]]
 name = "xxhash"
 version = "3.8.1"
 source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
@@ -4793,6 +4856,15 @@ wheels = [
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/38/02/eef443559563ef8f2e10469387b8b1e97cb5efee95b288a56da60801f7ee/yarl-1.25.1-cp315-cp315t-win_amd64.whl", hash = "sha256:b13b88747769537f3d32e89e3a735da10c0a9e35d7322928c701b5f93d3afffd", size = 106811, upload-time = "2026-09-15T19:34:54.935Z" },
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/88/91/41e284ca2cf5211e05dae031d126a3668aea88fa759df56e7e35c6ad25ba/yarl-1.25.1-cp315-cp315t-win_arm64.whl", hash = "sha256:783dd1467083f4d3f7722ad6a313f24c173e7571372738fcb7a6e6d1ba48df25", size = 101804, upload-time = "2026-09-15T19:34:57.231Z" },
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/54/22/318c7980066769c6bcd9221ed2248294f5698811da099013098c670565ed/yarl-1.25.1-py3-none-any.whl", hash = "sha256:681c758b0490f9e96b78e5fa8e8dc6e648e9185bb6eaebe73183c33ea0c445f3", size = 63617, upload-time = "2026-09-15T19:34:59.616Z" },
+]
+
+[[package]]
+name = "yt-dlp"
+version = "2026.8.19"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/1e/e0/832fa4ca334b766a06933a196066edc3dba37cdb6f14cd98d59bcc69a4b4/yt_dlp-2026.8.19.tar.gz", hash = "sha256:9e213e48cea35c66b378e4447903f118f6392a5fa380a2b6d7070ec86f4e0af1", size = 3052025, upload-time = "2026-08-19T23:48:59.291Z" }
+wheels = [
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/69/b2/8cd1613f56eed7ceb64fbd4df3f1c01246bfb098e6f398228bafda22b80b/yt_dlp-2026.8.19-py3-none-any.whl", hash = "sha256:1d57897e94c6665a0a6f9bc54b34e584284e32c034ffab3a7df25d8f7b24eedf", size = 3185533, upload-time = "2026-08-19T23:48:56.925Z" },
 ]
 
 [[package]]
