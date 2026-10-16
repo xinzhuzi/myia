@@ -1,0 +1,22 @@
+ok: true
+schema_version: '1'
+data:
+- id: BV1xwVr6FEh4
+  bvid: BV1xwVr6FEh4
+  title: 【全748集】目前B站最全最细的AI Agent开发零基础教程，2026最新版，包含所有干货！七天就能从小白到大神！少走99%的弯路！学完即就业，带你玩转AI！
+  author: AI大模型码农
+  play: 1205204
+  duration: '1353:6'
+- id: BV1qrJ166EJW
+  bvid: BV1qrJ166EJW
+  title: 【中英双语字幕】AI Agent 完整指南 2026：从原理到实际使用的全流程拆解
+  author: 混子州
+  play: 1
+  duration: '20:39'
+- id: ''
+  bvid: ''
+  title: 【前沿实战】大模型Agent强化学习实战
+  author: TGLTommyAI
+  play: 28554
+  duration: ''
+

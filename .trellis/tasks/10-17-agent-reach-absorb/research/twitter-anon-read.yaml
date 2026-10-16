@@ -1,0 +1,1320 @@
+ok: true
+schema_version: '1'
+data:
+- id: '1585841080431321088'
+  text: the bird is freed
+  author:
+    id: '44196397'
+    name: Elon Musk
+    screenName: elonmusk
+    profileImageUrl: https://pbs.twimg.com/profile_images/2103567689515954176/aR-Kjpp4_normal.jpg
+    verified: true
+  metrics:
+    likes: 2161462
+    retweets: 292272
+    replies: 121065
+    quotes: 51746
+    views: 0
+    bookmarks: 8316
+  createdAt: Fri Oct 28 03:49:11 +0000 2022
+  createdAtLocal: 2022-10-28 11:49
+  createdAtISO: '2022-10-28T03:49:11+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585841941203537920'
+  text: '@elonmusk https://t.co/cXyT9c9Swc'
+  author:
+    id: '1387497871751196672'
+    name: Watcher.Guru
+    screenName: WatcherGuru
+    profileImageUrl: https://pbs.twimg.com/profile_images/1641221212578754562/DfiC0KW2_normal.png
+    verified: true
+  metrics:
+    likes: 78152
+    retweets: 6860
+    replies: 590
+    quotes: 490
+    views: 0
+    bookmarks: 378
+  createdAt: Fri Oct 28 03:52:36 +0000 2022
+  createdAtLocal: 2022-10-28 11:52
+  createdAtISO: '2022-10-28T03:52:36+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgIK1v3XoAAckSf.jpg
+    width: 544
+    height: 680
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585852430855864320'
+  text: '@WatcherGuru @elonmusk Honest question: why do you take delight in seeing
+    people lose jobs? That’s effed up'
+  author:
+    id: '1478428766225510402'
+    name: burna (account) boy 🏴‍☠️
+    screenName: dankyoumyfriend
+    profileImageUrl: https://pbs.twimg.com/profile_images/1487425629259710471/MTD7yM3d_normal.jpg
+    verified: false
+  metrics:
+    likes: 11788
+    retweets: 177
+    replies: 3020
+    quotes: 99
+    views: 0
+    bookmarks: 37
+  createdAt: Fri Oct 28 04:34:17 +0000 2022
+  createdAtLocal: 2022-10-28 12:34
+  createdAtISO: '2022-10-28T04:34:17+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585853560540913664'
+  text: '@elonmusk Hey @elonmusk — you have an open invitation to move @Twitter HQ
+    to Arizona
+
+
+    DM me and we’ll work it out!'
+  author:
+    id: '1082197856'
+    name: Kari Lake
+    screenName: KariLake
+    profileImageUrl: https://pbs.twimg.com/profile_images/1600623137300750336/JAUThK8o_normal.jpg
+    verified: true
+  metrics:
+    likes: 40974
+    retweets: 3257
+    replies: 1271
+    quotes: 226
+    views: 0
+    bookmarks: 91
+  createdAt: Fri Oct 28 04:38:47 +0000 2022
+  createdAtLocal: 2022-10-28 12:38
+  createdAtISO: '2022-10-28T04:38:47+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585852249062113280'
+  text: '@elonmusk If you listen closely, you can hear leftists screaming in the distance.'
+  author:
+    id: '34367582'
+    name: Tim Young
+    screenName: TimRunsHisMouth
+    profileImageUrl: https://pbs.twimg.com/profile_images/1816146572725432320/Dibh2ArU_normal.jpg
+    verified: true
+  metrics:
+    likes: 39091
+    retweets: 1731
+    replies: 1155
+    quotes: 146
+    views: 0
+    bookmarks: 63
+  createdAt: Fri Oct 28 04:33:34 +0000 2022
+  createdAtLocal: 2022-10-28 12:33
+  createdAtISO: '2022-10-28T04:33:34+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585841994185654273'
+  text: '@elonmusk Yes — Now it’s time to Free Them All:  https://t.co/UmwxPMFkVF'
+  author:
+    id: '15212187'
+    name: Benny Johnson
+    screenName: bennyjohnson
+    profileImageUrl: https://pbs.twimg.com/profile_images/2107104081936281600/SY3opkkF_normal.jpg
+    verified: true
+  metrics:
+    likes: 28420
+    retweets: 6022
+    replies: 902
+    quotes: 389
+    views: 0
+    bookmarks: 377
+  createdAt: Fri Oct 28 03:52:49 +0000 2022
+  createdAtLocal: 2022-10-28 11:52
+  createdAtISO: '2022-10-28T03:52:49+00:00'
+  media:
+  - type: video
+    url: https://video.twimg.com/ext_tw_video/1585829543360724994/pu/vid/1280x720/-lmtkMK__nmztKvx.mp4?tag=12
+    width: 1280
+    height: 720
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585843464431980546'
+  text: '@elonmusk The bird is free, now free the GOAT.
+
+
+    @realDonaldTrump'
+  author:
+    id: '1342989756611907584'
+    name: Rep. Lauren Boebert
+    screenName: RepBoebert
+    profileImageUrl: https://pbs.twimg.com/profile_images/1838308580195184640/Jf6Oh6wf_normal.jpg
+    verified: true
+  metrics:
+    likes: 24103
+    retweets: 2620
+    replies: 1651
+    quotes: 134
+    views: 0
+    bookmarks: 40
+  createdAt: Fri Oct 28 03:58:40 +0000 2022
+  createdAtLocal: 2022-10-28 11:58
+  createdAtISO: '2022-10-28T03:58:40+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585845422001573889'
+  text: '@elonmusk Imagine a Twitter where people could have openly discused COVID
+    facts at the beginning of the “pandemic” without being banned for “misinformation”?
+
+
+    This is a significant step in the right direction for freedom!'
+  author:
+    id: '15029085'
+    name: SETH WEATHERS
+    screenName: sethweathers
+    profileImageUrl: https://pbs.twimg.com/profile_images/1548003692732788738/DhmN3Uyr_normal.jpg
+    verified: true
+  metrics:
+    likes: 23766
+    retweets: 1656
+    replies: 577
+    quotes: 93
+    views: 0
+    bookmarks: 53
+  createdAt: Fri Oct 28 04:06:26 +0000 2022
+  createdAtLocal: 2022-10-28 12:06
+  createdAtISO: '2022-10-28T04:06:26+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585849968706949121'
+  text: "@elonmusk Who would have ever thought that in the course of 6 years \n\n\
+    President Trump would defeat Hillary, POTUS would be banned from social media,\
+    \ Joe Biden would “get more votes than Obama”, the FBI would raid a former president’s\
+    \ private residence, &amp; Elon Musk would buy Twitter?"
+  author:
+    id: '931286316'
+    name: ThePersistence
+    screenName: ScottPresler
+    profileImageUrl: https://pbs.twimg.com/profile_images/1321124227215491072/pIC0lG5M_normal.jpg
+    verified: true
+  metrics:
+    likes: 19825
+    retweets: 2027
+    replies: 520
+    quotes: 83
+    views: 0
+    bookmarks: 97
+  createdAt: Fri Oct 28 04:24:30 +0000 2022
+  createdAtLocal: 2022-10-28 12:24
+  createdAtISO: '2022-10-28T04:24:30+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585845314287714305'
+  text: '@elonmusk When will the wrongfully banned accounts be reinstated?'
+  author:
+    id: '18584875'
+    name: Hodgetwins
+    screenName: hodgetwins
+    profileImageUrl: https://pbs.twimg.com/profile_images/2029992352232919040/UquWwHmh_normal.jpg
+    verified: true
+  metrics:
+    likes: 20263
+    retweets: 970
+    replies: 908
+    quotes: 32
+    views: 0
+    bookmarks: 22
+  createdAt: Fri Oct 28 04:06:01 +0000 2022
+  createdAtLocal: 2022-10-28 12:06
+  createdAtISO: '2022-10-28T04:06:01+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585844877207941120'
+  text: '@elonmusk yea cool whatever bring our accounts back plz'
+  author:
+    id: '1572446416496099329'
+    name: Corn ✧⍣
+    screenName: cornski
+    profileImageUrl: https://pbs.twimg.com/profile_images/1646213816084987913/riQEthlg_normal.jpg
+    verified: true
+  metrics:
+    likes: 15392
+    retweets: 159
+    replies: 808
+    quotes: 12
+    views: 0
+    bookmarks: 34
+  createdAt: Fri Oct 28 04:04:16 +0000 2022
+  createdAtLocal: 2022-10-28 12:04
+  createdAtISO: '2022-10-28T04:04:16+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585861381839994880'
+  text: '@elonmusk Can comedians be funny again on here? Is it safe?'
+  author:
+    id: '20978103'
+    name: Dane Cook
+    screenName: DaneCook
+    profileImageUrl: https://pbs.twimg.com/profile_images/2102226643591090176/v3wtUq6T_normal.jpg
+    verified: true
+  metrics:
+    likes: 9374
+    retweets: 192
+    replies: 1188
+    quotes: 577
+    views: 0
+    bookmarks: 21
+  createdAt: Fri Oct 28 05:09:51 +0000 2022
+  createdAtLocal: 2022-10-28 13:09
+  createdAtISO: '2022-10-28T05:09:51+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585842194791149570'
+  text: '@elonmusk https://t.co/8WRMkLuDP4'
+  author:
+    id: '4865550959'
+    name: The Right To Bear Memes
+    screenName: grandoldmemes
+    profileImageUrl: https://pbs.twimg.com/profile_images/1401344279520464898/1UzVSHes_normal.jpg
+    verified: true
+  metrics:
+    likes: 7372
+    retweets: 878
+    replies: 83
+    quotes: 55
+    views: 0
+    bookmarks: 41
+  createdAt: Fri Oct 28 03:53:37 +0000 2022
+  createdAtLocal: 2022-10-28 11:53
+  createdAtISO: '2022-10-28T03:53:37+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgILEfKWQAItbzt.jpg
+    width: 2048
+    height: 1364
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585843825280307200'
+  text: '@elonmusk https://t.co/qplo1KGdEI'
+  author:
+    id: '1139029234163245056'
+    name: Brick Suit
+    screenName: Brick_Suit
+    profileImageUrl: https://pbs.twimg.com/profile_images/1139034667259113472/XdfrbuLp_normal.jpg
+    verified: true
+  metrics:
+    likes: 7465
+    retweets: 992
+    replies: 109
+    quotes: 37
+    views: 0
+    bookmarks: 32
+  createdAt: Fri Oct 28 04:00:06 +0000 2022
+  createdAtLocal: 2022-10-28 12:00
+  createdAtISO: '2022-10-28T04:00:06+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgIMjQoVsAEXtFy.jpg
+    width: 1594
+    height: 1425
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585841616115224576'
+  text: '@elonmusk https://t.co/w8zoOqc3GH'
+  author:
+    id: '988872519418458112'
+    name: HARD FACTOR
+    screenName: HardFactorNews
+    profileImageUrl: https://pbs.twimg.com/profile_images/1798770415361462274/6wPsFuuH_normal.jpg
+    verified: true
+  metrics:
+    likes: 6541
+    retweets: 559
+    replies: 567
+    quotes: 27
+    views: 0
+    bookmarks: 57
+  createdAt: Fri Oct 28 03:51:19 +0000 2022
+  createdAtLocal: 2022-10-28 11:51
+  createdAtISO: '2022-10-28T03:51:19+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgIKiyvUcAA-Rd9.jpg
+    width: 500
+    height: 500
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585841205392220160'
+  text: '@elonmusk https://t.co/DPs50c3ca4'
+  author:
+    id: '1389913567671975937'
+    name: DogeDesigner
+    screenName: cb_doge
+    profileImageUrl: https://pbs.twimg.com/profile_images/1498070100393754625/C2V-fbll_normal.jpg
+    verified: true
+  metrics:
+    likes: 7384
+    retweets: 328
+    replies: 142
+    quotes: 47
+    views: 0
+    bookmarks: 25
+  createdAt: Fri Oct 28 03:49:41 +0000 2022
+  createdAtLocal: 2022-10-28 11:49
+  createdAtISO: '2022-10-28T03:49:41+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgIKK5NUAAAxFgH.jpg
+    width: 500
+    height: 582
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585842243226996736'
+  text: '@elonmusk https://t.co/x7alx9qJNR'
+  author:
+    id: '87090949'
+    name: Brayden Sutton
+    screenName: BraydenSutton
+    profileImageUrl: https://pbs.twimg.com/profile_images/2109660900844339200/mFG_6SDn_normal.jpg
+    verified: true
+  metrics:
+    likes: 6296
+    retweets: 360
+    replies: 132
+    quotes: 28
+    views: 0
+    bookmarks: 20
+  createdAt: Fri Oct 28 03:53:48 +0000 2022
+  createdAtLocal: 2022-10-28 11:53
+  createdAtISO: '2022-10-28T03:53:48+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgILHazaUAAbSVK.jpg
+    width: 1222
+    height: 1483
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585841729256800256'
+  text: '@elonmusk FREE SPEECH FEELS SO GOOD'
+  author:
+    id: '264361128'
+    name: Liz Wheeler
+    screenName: Liz_Wheeler
+    profileImageUrl: https://pbs.twimg.com/profile_images/1656355870857371648/THTxqX84_normal.jpg
+    verified: true
+  metrics:
+    likes: 5785
+    retweets: 312
+    replies: 119
+    quotes: 6
+    views: 0
+    bookmarks: 7
+  createdAt: Fri Oct 28 03:51:46 +0000 2022
+  createdAtLocal: 2022-10-28 11:51
+  createdAtISO: '2022-10-28T03:51:46+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585896351493414912'
+  text: '@elonmusk https://t.co/SvLaljE19K'
+  author:
+    id: '20675681'
+    name: James Melville 🚜
+    screenName: JamesMelville
+    profileImageUrl: https://pbs.twimg.com/profile_images/1783456437252857856/NN_onwJU_normal.jpg
+    verified: true
+  metrics:
+    likes: 4764
+    retweets: 605
+    replies: 65
+    quotes: 41
+    views: 0
+    bookmarks: 29
+  createdAt: Fri Oct 28 07:28:49 +0000 2022
+  createdAtLocal: 2022-10-28 15:28
+  createdAtISO: '2022-10-28T07:28:49+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgI8UuzXkAAQzml.jpg
+    width: 748
+    height: 748
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585844784438333441'
+  text: '@elonmusk Legendary. 🙌🏾'
+  author:
+    id: '57441414'
+    name: 'ZUBY:'
+    screenName: ZubyMusic
+    profileImageUrl: https://pbs.twimg.com/profile_images/1363770757709508608/EBWhpEq0_normal.jpg
+    verified: true
+  metrics:
+    likes: 5610
+    retweets: 111
+    replies: 34
+    quotes: 0
+    views: 0
+    bookmarks: 6
+  createdAt: Fri Oct 28 04:03:54 +0000 2022
+  createdAtLocal: 2022-10-28 12:03
+  createdAtISO: '2022-10-28T04:03:54+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: in
+  score: null
+- id: '1585842366619029505'
+  text: '@elonmusk Restoring free speech on Twitter https://t.co/1Y9YNeT3mz'
+  author:
+    id: '1317513407881486339'
+    name: NautPoso 🇮🇪☘️
+    screenName: NautPoso
+    profileImageUrl: https://pbs.twimg.com/profile_images/2007111997490429952/rhdJed2Q_normal.png
+    verified: true
+  metrics:
+    likes: 3779
+    retweets: 687
+    replies: 108
+    quotes: 79
+    views: 0
+    bookmarks: 70
+  createdAt: Fri Oct 28 03:54:18 +0000 2022
+  createdAtLocal: 2022-10-28 11:54
+  createdAtISO: '2022-10-28T03:54:18+00:00'
+  media:
+  - type: video
+    url: https://video.twimg.com/ext_tw_video/1583918240908075009/pu/vid/1280x720/gGaB0RZMHZRX2SI_.mp4?tag=12
+    width: 1280
+    height: 720
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585944994732421123'
+  text: '@elonmusk An incredible moment for America, which literally invented free
+    speech via the Declaration of Independence. Europe is very jealous at this moment'
+  author:
+    id: '911290549541289986'
+    name: Three Year Letterman
+    screenName: 3YearLetterman
+    profileImageUrl: https://pbs.twimg.com/profile_images/1049343426284724229/2qvIPXv3_normal.jpg
+    verified: true
+  metrics:
+    likes: 4830
+    retweets: 127
+    replies: 341
+    quotes: 51
+    views: 0
+    bookmarks: 17
+  createdAt: Fri Oct 28 10:42:06 +0000 2022
+  createdAtLocal: 2022-10-28 18:42
+  createdAtISO: '2022-10-28T10:42:06+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585898921729331200'
+  text: '@elonmusk #FreeAssangeNOW'
+  author:
+    id: '611986351'
+    name: Kim Dotcom
+    screenName: KimDotcom
+    profileImageUrl: https://pbs.twimg.com/profile_images/2320423543/9qheijpvtu9g5dteqvvw_normal.jpeg
+    verified: true
+  metrics:
+    likes: 4758
+    retweets: 630
+    replies: 56
+    quotes: 14
+    views: 0
+    bookmarks: 7
+  createdAt: Fri Oct 28 07:39:02 +0000 2022
+  createdAtLocal: 2022-10-28 15:39
+  createdAtISO: '2022-10-28T07:39:02+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585848780511117312'
+  text: '@elonmusk Well done ! Now get back @realdonaldtrump'
+  author:
+    id: '431777800'
+    name: 🇦🇪 HGS
+    screenName: Sajwani
+    profileImageUrl: https://pbs.twimg.com/profile_images/1525434442021539842/99GMvtNA_normal.jpg
+    verified: true
+  metrics:
+    likes: 4085
+    retweets: 347
+    replies: 80
+    quotes: 10
+    views: 0
+    bookmarks: 11
+  createdAt: Fri Oct 28 04:19:47 +0000 2022
+  createdAtLocal: 2022-10-28 12:19
+  createdAtISO: '2022-10-28T04:19:47+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585842012581814272'
+  text: '@elonmusk The people of earth thank you.'
+  author:
+    id: '31263848'
+    name: stevenmarkryan
+    screenName: stevenmarkryan
+    profileImageUrl: https://pbs.twimg.com/profile_images/2109571663662825473/fRTDjehK_normal.jpg
+    verified: true
+  metrics:
+    likes: 4306
+    retweets: 99
+    replies: 116
+    quotes: 5
+    views: 0
+    bookmarks: 4
+  createdAt: Fri Oct 28 03:52:53 +0000 2022
+  createdAtLocal: 2022-10-28 11:52
+  createdAtISO: '2022-10-28T03:52:53+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585841163772211201'
+  text: '@elonmusk https://t.co/QvzugTlHX8'
+  author:
+    id: '1389913567671975937'
+    name: DogeDesigner
+    screenName: cb_doge
+    profileImageUrl: https://pbs.twimg.com/profile_images/1498070100393754625/C2V-fbll_normal.jpg
+    verified: true
+  metrics:
+    likes: 3894
+    retweets: 201
+    replies: 1396
+    quotes: 9
+    views: 0
+    bookmarks: 17
+  createdAt: Fri Oct 28 03:49:31 +0000 2022
+  createdAtLocal: 2022-10-28 11:49
+  createdAtISO: '2022-10-28T03:49:31+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgIKIdNVQAA6D1t.jpg
+    width: 1136
+    height: 1134
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585851182886834176'
+  text: '@elonmusk Bhai India se sab parody wale milke aapko time to time hafta bhej
+    diya karenge. 🙏'
+  author:
+    id: '115887279'
+    name: Rofl Gandhi 2.0 🏹 Commentary
+    screenName: RoflGandhi_
+    profileImageUrl: https://pbs.twimg.com/profile_images/1554781075443855360/LLjUTHAO_normal.jpg
+    verified: true
+  metrics:
+    likes: 4463
+    retweets: 219
+    replies: 66
+    quotes: 9
+    views: 0
+    bookmarks: 3
+  createdAt: Fri Oct 28 04:29:20 +0000 2022
+  createdAtLocal: 2022-10-28 12:29
+  createdAtISO: '2022-10-28T04:29:20+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: hi
+  score: null
+- id: '1585841683627114498'
+  text: '@elonmusk Elon at his first Twitter meeting https://t.co/wNWtKB1bAr'
+  author:
+    id: '1356434353623093249'
+    name: greg
+    screenName: greg16676935420
+    profileImageUrl: https://pbs.twimg.com/profile_images/1581014308397502464/NPogKMyk_normal.jpg
+    verified: true
+  metrics:
+    likes: 4061
+    retweets: 182
+    replies: 70
+    quotes: 5
+    views: 0
+    bookmarks: 10
+  createdAt: Fri Oct 28 03:51:35 +0000 2022
+  createdAtLocal: 2022-10-28 11:51
+  createdAtISO: '2022-10-28T03:51:35+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgIKmzeXoAU-C7p.jpg
+    width: 612
+    height: 380
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585847618563108866'
+  text: '@elonmusk Elon bhai Dil ke bahut achhe insaan hain, kabhi kabhi gussa kar
+    jaate hain bas, gusse mein Parag ko nikaal diya, lekin khud baahar tak drop karne
+    aaye. Elon bhai parody walon ko Twitter se nahi nikalenge, ye Elon bhai ki Duniya
+    hai, hum sirf isme jee rahe hain. 🙏🙏🙏'
+  author:
+    id: '115887279'
+    name: Rofl Gandhi 2.0 🏹 Commentary
+    screenName: RoflGandhi_
+    profileImageUrl: https://pbs.twimg.com/profile_images/1554781075443855360/LLjUTHAO_normal.jpg
+    verified: true
+  metrics:
+    likes: 4040
+    retweets: 264
+    replies: 47
+    quotes: 5
+    views: 0
+    bookmarks: 4
+  createdAt: Fri Oct 28 04:15:10 +0000 2022
+  createdAtLocal: 2022-10-28 12:15
+  createdAtISO: '2022-10-28T04:15:10+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: hi
+  score: null
+- id: '1585841262489239555'
+  text: '@elonmusk Free Trump'
+  author:
+    id: '1508627477224112129'
+    name: Real Political Data
+    screenName: RealPData
+    profileImageUrl: https://pbs.twimg.com/profile_images/1642007116914339842/1qGXPUsw_normal.jpg
+    verified: true
+  metrics:
+    likes: 3762
+    retweets: 105
+    replies: 95
+    quotes: 1
+    views: 0
+    bookmarks: 0
+  createdAt: Fri Oct 28 03:49:55 +0000 2022
+  createdAtLocal: 2022-10-28 11:49
+  createdAtISO: '2022-10-28T03:49:55+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585981561932959744'
+  text: '@elonmusk Twitter shall write no code abridging the freedom of speech...'
+  author:
+    id: '244647486'
+    name: Michael Saylor
+    screenName: saylor
+    profileImageUrl: https://pbs.twimg.com/profile_images/1485632175932383235/8t0DGo6V_normal.jpg
+    verified: true
+  metrics:
+    likes: 2798
+    retweets: 229
+    replies: 99
+    quotes: 7
+    views: 0
+    bookmarks: 10
+  createdAt: Fri Oct 28 13:07:25 +0000 2022
+  createdAtLocal: 2022-10-28 21:07
+  createdAtISO: '2022-10-28T13:07:25+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585842621913522176'
+  text: '@elonmusk This makes me so happy. It’s a great day for freedom.'
+  author:
+    id: '3530136020'
+    name: Matthew Marsden
+    screenName: matthewdmarsden
+    profileImageUrl: https://pbs.twimg.com/profile_images/2026714887515201537/_hUQa0ps_normal.jpg
+    verified: true
+  metrics:
+    likes: 3613
+    retweets: 118
+    replies: 114
+    quotes: 7
+    views: 0
+    bookmarks: 4
+  createdAt: Fri Oct 28 03:55:19 +0000 2022
+  createdAtLocal: 2022-10-28 11:55
+  createdAtISO: '2022-10-28T03:55:19+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585842228249124864'
+  text: '@elonmusk In retrospect, it was inevitable. https://t.co/9TmmkEXEOi'
+  author:
+    id: '1200616796295847936'
+    name: unusual_whales
+    screenName: unusual_whales
+    profileImageUrl: https://pbs.twimg.com/profile_images/1714107328134516736/dLZGJPm7_normal.png
+    verified: true
+  metrics:
+    likes: 3450
+    retweets: 247
+    replies: 35
+    quotes: 5
+    views: 0
+    bookmarks: 17
+  createdAt: Fri Oct 28 03:53:45 +0000 2022
+  createdAtLocal: 2022-10-28 11:53
+  createdAtISO: '2022-10-28T03:53:45+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgILGc4WQAA7hHL.jpg
+    width: 623
+    height: 468
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1586014030124171264'
+  text: '@elonmusk Hey Elon, if you really mean it, Can you prove that ALL SIDES will
+    get HEARD, and get Johnny Depp''s Lawyer Adam Waldman @Adam_Waldman back on here?
+    He should have never been booted in the first place. https://t.co/NSNcpdwMUg'
+  author:
+    id: '38678666'
+    name: Andy Signore
+    screenName: andysignore
+    profileImageUrl: https://pbs.twimg.com/profile_images/1587762942254145536/slJMQgYR_normal.jpg
+    verified: true
+  metrics:
+    likes: 2451
+    retweets: 398
+    replies: 100
+    quotes: 73
+    views: 0
+    bookmarks: 15
+  createdAt: Fri Oct 28 15:16:26 +0000 2022
+  createdAtLocal: 2022-10-28 23:16
+  createdAtISO: '2022-10-28T15:16:26+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgKm9rVWIAA__lV.png
+    width: 535
+    height: 729
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585842168379641856'
+  text: '@elonmusk Long live the king https://t.co/LFAaW0XiFZ'
+  author:
+    id: '1222539520308105223'
+    name: Harrison Krank
+    screenName: HarrisonKrank
+    profileImageUrl: https://pbs.twimg.com/profile_images/1890257424470405120/kr2oIc7Z_normal.jpg
+    verified: true
+  metrics:
+    likes: 2782
+    retweets: 120
+    replies: 59
+    quotes: 8
+    views: 0
+    bookmarks: 2
+  createdAt: Fri Oct 28 03:53:31 +0000 2022
+  createdAtLocal: 2022-10-28 11:53
+  createdAtISO: '2022-10-28T03:53:31+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgILC_vacAAlsDZ.jpg
+    width: 1280
+    height: 720
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585841691398852608'
+  text: '@elonmusk https://t.co/EnTJ0QOU1s'
+  author:
+    id: '1317513407881486339'
+    name: NautPoso 🇮🇪☘️
+    screenName: NautPoso
+    profileImageUrl: https://pbs.twimg.com/profile_images/2007111997490429952/rhdJed2Q_normal.png
+    verified: true
+  metrics:
+    likes: 2168
+    retweets: 385
+    replies: 29
+    quotes: 43
+    views: 0
+    bookmarks: 46
+  createdAt: Fri Oct 28 03:51:37 +0000 2022
+  createdAtLocal: 2022-10-28 11:51
+  createdAtISO: '2022-10-28T03:51:37+00:00'
+  media:
+  - type: video
+    url: https://video.twimg.com/ext_tw_video/1521335579560005632/pu/vid/640x360/BESO9_i3J8jpqtFR.mp4?tag=12
+    width: 640
+    height: 360
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585844366660075520'
+  text: '@elonmusk Freebird.'
+  author:
+    id: '18266688'
+    name: Tom Fitton
+    screenName: TomFitton
+    profileImageUrl: https://pbs.twimg.com/profile_images/964235516794171392/ktAX5u2i_normal.jpg
+    verified: true
+  metrics:
+    likes: 2819
+    retweets: 208
+    replies: 49
+    quotes: 3
+    views: 0
+    bookmarks: 1
+  createdAt: Fri Oct 28 04:02:15 +0000 2022
+  createdAtLocal: 2022-10-28 12:02
+  createdAtISO: '2022-10-28T04:02:15+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585841587422081025'
+  text: '@elonmusk Elon Musk JUST CHANGED EVERYTHING! :)'
+  author:
+    id: '805532293951606785'
+    name: Matt Wallace
+    screenName: MattWallace888
+    profileImageUrl: https://pbs.twimg.com/profile_images/1887758095260262400/3fcnhNc-_normal.jpg
+    verified: true
+  metrics:
+    likes: 2544
+    retweets: 166
+    replies: 111
+    quotes: 6
+    views: 0
+    bookmarks: 3
+  createdAt: Fri Oct 28 03:51:12 +0000 2022
+  createdAtLocal: 2022-10-28 11:51
+  createdAtISO: '2022-10-28T03:51:12+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585888958663491584'
+  text: '@elonmusk Dear @elonmusk, Twitter #BlueTick is unequal, discriminatory, hierarchical
+    and arbitrary. It creates an apartheid in conversations. It is also against internet
+    equality. Please change the system. #Democratise_Verification #Remove_all_BlueTicks'
+  author:
+    id: '37365807'
+    name: Dilip Mandal
+    screenName: Profdilipmandal
+    profileImageUrl: https://pbs.twimg.com/profile_images/1827130585250189312/r_Worjdm_normal.jpg
+    verified: true
+  metrics:
+    likes: 1728
+    retweets: 459
+    replies: 85
+    quotes: 13
+    views: 0
+    bookmarks: 7
+  createdAt: Fri Oct 28 06:59:26 +0000 2022
+  createdAtLocal: 2022-10-28 14:59
+  createdAtISO: '2022-10-28T06:59:26+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585843007810830337'
+  text: '@elonmusk Thank you, Elon!! There is important work to be done and you have
+    just assisted in that immeasurably. #GaysAgainstGroomers'
+  author:
+    id: '1533857787486388226'
+    name: Gays Against Groomers
+    screenName: againstgrmrs
+    profileImageUrl: https://pbs.twimg.com/profile_images/1930614648912449536/dAZorHRE_normal.jpg
+    verified: true
+  metrics:
+    likes: 2159
+    retweets: 160
+    replies: 26
+    quotes: 4
+    views: 0
+    bookmarks: 1
+  createdAt: Fri Oct 28 03:56:51 +0000 2022
+  createdAtLocal: 2022-10-28 11:56
+  createdAtISO: '2022-10-28T03:56:51+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585841596154642432'
+  text: '@elonmusk Congrats, Elon.  Can’t wait to see how you lead Twitter to better
+    places.  Many are rooting you on.'
+  author:
+    id: '29893444'
+    name: Dave Lee
+    screenName: davelee
+    profileImageUrl: https://pbs.twimg.com/profile_images/1220120600468803584/ZUzWK41c_normal.jpg
+    verified: true
+  metrics:
+    likes: 2495
+    retweets: 74
+    replies: 47
+    quotes: 1
+    views: 0
+    bookmarks: 7
+  createdAt: Fri Oct 28 03:51:14 +0000 2022
+  createdAtLocal: 2022-10-28 11:51
+  createdAtISO: '2022-10-28T03:51:14+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585842060820635650'
+  text: '@elonmusk Bring back
+
+    @RealDonaldTrump
+
+    @RyLiberty
+
+    @DanielLMcAdams
+
+    @ReedCoverdale
+
+    @FatComicDave'
+  author:
+    id: '80611812'
+    name: LPNH 🦔
+    screenName: LPNH
+    profileImageUrl: https://pbs.twimg.com/profile_images/1575957883325399059/dh8sBsZU_normal.jpg
+    verified: true
+  metrics:
+    likes: 1885
+    retweets: 109
+    replies: 568
+    quotes: 12
+    views: 0
+    bookmarks: 17
+  createdAt: Fri Oct 28 03:53:05 +0000 2022
+  createdAtLocal: 2022-10-28 11:53
+  createdAtISO: '2022-10-28T03:53:05+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585882656117755904'
+  text: '@elonmusk Elon u just acquired Twitter &amp; ur first move was to fire several
+    executives including Parag? U said u acquired Twitter to help f!ght aga!nst anti-free
+    speech but ur actions suggests otherw!se. U ¤nly want p¤wer, a platform where
+    u can dr!ve &amp; !nfluence global c¤nversations.'
+  author:
+    id: '1213321063465025536'
+    name: Daniel Regha
+    screenName: DanielRegha
+    profileImageUrl: https://pbs.twimg.com/profile_images/1317834609606987778/eE_22osi_normal.jpg
+    verified: true
+  metrics:
+    likes: 1803
+    retweets: 88
+    replies: 614
+    quotes: 39
+    views: 0
+    bookmarks: 9
+  createdAt: Fri Oct 28 06:34:24 +0000 2022
+  createdAtLocal: 2022-10-28 14:34
+  createdAtISO: '2022-10-28T06:34:24+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585873057440153600'
+  text: '@elonmusk Now can I say that men are not women, humans cannot change sex
+    &amp; that pedophilia is wrong?'
+  author:
+    id: '1148466575491702785'
+    name: TheFamousArtistBirdyRose
+    screenName: TheFamousArtBR
+    profileImageUrl: https://pbs.twimg.com/profile_images/2107203752440537088/feCqbG2n_normal.jpg
+    verified: true
+  metrics:
+    likes: 1832
+    retweets: 137
+    replies: 57
+    quotes: 5
+    views: 0
+    bookmarks: 4
+  createdAt: Fri Oct 28 05:56:15 +0000 2022
+  createdAtLocal: 2022-10-28 13:56
+  createdAtISO: '2022-10-28T05:56:15+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585841385940389889'
+  text: '@elonmusk https://t.co/E8Iy7qx6fR'
+  author:
+    id: '4054001539'
+    name: Albert Latham
+    screenName: albert1776
+    profileImageUrl: https://pbs.twimg.com/profile_images/1437904060233965571/_8Jr0gAv_normal.jpg
+    verified: true
+  metrics:
+    likes: 1854
+    retweets: 167
+    replies: 21
+    quotes: 8
+    views: 0
+    bookmarks: 8
+  createdAt: Fri Oct 28 03:50:24 +0000 2022
+  createdAtLocal: 2022-10-28 11:50
+  createdAtISO: '2022-10-28T03:50:24+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgIKVaAXEAE7HcA.jpg
+    width: 473
+    height: 339
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585841588093083649'
+  text: '@elonmusk https://t.co/uCZRmvgtwj'
+  author:
+    id: '858716964'
+    name: PFT Commenter
+    screenName: PFTCommenter
+    profileImageUrl: https://pbs.twimg.com/profile_images/2015561159793913856/RB_j0Jjm_normal.jpg
+    verified: true
+  metrics:
+    likes: 2336
+    retweets: 0
+    replies: 18
+    quotes: 0
+    views: 0
+    bookmarks: 2
+  createdAt: Fri Oct 28 03:51:12 +0000 2022
+  createdAtLocal: 2022-10-28 11:51
+  createdAtISO: '2022-10-28T03:51:12+00:00'
+  media:
+  - type: animated_gif
+    url: https://video.twimg.com/tweet_video/FgIKhCLXkAE_iR2.mp4
+    width: 498
+    height: 280
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585844841639985152'
+  text: '@elonmusk @libsoftiktok https://t.co/Cc9GWPZXD8'
+  author:
+    id: '18584875'
+    name: Hodgetwins
+    screenName: hodgetwins
+    profileImageUrl: https://pbs.twimg.com/profile_images/2029992352232919040/UquWwHmh_normal.jpg
+    verified: true
+  metrics:
+    likes: 2135
+    retweets: 98
+    replies: 35
+    quotes: 2
+    views: 0
+    bookmarks: 5
+  createdAt: Fri Oct 28 04:04:08 +0000 2022
+  createdAtLocal: 2022-10-28 12:04
+  createdAtISO: '2022-10-28T04:04:08+00:00'
+  media:
+  - type: animated_gif
+    url: https://video.twimg.com/tweet_video/FgINeYOXkAMyyUb.mp4
+    width: 282
+    height: 498
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585842495241347073'
+  text: '@elonmusk Trump should be arrested, not welcomed back here.'
+  author:
+    id: '217665748'
+    name: Bill Johnson
+    screenName: Bill43111
+    profileImageUrl: https://pbs.twimg.com/profile_images/2093139050588962817/QbrfRzul_normal.jpg
+    verified: true
+  metrics:
+    likes: 1536
+    retweets: 68
+    replies: 353
+    quotes: 8
+    views: 0
+    bookmarks: 0
+  createdAt: Fri Oct 28 03:54:49 +0000 2022
+  createdAtLocal: 2022-10-28 11:54
+  createdAtISO: '2022-10-28T03:54:49+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: en
+  score: null
+- id: '1585843876056944640'
+  text: '@elonmusk https://t.co/2K9ZCBM9I6'
+  author:
+    id: '1387489102799376388'
+    name: Goy Gems
+    screenName: GoyGems
+    profileImageUrl: https://pbs.twimg.com/profile_images/2059162439258943488/z5_yootm_normal.jpg
+    verified: true
+  metrics:
+    likes: 1587
+    retweets: 76
+    replies: 22
+    quotes: 4
+    views: 0
+    bookmarks: 9
+  createdAt: Fri Oct 28 04:00:18 +0000 2022
+  createdAtLocal: 2022-10-28 12:00
+  createdAtISO: '2022-10-28T04:00:18+00:00'
+  media:
+  - type: photo
+    url: https://pbs.twimg.com/media/FgIMmbDacAA3v8F.png
+    width: 1280
+    height: 1600
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: qme
+  score: null
+- id: '1585845303256629248'
+  text: '@elonmusk Elon-e-Jung ho gaya'
+  author:
+    id: '115887279'
+    name: Rofl Gandhi 2.0 🏹 Commentary
+    screenName: RoflGandhi_
+    profileImageUrl: https://pbs.twimg.com/profile_images/1554781075443855360/LLjUTHAO_normal.jpg
+    verified: true
+  metrics:
+    likes: 1946
+    retweets: 72
+    replies: 22
+    quotes: 1
+    views: 0
+    bookmarks: 3
+  createdAt: Fri Oct 28 04:05:58 +0000 2022
+  createdAtLocal: 2022-10-28 12:05
+  createdAtISO: '2022-10-28T04:05:58+00:00'
+  media: []
+  urls: []
+  isRetweet: false
+  retweetedBy: null
+  lang: tl
+  score: null
+

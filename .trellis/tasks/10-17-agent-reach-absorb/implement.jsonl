@@ -1,0 +1,7 @@
+{"file": ".trellis/spec/python/index.md", "reason": "Python 工程约定:依赖分层(extras 可选依赖纪律)、引擎六层架构、src/ 边界、核心零重依赖红线——新引擎一切结构决策的底座"}
+{"file": ".trellis/spec/python/error-handling.md", "reason": "结构化 FetchError/error_type 语义与失败分类约定——引擎失败语义总表实现依据"}
+{"file": ".trellis/spec/python/quality.md", "reason": "测试与质量门禁约定——新增引擎测试的形态与覆盖要求"}
+{"file": ".trellis/tasks/10-17-agent-reach-absorb/research/upstream-SKILL.md", "reason": "上游 Agent-Reach SKILL.md 原文存档:16 平台命令契约、零配置/需登录态分界、B站勿用 yt-dlp 等硬规则——适配器命令面唯一权威"}
+{"file": ".trellis/tasks/10-17-agent-reach-absorb/research/parsers.md", "reason": "grill 实测固化:安装/落盘事实、doctor --json 契约、bili/twitter/yt-dlp 输出格式与全部实测坑(空 bvid、-I 限条数失效、退出码双判据、WARNING 非失败)——解析器与 subprocess 纪律的实现依据"}
+{"file": ".trellis/tasks/10-17-agent-reach-absorb/research/upstream-llms.txt", "reason": "上游 llms.txt:架构定位(安装器+路由器+doctor 体检,真正干活的是上游 CLI)、GitHub 直装警告——组件接入面依据"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "长任务监控/先报量再动手/高星参考纪律——第 0 步上游实测与真跑验收的操作纪律"}

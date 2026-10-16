@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/python/quality.md", "reason": "质量门禁:pytest/ruff/mypy 基线与测试约定——check 阶段的通过标准"}
+{"file": ".trellis/spec/python/error-handling.md", "reason": "结构化失败约定——核对引擎失败语义表是否全部走 FetchError 分类而非裸异常"}
+{"file": ".trellis/tasks/10-17-agent-reach-absorb/prd.md", "reason": "验收标准 AC1-AC8 清单与约束(链接者铁律/零新核心依赖/链外语义)——逐条对照验收的唯一依据"}
+{"file": ".trellis/spec/guides/search-sop.md", "reason": "提交前 detect-changes 核受影响面与仓库搜索铁律——收尾提交段的操作依据"}
