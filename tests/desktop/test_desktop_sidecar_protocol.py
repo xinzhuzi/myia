@@ -4742,21 +4742,28 @@ def test_image_files_purge_rejects_bad_days(tmp_path, monkeypatch):
 
 
 def _seed_feedback_db(tmp_path: Path) -> str:
-    """带一条目 + 一条既有 CLI 反馈的种子库(mark 往返的对照面)。"""
-    from datetime import datetime, timezone
+    """带一条目 + 一条既有 CLI 反馈的种子库(mark 往返的对照面)。
+
+    种子时间相对 now(feedback stats 的窗口是 now 相对的,见 feedback/
+    tuning.py stats()):硬编码日期会在窗口外腐烂(2026-10-17 实锤:10-02
+    种子出了 14 天窗,stats 全零红);相对错 1 天保住「反馈比条目旧一天」
+    的原始相对关系。
+    """
+    from datetime import datetime, timedelta, timezone
 
     from myssia.store.models import FEEDBACK_CHANNEL_CLI, FeedbackRecord, ItemRecord
 
+    now = datetime.now(timezone.utc)
     db = tmp_path / "feedback.db"
     store = SQLiteStore(str(db))
     store.save_item(ItemRecord(
         url="https://example.com/fb", dedup_key="fb-key-1", title="反馈条目",
-        category="proto-demo", first_seen=datetime(2026, 10, 3, tzinfo=timezone.utc),
+        category="proto-demo", first_seen=now - timedelta(days=1),
     ))
     store.save_feedback(FeedbackRecord(
         dedup_key="fb-key-0", verdict="good", channel=FEEDBACK_CHANNEL_CLI,
         item_id=None, title="旧条", category=None,
-        created_at=datetime(2026, 10, 2, tzinfo=timezone.utc),
+        created_at=now - timedelta(days=2),
     ))
     store.close()
     return str(db)
