@@ -30,6 +30,10 @@ name: AI厂商官网观察
 schedule: "0 8 * * *"          # 每天 08:00(cron 挂点同款语义)
 timezone: Asia/Shanghai
 
+timeouts:
+  fetch: 720                     # 本地 27b LLM 单轮 600s + 三页抓取余量(2026-10-17
+                                 # 本地切轨;缺省 120s 会在 LLM 出摘要前杀掉采集)
+
 sources:
   - name: ai-vendor-watch
     engine: prompt             # 链外引擎:显式选择才生效,auto 永不路过
@@ -50,11 +54,13 @@ sources:
           - "https://www.anthropic.com/news"       # SSR HTML(trafilatura 通路)
           - "https://openai.com/news/rss.xml"      # 官网 RSS(feedparser 通路;
           - "https://deepmind.google/blog/rss.xml" # HTML 页=CF 403/JS 壳,feed 放行)
-        model: glm-5.3-flash                 # 缺省同 schema DEFAULT_ENRICH_MODEL
-        base_url: keychain:myia/llm/base_url    # 智谱 PAAS v4 端点(ai-news
-        api_key: keychain:myia/image/api_key    # enrich 同链既有 GLM 凭据)
-        max_chars_per_url: 6000            # 每页正文进 prompt 的截断(token 护栏)
-        timeout: 180                       # LLM 单轮超时秒
+        model: qwen3.8-27b-coder390   # 本地 LM Studio(2026-10-17 深夜切轨:GLM 云钥余额尽,本机优先判例)                 # 缺省同 schema DEFAULT_ENRICH_MODEL
+        base_url: keychain:myia/llm/local-base-url   # LM Studio 1234    # 智谱 PAAS v4 端点(ai-news
+        api_key: keychain:myia/llm/local-api-key   # LM Studio 本地无鉴权,占位键    # enrich 同链既有 GLM 凭据)
+        max_chars_per_url: 3500   # 27b 本地减负(原 6000)            # 每页正文进 prompt 的截断(token 护栏)
+        timeout: 600   # 27b 本地推理宽预算
+        disable_thinking: true       # qwen3.8 思考吞输出帽(实测空正文;LM Studio 模板开关未全生效,双保险)
+        max_output: 16384            # 单位 token(键避凭据启发式);思考型:思考 5k+正文 2k 都要装下                       # LLM 单轮超时秒
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
     proxy: direct                          # direct/pool:<名称> 均可(走引擎 HTTP 栈)
     retry: 3

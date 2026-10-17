@@ -14,6 +14,10 @@ name: AI优惠守望
 schedule: "0 8 * * *"          # 每天 08:00(与羊毛件同槽,合并日报 08:05 承载)
 timezone: Asia/Shanghai
 
+timeouts:
+  fetch: 720                     # 本地 27b LLM 单轮 600s + 三页抓取余量(2026-10-17
+                                 # 本地切轨;缺省 120s 会在 LLM 出摘要前杀掉采集)
+
 sources:
   - name: ai-token-deals
     engine: prompt
@@ -35,11 +39,13 @@ sources:
           - "https://linux.sb/"                 # 社区最新帖(羊毛件已验证通路)
           - "https://bbs.bt.sb/latest"
           - "https://www.nodeloc.com/latest"
-        model: glm-5.3-flash
-        base_url: keychain:myia/llm/base_url
-        api_key: keychain:myia/image/api_key
-        max_chars_per_url: 6000
-        timeout: 180
+        model: qwen3.8-27b-coder390   # 本地 LM Studio(2026-10-17 深夜切轨:GLM 云钥余额尽,本机优先判例)
+        base_url: keychain:myia/llm/local-base-url   # LM Studio 1234
+        api_key: keychain:myia/llm/local-api-key   # LM Studio 本地无鉴权,占位键
+        max_chars_per_url: 3500   # 27b 本地减负(原 6000)
+        timeout: 600   # 27b 本地推理宽预算
+        disable_thinking: true       # qwen3.8 思考吞输出帽(实测空正文;LM Studio 模板开关未全生效,双保险)
+        max_output: 16384            # 单位 token(键避凭据启发式);思考型:思考 5k+正文 2k 都要装下
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
     proxy: direct
     retry: 3

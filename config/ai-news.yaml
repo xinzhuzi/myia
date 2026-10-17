@@ -452,22 +452,25 @@ dedup:
   key: "{url}"                  # default semantics, spelled out for clarity
 
 enrich:
-  enabled: true                 # 10-03-vision-daily A2:第二层漏斗实开;端点凭据
+  enabled: false                # 2026-10-17 深夜:云钥余额尽切本地后关闭——本地思考型
+                                # 60s/批必超时半喉空转;主链(采集+推送)不受影响。
+                                # 恢复条件:GLM 充值或 LM Studio 换非思考模型。原注释:
+                                # 10-03-vision-daily A2:第二层漏斗实开;端点凭据
                                 # 双引用(schema 铁律:base_url/api_key 只收
                                 # env:/keychain: 引用,明文拒载 — grill Q6)
-  model: glm-5.3-flash
+  model: qwen3.8-27b-coder390   # 本地 LM Studio(2026-10-17 切轨:云钥余额尽;本地优先判例)
   scores: [value, relevance, credibility]
   batch: 10                   # 10-03-vision-daily 实测:glm-5.3-flash 单批 20 条
                               # 评分 completion >60s 超时上限(enrich 层批级降级);
                               # 10 条留足余量,mini-batch(≤2 条)~6s 实证
   cache: true
   budget_per_run: 50000
-  base_url: keychain:myia/llm/base_url   # 智谱 PAAS v4:https://open.bigmodel.cn/api/paas/v4
+  base_url: keychain:myia/llm/local-base-url   # 智谱 PAAS v4:https://open.bigmodel.cn/api/paas/v4
                                 # (值非密钥;10-03 桌面零 env 化:自 env:MYIA_LLM_BASE_URL
                                 # 迁入钥匙链——桌面 sidecar 无 shell env,env: 引用会在
                                 # 桌面 run 构造期 fail-fast;CLI/桌面同链录入:
                                 # myssia secret set myia/llm/base_url,或桌面端凭据页)
-  api_key: keychain:myia/image/api_key   # 既有 GLM key(与 vision.yaml cloud 同链;
+  api_key: keychain:myia/llm/local-api-key   # 既有 GLM key(与 vision.yaml cloud 同链;
                                 # myssia secret set myia/image/api_key 录入)
 
 push:

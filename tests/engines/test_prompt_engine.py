@@ -192,6 +192,27 @@ def test_plaintext_endpoint_refused_at_load():
         )
 
 
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"max_output": "4096"},        # 非整数
+        {"max_output": 99},            # 下界外
+        {"disable_thinking": "yes"},   # 非布尔
+    ],
+)
+def test_local_model_option_guards(overrides, monkeypatch):
+    """max_output/disable_thinking 形状门(2026-10-17 本地思考型支持)."""
+    monkeypatch.setenv(ENV_URL, "https://llm.example.com/v1")
+    monkeypatch.setenv(ENV_KEY, "sk-test-not-a-real-key")
+    source = prompt_source(
+        engine_options={"prompt": prompt_options(**overrides)},
+    )
+    engine, _, _ = prompt_engine(source)
+    with pytest.raises(FetchError) as excinfo:
+        run(engine.fetch())
+    assert excinfo.value.error_type == "invalid_engine_options"
+
+
 def test_urls_over_limit_rejected(monkeypatch):
     many = [f"https://host{i}.example.com/" for i in range(MAX_URLS_PER_SOURCE + 1)]
     source = prompt_source(engine_options={"prompt": prompt_options(urls=many)})

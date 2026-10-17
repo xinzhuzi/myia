@@ -270,7 +270,6 @@ class PromptEngine(BaseEngine):
                 f"当前为 {max_chars!r}",
                 error_type="invalid_engine_options",
             )
-        max_output = DEFAULT_MAX_OUTPUT_TOKENS
         timeout = options.get("timeout", DEFAULT_TIMEOUT_SECONDS)
         if (
             isinstance(timeout, bool)
@@ -279,6 +278,24 @@ class PromptEngine(BaseEngine):
         ):
             raise FetchError(
                 f"engine_options.prompt.timeout 应为正数秒,当前为 {timeout!r}",
+                error_type="invalid_engine_options",
+            )
+        max_output = options.get("max_output", DEFAULT_MAX_OUTPUT_TOKENS)
+        if (
+            isinstance(max_output, bool)
+            or not isinstance(max_output, int)
+            or not 100 <= max_output <= 32768
+        ):
+            raise FetchError(
+                "engine_options.prompt.max_output 应为 100-32768 整数"
+                "(单位 token;键名不带 token 字样是避开 schema 凭据启发式,"
+                f"值非凭据),当前为 {max_output!r}",
+                error_type="invalid_engine_options",
+            )
+        disable_thinking = options.get("disable_thinking", False)
+        if not isinstance(disable_thinking, bool):
+            raise FetchError(
+                f"engine_options.prompt.disable_thinking 应为布尔,当前为 {disable_thinking!r}",
                 error_type="invalid_engine_options",
             )
         return {
@@ -291,6 +308,14 @@ class PromptEngine(BaseEngine):
             "max_chars_per_url": max_chars,
             "max_output_tokens": max_output,
             "timeout": float(timeout),
+            # 本地思考型模型关思考(2026-10-17:qwen3.8 推理 token 吞尽输出帽,
+            # 正文空;LM Studio chat_template_kwargs.enable_thinking 实测生效)。
+            # 云端非思考模型不受影响(端点忽略该扩展体)。
+            "extra_body": (
+                {"chat_template_kwargs": {"enable_thinking": False}}
+                if disable_thinking
+                else None
+            ),
         }
 
     @staticmethod
@@ -466,6 +491,7 @@ class PromptEngine(BaseEngine):
                 endpoint[1],
                 timeout_seconds=options["timeout"],
                 max_output_tokens=options["max_output_tokens"],
+                extra_body=options.get("extra_body"),
             )
             completer = own_client.complete
             try:

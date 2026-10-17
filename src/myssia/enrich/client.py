@@ -65,11 +65,13 @@ class OpenAICompatClient:
         *,
         timeout_seconds: float = 60.0,
         max_output_tokens: int = 2048,
+        extra_body: dict[str, Any] | None = None,
     ) -> None:
         self._base_url = base_url
         self._api_key = api_key
         self._timeout_seconds = timeout_seconds
         self._max_output_tokens = max_output_tokens
+        self._extra_body = dict(extra_body) if extra_body else None
         self._async_client: Any | None = None
 
     def _ensure_async_client(self) -> Any:
@@ -104,16 +106,22 @@ class OpenAICompatClient:
                 isolates them per batch (调用方按单批失败处理).
         """
         client = self._ensure_async_client()
+        create_kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "temperature": 0,
+            "max_tokens": self._max_output_tokens,
+        }
+        if self._extra_body:
+            # OpenAI 兼容端点的非标扩展体(openai SDK extra_body 直通)。
+            # 当前唯一消费场景 = 本地思考型模型关思考(LM Studio 的
+            # chat_template_kwargs.enable_thinking,2026-10-17 实测生效)。
+            create_kwargs["extra_body"] = self._extra_body
         response = await asyncio.wait_for(
-            client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                temperature=0,
-                max_tokens=self._max_output_tokens,
-            ),
+            client.chat.completions.create(**create_kwargs),
             timeout=self._timeout_seconds,
         )
         return CompletionResult(
