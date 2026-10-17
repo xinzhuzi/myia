@@ -820,3 +820,9 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 评审闭环亮点:首评两 blocker 被实施员识破=旧快照伪影(fade-in 零点透明摄入),冒烟加 settle 400ms 根治——工作流内部质检自纠生效。
 - 同晚 dash-donut(cb99baf6):概览条四卡→单卡行+recharts 四色环(27.6k★ MIT);「图表用库不自己造」判例;949/949 绿随同树上机。
 - 构建模式勘正:前端资产内嵌二进制( Resources/ui 不再拷贝=正常,7748884c 只加 assetProtocol 未动 frontendDist)。
+
+## 2026-10-18 10-18-engine-pool-egress(引擎侧按源挂池+池配置装机送达链路)
+- 结论:7 处 direct→pool:clash 定稿落库——被墙域 5 源(telegram-durov/telegram-mihomo_party_group/deepmind-blog/google-research/qwen-blog)+ CF 风控强站 2 源升挂(openai-news/hf-blog,防拉黑判据);池配置装机送达三缺口收口(proxy-pools.yaml 进 tauri resources 随包、doctor config_auto 双位回落 `<home>/config/proxy-pools.yaml`→旧 `<home>/pools.yaml`、run.start/cron job_command home 模式缺省自动拼 --config);curl_cffi TLS 指纹对齐终局不采纳、重开判据备档(design §4);stay-direct 海外可达源残余风险显式备档待主人裁决(prd「残余风险」节)。task.json status in_progress→review(收尾员直改 json,并行会话在场不走 task.py finish 指针)。
+- 提交(两笔均已推 origin/main,收尾员 `git branch -r --contains` 亲验):bbc95de7 feat(config) 引擎侧按源挂池——config/ai-news.yaml(5 处)+ telegram-channels.yaml + telegram-groups.yaml;4ec13773 feat(desktop) 池配置装机送达收口——desktop/entry.py + desktop/src-tauri/tauri.conf.json + src/myssia/cron/runner.py + tests/cron/test_cron_runner.py + tests/desktop/test_desktop_sidecar_protocol.py + tests/desktop/test_proxy_pool_panel.py。
+- 门禁:全量 pytest 绿(运行结果概要所载,CI 同款 `uv run --no-sync python -m pytest -q` 口径;收尾员未重跑)。
+- 装机:通过——经 clash 池(127.0.0.1:7897)出口 IP 198.2.214.3(United States/US,ip-api.com 实查)≠ 直连本地 ISP IP 139.227.235.178(China/CN,members.3322.org 直连基线 + ip-api.com 实查);证据链=装机 sidecar doctor config_auto 探测(收尾概要在「探测 pr…」处截断,A4 池源取回/A5 argv 佐证/A7 换装跨度冒烟细项回执未逐条读到,如实记,如未跑见任务档 leftover)。
