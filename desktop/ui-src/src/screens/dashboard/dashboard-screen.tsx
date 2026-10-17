@@ -378,11 +378,11 @@ function VerdictRow({ verdict }: { verdict: DashboardVerdict }) {
     return (
       <div className="px-6">
         <a
-          href="#/sources"
+          href="#/logs?status=failed"
           data-testid="dashboard-verdict"
           role="status"
           aria-label={summary}
-          title="查看源管理"
+          title="查看失败轮次(采集日志)"
           className={rowClass}
         >
           {content}
@@ -503,6 +503,14 @@ function AlertList({ rows }: { rows: AlertRowModel[] }) {
   if (rows.length === 0) return null;
   const shown = rows.slice(0, 3);
   const overflow = rows.length - shown.length;
+  // 10-18 主人判例:异常查看的正确落点是采集日志(#/logs 深链带过滤),
+  // 源管理不当异常落地页(确属配置/凭据问题时由日志屏源入口二次过去);
+  // 行点 = 该源所属品类的失败轮次(品类名与 logs run 行同源:name ?? file;
+  // 全局 finding 行无品类 → 只带状态过滤)。
+  const logsHref = (category: string | null) =>
+    category === null
+      ? "#/logs?status=failed"
+      : `#/logs?category=${encodeURIComponent(category)}&status=failed`;
   return (
     <div
       data-testid="dashboard-alert-list"
@@ -511,7 +519,7 @@ function AlertList({ rows }: { rows: AlertRowModel[] }) {
       {shown.map((row) => (
         <a
           key={row.key}
-          href="#/sources"
+          href={logsHref(row.secondary)}
           data-testid={`alert-row-${row.key}`}
           title={row.detail}
           className="flex min-w-0 items-center gap-2 border-b border-border/40 py-1.5 last:border-b-0"
@@ -532,7 +540,7 @@ function AlertList({ rows }: { rows: AlertRowModel[] }) {
       ))}
       {overflow > 0 ? (
         <a
-          href="#/sources"
+          href="#/logs?status=failed"
           data-testid="dashboard-alert-overflow"
           className="border-t border-border/40 py-1.5 text-xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
         >

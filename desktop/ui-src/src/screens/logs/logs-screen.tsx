@@ -178,6 +178,30 @@ export function LogsScreen() {
 
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<RunFilterStatus | "all">("all");
+  /** 深链种子(10-18-alert-goto-logs):#/logs?category=<名>&status=<态>——
+   * 仪表盘告警卡/摘要行跳入即带过滤;仅首挂载消费一次(人手改过滤后不被
+   * URL 覆写);status 词表 = RunExitStatus 并集 + running/all,非法值忽略。 */
+  useEffect(() => {
+    const query = window.location.hash.split("?")[1];
+    if (!query) return;
+    const params = new URLSearchParams(query);
+    const category = params.get("category");
+    const status = params.get("status");
+    if (category) setCategoryFilter(category);
+    if (
+      status === "all" ||
+      status === "running" ||
+      status === "success" ||
+      status === "config_error" ||
+      status === "failed" ||
+      status === "partial" ||
+      status === "cancelled"
+    ) {
+      setStatusFilter(status);
+    }
+    // 消费即清:同屏后续 hash 变化(路由器内部)不再重播种
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   /** 日志搜索词(挂编排层:输入框在 L2,词面跨切级存活;搜索对象是日志行,
    *  行只在 L2 在场——框不迁则 1 级 50 行 × tail = 协议风暴,design §2.3) */
   const [query, setQuery] = useState("");

@@ -263,6 +263,26 @@ function openSelect(name: string) {
 // L1 摘要行(两级 IA:每 run 一行直出,accordion 退役)
 // ---------------------------------------------------------------------------
 
+describe("LogsScreen 深链种子(10-18-alert-goto-logs)", () => {
+  it("#/logs?category=X&status=failed 首挂载播种过滤;非法 status 忽略;种子仅一次", async () => {
+    window.location.hash = "#/logs?category=%E7%A4%BE%E5%AA%92%E5%8A%A8%E6%80%81&status=failed"; // 社媒动态=run3Failed 的品类
+    mockSidecar([run1Success, run3Failed]);
+    render(<LogsScreen />);
+    // 过滤生效:社媒动态品类 + failed 态 → 只剩失败 run 行(科技资讯成功 run 被滤走)
+    await screen.findByTestId("run-row-3");
+    expect(screen.queryByTestId("run-row-1")).toBeNull();
+    expect(window.location.hash).toContain("category=");
+  });
+
+  it("无参 hash 不播种(全量直出);非法 status 词面按 all 处理", async () => {
+    window.location.hash = "#/logs";
+    mockSidecar([run1Success, run3Failed]);
+    render(<LogsScreen />);
+    await screen.findByTestId("run-row-1");
+    expect(screen.getByTestId("run-row-3")).toBeTruthy();
+  });
+});
+
 describe("LogsScreen L1 摘要行(10-12 两级 IA)", () => {
   it("摘要派生:success 行含成果+源段;running 行如实「采集中…」;行按钮无 aria-expanded(accordion 退役哨兵)", async () => {
     mockSidecar([run2Running, run1Success]);

@@ -472,7 +472,8 @@ describe("DashboardScreen", () => {
     expect(verdict.textContent).toContain("1 个源失效");
     expect(verdict.textContent).not.toContain("源在线"); // 数字段去重,健康度词归环图/源卡
     expect(verdict.tagName).toBe("A");
-    expect(verdict.getAttribute("href")).toBe("#/sources");
+    // 10-18 主人判例:异常查看落采集日志(源管理不当异常落地页)
+    expect(verdict.getAttribute("href")).toBe("#/logs?status=failed");
   });
 
   it("verdict warning 态:告警/退化拼段缺段省略;去重后摘要条与概览窗解耦(无采集段)", async () => {
@@ -493,7 +494,7 @@ describe("DashboardScreen", () => {
 
     const verdict = await screen.findByTestId("dashboard-verdict");
     expect(verdict.textContent).toContain("1 项告警 · 1 个源退化");
-    expect(verdict.getAttribute("href")).toBe("#/sources");
+    expect(verdict.getAttribute("href")).toBe("#/logs?status=failed");
 
     // 概览窗切 7 天 → 四格换窗换数,摘要条零联动(去重 ③:无采集段可换)
     storeTrendMock.mockResolvedValue({ days: [{ date: today, count: 9 }] });
@@ -534,7 +535,7 @@ describe("DashboardScreen", () => {
     expect(screen.queryByTestId("dashboard-verdict")).toBeNull();
   });
 
-  it("告警清单(仅坏源口径):坏源行优先前三条可点跳源管理,溢出口如实计", async () => {
+  it("告警清单(仅坏源口径):坏源行优先前三条可点跳采集日志(10-18 判例),溢出口如实计", async () => {
     mockSidecar(
       Promise.resolve(
         fixtureDoctor({
@@ -559,7 +560,12 @@ describe("DashboardScreen", () => {
     const list = await screen.findByTestId("dashboard-alert-list");
     const rows = screen.getAllByTestId(/^alert-row-/);
     expect(rows).toHaveLength(3); // grill Q4:三条封顶
-    for (const row of rows) expect(row.getAttribute("href")).toBe("#/sources");
+    for (const row of rows) {
+      // 行点 = 该源品类失败轮次深链(10-18 判例;品类名经 encodeURIComponent)
+      const href = row.getAttribute("href") ?? "";
+      expect(href.startsWith("#/logs?category=")).toBe(true);
+      expect(href.endsWith("&status=failed")).toBe(true);
+    }
     // 异常优先排序:dead 两行居前(buildSourceHealthCards dead→degraded→unknown)
     expect(rows[0].textContent).toContain("失效");
     expect(rows[1].textContent).toContain("失效");
@@ -569,10 +575,10 @@ describe("DashboardScreen", () => {
     expect(rows[0].textContent).toContain("科技资讯");
     expect(rows[0].textContent).toContain("连续无产出"); // reason 原文直用,零映射
     expect(rows[0].textContent).toContain("—"); // 「品类名 — reason」分隔形态
-    // 溢出口:4 坏源 − 3 行 = 1(如实计)
+    // 溢出口:4 坏源 − 3 行 = 1(如实计);落点 = 采集日志失败过滤(10-18 判例)
     const overflow = screen.getByTestId("dashboard-alert-overflow");
     expect(overflow.textContent).toContain("还有 1 个异常 · 查看全部 →");
-    expect(overflow.getAttribute("href")).toBe("#/sources");
+    expect(overflow.getAttribute("href")).toBe("#/logs?status=failed");
     expect(list).toBeTruthy();
   });
 
@@ -618,7 +624,9 @@ describe("DashboardScreen", () => {
     const rows = await screen.findAllByTestId(/^alert-row-/);
     expect(rows).toHaveLength(2); // 1 坏源行 + 1 品类级补位行
     expect(rows[0].textContent).toContain("deadone"); // 坏源行优先
-    expect(rows[0].getAttribute("href")).toBe("#/sources");
+    expect(rows[0].getAttribute("href")).toBe(
+      "#/logs?category=%E7%A7%91%E6%8A%80%E8%B5%84%E8%AE%AF&status=failed", // 10-18 判例:品类失败轮次
+    );
     expect(rows[1].textContent).toContain("科技资讯");
     expect(rows[1].textContent).toContain("异常");
     expect(rows[1].textContent).toContain("缺凭据");
@@ -687,7 +695,7 @@ describe("DashboardScreen", () => {
     expect(rows[0].textContent).toContain("异常"); // error → 异常词(不只靠色)
     expect(rows[0].textContent).toContain("缺少 TG_TOKEN 凭据"); // message 原文
     expect(rows[0].getAttribute("title")).toBe("缺少 TG_TOKEN 凭据"); // title=全文
-    expect(rows[0].getAttribute("href")).toBe("#/sources");
+    expect(rows[0].getAttribute("href")).toBe("#/logs?status=failed"); // 10-18 判例:全局行无品类→状态过滤
     expect(rows[1].textContent).toContain("数据库"); // scope=store 人话映射(复审 low:db 死分支删)
     expect(rows[1].textContent).not.toContain("store"); // 英文原文词不再裸放上屏
     expect(rows[1].textContent).toContain("提醒"); // warning → 提醒词
