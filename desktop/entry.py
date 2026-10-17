@@ -6323,6 +6323,52 @@ def _m_telegram_web_delete(params: dict[str, Any]) -> dict[str, Any]:
     return {"deleted": True, "account": key, "existed": True}
 
 
+def _m_telegram_web_rename(params: dict[str, Any]) -> dict[str, Any]:
+    """``telegram.web.rename``:改账号备注名(2026-10-17 主人令「以后不
+    记得是什么名字」——登录时起的占位名如「小号·尾号93105」事后要能改).
+
+    ``{account, label}`` → ``{renamed, account, label}``。键同门校验
+    (判例 telegram.web.delete);label 去空白后 1-48 字(截断对齐登录
+    标记 48 字面);标记缺(未登录)→ ``marker_missing`` 结构化拒,人话
+    指引先完成登录(备注名随登录标记落盘,登录前没有可改的面)。改名
+    纯文件 merge 写零浏览器交互 —— 不占 _BROWSER_OPS 槽、与登录窗/监控
+    常驻无并发冲突(tmp+rename 原子写,读侧永不读半截)。
+    """
+    from myssia.telegram.web_line import (
+        TelegramWebError,
+        profile_dir,
+        rename_login_label,
+        validate_account_key,
+    )
+
+    account = params.get("account")
+    if not isinstance(account, str):
+        raise ProtocolError(
+            "invalid_params", "account 必须是字符串(账号键)", path="params.account"
+        )
+    try:
+        key = validate_account_key(account)
+    except TelegramWebError as exc:
+        raise ProtocolError("invalid_params", str(exc), path="params.account") from exc
+    label = params.get("label")
+    if not isinstance(label, str) or not label.strip():
+        raise ProtocolError(
+            "invalid_params",
+            "label 必须是非空字符串(备注名,去空白后 1-48 字)",
+            path="params.label",
+        )
+    clean = label.strip()[:48]
+    directory = profile_dir(_telegram_data_root(), key)
+    if not rename_login_label(directory, label=clean):
+        raise ProtocolError(
+            "marker_missing",
+            f"账号 {key} 尚无登录标记(未登录):备注名随登录落盘,"
+            "先完成登录再改名",
+            path="params.account",
+        )
+    return {"renamed": True, "account": key, "label": clean}
+
+
 # ---------------------------------------------------------------------------
 # telegram.web.check 账号体检(10-11-tg-manage-absorb AC1):登录态快查。
 # 三占用者(常驻 web 线/登录窗/批量采集)共用同一 profile_dir,Chromium
@@ -7018,6 +7064,7 @@ _HANDLERS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
     # 体检 10-11-tg-manage-absorb AC1(常态读哨兵真源/探针走后台线程)。
     "telegram.status": _m_telegram_status,
     "telegram.web.delete": _m_telegram_web_delete,
+    "telegram.web.rename": _m_telegram_web_rename,
     "telegram.web.check": _m_telegram_web_check,
     # 浏览器专用模块(10-08-browser-module 案甲):统一入口 open + 操作
     # 台账 list + 窗口管理 focus/close;一切浏览器操作必经此处。

@@ -295,6 +295,36 @@ def record_verification(directory: str | Path, *, alive: bool) -> None:
         )
 
 
+def rename_login_label(directory: str | Path, *, label: str) -> bool:
+    """改账号备注名(merge 写;10-17 主人令「以后不记得是什么名字」).
+
+    读-改-写 merge 镜像 :func:`record_verification` 判例:旧键全保只换
+    ``label``;截断 48 字符对齐 :func:`_write_login_marker`;tmp +
+    ``os.replace`` 原子写(读侧永不读半截)。**标记缺返回 False 不造文件**
+    (备注名随登录标记落盘,未登录就没有可改的面 —— UI 侧人话指引先登录);
+    ``OSError`` 吞留痕返回 False(镜像登录标记写失败判例:改名失败不抛,
+    台账/应答层面由调用方给结构化错)。
+    """
+    payload = read_login_marker(directory)
+    if payload is None:
+        return False
+    payload["label"] = label[:48]
+    marker = login_marker_path(directory)
+    tmp = marker.with_name(marker.name + ".tmp")
+    try:
+        tmp.write_text(
+            json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+        )
+        os.replace(tmp, marker)
+        marker.chmod(PROFILE_FILE_MODE)
+        return True
+    except OSError as exc:
+        logger.warning(
+            "TG 网页线备注名写入失败 path=%s: %s", marker, exc
+        )
+        return False
+
+
 def harden_profile_permissions(directory: str | Path) -> None:
     """收紧配置档权限:目录 0700、内件 0600(best-effort,失败只留痕).
 

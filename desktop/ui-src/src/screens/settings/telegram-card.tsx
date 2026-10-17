@@ -22,7 +22,7 @@
  * 建议小号(同机同出口多账号可被关联)/api_id 到手切回 Telethon 正统线。
  * IPC 契约见 ./telegram-api.ts;凭据零外显(手机号+验证码全在登录窗内)。
  */
-import { Activity, Globe, MessageCircle, Plus, RefreshCw, Send, Trash2, User } from "lucide-react";
+import { Activity, Globe, MessageCircle, PenLine, Plus, RefreshCw, Send, Trash2, User } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,7 @@ import {
   telegramWebCheck,
   telegramWebDelete,
   telegramWebLogin,
+  telegramWebRename,
   type TelegramStatus,
   type TelegramWebAccount,
 } from "./telegram-api";
@@ -103,6 +104,9 @@ export function TelegramCard() {
   /** 新账号备注名草稿(+添加账号行;人读,如「小号·尾号93105」)。 */
   const [newAccountLabel, setNewAccountLabel] = useState("");
   const [busyAccount, setBusyAccount] = useState<string | null>(null);
+  /** 行内改名态(账号键 → 该行名字位换输入框;null = 无行在改)。 */
+  const [renamingAccount, setRenamingAccount] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   /** 登录窗轮询(拉起后启动;status 面无 running 即停,上限放弃) */
   const [loginPoll, setLoginPoll] = useState(0);
 
@@ -213,6 +217,40 @@ export function TelegramCard() {
     [],
   );
 
+  /** 行内改名提交(2026-10-17 主人令「以后不记得是什么名字」):merge 写
+   * 登录标记 label 键,登录态/体检基线不动;空名/未登录由服务端结构化拒。 */
+  const handleRename = useCallback(
+    async (account: string) => {
+      const label = renameDraft.trim();
+      if (!label) {
+        setActionError(
+          new SidecarRequestError({
+            code: "invalid_label",
+            path: "label",
+            message: "备注名不能为空(去空白后 1-48 字)",
+            data: null,
+          }),
+        );
+        return;
+      }
+      setBusyAccount(account);
+      setActionError(null);
+      setNote(null);
+      try {
+        const outcome = await telegramWebRename(account, label);
+        setNote(`账号 ${account} 备注名已改为「${outcome.label}」。`);
+        setRenamingAccount(null);
+        setRenameDraft("");
+        setStatus(await telegramGetStatus());
+      } catch (raw) {
+        setActionError(asSidecarError(raw));
+      } finally {
+        setBusyAccount(null);
+      }
+    },
+    [renameDraft],
+  );
+
   /** 发起账号体检(10-11-tg-manage-absorb):常驻监控在跑时服务端读哨兵
    * 真源秒回;无常驻占用走无头探针后台线程(≤45s),行小字(上次体检/
    * 活死)由轮询对账刷新 —— 泛化 loginPoll,非第二套轮询。 */
@@ -319,14 +357,61 @@ export function TelegramCard() {
                       className="flex flex-wrap items-start justify-between gap-2 rounded-md bg-muted/40 px-3 py-2"
                     >
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="flex items-center gap-2 text-xs font-medium text-foreground">
-                          <StatusDot
-                            on={row.logged_in}
-                            busy={row.login_in_progress}
-                            label={row.account}
-                          />
-                          {row.label || row.account}
-                        </span>
+                        {renamingAccount === row.account ? (
+                          <span className="flex items-center gap-2">
+                            <StatusDot
+                              on={row.logged_in}
+                              busy={row.login_in_progress}
+                              label={row.account}
+                            />
+                            <input
+                              aria-label={`账号 ${row.account} 新备注名`}
+                              data-testid={`telegram-web-${row.account}-rename-input`}
+                              className="h-6 w-52 rounded border border-input bg-background px-2 text-xs"
+                              value={renameDraft}
+                              maxLength={48}
+                              placeholder="备注名,如「羊毛专用小号」"
+                              onChange={(event) => setRenameDraft(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") void handleRename(row.account);
+                                if (event.key === "Escape") {
+                                  setRenamingAccount(null);
+                                  setRenameDraft("");
+                                }
+                              }}
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={busyAccount === row.account || !renameDraft.trim()}
+                              onClick={() => void handleRename(row.account)}
+                              data-testid={`telegram-web-${row.account}-rename-confirm`}
+                            >
+                              保存
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={busyAccount === row.account}
+                              onClick={() => {
+                                setRenamingAccount(null);
+                                setRenameDraft("");
+                              }}
+                              data-testid={`telegram-web-${row.account}-rename-cancel`}
+                            >
+                              取消
+                            </Button>
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2 text-xs font-medium text-foreground">
+                            <StatusDot
+                              on={row.logged_in}
+                              busy={row.login_in_progress}
+                              label={row.account}
+                            />
+                            {row.label || row.account}
+                          </span>
+                        )}
                         {row.label ? (
                           <span className="font-mono text-2xs text-muted-foreground">
                             {row.account}
@@ -400,6 +485,26 @@ export function TelegramCard() {
                         ) : null}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
+                        {row.logged_in && renamingAccount !== row.account ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={
+                              busyAccount === row.account || row.login_in_progress || row.check_in_progress
+                            }
+                            onClick={() => {
+                              setRenamingAccount(row.account);
+                              setRenameDraft(row.label ?? "");
+                              setActionError(null);
+                              setNote(null);
+                            }}
+                            data-testid={`telegram-web-${row.account}-rename`}
+                            title="改备注名(登录时起的占位名事后难对号;改名不动登录态)"
+                          >
+                            <PenLine className="size-3.5" />
+                            改名
+                          </Button>
+                        ) : null}
                         <Button
                           variant="outline"
                           size="sm"

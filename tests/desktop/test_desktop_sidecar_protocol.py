@@ -3062,7 +3062,7 @@ def test_method_registry_allowed_matches_handlers():
     code, responses, _ = rpc({"id": 1, "method": "no.such.method", "params": {}})
     allowed = responses[0]["error"]["data"]["allowed"]
     assert allowed == sorted(entry._HANDLERS)
-    assert len(allowed) == 90
+    assert len(allowed) == 91  # 80 号 telegram.web.rename(10-17 备注名改名)入册
     for method in ("run.cancel", "runs.list", "runs.trend", "secret.delete",
                    "sources.test", "feed.export", "push.test", "schedule.preview",
                    "bridge.status",
@@ -5893,6 +5893,54 @@ def test_telegram_web_delete_removes_profile(tmp_path, monkeypatch):
     assert not profile.exists()
     code, responses, _ = rpc({"id": 6, "method": "telegram.status", "params": {}})
     assert responses[0]["result"]["web"]["accounts"] == []
+
+
+def test_telegram_web_rename_roundtrip(tmp_path, monkeypatch):
+    """web.rename(2026-10-17 主人令「以后不记得是什么名字」):登录标记
+    merge 改 label(登录/身份面存续);空名 invalid_params;未登录
+    marker_missing 人话指引先登录。"""
+    home = tmp_path / "home-rn1"
+    profile = home / "telegram-web" / "telegram-alt1"
+    profile.mkdir(parents=True)
+    (profile / "myssia-login.json").write_text(
+        json.dumps(
+            {
+                "logged_in_at": "2026-10-08T00:00:00+00:00",
+                "line": "tg_web",
+                "label": "小号·尾号93105",
+                "user_id": "8012674093",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    code, responses, _ = rpc(
+        {"id": 1, "method": "telegram.web.rename",
+         "params": {"account": "telegram-alt1", "label": "  羊毛专用小号  "}}
+    )
+    result = responses[0]["result"]
+    assert result["renamed"] is True
+    assert result["label"] == "羊毛专用小号"  # 去空白
+    marker = json.loads((profile / "myssia-login.json").read_text(encoding="utf-8"))
+    assert marker["label"] == "羊毛专用小号"
+    assert marker["user_id"] == "8012674093"  # merge 保旧键
+    # 空名/非字符串拒
+    code, responses, _ = rpc(
+        {"id": 2, "method": "telegram.web.rename",
+         "params": {"account": "telegram-alt1", "label": "   "}}
+    )
+    assert responses[0]["error"]["code"] == "invalid_params"
+    # 未登录(标记缺)marker_missing 指引先登录
+    bare = home / "telegram-web" / "telegram-alt2"
+    bare.mkdir(parents=True)
+    code, responses, _ = rpc(
+        {"id": 3, "method": "telegram.web.rename",
+         "params": {"account": "telegram-alt2", "label": "早了"}}
+    )
+    error = responses[0]["error"]
+    assert error["code"] == "marker_missing"
+    assert "登录" in error["message"]
+
 
 
 # ---------------------------------------------------------------------------

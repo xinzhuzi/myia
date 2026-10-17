@@ -28,6 +28,7 @@ from myssia.telegram.web_line import (
     profile_root,
     read_login_marker,
     record_verification,
+    rename_login_label,
     require_playwright,
     validate_account_key,
 )
@@ -260,6 +261,61 @@ def test_record_verification_oserror_swallowed(
     marker = read_login_marker(directory)
     assert marker is not None and marker.get("logged_in_at") == "2026-10-08T00:00:00+00:00"
     assert "alive" not in marker
+
+
+# ------------------------------------------------------- 备注名改名
+# (2026-10-17 主人令「以后不记得是什么名字」:登录时占位名事后要能改)
+
+
+def test_rename_login_label_merges_keeps_other_keys(tmp_path: Path) -> None:
+    """merge 保旧键:只换 label,登录/体检/身份面全存续,权限 0600 随行。"""
+    directory = profile_dir(tmp_path, "telegram-alt1")
+    directory.mkdir(parents=True)
+    login_marker_path(directory).write_text(
+        json.dumps(
+            {
+                "logged_in_at": "2026-10-08T00:00:00+00:00",
+                "last_verified_at": "2026-10-11T00:00:00+00:00",
+                "alive": True,
+                "line": "tg_web",
+                "label": "小号·尾号93105",
+                "user_id": "8012674093",
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert rename_login_label(directory, label="羊毛专用小号") is True
+    marker = read_login_marker(directory)
+    assert marker is not None
+    assert marker["label"] == "羊毛专用小号"
+    assert marker["user_id"] == "8012674093"
+    assert marker["logged_in_at"] == "2026-10-08T00:00:00+00:00"
+    assert marker["alive"] is True
+    assert marker["last_verified_at"] == "2026-10-11T00:00:00+00:00"
+    assert (login_marker_path(directory).stat().st_mode & 0o777) == PROFILE_FILE_MODE
+    assert not list(directory.glob("*.tmp")), "原子写不得留 .tmp 残件"
+
+
+def test_rename_login_label_truncates_to_48(tmp_path: Path) -> None:
+    """48 字截断:对齐 _write_login_marker 的 label 面宽。"""
+    directory = profile_dir(tmp_path, "telegram-alt1")
+    directory.mkdir(parents=True)
+    login_marker_path(directory).write_text(
+        json.dumps({"logged_in_at": "2026-10-08T00:00:00+00:00"}), encoding="utf-8"
+    )
+    assert rename_login_label(directory, label="长" * 60) is True
+    marker = read_login_marker(directory)
+    assert marker is not None
+    assert marker["label"] == "长" * 48
+
+
+def test_rename_login_label_missing_marker_returns_false(tmp_path: Path) -> None:
+    """标记缺(未登录)返回 False 不造文件:登录前没有可改的面。"""
+    directory = profile_dir(tmp_path, "telegram-alt1")
+    directory.mkdir(parents=True)
+    assert rename_login_label(directory, label="早了") is False
+    assert not login_marker_path(directory).exists()
+
 
 
 # --------------------------------------------------------------- 登录流

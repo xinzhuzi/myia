@@ -11,6 +11,8 @@
  *   体检结论 last_verified_at/alive 从登录标记透传 —— 双键语义:alive 不
  *   覆盖 logged_in;10-11-tg-manage-absorb 批新键全可选,旧壳忽略照跑)
  * - `telegram.web.delete {account}` → `{deleted, account}`(配置档整档删除)
+ * - `telegram.web.rename {account, label}` → `{renamed, account, label}`(改备注名:
+ *   登录标记 merge 写,去空白 1-48 字;未登录 marker_missing 指引先登录)
  * - `telegram.web.check {account}` → `{started, account, note}`(账号体检:
  *   同键在跑 started:false 幂等回执;常态读常驻哨兵真源秒回,无常驻占用
  *   走无头探针后台线程,结果经 telegram.status 行小字回读)
@@ -87,6 +89,18 @@ export function telegramWebDelete(
   account: string,
 ): Promise<{ deleted: boolean; account: string }> {
   return telegramRequest("telegram.web.delete", { account });
+}
+
+/**
+ * 改账号备注名(2026-10-17 主人令「以后不记得是什么名字」):登录时起的
+ * 占位名(如「小号·尾号93105」事后难对号)。merge 写登录标记 label 键,
+ * 登录态/体检基线全保;未登录(标记缺)→ marker_missing 人话指引先登录。
+ */
+export function telegramWebRename(
+  account: string,
+  label: string,
+): Promise<{ renamed: boolean; account: string; label: string }> {
+  return telegramRequest("telegram.web.rename", { account, label });
 }
 
 /**
