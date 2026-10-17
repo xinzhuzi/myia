@@ -20,6 +20,8 @@ from pathlib import Path
 
 import pytest
 
+from myssia.cli import GLOBAL_DECLARATION_YAMLS
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENTRY_PATH = REPO_ROOT / "desktop" / "entry.py"
 CONFIG_DIR = REPO_ROOT / "config"
@@ -754,7 +756,15 @@ def test_bak_still_written_as_second_belt(tmp_path):
 
 @pytest.mark.parametrize(
     "yaml_name",
-    sorted(p.name for p in CONFIG_DIR.glob("*.yaml")) if CONFIG_DIR.is_dir() else [],
+    # 全局声明件(如 proxy-pools.yaml)非品类件、无 sources 节,豁免
+    # (单一真源:myssia.cli.GLOBAL_DECLARATION_YAMLS,与装载器同步)。
+    sorted(
+        p.name
+        for p in CONFIG_DIR.glob("*.yaml")
+        if p.name not in GLOBAL_DECLARATION_YAMLS
+    )
+    if CONFIG_DIR.is_dir()
+    else [],
 )
 def test_official_category_yaml_roundtrip(yaml_name):
     """对官方品类 YAML 的每个解析源各做一轮停用+启用:逐字节还原。

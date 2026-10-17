@@ -43,7 +43,13 @@ import pytest
 import yaml
 
 from myssia.classify import rules_from_config
-from myssia.engines.fetch_base import extract_html, extract_json, extract_rss
+from myssia.cli import GLOBAL_DECLARATION_YAMLS
+from myssia.engines.fetch_base import (
+    extract_html,
+    extract_json,
+    extract_rss,
+    load_proxy_pools_file,
+)
 from myssia.pipeline import Pipeline
 from myssia.push.base import SendContext
 from myssia.push.route import resolve_route, routes_from_config
@@ -167,10 +173,13 @@ def test_ai_news_carries_firecrawl_semantics_and_discourse_list():
     # env,env: 引用会在桌面 run 构造期 fail-fast),api_key 是既有 GLM key
     # (vision.yaml cloud 同链)。
     assert config.enrich.enabled is True, "A2 落地:精评开通,image_ocr/image_caption 进精评 payload"
-    assert config.enrich.base_url == "keychain:myia/llm/base_url", (
-        "端点 base_url 必须是 keychain: 引用(桌面零 env;grill Q6 引用铁律不变)"
+    assert config.enrich.base_url == "keychain:myia/llm/modelscope-base-url", (
+        "端点 base_url 必须是 keychain: 引用(桌面零 env;grill Q6 引用铁律不变;"
+        "键名随 10-18 主人令魔搭切换同步)"
     )
-    assert config.enrich.api_key == "keychain:myia/image/api_key", "key 走钥匙链既有 GLM 凭据"
+    assert config.enrich.api_key == "keychain:myia/llm/modelscope-api-key", (
+        "key 走钥匙链(键名随 10-18 魔搭切换同步)"
+    )
     assert config.enrich.batch == 10, "实测批宽:glm-5.3-flash 单批 20 条超 60s completion 上限,10 条留余量"
     cocoloop = by_name["cocoloop"]
     assert cocoloop.engine == "static_html"
@@ -192,18 +201,31 @@ def test_ai_news_images_ring_local_hint_comment_ships_startup_guide():
     )
 
 
-def test_wool_declares_seven_source_slots():
-    """Five live L2 sources + the two documented parked placeholders
-    (linux.do: login-walled; v2ex: challenge-gated until a firecrawl backend
-    exists — shipping it live meant a guaranteed failure every run)."""
+def test_wool_declares_nine_source_slots():
+    """2026-10-17 源面收口(4d171602 信息羊毛全量跑通):九活源 = 五家
+    static_html 直连(linuxsb/dalao/nodeloc/cocoloop/sbsb)+ 四家 firecrawl
+    云渲染(v2ex 三节点页 free/deals/share——CF 挑战墙直连必 403,唯一活路
+    云渲染;s74 74站纯 JS 壳同理)。bbsbtsb 判死移除(域名迁移 + 长亭雷池
+    WAF 三通道全拦,证据在 wool.yaml 源位注释);两个 parked placeholder
+    注释(linux.do 登录墙 / v2ex 聚合位)仍须留在档。原
+    test_wool_declares_seven_source_slots(5 槽)随之翻案改名。"""
     text = (CONFIG_DIR / "wool.yaml").read_text(encoding="utf-8")
     assert "# - name: linuxdo" in text, "linux.do placeholder comment must stay"
     assert "# - name: v2ex" in text, "v2ex placeholder comment must stay"
     config = _load("wool")
-    assert len(config.sources) == 5
+    assert len(config.sources) == 9
     by_name = {source.name: source for source in config.sources}
-    assert set(by_name) == {"linuxsb", "bbsbtsb", "nodeloc", "cocoloop", "sbsb"}
-    assert all(source.engine in ("static_html", "auto") for source in config.sources)
+    assert set(by_name) == {
+        "linuxsb", "dalao", "v2ex-free", "v2ex-deals", "v2ex-share",
+        "s74", "nodeloc", "cocoloop", "sbsb",
+    }
+    # 引擎面与 2026-10-17 实测一致:直连五家 static_html;CF 墙/JS 壳四家
+    # 走 firecrawl 云渲染(钥匙串端点兜底,本地 3002 已死)。
+    direct = {"linuxsb", "dalao", "nodeloc", "cocoloop", "sbsb"}
+    for name, source in by_name.items():
+        expected = "static_html" if name in direct else "firecrawl"
+        assert source.engine == expected, f"wool/{name}: engine 应为 {expected}"
+    assert "bbsbtsb" not in by_name, "bbsbtsb 已判死(2026-10-17),不得复活"
 
 
 def test_games_uses_direct_api_json_path_with_url_template():
@@ -301,27 +323,19 @@ def test_games_gog_source_declares_catalog_query_and_double_insurance():
         assert '(sale_price or "-1")' in immediate.when
 
 
-def test_games_telegram_push_entry_mounted_per_v1_decision5():
-    """v1 决议⑤(wrap 落地):telegram 加挂 = 第二个 push 条目,同款两级路由
-    (when 逐字与 feishu 条目一致,含 GOG 限免双保险析取),模板走精简纯文本
-    变体——telegram 用户模板契约是渲染文本不带 parse_mode 直发
-    (src/myssia/push/telegram.py _compose),markdown 链接语法会原样露出。
-    chat id 走 env:TELEGRAM_CHAT_ID;bot token 走渠道缺省
-    env:TELEGRAM_BOT_TOKEN(DEFAULT_TOKEN_ENV_REF,无需声明)。"""
+def test_games_telegram_push_entry_retired_per_2026_10_17_order():
+    """翻案断言(2026-10-17 深夜主人令「太频繁」弹窗治理,提交 a99f6174):
+    games 的 telegram 加挂退役——原 v1 决议⑤(wrap 落地)的 telegram 条目
+    已在 games.yaml 注释退役,唯一推送面收敛为 feishu_card。本测钉「不在
+    场」现状;退役条目原文与复活三步仍在 games.yaml 注释里,何时恢复由
+    主人令裁决(原 test_games_telegram_push_entry_mounted_per_v1_decision5
+    断言其在场,已随 10-17 主人令翻案改名)。"""
     config = _load("games")
-    by_channel = {}
-    for push in config.push:
-        by_channel.setdefault(push.channel, []).append(push)
-    assert set(by_channel) == {"feishu_card", "telegram"}, "双通道:feishu 起步 + telegram 加挂"
-    (telegram,) = by_channel["telegram"]
-    (feishu,) = by_channel["feishu_card"]
-    assert telegram.target == "env:TELEGRAM_CHAT_ID"
-    assert [r.when for r in telegram.route] == [r.when for r in feishu.route], "路由 when 与 feishu 条目同款"
-    # 批次4 日报层降噪:两级路由变三级(限免 immediate + 折扣/兜底 archive,
-    # digest 档退役——日报由 config/daily-digest.yaml 合并收口)。
-    assert [r.mode for r in telegram.route] == ["immediate", "archive", "archive"]
-    assert telegram.template is not None
-    assert "](" not in telegram.template, "纯文本通道:markdown 链接语法会原样露出,必须精简变体"
+    channels = {push.channel for push in config.push}
+    assert channels == {"feishu_card"}, (
+        "telegram 入口已退役(10-17 主人令只收不发):在场推送面仅 feishu_card"
+    )
+    assert len(config.push) == 1, "退役后应只剩单条目(feishu_card)"
 
 
 def test_games_cheapshark_source_declares_three_stores_top_array_prefix():
@@ -447,7 +461,11 @@ def test_news_uses_static_html_rss_with_whitelisted_entry_fields():
     schema 装载期拼错即拒;direct_api 保持 JSON-only 是引擎层词表分工)。
     路由全 digest(资讯无 immediate 分层):唯一 immediate 是 dormant v0.2
     score 槽位,enrich 关闭时条目无分数永不命中,未命中走保守缺省 digest。
-    模板只有标题+链接+日期,不进 summary/CDATA(design R3)。"""
+    模板只有标题+链接+日期,不进 summary/CDATA(design R3)。
+
+    2026-10-17 翻案(a99f6174 主人令「太频繁」弹窗治理,同 games 先例):
+    telegram push 条目注释退役,唯一推送面收敛为 feishu_card——双通道断言
+    随之翻案(复活条件见 news.yaml 退役注记)。"""
     config = _load("news")
     (source,) = config.sources
     assert source.name == "gcores-rss"
@@ -460,8 +478,8 @@ def test_news_uses_static_html_rss_with_whitelisted_entry_fields():
     assert config.dedup.key == "{url}", "RSS 条目 url 稳定唯一,无价格态可带"
     assert config.enrich.enabled is False, "零 token 路线:标题+链接+日期自解释"
     assert config.classify.builtin is False, "资讯标题不落七大类,内置扫描只会误杀"
-    # 双通道(同 games wrap 先例):feishu_card + telegram
-    assert {push.channel for push in config.push} == {"feishu_card", "telegram"}
+    # telegram 已退役(2026-10-17):唯一在场推送面 feishu_card
+    assert {push.channel for push in config.push} == {"feishu_card"}
     for push in config.push:
         assert [rule.mode for rule in push.route] == ["immediate", "digest"]
         assert "score" in push.route[0].when, "immediate 槽位是 dormant score 规则(全 digest 决议)"
@@ -507,11 +525,24 @@ def test_plugin_headers_keep_credential_values_referenced(name):
 
 @pytest.mark.parametrize("name", OFFICIAL_PLUGINS)
 def test_plugin_sources_stay_on_direct_proxy(name):
-    """v0.1 only implements proxy: direct — the official plugins must not
-    promise pool/residential behaviour before the transport exists."""
+    """代理面纪律(v0.2 池化翻案,2026-10-17 4a2c2485 Reddit 接入):源级
+    ``proxy`` 只许 ``direct`` 或 ``pool:<名>`` 引用——池本体必须声明在全局件
+    config/proxy-pools.yaml(``load_proxy_pools_file`` 单一装载线;凭据永不
+    进品类件,引用即全部,安全红线)。v0.1 原始断言「只实现 direct」收窄为
+    「不许明文代理串 / 不许未声明池引用」。"""
     config = _load(name)
+    pools = load_proxy_pools_file(CONFIG_DIR / "proxy-pools.yaml")
     for source in config.sources:
-        assert source.proxy == "direct"
+        if source.proxy == "direct":
+            continue
+        assert source.proxy.startswith("pool:"), (
+            f"{name}/{source.name}: proxy 只许 direct 或 pool:<名> 引用,当前 {source.proxy!r}"
+        )
+        pool_name = source.proxy.removeprefix("pool:")
+        assert pool_name in pools, (
+            f"{name}/{source.name}: 引用未声明池 {pool_name!r}"
+            f"(全局件 proxy-pools.yaml 现声明 {pools.names()})"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -730,13 +761,10 @@ _SNIPPETS = {
         "expect_url": "https://linux.sb/topic/1",
         "expect_title": "公开演示标题",
     },
-    ("wool", "bbsbtsb"): {
-        "html": '<a class="min-w-0" href="/posts/abc"><h2>公开演示标题</h2></a>'
-                '<a href="/posts/abc#comments"></a>',  # comment anchor must not yield a record
-        "base": "https://bbs.bt.sb/",
-        "expect_url": "https://bbs.bt.sb/posts/abc",
-        "expect_title": "公开演示标题",
-    },
+    # ("wool", "bbsbtsb") snippet 已随源移除(2026-10-17 判死):域名迁移
+    # bbs.bt.sb→bt.sb(301)后新域 /latest 挂长亭雷池 WAF,直连/Clash 出口/
+    # firecrawl 云渲染三通道全 468/拦截页——判死证据记在 wool.yaml 源位注释
+    # (站方撤 WAF 或开放 API 再复源,复源时把 snippet 一并加回)。
     ("wool", "nodeloc"): {
         "html": '<table><tr class="topic-list-item"><td><a class="title raw-topic-link" href="https://www.nodeloc.com/t/topic/1">公开演示标题</a></td></tr></table>',
         "expect_url": "https://www.nodeloc.com/t/topic/1",
@@ -1014,7 +1042,19 @@ def test_plugin_builds_a_pipeline(name):
     backend = InMemoryKeychainBackend()
     backend.set_password(secrets_store.SECRET_SERVICE, "myia/image/api_key", "placeholder")
     backend.set_password(
-        secrets_store.SECRET_SERVICE, "myia/llm/base_url", "https://open.bigmodel.cn/api/paas/v4"
+        secrets_store.SECRET_SERVICE,
+        "myia/llm/base_url",
+        "https://open.bigmodel.cn/api/paas/v4",
+    )
+    # 10-18 魔搭切换(ai-news.yaml base_url/api_key 换 modelscope 键对):
+    # 内存钥匙链同步补种新键(旧键保留——其他品类仍在引用,清理归主人)。
+    backend.set_password(
+        secrets_store.SECRET_SERVICE,
+        "myia/llm/modelscope-base-url",
+        "https://api-inference.modelscope.cn/v1",
+    )
+    backend.set_password(
+        secrets_store.SECRET_SERVICE, "myia/llm/modelscope-api-key", "placeholder"
     )
     secrets_store.set_backend(backend)
     try:
@@ -1107,15 +1147,39 @@ _TWO_RUN_PLANS: dict[str, dict[str, Any]] = {
             _epic_free_body(0, "0", promo_end="2026-10-09T15:00:00.000Z"),
         ],
     },
-    # gpu-prices(10-03-games-v2):zol 形状合成 markup(真实页被反爬检查页
-    # 拦,无法录制——同 v2ex parked 口径);同 URL 换价,拦截点在 dedup
+    # gpu-prices(10-03-games-v2;2026-10-17 zol 换轨 firecrawl 后改形状):
+    # firecrawl 信封 {data:{html}},html 内嵌 zol 新版卡片选择器
+    # (li[data-follow-id] 容器;h3 a 标题/链接;价格 b.price-type——裸类
+    # 选择器,标签 h3 时代的 span 已换 b)。同 URL 换价,拦截点在 dedup
+    # (键 {url} 不含价);endpoint/api_key 钥匙串引用由测试侧内存钥匙链
+    # 喂入(CI 无宿主机钥匙链也能跑,同 builds_a_pipeline 先例)。
     "gpu-prices": {
         "source": "zol",
+        "keychain": {
+            "myia/firecrawl/url": "http://127.0.0.1:3002",
+            "myia/firecrawl/api-key": "placeholder",
+        },
         "payloads": [
-            '<div class="list-item"><h3><a href="https://detail.zol.com.cn/vga/1.html">'
-            'iGame RTX 5080 公开演示</a></h3><span class="price-type">8999</span></div>',
-            '<div class="list-item"><h3><a href="https://detail.zol.com.cn/vga/1.html">'
-            'iGame RTX 5080 公开演示</a></h3><span class="price-type">9099</span></div>',
+            {
+                "data": {
+                    "html": (
+                        '<ul id="J_PicMode"><li data-follow-id="1"><h3>'
+                        '<a href="https://detail.zol.com.cn/vga/1.html">'
+                        "iGame RTX 5080 公开演示</a></h3>"
+                        '<b class="price-type">8999</b></li></ul>'
+                    )
+                }
+            },
+            {
+                "data": {
+                    "html": (
+                        '<ul id="J_PicMode"><li data-follow-id="1"><h3>'
+                        '<a href="https://detail.zol.com.cn/vga/1.html">'
+                        "iGame RTX 5080 公开演示</a></h3>"
+                        '<b class="price-type">9099</b></li></ul>'
+                    )
+                }
+            },
         ],
     },
     # news(10-03-news-rss):gcores 形状 XML(实录条目裁剪);第二跑换条目
@@ -1181,6 +1245,17 @@ def _two_run_handler(plan: dict[str, Any]):
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/robots.txt"):
             return httpx.Response(404, text="")
+        # firecrawl 本地后端活性探测(GET http://127.0.0.1:3002/,任意响应=
+        # 在,见 FirecrawlEngine._probe_local_backend):mock 会应答它,但不
+        # 应消耗轮换 payload——真正的数据请求是 /v1/scrape POST(2026-10-17
+        # zol 换轨 firecrawl 后 gpu-prices 计划走此线)。按 host+path 精确
+        # 圈定,勿误伤真实源根路径(linux.sb/ 同为 "/")。
+        if (
+            request.method == "GET"
+            and request.url.host in ("127.0.0.1", "localhost")
+            and request.url.path == "/"
+        ):
+            return httpx.Response(200, text="")
         payload = payloads[min(served["n"], len(payloads) - 1)]
         served["n"] += 1
         if isinstance(payload, str):
@@ -1192,26 +1267,38 @@ def _two_run_handler(plan: dict[str, Any]):
 
 @pytest.mark.parametrize("name", OFFICIAL_PLUGINS)
 def test_plugin_two_runs_dedup_blocks_and_no_duplicate_rows(name, tmp_path):
-    """PRD 10-01-v01-plugins-official: 每插件二跑 —— 第二次 dedup 拦截,无重复入库。"""
-    store = SQLiteStore(tmp_path / "dedup.db")
-    client = httpx.AsyncClient(transport=httpx.MockTransport(_two_run_handler(_TWO_RUN_PLANS[name])))
-    pipeline = Pipeline(_single_source_config(name), store=store, client=client)
+    """PRD 10-01-v01-plugins-official: 每插件二跑 —— 第二次 dedup 拦截,无重复入库。
 
-    result1 = asyncio.run(pipeline.run())
-    assert result1.status == "success", result1.stats_dict()
-    assert result1.stage("dedup").items_out >= 1
+    计划可带 ``keychain`` 条目(gpu-prices 换轨 firecrawl 后,源的
+    engine_options 端点/密钥是 keychain: 引用)——内存钥匙链喂入,CI 无
+    宿主机钥匙链照常跑(同 test_plugin_builds_a_pipeline 先例)。"""
+    plan = _TWO_RUN_PLANS[name]
+    backend = InMemoryKeychainBackend()
+    for secret_name, value in plan.get("keychain", {}).items():
+        backend.set_password(secrets_store.SECRET_SERVICE, secret_name, value)
+    secrets_store.set_backend(backend)
+    try:
+        store = SQLiteStore(tmp_path / "dedup.db")
+        client = httpx.AsyncClient(transport=httpx.MockTransport(_two_run_handler(plan)))
+        pipeline = Pipeline(_single_source_config(name), store=store, client=client)
 
-    result2 = asyncio.run(pipeline.run())
-    assert result2.status == "success", result2.stats_dict()
-    assert result2.stage("dedup").skips.get("dedup_seen", 0) >= 1, (
-        f"{name}: second run must be intercepted by the dedup registry"
-    )
-    rows = store.list_items()
-    assert len(rows) == len({record.dedup_key for record in rows}), (
-        f"{name}: store must not hold duplicate entries"
-    )
-    store.close()
-    asyncio.run(client.aclose())
+        result1 = asyncio.run(pipeline.run())
+        assert result1.status == "success", result1.stats_dict()
+        assert result1.stage("dedup").items_out >= 1
+
+        result2 = asyncio.run(pipeline.run())
+        assert result2.status == "success", result2.stats_dict()
+        assert result2.stage("dedup").skips.get("dedup_seen", 0) >= 1, (
+            f"{name}: second run must be intercepted by the dedup registry"
+        )
+        rows = store.list_items()
+        assert len(rows) == len({record.dedup_key for record in rows}), (
+            f"{name}: store must not hold duplicate entries"
+        )
+        store.close()
+        asyncio.run(client.aclose())
+    finally:
+        secrets_store.reset_backend()
 
 
 def test_games_two_runs_price_change_creates_new_key(tmp_path):
@@ -1271,9 +1358,14 @@ def test_aihot_live_extract_smoke():
     assert all(item.get("url") for item in items)
 
 
-@pytest.mark.parametrize("source_name", ["linuxsb", "bbsbtsb", "nodeloc", "cocoloop", "sbsb"])
+@pytest.mark.parametrize(
+    "source_name",
+    # 2026-10-17 源面收口:bbsbtsb 判死出列,dalao 直连 200 入列;v2ex 三页
+    # 与 s74 是 firecrawl 云渲染源(直连必被 CF 墙/JS 壳拦),不进本直连 smoke。
+    ["linuxsb", "dalao", "nodeloc", "cocoloop", "sbsb"],
+)
 def test_wool_live_source_smoke(source_name):
-    """MYIA_SMOKE_REAL=1: wool 各活源真实抓取 + extract ≥1 条(v2ex 已停放除外)。"""
+    """MYIA_SMOKE_REAL=1: wool 各直连活源真实抓取 + extract ≥1 条."""
     if not os.environ.get("MYIA_SMOKE_REAL"):
         pytest.skip("真实源 smoke 默认跳过(设置 MYIA_SMOKE_REAL=1 启用)")
 
@@ -1291,7 +1383,18 @@ def test_wool_live_source_smoke(source_name):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("path", sorted(CONFIG_DIR.glob("*.yaml")), ids=lambda p: p.name)
+@pytest.mark.parametrize(
+    "path",
+    # 全局声明件(如 proxy-pools.yaml)非品类件:无 id/sources,走
+    # load_proxy_pools_file 另一条装载线,豁免品类可加载断言
+    # (单一真源:myssia.cli.GLOBAL_DECLARATION_YAMLS,与装载器同步)。
+    sorted(
+        path
+        for path in CONFIG_DIR.glob("*.yaml")
+        if path.name not in GLOBAL_DECLARATION_YAMLS
+    ),
+    ids=lambda p: p.name,
+)
 def test_every_top_level_plugin_yaml_loads(path):
     """回归(monitor.yaml 曾整文件拒载):config/ 下的示例是 agent 的 ground
     truth,yaml-schema 变更纪律要求它们永远跟 schema 同步——monitor 曾因 v0.3

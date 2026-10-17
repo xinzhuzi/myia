@@ -2990,8 +2990,21 @@ def _fingerprint_skip_stats(entries: list[dict[str, Any]]) -> dict[str, int]:
 # ---------------------------------------------------------------------------
 
 
+#: config/ 根下的全局声明件(非品类 YAML):与品类件同住 config/ 根,
+#: 但语义是「全局一次声明 + ``--config`` 显式加载」,无 id/sources 节,
+#: 按品类盲扫装载必被 schema fail-fast 拒载(2026-10-17 CI 红根因:
+#: proxy-pools.yaml 进了 ``_config_yaml_files`` 枚举)。品类枚举(cli
+#: 装载/doctor 与各测试的 glob 参数化)按文件名精确豁免;新增全局声明
+#: 件在此登记一处即全量生效。声明件消费端见
+#: :func:`myssia.engines.fetch_base.load_proxy_pools_file`。
+GLOBAL_DECLARATION_YAMLS: frozenset[str] = frozenset({"proxy-pools.yaml"})
+
+
 def _config_yaml_files(directory: str | Path) -> list[Path]:
     """Sorted ``*.yaml``/``*.yml`` category files directly inside ``directory``.
+
+    全局声明件(:data:`GLOBAL_DECLARATION_YAMLS`,如 proxy-pools.yaml)
+    按文件名豁免——它们不是品类件,``load_category_file`` 必拒载。
 
     Raises:
         NotADirectoryError: the directory does not exist (usage error → exit 1).
@@ -2999,7 +3012,11 @@ def _config_yaml_files(directory: str | Path) -> list[Path]:
     root = Path(directory)
     if not root.is_dir():
         raise NotADirectoryError(f"插件目录不存在: {root}")
-    return sorted({*root.glob("*.yaml"), *root.glob("*.yml")})
+    return sorted(
+        path
+        for path in {*root.glob("*.yaml"), *root.glob("*.yml")}
+        if path.name not in GLOBAL_DECLARATION_YAMLS
+    )
 
 
 def _load_category_yaml(

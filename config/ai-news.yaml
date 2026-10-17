@@ -463,7 +463,7 @@ enrich:
                               # 10 条留足余量,mini-batch(≤2 条)~6s 实证
   cache: true
   budget_per_run: 50000
-  base_url: keychain:myia/llm/modelscope-base-url   # 智谱 PAAS v4:https://open.bigmodel.cn/api/paas/v4
+  base_url: keychain:myia/llm/modelscope-base-url   # 魔搭免费推理(10-18 主人令;智谱钥余额耗尽切换)
                                 # (值非密钥;10-03 桌面零 env 化:自 env:MYIA_LLM_BASE_URL
                                 # 迁入钥匙链——桌面 sidecar 无 shell env,env: 引用会在
                                 # 桌面 run 构造期 fail-fast;CLI/桌面同链录入:

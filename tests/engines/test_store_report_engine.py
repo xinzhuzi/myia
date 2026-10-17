@@ -800,9 +800,15 @@ def test_ai_news_route_noise_reduction(item, mode):
     ],
 )
 def test_games_route_noise_reduction(item, mode):
-    """games 双通道:限免保留 immediate,付费折扣落 archive(双条目同构)."""
-    for push_index in (0, 1):
-        assert resolve_route(item, _routes_of("games", push_index)).mode == mode
+    """games 路由降噪:限免保留 immediate,付费折扣落 archive(在场条目同构).
+
+    2026-10-17 翻案(a99f6174 主人令「太频繁」弹窗治理):telegram push
+    条目退役,在场仅 feishu_card——断言面从固定双下标 (0, 1) 改为枚举全部
+    在场条目(原下标 1 已 IndexError);将来复活 telegram 或再加挂无需改本测。"""
+    config = load_category_file(CONFIG_DIR / "games.yaml")
+    assert config.push, "games 必须至少保留一个推送条目(feishu_card)"
+    for push in config.push:
+        assert resolve_route(item, routes_from_config(push.route)).mode == mode
 
 
 def test_vendor_watch_route_noise_reduction():

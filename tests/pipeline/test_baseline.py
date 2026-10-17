@@ -702,7 +702,10 @@ def test_gpu_prices_declares_all_twelve_sections_explicitly(gpu_config):
         "classify", "dedup", "enrich", "push", "storage",
     }
     assert required <= gpu_config.model_fields_set
-    assert gpu_config.sources[0].engine == "static_html"  # ZOL L2 源
+    # 2026-10-17 换轨(4d171602):ZOL 反爬门(静态直抓只拿 152B 壳),
+    # zol 源 engine static_html→firecrawl 云渲染,本地 3002 后端已死走
+    # 钥匙串云兜底——断言跟 yaml 现状(装载器不臆测引擎)。
+    assert gpu_config.sources[0].engine == "firecrawl"
     assert gpu_config.sources[0].extract is not None
     assert "price" in gpu_config.sources[0].extract.fields
 
