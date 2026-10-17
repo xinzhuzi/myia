@@ -146,7 +146,7 @@ sources:
       type: rss
       fields: {title: title, url: link, published: published}
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+    proxy: pool:clash            # 海外站防见本地 IP·第二批(主人裁 2026-10-18「一律藏」)
     retry: 3
 
   - name: hf-blog                # Hugging Face 官方博客 feed
@@ -168,7 +168,7 @@ sources:
       type: rss
       fields: {title: title, url: link, published: published}
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+    proxy: pool:clash            # 海外站防见本地 IP·第二批(主人裁 2026-10-18「一律藏」)
     retry: 3
 
   - name: qwen-blog              # Qwen 官方博客 feed(博客页 autodiscovery 实探:
@@ -216,7 +216,7 @@ sources:
                                               # 相对路径 urljoin
         published: "time"                     # 卡内日期文本(Oct 6, 2026)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+    proxy: pool:clash            # 海外站防见本地 IP·第二批(主人裁 2026-10-18「一律藏」)
     retry: 3
 
   # Meta AI 博客(纯客户端渲染:静态面 10-06 六选择器全零判死,10-07 复测
@@ -247,7 +247,7 @@ sources:
                                     # item 即锚(自引用取属性)
         url: "@href"                # 渲染后即绝对地址
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+    proxy: pool:clash            # 海外站防见本地 IP·第二批(主人裁 2026-10-18「一律藏」)
     retry: 3
 
   # Cohere 博客(SSR 实证 200/1038KB,robots Allow /,blog 路径不在
@@ -269,7 +269,7 @@ sources:
         url: "@href"                # item 即锚(自引用取属性);相对路径 urljoin
         published: "p[class*='eyebrow']"   # 日期行(Sep 10, 2026)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+    proxy: pool:clash            # 海外站防见本地 IP·第二批(主人裁 2026-10-18「一律藏」)
     retry: 3
 
   # ──────────────────────────────────────────────────────────────────────
@@ -470,6 +470,37 @@ enrich:
                                 # myssia secret set myia/llm/base_url,或桌面端凭据页)
   api_key: keychain:myia/llm/modelscope-api-key   # 既有 GLM key(与 vision.yaml cloud 同链;
                                 # myssia secret set myia/image/api_key 录入)
+
+# 价值裁决开关(2026-10-18 价值判断脚手架)。两个开关的人话与取舍:
+#   first_run_quiet: 新源第一次见面,先把家底记进库,不打扰你——首跑条目
+#     只入库,不进评分推送流。取舍明写:
+#     · 马上要单发的条目(羊毛/优惠类,route 预演命中 immediate)不吞,
+#       首轮照常单发——「宁可重发不可漏发」保住;
+#     · 首轮没有评分,score≥9 型即时路由判不了,这类首跑条目进日报折叠
+#       (daily-digest 的 AI 资讯分区 first_run: fold),下轮有变化再报;
+#     · 只对新源/新库的首跑触发——存量源基线已在,装机后看不到它工作是
+#       预期,不是开关失效。
+#   repush_on_change: 同一条目内容变了(标题或正文有改动),下个时段值得
+#     再报一次。存量老条目没有指纹,永不重推;只对开关开启后新入库的条目
+#     生效。本源面多为 RSS(无正文),指纹退化为标题变化——编辑改标题会
+#     重推,量级 = 编辑频率 × 90 天留存,接受。
+# 注:aihot 一家 engine: auto,L2 命中时带首跑信号、降到 firecrawl 后无
+# 标记不抑制(同源不同轮行为可能漂移,引擎面已知取舍)。
+#
+# 装机与验证前置(换装那天照做,私发红线在最底下):
+#   ① 换装前 myssia cron 暂停本品类 + 退出桌面 app——cron 会拉起 myssia
+#      run 子进程,半新半旧的代码不能跑;换装后恢复。
+#   ② 要真发验证,用一份临时品类配置(私聊 open_id target + 独立 url 锚),
+#      避开 08:00/20:00 采集槽位窗口,验完即删。
+#   ③ 验证判据看 report.skips 里的 first_run_quiet 计数和条目的
+#      fetch_change_reason 字段,不要绑 LLM 评分(评分有抖动,会污染断言)。
+#   ④ 验证首跑抑制要用临时新增的源或新库——存量源的基线已经在了,不会
+#      触发;装机后看不到开关工作是预期,不是开关失效。
+#   私发红线:本品类生产 target 是 env:FEISHU_CHAT_ID 群——严禁对它真跑
+#   推送验证;真发只走「AI信息分析师」私聊(dry-run 零推送,永远安全)。
+value_gate:
+  first_run_quiet: true
+  repush_on_change: true
 
 push:
   - channel: feishu_card

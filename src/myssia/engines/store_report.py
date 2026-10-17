@@ -35,10 +35,11 @@ PM = 本地 12:00 起,``SLOT_BOUNDARY_HOUR`` 同一边界),按 ``sections``
   条目的 content 逐行归一后缩进,markdown 结构符 ``#``/``-``/``**`` 剥除,
   防飞书 md 把缩进行渲染成标题/列表破坏版式);
 - **空分区整段跳过**(分隔线 ``--`` 只落在已渲染分区之间;分区配
-  ``min_score`` 且整区低于线时不算空——折叠行即内容,留痕照渲染);
+  ``min_score`` 且整区低于线、或配 ``first_run: fold`` 折下首轮建档条目时
+  不算空——折叠行即内容,留痕照渲染);
   **全部分区无新条目 = 零条目 = 整条静默不发**(urlwatch「合法空态」
-  判例 + ``last_skip_reason`` 留痕;过线条目为零但低价值留痕在场时
-  照发——窗不空,静默才是说谎);
+  判例 + ``last_skip_reason`` 留痕;过线条目为零但低价值/首轮折叠留痕
+  在场时照发——窗不空,静默才是说谎);
 - 长度护栏交给通道层:feishu ``msg_form: text`` 的 post md rows 按
   :data:`~myssia.push.feishu_card.POST_SPLIT_THRESHOLD`(4000)行边界拆段,
   多段头尾 ``(i/N)``(组合铁律在案,不在本层重做)。
@@ -51,7 +52,7 @@ URL = 新去重键,同槽重跑幂等,跨槽必新。
 配置形状(``engine_options.store_report``):
 
 - ``sections``(必填):分区清单,每项 ``{title, sources, labels?, style?,
-  suffix_fields?, max_entries?, max_lines?, min_score?}``;
+  suffix_fields?, max_entries?, max_lines?, min_score?, first_run?}``;
   - ``title``(必填):分区标题;
   - ``sources``(必填):纳入该分区的**源名**清单(store items.source 的
     匹配键——分类器 category 对 builtin 关闭的品类恒 None,games/
@@ -72,6 +73,14 @@ URL = 新去重键,同槽重跑幂等,跨槽必新。
     不武断降级(路由层 ``score`` 休眠同口径);排序维持既有判例(store
     newest-first + 源声明序,不加值排序);拦在 ``max_entries`` 帽之先
     ——低价值条目不占正文席位;
+  - ``first_run``(可选,缺省 ``show``):首轮建档条目(新源第一次入库,
+    ``raw.fetch_change_reason == first_fetch``)的处理——``show`` = 照常
+    编号进正文(现状);``fold`` = 不占编号席位,分区尾折叠一行
+    「另有 N 条首轮建档条目(新源第一次入库,未打扰)」留痕(N = 进到
+    本分区收条目的首跑子集计数,classify 词门放行口径同注;折叠判在
+    ``min_score`` 之先——首跑条目不进 analyze 无 enrich 分,价值门
+    无分不拦,不误伤);折叠在场 = 窗口不空(``low_value`` 同判:折叠行
+    是诚实信号,静默才是说谎);
 - ``title``(可选):总标题(缺省 = 源名);
 - ``timezone``(可选):槽位边界时区(IANA;缺省本地)——品类 YAML 的
   ``timezone`` 键引擎读不到(FetchContext 不带品类配置),报表窗口语义
@@ -108,6 +117,10 @@ LAYER = "STORE_REPORT"
 #: 分区词表:``list`` = 编号一句话;``detail`` = 编号子标题 + 缩进明细行。
 SECTION_STYLES = ("list", "detail")
 
+#: 首轮建档词表:``show`` = 照常编号进正文(现状);``fold`` = 不占编号
+#: 席位,分区尾折叠行留痕。
+FIRST_RUN_MODES = ("fold", "show")
+
 #: 价值分键(items ``scores`` JSON 里 enrich 精评的 value 维;push/digest
 #: 排序键同源同键,本引擎的 ``min_score`` 门槛读它)。
 SCORE_KEY = "value"
@@ -140,6 +153,7 @@ __all__ = [
     "DEFAULT_MAX_ENTRIES",
     "DEFAULT_TITLE_CHARS",
     "DEFAULT_DETAIL_LINE_CHARS",
+    "FIRST_RUN_MODES",
     "FOOTER_TEMPLATE",
     "LAYER",
     "LINK_LABEL",
@@ -152,6 +166,7 @@ __all__ = [
     "StoreReportEngine",
     "clip_title",
     "normalize_detail_line",
+    "record_is_first_fetch",
     "record_value_score",
     "render_report",
     "slot_window",
@@ -220,6 +235,19 @@ def record_value_score(record: Mapping[str, Any]) -> float | None:
     return float(value)
 
 
+def record_is_first_fetch(record: Mapping[str, Any]) -> bool:
+    """首轮建档判定:``raw.fetch_change_reason == "first_fetch"``.
+
+    分类层首跑抑制判例(F5)在新源第一次入库时往条目 ``raw`` 写
+    ``fetch_change_reason: first_fetch``;``raw`` 缺席/非映射/值不符都
+    算非首跑(照常编号,不误伤存量条目)。
+    """
+    raw = getattr(record, "raw", None)
+    if not isinstance(raw, Mapping):
+        return False
+    return raw.get("fetch_change_reason") == "first_fetch"
+
+
 def _fmt_score(value: float | None) -> str:
     """门槛展示:整数不带小数点(``3`` 而非 ``3.0``),小数原样。"""
     return "?" if value is None else f"{value:g}"
@@ -246,6 +274,7 @@ class DigestSection:
     omitted: int = 0  # 超过 max_entries 被省略的条数(渲染层留痕)
     low_value: int = 0  # min_score 拦下的条数(分区尾折叠行留痕)
     min_score: float | None = None  # 折叠行公示的门槛(None = 未配)
+    first_run: int = 0  # first_run: fold 折下的首轮建档条数(分区尾折叠行留痕)
 
 
 def render_report(
@@ -260,14 +289,14 @@ def render_report(
 
     布局契约(主人截图 OCR):首行 = ``总标题 · 日期 · AM|PM``;分区标题行
     + 编号条目;分区之间 ``--`` 分隔线(只落在**已渲染**分区之间,空分区
-    整段跳过——但 ``low_value`` 在场的分区不算空,折叠行即内容);末行
-    尾戳 = ``HH:MM 实时爬取生成 · 全条目指纹去重 · 无新内容自动静默``。
-    全部分区空 → 空串(调用方静默不发)。
+    整段跳过——但 ``low_value``/``first_run`` 在场的分区不算空,折叠行即
+    内容);末行尾戳 = ``HH:MM 实时爬取生成 · 全条目指纹去重 · 无新内容
+    自动静默``。全部分区空 → 空串(调用方静默不发)。
     """
     lines: list[str] = [f"{title} · {date} · {slot.upper()}"]
     rendered_any = False
     for section in sections:
-        if not section.entries and not section.low_value:
+        if not section.entries and not section.low_value and not section.first_run:
             continue
         if rendered_any:
             lines.append("--")
@@ -291,6 +320,11 @@ def render_report(
             lines.append(
                 "   ……(另有 "
                 f"{section.low_value} 条低价值条目,价值分<{_fmt_score(section.min_score)})"
+            )
+        if section.first_run:
+            lines.append(
+                f"   ……(另有 {section.first_run} 条首轮建档条目"
+                "(新源第一次入库,未打扰))"
             )
         rendered_any = True
     if not rendered_any:
@@ -359,7 +393,7 @@ class StoreReportEngine(BaseEngine):
                 )
             unknown = set(raw) - {
                 "title", "sources", "labels", "style", "suffix_fields",
-                "max_entries", "max_lines", "min_score",
+                "max_entries", "max_lines", "min_score", "first_run",
             }
             if unknown:
                 raise FetchError(
@@ -439,6 +473,15 @@ class StoreReportEngine(BaseEngine):
                     f"当前为 {min_score!r}",
                     error_type="invalid_engine_options",
                 )
+            first_run = raw.get("first_run", "show")
+            if first_run not in FIRST_RUN_MODES:
+                raise FetchError(
+                    f"engine_options.store_report.{path}.first_run 必须是 "
+                    f"{list(FIRST_RUN_MODES)} 之一(fold = 首轮建档条目折叠"
+                    "留痕,缺省 show = 照常编号),"
+                    f"当前为 {first_run!r}",
+                    error_type="invalid_engine_options",
+                )
             sections.append(
                 {
                     "title": title.strip(),
@@ -449,6 +492,7 @@ class StoreReportEngine(BaseEngine):
                     "max_entries": max_entries,
                     "max_lines": max_lines,
                     "min_score": min_score,
+                    "first_run": first_run,
                 }
             )
         title = options.get("title", self.source.name)
@@ -518,11 +562,13 @@ class StoreReportEngine(BaseEngine):
         ]
         total = sum(len(section.entries) for section in sections)
         low_value_total = sum(section.low_value for section in sections)
-        if total == 0 and low_value_total == 0:
+        first_run_total = sum(section.first_run for section in sections)
+        if total == 0 and low_value_total == 0 and first_run_total == 0:
             # 全分区无新内容 = 整条静默(urlwatch 合法空态判例):零条目 +
             # skip 哨兵留痕(doctor 不误诊 degraded),绝不发「无内容」占位。
-            # 配了 min_score 的分区低价值留痕在场时不静默——窗口不空,
-            # 折叠行报表(零过线条目)是诚实信号,静默才是说谎。
+            # 配了 min_score 的分区低价值留痕、配了 first_run: fold 的分区
+            # 首跑折叠留痕在场时不静默——窗口不空,折叠行报表(零过线条目)
+            # 是诚实信号,静默才是说谎。
             self.last_skip_reason = SKIP_WINDOW_EMPTY
             logger.info(
                 "store 报表窗口内无新条目,静默: date=%s slot=%s sources=%s",
@@ -601,15 +647,22 @@ class StoreReportEngine(BaseEngine):
         by_source: Mapping[str, list[Mapping[str, Any]]],
         max_chars: int,
     ) -> DigestSection:
-        """一个分区:按源声明序收条目(store 已 newest-first);价值门槛
-        先拦(低于线计数留痕,无分不拦)、编号帽后截断(低价值不占席位).
+        """一个分区:按源声明序收条目(store 已 newest-first);首跑折叠
+        先收(``first_run: fold`` 的首轮建档条目不占编号席位,计数留痕)、
+        价值门槛再拦(低于线计数留痕,无分不拦)、编号帽后截断(低价值
+        不占席位).
         """
         min_score = section["min_score"]
+        fold_first_run = section["first_run"] == "fold"
         entries: list[DigestEntry] = []
         low_value = 0
+        first_run = 0
         for source_name in section["sources"]:
             labels = section["labels"]
             for record in by_source.get(source_name, ()):
+                if fold_first_run and record_is_first_fetch(record):
+                    first_run += 1
+                    continue
                 if min_score is not None:
                     score = record_value_score(record)
                     if score is not None and score < min_score:
@@ -627,6 +680,7 @@ class StoreReportEngine(BaseEngine):
             omitted=omitted,
             low_value=low_value,
             min_score=float(min_score) if min_score is not None else None,
+            first_run=first_run,
         )
 
     def _entry_from_record(

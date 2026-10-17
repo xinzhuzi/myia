@@ -94,6 +94,24 @@ class Store(Protocol):
         """
         ...
 
+    def carry_item_states(self, *, from_item_id: int, to_item_id: int) -> bool:
+        """把旧行的读态三列(read/starred/later)拷到新行(变化重推 F4).
+
+        dedup 的内容变化重推在入库**新行**(日报窗口按 first_seen 拉,
+        UPDATE 旧行报不出变化);用户对旧行的读态不该因重推归零——本方法
+        把旧行三列原样迁到新行。读态仍只由置位面写(set_item_states 系),
+        本方法是同键状态迁移,不新增置位入口。
+
+        Args:
+            from_item_id: 旧行 id(读态来源;行已被 retention 剪枝则迁移
+                无从谈起,返回 False,调用方 best-effort 不视为错误)。
+            to_item_id: 新行 id(重推路径刚 save 出的行)。
+
+        Returns:
+            True 当且仅当两行都在且新行被更新。
+        """
+        ...
+
     def update_item_scores(self, dedup_key: str, scores: Mapping[str, object]) -> bool:
         """Backfill one item's ``scores`` column (LLM 精评回填 items 表).
 

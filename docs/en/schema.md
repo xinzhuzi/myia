@@ -24,10 +24,12 @@
 | 11 | `push[].route` | Threshold routing: first match wins; rules referencing `score` stay dormant until scores are backfilled. |
 | 12 | `storage` | Data lifecycle: retention and VACUUM cadence. |
 
-Beyond these 12 sections there are three optional **sidecar sections** (they
+Beyond these 12 sections there are six optional **sidecar sections** (they
 do not grow the public 12-section contract and are validated at the load
 entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
-(trend baseline, v0.4) and `aggregate:` (event aggregation, v0.4) — see
+(trend baseline, v0.4), `aggregate:` (event aggregation, v0.4), `images:`
+(vision ring, 10-03), `timeouts:` (stage timeout caps, 10-12) and
+`value_gate:` (first-run quiet + repush on change, 2026-10-18) — see
 [sidecar sections](#sidecar-sections-v03v04).
 
 ## Vocabulary (enums, value-for-value with schema.py)
@@ -548,6 +550,58 @@ images:
 push:
   - channel: stdout
 ```
+
+### value_gate: first-run quiet & repush on change
+
+Category-level value-gate declaration (the sixth sidecar section): with both
+flags at their `false` defaults the whole section is a no-op (behavior is
+field-for-field identical to the section being absent); it is validated at
+the load entry point (error paths carry the `$.value_gate` prefix;
+`value_gate: null` counts as absent).
+
+| Field | Default | Meaning |
+|---|---|---|
+| `first_run_quiet` | `false` | `true` = the first time a source is met, record the backlog quietly: first-fetch items are stored but kept out of the scoring/push stream. Items that would go out immediately anyway (route preview hits an immediate channel, e.g. freebie/deal categories) are not swallowed — they still push on the first run. There is no score on the first run, so score-gated immediate routes stay dormant; those items fold into the digest instead (store_report section `first_run: fold`) and get re-reported once they change. Only fires for brand-new sources or a brand-new store; swallowed items are counted in `report.skips["first_run_quiet"]`. |
+| `repush_on_change` | `false` | `true` = when an item's content changes (fingerprint = normalized title + body; list/RSS sources without body degrade to title-change detection), it is worth reporting again next slot: a new row is stored under the same key (the new row inherits read/starred state) and the digest window naturally picks it up by first_seen. Legacy items have no fingerprint and are never repushed; only items stored after the flag is on are covered. |
+
+Prerequisite signal: item `metadata["fetch_change_reason"]` (values
+`first_fetch` / `validators_differ` / `hash_differ`) is stamped by the
+static_html engine (including the rss extraction sub-mode); `engine: auto`
+carries the signal only when L2 wins — after degrading to firecrawl there is
+no marker and no suppression; standalone engines (prompt/urlwatch/telegram,
+…) are not covered (no marker = unaffected by first-run suppression).
+
+```yaml
+id: ai-news
+name: AI资讯
+schedule: "0 8,20 * * *"
+timezone: Asia/Shanghai
+sources:
+  - name: vendor-blog
+    engine: static_html
+    url: "https://blog.example.com/rss.xml"
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+value_gate:
+  first_run_quiet: true     # first meeting with a source: store quietly, no push
+  repush_on_change: true    # content changed (title or body) → report again next slot
+push:
+  - channel: stdout
+```
+
+Install & verification prerequisites (never really push against the
+production group target): ① before swapping the build, pause the matching
+categories in `myssia cron` and quit the desktop app (cron spawns `myssia
+run` child processes; half-old half-new code must not run), and restore them
+afterwards; ② for a live-send verification use a throwaway category config
+(private open_id target + a standalone url anchor), clear of the harvest
+slot windows, and delete it right after; ③ bind verification to the
+`report.skips["first_run_quiet"]` count and the
+`metadata["fetch_change_reason"]` field — never to LLM scores (score jitter
+pollutes such assertions); ④ verify first-run suppression with a temporarily
+added source or a fresh store (existing sources already have a baseline and
+will not trigger — that is expected, not a broken flag).
 
 ## Load-time errors (structured)
 

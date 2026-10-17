@@ -24,6 +24,16 @@ Contract (PRD 10-01-v01-engine-l1-l2):
   字段级失败(条目缺 url/部分字段 miss)不兜底;规则命中的源结构性永不触达。
   源级覆写(10-05-trafilatura-source-scope):``engine_options.static_html.
   extract_fallback: true/false`` 单源开/关,优先级=源级 > 全局 env > 缺省关。
+- 变更信号铸条(change-signal-metadata):``_fetch_page`` verdict 判定后,所有
+  出条出口统一经 ``_stamp_change_reason`` 给每条条目 dict 铸
+  ``fetch_change_reason=verdict.reason``,经 ``Item.from_extracted`` 非 known
+  键自动落条目 metadata——dedup key 模板/classify ``when``/push route ``when``
+  零新语法可读;零条收尾与 not_modified/``*_match`` 跳页路径不产条目故不铸。
+  范围声明:static_html 引擎全覆盖——含 ``extract.type: rss`` 提取子模式
+  (config/ai-news.yaml 厂商 RSS+reddit-ml 全走此路径);``engine: auto`` 仅
+  L2 命中(static_html)时有信号,degrade 到 firecrawl 等其他引擎后无标记
+  (同源不同轮引擎漂移=信号有无漂移,明示);prompt/urlwatch/telegram 独立
+  引擎不覆盖(无标记=不抑制)。
 
 Raises:
     FetchError: extract config missing/unsupported, template param missing.
@@ -135,6 +145,19 @@ def _trafilatura_fallback(html: str, url: str) -> list[dict] | None:
     return [item]
 
 
+def _stamp_change_reason(page_items: list[dict], reason: str) -> None:
+    """变更信号铸进每条条目 dict(change-signal-metadata 统一出口)。
+
+    每条产出的条目铸 ``fetch_change_reason=reason``(值域 first_fetch/
+    validators_differ/hash_differ——not_modified 与 ``*_match`` 走既有跳页
+    路径不产条目,结构性到不了这里)。键经 ``Item.from_extracted`` 非 known
+    键自动落条目 metadata,dedup key 模板/classify ``when``/push route
+    ``when`` 零新语法可读。只做出条调用:零条收尾出口无条目不铸。
+    """
+    for item in page_items:
+        item["fetch_change_reason"] = reason
+
+
 class StaticHTMLEngine(BaseEngine):
     """Fetch static pages and apply the CSS ``extract`` selectors."""
 
@@ -232,6 +255,7 @@ class StaticHTMLEngine(BaseEngine):
             # 维持零条语义(auto 链 L3 探测信号「static_html 真零结果」保真)。
             page_items = _trafilatura_fallback(text, url)
             if page_items:
+                _stamp_change_reason(page_items, verdict.reason)
                 return page_items, self._next_page_url(text, url), False
             return [], None, True
         if extract.type == "rss":
@@ -246,9 +270,13 @@ class StaticHTMLEngine(BaseEngine):
                 page_items = _trafilatura_fallback(text, url)
                 if page_items:
                     logger.info("规则跑空,trafilatura 兜底出条 url=%s", url)
+                    _stamp_change_reason(page_items, verdict.reason)
                     return page_items, self._next_page_url(text, url), False
             logger.debug("本页提取 0 条,提前收尾 url=%s", url)
             return [], None, True
+        # rss 与 CSS 选择器共用出条出口,一次盖章覆盖两条分支(F2:rss 源
+        # 同样带信号——7 家厂商 RSS+reddit-ml 全走此路径)。
+        _stamp_change_reason(page_items, verdict.reason)
         next_url = self._next_page_url(text, url)
         return page_items, next_url, False
 

@@ -22,9 +22,11 @@
 | 11 | `push[].route` | 阈值路由:首条命中生效;`score` 回填前引用它的规则自动休眠。 |
 | 12 | `storage` | 数据生命周期:保留期与 VACUUM 周期。 |
 
-除这 12 节外,还有三个**可选 sidecar 节**(不改变 12 节公开契约,由装载入口
+除这 12 节外,还有六个**可选 sidecar 节**(不改变 12 节公开契约,由装载入口
 单独校验):`plugin:`(场景插件双模式,v0.3)、`baseline:`(趋势基线,v0.4)、
-`aggregate:`(事件聚合,v0.4),见 [sidecar 节](#sidecar-节v03v04)。
+`aggregate:`(事件聚合,v0.4)、`images:`(看图环,10-03)、`timeouts:`(阶段
+超时帽,10-12)、`value_gate:`(首跑静默与变化重推,2026-10-18),见
+[sidecar 节](#sidecar-节v03v04)。
 
 ## 词汇表(枚举,与 schema.py 常量逐值一致)
 
@@ -489,6 +491,49 @@ images:
 push:
   - channel: stdout
 ```
+
+### value_gate:首跑静默与变化重推
+
+品类级价值裁决声明(第 6 个 sidecar 节):两个开关都在 `false` 缺省时整节
+零影响(行为与本节不存在时逐字段一致);装载入口单独校验(错误路径统一
+`$.value_gate` 前缀,`value_gate: null` 视为未声明)。
+
+| 字段 | 缺省 | 语义 |
+|---|---|---|
+| `first_run_quiet` | `false` | `true` = 新源第一次见面,先把家底记进库,不打扰你:首跑条目只入库、不进评分推送流。马上要单发的条目(route 预演命中 immediate,如羊毛/优惠类)不吞,首轮照常单发;首轮没有评分,score 型即时路由判不了,这类首跑条目进日报折叠(store_report 分区 `first_run: fold`),下轮有变化再报。只对新源/新库首跑触发;被吞条目在 `report.skips["first_run_quiet"]` 计数留痕。 |
+| `repush_on_change` | `false` | `true` = 同一条目内容变了(指纹 = 标题+正文归一;列表/RSS 源无正文退化为标题变化),下个时段再报一次:同键入库新行(新行继承旧行已读/星标),日报窗口按 first_seen 自然拉到。存量老条目没有指纹,永不重推;只对开关开启后新入库的条目生效。 |
+
+前置信号:条目 `metadata["fetch_change_reason"]`(值域 `first_fetch` /
+`validators_differ` / `hash_differ`)由 static_html 引擎铸造(含 rss 提取子
+模式);`engine: auto` 仅 L2 命中时带信号,降级到 firecrawl 后无标记不抑制;
+prompt/urlwatch/telegram 等独立引擎不覆盖(无标记 = 不受首跑抑制影响)。
+
+```yaml
+id: ai-news
+name: AI资讯
+schedule: "0 8,20 * * *"
+timezone: Asia/Shanghai
+sources:
+  - name: vendor-blog
+    engine: static_html
+    url: "https://example.com/blog/rss.xml"
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+value_gate:
+  first_run_quiet: true     # 新源首跑只入库不打扰;马上单发的(羊毛类)照常推
+  repush_on_change: true    # 内容变了(标题或正文有改动)下个时段再报一次
+push:
+  - channel: stdout
+```
+
+装机与验证前置(真实发送严禁对生产 target 群真跑):①换装前 `myssia cron`
+暂停对应品类 + 退出桌面 app(cron spawn 的 run 子进程不能跑半新半旧代码),
+换装后恢复;②真发验证用临时品类配置(私聊 open_id target + 独立 url 锚),
+避开采集槽位窗口,验完即删;③验证判据绑 `report.skips["first_run_quiet"]`
+计数与 `metadata["fetch_change_reason"]` 字段,不绑 LLM score(评分抖动会
+污染断言);④验证首跑抑制须用临时新增源或新库(存量源基线已在不触发,勿
+误判开关失效)。
 
 ## 加载期错误(结构化)
 

@@ -1288,6 +1288,27 @@ class SQLiteStore:
             raise ValueError(f"items 记录不存在: id={item_id}")
         logger.debug("条目推送登记 item_id=%s slot=%s", item_id, slot)
 
+    def carry_item_states(self, *, from_item_id: int, to_item_id: int) -> bool:
+        """把旧行读态三列(read/starred/later)拷到新行(变化重推 F4).
+
+        读旧行三列 → 单条 UPDATE 新行,两步同一连接;旧行不在(retention
+        剪枝)或新行不在 → False,调用方 best-effort 不视为错误。读态仍只
+        由置位面写(:meth:`set_item_states` 系),本方法是同键状态迁移、不
+        新增置位入口(按键同置的语义先例见 :meth:`set_item_states` 与
+        idx_items_dedup_key 建表注记)。旧行三列全 0 时照常执行迁移
+        (幂等拷贝,不做「全零跳写」优化——少一条快路径少一处漂移)。
+        """
+        row = self._query_one(
+            "SELECT read, starred, later FROM items WHERE id = ?", (from_item_id,)
+        )
+        if row is None:
+            return False
+        cursor = self._write(
+            "UPDATE items SET read = ?, starred = ?, later = ? WHERE id = ?",
+            (int(row["read"]), int(row["starred"]), int(row["later"]), to_item_id),
+        )
+        return cursor.rowcount > 0
+
     def update_item_scores(self, dedup_key: str, scores: Mapping[str, object]) -> bool:
         """Backfill one item's ``scores`` JSON column (LLM 精评回填 items 表).
 

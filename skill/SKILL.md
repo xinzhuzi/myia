@@ -301,6 +301,17 @@ doctor finding `apprise_not_installed`,不惊扰未配置用户);`stdout`
 `table` 不开放)。与整图语义描述分工:表格结构化 = `table`,整图说明 = `vl`,
 互不替代。
 
+### 2.18 sidecar 节:value_gate 首跑抑制与内容变化重推(ValueGateConfig)
+
+顶层可选 sidecar 节(不属于 12 节;错误路径 `$.value_gate` 前缀,`null` 视为
+未声明,挂到品类配置的 `value_gate` 属性)。dedup 之后的两道「值不值」闸门;
+两个字段缺省 `false` = 与本节不存在时行为一致(零影响默认)。
+
+| 字段 | 缺省 | 语义 |
+|---|---|---|
+| `first_run_quiet` | `false` | 首跑抑制:首轮抓到的条目照常入库+登记,但不进当轮推送流(skip 计数 `first_run_quiet`);任一通道路由预演为 `immediate` 即豁免照常单发(首轮羊毛/优惠类不折叠)。首轮无评分时 score 型即时路由判不了 → 进折叠,下轮有变化再报 |
+| `repush_on_change` | `false` | 内容变化重推:同键条目内容指纹(标题+正文归一 sha256)与库内新行不同时放行**新行**(日报窗口按 first_seen 拉新行,UPDATE 旧行报不出变化),新行继承旧行 read/starred/later;内容相同照常拦截;存量老条目无指纹(`content_hash` 为 null)永不重推 |
+
 ## 3. `myssia init`:生成 YAML 前先拿信息清单
 
 `myssia init --json` 输出恰好一份 JSON(恒定,不问交互问题),四块内容:

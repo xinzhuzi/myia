@@ -80,6 +80,13 @@ sources:
             min_score: 3           # 价值门槛(enrich value 0-10 制):低于线不进
                                   # 正文,分区尾「另有 N 条低价值条目(价值分<3)」
                                   # 折叠留痕;无分条目不拦;口味可调,缺省不过滤
+            first_run: fold        # 首轮建档折叠(2026-10-18 价值判断脚手架):
+                                  # 新源第一次入库的条目不占编号席位,分区尾折
+                                  # 一行「另有 N 条首轮建档条目(新源第一次入
+                                  # 库,未打扰)」——配套 ai-news.yaml 的
+                                  # value_gate.first_run_quiet(首跑只入库不打
+                                  # 扰);缺省 show = 照常编号进正文,其他分区
+                                  # 品类未开首跑抑制,保持缺省不动
 
           # ── 分区二:AI 厂商官网观察(2026-10-18 起静默:prompt 引擎版已退役,
 #                                  同源厂商动态由分区一 AI 资讯的 17 源结构化覆盖)(编号子标题 + 缩进明细行;LLM 摘要
@@ -101,6 +108,10 @@ sources:
           - title: AI 白嫖与优惠
             sources: [ai-token-deals, edumails-nav, freellmapi-releases, gpt4free-releases]
             max_entries: 10
+            first_run: fold        # 首轮建档折叠(同分区一):新源第一次入库的
+                                  # 条目不占编号席位,分区尾折叠留痕——配套
+                                  # ai-token-deals.yaml 的 value_gate.
+                                  # first_run_quiet;缺省 show 不动
 
           # ── 分区五:Telegram 公开频道(编号一句话;源名规约 telegram-<频道
           #    原名>,加频道时 telegram-channels.yaml 与本清单同步加一行)──

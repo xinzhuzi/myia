@@ -81,9 +81,10 @@ def test_list_extract_attrs_and_relative_url_resolution():
     items = run(engine.fetch())
     # price 文本经 coerce_numeric_text 规整为数值(¥ 前缀剥离):基线快照与
     # 阈值路由(price >= 10000)消费数值语义,字符串形态会双双静默失效。
+    # fetch_change_reason=无 store 首跑必 first_fetch(change-signal-metadata)。
     assert items == [
-        {"title": "公开帖子 1", "url": "https://example.com/t/1", "image": "https://example.com/img/1.png", "price": 100},
-        {"title": "AI 资讯 2", "url": "https://example.com/t/2", "image": "https://example.com/img/2.png", "price": 200},
+        {"title": "公开帖子 1", "url": "https://example.com/t/1", "image": "https://example.com/img/1.png", "price": 100, "fetch_change_reason": "first_fetch"},
+        {"title": "AI 资讯 2", "url": "https://example.com/t/2", "image": "https://example.com/img/2.png", "price": 200, "fetch_change_reason": "first_fetch"},
     ]
 
 
@@ -101,7 +102,13 @@ def test_item_extract_single_page_mode():
     engine = StaticHTMLEngine(source, context)
 
     items = run(engine.fetch())
-    assert items == [{"title": "公开帖子 1", "image": "https://example.com/img/1.png"}]
+    assert items == [
+        {
+            "title": "公开帖子 1",
+            "image": "https://example.com/img/1.png",
+            "fetch_change_reason": "first_fetch",
+        }
+    ]
 
 
 def test_gb18030_decoding_without_http_charset():
@@ -336,6 +343,7 @@ def test_fallback_missing_rules_produces_single_item(monkeypatch):
             "published": "2026-10-05T08:00:00+08:00",
             "author": "张三",
             "extract_provenance": "trafilatura",
+            "fetch_change_reason": "first_fetch",
         }
     ]
     assert fake.calls == ["https://example.com/news/story"]
@@ -352,6 +360,7 @@ def test_fallback_missing_rules_produces_single_item(monkeypatch):
         "published": "2026-10-05T08:00:00+08:00",
         "author": "张三",
         "extract_provenance": "trafilatura",
+        "fetch_change_reason": "first_fetch",
     }
 
 

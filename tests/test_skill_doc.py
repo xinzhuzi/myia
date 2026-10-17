@@ -47,6 +47,7 @@ from myssia.schema import (
     RouteRuleConfig,
     SourceConfig,
     StorageConfig,
+    ValueGateConfig,
     WatchlistConfig,
     load_category,
 )
@@ -75,6 +76,9 @@ SECTION_MODELS: dict[str, type[BaseModel]] = {
     # sidecar 模型(10-05-table-restore):SKILL.md §2.17 的 images 速查表与
     # 12 节同款双向锁定 —— sidecar 字段漂移同样必须是红测而不是误导文档。
     "ImagesConfig": ImagesConfig,
+    # sidecar 模型(value-gate-dedup F6):SKILL.md §2.18 的 value_gate 速查表
+    # 同款双向锁定(文档缺失 = 红测;表头集合 == 模型集断言见下)。
+    "ValueGateConfig": ValueGateConfig,
 }
 
 #: Models whose own default is a nested section instance: SKILL.md documents
@@ -251,7 +255,7 @@ def test_skill_field_table_matches_model_fields_and_defaults(model_name: str):
 
 
 def test_skill_documents_every_section_model():
-    """All 14 section models have a quick-reference table (12 节 = 11 根字段 + route;+ images sidecar)."""
+    """All section models have a quick-reference table (12 节 = 11 根字段 + route;+ images/value_gate sidecar)."""
     text = _read(SKILL_MD)
     headers = {
         _SECTION_HEADER_RE.match(line).group("model")

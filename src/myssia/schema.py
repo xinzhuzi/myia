@@ -64,6 +64,16 @@ analyze/enrich/push. Like ``aggregate:`` it is a sidecar section
 :attr:`CategoryConfig.images`; disabled or absent means the ring never
 runs (behavior identical to before the section existed).
 
+Value-gate sidecar (value-gate-dedup): an optional top-level ``value_gate:``
+section (:class:`ValueGateConfig`) arms the two post-dedup value gates —
+first-run quiet (first-seen items are persisted and registered but stay out
+of that run's push stream, with an immediate-route exemption) and
+repush-on-change (a changed content fingerprint re-admits the item as a new
+row that inherits the old row's read state). Like ``images:`` it is a sidecar
+section (structured ``$.value_gate`` errors, ``value_gate: null`` absent)
+attached to :attr:`CategoryConfig.value_gate`; both flags default to false,
+which is byte-for-byte the behavior before the section existed.
+
 Raises:
     LoadError: YAML is unreadable/unparsable or fails any schema rule.
     CredentialResolveError: a credential reference cannot be resolved.
@@ -127,6 +137,7 @@ __all__ = [
     "BaselineConfig",
     "AggregateConfig",
     "ImagesConfig",
+    "ValueGateConfig",
     "CategoryTimeoutsConfig",
     "CategoryPluginConfig",
     "PluginLocalModeConfig",
@@ -1652,6 +1663,40 @@ class CategoryTimeoutsConfig(_StrictModel):
 
 
 # ---------------------------------------------------------------------------
+# Value gate sidecar section (value-gate-dedup, 首跑抑制 + 内容变化重推)
+# ---------------------------------------------------------------------------
+
+
+class ValueGateConfig(_StrictModel):
+    """品类级价值裁决声明(top-level ``value_gate:`` sidecar 节).
+
+    语义:dedup 之后、推送之前的两道「值不值」闸门——
+
+    - :attr:`first_run_quiet` 首跑抑制:首轮抓到的条目照常入库+登记,但
+      不进当轮推送流(首轮不知道值不值,先折叠,下轮有变化再报);
+      任一通道的路由预演为 ``immediate`` 即豁免(首轮羊毛/优惠类照常单发,
+      F1)。缺省 false = 首跑条目照常进推送流(本节不存在时的现状)。
+    - :attr:`repush_on_change` 内容变化重推:同键条目的内容指纹(标题+
+      正文归一哈希)与库内新行不同时放行**新行**入推送流,新行继承旧行
+      的读态三列(F4)。缺省 false = 同键恒拦截(现状)。
+
+    取舍明写(F1/F9):首轮条目尚无评分,score 型即时路由判不了 immediate
+    就不豁免——进折叠,待下轮有变化再报;存量老条目的 items 行没有内容
+    指纹(``content_hash`` NULL),永不重推——指纹从本节上线起逐步铸齐,
+    不回填历史,也绝不拿 NULL 当「变了」误重推。
+
+    与 ``images:`` 同一套 sidecar 机制:由 :func:`load_category` 在装载
+    入口校验(错误路径统一 ``$.value_gate`` 前缀,``null`` 视为未声明)并挂
+    到 :attr:`CategoryConfig.value_gate`;12 节公开契约不随之增长。
+    """
+
+    #: 首跑抑制:首跑条目入库+登记但不进当轮推送流;immediate 路由豁免。
+    first_run_quiet: bool = False
+    #: 内容变化重推:同键新指纹 ≠ 旧行指纹时放行新行并继承读态三列。
+    repush_on_change: bool = False
+
+
+# ---------------------------------------------------------------------------
 # Scenario plugin declaration (v1.7 dual-mode sidecar section)
 # ---------------------------------------------------------------------------
 
@@ -1827,6 +1872,10 @@ class CategoryConfig(_StrictModel):
     #: 见 :class:`CategoryTimeoutsConfig`)。
     _timeouts: CategoryTimeoutsConfig | None = PrivateAttr(default=None)
 
+    #: 顶层 ``value_gate:`` 节(value-gate-dedup 价值裁决 sidecar,
+    #: 见 :class:`ValueGateConfig`)。
+    _value_gate: ValueGateConfig | None = PrivateAttr(default=None)
+
     @property
     def plugin(self) -> CategoryPluginConfig | None:
         """品类声明的场景插件节;未声明或未经 :func:`load_category` 装载时为 None."""
@@ -1851,6 +1900,11 @@ class CategoryConfig(_StrictModel):
     def timeouts(self) -> CategoryTimeoutsConfig | None:
         """品类声明的阶段超时节;未声明或未经 :func:`load_category` 装载时为 None."""
         return self._timeouts
+
+    @property
+    def value_gate(self) -> ValueGateConfig | None:
+        """品类声明的价值裁决节;未声明或未经 :func:`load_category` 装载时为 None."""
+        return self._value_gate
 
     @field_validator("id")
     @classmethod
@@ -1998,7 +2052,10 @@ def load_category(data: Mapping[str, Any], *, source: str | None = None) -> Cate
     top-level ``timeouts:`` section (10-12-tg-comments-reach 阶段超时帽)
     follows the same mechanism against :class:`CategoryTimeoutsConfig`
     (paths prefixed ``$.timeouts``, ``null`` absent) and lands on
-    :attr:`CategoryConfig.timeouts`.
+    :attr:`CategoryConfig.timeouts`. The optional top-level ``value_gate:``
+    section (value-gate-dedup 首跑抑制+内容变化重推) follows the same
+    mechanism against :class:`ValueGateConfig` (paths prefixed ``$.value_gate``,
+    ``null`` absent) and lands on :attr:`CategoryConfig.value_gate`.
 
     Args:
         data: top-level mapping from ``yaml.safe_load``.
@@ -2007,8 +2064,8 @@ def load_category(data: Mapping[str, Any], *, source: str | None = None) -> Cate
 
     Raises:
         LoadError: any of the twelve sections *or* a sidecar section (plugin
-            / baseline / aggregate / images / timeouts) fails validation;
-            collects *all* errors in one report.
+            / baseline / aggregate / images / timeouts / value_gate) fails
+            validation; collects *all* errors in one report.
     """
     if not isinstance(data, Mapping):
         raise LoadError(
@@ -2021,6 +2078,7 @@ def load_category(data: Mapping[str, Any], *, source: str | None = None) -> Cate
     aggregate_data = payload.pop("aggregate", None)  # 同上(v0.4 事件聚合)
     images_data = payload.pop("images", None)  # 同上(10-03-vision-pipeline)
     timeouts_data = payload.pop("timeouts", None)  # 同上(10-12 阶段超时)
+    value_gate_data = payload.pop("value_gate", None)  # 同上(value-gate-dedup)
     errors: list[LoadErrorDetail] = []
     config: CategoryConfig | None = None
     try:
@@ -2032,6 +2090,7 @@ def load_category(data: Mapping[str, Any], *, source: str | None = None) -> Cate
     aggregate_section = _validate_aggregate_section(aggregate_data, errors)
     images_section = _validate_images_section(images_data, errors)
     timeouts_section = _validate_timeouts_section(timeouts_data, errors)
+    value_gate_section = _validate_value_gate_section(value_gate_data, errors)
     if config is not None and baseline_section is not None:
         # 交叉校验(baseline 节 vs sources):fields 拼错要装载期可检出。
         _check_baseline_fields(config, baseline_section, errors)
@@ -2043,6 +2102,7 @@ def load_category(data: Mapping[str, Any], *, source: str | None = None) -> Cate
     config._aggregate = aggregate_section
     config._images = images_section
     config._timeouts = timeouts_section
+    config._value_gate = value_gate_section
     return config
 
 
@@ -2222,6 +2282,35 @@ def _validate_timeouts_section(
         for err in exc.errors():
             detail = _pydantic_error_detail(err)
             errors.append(dataclass_replace(detail, path=f"$.timeouts{detail.path[1:]}"))
+        return None
+
+
+def _validate_value_gate_section(
+    value_gate_data: Any, errors: list[LoadErrorDetail]
+) -> ValueGateConfig | None:
+    """Validate the sidecar ``value_gate:`` section, appending structured errors.
+
+    与 :func:`_validate_timeouts_section` 同一契约:``None`` = 未声明;非映射 =
+    结构错误;校验失败的错误路径统一加 ``$.value_gate`` 前缀(子映射校验的
+    loc 相对于节根)。返回 None 时 errors 里必有对应明细。
+    """
+    if value_gate_data is None:
+        return None
+    if not isinstance(value_gate_data, Mapping):
+        errors.append(
+            LoadErrorDetail(
+                "$.value_gate",
+                "invalid_value_gate_section",
+                f"value_gate 节必须是键值映射,当前为 {type(value_gate_data).__name__}",
+            )
+        )
+        return None
+    try:
+        return ValueGateConfig.model_validate(dict(value_gate_data))
+    except ValidationError as exc:
+        for err in exc.errors():
+            detail = _pydantic_error_detail(err)
+            errors.append(dataclass_replace(detail, path=f"$.value_gate{detail.path[1:]}"))
         return None
 
 

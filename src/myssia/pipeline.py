@@ -7,7 +7,12 @@ Stage responsibilities (README architecture):
 - classify: keyword pre-filter (classify/builtin + optional custom rules),
             zero token
 - dedup:    URL/composite-key registry (dedup.DedupRegistry); never title
-            fingerprints; survivors are persisted to the items table
+            fingerprints; survivors are persisted to the items table. The
+            optional ``value_gate:`` sidecar arms two additive gates here:
+            first-run quiet (persist+register but stay out of this run's push
+            stream, immediate routes exempt) and repush-on-change (changed
+            content fingerprint re-admits the item as a new row inheriting
+            the old row's read state); both default off = 现状
 - analyze:  v0.2 LLM precision scoring (enrich.LLMEnricher, replaces the
             v0.1 pass-through stub): backfills ``Item.scores`` + a scalar
             ``metadata['score']`` so push.route score rules wake up; disabled
@@ -91,6 +96,7 @@ Raises:
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import time
 from collections import Counter
@@ -129,6 +135,7 @@ from myssia.engines.fetch_base import (
     DEFAULT_TIMEOUT_SECONDS,
     FetchContext,
     classify_exception,
+    normalize_text,
 )
 from myssia.engines.registry import FetchOutcome, fetch_source
 from myssia.enrich import (
@@ -523,6 +530,38 @@ class Item:
             "tags": list(self.metadata.get("tags") or []),
             "metadata": dict(self.metadata),
         }
+
+
+def _value_fingerprint(item: Item) -> str:
+    """铸条目内容指纹:sha256(normalize_text(title + "\\n" + content or "")).
+
+    指纹面声明(F7):标题恒在,正文可缺——列表/RSS 源没有 content 时退化
+    为「标题变化」判据。这是**变化判据**,不是条目身份:身份仍由 dedup.key
+    (URL/组合键,禁 ``{title}``)承担,两者不冲突——指纹只回答「同一条目
+    变没变」,永不回答「是不是同一条目」。复用 fetch_base.normalize_text
+    (空白/空行归一),与抓取侧 change_baseline 的正文归一同源。
+    """
+    normalized = normalize_text(item.title + "\n" + (item.content or ""))
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _item_record_for_store(item: Item, key: str, fingerprint: str) -> ItemRecord:
+    """dedup 落库行的统一装配(三个入库出口共用:现状/首跑抑制/变化重推).
+
+    ``content_hash`` 无条件铸值非 None——未开启变化重推时也铸,存量库随
+    每次新入库逐步补齐指纹,变化重推的对比基线从第一天就在积累。
+    """
+    return ItemRecord(
+        url=item.url,
+        dedup_key=key,
+        title=item.title,
+        source=item.source,
+        content=item.content,
+        content_hash=fingerprint,
+        tags=list(item.metadata.get("tags") or []),
+        category=item.category,
+        raw=item.metadata,
+    )
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -2138,6 +2177,19 @@ class Pipeline:
         )
         return kept
 
+    def _route_preview_immediate(self, view: Mapping[str, Any]) -> bool:
+        """首跑抑制的路由预演:该条目在任一通道被判 immediate 即豁免(F1).
+
+        规则集构造期已编译(``self._push_routes``,见 __init__),这里逐通道
+        调现成的 :func:`resolve_route` 做只读预演,零新编译。score 型规则在
+        条目无分时休眠(:func:`myssia.push.route.resolve_route` 的结构性
+        corner):首跑条目尚未评分,判不了 immediate 就不豁免——进折叠,
+        下轮有变化再报(F1 定案取舍)。
+        """
+        return any(
+            resolve_route(view, rules).mode == "immediate" for rules in self._push_routes
+        )
+
     async def _stage_dedup(
         self,
         items: list[Item],
@@ -2146,9 +2198,16 @@ class Pipeline:
         registry: DedupRegistry,
         dry_run: bool,  # noqa: ARG002 - store 已按 dry_run 选定
     ) -> list[Item]:
-        """Composite-key dedup; survivors are persisted to the items table."""
+        """Composite-key dedup; survivors are persisted to the items table.
+
+        value_gate sidecar(value-gate-dedup)在本阶段挂两道 additive 闸:
+        首跑抑制(first_run_quiet,首跑条目入库+登记但不进当轮推送流,
+        immediate 路由豁免)与内容变化重推(repush_on_change,同键指纹变化
+        放行新行并继承读态);未声明/未开启 = 与本节不存在时逐行为一致。
+        """
         kept: list[Item] = []
         slot_context = registry.key_context()
+        gate = self.config.value_gate
         for item in items:
             view = item.view()
             try:
@@ -2157,25 +2216,58 @@ class Pipeline:
             except ValueError as exc:
                 self._record_item_failure(report, item, "dedup_key_error", str(exc))
                 continue
+            # 内容指纹无条件铸(变化重推的对比基线;见 _value_fingerprint 注释)。
+            fingerprint = _value_fingerprint(item)
             if registry.is_seen(key):
+                # 内容变化重推(value_gate.repush_on_change):同键旧行(取最新)
+                # 指纹与新指纹不同才放行;旧行无指纹(存量老条目)永不重推(F9)。
+                if gate is not None and gate.repush_on_change:
+                    old = store.get_item_by_dedup_key(key)  # newest wins
+                    if (
+                        old is not None
+                        and old.content_hash is not None
+                        and old.content_hash != fingerprint
+                    ):
+                        try:
+                            # 放行 = 入库**新行**:日报窗口按 first_seen 拉新行,
+                            # UPDATE 旧行报不出变化(下轮窗口里它已是旧时间戳)。
+                            new_id = store.save_item(_item_record_for_store(item, key, fingerprint))
+                        except ValueError as exc:  # store 校验失败(如空 title)
+                            self._record_item_failure(report, item, "store_error", str(exc))
+                            continue
+                        if old.id is not None and old.id != new_id:
+                            # F4 状态迁移:新行继承旧行读态三列(read/starred/later),
+                            # 用户读态不因重推归零;旧行被剪枝则无从迁移(best-effort)。
+                            store.carry_item_states(from_item_id=old.id, to_item_id=new_id)
+                        item.dedup_key = key
+                        kept.append(item)
+                        logger.info("内容变化重推放行 key=%s url=%s", key, item.url)
+                        continue
                 report.skips["dedup_seen"] += 1
                 logger.info("去重跳过(已见过) key=%s url=%s", key, item.url)
+                continue
+            # 首跑抑制(value_gate.first_run_quiet):首跑条目照常入库+登记,
+            # 但不进当轮推送流——首轮不知道值不值,先折叠;任一通道路由预演
+            # immediate 即豁免(首轮羊毛/优惠类照常单发,F1)。
+            if (
+                gate is not None
+                and gate.first_run_quiet
+                and view.get("fetch_change_reason") == "first_fetch"
+                and not self._route_preview_immediate(view)
+            ):
+                try:
+                    store.save_item(_item_record_for_store(item, key, fingerprint))
+                    registry.mark_seen(key)
+                except ValueError as exc:  # store 校验失败(如空 title)
+                    self._record_item_failure(report, item, "store_error", str(exc))
+                    continue
+                report.skips["first_run_quiet"] += 1
+                logger.info("首跑抑制(入库不推) key=%s url=%s", key, item.url)
                 continue
             try:
                 # 先入库、后登记已见:save 失败(或两次提交间中断)不得把 key
                 # 永久毒化进注册表——宁可下轮重入库(at-least-once),不可静默丢失。
-                store.save_item(
-                    ItemRecord(
-                        url=item.url,
-                        dedup_key=key,
-                        title=item.title,
-                        source=item.source,
-                        content=item.content,
-                        tags=list(item.metadata.get("tags") or []),
-                        category=item.category,
-                        raw=item.metadata,
-                    )
-                )
+                store.save_item(_item_record_for_store(item, key, fingerprint))
                 registry.mark_seen(key)
             except ValueError as exc:  # store 校验失败(如空 title)
                 self._record_item_failure(report, item, "store_error", str(exc))
@@ -2185,10 +2277,11 @@ class Pipeline:
         report.items_out = len(kept)
         report.status = "ok"
         logger.info(
-            "去重步骤完成 items_in=%s new=%s seen=%s key_failed=%s",
+            "去重步骤完成 items_in=%s new=%s seen=%s first_run_quiet=%s key_failed=%s",
             len(items),
             len(kept),
             report.skips.get("dedup_seen", 0),
+            report.skips.get("first_run_quiet", 0),
             len(report.failures),
         )
         return kept
