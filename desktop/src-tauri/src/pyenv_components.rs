@@ -1401,7 +1401,6 @@ pub async fn pyenv_install_component(
     id: String,
 ) -> Result<ComponentInstallOutcome, String> {
     // —— 注册表对 id(未知 id 结构化拒;注册表缺位 = 无组件可装,同报)——
-    let data_root = crate::data_root(&app).map_err(|e| e.to_string())?;
     let resource_dir = app.path().resource_dir().ok();
     let registry = load_registry(resource_dir.as_deref());
     let Some(_spec) = registry.iter().find(|entry| entry.id == id) else {
@@ -1411,8 +1410,11 @@ pub async fn pyenv_install_component(
         ));
     };
     // (_spec 仅证注册表对 id;安装参数在接力链内每轮重解析)
-    // —— 环境在位(先走完整配置;与 pyenv_sync_deps 同口径)——
-    let python_bin = crate::pyenv::python_bin_path(&data_root);
+    // —— 环境在位(先走完整配置;与 pyenv_sync_deps 同口径;python 落点经
+    //    环境基底解析,10-18-win-install-disk-pyenv Windows 随安装目录)——
+    let python_bin = crate::pyenv::python_bin_path(
+        &crate::pyenv_env_base(&app).map_err(|e| e.to_string())?,
+    );
     if !python_bin.exists() {
         return Err("Python 运行环境未就位:请先在设置页「开始配置」完成环境安装,再装组件".into());
     }
@@ -1491,7 +1493,16 @@ fn spawn_component_install_chain(app: AppHandle, first_id: String) {
                 let _ = crate::pyenv::emit_current(&app);
                 break;
             };
-            let python_bin = crate::pyenv::python_bin_path(&data_root);
+            let env_base = match crate::pyenv_env_base(&app) {
+                Ok(base) => base,
+                Err(err) => {
+                    eprintln!("[components] 安装接力中止:环境基底解析失败 {err}");
+                    abort_chain(&app);
+                    let _ = crate::pyenv::emit_current(&app);
+                    break;
+                }
+            };
+            let python_bin = crate::pyenv::python_bin_path(&env_base);
             let index_url = crate::pyenv::read_settings(&data_root).mirror_pypi;
             let root = data_root.clone();
             let resource_for_install = resource_dir.clone();
@@ -1621,7 +1632,10 @@ fn current_service_status_blocking(
 #[tauri::command]
 pub async fn service_start(app: AppHandle, id: String) -> Result<ServiceStatus, String> {
     let (data_root, spec) = resolve_service_spec(&app, &id)?;
-    let python_bin = crate::pyenv::python_bin_path(&data_root);
+    // python 落点经环境基底解析(10-18-win-install-disk-pyenv:Windows 随
+    // 安装目录;服务进程 argv 与组件 pip 同一环境,必须同源解析)。
+    let env_base = crate::pyenv_env_base(&app).map_err(|e| e.to_string())?;
+    let python_bin = crate::pyenv::python_bin_path(&env_base);
     if !python_bin.exists() {
         return Err(
             "Python 运行环境未就位:请先在设置页「开始配置」完成环境安装,再启动服务组件".into(),
@@ -1663,7 +1677,7 @@ pub async fn service_start(app: AppHandle, id: String) -> Result<ServiceStatus, 
                 return Ok(status);
             }
         }
-        let python = crate::pyenv::python_bin_path(&data_root);
+        let python = crate::pyenv::python_bin_path(&env_base);
         let (status, child) = start_service_process(&data_root, &python, &spec)?;
         let started_at = status.started_at.unwrap_or_default();
         handle
@@ -1692,7 +1706,10 @@ pub async fn service_start(app: AppHandle, id: String) -> Result<ServiceStatus, 
 #[tauri::command]
 pub async fn service_stop(app: AppHandle, id: String) -> Result<ServiceStatus, String> {
     let (data_root, spec) = resolve_service_spec(&app, &id)?;
-    let python_bin = crate::pyenv::python_bin_path(&data_root);
+    // argv 三锚点复核与 service_start 同源:python 落点经环境基底解析。
+    let python_bin = crate::pyenv::python_bin_path(
+        &crate::pyenv_env_base(&app).map_err(|e| e.to_string())?,
+    );
     let handle = app.clone();
     let joined = tauri::async_runtime::spawn_blocking(move || {
         let owned = take_owned_child(&handle, &spec.id).map(|entry| entry.child);
@@ -2111,7 +2128,11 @@ pub async fn pyenv_reclaim_storage(
     {
         return Err("Python 环境安装进行中:请等安装完成后再回收".into());
     }
-    let python_bin = crate::pyenv::python_bin_path(&data_root);
+    // 服务回收停链的 argv 复核锚点:python 落点经环境基底解析(与
+    // service_start 同源,10-18-win-install-disk-pyenv)。
+    let python_bin = crate::pyenv::python_bin_path(
+        &crate::pyenv_env_base(&app).map_err(|e| e.to_string())?,
+    );
     let needs_python = registry
         .iter()
         .any(|spec| spec.id == target && spec.is_service());
@@ -2533,6 +2554,7 @@ mod tests {
         // 未装 → installed:false
         let status = crate::pyenv::status_at(
             data.path(),
+            data.path(),
             Some(resource.path()),
             None,
             &crate::pyenv::PyenvSettings::default(),
@@ -2555,6 +2577,7 @@ mod tests {
         );
         let status = crate::pyenv::status_at(
             data.path(),
+            data.path(),
             Some(resource.path()),
             None,
             &crate::pyenv::PyenvSettings::default(),
@@ -2565,6 +2588,7 @@ mod tests {
         );
         // 注册表缺位 → 空表
         let status = crate::pyenv::status_at(
+            data.path(),
             data.path(),
             None,
             None,
@@ -2977,6 +3001,7 @@ mod tests {
             .unwrap(),
         );
         let status = crate::pyenv::status_at(
+            data.path(),
             data.path(),
             Some(resource.path()),
             None,

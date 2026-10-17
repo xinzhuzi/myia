@@ -264,8 +264,13 @@ fn write_stamp(data_root: &Path, stamp: &pyenv::EnvStamp) -> Result<(), std::io:
 
 /// 安装链入参(胶水从 AppHandle 解析;测试直接构造)。
 pub(crate) struct ChainConfig {
-    /// 数据根(安装目标与进度戳/镜像文件所在)。
+    /// 数据根(进度戳/镜像设置/下载缓存所在——用户态数据,恒不随安装目录走)。
     pub data_root: PathBuf,
+    /// 环境基底(python/ 落点的父目录;10-18-win-install-disk-pyenv:Windows
+    /// 上为注入解析后的 exe 安装目录,可写探针不过回落 data_root;macOS/Linux
+    /// 恒等于 data_root)。解压终位/暂存目录/python_bin/磁盘预检/布局守卫
+    /// 全以此为准。
+    pub env_base: PathBuf,
     /// 随包资源目录(resource_dir;自检 PYTHONPATH 与 manifest/锁版清单定位)。
     pub resource_dir: PathBuf,
     /// manifest 路径(默认 resource_dir/runtime-manifest.json;测试可指沙箱)。
@@ -544,13 +549,17 @@ fn verify_runtime(archive: &Path, expected_sha256: &str) -> Result<(), (InstallE
 }
 
 /// 解压 install_only tar.gz:暂存目录解压 → 校根目录 → 原子改名就位。
-/// 终位 `<数据根>/python/` 一旦出现即完整(幂等续装的跳过依据)。
+/// 终位 `<env_base>/python/` 一旦出现即完整(幂等续装的跳过依据)。
+/// 基底 = 注入解析后的 python/ 父目录(10-18-win-install-disk-pyenv:
+/// Windows 安装目录或数据根):暂存目录同落基底——rename 原子改名要求
+/// 同卷,数据根(C:)与安装目录(D:)跨盘时暂存必须跟终位同盘,落数据根
+/// 反而会在跨盘形态炸 EXDEV/ERROR_NOT_SAME_DEVICE。
 fn extract_runtime(
     archive: &Path,
-    data_root: &Path,
+    env_base: &Path,
     extract_root_dir: &str,
 ) -> Result<(), (InstallErrorKind, String)> {
-    let staging = data_root.join(STAGING_DIR);
+    let staging = env_base.join(STAGING_DIR);
     if staging.exists() {
         fs::remove_dir_all(&staging).map_err(|e| {
             (
@@ -590,7 +599,7 @@ fn extract_runtime(
             ),
         ));
     }
-    let target = data_root.join(extract_root_dir);
+    let target = env_base.join(extract_root_dir);
     if target.exists() {
         fs::remove_dir_all(&target).map_err(|e| {
             (
@@ -1112,11 +1121,12 @@ fn execute(cfg: &ChainConfig, on_update: &dyn Fn(&[PyenvStep])) -> ChainOutcome 
     }
     // 布局一致性守卫:manifest 是解压布局权威,壳 spawn 路径是 pyenv.rs 常量
     // (第 2 步);二者漂移会让 ready 后常驻 spawn 断链,装配期即拦。
-    // 比对取数据根相对形态(manifest python_bin 为数据根相对路径)。
+    // 比对取基底相对形态(manifest python_bin 为环境基底相对路径;
+    // 10-18 起基底 = env_base,Windows 注入安装目录时同根比对)。
     let spawn_layout =
-        pyenv::python_bin_path_on(&cfg.data_root, cfg.target_triple.contains("windows"));
+        pyenv::python_bin_path_on(&cfg.env_base, cfg.target_triple.contains("windows"));
     let spawn_layout_rel = spawn_layout
-        .strip_prefix(&cfg.data_root)
+        .strip_prefix(&cfg.env_base)
         .unwrap_or(&spawn_layout);
     if !same_components(Path::new(&platform.python_bin), spawn_layout_rel) {
         return setup_failure(
@@ -1135,7 +1145,7 @@ fn execute(cfg: &ChainConfig, on_update: &dyn Fn(&[PyenvStep])) -> ChainOutcome 
         .data_root
         .join(DOWNLOADS_DIR)
         .join(format!("runtime-{}.tar.gz", cfg.target_triple));
-    let python_bin = cfg.data_root.join(&platform.python_bin);
+    let python_bin = cfg.env_base.join(&platform.python_bin);
     let lock_fingerprint = pyenv::lock_fingerprint(&cfg.lock_path);
     let prior = pyenv::read_stamp(&cfg.data_root).unwrap_or_default();
 
@@ -1184,7 +1194,10 @@ fn execute(cfg: &ChainConfig, on_update: &dyn Fn(&[PyenvStep])) -> ChainOutcome 
     .iter()
     .any(|&phase| runner.status(phase) == PyenvStepStatus::Pending);
     if needs_space {
-        if let Err((kind, detail)) = disk_precheck(&cfg.data_root, cfg.disk_required_bytes) {
+        // 预检取 env_base(解压 + pip site-packages 的大头落点;10-18 起
+        // Windows 上可能是安装目录所在盘)。下载缓存(~40MB)仍落数据根,
+        // 不单独设门;env_base == data_root 时与原行为完全一致。
+        if let Err((kind, detail)) = disk_precheck(&cfg.env_base, cfg.disk_required_bytes) {
             let phase = if cfg.deps_only {
                 PyenvPhase::InstallingDeps
             } else {
@@ -1220,7 +1233,7 @@ fn execute(cfg: &ChainConfig, on_update: &dyn Fn(&[PyenvStep])) -> ChainOutcome 
     // —— extracting ——
     if runner.status(PyenvPhase::Extracting) == PyenvStepStatus::Pending {
         runner.running(PyenvPhase::Extracting);
-        match extract_runtime(&archive_path, &cfg.data_root, &platform.extract_root_dir) {
+        match extract_runtime(&archive_path, &cfg.env_base, &platform.extract_root_dir) {
             Ok(()) => runner.done(PyenvPhase::Extracting),
             Err((kind, detail)) => return runner.fail(PyenvPhase::Extracting, kind, detail),
         }
@@ -1366,6 +1379,7 @@ pub async fn pyenv_verify(app: AppHandle) -> Result<PyenvVerifyResult, String> {
 /// `pyenv-status-changed` 广播、终态经戳记 + 重算广播。
 pub(crate) fn start_install_thread(app: AppHandle, deps_only: bool) -> Result<(), String> {
     let data_root = crate::data_root(&app).map_err(|e| e.to_string())?;
+    let env_base = crate::pyenv_env_base(&app).map_err(|e| e.to_string())?;
     let resource_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
     let settings = pyenv::read_settings(&data_root);
     // —— 护栏:组件 pip 单飞在跑(与组件侧反向护栏对称:pyenv_components.rs
@@ -1397,7 +1411,14 @@ pub(crate) fn start_install_thread(app: AppHandle, deps_only: bool) -> Result<()
     let spawn_result = std::thread::Builder::new()
         .name("pyenv-install".into())
         .spawn(move || {
-            install_thread_main(app_for_thread, data_root, resource_dir, settings, deps_only)
+            install_thread_main(
+                app_for_thread,
+                data_root,
+                env_base,
+                resource_dir,
+                settings,
+                deps_only,
+            )
         });
     if let Err(err) = spawn_result {
         // 线程起不来:回滚占坑,防 installing 槽死锁后续重试。
@@ -1414,6 +1435,7 @@ pub(crate) fn start_install_thread(app: AppHandle, deps_only: bool) -> Result<()
 fn install_thread_main(
     app: AppHandle,
     data_root: PathBuf,
+    env_base: PathBuf,
     resource_dir: PathBuf,
     settings: PyenvSettings,
     deps_only: bool,
@@ -1427,6 +1449,7 @@ fn install_thread_main(
         target_triple,
         disk_required_bytes: DISK_REQUIRED_BYTES,
         data_root,
+        env_base,
         resource_dir,
         settings,
         deps_only,
@@ -1724,14 +1747,28 @@ mod tests {
             deps_only: bool,
             disk_required: u64,
         ) -> ChainConfig {
+            let mut cfg = self.cfg_with_env_base(settings, self.data.path().to_path_buf());
+            cfg.deps_only = deps_only;
+            cfg.disk_required_bytes = disk_required;
+            cfg
+        }
+
+        /// 注入形态:env_base(安装目录基底)独立于数据根(10-18
+        /// win-install-disk-pyenv:python 落安装目录,戳/下载留数据根)。
+        fn cfg_with_env_base(
+            &self,
+            settings: PyenvSettings,
+            env_base: PathBuf,
+        ) -> ChainConfig {
             ChainConfig {
                 data_root: self.data.path().to_path_buf(),
+                env_base,
                 resource_dir: self.resource.path().to_path_buf(),
                 manifest_path: self.resource.path().join(MANIFEST_RESOURCE_FILE),
                 lock_path: self.lock_path(),
                 settings,
-                deps_only,
-                disk_required_bytes: disk_required,
+                deps_only: false,
+                disk_required_bytes: 1024 * 1024,
                 target_triple: TEST_TRIPLE.into(),
                 app_version: "0.0.1-test".into(),
             }
@@ -2039,8 +2076,49 @@ mod tests {
                 keys.sort_unstable();
                 assert_eq!(keys, ["error", "phase", "status"]);
             }
-            let detection = pyenv::detect(fixture.data.path(), Some(&lock), None);
+            let detection = pyenv::detect(fixture.data.path(), fixture.data.path(), Some(&lock), None);
             assert_eq!(detection.state, PyenvState::Ready);
+        }
+
+        /// 安装目录注入形态(10-18-win-install-disk-pyenv):env_base ≠ 数据根
+        /// 时——python/ 与解压暂存落 env_base(安装目录),进度戳与下载缓存
+        /// 留数据根;探测侧 detect(data_root, env_base) 闭环 ready;安装目录
+        /// 被清(MSI 卸载形态)后戳在 → error 重装引导,不误判 ready。
+        #[test]
+        fn injected_env_base_puts_python_in_install_dir_keeps_stamp_in_data_root() {
+            let fixture = fixture(ServeMode::Ok);
+            let lock = fixture.write_lock("apprise==1.8.0\n");
+            let server = start_test_server(ServerBehavior::Serve(fixture.archive_bytes.clone()));
+            fixture.write_manifest(&server.url("/runtime.tar.gz"), &fixture.archive_sha256);
+            let install_dir = tempfile::tempdir().expect("安装目录临时创建失败");
+            let cfg = fixture.cfg_with_env_base(PyenvSettings::default(), install_dir.path().to_path_buf());
+            let (outcome, _) = run_with_recording(&cfg);
+            assert!(outcome.success, "注入形态全链应成功: {:?}", outcome.steps);
+
+            // python/ 落安装目录基底;数据根没有 python/
+            assert!(install_dir.path().join("python/bin/python3").is_file());
+            assert!(install_dir.path().join("python/lib/dummy.txt").is_file());
+            assert!(!fixture.data.path().join("python").exists());
+            // 暂存目录清干净(同卷 rename 就位后无残壳)
+            assert!(!install_dir.path().join(STAGING_DIR).exists());
+            // 用户态数据恒落数据根:进度戳 + 下载缓存
+            assert!(pyenv::env_stamp_path(fixture.data.path()).is_file());
+            assert!(fixture.archive_cache_path().is_file());
+            assert!(!install_dir.path().join("downloads").exists());
+            // 探测闭环:两根分工下 ready
+            assert_eq!(
+                pyenv::detect(fixture.data.path(), install_dir.path(), Some(&lock), None).state,
+                PyenvState::Ready
+            );
+            // MSI 卸载清掉安装目录:戳还在说 ready → error 引导重装(不自误判)
+            std::fs::remove_dir_all(install_dir.path()).unwrap();
+            let detection = pyenv::detect(fixture.data.path(), install_dir.path(), Some(&lock), None);
+            assert_eq!(detection.state, PyenvState::Error);
+            assert!(detection.steps[0]
+                .error
+                .as_deref()
+                .unwrap()
+                .contains("Python 缺位"));
         }
 
         /// 幂等重跑(AC4):已完成步全部 skipped,无重复下载/pip,结果一致。
@@ -2423,7 +2501,7 @@ mod tests {
             fs::write(&old_lock, "apprise==1.8.0\n").unwrap();
             let new_lock = fixture.write_lock("apprise==1.9.0\n");
             assert_eq!(
-                pyenv::detect(fixture.data.path(), Some(&new_lock), None).state,
+                pyenv::detect(fixture.data.path(), fixture.data.path(), Some(&new_lock), None).state,
                 PyenvState::DepsStale,
                 "新清单视角应报依赖漂移"
             );
@@ -2442,11 +2520,11 @@ mod tests {
             );
             // 终态指纹 = 新清单;两侧 detect 闭环
             assert_eq!(
-                pyenv::detect(fixture.data.path(), Some(&new_lock), None).state,
+                pyenv::detect(fixture.data.path(), fixture.data.path(), Some(&new_lock), None).state,
                 PyenvState::Ready
             );
             assert_eq!(
-                pyenv::detect(fixture.data.path(), Some(&old_lock), None).state,
+                pyenv::detect(fixture.data.path(), fixture.data.path(), Some(&old_lock), None).state,
                 PyenvState::DepsStale,
                 "旧清单视角仍应报漂移(指纹以最新安装为准)"
             );

@@ -6,6 +6,9 @@
 //! - spawn 源已切自管环境:`<数据根>/python/bin/python3 -m myssia_desktop_entry
 //!   serve`(PYTHONPATH=随包 Resources/myssia-src;Windows 为 python.exe)——
 //!   main.rs `spawn_sidecar` 落地,design §4(argv 见 `ENTRY_ARGS`)。
+//!   10-18-win-install-disk-pyenv:Windows 上环境根随安装目录注入(exe 同
+//!   目录可写 → `<安装目录>/python`,不可写回落数据根;macOS 恒数据根,
+//!   见 `python_env_base`;进度戳/镜像设置恒落数据根不随安装目录走)。
 //! - 未就绪(not_configured/installing/error)壳不 spawn、启动不崩:发
 //!   `pyenv_not_ready` 空态事件(D2),协议层 `sidecar_request` 报结构化
 //!   `pyenv_not_ready`(prd Req 3);deps_stale 照常 spawn(D4 不强制拦,漂移
@@ -202,12 +205,78 @@ impl std::error::Error for PyenvNotReadyError {}
 // ---------------------------------------------------------------------------
 
 /// 安装路径:`<数据根>/python`(design §3 布局,与既有 models/ 并排)。
+/// 10-18-win-install-disk-pyenv 起 Windows 上可能经安装目录注入改写为
+/// `<安装目录>/python`(见 [`python_install_dir_on`]);macOS/Linux 恒本形态。
 pub fn python_install_dir(data_root: &Path) -> PathBuf {
     data_root.join("python")
 }
 
-/// Python 二进制路径:macOS/Linux `<数据根>/python/bin/python3`
-/// (python-build-standalone install_only 布局),Windows `<数据根>/python/python.exe`。
+/// 环境基底注入解析的核心三分支(10-18-win-install-disk-pyenv;纯函数,
+/// 单测主战场):python/ 目录的**父目录**(环境基底)落在哪——
+/// - **Windows 且 exe 同目录(exe_dir)存在且可写** → 安装目录(主人指令
+///   「Python 需要安装在安装路径下面」:装 D:\myssia 时环境根 =
+///   D:\myssia\python;下载几百 MB 环境落安装盘,不占 C 盘 APPDATA);
+/// - 其余一切(非 Windows / exe_dir 缺位 / 安装目录不可写)→ 数据根
+///   (默认装 C:\Program Files 不可写 → 保底回落,存量行为一字不变;
+///   macOS 恒数据根,零行为变化)。
+/// 可写探测 = 目录在 + 建写删探针文件三连成功(探针名带 pid 防并发互踩)。
+fn python_env_base_on(data_root: &Path, exe_dir: Option<&Path>, windows: bool) -> PathBuf {
+    if windows {
+        if let Some(dir) = exe_dir {
+            if exe_dir_is_writable(dir) {
+                return dir.to_path_buf();
+            }
+        }
+    }
+    data_root.to_path_buf()
+}
+
+/// 当前宿主的环境基底解析(运行期消费入口;main.rs `pyenv_env_base`
+/// 取 `current_exe()` 父目录后经此注入):
+/// - **显式 MYIA_HOME(沙箱/自动化独立实例域)→ 恒数据根,不注入安装目录**
+///   ——沙箱布局确定性是既定契约(tests/desktop 与 AUTOSETUP 冒烟都以
+///   `<MYIA_HOME>/python` 为锚,MYIA_HOME 同款「不夺权」惯例);
+/// - Windows 注入 exe 安装目录(可写时);macOS/Linux 恒数据根。
+pub fn python_env_base(
+    data_root: &Path,
+    myia_home_set: bool,
+    exe_dir: Option<&Path>,
+) -> PathBuf {
+    if myia_home_set {
+        return data_root.to_path_buf();
+    }
+    python_env_base_on(data_root, exe_dir, cfg!(target_os = "windows"))
+}
+
+/// 注入解析后的安装路径形态(三分支直接产物;`<exe_dir>/python` vs
+/// `<数据根>/python`):IPC `install_path` 与安装链解压终位都以此为准。
+/// (运行期消费走 [`python_env_base`] 基底形态——status_at/安装链持已解析
+/// 基底,不重复携带 exe_dir;本函数是三分支契约的单测钉死面。)
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn python_install_dir_on(data_root: &Path, exe_dir: Option<&Path>, windows: bool) -> PathBuf {
+    python_install_dir(&python_env_base_on(data_root, exe_dir, windows))
+}
+
+/// 安装目录可写探测:目录在 + 建写删探针成功才算(C:\Program Files 无
+/// 管理员权时写失败 → 回落数据根);探针名带 pid,多实例/并发探测互不
+/// 踩踏,残留(崩溃在两步之间)也只是无主小文件,下次覆盖写同名自愈。
+fn exe_dir_is_writable(dir: &Path) -> bool {
+    if !dir.is_dir() {
+        return false;
+    }
+    let probe = dir.join(format!(".myia-pyenv-write-probe-{}", std::process::id()));
+    match std::fs::write(&probe, b"probe") {
+        Ok(()) => {
+            let _ = std::fs::remove_file(&probe);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+/// Python 二进制路径:macOS/Linux `<基底>/python/bin/python3`
+/// (python-build-standalone install_only 布局),Windows `<基底>/python/python.exe`。
+/// 基底 = 数据根,或 Windows 注入后的安装目录(见 [`python_env_base`])。
 pub fn python_bin_path_on(data_root: &Path, windows: bool) -> PathBuf {
     if windows {
         python_install_dir(data_root).join("python.exe")
@@ -293,8 +362,14 @@ pub struct Detection {
 /// 5. 戳 state=ready:python 缺位 → error;依赖指纹与随包清单不一致 →
 ///    deps_stale;否则 ready;
 /// 6. 戳无终态(安装中断)→ error(提示重试;第 3 步幂等续装)。
+///
+/// 两根分工(10-18-win-install-disk-pyenv):`data_root` 管用户态数据
+/// (进度戳/镜像设置);`env_base` 管 python/ 落点(Windows 注入安装目录后
+/// ≠ 数据根,macOS/Linux 恒等于数据根)。stamp=ready 而 env_base 下 python
+/// 缺位(如 MSI 卸载清掉安装目录)→ 走 5 的 error 重装引导,不误判 ready。
 pub fn detect(
     data_root: &Path,
+    env_base: &Path,
     bundled_lock: Option<&Path>,
     installing_steps: Option<&[PyenvStep]>,
 ) -> Detection {
@@ -304,7 +379,7 @@ pub fn detect(
             steps: steps.to_vec(),
         };
     }
-    let python = python_bin_path(data_root);
+    let python = python_bin_path(env_base);
     let stamp_text = match std::fs::read_to_string(env_stamp_path(data_root)) {
         Ok(text) => text,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
@@ -431,18 +506,22 @@ pub fn write_settings(data_root: &Path, settings: &PyenvSettings) -> std::io::Re
 // ---------------------------------------------------------------------------
 
 /// 纯组装:探测 + 路径 + 镜像 + 组件 → 契约载荷(单测直接覆盖)。
+/// `env_base` 与 [`detect`] 同分工:python/ 落点基底(Windows 注入安装
+/// 目录;macOS/Linux 恒数据根)——install_path/python_path 从它派生,
+/// 戳/镜像仍走 data_root。
 pub fn status_at(
     data_root: &Path,
+    env_base: &Path,
     resource_dir: Option<&Path>,
     installing_steps: Option<&[PyenvStep]>,
     settings: &PyenvSettings,
 ) -> PyenvStatus {
     let bundled_lock = resource_dir.map(resource_lock_path);
-    let detection = detect(data_root, bundled_lock.as_deref(), installing_steps);
+    let detection = detect(data_root, env_base, bundled_lock.as_deref(), installing_steps);
     PyenvStatus {
         state: detection.state,
-        install_path: python_install_dir(data_root),
-        python_path: python_bin_path(data_root),
+        install_path: python_install_dir(env_base),
+        python_path: python_bin_path(env_base),
         mirror_runtime: settings.mirror_runtime.clone(),
         mirror_pypi: settings.mirror_pypi.clone(),
         steps: detection.steps,
@@ -450,9 +529,12 @@ pub fn status_at(
     }
 }
 
-/// 胶水:解析数据根/资源目录/安装内存态 → 当前状态(spawn 与命令共用)。
+/// 胶水:解析数据根/环境基底/资源目录/安装内存态 → 当前状态(spawn 与命令共用)。
+/// env_base 经 main.rs `pyenv_env_base` 解析(Windows 注入 exe 安装目录,
+/// 可写探测;显式 MYIA_HOME 沙箱域恒数据根;macOS 零变化)。
 pub fn current_status(app: &AppHandle) -> Result<PyenvStatus, Box<dyn std::error::Error>> {
     let data_root = crate::data_root(app)?;
+    let env_base = crate::pyenv_env_base(app)?;
     let installing = app
         .state::<PyenvManager>()
         .installing
@@ -463,6 +545,7 @@ pub fn current_status(app: &AppHandle) -> Result<PyenvStatus, Box<dyn std::error
     let resource_dir = app.path().resource_dir().ok();
     let mut status = status_at(
         &data_root,
+        &env_base,
         resource_dir.as_deref(),
         installing.as_deref(),
         &settings,
@@ -554,8 +637,8 @@ pub async fn pyenv_start_setup(
 /// Python 未就位(先走完整配置)或安装进行中 → 结构化拒绝。
 #[tauri::command]
 pub async fn pyenv_sync_deps(app: AppHandle) -> Result<PyenvStatus, String> {
-    let data_root = crate::data_root(&app).map_err(|e| e.to_string())?;
-    if !python_bin_path(&data_root).exists() {
+    let env_base = crate::pyenv_env_base(&app).map_err(|e| e.to_string())?;
+    if !python_bin_path(&env_base).exists() {
         return Err("Python 运行环境未就位:请先在设置页「开始配置」完成完整安装,再同步依赖".into());
     }
     crate::pyenv_install::start_install_thread(app.clone(), true)?;
@@ -640,6 +723,7 @@ mod tests {
     #[test]
     fn status_payload_shape_matches_ipc_contract() {
         let status = status_at(
+            Path::new("/data"),
             Path::new("/data"),
             None,
             None,
@@ -726,11 +810,126 @@ mod tests {
         assert_eq!(python_bin_path(root), python_bin_path_on(root, false));
     }
 
+    /// 安装目录注入三分支(10-18-win-install-disk-pyenv;主人指令「Python
+    /// 需要安装在安装路径下面」):
+    /// ① Windows + exe 同目录可写 → `<exe_dir>/python`(环境随安装目录,
+    ///   如 D:\myssia\python);
+    /// ② Windows + exe 目录不可写(如 C:\Program Files)/缺位/不存在 →
+    ///   回落数据根/python(默认安装路径的存量行为不能破);
+    /// ③ macOS(windows=false)恒数据根/python,exe_dir 在场也不注入
+    ///   (现有行为零变化)。
+    #[test]
+    fn python_install_dir_on_three_branches() {
+        let data_root = Path::new("/data-root");
+        let exe_dir = tempfile::tempdir().expect("exe 目录临时创建失败");
+        // ① 可写安装目录 + Windows → 注入
+        assert_eq!(
+            python_install_dir_on(data_root, Some(exe_dir.path()), true),
+            exe_dir.path().join("python")
+        );
+        // ② exe 目录不存在(Program Files 缺位形态)→ 回落数据根
+        assert_eq!(
+            python_install_dir_on(data_root, Some(Path::new("/no-such-exe-dir")), true),
+            data_root.join("python")
+        );
+        // ② exe_dir 缺位(直跑/解析失败)→ 回落数据根
+        assert_eq!(
+            python_install_dir_on(data_root, None, true),
+            data_root.join("python")
+        );
+        // ③ macOS:可写 exe_dir 在场也不注入(恒数据根)
+        assert_eq!(
+            python_install_dir_on(data_root, Some(exe_dir.path()), false),
+            data_root.join("python")
+        );
+    }
+
+    /// 不可写回落分支的实盘形态(unix chmod 0555;mac 主机可跑):目录在
+    /// 但写探针失败 → 回落数据根——C:\Program Files 无管理员权的真身语义。
+    #[cfg(unix)]
+    #[test]
+    fn python_install_dir_on_readonly_dir_falls_back_to_data_root() {
+        use std::os::unix::fs::PermissionsExt;
+        let data_root = Path::new("/data-root");
+        let holder = tempfile::tempdir().expect("临时目录创建失败");
+        let exe_dir = holder.path().join("install-dir");
+        std::fs::create_dir(&exe_dir).unwrap();
+        std::fs::set_permissions(&exe_dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+        assert_eq!(
+            python_install_dir_on(data_root, Some(&exe_dir), true),
+            data_root.join("python"),
+            "目录在但不可写必须回落数据根"
+        );
+        // 恢复权限,便于 TempDir 析构清理
+        std::fs::set_permissions(&exe_dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    /// 宿主解析包装(运行期消费入口 `pyenv_env_base`):显式 MYIA_HOME
+    /// 沙箱域恒数据根不注入(布局确定性契约);未设时按三分支(本机
+    /// macOS → 恒数据根;Windows 分支由上面两个测试钉死)。
+    #[test]
+    fn python_env_base_myia_home_sandbox_wins() {
+        let data_root = Path::new("/data-root");
+        let exe_dir = tempfile::tempdir().expect("exe 目录临时创建失败");
+        // MYIA_HOME 显式(沙箱/自动化)→ 基底恒数据根,exe_dir 不得夺权
+        assert_eq!(
+            python_env_base(data_root, true, Some(exe_dir.path())),
+            data_root.to_path_buf()
+        );
+        // 未设 + macOS(本机)→ 数据根
+        assert_eq!(
+            python_env_base(data_root, false, Some(exe_dir.path())),
+            data_root.to_path_buf()
+        );
+        // 未设 + exe 缺位 → 数据根(全平台一致)
+        assert_eq!(
+            python_env_base(data_root, false, None),
+            data_root.to_path_buf()
+        );
+    }
+
+    /// 两根分工回归:env_base ≠ 数据根时,python 探测走 env_base 而戳仍读
+    /// 数据根——「戳 ready 但 python 缺位 → error 重装引导」是 MSI 卸载清
+    /// 掉安装目录后不自误判 ready 的关键语义(10-18 grill 定案)。
+    #[test]
+    fn detect_with_injected_env_base_splits_python_from_stamp() {
+        let data = tempfile::tempdir().expect("数据根临时目录创建失败");
+        let install = tempfile::tempdir().expect("安装目录临时创建失败");
+        // python 落安装目录(注入形态)+ 数据根留戳 → ready
+        let bin = python_bin_path(install.path());
+        std::fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        std::fs::write(&bin, b"#!/bin/sh\n").unwrap();
+        write_stamp(data.path(), r#"{"state":"ready","steps":[]}"#);
+        assert_eq!(
+            detect(data.path(), install.path(), None, None).state,
+            PyenvState::Ready
+        );
+        // 安装目录被清(MSI 卸载形态):戳还在说 ready → error 引导重装,
+        // 不冒充就绪
+        std::fs::remove_dir_all(install.path()).unwrap();
+        let detection = detect(data.path(), install.path(), None, None);
+        assert_eq!(detection.state, PyenvState::Error);
+        assert!(detection.steps[0]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("Python 缺位"));
+        // python 在数据根(存量形态)= env_base 与数据根同根 → 行为不变
+        let legacy = tempfile::tempdir().expect("存量数据根临时创建失败");
+        let bin = python_bin_path(legacy.path());
+        std::fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        std::fs::write(&bin, b"#!/bin/sh\n").unwrap();
+        assert_eq!(
+            detect(legacy.path(), legacy.path(), None, None).state,
+            PyenvState::Ready
+        );
+    }
+
     /// 全新数据根 → not_configured,步进为空(D2 引导空态的探测根)。
     #[test]
     fn detect_fresh_root_is_not_configured() {
         let dir = sandbox(false);
-        let detection = detect(dir.path(), None, None);
+        let detection = detect(dir.path(), dir.path(), None, None);
         assert_eq!(detection.state, PyenvState::NotConfigured);
         assert!(detection.steps.is_empty());
     }
@@ -750,7 +949,7 @@ mod tests {
                               {{"phase":"selfcheck","status":"done","error":null}}]}}"#
             ),
         );
-        let detection = detect(dir.path(), Some(&lock), None);
+        let detection = detect(dir.path(), dir.path(), Some(&lock), None);
         assert_eq!(detection.state, PyenvState::Ready);
         assert_eq!(detection.steps.len(), 2);
         assert_eq!(detection.steps[0].phase, PyenvPhase::Downloading);
@@ -772,7 +971,7 @@ mod tests {
                 lock_fingerprint(&old_lock).unwrap()
             ),
         );
-        let detection = detect(dir.path(), Some(&new_lock), None);
+        let detection = detect(dir.path(), dir.path(), Some(&new_lock), None);
         assert_eq!(detection.state, PyenvState::DepsStale);
     }
 
@@ -785,7 +984,7 @@ mod tests {
         // 戳记无指纹 + 清单在
         write_stamp(dir.path(), r#"{"state":"ready","steps":[]}"#);
         assert_eq!(
-            detect(dir.path(), Some(&lock), None).state,
+            detect(dir.path(), dir.path(), Some(&lock), None).state,
             PyenvState::Ready
         );
         // 戳记有指纹 + 清单缺位(并行波次未落 resources 的合法中间态)
@@ -796,7 +995,7 @@ mod tests {
                 lock_fingerprint(&lock).unwrap()
             ),
         );
-        assert_eq!(detect(dir.path(), None, None).state, PyenvState::Ready);
+        assert_eq!(detect(dir.path(), dir.path(), None, None).state, PyenvState::Ready);
     }
 
     /// error 终态戳 → error,失败步进的 error 原样透出(设置页可重试可见)。
@@ -807,7 +1006,7 @@ mod tests {
             dir.path(),
             r#"{"state":"error","steps":[{"phase":"downloading","status":"failed","error":"network_failed: 连接超时"}]}"#,
         );
-        let detection = detect(dir.path(), None, None);
+        let detection = detect(dir.path(), dir.path(), None, None);
         assert_eq!(detection.state, PyenvState::Error);
         assert_eq!(detection.steps.len(), 1);
         assert_eq!(
@@ -821,7 +1020,7 @@ mod tests {
     fn detect_unparseable_stamp_is_error() {
         let dir = sandbox(true);
         write_stamp(dir.path(), "{ not json");
-        let detection = detect(dir.path(), None, None);
+        let detection = detect(dir.path(), dir.path(), None, None);
         assert_eq!(detection.state, PyenvState::Error);
         assert!(detection.steps[0]
             .error
@@ -838,7 +1037,7 @@ mod tests {
             dir.path(),
             r#"{"state":"ready","deps_fingerprint":"ab","steps":[]}"#,
         );
-        let detection = detect(dir.path(), None, None);
+        let detection = detect(dir.path(), dir.path(), None, None);
         assert_eq!(detection.state, PyenvState::Error);
         assert!(detection.steps[0]
             .error
@@ -855,7 +1054,7 @@ mod tests {
             dir.path(),
             r#"{"steps":[{"phase":"downloading","status":"done","error":null}]}"#,
         );
-        let detection = detect(dir.path(), None, None);
+        let detection = detect(dir.path(), dir.path(), None, None);
         assert_eq!(detection.state, PyenvState::Error);
         assert_eq!(detection.steps.len(), 2); // 原步进 + 追加的失败项
         assert!(detection.steps[1]
@@ -870,7 +1069,7 @@ mod tests {
     #[test]
     fn detect_python_without_stamp_falls_back_to_ready() {
         let dir = sandbox(true);
-        let detection = detect(dir.path(), None, None);
+        let detection = detect(dir.path(), dir.path(), None, None);
         assert_eq!(detection.state, PyenvState::Ready);
     }
 
@@ -883,7 +1082,7 @@ mod tests {
             status: PyenvStepStatus::Running,
             error: None,
         }];
-        let detection = detect(dir.path(), None, Some(&steps));
+        let detection = detect(dir.path(), dir.path(), None, Some(&steps));
         assert_eq!(detection.state, PyenvState::Installing);
         assert_eq!(detection.steps, steps);
     }

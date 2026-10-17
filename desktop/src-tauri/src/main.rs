@@ -392,14 +392,18 @@ fn pump_task(app: AppHandle, mut rx: tauri::async_runtime::Receiver<CommandEvent
 /// python.exe;serve 尾参是第 1 步入口模块 argv 契约——无参直通 CLI 空.help
 /// 退出 0,sidecar 起即死,见 pyenv::ENTRY_ARGS),PYTHONPATH=随包
 /// Resources/myssia-src(开发 Python 与应用 Python 分家,Req 4)。
+/// 10-18-win-install-disk-pyenv:python 落点经 `pyenv_env_base` 解析
+/// (Windows 注入 exe 安装目录,macOS 恒数据根)。
 /// 环境未就绪 → PyenvNotReadyError(结构化携带 status;setup/respawn 路径
 /// downcast 识别后转空态事件,不当 io 失败重试)。
 fn spawn_sidecar(app: &AppHandle) -> Result<CommandChild, Box<dyn std::error::Error>> {
     let data_root = data_root(app)?;
+    let env_base = pyenv_env_base(app)?;
     let resource_dir = app.path().resource_dir()?;
     let installing = app.state::<pyenv::PyenvManager>().installing.lock().unwrap().clone();
     let status = pyenv::status_at(
         &data_root,
+        &env_base,
         Some(&resource_dir),
         installing.as_deref(),
         &pyenv::read_settings(&data_root),
@@ -409,7 +413,7 @@ fn spawn_sidecar(app: &AppHandle) -> Result<CommandChild, Box<dyn std::error::Er
     }
     let mut command = app
         .shell()
-        .command(pyenv::python_bin_path(&data_root))
+        .command(pyenv::python_bin_path(&env_base))
         .args(pyenv::ENTRY_ARGS) // RPC serve 模式;直通模式留给 CLI 场景
         .env("PYTHONPATH", pyenv::resource_src_dir(&resource_dir));
     // MYIA_HOME 注入尊重用户显式设置(自动化/自定位数据根的逃生口):
@@ -601,6 +605,30 @@ pub(crate) fn data_root(app: &AppHandle) -> Result<PathBuf, Box<dyn std::error::
         return Ok(PathBuf::from(home));
     }
     myssia_home_dir(app)
+}
+
+/// 自管 Python 环境基底解析(10-18-win-install-disk-pyenv;python/ 的父目录,
+/// 所有 python_bin_path 消费点统一经此取基底):
+/// - 显式 `MYIA_HOME`(沙箱/自动化独立实例域)→ 恒数据根不注入(沙箱布局
+///   确定性是既定契约,MYIA_HOME 同款「不夺权」惯例);
+/// - Windows:exe 同目录(current_exe 父目录)存在且可写 → 安装目录(主人
+///   指令「Python 需要安装在安装路径下面」:装 D:\myssia 则环境根 =
+///   D:\myssia\python;默认装 C:\Program Files 不可写 → 探针失败回落
+///   数据根,存量行为一字不变);
+/// - macOS/Linux:恒数据根(零行为变化)。
+/// 与 `data_root` 同款按调用重解析(可写探针一次小文件读写,廉价且自愈);
+/// 进度戳/镜像设置/downloads 恒落数据根(用户态数据不随安装目录走——MSI
+/// 卸载清掉安装目录后戳仍在,重装同目录能识别「环境已空需重装」不误判 ready)。
+pub(crate) fn pyenv_env_base(app: &AppHandle) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let data_root = data_root(app)?;
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| dir.to_path_buf()));
+    Ok(pyenv::python_env_base(
+        &data_root,
+        std::env::var_os("MYIA_HOME").is_some(),
+        exe_dir.as_deref(),
+    ))
 }
 
 /// MYIA 应用数据根(v1.1.1 桌面数据通路统一,与 entry.py `myssia_home()` 同路径):
