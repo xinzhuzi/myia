@@ -432,6 +432,17 @@ export function MessagingScreen() {
                 title="通道目录还是空的"
                 description="先到「配置 → 机器人凭据」录入平台凭据(bot token 存系统钥匙串),再回到这里点刷新;飞书会列出 bot 所在的群,telegram 会话随 bot 收到消息自动入目录。"
                 tag="可空态"
+                /* push-last-mile ①:HashRouter 普通锚点跳凭据屏(dashboard 空态
+                   CTA 同款范式,零 react-router 依赖) */
+                action={
+                  <a
+                    href="#/bot-credentials"
+                    data-testid="directory-empty-cta"
+                    className="text-xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+                  >
+                    去 配置 → 机器人凭据
+                  </a>
+                }
               />
             ) : (
               platforms.map((platform) => (
@@ -557,10 +568,26 @@ export function MessagingScreen() {
                 ))}
               </div>
             ) : state.status === "ready" && (data?.rules.length ?? 0) === 0 ? (
+              /* push-last-mile ②:该空态两种成因都覆盖——无品类 YAML / 品类都有
+                 但没写 push 节(建源向导勾「同时生成推送」自带最小 push 节是
+                 已上线事实,如实引用) */
               <EmptyState
                 compact
                 title="还没有品类 YAML"
-                description="推送规则来自品类 YAML 的 push 节;先到「源管理/YAML配置」建品类。"
+                description={
+                  <>
+                    推送规则来自品类 YAML 的 push 节。还没有品类,先到「源管理」建一个(建源向导勾「同时生成推送」会自带最小
+                    push 节);品类已有但没写 push 节,先去
+                    <a
+                      href="#/yaml-editor"
+                      data-testid="rules-empty-yaml-cta"
+                      className="underline underline-offset-2 hover:text-foreground"
+                    >
+                      「YAML配置」
+                    </a>
+                    加 push 节,再回来勾对象。
+                  </>
+                }
               />
             ) : (
               (data?.rules ?? []).map((ruleFile) => (
@@ -654,7 +681,19 @@ function RuleFileGroup({
         </p>
       )}
       {ruleFile.parse_ok && ruleFile.entries.length === 0 ? (
-        <p className="text-xs text-muted-foreground">该品类未配置 push 通道(条目仅入库)。</p>
+        /* push-last-mile ②:无 push 条目 = 在此卡死的人,补一条能走出去的路
+           (HashRouter 普通锚点跳 YAML配置,bot-credentials 屏同款范式) */
+        <p className="text-xs text-muted-foreground">
+          该品类未配置 push 通道(条目仅入库)。先去
+          <a
+            href="#/yaml-editor"
+            data-testid="rule-file-yaml-cta"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            「YAML配置」
+          </a>
+          加 push: 节(建源向导勾「同时生成推送」也行),再回来勾对象。
+        </p>
       ) : null}
       {ruleFile.entries.map((entry) => {
         const bucket = entry.platform ? (data?.platforms[entry.platform] ?? []) : [];

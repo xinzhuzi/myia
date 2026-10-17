@@ -4,7 +4,7 @@
 // 随屏搬迁+发送测试新用例):mock sidecar(secret.set 内存态 + push.test 可
 // 编程)。覆盖:预设位逐字段入钥匙链 / 空字段跳过+全空 note / 自定义凭据位 /
 // scope 非法拦截 / bark、apprise 通道提示 / 发送测试(push.test 真发)。
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -207,5 +207,93 @@ describe("机器人凭据:发送测试", () => {
     const note = await screen.findByTestId("push-test-result");
     expect(note.textContent).toContain("发送失败(env_var_missing)");
     expect(screen.getByText("通道失败")).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 推送最后一公里(push-last-mile):B 派逐键引用清单 + 保存成功反馈 A/B 分流
+// ---------------------------------------------------------------------------
+
+describe("机器人凭据:B 派 keychain 引用清单(push-last-mile)", () => {
+  it("wecom 4 键 / email 6 键:逐键一行「label → keychain:myia/push/<键>」+ 复制钮", async () => {
+    installSidecar();
+    render(<MemoryRouter><BotCredentialsScreen /></MemoryRouter>);
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "推送通道" }), { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("option", { name: "企业微信" }));
+
+    const wecomList = screen.getByTestId("keychain-ref-list");
+    expect(within(wecomList).getAllByTestId(/^keychain-ref-row-/)).toHaveLength(4);
+    const corpidRow = within(wecomList).getByTestId("keychain-ref-row-WECOM_CORPID");
+    expect(corpidRow.textContent).toContain("企业 ID(corpid)");
+    expect(corpidRow.textContent).toContain("keychain:myia/push/WECOM_CORPID");
+    expect(within(corpidRow).getByTestId("keychain-ref-copy-WECOM_CORPID")).toBeTruthy();
+    expect(within(wecomList).getByTestId("keychain-ref-row-WECOM_TUSER")).toBeTruthy();
+
+    // 切 email:6 键清单随之切换
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "推送通道" }), { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("option", { name: "Email(SMTP)" }));
+    const emailList = screen.getByTestId("keychain-ref-list");
+    expect(within(emailList).getAllByTestId(/^keychain-ref-row-/)).toHaveLength(6);
+    expect(within(emailList).getByTestId("keychain-ref-row-EMAIL_TO")).toBeTruthy();
+  });
+
+  it("A 派通道(feishu)不渲染引用清单", async () => {
+    installSidecar();
+    render(<MemoryRouter><BotCredentialsScreen /></MemoryRouter>);
+    await screen.findByRole("combobox", { name: "推送通道" });
+    expect(screen.queryByTestId("keychain-ref-list")).toBeNull();
+  });
+
+  it("复制钮:写入剪贴板(navigator.clipboard.writeText;jsdom 缺席注入 stub,测后还原)", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    installSidecar();
+    render(<MemoryRouter><BotCredentialsScreen /></MemoryRouter>);
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "推送通道" }), { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("option", { name: "企业微信" }));
+    fireEvent.click(screen.getByTestId("keychain-ref-copy-WECOM_CORPSECRET"));
+    expect(writeText).toHaveBeenCalledWith("keychain:myia/push/WECOM_CORPSECRET");
+    Reflect.deleteProperty(navigator, "clipboard");
+  });
+});
+
+describe("机器人凭据:保存成功反馈 A/B 分流(push-last-mile)", () => {
+  it("A 派(feishu):note 原文 + 下一步锚点 #/messaging(飞书先刷新 / Telegram 先发条消息)", async () => {
+    installSidecar();
+    render(<MemoryRouter><BotCredentialsScreen /></MemoryRouter>);
+    await typeByLabel("feishu_card App ID", "cli_test_app");
+    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
+
+    const status = await screen.findByTestId("save-status");
+    expect(status.textContent).toContain("运行时 env 缺失会自动用这些值");
+    expect(status.textContent).not.toContain("真实推送要品类 YAML 写");
+    const nextStep = within(status).getByTestId("save-next-step");
+    expect(nextStep.textContent).toContain("勾推送对象");
+    expect(nextStep.textContent).toContain("飞书先点刷新");
+    expect(nextStep.textContent).toContain("Telegram 先给机器人发条消息");
+    const anchor = within(nextStep).getByRole("link", { name: "消息屏" });
+    expect(anchor.getAttribute("href")).toBe("#/messaging");
+    expect(within(nextStep).queryByRole("link", { name: "YAML配置" })).toBeNull();
+  });
+
+  it("B 派(wecom):note 指向引用清单 + 下一步双锚点 #/yaml-editor 与 #/messaging", async () => {
+    installSidecar();
+    render(<MemoryRouter><BotCredentialsScreen /></MemoryRouter>);
+    fireEvent.pointerDown(screen.getByRole("combobox", { name: "推送通道" }), { button: 0, pointerType: "mouse" });
+    fireEvent.click(await screen.findByRole("option", { name: "企业微信" }));
+    await typeByLabel("wecom 企业 ID(corpid)", "ww_demo_corp");
+    fireEvent.click(screen.getByRole("button", { name: "保存推送凭据" }));
+
+    const status = await screen.findByTestId("save-status");
+    expect(callsOf("secret.set")).toContainEqual({ name: "myia/push/WECOM_CORPID", value: "ww_demo_corp" });
+    expect(status.textContent).toContain("真实推送要品类 YAML 写 keychain:myia/push/<键> 引用");
+    expect(status.textContent).toContain("可先点「发送测试」验连通");
+    const nextStep = within(status).getByTestId("save-next-step");
+    expect(nextStep.textContent).toContain("贴 keychain: 引用");
+    expect(nextStep.textContent).toContain("勾对象");
+    const yamlAnchor = within(nextStep).getByRole("link", { name: "YAML配置" });
+    expect(yamlAnchor.getAttribute("href")).toBe("#/yaml-editor");
+    const msgAnchor = within(nextStep).getByRole("link", { name: "消息屏" });
+    expect(msgAnchor.getAttribute("href")).toBe("#/messaging");
   });
 });

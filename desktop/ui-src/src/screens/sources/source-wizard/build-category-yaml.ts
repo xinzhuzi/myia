@@ -4,8 +4,10 @@
  *
  * 生成器契约:
  * - 产物 = 最小合法模板(desktop/entry.py `_CATEGORY_TEMPLATE`)的严格超集,
- *   只覆盖「列表页 + 字段 + 翻页三件套」;watchlist/classify/push 等下游段
- *   全不生成(schema 有 default_factory,src/myssia/schema.py:1797-1802)。
+ *   覆盖「列表页 + 字段 + 翻页三件套 + 可选 push 单条目」:generatePush 勾选
+ *   时在文末追加最小 feishu_card 单条(与 config/ai-news.yaml:473-475 的
+ *   push 节同构);watchlist/classify 等其余下游段全不生成(schema 有
+ *   default_factory,src/myssia/schema.py:1797-1802)。
  * - 字符串值一律双引号;引号内对 `\` 与 `"` 做 YAML 双引号转义(设计拷问修正①:
  *   品类名自由中文可含 ",CSS 选择器(DevTools Copy selector)常产
  *   `div[data-id="x"]`;不转义即语法坏或语义漂,后端只会报莫名的
@@ -84,6 +86,8 @@ export interface WizardForm {
   itemSelector: string;
   /** 第 3 步:字段表(预置 title/url 两行) */
   fields: WizardFieldRow[];
+  /** 第 4 步:同时生成推送(默认勾;勾 = 产物文末追加最小 push 单条目) */
+  generatePush: boolean;
 }
 
 /** 初始表单(向导 dirty 判定的对照基线;默认值也是预填值) */
@@ -102,6 +106,7 @@ export function initialWizardForm(): WizardForm {
       { name: "title", selector: "", useHref: false },
       { name: "url", selector: "", useHref: true },
     ],
+    generatePush: true,
   };
 }
 
@@ -262,7 +267,7 @@ export function fieldSelectorValue(row: WizardFieldRow): string {
 export function buildCategoryYaml(form: WizardForm): string {
   const lines: string[] = [
     "# 由建源向导生成:普通网页列表采集(每天到点抓一页/几页,提取列表字段)。",
-    "# 只配了采集;关键词过滤、分类、推送等下游配置请到「YAML配置」补全。",
+    "# 覆盖「列表页 + 字段 + 翻页」三件套 + 可选 push 单条目(飞书卡片);关键词过滤、分类等进「YAML配置」补全。",
     `id: ${form.categoryId.trim()}`,
     `name: ${yamlQuote(form.categoryName.trim())}`,
     `schedule: ${yamlQuote(resolveScheduleCron(form))}`,
@@ -298,6 +303,14 @@ export function buildCategoryYaml(form: WizardForm): string {
     const name = row.name.trim();
     if (name === "") continue;
     lines.push(`        ${name}: ${yamlQuote(fieldSelectorValue(row))}`);
+  }
+
+  // 可选 push 单条目(与 config/ai-news.yaml:473-475 的 push 节同构):
+  // 凭据在「配置 → 机器人凭据」填、发给谁在「推送 → 消息」勾选,产物只落最小三条
+  if (form.generatePush) {
+    lines.push("push:                     # 推送:飞书卡片;机器人凭据到「配置 → 机器人凭据」填");
+    lines.push("  - channel: feishu_card");
+    lines.push("    target: env:FEISHU_CHAT_ID  # 发给谁:建好后在「推送 → 消息」勾选");
   }
   return `${lines.join("\n")}\n`;
 }

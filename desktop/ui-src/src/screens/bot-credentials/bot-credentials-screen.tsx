@@ -280,12 +280,24 @@ interface PushForm {
 
 /**
  * 每卡保存态(D4「每区保存态反馈」;自 settings-screen 原样搬迁)。
+ * nextStep(push-last-mile ⑤):保存成功后的「下一步」引导行(含锚点),
+ * A 派指消息屏勾对象、B 派先去 YAML配置 贴引用再去消息屏。
  */
 type CardSaveState =
   | { kind: "saving" }
-  | { kind: "saved"; names: string[]; note: string | null }
+  | { kind: "saved"; names: string[]; note: string | null; nextStep?: React.ReactNode }
   | { kind: "note"; note: string }
   | { kind: "error"; error: SidecarRequestError };
+
+/** 复制 keychain 引用(push-last-mile ④):clipboard 尽力而为——不可用/
+ *  权限拒 = 静默(feed 屏 copyLink 同款,轻动作不打断表单)。 */
+function copyKeychainRef(ref: string): void {
+  try {
+    void navigator.clipboard?.writeText(ref)?.catch(() => {});
+  } catch {
+    // 老 webview 无剪贴板 API:静默
+  }
+}
 
 /** 卡片底部保存条:状态反馈在左、保存动作在右(拆解表第 5 条输入类的显式保存) */
 function CardSaveBar({
@@ -309,6 +321,11 @@ function CardSaveBar({
           <div role="status" data-testid="save-status" className="text-xs text-ok">
             已写入钥匙串:{state.names.join("、")}(值不回显)
             {state.note ? <span className="mt-0.5 block text-2xs text-muted-foreground">{state.note}</span> : null}
+            {state.nextStep ? (
+              <span data-testid="save-next-step" className="mt-0.5 block text-2xs text-muted-foreground">
+                {state.nextStep}
+              </span>
+            ) : null}
           </div>
         ) : null}
         {state?.kind === "note" ? (
@@ -412,10 +429,37 @@ export function BotCredentialsScreen() {
         const record = await saveSecret(`myia/push/${entry.field.key}`, entry.value);
         names.push(record.name);
       }
+      // push-last-mile ③⑤:保存成功反馈按 A/B 派分流——A 派 env 缺失自动回退,
+      // 引导直接去消息屏勾对象;B 派无钥匙链回退,note 指向上方常驻逐键引用
+      // 清单,下一步先去 YAML配置 贴 keychain: 引用再去消息屏(普通锚点跳屏)。
+      const needsKeychainRef = KEYCHAIN_REF_REQUIRED_CHANNELS.has(push.channel);
       setPushSave({
         kind: "saved",
         names,
-        note: "已入钥匙串;运行时 env 缺失会自动用这些值(发送测试与真实推送同源)。",
+        note: needsKeychainRef
+          ? "已入钥匙串;真实推送要品类 YAML 写 keychain:myia/push/<键> 引用(见上方引用清单),可先点「发送测试」验连通。"
+          : "已入钥匙串;运行时 env 缺失会自动用这些值(发送测试与真实推送同源)。",
+        nextStep: needsKeychainRef ? (
+          <>
+            下一步:去
+            <a href="#/yaml-editor" className="underline underline-offset-2 hover:text-foreground">
+              YAML配置
+            </a>
+            贴 keychain: 引用,再去
+            <a href="#/messaging" className="underline underline-offset-2 hover:text-foreground">
+              消息屏
+            </a>
+            勾对象。
+          </>
+        ) : (
+          <>
+            下一步:去
+            <a href="#/messaging" className="underline underline-offset-2 hover:text-foreground">
+              消息屏
+            </a>
+            勾推送对象(飞书先点刷新,Telegram 先给机器人发条消息)。
+          </>
+        ),
       });
       setPushValues({});
     } catch (error) {
@@ -493,12 +537,37 @@ export function BotCredentialsScreen() {
                 </p>
               ) : null}
               {KEYCHAIN_REF_REQUIRED_CHANNELS.has(push.channel) ? (
-                // B 派通道(裸 resolve_credential):无钥匙链回退,如实注明引用口径
-                <p data-testid="keychain-ref-hint" className="px-1 pb-1 text-2xs text-muted-foreground">
-                  注意:本通道凭据解析不走钥匙串回退——品类 YAML 的凭据引用请写
-                  <code className="mx-1 font-mono">keychain:myia/push/&lt;键&gt;</code>
-                  形态,此处保存的值即生效;「发送测试」传的就是该引用,可直接验连通。
-                </p>
+                // B 派通道(裸 resolve_credential):无钥匙链回退,常驻逐键引用
+                // 清单(push-last-mile ④)——遍历该通道全部凭据键,品类 YAML 照
+                // 抄即可;展示源是 PUSH_FIELDS_BY_CHANNEL(非测试目标键)。
+                <div className="flex flex-col gap-1 px-1 pb-1">
+                  <p data-testid="keychain-ref-hint" className="text-2xs text-muted-foreground">
+                    注意:本通道凭据解析不走钥匙串回退——真实推送要品类 YAML 按下面的清单写
+                    <code className="mx-1 font-mono">keychain:myia/push/&lt;键&gt;</code>
+                    引用,此处保存的值即生效;「发送测试」传的就是该引用,可直接验连通。
+                  </p>
+                  <ul data-testid="keychain-ref-list" className="flex flex-col gap-1">
+                    {PUSH_FIELDS_BY_CHANNEL[push.channel].map((field) => (
+                      <li
+                        key={field.key}
+                        data-testid={`keychain-ref-row-${field.key}`}
+                        className="flex min-w-0 items-center gap-2 text-2xs text-muted-foreground"
+                      >
+                        <span className="shrink-0">{field.label} →</span>
+                        <code className="min-w-0 truncate font-mono">keychain:myia/push/{field.key}</code>
+                        <button
+                          type="button"
+                          aria-label={`复制 ${field.label} 引用`}
+                          data-testid={`keychain-ref-copy-${field.key}`}
+                          className="shrink-0 rounded-md border border-border/60 px-1.5 py-0.5 transition-colors duration-(--duration-fast) ease-out-expo hover:bg-accent/60 hover:text-foreground"
+                          onClick={() => copyKeychainRef(`keychain:myia/push/${field.key}`)}
+                        >
+                          复制
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : null}
             </div>
             <CardSaveBar

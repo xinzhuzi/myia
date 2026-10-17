@@ -33,7 +33,7 @@ function form(overrides: Partial<WizardForm> = {}): WizardForm {
   return { ...initialWizardForm(), ...overrides };
 }
 
-/** 羽翼丰满的基础表单(不翻页/无 UA):逐字节断言组 A */
+/** 羽翼丰满的基础表单(不翻页/无 UA;generatePush 走默认 true):逐字节断言组 A */
 const FORM_A: WizardForm = form({
   categoryId: "news-list",
   categoryName: "每日新闻",
@@ -90,7 +90,7 @@ describe("build-category-yaml:逐字节断言", () => {
     expect(buildCategoryYaml(FORM_A)).toBe(
       [
         "# 由建源向导生成:普通网页列表采集(每天到点抓一页/几页,提取列表字段)。",
-        "# 只配了采集;关键词过滤、分类、推送等下游配置请到「YAML配置」补全。",
+        "# 覆盖「列表页 + 字段 + 翻页」三件套 + 可选 push 单条目(飞书卡片);关键词过滤、分类等进「YAML配置」补全。",
         'id: news-list',
         'name: "每日新闻"',
         'schedule: "0 10 * * *"',
@@ -105,6 +105,9 @@ describe("build-category-yaml:逐字节断言", () => {
         "      fields:",
         '        title: "h3 a"',
         '        url: "h3 a@href"',
+        "push:                     # 推送:飞书卡片;机器人凭据到「配置 → 机器人凭据」填",
+        "  - channel: feishu_card",
+        "    target: env:FEISHU_CHAT_ID  # 发给谁:建好后在「推送 → 消息」勾选",
         "",
       ].join("\n"),
     );
@@ -114,7 +117,7 @@ describe("build-category-yaml:逐字节断言", () => {
     expect(buildCategoryYaml(FORM_B)).toBe(
       [
         "# 由建源向导生成:普通网页列表采集(每天到点抓一页/几页,提取列表字段)。",
-        "# 只配了采集;关键词过滤、分类、推送等下游配置请到「YAML配置」补全。",
+        "# 覆盖「列表页 + 字段 + 翻页」三件套 + 可选 push 单条目(飞书卡片);关键词过滤、分类等进「YAML配置」补全。",
         "id: gpu-daily",
         'name: "显卡行情日报"',
         'schedule: "0 */6 * * *"',
@@ -135,6 +138,9 @@ describe("build-category-yaml:逐字节断言", () => {
         '        title: "h3 a"',
         '        url: "h3 a@href"',
         '        price: "span.price-type"',
+        "push:                     # 推送:飞书卡片;机器人凭据到「配置 → 机器人凭据」填",
+        "  - channel: feishu_card",
+        "    target: env:FEISHU_CHAT_ID  # 发给谁:建好后在「推送 → 消息」勾选",
         "",
       ].join("\n"),
     );
@@ -144,7 +150,7 @@ describe("build-category-yaml:逐字节断言", () => {
     expect(buildCategoryYaml(FORM_C)).toBe(
       [
         "# 由建源向导生成:普通网页列表采集(每天到点抓一页/几页,提取列表字段)。",
-        "# 只配了采集;关键词过滤、分类、推送等下游配置请到「YAML配置」补全。",
+        "# 覆盖「列表页 + 字段 + 翻页」三件套 + 可选 push 单条目(飞书卡片);关键词过滤、分类等进「YAML配置」补全。",
         "id: board-top",
         'name: "榜单\\"热帖\\"榜"',
         'schedule: "0 9 * * 1"',
@@ -163,6 +169,9 @@ describe("build-category-yaml:逐字节断言", () => {
         "      fields:",
         '        title: "div[data-id=\\"x\\"] > a"',
         '        url: "a@href"',
+        "push:                     # 推送:飞书卡片;机器人凭据到「配置 → 机器人凭据」填",
+        "  - channel: feishu_card",
+        "    target: env:FEISHU_CHAT_ID  # 发给谁:建好后在「推送 → 消息」勾选",
         "",
       ].join("\n"),
     );
@@ -189,6 +198,21 @@ describe("build-category-yaml:逐字节断言", () => {
     expect(fieldSelectorValue({ name: "url", selector: "h3 a", useHref: true })).toBe("h3 a@href");
     expect(fieldSelectorValue({ name: "url", selector: "h3 a@href", useHref: true })).toBe("h3 a@href");
     expect(fieldSelectorValue({ name: "title", selector: "h3 a", useHref: false })).toBe("h3 a");
+  });
+
+  it("generatePush 两态:勾选 → 文末追加 push 节三行;不勾 → 全文无 push 且其余逐字节一致", () => {
+    const PUSH_BLOCK = [
+      "push:                     # 推送:飞书卡片;机器人凭据到「配置 → 机器人凭据」填",
+      "  - channel: feishu_card",
+      "    target: env:FEISHU_CHAT_ID  # 发给谁:建好后在「推送 → 消息」勾选",
+    ].join("\n");
+    // 勾选(initialWizardForm 默认 true,夹具不覆写):文末正好是 push 节三行
+    const withPush = buildCategoryYaml(FORM_A);
+    expect(withPush.endsWith(`${PUSH_BLOCK}\n`)).toBe(true);
+    // 不勾:全文不含 push 节,且与勾选版的差异仅是删掉那三行
+    const withoutPush = buildCategoryYaml({ ...FORM_A, generatePush: false });
+    expect(withoutPush.includes("push:")).toBe(false);
+    expect(withoutPush).toBe(withPush.replace(`${PUSH_BLOCK}\n`, ""));
   });
 });
 

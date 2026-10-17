@@ -180,7 +180,7 @@ export function SourceWizardDialog({ onClose }: SourceWizardDialogProps) {
           <div className="flex min-w-0 flex-col gap-0.5">
             <span className="truncate text-sm font-semibold text-foreground">新建品类(向导)</span>
             <span className="text-2xs text-muted-foreground">
-              填一填、试一试,落成一份品类 YAML;关键词过滤、分类、推送等进「YAML配置」补全
+              填一填、试一试,落成一份品类 YAML;关键词过滤、分类等进「YAML配置」补全,推送可在此一并生成
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -485,6 +485,16 @@ export function SourceWizardDialog({ onClose }: SourceWizardDialogProps) {
                     .join("、") || "(无)"}`}
                 />
               </div>
+              {/* 保存区上方的推送开关:勾 = 产物文末追加最小 push 单条目(预览实时可见) */}
+              <label data-testid="wizard-generate-push" className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  className="accent-primary"
+                  checked={form.generatePush}
+                  onChange={(event) => patchForm({ generatePush: event.target.checked })}
+                />
+                <span>同时生成推送(飞书卡片;发给谁建好后在「推送 → 消息」勾选)</span>
+              </label>
               {save.findings.length > 0 ? (
                 <ul
                   role="alert"
@@ -559,18 +569,44 @@ export function SourceWizardDialog({ onClose }: SourceWizardDialogProps) {
                   <p className="break-all font-mono text-2xs text-muted-foreground" title={saved.file}>
                     {saved.file}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    这份 YAML 只配了采集;关键词过滤、分类、推送等下游配置,去「YAML配置」继续补。
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <a
-                      href={`#/yaml-editor?file=${encodeURIComponent(saved.file)}`}
-                      className="inline-flex items-center gap-1.5 text-sm font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
-                    >
-                      <ExternalLink className="size-3.5" />
-                      去补全推送等配置
-                    </a>
-                  </div>
+                  {form.generatePush ? (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        推送已配好(飞书卡片):先到「配置 → 机器人凭据」填凭据,再到「推送 → 消息」勾选发给谁。
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <a
+                          href="#/bot-credentials"
+                          className="inline-flex items-center gap-1.5 text-sm font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+                        >
+                          <ExternalLink className="size-3.5" />
+                          去填机器人凭据
+                        </a>
+                        <a
+                          href="#/messaging"
+                          className="inline-flex items-center gap-1.5 text-sm font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+                        >
+                          <ExternalLink className="size-3.5" />
+                          去勾选发给谁
+                        </a>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        这份 YAML 只配了采集;关键词过滤、分类、推送等下游配置,去「YAML配置」继续补。
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <a
+                          href={`#/yaml-editor?file=${encodeURIComponent(saved.file)}`}
+                          className="inline-flex items-center gap-1.5 text-sm font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+                        >
+                          <ExternalLink className="size-3.5" />
+                          去补全推送等配置
+                        </a>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : null}
             </StepBlock>

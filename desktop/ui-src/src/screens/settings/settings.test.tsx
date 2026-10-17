@@ -991,6 +991,39 @@ describe("设置:分区过滤(census #7 补做,纯前端实时)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 推送通知引导卡(next-step-entry·ui):推送配置拆两处(凭据在「机器人凭据」屏,
+// 推送对象在「消息」屏勾选),通用分区顶部一句话指路 + 两普通锚点;卡体走
+// Searchable(词面 ⊆ general 区词面,区词面同笔补齐,两级搜索不矛盾)。
+// ---------------------------------------------------------------------------
+
+describe("设置:推送通知引导卡(通用分区顶部)", () => {
+  it("渲染引导卡:一句指路文案 + 机器人凭据/消息两锚点(普通 a,非路由组件)", async () => {
+    installSidecar();
+    renderScreen();
+
+    const card = await screen.findByTestId("settings-push-guide");
+    expect(card.textContent).toContain("推送凭据在「配置 → 机器人凭据」");
+    expect(card.textContent).toContain("推送给谁在「推送 → 消息」勾选");
+    expect(screen.getByTestId("push-guide-credentials-link").getAttribute("href")).toBe("#/bot-credentials");
+    expect(screen.getByTestId("push-guide-messaging-link").getAttribute("href")).toBe("#/messaging");
+  });
+
+  it("两级搜索:搜「推送」→ 导航命中通用分区,且当前区逐卡过滤下引导卡可见、其余卡隐", async () => {
+    installSidecar();
+    renderScreen();
+
+    fireEvent.change(screen.getByLabelText("过滤分区与字段"), { target: { value: "推送" } });
+    // 一级(导航):「推送」命中 general 区词面(本笔补齐),他区不命中
+    expect(screen.getByTestId("settings-nav-general")).toBeTruthy();
+    expect(screen.queryByTestId("settings-nav-system")).toBeNull();
+    // 二级(右列):分区名未命中 → 逐卡过滤,引导卡词面含「推送」
+    expect(screen.getByTestId("settings-push-guide")).toBeTruthy();
+    expect(screen.queryByLabelText("base_url")).toBeNull(); // LLM 卡词面不含「推送」
+    expect(screen.queryByTestId("settings-field-filter-empty")).toBeNull(); // 有命中卡不出空态行
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 门槛件分区(10-05-plugin-market-batch 批二第 11 步):gates.get/save 三卡
 // (付费通道 / 自有实例 / 分析件 D8 占位);知情警示文案铁律(design §6.4)
 // + 值只经 secret.set 入钥匙链零回显 + third_party_trace 载荷保真透传(D9)

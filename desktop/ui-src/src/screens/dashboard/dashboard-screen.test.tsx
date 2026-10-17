@@ -401,6 +401,15 @@ describe("DashboardScreen", () => {
     await screen.findByText("暂无品类");
     expect(screen.getByText(/还没有采集记录/)).toBeTruthy();
     expect(screen.getByTestId("run-success-rate").textContent).toBe("—");
+    // 空态引导锚点(next-step-entry):无品类时源也必空 → 两个空态各给「去源管理」
+    // 出口;复用本屏 a href="#/sources" 锚点款式(381/514/535 同款),无 Router 壳
+    const ctas = screen.getAllByRole("link", { name: "去源管理 →" });
+    expect(ctas).toHaveLength(2);
+    for (const cta of ctas) {
+      expect(cta.getAttribute("href")).toBe("#/sources");
+    }
+    expect(screen.getByTestId("empty-sources-cta").getAttribute("href")).toBe("#/sources");
+    expect(screen.getByTestId("empty-categories-cta").getAttribute("href")).toBe("#/sources");
   });
 
   // -------------------------------------------------------------------------

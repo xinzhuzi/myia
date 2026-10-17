@@ -1284,6 +1284,15 @@ export function DashboardScreen() {
             compact
             title="暂无源"
             description="已载品类下的采集源会在此按健康度展示;先到「源管理」确认品类与源配置"
+            action={
+              <a
+                href="#/sources"
+                data-testid="empty-sources-cta"
+                className="text-xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+              >
+                去源管理 →
+              </a>
+            }
           />
         ) : (
           <>
@@ -1346,6 +1355,15 @@ export function DashboardScreen() {
             compact
             title="暂无品类"
             description="首次启动会自动装载随包官方品类;若仍未出现,重启应用重试初始化,或到「源管理」查看插件目录"
+            action={
+              <a
+                href="#/sources"
+                data-testid="empty-categories-cta"
+                className="text-xs font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+              >
+                去源管理 →
+              </a>
+            }
           />
         ) : (
           <div className="grid grid-cols-1 gap-grid sm:grid-cols-2">

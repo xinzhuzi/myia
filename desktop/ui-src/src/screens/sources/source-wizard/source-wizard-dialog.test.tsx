@@ -3,9 +3,11 @@
 // 建源向导对话框测试(PRD AC2/3/5/6/7/8):五步导航与分步校验门 / 保存链
 // (干跑 error 停 + mtime 链)/ 试采链(sources.test timeout 60 →
 // test.completed 内嵌摘要 + 查看详情复用 TestResultDialog)/ 闭环
-// (失败→返回修改→重存带 mtime→再试采→完成态深链)/ 关闭守卫三径 + 已保存
-// 文件不回收。mock sidecar 惯例同 sources.test.tsx;顶栏按钮改绑的屏级断言
-// (AC1)归 sources.test.tsx 接线后补,本文件只测向导组件本身。
+// (失败→返回修改→重存带 mtime→再试采→完成态深链)/ 推送勾选两态与回执
+// 分流(默认勾 = 产物带 push 节,回执指路凭据/消息屏;取消 = 指路
+// YAML配置)/ 关闭守卫三径 + 已保存文件不回收。mock sidecar 惯例同
+// sources.test.tsx;顶栏按钮改绑的屏级断言(AC1)归 sources.test.tsx
+// 接线后补,本文件只测向导组件本身。
 //
 // 时序注记:test.completed 事件可能早于 sources.test 应答落地(state 仍
 // launching)到达 —— 断言处用 waitFor 内重放事件(同 job_id 重复投递对
@@ -456,14 +458,60 @@ describe("向导:试采链(AC6)", () => {
     });
     expect(screen.getByTestId("source-wizard-dialog")).toBeTruthy();
 
-    // 成功 → 完成态:落盘路径 + 深链(AC7 后半)
+    // 成功 → 完成态:落盘路径 + 回执走「推送已配好」分流(默认勾选 generatePush)
     const done = screen.getByTestId("wizard-done");
     expect(done.textContent).toContain("/data/config/demo-list.yaml");
+    expect(done.textContent).toContain("推送已配好");
+    expect(
+      within(done)
+        .getByRole("link", { name: "去填机器人凭据" })
+        .getAttribute("href"),
+    ).toBe("#/bot-credentials");
+    expect(
+      within(done)
+        .getByRole("link", { name: "去勾选发给谁" })
+        .getAttribute("href"),
+    ).toBe("#/messaging");
+  });
+
+  it("推送勾选框:默认勾(产物含 push 节);取消后保存不含 push,回执走「去补全推送等配置」", async () => {
+    const events = installEvents();
+    const { map, state } = wizardSidecar();
+    installSidecar(map);
+    renderDialog();
+    await screen.findByTestId("source-wizard-dialog");
+    arriveAtStep4();
+
+    // 勾选框默认勾选;预览实时含 push 节
+    const pushToggle = screen.getByLabelText(
+      "同时生成推送(飞书卡片;发给谁建好后在「推送 → 消息」勾选)",
+    ) as HTMLInputElement;
+    expect(pushToggle.checked).toBe(true);
+    const preview = screen.getByTestId("wizard-yaml-preview").textContent ?? "";
+    expect(preview).toContain("push:");
+    expect(preview).toContain("channel: feishu_card");
+    expect(preview).toContain("target: env:FEISHU_CHAT_ID");
+
+    // 切换取消 → 预览 push 节消失;落盘内容不含 push
+    fireEvent.click(pushToggle);
+    expect(pushToggle.checked).toBe(false);
+    expect(screen.getByTestId("wizard-yaml-preview").textContent).not.toContain("push:");
+    await saveAndWaitTest();
+    expect(state.savedFiles).toHaveLength(1);
+    expect(state.savedFiles[0].content).not.toContain("push:");
+
+    // 成功 → 回执分流到「去补全推送等配置」(#/yaml-editor 深链带 file)
+    await emitUntil(events, okTestEvent(1), () => {
+      expect(screen.getByTestId("wizard-done")).toBeTruthy();
+    });
+    const done = screen.getByTestId("wizard-done");
+    expect(done.textContent).toContain("只配了采集");
     expect(
       within(done)
         .getByRole("link", { name: "去补全推送等配置" })
         .getAttribute("href"),
     ).toBe(`#/yaml-editor?file=${encodeURIComponent("/data/config/demo-list.yaml")}`);
+    expect(within(done).queryByText("推送已配好")).toBeNull();
   });
 
   it("发起失败(test_busy)如实展示并给重试;重试再发起", async () => {

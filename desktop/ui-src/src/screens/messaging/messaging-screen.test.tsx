@@ -556,6 +556,77 @@ describe("消息:空态与断连态", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 推送最后一公里引导(push-last-mile):空态/分支补锚点,普通 a 锚跳屏
+// (HashRouter;零 react-router 依赖,bot-credentials 屏 586-588 同款范式)
+// ---------------------------------------------------------------------------
+
+describe("消息:推送最后一公里引导(push-last-mile)", () => {
+  it("目录空态:给出「去 配置 → 机器人凭据」锚点(href=#/bot-credentials)", async () => {
+    const sidecar = okSidecar();
+    sidecar.view.platforms = {};
+    sidecar.view.rules = [];
+    installSidecar(sidecar.map);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+    const anchor = await screen.findByTestId("directory-empty-cta");
+    expect(anchor.getAttribute("href")).toBe("#/bot-credentials");
+    expect(anchor.textContent).toBe("去 配置 → 机器人凭据");
+  });
+
+  it("推送规则空态:文案覆盖无品类 YAML 与没写 push 节两种情况 + #/yaml-editor 锚点", async () => {
+    const sidecar = okSidecar();
+    sidecar.view.rules = [];
+    installSidecar(sidecar.map);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText("还没有品类 YAML")).toBeTruthy();
+    const description = screen.getByText(/推送规则来自品类 YAML 的 push 节/);
+    // 两种成因都如实给路:无品类 → 建品类(建源向导自带最小 push 节是已上线
+    // 事实);品类已有没写 push 节 → 去 YAML配置 加上再回来勾对象
+    expect(description.textContent).toContain("还没有品类");
+    expect(description.textContent).toContain("建源向导勾「同时生成推送」");
+    expect(description.textContent).toContain("没写 push 节");
+    expect(description.textContent).toContain("再回来勾对象");
+    const anchor = within(description).getByTestId("rules-empty-yaml-cta");
+    expect(anchor.getAttribute("href")).toBe("#/yaml-editor");
+    expect(anchor.textContent).toContain("YAML配置");
+  });
+
+  it("品类无 push 条目:补「先去 YAML配置 加 push: 节」路径 + #/yaml-editor 锚点", async () => {
+    const sidecar = okSidecar();
+    sidecar.view.rules = [
+      {
+        file: FILE,
+        category_id: "messaging-demo",
+        category_name: "消息屏夹具",
+        parse_ok: true,
+        error: null,
+        entries: [],
+      },
+    ];
+    installSidecar(sidecar.map);
+    render(
+      <MemoryRouter>
+        <MessagingScreen />
+      </MemoryRouter>,
+    );
+    const group = await screen.findByTestId("rule-file-messaging-demo");
+    expect(group.textContent).toContain("该品类未配置 push 通道");
+    expect(group.textContent).toContain("加 push: 节");
+    expect(group.textContent).toContain("建源向导勾「同时生成推送」");
+    expect(group.textContent).toContain("再回来勾对象");
+    const anchor = within(group).getByTestId("rule-file-yaml-cta");
+    expect(anchor.getAttribute("href")).toBe("#/yaml-editor");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 平台总览(10-03-messaging-hermes-look R1-R4:左网格 + 右详情面板)
 // ---------------------------------------------------------------------------
 

@@ -138,7 +138,7 @@ const DEFAULT_SECTION = "general";
 /** 各分区字段词面(小写;策展清单,纪律见上) */
 const SECTION_FIELD_TERMS: Record<string, string> = {
   general:
-    "llm 精评 base_url model api key 评分 反馈 enrich 预算 budget 代理池 池名 凭据值 pools yaml 路径 探测 doctor 保存后验证 回显 诊断",
+    "llm 精评 base_url model api key 评分 反馈 enrich 预算 budget 代理池 池名 凭据值 pools yaml 路径 探测 doctor 保存后验证 回显 诊断 推送 通知 消息 bot 机器人",
   vision: "看图 通道 ocr 引擎 vision rapidocr mlx base_url 本地模型路径 云端模型 云端 api key 模型管理 服务",
   gates: "门槛 付费 saas 采集引擎 zenrows 自有实例 平台 token 分析件 停更 知情 启用",
   "installer-plugins": "装机 官方插件 发现 安装 重装 卸载 品类配置 平铺 manifest 补种",
@@ -1221,6 +1221,40 @@ export function SettingsScreen() {
             </>
           ) : activeSection.id === "general" ? (
             <>
+              {/* 推送通知引导卡(next-step-entry·ui):推送配置拆在两处——凭据在
+                  「机器人凭据」屏(/bot-credentials),推送对象在「消息」屏
+                  (/messaging)勾选;本卡顶部一句话指路 + 两普通锚点。Searchable
+                  terms ⊆ general 区词面(区词面已同笔补齐,导航/卡过滤不矛盾) */}
+              <Searchable terms="推送 通知 消息 bot 凭据 机器人">
+                <Card data-testid="settings-push-guide">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Lightbulb className="size-4 text-muted-foreground" />
+                      推送通知
+                    </CardTitle>
+                    <CardDescription>
+                      推送凭据在「配置 → 机器人凭据」,推送给谁在「推送 → 消息」勾选
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap items-center gap-4">
+                    <a
+                      href="#/bot-credentials"
+                      data-testid="push-guide-credentials-link"
+                      className="text-sm font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+                    >
+                      去机器人凭据
+                    </a>
+                    <a
+                      href="#/messaging"
+                      data-testid="push-guide-messaging-link"
+                      className="text-sm font-medium text-link transition-colors duration-(--duration-fast) hover:text-foreground"
+                    >
+                      去推送消息
+                    </a>
+                  </CardContent>
+                </Card>
+              </Searchable>
+
               {/* LLM(②:terms = 本卡可搜词面,⊂ general 区词面) */}
               <Searchable terms="llm 精评 base_url model api key">
               <Card>
