@@ -59,10 +59,10 @@ dump 七族 oracle 零确认,结论=运行期驻留),本档走**运行期断点�
 
 - [x] 钥源头静态定案(解密链全实证+取钥坐标交付;research/ghidra-static.md)
 - [x] 取钥窗工具坐标升级 + 离线全绿 + 真 LLDB 无附加探针
-- [ ] KEY 验真落袋(oracle 三样本以上通过)——待新授权开窗
-- [ ] 真图终验:解密件对真 dat 产出可看图(magic 校验过)
-- [ ] 供钥双通道写入 + key-status 可查
-- [ ] 打包覆盖安装 + 主人真机点图终验
+- [x] KEY 验真落袋(2026-10-16 凌晨第 4 窗;oracle 5/5:1 PNG+4 wxgf;掩码串 XOR 还原,16-ASCII 形态)
+- [x] 真图终验:三张真 JPEG 过 file 验(/tmp/wx-decrypt-test{1,2,3}.jpg;桥级 media decrypt 全链通落 media-cache)
+- [x] 供钥双通道写入(钥匙串 security -i 内联 + 数据根 json 600;回读验真;hex 解码错形态实证后换 16-ASCII)
+- [x] ~~打包覆盖安装~~ → 零打包需要(外置解密件通道=协议 v1 原设计,桥与产品零改动;media-decrypt set 接线已验)——真机看图 = 任意聊天缩略图经 `localdb media decrypt` 可解,真图样张在 /tmp/wx-decrypt-test*.jpg;feed 3 级 UI 消费面另立(见 window5-result.md 未了节)
 
 ## 资产(已固化入档,纪律§6)
 
