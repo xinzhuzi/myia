@@ -4,7 +4,7 @@ import myssia
 
 
 def test_version():
-    assert myssia.__version__ == "0.0.4"
+    assert myssia.__version__ == "0.0.5"
 
 
 def test_pipeline_stages():
