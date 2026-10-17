@@ -43,6 +43,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Tuple
 
+from myssia.config_layout import CONFIG_DIR_NAME
 from myssia.cron.executions import (
     _owner_is_live,  # noqa: SLF001 同包私有(属主存活判定的唯一纪律,不另写)
     pid_exists,
@@ -177,6 +178,13 @@ def job_command(cron: Any, job: Mapping[str, Any]) -> tuple[list[str], dict[str,
 
     ``["run", category, "--db", db, "--json"]`` + 可选 ``--dry-run`` /
     ``--config``(job 可选键;cli.py ``_add_run_parser`` 参数面)。
+
+    ``--config`` 自动发现(10-18-engine-pool-egress R3,三处一致原则):
+    **显式优先**——job ``config_path`` 非空串照旧直拼;缺省走 home 门 +
+    文件在场门——``MYIA_HOME`` env 在场(桌面 sidecar spawn 时注入,
+    ``self_command`` 原样透传)且 ``$MYIA_HOME/config/proxy-pools.yaml``
+    存在才自动拼。路径走 ``CONFIG_DIR_NAME`` 常量(与 entry.py 同一真源,
+    禁 ``"config"`` 字面量);dev(无 MYIA_HOME)行为零变化。
     """
     argv = [
         "run",
@@ -190,6 +198,12 @@ def job_command(cron: Any, job: Mapping[str, Any]) -> tuple[list[str], dict[str,
     config = job.get("config_path")
     if isinstance(config, str) and config.strip():
         argv += ["--config", config.strip()]
+    else:
+        home = os.environ.get("MYIA_HOME")
+        if home:
+            default_pools = Path(home) / CONFIG_DIR_NAME / "proxy-pools.yaml"
+            if default_pools.exists():
+                argv += ["--config", str(default_pools)]
     return self_command(argv)
 
 

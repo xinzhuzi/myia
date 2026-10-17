@@ -54,6 +54,7 @@
       "../../config/monitor.yaml": "config/monitor.yaml",
       "../../config/myssia-demo.yaml": "config/myssia-demo.yaml",
       "../../config/news.yaml": "config/news.yaml",
+      "../../config/proxy-pools.yaml": "config/proxy-pools.yaml",
       "../../config/stocks.yaml": "config/stocks.yaml",
       "../../config/telegram-channels.yaml": "config/telegram-channels.yaml",
       "../../config/telegram-groups.yaml": "config/telegram-groups.yaml",

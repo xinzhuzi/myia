@@ -333,6 +333,30 @@ def test_probe_config_auto_gate_inherited_from_doctor(monkeypatch):
     assert error["code"] == "invalid_params" and error["path"] == "params.config_auto"
 
 
+def test_probe_config_auto_prefers_config_dir_pools(tmp_path, monkeypatch):
+    """config_auto 双位回落(10-18-engine-pool-egress):新位
+    ``<home>/config/proxy-pools.yaml``(resources 补种落点)优先;仅新位在场
+    → 用新位;双位同在场 → config/ 位胜过旧位 pools.yaml(零外网同款夹具:
+    env 缺失凭据上游在探测前失败隔离成行)。"""
+    home = tmp_path / "home"
+    (home / "config").mkdir(parents=True)
+    (home / "config" / "proxy-pools.yaml").write_text(POOLS_YAML_UNRESOLVED, encoding="utf-8")
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    install_handlers(monkeypatch)
+
+    code, responses, _ = rpc({"id": 1, "method": "proxy.probe", "params": {"config_auto": True}})
+    assert code == 0
+    result = responses[0]["result"]
+    assert result["proxy"]["config"] == str(home / "config" / "proxy-pools.yaml")
+    assert result["snapshot"] == {"persisted": True}
+
+    # 旧位同时在场:仍是 config/ 新位优先(回落只救旧装机,不抢新位)
+    (home / "pools.yaml").write_text(POOLS_YAML_UNRESOLVED, encoding="utf-8")
+    code, responses, _ = rpc({"id": 2, "method": "proxy.probe", "params": {"config_auto": True}})
+    assert code == 0
+    assert responses[0]["result"]["proxy"]["config"] == str(home / "config" / "proxy-pools.yaml")
+
+
 def test_probe_dev_no_home_via_serve(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "config").mkdir()

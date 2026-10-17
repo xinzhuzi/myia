@@ -1552,6 +1552,52 @@ def test_run_start_default_db_follows_home(tmp_path, monkeypatch):
     entry._ACTIVE_RUN_ID = None  # no-op worker 不会走 finally 清理,此处手工复位
 
 
+def test_run_start_auto_discovers_pool_config(tmp_path, monkeypatch):
+    """run.start 池配置自动发现(10-18-engine-pool-egress R3):home 模式且
+    ``<home>/config/proxy-pools.yaml`` 在场 → config 缺省自动拼 ``--config``;
+    显式 params.config 优先;池文件缺失不拼;dev(home=None)不拼(home 门
+    挡住,仓库根 config/proxy-pools.yaml 真实在场也不误吞);dry-run 同路径。
+    工作线程 monkeypatch 成记录器,只验 argv 装配形态,不真跑子进程。"""
+    home = tmp_path / "home"
+    (home / "config").mkdir(parents=True)
+    pools = home / "config" / "proxy-pools.yaml"
+    pools.write_text("pools:\n  clash: http://127.0.0.1:7897\n", encoding="utf-8")
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    yaml_path = write_yaml(tmp_path, VALID_YAML.replace("{port}", "9"))
+    captured: list[list[str]] = []
+    monkeypatch.setattr(
+        entry, "_run_worker", lambda *args, **kwargs: captured.append(list(args[1]))
+    )
+
+    def start(params: dict) -> None:
+        code, responses, _ = rpc({"id": 1, "method": "run.start", "params": params})
+        assert code == 0 and "result" in responses[0], responses[0]
+        entry._ACTIVE_RUN_ID = None  # no-op worker 不走 finally,手工复位防 run_busy
+
+    # ① home 模式 + 池文件在场 → 缺省自动拼 --config
+    start({"yaml": yaml_path})
+    assert captured[-1][captured[-1].index("--config") + 1] == str(pools)
+
+    # ② 显式 params.config 优先(自动发现让位)
+    start({"yaml": yaml_path, "config": "/explicit/pools.yaml"})
+    assert captured[-1][captured[-1].index("--config") + 1] == "/explicit/pools.yaml"
+
+    # ③ dry-run 同路径(--dry-run 与自动 --config 共存)
+    start({"yaml": yaml_path, "dry": True})
+    assert "--dry-run" in captured[-1]
+    assert captured[-1][captured[-1].index("--config") + 1] == str(pools)
+
+    # ④ 池文件缺失 → 不拼
+    pools.unlink()
+    start({"yaml": yaml_path})
+    assert "--config" not in captured[-1]
+
+    # ⑤ dev(home=None)不拼:MYIA_HOME 摘除,home 门直接挡住
+    monkeypatch.delenv("MYIA_HOME")
+    start({"yaml": yaml_path})
+    assert "--config" not in captured[-1]
+
+
 # ---------------------------------------------------------------------------
 # yaml.*:配置编辑器协议(task 10-03-yaml-editor;契约钉死于任务档 design.md §1,
 # 坏文件入列可修、围栏四违例、save 零写入守门、乐观锁、启停止血、两写路径互斥)

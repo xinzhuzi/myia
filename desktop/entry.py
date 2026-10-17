@@ -349,7 +349,12 @@ import yaml
 from myssia import log as myssia_log
 from myssia import push as myssia_push
 from myssia.alerts import AlertConfigError, CompiledAlertRule, alert_view, compile_rule
-from myssia.cli import DEFAULT_CONFIG_DIR, DEFAULT_DB_PATH, main as cli_main
+from myssia.cli import (
+    DEFAULT_CONFIG_DIR,
+    DEFAULT_DB_PATH,
+    GLOBAL_DECLARATION_YAMLS,
+    main as cli_main,
+)
 from myssia.config_layout import CONFIG_DIR_NAME, migrate_legacy_plugins_dir
 from myssia.classify.custom import RuleEvalError, evaluate_expression
 from myssia.cron.jobs import AmbiguousJobReference, CronJobs
@@ -1157,14 +1162,26 @@ def _bundled_category_views(root: Path, config_dir: str) -> list[dict[str, Any]]
     """枚举随包配置目录平铺品类 YAML → 发现条目视图(批二 R3;零异常上抛)。
 
     与 ``_seed_first_run`` 同款 glob 口径(非递归 ``*.yaml``/``*.yml``),
-    装机态两视图所见 = 补种所拷。逐件:id/name/schedule 经
+    装机态两视图所见 = 补种所拷。**全局声明件豁免**(10-18-engine-pool-
+    egress 起 proxy-pools.yaml 随包):按文件名豁免 ``GLOBAL_DECLARATION_YAMLS``
+    (cli.py ``_config_yaml_files`` 同一真源先例)——它们不是品类件,
+    ``load_category_file`` 必拒载,入列只会是 id=None + category_invalid
+    噪声条目;豁免只作用本视图,``_seed_first_run`` 补种照拷(池配置装机
+    送达恰靠补种落 <home>/config/)。逐件:id/name/schedule 经
     ``load_category_file`` 实读(坏 YAML → id=None + 条目级 finding
     ``category_invalid``,不整表炸,沿 yaml.list 先例);``exists`` = 数据根
     config/ 下同名文件在(= 补种/自建/本面已装,对齐补种落点);文件名 stem
     与 id 不一致 → ``id_mismatch`` warning 如实透出(定位仍按 id 双路兜底)。
     """
     target_dir = Path(config_dir)
-    files = sorted([*root.glob("*.yaml"), *root.glob("*.yml")], key=lambda item: item.name)
+    files = sorted(
+        (
+            path
+            for path in [*root.glob("*.yaml"), *root.glob("*.yml")]
+            if path.name not in GLOBAL_DECLARATION_YAMLS
+        ),
+        key=lambda item: item.name,
+    )
     views: list[dict[str, Any]] = []
     for source in files:
         view: dict[str, Any] = {
@@ -1496,9 +1513,11 @@ def _m_doctor(params: dict[str, Any]) -> dict[str, Any]:
 
     G10(10-05-g10-proxy-probe)增可选布尔 ``config_auto``(缺省 false = 现
     行为逐字节不变):``config`` 缺省且为 true 时以 serve 上下文数据根发现
-    缺省 ``<home>/pools.yaml``——命中才拼 ``--config``(路径经既有
-    ``proxy.config`` 键天然回显,零新应答键),未命中不带 ``--config``
-    (= 只看现状)。发现逻辑全在本层,cli.py 零改动(CLI 本无缺省路径概念)。
+    缺省池文件——按序探测 ``<home>/config/proxy-pools.yaml``(新位,=
+    resources 补种落点)→ ``<home>/pools.yaml``(旧位,历史装机兼容),
+    第一个存在者才拼 ``--config``(路径经既有 ``proxy.config`` 键天然回显,
+    零新应答键),都不在不带 ``--config``(= 只看现状)。发现逻辑全在本层,
+    cli.py 零改动(CLI 本无缺省路径概念)。
     """
     ctx = _serve_context()
     if "config_auto" in params and not isinstance(params["config_auto"], bool):
@@ -1513,9 +1532,16 @@ def _m_doctor(params: dict[str, Any]) -> dict[str, Any]:
     if params.get("config"):
         argv += ["--config", str(params["config"])]
     elif params.get("config_auto") and ctx.home is not None:
-        default_pools = ctx.home / "pools.yaml"
-        if default_pools.exists():
-            argv += ["--config", str(default_pools)]
+        # 双位回落(10-18-engine-pool-egress):新位 = resources 补种落点
+        # <home>/config/proxy-pools.yaml,旧位 = <home>/pools.yaml(历史装机
+        # 兼容);第一个存在者拼 --config,都不在维持不拼(只看现状)。
+        for default_pools in (
+            ctx.home / CONFIG_DIR_NAME / "proxy-pools.yaml",
+            ctx.home / "pools.yaml",
+        ):
+            if default_pools.exists():
+                argv += ["--config", str(default_pools)]
+                break
     if params.get("probe_timeout") is not None:
         argv += ["--probe-timeout", str(params["probe_timeout"])]
     argv.append("--json")
@@ -3645,7 +3671,8 @@ def _m_run_start(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(yaml_path, str) or not yaml_path:
         raise ProtocolError("invalid_params", "缺少品类 YAML 路径 yaml", path="params.yaml")
     dry = bool(params.get("dry", False))
-    db = str(params.get("db") or _serve_context().db)
+    ctx = _serve_context()  # db 与下方池文件自动发现共用一次解析(design §3.3)
+    db = str(params.get("db") or ctx.db)
     with _RUNS_LOCK:
         if _ACTIVE_RUN_ID is not None:
             raise ProtocolError(
@@ -3660,6 +3687,12 @@ def _m_run_start(params: dict[str, Any]) -> dict[str, Any]:
         argv_tail.append("--dry-run")
     if params.get("config"):
         argv_tail += ["--config", str(params["config"])]
+    elif ctx.home is not None and (ctx.home / CONFIG_DIR_NAME / "proxy-pools.yaml").exists():
+        # 池配置装机送达(10-18-engine-pool-egress):显式 config 优先;home 模式
+        # 缺省自动发现 <home>/config/proxy-pools.yaml(= resources 补种落点),
+        # 在场才拼——免逐次手带 --config,dev(home=None)行为零变化。
+        # 路径一律走 CONFIG_DIR_NAME 常量(与 doctor/cron 同源),禁字面量。
+        argv_tail += ["--config", str(ctx.home / CONFIG_DIR_NAME / "proxy-pools.yaml")]
     cmd, env = _self_command(argv_tail)
     started_at = _now_iso()
     _RUNS[run_id] = {

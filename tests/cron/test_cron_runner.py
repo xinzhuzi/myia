@@ -313,6 +313,41 @@ def test_job_command_assembles_argv(cron: CronJobs, tmp_path: Path) -> None:
     assert env  # 环境透传存在
 
 
+def test_job_command_auto_discovers_pool_config(
+    cron: CronJobs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``--config`` 自动发现(10-18-engine-pool-egress R3,与 entry.py
+    run.start/doctor 三处一致):job 无 ``config_path`` 且 ``MYIA_HOME`` 在场
+    且 ``$MYIA_HOME/config/proxy-pools.yaml`` 存在 → 自动拼;显式
+    ``config_path`` 赢;MYIA_HOME 在场但文件缺失不拼;dev(无 MYIA_HOME)
+    不拼。路径走 ``CONFIG_DIR_NAME`` 常量(entry.py 同源)。"""
+    home = tmp_path / "home"
+    pools = home / "config" / "proxy-pools.yaml"
+    pools.parent.mkdir(parents=True)
+    pools.write_text("pools:\n  clash: http://127.0.0.1:7897\n", encoding="utf-8")
+    monkeypatch.setenv("MYIA_HOME", str(home))
+
+    def tail_of(job: dict[str, Any]) -> list[str]:
+        cmd, _env = job_command(cron, job)
+        return cmd[cmd.index("run") :]
+
+    # 自动拼:缺省 job(config_path=None)→ $MYIA_HOME/config/proxy-pools.yaml
+    tail = tail_of(make_job())
+    assert tail[tail.index("--config") + 1] == str(pools)
+
+    # 显式 config_path 优先(自动发现让位)
+    tail = tail_of(make_job(config_path="/etc/pools.yaml"))
+    assert tail[tail.index("--config") + 1] == "/etc/pools.yaml"
+
+    # MYIA_HOME 在场但池文件缺失 → 不拼
+    pools.unlink()
+    assert "--config" not in tail_of(make_job())
+
+    # 无 MYIA_HOME(dev)→ 不拼
+    monkeypatch.delenv("MYIA_HOME", raising=False)
+    assert "--config" not in tail_of(make_job())
+
+
 def test_job_db_path_default_and_override(cron: CronJobs, tmp_path: Path) -> None:
     """db 缺省 = 数据根 myssia.db;覆写 ~ 展开绝对化(tick 分组同口径)。"""
     assert job_db_path(cron, make_job()) == cron.store.data_root / "myssia.db"
