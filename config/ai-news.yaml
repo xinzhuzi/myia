@@ -113,7 +113,7 @@ sources:
       type: rss
       fields: {title: title, url: link, published: published}
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+    proxy: pool:clash            # CF 风控强站防拉黑升挂——观察判据抓不住 403/质询,定稿 2026-10-18
     retry: 3
 
   - name: deepmind-blog          # Google DeepMind 官方博客 feed
@@ -124,7 +124,7 @@ sources:
       type: rss
       fields: {title: title, url: link, published: published}
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+    proxy: pool:clash            # 被墙域:本机 Clash 混合口(池声明见 proxy-pools.yaml)
     retry: 3
 
   - name: google-research        # Google Research 官方博客 feed
@@ -135,7 +135,7 @@ sources:
       type: rss
       fields: {title: title, url: link, published: published}
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+    proxy: pool:clash            # 被墙域:本机 Clash 混合口(池声明见 proxy-pools.yaml)
     retry: 3
 
   - name: microsoft-research     # Microsoft Research 官方 feed(WordPress /feed/;
@@ -157,7 +157,7 @@ sources:
       type: rss
       fields: {title: title, url: link, published: published}
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+    proxy: pool:clash            # CF 风控强站防拉黑升挂——观察判据抓不住 403/质询,定稿 2026-10-18
     retry: 3
 
   - name: mistral-news           # Mistral AI 官方新闻 feed(/rss.xml 302 落此)
@@ -179,7 +179,7 @@ sources:
       type: rss
       fields: {title: title, url: link, published: published}
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+    proxy: pool:clash            # 被墙域:本机 Clash 混合口(池声明见 proxy-pools.yaml)
     retry: 3
 
   # ──────────────────────────────────────────────────────────────────────

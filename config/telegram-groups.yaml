@@ -56,7 +56,7 @@ sources:
         # model: glm-5.3-flash            # 缺省即此(prompt/enrich 同款)
         # score_threshold: 8            # ≥8 分即时(Grill Q5;缺省 8)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct                       # api.telegram.org 出海按需改 pool:<名称>
+    proxy: pool:clash            # 空态预挂:api.telegram.org 被墙,bot_token 激活即走池(声明见 proxy-pools.yaml)
     retry: 3
 
   # ── C 线 web 源不在此件:桌面 sidecar 的 web 线自动并入装配

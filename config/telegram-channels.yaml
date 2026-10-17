@@ -35,7 +35,7 @@ sources:
         title: ".tgme_widget_message_text"   # 消息正文(纯媒体卡自动跳过)
         url: "@data-post"                    # 消息锚:durov/548 → urljoin 成完整链接
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
-    proxy: direct
+    proxy: pool:clash            # 被墙域:本机 Clash 混合口(池声明见 proxy-pools.yaml)
     retry: 3
 
   # ── 你的频道往这里加(去掉注释改名字即可)────────────────
