@@ -53,8 +53,9 @@ sources:
     engine_options:
       wechat_local:
         channel: notify            # 第四通道:通知扫描(轮询水位,零截窗零 AX)
-        chat_whitelist: []         # 出厂空 = 缺省关(启用:填会话 id 或显示名;
-                                   # 键名注记:schema 凭据基线不容 sessions 键名,白名单键定名 chat_whitelist)
+        chat_whitelist:             # 启用(10-14 部署):照 weixin.yaml 既有 localdb 会话键
+          - "50438708676@chatroom"  # TMS 中转站交流(weixin.yaml:61 同键,勿发明新键)
+                                   # 键名注记:schema 凭据基线不容 sessions 键名,白名单键定名 chat_whitelist
         notify_self: false         # 自己发的消息不通知(缺省;显式写出仅为对照)
         read_timeout_seconds: 120  # 单次桥扫描上界(须 ≤ 品类 timeouts.fetch)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
@@ -79,8 +80,9 @@ enrich:
 # 投递 = 本机通知中心弹窗(macos_notify 零网络)。route 空 = 缺省桶
 # immediate(route.py DEFAULT_ROUTE_NO_RULES)——本机即时无 digest 语义,
 # 撤回/新消息的合并与三态文案由通道层兑现(R3 合并纪律)。
-push:
-  - channel: macos_notify
+push: []                           # 主人令(2026-10-17 深夜):通知类弹窗太频繁,关停
+                                   # macos_notify——监控/入库/Feed 全保留,只不再弹
+                                   # 系统横幅;要看去 App 消息屏。
 
 storage:
   retention: 30d                  # 隐私谨慎缺省(TG 90d;通知流水可再调短)

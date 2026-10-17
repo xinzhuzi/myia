@@ -86,11 +86,9 @@ enrich:
 push:
   - channel: feishu_card
     target: env:FEISHU_CHAT_ID
-    route:
-      - when: "score >= 8"        # 高价值即时(过滤管线已合并单条,一轮至多一条)
-        mode: immediate
-      - when: "url != ''"         # 普通=入库,合并日报「Telegram 群」分区承载
-        mode: archive
+    route:                       # 主人令(2026-10-17 深夜):TG 群消息不再即推弹窗
+      - when: "url != ''"         # 全部入库,合并日报「Telegram 群」分区承载
+        mode: archive             # (每天两张日报卡,非弹窗;监控照常每半小时)
     template: |
       **TG 群速报 · {{ date }}**
       {% for item in items %}

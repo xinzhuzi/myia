@@ -46,12 +46,12 @@ dedup:
 enrich:
   enabled: false                    # 内容不送 LLM(红线沿袭)
 
-push:                               # 主人令开的唯一出本机面:全量即推
-  - channel: feishu_card
-    target: env:FEISHU_CHAT_ID      # bot token 走渠道缺省 env:FEISHU_BOT_TOKEN
-    route:
-      - when: 'url != ""'           # 兜底封边:全部消息命中(games 判例同款)
-        mode: immediate
+push:                               # 主人令(2026-10-17 深夜):群消息即推太频繁,弹窗
+  - channel: feishu_card            # 全停——immediate 退役,全部 archive 只入库
+    target: env:FEISHU_CHAT_ID      # (日报零微信分区红线不变=完全静默;消息照收,
+    route:                          #  Feed/监控台可看,历史 10-13 即推令同时作废)
+      - when: 'url != ""'
+        mode: archive
 
 storage:
   retention: 30d                    # 隐私谨慎缺省
