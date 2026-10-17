@@ -16,7 +16,7 @@ name: 游戏情报
 # 抑制只管 should_send 推送层,入库层见过即永拒)——同 url 同价只推一次,
 # 价格变化(含正式免费日)才是再推信号;嫌吵调稀 cron(如 0 11 * * 4,6)是
 # 排程旋钮,不动结构。
-schedule: "0 11 * * *"
+schedule: "5 11,23 * * *"
 timezone: Asia/Shanghai
 
 sources:
@@ -328,22 +328,26 @@ push:
   # URL,价格/折扣徽标与 feishu 模板同口径。chat id 走
   # env:TELEGRAM_CHAT_ID;bot token 走渠道缺省 env:TELEGRAM_BOT_TOKEN
   # (DEFAULT_TOKEN_ENV_REF,无需在此声明)。
-  - channel: telegram
-    target: env:TELEGRAM_CHAT_ID
-    route:                      # 首匹配;与 feishu 条目同款两级路由
-      # (when 逐字与 classify 限免规则一致,None 守卫 rationale 见彼处注释)
-      - when: 'final_price == 0 or (discount_pct or 0) >= 100 or (float(sale_price or "-1") == 0 and float(normal_price or "-1") > 0)'   # 喜加一即推
-        mode: immediate
-      - when: "float(final_price or 0) > 0"               # 普通折扣仅入库(日报层降噪,
-        mode: archive                                     # 同 feishu 条目批次4注记)
-      - when: "url != ''"                                 # 兜底封边(同 feishu 条目):
-        mode: archive                                     # 规则未命中仅入库,不留 digest 出口
-    template: |
-      游戏情报 · {{ date }}
-      {% for item in items %}
-      - {{ item.title }} {{ item.url }} {% if item.price_text is defined %}{{ item.price_text }}{% elif item.sale_price is defined %}${{ item.sale_price }}(原价 {{ item.normal_price }}){% elif item.final_price is defined %}{{ item.final_price / 100 }}{% endif %}{% if item.discount_pct | default(0) > 0 %} -{{ item.discount_pct }}%{% endif %}{% if item.savings_pct | default(0) | float > 0 %} -{{ item.savings_pct | float | round | int }}%{% endif %}{% if item.upcoming_pct | default(0) >= 100 %} 📅{{ item.upcoming_start[:10] }}起免费{% endif %} {{ vs_yesterday(item, 'final_price') }}
-      {% endfor %}
-
+  # ── telegram 加挂(10-03-games wrap 决议⑤)已注释退役(2026-10-17 深夜)──
+  # 复活三步:①钥匙串配 myia/push/TELEGRAM_BOT_TOKEN(设置→凭据页;值=
+  # BotFather 的 token)②配 TELEGRAM_CHAT_ID(与 bot 对话后 t.me/userinfobot
+  # 查数字 id)③取消下面注释。飞书私聊为主推送面,不受影响。
+  #   - channel: telegram
+  #     target: env:TELEGRAM_CHAT_ID
+  #     route:                      # 首匹配;与 feishu 条目同款两级路由
+  #       # (when 逐字与 classify 限免规则一致,None 守卫 rationale 见彼处注释)
+  #       - when: 'final_price == 0 or (discount_pct or 0) >= 100 or (float(sale_price or "-1") == 0 and float(normal_price or "-1") > 0)'   # 喜加一即推
+  #         mode: immediate
+  #       - when: "float(final_price or 0) > 0"               # 普通折扣仅入库(日报层降噪,
+  #         mode: archive                                     # 同 feishu 条目批次4注记)
+  #       - when: "url != ''"                                 # 兜底封边(同 feishu 条目):
+  #         mode: archive                                     # 规则未命中仅入库,不留 digest 出口
+  #     template: |
+  #       游戏情报 · {{ date }}
+  #       {% for item in items %}
+  #       - {{ item.title }} {{ item.url }} {% if item.price_text is defined %}{{ item.price_text }}{% elif item.sale_price is defined %}${{ item.sale_price }}(原价 {{ item.normal_price }}){% elif item.final_price is defined %}{{ item.final_price / 100 }}{% endif %}{% if item.discount_pct | default(0) > 0 %} -{{ item.discount_pct }}%{% endif %}{% if item.savings_pct | default(0) | float > 0 %} -{{ item.savings_pct | float | round | int }}%{% endif %}{% if item.upcoming_pct | default(0) >= 100 %} 📅{{ item.upcoming_start[:10] }}起免费{% endif %} {{ vs_yesterday(item, 'final_price') }}
+  #       {% endfor %}
+  # 
 storage:                        # 基线期自动长于条目期:metric_history 按
   retention: 90d                # 2× retention 保留(周环比至少两个完整窗口)
   vacuum: monthly

@@ -84,19 +84,20 @@ push:
   # 用户模板契约是渲染文本不带 parse_mode 直发(src/myssia/push/telegram.py
   # _compose),markdown 链接语法会原样露出,故标题后直跟裸 URL。chat id 走
   # env:TELEGRAM_CHAT_ID;bot token 走渠道缺省 env:TELEGRAM_BOT_TOKEN。
-  - channel: telegram
-    target: env:TELEGRAM_CHAT_ID
-    route:                      # 与 feishu 条目同款路由(资讯全 digest)
-      - when: "score >= 9"      # v0.2 interface slot (dormant until scores exist)
-        mode: immediate
-      - when: "category == 'news'"
-        mode: digest
-    template: |
-      游戏资讯 · {{ date }}
-      {% for item in items %}
-      - {{ item.title }} {{ item.url }}{% if item.published is defined %} {{ item.published[:16] }}{% endif %}
-      {% endfor %}
-
+  # ── telegram 加挂已注释退役(2026-10-17;复活条件见 games.yaml 同款注记)──
+  #   - channel: telegram
+  #     target: env:TELEGRAM_CHAT_ID
+  #     route:                      # 与 feishu 条目同款路由(资讯全 digest)
+  #       - when: "score >= 9"      # v0.2 interface slot (dormant until scores exist)
+  #         mode: immediate
+  #       - when: "category == 'news'"
+  #         mode: digest
+  #     template: |
+  #       游戏资讯 · {{ date }}
+  #       {% for item in items %}
+  #       - {{ item.title }} {{ item.url }}{% if item.published is defined %} {{ item.published[:16] }}{% endif %}
+  #       {% endfor %}
+  # 
 storage:                        # 资讯时效短,90d 后清库
   retention: 90d
   vacuum: monthly
