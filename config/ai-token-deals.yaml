@@ -7,6 +7,13 @@
 # 「有价值」正是 prompt 任务的形态(照 ai-vendor-watch 样板)。
 # 日报层降噪:push=archive 仅入库,由 plugins/daily-digest.yaml 的羊毛分区
 # 合并发送;单独看产出可 `myssia run plugins/ai-token-deals.yaml --dry-run`。
+#
+# 主人令(2026-10-18):白嫖 AI 信息面扩容——学生教育优惠导航站 nav.edumails.cn
+# 入抓(「这个网站也要抓取」)+ freellmapi/gpt4free 两个「聚合免费额度」工具的
+# 发版动态(全网查证后的落点:库内历史 0 条、旧源无一盯 GitHub 项目动态)。
+# 导航站 231 条全量平铺(分类是 JS 侧栏),故 classify 白名单只留 AI 白嫖相关
+# (词表同步覆盖 prompt 源的 LLM 产出,防误杀);去重锚=sites/NNN.html 详情页,
+# 站方新增条目才有新 URL,存量条目只入库首日一次。
 
 id: ai-token-deals
 name: AI优惠守望
@@ -47,9 +54,69 @@ sources:
     proxy: direct
     retry: 3
 
-classify:
-  builtin: false
-  rules: []
+  # ── 白嫖信息面扩容(主人令 2026-10-18)──────────────────────────────
+
+  - name: edumails-nav            # 学生教育优惠导航:AI 工具/云算力白嫖条目监控
+    engine: static_html           # WordPress+onenav 服务端渲染,Feed 被站方关闭(实测)
+    url: "https://nav.edumails.cn/"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:                      # 条目卡片:article.posts-item > a.sites-body(实测选择器)
+      type: list
+      item: "article.posts-item"
+      fields:
+        title: "a.sites-body@title"   # 卡片名(如「Cursor AI代码编辑器」)
+        url: "a.sites-body@href"      # 详情页 sites/NNN.html:稳定唯一,新增条目=新 URL
+        summary: "div.line1"          # 卡片一句话描述
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  - name: freellmapi-releases     # freellmapi(⭐36.5k):聚合各家免费额度的网关,发版=新聚合/新路由
+    engine: static_html
+    url: "https://github.com/tashfeenahmed/freellmapi/releases.atom"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: false}   # Atom feed 本就是发布方供机器消费的格式;github robots Disallow:/ 面向爬虫(stocks/ai-news 同款豁免)
+    proxy: direct
+    retry: 3
+
+  - name: gpt4free-releases       # gpt4free(⭐66.9k):老牌免费模型聚合,发版动态
+    engine: static_html
+    url: "https://github.com/xtekky/gpt4free/releases.atom"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: false}   # 同上:单 feed 端点,非爬取
+    proxy: direct
+    retry: 3
+
+classify:                          # 白名单(2026-10-18 加导航站后启用):231 条只留 AI 白嫖相关,
+  builtin: false                   # 上不匹配即弃,防购物/娱乐/学术类灌爆日报;词表同步覆盖
+  rules:                           # prompt 源 LLM 产出防误杀。when 单条 ≤256 字符,故拆六条
+                                   # (任一命中即打标保留;词面分组:AI 术语/额度词/工具名/算力/摘要侧/GitHub)
+    - name: AI白嫖·术语
+      when: "'AI' in title or 'GPT' in title or 'gpt' in title or 'Claude' in title or 'Gemini' in title or 'DeepSeek' in title or 'deepseek' in title or '大模型' in title"
+      tag: AI白嫖
+    - name: AI白嫖·额度词
+      when: "'token' in title or 'Token' in title or 'TOKEN' in title or '额度' in title or '积分' in title or 'API' in title or 'api' in title or '中转' in title"
+      tag: AI白嫖
+    - name: AI白嫖·工具名
+      when: "'Copilot' in title or 'Cursor' in title or 'Codex' in title or 'Perplexity' in title or 'Colab' in title or 'LLM' in title or 'llm' in title"
+      tag: AI白嫖
+    - name: AI白嫖·算力
+      when: "'GPU' in title or 'gpu' in title or '显卡' in title or '算力' in title or '推理' in title or 'OpenRouter' in title or '魔搭' in title or 'ModelScope' in title"
+      tag: AI白嫖
+    - name: AI白嫖·摘要侧       # (summary or '') = None 安全:发版条目无 summary;词面精简(≤256),全词表在标题侧
+      when: "'AI' in (summary or '') or 'GPT' in (summary or '') or 'token' in (summary or '') or '额度' in (summary or '') or 'API' in (summary or '') or '大模型' in (summary or '') or 'GPU' in (summary or '') or '算力' in (summary or '')"
+      tag: AI白嫖
+    - name: AI白嫖·发版源
+      when: "'github.com' in url"
+      tag: AI白嫖
 
 dedup:
   key: "{url}"                 # 引擎铸 #prompt-<日期> 锚:每天新条目,同日幂等
