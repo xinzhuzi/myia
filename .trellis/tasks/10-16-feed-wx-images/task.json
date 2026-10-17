@@ -1,0 +1,17 @@
+{
+  "id": "10-16-feed-wx-images",
+  "title": "情报流 3 级聊天工作台直接渲染微信消息真图",
+  "status": "in_progress",
+  "created": "2026-10-16",
+  "owner": "ai",
+  "labels": [
+    "desktop",
+    "feed",
+    "wechat-bridge",
+    "ui"
+  ],
+  "commits": [
+    "29e7bb37",
+    "1b147007"
+  ]
+}
