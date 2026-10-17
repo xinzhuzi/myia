@@ -99,3 +99,14 @@
 - 测试推送一律私聊,不向任何群发测试消息。
 - 不动主人侧前置件:Reddit 凭据(10-31)、X/RSSHub 实例——如实报告即可。
 - live config 直改属常规操作模式(先例在案),但仓库源码同步落地必须做。
+
+## 收官巡检补记(2026-10-17 夜末)
+
+- **新发现:GLM 钥匙余额耗尽**(429 code 1113「余额不足或无可用资源包」):
+  ai-token-deals/ai-vendor-watch 两 prompt 品类失败,ai-news enrich 评分层降级
+  (采集面无恙)。修复=主人充值或换钥(keychain:myia/image/api_key),零代码改动
+  自动恢复。与 vision 线档案「云端真通差 funded 钥」同根。
+- games 限免轮换排班 5 11,23 落地;telegram 加挂退役(凭据未配致每轮假红)。
+- 终态盘点:17 cron(16 scheduled+1 paused 待主人重登);当晚 13 品类
+  11 success/2 partial(ai-news=测试期 reddit 429 自愈;wool=s74 无链卡片
+  invalid_item 留痕)/2 failed(=GLM 钥匙)。
