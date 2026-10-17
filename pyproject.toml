@@ -100,16 +100,19 @@ telethon = ["telethon>=1.36,<2", "python-socks>=1.2.4,<3"]
 # playwright-browsers,PLAYWRIGHT_BROWSERS_PATH 同源注入);桌面锁随
 # llm/telethon 判例扩 --extra browser(装机态「添加账号」即拉得起窗)。
 browser = ["playwright>=1.63,<2"]
-# Agent-Reach 互联网能力路由器(10-17-agent-reach-absorb):**官方警告 PyPI
-# 同名包为假冒,必须 GitHub 直装**——direct-URL 钉发布 tag v1.5.0(真锁纪律,
-# main 漂移头禁用;2026-06-11 发布,gh api 实测为最新非 prerelease tag),
-# uv.lock 连内容哈希一起锁死。上游干活件(bili-cli/yt-dlp/twitter-cli)不经
-# 本 extras——装完本体还需 `agent-reach install --env local --channels bilibili` 真装
-# (`--env=auto` 只做安全检查零改动,grill 实测;落盘因方式而异,引擎一律
-# shutil.which 探测)。同 telethon/apprise 判例不进 all/桌面锁:装机包不带
-# 路由器本体(PRD 约束 7),用户侧经 extras 自装;MYIA 核心零 import 本体
-# (引擎 asyncio 子进程直调上游 CLI,比 scrapling 惰性 import 更进一步)。
-agent-reach = ["agent-reach @ https://github.com/Panniantong/Agent-Reach/archive/v1.5.0.zip"]
+# Agent-Reach 互联网能力路由器(10-17-agent-reach-absorb;10-18 PyPI 政策
+# 修正):官方警告 PyPI 同名包为**假冒**,而 PyPI 上传政策又禁止 direct-URL
+# 依赖(v0.0.4 tag 发布实锤 400 拒收)——两墙夹峙下 extras 不再声明依赖
+# (空 extras 仅保留 `pip install myssia[agent-reach]` 词面向后兼容),
+# 真装路径 = GitHub 直装钉发布 tag(README/config 注释指引):
+#   pip install 'https://github.com/Panniantong/Agent-Reach/archive/v1.5.0.zip'
+#   && agent-reach install --system
+# (v1.5.0 = 2026-06-11 发布,gh api 实测最新非 prerelease tag;真锁纪律随
+# 指引文本走,uv.lock 不再涉本件)。上游干活件(bili-cli/yt-dlp/twitter-cli)
+# 同前。装机包不带路由器本体(PRD 约束 7);MYIA 核心零 import 本体(引擎
+# asyncio 子进程直调上游 CLI)。空 extras 保词面:`myssia[agent-reach]`
+# 仍可安装(等价裸 myssia),旧指引不再炸命令。
+agent-reach = []
 all = ["crawl4ai", "scrapling", "firecrawl-py", "skyvern", "openai>=1.30", "playwright>=1.63,<2"]
 
 [project.scripts]
@@ -128,12 +131,6 @@ members = ["myssia-classifier"]
 # myssia-classifier(目录同名)不发布到 PyPI 前按 workspace 成员解析;发布后可切注册表源。
 [tool.uv.sources]
 myssia-classifier = { workspace = true }
-
-# direct-URL 依赖放行(10-17-agent-reach-absorb):agent-reach extras 钉
-# GitHub archive tag 直装(官方警告 PyPI 同名包为假冒),hatchling 构建面
-# 必须显式开此开关才接受 direct reference;uv.lock 已连内容哈希锁死。
-[tool.hatch.metadata]
-allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/myssia"]

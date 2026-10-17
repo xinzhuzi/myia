@@ -4,7 +4,7 @@
 # 分品类:两平台节奏与 watchlist 各异,且单源单品类便于按平台单独停跑
 # (上游失效即降档停跑,PRD 风险节)。
 # 依赖装法(用户侧/装机钩子,与 bilibili-watch 同一组件):
-#   pip install 'myssia[agent-reach]' && agent-reach install --system
+#   pip install 'https://github.com/Panniantong/Agent-Reach/archive/v1.5.0.zip' && agent-reach install --system
 #   agent-reach doctor --json        # youtube 行 status: ok 即就绪
 # 12 节形状同 news.yaml 逐节内联注解("AI writes the YAML" 参考义务);
 # 装载检查:myssia run config/youtube-watch.yaml --dry-run --json

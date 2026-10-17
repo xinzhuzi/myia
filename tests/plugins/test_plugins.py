@@ -1224,7 +1224,7 @@ def _single_source_config(name: str):
         data = source.model_dump()
         data["symbols"] = ["NVDA"]
         source = SourceConfig.model_validate(data)
-    return config.model_copy(
+    narrowed = config.model_copy(
         update={
             "sources": [source],
             "classify": ClassifyConfig(builtin=False, rules=[]),
@@ -1235,6 +1235,12 @@ def _single_source_config(name: str):
             "enrich": EnrichConfig(enabled=False),
         }
     )
+    # 10-18:ai-news 实配 value_gate.first_run_quiet=true(生产 yaml 有意
+    # 配置)——dedup 两跑电池验收「二跑拦截」,首跑静默会吃掉第一轮
+    # items_out 使断言失真。value_gate 是 sidecar 私有件+property
+    # (model_copy(update=) 覆不动),copy 后直置 _value_gate 关门。
+    narrowed._value_gate = None
+    return narrowed
 
 
 def _two_run_handler(plan: dict[str, Any]):

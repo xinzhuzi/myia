@@ -4,7 +4,7 @@
 # --system 显式授权安装(注意 `--env=auto` 只做安全检查不真装,grill 实测),
 # 缺装时引擎报 dependency_missing 并附两段安装命令原文。
 # 依赖装法(用户侧/装机钩子):
-#   pip install 'myssia[agent-reach]' && agent-reach install --system
+#   pip install 'https://github.com/Panniantong/Agent-Reach/archive/v1.5.0.zip' && agent-reach install --system
 #   agent-reach doctor --json        # bilibili 行 status: ok 即就绪
 # 12 节形状同 news.yaml 逐节内联注解("AI writes the YAML" 参考义务);
 # 装载检查:myssia run config/bilibili-watch.yaml --dry-run --json
