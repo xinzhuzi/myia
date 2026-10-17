@@ -707,8 +707,9 @@ def test_localdb_items_shape_and_side_derivation(tmp_path, monkeypatch):
     )
     engine, _ = make_engine(channel="localdb", read_timeout=None)
     items = fetch_items(engine)
-    # 缺省 sides=[left]:只出对方消息;me 行被侧过滤;图片/无 text/非 dict 跳过
-    assert [i["content"] for i in items] == ["对方合成消息"]
+    # 缺省 sides=[left]:只出对方消息;me 行被侧过滤;无 text/非 dict 跳过;
+    # 图片行不再丢弃(10-16-feed-wx-images)——出「[图片]」占位条目
+    assert [i["content"] for i in items] == ["对方合成消息", "[图片]"]
     item = items[0]
     assert ANCHOR_RE.match(item["url"])
     assert item["title"] == "对方合成消息"
@@ -745,6 +746,134 @@ def test_localdb_anchor_epoch_salt_and_stability():
     assert first == second  # 压空白规整 + 精确 ts:重读恒同锚
     assert first != other_second  # 同文本不同秒:不并锚
     assert first.startswith(f"wechat-local://chat/{CHAT_URL_ENCODED}#wx-")
+
+
+def _media_dispatch_runner(
+    query_payload: dict[str, Any],
+    media_payload: dict[str, Any] | None = None,
+    *,
+    calls: list[list[str]] | None = None,
+    timeouts: list[float] | None = None,
+    media_error: Exception | None = None,
+):
+    """按 argv 分发的桥 fake:query → 查询载荷;media scan → 媒体载荷/异常."""
+
+    def _runner(argv: Any, input_text: str, timeout: float) -> tuple[int, str, str]:
+        argv_list = [str(part) for part in argv]
+        if calls is not None:
+            calls.append(argv_list)
+        if timeouts is not None:
+            timeouts.append(float(timeout))
+        if "media" in argv_list:
+            if media_error is not None:
+                raise media_error
+            return 0, json.dumps(media_payload), ""
+        return 0, json.dumps(query_payload), ""
+
+    return _runner
+
+
+def test_localdb_image_rows_attach_decrypted_paths(tmp_path, monkeypatch):
+    """10-16-feed-wx-images:图片行出占位条目 + media scan --decrypt 按 ts
+    回填 image_files(仅「已解密」;实况/失败/缺 ts 如实不挂)。"""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    img_ts = 1760000500
+    calls: list[list[str]] = []
+    media_payload = {
+        "media": {
+            "chat_id": CHAT,
+            "items": [
+                {
+                    "message_ref": {"ts": img_ts, "sender": DB_CHAT_ID, "local_type": 3},
+                    "type": "image",
+                    "status": "已解密",
+                    "cached_path": "/cache/abc123.jpg",
+                },
+                {
+                    "message_ref": {"ts": img_ts + 1, "sender": DB_CHAT_ID, "local_type": 3},
+                    "type": "image",
+                    "status": "实况格式,暂不支持预览",
+                    "cached_path": "/cache/def.wxgf",
+                },
+                {
+                    "message_ref": {"ts": img_ts + 2, "sender": DB_CHAT_ID, "local_type": 3},
+                    "type": "image",
+                    "status": "解密失败",
+                },
+            ],
+            "stats": {},
+        }
+    }
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        _media_dispatch_runner(
+            db_payload(
+                [
+                    db_msg("文本消息", ts=1760000100),
+                    db_msg("图片", type_="image", ts=img_ts),
+                ],
+                chat_id=CHAT,
+            ),
+            media_payload,
+            calls=calls,
+        ),
+    )
+    engine, _ = make_engine(channel="localdb")
+    items = fetch_items(engine)
+    assert [i["content"] for i in items] == ["文本消息", "[图片]"]
+    assert items[0].get("image_files") is None  # 文本条目零媒体键
+    assert items[1]["image_files"] == ["/cache/abc123.jpg"]  # 仅已解密挂载
+    # 媒体扫描 argv 契约:scan + since + decrypt + json
+    media_argv = next(c for c in calls if "media" in c)
+    assert media_argv[1:4] == ["localdb", "media", "scan"]
+    assert "--decrypt" in media_argv and "--json" in media_argv
+    assert "--since" in media_argv
+
+
+def test_localdb_image_media_failure_degrades_to_placeholder(tmp_path, monkeypatch):
+    """媒体面任何失败(超时/非零)只降级:占位条目仍在、无 image_files、
+    不拦文本条目流(私有数据红线:日志形状级)。"""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        _media_dispatch_runner(
+            db_payload(
+                [db_msg("文本消息", ts=1760000100), db_msg("图", type_="image", ts=1760000200)],
+                chat_id=CHAT,
+            ),
+            media_error=wx_engine.LocalBridgeTimeoutError(
+                "wechat-bridge 超过 300s 未退出,子进程已终止"
+            ),
+        ),
+    )
+    engine, _ = make_engine(channel="localdb")
+    items = fetch_items(engine)
+    assert [i["content"] for i in items] == ["文本消息", "[图片]"]
+    assert all(i.get("image_files") is None for i in items)
+
+
+def test_localdb_image_media_timeout_floor(tmp_path, monkeypatch):
+    """媒体面超时地板 ≥300s:首轮解密逐张 spawn 解密件可到分钟级,沿用
+    读取超时会中途超时(水位已进 → 老图永失)。"""
+    monkeypatch.setattr(wx_engine, "bin_path", lambda _: make_bridge_bin(tmp_path))
+    timeouts: list[float] = []
+    monkeypatch.setattr(
+        wx_engine,
+        "run_bridge_command_sync",
+        _media_dispatch_runner(
+            db_payload([db_msg("图", type_="image", ts=1760000100)], chat_id=CHAT),
+            media_payload={"media": {"items": [], "stats": {}}},
+            timeouts=timeouts,
+        ),
+    )
+    engine, _ = make_engine(channel="localdb", read_timeout=60)
+    fetch_items(engine)
+    assert len(timeouts) >= 2
+    query_to, media_to = timeouts[0], timeouts[1]
+    assert query_to == 60  # 查询沿用读取超时
+    assert media_to >= 300  # 媒体扫描吃地板帽
 
 
 def test_localdb_session_name_resolution_second_query(tmp_path, monkeypatch):

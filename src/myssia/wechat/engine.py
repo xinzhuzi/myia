@@ -586,7 +586,10 @@ class WechatLocalEngine(BaseEngine):
         )
         if payload is None:  # key_unavailable:结构化 skip,零条目不算失败
             return []
-        items, declared_chat_live = self._localdb_items_from_payload(options, payload)
+        items, declared_chat_live, image_refs = self._localdb_items_from_payload(
+            options, payload
+        )
+        effective_chat = chat
         if not items and not declared_chat_live:
             # 声明值没当会话 id 命中(零消息且 contact 解析不出展示名):
             # 尝试按 sessions 会话名精确解析 → 命中则按会话 id 再查一次。
@@ -602,9 +605,88 @@ class WechatLocalEngine(BaseEngine):
                 )
                 if payload is None:  # 二查撞 key_unavailable:同 skip 语义
                     return []
-                items, _ = self._localdb_items_from_payload(options, payload)
+                items, _, image_refs = self._localdb_items_from_payload(
+                    options, payload
+                )
+                effective_chat = session_id  # 媒体扫描同用会话 id
+        await self._attach_localdb_images(
+            options, str(resolved), effective_chat, days, items, image_refs
+        )
         self._advance_watermark()
         return items
+
+    async def _attach_localdb_images(
+        self,
+        options: dict[str, Any],
+        bridge_bin: str,
+        chat_id: str,
+        days: int,
+        items: list[dict],
+        image_refs: list[dict[str, int | None]],
+    ) -> None:
+        """图片占位条目 → 真图路径回填(10-16-feed-wx-images)。
+
+        ``localdb media scan --decrypt`` 一次往返:桥逐条解密(缩略图优先)
+        落 media-cache 并回填 ``cached_path``;引擎按 ``message_ref.ts``
+        关联到占位条目,写 ``image_files``(绝对路径列表;entry 白名单投影
+        与 feed 图槽现成,写键即点亮)。降级如实:未配置解密件/解密失败/
+        wxgf 实况 = 条目仍在(词面「[图片]」)但无图;媒体面任何失败只记
+        形状日志,绝不拦文本条目流。
+        """
+        if not image_refs:
+            return
+        argv = [
+            bridge_bin, "localdb", "media", "scan", chat_id,
+            "--since", f"{days}d", "--decrypt", "--json",
+        ]
+        # 媒体面专用超时:首轮窗口解密是逐张 spawn 解密件(每张百毫秒级,
+        # 数百张可到分钟级);沿用读取超时会中途超时 → 水位已进老图永失。
+        # 缓存幂等(命中零 spawn),稳态轮次秒回,长帽只保护首拉。
+        media_timeout = max(float(options["read_timeout_seconds"]), 300.0)
+        try:
+            exit_code, stdout = await self._run_bridge(
+                argv, media_timeout, label="扫描微信媒体"
+            )
+            payload = self._check_bridge_result(exit_code, stdout)
+        except FetchError as exc:
+            logger.info(
+                "wechat_local 媒体面降级(图片条目保占位无图)source=%s "
+                "code=%s(形状级,不记内容)",
+                self.source.name,
+                getattr(exc, "error_type", "unknown"),
+            )
+            return
+        media = payload.get("media") if isinstance(payload, dict) else None
+        scan_items = media.get("items") if isinstance(media, dict) else None
+        if not isinstance(scan_items, list):
+            return
+        # ts → 已解密产物路径(实况 wxgf 不入 image_files:无可看图,占位如实)
+        by_ts: dict[int, list[str]] = {}
+        for scan_item in scan_items:
+            if not isinstance(scan_item, dict) or scan_item.get("status") != "已解密":
+                continue
+            ref = scan_item.get("message_ref")
+            ts = ref.get("ts") if isinstance(ref, dict) else None
+            cached = scan_item.get("cached_path")
+            if isinstance(ts, int) and isinstance(cached, str) and cached:
+                by_ts.setdefault(ts, []).append(cached)
+        attached = 0
+        for entry in image_refs:
+            ts = entry.get("ts")
+            index = entry.get("index")
+            if not isinstance(ts, int) or not isinstance(index, int):
+                continue
+            paths = by_ts.get(ts)
+            if paths and 0 <= index < len(items):
+                items[index]["image_files"] = paths
+                attached += 1
+        logger.info(
+            "wechat_local 图片回填 source=%s 图片条目=%s 挂图=%s"
+            "(形状级;解密/关联失败保占位)",
+            self.source.name,
+            len(image_refs),
+            attached,
+        )
 
     async def _run_localdb_query(
         self, bridge_bin: str, chat_id: str, days: int, timeout: float
@@ -886,13 +968,19 @@ class WechatLocalEngine(BaseEngine):
 
     def _localdb_items_from_payload(
         self, options: dict[str, Any], payload: dict[str, Any]
-    ) -> tuple[list[dict], bool]:
-        """localdb 成功载荷 → (条目列表, 声明 chat 是否当会话 id 命中).
+    ) -> tuple[list[dict], bool, list[dict[str, int | None]]]:
+        """localdb 成功载荷 → (条目列表, 声明 chat 是否当会话 id 命中, 图片行引用).
 
         命中判据 = 有消息,或 contact 域解析出展示名(``display_name`` 非
         None)—— 两者都空说明声明值可能不是会话 id(显示名形态),交给
         上层做 sessions 名解析二查。sender 派生 side:"me" → right,
-        其余(会话 id)→ left;非 text 行/侧过滤/空白文本与 pixel 同律。
+        其余(会话 id)→ left;侧过滤/空白文本与 pixel 同律。
+
+        10-16-feed-wx-images:type=="image" 行不再丢弃——出占位条目
+        (词面「[图片]」)+ 返回 ``image_refs``(每项 = 该条目在 items 里
+        的 index 与 ts),上层用 ``localdb media scan --decrypt`` 按 ts
+        关联回填 ``image_files``(解密产物绝对路径;entry 白名单投影与
+        feed 图槽现成)。视频(43)仍只计数(v1 边界)。
         """
         messages = payload.get("messages")
         if not isinstance(messages, list):
@@ -903,13 +991,15 @@ class WechatLocalEngine(BaseEngine):
             )
         chat = options["chat"]
         items: list[dict] = []
+        image_refs: list[dict[str, int | None]] = []
         skipped_side = 0
         skipped_type = 0
         for message in messages:
             if not isinstance(message, dict):
                 continue
-            if message.get("type") != "text":
-                skipped_type += 1  # v1 全文本;媒体行是类型占位(media_placeholder)
+            msg_type = message.get("type")
+            if msg_type not in ("text", "image"):
+                skipped_type += 1  # 视频/撤回占位等:v1 边界只计数(词面见日志)
                 continue
             sender = message.get("sender")
             sender_str = sender if isinstance(sender, str) else ""
@@ -917,12 +1007,22 @@ class WechatLocalEngine(BaseEngine):
             if side not in options["sides"]:
                 skipped_side += 1
                 continue
+            ts = message.get("ts")
+            ts = ts if isinstance(ts, int) else None
+            if msg_type == "image":
+                # 图片消息:占位词面出条目,真图由上层 media scan 回填
+                # image_files(解密失败/未配置 = 无图占位如实,不拦文本流)。
+                item = self._localdb_message_to_item(
+                    chat, sender_str, side, ts, "[图片]"
+                )
+                if item is not None:
+                    image_refs.append({"index": len(items), "ts": ts})
+                    items.append(item)
+                continue
             text = message.get("text")
             text = text if isinstance(text, str) else ""
             if not text.strip():
                 continue
-            ts = message.get("ts")
-            ts = ts if isinstance(ts, int) else None
             item = self._localdb_message_to_item(chat, sender_str, side, ts, text)
             if item is not None:
                 items.append(item)
@@ -930,7 +1030,7 @@ class WechatLocalEngine(BaseEngine):
         if not items:
             logger.info(
                 "wechat_local localdb 窗口零产出 source=%s chat=%s messages=%s"
-                " sides=%s 过滤跳过(侧=%s 非 text=%s)(安静会话或全被侧过滤)",
+                " sides=%s 过滤跳过(侧=%s 非文图=%s)(安静会话或全被侧过滤)",
                 self.source.name,
                 chat,
                 len(messages),
@@ -941,7 +1041,7 @@ class WechatLocalEngine(BaseEngine):
         else:
             logger.info(
                 "wechat_local localdb 窗口取得 source=%s chat=%s messages=%s"
-                " items=%s sides=%s 过滤跳过(侧=%s 非 text=%s)",
+                " items=%s sides=%s 过滤跳过(侧=%s 非文图=%s)",
                 self.source.name,
                 chat,
                 len(messages),
@@ -950,7 +1050,7 @@ class WechatLocalEngine(BaseEngine):
                 skipped_side,
                 skipped_type,
             )
-        return items, declared_chat_live
+        return items, declared_chat_live, image_refs
 
     def _localdb_message_to_item(
         self, chat: str, sender: str, side: str, ts: int | None, text: str
@@ -1063,7 +1163,7 @@ class WechatLocalEngine(BaseEngine):
         if not items:
             logger.info(
                 "wechat_local 窗口零产出 source=%s chat=%s messages=%s"
-                " sides=%s 过滤跳过(侧=%s 非 text=%s)(安静会话或全被侧过滤)",
+                " sides=%s 过滤跳过(侧=%s 非文图=%s)(安静会话或全被侧过滤)",
                 self.source.name,
                 chat,
                 len(messages),
@@ -1074,7 +1174,7 @@ class WechatLocalEngine(BaseEngine):
             return []
         logger.info(
             "wechat_local 窗口取得 source=%s chat=%s messages=%s items=%s"
-            " sides=%s 过滤跳过(侧=%s 非 text=%s)",
+            " sides=%s 过滤跳过(侧=%s 非文图=%s)",
             self.source.name,
             chat,
             len(messages),
