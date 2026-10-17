@@ -3,7 +3,7 @@
   "name": "intel-wool-full-run",
   "title": "信息羊毛全量跑通:国外源+停摆面复活+真跑私发验证",
   "description": "装机 app 自 10-15 停摆需复活;wool/gpu-prices 未挂 cron;wool 缺 dalao/74站/V2EX 三源(对标华为云 wf_crawl);meta 源缺 crawl4ai、mistral/qwen 产出 0 待修;全部真跑测试,推送先发主人私聊验证",
-  "status": "planning",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
