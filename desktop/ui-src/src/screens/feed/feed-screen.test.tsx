@@ -155,7 +155,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 // core 的 invoke = G12 yaml.* 屏私有封装的唯一传输面,按 method 分发夹具
 vi.mock("@tauri-apps/plugin-shell", () => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), convertFileSrc: vi.fn((path: string) => `asset://localhost${path}`) }));
 // AC11 内置浏览器预览(v9 升级原生视图注册表):开窗面整体 mock(零真实
 // 窗口;断言只认构造调用);注册表存在性对账走静态 getByLabel/getAll,
 // 一并给 mock(缺省 miss/空集 = 全部视作未开,用例内按需改写)
@@ -5707,6 +5707,37 @@ describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
     expect(within(card).queryByRole("button", { name: "打开原文" })).toBeNull();
     // 聊天头:wx 专属 testid(feed-wx-chat-header),会话名大字
     expect(screen.getByTestId("feed-wx-chat-header").textContent).toContain("测试会话");
+  });
+
+  it("气泡内图片槽(10-16 Phase 2):带 image_files 的 wx 消息泡内出图片区(合成路径);空 image_files 零渲染", async () => {
+    mockProbe(probePayload());
+    // 合成路径(私有数据红线:测试不碰真实 media-cache 件);invoke 未 mock
+    // feed_image_path → SavedImage 走拒授权降级态,槽位结构照常在场
+    const withImages = fixtureItem({
+      source: "weixin-测试会话",
+      title: "微信图片消息",
+      content: null,
+      url: "wechat-local://chat/x#wx-img001",
+      image_files: ["/data/wechat-localdb/media-cache/synthetic-a1b2.jpg"],
+    });
+    const withoutImages = fixtureItem({
+      source: "weixin-测试会话",
+      title: "微信纯文字消息",
+      content: "无图正文",
+      url: "wechat-local://chat/x#wx-txt002",
+    });
+    mockWxWorld([withImages, withoutImages]);
+    renderScreen();
+    await openWxChannel();
+    // 带图条目:泡内图片槽在场(feed-wx-bubble-image 契约词),列表形态
+    // 含张数与路径词面
+    const imageCard = await screen.findByTestId(`feed-item-${withImages.id}`);
+    const slot = within(imageCard).getByTestId("feed-wx-bubble-image");
+    expect(slot.textContent).toContain("图文件 1 张");
+    expect(slot.textContent).toContain("/data/wechat-localdb/media-cache/synthetic-a1b2.jpg");
+    // 空图条目:槽位整体缺席(空 image_files 不渲染)
+    const textCard = screen.getByTestId(`feed-item-${withoutImages.id}`);
+    expect(within(textCard).queryByTestId("feed-wx-bubble-image")).toBeNull();
   });
 
   it("3 级左栏平台隔离(主人令 2026-10-13「微信是微信,TG是TG,不同渠道,要展示不同的群,不能混在一起」):wx 渠道左栏只列 wx 会话,telegram 对照源不混列", async () => {

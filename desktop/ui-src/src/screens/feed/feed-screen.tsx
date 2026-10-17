@@ -132,6 +132,7 @@ import { telegramGetStatus, telegramWebLogin, type TelegramStatus } from "@/scre
 import { wechatLocalProbe, type WechatLocalProbeView } from "@/screens/messaging/api";
 
 import { FeedCardFeedback } from "./feed-card-feedback";
+import { FeedLocalImages } from "./feed-local-images";
 import { MarkdownLite } from "./markdown-lite";
 import { WxGroupInfoPanel } from "./wx-groupinfo-panel";
 import {
@@ -660,6 +661,14 @@ const FeedCard = memo(function FeedCard({
                   签;title 碰巧含「X: 」词形也原样,归属以 nickname 为准) */}
               {chatSender !== null && snsAuthor === null ? chatSender.body : item.title || item.url}
             </button>
+            {/* 气泡内图片槽(10-16-feed-wx-images Phase 2):item.image_files
+                非空才渲染(空/非数组时 FeedLocalImages 返 null,槽位整体缺席)。
+                tg|wx 同门通用,不加 kind 门 —— TG 条目也可能带视觉管线图
+                (images/)。复用 FeedLocalImages 列表形态:每图 Rust
+                feed_image_path 按件授权(双根 images/ + 微信 media-cache/)
+                → convertFileSrc → <img>,拒授权/加载失败人话降级占位;
+                wxgf 实况容器不在 Rust 魔数白名单 = 如实占位不预览。 */}
+            <FeedLocalImages paths={item.image_files} testId="feed-wx-bubble-image" />
             {/* 收起正文行:经 bodyWithoutTitleDup 去标题重复开头(10-08 验收
                 「正文复述标题,同屏读两遍」);无独有信息 = 行消失;展开态 =
                 全文位,保留原文 */}
@@ -1115,20 +1124,7 @@ const FeedCard = memo(function FeedCard({
         </div>
       ) : null}
 
-      {expanded && (item.image_files?.length ?? 0) > 0 ? (
-        // 展开态:落图文件路径文本列表(图片本尊显示属 v2.2,先以路径呈现)
-        // TODO(v2.2): convertFileSrc 渲染本地图(内容寻址文件,安全 scope 待定)
-        <div className="mt-1.5 flex flex-col gap-1" data-testid={`feed-image-files-${rowKey}`}>
-          <span className="text-2xs text-muted-foreground">图文件 {item.image_files?.length} 张(路径)</span>
-          <ul className="flex flex-col gap-0.5">
-            {item.image_files?.map((path) => (
-              <li key={path} className="break-all font-mono text-2xs text-muted-foreground">
-                {path}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      {expanded ? <FeedLocalImages paths={item.image_files} testId={`feed-image-files-${rowKey}`} /> : null}
 
       {/* G8 AI 摘要回显:loading / done(复合分 + 模型 + 维度分 + 缓存命中)/
           错误(enrich_not_configured 等 graceful 明示,重按按钮即重试) */}
@@ -1905,6 +1901,7 @@ function FeedItemDetail({
             </p>
           </div>
         ) : null}
+        <FeedLocalImages paths={item.image_files} testId="feed-detail-images" />
         </div>
         {/* 动作簇(复用卡内既有实现;10-08 验收权重理顺):打开原文 = 唯一
             实底主钮(品牌紫大面积底 = F1 保留档),其余全 ghost 同档次 ——

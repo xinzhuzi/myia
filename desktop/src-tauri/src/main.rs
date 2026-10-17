@@ -8,6 +8,7 @@
 // 环境探测/IPC/空态事件见 pyenv.rs;旧冻结 sidecar 链待第 7 步打包收口退役。
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod feed_images;
 mod pyenv;
 mod pyenv_components;
 mod pyenv_install;
@@ -990,6 +991,7 @@ fn main() {
             sidecar_restart,
             tg_native_open,
             reveal_yaml_dir,
+            feed_images::feed_image_path,
             pyenv::pyenv_get_status,
             pyenv::pyenv_start_setup,
             pyenv::pyenv_sync_deps,
