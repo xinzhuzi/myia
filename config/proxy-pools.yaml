@@ -1,0 +1,13 @@
+# config/proxy-pools.yaml — 全局代理池声明(v0.2 池化;品类 YAML 以
+# `proxy: pool:<名>` 引用,凭据永不进品类件——引用即全部,安全红线)。
+#
+# 用法:myssia run/test/cron 需显式 `--config config/proxy-pools.yaml`
+# (cron create 同款旗标;doctor 逐上游健康)。
+#
+# clash 池 = 本机 Clash Verge 混合口(常驻,macOS 服务模式 root 进程)。
+# 2026-10-17 实测:google 302 / reddit RSS 200。单上游 + 缺省健康策略
+# (连续 3 次 transport 失败摘除、300s 半开自愈);上游死了引擎结构化
+# proxy_pool_exhausted,不影响其他 direct 源。
+
+pools:
+  clash: http://127.0.0.1:7897

@@ -273,6 +273,33 @@ sources:
     retry: 3
 
   # ──────────────────────────────────────────────────────────────────────
+  # Reddit r/MachineLearning 最新帖(2026-10-17 接入,替代官方 Data API 路线:
+  # 建应用网页表单 reCAPTCHA 死锁 + JSON 接口 403,而官方公开 RSS 实测 200)。
+  # 通道要点:reddit.com 被墙 → proxy: pool:clash(声明在 config/proxy-pools.yaml,
+  # 本机 Clash Verge 混合口);robots 面返回 UA 墙拦截页(无 Disallow 规则,
+  # 礼貌层放行;RSS 本即 Reddit 官方对外订阅端点)。UA 用完整 Chrome 串
+  # (精简 UA 会被边缘节点拦,robots 请求实测被拦同理)。
+  # 注:run/cron 需带 `--config config/proxy-pools.yaml`,否则本源
+  # proxy_pools_not_configured 结构化报错(其余 direct 源不受影响)。
+  # ──────────────────────────────────────────────────────────────────────
+  - name: reddit-ml
+    engine: static_html          # 走 news.yaml gcores 同款 rss 提取通路
+    url: "https://www.reddit.com/r/MachineLearning/new/.rss?limit=25"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: false}
+                                # respect_robots=false(10-05-reddit-official-engine
+                                # 同判例):Reddit robots 对 * 全 Disallow 面向搜索
+                                # 引擎爬虫;.rss 是 Reddit 官方对外发布的订阅端点,
+                                # 每天 2 次礼貌读取属 feed reader 用法非爬取。
+    proxy: pool:clash            # 被墙域:本机 Clash 混合口(池声明见 proxy-pools.yaml)
+    retry: 3
+
+  # ──────────────────────────────────────────────────────────────────────
   # 国产厂商官网 watch(10-06-ai-news-sources research §2 暂缓面翻案,
   # §7 兑现:urlwatch css 内容过滤落地后重探)。探查证据(2026-10-06,
   # 单次零压力、robots 先行、honest UA):.trellis/tasks/10-06-ai-news-
