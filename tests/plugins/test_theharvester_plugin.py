@@ -31,6 +31,7 @@ from myssia.cli import (
     EXIT_CONFIG_ERROR,
     EXIT_FETCH_ALL_FAILED,
     EXIT_OK,
+    GLOBAL_DECLARATION_YAMLS,
     HARVESTER_FETCH_FAILURE_CODES,
     _import_plugin_adapter,
     main,
@@ -354,7 +355,11 @@ class TestIronLawAdapterNeverBlocksCore:
 
     @staticmethod
     def _assert_core_unblocked() -> None:
-        for path in sorted(CONFIG_DIR.glob("*.yaml")):
+        # 全局声明件(proxy-pools.yaml 等)非品类件,豁免(单一真源:
+        # myssia.cli.GLOBAL_DECLARATION_YAMLS,与装载器 _config_yaml_files 同步)。
+        for path in sorted(
+            p for p in CONFIG_DIR.glob("*.yaml") if p.name not in GLOBAL_DECLARATION_YAMLS
+        ):
             config = load_category_file(path)
             assert config.sources, f"{path.name} 必须可加载且有源"
         Pipeline(load_category_file(CONFIG_DIR / "wool.yaml"))

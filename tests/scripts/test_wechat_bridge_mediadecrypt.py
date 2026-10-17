@@ -269,7 +269,10 @@ class TestProtocolShell:
         dat = tmp_path / "synth.dat"
         dat.write_bytes(_build_container(_SYNTH_JPEG, v2=True, aes_key=TEST_AES_KEY_B, xor_key=TEST_XOR_KEY))
         lines, result, rc = _run_provider(
-            {"action": "decrypt_dat", "dat_path": str(dat), "out_path": str(tmp_path / "out.bin")}
+            {"action": "decrypt_dat", "dat_path": str(dat), "out_path": str(tmp_path / "out.bin")},
+            # 测试洁净性(10-18):宿主机钥匙串可能已供真媒体钥(生产件内
+            # 自理通道),缺钥人话路径须隔离两通道——WX_MEDIA_SKIP_COMPONENT。
+            {"WX_MEDIA_SKIP_COMPONENT": "1"},
         )
         assert rc == 0  # 协议 §6:failure result + 退 0
         assert result is not None and result["success"] is False
@@ -313,7 +316,9 @@ class TestComponentKeyIntake:
         out = tmp_path / "out.bin"
         lines, result, rc = _run_provider(
             {"action": "decrypt_dat", "dat_path": str(dat), "out_path": str(out)},
-            {"MYIA_HOME": str(root)},
+            # 只跳钥匙串通道(宿主真钥会让位测试钥的先到先得序);数据根通道
+            # 本测的被测面,保留(WX_MEDIA_SKIP_KEYCHAIN,10-18 seam)。
+            {"MYIA_HOME": str(root), "WX_MEDIA_SKIP_KEYCHAIN": "1"},
         )
         assert rc == 0
         assert result is not None and result["success"] is True

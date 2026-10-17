@@ -27,6 +27,7 @@ from typing import Any
 import pytest
 import yaml
 
+from myssia.cli import GLOBAL_DECLARATION_YAMLS
 from myssia.pipeline import Pipeline
 from myssia.plugins.manifest import load_manifest_file
 from myssia.schema import load_category_file
@@ -575,7 +576,11 @@ class TestIronLawAdapterNeverBlocksCore:
 
     @staticmethod
     def _assert_core_unblocked() -> None:
-        for path in sorted(CONFIG_DIR.glob("*.yaml")):
+        # 全局声明件(proxy-pools.yaml 等)非品类件,豁免(单一真源:
+        # myssia.cli.GLOBAL_DECLARATION_YAMLS,与装载器 _config_yaml_files 同步)。
+        for path in sorted(
+            p for p in CONFIG_DIR.glob("*.yaml") if p.name not in GLOBAL_DECLARATION_YAMLS
+        ):
             config = load_category_file(path)
             assert config.sources, f"{path.name} 必须可加载且有源"
         Pipeline(load_category_file(CONFIG_DIR / "wool.yaml"))

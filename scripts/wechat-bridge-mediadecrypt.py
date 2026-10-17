@@ -239,7 +239,13 @@ def load_keys(key_file: str | None) -> dict[str, str]:
     """
     keys: dict[str, str] = {}
     if os.environ.get("WX_MEDIA_SKIP_COMPONENT", "") in ("", "0"):
-        for source in (_component_keys_from_keychain, _component_keys_from_data_root):
+        # WX_MEDIA_SKIP_KEYCHAIN(10-18):只跳钥匙串通道、保留数据根通道——
+        # 测试洁净性用(e2e 数据根通道测试在宿主已供真钥的机器上会被钥匙串
+        # 真钥抢先致错钥;生产链不应设置)。
+        channels = [_component_keys_from_data_root]
+        if os.environ.get("WX_MEDIA_SKIP_KEYCHAIN", "") in ("", "0"):
+            channels.insert(0, _component_keys_from_keychain)
+        for source in channels:
             for field, value in source().items():
                 keys.setdefault(field, value)
     for field, value in load_keys_manual(key_file).items():
