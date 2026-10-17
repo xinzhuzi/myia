@@ -240,6 +240,14 @@ class TestMergeDiscipline:
 # ---------------------------------------------------------------------------
 
 
+def test_start_notify_relay_missing_mkfifo_degrades_to_none(monkeypatch, tmp_path):
+    """平台能力缺失纵深兜底(10-18-v0.0.5 Windows 装测实锤):os.mkfifo
+    不存在(Windows)时优雅回退 None,不把 serve() 调用方拖崩——serve 层
+    的 darwin 守卫是第一道,这里是任何未来新调用点的零伤兜底。"""
+    monkeypatch.delattr(os, "mkfifo", raising=False)
+    assert start_notify_relay(tmp_path, lambda plan: None) is None
+
+
 class TestGuards:
     def test_non_darwin_is_structured_platform_unsupported(self) -> None:
         runner = FakeRunner()

@@ -7654,7 +7654,12 @@ def serve(stdin: Any | None = None, stdout: Any | None = None) -> int:
     # 继承)与 serve 进程内推送统一覆盖;home 未解析/管道失败 = 不注入,
     # osascript 直弹照旧。
     _relay_home = _serve_context().home
-    if _relay_home is not None:
+    # darwin 平台门(10-18-v0.0.5 Windows 装测实锤):FIFO 中继是 macOS
+    # 通知代发专用面,Windows 无 os.mkfifo —— 无守卫直调会在 serve()
+    # 启动即抛 AttributeError 使 sidecar 自检崩溃(v0.0.5 D 盘两轮复现
+    # selfcheck_failed)。非 darwin 不起中继:推送通道在缺省配置下本就
+    # 平台无关,macOS 横幅语义不在 Windows 冒充。
+    if _relay_home is not None and sys.platform == "darwin":
         myssia_macos_notify.start_notify_relay(
             _relay_home,
             lambda plan: _write_line({"type": "notify.banner", **plan}),

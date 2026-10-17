@@ -130,6 +130,12 @@ def start_notify_relay(
     except OSError as exc:
         logger.warning("macos_notify 中继管道创建失败(%s);推送回退 osascript", exc)
         return None
+    except AttributeError as exc:
+        # 平台能力缺失(Windows 无 os.mkfifo;10-18-v0.0.5 Windows 装测
+        # 实锤此路径):与创建失败同语义优雅回退,绝不把调用方拖崩——serve
+        # 层已有 darwin 守卫,这里是纵深兜底(任何未来新调用点零伤)。
+        logger.warning("macos_notify 中继管道不支持本平台(%s);推送回退", exc)
+        return None
 
     # 零竞态握手:读端在位后写者们(并发 cron 子进程)的 O_WRONLY|
     # O_NONBLOCK 永不撞 ENXIO 空窗;任一步失败 = 清理已开 fd 回 None
