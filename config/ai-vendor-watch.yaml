@@ -1,4 +1,7 @@
-# config/ai-vendor-watch.yaml — prompt 任务示范件(10-06-hermes-align 批次3):
+# config/ai-vendor-watch.yaml — prompt 任务示范件(10-06-hermes-align 批次3)
+# 【已退役 2026-10-18,主人令「不是代码写好就可以抓取分析了吗」】cron 已删:
+# 厂商动态的正式承载 = ai-news 品类 17 源结构化抽取(零 LLM,同源同日报)。
+# 本件保留 = prompt 引擎能力样板(云端钥或非思考本地模型到位时可复用)。
 # 一句话监控的最小等价物(MYIA 版 hermes chat -Q)——「每天 8 点看看这几家
 # AI 公司官网有什么新闻,整理成日报发群里」整句话就是下面这一个源:
 #
