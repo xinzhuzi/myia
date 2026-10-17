@@ -138,7 +138,10 @@ enrich:
 
 push:
   - channel: feishu_card
-    target: env:FEISHU_CHAT_ID     # 主人 DM(bot token 走 FEISHU_APP_ID/SECRET 自 mint)
+    target: keychain:myia/push/FEISHU_ANALYST_OPEN_ID   # 主人 open_id(解析后 ou_ 前缀→引擎按
+                                   # open_id 投递;2026-10-18 主人令「用 AI信息分析师发」,p2p
+                                   # 每应用独立会话,chat_id 寻址不可跨 bot 复用故直用 open_id)
+    bot: analyst                   # 出站 bot=「AI信息分析师」(FEISHU2_* 凭据位,Hermes 档案在册)
     msg_form: text                 # Hermes 日报形态:post md rows,4000 字行边界续段 (i/N)
     route:
       - when: "url != ''"          # 永真:报表跑出来即发(immediate,一条消息)
