@@ -41,26 +41,26 @@ desktop/fixture/               演示源事实源(与桌面端共用;本目录�
 $ python3 -m http.server 8765 --bind 127.0.0.1 --directory desktop/fixture
 
 # 2) 首轮:一条命令,抓取→分类→去重→推送
-$ shishi run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db
+$ myssia run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db
 状态:success        # 7 条抓到,1 条与 AI 无关被分类跳过(原因可见),推送 1 张卡
 
 # 3) 看推送卡片(stdout 通道;text 字段即渲染后的卡片,与飞书卡同模板)
 #    同库马上重跑会 not_modified(见第 4 步)拿不到卡;先重置演示库再看一次
 $ rm -rf /tmp/shishi-demo
-$ shishi run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db > run.out
+$ myssia run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db > run.out
 $ grep '^{"channel"' run.out | jq -r .text
 
 # 4) 再跑一次:内容没变 → 变更指纹跳过,不打扰
-$ shishi run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db
+$ myssia run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db
   源 demo-hub(跳过,engine=static_html,条目 0,skip=not_modified)
 
 # 5) 改 YAML 后先单源试抓(不推送不入库)
-$ shishi test docs/demo/demo-news.yaml --source demo-hub
+$ myssia test docs/demo/demo-news.yaml --source demo-hub
 ```
 
-- 开发环境(本仓库)把 `shishi` 换成 `uv run --no-sync shishi`。
+- 开发环境(本仓库)把 `myssia` 换成 `uv run --no-sync myssia`。
 - 真实收卡:把 `demo-news.yaml` 的 push[] 换成文件内注释的 `feishu_card` 块,
-  凭据 `shishi secret set` 进系统钥匙链 —— 卡片模板不变。
+  凭据 `myssia secret set` 进系统钥匙链 —— 卡片模板不变。
 - 完整分镜(每帧命令与预期画面)见 [`gif/storyboard.md`](gif/storyboard.md)。
 
 ## 动图:README 嵌入(已完成)
@@ -72,7 +72,7 @@ $ shishi test docs/demo/demo-news.yaml --source demo-hub
 ```markdown
 <p align="center">
   <img src="docs/demo/assets/shishi-demo.gif"
-       alt="世事:一个 YAML → 情报推送(终端 shishi run → 收到推送卡片)"
+       alt="世事:一个 YAML → 情报推送(终端 myssia run → 收到推送卡片)"
        width="820">
 </p>
 ```

@@ -13,7 +13,7 @@
 ### 1.1 Desktop app (recommended)
 
 Grab the desktop installer (macOS dmg / Windows msi) from
-[Releases](https://github.com/xinzhuzi/myia/releases). **The Python runtime
+[Releases](https://github.com/xinzhuzi/shishi/releases). **The Python runtime
 and third-party dependencies do not ship inside the installer** (which keeps
 it much smaller): on first launch open **Settings → Python environment** and
 click "Start setup" — the app then installs a self-managed environment
@@ -76,8 +76,8 @@ installing from source requires `uv sync` — a bare `pip install -e .`
 cannot resolve that dependency and fails outright:
 
 ```bash
-git clone https://github.com/xinzhuzi/myia
-cd 世事
+git clone https://github.com/xinzhuzi/shishi
+cd shishi
 uv sync                     # the only from-source install (workspace deps resolve via uv alone)
 uv run myssia --version       # prints myssia x.y.z (the installed version)
 ```

@@ -24,7 +24,7 @@ or mirrors needed. If your git is configured for a local proxy, see [Pitfall 1](
 ## 1. Clone
 
 ```bat
-git clone https://github.com/xinzhuzi/myia.git D:\dev\myia
+git clone https://github.com/xinzhuzi/shishi.git D:\dev\myia
 ```
 
 Any Git client works (GUI clients: use their bundled git).

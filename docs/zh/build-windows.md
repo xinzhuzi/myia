@@ -21,7 +21,7 @@
 ## 1. 克隆
 
 ```bat
-git clone https://github.com/xinzhuzi/myia.git D:\dev\myia
+git clone https://github.com/xinzhuzi/shishi.git D:\dev\myia
 ```
 
 任何 Git 客户端均可(图形客户端就用其自带 git 克隆)。

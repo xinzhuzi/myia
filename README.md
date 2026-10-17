@@ -9,7 +9,7 @@
 **说需求,AI 做其余。** · Say what you want — AI does the rest.
 
 <p>
-<a href="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+<a href="https://github.com/xinzhuzi/shishi/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/shishi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 <img src="https://img.shields.io/badge/tests-6200%2B%20passing-2EA44F" alt="tests: 6200+ passing" />
 <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="python 3.11+" />
 <img src="https://img.shields.io/badge/license-MIT-3DA639" alt="MIT license" />
@@ -142,8 +142,8 @@ Releases);Telegram/飞书回调接收已就绪)—— 负反馈持续
 ## 快速开始
 
 ```bash
-git clone https://github.com/xinzhuzi/myia
-cd myssia
+git clone https://github.com/xinzhuzi/shishi
+cd shishi
 uv sync                     # uv workspace(主口径):一并装好 myssia 与 myssia-classifier
 uv run myssia --version       # myssia 0.0.3
 ```
@@ -231,7 +231,7 @@ uv run myssia run config/demo-min.yaml                    # 正式跑;--loop 常
 
 安装包随 GitHub Releases 发布:
 
-1. 从 [Releases](https://github.com/xinzhuzi/myia/releases) 下载
+1. 从 [Releases](https://github.com/xinzhuzi/shishi/releases) 下载
    `myssia_<版本>_aarch64.dmg`(版本号随发布更替,以 Releases 页面实际资产为准),
    把 世事 拖入「应用程序」;
 2. 首次打开:**在「应用程序」里右键 世事 →「打开」→ 再点「打开」**
@@ -251,7 +251,7 @@ uv run myssia run config/demo-min.yaml                    # 正式跑;--loop 常
 
 安装包(msi)已随 GitHub Releases 交付(v0.0.3 起挂 `myssia_<版本>_x64.msi`):
 
-1. 从 [Releases](https://github.com/xinzhuzi/myia/releases) 下载
+1. 从 [Releases](https://github.com/xinzhuzi/shishi/releases) 下载
    `myssia_<版本>_x64.msi`,双击安装(版本号随发布更替,以 Releases 页面
    实际资产为准);
 2. 首次运行弹 SmartScreen「Windows 已保护你的电脑」时,点
@@ -271,6 +271,9 @@ Python 环境配置完成后,装机首跑自动种子官方品类(含零凭据�
 `myssia-demo`:GitHub 新星榜),第一次点「运行第一个插件」就出真数据;
 设置页「检查更新」走签名更新通道,应用更新后依赖有漂移时在同一分区一键
 「同步依赖」(幂等,已装跳过)。
+
+装完不会写 YAML 也能用:demo 品类一键跑、五步建源向导一步一步带你把第一个
+源配好——[中文向导](docs/zh/source-wizard.md) · [English](docs/en/source-wizard.md)。
 
 桌面十四屏(下方五张截图均为 demo 品类真实抓取数据;十四屏里还有 messaging
 微信本机工作台、proxy-pool 代理池、credhunter 凭证猎手、sources 五步建源
@@ -311,7 +314,7 @@ myssia doctor --json                        # 拿 findings;agent 自修后复查
 编排层          流水线:fetch → classify → dedup → analyze → enrich → push
                 (进程内 APScheduler + asyncio;无外部编排器、无守护进程)
                      │
-品类层          一个品类一份 YAML · 18 个官方品类 · 市场插件
+品类层          一个品类一份 YAML · 官方品类 · 市场插件
                 desktop 级 = 进程内 adapter(零 docker)· remote/server 级走端点
                 (代理池 · 变更监控 · OSINT · 抖音 · maxun · …)
                      │
@@ -345,6 +348,10 @@ myssia doctor --json                        # 拿 findings;agent 自修后复查
 | 零成本接入(自托管栈) | [docs/en/zero-cost.md](docs/en/zero-cost.md) | [docs/zh/zero-cost.md](docs/zh/zero-cost.md) |
 | Scheduled jobs (cron) | [docs/en/cron.md](docs/en/cron.md) | [docs/zh/cron.md](docs/zh/cron.md) |
 | Windows 本地构建(MSI) | [docs/en/build-windows.md](docs/en/build-windows.md) | [docs/zh/build-windows.md](docs/zh/build-windows.md) |
+| 五步建源向导(不想学 YAML 先读这份) | [docs/en/source-wizard.md](docs/en/source-wizard.md) | [docs/zh/source-wizard.md](docs/zh/source-wizard.md) |
+| 微信本机工作台(wechat-local) | [docs/en/wechat-local.md](docs/en/wechat-local.md) | [docs/zh/wechat-local.md](docs/zh/wechat-local.md) |
+| 凭证猎手(cred-hunter) | [docs/en/cred-hunter.md](docs/en/cred-hunter.md) | [docs/zh/cred-hunter.md](docs/zh/cred-hunter.md) |
+| 代理池(proxy-pool) | [docs/en/proxy-pool.md](docs/en/proxy-pool.md) | [docs/zh/proxy-pool.md](docs/zh/proxy-pool.md) |
 | **微信桥接协议(单册,随 `docs/` 根发行,zh/en 共用)** | | |
 | wechat-http-api:本地库 HTTP API | — | [docs/wechat-http-api.md](docs/wechat-http-api.md) |
 | wechat-keyprovider:取钥器子进程协议 | — | [docs/wechat-keyprovider.md](docs/wechat-keyprovider.md) |

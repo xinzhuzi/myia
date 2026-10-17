@@ -9,7 +9,7 @@
 **说需求,AI 做其余。** · Say what you want — AI does the rest.
 
 <p>
-<a href="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/myia/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+<a href="https://github.com/xinzhuzi/shishi/actions/workflows/ci.yml"><img src="https://github.com/xinzhuzi/shishi/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 <img src="https://img.shields.io/badge/tests-6200%2B%20passing-2EA44F" alt="tests: 6200+ passing" />
 <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="python 3.11+" />
 <img src="https://img.shields.io/badge/license-MIT-3DA639" alt="MIT license" />
@@ -155,8 +155,8 @@ daemon), retention + auto-VACUUM, in-process scheduling.
 ## Quickstart
 
 ```bash
-git clone https://github.com/xinzhuzi/myia
-cd myssia
+git clone https://github.com/xinzhuzi/shishi
+cd shishi
 uv sync                     # uv workspace (primary): installs myssia + myssia-classifier
 uv run myssia --version       # myssia 0.0.3
 ```
@@ -258,7 +258,7 @@ Full walk-through: [docs/en/getting-started.md](docs/en/getting-started.md).
 The macOS (Apple Silicon) installer ships via GitHub Releases:
 
 1. Download `myssia_<version>_aarch64.dmg` from
-   [Releases](https://github.com/xinzhuzi/myia/releases) (the version token
+   [Releases](https://github.com/xinzhuzi/shishi/releases) (the version token
    rotates per release — the Releases page is authoritative) and drag 世事 into
    Applications;
 2. On first launch: **right-click 世事 in Applications → Open → Open**
@@ -295,6 +295,10 @@ data; the settings screen offers "Check for updates" over a signed update
 channel, and when an app update changes the dependency list the same section
 grows a one-click "Sync dependencies" action (idempotent — installed packages
 are skipped).
+
+You never have to write YAML by hand after installing: the demo category runs
+with one click, and the five-step source wizard walks you through your first
+source — [English guide](docs/en/source-wizard.md) · [中文](docs/zh/source-wizard.md).
 
 The desktop app ships fourteen screens (the five screenshots below are fed
 by real demo-plugin data; newer screens include the messaging WeChat local
@@ -335,7 +339,7 @@ User layer      myssia CLI · Agent Skill · desktop app (Tauri, v1.1) · Web UI
 Orchestration   Pipeline: fetch → classify → dedup → analyze → enrich → push
                 (in-process APScheduler + asyncio; no external orchestrator, no daemon)
                      │
-Plugin layer     One YAML per category · 18 official categories · market plugins
+Plugin layer     One YAML per category · official categories · market plugins
                 desktop tier = in-process adapter (zero docker) · remote/server tier
                 (proxy pool · changedetection · OSINT · douyin · maxun · …)
                      │
@@ -372,6 +376,10 @@ entry point, and zh/en trees cannot drift apart:
 | Zero-cost self-host stack | [docs/en/zero-cost.md](docs/en/zero-cost.md) | [docs/zh/zero-cost.md](docs/zh/zero-cost.md) |
 | Scheduled jobs (cron) | [docs/en/cron.md](docs/en/cron.md) | [docs/zh/cron.md](docs/zh/cron.md) |
 | Building the Windows app (MSI) | [docs/en/build-windows.md](docs/en/build-windows.md) | [docs/zh/build-windows.md](docs/zh/build-windows.md) |
+| Source wizard (five steps — start here if you'd rather not learn YAML) | [docs/en/source-wizard.md](docs/en/source-wizard.md) | [docs/zh/source-wizard.md](docs/zh/source-wizard.md) |
+| WeChat local workbench (wechat-local) | [docs/en/wechat-local.md](docs/en/wechat-local.md) | [docs/zh/wechat-local.md](docs/zh/wechat-local.md) |
+| Credential hunter (cred-hunter) | [docs/en/cred-hunter.md](docs/en/cred-hunter.md) | [docs/zh/cred-hunter.md](docs/zh/cred-hunter.md) |
+| Proxy pools (proxy-pool) | [docs/en/proxy-pool.md](docs/en/proxy-pool.md) | [docs/zh/proxy-pool.md](docs/zh/proxy-pool.md) |
 | **WeChat bridge protocols (single copies at the `docs/` root, shared zh/en)** | | |
 | wechat-http-api: local-db HTTP API | — | [docs/wechat-http-api.md](docs/wechat-http-api.md) |
 | wechat-keyprovider: key-provider subprocess protocol | — | [docs/wechat-keyprovider.md](docs/wechat-keyprovider.md) |

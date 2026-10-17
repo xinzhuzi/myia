@@ -2,8 +2,8 @@
 
 > 本分镜的所有「预期画面」文本与 `transcript/*.txt` 一一对应 —— **全部来自
 > 2026-10-02 在本机真实执行的命令输出**(演示源为仓库自带的虚构数据页,仅
-> 监听 127.0.0.1,零凭据零外网)。开发环境下命令以 `uv run --no-sync shishi …`
-> 执行;分镜画面为阅读友好写作 `shishi …`(等价,安装后即可直接用)。
+> 监听 127.0.0.1,零凭据零外网)。开发环境下命令以 `uv run --no-sync myssia …`
+> 执行;分镜画面为阅读友好写作 `myssia …`(等价,安装后即可直接用)。
 >
 > 产物:`assets/shishi-demo.gif`(<5MB)。重录/重渲染见本目录 `build_gif.sh`
 > 与 `../README.md` 的「动图制作与重录」一节。
@@ -13,10 +13,10 @@
 | # | 命令(实际执行) | 退出码 | transcript |
 |---|------------------|--------|------------|
 | 1 | `python3 -m http.server 8765 --bind 127.0.0.1 --directory desktop/fixture` | 0 | `02-http-server.txt` |
-| 2 | `uv run --no-sync shishi run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db`(空库首轮) | 0 | `03-run1.txt` |
+| 2 | `uv run --no-sync myssia run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db`(空库首轮) | 0 | `03-run1.txt` |
 | 3 | `grep '^{"channel"' run1.out \| jq -r .text`(提取本轮推送卡片文本) | 0 | `04-card.txt` |
 | 4 | 同 2(同库第二轮,内容未变) | 0 | `05-run2.txt` |
-| 5 | `uv run --no-sync shishi test docs/demo/demo-news.yaml --source demo-hub` | 0 | `06-test.txt` |
+| 5 | `uv run --no-sync myssia test docs/demo/demo-news.yaml --source demo-hub` | 0 | `06-test.txt` |
 
 ## 逐帧分镜(总时长 42.5s @12fps,画布 1100×640,GitHub 深色终端风)
 
@@ -69,7 +69,7 @@ Serving HTTP on 127.0.0.1 port 8765 (http://127.0.0.1:8765/) ...
 
 ### S4 · 首轮 run(12.0s–21.0s)
 
-- 命令行:`$ shishi run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db`
+- 命令行:`$ myssia run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db`
 - 预期画面(真实输出,见 `03-run1.txt` 人读摘要;stdout 的 JSON 卡片行另见 S5):
 
 ```text
@@ -91,7 +91,7 @@ Serving HTTP on 127.0.0.1 port 8765 (http://127.0.0.1:8765/) ...
 - 命令行(两行,均为真实可复现命令):
 
 ```console
-$ shishi run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db > run.out
+$ myssia run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db > run.out
 $ grep '^{"channel"' run.out | jq -r .text
 ```
 
@@ -109,7 +109,7 @@ $ grep '^{"channel"' run.out | jq -r .text
 
 ### S6 · 再跑一次:增量语义(27.5s–33.0s)
 
-- 命令行:`$ shishi run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db`
+- 命令行:`$ myssia run docs/demo/demo-news.yaml --db /tmp/shishi-demo/demo.db`
 - 预期画面(真实输出,见 `05-run2.txt`):
 
 ```text
@@ -124,7 +124,7 @@ $ grep '^{"channel"' run.out | jq -r .text
 
 ### S7 · 单源试抓(33.0s–38.5s)
 
-- 命令行:`$ shishi test docs/demo/demo-news.yaml --source demo-hub`
+- 命令行:`$ myssia test docs/demo/demo-news.yaml --source demo-hub`
 - 预期画面(真实输出节选,见 `06-test.txt`):
 
 ```text
@@ -139,7 +139,7 @@ $ grep '^{"channel"' run.out | jq -r .text
 
 ### S8 · 片尾(38.5s–42.5s)
 
-- 画面:`世事 · AI 帮你盯信息源`;副题「对 AI 说需求 → agent 写 YAML → 跑通 → 推送」;小字「完整演示:docs/demo/README.md · 真实收卡:push 换 feishu_card + shishi secret set」。
+- 画面:`世事 · AI 帮你盯信息源`;副题「对 AI 说需求 → agent 写 YAML → 跑通 → 推送」;小字「完整演示:docs/demo/README.md · 真实收卡:push 换 feishu_card + myssia secret set」。
 
 ## 给主人的真实屏幕重录指引(可选)
 
