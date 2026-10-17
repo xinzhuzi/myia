@@ -40,6 +40,7 @@ UI_DIR = pathlib.Path(
     _os.environ.get("MYIA_SMOKE_UI_DIR", str(REPO_ROOT / "desktop" / "ui"))
 )
 PORT = 4517
+PLAYWRIGHT_CACHE = pathlib.Path.home() / "Library" / "Caches" / "ms-playwright"
 
 MIME = {
     ".html": "text/html",
@@ -126,6 +127,17 @@ INJECT_SCRIPT = r"""
         current = { ...current, web: { accounts } };
         return { started: true, account, note: "体检完成(冒烟夹具)" };
       }
+      if (method === "telegram.web.rename") {
+        // 改名夹具(2026-10-17 主人令「以后不记得是什么名字」):merge 改
+        // label 后卡面回读新名(mock 侧即时生效,真实路径 = 标记 merge 写)
+        const account = String(params?.account ?? "");
+        const label = String(params?.label ?? "");
+        const accounts = current.web.accounts.map((row) =>
+          row.account === account ? { ...row, label } : row,
+        );
+        current = { ...current, web: { accounts } };
+        return { renamed: true, account, label };
+      }
       if (method === "version") return { version: "smoke" };
       if (method === "health") return { ok: true };
       return {};
@@ -155,6 +167,14 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
         return super().translate_path(rel)
 
 
+def cached_chromium() -> str | None:
+    """Return the newest locally cached Chrome for Testing binary, if present."""
+    matches = sorted(PLAYWRIGHT_CACHE.glob(
+        "chromium-*/chrome-mac*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+    ))
+    return str(matches[-1]) if matches else None
+
+
 async def main() -> int:
     if not (UI_DIR / "index.html").exists():
         print(f"FAIL - 构建产物缺位({UI_DIR}/index.html);先 npm run build", file=sys.stderr)
@@ -180,7 +200,8 @@ async def main() -> int:
     browser = None
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            executable_path = cached_chromium()
+            browser = await p.chromium.launch(headless=True, executable_path=executable_path)
             page = await browser.new_page()
             await page.add_init_script(INJECT_SCRIPT)
             await page.goto(
@@ -245,6 +266,33 @@ async def main() -> int:
             expect(
                 "体检小字判活",
                 await page.get_by_text("上次检查").count() >= 1,
+            )
+            # 改名动作链(2026-10-17):点改名 → 行内输入框 → 填新名 → 保存
+            # → 卡面主显示翻新名(mock telegram.web.rename merge label)
+            await page.locator(
+                '[data-testid="telegram-web-telegram-alt1-rename"]'
+            ).click()
+            await page.wait_for_selector(
+                '[data-testid="telegram-web-telegram-alt1-rename-input"]',
+                timeout=5_000,
+            )
+            expect("改名行内输入框出现", True)
+            await page.get_by_label("账号 telegram-alt1 新备注名").fill(
+                "羊毛专用小号"
+            )
+            await page.locator(
+                '[data-testid="telegram-web-telegram-alt1-rename-confirm"]'
+            ).click()
+            await page.wait_for_selector(
+                'text=羊毛专用小号', timeout=5_000
+            )
+            expect("改名后卡面主显示新备注名", True)
+            expect(
+                "改名成功 note 出现",
+                await page.get_by_text("备注名已改为").count() >= 1,
+            )
+            await page.screenshot(
+                path="/tmp/myssia-tg-card-smoke-rename.png", full_page=False
             )
             # 删除动作链:alt1 删除后行消失
             await page.locator(
