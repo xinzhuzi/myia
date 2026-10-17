@@ -30,15 +30,30 @@
 
 ## 验收标准
 
-- [ ] AC1 装机 app 进程在跑、cron serve 活(jobs.json 9+ 任务可 tick)。
-- [ ] AC2 wool 挂 cron(0 8,20)、gpu-prices 挂 cron(0 10),tick 记录可见。
-- [ ] AC3 wool 源面 ≥ 8(linux.sb/bbs.bt.sb/sb.sb/nodeloc/cocoloop + dalao/74站/V2EX),
+- [x] AC1 装机 app 进程在跑、cron serve 活(jobs.json 9+ 任务可 tick)。
+- [x] AC2 wool 挂 cron(0 8,20)、gpu-prices 挂 cron(0 10),tick 记录可见。
+- [x] AC3 wool 源面 ≥ 8(linux.sb/bbs.bt.sb/sb.sb/nodeloc/cocoloop + dalao/74站/V2EX),
       试抓有产出(被墙源允许走代理/firecrawl 兜底,须留试抓证据)。
-- [ ] AC4 ai-news 国外源逐源试抓有结论:通(有产出)/ 走兜底通 / 如实定档+原因;
+- [x] AC4 ai-news 国外源逐源试抓有结论:通(有产出)/ 走兜底通 / 如实定档+原因;
       meta/mistral/qwen 三问题源必须有处置结果。
-- [ ] AC5 games 国外源(epic/gog/cheapshark/steam)试抓有结论。
-- [ ] AC6 拿到主人私聊 chat_id,真跑 ≥ 1 品类,推送实际发到私聊(API 回执为证)。
-- [ ] AC7 仓库 config/ 与装机 config/ 同步一致,改动已提交。
+- [x] AC5 games 国外源(epic/gog/cheapshark/steam)试抓有结论。
+- [x] AC6 拿到主人私聊 chat_id,真跑 ≥ 1 品类,推送实际发到私聊(API 回执为证)。
+- [x] AC7 仓库 config/ 与装机 config/ 同步一致,改动已提交。
+
+## 完成记(2026-10-17 晚)
+
+- AC1:open -g 复活(app+sidecar serve+补跑 ai-news 20:00 错过槽位);根因=app 10-15 16:28 起停摆。
+- AC2:cron job wool=057a70998714(0 8,20,next 10-18 08:00)、gpu=38c4e21a4e37(0 10,next 10-18 10:00)。
+- AC3:wool 9 源 359 条真跑(linuxsb52/dalao26/v2ex-free20/deals18/share20/s74·58/nodeloc60/cocoloop60/sbsb45);
+  btsb 判死=域名迁 bt.sb+长亭 WAF(直连/Clash/FC 云三通道全堵,记档 yaml 注释)。
+- AC4:17 源 0 故障;meta 修通(crawl4ai 装入管理 python,8 条);anthropic14/cohere22(列表化同步生效);
+  6 个 RSS 零产出=条件请求合法跳过(not_modified/validators_match/hash_match,服务器确认无新内容)。
+- AC5:epic13/cheapshark20/steam10 通;gog 0=API 200 合法空(当前无 0 元游戏)。
+- AC6:FEISHU_CHAT_ID 实锤=主人 p2p(ou_efa4…郑冰津);真跑三连全送达:wool 52 immediate+56 digest
+  (push ok×2)、gpu 8 immediate+88 digest(ok)、ai-news 6 immediate(ok)。
+- AC7:9 件 config repo→live 同步(先整包备份 config-bak-20261017-woolrun.tgz);提交含 wool/gpu/任务档。
+- 附注:bilibili-watch/youtube-watch 仅在仓库(10-17 agent-reach-absorb 线在途件,归该线发布);
+  X/RSSHub、Reddit 凭据两前置仍属主人侧(10-31 前配 reddit 凭据即活)。
 
 ## 边界与红线
 
