@@ -55,6 +55,18 @@
 - 附注:bilibili-watch/youtube-watch 仅在仓库(10-17 agent-reach-absorb 线在途件,归该线发布);
   X/RSSHub、Reddit 凭据两前置仍属主人侧(10-31 前配 reddit 凭据即活)。
 
+## 追加:Reddit 源当日点亮(主人令「你自己试试」+否决 opencli 路线)
+
+- 建应用网页表单 reCAPTCHA 死锁(绿勾+服务端恒拒「Incorrect response」,主人手点同败,
+  疑出口 IP 被 Reddit 风控标记)→ 弃该路线;agent-reach 的 OpenCLI 浏览器会话方案被主人
+  否决(不装第三方扩展)→ 终路=**官方公开 RSS 直连**(json 403/.rss 200 实测定分)。
+- 落地:config/proxy-pools.yaml(clash 池=127.0.0.1:7897)+ ai-news 新源 reddit-ml
+  (proxy: pool:clash;respect_robots=false 沿 10-05 API 路判例);试抓 25 条实证×2。
+- 装机:live 同步;ai-news cron 重建带 --config(ef86ce95d1fd→3445da5eec81)。
+- 边界:匿名 RSS 有速率窗,密集测试会 429(冷却后复验通过);每日 2 槽礼貌面在额度内。
+- X 观察:agent-reach doctor 实测 twitter-cli 已完整可用(搜索/时间线/读推)——引擎层
+  接入留后续档,比 RSSHub 路线优先。
+
 ## 边界与红线
 
 - 静默铁律:不起前台焦点(open -g / 后台),不禁屏,不中途打扰。
