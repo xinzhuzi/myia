@@ -34,6 +34,7 @@ from myssia.cli import (
     EXIT_CONFIG_ERROR,
     EXIT_FETCH_ALL_FAILED,
     EXIT_OK,
+    GLOBAL_DECLARATION_YAMLS,
     OSINT_FETCH_FAILURE_CODES,
     _import_osint_adapter,
     main,
@@ -473,7 +474,11 @@ class TestIronLawMissingVendorNeverBlocksCore:
 
     @staticmethod
     def _assert_core_unblocked() -> None:
-        category_files = sorted(CONFIG_DIR.glob("*.yaml"))
+        # 全局声明件(proxy-pools.yaml 等)非品类件,豁免(单一真源:
+        # myssia.cli.GLOBAL_DECLARATION_YAMLS,与装载器 _config_yaml_files 同步)。
+        category_files = sorted(
+            p for p in CONFIG_DIR.glob("*.yaml") if p.name not in GLOBAL_DECLARATION_YAMLS
+        )
         assert category_files, "顶层品类示例不应为空"
         for path in category_files:
             config = load_category_file(path)

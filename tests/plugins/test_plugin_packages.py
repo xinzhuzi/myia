@@ -38,6 +38,7 @@ import httpx
 import pytest
 
 from myssia import __version__ as myssia_version
+from myssia.cli import GLOBAL_DECLARATION_YAMLS
 from myssia.pipeline import Pipeline
 from myssia.plugins import VersionRange, check_category_plugin, check_remote_modes
 from myssia.plugins.installed import InstalledPluginStore
@@ -506,8 +507,14 @@ class TestIronLawOnRealPackages:
 
     @staticmethod
     def _assert_core_unblocked() -> None:
-        """核心无感的最小可执行证据:全部顶层品类 YAML 可加载 + Pipeline 可构造。"""
-        category_files: list[Path] = sorted(CONFIG_DIR.glob("*.yaml"))
+        """核心无感的最小可执行证据:全部顶层品类 YAML 可加载 + Pipeline 可构造。
+
+        全局声明件(proxy-pools.yaml 等)非品类件,豁免(单一真源:
+        ``myssia.cli.GLOBAL_DECLARATION_YAMLS``,与装载器同步)。
+        """
+        category_files: list[Path] = sorted(
+            p for p in CONFIG_DIR.glob("*.yaml") if p.name not in GLOBAL_DECLARATION_YAMLS
+        )
         assert category_files, "顶层品类示例不应为空"
         for path in category_files:
             config = load_category_file(path)
