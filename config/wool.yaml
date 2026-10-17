@@ -47,28 +47,109 @@ sources:
     # No pagination: the site's page-2 URL pattern could not be verified
     # (only the homepage is guaranteed) — single-page walk until confirmed.
 
-  - name: bbsbtsb
-    engine: static_html
-    url: "https://bbs.bt.sb/latest"
+  # bbsbtsb 已移除(2026-10-17 判死):域名迁移 bbs.bt.sb→bt.sb(301),新域
+  # /latest 挂长亭雷池 WAF(waf.chaitin.com 拦截页),直连/Clash 出口/firecrawl
+  # 云渲染三通道全 468/拦截页(证据:/tmp 实测 2026-10-17)。若站方日后撤 WAF
+  # 或开放 API 再复源;华为云线同源同样受阻,非遗漏。
+  - name: dalao                # dalao.net(Xiuno BBS;2026-10-17 实测直连 200,
+    engine: static_html        # 首页 26 帖/页,thread-N.htm 相对链)
+    url: "https://www.dalao.net/"
     method: GET
     headers:
       User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
     extract:
       type: list
-      item: 'a.min-w-0[href^="/posts/"]'   # topic cards only — comment anchors
-                                           # share the /posts/ prefix but lack h2
+      item: "li.media.thread"   # 每帖一行(li.media.thread,置顶帖同构)
       fields:
-        title: "h2"
-        url: "@href"              # attribute of the item node itself
-    rate_limit:                   # robots blocks /api/ and /write only
+        title: ".subject a"    # 主题锚在 div.subject break-all 内(锚本身无类,
+                               # a.subject 会零命中——2026-10-17 实测踩坑)
+        url: ".subject a@href" # thread-N.htm,相对路径 urljoin
+    rate_limit:                # robots 未拦首页;礼貌限速照旧
       qps: 0.5
       jitter: "2s"
       backoff: exponential
       respect_robots: true
     proxy: direct
     retry: 3
-    # No pagination: /latest?page=2 307-redirects back to /latest (loop-guarded
-    # walk would stop anyway) — single-page walk until a real pattern exists.
+
+  # V2EX 节点页 ×3(free/deals/share;2026-10-17 并入,对齐华为云 wf_crawl 源面)。
+  # CF 挑战墙:直连与 Clash 出口均 403「Just a moment」,唯一活路=firecrawl 云
+  # 渲染(实测 33 主题链接/页;引擎选择器 span.item_title 系 V2EX 经典标记)。
+  # 云兜底凭据走钥匙串引用(本地 3002 后端已死,colima 退役在案)。
+  - name: v2ex-free
+    engine: firecrawl
+    url: "https://www.v2ex.com/go/free"
+    method: GET
+    engine_options:
+      firecrawl:
+        endpoint: keychain:myia/firecrawl/url
+        api_key: keychain:myia/firecrawl/api-key
+        timeout: 60
+    extract:
+      type: list
+      item: "span.item_title"
+      fields:
+        title: "a"
+        url: "a@href"          # /t/<id>#reply,相对路径 urljoin
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+  - name: v2ex-deals
+    engine: firecrawl
+    url: "https://www.v2ex.com/go/deals"
+    method: GET
+    engine_options:
+      firecrawl:
+        endpoint: keychain:myia/firecrawl/url
+        api_key: keychain:myia/firecrawl/api-key
+        timeout: 60
+    extract:
+      type: list
+      item: "span.item_title"
+      fields:
+        title: "a"
+        url: "a@href"
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+  - name: v2ex-share
+    engine: firecrawl
+    url: "https://www.v2ex.com/go/share"
+    method: GET
+    engine_options:
+      firecrawl:
+        endpoint: keychain:myia/firecrawl/url
+        api_key: keychain:myia/firecrawl/api-key
+        timeout: 60
+    extract:
+      type: list
+      item: "span.item_title"
+      fields:
+        title: "a"
+        url: "a@href"
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  # 74站(tkkgv8.gicp.fun;中转站/车队导航页)。纯 JS 壳(直抓 15KB 零链接),
+  # firecrawl 云渲染后 58 张 .card(每卡=一个中转站/羊毛位,含注册直链与邀请码,
+  # .invite-code 字段留档进 metadata)。华为云线同源同走云 FC waitFor。
+  - name: s74
+    engine: firecrawl
+    url: "https://tkkgv8.gicp.fun/"
+    method: GET
+    engine_options:
+      firecrawl:
+        endpoint: keychain:myia/firecrawl/url
+        api_key: keychain:myia/firecrawl/api-key
+        timeout: 60
+    extract:
+      type: list
+      item: ".card"
+      fields:
+        title: ".card-name"
+        url: ".card-url@href"   # 卡内主推注册直链(绝对地址)
+        desc: ".card-desc"      # 站点描述(线路/倍率等情报)
+        code: ".invite-code"    # 邀请码(有则抽,进 metadata 供推送模板用)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
 
   - name: nodeloc
     engine: static_html
