@@ -71,7 +71,7 @@ sources:
     # data API called twice per trading day for a handful of symbols at
     # qps<=0.5 — API usage, not page crawling. The default stays true
     # everywhere else; flip back before repurposing this source.
-    proxy: direct               # v0.1: only "direct" takes effect (pool/residential land later)
+    proxy: pool:clash            # 海外站防见本地 IP·第二批(主人裁 2026-10-18「一律藏」);v0.1「仅 direct 生效」注释退役——v0.2 池化已生效
     retry: 3                    # transient-error retry budget (0-10)
     symbols: [NVDA, AAPL, TSLA, "0700.HK", 600519.SS]   # {symbol} fan-out source
 

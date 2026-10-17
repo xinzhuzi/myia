@@ -29,7 +29,7 @@ sources:
       jitter: "2s"
       backoff: exponential
       respect_robots: true      # api.github.com/robots.txt 为 404(无规则),默认无害
-    proxy: direct
+    proxy: pool:clash            # 海外站防见本地 IP·第二批(主人裁 2026-10-18「一律藏」)
     retry: 3
 
 classify:

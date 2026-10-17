@@ -135,3 +135,15 @@ uv run --no-sync python tests/regen_push_targets_golden.py --refreeze
 - cron/runner.py 属 Hermes 蓝本偏离表管辖模块(spec python/index.md 定时任务底座节):改动仅限 job_command 缺省分支(含顶部新增 CONFIG_DIR_NAME import 一行),不动 D1-D14 偏离面;SQLiteStore SCHEMA_VERSION 零触碰。
 - entry.py 改动须同步 sidecar 协议测试口径(spec python/index.md 桌面发行数据根节:「改路径行为必须同步 tests/desktop/test_desktop_sidecar_protocol.py」)。
 - 验收 A3/A4 依赖本机 Clash 在线(7897);探测失败先 `nc -z 127.0.0.1 7897` 再查 mihomo 服务,勿把 Clash 挂误判为本任务回归。
+
+## 第二批:海外站一律藏(主人裁决追加,2026-10-18 执行)
+
+裁决:主人「按照你的建议去做」→ prd 残余风险升级路径触发,第二批 14 处 `direct → pool:clash`(蓝本 config/ + 装机数据根双侧;数据根逐行验内容后手术改 + `.bak-20261018-batch2` 先行,勿整文件覆盖——凌晨并行编辑窗口纪律照旧,实测 14/14 命中)。
+
+- [x] B1 蓝本 14 处:ai-news.yaml 五厂商源(:149/:171/:219/:250/:272)、games.yaml 四源(:59/:86/:148/:204)、stocks.yaml(:74,顺手退役 v0.1「仅 direct 生效」过时注释)、credentials.yaml aipocket(:70)、myssia-demo.yaml(:32)、ai-token-deals.yaml 两 releases 源(:84/:95)。
+- [x] B2 维持 direct 裁定:aihot(DoH 实测 aihot.news→eo.dnse2.com→112.84.131.78 腾讯 EdgeOne CN 边缘,判国内)、credhunter-native(消费路径未核验)、urlwatch 四源/agent_reach/tg_web/firecrawl 云渲染/零 HTTP/自建端点(既定)。
+- [x] B3 测试配套:_single_source_config 代理压回 direct;scoped(tests/cli/test_sources_write_surgery.py + tests/plugins/)803 passed + 全量 **6486 passed/56 skipped** 实跑绿。
+- [x] B4 数据根同步:终态 pool:clash 计数 ai-news 12(含一批 7)/games 4/stocks 1/credentials 1/myssia-demo 1/ai-token-deals 2。
+- [x] B5 装机实跑:装机 python(PYTHONPATH=app Resources/myssia-src)+ 显式 --config 跑 stocks——yahoo-chart 经池取回 5 条行情(NVDA 214.13/AAPL 343.46/TSLA 354.72/0700.HK 417.8/600519.SS 1329),全链 success,fetch 8.5s(run_id 4124,2026-10-17T20:21:46Z)。
+- [x] B6 提交:外科式只收本批 hunks(同文件并存并行会话在途改动,`git diff -U0` 过滤「第二批」标记行 `git apply --cached`,他人 hunks 原样留工作树);tests/plugins/test_plugins.py 改动全属本任务(改前核该件零脏)。
+- 回滚(比第一批宽松):蓝本 revert 本批提交 + 数据根 6 件 `mv x.yaml.bak-20261018-batch2 x.yaml`——direct 是安全态(无 pools 注入依赖),反序无中间态报错风险。

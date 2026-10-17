@@ -1220,10 +1220,15 @@ def _single_source_config(name: str):
     config = _load(name)
     keep = _TWO_RUN_PLANS[name]["source"]
     source = next(s for s in config.sources if s.name == keep)
+    data = source.model_dump()
     if name == "stocks":
-        data = source.model_dump()
         data["symbols"] = ["NVDA"]
-        source = SourceConfig.model_validate(data)
+    # 单源裁剪跑在 MockTransport 假客户端上,本测试的验收面是 extract+dedup
+    # 接线而非代理面——2026-10-18 第二批挂池(games/stocks 源升 pool:clash)后
+    # 把代理压回 direct,同上方 symbols 收窄先例;池注入的生产行为由
+    # fetch_base/cron 侧测试覆盖。
+    data["proxy"] = "direct"
+    source = SourceConfig.model_validate(data)
     narrowed = config.model_copy(
         update={
             "sources": [source],

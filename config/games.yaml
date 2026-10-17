@@ -56,7 +56,7 @@ sources:
       jitter: "2s"
       backoff: exponential
       respect_robots: true      # Epic robots.txt 404(无限制),缺省即允许
-    proxy: direct
+    proxy: pool:clash            # 海外站防见本地 IP·第二批(主人裁 2026-10-18「一律藏」)
     retry: 3
 
   # Steam 每日特惠官方接口(featuredcategories 的 specials 即特惠区,
@@ -83,7 +83,7 @@ sources:
       jitter: "2s"
       backoff: exponential
       respect_robots: true
-    proxy: direct
+    proxy: pool:clash            # 海外站防见本地 IP·第二批(主人裁 2026-10-18「一律藏」)
     retry: 3
 
   # CheapShark 多店折扣聚合官方 API(v3,task 10-03-games-v3):一个稳定公共
@@ -145,7 +145,7 @@ sources:
       # 文档公开邀请、qps 0.5 礼貌档低频(每日 1 请求)。**回退条件:本源若
       # 复用为页面爬取(HTML)前必须翻回 true。**
       respect_robots: false
-    proxy: direct
+    proxy: pool:clash            # 海外站防见本地 IP·第二批(主人裁 2026-10-18「一律藏」)
     retry: 3
 
   # GOG 限免第四源(wrap, task 10-03-games-wrap):catalog.gog.com/v1/catalog
@@ -201,7 +201,7 @@ sources:
     # 端点,「0 条 = 当前没有限免」是正常语义——不开则 doctor 把健康源误诊
     # degraded(实测踩中),教用户不信任诊断。
     empty_ok: true
-    proxy: direct
+    proxy: pool:clash            # 海外站防见本地 IP·第二批(主人裁 2026-10-18「一律藏」)
     retry: 3
 
 watchlist:                      # enrich 关闭时仅做提及量统计,不做降权

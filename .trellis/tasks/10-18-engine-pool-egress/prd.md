@@ -38,6 +38,7 @@
 - **维持 direct 的依据(工程裁量,待主人点头)**:research 实测这批均为无风控墙的公共 API、零登录态,「IP 被拉黑→拒服务」风险低;反向代价是把这批源的可用性绑死 Clash 在线(池挂=源快速失败);收益/代价不平,故不默认挂池。
 - **升级路径(主人裁决触发即开第二批)**:若主人裁决「海外站一律不可见本地 IP,宁可丢可用性」,对这批源开同款挂池(同一 clash 池零边际成本,蓝本+数据根同套路);修正版观察判据(transport 失败或 403/质询类应用层拒绝实录即挂)同样适用于这批源的日常观察。
 - 本节为显式备档:不再维持「沉默不动」;主人未裁决前,本任务按 stay-direct 执行。
+- **裁决结果(2026-10-18,主人令「按照你的建议去做」=开第二批)**:「海外站一律不可见本地 IP」转为执行。名单 **14 处**(蓝本+装机数据根双侧同款):games 四源(epic/steam/cheapshark/gog)、stocks(yahoo-chart)、credentials(aipocket;占位 URL,指向自建部署时按需回 direct)、myssia-demo(github-new-stars)、ai-token-deals 两 github releases 源、ai-news 五厂商源(microsoft-research/mistral-news/anthropic-news-watch/meta-ai-blog-watch/cohere-blog-watch——原残余名单漏列的同类暴露面,依同一裁决补齐)。维持 direct 的同类裁定:aihot(DNS 实测 aihot.news→腾讯 EdgeOne CN 边缘节点,判国内)、credhunter-native(引擎 proxy 消费路径未核验,观察判据适用)、urlwatch 四源(硬拒)、agent_reach/tg_web/firecrawl 云渲染/零 HTTP/自建端点(字段无效或无暴露面,既定)。配套测试:tests/plugins/test_plugins.py `_single_source_config` 单源裁剪代理压回 direct(MockTransport 假客户端,验收面=extract+dedup,同 stocks symbols 收窄先例)。执行记录见 implement.md 第二批节。
 
 ## Requirements
 
