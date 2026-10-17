@@ -110,3 +110,15 @@
 - 终态盘点:17 cron(16 scheduled+1 paused 待主人重登);当晚 13 品类
   11 success/2 partial(ai-news=测试期 reddit 429 自愈;wool=s74 无链卡片
   invalid_item 留痕)/2 failed(=GLM 钥匙)。
+
+## 追加:魔搭思考层+覆盖安装(2026-10-18 凌晨)
+
+- 主人令「用魔搭免费 apikey,哪个最强用哪个」:Bake-off 五强实测(DeepSeek-V4-Pro
+  6s/4/4 头名>GLM-5.2 7s/4/4>Qwen3.5-397B 37s 漏题;MiniMax-M3 400)→V4-Pro 上岗;
+  钥匙串 myia/llm/modelscope-*(源=ZCode provider_config 同钥)。
+- ai-token-deals 秒级真跑 1 条;ai-news enrich 重开 23 条零错 7 爆点即推(9880aa0a)。
+- 厂商官网日报 LLM 版退役(主人令「代码写好就可以抓取分析」):cron 删、配置注记
+  留作引擎样板;正式承载=ai-news 17 源纯代码。
+- 覆盖安装(主人令「打包覆盖安装」):门禁绿(ruff+tsc)→tauri build 20.69MB→
+  换装(备份 20261018-015900,清 WebKit 缓存)→sidecar 01:59 复活首轮成功;
+  今晚旧备份×3 已清,留 015900 回滚位+1016 历史位。
