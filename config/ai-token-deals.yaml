@@ -106,10 +106,60 @@ sources:
     proxy: pool:clash            # 海外站防见本地 IP(同族源同款)
     retry: 3
 
+  # ── 白嫖信息面扩容·二批(主人令 2026-10-18「挑一下适合用的…落实到AI信息
+  #    里面」):候选清单十件,入选三件——OpenRouter 免费模型池/Gonka Broker
+  #    免费层模型面/Pollinations 发版;落选七件(Photopea/imgix/gumlet/
+  #    Cloudinary/TinyPNG/Ente/AudioEnhancer/TranscriptLOL)系建站图床/
+  #    相册/音频修音/弱配额转写类,与本地优先情报站无关,裁决见提交注记。──
+
+  - name: openrouter-free-pool  # OpenRouter 官方免费模型池:OpenAI 兼容接口,
+    engine: direct_api          # 免费模型带 RPD 限流但零价真白嫖;max_price=0
+    url: "https://openrouter.ai/api/v1/models?max_price=0"   # 直出零价模型(实测
+    method: GET                 # 18 个;全量 471 里 prompt/completion 双零恰同此数)
+    headers:
+      Accept: "application/json"   # 无凭据头;honest MYIA UA 用引擎缺省(Yahoo 教训)
+    extract:
+      type: json_path
+      url_template: "https://openrouter.ai/{model_id}"   # id 即页面 slug(:free 后缀直达,实测 200)
+      fields:
+        title: "$.data[*].name"    # 模型名,免费池恒带 "(free)" 尾缀
+        model_id: "$.data[*].id"   # vendor/slug:free
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}   # robots Allow: /
+    proxy: pool:clash            # 海外站防见本地 IP(主人裁 2026-10-18「一律藏」)
+    retry: 3
+
+  - name: gonka-models           # Gonka Broker:去中心化 GPU 网上的 LLM 中转,
+    engine: static_html          # 免费层=每账号 1M tokens/月任意模型(/perks/ 原文
+    url: "https://gonkabroker.com/models/"   # 「1M tokens of any model, free, every month」,
+    method: GET                  # OpenAI 兼容);盯模型卡面:新上模型=新的白嫖可用面
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: list
+      item: "a.group"            # 模型卡是自包裹锚(实测 4 卡);url 空选择器=锚自身
+      fields:
+        title: "h3"              # 模型名(MiniMax M2 / DeepSeek V4 Flash …)
+        url: "@href"             # /models/<slug>-on-gonka/,urljoin 绝对化
+        summary: "p"             # 一句话模型描述
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: pool:clash            # 海外站防见本地 IP(同族源同款)
+    retry: 3
+
+  - name: pollinations-releases  # Pollinations(⭐5.2k)免注册免 key 免费图像生成
+    engine: static_html          # API(开源);发版=新模型/新能力=新白嫖面
+    url: "https://github.com/pollinations/pollinations/releases.atom"
+    method: GET
+    extract:
+      type: rss
+      fields: {title: title, url: link, published: published}
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: false}   # 同上:单 feed 端点,非爬取
+    proxy: pool:clash            # 海外站防见本地 IP(同族源同款)
+    retry: 3
+
 classify:                          # 白名单(2026-10-18 加导航站后启用):231 条只留 AI 白嫖相关,
   builtin: false                   # 上不匹配即弃,防购物/娱乐/学术类灌爆日报;词表同步覆盖
-  rules:                           # prompt 源 LLM 产出防误杀。when 单条 ≤256 字符,故拆六条
-                                   # (任一命中即打标保留;词面分组:AI 术语/额度词/工具名/算力/摘要侧/GitHub)
+  rules:                           # prompt 源 LLM 产出防误杀。when 单条 ≤256 字符,故拆八条
+                                   # (任一命中即打标保留;词面分组:AI 术语/额度词/工具名/算力/摘要侧/GitHub;二批两条 URL 侧专用放行:免费池 :free 锚与 Gonka 域名——模型名形态 title 词表不命中)
     - name: AI白嫖·术语
       when: "'AI' in title or 'GPT' in title or 'gpt' in title or 'Claude' in title or 'Gemini' in title or 'DeepSeek' in title or 'deepseek' in title or '大模型' in title"
       tag: AI白嫖
@@ -127,6 +177,12 @@ classify:                          # 白名单(2026-10-18 加导航站后启用)
       tag: AI白嫖
     - name: AI白嫖·发版源
       when: "'github.com' in url"
+      tag: AI白嫖
+    - name: AI白嫖·免费池       # openrouter-free-pool 条目:title 形如「X: Y (free)」,
+      when: "':free' in url"    # 词表对多数模型名不命中;id 的 :free 尾缀=免费唯一标记
+      tag: AI白嫖
+    - name: AI白嫖·Gonka        # gonka-models 条目同理:MiniMax M2/GLM-5.3-Flash 等模型名
+      when: "'gonka' in url"    # 零词表命中,按域名放行(免费层 1M tokens/月的可用面)
       tag: AI白嫖
 
 dedup:
