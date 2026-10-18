@@ -266,13 +266,36 @@ sources:
   #   headers:
   #     Cookie: env:LINUXDO_COOKIE  # login state via env reference only
 
+  # ── 免费 AI 端点清单(主人令 2026-10-18「ready_to_use 进羊毛」)──
+  - name: g4f-endpoints         # gpt4free(⭐66.9k)官方托管的免 key 端点表
+    engine: static_html         # SSR 静态文档页;robots 全放行(仅禁 /private/)
+    url: "https://g4f.dev/docs/ready_to_use.html"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:                    # Base URLs 表(7 端点):tr>td>a,端点链接即唯一锚
+      type: list                # 表头行提不出 title 走 missing_title 丢(1 条,无害)
+      item: "tr"
+      fields:
+        title: "td a"           # base_url(可复制即用的白嫖入口)
+        url: "td a@href"        # /models 完整链;端点增删=新锚,存量不变不重推
+        summary: "td:last-child"  # Notes 列(如 Use Groq provider)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
 watchlist:
   keywords: [白嫖, 免费, 0元, 优惠券, 福利, 兑换码]
   mute: [广告, 中奖]
 
 classify:                       # 羊毛 is one of the seven builtin categories;
   builtin: true                 # free signal beats paid signal in adjudication
-  rules: []                     # unmatched titles drop (classify_unmatched)
+  rules:                        # unmatched titles drop (classify_unmatched);
+                                # 端点表 title 是 URL 形态,builtin 词表不命中,
+                                # 专用规则放行并归 freebie(路由 immediate 白给类)
+    - name: 免费AI端点
+      when: "'g4f' in url"
+      tag: freebie
 
 dedup:
   key: "{url}"                  # one slot-window per topic (AM/PM boundary at
