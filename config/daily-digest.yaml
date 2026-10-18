@@ -106,7 +106,7 @@ sources:
           #    扩容:分区按源名匹配,新源名须同步进本清单(store items.source 锚;labels 键
           #    含 token 触发凭据红线误伤,条目 title 自描述故不用前缀)──
           - title: AI 白嫖与优惠
-            sources: [ai-token-deals, edumails-nav, freellmapi-releases, gpt4free-releases]
+            sources: [ai-token-deals, edumails-nav, freellmapi-releases, gpt4free-releases, chatall-releases]
             max_entries: 10
             first_run: fold        # 首轮建档折叠(同分区一):新源第一次入库的
                                   # 条目不占编号席位,分区尾折叠留痕——配套
