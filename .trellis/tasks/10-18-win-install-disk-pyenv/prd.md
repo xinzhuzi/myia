@@ -71,3 +71,12 @@ spawn(main.rs)、status/detect/pyenv_sync_deps(pyenv.rs)、安装链
 - `download-proxy.md`:壳下载走 reqwest 0.13.5 且**吃** WinINET 系统代理
   (updater 默认特性把 system-proxy 拉回);直连逃生 = `NO_PROXY=*`;
   仅清 HTTP_PROXY env 无效(注册表补位)。
+
+## 终局(2026-10-18 晨,v0.0.6 全轮)
+
+v0.0.5 抓出 mkfifo 出厂 bug(serve 无 darwin 守卫)→ d3dbb0f8 修复 →
+v0.0.6 全链收口:D 盘安装(INSTALLDIR=D:\myssia)+ Python 落
+D:\myssia\python(3.14.8,戳落数据根 state=ready)+ sidecar 真起
+(安装路径 python.exe 驱动 serve,version ping 0.0.6 过)。终审全链
+证据独立核验(tag/MSI 比特一致/安装日志/进程/时序单调),app 留机运行。
+三轮流水线:0.0.4 验链→0.0.5 抓虫→0.0.6 闭环。
