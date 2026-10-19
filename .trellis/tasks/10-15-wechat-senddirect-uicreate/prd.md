@@ -85,7 +85,9 @@
    - 判读修正三则:0x435e074=bl 返回地址;L3 三 caller;窗口2 读点 0x5daa3e4 实为 task 拷贝构造器(非 Req2Buf)
 4. **onebot 实测(窗口3/5)**:窗口3=服务跑通/9hook 全装/trigger 直调发生(result="1")/**微信零崩**;失败因二:trigger 复用微信已释放任务地址作 payload(修复=frida 独立分配)+门寄存器漂移(修复=标志制)。窗口5=适配版(script-4115.js 六 patch+终版 json)就绪待验,**环境终局故障**:~/.frida 被移入 Trash+僵尸 helper 占 socket→frida attach 挂死(lldb 正常),修复后仍卡(疑新 helper 权限等待),深夜按红线停手。
 
-### 明日一跑(终验清单,预计 10 分钟)
+### 历史终验清单（已失效，禁止直接照跑）
+
+2026-10-16 复核：下列 killall、onebot 常驻与旧观察模式不能作为当前执行指令；当前脚本会修改代码和消息指针。任何下一次活附加必须重新取得目标、用途、最长时限明确的单次前台授权，并先保证取消/失败/到时清理。旧授权不可沿用。
 
 1. 白天微信活跃期:killall frida* 清僵尸→跑 `/tmp/wxsend3/onebot-4115/onebot/onebot -type=local -wechat_pid=$(pgrep -x WeChat) -wechat_conf=../wechat_4_1_15.json`(script.js 已是适配版)
 2. 观察模式 trigger→看「发送文本任务执行结果」+4115-OBS 日志(blr 位点寄存器)
@@ -94,7 +96,7 @@
 
 ### 风险审查结论(主人问「hook 是否破坏微信」)
 
-script.js 写微信内存仅三处(全围绕任务栈 X24+0x60 指针槽)+伪造对象生命周期四层缓解(快照/整块恢复/超时兜底/迟到 ack 容忍);不 patch 代码段;爆炸半径单任务;泄漏每次 1-2KB。主要风险=版本适配错(适配期崩一次微信,重启无损)。
+历史审查结论（不再覆盖当前适配脚本）：script.js 当时写微信内存仅三处(全围绕任务栈 X24+0x60 指针槽)+伪造对象生命周期四层缓解(快照/整块恢复/超时兜底/迟到 ack 容忍);当时记为不 patch 代码段。2026-10-16 复核当前 community-adapt/script-4115.js 存在 Memory.patchCode/NOP 和指针写入，且 INJECT_MODE=false 未保护这些写入；不能称为纯观察。取消/失败恢复尚待验证，详见审计 completion-recheck-20261016.md。
 
 ### 并行会话事故录(工程课)
 
@@ -107,7 +109,7 @@ script.js 写微信内存仅三处(全围绕任务栈 X24+0x60 指针槽)+伪造
 - [x] cap27 粘贴断点结论(锚定+栈入档 research/cap-assets-r20-r26/ 与本档 community-adapt/)
 - [x] 正本流向观测(SSO 机制/拷贝链/RunLoop 判读);构造/CGI 编码点=**社区方案锚定**(mars startTask+Req2Buf,六地址 4.1.15 定位)
 - [ ] 补丁传导验证(终验一跑待环境恢复;资产全备:script-4115.js+json+验证清单)
-- [x] 微信全程存活零崩溃(今晨至今 91292/20632 两代进程);所有窗口结束态字节复验 INTACT;我方滞留清零
+- [x] 此前研究切片（91292/20632）记录存活、字节复验 INTACT、滞留清零；后续社区适配 23:43 曾崩溃，整个任务不满足零崩溃或直发完成。
 - [x] 战报入档+资产固化(research/community-adapt/ 26 件+cap-assets-r20-r26 44 件)
 
 
@@ -128,3 +130,24 @@ script.js 写微信内存仅三处(全围绕任务栈 X24+0x60 指针槽)+伪造
 1. **伪造消息对象字段补齐**:需带「需序列化」bit(0x5980c2c 读的 [x29-0x94] 位源)+0x5a6c868 消费的字段——反汇编 0x5a6c868/0x5a6c8a0 定字段偏移,补进 setup 的 textMessageAddr 构造
 2. 或注入位后移:让 tbz 走序列化分支后blrX8(0x5980c44)才有效——两修一即可
 3. 复验流程不变(观察→注入→localdb)
+
+## 🔄 终验二轮实录(2026-10-19 白天授权窗口,主人令「授权,现在跑」)
+
+**结果:未到注入位,微信五轮零崩(安全工程达标);三个新事实实质改写下一步打法。**
+
+### 静态修正位成果(Ghidra wxui.gpr 只读导出,fix-round2/)
+1. **x19 真源=调用方栈参槽**:req2bufEnter 入口 `sub sp,#0x1c0` 后 `ldr x19,[sp,#0x98]` → 入口时刻 [sp_entry+0x258]。v2~v4 只换 task(x4)+0x60 对本轮调用**无效**——10-15 崩根即在此。v5 已实现并加载栈参换血(带「旧值==task+0x60」等值守卫)。
+2. **崩点结构语义定谳**(fix-fn-5a6c22c.c 反编译+调试路径串):[x29-0xb8] 是 **mars mmaction.pb.cc 的 protobuf 栈消息**(构造 0x5a6c374/合并 0x5a6c22c/算尺寸 0x5a6c868):src=msg+8 起 {string*@+0x10, u32@+0x20, string*@+0x18, u32@+0x24, **has-bits 门字节@+0x2c**}。v4 的「栈 AutoBuffer {pbuf,len,cap,units} 重写」是误读——崩=protobuf 位段被当指针解引用。
+3. **注入新设计已备未执行**:置 msg+0x2c=0x02(bit1 走序列化分支)+msg+0x20=1(过 cmp w22,w0)+blr 钩回真序列化位 0x5980c44 经真 autoBufferWrite(0x5dd16d8) 写 proto(script-4115-v5.js 全部实现,V5_SERIALIZATION_FIELDS/INJECT_MODE 双开关)。
+
+### 活弹五轮实录(v5a~v5b2,WeChat pid 82556)
+- 环境两次复原:垃圾筒僵尸 frida-helper 复活占道(隔离 ~/quarantine-frida/trash-frida-1019)+进程 frida 态脏 → TERM 微信重启后 attach 0.3s 复活(登录保持);
+- **卡点:直调任务到不了 req2bufEnter**(taskId 门零命中,连未命中日志都零条);25s 旁挂探针证明**空闲期该地址与 sendFunc 双零流量**——10-15 能命中靠的是当晚真实出站流量+活跃任务快照;
+- trigger 侧:taskId=0x20000001 起、snapshot 从「无」到 768 字节随流量出现;onebot 实际加载 onebot/script.js(外层同名文件是 4.1.12 旧基座,曾改错位置一轮);
+- WeChat 五轮触发全程 ALIVE(消毒钩+观察模式生效)。
+
+### 下一步假设(待再授权)
+① 需在**有真实出站消息的窗口**跑(主人发一条即可)让快照取自 sendmsg 型任务;② 或转攻入队校验:直调任务被丢在 marshal 前的可能性(snapshot 回调子对象指向原任务内存,原任务若已 free 则校验拒绝);③ spawner 档照主人裁「随终验结果定」→ 终验未过=再议,维持挂起。
+
+### 资产
+research/community-adapt/fix-round2/(DumpFixTargets.java+三函数伪代码/汇编+v5 四轮日志)+script-4115-v5.js;/tmp/wxsend3 仍存活。
