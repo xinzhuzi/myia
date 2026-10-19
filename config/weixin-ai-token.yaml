@@ -48,8 +48,10 @@ enrich:
 
 push:                               # 主人令(2026-10-17 深夜):群消息即推太频繁,弹窗
   - channel: feishu_card            # 全停——immediate 退役,全部 archive 只入库
-    target: env:FEISHU_CHAT_ID      # (日报零微信分区红线不变=完全静默;消息照收,
-    route:                          #  Feed/监控台可看,历史 10-13 即推令同时作废)
+    target: keychain:myia/push/FEISHU_ANALYST_OPEN_ID   # 主人 open_id(ou_→open_id;2026-10-19 主人令「全部推送用 AI信息分析师」;archive 全停故当前零发送,预挂防翻案复发)
+    bot: analyst                   # 出站 bot=「AI信息分析师」(FEISHU2_* 凭据位,abe51b9c 同款)
+    route:                          # (日报零微信分区红线不变=完全静默;消息照收,
+                                    #  Feed/监控台可看,历史 10-13 即推令同时作废)
       - when: 'url != ""'
         mode: archive
 

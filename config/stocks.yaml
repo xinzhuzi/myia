@@ -109,9 +109,9 @@ enrich:                         # second funnel — LLM scoring (v0.2 on-ramp;
 
 push:
   - channel: feishu_card        # feishu_card | telegram | webhook | stdout
-    target: env:FEISHU_CHAT_ID  # credential reference; resolved at send time.
-                                # The bot token is read from
-                                # env:FEISHU_BOT_TOKEN (channel default).
+    target: keychain:myia/push/FEISHU_ANALYST_OPEN_ID   # 主人 open_id(ou_ 前缀→引擎按 open_id 投递;2026-10-19 主人令「全部推送用 AI信息分析师」,p2p 每应用独立会话,FEISHU_CHAT_ID 是主 bot 私聊 id 对 analyst 必 230002)
+    bot: analyst               # credential reference; resolved at send time.
+                                # 出站 bot=「AI信息分析师」(FEISHU2_* 凭据位,abe51b9c 同款)。
     route:                      # threshold routing; first match wins.
       - when: "score >= 8"      # v0.2 interface slot: rules referencing
         mode: immediate         # `score` stay dormant until enrich backfills

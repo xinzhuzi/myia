@@ -79,7 +79,8 @@ dedup:
 
 push:
   - channel: feishu_card
-    target: env:FEISHU_CHAT_ID
+    target: keychain:myia/push/FEISHU_ANALYST_OPEN_ID   # 主人 open_id(ou_→open_id 投递;2026-10-19 主人令「全部推送用 AI信息分析师」,FEISHU_CHAT_ID 对 analyst 必 230002)
+    bot: analyst               # 出站 bot=「AI信息分析师」(FEISHU2_* 凭据位,abe51b9c 同款)
     route:
       - when: "url != ''"      # 日报层降噪(10-06-hermes-align 批次4):每日一条
         mode: archive          # 日报仅入库,由 plugins/daily-digest.yaml 的
