@@ -1,9 +1,0 @@
-{
-  "id": "10-18-win-install-disk-pyenv",
-  "title": "Windows 安装路径改造:D盘安装 + Python 环境装进安装路径",
-  "status": "completed",
-  "created": "2026-10-18",
-  "owner": "ai",
-  "labels": ["desktop", "windows", "pyenv", "release"],
-  "commits": ["bb861726", "ac7be19b", "d3dbb0f8", "ae3dffe4"]
-}

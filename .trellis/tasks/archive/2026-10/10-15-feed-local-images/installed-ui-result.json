@@ -1,0 +1,15 @@
+{
+  "scope": "installed Mach-O embedded UI vs fresh build",
+  "status": "passed",
+  "files": [
+    "assets/index-CcdNIm5N.js",
+    "assets/index-CdCXctJJ.js",
+    "assets/index-_i5Kvnsk.css",
+    "assets/index-yaTgsF6s.js",
+    "index.html",
+    "myssia-icon.svg"
+  ],
+  "mismatches": [],
+  "index_html": "semantic tokens equal; Tauri serializer changes whitespace/boolean-attribute spelling",
+  "other_assets": "byte-identical SHA256"
+}

@@ -1,0 +1,59 @@
+{
+  "recorded_at": "2026-10-16T02:35:24.169547+08:00",
+  "rea_evidence_id": "ev_109315ba49cf6386a2abad6c8d1d5dfe6f3829412d39a6a7909ceafb98cebf65",
+  "rea_evidence_file": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-offline-recovery/research/rea-macho-retained-20261016.json",
+  "retained": {
+    "path": "/Users/zhengbingjin/Downloads/微信反编译/ghidra-wxhunt/wechat_arm64.dylib",
+    "bytes": 173148768,
+    "sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7"
+  },
+  "installed": {
+    "path": "/Applications/WeChat.app/Contents/Resources/wechat.dylib",
+    "arm64_offset": 184614912,
+    "arm64_size": 173148768,
+    "arm64_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+    "app_short_version": "4.1.15"
+  },
+  "full_arm64_slice_identity": true,
+  "rea_digest_matches_local_hash": true,
+  "rea_uuid": "0C2F01C0-C197-3286-901D-70E1D007A1C0",
+  "encryption_load_commands": [],
+  "load_command_coverage": {
+    "total": 97,
+    "exhaustive": true,
+    "limitations": []
+  },
+  "symbol_command": [
+    {
+      "index": 9,
+      "kind": "LC_DYSYMTAB",
+      "fields": {
+        "cmd": "LC_DYSYMTAB",
+        "cmdsize": 80,
+        "ilocalsym": 0,
+        "nlocalsym": 1,
+        "iextdefsym": 1,
+        "nextdefsym": 2,
+        "iundefsym": 3,
+        "nundefsym": 2383,
+        "tocoff": 0,
+        "ntoc": 0,
+        "modtaboff": 0,
+        "nmodtab": 0,
+        "extrefsymoff": 0,
+        "nextrefsyms": 0,
+        "indirectsymoff": 170876616,
+        "nindirectsyms": 3937,
+        "extreloff": 0,
+        "nextrel": 0,
+        "locreloff": 0,
+        "nlocrel": 0
+      }
+    }
+  ],
+  "limitations": [
+    "No live debugger attachment or target execution.",
+    "No new function decompilation performed by this record.",
+    "Absent encryption load command does not establish absence of code obfuscation."
+  ]
+}

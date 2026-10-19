@@ -1,0 +1,215 @@
+{
+  "recorded_at": "2026-10-16T02:51:57.664861+08:00",
+  "verification": "PASS",
+  "new_function_decompilations": 7,
+  "matching_instruction_bytes": 1740,
+  "matching_instructions": 435,
+  "native_java_or_debugserver_process_snapshot": [],
+  "artifacts": [
+    {
+      "name": "OfflineSendCallChain.java",
+      "bytes": 5125,
+      "sha256": "5700616f0e6d55c29ddaab9a53abd2e698aa55d2a4573aed5dcd53107954a877"
+    },
+    {
+      "name": "offline-callchain-run.json",
+      "bytes": 998,
+      "sha256": "8d8e7e2bdacc7b4c72bd5efdca3a629f015568281c3a10cc3ecc16fb8f19c40d"
+    },
+    {
+      "name": "offline-callchain-verification.json",
+      "bytes": 1310,
+      "sha256": "b26354204c945c5f5126fa40a5bc8604d704ff62f1d361b05da2cda19520c07c"
+    },
+    {
+      "name": "offline-fn-56300b4.asm",
+      "bytes": 86,
+      "sha256": "f65ed470e4001f71bcd4dcdbc8f5c80c50517d7411d59187eb1c744f73058fa4"
+    },
+    {
+      "name": "offline-fn-56300b4.c",
+      "bytes": 165,
+      "sha256": "f1b5ddda6254ae1c1c8b88121e19bbf2bacb7792af19dfc95e3279d80f30a58a"
+    },
+    {
+      "name": "offline-fn-56300b4.refs.tsv",
+      "bytes": 3202,
+      "sha256": "2645ca39d0888a79e6e4dc079dfb2ecc57fed97756ac05d15b7b46e306462c26"
+    },
+    {
+      "name": "offline-fn-5971c24.asm",
+      "bytes": 2820,
+      "sha256": "53f4df869010d26866a23a05ff7e44fb80cb188d639e7511f4d72c889fc8a420"
+    },
+    {
+      "name": "offline-fn-5971c24.c",
+      "bytes": 1346,
+      "sha256": "135017bd65386aeed14dc076ad90d0231101b849e647577b64a8bd82277a3ae9"
+    },
+    {
+      "name": "offline-fn-5971c24.refs.tsv",
+      "bytes": 76,
+      "sha256": "360cf5177edef3f017c6ce374039ec7bc02ce4697036003f206d353bafbcecf8"
+    },
+    {
+      "name": "offline-fn-597d26c.asm",
+      "bytes": 3754,
+      "sha256": "638feac255ab4b86d4cd972e303f003fe137dda3e2f4b037225dc6e8d977803b"
+    },
+    {
+      "name": "offline-fn-597d26c.c",
+      "bytes": 1532,
+      "sha256": "04107af3d604268057d1f509a497898152b2a42abfcc1b3372c49a0f49b1baa3"
+    },
+    {
+      "name": "offline-fn-597d26c.refs.tsv",
+      "bytes": 100,
+      "sha256": "d2d95d69cd132615e150ab6b137b4cb9230c79eec4d8635821b21980aca4530b"
+    },
+    {
+      "name": "offline-fn-5980a6c.asm",
+      "bytes": 6824,
+      "sha256": "7939d77da5ec30d1e6afcf09d3a7f141c63253a023e81b6996622d2c1cf5a818"
+    },
+    {
+      "name": "offline-fn-5980a6c.c",
+      "bytes": 4014,
+      "sha256": "ef14faba7a07fcc98c980cb736f2259f62ea67dd502513b983e1917e5733af10"
+    },
+    {
+      "name": "offline-fn-5980a6c.refs.tsv",
+      "bytes": 100,
+      "sha256": "860231dd71b6d80b17ee57e251c57364f152df468457eecf461ea3b3de529336"
+    },
+    {
+      "name": "offline-fn-5980d74.asm",
+      "bytes": 1073,
+      "sha256": "e1a8dbe5c9628dfce748be724a14b72109e646c17adf727f6033eb57b15064a3"
+    },
+    {
+      "name": "offline-fn-5980d74.c",
+      "bytes": 644,
+      "sha256": "c1295c5cb6bb251976c77583b8f69c97ba45f759f2a1efc0d381d7e2a18e2386"
+    },
+    {
+      "name": "offline-fn-5980d74.refs.tsv",
+      "bytes": 200,
+      "sha256": "89eee98e05f75f39586ba31fa318b83ab30236ebb086c2d0bc2ef7fa8a3442d1"
+    },
+    {
+      "name": "offline-fn-5ab3f98.asm",
+      "bytes": 32,
+      "sha256": "f6bd1b6abe498f9fa97a761fe823345e20c417abf67538689cc06096917060a5"
+    },
+    {
+      "name": "offline-fn-5ab3f98.c",
+      "bytes": 560,
+      "sha256": "bfa8b03e4830f629873b34a4b38871c3c5fd6dd2d2ea5d5636ebddc1af9933f5"
+    },
+    {
+      "name": "offline-fn-5ab3f98.refs.tsv",
+      "bytes": 3201,
+      "sha256": "2f12f9a0c2669f73ef44111e5d24e8573e2cb0dd245e9177692685a1ca76682f"
+    },
+    {
+      "name": "offline-fn-5ded378.asm",
+      "bytes": 695,
+      "sha256": "eaddfeaa88165596fabd95ab3cedb74c83730b0d326950681f291680fe6ecd17"
+    },
+    {
+      "name": "offline-fn-5ded378.c",
+      "bytes": 411,
+      "sha256": "63f5f81a60e057b745d3d237882fa67bd47f3876673781df7071304108a21cac"
+    },
+    {
+      "name": "offline-fn-5ded378.refs.tsv",
+      "bytes": 1751,
+      "sha256": "7209e74f7184c3da23f40707bdf8d7fe7cbff273ab955a1d4041a6447f63c489"
+    },
+    {
+      "name": "offline-functions.tsv",
+      "bytes": 289,
+      "sha256": "c58911dc848de52bffb65bd2cc6de847c55b556fd7bd9e43ee5122acc8ecc693"
+    },
+    {
+      "name": "offline-ghidra-script.log",
+      "bytes": 693,
+      "sha256": "16bcc88388026b09c50eabe273a7659b81cb91dd3fcb1b16ad0b4af734bc5362"
+    },
+    {
+      "name": "offline-ghidra.log",
+      "bytes": 5201,
+      "sha256": "cc30da2290109476dc5c29e31525de320b6a48c871e3a2b72bf097199850c3b7"
+    },
+    {
+      "name": "offline-headless-console.log",
+      "bytes": 4733,
+      "sha256": "de14ad2e39048b4d6b17127bc0193a5e02979da01486dc4e6ca5da7ca35cdb51"
+    },
+    {
+      "name": "offline-program.tsv",
+      "bytes": 206,
+      "sha256": "77159615803afc7a56967d39319d9cdb21932115c2438278d4b8d0446a4002a6"
+    },
+    {
+      "name": "upstream-4112-version-20261016.json",
+      "bytes": 2132,
+      "sha256": "5a73dbe9ac1d59a200e9d844b60d3e82cadb0a1c126bb1792ee15a9db2123e00"
+    },
+    {
+      "name": "upstream-4115-issues-20261016.json",
+      "bytes": 316,
+      "sha256": "502628f89bc579d19df54f4b73e0aae64d39552e7815bc63584625244d70b628"
+    },
+    {
+      "name": "upstream-4115-renamed-issues-20261016.json",
+      "bytes": 79,
+      "sha256": "c9938edecb99d754b2d039ac9eec320a94c769b6a6417921e2dcbef9e2fe01a0"
+    },
+    {
+      "name": "upstream-and-callchain-review.md",
+      "bytes": 6618,
+      "sha256": "4ef1128aa7661ad6e276ec10231e33b514089aa78d67d9151f1ef099c69c1994"
+    },
+    {
+      "name": "upstream-main-commit-20261016.json",
+      "bytes": 6175,
+      "sha256": "c4922ba28ad08ef25ec95c77d58b3ef66d591d6b4ac622b56cf13698fabdaa72"
+    },
+    {
+      "name": "upstream-onebot-index-20261016.json",
+      "bytes": 27480,
+      "sha256": "a1102022a554218cb7b9ec28421d93a41c6eacba02c43a3ef901ea6e2402b77b"
+    },
+    {
+      "name": "upstream-onebot-script-20261016.js",
+      "bytes": 71697,
+      "sha256": "23ec6a69c08ad60d952add1cda8fc59480971f9b595b7a76e3a7b983c17f4356"
+    },
+    {
+      "name": "upstream-releases-20261016.json",
+      "bytes": 63773,
+      "sha256": "58c420fa6b85b3a3de853b94a268aa9a6241d1b30fc0034f24a3f342c0856f08"
+    },
+    {
+      "name": "upstream-script-api-20261016.json",
+      "bytes": 99859,
+      "sha256": "bc92bed818eefee223ca0cf97dc09da75d20a53cbb7e0cb601eb5fe9dc883d73"
+    },
+    {
+      "name": "upstream-search-4115-20261016.json",
+      "bytes": 3228,
+      "sha256": "06970b5354894452fe83417a3a291284df80fb864568ac76e534a8c27929cff0"
+    },
+    {
+      "name": "upstream-search-4115-exact-20261016.json",
+      "bytes": 1771,
+      "sha256": "aacc259fccff262aa7a88a92034c2d2092fbe5310aa9ea9ff521c5221729d40d"
+    },
+    {
+      "name": "upstream-versions-20261016.json",
+      "bytes": 15476,
+      "sha256": "ba6756fec6f8b5d877175000cec9b1ce6e8ae060e49adb9320f10aa760906ad4"
+    }
+  ]
+}

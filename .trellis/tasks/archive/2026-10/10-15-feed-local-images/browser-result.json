@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "scope": "Chromium + fixture IPC",
+  "frontend_root": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-feed-local-images/installed-ui",
+  "checks": [
+    "实际PNG解码640x360",
+    "缩略图尺寸",
+    "键盘原尺寸开关",
+    "越界零转换",
+    "404降级",
+    "320/768/1024/1440布局",
+    "零pageerror"
+  ],
+  "limitations": [
+    "Rust授权由独立单测覆盖；本浏览器使用夹具IPC",
+    "未验证真实系统WebView"
+  ]
+}

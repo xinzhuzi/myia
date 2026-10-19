@@ -1,0 +1,16 @@
+{
+  "id": "10-15-trellis-no-git-task-create",
+  "title": "Trellis: no-git 环境可创建 planning 任务",
+  "status": "completed",
+  "priority": "P2",
+  "created": "2026-10-15",
+  "owner": "ai",
+  "description": "移除 task.py create 对 Git 分支探测的硬依赖，使 no-git 项目纪律下可安全创建 planning 任务。",
+  "labels": [
+    "trellis",
+    "tooling",
+    "no-git"
+  ],
+  "commits": [],
+  "completedAt": "2026-10-19"
+}

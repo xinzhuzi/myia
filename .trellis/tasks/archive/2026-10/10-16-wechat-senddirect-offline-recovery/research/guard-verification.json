@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "results": [
+    {
+      "script": "drive_wf.sh",
+      "syntax_exit": 0,
+      "exit": 78
+    },
+    {
+      "script": "drive_wf2.sh",
+      "syntax_exit": 0,
+      "exit": 78
+    },
+    {
+      "script": "drive_wf3.sh",
+      "syntax_exit": 0,
+      "exit": 78
+    },
+    {
+      "script": "drive_wf4.sh",
+      "syntax_exit": 0,
+      "exit": 78
+    },
+    {
+      "script": "drive_wf5.sh",
+      "syntax_exit": 0,
+      "exit": 78
+    }
+  ],
+  "historical_files_unchanged": 219,
+  "external_commands_invoked": 0,
+  "scope": "five legacy launchers only; not a global enforcement mechanism"
+}

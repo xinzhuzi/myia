@@ -1,0 +1,192 @@
+{
+  "collected_at": "2026-10-15T17:56:12.170317+00:00",
+  "static_sources": [
+    {
+      "source": "/Users/zhengbingjin/ghidra-hunt-r9/hunt_r33_out.txt",
+      "copy": "hunt_r33_out.txt",
+      "sha256": "3f151887f66571d7110da2c79b41e5e6e5ff4c319810a592f38c2cc37d8c869e"
+    },
+    {
+      "source": "/Users/zhengbingjin/ghidra-hunt-r9/hunt_r36_out.txt",
+      "copy": "hunt_r36_out.txt",
+      "sha256": "d1c09d2009e365dcab05c1769c804e4b16a0562eaefeb5037c6860d22118f925"
+    },
+    {
+      "source": "/Users/zhengbingjin/ghidra-hunt-r9/hunt_r37_out.txt",
+      "copy": "hunt_r37_out.txt",
+      "sha256": "3c950d3b06f9332ffac9b56a50a4bac27a036ddacd2b8f10befdb019553e5150"
+    },
+    {
+      "source": "/Users/zhengbingjin/ghidra-hunt-r9/hunt_r38_out.txt",
+      "copy": "hunt_r38_out.txt",
+      "sha256": "218e1f0121d61fe0f05c5c155955f321b8be85e6f2f77b8db4974cf6b838c932"
+    }
+  ],
+  "crashes": [
+    {
+      "source": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/crash-234325.ips",
+      "sha256": "a26c297eeb5580cdf76c0825d984ad9dadf427f1b59fa09902d1aa7323fde6e3",
+      "capture_time": "2026-10-15 23:43:22.3591 +0800",
+      "pid": 27413,
+      "exception": {
+        "codes": "0x0000000000000001, 0x000000000000e839",
+        "rawCodes": [
+          1,
+          59449
+        ],
+        "type": "EXC_BAD_ACCESS",
+        "signal": "SIGSEGV",
+        "subtype": "KERN_INVALID_ADDRESS at 0x000000000000e839"
+      },
+      "thread": "mars::stn *3429",
+      "x21": 2,
+      "far": {
+        "value": 59449
+      },
+      "frames": [
+        {
+          "image": "wechat.dylib",
+          "rva": "0x5a6c8a0"
+        },
+        {
+          "image": "wechat.dylib",
+          "rva": "0x5980cac"
+        }
+      ]
+    },
+    {
+      "source": "/Users/zhengbingjin/Library/Logs/DiagnosticReports/WeChat-2026-10-16-001720.ips",
+      "sha256": "20155991eff8e71d426fc6a3b568de75b585d94cf8f90ef6026e8e818192a223",
+      "capture_time": "2026-10-16 00:17:16.6172 +0800",
+      "pid": 55863,
+      "exception": {
+        "codes": "0x0000000000000001, 0x000000000000000a",
+        "rawCodes": [
+          1,
+          10
+        ],
+        "type": "EXC_BAD_ACCESS",
+        "signal": "SIGSEGV",
+        "subtype": "KERN_INVALID_ADDRESS at 0x000000000000000a"
+      },
+      "thread": "mars::stn *3557",
+      "x21": 1,
+      "far": {
+        "value": 10
+      },
+      "frames": [
+        {
+          "image": "wechat.dylib",
+          "rva": "0x5ded390"
+        },
+        {
+          "image": "wechat.dylib",
+          "rva": "0x5980cbc"
+        }
+      ]
+    },
+    {
+      "source": "/Users/zhengbingjin/Library/Logs/DiagnosticReports/WeChat-2026-10-16-012235.ips",
+      "sha256": "00a2befe9b3ce471b11a761c93da8b291db7b790df860c7343d81832bb148619",
+      "capture_time": "2026-10-16 01:22:32.0567 +0800",
+      "pid": 56383,
+      "exception": {
+        "codes": "0x0000000000000001, 0xbf80000000000019",
+        "rawCodes": [
+          1,
+          -4647714815446351847
+        ],
+        "type": "EXC_BAD_ACCESS",
+        "signal": "SIGSEGV",
+        "subtype": "KERN_INVALID_ADDRESS at 0xbf80000000000019"
+      },
+      "thread": "webview_io_thread",
+      "x21": 32431528512,
+      "far": {
+        "value": 13799029258263199769
+      },
+      "frames": [
+        {
+          "image": "WeChatAppEx Framework",
+          "rva": "0x95fcf1c"
+        },
+        {
+          "image": "WeChatAppEx Framework",
+          "rva": "0x569333c"
+        },
+        {
+          "image": "WeChatAppEx Framework",
+          "rva": "0xb50dec"
+        },
+        {
+          "image": "WeChatAppEx Framework",
+          "rva": "0xb4fbc4"
+        },
+        {
+          "image": "WeChatAppEx Framework",
+          "rva": "0x164ae34"
+        },
+        {
+          "image": "WeChatAppEx Framework",
+          "rva": "0x317be58"
+        }
+      ]
+    }
+  ],
+  "binary": {
+    "installed": "/Applications/WeChat.app/Contents/Resources/wechat.dylib",
+    "carrier": "/Users/zhengbingjin/Downloads/rea-wechat-decompile/wechat_arm64_thin.dylib",
+    "arm64_slice_offset": "0xb010000",
+    "version": "4.1.15",
+    "samples": [
+      {
+        "rva": "0x5980a84",
+        "bytes": "f50304aaf60301aa",
+        "carrier_matches": true
+      },
+      {
+        "rva": "0x5980bc4",
+        "bytes": "a0e302d161220091",
+        "carrier_matches": true
+      },
+      {
+        "rva": "0x5980c44",
+        "bytes": "00013fd6df02006b",
+        "carrier_matches": true
+      },
+      {
+        "rva": "0x5980ca4",
+        "bytes": "a0e302d1f0ae0394",
+        "carrier_matches": true
+      },
+      {
+        "rva": "0x5a6c394",
+        "bytes": "092000a9087c01a9",
+        "carrier_matches": true
+      },
+      {
+        "rva": "0x5a6c868",
+        "bytes": "f657bda9f44f01a9",
+        "carrier_matches": true
+      },
+      {
+        "rva": "0x5981cd4",
+        "bytes": "08b0403968000837",
+        "carrier_matches": true
+      }
+    ],
+    "coverage": "seven 8-byte anchors only; not whole binary identity"
+  },
+  "session": {
+    "id": "sess_fb75a5f9-0ba3-4757-b89f-8739bb741c56",
+    "title": "微信 send_direct 直发线",
+    "time_updated": 1792086225019
+  },
+  "workflow": {
+    "id": "dwfrun-2d95aeba-da46-4c0c-be1f-a7d86157c155",
+    "name": "直发终局攻坚战",
+    "status": "cancelled",
+    "time_updated": 1792086065307
+  },
+  "workflow_running_tool_rows": 0
+}

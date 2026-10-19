@@ -1,0 +1,10 @@
+{
+  "status": "installed",
+  "app": "/Applications/世事.app",
+  "backup": "/Applications/世事.backup-20261016-005608.app",
+  "binary_sha256": "0254fc3051911c982c7cc902d4976fd291d342550d97b3406c6973b6101843d0",
+  "pids_before": [],
+  "pids_after": [],
+  "app_launched": false,
+  "signing": "local ad-hoc, codesign --verify --deep --strict passed"
+}

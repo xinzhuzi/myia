@@ -1,0 +1,115 @@
+== COPY_SRC_5a6c374 ==
+entry=0x5a6c374 end=0x5a6c3b3
+
+undefined8 * FUN_05a6c374(undefined8 *param_1)
+
+{
+  *param_1 = &PTR_FUN_09f35488;
+  param_1[1] = &DAT_0a524ad0;
+  param_1[2] = &DAT_0a524ad0;
+  param_1[3] = 0;
+  param_1[4] = 0;
+  FUN_05a6c22c();
+  return param_1;
+}
+-- blr/ret lines --
+0x5a6c3b0: ret
+== VT_SLOT0_5981c6c ==
+entry=0x5981c6c end=0x5981c9f
+
+undefined8 * FUN_05981c6c(undefined8 *param_1)
+
+{
+  *param_1 = &PTR_FUN_09f2e6d8;
+  FUN_05a6c43c(param_1 + 1);
+  return param_1;
+}
+-- blr/ret lines --
+0x5981c9c: ret
+== VT_SLOT8_5981ca0 ==
+entry=0x5981ca0 end=0x5981cd3
+
+void FUN_05981ca0(undefined8 *param_1)
+
+{
+  *param_1 = &PTR_FUN_09f2e6d8;
+  FUN_05a6c43c(param_1 + 1);
+  __ZdlPv(param_1);
+  return;
+}
+-- blr/ret lines --
+== AB_RESIZE_5ded378 ==
+entry=0x5ded378 end=0x5ded3c3
+
+void FUN_05ded378(long param_1,long param_2,int param_3)
+
+{
+  ulong uVar1;
+  
+  uVar1 = *(long *)(param_1 + 8) + param_2;
+  FUN_05ded3c4(param_1,uVar1);
+  if (param_3 != 0) {
+    if (uVar1 <= *(ulong *)(param_1 + 0x10)) {
+      uVar1 = *(ulong *)(param_1 + 0x10);
+    }
+    *(ulong *)(param_1 + 0x10) = uVar1;
+  }
+  return;
+}
+-- blr/ret lines --
+0x5ded3c0: ret
+== AB_PTR_56300b4 ==
+entry=0x56300b4 end=0x56300bf
+
+long FUN_056300b4(long *param_1,long param_2)
+
+{
+  return *param_1 + param_2;
+}
+-- blr/ret lines --
+0x56300bc: ret
+== MEMCPY_5ab3f98 ==
+entry=0x5ab3f98 end=0x5ab3f9b
+
+bool thunk_FUN_05ab3f9c(long *param_1,long param_2,int param_3)
+
+{
+  int iVar1;
+  undefined8 uVar2;
+  long lVar3;
+  undefined8 uVar4;
+  
+  uVar2 = (**(code **)(*param_1 + 0x48))();
+  iVar1 = (int)uVar2;
+  if (iVar1 <= param_3) {
+    lVar3 = (**(code **)(*param_1 + 0x58))(param_1,param_2);
+    if (lVar3 - param_2 != (long)iVar1) {
+      uVar4 = (**(code **)(*param_1 + 0x48))(param_1);
+      FUN_05ab3d94(uVar2,uVar4,lVar3 - param_2);
+    }
+  }
+  return iVar1 <= param_3;
+}
+-- blr/ret lines --
+== NOTIFY_597e100 ==
+entry=0x597e100 end=0x597e1bf
+
+void FUN_0597e100(long param_1,undefined8 param_2,undefined8 param_3,undefined8 param_4,
+                 undefined8 param_5)
+
+{
+  int iVar1;
+  undefined1 auStack_d0 [144];
+  
+  if ((*(long *)(param_1 + 0x10) == 0) && (iVar1 = thunk_FUN_05e1d97c(5), iVar1 != 0)) {
+    FUN_05e1d050(auStack_d0,5,"mars::mmext","mmstn_manager.cc","ReportIDKey",0x3fb,0,0);
+    FUN_05e1d244(auStack_d0,"mmcallback_ != NULL");
+    thunk_FUN_05e1d0bc(auStack_d0);
+  }
+  (**(code **)(**(long **)(param_1 + 0x10) + 0x40))
+            (*(long **)(param_1 + 0x10),param_2,param_3,param_4,param_5);
+  return;
+}
+-- blr/ret lines --
+0x597e1a4: blr x8
+0x597e1bc: ret

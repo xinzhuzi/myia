@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "scope": "installed_managed_python_rpc",
+  "app": "/Applications/世事.app",
+  "checks": [
+    "解释器版本、依赖指纹、安装件导入来源",
+    "version / yaml.list / store.items / health 真实 RPC",
+    "安装件品类补种与隔离空库",
+    "中文编辑、原文备份、保存后回读",
+    "YAML 越界路径拒绝",
+    "stdin EOF 正常退出"
+  ],
+  "limitations": [
+    "未启动 GUI / 未验证系统 WebView",
+    "未执行采集、推送或微信真实链",
+    "未验证内嵌前端资产行为"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "checked_at": "2026-10-16T01:56:12.342124+08:00",
+  "process_snapshot": [
+    "33589     1 S    /Applications/WeChat.app/Contents/MacOS/WeChat",
+    "33592     1 S    /Applications/WeChat.app/Contents/Frameworks/crashpad_handler",
+    "33594 33589 S    /Applications/WeChat.app/Contents/MacOS/WeChatAppEx.app/Contents/MacOS/WeChatAppEx",
+    "33595 33594 S    /Applications/WeChat.app/Contents/MacOS/WeChatAppEx.app/Contents/Frameworks/WeChatAppEx Framework.framework/Versions/C/Helpers/WeChatAppEx Helper.app/Contents/MacOS/WeChatAppEx Helper",
+    "33596 33594 S    /Applications/WeChat.app/Contents/MacOS/WeChatAppEx.app/Contents/Frameworks/WeChatAppEx Framework.framework/Versions/C/Helpers/WeChatAppEx Helper (GPU).app/Contents/MacOS/WeChatAppEx Helper (GPU)"
+  ],
+  "notes": "Snapshot only; no debugger attachment or target execution. No GUI health/functional claim."
+}

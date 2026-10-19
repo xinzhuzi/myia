@@ -1,0 +1,14 @@
+== TRUE_REQ2BUF ==
+entry=0x5981cd4 end=0x5981ceb
+
+undefined4 FUN_05981cd4(long param_1)
+
+{
+  if ((*(byte *)(param_1 + 0x2c) >> 1 & 1) == 0) {
+    return 0;
+  }
+  return *(undefined4 *)(param_1 + 0x20);
+}
+-- blr/ret lines --
+0x5981ce0: ret
+0x5981ce8: ret

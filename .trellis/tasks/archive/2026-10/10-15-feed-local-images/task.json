@@ -1,0 +1,17 @@
+{
+  "id": "10-15-feed-local-images",
+  "title": "情报流持久化图片安全实显",
+  "status": "completed",
+  "priority": "P2",
+  "created": "2026-10-15",
+  "owner": "ai",
+  "description": "为已持久化的 image_files 建立最小 asset 协议白名单与情报流展开态图片预览，保留路径与失败降级。",
+  "labels": [
+    "desktop",
+    "feed",
+    "tauri",
+    "vision"
+  ],
+  "commits": [],
+  "completedAt": "2026-10-19"
+}

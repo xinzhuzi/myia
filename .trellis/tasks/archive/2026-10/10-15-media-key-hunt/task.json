@@ -1,0 +1,21 @@
+{
+  "id": "10-15-media-key-hunt",
+  "title": "微信 V2 媒体 AES 钥运行期截获(哨兵)+ 真图终验收口",
+  "status": "completed",
+  "created": "2026-10-15",
+  "owner": "ai",
+  "labels": [
+    "wechat-bridge",
+    "reverse",
+    "media"
+  ],
+  "commits": [],
+  "meta": {
+    "board": {
+      "phase": "历史报告已记录供钥与三图通过；本轮未重验",
+      "next": "复用 research/window5-result.md 与 10-16-feed-wx-images；遵守账号停止记录，不再申请或启动微信观察窗口",
+      "notes": "2026-10-18对账：旧看板未同步后续成果；真图UI仍待用户终验。旧哨兵继续禁用，不据历史成功恢复活体操作。"
+    }
+  },
+  "completedAt": "2026-10-19"
+}

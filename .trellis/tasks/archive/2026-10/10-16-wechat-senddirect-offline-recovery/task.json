@@ -1,0 +1,37 @@
+{
+  "id": "wechat-senddirect-offline-recovery",
+  "name": "wechat-senddirect-offline-recovery",
+  "title": "微信直发线离线接续与旧入口封禁",
+  "description": "复核 zcode 直发事故，封禁遗留后台编排入口，固化静态类型证据与后续验收门；不附加微信、不发送消息",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "xinzhuzi",
+  "assignee": "ai",
+  "createdAt": "2026-10-16",
+  "completedAt": "2026-10-19",
+  "branch": null,
+  "base_branch": null,
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/drive_wf4.sh",
+    ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/drive_wf5.sh",
+    ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/ANALYSIS.md",
+    ".trellis/spec/guides/wechat-reverse-playbook.md"
+  ],
+  "notes": "",
+  "meta": {
+    "board": {
+      "phase": "离线修复待评审",
+      "next": "审阅 recovery-review.md；直发全功能仍在原任务，实测另需单次明确授权",
+      "notes": "本切片五入口封禁与离线取证通过，不代表直发完成。未附加、未发送、未打包。"
+    }
+  }
+}
