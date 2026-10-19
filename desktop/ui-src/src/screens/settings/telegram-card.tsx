@@ -581,15 +581,23 @@ export function TelegramCard() {
               </div>
               {/* 回执尾段(问题7):随主容器 divide-y 收段 —— note 原落主
                   border 容器之外仅 border-t 接缝,「盒外孤岛」观感根因;
-                  收容器即收敛,text-ok 成功回执语义档原样不降饱和。 */}
-              <div className="flex flex-col gap-2 p-4">
-                {actionError ? <ErrorBox error={actionError} /> : null}
-                {note ? (
-                  <p role="status" data-testid="telegram-action-note" className="text-xs leading-5 text-ok">
-                    {note}
-                  </p>
-                ) : null}
-              </div>
+                  收容器即收敛,text-ok 成功回执语义档原样不降饱和。
+                  10-19 视觉批:双空零渲染(空容器 p-4 白占一段=卡内悬浮留白
+                  根因);note 加 ok 色左边框给回执视觉归属(VL「孤立行」)。 */}
+              {actionError || note ? (
+                <div className="flex flex-col gap-2 px-4 pb-3 pt-2">
+                  {actionError ? <ErrorBox error={actionError} /> : null}
+                  {note ? (
+                    <p
+                      role="status"
+                      data-testid="telegram-action-note"
+                      className="border-l-2 border-ok/60 py-0.5 pl-2.5 text-xs leading-5 text-ok"
+                    >
+                      {note}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </>
         ) : null}

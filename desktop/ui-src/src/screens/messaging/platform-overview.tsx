@@ -1317,7 +1317,7 @@ export function PlatformOverview({
                 </ul>
 
                 <div
-                  className="min-w-0 rounded-md border border-border bg-muted/20 p-4"
+                  className="min-w-0 max-h-[36rem] overflow-y-auto rounded-md border border-border bg-muted/20 p-4"
                   data-testid="platform-detail"
                   aria-label="平台详情面板"
                 >
