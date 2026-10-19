@@ -813,6 +813,25 @@ class ExtractConfig(_StrictModel):
         return self
 
 
+class SourceAggregateConfig(_StrictModel):
+    """源级同主体合成(10-19-wool-quality-gate):整页条目合成一条。
+
+    适用「一页=一个主体」的结构化列表源(TapNow 活动页这类:26 行都是
+    同一平台的活动,逐条进情报流=刷屏)。fetch 尾声把该源本轮全部条目
+    合成为单条:``title = "{subject} · N 条(最高 M)"``(M 仅当行标题中
+    能稳定解析出数字时附上)、``url = source.url``(页面即身份,dedup
+    key 随之稳定)、明细逐行进 ``content``、原始条目进
+    ``metadata.aggregated_from``。与 v0.4 ``aggregate:`` 顶层节(LLM 跨源
+    事件聚合)正交:那是"多源同事件"的语义合并,这是"单源整页"的结构
+    合成,零 token、零端点依赖。
+
+    仅 ``extract.type: list`` 可配(单页 item 源只有一条,合成无意义;
+    rss/json_path 需要时再放开)。
+    """
+
+    subject: ShortStr
+
+
 class RateLimitConfig(_StrictModel):
     """Politeness defaults; throttling lives once in the engine layer.
 
@@ -850,6 +869,8 @@ class SourceConfig(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict)
     pagination: PaginationConfig | None = None
     extract: ExtractConfig | None = None
+    #: 源级同主体合成(10-19-wool-quality-gate):见 :class:`SourceAggregateConfig`。
+    aggregate: SourceAggregateConfig | None = None
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
     proxy: str = "direct"
     retry: int = Field(default=DEFAULT_RETRY, ge=0, le=10)
@@ -927,6 +948,13 @@ class SourceConfig(BaseModel):
                 "pagination.mode 为 template 时 url 必须包含 {page} 模板占位符",
                 path_suffix="url",
             )
+        if self.aggregate is not None and (self.extract is None or self.extract.type != "list"):
+            raise SchemaValueError(
+                "invalid_source_aggregate",
+                "aggregate 仅在 extract.type 为 list 时有效(结构化列表源整页合成;"
+                f"当前源 extract={self.extract.type if self.extract else None})",
+                path_suffix="aggregate",
+            )
         return self
 
     @model_validator(mode="after")
@@ -999,15 +1027,18 @@ class WatchlistConfig(_StrictModel):
 
 
 class ClassifyRuleConfig(_StrictModel):
-    """One custom rule: ``name`` / ``when`` expression / ``tag``.
+    """One custom rule: ``name`` / ``when`` expression / ``tag`` / ``drop``.
 
     ``when`` is evaluated later against a whitelisted AST (never raw
     ``eval``) by the classify layer; the schema only enforces presence.
+    ``drop: true``(10-19-wool-quality-gate)把规则变成品类级否决:命中即
+    category=None(先于内置关键词裁决),形态过滤(提问/广告帖)用。
     """
 
     name: ShortStr
     when: ExprStr
     tag: str = Field(default="", max_length=64)
+    drop: bool = False
 
 
 class ClassifyConfig(_StrictModel):

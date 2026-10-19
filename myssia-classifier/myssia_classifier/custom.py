@@ -309,10 +309,16 @@ def _eval_node(node: ast.AST, fields: Mapping[str, Any], depth: int) -> Any:
 
 @dataclass
 class Rule:
-    """One custom rule: ``name``, a ``when`` expression over item fields, and a ``tag``.
+    """One custom rule: ``name``, a ``when`` expression over item fields, a
+    ``tag``, and an optional veto (``drop``, task 10-19-wool-quality-gate).
 
     The expression is validated at construction (fail fast). ``fields`` lists
     the item fields the expression references -- handy for docs and debug.
+
+    ``drop: true`` turns the rule into a discard veto: when the expression
+    matches, :func:`myssia_classifier.classify_item` returns ``category=None``
+    regardless of the built-in keyword verdict (品类级否决——提问/广告帖不进
+    羊毛这类"标题带免费二字但零情报"的形态)。A veto rule needs no ``tag``.
 
     Raises:
         RuleSyntaxError: invalid or disallowed ``when`` expression.
@@ -321,6 +327,7 @@ class Rule:
     name: str
     when: str
     tag: str = ""
+    drop: bool = False
     _tree: ast.Expression | None = field(default=None, init=False, repr=False, compare=False)
     _field_names: tuple[str, ...] = field(default=(), init=False, repr=False, compare=False)
 
@@ -383,12 +390,13 @@ def evaluate_expression(when: str, fields: Mapping[str, Any]) -> Any:
 def rules_from_config(entries: Iterable[Mapping[str, Any]] | None, source: str = "config") -> list[Rule]:
     """Build rules from raw ``classify.rules`` entries (list of mappings).
 
-    Each entry allows exactly the fields ``name`` / ``when`` / ``tag``;
-    unknown fields fail fast (schema 铁律: 未知字段不许静默忽略).
+    Each entry allows exactly the fields ``name`` / ``when`` / ``tag`` / ``drop``
+    (task 10-19-wool-quality-gate); unknown fields fail fast
+    (schema 铁律: 未知字段不许静默忽略).
 
     Raises:
         RuleConfigError: entries not a list / entry not an object /
-            unknown field / missing ``when``.
+            unknown field / missing ``when`` / non-bool ``drop``.
         RuleSyntaxError: invalid ``when`` expression (from Rule).
     """
     if entries is None:
@@ -399,7 +407,7 @@ def rules_from_config(entries: Iterable[Mapping[str, Any]] | None, source: str =
         path = f"{source}: classify.rules[{index}]"
         if not isinstance(entry, Mapping):
             raise RuleConfigError(f"{path}: 必须是对象, got {type(entry).__name__}")
-        unknown = set(entry) - {"name", "when", "tag"}
+        unknown = set(entry) - {"name", "when", "tag", "drop"}
         if unknown:
             raise RuleConfigError(f"{path}: 未知字段 {sorted(unknown)}")
         when = entry.get("when")
@@ -411,7 +419,10 @@ def rules_from_config(entries: Iterable[Mapping[str, Any]] | None, source: str =
         tag = entry.get("tag")
         if tag is not None and not isinstance(tag, str):
             raise RuleConfigError(f"{path}: tag 必须是字符串")
-        rules.append(Rule(name=name or f"rule-{index}", when=when, tag=tag or ""))
+        drop = entry.get("drop", False)
+        if not isinstance(drop, bool):
+            raise RuleConfigError(f"{path}: drop 必须是布尔值")
+        rules.append(Rule(name=name or f"rule-{index}", when=when, tag=tag or "", drop=drop))
     return rules
 
 

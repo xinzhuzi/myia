@@ -92,6 +92,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `headers` | `{}` | 请求头;凭据类键的值必须是 `env:`/`keychain:` 引用;不要伪装浏览器 UA(有源对 Chrome UA 回 429、对诚实的 MYIA 产品 UA 回 200) |
 | `pagination` | `null` | 翻页配置(见 pagination 节);`template` 模式要求 url 含 `{page}` |
 | `extract` | `null` | 字段提取(见 extract 节);留空时 L3+ 引擎自动结构化兜底;L2 `static_html` 装了 `trafilatura` extras 且兜底开关开时对无规则源/规则跑空(`rss` 除外)做单页正文兜底(开关优先级=源级 `engine_options.static_html.extract_fallback` > 全局 `MYIA_EXTRACT_FALLBACK=1` > 缺省关) |
+| `aggregate` | `null` | 源级同主体合成(10-19-wool-quality-gate;与顶层 `aggregate:` LLM 跨源事件聚合正交):`{subject: 主体名}`,仅 `extract.type: list` 可配;整页条目在 fetch 尾声合成单条(标题=「{subject} · N 条(最高 M)」、url=页面 URL 即稳定身份、明细进 content、原始行进 `metadata.aggregated_from`),零 token 零端点 |
 | `rate_limit` | `见 rate_limit 节` | 礼貌限速(限速在引擎层统一执行) |
 | `proxy` | `direct` | `direct` / `pool:<名称>` / `residential:<区域>`;pool 需全局配置 `--config` |
 | `retry` | `3` | 瞬时错误重试预算(0-10) |
@@ -161,6 +162,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `name` | `必填` | 规则名(1-64 字符) |
 | `when` | `必填` | 白名单表达式,对条目字段求值(语法见 2.10);加载期 AST 解析,**永不 eval** |
 | `tag` | `""` | 命中后打的标签(≤64 字符) |
+| `drop` | `false` | 品类级否决(10-19-wool-quality-gate):命中即 `category=None` 丢弃,**先于**内置关键词裁决——形态过滤用(如羊毛流里「标题带免费二字但实为提问/广告帖」的条目);被否决条目计入 `classify_rule_drop` 跳过计数(与词表未命中的 `classify_unmatched` 分开可见) |
 
 ### 2.10 when 表达式白名单语法(classify.rules 与 push.route 通用)
 

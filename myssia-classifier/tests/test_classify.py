@@ -451,3 +451,81 @@ def test_fixture_titles_contain_no_urls_or_credentials():
     url_like = re.compile(r"https?://|\w+://|Bearer |api[_-]?key\s*[=:]|sk-", re.I)
     for row in _gold_items():
         assert not url_like.search(row["title"]), f"夹具标题疑似含 URL/凭据: {row['title']}"
+
+
+# ---------------------------------------------------------------------------
+# drop veto rules (task 10-19-wool-quality-gate)
+# ---------------------------------------------------------------------------
+
+
+def test_rules_from_config_accepts_drop_flag():
+    rules = rules_from_config(
+        [{"name": "提问帖", "when": "'吗' in title", "drop": True}]
+    )
+    assert rules[0].drop is True
+    assert rules[0].tag == ""
+
+
+def test_rules_from_config_rejects_non_bool_drop():
+    with pytest.raises(RuleConfigError, match="drop 必须是布尔值"):
+        rules_from_config([{"when": "'吗' in title", "drop": "yes"}])
+
+
+def test_rules_from_config_still_rejects_unknown_fields():
+    with pytest.raises(RuleConfigError, match="未知字段"):
+        rules_from_config([{"when": "'吗' in title", "veto": True}])
+
+
+def test_classify_item_drop_rule_beats_builtin_free_signal():
+    """案发形态:标题带「免费」按 FREE_KW 应判 freebie,drop 否决优先于内置裁决。"""
+    rules = rules_from_config([{"name": "提问帖", "when": "'吗' in title", "drop": True}])
+    result = classify_item(
+        {"title": "升级后可以再免费开一台 2c12g100g 的实例吗"}, rules=rules
+    )
+    assert result.category is None
+    assert result.dropped_by == "提问帖"
+    assert result.tags == []
+
+
+def test_classify_item_drop_not_matched_falls_through_to_builtin():
+    rules = rules_from_config([{"name": "提问帖", "when": "'吗' in title", "drop": True}])
+    result = classify_item({"title": "免费送 NAS 券"}, rules=rules)
+    assert result.category == "freebie"
+    assert result.dropped_by == ""
+
+
+def test_classify_item_drop_and_tag_rules_coexist():
+    """drop 否决与打标规则同一列表共存:未命中否决时打标照常。"""
+    rules = rules_from_config(
+        [
+            {"name": "提问帖", "when": "'吗' in title", "drop": True},
+            {"name": "免费AI端点", "when": "'g4f' in url", "tag": "freebie"},
+        ]
+    )
+    kept = classify_item(
+        {"title": "免费端点", "url": "https://g4f.dev/x"}, rules=rules
+    )
+    assert kept.category == "freebie"
+    assert "freebie" in kept.tags
+    vetoed = classify_item(
+        {"title": "这个免费端点还能用吗", "url": "https://g4f.dev/x"}, rules=rules
+    )
+    assert vetoed.category is None
+    assert vetoed.dropped_by == "提问帖"
+
+
+def test_classify_item_first_matching_drop_rule_wins_in_declaration_order():
+    rules = rules_from_config(
+        [
+            {"name": "广告帖", "when": "'大促' in title", "drop": True},
+            {"name": "提问帖", "when": "'吗' in title", "drop": True},
+        ]
+    )
+    result = classify_item({"title": "大促免费领吗"}, rules=rules)
+    assert result.dropped_by == "广告帖"
+
+
+def test_result_dropped_by_defaults_empty_for_backcompat():
+    """旧调用(无 drop 规则)构造的结果 dropped_by 恒空串,字段向后兼容。"""
+    result = classify_item({"title": "免费送 NAS 券"})
+    assert result.dropped_by == ""

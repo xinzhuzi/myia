@@ -284,6 +284,25 @@ sources:
     proxy: direct
     retry: 3
 
+  # tapnow-events — 登录墙占位(2026-10-19 实测:app.tapnow.ai/events 是 JS 壳,
+  # firecrawl 云渲染点掉 cookie 弹墙后现 "Log in or sign up",无免登录 API——
+  # bundle 挖掘仅见 /event/:id 路由与 files.tapnow.media 用户件,活动列表接口
+  # 不匿名暴露)。解堵差主人侧登录态(env:TAPNOW_COOKIE 或等价通道)。解开时
+  # 选择器按登录态渲染实测补;aggregate 形态已定型:整页 26 行活动合成一条
+  # 「TapNow 活动 · 26 条(最高 72,000)」,明细进 content,刷屏问题从源头消。
+  # - name: tapnow-events
+  #   engine: firecrawl
+  #   url: "https://app.tapnow.ai/events"
+  #   method: GET
+  #   aggregate:
+  #     subject: TapNow 活动
+  #   extract:
+  #     type: list
+  #     item: "<登录态渲染后实测>"
+  #     fields:
+  #       title: "<实测>"
+  #       url: "<实测>@href"
+
 watchlist:
   keywords: [白嫖, 免费, 0元, 优惠券, 福利, 兑换码]
   mute: [广告, 中奖]
@@ -296,6 +315,32 @@ classify:                       # 羊毛 is one of the seven builtin categories;
     - name: 免费AI端点
       when: "'g4f' in url"
       tag: freebie
+    # 合成条目观测标签(10-19):aggregate 源的条目 metadata 带 aggregated_from,
+    # 打标后推送路由/界面可识别「这是一页合一条」的形态(分类走 builtin
+    # fallback=ai-news 存活,digest 档推送)。
+    - name: 同主体合成条目
+      when: "aggregated_from and len(aggregated_from) >= 1"
+      tag: aggregated
+    # ── 形态否决(10-19-wool-quality-gate;drop 先于 builtin 裁决)──
+    # 案发:提问帖「…可以再免费开一台…吗」/「什么时候开放呀」因标题带「免费」
+    # 被 FREE_KW 判 freebie;促销广告「超值大促|限时特惠…+免费」同理。标题含
+    # 免费二字 ≠ 羊毛——提问/求索/广告形态零情报,直接否决不进流。
+    - name: 提问帖过滤
+      drop: true
+      when: >-
+        '吗' in title or '呢?' in title or '呢？' in title or '请问' in title
+        or '想问' in title or '问一下' in title or '请教' in title
+        or '求助' in title or '求教' in title or '什么时候' in title
+    - name: 提问帖过滤·怎么如何
+      drop: true
+      when: >-
+        ('怎么' in title and ('?' in title or '？' in title))
+        or ('如何' in title and ('?' in title or '？' in title))
+    - name: 促销广告帖过滤
+      drop: true
+      when: >-
+        '超值' in title or '大促' in title or '秒杀' in title or '特惠' in title
+        or '低价' in title or '元起' in title or '刀起' in title
 
 dedup:
   key: "{url}"                  # one slot-window per topic (AM/PM boundary at

@@ -202,26 +202,30 @@ def test_ai_news_images_ring_local_hint_comment_ships_startup_guide():
 
 
 def test_wool_declares_nine_source_slots():
-    """2026-10-17 源面收口(4d171602 信息羊毛全量跑通):九活源 = 五家
-    static_html 直连(linuxsb/dalao/nodeloc/cocoloop/sbsb)+ 四家 firecrawl
-    云渲染(v2ex 三节点页 free/deals/share——CF 挑战墙直连必 403,唯一活路
-    云渲染;s74 74站纯 JS 壳同理)。bbsbtsb 判死移除(域名迁移 + 长亭雷池
-    WAF 三通道全拦,证据在 wool.yaml 源位注释);两个 parked placeholder
-    注释(linux.do 登录墙 / v2ex 聚合位)仍须留在档。原
-    test_wool_declares_seven_source_slots(5 槽)随之翻案改名。"""
+    """2026-10-17 源面收口(4d171602 信息羊毛全量跑通)+2026-10-18 扩容+
+    2026-10-19 维护:十活源 = 五家 static_html 直连(linuxsb/dalao/nodeloc/
+    cocoloop/sbsb)+ 四家 firecrawl 云渲染(v2ex 三节点页 free/deals/share
+    ——CF 挑战墙直连必 403,唯一活路云渲染;s74 74站纯 JS 壳同理)+ 一家
+    g4f 端点表 static_html(10-18 74d822c4 入源,当时漏更新本测试——10-19
+    全量跑红归因后补)。bbsbtsb 判死移除(域名迁移 + 长亭雷池 WAF 三通道
+    全拦,证据在 wool.yaml 源位注释);三个 parked placeholder 注释
+    (linux.do 登录墙 / v2ex 聚合位 / tapnow-events 登录墙+aggregate 形态)
+    仍须留在档。原 test_wool_declares_seven_source_slots(5 槽)随之翻案
+    改名;函数名保留 nine 系历史名不追改,断言面以十源为准。"""
     text = (CONFIG_DIR / "wool.yaml").read_text(encoding="utf-8")
     assert "# - name: linuxdo" in text, "linux.do placeholder comment must stay"
     assert "# - name: v2ex" in text, "v2ex placeholder comment must stay"
+    assert "# - name: tapnow-events" in text, "tapnow placeholder comment must stay"
     config = _load("wool")
-    assert len(config.sources) == 9
+    assert len(config.sources) == 10
     by_name = {source.name: source for source in config.sources}
     assert set(by_name) == {
         "linuxsb", "dalao", "v2ex-free", "v2ex-deals", "v2ex-share",
-        "s74", "nodeloc", "cocoloop", "sbsb",
+        "s74", "nodeloc", "cocoloop", "sbsb", "g4f-endpoints",
     }
-    # 引擎面与 2026-10-17 实测一致:直连五家 static_html;CF 墙/JS 壳四家
-    # 走 firecrawl 云渲染(钥匙串端点兜底,本地 3002 已死)。
-    direct = {"linuxsb", "dalao", "nodeloc", "cocoloop", "sbsb"}
+    # 引擎面与实测一致:直连六家 static_html(五论坛+g4f 文档页);CF 墙/
+    # JS 壳四家走 firecrawl 云渲染(钥匙串端点兜底,本地 3002 已死)。
+    direct = {"linuxsb", "dalao", "nodeloc", "cocoloop", "sbsb", "g4f-endpoints"}
     for name, source in by_name.items():
         expected = "static_html" if name in direct else "firecrawl"
         assert source.engine == expected, f"wool/{name}: engine 应为 {expected}"

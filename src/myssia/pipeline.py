@@ -98,6 +98,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import re
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -1886,6 +1887,16 @@ class Pipeline:
         # zip 源配置对齐(gather 保序):②软信号需要「源配了规则」与产出对照。
         for (source_report, raw_items), source in zip(outcomes, self.config.sources):
             source_reports.append(source_report)
+            if getattr(source, "aggregate", None) is not None and raw_items:
+                # 源级同主体合成(10-19-wool-quality-gate):整页条目收拢成
+                # 一条再进 Item 环——title/content/metadata 形态见
+                # :meth:`_collapse_source_items`。0 条不合成(空页无主体)。
+                rows_before = len(raw_items)
+                raw_items = [self._collapse_source_items(raw_items, source)]
+                logger.info(
+                    "源级合成 source=%s subject=%s rows_in=%s items_out=1",
+                    source.name, source.aggregate.subject, rows_before,
+                )
             if (
                 source_report.engine == "static_html"
                 and source.extract is not None
@@ -1964,6 +1975,52 @@ class Pipeline:
             sum(1 for s in source_reports if s.failed),
         )
         return source_reports, items
+
+    _AGGREGATE_NUMBER_RE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)")
+
+    def _collapse_source_items(
+        self, raw_items: list[dict], source: Any
+    ) -> dict:
+        """Synthesize one raw record from a full page of same-subject rows.
+
+        输出契约(与 :class:`~myssia.schema.SourceAggregateConfig` 文档一致):
+        ``title = "{subject} · N 条(最高 M)"``——M 只在行标题里解析得到
+        数字时附上(逐行取最大值;纯展示性提示,日期/规格混入时可能偏大,
+        消费面只当看点不当事实);``url = source.url``(页面即稳定身份,
+        dedup key 随之逐窗稳定);明细逐行进 ``content``;原始行(标题、
+        URL 及其余字符串字段)进 ``metadata.aggregated_from``。
+        """
+        subject = source.aggregate.subject
+        titles = [str(raw.get("title") or "").strip() for raw in raw_items]
+        numbers: list[int] = []
+        for title in titles:
+            for token in self._AGGREGATE_NUMBER_RE.findall(title):
+                try:
+                    numbers.append(int(token.replace(",", "")))
+                except ValueError:  # pragma: no cover - 正则保证可解析
+                    continue
+        headline = f"{subject} · {len(raw_items)} 条"
+        if numbers:
+            headline += f"(最高 {max(numbers):,})"
+        details = "\n".join(
+            "- {} {}".format(title, raw.get("url") or "")
+            for title, raw in zip(titles, raw_items)
+        )
+        aggregated_from = [
+            {
+                key: value
+                for key, value in raw.items()
+                if isinstance(value, (str, int, float)) and value != ""
+            }
+            for raw in raw_items
+        ]
+        return {
+            "url": source.url,
+            "title": headline,
+            "content": details,
+            "aggregate_subject": subject,
+            "aggregated_from": aggregated_from,
+        }
 
     async def _fetch_one(
         self, source: Any, context: FetchContext, options: StageOptions
@@ -2190,7 +2247,17 @@ class Pipeline:
                         view, table=self._classify_table, rules=self._classify_rules
                     )
                     if verdict.category is None:
-                        report.skips["classify_unmatched"] += 1
+                        # 丢弃两条路径分开计数(10-19-wool-quality-gate):drop
+                        # 规则否决是品类有意配置的形态过滤,与词表未命中混在
+                        # 一个计数里会让"规则杀了多少"永远不可见。
+                        if verdict.dropped_by:
+                            report.skips["classify_rule_drop"] += 1
+                            logger.info(
+                                "分类 drop 规则否决 rule=%s title=%r url=%s",
+                                verdict.dropped_by, item.title, item.url,
+                            )
+                        else:
+                            report.skips["classify_unmatched"] += 1
                         logger.debug("分类未命中,丢弃 title=%r url=%s", item.title, item.url)
                         continue
                     item.category = verdict.category

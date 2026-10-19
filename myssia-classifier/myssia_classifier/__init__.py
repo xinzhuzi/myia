@@ -77,6 +77,10 @@ class ClassifyResult:
     tags: list[str]  # tags from fired custom rules (falls back to rule name)
     matched: tuple[MatchEvidence, ...]  # which keyword/pattern hit where
     normalized_title: str
+    #: 命中的 drop 规则名(空串=无;task 10-19-wool-quality-gate)——品类级
+    #: 否决先于内置裁决,命中时 category 恒 None,调用方可据此区分
+    #: ``classify_rule_drop`` 与 ``classify_unmatched`` 两条丢弃路径。
+    dropped_by: str = ""
 
 
 def _item_title(item: Mapping[str, Any] | object) -> Any:
@@ -120,6 +124,19 @@ def classify_item(
     title = _item_title(item)
     if not isinstance(title, str):
         raise TypeError(f"分类条目缺少字符串 title 字段, got {type(title).__name__}")
+    # drop 否决先于内置裁决(10-19-wool-quality-gate):标题带免费关键词但
+    # 形态是提问/广告的条目,品类可在 yaml 里声明否决规则直接丢弃——否决
+    # 与打标同一套 when 表达式与字段隔离语义,求值失败同样按不命中跳过。
+    for rule in rules or ():
+        if rule.drop and rule.evaluate(item):
+            logger.debug("分类条目被 drop 规则否决: rule=%s title=%r", rule.name, title)
+            return ClassifyResult(
+                category=None,
+                tags=[],
+                matched=(),
+                normalized_title=title,
+                dropped_by=rule.name,
+            )
     builtin_result = classify_title(title, table)
     tags: list[str] = []
     for rule in rules or ():
