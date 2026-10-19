@@ -61,7 +61,8 @@
 - [x] A4 装机实测·池源取回(**必须走 R3 自动发现路径**):装机 app 对「TG频道监控」品类发起一次采集——该 job 实测 config_path=None(装机 jobs.json 16 job 中仅 AI资讯 带显式 config_path),恰走 job_command 自动拼 `--config` 路径;判据:telegram-durov 条目正常取回、direct 源不受牵连、日志无 proxy_pools_not_configured。R3 验收 = A4 + A5 的 argv 佐证叠加;**「等既有 AI资讯 cron fire」不构成 R3 验证**(拷问 F7 定稿删去该捷径——它只证明旧显式 --config 路径仍在工作,与自动发现无关)。
 - [x] A5 装机包含本任务逻辑:安装件 Resources/config/ 含 proxy-pools.yaml(resources 生效);安装件 Python 文件与源码逐字节一致(package_smoke.py 套路,10-15-feed-local-images 判例形态);装机 run.start/cron 行为符合 R3(日志/argv 佐证自动拼 --config)。
 - [x] A6 自动发现行为测试:tests/desktop(run.start + doctor config_auto 顺序)与 tests/cron(job_command)新增用例覆盖:显式 config 优先、home 模式自动拼、池文件缺失不拼、dev 模式零变化。
-- [ ] A7 换装跨度冒烟(拷问 F4 定稿新增):装机后日报下一期仍送达预期 bot(「AI信息分析师」,abe51b9c 面)且 AI 白嫖分区含三新源(b1684dfc 面);其余 0.0.3..HEAD 跨度面在任务档记录「已跨越、未逐面冒烟」。
+- [x] A7 换装跨度冒烟(拷问 F4 定稿新增):装机后日报下一期仍送达预期 bot(「AI信息分析师」,abe51b9c 面)且 AI 白嫖分区含三新源(b1684dfc 面);其余 0.0.3..HEAD 跨度面在任务档记录「已跨越、未逐面冒烟」。
+  - **验收实录(2026-10-19 20:36 主会话亲验)**:20:05 PM 日报 run 8060 completed+push feishu_card ok=true;装机 daily-digest.yaml:155 `bot: analyst`(AI信息分析师,20:14 botswitch 落地)寻址实证=送达面过。三新源面三证推定:①装机分区清单含 edumails-nav/freellmapi-releases/gpt4free-releases(实读);②同配置今早 8:05 AM 日报 run 6474「AI 白嫖与优惠」分区实render 三源条目(freellmapi v0.16.1/2/3+gpt4free v8.7.7);③PM 期无分区=三源 job 排程 0 8 * * * 仅晨跑,PM 槽窗口空跳分区(设计行为,store_report_window_empty 哨兵注释在 daily-digest.yaml:136)。明早 8:05 AM 日报自然补最后一眼直接目验。
 
 ## Notes
 

@@ -158,3 +158,9 @@ uv run --no-sync python tests/regen_push_targets_golden.py --refreeze
 - A6:4ec13773 三入口测试(cron/desktop 双件)scoped 241→修后 242 全绿。
 - A7:20:05 新包首期日报待验(一次性自动化 20:21 已挂,结果回写本档)。
 - 8.4 数据根手改:批1+批2 已于 10-18 完成(B4 终态计数在档),本日零触碰。
+
+## A7 收官实录(2026-10-19 20:36,主会话亲验代跑——原挂 20:21 一次性检查落在别会话工作区未触发)
+
+- 20:05 PM 日报(run 8060):completed,push feishu_card ok=true(immediate=1),零失败;装机 config `bot: analyst` 出站(20:14 botswitch 备份链在证)=送达「AI信息分析师」✓。
+- 三新源(b1684dfc):装机分区清单含三源名;今早 8:00 采集 run 6465 三源全活(edumails-nav 231/freellmapi 10/gpt4free 10);8:05 AM 日报(6474)分区实render 三源条目 ✓;PM 期分区空=三源 job 仅 0 8 排程的设计行为(窗口空哨兵注释 daily-digest.yaml:136)。明早 8:05 AM 为新包直接目验兜底。
+- A1-A7 至此全过,档转收官态待主人归档。
