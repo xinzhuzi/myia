@@ -1,0 +1,17 @@
+{
+  "python": {
+    "passed": 158,
+    "skipped": 1,
+    "exit": 0
+  },
+  "vitest": {
+    "files": 47,
+    "passed": 937,
+    "exit": 0
+  },
+  "typescript_exit": 0,
+  "headless_smoke_passed": 4,
+  "full_python_suite_run": false,
+  "package_smoke_run": false,
+  "debug_attach_performed": false
+}

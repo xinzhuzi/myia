@@ -1,0 +1,9 @@
+{
+  "exit": 2,
+  "success": false,
+  "status": "blocked_missing_key",
+  "provided": 5,
+  "required": 3,
+  "verified": 0,
+  "stderr_empty": true
+}

@@ -1,0 +1,25 @@
+{
+  "guard_status": "passed",
+  "runners": [
+    {
+      "runner": "drive_wf.sh",
+      "exit": 78
+    },
+    {
+      "runner": "drive_wf2.sh",
+      "exit": 78
+    },
+    {
+      "runner": "drive_wf3.sh",
+      "exit": 78
+    }
+  ],
+  "wechat": {
+    "pid": 56383,
+    "ppid": 18654,
+    "state": "SX",
+    "P_TRACED": true
+  },
+  "new_inflight_owner": "zcode-cli PID9321 -> drive_wf4.sh -> LLDB18648 / debugserver18654",
+  "scope": "three legacy entries disabled; fourth in-flight run not changed or stopped; no attachment performed by this turn"
+}

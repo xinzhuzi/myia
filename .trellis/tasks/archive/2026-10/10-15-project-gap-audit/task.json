@@ -1,0 +1,15 @@
+{
+  "id": "10-15-project-gap-audit",
+  "title": "全项目遗漏与问题核验：任务、运行面、产品与验证缺口",
+  "status": "completed",
+  "priority": "P1",
+  "created": "2026-10-15",
+  "owner": "ai",
+  "description": "按用户要求审计全项目该做未做项，实证去重并生成可执行 planning 任务；不实现、不操作 Git、不附加活进程。",
+  "labels": [
+    "audit",
+    "task-gaps"
+  ],
+  "commits": [],
+  "completedAt": "2026-10-19"
+}

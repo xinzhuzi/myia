@@ -1,0 +1,9 @@
+{
+  "desktop/ui-src/src/screens/feed/feed-screen.tsx": "a1a6dc836787f1931ac0f635bbead4eb3ca81745187cd2af0505ba12760fc248",
+  "desktop/src-tauri/tauri.conf.json": "7d7be5b1dcfcf8257892eb68eb51e311b57883fd55077289f9fe0babcc8d5ca8",
+  ".trellis/scripts/common/task_store.py": "5712b0405e1fd0c2b7be5e5fbd420fa6eec2c49c8e4cf2b8fc69b7d2e4aeb016",
+  ".trellis/tasks/10-15-media-key-hunt/prd.md": "c1666a1c73f212e087d3fef21446b73cd3ccaed4f9e449bde1d91eb07aabd596",
+  ".trellis/tasks/10-15-wechat-senddirect-spawner/prd.md": "3b90592c4ef24bb4e6334954de4040a659f2007b83c2ad3f523319a53afb444c",
+  ".trellis/tasks/10-15-wechat-senddirect-uicreate/prd.md": "18c24041066fbc1b04446d5b966f76fb7906a06fceae47ce804c4db84d583b89",
+  ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/script-4115.js": "8efd48b95f19c756e517945c09aa7fd9bc7dc59f4b82c3ae60c7a454a68f1cec"
+}
