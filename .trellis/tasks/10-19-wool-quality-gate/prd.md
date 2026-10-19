@@ -54,9 +54,13 @@
       (test_skill_doc 2 红修绿)
 - [x] AC7 schema:SourceAggregateConfig + ClassifyRuleConfig.drop +
       invalid_source_aggregate 装载期校验
-- [ ] AC8 装机链:classifier 0.0.6 轮子装入 app 环境(0.0.1 旧轮不支持
-      drop,不升则 wool 装载即炸)、wool.yaml 同步装机 config(带备份)、
-      app 重打包换装、真网 dry-run 验证 drop 生效
+- [x] AC8 装机链:classifier 0.0.6 轮子已装入 app 环境(0.0.1→0.0.6,drop
+      实测生效)、wool.yaml 已同步装机 config(备份 wool.backup-20261019)、
+      app 重打包换装完成(bundle 内 pipeline/schema 新代码实证+WKWebView
+      缓存已清+静默拉起 sidecar 在跑)、真网 dry-run 验证:309 条采集、
+      classify_rule_drop=25(提问帖 20+怎么如何 3+广告 2,抽查否决标题
+      全为案发形态)、136 条留存;partial 归因=s74 选择器失效(预存债,
+      已另立 10-19-s74-selector-broken 档)
 
 ## Notes
 
@@ -67,3 +71,12 @@
 - AI 档(v0.2):wool enrich.enabled 开启 + glm-5.3-flash 判「真羊毛(实测/
   操作/资源)」+ 同主体语义聚类——配置槽位(scores/batch/budget/route
   score>=8)均已预留,届时只翻开关接端点。
+- 边界已知误杀面:「学生特惠上车实操指南」类付费优惠教程会被促销规则否决
+  (羊毛=白嫖流口径下属预期行为,主人若要收这类可删「特惠」词或移 AI 档
+  判);真网 25 条否决抽查未见真羊毛被误杀。
+- 旁支债:真网 dry-run 揪出 s74(74站)整源 invalid_item(url=None,62 条
+  全灭,页面改版选择器失效,生产 10-18 两轮 partial 同因)——已另立
+  10-19-s74-selector-broken 档,不入本档范围。
+- 换装细节:旧包备份 /Applications/世事.app.bak-<ts>(保留不删);新包
+  v0.0.6 未升版本号(代码随包分发,版本九位一体属发布动作);提交未推
+  origin(review 档待主人过目,并行会话在途脏文件多,推送留主人令)。
