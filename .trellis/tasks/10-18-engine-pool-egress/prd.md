@@ -55,15 +55,19 @@
 
 ## Acceptance Criteria(终版,2026-10-18 定稿)
 
-- [ ] A1 全量测试绿:`uv run --no-sync python -m pytest -q` 通过(CI 同款命令,ci.yml:29 口径)。
-- [ ] A2 挂池装载门不破:改 proxy 值后品类装载合法——`uv run --no-sync python -m pytest tests/cli/test_sources_write_surgery.py tests/plugins/ -q` 绿(roundtrip 与插件铁律不受影响;含在 A1,单列便于定位)。
-- [ ] A3 装机实测·出口 IP 分流:覆盖安装 + 数据根手改后,装机 app 设置面板代理池探测(proxy.probe config_auto)报告 exit_ip ≠ `curl -s http://members.3322.org/dyndns/getip` 直连所得本地 ISP IP(探索员基线:经池 198.2.214.3 vs 本地 139.227.235.178;节点可能漂移,判据=不等)。
-- [ ] A4 装机实测·池源取回(**必须走 R3 自动发现路径**):装机 app 对「TG频道监控」品类发起一次采集——该 job 实测 config_path=None(装机 jobs.json 16 job 中仅 AI资讯 带显式 config_path),恰走 job_command 自动拼 `--config` 路径;判据:telegram-durov 条目正常取回、direct 源不受牵连、日志无 proxy_pools_not_configured。R3 验收 = A4 + A5 的 argv 佐证叠加;**「等既有 AI资讯 cron fire」不构成 R3 验证**(拷问 F7 定稿删去该捷径——它只证明旧显式 --config 路径仍在工作,与自动发现无关)。
-- [ ] A5 装机包含本任务逻辑:安装件 Resources/config/ 含 proxy-pools.yaml(resources 生效);安装件 Python 文件与源码逐字节一致(package_smoke.py 套路,10-15-feed-local-images 判例形态);装机 run.start/cron 行为符合 R3(日志/argv 佐证自动拼 --config)。
-- [ ] A6 自动发现行为测试:tests/desktop(run.start + doctor config_auto 顺序)与 tests/cron(job_command)新增用例覆盖:显式 config 优先、home 模式自动拼、池文件缺失不拼、dev 模式零变化。
+- [x] A1 全量测试绿:`uv run --no-sync python -m pytest -q` 通过(CI 同款命令,ci.yml:29 口径)。
+- [x] A2 挂池装载门不破:改 proxy 值后品类装载合法——`uv run --no-sync python -m pytest tests/cli/test_sources_write_surgery.py tests/plugins/ -q` 绿(roundtrip 与插件铁律不受影响;含在 A1,单列便于定位)。
+- [x] A3 装机实测·出口 IP 分流:覆盖安装 + 数据根手改后,装机 app 设置面板代理池探测(proxy.probe config_auto)报告 exit_ip ≠ `curl -s http://members.3322.org/dyndns/getip` 直连所得本地 ISP IP(探索员基线:经池 198.2.214.3 vs 本地 139.227.235.178;节点可能漂移,判据=不等)。
+- [x] A4 装机实测·池源取回(**必须走 R3 自动发现路径**):装机 app 对「TG频道监控」品类发起一次采集——该 job 实测 config_path=None(装机 jobs.json 16 job 中仅 AI资讯 带显式 config_path),恰走 job_command 自动拼 `--config` 路径;判据:telegram-durov 条目正常取回、direct 源不受牵连、日志无 proxy_pools_not_configured。R3 验收 = A4 + A5 的 argv 佐证叠加;**「等既有 AI资讯 cron fire」不构成 R3 验证**(拷问 F7 定稿删去该捷径——它只证明旧显式 --config 路径仍在工作,与自动发现无关)。
+- [x] A5 装机包含本任务逻辑:安装件 Resources/config/ 含 proxy-pools.yaml(resources 生效);安装件 Python 文件与源码逐字节一致(package_smoke.py 套路,10-15-feed-local-images 判例形态);装机 run.start/cron 行为符合 R3(日志/argv 佐证自动拼 --config)。
+- [x] A6 自动发现行为测试:tests/desktop(run.start + doctor config_auto 顺序)与 tests/cron(job_command)新增用例覆盖:显式 config 优先、home 模式自动拼、池文件缺失不拼、dev 模式零变化。
 - [ ] A7 换装跨度冒烟(拷问 F4 定稿新增):装机后日报下一期仍送达预期 bot(「AI信息分析师」,abe51b9c 面)且 AI 白嫖分区含三新源(b1684dfc 面);其余 0.0.3..HEAD 跨度面在任务档记录「已跨越、未逐面冒烟」。
 
 ## Notes
 
 - 行为披露(升级说明须带):home 模式 run/cron 缺省自动加载池文件后,原本因漏 --config 报 proxy_pools_not_configured 的池源将直接走池;无 Clash 的装机上,池源(被墙域/风控强站,7+1 处)快速失败(proxy_error/proxy_pool_exhausted,单上游池 3 连败熔断),direct 源不受影响——蓝本默认带 clash 池是单人自用机产品决策,如实披露。
 - 池健康态生命周期=单 run 不跨 run:clash 挂=该 run 内该池源快速失败,下一 run 重置重试(v1.2 池化既有语义,本任务零改动)。
+
+## 验收实录(2026-10-19)
+
+A1-A6 全过(明细见 implement.md 收官实录):A3 出口分流 139.227.235.178 vs 198.2.214.3;A4 生产 run 6471 durov 20 条零失败;A5 包内字节级一致;A1 全量 6550 绿(含日期腐烂测试修复)。A7 留待今晚 20:05 新包首期日报(一次性检查已挂 20:21,结果自动回写)。

@@ -6281,14 +6281,18 @@ def test_logs_tail_run_id_merges_disk_rows(tmp_path, monkeypatch):
     home = tmp_path / "home"
     (home / "logs").mkdir(parents=True)
     monkeypatch.setenv("MYIA_HOME", str(home))
-    # 盘:cron 子进程昨日行(跨进程,永不在环)
-    with open(home / "logs" / "myssia-20261011.jsonl", "a", encoding="utf-8") as fh:
+    # 盘:cron 子进程当日行(跨进程,永不在环)。文件名与 ts 随墙钟今日——
+    # 保留窗按名内日期裁,写死历史日期会随时间出窗被清(2026-10-19 实撞);
+    # 时戳取当日凌晨保证任意时刻运行 sidecar 环行(now)恒排最后,序断言稳定。
+    _today = datetime.now(timezone.utc)
+    _day = _today.strftime("%Y%m%d")
+    with open(home / "logs" / f"myssia-{_day}.jsonl", "a", encoding="utf-8") as fh:
         for row in [
-            {"ts": "2026-10-11T01:00:00.000+00:00", "run_id": 55, "stream": "stdout",
+            {"ts": f"{_today.date().isoformat()}T00:00:01.000+00:00", "run_id": 55, "stream": "stdout",
              "line": "cron child line a", "proc": "cli"},
-            {"ts": "2026-10-11T02:00:00.000+00:00", "run_id": 56, "stream": "stdout",
+            {"ts": f"{_today.date().isoformat()}T00:00:02.000+00:00", "run_id": 56, "stream": "stdout",
              "line": "other run", "proc": "cli"},
-            {"ts": "2026-10-11T03:00:00.000+00:00", "run_id": 55, "stream": "stderr",
+            {"ts": f"{_today.date().isoformat()}T00:00:03.000+00:00", "run_id": 55, "stream": "stderr",
              "line": "cron child line b", "proc": "cli"},
         ]:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
