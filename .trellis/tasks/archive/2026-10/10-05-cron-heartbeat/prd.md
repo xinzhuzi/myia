@@ -141,3 +141,15 @@
 - **AC5 门禁半边收口补**:统一批全量亲跑绿(pytest 4461 passed/40 skipped/0 failed+vitest 523(26 文件)+tsc -b 零错+vite build 绿+cargo check --locked/cargo test 56+ruff 全仓绿),推送后 CI 绿(run 37352272165,conclusion=success,headSha ff3e4a9)。
 - **AC3 留半勾**:真机像素归终轮装机刷新批(工作流 F 段标记①=消息屏 cron 徽章/心跳表单组),归档先行不阻塞,补验结果由该批回执;未见则报告 findings 出「装机标记未见」。
 - 提交链:833b331(第一批)+8be9904+b67dea8(接线批+复核处置批)+eef1f00+d653348(收尾件+归属更正);收尾段曾被 d3b23af 收编(归属混批判例,详见 task.json notes)。
+
+## AC3 像素补验·数据面预对账(2026-10-19 晚,「剩余问题清扫」工作流欠账承接)
+
+- **数据面预对账(通过)**:cron serve 生产进程在跑(PID 90936,12:01 起);数据根
+  `~/Library/Application Support/MYIA/cron/` jobs.json(18KB)+executions.db(1.1MB)
+  13:26 实时更新、.jobs.lock/catch_up_occurrences 齐全;装机包 12:01 新换装
+  (世事.app.bak-20261019-120119 在证),对应 main 树含 cron 消息屏 UI
+  (10-04 cron 批起在库)。徽章数据源链活。
+- **像素证据仍缺(半勾维持,如实)**:装机 app 生产实例在跑占单实例槽,此刻强做
+  小窗冒烟会撞单实例/静默铁律;包内前端资产 brotli 内嵌裸 grep 失效(判例)。
+  补验路径:app 空闲窗口期 MYIA_SMOKE_GEOMETRY 小窗冒烟+截屏+local-OCR 对账
+  ①消息屏 cron 徽章 ②心跳表单组,或随下次装机刷新批回执销号。
