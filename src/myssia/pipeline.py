@@ -573,6 +573,31 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+#: 标题级采集日志(10-19-runlog-item-titles)预览封顶条数:超出部分不出日志。
+_TITLE_PREVIEW_CAP = 10
+#: 预览单条截断长度(折叠空白后按字符计):10 条+编号最坏 <2KB UTF-8,距
+#: log 模块 64KB 行帽(``_MAX_LINE_BYTES``)两个数量级,字节级兜底不触发。
+_TITLE_PREVIEW_MAX_CHARS = 60
+
+
+def _titles_preview(raw_items: Sequence[Mapping[str, Any]]) -> str:
+    """标题级采集日志的预览串:编号 + 折叠空白 + 单条截断 + 封顶。
+
+    第三方标题是外部文本,可病态长/带换行:先 ``" ".join(text.split())`` 把
+    所有空白(``\\n``/``\\r``/``\\t``/全角空格)折叠为单空格——JSONL 单行性
+    (多进程 ``O_APPEND`` 行级原子前提)不破;再按字符截断加省略号;至多
+    ``_TITLE_PREVIEW_CAP`` 条,条数由日志的 ``items=`` 如实另报。缺 title
+    记空串(编号仍在,条位可辨)。只做标题,永不碰正文与 URL。
+    """
+    parts: list[str] = []
+    for index, raw in enumerate(raw_items[:_TITLE_PREVIEW_CAP], start=1):
+        folded = " ".join(str(raw.get("title") or "").split())
+        if len(folded) > _TITLE_PREVIEW_MAX_CHARS:
+            folded = folded[:_TITLE_PREVIEW_MAX_CHARS] + "…"
+        parts.append(f"{index}.{folded}")
+    return " ".join(parts)
+
+
 @dataclass
 class RunResult:
     """One pipeline execution: stage reports, sources, items, pushes, status."""
@@ -1913,6 +1938,18 @@ class Pipeline:
                 source_report.skip_reason,
                 len(source_report.failures),
             )
+            if raw_items:
+                # 标题级采集日志(10-19-runlog-item-titles):引擎级日志按契约
+                # 只记形状,这里在 pipeline 咽喉把「本轮到底采了些什么」留痕,
+                # 一处覆盖全部引擎;只记标题,永不记正文与 URL;取到但未入库
+                # (指纹 skip 全旧/分类滤除)的条目照记——留痕目的所在。零条目
+                # 不追加(零噪音)。
+                logger.info(
+                    "采集条目标题 source=%s items=%s titles=%s",
+                    source_report.name,
+                    len(raw_items),
+                    _titles_preview(raw_items),
+                )
         # 图片处理环(10-03-vision-pipeline 拍板②):fetch 尾部、条目入 checkpoint
         # 队列前逐条处理——产物挂 metadata,下方 _checkpoint_payload(current) 含
         # metadata,续跑自然可见;品类未开 images: 节 = 整环零进入(AC1 零影响)。

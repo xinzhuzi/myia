@@ -1203,3 +1203,121 @@ def test_run_self_backfills_log_run_id(tmp_path):
     asyncio.run(pipeline2.run(dry_run=True))
     assert dry_store.latest_run() is None
     dry_store.close()
+
+
+# ---------------------------------------------------------------------------
+# 标题级采集日志(10-19-runlog-item-titles:引擎级只记形状,pipeline 咽喉
+# 补「本轮采了些什么」的标题级留痕,只记标题永不记正文与 URL)
+# ---------------------------------------------------------------------------
+
+
+def _title_log_messages(caplog) -> list[str]:
+    """caplog 里全部「采集条目标题」行的已渲染消息(标记在仓库内唯一)。"""
+    return [r.message for r in caplog.records if "采集条目标题" in r.message]
+
+
+def test_fetch_logs_item_titles_line(tmp_path, caplog):
+    """有采到条目 → 每源一条 INFO「采集条目标题」行:标记、源名、条数、
+    编号标题预览齐全(标记字面量由包内字节验证另钉,此处钉行为)。"""
+    store = SQLiteStore(tmp_path / "titles.db")
+    config = make_config()
+    pipeline, _clock = make_pipeline(
+        config,
+        handler=make_handler([
+            {"title": "免费送 NAS 券", "url": "https://api.demo.local/a"},
+            {"title": "羊毛速报 第二期", "url": "https://api.demo.local/b"},
+        ]),
+        store=store,
+    )
+
+    with caplog.at_level("INFO", logger="myssia.pipeline"):
+        asyncio.run(pipeline.run())
+
+    messages = _title_log_messages(caplog)
+    assert len(messages) == 1
+    record = next(r for r in caplog.records if "采集条目标题" in r.message)
+    assert record.levelname == "INFO"
+    assert (
+        "采集条目标题 source=api items=2 titles=1.免费送 NAS 券 2.羊毛速报 第二期"
+        in messages[0]
+    )
+    store.close()
+
+
+def test_fetch_no_title_log_line_when_zero_items(tmp_path, caplog):
+    """零条目(健康空页)→ 不追加「采集条目标题」行(零噪音);形状级
+    「采集完成 … items=0」照常在场作对照。"""
+    store = SQLiteStore(tmp_path / "empty.db")
+    config = make_config()
+    pipeline, _clock = make_pipeline(config, handler=make_handler([]), store=store)
+
+    with caplog.at_level("INFO", logger="myssia.pipeline"):
+        asyncio.run(pipeline.run())
+
+    assert _title_log_messages(caplog) == []
+    assert any(
+        "采集完成" in r.message and "items=0" in r.message for r in caplog.records
+    )
+    store.close()
+
+
+def test_fetch_title_log_folds_truncates_and_caps(tmp_path, caplog):
+    """病态标题防泄洪三连:换行/制表/连续空白折叠为单空格、单条 60 字符
+    截断加省略号、超 10 条只出前 10 条编号预览(items= 如实另报总数)。"""
+    store = SQLiteStore(tmp_path / "clip.db")
+    payloads = [
+        {"title": f"第{i}条\n含\t制表  与连续  空白", "url": f"https://api.demo.local/{i}"}
+        for i in range(1, 13)
+    ]
+    payloads[0]["title"] = "白" * 80  # 病态长标题打头阵
+    config = make_config(classify={"builtin": False, "rules": []})
+    pipeline, _clock = make_pipeline(config, handler=make_handler(payloads), store=store)
+
+    with caplog.at_level("INFO", logger="myssia.pipeline"):
+        asyncio.run(pipeline.run())
+
+    messages = _title_log_messages(caplog)
+    assert len(messages) == 1
+    message = messages[0]
+    assert "items=12" in message  # 条数如实;预览封顶不由它说谎
+    assert "1." + "白" * 60 + "…" in message  # 80 字截 60 + 省略号
+    assert "白" * 61 not in message  # 截断后不再有 61 连白
+    assert "2.第2条 含 制表 与连续 空白" in message  # \n/\t/连续空格 → 单空格
+    assert "10.第10条" in message  # 封顶内最后一条在场
+    assert "11." not in message and "12." not in message  # 超帽条目不出预览
+    store.close()
+
+
+def test_fetch_title_log_one_line_per_source(tmp_path, caplog):
+    """多源并发:每源各自成一条「采集条目标题」行,源名/条数/标题各归各
+    (zip 源对齐保序,互不串行)。"""
+    store = SQLiteStore(tmp_path / "multi.db")
+    payloads = {
+        "a.demo.local": [{"title": "甲源头条", "url": "https://a.demo.local/1"}],
+        "b.demo.local": [
+            {"title": "乙源头条", "url": "https://b.demo.local/1"},
+            {"title": "乙源第二条", "url": "https://b.demo.local/2"},
+        ],
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404, text="")
+        return httpx.Response(200, json=payloads[request.url.host])
+
+    config = make_config(
+        sources=[json_source("alpha", "a.demo.local"), json_source("beta", "b.demo.local")],
+        classify={"builtin": False, "rules": []},
+    )
+    pipeline, _clock = make_pipeline(config, handler=handler, store=store)
+
+    with caplog.at_level("INFO", logger="myssia.pipeline"):
+        asyncio.run(pipeline.run())
+
+    messages = _title_log_messages(caplog)
+    assert len(messages) == 2
+    by_source = {message.split(" ")[1]: message for message in messages}
+    assert set(by_source) == {"source=alpha", "source=beta"}
+    assert "items=1 titles=1.甲源头条" in by_source["source=alpha"]
+    assert "items=2 titles=1.乙源头条 2.乙源第二条" in by_source["source=beta"]
+    store.close()
