@@ -145,7 +145,7 @@ sources:
       item: ".card"
       fields:
         title: ".card-name"
-        url: ".card-url@href"   # 卡内主推注册直链(绝对地址)
+        url: ".card-url a@href"  # 侦察修复2026-10-19:card-url 现为div包a,href在a上
         desc: ".card-desc"      # 站点描述(线路/倍率等情报)
         code: ".invite-code"    # 邀请码(有则抽,进 metadata 供推送模板用)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}

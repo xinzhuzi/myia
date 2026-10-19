@@ -1,0 +1,377 @@
+# config/wool.yaml — freebie/deal intelligence over public community forums.
+#
+# Section semantics are documented once, fully, in plugins/stocks.yaml (the
+# schema showcase). This file is the many-sources example: six L2 list pages
+# with per-source extract/rate_limit, plus a login-walled placeholder.
+# Source list per the v0.1 research facts (7 domains); every extract here
+# was verified against the live pages' 2026-10 server-rendered markup.
+
+id: wool
+name: 羊毛情报
+
+# Give-away intel is time-sensitive: immediate-routed items go out as soon
+# as a run finds them; 08:00 / 20:00 keeps the digest tier to two cards a
+# day (AM/PM slot, local-noon boundary).
+schedule: "0 8,20 * * *"
+timezone: Asia/Shanghai
+
+# Shared notes for every source below:
+# - engine: static_html = L2 server-rendered pages (v0.1 default for forums).
+#   "auto" would first try the L1 JSON API and only then degrade — pointless
+#   for plain HTML, so the engine is pinned.
+# - no Cookie headers: these list pages are public; a login-cookie source
+#   would carry `Cookie: env:<VAR>` (see the linux.do placeholder).
+# - proxy: direct — v0.1 only implements "direct" (pool/residential land in
+#   v0.2/v0.3 and raise a structured not-implemented error meanwhile).
+
+sources:
+  - name: linuxsb
+    engine: static_html
+    url: "https://linux.sb/"      # homepage = latest topic list
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: list
+      item: "div.post-body"       # one block per topic (title row + meta)
+      fields:
+        title: "a.post-title"
+        url: "a.post-title@href"  # /topic/<id>, resolved against the page URL
+    rate_limit:                   # robots only blocks admin/login/search pages
+      qps: 0.5
+      jitter: "2s"
+      backoff: exponential
+      respect_robots: true
+    proxy: direct
+    retry: 3
+    # No pagination: the site's page-2 URL pattern could not be verified
+    # (only the homepage is guaranteed) — single-page walk until confirmed.
+
+  # bbsbtsb 已移除(2026-10-17 判死):域名迁移 bbs.bt.sb→bt.sb(301),新域
+  # /latest 挂长亭雷池 WAF(waf.chaitin.com 拦截页),直连/Clash 出口/firecrawl
+  # 云渲染三通道全 468/拦截页(证据:/tmp 实测 2026-10-17)。若站方日后撤 WAF
+  # 或开放 API 再复源;华为云线同源同样受阻,非遗漏。
+  - name: dalao                # dalao.net(Xiuno BBS;2026-10-17 实测直连 200,
+    engine: static_html        # 首页 26 帖/页,thread-N.htm 相对链)
+    url: "https://www.dalao.net/"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: list
+      item: "li.media.thread"   # 每帖一行(li.media.thread,置顶帖同构)
+      fields:
+        title: ".subject a"    # 主题锚在 div.subject break-all 内(锚本身无类,
+                               # a.subject 会零命中——2026-10-17 实测踩坑)
+        url: ".subject a@href" # thread-N.htm,相对路径 urljoin
+    rate_limit:                # robots 未拦首页;礼貌限速照旧
+      qps: 0.5
+      jitter: "2s"
+      backoff: exponential
+      respect_robots: true
+    proxy: direct
+    retry: 3
+
+  # V2EX 节点页 ×3(free/deals/share;2026-10-17 并入,对齐华为云 wf_crawl 源面)。
+  # CF 挑战墙:直连与 Clash 出口均 403「Just a moment」,唯一活路=firecrawl 云
+  # 渲染(实测 33 主题链接/页;引擎选择器 span.item_title 系 V2EX 经典标记)。
+  # 云兜底凭据走钥匙串引用(本地 3002 后端已死,colima 退役在案)。
+  - name: v2ex-free
+    engine: firecrawl
+    url: "https://www.v2ex.com/go/free"
+    method: GET
+    engine_options:
+      firecrawl:
+        endpoint: keychain:myia/firecrawl/url
+        api_key: keychain:myia/firecrawl/api-key
+        timeout: 60
+    extract:
+      type: list
+      item: "span.item_title"
+      fields:
+        title: "a"
+        url: "a@href"          # /t/<id>#reply,相对路径 urljoin
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+  - name: v2ex-deals
+    engine: firecrawl
+    url: "https://www.v2ex.com/go/deals"
+    method: GET
+    engine_options:
+      firecrawl:
+        endpoint: keychain:myia/firecrawl/url
+        api_key: keychain:myia/firecrawl/api-key
+        timeout: 60
+    extract:
+      type: list
+      item: "span.item_title"
+      fields:
+        title: "a"
+        url: "a@href"
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+  - name: v2ex-share
+    engine: firecrawl
+    url: "https://www.v2ex.com/go/share"
+    method: GET
+    engine_options:
+      firecrawl:
+        endpoint: keychain:myia/firecrawl/url
+        api_key: keychain:myia/firecrawl/api-key
+        timeout: 60
+    extract:
+      type: list
+      item: "span.item_title"
+      fields:
+        title: "a"
+        url: "a@href"
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  # 74站(tkkgv8.gicp.fun;中转站/车队导航页)。纯 JS 壳(直抓 15KB 零链接),
+  # firecrawl 云渲染后 58 张 .card(每卡=一个中转站/羊毛位,含注册直链与邀请码,
+  # .invite-code 字段留档进 metadata)。华为云线同源同走云 FC waitFor。
+  - name: s74
+    engine: firecrawl
+    url: "https://tkkgv8.gicp.fun/"
+    method: GET
+    engine_options:
+      firecrawl:
+        endpoint: keychain:myia/firecrawl/url
+        api_key: keychain:myia/firecrawl/api-key
+        timeout: 60
+    extract:
+      type: list
+      item: ".card"
+      fields:
+        title: ".card-name"
+        url: ".card-url a@href"  # 侦察修复2026-10-19:card-url 现为div包a,href在a上
+        desc: ".card-desc"      # 站点描述(线路/倍率等情报)
+        code: ".invite-code"    # 邀请码(有则抽,进 metadata 供推送模板用)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  - name: nodeloc
+    engine: static_html
+    url: "https://www.nodeloc.com/latest?page={page}"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    pagination:
+      mode: template              # {page} placeholder in the URL is mandatory
+      max_pages: 2
+    extract:                      # standard Discourse topic list
+      type: list
+      item: "tr.topic-list-item"
+      fields:
+        title: "a.raw-topic-link"
+        url: "a.raw-topic-link@href"
+    rate_limit:
+      qps: 0.5
+      jitter: "2s"
+      backoff: exponential
+      respect_robots: true        # robots allows /latest (only SEO bots and
+                                  # admin/auth paths are blocked)
+    proxy: direct
+    retry: 3
+
+  - name: cocoloop
+    engine: static_html
+    url: "https://www.cocoloop.cn/latest?page={page}"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    pagination:
+      mode: template
+      max_pages: 2
+    extract:                      # standard Discourse topic list
+      type: list
+      item: "tr.topic-list-item"
+      fields:
+        title: "a.raw-topic-link"
+        url: "a.raw-topic-link@href"
+    rate_limit:
+      qps: 0.5
+      jitter: "2s"
+      backoff: exponential
+      respect_robots: true        # robots allows /latest; blocks /u/, /my/,
+                                  # *.json and admin paths
+    proxy: direct
+    retry: 3
+
+  - name: sbsb
+    engine: static_html
+    url: "https://sb.sb/"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: list
+      item: "div.post-body"
+      fields:
+        title: "a.post-title"
+        url: "a.post-title@href"  # /t/<id>, resolved against the page URL
+    rate_limit:                   # robots blocks admin/profile/login paths only
+      qps: 0.5
+      jitter: "2s"
+      backoff: exponential
+      respect_robots: true
+    proxy: direct
+    retry: 3
+    # No pagination: homepage covers the active list; deeper pages exist but
+    # the stable URL pattern is unverified — single-page walk for now.
+
+  # v2ex — parked placeholder, same treatment as linux.do below. Cloudflare
+  # fronts both the HTML and the JSON API: from v0.1's direct-only transport
+  # a run gets challenged (403 "Just a moment"). 三层序终态(2026-10-13
+  # 主人裁决):引擎先探本地自托管(127.0.0.1:3002),本地起服务即用本地;
+  # 没有则落下方云端兜底配置。解开注释前先真跑验证:
+  # - name: v2ex
+  #   engine: auto
+  #   url: "https://www.v2ex.com/latest"
+  #   method: GET
+  #   headers:
+  #     User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+  #   extract:
+  #     type: list
+  #     item: "span.item_title"
+  #     fields:
+  #       title: "a"
+  #       url: "a@href"           # /t/<id>, resolved against the page URL
+  #   rate_limit:
+  #     qps: 0.5
+  #     jitter: "2s"
+  #     backoff: exponential
+  #     respect_robots: true
+  #   proxy: direct
+  #   retry: 3
+  #   engine_options:                  # 三层第 3 层(云端兜底;嵌套块形态——
+  #     firecrawl:                     # 点键不被加载链支持,文档纠偏):
+  #       endpoint: keychain:myia/firecrawl/url
+  #       api_key: keychain:myia/firecrawl/api-key   # 已配(2026-10-13),解开即用
+
+  # linux.do — placeholder for a login-walled Discourse source. stealth_browser
+  # (L5) is implemented and sits at the auto chain's tail carrying login state:
+  # it needs an invisible_playwright_mcp service (engine_options.stealth_browser);
+  # without it the leg fails with mcp_server_missing and the chain keeps degrading.
+  # - name: linuxdo
+  #   engine: auto                  # L5 stealth_browser handles the login wall
+  #   url: "https://linux.do/latest"
+  #   extract:
+  #     type: list
+  #     item: "tr.topic-list-item"
+  #     fields:
+  #       title: "a.raw-topic-link"
+  #       url: "a.raw-topic-link@href"
+  #   headers:
+  #     Cookie: env:LINUXDO_COOKIE  # login state via env reference only
+
+  # ── 免费 AI 端点清单(主人令 2026-10-18「ready_to_use 进羊毛」)──
+  - name: g4f-endpoints         # gpt4free(⭐66.9k)官方托管的免 key 端点表
+    engine: static_html         # SSR 静态文档页;robots 全放行(仅禁 /private/)
+    url: "https://g4f.dev/docs/ready_to_use.html"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:                    # Base URLs 表(7 端点):tr>td>a,端点链接即唯一锚
+      type: list                # 表头行提不出 title 走 missing_title 丢(1 条,无害)
+      item: "tr"
+      fields:
+        title: "td a"           # base_url(可复制即用的白嫖入口)
+        url: "td a@href"        # /models 完整链;端点增删=新锚,存量不变不重推
+        summary: "td:last-child"  # Notes 列(如 Use Groq provider)
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+    retry: 3
+
+  # tapnow-events — 登录墙占位(2026-10-19 实测:app.tapnow.ai/events 是 JS 壳,
+  # firecrawl 云渲染点掉 cookie 弹墙后现 "Log in or sign up",无免登录 API——
+  # bundle 挖掘仅见 /event/:id 路由与 files.tapnow.media 用户件,活动列表接口
+  # 不匿名暴露)。解堵差主人侧登录态(env:TAPNOW_COOKIE 或等价通道)。解开时
+  # 选择器按登录态渲染实测补;aggregate 形态已定型:整页 26 行活动合成一条
+  # 「TapNow 活动 · 26 条(最高 72,000)」,明细进 content,刷屏问题从源头消。
+  # - name: tapnow-events
+  #   engine: firecrawl
+  #   url: "https://app.tapnow.ai/events"
+  #   method: GET
+  #   aggregate:
+  #     subject: TapNow 活动
+  #   extract:
+  #     type: list
+  #     item: "<登录态渲染后实测>"
+  #     fields:
+  #       title: "<实测>"
+  #       url: "<实测>@href"
+
+watchlist:
+  keywords: [白嫖, 免费, 0元, 优惠券, 福利, 兑换码]
+  mute: [广告, 中奖]
+
+classify:                       # 羊毛 is one of the seven builtin categories;
+  builtin: true                 # free signal beats paid signal in adjudication
+  rules:                        # unmatched titles drop (classify_unmatched);
+                                # 端点表 title 是 URL 形态,builtin 词表不命中,
+                                # 专用规则放行并归 freebie(路由 immediate 白给类)
+    - name: 免费AI端点
+      when: "'g4f' in url"
+      tag: freebie
+    # 合成条目观测标签(10-19):aggregate 源的条目 metadata 带 aggregated_from,
+    # 打标后推送路由/界面可识别「这是一页合一条」的形态(分类走 builtin
+    # fallback=ai-news 存活,digest 档推送)。
+    - name: 同主体合成条目
+      when: "aggregated_from and len(aggregated_from) >= 1"
+      tag: aggregated
+    # ── 形态否决(10-19-wool-quality-gate;drop 先于 builtin 裁决)──
+    # 案发:提问帖「…可以再免费开一台…吗」/「什么时候开放呀」因标题带「免费」
+    # 被 FREE_KW 判 freebie;促销广告「超值大促|限时特惠…+免费」同理。标题含
+    # 免费二字 ≠ 羊毛——提问/求索/广告形态零情报,直接否决不进流。
+    - name: 提问帖过滤
+      drop: true
+      when: >-
+        '吗' in title or '呢?' in title or '呢？' in title or '请问' in title
+        or '想问' in title or '问一下' in title or '请教' in title
+        or '求助' in title or '求教' in title or '什么时候' in title
+    - name: 提问帖过滤·怎么如何
+      drop: true
+      when: >-
+        ('怎么' in title and ('?' in title or '？' in title))
+        or ('如何' in title and ('?' in title or '？' in title))
+    - name: 促销广告帖过滤
+      drop: true
+      when: >-
+        '超值' in title or '大促' in title or '秒杀' in title or '特惠' in title
+        or '低价' in title or '元起' in title or '刀起' in title
+
+dedup:
+  key: "{url}"                  # one slot-window per topic (AM/PM boundary at
+                                # local noon — a topic hot in both slots can
+                                # legitimately surface twice a day)
+
+enrich:
+  enabled: false                # keyword pre-filter only; flip to true in v0.2
+                                # with an explicit env: endpoint (grill Q6)
+  model: glm-5.3-flash
+  scores: [value, relevance, credibility]
+  batch: 20
+  cache: true
+  budget_per_run: 50000
+
+push:
+  - channel: feishu_card
+    target: env:FEISHU_CHAT_ID  # bot token comes from env:FEISHU_BOT_TOKEN
+    route:
+      - when: "score >= 8"      # v0.2 interface slot (dormant until scores exist)
+        mode: immediate
+      - when: "category in ['freebie', 'proxy-node', 'buying-agent']"   # v0.1:
+        mode: immediate         # 白给型 (freebie/node/buying-agent) -> push now
+      - when: "category in ['server', 'token', 'credit-card', 'channel', 'ai-news']"
+        mode: digest            # paid/ad-like categories -> daily digest
+    template: |
+      **羊毛速报 · {{ date }}**
+      {% for item in items %}
+      - [{{ item.title }}]({{ item.url }})
+      {% endfor %}
+
+storage:
+  retention: 90d
+  vacuum: monthly

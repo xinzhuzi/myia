@@ -3,7 +3,7 @@
   "name": "wool-quality-gate",
   "title": "羊毛质量治理:提问帖过滤+同主体合成+TapNow入源",
   "description": "主人令2026-10-19「按照你的建议做完」:①羊毛提问/广告帖drop规则(甲骨文提问帖混入freebie案,id=8547/7616/8060)②源级aggregate同主体合成(TapNow活动列表8行合1案)③TapNow活动源接入(实测登录墙,按linux.do先例落占位+aggregate形态)。AI档enrich开启留v0.2不入本档。",
-  "status": "planning",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
