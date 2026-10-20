@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/python/index.md", "reason": "Python 层规范"}
+{"file": "src/myssia/config_layout.py", "reason": "共享蓝本目录解析落点"}
+{"file": "src/myssia/cli.py", "reason": "doctor 命令承载面"}
+{"file": "desktop/entry.py", "reason": "现有 _bundle_config_dir 候选顺序"}

@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "设置屏 UI 规范与交互/测试纪律"}
+{"file": "desktop/ui-src/src/screens/settings/settings-screen.tsx", "reason": "目标屏实现"}
+{"file": "desktop/ui-src/src/screens/settings/settings.test.tsx", "reason": "目标测试套件"}
+{"file": "src/myssia/gates.py", "reason": "gates.save 契约与 analysis 键校验"}
+{"file": "src/myssia/analysis_lane.py", "reason": "官方分析件清单与语义"}

@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/desktop/frontend-ui.md", "reason": "验收口径"}
+{"file": "desktop/ui-src/src/screens/settings/settings.test.tsx", "reason": "AC 断言落点"}
