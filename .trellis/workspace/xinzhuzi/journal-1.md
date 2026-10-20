@@ -826,3 +826,25 @@ settle 侧另落:任务簿记三件(news-rss 置 review/shishi-everywhere 发布
 - 提交(两笔均已推 origin/main,收尾员 `git branch -r --contains` 亲验):bbc95de7 feat(config) 引擎侧按源挂池——config/ai-news.yaml(5 处)+ telegram-channels.yaml + telegram-groups.yaml;4ec13773 feat(desktop) 池配置装机送达收口——desktop/entry.py + desktop/src-tauri/tauri.conf.json + src/myssia/cron/runner.py + tests/cron/test_cron_runner.py + tests/desktop/test_desktop_sidecar_protocol.py + tests/desktop/test_proxy_pool_panel.py。
 - 门禁:全量 pytest 绿(运行结果概要所载,CI 同款 `uv run --no-sync python -m pytest -q` 口径;收尾员未重跑)。
 - 装机:通过——经 clash 池(127.0.0.1:7897)出口 IP 198.2.214.3(United States/US,ip-api.com 实查)≠ 直连本地 ISP IP 139.227.235.178(China/CN,members.3322.org 直连基线 + ip-api.com 实查);证据链=装机 sidecar doctor config_auto 探测(收尾概要在「探测 pr…」处截断,A4 池源取回/A5 argv 佐证/A7 换装跨度冒烟细项回执未逐条读到,如实记,如未跑见任务档 leftover)。
+
+
+## Session 1: 微信监控四档归一(dwfrun-6b0a24b7)
+<!-- trellis-session: v=2 fp=9f5a8d793a64076b -->
+
+**Date**: 2026-10-20
+**Task**: 微信监控四档归一(dwfrun-6b0a24b7)
+**Branch**: `main`
+
+### Summary
+
+微信四品类档并一:数据根单档 weixin.yaml(5 源,*/5 全天,cron 单 job 保历史)零重灌实证;仓库种子取 A 模板形态+装配 18→17+双语文档/skill/前端注释;just test/check 全绿;0.0.6 重打包静默换装三件套终验过。机器事实:真库 myssia.db、包内 config 幂等补缺、0.0.6 无焦点亮窗不物化待查。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `23c52a46` | chore(task): 10-20-weixin-config-merge AC 全勾转 review——四档归一执行收官(数据根/仓库/门禁/换装全过,未推送) |
+
+### Status
+
+[OK] **Completed**
