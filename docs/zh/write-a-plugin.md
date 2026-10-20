@@ -74,14 +74,16 @@ AX;密钥缺位 = `key_unavailable` 结构化 skip)、`sns`(朋友圈域:`feed` 
 `notices` 互动通知)、`notify`(新消息与撤回事件的通知扫描)。**不参与 auto
 降级链**,显式选择才生效;前置 = 安装 wechat-bridge 组件 + 微信桌面客户端
 保持登录。注释齐全的活模板:[weixin.yaml](../../config/weixin.yaml)
-(pixel/localdb/sns)与 [weixin-notify.yaml](../../config/weixin-notify.yaml)(notify)。
+——2026-10-20 四档归一后微信是**单档多通道**(pixel/localdb 活样例 +
+sns/notify 注释样例,四通道的源同栖一份品类档共享 schedule)。
 
-**微信通知整机形态**(`weixin-notify` 品类):`wechat_local` 的 `notify` 通道 +
-`push: macos_notify` 本机通知中心弹窗(零网络),`schedule: "*/1 * * * *"`
-分钟级扫描;`engine_options.wechat_local.chat_whitelist` 会话白名单——出厂空
-清单 = 构造期即拒,白名单外的会话零扫描零通知;部署走 cron job(桌面排程 /
-`myssia cron` 注册后才拉取,文件在场 ≠ 在跑)。模板即
-[weixin-notify.yaml](../../config/weixin-notify.yaml)。
+**微信通知整机形态**(`notify` 通道 + 本机弹窗):`wechat_local` 的 `notify` 源 +
+`push: macos_notify` 本机通知中心弹窗(零网络),按 cron schedule 分钟级
+扫描;`engine_options.wechat_local.chat_whitelist` 会话白名单——空清单 =
+构造期即拒,白名单外的会话零扫描零通知;部署走 cron job(桌面排程 /
+`myssia cron` 注册后才拉取,文件在场 ≠ 在跑)。样例即
+[weixin.yaml](../../config/weixin.yaml) 样例区的 notify 注释块(填好
+`chat_whitelist` 即可用)。
 
 经验法则:先看页面源码——搜得到数据写 L2,搜不到找 API 走 L1,JS 化才 L3;
 拿不准就 `engine: auto`,用 `myssia test --json` 看实际选中引擎(`engine` 字段)。

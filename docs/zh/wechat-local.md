@@ -184,12 +184,14 @@ python -m wechat_bridge localdb media scan <chat> --since 30d --decrypt --json
 
 ### 7.1 品类形态(weixin-notify)
 
-通知不是面板轮询,而是一个标准品类:仓库自带的
-[`config/weixin-notify.yaml`](../../config/weixin-notify.yaml)(引擎
-`wechat_local` 的 `notify` 通道)。品类在场 ≠ 在跑——注册 cron job
-(桌面排程或 `myssia cron`,见[定时任务(cron)](cron.md))后才按
-schedule 分钟级拉取;出厂 `chat_whitelist` 为空清单 = 缺省关(引擎构造期
-即拒,防功能空转)。启用示例(填入你的目标会话):
+通知不是面板轮询,而是一个标准品类源:仓库自带的
+[`config/weixin.yaml`](../../config/weixin.yaml)(引擎
+`wechat_local` 的 `notify` 通道;2026-10-20 四档归一后微信是**单档多通道**
+——pixel/localdb/sns/notify 四通道的源同栖一份 `weixin.yaml` 共享
+schedule,notify 通道样例以注释形态收在该文件样例区)。品类在场 ≠ 在跑
+——注册 cron job(桌面排程或 `myssia cron`,见[定时任务(cron)](cron.md))
+后才按 schedule 分钟级拉取;出厂 `chat_whitelist` 为空清单 = 缺省关(引擎
+构造期即拒,防功能空转)。启用示例(填入你的目标会话):
 
 ```yaml
 id: weixin-notify-demo

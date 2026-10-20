@@ -233,10 +233,14 @@ lists total rows and each file's path.
 ### 7.1 Category form (weixin-notify)
 
 Notifications are not a panel polling in the UI — they are a standard
-category: the repo ships
-[`config/weixin-notify.yaml`](../../config/weixin-notify.yaml) (the `notify`
-channel of the `wechat_local` engine). The file being present does not mean
-it runs — register a cron job (desktop scheduling or `myssia cron`, see
+category source: the repo ships
+[`config/weixin.yaml`](../../config/weixin.yaml) (the `notify` channel of
+the `wechat_local` engine; since the 2026-10-20 four-files-into-one merge,
+WeChat is a **single file, multiple channels** — sources across
+pixel/localdb/sns/notify live together in one `weixin.yaml` sharing one
+schedule, with the notify-channel sample preserved as a commented template
+in that file's sample area). The file being present does not mean it
+runs — register a cron job (desktop scheduling or `myssia cron`, see
 [Scheduled jobs (cron)](cron.md)) and it fetches on the minute-scale
 schedule; the factory `chat_whitelist` is an empty list, i.e. off by default
 (the engine refuses at construction, preventing a no-op). An enabled example

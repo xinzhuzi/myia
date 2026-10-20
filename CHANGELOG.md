@@ -11,6 +11,18 @@ repeated here.
 
 ### Changed
 
+- **微信品类四档归一:单档多通道**(2026-10-20,10-20-weixin-config-merge,
+  D1/D5 主人终裁):微信监控自 4 品类档(weixin/weixin-ai-token/weixin-sns/
+  weixin-notify)合并为单一 `weixin.yaml`——pixel/localdb/sns/notify 四通道
+  源同栖一份档共享 schedule,节奏统一 `*/5 * * * *`;源名/engine_options/
+  水位键逐字不变(键无品类维度,合并零重灌),cron 收敛单 job「微信监控」。
+  仓库侧(D5 终裁 A 模板形态):`config/weixin.yaml` 保持入包教学模板(四通道
+  头注 + pixel/localdb 活样例 + sns(feed/notices 双模式)/notify
+  (chat_whitelist/notify_self/read_timeout_seconds)注释样例,键名照抄被删
+  真实档,刻意零隐私);删 `config/weixin-ai-token.yaml`、`config/weixin-notify.yaml`
+  两粒种子;tauri resources 删 weixin-notify 条目,随包品类面 18→17 件
+  (installer 两测试期望同步);双语文档与 skill 模板指针改「单档多通道」;
+  feed 屏 B3 深链注释改单档表述(深链仍只预选 weixin.yaml)。
 - **OCR 供件换代:rapidocr-onnxruntime → rapidocr 3.x 新主包**(2026-10-15,
   10-15-ocr-revive-py314,py3.14 连坐):旧件 1.4.x 上游冻结且声明 `Python<3.13`
   cp314 无轮,看图双引擎与表格还原链换血——vision/table 两组 extras 与桌面

@@ -396,8 +396,9 @@ http(s) 形状要求的锚,写 `https://weixin.qq.com` 即可),四通道由
 `key_unavailable`(不算失败,跑 `scripts/wechat-bridge-d4-keyscan.sh` 即通)。
 锚:消息两通道 `#wx-` 内容哈希(localdb 文本无 OCR 噪声,重读恒同锚)、
 sns `#wxsns-`/`#wxsnsn-`、notify `#wxn-`/`#wxnr-` 微信侧 id 强锚。模板:
-`config/weixin.yaml`(pixel/localdb/sns 源样例)与 `config/weixin-notify.yaml`
-(notify 源 + `macos_notify` 本机弹窗投递,填好 `chat_whitelist` 即可用)。
+`config/weixin.yaml` 单档多通道(2026-10-20 四档归一:pixel/localdb 活样例
++ sns/notify 注释样例,四通道源同栖一份品类档共享 schedule;notify 源配
+`macos_notify` 本机弹窗投递,填好 `chat_whitelist` 即可用)。
 隐私红线:微信是主人隐私面——模板 enrich 全关、push 空或仅本机零网络
 `macos_notify`、缺省关(注册 cron job 后才拉取)。
 
