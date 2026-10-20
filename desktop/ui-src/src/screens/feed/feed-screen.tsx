@@ -3191,8 +3191,9 @@ export function FeedScreen() {
    *  双写 weixin.yaml):跳既有 YAML 编辑屏,深链 ?file= 预选 weixin.yaml
    *  (yaml-editor-screen.tsx:103 深链在册,源管理「编辑」同款)。清单拉取
    *  失败 / 无 weixin.yaml(如实:可能尚未建)→ 跳屏由用户手选(注释注记,
-   *  不猜文件名)。注:生产数据根另有 weixin-ai-token.yaml 第二品类文件,
-   *  深链只预选主件 weixin.yaml(契约钉死),他件手选。 */
+   *  不猜文件名)。注:2026-10-20 四档归一后生产数据根微信单档多通道——
+   *  pixel/localdb/sns/notify 四通道源同栖 weixin.yaml 一件,深链预选主件
+   *  即全档(契约钉死)。 */
   const gotoWxGroupConfig = useCallback(() => {
     void listYamlTargets()
       .then((targets) => {
