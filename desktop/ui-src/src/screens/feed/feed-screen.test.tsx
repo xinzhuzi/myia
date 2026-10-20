@@ -60,7 +60,7 @@
  * 类型头像 chip/选中 bg-accent 高亮/未读徽标;feed-count = 右栏脚注独占,
  * 选中态条目计数改 feed-stream-count —— 复审 R1-1 消歧)+ 左栏 section =
  * 工具条分叉(总览:批量/导出/刷新;选中:总览钮/读态分段/feed-stream-count/
- * feed-day-window/显示选项)+ TG 监控台降常驻条(工具条下不随滚,R2 吸收:
+ * feed-stream-count/显示选项)+ TG 监控台降常驻条(工具条下不随滚,R2 吸收:
  * tgStatusPhase 三态,首拉在途无「状态未知」闪现)+ 时间线(TG 气泡/网站
  * 单列 feed-stream-list)+ 总览引导空态(feed-overview 统计行,catalogLoaded
  * 门防 CTA 闪现)。数据接线 = 双缓冲(catalogItems 喂右栏聚合,streamItems
@@ -606,9 +606,9 @@ describe("FeedScreen", () => {
     await renderChannelDetail();
 
     const loadMore = await screen.findByRole("button", { name: "加载更早的条目" });
-    // F2:hasMore(满页)时词面如实「已加载 N 条」,不再以全量词面静默低估
+    // F2:hasMore(满页)时词面如实「N / N 条」,不再以全量词面静默低估
     // (v7:选中态条目计数 testid = feed-stream-count,右栏脚注独占 feed-count)
-    expect(screen.getByTestId("feed-stream-count").textContent).toContain("已加载 50 / 50 条");
+    expect(screen.getByTestId("feed-stream-count").textContent).toContain("50 / 50 条");
     fireEvent.click(loadMore);
 
     // 翻页请求带上页最旧条目的 (first_seen, id) 复合游标(C1:同刻条目也能推进;
@@ -2951,7 +2951,6 @@ describe("FeedScreen · feed-channel-groups(渠道流差异化 + 实时滚动 + 
     await screen.findByText("窗前旧条目");
     expect(screen.getByText("窗内新条目")).toBeTruthy();
     expect(screen.getByTestId("feed-stream-count").textContent).toContain("2 / 2 条");
-    expect(screen.getByTestId("feed-day-window").textContent).toContain("全量");
   });
 
   it("加载更早 × 窗界(深检 F8②):翻页加载的窗外条目即时可见,「点了加载不见卡」不再发生", async () => {
@@ -2974,7 +2973,6 @@ describe("FeedScreen · feed-channel-groups(渠道流差异化 + 实时滚动 + 
     // 首页满页 → hasMore;翻页加载窗外条目:详情已无当日窗,所见即所得
     fireEvent.click(await screen.findByRole("button", { name: "加载更早的条目" }));
     expect(await screen.findByText("窗外旧条目")).toBeTruthy();
-    expect(screen.getByTestId("feed-day-window").textContent).toContain("全量");
   });
 
   it("渠道详情空态阶梯(深检 F1/F4 后语义):未读无剩给「看全部条目(含已读)」,历史态已读未读全显且分段隐藏,退出回读态视图", async () => {
@@ -2986,9 +2984,8 @@ describe("FeedScreen · feed-channel-groups(渠道流差异化 + 实时滚动 + 
     // 默认未读档:唯一条目已读 → 空态;给「看全部条目」直达(死胡同根除)
     expect(await screen.findByTestId("feed-empty-history")).toBeTruthy();
     fireEvent.click(screen.getByTestId("feed-empty-history"));
-    // 历史态:已读未读全显,知会词换「全部历史」
+    // 历史态:已读未读全显
     expect(await screen.findByText("三天前的已读入库")).toBeTruthy();
-    expect(screen.getByTestId("feed-day-window").textContent).toContain("全部历史");
     // 深检 F4:历史态读态过滤不生效,分段随之隐藏(不给死控件)
     expect(screen.queryByRole("group", { name: "读态过滤" })).toBeNull();
     // 退出历史:回读态视图(未读档下已读条目重新离场)
@@ -3366,14 +3363,15 @@ describe("FeedScreen · tg-category-entry 监控台(v7:TG 选中左栏顶部常�
     await openTelegramChannel();
     // 进会话即已读(10-12-tg-session-read):入口自动全量标已读 + 未读档
     // 顺手切「全部」(刚读的留在眼前)——历史语义的验收改为显式回未读档:
-    // 唯一条目已读 → 空态;监控台「看全部历史消息(含已读)」直达
+    // 唯一条目已读 → 空态;监控台「全部历史」直达
     fireEvent.click(await screen.findByRole("button", { name: "过滤:未读" }));
-    // 监控台「看全部历史消息(含已读)」直达(已读条目在未读档外可达)
-    fireEvent.click(await screen.findByTestId("feed-tg-console-history"));
+    // 监控台「全部历史」直达(已读条目在未读档外可达)
+    const histBtn = await screen.findByTestId("feed-tg-console-history");
+    fireEvent.click(histBtn);
     expect(await screen.findByText("三天前的已读入库")).toBeTruthy();
-    expect(screen.getByTestId("feed-day-window").textContent).toContain("全部历史");
-    // 退出历史:回读态视图,已读条目重新离场
-    fireEvent.click(screen.getByTestId("feed-history-exit"));
+    // 退出历史:同钮转「退出历史」,点击即退场(未读档下已读条目重新离场)
+    await waitFor(() => expect(histBtn.textContent).toContain("退出历史"));
+    fireEvent.click(histBtn);
     await waitFor(() => expect(screen.queryByText("三天前的已读入库")).toBeNull());
     // 回读态后显式切「全部」:已读条目回来(档位语义自洽,不依赖默认档)
     fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
@@ -3621,11 +3619,10 @@ describe("FeedScreen · tg-chat-two-pane(3 级 TG 群对话式双栏,10-11)", ()
     // 聊天头:群名(feed-stream-title 随迁,大字段)
     const header = await screen.findByTestId("feed-tg-chat-header");
     expect(within(header).getByTestId("feed-stream-title").textContent).toContain("clashv8");
-    // 监控状态行:监控中 · 账号 · 自时间(原监控台状态行词面,来自 console 状态数据)
+    // 监控状态行:监控中 · 账号(登录时刻等细节不再常驻)
     const live = within(header).getByTestId("feed-tg-console-live");
     expect(live.textContent).toContain("监控中 · telegram-alt1");
-    expect(live.textContent).toContain("自 2026-10-09 01:00");
-    // 三动作钮:原生网页预览 / 管理 / 看全部历史消息(监控台大卡压缩条内)
+    // 三动作钮:原生网页预览 / 管理 / 全部历史(监控台压缩条内)
     expect(within(header).getByTestId("feed-tg-console-preview").getAttribute("disabled")).toBeNull();
     expect(within(header).getByRole("button", { name: "管理" })).toBeTruthy();
     expect(within(header).getByTestId("feed-tg-console-history")).toBeTruthy();
@@ -3944,7 +3941,7 @@ describe("FeedScreen · tg-chat-two-pane 补批(grill 一轮)", () => {
     expect(screen.queryByTestId("feed-detail-dialog")).toBeNull();
   });
 
-  it("补③ 历史出口就近:非历史态词面照旧;进入历史 = 头部同钮转「退出历史」,点击即退场(知会词回全量)", async () => {
+  it("补③ 历史出口就近:非历史态词面照旧;进入历史 = 头部同钮转「退出历史」,点击即退场", async () => {
     const anchor = dayWindowStart().getTime();
     mockGrillWorld(
       [fixtureItem({ source: "telegram-clashv8", title: "clashv8 群消息", first_seen: new Date(anchor + 60_000).toISOString() })],
@@ -3953,18 +3950,14 @@ describe("FeedScreen · tg-chat-two-pane 补批(grill 一轮)", () => {
     renderScreen();
     await openTgGroup("telegram-clashv8");
     const histBtn = await screen.findByTestId("feed-tg-console-history");
-    expect(histBtn.textContent).toContain("看全部历史消息(含已读)");
-    // 进入历史(该条目已读 → 未读档外可达,历史态知会词换「全部历史」)
+    expect(histBtn.textContent).toContain("全部历史");
+    // 进入历史(该条目已读 → 未读档外可达)
     fireEvent.click(histBtn);
     expect(await screen.findByText("clashv8 群消息")).toBeTruthy();
-    expect(screen.getByTestId("feed-day-window").textContent).toContain("全部历史");
     // 出口就近:同一颗按钮词面转「退出历史」,点击即退场
     await waitFor(() => expect(histBtn.textContent).toContain("退出历史"));
     fireEvent.click(histBtn);
-    await waitFor(() => expect(histBtn.textContent).toContain("看全部历史消息(含已读)"));
-    await waitFor(() =>
-      expect(screen.getByTestId("feed-day-window").textContent).toContain("全量"),
-    );
+    await waitFor(() => expect(histBtn.textContent).toContain("全部历史"));
   });
 
   it("补④ 状态空窗头部化(在途):占位词在场不空窗,压缩条不出;放行应答 = 占位词退场压缩条落位", async () => {
@@ -4517,8 +4510,9 @@ describe("FeedScreen · v9 原生视图切换(design-v9 照稿)", () => {
     expect(note.textContent).toContain("扫码登录一次");
     expect(note.textContent).toContain("安全提醒");
     expect(note.textContent).toContain("属预期");
-    // 词面分工:监控台「未登录」警示只说 watcher 的 7×24 监控,不混 /k/ 语义
-    expect(screen.getByText(/未登录 —— 扫码登录网页版/).textContent).not.toContain("原生视图");
+    // 词面分工:监控台未登录态只留「未登录」,7×24 说明收进登录钮 title,不混 /k/ 语义
+    expect(screen.getByText("未登录").textContent).not.toContain("原生视图");
+    expect(screen.getByTestId("feed-tg-console-login").getAttribute("title")).toContain("7×24");
   });
 });
 
@@ -4925,28 +4919,25 @@ describe("FeedScreen · 审计整改批(F2/F5/F6,v5 词面落位)", () => {
     await closeDetailDialog();
   });
 
-  it("F2:hasMore 时词面「已加载 N 条(首页截断)」(v7 条目计数 = feed-stream-count,右栏脚注独占 feed-count)", async () => {
+  it("F2:hasMore 时词面「N+ 条」(v7 条目计数 = feed-stream-count,右栏脚注独占 feed-count)", async () => {
     // hnrss 渠道 50 条(源作用域首页满页)→ 左栏流 hasMore
     mockStoreV12({ webExtra: 51 });
     await renderChannelDetail("hnrss-frontpage");
     fireEvent.click(screen.getByRole("button", { name: "过滤:全部" }));
     const count = await screen.findByTestId("feed-stream-count");
-    await waitFor(() =>
-      expect(count.textContent).toContain("已加载 50 条(首页截断,更早条目未计入)"),
-    );
+    await waitFor(() => expect(count.textContent).toContain("50+ 条"));
     expect(count.textContent).not.toContain("共 103 条");
   });
 
-  it("F2 根治(protocol ≥ 13):with_total 应答在场 → 词面「已加载 X · 共 T 条」+ title 注记口径(R1:无「当日窗」残词)", async () => {
+  it("F2 根治(protocol ≥ 13):with_total 应答在场 → 词面「X / T 条」+ title 注记口径(R1:无「当日窗」残词)", async () => {
     // 过 COUNT_PROTOCOL 门(protocol 13)→ 首拉带 with_total;total(103)
     // > 已加载(53)→ T 在词面;旧 sidecar(v12)回落上一用例的半程词面
     mockStoreV12({ webExtra: 51, total: 103 });
     versionMock.mockResolvedValue(versionResult(COUNT_PROTOCOL));
     await renderChannelDetail("hnrss-frontpage");
-    // 工具条:「已加载 50 / 50 · 共 103 条」(缺省未读过滤档,X = 可见/已加载,
-    // T = 同 WHERE 全量;50 条全未读故可见=已加载)
+    // 工具条:「50 / 103 条」(缺省未读过滤档,X = 可见,T = 同 WHERE 全量)
     const count = await screen.findByTestId("feed-stream-count");
-    await waitFor(() => expect(count.textContent).toContain("已加载 50 / 50 · 共 103 条"));
+    await waitFor(() => expect(count.textContent).toContain("50 / 103 条"));
     expect(count.getAttribute("title")).toContain("全量计数");
     expect(count.getAttribute("title")).toContain("已加载口径");
     // R1 吸收(v6 残留词面「已加载 N 条为当日窗视图首页」根除)
@@ -4963,7 +4954,7 @@ describe("FeedScreen · 审计整改批(F2/F5/F6,v5 词面落位)", () => {
     expect(storeItemsMock.mock.calls.some((call) => (call[0] as StoreItemsParams | undefined)?.with_total === true)).toBe(false);
     // 词面维持 F2 半程:截断如实,无「共 T」全量词面
     const count = await screen.findByTestId("feed-stream-count");
-    await waitFor(() => expect(count.textContent).toContain("已加载 50 / 50 条"));
+    await waitFor(() => expect(count.textContent).toContain("50 / 50 条"));
     expect(count.textContent).not.toContain("共 103 条");
   });
 
@@ -5330,8 +5321,6 @@ describe("FeedScreen · v8 三级界面(AC29-32 新增面)", () => {
     expect(await screen.findByText("已读命中甲")).toBeTruthy();
     expect(screen.queryByText("未读条目乙")).toBeNull(); // 服务端 query 过滤生效
     expect(screen.queryByRole("group", { name: "读态过滤" })).toBeNull();
-    expect(screen.getByTestId("feed-day-window").textContent).toContain("检索中 · 渠道内全量(不限读态)");
-    expect(screen.getByTestId("feed-stream-search-note").textContent).toContain("命中");
 
     // 渠道内检索零命中:独立空态(防与 2 级 feed-search-empty 混)
     fireEvent.change(search, { target: { value: "不存在的词" } });
@@ -5939,7 +5928,7 @@ describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
     await waitFor(() => expect(screen.getByTestId("location-full-probe").textContent).toBe("/yaml-editor"));
   });
 
-  it("3 级 wx 监控台三态:ok = ● 桥在线 · 微信版本 + 管理/历史钮(无扫码登录、无原生网页预览、无原生视图段 = 有意缺席);degraded/unavailable 如实", async () => {
+  it("3 级 wx 监控台三态:ok = ● 微信版本 + 管理/历史钮(无扫码登录、无原生网页预览、无原生视图段 = 有意缺席);degraded/unavailable 如实", async () => {
     mockProbe(probePayload());
     mockWxWorld([
       fixtureItem({ source: "weixin-测试会话", title: "桥在线时的一条", first_seen: new Date().toISOString() }),
@@ -5947,18 +5936,18 @@ describe("FeedScreen · weixin-feed-channel(微信入情报流,10-12)", () => {
     renderScreen();
     await openWxChannel();
     const consoleBar = await screen.findByTestId("feed-wx-console");
-    // ok 态:桥在线 + 微信版本
-    expect(within(consoleBar).getByTestId("feed-wx-console-live").textContent).toContain("桥在线");
+    // ok 态:绿色状态点 + 微信版本(hover 补「桥在线」)
+    expect(within(consoleBar).getByTestId("feed-wx-console-live").getAttribute("title")).toContain("桥在线");
     expect(within(consoleBar).getByTestId("feed-wx-console-live").textContent).toContain("微信 4.1.15");
     // TG 专属件零出现:无扫码登录钮、无原生网页预览钮、无「原生视图」段
     expect(within(consoleBar).queryByTestId("feed-tg-console-login")).toBeNull();
     expect(within(consoleBar).queryByTestId("feed-tg-console-preview")).toBeNull();
     expect(screen.queryByTestId("feed-tg-view-toggle")).toBeNull();
-    // 三件套之二:管理 + 看全部历史(openHistory 复用)
+    // 三件套之二:管理 + 全部历史(openHistory 复用;历史态同钮转退出)
     expect(within(consoleBar).getByTestId("feed-wx-console-manage")).toBeTruthy();
-    fireEvent.click(within(consoleBar).getByTestId("feed-wx-console-history"));
-    expect(await screen.findByTestId("feed-history-exit")).toBeTruthy();
-    expect(screen.getByTestId("feed-day-window").textContent).toContain("全部历史");
+    const histBtn = within(consoleBar).getByTestId("feed-wx-console-history");
+    fireEvent.click(histBtn);
+    await waitFor(() => expect(histBtn.textContent).toContain("退出历史"));
 
     // degraded:首因人话(title 留码名结构词)
     cleanup();
@@ -6643,7 +6632,7 @@ describe("FeedScreen · 聊天工作台追加批(10-13 同域追加七件)", () 
     expect(l2row.querySelector("span[style]")).toBeNull();
   });
 
-  it("④⑦ 顶栏等高与极窄折叠:左栏区头与聊天头同 min-h-11 + py-2.5(border-b 连线);左栏 aside hidden lg:flex(lg 起显示,右栏 flex-1 自适应)", async () => {
+  it("④⑦ 顶栏等高与极窄折叠:左栏区头与合并顶栏同 min-h-11 + py-2.5(border-b 连线);左栏 aside hidden lg:flex(lg 起显示,右栏 flex-1 自适应)", async () => {
     mockGroupsWorld();
     renderScreen();
     await openTgGroup("telegram-clashv8");
@@ -6651,10 +6640,10 @@ describe("FeedScreen · 聊天工作台追加批(10-13 同域追加七件)", () 
     // ⑦:lg 以下隐藏(lg:flex 起显示)
     expect(pane.className).toContain("hidden");
     expect(pane.className).toContain("lg:flex");
-    // ④:两栏顶栏同档(min-h-11 + py-2.5)
+    // ④:两栏顶栏同档(min-h-11 + py-2.5;聊天头已并入顶栏单行)
     const paneHeader = pane.querySelector("div");
-    const chatHeader = await screen.findByTestId("feed-tg-chat-header");
-    for (const bar of [paneHeader, chatHeader]) {
+    const mergedTopBar = await screen.findByTestId("feed-toolbar");
+    for (const bar of [paneHeader, mergedTopBar]) {
       expect(bar?.className).toContain("min-h-11");
       expect(bar?.className).toContain("py-2.5");
     }

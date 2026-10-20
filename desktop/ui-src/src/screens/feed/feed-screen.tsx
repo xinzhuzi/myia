@@ -2068,7 +2068,7 @@ function UnreadDivider() {
  *  重排为群对话式双栏 —— 左栏 aside = 监控群列表(ChannelRow 复用,数据源与
  *  2 级全渠道列表同源,selected = 当前深链渠道,单群照常/零群引导空态)+
  *  右栏 = 聊天头(群名大字 + 监控台压缩条:状态行/扫码登录/原生网页预览/
- *  管理/看全部历史消息,门与词面自 v8 大卡原样)+ 工具条(读态分段/检索/
+ *  管理/全部历史,门与词面自 v8 大卡原样)+ 工具条(读态分段/检索/
  *  显示/刷新原样)+ 聊天时间线(右栏内全宽)。切换 = openChannel 原样复用
  *  (viewSource 驱动既有流式/读态/检索机件,不退出 3 级、不经过 2 级);
  *  网站/日报 3 级布局与原生视图 tab、1/2 级零变化。落点判例:v7 双栏错在
@@ -4604,9 +4604,9 @@ export function FeedScreen() {
               <div className="flex min-h-11 items-center justify-between border-b border-border/40 px-3 py-2.5">
                 {/* 裁⑥词面定案:用户可见词 = 「监控会话」(testid 前缀
                     feed-tg-group-* 为结构词,不动) */}
-                <span className="text-xs font-medium text-muted-foreground">监控会话</span>
+                <span className="text-sm font-medium text-muted-foreground">监控会话</span>
                 {imGroupCards.length > 0 ? (
-                  <span className="text-2xs text-muted-foreground tabular-nums">{imGroupCards.length}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{imGroupCards.length}</span>
                 ) : null}
               </div>
               {/* ① 会话搜索框:即输即滤纯客户端(词域/通路与右栏 streamQuery
@@ -4616,7 +4616,7 @@ export function FeedScreen() {
                 <div className="relative">
                   <Search
                     aria-hidden
-                    className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
+                    className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70"
                   />
                   <Input
                     type="search"
@@ -4624,7 +4624,7 @@ export function FeedScreen() {
                     data-testid="feed-tg-group-search"
                     aria-label="搜索监控会话"
                     placeholder="搜索监控会话"
-                    className="h-7 w-full pl-8 text-xs"
+                    className="h-7 w-full pl-8 text-sm"
                     onChange={(event) => setGroupSearchInput(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === "Escape") setGroupSearchInput("");
@@ -4711,7 +4711,7 @@ export function FeedScreen() {
                     data-testid="wx-monitor-goto-config"
                     title="到「YAML 配置」屏编辑 weixin.yaml 声明监控群;保存后下一轮采集生效(本页一期只读,不直接写文件)"
                     onClick={gotoWxGroupConfig}
-                    className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-2xs text-primary hover:bg-accent/50 hover:underline"
+                    className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-primary hover:bg-accent/50 hover:underline"
                   >
                     去配置监控群
                     <ChevronRight aria-hidden className="size-3" />
@@ -4720,25 +4720,34 @@ export function FeedScreen() {
               ) : null}
             </aside>
           ) : null}
-          {/* 右栏:聊天头(TG)+ 工具条 + 时间线滚动区(网站/日报无头单列原样);
+          {/* 右栏:顶栏(聊天头 + 工具条合并)+ 时间线滚动区(网站/日报无头单列原样);
               relative = ②「回到最新」浮钮的定位锚 */}
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            {/* 聊天头(AC3,粘顶;10-12 微信共用骨架):会话名大字
-                (feed-stream-title 随迁于此,工具条内小字位撤 —— 一词一源)+
-                监控台压缩条(TG = feed-tg-console 原样;微信 = feed-wx-console
-                桥状态三态 + 管理 + 历史,无扫码登录/无原生网页预览 —— 微信桥
-                消费本机已登录客户端,登录动作发生在微信本体,如实无钮)。 */}
+            {/* 顶栏单行:聊天头与工具条合并 —— 会话名/群信息/监控台与返回/
+                读态分段/计数/检索/显示/刷新同排,提示词收进 title;窄窗才
+                折行。 */}
+            <div
+              className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-5 py-2.5"
+              data-testid="feed-toolbar"
+            >
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 px-2.5 text-sm"
+              data-testid="feed-back-to-channels"
+              title="返回渠道列表(也可按 Esc)"
+              onClick={backLevel}
+            >
+              <ChevronLeft className="size-4" />
+              {activeChannelKind !== null ? CHANNEL_CARD_LABELS[activeChannelKind] : "渠道"}
+            </Button>
             {chatView ? (
               <div
                 data-testid={activeChannelKind === "wx" ? "feed-wx-chat-header" : "feed-tg-chat-header"}
-                /* ④ 顶栏等高契约(测试钉死):与左栏「监控会话」区头同
-                    py-2.5 + min-h-11,两栏 border-b 连线。10-14-feed-l3-beautify
-                    的呼吸感走 gap 放档(gap-x-4/gap-y-1.5)+ 标题升 lg,padding
-                    不动免破等高。 */
-                className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-1.5 border-b px-5 py-2.5"
+                className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5"
               >
                 <h2
-                  className="min-w-0 truncate text-lg font-semibold tracking-tight text-foreground"
+                  className="min-w-0 max-w-[20rem] truncate text-2xl font-semibold tracking-tight text-foreground"
                   data-testid="feed-stream-title"
                   title={viewSource ?? undefined}
                 >
@@ -4753,9 +4762,9 @@ export function FeedScreen() {
                     data-testid="feed-wx-chat-header-groupinfo"
                     title="查看本群的群主 / 群公告 / 成员列表"
                     onClick={() => openWxGroupInfo(viewSource)}
-                    className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-2xs text-primary hover:bg-accent/50 hover:underline"
+                    className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2.5 text-sm text-primary hover:bg-accent/50 hover:underline"
                   >
-                    <Info aria-hidden className="size-3" />
+                    <Info aria-hidden className="size-4" />
                     群信息
                   </button>
                 ) : null}
@@ -4767,19 +4776,20 @@ export function FeedScreen() {
                   wxProbePhase === "ok" && wxProbe !== null ? (
                   <div
                     data-testid="feed-wx-console"
-                    className="ml-auto flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1"
+                    className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1"
                   >
                     {wxProbe.state === "ok" ? (
                       <span
-                        className="inline-flex items-center gap-1 text-2xs text-ok"
+                        className="inline-flex items-center gap-1 text-sm text-ok"
                         data-testid="feed-wx-console-live"
+                        title="微信桥在线"
                       >
-                        ● 桥在线
-                        {wxProbe.wechat_version ? ` · 微信 ${wxProbe.wechat_version}` : ""}
+                        ● 微信
+                        {wxProbe.wechat_version ? ` ${wxProbe.wechat_version}` : ""}
                       </span>
                     ) : wxProbe.state === "degraded" ? (
                       <span
-                        className="inline-flex min-w-0 items-center gap-1 text-2xs text-warning"
+                        className="inline-flex min-w-0 items-center gap-1 text-sm text-warning"
                         data-testid="feed-wx-console-degraded"
                         title={
                           wxProbe.reasons
@@ -4793,7 +4803,7 @@ export function FeedScreen() {
                       </span>
                     ) : (
                       <span
-                        className="inline-flex min-w-0 items-center gap-1 text-2xs text-warning"
+                        className="inline-flex min-w-0 items-center gap-1 text-sm text-warning"
                         data-testid="feed-wx-console-unavailable"
                         title={
                           wxProbe.reasons
@@ -4810,7 +4820,7 @@ export function FeedScreen() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-1.5 text-2xs"
+                        className="h-7 px-2.5 text-sm"
                         data-testid="feed-wx-console-manage"
                         title="微信本机工作区在「消息」屏:桥状态/屏幕录制权限引导/只读会话"
                         onClick={() => navigate("/messaging")}
@@ -4828,14 +4838,14 @@ export function FeedScreen() {
                             ? "退出历史态:回到读态过滤视图"
                             : "查看该渠道全部入库条目(含已读)"
                         }
-                        className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-2xs text-primary hover:bg-accent/50 hover:underline"
+                        className="inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-sm text-primary hover:bg-accent/50 hover:underline"
                       >
                         {viewHistory ? (
-                          <ChevronLeft aria-hidden className="size-3" />
+                          <ChevronLeft aria-hidden className="size-4" />
                         ) : (
-                          <Inbox aria-hidden className="size-3" />
+                          <Inbox aria-hidden className="size-4" />
                         )}
-                        {viewHistory ? "退出历史" : "看全部历史消息(含已读)"}
+                        {viewHistory ? "退出历史" : "全部历史"}
                       </button>
                     </span>
                   </div>
@@ -4843,11 +4853,11 @@ export function FeedScreen() {
                     /* TG 补④ 同门:探针失败但条目在场 = 头部行内明示 + 就近
                         重试;零条目 error 走空态卡兜底(深检 F2 语义同门)。 */
                     <span
-                      className="ml-auto flex items-center gap-1.5 text-2xs text-warning"
+                      className="flex items-center gap-1.5 text-sm text-warning"
                       data-testid="feed-wx-console-error"
                     >
                       桥状态暂时不可用
-                      <Button variant="ghost" size="sm" className="h-6 px-1.5 text-2xs" onClick={retryWxProbe}>
+                      <Button variant="ghost" size="sm" className="h-7 px-2.5 text-sm" onClick={retryWxProbe}>
                         重试
                       </Button>
                     </span>
@@ -4855,7 +4865,7 @@ export function FeedScreen() {
                     /* TG 补④ 同门:首拉在途占位词,不空窗一拍;error 且零条目
                         不出占位词(答案落地前不误述),交给空态卡。 */
                     <span
-                      className="ml-auto text-2xs text-muted-foreground"
+                      className="text-sm text-muted-foreground"
                       data-testid="feed-wx-console-loading"
                     >
                       正在拉取桥状态…
@@ -4864,11 +4874,11 @@ export function FeedScreen() {
                 ) : tgStatusPhase === "ok" && tgWebline !== null ? (
                   <div
                     data-testid="feed-tg-console"
-                    className="ml-auto flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1"
+                    className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1"
                   >
                     {tgWebline.web.accounts.some((a) => a.logged_in) ? (
                       <span
-                        className="inline-flex items-center gap-1.5 text-2xs text-ok"
+                        className="inline-flex items-center gap-1.5 text-sm text-ok"
                         data-testid="feed-tg-console-live"
                       >
                         {/* 10-14-feed-l3-beautify:文字圆点换真色点(2xs 行内
@@ -4876,15 +4886,10 @@ export function FeedScreen() {
                         <span className="size-1.5 shrink-0 rounded-full bg-ok" aria-hidden />
                         <span className="min-w-0 truncate">
                           监控中 · {tgWebline.web.accounts.filter((a) => a.logged_in).map((a) => a.account).join("、")}
-                          {tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at
-                            ? ` · 自 ${formatAbsoluteTime(tgWebline.web.accounts.find((a) => a.logged_in)?.logged_in_at ?? null)}`
-                            : ""}
                         </span>
                       </span>
                     ) : (
-                      <span className="text-2xs text-warning">
-                        未登录 —— 扫码登录网页版 Telegram,登录后 7×24 监控,新消息自动入库
-                      </span>
+                      <span className="text-sm text-warning">未登录</span>
                     )}
                     <span className="flex items-center gap-1">
                       {!tgWebline.web.accounts.some((a) => a.logged_in) &&
@@ -4892,8 +4897,9 @@ export function FeedScreen() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="h-6 px-2 text-2xs"
+                          className="h-7 px-2.5 text-sm"
                           data-testid="feed-tg-console-login"
+                          title="扫码登录网页版 Telegram,登录后 7×24 监控,新消息自动入库"
                           disabled={tgLoginBusy || tgWebline.web.accounts[0].login_in_progress}
                           onClick={() => void startWebLogin()}
                         >
@@ -4908,7 +4914,7 @@ export function FeedScreen() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-6 px-2 text-2xs"
+                        className="h-7 px-2.5 text-sm"
                         data-testid="feed-tg-console-preview"
                         disabled={tgPreviewUrl === null}
                         title={
@@ -4923,7 +4929,7 @@ export function FeedScreen() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-1.5 text-2xs"
+                        className="h-7 px-2.5 text-sm"
                         // v10(10-11-tg-multi-account-groups):Telegram 监控分区已抽为
                         // 独立屏 /tg-account(侧栏「配置」组),管理入口随迁
                         onClick={() => navigate("/tg-account")}
@@ -4932,7 +4938,7 @@ export function FeedScreen() {
                       </Button>
                       {/* 历史入口/出口(补③,grill 一轮「不给死控件」):历史态
                           下词面转「退出历史」+ onClick 换 exitHistory(出口就近,
-                          不必去工具条);非历史态照旧看全部历史消息。 */}
+                          不必去工具条);非历史态照旧「全部历史」。 */}
                       <button
                         type="button"
                         data-testid="feed-tg-console-history"
@@ -4942,14 +4948,14 @@ export function FeedScreen() {
                             ? "退出历史态:回到读态过滤视图"
                             : "查看该渠道全部入库条目(含已读)"
                         }
-                        className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-2xs text-primary hover:bg-accent/50 hover:underline"
+                        className="inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-sm text-primary hover:bg-accent/50 hover:underline"
                       >
                         {viewHistory ? (
-                          <ChevronLeft aria-hidden className="size-3" />
+                          <ChevronLeft aria-hidden className="size-4" />
                         ) : (
-                          <Inbox aria-hidden className="size-3" />
+                          <Inbox aria-hidden className="size-4" />
                         )}
-                        {viewHistory ? "退出历史" : "看全部历史消息(含已读)"}
+                        {viewHistory ? "退出历史" : "全部历史"}
                       </button>
                     </span>
                   </div>
@@ -4958,11 +4964,11 @@ export function FeedScreen() {
                       就近重试(时间线阅读不断);零条目 error 走既有
                       feed-tg-status-unknown 卡兜底不动(深检 F2 语义保持)。 */
                   <span
-                    className="ml-auto flex items-center gap-1.5 text-2xs text-warning"
+                    className="flex items-center gap-1.5 text-sm text-warning"
                     data-testid="feed-tg-console-unavailable"
                   >
                     监控状态暂时不可用
-                    <Button variant="ghost" size="sm" className="h-6 px-1.5 text-2xs" onClick={retryTgStatus}>
+                    <Button variant="ghost" size="sm" className="h-7 px-2.5 text-sm" onClick={retryTgStatus}>
                       重试
                     </Button>
                   </span>
@@ -4971,7 +4977,7 @@ export function FeedScreen() {
                       (不引 Skeleton;时间线骨架已在转)。error 且零条目不出
                       占位词(答案落地前不误述),交给既有空态卡。 */
                   <span
-                    className="ml-auto text-2xs text-muted-foreground"
+                    className="text-sm text-muted-foreground"
                     data-testid="feed-tg-console-loading"
                   >
                     正在拉取监控状态…
@@ -4979,26 +4985,14 @@ export function FeedScreen() {
                 ) : null}
               </div>
             ) : null}
-          {/* 工具条(v7 左栏工具条升格,feed-toolbar 保留):返回钮(替代
-              feed-back-to-overview)+ 渠道名 + 读态分段(隐藏条件 = 历史态 OR
-              检索态,拷问 R1-Q2「不给死控件」)+ 计数词面 + 知会词 + 退出历史
-              (与检索正交)+ 渠道内检索框(新)+ 显示选项 + 刷新 */}
-          <div className="flex flex-wrap items-center gap-2 border-b px-5 py-2.5" data-testid="feed-toolbar">
-            <Button
-              variant="outline"
-              size="sm"
-              className="px-2 text-xs"
-              data-testid="feed-back-to-channels"
-              title="返回渠道列表(也可按 Esc)"
-              onClick={backLevel}
-            >
-              <ChevronLeft className="size-3.5" />
-              {activeChannelKind !== null ? CHANNEL_CARD_LABELS[activeChannelKind] : "渠道"}
-            </Button>
+          {/* 操作簇:返回钮 + 渠道名(网站/日报)+ 读态分段(隐藏条件 =
+              历史态 OR 检索态,拷问 R1-Q2「不给死控件」)+ 计数 + 检索 +
+              显示 + 刷新;与聊天头同排,ml-auto 把操作簇压到行尾 */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
             {/* 渠道名小字仅网站/日报单列形态保留(TG 形态随迁聊天头大字,
                 一屏一词一源,不双写) */}
             {!chatView ? (
-              <span className="text-xs font-medium text-foreground" data-testid="feed-stream-title">
+              <span className="text-sm font-medium text-foreground" data-testid="feed-stream-title">
                 {streamTitle}
               </span>
             ) : null}
@@ -5031,7 +5025,7 @@ export function FeedScreen() {
                     setTgViewFocus("intel");
                   }}
                   className={
-                    "h-7 rounded-md px-2.5 text-xs transition-colors duration-(--duration-fast) ease-out-expo " +
+                    "h-8 rounded-md px-3 text-sm transition-colors duration-(--duration-fast) ease-out-expo " +
                     (tgViewFocus !== "native"
                       ? "bg-accent font-medium text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground")
@@ -5053,7 +5047,7 @@ export function FeedScreen() {
                   }
                   onClick={launchTgNative}
                   className={
-                    "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors duration-(--duration-fast) ease-out-expo " +
+                    "flex h-8 items-center gap-1.5 rounded-md px-3 text-sm transition-colors duration-(--duration-fast) ease-out-expo " +
                     (tgViewFocus === "native"
                       ? "bg-accent font-medium text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground")
@@ -5093,7 +5087,7 @@ export function FeedScreen() {
                     }
                     onClick={() => setFilter(entry.key)}
                     className={
-                      "h-7 rounded-md px-2.5 text-xs transition-colors duration-(--duration-fast) ease-out-expo " +
+                      "h-8 rounded-md px-3 text-sm transition-colors duration-(--duration-fast) ease-out-expo " +
                       (active
                         ? "bg-accent font-medium text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground")
@@ -5105,51 +5099,33 @@ export function FeedScreen() {
               })}
             </div>
             ) : null}
-            {/* 控件组|元信息组分界(问题5):返回/视图切换/读态分段 = 控件组,
-                计数/知会词/原生视图注记 = 元信息组(2xs 族),ml-auto 起
-                检索/显示/刷新操作簇;flex-wrap 折行按声明序,窄窗操作簇
-                整簇下沉 */}
-            <span className="h-4 w-px bg-border" aria-hidden />
-            {/* 计数词面(testid = feed-stream-count,F2 口径与 R1 修正词面原样;
-                检索态 total = source+query 同 WHERE,visible = 全量直出口径一致) */}
+            {/* 控件组|元信息组分界:计数/原生视图注记 = 元信息组(2xs 族),
+                ml-auto 起检索/显示/刷新操作簇 */}
+            <span className="h-5 w-px bg-border" aria-hidden />
+            {/* 计数词面(testid = feed-stream-count):只留可见/总量能一眼
+                读懂的词面,口径细节收进 title */}
             <span
-              className="text-2xs text-muted-foreground"
+              className="text-xs text-muted-foreground tabular-nums"
               data-testid="feed-stream-count"
               title={
                 total !== null && total > streamItems.length
                   ? `共 ${total} 条 = 当前过滤条件(store.items 同 WHERE)全量计数,含未翻页;已加载 ${streamItems.length} 条为已加载口径`
-                  : undefined
+                  : hasMore
+                    ? `已加载 ${streamItems.length} 条,更早条目未计入`
+                    : undefined
               }
             >
               {total !== null && total > streamItems.length
                 ? filter === "all" || streamSearchActive
-                  ? `已加载 ${streamItems.length} · 共 ${total} 条`
-                  : `已加载 ${visible.length} / ${streamItems.length} · 共 ${total} 条`
+                  ? `共 ${total} 条`
+                  : `${visible.length} / ${total} 条`
                 : hasMore
                   ? filter === "all" || streamSearchActive
-                    ? `已加载 ${streamItems.length} 条(首页截断,更早条目未计入)`
-                    : `已加载 ${visible.length} / ${streamItems.length} 条`
+                    ? `${streamItems.length}+ 条`
+                    : `${visible.length} / ${streamItems.length} 条`
                   : filter === "all" || streamSearchActive
                     ? `共 ${streamItems.length} 条`
                     : `${visible.length} / ${streamItems.length} 条`}
-            </span>
-            {/* 知会词:全量流 / 历史态 / 检索态(§4.3 词面) */}
-            <span
-              className="text-2xs text-muted-foreground"
-              data-testid="feed-day-window"
-              title={
-                viewHistory
-                  ? "历史态:该渠道全部入库条目,已读未读全显(读态过滤豁免);点「退出历史」回到读态视图。"
-                  : streamSearchActive
-                    ? "检索中:该渠道内 title/content 全文匹配(服务端),新→旧全量直出,不限读态;清空搜索恢复读态视图。"
-                    : "渠道流 = 该渠道全部入库条目(新→旧,当日窗不裁剪,加载更早翻页取尽);读态分段过滤未读/星标/稍后读"
-              }
-            >
-              {viewHistory
-                ? "全部历史 · 已读未读全显"
-                : streamSearchActive
-                  ? `检索中 · 渠道内全量(不限读态)`
-                  : "全量 · 新→旧 · 实时滚动"}
             </span>
             {/* 原生视图注记(v9):testid 复用 feed-tg-console-preview-note;随
                 知会词并入工具条元信息组(问题5,三带收两带),但 gate 只认
@@ -5158,15 +5134,17 @@ export function FeedScreen() {
                 写入的 capped/failed/首开注记必须可见,不给静默丢(深检 F3:
                 design-v9 §1.2「不装死」覆盖全部段控件可点状态) */}
             {isTgChannel && tgPreviewNote ? (
-              <p className="text-2xs text-warning" data-testid="feed-tg-console-preview-note">
+              <p className="text-xs text-warning" data-testid="feed-tg-console-preview-note">
                 {tgPreviewNote}
               </p>
             ) : null}
-            {viewHistory ? (
+            {viewHistory && !chatView ? (
+              /* 网站/日报无聊天头监控台:历史出口就近留在工具条;IM 会话
+                 由聊天头「全部历史 / 退出历史」同钮承担,不重复出钮 */
               <Button
                 variant="ghost"
                 size="sm"
-                className="px-2 text-xs text-muted-foreground"
+                className="px-2.5 text-sm text-muted-foreground"
                 data-testid="feed-history-exit"
                 title="退出历史态:回到读态过滤视图(未读/星标/稍后读/全部)"
                 onClick={exitHistory}
@@ -5180,7 +5158,7 @@ export function FeedScreen() {
               <div className="relative w-56">
                 <Search
                   aria-hidden
-                  className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70"
+                  className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70"
                 />
                 <Input
                   ref={streamSearchRef}
@@ -5188,8 +5166,8 @@ export function FeedScreen() {
                   value={streamSearchInput}
                   data-testid="feed-stream-search"
                   aria-label="渠道内检索"
-                  placeholder="渠道内检索(标题 / 正文)"
-                  className="w-full pl-8 text-xs"
+                  placeholder="检索标题 / 正文"
+                  className="w-full pl-8 text-sm"
                   onChange={(event) => setStreamSearchInput(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") setStreamQuery(streamSearchInput.trim());
@@ -5200,23 +5178,17 @@ export function FeedScreen() {
                   }}
                 />
               </div>
-              {streamSearchActive ? (
-                <p className="text-2xs text-muted-foreground" data-testid="feed-stream-search-note">
-                  {`检索「${streamQuery}」· 服务端全文(不限读态)`}
-                </p>
-              ) : null}
               {/* 显示选项(条目流语义):未读优先 + 分组维度 */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
-                    size="sm"
                     aria-label="显示选项"
                     title="显示选项:未读优先 / 分组维度(本地记忆)"
                   >
-                    <SlidersHorizontal className="size-3.5" />
+                    <SlidersHorizontal className="size-4" />
                     显示
-                    <ChevronDown className="size-3.5" />
+                    <ChevronDown className="size-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -5262,14 +5234,15 @@ export function FeedScreen() {
                 onClick={() => void refreshStream()}
                 disabled={loading}
               >
-                <RefreshCw className={loading ? "size-3.5 animate-spin" : "size-3.5"} />
+                <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />
               </Button>
             </div>
           </div>
+            </div>
 
           {/* TG 监控台大卡已撤销(10-11-tg-chat-two-pane):四态/词面/机件
-              (登录钮/预览/管理/历史入口)压缩进上方聊天头压缩条,门与测试
-              锚(feed-tg-console 系 testid)原样随迁。 */}
+              (登录钮/预览/管理/历史入口)压缩进上方顶栏,门与测试锚
+              (feed-tg-console 系 testid)原样随迁。 */}
 
           {/* 时间线滚动区(§3.1):错误卡 → 骨架 → 空态阶梯 → 聊天气泡/单列
               → 加载更早;回执行(打开原文/标记)随滚动区走。
@@ -5374,7 +5347,7 @@ export function FeedScreen() {
                   <CardContent className="p-0">
                     <EmptyState
                       title="监控在线,暂无未读新消息"
-                      description="Telegram 监控在线,新消息入库即出现在这里;已读条目切「全部」页签或点聊天头「看全部历史消息(含已读)」直达。"
+                      description="Telegram 监控在线,新消息入库即出现在这里;已读条目切「全部」页签或点顶栏「全部历史」直达。"
                     />
                   </CardContent>
                 </Card>
@@ -5433,7 +5406,7 @@ export function FeedScreen() {
                   <CardContent className="p-0">
                     <EmptyState
                       title="桥在线,暂无未读新消息"
-                      description="微信本机桥在线,新消息入库即出现在这里(桥只读微信当前打开的会话,且需与声明的监控会话匹配);已读条目切「全部」页签或点聊天头「看全部历史消息(含已读)」直达。"
+                      description="微信本机桥在线,新消息入库即出现在这里(桥只读微信当前打开的会话,且需与声明的监控会话匹配);已读条目切「全部」页签或点顶栏「全部历史」直达。"
                     />
                   </CardContent>
                 </Card>
