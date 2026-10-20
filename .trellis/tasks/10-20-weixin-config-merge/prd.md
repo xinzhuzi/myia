@@ -73,27 +73,27 @@ cron 注册收敛为单 job,仓库种子/装配/文档引用面全同步。
 
 ## Acceptance Criteria
 
-- [ ] **AC1 数据根收敛**:数据根 `config/` 只剩 `weixin.yaml` 承载全部 5 源,3 个旧档
+- [x] **AC1 数据根收敛**:数据根 `config/` 只剩 `weixin.yaml` 承载全部 5 源,3 个旧档
       删除(合并前 `.bak` 备份在场),品类装载校验通过;**终验点在换装后**
       (包内 weixin-notify 补种复活件再删,见约束「补种语义」)。
-- [ ] **AC2 源名与 engine_options 零变化**:合并档 5 个源的 `name` 与
+- [x] **AC2 源名与 engine_options 零变化**:合并档 5 个源的 `name` 与
       `engine_options` 与合并前逐字一致(对照 research 表)。
-- [ ] **AC3 cron 收敛 + 零重灌**:jobs.json 由 4 job 收敛为 1 job(名「微信监控」,
+- [x] **AC3 cron 收敛 + 零重灌**:jobs.json 由 4 job 收敛为 1 job(名「微信监控」,
       expr `*/5 * * * *`,历史保留);`cron run` 手动触发一轮后:`change_baseline`
       5 键与合并前同键、指纹推进(content_hash/last_changed);`items` 按源计数
       与合并前一致、无重复入库(SQL 配方见 research)。
-- [ ] **AC4 仓库同步(D5 终裁:A 模板形态)**:仓库 `config/weixin.yaml` = 合并版模板(含注释
+- [x] **AC4 仓库同步(D5 终裁:A 模板形态)**:仓库 `config/weixin.yaml` = 合并版模板(含注释
       形态 sns/notify 样例);删 `config/weixin-ai-token.yaml`、`config/weixin-notify.yaml`
       种子;`tauri.conf.json` resources 删 weixin-notify 条目;installer 测试期望
       18→17 件;`tests/fixtures/push_targets_golden_before.json` 等夹具如涉同步。
-- [ ] **AC5 文档同步**:`docs/zh|en/wechat-local.md`、`docs/zh|en/write-a-plugin.md`、
+- [x] **AC5 文档同步**:`docs/zh|en/wechat-local.md`、`docs/zh|en/write-a-plugin.md`、
       `skill/SKILL.md` 活口径改「单档多通道」;**CHANGELOG 只增新条不改旧史**;
       数据根 weixin.yaml 注释里「pixel 形态参考仓库样例」指针随种子形态核实;
       `tests/test_docs.py` 绿。
-- [ ] **AC6 前端契约**:`feed-screen.tsx` B3 深链(只预选 `weixin.yaml`)仍成立;其
+- [x] **AC6 前端契约**:`feed-screen.tsx` B3 深链(只预选 `weixin.yaml`)仍成立;其
       3190-3195 注释中「生产数据根另有 weixin-ai-token.yaml 第二品类文件」句随合并更新;
       相关 vitest 绿。
-- [ ] **AC7 门禁与装机件**:全量 pytest + vitest 零新红;装配面变化(18→17)按
+- [x] **AC7 门禁与装机件**:全量 pytest + vitest 零新红;装配面变化(18→17)按
       「交付完成判定含装机包」判例重打包换装并核验 weixin-notify 不在包内
       (或按主人指示留窗,留窗须在完成汇报首段显式声明)。
 

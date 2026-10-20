@@ -3,7 +3,7 @@
   "name": "weixin-config-merge",
   "title": "微信监控配置合并(四档归一)",
   "description": "数据根与仓库种子的微信四品类档(weixin/ai-token/sns/notify)合并为单一 weixin.yaml,源名锚水位零重灌,cron 收敛单 job",
-  "status": "in_progress",
+  "status": "review",
   "dev_type": null,
   "scope": null,
   "package": null,
