@@ -1,7 +1,11 @@
 # config/weixin.yaml — 微信监控品类(10-12-weixin-feed-channel;engine:
 # wechat_local,主人令翻案 G3:微信消息入情报流,与 telegram 同为一等渠道)。
+# 2026-10-20 四档归一(10-20-weixin-config-merge,D1/D5 主人终裁):本档是
+# 微信唯一品类档——单档多通道,pixel/localdb/sns/notify 四通道的源同栖
+# 一份配置共享 schedule(真实会话只活在数据根;本仓库件是入包教学模板,
+# 刻意零隐私)。
 #
-# 机制(engine: wechat_local 链外引擎,schema 词表/registry 已注册),双通道
+# 机制(engine: wechat_local 链外引擎,schema 词表/registry 已注册),四通道
 # (engine_options.wechat_local.channel,缺省 pixel 向后兼容;2026-10-13
 # 主人令换轨:TMS 源切 localdb——像素链 OCR 逻辑性/准确性判例成立):
 #   - pixel:管线进程内起本机桥子进程(wechat-bridge messages read)只读
@@ -16,10 +20,24 @@
 #     解密密钥缺位 = 合法预期态:桥 exit 21 key_unavailable → 引擎结构化
 #     skip 不算失败不告警;指引:跑仓库 scripts/wechat-bridge-d4-keyscan.sh
 #     (主人 sudo 一键内存密钥扫描,命中自动落 keys.json 即通)。
+#   - sns:朋友圈域(桥 0.6.0+,无会话概念,不消费 chat/sides/count):
+#     feed_kind 二模式一模式一源——feed=朋友圈动态(微信全局 id 强锚
+#     #wxsns-)/notices=互动通知赞评(表主键锚),重读恒同锚。如实限制:
+#     微信客户端往本地库写朋友圈数据是批次式(实测一天几批),提频拉取
+#     只保证「数据落库后 ≤1 档必收」。
+#   - notify:新消息/撤回事件的通知扫描(桥 0.8.0+ localdb notify-scan
+#     轮询水位版——零微信进程干预,一切读解密副本 mode=ro):SessionTable
+#     会话基线水位先筛(chat_whitelist 白名单外零扫描)→ 候选会话定点
+#     增量查 → message.new 事件;撤回谓词 → message.revoke 事件 + 原文
+#     恢复阶梯。锚 #wxn-/#wxnr-<server_id> 强幂等;首轮只建基线零事件
+#     (防装机首弹轰炸)。chat_whitelist 不声明即不通知(空清单 = 引擎
+#     构造期即拒);notify_self 缺省 false(自己发的消息不通知)。
 #
-# 锚的如实限制(与 #tg-<chat>-<mid> 全期强幂等不可比):两条通道的桥应答
-#   都没有消息 id(pixel MessageRow 无 id;localdb query_messages 只选
-#   时间/内容/类型/发送者四列,2026-10-13 实探)→ 锚只能内容铸。pixel:
+# 锚的如实限制(与 #tg-<chat>-<mid> 全期强幂等不可比):消息两通道
+#   (pixel/localdb)的桥应答都没有消息 id(pixel MessageRow 无 id;
+#   localdb query_messages 只选时间/内容/类型/发送者四列,2026-10-13
+#   实探)→ 锚只能内容铸;sns/notify 走微信侧 id 强锚(#wxsns-/#wxn-/
+#   #wxnr-,重读恒同锚)。pixel:
 #   OCR 修字/置信度波动使文本微变会另立新锚;localdb 文本原样无 OCR 噪声,
 #   重读恒同锚(幂等远强于 pixel),残留面 = 同秒同侧同文本并锚。重复条目
 #   靠 feed 读态消化。
@@ -95,16 +113,13 @@ sources:
   #    只出「当前打开会话」的载荷,不匹配的源按空态跳过;localdb 按库查询
   #    无此面,多源各查各的会话,如实)──
 
-  # ── 朋友圈(10-13-wechat-sns-feed;桥 0.6.0+,channel: sns 无会话概念,
-  #    不消费 chat/sides/count;feed=动态/notices=互动通知赞评两模式,
-  #    一模式一源;动态用微信全局 id 强锚,通知用表主键锚,重读恒同)──
-  #    ⚠ 高频档建议拆独立品类(如 weixin-sns.yaml)单独挂 cron:本品类
-  #    schedule 是聊天档节奏(镜像 TG web 线,常带 9-22 收窗),朋友圈要
-  #    提频/全天拉取时拆档各自排程互不牵连——源名不变即零迁移(水位键
-  #    `wechat-local://watermark/<源名>` 无品类维度不重灌;feed 渠道归属按
-  #    源名前缀判定;#wxsns- 强锚跨品类沉默;先例 = weixin-ai-token 拆档)。
-  #    如实限制:微信客户端往本地库写朋友圈数据是批次式(实测一天几批),
-  #    提频拉取只保证「数据落库后 ≤1 档必收」,改不了上游写入节奏。
+  # ── 朋友圈样例(channel: sns;feed_kind 双模式一模式一源:feed=动态 /
+  #    notices=互动通知赞评;动态用微信全局 id 强锚,通知用表主键锚,重读
+  #    恒同)。2026-10-20 四档归一后 sns 与聊天/通知同栖本档共享 schedule
+  #    ——水位键 `wechat-local://watermark/<源名>` 无品类维度,拆/合档
+  #    零迁移(源名不变即可);如某通道确需独立节奏才另立品类档,同款
+  #    零迁移语义。如实限制:微信客户端往本地库写朋友圈数据是批次式
+  #    (实测一天几批),提频拉取只保证「数据落库后 ≤1 档必收」。──
   # - name: weixin-朋友圈                # 源名全称律(渠道归属+去重键)
   #   engine: wechat_local
   #   url: "https://weixin.qq.com"
@@ -112,8 +127,43 @@ sources:
   #   engine_options:
   #     wechat_local:
   #       channel: sns
-  #       feed_kind: feed                # feed(缺省)=动态;notices=互动通知
+  #       feed_kind: feed                # feed(缺省)=朋友圈动态
   #       since_days: 3                  # 首拉/无水位窗口(缺省 3;有水位自动增量)
+  #   rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+  #   proxy: direct
+  #   retry: 1
+  # - name: weixin-朋友圈互动            # 第二模式:互动通知(赞/评;词面中性)
+  #   engine: wechat_local
+  #   url: "https://weixin.qq.com"
+  #   empty_ok: true                     # 无人赞评的安静窗 = 合法空
+  #   engine_options:
+  #     wechat_local:
+  #       channel: sns
+  #       feed_kind: notices             # notices=互动通知(与 feed 一模式一源)
+  #       since_days: 3
+  #   rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+  #   proxy: direct
+  #   retry: 1
+
+  # ── 新消息通知样例(channel: notify;轮询水位扫描:白名单会话比对
+  #    {ts, unread} → 候选分表定点增量查 → message.new/撤回 message.revoke;
+  #    首轮只建基线零事件)。chat_whitelist 不声明即不通知(空清单 = 引擎
+  #    构造期即拒,防功能空转);键名是 chat_whitelist 不是 sessions
+  #    (schema 凭据基线把含 session 的键当凭据位,声明 sessions 会被
+  #    结构化拒并指路)。想弹本机通知:push 挂 macos_notify 通道(本机
+  #    通知中心弹窗,零网络零凭据——「不外发任何通道」的本机形态豁免)。──
+  # - name: weixin-通知                  # 源名全称律(渠道归属+去重键)
+  #   engine: wechat_local
+  #   url: "https://weixin.qq.com"
+  #   empty_ok: true                     # 密钥缺位 skip/安静窗零事件 = 合法空
+  #   engine_options:
+  #     wechat_local:
+  #       channel: notify                # 第四通道:通知扫描(轮询水位,零截窗零 AX)
+  #       chat_whitelist:                # 会话白名单(id 直通或显示名二查解析)
+  #         - "样例会话@chatroom"        # 会话 id 形态(wxid_xxx/@chatroom 直通)
+  #         - 张三                       # 显示名形态(引擎首查零消息时二查解析)
+  #       notify_self: false             # 自己发的消息不通知(缺省;显式写出为对照)
+  #       read_timeout_seconds: 120      # 单次桥扫描上界(须 ≤ 品类 timeouts.fetch)
   #   rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
   #   proxy: direct
   #   retry: 1

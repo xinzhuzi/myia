@@ -24,7 +24,8 @@
 不锁锁件。
 
 品类面(官方 7 + demo + 场景 monitor/credentials + telegram 三件与
-daily-digest + 查漏 2,2026-10-11 起 16 件,随包 Resources/config/)属「配置可随包」,
+daily-digest + 查漏 2 + weixin,2026-10-20 四档归一批 weixin-notify 种子
+删除后 17 件,随包 Resources/config/)属「配置可随包」,
 维持随包不变,断言原样保留。与 tests/desktop/test_pyenv_resources.py
 的分工:彼管 Python 运行时五映射「不被挤掉」;此管随包插件面
 (品类在 + 组件包两声明在且**仅有** + 源码/数据件不在)。
@@ -76,13 +77,12 @@ OFFICIAL_CATEGORY_YAMLS = (
     "ai-token-deals.yaml",
     "ai-vendor-watch.yaml",
     # weixin(2026-10-12 10-12-weixin-feed-channel):微信品类入情报流(G3
-    # 翻案),缺省关同 telegram-web 先例——随包 = 装机补种后在册可启,
-    # 随包品类面自此 17 件。
+    # 翻案),缺省关同 telegram-web 先例——随包 = 装机补种后在册可启。
+    # 2026-10-20 四档归一(10-20-weixin-config-merge,D5 主人终裁 A 模板
+    # 形态):weixin.yaml 单档多通道(pixel/localdb 活样例 + sns/notify
+    # 注释样例),weixin-notify.yaml 种子删除(其 notify 通道样例收编进
+    # weixin.yaml 注释区)——随包品类面 18 → 17 件。
     "weixin.yaml",
-    # weixin-notify(2026-10-14 10-14-wechat-notify-revoke):微信本机通知
-    # 品类(*/1 水位扫描+撤回检测,push=[macos_notify] 本机通知中心出站;
-    # 缺省关双保险)——随包品类面自此 18 件。
-    "weixin-notify.yaml",
 )
 
 #: desktop tier 源码件全件(EXPECTED_TIERS 同源清单;新规范下这些件的
