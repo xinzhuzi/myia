@@ -14,7 +14,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import { api, SidecarRequestError } from "@/lib/api";
-import type { FeedItem, HealthResult, SidecarErrorShape, SourceStatsRow } from "@/lib/api";
+import type { FeedItem, HealthResult, SidecarErrorShape, SourceHealth, SourceStatsRow } from "@/lib/api";
 
 export type { SourceStatsRow };
 
@@ -989,6 +989,11 @@ export interface FeedChannelCardData {
    *  消灭「今日暂无新条目」假知会;未过 STATS 门 = 字段缺省 undefined */
   statsLatestTitle?: string | null;
   statsLatestSeen?: string | null;
+  /** 缺凭据空转(10-21-channel-credential-badge):最近一轮 skip_reason =
+   *  credential_missing(引擎显式空态,健康度判 ok 但永远 0 新)——渠道行
+   *  亮「未配凭据」角标,「看似正常却今日 0 条」一眼可见;配好凭据后
+   *  下一轮采集即消。 */
+  credentialMissing?: boolean;
 }
 
 /**
@@ -1006,6 +1011,9 @@ export function feedChannelCards(
   engineOfSource: ReadonlyMap<string, string>,
   windowStart: Date,
   now: Date = new Date(),
+  /** 源名→健康度快照(可选;10-21-channel-credential-badge:最近一轮
+   *  credential_missing 显式空态 → 卡亮 credentialMissing 角标旗)。 */
+  healthBySource?: ReadonlyMap<string, SourceHealth>,
 ): FeedChannelCardData[] {
   const keys = new Set<string>(engineOfSource.keys());
   for (const item of items) {
@@ -1037,6 +1045,10 @@ export function feedChannelCards(
       today,
       unread,
       latest,
+      credentialMissing:
+        healthBySource?.get(key)?.latest?.skip_reason === "credential_missing"
+          ? true
+          : undefined,
     });
   }
   return rows.sort((a, b) => {

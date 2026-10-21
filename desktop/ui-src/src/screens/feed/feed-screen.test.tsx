@@ -79,6 +79,7 @@ import type {
   FeedExportResult,
   FeedItem,
   HealthResult,
+  SourceHealth,
   StoreItemsParams,
   StoreItemsResult,
   VersionResult,
@@ -6769,5 +6770,131 @@ describe("chatTimeOf(追加批⑥,纯函数)", () => {
     // 缺失/异形(与 formatRelativeTime 同守卫)
     expect(chatTimeOf(null)).toBe("—");
     expect(chatTimeOf("not-a-date")).toBe("not-a-date");
+  });
+});
+
+// ------------------------ 缺凭据角标(10-21-channel-credential-badge) ------------------------
+
+describe("FeedScreen · 渠道行缺凭据角标(10-21-channel-credential-badge)", () => {
+  it("credential_missing 显式空态源:2 级渠道行亮「未配凭据」角标(title 人话),健康渠道零角标", async () => {
+    healthMock.mockResolvedValue(
+      healthResult({
+        categories: [
+          {
+            file: "/home/config/telegram-groups.yaml",
+            id: "telegram",
+            name: "TG群监控",
+            schedule: "*/30 * * * *",
+            timezone: null,
+            push_channels: [],
+            loaded: true,
+            load_errors: null,
+            sources: [
+              {
+                name: "telegram-mihomo_party_group",
+                url: "https://web.telegram.org",
+                engine: "telegram",
+                engine_hint: null,
+                health: {
+                  state: "ok",
+                  reason: "引擎显式空态(credential_missing):凭据未配置或无输入",
+                  observed: 3,
+                  latest: {
+                    run_id: 9311,
+                    run_status: "success",
+                    item_count: 0,
+                    skip_reason: "credential_missing",
+                    failed: false,
+                  },
+                  baseline: null,
+                },
+                fingerprint_skips: { observed: 0, skipped: 0 },
+              },
+              {
+                name: "telegram-durov",
+                url: "https://t.me/durov",
+                engine: "static_html",
+                engine_hint: null,
+                health: {
+                  state: "ok",
+                  reason: "本轮产出 20 条",
+                  observed: 3,
+                  latest: {
+                    run_id: 9147,
+                    run_status: "success",
+                    item_count: 20,
+                    skip_reason: null,
+                    failed: false,
+                  },
+                  baseline: null,
+                },
+                fingerprint_skips: { observed: 0, skipped: 0 },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    storeItemsMock.mockResolvedValue(result([]));
+    await renderOverview();
+    await openChannelList("tg");
+    const badge = await screen.findByTestId(
+      "feed-channel-cred-telegram-mihomo_party_group",
+    );
+    expect(badge.textContent).toBe("未配凭据");
+    expect(badge.getAttribute("title")).toContain("凭据");
+    // 健康渠道零角标:看似正常的「今日 0 条」与「缺凭据空转的 0 条」从此可分
+    expect(
+      screen.queryByTestId("feed-channel-cred-telegram-durov"),
+    ).toBeNull();
+  });
+});
+
+describe("feed channel cards 缺凭据旗(纯函数,api.ts,10-21)", () => {
+  const windowStart = new Date(2026, 9, 6, 3, 0);
+  const now = new Date(2026, 9, 6, 14, 0);
+  const engines = new Map([["telegram-mihomo_party_group", "telegram"]]);
+  const healthOf = (skip_reason: string | null) =>
+    ({
+      state: "ok",
+      reason: "测试",
+      observed: 1,
+      latest: {
+        run_id: 1,
+        run_status: "success",
+        item_count: 0,
+        skip_reason,
+        failed: false,
+      },
+      baseline: null,
+    }) as SourceHealth;
+
+  it("skip_reason=credential_missing → credentialMissing=true;其他/缺席 → undefined", () => {
+    // fixtureItem 只许在 it 体内调:模块级 nextItemId 自增,describe 收集期
+    // 调用会把前序用例的条目 id 顶掉(feed-item-1 假失踪,实测在案)。
+    const item: FeedItem = {
+      ...fixtureItem(),
+      source: "telegram-mihomo_party_group",
+    };
+    const cards = feedChannelCards(
+      [item],
+      {},
+      engines,
+      windowStart,
+      now,
+      new Map([["telegram-mihomo_party_group", healthOf("credential_missing")]]),
+    );
+    expect(cards[0].credentialMissing).toBe(true);
+    const fingerprintSkipped = feedChannelCards(
+      [item],
+      {},
+      engines,
+      windowStart,
+      now,
+      new Map([["telegram-mihomo_party_group", healthOf("fingerprint_unchanged")]]),
+    );
+    expect(fingerprintSkipped[0].credentialMissing).toBeUndefined();
+    const noHealth = feedChannelCards([item], {}, engines, windowStart, now);
+    expect(noHealth[0].credentialMissing).toBeUndefined();
   });
 });

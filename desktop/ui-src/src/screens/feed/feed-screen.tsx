@@ -1439,7 +1439,7 @@ const ChannelRow = memo(function ChannelRow({
           </span>
         )}
         <div className="min-w-0 flex-1">
-          {/* 行 1:渠道名 + 最新相对时间(零条目不显) */}
+          {/* 行 1:渠道名 + 缺凭据角标 + 最新相对时间(零条目不显) */}
           <div className="flex items-baseline justify-between gap-2">
             <span
               className={`min-w-0 truncate text-sm font-medium ${selected ? "text-link" : "text-foreground"}`}
@@ -1447,14 +1447,28 @@ const ChannelRow = memo(function ChannelRow({
             >
               {card.label}
             </span>
-            {time !== null ? (
-              <time
-                dateTime={seenIso ?? undefined}
-                className="shrink-0 font-mono text-2xs text-muted-foreground"
-              >
-                {time}
-              </time>
-            ) : null}
+            <span className="flex shrink-0 items-center gap-1.5">
+              {/* 缺凭据角标(10-21-channel-credential-badge):credential_missing
+                  显式空态源看似正常但永远 0 新(warning 色档同 wx 群状态点);
+                  title 人话给因与去向,行话不上屏。 */}
+              {card.credentialMissing ? (
+                <span
+                  data-testid={`feed-channel-cred-${card.key}`}
+                  className="inline-flex items-center rounded-sm border border-warning/50 px-1.5 py-0.5 text-2xs font-medium text-warning"
+                  title="该渠道凭据未配置,监控空转中;配好凭据后下一轮采集自动恢复。"
+                >
+                  未配凭据
+                </span>
+              ) : null}
+              {time !== null ? (
+                <time
+                  dateTime={seenIso ?? undefined}
+                  className="shrink-0 font-mono text-2xs text-muted-foreground"
+                >
+                  {time}
+                </time>
+              ) : null}
+            </span>
           </div>
           {/* 行 2:最新预览(cardDigest;同文回退标题,F6;stats 回退,v8;
               零条目给知会词)+ 未读徽标(unread >0 才渲染,9+ 截断;title
@@ -2949,8 +2963,11 @@ export function FeedScreen() {
   // 过滤(§4.3:作用域 = 该类型成员集,类型别名同认)。
   // ---------------------------------------------------------------------------
   const channelCards = useMemo(
-    () => feedChannelCards(catalogItems, states, engineBySource, windowStart),
-    [catalogItems, states, engineBySource, windowStart],
+    // healthBySource(10-21-channel-credential-badge):credential_missing
+    // 显式空态源亮「未配凭据」角标 —— 与 engineBySource 同一次 health()
+    // 装配的快照,进屏一次,快照时点同门。
+    () => feedChannelCards(catalogItems, states, engineBySource, windowStart, new Date(), sourceHealthBySource),
+    [catalogItems, states, engineBySource, windowStart, sourceHealthBySource],
   );
   const channelCardsWithStats = useMemo(
     () =>
