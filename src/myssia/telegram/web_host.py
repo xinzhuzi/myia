@@ -48,7 +48,10 @@ from myssia.telegram.serve import (
 )
 from myssia.telegram.web_line import (
     TelegramWebError,
+    clear_dead_account,
     default_data_root,
+    fresh_dead_accounts,
+    mark_account_dead,
     profile_dir,
     require_playwright,
 )
@@ -492,6 +495,9 @@ class TelegramWebManager:
             None]``;缺省只走内存态+日志+账本 —— 桌面接线可挂 sidecar 流)。
         sleep: 异步 sleep 注入(测试 fake)。
         should_stop: 停止判定(装配方注入线程 Event)。
+        dead_mark_root: 死键标记数据根(缺省 None = 不落标;致命哨兵
+            (登出/DOM 失配)记告警时同步落 ``web-line-dead.json``,下轮
+            装配跳过该键除噪 —— 10-21-tg-web-host-quiet)。
     """
 
     def __init__(
@@ -501,6 +507,7 @@ class TelegramWebManager:
         alert_sink: Callable[[TelegramWebSentinel], None] | None = None,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         should_stop: Callable[[], bool] | None = None,
+        dead_mark_root: Path | None = None,
     ) -> None:
         self._hosts: dict[str, _AccountRuntime] = {
             account: _AccountRuntime(host=host)
@@ -509,6 +516,7 @@ class TelegramWebManager:
         self._alert_sink = alert_sink
         self._sleep = sleep
         self._should_stop = should_stop
+        self._dead_mark_root = dead_mark_root
         #: 观测面(CLI 横幅/doctor/设置卡消费)。
         self.started_at: str | None = None
 
@@ -623,6 +631,18 @@ class TelegramWebManager:
             sentinel.chat,
             sentinel.detail,
         )
+        # 致命哨兵同步落死键标(10-21-tg-web-host-quiet):下轮装配跳过该键,
+        # 重启不再重演同一告警;未知异常(tg_web_error)可能瞬态,不落标。
+        if (
+            self._dead_mark_root is not None
+            and sentinel.type in (SENTINEL_LOGGED_OUT, SENTINEL_DOM_STALE)
+        ):
+            mark_account_dead(
+                self._dead_mark_root,
+                sentinel.account,
+                reason=sentinel.type,
+                detail=sentinel.detail,
+            )
         host = runtime.host if runtime is not None else None
         ledger = getattr(host, "_ledger", None) if host is not None else None
         if ledger is not None:
@@ -748,6 +768,21 @@ def assemble_web_manager(
             " 150-300MB 内存;同机同出口多账号可被 Telegram 关联(只读监控"
             "风险低,数量克制)。请减键或调 engine_options.tg_web.max_accounts"
         )
+    # 哨兵死键跳过(10-21-tg-web-host-quiet):跳过窗内的死键不再随每次
+    # 启动重试刷「开群失败→告警」;过期死键放行重试并清标(成活自愈,
+    # 再死由 manager 哨兵重标记)。
+    dead = fresh_dead_accounts(data_root)
+    skipped_notes: list[str] = []
+    for account in sorted(set(grouped) & set(dead)):
+        grouped.pop(account)
+        entry = dead[account]
+        skipped_notes.append(
+            f"账号 {account}(哨兵停用 {entry.get('since')}"
+            f" type={entry.get('type')};重登 myssia telegram web-login"
+            f" --account {account} --force 后重启即恢复)"
+        )
+    for account in sorted(grouped):
+        clear_dead_account(data_root, account)
     hosts: dict[str, TelegramWebAccountHost] = {}
     for account, bindings in grouped.items():
         ledger = TelegramEventLedger(
@@ -762,5 +797,16 @@ def assemble_web_manager(
             data_root=data_root,
             should_stop=should_stop,
         )
-    manager = TelegramWebManager(hosts=hosts, should_stop=should_stop)
+    if not hosts:
+        if skipped_notes:
+            return None, (
+                "TG 网页线未起:全部账号处哨兵停用跳过窗 —— "
+                + ";".join(skipped_notes)
+            )
+        return None, None  # pragma: no cover - 无源已在上方早退,防御面
+    manager = TelegramWebManager(
+        hosts=hosts, should_stop=should_stop, dead_mark_root=data_root
+    )
+    if skipped_notes:
+        return manager, "TG 网页线部分账号跳过 —— " + ";".join(skipped_notes)
     return manager, None

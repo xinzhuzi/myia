@@ -750,3 +750,157 @@ def test_cli_telegram_web_login_help_registered() -> None:
     assert ns.telegram_command == "web-login"
     assert ns.account == "telegram-alt1"
     assert ns.force is False
+
+
+# --------------------------------- 哨兵死键跳过(10-21-tg-web-host-quiet)
+
+
+def test_assemble_skips_fresh_dead_accounts(tmp_path: Path) -> None:
+    from myssia.telegram.web_line import mark_account_dead
+
+    store_fn, push_fn, stored, pushed = make_sinks()
+    mark_account_dead(tmp_path, "telegram-a", reason="tg_web_dom_stale")
+    manager, note = assemble_web_manager(
+        [_make_source("telegram-a", "g1"), _make_source("telegram-b", "g2")],
+        telegram_dir=tmp_path / "telegram",
+        data_root=tmp_path,
+        backend=None,
+        store_item=store_fn,
+        push_high_value=push_fn,
+    )
+    # 部分跳过:manager 照起,note 列跳过键 + 重登指引
+    assert manager is not None
+    assert note is not None and "telegram-a" in note and "web-login" in note
+    assert [row["account"] for row in manager.status()["accounts"]] == [
+        "telegram-b"
+    ]
+    manager.close()
+
+
+def test_assemble_all_dead_returns_none_with_note(tmp_path: Path) -> None:
+    from myssia.telegram.web_line import mark_account_dead
+
+    store_fn, push_fn, stored, pushed = make_sinks()
+    mark_account_dead(tmp_path, "telegram-a", reason="tg_web_logged_out")
+    manager, note = assemble_web_manager(
+        [_make_source("telegram-a", "g1")],
+        telegram_dir=tmp_path / "telegram",
+        data_root=tmp_path,
+        backend=None,
+        store_item=store_fn,
+        push_high_value=push_fn,
+    )
+    assert manager is None
+    assert note is not None and "全部账号" in note and "web-login" in note
+
+
+def test_assemble_expired_dead_cleared_and_included(tmp_path: Path) -> None:
+    """过期死键放行重试:清标入列(成活自愈;再死由哨兵重标记)。"""
+    from datetime import datetime, timedelta, timezone
+
+    from myssia.telegram.web_line import (
+        WEB_LINE_DEAD_TTL_SECONDS,
+        dead_marker_path,
+    )
+
+    store_fn, push_fn, stored, pushed = make_sinks()
+    marker = dead_marker_path(tmp_path)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(
+        json.dumps(
+            {
+                "accounts": {
+                    "telegram-a": {
+                        "type": "tg_web_dom_stale",
+                        "since": (
+                            datetime.now(timezone.utc)
+                            - timedelta(seconds=WEB_LINE_DEAD_TTL_SECONDS + 60)
+                        ).isoformat(),
+                        "detail": "旧死键",
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    manager, note = assemble_web_manager(
+        [_make_source("telegram-a", "g1")],
+        telegram_dir=tmp_path / "telegram",
+        data_root=tmp_path,
+        backend=None,
+        store_item=store_fn,
+        push_high_value=push_fn,
+    )
+    assert manager is not None and note is None
+    assert [row["account"] for row in manager.status()["accounts"]] == [
+        "telegram-a"
+    ]
+    assert not marker.exists()  # 放行即清标
+    manager.close()
+
+
+def test_manager_marks_fatal_sentinel_dead(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """致命哨兵(登出/DOM 失配)记告警时同步落死键标,下轮装配跳过。"""
+    from myssia.telegram.web_line import read_dead_accounts
+
+    monkeypatch.setattr(web_line_module, "LOGIN_SETTLE_SECONDS", 0.0)
+    monkeypatch.setattr(web_host, "require_playwright", lambda: None)
+    dead_host, _ = make_account_host(
+        tmp_path, "telegram-b", login_state="logged_out"
+    )
+    stop = threading_Event()
+    manager = TelegramWebManager(
+        hosts={"telegram-b": dead_host},
+        should_stop=stop.is_set,
+        dead_mark_root=tmp_path,
+    )
+
+    async def scenario() -> None:
+        task = asyncio.ensure_future(manager.run_forever())
+        await asyncio.sleep(0.2)
+        stop.set()
+        await asyncio.sleep(0.05)
+        task.cancel()
+        try:
+            await asyncio.wait_for(task, timeout=1.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            pass
+
+    asyncio.run(scenario())
+    dead = read_dead_accounts(tmp_path)
+    assert dead.get("telegram-b", {}).get("type") == SENTINEL_LOGGED_OUT
+
+
+def test_manager_unknown_error_not_marked_dead(tmp_path: Path) -> None:
+    """未知异常(tg_web_error)可能瞬态:告警照记,但不落死键标。"""
+    from myssia.telegram.web_line import read_dead_accounts
+
+    host, _ = make_account_host(tmp_path, "telegram-x")
+
+    async def boom() -> None:
+        raise RuntimeError("浏览器炸了")
+
+    host.run_forever = boom  # type: ignore[method-assign]
+    stop = threading_Event()
+    manager = TelegramWebManager(
+        hosts={"telegram-x": host},
+        should_stop=stop.is_set,
+        dead_mark_root=tmp_path,
+    )
+
+    async def scenario() -> None:
+        task = asyncio.ensure_future(manager.run_forever())
+        await asyncio.sleep(0.1)
+        stop.set()
+        await asyncio.sleep(0.05)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    asyncio.run(scenario())
+    assert manager.status()["accounts"][0]["alert"]["type"] == "tg_web_error"
+    assert read_dead_accounts(tmp_path) == {}

@@ -667,3 +667,92 @@ def test_collect_window_updates_via_fake_evaluate(tmp_path: Path) -> None:
     )
     assert [u["message"]["message_id"] for u in updates] == [1, 3]
     assert collect_messages_js(limit=5).startswith("const LIMIT = 5;")
+
+
+# --------------------------------------------- 哨兵死键标记(10-21-tg-web-host-quiet)
+
+
+def test_dead_marker_roundtrip_mark_read_clear(tmp_path: Path) -> None:
+    from myssia.telegram.web_line import (
+        clear_dead_account,
+        dead_marker_path,
+        mark_account_dead,
+        read_dead_accounts,
+    )
+
+    assert read_dead_accounts(tmp_path) == {}  # 缺失文件 = 空表
+    mark_account_dead(
+        tmp_path, "telegram-a", reason="tg_web_dom_stale", detail="开群失败"
+    )
+    mark_account_dead(tmp_path, "telegram-b", reason="tg_web_logged_out")
+    marked = read_dead_accounts(tmp_path)
+    assert set(marked) == {"telegram-a", "telegram-b"}
+    assert marked["telegram-a"]["type"] == "tg_web_dom_stale"
+    assert marked["telegram-a"]["detail"] == "开群失败"
+    assert dead_marker_path(tmp_path) == profile_root(tmp_path) / "web-line-dead.json"
+    clear_dead_account(tmp_path, "telegram-a")
+    assert set(read_dead_accounts(tmp_path)) == {"telegram-b"}
+    clear_dead_account(tmp_path, "telegram-a")  # 不在 = 零写不报
+    clear_dead_account(tmp_path, "telegram-b")  # 清空 = 文件删除
+    assert not dead_marker_path(tmp_path).exists()
+
+
+def test_fresh_dead_accounts_ttl_and_tolerance(tmp_path: Path) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from myssia.telegram.web_line import (
+        WEB_LINE_DEAD_TTL_SECONDS,
+        fresh_dead_accounts,
+        mark_account_dead,
+        read_dead_accounts,
+    )
+
+    now = datetime.now(timezone.utc)
+    mark_account_dead(tmp_path, "fresh-key", reason="tg_web_dom_stale")
+    path = profile_root(tmp_path) / "web-line-dead.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["accounts"]["stale-key"] = {
+        "type": "tg_web_logged_out",
+        "since": (
+            now - timedelta(seconds=WEB_LINE_DEAD_TTL_SECONDS + 60)
+        ).isoformat(),
+        "detail": "",
+    }
+    data["accounts"]["broken-key"] = {
+        "type": "tg_web_logged_out",
+        "since": "not-a-date",
+        "detail": "",
+    }
+    path.write_text(json.dumps(data), encoding="utf-8")
+    # 窗内只有 fresh-key;坏时间戳条目不拦装配(丢弃)
+    assert set(fresh_dead_accounts(tmp_path)) == {"fresh-key"}
+    # 定时钟注入:stale-key 在过去某刻仍处窗内
+    past = now - timedelta(seconds=100)
+    assert set(fresh_dead_accounts(tmp_path, now=past)) == {
+        "fresh-key",
+        "stale-key",
+    }
+    # 损坏文件 = 空表,绝不拦装配
+    path.write_text("{oops", encoding="utf-8")
+    assert read_dead_accounts(tmp_path) == {}
+    assert fresh_dead_accounts(tmp_path) == {}
+
+
+def test_login_success_clears_dead_marker(tmp_path: Path) -> None:
+    """重登即复活:登录成功清死键标(装配跳过窗即刻失效)。"""
+    import asyncio
+
+    from myssia.telegram.web_line import (
+        mark_account_dead,
+        read_dead_accounts,
+    )
+
+    mark_account_dead(tmp_path, "telegram-alt1", reason="tg_web_dom_stale")
+    factory, handle, context, page = make_factory(
+        [{"state": "logged_out"}, {"state": "logged_in", "hit": ".chatlist-container"}]
+    )
+    flow = TelegramWebLoginFlow(
+        print_fn=lambda _: None, playwright_factory=factory, timeout_seconds=5
+    )
+    asyncio.run(flow.run(tmp_path, "telegram-alt1"))
+    assert read_dead_accounts(tmp_path) == {}

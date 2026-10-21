@@ -226,6 +226,104 @@ def profile_dir(data_root: str | Path, account: str) -> Path:
     return profile_root(data_root) / key
 
 
+# ---------------------------------------------------------------------------
+# 哨兵死键标记(10-21-tg-web-host-quiet):manager 记哨兵告警时落标,装配期
+# 跳过近期死键 —— app 每次重启不再重演「启动 → 开群失败 → 告警」刷日志;
+# TTL 过期放行一次重试(成活自愈清标,再死重标记),重登 web-login 即时清。
+# ---------------------------------------------------------------------------
+
+#: 死键标记文件名(挂 ``telegram-web/`` 根下,装配侧与登录流同门可达)。
+WEB_LINE_DEAD_FILENAME = "web-line-dead.json"
+#: 死键跳过窗(秒):窗内装配不再拉起该账号;缺省 24h。
+WEB_LINE_DEAD_TTL_SECONDS = 24 * 3600.0
+
+
+def dead_marker_path(data_root: str | Path) -> Path:
+    """哨兵死键标记文件路径(``<数据根>/telegram-web/web-line-dead.json``)."""
+    return profile_root(data_root) / WEB_LINE_DEAD_FILENAME
+
+
+def _dead_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def read_dead_accounts(data_root: str | Path) -> dict[str, dict[str, Any]]:
+    """读死键标记(宽容面:缺失/损坏/形状不对 = 空表,绝不拦装配)."""
+    try:
+        raw = json.loads(dead_marker_path(data_root).read_text("utf-8"))
+    except (OSError, ValueError):
+        return {}
+    accounts = raw.get("accounts") if isinstance(raw, dict) else None
+    if not isinstance(accounts, dict):
+        return {}
+    return {
+        str(account): entry
+        for account, entry in accounts.items()
+        if isinstance(entry, dict)
+    }
+
+
+def mark_account_dead(
+    data_root: str | Path, account: str, *, reason: str, detail: str = ""
+) -> None:
+    """落/更新一条死键标记(best-effort:写失败只留痕,不带走告警主流程)."""
+    marker = dead_marker_path(data_root)
+    accounts = read_dead_accounts(data_root)
+    accounts[str(account)] = {
+        "type": str(reason),
+        "since": _dead_now_iso(),
+        "detail": str(detail)[:500],
+    }
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(
+            json.dumps({"accounts": accounts}, ensure_ascii=False, indent=1),
+            "utf-8",
+        )
+    except OSError:
+        logger.warning("TG 网页线死键标记写失败(忽略)account=%s", account)
+
+
+def clear_dead_account(data_root: str | Path, account: str) -> None:
+    """清一条死键标记(不存在 = 零写不碰文件;写失败只留痕)."""
+    accounts = read_dead_accounts(data_root)
+    key = str(account)
+    if key not in accounts:
+        return
+    del accounts[key]
+    try:
+        if accounts:
+            dead_marker_path(data_root).write_text(
+                json.dumps({"accounts": accounts}, ensure_ascii=False, indent=1),
+                "utf-8",
+            )
+        else:
+            dead_marker_path(data_root).unlink(missing_ok=True)
+    except OSError:
+        logger.warning("TG 网页线死键标记清除失败(忽略)account=%s", account)
+
+
+def fresh_dead_accounts(
+    data_root: str | Path,
+    *,
+    ttl_seconds: float = WEB_LINE_DEAD_TTL_SECONDS,
+    now: datetime | None = None,
+) -> dict[str, dict[str, Any]]:
+    """仍处跳过窗内的死键(``since`` 距今 < ttl;损坏时间戳条目不拦装配)."""
+    current = now or datetime.now(timezone.utc)
+    fresh: dict[str, dict[str, Any]] = {}
+    for account, entry in read_dead_accounts(data_root).items():
+        try:
+            since = datetime.fromisoformat(str(entry.get("since", "")))
+        except ValueError:
+            continue
+        if since.tzinfo is None:
+            since = since.replace(tzinfo=timezone.utc)
+        if (current - since).total_seconds() < ttl_seconds:
+            fresh[account] = entry
+    return fresh
+
+
 def login_marker_path(directory: str | Path) -> Path:
     """登录成功标记文件路径(配置档内;零凭据面,只有时间戳)。"""
     return Path(directory) / LOGIN_MARKER_NAME
@@ -779,6 +877,12 @@ class TelegramWebLoginFlow:
                 fatal=True,
             )
         _write_login_marker(directory, label=label, user_id=user_id)
+        # 哨兵死键随重登解除(10-21-tg-web-host-quiet):装配跳过窗即刻失效,
+        # 重启即恢复拉起;best-effort —— 清标失败不拦登录主流程。
+        try:
+            clear_dead_account(data_root, key)
+        except Exception:  # noqa: BLE001
+            logger.warning("TG 网页线死键标记清除失败(忽略)account=%s", key)
         # 登录收尾自动备份(10-11-tg-manage-absorb AC3):此点 context 已关/
         # 权限已硬化/标记已落,打包时 Playwright 零写者;CLI web-login 与桌面
         # browser.open 线程共用本 run(),挂一处全覆盖。best-effort —— 备份
