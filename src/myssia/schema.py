@@ -226,6 +226,13 @@ ENGINES = (
     # (B站搜索/热门/排行 + YouTube 频道投稿,免登录档);渠道/action 词表
     # 与失败语义在引擎内校验(fetch 期,credhunter/prompt 先例)。
     "agent_reach",
+    # 厂商行情引擎(10-24-huawei-ai-news-absorb D4):链外 + 零必配凭据
+    # (firecrawl 云端点走 engine_options 引用);显式 engine: vendor_market
+    # 才生效,三路抓取(Yahoo/腾讯股价双源 + ZOL 经 firecrawl 云渲染 +
+    # B站合集 API)→ 确定性计算(MSRP/汇率常量、便宜/贵/持平)→ 单条目
+    # 出仓(#vendor-<日期> 锚,同日幂等);单路失败=该行降级标注,整条
+    # 照出(生产 ai_daily_report.py 判例)。
+    "vendor_market",
 )
 PAGINATION_MODES = ("template", "selector", "scroll")
 EXTRACT_TYPES = ("list", "item", "json_path", "rss")
@@ -309,6 +316,7 @@ EngineName = Literal[
     "wechat_local",
     "feishu",
     "agent_reach",
+    "vendor_market",
 ]
 PaginationMode = Literal["template", "selector", "scroll"]
 ExtractType = Literal["list", "item", "json_path", "rss"]

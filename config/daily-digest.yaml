@@ -88,13 +88,15 @@ sources:
                                   # 扰);缺省 show = 照常编号进正文,其他分区
                                   # 品类未开首跑抑制,保持缺省不动
 
-          # ── 分区二:AI 厂商官网观察(2026-10-18 起静默:prompt 引擎版已退役,
-#                                  同源厂商动态由分区一 AI 资讯的 17 源结构化覆盖)(编号子标题 + 缩进明细行;LLM 摘要
-          #    content 逐行归一缩进,markdown 结构符剥除防飞书 md 破版式)──
-          - title: AI 厂商官网
-            sources: [ai-vendor-watch]
+          # ── 分区二:AI 厂商行情(2026-10-24 改造,10-24-huawei-ai-news-absorb
+          #    D4:原「AI 厂商官网」prompt 版 2026-10-18 已静默退役,本分区
+          #    改挂 vendor_market 引擎品类 ai-vendor-daily —— 股价+GPU 跨区
+          #    比价+B站显卡日报视频,每日一条 #vendor-<日期> 锚条目;编号子标题
+          #    + 缩进明细行,markdown 结构符剥除防飞书 md 破版式)──
+          - title: AI 厂商行情
+            sources: [ai-vendor-daily]
             style: detail
-            max_lines: 20          # 厂商日报整份缩进,行帽放宽
+            max_lines: 20          # 行情整份缩进(股价+GPU 三行+视频),行帽放宽
 
           # ── 分区三:游戏情报(编号一句话;suffix_fields 取首个非空价格)──
           - title: 游戏喜加一与折扣

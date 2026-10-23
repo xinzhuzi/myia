@@ -1,0 +1,88 @@
+# config/ai-vendor-daily.yaml — AI 厂商行情(10-24-huawei-ai-news-absorb D4):
+# 华为云 ai-news-bot「AI 厂商日报」NVIDIA 块(ai_daily_report.py:30-109)的
+# MYIA 承载 —— 新链外引擎 vendor_market:三路抓取(Yahoo/腾讯股价双源 +
+# ZOL 国行 GPU 价经 firecrawl 云渲染 + B站芝士华莱士「显卡日报」视频)+
+# 纯确定性计算(零 LLM)→ 每日一条报告条目(#vendor-<日期> 锚,同日幂等)。
+#
+# 产出分工(ai-vendor-watch 退役件同款):push 路由 archive 仅入库,发送由
+# config/daily-digest.yaml 的「AI 厂商行情」分区(style: detail 缩进明细)
+# 合并承担 —— 合并日报是唯一日报出口。
+#
+# cron 挂点归 Step 4.6 调度对齐批(本步不挂;届时生产数据根
+#   myssia cron create --category config/ai-vendor-daily.yaml \
+#     --schedule "0 7,11 * * *" --db <数据根>/myssia.db)。
+#
+# 股价双源语义:Yahoo chart(stocks.yaml 同端点)主源,败则腾讯
+# qt.gtimg.cn(q=usNVDA,gbk)备源 —— 双源任一活即出价;大陆网络 Yahoo
+# 不可达时自然落腾讯(生产 10-20 换道判例的镜像),故 proxy: direct 即可
+# (可翻案 pool:clash 藏 yahoo 出口,代价是腾讯/B站/ZOL 同骑代理)。
+
+id: ai-vendor-daily
+name: AI厂商行情
+
+schedule: "0 7,19 * * *"           # 07:00 / 19:00 产报(声明面;cron 未挂,归 Step 4.6)
+timezone: Asia/Shanghai
+
+timeouts:
+  fetch: 300                       # 三路串行最坏账:2×ZOL(firecrawl 60s/页+重试)
+                                   # + 股价双源 + B站;缺省 120s 帽装不下
+
+sources:
+  - name: ai-vendor-daily
+    engine: vendor_market          # 链外引擎:显式选择才生效,auto 永不路过
+    url: "https://myia.local/ai-vendor-daily"   # 锚 URL(仅铸 #vendor-<日期> 锚用)
+    engine_options:
+      vendor_market:
+        title: "AI 厂商行情 · NVIDIA"
+        stock:                     # 双源任一活即出价(provider 缺省 yahoo 主→腾讯备)
+          symbol: NVDA
+        msrp:                      # 生产 GPU_MSRP_USD 原表(美价常量;改价改这里)
+          "RTX PRO 6000": 8500
+          "RTX 5090": 1999
+          "RTX 4090": 1599
+        fx: 7.25                   # USD_CNY 汇率常量(生产口径,每周校准=改配置)
+        bilibili:                  # UP主芝士华莱士「显卡日报」合集(生产同值)
+          mid: 22697887
+          season_id: 2565297
+          keyword: 显卡日报
+        firecrawl:                 # ZOL 两页走 firecrawl 云客户端(gpu-prices 判例:
+                                   # ZOL 反爬门,静态直抓 152B 壳,云渲染真页)
+          endpoint: keychain:myia/firecrawl/url
+          api_key: keychain:myia/firecrawl/api-key
+          timeout: 60
+    rate_limit:
+      qps: 0.5
+      jitter: "2s"
+      backoff: exponential
+      respect_robots: false        # 2026-10-24 实测:query1.finance.yahoo.com 与
+                                   # api.bilibili.com 的 robots 均 Disallow: /(结构化
+                                   # 公共数据 API,每日两拉,API 用量非页面爬取 ——
+                                   # stocks.yaml 同款明载豁免);腾讯 qt robots 为
+                                   # "bad request" 垃圾体(fail-open);ZOL /vga/ 本
+                                   # 就放行,不受本豁免影响。复用端点前先复核。
+    proxy: direct                  # 腾讯/B站/ZOL 皆国内可达;yahoo 死自有腾讯兜底
+    retry: 3
+
+# 报表条目无标题可筛(整条即行情速览),builtin 开着只会整条误杀。
+classify:
+  builtin: false
+  rules: []
+
+dedup:
+  key: "{url}"                     # 引擎已铸 #vendor-<YYYYMMDD> 锚:每天新条目,同日幂等
+
+enrich:
+  enabled: false                   # 纯确定性计算(零 LLM),无逐条评分面
+
+push:
+  - channel: feishu_card
+    target: keychain:myia/push/FEISHU_ANALYST_OPEN_ID   # 主人 open_id(ou_→open_id 投递;2026-10-19 主人令「全部推送用 AI信息分析师」)
+    bot: analyst                   # 出站 bot=「AI信息分析师」(FEISHU2_* 凭据位)
+    route:
+      - when: "url != ''"          # 日报层降噪(ai-vendor-watch 判例):行情仅入库,
+        mode: archive              # 由 daily-digest「AI 厂商行情」分区合并发送
+    template: |
+      {% if items %}{{ items[0].vendor_report }}{% endif %}
+
+storage:
+  retention: 90d

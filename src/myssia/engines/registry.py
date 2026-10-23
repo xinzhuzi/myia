@@ -176,6 +176,13 @@ ENGINE_REGISTRY: dict[str, Callable[[], type[BaseEngine]]] = {
     # 钉 tag 直装 GitHub archive,PyPI 同名包为假冒);失败双判据(退出码
     # 非 0 或 stderr 含 ERROR: 行,yt-dlp 实测坑),WARNING 不算失败。
     "agent_reach": lambda: _load("agent_reach", "AgentReachEngine"),
+    # 厂商行情引擎(10-24-huawei-ai-news-absorb D4):链外同 store_report
+    # 先例 —— 显式 engine: vendor_market 才生效,auto 永不路过;三路抓取
+    # (Yahoo/腾讯股价双源任一活即出价 + ZOL 经 firecrawl 云客户端渲染 +
+    # B站合集 API)→ 纯确定性计算(零 LLM)→ 单条目出仓(#vendor-<日期>
+    # 锚,同日幂等);单路失败=该行降级标注,整条照出(生产 10-20 判例
+    # 「源站异常不能让整块消失」);pagination/extract 结构化拒。
+    "vendor_market": lambda: _load("vendor_market", "VendorMarketEngine"),
 }
 
 # Static typing view of the registry (class names resolved lazily at runtime).

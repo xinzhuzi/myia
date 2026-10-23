@@ -835,7 +835,7 @@ def test_daily_digest_plugin_loads_with_store_report():
     options = config.sources[0].extra_params["engine_options"]["store_report"]
     assert {section["title"] for section in options["sections"]} >= {
         "AI 资讯",
-        "AI 厂商官网",
+        "AI 厂商行情",
         "游戏喜加一与折扣",
     }
 
