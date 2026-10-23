@@ -23,5 +23,5 @@
 - 管线自建 httpx client 一律 `trust_env=False`(`proxy: direct`=真直连)——环境 HTTP(S)_PROXY 会静默劫持 direct 源成全源 empty 不报错(生产 10-20 同型事故;vision 线判例推广到主管线);出网代理走显式 `pools`。
 - 调度(PM 槽=午间,对齐生产 8:00/8:30/12:00 节奏):daily-digest `5 8,12`/wool `0 8,11`/watch-deals `30 6,10`/ai-vendor-daily `0 7,11`(五段 cron 异分钟双时刻须拆 job,统一取整)。
 - 排查口诀:源批量 empty 先 curl 直连 vs 代理各测一次再动代码;aihot 改版→解析静默归零,巡检=看条目数(哨兵=健康度 degraded)。
-- 真跑纪律:`myssia run` 的 `--db` 缺省是 **cwd 相对**(cli.py:457),沙箱验证必须显式 `--db` 或 MYIA_HOME+cron 组;urlwatch adapter 缓存硬编码 `~/.myia`(MYIA_HOME 不隔离,待修小步)。
+- 真跑纪律(10-24-db-default-urlwatch-cache 已修):顶层 `run --db` 与 urlwatch 快照缓存缺省均 MYIA_HOME 锚定(env 设即锚数据根,无 env 终端 cwd/遗留 `~/.myia` 行为不变);urlwatch 缺省解析在引擎侧(`_default_cache_file`)显式传 adapter,adapter 遗留兜底仅独立运行面;其余读侧子命令(doctor/listing/feed 等)仍 cwd 相对,留档。
 - 不可达判例(勿再试):linux.do(CF Turnstile+禁爬)/nodeseek/e7ai/naixi/btsb(SafeLine WAF,firecrawl 云端双域复测 10-24);X 直抓全路线死亡,X 信息唯一路径=aihot /daily 原文直链。
