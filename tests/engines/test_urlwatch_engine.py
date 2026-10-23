@@ -1002,3 +1002,57 @@ def test_render_channel_aligns_browsers_env_before_subprocess(
         assert os.environ["PLAYWRIGHT_BROWSERS_PATH"] == str(browsers)
     finally:
         monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)
+
+
+# --------------------------------------------------------------------------- cache 缺省
+# 10-24-db-default-urlwatch-cache:缺省解析上收引擎侧(MYIA_HOME 锚定沙箱/桌面
+# 数据根),adapter 不再独走遗留 ~/.myia(s3 误删真根事故根子)。
+
+
+def test_default_cache_file_honors_myia_home(patched_adapter, tmp_path, monkeypatch):
+    """MYIA_HOME 在场:引擎显式传 $MYIA_HOME/urlwatch/cache.db 并建父目录;
+    源配置 engine_options 不被回写(内层 dict 是共享引用,突变跨 run 泄漏)。"""
+    home = tmp_path / "sandbox-home"
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    calls: list[dict] = []
+    patched_adapter(fake_adapter(events=[], calls=calls))
+    source = urlwatch_source()
+    engine = UrlwatchEngine(source, urlwatch_context())
+    run(engine.fetch())
+    assert calls, "fake adapter 未被调用"
+    assert calls[0]["cache_file"] == str(home / "urlwatch" / "cache.db")
+    assert (home / "urlwatch").is_dir()  # 父目录由引擎幂等创建
+    # 未回写源配置(engine_options 内层 dict 是共享引用,突变会跨 run 泄漏)
+    assert source.extra_params.get("engine_options", {}).get("urlwatch", {}).get(
+        "cache_file"
+    ) is None
+
+
+def test_default_cache_file_falls_back_to_legacy_home(
+    patched_adapter, tmp_path, monkeypatch
+):
+    """无 MYIA_HOME:遗留 ~/.myia/urlwatch/cache.db 行为不变(HOME 指到临时目录,
+    免在测试机真 home 建目录)。"""
+    monkeypatch.delenv("MYIA_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    calls: list[dict] = []
+    patched_adapter(fake_adapter(events=[], calls=calls))
+    engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
+    run(engine.fetch())
+    assert calls[0]["cache_file"] == str(
+        tmp_path / ".myia" / "urlwatch" / "cache.db"
+    )
+
+
+def test_explicit_cache_file_option_wins(patched_adapter, tmp_path, monkeypatch):
+    """显式 engine_options.urlwatch.cache_file 恒优先,缺省解析零介入。"""
+    monkeypatch.setenv("MYIA_HOME", str(tmp_path / "should-not-appear"))
+    calls: list[dict] = []
+    patched_adapter(fake_adapter(events=[], calls=calls))
+    explicit = str(tmp_path / "explicit-cache.db")
+    source = urlwatch_source(
+        engine_options={"urlwatch": {"cache_file": explicit}}
+    )
+    engine = UrlwatchEngine(source, urlwatch_context())
+    run(engine.fetch())
+    assert calls[0]["cache_file"] == explicit

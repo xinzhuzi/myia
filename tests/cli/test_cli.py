@@ -1275,3 +1275,31 @@ def test_category_stage_options_assembly():
     assert isinstance(assembled["fetch"], StageOptions)
     assert assembled["fetch"].timeout_seconds == 180.0
     assert assembled["fetch"].retries == 0
+
+
+def test_run_default_db_honors_myia_home(tmp_path, monkeypatch):
+    """顶层 run --db 缺省锚定 $MYIA_HOME(10-24-db-default-urlwatch-cache)。
+
+    收编 s5 误推事故形态:沙箱 MYIA_HOME 跑 run 却漏进 cwd 开发库——
+    缺省必须与 cron 组同口径(cron 侧端到端已由 test_cron_default_db_honors_
+    myia_home 钉住;此处 parser 层断言默认值,零网络)。显式 --db 恒优先。
+    """
+    home = tmp_path / "home"
+    monkeypatch.setenv("MYIA_HOME", str(home))
+    monkeypatch.chdir(tmp_path)  # cwd ≠ home:证明锚的是 env 不是 cwd
+
+    args = build_parser().parse_args(["run", "cat.yaml"])
+    assert args.db == str(home / "myssia.db")
+
+    explicit = str(tmp_path / "explicit.db")
+    args = build_parser().parse_args(["run", "cat.yaml", "--db", explicit])
+    assert args.db == explicit
+
+
+def test_run_default_db_falls_back_to_cwd_without_env(tmp_path, monkeypatch):
+    """无 MYIA_HOME 时终端缺省行为不变:./myssia.db(cwd)。"""
+    monkeypatch.delenv("MYIA_HOME", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    args = build_parser().parse_args(["run", "cat.yaml"])
+    assert args.db == "myssia.db"

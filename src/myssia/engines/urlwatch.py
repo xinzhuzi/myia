@@ -7,8 +7,10 @@
 监控语义(蓝本 ``plugins/myssia-urlwatch/adapter.py``,thp/urlwatch BSD 封装):
 
 - 引擎把**源 URL 当监控目标**(单页语义,``pagination`` 配置即结构化拒);
-  快照对比由场景件 adapter 完成(子进程 ``uv run --with urlwatch``,缓存落
-  ``~/.myia/urlwatch/cache.db`` 跨 run 持久);引擎只消费结构化事件。
+  快照对比由场景件 adapter 完成(子进程 ``uv run --with urlwatch``;快照缓存
+  缺省由引擎解析后显式传入——``$MYIA_HOME/urlwatch/cache.db``(设了 env,
+  沙箱/桌面数据根锚定)否则遗留 ``~/.myia/urlwatch/cache.db``,跨 run 持久);
+  引擎只消费结构化事件。
 - 事件四态 → 管线映射:
   - ``changed`` → 条目(官网有更新;diff 进 content 供 enrich 精评;
     另铸 ``metadata.watch_diff_head`` = added 行摘要前
@@ -63,6 +65,7 @@ import asyncio
 import hashlib
 import importlib.util
 import logging
+import os
 import shlex
 import sys
 import types
@@ -76,6 +79,20 @@ from myssia.plugins.installed import scenario_file_candidates
 from myssia.schema import SourceConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _default_cache_file() -> Path:
+    """快照缓存缺省:``$MYIA_HOME/urlwatch/cache.db``(设了 env)否则遗留 ``~/.myia``。
+
+    10-24-db-default-urlwatch-cache:解析上收引擎侧并显式传入 adapter——此前
+    adapter 兜底硬编码 ``~/.myia`` 无视 MYIA_HOME,沙箱跑会漏写真根缓存
+    (收编 s3 误删事故根子);env 形父目录在此创建(遗留形历史上已存在,
+    一并幂等创建无害)。显式 ``engine_options.urlwatch.cache_file`` 恒优先。
+    """
+    home = os.environ.get("MYIA_HOME")
+    if home:
+        return Path(home) / "urlwatch" / "cache.db"
+    return Path.home() / ".myia" / "urlwatch" / "cache.db"
 
 #: 引擎层标签(schema 引擎词表一员;链外源引擎,不进 AUTO_CHAIN)。
 LAYER = "PLUGIN_WATCH"
@@ -321,6 +338,18 @@ class UrlwatchEngine(BaseEngine):
                 f"engine_options.urlwatch.cache_file 应为路径字符串,当前为 {cache_file!r}",
                 error_type="invalid_engine_options",
             )
+        if cache_file is None:
+            # 缺省解析上收引擎侧(MYIA_HOME 锚定沙箱/桌面数据根),见 _default_cache_file;
+            # 本方法尾部按局部变量铸新 dict(不回写源配置),重绑 cache_file 即生效。
+            resolved = _default_cache_file()
+            try:
+                resolved.parent.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                raise FetchError(
+                    f"urlwatch 快照缓存目录不可创建 path={resolved.parent}: {exc}",
+                    error_type="urlwatch_cache_dir_unwritable",
+                ) from exc
+            cache_file = str(resolved)
         label = options.get("label")
         if label is not None and (not isinstance(label, str) or not label.strip()):
             raise FetchError(

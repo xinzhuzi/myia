@@ -74,7 +74,9 @@ PLUGIN_DIR = Path(__file__).resolve().parent
 #: 隔离子进程注入的上游依赖(BSD-3-Clause;不钉版,见模块 docstring)。
 URLWATCH_DEPENDENCIES = ("urlwatch", "cssselect")
 
-#: 快照缓存缺省落位(MYIA_HOME 桌面数据路径约定;minidb 文件,跨 run 持久)。
+#: 快照缓存缺省兜位(独立运行形态;引擎侧调用恒显式传入——MYIA_HOME 在场锚定
+#: $MYIA_HOME/urlwatch/cache.db,解析在 myssia.engines.urlwatch._default_cache_file,
+#: 2026-10-24 起沙箱/桌面数据根不再漏到本遗留位;minidb 文件,跨 run 持久)。
 DEFAULT_CACHE_FILE = Path.home() / ".myia" / "urlwatch" / "cache.db"
 
 #: 子进程 wall-clock 预算缺省值(≤64 URL × 上游单 job 60s 请求超时的有界预算)。

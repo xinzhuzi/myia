@@ -227,12 +227,14 @@ DEFAULT_DB_PATH = "myssia.db"
 
 
 def _cron_default_db() -> str:
-    """cron 组 ``--db`` 缺省:``$MYIA_HOME/myssia.db``(设了 env)否则 ``./myssia.db``。
+    """``--db`` 缺省(cron 组与顶层 ``run`` 共用):``$MYIA_HOME/myssia.db``(设了 env)否则 ``./myssia.db``。
 
     10-06-log-health-batch ②:此前 cron 子命令数据根恒为 cwd——在仓库目录跑
     ``myssia cron create`` 会把 jobs.json 建进仓库(实测踩中)。统一为沙箱
     语义:MYIA_HOME 在场即锚定数据根,与桌面 sidecar/冒烟沙箱同口径;显式
     ``--db`` 恒优先,无 env 的终端缺省行为不变。
+    10-24-db-default-urlwatch-cache:顶层 ``run`` 收编同坑——沙箱 MYIA_HOME 跑
+    ``run`` 曾漏进 cwd 开发库真推(s5 误推事故),同语义收口。
     """
     home = os.environ.get("MYIA_HOME")
     if home:
@@ -453,8 +455,8 @@ def _add_run_parser(sub: argparse._SubParsersAction) -> None:
     )
     run.add_argument(
         "--db",
-        default=DEFAULT_DB_PATH,
-        help=f"SQLite 存储路径(默认 ./{DEFAULT_DB_PATH})",
+        default=_cron_default_db(),
+        help=f"SQLite 存储路径(默认 $MYIA_HOME 下 {DEFAULT_DB_PATH},未设该 env 时 ./{DEFAULT_DB_PATH})",
     )
     run.add_argument(
         "--config",
