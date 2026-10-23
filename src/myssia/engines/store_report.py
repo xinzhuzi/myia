@@ -685,12 +685,17 @@ class StoreReportEngine(BaseEngine):
         title = str(getattr(record, "title", None) or "(无标题)")
         url_value = getattr(record, "url", None)
         url = url_value if isinstance(url_value, str) and url_value.strip() else None
+        raw = getattr(record, "raw", None)
+        raw_map = raw if isinstance(raw, Mapping) else {}
+        # 中文译名优先(10-24-ai-news-push-quality R3):enrich.translate 把
+        # 英文标题译名写进 items.raw.title_zh——日报分区直接渲染中文,缺席回退原题。
+        title_zh = raw_map.get("title_zh")
+        if isinstance(title_zh, str) and title_zh.strip():
+            title = title_zh.strip()
         entry = DigestEntry(
             head=clip_title(title, max_chars),
             url=url,
         )
-        raw = getattr(record, "raw", None)
-        raw_map = raw if isinstance(raw, Mapping) else {}
         if section["style"] == "detail":
             content = str(getattr(record, "content", None) or "")
             details: list[str] = []

@@ -132,7 +132,7 @@ def parse_score_payload(
     text: str,
     requested_urls: list[str],
     dimensions: list[str],
-) -> tuple[dict[str, dict[str, int]], dict[str, str], list[dict[str, str]]]:
+) -> tuple[dict[str, dict[str, int]], dict[str, str], dict[str, str], list[dict[str, str]]]:
     """Parse one batch's LLM output into per-URL dimension scores.
 
     Args:
@@ -143,10 +143,12 @@ def parse_score_payload(
             / credibility, in schema order).
 
     Returns:
-        ``(scores, reasons, failures)`` — ``scores`` maps URL → dimension
-        dict (all requested dimensions present, clamped 0-10); ``reasons``
-        maps URL → the model's one-line rationale (absent when not given);
-        ``failures`` is a list of structured records
+        ``(scores, reasons, title_zhs, failures)`` — ``scores`` maps URL →
+        dimension dict (all requested dimensions present, clamped 0-10);
+        ``reasons`` maps URL → the model's one-line rationale (absent when
+        not given); ``title_zhs`` maps URL → 中文译名(10-24-ai-news-push-
+        quality:``enrich.translate`` 开启时 prompt 附带请求,模型未给/为空
+        则缺位;≤80 字);``failures`` is a list of structured records
         ``{"url", "error_type", "message"}`` for entries that could not be
         used (item-level tolerance, never raises for those).
 
@@ -158,6 +160,7 @@ def parse_score_payload(
     wanted = set(requested_urls)
     scores: dict[str, dict[str, int]] = {}
     reasons: dict[str, str] = {}
+    title_zhs: dict[str, str] = {}
     failures: list[dict[str, str]] = []
     for entry in entries:
         if not isinstance(entry, dict):
@@ -196,7 +199,10 @@ def parse_score_payload(
         reason = entry.get("reason")
         if isinstance(reason, str) and reason.strip():
             reasons[url] = reason.strip()
-    return scores, reasons, failures
+        title_zh = entry.get("title_zh")
+        if isinstance(title_zh, str) and title_zh.strip():
+            title_zhs[url] = title_zh.strip()[:80]
+    return scores, reasons, title_zhs, failures
 
 
 def extract_json_entries(text: str) -> list:

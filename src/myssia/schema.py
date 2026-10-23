@@ -1093,6 +1093,7 @@ class EnrichConfig(_StrictModel):
     scores: list[ScoreName] = Field(default_factory=lambda: list(ENRICH_SCORES))
     batch: int = Field(default=DEFAULT_BATCH_SIZE, ge=1, le=1000)
     cache: bool = True
+    translate: bool = False
     budget_per_run: int = Field(default=DEFAULT_BUDGET_PER_RUN, ge=1)
     base_url: str | None = None
     api_key: str | None = None

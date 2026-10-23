@@ -128,6 +128,8 @@ push:
       {% for item in items %}
       - {{ item.symbol }} {{ item.change_pct }}% 现价 {{ item.price }} {{ item.currency }}
       {% endfor %}
+      {% if low_value_count %}……(另有 {{ low_value_count }} 条低价值,价值分<3){% endif %}
+      {% if omitted_count %}……(另有 {{ omitted_count }} 条省略){% endif %}
 
 storage:                        # data lifecycle for long-running desktops
   retention: 90d                # <n>d / <n>w — items purged after the window

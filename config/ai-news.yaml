@@ -690,7 +690,8 @@ dedup:
   key: "{url}"                  # default semantics, spelled out for clarity
 
 enrich:
-  enabled: true                 # 2026-10-18 重开:魔搭免费推理(DeepSeek-V4-Pro,Bake-off
+  enabled: true                 # 2026-10-18 重开
+  translate: true                # 10-24-ai-news-push-quality R3:英文标题中文译名随评分批附带(主人令「要翻译成中文」),进 metadata.title_zh,出口模板优先渲染:魔搭免费推理(DeepSeek-V4-Pro,Bake-off
                                 # 6s/4/4 全中);原 glm-5.3-flash 云钥余额尽退役。
                                 # 双引用(schema 铁律:base_url/api_key 只收
                                 # env:/keychain: 引用,明文拒载 — grill Q6)
@@ -767,8 +768,10 @@ push:
     template: |
       **AI 资讯 · {{ date }}**
       {% for item in items %}
-      - [{{ item.title }}]({% if item.origin_url is defined %}{{ item.origin_url }}{% else %}{{ item.url }}{% endif %})
+      - [{{ item.title_zh if item.title_zh is defined else item.title }}]({% if item.origin_url is defined %}{{ item.origin_url }}{% else %}{{ item.url }}{% endif %})
       {% endfor %}
+      {% if low_value_count %}……(另有 {{ low_value_count }} 条低价值,价值分<3){% endif %}
+      {% if omitted_count %}……(另有 {{ omitted_count }} 条省略){% endif %}
 
 storage:
   retention: 90d

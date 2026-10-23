@@ -888,3 +888,27 @@ def test_daily_digest_yaml_min_score_on_ai_section(store):
     assert "高分要闻" in markdown
     assert "低分闲闻" not in markdown
     assert "   ……(另有 1 条低价值条目,价值分<3)" in markdown
+
+
+def test_entry_prefers_raw_title_zh_over_original_title():
+    """10-24-ai-news-push-quality R4:items.raw.title_zh(enrich.translate 回填)
+    优先于原题渲染——日报分区英文条目出中文;缺席回退原题。"""
+    from myssia.store.models import ItemRecord
+
+    engine = make_engine(None)
+    section = {"style": "list", "max_lines": 10, "suffix_fields": []}
+    with_zh = engine._entry_from_record(
+        ItemRecord(
+            url="https://a", dedup_key="k1", title="English headline",
+            raw={"title_zh": "英文标题的中文译名"},
+        ),
+        section,
+        60,
+    )
+    assert with_zh.head == "英文标题的中文译名"
+    without = engine._entry_from_record(
+        ItemRecord(url="https://b", dedup_key="k2", title="原生中文"),
+        section,
+        60,
+    )
+    assert without.head == "原生中文"

@@ -219,9 +219,10 @@ class LLMEnricher:
 
     @property
     def scores_key(self) -> str:
-        """Cache fingerprint: dimensions + prompt version (变更才重评)."""
+        """Cache fingerprint: dimensions + prompt version + translate(变更才重评)."""
         joined = "+".join(self.config.scores)
-        return f"{joined}@p{self.prompt_version}"
+        suffix = "+tr" if self.config.translate else ""
+        return f"{joined}{suffix}@p{self.prompt_version}"
 
     # ------------------------------------------------------------------- enrich
 
@@ -362,7 +363,7 @@ class LLMEnricher:
             if not isinstance(scores, dict) or not isinstance(scalar, (int, float)):
                 logger.warning("enrich 缓存行不完整(按未命中处理) url=%s", item.url)
                 continue
-            self._apply_scores(item, dict(scores), float(scalar), cached.get("reason"))
+            self._apply_scores(item, dict(scores), float(scalar), cached.get("reason"), cached.get("title_zh"))
             self._persist_scores(store, item, dict(scores), float(scalar))
             hits[item.url] = cached
         return hits
@@ -387,11 +388,20 @@ class LLMEnricher:
             if isinstance(image_caption, str) and image_caption.strip():
                 entry["image_caption"] = image_caption[:IMAGE_CAPTION_SNIPPET_CHARS]
             payload.append(entry)
-        return self.prompt.render_user(
+        rendered = self.prompt.render_user(
             scores=list(self.config.scores),
             watchlist=keywords,
             items_json=json.dumps(payload, ensure_ascii=False),
         )
+        if self.config.translate:
+            # 10-24-ai-news-push-quality R3:英文标题中文译名随评分批附带请求
+            # (同一调用零额外轮次;译名进 metadata.title_zh,出口模板优先渲染)。
+            rendered += (
+                "\n\n另外:每个对象额外输出 \"title_zh\" 字段——当 title 非中文时"
+                "给出不超过 40 字的中文译名(专有名词/产品名保留原文,如 GPT-6/"
+                "OpenAI 不译);title 已是中文则该字段给空字符串。"
+            )
+        return rendered
 
     def _apply_batch(
         self,
@@ -403,7 +413,7 @@ class LLMEnricher:
         """Parse one completion, backfill items + cache + items 表."""
         urls = [item.url for item in batch]
         try:
-            scores, reasons, failures = parse_score_payload(
+            scores, reasons, title_zhs, failures = parse_score_payload(
                 text, urls, list(self.config.scores)
             )
         except ScoreParseError as exc:
@@ -434,7 +444,9 @@ class LLMEnricher:
             if dims is None:  # 模型漏评该条:条目级容错,保持未评分
                 continue
             scalar = composite_score(dims, list(self.config.scores))
-            self._apply_scores(item, dims, scalar, reasons.get(item.url))
+            self._apply_scores(
+                item, dims, scalar, reasons.get(item.url), title_zhs.get(item.url)
+            )
             outcome.unscored -= 1
             self._persist_scores(store, item, dims, scalar)
 
@@ -444,13 +456,20 @@ class LLMEnricher:
         dims: dict[str, int],
         scalar: float,
         reason: Any = None,
+        title_zh: Any = None,
     ) -> None:
-        """Backfill one item: dimension dict + scalar ``score`` (route 依赖位)."""
+        """Backfill one item: dimension dict + scalar ``score`` (route 依赖位).
+
+        ``title_zh``(可选)是 ``enrich.translate`` 的中文译名(10-24-ai-news-
+        push-quality R3):非空时写 ``metadata["title_zh"]``,出口模板与
+        store_report(raw 列)优先渲染。"""
         item.scores = dict(dims)
         item.metadata["score"] = scalar
         item.metadata["enrich_model"] = self.config.model
         if isinstance(reason, str) and reason.strip():
             item.metadata["score_reason"] = reason.strip()
+        if isinstance(title_zh, str) and title_zh.strip():
+            item.metadata["title_zh"] = title_zh.strip()
 
     def _apply_muted(self, item: Item, word: str) -> None:
         """mute 命中:三维直接 0 分(降权/归档由 score 路由规则承接),零 token."""
@@ -474,6 +493,9 @@ class LLMEnricher:
             reason = item.metadata.get("score_reason")
             if isinstance(reason, str) and reason.strip():
                 cache_payload["reason"] = reason
+            title_zh = item.metadata.get("title_zh")
+            if isinstance(title_zh, str) and title_zh.strip():
+                cache_payload["title_zh"] = title_zh
             try:
                 store.set_enrich_cache(
                     item.url, self.config.model, self.scores_key, cache_payload
@@ -488,6 +510,16 @@ class LLMEnricher:
                     logger.debug("评分回填未找到 items 行 dedup_key=%s", item.dedup_key)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("评分回填 items 表失败 dedup_key=%s: %s", item.dedup_key, exc)
+            # 译名走 raw 列合并(10-24-ai-news-push-quality R3):daily-digest/
+            # store_report 从 store 行读 raw.title_zh 渲染中文;best-effort 同上。
+            title_zh_value = item.metadata.get("title_zh")
+            if isinstance(title_zh_value, str) and title_zh_value.strip() and item.dedup_key:
+                try:
+                    store.merge_item_metadata(
+                        item.dedup_key, {"title_zh": title_zh_value}
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("译名回填 raw 列失败 dedup_key=%s: %s", item.dedup_key, exc)
 
 
 # --------------------------------------------------------------------- helpers

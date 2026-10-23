@@ -259,7 +259,7 @@ class TestScoreParsing:
                 {"url": self.URLS[1], "value": 4, "relevance": 3, "credibility": 5},
             ]
         )
-        scores, reasons, failures = parse_score_payload(text, self.URLS, self.DIMS)
+        scores, reasons, title_zhs, failures = parse_score_payload(text, self.URLS, self.DIMS)
         assert scores == {
             self.URLS[0]: {"value": 8, "relevance": 9, "credibility": 7},
             self.URLS[1]: {"value": 4, "relevance": 3, "credibility": 5},
@@ -271,19 +271,38 @@ class TestScoreParsing:
         fenced = score_response(
             [{"url": self.URLS[0], "value": 1, "relevance": 2, "credibility": 3}], fence=True
         )
-        scores, _, failures = parse_score_payload(fenced, self.URLS, self.DIMS)
+        scores, _, title_zhs, failures = parse_score_payload(fenced, self.URLS, self.DIMS)
         assert scores and not failures
         wrapped = json.dumps({"items": [
             {"url": self.URLS[1], "value": 4, "relevance": 5, "credibility": 6}
         ]})
-        scores, _, failures = parse_score_payload(wrapped, self.URLS, self.DIMS)
+        scores, _, title_zhs, failures = parse_score_payload(wrapped, self.URLS, self.DIMS)
         assert self.URLS[1] in scores and not failures
+
+
+    def test_parse_payload_extracts_title_zh(self):
+        """10-24-ai-news-push-quality R3:title_zh 随评分批附带提取。
+
+        非空字符串收录(≤80 字截断);空串/缺省/非字符串缺位;不影响
+        scores/reasons/failures 既有语义。
+        """
+        text = json.dumps([
+            {"url": self.URLS[0], "value": 8, "relevance": 9, "credibility": 7,
+             "title_zh": "OpenAI 扩大 GPT-6 访问面 " + "很" * 100},
+            {"url": self.URLS[1], "value": 4, "relevance": 3, "credibility": 5,
+             "title_zh": ""},
+        ])
+        scores, _, title_zhs, failures = parse_score_payload(text, self.URLS, self.DIMS)
+        assert not failures
+        expected = ("OpenAI 扩大 GPT-6 访问面 " + "很" * 100)[:80]  # 80 字截断在案
+        assert title_zhs == {self.URLS[0]: expected}
+        assert self.URLS[1] not in title_zhs  # 空串缺位
 
     def test_parse_payload_out_of_range_clamped(self):
         text = score_response(
             [{"url": self.URLS[0], "value": 11, "relevance": -2, "credibility": 7.4}]
         )
-        scores, _, failures = parse_score_payload(text, self.URLS, self.DIMS)
+        scores, _, title_zhs, failures = parse_score_payload(text, self.URLS, self.DIMS)
         assert scores[self.URLS[0]] == {"value": 10, "relevance": 0, "credibility": 7}
         assert failures == []
 
@@ -295,7 +314,7 @@ class TestScoreParsing:
                 {"url": self.URLS[1], "value": 4, "relevance": 3, "credibility": 5},
             ]
         )
-        scores, _, failures = parse_score_payload(text, self.URLS, self.DIMS)
+        scores, _, title_zhs, failures = parse_score_payload(text, self.URLS, self.DIMS)
         assert self.URLS[0] not in scores
         assert scores[self.URLS[1]]["value"] == 4
         assert len(failures) == 1
@@ -306,7 +325,7 @@ class TestScoreParsing:
         text = score_response(
             [{"url": "https://unknown/z", "value": 1, "relevance": 1, "credibility": 1}]
         )
-        scores, _, failures = parse_score_payload(text, self.URLS, self.DIMS)
+        scores, _, title_zhs, failures = parse_score_payload(text, self.URLS, self.DIMS)
         assert scores == {}
         assert failures[0]["error_type"] == "enrich_unknown_url"
 
@@ -1035,3 +1054,71 @@ class TestRenderBatchImageFields:
         ))
         assert outcome.cached == 0, "旧版本指纹的缓存行不得复用"
         assert len(client.calls) == 2
+
+
+# ---------------------------------------------------------------------------
+# translate 中文译名(10-24-ai-news-push-quality R3):prompt 附带请求 + 
+# metadata.title_zh 回填 + 缓存携译名往返 + scores_key 指纹分档
+# ---------------------------------------------------------------------------
+
+
+class TestTranslateTitle:
+    def test_scores_key_includes_translate_flag(self, endpoint_env):
+        """指纹分档:translate 开关变更缓存键(开启后重评一次,译名随批落缓存)。"""
+        base = make_enricher(FakeCompletionClient())
+        with_tr = make_enricher(FakeCompletionClient(), translate=True)
+        assert base.scores_key != with_tr.scores_key
+        assert "+tr@" in with_tr.scores_key
+
+    def test_render_batch_appends_translate_instruction(self, endpoint_env):
+        """translate 开启:user 消息尾部附带 title_zh 输出契约;关闭零附加。"""
+        client = FakeCompletionClient()
+        enricher = make_enricher(client, translate=True)
+        user_on = enricher._render_batch([FakeItem("https://a", "English title")], ["AI"])
+        assert "title_zh" in user_on and "中文译名" in user_on
+        enricher_off = make_enricher(FakeCompletionClient())
+        user_off = enricher_off._render_batch(
+            [FakeItem("https://a", "English title")], ["AI"]
+        )
+        assert "title_zh" not in user_off
+
+    def test_enrich_writes_title_zh_metadata_and_cache(self, store, endpoint_env):
+        """全链:LLM 回 title_zh → metadata.title_zh + 缓存携译名;二次
+        (缓存命中)同样回填译名;raw 列合并同批发生(items.raw.title_zh)。"""
+        import asyncio
+
+        items = [FakeItem("https://a", "Airbnb widens access to GPT-6")]
+        # 预落 items 行(管线序:items 先入库,enrich 只回填——raw 合并目标行)
+        from myssia.store.models import ItemRecord
+
+        store.save_item(
+            ItemRecord(url="https://a", dedup_key=items[0].dedup_key, title="Airbnb widens access to GPT-6")
+        )
+        client = FakeCompletionClient(
+            responses=[
+                score_response(
+                    [{"url": "https://a", "value": 8, "relevance": 7, "credibility": 7,
+                      "title_zh": "Airbnb 向更多用户开放 GPT-6"}]
+                )
+            ]
+        )
+        enricher = make_enricher(client, translate=True)
+        outcome = asyncio.run(enricher.enrich(items, watchlist={}, store=store))
+        assert outcome.scored == 1
+        assert items[0].metadata["title_zh"] == "Airbnb 向更多用户开放 GPT-6"
+        cached = store.get_enrich_cache(
+            "https://a", enricher.config.model, enricher.scores_key
+        )
+        assert cached.get("title_zh") == "Airbnb 向更多用户开放 GPT-6"
+        # raw 列合并(供 store_report/daily-digest 渲染中文)
+        row = store.conn.execute(
+            "SELECT raw FROM items WHERE dedup_key = ?", (items[0].dedup_key,)
+        ).fetchone()
+        import json as _json
+        assert _json.loads(row["raw"]).get("title_zh") == "Airbnb 向更多用户开放 GPT-6"
+        # 缓存命中轮:新条目同 url → 译名随缓存恢复
+        second = [FakeItem("https://a", "Airbnb widens access to GPT-6")]
+        enricher2 = make_enricher(FakeCompletionClient(), translate=True)
+        outcome2 = asyncio.run(enricher2.enrich(second, watchlist={}, store=store))
+        assert outcome2.cached == 1
+        assert second[0].metadata["title_zh"] == "Airbnb 向更多用户开放 GPT-6"

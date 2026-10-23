@@ -80,6 +80,8 @@ push:
       {% for item in items %}
       - [{{ item.title }}]({{ item.url }}){% if item.published is defined %} {{ item.published[:16] }}{% endif %}
       {% endfor %}
+      {% if low_value_count %}……(另有 {{ low_value_count }} 条低价值,价值分<3){% endif %}
+      {% if omitted_count %}……(另有 {{ omitted_count }} 条省略){% endif %}
 
   # telegram 加挂(同 games wrap 先例):模板走精简纯文本变体——telegram
   # 用户模板契约是渲染文本不带 parse_mode 直发(src/myssia/push/telegram.py

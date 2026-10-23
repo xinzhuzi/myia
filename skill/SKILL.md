@@ -190,6 +190,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `scores` | `[value, relevance, credibility]` | 评分维度(各 0-10),回填为条目 `score` 供 route 使用 |
 | `batch` | `20` | 批量评分条数(1-1000) |
 | `cache` | `true` | 按 URL 缓存评分,同一 URL 永不打两次分 |
+| `translate` | `false` | 随评分批附带请求中文译名:非中文标题产 `metadata.title_zh`(≤40 字,专有名词保留),出口模板/日报分区优先渲染;缓存指纹含 `+tr` 分档 |
 | `budget_per_run` | `50000` | 单次 run 的 token 预算护栏;耗尽自动降级纯关键词粗筛并有 WARNING |
 | `base_url` | `null` | OpenAI 兼容端点,**只能是 `env:`/`keychain:` 引用**(myssia 无内置端点),如 `env:MYIA_LLM_BASE_URL` |
 | `api_key` | `null` | API key,同上,如 `env:MYIA_LLM_KEY`(myssia 无默认 key) |

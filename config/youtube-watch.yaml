@@ -77,6 +77,8 @@ push:
       {% for item in items %}
       - {{ item.title }} {{ item.url }}{% if item.channel is defined and item.channel != 'NA' %}({{ item.channel }}){% endif %}
       {% endfor %}
+      {% if low_value_count %}……(另有 {{ low_value_count }} 条低价值,价值分<3){% endif %}
+      {% if omitted_count %}……(另有 {{ omitted_count }} 条省略){% endif %}
 
 storage:                            # 视频时效短,90d 后清库
   retention: 90d

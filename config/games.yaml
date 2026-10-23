@@ -320,6 +320,8 @@ push:
       {% for item in items %}
       - [{{ item.title }}]({{ item.url }}) {% if item.price_text is defined %}{{ item.price_text }}{% elif item.sale_price is defined %}${{ item.sale_price }}(原价 {{ item.normal_price }}){% elif item.final_price is defined %}{{ item.final_price / 100 }}{% endif %}{% if item.discount_pct | default(0) > 0 %} -{{ item.discount_pct }}%{% endif %}{% if item.savings_pct | default(0) | float > 0 %} -{{ item.savings_pct | float | round | int }}%{% endif %}{% if item.upcoming_pct | default(0) >= 100 %} 📅{{ item.upcoming_start[:10] }}起免费{% endif %} {{ vs_yesterday(item, 'final_price') }}
       {% endfor %}
+      {% if low_value_count %}……(另有 {{ low_value_count }} 条低价值,价值分<3){% endif %}
+      {% if omitted_count %}……(另有 {{ omitted_count }} 条省略){% endif %}
 
   # telegram 加挂(wrap 落地 v1 决议⑤「单通道起步,telegram 后续加挂 =
   # YAML 再加一个 push 条目,不动结构」):同款两级路由(when 逐字与 feishu

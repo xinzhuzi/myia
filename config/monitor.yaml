@@ -62,3 +62,5 @@ push:
       {% for item in items %}
       - [{{ item.title }}]({{ item.url }})
       {% endfor %}
+      {% if low_value_count %}……(另有 {{ low_value_count }} 条低价值,价值分<3){% endif %}
+      {% if omitted_count %}……(另有 {{ omitted_count }} 条省略){% endif %}

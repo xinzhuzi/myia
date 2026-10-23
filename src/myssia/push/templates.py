@@ -491,6 +491,41 @@ def _msrp_function(msrp: Mapping[str, float] | None) -> Any:
     return vs_msrp
 
 
+#: 正文条数帽(10-24-ai-news-push-quality R1,主人判例「发送的太多」):
+#: 单次渲染正文最多 20 条,超出由模板尾行「另有 N 条省略」留痕。
+TEMPLATE_ITEM_CAP = 20
+
+#: 价值折叠线(R2,与 daily-digest 分区一 min_score 同口径):enrich ``value``
+#: 分**有分且**低于线的条目不进正文(无分条目不拦——精评未覆盖≠低价值)。
+TEMPLATE_MIN_VALUE = 3.0
+
+
+def _bound_item_views(
+    views: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int, int]:
+    """先折低价值再有界截帽;返回 ``(bounded, omitted_count, low_value_count)``.
+
+    折叠判据 = 条目视图 ``scores`` dict 的 ``value`` 键(数值且非布尔);折
+    叠/截帽都只影响渲染上下文,不动条目本体。顺序:低价值先出列(正文席位
+    让给高价值),再截 20 帽——两层计数分开,模板尾行分别留痕。
+    """
+    low: list[dict[str, Any]] = []
+    keep: list[dict[str, Any]] = []
+    for view in views:
+        scores = view.get("scores")
+        value = scores.get("value") if isinstance(scores, dict) else None
+        if (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and value < TEMPLATE_MIN_VALUE
+        ):
+            low.append(view)
+        else:
+            keep.append(view)
+    omitted = max(0, len(keep) - TEMPLATE_ITEM_CAP)
+    return keep[:TEMPLATE_ITEM_CAP], omitted, len(low)
+
+
 def _category_label(category_id: Any) -> str:
     """Sandbox ``category_label`` callable:分类 category id → 表内展示标签.
 
@@ -565,17 +600,28 @@ class TemplateRenderer:
         Raises:
             TemplateRenderError: empty source, syntax error, sandbox
                 violation, or undefined variable (original error as cause).
+
+        条目有界化(10-24-ai-news-push-quality R1/R2,主人判例「发送的太多/
+        没有过滤重点」):渲染前先折低价值再有界截帽——``items`` 上下文是
+        :func:`_bound_item_views` 的产物,``omitted_count`` /
+        ``low_value_count`` 随上下文注入供模板尾行留痕(「另有 N 条省略/
+        低价值」——静默截断是不诚实信号);模板不写尾行也已被帽住(防御
+        面),写了才有留痕。``count`` 保持全量总数(既有语义零动)。
         """
         if not isinstance(source, str) or not source.strip():
             raise TemplateRenderError("push[].template 必须是非空字符串")
+        views = [item_view(item) for item in items]
+        bounded, omitted_count, low_value_count = _bound_item_views(views)
         try:
             template = self._environment.from_string(source)
             rendered = template.render(
-                items=[item_view(item) for item in items],
+                items=bounded,
                 date=context.date,
                 slot=context.slot,
                 category=context.category,
                 count=len(items),
+                omitted_count=omitted_count,
+                low_value_count=low_value_count,
                 category_label=_category_label,
                 vs_yesterday=_vs_function(METRIC_WINDOW_DAY, trends),
                 vs_last_week=_vs_function(METRIC_WINDOW_WEEK, trends),

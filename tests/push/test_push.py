@@ -1024,3 +1024,75 @@ def test_muted_item_with_score_rule_still_archives():
     item = {"url": "https://a", "title": "t", "score": 0.0, "muted": "spam"}
     rules = routes_from_config([{"when": "score < 5", "mode": "archive"}])
     assert resolve_route(item, rules).mode == "archive"
+
+
+# ---------------------------------------------------------------------------
+# 条目有界化(10-24-ai-news-push-quality R1/R2):先折低价值再截 20 帽,
+# omitted_count/low_value_count 注入模板尾行留痕;count 保持全量。
+# ---------------------------------------------------------------------------
+
+
+def test_renderer_caps_items_at_twenty_with_omission_count():
+    """30 条无分:正文 20 条 + omitted_count=10;count 仍 30(全量语义)。"""
+    template = (
+        "count={{ count }}|{% for i in items %}{{ i.title }},{% endfor %}"
+        "|omit={{ omitted_count }}|low={{ low_value_count }}"
+    )
+    items = [{"title": f"t{n}"} for n in range(30)]
+    rendered = TemplateRenderer().render(
+        template, items, SendContext(slot="am", date="2026-10-24")
+    )
+    assert "count=30" in rendered
+    assert "t0," in rendered and "t19," in rendered
+    assert "t20," not in rendered
+    assert "omit=10" in rendered
+    assert "low=0" in rendered
+
+
+def test_renderer_folds_low_value_scored_items_first():
+    """有分且 value<3 先出列(正文席位让给高价值/无分);无分不拦。"""
+    template = (
+        "{% for i in items %}{{ i.title }}|{% endfor %}"
+        "omit={{ omitted_count }}|low={{ low_value_count }}"
+    )
+    items = [
+        {"title": "高价值", "scores": {"value": 5}},
+        {"title": "低价值", "scores": {"value": 2}},
+        {"title": "无分条目"},
+    ]
+    rendered = TemplateRenderer().render(
+        template, items, SendContext(slot="am", date="2026-10-24")
+    )
+    assert "高价值|" in rendered and "无分条目|" in rendered
+    assert "低价值" not in rendered
+    assert "low=1" in rendered and "omit=0" in rendered
+
+
+def test_renderer_under_cap_renders_all_without_traces():
+    """≤20 条且无低分:全量进正文,两个计数为零(尾行模板零渲染)。"""
+    template = (
+        "{% for i in items %}{{ i.title }},{% endfor %}"
+        "[{{ omitted_count }}/{{ low_value_count }}]"
+    )
+    rendered = TemplateRenderer().render(
+        template,
+        [{"title": "a"}, {"title": "b"}],
+        SendContext(slot="am", date="2026-10-24"),
+    )
+    assert rendered == "a,b,[0/0]"
+
+
+def test_renderer_metadata_title_zh_reaches_template():
+    """R4:enrich 译名经 metadata 合并进条目视图,模板 is defined 优先渲染。"""
+    template = (
+        "{% for i in items %}{{ i.title_zh if i.title_zh is defined else i.title }};"
+        "{% endfor %}"
+    )
+    items = [
+        {"title": "English original", "metadata": {"title_zh": "中文译名"}},
+        {"title": "原生中文标题"},
+    ]
+    rendered = TemplateRenderer().render(
+        template, items, SendContext(slot="am", date="2026-10-24")
+    )
+    assert rendered == "中文译名;原生中文标题;"
