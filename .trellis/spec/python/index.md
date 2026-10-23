@@ -86,3 +86,4 @@ vision/         看图:双引擎 OCR(ocrmac+rapidocr-onnxruntime)+ OpenAI 兼容
 - **红线**:产品代码(src/)永不进货内存扫描/取钥实现(grep 守卫 `task_for_pid|mach_vm|vm_read_overwrite|ptrace`);桥内既有 memsearch/collector 维持冻结,新扫描能力只在仓外开发;密钥材料只落数据根私有区(600/700)
 - **4.1.15 消息库形状**(适配事实):分表 `Msg_<md5(username)>` 无会话列(经 Name2Id 全表 md5 反解)、内容列 `message_content`、压缩行 WCDB_CT 标记+zstd 魔数双信号(stdlib compression.zstd 需 3.14+,守卫降级占位并计数)
 - 组件版本三方锁:pyproject/component.json/__init__ 同版本,`tests/desktop/test_pyenv_resources.py` 钉死
+- 情报采集线收编定案(词表v2 裁决序属代码/引擎/一行富文本/trust_env 直连/午间调度/不可达判例):[intel-collector-alignment.md](intel-collector-alignment.md)

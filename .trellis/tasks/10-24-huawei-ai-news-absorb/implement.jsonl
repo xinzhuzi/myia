@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-24-huawei-ai-news-absorb/research.md", "reason": "对账底稿:华为云三件套全部关键行号/词表原文/机制差异/MYIA 承载面盘点,实施的唯一事实参照"}
+{"file": ".trellis/spec/python/index.md", "reason": "python 层铁律:核心六依赖红线/引擎 extras 分层/classify 数据代码分离/cron 底座/测试镜像目录布局/链外引擎判例"}
+{"file": ".trellis/spec/python/error-handling.md", "reason": "结构化错误约定:新引擎 vendor_market 的降级/失败语义照此"}
+{"file": ".trellis/spec/python/quality.md", "reason": "质量门禁:类型注解/测试归组/ruff 口径"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "长任务监控/先报量再动手等工程纪律"}

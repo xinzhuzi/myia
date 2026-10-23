@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/10-24-huawei-ai-news-absorb/research.md", "reason": "验收对照:AC7 关停就绪对照表与 §5 差距清单一一对应"}
+{"file": ".trellis/spec/python/quality.md", "reason": "检查门禁口径:全量 pytest 零新红/ruff/金测集语义权威"}
+{"file": ".trellis/spec/python/logging.md", "reason": "日志规范:源级结构化结果/静默留痕口径核查"}
+{"file": ".trellis/spec/guides/engineering-discipline.md", "reason": "交付判定纪律:装机包刷新+像素级目验含在 AC8"}
