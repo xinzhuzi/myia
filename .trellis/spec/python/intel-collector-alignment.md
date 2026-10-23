@@ -15,6 +15,7 @@
 - urlwatch 引擎 changed 条目铸 `metadata.watch_diff_head`(added 行摘要)——custom 规则 `when` 求值面=Item.view(metadata+固定字段),**不含 content**;要消费 diff 内容走 metadata(白名单 `match()` 规则形态,classifier 0.0.7 起)。
 
 ## 渲染纪律(主人 2026-10-24 令)
+- **推送有界化+中文化(主人 10-24 第二令:太多/没重点/要中文)**:渲染层先折低价值(value<3 有分才拦)再截 20 帽,尾行留痕计数入模板;`enrich.translate` 开启后英文标题产 `metadata.title_zh`(缓存+raw 列直达日报),出口译名优先;新品类模板自动继承(templates.py 单点)。
 
 - store_report 条目=「N. [标题](url)」**链接挂标题**,禁原文尾注/来源前缀(labels 机制已退役,options 键表已删);标题截断 60;wool 速报=编号+类别emoji 前缀(生产羊毛区块定稿)。
 
