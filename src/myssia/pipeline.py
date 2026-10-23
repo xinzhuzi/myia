@@ -1371,7 +1371,15 @@ class Pipeline:
         if not dry_run:
             result.feedback_tuning = self._tune_feedback_safely(run_store)
 
-        client = self._injected_client or httpx.AsyncClient(timeout=self._timeout)
+        # trust_env=False(10-24-huawei-ai-news-absorb D7):direct=真直连语义。
+        # httpx 缺省 trust_env=True 会吃 HTTP(S)_PROXY 环境变量乃至 macOS/
+        # Windows 系统代理(vision/collect.py `_client_egress_is_proxied` 注释
+        # 已实测留档),带代理 env 的宿主(cron sidecar/用户 shell)会把
+        # `proxy: direct` 源静默劫持进死代理——症状=直连可达源全 empty 不报错
+        # (生产 10-20 同型事故)。显式 pool:/proxy= 路径不经 env,不受影响。
+        client = self._injected_client or httpx.AsyncClient(
+            timeout=self._timeout, trust_env=False
+        )
         own_client = self._injected_client is None
         # v0.4 事件聚合:品类声明 aggregate.enabled 时在 push 前插入 aggregate
         # 阶段(声明前 stage 清单与 v0.3 完全一致,不惊动无聚合的品类)。
@@ -2182,8 +2190,11 @@ class Pipeline:
         client = self._injected_client
         own_client = client is None
         if own_client:
+            # trust_env=False 同 run 共享 client 的直连语义:图片下载不经环境
+            # 代理;显式 pool:/proxy= 的源走 ring_proxy 换道,不落在此 client。
             client = httpx.AsyncClient(
-                timeout=IMAGE_DOWNLOAD_TIMEOUT_SECONDS, follow_redirects=False
+                timeout=IMAGE_DOWNLOAD_TIMEOUT_SECONDS, follow_redirects=False,
+                trust_env=False,
             )
         try:
             for item in items:

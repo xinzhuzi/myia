@@ -1321,3 +1321,98 @@ def test_fetch_title_log_one_line_per_source(tmp_path, caplog):
     assert "items=1 titles=1.甲源头条" in by_source["source=alpha"]
     assert "items=2 titles=1.乙源头条 2.乙源第二条" in by_source["source=beta"]
     store.close()
+
+
+# ---------------------------------------------------------------------------
+# trust_env=False direct egress (AC11, 10-24-huawei-ai-news-absorb Step 4.6.1)
+# ---------------------------------------------------------------------------
+
+
+def _poison_proxy_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """HTTP(S)_PROXY 全四键毒化(cron sidecar/用户 shell 带代理 env 形态)。"""
+    for key in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+        monkeypatch.setenv(key, "http://127.0.0.1:1")
+
+
+def test_run_client_direct_egress_immune_to_env_proxy(tmp_path, monkeypatch):
+    """AC11:毒化代理 env 下 run 自建 client(未注入)零代理挂载。
+
+    生产 10-20 同型事故:httpx 缺省 trust_env=True 吃环境代理(乃至系统代理,
+    vision/collect._client_egress_is_proxied docstring 实测留档),``proxy:
+    direct`` 源在带代理 env 的宿主被静默劫持——症状=直连可达源全 empty 不
+    报错。判别面复用 vision 层 ``_client_egress_is_proxied``;canary 腿
+    (同 env 缺省构造)证明毒化与观测面双生效。管线构造 kwargs 原样真构造
+    供观测;run 的 fetch 走同 kwargs 的 MockTransport 替身(本文件零真网络
+    惯例),direct 源请求在替身上照常完成。
+    """
+    from myssia.vision.collect import _client_egress_is_proxied
+
+    _poison_proxy_env(monkeypatch)
+    store = SQLiteStore(tmp_path / "p.db")
+    config = make_config(classify={"builtin": False, "rules": []})
+    payloads = [{"title": "直连源条目", "url": "https://api.demo.local/a"}]
+    real_async_client = httpx.AsyncClient
+    constructed: list[httpx.AsyncClient] = []
+
+    def spying_async_client(**kwargs):
+        # 真构造:trust_env 是否生效由 mounts 见真章;该 client 不进 run,
+        # 由本测试收尾。
+        constructed.append(real_async_client(**kwargs))
+        run_kwargs = dict(kwargs)
+        run_kwargs["transport"] = httpx.MockTransport(make_handler(payloads))
+        return real_async_client(**run_kwargs)  # run 用替身,零真网络
+
+    monkeypatch.setattr(httpx, "AsyncClient", spying_async_client)
+    pipeline = Pipeline(config, store=store)  # 不注入 client → 走 run 内构造点
+    result = asyncio.run(pipeline.run())
+
+    assert result.status == "success"
+    assert len(result.items) == 1  # direct 源请求经管线自建 client 完成
+    canary = real_async_client()
+    try:
+        assert _client_egress_is_proxied(canary)  # 对照:缺省构造确实被劫持
+    finally:
+        asyncio.run(canary.aclose())
+    assert len(constructed) == 1
+    try:
+        assert not _client_egress_is_proxied(constructed[0])  # 正主:零代理挂载
+    finally:
+        asyncio.run(constructed[0].aclose())
+    store.close()
+
+
+def test_image_ring_client_direct_egress_immune_to_env_proxy(tmp_path, monkeypatch):
+    """AC11 第二构造点:图片处理环自建下载 client 同为 trust_env=False。
+
+    环入口以空 items 直调(零请求零 I/O),spy 以同一 kwargs 孪生观测——
+    环持有的正主由环 finally 收尾,孪生由本测试收尾。direct 源图片下载
+    不经环境代理;显式 ``pool:``/``proxy=`` 源走 ring_proxy 换道,不落在
+    此 client(见 _ring_proxy_for_source)。
+    """
+    from myssia.vision.collect import _client_egress_is_proxied
+
+    _poison_proxy_env(monkeypatch)
+    store = SQLiteStore(tmp_path / "p.db")
+    config = make_config(images={"enabled": True, "vl": "off"})
+    real_async_client = httpx.AsyncClient
+    twins: list[httpx.AsyncClient] = []
+
+    def spying_async_client(**kwargs):
+        twins.append(real_async_client(**kwargs))  # 同 kwargs 孪生,不进环
+        return real_async_client(**kwargs)  # 环持有;空 items 零请求,finally 收尾
+
+    monkeypatch.setattr(httpx, "AsyncClient", spying_async_client)
+    pipeline = Pipeline(config, store=store)  # 不注入 client → 走环内构造点
+    asyncio.run(pipeline._process_item_images_ring([]))
+
+    assert len(twins) == 1
+    canary = real_async_client()
+    try:
+        assert _client_egress_is_proxied(canary)  # 对照:毒化与观测面双生效
+    finally:
+        asyncio.run(canary.aclose())
+    try:
+        assert not _client_egress_is_proxied(twins[0])  # 正主:零代理挂载
+    finally:
+        asyncio.run(twins[0].aclose())
+    store.close()
