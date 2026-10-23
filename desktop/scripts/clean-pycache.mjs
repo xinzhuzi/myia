@@ -25,9 +25,12 @@ const DESKTOP_DIR = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 /** 随包源码树(tauri.conf.json resources 映射的目录源,第 1 步 PYENV_RESOURCE_MAP;
  * 10-11-wechat-ui-bridge D5 起含随包组件源码树 plugins/wechat-bridge →
- * components/wechat-bridge)。 */
+ * components/wechat-bridge;10-24-huawei-ai-news-absorb Step 6.3 起含
+ * myssia-classifier/myssia_classifier → myssia-src/myssia_classifier 源码随包
+ * (classifier 0.0.7 随包,PYTHONPATH 影子优先于 site-packages PyPI 钉版)。 */
 const DEFAULT_ROOTS = [
   path.resolve(DESKTOP_DIR, "../src/myssia"),
+  path.resolve(DESKTOP_DIR, "../myssia-classifier/myssia_classifier"),
   path.resolve(DESKTOP_DIR, "myssia_desktop_entry"),
   path.resolve(DESKTOP_DIR, "../plugins/wechat-bridge"),
 ];

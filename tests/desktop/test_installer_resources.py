@@ -27,7 +27,7 @@
 daily-digest + 查漏 2 + weixin,2026-10-20 四档归一批 weixin-notify 种子
 删除后 17 件,随包 Resources/config/)属「配置可随包」,
 维持随包不变,断言原样保留。与 tests/desktop/test_pyenv_resources.py
-的分工:彼管 Python 运行时五映射「不被挤掉」;此管随包插件面
+的分工:彼管 Python 运行时六映射「不被挤掉」;此管随包插件面
 (品类在 + 组件包两声明在且**仅有** + 源码/数据件不在)。
 """
 
@@ -76,6 +76,11 @@ OFFICIAL_CATEGORY_YAMLS = (
     # searxng.yaml 有意不随包(件头注:示例骨架、缺省不启用,自托管属主人)。
     "ai-token-deals.yaml",
     "ai-vendor-watch.yaml",
+    # 10-24-huawei-ai-news-absorb Step 6.3 装机面:两新品类随包(watch-deals
+    # 定向优惠监控 D3 / ai-vendor-daily 厂商行情 D4;classify builtin:false +
+    # push archive,装机补种后在册可启同 weixin 先例)——随包品类面 17 → 19 件。
+    "watch-deals.yaml",
+    "ai-vendor-daily.yaml",
     # weixin(2026-10-12 10-12-weixin-feed-channel):微信品类入情报流(G3
     # 翻案),缺省关同 telegram-web 先例——随包 = 装机补种后在册可启。
     # 2026-10-20 四档归一(10-20-weixin-config-merge,D5 主人终裁 A 模板

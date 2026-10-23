@@ -2,7 +2,7 @@
 
 覆盖四件事(全部离线,零外网):
 
-1. ``tauri.conf.json`` resources 段:自管环境五映射已声明且源路径磁盘实况
+1. ``tauri.conf.json`` resources 段:自管环境六映射已声明且源路径磁盘实况
    存在;既有官方插件种子映射(首跑种子依赖)不被挤掉。
    1b. 组件注册表 ``components.json`` 随包映射 + 契约形态(10-05-table-restore
    R4;首件 table 钉版在册)。
@@ -53,8 +53,13 @@ WIN_URL = (
 )
 
 #: 自管环境随包映射(tauri.conf.json resources 源 → 目标;源路径相对 src-tauri/)。
+#: classifier 源码树(10-24-huawei-ai-news-absorb Step 6.3):与 myssia 核心包
+#: 同法随包——PYTHONPATH=Resources/myssia-src 影子优先于 site-packages 的
+#: PyPI 钉版(锁仍钉 0.0.1 兜底可解析;装机态实际生效恒为随包源码,词表 v2
+#: 与 builtin.py 裁决序改动即随包生效,免 PyPI 发布依赖)。
 PYENV_RESOURCE_MAP = {
     "../../src/myssia": "myssia-src/myssia",
+    "../../myssia-classifier/myssia_classifier": "myssia-src/myssia_classifier",
     "../entry.py": "myssia-src/entry.py",
     "../myssia_desktop_entry": "myssia-src/myssia_desktop_entry",
     "../resources/runtime-manifest.json": "runtime-manifest.json",
@@ -94,7 +99,7 @@ def _conf_resources() -> dict[str, str]:
 
 @pytest.mark.parametrize("source,dest", sorted(PYENV_RESOURCE_MAP.items()))
 def test_pyenv_resources_declared_and_present(source: str, dest: str) -> None:
-    """五映射逐条:已按预期目标声明,且源路径在磁盘实况存在(目录/文件形态对)。"""
+    """六映射逐条:已按预期目标声明,且源路径在磁盘实况存在(目录/文件形态对)。"""
     resources = _conf_resources()
     assert resources.get(source) == dest, (
         f"resources 缺映射 {source!r} -> {dest!r}(实得 {resources.get(source)!r})"

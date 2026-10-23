@@ -45,7 +45,9 @@
     "resources": {
       "../../config/ai-news.yaml": "config/ai-news.yaml",
       "../../config/ai-token-deals.yaml": "config/ai-token-deals.yaml",
+      "../../config/ai-vendor-daily.yaml": "config/ai-vendor-daily.yaml",
       "../../config/ai-vendor-watch.yaml": "config/ai-vendor-watch.yaml",
+      "../../config/watch-deals.yaml": "config/watch-deals.yaml",
       "../../config/credentials.yaml": "config/credentials.yaml",
       "../../config/daily-digest.yaml": "config/daily-digest.yaml",
       "../../config/exposure.yaml": "config/exposure.yaml",
@@ -84,6 +86,7 @@
       "../../plugins/myssia-yake/README.md": "plugins/myssia-yake/README.md",
       "../../plugins/myssia-yake/plugin.yaml": "plugins/myssia-yake/plugin.yaml",
       "../../src/myssia": "myssia-src/myssia",
+      "../../myssia-classifier/myssia_classifier": "myssia-src/myssia_classifier",
       "../entry.py": "myssia-src/entry.py",
       "../fixture/plugin.yaml": "plugin.yaml",
       "../myssia_desktop_entry": "myssia-src/myssia_desktop_entry",
